@@ -19,9 +19,9 @@ keinen Laptop und keinen Konfigurator. Er aktualisiert keine ESC-Firmware.
 
 Der Bildschirm übergibt den Signalpin vom DShot-Treiber an die
 Bootloader-Verbindung (19200 Baud, ein Draht, halbduplex) und beginnt dann zu
-suchen. Vorher sendet DShot Gas null, bis seit dem letzten Gas 250 ms vergangen
-sind. Ein eben noch laufender ESC sieht so einen Stopp, bevor die Leitung still
-wird.
+suchen. Vorher sendet DShot den Gaswert null, bis 250 ms seit dem letzten
+Gasbefehl vergangen sind. Ein eben noch laufender ESC sieht so einen Stopp,
+bevor die Leitung still wird.
 
 **Dann den ESC neu starten.** Der AM32-Bootloader lauscht nur in einem kurzen
 Fenster nach dem Einschalten. Zieh den ESC-Akku ab und steck ihn wieder an,

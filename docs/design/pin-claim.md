@@ -87,8 +87,9 @@ core that claims a PIO state machine is the core that frees it, as
    while an ESC answers on SIG. See [interlocks](#interlocks). DShot keeps
    running during the check.
 2. **Stopping.** Core0 calls `escTaskSuspend()`, which forces a disarm. Core1
-   sends throttle-zero frames until `ARM_ZERO_THROTTLE_MS`, 250 ms, have passed
-   since the last frame that carried a throttle (`escDrainDone()`), then
+   sends throttle-zero frames until more than `ARM_ZERO_THROTTLE_MS`, 250 ms,
+   have passed since the last frame that carried a throttle, so the ESC sees
+   at least 250 ms of them (`escHandoverStep()`, `escDrainDone()`), then
    `out_dshot_stop(sig)` (no edges), `out_dshot_release(sig)` (pad back to a
    plain input, pulls off) and `kissUartEnd()`, which ends the PIO receiver on
    AUX. `esc_task.cpp` then puts the pull-up back on SIG, so the line holds
@@ -107,7 +108,8 @@ core that claims a PIO state machine is the core that frees it, as
    its claim stays Held until BACK.
 4. **Running.** The job binds its pins and reports `Running`, or reports a bind
    failure and binds nothing. A failed bind leaves the claim Held, with the
-   reason in `pinClaimJobError()`. In slice 1 no job is built, so
+   reason in `pinClaimJobError()`. RETRY (`pinClaimRetry()`) starts the job
+   again and keeps the claim; BACK goes to step 5. In slice 1 no job is built, so
    `core1JobStart()` refuses SERVO and KST and the reason is
    `CORE1_JOB_REFUSED`.
 5. **Leaving.** BACK (`pinClaimEnd()`) asks the job to stop. The job leaves its
@@ -149,6 +151,7 @@ PinUser      pinClaimHolder();             // None while Free
 uint8_t      pinClaimGpio(uint8_t role);   // latched at Held; 0xFF before
 uint8_t      pinClaimJobError();           // why a bind failed, 0 for none
 void         pinClaimEnd(PinUser who);     // BACK; the poll finishes it
+void         pinClaimRetry(PinUser who);   // RETRY after a failed bind
 bool         pinClaimUnplugDue();          // SERVO, KST: Leaving, job idle
 void         pinClaimRestart(PinUser who); // RESTART DSHOT on the unplug page
 void         pinClaimKeep(PinUser who);    // BACK on the unplug page
@@ -265,7 +268,7 @@ measurement 2); decision 1 below sets the rule without that measurement.
 No flash write happens during a claim. `settingsSave()` parks core1 for tens
 of milliseconds, which would stall a KST transaction past its driver slack.
 SETUP, the only caller, is unreachable while a claim holds, and
-`settingsSave()` asserts it: during a claim it refuses and writes nothing.
+`settingsSave()` checks it: during a claim it refuses and writes nothing.
 
 ### Settings
 
@@ -288,7 +291,7 @@ works.
 | An ESC answers on SIG | `AN ESC ANSWERS ON GP29.` `UNPLUG IT: SERVO PULSES READ AS THROTTLE.` | unplug the ESC; the claim follows 500 ms later |
 | KISS frames on AUX, two servos asked | `KISS WIRE ON GP28 IS LIVE.` `TWO SERVOS NEED IT UNPLUGGED.` | unplug it, or choose one servo |
 | SIG and AUX on one GPIO, two servos asked | `ESC AND KISS PIN ARE THE SAME GPIO.` `MOVE THE ESC PIN IN SETUP.` | choose one servo, or change a pin in SETUP |
-| The job could not bind | `GP29 COULD NOT BE TAKEN (PWM)` or `(PIO)`, `(DMA)`, `(CLOCK)` | RETRY, or BACK; DShot is restored either way |
+| The job could not bind | `GP29 COULD NOT BE TAKEN (PWM)` or `(PIO)`, `(DMA)`, `(CLOCK)` | RETRY keeps the claim; BACK shows the unplug page before DShot restarts |
 | Armed, or another screen holds the pins | `DISARM FIRST` or `PINS BUSY` | BACK; unreachable through the UI |
 
 The GPIO numbers in the text are the live ones from SETUP.
@@ -339,8 +342,8 @@ given a state, a refusal and a user. `ui_am32.cpp` calls
 `S_HANDOVER` state, which reads `pinClaimPoll()` until Held and then calls
 `am32BlBegin(pinClaimGpio(PIN_SIG))`. On exit it calls `am32BlEnd()` and then
 `pinClaimEnd(PinUser::Am32)`, which resumes DShot within the call. The one
-step the handover has beyond release and rebuild is the 250 ms zero-frame
-drain. A refused claim, which the UI cannot reach, shows `DISARM FIRST` or
+step the handover has beyond release and rebuild is the zero-frame drain of
+at least 250 ms. A refused claim, which the UI cannot reach, shows `DISARM FIRST` or
 `PINS BUSY` and is asked again every frame.
 
 ## Hardware
@@ -456,21 +459,29 @@ ground only.
 
 ## Testing
 
-`test/test_claim.cpp`, built: against the fake pump in `test/fakes.cpp`,
-which drains on `escDrainDone()`, and against fake jobs that the test puts in
-the job table of `core1_job.cpp`, which it includes for that. The test plays
-core1's side by calling `core1JobPoll()` itself, so it controls the order of
-the two cores' steps:
+`test/test_claim.cpp`, built. `escTaskPoll()` makes its decisions with pure
+functions in `esc_task.h`: `escHandoverStep()` (run, drain or teardown),
+`escDrainSlot()`, `escPumpSlot()`, `escPumpFrameSent()`, which stamps the
+last throttle frame, and `escPumpBind()`, which disarms. The suite runs those
+functions one 1 ms slot at a time, as `escTaskPoll()` calls them, and the fake
+pump in `test/fakes.cpp` is built on them too. The claim runs against that
+fake pump and against fake jobs that the test puts in the job table of
+`core1_job.cpp`, which it includes for that. The test plays core1's side by
+calling `fakePumpPoll()` and `core1JobPoll()` itself, so it controls the order
+of the two cores' steps:
 
 - refusal per rule: armed, busy, ESC answering within 500 ms and quiet at
   500 ms, KISS live with AUX asked and ignored without, SIG and AUX on one
   GPIO with AUX asked and ignored without;
-- the drain: no teardown before 250 ms of zero frames after a throttle frame;
-  none needed after a long disarm;
+- the drain: the teardown 251 ms after the last throttle frame, after 250
+  zero frames with no command and no KISS request, for a suspend and for a
+  rebuild; none needed after a long disarm or with no throttle since the
+  bind; the bind starts disarmed at throttle zero;
 - order: DShot released before any job bind; job idle before
   `escTaskResume()`; the unplug page before restore for SERVO and KST and not
   for AM32;
-- BACK in every state, including `Stopping` and a failed bind;
+- BACK in every state, including `Stopping`, `Restoring` and a failed bind;
+  RETRY after a failed bind; Busy while `Restoring`;
 - restore: the pins, bitrate and KISS settings handed to the rebuild equal
   those before the claim; the pump starts disarmed;
 - the heartbeat rule per job, with the clock across a `millis()` rollover.
@@ -480,9 +491,9 @@ claim, and `test_claim.cpp` drives that screen through the UI as well: the
 latched GPIO reaches the transport, BACK restores DShot with no unplug page,
 and opening AM32 100 ms after a throttle frame waits out the drain. The
 unplug page is tested as the claim's rule; the page's drawing belongs to the
-SERVO and KST screens of slices 2 and 3. The drain inside `esc_task.cpp` and
-the bind that starts the pump disarmed are compiled only: the host suite
-tests the rules they call, not the PIO calls around them.
+SERVO and KST screens of slices 2 and 3. What `escTaskPoll()` keeps is the
+I/O around those functions: the PIO calls, the KISS receiver and the shared
+state. It is compiled only.
 
 ## Slices
 

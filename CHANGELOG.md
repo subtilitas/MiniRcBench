@@ -117,10 +117,11 @@ protocol.
   `test/kst.mk`, which the servo tester and the KST programmer replace.
 - `escTaskKissPin()`, and `escUiAlive()`, the one heartbeat rule for the pump
   and every core1 job.
+- `pinClaimRetry()`: RETRY after a failed job bind keeps the claim.
 - Host tests for the pin claim (`runClaimTests`), and stub suites
   `runServoTests` and `runKstTests`.
-- Build-time checks that no free GPIO is on the backlight's PWM slice and that
-  the free GPIOs share one slice.
+- Build-time checks that no free GPIO is on the backlight's PWM slice, that
+  the free GPIOs share one slice, and that no two of them share a channel.
 
 ### Changed
 
@@ -196,10 +197,14 @@ protocol.
 - The SDIO pins need DAT0 to DAT3 consecutive and nothing more; CLK and CMD
   can be any other GPIO below 32.
 - Before the DShot pump gives up its pin, for the AM32 editor or after a SETUP
-  pin change, it sends zero-throttle frames until 250 ms
-  (`ARM_ZERO_THROTTLE_MS`) have passed since the last throttle frame, then
-  stops with no edges. An AM32 session opened sooner after a throttle waits
-  for the rest of that time.
+  pin change, it sends zero-throttle frames for at least 250 ms
+  (`ARM_ZERO_THROTTLE_MS`) after the last throttle frame, then stops. The
+  release turns the pin's pulls off, and the pump puts the pull-up back on it
+  so the line idles high. An AM32 session opened sooner after a throttle
+  waits for the rest of that time. The decisions are pure functions in
+  `src/esc_task.h` (`escHandoverStep()`, `escDrainSlot()`), and a bind
+  disarms in `escPumpBind()`; the host suite runs them one 1 ms slot at a
+  time.
 - The AM32 editor takes the signal pin through the pin claim.
 - The settings screen puts BEEP and SD LOG in one row, 104 px each, and AM32,
   SERVO, KST and SETUP in the bottom row, 50 px each. SERVO and KST are drawn

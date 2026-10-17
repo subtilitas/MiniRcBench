@@ -51,9 +51,10 @@ Writing flash parks core1, because core1 runs from XIP (execute-in-place)
 flash, so a settings save is refused while armed and while a pin claim holds.
 
 A screen that needs the signal pins claims them (`src/pin_claim.h`). The claim
-suspends the DShot pump: core1 sends zero frames until 250 ms
-(`ARM_ZERO_THROTTLE_MS`) have passed since the last throttle frame, stops the
-pump with no edges, releases the pin and ends the KISS receiver. A rebuild
+suspends the DShot pump: core1 sends zero frames for at least 250 ms
+(`ARM_ZERO_THROTTLE_MS`) after the last throttle frame, stops the pump,
+releases the pin, which turns its pulls off, puts the pull-up back on it and
+ends the KISS receiver. A rebuild
 after a SETUP pin change drains the same way. `loop1()` runs `escTaskPoll()`
 and then `core1JobPoll()`, which binds, steps and releases the claiming
 screen's job (`src/core1_job.h`); no job is built, and the AM32 transport runs
@@ -86,8 +87,8 @@ Rates and defaults, from `src/config.h` and `src/main.cpp`:
   (`SERIAL_TELEMETRY` = 1).
 - Safety: arming needs a 1000 ms hold with the throttle at zero. The throttle
   ceiling starts at 400 of 2000 (20 %). Idle disarm after 30 s. Entering the
-  settings screens disarms. DShot gives up the signal pin only after 250 ms of
-  zero frames since the last throttle frame.
+  settings screens disarms. DShot gives up the signal pin only after at least
+  250 ms of zero frames since the last throttle frame.
 
 PIO (programmable input/output) blocks: three, each with 4 state machines and
 32 instruction slots.
@@ -158,7 +159,7 @@ record either way.
 | Blackbox logging to SD, CFG → SD LOG screen | encoder, ring buffer, round trip through `blackbox_decode`, screen states | hardware use recorded with the previous SDIO driver on the 2.8" board; see below |
 | USB card reader (read-only mass storage) | handover state machine, screen | not recorded |
 | AM32 settings editor over the signal wire (AM32 is an open-source ESC firmware) | init string, CRC-16/ARC, 39-field codec, timing advance encodings, write interlock; the screen on the pin claim, the latched GPIO, the drain before the handover | hardware use recorded: ab79c67, bd90e17, both before the screen moved onto the pin claim; the claim and its drain: not tested on hardware |
-| Pin claim (`src/pin_claim.*`) and core1 job dispatch (`src/core1_job.*`), the zero-throttle drain in `src/esc_task.cpp` | each refusal rule at its 500 ms boundary, the drain rule and the throttle stamp, the order of the two cores' steps against fake jobs, BACK in every state, the unplug-page rule, the restore wiring, the start guard, the heartbeat rule across a millis() rollover; the drain and teardown in `esc_task.cpp` are compiled only | not tested on hardware; open item 9 |
+| Pin claim (`src/pin_claim.*`) and core1 job dispatch (`src/core1_job.*`), the zero-throttle drain in `src/esc_task.*` | each refusal rule at its 500 ms boundary and their order; the handover decisions of `escTaskPoll()` (`escHandoverStep()`, `escDrainSlot()`, `escPumpFrameSent()`, `escPumpBind()`) one 1 ms slot at a time: 250 zero frames, the teardown 251 ms after the last throttle frame, the bind disarmed; the order of the two cores' steps against fake jobs, BACK and RETRY, Restoring, the unplug-page rule, the restore wiring, the start guard, the heartbeat rule across a millis() rollover; the PIO and pad calls around those decisions are compiled only | not tested on hardware; open item 9 |
 | Settings screen layout: BEEP and SD LOG in one row, AM32, SERVO, KST and SETUP in the destination row, SERVO and KST disabled | both gaps of each row, disabled drawing, no pressed look and no action on SERVO and KST | not recorded |
 | Settings in flash (CFG → SETUP) | block validation, CRC, board id check, pin defaults, the block layout DshotDisplay 2.x writes | not recorded; 46a64a7 states no hardware coverage |
 | Touch handling, high-contrast theme, throttle gauge | tap on release, repeats, screen residue, gauge reach | hardware use recorded: the reports #22 to #24 named in the v2.3 commits; the fixes on hardware: not recorded |
@@ -235,10 +236,11 @@ Not in this history: the DshotDisplay repository's branches
    repository's wiki only once its first page exists, so that page is made by
    hand in the Wiki tab. Until then the clone in `docs.yml` fails and no
    manual is published.
-9. **Pin claim on hardware.** The drain, the teardown and the rebuild run only
-   in the firmware; the host suite tests the rules they call. Bench tests
-   needed, with an oscilloscope on the ESC signal pin: AM32 opened within 250 ms of the last throttle
-   frame (zero frames until 250 ms after it, then no edges), a SETUP pin
+9. **Pin claim on hardware.** The PIO and pad calls of the drain, the
+   teardown and the rebuild run only in the firmware; the host suite runs the
+   decisions they act on. Bench tests needed, with an oscilloscope on the ESC
+   signal pin: AM32 opened within 250 ms of the last throttle frame (zero
+   frames for at least 250 ms after it, then no edges), a SETUP pin
    change during the same window, and an AM32 session left with BACK (DShot
    back, the EDT enable as its first frames).
 
@@ -293,7 +295,7 @@ binary, `dshot_tests`. `test/test_main.cpp` runs fifteen suites:
 | `runDshotTelemTests` | `test_dshot_telem.cpp` | line and group code, eRPM and EDT decode, checksum against single-bit errors, sampler (from rcbench); three-state poll, counters, every normalised eRPM frame decoded with EDT on |
 | `runDshotEdtTests` | `test_dshot_edt.cpp` | extended telemetry schedule against an AM32 model (from rcbench) |
 | `runSdioTests` | `test_sdio.cpp` | SDIO driver: CRC7 and CRC16 vectors, framing, responses, CSD, four-bit packing, CRC status token; initialisation, reads and writes against a simulated card |
-| `runClaimTests` | `test_claim.cpp` (includes `core1_job.cpp`) | pin claim refusals at their 500 ms boundaries, the zero-throttle drain, the order of the two cores' steps against fake jobs, BACK in every state, the unplug-page rule, restore wiring, the job start guard, the heartbeat rule across a millis() rollover, no settings save during a claim, the AM32 screen on the claim |
+| `runClaimTests` | `test_claim.cpp` (includes `core1_job.cpp`) | pin claim refusals at their 500 ms boundaries and their order, the handover decisions of `escTaskPoll()` one 1 ms slot at a time, the zero-throttle drain through the claim, Restoring, the order of the two cores' steps against fake jobs, BACK in every state, RETRY, the unplug-page rule, restore wiring, the job start guard, the heartbeat rule across a millis() rollover, no settings save during a claim, the AM32 screen on the claim |
 | `runServoTests` | `test_servo.cpp` | the servo tester's stub screen: not built, claims nothing, leaves at once |
 | `runKstTests` | `test_kst.cpp` | the KST programming stub screen: not built, claims nothing, leaves at once |
 
@@ -361,11 +363,11 @@ model.
 | `src/dshot/dshot_frame.c` | 25 | 25 | 100.0% |
 | `src/dshot/dshot_telem.c` | 143 | 143 | 100.0% |
 | `src/esc_merge.cpp` | 44 | 44 | 100.0% |
-| `src/esc_task.h` | 144 | 144 | 100.0% |
+| `src/esc_task.h` | 156 | 156 | 100.0% |
 | `src/gfx.cpp` | 201 | 186 | 92.5% |
 | `src/kiss_telem.cpp` | 37 | 35 | 94.6% |
 | `src/log_ring.cpp` | 43 | 39 | 90.7% |
-| `src/pin_claim.cpp` | 110 | 110 | 100.0% |
+| `src/pin_claim.cpp` | 114 | 114 | 100.0% |
 | `src/pin_claim.h` | 11 | 11 | 100.0% |
 | `src/plat.h` | 5 | 5 | 100.0% |
 | `src/rpm_filter.h` | 17 | 17 | 100.0% |
@@ -382,7 +384,7 @@ model.
 | `src/ui_setup.cpp` | 187 | 180 | 96.3% |
 | `src/ui_widgets.cpp` | 43 | 43 | 100.0% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **2800** | **2723** | **97.3%** |
+| **Total** | **2816** | **2739** | **97.3%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->

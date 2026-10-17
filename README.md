@@ -69,11 +69,11 @@ The two cores share one struct guarded by a `critical_section`. Core0 calls
 `UI_HEARTBEAT_TIMEOUT_MS` (250 ms), core1 forces the throttle to zero.
 
 A screen that needs the signal pins claims them (`src/pin_claim.h`). The claim
-suspends the DShot pump on core1: zero frames until 250 ms
-(`ARM_ZERO_THROTTLE_MS`) have passed since the last throttle frame, then no
-edges, the pin released and the KISS receiver ended. Core1 then runs that
-screen's job instead (`src/core1_job.h`), and `loop1()` is
-`escTaskPoll(); core1JobPoll();`. The AM32 editor's transport runs on core0
+suspends the DShot pump on core1: zero frames for at least 250 ms
+(`ARM_ZERO_THROTTLE_MS`) after the last throttle frame, then no edges, the pin
+released (a plain input with the pulls off) with the pull-up put back on it,
+and the KISS receiver ended. Core1 then runs that screen's job instead
+(`src/core1_job.h`), and `loop1()` is `escTaskPoll(); core1JobPoll();`. The AM32 editor's transport runs on core0
 and has no core1 job; no other job is built yet. Leaving the screen rebuilds
 the pump from the wiring it had, disarmed.
 
@@ -658,7 +658,7 @@ does not flash ESC firmware. The transport is `src/am32_bl.h`.
 ![AM32 config](docs/am32-preview.png)
 
 Entering the screen claims the signal pin (`src/pin_claim.h`): it disarms,
-sends throttle zero until 250 ms have passed since the last throttle frame,
+sends throttle zero for at least 250 ms after the last throttle frame,
 stops the DShot driver and hands the pin to the bootloader transport. Leaving
 hands it back.
 
@@ -774,8 +774,8 @@ In the firmware:
 - Core1 sets the throttle to zero if core0 sends no heartbeat for 250 ms.
 - Opening CFG disarms. The wiring settings are reachable only from there.
 - Before DShot gives up the signal pin, to the AM32 editor or for a pin
-  change, it sends throttle zero until 250 ms have passed since the last
-  throttle frame.
+  change, it sends throttle zero for at least 250 ms after the last throttle
+  frame.
 - A settings save is refused while armed, because erasing flash stops the
   DShot pump.
 - A stored settings block that fails its CRC, version or size check is
@@ -907,7 +907,7 @@ target so a test run does not leave the working tree dirty.
 `python3 tools/coverage.py` writes the figure below from its gcov counters.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.3%**: 2,723 of 2,800 lines in 29 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.3%**: 2,739 of 2,816 lines in 29 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the
