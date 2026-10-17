@@ -53,9 +53,10 @@ Rates and defaults, from `src/config.h` and `src/main.cpp`:
   (`DSHOT_SPEED_KBAUD`), changeable on CFG → SETUP.
 - EDT: voltage in 0.25 V steps, current in 1 A steps, temperature in 1 °C
   steps, plus stress and status. A field blanks to `--` 1000 ms after its last
-  frame (`EDT_STALE_MS`). The enable command goes out as 10 consecutive frames,
-  first once the ESC has answered eRPM for 300 ms while disarmed and stopped,
-  then every 1000 ms while eRPM arrives and EDT does not.
+  frame (`EDT_STALE_MS`). The enable command goes out as 10 consecutive frames:
+  as the first frames after every start of the DShot pump, again once the ESC
+  has answered eRPM for 300 ms while disarmed and stopped, then every 1000 ms
+  while eRPM arrives and EDT does not. Every reply is decoded with EDT on.
 - KISS: a request every 20th DShot frame, 50 Hz. The reply is 10 bytes at
   115200 baud with a CRC-8 (cyclic redundancy check, polynomial 0x07). A reply
   incomplete after 10 ms counts as a timeout. A KISS value gives way to EDT
@@ -135,10 +136,10 @@ record either way.
 | --- | --- | --- |
 | DShot driver in `src/dshot/` (from rcbench 453cf334): frame, reply decode, three-state poll, RP2350 pin driver | frame and checksum, throttle map, line and group code, sampler against clock error, extended telemetry schedule against an AM32 model, three-state poll and the counters it feeds; the pin driver is compiled only | not tested on hardware in MiniRcBench. rcbench ran it at bidirectional DShot600 on one AM32 2.21 ESC (Skystars 35A); other rates and ESC firmwares are untested |
 | Bidirectional DShot throttle, eRPM and RPM readout | core1 frame decision, throttle and arming interlocks, RPM smoothing | hardware-tested (owner report) with `pico-bidir-dshot`, the driver before `src/dshot/`; the owner has found no bug since DshotDisplay v2.3, and issue #1 is a separate, unreproduced report |
-| EDT telemetry, automatic enable, expiry | merge, expiry, enable rule, decode of each frame type | hardware-tested (owner report) with `pico-bidir-dshot` |
+| EDT telemetry, automatic enable, expiry | merge, expiry, enable rule, decode of each frame type; enable at pump start and decode with EDT on against a simulated ESC, with and without EDT | hardware-tested (owner report) with `pico-bidir-dshot`; the enable at pump start and the decode of every reply with EDT on are not tested on hardware |
 | KISS telemetry: request, PIO receiver, decode, merge, KISS/EDT tags | CRC, decode, resynchronisation, request payload, merge; the PIO receiver is typechecked only | hardware-tested (owner report) with `pico-bidir-dshot`; see below |
 | DShot bitrate label in the status bar, `DSERR` | label at each bitrate, colour, `DSERR` | not recorded |
-| SDIO card driver in `src/sdio/`: protocol, PIO and DMA bus, library callbacks | CRC7 and CRC16 against the specification's examples, command framing, response parsing, CSD (card-specific data register), four-bit packing, CRC status token; initialisation, reads and writes against a simulated card (standard capacity SDSC v1 and v2, high capacity SDHC, no card, voltage mismatch, timeouts, removal); the PIO programs and the bus are compiled only | not tested on hardware; open item 7 lists the bench tests |
+| SDIO card driver in `src/sdio/`: protocol, PIO and DMA bus, library callbacks | CRC7 and CRC16 against the specification's examples, command framing, response parsing, CSD (card-specific data register), four-bit packing, CRC status token; initialisation, reads and writes against a simulated card (standard capacity SDSC v1 and v2, high capacity SDHC, no card, voltage mismatch, timeouts, removal); the two PIO programs run in a cycle-level model against a card model (`test/pio_sdio_emu.py`: CMD0, R1, R2, single and multiple block reads, CMD12, a write and its CRC status token, at 400 kHz, 10 MHz and 25 MHz), a model and not proof of hardware timing; the bus code in `sd_pio.c` is compiled only, and the model's host side follows it by hand | not tested on hardware; open item 7 lists the bench tests |
 | Blackbox logging to SD, CFG → SD LOG screen | encoder, ring buffer, round trip through `blackbox_decode`, screen states | hardware use recorded with the previous SDIO driver on the 2.8" board; see below |
 | USB card reader (read-only mass storage) | handover state machine, screen | not recorded |
 | AM32 settings editor over the signal wire (AM32 is an open-source ESC firmware) | init string, CRC-16/ARC, 39-field codec, timing advance encodings, write interlock | hardware use recorded: ab79c67, bd90e17 |
@@ -184,7 +185,9 @@ Not in this history: the DshotDisplay repository's branches
    Facts from the code that bear on it: the firmware drives only bidirectional
    DShot and has no plain DShot mode. While disarmed it sends DShot value 0
    every 1000 µs, with the telemetry bit set on every 20th frame when KISS is
-   on. The EDT enable goes out only after the ESC answers eRPM.
+   on. The first 10 frames after the DShot pump starts are the EDT enable,
+   DShot command 13; after those, the enable goes out only while the ESC
+   answers eRPM.
 2. **Ring buffer size.** `SD_LOG_BUFFER_BYTES` is 8192, unmeasured. At
    7.3 kB/s it holds about 1.1 s. A card stall longer than that drops frames,
    which DROPPED FRAMES counts. BUF PEAK and WORST FLUSH on the SD LOG screen
@@ -211,12 +214,7 @@ Not in this history: the DshotDisplay repository's branches
    - the card pulled out while logging, while idle and while a host reads,
      then put back;
    - 10 MHz in the firmware, and 10 MHz and 25 MHz in `tools/sdtest`.
-8. **Extended frames before the first enable.** The DShot decoder reads EDT
-   frames as such only once an enable has gone out. An ESC that kept EDT on
-   across a board restart or a SETUP pin change sends EDT frames that read as
-   eRPM until the next enable, which goes out 300 ms after eRPM arrives with
-   the motor stopped. Not observed on hardware.
-9. **The wiki of this repository has no page yet.** GitHub creates a
+8. **The wiki of this repository has no page yet.** GitHub creates a
    repository's wiki only once its first page exists, so that page is made by
    hand in the Wiki tab. Until then the clone in `docs.yml` fails and no
    manual is published.
@@ -261,7 +259,7 @@ binary, `dshot_tests`. `test/test_main.cpp` runs twelve suites:
 | Suite | File | Covers |
 | --- | --- | --- |
 | `runAm32Tests` | `test_am32.cpp` | AM32 init string, CRC-16/ARC, settings address per MCU (microcontroller) family, field codec, timing advance |
-| `runUiTests` | `test_ui.cpp` (includes `ui_am32.cpp`) | screens, throttle modes, safety interlocks, core1 frame decision, EDT enable, touch, SETUP, SD LOG, USB DRIVE, screenshots |
+| `runUiTests` | `test_ui.cpp` (includes `ui_am32.cpp`) | screens, throttle modes, safety interlocks, core1 frame decision, EDT enable, EDT enable at pump start against a simulated ESC, touch, SETUP, SD LOG, USB DRIVE, screenshots |
 | `runKissTests` | `test_kiss.cpp` | KISS CRC-8, decode, resynchronisation, request payload, KISS/EDT merge, expiry, EDT enable rule |
 | `runGfxTests` | `test_gfx.cpp` | dirty bands, glyph rendering, clip rectangle |
 | `runBlackboxTests` | `test_blackbox.cpp` | variable-byte and zig-zag encodings, header, frames, time prediction |
@@ -269,24 +267,28 @@ binary, `dshot_tests`. `test/test_main.cpp` runs twelve suites:
 | `runSettingsTests` | `test_settings.cpp` | settings block, validation, board id check, pin defaults, the block layout DshotDisplay 2.x writes |
 | `runUsbMscTests` | `test_usb_msc.cpp` | card handover state machine, RPM smoothing |
 | `runDshotFrameTests` | `test_dshot_frame.cpp` | DShot frame layout, checksum, inverted checksum, EDT enable word, throttle map (from rcbench) |
-| `runDshotTelemTests` | `test_dshot_telem.cpp` | line and group code, eRPM and EDT decode, checksum against single-bit errors, sampler (from rcbench); three-state poll, counters |
+| `runDshotTelemTests` | `test_dshot_telem.cpp` | line and group code, eRPM and EDT decode, checksum against single-bit errors, sampler (from rcbench); three-state poll, counters, every normalised eRPM frame decoded with EDT on |
 | `runDshotEdtTests` | `test_dshot_edt.cpp` | extended telemetry schedule against an AM32 model (from rcbench) |
 | `runSdioTests` | `test_sdio.cpp` | SDIO driver: CRC7 and CRC16 vectors, framing, responses, CSD, four-bit packing, CRC status token; initialisation, reads and writes against a simulated card |
 
 Other targets in `test/Makefile`: `syntax` typechecks the device-only sources
-with `-Werror`; `bbcheck` encodes 2000 frames and decodes them with
+with `-Werror`; `pioemu` runs `test/pio_sdio_emu.py`, the SDIO PIO programs
+assembled from `src/sdio/sd_pio.pio` and run one system clock at a time
+against a card model, 18 runs over three clock rates, three card output
+delays and two card latencies, and `make` runs it too; `bbcheck` encodes 2000 frames and decodes them with
 Betaflight's `blackbox_decode`; `previews` and `wiki` rebuild screenshots;
 `coverage` builds an instrumented suite. Scripts: `test/check_docs.py`,
 `test/check_uf2.sh`, `test/check_uf2_selftest.sh`, `test/check_blackbox.py`,
-`tools/check_wiki.py`, `tools/coverage.py`.
+`test/pio_sdio_emu.py`, `tools/check_wiki.py`, `tools/coverage.py`,
+`tools/notices.py`.
 
 **CI** (`.github/workflows/ci.yml`; on push to `main` or `master`, on pull
 requests, by hand):
 
 | Job | What it does |
 | --- | --- |
-| Firmware (`touch-lcd-2.8`) | builds with arm-none-eabi-gcc 13.3 and `STRICT=ON`; flash under 1 MiB and RAM (random-access memory) under 400,000 bytes; checks from the DWARF compile units that no file of the SD library's SDIO, ZuluSCSI-firmware or SdFat directories is in the image; checks the two pin overrides reach CMake and that `-DDSHOT_PIN`, `-DKISS_PIN`, `-DDSHOT_PIN_LCD_2`, and `-DKISS_PIN_LCD_2` are refused; validates the UF2 |
-| Host tests | `make`; the suite again with both pin macros overridden; wiki screenshots and `check_wiki.py` |
+| Firmware (`touch-lcd-2.8`) | builds with arm-none-eabi-gcc 13.3 and `STRICT=ON`; flash under 1 MiB and RAM (random-access memory) under 400,000 bytes; checks from the DWARF compile units that no file of the SD library's SDIO, ZuluSCSI-firmware or SdFat directories is in the image; writes `THIRD_PARTY_NOTICES.txt` with `tools/notices.py` and checks it against the image; compares the PIO model's assembler with the SDK's `pioasm`; checks the two pin overrides reach CMake and that `-DDSHOT_PIN`, `-DKISS_PIN`, `-DDSHOT_PIN_LCD_2`, and `-DKISS_PIN_LCD_2` are refused; validates the UF2 |
+| Host tests | `make`, which runs the SDIO PIO model too; the suite again with both pin macros overridden; wiki screenshots and `check_wiki.py` |
 | Blackbox round-trip | builds `blackbox_decode` from source, runs `make bbcheck` |
 | Config permutations | typechecks all of `src/` with `-Werror` for 32 combinations: AM32 transmit mode × AM32 low-jump × rotation 0 or 2 × KISS on or off × SD logging on or off; checks the landscape guard fires |
 | Workflow lint | actionlint 1.7.7 and a duplicate-key check on every workflow in `.github/workflows/` |
@@ -295,9 +297,15 @@ requests, by hand):
 
 **Release** (`.github/workflows/release.yml`; on `v*` tags, by hand): resolves
 the tag, checks that it names the version in `src/version.h`, builds the image
-after the host tests and `check_docs.py` pass, publishes it as
-`MiniRcBench-<tag>-touch-lcd-2.8.uf2` with `SHA256SUMS.txt`, and confirms that
-those two assets landed and no other.
+after the host tests and `check_docs.py` pass, writes and checks
+`THIRD_PARTY_NOTICES.txt` for it, publishes it as
+`MiniRcBench-<tag>-touch-lcd-2.8.uf2` with `THIRD_PARTY_NOTICES.txt` and
+`SHA256SUMS.txt`, which covers both, and confirms that those three assets
+landed and no other, that they match their checksums, and that the notices
+still pass their check. The notices name every component whose code is in the
+image, with its pinned version and its licence text copied from the licence
+files that ship with it; a missing or empty licence section fails the run
+before anything is published.
 Each run is titled `Release <tag>`, which Docs reads to find the tag. The
 version is 0.1.0 and no MiniRcBench release exists yet; v0.1.0 is the first
 tag.
@@ -308,8 +316,9 @@ can be started by hand itself. The wiki is
 published per release on purpose, so it describes firmware that can be
 downloaded.
 
-Not covered by any job: hardware behaviour, `tools/sdtest`, and the PIO
-programs beyond compilation.
+Not covered by any job: hardware behaviour, `tools/sdtest`, the DShot and
+KISS PIO programs beyond compilation, and the SDIO ones beyond the cycle-level
+model.
 
 <!-- coverage-table:start -->
 | File | Lines | Covered | Coverage |
@@ -321,7 +330,7 @@ programs beyond compilation.
 | `src/dshot/dshot_frame.c` | 25 | 25 | 100.0% |
 | `src/dshot/dshot_telem.c` | 143 | 143 | 100.0% |
 | `src/esc_merge.cpp` | 44 | 44 | 100.0% |
-| `src/esc_task.h` | 56 | 56 | 100.0% |
+| `src/esc_task.h` | 134 | 134 | 100.0% |
 | `src/gfx.cpp` | 201 | 186 | 92.5% |
 | `src/kiss_telem.cpp` | 37 | 35 | 94.6% |
 | `src/log_ring.cpp` | 43 | 39 | 90.7% |
@@ -338,7 +347,7 @@ programs beyond compilation.
 | `src/ui_setup.cpp` | 187 | 180 | 96.3% |
 | `src/ui_widgets.cpp` | 43 | 43 | 100.0% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **2492** | **2422** | **97.2%** |
+| **Total** | **2570** | **2500** | **97.3%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->

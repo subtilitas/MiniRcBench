@@ -296,7 +296,7 @@ the pin.
 ## Screens
 
 Entry: CFG → SETTINGS → KST, in the destination row
-([pin-claim.md](pin-claim.md), open question 2). The AM32 screen is the model:
+([pin-claim.md](pin-claim.md), decision 2). The AM32 screen is the model:
 a state machine that touches nothing until the handover completes, a list with
 an editor bar, and a write that needs a 1000 ms hold.
 
@@ -542,9 +542,13 @@ estimated.
 4. **Reply above 3.6 V.** Recommended: measure first. If the owner's servo
    replies at 5 V, a level shifter in the servo lead, and the README says so
    before the feature ships.
-5. **KST on AUX.** Allow programming on the KISS pin too? Recommended: SIG
-   only. It is the wire a servo or ESC is plugged into, and one pin keeps one
-   rule for the ESC interlock.
-6. **Unlocking locked fields.** rcbench can lift `KST_ACCESS_LOCKED` for a
-   field with a warning held 2 s. Recommended: not in this slice; the locked
-   fields are the ones whose function is not measured.
+
+## Decisions
+
+Decisions of the owner, 2026-10-17: recommendations 5 and 6 are accepted.
+
+5. **KST on AUX.** Programming runs on SIG only. It is the wire a servo or
+   ESC is plugged into, and one pin keeps one rule for the ESC interlock.
+6. **Unlocking locked fields.** Not in this slice. rcbench can lift
+   `KST_ACCESS_LOCKED` for a field with a warning held 2 s; the locked fields
+   are the ones whose function is not measured.

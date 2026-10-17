@@ -60,8 +60,9 @@ bool dshot_edt_frame(dshot_edt_t *e, bool stopped, uint32_t now_ms)
          * AM32 takes the command on the sixth and answers it once, with a
          * status frame on one of the replies that follow; read as a speed,
          * that frame is a period of zero and the answer is lost.  Reading early
-         * costs nothing from an ESC that ignores the command: it normalises
-         * its exponent, so none of its frames reads as an extended one.
+         * costs nothing from an ESC that ignores the command and normalises
+         * its exponent, as AM32 and Bluejay do: none of its frames reads as
+         * an extended one.  For other ESC firmware that is unknown.
          */
         e->asked = true;
     }

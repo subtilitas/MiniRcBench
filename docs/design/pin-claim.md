@@ -220,7 +220,7 @@ plan locks the session and can leave the servo between two images. The
 heartbeat exists to stop motion that the UI can no longer control; a write
 plan commands no motion and ends by itself. Whether the motor moves in
 programming mode is not measured (rcbench `docs/ServoProgrammer.md`,
-measurement 2), so this is an open question below.
+measurement 2); decision 1 below sets the rule without that measurement.
 
 No flash write happens during a claim. `settingsSave()` parks core1 for tens
 of milliseconds, which would stall a KST transaction past its driver slack.
@@ -235,7 +235,7 @@ unreachable. A pin change in SETUP applies to the next claim.
 
 Nothing about the servo tester or the programmer is stored in the settings
 block. `SETTINGS_VERSION` stays 2, so no stored block is discarded by this
-work. See the open questions in [servo-tester.md](servo-tester.md).
+work. See decision 2 in [servo-tester.md](servo-tester.md).
 
 ### When the pin is unavailable
 
@@ -258,9 +258,12 @@ The GPIO numbers in the text are the live ones from SETUP.
 `escTaskResume()` rebuilds the driver from the wiring `esc_task.cpp` latched:
 the same SIG pin, bitrate, bidirectional mode, KISS enable and KISS pin. Pole
 count and throttle ceiling live in the settings block and are untouched. The
-pump starts disarmed with HOLD off, as after a SETUP change. The EDT enable
-runs again for the ESC it finds, because a rebuild clears its state
-(`s_edtTried`). Telemetry counters in `EscTelemetry` carry on.
+pump starts disarmed with HOLD off, as after a SETUP change. Its first frames
+are the EDT enable, and it decodes every reply with EDT on (`escEdtBind()`,
+`ESC_EDT_DECODE`), so an ESC that kept EDT on through the session reads
+correctly from its first reply. The repeated enable starts again for the ESC
+it finds, because a rebuild clears its state. Telemetry counters in
+`EscTelemetry` carry on.
 
 `out_dshot_bind()` sets the pull-up and the output inversion on SIG.
 `kissUartBegin()` sets the pull-up on AUX. Both override what the job left:
@@ -446,22 +449,21 @@ notice), `wiki/_Sidebar.md` and `wiki/The-Screens.md` with its German
 counterpart. Each slice's user pages are new wiki files of its own. The second
 slice to merge resolves those sections by hand.
 
-## Open questions
+## Decisions
 
-1. **Heartbeat loss during a KST write.** Let the operation finish, or abort
-   it? Recommended: finish it, as above. An abort after the first write frame
-   locks the session and can leave the servo between images; a write commands
-   no motion that the heartbeat could stop. Revisit if the bench shows the
-   motor moving in programming mode.
-2. **CFG layout.** The SETTINGS screen has one row of three destinations
-   (AM32, SD LOG, SETUP) and 14 px spare below it. Recommended: split the BEEP
-   row into BEEP and SD LOG, 104 px each, and make the destination row AM32,
-   SERVO, KST, SETUP at 50 px each (4 × 50 px plus 3 × 4 px gaps is the 212 px
-   between the margins). The three screens that take the pins sit together.
-3. **ESC-answering wait.** Claim automatically 500 ms after the ESC goes
-   quiet, or ask for a tap? Recommended: automatic. On SERVO the claim sends
-   nothing: pulses need HOLD TO START. On KST the search starts at once, as the
-   AM32 search does, and the ESC check has just passed.
-4. **Unplug page.** A tap, or a hold? Recommended: a tap. The page guards
-   against forgetting, not against a slip of the finger, and BACK beside it
-   undoes nothing dangerous.
+Decisions of the owner, 2026-10-17: each recommendation is accepted. The
+numbers stay, so the references above keep pointing at them.
+
+1. **Heartbeat loss during a KST write.** The operation finishes, and nothing
+   new starts until the heartbeat returns. An abort after the first write
+   frame locks the session and can leave the servo between images; a write
+   commands no motion that the heartbeat could stop.
+2. **CFG layout.** The BEEP row splits into BEEP and SD LOG, 104 px each. The
+   destination row holds AM32, SERVO, KST and SETUP at 50 px each: 4 × 50 px
+   plus 3 × 4 px gaps fill the 212 px between the margins.
+3. **ESC-answering wait.** The claim follows automatically 500 ms after the
+   ESC goes quiet. On SERVO the claim sends nothing: pulses need HOLD TO
+   START. On KST the search starts at once, as the AM32 search does.
+4. **Unplug page.** A tap dismisses it. The page guards against forgetting,
+   not against a slip of the finger, and BACK beside it undoes nothing
+   dangerous.

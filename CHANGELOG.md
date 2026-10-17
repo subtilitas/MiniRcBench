@@ -77,6 +77,29 @@ its own wire. AM32 is an open-source ESC firmware.
   and removal.
 - CI checks that no compile unit of an image comes from the SD library's
   SDIO, ZuluSCSI-firmware or SdFat directories.
+- Every release carries `THIRD_PARTY_NOTICES.txt`: each component whose code
+  is in the image, with its pinned version, its files there and its licence
+  text, copied from the licence files of the Pico SDK checkout, the fetched SD
+  library and the Arm GNU Toolchain. `tools/notices.py` writes it from the
+  image's debug information and linker map, and fails on code that no
+  component covers, on a linker map entry with a size that names no input,
+  and on a checkout that is not the pinned commit. If a build links
+  `libstdc++.a(cp-demangle.o)`, libiberty code under GPL-2.0-or-later with a
+  link exception, the GCC section names it and carries that exception.
+  `SHA256SUMS.txt` covers the file. The Release workflow checks it before
+  publishing and after, and the Firmware job of CI writes and checks it on
+  every push.
+- `test/pio_sdio_emu.py` and `make -C test pioemu`, which `make` runs too: the
+  two SDIO PIO programs, assembled from `src/sdio/sd_pio.pio`, run one system
+  clock at a time at 150 MHz against a model of an SD card, written from the
+  RP2350 datasheet and the SD Physical Layer Simplified Specification v9.10.
+  It covers CMD0, R1 and R2 responses, CMD17 with data over the response,
+  CMD18 over 3 blocks, CMD12 and its busy, and CMD24 with its CRC status
+  token, at 400 kHz, 10 MHz and 25 MHz with card output delays of 0 to 2
+  system clocks. A run fails on bus conflicts and on a line that changes
+  within 1 system clock of its sampling point. It is a model, not proof of
+  hardware timing. The Host tests job runs it, and the Firmware job holds its
+  assembler to the SDK's `pioasm`.
 
 ### Changed
 
@@ -124,8 +147,9 @@ its own wire. AM32 is an open-source ESC firmware.
 - eRPM is 60,000,000 divided by the reported period in µs.
   `pico-bidir-dshot` added 50 eRPM to every reading, about 7 RPM on a
   14-pole motor.
-- EDT frames are decoded as EDT once an enable has gone out. Before that,
-  every reply reads as eRPM.
+- The DShot driver decodes EDT frames as EDT only when its caller says so,
+  because an EDT frame cannot be told from an eRPM frame by its bits. The
+  DShot frame pump says so for every reply; see the false RPM under Fixed.
 - The design notes in `docs/design/` describe the code as it is: KISS
   reception through a PIO receiver on any free GPIO, KISS off by default
   rather than impossible, which log fields carry which source, and the USB
@@ -177,6 +201,11 @@ its own wire. AM32 is an open-source ESC firmware.
 
 ### Fixed
 
+- The ESC STATUS tile on the tester follows the theme. Its colour table was a
+  function-level static filled on the first draw, so after a switch to high
+  contrast under SETUP the tile kept the dark theme's colours. Without the
+  guarded static the image also leaves out libstdc++'s exception code and C++
+  name demangler: 44,352 bytes less code with the Arm GNU Toolchain 13.3.Rel1.
 - The CI firmware artifact carries the linker map. The upload named
   `<image>.map`; the build writes `<image>.elf.map`.
 - The status bar's DShot label showed the compiled default, `DS600`, at any
@@ -198,6 +227,19 @@ its own wire. AM32 is an open-source ESC firmware.
 - Two comments in `src/config.h` disagreed with the code: the SD
   preallocation of 16 MiB lasts about 38 min, and SETUP shows one note line
   for saved settings or compiled defaults.
+- A false RPM with the new DShot driver after a restart with EDT still on in
+  the ESC. Replies were decoded as EDT only once this board had sent an
+  enable, 300 ms or more after eRPM arrived. An ESC that kept EDT on across a
+  board restart, a rebuild of the DShot frame pump after a SETUP change of
+  the ESC pin, the bitrate, KISS or the KISS pin, or an AM32 settings session
+  sent EDT frames that read as eRPM until then: a voltage frame of 66 counts
+  read as 227,272 eRPM, 32,467 RPM at 14 poles. The first 10 frames after
+  every pump start, those rebuilds included, are the EDT enable, 10 ms at
+  1 kHz, and every reply is decoded with EDT on from the first one. eRPM from
+  AM32 and Bluejay, which normalise its exponent with EDT on or off, decodes
+  the same; for other ESC firmware without EDT that is unknown. The repeated
+  enable keeps its rules: 300 ms after link-up, then every 1000 ms while no
+  EDT frame arrives.
 - `tools/sdtest` links: it carries the mass-storage callbacks that the
   firmware's TinyUSB configuration requires. Its stub comment says what they
   answer: test_unit_ready not ready, a capacity of 0 blocks, and an error for

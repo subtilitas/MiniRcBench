@@ -42,9 +42,9 @@ The eRPM row is not a simple win either way; see the next section.
 ## eRPM: which source is finer
 
 The bidirectional DShot eRPM frame does not carry eRPM. It carries a
-**period**, as a 3-bit exponent and a 9-bit mantissa. ESCs normalise the
-mantissa, which is what EDT's frame detection relies on, so the mantissa sits
-in 256..511 and the period step is `2^exponent ≈ period/512`.
+**period**, as a 3-bit exponent and a 9-bit mantissa. AM32 and Bluejay
+normalise the mantissa, which is what EDT's frame detection relies on, so the
+mantissa sits in 256..511 and the period step is `2^exponent ≈ period/512`.
 
 That makes bidirectional DShot a **relative** measurement: about 0.2 to 0.4 %
 regardless of speed. Its *absolute* eRPM error grows with RPM:

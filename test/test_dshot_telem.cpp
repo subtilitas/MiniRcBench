@@ -289,9 +289,9 @@ static void testWireToSpeed() {
 /**
  * @brief A short period with EDT on is still a speed.
  *
- * The pump decodes with EDT on from the first enable onwards. Type nibble 0
- * with bit 8 clear is no extended type: it is an eRPM frame whose exponent is
- * 0, from a motor turning fast enough that the ESC did not normalise it.
+ * The pump decodes every reply with EDT on. Type nibble 0 with bit 8 clear
+ * is no extended type: it is an eRPM frame whose exponent is 0, a period
+ * under 256 us, which normalisation leaves at exponent 0.
  */
 static void testEdtShortPeriod() {
 	section("DShot reply: a short period with EDT on is a speed");
@@ -302,6 +302,48 @@ static void testEdtShortPeriod() {
 	checkInt("kind is eRPM", t.kind, DSHOT_TELEM_ERPM);
 	checkInt("period in us", (long)t.period_us, 255);
 	checkInt("eRPM", (long)t.erpm, 60000000 / 255);
+}
+
+/**
+ * @brief Every normalised eRPM frame reads the same with EDT on.
+ *
+ * The pump decodes every reply with EDT on (ESC_EDT_DECODE), so an ESC that
+ * never sends EDT relies on this. AM32 and Bluejay encode a period with the
+ * lowest exponent that fits it in nine bits, so bit 8 is set whenever the
+ * exponent is above 0, and a frame with exponent 0 has type nibble 0. Either
+ * reads as eRPM. Whether other ESC firmware encodes it so is unknown.
+ * Checked over every period the frame carries, 1 us to 65,408 us, and the
+ * stopped-motor code.
+ */
+static void testErpmSameWithEdt() {
+	section("DShot reply: a normalised eRPM frame reads the same with EDT on");
+
+	int differ = 0, notErpm = 0, typeZero = 0;
+	for (uint32_t period = 1u; period <= (0x1FFu << 7); ++period) {
+		unsigned e = 0u;
+		while ((period >> e) > 0x1FFu) ++e;
+		const uint16_t payload = (uint16_t)((e << 9) | (period >> e));
+		if ((payload >> 8) == 0u) typeZero++;
+		const uint16_t v = dshot_telem_value(DSHOT_TELEM_ERPM, payload);
+		dshot_telem_t on, off;
+		if (!dshot_telem_from_value(v, true, &on) ||
+		    !dshot_telem_from_value(v, false, &off)) {
+			differ++;
+			continue;
+		}
+		if (on.kind != DSHOT_TELEM_ERPM) notErpm++;
+		if (on.kind != off.kind || on.period_us != off.period_us || on.erpm != off.erpm)
+			differ++;
+	}
+	checkInt("periods read as an EDT type", notErpm, 0);
+	checkInt("periods read differently", differ, 0);
+	checkInt("type-0 frames among them (exponent 0, bit 8 clear)", typeZero, 255);
+
+	dshot_telem_t t;
+	checkTrue("stopped motor decodes with EDT on", dshot_telem_from_value(
+	              dshot_telem_value(DSHOT_TELEM_ERPM, 0x0FFFu), true, &t));
+	checkInt("and is eRPM 0", (long)t.erpm, 0);
+	checkInt("of kind eRPM", t.kind, DSHOT_TELEM_ERPM);
 }
 
 /**
@@ -487,6 +529,7 @@ void runDshotTelemTests() {
 	testSamplerArguments();
 	testWireToSpeed();
 	testEdtShortPeriod();
+	testErpmSameWithEdt();
 	testSamplerLeadingLow();
 	testReplyThreeStates();
 	testFoldReply();

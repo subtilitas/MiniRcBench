@@ -316,7 +316,10 @@ pio1 holds nothing else; DShot and KISS are on pio2
 - `src/sdio/compat/SDIO/`: the two header names the library includes.
 
 The host suite compiles the first two as C and runs them against a simulated
-card in `test/test_sdio.cpp`.
+card in `test/test_sdio.cpp`. `test/pio_sdio_emu.py` assembles the two PIO
+programs from `sd_pio.pio` and runs them one system clock at a time against a
+card model, through a host model that follows `sd_pio.c`; its docstring lists
+what that model covers. It is a model, not proof of hardware timing.
 
 Errors. A command that gets no response, or a transfer that times out, marks
 the card uninitialised (`STA_NOINIT`), so the next FatFs mount runs the full

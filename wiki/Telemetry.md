@@ -79,12 +79,21 @@ An **expired status tile reads `--`, never `OK`**.
 
 The firmware does it, with no button.
 
-While an ESC answers with eRPM and no EDT frame has arrived for 1 s, the
-firmware sends the enable again every 1 s. After 500 ms without eRPM the state
-resets, so an ESC connected later, power-cycled or replaced gets its own
-enable.
+The first 10 frames the tester sends to the ESC are the enable: at power-up,
+after a change of the ESC pin, the DShot bitrate, KISS or the KISS pin under
+SETUP, and when the AM32 screen hands the signal wire back. They take 10 ms.
+Every reply is decoded with EDT on from the first one, so an ESC that kept
+EDT on through one of those restarts shows its voltage and temperature at
+once and never a false RPM. An ESC with AM32 or Bluejay shows the correct RPM
+with EDT off; for other ESC firmware with EDT off that is unknown.
 
-Each enable is 10 identical frames. It is sent only when all of these hold:
+An ESC powered up moments before ignores that first enable. While an ESC
+answers with eRPM and no EDT frame has arrived for 1 s, the firmware sends the
+enable again every 1 s. After 500 ms without eRPM the state resets, so an ESC
+connected later, power-cycled or replaced gets its own enable.
+
+Each repeated enable is 10 identical frames. It is sent only when all of these
+hold:
 
 - the link has been up for 300 ms, so the ESC has finished booting;
 - the tester is disarmed and the motor is stopped (eRPM is zero);

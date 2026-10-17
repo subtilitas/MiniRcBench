@@ -3,6 +3,7 @@
 #   make          syntax-check, build and run
 #   make build    build only
 #   make syntax   typecheck the device-only sources
+#   make pioemu   run the SDIO PIO programs in a cycle-level model
 #   make bbcheck  round-trip a log through the upstream blackbox_decode
 #   make previews rebuild the screenshots in docs/ from this run's frames
 #   make wiki     rebuild the wiki's screenshots and check its links
@@ -70,9 +71,9 @@ COBJS := $(addprefix $(OBJ_DIR)/,$(notdir $(CSRCS:.c=.o)))
 
 BIN := dshot_tests
 
-.PHONY: all build run syntax bbcheck previews wiki coverage clean
+.PHONY: all build run syntax pioemu bbcheck previews wiki coverage clean
 
-all: syntax run bbcheck
+all: syntax run pioemu bbcheck
 
 build: $(BIN)
 
@@ -112,6 +113,15 @@ syntax:
 	@$(CXX) $(CXXFLAGS) $(WARN) $(INCLUDES) $(DEFINES) -DSD_LOG_ENABLE=0 \
 		-fsyntax-only ../src/sd_log.cpp || exit 1
 	@echo "device sources typecheck"
+
+# The two SDIO PIO programs in src/sdio/sd_pio.pio, assembled from that file
+# and run one system clock at a time against a model of an SD card: CMD0, R1
+# and R2 responses, single and multiple block reads, CMD12 and a write with its
+# CRC status token, at 400 kHz, 10 MHz and 25 MHz. Python 3 and $(CC), which
+# builds sd_proto.c for the run. A model, not proof of hardware timing: the
+# script's docstring lists what it covers and what it does not.
+pioemu:
+	python3 pio_sdio_emu.py --cc "$(CC)"
 
 # Round-trip a generated log through the upstream decoder.
 #
