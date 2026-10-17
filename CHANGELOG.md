@@ -134,6 +134,8 @@ its own wire. AM32 is an open-source ESC firmware.
 
 ### Fixed
 
+- The CI firmware artifact carries the linker map. The upload named
+  `<image>.map`; the build writes `<image>.elf.map`.
 - The status bar's DShot label showed the compiled default, `DS600`, at any
   bitrate set under SETUP. It shows the bitrate the pump runs at.
 - `test/check_docs.py` run from any directory other than the repository root
