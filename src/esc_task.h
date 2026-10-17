@@ -176,6 +176,12 @@ void escSetPoles(uint8_t poles);
 void escHeartbeat();
 
 /**
+ * @brief millis() of the last escHeartbeat(). Read by core1.
+ * @return The stamp escUiAlive() is judged against.
+ */
+uint32_t escHeartbeatMs();
+
+/**
  * @brief Queue a beacon command so the motor beeps.
  *
  * @param n Beacon 1..5, clamped.
@@ -662,6 +668,60 @@ static inline void escPumpFrameSent(EscPump *p, const EscFrame *f, uint32_t nowM
 	else if (p->beepReps)     p->beepReps--;
 }
 
+/**
+ * @brief Whether core0 has checked in within @ref UI_HEARTBEAT_TIMEOUT_MS.
+ *        Pure.
+ *
+ * The one rule for "the UI is alive": the DShot pump zeroes the throttle on
+ * it, and every core1 job reads it through core1UiAlive(). The subtraction is
+ * unsigned, so the rule holds across the millis() rollover.
+ *
+ * @param nowMs       millis().
+ * @param heartbeatMs millis() of the last escHeartbeat().
+ * @return            True while the heartbeat is younger than the timeout.
+ */
+static inline bool escUiAlive(uint32_t nowMs, uint32_t heartbeatMs) {
+	return (uint32_t)(nowMs - heartbeatMs) < UI_HEARTBEAT_TIMEOUT_MS;
+}
+
+/**
+ * @brief When the pump last sent a throttle frame, after frame @p f. Pure.
+ *
+ * A throttle frame is one that carries a throttle above zero. A zero frame
+ * and a command frame leave the stamp as it was. 0 means "none since the
+ * bind", so a frame at millis() 0 stamps 1.
+ *
+ * @param f      The frame that went out.
+ * @param prevMs The stamp before it.
+ * @param nowMs  millis() of the frame.
+ * @return       The stamp after it.
+ */
+static inline uint32_t escThrottleStamp(const EscFrame *f, uint32_t prevMs,
+                                        uint32_t nowMs) {
+	if (f->sendCommand || f->throttle == 0) return prevMs;
+	return nowMs ? nowMs : 1;
+}
+
+/**
+ * @brief Whether the zero-throttle drain before a teardown is over. Pure.
+ *
+ * A suspend or a rebuild does not take the pin from an ESC that has just been
+ * given a throttle. The pump sends zero frames until @p drainMs,
+ * @ref ARM_ZERO_THROTTLE_MS, have passed since the last throttle frame, and
+ * only then stops. An ESC therefore sees throttle zero for at least that long
+ * before the line goes silent. A pump that sent no throttle frame since its
+ * bind needs no drain.
+ *
+ * @param lastThrottleMs escThrottleStamp() of the last frame; 0 for none.
+ * @param nowMs          millis().
+ * @param drainMs        Length of the drain, @ref ARM_ZERO_THROTTLE_MS.
+ * @return               True when the teardown may go ahead.
+ */
+static inline bool escDrainDone(uint32_t lastThrottleMs, uint32_t nowMs,
+                                uint32_t drainMs) {
+	return lastThrottleMs == 0 || (uint32_t)(nowMs - lastThrottleMs) >= drainMs;
+}
+
 /** @brief EDT status frame, bits 3..0: the highest stress level seen. */
 #define ESC_STATUS_MAX_STRESS_MASK 0x0Fu
 /** @brief EDT status frame, bit 5: error. */
@@ -761,19 +821,27 @@ void escSnapshot(EscTelemetry *out);
 bool escEdtRequested();
 
 /**
- * @brief Ask core1 to tear down the DShot driver and release the signal pin.
+ * @brief Ask core1 to tear down the DShot driver and release both pins.
  *
- * Needed before the AM32 bootloader transport can use the same pin. Forces a
- * disarm first. Poll escTaskSuspended() until it reports true; the teardown
- * happens on core1 so that the PIO state machines are freed by the core that
- * claimed them.
+ * The pin claim's way in (pin_claim.h): the signal pin and the KISS pin are
+ * free while the suspend holds. Forces a disarm first. Core1 then sends zero
+ * frames until @ref ARM_ZERO_THROTTLE_MS have passed since the last throttle
+ * frame (escDrainDone()), stops the pump with no edges, releases the pin and
+ * ends the KISS receiver. Poll escTaskSuspended() until it reports true; the
+ * teardown happens on core1 so that the PIO state machines are freed by the
+ * core that claimed them.
  */
 void escTaskSuspend();
 
-/** @brief Ask core1 to rebuild the DShot driver. Starts disarmed. */
+/**
+ * @brief Ask core1 to rebuild the DShot driver from the latched wiring.
+ *
+ * Starts disarmed, with the EDT enable as its first frames, as after a
+ * SETUP change. @see escTaskConfigure()
+ */
 void escTaskResume();
 
-/** @brief True once the driver is torn down and the pin is free. */
+/** @brief True once the driver is torn down and both pins are free. */
 bool escTaskSuspended();
 
 /**
@@ -801,6 +869,12 @@ void escTaskConfigure(uint8_t dshotPin, uint16_t dshotKbaud,
 
 /** @brief GPIO the pump is currently driving. @return The live ESC pin. */
 uint8_t escTaskDshotPin();
+
+/**
+ * @brief GPIO of the KISS wire, whether or not KISS is switched on.
+ * @return The KISS pin escTaskConfigure() last set: the AUX pin of a claim.
+ */
+uint8_t escTaskKissPin();
 
 /**
  * @brief DShot bitrate the pump is currently using.

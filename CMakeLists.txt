@@ -228,6 +228,8 @@ add_executable(MiniRcBench
     src/cst328.cpp
     src/board_desc.cpp
     src/esc_task.cpp
+    src/pin_claim.cpp
+    src/core1_job.cpp
     src/am32_bl.cpp
     src/am32_eeprom.cpp
     src/kiss_telem.cpp

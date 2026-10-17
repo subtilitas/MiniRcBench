@@ -40,6 +40,29 @@ bool fakeArmed();
 /** @brief True when the DShot task has been resumed and owns the pin again. */
 bool fakePinReturned();
 
+/** @brief The wiring escTaskConfigure() last set: what a rebuild binds. */
+struct FakeWiring {
+	uint8_t  dshotPin;    /**< ESC signal GPIO. */
+	uint16_t dshotKbaud;  /**< DShot bitrate. */
+	bool     kissEnable;  /**< KISS wire expected. */
+	uint8_t  kissPin;     /**< KISS GPIO. */
+};
+
+/** @brief The fake pump's wiring now. */
+FakeWiring fakeWiring();
+
+/** @brief How many times escTaskResume() has rebuilt the pump. */
+int fakeResumeCount();
+
+/** @brief The wiring at the last escTaskResume(). */
+FakeWiring fakeResumeWiring();
+
+/** @brief Whether the core1 job was idle at the last escTaskResume(). */
+bool fakeResumeJobIdle();
+
+/** @brief GPIO the AM32 transport was last handed by am32BlBegin(). */
+uint8_t fakeAm32Pin();
+
 /** @brief Set the telemetry the fake ESC reports. */
 void fakeSetTelemetry(const EscTelemetry *t);
 

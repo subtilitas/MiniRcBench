@@ -177,6 +177,9 @@ Settings *settings();
  *          milliseconds. Callers must be disarmed. The setup screen enforces
  *          that; this function cannot, because it has no way to ask.
  *
+ * Refused, with nothing written, while a pin claim holds (pin_claim.h): a
+ * core1 job would stall for as long as the pump does.
+ *
  * @return true if the block was written and read back correctly.
  */
 bool settingsSave();

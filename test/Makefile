@@ -16,7 +16,8 @@
 #
 # ui_am32.cpp is deliberately absent from SRCS -- test_ui.cpp #includes it so
 # the tests can reach its file-static state. Compiling it here as well would
-# be a duplicate-symbol error.
+# be a duplicate-symbol error. core1_job.cpp is absent for the same reason:
+# test_claim.cpp #includes it to put fake jobs in its job table.
 
 CXX      ?= g++
 CXXFLAGS ?= -std=gnu++17 -O1 -g
@@ -35,12 +36,12 @@ DEFINES := $(EXTRA_DEFINES)
 SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
         test_blackbox.cpp test_log_ring.cpp test_settings.cpp \
         test_usb_msc.cpp test_dshot_frame.cpp test_dshot_telem.cpp \
-        test_dshot_edt.cpp test_sdio.cpp fakes.cpp \
+        test_dshot_edt.cpp test_sdio.cpp test_claim.cpp fakes.cpp \
         ../src/gfx.cpp ../src/ui.cpp ../src/ui_setup.cpp ../src/theme.cpp \
         ../src/ui_input.cpp ../src/ui_widgets.cpp ../src/board_desc.cpp \
         ../src/settings.cpp ../src/am32_eeprom.cpp \
         ../src/kiss_telem.cpp ../src/esc_merge.cpp ../src/blackbox_encode.cpp \
-        ../src/log_ring.cpp
+        ../src/log_ring.cpp ../src/pin_claim.cpp
 
 # Sources the tests cannot link -- they drive real hardware -- but which still
 # have to compile. CI's "Config permutations" job already builds all of src/

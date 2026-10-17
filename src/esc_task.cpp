@@ -47,6 +47,8 @@ static_assert(sizeof(dshot_bidir_tx_program_instructions) / sizeof(uint16_t) +
  */
 static bool    s_pumpUp  = false; /**< Bound since the last teardown, or refused. */
 static uint8_t s_pumpPin = 0;     /**< GPIO the driver was bound to. */
+/** @brief escThrottleStamp() of the last frame; 0 for none since the bind. */
+static uint32_t s_lastThrottleMs = 0;
 /** @} */
 
 /** @brief Guards @ref s_tel against concurrent access from core0. */
@@ -225,6 +227,8 @@ void escHeartbeat() {
 	s_heartbeatMs = millis();
 }
 
+uint32_t escHeartbeatMs() { return s_heartbeatMs; }
+
 bool escRequestBeep(uint8_t n) {
 	if (s_armed) return false;
 	if (n < 1) n = 1;
@@ -240,7 +244,7 @@ bool escEdtRequested() { return s_edtRequested; }
 
 /**
  * @defgroup esc_suspend Pin handover
- * @brief Lets the AM32 bootloader transport borrow the signal pin.
+ * @brief Frees both pins for the pin claim. @see pin_claim.h
  * @{
  */
 static volatile bool s_suspendReq = false;
@@ -301,6 +305,8 @@ void escTaskConfigure(uint8_t dshotPin, uint16_t dshotKbaud,
 
 uint8_t escTaskDshotPin() { return s_dshotPin; }
 
+uint8_t escTaskKissPin() { return s_kissPin; }
+
 uint16_t escTaskDshotKbaud() { return s_dshotKbaud; }
 
 void escTaskBegin() {
@@ -332,27 +338,40 @@ void escTaskPoll() {
 	//
 	// The teardown runs on the *request* rather than on the pump being up. A
 	// suspend arriving before core1 has ever bound the pin must still set
-	// `s_suspended`, or the AM32 screen waits on a handover that cannot
-	// complete.
+	// `s_suspended`, or the claim waits on a handover that cannot complete.
+	//
+	// It waits for the drain first: zero frames until ARM_ZERO_THROTTLE_MS
+	// have passed since the last throttle frame, so an ESC never goes from a
+	// throttle straight to silence. The request already disarmed, so the
+	// frames below carry zero. @see escDrainDone()
+	bool draining = false;
 	if (s_suspendReq || s_rebuildReq) {
-		if (s_pumpUp) {
-			// The driver hands the pad back with no pull. The pull-up goes back
-			// on, so the line holds the bidirectional idle level until its next
-			// owner takes it: the AM32 bootloader transport, or nothing after a
-			// pin change.
-			out_dshot_release(s_pumpPin);
-			gpio_pull_up(s_pumpPin);
-			s_pumpUp = false;
-		}
+		if (s_pumpUp &&
+		    !escDrainDone(s_lastThrottleMs, millis(), ARM_ZERO_THROTTLE_MS)) {
+			draining = true;
+		} else {
+			if (s_pumpUp) {
+				// Stop first, so no frame is in flight, then release. The
+				// driver hands the pad back with no pull. The pull-up goes back
+				// on, so the line holds the bidirectional idle level until its
+				// next owner takes it: a claim's user, or nothing after a pin
+				// change.
+				out_dshot_stop(s_pumpPin);
+				out_dshot_release(s_pumpPin);
+				gpio_pull_up(s_pumpPin);
+				s_pumpUp = false;
+			}
 #if KISS_TELEM_ENABLE
-		// Whoever owns the pin next, it is not us. A UART left running would
-		// accumulate noise into a decoder with no way to tell it from a reply.
-		kissUartEnd();
+			// Whoever owns the pin next, it is not us. A receiver left running
+			// would accumulate noise into a decoder with no way to tell it from
+			// a reply.
+			kissUartEnd();
 #endif
-		s_rebuildReq = false;
-		if (s_suspendReq) {
-			s_suspended = true;
-			return;
+			s_rebuildReq = false;
+			if (s_suspendReq) {
+				s_suspended = true;
+				return;
+			}
 		}
 	}
 	if (!s_suspendReq && !s_pumpUp) {
@@ -375,6 +394,7 @@ void escTaskPoll() {
 		// is read with EDT decoding on. @see ESC_EDT_DECODE, escEdtBind()
 		escPumpBind(&s_pump);
 		s_edtRequested = s_pump.edt.sent;
+		s_lastThrottleMs = 0;
 		s_nextSendUs = time_us_32();
 #if KISS_TELEM_ENABLE
 		if (s_kissEnable && s_kissPin != pin) kissUartBegin(s_kissPin);
@@ -411,23 +431,28 @@ void escTaskPoll() {
 
 	// 2. Decide what to send. The decision is escPumpSlot(), which is pure and
 	// lives in the header so the host suite can reach it. This function only
-	// does the I/O.
+	// does the I/O. During the drain the frame is a plain zero, with no
+	// command and no KISS request: the pump is about to stop, and a command
+	// burst cut off by the teardown reaches no ESC's repeat count.
 	uint32_t ms = millis();
-	bool uiAlive = (uint32_t)(ms - s_heartbeatMs) < UI_HEARTBEAT_TIMEOUT_MS;
+	bool uiAlive = escUiAlive(ms, s_heartbeatMs);
 #if KISS_TELEM_ENABLE
 	bool kissRx = s_kissRx;
 #else
 	bool kissRx = false;
 #endif
-	EscSlot slot = escPumpSlot(&s_pump, &s_tel, s_armed, uiAlive, s_throttle,
-	                           s_beepReq, kissRx, ms);
-	if (slot.forgetEdt) {
-		critical_section_enter_blocking(&s_cs);
-		escEdtForget(&s_tel);
-		critical_section_exit(&s_cs);
+	EscSlot slot = {{false, 0, 0, false}, false, false};
+	if (!draining) {
+		slot = escPumpSlot(&s_pump, &s_tel, s_armed, uiAlive, s_throttle,
+		                   s_beepReq, kissRx, ms);
+		if (slot.forgetEdt) {
+			critical_section_enter_blocking(&s_cs);
+			escEdtForget(&s_tel);
+			critical_section_exit(&s_cs);
+		}
+		s_edtRequested = s_pump.edt.sent;
+		if (slot.beepTaken) s_beepReq = 0;
 	}
-	s_edtRequested = s_pump.edt.sent;
-	if (slot.beepTaken) s_beepReq = 0;
 
 	const EscFrame &f = slot.frame;
 	if (f.sendCommand) {
@@ -444,6 +469,7 @@ void escTaskPoll() {
 	}
 	// A scheduled attempt is stamped by its last frame. @see escEdtFrameSent()
 	escPumpFrameSent(&s_pump, &f, millis());
+	s_lastThrottleMs = escThrottleStamp(&f, s_lastThrottleMs, ms);
 
 #if KISS_TELEM_ENABLE
 	if (f.requestKiss) {
