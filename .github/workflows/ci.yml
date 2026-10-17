@@ -78,6 +78,15 @@ jobs:
           # not this pipeline's job to prove it.
           arm-none-eabi-size "build/MiniRcBench-$SLUG.elf"
 
+      # The host job's PIO emulator assembles src/sdio/sd_pio.pio with its own
+      # assembler. This build has the SDK's pioasm, so the emulator's
+      # assembler is held to it here: every instruction word, wrap point,
+      # public label and side-set setting has to match.
+      - name: The PIO emulator assembles as pioasm does
+        run: |
+          python3 test/pio_sdio_emu.py --asm-only \
+                  --pioasm build/pioasm-install/pioasm/pioasm
+
       # A ceiling, not a printout. The framebuffer alone is 150 kB of the
       # RP2350's 520 kB, and a regression that doubles a buffer otherwise passes
       # CI and fails on the bench. Generous enough not to be a nuisance; tighten
@@ -116,6 +125,21 @@ jobs:
           grep -q 'src/sdio/sd_pio\.c' <<< "$units" || {
             echo "::error::src/sdio/sd_pio.c is not in the image"; exit 1; }
           echo "SDIO driver: src/sdio/ only"
+
+      # A release carries THIRD_PARTY_NOTICES.txt, which tools/notices.py
+      # writes from the image's compile units and linker map and from the
+      # licence files of the SDK checkout, the fetched SD library and the
+      # toolchain. Writing it on every push means code that no component of
+      # the script covers, a licence file that moved, or a checkout that is
+      # not the pinned commit fails the change that causes it, not the next
+      # release. The check then reads the file back against the image.
+      - name: Third-party notices
+        run: |
+          set -eo pipefail
+          python3 tools/notices.py --sdk "$HOME/pico-sdk" \
+                  --out build/THIRD_PARTY_NOTICES.txt
+          python3 tools/notices.py --check build/THIRD_PARTY_NOTICES.txt \
+                  --sdk "$HOME/pico-sdk"
 
       # The pin options are documented build options, so CI passes them. What
       # this proves is the plumbing -- CMake accepts the options and reports
@@ -181,6 +205,7 @@ jobs:
             build/MiniRcBench-${{ env.SLUG }}.uf2
             build/MiniRcBench-${{ env.SLUG }}.elf
             build/MiniRcBench-${{ env.SLUG }}.elf.map
+            build/THIRD_PARTY_NOTICES.txt
           if-no-files-found: error
 
   # Runs the firmware's own logic on the host, against stubs. Catches the
@@ -190,9 +215,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      # The default target: the device-only sources typechecked, then the
-      # suite built and run. The blackbox round-trip it also names skips here
-      # with a notice; the blackbox job runs it for real.
+      # The default target: the device-only sources typechecked, the suite
+      # built and run, and the SDIO PIO programs run in test/pio_sdio_emu.py,
+      # a cycle-level model, against a card model. The blackbox round-trip it
+      # also names skips here with a notice; the blackbox job runs it for
+      # real.
       - name: Build and run
         working-directory: test
         run: make

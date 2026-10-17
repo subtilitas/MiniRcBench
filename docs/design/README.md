@@ -15,7 +15,7 @@ firmware; the status lines here summarise it per feature.
 |---|---|
 | [kiss-telemetry.md](kiss-telemetry.md) | Implemented. Working on hardware (owner report). Off by default. |
 | [blackbox-logging.md](blackbox-logging.md) | Implemented. Hardware use recorded with the previous SDIO driver; none recorded with the current one. Buffer sizing unmeasured. |
-| [sdio-driver.md](sdio-driver.md) | Implemented, not tested on hardware. MIT SDIO driver written from the SD specification; replaces the SD library's GPL-derived one. Host tests against a simulated card. |
+| [sdio-driver.md](sdio-driver.md) | Implemented, not tested on hardware. MIT SDIO driver written from the SD specification; replaces the SD library's GPL-derived one. Host tests against a simulated card; the PIO programs in a cycle-level model. |
 | [pin-claim.md](pin-claim.md) | Planned. A screen takes the ESC and KISS pins from DShot while it is open; shared hardware facts and the slice plan. |
 | [servo-tester.md](servo-tester.md) | Planned. Servo PWM output, manual position, sweep, two servos. Depends on the pin claim. |
 | [kst-programming.md](kst-programming.md) | Planned. KST and Chaservo servo programming, ported from rcbench. Depends on the pin claim. |

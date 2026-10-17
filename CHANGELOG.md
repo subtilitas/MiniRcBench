@@ -77,6 +77,26 @@ its own wire. AM32 is an open-source ESC firmware.
   and removal.
 - CI checks that no compile unit of an image comes from the SD library's
   SDIO, ZuluSCSI-firmware or SdFat directories.
+- Every release carries `THIRD_PARTY_NOTICES.txt`: each component whose code
+  is in the image, with its pinned version, its files there and its licence
+  text, copied from the licence files of the Pico SDK checkout, the fetched SD
+  library and the Arm GNU Toolchain. `tools/notices.py` writes it from the
+  image's debug information and linker map, and fails on code that no
+  component covers and on a checkout that is not the pinned commit.
+  `SHA256SUMS.txt` covers the file. The Release workflow checks it before
+  publishing and after, and the Firmware job of CI writes and checks it on
+  every push.
+- `test/pio_sdio_emu.py` and `make -C test pioemu`, which `make` runs too: the
+  two SDIO PIO programs, assembled from `src/sdio/sd_pio.pio`, run one system
+  clock at a time at 150 MHz against a model of an SD card, written from the
+  RP2350 datasheet and the SD Physical Layer Simplified Specification v9.10.
+  It covers CMD0, R1 and R2 responses, CMD17 with data over the response,
+  CMD18 over 3 blocks, CMD12 and its busy, and CMD24 with its CRC status
+  token, at 400 kHz, 10 MHz and 25 MHz with card output delays of 0 to 2
+  system clocks. A run fails on bus conflicts and on a line that changes
+  within 1 system clock of its sampling point. It is a model, not proof of
+  hardware timing. The Host tests job runs it, and the Firmware job holds its
+  assembler to the SDK's `pioasm`.
 
 ### Changed
 
