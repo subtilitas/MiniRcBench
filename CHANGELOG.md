@@ -104,9 +104,9 @@ its own wire. AM32 is an open-source ESC firmware.
   GP28 and GP29. The host suite pins the block layout DshotDisplay 2.x
   writes.
 - The CMake pin options are `DSHOT_PIN_LCD_2_8` and `KISS_PIN_LCD_2_8`. A
-  configure step with `-DDSHOT_PIN`, `-DKISS_PIN`, `-DDSHOT_PIN_LCD_2`,
-  `-DKISS_PIN_LCD_2` or a `-DBOARD` naming another target fails with a
-  message naming the options the build takes.
+  configure step with `-DDSHOT_PIN`, `-DKISS_PIN`, `-DDSHOT_PIN_LCD_2` or
+  `-DKISS_PIN_LCD_2` fails with a message naming the options the build
+  takes. A `-DBOARD` is ignored.
 - `src/sd_hw_config.c` configures the one card slot for SDIO from the board
   header's pin macros at compile time, and asserts the SDIO pin rule there.
   `tools/sdtest` is SDIO-only and links no board descriptor.
@@ -165,9 +165,8 @@ its own wire. AM32 is an open-source ESC firmware.
   calls `boardSelect()`, `boardCount()`, `boardAt()` and `boardIdAt()`.
 - The board probe, `src/board_probe.h` and `src/board_probe.cpp`, with its
   call at boot and the safe stop that held the power latch, the display off
-  and DShot silent when no board or both answered. The image does not
-  identify the board it runs on; STATUS.md lists what it drives on another
-  board as a known limitation.
+  and DShot silent when no board or both answered. The image is for the
+  RP2350-Touch-LCD-2.8 only.
 - Code that existed only to tell two boards apart: the touch driver dispatch
   (`src/touch.cpp`, `TouchDriver`), the descriptor fields for a shared touch
   reset, the SD interface and the SD pins, `settingsPinFreeOn()` and

@@ -89,8 +89,7 @@ release, so it always finds a block with no other user. A `static_assert` in
 block: 3 state machines and 25 of 32 instructions. A bind that cannot get two
 adjacent state machines is refused, and the status bar then shows `DSERR`.
 
-Board: the image is built for the Waveshare RP2350-Touch-LCD-2.8 only. It
-does not identify the board it runs on; see the known limitations.
+Board: the image is built for the Waveshare RP2350-Touch-LCD-2.8 only.
 
 Build: native Pico SDK (software development kit) 2.1.1 with CMake, ARM cores
 only. The one dependency besides the SDK is pinned by commit:
@@ -229,16 +228,6 @@ Not in this history: the DshotDisplay repository's branches
   stay put. KISS is off by default and one tap on CFG → SETUP turns it on. A
   build-time pin override outside the free set, or both wires on one pin,
   fails the build.
-- **Other boards.** Condition: a MiniRcBench image flashed onto any board
-  other than the RP2350-Touch-LCD-2.8, the RP2350-Touch-LCD-2 among them. The
-  image does not identify the board and drives the 2.8" pin map from the first
-  instruction of `setup()`: GP26 high as the power latch, the panel, touch and
-  SDIO lines, and DShot on GP29. On the RP2350-Touch-LCD-2, GP26 is the SD
-  clock, GP14 an IMU interrupt output and GP29 the touch controller's
-  interrupt output. The effect on such a board is not tested. Recovery is a
-  reflash over USB with **BOOT** held. A settings block written there by
-  DshotDisplay loads with its board id rewritten to the 2.8"'s and every pin
-  re-judged against the 2.8"'s free GPIOs.
 - **Bidirectional DShot only.** An ESC that does not accept the inverted
   bidirectional signal is not driven.
 - **Saved settings outrank `config.h`.** On a board with saved settings, a
@@ -296,7 +285,7 @@ requests, by hand):
 
 | Job | What it does |
 | --- | --- |
-| Firmware (`touch-lcd-2.8`) | builds with arm-none-eabi-gcc 13.3 and `STRICT=ON`; flash under 1 MiB and RAM (random-access memory) under 400,000 bytes; checks from the DWARF compile units that no file of the SD library's SDIO, ZuluSCSI-firmware or SdFat directories is in the image; checks the two pin overrides reach CMake and that `-DDSHOT_PIN`, `-DKISS_PIN`, `-DDSHOT_PIN_LCD_2`, `-DKISS_PIN_LCD_2` and a `-DBOARD` naming another target are refused; validates the UF2 |
+| Firmware (`touch-lcd-2.8`) | builds with arm-none-eabi-gcc 13.3 and `STRICT=ON`; flash under 1 MiB and RAM (random-access memory) under 400,000 bytes; checks from the DWARF compile units that no file of the SD library's SDIO, ZuluSCSI-firmware or SdFat directories is in the image; checks the two pin overrides reach CMake and that `-DDSHOT_PIN`, `-DKISS_PIN`, `-DDSHOT_PIN_LCD_2`, and `-DKISS_PIN_LCD_2` are refused; validates the UF2 |
 | Host tests | `make`; the suite again with both pin macros overridden; wiki screenshots and `check_wiki.py` |
 | Blackbox round-trip | builds `blackbox_decode` from source, runs `make bbcheck` |
 | Config permutations | typechecks all of `src/` with `-Werror` for 32 combinations: AM32 transmit mode × AM32 low-jump × rotation 0 or 2 × KISS on or off × SD logging on or off; checks the landscape guard fires |

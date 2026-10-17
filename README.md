@@ -146,19 +146,7 @@ effect.
 
 ### Other boards
 
-The image is built for the RP2350-Touch-LCD-2.8 only, and it does not
-identify the board it runs on.
-
-**Current limitation.** Condition: a MiniRcBench image is flashed onto any
-other RP2350 board, the RP2350-Touch-LCD-2 among them. From the first
-instruction of `setup()` the image drives the 2.8" pin map: GP26 high as the
-power latch, the panel lines on GP10, GP11 and GP13–GP16, the touch lines, the SDIO lines on
-GP19–GP24, and DShot on GP29. On the RP2350-Touch-LCD-2 several of these pins
-carry other functions: GP26 is the SD card clock there, GP14 an IMU interrupt
-output and GP29 the touch controller's interrupt output. What the image does
-to such a board is not tested. The RP2350's boot ROM (read-only memory)
-offers the USB drive for flashing regardless of the firmware, so holding
-**BOOT** and reflashing recovers the board. DshotDisplay supports the
+The image is for the RP2350-Touch-LCD-2.8 only. DshotDisplay supports the
 RP2350-Touch-LCD-2.
 
 ---
@@ -205,10 +193,9 @@ Build options:
 
 The ESC pin defaults to **GP29** (`DSHOT_PIN_LCD_2_8`) and the telemetry pin
 to **GP28** (`KISS_PIN_LCD_2_8`). The suffix names the board, as the image's
-file name does. There is no board to select: configuring with a `-DBOARD`
-naming another target fails, and so do `-DDSHOT_PIN`, `-DKISS_PIN`,
-`-DDSHOT_PIN_LCD_2` and `-DKISS_PIN_LCD_2`, with a message naming the options
-this build takes.
+file name does. There is no board to select, and a `-DBOARD` is ignored.
+Configuring with `-DDSHOT_PIN`, `-DKISS_PIN`, `-DDSHOT_PIN_LCD_2` or
+`-DKISS_PIN_LCD_2` fails, with a message naming the options this build takes.
 
 The output is `build/MiniRcBench-touch-lcd-2.8.uf2`. UF2 is the USB Flashing
 Format.

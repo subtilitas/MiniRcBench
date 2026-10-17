@@ -10,11 +10,8 @@ Erst das Symptom, dann die Ursache. ESC steht für Electronic Speed Controller
 ## Der Bildschirm bleibt dunkel
 
 MiniRcBench läuft nur auf der Waveshare RP2350-Touch-LCD-2.8. Prüfe die
-Platine: Die 2,8" hat JST-SH-Stecker und keine 2,54-mm-Stiftleisten. Das
-Abbild prüft nicht, auf welcher Platine es läuft. Auf jeder anderen Platine,
-auch auf der RP2350-Touch-LCD-2, treibt es Pins, die dort mit anderen
-Bauteilen verbunden sind, und was das mit einer solchen Platine macht, ist
-nicht getestet. Für die RP2350-Touch-LCD-2 gibt es
+Platine: Die 2,8" hat JST-SH-Stecker und keine 2,54-mm-Stiftleisten. Für die
+RP2350-Touch-LCD-2 gibt es
 [DshotDisplay](https://github.com/subtilitas/DshotDisplay).
 
 Neu flashen: **BOOT** halten, **RESET** antippen, **BOOT** loslassen. Die

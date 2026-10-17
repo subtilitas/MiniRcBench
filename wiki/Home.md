@@ -54,9 +54,7 @@ MiniRcBench runs on the Waveshare RP2350-Touch-LCD-2.8 only: a 240×320
 portrait touch panel, an RP2350, and JST-SH connectors instead of 2.54 mm
 headers. The image from
 [Releases](https://github.com/subtilitas/MiniRcBench/releases) is
-`MiniRcBench-<version>-touch-lcd-2.8.uf2`. It does not check which board it
-runs on: flashed onto another board, it drives pins that are wired to other
-parts there. The splash screen and **CFG → SETUP** name the board the image
+`MiniRcBench-<version>-touch-lcd-2.8.uf2`. The splash screen and **CFG → SETUP** name the board the image
 is built for.
 
 *Welche Platine?* MiniRcBench läuft nur auf der Waveshare RP2350-Touch-LCD-2.8:

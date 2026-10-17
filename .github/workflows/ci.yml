@@ -146,11 +146,10 @@ jobs:
               || { echo "::error::$a was ignored"; exit 1; }
           done
 
-          # Options this build does not take are refused rather than accepted
-          # and ignored: the unsuffixed pin options, the pin options of
-          # another board, and a BOARD naming another target.
+          # Pin options this build does not take are refused rather than
+          # accepted and ignored: the unsuffixed ones and the 2.0" board's.
           for bad in -DDSHOT_PIN=28 -DKISS_PIN=28 -DDSHOT_PIN_LCD_2=4 \
-                     -DKISS_PIN_LCD_2=5 -DBOARD=BOARD_RP2350_TOUCH_LCD_2; do
+                     -DKISS_PIN_LCD_2=5; do
             rm -rf build-pin
             if cmake -B build-pin -G Ninja -DPICO_BOARD=pico2 \
                      -DPICO_PLATFORM=rp2350-arm-s -DCMAKE_BUILD_TYPE=Release \

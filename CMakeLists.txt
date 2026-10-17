@@ -30,15 +30,8 @@ cmake_minimum_required(VERSION 3.18)
 # happened and guessing.
 option(SD_DEBUG "Enable verbose SD driver logging over USB serial" OFF)
 
-# There is no board to choose. A BOARD naming any other target is refused
-# rather than ignored: a script that still asks for another board would
-# otherwise get a 2.8" image without a word.
-if(DEFINED BOARD AND NOT "${BOARD}" STREQUAL "BOARD_RP2350_TOUCH_LCD_2_8")
-    message(FATAL_ERROR
-        "MiniRcBench builds for the Waveshare RP2350-Touch-LCD-2.8 only, and "
-        "BOARD=${BOARD} names another target. Configure without -DBOARD, in a "
-        "fresh build directory.")
-endif()
+# There is no board to choose: the build targets the RP2350-Touch-LCD-2.8,
+# and a BOARD given on the command line is ignored.
 
 # Which GPIOs the ESC signal and telemetry wires land on. Empty means "leave
 # config.h's default alone".

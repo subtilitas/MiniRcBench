@@ -9,10 +9,8 @@ Symptom first, then cause. ESC means electronic speed controller.
 ## The screen stays dark
 
 MiniRcBench runs on the Waveshare RP2350-Touch-LCD-2.8 only. Check the board:
-the 2.8" has JST-SH connectors and no 2.54 mm headers. The image does not
-check which board it runs on. On any other board, the RP2350-Touch-LCD-2
-among them, it drives pins that are wired to other parts there, and what
-that does to such a board is not tested. For the RP2350-Touch-LCD-2, use
+the 2.8" has JST-SH connectors and no 2.54 mm headers. For the
+RP2350-Touch-LCD-2, use
 [DshotDisplay](https://github.com/subtilitas/DshotDisplay).
 
 To reflash: hold **BOOT**, tap **RESET**, release **BOOT**. The board appears

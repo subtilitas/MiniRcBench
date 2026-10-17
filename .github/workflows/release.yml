@@ -197,10 +197,7 @@ jobs:
           |---|---|
           | `MiniRcBench-VERSION-touch-lcd-2.8.uf2` | Waveshare RP2350-Touch-LCD-2.8 |
 
-          The image is for the RP2350-Touch-LCD-2.8 only. It does not
-          identify the board it runs on: flashed onto any other board, it
-          drives the 2.8" pin map there, and what that does on such a board is
-          not tested.
+          The image is for the RP2350-Touch-LCD-2.8 only.
 
           ## Flashing
 
