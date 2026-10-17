@@ -1,7 +1,9 @@
 # KST and Chaservo servo programming
 
 Status: planned. Nothing here is built. It depends on the pin claim in
-[pin-claim.md](pin-claim.md), slice 1 there; this document is slice 3. The
+[pin-claim.md](pin-claim.md), slice 1 there, which is built: the KST button on
+CFG is drawn disabled, `src/ui_kst.cpp` is a stub, and `core1_job.cpp` has no
+KST job. This document is slice 3. The
 rcbench code it ports has not sent a frame to a servo either: rcbench's
 `protocols/kst/README.md` says "no frame of this code has been sent to a
 servo, and the pin driver has not run on a chip".

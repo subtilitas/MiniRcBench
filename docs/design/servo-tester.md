@@ -1,7 +1,9 @@
 # Servo tester
 
 Status: planned. Nothing here is built. It depends on the pin claim in
-[pin-claim.md](pin-claim.md), slice 1 there; this document is slice 2.
+[pin-claim.md](pin-claim.md), slice 1 there, which is built: the SERVO button
+on CFG is drawn disabled, `src/ui_servo.cpp` is a stub, and `core1_job.cpp`
+has no servo job. This document is slice 2.
 
 Terms: PWM is pulse-width modulation, here the RP2350's hardware PWM slices.
 A servo pulse is a high level of 400 µs to 2500 µs repeated at a frame rate.

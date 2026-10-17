@@ -853,7 +853,8 @@ bool escTaskSuspended();
  * combinations — a new pin against an old bitrate, for one frame.
  *
  * Takes effect on the next escTaskPoll(): the driver releases the old pin and
- * binds the new one. Forces a disarm, because
+ * binds the new one, after the same zero-throttle drain as a suspend
+ * (escDrainDone()). Forces a disarm, because
  * the ESC on the old pin stops hearing frames the moment it is released.
  *
  * Safe to call with unchanged values; it is a no-op if nothing differs, so the

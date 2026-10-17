@@ -21,7 +21,10 @@ read-only drive, and reads and writes AM32 ESC settings over the signal wire.
 Planned: a servo tester, with PWM (pulse-width modulation) servo output,
 manual position, sweep and two servos at once, and KST and Chaservo servo
 programming. Both use the same two signal pins. Their design notes are
-`docs/design/servo-tester.md` and `docs/design/kst-programming.md`.
+`docs/design/servo-tester.md` and `docs/design/kst-programming.md`. The pin
+claim they share, `docs/design/pin-claim.md` slice 1, is built: the AM32
+editor runs on it, and the SERVO and KST buttons on the settings screen are
+drawn disabled.
 
 ![UI preview](docs/ui-preview.png)
 
@@ -64,6 +67,15 @@ timing cannot share a core with that, so the work is split:
 The two cores share one struct guarded by a `critical_section`. Core0 calls
 `escHeartbeat()` every frame. If no heartbeat arrives for
 `UI_HEARTBEAT_TIMEOUT_MS` (250 ms), core1 forces the throttle to zero.
+
+A screen that needs the signal pins claims them (`src/pin_claim.h`). The claim
+suspends the DShot pump on core1: zero frames until 250 ms
+(`ARM_ZERO_THROTTLE_MS`) have passed since the last throttle frame, then no
+edges, the pin released and the KISS receiver ended. Core1 then runs that
+screen's job instead (`src/core1_job.h`), and `loop1()` is
+`escTaskPoll(); core1JobPoll();`. The AM32 editor's transport runs on core0
+and has no core1 job; no other job is built yet. Leaving the screen rebuilds
+the pump from the wiring it had, disarmed.
 
 ---
 
@@ -326,10 +338,14 @@ Arming and disarming dim the backlight to a quarter for 120 ms
 - **BEEP**: sends `DSHOT_CMD_BEACON1` for 6 frames (`BEEP_REPEATS`), 6 ms at
   1 kHz. Use it to identify which ESC is connected. Refused while armed; the
   caption then reads `REFUSED - DISARM THE ESC FIRST`.
-- **AM32**: the ESC settings editor. See [AM32 ESC configuration](#am32-esc-configuration).
-- **SD LOG**: logging status and manual start/stop. See below.
-- **SETUP**: ESC and telemetry pins, DShot bitrate, contrast, backlight, and
-  the button that writes all settings to flash. See below.
+- **SD LOG**: beside BEEP, 104 px each. Logging status and manual start/stop.
+  See below.
+- The bottom row holds four destinations, 50 px each:
+  - **AM32**: the ESC settings editor. See [AM32 ESC configuration](#am32-esc-configuration).
+  - **SERVO** and **KST**: the servo tester and KST servo programming. Not
+    built yet: drawn as outlines, and a tap does nothing.
+  - **SETUP**: ESC and telemetry pins, DShot bitrate, contrast, backlight, and
+    the button that writes all settings to flash. See below.
 - **UNSAVED** on the strip under the title means a value on this screen or on
   SETUP differs from flash. The save button is on SETUP.
 
@@ -641,8 +657,10 @@ does not flash ESC firmware. The transport is `src/am32_bl.h`.
 
 ![AM32 config](docs/am32-preview.png)
 
-Entering the screen disarms, stops the DShot driver and hands the signal pin to
-the bootloader transport. Leaving hands it back.
+Entering the screen claims the signal pin (`src/pin_claim.h`): it disarms,
+sends throttle zero until 250 ms have passed since the last throttle frame,
+stops the DShot driver and hands the pin to the bootloader transport. Leaving
+hands it back.
 
 ### Connecting
 
@@ -755,6 +773,9 @@ In the firmware:
   5 s, `IDLE ns` replaces the battery voltage in the top row.
 - Core1 sets the throttle to zero if core0 sends no heartbeat for 250 ms.
 - Opening CFG disarms. The wiring settings are reachable only from there.
+- Before DShot gives up the signal pin, to the AM32 editor or for a pin
+  change, it sends throttle zero until 250 ms have passed since the last
+  throttle frame.
 - A settings save is refused while armed, because erasing flash stops the
   DShot pump.
 - A stored settings block that fails its CRC, version or size check is
@@ -790,6 +811,8 @@ src/
   board_rp2350_touch_lcd_2_8.h  the pin map itself, from the schematic
   board_desc.{h,cpp}    the pins and defaults the drivers and settings read, as data
   esc_task.{h,cpp}      core1 DShot pump, EDT decode, cross-core state
+  pin_claim.{h,cpp}     one screen at a time takes the two signal pins from DShot
+  core1_job.{h,cpp}     the core1 job on the claimed pins: start, bind, step, stop
   dshot/                bidirectional DShot, from rcbench
     dshot.h, dshot_{frame,telem,edt}.c  frame, reply decode, EDT schedule (pure C)
     out_dshot.{h,c}, dshot.pio          RP2350 pin driver: 2 state machines, 16 instructions
@@ -797,6 +820,9 @@ src/
   ui_widgets.{h,cpp}    shared header, buttons, rows and chips
   ui_am32.{h,cpp}       AM32 config screen: connect, edit, verified write
   ui_setup.{h,cpp}      SETUP screen: pins, bitrate, contrast, hold-to-save
+  ui_servo.{h,cpp}      servo tester screen, a stub until it is built
+  ui_kst.{h,cpp}        KST programming screen, a stub until it is built
+  servo.cmake, kst.cmake  each feature's firmware sources (test/*.mk: its tests)
   ui_input.{h,cpp}      tap-on-release and held-repeat rules, shared (pure)
   rpm_filter.h          display smoothing of the RPM readout
   am32_bl.{h,cpp}       one-wire bootloader transport
@@ -881,7 +907,7 @@ target so a test run does not leave the working tree dirty.
 `python3 tools/coverage.py` writes the figure below from its gcov counters.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.3%**: 2,503 of 2,573 lines in 24 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.3%**: 2,723 of 2,800 lines in 29 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the
@@ -892,7 +918,8 @@ accessors.
 
 `test_ui.cpp` `#include`s `ui_am32.cpp` rather than linking it, so tests can read its
 file-static state without production code carrying test-only accessors. For that reason the
-Makefile does not list `ui_am32.cpp` in `SRCS`.
+Makefile does not list `ui_am32.cpp` in `SRCS`. `test_claim.cpp` includes `core1_job.cpp`
+the same way, to put fake jobs in its job table, and the Makefile does not list it either.
 
 `make pioemu`, which `make` runs too, runs `test/pio_sdio_emu.py`. It assembles
 the two SDIO PIO programs from `src/sdio/sd_pio.pio` itself and runs them one

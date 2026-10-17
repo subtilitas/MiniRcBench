@@ -1,7 +1,11 @@
 # Pin claim and core1 jobs
 
-Status: planned. Nothing here is built. The design uses the DShot driver in
-`src/dshot/` (`out_dshot_bind()`, `out_dshot_release()`).
+Status: slice 1 is built: the claim (`src/pin_claim.h`), the core1 job
+dispatch with no job (`src/core1_job.h`), the drain, the AM32 screen on the
+claim, the CFG rows and the stub screens. Host tests only; nothing of it is
+tested on hardware. Slices 2 and 3 are planned. The design uses the DShot
+driver in `src/dshot/` (`out_dshot_bind()`, `out_dshot_stop()`,
+`out_dshot_release()`).
 
 Terms: ESC is electronic speed controller. DShot is the digital ESC protocol
 the tester drives; bidirectional DShot inverts the line and the ESC answers on
@@ -24,8 +28,8 @@ three is at the end.
 ## Why
 
 MiniRcBench runs on the Waveshare RP2350-Touch-LCD-2.8, which brings out two
-signal pins, its only free GPIOs. Today both belong to the ESC for the whole
-run: the DShot pump on one, the KISS receiver on the other. The servo tester
+signal pins, its only free GPIOs. Outside a claim both belong to the ESC: the
+DShot pump on one, the KISS receiver on the other. The servo tester
 and the KST programmer need the same two wires. A second set of pins does not
 exist, so the pins change owner by screen.
 
@@ -33,7 +37,7 @@ exist, so the pins change owner by screen.
 
 The claim names pins by role, not by number, because the number is a setting.
 
-| Role | Today | Claimed by |
+| Role | Outside a claim | Claimed by |
 |---|---|---|
 | SIG | the ESC signal wire, `settings()->dshotPin` | AM32 config, servo A, KST programming |
 | AUX | the KISS telemetry wire, `settings()->kissPin` | servo B (two-servo mode) |
@@ -84,27 +88,43 @@ core that claims a PIO state machine is the core that frees it, as
    running during the check.
 2. **Stopping.** Core0 calls `escTaskSuspend()`, which forces a disarm. Core1
    sends throttle-zero frames until `ARM_ZERO_THROTTLE_MS`, 250 ms, have passed
-   since the last frame that carried a throttle, then `out_dshot_stop(sig)`
-   (no edges), `out_dshot_release(sig)` (pad back to a plain input, pulls
-   off), and `kissUartEnd()`, which ends the PIO receiver on AUX. It then sets
-   `escTaskSuspended()`. Coming from CFG, the 250 ms have passed long before:
-   CFG disarms on entry and the user spends more than 250 ms on the SETTINGS
-   screen. The wait matters only for a caller that skips the UI, such as a
-   test.
+   since the last frame that carried a throttle (`escDrainDone()`), then
+   `out_dshot_stop(sig)` (no edges), `out_dshot_release(sig)` (pad back to a
+   plain input, pulls off) and `kissUartEnd()`, which ends the PIO receiver on
+   AUX. `esc_task.cpp` then puts the pull-up back on SIG, so the line holds
+   the bidirectional idle level until the claim's user takes it. It then sets
+   `escTaskSuspended()`. The drain frames carry no command and no KISS
+   request. A pump that sent no throttle frame since its bind needs no drain.
+   Coming from CFG, the 250 ms have usually passed: CFG disarms on entry. A
+   user who taps CFG and AM32 in quick succession can open AM32 about 100 ms
+   after the last throttle frame, and its handover then waits out the rest. A
+   rebuild after a SETUP pin change drains the same way.
 3. **Held.** Core0 reads the GPIO numbers once: SIG from `escTaskDshotPin()`,
-   AUX from a new `escTaskKissPin()`. For SERVO and KST it starts the core1
-   job with those numbers. AM32 calls `am32BlBegin()` as today.
+   AUX from `escTaskKissPin()`. `pinClaimGpio()` returns them from here on, for
+   the roles the claim asked for. For SERVO and KST it starts the core1 job
+   with those numbers, and with AUX as 0xFF when the claim did not ask for it.
+   AM32 has no core1 job: it calls `am32BlBegin(pinClaimGpio(PIN_SIG))`, and
+   its claim stays Held until BACK.
 4. **Running.** The job binds its pins and reports `Running`, or reports a bind
-   failure and binds nothing.
-5. **Leaving.** BACK asks the job to stop. The job leaves its pins as plain
-   inputs and reports `Idle`. Before DShot restarts, SERVO and KST show the
-   unplug page ([restore](#restoring-dshot)).
+   failure and binds nothing. A failed bind leaves the claim Held, with the
+   reason in `pinClaimJobError()`. In slice 1 no job is built, so
+   `core1JobStart()` refuses SERVO and KST and the reason is
+   `CORE1_JOB_REFUSED`.
+5. **Leaving.** BACK (`pinClaimEnd()`) asks the job to stop. The job leaves its
+   pins as plain inputs and reports `Idle`. Before DShot restarts, SERVO and
+   KST show the unplug page ([restore](#restoring-dshot)):
+   `pinClaimUnplugDue()` is true once the job is idle, RESTART DSHOT calls
+   `pinClaimRestart()`, and BACK on the page calls `pinClaimKeep()`, which
+   returns the claim to Held and starts the job again. AM32 has neither a job
+   nor the page, so its BACK restores DShot within the `pinClaimEnd()` call.
 6. **Restoring.** Core0 calls `escTaskResume()`. Core1 rebuilds the driver from
-   the wiring latched in `esc_task.cpp` and the claim is `Free`.
+   the wiring latched in `esc_task.cpp`, and the claim is `Free` from the
+   first look after `escTaskSuspended()` turns false. Nothing is left for
+   core0 to do in this step, so it ends without a poll once the screen has
+   closed.
 
-Today's `escTaskSuspend()` tears the driver down on the next poll and sends no
-stop frames. Step 2 adds the 250 ms drain to that same path, so the AM32
-screen gets it too.
+BACK during Stopping resumes DShot at once. No job has run and nothing has
+been driven, so no unplug page is shown.
 
 ### API
 
@@ -123,43 +143,63 @@ enum class ClaimRefusal : uint8_t {
 };
 
 ClaimRefusal pinClaimBegin(PinUser who, uint8_t roles);  // PIN_SIG | PIN_AUX
-ClaimState   pinClaimPoll();               // once per UI frame
+ClaimState   pinClaimPoll();               // once per UI frame, by the holder
+ClaimState   pinClaimState();              // no step
+PinUser      pinClaimHolder();             // None while Free
 uint8_t      pinClaimGpio(uint8_t role);   // latched at Held; 0xFF before
 uint8_t      pinClaimJobError();           // why a bind failed, 0 for none
 void         pinClaimEnd(PinUser who);     // BACK; the poll finishes it
+bool         pinClaimUnplugDue();          // SERVO, KST: Leaving, job idle
+void         pinClaimRestart(PinUser who); // RESTART DSHOT on the unplug page
+void         pinClaimKeep(PinUser who);    // BACK on the unplug page
 ```
 
 The refusal check is a pure function, `pinClaimCheck()`, beside it, so the
-host suite tests every rule without the SDK.
+host suite tests every rule without the SDK. Its order is Armed, Busy,
+EscAnswering, KissLive, SamePin; freshness is `escFieldFresh()`, the rule the
+readouts use.
 
 Core1, in `src/core1_job.h`:
 
 ```c
 enum class Core1Job : uint8_t { None, Servo, Kst };
+enum class Core1JobPhase : uint8_t { Idle, Starting, Running, Stopping };
+struct Core1JobOps {                       // one per job, defined by its slice
+    uint8_t (*bind)(uint8_t sigGpio, uint8_t auxGpio);  // 0, or CORE1_JOB_PWM ...
+    void    (*step)(uint32_t nowMs, bool uiAlive);
+    void    (*release)();
+};
 
+void core1JobInit();          // core0, before core1 is launched
 bool core1JobStart(Core1Job job, uint8_t sigGpio, uint8_t auxGpio);  // core0
 void core1JobStop();                                                   // core0
 Core1Job core1JobRunning();   // core0: which job runs; None once idle
+Core1JobPhase core1JobPhase();// core0
+uint8_t core1JobError();      // core0: CORE1_JOB_REFUSED, _PWM, _PIO, _DMA, _CLOCK
 void core1JobPoll();          // core1, from loop1() after escTaskPoll()
 bool core1UiAlive();          // core1: escHeartbeat() within 250 ms
 ```
 
-`loop1()` becomes `escTaskPoll(); core1JobPoll();`. `escTaskPoll()` returns at
-once while suspended, as it does today, and `core1JobPoll()` returns at once
+`loop1()` is `escTaskPoll(); core1JobPoll();`. `escTaskPoll()` returns at
+once while suspended, and `core1JobPoll()` returns at once, without a lock,
 while no job runs. `core1JobStart()` is refused unless `escTaskSuspended()` is
-true, so the DShot pump and a job never drive a pin together.
+true, so the DShot pump and a job never drive a pin together. It is refused
+too for `Core1Job::None`, for a job with no `Core1JobOps` in the table in
+`core1_job.cpp`, and while a job is not idle. Slices 2 and 3 add their entry
+to that table. A stop that arrives while core1 binds is kept, and the next
+pass releases what the bind took.
 
 Each job has its own command block and status block, written and read under
 its own critical section, in the same pattern as `escSnapshot()`. They are in
-the two feature documents. `core1UiAlive()` reads the heartbeat
-`escTaskPoll()` already uses, so one rule decides "the UI is alive" for every
-job.
+the two feature documents. `core1UiAlive()` is `escUiAlive()` against
+`escHeartbeatMs()`, the rule `escTaskPoll()` uses, so one rule decides "the UI
+is alive" for the pump and every job.
 
 ### What core1 does while a pin is claimed
 
 | Claim | Core1 | Why there |
 |---|---|---|
-| AM32 | nothing; `escTaskPoll()` and `core1JobPoll()` both return at once | the bootloader transport runs on core0 today and blocks it for about 40 ms per attempt; nothing in it needs core1 |
+| AM32 | nothing; `escTaskPoll()` and `core1JobPoll()` both return at once | the bootloader transport runs on core0 and blocks it for about 40 ms per attempt; nothing in it needs core1 |
 | SERVO | the servo job: holds the PWM bindings, slews the pulse width at SPEED, runs the sweep curve, checks the heartbeat, every pass of `loop1()` | core0 draws at 40 Hz and stalls for tens of milliseconds on SD writes; a 5 Hz sine sampled at 40 Hz is 8 steps per cycle. Core1 samples the curve every millisecond and PWM latches it at each frame |
 | KST | the KST job: the entry loop wrapper, `kst_session_step()` and the `kst_line` driver | the session needs a step every 1 ms or faster, and its driver slack is 5 ms (`KST_DRIVER_SLACK_US`); core0 cannot promise either |
 
@@ -225,7 +265,7 @@ measurement 2); decision 1 below sets the rule without that measurement.
 No flash write happens during a claim. `settingsSave()` parks core1 for tens
 of milliseconds, which would stall a KST transaction past its driver slack.
 SETUP, the only caller, is unreachable while a claim holds, and
-`settingsSave()` gains an assertion that no claim holds.
+`settingsSave()` asserts it: during a claim it refuses and writes nothing.
 
 ### Settings
 
@@ -285,18 +325,23 @@ analogue servo. So before `escTaskResume()` the SERVO and KST screens show:
 
 RESTART DSHOT is a tap. BACK on that page returns to the screen and keeps the
 claim. The same hazard exists at boot for a servo left on SIG; the README
-wiring section gains that warning.
+wiring section carries that warning from slice 2 on, with the servo tester.
+
+The page itself is drawn by the SERVO and KST screens. The claim holds the
+rule in slice 1 already: for those two users DShot does not restart until
+`pinClaimRestart()`, so the screens of slices 2 and 3 cannot skip the page.
 
 ### Reuse of the AM32 handover
 
-`ui_am32.cpp` already performs a pin handover: `escTaskSuspend()` on entry,
-`S_HANDOVER` until `escTaskSuspended()`, `am32BlBegin(escTaskDshotPin())`,
-and `am32BlEnd()` with `escTaskResume()` on exit. The claim is that code
-moved into `pin_claim.cpp` and given a state, a refusal and a user. The AM32
-screen then calls `pinClaimBegin(PinUser::Am32, PIN_SIG)` and
-`pinClaimEnd(PinUser::Am32)`, and keeps its own `S_HANDOVER` state reading
-`pinClaimPoll()`. Its behaviour changes in one way: the 250 ms zero-frame
-drain.
+The claim is the AM32 screen's pin handover moved into `pin_claim.cpp` and
+given a state, a refusal and a user. `ui_am32.cpp` calls
+`pinClaimBegin(PinUser::Am32, PIN_SIG)` on entry and keeps its own
+`S_HANDOVER` state, which reads `pinClaimPoll()` until Held and then calls
+`am32BlBegin(pinClaimGpio(PIN_SIG))`. On exit it calls `am32BlEnd()` and then
+`pinClaimEnd(PinUser::Am32)`, which resumes DShot within the call. The one
+step the handover has beyond release and rebuild is the 250 ms zero-frame
+drain. A refused claim, which the UI cannot reach, shows `DISARM FIRST` or
+`PINS BUSY` and is asked again every frame.
 
 ## Hardware
 
@@ -322,8 +367,10 @@ a choice. When SETUP has put them on the same GPIO, the claim refuses
 two-servo mode (`SamePin`).
 
 Neither free pin is on the backlight's slice: slice 0 holds GP0, GP1, GP16
-and GP17, none free. The board descriptor gains a `static_assert` for this,
-because `pwm_init()` on the backlight's slice would retime the backlight.
+and GP17, none free. `board_desc.cpp` asserts this at build time, because
+`pwm_init()` on the backlight's slice would retime the backlight, and asserts
+that every free GPIO is on one slice, so two servos share one frame rate and
+take its two channels.
 
 The PWM counter runs at 1 MHz: `clk_sys` 150 MHz divided by 150, an integer
 divider. One count is 1 µs. The wrap is 19,999 at 50 Hz and 1,784 at 560 Hz.
@@ -409,7 +456,11 @@ ground only.
 
 ## Testing
 
-`test/test_claim.cpp`, against fakes of the esc_task and job interfaces:
+`test/test_claim.cpp`, built: against the fake pump in `test/fakes.cpp`,
+which drains on `escDrainDone()`, and against fake jobs that the test puts in
+the job table of `core1_job.cpp`, which it includes for that. The test plays
+core1's side by calling `core1JobPoll()` itself, so it controls the order of
+the two cores' steps:
 
 - refusal per rule: armed, busy, ESC answering within 500 ms and quiet at
   500 ms, KISS live with AUX asked and ignored without, SIG and AUX on one
@@ -424,12 +475,19 @@ ground only.
   those before the claim; the pump starts disarmed;
 - the heartbeat rule per job, with the clock across a `millis()` rollover.
 
-The AM32 tests in `test/test_ui.cpp` keep passing with the AM32 screen moved
-onto the claim.
+The AM32 tests in `test/test_ui.cpp` pass with the AM32 screen on the
+claim, and `test_claim.cpp` drives that screen through the UI as well: the
+latched GPIO reaches the transport, BACK restores DShot with no unplug page,
+and opening AM32 100 ms after a throttle frame waits out the drain. The
+unplug page is tested as the claim's rule; the page's drawing belongs to the
+SERVO and KST screens of slices 2 and 3. The drain inside `esc_task.cpp` and
+the bind that starts the pump disarmed are compiled only: the host suite
+tests the rules they call, not the PIO calls around them.
 
 ## Slices
 
-Three slices. Each merges on its own and leaves the firmware working.
+Three slices. Each merges on its own and leaves the firmware working. Slice 1
+is built.
 
 | Slice | Content | Depends on | Effort |
 |---|---|---|---|
@@ -439,11 +497,18 @@ Three slices. Each merges on its own and leaves the firmware working.
 
 Slice 1 cannot run beside the DShot port: both edit `esc_task.cpp`,
 `main.cpp` and `CMakeLists.txt`. Slices 2 and 3 run in parallel after slice 1.
-Slice 1 creates the files they would otherwise both edit: the stub screens,
-which each slice replaces whole, and one source list per feature, which
-`CMakeLists.txt` and `test/Makefile` include. In code the two slices are then
-disjoint: slice 2 edits its own files and `gfx.cpp`/`gfx.h` (line and arc
-primitives), slice 3 its own files only. They share three documentation
+Slice 1 creates the files they would otherwise both edit: the stub screens
+`src/ui_servo.cpp` and `src/ui_kst.cpp` with their headers, which each slice
+replaces whole; one source list per feature, `src/servo.cmake` and
+`src/kst.cmake`, which `CMakeLists.txt` includes, and `test/servo.mk` and
+`test/kst.mk`, which `test/Makefile` includes; and one stub suite per feature,
+`test/test_servo.cpp` with `runServoTests()` and `test/test_kst.cpp` with
+`runKstTests()`, which `test/test_main.cpp` already runs. `ui.cpp` already
+dispatches to both screens and gates their CFG buttons on
+`uiServoAvailable()` and `uiKstAvailable()`. In code the two slices are then
+disjoint but for one line each in the job table of `core1_job.cpp`: slice 2
+edits its own files and `gfx.cpp`/`gfx.h` (line and arc primitives), slice 3
+its own files only. They share three documentation
 files, each adding its own section: `README.md` (slice 3 also adds the legal
 notice), `wiki/_Sidebar.md` and `wiki/The-Screens.md` with its German
 counterpart. Each slice's user pages are new wiki files of its own. The second
