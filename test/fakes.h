@@ -51,10 +51,22 @@ struct FakeWiring {
 /** @brief The fake pump's wiring now. */
 FakeWiring fakeWiring();
 
-/** @brief How many times escTaskResume() has rebuilt the pump. */
+/**
+ * @brief One pass of the fake DShot pump on core1: escTaskPoll()'s decisions
+ *        on the shipped rules, without the PIO.
+ */
+void fakePumpPoll();
+
+/** @brief EscPump::lastThrottleMs of the fake pump. */
+uint32_t fakeLastThrottleMs();
+
+/** @brief How many times escTaskResume() has been called. */
 int fakeResumeCount();
 
-/** @brief The wiring at the last escTaskResume(). */
+/** @brief How many times the fake pump has bound. */
+int fakeRebuildCount();
+
+/** @brief The wiring the fake pump's last bind used. */
 FakeWiring fakeResumeWiring();
 
 /** @brief Whether the core1 job was idle at the last escTaskResume(). */
@@ -62,6 +74,9 @@ bool fakeResumeJobIdle();
 
 /** @brief GPIO the AM32 transport was last handed by am32BlBegin(). */
 uint8_t fakeAm32Pin();
+
+/** @brief Whether DShot was still suspended at the last am32BlEnd(). */
+bool fakeAm32EndBeforeResume();
 
 /** @brief Set the telemetry the fake ESC reports. */
 void fakeSetTelemetry(const EscTelemetry *t);

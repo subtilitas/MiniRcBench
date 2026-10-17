@@ -176,7 +176,8 @@ uint16_t am32Crc16(const uint8_t *d, uint16_t n) {
 static uint8_t g_am32Pin = 255;
 uint8_t fakeAm32Pin() { return g_am32Pin; }
 void am32BlBegin(uint8_t pin) { g_am32Pin = pin; }
-void am32BlEnd() {}
+// Defined with the DShot task below: it records whether DShot was still
+// down when the transport let go of the pin.
 void am32BlJumpToBootloader() {}
 void am32BlSetBaud(uint32_t) {}
 uint32_t am32BlBaud() { return 19200; }
@@ -198,14 +199,13 @@ bool am32BlAddrDiv4() { return false; }
 static uint16_t g_throttle = 0;
 static bool     g_armed = false;
 static bool     g_suspendReq = false;
+static bool     g_rebuildReq = false;
 static bool     g_suspended = false;
 static EscTelemetry g_tel;
-/** @brief escThrottleStamp() of the fake pump's last frame. */
-static uint32_t g_lastThrottleMs = 0;
 
 uint16_t fakeThrottle() { return g_throttle; }
 bool fakeArmed() { return g_armed; }
-bool fakePinReturned() { return !g_suspendReq && !g_suspended; }
+bool fakePinReturned() { return !g_suspendReq; }
 void fakeSetTelemetry(const EscTelemetry *t) { g_tel = *t; }
 
 // These three mirror esc_task.cpp deliberately, clamp for clamp. They used not
@@ -213,15 +213,7 @@ void fakeSetTelemetry(const EscTelemetry *t) { g_tel = *t; }
 // throttle" -- a rule production does enforce -- could not be observed by any
 // test, and escSetThrottle() had no clamp, so nothing checked the one in
 // production either.
-//
-// The fake pump sends a throttle frame whenever it is armed and given a
-// throttle above zero, and stamps it with the shipped escThrottleStamp(), so
-// the drain before a suspend runs on the same rule as on core1.
-void escSetThrottle(uint16_t t) {
-	g_throttle = t > 2000 ? 2000 : t;
-	EscFrame f = {false, 0, g_armed ? g_throttle : (uint16_t)0, false};
-	g_lastThrottleMs = escThrottleStamp(&f, g_lastThrottleMs, millis());
-}
+void escSetThrottle(uint16_t t) { g_throttle = t > 2000 ? 2000 : t; }
 void escSetArmed(bool a) {
 	if (!a) g_throttle = 0;
 	g_armed = a;
@@ -258,37 +250,66 @@ bool escEdtRequested() { return g_edtRequested; }
 // Tests that want live data now say when it arrived.
 void escSnapshot(EscTelemetry *o) { *o = g_tel; }
 
-// The handover, as core1 runs it: a suspend disarms, the pump drains for
-// ARM_ZERO_THROTTLE_MS after its last throttle frame (escDrainDone(), the
-// shipped rule), and only then reports suspended. Core1 is not a thread here,
-// so the step it would take is taken when core0 looks.
-static int     g_resumes = 0;
-static FakeWiring g_resumeWiring = {};
-static bool    g_resumeJobIdle = true;
+// The pump, as core1 runs it, on the shipped rules: escHandoverStep() decides
+// run, drain or teardown, escDrainSlot() or escPumpSlot() decides the frame,
+// escPumpFrameSent() stamps it, and escPumpBind() starts every binding. Only
+// the PIO is left out. Core1 is not a thread here: fakePumpPoll() is one pass
+// of escTaskPoll(), and the tests call it between UI frames, so a suspend, a
+// drain and a rebuild each take as many passes as a test gives them.
+static EscPump    g_pump;
+static bool       g_pumpUp = false;
+static int        g_resumes = 0;
+static int        g_rebuilds = 0;
+static FakeWiring g_rebuildWiring = {};
+static bool       g_resumeJobIdle = true;
+
+void fakePumpPoll() {
+	uint32_t ms = millis();
+	EscHandover h = escHandoverStep(g_suspendReq, g_rebuildReq, g_pumpUp,
+	                                g_pump.lastThrottleMs, ms);
+	if (h == EscHandover::Teardown) {
+		g_pumpUp = false;
+		g_rebuildReq = false;
+		if (g_suspendReq) {
+			g_suspended = true;
+			return;
+		}
+	}
+	if (!g_suspendReq && !g_pumpUp) {
+		escPumpBind(&g_pump, &g_armed, &g_throttle);
+		g_pumpUp = true;
+		g_suspended = false;
+		g_rebuilds++;
+		g_rebuildWiring = fakeWiring();
+	}
+	EscSlot slot = h == EscHandover::Drain
+	             ? escDrainSlot()
+	             : escPumpSlot(&g_pump, &g_tel, g_armed, true, g_throttle, 0,
+	                           false, ms);
+	escPumpFrameSent(&g_pump, &slot.frame, ms);
+}
+
+uint32_t fakeLastThrottleMs() { return g_pump.lastThrottleMs; }
+
 void escTaskSuspend() {
 	escSetArmed(false);
 	g_suspendReq = true;
 }
-bool escTaskSuspended() {
-	if (g_suspendReq && !g_suspended &&
-	    escDrainDone(g_lastThrottleMs, millis(), ARM_ZERO_THROTTLE_MS))
-		g_suspended = true;
-	return g_suspended;
-}
-// The rebuild is immediate, and starts as escTaskPoll()'s bind does:
-// disarmed, throttle zero, no throttle frame since the bind.
+// The transport must let go of the pin before DShot is asked to take it back.
+static bool g_am32EndBeforeResume = false;
+bool fakeAm32EndBeforeResume() { return g_am32EndBeforeResume; }
+void am32BlEnd() { g_am32EndBeforeResume = g_suspendReq; }
+bool escTaskSuspended() { return g_suspended; }
+// Only the request, as in esc_task.cpp: the rebuild is the next
+// fakePumpPoll().
 void escTaskResume() {
 	g_suspendReq = false;
-	g_suspended = false;
-	g_armed = false;
-	g_throttle = 0;
-	g_lastThrottleMs = 0;
 	g_resumes++;
-	g_resumeWiring = fakeWiring();
 	g_resumeJobIdle = core1JobPhase() == Core1JobPhase::Idle;
 }
 int fakeResumeCount() { return g_resumes; }
-FakeWiring fakeResumeWiring() { return g_resumeWiring; }
+int fakeRebuildCount() { return g_rebuilds; }
+FakeWiring fakeResumeWiring() { return g_rebuildWiring; }
 bool fakeResumeJobIdle() { return g_resumeJobIdle; }
 
 // Mirrors esc_task.cpp: a wiring change disarms and zeroes the throttle,
@@ -317,8 +338,8 @@ void escTaskConfigure(uint8_t pin, uint16_t kbaud, bool kissEnable, uint8_t kiss
 	g_dshotKbaud = kbaud;
 	g_kissEnable = kissEnable;
 	g_kissPin = kissPin;
-	g_armed = false;
-	g_throttle = 0;
+	escSetArmed(false);
+	g_rebuildReq = true;
 	g_configures++;
 }
 uint8_t escTaskDshotPin() { return g_dshotPin; }

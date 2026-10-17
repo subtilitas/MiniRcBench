@@ -8,10 +8,12 @@
  * claim and the dispatch did to them. The Makefile therefore must not compile
  * core1_job.cpp separately.
  *
- * The fake pump (fakes.cpp) drains and suspends on the shipped escDrainDone()
- * rule and rebuilds at once on escTaskResume(). Core1 is not a thread here: a
- * test runs core1's side by calling core1JobPoll() itself, which is how the
- * order of the two cores' steps is put under test.
+ * The fake pump (fakes.cpp) makes escTaskPoll()'s decisions with the shipped
+ * functions: escHandoverStep(), escDrainSlot(), escPumpSlot(),
+ * escPumpFrameSent() and escPumpBind(). Core1 is not a thread here: a test runs
+ * core1's side by calling fakePumpPoll() and core1JobPoll() itself, which is
+ * how the order of the two cores' steps is put under test. testHandoverSlots()
+ * runs the same functions one 1 ms slot at a time.
  */
 
 #include "check.h"
@@ -110,11 +112,16 @@ static void kissAnswered(uint32_t ageMs) {
 	fakeSetTelemetry(&t);
 }
 
-/** @brief The board's default wiring, KISS on, and long past any drain. */
+/** @brief One pass of core1's pump. */
+static void pump() { fakePumpPoll(); }
+
+/** @brief The board's default wiring, KISS on, the pump bound, past any drain. */
 static void freshPump() {
 	escTaskConfigure(SIG_GPIO, 600, true, AUX_GPIO);
 	quiet();
+	pump();
 	fakeAdvance(1000);
+	pump();
 }
 
 /**
@@ -125,6 +132,7 @@ static bool toFree() {
 	PinUser who = pinClaimHolder();
 	pinClaimEnd(who);
 	for (int i = 0; i < 4 && pinClaimState() != ClaimState::Free; i++) {
+		pump();
 		core1JobPoll();
 		pinClaimPoll();
 		pinClaimRestart(who);
@@ -132,9 +140,9 @@ static bool toFree() {
 	return pinClaimState() == ClaimState::Free;
 }
 
-/** @brief One UI frame of the real UI. */
+/** @brief One UI frame of the real UI, with core1's pump pass before it. */
 static void frames(int n) {
-	for (int i = 0; i < n; i++) { fakeAdvance(25); uiTick(); }
+	for (int i = 0; i < n; i++) { fakeAdvance(25); pump(); uiTick(); }
 }
 
 static void tap(int x, int y) {
@@ -210,6 +218,14 @@ static void testCheckRules() {
 	          pinClaimCheck(PinUser::Servo, both, &f) == ClaimRefusal::SamePin);
 	checkTrue("one GPIO for both, SIG only: claims",
 	          pinClaimCheck(PinUser::Servo, PIN_SIG, &f) == ClaimRefusal::None);
+
+	f.kissLastMs = now - 10;
+	checkTrue("KISS live outranks one GPIO for both",
+	          pinClaimCheck(PinUser::Servo, both, &f) == ClaimRefusal::KissLive);
+	f.auxGpio = AUX_GPIO;
+	f.lastRpmMs = now - 10;
+	checkTrue("an answering ESC outranks KISS live",
+	          pinClaimCheck(PinUser::Servo, both, &f) == ClaimRefusal::EscAnswering);
 }
 
 /** @brief pinClaimBegin() against the live state: a refusal changes nothing. */
@@ -278,19 +294,19 @@ static void testBeginRefusals() {
 	freshPump();
 }
 
-/** @brief The zero-throttle drain before the pump lets go of the pin. */
-static void testDrain() {
-	section("Pin claim: the drain before teardown");
+/** @brief The handover rules in esc_task.h, one by one. */
+static void testHandoverRules() {
+	section("DShot handover: the rules");
 
 	checkTrue("no throttle frame since the bind: no drain",
 	          escDrainDone(0, 12345, ARM_ZERO_THROTTLE_MS));
-	checkTrue("249 ms after a throttle frame: draining",
-	          !escDrainDone(5000, 5249, ARM_ZERO_THROTTLE_MS));
-	checkTrue("250 ms after: done", escDrainDone(5000, 5250, ARM_ZERO_THROTTLE_MS));
-	checkTrue("across the millis() rollover: draining at 249 ms",
-	          !escDrainDone(0xFFFFFF00u, 0xFFFFFF00u + 249u, ARM_ZERO_THROTTLE_MS));
-	checkTrue("and done at 250 ms",
-	          escDrainDone(0xFFFFFF00u, 0xFFFFFF00u + 250u, ARM_ZERO_THROTTLE_MS));
+	checkTrue("250 ms after a throttle frame: still draining",
+	          !escDrainDone(5000, 5250, ARM_ZERO_THROTTLE_MS));
+	checkTrue("251 ms after: done", escDrainDone(5000, 5251, ARM_ZERO_THROTTLE_MS));
+	checkTrue("across the millis() rollover: draining at 250 ms",
+	          !escDrainDone(0xFFFFFF00u, 0xFFFFFF00u + 250u, ARM_ZERO_THROTTLE_MS));
+	checkTrue("and done at 251 ms",
+	          escDrainDone(0xFFFFFF00u, 0xFFFFFF00u + 251u, ARM_ZERO_THROTTLE_MS));
 
 	EscFrame zero = {false, 0, 0, false};
 	EscFrame thr  = {false, 0, 1, false};
@@ -300,28 +316,238 @@ static void testDrain() {
 	checkInt("a throttle frame stamps it", escThrottleStamp(&thr, 77, 900), 900);
 	checkInt("a throttle frame at millis() 0 stamps 1", escThrottleStamp(&thr, 0, 0), 1);
 
-	// Through the claim, for a caller that skips the UI: a throttle frame,
-	// then a claim at once.
+	checkTrue("no request: run, even right after a throttle frame",
+	          escHandoverStep(false, false, true, 5000, 5001) == EscHandover::Run);
+	checkTrue("a suspend 250 ms after a throttle frame: drain",
+	          escHandoverStep(true, false, true, 5000, 5250) == EscHandover::Drain);
+	checkTrue("251 ms after: teardown",
+	          escHandoverStep(true, false, true, 5000, 5251) == EscHandover::Teardown);
+	checkTrue("a rebuild drains too",
+	          escHandoverStep(false, true, true, 5000, 5100) == EscHandover::Drain);
+	checkTrue("nothing bound: teardown at once",
+	          escHandoverStep(true, false, false, 5000, 5001) == EscHandover::Teardown);
+	checkTrue("no throttle frame since the bind: teardown at once",
+	          escHandoverStep(true, false, true, 0, 5001) == EscHandover::Teardown);
+
+	EscSlot d = escDrainSlot();
+	checkTrue("a drain slot is throttle zero, no command, no KISS request",
+	          !d.frame.sendCommand && d.frame.throttle == 0 && !d.frame.requestKiss);
+	checkTrue("and takes no beacon and forgets no EDT", !d.beepTaken && !d.forgetEdt);
+
+	EscPump p;
+	memset(&p, 0xA5, sizeof(p));
+	volatile bool armed = true;
+	volatile uint16_t throttle = 700;
+	escPumpBind(&p, &armed, &throttle);
+	checkTrue("a bind disarms", !armed);
+	checkInt("and zeroes the throttle", throttle, 0);
+	checkInt("and forgets the last throttle frame", p.lastThrottleMs, 0);
+	checkInt("and queues the EDT enable", p.edt.reps, EDT_ENABLE_REPEATS);
+	escPumpFrameSent(&p, &thr, 900);
+	checkInt("a throttle frame sent stamps the pump", p.lastThrottleMs, 900);
+	escPumpFrameSent(&p, &zero, 950);
+	checkInt("a zero frame does not", p.lastThrottleMs, 900);
+}
+
+/**
+ * @brief escTaskPoll()'s decisions, one 1 ms slot at a time, without the PIO.
+ *
+ * The same functions escTaskPoll() calls, in its order: escHandoverStep(),
+ * escPumpBind(), escDrainSlot() or escPumpSlot(), escPumpFrameSent(). What is
+ * modelled is core0's requests and the clock.
+ */
+struct HandoverSim {
+	EscPump      pump;
+	EscTelemetry tel;
+	bool     armed;               /**< core0's s_armed. */
+	uint16_t throttle;            /**< core0's s_throttle. */
+	uint8_t  beepReq;             /**< core0's s_beepReq. */
+	bool     suspendReq;          /**< core0's s_suspendReq. */
+	bool     rebuildReq;          /**< core0's s_rebuildReq. */
+	bool     pumpUp;              /**< s_pumpUp. */
+	bool     suspended;           /**< s_suspended. */
+	uint32_t ms;                  /**< millis() of the slot about to run. */
+	int      binds;               /**< Binds so far. */
+	int      teardowns;           /**< Teardowns so far. */
+	uint32_t teardownMs;          /**< millis() of the last teardown. */
+	uint32_t lastThrottleFrameMs; /**< millis() of the last frame with a throttle. */
+	int      drainFrames;         /**< Frames sent while draining. */
+	int      badDrainFrames;      /**< ...that carried a throttle, a command or a request. */
+	EscFrame last;                /**< The last frame sent. */
+};
+
+static void hsSlot(HandoverSim *h) {
+	EscHandover act = escHandoverStep(h->suspendReq, h->rebuildReq, h->pumpUp,
+	                                  h->pump.lastThrottleMs, h->ms);
+	if (act == EscHandover::Teardown) {
+		h->pumpUp = false;
+		h->rebuildReq = false;
+		h->teardowns++;
+		h->teardownMs = h->ms;
+		if (h->suspendReq) {
+			h->suspended = true;
+			h->ms++;
+			return;
+		}
+	}
+	if (!h->suspendReq && !h->pumpUp) {
+		escPumpBind(&h->pump, &h->armed, &h->throttle);
+		h->pumpUp = true;
+		h->suspended = false;
+		h->binds++;
+	}
+	EscSlot s = act == EscHandover::Drain
+	          ? escDrainSlot()
+	          : escPumpSlot(&h->pump, &h->tel, h->armed, true, h->throttle,
+	                        h->beepReq, false, h->ms);
+	if (s.beepTaken) h->beepReq = 0;
+	if (act == EscHandover::Drain) {
+		h->drainFrames++;
+		if (s.frame.sendCommand || s.frame.throttle || s.frame.requestKiss)
+			h->badDrainFrames++;
+	}
+	if (!s.frame.sendCommand && s.frame.throttle) h->lastThrottleFrameMs = h->ms;
+	escPumpFrameSent(&h->pump, &s.frame, h->ms);
+	h->last = s.frame;
+	h->ms++;
+}
+
+static void hsRun(HandoverSim *h, int n) {
+	for (int i = 0; i < n; i++) hsSlot(h);
+}
+
+static HandoverSim s_hs;
+
+static void testHandoverSlots() {
+	section("DShot handover: slot by slot on the shipped rules");
+
+	HandoverSim *h = &s_hs;
+	memset(h, 0, sizeof(*h));
+	h->ms = 10000;
+	h->armed = true;      // whatever core0 last commanded
+	h->throttle = 900;
+	hsSlot(h);
+	checkTrue("the bind starts disarmed, whatever core0 last commanded",
+	          h->binds == 1 && !h->armed && h->throttle == 0);
+	checkTrue("with the EDT enable as its first frame",
+	          h->last.sendCommand && h->last.command == DSHOT_CMD_EDT_ENABLE);
+	hsRun(h, 20);
+
+	h->armed = true;
+	h->throttle = 300;
+	hsRun(h, 100);
+	checkInt("armed, the pump sends the throttle", h->last.throttle, 300);
+
+	// escTaskSuspend(): escSetArmed(false) zeroes the throttle, then the
+	// request. A beacon asked for at the same moment is left for later.
+	h->armed = false;
+	h->throttle = 0;
+	h->beepReq = 1;
+	h->suspendReq = true;
+	uint32_t last = h->lastThrottleFrameMs;
+	for (int i = 0; i < 1000 && !h->suspended; i++) hsSlot(h);
+	checkTrue("suspended", h->suspended);
+	checkInt("the teardown is 251 ms after the last throttle frame",
+	         (long)(h->teardownMs - last), 251);
+	checkInt("every slot between is a drain frame", h->drainFrames, 250);
+	checkInt("each throttle zero, no command, no KISS request", h->badDrainFrames, 0);
+	checkInt("the drain takes no beacon", h->beepReq, 1);
+
+	h->beepReq = 0;
+	h->suspendReq = false;
+	hsSlot(h);
+	checkTrue("a resume binds again, disarmed",
+	          h->binds == 2 && !h->armed && !h->suspended);
+	checkTrue("with the EDT enable first", h->last.sendCommand &&
+	                                       h->last.command == DSHOT_CMD_EDT_ENABLE);
+
+	// A SETUP pin change: escTaskConfigure() disarms, then the rebuild.
+	hsRun(h, 20);
+	h->armed = true;
+	h->throttle = 200;
+	hsRun(h, 50);
+	h->armed = false;
+	h->throttle = 0;
+	h->rebuildReq = true;
+	h->drainFrames = 0;
+	last = h->lastThrottleFrameMs;
+	for (int i = 0; i < 1000 && h->teardowns < 2; i++) hsSlot(h);
+	checkInt("a rebuild tears down 251 ms after the last throttle frame",
+	         (long)(h->teardownMs - last), 251);
+	checkInt("after 250 drain frames", h->drainFrames, 250);
+	checkTrue("and binds again in the same pass", h->binds == 3 && h->pumpUp &&
+	                                              !h->suspended && !h->armed);
+
+	// Nothing to drain: no throttle frame since that bind.
+	h->suspendReq = true;
+	uint32_t at = h->ms;
+	hsSlot(h);
+	checkTrue("a suspend with no throttle since the bind tears down at once",
+	          h->suspended && h->teardownMs == at);
+}
+
+/** @brief The drain, through the claim and the fake pump. */
+static void testDrain() {
+	section("Pin claim: the drain before teardown");
+
 	uiInit();
 	freshPump();
 	removeJobs();
 	escSetArmed(true);
 	escSetThrottle(300);
+	pump();
+	uint32_t stamp = fakeLastThrottleMs();
+	checkInt("one throttle frame out", stamp, millis());
 	checkTrue("AM32 claims", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
 	checkTrue("the claim forces a disarm", !fakeArmed() && fakeThrottle() == 0);
+	pump();
 	checkTrue("stopping", pinClaimPoll() == ClaimState::Stopping);
-	fakeAdvance(249);
-	checkTrue("no teardown 249 ms after the throttle frame",
+	fakeAdvance(250);
+	pump();
+	checkTrue("no teardown 250 ms after the throttle frame",
 	          pinClaimPoll() == ClaimState::Stopping && !escTaskSuspended());
 	checkTrue("no GPIO latched yet", pinClaimGpio(PIN_SIG) == PIN_CLAIM_NO_GPIO);
 	fakeAdvance(1);
-	checkTrue("held at 250 ms", pinClaimPoll() == ClaimState::Held);
+	pump();
+	checkTrue("held at 251 ms", pinClaimPoll() == ClaimState::Held);
 	checkTrue("back to free", toFree());
 
 	fakeAdvance(5000);
 	checkTrue("after a long disarm", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
-	checkTrue("held on the first step", pinClaimPoll() == ClaimState::Held);
+	pump();
+	checkTrue("held after one pump pass", pinClaimPoll() == ClaimState::Held);
 	checkTrue("back to free", toFree());
+}
+
+/** @brief Restoring lasts until core1 has rebuilt the pump. */
+static void testRestoring() {
+	section("Pin claim: restoring until the pump runs");
+
+	uiInit();
+	freshPump();
+	removeJobs();
+	checkTrue("AM32 claims", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
+	pump();
+	checkTrue("held", pinClaimPoll() == ClaimState::Held);
+	int resumes = fakeResumeCount();
+	int rebuilds = fakeRebuildCount();
+	pinClaimEnd(PinUser::Am32);
+	checkInt("BACK asks for DShot", fakeResumeCount(), resumes + 1);
+	checkTrue("restoring until core1 rebuilds the pump",
+	          pinClaimState() == ClaimState::Restoring);
+	checkTrue("still AM32's", pinClaimHolder() == PinUser::Am32);
+	checkTrue("a SERVO claim while restoring: busy",
+	          pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::Busy);
+	checkTrue("a new AM32 claim while restoring: busy",
+	          pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::Busy);
+	pinClaimEnd(PinUser::Am32);
+	checkTrue("BACK while restoring does nothing",
+	          pinClaimState() == ClaimState::Restoring && fakeResumeCount() == resumes + 1);
+	checkTrue("nor does a poll", pinClaimPoll() == ClaimState::Restoring);
+	pump();
+	checkInt("core1 rebuilds once", fakeRebuildCount(), rebuilds + 1);
+	checkTrue("free once the pump runs", pinClaimState() == ClaimState::Free &&
+	                                     pinClaimHolder() == PinUser::None);
 }
 
 /** @brief The order of the two cores' steps through a SERVO claim. */
@@ -336,6 +562,8 @@ static void testOrder() {
 	checkTrue("two servos claim",
 	          pinClaimBegin(PinUser::Servo, PIN_SIG | PIN_AUX) == ClaimRefusal::None);
 	checkTrue("no job before the pins are free", core1JobRunning() == Core1Job::None);
+	checkTrue("stopping until core1 lets go", pinClaimPoll() == ClaimState::Stopping);
+	pump();
 	checkTrue("held", pinClaimPoll() == ClaimState::Held);
 	checkInt("SIG latched", pinClaimGpio(PIN_SIG), SIG_GPIO);
 	checkInt("AUX latched", pinClaimGpio(PIN_AUX), AUX_GPIO);
@@ -377,13 +605,15 @@ static void testOrder() {
 	pinClaimRestart(PinUser::Servo);
 	checkInt("RESTART DSHOT resumes the pump", fakeResumeCount(), resumes + 1);
 	checkTrue("with the job idle", fakeResumeJobIdle());
-	checkTrue("restoring is settled once the pump runs",
-	          pinClaimPoll() == ClaimState::Free);
+	checkTrue("restoring", pinClaimPoll() == ClaimState::Restoring);
+	pump();
+	checkTrue("free once the pump runs", pinClaimPoll() == ClaimState::Free);
 	checkTrue("nothing held", pinClaimHolder() == PinUser::None);
-	checkInt("the GPIO is no longer latched", pinClaimGpio(PIN_SIG), PIN_CLAIM_NO_GPIO);
+	checkInt("no GPIO is latched after Free", pinClaimGpio(PIN_SIG), PIN_CLAIM_NO_GPIO);
 
 	// KST, SIG only: the job gets no AUX pin.
 	checkTrue("KST claims", pinClaimBegin(PinUser::Kst, PIN_SIG) == ClaimRefusal::None);
+	pump();
 	pinClaimPoll();
 	core1JobPoll();
 	checkTrue("the KST job binds SIG only",
@@ -397,9 +627,10 @@ static void testOrder() {
 	checkTrue("KST gets the unplug page too", pinClaimUnplugDue());
 	checkTrue("back to free", toFree());
 
-	// AM32: no job, no unplug page, DShot back within the BACK call.
+	// AM32: no job, no unplug page, DShot asked for within the BACK call.
 	resumes = fakeResumeCount();
 	checkTrue("AM32 claims", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
+	pump();
 	checkTrue("held", pinClaimPoll() == ClaimState::Held);
 	checkTrue("held with no job", core1JobRunning() == Core1Job::None);
 	pinClaimPoll();
@@ -407,6 +638,7 @@ static void testOrder() {
 	pinClaimEnd(PinUser::Am32);
 	checkTrue("AM32 gets no unplug page", !pinClaimUnplugDue());
 	checkInt("DShot resumes within BACK", fakeResumeCount(), resumes + 1);
+	pump();
 	checkTrue("free", pinClaimState() == ClaimState::Free);
 	removeJobs();
 }
@@ -427,6 +659,9 @@ static void testJobGuard() {
 	checkTrue("a stop while idle does nothing", core1JobPhase() == Core1JobPhase::Idle);
 
 	escTaskSuspend();
+	checkTrue("asked for, not yet down: refused",
+	          !core1JobStart(Core1Job::Servo, SIG_GPIO, 0xFF));
+	pump();
 	checkTrue("DShot down", escTaskSuspended());
 	checkTrue("Core1Job::None: refused", !core1JobStart(Core1Job::None, SIG_GPIO, 0xFF));
 	checkTrue("DShot down: started", core1JobStart(Core1Job::Servo, SIG_GPIO, 0xFF));
@@ -451,17 +686,29 @@ static void testJobGuard() {
 	                                          core1JobPhase() == Core1JobPhase::Idle);
 	checkInt("it never stepped", g_servoJob.steps, 0);
 	escTaskResume();
+	pump();
 
 	removeJobs();
 	escTaskSuspend();
+	pump();
 	checkTrue("no job built: refused", !core1JobStart(Core1Job::Servo, SIG_GPIO, 0xFF));
 	checkTrue("nor KST", !core1JobStart(Core1Job::Kst, SIG_GPIO, 0xFF));
 	escTaskResume();
+	pump();
 	checkTrue("idle, no error", core1JobRunning() == Core1Job::None &&
 	                            core1JobError() == CORE1_JOB_OK);
 }
 
-/** @brief BACK in every state of a SERVO claim. */
+/** @brief A SERVO claim into Held and its bind answered. */
+static void heldWithBind() {
+	pinClaimBegin(PinUser::Servo, PIN_SIG);
+	pump();
+	pinClaimPoll();
+	core1JobPoll();
+	pinClaimPoll();
+}
+
+/** @brief BACK in every state of a SERVO claim, and RETRY after a failed bind. */
 static void testBackEveryState() {
 	section("Pin claim: BACK in every state");
 
@@ -473,18 +720,21 @@ static void testBackEveryState() {
 	// Stopping: a throttle frame just went out, so the drain holds the claim.
 	escSetArmed(true);
 	escSetThrottle(200);
+	pump();
 	resumes = fakeResumeCount();
 	checkTrue("SERVO claims during a drain",
 	          pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
+	pump();
 	checkTrue("stopping", pinClaimPoll() == ClaimState::Stopping);
 	pinClaimEnd(PinUser::Servo);
 	checkInt("BACK while stopping: DShot back at once", fakeResumeCount(), resumes + 1);
-	checkTrue("free", pinClaimState() == ClaimState::Free);
+	checkTrue("free: the pump never let go", pinClaimState() == ClaimState::Free);
 	checkInt("and no job was ever bound", g_servoJob.binds, 0);
 	fakeAdvance(1000);
 
 	// Held, the job asked for and not yet bound.
 	checkTrue("claims", pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
+	pump();
 	checkTrue("held", pinClaimPoll() == ClaimState::Held);
 	pinClaimEnd(PinUser::Servo);
 	checkTrue("BACK before the bind: leaving", pinClaimState() == ClaimState::Leaving);
@@ -495,16 +745,15 @@ static void testBackEveryState() {
 	pinClaimEnd(PinUser::Servo);
 	checkTrue("BACK again while leaving does nothing", pinClaimState() == ClaimState::Leaving);
 	pinClaimRestart(PinUser::Servo);
+	pump();
 	checkTrue("free", pinClaimPoll() == ClaimState::Free);
 	pinClaimEnd(PinUser::Servo);
 	checkTrue("BACK while free does nothing", pinClaimState() == ClaimState::Free);
 
-	// Held, the bind failed.
+	// Held, the bind failed, then BACK.
 	g_servoJob.bindResult = CORE1_JOB_PWM;
-	checkTrue("claims", pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
-	pinClaimPoll();
-	core1JobPoll();
-	checkTrue("the bind failed: still held", pinClaimPoll() == ClaimState::Held);
+	heldWithBind();
+	checkTrue("the bind failed: still held", pinClaimState() == ClaimState::Held);
 	checkInt("and says why", pinClaimJobError(), CORE1_JOB_PWM);
 	checkTrue("binds nothing, so releases nothing", g_servoJob.releases == 0 &&
 	                                               core1JobPhase() == Core1JobPhase::Idle);
@@ -513,26 +762,55 @@ static void testBackEveryState() {
 	checkTrue("BACK after a failed bind: the unplug page", pinClaimUnplugDue());
 	pinClaimRestart(PinUser::Servo);
 	checkInt("then DShot", fakeResumeCount(), resumes + 1);
+	pump();
 	checkTrue("free", pinClaimPoll() == ClaimState::Free);
+
+	// Held, the bind failed, then RETRY: the claim is kept.
+	heldWithBind();
+	checkInt("failed again", pinClaimJobError(), CORE1_JOB_PWM);
+	int binds = g_servoJob.binds;
+	resumes = fakeResumeCount();
+	pinClaimRetry(PinUser::Am32);
+	checkTrue("RETRY from a screen that does not hold it does nothing",
+	          core1JobPhase() == Core1JobPhase::Idle);
 	g_servoJob.bindResult = CORE1_JOB_OK;
+	pinClaimRetry(PinUser::Servo);
+	checkTrue("RETRY asks for the job again", core1JobPhase() == Core1JobPhase::Starting &&
+	                                          pinClaimJobError() == CORE1_JOB_OK);
+	pinClaimRetry(PinUser::Servo);
+	checkTrue("a second RETRY while it starts does nothing",
+	          core1JobPhase() == Core1JobPhase::Starting &&
+	          pinClaimJobError() == CORE1_JOB_OK);
+	core1JobPoll();
+	checkTrue("it binds", g_servoJob.binds == binds + 1 &&
+	                      pinClaimPoll() == ClaimState::Running);
+	checkInt("DShot stayed down", fakeResumeCount(), resumes);
+	pinClaimRetry(PinUser::Servo);
+	checkTrue("RETRY while running does nothing", pinClaimState() == ClaimState::Running &&
+	                                              core1JobPhase() == Core1JobPhase::Running);
+	checkTrue("back to free", toFree());
 
 	// Held, the start refused: what ships, with no servo job built.
 	removeJobs();
 	checkTrue("claims", pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
+	pump();
 	checkTrue("held", pinClaimPoll() == ClaimState::Held);
 	checkInt("the start was refused", pinClaimJobError(), CORE1_JOB_REFUSED);
+	pinClaimRetry(PinUser::Servo);
+	checkInt("RETRY is refused the same way", pinClaimJobError(), CORE1_JOB_REFUSED);
 	pinClaimEnd(PinUser::Servo);
 	checkTrue("BACK: the unplug page", pinClaimUnplugDue());
 	pinClaimRestart(PinUser::Servo);
+	pump();
 	checkTrue("free", pinClaimPoll() == ClaimState::Free);
 	installJobs();
 
 	// Running, then BACK on the unplug page: the claim is kept and the job
 	// starts again.
-	checkTrue("claims", pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
-	pinClaimPoll();
-	core1JobPoll();
-	checkTrue("running", pinClaimPoll() == ClaimState::Running);
+	heldWithBind();
+	checkTrue("running", pinClaimState() == ClaimState::Running);
+	pinClaimRetry(PinUser::Servo);
+	checkInt("RETRY with no failure does nothing", g_servoJob.binds, 1);
 	pinClaimEnd(PinUser::Servo);
 	core1JobPoll();
 	pinClaimPoll();
@@ -562,12 +840,14 @@ static void testRestore() {
 	freshPump();
 	installJobs();
 	escTaskConfigure(SIG_GPIO, 300, true, AUX_GPIO);
+	pump();
 	FakeWiring before = fakeWiring();
 	int configures = fakeConfigureCount();
 	escSetArmed(true);   // the fake pump armed, the UI not
 
 	checkTrue("two servos claim",
 	          pinClaimBegin(PinUser::Servo, PIN_SIG | PIN_AUX) == ClaimRefusal::None);
+	pump();
 	pinClaimPoll();
 	core1JobPoll();
 	pinClaimPoll();
@@ -615,6 +895,7 @@ static void testHeartbeat() {
 	uint32_t spent = 0;
 	for (int i = 0; i < 2; i++) {
 		pinClaimBegin(users[i], PIN_SIG);
+		pump();
 		pinClaimPoll();
 		core1JobPoll();
 		pinClaimPoll();
@@ -677,7 +958,12 @@ static void testAm32Screen() {
 	tap(C_BACK_X, C_BACK_Y);
 	checkTrue("BACK gives DShot the pin, no unplug page",
 	          fakePinReturned() && !pinClaimUnplugDue());
+	checkTrue("the transport let go before DShot was asked back",
+	          fakeAm32EndBeforeResume());
 	checkInt("resumed once", fakeResumeCount(), resumes + 1);
+	checkTrue("restoring until core1's next pass",
+	          pinClaimState() == ClaimState::Restoring);
+	frames(1);
 	checkTrue("free", pinClaimState() == ClaimState::Free);
 	tap(C_BACK_X, C_BACK_Y);
 	frames(2);
@@ -696,15 +982,16 @@ static void testAm32Screen() {
 	tap(C_CFG_X, C_ARM_Y);
 	checkTrue("CFG disarms", !uiArmed() && !fakeArmed());
 	tap(C_AM32_X, C_NAV_Y);
-	// The last throttle frame went out on the second frame of the CFG press,
-	// 100 ms before the claim: three 25 ms frames for each tap.
+	uint32_t stamp = fakeLastThrottleMs();
+	checkTrue("AM32 opened within 250 ms of the last throttle frame",
+	          millis() - stamp <= 250);
 	checkTrue("AM32 waits for the drain", pinClaimState() == ClaimState::Stopping);
-	frames(5);
-	checkTrue("still waiting 225 ms after the throttle frame",
-	          pinClaimState() == ClaimState::Stopping);
-	frames(1);
-	checkTrue("and takes the pin at 250 ms", pinClaimState() == ClaimState::Held);
+	for (int i = 0; i < 20 && pinClaimState() == ClaimState::Stopping; i++) frames(1);
+	uint32_t waited = millis() - stamp;
+	checkTrue("and takes the pin on the first frame more than 250 ms after it",
+	          pinClaimState() == ClaimState::Held && waited > 250 && waited <= 275);
 	tap(C_BACK_X, C_BACK_Y);
+	frames(1);
 	checkTrue("free", pinClaimState() == ClaimState::Free);
 
 	// Another claim already holds: not reachable through the UI, since only
@@ -724,6 +1011,7 @@ static void testAm32Screen() {
 	checkTrue("and claims the frame after the other one ends",
 	          pinClaimHolder() == PinUser::Am32);
 	tap(C_BACK_X, C_BACK_Y);
+	frames(1);
 	checkTrue("free", pinClaimState() == ClaimState::Free);
 	tap(C_BACK_X, C_BACK_Y);
 	frames(2);
@@ -735,7 +1023,10 @@ void runClaimTests() {
 
 	testCheckRules();
 	testBeginRefusals();
+	testHandoverRules();
+	testHandoverSlots();
 	testDrain();
+	testRestoring();
 	testOrder();
 	testJobGuard();
 	testBackEveryState();

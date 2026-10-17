@@ -196,6 +196,18 @@ uint8_t pinClaimJobError();
 void pinClaimEnd(PinUser who);
 
 /**
+ * @brief RETRY after a failed bind: start the job again. Core0.
+ *
+ * Acts only while @p who holds the claim, the claim is Held and
+ * pinClaimJobError() names a failure, which also means no start is pending. The claim and its pins are
+ * kept; DShot stays down. BACK instead is pinClaimEnd(), which shows the
+ * unplug page before DShot restarts.
+ *
+ * @param who The screen.
+ */
+void pinClaimRetry(PinUser who);
+
+/**
  * @brief True while SERVO or KST must show the unplug page.
  *
  * Leaving, with the job idle and DShot not yet restarted. DShot idles the

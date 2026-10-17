@@ -192,6 +192,14 @@ void pinClaimRestart(PinUser who) {
 	restore();
 }
 
+void pinClaimRetry(PinUser who) {
+	// A start that is pending has no error, so this also refuses a RETRY
+	// while one is under way.
+	if (who != s_who || s_state != ClaimState::Held || s_jobError == CORE1_JOB_OK)
+		return;
+	startJob();
+}
+
 void pinClaimKeep(PinUser who) {
 	if (who != s_who || !pinClaimUnplugDue()) return;
 	s_state = ClaimState::Held;

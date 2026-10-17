@@ -515,6 +515,8 @@ struct EscPump {
 	uint8_t     beepCmd;       /**< Latched beacon command. */
 	uint8_t     beepReps;      /**< Beacon repeats still owed; 0 means none queued. */
 	uint16_t    kissCountdown; /**< Frames left before the next KISS request. */
+	/** escThrottleStamp() of the last frame; 0 for none since the bind. */
+	uint32_t    lastThrottleMs;
 };
 
 /** @brief What escPumpSlot() decided for one frame slot. */
@@ -525,17 +527,27 @@ struct EscSlot {
 };
 
 /**
- * @brief A new bind: the EDT enable first, no beacon owed, and the first
- *        KISS request on the first free frame. Pure.
+ * @brief A new bind: disarmed at throttle zero, the EDT enable first, no
+ *        beacon owed, no throttle frame sent, and the first KISS request on
+ *        the first free frame. Pure.
  *
- * Called once per bind, before the first frame. @see escEdtBind()
+ * Called once per bind, before the first frame. A bind is a new ESC as far
+ * as the pump is concerned: after a SETUP change, and after a pin claim. It
+ * starts disarmed whatever core0 last commanded, so arming again takes the
+ * full hold on the tester screen. @see escEdtBind()
  *
- * @param p State to reset.
+ * @param p        State to reset.
+ * @param armed    Core0's arm command, cleared.
+ * @param throttle Core0's throttle command, zeroed.
  */
-static inline void escPumpBind(EscPump *p) {
+static inline void escPumpBind(EscPump *p, volatile bool *armed,
+                               volatile uint16_t *throttle) {
+	*armed = false;
+	*throttle = 0;
 	escEdtBind(&p->edt, EDT_ENABLE_REPEATS);
 	p->beepReps = 0;
 	p->kissCountdown = 0;
+	p->lastThrottleMs = 0;
 }
 
 /**
@@ -653,16 +665,36 @@ static inline EscSlot escPumpSlot(EscPump *p, const EscTelemetry *tel,
 }
 
 /**
- * @brief The frame escPumpSlot() decided has gone out. Pure.
+ * @brief When the pump last sent a throttle frame, after frame @p f. Pure.
  *
- * A command frame counts against the enable while one is owed, otherwise
- * against the beacon. @see escEdtFrameSent()
+ * A throttle frame is one that carries a throttle above zero. A zero frame
+ * and a command frame leave the stamp as it was. 0 means "none since the
+ * bind", so a frame at millis() 0 stamps 1.
+ *
+ * @param f      The frame that went out.
+ * @param prevMs The stamp before it.
+ * @param nowMs  millis() of the frame.
+ * @return       The stamp after it.
+ */
+static inline uint32_t escThrottleStamp(const EscFrame *f, uint32_t prevMs,
+                                        uint32_t nowMs) {
+	if (f->sendCommand || f->throttle == 0) return prevMs;
+	return nowMs ? nowMs : 1;
+}
+
+/**
+ * @brief The frame escPumpSlot() or escDrainSlot() decided has gone out. Pure.
+ *
+ * A throttle frame stamps EscPump::lastThrottleMs, which the drain before a
+ * teardown is measured from. A command frame counts against the enable while
+ * one is owed, otherwise against the beacon. @see escEdtFrameSent()
  *
  * @param p     State to update.
  * @param f     The frame, EscSlot::frame.
  * @param nowMs millis() after the frame went out.
  */
 static inline void escPumpFrameSent(EscPump *p, const EscFrame *f, uint32_t nowMs) {
+	p->lastThrottleMs = escThrottleStamp(f, p->lastThrottleMs, nowMs);
 	if (!f->sendCommand) return;
 	if (p->edt.reps)          escEdtFrameSent(&p->edt, nowMs);
 	else if (p->beepReps)     p->beepReps--;
@@ -685,41 +717,73 @@ static inline bool escUiAlive(uint32_t nowMs, uint32_t heartbeatMs) {
 }
 
 /**
- * @brief When the pump last sent a throttle frame, after frame @p f. Pure.
- *
- * A throttle frame is one that carries a throttle above zero. A zero frame
- * and a command frame leave the stamp as it was. 0 means "none since the
- * bind", so a frame at millis() 0 stamps 1.
- *
- * @param f      The frame that went out.
- * @param prevMs The stamp before it.
- * @param nowMs  millis() of the frame.
- * @return       The stamp after it.
- */
-static inline uint32_t escThrottleStamp(const EscFrame *f, uint32_t prevMs,
-                                        uint32_t nowMs) {
-	if (f->sendCommand || f->throttle == 0) return prevMs;
-	return nowMs ? nowMs : 1;
-}
-
-/**
  * @brief Whether the zero-throttle drain before a teardown is over. Pure.
  *
  * A suspend or a rebuild does not take the pin from an ESC that has just been
- * given a throttle. The pump sends zero frames until @p drainMs,
+ * given a throttle. The pump sends zero frames until more than @p drainMs,
  * @ref ARM_ZERO_THROTTLE_MS, have passed since the last throttle frame, and
- * only then stops. An ESC therefore sees throttle zero for at least that long
- * before the line goes silent. A pump that sent no throttle frame since its
- * bind needs no drain.
+ * only then stops. Strictly more: the stamp is a whole millisecond, and the
+ * frame went out somewhere inside it, so a teardown at stamp + 251 ms is at
+ * least 250 ms after the frame. An ESC therefore sees throttle zero for at
+ * least 250 ms before the line goes silent. A pump that sent no throttle
+ * frame since its bind needs no drain.
  *
- * @param lastThrottleMs escThrottleStamp() of the last frame; 0 for none.
+ * @param lastThrottleMs EscPump::lastThrottleMs; 0 for none.
  * @param nowMs          millis().
  * @param drainMs        Length of the drain, @ref ARM_ZERO_THROTTLE_MS.
  * @return               True when the teardown may go ahead.
  */
 static inline bool escDrainDone(uint32_t lastThrottleMs, uint32_t nowMs,
                                 uint32_t drainMs) {
-	return lastThrottleMs == 0 || (uint32_t)(nowMs - lastThrottleMs) >= drainMs;
+	return lastThrottleMs == 0 || (uint32_t)(nowMs - lastThrottleMs) > drainMs;
+}
+
+/** @brief What core1 does with the pin on one pass. @see escHandoverStep() */
+enum class EscHandover : uint8_t {
+	Run,       /**< No request: the pump runs its frame slots. */
+	Drain,     /**< A request, and the drain is not over: a zero frame per slot. */
+	Teardown,  /**< A request, and the drain is over or nothing is bound: let go. */
+};
+
+/**
+ * @brief Decide the pin handover for one pass of escTaskPoll(). Pure.
+ *
+ * A suspend (the pin claim) and a rebuild (a SETUP change) both end the
+ * binding. Neither takes the pin from an ESC that has just been given a
+ * throttle: while escDrainDone() is false the pump keeps its slots and sends
+ * escDrainSlot() in each. A pump that is not bound has nothing to drain, so a
+ * suspend before core1's first bind tears down, and reports suspended, at
+ * once.
+ *
+ * @param suspendReq     Core0 asked for a suspend.
+ * @param rebuildReq     Core0 asked for a rebuild.
+ * @param pumpUp         The pump is bound, or its bind was refused.
+ * @param lastThrottleMs EscPump::lastThrottleMs.
+ * @param nowMs          millis().
+ * @return               What to do on this pass.
+ */
+static inline EscHandover escHandoverStep(bool suspendReq, bool rebuildReq,
+                                          bool pumpUp, uint32_t lastThrottleMs,
+                                          uint32_t nowMs) {
+	if (!suspendReq && !rebuildReq) return EscHandover::Run;
+	if (pumpUp && !escDrainDone(lastThrottleMs, nowMs, ARM_ZERO_THROTTLE_MS))
+		return EscHandover::Drain;
+	return EscHandover::Teardown;
+}
+
+/**
+ * @brief One frame slot of the drain. Pure.
+ *
+ * Throttle zero, with no command and no KISS request: the pump is about to
+ * stop, and a command burst cut off by the teardown reaches no ESC's repeat
+ * count. It takes no beacon and forgets no EDT, so nothing core0 asked for is
+ * consumed by it.
+ *
+ * @return The slot, as escPumpSlot() returns one.
+ */
+static inline EscSlot escDrainSlot() {
+	EscSlot s = {{false, 0, 0, false}, false, false};
+	return s;
 }
 
 /** @brief EDT status frame, bits 3..0: the highest stress level seen. */
@@ -825,11 +889,12 @@ bool escEdtRequested();
  *
  * The pin claim's way in (pin_claim.h): the signal pin and the KISS pin are
  * free while the suspend holds. Forces a disarm first. Core1 then sends zero
- * frames until @ref ARM_ZERO_THROTTLE_MS have passed since the last throttle
- * frame (escDrainDone()), stops the pump with no edges, releases the pin and
- * ends the KISS receiver. Poll escTaskSuspended() until it reports true; the
- * teardown happens on core1 so that the PIO state machines are freed by the
- * core that claimed them.
+ * frames until more than @ref ARM_ZERO_THROTTLE_MS have passed since the last
+ * throttle frame (escHandoverStep()), stops the pump, releases the pin, which
+ * leaves it a plain input with the pulls off, puts the pull-up back on it so
+ * it idles high, and ends the KISS receiver. Poll escTaskSuspended() until it
+ * reports true; the teardown happens on core1 so that the PIO state machines
+ * are freed by the core that claimed them.
  */
 void escTaskSuspend();
 
@@ -854,7 +919,7 @@ bool escTaskSuspended();
  *
  * Takes effect on the next escTaskPoll(): the driver releases the old pin and
  * binds the new one, after the same zero-throttle drain as a suspend
- * (escDrainDone()). Forces a disarm, because
+ * (escHandoverStep()). Forces a disarm, because
  * the ESC on the old pin stops hearing frames the moment it is released.
  *
  * Safe to call with unchanged values; it is a no-op if nothing differs, so the

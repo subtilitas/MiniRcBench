@@ -64,15 +64,19 @@ static_assert(DSHOT_PIN_LCD_2_8 != KISS_PIN_LCD_2_8,
 
 /*
  * The servo tester drives the two free pins from the RP2350's PWM slices. For
- * GP0 to GP31 the slice is (gpio >> 1) & 7 and the channel is gpio & 1
- * (PWM_GPIO_SLICE_NUM in Pico SDK 2.1.1). Two rules follow, and a board whose
- * free pins break either fails here. @see docs/design/pin-claim.md
+ * GP0 to GP31 the slice is (gpio >> 1) & 7 and the channel is gpio & 1, A for
+ * an even GPIO and B for an odd one (PWM_GPIO_SLICE_NUM in Pico SDK 2.1.1).
+ * Three rules follow, and a board whose free pins break one fails here.
+ * @see docs/design/pin-claim.md
  *
  * - No free pin is on the backlight's slice: pwm_init() on that slice would
  *   retime the backlight. GP16 is slice 0, with GP0, GP1 and GP17.
  * - All free pins are on one slice. A slice has one wrap register, so two
- *   servos run at one frame rate, and any two different free pins are its
- *   two channels: two pulse widths, never one compare register twice.
+ *   servos run at one frame rate.
+ * - At most one free pin per channel of that slice. A channel is one compare
+ *   register, and GP12 and GP28, say, share slice 6 channel A. With one even
+ *   and one odd free pin, any two different free pins are the slice's two
+ *   channels: two pulse widths.
  */
 /** @brief PWM slice of a GPIO below 32. */
 static constexpr unsigned pwmSliceOf(unsigned gpio) { return (gpio >> 1) & 7u; }
@@ -91,7 +95,18 @@ static constexpr bool maskOnSlice(uint32_t mask, unsigned slice) {
 	return true;
 }
 
+/** @brief How many GPIOs in @p mask are on PWM channel @p chan: 0 is A, 1 is B. */
+static constexpr unsigned maskOnChannel(uint32_t mask, unsigned chan) {
+	unsigned n = 0;
+	for (unsigned g = 0; g < 32; g++)
+		if (((mask >> g) & 1u) && (g & 1u) == chan) n++;
+	return n;
+}
+
 static_assert(maskClearOfSlice(BOARD_FREE_GPIO_MASK, pwmSliceOf(PIN_LCD_BL)),
               "a free GPIO is on the backlight's PWM slice");
 static_assert(maskOnSlice(BOARD_FREE_GPIO_MASK, pwmSliceOf(DSHOT_PIN_LCD_2_8)),
               "the free GPIOs are not on one PWM slice");
+static_assert(maskOnChannel(BOARD_FREE_GPIO_MASK, 0) <= 1 &&
+              maskOnChannel(BOARD_FREE_GPIO_MASK, 1) <= 1,
+              "two free GPIOs share a PWM channel");

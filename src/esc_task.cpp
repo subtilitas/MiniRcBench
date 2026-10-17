@@ -47,8 +47,6 @@ static_assert(sizeof(dshot_bidir_tx_program_instructions) / sizeof(uint16_t) +
  */
 static bool    s_pumpUp  = false; /**< Bound since the last teardown, or refused. */
 static uint8_t s_pumpPin = 0;     /**< GPIO the driver was bound to. */
-/** @brief escThrottleStamp() of the last frame; 0 for none since the bind. */
-static uint32_t s_lastThrottleMs = 0;
 /** @} */
 
 /** @brief Guards @ref s_tel against concurrent access from core0. */
@@ -340,38 +338,36 @@ void escTaskPoll() {
 	// suspend arriving before core1 has ever bound the pin must still set
 	// `s_suspended`, or the claim waits on a handover that cannot complete.
 	//
-	// It waits for the drain first: zero frames until ARM_ZERO_THROTTLE_MS
-	// have passed since the last throttle frame, so an ESC never goes from a
-	// throttle straight to silence. The request already disarmed, so the
-	// frames below carry zero. @see escDrainDone()
-	bool draining = false;
-	if (s_suspendReq || s_rebuildReq) {
-		if (s_pumpUp &&
-		    !escDrainDone(s_lastThrottleMs, millis(), ARM_ZERO_THROTTLE_MS)) {
-			draining = true;
-		} else {
-			if (s_pumpUp) {
-				// Stop first, so no frame is in flight, then release. The
-				// driver hands the pad back with no pull. The pull-up goes back
-				// on, so the line holds the bidirectional idle level until its
-				// next owner takes it: a claim's user, or nothing after a pin
-				// change.
-				out_dshot_stop(s_pumpPin);
-				out_dshot_release(s_pumpPin);
-				gpio_pull_up(s_pumpPin);
-				s_pumpUp = false;
-			}
+	// It waits for the drain first: zero frames until more than
+	// ARM_ZERO_THROTTLE_MS have passed since the last throttle frame, so an
+	// ESC never goes from a throttle straight to silence. The decision is
+	// escHandoverStep(), pure and in the header with the rest of the rules;
+	// this function does the I/O on it.
+	EscHandover handover = escHandoverStep(s_suspendReq, s_rebuildReq, s_pumpUp,
+	                                       s_pump.lastThrottleMs, millis());
+	if (handover == EscHandover::Teardown) {
+		if (s_pumpUp) {
+			// Stop first, cutting any frame in flight (out_dshot_stop() leaves
+			// the line at its idle level), then release. The release hands the
+			// pad back as a plain input with the pulls off. The pull-up goes
+			// back on, so the line holds the bidirectional idle level until its
+			// next owner takes it: a claim's user, or nothing after a pin
+			// change.
+			out_dshot_stop(s_pumpPin);
+			out_dshot_release(s_pumpPin);
+			gpio_pull_up(s_pumpPin);
+			s_pumpUp = false;
+		}
 #if KISS_TELEM_ENABLE
-			// Whoever owns the pin next, it is not us. A receiver left running
-			// would accumulate noise into a decoder with no way to tell it from
-			// a reply.
-			kissUartEnd();
+		// Whoever owns the pin next, it is not us. A receiver left running
+		// would accumulate noise into a decoder with no way to tell it from a
+		// reply.
+		kissUartEnd();
 #endif
-			s_rebuildReq = false;
-			if (s_suspendReq) {
-				s_suspended = true;
-				return;
-			}
+		s_rebuildReq = false;
+		if (s_suspendReq) {
+			s_suspended = true;
+			return;
 		}
 	}
 	if (!s_suspendReq && !s_pumpUp) {
@@ -386,15 +382,13 @@ void escTaskPoll() {
 		bool bound = out_dshot_bind(pin, kbaud, true);
 		s_pumpPin = pin;
 		s_pumpUp  = true;
-		s_armed = false;
-		s_throttle = 0;
-		// A rebuild is a new ESC as far as this pump is concerned, and its
-		// first frames are the EDT enable. An ESC that kept EDT on across the
-		// rebuild is read correctly from its first reply, because every reply
-		// is read with EDT decoding on. @see ESC_EDT_DECODE, escEdtBind()
-		escPumpBind(&s_pump);
+		// A rebuild is a new ESC as far as this pump is concerned: it starts
+		// disarmed, and its first frames are the EDT enable. An ESC that kept
+		// EDT on across the rebuild is read correctly from its first reply,
+		// because every reply is read with EDT decoding on.
+		// @see escPumpBind(), ESC_EDT_DECODE, escEdtBind()
+		escPumpBind(&s_pump, &s_armed, &s_throttle);
 		s_edtRequested = s_pump.edt.sent;
-		s_lastThrottleMs = 0;
 		s_nextSendUs = time_us_32();
 #if KISS_TELEM_ENABLE
 		if (s_kissEnable && s_kissPin != pin) kissUartBegin(s_kissPin);
@@ -431,9 +425,8 @@ void escTaskPoll() {
 
 	// 2. Decide what to send. The decision is escPumpSlot(), which is pure and
 	// lives in the header so the host suite can reach it. This function only
-	// does the I/O. During the drain the frame is a plain zero, with no
-	// command and no KISS request: the pump is about to stop, and a command
-	// burst cut off by the teardown reaches no ESC's repeat count.
+	// does the I/O. During the drain the slot is escDrainSlot(): a plain
+	// zero, with no command and no KISS request.
 	uint32_t ms = millis();
 	bool uiAlive = escUiAlive(ms, s_heartbeatMs);
 #if KISS_TELEM_ENABLE
@@ -441,18 +434,17 @@ void escTaskPoll() {
 #else
 	bool kissRx = false;
 #endif
-	EscSlot slot = {{false, 0, 0, false}, false, false};
-	if (!draining) {
-		slot = escPumpSlot(&s_pump, &s_tel, s_armed, uiAlive, s_throttle,
-		                   s_beepReq, kissRx, ms);
-		if (slot.forgetEdt) {
-			critical_section_enter_blocking(&s_cs);
-			escEdtForget(&s_tel);
-			critical_section_exit(&s_cs);
-		}
-		s_edtRequested = s_pump.edt.sent;
-		if (slot.beepTaken) s_beepReq = 0;
+	EscSlot slot = handover == EscHandover::Drain
+	             ? escDrainSlot()
+	             : escPumpSlot(&s_pump, &s_tel, s_armed, uiAlive, s_throttle,
+	                           s_beepReq, kissRx, ms);
+	if (slot.forgetEdt) {
+		critical_section_enter_blocking(&s_cs);
+		escEdtForget(&s_tel);
+		critical_section_exit(&s_cs);
 	}
+	s_edtRequested = s_pump.edt.sent;
+	if (slot.beepTaken) s_beepReq = 0;
 
 	const EscFrame &f = slot.frame;
 	if (f.sendCommand) {
@@ -467,9 +459,9 @@ void escTaskPoll() {
 		uint16_t payload = kissBuildDshotPayload(f.throttle, f.requestKiss);
 		out_dshot_send(s_pumpPin, (uint16_t)(payload >> 1), (payload & 1u) != 0);
 	}
-	// A scheduled attempt is stamped by its last frame. @see escEdtFrameSent()
+	// A scheduled attempt is stamped by its last frame, and a throttle frame
+	// stamps the drain's start. @see escEdtFrameSent(), escThrottleStamp()
 	escPumpFrameSent(&s_pump, &f, millis());
-	s_lastThrottleMs = escThrottleStamp(&f, s_lastThrottleMs, ms);
 
 #if KISS_TELEM_ENABLE
 	if (f.requestKiss) {

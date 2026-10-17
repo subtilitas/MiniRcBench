@@ -56,7 +56,8 @@ static int uiRowY(const char *name) {
 #define UI_FRAME_MS 25
 
 static void frames(int n) {
-	for (int i = 0; i < n; i++) { fakeAdvance(UI_FRAME_MS); uiTick(); }
+	// Core1's pump runs between UI frames.
+	for (int i = 0; i < n; i++) { fakeAdvance(UI_FRAME_MS); fakePumpPoll(); uiTick(); }
 }
 static void tap(int x, int y) {
 	fakePress(x, y); frames(2); fakeRelease(); frames(1);
@@ -1548,9 +1549,7 @@ struct SimPump {
 
 /** @brief What a bind does to the pump, as escTaskPoll() does it. */
 static void simBind(SimPump *p) {
-	escPumpBind(&p->pump);
-	p->armed = false;
-	p->throttle = 0;
+	escPumpBind(&p->pump, &p->armed, &p->throttle);
 	p->havePrev = false;    // a new binding has sent nothing to read back
 }
 
@@ -2242,12 +2241,20 @@ static void testDisabledDestinations() {
 	checkTrue("SERVO is an outline", fb[py * GFX_W + (BTN_SERVO_X - 20)] == C_BG);
 	checkTrue("KST is an outline", fb[py * GFX_W + (BTN_KST_X - 20)] == C_BG);
 
+	// A screen that opens clears the panel on the frame of the release, before
+	// its first frame of its own. So SETTINGS still drawn on that frame means
+	// the tap opened nothing.
 	uint32_t row = fakeRegionHash(68, 258, 104, 48);
+	uint32_t whole = fakeRegionHash(0, UI_HDR_H, GFX_W, GFX_H - UI_HDR_H);
 	fakePress(BTN_SERVO_X, BTN_AM32_Y); frames(1);
 	checkTrue("a press on SERVO draws no pressed look",
 	          fakeRegionHash(68, 258, 104, 48) == row);
-	fakeRelease(); frames(2);
+	fakeRelease(); frames(1);
+	checkTrue("its release opens no screen",
+	          fakeRegionHash(0, UI_HDR_H, GFX_W, GFX_H - UI_HDR_H) == whole);
 	tap(BTN_KST_X, BTN_AM32_Y);
+	checkTrue("nor does a tap on KST",
+	          fakeRegionHash(0, UI_HDR_H, GFX_W, GFX_H - UI_HDR_H) == whole);
 	frames(2);
 	checkTrue("neither claims a pin", pinClaimHolder() == PinUser::None);
 	uint16_t poles = settings()->poles;
