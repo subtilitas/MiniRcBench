@@ -237,13 +237,19 @@
 #define EDT_RETRY_MS          1000
 
 /**
- * @brief How long an ESC must have been answering before the first enable, in ms.
+ * @brief How long an ESC must have been answering before the first scheduled
+ *        enable, in ms.
  *
  * An ESC answers eRPM within milliseconds of power-up and does not act on a
  * DShot command until it has seen a run of valid zero-throttle frames. An
  * enable on the very first eRPM frame goes out at close to the least likely
  * moment for it to be taken, and the next attempt is a whole
  * @ref EDT_RETRY_MS away.
+ *
+ * The bind burst does not wait for it: the first @ref EDT_ENABLE_REPEATS
+ * frames after every pump start are the enable, before any reply has
+ * arrived (escEdtBind()). It is no attempt, so the first scheduled enable
+ * still goes out this long after the link comes up.
  *
  * Waiting instead costs a third of a second on connect and makes the first
  * attempt the one most likely to work, which matters because every attempt

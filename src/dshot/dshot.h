@@ -202,12 +202,15 @@ uint32_t dshot_gcr_encode(uint16_t value);
  * The checksum is the complement of the frame's, so a correct value leaves
  * 0x0F rather than 0 when it is folded; this returns false otherwise.
  *
- * @p edt says whether extended telemetry was turned on and accepted for this
- * ESC.  It cannot be inferred from the bits: the type nibble that marks an
- * extended frame is an ordinary exponent and mantissa in an eRPM one, and the
- * two are only told apart by the guarantee an extended-telemetry ESC makes
- * about normalising its exponent.  Declaring it false reads every frame as
- * eRPM, which is correct for every ESC that was not asked.
+ * @p edt says whether to read the extended telemetry types.  It cannot be
+ * inferred from the bits: the type nibble that marks an extended frame is an
+ * ordinary exponent and mantissa in an eRPM one, and the two are told apart
+ * only when the ESC normalises the exponent of its eRPM frames, as the EDT
+ * specification describes.  A normalised eRPM frame reads as eRPM with @p edt
+ * true or false; an eRPM frame with an exponent above 0 and bit 8 clear reads
+ * as an extended type with it true.  False reads every frame as eRPM.
+ * MiniRcBench's frame pump passes true for every reply (ESC_EDT_DECODE in
+ * esc_task.h).
  */
 bool dshot_telem_from_value(uint16_t value, bool edt, dshot_telem_t *out);
 

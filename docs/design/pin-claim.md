@@ -451,8 +451,8 @@ slice to merge resolves those sections by hand.
 
 ## Decisions
 
-The owner accepted each recommendation on 2026-10-17. The numbers stay, so
-the references above keep pointing at them.
+Decisions of the owner, 2026-10-17: each recommendation is accepted. The
+numbers stay, so the references above keep pointing at them.
 
 1. **Heartbeat loss during a KST write.** The operation finishes, and nothing
    new starts until the heartbeat returns. An abort after the first write

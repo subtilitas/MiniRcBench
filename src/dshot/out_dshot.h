@@ -100,11 +100,13 @@ void out_dshot_stop(uint8_t pin);
  * DSHOT_REPLY_BAD when a reply arrived and failed the line code, the group
  * code or the checksum.  DSHOT_REPLY_GOOD fills @p out.
  *
- * @p edt says whether this ESC was asked for extended telemetry and is
- * expected to have accepted it.  It cannot be read off the wire, and getting
- * it wrong only matters for an ESC that does not normalise its exponent: one
- * that does either sets the mantissa's top bit, which reads as a period, or
- * leaves the type nibble at zero, which reads as a period too.
+ * @p edt says whether to read the extended telemetry types.  An eRPM frame
+ * from an ESC that normalises its exponent reads as a period either way: it
+ * either sets the mantissa's top bit, which reads as a period, or leaves the
+ * type nibble at zero, which reads as a period too.  With @p edt true, an
+ * eRPM frame that is not normalised, an exponent above 0 with bit 8 clear,
+ * reads as an extended type.  MiniRcBench's frame pump passes true for every
+ * reply (ESC_EDT_DECODE in esc_task.h).
  */
 dshot_reply_t out_dshot_poll(uint8_t pin, bool edt, dshot_telem_t *out);
 

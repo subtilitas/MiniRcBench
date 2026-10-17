@@ -276,16 +276,23 @@ static inline EdtAutoAction edtAutoAction(bool linkUp, bool edtFresh,
  *   the first reply already answers an enable.
  * - An ESC that kept EDT on across a board restart, a pump rebuild after a
  *   SETUP change, or an AM32 settings session sends EDT frames from its
- *   first reply. Read as eRPM, a voltage frame of 66 counts is a period of
- *   264 us, 227,272 eRPM, and that is the RPM the display shows.
- * - An ESC without EDT, or with EDT off, sends eRPM with its exponent
- *   normalised: bit 8 of the payload is set whenever the exponent is not 0.
- *   Such a frame reads as eRPM with EDT decoding on, and a frame with
- *   exponent 0 has type nibble 0, which reads as eRPM too. The host suite
- *   checks every normalised payload.
+ *   first reply. Read as eRPM, a voltage frame of 66 counts (16.5 V) is a
+ *   period of 264 us: a false reading of 227,272 eRPM, 32,467 RPM at
+ *   14 poles.
+ * - An ESC without EDT, or with EDT off, sends eRPM frames only. AM32 and
+ *   Bluejay encode every eRPM frame normalised, as the EDT specification
+ *   describes, with EDT on or off: bit 8 of the payload is set whenever the
+ *   exponent is not 0 (AM32 `Src/dshot.c`, make_dshot_package(), at commit
+ *   961cb84; Bluejay `src/Modules/DShot.asm`, dshot_12bit_encode, at commit
+ *   0368d11). Such a frame reads as eRPM with EDT decoding on, and a frame
+ *   with exponent 0 has type nibble 0, which reads as eRPM too. The host
+ *   suite checks every normalised payload. Whether BLHeli_32 and other ESC
+ *   firmware normalise with EDT off is unknown. rcbench, where the DShot
+ *   driver comes from, has been tested with AM32 only.
  *
  * Only an eRPM frame with an exponent above 0 and bit 8 clear reads
- * differently, as an EDT type.
+ * differently, as an EDT type: from an ESC that does not normalise, such a
+ * frame updates an EDT field and not the RPM.
  */
 static constexpr bool ESC_EDT_DECODE = true;
 

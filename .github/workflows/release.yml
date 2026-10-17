@@ -262,16 +262,24 @@ jobs:
 
           ## Licences
 
-          MiniRcBench's own code is MIT. The image also contains the Pico SDK,
-          TinyUSB, an SD card library, FatFs, newlib and the GCC runtime
+          MiniRcBench's own code is MIT. The image also contains the Pico SDK
+          (software development kit), TinyUSB, an SD (Secure Digital) card
+          library, FatFs, newlib and the GCC (GNU Compiler Collection) runtime
           libraries. `THIRD_PARTY_NOTICES.txt` names each component in the
           image, its version and its files there, with its licence text.
 
           ## Verify the download
 
+          In the folder that holds the downloaded files:
+
           ```
-          sha256sum -c SHA256SUMS.txt
+          sha256sum -c --ignore-missing SHA256SUMS.txt
           ```
+
+          It checks each file `SHA256SUMS.txt` lists that is in the folder
+          against its SHA-256 (Secure Hash Algorithm, 256-bit) checksum and
+          skips the listed files that are not there, so a download of the
+          image alone checks the image. It fails when no listed file is there.
 
           ---
           EOF

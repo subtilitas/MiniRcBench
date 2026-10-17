@@ -225,13 +225,16 @@ its own wire. AM32 is an open-source ESC firmware.
 - A false RPM with the new DShot driver after a restart with EDT still on in
   the ESC. Replies were decoded as EDT only once this board had sent an
   enable, 300 ms or more after eRPM arrived. An ESC that kept EDT on across a
-  board restart, a rebuild of the DShot frame pump after a SETUP pin or
-  bitrate change, or an AM32 settings session sent EDT frames that read as
-  eRPM until then: a voltage frame of 66 counts read as 227,272 eRPM. The
-  first 10 frames after every pump start are the EDT enable, 10 ms at 1 kHz,
-  and every reply is decoded with EDT on from the first one. eRPM from an ESC without EDT
-  decodes the same. The repeated enable keeps its rules: 300 ms after
-  link-up, then every 1000 ms while no EDT frame arrives.
+  board restart, a rebuild of the DShot frame pump after a SETUP change of
+  the ESC pin, the bitrate, KISS or the KISS pin, or an AM32 settings session
+  sent EDT frames that read as eRPM until then: a voltage frame of 66 counts
+  read as 227,272 eRPM, 32,467 RPM at 14 poles. The first 10 frames after
+  every pump start, those rebuilds included, are the EDT enable, 10 ms at
+  1 kHz, and every reply is decoded with EDT on from the first one. eRPM from
+  AM32 and Bluejay, which normalise its exponent with EDT on or off, decodes
+  the same; for other ESC firmware without EDT that is unknown. The repeated
+  enable keeps its rules: 300 ms after link-up, then every 1000 ms while no
+  EDT frame arrives.
 - `tools/sdtest` links: it carries the mass-storage callbacks that the
   firmware's TinyUSB configuration requires. Its stub comment says what they
   answer: test_unit_ready not ready, a capacity of 0 blocks, and an error for

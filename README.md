@@ -434,14 +434,17 @@ The firmware enables EDT itself. There is no button.
 
 The first frames the DShot pump sends after it starts are the enable,
 `EDT_ENABLE_REPEATS` (10) identical frames of DShot command 13. The pump starts
-at power-up, after a change of the ESC pin or the bitrate under SETUP, and
-when the AM32 settings screen hands the pin back. Every reply is decoded with
+at power-up, after a change of the ESC pin, the bitrate, KISS or the KISS pin
+under SETUP, and when the AM32 settings screen hands the pin back. Every reply is decoded with
 EDT on, from the first one:
 
 - an ESC that kept EDT on across one of those restarts is read correctly from
   its first reply, and none of its EDT frames is shown as an RPM;
-- an ESC without EDT, or with EDT off, sends eRPM frames with a normalised
-  exponent, and those decode the same with EDT on;
+- an ESC without EDT, or with EDT off, sends eRPM frames only. AM32 and
+  Bluejay normalise the exponent of every eRPM frame, with EDT on or off, and
+  those frames decode the same with EDT on. For other ESC firmware this is
+  unknown: an eRPM frame that is not normalised, an exponent above 0 with
+  bit 8 of the payload clear, decodes as an EDT reading and gives no RPM;
 - the replies to the enable frames are decoded like any other. AM32 answers
   the enable with a status frame.
 

@@ -80,11 +80,12 @@ An **expired status tile reads `--`, never `OK`**.
 The firmware does it, with no button.
 
 The first 10 frames the tester sends to the ESC are the enable: at power-up,
-after a change of the ESC pin or the DShot bitrate under SETUP, and when the
-AM32 screen hands the signal wire back. They take 10 ms. Every reply is read
-as EDT from the first one, so an ESC that kept EDT on through one of those
-restarts shows its voltage and temperature at once and never a false RPM. An
-ESC without EDT shows the correct RPM.
+after a change of the ESC pin, the DShot bitrate, KISS or the KISS pin under
+SETUP, and when the AM32 screen hands the signal wire back. They take 10 ms.
+Every reply is decoded with EDT on from the first one, so an ESC that kept
+EDT on through one of those restarts shows its voltage and temperature at
+once and never a false RPM. An ESC with AM32 or Bluejay shows the correct RPM
+with EDT off; for other ESC firmware with EDT off that is unknown.
 
 An ESC powered up moments before ignores that first enable. While an ESC
 answers with eRPM and no EDT frame has arrived for 1 s, the firmware sends the

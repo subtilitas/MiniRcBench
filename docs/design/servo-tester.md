@@ -382,7 +382,7 @@ About 5 days for 1 to 4.
 
 ## Decisions
 
-The owner accepted recommendations 1 to 5 on 2026-10-17.
+Decisions of the owner, 2026-10-17: recommendations 1 to 5 are accepted.
 
 1. **START hold length.** 1000 ms (`ARM_HOLD_MS`), one hold length on the
    device.

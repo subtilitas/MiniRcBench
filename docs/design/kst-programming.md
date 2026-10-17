@@ -545,7 +545,7 @@ estimated.
 
 ## Decisions
 
-The owner accepted recommendations 5 and 6 on 2026-10-17.
+Decisions of the owner, 2026-10-17: recommendations 5 and 6 are accepted.
 
 5. **KST on AUX.** Programming runs on SIG only. It is the wire a servo or
    ESC is plugged into, and one pin keeps one rule for the ESC interlock.

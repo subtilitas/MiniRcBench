@@ -104,11 +104,13 @@ bool dshot_gcr_decode(uint32_t line, uint16_t *out)
 
 /*
  * Extended telemetry types.  The type is the top nibble of the twelve-bit
- * payload and is always even, because an eRPM payload always has bit 8 set:
- * an ESC with extended telemetry enabled normalises its exponent so that it
- * does.  An ESC without it sends nothing but eRPM, and then bit 8 means what
- * it says -- which is why the caller has to declare whether the mode was
- * turned on rather than this file guessing from the bits.
+ * payload and is always even, because a normalised eRPM payload has bit 8
+ * set whenever its exponent is above 0.  The EDT specification asks the ESC
+ * to normalise; AM32 and Bluejay do so in every eRPM frame, with extended
+ * telemetry on or off, and for other ESC firmware it is unknown.  The bits
+ * cannot tell an eRPM payload that is not normalised from an extended one,
+ * so the caller says whether to read the extended types rather than this
+ * file guessing.  MiniRcBench's frame pump always does.
  */
 #define EDT_TYPE_TEMPERATURE  0x02u
 #define EDT_TYPE_VOLTAGE      0x04u
@@ -163,9 +165,9 @@ bool dshot_telem_from_value(uint16_t value, bool edt, dshot_telem_t *out)
     case EDT_TYPE_STRESS:      out->kind = DSHOT_TELEM_STRESS;      break;
     case EDT_TYPE_STATUS:      out->kind = DSHOT_TELEM_STATUS;      break;
     default:
-        /* Type zero with bit 8 clear: an eRPM frame short enough that the
-         * exponent is zero, from an ESC that has extended telemetry on and
-         * did not normalise it.  Read as what it is rather than refused. */
+        /* Type zero, exponent 0 with bit 8 clear: an eRPM frame with a
+         * period under 256 us, which normalisation leaves at exponent 0.
+         * Read as what it is rather than refused. */
         erpm_from_payload(payload, out);
         break;
     }

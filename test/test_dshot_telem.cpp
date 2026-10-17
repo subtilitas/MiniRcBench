@@ -289,9 +289,9 @@ static void testWireToSpeed() {
 /**
  * @brief A short period with EDT on is still a speed.
  *
- * The pump decodes with EDT on from the first enable onwards. Type nibble 0
- * with bit 8 clear is no extended type: it is an eRPM frame whose exponent is
- * 0, from a motor turning fast enough that the ESC did not normalise it.
+ * The pump decodes every reply with EDT on. Type nibble 0 with bit 8 clear
+ * is no extended type: it is an eRPM frame whose exponent is 0, a period
+ * under 256 us, which normalisation leaves at exponent 0.
  */
 static void testEdtShortPeriod() {
 	section("DShot reply: a short period with EDT on is a speed");
@@ -305,14 +305,15 @@ static void testEdtShortPeriod() {
 }
 
 /**
- * @brief Every eRPM frame an ESC without EDT sends reads the same with EDT on.
+ * @brief Every normalised eRPM frame reads the same with EDT on.
  *
  * The pump decodes every reply with EDT on (ESC_EDT_DECODE), so an ESC that
- * never sends EDT relies on this. Such an ESC encodes a period with the
+ * never sends EDT relies on this. AM32 and Bluejay encode a period with the
  * lowest exponent that fits it in nine bits, so bit 8 is set whenever the
  * exponent is above 0, and a frame with exponent 0 has type nibble 0. Either
- * reads as eRPM. Checked over every period the frame carries, 1 us to
- * 65,408 us, and the stopped-motor code.
+ * reads as eRPM. Whether other ESC firmware encodes it so is unknown.
+ * Checked over every period the frame carries, 1 us to 65,408 us, and the
+ * stopped-motor code.
  */
 static void testErpmSameWithEdt() {
 	section("DShot reply: a normalised eRPM frame reads the same with EDT on");

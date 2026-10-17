@@ -1609,7 +1609,7 @@ static unsigned simBurstStarts(const SimPump *p, unsigned from, unsigned to,
 	return n;
 }
 
-static SimPump s_sim;   // 240 kB of trace: static, not on the stack
+static SimPump s_sim;   // 180 kB, most of it trace: static, not on the stack
 
 /**
  * @brief An ESC that kept EDT on is read as EDT from the first reply after
