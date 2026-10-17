@@ -8,12 +8,12 @@
  * fault is in the integration; if it fails here too, the integration is
  * exonerated and the problem is the board, the slot or the card.
  *
- * It also sweeps the SPI clock downwards. Some cards -- SanDisk in particular
+ * It also sweeps the SDIO clock downwards. Some cards -- SanDisk in particular
  * are reputed to be fussy at init -- will not enumerate at a speed they will
- * happily run at afterwards, and that is invisible when only one speed is ever
- * tried.
+ * run at afterwards, and that is invisible when only one speed is ever tried.
  *
- * Output goes to USB serial at 115200.
+ * Built for the RP2350-Touch-LCD-2.8 only, like the firmware. Output goes to
+ * USB serial at 115200 baud.
  */
 
 #include <stdio.h>
@@ -26,21 +26,8 @@
 #include "hw_config.h"
 #include "sd_card.h"
 
-#include "board_desc.h"
 #include "board_pins.h"
 
-#if defined(SD_IFACE_SPI)
-/* Defined in sd_hw_config.c; the library's hw_config.h does not declare it. */
-spi_t *spi_get_by_num(size_t num);
-
-/** @brief SPI speeds to try, fastest first. */
-static const uint32_t kBauds[] = {
-    12u * 1000 * 1000, 4u * 1000 * 1000, 1u * 1000 * 1000,
-    400u * 1000, 200u * 1000,
-};
-static const uint kSdPins[] = {PIN_SD_MISO, PIN_SD_CS, PIN_SD_SCK, PIN_SD_MOSI};
-static const char *kSdNames[] = {"MISO", "CS", "SCK", "MOSI"};
-#else
 /** @brief SDIO speeds to try, fastest first. */
 static const uint32_t kBauds[] = {
     25u * 1000 * 1000, 10u * 1000 * 1000, 4u * 1000 * 1000, 1u * 1000 * 1000,
@@ -48,7 +35,6 @@ static const uint32_t kBauds[] = {
 static const uint kSdPins[] = {PIN_SD_SCK, PIN_SD_CMD, PIN_SD_D0,
                                PIN_SD_D1, PIN_SD_D2, PIN_SD_D3};
 static const char *kSdNames[] = {"CLK", "CMD", "D0", "D1", "D2", "D3"};
-#endif
 
 /**
  * @brief Pin integrity test, without ever engaging an internal pull-down.
@@ -129,14 +115,12 @@ static bool testPinIntegrity(void) {
 }
 
 int main(void) {
-#ifdef PIN_BAT_EN
-    // Same latch the firmware asserts: without it a 2.8" board running on
+    // Same latch the firmware asserts: without it the board running on
     // battery switches itself off as soon as the power button is released,
     // which looks exactly like a firmware that crashed on boot.
     gpio_init(PIN_BAT_EN);
     gpio_set_dir(PIN_BAT_EN, GPIO_OUT);
     gpio_put(PIN_BAT_EN, 1);
-#endif
 
     stdio_init_all();
     sleep_ms(3000);            // time to open a terminal
@@ -145,11 +129,7 @@ int main(void) {
     // panel is the expected result -- everything comes out here.
     printf("\n\n=== MiniRcBench standalone SD test ===\n");
     printf("(the screen stays black: this test never starts the display)\n");
-#if defined(SD_IFACE_SPI)
-    printf("interface: hardware SPI1\n");
-#else
     printf("interface: PIO SDIO, 4-bit\n");
-#endif
 
     bool pinsOk = testPinIntegrity();
     if (!pinsOk) {
@@ -160,26 +140,14 @@ int main(void) {
                "all the card actually needs.\n");
     }
 
-    // The driver's pin fields start zeroed and are only filled from the board
-    // descriptor -- the firmware does this in sdLogBegin(). Without it every
-    // "SD pin" here is GP0, and the sweep below exercises the wrong wire on
-    // every board. A single-board build's descriptor list holds exactly this
-    // board, so no selection is needed first.
-    sdHwConfigApply();
-
+    // The pins come from sd_hw_config.c, the file the firmware links too.
     sd_card_t *card = sd_get_by_num(0);
     if (!card) { printf("no card object -- hw_config is not linked\n"); for (;;); }
 
     for (unsigned i = 0; i < count_of(kBauds); i++) {
-        // Force a full re-init at the new speed: the driver caches both the SPI
-        // setup and the card state, and neither is revisited on a retry.
-#if defined(SD_IFACE_SPI)
-        spi_t *spi = spi_get_by_num(0);
-        spi->initialized = false;
-        spi->baud_rate = kBauds[i];
-#else
+        // Force a full re-init at the new speed: the driver caches the card
+        // state, and it is not revisited on a retry.
         card->sdio_if_p->baud_rate = kBauds[i];
-#endif
         card->state.m_Status = 0xFF;
 
         printf("\n--- trying %lu Hz ---\n", (unsigned long)kBauds[i]);

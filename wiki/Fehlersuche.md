@@ -9,18 +9,18 @@ Erst das Symptom, dann die Ursache. ESC steht für Electronic Speed Controller
 
 ## Der Bildschirm bleibt dunkel
 
-Zwei Ursachen: Das Abbild treibt die falschen Pins, oder die Start-Erkennung
-konnte die Platine nicht bestimmen.
+MiniRcBench läuft nur auf der Waveshare RP2350-Touch-LCD-2.8. Prüfe die
+Platine: Die 2,8" hat JST-SH-Stecker und keine 2,54-mm-Stiftleisten. Für die
+RP2350-Touch-LCD-2 gibt es
+[DshotDisplay](https://github.com/subtilitas/DshotDisplay).
 
-Ein **Einzelplatinen**-Abbild auf der jeweils anderen Platine treibt die
-falschen Display-Pins. Flashe stattdessen das **unified**-Abbild aus den
-[Releases](https://github.com/subtilitas/MiniRcBench/releases). Es erkennt
-die Platine bei jedem Start.
+Neu flashen: **BOOT** halten, **RESET** antippen, **BOOT** loslassen. Die
+Platine erscheint als USB-Laufwerk (USB: Universal Serial Bus), gleich welche
+Firmware sie trägt.
 
-Mit dem unified-Abbild heißt ein dunkler Bildschirm, dass die Erkennung
-3-mal gescheitert ist: Keine Platine hat geantwortet, oder beide. Die Firmware
-hält dann die Selbsthaltung der Stromversorgung (Power-Latch), lässt das Display aus und sendet kein DShot. Über
-USB (Universal Serial Bus) bleibt die Platine zum Neu-Flashen erreichbar.
+Auf einer RP2350-Touch-LCD-2.8 hat ein dunkler Bildschirm keine bekannte
+Ursache in der Firmware. Melde ihn wie unter
+[Immer noch nicht weiter](#immer-noch-nicht-weiter) beschrieben.
 
 ---
 
@@ -127,7 +127,7 @@ Sieh auf die `MOUNT`-Zeile des SD-LOG-Bildschirms.
 - **`13 NO FILESYSTEM`** mit einer Größe unter `CARD`: Die Karte antwortet,
   das Dateisystem ist das Problem. Als FAT32 formatieren.
 - **Karte nach dem Start eingesteckt**: `RETRY` drücken. Die Karte wird nur
-  einmal beim Start eingebunden, und keine der Platinen hat einen
+  einmal beim Start eingebunden, und die Platine hat keinen
   Karten-Erkennungspin.
 
 ---
@@ -164,15 +164,14 @@ ins Flash. `UNSAVED` unter dem Titel zeigt ungespeicherte Änderungen.
 
 ---
 
-## KISS-Telemetrie ist auf meiner 2,8"-Platine aus
+## KISS-Telemetrie ist aus
 
 Das ist die Voreinstellung. Einschalten unter **CFG → SETUP → KISS TELEM**.
 
-Die 2,8" hat zwei freie GPIOs (General Purpose Input/Output, frei verwendbare
-Pins), GP28 und GP29, und das ESC-Signal liegt anfangs auf GP29. KISS ist
-voreingestellt aus, damit der übrige Pin nicht für ein Kabel belegt ist, das
-vielleicht nicht angeschlossen ist. Die 2,0" hat 15 freie GPIOs und ist
-voreingestellt an.
+Die Platine hat zwei freie GPIOs (General Purpose Input/Output, frei
+verwendbare Pins), GP28 und GP29, und das ESC-Signal liegt anfangs auf GP29.
+KISS ist voreingestellt aus, damit der übrige Pin nicht für ein Kabel belegt
+ist, das vielleicht nicht angeschlossen ist.
 
 Beim Einschalten von KISS wird der KISS-Pin auf den anderen freien Pin
 verschoben, falls er mit dem ESC-Pin zusammenfällt. Der Pin-Schrittschalter
@@ -189,5 +188,5 @@ das ESC-Signal auf den anderen Pin und schalte dann KISS ein.
 
 Öffne ein Issue unter
 [github.com/subtilitas/MiniRcBench/issues](https://github.com/subtilitas/MiniRcBench/issues).
-Nützlich sind: welche Platine, welches Abbild (unified oder Einzelplatine), was
-die `LINK`-Zeile zeigt, und welcher ESC mit welcher ESC-Firmware.
+Nützlich sind: die Firmware-Version, was die `LINK`-Zeile zeigt, und welcher
+ESC mit welcher ESC-Firmware.

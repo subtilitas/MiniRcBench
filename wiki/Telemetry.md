@@ -110,19 +110,19 @@ which is 50 Hz. The wire adds finer voltage and current, and consumed mAh.
 
 **Status:** working on hardware (owner report).
 
-| | 2.0" board | 2.8" board |
-|---|---|---|
-| **Telemetry RX** | GP5, P1 header pin 10 | GP28, J4 pin 11 |
+| | RP2350-Touch-LCD-2.8 |
+|---|---|
+| **Telemetry RX** | GP28, J4 pin 11 |
 
 The board only receives on this line. The receiver is a UART (universal
 asynchronous receiver-transmitter) built from a PIO (programmable I/O) state
-machine, so **any free GPIO works** on either board. GPIO means
+machine, so **either free GPIO works**. GPIO means
 general-purpose input/output pin. Turn it on under
 **CFG → SETUP → KISS TELEM** and set the pin in the row below. The pin
 stepper skips the ESC signal pin.
 
-**Default: on for the 2.0", off for the 2.8".** The 2.8" has two free pins,
-GP28 and GP29, and the ESC uses one of them. Turning KISS on moves the KISS pin
+**Default: off.** The board has two free pins, GP28 and GP29, and the ESC
+uses one of them. Turning KISS on moves the KISS pin
 off the ESC pin if they coincide.
 
 > **Voltage.** The KISS specification puts this line at 3.6 V, which equals the

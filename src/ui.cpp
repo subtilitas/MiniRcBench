@@ -365,7 +365,7 @@ static void cmdFlashSet(CmdFlash which, bool ok) {
  * motor.
  *
  * Dipping the whole panel for a moment is a peripheral-vision event. It costs
- * one PWM write per frame, needs no hardware neither board has, and works
+ * one PWM write per frame, needs no extra hardware, and works
  * identically in both themes.
  * @{
  */
@@ -1396,8 +1396,7 @@ void uiDrawSplash() {
 	gfxTextCenter(144, "BENCH", C_TEXT, 4);
 	gfxTextCenter(188, "BIDIRECTIONAL ESC TESTER", C_DIM, 1);
 	gfxTextCenter(216, "JuWi made", C_CYAN, 2);
-	// Which board this image was built for. Cheap here, and the alternative is
-	// working it out by flashing a UF2 and seeing whether the screen lights up.
+	// The board this image is built for.
 	gfxTextCenter(248, g_board->label, C_GRID, 1);
 }
 

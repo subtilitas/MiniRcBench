@@ -115,20 +115,20 @@ Strom sowie die verbrauchten mAh.
 
 **Stand:** funktioniert auf der Hardware (laut Projektinhaber).
 
-| | 2,0"-Platine | 2,8"-Platine |
-|---|---|---|
-| **Telemetrie-RX** | GP5, Stiftleiste P1, Pin 10 | GP28, J4 Pin 11 |
+| | RP2350-Touch-LCD-2.8 |
+|---|---|
+| **Telemetrie-RX** | GP28, J4 Pin 11 |
 
 Die Platine empfängt auf dieser Leitung nur. Der Empfänger ist ein UART
 (Universal Asynchronous Receiver-Transmitter) aus einer PIO-Zustandsmaschine
-(PIO: programmierbare Ein-/Ausgabe), daher **funktioniert jeder freie GPIO**
-auf beiden Platinen. GPIO steht für General Purpose Input/Output, frei
+(PIO: programmierbare Ein-/Ausgabe), daher **funktionieren beide freien
+GPIOs**. GPIO steht für General Purpose Input/Output, frei
 verwendbarer Pin. Einschalten unter **CFG → SETUP → KISS TELEM**, den Pin in
 der Zeile darunter setzen. Der Pin-Schrittschalter überspringt den Pin des
 ESC-Signals.
 
-**Voreinstellung: an auf der 2,0", aus auf der 2,8".** Die 2,8" hat zwei freie
-Pins, GP28 und GP29, und der ESC belegt einen davon. Beim Einschalten von KISS
+**Voreinstellung: aus.** Die Platine hat zwei freie Pins, GP28 und GP29, und
+der ESC belegt einen davon. Beim Einschalten von KISS
 wird der KISS-Pin vom ESC-Pin weg verschoben, falls beide zusammenfallen.
 
 > **Spannung.** Die KISS-Spezifikation legt diese Leitung auf 3,6 V, genau den

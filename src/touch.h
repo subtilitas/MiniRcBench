@@ -1,20 +1,14 @@
 /**
  * @file touch.h
- * @brief Capacitive touch interface, independent of which controller is fitted.
+ * @brief Capacitive touch interface.
  *
- * Both implementations always compile, and the board descriptor names which one
- * to call. They used to be mutually exclusive `#if`s, each exporting exactly
- * `touchInit` and `touchPoll` -- which is a duplicate-symbol error the moment
- * an image has to be able to drive either board.
+ * Implemented by `cst328.cpp`, the driver for the CST328 controller of the
+ * RP2350-Touch-LCD-2.8: I2C address 0x1A, 16-bit registers. The host test
+ * suite links a scripted fake in its place.
  *
- * | Board | Controller | Driver | Address |
- * |---|---|---|---|
- * | RP2350-Touch-LCD-2 | CST816D | `cst816.cpp` | 0x15, 8-bit registers |
- * | RP2350-Touch-LCD-2.8 | CST328 | `cst328.cpp` | 0x1A, 16-bit registers |
- *
- * Both panels report coordinates in a native 240x320 portrait frame. Both
- * drivers rotate them to match @ref LCD_ROTATION, so UI code only ever sees
- * framebuffer coordinates and never learns which chip it is talking to.
+ * The panel reports coordinates in a native 240x320 portrait frame. The driver
+ * rotates them to match @ref LCD_ROTATION, so UI code only ever sees
+ * framebuffer coordinates.
  */
 
 #pragma once
@@ -22,7 +16,6 @@
 #include <stdint.h>
 
 #include "config.h"
-#include "board_desc.h"
 
 /** @brief Native panel width, in portrait, independent of @ref LCD_ROTATION. */
 #define TOUCH_NATIVE_W 240
@@ -32,9 +25,8 @@
 /**
  * @brief Map native portrait coordinates into the active framebuffer frame.
  *
- * Lives here rather than in either driver because both panels report in the
- * same native frame, and a rotation that is correct on one board and stale on
- * the other is a bug nobody would find without owning both.
+ * Lives here rather than in the driver so that the rotation is one inline
+ * function the host suite can call without the driver.
  *
  * @param      nx,ny Native panel coordinates.
  * @param[out] ox,oy Framebuffer coordinates for the current @ref LCD_ROTATION.
@@ -75,20 +67,13 @@ struct TouchState {
 /**
  * @brief Start the touch bus and configure the controller.
  *
- * @pre st7789Init() must already have run. On the 2.0" board that is a hard
- *      requirement — it owns the reset line both chips share. On the 2.8" board
- *      the reset lines are separate and this driver pulses its own, but the
- *      ordering is kept identical so callers need not care which board it is.
+ * Called after st7789Init(). The two chips have separate reset lines, and
+ * this driver pulses its own, so the order is a convention rather than a
+ * requirement.
  *
  * @return true if the controller answered an identifying read.
  */
 bool touchInit();
-
-/**
- * @brief The driver the active board names, or nullptr before one is selected.
- * @return Its TouchDriver.
- */
-const TouchDriver *touchActiveDriver();
 
 /**
  * @brief Poll the controller and update @p t.

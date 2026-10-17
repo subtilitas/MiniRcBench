@@ -12,9 +12,8 @@
  * The last sector of the address space the build declares, which is
  * `PICO_FLASH_SIZE_BYTES` — 4 MB under `PICO_BOARD=pico2`, whatever a custom
  * board header says otherwise. Deliberately not the last sector of the
- * *physical* part: the 2.0" board carries 16 MB and the 2.8" need not, and a
- * settings area whose address depends on which chip was fitted is one that
- * moves when Waveshare changes a supplier.
+ * *physical* part: a settings area whose address depends on which flash chip
+ * was fitted is one that moves when Waveshare changes a supplier.
  *
  * @section settings_flash_safety The two guards
  *

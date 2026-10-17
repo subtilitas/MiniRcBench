@@ -71,19 +71,11 @@ uint32_t clock_get_hz(enum clock_index) { return 150000000u; }
 i2c_inst_t *i2c0 = nullptr;
 i2c_inst_t *i2c1 = nullptr;
 
-// The board descriptors name an SPI instance and a touch driver each. On the
-// host none of them is ever dialled -- the panel and the touch chip are both
-// faked -- but the descriptors are real objects whose fields have to resolve
-// at link time.
+// The board descriptor names an SPI instance. On the host it is never dialled
+// -- the panel is faked -- but the descriptor is a real object whose fields
+// have to resolve at link time.
 spi_inst_t *spi0 = nullptr;
 spi_inst_t *spi1 = nullptr;
-
-static bool fakeTouchDriverInit() { return true; }
-static void fakeTouchDriverPoll(TouchState *) {}
-extern const TouchDriver TOUCH_DRIVER_CST816D;
-extern const TouchDriver TOUCH_DRIVER_CST816D = { "CST816D", fakeTouchDriverInit, fakeTouchDriverPoll };
-extern const TouchDriver TOUCH_DRIVER_CST328;
-extern const TouchDriver TOUCH_DRIVER_CST328  = { "CST328",  fakeTouchDriverInit, fakeTouchDriverPoll };
 void i2c_init(i2c_inst_t *, unsigned) {}
 int i2c_write_timeout_us(i2c_inst_t *, uint8_t, const uint8_t *, size_t, bool, unsigned) { return -1; }
 int i2c_read_timeout_us(i2c_inst_t *, uint8_t, uint8_t *, size_t, bool, unsigned) { return -1; }
@@ -250,11 +242,11 @@ bool escTaskSuspended() { return g_suspended; }
 // because the ESC on the old pin stops hearing frames the moment it is
 // released. Tests assert on that, so the fake has to do it too.
 //
-// Seeded to a pin no board offers rather than to a default, and for the same
-// reason the real escTaskInit() seeds from the stored settings: the ESC pin is
-// per board now and lives in a descriptor, and reading a descriptor from a
-// static initialiser here would depend on the link order of two other
-// translation units. Every test enters through uiInit(), which configures this
+// Seeded to a pin the board does not offer rather than to a default, and for
+// the same reason the real escTaskInit() seeds from the stored settings: the
+// ESC pin default lives in the descriptor, and reading it from a static
+// initialiser here would depend on the link order of two other translation
+// units. Every test enters through uiInit(), which configures this
 // before anything reads it; 255 is what a test that forgot would see, and it is
 // unmistakable. @see cfg_pin_defaults
 static uint8_t  g_dshotPin = 255;
@@ -313,10 +305,8 @@ bool settingsStorageWrite(const void *src, uint32_t len) {
 // ---------------------------------------------------------------------------
 // Reboot
 //
-// platReboot() has no caller left. A saved *board* change used to take effect
-// by rebooting into it, and that is the mechanism that made one wrong tap on a
-// board picker cost a reflash; the board is detected every boot now. So this
-// counts a thing that must never happen -- see testBoardSelection().
+// platReboot() has no caller: every setting applies live. So this counts a
+// thing that must never happen -- see testBoardRow().
 // ---------------------------------------------------------------------------
 static int g_reboots = 0;
 

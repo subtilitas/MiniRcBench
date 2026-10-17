@@ -52,7 +52,7 @@ run, supply control. MiniRcBench does not switch the servo's supply.
 | Servo half-cell | 25.575 µs, accepted 24.3 µs to 26.9 µs | decoder in `kst_wire.c` |
 | Edge stamp | 4 cycles, 26.7 ns at 150 MHz | |
 | PIO | 1 SM, 24 of 32 words | pio2 once DShot and KISS are released; [budget](pin-claim.md#pio-and-dma-budget) |
-| DMA | 2 channels | 5 of 16 in use during a KST claim on either board |
+| DMA | 2 channels | 5 of 16 in use during a KST claim |
 | Reply level | at most 5 V, typically 3.3 V, not measured (rcbench README) | SIG is held to 3.6 V; see below |
 
 **Pull-down.** SIG is also the bidirectional DShot pin, which idles high on
@@ -65,11 +65,10 @@ outside transactions, so the pull-down matters only inside a reply window,
 test shows the internal 50 kΩ to 80 kΩ is not enough, the pull-down goes into
 a servo-only adapter lead, never onto an ESC lead (open question 3).
 
-**Reply level.** The servo drives the line during its reply. On the 2.8"
-board SIG is GP29, an ADC pin of the RP2350A, for which a 5 V rating is not
-checked ([signal level](pin-claim.md#signal-level)); the MiniRcBench README
-treats every pin as 3.6 V maximum. A servo that replies at 5 V is out of range
-on both boards.
+**Reply level.** The servo drives the line during its reply. SIG is GP29, an
+ADC pin of the RP2350A, for which a 5 V rating is not checked
+([signal level](pin-claim.md#signal-level)); the MiniRcBench README treats
+every pin as 3.6 V maximum. A servo that replies at 5 V is out of range.
 Bring-up measures the reply level on the owner's servo before any write. If
 it is above 3.6 V, the lead needs a level shifter (open question 4).
 
@@ -518,7 +517,7 @@ so these run against the same simulated servo:
    `KST-Programming.md` and its German counterpart, and their entries in
    `_Sidebar.md` and the screens pages.
 6. Bring-up, in rcbench's order and before any write is relied on: the reply
-   level at the connector on both boards; the power-on window of the owner's
+   level at the connector; the power-on window of the owner's
    servo, measured as the shortest delay from power-on to a sync that still
    enters; frames and replies on a scope; read reliability; one write with
    read-back, then a power cycle and a read.

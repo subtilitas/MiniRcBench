@@ -2,20 +2,14 @@
  * @file cst328.cpp
  * @brief CST328 register access and edge detection (RP2350-Touch-LCD-2.8).
  *
- * Compiles to nothing unless the selected board fits a CST328. The Arduino
- * builder compiles every `.cpp` under `src/` regardless of board, so the guard
- * is the whole file rather than a build-system exclusion.
- *
- * The CST328 is not a bigger CST816. Registers are **16 bits wide**, the
- * address is 0x1A rather than 0x15, mode changes are address-only writes with
- * no data byte, and coordinates are packed 12-bit rather than split across
- * nibble-masked bytes. Nothing about the CST816D sequence transfers.
+ * Registers are **16 bits wide**, the address is 0x1A, mode changes are
+ * address-only writes with no data byte, and coordinates are packed 12-bit.
  *
  * The chip reports five contacts. Only the first is read: the UI is
  * single-touch throughout, so the other four would be I2C traffic and dead
  * code. Reading one finger is a 5-byte transfer instead of 27.
  *
- * @see touch.h for the interface both touch drivers implement.
+ * @see touch.h for the interface this driver implements.
  */
 
 #include "touch.h"
@@ -57,7 +51,7 @@
  * @brief Firmware info word. Top half reads back a fixed 0xCACA.
  *
  * That constant is the only reliable presence check the part offers — there is
- * no chip-ID register in the CST816 sense.
+ * no chip-ID register.
  */
 #define REG_INFO_FW         0xD1FC
 
@@ -111,8 +105,7 @@ static bool rdRegs(uint16_t reg, uint8_t *buf, uint8_t n) {
 	                           I2C_TIMEOUT_US) == n;
 }
 
-/** @brief Bring the CST328 up. @return true if it answered its firmware word. */
-static bool cst328Init() {
+bool touchInit() {
 	gpio_init(g_board->tpInt);
 	gpio_set_dir(g_board->tpInt, GPIO_IN);
 	gpio_pull_up(g_board->tpInt);
@@ -123,21 +116,16 @@ static bool cst328Init() {
 	gpio_pull_up(g_board->sda);
 	gpio_pull_up(g_board->scl);
 
-	// A runtime test now, not #if: whether TP_RST is its own net is a property
-	// of the board, and a unified image does not know which one it is on until
-	// it is told.
-	if (!g_board->tpRstSharedWithLcd) {
-		// Nothing has pulsed it yet. The datasheet wants 200 ms before the part
-		// answers; 120 ms is what every working driver actually uses, and the
-		// probe below retries anyway.
-		gpio_init(g_board->tpRst);
-		gpio_set_dir(g_board->tpRst, GPIO_OUT);
-		gpio_put(g_board->tpRst, 1);
-		delay(10);
-		gpio_put(g_board->tpRst, 0);
-		delay(10);
-		gpio_put(g_board->tpRst, 1);
-	}
+	// TP_RST is a net of its own, so nothing has pulsed it yet. The datasheet
+	// wants 200 ms before the part answers; 120 ms is what every working
+	// driver uses, and the presence check below retries anyway.
+	gpio_init(g_board->tpRst);
+	gpio_set_dir(g_board->tpRst, GPIO_OUT);
+	gpio_put(g_board->tpRst, 1);
+	delay(10);
+	gpio_put(g_board->tpRst, 0);
+	delay(10);
+	gpio_put(g_board->tpRst, 1);
 	delay(120);
 
 	// Presence check: in debug mode the firmware word reads back with 0xCACA in
@@ -166,8 +154,7 @@ static bool cst328Init() {
 /** @brief How many polls in a row the controller has failed to answer. */
 static uint8_t s_pollFails = 0;
 
-/** @brief Sample the CST328. @param[in,out] t State to update. */
-static void cst328Poll(TouchState *t) {
+void touchPoll(TouchState *t) {
 	uint8_t b[5];
 	bool down = false;
 	int16_t x = t->x, y = t->y;
@@ -208,7 +195,3 @@ static void cst328Poll(TouchState *t) {
 
 	s_prevDown = down;
 }
-
-/** @brief The CST328 driver, as named by the 2.8" board's descriptor. */
-extern const TouchDriver TOUCH_DRIVER_CST328;
-extern const TouchDriver TOUCH_DRIVER_CST328 = { "CST328", cst328Init, cst328Poll };

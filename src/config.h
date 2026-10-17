@@ -4,8 +4,7 @@
  *
  * Everything in this file is safe to change without touching the rest of the
  * firmware. Anything that describes the board itself rather than a preference
- * lives in @ref board_pins.h instead, and which board you are building for is
- * @ref board.h.
+ * lives in @ref board_pins.h instead.
  *
  * @section config_defaults Values the board stores over these defaults
  *
@@ -23,8 +22,6 @@
 
 #pragma once
 
-#include "board.h"
-
 /**
  * @defgroup cfg_esc ESC connection
  * @brief Which pin the ESC is on and the DShot bitrate it is driven at.
@@ -32,69 +29,44 @@
  */
 
 /**
- * @defgroup cfg_pin_defaults Per-board pin defaults
- * @brief What each board starts its ESC and telemetry wires on.
+ * @defgroup cfg_pin_defaults Pin defaults
+ * @brief What the board starts its ESC and telemetry wires on.
  *
- * One set per board, defined unconditionally rather than selected by
- * @ref BOARD — and that is the entire point of this group.
+ * The descriptor in board_desc.cpp reads these, and settingsDefaults() reads
+ * them out of the descriptor. The suffix names the board, as the release
+ * image's file name does.
  *
- * A single macro chosen with `#if BOARD == ...` cannot express two boards at
- * once, and a unified image needs "GP4 on the 2.0-inch board, GP29 on the
- * 2.8-inch one". A descriptor that carries literals instead leaves such a
- * macro read by nothing: the option configures cleanly, CMake prints that it
- * took, and the image drives the descriptor's pin. A check that greps CMake's
- * output passes on that build, so CI checks the value in the host tests, which
- * rebuild the suite with these macros overridden.
+ * Override them from the build:
  *
- * So each descriptor reads its own set: board_desc_lcd2.cpp takes the `_LCD_2`
- * values, board_desc_lcd2_8.cpp the `_LCD_2_8` ones. **Which set a running
- * board uses is decided at boot**, not at build time — boardProbe() identifies
- * the hardware, boardSelect() points `g_board` at that descriptor, and
- * settingsDefaults() reads the defaults out of it. A unified image carries both
- * and picks between them; a single-board image never compiles the other.
+ *     cmake -B build -DDSHOT_PIN_LCD_2_8=28 -DKISS_PIN_LCD_2_8=29 .
  *
- * Override any of them from the build:
+ * The board frees two pins and both defaults are spoken for, so the two
+ * overrides move together.
  *
- *     cmake -B build -DBOARD=BOARD_UNIFIED -DDSHOT_PIN_LCD_2_8=28 .
- *
- * @note An override outside its board's `BOARD_FREE_GPIO_MASK`, or one putting
- *       both wires on the same pin, is a `static_assert` in the descriptor. It
- *       fails the build rather than being repaired at run time by
+ * @note An override outside `BOARD_FREE_GPIO_MASK`, or one putting both wires
+ *       on the same pin, is a `static_assert` in the descriptor. It fails the
+ *       build rather than being repaired at run time by
  *       @ref settingsValidate(), which is quiet by design.
  * @{
  */
 
 /**
- * @brief ESC signal pin the 2.0" board starts on. **GP4**.
+ * @brief ESC signal pin the board starts on. **GP29**.
  *
  * Runtime-adjustable from **CFG -> SETUP**, which is the intended way to change
  * it; this is what a board with blank flash starts on. @see settings.h
  *
- * P2 header pin 11, two positions from GND on P2 pin 13, so a 3-pin servo plug
- * lands SIGNAL / (skip) / GND. The skipped middle position is GP10 (P2 pin 12),
- * an unused camera pin — that is the whole reason GP4 was chosen over the other
- * candidates. See the "Plugging an ESC in directly" section of README.md for
- * why GP20 and GP29 are not usable there.
- *
- * @warning The middle wire of an ESC lead is the BEC +5 V output, and RP2350
- *          GPIO is **not** 5 V tolerant. Depin or cut that wire before
- *          plugging anything in.
- */
-#ifndef DSHOT_PIN_LCD_2
-  #define DSHOT_PIN_LCD_2      4
-#endif
-
-/**
- * @brief ESC signal pin the 2.8" board starts on. **GP29**.
- *
- * J4 pin 12, the end pin of the connector. That board has an RTC, a codec and
- * an SD slot where the other one has a camera header, so GP28 (J4 pin 11) and
- * GP29 are the only two GPIOs left unclaimed; the telemetry wire takes the
- * other one.
+ * J4 pin 12, the end pin of the connector. The RTC, the codec, the IMU and the
+ * SD slot leave GP28 (J4 pin 11) and GP29 as the only two GPIOs unclaimed; the
+ * telemetry wire takes the other one.
  * @see KISS_PIN_LCD_2_8
  *
  * Getting this wrong is quiet. Nothing errors, nothing warns — the ESC never
  * hears a frame, because the firmware is driving a pin no wire is on.
+ *
+ * @warning The middle wire of an ESC lead is the BEC +5 V output, and RP2350
+ *          GPIO is **not** 5 V tolerant. Depin or cut that wire before
+ *          plugging anything in.
  */
 #ifndef DSHOT_PIN_LCD_2_8
   #define DSHOT_PIN_LCD_2_8   29
@@ -165,53 +137,29 @@
 #endif
 
 /**
- * @brief Telemetry pin the 2.0" board starts on. **GP5**, P1 header pin 10.
+ * @brief Telemetry pin the board starts on. **GP28**, J4 pin 11.
  *
- * A free camera-bus pin. Runtime-adjustable, and any free GPIO will do: the
- * receiver is a PIO state machine rather than one of the two hardware UARTs,
- * so there is no "but only these eight pins can receive". @see pio_uart_rx.h
+ * The other of the board's two free pins; @ref DSHOT_PIN_LCD_2_8 has GP29.
+ * With only two to go round, one default settles the other, and the descriptor
+ * static_asserts that they did not end up the same pin. The receiver is a PIO
+ * state machine rather than one of the two hardware UARTs, so either free pin
+ * can receive. @see pio_uart_rx.h
  *
  * @warning The KISS spec puts this line at 3.6 V, which is exactly the RP2350's
  *          absolute-maximum GPIO voltage — no margin at all. Most BLHeli_32 and
- *          AM32 ESCs actually drive 3.3 V and are fine, but measure yours
- *          before connecting it, and consider a 1 k series resistor.
- */
-#ifndef KISS_PIN_LCD_2
-  #define KISS_PIN_LCD_2       5
-#endif
-
-/**
- * @brief Telemetry pin the 2.8" board starts on. **GP28**, J4 pin 11.
- *
- * The other of that board's two free pins; @ref DSHOT_PIN_LCD_2_8 has GP29.
- * With only two to go round, one default settles the other, and the descriptor
- * static_asserts that they did not end up the same pin.
+ *          AM32 ESCs drive 3.3 V, but measure yours before connecting it, and
+ *          consider a 1 k series resistor.
  */
 #ifndef KISS_PIN_LCD_2_8
   #define KISS_PIN_LCD_2_8    28
 #endif
 
 /**
- * @brief Whether the 2.0" board expects a KISS wire. **On**.
- *
- * It has a camera header's worth of spare pins, so nothing is being spent to
- * listen on one.
- */
-#ifndef KISS_ENABLE_LCD_2
-  #define KISS_ENABLE_LCD_2    1
-#endif
-
-/**
- * @brief Whether the 2.8" board expects a KISS wire. **Off**.
+ * @brief Whether the board expects a KISS wire. **Off**.
  *
  * Not because it cannot — GP28 is free and the PIO receiver will take it — but
- * because that board brings out exactly two pins, and defaulting to on spends
+ * because the board brings out exactly two pins, and defaulting to on spends
  * the spare one on a wire most people have not soldered. One tap turns it on.
- *
- * The pin is per board because the 2.0" default does not carry over: on the
- * 2.8" GP5 is `PIN_RTC_INT`, the PCF85063 alarm output. A KISS receiver there
- * reads the RTC's interrupt line and feeds whatever it does to the KISS
- * decoder, with no error anywhere.
  */
 #ifndef KISS_ENABLE_LCD_2_8
   #define KISS_ENABLE_LCD_2_8  0
@@ -358,10 +306,8 @@
  * @defgroup cfg_log SD card logging
  * @brief Betaflight blackbox logs on the microSD slot.
  *
- * On the 2.0" board the card is on SPI1 with its own pins and the display on
- * SPI0. On the 2.8" board the card is on 4-bit SDIO driven by pio1. Neither
- * shares a peripheral with the display; both share core0's time.
- * See docs/design/blackbox-logging.md.
+ * The card is on 4-bit SDIO driven by pio1, the display on SPI1. The two share
+ * no peripheral, only core0's time. See docs/design/blackbox-logging.md.
  * @{
  */
 
@@ -371,24 +317,13 @@
 #endif
 
 /**
- * @brief SDIO clock for the card, in Hz. Used only on boards wired for SDIO.
+ * @brief SDIO clock for the card, in Hz.
  *
- * The 2.8" board runs the card four bits wide over PIO rather than one bit over
- * SPI, so this is the rate that matters there and @ref SD_LOG_SPI_MHZ is
- * ignored. Conservative to start: SDIO is far more sensitive to signal
- * integrity than 12 MHz SPI, and a card that enumerates but corrupts is worse
- * than one that refuses.
+ * The card runs four bits wide over PIO. Conservative to start: SDIO is more
+ * sensitive to signal integrity than a one-bit SPI link, and a card that
+ * enumerates but corrupts is worse than one that refuses.
  */
 #define SD_LOG_SDIO_HZ         (10 * 1000 * 1000)
-
-/**
- * @brief SPI clock for the card, in MHz. Used only on boards wired for SPI.
- *
- * Cards are specified to 25 MHz in SPI mode. Starting conservatively: a card
- * that misbehaves at speed fails in ways that look like corruption rather than
- * like a bus problem, which is a miserable thing to debug.
- */
-#define SD_LOG_SPI_MHZ         12
 
 /**
  * @brief Log frame rate, in Hz.

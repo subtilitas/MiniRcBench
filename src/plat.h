@@ -31,13 +31,10 @@
 /**
  * @brief Reboot the chip, now.
  *
- * Deliberately without a caller. A settings save used to reboot when it changed
- * the stored *board*, which is the mechanism that turned one wrong tap on the
- * SETUP screen into a display that did not come back — so the board became
- * something the firmware detects rather than something you pick, and nothing is
- * left that needs a restart to apply. The host suite counts calls to this and
- * asserts the count never moves, which is what would fail if a save that
- * re-points the hardware were ever added back. @see boardProbe()
+ * Deliberately without a caller. Every setting applies live, so nothing needs
+ * a restart to take effect. The host suite counts calls to this and asserts
+ * the count never moves, which is what fails if a save that needs a restart
+ * is ever added.
  */
 static inline void platReboot() {
 	watchdog_reboot(0, 0, 0);

@@ -5,8 +5,8 @@ name: Release
 #   git tag -a v0.1.0 -m "MiniRcBench 0.1.0"
 #   git push origin v0.1.0
 #
-# Builds flashable .uf2 images for both supported boards, checksums them, and
-# publishes a GitHub Release with the images attached. The tag names the
+# Builds the flashable .uf2 image for the RP2350-Touch-LCD-2.8, checksums it,
+# and publishes a GitHub Release with the image attached. The tag names the
 # version in src/version.h, with an optional pre-release suffix: v0.1.0 or
 # v0.1.0-rc1 for 0.1.0.
 
@@ -51,22 +51,11 @@ jobs:
           echo "building $tag"
 
   build:
-    name: Build ${{ matrix.board.slug }}
+    name: Build touch-lcd-2.8
     needs: version
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: true   # never publish a half-complete set of assets
-      matrix:
-        # touch / other_touch / label drive the board-identity assertion below,
-        # exactly as in ci.yml. other_touch is empty for the unified image: it
-        # deliberately compiles both drivers in.
-        board:
-          - { slug: "touch-lcd-2",   id: BOARD_RP2350_TOUCH_LCD_2,
-              touch: cst816, other_touch: cst328, label: "RP2350-TOUCH-LCD-2" }
-          - { slug: "touch-lcd-2.8", id: BOARD_RP2350_TOUCH_LCD_2_8,
-              touch: cst328, other_touch: cst816, label: "RP2350-TOUCH-LCD-2.8" }
-          - { slug: "unified",       id: BOARD_UNIFIED,
-              touch: cst816, other_touch: "", label: "RP2350-TOUCH-LCD-2" }
+    env:
+      SLUG: touch-lcd-2.8
     steps:
       # ref: is load-bearing for workflow_dispatch. Without it a manual run
       # checks out the branch it was launched from and attaches binaries built
@@ -76,8 +65,8 @@ jobs:
         with:
           ref: ${{ needs.version.outputs.tag }}
 
-      # The images report the version in src/version.h over USB and to
-      # picotool. A tag that names another version would publish images whose
+      # The image reports the version in src/version.h over USB and to
+      # picotool. A tag that names another version would publish an image whose
       # release name and reported version disagree.
       - name: The tag names the firmware version
         env:
@@ -102,10 +91,9 @@ jobs:
       - name: Install ninja
         run: sudo apt-get update && sudo apt-get install -y ninja-build
 
-      # Same key scheme as ci.yml: not keyed on the board (neither cached path
-      # depends on it), with restore-keys so a CMakeLists.txt edit reuses the
-      # previous entry -- and so release builds share cache entries with CI
-      # instead of re-cloning the ~200 MB SDK.
+      # Same key scheme as ci.yml, with restore-keys so a CMakeLists.txt edit
+      # reuses the previous entry -- and so release builds share cache entries
+      # with CI instead of re-cloning the ~200 MB SDK.
       - uses: actions/cache@v6
         with:
           path: |
@@ -127,7 +115,7 @@ jobs:
       # a broken image carrying a version number is worse than no release.
       - name: Host tests
         working-directory: test
-        run: make both
+        run: make
 
       - name: Documentation checks
         run: python3 test/check_docs.py
@@ -139,64 +127,17 @@ jobs:
           # and report the SDK missing.
           export PICO_SDK_PATH="$HOME/pico-sdk"
           # Mirror the CI build exactly: CMAKE_BUILD_TYPE=Release makes the
-          # intent explicit (and keeps DWARF present via the SDK's
-          # PICO_DEBUG_INFO_IN_RELEASE, which the identity assert below needs),
-          # and STRICT=ON applies the same -Werror CI proved the sources clean
-          # under -- released bits should be built the way CI tested them.
+          # intent explicit, and STRICT=ON applies the same -Werror CI proved
+          # the sources clean under -- released bits should be built the way CI
+          # tested them.
           cmake -B build -G Ninja -DPICO_BOARD=pico2 -DPICO_PLATFORM=rp2350-arm-s \
-                -DCMAKE_BUILD_TYPE=Release \
-                -DBOARD=${{ matrix.board.id }} -DSTRICT=ON .
+                -DCMAKE_BUILD_TYPE=Release -DSTRICT=ON .
           # Named target rather than a bare `ninja`. sdtest is a bench
           # diagnostic and is deliberately not part of a release: an unlabelled
           # second .uf2 beside the firmware is an invitation to flash the wrong
           # one, and it does nothing a user of the tester wants.
           ninja -C build MiniRcBench
-          arm-none-eabi-size "build/MiniRcBench-${{ matrix.board.slug }}.elf"
-
-      # Same assertion CI runs: a UF2 structure check cannot tell the boards
-      # apart, and a release that ships the 2.0" image under the 2.8" name is
-      # exactly the mistake this exists to catch. The DWARF line table is the
-      # discriminator -- both touch drivers export identical symbols, so nm
-      # cannot tell the two images apart; the source file each was compiled
-      # from is the thing that differs.
-      - name: Assert the image is actually for this board
-        run: |
-          set -e
-          elf=build/MiniRcBench-${{ matrix.board.slug }}.elf
-          want='${{ matrix.board.touch }}.cpp'
-          other='${{ matrix.board.other_touch }}.cpp'
-
-          files=$(arm-none-eabi-objdump --dwarf=rawline "$elf" \
-                    | grep -oE 'cst(816|328)\.cpp' | sort -u || true)
-          if ! printf '%s\n' "$files" | grep -qx "$want"; then
-            echo "::error::$want was not compiled into this image (found: $files)"
-            exit 1
-          fi
-          if [ -n "$other" ] && printf '%s\n' "$files" | grep -qx "$other"; then
-            echo "::error::$other is in this image too"
-            exit 1
-          fi
-          # The unified image is the one that must contain *both*, and both
-          # board labels with it -- that is the whole claim it makes.
-          if [ "${{ matrix.board.slug }}" = "unified" ]; then
-            for f in cst816.cpp cst328.cpp; do
-              printf '%s\n' "$files" | grep -qx "$f" || {
-                echo "::error::unified image is missing $f"; exit 1; }
-            done
-            for l in RP2350-TOUCH-LCD-2 RP2350-TOUCH-LCD-2.8; do
-              strings "$elf" | grep -qx "$l" || {
-                echo "::error::unified image is missing the $l label"; exit 1; }
-            done
-            echo "unified: both drivers and both labels present"
-          fi
-
-          # Exact match. "RP2350-TOUCH-LCD-2" is a prefix of the 2.8" label, so
-          # a substring test passes on the wrong image.
-          if ! strings "$elf" | grep -qx '${{ matrix.board.label }}'; then
-            echo "::error::splash label ${{ matrix.board.label }} missing"
-            exit 1
-          fi
-          echo "compiled $want; splash says ${{ matrix.board.label }}"
+          arm-none-eabi-size "build/MiniRcBench-$SLUG.elf"
 
       # Prove the validator works before trusting its verdict. The first version
       # of this check was inlined here, never executed, and rejected every
@@ -207,7 +148,6 @@ jobs:
       - name: Name and validate the images
         env:
           TAG: ${{ needs.version.outputs.tag }}
-          SLUG: ${{ matrix.board.slug }}
         run: |
           mkdir -p dist
           out="dist/MiniRcBench-${TAG}-${SLUG}.uf2"
@@ -216,7 +156,7 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: uf2-${{ matrix.board.slug }}
+          name: uf2-${{ env.SLUG }}
           path: dist/*.uf2
           if-no-files-found: error
 
@@ -225,7 +165,7 @@ jobs:
     needs: [version, build]
     runs-on: ubuntu-latest
     # Scoped to the job that needs it. Workflow-scoped, this token was also
-    # handed to the build matrix, which runs third-party actions and clones over
+    # handed to the build job, which runs third-party actions and clones over
     # the network.
     permissions:
       contents: write
@@ -253,35 +193,28 @@ jobs:
           cat > notes.md <<'EOF'
           ## Which image
 
-          | File | Use it when |
+          | File | Board |
           |---|---|
-          | `MiniRcBench-VERSION-unified.uf2` | **Start here.** Runs on either board. Every boot identifies the board by probing its always-on I2C (Inter-Integrated Circuit) devices. **CFG → SETUP** shows the result, read-only |
-          | `MiniRcBench-VERSION-touch-lcd-2.uf2` | The 2.0" board only. A few kB smaller. Skips the probe |
-          | `MiniRcBench-VERSION-touch-lcd-2.8.uf2` | The 2.8" board only. Skips the probe |
+          | `MiniRcBench-VERSION-touch-lcd-2.8.uf2` | Waveshare RP2350-Touch-LCD-2.8 |
 
-          The unified image costs a few kB of flash against 4 MB available.
-          A single-board image flashed onto the other board drives the wrong
-          pins, and the 2.8" one asserts a power latch the 2.0" does not.
-          If the probe finds no board, or both, the unified image stops with
-          the latch held, the display off and no DShot output. It stays
-          reachable over USB (Universal Serial Bus) for reflashing.
+          The image is for the RP2350-Touch-LCD-2.8 only.
 
           ## Flashing
 
           1. Hold **BOOT**, tap **RESET**, release **BOOT**. The board appears as a
-             USB drive.
+             USB (Universal Serial Bus) drive.
           2. Copy the `.uf2` onto it. The board reboots into the new firmware.
 
           ## Wiring
 
           Two wires run from the ESC (electronic speed controller):
 
-          | ESC | 2.0" board | 2.8" board |
-          |---|---|---|
-          | Signal | **GP4** — P2 header, pin 11 | **GP29** — J4 pin 12 |
-          | Ground | **GND** — P2 header, pin 13 | **GND** — J4 pin 1 or 5 |
+          | ESC | Board |
+          |---|---|
+          | Signal | **GP29** — J4 pin 12 |
+          | Ground | **GND** — J4 pin 1 or 5 |
 
-          The 2.8" brings out only GP28 and GP29. The ESC pin is a setting
+          The board brings out only GP28 and GP29. The ESC pin is a setting
           under **CFG → SETUP**, kept across power cycles after **HOLD TO SAVE**.
           A wrong pin produces no error: the ESC receives no frames. The
           **LINK** row on the same screen shows the live packet rate. A
@@ -295,10 +228,9 @@ jobs:
 
           A third wire from the ESC's telemetry pad gives 0.01 V and 0.01 A
           steps instead of Extended DShot Telemetry's 0.25 V and 1 A. It lands
-          on **GP5**, P1 header pin 10, on the 2.0" board, and on **GP28**, J4
-          pin 11, on the 2.8". KISS is on by default on the 2.0" and off on the
-          2.8", where the ESC takes one of the two free pins. One tap under
-          **CFG → SETUP** turns it on.
+          on **GP28**, J4 pin 11. KISS is off by default, because the ESC
+          takes one of the two free pins. One tap under **CFG → SETUP** turns
+          it on.
 
           The level the ESC drives on this line is not measured by this
           project. The KISS specification puts it at 3.6 V, the RP2350's
@@ -337,21 +269,21 @@ jobs:
           # a partially-populated release is a real outcome worth catching.
           assets=$(gh release view "$TAG" --json assets --jq '.assets[].name')
           echo "$assets"
-          # Full names, fixed-string match. While sdtest also shipped, a bare
-          # "touch-lcd-2.uf2" was satisfied by sdtest-...-touch-lcd-2.uf2, so
-          # the guard would have passed a release with no firmware in it.
-          for want in "MiniRcBench-${TAG}-touch-lcd-2.uf2" \
-                      "MiniRcBench-${TAG}-touch-lcd-2.8.uf2" \
-                      "MiniRcBench-${TAG}-unified.uf2" \
+          # Full names, fixed-string match, so that no other asset whose name
+          # merely contains the board can stand in for the firmware.
+          for want in "MiniRcBench-${TAG}-touch-lcd-2.8.uf2" \
                       "SHA256SUMS.txt"; do
             echo "$assets" | grep -qxF "$want" || {
               echo "::error::no asset named '$want' on $TAG"; exit 1; }
           done
 
-          # And nothing unexpected: sdtest is deliberately not released, so a
-          # stray diagnostic image beside the firmware should fail the run
-          # rather than quietly invite someone to flash it.
-          unexpected=$(echo "$assets" | grep -v '^MiniRcBench-' | grep -v '^SHA256SUMS.txt$' || true)
+          # And nothing unexpected: one image and its checksums. sdtest is
+          # deliberately not released, so a stray diagnostic image beside the
+          # firmware fails the run rather than quietly inviting someone to
+          # flash it.
+          unexpected=$(echo "$assets" \
+            | grep -vxF "MiniRcBench-${TAG}-touch-lcd-2.8.uf2" \
+            | grep -vxF "SHA256SUMS.txt" || true)
           if [ -n "$unexpected" ]; then
             echo "::error::unexpected assets on $TAG: $unexpected"; exit 1
           fi

@@ -2,13 +2,13 @@
  * @file board_rp2350_touch_lcd_2_8.h
  * @brief Pin map for the Waveshare RP2350-Touch-LCD-2.8 (2.8" panel).
  *
- * Included by @ref board_pins.h when @ref BOARD is
- * @ref BOARD_RP2350_TOUCH_LCD_2_8. Taken from the official schematic, which
+ * Included by @ref board_pins.h. Taken from the official schematic, which
  * unlike the wiki publishes a real netlist:
  * https://files.waveshare.com/wiki/RP2350-Touch-LCD-2.8/RP2350-Touch-LCD-2.8-Schematic.pdf
  *
- * Same RP2350A, same 240x320 ST7789T3 panel, same 200k/100k battery divider —
- * and almost nothing else in common with the 2.0" board. Every peripheral moved:
+ * An RP2350A, a 240x320 ST7789T3 panel, a CST328 touch controller, an IMU, an
+ * RTC, an audio codec, a microSD slot wired for SDIO and a 200k/100k battery
+ * divider. The GPIO allocation:
  *
  * | GPIO | Function     | Notes                                          |
  * |------|--------------|------------------------------------------------|
@@ -52,8 +52,8 @@
  *     J5  (4P): 1=GP1  2=GP0  3=3V3   4=GND
  *                                     (* = on the shared I2C bus, do not reuse)
  *
- * @note Unlike the 2.0" board, TP_RST is its own net. The touch driver has to
- *       pulse it itself; st7789Init() no longer does that for free.
+ * @note TP_RST is its own net, separate from LCD_RST. The touch driver
+ *       pulses it itself.
  */
 
 #pragma once
@@ -61,9 +61,8 @@
 /**
  * @brief Human-readable board name, for the splash screen.
  *
- * Deliberately not `BOARD_NAME`: arduino-pico puts `-DBOARD_NAME="{build.board}"`
- * on every compile line, so that name is the core's and redefining it warns on
- * every translation unit.
+ * Deliberately not `BOARD_NAME`, which the Arduino cores for the RP2350 put
+ * on every compile line as `-DBOARD_NAME="{build.board}"`.
  */
 #define BOARD_LABEL "RP2350-TOUCH-LCD-2.8"
 
@@ -79,11 +78,8 @@
  * (@ref KISS_PIN_LCD_2_8). They cannot share, and @ref settingsValidate
  * switches KISS off rather than let them.
  *
- * That used to be worse. Only GP29 is a hardware UART RX function here (GP28 is
- * UART0 *TX*), and while the KISS receiver was a PL011 that made GP29 the only
- * candidate — the pin the ESC was already on. Enabling KISS on this board found
- * no pin at all and validation switched it straight back off. The receiver is a
- * PIO state machine now and samples either pin. @see pio_uart_rx.h
+ * Only GP29 is a hardware UART RX function here (GP28 is UART0 *TX*). The KISS
+ * receiver is a PIO state machine and samples either pin. @see pio_uart_rx.h
  */
 #define BOARD_FREE_GPIO_MASK 0x30000000u
 
@@ -106,13 +102,11 @@
  * @brief Shares the I2C bus with the IMU and the RTC.
  * @{
  */
-#define BOARD_TOUCH_CST328 1          /**< Selects the cst328.cpp driver. */
 #define BOARD_I2C     i2c1            /**< SDK I2C instance: GP6/GP7 are I2C1. */
 #define PIN_I2C_SDA   6               /**< I2C1 SDA, shared with the IMU and RTC. */
 #define PIN_I2C_SCL   7               /**< I2C1 SCL, shared with the IMU and RTC. */
 #define PIN_TP_INT    18              /**< Touch interrupt, active low. */
 #define PIN_TP_RST    17              /**< Touch reset, active low. Own net. */
-#define TOUCH_RST_SHARED_WITH_LCD 0   /**< The touch driver owns TP_RST here. */
 #define CST328_I2C_ADDR 0x1A          /**< 7-bit I2C address of the CST328. */
 /** @} */
 
@@ -168,7 +162,7 @@
 
 /**
  * @defgroup lcd28_pins_sd microSD
- * @brief Unused by this firmware; listed so the pins are not reused.
+ * @brief The card slot, driven by the PIO SDIO driver in src/sdio/.
  * @{
  */
 /*
@@ -180,10 +174,9 @@
  * CLK (GP19) and CMD (GP20) can be any other GPIO below 32.
  *
  * Hardware SPI is impossible here in any case: SD_SCK is GP19, which is SPI0
- * **TX** in the RP2350 pin mux, not SCK. Four-bit SDIO is also faster than the
- * one-bit SPI mode the 2.0" board is stuck with.
+ * **TX** in the RP2350 pin mux, not SCK. Four-bit SDIO is also faster than
+ * the one-bit SPI mode.
  */
-#define SD_IFACE_SDIO 1  /**< This board drives the card over PIO SDIO, 4-bit. */
 #define PIN_SD_SCK    19 /**< Card clock. */
 #define PIN_SD_CMD    20 /**< Command line; MOSI when driven as SPI. */
 #define PIN_SD_D0     21 /**< Data 0; MISO when driven as SPI. */

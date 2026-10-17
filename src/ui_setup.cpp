@@ -14,11 +14,8 @@
  * - **Changes apply live; only persistence needs the hold.** Turn the bitrate
  *   down and the pump rebuilds this frame. The one-second hold is about writing
  *   flash, which parks core1, not about the value being dangerous.
- * - **The board is not one of them.** It is detected at boot and shown here
- *   read-only. It used to be a picker, and a picker over hardware is a way to
- *   be wrong about hardware: choosing the other board and saving built the
- *   next boot's display from the wrong pins, and the screen that could have
- *   put it back was the screen that no longer came up. @see boardProbe()
+ * - **The board is not one of them.** The image is built for the
+ *   RP2350-Touch-LCD-2.8, and the first row names it, read-only.
  *
  * Input follows the three rules in ui_input.h: taps fire on release (so a
  * mis-tap can slide off), a pressed control looks pressed, and the `-`/`+`
@@ -56,20 +53,19 @@
 /*
  * One layout, always seven rows, with no section captions.
  *
- * The board row is read-only on every image -- there is nothing to choose --
- * and it stays because "which board does this firmware think it is" is worth a
- * line of its own. Dropping it would buy one row of height and cost the only
- * on-screen answer to the first question a misbehaving panel raises. Keeping
- * the geometry fixed also keeps the layout asserts compile-time constants,
+ * The board row is read-only -- there is nothing to choose -- and it stays
+ * because "which board is this firmware built for" is worth a line of its own:
+ * it is the on-screen answer to the first question a misbehaving panel raises.
+ * The fixed geometry also keeps the layout asserts compile-time constants,
  * which are the only thing standing between this screen and a caption drawn
  * through a button.
  *
- * The captions went to pay for the row. Seven rows plus two captions do not fit
- * above LINK, and of the two, the rows carry the information.
+ * Seven rows plus two captions do not fit above LINK, and of the two, the rows
+ * carry the information.
  */
 #define ROW_H       24   /**< Height of a row's controls. */
 #define ROW_PITCH   26   /**< Row top to row top. */
-#define R_BOARD     36   /**< Which board this is. */
+#define R_BOARD     36   /**< Which board the image is built for. */
 #define R_PIN       (R_BOARD + 1 * ROW_PITCH)  /**< ESC pin. */
 #define R_SPEED     (R_BOARD + 2 * ROW_PITCH)
 #define R_KISS      (R_BOARD + 3 * ROW_PITCH)
@@ -263,9 +259,9 @@ static void drawAll() {
 	gfxFill(C_BG);
 	uiHeader("SETUP", &s_touchSnap);
 
-	// Read-only on every image: the board is what the hardware answered at
-	// boot, not something to pick. Drawn as a plain row rather than a
-	// dead-looking button so that nothing invites the tap.
+	// Read-only: the board the image is built for, not something to pick.
+	// Drawn as a plain row rather than a dead-looking button so that nothing
+	// invites the tap.
 	uiRow(R_BOARD, ROW_H, "BOARD", g_board->label, C_GRID, 1);
 
 	snprintf(buf, sizeof(buf), "GP%u", (unsigned)s->dshotPin);
@@ -370,9 +366,8 @@ void uiSetupEnter() {
  * @return The next legal pin, or @p from when the board offers no other.
  */
 static uint8_t stepPinAvoiding(uint8_t from, int dir, uint8_t avoid, bool active) {
-	uint8_t board = settings()->boardId;
-	uint8_t p = settingsNextPinOn(board, from, dir);
-	if (active && p == avoid) p = settingsNextPinOn(board, p, dir);
+	uint8_t p = settingsNextPin(from, dir);
+	if (active && p == avoid) p = settingsNextPin(p, dir);
 	// Two free pins and both spoken for: there is no third answer, so stay put
 	// rather than landing on the pin this function exists to avoid.
 	if (active && p == avoid) return from;
@@ -412,10 +407,8 @@ bool uiSetupTick(const TouchState *t) {
 			if (uiArmed()) {
 				s_saveOutcome = SaveOutcome::FailedArmed;
 			} else {
-				// Nothing here can need a reboot to take effect: every value on
-				// this screen is applied live by applyLive(), and the one that
-				// could not be -- the board -- is no longer a value on this
-				// screen. @see boardProbe()
+				// Nothing here needs a reboot to take effect: every value on
+				// this screen is applied live by applyLive().
 				s_saveOutcome = settingsSave() ? SaveOutcome::Ok
 				                               : SaveOutcome::Failed;
 			}
@@ -477,7 +470,7 @@ bool uiSetupTick(const TouchState *t) {
 		} else {
 			s->kissEnable = 1;
 			if (s->kissPin == s->dshotPin)
-				s->kissPin = settingsNextPinOn(s->boardId, s->kissPin, +1);
+				s->kissPin = settingsNextPin(s->kissPin, +1);
 		}
 		changed = true;
 	} else if (uiTapped(toggleAt(R_CONTRAST), t)) {
@@ -486,8 +479,8 @@ bool uiSetupTick(const TouchState *t) {
 	} else if (uiTapped(BTN_DEFAULTS, t)) {
 		// Restores the compiled defaults into the live settings only. Flash
 		// is untouched until SAVE, so this is undoable by walking away. The
-		// defaults are this board's -- settingsDefaults() reads them out of the
-		// descriptor the boot probe selected.
+		// defaults are the board's -- settingsDefaults() reads them out of the
+		// descriptor.
 		settingsDefaults(s);
 		s_saveOutcome = SaveOutcome::None;
 		changed = true;

@@ -8,18 +8,16 @@ Symptom first, then cause. ESC means electronic speed controller.
 
 ## The screen stays dark
 
-Two causes: the image drives the wrong pins, or the boot probe could not
-identify the board.
+MiniRcBench runs on the Waveshare RP2350-Touch-LCD-2.8 only. Check the board:
+the 2.8" has JST-SH connectors and no 2.54 mm headers. For the
+RP2350-Touch-LCD-2, use
+[DshotDisplay](https://github.com/subtilitas/DshotDisplay).
 
-A **single-board** image flashed onto the other board drives the wrong display
-pins. Flash the **unified** image from
-[Releases](https://github.com/subtilitas/MiniRcBench/releases) instead. It
-identifies the board at every boot.
+To reflash: hold **BOOT**, tap **RESET**, release **BOOT**. The board appears
+as a USB (Universal Serial Bus) drive whatever firmware it holds.
 
-With the unified image, a dark screen means the probe failed 3 times: no
-board answered, or both did. The firmware then holds the power latch, keeps
-the display off and sends no DShot. The board stays reachable over USB
-(Universal Serial Bus) for reflashing.
+On an RP2350-Touch-LCD-2.8, a dark screen has no known firmware cause. Report
+it as described under [Still stuck](#still-stuck).
 
 ---
 
@@ -120,7 +118,7 @@ Check the `MOUNT` row on the SD LOG screen.
 - **`13 NO FILESYSTEM`** with a size under `CARD`: the card answers and the
   filesystem is the problem. Format it as FAT32.
 - **Card inserted after boot**: press `RETRY`. The card is mounted only once,
-  at boot, and neither board has a card-detect pin.
+  at boot, and the board has no card-detect pin.
 
 ---
 
@@ -155,14 +153,13 @@ settings screen, and `HOLD TO SAVE` on **SETUP** writes them to flash.
 
 ---
 
-## KISS telemetry is off on my 2.8" board
+## KISS telemetry is off
 
 That is the default. Turn it on under **CFG → SETUP → KISS TELEM**.
 
-The 2.8" has two free GPIOs (general-purpose input/output pins), GP28 and
+The board has two free GPIOs (general-purpose input/output pins), GP28 and
 GP29, and the ESC signal starts on GP29. KISS defaults to off so that the
-spare pin is not used for a wire that may not be fitted. The 2.0" has 15 free
-GPIOs and defaults to on.
+spare pin is not used for a wire that may not be fitted.
 
 Turning KISS on moves the KISS pin to the other free pin if it coincides with
 the ESC pin. The pin stepper skips the ESC pin. The receiver is a PIO
@@ -178,5 +175,5 @@ other pin first, then turn KISS on.
 
 Open an issue at
 [github.com/subtilitas/MiniRcBench/issues](https://github.com/subtilitas/MiniRcBench/issues).
-Include: which board, which image (unified or single-board), what the `LINK`
-row shows, and which ESC and ESC firmware.
+Include: the firmware version, what the `LINK` row shows, and which ESC and
+ESC firmware.

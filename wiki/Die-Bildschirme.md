@@ -95,8 +95,8 @@ Flash schreibt.
 
 | Zeile | Bedeutung |
 |---|---|
-| **BOARD** | Nur Anzeige. Die Platine, die die Start-Erkennung gefunden hat |
-| **ESC PIN** | GPIO (General Purpose Input/Output, frei verwendbarer Pin) für das Signalkabel. Angeboten werden nur die freien GPIOs dieser Platine: GP0–GP11 und GP21–GP23 auf der 2,0", GP28 und GP29 auf der 2,8" |
+| **BOARD** | Nur Anzeige. Die Platine, für die die Firmware gebaut ist, `RP2350-TOUCH-LCD-2.8` |
+| **ESC PIN** | GPIO (General Purpose Input/Output, frei verwendbarer Pin) für das Signalkabel. Angeboten werden nur die zwei freien GPIOs der Platine, GP28 und GP29 |
 | **DSHOT KBAUD** | 150 / 300 / 600 / 1200. Herunterstellen, wenn die `LINK`-Fehlerrate steigt |
 | **KISS TELEM** | Ob auf dem optionalen dritten Telemetriekabel empfangen wird |
 | **KISS PIN** | GPIO für dieses Kabel. Überspringt den ESC-Pin, sodass beide nie zusammenfallen |
@@ -116,10 +116,6 @@ Flash unverändert.
 Die Hinweiszeile unten nennt die verwendeten Werte: `SAVED SETTINGS IN USE`
 oder `COMPILED DEFAULTS IN USE`. Nach einer Änderung zeigt sie
 `UNSAVED - HOLD SAVE TO KEEP`.
-
-> **Die Platine wird bei jedem Start erkannt, nicht gewählt.** Keine
-> gespeicherte Einstellung kann die Erkennung überstimmen, daher kann ein
-> falscher Wert den Start der Anzeige nicht verhindern.
 
 <img src="img/setup-contrast.png" width="240" alt="SETUP mit hohem Kontrast"> <img src="img/tester-contrast.png" width="240" alt="Der Tester-Bildschirm mit hohem Kontrast">
 
