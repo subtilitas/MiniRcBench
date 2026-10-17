@@ -105,9 +105,7 @@ static uint32_t s_nextSendUs = 0;   /**< Deadline for the next frame. */
 static uint32_t s_lastRateMs = 0;   /**< Last time the rate counters rolled up. */
 static uint32_t s_rateGoodMark = 0; /**< goodPackets at the last roll-up. */
 static uint32_t s_rateBadMark = 0;  /**< badPackets at the last roll-up. */
-static EscEdtState s_edt = {};         /**< EDT enable state. @see escEdtStep() */
-static uint8_t  s_beepCmd = 0;         /**< Latched beacon command. */
-static uint8_t  s_beepReps = 0;        /**< Beacon repeats still owed. */
+static EscPump  s_pump = {};        /**< Command state. @see escPumpSlot() */
 /** @} */
 
 #if KISS_TELEM_ENABLE
@@ -116,7 +114,6 @@ static uint8_t  s_beepReps = 0;        /**< Beacon repeats still owed. */
  * @{
  */
 static KissDecoder s_kiss;              /**< Frame assembler. */
-static uint16_t    s_kissCountdown = 0; /**< Frames left before the next request. */
 static bool        s_kissPending = false; /**< A reply is outstanding. */
 static uint32_t    s_kissReqMs = 0;     /**< millis() of the outstanding request. */
 
@@ -146,7 +143,6 @@ static bool s_kissRx = false;
  */
 static void kissUartBegin(uint8_t pin) {
 	memset(&s_kiss, 0, sizeof(s_kiss));
-	s_kissCountdown = 0;
 	s_kissPending = false;
 	s_kissRx = pioUartRxBegin(pin, KISS_BAUD);
 }
@@ -377,9 +373,8 @@ void escTaskPoll() {
 		// first frames are the EDT enable. An ESC that kept EDT on across the
 		// rebuild is read correctly from its first reply, because every reply
 		// is read with EDT decoding on. @see ESC_EDT_DECODE, escEdtBind()
-		escEdtBind(&s_edt, EDT_ENABLE_REPEATS);
-		s_edtRequested = s_edt.sent;
-		s_beepReps = 0;
+		escPumpBind(&s_pump);
+		s_edtRequested = s_pump.edt.sent;
 		s_nextSendUs = time_us_32();
 #if KISS_TELEM_ENABLE
 		if (s_kissEnable && s_kissPin != pin) kissUartBegin(s_kissPin);
@@ -412,95 +407,34 @@ void escTaskPoll() {
 	// AM32 answers the enable itself with a status frame. @see ESC_EDT_DECODE
 	dshot_telem_t t;
 	memset(&t, 0, sizeof(t));
-	applyTelemetry(out_dshot_poll(s_pumpPin, ESC_EDT_DECODE, &t), &t);
+	applyTelemetry(out_dshot_poll(s_pumpPin, escPumpDecodeEdt(&s_pump), &t), &t);
 
-	// 2. Decide what to send.
+	// 2. Decide what to send. The decision is escPumpSlot(), which is pure and
+	// lives in the header so the host suite can reach it. This function only
+	// does the I/O.
 	uint32_t ms = millis();
 	bool uiAlive = (uint32_t)(ms - s_heartbeatMs) < UI_HEARTBEAT_TIMEOUT_MS;
-
-	// Keep asking for EDT while an ESC is answering and EDT is not arriving.
-	// Every timestamp read here is written by applyTelemetry() on this core, so
-	// none of it needs the lock. See edtAutoAction() for the rule and for the
-	// three versions that came before it.
-	bool linkUp = s_tel.lastRpmMs != 0 &&
-	              (uint32_t)(ms - s_tel.lastRpmMs) < ESC_LINK_STALE_MS;
-
-	// The success condition is the same fact the header chip shows, computed
-	// the same way: the retry stops exactly when the display says EDT ON, and
-	// starts again if that ever goes back to OFF with an ESC still connected.
-	bool edtFresh = escFieldFresh(s_tel.edtVoltsMs,  ms, EDT_STALE_MS) ||
-	                escFieldFresh(s_tel.edtAmpsMs,   ms, EDT_STALE_MS) ||
-	                escFieldFresh(s_tel.edtTempMs,   ms, EDT_STALE_MS) ||
-	                escFieldFresh(s_tel.edtStressMs, ms, EDT_STALE_MS) ||
-	                escFieldFresh(s_tel.edtStatusMs, ms, EDT_STALE_MS);
-
-	// The conditions under which an ESC executes the enable and under which
-	// the burst carrying it is not cut short, beyond the arm state and the
-	// settle window escEdtStep() checks. erpm == 0 is the motor-stopped check:
-	// DShot commands execute only with the motor stopped, and a disarm leaves
-	// a prop coasting for seconds.
-	bool ready = s_tel.erpm == 0 && s_beepReps == 0;
-
-	if (escEdtStep(&s_edt, linkUp, edtFresh, s_armed, ready, ms, EDT_SETTLE_MS,
-	               EDT_RETRY_MS, EDT_ENABLE_REPEATS) == EdtAutoAction::Rearm) {
-		// The ESC is gone. Whatever replaces it is a different ESC and starts
-		// from nothing having been sent to it, including the timestamps, or
-		// the old one's last second of telemetry would make the new one look
-		// like it had EDT on and suppress the enable.
+#if KISS_TELEM_ENABLE
+	bool kissRx = s_kissRx;
+#else
+	bool kissRx = false;
+#endif
+	EscSlot slot = escPumpSlot(&s_pump, &s_tel, s_armed, uiAlive, s_throttle,
+	                           s_beepReq, kissRx, ms);
+	if (slot.forgetEdt) {
 		critical_section_enter_blocking(&s_cs);
-		s_tel.edtVoltsMs = s_tel.edtAmpsMs = s_tel.edtTempMs = 0;
-		s_tel.edtStressMs = s_tel.edtStatusMs = 0;
+		escEdtForget(&s_tel);
 		critical_section_exit(&s_cs);
 	}
-	s_edtRequested = s_edt.sent;
+	s_edtRequested = s_pump.edt.sent;
+	if (slot.beepTaken) s_beepReq = 0;
 
-	// Latch a beacon request only when the wire is free. EDT goes first: it is
-	// the one the user cannot re-request, and a beep deferred by ten frames is
-	// a beep nobody notices was deferred.
-	if (!s_edt.reps && !s_beepReps && s_beepReq) {
-		s_beepCmd  = (uint8_t)(DSHOT_CMD_BEEP1 + (s_beepReq - 1));
-		s_beepReps = BEEP_REPEATS;
-		s_beepReq  = 0;
-	}
-
-	uint8_t pendingCmd  = s_edt.reps ? (uint8_t)DSHOT_CMD_EDT_ENABLE : s_beepCmd;
-	uint8_t pendingReps = s_edt.reps ? s_edt.reps : s_beepReps;
-
-#if KISS_TELEM_ENABLE
-	// Commands own the frame when they are queued -- a command frame goes out
-	// with the telemetry bit set anyway, and a reply arriving mid-command
-	// sequence would just be noise.
-	bool wantKiss = false;
-	if (s_kissRx && pendingReps == 0) {
-		if (s_kissCountdown) {
-			s_kissCountdown--;
-		} else {
-			wantKiss = true;
-			s_kissCountdown = KISS_REQUEST_EVERY_N - 1;
-		}
-	}
-#else
-	// Not const: escFrameAction() decides the final value below, and this branch
-	// still has to hold it even though nothing reads it afterwards.
-	bool wantKiss = false;
-#endif
-
-	// The decision itself is escFrameAction(), which is pure and lives in the
-	// header so the host suite can reach it. This function only does the I/O.
-	EscFrame f = escFrameAction(s_armed, uiAlive, s_throttle,
-	                            pendingCmd, pendingReps, wantKiss);
+	const EscFrame &f = slot.frame;
 	if (f.sendCommand) {
 		// With the telemetry bit set. The BLHeli_S family (Bluejay) discards a
 		// command frame whose bit is clear, so a command sent without it never
 		// reaches the ESC's repeat count; AM32 acts on either.
 		out_dshot_send(s_pumpPin, f.command, true);
-		if (s_edt.reps) {
-			// A scheduled attempt is stamped by its last frame.
-			// @see escEdtFrameSent()
-			escEdtFrameSent(&s_edt, millis());
-		} else if (s_beepReps) {
-			s_beepReps--;
-		}
 	} else {
 		// The 12-bit payload carries the throttle offset past the command range
 		// and the telemetry-request bit; the driver takes the two halves
@@ -508,10 +442,11 @@ void escTaskPoll() {
 		uint16_t payload = kissBuildDshotPayload(f.throttle, f.requestKiss);
 		out_dshot_send(s_pumpPin, (uint16_t)(payload >> 1), (payload & 1u) != 0);
 	}
-	wantKiss = f.requestKiss;
+	// A scheduled attempt is stamped by its last frame. @see escEdtFrameSent()
+	escPumpFrameSent(&s_pump, &f, millis());
 
 #if KISS_TELEM_ENABLE
-	if (wantKiss) {
+	if (f.requestKiss) {
 		// Align the assembler to this request: whatever is in the buffer is a
 		// stalled partial frame, and the next ten bytes are the reply.
 		kissExpectFrame(&s_kiss);

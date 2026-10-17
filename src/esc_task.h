@@ -23,6 +23,7 @@
 
 #include <stdint.h>
 
+#include "config.h"
 #include "dshot/dshot.h"
 
 /**
@@ -484,6 +485,167 @@ static inline EscFrame escFrameAction(bool armed, bool uiAlive, uint16_t throttl
 	// distinguish from a real one.
 	f.requestKiss = kissWanted && pendingReps == 0;
 	return f;
+}
+
+/**
+ * @brief Core1's command state between frame slots: the EDT enable, the
+ *        beacon and the KISS request cadence.
+ *
+ * Written only by escPumpBind(), escPumpSlot() and escPumpFrameSent(), which
+ * are pure. escTaskPoll() keeps one of these and does the I/O around them;
+ * the host suite drives the same three functions against a model ESC.
+ */
+struct EscPump {
+	EscEdtState edt;           /**< The EDT enable. @see escEdtStep() */
+	uint8_t     beepCmd;       /**< Latched beacon command. */
+	uint8_t     beepReps;      /**< Beacon repeats still owed; 0 means none queued. */
+	uint16_t    kissCountdown; /**< Frames left before the next KISS request. */
+};
+
+/** @brief What escPumpSlot() decided for one frame slot. */
+struct EscSlot {
+	EscFrame frame;     /**< What to put on the wire. */
+	bool     forgetEdt; /**< The ESC is gone: clear the EDT arrival times. @see escEdtForget() */
+	bool     beepTaken; /**< The beacon request was latched: clear it. */
+};
+
+/**
+ * @brief A new bind: the EDT enable first, no beacon owed, and the first
+ *        KISS request on the first free frame. Pure.
+ *
+ * Called once per bind, before the first frame. @see escEdtBind()
+ *
+ * @param p State to reset.
+ */
+static inline void escPumpBind(EscPump *p) {
+	escEdtBind(&p->edt, EDT_ENABLE_REPEATS);
+	p->beepReps = 0;
+	p->kissCountdown = 0;
+}
+
+/**
+ * @brief Whether core1 reads the reply to the last frame with EDT decoding
+ *        on. Pure.
+ *
+ * @ref ESC_EDT_DECODE, whatever the state of @p p: every reply is read with
+ * EDT decoding on, including the first after a bind and the first after a
+ * loss of the link.
+ *
+ * @param p Pump state. Not read.
+ * @return  True.
+ */
+static inline bool escPumpDecodeEdt(const EscPump *p) {
+	(void)p;
+	return ESC_EDT_DECODE;
+}
+
+/**
+ * @brief Clear the EDT arrival times of an ESC that has gone. Pure.
+ *
+ * Whatever replaces it is a different ESC and starts from nothing having been
+ * sent to it, including the timestamps, or the old one's last second of
+ * telemetry would make the new one look like it had EDT on and suppress the
+ * enable. Core1 calls it under the lock when escPumpSlot() sets
+ * EscSlot::forgetEdt.
+ *
+ * @param tel Block to update.
+ */
+static inline void escEdtForget(EscTelemetry *tel) {
+	tel->edtVoltsMs = tel->edtAmpsMs = tel->edtTempMs = 0;
+	tel->edtStressMs = tel->edtStatusMs = 0;
+}
+
+/**
+ * @brief Decide one frame slot. Pure.
+ *
+ * In order:
+ *
+ * 1. The EDT enable, escEdtStep(). The link is up while an eRPM frame is
+ *    younger than @ref ESC_LINK_STALE_MS, and EDT is fresh while any EDT
+ *    frame is younger than @ref EDT_STALE_MS. That is the fact the header
+ *    chip shows, so the retry stops when the display says EDT ON. The ESC is
+ *    ready for a command when the motor is stopped (eRPM 0) and no beacon is
+ *    going out. DShot commands execute only with the motor stopped, and a
+ *    disarm leaves a prop coasting for seconds.
+ * 2. The beacon. A request is latched only when the wire is free, no enable
+ *    and no beacon going out. EDT goes first: it is the one the user cannot
+ *    re-request, and a beep deferred by ten frames is a beep nobody notices
+ *    was deferred.
+ * 3. The KISS request. Every @ref KISS_REQUEST_EVERY_N frames while the
+ *    receiver runs and no command is owed: a command frame goes out with the
+ *    telemetry bit set anyway, and a reply arriving mid-command sequence is
+ *    noise.
+ * 4. The frame, escFrameAction(), with the enable ahead of the beacon.
+ *
+ * Every telemetry field read here is written by core1, so core1 reads them
+ * without the lock.
+ *
+ * @param p        State to update.
+ * @param tel      Telemetry block, after this slot's reply.
+ * @param armed    Arm state.
+ * @param uiAlive  Core0 has checked in within @ref UI_HEARTBEAT_TIMEOUT_MS.
+ * @param throttle Throttle core0 last commanded, 0..2000.
+ * @param beepReq  Beacon 1..5 core0 asked for; 0 is none.
+ * @param kissRx   The KISS receiver is running.
+ * @param nowMs    millis().
+ * @return What to send, and what to clear.
+ */
+static inline EscSlot escPumpSlot(EscPump *p, const EscTelemetry *tel,
+                                  bool armed, bool uiAlive, uint16_t throttle,
+                                  uint8_t beepReq, bool kissRx, uint32_t nowMs) {
+	EscSlot s = {{false, 0, 0, false}, false, false};
+
+	bool linkUp = tel->lastRpmMs != 0 &&
+	              (uint32_t)(nowMs - tel->lastRpmMs) < ESC_LINK_STALE_MS;
+	const uint32_t edtMs[] = {tel->edtVoltsMs, tel->edtAmpsMs, tel->edtTempMs,
+	                          tel->edtStressMs, tel->edtStatusMs};
+	bool edtFresh = false;
+	for (uint32_t t : edtMs)
+		if (t != 0 && (uint32_t)(nowMs - t) < EDT_STALE_MS) edtFresh = true;
+	bool ready = tel->erpm == 0 && p->beepReps == 0;
+
+	s.forgetEdt = escEdtStep(&p->edt, linkUp, edtFresh, armed, ready, nowMs,
+	                         EDT_SETTLE_MS, EDT_RETRY_MS,
+	                         EDT_ENABLE_REPEATS) == EdtAutoAction::Rearm;
+
+	if (!p->edt.reps && !p->beepReps && beepReq) {
+		p->beepCmd  = (uint8_t)(DSHOT_CMD_BEEP1 + (beepReq - 1));
+		p->beepReps = BEEP_REPEATS;
+		s.beepTaken = true;
+	}
+
+	uint8_t pendingCmd  = p->edt.reps ? (uint8_t)DSHOT_CMD_EDT_ENABLE : p->beepCmd;
+	uint8_t pendingReps = p->edt.reps ? p->edt.reps : p->beepReps;
+
+	bool wantKiss = false;
+	if (kissRx && pendingReps == 0) {
+		if (p->kissCountdown) {
+			p->kissCountdown--;
+		} else {
+			wantKiss = true;
+			p->kissCountdown = KISS_REQUEST_EVERY_N - 1;
+		}
+	}
+
+	s.frame = escFrameAction(armed, uiAlive, throttle, pendingCmd, pendingReps,
+	                         wantKiss);
+	return s;
+}
+
+/**
+ * @brief The frame escPumpSlot() decided has gone out. Pure.
+ *
+ * A command frame counts against the enable while one is owed, otherwise
+ * against the beacon. @see escEdtFrameSent()
+ *
+ * @param p     State to update.
+ * @param f     The frame, EscSlot::frame.
+ * @param nowMs millis() after the frame went out.
+ */
+static inline void escPumpFrameSent(EscPump *p, const EscFrame *f, uint32_t nowMs) {
+	if (!f->sendCommand) return;
+	if (p->edt.reps)          escEdtFrameSent(&p->edt, nowMs);
+	else if (p->beepReps)     p->beepReps--;
 }
 
 /** @brief EDT status frame, bits 3..0: the highest stress level seen. */

@@ -1503,17 +1503,20 @@ static uint16_t simEscFrame(SimEsc *esc, uint16_t value) {
 /**
  * @brief Core1's per-slot decisions in escTaskPoll() order, without the I/O.
  *
- * The decisions are the firmware's own: escEdtBind(), escEdtStep(),
- * escEdtFrameSent(), escFrameAction(), escFoldReply() and the pump's decode
- * flag @ref ESC_EDT_DECODE. What is modelled here is only what the PIO driver
- * and the clock do: one frame per millisecond, its reply read one slot later.
+ * The decisions are the firmware's own: escPumpBind(), escPumpDecodeEdt(),
+ * escFoldReply(), escPumpSlot(), escEdtForget() and escPumpFrameSent(), the
+ * functions escTaskPoll() calls. What is modelled here is only what the PIO
+ * driver, core0 and the clock do: one frame per millisecond, its reply read
+ * one slot later, and the beacon request core0 raises.
  */
 struct SimPump {
-	EscEdtState edt;
+	EscPump  pump;
 	EscTelemetry tel;
 	bool     armed;
 	uint16_t throttle;
-	uint8_t  beepReq, beepCmd, beepReps;
+	uint8_t  beepReq;       /**< core0's s_beepReq. */
+	bool     kissRx;        /**< A KISS receiver runs. */
+	unsigned kissReqs;      /**< Frames sent with the KISS request bit. */
 	uint32_t ms;            /**< millis() of the slot about to run. */
 	bool     havePrev;      /**< A reply to the last frame is owed. */
 	uint16_t prevReply;     /**< That reply, as the ESC sent it. */
@@ -1524,10 +1527,9 @@ struct SimPump {
 
 /** @brief What a bind does to the pump, as escTaskPoll() does it. */
 static void simBind(SimPump *p) {
-	escEdtBind(&p->edt, EDT_ENABLE_REPEATS);
+	escPumpBind(&p->pump);
 	p->armed = false;
 	p->throttle = 0;
-	p->beepReps = 0;
 	p->havePrev = false;    // a new binding has sent nothing to read back
 }
 
@@ -1547,42 +1549,21 @@ static void simSlot(SimPump *p, SimEsc *esc) {
 	memset(&t, 0, sizeof(t));
 	dshot_reply_t r = DSHOT_REPLY_NONE;
 	if (p->havePrev && esc->present)
-		r = dshot_telem_from_value(p->prevReply, ESC_EDT_DECODE, &t) ? DSHOT_REPLY_GOOD
-		                                                              : DSHOT_REPLY_BAD;
+		r = dshot_telem_from_value(p->prevReply, escPumpDecodeEdt(&p->pump), &t)
+		        ? DSHOT_REPLY_GOOD : DSHOT_REPLY_BAD;
 	escFoldReply(&p->tel, r, &t, 14, ms);
 
-	// 2. The EDT enable.
-	bool linkUp = escFieldFresh(p->tel.lastRpmMs, ms, ESC_LINK_STALE_MS);
-	bool edtFresh = escFieldFresh(p->tel.edtVoltsMs,  ms, EDT_STALE_MS) ||
-	                escFieldFresh(p->tel.edtAmpsMs,   ms, EDT_STALE_MS) ||
-	                escFieldFresh(p->tel.edtTempMs,   ms, EDT_STALE_MS) ||
-	                escFieldFresh(p->tel.edtStressMs, ms, EDT_STALE_MS) ||
-	                escFieldFresh(p->tel.edtStatusMs, ms, EDT_STALE_MS);
-	bool ready = p->tel.erpm == 0 && p->beepReps == 0;
-	if (escEdtStep(&p->edt, linkUp, edtFresh, p->armed, ready, ms, EDT_SETTLE_MS,
-	               EDT_RETRY_MS, EDT_ENABLE_REPEATS) == EdtAutoAction::Rearm) {
-		p->tel.edtVoltsMs = p->tel.edtAmpsMs = p->tel.edtTempMs = 0;
-		p->tel.edtStressMs = p->tel.edtStatusMs = 0;
-	}
-
-	// 3. The beacon, and the frame.
-	if (!p->edt.reps && !p->beepReps && p->beepReq) {
-		p->beepCmd  = (uint8_t)(DSHOT_CMD_BEEP1 + (p->beepReq - 1));
-		p->beepReps = BEEP_REPEATS;
-		p->beepReq  = 0;
-	}
-	uint8_t pendingCmd  = p->edt.reps ? (uint8_t)DSHOT_CMD_EDT_ENABLE : p->beepCmd;
-	uint8_t pendingReps = p->edt.reps ? p->edt.reps : p->beepReps;
-	EscFrame f = escFrameAction(p->armed, true, p->throttle, pendingCmd, pendingReps,
-	                            false);
-	uint16_t value;
-	if (f.sendCommand) {
-		value = f.command;
-		if (p->edt.reps) escEdtFrameSent(&p->edt, ms);
-		else if (p->beepReps) p->beepReps--;
-	} else {
-		value = (uint16_t)(kissBuildDshotPayload(f.throttle, false) >> 1);
-	}
+	// 2. The decision, and what core1 does with it.
+	EscSlot s = escPumpSlot(&p->pump, &p->tel, p->armed, true, p->throttle,
+	                        p->beepReq, p->kissRx, ms);
+	if (s.forgetEdt) escEdtForget(&p->tel);
+	if (s.beepTaken) p->beepReq = 0;
+	const EscFrame &f = s.frame;
+	uint16_t value = f.sendCommand
+	               ? f.command
+	               : (uint16_t)(kissBuildDshotPayload(f.throttle, f.requestKiss) >> 1);
+	if (f.requestKiss) p->kissReqs++;
+	escPumpFrameSent(&p->pump, &f, ms);
 
 	if (p->slot < SIM_SLOTS) {
 		p->sent[p->slot] = value;
@@ -1752,18 +1733,18 @@ static void testEdtBindBurstRules() {
 	         (long)(starts[2] - starts[1]), EDT_RETRY_MS + EDT_ENABLE_REPEATS - 1);
 	checkInt("and the next", (long)(starts[3] - starts[2]),
 	         EDT_RETRY_MS + EDT_ENABLE_REPEATS - 1);
-	checkTrue("the enable is reported as sent", p->edt.sent);
+	checkTrue("the enable is reported as sent", p->pump.edt.sent);
 
 	// Nothing connected: the bind burst, then nothing, and the request state
 	// clears once it has gone out.
 	memset(&esc, 0, sizeof(esc));
 	simBoot(p, 5000);
 	simRun(p, &esc, EDT_ENABLE_REPEATS);
-	checkTrue("no ESC: reported as sent during the burst", p->edt.sent);
+	checkTrue("no ESC: reported as sent during the burst", p->pump.edt.sent);
 	simRun(p, &esc, 3000);
 	checkTrue("no ESC: the enable is the first 10 frames", simBindBurstAt(p, 0));
 	checkInt("no ESC: nothing after it", (long)simBurstStarts(p, 0, p->slot, starts, 16), 1);
-	checkTrue("no ESC: not reported as sent after it", !p->edt.sent);
+	checkTrue("no ESC: not reported as sent after it", !p->pump.edt.sent);
 
 	// An ESC with EDT that is not ready for commands at the bind takes a
 	// scheduled one, and the asking stops.
@@ -1804,7 +1785,10 @@ static void testEdtBindBurstRules() {
 	esc.present = esc.ready = true;
 	simBoot(p, 5000);
 	p->beepReq = 2;
-	simRun(p, &esc, 20);
+	simRun(p, &esc, EDT_ENABLE_REPEATS);
+	checkInt("beacon: the request waits for the enable", p->beepReq, 2);
+	simRun(p, &esc, 10);
+	checkInt("beacon: and is taken after it", p->beepReq, 0);
 	checkTrue("beacon: the enable is the first 10 frames", simBindBurstAt(p, 0));
 	checkInt("beacon: frame 11 is the beacon", p->sent[EDT_ENABLE_REPEATS],
 	         DSHOT_CMD_BEEP2);
@@ -1818,7 +1802,7 @@ static void testEdtBindBurstRules() {
 	simRun(p, &esc, 1000);
 	esc.present = false;
 	simRun(p, &esc, ESC_LINK_STALE_MS + 10);
-	checkTrue("unplugged: not reported as sent", !p->edt.sent);
+	checkTrue("unplugged: not reported as sent", !p->pump.edt.sent);
 	checkInt("unplugged: EDT fields cleared", (long)p->tel.edtVoltsMs, 0);
 	unsigned back = p->slot;
 	esc.present = true;
@@ -1827,6 +1811,98 @@ static void testEdtBindBurstRules() {
 	checkTrue("plugged back: EDT read again", p->tel.edtVoltsMs > 0);
 	checkInt("plugged back: no enable needed",
 	         (long)simBurstStarts(p, back, p->slot, starts, 16), 0);
+}
+
+/** @brief Slot @p from starts a run of exactly @p n frames of @p value. */
+static bool simRunOf(const SimPump *p, unsigned from, unsigned n, uint16_t value) {
+	if (from > 0 && p->sent[from - 1] == value) return false;
+	for (unsigned i = 0; i < n; i++)
+		if (p->sent[from + i] != value) return false;
+	return p->sent[from + n] != value;
+}
+
+/**
+ * @brief A scheduled enable waits for a stopped motor, a disarm and the end
+ *        of a beacon, and an arm drops it.
+ *
+ * DShot commands execute only with the motor stopped and disarmed, and a
+ * burst broken by another command reaches no repeat count. A burst an arm
+ * leaves owed would also hold back every KISS request while armed.
+ */
+static void testEdtStepRules() {
+	section("Safety: when a scheduled EDT enable goes out");
+
+	SimPump *p = &s_sim;
+	SimEsc esc;
+	unsigned starts[16];
+
+	// A rebuild after a SETUP change disarms with the prop still coasting.
+	// No enable goes out until the motor reports 0 eRPM.
+	memset(&esc, 0, sizeof(esc));
+	esc.present = esc.ready = true;
+	esc.periodUs = 2000;
+	simBoot(p, 5000);
+	simRun(p, &esc, 3000);
+	checkInt("coasting: only the bind burst in 3 s",
+	         (long)simBurstStarts(p, 0, p->slot, starts, 16), 1);
+	unsigned stop = p->slot;
+	esc.periodUs = 0;
+	simRun(p, &esc, 500);
+	unsigned n = simBurstStarts(p, stop, p->slot, starts, 16);
+	checkInt("stopped: one scheduled enable", (long)n, 1);
+	// The reply to the first stopped frame is read one slot later.
+	checkInt("stopped: on the first slot that reads 0 eRPM",
+	         n ? (long)(starts[0] - stop) : -1L, 1);
+
+	// Armed in the middle of a scheduled burst, with a KISS receiver: the
+	// rest of the burst is dropped, no enable goes out while armed, and every
+	// KISS request goes out on time.
+	memset(&esc, 0, sizeof(esc));
+	esc.present = esc.ready = true;
+	simBoot(p, 5000);
+	p->kissRx = true;
+	simRun(p, &esc, 1 + EDT_SETTLE_MS + 3);
+	checkTrue("arm mid-burst: the burst is under way",
+	          p->sent[1 + EDT_SETTLE_MS] == DSHOT_CMD_EDT_ENABLE &&
+	          p->sent[p->slot - 1] == DSHOT_CMD_EDT_ENABLE);
+	unsigned armAt = p->slot;
+	unsigned kissAt = p->kissReqs;
+	p->armed = true;
+	p->throttle = 100;
+	simRun(p, &esc, 2000);
+	checkInt("arm mid-burst: throttle on the next frame",
+	         p->sent[armAt], (long)(kissBuildDshotPayload(100, false) >> 1));
+	checkInt("arm mid-burst: no enable while armed",
+	         (long)simBurstStarts(p, armAt, p->slot, starts, 16), 0);
+	checkInt("arm mid-burst: no command owed while armed", p->pump.edt.reps, 0);
+	checkInt("arm mid-burst: KISS requests in 2 s armed",
+	         (long)(p->kissReqs - kissAt), 2000 / KISS_REQUEST_EVERY_N);
+	p->armed = false;
+	p->throttle = 0;
+	unsigned disarmAt = p->slot;
+	simRun(p, &esc, 100);
+	n = simBurstStarts(p, disarmAt, p->slot, starts, 16);
+	checkInt("disarmed: one enable", (long)n, 1);
+	checkTrue("disarmed: on the first frame, 10 frames long",
+	          n == 1 && starts[0] == disarmAt &&
+	          simRunOf(p, disarmAt, EDT_ENABLE_REPEATS, DSHOT_CMD_EDT_ENABLE));
+
+	// A beacon that is going out when the scheduled enable falls due keeps
+	// the wire, and the enable follows it.
+	memset(&esc, 0, sizeof(esc));
+	esc.present = esc.ready = true;
+	simBoot(p, 5000);
+	const unsigned due = 1 + EDT_SETTLE_MS;
+	simRun(p, &esc, due - 3);
+	p->beepReq = 3;
+	simRun(p, &esc, 100);
+	checkTrue("beacon: all 6 frames, unbroken",
+	          simRunOf(p, due - 3, BEEP_REPEATS, DSHOT_CMD_BEEP3));
+	n = simBurstStarts(p, due - 3, p->slot, starts, 16);
+	checkInt("beacon: one enable after it", (long)n, 1);
+	checkTrue("beacon: on the next frame, 10 frames long",
+	          n == 1 && starts[0] == due - 3 + BEEP_REPEATS &&
+	          simRunOf(p, starts[0], EDT_ENABLE_REPEATS, DSHOT_CMD_EDT_ENABLE));
 }
 
 /** @brief The idle interlock actually fires, and says so first. */
@@ -2515,6 +2591,7 @@ void runUiTests() {
 	testEdtKeptAcrossBind();
 	testNoEdtEscRpm();
 	testEdtBindBurstRules();
+	testEdtStepRules();
 
 	testTapCancels();
 	testStepperRepeat();
