@@ -124,8 +124,9 @@ its own wire. AM32 is an open-source ESC firmware.
 - eRPM is 60,000,000 divided by the reported period in µs.
   `pico-bidir-dshot` added 50 eRPM to every reading, about 7 RPM on a
   14-pole motor.
-- EDT frames are decoded as EDT once an enable has gone out. Before that,
-  every reply reads as eRPM.
+- The DShot driver decodes EDT frames as EDT only when its caller says so,
+  because an EDT frame cannot be told from an eRPM frame by its bits. The
+  DShot frame pump says so for every reply; see the false RPM under Fixed.
 - The design notes in `docs/design/` describe the code as it is: KISS
   reception through a PIO receiver on any free GPIO, KISS off by default
   rather than impossible, which log fields carry which source, and the USB
@@ -198,6 +199,16 @@ its own wire. AM32 is an open-source ESC firmware.
 - Two comments in `src/config.h` disagreed with the code: the SD
   preallocation of 16 MiB lasts about 38 min, and SETUP shows one note line
   for saved settings or compiled defaults.
+- A false RPM with the new DShot driver after a restart with EDT still on in
+  the ESC. Replies were decoded as EDT only once this board had sent an
+  enable, 300 ms or more after eRPM arrived. An ESC that kept EDT on across a
+  board restart, a rebuild of the DShot frame pump after a SETUP pin or
+  bitrate change, or an AM32 settings session sent EDT frames that read as
+  eRPM until then: a voltage frame of 66 counts read as 227,272 eRPM. The
+  first 10 frames after every pump start are the EDT enable, 10 ms at 1 kHz,
+  and every reply is decoded with EDT on from the first one. eRPM from an ESC without EDT
+  decodes the same. The repeated enable keeps its rules: 300 ms after
+  link-up, then every 1000 ms while no EDT frame arrives.
 - `tools/sdtest` links: it carries the mass-storage callbacks that the
   firmware's TinyUSB configuration requires. Its stub comment says what they
   answer: test_unit_ready not ready, a capacity of 0 blocks, and an error for

@@ -430,14 +430,34 @@ nothing is sent to the ESC then.
 
 ## Telemetry and logging
 
-The firmware enables EDT itself. There is no button. While an ESC answers with
-eRPM and no EDT frame has arrived for `EDT_STALE_MS` (1000 ms), the enable is
-sent again every `EDT_RETRY_MS` (1000 ms). After `ESC_LINK_STALE_MS` (500 ms)
-without eRPM the state resets. An ESC connected later, power-cycled or
-replaced then gets its own enable.
+The firmware enables EDT itself. There is no button.
 
-Each enable is `EDT_ENABLE_REPEATS` (10) identical frames. It is sent only
-when all of these hold:
+The first frames the DShot pump sends after it starts are the enable,
+`EDT_ENABLE_REPEATS` (10) identical frames of DShot command 13. The pump starts
+at power-up, after a change of the ESC pin or the bitrate under SETUP, and
+when the AM32 settings screen hands the pin back. Every reply is decoded with
+EDT on, from the first one:
+
+- an ESC that kept EDT on across one of those restarts is read correctly from
+  its first reply, and none of its EDT frames is shown as an RPM;
+- an ESC without EDT, or with EDT off, sends eRPM frames with a normalised
+  exponent, and those decode the same with EDT on;
+- the replies to the enable frames are decoded like any other. AM32 answers
+  the enable with a status frame.
+
+At the 1 kHz frame rate the enable at pump start takes 10 ms. Arming
+during it sends the throttle on the next frame and drops the rest of the
+enable. A BEEP and the first KISS telemetry request wait for its end.
+
+An ESC that is not yet ready for commands ignores that enable, and it does
+not count as an attempt. While an ESC answers with eRPM and no EDT frame has
+arrived for `EDT_STALE_MS` (1000 ms), the enable is sent again every
+`EDT_RETRY_MS` (1000 ms), counted from the last frame of the one before.
+After `ESC_LINK_STALE_MS` (500 ms) without eRPM the state resets. An ESC
+connected later, power-cycled or replaced then gets its own enable.
+
+Each repeated enable is `EDT_ENABLE_REPEATS` (10) identical frames. It is
+sent only when all of these hold:
 
 - the link has been up for `EDT_SETTLE_MS` (300 ms). An ESC answers eRPM
   within milliseconds of power-up but executes commands only after a run of
@@ -560,7 +580,7 @@ nothing for those six. The SETUP note line says which set is in use.
 | `EDT_STALE_MS` | `1000` | How long an EDT field stays valid after its last frame. Then the tile shows `--` |
 | `ESC_LINK_STALE_MS` | `500` | Time without eRPM before the ESC counts as gone. Resets the automatic EDT enable |
 | `EDT_RETRY_MS` | `1000` | Interval between EDT enables while eRPM arrives and EDT does not |
-| `EDT_SETTLE_MS` | `300` | Time the link must be up before the first EDT enable |
+| `EDT_SETTLE_MS` | `300` | Time the link must be up before the first repeated EDT enable. The enable at pump start does not wait |
 | `KISS_REPLY_TIMEOUT_MS` | `10` | Abandon an incomplete reply after this long; affects only the timeout counter |
 | `SD_LOG_ENABLE` | `1` | Compile the logging path in at all |
 | `SD_LOG_SDIO_HZ` | `10 MHz` | SDIO card clock |
@@ -858,7 +878,7 @@ target so a test run does not leave the working tree dirty.
 `python3 tools/coverage.py` writes the figure below from its gcov counters.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.2%**: 2,422 of 2,492 lines in 24 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.2%**: 2,459 of 2,529 lines in 24 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

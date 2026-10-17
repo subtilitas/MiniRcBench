@@ -240,7 +240,9 @@ enum class EdtAutoAction : uint8_t {
  * @param edtFresh   True if any EDT frame arrived within @ref EDT_STALE_MS.
  * @param canCommand True if the ESC would act on a command sent now: disarmed,
  *                   motor stopped, link settled, and no burst already going out.
- * @param tried      True if an enable has gone out in full to the ESC now connected.
+ * @param tried      True if a scheduled enable, one this function asked for, has
+ *                   gone out in full to the ESC that is connected. The enable a
+ *                   bind sends does not count. @see escEdtBind()
  * @param sinceMs    Milliseconds since that enable. Ignored when @p tried is false.
  * @param retryMs    How long an unanswered enable is left before repeating it.
  * @return           What to do.
@@ -259,6 +261,174 @@ static inline EdtAutoAction edtAutoAction(bool linkUp, bool edtFresh,
 	if (!canCommand) return EdtAutoAction::None;
 	if (tried && sinceMs < retryMs) return EdtAutoAction::None;
 	return EdtAutoAction::Send;
+}
+
+/**
+ * @brief Whether core1 reads a reply with EDT decoding on: for every reply.
+ *
+ * The decoder cannot tell an EDT frame from an eRPM frame by its bits alone
+ * (see dshot_telem_from_value()), so the pump has to say which to expect.
+ * The answer is EDT, from the first reply after a bind and through any loss
+ * of the link:
+ *
+ * - The first frames after every bind are the EDT enable (escEdtBind()), so
+ *   the first reply already answers an enable.
+ * - An ESC that kept EDT on across a board restart, a pump rebuild after a
+ *   SETUP change, or an AM32 settings session sends EDT frames from its
+ *   first reply. Read as eRPM, a voltage frame of 66 counts is a period of
+ *   264 us, 227,272 eRPM, and that is the RPM the display shows.
+ * - An ESC without EDT, or with EDT off, sends eRPM with its exponent
+ *   normalised: bit 8 of the payload is set whenever the exponent is not 0.
+ *   Such a frame reads as eRPM with EDT decoding on, and a frame with
+ *   exponent 0 has type nibble 0, which reads as eRPM too. The host suite
+ *   checks every normalised payload.
+ *
+ * Only an eRPM frame with an exponent above 0 and bit 8 clear reads
+ * differently, as an EDT type.
+ */
+static constexpr bool ESC_EDT_DECODE = true;
+
+/**
+ * @brief Core1's EDT enable state for the ESC on the pump's pin.
+ *
+ * Written only by escEdtBind(), escEdtStep() and escEdtFrameSent(), which are
+ * pure and host-testable for the same reason as edtAutoAction().
+ *
+ * Two kinds of burst go out, and both are @ref EDT_ENABLE_REPEATS frames of
+ * DSHOT_CMD_EDT_ENABLE:
+ *
+ * - the bind burst, the first frames after every bind;
+ * - scheduled bursts, which edtAutoAction() asks for once the ESC has been
+ *   answering for @ref EDT_SETTLE_MS, and again every @ref EDT_RETRY_MS while
+ *   no EDT frame arrives.
+ *
+ * Only a scheduled burst counts as an attempt and starts the retry clock. The
+ * bind burst goes out before the ESC has been heard from, and an ESC that is
+ * not yet ready for commands ignores it. Counting it would hold the first
+ * scheduled burst until 1009 ms after the bind; uncounted, that burst goes
+ * out 300 ms after link-up.
+ */
+struct EscEdtState {
+	uint8_t  reps;          /**< Enable repeats still owed; 0 means none queued. */
+	bool     scheduled;     /**< The burst under way is a scheduled one. */
+	bool     tried;         /**< A scheduled burst has gone out in full to this ESC. */
+	uint32_t lastTryMs;     /**< millis() when that burst's last frame went out. */
+	bool     armedWas;      /**< Arm state escEdtStep() last saw. */
+	bool     sent;          /**< An enable has gone out to this ESC; escEdtRequested(). */
+	uint32_t linkUpSinceMs; /**< When this ESC started answering; 0 while it is not. */
+};
+
+/**
+ * @brief A new bind: queue the enable as the pump's first frames. Pure.
+ *
+ * Called once per bind, before the first frame. Everything else starts from
+ * nothing having been tried with the ESC on the pin. The bind also forces a
+ * disarm, so the arm state is recorded as disarmed, and an arm transition
+ * seen before the bind does not abandon the burst.
+ *
+ * At the 1 kHz frame rate the burst takes 10 ms. Nothing waits on it: a
+ * frame while armed carries the throttle (escFrameAction()), and an arm
+ * abandons the burst. A beacon request and the first KISS request wait for
+ * its end, at most 10 ms.
+ *
+ * @param e    State to reset.
+ * @param reps Frames per enable, @ref EDT_ENABLE_REPEATS.
+ */
+static inline void escEdtBind(EscEdtState *e, uint8_t reps) {
+	e->reps          = reps;
+	e->scheduled     = false;
+	e->tried         = false;
+	e->lastTryMs     = 0;
+	e->armedWas      = false;
+	e->sent          = true;
+	e->linkUpSinceMs = 0;
+}
+
+/**
+ * @brief Decide the EDT enable for one frame slot and apply it. Pure.
+ *
+ * The rule is edtAutoAction(); this supplies its inputs from @p e and records
+ * its outcome:
+ *
+ * - The settle window starts at the first slot with @p linkUp, and a slot
+ *   without it resets the window.
+ * - @c canCommand is the window having lasted @p settleMs, the ESC
+ *   disarmed, @p ready, and no enable burst under way.
+ * - An arm transition abandons the burst under way, scheduled or bind, and
+ *   clears @c tried: a broken burst reaches no ESC's repeat count, so it is
+ *   no attempt.
+ * - A loss of the link after the bind burst is also a new ESC, once the burst
+ *   has finished. The bind burst sets no @c tried, so edtAutoAction() alone
+ *   would not report it.
+ *
+ * On EdtAutoAction::Rearm the caller also clears the EDT arrival times, so
+ * the last EDT frames of the ESC that left do not suppress the enable for
+ * the next one.
+ *
+ * @param e        State to update.
+ * @param linkUp   An eRPM frame arrived within @ref ESC_LINK_STALE_MS.
+ * @param edtFresh An EDT frame arrived within @ref EDT_STALE_MS.
+ * @param armed    Arm state.
+ * @param ready    The motor is stopped (eRPM 0) and no beacon command is
+ *                 going out.
+ * @param nowMs    millis().
+ * @param settleMs @ref EDT_SETTLE_MS.
+ * @param retryMs  @ref EDT_RETRY_MS.
+ * @param reps     Frames per enable, @ref EDT_ENABLE_REPEATS.
+ * @return What edtAutoAction() decided, or Rearm after the bind burst.
+ */
+static inline EdtAutoAction escEdtStep(EscEdtState *e, bool linkUp, bool edtFresh,
+                                       bool armed, bool ready, uint32_t nowMs,
+                                       uint32_t settleMs, uint32_t retryMs,
+                                       uint8_t reps) {
+	// Zero means "not answering"; `nowMs ? nowMs : 1` keeps that sentinel
+	// distinct from a millis() of 0 at boot.
+	if (!linkUp)                 e->linkUpSinceMs = 0;
+	else if (!e->linkUpSinceMs)  e->linkUpSinceMs = nowMs ? nowMs : 1;
+	bool settled = e->linkUpSinceMs &&
+	               (uint32_t)(nowMs - e->linkUpSinceMs) >= settleMs;
+	bool canCommand = settled && !armed && ready && e->reps == 0;
+
+	if (armed != e->armedWas) {
+		e->armedWas = armed;
+		e->tried = false;
+		e->reps = 0;
+	}
+
+	EdtAutoAction a = edtAutoAction(linkUp, edtFresh, canCommand, e->tried,
+	                                nowMs - e->lastTryMs, retryMs);
+	if (a == EdtAutoAction::None && !linkUp && e->sent && e->reps == 0)
+		a = EdtAutoAction::Rearm;
+
+	if (a == EdtAutoAction::Send) {
+		// Only the burst is queued here. `tried` and the retry clock are set
+		// by escEdtFrameSent() when the last repetition leaves.
+		e->reps      = reps;
+		e->scheduled = true;
+		e->sent      = true;
+	} else if (a == EdtAutoAction::Rearm) {
+		e->tried = false;
+		e->sent  = false;
+		e->reps  = 0;
+	}
+	return a;
+}
+
+/**
+ * @brief One enable frame has gone out. Pure.
+ *
+ * A scheduled burst is stamped by its last frame, so a burst cut short by an
+ * arm never holds the retry off. The bind burst stamps nothing.
+ *
+ * @pre @c e->reps is not 0.
+ * @param e     State to update.
+ * @param nowMs millis() of the frame.
+ */
+static inline void escEdtFrameSent(EscEdtState *e, uint32_t nowMs) {
+	if (--e->reps == 0 && e->scheduled) {
+		e->tried     = true;
+		e->lastTryMs = nowMs;
+	}
 }
 
 /** @brief What core1 should put on the wire in one frame slot. */
@@ -405,7 +575,13 @@ static inline void escFoldReply(EscTelemetry *tel, dshot_reply_t reply,
  */
 void escSnapshot(EscTelemetry *out);
 
-/** @brief True once an EDT enable has been issued. @return Request state. */
+/**
+ * @brief True while an EDT enable has gone out to the ESC on the pin.
+ *
+ * Set by the burst every bind sends and by each scheduled enable; cleared
+ * when the link is lost. @see EscEdtState
+ * @return Request state.
+ */
 bool escEdtRequested();
 
 /**
