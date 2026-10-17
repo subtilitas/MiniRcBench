@@ -1894,8 +1894,9 @@ static void testKissCadence() {
 		p->beepReq = 3;
 		simRun(p, &esc, waiting ? 2 : 3);
 		if (!waiting)
-			checkTrue("arm mid-beacon: the beacon is going out",
-			          p->sent[p->slot - 1] == DSHOT_CMD_BEEP3);
+			checkTrue("arm mid-beacon: the beacon is going out, frames owed",
+			          p->sent[p->slot - 1] == DSHOT_CMD_BEEP3 &&
+			          p->pump.beepReps > 0);
 		else
 			checkInt("arm in the enable: the beacon waits", p->beepReq, 3);
 		p->armed = true;

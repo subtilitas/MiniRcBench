@@ -325,10 +325,7 @@ Arming and disarming dim the backlight to a quarter for 120 ms
   commands.
 - **BEEP**: sends `DSHOT_CMD_BEACON1` for 6 frames (`BEEP_REPEATS`), 6 ms at
   1 kHz. Use it to identify which ESC is connected. Refused while armed; the
-  caption then reads `REFUSED - DISARM THE ESC FIRST`. The beacon waits for
-  an EDT enable under way, at most 10 ms. An arm before its last frame drops
-  the rest, so an arm within 16 ms of the press can cut the beep short or
-  silence it.
+  caption then reads `REFUSED - DISARM THE ESC FIRST`.
 - **AM32**: the ESC settings editor. See [AM32 ESC configuration](#am32-esc-configuration).
 - **SD LOG**: logging status and manual start/stop. See below.
 - **SETUP**: ESC and telemetry pins, DShot bitrate, contrast, backlight, and

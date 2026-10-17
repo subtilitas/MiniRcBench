@@ -182,7 +182,8 @@ void escHeartbeat();
  * @return False if the request was refused because the ESC is armed. The
  *         caller is expected to say so: a command that is silently dropped is
  *         indistinguishable from a button that does not work, which is exactly
- *         how it was reported.
+ *         how it was reported. True means accepted; an arm before the
+ *         beacon's last frame drops the rest. @see escPumpSlot()
  */
 bool escRequestBeep(uint8_t n);
 
@@ -466,8 +467,9 @@ struct EscFrame {
  * - **Disarmed means zero throttle**, regardless of what was last commanded.
  * - **Commands only go out while disarmed.** An ESC ignores them while armed
  *   anyway, so sending one is at best noise in the frame stream; and a queued
- *   command must not be consumed by a frame that cannot deliver it, or it is
- *   silently lost.
+ *   command must not be consumed by a frame that cannot deliver it. A command
+ *   still owed at an arm is dropped by its owner instead: escEdtStep() for the
+ *   EDT enable, escPumpSlot() for the beacon.
  *
  * @param armed       Arm state.
  * @param uiAlive     Core0 has checked in within @ref UI_HEARTBEAT_TIMEOUT_MS.
@@ -513,7 +515,7 @@ struct EscPump {
 struct EscSlot {
 	EscFrame frame;     /**< What to put on the wire. */
 	bool     forgetEdt; /**< The ESC is gone: clear the EDT arrival times. @see escEdtForget() */
-	bool     beepTaken; /**< The beacon request was latched: clear it. */
+	bool     beepTaken; /**< The request was latched, or dropped by an arm: clear it. */
 };
 
 /**
@@ -579,7 +581,7 @@ static inline void escEdtForget(EscTelemetry *tel) {
  *    re-request, and a beep deferred by ten frames is a beep nobody notices
  *    was deferred. An arm drops the beacon, owed or asked for: no command
  *    frame goes out armed, so a kept beacon would hold back every KISS
- *    request and the EDT enable until disarm, and then beep late.
+ *    request until disarm, and then beep late.
  * 3. The KISS request. Every @ref KISS_REQUEST_EVERY_N frames while the
  *    receiver runs and no command is owed: a command frame goes out with the
  *    telemetry bit set anyway, and a reply arriving mid-command sequence is

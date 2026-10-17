@@ -67,8 +67,7 @@ Reached with `CFG`, which **disarms**.
 - **BEEP**: sends the DShot beacon command, so the motor beeps. Use it to
   identify which ESC is connected. It works only while disarmed. The caption
   reads `BEEP NEEDS THE ESC DISARMED`, and `REFUSED - DISARM THE ESC FIRST`
-  after a refused press. Arming within 16 ms of the press can cut the beep
-  short or silence it.
+  after a refused press.
 - **AM32 / SD LOG / SETUP**: the three sub-screens.
 
 `UNSAVED` appears under the title when a value here or on SETUP differs from
