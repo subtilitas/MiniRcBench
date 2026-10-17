@@ -2,8 +2,8 @@ name: Release
 
 # Cut a release by pushing a tag:
 #
-#   git tag -a v1.0.0 -m "First release"
-#   git push origin v1.0.0
+#   git tag -a v0.1.0 -m "MiniRcBench 0.1.0"
+#   git push origin v0.1.0
 #
 # Builds flashable .uf2 images for both supported boards, checksums them, and
 # publishes a GitHub Release with the images attached.
@@ -130,8 +130,8 @@ jobs:
           # diagnostic and is deliberately not part of a release: an unlabelled
           # second .uf2 beside the firmware is an invitation to flash the wrong
           # one, and it does nothing a user of the tester wants.
-          ninja -C build DshotDisplay
-          arm-none-eabi-size "build/DshotDisplay-${{ matrix.board.slug }}.elf"
+          ninja -C build MiniRcBench
+          arm-none-eabi-size "build/MiniRcBench-${{ matrix.board.slug }}.elf"
 
       # Same assertion CI runs: a UF2 structure check cannot tell the boards
       # apart, and a release that ships the 2.0" image under the 2.8" name is
@@ -142,7 +142,7 @@ jobs:
       - name: Assert the image is actually for this board
         run: |
           set -e
-          elf=build/DshotDisplay-${{ matrix.board.slug }}.elf
+          elf=build/MiniRcBench-${{ matrix.board.slug }}.elf
           want='${{ matrix.board.touch }}.cpp'
           other='${{ matrix.board.other_touch }}.cpp'
 
@@ -190,8 +190,8 @@ jobs:
           SLUG: ${{ matrix.board.slug }}
         run: |
           mkdir -p dist
-          out="dist/DshotDisplay-${TAG}-${SLUG}.uf2"
-          cp "build/DshotDisplay-${SLUG}.uf2" "$out"
+          out="dist/MiniRcBench-${TAG}-${SLUG}.uf2"
+          cp "build/MiniRcBench-${SLUG}.uf2" "$out"
           bash test/check_uf2.sh "$out"
 
       - uses: actions/upload-artifact@v7
@@ -235,9 +235,9 @@ jobs:
 
           | File | Use it when |
           |---|---|
-          | `DshotDisplay-VERSION-unified.uf2` | **Start here.** Runs on either board. Every boot identifies the board by probing its always-on I2C (Inter-Integrated Circuit) devices. **CFG → SETUP** shows the result, read-only |
-          | `DshotDisplay-VERSION-touch-lcd-2.uf2` | The 2.0" board only. A few kB smaller. Skips the probe |
-          | `DshotDisplay-VERSION-touch-lcd-2.8.uf2` | The 2.8" board only. Skips the probe |
+          | `MiniRcBench-VERSION-unified.uf2` | **Start here.** Runs on either board. Every boot identifies the board by probing its always-on I2C (Inter-Integrated Circuit) devices. **CFG → SETUP** shows the result, read-only |
+          | `MiniRcBench-VERSION-touch-lcd-2.uf2` | The 2.0" board only. A few kB smaller. Skips the probe |
+          | `MiniRcBench-VERSION-touch-lcd-2.8.uf2` | The 2.8" board only. Skips the probe |
 
           The unified image costs a few kB of flash against 4 MB available.
           A single-board image flashed onto the other board drives the wrong
@@ -320,9 +320,9 @@ jobs:
           # Full names, fixed-string match. While sdtest also shipped, a bare
           # "touch-lcd-2.uf2" was satisfied by sdtest-...-touch-lcd-2.uf2, so
           # the guard would have passed a release with no firmware in it.
-          for want in "DshotDisplay-${TAG}-touch-lcd-2.uf2" \
-                      "DshotDisplay-${TAG}-touch-lcd-2.8.uf2" \
-                      "DshotDisplay-${TAG}-unified.uf2" \
+          for want in "MiniRcBench-${TAG}-touch-lcd-2.uf2" \
+                      "MiniRcBench-${TAG}-touch-lcd-2.8.uf2" \
+                      "MiniRcBench-${TAG}-unified.uf2" \
                       "SHA256SUMS.txt"; do
             echo "$assets" | grep -qxF "$want" || {
               echo "::error::no asset named '$want' on $TAG"; exit 1; }
@@ -331,7 +331,7 @@ jobs:
           # And nothing unexpected: sdtest is deliberately not released, so a
           # stray diagnostic image beside the firmware should fail the run
           # rather than quietly invite someone to flash it.
-          unexpected=$(echo "$assets" | grep -v '^DshotDisplay-' | grep -v '^SHA256SUMS.txt$' || true)
+          unexpected=$(echo "$assets" | grep -v '^MiniRcBench-' | grep -v '^SHA256SUMS.txt$' || true)
           if [ -n "$unexpected" ]; then
             echo "::error::unexpected assets on $TAG: $unexpected"; exit 1
           fi

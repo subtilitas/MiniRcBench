@@ -1,9 +1,10 @@
-# DshotDisplay — native Pico SDK build.
+# MiniRcBench — native Pico SDK build.
 #
 #   cmake -B build -G Ninja -DPICO_BOARD=pico2 -DPICO_PLATFORM=rp2350-arm-s .
 #   ninja -C build
 #
-# Produces build/DshotDisplay.uf2.
+# Produces build/MiniRcBench-<board>.uf2, <board> being touch-lcd-2,
+# touch-lcd-2.8 or unified.
 #
 # PICO_PLATFORM selects the core. Only rp2350-arm-s (Cortex-M33) is supported and
 # built: nothing here is built or tested for the Hazard3 RISC-V cores
@@ -81,7 +82,7 @@ endif()
 set(PICO_SDK_FETCH_FROM_GIT_TAG bddd20f928ce76142793bef434d4f75f4af6e433)  # 2.1.1
 include(pico_sdk_import.cmake)
 
-project(DshotDisplay C CXX ASM)
+project(MiniRcBench C CXX ASM)
 
 # An empty CMAKE_BUILD_TYPE is not a default build: it is *no* per-config flags
 # at all -- no optimisation, no -g -- and neither CMake nor the pinned SDK
@@ -109,7 +110,7 @@ pico_sdk_init()
 # that call defines, so checking earlier fails for every configuration.
 if(NOT PICO_RP2350)
     message(FATAL_ERROR
-        "DshotDisplay targets RP2350 only, and this build is configured for "
+        "MiniRcBench targets RP2350 only, and this build is configured for "
         "'${PICO_PLATFORM}'. Configure with:\n"
         "  cmake -B build -G Ninja -DPICO_BOARD=pico2 -DPICO_PLATFORM=rp2350-arm-s .")
 endif()
@@ -206,7 +207,7 @@ target_link_libraries(sd_fatfs INTERFACE
 )
 pico_generate_pio_header(sd_fatfs ${CMAKE_CURRENT_LIST_DIR}/src/sdio/sd_pio.pio)
 
-add_executable(DshotDisplay
+add_executable(MiniRcBench
     src/main.cpp
     src/ui.cpp
     src/ui_am32.cpp
@@ -250,15 +251,15 @@ add_executable(DshotDisplay
 # of the two hardware UARTs). pioasm assembles it into the build tree, and this
 # also puts that directory on the include path so `#include "pio_uart_rx.pio.h"`
 # resolves.
-pico_generate_pio_header(DshotDisplay ${CMAKE_CURRENT_LIST_DIR}/src/pio_uart_rx.pio)
+pico_generate_pio_header(MiniRcBench ${CMAKE_CURRENT_LIST_DIR}/src/pio_uart_rx.pio)
 # The DShot transmitter and receiver, assembled the same way into dshot.pio.h.
-pico_generate_pio_header(DshotDisplay ${CMAKE_CURRENT_LIST_DIR}/src/dshot/dshot.pio)
+pico_generate_pio_header(MiniRcBench ${CMAKE_CURRENT_LIST_DIR}/src/dshot/dshot.pio)
 
-target_include_directories(DshotDisplay PRIVATE src)
-target_compile_definitions(DshotDisplay PRIVATE BOARD=${BOARD})
+target_include_directories(MiniRcBench PRIVATE src)
+target_compile_definitions(MiniRcBench PRIVATE BOARD=${BOARD})
 # One ESC, so one driver slot. A pin change releases the old pin before it binds
 # the new one, so it never needs two.
-target_compile_definitions(DshotDisplay PRIVATE OUT_DSHOT_MAX_PINS=1u)
+target_compile_definitions(MiniRcBench PRIVATE OUT_DSHOT_MAX_PINS=1u)
 # STREQUAL against the empty string, not if(${pinopt}): CMake's if() tests the
 # *value*, and "0" is one of its false constants -- so -DDSHOT_PIN=0 took the
 # else branch and silently built for the board default instead. GP0 is a real
@@ -267,12 +268,12 @@ target_compile_definitions(DshotDisplay PRIVATE OUT_DSHOT_MAX_PINS=1u)
 message(STATUS "Board: ${BOARD}")
 foreach(pinopt DSHOT_PIN_LCD_2 DSHOT_PIN_LCD_2_8 KISS_PIN_LCD_2 KISS_PIN_LCD_2_8)
     if(NOT "${${pinopt}}" STREQUAL "")
-        target_compile_definitions(DshotDisplay PRIVATE ${pinopt}=${${pinopt}})
+        target_compile_definitions(MiniRcBench PRIVATE ${pinopt}=${${pinopt}})
         message(STATUS "Pin override: ${pinopt}=GP${${pinopt}}")
     endif()
 endforeach()
 
-target_link_libraries(DshotDisplay
+target_link_libraries(MiniRcBench
     pico_stdlib
     pico_multicore
     hardware_spi
@@ -292,7 +293,7 @@ target_link_libraries(DshotDisplay
 
 # tusb_config.h is found by bare name from inside TinyUSB's own sources, so
 # src/ has to be on the include path for the library as well as for us.
-target_include_directories(DshotDisplay PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src)
+target_include_directories(MiniRcBench PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src)
 
 # Serial telemetry goes over USB CDC, not a UART: the board has no spare pins
 # for a debug UART, and the USB port is already there for flashing.
@@ -304,13 +305,11 @@ target_include_directories(DshotDisplay PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src)
 # are ours: src/usb_descriptors.c and src/usb_dev.cpp. Turning this back on
 # would not conflict at build time; it would duplicate the descriptor callbacks
 # and fail at link, which is the good outcome. @see usb_dev.h
-pico_enable_stdio_uart(DshotDisplay 0)
+pico_enable_stdio_uart(MiniRcBench 0)
 
-# The board goes in the filename. Both builds used to produce
-# build/DshotDisplay.uf2, so the artifact from one board was indistinguishable
-# from the other's after the fact -- and the 2.8" image carries a power latch
-# the 2.0" does not, so flashing the wrong one is a real outcome. CI and the
-# release workflow were already renaming these by hand, which was the tell.
+# The board goes in the filename, so an image names the board it was built
+# for after it has left the build tree. The 2.8" image carries a power latch
+# the 2.0" does not, so flashing the wrong one is a real outcome.
 if(BOARD STREQUAL "BOARD_RP2350_TOUCH_LCD_2_8")
     set(BOARD_SLUG "touch-lcd-2.8")
 elseif(BOARD STREQUAL "BOARD_UNIFIED")
@@ -318,15 +317,15 @@ elseif(BOARD STREQUAL "BOARD_UNIFIED")
 else()
     set(BOARD_SLUG "touch-lcd-2")
 endif()
-set_target_properties(DshotDisplay PROPERTIES OUTPUT_NAME "DshotDisplay-${BOARD_SLUG}")
+set_target_properties(MiniRcBench PROPERTIES OUTPUT_NAME "MiniRcBench-${BOARD_SLUG}")
 
 # .uf2 for drag-and-drop flashing, plus .elf/.map/.dis for debugging.
-pico_add_extra_outputs(DshotDisplay)
+pico_add_extra_outputs(MiniRcBench)
 
 # Warnings on our own sources only. The fetched dependencies are not ours to
 # keep warning-clean, and -Werror on them would make an upstream bump a build
 # break rather than a review.
-target_compile_options(DshotDisplay PRIVATE
+target_compile_options(MiniRcBench PRIVATE
     -Wall -Wextra -Wshadow -Wno-unused-parameter
 )
 
@@ -342,7 +341,7 @@ target_compile_options(DshotDisplay PRIVATE
 # something you read, not something that breaks everyone's build.
 option(STRICT "Treat warnings as errors in this project's own sources" OFF)
 if(STRICT)
-    target_compile_options(DshotDisplay PRIVATE -Werror)
+    target_compile_options(MiniRcBench PRIVATE -Werror)
 endif()
 
 # Standalone SD bring-up test: nothing but the card, sweeping the SPI clock.
@@ -382,5 +381,5 @@ endif()
 if(SD_DEBUG)
     # USE_PRINTF routes the driver's messages to stdio; USE_DBG_PRINTF adds the
     # per-command tracing that shows exactly which step of card init failed.
-    target_compile_definitions(DshotDisplay PRIVATE USE_PRINTF=1 USE_DBG_PRINTF=1)
+    target_compile_definitions(MiniRcBench PRIVATE USE_PRINTF=1 USE_DBG_PRINTF=1)
 endif()

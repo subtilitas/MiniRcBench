@@ -90,13 +90,13 @@ jobs:
           cmake -B build -G Ninja -DPICO_BOARD=pico2 -DPICO_PLATFORM=rp2350-arm-s \
                 -DCMAKE_BUILD_TYPE=Release \
                 -DBOARD=${{ matrix.board.id }} -DSTRICT=ON .
-          ninja -C build DshotDisplay
+          ninja -C build MiniRcBench
           # sdtest is deliberately NOT built here. It is a bench bring-up
           # tool, never released, and it is not worth a red firmware leg: it
           # still builds locally (a plain `ninja` produces it on the
           # single-board configs, as README says), it is just not this
           # pipeline's job to prove it.
-          arm-none-eabi-size build/DshotDisplay-${{ matrix.board.slug }}.elf
+          arm-none-eabi-size build/MiniRcBench-${{ matrix.board.slug }}.elf
 
       # A ceiling, not a printout. The framebuffer alone is 150 kB of the
       # RP2350's 520 kB, and a regression that doubles a buffer otherwise passes
@@ -105,7 +105,7 @@ jobs:
       - name: Size budget
         run: |
           read -r text data bss _ <<<"$(arm-none-eabi-size \
-            build/DshotDisplay-${{ matrix.board.slug }}.elf | tail -1)"
+            build/MiniRcBench-${{ matrix.board.slug }}.elf | tail -1)"
           flash=$((text + data))
           ram=$((data + bss))
           echo "flash=${flash}B ram=${ram}B"
@@ -123,7 +123,7 @@ jobs:
       - name: Assert the image is actually for this board
         run: |
           set -e
-          elf=build/DshotDisplay-${{ matrix.board.slug }}.elf
+          elf=build/MiniRcBench-${{ matrix.board.slug }}.elf
           want='${{ matrix.board.touch }}.cpp'
           other='${{ matrix.board.other_touch }}.cpp'
 
@@ -172,7 +172,7 @@ jobs:
       - name: No file of the library's SDIO driver is in the image
         run: |
           set -eo pipefail
-          elf=build/DshotDisplay-${{ matrix.board.slug }}.elf
+          elf=build/MiniRcBench-${{ matrix.board.slug }}.elf
           units=$(arm-none-eabi-readelf --debug-dump=info "$elf" \
                     | grep -A8 DW_TAG_compile_unit | grep DW_AT_name || true)
           if printf '%s\n' "$units" \
@@ -245,21 +245,20 @@ jobs:
       - name: Validate the images
         run: |
           bash test/check_uf2_selftest.sh
-          bash test/check_uf2.sh build/DshotDisplay-${{ matrix.board.slug }}.uf2
+          bash test/check_uf2.sh build/MiniRcBench-${{ matrix.board.slug }}.uf2
 
       # Every green build produces a flashable image, so a change can be tried
       # on hardware without cutting a release first.
       - name: Upload firmware images
         uses: actions/upload-artifact@v7
         with:
-          name: DshotDisplay-${{ matrix.board.slug }}
-          # The file inside carries the board too, not just the artifact. Both
-          # boards used to produce DshotDisplay.uf2, so extracting the two
-          # artifacts into one directory silently kept whichever came second.
+          name: MiniRcBench-${{ matrix.board.slug }}
+          # The file inside carries the board too, not only the artifact, so
+          # extracting several artifacts into one directory keeps every image.
           path: |
-            build/DshotDisplay-${{ matrix.board.slug }}.uf2
-            build/DshotDisplay-${{ matrix.board.slug }}.elf
-            build/DshotDisplay-${{ matrix.board.slug }}.map
+            build/MiniRcBench-${{ matrix.board.slug }}.uf2
+            build/MiniRcBench-${{ matrix.board.slug }}.elf
+            build/MiniRcBench-${{ matrix.board.slug }}.map
           if-no-files-found: error
 
   # Runs the firmware's own logic on the host, against stubs. Catches the
