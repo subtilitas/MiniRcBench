@@ -1538,6 +1538,7 @@ struct SimPump {
 	unsigned slot;          /**< Slots run, the trace index. */
 	uint16_t sent[SIM_SLOTS]; /**< DShot value of each slot's frame. */
 	uint32_t rpm[SIM_SLOTS];  /**< tel.rpm after each slot's reply. */
+	bool     kiss[SIM_SLOTS]; /**< The slot's frame carried the KISS request bit. */
 };
 
 /** @brief What a bind does to the pump, as escTaskPoll() does it. */
@@ -1583,6 +1584,7 @@ static void simSlot(SimPump *p, SimEsc *esc) {
 	if (p->slot < SIM_SLOTS) {
 		p->sent[p->slot] = value;
 		p->rpm[p->slot]  = p->tel.rpm;
+		p->kiss[p->slot] = f.requestKiss;
 	}
 	p->slot++;
 	p->havePrev = true;
@@ -1624,7 +1626,7 @@ static unsigned simBurstStarts(const SimPump *p, unsigned from, unsigned to,
 	return n;
 }
 
-static SimPump s_sim;   // 180 kB, most of it trace: static, not on the stack
+static SimPump s_sim;   // 210 kB, most of it trace: static, not on the stack
 
 /**
  * @brief An ESC that kept EDT on is read as EDT from the first reply after
@@ -1818,7 +1820,9 @@ static void testEdtBindBurstRules() {
 	esc.present = false;
 	simRun(p, &esc, ESC_LINK_STALE_MS + 10);
 	checkTrue("unplugged: not reported as sent", !p->pump.edt.sent);
-	checkInt("unplugged: EDT fields cleared", (long)p->tel.edtVoltsMs, 0);
+	checkInt("unplugged: EDT fields cleared",
+	         (long)(p->tel.edtVoltsMs | p->tel.edtAmpsMs | p->tel.edtTempMs |
+	                p->tel.edtStressMs | p->tel.edtStatusMs), 0);
 	unsigned back = p->slot;
 	esc.present = true;
 	simRun(p, &esc, 3000);
@@ -1834,6 +1838,81 @@ static bool simRunOf(const SimPump *p, unsigned from, unsigned n, uint16_t value
 	for (unsigned i = 0; i < n; i++)
 		if (p->sent[from + i] != value) return false;
 	return p->sent[from + n] != value;
+}
+
+/** @brief The first slot from @p from whose frame carried the KISS request bit. */
+static unsigned simNextKiss(const SimPump *p, unsigned from) {
+	for (unsigned i = from; i < p->slot && i < SIM_SLOTS; i++)
+		if (p->kiss[i]) return i;
+	return SIM_SLOTS;
+}
+
+/**
+ * @brief The KISS request cadence around commands and binds, and an ESC
+ *        swapped for one without EDT.
+ *
+ * A request is due every @ref KISS_REQUEST_EVERY_N frames. A command frame
+ * holds the count, so a request due on one goes out on the first free frame
+ * after the command, and a bind starts the count again.
+ */
+static void testKissCadence() {
+	section("Safety: KISS requests around commands, and an ESC swap");
+
+	SimPump *p = &s_sim;
+	SimEsc esc;
+	memset(&esc, 0, sizeof(esc));   // nothing connected: no scheduled enable
+
+	simBoot(p, 5000);
+	p->kissRx = true;
+	simRun(p, &esc, 200);
+	checkInt("first request on the first free frame",
+	         (long)simNextKiss(p, 0), EDT_ENABLE_REPEATS);
+	unsigned r = simNextKiss(p, 100);
+	checkInt("then every 20 frames", (long)(simNextKiss(p, r + 1) - r),
+	         KISS_REQUEST_EVERY_N);
+
+	// A beacon that starts on the slot a request falls due on.
+	unsigned at = p->slot;
+	unsigned last = r;
+	while (simNextKiss(p, last + 1) < at) last = simNextKiss(p, last + 1);
+	simRun(p, &esc, last + KISS_REQUEST_EVERY_N - at);
+	p->beepReq = 1;
+	simRun(p, &esc, 100);
+	unsigned due = last + KISS_REQUEST_EVERY_N;
+	checkTrue("beacon: it takes the due slot", p->sent[due] == DSHOT_CMD_BEEP1);
+	checkInt("beacon: the request on the next free frame",
+	         (long)simNextKiss(p, last + 1), (long)(due + BEEP_REPEATS));
+
+	// A bind on the slot after a request starts the count again.
+	for (unsigned i = 0; i < KISS_REQUEST_EVERY_N && !p->kiss[p->slot - 1]; i++)
+		simRun(p, &esc, 1);
+	checkTrue("rebind: the last slot carried a request", p->kiss[p->slot - 1]);
+	at = p->slot;
+	simBind(p);
+	simRun(p, &esc, 100);
+	checkInt("rebind: first request on the first free frame",
+	         (long)(simNextKiss(p, at) - at), EDT_ENABLE_REPEATS);
+
+	// An ESC with EDT on is unplugged, and one without EDT goes in its place
+	// within 1 s of the last EDT frame. None of the old ESC's EDT arrival
+	// times holds back the new one's enable.
+	memset(&esc, 0, sizeof(esc));
+	esc.present = esc.canEdt = esc.edt = esc.ready = true;
+	simBoot(p, 5000);
+	simRun(p, &esc, 1000);
+	esc.present = false;
+	simRun(p, &esc, ESC_LINK_STALE_MS + 10);
+	memset(&esc, 0, sizeof(esc));
+	esc.present = esc.ready = true;
+	unsigned back = p->slot;
+	unsigned starts[4];
+	simRun(p, &esc, 600);
+	unsigned n = simBurstStarts(p, back, p->slot, starts, 4);
+	checkInt("swap: one scheduled enable", (long)n, 1);
+	// The pump keeps running, so the new ESC's first reply is read in the
+	// first slot after the swap and the link is up from there.
+	checkInt("swap: 300 ms after the new link-up",
+	         n ? (long)(starts[0] - back) : -1L, EDT_SETTLE_MS);
 }
 
 /**
@@ -2607,6 +2686,7 @@ void runUiTests() {
 	testNoEdtEscRpm();
 	testEdtBindBurstRules();
 	testEdtStepRules();
+	testKissCadence();
 
 	testTapCancels();
 	testStepperRepeat();
