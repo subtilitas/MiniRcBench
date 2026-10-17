@@ -48,7 +48,8 @@ by default, and GP28 is still the AUX pin.
 | GND | | J4 pins 1 and 5 |
 
 SETUP offers GP28 and GP29 only, for either role (`BOARD_FREE_GPIO_MASK`
-0x30000000), so a SETUP change swaps the two.
+0x30000000). With KISS off, SETUP lets the ESC pin take the KISS pin's GPIO,
+so SIG and AUX can name the same pin.
 
 ## The claim
 
@@ -118,6 +119,7 @@ enum class ClaimRefusal : uint8_t {
     Busy,          // another screen holds the pins
     EscAnswering,  // an eRPM frame within ESC_LINK_STALE_MS (500 ms)
     KissLive,      // a KISS frame within KISS_STALE_MS (500 ms), AUX asked for
+    SamePin,       // AUX asked for, and SIG and AUX are the same GPIO
 };
 
 ClaimRefusal pinClaimBegin(PinUser who, uint8_t roles);  // PIN_SIG | PIN_AUX
@@ -194,6 +196,12 @@ AM32 is exempt: it needs the ESC on the pin.
 `KISS_STALE_MS`, 500 ms, means an ESC telemetry output drives AUX. Servo PWM
 on that pin would drive against it. The two-servo mode is refused with the
 reason; one-servo mode is not affected.
+
+**SIG and AUX on one GPIO: two-servo mode is refused.** With KISS off, SETUP
+can set the ESC pin to the KISS pin's GPIO. Two servos on one pin would be
+one compare register driven twice. `pinClaimCheck()` returns `SamePin` when
+AUX is asked for and the two roles name the same GPIO; one-servo mode is not
+affected.
 
 ### Heartbeat and watchdog
 
@@ -304,9 +312,10 @@ channel is `gpio & 1` (`PWM_GPIO_SLICE_NUM` in Pico SDK 2.1.1,
 | GP16 | 0 | A | backlight PWM (`st7789.cpp`) |
 
 The two servos are on one slice, channels A and B: two pulse widths, one
-frame rate. Either way round, SIG and AUX are on different channels, so they
-never share a compare register, and the servo tester's one frame rate for
-both servos never needs a choice.
+frame rate. When SIG and AUX are different GPIOs they are on different
+channels, and the servo tester's one frame rate for both servos never needs
+a choice. When SETUP has put them on the same GPIO, the claim refuses
+two-servo mode (`SamePin`).
 
 Neither free pin is on the backlight's slice: slice 0 holds GP0, GP1, GP16
 and GP17, none free. The board descriptor gains a `static_assert` for this,
@@ -399,7 +408,8 @@ ground only.
 `test/test_claim.cpp`, against fakes of the esc_task and job interfaces:
 
 - refusal per rule: armed, busy, ESC answering within 500 ms and quiet at
-  500 ms, KISS live with AUX asked and ignored without;
+  500 ms, KISS live with AUX asked and ignored without, SIG and AUX on one
+  GPIO with AUX asked and ignored without;
 - the drain: no teardown before 250 ms of zero frames after a throttle frame;
   none needed after a long disarm;
 - order: DShot released before any job bind; job idle before

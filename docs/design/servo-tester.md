@@ -257,7 +257,8 @@ y   0 | SERVO SET                        [ BACK ]|
   or `A HELI PROFILE CAN DESTROY A SERVO NOT MADE FOR IT.`, and HOLD TO APPLY
   (1000 ms) applies it. Every other change applies at once.
 - SERVOS TWO is drawn disabled, with the reason on the strip, when the claim
-  refuses AUX (KISS live).
+  refuses AUX: KISS live (`AUX PIN CARRIES KISS FRAMES`) or SIG and AUX on one
+  GPIO (`ESC AND KISS PIN ARE THE SAME GPIO`).
 - DEFAULTS returns to STANDARD PWM at 50 Hz, one servo, sine at 0.50 Hz.
 
 ## Where it runs
