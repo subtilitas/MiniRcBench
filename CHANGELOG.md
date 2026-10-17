@@ -202,9 +202,9 @@ its own wire. AM32 is an open-source ESC firmware.
 ### Fixed
 
 - The DShot pump drops a beacon that is owed or still waiting for the EDT
-  enable when the ESC arms. No command frame goes out armed, so an arm up to
-  16 ms after a beacon request could leave it owed until disarm: no KISS
-  request went out while armed, and the beep sounded after the disarm. The
+  enable when the ESC arms. No command frame goes out armed, so an arm before
+  the beacon's last frame could leave it owed until disarm: no KISS request
+  went out while armed, and the beep sounded after the disarm. The
   touch UI cannot reach this path: BEEP is on the settings screen, which CFG
   opens, and an arm takes a 1000 ms hold on the main screen.
 - The ESC STATUS tile on the tester follows the theme. Its colour table was a
