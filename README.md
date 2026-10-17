@@ -877,7 +877,7 @@ Makefile does not list `ui_am32.cpp` in `SRCS`.
 
 | Job | What it catches |
 |---|---|
-| **Firmware** | Real Pico SDK build of the RP2350-Touch-LCD-2.8 image, pinned by `CMakeLists.txt`, plus UF2 validation and a check that no file of the SD library's SDIO driver is in the image |
+| **Firmware** | Real Pico SDK build of the RP2350-Touch-LCD-2.8 image, pinned by `CMakeLists.txt`, plus UF2 validation, a check that no file of the SD library's SDIO driver is in the image, and the third-party notices written and checked for the image |
 | **Host tests** | Protocol, codec and UI regressions a compile cannot see |
 | **Coverage** | Line coverage below 93% in total or 85% in any file, or a README or STATUS.md coverage figure that no longer matches `tools/coverage.py` |
 | **Blackbox round-trip** | Encodes a log and decodes it with Betaflight's own `blackbox_decode`, comparing every value |
@@ -913,26 +913,34 @@ an optional pre-release suffix such as `-rc1`. CMake reads the same file, and
 the image reports the version to `picotool info` and over USB.
 
 `release.yml` runs the host and documentation checks, builds the `.uf2`,
-checksums it, and publishes a GitHub Release with the image attached.
+writes `THIRD_PARTY_NOTICES.txt` for it (see [License](#license)), checksums
+both, and publishes a GitHub Release with the image, the notices and the
+checksums attached.
 
 Assets per release:
 
 ```
 MiniRcBench-v0.1.0-touch-lcd-2.8.uf2
+THIRD_PARTY_NOTICES.txt
 SHA256SUMS.txt
 ```
 
-The workflow refuses five things:
+The workflow refuses six things:
 
 - **A tag that names another version**: the tag is `v`, the version in
   `src/version.h`, and an optional pre-release suffix.
 - **Building from failing code**: host tests and documentation checks run first.
 - **Publishing an implausible image**: each `.uf2` is checked for the `UF2\n`
   magic and a size that is a multiple of 512 bytes.
+- **Publishing without the licences**: `tools/notices.py` fails on code in
+  the image that no component covers, and its check fails on a missing or
+  empty licence section, in the build job and again before publishing.
 - **Inventing a tag**: `--verify-tag` aborts if the tag was never pushed.
 - **Leaving a half-populated release**: creating a release and attaching assets
   are separate API calls, so the workflow reads the release back and confirms
-  that the image and `SHA256SUMS.txt` are present, and nothing else.
+  that the image, `THIRD_PARTY_NOTICES.txt` and `SHA256SUMS.txt` are present,
+  and nothing else. It downloads them, checks them against `SHA256SUMS.txt`,
+  and checks the notices again.
 
 ### API documentation
 
@@ -1020,21 +1028,55 @@ licence:
 |---|---|
 | MiniRcBench, `src/` | MIT |
 | Pico SDK 2.1.1 | BSD-3-Clause |
-| TinyUSB, from the Pico SDK | MIT |
+| `printf` of the Pico SDK (`pico_printf`), by Marco Paland | MIT |
+| CMSIS (Common Microcontroller Software Interface Standard) of the Pico SDK, by Arm | Apache-2.0 |
+| TinyUSB 0.18.0, from the Pico SDK | MIT |
 | `no-OS-FatFS-SD-SDIO-SPI-RPi-Pico` v3.6.2: SPI card driver, FatFs glue, utilities | Apache-2.0 |
 | FatFs R0.15, from that library | FatFs licence, a one-clause BSD-style licence |
+| newlib, the C library of the Arm GNU Toolchain 13.3.Rel1 | a collection of permissive licences, most of them BSD-style |
+| libgcc and the language support part of libstdc++, from the same toolchain | GPL-3.0 with the GCC (GNU Compiler Collection) Runtime Library Exception |
+
+The SD library's SPI card driver borrows from Arm Mbed OS's SDBlockDevice,
+which is Apache-2.0, and its CRC code is partly derived from crcany, which is
+under the zlib licence.
 
 The build compiles nothing from that library's SDIO driver, which its README
 derives from ZuluSCSI-firmware (GPL-3.0), nor from its ZuluSCSI-firmware and
-SdFat directories, and CI checks the image for it. No GPL-licensed code is in
-the image. The image is therefore a combination of MIT,
-BSD-3-Clause, Apache-2.0 and FatFs-licensed code, all permissive and none
-copyleft: the image as a whole carries no licence of its own, and whoever
-distributes it meets each component's conditions. For a binary those are a
-copy of the Apache License 2.0 (section 4(a); the library has no NOTICE file),
-the BSD-3-Clause copyright notice, conditions and disclaimer of the Pico SDK
-in the accompanying documentation, and the MIT notices of TinyUSB and of this
-repository. The FatFs licence asks nothing of a binary.
+SdFat directories, and CI checks the image for it. The only GPL-licensed code
+in the image is the GCC runtime, and its Runtime Library Exception lets a
+program compiled by GCC carry that code under the program's own terms. The
+image as a whole carries no licence of its own, and whoever distributes it
+meets each component's conditions. For a binary those are a copy of the
+Apache License 2.0 (section 4(a); neither the SD library nor the CMSIS files
+of the Pico SDK have a NOTICE file), the copyright notices, conditions and
+disclaimers of the BSD-style licences of the Pico SDK and of newlib in the
+accompanying documentation, and the MIT notices of TinyUSB, `printf` and this
+repository. The FatFs and zlib licences ask nothing of a binary.
+
+Every release carries `THIRD_PARTY_NOTICES.txt`, which holds those texts.
+`tools/notices.py` writes it from the image itself: the debug information
+(DWARF compile units) of the ELF (Executable and Linkable Format) file names
+each compiled source, and the linker map each member of the toolchain's
+libraries. Each component's section gives its version or commit as
+`CMakeLists.txt`, `release.yml` or the Pico SDK pins it, its files in the
+image, the copyright lines of those files, and its licence text, copied from
+the licence files that ship with the code: the SDK checkout, the SD library in
+`build/_deps`, and the `license.txt` of the Arm GNU Toolchain. The script fails
+on code in the image that no component covers, and on an SDK, TinyUSB or SD
+library checkout that is not the pinned commit. After a firmware build:
+
+```sh
+python3 tools/notices.py --sdk "$PICO_SDK_PATH" --out build/THIRD_PARTY_NOTICES.txt
+python3 tools/notices.py --check build/THIRD_PARTY_NOTICES.txt
+```
+
+The Arm GNU Toolchain keeps `license.txt` beside its `bin/`; for a toolchain
+packaged without it, `--toolchain-licence` names the file. `--check` fails on
+a section with an empty or unclosed licence text and on a section the index
+lists and the file lacks; with `--sdk` it also fails on a component of the
+image the file has no section for. The Firmware job of CI writes and checks
+the file on every push, and the Release workflow checks it before publishing
+and again after.
 
 ---
 

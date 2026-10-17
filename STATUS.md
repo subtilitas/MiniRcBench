@@ -278,14 +278,14 @@ with `-Werror`; `bbcheck` encodes 2000 frames and decodes them with
 Betaflight's `blackbox_decode`; `previews` and `wiki` rebuild screenshots;
 `coverage` builds an instrumented suite. Scripts: `test/check_docs.py`,
 `test/check_uf2.sh`, `test/check_uf2_selftest.sh`, `test/check_blackbox.py`,
-`tools/check_wiki.py`, `tools/coverage.py`.
+`tools/check_wiki.py`, `tools/coverage.py`, `tools/notices.py`.
 
 **CI** (`.github/workflows/ci.yml`; on push to `main` or `master`, on pull
 requests, by hand):
 
 | Job | What it does |
 | --- | --- |
-| Firmware (`touch-lcd-2.8`) | builds with arm-none-eabi-gcc 13.3 and `STRICT=ON`; flash under 1 MiB and RAM (random-access memory) under 400,000 bytes; checks from the DWARF compile units that no file of the SD library's SDIO, ZuluSCSI-firmware or SdFat directories is in the image; checks the two pin overrides reach CMake and that `-DDSHOT_PIN`, `-DKISS_PIN`, `-DDSHOT_PIN_LCD_2`, and `-DKISS_PIN_LCD_2` are refused; validates the UF2 |
+| Firmware (`touch-lcd-2.8`) | builds with arm-none-eabi-gcc 13.3 and `STRICT=ON`; flash under 1 MiB and RAM (random-access memory) under 400,000 bytes; checks from the DWARF compile units that no file of the SD library's SDIO, ZuluSCSI-firmware or SdFat directories is in the image; writes `THIRD_PARTY_NOTICES.txt` with `tools/notices.py` and checks it against the image; checks the two pin overrides reach CMake and that `-DDSHOT_PIN`, `-DKISS_PIN`, `-DDSHOT_PIN_LCD_2`, and `-DKISS_PIN_LCD_2` are refused; validates the UF2 |
 | Host tests | `make`; the suite again with both pin macros overridden; wiki screenshots and `check_wiki.py` |
 | Blackbox round-trip | builds `blackbox_decode` from source, runs `make bbcheck` |
 | Config permutations | typechecks all of `src/` with `-Werror` for 32 combinations: AM32 transmit mode × AM32 low-jump × rotation 0 or 2 × KISS on or off × SD logging on or off; checks the landscape guard fires |
@@ -295,9 +295,15 @@ requests, by hand):
 
 **Release** (`.github/workflows/release.yml`; on `v*` tags, by hand): resolves
 the tag, checks that it names the version in `src/version.h`, builds the image
-after the host tests and `check_docs.py` pass, publishes it as
-`MiniRcBench-<tag>-touch-lcd-2.8.uf2` with `SHA256SUMS.txt`, and confirms that
-those two assets landed and no other.
+after the host tests and `check_docs.py` pass, writes and checks
+`THIRD_PARTY_NOTICES.txt` for it, publishes it as
+`MiniRcBench-<tag>-touch-lcd-2.8.uf2` with `THIRD_PARTY_NOTICES.txt` and
+`SHA256SUMS.txt`, which covers both, and confirms that those three assets
+landed and no other, that they match their checksums, and that the notices
+still pass their check. The notices name every component whose code is in the
+image, with its pinned version and its licence text copied from the licence
+files that ship with it; a missing or empty licence section fails the run
+before anything is published.
 Each run is titled `Release <tag>`, which Docs reads to find the tag. The
 version is 0.1.0 and no MiniRcBench release exists yet; v0.1.0 is the first
 tag.

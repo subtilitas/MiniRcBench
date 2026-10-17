@@ -77,6 +77,15 @@ its own wire. AM32 is an open-source ESC firmware.
   and removal.
 - CI checks that no compile unit of an image comes from the SD library's
   SDIO, ZuluSCSI-firmware or SdFat directories.
+- Every release carries `THIRD_PARTY_NOTICES.txt`: each component whose code
+  is in the image, with its pinned version, its files there and its licence
+  text, copied from the licence files of the Pico SDK checkout, the fetched SD
+  library and the Arm GNU Toolchain. `tools/notices.py` writes it from the
+  image's debug information and linker map, and fails on code that no
+  component covers and on a checkout that is not the pinned commit.
+  `SHA256SUMS.txt` covers the file. The Release workflow checks it before
+  publishing and after, and the Firmware job of CI writes and checks it on
+  every push.
 
 ### Changed
 

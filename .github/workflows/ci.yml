@@ -117,6 +117,21 @@ jobs:
             echo "::error::src/sdio/sd_pio.c is not in the image"; exit 1; }
           echo "SDIO driver: src/sdio/ only"
 
+      # A release carries THIRD_PARTY_NOTICES.txt, which tools/notices.py
+      # writes from the image's compile units and linker map and from the
+      # licence files of the SDK checkout, the fetched SD library and the
+      # toolchain. Writing it on every push means code that no component of
+      # the script covers, a licence file that moved, or a checkout that is
+      # not the pinned commit fails the change that causes it, not the next
+      # release. The check then reads the file back against the image.
+      - name: Third-party notices
+        run: |
+          set -eo pipefail
+          python3 tools/notices.py --sdk "$HOME/pico-sdk" \
+                  --out build/THIRD_PARTY_NOTICES.txt
+          python3 tools/notices.py --check build/THIRD_PARTY_NOTICES.txt \
+                  --sdk "$HOME/pico-sdk"
+
       # The pin options are documented build options, so CI passes them. What
       # this proves is the plumbing -- CMake accepts the options and reports
       # what it did. That the value reaches the *firmware* is asserted in the
@@ -181,6 +196,7 @@ jobs:
             build/MiniRcBench-${{ env.SLUG }}.uf2
             build/MiniRcBench-${{ env.SLUG }}.elf
             build/MiniRcBench-${{ env.SLUG }}.elf.map
+            build/THIRD_PARTY_NOTICES.txt
           if-no-files-found: error
 
   # Runs the firmware's own logic on the host, against stubs. Catches the
