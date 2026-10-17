@@ -3,8 +3,8 @@
 #   cmake -B build -G Ninja -DPICO_BOARD=pico2 -DPICO_PLATFORM=rp2350-arm-s .
 #   ninja -C build
 #
-# Produces build/MiniRcBench-<board>.uf2, <board> being touch-lcd-2,
-# touch-lcd-2.8 or unified.
+# Produces build/MiniRcBench-touch-lcd-2.8.uf2, for the Waveshare
+# RP2350-Touch-LCD-2.8, the one board this firmware supports.
 #
 # PICO_PLATFORM selects the core. Only rp2350-arm-s (Cortex-M33) is supported and
 # built: nothing here is built or tested for the Hazard3 RISC-V cores
@@ -30,49 +30,41 @@ cmake_minimum_required(VERSION 3.18)
 # happened and guessing.
 option(SD_DEBUG "Enable verbose SD driver logging over USB serial" OFF)
 
-# Which board to build for. Unlike the Arduino build -- which had no way to pass
-# a -D and so needed select_board.sh to rewrite board.h in place -- CMake can
-# just define it, and board.h's #ifndef gets out of the way.
-#
-#   cmake -B build -DBOARD=BOARD_RP2350_TOUCH_LCD_2_8 ...
-#
-# The two boards differ in more than pins: different SPI instance for the panel,
-# different I2C, a different touch controller, and a different SD interface
-# entirely -- SPI on the 2.0", PIO SDIO on the 2.8".
-set(BOARD "BOARD_RP2350_TOUCH_LCD_2" CACHE STRING "Target board")
-set_property(CACHE BOARD PROPERTY STRINGS
-    BOARD_RP2350_TOUCH_LCD_2 BOARD_RP2350_TOUCH_LCD_2_8 BOARD_UNIFIED)
-
-# Which GPIOs the ESC signal and telemetry wires land on -- per board, because
-# one image can carry both descriptors and "the ESC pin" is therefore not a
-# single value. Empty means "leave config.h's default alone".
-#
-#   cmake -B build -DBOARD=BOARD_UNIFIED -DDSHOT_PIN_LCD_2_8=28 ...
-#
-# The 2.0" frees the camera bus (GP0-GP11, GP21-GP23). The 2.8" brings out GP28
-# (J4 pin 11) and GP29 (J4 pin 12) and nothing else, so those are the only two
-# choices there and the two wires take one each. An override outside a board's
-# free mask, or one putting both wires on the same pin, is a static_assert in
-# that board's descriptor -- it fails the build, it is not repaired at run time.
-#
-# There used to be one option, DSHOT_PIN, selected inside config.h with
-# `#if BOARD == ...`. That cannot name two boards, so the descriptors carried
-# literals and the option reached nothing at all: it configured, printed a
-# status line claiming it had taken, and left the image on the literal.
-set(DSHOT_PIN_LCD_2   "" CACHE STRING "ESC signal GPIO on the 2.0\" board; blank = config.h default")
-set(DSHOT_PIN_LCD_2_8 "" CACHE STRING "ESC signal GPIO on the 2.8\" board; blank = config.h default")
-set(KISS_PIN_LCD_2    "" CACHE STRING "Telemetry GPIO on the 2.0\" board; blank = config.h default")
-set(KISS_PIN_LCD_2_8  "" CACHE STRING "Telemetry GPIO on the 2.8\" board; blank = config.h default")
-
-# The old spelling, refused rather than ignored. It silently did nothing for
-# long enough to be documented in README and asserted in CI, and a build that
-# accepts it a second time is a build that lies about which pin it made.
-if(NOT "${DSHOT_PIN}" STREQUAL "")
+# There is no board to choose. A BOARD naming any other target is refused
+# rather than ignored: a script that still asks for another board would
+# otherwise get a 2.8" image without a word.
+if(DEFINED BOARD AND NOT "${BOARD}" STREQUAL "BOARD_RP2350_TOUCH_LCD_2_8")
     message(FATAL_ERROR
-        "DSHOT_PIN is per board now. Use -DDSHOT_PIN_LCD_2=n for the 2.0\" "
-        "board or -DDSHOT_PIN_LCD_2_8=n for the 2.8\", so that a unified image "
-        "can name both.")
+        "MiniRcBench builds for the Waveshare RP2350-Touch-LCD-2.8 only, and "
+        "BOARD=${BOARD} names another target. Configure without -DBOARD, in a "
+        "fresh build directory.")
 endif()
+
+# Which GPIOs the ESC signal and telemetry wires land on. Empty means "leave
+# config.h's default alone".
+#
+#   cmake -B build -DDSHOT_PIN_LCD_2_8=28 -DKISS_PIN_LCD_2_8=29 ...
+#
+# The board brings out GP28 (J4 pin 11) and GP29 (J4 pin 12) and nothing else,
+# so those are the only two choices and the two wires take one each. An
+# override outside the board's free mask, or one putting both wires on the same
+# pin, is a static_assert in the descriptor -- it fails the build, it is not
+# repaired at run time. The suffix names the board, as the image's file name
+# does.
+set(DSHOT_PIN_LCD_2_8 "" CACHE STRING "ESC signal GPIO; blank = config.h default")
+set(KISS_PIN_LCD_2_8  "" CACHE STRING "Telemetry GPIO; blank = config.h default")
+
+# Spellings this build does not take, refused rather than ignored. An option
+# CMake accepts and nothing reads configures cleanly and leaves the image on
+# the default pin, which is a build that lies about which pin it made.
+foreach(oldopt DSHOT_PIN KISS_PIN DSHOT_PIN_LCD_2 KISS_PIN_LCD_2)
+    if(NOT "${${oldopt}}" STREQUAL "")
+        message(FATAL_ERROR
+            "${oldopt} is not an option of this build. Use "
+            "-DDSHOT_PIN_LCD_2_8=n for the ESC signal GPIO and "
+            "-DKISS_PIN_LCD_2_8=n for the telemetry GPIO.")
+    endif()
+endforeach()
 
 
 # Pinned by commit, not by tag. A tag is a movable reference, and README.md
@@ -101,9 +93,8 @@ message(STATUS "MiniRcBench ${PROJECT_VERSION}")
 
 # An empty CMAKE_BUILD_TYPE is not a default build: it is *no* per-config flags
 # at all -- no optimisation, no -g -- and neither CMake nor the pinned SDK
-# fills it in. Every image this project ever shipped that way was unoptimised,
-# and CI's board-identity assert (which reads the DWARF line table) can never
-# pass against it. Release opts in to both: the SDK's set_flags adds -O3 and,
+# fills it in. An image built that way is unoptimised, and CI's check of the
+# image's DWARF compile units can never pass against it. Release opts in to both: the SDK's set_flags adds -O3 and,
 # via PICO_DEBUG_INFO_IN_RELEASE (default ON), keeps the debug info in the ELF.
 # The UF2 is unaffected by debug info; only the ELF carries it.
 if(NOT CMAKE_BUILD_TYPE)
@@ -132,7 +123,7 @@ endif()
 
 include(FetchContent)
 
-# FatFs, its glue and the SPI card driver for the microSD slot, from
+# FatFs, its glue and the card layer for the microSD slot, from
 # no-OS-FatFS-SD-SDIO-SPI-RPi-Pico: Apache-2.0, with FatFs under its own
 # BSD-style licence.
 #
@@ -183,6 +174,10 @@ target_sources(sd_fatfs INTERFACE
     ${SD_FATFS_DIR}/ff15/source/ffunicode.c
     ${SD_FATFS_DIR}/sd_driver/sd_card.c
     ${SD_FATFS_DIR}/sd_driver/sd_timeouts.c
+    # The library's SPI card driver. The board's card is on SDIO, but
+    # sd_card.c's init path calls sd_spi_ctor() and my_spi_init() for a card
+    # of type SD_IF_SPI, and those call into sd_spi.c, so the image does not
+    # link without all three.
     ${SD_FATFS_DIR}/sd_driver/SPI/my_spi.c
     ${SD_FATFS_DIR}/sd_driver/SPI/sd_card_spi.c
     ${SD_FATFS_DIR}/sd_driver/SPI/sd_spi.c
@@ -237,13 +232,8 @@ add_executable(MiniRcBench
     src/settings_flash.cpp
     src/gfx.cpp
     src/st7789.cpp
-    src/cst816.cpp
     src/cst328.cpp
-    src/touch.cpp
     src/board_desc.cpp
-    src/board_desc_lcd2.cpp
-    src/board_desc_lcd2_8.cpp
-    src/board_probe.cpp
     src/esc_task.cpp
     src/am32_bl.cpp
     src/am32_eeprom.cpp
@@ -271,17 +261,13 @@ pico_generate_pio_header(MiniRcBench ${CMAKE_CURRENT_LIST_DIR}/src/pio_uart_rx.p
 pico_generate_pio_header(MiniRcBench ${CMAKE_CURRENT_LIST_DIR}/src/dshot/dshot.pio)
 
 target_include_directories(MiniRcBench PRIVATE src)
-target_compile_definitions(MiniRcBench PRIVATE BOARD=${BOARD})
 # One ESC, so one driver slot. A pin change releases the old pin before it binds
 # the new one, so it never needs two.
 target_compile_definitions(MiniRcBench PRIVATE OUT_DSHOT_MAX_PINS=1u)
 # STREQUAL against the empty string, not if(${pinopt}): CMake's if() tests the
-# *value*, and "0" is one of its false constants -- so -DDSHOT_PIN=0 took the
-# else branch and silently built for the board default instead. GP0 is a real
-# pin on the 2.0", and the symptom of getting it is an ESC that never answers
-# with nothing reported anywhere.
-message(STATUS "Board: ${BOARD}")
-foreach(pinopt DSHOT_PIN_LCD_2 DSHOT_PIN_LCD_2_8 KISS_PIN_LCD_2 KISS_PIN_LCD_2_8)
+# *value*, and "0" is one of its false constants, so a test of the value drops
+# an override of 0 without a word.
+foreach(pinopt DSHOT_PIN_LCD_2_8 KISS_PIN_LCD_2_8)
     if(NOT "${${pinopt}}" STREQUAL "")
         target_compile_definitions(MiniRcBench PRIVATE ${pinopt}=${${pinopt}})
         message(STATUS "Pin override: ${pinopt}=GP${${pinopt}}")
@@ -323,16 +309,8 @@ target_include_directories(MiniRcBench PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src)
 pico_enable_stdio_uart(MiniRcBench 0)
 
 # The board goes in the filename, so an image names the board it was built
-# for after it has left the build tree. The 2.8" image carries a power latch
-# the 2.0" does not, so flashing the wrong one is a real outcome.
-if(BOARD STREQUAL "BOARD_RP2350_TOUCH_LCD_2_8")
-    set(BOARD_SLUG "touch-lcd-2.8")
-elseif(BOARD STREQUAL "BOARD_UNIFIED")
-    set(BOARD_SLUG "unified")
-else()
-    set(BOARD_SLUG "touch-lcd-2")
-endif()
-set_target_properties(MiniRcBench PROPERTIES OUTPUT_NAME "MiniRcBench-${BOARD_SLUG}")
+# for after it has left the build tree.
+set_target_properties(MiniRcBench PROPERTIES OUTPUT_NAME "MiniRcBench-touch-lcd-2.8")
 
 # The program name defaults to the target name. The version is what
 # `picotool info` reports for an image or a connected board.
@@ -363,31 +341,19 @@ if(STRICT)
     target_compile_options(MiniRcBench PRIVATE -Werror)
 endif()
 
-# Standalone SD bring-up test: nothing but the card, sweeping the SPI clock.
+# Standalone SD bring-up test: nothing but the card, sweeping the SDIO clock.
 # Built alongside the firmware because the whole value of it is being able to
-# flash one, then the other, without changing anything else.
-#
-# Single-board only: its pin-integrity sweep reads PIN_SD_* from board_pins.h,
-# which a unified build deliberately does not define -- "which pins" is exactly
-# the question a unified image answers at run time, and a bring-up tool that
-# guessed would be worse than one that does not exist. Flash the board-specific
-# sdtest instead; the card wiring it exercises is identical.
-if(NOT BOARD STREQUAL "BOARD_UNIFIED")
+# flash one, then the other, without changing anything else. It shares
+# sd_hw_config.c with the firmware, so the card wiring it exercises is the
+# firmware's.
 add_executable(sdtest
     tools/sdtest/main.c
-    tools/sdtest/touch_stubs.cpp
     tools/sdtest/msc_stubs.c
     src/sd_hw_config.c
-    src/board_desc.cpp
-    src/board_desc_lcd2.cpp
-    src/board_desc_lcd2_8.cpp
 )
 target_include_directories(sdtest PRIVATE src)
-target_compile_definitions(sdtest PRIVATE BOARD=${BOARD})
 target_link_libraries(sdtest
     pico_stdlib
-    hardware_spi
-    hardware_i2c
     hardware_clocks
     sd_fatfs
 )
@@ -395,7 +361,6 @@ target_compile_definitions(sdtest PRIVATE USE_PRINTF=1 USE_DBG_PRINTF=1)
 pico_enable_stdio_usb(sdtest 1)
 pico_enable_stdio_uart(sdtest 0)
 pico_add_extra_outputs(sdtest)
-endif()
 
 if(SD_DEBUG)
     # USE_PRINTF routes the driver's messages to stdio; USE_DBG_PRINTF adds the
