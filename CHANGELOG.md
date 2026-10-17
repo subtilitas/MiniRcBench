@@ -83,9 +83,9 @@ its own wire. AM32 is an open-source ESC firmware.
   library and the Arm GNU Toolchain. `tools/notices.py` writes it from the
   image's debug information and linker map, and fails on code that no
   component covers, on a linker map entry with a size that names no input,
-  and on a checkout that is not the pinned commit. The GCC section names
-  `libstdc++.a(cp-demangle.o)`, which is libiberty code under
-  GPL-2.0-or-later with a link exception, and carries that exception.
+  and on a checkout that is not the pinned commit. If a build links
+  `libstdc++.a(cp-demangle.o)`, libiberty code under GPL-2.0-or-later with a
+  link exception, the GCC section names it and carries that exception.
   `SHA256SUMS.txt` covers the file. The Release workflow checks it before
   publishing and after, and the Firmware job of CI writes and checks it on
   every push.
@@ -201,6 +201,11 @@ its own wire. AM32 is an open-source ESC firmware.
 
 ### Fixed
 
+- The ESC STATUS tile on the tester follows the theme. Its colour table was a
+  function-level static filled on the first draw, so after a switch to high
+  contrast under SETUP the tile kept the dark theme's colours. Without the
+  guarded static the image also leaves out libstdc++'s exception code and C++
+  name demangler: 44,352 bytes less code with the Arm GNU Toolchain 13.3.Rel1.
 - The CI firmware artifact carries the linker map. The upload named
   `<image>.map`; the build writes `<image>.elf.map`.
 - The status bar's DShot label showed the compiled default, `DS600`, at any
