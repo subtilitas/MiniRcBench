@@ -325,7 +325,10 @@ Arming and disarming dim the backlight to a quarter for 120 ms
   commands.
 - **BEEP**: sends `DSHOT_CMD_BEACON1` for 6 frames (`BEEP_REPEATS`), 6 ms at
   1 kHz. Use it to identify which ESC is connected. Refused while armed; the
-  caption then reads `REFUSED - DISARM THE ESC FIRST`.
+  caption then reads `REFUSED - DISARM THE ESC FIRST`. The beacon waits for
+  an EDT enable under way, at most 10 ms. An arm before its last frame drops
+  the rest, so an arm within 16 ms of the press can cut the beep short or
+  silence it.
 - **AM32**: the ESC settings editor. See [AM32 ESC configuration](#am32-esc-configuration).
 - **SD LOG**: logging status and manual start/stop. See below.
 - **SETUP**: ESC and telemetry pins, DShot bitrate, contrast, backlight, and
@@ -881,7 +884,7 @@ target so a test run does not leave the working tree dirty.
 `python3 tools/coverage.py` writes the figure below from its gcov counters.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.3%**: 2,500 of 2,570 lines in 24 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.3%**: 2,503 of 2,573 lines in 24 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

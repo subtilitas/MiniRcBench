@@ -70,7 +70,9 @@ Erreichbar über `CFG`, das dabei **entschärft**.
 - **BEEP**: sendet den DShot-Beacon-Befehl, der Motor piept. Damit erkennst du,
   welcher ESC angeschlossen ist. Es funktioniert nur im entschärften Zustand.
   Die Bildunterschrift lautet `BEEP NEEDS THE ESC DISARMED`, nach einer
-  abgelehnten Betätigung `REFUSED - DISARM THE ESC FIRST`.
+  abgelehnten Betätigung `REFUSED - DISARM THE ESC FIRST`. Wer innerhalb von
+  16 ms nach dem Drücken scharf schaltet, kann den Piepton verkürzen oder
+  unterdrücken.
 - **AM32 / SD LOG / SETUP**: die drei Unterbildschirme.
 
 `UNSAVED` erscheint unter dem Titel, wenn ein Wert hier oder im SETUP vom

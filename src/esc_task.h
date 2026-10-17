@@ -577,7 +577,9 @@ static inline void escEdtForget(EscTelemetry *tel) {
  * 2. The beacon. A request is latched only when the wire is free, no enable
  *    and no beacon going out. EDT goes first: it is the one the user cannot
  *    re-request, and a beep deferred by ten frames is a beep nobody notices
- *    was deferred.
+ *    was deferred. An arm drops the beacon, owed or asked for: no command
+ *    frame goes out armed, so a kept beacon would hold back every KISS
+ *    request and the EDT enable until disarm, and then beep late.
  * 3. The KISS request. Every @ref KISS_REQUEST_EVERY_N frames while the
  *    receiver runs and no command is owed: a command frame goes out with the
  *    telemetry bit set anyway, and a reply arriving mid-command sequence is
@@ -615,7 +617,10 @@ static inline EscSlot escPumpSlot(EscPump *p, const EscTelemetry *tel,
 	                         EDT_SETTLE_MS, EDT_RETRY_MS,
 	                         EDT_ENABLE_REPEATS) == EdtAutoAction::Rearm;
 
-	if (!p->edt.reps && !p->beepReps && beepReq) {
+	if (armed) {
+		p->beepReps = 0;
+		s.beepTaken = beepReq != 0;
+	} else if (!p->edt.reps && !p->beepReps && beepReq) {
 		p->beepCmd  = (uint8_t)(DSHOT_CMD_BEEP1 + (beepReq - 1));
 		p->beepReps = BEEP_REPEATS;
 		s.beepTaken = true;
