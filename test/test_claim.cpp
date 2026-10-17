@@ -21,6 +21,7 @@
 #include "pin_claim.h"
 #include "settings.h"
 #include "ui.h"
+#include "ui_widgets.h"
 #include "plat.h"
 
 #include "../src/core1_job.cpp"   // NOLINT -- see the note above
@@ -136,9 +137,20 @@ static void frames(int n) {
 	for (int i = 0; i < n; i++) { fakeAdvance(25); uiTick(); }
 }
 
-// The ARM button, from ui.cpp.
+static void tap(int x, int y) {
+	fakePress(x, y); frames(2); fakeRelease(); frames(1);
+}
+
+// Coordinates from ui.cpp and ui_widgets.h.
 #define C_ARM_X    58
 #define C_ARM_Y   299
+#define C_HOLD_X  143
+#define C_CFG_X   205
+#define C_THR_Y   260
+#define C_AM32_X   39   // inside BTN_AM32
+#define C_NAV_Y   282   // the destination row
+#define C_BACK_X  (UI_BACK_X + UI_BACK_W / 2)
+#define C_BACK_Y  (UI_BACK_Y + UI_BACK_H / 2)
 
 // ---------------------------------------------------------------------------
 // tests
@@ -645,6 +657,78 @@ static void testNoSaveDuringClaim() {
 	settingsLoad();
 }
 
+/** @brief The AM32 screen on the claim, through the real UI. */
+static void testAm32Screen() {
+	section("Pin claim: the AM32 screen");
+
+	uiInit();
+	freshPump();
+	frames(2);
+	int resumes = fakeResumeCount();
+
+	tap(C_CFG_X, C_ARM_Y);
+	frames(2);
+	tap(C_AM32_X, C_NAV_Y);
+	checkTrue("AM32 holds the claim", pinClaimHolder() == PinUser::Am32);
+	frames(4);
+	checkInt("the transport gets the pin the claim latched", fakeAm32Pin(),
+	         escTaskDshotPin());
+	checkTrue("no core1 job", core1JobRunning() == Core1Job::None);
+	tap(C_BACK_X, C_BACK_Y);
+	checkTrue("BACK gives DShot the pin, no unplug page",
+	          fakePinReturned() && !pinClaimUnplugDue());
+	checkInt("resumed once", fakeResumeCount(), resumes + 1);
+	checkTrue("free", pinClaimState() == ClaimState::Free);
+	tap(C_BACK_X, C_BACK_Y);
+	frames(2);
+
+	// Straight from a running motor: CFG disarms, and AM32 is opened before
+	// 250 ms have passed since the last throttle frame. Its one change of
+	// behaviour on the claim is that the handover waits for the drain.
+	fakePress(C_ARM_X, C_ARM_Y); frames(1);
+	for (int i = 0; i < 60; i++) { fakeHold(C_ARM_X, C_ARM_Y); frames(1); }
+	fakeRelease(); frames(2);
+	tap(C_HOLD_X, C_ARM_Y);
+	fakePress(120, C_THR_Y); frames(1);
+	for (int x = 120; x <= 180; x += 10) { fakeHold(x, C_THR_Y); frames(1); }
+	fakeRelease(); frames(1);
+	checkTrue("armed with a throttle", uiArmed() && fakeThrottle() > 0);
+	tap(C_CFG_X, C_ARM_Y);
+	checkTrue("CFG disarms", !uiArmed() && !fakeArmed());
+	tap(C_AM32_X, C_NAV_Y);
+	// The last throttle frame went out on the second frame of the CFG press,
+	// 100 ms before the claim: three 25 ms frames for each tap.
+	checkTrue("AM32 waits for the drain", pinClaimState() == ClaimState::Stopping);
+	frames(5);
+	checkTrue("still waiting 225 ms after the throttle frame",
+	          pinClaimState() == ClaimState::Stopping);
+	frames(1);
+	checkTrue("and takes the pin at 250 ms", pinClaimState() == ClaimState::Held);
+	tap(C_BACK_X, C_BACK_Y);
+	checkTrue("free", pinClaimState() == ClaimState::Free);
+
+	// Another claim already holds: not reachable through the UI, since only
+	// SETTINGS opens a claiming screen. AM32 says so and asks again each frame.
+	checkTrue("a SERVO claim holds",
+	          pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
+	tap(C_AM32_X, C_NAV_Y);
+	checkTrue("AM32 is refused", pinClaimHolder() == PinUser::Servo);
+	frames(2);
+	checkTrue("and waits", pinClaimHolder() == PinUser::Servo);
+	tap(C_BACK_X, C_BACK_Y);
+	checkTrue("BACK from AM32 leaves the other claim alone",
+	          pinClaimHolder() == PinUser::Servo);
+	tap(C_AM32_X, C_NAV_Y);
+	toFree();
+	frames(1);
+	checkTrue("and claims the frame after the other one ends",
+	          pinClaimHolder() == PinUser::Am32);
+	tap(C_BACK_X, C_BACK_Y);
+	checkTrue("free", pinClaimState() == ClaimState::Free);
+	tap(C_BACK_X, C_BACK_Y);
+	frames(2);
+}
+
 void runClaimTests() {
 	core1JobInit();
 	removeJobs();
@@ -658,6 +742,7 @@ void runClaimTests() {
 	testRestore();
 	testHeartbeat();
 	testNoSaveDuringClaim();
+	testAm32Screen();
 
 	removeJobs();
 	quiet();

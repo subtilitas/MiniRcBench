@@ -2,15 +2,16 @@
  * @file ui_am32.cpp
  * @brief AM32 config screen: connect, browse settings, edit, write back.
  *
- * The screen is a state machine. Nothing touches the ESC until the pin handover
- * completes, and nothing writes until the user has held the WRITE button down
- * for a full second — a stray tap must never reprogram a motor controller.
+ * The screen is a state machine. Nothing touches the ESC until the pin claim
+ * holds the signal pin (pin_claim.h), and nothing writes until the user has
+ * held the WRITE button down for a full second — a stray tap must never
+ * reprogram a motor controller.
  */
 
 #include "ui_am32.h"
 #include "am32_bl.h"
 #include "am32_eeprom.h"
-#include "esc_task.h"
+#include "pin_claim.h"
 #include "touch.h"
 #include "ui_input.h"
 #include "ui_widgets.h"
@@ -70,7 +71,7 @@ static_assert(EDIT_H >= UI_TAP_MIN && FOOT_H >= UI_TAP_MIN,
 
 /** @brief Screen states. */
 enum Am32Screen : uint8_t {
-	S_HANDOVER,  /**< Waiting for core1 to release the DShot pin. */
+	S_HANDOVER,  /**< Waiting for the pin claim to hold the signal pin. */
 	S_CONNECT,   /**< Prompting for ESC power, retrying the handshake. */
 	S_LIST,      /**< Browsing and editing settings. */
 	S_WRITING,   /**< Write in progress or just finished. */
@@ -97,6 +98,8 @@ static bool       s_writeHolding = false;
 static uint8_t    s_layoutRev = 0;
 static bool       s_leaving = false;
 static bool       s_redraw = true;
+/** @brief pinClaimBegin() accepted this screen's claim. */
+static bool       s_claimed = false;
 
 /** @brief Indices into AM32_FIELDS that apply to this EEPROM's layout. */
 static uint16_t s_visible[64];
@@ -360,6 +363,23 @@ static void drawWriting() {
 // ---------------------------------------------------------------------------
 // state machine
 // ---------------------------------------------------------------------------
+
+/**
+ * @brief Ask for the signal pin. On a refusal the reason goes on the screen
+ *        and S_HANDOVER asks again next frame.
+ *
+ * Neither refusal is reachable through the UI: SETTINGS disarms on entry, and
+ * no other screen that claims is open while this one is. AM32 is exempt from
+ * the ESC-answering rule, since it needs the ESC on the pin.
+ */
+static void claimPins() {
+	ClaimRefusal r = pinClaimBegin(PinUser::Am32, PIN_SIG);
+	s_claimed = (r == ClaimRefusal::None);
+	snprintf(s_status, sizeof(s_status), "%s",
+	         s_claimed ? "RELEASING DSHOT PIN"
+	                   : (r == ClaimRefusal::Armed ? "DISARM FIRST" : "PINS BUSY"));
+}
+
 void uiAm32Enter() {
 	s_state = S_HANDOVER;
 	s_hexView = false;
@@ -375,15 +395,18 @@ void uiAm32Enter() {
 	s_attempt = 0;
 	s_editRepeat = Repeat{};
 	am32BlSetBaud(AM32_LINK_BAUD);
-	snprintf(s_status, sizeof(s_status), "RELEASING DSHOT PIN");
 	memset(s_eeprom, 0, sizeof(s_eeprom));
 	memset(s_original, 0, sizeof(s_original));
-	escTaskSuspend();
+	claimPins();
 }
 
 void uiAm32Exit() {
+	// The transport lets go of the pin before DShot takes it back. An AM32
+	// claim has no core1 job and no unplug page, so pinClaimEnd() resumes the
+	// pump within the call.
 	am32BlEnd();
-	escTaskResume();
+	pinClaimEnd(PinUser::Am32);
+	s_claimed = false;
 	s_state = S_HANDOVER;
 }
 
@@ -716,10 +739,12 @@ bool uiAm32Tick(const TouchState *t) {
 
 	switch (s_state) {
 		case S_HANDOVER:
-			if (escTaskSuspended()) {
-				// Whichever pin the pump was driving, not the compiled default:
-				// the two part company the moment the user changes it on SETUP.
-				am32BlBegin(escTaskDshotPin());
+			if (!s_claimed) claimPins();
+			if (s_claimed && pinClaimPoll() == ClaimState::Held) {
+				// The pin the claim latched from the pump, not the compiled
+				// default: the two part company the moment the user changes it
+				// on SETUP.
+				am32BlBegin(pinClaimGpio(PIN_SIG));
 				s_state = S_CONNECT;
 				snprintf(s_status, sizeof(s_status), "SEARCHING...");
 			}
