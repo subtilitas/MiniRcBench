@@ -38,17 +38,17 @@ On SIG, with DShot released:
 5. saves and loads servo files on the SD card, and restores the backup.
 
 Not in this slice: unlocking locked fields, the pairing release, the limit
-run, supply control. DshotDisplay does not switch the servo's supply.
+run, supply control. MiniRcBench does not switch the servo's supply.
 
 ## Electrical
 
-| Need | Value | On DshotDisplay |
+| Need | Value | On MiniRcBench |
 |---|---|---|
 | Pin | bidirectional: push-pull for the frame, driven low for 50 µs after its last edge, then an input for the reply window, then driven low again | SIG, through `kst_line` |
 | Idle | driven low by the master between transactions | the driver holds it low from `kst_line_open()` to `kst_line_close()` |
 | Pull-down | pad pull-down on from the open, 50 kΩ to 80 kΩ; rcbench expects one on the board too | internal only; see below |
 | Master half-cell | 25.40 µs, required to 50 ns, edge jitter under 100 ns | 3810 cycles of the 150 MHz `clk_sys`, exact |
-| Clock tolerance | the open is refused beyond 0.2 % | 149.7 MHz to 150.3 MHz; nothing in DshotDisplay changes `clk_sys` |
+| Clock tolerance | the open is refused beyond 0.2 % | 149.7 MHz to 150.3 MHz; nothing in MiniRcBench changes `clk_sys` |
 | Servo half-cell | 25.575 µs, accepted 24.3 µs to 26.9 µs | decoder in `kst_wire.c` |
 | Edge stamp | 4 cycles, 26.7 ns at 150 MHz | |
 | PIO | 1 SM, 24 of 32 words | pio2 once DShot and KISS are released; [budget](pin-claim.md#pio-and-dma-budget) |
@@ -67,7 +67,7 @@ a servo-only adapter lead, never onto an ESC lead (open question 3).
 
 **Reply level.** The servo drives the line during its reply. On the 2.8"
 board SIG is GP29, an ADC pin of the RP2350A, for which a 5 V rating is not
-checked ([signal level](pin-claim.md#signal-level)); the DshotDisplay README
+checked ([signal level](pin-claim.md#signal-level)); the MiniRcBench README
 treats every pin as 3.6 V maximum. A servo that replies at 5 V is out of range
 on both boards.
 Bring-up measures the reply level on the owner's servo before any write. If
@@ -104,10 +104,10 @@ read.
 rcbench assumes a powered servo. Its CONNECT runs one entry, and with a PD
 mini answering it can cycle the servo's supply itself (REBOOT: off for
 2000 ms, on, then 1000 ms more). The owner's servos enter programming mode
-only directly after power-on, and DshotDisplay does not switch the supply. So
-DshotDisplay repeats the entry while the user powers the servo up.
+only directly after power-on, and MiniRcBench does not switch the supply. So
+MiniRcBench repeats the entry while the user powers the servo up.
 
-The repetition is a wrapper in DshotDisplay, `src/kst_seek.cpp`, around the
+The repetition is a wrapper in MiniRcBench, `src/kst_seek.cpp`, around the
 unchanged session. The ported `kst_session.c` stays byte for byte rcbench's.
 
 ```c
@@ -446,7 +446,7 @@ record is the image before the write and nothing else.
 | `shared/bench/kst_card.c` | 232 | `src/kst_files.cpp` | adapted: the save, list and load glue between `kst_file`, `kst_store` and the card, without the `kst_prog.h` request and answer types; FatFs `kst_store_io_t` written new |
 | `shared/ui/kst_panel.c` | 3,134 | `src/ui_kst.cpp` | rewritten for 240 × 320 with the AM32 list idiom and `ui_widgets.h`; the page grouping, the soft-rule texts and the result texts are taken |
 | `shared/bench/kst_prog.c` | 3,078 | `src/ui_kst.cpp`, `src/kst_files.cpp` | not ported; the draft and the message table are rewritten small, the journal becomes the record file |
-| `shared/outputs/kst_port.c`, `prog_port.c` | 1,616 | `src/kst_job.cpp`, `src/kst_seek.cpp` | not ported: they are the coprocessor's link page, the PD mini supply sequence and the port bank. The rules DshotDisplay keeps (out of PWM, low, entry, in the mode until power-off, leave with 100 ms low) are in the job and the wrapper |
+| `shared/outputs/kst_port.c`, `prog_port.c` | 1,616 | `src/kst_job.cpp`, `src/kst_seek.cpp` | not ported: they are the coprocessor's link page, the PD mini supply sequence and the port bank. The rules MiniRcBench keeps (out of PWM, low, entry, in the mode until power-off, leave with 100 ms low) are in the job and the wrapper |
 
 The vendored tree mirrors rcbench's paths, so a diff against a later rcbench
 commit is a directory diff. `lib/rcbench/README.md` lists every file, its
@@ -461,7 +461,7 @@ trademarks of their respective owners..."). Adapted and new files that hold
 KST code start with `Adapted from rcbench <path>, commit 453cf334, MIT.` where
 they are adapted, and the same trademark sentence. Both projects are MIT under
 one holder, so the licence does not change. The copied headers point at a
-README section "Legal notice and disclaimer"; DshotDisplay's README gains that
+README section "Legal notice and disclaimer"; MiniRcBench's README gains that
 section in this slice, with the trademark notice, no affiliation, and the
 statement that the protocol comes from wire captures and no vendor code or
 documentation.
@@ -486,7 +486,7 @@ built as C11 and run by `make` and CI:
 Not ported: `test_kst_card.c`, `test_kst_link.c`, `test_kst_panel.c`,
 `test_kst_port.c`, `test_kst_prog.c`. Their code is not ported.
 
-**New**, in DshotDisplay's `check.h` harness. `kst_sim.h` compiles as C++17,
+**New**, in MiniRcBench's `check.h` harness. `kst_sim.h` compiles as C++17,
 so these run against the same simulated servo:
 
 - `test_kst_seek.cpp`: a servo powered at 0 s, 3.0 s and 59.9 s is found on

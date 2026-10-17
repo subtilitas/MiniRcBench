@@ -25,7 +25,7 @@ an ultra capacity card.
 
 ## Why
 
-The SD library DshotDisplay uses, `no-OS-FatFS-SD-SDIO-SPI-RPi-Pico` v3.6.2
+The SD library MiniRcBench uses, `no-OS-FatFS-SD-SDIO-SPI-RPi-Pico` v3.6.2
 (commit 6c644cf), states in its README that its SDIO driver derives from
 ZuluSCSI-firmware, which is GPL-3.0 (GNU General Public License version 3).
 This driver replaces that one. It is MIT and written from the SD Association's
@@ -326,7 +326,7 @@ tried three times when it fails on the bus: a CRC error, a damaged response,
 a timeout or no response. An error the card reports in its status, and a
 rejected block, are not retried.
 
-## Pins and clock on DshotDisplay
+## Pins and clock on MiniRcBench
 
 From `src/sd_hw_config.c`, `src/board_rp2350_touch_lcd_2_8.h` and
 `src/config.h`:

@@ -1,9 +1,10 @@
-# DshotDisplay
+# MiniRcBench
 
-A bidirectional DShot tester for one ESC (electronic speed controller), on the
-Waveshare **RP2350-Touch-LCD-2** and **RP2350-Touch-LCD-2.8**. With two wires
-to the ESC, the board is the throttle source, the telemetry display and the
-log recorder. It needs no flight controller, laptop or Betaflight.
+A bench tester for RC (radio-controlled) model parts on the Waveshare
+**RP2350-Touch-LCD-2** and **RP2350-Touch-LCD-2.8**. Today it tests one ESC
+(electronic speed controller) over bidirectional DShot. With two wires to the
+ESC, the board is the throttle source, the telemetry display and the log
+recorder. It needs no flight controller, laptop or Betaflight.
 
 <img src="img/tester-armed.png" width="240" alt="The tester screen, armed">
 
@@ -52,14 +53,14 @@ der erste Motorlauf.
 
 Both boards have a 240×320 portrait touch panel and an RP2350. The 2.0" has
 2.54 mm headers. The 2.8" has JST-SH connectors only. The **unified** image
-from [Releases](https://github.com/subtilitas/DshotDisplay/releases) runs on
+from [Releases](https://github.com/subtilitas/MiniRcBench/releases) runs on
 both: it identifies the board at every boot and shows the result under
 **CFG → SETUP**, read-only.
 
 *Welche Platine habe ich?* Beide haben ein 240×320-Touch-Display im Hochformat
 und einen RP2350. Die 2,0"-Platine hat 2,54-mm-Stiftleisten, die 2,8"-Platine
 nur JST-SH-Stecker. Das **unified**-Abbild aus den
-[Releases](https://github.com/subtilitas/DshotDisplay/releases) läuft auf
+[Releases](https://github.com/subtilitas/MiniRcBench/releases) läuft auf
 beiden: Es erkennt die Platine bei jedem Start und zeigt das Ergebnis unter
 **CFG → SETUP** an, nur lesbar.
 

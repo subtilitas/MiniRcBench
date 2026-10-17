@@ -1,4 +1,4 @@
-# Where DshotDisplay stands
+# Where MiniRcBench stands
 
 The running record: what exists, how far each part is verified, and what is
 open. Two parts of this file are held to the tree by a checker. Every relative
@@ -7,18 +7,27 @@ link here and in [CHANGELOG.md](CHANGELOG.md) is checked by
 integration) is written and checked by `tools/coverage.py`. Nothing else is
 checked: the architecture figures, pin numbers, suite and job lists and
 verification states are written by hand, against the code and the issue tracker
-as of 2026-10-16. Read them as a dated record, not as an inventory.
+as of 2026-10-17. Read them as a dated record, not as an inventory.
+
+MiniRcBench continues the DshotDisplay firmware, which remains a separate
+project at
+[github.com/subtilitas/DshotDisplay](https://github.com/subtilitas/DshotDisplay).
+The commits named below are in this repository's history; the issue and report
+numbers are in the DshotDisplay tracker.
 
 [README.md](README.md) is the technical document, the
-[wiki](https://github.com/subtilitas/DshotDisplay/wiki) is the manual,
+[wiki](https://github.com/subtilitas/MiniRcBench/wiki) is the manual,
 [CHANGELOG.md](CHANGELOG.md) lists changes by release, and
 [docs/design/](docs/design/README.md) holds the design notes.
 
 ## Architecture
 
-DshotDisplay is a bench tester for one ESC (electronic speed controller). The
-board is the throttle source. It sends bidirectional DShot (a digital ESC
-protocol in which the ESC answers each frame on the same wire) and decodes the
+MiniRcBench is a bench tester for one ESC (electronic speed controller). A
+servo tester and KST and Chaservo servo programming, both on the same two
+signal pins, are planned; their design notes are in
+[docs/design/](docs/design/README.md). The board is the throttle source. It
+sends bidirectional DShot (a digital ESC protocol in which the ESC answers each
+frame on the same wire) and decodes the
 eRPM (electrical revolutions per minute) and EDT (Extended DShot Telemetry)
 frames that come back; RPM (revolutions per minute) is eRPM divided by half
 the motor's pole count. An optional third wire carries KISS telemetry, a serial
@@ -131,8 +140,8 @@ record either way.
 
 | Part | Host tests | Hardware |
 | --- | --- | --- |
-| DShot driver in `src/dshot/` (from rcbench 453cf334): frame, reply decode, three-state poll, RP2350 pin driver | frame and checksum, throttle map, line and group code, sampler against clock error, extended telemetry schedule against an AM32 model, three-state poll and the counters it feeds; the pin driver is compiled only | not tested on hardware in DshotDisplay. rcbench ran it at bidirectional DShot600 on one AM32 2.21 ESC (Skystars 35A); other rates and ESC firmwares are untested |
-| Bidirectional DShot throttle, eRPM and RPM readout | core1 frame decision, throttle and arming interlocks, RPM smoothing | hardware-tested (owner report) with `pico-bidir-dshot`, the driver before `src/dshot/`; the owner has found no bug since v2.3, and issue #1 is a separate, unreproduced report |
+| DShot driver in `src/dshot/` (from rcbench 453cf334): frame, reply decode, three-state poll, RP2350 pin driver | frame and checksum, throttle map, line and group code, sampler against clock error, extended telemetry schedule against an AM32 model, three-state poll and the counters it feeds; the pin driver is compiled only | not tested on hardware in MiniRcBench. rcbench ran it at bidirectional DShot600 on one AM32 2.21 ESC (Skystars 35A); other rates and ESC firmwares are untested |
+| Bidirectional DShot throttle, eRPM and RPM readout | core1 frame decision, throttle and arming interlocks, RPM smoothing | hardware-tested (owner report) with `pico-bidir-dshot`, the driver before `src/dshot/`; the owner has found no bug since DshotDisplay v2.3, and issue #1 is a separate, unreproduced report |
 | EDT telemetry, automatic enable, expiry | merge, expiry, enable rule, decode of each frame type | hardware-tested (owner report) with `pico-bidir-dshot` |
 | KISS telemetry: request, PIO receiver, decode, merge, KISS/EDT tags | CRC, decode, resynchronisation, request payload, merge; the PIO receiver is typechecked only | hardware-tested (owner report) with `pico-bidir-dshot`; see below |
 | DShot bitrate label in the status bar, `DSERR` | label at each bitrate, colour, `DSERR` | not recorded |
@@ -160,13 +169,14 @@ unchanged. Commit 5cec1ec fixes a logging fault reported from hardware. A run
 at the shipped SDIO clock of 10 MHz is not recorded separately. BUF PEAK and
 WORST FLUSH under sustained logging are not recorded.
 
-Not on `main`: the branches `feat/usb-bridge` (a USB to one-wire bridge,
-6693084) and `copilot/create-lcars-display` (a themed UI, 5d17541) are not
-merged.
+Not in this history: the DshotDisplay repository's branches
+`feat/usb-bridge` (a USB to one-wire bridge, 6693084) and
+`copilot/create-lcars-display` (a themed UI, 5d17541) are not merged.
 
 ## Open items
 
-1. **Issue #1, "Initialisation fails on some BL_Heli32 ESC".** Opened
+1. **[Issue #1](https://github.com/subtilitas/DshotDisplay/issues/1),
+   "Initialisation fails on some BL_Heli32 ESC".** Opened
    2026-09-11 by DerGeheimdienst. Open, no comments, not reproduced by the
    owner. This is an external report, not a confirmed defect. Conditions as
    reported:
@@ -220,6 +230,10 @@ merged.
    across a board restart or a SETUP pin change sends EDT frames that read as
    eRPM until the next enable, which goes out 300 ms after eRPM arrives with
    the motor stopped. Not observed on hardware.
+10. **The wiki of this repository has no page yet.** GitHub creates a
+    repository's wiki only once its first page exists, so that page is made by
+    hand in the Wiki tab. Until then the clone in `docs.yml` fails and no
+    manual is published.
 
 ## Known limitations
 

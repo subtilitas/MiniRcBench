@@ -1,4 +1,4 @@
-**[DshotDisplay](Home)**
+**[MiniRcBench](Home)**
 
 ---
 
@@ -24,6 +24,6 @@
 
 ---
 
-- [Releases](https://github.com/subtilitas/DshotDisplay/releases)
-- [Source](https://github.com/subtilitas/DshotDisplay)
+- [Releases](https://github.com/subtilitas/MiniRcBench/releases)
+- [Source](https://github.com/subtilitas/MiniRcBench)
 - [logwiju](https://subtilitas.github.io/logwiju/)

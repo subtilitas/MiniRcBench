@@ -14,7 +14,7 @@ konnte die Platine nicht bestimmen.
 
 Ein **Einzelplatinen**-Abbild auf der jeweils anderen Platine treibt die
 falschen Display-Pins. Flashe stattdessen das **unified**-Abbild aus den
-[Releases](https://github.com/subtilitas/DshotDisplay/releases). Es erkennt
+[Releases](https://github.com/subtilitas/MiniRcBench/releases). Es erkennt
 die Platine bei jedem Start.
 
 Mit dem unified-Abbild heißt ein dunkler Bildschirm, dass die Erkennung
@@ -80,7 +80,7 @@ Bleibt EDT bei einem ESC aus, dessen Firmware EDT beherrscht, öffne ein Issue
 ## Bekannte Einschränkung: BLHeli_32 32.6 auf RAZOR32 und EXUAV 70A
 
 Von einem Nutzer gemeldet in
-[Issue #1](https://github.com/subtilitas/DshotDisplay/issues/1), offen, vom
+[DshotDisplay-Issue #1](https://github.com/subtilitas/DshotDisplay/issues/1), offen, vom
 Projekt nicht nachgestellt. Mit den ESCs RAZOR32 und EXUAV 70A unter
 BLHeli_32 32.6 schließt der ESC seine Initialisierung nicht ab, und der Piepton
 bei Gas null fehlt. Die Ursache ist unbekannt. Ein Behelf ist nicht bekannt.
@@ -188,6 +188,6 @@ das ESC-Signal auf den anderen Pin und schalte dann KISS ein.
 ## Immer noch nicht weiter
 
 Öffne ein Issue unter
-[github.com/subtilitas/DshotDisplay/issues](https://github.com/subtilitas/DshotDisplay/issues).
+[github.com/subtilitas/MiniRcBench/issues](https://github.com/subtilitas/MiniRcBench/issues).
 Nützlich sind: welche Platine, welches Abbild (unified oder Einzelplatine), was
 die `LINK`-Zeile zeigt, und welcher ESC mit welcher ESC-Firmware.

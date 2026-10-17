@@ -22,7 +22,8 @@ stress and a status byte on the same wire, interleaved with eRPM frames. It
 needs support in the ESC firmware (BLHeli_32, Bluejay, AM32), and the ESC must
 receive an enable command. The firmware sends it; see below.
 
-Bidirectional DShot and EDT work on hardware. No defect is known as of v2.3.
+Bidirectional DShot and EDT work on hardware. No defect is known as of
+DshotDisplay v2.3.
 
 **KISS telemetry** is an optional third wire from the ESC's telemetry pad. Its
 steps are 0.01 V and 0.01 A, against EDT's 0.25 V and 1 A, and it carries

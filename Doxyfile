@@ -1,10 +1,10 @@
-# Doxygen configuration for DshotDisplay.
+# Doxygen configuration for MiniRcBench.
 # Only non-default settings are listed; run `doxygen -u Doxyfile` to expand.
 #
 #   doxygen                       -> docs/html/index.html
 #   doxygen 2>&1 | grep -i warn   -> anything that needs attention
 
-PROJECT_NAME           = "DshotDisplay"
+PROJECT_NAME           = "MiniRcBench"
 PROJECT_BRIEF          = "Bidirectional DShot ESC tester for the Waveshare RP2350-Touch-LCD-2 and -2.8"
 OUTPUT_DIRECTORY       = docs
 HTML_OUTPUT            = html

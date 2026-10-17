@@ -47,7 +47,7 @@ states under other names.
 rcbench does the same: until the bench is ARMED the coprocessor writes a
 pulse of length zero to every PWM pin, ARM is a hold, and at the arm every
 surface goes to its rest, the centre. rcbench holds ARM for 2 s; this screen
-uses DshotDisplay's 1 s so that every hold on the device is one length (open
+uses MiniRcBench's 1 s so that every hold on the device is one length (open
 question 1).
 
 STOP writes level 0 at once, and the compare register is double-buffered, so a
@@ -205,7 +205,7 @@ Two-servo readout row, 200..223:
   the right.
 - SPEED: the rcbench slider with tap-to-set, because SPEED commands nothing by
   itself (`servo_screen.c` turns it on for the same reason).
-- MIN, CENTRE, MAX fire on release, like every DshotDisplay button, and are
+- MIN, CENTRE, MAX fire on release, like every MiniRcBench button, and are
   drawn disabled while SAFE. SWEEP reads `SWEEP`, or `STOP SWEEP` while one
   runs; a stopped sweep leaves the servo where the curve was. A sweep starts
   its curve at the centre, so a servo held elsewhere moves to the centre
@@ -329,7 +329,7 @@ at the new rate. A refused bind leaves both pins unbound and reports
 | out_pwm_map cases of `test/host/test_outputs.c` | `test/rcbench/test_out_pwm_map.c` | adapted: the map cases only |
 
 `gfx.cpp` gains a thick line and an arc of dots for the horn and the dial.
-DshotDisplay draws only rectangles, rounded rectangles, lines along an axis,
+MiniRcBench draws only rectangles, rounded rectangles, lines along an axis,
 text and seven-segment digits today.
 
 Copied files keep their text and their `SPDX-License-Identifier: MIT` line.
@@ -383,7 +383,7 @@ About 5 days for 1 to 4.
 
 ## Open questions
 
-1. **START hold length.** DshotDisplay's 1000 ms (`ARM_HOLD_MS`) or rcbench's
+1. **START hold length.** MiniRcBench's 1000 ms (`ARM_HOLD_MS`) or rcbench's
    2 s? Recommended: 1000 ms, one hold length on the device.
 2. **Persist the profile.** Store TYPE, RATE and the range in flash?
    Recommended: no. Every boot starts at STANDARD PWM 50 Hz, as rcbench

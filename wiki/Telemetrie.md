@@ -24,7 +24,7 @@ Bluejay, AM32), und der ESC muss einen Freigabebefehl erhalten. Den sendet die
 Firmware; siehe unten.
 
 Bidirektionales DShot und EDT funktionieren auf der Hardware. Ein Fehler ist
-mit Stand v2.3 nicht bekannt.
+mit Stand DshotDisplay v2.3 nicht bekannt.
 
 **KISS-Telemetrie** ist ein optionales drittes Kabel vom Telemetrie-Pad des
 ESC. Ihre Schritte sind 0,01 V und 0,01 A, gegenüber 0,25 V und 1 A bei EDT,

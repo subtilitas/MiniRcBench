@@ -1,15 +1,28 @@
-# DshotDisplay
+# MiniRcBench
 
-[![CI](https://github.com/subtilitas/DshotDisplay/actions/workflows/ci.yml/badge.svg)](https://github.com/subtilitas/DshotDisplay/actions/workflows/ci.yml)
+[![CI](https://github.com/subtilitas/MiniRcBench/actions/workflows/ci.yml/badge.svg)](https://github.com/subtilitas/MiniRcBench/actions/workflows/ci.yml)
 
-A bidirectional DShot tester for one electronic speed controller (ESC). It runs
-on the **Waveshare RP2350-Touch-LCD-2** and **RP2350-Touch-LCD-2.8** and needs
-no flight controller, laptop or Betaflight.
+A bench tester for RC (radio-controlled) model parts. It runs on the
+**Waveshare RP2350-Touch-LCD-2** and **RP2350-Touch-LCD-2.8** and needs no
+flight controller, laptop or Betaflight. MiniRcBench continues the DshotDisplay
+firmware, which remains at
+[github.com/subtilitas/DshotDisplay](https://github.com/subtilitas/DshotDisplay)
+as a separate project.
 
-The board sends bidirectional DShot to the ESC from an on-screen throttle. On
-the same wire it decodes the electrical RPM (eRPM) and Extended DShot Telemetry
-(EDT) that the ESC returns: RPM (revolutions per minute), voltage, current, ESC
-temperature, stress and status. The touch panel shows all of it.
+Today it is a bidirectional DShot tester for one electronic speed controller
+(ESC). The board sends bidirectional DShot to the ESC from an on-screen
+throttle. On the same wire it decodes the electrical RPM (eRPM) and Extended
+DShot Telemetry (EDT) that the ESC returns: RPM (revolutions per minute),
+voltage, current, ESC temperature, stress and status. The touch panel shows all
+of it. An optional third wire carries KISS telemetry, with finer voltage and
+current steps. The board records the telemetry to microSD as a Betaflight
+blackbox log, offers the card to a USB (Universal Serial Bus) host as a
+read-only drive, and reads and writes AM32 ESC settings over the signal wire.
+
+Planned: a servo tester, with PWM (pulse-width modulation) servo output,
+manual position, sweep and two servos at once, and KST and Chaservo servo
+programming. Both use the same two signal pins. Their design notes are
+`docs/design/servo-tester.md` and `docs/design/kst-programming.md`.
 
 ![UI preview](docs/ui-preview.png)
 
@@ -17,16 +30,16 @@ temperature, stress and status. The touch panel shows all of it.
 interface) code.
 `tools/make_previews.py` stitches them together.*
 
-> ### [User manual — the Wiki](https://github.com/subtilitas/DshotDisplay/wiki)
+> ### [User manual — the Wiki](https://github.com/subtilitas/MiniRcBench/wiki)
 >
-> **[English](https://github.com/subtilitas/DshotDisplay/wiki/First-Run)** ·
-> **[Deutsch](https://github.com/subtilitas/DshotDisplay/wiki/Erste-Schritte)**
+> **[English](https://github.com/subtilitas/MiniRcBench/wiki/First-Run)** ·
+> **[Deutsch](https://github.com/subtilitas/MiniRcBench/wiki/Erste-Schritte)**
 >
 > Wiring, first run, every screen, telemetry, logging and AM32 configuration,
 > for someone using the board. This README describes the firmware and the
 > build.
 
-Project state and open items: [STATUS.md](https://github.com/subtilitas/DshotDisplay/blob/main/STATUS.md). Changes by release: [CHANGELOG.md](https://github.com/subtilitas/DshotDisplay/blob/main/CHANGELOG.md).
+Project state and open items: [STATUS.md](https://github.com/subtilitas/MiniRcBench/blob/main/STATUS.md). Changes by release: [CHANGELOG.md](https://github.com/subtilitas/MiniRcBench/blob/main/CHANGELOG.md).
 
 ---
 
@@ -83,8 +96,7 @@ shows the result, read-only.
 
 The probe runs 3 times (`PROBE_ATTEMPTS`). If no board answers, or both buses
 answer, the image stops in a safe state: power latch held, display off, no
-DShot output. It remains reachable over USB (Universal Serial Bus) for
-reflashing.
+DShot output. It remains reachable over USB for reflashing.
 
 The board is not a setting. No stored value can override the probe, so a wrong
 stored value cannot build the display or pin map for absent hardware. The
@@ -108,7 +120,7 @@ controller.
 | Function | GPIO | Notes |
 |---|---|---|
 | LCD (liquid-crystal display) DC / CS / SCK / MOSI / RST | 16 / 17 / 18 / 19 / 20 | SPI0. DC is data/command, CS chip select, SCK serial clock, MOSI master out, slave in, RST reset |
-| LCD backlight | 15 | NPN (negative-positive-negative) transistor as low-side switch, PWM (pulse-width modulation) at 20 kHz, 8-bit |
+| LCD backlight | 15 | NPN (negative-positive-negative) transistor as low-side switch, PWM at 20 kHz, 8-bit |
 | Touch + IMU I2C SDA / SCL | 12 / 13 | I2C0, **shared bus** (touch 0x15, IMU 0x6B). SDA is serial data, SCL serial clock |
 | Touch INT | 29 | interrupt, active low |
 | Touch RESET | 20 | **same net as LCD_RST**: resetting one resets both |
@@ -234,7 +246,7 @@ the 2.8" (`DSHOT_PIN_LCD_2_8`). Each board has its own option because a
 unified image carries both board descriptors. The boot probe selects which
 descriptor, and so which defaults, a running board uses.
 
-The output is `build/DshotDisplay-<board>.uf2`, where `<board>` is
+The output is `build/MiniRcBench-<board>.uf2`, where `<board>` is
 `touch-lcd-2`, `touch-lcd-2.8` or `unified`. UF2 is the USB Flashing Format.
 The images are not interchangeable between boards, except `unified`.
 
@@ -250,7 +262,7 @@ build or test for the RP2350's Hazard3 RISC-V cores.
 
 ### Prebuilt images
 
-Every [release](https://github.com/subtilitas/DshotDisplay/releases) has a
+Every [release](https://github.com/subtilitas/MiniRcBench/releases) has a
 `.uf2` per image attached. Flash it as above.
 
 Every green CI run uploads a `.uf2` artifact per image, so an untagged commit
@@ -490,7 +502,8 @@ connected.
 
 An expired **ESC STATUS** reads `--`, never `OK`.
 
-Bidirectional DShot and EDT work on hardware. No defect is known as of v2.3.
+Bidirectional DShot and EDT work on hardware. No defect is known as of
+DshotDisplay v2.3.
 
 ### KISS telemetry (optional third wire)
 
@@ -949,8 +962,8 @@ tag; without one it takes the newest tag that has no pre-release suffix.
 ### Releases
 
 ```sh
-git tag -a v1.0.0 -m "First release"
-git push origin v1.0.0
+git tag -a v0.1.0 -m "MiniRcBench 0.1.0"
+git push origin v0.1.0
 ```
 
 `release.yml` runs the host and documentation checks, builds a `.uf2` for each
@@ -959,9 +972,9 @@ image, checksums them, and publishes a GitHub Release with the images attached.
 Assets per release:
 
 ```
-DshotDisplay-v1.0.0-unified.uf2        <- runs on either board
-DshotDisplay-v1.0.0-touch-lcd-2.uf2
-DshotDisplay-v1.0.0-touch-lcd-2.8.uf2
+MiniRcBench-v0.1.0-unified.uf2         <- runs on either board
+MiniRcBench-v0.1.0-touch-lcd-2.uf2
+MiniRcBench-v0.1.0-touch-lcd-2.8.uf2
 SHA256SUMS.txt
 ```
 
@@ -1009,7 +1022,7 @@ byte swap. Commands use 8-bit frames. The panel clock is set to 62.5 MHz
 
 ### The user manual
 
-The [wiki](https://github.com/subtilitas/DshotDisplay/wiki) source is `wiki/`
+The [wiki](https://github.com/subtilitas/MiniRcBench/wiki) source is `wiki/`
 in this repository, in English and German. `docs.yml` mirrors it to GitHub
 after each successful Release run and overwrites edits made in the browser.
 Every page says so in its footer.
@@ -1059,7 +1072,7 @@ licence:
 
 | Code in the image | Licence |
 |---|---|
-| DshotDisplay, `src/` | MIT |
+| MiniRcBench, `src/` | MIT |
 | Pico SDK 2.1.1 | BSD-3-Clause |
 | TinyUSB, from the Pico SDK | MIT |
 | `no-OS-FatFS-SD-SDIO-SPI-RPi-Pico` v3.6.2: SPI card driver, FatFs glue, utilities | Apache-2.0 |

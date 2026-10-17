@@ -23,7 +23,7 @@ three is at the end.
 
 ## Why
 
-DshotDisplay brings out two signal pins. On the 2.8" board they are the only
+MiniRcBench brings out two signal pins. On the 2.8" board they are the only
 free GPIOs. Today both belong to the ESC for the whole run: the DShot pump on
 one, the KISS receiver on the other. The servo tester and the KST programmer
 need the same two wires. A second set of pins does not exist on the 2.8"
@@ -364,7 +364,7 @@ in pio0 on either board. The claim exists for the pin, not for the PIO block.
 
 ### System clock
 
-Nothing in DshotDisplay sets `clk_sys`. Pico SDK 2.1.1 defaults it to
+Nothing in MiniRcBench sets `clk_sys`. Pico SDK 2.1.1 defaults it to
 150 MHz (`SYS_CLK_HZ` in `platform_defs.h`), and neither the FatFs driver nor
 the panel driver changes it. The KST driver needs a 25.40 µs half-cell within
 0.2 %: 3810 cycles at 150 MHz, exact. The clock may move by ±0.3 MHz before
@@ -372,7 +372,7 @@ the panel driver changes it. The KST driver needs a 25.40 µs half-cell within
 
 ### Signal level
 
-The pins drive 3.3 V, from IOVDD. The DshotDisplay README treats every GPIO as
+The pins drive 3.3 V, from IOVDD. The MiniRcBench README treats every GPIO as
 3.6 V maximum. rcbench's documents rate RP2350 GPIO0 to GPIO39 at 5.5 V while
 IOVDD is at 3.3 V and at 3.63 V while it is off. That statement is for
 rcbench's RP2350B, whose ADC pins are GP40 to GP47. On the RP2350A of these

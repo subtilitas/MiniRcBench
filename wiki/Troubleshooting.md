@@ -13,7 +13,7 @@ identify the board.
 
 A **single-board** image flashed onto the other board drives the wrong display
 pins. Flash the **unified** image from
-[Releases](https://github.com/subtilitas/DshotDisplay/releases) instead. It
+[Releases](https://github.com/subtilitas/MiniRcBench/releases) instead. It
 identifies the board at every boot.
 
 With the unified image, a dark screen means the probe failed 3 times: no
@@ -76,7 +76,7 @@ If EDT stays off with an ESC whose firmware supports EDT, open an issue (see
 ## Known limitation: BLHeli_32 32.6 on RAZOR32 and EXUAV 70A
 
 Reported by a user in
-[issue #1](https://github.com/subtilitas/DshotDisplay/issues/1), open, not
+[DshotDisplay issue #1](https://github.com/subtilitas/DshotDisplay/issues/1), open, not
 reproduced by the project. With RAZOR32 and EXUAV 70A ESCs running BLHeli_32
 32.6, the ESC does not finish initialising, and the zero-throttle beep is
 missing. The cause is unknown. No workaround is known.
@@ -177,6 +177,6 @@ other pin first, then turn KISS on.
 ## Still stuck
 
 Open an issue at
-[github.com/subtilitas/DshotDisplay/issues](https://github.com/subtilitas/DshotDisplay/issues).
+[github.com/subtilitas/MiniRcBench/issues](https://github.com/subtilitas/MiniRcBench/issues).
 Include: which board, which image (unified or single-board), what the `LINK`
 row shows, and which ESC and ESC firmware.
