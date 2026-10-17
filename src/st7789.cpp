@@ -145,7 +145,7 @@ void st7789Init() {
 	cmd(0x29);            // DISPON
 	delay(50);
 
-	// --- backlight on GPIO15 via an NPN, PWM-able ---
+	// --- backlight on GP16 (g_board->lcdBl) via an NPN, PWM-able ---
 	//
 	// 20 kHz, comfortably above audible: the backlight boost inductor whines at
 	// PWM frequencies inside the audio band, which is a surprising and annoying

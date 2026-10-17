@@ -9,7 +9,8 @@ revolutions per minute, KISS telemetry is the serial protocol of the KISS ESC
 line on its own wire, UI is user interface, USB is Universal Serial Bus, CI is
 continuous integration, VB is variable-byte, SDK is software development kit,
 GPIO is general-purpose input/output, DMA is direct memory access. In the pin
-table, CLK is the serial clock and CMD the SDIO command line; TX is transmit.
+table, CLK and SCK are the serial clock and CMD the SDIO command line; TX is
+transmit.
 
 Status: implemented on the Waveshare RP2350-Touch-LCD-2.8. Hardware use is
 recorded in one commit: the board mounted a card over SDIO at 25 MHz in

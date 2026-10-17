@@ -83,17 +83,17 @@ The pin map is `src/board_rp2350_touch_lcd_2_8.h`.
 
 | Function | GPIO | Notes |
 |---|---|---|
-| LCD (liquid-crystal display) SCK / MOSI / CS / DC / RST | 10 / 11 / 13 / 14 / 15 | SPI1. SCK is serial clock, MOSI master out, slave in, CS chip select, DC data/command, RST reset. GP12 is the panel's MISO line, wired and not used |
+| LCD (liquid-crystal display) SCK / MOSI / CS / DC / RST | 10 / 11 / 13 / 14 / 15 | SPI1. SCK is serial clock, MOSI master out, slave in, CS chip select, DC data/command, RST reset. GP12 is the panel's MISO (master in, slave out) line, wired and not used |
 | LCD backlight | 16 | NPN (negative-positive-negative) transistor as low-side switch, PWM at 20 kHz, 8-bit |
 | Touch + IMU + RTC I2C SDA / SCL | 6 / 7 | I2C1, **shared bus** (touch 0x1A, IMU 0x6B, RTC 0x51). SDA is serial data, SCL serial clock |
 | Touch INT / RESET | 18 / 17 | Interrupt, active low. The touch reset is a net of its own, separate from LCD_RST |
-| microSD CLK / CMD / D0–D3 | 19 / 20 / 21–24 | 4-bit SDIO (Secure Digital Input/Output) on PIO, blackbox logging, see below |
+| microSD CLK / CMD / D0–D3 | 19 / 20 / 21–24 | 4-bit SDIO (Secure Digital Input/Output) on PIO, blackbox logging, see below. CLK is clock, CMD command, D0–D3 the data lines |
 | Power latch | 26 | `PIN_BAT_EN`, driven high first at boot |
 | Power button | 25 | 10 kΩ pull-up, reads low while pressed |
 | Battery sense | 27 | ADC (analog-to-digital converter) input 1, 200k/100k divider → `VBAT = Vadc × 3` |
-| I2S audio BCK / LRCK / DIN | 2 / 3 / 4 | PCM5101A codec, not used by the firmware |
+| I2S audio BCK / LRCK / DIN | 2 / 3 / 4 | PCM5101A codec, not used by the firmware. I2S is Inter-IC Sound; BCK is bit clock, LRCK left-right clock, DIN data in |
 | RTC INT, IMU INT1 / INT2 | 5, 8 / 9 | Not used by the firmware |
-| UART0 TX / RX | 0 / 1 | On J4 and J5. Not offered for the ESC wires |
+| UART0 TX / RX | 0 / 1 | On J4 and J5. Not offered for the ESC wires. UART is universal asynchronous receiver-transmitter; TX is transmit, RX receive |
 | ESC signal | 29 | J4 pin 12, free |
 | KISS telemetry RX (receive; KISS is a serial ESC telemetry protocol) | 28 | J4 pin 11, free. Optional third wire |
 
@@ -152,7 +152,7 @@ identify the board it runs on.
 **Current limitation.** Condition: a MiniRcBench image is flashed onto any
 other RP2350 board, the RP2350-Touch-LCD-2 among them. From the first
 instruction of `setup()` the image drives the 2.8" pin map: GP26 high as the
-power latch, the panel lines on GP10–GP16, the touch lines, the SDIO lines on
+power latch, the panel lines on GP10, GP11 and GP13–GP16, the touch lines, the SDIO lines on
 GP19–GP24, and DShot on GP29. On the RP2350-Touch-LCD-2 several of these pins
 carry other functions: GP26 is the SD card clock there, GP14 an IMU interrupt
 output and GP29 the touch controller's interrupt output. What the image does
@@ -216,7 +216,7 @@ Format.
 To flash: hold **BOOT**, tap **RESET**, release **BOOT**, and copy the `.uf2`
 onto the USB drive that appears.
 
-`-DSTRICT=ON` adds `-Werror` for this project's own sources. CI sets it. It is
+`-DSTRICT=ON` adds `-Werror` for this project's own sources. CI (continuous integration) sets it. It is
 off by default, so a toolchain update that adds a warning does not stop a
 local build.
 
@@ -228,7 +228,7 @@ build or test for the RP2350's Hazard3 RISC-V cores.
 Every [release](https://github.com/subtilitas/MiniRcBench/releases) has the
 `.uf2` attached. Flash it as above.
 
-Every green CI (continuous integration) run uploads the `.uf2` as an
+Every green CI run uploads the `.uf2` as an
 artifact, so an untagged commit can be tested on hardware.
 
 `tools/sdtest` is not among them. It is a bench diagnostic for the SD card
@@ -493,8 +493,7 @@ The line is transmit-only from the ESC. Requests go out every 20th DShot frame
 (`KISS_ENABLE_LCD_2_8` = 0) because the board has two free pins and the ESC
 uses one.
 
-**Any free GPIO can receive it.** The receiver is a UART (universal
-asynchronous receiver-transmitter) built from one PIO state machine. The
+**Any free GPIO can receive it.** The receiver is a UART built from one PIO state machine. The
 RP2350's two hardware UARTs receive only on GPIOs where `n % 4 == 1`, which on
 this board leaves only GP29, the ESC pin. See `src/pio_uart_rx.h`.
 
@@ -899,7 +898,7 @@ Makefile does not list `ui_am32.cpp` in `SRCS`.
 | **Docs** | Undocumented additions, through Doxygen and `test/check_docs.py` |
 | **Workflow lint** | `actionlint`, plus a duplicate-key check that PyYAML would otherwise let through and GitHub would not |
 
-The firmware job also checks the size against a ceiling of 1 MB flash, that
+The firmware job also checks the size against ceilings of 1 MiB flash and 400,000 bytes of RAM (random-access memory), that
 the two pin options reach the configure step, and that the options this build
 does not take are refused. The check that a pin value reaches the firmware is
 in the host job, which rebuilds the suite with the macros overridden.

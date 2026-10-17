@@ -46,7 +46,7 @@ its own wire. AM32 is an open-source ESC firmware.
   version from it, and `picotool info` shows it as the program version.
   `release.yml` refuses a tag that does not name it, with or without a
   pre-release suffix.
-- [STATUS.md](STATUS.md): architecture, boards, verification state of each
+- [STATUS.md](STATUS.md): architecture, the board, verification state of each
   part, open items with issue #1, known limitations, tests and CI.
 - This changelog.
 - `make -C test coverage` and `tools/coverage.py`: host-suite line coverage
