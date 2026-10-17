@@ -16,11 +16,7 @@
 #include <hardware/gpio.h>
 
 /**
- * @brief The panel's SPI instance, from the active board descriptor.
- *
- * spi0 on the 2.0", spi1 on the 2.8". A macro rather than a cached pointer so
- * that selecting a board before st7789Init() is all it takes -- there is no
- * second place to remember to update.
+ * @brief The panel's SPI instance, from the board descriptor: spi1.
  */
 #define LCD_SPI ((spi_inst_t *)g_board->lcdSpi)
 
@@ -99,7 +95,7 @@ void st7789Init() {
 	gpio_init(g_board->lcdCs);  gpio_set_dir(g_board->lcdCs, GPIO_OUT);  gpio_put(g_board->lcdCs, 1);
 	gpio_init(g_board->lcdRst); gpio_set_dir(g_board->lcdRst, GPIO_OUT); gpio_put(g_board->lcdRst, 1);
 
-	// --- panel SPI, whichever instance this board uses ---
+	// --- panel SPI ---
 	spi_init(LCD_SPI, LCD_SPI_HZ);
 	spi_set_format(LCD_SPI, 8, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
 	gpio_set_function(g_board->lcdSck,  GPIO_FUNC_SPI);
@@ -108,9 +104,8 @@ void st7789Init() {
 	// --- DMA ---
 	if (s_dma < 0) s_dma = dma_claim_unused_channel(true);
 
-	// --- hardware reset. On the 2.0" this is the same net as the touch chip's
-	//     reset, which is why touchInit() must follow this; the 2.8" separates
-	//     them and its driver pulses its own. @see BoardDesc::tpRstSharedWithLcd
+	// --- hardware reset. LCD only: the touch controller has a reset line of
+	//     its own, which its driver pulses. @see touchInit()
 	gpio_put(g_board->lcdRst, 1); delay(20);
 	gpio_put(g_board->lcdRst, 0); delay(20);
 	gpio_put(g_board->lcdRst, 1); delay(120);

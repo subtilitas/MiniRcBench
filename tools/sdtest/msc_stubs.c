@@ -1,19 +1,17 @@
-/*
- * SPDX-License-Identifier: MIT
- *
- * Written from the SD Physical Layer Simplified Specification v9.10 and the
- * RP2350 datasheet; no third-party SD host-driver source was consulted.
- */
+/* SPDX-License-Identifier: MIT */
 
 /**
  * @file msc_stubs.c
  * @brief Mass-storage callbacks sdtest never uses, so that it links.
  *
- * sdtest has src/ on its include path for the board descriptors, so TinyUSB
- * finds the firmware's tusb_config.h, which turns on the MSC (mass storage
- * class) driver. That driver needs these callbacks at link time. sdtest's
- * USB descriptors come from pico_stdio_usb and offer no MSC interface, so a
- * host never reaches them; each answers "not ready" in case one does.
+ * sdtest, which builds for the RP2350-Touch-LCD-2.8 only, has src/ on its
+ * include path for the board's pin map, so TinyUSB finds the firmware's
+ * tusb_config.h, which turns on the MSC (mass storage class) driver. That
+ * driver needs these callbacks at link time. sdtest's USB descriptors come
+ * from pico_stdio_usb and offer no MSC interface, so a host never reaches
+ * them. In case one does: test_unit_ready answers not ready, the capacity is
+ * 0 blocks, and read10, write10 and every SCSI command outside TinyUSB's
+ * built-in set answer with an error.
  */
 
 #include "tusb.h"

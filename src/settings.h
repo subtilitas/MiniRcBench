@@ -44,23 +44,23 @@
  * Bump on any change to @ref Settings. A block with a different version is
  * discarded entirely rather than migrated — see @ref settingsLoad() for why
  * that is the safe direction here.
+ *
+ * The magic, this version and the layout of @ref Settings match DshotDisplay
+ * 2.x, so a block DshotDisplay saved on an RP2350-Touch-LCD-2.8 loads here
+ * unchanged. The host suite pins the layout.
  */
 #define SETTINGS_VERSION 2
 
 /** @brief The persisted settings. */
 struct Settings {
 	/**
-	 * @brief Which board this block was written on, one of @ref board_desc_ids.
+	 * @brief Which board this block was written on: @ref BOARD_ID_LCD_2_8.
 	 *
-	 * A record, never an input. The board is identified at boot — a unified
-	 * image probes for its always-on I2C devices, see boardProbe(); a
-	 * single-board image is told by the build — and @ref settingsValidate()
-	 * overwrites this field with that answer. So a card moved to the other
-	 * board arrives as *that* board's settings, every pin in it re-judged,
-	 * instead of a pin map for hardware that is not there.
-	 *
-	 * Kept in the block precisely so that mismatch is visible rather than
-	 * implied. It is not a choice, and nothing in the UI offers to change it.
+	 * A record, never an input. The field keeps its place so that the layout
+	 * stays DshotDisplay's. @ref settingsValidate() checks it against
+	 * @ref BOARD_ID_LCD_2_8 and overwrites any other value, and re-judges every
+	 * pin in the block against this board's free GPIOs. Nothing in the UI
+	 * offers to change it.
 	 */
 	uint8_t  boardId;
 	uint8_t  dshotPin;     /**< GPIO carrying the ESC signal wire. */
@@ -122,30 +122,6 @@ bool settingsPinFree(uint8_t pin);
  */
 uint8_t settingsNextPin(uint8_t from, int dir);
 
-/**
- * @brief settingsPinFree(), judged against a specific board.
- *
- * The SETUP screen can hold a board choice that has not been applied yet — the
- * hardware only changes on reboot — and its pin rules must follow the choice,
- * not the live board. An id this image cannot drive falls back to the live
- * board's mask.
- *
- * @param boardIdArg One of @ref board_desc_ids.
- * @param pin        GPIO number.
- * @return true if the pin is unclaimed on that board.
- */
-bool settingsPinFreeOn(uint8_t boardIdArg, uint8_t pin);
-
-/**
- * @brief settingsNextPin(), stepping through a specific board's free pins.
- *
- * @param boardIdArg One of @ref board_desc_ids.
- * @param from       Current pin.
- * @param dir        +1 or -1.
- * @return The next candidate, or @p from if that board offers no other.
- */
-uint8_t settingsNextPinOn(uint8_t boardIdArg, uint8_t from, int dir);
-
 /** @} */
 
 /**
@@ -167,8 +143,9 @@ void settingsDefaults(Settings *out);
  *
  * Repairs, in order: pole count even and in range; throttle ceiling a whole
  * number of steps and within @ref MAX_THROTTLE_CEILING; DShot bitrate one of
- * the four legal values; ESC pin free; KISS pin free, UART-capable, and not the
- * same pin as the ESC — KISS is switched off rather than moved if it is not.
+ * the four legal values; board id @ref BOARD_ID_LCD_2_8; ESC pin free; KISS
+ * pin free and not the same pin as the ESC — KISS is switched off rather than
+ * moved if it is not.
  *
  * @param[in,out] s Settings to repair in place.
  * @return true if nothing needed changing.

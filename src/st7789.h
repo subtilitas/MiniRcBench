@@ -1,9 +1,9 @@
 /**
  * @file st7789.h
- * @brief ST7789T3 panel driver, 240x320, for both supported boards.
+ * @brief ST7789T3 panel driver, 240x320.
  *
  * Talks to the panel over the hardware SPI instance the board header names in
- * `LCD_SPI_PORT` (SPI0 on the 2.0" board, SPI1 on the 2.8"), with a
+ * `LCD_SPI_PORT` (SPI1), with a
  * dedicated DMA channel for pixel pushes. Commands go out in 8-bit SPI frames;
  * pixels go out in 16-bit frames so RGB565 words land on the wire MSB-first
  * with no software byte swapping.
@@ -16,10 +16,8 @@
 /**
  * @brief Bring up `LCD_SPI_PORT`, the DMA channel, and the panel itself.
  *
- * @warning This pulses `PIN_LCD_RST`. On the 2.0" board that is the same net
- *          as the touch controller's reset line, so touchInit() must be called
- *          after this, not before. The 2.8" board separates them, but the
- *          ordering rule is the same on both so callers need not branch.
+ * Pulses `PIN_LCD_RST`, which resets the panel only: the touch controller
+ * has a reset line of its own. @see touchInit()
  */
 void st7789Init();
 

@@ -1,61 +1,63 @@
 /**
  * @file board_desc.cpp
- * @brief Which descriptor is active, and which ones this image holds.
- *
- * The selection list is built by the preprocessor from @ref BOARD, so a
- * single-board build carries exactly one descriptor and a unified build carries
- * both. That keeps the single-board images available -- they are smaller, and
- * they are what proves the preprocessor path has not rotted -- while the
- * unified one is a build option rather than a fork.
+ * @brief The RP2350-Touch-LCD-2.8, as a value. @see board_desc.h
  */
 
 #include "board_desc.h"
-#include "board.h"
+#include "board_pins.h"
+#include "config.h"
 
-#include <stddef.h>
+#include <hardware/spi.h>
+#include <hardware/i2c.h>
 
-/** @brief One entry per board this image can drive. */
-struct BoardEntry {
-	uint8_t id;              /**< @see board_desc_ids */
-	const BoardDesc *desc;   /**< Its descriptor. */
+const BoardDesc BOARD_DESC_LCD_2_8 = {
+	/* label      */ BOARD_LABEL,
+
+	/* lcdSpi     */ (void *)LCD_SPI_PORT,
+	/* lcdBl      */ PIN_LCD_BL,
+	/* lcdDc      */ PIN_LCD_DC,
+	/* lcdCs      */ PIN_LCD_CS,
+	/* lcdSck     */ PIN_LCD_SCK,
+	/* lcdMosi    */ PIN_LCD_MOSI,
+	/* lcdRst     */ PIN_LCD_RST,
+
+	/* i2c        */ (void *)BOARD_I2C,
+	/* sda        */ PIN_I2C_SDA,
+	/* scl        */ PIN_I2C_SCL,
+	/* tpInt      */ PIN_TP_INT,
+	/* tpRst      */ PIN_TP_RST,
+	/* tpAddr     */ CST328_I2C_ADDR,
+
+	/* batAdcPin  */ PIN_BAT_ADC,
+	/* batAdcChan */ BAT_ADC_CHAN,
+	/* batDivider */ BAT_DIVIDER,
+	/* batEnPin   */ PIN_BAT_EN,
+
+	/* freeGpio   */ BOARD_FREE_GPIO_MASK,
+	/* dshotPin   */ DSHOT_PIN_LCD_2_8,
+	/* kissPin    */ KISS_PIN_LCD_2_8,
+	/* kissEnable */ KISS_ENABLE_LCD_2_8 != 0,
 };
 
-static const BoardEntry BOARDS[] = {
-#if BOARD == BOARD_RP2350_TOUCH_LCD_2 || BOARD == BOARD_UNIFIED
-	{ BOARD_ID_LCD_2,   &BOARD_DESC_LCD_2 },
-#endif
-#if BOARD == BOARD_RP2350_TOUCH_LCD_2_8 || BOARD == BOARD_UNIFIED
-	{ BOARD_ID_LCD_2_8, &BOARD_DESC_LCD_2_8 },
-#endif
-};
+extern const BoardDesc *const g_board;
+const BoardDesc *const g_board = &BOARD_DESC_LCD_2_8;
 
-static const int BOARD_N = (int)(sizeof(BOARDS) / sizeof(BOARDS[0]));
-static_assert(sizeof(BOARDS) / sizeof(BOARDS[0]) >= 1,
-              "a build must be able to drive at least one board");
-
-// Defaults to the first entry, so a single-board build never needs to select
-// and a unified one has something coherent to draw with before the user picks.
-const BoardDesc *g_board = BOARDS[0].desc;
-static uint8_t s_boardId = BOARDS[0].id;
-
-bool boardSelect(uint8_t id) {
-	for (int i = 0; i < BOARD_N; i++) {
-		if (BOARDS[i].id == id) {
-			g_board = BOARDS[i].desc;
-			s_boardId = id;
-			return true;
-		}
-	}
-	return false;
-}
-
-uint8_t boardId() { return s_boardId; }
-int boardCount() { return BOARD_N; }
-
-const BoardDesc *boardAt(int i) {
-	return (i >= 0 && i < BOARD_N) ? BOARDS[i].desc : NULL;
-}
-
-uint8_t boardIdAt(int i) {
-	return (i >= 0 && i < BOARD_N) ? BOARDS[i].id : BOARD_ID_UNSET;
-}
+/*
+ * The pin defaults are macros, so they are overridable from the build -- and an
+ * override that cannot work must fail here rather than be repaired in silence
+ * on the bench. settingsValidate() would quietly move an occupied ESC pin back
+ * to the board default and switch a colliding KISS wire off, which is right for
+ * a stored block nobody chose and wrong for a value someone typed on a command
+ * line. @see cfg_pin_defaults
+ *
+ * The `& 31` keeps the shift in range when the pin is nonsense, so the message
+ * that fires is this one rather than the compiler's own about the shift.
+ */
+static_assert(DSHOT_PIN_LCD_2_8 <= 29 &&
+              ((BOARD_FREE_GPIO_MASK >> (DSHOT_PIN_LCD_2_8 & 31)) & 1u),
+              "DSHOT_PIN_LCD_2_8 is not a free GPIO on the 2.8-inch board");
+static_assert(KISS_PIN_LCD_2_8 <= 29 &&
+              ((BOARD_FREE_GPIO_MASK >> (KISS_PIN_LCD_2_8 & 31)) & 1u),
+              "KISS_PIN_LCD_2_8 is not a free GPIO on the 2.8-inch board");
+static_assert(DSHOT_PIN_LCD_2_8 != KISS_PIN_LCD_2_8,
+              "the ESC and telemetry wires cannot share a pin");

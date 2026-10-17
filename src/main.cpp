@@ -13,19 +13,13 @@
  * which is itself how this block first went wrong.
  *
  * A self-contained bidirectional DShot ESC tester for the Waveshare
- * RP2350-Touch-LCD-2 and RP2350-Touch-LCD-2.8. Drag the on-screen throttle and
- * the board sends bidirectional DShot to a single ESC while decoding the eRPM
- * and Extended DShot Telemetry that comes back on the same wire.
+ * RP2350-Touch-LCD-2.8. Drag the on-screen throttle and the board sends
+ * bidirectional DShot to a single ESC while decoding the eRPM and Extended
+ * DShot Telemetry that comes back on the same wire.
  *
- * Built either per board with `-DBOARD=`, or as one unified image that carries
- * both board descriptions and works out which one it is on at boot, by probing
- * for the board's always-on I2C devices (see board_probe.h). The board is not a
- * setting and there is nothing to pick: it is detected every boot, because an
- * answer that can be remembered is an answer that can be remembered wrongly,
- * and the display is what it costs. The boards are genuinely different:
- * different SPI instance for the panel, different I2C, a different touch
- * controller, and a different SD interface — hardware SPI on the 2.0", PIO
- * SDIO on the 2.8".
+ * The image is built for that one board. It does not identify the board it
+ * runs on: from the first instruction of setup() it drives the 2.8" pin map,
+ * starting with the power latch on GP26. See board_desc.h.
  *
  * @section arch Two cores
  *
@@ -49,12 +43,12 @@
  * All of these live in `src/`:
  *
  * - @ref config.h — every tunable setting
- * - @ref board_pins.h — pin map for the selected board, from the schematic
+ * - @ref board_pins.h — the board's pin map, from the schematic
  * - @ref esc_task.h — core1 DShot pump and EDT decode
  * - @ref ui.h — screens, touch handling, arm and throttle state machines
  * - @ref gfx.h — RGB565 framebuffer, dirty bands, fonts
  * - @ref st7789.h — panel init and DMA blitter
- * - @ref touch.h — capacitive touch, CST816D or CST328 by board
+ * - @ref touch.h — capacitive touch, CST328
  * - @ref sd_log.h — blackbox logging to the microSD slot (core0)
  *
  * @warning This drives a real motor. Read the safety section of README.md
@@ -69,7 +63,6 @@
 
 #include "config.h"
 #include "board_desc.h"
-#include "board_probe.h"
 #include "gfx.h"
 #include "st7789.h"
 #include "touch.h"
@@ -83,14 +76,6 @@
 /** @brief UI frame interval in milliseconds (~40 fps). */
 #define UI_PERIOD_MS 25
 
-/**
- * @brief The power latch, asserted before the board is known.
- *
- * GP26 on the 2.8". SD_SCK on the 2.0", where it is released again as soon as
- * the stored board id has been read. @see setup()
- */
-#define BAT_EN_EARLY_PIN 26
-
 static uint32_t s_nextUiMs = 0;   /**< Deadline for the next UI frame. */
 #if SERIAL_TELEMETRY
 static uint32_t s_nextLogMs = 0;  /**< Deadline for the next serial dump. */
@@ -98,32 +83,14 @@ static uint32_t s_nextLogMs = 0;  /**< Deadline for the next serial dump. */
 
 /**
  * @brief Core0 setup: bring up the display, touch and UI.
- *
- * Order matters — st7789Init() pulses the reset line the touch controller
- * shares, so touchInit() has to follow it.
  */
 void setup() {
-	// First thing, before anything that could take a millisecond, and before we
-	// know which board this is.
-	//
-	// On the 2.8" GP26 is the latch that keeps VBAT connected once the power
-	// button is released; miss it and the board dies mid-boot on battery. That
-	// cannot wait for the stored board id, because reading it means reading
-	// flash, which takes longer than the button is held.
-	//
-	// On the 2.0" GP26 is SD_SCK. Driving an idle SD clock high with the card
-	// deselected is harmless -- no transaction is in progress and nothing has
-	// been initialised -- and it is released again below once the board is
-	// known. Asserting it unconditionally is the one thing a unified image
-	// cannot defer.
-	//
-	// @warning Validate this on a 2.0" board before relying on it. It is the
-	//          single step in the unified image that touches a pin whose
-	//          function differs between the two, and it is reasoned rather than
-	//          measured.
-	gpio_init(BAT_EN_EARLY_PIN);
-	gpio_set_dir(BAT_EN_EARLY_PIN, GPIO_OUT);
-	gpio_put(BAT_EN_EARLY_PIN, 1);
+	// First thing, before anything that could take a millisecond. GP26 is the
+	// latch that keeps VBAT connected once the power button is released; miss
+	// it and the board dies mid-boot on battery.
+	gpio_init(g_board->batEnPin);
+	gpio_set_dir(g_board->batEnPin, GPIO_OUT);
+	gpio_put(g_board->batEnPin, 1);
 
 	// USB, ours rather than the SDK's. stdio_init_all() would have brought up
 	// pico_stdio_usb, which owns the USB descriptors and cannot share the device
@@ -132,53 +99,19 @@ void setup() {
 	// @see usb_dev.h
 	usbDevInit();
 
-	// Which board this is, before anything reads a value that depends on it.
-	//
-	// A unified image asks the hardware itself, every boot, and nothing else
-	// gets a vote — see board_probe.h for why the two bus probes are safe on
-	// either board. There is deliberately no override and no picker: a stored
-	// board id used to outrank the hardware, and a wrong one was applied by the
-	// very boot that would have had to show the screen to undo it. Detection
-	// cannot go stale that way; a wrong detection fails here, before a pin is
-	// driven.
-	//
-	// A single-board image knows what it is — BOARDS[] holds one entry and
-	// g_board already points at it — so it does not probe at all.
-	if (boardCount() > 1) {
-		uint8_t probed = boardProbe();
-		if (!boardSelect(probed)) {
-			// Unknown hardware: nothing answered, or both buses did. Every
-			// option from here is a guess, and a guessed pin map drives outputs
-			// into other chips' pins — so hold what is safe and do nothing at
-			// all: latch kept asserted (releasing it powers off a battery-fed
-			// 2.8" mid-boot), no display, no touch, and above all no DShot.
-			// Recovery is a reflash over USB, which BOOTSEL provides regardless
-			// of how wedged the firmware is.
-			for (;;) tight_loop_contents();
-		}
-	}
-
-	// After the board, because the defaults this seeds are pin choices and those
-	// are per-board — and before escTaskInit(), which seeds core1's wiring from
-	// them, and before uiInit(), which reads the palette and backlight
-	// preference. A board with blank flash gets this board's defaults and never
-	// knows the difference; a block saved on the *other* board arrives as this
-	// board's settings, every pin in it re-judged. @see settingsValidate()
+	// Before escTaskInit(), which seeds core1's wiring from the settings, and
+	// before uiInit(), which reads the palette and backlight preference. A
+	// board with blank flash gets the compiled defaults; a block written on
+	// other hardware arrives with every pin in it re-judged against this
+	// board. @see settingsValidate()
 	settingsLoad();
-
-	// Hand GP26 back if this board does not want it held. On the 2.0" it is
-	// SD_SCK and the card driver claims it shortly afterwards.
-	if (g_board->batEnPin != (int8_t)BAT_EN_EARLY_PIN) {
-		gpio_set_dir(BAT_EN_EARLY_PIN, GPIO_IN);
-		gpio_disable_pulls(BAT_EN_EARLY_PIN);
-	}
 
 	// Before anything can call escSnapshot(), and before core1 is launched.
 	escTaskInit();
 
 	gfxInit();
-	st7789Init();       // also pulses the shared LCD/touch reset line
-	touchInit();
+	st7789Init();
+	touchInit();        // pulses the touch controller's own reset line
 	uiInit();
 
 	// splash while core1 brings the PIO up and the ESC finishes booting

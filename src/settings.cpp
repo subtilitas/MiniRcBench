@@ -19,12 +19,11 @@
  * @brief The working copy, seeded with the compiled defaults on first use.
  *
  * Seeded lazily rather than at static-init time: computing the defaults reads
- * `g_board`'s pointee, and the descriptors live in other translation units. On
- * the device they are constant-initialised, but the host build gives them
- * dynamic initialisers, so a static `defaultsValue()` here would read them in
- * whatever order the linker chose — it happened to work only because the
- * board_desc objects preceded this file in the test Makefile's source list.
- * First-use seeding runs after *all* static init, on either toolchain.
+ * `g_board`'s pointee, and the descriptor lives in another translation unit.
+ * On the device it is constant-initialised, but the host build gives it a
+ * dynamic initialiser, so a static `defaultsValue()` here would read it in
+ * whatever order the linker chose. First-use seeding runs after *all* static
+ * init, on either toolchain.
  *
  * The original goal is kept: nothing that calls settings() before
  * settingsLoad() ever sees a zero-filled Settings — a pole count of 0 and a
@@ -46,34 +45,12 @@ static void ensureSeeded() {
 // pin rules
 // ---------------------------------------------------------------------------
 
-/**
- * @brief The descriptor for @p id, or NULL if this image cannot drive it.
- *
- * Validation resolves the board *named by the settings being validated* rather
- * than whichever board is live: while the SETUP screen holds a pending board
- * choice, its pins must be judged against the board they are for.
- */
-static const BoardDesc *descForId(uint8_t id) {
-	for (int i = 0; i < boardCount(); i++)
-		if (boardIdAt(i) == id) return boardAt(i);
-	return (const BoardDesc *)0;
-}
-
-bool settingsPinFreeOn(uint8_t boardIdArg, uint8_t pin) {
-	if (pin > 29) return false;
-	const BoardDesc *b = descForId(boardIdArg);
-	if (!b) b = g_board;
-	return (b->freeGpioMask >> pin) & 1u;
-}
-
 bool settingsPinFree(uint8_t pin) {
-	// From the active descriptor, not a compile-time mask: in a unified image
-	// the answer differs between the two boards, and the SETUP screen's pin
-	// steppers are the thing that must never offer an occupied GPIO.
-	return settingsPinFreeOn(boardId(), pin);
+	if (pin > 29) return false;
+	return (g_board->freeGpioMask >> pin) & 1u;
 }
 
-uint8_t settingsNextPinOn(uint8_t boardIdArg, uint8_t from, int dir) {
+uint8_t settingsNextPin(uint8_t from, int dir) {
 	if (dir == 0) return from;
 	int step = dir > 0 ? 1 : -1;
 	int p = (int)from;
@@ -83,13 +60,9 @@ uint8_t settingsNextPinOn(uint8_t boardIdArg, uint8_t from, int dir) {
 		p += step;
 		if (p > 29) p = 0;
 		if (p < 0) p = 29;
-		if (settingsPinFreeOn(boardIdArg, (uint8_t)p)) return (uint8_t)p;
+		if (settingsPinFree((uint8_t)p)) return (uint8_t)p;
 	}
 	return from;
-}
-
-uint8_t settingsNextPin(uint8_t from, int dir) {
-	return settingsNextPinOn(boardId(), from, dir);
 }
 
 // ---------------------------------------------------------------------------
@@ -98,9 +71,8 @@ uint8_t settingsNextPin(uint8_t from, int dir) {
 
 void settingsDefaults(Settings *out) {
 	memset(out, 0, sizeof(*out));
-	// Pin defaults come from the board, not from config.h: a unified image has
-	// two boards' worth of them and config.h can only hold one.
-	out->boardId      = boardId();
+	// Pin defaults come from the descriptor, which reads them from config.h.
+	out->boardId      = BOARD_ID_LCD_2_8;
 	out->dshotPin     = g_board->defaultDshotPin;
 	out->dshotKbaud   = DSHOT_SPEED_KBAUD;
 	out->kissEnable   = g_board->defaultKissEnable ? 1 : 0;
@@ -142,27 +114,20 @@ bool settingsValidate(Settings *s) {
 	if (!legal) { s->dshotKbaud = DSHOT_SPEED_KBAUD; ok = false; }
 
 	// --- board ---
-	// Not a setting, and never restored from the block. The board is identified
-	// at boot — by boardProbe() on a unified image, by the build on a
-	// single-board one — and this field only *records* which one, so that a
-	// block written on other hardware is recognisable as such and the pin rules
-	// below have a board to judge against.
-	//
-	// So an id that disagrees with the live board is overwritten rather than
-	// honoured, and validation never re-points g_board as a side effect.
-	// Honouring it is the bug this rule exists for: a stored id naming the wrong
-	// board was applied by the next boot, which built the display from the wrong
-	// pins, and the screen that could have undone it was the screen that no
-	// longer came up. An alien id — a block from a build this one is not — lands
-	// in the same place, for the same reason.
-	if (s->boardId != boardId()) {
-		s->boardId = boardId();
+	// Not a setting. The field records the board a block was written on, and
+	// this image drives one board, so any other value is overwritten rather
+	// than honoured. A block DshotDisplay wrote on the same board carries the
+	// same id and passes untouched. A block written on other hardware, or by a
+	// build this one is not, is recognisable by the id, and its pins are
+	// re-judged below against this board's free GPIOs.
+	if (s->boardId != BOARD_ID_LCD_2_8) {
+		s->boardId = BOARD_ID_LCD_2_8;
 		ok = false;
 	}
 	const BoardDesc *b = g_board;
 
 	// --- ESC pin ---
-	if (!settingsPinFreeOn(s->boardId, s->dshotPin)) {
+	if (!settingsPinFree(s->dshotPin)) {
 		s->dshotPin = b->defaultDshotPin;
 		ok = false;
 	}
@@ -179,7 +144,7 @@ bool settingsValidate(Settings *s) {
 	// "OFF". The SETUP screen does move it, because there the pin change is the
 	// thing being asked for. @see uiSetupTick()
 	if (s->kissEnable) {
-		if (!settingsPinFreeOn(s->boardId, s->kissPin) ||
+		if (!settingsPinFree(s->kissPin) ||
 		    s->kissPin == s->dshotPin) {
 			s->kissEnable = 0;
 			ok = false;
@@ -219,16 +184,7 @@ static uint32_t crcSpan() {
 // load / save
 // ---------------------------------------------------------------------------
 
-/**
- * @brief The blank-flash starting point: this board's compiled defaults.
- *
- * Which board that is has already been settled — setup() probes for it on a
- * unified image and the build fixes it on a single-board one — so the pin
- * defaults @ref settingsDefaults() reads out of `g_board` are the right
- * board's either way. There used to be a third case, a unified image that had
- * not found out yet and marked itself @ref BOARD_ID_UNSET so nothing mistook
- * the first descriptor for an answer; probing before the load retired it.
- */
+/** @brief The blank-flash starting point: the board's compiled defaults. */
 static void freshDefaults() {
 	s_seeded = true;
 	settingsDefaults(&s_live);
@@ -260,11 +216,9 @@ void settingsLoad() {
 	}
 
 	s_live = blk.s;
-	// Validation rewrites the block's board id to the one this boot detected and
-	// re-judges every pin against it, so a block carried over from the other
-	// board loads as this board's settings rather than as a pin map for hardware
-	// that is not here. Nothing in this file selects a board: g_board was
-	// settled before the load ran, and no stored value may move it.
+	// Validation re-judges every pin against this board, so a block written on
+	// other hardware loads as this board's settings rather than as a pin map
+	// for hardware that is not here.
 	settingsValidate(&s_live);
 	s_saved = s_live;
 	s_stored = true;
