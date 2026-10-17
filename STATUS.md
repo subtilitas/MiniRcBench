@@ -76,56 +76,50 @@ Rates and defaults, from `src/config.h` and `src/main.cpp`:
 PIO (programmable input/output) blocks: three, each with 4 state machines and
 32 instruction slots.
 
-| Block | 2.0" board | 2.8" board |
-| --- | --- | --- |
-| pio0 | free | free |
-| pio1 | free | SDIO (Secure Digital input/output) card driver in `src/sdio/`: 2 state machines, 32 of 32 instructions, plus 2 DMA channels and no interrupt (`src/sd_hw_config.c`) |
-| pio2 | DShot transmitter and receiver on adjacent state machines, 16 instructions; KISS receiver when KISS is on, 1 state machine, 9 instructions | the same |
+| Block | Use |
+| --- | --- |
+| pio0 | free |
+| pio1 | SDIO (Secure Digital input/output) card driver in `src/sdio/`: 2 state machines, 32 of 32 instructions, plus 2 DMA channels and no interrupt (`src/sd_hw_config.c`) |
+| pio2 | DShot transmitter and receiver on adjacent state machines, 16 instructions; KISS receiver when KISS is on, 1 state machine, 9 instructions |
 
-The unified image uses the column of the board it detects. DShot and KISS
-claim from whichever block has room, and the Pico SDK (software development
-kit) searches pio2 first. DShot binds first after every release, so it always
-finds a block with no other user. A `static_assert` in `src/esc_task.cpp`
-checks at build time that DShot and KISS together fit one block: 3 state
-machines and 25 of 32 instructions. A bind that
-cannot get two adjacent state machines is refused, and the status bar then
-shows `DSERR`.
+DShot and KISS claim from whichever block has room, and the Pico SDK
+(software development kit) searches pio2 first. DShot binds first after every
+release, so it always finds a block with no other user. A `static_assert` in
+`src/esc_task.cpp` checks at build time that DShot and KISS together fit one
+block: 3 state machines and 25 of 32 instructions. A bind that cannot get two
+adjacent state machines is refused, and the status bar then shows `DSERR`.
 
-Board detection. One image can carry both boards (`BOARD_UNIFIED`). Each boot
-it asks for I2C (Inter-Integrated Circuit) acknowledges from devices that are
-always powered: 0x6B and 0x15 on I2C0 (GP12, GP13) for the 2.0" board; 0x6B,
-0x51 and 0x1A on I2C1 (GP6, GP7) for the 2.8" board. Three attempts, 5 ms
-apart. Exactly one answering bus selects the board. Otherwise the firmware
-holds a safe state: power latch held, no display, no DShot. The board is never
-stored and never chosen by the user.
+Board: the image is built for the Waveshare RP2350-Touch-LCD-2.8 only. It
+does not identify the board it runs on; see the known limitations.
 
 Build: native Pico SDK (software development kit) 2.1.1 with CMake, ARM cores
 only. The one dependency besides the SDK is pinned by commit:
-`no-OS-FatFS-SD-SDIO-SPI-RPi-Pico` v3.6.2. Its FatFs, glue and SPI driver are
-built; its SDIO driver is not. The DShot driver in `src/dshot/` is part of the
+`no-OS-FatFS-SD-SDIO-SPI-RPi-Pico` v3.6.2. Its FatFs, glue, card layer and SPI
+driver are built, the SPI driver because the card layer calls into it; its
+SDIO driver is not. The DShot driver in `src/dshot/` is part of the
 tree, from rcbench `protocols/dshot` at commit 453cf334 (MIT, same copyright
 holder). The SDIO driver in `src/sdio/` is part of the tree, MIT, written from
 the SD Association's Physical Layer Simplified Specification v9.10 and the
-RP2350 datasheet ([design note](docs/design/sdio-driver.md)). A release carries three UF2
-(USB Flashing Format) images: `touch-lcd-2`, `touch-lcd-2.8` and `unified`.
+RP2350 datasheet ([design note](docs/design/sdio-driver.md)). A release carries one UF2
+(USB Flashing Format) image, `MiniRcBench-<tag>-touch-lcd-2.8.uf2`.
 
-## Boards
+## Board
 
-Both are Waveshare boards with an RP2350A, a 240 × 320 ST7789T3 panel and a
-QMI8658 IMU (inertial measurement unit). GPIO means general-purpose
-input/output.
+The Waveshare RP2350-Touch-LCD-2.8: an RP2350A, a 240 × 320 ST7789T3 panel, a
+CST328 touch controller and a QMI8658 IMU (inertial measurement unit). GPIO
+means general-purpose input/output.
 
-| | RP2350-Touch-LCD-2 (2.0") | RP2350-Touch-LCD-2.8 |
-| --- | --- | --- |
-| Panel bus | SPI0: GP18 clock, GP19 data out | SPI1: GP10 clock, GP11 data out |
-| Touch | CST816D on I2C0, GP12 and GP13 | CST328 on I2C1, GP6 and GP7 |
-| SD card | hardware SPI1, 1 bit, 12 MHz, GP24 to GP27 | PIO SDIO on pio1, 4 bits, 10 MHz, GP19 to GP24 |
-| GPIOs free for the two wires | 15: GP0 to GP11, GP21 to GP23 | 2: GP28, GP29 |
-| ESC signal default | GP4, P2 pin 11 | GP29, J4 pin 12 |
-| KISS default | GP5, P1 pin 10, on | GP28, J4 pin 11, off |
-| Battery sense | GP28, ADC (analog-to-digital converter) input 2, 3:1 divider | GP27, ADC input 1, 3:1 divider |
-| Power latch | none | GP26, asserted first thing in `setup()` |
-| Other devices | none used | PCF85063 RTC (real-time clock), I2S (Inter-IC Sound) audio codec, neither used |
+| | RP2350-Touch-LCD-2.8 |
+| --- | --- |
+| Panel bus | SPI1: GP10 clock, GP11 data out |
+| Touch | CST328 on I2C1 (Inter-Integrated Circuit), GP6 and GP7 |
+| SD card | PIO SDIO on pio1, 4 bits, 10 MHz, GP19 to GP24 |
+| GPIOs free for the two wires | 2: GP28, GP29 |
+| ESC signal default | GP29, J4 pin 12 |
+| KISS default | GP28, J4 pin 11, off |
+| Battery sense | GP27, ADC (analog-to-digital converter) input 1, 3:1 divider |
+| Power latch | GP26, asserted first thing in `setup()` |
+| Other devices | PCF85063 RTC (real-time clock), I2S (Inter-IC Sound) audio codec, neither used |
 
 The ESC and KISS pins are changeable on CFG → SETUP within the free set, and
 the two wires never share a pin.
@@ -145,27 +139,24 @@ record either way.
 | EDT telemetry, automatic enable, expiry | merge, expiry, enable rule, decode of each frame type | hardware-tested (owner report) with `pico-bidir-dshot` |
 | KISS telemetry: request, PIO receiver, decode, merge, KISS/EDT tags | CRC, decode, resynchronisation, request payload, merge; the PIO receiver is typechecked only | hardware-tested (owner report) with `pico-bidir-dshot`; see below |
 | DShot bitrate label in the status bar, `DSERR` | label at each bitrate, colour, `DSERR` | not recorded |
-| SDIO card driver in `src/sdio/` (2.8" board): protocol, PIO and DMA bus, library callbacks | CRC7 and CRC16 against the specification's examples, command framing, response parsing, CSD (card-specific data register), four-bit packing, CRC status token; initialisation, reads and writes against a simulated card (standard capacity SDSC v1 and v2, high capacity SDHC, no card, voltage mismatch, timeouts, removal); the PIO programs and the bus are compiled only | not tested on hardware; open item 8 lists the bench tests |
+| SDIO card driver in `src/sdio/`: protocol, PIO and DMA bus, library callbacks | CRC7 and CRC16 against the specification's examples, command framing, response parsing, CSD (card-specific data register), four-bit packing, CRC status token; initialisation, reads and writes against a simulated card (standard capacity SDSC v1 and v2, high capacity SDHC, no card, voltage mismatch, timeouts, removal); the PIO programs and the bus are compiled only | not tested on hardware; open item 7 lists the bench tests |
 | Blackbox logging to SD, CFG → SD LOG screen | encoder, ring buffer, round trip through `blackbox_decode`, screen states | hardware use recorded with the previous SDIO driver on the 2.8" board; see below |
 | USB card reader (read-only mass storage) | handover state machine, screen | not recorded |
 | AM32 settings editor over the signal wire (AM32 is an open-source ESC firmware) | init string, CRC-16/ARC, 39-field codec, timing advance encodings, write interlock | hardware use recorded: ab79c67, bd90e17 |
-| Settings in flash (CFG → SETUP) | block validation, CRC, board re-judging, pin defaults | not recorded; 46a64a7 states no hardware coverage |
-| Board detection, unified image | board selection and defaults | not recorded |
+| Settings in flash (CFG → SETUP) | block validation, CRC, board id check, pin defaults, the block layout DshotDisplay 2.x writes | not recorded; 46a64a7 states no hardware coverage |
 | Touch handling, high-contrast theme, throttle gauge | tap on release, repeats, screen residue, gauge reach | hardware use recorded: the reports #22 to #24 named in the v2.3 commits; the fixes on hardware: not recorded |
 | Serial telemetry dump | none | not recorded |
-| `tools/sdtest`, SD bring-up firmware | none, not built in CI | hardware use recorded on both boards: f16a70f, e9c9d9a, with the previous SDIO driver on the 2.8" board |
+| `tools/sdtest`, SD bring-up firmware | none, not built in CI | hardware use recorded in f16a70f and e9c9d9a, the 2.8" board with the previous SDIO driver among them; nothing is recorded for the current build |
 
 KISS in detail. The owner reports KISS telemetry working on hardware, the
 display's own telemetry request included. Issue #1 separately reports correct
 KISS values with a receiver driving the ESC and the display only listening.
-Which board each report covers is not recorded.
+Whether each report covers the RP2350-Touch-LCD-2.8 is not recorded.
 
 SD logging in detail. Commit 036adfe records the 2.8" board mounting a 64 GB
 card over SDIO at 25 MHz and writing a file, with the library's SDIO driver
 that `src/sdio/` replaces. Nothing is recorded for the current driver. Commit
-5b9c7bd and the design note record a replacement 2.0" board working over SPI,
-after the first 2.0" board had GPIO27 shorted to ground; the SPI path is
-unchanged. Commit 5cec1ec fixes a logging fault reported from hardware. A run
+5cec1ec fixes a logging fault reported from hardware. A run
 at the shipped SDIO clock of 10 MHz is not recorded separately. BUF PEAK and
 WORST FLUSH under sustained logging are not recorded.
 
@@ -203,20 +194,16 @@ Not in this history: the DshotDisplay repository's branches
    RP2350's absolute maximum GPIO voltage. No measurement is recorded. The
    firmware enables the internal pull-up on the KISS pin; a 1 kΩ series
    resistor is suggested in `config.h`.
-4. **GP26 at boot on the 2.0" board.** The unified image drives GP26 high
-   before it knows the board, because GP26 is the power latch on the 2.8".
-   On the 2.0" GP26 is the SD clock. `main.cpp` calls this reasoned, not
-   measured.
-5. **Settings flash and the USB card reader on hardware.** Not recorded.
-6. **Design questions left open** in [kiss-telemetry.md](docs/design/kiss-telemetry.md)
+4. **Settings flash and the USB card reader on hardware.** Not recorded.
+5. **Design questions left open** in [kiss-telemetry.md](docs/design/kiss-telemetry.md)
    and [blackbox-logging.md](docs/design/blackbox-logging.md): which eRPM source
    the main readout uses above the crossover (about 5,500 RPM on a 14-pole
    motor), whether consumption is shown from ESC power-on or from arming,
    whether a slow frame type is worth adding.
-7. **`tools/sdtest` is built by nothing in CI**, so a change that breaks it
+6. **`tools/sdtest` is built by nothing in CI**, so a change that breaks it
    shows only in a local build.
-8. **SDIO driver on hardware.** The driver in `src/sdio/` is not tested on
-   hardware. Bench tests needed on the 2.8" board:
+7. **SDIO driver on hardware.** The driver in `src/sdio/` is not tested on
+   hardware. Bench tests needed:
    - initialisation on an SDSC card (2 GB or less) and on SDHC and SDXC
      (extended capacity) cards;
    - sustained logging at 7.3 kB/s, with BUF PEAK and WORST FLUSH read off the
@@ -225,23 +212,33 @@ Not in this history: the DshotDisplay repository's branches
    - the card pulled out while logging, while idle and while a host reads,
      then put back;
    - 10 MHz in the firmware, and 10 MHz and 25 MHz in `tools/sdtest`.
-9. **Extended frames before the first enable.** The DShot decoder reads EDT
+8. **Extended frames before the first enable.** The DShot decoder reads EDT
    frames as such only once an enable has gone out. An ESC that kept EDT on
    across a board restart or a SETUP pin change sends EDT frames that read as
    eRPM until the next enable, which goes out 300 ms after eRPM arrives with
    the motor stopped. Not observed on hardware.
-10. **The wiki of this repository has no page yet.** GitHub creates a
-    repository's wiki only once its first page exists, so that page is made by
-    hand in the Wiki tab. Until then the clone in `docs.yml` fails and no
-    manual is published.
+9. **The wiki of this repository has no page yet.** GitHub creates a
+   repository's wiki only once its first page exists, so that page is made by
+   hand in the Wiki tab. Until then the clone in `docs.yml` fails and no
+   manual is published.
 
 ## Known limitations
 
-- **2.8" pins.** That board frees two GPIOs, GP28 and GP29. The ESC takes one
-  and KISS the other, so there is no third choice and the SETUP steppers stay
-  put. KISS is off there by default and one tap on CFG → SETUP turns it on. A
-  build-time pin override outside a board's free set, or both wires on one pin,
+- **Two free pins.** The board frees two GPIOs, GP28 and GP29. The ESC takes
+  one and KISS the other, so there is no third choice and the SETUP steppers
+  stay put. KISS is off by default and one tap on CFG → SETUP turns it on. A
+  build-time pin override outside the free set, or both wires on one pin,
   fails the build.
+- **Other boards.** Condition: a MiniRcBench image flashed onto any board
+  other than the RP2350-Touch-LCD-2.8, the RP2350-Touch-LCD-2 among them. The
+  image does not identify the board and drives the 2.8" pin map from the first
+  instruction of `setup()`: GP26 high as the power latch, the panel, touch and
+  SDIO lines, and DShot on GP29. On the RP2350-Touch-LCD-2, GP26 is the SD
+  clock, GP14 an IMU interrupt output and GP29 the touch controller's
+  interrupt output. The effect on such a board is not tested. Recovery is a
+  reflash over USB with **BOOT** held. A settings block written there by
+  DshotDisplay loads with its board id rewritten to the 2.8"'s and every pin
+  re-judged against the 2.8"'s free GPIOs.
 - **Bidirectional DShot only.** An ESC that does not accept the inverted
   bidirectional signal is not driven.
 - **Saved settings outrank `config.h`.** On a board with saved settings, a
@@ -263,8 +260,6 @@ Not in this history: the DshotDisplay repository's branches
   `vbatEdt`, `amperageEdt`, `escConsumption` and `escStress` are new names.
   Blackbox Explorer draws only the fields it knows. The header claims
   `Firmware type:Cleanflight`, as Betaflight's own logs do.
-- **Board probe failure.** When neither or both buses answer, the screen stays
-  dark and nothing is driven. Recovery is a reflash over USB.
 - **Landscape.** `LCD_ROTATION` 1 fails the build.
 
 ## Tests and CI
@@ -282,16 +277,15 @@ binary, `dshot_tests`. `test/test_main.cpp` runs twelve suites:
 | `runGfxTests` | `test_gfx.cpp` | dirty bands, glyph rendering, clip rectangle |
 | `runBlackboxTests` | `test_blackbox.cpp` | variable-byte and zig-zag encodings, header, frames, time prediction |
 | `runLogRingTests` | `test_log_ring.cpp` | ring buffer, all-or-nothing writes, wraparound, high-water mark |
-| `runSettingsTests` | `test_settings.cpp` | settings block, validation, board selection, pin defaults |
+| `runSettingsTests` | `test_settings.cpp` | settings block, validation, board id check, pin defaults, the block layout DshotDisplay 2.x writes |
 | `runUsbMscTests` | `test_usb_msc.cpp` | card handover state machine, RPM smoothing |
 | `runDshotFrameTests` | `test_dshot_frame.cpp` | DShot frame layout, checksum, inverted checksum, EDT enable word, throttle map (from rcbench) |
 | `runDshotTelemTests` | `test_dshot_telem.cpp` | line and group code, eRPM and EDT decode, checksum against single-bit errors, sampler (from rcbench); three-state poll, counters |
 | `runDshotEdtTests` | `test_dshot_edt.cpp` | extended telemetry schedule against an AM32 model (from rcbench) |
 | `runSdioTests` | `test_sdio.cpp` | SDIO driver: CRC7 and CRC16 vectors, framing, responses, CSD, four-bit packing, CRC status token; initialisation, reads and writes against a simulated card |
 
-Other targets in `test/Makefile`: `both` runs the suite for the 2.0", 2.8" and
-unified configurations; `syntax` typechecks the device-only sources on all
-three with `-Werror`; `bbcheck` encodes 2000 frames and decodes them with
+Other targets in `test/Makefile`: `syntax` typechecks the device-only sources
+with `-Werror`; `bbcheck` encodes 2000 frames and decodes them with
 Betaflight's `blackbox_decode`; `previews` and `wiki` rebuild screenshots;
 `coverage` builds an instrumented suite. Scripts: `test/check_docs.py`,
 `test/check_uf2.sh`, `test/check_uf2_selftest.sh`, `test/check_blackbox.py`,
@@ -302,18 +296,19 @@ requests, by hand):
 
 | Job | What it does |
 | --- | --- |
-| Firmware, three legs (`touch-lcd-2`, `touch-lcd-2.8`, `unified`) | builds with arm-none-eabi-gcc 13.3 and `STRICT=ON`; flash under 1 MiB and RAM (random-access memory) under 400,000 bytes; checks from the DWARF line table that the image holds its own touch driver; checks from the DWARF compile units that no file of the SD library's SDIO, ZuluSCSI-firmware or SdFat directories is in the image; checks pin overrides reach CMake and `-DDSHOT_PIN` is refused; validates the UF2 |
-| Host tests | `make both`; the unified suite again with all four pin macros overridden; wiki screenshots and `check_wiki.py` |
+| Firmware (`touch-lcd-2.8`) | builds with arm-none-eabi-gcc 13.3 and `STRICT=ON`; flash under 1 MiB and RAM (random-access memory) under 400,000 bytes; checks from the DWARF compile units that no file of the SD library's SDIO, ZuluSCSI-firmware or SdFat directories is in the image; checks the two pin overrides reach CMake and that `-DDSHOT_PIN`, `-DKISS_PIN`, `-DDSHOT_PIN_LCD_2`, `-DKISS_PIN_LCD_2` and a `-DBOARD` naming another target are refused; validates the UF2 |
+| Host tests | `make`; the suite again with both pin macros overridden; wiki screenshots and `check_wiki.py` |
 | Blackbox round-trip | builds `blackbox_decode` from source, runs `make bbcheck` |
-| Config permutations | typechecks all of `src/` with `-Werror` for 64 combinations: 2 boards × AM32 transmit mode × AM32 low-jump × rotation 0 or 2 × KISS on or off × SD logging on or off; checks the landscape guard fires |
+| Config permutations | typechecks all of `src/` with `-Werror` for 32 combinations: AM32 transmit mode × AM32 low-jump × rotation 0 or 2 × KISS on or off × SD logging on or off; checks the landscape guard fires |
 | Workflow lint | actionlint 1.7.7 and a duplicate-key check on every workflow in `.github/workflows/` |
 | Docs | `test/check_docs.py`, then Doxygen with zero warnings allowed |
 | Coverage | `make -C test coverage`, then `python3 tools/coverage.py --check`; fails on drift from the table below, below 93 % in total, or below 85 % in any file |
 
 **Release** (`.github/workflows/release.yml`; on `v*` tags, by hand): resolves
-the tag, checks that it names the version in `src/version.h`, builds the three
-images after the host tests and `check_docs.py` pass, publishes them as
-`MiniRcBench-<tag>-<board>.uf2` with checksums and confirms every asset landed.
+the tag, checks that it names the version in `src/version.h`, builds the image
+after the host tests and `check_docs.py` pass, publishes it as
+`MiniRcBench-<tag>-touch-lcd-2.8.uf2` with `SHA256SUMS.txt`, and confirms that
+those two assets landed and no other.
 Each run is titled `Release <tag>`, which Docs reads to find the tag. The
 version is 0.1.0 and no MiniRcBench release exists yet; v0.1.0 is the first
 tag.
@@ -333,7 +328,6 @@ programs beyond compilation.
 | `src/am32_eeprom.cpp` | 69 | 67 | 97.1% |
 | `src/am32_eeprom.h` | 11 | 11 | 100.0% |
 | `src/blackbox_encode.cpp` | 113 | 113 | 100.0% |
-| `src/board_desc.cpp` | 13 | 12 | 92.3% |
 | `src/dshot/dshot_edt.c` | 33 | 33 | 100.0% |
 | `src/dshot/dshot_frame.c` | 25 | 25 | 100.0% |
 | `src/dshot/dshot_telem.c` | 143 | 143 | 100.0% |
@@ -347,15 +341,15 @@ programs beyond compilation.
 | `src/sd_log.h` | 4 | 4 | 100.0% |
 | `src/sdio/sd_host.c` | 180 | 180 | 100.0% |
 | `src/sdio/sd_proto.c` | 135 | 135 | 100.0% |
-| `src/settings.cpp` | 128 | 126 | 98.4% |
+| `src/settings.cpp` | 118 | 117 | 99.2% |
 | `src/theme.cpp` | 11 | 11 | 100.0% |
 | `src/ui.cpp` | 608 | 602 | 99.0% |
 | `src/ui_am32.cpp` | 347 | 316 | 91.1% |
 | `src/ui_input.cpp` | 25 | 25 | 100.0% |
-| `src/ui_setup.cpp` | 188 | 181 | 96.3% |
+| `src/ui_setup.cpp` | 187 | 180 | 96.3% |
 | `src/ui_widgets.cpp` | 43 | 43 | 100.0% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **2516** | **2444** | **97.1%** |
+| **Total** | **2492** | **2422** | **97.2%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->

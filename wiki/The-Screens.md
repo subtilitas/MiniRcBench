@@ -92,8 +92,8 @@ flash.
 
 | Row | What it does |
 |---|---|
-| **BOARD** | Read-only. The board the boot probe detected |
-| **ESC PIN** | GPIO (general-purpose input/output pin) for the signal wire. Only this board's free GPIOs are offered: GP0–GP11 and GP21–GP23 on the 2.0", GP28 and GP29 on the 2.8" |
+| **BOARD** | Read-only. The board the firmware is built for, `RP2350-TOUCH-LCD-2.8` |
+| **ESC PIN** | GPIO (general-purpose input/output pin) for the signal wire. Only the board's two free GPIOs are offered, GP28 and GP29 |
 | **DSHOT KBAUD** | 150 / 300 / 600 / 1200. Lower it if the `LINK` error rate rises |
 | **KISS TELEM** | Whether to listen on the optional third telemetry wire |
 | **KISS PIN** | GPIO for that wire. Skips the ESC pin, so the two never coincide |
@@ -112,10 +112,6 @@ Leaving without saving keeps flash unchanged.
 The note line at the bottom says which set is in use: `SAVED SETTINGS IN USE`
 or `COMPILED DEFAULTS IN USE`. After a change it reads
 `UNSAVED - HOLD SAVE TO KEEP`.
-
-> **The board is detected at every boot, not chosen.** No stored setting can
-> override the detection, so a wrong value cannot stop the display from
-> starting.
 
 <img src="img/setup-contrast.png" width="240" alt="SETUP in high contrast"> <img src="img/tester-contrast.png" width="240" alt="The tester screen in high contrast">
 

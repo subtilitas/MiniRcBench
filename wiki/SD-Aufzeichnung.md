@@ -13,7 +13,7 @@ also 7,3 kB/s oder 26 MB pro Stunde.
 ## Die Karte
 
 Verwende eine microSD-Karte mit FAT32 (File Allocation Table). Die Karte wird
-einmal beim Start eingebunden, und keine der Platinen hat einen
+einmal beim Start eingebunden, und die Platine hat keinen
 Karten-Erkennungspin. Steck die Karte vor dem Einschalten ein, oder drück nach
 dem Einstecken `RETRY` auf dem SD-LOG-Bildschirm.
 
@@ -21,8 +21,8 @@ Die Dateien landen im Wurzelverzeichnis als `LOG00001.BFL`, `LOG00002.BFL` und
 so weiter. Jede neue Datei erhält die niedrigste freie Nummer von 00001 bis
 09999. Vorhandene Dateien werden nicht überschrieben.
 
-Die 2,0"-Platine liest die Karte über SPI (Serial Peripheral Interface) mit
-12 MHz, die 2,8" über 4-Bit-SDIO (Secure Digital I/O) mit 10 MHz.
+Die Platine liest die Karte über 4-Bit-SDIO (Secure Digital Input/Output) mit
+10 MHz.
 
 ---
 

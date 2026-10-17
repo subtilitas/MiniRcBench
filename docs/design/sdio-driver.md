@@ -6,8 +6,8 @@ RP2350 datasheet; no third-party SD host-driver source was consulted.
 
 # SDIO card driver
 
-Status: implemented, not tested on hardware. The 2.8" board uses it; the 2.0"
-board uses the library's SPI driver and does not run this code.
+Status: implemented, not tested on hardware. The board, the Waveshare
+RP2350-Touch-LCD-2.8, wires its card slot for SDIO, and this driver runs it.
 
 Terms: SD is Secure Digital. SDIO is Secure Digital input/output, here the SD
 bus in SD mode with four data lines (not the SDIO card standard). SPI is Serial
@@ -297,7 +297,7 @@ separate bitwise CRC16s.
 | RAM (random-access memory) | 1024 B control table, 256 B CRC words, 528 B transmit staging, 512 B bounce buffer |
 | Flash | 128 B four-line CRC table, plus code |
 
-pio1 holds nothing else on the 2.8" board; DShot and KISS are on pio2
+pio1 holds nothing else; DShot and KISS are on pio2
 (STATUS.md, `esc_task.cpp`).
 
 ## Layers
@@ -339,12 +339,12 @@ From `src/sd_hw_config.c`, `src/board_rp2350_touch_lcd_2_8.h` and
 
 PIO block pio1. Data clock `SD_LOG_SDIO_HZ`, 10 MHz. Initialisation at
 400 kHz or less. The pin constraint is D1 to D3 directly after D0, because one
-IN or OUT moves all four lines; `board_desc_lcd2_8.cpp` asserts it. CLK and
+IN or OUT moves all four lines; `sd_hw_config.c` asserts it. CLK and
 CMD can be any other GPIO below 32. Internal pull-ups are enabled on CMD and DAT0 to DAT3;
 pull-downs are never enabled (RP2350-E9).
 
 `tools/sdtest` sweeps the SDIO clock from 25 MHz down to 1 MHz. Commit 036adfe
-records the 2.8" board mounting a 64 GB card there at 25 MHz with the previous
+records the board mounting a 64 GB card there at 25 MHz with the previous
 driver. Nothing is recorded for this driver.
 
 ## Bench tests needed

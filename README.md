@@ -3,9 +3,8 @@
 [![CI](https://github.com/subtilitas/MiniRcBench/actions/workflows/ci.yml/badge.svg)](https://github.com/subtilitas/MiniRcBench/actions/workflows/ci.yml)
 
 A bench tester for RC (radio-controlled) model parts. It runs on the
-**Waveshare RP2350-Touch-LCD-2** and **RP2350-Touch-LCD-2.8** and needs no
-flight controller, laptop or Betaflight. MiniRcBench continues the DshotDisplay
-firmware, which remains at
+**Waveshare RP2350-Touch-LCD-2.8** and needs no flight controller, laptop or
+Betaflight. MiniRcBench continues the DshotDisplay firmware, which remains at
 [github.com/subtilitas/DshotDisplay](https://github.com/subtilitas/DshotDisplay)
 as a separate project.
 
@@ -70,64 +69,35 @@ The two cores share one struct guarded by a `critical_section`. Core0 calls
 
 ## Hardware
 
-**Boards:** [RP2350-Touch-LCD-2](https://www.waveshare.com/wiki/RP2350-Touch-LCD-2) (2.0") and
-[RP2350-Touch-LCD-2.8](https://www.waveshare.com/wiki/RP2350-Touch-LCD-2.8). Both
-have a 240×320 portrait panel. Most other hardware differs. In the table, I2C
-is the two-wire Inter-Integrated Circuit bus, PIO is the RP2350's programmable
+**Board:** [Waveshare RP2350-Touch-LCD-2.8](https://www.waveshare.com/wiki/RP2350-Touch-LCD-2.8).
+An RP2350A with a 240×320 IPS (in-plane switching) portrait panel (ST7789T3
+over SPI1), CST328 capacitive touch, a QMI8658 IMU (inertial measurement
+unit), a PCF85063 RTC (real-time clock), a PCM5101A audio codec, a microSD
+slot and a LiPo (lithium-polymer) battery charger. In the tables below, I2C is
+the two-wire Inter-Integrated Circuit bus, PIO is the RP2350's programmable
 I/O block, and GPIO means general-purpose input/output pin.
 
-| | 2.0" | 2.8" |
-|---|---|---|
-| Panel SPI | SPI0 | SPI1 |
-| Touch | CST816D on I2C0 (GP12/GP13) | CST328 on I2C1 (GP6/GP7) |
-| microSD | hardware SPI1 | 4-bit SDIO (Secure Digital I/O) on PIO |
-| Free GPIOs | GP0–GP11, GP21–GP23 | GP28, GP29 |
-| Connectors | two 14-pin 2.54 mm headers | JST-SH 1.0 mm only |
-| Power latch | none | GP26, asserted first at boot |
+### Pin map (from the official schematic)
 
-### One image for both boards
-
-Build with `-DBOARD=BOARD_UNIFIED`, or download the `unified` release asset.
-On every boot the image identifies the board by probing each board's
-always-on I2C devices: the QMI8658 IMU (inertial measurement unit) at 0x6B on
-both, and on the 2.8" the PCF85063 RTC (real-time clock) at 0x51. The probe
-drives the pins open-drain only (see `src/board_probe.h`). **CFG → SETUP**
-shows the result, read-only.
-
-The probe runs 3 times (`PROBE_ATTEMPTS`). If no board answers, or both buses
-answer, the image stops in a safe state: power latch held, display off, no
-DShot output. It remains reachable over USB for reflashing.
-
-The board is not a setting. No stored value can override the probe, so a wrong
-stored value cannot build the display or pin map for absent hardware. The
-unified image costs a few kilobytes of flash against the 4 MB that
-`PICO_BOARD=pico2` declares (`PICO_FLASH_SIZE_BYTES`). The board's physical
-flash size is not used by the build and is not stated here.
-
-The single-board builds remain (`-DBOARD=BOARD_RP2350_TOUCH_LCD_2` and
-`..._2_8`). They are smaller, CI (continuous integration) builds them, and
-they keep the preprocessor path compiling. A single-board image flashed onto
-the other board drives the wrong pins. The 2.8" image also asserts the GP26
-power latch, which the 2.0" lacks.
-
-The 2.0" is an RP2350A with a 240×320 IPS (in-plane switching) panel (ST7789T3
-over SPI), CST816D capacitive touch, a QMI8658 IMU and a LiPo (lithium-polymer)
-battery charger. The 2.8" uses the same RP2350A and panel with a CST328 touch
-controller.
-
-### Pin map (2.0", from the official schematic)
+The pin map is `src/board_rp2350_touch_lcd_2_8.h`.
 
 | Function | GPIO | Notes |
 |---|---|---|
-| LCD (liquid-crystal display) DC / CS / SCK / MOSI / RST | 16 / 17 / 18 / 19 / 20 | SPI0. DC is data/command, CS chip select, SCK serial clock, MOSI master out, slave in, RST reset |
-| LCD backlight | 15 | NPN (negative-positive-negative) transistor as low-side switch, PWM at 20 kHz, 8-bit |
-| Touch + IMU I2C SDA / SCL | 12 / 13 | I2C0, **shared bus** (touch 0x15, IMU 0x6B). SDA is serial data, SCL serial clock |
-| Touch INT | 29 | interrupt, active low |
-| Touch RESET | 20 | **same net as LCD_RST**: resetting one resets both |
-| Battery sense | 28 | ADC (analog-to-digital converter) input 2, 200k/100k divider → `VBAT = Vadc × 3` |
-| microSD | 24–27 | SPI1, blackbox logging, see below. (2.8": SDIO on 19–24) |
-| KISS telemetry RX (receive; KISS is a serial ESC telemetry protocol) | 5 | P1 pin 10. Optional third wire. Any free GPIO works |
-| Camera bus | 0–11, 21–23 | **free if no camera is fitted** (`BOARD_FREE_GPIO_MASK` = `0x00E00FFF`) |
+| LCD (liquid-crystal display) SCK / MOSI / CS / DC / RST | 10 / 11 / 13 / 14 / 15 | SPI1. SCK is serial clock, MOSI master out, slave in, CS chip select, DC data/command, RST reset. GP12 is the panel's MISO line, wired and not used |
+| LCD backlight | 16 | NPN (negative-positive-negative) transistor as low-side switch, PWM at 20 kHz, 8-bit |
+| Touch + IMU + RTC I2C SDA / SCL | 6 / 7 | I2C1, **shared bus** (touch 0x1A, IMU 0x6B, RTC 0x51). SDA is serial data, SCL serial clock |
+| Touch INT / RESET | 18 / 17 | Interrupt, active low. The touch reset is a net of its own, separate from LCD_RST |
+| microSD CLK / CMD / D0–D3 | 19 / 20 / 21–24 | 4-bit SDIO (Secure Digital Input/Output) on PIO, blackbox logging, see below |
+| Power latch | 26 | `PIN_BAT_EN`, driven high first at boot |
+| Power button | 25 | 10 kΩ pull-up, reads low while pressed |
+| Battery sense | 27 | ADC (analog-to-digital converter) input 1, 200k/100k divider → `VBAT = Vadc × 3` |
+| I2S audio BCK / LRCK / DIN | 2 / 3 / 4 | PCM5101A codec, not used by the firmware |
+| RTC INT, IMU INT1 / INT2 | 5, 8 / 9 | Not used by the firmware |
+| UART0 TX / RX | 0 / 1 | On J4 and J5. Not offered for the ESC wires |
+| ESC signal | 29 | J4 pin 12, free |
+| KISS telemetry RX (receive; KISS is a serial ESC telemetry protocol) | 28 | J4 pin 11, free. Optional third wire |
+
+Only GP28 and GP29 are free (`BOARD_FREE_GPIO_MASK` = `0x30000000`).
 
 ### Wiring the ESC
 
@@ -135,67 +105,61 @@ Two wires:
 
 | ESC | Board |
 |---|---|
-| Signal | **GP4**, P2 header pin 11 |
-| Ground | **GND** (ground), P2 header pin 13 |
+| Signal | **GP29**, J4 pin 12 |
+| Ground | **GND** (ground), J4 pin 1 or 5 |
 
-The ESC pin is set on the board under **CFG → SETUP** and stored in flash.
-`DSHOT_PIN_LCD_2` in `config.h` is the pin a board with blank flash starts on.
-The picker offers the camera-bus pins (GP0–GP11, GP21–GP23) and no others.
-
-Header pinout:
+The board has no 2.54 mm headers. All signals are on JST-SH 1.0 mm
+connectors, so an ESC lead needs a pigtail:
 
 ```
-P1: 1=GP7  2=GP9  3=GP8  4=GP22 5=GP21 6=GP18* 7=GP23
-    8=GP11 9=GP6  10=GP5 11=GP20* 12=GP19* 13=GND 14=5V
-P2: 1=3V3  2=GND  3=GP28* 4=GP29* 5=GP13* 6=GP12*
-    7=GP2  8=GP1  9=GP3  10=GP0 11=GP4  12=GP10 13=GND 14=VBAT
-                                        (* = used by an on-board peripheral)
+J4 (12P): 1=GND  2=VBUS 3=USB_N 4=USB_P 5=GND   6=3V3
+          7=GP7* 8=GP6* 9=GP0   10=GP1  11=GP28 12=GP29
+J3  (4P): 1=GP7* 2=GP6* 3=3V3   4=GND
+J5  (4P): 1=GP1  2=GP0  3=3V3   4=GND
+                                (* = on the shared I2C bus, do not reuse)
 ```
-
-### Plugging an ESC in directly
-
-A 3-pin male header on **P2 pins 11–13** takes a standard servo plug: signal
-on GP4, middle position on GP10, ground on pin 13.
 
 > **Cut or depin the middle wire first.** The middle conductor of an ESC lead
 > is the BEC (battery eliminator circuit) **+5 V** output. RP2350 GPIO is
 > **not** 5 V tolerant. More than about 3.6 V on a pin exceeds the absolute
 > maximum rating and damages it. The tester needs signal and ground only.
 
-Three header positions put a GPIO two pins from a ground. Use GP4:
+The ESC pin is set on the board under **CFG → SETUP** and stored in flash.
+`DSHOT_PIN_LCD_2_8` in `config.h` is the pin a board with blank flash starts
+on, **GP29**, the last pin on J4. The KISS telemetry wire starts on **GP28**.
+To swap them at build time, build with
+`-DDSHOT_PIN_LCD_2_8=28 -DKISS_PIN_LCD_2_8=29`. The two must move together. A
+build that puts both on one pin fails a `static_assert`.
 
-| Candidate | Header run | Use | Reason |
-|---|---|---|---|
-| **GP4** | P2 11–13: GP4 / GP10 / GND | yes | The signal pin and the skipped middle pin are unused camera-bus pins. No on-board device is connected. |
-| GP20 | P1 11–13: GP20 / GP19 / GND | no | GP20 is LCD_RST. DShot on it holds the panel in reset. The middle position is GP19, the LCD's SPI MOSI line. |
-| GP29 | P2 4–2: GP29 / GP28 / GND | no | GP29 is the CST816D's INT **output**. The touch chip drives it low on every touch and conflicts with the ESC. The middle position is the battery-ADC divider node. |
-
-Neither header has a `[GPIO][5V][GND]` run, so a fully populated servo plug
-does not fit any pin. 5 V and GND are adjacent only at P1 pins 14 and 13.
-Remove the BEC wire.
+An ESC on the wrong one of the two pins produces no error. **LINK** stays at
+`0/S`.
 
 **Power the ESC from its own battery.** Do not power a motor from the board's
 5 V pin. Connect the ESC ground to the board ground, and keep the signal wire
 short. The maximum working lead length is not measured. If the **LINK** error
 rate rises, set **DSHOT KBAUD** to 300 under **CFG → SETUP**.
 
-### The 2.8" board
-
-Its pin map is `src/board_rp2350_touch_lcd_2_8.h`. It has no 2.54 mm headers.
-All signals are on JST-SH connectors, and only **GP28** (J4 pin 11) and
-**GP29** (J4 pin 12) are free. The ESC starts on **GP29**, the last pin on the
-connector. The KISS telemetry wire starts on **GP28**.
-
-To swap them, build with `-DDSHOT_PIN_LCD_2_8=28 -DKISS_PIN_LCD_2_8=29`. The two
-must move together. A build that puts both on one pin fails a `static_assert`.
-
-An ESC on the wrong one of the two pins produces no error. **LINK** stays at
-`0/S`.
-
 The board has a power-button latch on GP26 (`PIN_BAT_EN`). The firmware drives
 it high as the first action at boot. Without it, the board loses power when
 the button is released while running on battery. On USB the latch has no
 effect.
+
+### Other boards
+
+The image is built for the RP2350-Touch-LCD-2.8 only, and it does not
+identify the board it runs on.
+
+**Current limitation.** Condition: a MiniRcBench image is flashed onto any
+other RP2350 board, the RP2350-Touch-LCD-2 among them. From the first
+instruction of `setup()` the image drives the 2.8" pin map: GP26 high as the
+power latch, the panel lines on GP10–GP16, the touch lines, the SDIO lines on
+GP19–GP24, and DShot on GP29. On the RP2350-Touch-LCD-2 several of these pins
+carry other functions: GP26 is the SD card clock there, GP14 an IMU interrupt
+output and GP29 the touch controller's interrupt output. What the image does
+to such a board is not tested. The RP2350's boot ROM (read-only memory)
+offers the USB drive for flashing regardless of the firmware, so holding
+**BOOT** and reflashing recovers the board. DshotDisplay supports the
+RP2350-Touch-LCD-2.
 
 ---
 
@@ -234,21 +198,20 @@ ninja -C build
 Build options:
 
 ```sh
--DBOARD=BOARD_UNIFIED                # one image for both boards
--DBOARD=BOARD_RP2350_TOUCH_LCD_2_8   # the 2.8" board only; default is the 2.0"
--DDSHOT_PIN_LCD_2_8=28               # the ESC pin a blank board starts on
--DKISS_PIN_LCD_2_8=29                # ...and the telemetry pin, per board
--DSTRICT=ON                          # warnings fatal, for this project's sources
+-DDSHOT_PIN_LCD_2_8=28   # the ESC pin a blank board starts on
+-DKISS_PIN_LCD_2_8=29    # ...and the telemetry pin; the two move together
+-DSTRICT=ON              # warnings fatal, for this project's sources
 ```
 
-The ESC pin defaults to **GP4** on the 2.0" (`DSHOT_PIN_LCD_2`) and **GP29** on
-the 2.8" (`DSHOT_PIN_LCD_2_8`). Each board has its own option because a
-unified image carries both board descriptors. The boot probe selects which
-descriptor, and so which defaults, a running board uses.
+The ESC pin defaults to **GP29** (`DSHOT_PIN_LCD_2_8`) and the telemetry pin
+to **GP28** (`KISS_PIN_LCD_2_8`). The suffix names the board, as the image's
+file name does. There is no board to select: configuring with a `-DBOARD`
+naming another target fails, and so do `-DDSHOT_PIN`, `-DKISS_PIN`,
+`-DDSHOT_PIN_LCD_2` and `-DKISS_PIN_LCD_2`, with a message naming the options
+this build takes.
 
-The output is `build/MiniRcBench-<board>.uf2`, where `<board>` is
-`touch-lcd-2`, `touch-lcd-2.8` or `unified`. UF2 is the USB Flashing Format.
-The images are not interchangeable between boards, except `unified`.
+The output is `build/MiniRcBench-touch-lcd-2.8.uf2`. UF2 is the USB Flashing
+Format.
 
 To flash: hold **BOOT**, tap **RESET**, release **BOOT**, and copy the `.uf2`
 onto the USB drive that appears.
@@ -260,17 +223,18 @@ local build.
 Only the Cortex-M33 build (`rp2350-arm-s`) is supported. This project does not
 build or test for the RP2350's Hazard3 RISC-V cores.
 
-### Prebuilt images
+### Prebuilt image
 
-Every [release](https://github.com/subtilitas/MiniRcBench/releases) has a
-`.uf2` per image attached. Flash it as above.
+Every [release](https://github.com/subtilitas/MiniRcBench/releases) has the
+`.uf2` attached. Flash it as above.
 
-Every green CI run uploads a `.uf2` artifact per image, so an untagged commit
-can be tested on hardware.
+Every green CI (continuous integration) run uploads the `.uf2` as an
+artifact, so an untagged commit can be tested on hardware.
 
 `tools/sdtest` is not among them. It is a bench diagnostic for the SD card
-wiring, not firmware. A plain `ninja -C build` builds it locally next to the
-firmware.
+wiring, not firmware, and builds for the RP2350-Touch-LCD-2.8 only. A plain
+`ninja -C build` builds it locally next to the firmware, as
+`build/sdtest.uf2`.
 
 ### Reproducible builds
 
@@ -289,8 +253,10 @@ Each hash has its tag in a comment beside it. A tag can be moved; a hash cannot.
 
 Two constraints on these dependencies:
 
-- Only part of the SD library is built: FatFs, its glue and the SPI card
-  driver. Its own `CMakeLists.txt` would also compile its SDIO driver, which
+- Only part of the SD library is built: FatFs, its glue, its card layer and
+  its SPI card driver. The board's card is on SDIO, but the card layer's init
+  path calls into the SPI driver, so the image does not link without it. The
+  library's own `CMakeLists.txt` would also compile its SDIO driver, which
   its README derives from GPL-3.0 (GNU General Public License version 3)
   code. So `CMakeLists.txt` fetches the source without adding it, and defines
   the target `sd_fatfs` from a copy of the library's `src/` without the SDIO,
@@ -386,7 +352,7 @@ sent, amber when refused. Without it a 6 ms command is not visible against a
 
 **SD LOG screen**
 
-- **STATUS**: `NO CARD`, `READY`, `RECORDING` or `CARD ERROR`. The boards have
+- **STATUS**: `NO CARD`, `READY`, `RECORDING` or `CARD ERROR`. The board has
   no card-detect pin, so the firmware learns of a card only by mounting it.
 - **START / STOP**: starts or ends a log. Disabled with no card.
 - **FILE**, **FRAMES**, **WRITTEN**: the open file, frames logged, kB written.
@@ -411,8 +377,8 @@ settings screen.*
 
 | Row | What it does |
 |---|---|
-| **BOARD** | The board the boot probe detected. Read-only on every image |
-| **ESC PIN** | GPIO for the DShot signal. Steps through this board's free GPIOs only, skipping the KISS pin while KISS is on |
+| **BOARD** | `RP2350-TOUCH-LCD-2.8`, the board the image is built for. Read-only |
+| **ESC PIN** | GPIO for the DShot signal. Steps through the board's two free GPIOs only, skipping the KISS pin while KISS is on |
 | **DSHOT KBAUD** | 150 / 300 / 600 / 1200, wrapping at the ends. Applies at once: the driver is rebuilt on the new pin and rate before the next frame |
 | **KISS TELEM** | Whether to listen for the telemetry wire. Turning it on moves the KISS pin off the ESC pin if they coincide |
 | **KISS PIN** | Steps through the same free GPIOs, skipping the ESC pin. The receiver is a PIO state machine, so any free GPIO works |
@@ -518,18 +484,19 @@ mAh, which EDT does not carry.
 
 | ESC | Board |
 |---|---|
-| Telemetry pad | **GP5**, P1 header pin 10 (2.0"); **GP28**, J4 pin 11 (2.8") |
+| Telemetry pad | **GP28**, J4 pin 11 |
 
 The line is transmit-only from the ESC. Requests go out every 20th DShot frame
 (`KISS_REQUEST_EVERY_N`), which is 50 Hz at 1 kHz.
 
-**Status:** working on hardware (owner report). It is off by default on the 2.8" (`KISS_ENABLE_LCD_2_8` = 0) because
-that board has two free pins and the ESC uses one.
+**Status:** working on hardware (owner report). It is off by default
+(`KISS_ENABLE_LCD_2_8` = 0) because the board has two free pins and the ESC
+uses one.
 
 **Any free GPIO can receive it.** The receiver is a UART (universal
 asynchronous receiver-transmitter) built from one PIO state machine. The
 RP2350's two hardware UARTs receive only on GPIOs where `n % 4 == 1`, which on
-the 2.8" leaves only GP29, the ESC pin. See `src/pio_uart_rx.h`.
+this board leaves only GP29, the ESC pin. See `src/pio_uart_rx.h`.
 
 The tiles fall back from KISS to EDT `KISS_STALE_MS` (500 ms) after the last
 KISS frame.
@@ -556,10 +523,10 @@ unused number from 00001 to 09999. Existing files are not overwritten.
 
 ![SD log screen](docs/log-preview.png)
 
-The 2.0" drives the card over hardware SPI at 12 MHz (`SD_LOG_SPI_MHZ`). The
-2.8" uses 4-bit PIO SDIO at 10 MHz (`SD_LOG_SDIO_HZ`), with the driver in
-`src/sdio/`, which is not tested on hardware. The 2.8" cannot use hardware
-SPI: its SD clock is on GP19, which is SPI0 TX in the pin mux.
+The card runs over 4-bit PIO SDIO at 10 MHz (`SD_LOG_SDIO_HZ`), with the
+driver in `src/sdio/`, which is not tested on hardware. The board cannot use
+hardware SPI for the card: its SD clock is on GP19, which is SPI0 TX in the
+pin mux.
 
 Open the screen with **CFG → SD LOG**. By default arming starts a log and
 disarming stops it (`SD_LOG_AUTO_ON_ARM`). Auto-stop ends only a log that
@@ -598,13 +565,10 @@ nothing for those six. The SETUP note line says which set is in use.
 
 | Setting | Default | What it does |
 |---|---|---|
-| `DSHOT_PIN_LCD_2` | `4` | ESC signal GPIO the 2.0" board starts on |
-| `DSHOT_PIN_LCD_2_8` | `29` | ESC signal GPIO the 2.8" board starts on |
+| `DSHOT_PIN_LCD_2_8` | `29` | ESC signal GPIO the board starts on |
 | `KISS_TELEM_ENABLE` | `1` | Compile the KISS path in at all |
-| `KISS_ENABLE_LCD_2` | `1` | Whether the 2.0" board listens for a KISS wire. It has 15 free GPIOs |
-| `KISS_ENABLE_LCD_2_8` | `0` | Whether the 2.8" board does. **Off**: the board has two free pins and the ESC takes one. One tap under SETUP turns it on |
-| `KISS_PIN_LCD_2` | `5` | GPIO for the telemetry wire, 2.0" board. Receive only, any free GPIO, changeable under SETUP |
-| `KISS_PIN_LCD_2_8` | `28` | Same for the 2.8". The other of its two free pins; `DSHOT_PIN_LCD_2_8` has GP29 |
+| `KISS_ENABLE_LCD_2_8` | `0` | Whether the board listens for a KISS wire. **Off**: the board has two free pins and the ESC takes one. One tap under SETUP turns it on |
+| `KISS_PIN_LCD_2_8` | `28` | GPIO for the telemetry wire. Receive only, changeable under SETUP. The other of the two free pins; `DSHOT_PIN_LCD_2_8` has GP29 |
 | `KISS_REQUEST_EVERY_N` | `20` | Request every Nth DShot frame; 20 at 1 kHz is 50 Hz. Values below 2 overlap replies and fail an `#error` |
 | `KISS_STALE_MS` | `500` | How long a KISS frame stays in use before the display falls back to EDT |
 | `EDT_STALE_MS` | `1000` | How long an EDT field stays valid after its last frame. Then the tile shows `--` |
@@ -613,8 +577,7 @@ nothing for those six. The SETUP note line says which set is in use.
 | `EDT_SETTLE_MS` | `300` | Time the link must be up before the first EDT enable |
 | `KISS_REPLY_TIMEOUT_MS` | `10` | Abandon an incomplete reply after this long; affects only the timeout counter |
 | `SD_LOG_ENABLE` | `1` | Compile the logging path in at all |
-| `SD_LOG_SPI_MHZ` | `12` | Card clock on the 2.0". Cards are specified to 25 MHz in SPI mode |
-| `SD_LOG_SDIO_HZ` | `10 MHz` | Card clock on the 2.8", where `SD_LOG_SPI_MHZ` is ignored |
+| `SD_LOG_SDIO_HZ` | `10 MHz` | SDIO card clock |
 | `SD_LOG_RATE_HZ` | `500` | Log frame rate. eRPM is the only 1 kHz signal |
 | `SD_LOG_I_INTERVAL` | `32` | Frames between keyframes (I frames). Lower values resynchronise sooner after damage and cost size |
 | `SD_LOG_BUFFER_BYTES` | `8192` | Ring buffer. Size it from BUF PEAK and WORST FLUSH |
@@ -814,13 +777,9 @@ src/
   settings.{h,cpp}      the persisted subset: rules, validation, fallback (pure)
   settings_flash.cpp    the one flash sector those live in
   theme.{h,cpp}         the two palettes and the stroke weights
-  board.h               which board(s) this build can drive
-  board_pins.h          dispatches to the per-board pin map (single-board builds)
-  board_rp2350_touch_lcd_2{,_8}.h   the pin maps themselves
-  board_desc.{h,cpp}    the board as data, so one image can drive either
-  board_desc_lcd2{,_8}.cpp  one descriptor each, one board header each
-  board_probe.{h,cpp}   I2C identification of the board at boot
-  touch.cpp             dispatches to whichever touch driver the board names
+  board_pins.h          includes the board's pin map
+  board_rp2350_touch_lcd_2_8.h  the pin map itself, from the schematic
+  board_desc.{h,cpp}    the pins and defaults the drivers and settings read, as data
   esc_task.{h,cpp}      core1 DShot pump, EDT decode, cross-core state
   dshot/                bidirectional DShot, from rcbench
     dshot.h, dshot_{frame,telem,edt}.c  frame, reply decode, EDT schedule (pure C)
@@ -835,9 +794,8 @@ src/
   am32_eeprom.{h,cpp}   AM32 settings layout, decoding and presentation
   gfx.{h,cpp}           RGB565 framebuffer, dirty bands, 5x7 font, 7-seg digits
   st7789.{h,cpp}        panel init + DMA blitter
-  touch.h               capacitive touch interface, one driver compiled
-  cst816.cpp            CST816D, the 2.0" board
-  cst328.cpp            CST328, the 2.8" board
+  touch.h               capacitive touch interface
+  cst328.cpp            CST328 touch controller driver
   kiss_telem.{h,cpp}    KISS ESC telemetry decode (pure)
   pio_uart_rx.{h,cpp}   receive-only UART on a PIO state machine, any GPIO
   pio_uart_rx.pio       ...and its nine instructions
@@ -855,7 +813,7 @@ src/
   usb_msc.{h,cpp}       the SD card as a read-only USB drive
   tusb_config.h         TinyUSB configuration
 tools/
-  sdtest/               standalone SD bring-up test; built locally, never released
+  sdtest/               standalone SD bring-up test, 2.8" only; built locally, never released
   make_previews.py      restitches docs/*.png and wiki/img/ from the test suite's frames
   check_wiki.py         wiki link, anchor and image checks
   coverage.py           host-suite line coverage: writes and checks the README and STATUS.md figures
@@ -914,7 +872,7 @@ target so a test run does not leave the working tree dirty.
 `python3 tools/coverage.py` writes the figure below from its gcov counters.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.1%**: 2,444 of 2,516 lines in 25 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.2%**: 2,422 of 2,492 lines in 24 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the
@@ -933,21 +891,18 @@ Makefile does not list `ui_am32.cpp` in `SRCS`.
 
 | Job | What it catches |
 |---|---|
-| **Firmware** | Real Pico SDK build for both boards and the unified image, pinned by `CMakeLists.txt`, plus UF2 validation and a check that no file of the SD library's SDIO driver is in the image |
+| **Firmware** | Real Pico SDK build of the RP2350-Touch-LCD-2.8 image, pinned by `CMakeLists.txt`, plus UF2 validation and a check that no file of the SD library's SDIO driver is in the image |
 | **Host tests** | Protocol, codec and UI regressions a compile cannot see |
 | **Coverage** | Line coverage below 93% in total or 85% in any file, or a README or STATUS.md coverage figure that no longer matches `tools/coverage.py` |
 | **Blackbox round-trip** | Encodes a log and decodes it with Betaflight's own `blackbox_decode`, comparing every value |
-| **Config permutations** | All 64 combinations of board, `AM32_PUSH_PULL_TX`, `AM32_FORCE_LOW_JUMP`, `LCD_ROTATION`, `KISS_TELEM_ENABLE` and `SD_LOG_ENABLE`, warnings fatal |
+| **Config permutations** | All 32 combinations of `AM32_PUSH_PULL_TX`, `AM32_FORCE_LOW_JUMP`, `LCD_ROTATION`, `KISS_TELEM_ENABLE` and `SD_LOG_ENABLE`, warnings fatal |
 | **Docs** | Undocumented additions, through Doxygen and `test/check_docs.py` |
 | **Workflow lint** | `actionlint`, plus a duplicate-key check that PyYAML would otherwise let through and GitHub would not |
 
-The firmware job also asserts the image belongs to the board it claims: which
-touch driver was compiled in, read out of the DWARF line table because both
-drivers export exactly `touchInit` and `touchPoll` and the symbol table cannot
-tell them apart. It checks the size against a ceiling of 1 MB flash, and that
-the per-board pin options reach the build. The check that a value reaches the
-firmware is in the host job, which rebuilds the suite
-with the macros overridden.
+The firmware job also checks the size against a ceiling of 1 MB flash, that
+the two pin options reach the configure step, and that the options this build
+does not take are refused. The check that a pin value reaches the firmware is
+in the host job, which rebuilds the suite with the macros overridden.
 
 The permutation job exists because those options are exactly the ones nobody
 compiles by hand. `check_docs.py` enforces documentation precisely — public API
@@ -969,16 +924,14 @@ git push origin v0.1.0
 
 The tag names the firmware version in `src/version.h`, 0.1.0 at present, with
 an optional pre-release suffix such as `-rc1`. CMake reads the same file, and
-the images report the version to `picotool info` and over USB.
+the image reports the version to `picotool info` and over USB.
 
-`release.yml` runs the host and documentation checks, builds a `.uf2` for each
-image, checksums them, and publishes a GitHub Release with the images attached.
+`release.yml` runs the host and documentation checks, builds the `.uf2`,
+checksums it, and publishes a GitHub Release with the image attached.
 
 Assets per release:
 
 ```
-MiniRcBench-v0.1.0-unified.uf2         <- runs on either board
-MiniRcBench-v0.1.0-touch-lcd-2.uf2
 MiniRcBench-v0.1.0-touch-lcd-2.8.uf2
 SHA256SUMS.txt
 ```
@@ -993,7 +946,7 @@ The workflow refuses five things:
 - **Inventing a tag**: `--verify-tag` aborts if the tag was never pushed.
 - **Leaving a half-populated release**: creating a release and attaching assets
   are separate API calls, so the workflow reads the release back and confirms
-  every expected asset is present.
+  that the image and `SHA256SUMS.txt` are present, and nothing else.
 
 ### API documentation
 
@@ -1066,8 +1019,8 @@ The Host tests job in `ci.yml` runs the same render and check on every push to
   for these logs.
 - [DShot — the missing handbook](https://brushlesswhoop.com/dshot-and-bidirectional-dshot/)
 - [Extended DShot Telemetry](https://github.com/bird-sanctuary/extended-dshot-telemetry)
-- [Waveshare RP2350-Touch-LCD-2 wiki](https://www.waveshare.com/wiki/RP2350-Touch-LCD-2)
-  and [schematic](https://files.waveshare.com/wiki/RP2350-Touch-LCD-2/RP2350-Touch-LCD-2.pdf)
+- [Waveshare RP2350-Touch-LCD-2.8 wiki](https://www.waveshare.com/wiki/RP2350-Touch-LCD-2.8)
+  and [schematic](https://files.waveshare.com/wiki/RP2350-Touch-LCD-2.8/RP2350-Touch-LCD-2.8-Schematic.pdf)
 
 ## License
 
@@ -1087,8 +1040,8 @@ licence:
 
 The build compiles nothing from that library's SDIO driver, which its README
 derives from ZuluSCSI-firmware (GPL-3.0), nor from its ZuluSCSI-firmware and
-SdFat directories, and CI checks every image for it. No GPL-licensed code is in
-any of the three images. Each image is therefore a combination of MIT,
+SdFat directories, and CI checks the image for it. No GPL-licensed code is in
+the image. The image is therefore a combination of MIT,
 BSD-3-Clause, Apache-2.0 and FatFs-licensed code, all permissive and none
 copyleft: the image as a whole carries no licence of its own, and whoever
 distributes it meets each component's conditions. For a binary those are a

@@ -32,10 +32,13 @@ The firmware has these interlocks. They do not replace the steps above:
 
 Two wires: signal and ground.
 
-| | 2.0" board | 2.8" board |
-|---|---|---|
-| **Signal** | GP4, P2 header pin 11 | GP29, J4 pin 12 |
-| **Ground** | GND, P2 header pin 13 | GND, J4 pin 1 or 5 |
+| | RP2350-Touch-LCD-2.8 |
+|---|---|
+| **Signal** | GP29, J4 pin 12 |
+| **Ground** | GND, J4 pin 1 or 5 |
+
+The board has JST-SH 1.0 mm connectors and no 2.54 mm headers, so the ESC
+lead needs a pigtail with a JST-SH plug.
 
 GP means GPIO (general-purpose input/output pin). The ESC pin can be changed
 later under **CFG → SETUP**, and the setting is stored in flash.
@@ -45,10 +48,6 @@ later under **CFG → SETUP**, and the setting is stored in flash.
 > (battery eliminator circuit) output**. RP2350 pins are **not** 5 V tolerant.
 > More than about 3.6 V exceeds the absolute maximum rating and damages the
 > chip. The tester needs signal and ground only.
-
-On the 2.0", a 3-pin male header soldered onto **P2 pins 11–13** takes a servo
-plug directly: signal on GP4, the removed middle wire over GP10, ground on
-pin 13.
 
 Keep the signal wire short. The maximum working length is not measured. If the
 `LINK` error rate rises, set **DSHOT KBAUD** to 300 in SETUP.
@@ -62,8 +61,8 @@ own battery. The order does not matter. The firmware sends the telemetry
 enable to every ESC that starts answering, so the ESC can be connected or
 power-cycled at any time.
 
-The splash screen names the detected board for 3 s, then the tester screen
-appears.
+The splash screen names the board the firmware is built for,
+RP2350-TOUCH-LCD-2.8, for 3 s, then the tester screen appears.
 
 <img src="img/splash.png" width="240" alt="Splash screen">
 

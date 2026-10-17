@@ -35,10 +35,13 @@ Die Firmware hat diese Sperren. Sie ersetzen die Schritte oben nicht:
 
 Zwei Kabel: Signal und Masse.
 
-| | 2,0"-Platine | 2,8"-Platine |
-|---|---|---|
-| **Signal** | GP4, Stiftleiste P2, Pin 11 | GP29, J4 Pin 12 |
-| **Masse** | GND, Stiftleiste P2, Pin 13 | GND, J4 Pin 1 oder 5 |
+| | RP2350-Touch-LCD-2.8 |
+|---|---|
+| **Signal** | GP29, J4 Pin 12 |
+| **Masse** | GND, J4 Pin 1 oder 5 |
+
+Die Platine hat JST-SH-Stecker mit 1,0 mm Raster und keine 2,54-mm-Stiftleisten,
+das ESC-Kabel braucht also ein Adapterkabel mit JST-SH-Stecker.
 
 GP steht für GPIO (General Purpose Input/Output, frei verwendbarer Pin). Der
 ESC-Pin lässt sich später unter **CFG → SETUP** ändern und wird im Flash
@@ -50,10 +53,6 @@ gespeichert.
 > RP2350 sind **nicht** 5-V-tolerant. Mehr als etwa 3,6 V überschreitet den
 > absoluten Grenzwert und beschädigt den Chip. Der Tester braucht nur Signal
 > und Masse.
-
-Auf der 2,0"-Platine nimmt eine dreipolige Stiftleiste auf **P2 Pin 11–13**
-einen Servostecker direkt auf: Signal auf GP4, das entfernte mittlere Kabel
-über GP10, Masse auf Pin 13.
 
 Halte das Signalkabel kurz. Die größte funktionierende Länge ist nicht
 gemessen. Steigt die Fehlerrate unter `LINK`, stelle **DSHOT KBAUD** im SETUP
@@ -68,8 +67,8 @@ eigenen Akku. Die Reihenfolge ist egal. Die Firmware schickt die
 Telemetrie-Freigabe an jeden ESC, der zu antworten beginnt. Du kannst den ESC
 also jederzeit anstecken oder neu starten.
 
-Der Startbildschirm nennt 3 s lang die erkannte Platine, dann erscheint der
-Tester-Bildschirm.
+Der Startbildschirm nennt 3 s lang die Platine, für die die Firmware gebaut
+ist, RP2350-TOUCH-LCD-2.8, dann erscheint der Tester-Bildschirm.
 
 <img src="img/splash.png" width="240" alt="Startbildschirm">
 

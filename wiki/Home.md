@@ -1,9 +1,8 @@
 # MiniRcBench
 
 A bench tester for RC (radio-controlled) model parts on the Waveshare
-**RP2350-Touch-LCD-2** and **RP2350-Touch-LCD-2.8**. Today it tests one ESC
-(electronic speed controller) over bidirectional DShot. With two wires to the
-ESC, the board is the throttle source, the telemetry display and the log
+**RP2350-Touch-LCD-2.8**. Today it tests one ESC (electronic speed controller)
+over bidirectional DShot. With two wires to the ESC, the board is the throttle source, the telemetry display and the log
 recorder. It needs no flight controller, laptop or Betaflight.
 
 <img src="img/tester-armed.png" width="240" alt="The tester screen, armed">
@@ -49,22 +48,27 @@ der erste Motorlauf.
 
 ---
 
-## Which board am I holding?
+## Which board
 
-Both boards have a 240×320 portrait touch panel and an RP2350. The 2.0" has
-2.54 mm headers. The 2.8" has JST-SH connectors only. The **unified** image
-from [Releases](https://github.com/subtilitas/MiniRcBench/releases) runs on
-both: it identifies the board at every boot and shows the result under
-**CFG → SETUP**, read-only.
+MiniRcBench runs on the Waveshare RP2350-Touch-LCD-2.8 only: a 240×320
+portrait touch panel, an RP2350, and JST-SH connectors instead of 2.54 mm
+headers. The image from
+[Releases](https://github.com/subtilitas/MiniRcBench/releases) is
+`MiniRcBench-<version>-touch-lcd-2.8.uf2`. It does not check which board it
+runs on: flashed onto another board, it drives pins that are wired to other
+parts there. The splash screen and **CFG → SETUP** name the board the image
+is built for.
 
-*Welche Platine habe ich?* Beide haben ein 240×320-Touch-Display im Hochformat
-und einen RP2350. Die 2,0"-Platine hat 2,54-mm-Stiftleisten, die 2,8"-Platine
-nur JST-SH-Stecker. Das **unified**-Abbild aus den
-[Releases](https://github.com/subtilitas/MiniRcBench/releases) läuft auf
-beiden: Es erkennt die Platine bei jedem Start und zeigt das Ergebnis unter
-**CFG → SETUP** an, nur lesbar.
+*Welche Platine?* MiniRcBench läuft nur auf der Waveshare RP2350-Touch-LCD-2.8:
+ein 240×320-Touch-Display im Hochformat, ein RP2350 und JST-SH-Stecker statt
+2,54-mm-Stiftleisten. Das Abbild aus den
+[Releases](https://github.com/subtilitas/MiniRcBench/releases) heißt
+`MiniRcBench-<Version>-touch-lcd-2.8.uf2`. Es prüft nicht, auf welcher Platine
+es läuft: Auf eine andere Platine geflasht, treibt es Pins, die dort mit
+anderen Bauteilen verbunden sind. Der Startbildschirm und **CFG → SETUP**
+nennen die Platine, für die das Abbild gebaut ist.
 
-<img src="img/splash.png" width="240" alt="The splash screen naming the detected board">
+<img src="img/splash.png" width="240" alt="The splash screen naming the board">
 
 ---
 

@@ -12,8 +12,8 @@ share one programming protocol. PWM is pulse-width modulation, here the
 RP2350's hardware PWM slices that make servo pulses. PIO is the RP2350's
 programmable input/output block, SM is one PIO state machine, DMA is direct
 memory access, GPIO is general-purpose input/output, ADC is analogue-to-digital
-converter, SD is Secure Digital, SDIO is Secure Digital input/output, SPI is
-Serial Peripheral Interface, UI is user interface, USB is Universal Serial Bus.
+converter, SD is Secure Digital, SDIO is Secure Digital input/output, UI is
+user interface, USB is Universal Serial Bus.
 
 The two features that use the claim have their own documents:
 [servo-tester.md](servo-tester.md) and
@@ -23,11 +23,11 @@ three is at the end.
 
 ## Why
 
-MiniRcBench brings out two signal pins. On the 2.8" board they are the only
-free GPIOs. Today both belong to the ESC for the whole run: the DShot pump on
-one, the KISS receiver on the other. The servo tester and the KST programmer
-need the same two wires. A second set of pins does not exist on the 2.8"
-board, so the pins change owner by screen.
+MiniRcBench runs on the Waveshare RP2350-Touch-LCD-2.8, which brings out two
+signal pins, its only free GPIOs. Today both belong to the ESC for the whole
+run: the DShot pump on one, the KISS receiver on the other. The servo tester
+and the KST programmer need the same two wires. A second set of pins does not
+exist, so the pins change owner by screen.
 
 ## The two pins
 
@@ -38,17 +38,17 @@ The claim names pins by role, not by number, because the number is a setting.
 | SIG | the ESC signal wire, `settings()->dshotPin` | AM32 config, servo A, KST programming |
 | AUX | the KISS telemetry wire, `settings()->kissPin` | servo B (two-servo mode) |
 
-AUX is the KISS pin whether or not KISS is switched on in SETUP. On the 2.8"
-board KISS is off by default, and GP28 is still the AUX pin.
+AUX is the KISS pin whether or not KISS is switched on in SETUP. KISS is off
+by default, and GP28 is still the AUX pin.
 
-| Board | SIG default | AUX default | Header |
-|---|---|---|---|
-| RP2350-Touch-LCD-2 | GP4 | GP5 | GP4 on P2 pin 11, GP5 on P1 pin 10, GND on P1 pin 13 and P2 pins 2 and 13 |
-| RP2350-Touch-LCD-2.8 | GP29 | GP28 | J4 pin 12 and J4 pin 11, GND on J4 pins 1 and 5 |
+| Role | Default | Connector |
+|---|---|---|
+| SIG | GP29 | J4 pin 12 |
+| AUX | GP28 | J4 pin 11 |
+| GND | | J4 pins 1 and 5 |
 
-On the 2.0" board SETUP offers GP0 to GP11 and GP21 to GP23 for either role
-(`BOARD_FREE_GPIO_MASK` 0x00E00FFF). On the 2.8" board it offers GP28 and GP29
-only (0x30000000).
+SETUP offers GP28 and GP29 only, for either role (`BOARD_FREE_GPIO_MASK`
+0x30000000), so a SETUP change swaps the two.
 
 ## The claim
 
@@ -118,7 +118,6 @@ enum class ClaimRefusal : uint8_t {
     Busy,          // another screen holds the pins
     EscAnswering,  // an eRPM frame within ESC_LINK_STALE_MS (500 ms)
     KissLive,      // a KISS frame within KISS_STALE_MS (500 ms), AUX asked for
-    PwmPair,       // SIG and AUX share a PWM compare register
 };
 
 ClaimRefusal pinClaimBegin(PinUser who, uint8_t roles);  // PIN_SIG | PIN_AUX
@@ -196,10 +195,6 @@ AM32 is exempt: it needs the ESC on the pin.
 on that pin would drive against it. The two-servo mode is refused with the
 reason; one-servo mode is not affected.
 
-**SIG and AUX share a compare register: two-servo mode is refused.** See
-[PWM slices](#pwm-slices). Only reachable on the 2.0" board with pins chosen
-in SETUP.
-
 ### Heartbeat and watchdog
 
 Core0 calls `escHeartbeat()` at the top of every `uiTick()`, on every screen.
@@ -244,7 +239,6 @@ works.
 |---|---|---|
 | An ESC answers on SIG | `AN ESC ANSWERS ON GP29.` `UNPLUG IT: SERVO PULSES READ AS THROTTLE.` | unplug the ESC; the claim follows 500 ms later |
 | KISS frames on AUX, two servos asked | `KISS WIRE ON GP28 IS LIVE.` `TWO SERVOS NEED IT UNPLUGGED.` | unplug it, or choose one servo |
-| SIG and AUX share a compare register | `GP5 AND GP21 SHARE ONE PWM OUTPUT.` `PICK ANOTHER PIN IN SETUP.` | one servo, or other pins |
 | The job could not bind | `GP29 COULD NOT BE TAKEN (PWM)` or `(PIO)`, `(DMA)`, `(CLOCK)` | RETRY, or BACK; DShot is restored either way |
 | Armed, or another screen holds the pins | `DISARM FIRST` or `PINS BUSY` | BACK; unreachable through the UI |
 
@@ -305,26 +299,17 @@ channel is `gpio & 1` (`PWM_GPIO_SLICE_NUM` in Pico SDK 2.1.1,
 
 | GPIO | Slice | Channel | Use |
 |---|---|---|---|
-| GP4 | 2 | A | 2.0" SIG default |
-| GP5 | 2 | B | 2.0" AUX default |
-| GP28 | 6 | A | 2.8" AUX |
-| GP29 | 6 | B | 2.8" SIG |
-| GP15 | 7 | B | 2.0" backlight PWM (`st7789.cpp`) |
-| GP16 | 0 | A | 2.8" backlight PWM |
+| GP28 | 6 | A | AUX |
+| GP29 | 6 | B | SIG |
+| GP16 | 0 | A | backlight PWM (`st7789.cpp`) |
 
-Both boards' defaults put the two servos on one slice, channels A and B: two
-pulse widths, one frame rate.
+The two servos are on one slice, channels A and B: two pulse widths, one
+frame rate. Either way round, SIG and AUX are on different channels, so they
+never share a compare register, and the servo tester's one frame rate for
+both servos never needs a choice.
 
-On the 2.0" board three pairs of free pins share a compare register: GP5 and
-GP21 (2B), GP6 and GP22 (3A), GP7 and GP23 (3B). Two servos on such a pair
-are refused. Pins on one slice share a rate: GP(2k) with GP(2k+1) for GP0 to
-GP11, GP21 with GP4 and GP5, GP22 and GP23 with GP6 and GP7. The servo tester
-uses one frame rate for both servos on every pin pair, so a shared slice never
-needs a choice.
-
-No free pin on either board is on the backlight's slice: slice 7 on the 2.0"
-holds GP14 and GP15, neither free; slice 0 on the 2.8" holds GP0, GP1, GP16
-and GP17, none free. Each board descriptor gains a `static_assert` for this,
+Neither free pin is on the backlight's slice: slice 0 holds GP0, GP1, GP16
+and GP17, none free. The board descriptor gains a `static_assert` for this,
 because `pwm_init()` on the backlight's slice would retime the backlight.
 
 The PWM counter runs at 1 MHz: `clk_sys` 150 MHz divided by 150, an integer
@@ -337,30 +322,29 @@ blocks and 16 DMA channels. Program sizes are counted from the `.pio` sources
 and, for SDIO, from the generated header in no-OS-FatFS-SD-SDIO-SPI-RPi-Pico
 v3.6.2.
 
-| User | Program words | SMs | DMA channels | Board |
+| User | Program words | SMs | DMA channels | When |
 |---|---|---|---|---|
-| DShot, bidirectional (rcbench `dshot_bidir_tx` + `dshot_rx`) | 11 + 5 = 16 | 2, adjacent, one block | 0 | both |
-| KISS receiver (`pio_uart_rx`) | 9 | 1 | 0 | both |
-| SDIO card (`sdio_cmd_clk` + `sdio_data_rx` + `sdio_data_tx`), fixed to pio1 | 18 + 5 + 9 = 32 | 2 | 2 | 2.8" |
-| SD card over SPI1 | 0 | 0 | 2 | 2.0" |
-| Panel (`st7789.cpp`) | 0 | 0 | 1 | both |
-| KST line (`kst_line`) | 24 | 1 | 2 | both, during a KST claim |
-| Servo PWM | 0 | 0 | 0 | both, PWM slices only |
+| DShot, bidirectional (rcbench `dshot_bidir_tx` + `dshot_rx`) | 11 + 5 = 16 | 2, adjacent, one block | 0 | ESC running |
+| KISS receiver (`pio_uart_rx`) | 9 | 1 | 0 | ESC running, KISS on |
+| SDIO card (`sdio_cmd_clk` + `sdio_data_rx` + `sdio_data_tx`), fixed to pio1 | 18 + 5 + 9 = 32 | 2 | 2 | always |
+| Panel (`st7789.cpp`) | 0 | 0 | 1 | always |
+| KST line (`kst_line`) | 24 | 1 | 2 | during a KST claim |
+| Servo PWM | 0 | 0 | 0 | PWM slices only |
 
 Placement, with DShot built before KISS as `escTaskPoll()` does. The SDK's
 free-block search starts at pio2, and `src/esc_task.cpp` asserts at build
 time that DShot and KISS fit one block (3 state machines, 25 of 32 words):
 
-| Block | 2.0", ESC running | 2.0", KST claim | 2.8", ESC running | 2.8", KST claim |
-|---|---|---|---|---|
-| pio0 | free | free | free | free |
-| pio1 | free | free | SDIO, 32 of 32 words, 2 SMs | SDIO, full |
-| pio2 | DShot 16 + KISS 9 = 25 words, SM0 to SM2 | KST 24 words, SM0 | DShot + KISS, 25 words | KST 24 words |
-| DMA | 3 of 16 | 5 of 16 | 3 of 16 | 5 of 16 |
+| Block | ESC running | KST claim |
+|---|---|---|
+| pio0 | free | free |
+| pio1 | SDIO, 32 of 32 words, 2 SMs | SDIO, full |
+| pio2 | DShot 16 + KISS 9 = 25 words, SM0 to SM2 | KST 24 words, SM0 |
+| DMA | 3 of 16 | 5 of 16 |
 
 Nothing needs the claim for resources. If the KST line opened beside a
 running DShot and KISS, it would not fit in pio2 (7 words left) and would land
-in pio0 on either board. The claim exists for the pin, not for the PIO block.
+in pio0. The claim exists for the pin, not for the PIO block.
 
 ### System clock
 
@@ -375,10 +359,10 @@ the panel driver changes it. The KST driver needs a 25.40 µs half-cell within
 The pins drive 3.3 V, from IOVDD. The MiniRcBench README treats every GPIO as
 3.6 V maximum. rcbench's documents rate RP2350 GPIO0 to GPIO39 at 5.5 V while
 IOVDD is at 3.3 V and at 3.63 V while it is off. That statement is for
-rcbench's RP2350B, whose ADC pins are GP40 to GP47. On the RP2350A of these
-boards the ADC pins are GP26 to GP29, which includes GP28 and GP29; whether
+rcbench's RP2350B, whose ADC pins are GP40 to GP47. On the RP2350A of this
+board the ADC pins are GP26 to GP29, which includes GP28 and GP29; whether
 the 5.5 V rating covers them is not checked here against the datasheet. This
-design keeps the stricter rule for all signal pins on both boards: no level
+design keeps the stricter rule for both signal pins: no level
 above 3.6 V on SIG or AUX. It matters for KST, where the servo drives the line in
 its reply ([kst-programming.md](kst-programming.md)).
 
@@ -399,13 +383,10 @@ ground only.
   board SIG  ------------------------------------------  servo A signal (orange or white)
   board AUX  ------------------------------------------  servo B signal, two-servo mode only
 
-  2.0": SIG GP4  = P2 pin 11, AUX GP5 = P1 pin 10, GND = P2 pin 13
-  2.8": SIG GP29 = J4 pin 12, AUX GP28 = J4 pin 11, GND = J4 pin 1 or 5
+  SIG GP29 = J4 pin 12, AUX GP28 = J4 pin 11, GND = J4 pin 1 or 5
 ```
 
-- The servo's middle wire goes to its supply, never to a header pin. A servo
-  plug pushed onto P2 pins 11 to 13 of the 2.0" board puts the servo's plus
-  on GP10.
+- The servo's middle wire goes to its supply, never to a connector pin.
 - The board's 5 V pin is its USB supply. A servo can draw more than 1 A at
   stall; do not feed it from the board.
 - Power the board before the servo supply, and switch the servo supply off
@@ -418,8 +399,7 @@ ground only.
 `test/test_claim.cpp`, against fakes of the esc_task and job interfaces:
 
 - refusal per rule: armed, busy, ESC answering within 500 ms and quiet at
-  500 ms, KISS live with AUX asked and ignored without, each compare-register
-  pair of the 2.0" free set;
+  500 ms, KISS live with AUX asked and ignored without;
 - the drain: no teardown before 250 ms of zero frames after a throttle frame;
   none needed after a long disarm;
 - order: DShot released before any job bind; job idle before

@@ -13,9 +13,9 @@ firmware; the status lines here summarise it per feature.
 
 | Document | Status |
 |---|---|
-| [kiss-telemetry.md](kiss-telemetry.md) | Implemented on both boards. Working on hardware (owner report). Off by default on the 2.8" board. |
-| [blackbox-logging.md](blackbox-logging.md) | Implemented on both boards. Hardware use recorded in commits on both boards. Buffer sizing unmeasured. |
-| [sdio-driver.md](sdio-driver.md) | Implemented on the 2.8" board, not tested on hardware. MIT SDIO driver written from the SD specification; replaces the SD library's GPL-derived one. Host tests against a simulated card. |
+| [kiss-telemetry.md](kiss-telemetry.md) | Implemented. Working on hardware (owner report). Off by default. |
+| [blackbox-logging.md](blackbox-logging.md) | Implemented. Hardware use recorded with the previous SDIO driver; none recorded with the current one. Buffer sizing unmeasured. |
+| [sdio-driver.md](sdio-driver.md) | Implemented, not tested on hardware. MIT SDIO driver written from the SD specification; replaces the SD library's GPL-derived one. Host tests against a simulated card. |
 | [pin-claim.md](pin-claim.md) | Planned. A screen takes the ESC and KISS pins from DShot while it is open; shared hardware facts and the slice plan. |
 | [servo-tester.md](servo-tester.md) | Planned. Servo PWM output, manual position, sweep, two servos. Depends on the pin claim. |
 | [kst-programming.md](kst-programming.md) | Planned. KST and Chaservo servo programming, ported from rcbench. Depends on the pin claim. |
@@ -28,21 +28,17 @@ than EDT (Extended DShot Telemetry, carried in the replies of the DShot digital
 ESC protocol). The log is the main use of that resolution: a voltage trace in
 0.25 V steps hides a 200 mV sag.
 
-SD (Secure Digital) logging runs on both boards: the 2.8" over four-bit PIO
-(the RP2350's programmable input/output) SDIO (Secure Digital input/output) at
-10 MHz, the 2.0" over one-bit hardware SPI (Serial Peripheral Interface) at
-12 MHz. A USB (Universal Serial Bus) host can read the card as a read-only
-drive.
+MiniRcBench runs on one board, the Waveshare RP2350-Touch-LCD-2.8.
 
-SD logging runs on both boards: the 2.8" over four-bit PIO SDIO at 10 MHz, the
-2.0" over one-bit hardware SPI (Serial Peripheral Interface) at 12 MHz. The
-SDIO path runs on the driver in `src/sdio/` ([sdio-driver.md](sdio-driver.md)),
-which has no hardware record yet.
+SD (Secure Digital) logging runs over four-bit PIO (the RP2350's programmable
+input/output) SDIO (Secure Digital input/output) at 10 MHz, on the driver in
+`src/sdio/` ([sdio-driver.md](sdio-driver.md)), which has no hardware record
+yet. A USB (Universal Serial Bus) host can read the card as a read-only drive.
 
-KISS telemetry is implemented on both boards. The owner reports it working on
-hardware, the display's own telemetry request included; which board that
-report covers is not recorded. The receiver is a PIO state machine, so any
-free GPIO (general-purpose input/output) can carry the wire. The 2.8" board
+KISS telemetry is implemented. The owner reports it working on hardware, the
+display's own telemetry request included; whether that report covers the
+RP2350-Touch-LCD-2.8 is not recorded. The receiver is a PIO state machine, so
+any free GPIO (general-purpose input/output) can carry the wire. The board
 frees two GPIOs, GP28 and GP29. The ESC takes GP29 and KISS defaults to GP28,
 switched off until the user turns it on.
 

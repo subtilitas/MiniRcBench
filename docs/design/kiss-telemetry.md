@@ -12,11 +12,12 @@ buffer, XOR is exclusive or, UI is user interface, IOVDD is the RP2350's
 input/output supply voltage, SDIO is Secure Digital input/output, CI is
 continuous integration. AM32 is an open-source ESC firmware.
 
-Status: implemented on both boards: decoder, PIO receiver, request and drain on
+Status: implemented on the Waveshare RP2350-Touch-LCD-2.8: decoder, PIO receiver, request and drain on
 core1, merge with EDT, source tags on the main screen, both eRPM sources in the
 log. Working on hardware (owner report). Issue #1 separately reports correct
-values with a receiver driving the ESC and the display only listening. Which
-board each report covers and the line voltage have no record.
+values with a receiver driving the ESC and the display only listening. Whether
+each report covers the RP2350-Touch-LCD-2.8, and the line voltage, have no
+record.
 
 ## Why
 
@@ -187,26 +188,20 @@ telemetry pad goes to a GPIO; the line is transmit-only from the ESC.
 
 The receiver is a UART built from one PIO state machine
 (`src/pio_uart_rx.pio`, 8 cycles per bit), not one of the RP2350's two hardware
-UARTs. A hardware UART can receive only on GPIOs where `n % 4 == 1`. The 2.8"
-board frees two GPIOs, GP28 and GP29; only GP29 is a UART receive pin, and GP29
-carries the ESC signal. So the PIO receiver is what makes KISS possible on that
-board. The block and state machine are claimed from whatever is free at run
-time, because the DShot driver is always resident and the 2.8" also runs the
-SDIO card driver. When no state machine is free the effect is that of an
+UARTs. A hardware UART can receive only on GPIOs where `n % 4 == 1`. The board
+frees two GPIOs, GP28 and GP29; only GP29 is a UART receive pin, and GP29
+carries the ESC signal. So the PIO receiver is what makes KISS possible on
+this board. The block and state machine are claimed from whatever is free at
+run time, because the DShot driver is always resident and the SDIO card
+driver holds pio1. When no state machine is free the effect is that of an
 unplugged wire.
 
-Any free GPIO that is not the ESC's can receive. Defaults:
-
-| Board | KISS pin | Header | Default |
-|---|---|---|---|
-| RP2350-Touch-LCD-2 | GP5 | P1 pin 10 | on |
-| RP2350-Touch-LCD-2.8 | GP28 | J4 pin 11 | off |
-
-The 2.8" default is off because that board brings out exactly two pins and
-most users have not soldered the second wire; one tap on CFG → SETUP turns it
-on. The SETUP stepper skips the ESC's pin, and on the 2.8" it has no third pin
-to step to. Each board descriptor fails the build if a pin override leaves the
-board's free set or puts both wires on one pin.
+Any free GPIO that is not the ESC's can receive. The default is GP28, J4
+pin 11, switched off: the board brings out exactly two pins and most users
+have not soldered the second wire; one tap on CFG → SETUP turns it on. The
+SETUP stepper skips the ESC's pin, so it has no third pin to step to. The
+board descriptor fails the build if a pin override leaves the free set or
+puts both wires on one pin.
 
 The firmware enables the internal pull-up on the KISS pin, so an unconnected
 wire reads idle instead of decoding noise.
@@ -312,8 +307,8 @@ host.
 - `src/esc_task.cpp`: the request bit through `out_dshot_send()`, the drain in
   `escTaskPoll()`, the `EscTelemetry` fields.
 - `src/esc_merge.cpp`: the merge policy. The UI draws the source tags.
-- `src/config.h`: `KISS_TELEM_ENABLE`, `KISS_PIN_LCD_2`, `KISS_PIN_LCD_2_8`,
-  `KISS_ENABLE_LCD_2`, `KISS_ENABLE_LCD_2_8`, `KISS_REQUEST_EVERY_N`,
+- `src/config.h`: `KISS_TELEM_ENABLE`, `KISS_PIN_LCD_2_8`,
+  `KISS_ENABLE_LCD_2_8`, `KISS_REQUEST_EVERY_N`,
   `KISS_STALE_MS`, `KISS_REPLY_TIMEOUT_MS`. The pin and the enable are
   runtime settings on CFG → SETUP; the macros are their defaults.
 - README.md, section "KISS telemetry (optional third wire)": the wiring.
@@ -322,8 +317,9 @@ host.
 
 The owner reports KISS telemetry working on hardware, the display's own
 telemetry request included. Issue #1 separately reports correct values with a
-receiver driving the ESC and the display only listening. Which board each
-report covers is not recorded. The line level is not measured.
+receiver driving the ESC and the display only listening. Whether each report
+covers the RP2350-Touch-LCD-2.8 is not recorded. The line level is not
+measured.
 [STATUS.md](../../STATUS.md) holds the full verification record.
 
 ## Open questions

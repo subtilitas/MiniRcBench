@@ -8,15 +8,14 @@ Extended DShot Telemetry, eRPM is electrical revolutions per minute, RPM is
 revolutions per minute, KISS telemetry is the serial protocol of the KISS ESC
 line on its own wire, UI is user interface, USB is Universal Serial Bus, CI is
 continuous integration, VB is variable-byte, SDK is software development kit,
-GPIO is general-purpose input/output. In the pin tables, MISO is master in,
-slave out, MOSI master out, slave in, SCK and CLK the serial clock, CS and CSn
-chip select (n: active low), CMD the SDIO command line, RX receive and TX
-transmit.
+GPIO is general-purpose input/output, DMA is direct memory access. In the pin
+table, CLK is the serial clock and CMD the SDIO command line; TX is transmit.
 
-Status: implemented on both boards. Hardware use is recorded in commits: the
-2.8" board mounted a card over SDIO at 25 MHz in `tools/sdtest` and wrote a
-file (036adfe); a replacement 2.0" board works over SPI (5b9c7bd). A run at the
-shipped SDIO clock of 10 MHz is not recorded separately. BUF PEAK and WORST
+Status: implemented on the Waveshare RP2350-Touch-LCD-2.8. Hardware use is
+recorded in one commit: the board mounted a card over SDIO at 25 MHz in
+`tools/sdtest` and wrote a file (036adfe), with the SD library's SDIO driver
+that `src/sdio/` replaces. Nothing is recorded for the current driver, nor a
+run at the shipped SDIO clock of 10 MHz. BUF PEAK and WORST
 FLUSH under sustained logging are not recorded, so the buffer size is
 unmeasured. See "Bring-up" below.
 
@@ -37,32 +36,13 @@ real `blackbox_decode`.
 
 ## Scope
 
-Both boards, by two different interfaces: hardware SPI on the 2.0", PIO SDIO
-on the 2.8". The board descriptor selects the interface at run time.
+The RP2350-Touch-LCD-2.8, over PIO SDIO.
 
 ## Hardware
 
-The pins live in the per-board headers and reach the driver through the board
-descriptor. The interface is chosen at run time: `sdHwConfigApply()` in
-`src/sd_hw_config.c` fills both the SPI and the SDIO configuration from
-`g_board` before the card is mounted, and the descriptor's `sdIface` field sets
-which one the library uses. That is what lets one unified image drive either
-board. `SD_IFACE_SPI` and `SD_IFACE_SDIO` in the board headers remain only for
-`tools/sdtest`.
-
-**RP2350-Touch-LCD-2 (2.0"): hardware SPI1, one bit wide, 12 MHz
-(`SD_LOG_SPI_MHZ`):**
-
-| Signal | GPIO | SPI1 function |
-|---|---|---|
-| `PIN_SD_MISO` | 24 | SPI1 RX |
-| `PIN_SD_CS` | 25 | SPI1 CSn |
-| `PIN_SD_SCK` | 26 | SPI1 SCK |
-| `PIN_SD_MOSI` | 27 | SPI1 TX |
-
-The display is on SPI0 on this board, so card writes and the display's
-multi-millisecond DMA (direct memory access) bursts do not contend for a
-peripheral. They still contend for core0 time.
+The pins live in the board header, `src/board_rp2350_touch_lcd_2_8.h`, and
+`src/sd_hw_config.c` hands them to the library in static structs, which the
+library looks up by name at link time.
 
 **RP2350-Touch-LCD-2.8: PIO SDIO, four bits wide, 10 MHz
 (`SD_LOG_SDIO_HZ`):**
@@ -73,10 +53,10 @@ peripheral. They still contend for core0 time.
 | `PIN_SD_CMD` | 20 |
 | `PIN_SD_D0`..`D3` | 21, 22, 23, 24 |
 
-Hardware SPI is impossible there: `SD_SCK` is GP19, which is SPI0 **TX** in
-the pin mux, not SCK. The pins satisfy the one constraint the PIO programs
-impose (D1..D3 directly follow D0), and `board_desc_lcd2_8.cpp` asserts it at
-compile time. The driver is `src/sdio/` ([sdio-driver.md](sdio-driver.md)).
+Hardware SPI is impossible on this board: `SD_SCK` is GP19, which is SPI0
+**TX** in the pin mux, not SCK. The pins satisfy the one constraint the PIO
+programs impose (D1..D3 directly follow D0), and `sd_hw_config.c` asserts it
+at compile time. The driver is `src/sdio/` ([sdio-driver.md](sdio-driver.md)).
 The one hardware record, a mount at 25 MHz in `sdtest`, is of the library's
 SDIO driver, not of this one. The firmware ships at 10 MHz, because SDIO is
 more sensitive to signal integrity than one-bit SPI, and a card that
@@ -300,26 +280,10 @@ them.
 
 ## Bring-up
 
-Recorded on hardware: the 2.8" board mounts a card over SDIO at 25 MHz in
-`tools/sdtest` and writes a file (036adfe). A replacement 2.0" board mounts a
-card and writes over SPI (5b9c7bd).
-
-One 2.0" board has GPIO27, the card's CMD line (SPI MOSI), shorted to ground.
-On that board every card reports FatFs `FR_NOT_READY` at every clock rate from
-12 MHz down to 200 kHz, because the card never receives a command.
-`tools/sdtest` shows the short: the pin does not go high when driven
-push-pull with the slot empty. The replacement board works over the same SPI
-path, so the fault is in that unit, not in the design. That record excludes
-these causes of `FR_NOT_READY`:
-
-- the pin map, checked against the schematic netlist;
-- the SPI clock: all five rates fail identically;
-- exFAT (Extended File Allocation Table) support, which is enabled;
-- SDXC (Secure Digital eXtended Capacity) cards, whose HCS (Host Capacity
-  Support) and CCS (Card Capacity Status) bits the driver handles;
-- the driver's init sequence, which sends the 74-clock preamble;
-- the firmware integration: `tools/sdtest` shares only `sd_hw_config.c` with
-  the firmware and fails the same way.
+Recorded on hardware: the board mounts a card over SDIO at 25 MHz in
+`tools/sdtest` and writes a file (036adfe), with the library's SDIO driver.
+`tools/sdtest` shares only `sd_hw_config.c` with the firmware, so a card that
+mounts there and not in the firmware puts the fault in the integration.
 
 Two properties of `tools/sdtest` keep its answers correct:
 
@@ -328,8 +292,8 @@ Two properties of `tools/sdtest` keep its answers correct:
   a pad so configured latches at about 2.1 V and reads high from then on, and
   a good line reports as "held high".
 - Each attempt at a lower clock forces a full re-initialisation. The driver
-  caches both the SPI setup and the card state and revisits neither, so a
-  plain retry runs at the first speed.
+  caches the card state and does not revisit it, so a plain retry runs at the
+  first speed.
 
 Unmeasured: BUF PEAK and WORST FLUSH under sustained logging, which are what
 should size `SD_LOG_BUFFER_BYTES`. 8192 bytes is unmeasured.

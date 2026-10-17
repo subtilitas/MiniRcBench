@@ -156,13 +156,12 @@ what the drag, MIN, CENTRE, MAX and SWEEP drive:
   for a pair mounted face to face.
 
 The selected horn is drawn with its grip and full width, the other at 1 px.
-The touch drivers report one contact (`TouchState`, on both the CST816D and
-the CST328), so one finger drives one selection; there is no second drag.
+The touch driver reports one contact (`TouchState`, from the CST328), so one
+finger drives one selection; there is no second drag.
 START starts both pins at CENTRE. STOP stops both.
 
-Both servos share one profile and one frame rate. With the default pins they
-are one PWM slice on both boards (GP4 and GP5 are slice 2, GP28 and GP29 slice
-6), which forces one rate anyway.
+Both servos share one profile and one frame rate. SIG (GP29) and AUX (GP28)
+are channels B and A of PWM slice 6, which forces one rate anyway.
 
 ## Screens
 
@@ -258,7 +257,7 @@ y   0 | SERVO SET                        [ BACK ]|
   or `A HELI PROFILE CAN DESTROY A SERVO NOT MADE FOR IT.`, and HOLD TO APPLY
   (1000 ms) applies it. Every other change applies at once.
 - SERVOS TWO is drawn disabled, with the reason on the strip, when the claim
-  refuses AUX (KISS live, shared compare register).
+  refuses AUX (KISS live).
 - DEFAULTS returns to STANDARD PWM at 50 Hz, one servo, sine at 0.50 Hz.
 
 ## Where it runs
@@ -358,8 +357,7 @@ New, `test/test_servo.cpp`:
 - the stop rules: a drag, MIN, CENTRE, MAX, STOP, BACK, a profile change and a
   trip each end a sweep; a drag across START and STOP ends; a press while SAFE
   takes no drag;
-- two servos: the selector, `AB` with REVERSE B, refusal on each 2.0" pin pair
-  that shares a compare register.
+- two servos: the selector, `AB` with REVERSE B.
 
 `test/test_ui.cpp`: the SERVO and SET screens render, the disabled states draw
 disabled and do not act, HOLD TO START fires after 1000 ms and not on a slide
@@ -372,7 +370,7 @@ off, STOP fires on press. `make previews` adds `docs/servo-preview.png`.
    sweep and map, the ported tests.
 3. `gfx` line and arc, `ui_slider.*`.
 4. `ui_servo.cpp`, SET, the CFG entry enabled, UI tests, preview.
-5. Bring-up: a scope on SIG and AUX at 50 Hz and 560 Hz on both boards; one
+5. Bring-up: a scope on SIG and AUX at 50 Hz and 560 Hz; one
    servo, two servos; STOP latency; heartbeat trip by halting core0 in a
    debugger.
 6. README section "Servo tester" with the wiring diagram and the unplug
@@ -390,8 +388,8 @@ About 5 days for 1 to 4.
    restarts do, so a heli profile or a high rate is never applied to the next
    servo by accident, and `SETTINGS_VERSION` stays 2.
 3. **One profile or two.** Two servos of different types on one test?
-   Recommended: one shared profile with REVERSE B. The default pins share a
-   slice and therefore a rate on both boards; a second range is a second set
+   Recommended: one shared profile with REVERSE B. SIG and AUX share a
+   slice and therefore a rate; a second range is a second set
    of rows for a case nobody has asked for.
 4. **Sweep pause.** rcbench pauses and resumes a sweep at its phase.
    Recommended: not in this slice. STOP SWEEP holds the servo where the curve

@@ -13,15 +13,15 @@ The tester records telemetry to microSD in Betaflight blackbox format, at
 ## The card
 
 Use a microSD card formatted FAT32 (File Allocation Table). The card is
-mounted once at boot, and neither board has a card-detect pin. Insert the card
+mounted once at boot, and the board has no card-detect pin. Insert the card
 before power-up, or press `RETRY` on the SD LOG screen after inserting it.
 
 Files are written to the card root as `LOG00001.BFL`, `LOG00002.BFL`, and so
 on. Each new file takes the lowest unused number from 00001 to 09999. Existing
 files are not overwritten.
 
-The 2.0" board reads the card over SPI (Serial Peripheral Interface) at
-12 MHz, the 2.8" over 4-bit SDIO (Secure Digital I/O) at 10 MHz.
+The board reads the card over 4-bit SDIO (Secure Digital Input/Output) at
+10 MHz.
 
 ---
 
