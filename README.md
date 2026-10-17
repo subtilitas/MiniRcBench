@@ -871,14 +871,44 @@ accessors.
 file-static state without production code carrying test-only accessors. For that reason the
 Makefile does not list `ui_am32.cpp` in `SRCS`.
 
+`make pioemu`, which `make` runs too, runs `test/pio_sdio_emu.py`. It assembles
+the two SDIO PIO programs from `src/sdio/sd_pio.pio` itself and runs them one
+system clock at a time at 150 MHz against a model of an SD card, through a
+host model that makes the calls `sd_pio.c` makes. The FIFO (first in, first
+out) words come from `sd_proto.c`, compiled for the run, and its checks judge
+the results. The scenarios:
+
+- CMD0, which has no response;
+- an R1 and an R2 response;
+- CMD17, a single-block read whose data start during the response;
+- CMD18, a multiple-block read over 3 blocks;
+- CMD12, which stops it, and its busy on DAT0;
+- CMD24, a single-block write, and its CRC status token.
+
+Each runs at 400 kHz, 10 MHz and 25 MHz, with card output delays of 0, 1 and
+2 system clocks, against a fast card and a slow one: 18 runs. A run fails on a
+wrong response or block, on the host and the card driving one line at once,
+and on a line that changes within 1 system clock of the point where the card
+or a state machine samples it. A control run with a card delay of 3 system
+clocks at 25 MHz has to fail.
+
+What the model covers, from the PIO chapter of the RP2350 datasheet: the
+instructions the programs use, side-set, delays, wrap, the fractional clock
+divider, autopull and autopush, 4-word FIFOs, the 2-clock input synchroniser
+and the forced instructions `sd_pio.c` issues. What it does not: it is a
+model, not proof of hardware timing. It has no analogue behaviour and no trace
+delay, its DMA is ideal, it has one card model and no card initialisation, and
+its host side follows `sd_pio.c` by hand. The Firmware job in CI holds its
+assembler to the SDK's `pioasm`.
+
 ### Continuous integration
 
 `.github/workflows/ci.yml` runs one job per row:
 
 | Job | What it catches |
 |---|---|
-| **Firmware** | Real Pico SDK build of the RP2350-Touch-LCD-2.8 image, pinned by `CMakeLists.txt`, plus UF2 validation, a check that no file of the SD library's SDIO driver is in the image, and the third-party notices written and checked for the image |
-| **Host tests** | Protocol, codec and UI regressions a compile cannot see |
+| **Firmware** | Real Pico SDK build of the RP2350-Touch-LCD-2.8 image, pinned by `CMakeLists.txt`, plus UF2 validation, a check that no file of the SD library's SDIO driver is in the image, the third-party notices written and checked for the image, and the PIO emulator's assembler compared with `pioasm` |
+| **Host tests** | Protocol, codec and UI regressions a compile cannot see, and the SDIO PIO programs run in a cycle-level model against a card model |
 | **Coverage** | Line coverage below 93% in total or 85% in any file, or a README or STATUS.md coverage figure that no longer matches `tools/coverage.py` |
 | **Blackbox round-trip** | Encodes a log and decodes it with Betaflight's own `blackbox_decode`, comparing every value |
 | **Config permutations** | All 32 combinations of `AM32_PUSH_PULL_TX`, `AM32_FORCE_LOW_JUMP`, `LCD_ROTATION`, `KISS_TELEM_ENABLE` and `SD_LOG_ENABLE`, warnings fatal |

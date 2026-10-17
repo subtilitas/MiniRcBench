@@ -138,7 +138,7 @@ record either way.
 | EDT telemetry, automatic enable, expiry | merge, expiry, enable rule, decode of each frame type | hardware-tested (owner report) with `pico-bidir-dshot` |
 | KISS telemetry: request, PIO receiver, decode, merge, KISS/EDT tags | CRC, decode, resynchronisation, request payload, merge; the PIO receiver is typechecked only | hardware-tested (owner report) with `pico-bidir-dshot`; see below |
 | DShot bitrate label in the status bar, `DSERR` | label at each bitrate, colour, `DSERR` | not recorded |
-| SDIO card driver in `src/sdio/`: protocol, PIO and DMA bus, library callbacks | CRC7 and CRC16 against the specification's examples, command framing, response parsing, CSD (card-specific data register), four-bit packing, CRC status token; initialisation, reads and writes against a simulated card (standard capacity SDSC v1 and v2, high capacity SDHC, no card, voltage mismatch, timeouts, removal); the PIO programs and the bus are compiled only | not tested on hardware; open item 7 lists the bench tests |
+| SDIO card driver in `src/sdio/`: protocol, PIO and DMA bus, library callbacks | CRC7 and CRC16 against the specification's examples, command framing, response parsing, CSD (card-specific data register), four-bit packing, CRC status token; initialisation, reads and writes against a simulated card (standard capacity SDSC v1 and v2, high capacity SDHC, no card, voltage mismatch, timeouts, removal); the two PIO programs run in a cycle-level model against a card model (`test/pio_sdio_emu.py`: CMD0, R1, R2, single and multiple block reads, CMD12, a write and its CRC status token, at 400 kHz, 10 MHz and 25 MHz), a model and not proof of hardware timing; the bus code in `sd_pio.c` is compiled only, and the model's host side follows it by hand | not tested on hardware; open item 7 lists the bench tests |
 | Blackbox logging to SD, CFG → SD LOG screen | encoder, ring buffer, round trip through `blackbox_decode`, screen states | hardware use recorded with the previous SDIO driver on the 2.8" board; see below |
 | USB card reader (read-only mass storage) | handover state machine, screen | not recorded |
 | AM32 settings editor over the signal wire (AM32 is an open-source ESC firmware) | init string, CRC-16/ARC, 39-field codec, timing advance encodings, write interlock | hardware use recorded: ab79c67, bd90e17 |
@@ -274,19 +274,23 @@ binary, `dshot_tests`. `test/test_main.cpp` runs twelve suites:
 | `runSdioTests` | `test_sdio.cpp` | SDIO driver: CRC7 and CRC16 vectors, framing, responses, CSD, four-bit packing, CRC status token; initialisation, reads and writes against a simulated card |
 
 Other targets in `test/Makefile`: `syntax` typechecks the device-only sources
-with `-Werror`; `bbcheck` encodes 2000 frames and decodes them with
+with `-Werror`; `pioemu` runs `test/pio_sdio_emu.py`, the SDIO PIO programs
+assembled from `src/sdio/sd_pio.pio` and run one system clock at a time
+against a card model, 18 runs over three clock rates, three card output
+delays and two card latencies, and `make` runs it too; `bbcheck` encodes 2000 frames and decodes them with
 Betaflight's `blackbox_decode`; `previews` and `wiki` rebuild screenshots;
 `coverage` builds an instrumented suite. Scripts: `test/check_docs.py`,
 `test/check_uf2.sh`, `test/check_uf2_selftest.sh`, `test/check_blackbox.py`,
-`tools/check_wiki.py`, `tools/coverage.py`, `tools/notices.py`.
+`test/pio_sdio_emu.py`, `tools/check_wiki.py`, `tools/coverage.py`,
+`tools/notices.py`.
 
 **CI** (`.github/workflows/ci.yml`; on push to `main` or `master`, on pull
 requests, by hand):
 
 | Job | What it does |
 | --- | --- |
-| Firmware (`touch-lcd-2.8`) | builds with arm-none-eabi-gcc 13.3 and `STRICT=ON`; flash under 1 MiB and RAM (random-access memory) under 400,000 bytes; checks from the DWARF compile units that no file of the SD library's SDIO, ZuluSCSI-firmware or SdFat directories is in the image; writes `THIRD_PARTY_NOTICES.txt` with `tools/notices.py` and checks it against the image; checks the two pin overrides reach CMake and that `-DDSHOT_PIN`, `-DKISS_PIN`, `-DDSHOT_PIN_LCD_2`, and `-DKISS_PIN_LCD_2` are refused; validates the UF2 |
-| Host tests | `make`; the suite again with both pin macros overridden; wiki screenshots and `check_wiki.py` |
+| Firmware (`touch-lcd-2.8`) | builds with arm-none-eabi-gcc 13.3 and `STRICT=ON`; flash under 1 MiB and RAM (random-access memory) under 400,000 bytes; checks from the DWARF compile units that no file of the SD library's SDIO, ZuluSCSI-firmware or SdFat directories is in the image; writes `THIRD_PARTY_NOTICES.txt` with `tools/notices.py` and checks it against the image; compares the PIO model's assembler with the SDK's `pioasm`; checks the two pin overrides reach CMake and that `-DDSHOT_PIN`, `-DKISS_PIN`, `-DDSHOT_PIN_LCD_2`, and `-DKISS_PIN_LCD_2` are refused; validates the UF2 |
+| Host tests | `make`, which runs the SDIO PIO model too; the suite again with both pin macros overridden; wiki screenshots and `check_wiki.py` |
 | Blackbox round-trip | builds `blackbox_decode` from source, runs `make bbcheck` |
 | Config permutations | typechecks all of `src/` with `-Werror` for 32 combinations: AM32 transmit mode × AM32 low-jump × rotation 0 or 2 × KISS on or off × SD logging on or off; checks the landscape guard fires |
 | Workflow lint | actionlint 1.7.7 and a duplicate-key check on every workflow in `.github/workflows/` |
@@ -314,8 +318,9 @@ can be started by hand itself. The wiki is
 published per release on purpose, so it describes firmware that can be
 downloaded.
 
-Not covered by any job: hardware behaviour, `tools/sdtest`, and the PIO
-programs beyond compilation.
+Not covered by any job: hardware behaviour, `tools/sdtest`, the DShot and
+KISS PIO programs beyond compilation, and the SDIO ones beyond the cycle-level
+model.
 
 <!-- coverage-table:start -->
 | File | Lines | Covered | Coverage |
