@@ -82,7 +82,10 @@ its own wire. AM32 is an open-source ESC firmware.
   text, copied from the licence files of the Pico SDK checkout, the fetched SD
   library and the Arm GNU Toolchain. `tools/notices.py` writes it from the
   image's debug information and linker map, and fails on code that no
-  component covers and on a checkout that is not the pinned commit.
+  component covers, on a linker map entry with a size that names no input,
+  and on a checkout that is not the pinned commit. The GCC section names
+  `libstdc++.a(cp-demangle.o)`, which is libiberty code under
+  GPL-2.0-or-later with a link exception, and carries that exception.
   `SHA256SUMS.txt` covers the file. The Release workflow checks it before
   publishing and after, and the Firmware job of CI writes and checks it on
   every push.

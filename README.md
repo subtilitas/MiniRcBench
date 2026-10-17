@@ -1084,7 +1084,8 @@ licence:
 | `no-OS-FatFS-SD-SDIO-SPI-RPi-Pico` v3.6.2: SPI card driver, FatFs glue, utilities | Apache-2.0 |
 | FatFs R0.15, from that library | FatFs licence, a one-clause BSD-style licence |
 | newlib, the C library of the Arm GNU Toolchain 13.3.Rel1 | a collection of permissive licences, most of them BSD-style |
-| libgcc and the language support part of libstdc++, from the same toolchain | GPL-3.0 with the GCC (GNU Compiler Collection) Runtime Library Exception |
+| libgcc and the language support part of libstdc++ other than `cp-demangle.o`, from the same toolchain | GPL-3.0 with the GCC (GNU Compiler Collection) Runtime Library Exception |
+| `cp-demangle.o` in that libstdc++: the C++ name demangler, from GCC's libiberty | GPL-2.0-or-later with a link exception |
 
 The SD library's SPI card driver borrows from Arm Mbed OS's SDBlockDevice,
 which is Apache-2.0, and its CRC code is partly derived from crcany, which is
@@ -1093,9 +1094,24 @@ under the zlib licence.
 The build compiles nothing from that library's SDIO driver, which its README
 derives from ZuluSCSI-firmware (GPL-3.0), nor from its ZuluSCSI-firmware and
 SdFat directories, and CI checks the image for it. The only GPL-licensed code
-in the image is the GCC runtime, and its Runtime Library Exception lets a
-program compiled by GCC carry that code under the program's own terms. The
-image as a whole carries no licence of its own, and whoever distributes it
+in the image is the GCC runtime. Its Runtime Library Exception lets a program
+compiled by GCC carry that code under the program's own terms. One member of
+that libstdc++, `cp-demangle.o`, is libiberty code under GPL-2.0-or-later
+instead: libstdc++ compiles it from `libiberty/cp-demangle.c`, whose exception
+permits linking the compiled file into a program and distributing the program
+without restriction from the use of the file.
+
+The image does not need `cp-demangle.o` to run. The firmware is compiled
+without C++ exceptions, and the linker includes the demangler through one
+chain: `STATUS_COL` in `drawTelemetry()` (`src/ui.cpp`) is a function-local
+static with a run-time initialiser, so the compiler guards it with
+`__cxa_guard_acquire`. That function can throw an error for a recursive
+initialisation, the exception code it pulls in ends in libstdc++'s default
+terminate handler, `vterminate.o`, and that handler calls `__cxa_demangle` to
+name the type of an uncaught exception. The demangler takes about 30 kB of
+flash.
+
+The image as a whole carries no licence of its own, and whoever distributes it
 meets each component's conditions. For a binary those are a copy of the
 Apache License 2.0 (section 4(a); neither the SD library nor the CMSIS files
 of the Pico SDK have a NOTICE file), the copyright notices, conditions and
@@ -1112,8 +1128,9 @@ libraries. Each component's section gives its version or commit as
 image, the copyright lines of those files, and its licence text, copied from
 the licence files that ship with the code: the SDK checkout, the SD library in
 `build/_deps`, and the `license.txt` of the Arm GNU Toolchain. The script fails
-on code in the image that no component covers, and on an SDK, TinyUSB or SD
-library checkout that is not the pinned commit. After a firmware build:
+on code in the image that no component covers, on a linker map entry with a
+size that names no input, and on an SDK, TinyUSB or SD library checkout that
+is not the pinned commit. After a firmware build:
 
 ```sh
 python3 tools/notices.py --sdk "$PICO_SDK_PATH" --out build/THIRD_PARTY_NOTICES.txt

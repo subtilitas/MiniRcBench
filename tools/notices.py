@@ -17,7 +17,10 @@ What is in the image comes from the image, not from a list kept here:
     libraries.
 
 Each of those is assigned to a component. A file no rule assigns fails the
-run, so code with a licence of its own cannot reach the image unnoticed.
+run, so code with a licence of its own cannot reach the image unnoticed. Every
+entry of the linker map with a size in a section the image allocates counts,
+whatever its file name looks like: padding and linker stubs are the only such
+entries that name no input, and an entry of any other shape fails the run.
 
 Each component's section names it, its version or commit as pinned in
 CMakeLists.txt, release.yml or the Pico SDK (software development kit), the
@@ -35,8 +38,9 @@ pins.
 --check reads a notices file back and fails when a section the file lists is
 missing or carries no licence text. With --sdk, it also derives the component
 list from the image and fails when the file lacks one. Every generating run
-ends by checking the text it wrote, and by checking that the check rejects a
-copy with one licence text emptied and a copy with one section removed.
+ends by checking the text it wrote, by checking that the check rejects a
+copy with one licence text emptied and a copy with one section removed, and by
+parsing a sample map that holds an input no component covers.
 
 Python 3 standard library only, and arm-none-eabi-readelf.
 """
@@ -133,31 +137,81 @@ def compile_units(readelf, elf):
     return units
 
 
-NOT_IN_IMAGE = re.compile(r"^\.(debug|comment|ARM\.attributes|stab|note|gnu)")
+def allocated_sections(readelf, elf):
+    """Per section name of the ELF file: whether it occupies memory (flag A)."""
+    text = run([readelf, "--section-headers", "--wide", str(elf)])
+    out = {}
+    for line in text.splitlines():
+        m = re.match(r"^\s*\[\s*\d+\]\s+(\S+)\s+\S+\s+[0-9a-f]+\s+[0-9a-f]+\s+[0-9a-f]+"
+                     r"\s+[0-9a-f]+\s+?([A-Za-z]*)\s+\d+\s+\d+\s+\d+$", line)
+        if m:
+            out[m.group(1)] = "A" in m.group(2)
+    if not any(out.values()):
+        fail(f"{elf} has no allocated section")
+    return out
 
 
-def map_inputs(map_path):
-    """Linker inputs that place bytes in the image, from the linker map.
+MAP_ENTRY = re.compile(r"^\s+(?:(\S+)\s+)?0x([0-9a-f]+)\s+0x([0-9a-f]+)(?:\s+(.*?))?\s*$")
+NOT_INPUTS = ("*fill*", "linker stubs")
+"""Map entries with a size that are no input: padding, and the veneers ld writes."""
+
+
+def map_inputs(map_path, sections):
+    """Linker inputs that place bytes in the image, from the linker map file."""
+    return parse_map(read(map_path), sections, map_path)
+
+
+def parse_map(text, sections, where):
+    """Linker inputs that place bytes in the image, from a linker map's text.
 
     Only the memory map counts: an input the linker loads and garbage-collects
-    entirely is listed under the discarded sections, not there. Sections that
-    hold only debug information or comments do not count either.
+    entirely is listed under the discarded sections, not there. Of the memory
+    map, only the output sections the ELF file allocates count; sections that
+    hold debug information, comments or attributes do not.
+
+    In an allocated section, every entry with an address, a non-zero size and
+    a name after them is an input, whatever the name looks like. Padding and
+    linker stubs are the two entries with a size that are not, and an entry
+    with a size and no name fails the run.
+
+    @p sections is allocated_sections() of the ELF file; @p where names the
+    map in a failure.
     """
-    text = read(map_path)
     if "Linker script and memory map" not in text:
-        fail(f"{map_path} has no memory map")
-    inputs, out_sec = set(), ""
+        fail(f"{where} has no memory map")
+    inputs, out_sec, header = set(), "", False
     for line in text.split("Linker script and memory map", 1)[1].splitlines():
-        m = re.match(r"^(\.\S+)", line)
-        if m:
-            out_sec = m.group(1)
-        if NOT_IN_IMAGE.match(out_sec):
+        if not line.strip():
             continue
-        m = re.match(r"^\s+(?:\S+\s+)?0x[0-9a-f]+\s+0x([0-9a-f]+)\s+(/\S+|\S+\.o\b\S*)$", line)
-        if m and int(m.group(1), 16) > 0:
-            inputs.add(m.group(2))
+        if not line[0].isspace():
+            # An output section, or a LOAD or OUTPUT line. A section name
+            # too long for its column puts the address and size on the next
+            # line, which then belongs to the section, not to an input.
+            out_sec = line.split()[0]
+            header = MAP_ENTRY.match(" " + line) is None
+            continue
+        m = MAP_ENTRY.match(line)
+        cont, header = header, False
+        if not m:
+            continue   # a symbol, an assignment or an input section pattern
+        name, size, tail = m.group(1), int(m.group(3), 16), m.group(4) or ""
+        if cont and name is None and (not tail or tail.startswith("load address ")):
+            continue
+        if not size:
+            continue
+        if out_sec not in sections:
+            fail(f"{where}: {size} bytes in {out_sec}, which the ELF file does not have: "
+                 f"{line.strip()}")
+        if not sections[out_sec]:
+            continue
+        if name in NOT_INPUTS or tail in NOT_INPUTS:
+            continue
+        if not tail:
+            fail(f"{where}: an entry of {size} bytes in {out_sec} names no input: "
+                 f"{line.strip()}")
+        inputs.add(tail)
     if not inputs:
-        fail(f"{map_path} places no input in the image")
+        fail(f"{where} places no input in the image")
     return inputs
 
 
@@ -167,6 +221,19 @@ GCC_ARCHIVES = {"libgcc.a", "libstdc++.a", "libsupc++.a", "libstdc++_nano.a",
                 "libsupc++_nano.a"}
 GCC_OBJECTS = {"crti.o", "crtn.o", "crtbegin.o", "crtend.o"}
 NEWLIB_OBJECTS = {"crt0.o"}
+
+
+def classify_input(item):
+    """Component key and shown name of a toolchain input; (None, None) for any other."""
+    m = re.match(r"^(.*\.a)\(([^)]+)\)$", item)
+    name = os.path.basename(m.group(1) if m else item)
+    if m:
+        key = ("newlib" if name in NEWLIB_ARCHIVES
+               else "gcc" if name in GCC_ARCHIVES else None)
+        return (key, f"{name}({m.group(2)})") if key else (None, None)
+    key = ("gcc" if name in GCC_OBJECTS
+           else "newlib" if name in NEWLIB_OBJECTS else None)
+    return (key, name) if key else (None, None)
 
 
 class Inventory:
@@ -183,19 +250,10 @@ class Inventory:
                 self.files.setdefault(key, {})[rel] = cu
             else:
                 self.unassigned.append(cu)
-        for item in sorted(map_inputs(map_path)):
+        for item in sorted(map_inputs(map_path, allocated_sections(readelf, elf))):
             if item.startswith("CMakeFiles/"):
                 continue   # a compiled source: its compile unit is above
-            m = re.match(r"^(.*\.a)\(([^)]+)\)$", item)
-            name = os.path.basename(m.group(1) if m else item)
-            if m:
-                key = ("newlib" if name in NEWLIB_ARCHIVES
-                       else "gcc" if name in GCC_ARCHIVES else None)
-                shown = f"{name}({m.group(2)})"
-            else:
-                key = ("gcc" if name in GCC_OBJECTS
-                       else "newlib" if name in NEWLIB_OBJECTS else None)
-                shown = name
+            key, shown = classify_input(item)
             if key:
                 self.files.setdefault(key, {})[shown] = None
             else:
@@ -250,6 +308,40 @@ def toolchain_section(text, project):
     while body and (not body[-1].strip() or set(body[-1].strip()) == {"-"}):
         body.pop()
     return "\n".join(body)
+
+
+LIBIBERTY_MEMBERS = {"cp-demangle.o"}
+"""Members of the toolchain's GCC archives that are libiberty code, not libgcc
+or libstdc++ code: libstdc++-v3/libsupc++/Makefile.am compiles cp-demangle.o
+from libiberty/cp-demangle.c."""
+
+
+def libiberty_notice(text):
+    """The libiberty licence notice, as the toolchain's license.txt quotes it."""
+    lines = text.splitlines()
+    start = next((i for i, l in enumerate(lines)
+                  if l.strip().startswith("This file is part of the libiberty library")), None)
+    end = None if start is None else next(
+        (i for i in range(start, len(lines)) if lines[i].rstrip().endswith("executable.)")), None)
+    if end is None or "unlimited permission to link" not in " ".join(lines[start:end + 1]):
+        fail("the toolchain licence file quotes no libiberty notice with its link exception")
+    return textwrap.dedent("\n".join(lines[start:end + 1]))
+
+
+def included_for(map_text, member):
+    """What the linker map says an archive member is included for: input and symbol."""
+    lines = map_text.split("Linker script and memory map", 1)[0].splitlines()
+    for i, line in enumerate(lines):
+        if line.split(" ")[0].endswith(f"({member})"):
+            m = re.match(r"^\S*\s+(\S+) \((.+)\)$", line)
+            if not m and i + 1 < len(lines):
+                m = re.match(r"^\s+(\S+) \((.+)\)$", lines[i + 1])
+            if m:
+                inc = re.match(r"^(.*\.a)\(([^)]+)\)$", m.group(1))
+                by = (f"{os.path.basename(inc.group(1))}({inc.group(2)})" if inc
+                      else os.path.basename(m.group(1)))
+                return by, m.group(2)
+    fail(f"the linker map does not say what {member} is included for")
 
 
 def leading_comment(path, until):
@@ -318,10 +410,11 @@ NAMES = {
 
 class Section:
     def __init__(self, key, version, source, licence, files, text_from, text,
-                 notes=(), scan=False):
+                 notes=(), scan=False, more=()):
         self.key, self.name, self.version, self.source = key, NAMES[key], version, source
         self.licence, self.files, self.text_from, self.text = licence, files, text_from, text
         self.notes, self.scan = list(notes), scan
+        self.texts = [(text_from, text)] + list(more)
 
     def render(self, n):
         out = [RULE, f"{n}. {self.name}", RULE, ""]
@@ -344,7 +437,8 @@ class Section:
                 out.append("Copyright and origin lines in those files:")
                 out += [wrap(line, "  ", "    ") for line in found]
                 out.append("")
-        out += [BEGIN.format(self.text_from), self.text.rstrip("\n"), END, ""]
+        for text_from, text in self.texts:
+            out += [BEGIN.format(text_from), text.rstrip("\n"), END, ""]
         return "\n".join(out)
 
 
@@ -441,6 +535,41 @@ def build_sections(inv, args, pin):
         read(licence_file(sd_src / "src" / "ff15", "LICENSE.txt")),
         scan=True))
     tc = f"Arm GNU Toolchain {pin['toolchain']} (release.yml); the image is built by {built_by}"
+    gcc_text = toolchain_section(tc_text, "GNU GCC")
+    gcc_files = inv.files.get("gcc", {})
+    iberty = sorted(f for f in gcc_files
+                    if re.search(r"\(([^)]+)\)$", f)
+                    and re.search(r"\(([^)]+)\)$", f).group(1) in LIBIBERTY_MEMBERS)
+    gcc_licence = "GPL-3.0-or-later WITH GCC-exception-3.1"
+    gcc_notes = ["The GCC Runtime Library Exception at the top of the text covers code from "
+                 "these libraries in a compiled program; the licences after it cover the "
+                 "rest of GCC, which is not in the image."]
+    gcc_more = []
+    if iberty:
+        if "Version 2, June 1991" not in gcc_text:
+            fail("the GNU GCC section of the toolchain licence file has no GNU General "
+                 "Public License version 2")
+        names = ", ".join(iberty)
+        map_text = read(args.map)
+        why = [included_for(map_text, re.search(r"\(([^)]+)\)$", f).group(1)) for f in iberty]
+        gcc_licence += f"; {names}: GPL-2.0-or-later with the libiberty link exception"
+        gcc_notes = [
+            "The GCC Runtime Library Exception at the top of the first text covers code "
+            f"from these libraries in a compiled program, except {names}. Of the licences "
+            f"after it, the GNU General Public License version 2 covers {names}; the "
+            "others cover the rest of GCC, which is not in the image.",
+            f"{names} is libiberty code, not libstdc++ code: the C++ name demangler, "
+            "libiberty/cp-demangle.c in the GCC sources, which libstdc++ compiles into "
+            "its language support library (libstdc++-v3/libsupc++/Makefile.am). That "
+            "file is under the GNU General Public License version 2 or later, with an "
+            "exception that permits linking its compiled form into a program and "
+            "distributing that program without restriction from the use of the file. "
+            "The second text below is the file's notice with that exception, as the "
+            "toolchain's license.txt quotes it in its GNU Binutils section.",
+            "The linker includes it for " +
+            "; ".join(f"{sym}, which {by} calls" for by, sym in why) + "."]
+        gcc_more = [("the libiberty notice in the GNU Binutils section of the toolchain's "
+                     "license.txt", libiberty_notice(tc_text))]
     s.append(Section(
         "newlib", tc,
         "https://sourceware.org/newlib/", "several permissive licences, listed in the text",
@@ -448,14 +577,9 @@ def build_sections(inv, args, pin):
         "the NEWLIB and LIBGLOSS section of the toolchain's license.txt",
         toolchain_section(tc_text, "NEWLIB and LIBGLOSS")))
     s.append(Section(
-        "gcc", tc, "https://gcc.gnu.org",
-        "GPL-3.0-or-later WITH GCC-exception-3.1",
-        inv.files.get("gcc", ()),
-        "the GNU GCC section of the toolchain's license.txt",
-        toolchain_section(tc_text, "GNU GCC"),
-        notes=["The GCC Runtime Library Exception at the top of the text covers code from "
-               "these libraries in a compiled program; the licences after it cover the "
-               "rest of GCC, which is not in the image."]))
+        "gcc", tc, "https://gcc.gnu.org", gcc_licence, gcc_files,
+        "the GNU GCC section of the toolchain's license.txt", gcc_text,
+        notes=gcc_notes, more=gcc_more))
     present = [x for x in s if x.files]
     missing = [x.name for x in s if not x.files and x.key in ("own", "sdk")]
     if missing:
@@ -483,7 +607,7 @@ def render(sections, built_by, release):
 # ----------------------------------------------------------------- check
 
 def parse(text):
-    """Section names listed in the index, and per section its licence text."""
+    """Section names listed in the index, and per section its licence texts."""
     lines = text.splitlines()
     try:
         i = lines.index("Sections:")
@@ -499,18 +623,18 @@ def parse(text):
     while j < len(lines):
         if lines[j] == RULE and j + 2 < len(lines) and lines[j + 2] == RULE:
             name = re.sub(r"^\d+\. ", "", lines[j + 1])
-            k, text_lines, inside = j + 3, None, False
+            k, texts, inside = j + 3, [], False
             while k < len(lines) and lines[k] != RULE:
                 if BEGIN_RE.match(lines[k]):
-                    inside, text_lines = True, []
+                    inside = True
+                    texts.append([])
                 elif lines[k] == END:
                     inside = False
                 elif inside:
-                    text_lines.append(lines[k])
+                    texts[-1].append(lines[k])
                 k += 1
-            if inside:
-                text_lines = None   # no end marker: truncated
-            bodies[name] = text_lines
+            # No licence text, or one without its end marker: truncated.
+            bodies[name] = texts if texts and not inside else None
             j = k
         else:
             j += 1
@@ -523,10 +647,10 @@ def check(text, expected=None):
     if not index:
         problems.append("the section index is empty")
     for name in index:
-        body = bodies.get(name)
-        if body is None:
+        texts = bodies.get(name)
+        if texts is None:
             problems.append(f"section '{name}' is missing, or its licence text is not closed")
-        elif sum(1 for l in body if l.strip()) < MIN_LICENCE_LINES:
+        elif any(sum(1 for l in t if l.strip()) < MIN_LICENCE_LINES for t in texts):
             problems.append(f"section '{name}' has an empty licence text")
     for name in (expected or ()):
         if name not in index:
@@ -535,18 +659,63 @@ def check(text, expected=None):
 
 
 def selftest(text):
-    """The check must reject a copy with an emptied text and one with a section cut."""
+    """The check must reject a copy with its first or its last licence text emptied,
+    and one with a section cut."""
     index, _ = parse(text)
     lines = text.splitlines()
     b = next(i for i, l in enumerate(lines) if BEGIN_RE.match(l))
     e = lines.index(END, b)
     emptied = "\n".join(lines[:b + 1] + lines[e:])
+    b = max(i for i, l in enumerate(lines) if BEGIN_RE.match(l))
+    e = lines.index(END, b)
+    emptied_last = "\n".join(lines[:b + 1] + lines[e:])
     s = lines.index(RULE, lines.index(RULE) + 3)   # the second section's rule
     t = next((i for i in range(s + 3, len(lines)) if lines[i] == RULE), len(lines))
     cut = "\n".join(lines[:s] + lines[t:])
-    if not check(emptied) or not check(cut):
+    if not check(emptied) or not check(emptied_last) or not check(cut):
         fail("the check accepts a notices file with an empty or a missing section")
     return len(index)
+
+
+MAP_SAMPLE = """Linker script and memory map
+
+.text           0x10000000      0x200
+ *(.text*)
+ .text.main     0x10000000       0x40 CMakeFiles/MiniRcBench.dir/src/main.cpp.o
+                0x10000000                main
+ *fill*         0x10000040        0x4
+ .text.memcpy   0x10000044       0x20 /tc/arm-none-eabi/lib/libc.a(libc_a-memcpy.o)
+ .text.foo      0x10000100       0x40 vendor/libblob.a(blob.c.obj)
+ .text.a_section_name_too_long_for_its_column
+                0x10000140       0x10 blob.obj
+ .glue_7        0x10000150        0x8 linker stubs
+ .text.empty    0x10000158        0x0 elsewhere.o
+.ram_vector_table
+                0x20000000      0x110
+.debug_info     0x00000000      0x100
+ .debug_info    0x00000000      0x100 debug-only.o
+"""
+"""A memory map with each shape of entry. Two inputs in it belong to no component."""
+
+
+def selftest_map():
+    """The map parse must find every input, whatever its name, and reject an unnamed entry."""
+    sections = {".text": True, ".ram_vector_table": True, ".debug_info": False}
+    found = parse_map(MAP_SAMPLE, sections, "the sample map")
+    want = {"CMakeFiles/MiniRcBench.dir/src/main.cpp.o",
+            "/tc/arm-none-eabi/lib/libc.a(libc_a-memcpy.o)",
+            "vendor/libblob.a(blob.c.obj)", "blob.obj"}
+    if found != want:
+        fail(f"the map parse finds {sorted(found)} in the sample map; want {sorted(want)}")
+    if [x for x in sorted(found) if not x.startswith("CMakeFiles/") and
+            classify_input(x)[0] is None] != ["blob.obj", "vendor/libblob.a(blob.c.obj)"]:
+        fail("an input of the sample map that no component covers is assigned to one")
+    unnamed = MAP_SAMPLE.replace("0x40 vendor/libblob.a(blob.c.obj)", "0x40")
+    try:
+        parse_map(unnamed, sections, "the sample map")
+    except NoticeError:
+        return
+    fail("the map parse accepts an entry with a size and no input name")
 
 
 # ------------------------------------------------------------------ main
@@ -602,6 +771,7 @@ def main():
         if problems:
             fail("the generated text fails its own check:\n  " + "\n  ".join(problems))
         selftest(text)
+        selftest_map()
         out = pathlib.Path(args.out)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(text, encoding="utf-8")
@@ -609,7 +779,8 @@ def main():
         for i, x in enumerate(sections, 1):
             n = len(x.files)
             print(f"  {i}. {x.name}: {n} file{'s' * (n != 1)}, {x.licence}, from {x.text_from}")
-        print("check: rejects an emptied licence text and a removed section")
+        print("check: rejects an emptied first or last licence text and a removed section")
+        print("map parse: finds inputs of any name, rejects an entry with a size and no name")
         return 0
     except NoticeError as e:
         print(f"notices: {e}", file=sys.stderr)
