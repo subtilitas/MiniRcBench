@@ -82,13 +82,22 @@ Eine **verfallene Statuskachel zeigt `--`, nie `OK`**.
 
 Das macht die Firmware, ohne Schaltfläche.
 
+Die ersten 10 Frames, die der Tester an den ESC sendet, sind die Freigabe:
+nach dem Einschalten, nach einer Änderung des ESC-Pins oder der DShot-Bitrate
+unter SETUP und wenn der AM32-Bildschirm das Signalkabel zurückgibt. Sie
+dauern 10 ms. Jede Antwort wird von der ersten an als EDT gelesen. Ein ESC,
+der EDT über einen dieser Neustarts hinweg eingeschaltet behalten hat, zeigt
+Spannung und Temperatur sofort und nie eine falsche Drehzahl. Ein ESC ohne
+EDT zeigt die richtige Drehzahl.
+
+Ein ESC, der gerade erst eingeschaltet wurde, übergeht diese erste Freigabe.
 Solange ein ESC eRPM liefert und 1 s lang kein EDT-Frame eingetroffen ist,
 sendet die Firmware die Freigabe jede Sekunde erneut. Nach 500 ms ohne eRPM
 wird der Zustand zurückgesetzt. Ein später angeschlossener, neu gestarteter
 oder getauschter ESC bekommt so seine eigene Freigabe.
 
-Jede Freigabe besteht aus 10 gleichen Frames. Sie wird nur gesendet, wenn alles
-davon zutrifft:
+Jede wiederholte Freigabe besteht aus 10 gleichen Frames. Sie wird nur
+gesendet, wenn alles davon zutrifft:
 
 - die Verbindung steht seit 300 ms, der ESC ist also fertig gestartet;
 - der Tester ist entschärft und der Motor steht (eRPM ist null);
