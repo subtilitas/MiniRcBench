@@ -403,15 +403,35 @@ NAMES = {
     "sdlib": "no-OS-FatFS-SD-SDIO-SPI-RPi-Pico (SD card driver and FatFs glue)",
     "fatfs": "FatFs by ChaN (FAT file system)",
     "newlib": "newlib (C library) and libgloss",
-    "gcc": "GCC runtime libraries: libgcc, libstdc++ (its language support part), start-up files",
+    "gcc": "GCC runtime libraries",
 }
-"""Section titles, per component key."""
+"""Section titles, per component key. section_name() completes the GCC one."""
+
+
+def section_name(key, files):
+    """The title of a section, from the files of it in the image.
+
+    The GCC title names the parts of the GCC runtime the image holds: libgcc,
+    the language support part of libstdc++, the start-up files.
+    """
+    if key != "gcc":
+        return NAMES[key]
+    archives = {m.group(1) for m in (re.match(r"^([^(]+)\(", f) for f in files) if m}
+    parts = []
+    if "libgcc.a" in archives:
+        parts.append("libgcc")
+    if archives & (GCC_ARCHIVES - {"libgcc.a"}):
+        parts.append("libstdc++ (its language support part)")
+    if any(f in GCC_OBJECTS for f in files):
+        parts.append("start-up files")
+    return f"{NAMES[key]}: {', '.join(parts)}" if parts else NAMES[key]
 
 
 class Section:
     def __init__(self, key, version, source, licence, files, text_from, text,
                  notes=(), scan=False, more=()):
-        self.key, self.name, self.version, self.source = key, NAMES[key], version, source
+        self.key, self.name, self.version = key, section_name(key, files), version
+        self.source = source
         self.licence, self.files, self.text_from, self.text = licence, files, text_from, text
         self.notes, self.scan = list(notes), scan
         self.texts = [(text_from, text)] + list(more)
@@ -750,7 +770,7 @@ def main():
             expected = None
             if args.sdk:
                 inv = Inventory(args.build, args.sdk, args.elf, args.map, args.readelf)
-                expected = [NAMES[k] for k in NAMES if k in inv.files]
+                expected = [section_name(k, inv.files[k]) for k in NAMES if k in inv.files]
             problems = check(read(args.check), expected)
             if problems:
                 fail(f"{args.check}:\n  " + "\n  ".join(problems))

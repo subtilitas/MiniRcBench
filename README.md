@@ -1087,7 +1087,7 @@ licence:
 | `no-OS-FatFS-SD-SDIO-SPI-RPi-Pico` v3.6.2: SPI card driver, FatFs glue, utilities | Apache-2.0 |
 | FatFs R0.15, from that library | FatFs licence, a one-clause BSD-style licence |
 | newlib, the C library of the Arm GNU Toolchain 13.3.Rel1 | a collection of permissive licences, most of them BSD-style |
-| libgcc and the language support part of libstdc++, from the same toolchain | GPL-3.0 with the GCC (GNU Compiler Collection) Runtime Library Exception |
+| libgcc and the GCC start-up files, from the same toolchain | GPL-3.0 with the GCC (GNU Compiler Collection) Runtime Library Exception |
 
 The SD library's SPI card driver borrows from Arm Mbed OS's SDBlockDevice,
 which is Apache-2.0, and its CRC code is partly derived from crcany, which is
