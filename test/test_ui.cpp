@@ -858,7 +858,6 @@ static void testSetupKiss() {
 /** @brief Contrast and backlight take effect immediately and persist. */
 static void testSetupDisplay() {
 	section("SETUP: high contrast");
-	const uint16_t darkLime = C_LIME;   // the theme is dark here
 
 	fakeFlashClear();
 	settingsLoad();
@@ -868,6 +867,7 @@ static void testSetupDisplay() {
 
 	checkTrue("starts in the dark theme", themeGet() == Theme::Dark);
 	uint16_t darkBg = C_BG;
+	const uint16_t darkLime = C_LIME;
 
 	tap(SET_TOGGLE_X, SET_R_CONTRAST);
 	checkTrue("toggle switches the theme", themeGet() == Theme::HighContrast);
@@ -1882,6 +1882,46 @@ static void testKissCadence() {
 	checkTrue("beacon: it takes the due slot", p->sent[due] == DSHOT_CMD_BEEP1);
 	checkInt("beacon: the request on the next free frame",
 	         (long)simNextKiss(p, last + 1), (long)(due + BEEP_REPEATS));
+
+	// An arm while a beacon is owed, and an arm while one waits for the
+	// enable. Either way the arm drops it: the requests keep their cadence
+	// while armed, and no beacon goes out after the disarm.
+	for (int waiting = 0; waiting < 2; waiting++) {
+		memset(&esc, 0, sizeof(esc));
+		simBoot(p, 5000);
+		p->kissRx = true;
+		simRun(p, &esc, waiting ? 3 : 100);
+		p->beepReq = 3;
+		simRun(p, &esc, waiting ? 2 : 3);
+		if (!waiting)
+			checkTrue("arm mid-beacon: the beacon is going out, frames owed",
+			          p->sent[p->slot - 1] == DSHOT_CMD_BEEP3 &&
+			          p->pump.beepReps > 0);
+		else
+			checkInt("arm in the enable: the beacon waits", p->beepReq, 3);
+		p->armed = true;
+		p->throttle = 100;
+		unsigned armedAt = p->slot;
+		simRun(p, &esc, 200);
+		checkInt(waiting ? "arm in the enable: the request is taken"
+		                 : "arm mid-beacon: no request left", p->beepReq, 0);
+		unsigned k = simNextKiss(p, armedAt);
+		checkTrue(waiting ? "arm in the enable: a request within 20 frames"
+		                  : "arm mid-beacon: a request within 20 frames",
+		          k - armedAt < KISS_REQUEST_EVERY_N);
+		checkInt(waiting ? "arm in the enable: then every 20 frames"
+		                 : "arm mid-beacon: then every 20 frames",
+		         (long)(simNextKiss(p, k + 1) - k), KISS_REQUEST_EVERY_N);
+		p->armed = false;
+		p->throttle = 0;
+		unsigned off = p->slot;
+		simRun(p, &esc, 100);
+		bool beeped = false;
+		for (unsigned i = off; i < p->slot; i++)
+			beeped = beeped || p->sent[i] == DSHOT_CMD_BEEP3;
+		checkTrue(waiting ? "arm in the enable: no beacon after disarm"
+		                  : "arm mid-beacon: no beacon after disarm", !beeped);
+	}
 
 	// A bind on the slot after a request starts the count again.
 	for (unsigned i = 0; i < KISS_REQUEST_EVERY_N && !p->kiss[p->slot - 1]; i++)

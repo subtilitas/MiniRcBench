@@ -231,7 +231,7 @@ bool escRequestBeep(uint8_t n) {
 	if (n > 5) n = 5;
 	// A request, not a queue write. Core1 latches it into its own repeat
 	// counter when the wire is free, so a press cannot land in the middle of an
-	// EDT enable and truncate it. @see esc_cmd
+	// EDT enable and truncate it. An arm drops it. @see esc_cmd
 	s_beepReq = n;
 	return true;
 }
