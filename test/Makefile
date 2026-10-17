@@ -1,10 +1,8 @@
 # Host tests for MiniRcBench.
 #
-#   make          syntax-check, build and run for the default board
-#   make BOARD=BOARD_RP2350_TOUCH_LCD_2_8
-#   make both     build and run for every supported board
+#   make          syntax-check, build and run
 #   make build    build only
-#   make syntax   typecheck the device-only sources, both boards
+#   make syntax   typecheck the device-only sources
 #   make bbcheck  round-trip a log through the upstream blackbox_decode
 #   make previews rebuild the screenshots in docs/ from this run's frames
 #   make wiki     rebuild the wiki's screenshots and check its links
@@ -25,18 +23,13 @@ CFLAGS   ?= -std=c11 -O1 -g
 WARN     := -Wall -Wextra -Wshadow -Wno-unused-parameter
 INCLUDES := -Istubs -I../src -I.
 
-# BOARD reaches src/board.h as a -D, which its #ifndef honours ahead of its own
-# default. Only the pin map and the splash board name differ on the host, but
-# the splash is length-checked and the 2.8" name is the longer one.
-BOARD  ?= BOARD_RP2350_TOUCH_LCD_2
-BOARDS := BOARD_RP2350_TOUCH_LCD_2 BOARD_RP2350_TOUCH_LCD_2_8 BOARD_UNIFIED
-# EXTRA_DEFINES lets CI rebuild the suite with the per-board pin macros
-# overridden, which is what makes test_settings.cpp's testPinDefaults() more
-# than a tautology: a descriptor that went back to carrying literals passes at
-# the defaults and fails the moment a macro says something else.
+# EXTRA_DEFINES lets CI rebuild the suite with the pin macros overridden,
+# which is what makes test_settings.cpp's testPinDefaults() more than a
+# tautology: a descriptor that carried literals would pass at the defaults and
+# fail the moment a macro says something else.
 #
-#   make BOARD=BOARD_UNIFIED EXTRA_DEFINES=-DDSHOT_PIN_LCD_2=9 run
-DEFINES := -DBOARD=$(BOARD) $(EXTRA_DEFINES)
+#   make EXTRA_DEFINES="-DDSHOT_PIN_LCD_2_8=28 -DKISS_PIN_LCD_2_8=29" run
+DEFINES := $(EXTRA_DEFINES)
 
 SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
         test_blackbox.cpp test_log_ring.cpp test_settings.cpp \
@@ -44,7 +37,6 @@ SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
         test_dshot_edt.cpp test_sdio.cpp fakes.cpp \
         ../src/gfx.cpp ../src/ui.cpp ../src/ui_setup.cpp ../src/theme.cpp \
         ../src/ui_input.cpp ../src/ui_widgets.cpp ../src/board_desc.cpp \
-        ../src/board_desc_lcd2.cpp ../src/board_desc_lcd2_8.cpp \
         ../src/settings.cpp ../src/am32_eeprom.cpp \
         ../src/kiss_telem.cpp ../src/esc_merge.cpp ../src/blackbox_encode.cpp \
         ../src/log_ring.cpp
@@ -54,13 +46,10 @@ SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
 # with -Werror, so this is not new coverage; it moves the feedback from a CI
 # round-trip to the same `make` you were going to run anyway.
 #
-# The touch drivers matter most here: each compiles to nothing on the board it
-# is not for, so building only one board would leave the other untouched.
-# touch.cpp is here rather than in SRCS: it dispatches to a real driver, and the
-# host suite fakes touchInit/touchPoll outright so that tests can drive presses.
-DEVICE_SRCS := ../src/esc_task.cpp ../src/st7789.cpp ../src/cst816.cpp \
+# The touch driver is here rather than in SRCS: the host suite fakes
+# touchInit/touchPoll outright so that tests can drive presses.
+DEVICE_SRCS := ../src/esc_task.cpp ../src/st7789.cpp \
                ../src/usb_dev.cpp ../src/usb_msc.cpp ../src/usb_descriptors.c \
-               ../src/touch.cpp ../src/board_probe.cpp \
                ../src/cst328.cpp ../src/am32_bl.cpp ../src/sd_log.cpp \
                ../src/pio_uart_rx.cpp \
                ../src/settings_flash.cpp ../src/main.cpp
@@ -81,15 +70,15 @@ COBJS := $(addprefix $(OBJ_DIR)/,$(notdir $(CSRCS:.c=.o)))
 
 BIN := dshot_tests
 
-.PHONY: all build run both syntax bbcheck previews wiki coverage clean
+.PHONY: all build run syntax bbcheck previews wiki coverage clean
 
 all: syntax run bbcheck
 
 build: $(BIN)
 
-# The binary depends on BOARD, which make cannot see in a timestamp. Rebuilding
-# unconditionally costs a couple of seconds and removes a whole class of "the
-# tests passed for the other board" confusion.
+# The binary depends on EXTRA_DEFINES, which make cannot see in a timestamp.
+# Rebuilding unconditionally costs a couple of seconds and removes a whole
+# class of "the tests passed for the other defines" confusion.
 .PHONY: $(BIN)
 $(BIN): $(SRCS) $(COBJS) $(wildcard ../src/*.h) $(wildcard ../src/sdio/*.h) $(wildcard *.h)
 	$(CXX) $(CXXFLAGS) $(WARN) $(INCLUDES) $(DEFINES) -o $@ $(SRCS) $(COBJS)
@@ -105,14 +94,8 @@ $(OBJ_DIR)/%.o: ../src/sdio/%.c ../src/sdio/sd_proto.h ../src/sdio/sd_host.h
 run: $(BIN)
 	./$(BIN)
 
-both:
-	@for b in $(BOARDS); do \
-		echo "=== $$b ==="; \
-		$(MAKE) --no-print-directory BOARD=$$b run || exit 1; \
-	done
-
-# Every device source, on every board, plus both settings of the two feature
-# switches so the disabled paths cannot rot unnoticed.
+# Every device source, plus both settings of the two feature switches so the
+# disabled paths cannot rot unnoticed.
 # -Werror, matching the firmware build. Without it this target was strictly
 # weaker than CI: usb_dev.cpp typechecked here and failed the real build twice
 # over -- once on a struct the stub defined too loosely, and once on a partial
@@ -120,11 +103,9 @@ both:
 # that is easier to pass than the one that matters is a check that sends you to
 # CI to find out.
 syntax:
-	@for b in $(BOARDS); do \
-		for f in $(DEVICE_SRCS); do \
-			$(CXX) $(CXXFLAGS) $(WARN) -Werror $(INCLUDES) -DBOARD=$$b \
-				-fsyntax-only $$f || exit 1; \
-		done; \
+	@for f in $(DEVICE_SRCS); do \
+		$(CXX) $(CXXFLAGS) $(WARN) -Werror $(INCLUDES) $(DEFINES) \
+			-fsyntax-only $$f || exit 1; \
 	done
 	@$(CXX) $(CXXFLAGS) $(WARN) $(INCLUDES) $(DEFINES) -DKISS_TELEM_ENABLE=0 \
 		-fsyntax-only ../src/esc_task.cpp || exit 1
@@ -176,7 +157,7 @@ wiki: run
 # $(BIN) and `make run` unchanged. The run starts from an empty cov/: counters
 # from an earlier run or a removed source would otherwise add to this one.
 # `python3 ../tools/coverage.py` writes the figure into README.md; --check is
-# what CI runs. The published figure is the default BOARD's.
+# what CI runs.
 COV_DIR := cov
 
 coverage:

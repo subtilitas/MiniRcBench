@@ -668,9 +668,8 @@ static void testSetupWiring() {
 	checkTrue("entering SETUP does not disturb the pin",
 	          escTaskDshotPin() == start);
 
-	// One step first, so the assertions below hold on the 2.8" too: that board
-	// offers exactly two free pins, so an even number of steps lands back where
-	// it started and nothing would be dirty.
+	// One step first: the board offers exactly two free pins, so an even
+	// number of steps lands back where it started and nothing would be dirty.
 	tap(SET_PLUS_X, SET_R_PIN);
 	checkTrue("one step moves the pin", settings()->dshotPin != start);
 	checkTrue("changing the pin is unsaved", settingsDirty());
@@ -842,31 +841,15 @@ static void testSetupKiss() {
 	// The row comes back to life with the function, rather than staying dead
 	// until something repaints it.
 	//
-	// Only assertable where the board has a pin to step to. The 2.8" frees two
-	// and the ESC holds one of them, so there the step correctly stays put --
-	// the same case the loop above is written around. Count the free set rather
-	// than special-casing a board name: walk settingsNextPinOn() until it comes
-	// back to where it started, which is the board's own answer.
+	// The board frees two pins and the ESC holds one of them, so the step
+	// correctly stays put -- the same case the loop above is written around.
 	tap(SET_TOGGLE_X, SET_R_KISS);
 	checkInt("KISS back on", settings()->kissEnable, 1);
 
-	int freePins = 1;
-	uint8_t first = settings()->kissPin;
-	for (uint8_t q = settingsNextPinOn(settings()->boardId, first, +1);
-	     q != first && freePins < 64;
-	     q = settingsNextPinOn(settings()->boardId, q, +1))
-		freePins++;
-
-	int pinBeforeStep = (int)settings()->kissPin;
 	tap(SET_PLUS_X, SET_R_KISSPIN);
-	if (freePins > 2) {
-		checkTrue("and the pin row steps again",
-		          (int)settings()->kissPin != pinBeforeStep);
-	} else {
-		checkTrue("the pin row is live again, with nowhere on this board to go",
-		          settingsPinFree(settings()->kissPin) &&
-		          settings()->kissPin != settings()->dshotPin);
-	}
+	checkTrue("the pin row is live again, with nowhere on this board to go",
+	          settingsPinFree(settings()->kissPin) &&
+	          settings()->kissPin != settings()->dshotPin);
 	tap(SET_TOGGLE_X, SET_R_KISS);
 }
 
@@ -1673,58 +1656,33 @@ static void testRailReAnchor() {
 
 
 /**
- * @brief The board: detected at boot, and not offered as a choice here.
+ * @brief The board: named on the SETUP screen, and not offered as a choice.
  *
- * The picker this replaces only ever appeared on a unified build. What is left
- * holds on every image, which is why `make both` runs it for all three: there
- * is nothing on this screen that can change which board the firmware drives.
+ * The image is built for one board. The row that names it carries no control,
+ * so nothing on this screen can change which pins the firmware drives.
  */
-static void testBoardSelection() {
-	section("Board: selection");
+static void testBoardRow() {
+	section("Board: the SETUP row");
 
 	fakeFlashClear();
 	settingsLoad();
 	uiInit();
 	frames(2);
 
-	checkTrue("a board is always selected", g_board != nullptr);
-	checkTrue("with a label", g_board->label && g_board->label[0]);
-	checkTrue("and at least one free GPIO", g_board->freeGpioMask != 0);
-	checkTrue("whose default ESC pin is one of them",
+	checkTrue("the descriptor is the 2.8\"'s", g_board == &BOARD_DESC_LCD_2_8);
+	checkTrue("with its label",
+	          g_board->label && strcmp(g_board->label, "RP2350-TOUCH-LCD-2.8") == 0);
+	checkTrue("whose default ESC pin is free on it",
 	          settingsPinFree(g_board->defaultDshotPin));
 
-	// Every board this image carries must be internally consistent. A
-	// descriptor that names a pin outside its own free mask would make the
-	// SETUP screen's steppers unable to return to their starting point.
-	for (int i = 0; i < boardCount(); i++) {
-		const BoardDesc *b = boardAt(i);
-		checkTrue("descriptor is present", b != nullptr);
-		if (!b) continue;
-		checkTrue("its default ESC pin is in its own free mask",
-		          (b->freeGpioMask >> b->defaultDshotPin) & 1u);
-		checkTrue("it names a touch driver", b->touch && b->touch->init && b->touch->poll);
-		checkTrue("and an id that selects it", boardSelect(boardIdAt(i)));
-	}
-	boardSelect(settings()->boardId ? settings()->boardId : boardIdAt(0));
-
-	// --- the board is not a setting, on any image ---
-	//
-	// It used to be, on a unified one: a toggle on this row cycled the choice,
-	// and a save persisted it and rebooted into it. Picking the wrong board that
-	// way built the next boot's display from the wrong pins, and the screen that
-	// could have put it back was the screen that no longer came up -- leaving a
-	// reflash over USB as the only way in. The row is read-only now, and these
-	// are the assertions that keep it that way.
 	enterSetup();
-	uint8_t live     = boardId();
 	uint8_t recorded = settings()->boardId;
 	uint8_t pumpPin  = escTaskDshotPin();
 	int configures   = fakeConfigureCount();
 
 	tap(SET_TOGGLE_X, SET_R_BOARD);
-	checkInt("tapping the board row changes no choice",
+	checkInt("tapping the board row changes no setting",
 	         settings()->boardId, recorded);
-	checkInt("nor the live board", boardId(), live);
 	checkInt("nor the pump's pin", escTaskDshotPin(), pumpPin);
 	checkInt("nor rebuilds the pump at all", fakeConfigureCount(), configures);
 
@@ -1734,11 +1692,9 @@ static void testBoardSelection() {
 	for (int i = 0; i < 40; i++) { fakeHold(SET_TOGGLE_X, SET_R_BOARD); frames(1); }
 	fakeRelease(); frames(2);
 	checkInt("holding it does nothing either", settings()->boardId, recorded);
-	checkInt("and the board is still this one", boardId(), live);
 
-	// And no save reboots. platReboot() is what a saved board change used to
-	// call; this counter staying still is what fails if anything on this screen
-	// ever starts re-pointing the hardware again.
+	// And no save reboots: every setting applies live. This counter staying
+	// still is what fails if a save that needs a restart is ever added.
 	int reboots = fakeRebootCount();
 	tap(SET_PLUS_X, SET_R_PIN);
 	fakePress(SET_SAVE_X, SET_SAVE_Y); frames(1);
@@ -1746,15 +1702,14 @@ static void testBoardSelection() {
 	fakeRelease(); frames(2);
 	checkTrue("an ordinary save lands", !settingsDirty());
 	checkInt("and no save reboots", fakeRebootCount() - reboots, 0);
-	checkInt("the saved block records the live board",
-	         settings()->boardId, live);
+	checkInt("the saved block records the 2.8\"",
+	         settings()->boardId, BOARD_ID_LCD_2_8);
 
 	tap(BACK_X, BACK_Y);
 	frames(2);
 
 	fakeFlashClear();
 	settingsLoad();
-	boardSelect(boardIdAt(0));
 }
 
 /**
@@ -2148,7 +2103,7 @@ void runUiTests() {
 	testTelemetryExpires();
 	testSettingsCommandRow();
 
-	testBoardSelection();
+	testBoardRow();
 	testArmInterlocks();
 	testIdleAutoDisarm();
 	testPoleCountReachesEsc();

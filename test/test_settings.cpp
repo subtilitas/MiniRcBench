@@ -187,86 +187,54 @@ static void testValidateRepairs() {
 }
 
 /**
- * @brief The pin defaults are the macros', and the running board's.
+ * @brief The pin defaults are the macros'.
  *
- * Both halves are load-bearing and only one of them is a compile-time fact.
- *
- * The descriptors used to carry literals while config.h still defined
- * `DSHOT_PIN` and friends, so the macros were read by nothing: `-DDSHOT_PIN=28`
- * configured, printed a status line claiming it had taken, and left the image
- * on GP29. CI asserted the option was honoured and passed, because it was
- * grepping CMake's own output rather than the firmware. The first block below
- * is what would have caught that -- tautological at face value, which is the
- * point, because CI runs this suite again with the macros overridden and a
- * descriptor that stopped reading them fails there.
- *
- * The second block is the half a macro cannot do: on a unified image, which
- * board's defaults apply is not a build-time choice at all. boardProbe() picks
- * the descriptor at boot and settingsDefaults() reads whichever one that was.
+ * Tautological at face value, which is the point: CI runs this suite again
+ * with the macros overridden, and a descriptor that carried literals instead
+ * of reading them passes at the defaults and fails there. A pin option that
+ * configures, prints a status line claiming it took, and leaves the image on
+ * the literal is the failure this catches. @see cfg_pin_defaults
  */
 static void testPinDefaults() {
-	section("Settings: pin defaults come from each board's own macros");
+	section("Settings: the pin defaults are the board macros'");
 
-	checkInt("2.0\" ESC pin", BOARD_DESC_LCD_2.defaultDshotPin, DSHOT_PIN_LCD_2);
-	checkInt("2.0\" KISS pin", BOARD_DESC_LCD_2.defaultKissPin, KISS_PIN_LCD_2);
-	checkInt("2.0\" KISS default",
-	         BOARD_DESC_LCD_2.defaultKissEnable ? 1 : 0, KISS_ENABLE_LCD_2 ? 1 : 0);
-	checkInt("2.8\" ESC pin", BOARD_DESC_LCD_2_8.defaultDshotPin, DSHOT_PIN_LCD_2_8);
-	checkInt("2.8\" KISS pin", BOARD_DESC_LCD_2_8.defaultKissPin, KISS_PIN_LCD_2_8);
-	checkInt("2.8\" KISS default",
+	checkInt("ESC pin", BOARD_DESC_LCD_2_8.defaultDshotPin, DSHOT_PIN_LCD_2_8);
+	checkInt("KISS pin", BOARD_DESC_LCD_2_8.defaultKissPin, KISS_PIN_LCD_2_8);
+	checkInt("KISS default",
 	         BOARD_DESC_LCD_2_8.defaultKissEnable ? 1 : 0, KISS_ENABLE_LCD_2_8 ? 1 : 0);
 
-	// The 2.8" pair specifically, because it is the one with no slack: two free
-	// pins, one wire each, and a default that put both on GP29 would describe a
-	// wiring nobody can solder.
-	checkTrue("the 2.8\" wires are on different pins",
+	// The board frees two pins, one wire each, and a default that put both on
+	// GP29 would describe a wiring nobody can solder.
+	checkTrue("the two wires are on different pins",
 	          BOARD_DESC_LCD_2_8.defaultDshotPin != BOARD_DESC_LCD_2_8.defaultKissPin);
 
-	// Every descriptor's defaults are free on its own board. The descriptors
-	// static_assert this too, so a bad override never links -- this is the
-	// version that says so in the output rather than in a compiler error.
-	for (int i = 0; i < boardCount(); i++) {
-		const BoardDesc *b = boardAt(i);
-		checkTrue("its ESC default is free on it",
-		          (b->freeGpioMask >> b->defaultDshotPin) & 1u);
-		checkTrue("its KISS default is free on it",
-		          (b->freeGpioMask >> b->defaultKissPin) & 1u);
-	}
-}
+	// The descriptor static_asserts these too, so a bad override never links --
+	// this is the version that says so in the output rather than in a compiler
+	// error.
+	checkTrue("the ESC default is free on the board",
+	          (g_board->freeGpioMask >> g_board->defaultDshotPin) & 1u);
+	checkTrue("the KISS default is free on the board",
+	          (g_board->freeGpioMask >> g_board->defaultKissPin) & 1u);
 
-/** @brief settingsDefaults() follows whichever board booted. @see testPinDefaults */
-static void testDefaultsFollowTheBoard() {
-	if (boardCount() < 2) return;
-	section("Settings: the defaults are the detected board's");
-
-	uint8_t was = boardId();
-	for (int i = 0; i < boardCount(); i++) {
-		// What boardSelect() stands in for here is boardProbe() on real
-		// hardware: a unified image does not know which set of defaults it
-		// wants until it has asked the board. @see setup() in main.cpp
-		boardSelect(boardIdAt(i));
-		Settings s;
-		settingsDefaults(&s);
-		checkInt("the ESC default is this board's",
-		         s.dshotPin, boardAt(i)->defaultDshotPin);
-		checkInt("the KISS default is this board's",
-		         s.kissPin, boardAt(i)->defaultKissPin);
-		checkTrue("and both are legal on it",
-		          settingsPinFreeOn(boardIdAt(i), s.dshotPin) &&
-		          settingsPinFreeOn(boardIdAt(i), s.kissPin));
-		checkTrue("and never the same pin", s.dshotPin != s.kissPin);
-	}
-	boardSelect(was);
+	Settings d;
+	settingsDefaults(&d);
+	checkInt("settingsDefaults() takes the ESC pin from the descriptor",
+	         d.dshotPin, g_board->defaultDshotPin);
+	checkInt("and the KISS pin", d.kissPin, g_board->defaultKissPin);
+	checkInt("and records the board", d.boardId, BOARD_ID_LCD_2_8);
 }
 
 static void testPinRules() {
 	section("Settings: only pins this board actually offers");
 
-	// Not asserted against specific numbers: the free set differs per board and
-	// the suite runs for both. The rules are what is invariant.
 	checkTrue("the default ESC pin is free on this board",
 	          settingsPinFree(g_board->defaultDshotPin));
 	checkTrue("GP30 is not a pin", !settingsPinFree(30));
+	// The board brings out GP28 and GP29 and nothing else.
+	int freeCount = 0;
+	for (int p = 0; p <= 29; p++) if (settingsPinFree((uint8_t)p)) freeCount++;
+	checkInt("two free pins", freeCount, 2);
+	checkTrue("GP28 and GP29", settingsPinFree(28) && settingsPinFree(29));
 
 	// Stepping only ever lands somewhere legal, in both directions, for every
 	// GPIO -- which is what removes the invalid-selection state entirely.
@@ -386,8 +354,8 @@ static void testForeignBoardBlock() {
 	fakeFlashClear();
 	storeValid(&evil);
 	settingsLoad();
-	checkInt("the alien board id is repaired to this board's",
-	         settings()->boardId, boardId());
+	checkInt("the alien board id is repaired to the 2.8\"'s",
+	         settings()->boardId, BOARD_ID_LCD_2_8);
 	checkTrue("the ESC pin was re-judged against this board",
 	          settingsPinFree(settings()->dshotPin));
 	checkInt("and fell back to this board's default",
@@ -414,64 +382,61 @@ static void testNoOpSaveWritesNothing() {
 	checkInt("with exactly one write", fakeFlashWrites() - before, 1);
 }
 
-static void testBlankNamesTheLiveBoard() {
-	section("Settings: blank flash names the board this boot detected");
+static void testBlankNamesTheBoard() {
+	section("Settings: blank flash names the board");
 
-	// Which board it is has been settled before this load runs -- setup()
-	// probes for it on a unified image, the build fixes it on a single-board
-	// one -- so there is no third state left for the settings to be in.
-	// BOARD_ID_UNSET used to mean "carries two descriptors, does not yet know
-	// which"; probing on every boot, before the load, retired it.
 	fakeFlashClear();
 	settingsLoad();
-	checkInt("the board id is the live board's", settings()->boardId, boardId());
-	checkTrue("which is a board this image holds", boardId() != BOARD_ID_UNSET);
+	checkInt("the board id is the 2.8\"'s", settings()->boardId, BOARD_ID_LCD_2_8);
 	checkTrue("and the default ESC pin is free on it",
 	          settingsPinFree(settings()->dshotPin));
 }
 
 /**
- * @brief The bricking path, as a test.
+ * @brief The block layout DshotDisplay 2.x writes, pinned.
  *
- * A stored board id used to be applied on load. So a block naming the wrong
- * board built the next boot's display, touch controller and pin map for
- * hardware that was not there — and the SETUP screen that could have put it
- * back was the screen that no longer came up. One wrong tap on a picker, and
- * the only way in was a reflash over USB. Detection is the only thing that
- * selects a board now; this is what proves the stored value cannot get its
- * vote back.
+ * A block DshotDisplay saved on the same board must load here unchanged, so
+ * the magic, the version and every field offset are part of the format. A
+ * change to any of them belongs with a new @ref SETTINGS_VERSION, and the
+ * DshotDisplay block then stops loading on purpose rather than by accident.
  */
-static void testStoredBoardNeverSelects() {
-	if (boardCount() < 2) return;
-	section("Settings: a block naming the other board cannot re-point this one");
+static void testDshotDisplayLayout() {
+	section("Settings: the block layout DshotDisplay 2.x writes");
 
-	uint8_t live  = boardId();
-	uint8_t other = boardIdAt(0) == live ? boardIdAt(1) : boardIdAt(0);
+	checkTrue("magic \"DSHT\"", SETTINGS_MAGIC == 0x44534854u);
+	checkInt("version", SETTINGS_VERSION, 2);
+	checkInt("payload size", (long)sizeof(Settings), 12);
+	checkInt("boardId at 0", (long)offsetof(Settings, boardId), 0);
+	checkInt("dshotPin at 1", (long)offsetof(Settings, dshotPin), 1);
+	checkInt("dshotKbaud at 2", (long)offsetof(Settings, dshotKbaud), 2);
+	checkInt("kissEnable at 4", (long)offsetof(Settings, kissEnable), 4);
+	checkInt("kissPin at 5", (long)offsetof(Settings, kissPin), 5);
+	checkInt("poles at 6", (long)offsetof(Settings, poles), 6);
+	checkInt("maxThrottle at 8", (long)offsetof(Settings, maxThrottle), 8);
+	checkInt("backlight at 10", (long)offsetof(Settings, backlight), 10);
+	checkInt("highContrast at 11", (long)offsetof(Settings, highContrast), 11);
+	checkInt("block size", (long)sizeof(SettingsBlock), 24);
 
-	// The trap: a GPIO the other board leaves free and this one does not. That
-	// is the pin a load which honoured the block would have handed to the DShot
-	// pump -- an output driven into an on-board peripheral.
-	int trap = -1;
-	for (int p = 0; p < 30 && trap < 0; p++)
-		if (settingsPinFreeOn(other, (uint8_t)p) &&
-		    !settingsPinFreeOn(live, (uint8_t)p))
-			trap = p;
-
-	Settings s;
-	settingsDefaults(&s);
-	s.boardId = other;
-	if (trap >= 0) s.dshotPin = (uint8_t)trap;
+	// A block as DshotDisplay saves it on this board: board id 28, the wires
+	// swapped onto each other's default pins, KISS on, and every other field
+	// off its default. It loads as it was stored.
+	Settings dd;
+	settingsDefaults(&dd);
+	dd.boardId      = BOARD_ID_LCD_2_8;
+	dd.dshotPin     = 28;
+	dd.kissEnable   = 1;
+	dd.kissPin      = 29;
+	dd.dshotKbaud   = 300;
+	dd.poles        = 12;
+	dd.maxThrottle  = 800;
+	dd.backlight    = 96;
+	dd.highContrast = 1;
 	fakeFlashClear();
-	storeValid(&s);
+	storeValid(&dd);
 	settingsLoad();
-
-	checkInt("the live board is untouched", boardId(), live);
-	checkInt("and the stored id is rewritten to it", settings()->boardId, live);
-	checkTrue("the ESC pin was re-judged against this board",
-	          settingsPinFree(settings()->dshotPin));
-	if (trap >= 0)
-		checkTrue("so the other board's pin did not survive",
-		          settings()->dshotPin != (uint8_t)trap);
+	checkTrue("the block is taken", settingsStored());
+	checkTrue("every field as stored", memcmp(settings(), &dd, sizeof(dd)) == 0);
+	checkTrue("with nothing to save", !settingsDirty());
 }
 
 void runSettingsTests() {
@@ -480,7 +445,6 @@ void runSettingsTests() {
 	testRejectsCorruption();
 	testValidateRepairs();
 	testPinDefaults();
-	testDefaultsFollowTheBoard();
 	testPinRules();
 	testKissNeedsItsOwnPin();
 	testSaveIsVerified();
@@ -488,8 +452,8 @@ void runSettingsTests() {
 	testCrcKnownAnswer();
 	testForeignBoardBlock();
 	testNoOpSaveWritesNothing();
-	testBlankNamesTheLiveBoard();
-	testStoredBoardNeverSelects();
+	testBlankNamesTheBoard();
+	testDshotDisplayLayout();
 
 	// Leave the module in a known state: test_ui.cpp runs after this and reads
 	// settings() for the pole count and throttle ceiling.

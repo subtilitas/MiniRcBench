@@ -52,8 +52,7 @@ TABLE_END = "<!-- coverage-table:end -->"
 
 # Sources in SRCS that hold only tables: gcc gives them no line counter.
 DATA_ONLY = {
-    "src/board_desc_lcd2.cpp",
-    "src/board_desc_lcd2_8.cpp",
+    "src/board_desc.cpp",
 }
 
 # CI fails below these. They sit a few points under the measured figures:
