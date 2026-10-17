@@ -810,6 +810,7 @@ src/
   main.cpp              core0 main(), core1 launch, @page architecture
   plat.h                millis/micros/delay over the SDK timebase
   config.h              defaults for every tunable setting
+  version.h             the firmware version, read by CMake and release.yml
   settings.{h,cpp}      the persisted subset: rules, validation, fallback (pure)
   settings_flash.cpp    the one flash sector those live in
   theme.{h,cpp}         the two palettes and the stroke weights
@@ -966,6 +967,10 @@ git tag -a v0.1.0 -m "MiniRcBench 0.1.0"
 git push origin v0.1.0
 ```
 
+The tag names the firmware version in `src/version.h`, 0.1.0 at present, with
+an optional pre-release suffix such as `-rc1`. CMake reads the same file, and
+the images report the version to `picotool info` and over USB.
+
 `release.yml` runs the host and documentation checks, builds a `.uf2` for each
 image, checksums them, and publishes a GitHub Release with the images attached.
 
@@ -978,8 +983,10 @@ MiniRcBench-v0.1.0-touch-lcd-2.8.uf2
 SHA256SUMS.txt
 ```
 
-The workflow refuses four things:
+The workflow refuses five things:
 
+- **A tag that names another version**: the tag is `v`, the version in
+  `src/version.h`, and an optional pre-release suffix.
 - **Building from failing code**: host tests and documentation checks run first.
 - **Publishing an implausible image**: each `.uf2` is checked for the `UF2\n`
   magic and a size that is a multiple of 512 bytes.

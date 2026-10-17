@@ -311,9 +311,12 @@ requests, by hand):
 | Coverage | `make -C test coverage`, then `python3 tools/coverage.py --check`; fails on drift from the table below, below 93 % in total, or below 85 % in any file |
 
 **Release** (`.github/workflows/release.yml`; on `v*` tags, by hand): resolves
-the tag, builds the three images after the host tests and `check_docs.py`
-pass, publishes them with checksums and confirms every asset landed. Each run
-is titled `Release <tag>`, which Docs reads to find the tag.
+the tag, checks that it names the version in `src/version.h`, builds the three
+images after the host tests and `check_docs.py` pass, publishes them as
+`MiniRcBench-<tag>-<board>.uf2` with checksums and confirms every asset landed.
+Each run is titled `Release <tag>`, which Docs reads to find the tag. The
+version is 0.1.0 and no MiniRcBench release exists yet; v0.1.0 is the first
+tag.
 
 **Docs** (`.github/workflows/docs.yml`): mirrors `wiki/` to the GitHub wiki
 after every successful Release run, from a tag push or started by hand, and

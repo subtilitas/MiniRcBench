@@ -199,9 +199,36 @@ static void testRpmFilter() {
 	         (int)rpmFilterStep(&f, 55555, true, 0), 55555);
 }
 
+// ------------------------------------------------------------------ version
+
+#include "version.h"
+
+#include <stdio.h>
+
+/**
+ * @brief The version the USB descriptor and the release check read.
+ *
+ * The device descriptor's bcdDevice is derived from the three numbers in
+ * version.h. Reading the digits back out of it proves the packing, and the
+ * string form proves the text picotool shows is the same version.
+ */
+static void testVersion() {
+	section("Firmware version");
+	char want[24];
+	snprintf(want, sizeof(want), "%d.%d.%d", FW_VERSION_MAJOR, FW_VERSION_MINOR,
+	         FW_VERSION_PATCH);
+	checkStr("the string is major.minor.patch", FW_VERSION_STRING, want);
+
+	const unsigned bcd = FW_VERSION_BCD;
+	checkInt("bcdDevice major digits", (long)(((bcd >> 12) & 0xF) * 10 + ((bcd >> 8) & 0xF)),
+	         FW_VERSION_MAJOR);
+	checkInt("bcdDevice minor digit", (long)((bcd >> 4) & 0xF), FW_VERSION_MINOR);
+	checkInt("bcdDevice patch digit", (long)(bcd & 0xF), FW_VERSION_PATCH);
+}
 
 void runUsbMscTests() {
 	testRefusals();
 	testStateMachine();
 	testRpmFilter();
+	testVersion();
 }

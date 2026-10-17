@@ -6,7 +6,9 @@ name: Release
 #   git push origin v0.1.0
 #
 # Builds flashable .uf2 images for both supported boards, checksums them, and
-# publishes a GitHub Release with the images attached.
+# publishes a GitHub Release with the images attached. The tag names the
+# version in src/version.h, with an optional pre-release suffix: v0.1.0 or
+# v0.1.0-rc1 for 0.1.0.
 
 # The run's title carries the tag for both triggers. docs.yml reads it from
 # workflow_run.display_title, because a manual run's head_branch is the branch
@@ -73,6 +75,24 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.version.outputs.tag }}
+
+      # The images report the version in src/version.h over USB and to
+      # picotool. A tag that names another version would publish images whose
+      # release name and reported version disagree.
+      - name: The tag names the firmware version
+        env:
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          ver=""
+          for part in MAJOR MINOR PATCH; do
+            n=$(sed -nE "s/^#define FW_VERSION_${part} +([0-9]+).*/\1/p" src/version.h)
+            [ -n "$n" ] || { echo "::error::src/version.h defines no FW_VERSION_${part}"; exit 1; }
+            ver="${ver:+$ver.}$n"
+          done
+          case "$TAG" in
+            "v$ver"|"v$ver"-*) echo "tag $TAG builds version $ver" ;;
+            *) echo "::error::tag $TAG does not name version $ver from src/version.h"; exit 1 ;;
+          esac
 
       - name: Install the ARM toolchain
         uses: carlosperate/arm-none-eabi-gcc-action@v1

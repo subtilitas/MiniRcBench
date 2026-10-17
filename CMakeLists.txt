@@ -82,7 +82,22 @@ endif()
 set(PICO_SDK_FETCH_FROM_GIT_TAG bddd20f928ce76142793bef434d4f75f4af6e433)  # 2.1.1
 include(pico_sdk_import.cmake)
 
-project(MiniRcBench C CXX ASM)
+# The version lives in src/version.h, where the firmware reads it too, so the
+# build and the image cannot disagree. release.yml holds the tag to it.
+file(STRINGS ${CMAKE_CURRENT_LIST_DIR}/src/version.h FW_VERSION_LINES
+     REGEX "^#define FW_VERSION_(MAJOR|MINOR|PATCH) +[0-9]+")
+foreach(part MAJOR MINOR PATCH)
+    string(REGEX MATCH "FW_VERSION_${part} +([0-9]+)" _m "${FW_VERSION_LINES}")
+    if(NOT _m)
+        message(FATAL_ERROR "src/version.h defines no FW_VERSION_${part}")
+    endif()
+    set(FW_VERSION_${part} ${CMAKE_MATCH_1})
+endforeach()
+
+project(MiniRcBench
+    VERSION ${FW_VERSION_MAJOR}.${FW_VERSION_MINOR}.${FW_VERSION_PATCH}
+    LANGUAGES C CXX ASM)
+message(STATUS "MiniRcBench ${PROJECT_VERSION}")
 
 # An empty CMAKE_BUILD_TYPE is not a default build: it is *no* per-config flags
 # at all -- no optimisation, no -g -- and neither CMake nor the pinned SDK
@@ -318,6 +333,10 @@ else()
     set(BOARD_SLUG "touch-lcd-2")
 endif()
 set_target_properties(MiniRcBench PROPERTIES OUTPUT_NAME "MiniRcBench-${BOARD_SLUG}")
+
+# The program name defaults to the target name. The version is what
+# `picotool info` reports for an image or a connected board.
+pico_set_program_version(MiniRcBench "${PROJECT_VERSION}")
 
 # .uf2 for drag-and-drop flashing, plus .elf/.map/.dis for debugging.
 pico_add_extra_outputs(MiniRcBench)

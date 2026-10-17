@@ -1,22 +1,28 @@
 # Changelog
 
-Notable changes to DshotDisplay, a tester for one ESC (electronic speed
+Notable changes to MiniRcBench, a bench tester for one ESC (electronic speed
 controller) driven by bidirectional DShot, a digital ESC protocol in which the
-ESC answers each frame on the same wire. The format follows
+ESC answers each frame on the same wire. MiniRcBench continues the
+DshotDisplay firmware, which remains a separate project at
+[github.com/subtilitas/DshotDisplay](https://github.com/subtilitas/DshotDisplay).
+The format follows
 [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/). Commit-level
 history is in git; [STATUS.md](STATUS.md) records what is verified.
 
-Each section covers `git log <previous tag>..<tag>`. A date is the tag's own:
+0.1.0 is the first MiniRcBench version and covers the commits after
+DshotDisplay 2.3. The sections below it are DshotDisplay releases; their tags
+are in the DshotDisplay repository, not in this one. Each of those sections
+covers `git log <previous tag>..<tag>`. A date is the tag's own:
 the tagger date for an annotated tag, the commit date for a lightweight one.
 The annotated tags v1.0.0 and v1.0.1 carry the tagger date 2026-08-01, five
 days before the commits they point at (2026-08-06). The pre-release tags
 pre-release-001 and pre-release-002 point at commits inside 1.0.0 and are
 folded into it.
 
-Issue and pull request numbers in the released sections are the ones the
-commit messages give. The current GitHub tracker starts again at issue #1, so
-those numbers, #1 to #25, do not resolve there. Issue #1 under Unreleased is
-the current tracker's.
+Issue and pull request numbers in the DshotDisplay sections are the ones the
+commit messages give. DshotDisplay's current GitHub tracker starts again at
+issue #1, so those numbers, #1 to #25, do not resolve there. Issue #1 under
+0.1.0 is in DshotDisplay's current tracker.
 
 Acronyms used throughout: EDT is Extended DShot Telemetry, eRPM is electrical
 revolutions per minute, RPM is revolutions per minute, SD is Secure Digital,
@@ -26,15 +32,20 @@ input/output, SPI is Serial Peripheral Interface, SDIO is Secure Digital
 input/output, I2C is Inter-Integrated Circuit, GPIO is general-purpose
 input/output, CRC is cyclic redundancy check, UART is universal asynchronous
 receiver-transmitter, SDK is software development kit, PR is pull request,
-DMA is direct memory access, CSD is the card-specific data register. SDSC,
+DMA is direct memory access, CSD is the card-specific data register, SCSI is
+Small Computer System Interface. SDSC,
 SDHC and SDXC are the standard, high and extended capacity SD card types.
 KISS telemetry is the serial telemetry protocol of the KISS ESC line, sent on
 its own wire. AM32 is an open-source ESC firmware.
 
-## [Unreleased]
+## 0.1.0 - Unreleased
 
 ### Added
 
+- `src/version.h` holds the firmware version, 0.1.0. CMake takes the project
+  version from it, and `picotool info` shows it as the program version.
+  `release.yml` refuses a tag that does not name it, with or without a
+  pre-release suffix.
 - [STATUS.md](STATUS.md): architecture, boards, verification state of each
   part, open items with issue #1, known limitations, tests and CI.
 - This changelog.
@@ -69,6 +80,22 @@ its own wire. AM32 is an open-source ESC firmware.
 
 ### Changed
 
+- The project is MiniRcBench, at
+  [github.com/subtilitas/MiniRcBench](https://github.com/subtilitas/MiniRcBench).
+  The CMake project and target are `MiniRcBench`. Builds write
+  `MiniRcBench-<board>.uf2`, `.elf` and `.map`, and a release carries
+  `MiniRcBench-<tag>-<board>.uf2`. Over USB the product is `MiniRcBench`, the
+  serial port `MiniRcBench Serial`, the drive `MiniRcBench SD Card`, and the
+  card reader answers a SCSI inquiry with the product `MiniRcBench SD`. The
+  splash reads `MINIRC` over `BENCH`. A blackbox log names `MiniRcBench` as
+  the craft and in the firmware revision, `Betaflight 4.5.0 (MiniRcBench)`.
+- Version numbers start at 0.1.0. The USB device release is 0x0010 and the
+  SCSI product revision `0.1`, from `src/version.h`; DshotDisplay reported
+  1.00 and `1.0` in every release.
+- Unchanged, so that a board moves over without being set up again: the USB
+  vendor and product IDs (0x2E8A, 0x4006), and the settings block in flash
+  (magic `DSHT`, layout version 2, the last 4 kB sector). Settings saved by
+  DshotDisplay 2.x load.
 - Bidirectional DShot runs on the MIT driver from rcbench, `protocols/dshot`
   at commit 453cf334, kept in `src/dshot/`, instead of `pico-bidir-dshot`
   1.0.2, which is GPL-3.0. No GPL code is fetched or linked for DShot.
@@ -132,6 +159,10 @@ its own wire. AM32 is an open-source ESC firmware.
 - `tools/sdtest` links: it carries the mass-storage callbacks that the
   firmware's TinyUSB configuration requires, and declares
   `spi_get_by_num()`.
+
+---
+
+The sections below are DshotDisplay releases.
 
 ## [2.3] - 2026-08-26
 
@@ -333,7 +364,6 @@ v1.0.0.
 - Screenshots rendered by the host suite from the UI code; a landscape
   rotation is a compile error.
 
-[Unreleased]: https://github.com/subtilitas/DshotDisplay/compare/v2.3...HEAD
 [2.3]: https://github.com/subtilitas/DshotDisplay/compare/v2.2...v2.3
 [2.2]: https://github.com/subtilitas/DshotDisplay/compare/v2.0...v2.2
 [2.0]: https://github.com/subtilitas/DshotDisplay/compare/v1.1.0...v2.0

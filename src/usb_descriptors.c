@@ -14,6 +14,7 @@
 
 #include "config.h"
 #include "usb_dev.h"
+#include "version.h"
 
 #include <string.h>
 
@@ -48,7 +49,7 @@ static const tusb_desc_device_t s_device = {
 
 	.idVendor           = USB_VID,
 	.idProduct          = USB_PID,
-	.bcdDevice          = 0x0100,
+	.bcdDevice          = FW_VERSION_BCD,  // the firmware version, @see version.h
 
 	.iManufacturer      = 0x01,
 	.iProduct           = 0x02,

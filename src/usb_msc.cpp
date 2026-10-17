@@ -12,12 +12,14 @@
 #include "sd_log.h"
 #include "config.h"
 #include "ui.h"
+#include "version.h"
 
 #include "tusb.h"
 #include "hw_config.h"
 #include "sd_card.h"
 
 #include "plat.h"
+#include <stdio.h>
 #include <string.h>
 
 /** @brief Where the handover has got to. Core0 only. */
@@ -121,7 +123,14 @@ void tud_msc_inquiry_cb(uint8_t lun, uint8_t vendor_id[8], uint8_t product_id[16
 	// Windows' device manager.
 	memcpy(vendor_id,   "subtilit", 8);
 	memcpy(product_id,  "MiniRcBench SD  ", 16);
-	memcpy(product_rev, "1.0 ", 4);
+	// The firmware's major.minor, "0.1 " for 0.1.0: four characters hold no
+	// patch number. @see version.h
+	char rev[12];
+	snprintf(rev, sizeof(rev), "%u.%u", (unsigned)FW_VERSION_MAJOR,
+	         (unsigned)FW_VERSION_MINOR);
+	size_t n = strlen(rev);
+	memset(product_rev, ' ', 4);
+	memcpy(product_rev, rev, n < 4 ? n : 4);
 }
 
 /**
