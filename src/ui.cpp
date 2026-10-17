@@ -1390,8 +1390,10 @@ static void handleMainTouch() {
 
 void uiDrawSplash() {
 	gfxFill(C_BG);
-	gfxTextCenter(104, "DSHOT", C_LIME, 4);
-	gfxTextCenter(144, "DISPLAY", C_TEXT, 4);
+	// The name takes two lines: as one, "MINIRCBENCH" is 260 px wide at
+	// scale 4, and the panel is 240 px wide.
+	gfxTextCenter(104, "MINIRC", C_LIME, 4);
+	gfxTextCenter(144, "BENCH", C_TEXT, 4);
 	gfxTextCenter(188, "BIDIRECTIONAL ESC TESTER", C_DIM, 1);
 	gfxTextCenter(216, "JuWi made", C_CYAN, 2);
 	// Which board this image was built for. Cheap here, and the alternative is

@@ -2,7 +2,7 @@
  * @file board.h
  * @brief Which piece of hardware this firmware is built for.
  *
- * DshotDisplay targets two Waveshare RP2350 boards. They are not variants of
+ * MiniRcBench targets two Waveshare RP2350 boards. They are not variants of
  * one design — the panel hangs off a different SPI instance, the touch
  * controller is a different chip with a different register width, and the I2C
  * bus is a different peripheral. None of that can be probed safely at runtime

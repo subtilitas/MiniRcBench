@@ -1,4 +1,4 @@
-# Host tests for DshotDisplay.
+# Host tests for MiniRcBench.
 #
 #   make          syntax-check, build and run for the default board
 #   make BOARD=BOARD_RP2350_TOUCH_LCD_2_8

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Documentation checks for DshotDisplay.
+"""Documentation checks for MiniRcBench.
 
 Enforces what actually goes wrong, and nothing else:
 

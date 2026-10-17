@@ -25,7 +25,7 @@ void runDshotEdtTests();
 void runSdioTests();
 
 int main() {
-	printf("DshotDisplay host tests\n");
+	printf("MiniRcBench host tests\n");
 	printf("=======================\n");
 
 	runAm32Tests();

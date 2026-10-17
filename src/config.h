@@ -1,6 +1,6 @@
 /**
  * @file config.h
- * @brief User-tunable settings for DshotDisplay.
+ * @brief User-tunable settings for MiniRcBench.
  *
  * Everything in this file is safe to change without touching the rest of the
  * firmware. Anything that describes the board itself rather than a preference

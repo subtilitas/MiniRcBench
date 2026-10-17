@@ -18,7 +18,7 @@
  *
  * The bench side is dshot_edt_*(), driven the way rcbench's firmware drives
  * it: one frame a millisecond while armed, dshot_edt_idle() on every service
- * while not, and each reply heard before the next frame goes out. DshotDisplay
+ * while not, and each reply heard before the next frame goes out. MiniRcBench
  * schedules its own enable with edtAutoAction(), which test_ui.cpp covers;
  * these cases keep the vendored core whole.
  *

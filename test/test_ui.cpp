@@ -2131,14 +2131,14 @@ void runUiTests() {
 
 	section("Splash fits the panel");
 	{
-		checkTrue("\"DSHOT\" at scale 4 fits", gfxTextW("DSHOT", 4) <= GFX_W);
-		checkTrue("\"DISPLAY\" at scale 4 fits", gfxTextW("DISPLAY", 4) <= GFX_W);
+		checkTrue("\"MINIRC\" at scale 4 fits", gfxTextW("MINIRC", 4) <= GFX_W);
+		checkTrue("\"BENCH\" at scale 4 fits", gfxTextW("BENCH", 4) <= GFX_W);
 		checkTrue("subtitle fits", gfxTextW("BIDIRECTIONAL ESC TESTER", 1) <= GFX_W);
 		checkTrue("credit line fits", gfxTextW("JuWi made", 2) <= GFX_W);
-		// Regression: the original splash was drawn at a hardcoded x=24, which
-		// pushed the trailing "Y" 15 px off a 240 px panel.
-		checkTrue("old hardcoded placement would overflow",
-		          24 + gfxTextW("DSHOT DISPLAY", 3) > GFX_W);
+		// Why the name takes two lines: as one, at scale 4, it is wider than
+		// the panel.
+		checkTrue("the name on one line at scale 4 would overflow",
+		          gfxTextW("MINIRCBENCH", 4) > GFX_W);
 	}
 
 	testLogScreen();

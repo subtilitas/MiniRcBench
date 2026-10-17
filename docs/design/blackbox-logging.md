@@ -114,8 +114,8 @@ the parser uses it to find log boundaries in a file that may hold several.
 H Product:Blackbox flight data recorder by Nicholas Sherlock
 H Data version:2
 H Firmware type:Cleanflight
-H Firmware revision:Betaflight 4.5.0 (DshotDisplay)
-H Craft name:DshotDisplay
+H Firmware revision:Betaflight 4.5.0 (MiniRcBench)
+H Craft name:MiniRcBench
 H I interval:32
 H P interval:1/1
 H Field I name:loopIteration,time,...

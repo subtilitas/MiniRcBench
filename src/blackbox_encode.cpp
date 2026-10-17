@@ -120,8 +120,8 @@ static void emitHeader(BlackboxEncoder *e) {
 	// Betaflight itself writes "Cleanflight" here for backwards compatibility,
 	// and the parser only recognises that and "Betaflight". Not our lie to fix.
 	emitStr(e, "H Firmware type:Cleanflight\n");
-	emitStr(e, "H Firmware revision:Betaflight 4.5.0 (DshotDisplay)\n");
-	emitStr(e, "H Craft name:DshotDisplay\n");
+	emitStr(e, "H Firmware revision:Betaflight 4.5.0 (MiniRcBench)\n");
+	emitStr(e, "H Craft name:MiniRcBench\n");
 
 	char buf[48];
 	snprintf(buf, sizeof(buf), "H I interval:%u\n", (unsigned)e->iInterval);

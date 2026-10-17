@@ -3,7 +3,7 @@
  * @brief Minimal standalone SD bring-up test. Nothing but the card.
  *
  * The point is to bisect a card that will not initialise: this firmware shares
- * only sd_hw_config.c with DshotDisplay, and starts no display, no touch, no
+ * only sd_hw_config.c with MiniRcBench, and starts no display, no touch, no
  * PIO, no second core. If the card mounts here but not in the firmware, the
  * fault is in the integration; if it fails here too, the integration is
  * exonerated and the problem is the board, the slot or the card.
@@ -143,7 +143,7 @@ int main(void) {
 
     // Headless by design: no display, no touch, no PIO, no second core. A dark
     // panel is the expected result -- everything comes out here.
-    printf("\n\n=== DshotDisplay standalone SD test ===\n");
+    printf("\n\n=== MiniRcBench standalone SD test ===\n");
     printf("(the screen stays black: this test never starts the display)\n");
 #if defined(SD_IFACE_SPI)
     printf("interface: hardware SPI1\n");
@@ -194,7 +194,7 @@ int main(void) {
             FIL f;
             if (f_open(&f, "SDTEST.TXT", FA_WRITE | FA_CREATE_ALWAYS) == FR_OK) {
                 UINT bw = 0;
-                f_write(&f, "DshotDisplay SD test\n", 21, &bw);
+                f_write(&f, "MiniRcBench SD test\n", 20, &bw);
                 f_close(&f);
                 printf("wrote SDTEST.TXT (%u bytes)\n", bw);
             }

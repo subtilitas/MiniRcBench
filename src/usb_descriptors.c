@@ -116,10 +116,10 @@ const uint8_t *tud_descriptor_configuration_cb(uint8_t index) {
 static const char *const s_strings[] = {
 	(const char[]){0x09, 0x04},  // 0: language, en-US
 	"subtilitas",                // 1: manufacturer
-	"DshotDisplay",              // 2: product
+	"MiniRcBench",               // 2: product
 	"000000000000",              // 3: serial, overwritten by usbDescSetSerial()
-	"DshotDisplay Serial",       // 4: CDC interface
-	"DshotDisplay SD Card",      // 5: MSC interface
+	"MiniRcBench Serial",        // 4: CDC interface
+	"MiniRcBench SD Card",       // 5: MSC interface
 };
 
 /** @brief The serial-number string, as ASCII. @see usbDescSetSerial() */

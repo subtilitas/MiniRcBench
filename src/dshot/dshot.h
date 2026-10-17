@@ -8,7 +8,7 @@
  *
  * From rcbench (https://github.com/subtilitas/rcbench), file
  * protocols/dshot/include/dshot.h at commit 453cf334.  rcbench has the same
- * copyright holder and the same licence as DshotDisplay, and its DShot module
+ * copyright holder and the same licence as MiniRcBench, and its DShot module
  * is written from the published protocol descriptions, not from another
  * implementation.  The one addition here is dshot_reply_t and
  * dshot_reply_decode(), which tell a good reply, no reply and a bad reply

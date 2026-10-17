@@ -120,7 +120,7 @@ void tud_msc_inquiry_cb(uint8_t lun, uint8_t vendor_id[8], uint8_t product_id[16
 	// blank-filled ASCII, and a NUL in them shows up as a mangled device name in
 	// Windows' device manager.
 	memcpy(vendor_id,   "subtilit", 8);
-	memcpy(product_id,  "DshotDisplay SD ", 16);
+	memcpy(product_id,  "MiniRcBench SD  ", 16);
 	memcpy(product_rev, "1.0 ", 4);
 }
 

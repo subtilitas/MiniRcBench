@@ -14,7 +14,7 @@
  * The first fourteen cases are ported from rcbench
  * (https://github.com/subtilitas/rcbench), file test/host/test_dshot_telem.c
  * at commit 453cf334, in this suite's check helpers. The rest are
- * DshotDisplay's: two decoder paths the pump depends on, dshot_reply_decode(),
+ * MiniRcBench's: two decoder paths the pump depends on, dshot_reply_decode(),
  * and escFoldReply(), which turns its result into the link counters the UI
  * (user interface) shows.
  *
@@ -284,7 +284,7 @@ static void testWireToSpeed() {
 	checkInt("RPM at 6 pole pairs", (long)dshot_rpm(t.erpm, 6u), 10000);
 }
 
-// ------------------------------------------------------ DshotDisplay's own
+// ------------------------------------------------------- MiniRcBench's own
 
 /**
  * @brief A short period with EDT on is still a speed.

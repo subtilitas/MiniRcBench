@@ -4,7 +4,7 @@
  *
  * From rcbench (https://github.com/subtilitas/rcbench), file
  * protocols/dshot/dshot_edt.c at commit 453cf334.
- * DshotDisplay does not call these functions: it schedules the enable with
+ * MiniRcBench does not call these functions: it schedules the enable with
  * edtAutoAction() in esc_task.h.  The file is carried so that the core stays
  * whole and its host tests run.
  *
