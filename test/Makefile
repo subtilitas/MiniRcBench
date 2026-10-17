@@ -33,6 +33,10 @@ INCLUDES := -Istubs -I../src -I.
 #   make EXTRA_DEFINES="-DDSHOT_PIN_LCD_2_8=28 -DKISS_PIN_LCD_2_8=29" run
 DEFINES := $(EXTRA_DEFINES)
 
+# The servo tester and the KST programmer list their own sources, so the two
+# never edit this file for that. @see servo.mk, kst.mk
+include servo.mk kst.mk
+
 SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
         test_blackbox.cpp test_log_ring.cpp test_settings.cpp \
         test_usb_msc.cpp test_dshot_frame.cpp test_dshot_telem.cpp \
@@ -41,7 +45,8 @@ SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
         ../src/ui_input.cpp ../src/ui_widgets.cpp ../src/board_desc.cpp \
         ../src/settings.cpp ../src/am32_eeprom.cpp \
         ../src/kiss_telem.cpp ../src/esc_merge.cpp ../src/blackbox_encode.cpp \
-        ../src/log_ring.cpp ../src/pin_claim.cpp
+        ../src/log_ring.cpp ../src/pin_claim.cpp \
+        $(SERVO_TESTS) $(SERVO_SRCS) $(KST_TESTS) $(KST_SRCS)
 
 # Sources the tests cannot link -- they drive real hardware -- but which still
 # have to compile. CI's "Config permutations" job already builds all of src/
@@ -54,7 +59,8 @@ DEVICE_SRCS := ../src/esc_task.cpp ../src/st7789.cpp \
                ../src/usb_dev.cpp ../src/usb_msc.cpp ../src/usb_descriptors.c \
                ../src/cst328.cpp ../src/am32_bl.cpp ../src/sd_log.cpp \
                ../src/pio_uart_rx.cpp \
-               ../src/settings_flash.cpp ../src/main.cpp
+               ../src/settings_flash.cpp ../src/main.cpp \
+               $(SERVO_DEVICE_SRCS) $(KST_DEVICE_SRCS)
 
 # The DShot core in src/dshot/ and the SD card protocol layers in src/sdio/
 # are C11, and are compiled here as C, by $(CC), into objects the suite links.

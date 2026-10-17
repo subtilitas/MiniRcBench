@@ -10,6 +10,8 @@
 
 #include "ui.h"
 #include "ui_am32.h"
+#include "ui_kst.h"
+#include "ui_servo.h"
 #include "ui_setup.h"
 #include "ui_input.h"
 #include "ui_widgets.h"
@@ -187,9 +189,9 @@ static_assert(BTN_ROW_Y + BTN_ROW_H - 1 <= Z_BTN_Y1,
 #define CFG_POLES_Y    (CFG_POLES_LBL + 12)             /**< Pole-count -/+ row. */
 #define CFG_MAXT_LBL   (CFG_POLES_Y + CFG_ROW_H + 10)   /**< "THROTTLE CEILING". */
 #define CFG_MAXT_Y     (CFG_MAXT_LBL + 12)              /**< Ceiling -/+ row. */
-#define CFG_CMD_Y      (CFG_MAXT_Y + CFG_ROW_H + 14)    /**< BEEP row. */
+#define CFG_CMD_Y      (CFG_MAXT_Y + CFG_ROW_H + 14)    /**< BEEP / SD LOG row. */
 #define CFG_HINT_Y     (CFG_CMD_Y + CFG_ROW_H + 6)      /**< Caption under BEEP. */
-#define CFG_NAV_Y      (CFG_HINT_Y + 16)                /**< AM32 / SD LOG / SETUP. */
+#define CFG_NAV_Y      (CFG_HINT_Y + 16)                /**< AM32 / SERVO / KST / SETUP. */
 #define CFG_NAV_H      48
 #define CFG_STEP_W     46   /**< Width of a `-` or `+` target. */
 /** @} */
@@ -198,23 +200,31 @@ static const UiRect BTN_POLES_M = { 14, CFG_POLES_Y, CFG_STEP_W, CFG_ROW_H };
 static const UiRect BTN_POLES_P = { 180, CFG_POLES_Y, CFG_STEP_W, CFG_ROW_H };
 static const UiRect BTN_MAXT_M  = { 14, CFG_MAXT_Y, CFG_STEP_W, CFG_ROW_H };
 static const UiRect BTN_MAXT_P  = { 180, CFG_MAXT_Y, CFG_STEP_W, CFG_ROW_H };
-// BEEP has the row to itself. The EDT enable used to sit beside it and is
-// gone: the firmware now sends it whenever an ESC starts answering, so the
-// button was a control for something already handled. What is left of EDT here
-// is the read-only chip on the strip under the title.
-static const UiRect BTN_BEEP    = { 14, CFG_CMD_Y, 212, CFG_ROW_H };
-// One row, three destinations -- 3 x 68 plus two 4 px gaps is exactly the
-// 212 px between the margins, and the assert below keeps it that way.
-#define CFG_NAV_W    68
+// BEEP and SD LOG share the command row, 2 x 104 px plus a 4 px gap: the
+// 212 px between the margins. What is left of EDT here is the read-only chip
+// on the strip under the title; the firmware sends the enable itself.
+#define CFG_CMD_W    104
+#define CFG_CMD_GAP    4
+static const UiRect BTN_BEEP  = { 14, CFG_CMD_Y, CFG_CMD_W, CFG_ROW_H };
+static const UiRect BTN_LOG   = { 14 + CFG_CMD_W + CFG_CMD_GAP, CFG_CMD_Y,
+                                  CFG_CMD_W, CFG_ROW_H };
+// One row, four destinations, the screens that own the signal pins and SETUP:
+// 4 x 50 px plus three 4 px gaps is exactly the 212 px between the margins,
+// and the assert below keeps it that way.
+#define CFG_NAV_W    50
 #define CFG_NAV_GAP  4
 static const UiRect BTN_AM32  = { 14, CFG_NAV_Y, CFG_NAV_W, CFG_NAV_H };
-static const UiRect BTN_LOG   = { 14 + CFG_NAV_W + CFG_NAV_GAP, CFG_NAV_Y,
+static const UiRect BTN_SERVO = { 14 + CFG_NAV_W + CFG_NAV_GAP, CFG_NAV_Y,
                                   CFG_NAV_W, CFG_NAV_H };
-static const UiRect BTN_SETUP = { 14 + 2 * (CFG_NAV_W + CFG_NAV_GAP), CFG_NAV_Y,
+static const UiRect BTN_KST   = { 14 + 2 * (CFG_NAV_W + CFG_NAV_GAP), CFG_NAV_Y,
+                                  CFG_NAV_W, CFG_NAV_H };
+static const UiRect BTN_SETUP = { 14 + 3 * (CFG_NAV_W + CFG_NAV_GAP), CFG_NAV_Y,
                                   CFG_NAV_W, CFG_NAV_H };
 
-static_assert(14 + 3 * CFG_NAV_W + 2 * CFG_NAV_GAP <= 226,
-              "the AM32/LOG/SETUP row is too wide");
+static_assert(14 + 2 * CFG_CMD_W + CFG_CMD_GAP == 226,
+              "the BEEP/SD LOG row does not fill the margins");
+static_assert(14 + 4 * CFG_NAV_W + 3 * CFG_NAV_GAP == 226,
+              "the AM32/SERVO/KST/SETUP row does not fill the margins");
 
 /**
  * @defgroup ui_log_layout Logging screen layout
@@ -266,14 +276,15 @@ static_assert(CFG_POLES_LBL >= UI_BODY_Y,
 static_assert(CFG_MAXT_LBL >= CFG_POLES_Y + CFG_ROW_H,
               "the ceiling caption overlaps the pole stepper");
 static_assert(CFG_CMD_Y >= CFG_MAXT_Y + CFG_ROW_H,
-              "BEEP overlaps the ceiling stepper");
+              "the BEEP/SD LOG row overlaps the ceiling stepper");
 static_assert(CFG_HINT_Y >= CFG_CMD_Y + CFG_ROW_H,
-              "settings caption overlaps the BEEP button");
+              "settings caption overlaps the BEEP/SD LOG row");
 static_assert(CFG_NAV_Y >= CFG_HINT_Y + 7,
-              "the AM32/LOG/SETUP row overlaps the caption");
+              "the AM32/SERVO/KST/SETUP row overlaps the caption");
 static_assert(CFG_NAV_Y + CFG_NAV_H <= GFX_H,
-              "the AM32/LOG/SETUP row runs off the panel");
-static_assert(CFG_ROW_H >= UI_TAP_MIN && CFG_NAV_H >= UI_TAP_MIN,
+              "the AM32/SERVO/KST/SETUP row runs off the panel");
+static_assert(CFG_ROW_H >= UI_TAP_MIN && CFG_NAV_H >= UI_TAP_MIN &&
+              CFG_NAV_W >= UI_TAP_MIN,
               "a settings button is smaller than a fingertip");
 
 // ---------------------------------------------------------------------------
@@ -283,6 +294,8 @@ static bool     s_armed = false;
 static bool     s_hold = false;
 static bool     s_config = false;
 static bool     s_am32 = false;   /**< AM32 config mode owns the screen. */
+static bool     s_servo = false;  /**< SERVO owns the screen. */
+static bool     s_kst = false;    /**< KST SERVO owns the screen. */
 static bool     s_setup = false;  /**< SETUP screen owns the screen. */
 static bool     s_logScreen = false; /**< Logging status screen is up. */
 static uint16_t s_throttle = 0;
@@ -896,6 +909,7 @@ static void drawConfig() {
 	uiButton(BTN_BEEP, "BEEP", beepLit ? (s_cmdFlashOk ? C_INK : C_AMBER)
 	                                  : C_PANEL,
 	        beepLit ? C_PAPER : C_CYAN, 1, pressing(BTN_BEEP, s_touch));
+	uiButton(BTN_LOG, "SD LOG", C_PANEL, C_CYAN, 1, pressing(BTN_LOG, s_touch));
 
 	// The hint turns into the reason when a press is refused, so the amber
 	// flash is explained rather than just noticed.
@@ -906,7 +920,12 @@ static void drawConfig() {
 	              refused ? C_RED : C_DIM, 1);
 
 	uiButton(BTN_AM32, "AM32", C_PANEL, C_CYAN, 1, pressing(BTN_AM32, s_touch));
-	uiButton(BTN_LOG, "SD LOG", C_PANEL, C_CYAN, 1, pressing(BTN_LOG, s_touch));
+	// Drawn disabled until their screens are built, and gated on the same
+	// expression in handleConfigTouch(). @see ui_widgets.h
+	uiButton(BTN_SERVO, "SERVO", C_PANEL, C_CYAN, 1,
+	         pressing(BTN_SERVO, s_touch), uiServoAvailable());
+	uiButton(BTN_KST, "KST", C_PANEL, C_CYAN, 1,
+	         pressing(BTN_KST, s_touch), uiKstAvailable());
 	uiButton(BTN_SETUP, "SETUP", C_PANEL, C_CYAN, 1, pressing(BTN_SETUP, s_touch));
 	// No BACK here: uiHeader() drew it, in the same place as on every other
 	// screen. The 18 px strip that used to be along the bottom is what this
@@ -1228,6 +1247,14 @@ static void handleConfigTouch() {
 		s_am32 = true;
 		gfxFill(C_BG);
 		uiAm32Enter();
+	} else if (uiServoAvailable() && tapped(BTN_SERVO, s_touch)) {
+		s_servo = true;
+		gfxFill(C_BG);
+		uiServoEnter();
+	} else if (uiKstAvailable() && tapped(BTN_KST, s_touch)) {
+		s_kst = true;
+		gfxFill(C_BG);
+		uiKstEnter();
 	} else if (tapped(BTN_LOG, s_touch)) {
 		s_logScreen = true;
 		s_config = false;
@@ -1416,6 +1443,8 @@ void uiInit() {
 	s_config = false;
 	s_logScreen = false;
 	s_am32 = false;
+	s_servo = false;
+	s_kst = false;
 	s_setup = false;
 	s_armed = false;
 	s_hold = false;
@@ -1494,10 +1523,14 @@ void uiTick() {
 		return;
 	}
 
-	// AM32 config owns the whole screen and the signal pin while it runs.
-	if (s_am32) {
-		if (!uiAm32Tick(&s_touch)) {
-			s_am32 = false;
+	// AM32 config, SERVO and KST each own the whole screen and the pins they
+	// claim while they run. Each returns false once it has left, and BACK
+	// takes all three to SETTINGS.
+	if (s_am32 || s_servo || s_kst) {
+		bool open = s_am32 ? uiAm32Tick(&s_touch)
+		          : s_servo ? uiServoTick(&s_touch) : uiKstTick(&s_touch);
+		if (!open) {
+			s_am32 = s_servo = s_kst = false;
 			invalidateAll();
 			gfxFill(C_BG);
 			s_shown.config = -1;
@@ -1526,7 +1559,7 @@ void uiTick() {
 		if (s_logScreen) drawLogScreen();
 	} else if (s_config) {
 		handleConfigTouch();
-		if (s_config && !s_am32 && !s_setup) drawConfig();
+		if (s_config && !s_am32 && !s_servo && !s_kst && !s_setup) drawConfig();
 	} else {
 		handleMainTouch();
 

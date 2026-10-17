@@ -22,6 +22,7 @@
 #include "config.h"
 #include "kiss_telem.h"
 #include "sd_log.h"
+#include "pin_claim.h"
 #include "plat.h"
 
 #include "../src/ui_am32.cpp"   // NOLINT -- see the note above
@@ -73,13 +74,14 @@ static void swipe(int x0, int x1, int y, int step) {
 #define BTN_ARM_Y   299
 #define BTN_HOLD_X  143
 #define BTN_CFG_X   205
-// The nav row is three buttons with gaps between them, so tapping the row
-// centre lands in a gap and hits nothing -- which is how these constants first
-// went wrong, back when the row held two.
-// The AM32/LOG/SETUP row: three 68 px buttons with 4 px gaps, from x=14.
-#define BTN_AM32_X    48   // BTN_AM32  spans x  14..81
-#define BTN_LOG_X    120   // BTN_LOG   spans x  86..153
-#define BTN_SETUP_X  192   // BTN_SETUP spans x 158..225
+// The destination row is four buttons with gaps between them, so a tap at a
+// gap hits nothing -- which is how these constants first went wrong, back
+// when the row held two.
+// The AM32/SERVO/KST/SETUP row: four 50 px buttons with 4 px gaps, from x=14.
+#define BTN_AM32_X    39   // BTN_AM32  spans x  14..63
+#define BTN_SERVO_X   93   // BTN_SERVO spans x  68..117
+#define BTN_KST_X    147   // BTN_KST   spans x 122..171
+#define BTN_SETUP_X  201   // BTN_SETUP spans x 176..225
 // --- the shared BACK button, which is now the same rectangle on SETTINGS,
 //     SD LOG, SETUP and AM32. One constant for all four is the point: when
 //     these were four different rectangles, this file had three of them and
@@ -92,10 +94,13 @@ static void swipe(int x0, int x1, int y, int step) {
 #define AM32_EDIT_Y 240
 #define AM32_WRITE_X 50
 #define AM32_WRITE_Y 290
-// --- settings-screen command buttons, mirroring ui.cpp ---
-#define CFG_BEEP_X  120   // BTN_BEEP spans the full row, x 14..225
+// --- settings-screen command row, mirroring ui.cpp: BEEP and SD LOG, two
+//     104 px buttons with a 4 px gap, from x=14 ---
+#define CFG_BEEP_X   66   // BTN_BEEP spans x  14..117
+#define BTN_LOG_X   174   // BTN_LOG  spans x 122..225
 #define CFG_CMD_Y_T 214   // y 192..235
 #define CFG_BEEP_Y  CFG_CMD_Y_T
+#define BTN_LOG_Y   CFG_CMD_Y_T
 // --- settings-screen steppers: BTN_*_M x 14..59, BTN_*_P x 180..225 ---
 #define CFG_POLES_M_X  37
 #define CFG_POLES_P_X 203
@@ -103,8 +108,8 @@ static void swipe(int x0, int x1, int y, int step) {
 #define CFG_MAXT_M_X   37
 #define CFG_MAXT_P_X  203
 #define CFG_MAXT_Y    156   // BTN_MAXT_*  y 134..177
-// --- the AM32/LOG/SETUP row: three 68 px buttons with 4 px gaps, from x=14 ---
-#define BTN_AM32_Y   282   // all three span y 258..305
+// --- the AM32/SERVO/KST/SETUP row ---
+#define BTN_AM32_Y   282   // all four span y 258..305
 // --- throttle gauge: THR_TRACK_Y 248, height 34, band ends at 281 ---
 #define THR_Y         260
 // ...and the horizontal extent, which the rail tests need to be explicit about.
@@ -155,7 +160,7 @@ static void holdToArm() {
  */
 static void enterLogScreen() {
 	tap(BTN_CFG_X, BTN_ARM_Y);
-	tap(BTN_LOG_X, BTN_AM32_Y);
+	tap(BTN_LOG_X, BTN_LOG_Y);
 }
 
 /**
@@ -586,7 +591,7 @@ static void testSettingsCommandRow() {
 	tap(200, UI_STRIP_Y + UI_STRIP_H / 2);
 	checkInt("tapping the chip does nothing", fakeBeepRequests(), beepBefore);
 
-	// BEEP now has the row to itself, so a tap anywhere along it lands.
+	// BEEP has the left half of the row, SD LOG the right.
 	fakePress(CFG_BEEP_X, CFG_CMD_Y_T); frames(1); fakeRelease(); frames(1);
 	checkInt("tapping BEEP sends the command", fakeBeepRequests(), beepBefore + 1);
 	uint32_t lit = fakeRegionHash(0, CFG_BEEP_Y - 24, 240, 60);
@@ -598,9 +603,9 @@ static void testSettingsCommandRow() {
 	checkTrue("the flash clears itself",
 	          fakeRegionHash(0, CFG_BEEP_Y - 24, 240, 60) == idle);
 
-	// Left-hand end of the row, where the EDT button used to be.
-	fakePress(40, CFG_CMD_Y_T); frames(1); fakeRelease(); frames(1);
-	checkInt("the old EDT slot is BEEP now", fakeBeepRequests(), beepBefore + 2);
+	// Its far edge, x=117, still hits; x=118 is the gap before SD LOG.
+	fakePress(117, CFG_CMD_Y_T); frames(1); fakeRelease(); frames(1);
+	checkInt("BEEP's last pixel is BEEP", fakeBeepRequests(), beepBefore + 2);
 	fakeAdvance(400); frames(2);
 
 	// Refusal. Not reachable by hand -- opening settings force-disarms and
@@ -1039,15 +1044,15 @@ static void testTapCancels() {
 
 	// The settings screen: press BEEP, slide off it, release. Neither fires.
 	int beeps = fakeBeepRequests();
-	fakePress(120, CFG_BEEP_Y);  frames(2);
-	fakeHold(120, CFG_BEEP_Y + 60); frames(2);
+	fakePress(CFG_BEEP_X, CFG_BEEP_Y);  frames(2);
+	fakeHold(CFG_BEEP_X, CFG_BEEP_Y + 60); frames(2);
 	fakeRelease();               frames(2);
 	checkInt("sliding off BEEP sent nothing", fakeBeepRequests(), beeps);
 
 	// Still on the settings screen, which the next tap proves by working: the
 	// row the finger slid onto is only hit-tested, so if the slide had
 	// activated anything this fails.
-	fakePress(120, CFG_BEEP_Y);  frames(2);
+	fakePress(CFG_BEEP_X, CFG_BEEP_Y);  frames(2);
 	fakeRelease();               frames(2);
 	checkInt("released in place, it fires", fakeBeepRequests(), beeps + 1);
 	checkTrue("so the screen never left", true);
@@ -2183,15 +2188,22 @@ static void testHitBoundaries() {
 	frames(2);
 	tap(BTN_CFG_X, BTN_ARM_Y);
 
-	// BTN_AM32 spans x 14..81; BTN_LOG starts at 86. x=82 is in the gap between
-	// them and must hit neither -- an inclusive far edge would make adjacent
-	// buttons overlap, and this row has three of them.
+	// BTN_BEEP spans x 14..117 and BTN_LOG starts at 122; BTN_KST ends at 171
+	// and BTN_SETUP starts at 176. A tap in either gap must hit neither
+	// neighbour -- an inclusive far edge would make adjacent buttons overlap.
 	int beeps = fakeBeepRequests();
 	uint16_t polesBefore = settings()->poles;
-	tap(82, BTN_AM32_Y);
+	tap(118, CFG_CMD_Y_T);
 	frames(2);
-	checkInt("a tap in the gap changes nothing", settings()->poles, polesBefore);
+	checkInt("a tap in the BEEP/SD LOG gap changes nothing", settings()->poles,
+	         polesBefore);
 	checkInt("and sends nothing", fakeBeepRequests(), beeps);
+	tap(172, BTN_AM32_Y);
+	frames(2);
+	tap(CFG_POLES_P_X, CFG_POLES_Y);
+	checkTrue("a tap in the KST/SETUP gap left SETTINGS up",
+	          settings()->poles != polesBefore);
+	tap(CFG_POLES_M_X, CFG_POLES_Y);
 
 	// BTN_POLES_M spans x 14..59, y 72..111. One past each far edge is outside.
 	tap(60, CFG_POLES_Y);
@@ -2202,6 +2214,48 @@ static void testHitBoundaries() {
 	// And the last pixel inside still hits.
 	tap(59, 111);
 	checkTrue("the last pixel inside still hits", settings()->poles != polesBefore);
+}
+
+/**
+ * @brief SERVO and KST are drawn disabled and do not act.
+ *
+ * Their screens are stubs until their slices land. A button drawn disabled
+ * is an outline with no fill, and its hit test is gated on the same
+ * expression, so a tap neither opens a screen nor claims a pin.
+ */
+static void testDisabledDestinations() {
+	section("Settings: SERVO and KST are drawn disabled and do not act");
+
+	fakeFlashClear();
+	settingsLoad();
+	uiInit();
+	frames(2);
+	tap(BTN_CFG_X, BTN_ARM_Y);
+	frames(2);
+
+	// A pixel inside each button, clear of its label: fill for a live button,
+	// background for a disabled one.
+	const uint16_t *fb = gfxBuffer();
+	int py = BTN_AM32_Y - 16;
+	checkTrue("AM32 is filled", fb[py * GFX_W + (BTN_AM32_X - 20)] == C_PANEL);
+	checkTrue("SETUP is filled", fb[py * GFX_W + (BTN_SETUP_X - 20)] == C_PANEL);
+	checkTrue("SERVO is an outline", fb[py * GFX_W + (BTN_SERVO_X - 20)] == C_BG);
+	checkTrue("KST is an outline", fb[py * GFX_W + (BTN_KST_X - 20)] == C_BG);
+
+	uint32_t row = fakeRegionHash(68, 258, 104, 48);
+	fakePress(BTN_SERVO_X, BTN_AM32_Y); frames(1);
+	checkTrue("a press on SERVO draws no pressed look",
+	          fakeRegionHash(68, 258, 104, 48) == row);
+	fakeRelease(); frames(2);
+	tap(BTN_KST_X, BTN_AM32_Y);
+	frames(2);
+	checkTrue("neither claims a pin", pinClaimHolder() == PinUser::None);
+	uint16_t poles = settings()->poles;
+	tap(CFG_POLES_P_X, CFG_POLES_Y);
+	checkTrue("and SETTINGS is still up", settings()->poles != poles);
+	tap(CFG_POLES_M_X, CFG_POLES_Y);
+	tap(BACK_X, BACK_Y);
+	frames(2);
 }
 
 /**
@@ -2714,6 +2768,7 @@ void runUiTests() {
 	testRpmGoesDead();
 	testAutoLogOnArm();
 	testHitBoundaries();
+	testDisabledDestinations();
 	testRailReAnchor();
 	testDisarmButton();
 	testThrottleRailsAreReachable();

@@ -24,6 +24,8 @@ void runDshotTelemTests();
 void runDshotEdtTests();
 void runSdioTests();
 void runClaimTests();
+void runServoTests();
+void runKstTests();
 
 int main() {
 	printf("MiniRcBench host tests\n");
@@ -42,6 +44,8 @@ int main() {
 	runDshotEdtTests();
 	runSdioTests();
 	runClaimTests();
+	runServoTests();
+	runKstTests();
 
 	printf("\n=======================\n");
 	if (g_failures) printf("%d CHECK(S) FAILED\n", g_failures);

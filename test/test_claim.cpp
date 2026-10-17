@@ -147,8 +147,8 @@ static void tap(int x, int y) {
 #define C_HOLD_X  143
 #define C_CFG_X   205
 #define C_THR_Y   260
-#define C_AM32_X   39   // inside BTN_AM32
-#define C_NAV_Y   282   // the destination row
+#define C_AM32_X   39   // BTN_AM32 spans x 14..63
+#define C_NAV_Y   282   // the destination row spans y 258..305
 #define C_BACK_X  (UI_BACK_X + UI_BACK_W / 2)
 #define C_BACK_Y  (UI_BACK_Y + UI_BACK_H / 2)
 
