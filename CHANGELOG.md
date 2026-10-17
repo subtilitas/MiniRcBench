@@ -83,8 +83,8 @@ its own wire. AM32 is an open-source ESC firmware.
 - The project is MiniRcBench, at
   [github.com/subtilitas/MiniRcBench](https://github.com/subtilitas/MiniRcBench).
   The CMake project and target are `MiniRcBench`. Builds write
-  `MiniRcBench-<board>.uf2`, `.elf` and `.map`, and a release carries
-  `MiniRcBench-<tag>-<board>.uf2`. Over USB the product is `MiniRcBench`, the
+  `MiniRcBench-touch-lcd-2.8.uf2`, `.elf` and `.map`, and a release carries
+  `MiniRcBench-<tag>-touch-lcd-2.8.uf2`. Over USB the product is `MiniRcBench`, the
   serial port `MiniRcBench Serial`, the drive `MiniRcBench SD Card`, and the
   card reader answers a SCSI inquiry with the product `MiniRcBench SD`. The
   splash reads `MINIRC` over `BENCH`. A blackbox log names `MiniRcBench` as
@@ -95,7 +95,23 @@ its own wire. AM32 is an open-source ESC firmware.
 - Unchanged, so that a board moves over without being set up again: the USB
   vendor and product IDs (0x2E8A, 0x4006), and the settings block in flash
   (magic `DSHT`, layout version 2, the last 4 kB sector). Settings saved by
-  DshotDisplay 2.x load.
+  DshotDisplay 2.x on an RP2350-Touch-LCD-2.8 load.
+- MiniRcBench supports one board, the Waveshare RP2350-Touch-LCD-2.8, and
+  builds one image for it. The splash and the SETUP BOARD row name the board
+  the image is built for.
+- The settings block's board id is a record checked against the 2.8"'s, 28;
+  validation rewrites any other value and re-judges the stored pins against
+  GP28 and GP29. The host suite pins the block layout DshotDisplay 2.x
+  writes.
+- The CMake pin options are `DSHOT_PIN_LCD_2_8` and `KISS_PIN_LCD_2_8`. A
+  configure step with `-DDSHOT_PIN`, `-DKISS_PIN`, `-DDSHOT_PIN_LCD_2`,
+  `-DKISS_PIN_LCD_2` or a `-DBOARD` naming another target fails with a
+  message naming the options the build takes.
+- `src/sd_hw_config.c` configures the one card slot for SDIO from the board
+  header's pin macros at compile time, and asserts the SDIO pin rule there.
+  `tools/sdtest` is SDIO-only and links no board descriptor.
+- The config-permutation job builds 32 combinations, without a board
+  dimension.
 - Bidirectional DShot runs on the MIT driver from rcbench, `protocols/dshot`
   at commit 453cf334, kept in `src/dshot/`, instead of `pico-bidir-dshot`
   1.0.2, which is GPL-3.0. No GPL code is fetched or linked for DShot.
@@ -111,9 +127,11 @@ its own wire. AM32 is an open-source ESC firmware.
 - EDT frames are decoded as EDT once an enable has gone out. Before that,
   every reply reads as eRPM.
 - The design notes in `docs/design/` describe the code as it is: KISS
-  reception through a PIO receiver on any free GPIO, KISS on the 2.8" board
-  off by default rather than impossible, the SD interface chosen per board at
-  run time, which log fields carry which source, and the USB card reader.
+  reception through a PIO receiver on any free GPIO, KISS off by default
+  rather than impossible, which log fields carry which source, and the USB
+  card reader. `pin-claim.md`, `servo-tester.md` and `kst-programming.md`
+  plan for the 2.8" only: SIG on GP29, AUX on GP28, PWM slice 6 channels B
+  and A.
 - README.md links STATUS.md and this changelog, and credits the
   collaboration.
 - README.md and every wiki page, English and German, describe the firmware
@@ -123,14 +141,40 @@ its own wire. AM32 is an open-source ESC firmware.
 - The wiki is published by `docs.yml` instead of a job inside `release.yml`.
 - `actions/cache` v6 (Node.js 24) in place of v4 (Node.js 20).
 - The workflow lint's duplicate-key check covers every workflow file.
-- The 2.8" board's SD card runs on the driver in `src/sdio/` instead of the
+- The SD card runs on the driver in `src/sdio/` instead of the
   SDIO driver of `no-OS-FatFS-SD-SDIO-SPI-RPi-Pico`, whose README derives it
   from ZuluSCSI-firmware (GPL-3.0). The build compiles FatFs, the glue and the SPI driver from a copy of the
   library's `src/` without its SDIO, ZuluSCSI-firmware and SdFat directories,
-  not through the library's CMakeLists.txt. No GPL code is compiled or linked into any image. The 2.0"
-  board's SPI path is unchanged.
+  not through the library's CMakeLists.txt. No GPL code is compiled or linked
+  into the image. The library's SPI card driver stays in the build because
+  its card layer calls into it.
 - The SDIO pins need DAT0 to DAT3 consecutive and nothing more; CLK and CMD
   can be any other GPIO below 32.
+
+### Removed
+
+- The Waveshare RP2350-Touch-LCD-2 (2.0") board: its pin map
+  (`src/board_rp2350_touch_lcd_2.h`), its board descriptor
+  (`src/board_desc_lcd2.cpp`), the CST816D touch driver (`src/cst816.cpp`),
+  its SD card configuration over hardware SPI1 and `SD_LOG_SPI_MHZ`, its pin
+  defaults and options `DSHOT_PIN_LCD_2`, `KISS_PIN_LCD_2` and
+  `KISS_ENABLE_LCD_2`, its image `MiniRcBench-<tag>-touch-lcd-2.uf2`, its CI
+  job and its rendered frames. DshotDisplay keeps support for that board.
+- The unified image, `MiniRcBench-<tag>-unified.uf2`, with `BOARD_UNIFIED`,
+  the `BOARD` CMake cache variable, `src/board.h` and the board-selection
+  calls `boardSelect()`, `boardCount()`, `boardAt()` and `boardIdAt()`.
+- The board probe, `src/board_probe.h` and `src/board_probe.cpp`, with its
+  call at boot and the safe stop that held the power latch, the display off
+  and DShot silent when no board or both answered. The image does not
+  identify the board it runs on; STATUS.md lists what it drives on another
+  board as a known limitation.
+- Code that existed only to tell two boards apart: the touch driver dispatch
+  (`src/touch.cpp`, `TouchDriver`), the descriptor fields for a shared touch
+  reset, the SD interface and the SD pins, `settingsPinFreeOn()` and
+  `settingsNextPinOn()`, `sdHwConfigApply()`, `tools/sdtest/touch_stubs.cpp`,
+  the test Makefile's `both` target and board list, the host tests for board
+  selection and the 2.0" descriptor, and CI's DWARF touch-driver and
+  board-label assertions.
 
 ### Fixed
 
@@ -147,20 +191,18 @@ its own wire. AM32 is an open-source ESC firmware.
 - `test/check_docs.py` strips `~~~` code fences as well as backtick fences,
   builds heading anchors without `_` and `*` emphasis markers, and caps its
   exit status at 255, so a multiple of 256 problems does not exit 0.
-- The release notes describe the board probe as it runs: on every boot,
-  shown read-only under CFG → SETUP. They give GP28 as the KISS pin of the
-  2.8" board, off by default.
+- The release notes give GP28 as the KISS pin, off by default.
 - The manual and README.md list two USB DRIVE refusals. Without a card the
   button is drawn unavailable, so `NO CARD TO SHARE` cannot appear.
 - The manual gives `vbatLatest` and `amperageLatest` as KISS only, 0 while
   KISS is not live, as `src/sd_log.cpp` writes them.
-- Three comments in `src/config.h` disagreed with the code: the SD
-  preallocation of 16 MiB lasts about 38 min, SETUP shows one note line for
-  saved settings or compiled defaults, and the card interface differs per
-  board.
+- Two comments in `src/config.h` disagreed with the code: the SD
+  preallocation of 16 MiB lasts about 38 min, and SETUP shows one note line
+  for saved settings or compiled defaults.
 - `tools/sdtest` links: it carries the mass-storage callbacks that the
-  firmware's TinyUSB configuration requires, and declares
-  `spi_get_by_num()`.
+  firmware's TinyUSB configuration requires. Its stub comment says what they
+  answer: test_unit_ready not ready, a capacity of 0 blocks, and an error for
+  read10, write10 and every SCSI command outside TinyUSB's built-in set.
 
 ---
 
