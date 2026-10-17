@@ -166,7 +166,7 @@ are channels B and A of PWM slice 6, which forces one rate anyway.
 ## Screens
 
 Entry: CFG → SETTINGS → SERVO, in the destination row
-([pin-claim.md](pin-claim.md), open question 2). The main screen is the root
+([pin-claim.md](pin-claim.md), decision 2). The main screen is the root
 and gets no entry; CFG is its navigation.
 
 ### SERVO
@@ -380,24 +380,23 @@ off, STOP fires on press. `make previews` adds `docs/servo-preview.png`.
 
 About 5 days for 1 to 4.
 
+## Decisions
+
+The owner accepted recommendations 1 to 5 on 2026-10-17.
+
+1. **START hold length.** 1000 ms (`ARM_HOLD_MS`), one hold length on the
+   device.
+2. **Persist the profile.** Not stored in flash. Every boot starts at
+   STANDARD PWM 50 Hz, so a heli profile or a high rate is never applied to
+   the next servo by accident, and `SETTINGS_VERSION` stays 2.
+3. **One profile or two.** One shared profile with REVERSE B. SIG and AUX
+   share a slice and therefore a rate.
+4. **Sweep pause.** Not in this slice. STOP SWEEP holds the servo where the
+   curve was, and SWEEP starts a new curve from the centre.
+5. **SPEED default.** 100 %, no slew, as rcbench starts.
+
 ## Open questions
 
-1. **START hold length.** MiniRcBench's 1000 ms (`ARM_HOLD_MS`) or rcbench's
-   2 s? Recommended: 1000 ms, one hold length on the device.
-2. **Persist the profile.** Store TYPE, RATE and the range in flash?
-   Recommended: no. Every boot starts at STANDARD PWM 50 Hz, as rcbench
-   restarts do, so a heli profile or a high rate is never applied to the next
-   servo by accident, and `SETTINGS_VERSION` stays 2.
-3. **One profile or two.** Two servos of different types on one test?
-   Recommended: one shared profile with REVERSE B. SIG and AUX share a
-   slice and therefore a rate; a second range is a second set
-   of rows for a case nobody has asked for.
-4. **Sweep pause.** rcbench pauses and resumes a sweep at its phase.
-   Recommended: not in this slice. STOP SWEEP holds the servo where the curve
-   was, and SWEEP starts a new curve from the centre.
-5. **SPEED default.** rcbench starts at 100 %, no slew. Recommended: keep
-   100 %; HOLD TO START already states the move to centre, and a slower
-   default would make the servo look slow.
 6. **SAFE output.** No pulses (rcbench), or the CENTRE pulse? Recommended: no
    pulses. A servo held at a pulse nobody commanded this session is worse than
    one let go; that is rcbench's rule for `out_pwm_write(pin, 0)`.
