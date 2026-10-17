@@ -247,7 +247,7 @@ works.
 |---|---|---|
 | An ESC answers on SIG | `AN ESC ANSWERS ON GP29.` `UNPLUG IT: SERVO PULSES READ AS THROTTLE.` | unplug the ESC; the claim follows 500 ms later |
 | KISS frames on AUX, two servos asked | `KISS WIRE ON GP28 IS LIVE.` `TWO SERVOS NEED IT UNPLUGGED.` | unplug it, or choose one servo |
-| SIG and AUX on one GPIO, two servos asked | `ESC AND KISS PIN ARE THE SAME GPIO.` `SET ANOTHER KISS PIN IN SETUP.` | choose one servo, or change a pin in SETUP |
+| SIG and AUX on one GPIO, two servos asked | `ESC AND KISS PIN ARE THE SAME GPIO.` `MOVE THE ESC PIN IN SETUP.` | choose one servo, or change a pin in SETUP |
 | The job could not bind | `GP29 COULD NOT BE TAKEN (PWM)` or `(PIO)`, `(DMA)`, `(CLOCK)` | RETRY, or BACK; DShot is restored either way |
 | Armed, or another screen holds the pins | `DISARM FIRST` or `PINS BUSY` | BACK; unreachable through the UI |
 
