@@ -32,7 +32,7 @@
  *
  * | | core0 | core1 |
  * |---|---|---|
- * | Job | touch, rendering, battery sense | DShot frame pump, telemetry decode |
+ * | Job | touch, rendering, battery sense | DShot frame pump, telemetry decode; the servo job during a SERVO claim |
  * | Rate | ~40 Hz | 1 kHz (@ref DSHOT_PERIOD_US) |
  * | Allowed to block | yes, freely | never |
  *
@@ -47,6 +47,9 @@
  * - @ref esc_task.h — core1 DShot pump and EDT decode
  * - @ref pin_claim.h — a screen takes the two signal pins from DShot
  * - @ref core1_job.h — core1 work on the claimed pins
+ * - @ref servo_job.h — the servo tester's core1 job: PWM pulses, slew, sweep
+ * - @ref servo_model.h — the servo tester's rules, pure
+ * - @ref ui_servo.h — the servo tester screens
  * - @ref ui.h — screens, touch handling, arm and throttle state machines
  * - @ref gfx.h — RGB565 framebuffer, dirty bands, fonts
  * - @ref st7789.h — panel init and DMA blitter

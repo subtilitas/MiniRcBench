@@ -37,6 +37,13 @@ DEFINES := $(EXTRA_DEFINES)
 # never edit this file for that. @see servo.mk, kst.mk
 include servo.mk kst.mk
 
+# Each feature's C sources, their include directories and their C test
+# programs. A feature with none leaves its variables undefined, and they
+# expand to nothing.
+FEATURE_CSRCS := $(SERVO_CSRCS) $(KST_CSRCS)
+FEATURE_CTESTS := $(SERVO_CTESTS) $(KST_CTESTS)
+INCLUDES += $(SERVO_INCLUDES) $(KST_INCLUDES)
+
 SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
         test_blackbox.cpp test_log_ring.cpp test_settings.cpp \
         test_usb_msc.cpp test_dshot_frame.cpp test_dshot_telem.cpp \
@@ -72,9 +79,16 @@ DEVICE_SRCS := ../src/esc_task.cpp ../src/st7789.cpp \
 # PIO and DMA and is not here.
 CSRCS := ../src/dshot/dshot_frame.c ../src/dshot/dshot_telem.c \
          ../src/dshot/dshot_edt.c \
-         ../src/sdio/sd_proto.c ../src/sdio/sd_host.c
+         ../src/sdio/sd_proto.c ../src/sdio/sd_host.c \
+         $(FEATURE_CSRCS)
 OBJ_DIR := obj
 COBJS := $(addprefix $(OBJ_DIR)/,$(notdir $(CSRCS:.c=.o)))
+FEATURE_COBJS := $(addprefix $(OBJ_DIR)/,$(notdir $(FEATURE_CSRCS:.c=.o)))
+# The features' C test programs, one binary each in obj/.
+CTEST_BINS := $(addprefix $(OBJ_DIR)/,$(notdir $(FEATURE_CTESTS:.c=)))
+# Where the features' C files are found by name; the rules below name them
+# by file only.
+vpath %.c $(sort $(dir $(FEATURE_CSRCS) $(FEATURE_CTESTS)))
 
 BIN := dshot_tests
 
@@ -99,8 +113,26 @@ $(OBJ_DIR)/%.o: ../src/sdio/%.c ../src/sdio/sd_proto.h ../src/sdio/sd_host.h
 	@mkdir -p $(OBJ_DIR)
 	$(CC) $(CFLAGS) $(WARN) -Werror -c -o $@ $<
 
-run: $(BIN)
+# A feature's C source, found through vpath.
+$(FEATURE_COBJS): $(OBJ_DIR)/%.o: %.c
+	@mkdir -p $(OBJ_DIR)
+	$(CC) $(CFLAGS) $(WARN) -Werror $(SERVO_INCLUDES) $(KST_INCLUDES) -c -o $@ $<
+
+# A feature's C test program, linked against the feature's C objects. Its own
+# directory is on the include path, for the harness beside it.
+$(CTEST_BINS): $(OBJ_DIR)/%: %.c $(FEATURE_COBJS)
+	@mkdir -p $(OBJ_DIR)
+	$(CC) $(CFLAGS) $(WARN) -Werror -I$(dir $<) $(SERVO_INCLUDES) $(KST_INCLUDES) \
+		-o $@ $< $(FEATURE_COBJS) -lm
+
+# The suite, then each C test program. A program prints a line per case; its
+# summary line is shown, and the whole output when it fails.
+run: $(BIN) $(CTEST_BINS)
 	./$(BIN)
+	@for t in $(CTEST_BINS); do \
+		out=$$(./$$t) || { echo "$$out"; exit 1; }; \
+		echo "$$out" | tail -1; \
+	done
 
 # Every device source, plus both settings of the two feature switches so the
 # disabled paths cannot rot unnoticed.
@@ -169,7 +201,9 @@ wiki: run
 	python3 ../tools/make_previews.py --wiki
 	python3 ../tools/check_wiki.py
 
-# Line coverage of the src/ files the suite compiles. The instrumented copy
+# Line coverage of the src/ files the suite compiles. The C files from
+# lib/rcbench/ are instrumented with the rest, but coverage.py counts src/
+# only, so they are not in the figure. The instrumented copy
 # builds in cov/ at -O0, so each counter maps to one source line, and leaves
 # $(BIN) and `make run` unchanged. The run starts from an empty cov/: counters
 # from an earlier run or a removed source would otherwise add to this one.
@@ -180,7 +214,7 @@ COV_DIR := cov
 coverage:
 	rm -rf $(COV_DIR) && mkdir -p $(COV_DIR)
 	for f in $(CSRCS); do \
-		$(CC) -std=c11 -O0 -g --coverage $(WARN) \
+		$(CC) -std=c11 -O0 -g --coverage $(WARN) $(SERVO_INCLUDES) $(KST_INCLUDES) \
 			-c -o $(COV_DIR)/$$(basename $$f .c).o $$f || exit 1; \
 	done
 	$(CXX) -std=gnu++17 -O0 -g --coverage $(WARN) $(INCLUDES) $(DEFINES) \

@@ -427,8 +427,11 @@ void escTaskPoll() {
 	// lives in the header so the host suite can reach it. This function only
 	// does the I/O. During the drain the slot is escDrainSlot(): a plain
 	// zero, with no command and no KISS request.
+	// The heartbeat stamp before the clock, so the clock is never older than
+	// it; escUiAlive() also accepts a stamp less than 250 ms newer.
+	uint32_t hb = s_heartbeatMs;
 	uint32_t ms = millis();
-	bool uiAlive = escUiAlive(ms, s_heartbeatMs);
+	bool uiAlive = escUiAlive(ms, hb);
 #if KISS_TELEM_ENABLE
 	bool kissRx = s_kissRx;
 #else

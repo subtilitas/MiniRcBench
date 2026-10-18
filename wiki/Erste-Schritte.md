@@ -22,8 +22,8 @@ Die Firmware hat diese Sperren. Sie ersetzen die Schritte oben nicht:
 
 - Die Gasobergrenze steht ab Werk auf **20 %** des DShot-Bereichs.
 - Scharfschalten verlangt **1 s Halten**, bei mindestens 250 ms Gas auf null.
-- `DISARM` wirkt **beim Berühren**. Alle anderen Bedienelemente wirken beim
-  Loslassen.
+- `DISARM` wirkt **beim Berühren**, ebenso `STOP` im Servotester. Alle
+  anderen Bedienelemente wirken beim Loslassen.
 - Im scharfen Zustand entschärft der Tester nach **30 s** ohne Berührung. Die
   letzten 5 s zählen auf dem Bildschirm herunter.
 - Hält die Anzeige-Firmware an, setzt der zweite Kern das Gas nach **250 ms**

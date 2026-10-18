@@ -7,7 +7,7 @@ link here and in [CHANGELOG.md](CHANGELOG.md) is checked by
 integration) is written and checked by `tools/coverage.py`. Nothing else is
 checked: the architecture figures, pin numbers, suite and job lists and
 verification states are written by hand, against the code and the issue tracker
-as of 2026-10-17. Read them as a dated record, not as an inventory.
+as of 2026-10-18. Read them as a dated record, not as an inventory.
 
 MiniRcBench continues the DshotDisplay firmware, which remains a separate
 project at
@@ -22,13 +22,15 @@ numbers are in the DshotDisplay tracker.
 
 ## Architecture
 
-MiniRcBench is a bench tester for one ESC (electronic speed controller). A
-servo tester and KST and Chaservo servo programming, both on the same two
-signal pins, are planned; their design notes are in
-[docs/design/](docs/design/README.md). The pin claim they share is built
-(slice 1 of [pin-claim.md](docs/design/pin-claim.md)): the AM32 editor runs on
-it, and the SERVO and KST buttons on CFG are drawn disabled over stub screens.
-The board is the throttle source. It
+MiniRcBench is a bench tester for one ESC (electronic speed controller) and
+for servos. The servo tester (slice 2 of
+[pin-claim.md](docs/design/pin-claim.md),
+[servo-tester.md](docs/design/servo-tester.md)) drives one servo on the ESC
+pin, or two on the ESC and KISS pins, with PWM (pulse-width modulation)
+pulses. KST and Chaservo servo programming, on the same pins, is planned
+(slice 3); its CFG button is drawn disabled over a stub screen. The pin claim
+both share is built (slice 1): the AM32 editor and the servo tester run on
+it. For the ESC, the board is the throttle source. It
 sends bidirectional DShot (a digital ESC protocol in which the ESC answers each
 frame on the same wire) and decodes the
 eRPM (electrical revolutions per minute) and EDT (Extended DShot Telemetry)
@@ -40,7 +42,7 @@ The two cores of the RP2350 split the work by deadline:
 
 | | core0 | core1 |
 | --- | --- | --- |
-| Work | USB (Universal Serial Bus) device task, touch, UI (user interface) rendering, SD (Secure Digital) card logging, settings, serial telemetry dump, the pin claim's state machine | DShot frame pump, eRPM and EDT decode, KISS request and receive; while a pin claim holds, the claiming screen's job instead (none is built yet) |
+| Work | USB (Universal Serial Bus) device task, touch, UI (user interface) rendering, SD (Secure Digital) card logging, settings, serial telemetry dump, the pin claim's state machine | DShot frame pump, eRPM and EDT decode, KISS request and receive; while a pin claim holds, the claiming screen's job instead: the servo job for SERVO, none for AM32 |
 | Rate | one UI frame every 25 ms (40 Hz); USB task, log encode and card flush on every loop pass | one DShot frame every 1000 µs (1 kHz); KISS receive FIFO (first-in, first-out buffer) drained on every loop pass |
 | May block | yes: display DMA (direct memory access) bursts of several ms, card writes of tens of ms | never |
 
@@ -57,7 +59,8 @@ throttle frame, then stops the pump, releases the pin, which turns its pulls
 off, puts the pull-up back on it and ends the KISS receiver. A rebuild after a
 SETUP pin change drains the same way. `loop1()` runs `escTaskPoll()` and then
 `core1JobPoll()`, which binds, steps and releases the claiming screen's job
-(`src/core1_job.h`); no job is built, and the AM32 transport runs on core0.
+(`src/core1_job.h`): the servo job (`src/servo_job.h`) for SERVO; the AM32
+transport runs on core0, and the KST job is not built.
 Leaving rebuilds the pump from the wiring it had, disarmed. For SERVO and KST
 the claim restarts DShot only after a page that tells the user to unplug the
 servo.
@@ -106,6 +109,11 @@ release, so it always finds a block with no other user. A `static_assert` in
 block: 3 state machines and 25 of 32 instructions. A bind that cannot get two
 adjacent state machines is refused, and the status bar then shows `DSERR`.
 
+PWM slices: slice 0 drives the backlight (GP16). Slice 6 carries the servo
+pulses during a SERVO claim, GP29 on channel B and GP28 on channel A, one
+frame rate for both, its counter at 1 MHz. The servo tester uses no PIO and
+no DMA.
+
 Board: the image is built for the Waveshare RP2350-Touch-LCD-2.8 only.
 
 Build: native Pico SDK (software development kit) 2.1.1 with CMake, ARM cores
@@ -114,7 +122,10 @@ only. The one dependency besides the SDK is pinned by commit:
 driver are built, the SPI driver because the card layer calls into it; its
 SDIO driver is not. The DShot driver in `src/dshot/` is part of the
 tree, from rcbench `protocols/dshot` at commit 453cf334 (MIT, same copyright
-holder). The SDIO driver in `src/sdio/` is part of the tree, MIT, written from
+holder). The servo sweep curve and the GPIO-to-PWM fold are rcbench files at
+the same commit, copied unchanged into `lib/rcbench/`
+([lib/rcbench/README.md](lib/rcbench/README.md)). The SDIO driver in
+`src/sdio/` is part of the tree, MIT, written from
 the SD Association's Physical Layer Simplified Specification v9.10 and the
 RP2350 datasheet ([design note](docs/design/sdio-driver.md)). A release carries one UF2
 (USB Flashing Format) image, `MiniRcBench-<tag>-touch-lcd-2.8.uf2`.
@@ -160,7 +171,8 @@ record either way.
 | USB card reader (read-only mass storage) | handover state machine, screen | not recorded |
 | AM32 settings editor over the signal wire (AM32 is an open-source ESC firmware) | init string, CRC-16/ARC, 39-field codec, timing advance encodings, write interlock; the screen on the pin claim, the latched GPIO, the drain before the handover | hardware use recorded: ab79c67, bd90e17, both before the screen moved onto the pin claim; the claim and its drain: not tested on hardware |
 | Pin claim (`src/pin_claim.*`) and core1 job dispatch (`src/core1_job.*`), the zero-throttle drain in `src/esc_task.*` | each refusal rule at its 500 ms boundary and their order; the handover decisions of `escTaskPoll()` (`escHandoverStep()`, `escDrainSlot()`, `escPumpFrameSent()`, `escPumpBind()`) one 1 ms slot at a time: 250 zero frames, the teardown 251 ms after the last throttle frame, the bind disarmed; the order of the two cores' steps against fake jobs, BACK and RETRY, Restoring, the unplug-page rule, the restore wiring, the start guard, the heartbeat rule across a millis() rollover; the PIO and pad calls around those decisions are compiled only | not tested on hardware; open item 9 |
-| Settings screen layout: BEEP and SD LOG in one row, AM32, SERVO, KST and SETUP in the destination row, SERVO and KST disabled | one gap in each row, disabled drawing, no pressed look and no action on SERVO and KST | not recorded |
+| Settings screen layout: BEEP and SD LOG in one row, AM32, SERVO, KST and SETUP in the destination row, KST disabled | one gap in each row; SERVO live and opening its screen; disabled drawing, no pressed look and no action on KST | not recorded |
+| Servo tester: the pure model (`src/servo_model.*`), the PWM driver (`src/servo_pwm.*`), the core1 job (`src/servo_job.*`), the slider and the screens (`src/ui_slider.*`, `src/ui_servo.cpp`); rcbench's sweep and PWM fold in `lib/rcbench/` | profiles, limits at their boundaries, steppers to their stops, command, angle and pulse mappings, SPEED, the dial's hit area; the PWM driver's bind, write, release and sharing rules against a register fake; SAFE at level 0, CENTRE at START, STOP on the next pass, the slew, sweeps, REVERSE B, the trip at 250 ms across a millis() wrap, kept across a rebind, the profile rebind; no pulse cut short at a release or a rebind, against a model of the counter and the latched compare; released pins pulled down; the screens through the UI: HOLD TO START at 1000 ms, the drag rules, the SET warning and HOLD TO APPLY, STOP on SET, the AUX refusals through the claim, the unplug page; rcbench's own sweep and fold tests; the SDK calls are run against the fake only | not tested on hardware; open item 10 |
 | Settings in flash (CFG → SETUP) | block validation, CRC, board id check, pin defaults, the block layout DshotDisplay 2.x writes | not recorded; 46a64a7 states no hardware coverage |
 | Touch handling, high-contrast theme, throttle gauge | tap on release, repeats, screen residue, gauge reach | hardware use recorded: the reports #22 to #24 named in the v2.3 commits; the fixes on hardware: not recorded |
 | Serial telemetry dump | none | not recorded |
@@ -246,6 +258,28 @@ Not in this history: the DshotDisplay repository's branches
    session left with BACK (DShot back, the EDT enable as its first
    frames).
 
+10. **Servo tester on hardware.** Nothing of it has run on a chip. Bench
+    tests needed (work breakdown item 5 of
+    [servo-tester.md](docs/design/servo-tester.md)), with an oscilloscope on
+    SIG and AUX:
+    - SAFE after the claim: both lines low, no edges;
+    - pulse width and frame period at 50 Hz and at 560 Hz (HELI TAIL 760),
+      against the 1 MHz counter: 1500 µs reads 1500 µs, the wrap 19,999 and
+      1,784 counts;
+    - one servo, then two, the second channel started without a step on the
+      first;
+    - STOP latency: the last pulse ends within one frame, 20 ms at 50 Hz;
+    - the heartbeat trip: core0 halted in a debugger, the pulses stop
+      250 ms after the last UI frame;
+    - the last pulse at BACK while RUNNING and at a profile change right
+      after STOP: complete, not cut short; the pins leave PWM about 41 ms
+      after BACK, and the rebind waits until about 41 ms after STOP, at
+      50 Hz;
+    - the line after the release (an input with the pull-down on) and
+      through the unplug page, then DShot back on RESTART DSHOT;
+    - STOP on SET while RUNNING: level 0 within one frame, as on SERVO;
+    - a real servo on each profile, and whether it reads 3.3 V pulses.
+
 ## Known limitations
 
 - **Two free pins.** The board frees two GPIOs, GP28 and GP29. The ESC takes
@@ -275,6 +309,10 @@ Not in this history: the DshotDisplay repository's branches
   Blackbox Explorer draws only the fields it knows. The header claims
   `Firmware type:Cleanflight`, as Betaflight's own logs do.
 - **Landscape.** `LCD_ROTATION` 1 fails the build.
+- **Servo tester.** No position feedback: the horn is drawn where the pulse
+  puts it, not where the servo is. Two servos share one profile and one frame
+  rate, because SIG and AUX are the two channels of one PWM slice. The profile
+  is not stored and starts at STANDARD PWM 50 Hz on every entry.
 
 ## Tests and CI
 
@@ -286,9 +324,9 @@ binary, `dshot_tests`. `test/test_main.cpp` runs fifteen suites:
 | Suite | File | Covers |
 | --- | --- | --- |
 | `runAm32Tests` | `test_am32.cpp` | AM32 init string, CRC-16/ARC, settings address per MCU (microcontroller) family, field codec, timing advance |
-| `runUiTests` | `test_ui.cpp` (includes `ui_am32.cpp`) | screens, throttle modes, safety interlocks, core1 frame decision, EDT enable, EDT enable at pump start against a simulated ESC, touch, SETUP, SD LOG, USB DRIVE, the settings rows with SERVO and KST disabled, screenshots |
+| `runUiTests` | `test_ui.cpp` (includes `ui_am32.cpp`) | screens, throttle modes, safety interlocks, core1 frame decision, EDT enable, EDT enable at pump start against a simulated ESC, touch, SETUP, SD LOG, USB DRIVE, the settings rows with SERVO live and KST disabled, screenshots |
 | `runKissTests` | `test_kiss.cpp` | KISS CRC-8, decode, resynchronisation, request payload, KISS/EDT merge, expiry, EDT enable rule |
-| `runGfxTests` | `test_gfx.cpp` | dirty bands, glyph rendering, clip rectangle |
+| `runGfxTests` | `test_gfx.cpp` | dirty bands, glyph rendering, clip rectangle, lines at any angle and thickness, arcs of dots |
 | `runBlackboxTests` | `test_blackbox.cpp` | variable-byte and zig-zag encodings, header, frames, time prediction |
 | `runLogRingTests` | `test_log_ring.cpp` | ring buffer, all-or-nothing writes, wraparound, high-water mark |
 | `runSettingsTests` | `test_settings.cpp` | settings block, validation, board id check, pin defaults, the block layout DshotDisplay 2.x writes |
@@ -298,12 +336,14 @@ binary, `dshot_tests`. `test/test_main.cpp` runs fifteen suites:
 | `runDshotEdtTests` | `test_dshot_edt.cpp` | extended telemetry schedule against an AM32 model (from rcbench) |
 | `runSdioTests` | `test_sdio.cpp` | SDIO driver: CRC7 and CRC16 vectors, framing, responses, CSD, four-bit packing, CRC status token; initialisation, reads and writes against a simulated card |
 | `runClaimTests` | `test_claim.cpp` (includes `core1_job.cpp`) | pin claim refusals at their 500 ms boundaries and their order, the handover decisions of `escTaskPoll()` one 1 ms slot at a time, the zero-throttle drain through the claim, Restoring, the order of the two cores' steps against fake jobs, BACK in every state, RETRY, the unplug-page rule, restore wiring, the job start guard, the heartbeat rule across a millis() rollover, no settings save during a claim, the AM32 screen on the claim |
-| `runServoTests` | `test_servo.cpp` | the servo tester's stub screen: not built, claims nothing, leaves at once |
+| `runServoTests` | `test_servo.cpp` (includes `ui_servo.cpp`) | the servo model, the PWM driver against a register fake, the job core and the job through the claim, the slider, and the SERVO, SET and unplug screens through the UI, with screenshots |
 | `runKstTests` | `test_kst.cpp` | the KST programming stub screen: not built, claims nothing, leaves at once |
 
 `test/servo.mk` and `test/kst.mk` list each feature's sources and test files
 for `test/Makefile`, as `src/servo.cmake` and `src/kst.cmake` do for
-`CMakeLists.txt`.
+`CMakeLists.txt`. A feature's C sources and C test programs are built as C11:
+`make run` also runs rcbench's `test_servo_sweep.c` (14 cases) and the
+adapted `test_out_pwm_map.c` (5 cases) from `test/rcbench/`.
 
 Other targets in `test/Makefile`: `syntax` typechecks the device-only sources
 with `-Werror`; `pioemu` runs `test/pio_sdio_emu.py`, the SDIO PIO programs
@@ -324,7 +364,7 @@ requests, by hand):
 | Firmware (`touch-lcd-2.8`) | builds with arm-none-eabi-gcc 13.3 and `STRICT=ON`; flash under 1 MiB and RAM (random-access memory) under 400,000 bytes; checks from the DWARF compile units that no file of the SD library's SDIO, ZuluSCSI-firmware or SdFat directories is in the image; writes `THIRD_PARTY_NOTICES.txt` with `tools/notices.py` and checks it against the image; compares the PIO model's assembler with the SDK's `pioasm`; checks the two pin overrides reach CMake and that `-DDSHOT_PIN`, `-DKISS_PIN`, `-DDSHOT_PIN_LCD_2`, and `-DKISS_PIN_LCD_2` are refused; validates the UF2 |
 | Host tests | `make`, which runs the SDIO PIO model too; the suite again with both pin macros overridden; wiki screenshots and `check_wiki.py` |
 | Blackbox round-trip | builds `blackbox_decode` from source, runs `make bbcheck` |
-| Config permutations | typechecks all of `src/` with `-Werror` for 32 combinations: AM32 transmit mode × AM32 low-jump × rotation 0 or 2 × KISS on or off × SD logging on or off; checks the landscape guard fires |
+| Config permutations | typechecks all of `src/` with `-Werror` for 32 combinations, with the headers in `lib/rcbench/` on the include path: AM32 transmit mode × AM32 low-jump × rotation 0 or 2 × KISS on or off × SD logging on or off; checks the landscape guard fires |
 | Workflow lint | actionlint 1.7.7 and a duplicate-key check on every workflow in `.github/workflows/` |
 | Docs | `test/check_docs.py`, then Doxygen with zero warnings allowed |
 | Coverage | `make -C test coverage`, then `python3 tools/coverage.py --check`; fails on drift from the table below, below 93 % in total, or below 85 % in any file |
@@ -360,13 +400,13 @@ model.
 | `src/am32_eeprom.cpp` | 69 | 67 | 97.1% |
 | `src/am32_eeprom.h` | 11 | 11 | 100.0% |
 | `src/blackbox_encode.cpp` | 113 | 113 | 100.0% |
-| `src/core1_job.cpp` | 67 | 67 | 100.0% |
+| `src/core1_job.cpp` | 70 | 70 | 100.0% |
 | `src/dshot/dshot_edt.c` | 33 | 33 | 100.0% |
 | `src/dshot/dshot_frame.c` | 25 | 25 | 100.0% |
 | `src/dshot/dshot_telem.c` | 143 | 143 | 100.0% |
 | `src/esc_merge.cpp` | 44 | 44 | 100.0% |
-| `src/esc_task.h` | 156 | 156 | 100.0% |
-| `src/gfx.cpp` | 201 | 186 | 92.5% |
+| `src/esc_task.h` | 157 | 157 | 100.0% |
+| `src/gfx.cpp` | 223 | 209 | 93.7% |
 | `src/kiss_telem.cpp` | 37 | 35 | 94.6% |
 | `src/log_ring.cpp` | 43 | 39 | 90.7% |
 | `src/pin_claim.cpp` | 114 | 114 | 100.0% |
@@ -376,17 +416,21 @@ model.
 | `src/sd_log.h` | 4 | 4 | 100.0% |
 | `src/sdio/sd_host.c` | 180 | 180 | 100.0% |
 | `src/sdio/sd_proto.c` | 135 | 135 | 100.0% |
+| `src/servo_job.cpp` | 199 | 199 | 100.0% |
+| `src/servo_model.cpp` | 187 | 187 | 100.0% |
+| `src/servo_pwm.cpp` | 55 | 55 | 100.0% |
 | `src/settings.cpp` | 119 | 118 | 99.2% |
 | `src/theme.cpp` | 11 | 11 | 100.0% |
-| `src/ui.cpp` | 624 | 611 | 97.9% |
+| `src/ui.cpp` | 624 | 615 | 98.6% |
 | `src/ui_am32.cpp` | 353 | 322 | 91.2% |
 | `src/ui_input.cpp` | 25 | 25 | 100.0% |
 | `src/ui_kst.cpp` | 4 | 4 | 100.0% |
-| `src/ui_servo.cpp` | 4 | 4 | 100.0% |
+| `src/ui_servo.cpp` | 518 | 518 | 100.0% |
 | `src/ui_setup.cpp` | 187 | 180 | 96.3% |
+| `src/ui_slider.cpp` | 109 | 109 | 100.0% |
 | `src/ui_widgets.cpp` | 43 | 43 | 100.0% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **2815** | **2738** | **97.3%** |
+| **Total** | **3905** | **3833** | **98.2%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->

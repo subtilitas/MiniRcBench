@@ -4,9 +4,10 @@
 #include <stdint.h>
 #define GPIO_OUT 1
 #define GPIO_IN 0
+#define NUM_BANK0_GPIOS 30
 enum gpio_function {
   GPIO_FUNC_SPI = 1, GPIO_FUNC_UART, GPIO_FUNC_I2C, GPIO_FUNC_PWM,
-  GPIO_FUNC_NULL = 0x1f
+  GPIO_FUNC_SIO, GPIO_FUNC_NULL = 0x1f
 };
 extern "C" {
 void gpio_init(uint32_t);
@@ -16,4 +17,5 @@ void gpio_set_function(uint32_t, gpio_function);
 bool gpio_get(uint32_t);
 void gpio_pull_up(uint32_t);
 void gpio_disable_pulls(uint32_t);
+void gpio_pull_down(uint32_t);
 }

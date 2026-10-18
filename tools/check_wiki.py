@@ -37,6 +37,7 @@ PAIRS = [
     ("Telemetry", "Telemetrie"),
     ("SD-Logging", "SD-Aufzeichnung"),
     ("AM32-Configuration", "AM32-Konfiguration"),
+    ("Servo-Tester", "Servotester"),
     ("Troubleshooting", "Fehlersuche"),
 ]
 

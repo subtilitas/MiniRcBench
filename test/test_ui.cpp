@@ -23,6 +23,7 @@
 #include "kiss_telem.h"
 #include "sd_log.h"
 #include "pin_claim.h"
+#include "core1_job.h"
 #include "plat.h"
 
 #include "../src/ui_am32.cpp"   // NOLINT -- see the note above
@@ -2216,18 +2217,23 @@ static void testHitBoundaries() {
 }
 
 /**
- * @brief SERVO and KST are drawn disabled and do not act.
+ * @brief SERVO opens its screen; KST is drawn disabled and does not act.
  *
- * Their screens are stubs until their slices land. A button drawn disabled
- * is an outline with no fill, and its hit test is gated on the same
- * expression, so a tap neither opens a screen nor claims a pin.
+ * The KST screen is a stub until its slice lands. A button drawn disabled is
+ * an outline with no fill, and its hit test is gated on the same expression,
+ * so a tap neither opens a screen nor claims a pin. SERVO is built: a tap
+ * opens it and claims the pins, and leaving goes through its unplug page.
+ * test_servo.cpp tests the screen itself.
  */
 static void testDisabledDestinations() {
-	section("Settings: SERVO and KST are drawn disabled and do not act");
+	section("Settings: SERVO opens its screen, KST is drawn disabled");
 
 	fakeFlashClear();
 	settingsLoad();
 	uiInit();
+	EscTelemetry quiet;
+	memset(&quiet, 0, sizeof(quiet));
+	fakeSetTelemetry(&quiet);
 	frames(2);
 	tap(BTN_CFG_X, BTN_ARM_Y);
 	frames(2);
@@ -2238,28 +2244,41 @@ static void testDisabledDestinations() {
 	int py = BTN_AM32_Y - 16;
 	checkTrue("AM32 is filled", fb[py * GFX_W + (BTN_AM32_X - 20)] == C_PANEL);
 	checkTrue("SETUP is filled", fb[py * GFX_W + (BTN_SETUP_X - 20)] == C_PANEL);
-	checkTrue("SERVO is an outline", fb[py * GFX_W + (BTN_SERVO_X - 20)] == C_BG);
+	checkTrue("SERVO is filled", fb[py * GFX_W + (BTN_SERVO_X - 20)] == C_PANEL);
 	checkTrue("KST is an outline", fb[py * GFX_W + (BTN_KST_X - 20)] == C_BG);
 
 	// A screen that opens clears the panel on the frame of the release, before
 	// its first frame of its own. So SETTINGS still drawn on that frame means
 	// the tap opened nothing.
-	uint32_t row = fakeRegionHash(68, 258, 104, 48);
+	uint32_t row = fakeRegionHash(122, 258, 50, 48);
 	uint32_t whole = fakeRegionHash(0, UI_HDR_H, GFX_W, GFX_H - UI_HDR_H);
-	fakePress(BTN_SERVO_X, BTN_AM32_Y); frames(1);
-	checkTrue("a press on SERVO draws no pressed look",
-	          fakeRegionHash(68, 258, 104, 48) == row);
+	fakePress(BTN_KST_X, BTN_AM32_Y); frames(1);
+	checkTrue("a press on KST draws no pressed look",
+	          fakeRegionHash(122, 258, 50, 48) == row);
 	fakeRelease(); frames(1);
 	checkTrue("its release opens no screen",
 	          fakeRegionHash(0, UI_HDR_H, GFX_W, GFX_H - UI_HDR_H) == whole);
-	tap(BTN_KST_X, BTN_AM32_Y);
-	checkTrue("nor does a tap on KST",
-	          fakeRegionHash(0, UI_HDR_H, GFX_W, GFX_H - UI_HDR_H) == whole);
+	checkTrue("nor claims a pin", pinClaimHolder() == PinUser::None);
+
+	tap(BTN_SERVO_X, BTN_AM32_Y);
+	checkTrue("a tap on SERVO claims the pins for it", pinClaimHolder() == PinUser::Servo);
 	frames(2);
-	checkTrue("neither claims a pin", pinClaimHolder() == PinUser::None);
+	checkTrue("and opens it", fakeRegionHash(0, UI_HDR_H, GFX_W, GFX_H - UI_HDR_H) != whole);
+	// Core1 binds the job, BACK asks it to let go, and core1 releases it.
+	core1JobPoll();
+	frames(1);
+	tap(BACK_X, BACK_Y);
+	core1JobPoll();
+	frames(1);
+	checkTrue("BACK: the unplug page", pinClaimUnplugDue());
+	tap(120, 220);   // RESTART DSHOT
+	frames(2);
+	checkTrue("RESTART DSHOT: DShot back, SETTINGS up",
+	          pinClaimState() == ClaimState::Free &&
+	          fb[py * GFX_W + (BTN_SERVO_X - 20)] == C_PANEL);
 	uint16_t poles = settings()->poles;
 	tap(CFG_POLES_P_X, CFG_POLES_Y);
-	checkTrue("and SETTINGS is still up", settings()->poles != poles);
+	checkTrue("and SETTINGS takes taps", settings()->poles != poles);
 	tap(CFG_POLES_M_X, CFG_POLES_Y);
 	tap(BACK_X, BACK_Y);
 	frames(2);

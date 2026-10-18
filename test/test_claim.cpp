@@ -3,9 +3,10 @@
  * @brief The pin claim and the core1 job dispatch, against the fake pump.
  *
  * pin_claim.cpp is linked as it ships. core1_job.cpp is included rather than
- * linked, so the tests can put fake jobs in its job table: no job is built
- * yet, and the claim's job path is exercised with jobs that record what the
- * claim and the dispatch did to them. The Makefile therefore must not compile
+ * linked, so the tests can put fake jobs in its job table: the claim's job
+ * path is exercised with jobs that record what the claim and the dispatch did
+ * to them, and with no job at all. The servo job the table ships with is
+ * tested in test_servo.cpp. The Makefile therefore must not compile
  * core1_job.cpp separately.
  *
  * The fake pump (fakes.cpp) makes escTaskPoll()'s handover and frame
@@ -46,6 +47,7 @@ struct FakeJob {
 	uint8_t  aux;            /**< AUX GPIO of the last bind(). */
 	bool     uiAlive;        /**< uiAlive of the last step(). */
 	bool     stopInBind;     /**< Core0 asks for a stop while bind() runs. */
+	int      releaseWaits;   /**< release() returns false this many times first. */
 };
 
 static FakeJob g_servoJob, g_kstJob;
@@ -60,13 +62,22 @@ static uint8_t bindInto(FakeJob *j, uint8_t sig, uint8_t aux) {
 }
 static uint8_t servoBind(uint8_t sig, uint8_t aux) { return bindInto(&g_servoJob, sig, aux); }
 static void servoStep(uint32_t, bool alive) { g_servoJob.steps++; g_servoJob.uiAlive = alive; }
-static void servoRelease() { g_servoJob.releases++; }
+/** @brief One release() call: false while a wait is owed, then true. */
+static bool releaseFrom(FakeJob *j) {
+	if (j->releaseWaits > 0) { j->releaseWaits--; return false; }
+	j->releases++;
+	return true;
+}
+static bool servoRelease(uint32_t) { return releaseFrom(&g_servoJob); }
 static uint8_t kstBind(uint8_t sig, uint8_t aux) { return bindInto(&g_kstJob, sig, aux); }
 static void kstStep(uint32_t, bool alive) { g_kstJob.steps++; g_kstJob.uiAlive = alive; }
-static void kstRelease() { g_kstJob.releases++; }
+static bool kstRelease(uint32_t) { return releaseFrom(&g_kstJob); }
 
-static const Core1JobOps FAKE_SERVO = { servoBind, servoStep, servoRelease };
-static const Core1JobOps FAKE_KST   = { kstBind, kstStep, kstRelease };
+static const Core1JobOps FAKE_SERVO = { servoBind, servoStep, servoRelease, nullptr };
+static const Core1JobOps FAKE_KST   = { kstBind, kstStep, kstRelease, nullptr };
+static int g_inits = 0;
+static void kstInit() { g_inits++; }
+static const Core1JobOps FAKE_KST_INIT = { kstBind, kstStep, kstRelease, kstInit };
 
 /** @brief Build both jobs, with fresh records. */
 static void installJobs() {
@@ -76,9 +87,15 @@ static void installJobs() {
 	s_ops[(uint8_t)Core1Job::Kst]   = &FAKE_KST;
 }
 
-/** @brief Back to what ships: no job built. */
+/** @brief No job in the table, as KST ships. */
 static void removeJobs() {
 	s_ops[(uint8_t)Core1Job::Servo] = nullptr;
+	s_ops[(uint8_t)Core1Job::Kst]   = nullptr;
+}
+
+/** @brief The table as it ships: the servo job, and no KST job. */
+static void shippedJobs() {
+	s_ops[(uint8_t)Core1Job::Servo] = &SERVO_JOB_OPS;
 	s_ops[(uint8_t)Core1Job::Kst]   = nullptr;
 }
 
@@ -700,14 +717,34 @@ static void testJobGuard() {
 	checkTrue("and the next pass releases it", g_servoJob.releases == 1 &&
 	                                          core1JobPhase() == Core1JobPhase::Idle);
 	checkInt("it never stepped", g_servoJob.steps, 0);
+
+	// A job that needs passes to let go stays Stopping until it says so.
+	g_servoJob = FakeJob{};
+	g_servoJob.releaseWaits = 2;
+	checkTrue("started again", core1JobStart(Core1Job::Servo, SIG_GPIO, 0xFF));
+	core1JobPoll();
+	core1JobStop();
+	core1JobPoll();
+	core1JobPoll();
+	checkTrue("release() said not yet twice: still stopping",
+	          core1JobPhase() == Core1JobPhase::Stopping && g_servoJob.releases == 0);
+	core1JobPoll();
+	checkTrue("the third pass lets go: idle", g_servoJob.releases == 1 &&
+	                                          core1JobPhase() == Core1JobPhase::Idle);
 	escTaskResume();
 	pump();
 
 	removeJobs();
 	escTaskSuspend();
 	pump();
-	checkTrue("no job built: refused", !core1JobStart(Core1Job::Servo, SIG_GPIO, 0xFF));
+	checkTrue("no job in the table: refused", !core1JobStart(Core1Job::Servo, SIG_GPIO, 0xFF));
 	checkTrue("nor KST", !core1JobStart(Core1Job::Kst, SIG_GPIO, 0xFF));
+	shippedJobs();
+	checkTrue("as it ships, the servo job starts",
+	          core1JobStart(Core1Job::Servo, SIG_GPIO, 0xFF));
+	core1JobStop();
+	core1JobPoll();
+	checkTrue("and KST is refused", !core1JobStart(Core1Job::Kst, SIG_GPIO, 0xFF));
 	escTaskResume();
 	pump();
 	checkTrue("idle, no error", core1JobRunning() == Core1Job::None &&
@@ -827,7 +864,7 @@ static void testBackEveryState() {
 	                                              core1JobPhase() == Core1JobPhase::Running);
 	checkTrue("back to free", toFree());
 
-	// Held, the start refused: what ships, with no servo job built.
+	// Held, the start refused: no job in the table, as KST ships.
 	removeJobs();
 	checkTrue("claims", pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
 	pump();
@@ -921,6 +958,18 @@ static void testHeartbeat() {
 	checkTrue("at 249 ms: alive", escUiAlive(0xFFFFFF9Cu + 249u, 0xFFFFFF9Cu));
 	checkTrue("dead at 250 ms", !escUiAlive(0xFFFFFF9Cu + 250u, 0xFFFFFF9Cu));
 	checkTrue("and dead at 400 ms", !escUiAlive(0xFFFFFF9Cu + 400u, 0xFFFFFF9Cu));
+	// A stamp newer than the clock, as when a read order lets core0 stamp
+	// between the two reads: alive while less than the timeout ahead, as a
+	// backstop.
+	checkTrue("a heartbeat 1 ms newer than the clock: alive", escUiAlive(5000, 5001));
+	checkTrue("1 ms newer, across the wrap: alive", escUiAlive(0xFFFFFFFFu, 0u));
+	checkTrue("249 ms newer: alive", escUiAlive(5000, 5249));
+	checkTrue("250 ms newer: dead", !escUiAlive(5000, 5250));
+	checkTrue("a stale one across the wrap, 300 ms: dead", !escUiAlive(200u, 0xFFFFFF9Cu));
+	// An old stamp is not read as ahead of the clock: 0x90000000 ms is about
+	// 28 days, and 2^32 - 251 ms reads as 251 ms ahead, past the timeout.
+	checkTrue("a stamp 0x90000000 ms old: dead", !escUiAlive(0x90000000u, 0u));
+	checkTrue("a stamp 2^32 - 251 ms old: dead", !escUiAlive(0xFFFFFF05u, 0u));
 
 	uiInit();
 	freshPump();
@@ -1076,6 +1125,15 @@ static void testAm32Screen() {
 }
 
 void runClaimTests() {
+	section("Core1 jobs: the table as it ships");
+	checkTrue("the servo job is in the table, KST is not",
+	          s_ops[(uint8_t)Core1Job::Servo] == &SERVO_JOB_OPS &&
+	          s_ops[(uint8_t)Core1Job::Kst] == nullptr);
+	installJobs();
+	s_ops[(uint8_t)Core1Job::Kst] = &FAKE_KST_INIT;
+	core1JobInit();
+	checkInt("core1JobInit() calls each init it finds, once", g_inits, 1);
+	shippedJobs();
 	core1JobInit();
 	removeJobs();
 
@@ -1093,6 +1151,6 @@ void runClaimTests() {
 	testNoSaveDuringClaim();
 	testAm32Screen();
 
-	removeJobs();
+	shippedJobs();
 	quiet();
 }

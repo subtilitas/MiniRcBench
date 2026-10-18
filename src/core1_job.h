@@ -9,9 +9,10 @@
  * tester or the KST programmer. `loop1()` calls escTaskPoll() and then
  * core1JobPoll(); with no job, core1JobPoll() returns at once too.
  *
- * No job is built yet. Core1Job::Servo and Core1Job::Kst name the two jobs
- * of docs/design/servo-tester.md and docs/design/kst-programming.md, and
- * core1JobStart() refuses both until their slices add a Core1JobOps for them.
+ * Core1Job::Servo and Core1Job::Kst name the two jobs of
+ * docs/design/servo-tester.md and docs/design/kst-programming.md. The servo
+ * job is built (servo_job.h). The KST job is not, and core1JobStart() refuses
+ * it until its slice adds a Core1JobOps for it.
  *
  * Core0 starts and stops a job; core1 binds, steps and releases it. The
  * request and the job's phase are shared under one critical section, in the
@@ -27,7 +28,7 @@
 /** @brief Which job core1 runs. */
 enum class Core1Job : uint8_t {
 	None,   /**< No job; core1JobPoll() returns at once. */
-	Servo,  /**< Servo PWM on SIG, and AUX in two-servo mode. Not built yet. */
+	Servo,  /**< Servo PWM on SIG, and AUX in two-servo mode (servo_job.h). */
 	Kst,    /**< KST and Chaservo programming on SIG. Not built yet. */
 };
 
@@ -72,12 +73,24 @@ struct Core1JobOps {
 	 * heartbeat rule.
 	 */
 	void (*step)(uint32_t nowMs, bool uiAlive);
-	/** Leave the pins as plain inputs. */
-	void (*release)();
+	/**
+	 * Let the pins go, given millis(). Called on every pass while the job is
+	 * Stopping, until it returns true; it never blocks. A job that needs time
+	 * before it lets go, as the servo job does for the last pulse, returns
+	 * false until then. The job stays Stopping, and so the claim stays
+	 * Leaving, until it returns true.
+	 */
+	bool (*release)(uint32_t nowMs);
+	/**
+	 * Initialise the job's shared state. Core0, from core1JobInit(), before
+	 * core1 is launched; null for a job with nothing to initialise.
+	 */
+	void (*init)();
 };
 
 /**
- * @brief Initialise the shared state. Call from **core0**, before launching core1.
+ * @brief Initialise the shared state, and each built job's through its
+ *        Core1JobOps::init. Call from **core0**, before launching core1.
  *
  * For the same reason as escTaskInit(): core0 can reach the critical section
  * before core1 has booted.

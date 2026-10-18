@@ -21,12 +21,14 @@ MIN_TOTAL or any file is below MIN_FILE.
 
 What counts: every file under src/ that gcov reports a line for. That is each
 .cpp in the Makefile's SRCS, the C files of the DShot core in src/dshot/ and
-of the SD card protocol layers in src/sdio/ (the Makefile's CSRCS), ui_am32.cpp (test_ui.cpp includes it), and the headers
-whose inline functions the suite calls. A line counts as covered when
-any translation unit executes it. An inline function no test calls is not
-emitted, so it has no lines and does not count. A source in SRCS with no
-executable line has to be in DATA_ONLY, and a DATA_ONLY file that gains one
-fails the run.
+of the SD card protocol layers in src/sdio/ (in the Makefile's CSRCS),
+ui_am32.cpp (test_ui.cpp includes it), and the headers whose inline functions
+the suite calls. The rcbench files in lib/rcbench/ are in CSRCS and are
+instrumented too, but they lie outside src/ and do not count. A line counts
+as covered when any translation unit executes it. An inline function no test
+calls is not emitted, so it has no lines and does not count. A source in SRCS
+with no executable line has to be in DATA_ONLY, and a DATA_ONLY file that
+gains one fails the run.
 
 Needs only Python 3 and the gcov that matches the compiler. Line counts
 depend on the GCC version, so CI pins its runner image.

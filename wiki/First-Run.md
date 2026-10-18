@@ -20,7 +20,8 @@ The firmware has these interlocks. They do not replace the steps above:
 
 - The throttle ceiling defaults to **20 %** of the DShot range.
 - Arming needs a **1 s hold**, with the throttle at zero for at least 250 ms.
-- `DISARM` acts **on touch**. Every other control acts on release.
+- `DISARM` acts **on touch**, as does `STOP` on the servo tester. Every other
+  control acts on release.
 - While armed, **30 s** without a touch disarms the tester. The last 5 s count
   down on screen.
 - If the display firmware stops, the second core sets the throttle to zero

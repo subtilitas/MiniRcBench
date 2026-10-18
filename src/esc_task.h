@@ -705,15 +705,23 @@ static inline void escPumpFrameSent(EscPump *p, const EscFrame *f, uint32_t nowM
  *        Pure.
  *
  * The one rule for "the UI is alive": the DShot pump zeroes the throttle on
- * it, and every core1 job reads it through core1UiAlive(). The subtraction is
- * unsigned, so the rule holds across the millis() rollover.
+ * it, and every core1 job reads it through core1UiAlive(). The subtractions
+ * are unsigned, so the rule holds across the millis() rollover.
+ *
+ * Both callers read the stamp before millis(), so the clock is never older
+ * than the stamp. As a backstop, a heartbeat newer than @p nowMs by less
+ * than the timeout counts as alive: a caller that read the clock first, with
+ * core0 stamping between the two reads, would otherwise read the heartbeat
+ * as 2^32 - 1 ms old.
  *
  * @param nowMs       millis().
  * @param heartbeatMs millis() of the last escHeartbeat().
- * @return            True while the heartbeat is younger than the timeout.
+ * @return            True while the heartbeat is younger than the timeout,
+ *                    or newer than @p nowMs by less than it.
  */
 static inline bool escUiAlive(uint32_t nowMs, uint32_t heartbeatMs) {
-	return (uint32_t)(nowMs - heartbeatMs) < UI_HEARTBEAT_TIMEOUT_MS;
+	return (uint32_t)(nowMs - heartbeatMs) < UI_HEARTBEAT_TIMEOUT_MS ||
+	       (uint32_t)(heartbeatMs - nowMs) < UI_HEARTBEAT_TIMEOUT_MS;
 }
 
 /**

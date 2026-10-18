@@ -15,6 +15,7 @@
 #include "pico/critical_section.h"
 #include "hardware/adc.h"
 #include "hardware/pwm.h"
+#include "hardware/gpio.h"
 #include "hardware/clocks.h"
 #include "hardware/i2c.h"
 #include "hardware/spi.h"
@@ -58,13 +59,132 @@ void adc_gpio_init(unsigned) {}
 void adc_select_input(unsigned) {}
 uint16_t adc_read() { return (uint16_t)(3.92f / 3.0f / 3.3f * 4095.0f); }
 
-// --- PWM: the backlight. Levels are accepted and discarded ---
-unsigned pwm_gpio_to_slice_num(unsigned) { return 0; }
-pwm_config pwm_get_default_config() { return pwm_config{}; }
-void pwm_config_set_clkdiv(pwm_config *, float) {}
-void pwm_config_set_wrap(pwm_config *, uint16_t) {}
-void pwm_init(unsigned, pwm_config *, bool) {}
-void pwm_set_gpio_level(unsigned, uint16_t) {}
+// --- PWM and GPIO: a record of the registers the servo PWM driver sets.
+//     The slice and channel follow the RP2350's fold for GP0 to GP29; a test
+//     can break the slice to make the driver's agreement check refuse.
+//     Nothing here models a counter or an edge: a level is what the compare
+//     register was last set to ---
+static FakePin   g_pins[FAKE_GPIOS];
+static FakeSlice g_slices[FAKE_SLICES];
+static bool      g_sliceMapBroken = false;
+
+/** @brief One compare write: when, and the level. */
+struct FakeLevelWrite { uint64_t us; uint16_t level; };
+/** @brief Each pin's recent compare writes, oldest first. */
+static FakeLevelWrite g_writes[FAKE_GPIOS][32];
+static int            g_writeCount[FAKE_GPIOS];
+
+static unsigned sliceOf(unsigned gpio) { return (gpio >> 1) & 7u; }
+
+/** @brief Record a compare write, keeping the newest 32. */
+static void logWrite(unsigned gpio, uint64_t us, uint16_t level) {
+	int &n = g_writeCount[gpio];
+	if (n == 32) {
+		memmove(&g_writes[gpio][0], &g_writes[gpio][1], 31 * sizeof(FakeLevelWrite));
+		n = 31;
+	}
+	g_writes[gpio][n++] = FakeLevelWrite{us, level};
+}
+
+/** @brief The level latched for the frame that started at @p frameUs. */
+static uint16_t latchedFor(unsigned gpio, uint64_t frameUs) {
+	uint16_t level = 0;
+	for (int i = 0; i < g_writeCount[gpio]; i++)
+		if (g_writes[gpio][i].us < frameUs) level = g_writes[gpio][i].level;
+	return level;
+}
+
+uint16_t fakePwmLatched(unsigned gpio) {
+	if (gpio >= FAKE_GPIOS) return 0;
+	const FakeSlice &s = g_slices[sliceOf(gpio)];
+	if (!s.enabled) return 0;
+	uint64_t now = time_us_64();
+	uint64_t period = (uint64_t)s.top + 1u;
+	uint64_t frame = now - (now - s.startUs) % period;
+	uint16_t level = latchedFor(gpio, frame);
+	return level > s.top ? s.top : level;
+}
+
+/**
+ * @brief The pin's output stops following its slice: a stop, a new
+ *        pwm_init() or a mux change. A pulse under way is cut short; at a
+ *        frame's first count it has begun and is cut too.
+ */
+static void cutCheck(unsigned gpio) {
+	FakePin &p = g_pins[gpio];
+	const FakeSlice &s = g_slices[sliceOf(gpio)];
+	if (p.function != GPIO_FUNC_PWM || !s.enabled) return;
+	uint64_t now = time_us_64();
+	uint64_t into = (now - s.startUs) % ((uint64_t)s.top + 1u);
+	if (into < fakePwmLatched(gpio)) {
+		p.cutPulses++;
+		p.cutAtUs = (uint32_t)into;
+	}
+}
+
+void fakePwmReset() {
+	for (FakePin &p : g_pins) p = FakePin{};
+	for (FakeSlice &s : g_slices) s = FakeSlice{};
+	memset(g_writeCount, 0, sizeof(g_writeCount));
+	g_sliceMapBroken = false;
+}
+void fakePwmBreakSliceMap(bool on) { g_sliceMapBroken = on; }
+FakePin fakePin(unsigned gpio) { return gpio < FAKE_GPIOS ? g_pins[gpio] : FakePin{}; }
+FakeSlice fakeSlice(unsigned slice) { return slice < FAKE_SLICES ? g_slices[slice] : FakeSlice{}; }
+
+unsigned pwm_gpio_to_slice_num(unsigned gpio) {
+	unsigned s = (gpio >> 1) & 7u;
+	return g_sliceMapBroken ? (s + 1u) & 7u : s;
+}
+unsigned pwm_gpio_to_channel(unsigned gpio) { return gpio & 1u; }
+pwm_config pwm_get_default_config() { return pwm_config{0, 16, 0xFFFF}; }
+// The divider in 1/16ths, as the register holds it.
+void pwm_config_set_clkdiv(pwm_config *c, float div) { c->div = (uint32_t)(div * 16.0f); }
+void pwm_config_set_wrap(pwm_config *c, uint16_t wrap) { c->top = wrap; }
+void pwm_init(unsigned slice, pwm_config *c, bool start) {
+	if (slice >= FAKE_SLICES) return;
+	for (unsigned g = 0; g < FAKE_GPIOS; g++)
+		if (sliceOf(g) == slice) cutCheck(g);
+	FakeSlice &s = g_slices[slice];
+	s.inits++;
+	s.startUs = time_us_64();
+	s.top = (uint16_t)c->top;
+	s.div16 = c->div;
+	s.enabled = start;
+	// pwm_init() resets both compare registers to 0, at once.
+	for (unsigned g = 0; g < FAKE_GPIOS; g++) {
+		if (sliceOf(g) != slice) continue;
+		g_pins[g].level = 0;
+		g_writeCount[g] = 0;
+	}
+}
+void pwm_set_enabled(unsigned slice, bool on) {
+	if (slice >= FAKE_SLICES) return;
+	if (!on)
+		for (unsigned g = 0; g < FAKE_GPIOS; g++)
+			if (sliceOf(g) == slice) cutCheck(g);
+	g_slices[slice].enabled = on;
+}
+void pwm_set_gpio_level(unsigned gpio, uint16_t level) {
+	if (gpio >= FAKE_GPIOS) return;
+	g_pins[gpio].level = level;
+	g_pins[gpio].levelWrites++;
+	logWrite(gpio, time_us_64(), level);
+}
+extern "C" void gpio_set_function(uint32_t gpio, gpio_function fn) {
+	if (gpio >= FAKE_GPIOS) return;
+	if (fn != GPIO_FUNC_PWM) cutCheck(gpio);
+	g_pins[gpio].function = (int)fn;
+}
+extern "C" void gpio_set_dir(uint32_t gpio, int out) {
+	if (gpio < FAKE_GPIOS) g_pins[gpio].output = out != 0;
+}
+extern "C" void gpio_disable_pulls(uint32_t gpio) {
+	if (gpio < FAKE_GPIOS) g_pins[gpio].pull = FakePull::None;
+}
+extern "C" void gpio_pull_down(uint32_t gpio) {
+	if (gpio < FAKE_GPIOS) g_pins[gpio].pull = FakePull::Down;
+}
 
 uint32_t clock_get_hz(enum clock_index) { return 150000000u; }
 
