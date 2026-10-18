@@ -68,6 +68,9 @@ static void kstRelease() { g_kstJob.releases++; }
 
 static const Core1JobOps FAKE_SERVO = { servoBind, servoStep, servoRelease, nullptr };
 static const Core1JobOps FAKE_KST   = { kstBind, kstStep, kstRelease, nullptr };
+static int g_inits = 0;
+static void kstInit() { g_inits++; }
+static const Core1JobOps FAKE_KST_INIT = { kstBind, kstStep, kstRelease, kstInit };
 
 /** @brief Build both jobs, with fresh records. */
 static void installJobs() {
@@ -1089,6 +1092,15 @@ static void testAm32Screen() {
 }
 
 void runClaimTests() {
+	section("Core1 jobs: the table as it ships");
+	checkTrue("the servo job is in the table, KST is not",
+	          s_ops[(uint8_t)Core1Job::Servo] == &SERVO_JOB_OPS &&
+	          s_ops[(uint8_t)Core1Job::Kst] == nullptr);
+	installJobs();
+	s_ops[(uint8_t)Core1Job::Kst] = &FAKE_KST_INIT;
+	core1JobInit();
+	checkInt("core1JobInit() calls each init it finds, once", g_inits, 1);
+	shippedJobs();
 	core1JobInit();
 	removeJobs();
 

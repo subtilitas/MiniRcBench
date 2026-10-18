@@ -111,10 +111,11 @@ void servoCoreReset(ServoCore *c, const ServoProfile *p, bool boundA,
  * @brief Take a command. Pure.
  *
  * A command whose seq equals the last one taken is not new and changes
- * nothing. Safe, SweepStop and Slew are taken at any time. Start, Position
- * and Sweep are refused while the heartbeat has lapsed; Start also while pin A
- * is not bound, Position and Sweep while SAFE. A refused command is still
- * acknowledged.
+ * nothing. Start is refused while the heartbeat has lapsed and while pin A
+ * is not bound; Sweep is refused while SAFE. A Position while SAFE sets a
+ * target that moves nothing, and Start replaces it. A Position or Sweep taken
+ * with the heartbeat lapsed is ended by servoCoreStep() in the same pass, as
+ * servo_job.cpp calls the two. A refused command is still acknowledged.
  *
  * Start puts every bound output at CENTRE at once, whatever was commanded
  * before, and clears the trip. Position and Sweep end a sweep and a Sweep

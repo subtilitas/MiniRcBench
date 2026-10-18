@@ -65,13 +65,15 @@ bool servoCoreTake(ServoCore *c, const ServoCmd *cmd, uint32_t nowMs,
 			}
 			break;
 		case ServoCmdKind::Position:
-			if (!uiAlive || !c->running) break;
+			// While SAFE the target set here moves nothing, and Start replaces
+			// it. With the heartbeat lapsed, servoCoreStep() ends the pulses
+			// in the same pass.
 			c->sweeping = false;
 			c->slewPerS = cmd->slewPerS;
 			aim(c, cmd->mask, cmd->command);
 			break;
 		case ServoCmdKind::Sweep:
-			if (!uiAlive || !c->running) break;
+			if (!c->running) break;
 			c->sweeping = sweep_start(&c->sweep, &cmd->sweep, nowMs);
 			c->sweepMask = cmd->mask;
 			c->slewPerS = cmd->slewPerS;

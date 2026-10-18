@@ -35,6 +35,7 @@
 #include "../src/ui_servo.cpp"   // NOLINT -- see the note above
 
 #include <hardware/gpio.h>
+#include <hardware/pwm.h>
 #include <math.h>
 #include <string.h>
 
@@ -351,8 +352,8 @@ static void testSweepSteppers() {
 	checkTrue("DWELL down: 50 steps to 0 ms", n == 50 && c.dwell_ms == 0);
 	checkTrue("MOVES down from endless: no change", !servoSweepStep(&c, SweepField::Moves, -1));
 	checkTrue("MOVES up: 1", servoSweepStep(&c, SweepField::Moves, +1) && c.moves == 1);
-	c.moves = SERVO_SWEEP_MOVES_MAX;
-	checkTrue("MOVES stops at 9999", !servoSweepStep(&c, SweepField::Moves, +1));
+	c.moves = 9999;
+	checkTrue("MOVES stops at 9999", !servoSweepStep(&c, SweepField::Moves, +1) && c.moves == 9999);
 	checkTrue("MOVES down from 1: endless", (c.moves = 1, servoSweepStep(&c, SweepField::Moves, -1)) && c.moves == 0);
 	checkTrue("still valid", sweep_cfg_valid(&c));
 	sweep_cfg_t before = c;
@@ -447,8 +448,11 @@ static void testPwm() {
 	checkInt("and the slice is not set up again", fakeSlice(6).inits, 1);
 	checkTrue("again at 100 Hz: refused", !servoPwmBind(SIG, 100));
 	checkTrue("GP28, same slice, 100 Hz: refused", !servoPwmBind(AUX, 100));
+	pwm_set_gpio_level(AUX, 777);   // a compare value left from before
 	checkTrue("GP28 at 50 Hz binds", servoPwmBind(AUX, 50));
 	checkInt("the running slice is left alone", fakeSlice(6).inits, 1);
+	checkInt("and GP28 starts at level 0, not at what its register held",
+	         fakePin(AUX).level, 0);
 	checkTrue("GP12, GP28's compare register: refused", !servoPwmBind(12, 50));
 	checkTrue("GP26, both bindings in use: refused", !servoPwmBind(26, 50));
 	checkTrue("GP30, not on the package: refused", !servoPwmBind(30, 50));
@@ -541,9 +545,14 @@ static void testCoreStates() {
 	pass(&c, cmdOf(8, ServoCmdKind::Position, SERVO_MASK_AB, 1000), 1000);
 	checkTrue("a position while SAFE moves nothing", !c.running && c.outUs[0] == 0);
 	checkInt("and is acknowledged", c.ackSeq, 8);
+	ServoCmd safeSweep = sweepOf(80, SWEEP_SINE, 1000, 400, 0, 0);
+	servoCoreTake(&c, &safeSweep, 1000, true);
+	checkTrue("a sweep while SAFE is refused", !c.sweeping && !c.running);
+	c.ackSeq = 8;
 
 	pass(&c, cmdOf(9, ServoCmdKind::Start, SERVO_MASK_AB, 0, 200), 1000, false);
-	checkTrue("START with the heartbeat lapsed: refused", !c.running);
+	checkTrue("START with the heartbeat lapsed: refused, so nothing trips",
+	          !c.running && !c.tripped);
 
 	// Something was commanded before: START still puts CENTRE out at once.
 	c.target[0] = 1000; c.pos[0] = 1000000;
@@ -626,9 +635,6 @@ static void testCoreSweep() {
 	servoCoreReset(&c, &prof, true, true, 0);
 	pass(&c, cmdOf(1, ServoCmdKind::Start), 1000);
 
-	ServoCmd early = sweepOf(2, SWEEP_SINE, 1000, 400, 0, 0);
-	servoCoreTake(&c, &early, 1000, false);
-	checkTrue("a sweep with the heartbeat lapsed is refused", !c.sweeping && c.running);
 	pass(&c, sweepOf(3, SWEEP_OFF, 1000, 400, 0, 0), 1000);
 	checkTrue("a curve sweep_cfg_valid() refuses does not start", !c.sweeping);
 
@@ -686,6 +692,7 @@ static void testCoreTrip() {
 	checkTrue("a lapse while SAFE latches nothing", !c.tripped);
 	pass(&c, cmdOf(1, ServoCmdKind::Start), 200);
 	pass(&c, sweepOf(2, SWEEP_SINE, 1000, 400, 0, 0), 200);
+	checkTrue("sweeping", c.sweeping && c.running);
 	servoCoreStep(&c, 300, false);
 	checkTrue("a lapse while RUNNING: no pulse, no sweep, tripped",
 	          !c.running && !c.sweeping && c.tripped && c.outUs[0] == 0);
@@ -696,7 +703,7 @@ static void testCoreTrip() {
 	pass(&c, cmdOf(4, ServoCmdKind::Start), 500);
 	checkTrue("a new START clears the trip", c.running && !c.tripped && c.outUs[0] == 1500);
 	pass(&c, cmdOf(5, ServoCmdKind::Position, SERVO_MASK_A, 1000), 600, false);
-	checkTrue("a position with the heartbeat lapsed is refused, and the pass trips",
+	checkTrue("a position with the heartbeat lapsed: the same pass trips",
 	          !c.running && c.tripped);
 	pass(&c, cmdOf(6, ServoCmdKind::Safe), 700, false);
 	checkTrue("STOP is taken with the heartbeat lapsed", c.ackSeq == 6 && !c.running);
@@ -1262,9 +1269,15 @@ static void testScreenOpens() {
 	tapRect(BTN_MAX);
 	core1();
 	checkTrue("MAX while SAFE does nothing", fakePin(29).level == 0 && fakePin(29).levelWrites == writes);
-	dialDrag(-60, 60);
-	checkTrue("a drag on the dial while SAFE moves nothing",
-	          fakePin(29).level == 0 && fakePin(29).levelWrites == writes);
+	ServoStatus before;
+	servoJobStatus(&before);
+	dialDrag(-60, 60, false);
+	checkTrue("a press on the dial while SAFE takes no drag", !s_dragging);
+	fakeRelease(); uiFrames(1); core1();
+	ServoStatus after;
+	servoJobStatus(&after);
+	checkTrue("sends the job no command", after.ackSeq == before.ackSeq);
+	checkTrue("and moves nothing", fakePin(29).level == 0 && fakePin(29).levelWrites == writes);
 	// uiTick() flushes, which clears the bands, so the screen's own frame is
 	// called here with no flush after it.
 	uiFrames(2);
@@ -1307,8 +1320,11 @@ static void testHoldToStart() {
 	servoJobStatus(&st);
 	checkTrue("SAFE", !st.running);
 	fakeHold(x, y); frameAt(SV_HOLD_MS);
+	fakeHold(x, y); frameAt(SV_HOLD_MS);
 	core1();
-	checkTrue("the press that stopped it does not start it again", !s_st.running);
+	servoJobStatus(&st);
+	checkTrue("the press that stopped it, held 2000 ms, does not start it again",
+	          !st.running && !s_holding);
 	fakeRelease(); uiFrames(1);
 
 	// A hold that slides off before 1000 ms starts nothing.
@@ -1321,9 +1337,10 @@ static void testHoldToStart() {
 	fakeRelease(); uiFrames(1);
 	// A press that began elsewhere and slid onto the button starts nothing.
 	fakePress(x, SV_READ_Y + 5); uiFrames(1);
+	fakeHold(x, y); uiFrames(1);
 	fakeHold(x, y); frameAt(SV_HOLD_MS + 100);
 	core1();
-	checkTrue("a press slid onto it: nothing", !s_st.running);
+	checkTrue("a press slid onto it: nothing", fakePin(29).level == 0);
 	fakeRelease(); uiFrames(1);
 	leaveServo();
 }
@@ -1616,6 +1633,11 @@ static void testSetScreen() {
 	checkTrue("1000 ms: applied", !s_pending && s_profile.type == ServoType::HeliCyclic);
 	checkInt("rebound at 333 Hz", fakeSlice(6).top, 3002);
 	fakeRelease(); uiFrames(1);
+	selectRow(3);   // MIN, under the applied heli profile
+	stepSel(-1);
+	checkTrue("MIN under an applied heli profile: at once, no warning",
+	          !s_pending && s_profile.minUs == 810);
+	selectRow(1);
 	stepSel(-1);
 	checkTrue("back to WIDE at 50 Hz: at once", !s_pending && fakeSlice(6).top == 19999);
 
@@ -1651,6 +1673,8 @@ static void testSetScreen() {
 	setNote(&l1, &l2, &col);
 	checkTrue("the note says STOP first", l1 && strcmp(l1, "STOP TO CHANGE THE PROFILE") == 0);
 	checkTrue("DEFAULTS is an outline", fillOf(BTN_DEFAULTS) == C_BG);
+	tapRect(BTN_DEFAULTS);
+	checkTrue("and does nothing", s_profile.minUs == 670 && s_profile.type == ServoType::Wide);
 	fakeDumpFrame("shot_servo_set_running.ppm");
 	selectRow(9);   // AMPLITUDE
 	stepSel(-1, 2);
