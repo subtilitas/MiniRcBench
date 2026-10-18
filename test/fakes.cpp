@@ -295,6 +295,7 @@ uint16_t am32Crc16(const uint8_t *d, uint16_t n) {
 
 static uint8_t g_am32Pin = 255;
 uint8_t fakeAm32Pin() { return g_am32Pin; }
+void fakeAm32Reset() { g_am32Pin = 255; }
 void am32BlBegin(uint8_t pin) { g_am32Pin = pin; }
 // Defined with the DShot task below: it records whether DShot was still
 // down when the transport let go of the pin.

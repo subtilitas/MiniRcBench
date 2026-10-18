@@ -82,6 +82,8 @@ bool fakeResumeJobIdle();
 
 /** @brief GPIO the AM32 transport was last handed by am32BlBegin(). */
 uint8_t fakeAm32Pin();
+/** @brief Forget the last am32BlBegin(): fakeAm32Pin() reads 255 until the next one. */
+void fakeAm32Reset();
 
 /** @brief Whether a suspend was still requested at the last am32BlEnd(). */
 bool fakeAm32EndBeforeResume();

@@ -242,9 +242,10 @@ static void backlightStep(int dir) {
 	Settings *s = settings();
 	uint8_t b;
 	if (dir < 0) {
-		// Stops at 16, the validator's floor: 40 - 32 would be 8, which the
-		// validator lifts back with an ADJUSTED note.
-		b = (uint8_t)(s->backlight < 16 + BACKLIGHT_STEP ? 16 : s->backlight - BACKLIGHT_STEP);
+		// Stops at BACKLIGHT_MIN, the validator's floor: 40 - 32 would be 8,
+		// which the validator lifts back with an ADJUSTED note.
+		b = (uint8_t)(s->backlight < BACKLIGHT_MIN + BACKLIGHT_STEP ? BACKLIGHT_MIN
+		                                                            : s->backlight - BACKLIGHT_STEP);
 	} else {
 		int v = s->backlight + BACKLIGHT_STEP;
 		b = (uint8_t)(v > 255 ? 255 : v);

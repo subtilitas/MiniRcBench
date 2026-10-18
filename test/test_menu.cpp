@@ -404,6 +404,24 @@ static void testBacklightFloorAndNoOpSteps() {
 	tapId(UI_ROW(SettingsRowId::Backlight, Plus));
 	checkInt("+ at 255 stays at 255", settings()->backlight, 255);
 	checkTrue("and applies nothing: the note still reads SAVED", noteIs("SAVED", C_LIME));
+
+	// KISS on: the two free pins are both spoken for, so ESC PIN and KISS PIN
+	// steps change nothing, and apply nothing.
+	revealRow((int)SettingsRowId::Kiss);
+	if (!settings()->kissEnable) tapId(UI_ROW(SettingsRowId::Kiss, Toggle));
+	pressId(UI_FIX(SettingsCtl::Save));
+	holdId(UI_FIX(SettingsCtl::Save), 41);
+	fakeRelease(); menuFrames(1);
+	checkTrue("KISS on and saved: the note reads SAVED", settings()->kissEnable && noteIs("SAVED", C_LIME));
+	uint8_t esc = settings()->dshotPin, kiss = settings()->kissPin;
+	revealRow((int)SettingsRowId::Pin);
+	tapId(UI_ROW(SettingsRowId::Pin, Plus));
+	checkInt("ESC PIN + with both pins taken stays put", settings()->dshotPin, esc);
+	checkTrue("and applies nothing: SAVED", noteIs("SAVED", C_LIME));
+	revealRow((int)SettingsRowId::KissPin);
+	tapId(UI_ROW(SettingsRowId::KissPin, Plus));
+	checkInt("KISS PIN + with both pins taken stays put", settings()->kissPin, kiss);
+	checkTrue("and applies nothing: SAVED", noteIs("SAVED", C_LIME));
 	tapId(UI_FIX(SettingsCtl::Reset));
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
@@ -588,7 +606,7 @@ static void testAm32WaitsBesideAClaim() {
 	freshTester();
 	checkTrue("SERVO takes the pins", pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
 	static const TouchState none = {};
-	uint8_t transportBefore = fakeAm32Pin();
+	fakeAm32Reset();
 	uiAm32Enter();
 	for (int i = 0; i < 10; i++) { fakeAdvance(25); fakePumpPoll(); core1JobPoll(); uiAm32Tick(&none); }
 	checkTrue("AM32 does not take the pins", pinClaimHolder() == PinUser::Servo);
@@ -596,7 +614,7 @@ static void testAm32WaitsBesideAClaim() {
 	checkInt("AM32 stays in its handover: BACK is its only control",
 	         UI_AM32.controls(tbl, UI_CONTROLS_MAX), 1);
 	checkInt("and the bootloader transport never starts on SERVO's pin",
-	         fakeAm32Pin(), transportBefore);
+	         fakeAm32Pin(), 255);
 	uiAm32Exit();
 	checkTrue("leaving AM32 leaves SERVO's claim alone", pinClaimHolder() == PinUser::Servo);
 	uiAm32Enter();
