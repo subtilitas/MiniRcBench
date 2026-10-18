@@ -25,6 +25,8 @@
 
 #include <stdint.h>
 
+#include "servo_sweep.h"
+
 /**
  * @defgroup servo_limits Pulse limits
  * @{
@@ -142,6 +144,24 @@ enum class ServoField : uint8_t {
 	ReverseB,  /**< OFF or ON. */
 };
 
+/** @brief What one stepper of the SET screen's SWEEP rows edits. */
+enum class SweepField : uint8_t {
+	Shape,      /**< Square, sine or triangle. */
+	Rate,       /**< Cycles a second, in @ref SERVO_SWEEP_MHZ_STEP steps. */
+	Amplitude,  /**< Units either side of the centre, in 5 % steps. */
+	Dwell,      /**< Hold at each end, in @ref SERVO_SWEEP_DWELL_STEP_MS steps. */
+	Moves,      /**< Ends to reach; 0 is endless. */
+};
+
+/** @brief One step of the sweep RATE, in thousandths of a cycle a second. */
+#define SERVO_SWEEP_MHZ_STEP      50
+/** @brief One step of the sweep AMPLITUDE: 5 % of half the travel, in command units. */
+#define SERVO_SWEEP_AMP_STEP      25
+/** @brief One step of the sweep DWELL, ms. */
+#define SERVO_SWEEP_DWELL_STEP_MS 100
+/** @brief Most movements a counted sweep makes. */
+#define SERVO_SWEEP_MOVES_MAX     9999
+
 /**
  * @brief The table row of a type.
  * @param t The type.
@@ -234,6 +254,41 @@ bool servoProfileStep(ServoProfile *p, ServoField f, int dir);
  * @return True when a step in @p dir changes something.
  */
 bool servoProfileCanStep(const ServoProfile *p, ServoField f, int dir);
+
+/**
+ * @brief The sweep every entry to the screen starts from: a sine at 0.50 Hz,
+ *        the full half travel, 500 ms at each end, no end to the movements.
+ * @param[out] c The sweep.
+ */
+void servoSweepDefault(sweep_cfg_t *c);
+
+/**
+ * @brief One step of a SWEEP stepper. Only values sweep_cfg_valid() takes
+ *        are reached; a step past a limit changes nothing.
+ *
+ * SHAPE moves through square, sine and triangle and stops at the ends. RATE
+ * moves by @ref SERVO_SWEEP_MHZ_STEP within `SWEEP_MHZ_MIN` to
+ * `SWEEP_MHZ_MAX`, 0.05 Hz to 5.00 Hz. AMPLITUDE moves by
+ * @ref SERVO_SWEEP_AMP_STEP within 0 to `SWEEP_AMPLITUDE_MAX`, 0 % to 100 %.
+ * DWELL moves by @ref SERVO_SWEEP_DWELL_STEP_MS within 0 ms to
+ * `SWEEP_DWELL_MAX_MS`. MOVES moves by 1 within 0, endless, to
+ * @ref SERVO_SWEEP_MOVES_MAX.
+ *
+ * @param[in,out] c The sweep, valid before and after.
+ * @param f         The field.
+ * @param dir       -1 or +1.
+ * @return True when the step changed the sweep.
+ */
+bool servoSweepStep(sweep_cfg_t *c, SweepField f, int dir);
+
+/**
+ * @brief Whether servoSweepStep() would change the sweep.
+ * @param c   The sweep.
+ * @param f   The field.
+ * @param dir -1 or +1.
+ * @return True when a step in @p dir changes something.
+ */
+bool servoSweepCanStep(const sweep_cfg_t *c, SweepField f, int dir);
 
 /**
  * @brief The range a command maps onto: the narrowest one centred on CENTRE

@@ -76,6 +76,15 @@ PREVIEWS = {
         "shot_am32_hex",
         "shot_am32_written",
     ],
+    # The servo tester: SAFE before START, one servo driven by the horn, two
+    # servos with REVERSE B, and SET holding a heli profile behind its
+    # warning.
+    "servo-preview": [
+        "shot_servo_safe",
+        "shot_servo_running",
+        "shot_servo_two",
+        "shot_servo_set_warning",
+    ],
 }
 
 

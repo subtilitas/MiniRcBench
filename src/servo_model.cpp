@@ -149,6 +149,48 @@ bool servoProfileCanStep(const ServoProfile *p, ServoField f, int dir) {
 	return servoProfileStep(&copy, f, dir);
 }
 
+void servoSweepDefault(sweep_cfg_t *c) {
+	c->kind = SWEEP_SINE;
+	c->mhz = 500;
+	c->amplitude = SWEEP_AMPLITUDE_MAX;
+	c->dwell_ms = 500;
+	c->moves = 0;
+}
+
+/** @brief One step of @p v by @p step within [lo, hi], refused outside. */
+static bool stepIn(uint16_t *v, int dir, int step, int lo, int hi) {
+	int n = (int)*v + dir * step;
+	if (n < lo || n > hi) return false;
+	*v = (uint16_t)n;
+	return true;
+}
+
+bool servoSweepStep(sweep_cfg_t *c, SweepField f, int dir) {
+	if (dir != -1 && dir != 1) return false;
+	switch (f) {
+		case SweepField::Shape: {
+			int k = (int)c->kind + dir;
+			if (k <= (int)SWEEP_OFF || k >= (int)SWEEP_KIND_COUNT) return false;
+			c->kind = (sweep_kind_t)k;
+			return true;
+		}
+		case SweepField::Rate:
+			return stepIn(&c->mhz, dir, SERVO_SWEEP_MHZ_STEP, SWEEP_MHZ_MIN, SWEEP_MHZ_MAX);
+		case SweepField::Amplitude:
+			return stepIn(&c->amplitude, dir, SERVO_SWEEP_AMP_STEP, 0, SWEEP_AMPLITUDE_MAX);
+		case SweepField::Dwell:
+			return stepIn(&c->dwell_ms, dir, SERVO_SWEEP_DWELL_STEP_MS, 0, SWEEP_DWELL_MAX_MS);
+		case SweepField::Moves:
+			return stepIn(&c->moves, dir, 1, 0, SERVO_SWEEP_MOVES_MAX);
+	}
+	return false;
+}
+
+bool servoSweepCanStep(const sweep_cfg_t *c, SweepField f, int dir) {
+	sweep_cfg_t copy = *c;
+	return servoSweepStep(&copy, f, dir);
+}
+
 void servoCmdRange(const ServoProfile *p, int32_t *lo, int32_t *hi) {
 	int32_t below = (int32_t)p->centreUs - p->minUs;
 	int32_t above = (int32_t)p->maxUs - p->centreUs;

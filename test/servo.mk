@@ -3,7 +3,9 @@
 # One list per feature, so the servo tester and the KST programmer (kst.mk)
 # add their sources without editing a file the other edits.
 #
-#   SERVO_SRCS         C++ sources linked into the suite
+#   SERVO_SRCS         C++ sources linked into the suite. ui_servo.cpp is not
+#                      one: test_servo.cpp includes it, to reach its
+#                      file-static state, as test_ui.cpp does ui_am32.cpp
 #   SERVO_CSRCS        C sources linked into the suite: rcbench's sweep and
 #                      GPIO-to-PWM fold, copied into lib/rcbench/
 #   SERVO_INCLUDES     their include directories
@@ -11,7 +13,7 @@
 #   SERVO_CTESTS       rcbench's own tests of the C sources, each a program
 #                      of its own, built as C11 and run by `make run`
 #   SERVO_DEVICE_SRCS  sources the suite cannot link, typechecked by `syntax`
-SERVO_SRCS        := ../src/ui_servo.cpp ../src/servo_model.cpp \
+SERVO_SRCS        := ../src/servo_model.cpp \
                      ../src/servo_pwm.cpp ../src/servo_job.cpp \
                      ../src/ui_slider.cpp
 SERVO_CSRCS       := ../lib/rcbench/shared/servo/servo_sweep.c \
