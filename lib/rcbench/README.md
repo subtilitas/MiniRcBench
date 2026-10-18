@@ -44,7 +44,7 @@ copied unchanged from rcbench `test/host/` into `test/rcbench/`, are
 `test_kst_pio.c`, `test_kst_file.c` and `test_kst_store.c`, with the servo and
 line model `kst_sim.h` and the fixture `fixtures/kst_line_words.txt`, the
 words pioasm assembles `kst_line.pio` to. rcbench's `kst_fake_card.h` is not
-copied: it serves the card and panel tests, whose code is not ported, and
+copied: it serves rcbench's card and prog tests, whose code is not ported, and
 `test_kst_store.c` brings its own fake.
 
 Files adapted rather than copied are in `src/` and start with the line

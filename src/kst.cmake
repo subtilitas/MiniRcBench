@@ -28,3 +28,8 @@ target_include_directories(MiniRcBench PRIVATE
     ${KST_LIB}/shared/logfile/include
 )
 pico_generate_pio_header(MiniRcBench ${KST_LIB}/protocols/kst/rp2350/kst_line.pio)
+# The SDK libraries the line driver uses, as rcbench's rp2350/CMakeLists.txt
+# links them.
+target_link_libraries(MiniRcBench
+    hardware_pio hardware_gpio hardware_dma hardware_clocks hardware_timer
+)

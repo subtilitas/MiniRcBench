@@ -1018,7 +1018,8 @@ src/
   usb_descriptors.c     USB descriptors
   usb_msc.{h,cpp}       the SD card as a read-only USB drive
   tusb_config.h         TinyUSB configuration
-lib/rcbench/            rcbench files copied unchanged: servo sweep, GPIO-to-PWM fold
+lib/rcbench/            rcbench files copied unchanged: servo sweep, GPIO-to-PWM fold,
+                        KST core and line driver, KST file store
 tools/
   sdtest/               standalone SD bring-up test, 2.8" only; built locally, never released
   make_previews.py      restitches docs/*.png and wiki/img/ from the test suite's frames
@@ -1032,9 +1033,10 @@ wiki/                   the user manual, mirrored to the GitHub wiki
 .github/workflows/      ci.yml (CI), release.yml (Release), docs.yml (Docs: wiki publishing)
 ```
 
-All firmware source is under `src/`, `main.cpp` included, except rcbench's
-sweep curve and GPIO-to-PWM map: four files copied unchanged into
-`lib/rcbench/` with rcbench's own layout (`lib/rcbench/README.md`). Files include each other as
+All firmware source is under `src/`, `main.cpp` included, except the rcbench
+files copied unchanged into `lib/rcbench/` with rcbench's own layout
+(`lib/rcbench/README.md`): the sweep curve, the GPIO-to-PWM map, the KST
+programming core with its RP2350 line driver, and the KST file store. Files include each other as
 plain siblings, except two drivers with folders of their own: the DShot
 driver in `src/dshot/`, so that it can be compared with its rcbench original,
 and the SDIO card driver in `src/sdio/`, whose `compat/` headers have to keep
@@ -1292,8 +1294,8 @@ The Host tests job in `ci.yml` runs the same render and check on every push to
 ### Trademark notice
 
 KST and Chaservo are names or trademarks of their respective owners. They
-are used here only to say which servos the KST programming code in
-`lib/rcbench/protocols/kst/` works with. MiniRcBench is not affiliated with
+are used in this repository only to say which servos its KST programming
+code works with. MiniRcBench is not affiliated with
 them and is neither supported nor sponsored by them. The protocol is
 implemented from wire captures of hardware the rcbench project owns; no
 vendor code and no vendor documentation is included.

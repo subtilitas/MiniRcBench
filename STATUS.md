@@ -27,9 +27,11 @@ for servos. The servo tester (slice 2 of
 [pin-claim.md](docs/design/pin-claim.md),
 [servo-tester.md](docs/design/servo-tester.md)) drives one servo on the ESC
 pin, or two on the ESC and KISS pins, with PWM (pulse-width modulation)
-pulses. KST and Chaservo servo programming, on the same pins, is planned
-(slice 3), with an optional bench-switched servo supply on GP0. Until then
-KST has no row on MENU, and its screen is a stub. Before slice 3 comes a menu restructure
+pulses. KST and Chaservo servo programming, on the same pins, is slice 3,
+with an optional bench-switched servo supply on GP0. Its step 1 is built:
+rcbench's KST core, line driver and file store are copied into `lib/rcbench/`,
+with rcbench's tests of them, 298 cases. The rest is planned: KST has no row
+on MENU, and its screen is a stub. Before slice 3 comes a menu restructure
 ([menu.md](docs/design/menu.md), slices A to C). Slice A is built: one
 scrolling list, `src/ui_list.*`, under the AM32 and SERVO SET lists, and one
 hold, `src/ui_hold.*`, under HOLD TO WRITE, HOLD TO START, HOLD TO APPLY and

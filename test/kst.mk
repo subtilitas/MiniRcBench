@@ -30,6 +30,6 @@ KST_CTESTS        := rcbench/test_kst_wire.c rcbench/test_kst_reg.c \
                      rcbench/test_kst_plan.c rcbench/test_kst_session.c \
                      rcbench/test_kst_pio.c rcbench/test_kst_file.c \
                      rcbench/test_kst_store.c
-KST_CTEST_DEFINES := -DKST_LINE_PIO=\"$(KST_DIR)/rp2350/kst_line.pio\" \
-                     -DKST_LINE_WORDS=\"rcbench/fixtures/kst_line_words.txt\"
+KST_CTEST_DEFINES := -DKST_LINE_PIO=\"$(CURDIR)/$(KST_DIR)/rp2350/kst_line.pio\" \
+                     -DKST_LINE_WORDS=\"$(CURDIR)/rcbench/fixtures/kst_line_words.txt\"
 KST_DEVICE_SRCS   :=

@@ -1078,7 +1078,7 @@ documentation.
 ## Testing
 
 **Ported**, copied as they are into `test/rcbench/` with rcbench's harness
-`greatest.h` (its own MIT file, about 100 lines, no framework), the servo and
+`greatest.h` (its own MIT file, 127 lines, no framework), the servo and
 line model `kst_sim.h` and `fixtures/kst_line_words.txt`,
 built as C11 and run by `make` and CI:
 
