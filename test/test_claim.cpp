@@ -3,9 +3,10 @@
  * @brief The pin claim and the core1 job dispatch, against the fake pump.
  *
  * pin_claim.cpp is linked as it ships. core1_job.cpp is included rather than
- * linked, so the tests can put fake jobs in its job table: no job is built
- * yet, and the claim's job path is exercised with jobs that record what the
- * claim and the dispatch did to them. The Makefile therefore must not compile
+ * linked, so the tests can put fake jobs in its job table: the claim's job
+ * path is exercised with jobs that record what the claim and the dispatch did
+ * to them, and with no job at all. The servo job the table ships with is
+ * tested in test_servo.cpp. The Makefile therefore must not compile
  * core1_job.cpp separately.
  *
  * The fake pump (fakes.cpp) makes escTaskPoll()'s handover and frame
@@ -65,8 +66,8 @@ static uint8_t kstBind(uint8_t sig, uint8_t aux) { return bindInto(&g_kstJob, si
 static void kstStep(uint32_t, bool alive) { g_kstJob.steps++; g_kstJob.uiAlive = alive; }
 static void kstRelease() { g_kstJob.releases++; }
 
-static const Core1JobOps FAKE_SERVO = { servoBind, servoStep, servoRelease };
-static const Core1JobOps FAKE_KST   = { kstBind, kstStep, kstRelease };
+static const Core1JobOps FAKE_SERVO = { servoBind, servoStep, servoRelease, nullptr };
+static const Core1JobOps FAKE_KST   = { kstBind, kstStep, kstRelease, nullptr };
 
 /** @brief Build both jobs, with fresh records. */
 static void installJobs() {
@@ -76,9 +77,15 @@ static void installJobs() {
 	s_ops[(uint8_t)Core1Job::Kst]   = &FAKE_KST;
 }
 
-/** @brief Back to what ships: no job built. */
+/** @brief No job in the table, as KST ships. */
 static void removeJobs() {
 	s_ops[(uint8_t)Core1Job::Servo] = nullptr;
+	s_ops[(uint8_t)Core1Job::Kst]   = nullptr;
+}
+
+/** @brief The table as it ships: the servo job, and no KST job. */
+static void shippedJobs() {
+	s_ops[(uint8_t)Core1Job::Servo] = &SERVO_JOB_OPS;
 	s_ops[(uint8_t)Core1Job::Kst]   = nullptr;
 }
 
@@ -706,8 +713,14 @@ static void testJobGuard() {
 	removeJobs();
 	escTaskSuspend();
 	pump();
-	checkTrue("no job built: refused", !core1JobStart(Core1Job::Servo, SIG_GPIO, 0xFF));
+	checkTrue("no job in the table: refused", !core1JobStart(Core1Job::Servo, SIG_GPIO, 0xFF));
 	checkTrue("nor KST", !core1JobStart(Core1Job::Kst, SIG_GPIO, 0xFF));
+	shippedJobs();
+	checkTrue("as it ships, the servo job starts",
+	          core1JobStart(Core1Job::Servo, SIG_GPIO, 0xFF));
+	core1JobStop();
+	core1JobPoll();
+	checkTrue("and KST is refused", !core1JobStart(Core1Job::Kst, SIG_GPIO, 0xFF));
 	escTaskResume();
 	pump();
 	checkTrue("idle, no error", core1JobRunning() == Core1Job::None &&
@@ -827,7 +840,7 @@ static void testBackEveryState() {
 	                                              core1JobPhase() == Core1JobPhase::Running);
 	checkTrue("back to free", toFree());
 
-	// Held, the start refused: what ships, with no servo job built.
+	// Held, the start refused: no job in the table, as KST ships.
 	removeJobs();
 	checkTrue("claims", pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
 	pump();
@@ -1093,6 +1106,6 @@ void runClaimTests() {
 	testNoSaveDuringClaim();
 	testAm32Screen();
 
-	removeJobs();
+	shippedJobs();
 	quiet();
 }

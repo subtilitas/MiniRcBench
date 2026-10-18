@@ -15,6 +15,7 @@
 #include "pico/critical_section.h"
 #include "hardware/adc.h"
 #include "hardware/pwm.h"
+#include "hardware/gpio.h"
 #include "hardware/clocks.h"
 #include "hardware/i2c.h"
 #include "hardware/spi.h"
@@ -58,13 +59,61 @@ void adc_gpio_init(unsigned) {}
 void adc_select_input(unsigned) {}
 uint16_t adc_read() { return (uint16_t)(3.92f / 3.0f / 3.3f * 4095.0f); }
 
-// --- PWM: the backlight. Levels are accepted and discarded ---
-unsigned pwm_gpio_to_slice_num(unsigned) { return 0; }
-pwm_config pwm_get_default_config() { return pwm_config{}; }
-void pwm_config_set_clkdiv(pwm_config *, float) {}
-void pwm_config_set_wrap(pwm_config *, uint16_t) {}
-void pwm_init(unsigned, pwm_config *, bool) {}
-void pwm_set_gpio_level(unsigned, uint16_t) {}
+// --- PWM and GPIO: a record of the registers the servo PWM driver sets.
+//     The slice and channel follow the RP2350's fold for GP0 to GP29; a test
+//     can break the slice to make the driver's agreement check refuse.
+//     Nothing here models a counter or an edge: a level is what the compare
+//     register was last set to ---
+static FakePin   g_pins[FAKE_GPIOS];
+static FakeSlice g_slices[FAKE_SLICES];
+static bool      g_sliceMapBroken = false;
+
+void fakePwmReset() {
+	for (FakePin &p : g_pins) p = FakePin{};
+	for (FakeSlice &s : g_slices) s = FakeSlice{};
+	g_sliceMapBroken = false;
+}
+void fakePwmBreakSliceMap(bool on) { g_sliceMapBroken = on; }
+FakePin fakePin(unsigned gpio) { return gpio < FAKE_GPIOS ? g_pins[gpio] : FakePin{}; }
+FakeSlice fakeSlice(unsigned slice) { return slice < FAKE_SLICES ? g_slices[slice] : FakeSlice{}; }
+
+unsigned pwm_gpio_to_slice_num(unsigned gpio) {
+	unsigned s = (gpio >> 1) & 7u;
+	return g_sliceMapBroken ? (s + 1u) & 7u : s;
+}
+unsigned pwm_gpio_to_channel(unsigned gpio) { return gpio & 1u; }
+pwm_config pwm_get_default_config() { return pwm_config{0, 16, 0xFFFF}; }
+// The divider in 1/16ths, as the register holds it.
+void pwm_config_set_clkdiv(pwm_config *c, float div) { c->div = (uint32_t)(div * 16.0f); }
+void pwm_config_set_wrap(pwm_config *c, uint16_t wrap) { c->top = wrap; }
+void pwm_init(unsigned slice, pwm_config *c, bool start) {
+	if (slice >= FAKE_SLICES) return;
+	FakeSlice &s = g_slices[slice];
+	s.inits++;
+	s.top = (uint16_t)c->top;
+	s.div16 = c->div;
+	s.enabled = start;
+	// pwm_init() resets both compare registers to 0.
+	for (unsigned g = 0; g < FAKE_GPIOS; g++)
+		if (((g >> 1) & 7u) == slice) g_pins[g].level = 0;
+}
+void pwm_set_enabled(unsigned slice, bool on) {
+	if (slice < FAKE_SLICES) g_slices[slice].enabled = on;
+}
+void pwm_set_gpio_level(unsigned gpio, uint16_t level) {
+	if (gpio >= FAKE_GPIOS) return;
+	g_pins[gpio].level = level;
+	g_pins[gpio].levelWrites++;
+}
+extern "C" void gpio_set_function(uint32_t gpio, gpio_function fn) {
+	if (gpio < FAKE_GPIOS) g_pins[gpio].function = (int)fn;
+}
+extern "C" void gpio_set_dir(uint32_t gpio, int out) {
+	if (gpio < FAKE_GPIOS) g_pins[gpio].output = out != 0;
+}
+extern "C" void gpio_disable_pulls(uint32_t gpio) {
+	if (gpio < FAKE_GPIOS) g_pins[gpio].pull = FakePull::None;
+}
 
 uint32_t clock_get_hz(enum clock_index) { return 150000000u; }
 

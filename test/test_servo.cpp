@@ -1,18 +1,31 @@
 /**
  * @file test_servo.cpp
- * @brief The servo tester suite: the pure model in servo_model.cpp, and the
- *        stub screen it replaces.
+ * @brief The servo tester suite: the pure model, the PWM driver, the core1
+ *        job, and the stub screen it replaces.
  *
  * Every check runs the shipped functions. The limits, the steppers, the
  * mappings, SPEED and the dial hit test follow docs/design/servo-tester.md.
+ * servo_pwm.cpp runs against the PWM and GPIO fake in fakes.cpp, which
+ * records what each register was set to; what the SDK does with those calls
+ * on the chip is not tested here. The job runs as it ships, from the job
+ * table, through the pin claim and the fake DShot pump; the test plays
+ * core1's side by calling core1JobPoll() itself.
  */
 
 #include "check.h"
+#include "fakes.h"
+#include "core1_job.h"
+#include "esc_task.h"
 #include "pin_claim.h"
+#include "servo_job.h"
 #include "servo_model.h"
+#include "servo_pwm.h"
 #include "ui_servo.h"
+#include "plat.h"
 
+#include <hardware/gpio.h>
 #include <math.h>
+#include <string.h>
 
 /** @brief A profile of @p t at its defaults, one servo. */
 static ServoProfile profileOf(ServoType t) {
@@ -356,6 +369,499 @@ static void testDial() {
 	         (long)lroundf(servoDialAngle(239, SERVO_DIAL_Y)), 90);
 }
 
+#define SIG 29
+#define AUX 28
+
+/** @brief The PWM driver against the register fake. */
+static void testPwm() {
+	section("Servo PWM: bind, write, release and the sharing rules");
+
+	fakePwmReset();
+	checkTrue("GP29 at 50 Hz binds", servoPwmBind(SIG, 50));
+	FakePin p = fakePin(SIG);
+	FakeSlice sl = fakeSlice(6);
+	checkTrue("on the PWM function", p.function == GPIO_FUNC_PWM);
+	checkInt("at level 0: no edges", p.level, 0);
+	checkTrue("with the pulls off", p.pull == FakePull::None);
+	checkTrue("slice 6 counting", sl.enabled && sl.inits == 1);
+	checkInt("wrap 19999 at 50 Hz", sl.top, 19999);
+	checkInt("150 MHz divided by 150: 1 us a count", sl.div16, 150 * 16);
+	checkTrue("bound", servoPwmBound(SIG) && !servoPwmBound(AUX));
+
+	checkTrue("again at 50 Hz: accepted", servoPwmBind(SIG, 50));
+	checkInt("and the slice is not set up again", fakeSlice(6).inits, 1);
+	checkTrue("again at 100 Hz: refused", !servoPwmBind(SIG, 100));
+	checkTrue("GP28, same slice, 100 Hz: refused", !servoPwmBind(AUX, 100));
+	checkTrue("GP28 at 50 Hz binds", servoPwmBind(AUX, 50));
+	checkInt("the running slice is left alone", fakeSlice(6).inits, 1);
+	checkTrue("GP12, GP28's compare register: refused", !servoPwmBind(12, 50));
+	checkTrue("GP26, both bindings in use: refused", !servoPwmBind(26, 50));
+	checkTrue("GP30, not on the package: refused", !servoPwmBind(30, 50));
+
+	servoPwmWrite(SIG, 1500);
+	checkInt("a 1500 us pulse", fakePin(SIG).level, 1500);
+	servoPwmWrite(SIG, 25000);
+	checkInt("a pulse past the frame: the frame's last count", fakePin(SIG).level, 19999);
+	int writes = fakePin(26).levelWrites;
+	servoPwmWrite(26, 1500);
+	checkInt("an unbound pin is not written", fakePin(26).levelWrites, writes);
+	servoPwmWrite(SIG, 0);
+	checkInt("0: level 0", fakePin(SIG).level, 0);
+
+	servoPwmWrite(AUX, 1200);
+	servoPwmRelease(AUX);
+	p = fakePin(AUX);
+	checkInt("release: level 0", p.level, 0);
+	checkTrue("a plain input", p.function == GPIO_FUNC_SIO && !p.output);
+	checkTrue("with no pull", p.pull == FakePull::None);
+	checkTrue("the slice runs on for GP29", fakeSlice(6).enabled && servoPwmBound(SIG));
+	servoPwmRelease(SIG);
+	checkTrue("the last pin released stops the slice", !fakeSlice(6).enabled);
+	writes = fakePin(SIG).levelWrites;
+	servoPwmRelease(SIG);
+	checkInt("a second release does nothing", fakePin(SIG).levelWrites, writes);
+
+	checkTrue("rate 0: refused", !servoPwmBind(SIG, 0));
+	checkTrue("15 Hz, a period the counter cannot hold: refused", !servoPwmBind(SIG, 15));
+	checkTrue("560 Hz binds", servoPwmBind(SIG, 560));
+	checkInt("wrap 1784", fakeSlice(6).top, 1784);
+	servoPwmRelease(SIG);
+	checkTrue("GP28 binds", servoPwmBind(AUX, 50));
+	checkTrue("GP12 on its compare register: refused, a binding free",
+	          !servoPwmBind(12, 50));
+	servoPwmRelease(AUX);
+
+	fakePwmBreakSliceMap(true);
+	checkTrue("an SDK slice that differs from the fold: refused", !servoPwmBind(SIG, 50));
+	fakePwmBreakSliceMap(false);
+	checkTrue("nothing bound", !servoPwmBound(SIG) && !servoPwmBound(AUX));
+}
+
+/** @brief A command of @p kind for the servos in @p mask. */
+static ServoCmd cmdOf(uint16_t seq, ServoCmdKind kind, uint8_t mask = SERVO_MASK_AB,
+                      uint16_t command = SERVO_CMD_CENTRE, uint16_t slew = 0) {
+	ServoCmd c;
+	memset(&c, 0, sizeof(c));
+	c.seq = seq;
+	c.kind = kind;
+	c.mask = mask;
+	c.command = command;
+	c.slewPerS = slew;
+	return c;
+}
+
+/** @brief A sweep command. */
+static ServoCmd sweepOf(uint16_t seq, sweep_kind_t kind, uint16_t mhz, uint16_t amp,
+                        uint16_t dwell, uint16_t moves, uint8_t mask = SERVO_MASK_AB) {
+	ServoCmd c = cmdOf(seq, ServoCmdKind::Sweep, mask);
+	c.sweep.kind = kind;
+	c.sweep.mhz = mhz;
+	c.sweep.amplitude = amp;
+	c.sweep.dwell_ms = dwell;
+	c.sweep.moves = moves;
+	return c;
+}
+
+/** @brief Take @p c at @p now and step once. */
+static void pass(ServoCore *core, const ServoCmd &c, uint32_t now, bool alive = true) {
+	servoCoreTake(core, &c, now, alive);
+	servoCoreStep(core, now, alive);
+}
+
+/** @brief SAFE, START, positions, two servos and REVERSE B, on the pure core. */
+static void testCoreStates() {
+	section("Servo job core: SAFE, START, positions, two servos");
+
+	ServoProfile prof = profileOf(ServoType::Standard);
+	prof.servos = 2;
+	ServoCore c;
+	servoCoreReset(&c, &prof, true, true, 7);
+	servoCoreStep(&c, 1000, true);
+	checkTrue("SAFE: no pulse on either pin", c.outUs[0] == 0 && c.outUs[1] == 0 && !c.running);
+
+	ServoCmd stale = cmdOf(7, ServoCmdKind::Start);
+	checkTrue("a command from before the bind is not taken",
+	          !servoCoreTake(&c, &stale, 1000, true) && !c.running);
+
+	pass(&c, cmdOf(8, ServoCmdKind::Position, SERVO_MASK_AB, 1000), 1000);
+	checkTrue("a position while SAFE moves nothing", !c.running && c.outUs[0] == 0);
+	checkInt("and is acknowledged", c.ackSeq, 8);
+
+	pass(&c, cmdOf(9, ServoCmdKind::Start, SERVO_MASK_AB, 0, 200), 1000, false);
+	checkTrue("START with the heartbeat lapsed: refused", !c.running);
+
+	// Something was commanded before: START still puts CENTRE out at once.
+	c.target[0] = 1000; c.pos[0] = 1000000;
+	pass(&c, cmdOf(10, ServoCmdKind::Start, SERVO_MASK_AB, 0, 200), 1000);
+	checkTrue("START: RUNNING", c.running);
+	checkTrue("CENTRE on both pins in the same pass, slew or not",
+	          c.outUs[0] == 1500 && c.outUs[1] == 1500);
+	ServoCmd again = cmdOf(10, ServoCmdKind::Safe);
+	checkTrue("a seq already taken is not new, whatever it says",
+	          !servoCoreTake(&c, &again, 1000, true) && c.running);
+
+	pass(&c, cmdOf(11, ServoCmdKind::Position, SERVO_MASK_A, 1000), 1000);
+	checkTrue("A to MAX at once; B holds", c.outUs[0] == 2000 && c.outUs[1] == 1500);
+	pass(&c, cmdOf(12, ServoCmdKind::Position, SERVO_MASK_B, 0), 1000);
+	checkTrue("B to MIN; A holds", c.outUs[0] == 2000 && c.outUs[1] == 1000);
+	pass(&c, cmdOf(13, ServoCmdKind::Position, SERVO_MASK_AB, 750), 1000);
+	checkTrue("AB: both follow", c.outUs[0] == 1750 && c.outUs[1] == 1750);
+
+	c.prof.reverseB = true;
+	pass(&c, cmdOf(14, ServoCmdKind::Position, SERVO_MASK_AB, 750), 1000);
+	checkTrue("AB, REVERSE B: B mirrors", c.outUs[0] == 1750 && c.outUs[1] == 1250);
+	pass(&c, cmdOf(15, ServoCmdKind::Position, SERVO_MASK_B, 800), 1000);
+	checkInt("B alone, REVERSE B: B follows unmirrored", c.outUs[1], 1800);
+	c.prof.reverseB = false;
+
+	pass(&c, cmdOf(16, ServoCmdKind::Safe), 1000);
+	checkTrue("STOP: no pulse from this pass", !c.running && c.outUs[0] == 0 && c.outUs[1] == 0);
+
+	ServoCore one;
+	servoCoreReset(&one, &prof, true, false, 0);
+	pass(&one, cmdOf(1, ServoCmdKind::Start), 1000);
+	checkTrue("one pin bound: CENTRE on A, nothing on B",
+	          one.outUs[0] == 1500 && one.outUs[1] == 0);
+	ServoCore none;
+	servoCoreReset(&none, &prof, false, false, 0);
+	pass(&none, cmdOf(1, ServoCmdKind::Start), 1000);
+	checkTrue("no pin bound: START refused", !none.running && none.outUs[0] == 0);
+}
+
+/** @brief SPEED: the slew per pass, across a clock wrap. */
+static void testCoreSlew() {
+	section("Servo job core: the slew follows SPEED");
+
+	ServoProfile prof = profileOf(ServoType::Standard);
+	ServoCore c;
+	servoCoreReset(&c, &prof, true, false, 0);
+	const uint32_t t0 = 0xFFFFFC18u;   // 1000 ms before the clock wraps
+	pass(&c, cmdOf(1, ServoCmdKind::Start, SERVO_MASK_A, 0, servoSlewOf(10)), t0);
+	pass(&c, cmdOf(2, ServoCmdKind::Position, SERVO_MASK_A, 1000, servoSlewOf(10)), t0);
+	checkInt("at 10 %, nothing moves in the same millisecond", c.outUs[0], 1500);
+	servoCoreStep(&c, t0 + 1, true);
+	checkInt("1 ms: 0.2 units, rounded to the same pulse", c.outUs[0], 1500);
+	servoCoreStep(&c, t0 + 1000, true);
+	checkInt("1000 ms: 200 units", c.outUs[0], 1700);
+	servoCoreStep(&c, t0 + 2000, true);
+	checkTrue("the clock wrapped", t0 + 2000 < t0);
+	checkInt("2000 ms, past the wrap: 400 units", c.outUs[0], 1900);
+	servoCoreStep(&c, t0 + 2500, true);
+	checkInt("2500 ms: at MAX, 500 units in 2500 ms", c.outUs[0], 2000);
+	servoCoreStep(&c, t0 + 9000, true);
+	checkInt("and stays there", c.outUs[0], 2000);
+
+	pass(&c, cmdOf(3, ServoCmdKind::Position, SERVO_MASK_A, 0, servoSlewOf(50)), t0 + 9000);
+	servoCoreStep(&c, t0 + 9500, true);
+	checkInt("at 50 %, 500 ms back: 500 units", c.outUs[0], 1500);
+	pass(&c, cmdOf(4, ServoCmdKind::Slew, SERVO_MASK_A, 0, servoSlewOf(10)), t0 + 9500);
+	servoCoreStep(&c, t0 + 10000, true);
+	checkInt("SPEED to 10 % mid-move: 100 units in 500 ms", c.outUs[0], 1400);
+	pass(&c, cmdOf(5, ServoCmdKind::Slew, SERVO_MASK_A, 0, servoSlewOf(100)), t0 + 10000);
+	checkInt("SPEED to 100 %: at the target in the same pass", c.outUs[0], 1000);
+}
+
+/** @brief Sweeps: start, shape, count, stop, and what ends them. */
+static void testCoreSweep() {
+	section("Servo job core: the sweep and what ends it");
+
+	ServoProfile prof = profileOf(ServoType::Standard);
+	prof.servos = 2;
+	ServoCore c;
+	servoCoreReset(&c, &prof, true, true, 0);
+	pass(&c, cmdOf(1, ServoCmdKind::Start), 1000);
+
+	ServoCmd early = sweepOf(2, SWEEP_SINE, 1000, 400, 0, 0);
+	servoCoreTake(&c, &early, 1000, false);
+	checkTrue("a sweep with the heartbeat lapsed is refused", !c.sweeping && c.running);
+	pass(&c, sweepOf(3, SWEEP_OFF, 1000, 400, 0, 0), 1000);
+	checkTrue("a curve sweep_cfg_valid() refuses does not start", !c.sweeping);
+
+	pass(&c, sweepOf(4, SWEEP_SINE, 1000, 400, 0, 0), 1000);
+	checkTrue("SWEEP: sweeping", c.sweeping);
+	checkInt("a sine starts at the centre", c.outUs[0], 1500);
+	servoCoreStep(&c, 1250, true);
+	checkTrue("a quarter of 1 Hz: +400 units on both", c.outUs[0] == 1900 && c.outUs[1] == 1900);
+	servoCoreStep(&c, 1750, true);
+	checkInt("three quarters: -400 units", c.outUs[0], 1100);
+
+	pass(&c, cmdOf(5, ServoCmdKind::SweepStop), 1875);
+	checkTrue("STOP SWEEP: not sweeping, still RUNNING", !c.sweeping && c.running);
+	uint16_t held = c.outUs[0];
+	servoCoreStep(&c, 3000, true);
+	checkTrue("the servo stays where the curve was", c.outUs[0] == held && held != 1500);
+
+	c.prof.reverseB = true;
+	pass(&c, sweepOf(6, SWEEP_TRIANGLE, 1000, 400, 0, 0), 3000);
+	servoCoreStep(&c, 3250, true);
+	checkTrue("AB, REVERSE B: B sweeps mirrored", c.outUs[0] == 1900 && c.outUs[1] == 1100);
+	c.prof.reverseB = false;
+	pass(&c, sweepOf(7, SWEEP_TRIANGLE, 1000, 400, 0, 0, SERVO_MASK_A), 4000);
+	servoCoreStep(&c, 4250, true);
+	checkTrue("A alone sweeps; B holds", c.outUs[0] == 1900 && c.outUs[1] == 1100);
+
+	pass(&c, cmdOf(8, ServoCmdKind::Position, SERVO_MASK_A, 0), 4250);
+	checkTrue("a position ends the sweep", !c.sweeping && c.outUs[0] == 1000);
+
+	pass(&c, sweepOf(9, SWEEP_SQUARE, 1000, 500, 100, 2), 5000);
+	checkInt("a square jumps to +500 units at once", c.outUs[0], 2000);
+	servoCoreStep(&c, 5600, true);
+	checkInt("and to -500 units at the half", c.outUs[0], 1000);
+	servoCoreStep(&c, 5949, true);
+	checkTrue("two moves: still sweeping in the last dwell", c.sweeping);
+	servoCoreStep(&c, 5950, true);
+	checkTrue("then ended, back at the centre", !c.sweeping && c.outUs[0] == 1500 && c.running);
+
+	pass(&c, sweepOf(10, SWEEP_SINE, 1000, 400, 0, 0), 6000);
+	pass(&c, cmdOf(11, ServoCmdKind::Start), 6100);
+	checkTrue("START again ends the sweep at the centre", !c.sweeping && c.outUs[0] == 1500);
+	pass(&c, sweepOf(12, SWEEP_SINE, 1000, 400, 0, 0), 6100);
+	pass(&c, cmdOf(13, ServoCmdKind::Safe), 6200);
+	checkTrue("STOP ends the sweep and the pulses", !c.sweeping && !c.running && c.outUs[0] == 0);
+}
+
+/** @brief The heartbeat trip, latched, on the pure core. */
+static void testCoreTrip() {
+	section("Servo job core: a heartbeat lapse trips and latches");
+
+	ServoProfile prof = profileOf(ServoType::Standard);
+	ServoCore c;
+	servoCoreReset(&c, &prof, true, false, 0);
+	servoCoreStep(&c, 100, false);
+	checkTrue("a lapse while SAFE latches nothing", !c.tripped);
+	pass(&c, cmdOf(1, ServoCmdKind::Start), 200);
+	pass(&c, sweepOf(2, SWEEP_SINE, 1000, 400, 0, 0), 200);
+	servoCoreStep(&c, 300, false);
+	checkTrue("a lapse while RUNNING: no pulse, no sweep, tripped",
+	          !c.running && !c.sweeping && c.tripped && c.outUs[0] == 0);
+	servoCoreStep(&c, 400, true);
+	checkTrue("the heartbeat back restarts nothing", !c.running && c.tripped && c.outUs[0] == 0);
+	pass(&c, cmdOf(3, ServoCmdKind::Position, SERVO_MASK_A, 1000), 400);
+	checkTrue("nor does a position", !c.running && c.outUs[0] == 0);
+	pass(&c, cmdOf(4, ServoCmdKind::Start), 500);
+	checkTrue("a new START clears the trip", c.running && !c.tripped && c.outUs[0] == 1500);
+	pass(&c, cmdOf(5, ServoCmdKind::Position, SERVO_MASK_A, 1000), 600, false);
+	checkTrue("a position with the heartbeat lapsed is refused, and the pass trips",
+	          !c.running && c.tripped);
+	pass(&c, cmdOf(6, ServoCmdKind::Safe), 700, false);
+	checkTrue("STOP is taken with the heartbeat lapsed", c.ackSeq == 6 && !c.running);
+}
+
+/** @brief The board's wiring, KISS on, the pump bound and past any drain. */
+static void freshPump() {
+	escTaskConfigure(SIG, 600, true, AUX);
+	EscTelemetry t;
+	memset(&t, 0, sizeof(t));
+	fakeSetTelemetry(&t);
+	fakePumpPoll();
+	fakeAdvance(1000);
+	fakePumpPoll();
+}
+
+/** @brief A SERVO claim through to Running, with the shipped job. */
+static bool claimRunning(uint8_t roles) {
+	if (pinClaimBegin(PinUser::Servo, roles) != ClaimRefusal::None) return false;
+	fakePumpPoll();
+	pinClaimPoll();
+	core1JobPoll();
+	return pinClaimPoll() == ClaimState::Running;
+}
+
+/** @brief BACK, the unplug page, RESTART DSHOT, and the pump back. */
+static bool claimEnd() {
+	pinClaimEnd(PinUser::Servo);
+	core1JobPoll();
+	pinClaimPoll();
+	bool page = pinClaimUnplugDue();
+	pinClaimRestart(PinUser::Servo);
+	fakePumpPoll();
+	return page && pinClaimState() == ClaimState::Free;
+}
+
+/** @brief Send @p c and give core1 one pass. */
+static void send(const ServoCmd &c) {
+	servoJobCommand(&c);
+	core1JobPoll();
+}
+
+/** @brief The job as it ships, on the claim, the PWM fake and the clock. */
+static void testJob() {
+	section("Servo job: on the claim, through the job table");
+
+	fakePwmReset();
+	freshPump();
+	escHeartbeat();
+	ServoProfile prof;
+	servoProfileDefault(&prof);
+	checkTrue("a profile while idle is accepted", servoJobProfile(&prof));
+
+	checkTrue("one servo: the claim runs the shipped job", claimRunning(PIN_SIG | PIN_AUX));
+	checkTrue("SIG bound to PWM at level 0", fakePin(SIG).function == GPIO_FUNC_PWM &&
+	                                         fakePin(SIG).level == 0);
+	checkTrue("AUX left alone with one servo", fakePin(AUX).function != GPIO_FUNC_PWM);
+	checkInt("at 50 Hz", fakeSlice(6).top, 19999);
+	ServoStatus st;
+	servoJobStatus(&st);
+	checkTrue("status: SAFE, no pulse, no error",
+	          !st.running && st.outUs[0] == 0 && st.bindError == 0);
+
+	ServoCmd c = cmdOf(0, ServoCmdKind::Start);
+	uint16_t seq = servoJobCommand(&c);
+	servoJobStatus(&st);
+	checkTrue("not taken before core1's pass", st.ackSeq != seq);
+	checkTrue("a profile with a command pending: refused", !servoJobProfile(&prof));
+	core1JobPoll();
+	servoJobStatus(&st);
+	checkTrue("START: taken on the next pass", st.ackSeq == seq && st.running);
+	checkInt("CENTRE on SIG", fakePin(SIG).level, 1500);
+	checkInt("status reports it", st.outUs[0], 1500);
+	checkTrue("a profile while RUNNING: refused", !servoJobProfile(&prof));
+
+	send(cmdOf(0, ServoCmdKind::Position, SERVO_MASK_A, 1000));
+	checkInt("a position: MAX", fakePin(SIG).level, 2000);
+	int writes = fakePin(SIG).levelWrites;
+	core1JobPoll();
+	checkInt("an unchanged pulse is not written again", fakePin(SIG).levelWrites, writes);
+
+	// STOP, then a position before core1's pass: the STOP is kept.
+	ServoCmd safe = cmdOf(0, ServoCmdKind::Safe);
+	uint16_t safeSeq = servoJobCommand(&safe);
+	ServoCmd late = cmdOf(0, ServoCmdKind::Position, SERVO_MASK_A, 0);
+	checkInt("a command after an untaken STOP is dropped", servoJobCommand(&late), safeSeq);
+	core1JobPoll();
+	checkInt("STOP: level 0 on the next pass", fakePin(SIG).level, 0);
+	servoJobStatus(&st);
+	checkTrue("SAFE", !st.running);
+	checkInt("a command after a taken STOP is held",
+	         servoJobCommand(&late), (uint16_t)(safeSeq + 1));
+	core1JobPoll();
+	checkInt("and moves nothing while SAFE", fakePin(SIG).level, 0);
+
+	ServoProfile bad = prof;
+	bad.maxUs = 2600;
+	checkTrue("an invalid profile: refused", !servoJobProfile(&bad));
+
+	// Two servos at 100 Hz, while SAFE: both pins rebound.
+	ServoProfile two = prof;
+	two.servos = 2;
+	two.rateHz = 100;
+	int inits = fakeSlice(6).inits;
+	checkTrue("two servos at 100 Hz while SAFE: accepted", servoJobProfile(&two));
+	core1JobPoll();
+	checkTrue("both pins on PWM at level 0",
+	          fakePin(SIG).function == GPIO_FUNC_PWM && fakePin(AUX).function == GPIO_FUNC_PWM &&
+	          fakePin(SIG).level == 0 && fakePin(AUX).level == 0);
+	checkTrue("the slice set up again, at 100 Hz",
+	          fakeSlice(6).inits == inits + 1 && fakeSlice(6).top == 9999);
+	send(cmdOf(0, ServoCmdKind::Start));
+	checkTrue("START: CENTRE on both", fakePin(SIG).level == 1500 && fakePin(AUX).level == 1500);
+	send(cmdOf(0, ServoCmdKind::Position, SERVO_MASK_B, 1000));
+	checkTrue("B alone to MAX", fakePin(SIG).level == 1500 && fakePin(AUX).level == 2000);
+
+	ServoCmd sw = sweepOf(0, SWEEP_TRIANGLE, 1000, 500, 0, 0);
+	servoJobCommand(&sw);
+	core1JobPoll();
+	fakeAdvance(250);
+	escHeartbeat();
+	core1JobPoll();
+	servoJobStatus(&st);
+	checkTrue("a sweep on both: +500 units at a quarter",
+	          st.sweeping && fakePin(SIG).level == 2000 && fakePin(AUX).level == 2000);
+	checkInt("one end reached", st.sweepMoves, 1);
+	send(cmdOf(0, ServoCmdKind::SweepStop));
+	servoJobStatus(&st);
+	checkTrue("STOP SWEEP", !st.sweeping && st.sweepMoves == 0 && st.running);
+	send(cmdOf(0, ServoCmdKind::Safe));
+
+	// A rebind the SDK refuses leaves both pins unbound and says why.
+	fakePwmBreakSliceMap(true);
+	checkTrue("a profile accepted", servoJobProfile(&prof));
+	core1JobPoll();
+	servoJobStatus(&st);
+	checkInt("the rebind is refused: PWM", st.bindError, CORE1_JOB_PWM);
+	checkTrue("both pins released", fakePin(SIG).function == GPIO_FUNC_SIO &&
+	                                fakePin(AUX).function == GPIO_FUNC_SIO);
+	send(cmdOf(0, ServoCmdKind::Start));
+	servoJobStatus(&st);
+	checkTrue("START with nothing bound: refused", !st.running && fakePin(SIG).level == 0);
+	fakePwmBreakSliceMap(false);
+	checkTrue("the profile again", servoJobProfile(&prof));
+	core1JobPoll();
+	servoJobStatus(&st);
+	checkTrue("binds, no error", st.bindError == 0 && fakePin(SIG).function == GPIO_FUNC_PWM);
+
+	checkTrue("BACK: the unplug page, then DShot", claimEnd());
+	checkTrue("SIG a plain input, no pull", fakePin(SIG).function == GPIO_FUNC_SIO &&
+	                                        fakePin(SIG).pull == FakePull::None);
+	checkTrue("the slice stopped", !fakeSlice(6).enabled);
+	servoJobStatus(&st);
+	checkTrue("status after the release: SAFE, no pulse", !st.running && st.outUs[0] == 0);
+
+	// The first bind refused: the claim stays Held with the reason, and
+	// RETRY binds once the cause is gone.
+	fakePwmBreakSliceMap(true);
+	checkTrue("the claim begins", pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
+	fakePumpPoll();
+	pinClaimPoll();
+	core1JobPoll();
+	checkTrue("held, the bind refused", pinClaimPoll() == ClaimState::Held &&
+	                                    pinClaimJobError() == CORE1_JOB_PWM);
+	fakePwmBreakSliceMap(false);
+	pinClaimRetry(PinUser::Servo);
+	core1JobPoll();
+	checkTrue("RETRY: running", pinClaimPoll() == ClaimState::Running);
+	checkTrue("back to free", claimEnd());
+}
+
+/** @brief The trip through the job, on the shipped heartbeat rule, across a wrap. */
+static void testJobTrip() {
+	section("Servo job: the heartbeat trip at 250 ms, across the millis() wrap");
+
+	fakePwmReset();
+	freshPump();
+	ServoProfile prof;
+	servoProfileDefault(&prof);
+	servoJobProfile(&prof);
+	escHeartbeat();
+	checkTrue("running", claimRunning(PIN_SIG));
+
+	// Stamp the heartbeat 100 ms before the clock wraps, so stamp + 250 ms
+	// wraps. The advances below add up to 2^32 ms with the move back.
+	uint32_t start = millis();
+	uint32_t toEdge = (0u - 100u) - start;
+	fakeAdvance(toEdge);
+	escHeartbeat();
+	uint32_t stamp = millis();
+	send(cmdOf(0, ServoCmdKind::Start));
+	checkInt("START", fakePin(SIG).level, 1500);
+	checkTrue("stamp + 250 ms wraps", stamp + 250u < stamp);
+	fakeAdvance(249);
+	core1JobPoll();
+	checkTrue("the clock wrapped", millis() < stamp);
+	ServoStatus st;
+	servoJobStatus(&st);
+	checkTrue("249 ms after the heartbeat: running", st.running && fakePin(SIG).level == 1500);
+	fakeAdvance(1);
+	core1JobPoll();
+	servoJobStatus(&st);
+	checkTrue("250 ms: tripped, level 0", !st.running && st.tripped && fakePin(SIG).level == 0);
+	escHeartbeat();
+	core1JobPoll();
+	servoJobStatus(&st);
+	checkTrue("the heartbeat back: still tripped, no pulse",
+	          st.tripped && !st.running && fakePin(SIG).level == 0);
+	send(cmdOf(0, ServoCmdKind::Start));
+	servoJobStatus(&st);
+	checkTrue("a new START clears it", st.running && !st.tripped && fakePin(SIG).level == 1500);
+	send(cmdOf(0, ServoCmdKind::Safe));
+	checkTrue("back to free", claimEnd());
+	fakeAdvance(0u - toEdge - 250u);
+	checkInt("the clock is back where it was", millis(), start);
+	escHeartbeat();
+}
+
+/** @brief The stub screen, until the screen replaces it. */
+
 /** @brief The stub screen, until the screen replaces it. */
 static void testStubScreen() {
 	section("Servo tester: the stub screen");
@@ -373,5 +879,12 @@ void runServoTests() {
 	testMapping();
 	testSpeed();
 	testDial();
+	testPwm();
+	testCoreStates();
+	testCoreSlew();
+	testCoreSweep();
+	testCoreTrip();
+	testJob();
+	testJobTrip();
 	testStubScreen();
 }

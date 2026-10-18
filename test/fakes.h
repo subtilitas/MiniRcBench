@@ -149,5 +149,46 @@ uint16_t fakeDshotKbaud();
 /** @brief GPIO most recently pushed to the fake pump. @see escTaskDshotPin() */
 uint8_t escTaskDshotPin();
 
+/** @brief GPIOs the PWM and GPIO fake records. */
+#define FAKE_GPIOS  30
+/** @brief Slices the PWM fake records, for GP0 to GP29. */
+#define FAKE_SLICES 8
+
+/** @brief Which pull a pin has, as the GPIO fake last set it. */
+enum class FakePull : uint8_t { Untouched, None };
+
+/** @brief What the fake recorded for one GPIO. */
+struct FakePin {
+	int      function;     /**< gpio_function last set; 0 for none. */
+	uint16_t level;        /**< Compare level last set, or 0 after pwm_init(). */
+	int      levelWrites;  /**< pwm_set_gpio_level() calls. */
+	bool     output;       /**< gpio_set_dir() last set an output. */
+	FakePull pull;         /**< Pull last set. */
+};
+
+/** @brief What the fake recorded for one PWM slice. */
+struct FakeSlice {
+	bool     enabled;  /**< Counting. */
+	uint16_t top;      /**< Wrap register. */
+	uint32_t div16;    /**< Clock divider, in 1/16ths. */
+	int      inits;    /**< pwm_init() calls. */
+};
+
+/** @brief Clear every pin and slice record and the broken map. */
+void fakePwmReset();
+
+/**
+ * @brief Make pwm_gpio_to_slice_num() name the wrong slice, as an SDK whose
+ *        mapping disagreed with out_pwm_map.h would.
+ * @param on True to break it.
+ */
+void fakePwmBreakSliceMap(bool on);
+
+/** @brief The record of one GPIO. @param gpio GPIO. @return The record. */
+FakePin fakePin(unsigned gpio);
+
+/** @brief The record of one slice. @param slice Slice. @return The record. */
+FakeSlice fakeSlice(unsigned slice);
+
 /** @brief Put the fake USB card reader into a state. @see usb_msc.h */
 void fakeMscSet(MscState s, uint32_t blocksRead);
