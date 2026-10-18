@@ -937,6 +937,12 @@ static void testHeartbeat() {
 	checkTrue("at 249 ms: alive", escUiAlive(0xFFFFFF9Cu + 249u, 0xFFFFFF9Cu));
 	checkTrue("dead at 250 ms", !escUiAlive(0xFFFFFF9Cu + 250u, 0xFFFFFF9Cu));
 	checkTrue("and dead at 400 ms", !escUiAlive(0xFFFFFF9Cu + 400u, 0xFFFFFF9Cu));
+	// Core1 reads the clock, core0 stamps a heartbeat 1 ms later, core1
+	// reads the stamp: the heartbeat is newer than the clock.
+	checkTrue("a heartbeat 1 ms newer than the clock: alive", escUiAlive(5000, 5001));
+	checkTrue("1 ms newer, across the wrap: alive", escUiAlive(0xFFFFFFFFu, 0u));
+	checkTrue("249 ms newer: alive", escUiAlive(5000, 5249));
+	checkTrue("a stale one across the wrap, 300 ms: dead", !escUiAlive(200u, 0xFFFFFF9Cu));
 
 	uiInit();
 	freshPump();

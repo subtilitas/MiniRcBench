@@ -262,6 +262,11 @@ protocol.
 
 ### Fixed
 
+- The DShot pump reads the heartbeat stamp before `millis()`, and
+  `escUiAlive()` counts a stamp newer than the time it is judged at as
+  alive. Core0 could stamp a heartbeat between core1's read of `millis()` and
+  its read of the stamp; the age then read as 2^32 - 1 ms, and the pump sent
+  throttle zero for that frame although the UI ran.
 - The DShot pump drops a beacon that is owed or not yet latched when the ESC
   arms. No command frame goes out armed, so an arm before the beacon's last
   frame could leave it owed until disarm: no KISS request went out while

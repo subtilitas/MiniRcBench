@@ -97,7 +97,9 @@ uint8_t core1JobError() {
 }
 
 bool core1UiAlive() {
-	return escUiAlive(millis(), escHeartbeatMs());
+	// The stamp first, so millis() is never older than it.
+	uint32_t hb = escHeartbeatMs();
+	return escUiAlive(millis(), hb);
 }
 
 void core1JobPoll() {
