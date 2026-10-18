@@ -1506,7 +1506,7 @@ static constexpr UiScreen SCREENS[] = {
 	{ UiScreenId::Servo,  uiServoControls },
 	{ UiScreenId::Kst,    noControls },
 };
-/** @brief Each @ref UiScreenId has exactly one entry in @ref SCREENS. */
+/** @brief Each @ref UiScreenId has exactly one entry in `SCREENS`. */
 static constexpr bool screensComplete() {
 	for (size_t id = 0; id <= (size_t)UiScreenId::Kst; id++) {
 		int n = 0;
