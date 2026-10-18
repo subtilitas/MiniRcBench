@@ -106,9 +106,9 @@ protocol.
   [docs/design/pin-claim.md](docs/design/pin-claim.md): `src/pin_claim.h`
   hands the ESC and KISS pins to one screen at a time and refuses a claim
   while armed, while another claim holds, while an ESC answers on the signal
-  pin within 500 ms (servo and KST screens), and, for two servos, while KISS
-  frames arrive within 500 ms or both roles name one GPIO. The servo and KST
-  screens restart DShot only after their unplug page.
+  pin within 500 ms (servo and KST screens; AM32 is exempt), and, for two
+  servos, while KISS frames arrive within 500 ms or both roles name one GPIO.
+  The servo and KST screens restart DShot only after their unplug page.
 - `src/core1_job.h`: core1 binds, steps and releases a job on the claimed
   pins from `loop1()`, after the DShot pump. A job starts only while the pump
   is suspended. No job is built yet.

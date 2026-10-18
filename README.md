@@ -69,13 +69,14 @@ The two cores share one struct guarded by a `critical_section`. Core0 calls
 `UI_HEARTBEAT_TIMEOUT_MS` (250 ms), core1 forces the throttle to zero.
 
 A screen that needs the signal pins claims them (`src/pin_claim.h`). The claim
-suspends the DShot pump on core1: zero frames for at least 250 ms
-(`ARM_ZERO_THROTTLE_MS`) after the last throttle frame, then no edges, the pin
-released (a plain input with the pulls off) with the pull-up put back on it,
-and the KISS receiver ended. Core1 then runs that screen's job instead
-(`src/core1_job.h`), and `loop1()` is `escTaskPoll(); core1JobPoll();`. The AM32 editor's transport runs on core0
-and has no core1 job; no other job is built yet. Leaving the screen rebuilds
-the pump from the wiring it had, disarmed.
+asks core1 to suspend the DShot pump. Once core1 sees the request, it sends
+zero frames for at least 250 ms (`ARM_ZERO_THROTTLE_MS`) after the last
+throttle frame, then stops the pump with no edges, releases the pin (a plain
+input with the pulls off), puts the pull-up back on it and ends the KISS
+receiver. Core1 then runs that screen's job instead (`src/core1_job.h`), and
+`loop1()` is `escTaskPoll(); core1JobPoll();`. The AM32 editor's transport runs
+on core0 and has no core1 job; no other job is built yet. Leaving the screen
+rebuilds the pump from the wiring it had, disarmed.
 
 ---
 
@@ -907,7 +908,7 @@ target so a test run does not leave the working tree dirty.
 `python3 tools/coverage.py` writes the figure below from its gcov counters.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.3%**: 2,739 of 2,816 lines in 29 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.3%**: 2,740 of 2,817 lines in 29 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

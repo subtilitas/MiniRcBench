@@ -545,6 +545,8 @@ static void testRestoring() {
 	          pinClaimState() == ClaimState::Restoring && fakeResumeCount() == resumes + 1);
 	checkTrue("nor does a poll", pinClaimPoll() == ClaimState::Restoring);
 	pump();
+	checkInt("no GPIO once the pump runs, asked before anything else",
+	         pinClaimGpio(PIN_SIG), PIN_CLAIM_NO_GPIO);
 	checkInt("core1 rebuilds once", fakeRebuildCount(), rebuilds + 1);
 	checkTrue("free once the pump runs", pinClaimState() == ClaimState::Free &&
 	                                     pinClaimHolder() == PinUser::None);
@@ -717,7 +719,8 @@ static void testBackEveryState() {
 	installJobs();
 	int resumes;
 
-	// Stopping: a throttle frame just went out, so the drain holds the claim.
+	// Stopping: a throttle frame went out on the last pump pass, so the drain
+	// holds the claim.
 	escSetArmed(true);
 	escSetThrottle(200);
 	pump();
@@ -760,6 +763,9 @@ static void testBackEveryState() {
 	resumes = fakeResumeCount();
 	pinClaimEnd(PinUser::Servo);
 	checkTrue("BACK after a failed bind: the unplug page", pinClaimUnplugDue());
+	pinClaimRetry(PinUser::Servo);
+	checkTrue("RETRY while leaving does nothing",
+	          core1JobPhase() == Core1JobPhase::Idle && pinClaimUnplugDue());
 	pinClaimRestart(PinUser::Servo);
 	checkInt("then DShot", fakeResumeCount(), resumes + 1);
 	pump();
@@ -964,6 +970,18 @@ static void testAm32Screen() {
 	checkTrue("restoring until core1's next pass",
 	          pinClaimState() == ClaimState::Restoring);
 	frames(1);
+
+	// Out to the tester and into AM32 again, with no claim call from the test
+	// in between: only the screens' own calls see Restoring end.
+	tap(C_BACK_X, C_BACK_Y);
+	tap(C_CFG_X, C_ARM_Y);
+	frames(2);
+	tap(C_AM32_X, C_NAV_Y);
+	frames(4);
+	checkTrue("AM32 opened again takes the pin again",
+	          !fakePinReturned() && escTaskSuspended());
+	tap(C_BACK_X, C_BACK_Y);
+	frames(1);
 	checkTrue("free", pinClaimState() == ClaimState::Free);
 	tap(C_BACK_X, C_BACK_Y);
 	frames(2);
@@ -994,7 +1012,7 @@ static void testAm32Screen() {
 	frames(1);
 	checkTrue("free", pinClaimState() == ClaimState::Free);
 
-	// Another claim already holds: not reachable through the UI, since only
+	// Another claim holds: not reachable through the UI, since only
 	// SETTINGS opens a claiming screen. AM32 says so and asks again each frame.
 	checkTrue("a SERVO claim holds",
 	          pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);

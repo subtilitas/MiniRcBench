@@ -99,7 +99,7 @@ bool core1UiAlive() {
 
 void core1JobPoll() {
 	// Unlocked, and only to return early: an idle loop1() pass takes no lock.
-	// A start that lands just after this read is taken on the next pass.
+	// A start that lands after this read is taken on the next pass.
 	if (s_phase == Core1JobPhase::Idle) return;
 
 	critical_section_enter_blocking(&s_cs);

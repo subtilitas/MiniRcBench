@@ -75,8 +75,8 @@ enum class ClaimState : uint8_t {
 enum class ClaimRefusal : uint8_t {
 	None,          /**< Not refused; the claim is Stopping. */
 	Armed,         /**< The tester is armed. */
-	Busy,          /**< A claim already holds, or is still restoring. */
-	EscAnswering,  /**< An eRPM frame within @ref ESC_LINK_STALE_MS (500 ms). SERVO and KST. */
+	Busy,          /**< A claim holds, or is still restoring. */
+	EscAnswering,  /**< An eRPM frame within @ref ESC_LINK_STALE_MS (500 ms). SERVO and KST; AM32 is exempt. */
 	KissLive,      /**< A KISS frame within @ref KISS_STALE_MS (500 ms), AUX asked for. */
 	SamePin,       /**< AUX asked for, and SIG and AUX are the same GPIO. */
 };
@@ -119,7 +119,7 @@ struct ClaimFacts {
  *
  * @param who   The screen asking.
  * @param roles @ref PIN_SIG, or @ref PIN_SIG | @ref PIN_AUX.
- * @param f     The facts now.
+ * @param f     The facts at the time of the call.
  * @return      ClaimRefusal::None, or the first rule that refuses.
  */
 static inline ClaimRefusal pinClaimCheck(PinUser who, uint8_t roles,
@@ -199,9 +199,9 @@ void pinClaimEnd(PinUser who);
  * @brief RETRY after a failed bind: start the job again. Core0.
  *
  * Acts only while @p who holds the claim, the claim is Held and
- * pinClaimJobError() names a failure, which also means no start is pending. The claim and its pins are
- * kept; DShot stays down. BACK instead is pinClaimEnd(), which shows the
- * unplug page before DShot restarts.
+ * pinClaimJobError() names a failure, which also means no start is pending.
+ * The claim and its pins are kept; DShot stays down. BACK instead is
+ * pinClaimEnd(), which shows the unplug page before DShot restarts.
  *
  * @param who The screen.
  */

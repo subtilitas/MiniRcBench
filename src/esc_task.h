@@ -719,10 +719,10 @@ static inline bool escUiAlive(uint32_t nowMs, uint32_t heartbeatMs) {
 /**
  * @brief Whether the zero-throttle drain before a teardown is over. Pure.
  *
- * A suspend or a rebuild does not take the pin from an ESC that has just been
- * given a throttle. The pump sends zero frames until more than @p drainMs,
- * @ref ARM_ZERO_THROTTLE_MS, have passed since the last throttle frame, and
- * only then stops. Strictly more: the stamp is a whole millisecond, and the
+ * A suspend or a rebuild does not take the pin from an ESC that was given a
+ * throttle within the drain. The pump sends zero frames until more than
+ * @p drainMs, @ref ARM_ZERO_THROTTLE_MS, have passed since the last throttle
+ * frame, and only then stops. Strictly more: the stamp is a whole millisecond, and the
  * frame went out somewhere inside it, so a teardown at stamp + 251 ms is at
  * least 250 ms after the frame. An ESC therefore sees throttle zero for at
  * least 250 ms before the line goes silent. A pump that sent no throttle
@@ -749,8 +749,8 @@ enum class EscHandover : uint8_t {
  * @brief Decide the pin handover for one pass of escTaskPoll(). Pure.
  *
  * A suspend (the pin claim) and a rebuild (a SETUP change) both end the
- * binding. Neither takes the pin from an ESC that has just been given a
- * throttle: while escDrainDone() is false the pump keeps its slots and sends
+ * binding. Neither takes the pin from an ESC that was given a throttle within
+ * the drain: while escDrainDone() is false the pump keeps its slots and sends
  * escDrainSlot() in each. A pump that is not bound has nothing to drain, so a
  * suspend before core1's first bind tears down, and reports suspended, at
  * once.

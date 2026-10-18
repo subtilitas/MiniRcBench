@@ -152,6 +152,7 @@ PinUser pinClaimHolder() {
 }
 
 uint8_t pinClaimGpio(uint8_t role) {
+	settle();
 	if (role == PIN_SIG && (s_roles & PIN_SIG)) return s_sig;
 	if (role == PIN_AUX && (s_roles & PIN_AUX)) return s_aux;
 	return PIN_CLAIM_NO_GPIO;

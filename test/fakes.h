@@ -48,12 +48,15 @@ struct FakeWiring {
 	uint8_t  kissPin;     /**< KISS GPIO. */
 };
 
-/** @brief The fake pump's wiring now. */
+/** @brief The fake pump's wiring at the time of the call. */
 FakeWiring fakeWiring();
 
 /**
- * @brief One pass of the fake DShot pump on core1: escTaskPoll()'s decisions
- *        on the shipped rules, without the PIO.
+ * @brief One pass of the fake DShot pump on core1: escTaskPoll()'s handover
+ *        and one frame decision on the shipped rules.
+ *
+ * Not modelled: the PIO, the reply fold, the frame timing, the heartbeat
+ * (uiAlive is true), the beacon request and the KISS receiver.
  */
 void fakePumpPoll();
 

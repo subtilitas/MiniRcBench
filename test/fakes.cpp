@@ -250,12 +250,15 @@ bool escEdtRequested() { return g_edtRequested; }
 // Tests that want live data now say when it arrived.
 void escSnapshot(EscTelemetry *o) { *o = g_tel; }
 
-// The pump, as core1 runs it, on the shipped rules: escHandoverStep() decides
-// run, drain or teardown, escDrainSlot() or escPumpSlot() decides the frame,
-// escPumpFrameSent() stamps it, and escPumpBind() starts every binding. Only
-// the PIO is left out. Core1 is not a thread here: fakePumpPoll() is one pass
-// of escTaskPoll(), and the tests call it between UI frames, so a suspend, a
-// drain and a rebuild each take as many passes as a test gives them.
+// The pump's handover on the shipped rules: escHandoverStep() decides run,
+// drain or teardown, escDrainSlot() or escPumpSlot() decides the frame,
+// escPumpFrameSent() stamps it, and escPumpBind() starts every binding. The
+// rest of escTaskPoll() is not modelled: no PIO, no reply is read or folded
+// into the telemetry, there is no 1 ms frame timing (one pass sends one frame,
+// however much time has passed), and escPumpSlot() is given uiAlive true, no
+// beacon request and no KISS receiver. Core1 is not a thread here:
+// fakePumpPoll() is one pass, and the tests call it between UI frames, so a
+// suspend, a drain and a rebuild each take as many passes as a test gives them.
 static EscPump    g_pump;
 static bool       g_pumpUp = false;
 static int        g_resumes = 0;

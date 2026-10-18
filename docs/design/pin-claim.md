@@ -86,14 +86,16 @@ core that claims a PIO state machine is the core that frees it, as
 1. **Check.** Core0 refuses the claim while armed, and, for SERVO and KST,
    while an ESC answers on SIG. See [interlocks](#interlocks). DShot keeps
    running during the check.
-2. **Stopping.** Core0 calls `escTaskSuspend()`, which forces a disarm. Core1
-   sends throttle-zero frames until more than `ARM_ZERO_THROTTLE_MS`, 250 ms,
-   have passed since the last frame that carried a throttle, so the ESC sees
-   at least 250 ms of them (`escHandoverStep()`, `escDrainDone()`), then
-   `out_dshot_stop(sig)` (no edges), `out_dshot_release(sig)` (pad back to a
-   plain input, pulls off) and `kissUartEnd()`, which ends the PIO receiver on
-   AUX. `esc_task.cpp` then puts the pull-up back on SIG, so the line holds
-   the bidirectional idle level until the claim's user takes it. It then sets
+2. **Stopping.** Core0 calls `escTaskSuspend()`, which forces a disarm and
+   sets the request. Once core1 sees the request, it sends throttle-zero
+   frames until more than `ARM_ZERO_THROTTLE_MS`, 250 ms, have passed since
+   the last frame that carried a throttle, so the ESC sees at least 250 ms of
+   them (`escHandoverStep()`, `escDrainDone()`). Then, in this order:
+   `out_dshot_stop(sig)` cuts any frame in flight and leaves no edges,
+   `out_dshot_release(sig)` puts the pad back as a plain input with the pulls
+   off, `esc_task.cpp` puts the pull-up back on SIG, so the line holds the
+   bidirectional idle level until the claim's user takes it, and
+   `kissUartEnd()` ends the PIO receiver on AUX. Core1 then sets
    `escTaskSuspended()`. The drain frames carry no command and no KISS
    request. A pump that sent no throttle frame since its bind needs no drain.
    Coming from CFG, the 250 ms have usually passed: CFG disarms on entry. A
@@ -109,8 +111,8 @@ core that claims a PIO state machine is the core that frees it, as
 4. **Running.** The job binds its pins and reports `Running`, or reports a bind
    failure and binds nothing. A failed bind leaves the claim Held, with the
    reason in `pinClaimJobError()`. RETRY (`pinClaimRetry()`) starts the job
-   again and keeps the claim; BACK goes to step 5. In slice 1 no job is built, so
-   `core1JobStart()` refuses SERVO and KST and the reason is
+   again and keeps the claim; BACK goes to step 5. In slice 1 no job is built,
+   so `core1JobStart()` refuses SERVO and KST and the reason is
    `CORE1_JOB_REFUSED`.
 5. **Leaving.** BACK (`pinClaimEnd()`) asks the job to stop. The job leaves its
    pins as plain inputs and reports `Idle`. Before DShot restarts, SERVO and
@@ -139,7 +141,7 @@ enum class ClaimRefusal : uint8_t {
     None,
     Armed,         // the tester is armed
     Busy,          // another screen holds the pins
-    EscAnswering,  // an eRPM frame within ESC_LINK_STALE_MS (500 ms)
+    EscAnswering,  // eRPM within ESC_LINK_STALE_MS (500 ms); SERVO, KST only
     KissLive,      // a KISS frame within KISS_STALE_MS (500 ms), AUX asked for
     SamePin,       // AUX asked for, and SIG and AUX are the same GPIO
 };
@@ -159,8 +161,8 @@ void         pinClaimKeep(PinUser who);    // BACK on the unplug page
 
 The refusal check is a pure function, `pinClaimCheck()`, beside it, so the
 host suite tests every rule without the SDK. Its order is Armed, Busy,
-EscAnswering, KissLive, SamePin; freshness is `escFieldFresh()`, the rule the
-readouts use.
+EscAnswering (SERVO and KST only; AM32 is exempt), KissLive, SamePin;
+freshness is `escFieldFresh()`, the rule the readouts use.
 
 Core1, in `src/core1_job.h`:
 
@@ -330,20 +332,20 @@ RESTART DSHOT is a tap. BACK on that page returns to the screen and keeps the
 claim. The same hazard exists at boot for a servo left on SIG; the README
 wiring section carries that warning from slice 2 on, with the servo tester.
 
-The page itself is drawn by the SERVO and KST screens. The claim holds the
-rule in slice 1 already: for those two users DShot does not restart until
-`pinClaimRestart()`, so the screens of slices 2 and 3 cannot skip the page.
+The page itself is drawn by the SERVO and KST screens. The rule is in the
+claim: for those two users DShot does not restart until `pinClaimRestart()`,
+so the screens of slices 2 and 3 cannot skip the page.
 
 ### Reuse of the AM32 handover
 
 The claim is the AM32 screen's pin handover moved into `pin_claim.cpp` and
 given a state, a refusal and a user. `ui_am32.cpp` calls
-`pinClaimBegin(PinUser::Am32, PIN_SIG)` on entry and keeps its own
-`S_HANDOVER` state, which reads `pinClaimPoll()` until Held and then calls
+`pinClaimBegin(PinUser::Am32, PIN_SIG)` on entry and keeps its own `S_HANDOVER`
+state, which reads `pinClaimPoll()` until Held and then calls
 `am32BlBegin(pinClaimGpio(PIN_SIG))`. On exit it calls `am32BlEnd()` and then
-`pinClaimEnd(PinUser::Am32)`, which resumes DShot within the call. The one
-step the handover has beyond release and rebuild is the zero-frame drain of
-at least 250 ms. A refused claim, which the UI cannot reach, shows `DISARM FIRST` or
+`pinClaimEnd(PinUser::Am32)`, which resumes DShot within the call. The one step
+the handover has beyond release and rebuild is the zero-frame drain of at least
+250 ms. A refused claim, which the UI cannot reach, shows `DISARM FIRST` or
 `PINS BUSY` and is asked again every frame.
 
 ## Hardware
@@ -371,9 +373,10 @@ two-servo mode (`SamePin`).
 
 Neither free pin is on the backlight's slice: slice 0 holds GP0, GP1, GP16
 and GP17, none free. `board_desc.cpp` asserts this at build time, because
-`pwm_init()` on the backlight's slice would retime the backlight, and asserts
-that every free GPIO is on one slice, so two servos share one frame rate and
-take its two channels.
+`pwm_init()` on the backlight's slice would retime the backlight. It also
+asserts that every free GPIO is on one slice, so two servos share one frame
+rate, and that at most one free GPIO is on each channel of that slice, so two
+different free pins are its two channels and never one compare register.
 
 The PWM counter runs at 1 MHz: `clk_sys` 150 MHz divided by 150, an integer
 divider. One count is 1 µs. The wrap is 19,999 at 50 Hz and 1,784 at 560 Hz.
@@ -514,8 +517,8 @@ replaces whole; one source list per feature, `src/servo.cmake` and
 `src/kst.cmake`, which `CMakeLists.txt` includes, and `test/servo.mk` and
 `test/kst.mk`, which `test/Makefile` includes; and one stub suite per feature,
 `test/test_servo.cpp` with `runServoTests()` and `test/test_kst.cpp` with
-`runKstTests()`, which `test/test_main.cpp` already runs. `ui.cpp` already
-dispatches to both screens and gates their CFG buttons on
+`runKstTests()`, which `test/test_main.cpp` runs. `ui.cpp` dispatches to
+both screens and gates their CFG buttons on
 `uiServoAvailable()` and `uiKstAvailable()`. In code the two slices are then
 disjoint but for one line each in the job table of `core1_job.cpp`: slice 2
 edits its own files and `gfx.cpp`/`gfx.h` (line and arc primitives), slice 3
