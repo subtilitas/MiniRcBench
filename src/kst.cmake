@@ -16,6 +16,7 @@ target_sources(MiniRcBench PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/kst_seek.cpp
     ${CMAKE_CURRENT_LIST_DIR}/kst_job.cpp
     ${CMAKE_CURRENT_LIST_DIR}/kst_line_port.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/kst_files.cpp
     ${KST_LIB}/protocols/kst/kst_wire.c
     ${KST_LIB}/protocols/kst/kst_reg.c
     ${KST_LIB}/protocols/kst/kst_limits.c

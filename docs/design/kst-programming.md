@@ -1,12 +1,14 @@
 # KST and Chaservo servo programming
 
-Status: work breakdown steps 1 and 2 built, host tests only. The KST core,
+Status: work breakdown steps 1 to 3 built, host tests only. The KST core,
 its RP2350 line driver and the KST file store are copied into
 `lib/rcbench/`, built by the firmware and the host suite, and rcbench's seven
 tests of them run in `make` and CI. The search (`src/kst_seek.*`) and the
 core1 job (`src/kst_job.*`) run the session on the line, and the host suite
-runs both against rcbench's simulated servo. Nothing starts the job yet: MENU
-has no KST row and `src/ui_kst.cpp` is a stub. It depends on the pin claim in
+runs both against rcbench's simulated servo. `src/kst_files.*` puts the file
+store and the record of a write on the card through FatFs, tested against an
+in-memory volume. Nothing starts the job or writes a file yet: MENU has no
+KST row and `src/ui_kst.cpp` is a stub. It depends on the pin claim in
 [pin-claim.md](pin-claim.md), slice 1 there, which is built. This
 document is slice 3. It comes after slices A to C of [menu.md](menu.md), the
 menu restructure, which are built, and is written for the system they leave:
@@ -446,31 +448,58 @@ and the lapse rule applies 250 ms later. A core0 stuck in an outer loop that
 keeps calling the driver stamps without end; the cap ends that after 15 s,
 and the lapse rule applies. The job starts no operation in the card phase.
 
-**The cap.** The largest card phase is the first write's: the walk for the next
-free name, then two files. At the store's limit of 999 files, KSTnnn.TXT names
-of 8.3 form and the record, the `KST` directory holds about 1,000 entries of 32
-bytes, 63 sectors, read one by one. Each file under 1024 bytes is about 6
-single-block writes (its directory entry, two data blocks, the two copies of
-the FAT, and FSINFO, the FAT32 free-space sector) and 2 reads (its directory
-sector and a FAT sector). That is 67 block reads and 12 block writes:
+**The cap.** The largest card phase is the first write's,
+`kstFilesFirstWrite()` of step 3 ([storage](#storage)). At the store's limit
+of 999 files, KSTnnn.TXT names of 8.3 form and the record, the `KST` directory
+holds about 1,000 entries of 32 bytes, 63 sectors, read one by one on every
+pass over it. FatFs R0.15 passes over the directory once for each lookup of a
+name that is not there, and once more to find room for a new entry. The first
+write makes 7 passes: the record's lookup, the walk for the next free name,
+the save's walk for a name that exists, and a lookup and a room search for
+each of the two files. With an old record to keep it makes 11: the lookup
+finds it, the rename looks up both names and finds room, and the next free
+name is walked for again. Each file under 1024 bytes adds 7 single-block
+writes and 2 reads: its directory sector is written when the FAT sector is
+read in and again at the sync, which reads it back, then the two data blocks,
+the two copies of the FAT, and FSINFO, the FAT32 free-space sector. The rename
+adds 1 write when the old and the new entry share a sector, else 2 writes and
+1 read. Each path also reads the root directory's sector that holds `KST`,
+once per lookup and twice for the rename. Without an old record that is 450
+block reads, 5 of them in the root, and 14 block writes; with one, 705 reads,
+8 in the root, and 15 to 16 writes. These counts are from FatFs R0.15 run on a
+host against a FAT32 image with 997 KSTnnn.TXT files and a root that fits in
+one sector, with a disk layer that counts its calls; a root with many blackbox
+logs adds reads, a number not counted here. Each total below is the reads
+times one read plus the writes times one write. A rename that FatFs reports as
+failed adds the two lookups that ask where the record went, 128 reads: 833
+reads and up to 17 writes (the failed write and its rewrite by the first
+lookup), 8.5 s on a typical card and 96.2 s on SDXC. The first lookup follows
+any failed rename and finds the record there; the second follows only a failed
+write.
 
-| Case | One read | One write | 67 reads and 12 writes |
-|---|---|---|---|
-| A typical card, busy and access of a few ms | under 10 ms | under 10 ms | under 1 s |
-| SDHC within the specification: 100 ms access, 250 ms busy | 5 ms command + 100 ms = 105 ms | 5 ms command + 1.2 ms transfer + 250 ms busy + 5 ms status = 261 ms | 7.0 s + 3.1 s = 10.2 s |
-| SDXC within the specification: 500 ms busy | 105 ms | 511 ms | 7.0 s + 6.1 s = 13.2 s |
-| The driver's limits: 250 ms per read block, 1000 ms busy, 3 tries each, every try failing its CRC (cyclic redundancy check) | 3 × 255 ms = 0.77 s | 3 × 1011 ms = 3.03 s | 51 s + 36 s = 88 s |
+| Case | One read | One write | 450 reads and 14 writes | 705 reads and 16 writes |
+|---|---|---|---|---|
+| A typical card, busy and access of a few ms | under 10 ms | under 10 ms | under 4.7 s | under 7.3 s |
+| SDHC within the specification: 100 ms access, 250 ms busy | 5 ms command + 100 ms = 105 ms | 5 ms command + 1.2 ms transfer + 250 ms busy + 5 ms status = 261 ms | 50.9 s | 78.2 s |
+| SDXC within the specification: 500 ms busy | 105 ms | 511 ms | 54.4 s | 82.2 s |
+| The driver's limits: 250 ms per read block, 1000 ms busy, 3 tries each, every try failing its CRC (cyclic redundancy check) | 3 × 255 ms = 0.765 s | 3 × 1011 ms = 3.033 s | 386.7 s | 587.9 s |
 
 A timeout ends the card's part sooner: `sdh_err_is_fatal()` marks the card not
 ready, and every later call fails at once. The other phases are smaller: the
-FILES listing is the 63 reads alone, 6.6 s within the specification; SAVE AS is
-the walk and one file, 9.9 s on SDXC; RETRY MOUNT is the card's initialisation,
-up to 1.1 s of polling with ACMD41, the SD command that waits for the card to
-be ready, and a few reads. The cap, 15 s, covers the largest phase of a card
-within the specification, 13.2 s, with 1.8 s to spare, and bounds how long a
-core0 stuck in the driver's loops keeps the servo powered in programming mode,
-with no frame on the wire. A card past the cap is retrying or out of
-specification: the supply goes off, the session is power-cycled as for any
+FILES listing is one pass, 64 reads with the root's, 6.7 s within the
+specification; SAVE AS is 3 passes and one file, 4 with the proposed name's
+walk, up to 257 reads and 7 writes, 30.6 s on SDXC; RETRY MOUNT is the card's
+initialisation, up to 1.1 s of polling with ACMD41, the SD command that waits
+for the card to be ready, and a few reads.
+
+The cap, 15 s, covers every phase of a card whose reads and writes take under
+10 ms, up to the store's 999 files, and bounds how long a core0 stuck in the
+driver's loops keeps the servo powered in programming mode, with no frame on
+the wire. It does not cover a card that takes the specification's full access
+and busy times with a full directory: the first write's card calls then take
+50.9 s to 82.2 s, and SAVE AS up to 30.6 s. Whether to raise the cap, bound
+the directory below 999 files or make fewer passes is open for step 5. A card
+past the cap: the supply goes off, the session is power-cycled as for any
 lapse, and the card call goes on to its end on core0; a write that waited for
 it then finds the session out of the mode and does not run.
 
@@ -1079,20 +1108,73 @@ library's `ffconf.h`), which covers `KST_STORE_BASE_MAX`, 32 characters.
 
 `kst_store.c` reaches the card through 5 functions (`kst_store_io_t`:
 `mounted`, `walk`, `size`, `read`, `create`). `src/kst_files.cpp` implements
-them over FatFs on core0 and answers "not mounted" while `mscHoldsCard()` is
-true.
+them over FatFs on core0. The card counts as mounted while the blackbox
+logger has it mounted (`SdLogState` Idle or Logging) and the USB card reader
+is off (`MscState::Idle`): while `mscHoldsCard()` is true, and while the
+reader takes the card back, every call answers "not mounted" and touches no
+FatFs function. Paths are relative to the card's root, as the logs' are.
+
+FatFs results map to the store's:
+
+- `FR_DENIED` on a create is CARD_FULL for a full volume or directory, and
+  DENIED when a directory or a read-only file has the name; a short write is
+  CARD_FULL.
+- A file named `KST` where the directory goes is DENIED.
+- `FR_WRITE_PROTECTED` is DENIED. FatFs reports it only when the disk layer
+  sets STA_PROTECT, which this board's card driver never does: a
+  write-protected card fails as `FR_DISK_ERR`, a write error.
+- Any other error is a write or read error.
+
+A create that fails once removes the file it made, and the `KST` directory
+when it made that too. Current limitations, found by running FatFs R0.15 on
+a host:
+
+- A write error that persists, as a write-protected or failing card gives:
+  FatFs keeps the sector it could not write in its window, the remove fails
+  with `FR_DISK_ERR`, and every later call that moves the window fails the
+  same way until the card is mounted again: SD LOG's RETRY, the USB card
+  reader's hand-back or a power cycle. The card still counts as mounted, so
+  the KST screen's RETRY MOUNT, offered without a card, is not one of them.
+  The list, LOAD and the record lookup fail until then. The new file's 0-byte
+  entry stays in that sector and reaches the card if writes work again before
+  a remount.
+- A rename that stops between registering the new name and removing the old
+  one, a write that fails between the two, leaves both names on the card:
+  two entries that share one cluster chain. The first write reports the
+  record as not kept and writes no record. Removing one of the two on a
+  computer frees the other's data, and later sessions keep the second name
+  as one more KSTnnn.TXT.
+- A create whose close fails with a clean window, a data sector that does
+  not take its write: FatFs keeps the file open, refuses to remove it or to
+  open it for reading (`FR_LOCKED`), and holds one of its 16 lock entries
+  (`FF_FS_LOCK`) until the card is mounted again.
 
 | Situation | Effect |
 |---|---|
 | First write of a session, card mounted | the backup is saved first as the next KSTnnn.TXT, and `KST/KST.TXT` holds the image before the write, both in a card phase ([card calls](#card-calls-and-the-heartbeat)). A card that takes neither stops the write: `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.` |
-| Write verified | `KST/KST.TXT` is removed, in a card phase |
+| Write verified | `KST/KST.TXT` is removed when this session wrote it, in a card phase |
 | `KST/KST.TXT` found when the screen opens | `A WRITE WAS INTERRUPTED. KST/KST.TXT HOLDS THE SERVO AS IT WAS.` FILES lists it as RECORD and loads it like a file |
 | No card | read, edit and write work; the write page says `NO CARD: THE BACKUP STAYS IN MEMORY AND ENDS AT LEAVE.` |
 | Card held by a USB host | as no card |
 
 `KST.TXT` is the base name `kst_store.c` keeps free for this record
 (`KST_STORE_RECORD`); `kst_store` refuses it for a save and a load, so
-`kst_files.cpp` reads and removes it itself. rcbench's full journal
+`kst_files.cpp` reads, writes and removes it itself.
+
+The first write's card calls, `kstFilesFirstWrite()`, in order:
+
+1. A record already on the card, left by an interrupted write, is renamed to
+   the next KSTnnn.TXT, so no record is lost. A record that cannot be renamed
+   stays: no new record is written over it, and the verified write does not
+   remove it. A rename that FatFs reports as failed after it took effect, its
+   last sync failing with the change still in FatFs's window, counts as kept:
+   the record is looked up under both names. A card that does not answer
+   whether a record is there gets no record either.
+2. The backup is saved as the next KSTnnn.TXT.
+3. The image before the write is written as `KST/KST.TXT`.
+
+The write runs with no card, or when the card took the backup or the record
+(`kstFilesWriteAllowed()`). rcbench's full journal
 (`kst_prog.c`, the port and the step of a write under way) is not ported; the
 record is the image before the write and nothing else.
 
@@ -1163,12 +1245,22 @@ so these run against the same simulated servo:
   to counters, which stay at 0. The job runs from the job table, one
   `core1JobPoll()` a millisecond, on `test/fake_kst_line.cpp`: the simulator
   behind `src/kst_line_port.h`, on the suite's virtual clock.
-- `test_kst_files.cpp`: the FatFs io over a fake volume: no card, card held by
-  USB, card full, write-protected, the record written before the first write
-  frame and removed after a verify, the record found at entry; with `GP0`, a
-  card phase around every card call, the first write's opened before the
-  backup and closed by the write command, the others closed by `CardEnd`;
-  `sdh_wait_hook` set only inside a phase.
+- `test_kst_files.cpp`, built in step 3: the FatFs io over an in-memory volume
+  (`test/fake_fatfs.cpp`): the mount rule, no card and a card held by USB with
+  no FatFs call, the first write's backup and record, an old record kept and
+  never removed when it stays, a rename reported failed that took effect, a
+  rename that left both names, a failed lookup after a rename, a full
+  directory that refuses a rename, card full, a write-protected card as this
+  board reports it (a disk error) and as `FR_WRITE_PROTECTED`, a full
+  directory, a file or a directory in a file's way, a read-only record, a
+  one-time write or sync error with no file or new directory left behind, a
+  close error that leaves its file locked, one of the two files taken, the
+  record found and loaded at entry, the store's save, list and load over
+  FatFs. With the screen, step 4: the record written before the first write
+  frame and removed after a verify. With `GP0`, step 5: a card phase around
+  every card call, the first write's opened before the backup and closed by
+  the write command, the others closed by `CardEnd`; `sdh_wait_hook` set only
+  inside a phase.
 - `test_sdio.cpp`: `sdh_wait_hook` called on every poll of `busyWait()`, and
   never while null.
 - `test_ui.cpp`, by control id ([menu.md](menu.md#tests-by-control-id)):
@@ -1183,7 +1275,8 @@ so these run against the same simulated servo:
    ported tests in `make` and CI. Built.
 2. `kst_seek.*` and `kst_job.*` with their tests. Built, without the
    switched supply, which is step 5.
-3. `kst_files.cpp` and its tests.
+3. `kst_files.cpp` and its tests. Built, without the card phase, which is
+   step 5.
 4. `ui_kst.cpp`: search, field list and FILES on `ui_list`, write, leave,
    the holds on `ui_hold`; its `UiScreen` and its line in `ui_registry.cpp`,
    so MENU shows KST SERVO ([menu.md](menu.md#code)); UI tests by control id;
