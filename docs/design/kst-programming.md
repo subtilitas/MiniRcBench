@@ -448,32 +448,34 @@ and the lapse rule applies 250 ms later. A core0 stuck in an outer loop that
 keeps calling the driver stamps without end; the cap ends that after 15 s,
 and the lapse rule applies. The job starts no operation in the card phase.
 
-**The cap.** The largest card phase is the first write's, `kstFilesFirstWrite()`
-of step 3 ([storage](#storage)). At the store's limit of 999 files,
-KSTnnn.TXT names of 8.3 form and the record, the `KST` directory holds about
-1,000 entries of 32 bytes, 63 sectors, read one by one on every pass over it.
-FatFs R0.15 passes over the directory once for each lookup of a name that is
-not there, and once more to find room for a new entry. The first write makes
-7 passes: the record's lookup, the walk for the next free name, the save's
-walk for a name that exists, and a lookup and a room search for each of the
-two files. With an old record to keep it makes 11: the lookup finds it, the
-rename looks up both names and finds room, and the next free name is walked
-for again. Each file under 1024 bytes adds 7 single-block writes and 2
-reads: its directory sector is written when the FAT sector is read in and
-again at the sync, which reads it back, then the two data blocks, the two
-copies of the FAT, and FSINFO, the FAT32 free-space sector. The rename adds
-1 write when the old and the new entry share a sector, else 2 writes and 1
-read. Each path also reads the root directory's sector that holds `KST`,
+**The cap.** The largest card phase is the first write's,
+`kstFilesFirstWrite()` of step 3 ([storage](#storage)). At the store's limit
+of 999 files, KSTnnn.TXT names of 8.3 form and the record, the `KST` directory
+holds about 1,000 entries of 32 bytes, 63 sectors, read one by one on every
+pass over it. FatFs R0.15 passes over the directory once for each lookup of a
+name that is not there, and once more to find room for a new entry. The first
+write makes 7 passes: the record's lookup, the walk for the next free name,
+the save's walk for a name that exists, and a lookup and a room search for
+each of the two files. With an old record to keep it makes 11: the lookup
+finds it, the rename looks up both names and finds room, and the next free
+name is walked for again. Each file under 1024 bytes adds 7 single-block
+writes and 2 reads: its directory sector is written when the FAT sector is
+read in and again at the sync, which reads it back, then the two data blocks,
+the two copies of the FAT, and FSINFO, the FAT32 free-space sector. The rename
+adds 1 write when the old and the new entry share a sector, else 2 writes and
+1 read. Each path also reads the root directory's sector that holds `KST`,
 once per lookup and twice for the rename. Without an old record that is 450
 block reads, 5 of them in the root, and 14 block writes; with one, 705 reads,
-8 in the root, and 15 to 16 writes. These counts are from FatFs R0.15 run on
-a host against a FAT32 image with 997 KSTnnn.TXT files and a root that fits
-in one sector, with a disk layer that counts its calls; a root with many
-blackbox logs adds reads, a number not counted here. Each total below is the
-reads times one read plus the writes times one write. A rename that FatFs
-reports as failed adds the two lookups that ask where the record went, 128
-reads: 833 reads and 16 writes, 8.5 s on a typical card and 95.6 s on SDXC.
-That path follows only a failed write.
+8 in the root, and 15 to 16 writes. These counts are from FatFs R0.15 run on a
+host against a FAT32 image with 997 KSTnnn.TXT files and a root that fits in
+one sector, with a disk layer that counts its calls; a root with many blackbox
+logs adds reads, a number not counted here. Each total below is the reads
+times one read plus the writes times one write. A rename that FatFs reports as
+failed adds the two lookups that ask where the record went, 128 reads: 833
+reads and up to 17 writes (the failed write and its rewrite by the first
+lookup), 8.5 s on a typical card and 96.2 s on SDXC. The first lookup follows
+any failed rename and finds the record there; the second follows only a failed
+write.
 
 | Case | One read | One write | 450 reads and 14 writes | 705 reads and 16 writes |
 |---|---|---|---|---|
