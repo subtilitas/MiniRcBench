@@ -11,11 +11,13 @@ static bool inRect(int px, int py, int x, int y, int w, int h) {
 }
 
 bool inputPressing(const TouchState *t, int x, int y, int w, int h) {
+	if (!t) return false;
 	return t->down && inRect(t->x, t->y, x, y, w, h)
 	               && inRect(t->downX, t->downY, x, y, w, h);
 }
 
 bool inputTapped(const TouchState *t, int x, int y, int w, int h) {
+	if (!t) return false;
 	return t->released && inRect(t->x, t->y, x, y, w, h)
 	                   && inRect(t->downX, t->downY, x, y, w, h);
 }

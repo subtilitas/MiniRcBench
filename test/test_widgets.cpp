@@ -13,7 +13,9 @@
 #include "gfx.h"
 #include "touch.h"
 #include "ui_hold.h"
+#include "ui_input.h"
 #include "ui_list.h"
+#include "ui_widgets.h"
 
 #include <string.h>
 
@@ -523,6 +525,19 @@ static void testHoldBar() {
 	gfxFill(C_BG);
 }
 
+static void testNullTouch() {
+	section("Widgets: a null touch is no touch");
+
+	UiRect r = {0, 0, 240, 320};
+	checkTrue("inputPressing(), inputTapped(): false",
+	          !inputPressing(nullptr, 0, 0, 240, 320) && !inputTapped(nullptr, 0, 0, 240, 320));
+	checkTrue("uiPressing(), uiTapped(), uiBackTapped(): false",
+	          !uiPressing(r, nullptr) && !uiTapped(r, nullptr) && !uiBackTapped(nullptr));
+	uiHeader("NULL", nullptr);
+	checkTrue("uiHeader() draws BACK unpressed", px(UI_BACK_X + 3, UI_BACK_Y + UI_BACK_H / 2) == C_PANEL);
+	gfxFill(C_BG);
+}
+
 void runWidgetTests() {
 	testListGeometry();
 	testListPressRule();
@@ -536,4 +551,5 @@ void runWidgetTests() {
 	testHoldReset();
 	testHoldEnabled();
 	testHoldBar();
+	testNullTouch();
 }
