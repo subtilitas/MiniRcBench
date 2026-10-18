@@ -958,12 +958,17 @@ static void testHeartbeat() {
 	checkTrue("at 249 ms: alive", escUiAlive(0xFFFFFF9Cu + 249u, 0xFFFFFF9Cu));
 	checkTrue("dead at 250 ms", !escUiAlive(0xFFFFFF9Cu + 250u, 0xFFFFFF9Cu));
 	checkTrue("and dead at 400 ms", !escUiAlive(0xFFFFFF9Cu + 400u, 0xFFFFFF9Cu));
-	// Core1 reads the clock, core0 stamps a heartbeat 1 ms later, core1
-	// reads the stamp: the heartbeat is newer than the clock.
+	// A stamp newer than the clock, as when a read order lets core0 stamp
+	// between the two reads: alive up to the timeout ahead, as a backstop.
 	checkTrue("a heartbeat 1 ms newer than the clock: alive", escUiAlive(5000, 5001));
 	checkTrue("1 ms newer, across the wrap: alive", escUiAlive(0xFFFFFFFFu, 0u));
 	checkTrue("249 ms newer: alive", escUiAlive(5000, 5249));
+	checkTrue("250 ms newer: dead", !escUiAlive(5000, 5250));
 	checkTrue("a stale one across the wrap, 300 ms: dead", !escUiAlive(200u, 0xFFFFFF9Cu));
+	// An old stamp is not read as ahead of the clock: 0x90000000 ms is about
+	// 28 days, and 2^32 - 251 ms reads as 251 ms ahead, past the timeout.
+	checkTrue("a stamp 0x90000000 ms old: dead", !escUiAlive(0x90000000u, 0u));
+	checkTrue("a stamp 2^32 - 251 ms old: dead", !escUiAlive(0xFFFFFF05u, 0u));
 
 	uiInit();
 	freshPump();

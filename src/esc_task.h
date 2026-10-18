@@ -708,9 +708,11 @@ static inline void escPumpFrameSent(EscPump *p, const EscFrame *f, uint32_t nowM
  * it, and every core1 job reads it through core1UiAlive(). The subtractions
  * are unsigned, so the rule holds across the millis() rollover.
  *
- * A heartbeat newer than @p nowMs counts as alive. Core1 reads millis() and
- * core0 may stamp a heartbeat a millisecond later before core1 reads the
- * stamp; read as an age, that heartbeat would be 2^32 - 1 ms old.
+ * Both callers read the stamp before millis(), so the clock is never older
+ * than the stamp. As a backstop, a heartbeat newer than @p nowMs by less
+ * than the timeout counts as alive: a caller that read the clock first, with
+ * core0 stamping between the two reads, would otherwise read the heartbeat
+ * as 2^32 - 1 ms old.
  *
  * @param nowMs       millis().
  * @param heartbeatMs millis() of the last escHeartbeat().

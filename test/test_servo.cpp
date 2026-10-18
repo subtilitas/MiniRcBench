@@ -1011,6 +1011,10 @@ static void testLastPulse() {
 	          fakePin(SIG).level == 0 && fakePin(SIG).function == GPIO_FUNC_PWM &&
 	          core1JobPhase() == Core1JobPhase::Stopping);
 	checkInt("the pulse under way stays latched to its end", fakePwmLatched(SIG), 1500);
+	ServoStatus wait;
+	servoJobStatus(&wait);
+	checkTrue("the status during the wait: not RUNNING, no pulse",
+	          !wait.running && !wait.sweeping && wait.outUs[0] == 0);
 	pinClaimPoll();
 	checkTrue("no unplug page yet", !pinClaimUnplugDue());
 	uint32_t waited = pollUntilIdle();
@@ -1957,6 +1961,10 @@ static void testSetScreen() {
 	checkTrue("its release is not a tap on DEFAULTS",
 	          s_profile.type == ServoType::Wide && s_profile.minUs == 670 && s_sweep.moves == 3);
 	checkTrue("SAFE: DEFAULTS is back", fillOf(BTN_DEFAULTS) == C_PANEL);
+	tapRect(BTN_DEFAULTS);
+	checkTrue("and a new tap in the same visit applies it",
+	          s_profile.type == ServoType::Standard && s_profile.minUs == 1000 &&
+	          s_sweep.moves == 0);
 	uiTap(UI_BACK_CX, UI_BACK_CY);
 
 	tapRect(BTN_SET);
