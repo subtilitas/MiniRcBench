@@ -185,7 +185,7 @@ static void testServo() {
 	for (int i = 0; i < 200 && !ctlPresent(UI_FIX(ServoCtl::Restart)); i++) idFrames(1);
 	checkControlTable("the unplug page");
 	tapId(UI_FIX(ServoCtl::Restart));
-	checkTrue("SERVO leaves to SETTINGS", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("SERVO leaves to MENU", uiCurrentScreen() == UiScreenId::Menu);
 }
 
 /**

@@ -406,9 +406,9 @@ static void testDial() {
 	checkTrue("24 px from the shaft: inside", servoOnDial(SERVO_DIAL_X, SERVO_DIAL_Y - 24, &deg));
 	checkTrue("23 px: inside the inner edge, refused",
 	          !servoOnDial(SERVO_DIAL_X, SERVO_DIAL_Y - 23, &deg));
-	checkTrue("124 px: inside", servoOnDial(SERVO_DIAL_X + 124, SERVO_DIAL_Y, &deg));
-	checkTrue("125 px: outside the outer edge, refused",
-	          !servoOnDial(SERVO_DIAL_X + 125, SERVO_DIAL_Y, &deg));
+	checkTrue("122 px: inside", servoOnDial(SERVO_DIAL_X + 122, SERVO_DIAL_Y, &deg));
+	checkTrue("123 px: outside the outer edge, refused",
+	          !servoOnDial(SERVO_DIAL_X + 123, SERVO_DIAL_Y, &deg));
 
 	// Below the shaft's level: past +-90 deg, down to the band's last row.
 	// 41 px right and 10 px down is 103.7 deg; 40 px and 10 px is 104.04 deg.
@@ -1378,6 +1378,15 @@ static uint16_t pixel(int x, int y) { return gfxBuffer()[y * GFX_W + x]; }
  */
 static uint16_t fillOf(const UiRect &r) { return pixel(r.x + 4, r.y + r.h - 5); }
 
+/** @brief Whether MENU row @p id shows a status in C_AMBER: PINS BUSY. */
+static bool busyShown(UiControlId id) {
+	UiRect r = ctlRect(id);
+	for (int y = r.y; y < r.y + r.h; y++)
+		for (int x = r.x; x < r.x + r.w; x++)
+			if (pixel(x, y) == C_AMBER) return true;
+	return false;
+}
+
 /** @brief Fresh board: default settings, no ESC, the main screen up. */
 static void freshUi() {
 	fakeFlashClear();
@@ -1389,14 +1398,14 @@ static void freshUi() {
 	uiFrames(2);
 }
 
-/** @brief Main screen to SERVO, through CFG and SETTINGS. */
+/** @brief Main screen to SERVO, through MENU. */
 static void openServo() {
 	tapId(UI_FIX(TesterCtl::Menu));
 	uiFrames(1);
-	checkTrue("CFG opens SETTINGS", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
 	tapId(menuRow(&UI_SERVO));
 	uiFrames(2);
-	checkTrue("SERVO opens from SETTINGS", uiCurrentScreen() == UiScreenId::Servo);
+	checkTrue("SERVO opens from MENU", uiCurrentScreen() == UiScreenId::Servo);
 }
 
 /** @brief SERVO's main view to SET. */
@@ -1412,10 +1421,10 @@ static void backFromSet() {
 	          uiCurrentScreen() == UiScreenId::Servo && ctlPresent(UI_FIX(ServoCtl::Start)));
 }
 
-/** @brief BACK from SETTINGS: the tester. */
-static void backFromCfg() {
+/** @brief BACK from MENU: the tester. */
+static void backFromMenu() {
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from SETTINGS reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
+	checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
 }
 
 /** @brief Hold HOLD TO START for 1000 ms, then lift. */
@@ -1428,7 +1437,7 @@ static void holdStart() {
 	core1();
 }
 
-/** @brief BACK, the unplug page, and RESTART DSHOT: out to SETTINGS. */
+/** @brief BACK, the unplug page, and RESTART DSHOT: out to MENU. */
 static void leaveServo() {
 	tapId(UI_FIX(UI_BACK));
 	uiFrames(1);
@@ -1436,7 +1445,7 @@ static void leaveServo() {
 	for (int i = 0; i < 200 && !ctlPresent(UI_FIX(ServoCtl::Restart)); i++) uiFrames(1);
 	tapId(UI_FIX(ServoCtl::Restart));
 	uiFrames(2);
-	checkTrue("RESTART DSHOT leaves SERVO for SETTINGS", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("RESTART DSHOT leaves SERVO for MENU", uiCurrentScreen() == UiScreenId::Menu);
 }
 
 /**
@@ -1486,7 +1495,7 @@ static int rowCentreY(int row) {
  * scroll. revealRow() then makes sure the row is whole.
  */
 static void selectRow(int i) {
-	uiListScrollTo(&s_list, i * SET_ROW_H);
+	uiListScrollTo(&s_list, i * SET_ROW_PITCH);
 	s_full = true;
 	uiFrames(1);
 	revealRow(i);
@@ -1518,18 +1527,18 @@ static void swipeRow(int i, int dir) {
 	core1();
 }
 
-/** @brief SERVO opens from CFG, claims both pins, and starts SAFE. */
+/** @brief SERVO opens from MENU, claims both pins, and starts SAFE. */
 static void testScreenOpens() {
-	section("Servo screen: CFG opens it, and it starts SAFE");
+	section("Servo screen: MENU opens it, and it starts SAFE");
 
 	freshUi();
 	tapId(UI_FIX(TesterCtl::Menu));
 	uiFrames(2);
-	checkTrue("CFG opens SETTINGS", uiCurrentScreen() == UiScreenId::Menu);
-	checkTrue("CFG: SERVO is drawn live", fillOf(ctlRect(menuRow(&UI_SERVO))) == C_PANEL);
+	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("MENU: SERVO is drawn live", fillOf(ctlRect(menuRow(&UI_SERVO))) == C_PANEL);
 	checkTrue("KST has no MENU row", uiMenuRowOf(&UI_KST) < 0);
 	tapId(menuRow(&UI_SERVO));
-	checkTrue("SERVO opens from SETTINGS", uiCurrentScreen() == UiScreenId::Servo);
+	checkTrue("SERVO opens from MENU", uiCurrentScreen() == UiScreenId::Servo);
 	checkTrue("the tap claims the pins for SERVO", pinClaimHolder() == PinUser::Servo);
 	uiFrames(3);
 	checkTrue("running on the claim", pinClaimState() == ClaimState::Running);
@@ -1657,9 +1666,9 @@ static void testStartNeedsLivePress() {
 	freshUi();
 	tapId(UI_FIX(TesterCtl::Menu));
 	uiFrames(1);
-	checkTrue("CFG opens SETTINGS", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
 	tapId(menuRow(&UI_SERVO));
-	checkTrue("SERVO opens from SETTINGS", uiCurrentScreen() == UiScreenId::Servo);
+	checkTrue("SERVO opens from MENU", uiCurrentScreen() == UiScreenId::Servo);
 	int x, y;
 	ctlCentre(UI_FIX(ServoCtl::Start), &x, &y);
 	pressId(UI_FIX(ServoCtl::Start), IdExpect::Disabled); core1();
@@ -1735,7 +1744,7 @@ static void testHorn() {
 	checkTrue("stalled again", s_st.tripped);
 	leaveServo();
 	tapId(menuRow(&UI_SERVO));
-	checkTrue("SERVO opens from SETTINGS", uiCurrentScreen() == UiScreenId::Servo);
+	checkTrue("SERVO opens from MENU", uiCurrentScreen() == UiScreenId::Servo);
 	uiFrames(1);
 	checkTrue("opened again, first frame: the job not yet bound",
 	          pinClaimState() != ClaimState::Running);
@@ -1759,7 +1768,7 @@ static void testHorn() {
 	t.lastRpmMs = millis();
 	fakeSetTelemetry(&t);
 	tapId(menuRow(&UI_SERVO));
-	checkTrue("SERVO opens from SETTINGS", uiCurrentScreen() == UiScreenId::Servo);
+	checkTrue("SERVO opens from MENU", uiCurrentScreen() == UiScreenId::Servo);
 	uiFrames(1);
 	checkTrue("refused while an ESC answers, first frame: not STALLED",
 	          s_refusal == ClaimRefusal::EscAnswering && !s_st.tripped &&
@@ -1856,7 +1865,9 @@ static void testTwoServos() {
 	backFromSet();
 	checkTrue("BACK: SERVO again", s_view == View::Main);
 	bool clean = true;
-	const int gapRows[] = {50, 55, SV_LOW_Y, SV_BTN_Y - 1};
+	// 56 and 61: the first and last row between the strip, y 40 to 55, and
+	// the dial band, from y 62.
+	const int gapRows[] = {56, 61, SV_LOW_Y, SV_BTN_Y - 1};
 	for (int x = 0; x < GFX_W; x++)
 		for (int y : gapRows)
 			clean = clean && pixel(x, y) == C_BG;
@@ -1902,7 +1913,7 @@ static void testAuxRefused() {
 	section("Servo screen: TWO is refused when the claim refuses AUX");
 
 	freshUi();
-	escTaskConfigure(29, 600, false, 29);   // SETUP put the ESC pin on the KISS GPIO
+	escTaskConfigure(29, 600, false, 29);   // SETTINGS put the ESC pin on the KISS GPIO
 	uiFrames(2);
 	openServo();
 	checkTrue("one GPIO for both: the screen claims SIG alone",
@@ -1923,7 +1934,7 @@ static void testAuxRefused() {
 	          l1 && strstr(l1, "NOT OFFERED") != nullptr);
 	backFromSet();
 	leaveServo();
-	backFromCfg();
+	backFromMenu();
 	uiFrames(1);
 
 	freshUi();
@@ -2035,10 +2046,10 @@ static void testUnplugPage() {
 	tapId(UI_FIX(ServoCtl::Restart));
 	checkInt("RESTART DSHOT: DShot back", fakeResumeCount(), resumes + 1);
 	uiFrames(2);
-	checkTrue("free, and SETTINGS up", pinClaimState() == ClaimState::Free &&
+	checkTrue("free, and MENU up", pinClaimState() == ClaimState::Free &&
 	                                   uiCurrentScreen() == UiScreenId::Menu &&
 	                                   fillOf(ctlRect(menuRow(&UI_SERVO))) == C_PANEL);
-	backFromCfg();
+	backFromMenu();
 }
 
 /**
@@ -2232,16 +2243,18 @@ static void testSetList() {
 	// first row starts at the viewport's top, the last is cut at its bottom.
 	int vt, vb, vx;
 	setViewport(&vt, &vb, &vx);
-	checkTrue("the rows span the viewport, y 56 to y 215", vt == SET_LIST_Y0 && vb == SET_LIST_Y1);
+	checkTrue("the rows span the viewport, y 62 to y 215", vt == SET_LIST_Y0 && vb == SET_LIST_Y1);
 	for (int i = 0; i < 8; i++) {
 		fakePress(vx, vb - 5); uiFrames(1);
 		for (int y = vb - 5; y >= vt + 4; y -= 30) { fakeHold(vx, y); uiFrames(1); }
 		fakeRelease(); uiFrames(1);
 	}
-	checkInt("dragged up: 12 rows of 26 px less 160 px", s_list.scrollPx,
-	         SET_ROWS * SET_ROW_H - SET_LIST_H);
-	checkTrue("the last row's rule on y 215, the viewport's last row",
-	          pixel(230, SET_LIST_Y1) == C_PANEL && pixel(230, SET_LIST_Y1 - 1) == C_BG);
+	checkInt("dragged up: 12 rows at a 42 px pitch less 154 px", s_list.scrollPx,
+	         SET_ROWS * SET_ROW_PITCH - SET_LIST_H);
+	// The last row's body is y 174 to 213; its 2 px gap ends the viewport.
+	checkTrue("the last row's rule on y 213, then its gap to y 215",
+	          pixel(230, SET_LIST_Y1 - 2) == C_PANEL && pixel(230, SET_LIST_Y1 - 3) == C_BG &&
+	          pixel(230, SET_LIST_Y1 - 1) == C_BG && pixel(230, SET_LIST_Y1) == C_BG);
 	for (int i = 0; i < 8; i++) {
 		fakePress(vx, vt + 4); uiFrames(1);
 		for (int y = vt + 4; y <= vb - 5; y += 30) { fakeHold(vx, y); uiFrames(1); }
@@ -2250,17 +2263,36 @@ static void testSetList() {
 	checkInt("dragged down: 0 px", s_list.scrollPx, 0);
 	checkInt("and no drag selected a row", s_sel, -1);
 
-	uiListScrollTo(&s_list, 13);
+	// A row cut by the viewport's edge takes a press only while its whole
+	// 40 px body shows. At 0 px row 0 is y 62 to 101, and row 3 shows 28 px,
+	// y 188 to 215.
+	uiTap(vx, vt);
+	checkInt("at 0 px, y 62: row 0, whole", s_sel, 0);
+	s_sel = -1;
+	uiTap(vx, vb);
+	checkInt("y 215: row 3, 28 px of it showing: no row", s_sel, -1);
+	checkTrue("and row 3's control does not act",
+	          ctlPresent(UI_ROW(3, Row)) && !ctlEnabled(UI_ROW(3, Row)));
+	// At 1 px row 0 shows 39 px, one short of the floor.
+	uiListScrollTo(&s_list, 1);
 	s_full = true;
 	uiFrames(1);
 	uiTap(vx, vt);
-	checkInt("y 56: the top row, 13 px of it showing", s_sel, 0);
+	checkInt("at 1 px, y 62: row 0, 39 px of it showing: no row", s_sel, -1);
+	// At 12 px row 3 is y 176 to 215, whole down to the viewport's last row,
+	// and row 0 shows 28 px.
+	const int edgePx = 12;
+	uiListScrollTo(&s_list, edgePx);
+	s_full = true;
+	uiFrames(1);
 	uiTap(vx, vb);
-	checkInt("y 215: the bottom row, 17 px of it showing", s_sel, (13 + SET_LIST_H - 1) / SET_ROW_H);
+	checkInt("at 12 px, y 215: row 3, whole", s_sel, 3);
 	s_sel = -1;
+	uiTap(vx, vt);
+	checkInt("y 62: row 0, 28 px of it showing: no row", s_sel, -1);
 	uiTap(vx, vt - 1);
 	uiTap(vx, vb + 1);
-	checkInt("y 55 and y 216, outside the viewport: no row", s_sel, -1);
+	checkInt("y 61 and y 216, outside the viewport: no row", s_sel, -1);
 
 	uiTap(vx, vt + 40);
 	uiFrames(1);
@@ -2269,7 +2301,7 @@ static void testSetList() {
 	fakeHold(vx, vb - 95); uiFrames(1);
 	fakeRelease(); uiFrames(2);
 	checkTrue("a scroll leaves the editor bar and the footer as they were",
-	          s_list.scrollPx == 13 + 30 &&
+	          s_list.scrollPx == edgePx + 30 &&
 	          fakeRegionHash(0, vb + 1, GFX_W, GFX_H - vb - 1) == below);
 	backFromSet();
 	openSet();
@@ -2304,25 +2336,58 @@ static void testSetList() {
 static void testClaimCorners() {
 	section("Servo screen: refusals the UI cannot reach, and TWO before the claim");
 
+	// Another screen holds the pins. MENU refuses SERVO while the claim is
+	// not Free: the row reads PINS BUSY, does not act, and a tap opens
+	// nothing. Once the claim is Free, the row opens SERVO, which claims at
+	// once.
 	freshUi();
 	checkTrue("another screen holds the pins", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
-	openServo();
-	checkTrue("SERVO: PINS BUSY, and no claim of its own",
-	          s_refusal == ClaimRefusal::Busy && pinClaimHolder() == PinUser::Am32);
-	checkTrue("HOLD TO START is an outline", fillOf(BTN_START) == C_BG);
-	// An AUX refusal from an earlier frame, then a frame whose claim of SIG
-	// and AUX goes through: the refusal is forgotten.
-	s_auxRefusal = ClaimRefusal::KissLive;
+	tapId(UI_FIX(TesterCtl::Menu));
+	uiFrames(1);
+	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("MENU: SERVO reads PINS BUSY", busyShown(menuRow(&UI_SERVO)));
+	checkTrue("and its row does not act", !ctlEnabled(menuRow(&UI_SERVO)));
+	tapId(menuRow(&UI_SERVO), IdExpect::Disabled);
+	checkTrue("a tap opens nothing, and SERVO claims nothing",
+	          uiCurrentScreen() == UiScreenId::Menu && pinClaimHolder() == PinUser::Am32);
 	pinClaimEnd(PinUser::Am32);
+	for (int i = 0; i < 20 && !ctlEnabled(menuRow(&UI_SERVO)); i++) uiFrames(1);
+	checkTrue("the other claim gone: the row acts again",
+	          pinClaimState() == ClaimState::Free && ctlEnabled(menuRow(&UI_SERVO)) &&
+	          !busyShown(menuRow(&UI_SERVO)));
+	tapId(menuRow(&UI_SERVO));
+	checkTrue("SERVO opens, and claims on the tap",
+	          uiCurrentScreen() == UiScreenId::Servo && s_claimed &&
+	          pinClaimHolder() == PinUser::Servo);
 	uiFrames(3);
-	checkTrue("the other claim gone: SERVO claims", s_claimed && pinClaimHolder() == PinUser::Servo);
+	checkTrue("with AUX, once held", pinClaimGpio(PIN_AUX) == 28 && s_auxRefusal == ClaimRefusal::None);
+	leaveServo();
+	backFromMenu();
+	uiFrames(1);
+
+	// An AUX refusal from an earlier frame, then a frame whose claim of SIG
+	// and AUX goes through: the refusal is forgotten. An ESC answering on SIG
+	// keeps SERVO open without a claim; the refusal is forced.
+	freshUi();
+	{
+		EscTelemetry esc;
+		memset(&esc, 0, sizeof(esc));
+		esc.lastRpmMs = millis();
+		fakeSetTelemetry(&esc);
+	}
+	openServo();
+	checkTrue("an ESC answers: no claim yet", !s_claimed && s_refusal == ClaimRefusal::EscAnswering);
+	s_auxRefusal = ClaimRefusal::KissLive;
+	noEsc();
+	uiFrames(3);
+	checkTrue("the ESC quiet: SERVO claims", s_claimed && pinClaimHolder() == PinUser::Servo);
 	checkTrue("with AUX, and the old AUX refusal cleared",
 	          pinClaimGpio(PIN_AUX) == 28 && s_auxRefusal == ClaimRefusal::None);
 	leaveServo();
-	backFromCfg();
+	backFromMenu();
 	uiFrames(1);
 
-	// Armed, entered without CFG, which would have disarmed.
+	// Armed, entered without MENU, which would have disarmed.
 	freshUi();
 	pressId(UI_FIX(TesterCtl::Arm));
 	holdId(UI_FIX(TesterCtl::Arm), 60);
@@ -2413,7 +2478,7 @@ static void testBindRefused() {
 	uiFrames(2);
 	checkTrue("RETRY rebinds", s_st.bindError == 0 && fakePin(29).function == GPIO_FUNC_PWM);
 	leaveServo();
-	backFromCfg();
+	backFromMenu();
 }
 
 
