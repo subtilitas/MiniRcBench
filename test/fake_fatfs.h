@@ -3,12 +3,20 @@
  * @brief An in-memory FAT volume behind the FatFs calls of test/stubs/ff.h,
  *        for kst_files.cpp.
  *
- * Names compare without case, as FAT does. Paths are relative to the root and
- * use `/`. The volume models what kst_files.cpp meets on a card: a missing
- * directory or file, a name that exists, a write-protected card, a full
- * volume (a short write that returns FR_OK, as FatFs does), a full directory
- * (FR_DENIED on a create), and any call failing with a given FRESULT.
- * It does not model clusters, the FAT or a removed card.
+ * FAT is the File Allocation Table file system. Names compare without case,
+ * as FAT does. Paths are relative to the root and use `/`. The volume models
+ * what kst_files.cpp meets on a card, with FatFs R0.15's results:
+ * - a missing directory or file, and a name that exists;
+ * - a full volume, a short write that returns FR_OK;
+ * - a full directory, FR_DENIED on a create; a directory or a read-only file
+ *   in the way, FR_DENIED;
+ * - the lock of `FF_FS_LOCK`: an open file, kept open by an f_close() that
+ *   fails, refuses a remove, a rename and a second write open with FR_LOCKED;
+ * - a volume FatFs reports write-protected, FR_WRITE_PROTECTED, which this
+ *   board's card driver never makes FatFs report;
+ * - any call failing with a given FRESULT.
+ * It does not model clusters, the FAT, the lock table's 16-entry limit or a
+ * removed card.
  */
 
 #pragma once
@@ -41,6 +49,9 @@ void fakeFatPut(const char *path, const char *data, size_t len);
 /** @brief Put a directory on the volume. */
 void fakeFatMkdir(const char *path);
 
+/** @brief Give @p path the read-only attribute. */
+void fakeFatReadOnly(const char *path);
+
 /** @brief Whether @p path exists, file or directory. */
 bool fakeFatExists(const char *path);
 
@@ -52,6 +63,9 @@ unsigned fakeFatEntries();
 
 /** @brief Files open now; 0 after every call that closes what it opened. */
 int fakeFatOpenFiles();
+
+/** @brief Directories open now. */
+int fakeFatOpenDirs();
 
 /** @brief Calls of @p call since fakeFatReset(). */
 unsigned fakeFatCalls(FakeFatCall call);

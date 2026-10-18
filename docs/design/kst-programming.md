@@ -448,33 +448,48 @@ and the lapse rule applies 250 ms later. A core0 stuck in an outer loop that
 keeps calling the driver stamps without end; the cap ends that after 15 s,
 and the lapse rule applies. The job starts no operation in the card phase.
 
-**The cap.** The largest card phase is the first write's: the walk for the next
-free name, then two files. At the store's limit of 999 files, KSTnnn.TXT names
-of 8.3 form and the record, the `KST` directory holds about 1,000 entries of 32
-bytes, 63 sectors, read one by one. Each file under 1024 bytes is about 6
-single-block writes (its directory entry, two data blocks, the two copies of
-the FAT, and FSINFO, the FAT32 free-space sector) and 2 reads (its directory
-sector and a FAT sector). That is 67 block reads and 12 block writes:
+**The cap.** The largest card phase is the first write's, `kstFilesFirstWrite()`
+of step 3 ([storage](#storage)). At the store's limit of 999 files,
+KSTnnn.TXT names of 8.3 form and the record, the `KST` directory holds about
+1,000 entries of 32 bytes, 63 sectors, read one by one on every pass over it.
+FatFs R0.15 passes over the directory once for each lookup of a name that is
+not there, and once more to find room for a new entry. The first write makes
+7 passes: the record's lookup, the walk for the next free name, the save's
+walk for a name that exists, and a lookup and a room search for each of the
+two files. With an old record to keep it makes 11: the lookup finds it, the
+rename looks up both names and finds room, and the next free name is walked
+for again. Each file under 1024 bytes adds about 6 single-block writes (its
+directory entry, two data blocks, the two copies of the FAT (File Allocation
+Table), and FSINFO, the FAT32 free-space sector) and 1 read of a FAT sector;
+the rename adds about 2 writes. Without an old record that is 443 block reads
+and 12 block writes, with one 695 reads and 14 writes. Each path also looks
+up `KST` in the root directory, which holds the blackbox logs; how many
+sectors that adds depends on the logs on the card and is not counted here.
 
-| Case | One read | One write | 67 reads and 12 writes |
-|---|---|---|---|
-| A typical card, busy and access of a few ms | under 10 ms | under 10 ms | under 1 s |
-| SDHC within the specification: 100 ms access, 250 ms busy | 5 ms command + 100 ms = 105 ms | 5 ms command + 1.2 ms transfer + 250 ms busy + 5 ms status = 261 ms | 7.0 s + 3.1 s = 10.2 s |
-| SDXC within the specification: 500 ms busy | 105 ms | 511 ms | 7.0 s + 6.1 s = 13.2 s |
-| The driver's limits: 250 ms per read block, 1000 ms busy, 3 tries each, every try failing its CRC (cyclic redundancy check) | 3 × 255 ms = 0.77 s | 3 × 1011 ms = 3.03 s | 51 s + 36 s = 88 s |
+| Case | One read | One write | 443 reads and 12 writes | 695 reads and 14 writes |
+|---|---|---|---|---|
+| A typical card, busy and access of a few ms | under 10 ms | under 10 ms | under 4.6 s | under 7.1 s |
+| SDHC within the specification: 100 ms access, 250 ms busy | 5 ms command + 100 ms = 105 ms | 5 ms command + 1.2 ms transfer + 250 ms busy + 5 ms status = 261 ms | 46.5 s + 3.1 s = 49.6 s | 73.0 s + 3.7 s = 76.6 s |
+| SDXC within the specification: 500 ms busy | 105 ms | 511 ms | 46.5 s + 6.1 s = 52.6 s | 73.0 s + 7.2 s = 80.1 s |
+| The driver's limits: 250 ms per read block, 1000 ms busy, 3 tries each, every try failing its CRC (cyclic redundancy check) | 3 × 255 ms = 0.77 s | 3 × 1011 ms = 3.03 s | 339 s + 36 s = 375 s | 532 s + 42 s = 574 s |
 
 A timeout ends the card's part sooner: `sdh_err_is_fatal()` marks the card not
 ready, and every later call fails at once. The other phases are smaller: the
-FILES listing is the 63 reads alone, 6.6 s within the specification; SAVE AS is
-the walk and one file, 9.9 s on SDXC; RETRY MOUNT is the card's initialisation,
-up to 1.1 s of polling with ACMD41, the SD command that waits for the card to
-be ready, and a few reads. The cap, 15 s, covers the largest phase of a card
-within the specification, 13.2 s, with 1.8 s to spare, and bounds how long a
-core0 stuck in the driver's loops keeps the servo powered in programming mode,
-with no frame on the wire. A card past the cap is retrying or out of
-specification: the supply goes off, the session is power-cycled as for any
-lapse, and the card call goes on to its end on core0; a write that waited for
-it then finds the session out of the mode and does not run.
+FILES listing is one pass, 63 reads, 6.6 s within the specification; SAVE AS
+is 3 passes and one file, 4 with the proposed name's walk, up to 29.6 s on
+SDXC; RETRY MOUNT is the card's initialisation, up to 1.1 s of polling with
+ACMD41, the SD command that waits for the card to be ready, and a few reads.
+
+The cap, 15 s, covers every phase of a card whose reads and writes take under
+10 ms, up to the store's 999 files, and bounds how long a core0 stuck in the
+driver's loops keeps the servo powered in programming mode, with no frame on
+the wire. It does not cover a card that takes the specification's full access
+and busy times with a full directory: the first write's card calls then take
+49.6 s to 80.1 s. Whether to raise the cap, bound the directory below 999
+files or make fewer passes is open for step 5. A card past the cap: the supply
+goes off, the session is power-cycled as for any lapse, and the card call goes
+on to its end on core0; a write that waited for it then finds the session out
+of the mode and does not run.
 
 What remains:
 
@@ -1087,15 +1102,26 @@ is off (`MscState::Idle`): while `mscHoldsCard()` is true, and while the
 reader takes the card back, every call answers "not mounted" and touches no
 FatFs function. Paths are relative to the card's root, as the logs' are.
 
-FatFs results map to the store's: `FR_WRITE_PROTECTED` is DENIED, a file
-named `KST` where the directory goes is DENIED, `FR_DENIED` on a create (a
-full volume or directory) and a short write are CARD_FULL, any other error
-is a write or read error. A create that fails removes the file it made.
+FatFs results map to the store's:
+
+- `FR_DENIED` on a create is CARD_FULL for a full volume or directory, and
+  DENIED when a directory or a read-only file has the name; a short write is
+  CARD_FULL.
+- A file named `KST` where the directory goes is DENIED.
+- `FR_WRITE_PROTECTED` is DENIED. FatFs reports it only when the disk layer
+  sets STA_PROTECT, which this board's card driver never does: a
+  write-protected card fails as `FR_DISK_ERR`, a write error.
+- Any other error is a write or read error.
+
+A create that fails removes the file it made, and the `KST` directory when
+it made that too. A create whose close fails is the exception: FatFs keeps
+the file open, refuses to remove it (`FR_LOCKED`), and holds one of its 16
+lock entries (`FF_FS_LOCK`) until the card is mounted again.
 
 | Situation | Effect |
 |---|---|
 | First write of a session, card mounted | the backup is saved first as the next KSTnnn.TXT, and `KST/KST.TXT` holds the image before the write, both in a card phase ([card calls](#card-calls-and-the-heartbeat)). A card that takes neither stops the write: `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.` |
-| Write verified | `KST/KST.TXT` is removed, in a card phase |
+| Write verified | `KST/KST.TXT` is removed when this session wrote it, in a card phase |
 | `KST/KST.TXT` found when the screen opens | `A WRITE WAS INTERRUPTED. KST/KST.TXT HOLDS THE SERVO AS IT WAS.` FILES lists it as RECORD and loads it like a file |
 | No card | read, edit and write work; the write page says `NO CARD: THE BACKUP STAYS IN MEMORY AND ENDS AT LEAVE.` |
 | Card held by a USB host | as no card |
@@ -1108,7 +1134,9 @@ The first write's card calls, `kstFilesFirstWrite()`, in order:
 
 1. A record already on the card, left by an interrupted write, is renamed to
    the next KSTnnn.TXT, so no record is lost. A record that cannot be renamed
-   stays, and no new record is written over it.
+   stays: no new record is written over it, and the verified write does not
+   remove it. A card that does not answer whether a record is there gets no
+   record either.
 2. The backup is saved as the next KSTnnn.TXT.
 3. The image before the write is written as `KST/KST.TXT`.
 
@@ -1187,9 +1215,11 @@ so these run against the same simulated servo:
 - `test_kst_files.cpp`, built in step 3: the FatFs io over an in-memory
   volume (`test/fake_fatfs.cpp`): the mount rule, no card and a card held by
   USB with no FatFs call, the first write's backup and record, an old record
-  kept, card full, write-protected, a full directory, a file named `KST`,
-  write, sync and close errors with no file left behind, one of the two
-  files taken, the record found and loaded at entry, the store's save, list
+  kept and never removed when it stays, card full, a write-protected card
+  as this board reports it (a disk error) and as FatFs can (`FR_DENIED` and
+  `FR_WRITE_PROTECTED`), a full directory, a file or a directory in a file's
+  way, write and sync errors with no file or new directory left behind, a
+  close error that leaves its file locked, one of the two files taken, the record found and loaded at entry, the store's save, list
   and load over FatFs. With the screen, step 4: the record written before
   the first write frame and removed after a verify. With `GP0`, step 5: a
   card phase around every card call, the first write's opened before the

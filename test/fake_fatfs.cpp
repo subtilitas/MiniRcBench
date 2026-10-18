@@ -18,6 +18,8 @@ struct Entry {
 	bool        dir;
 	std::string data;
 	bool        used;
+	bool        readOnly;
+	int         opens;   /**< Open file objects: FF_FS_LOCK's share count. */
 };
 
 struct Failure {
@@ -31,6 +33,7 @@ uint32_t g_capacity = 0;
 uint32_t g_dirLimit = 0xFFFFFFFFu;
 bool     g_protected = false;
 int      g_open = 0;
+int      g_openDirs = 0;
 Failure  g_fail[(unsigned)FakeFatCall::Count];
 unsigned g_calls[(unsigned)FakeFatCall::Count];
 
@@ -81,7 +84,7 @@ unsigned childrenOf(const std::string &dir) {
 }
 
 int add(const char *path, bool dir) {
-	g_entries.push_back(Entry{ path, dir, std::string(), true });
+	g_entries.push_back(Entry{ path, dir, std::string(), true, false, 0 });
 	return (int)g_entries.size() - 1;
 }
 
@@ -93,6 +96,7 @@ void fakeFatReset(uint32_t capacity) {
 	g_dirLimit = 0xFFFFFFFFu;
 	g_protected = false;
 	g_open = 0;
+	g_openDirs = 0;
 	memset(g_fail, 0, sizeof(g_fail));
 	memset(g_calls, 0, sizeof(g_calls));
 }
@@ -114,6 +118,11 @@ void fakeFatMkdir(const char *path) {
 	if (find(path) < 0) add(path, true);
 }
 
+void fakeFatReadOnly(const char *path) {
+	int i = find(path);
+	if (i >= 0) g_entries[(size_t)i].readOnly = true;
+}
+
 bool fakeFatExists(const char *path) { return find(path) >= 0; }
 
 int32_t fakeFatGet(const char *path, char *buf, size_t cap) {
@@ -131,6 +140,7 @@ unsigned fakeFatEntries() {
 }
 
 int fakeFatOpenFiles() { return g_open; }
+int fakeFatOpenDirs() { return g_openDirs; }
 unsigned fakeFatCalls(FakeFatCall call) { return g_calls[(unsigned)call]; }
 
 // ---------------------------------------------------------------------------
@@ -143,9 +153,16 @@ FRESULT f_open(FIL *fp, const char *path, uint8_t mode) {
 	if ((fr = parentOk(path)) != FR_OK) return fr;
 	int i = find(path);
 	bool create = mode & (FA_CREATE_NEW | FA_CREATE_ALWAYS | FA_OPEN_ALWAYS);
-	if (i >= 0 && g_entries[(size_t)i].dir) return FR_DENIED;
+	// In f_open()'s order: the volume, the lock, then what is in the way.
 	if ((mode & FA_WRITE) && g_protected) return FR_WRITE_PROTECTED;
-	if (i >= 0 && (mode & FA_CREATE_NEW)) return FR_EXIST;
+	if (i >= 0 && (mode & ~FA_READ) && g_entries[(size_t)i].opens) return FR_LOCKED;
+	if (i >= 0 && create) {
+		const Entry &e = g_entries[(size_t)i];
+		if (e.dir || e.readOnly) return FR_DENIED;
+		if (mode & FA_CREATE_NEW) return FR_EXIST;
+	}
+	if (i >= 0 && g_entries[(size_t)i].dir) return FR_NO_FILE;
+	if (i >= 0 && (mode & FA_WRITE) && g_entries[(size_t)i].readOnly) return FR_DENIED;
 	if (i < 0) {
 		if (!create) return FR_NO_FILE;
 		if (childrenOf(parentOf(path)) >= g_dirLimit) return FR_DENIED;
@@ -155,15 +172,21 @@ FRESULT f_open(FIL *fp, const char *path, uint8_t mode) {
 	}
 	fp->handle = i;
 	fp->pos = 0;
+	g_entries[(size_t)i].opens++;
 	g_open++;
 	return FR_OK;
 }
 
+// As FatFs: f_close() syncs first, and only a close that succeeds frees the
+// file object and its lock entry.
 FRESULT f_close(FIL *fp) {
 	if (fp->handle < 0) return FR_INVALID_OBJECT;
+	FRESULT fr = enter(FakeFatCall::Close);
+	if (fr != FR_OK) return fr;
+	g_entries[(size_t)fp->handle].opens--;
 	fp->handle = -1;
 	g_open--;
-	return enter(FakeFatCall::Close);
+	return FR_OK;
 }
 
 FRESULT f_read(FIL *fp, void *buf, UINT btr, UINT *br) {
@@ -215,6 +238,7 @@ FRESULT f_opendir(DIR *dp, const char *path) {
 	if (i < 0 || !g_entries[(size_t)i].dir) return FR_NO_PATH;
 	dp->handle = i;
 	dp->next = 0;
+	g_openDirs++;
 	return FR_OK;
 }
 
@@ -235,7 +259,9 @@ FRESULT f_readdir(DIR *dp, FILINFO *fno) {
 }
 
 FRESULT f_closedir(DIR *dp) {
+	if (dp->handle < 0) return FR_INVALID_OBJECT;
 	dp->handle = -1;
+	g_openDirs--;
 	return FR_OK;
 }
 
@@ -257,8 +283,10 @@ FRESULT f_unlink(const char *path) {
 	if ((fr = parentOk(path)) != FR_OK) return fr;
 	int i = find(path);
 	if (i < 0) return FR_NO_FILE;
-	if (g_entries[(size_t)i].dir && childrenOf(g_entries[(size_t)i].path)) return FR_DENIED;
-	g_entries[(size_t)i].used = false;
+	Entry &e = g_entries[(size_t)i];
+	if (e.opens) return FR_LOCKED;
+	if (e.readOnly || (e.dir && childrenOf(e.path))) return FR_DENIED;
+	e.used = false;
 	return FR_OK;
 }
 
@@ -268,6 +296,7 @@ FRESULT f_rename(const char *pathOld, const char *pathNew) {
 	if (g_protected) return FR_WRITE_PROTECTED;
 	int i = find(pathOld);
 	if (i < 0) return FR_NO_FILE;
+	if (g_entries[(size_t)i].opens) return FR_LOCKED;
 	if (find(pathNew) >= 0) return FR_EXIST;
 	if ((fr = parentOk(pathNew)) != FR_OK) return fr;
 	g_entries[(size_t)i].path = pathNew;

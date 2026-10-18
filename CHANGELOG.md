@@ -56,10 +56,11 @@ protocol.
   card counts as mounted while the logger has it and the USB card reader is
   off. Before a session's first write the backup is saved as the next
   KSTnnn.TXT and the image before the write as `KST/KST.TXT`; an older record
-  is renamed to a KSTnnn.TXT first. A card that takes neither file stops the
-  write; no card lets it run. Nothing calls these yet. The host suite runs
-  them against an in-memory FAT volume, and the FatFs stub header gains the
-  directory, read, rename and remove calls.
+  is renamed to a KSTnnn.TXT first, and a verified write removes only the
+  record its session wrote. A card that takes neither file stops the write; no
+  card lets it run. Nothing calls these yet. The host suite runs them against
+  an in-memory FAT (File Allocation Table) volume, and the FatFs stub header
+  gains the directory, read, rename and remove calls.
 - The KST search and the KST core1 job (work breakdown step 2).
   `src/kst_seek.h` repeats rcbench's entry sequence, 116.6 ms to 118.8 ms an
   attempt, until a servo answers, for 30 s. STOP SEARCH lets the frame on the

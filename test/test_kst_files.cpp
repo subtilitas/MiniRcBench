@@ -55,6 +55,14 @@ static kst_image_t changed() {
 	return img;
 }
 
+/** @brief A first write that wrote its record, for kstFilesRecordRemove(). */
+static KstFirstWrite wroteRecord() {
+	KstFirstWrite w;
+	memset(&w, 0, sizeof(w));
+	w.record = KST_STORE_OK;
+	return w;
+}
+
 static unsigned fatCalls() {
 	unsigned n = 0;
 	for (unsigned c = 0; c < (unsigned)FakeFatCall::Count; c++)
@@ -102,7 +110,8 @@ static void testNoCard() {
 		snprintf(what, sizeof(what), "%s: the write runs, the backup in memory", how);
 		checkTrue(what, kstFilesWriteAllowed(&w));
 		snprintf(what, sizeof(what), "%s: no record found, none removed", how);
-		checkTrue(what, !kstFilesRecordPresent() && kstFilesRecordRemove() == KST_STORE_NO_CARD);
+		KstFirstWrite wrote = wroteRecord();
+		checkTrue(what, !kstFilesRecordPresent() && kstFilesRecordRemove(&wrote) == KST_STORE_NO_CARD);
 		char buf[16];
 		size_t len = 0;
 		snprintf(what, sizeof(what), "%s: the record does not load", how);
@@ -143,9 +152,11 @@ static void testFirstWrite() {
 	checkTrue("the list leaves the record out", count == 1 && total == 1 &&
 	                                           strcmp(e[0].name, "KST001.TXT") == 0);
 
-	checkInt("a verified write removes it", kstFilesRecordRemove(), KST_STORE_OK);
+	checkInt("no directory left open", fakeFatOpenDirs(), 0);
+	checkInt("a verified write removes it", kstFilesRecordRemove(&w), KST_STORE_OK);
 	checkTrue("gone", !fakeFatExists("KST/KST.TXT") && !kstFilesRecordPresent());
-	checkInt("removing it again: nothing to do", kstFilesRecordRemove(), KST_STORE_OK);
+	checkInt("removing it again: nothing to do", kstFilesRecordRemove(&w), KST_STORE_OK);
+	checkInt("nor without the session's result", kstFilesRecordRemove(nullptr), KST_STORE_OK);
 
 	kstFilesFirstWrite(&b, &before, &w);
 	checkTrue("the next session's backup is KST002.TXT",
@@ -176,6 +187,18 @@ static void testFirstWrite() {
 	checkTrue("no new record over it", w.record == KST_STORE_WRITE_ERROR);
 	checkTrue("the backup is still saved, so the write runs",
 	          w.backup == KST_STORE_OK && kstFilesWriteAllowed(&w));
+	checkInt("the verified write removes nothing", kstFilesRecordRemove(&w), KST_STORE_OK);
+	checkTrue("the old record is still there",
+	          imageOf("KST/KST.TXT", &got) && memcmp(got.r, b.r, KST_REG_COUNT) == 0);
+
+	// The card does not say whether a record is there: none is written.
+	fakeFatFail(FakeFatCall::Stat, FR_DISK_ERR);
+	kstFilesFirstWrite(&before, &before, &w);
+	checkTrue("a lookup that fails: no record written, none removed",
+	          w.kept == KST_STORE_READ_ERROR && w.record == KST_STORE_READ_ERROR &&
+	          kstFilesRecordRemove(&w) == KST_STORE_OK && imageOf("KST/KST.TXT", &got) &&
+	          memcmp(got.r, b.r, KST_REG_COUNT) == 0);
+	checkTrue("the backup is saved", w.backup == KST_STORE_OK);
 }
 
 /** @brief A first write on a card that refuses; nothing may be left behind. */
@@ -200,10 +223,25 @@ static void testRefusals() {
 	card(100);
 	refused("full", KST_STORE_CARD_FULL);
 	card();
+	// The disk layer of this board never reports STA_PROTECT: a card that
+	// refuses writes fails as a disk error.
+	fakeFatFail(FakeFatCall::Write, FR_DISK_ERR);
+	fakeFatFail(FakeFatCall::MkDir, FR_DISK_ERR, 1);
+	refused("this board's write-protected card", KST_STORE_WRITE_ERROR);
+	card();
 	fakeFatWriteProtect(true);
-	refused("write-protected", KST_STORE_DENIED);
-	checkInt("write-protected: the record is not removed", kstFilesRecordRemove(),
+	refused("a volume FatFs reports write-protected", KST_STORE_DENIED);
+	KstFirstWrite wrote = wroteRecord();
+	checkInt("write-protected: the record is not removed", kstFilesRecordRemove(&wrote),
 	         KST_STORE_DENIED);
+	card();
+	fakeFatMkdir("KST");
+	fakeFatMkdir("KST/KST.TXT");
+	kst_image_t b0 = bench();
+	KstFirstWrite w0;
+	kstFilesFirstWrite(&b0, &b0, &w0);
+	checkTrue("a directory named KST.TXT: the record refused, not a full card",
+	          w0.record == KST_STORE_DENIED && w0.backup == KST_STORE_OK);
 	card();
 	fakeFatMkdir("KST");
 	fakeFatDirLimit(0);
@@ -218,9 +256,9 @@ static void testRefusals() {
 	kstFilesFirstWrite(&b, &b, &w);
 	checkInt("no room for the directory: full", w.backup, KST_STORE_CARD_FULL);
 
-	static const FakeFatCall FAILS[] = { FakeFatCall::Write, FakeFatCall::Sync, FakeFatCall::Close };
-	static const char *const FAIL_NAMES[] = { "write", "sync", "close" };
-	for (int i = 0; i < 3; i++) {
+	static const FakeFatCall FAILS[] = { FakeFatCall::Write, FakeFatCall::Sync };
+	static const char *const FAIL_NAMES[] = { "write", "sync" };
+	for (int i = 0; i < 2; i++) {
 		card();
 		fakeFatFail(FAILS[i], FR_DISK_ERR);
 		kstFilesFirstWrite(&b, &b, &w);
@@ -229,6 +267,28 @@ static void testRefusals() {
 		checkTrue(msg, w.backup == KST_STORE_WRITE_ERROR && !fakeFatExists("KST/KST001.TXT") &&
 		               fakeFatOpenFiles() == 0);
 	}
+	// A close that fails keeps the file open in FatFs: it cannot be removed.
+	card();
+	fakeFatFail(FakeFatCall::Close, FR_DISK_ERR);
+	kstFilesFirstWrite(&b, &b, &w);
+	checkTrue("a close error: a write error, the file left open and locked",
+	          w.backup == KST_STORE_WRITE_ERROR && fakeFatExists("KST/KST001.TXT") &&
+	          fakeFatOpenFiles() == 1);
+	checkTrue("the record after it is written", w.record == KST_STORE_OK);
+
+	// A create that fails takes back the directory it made.
+	card();
+	fakeFatFail(FakeFatCall::Write, FR_DISK_ERR);
+	checkTrue("a failed create on a fresh card: an error",
+	          kstFilesIo()->create(nullptr, "Wing.TXT", "x", 1) == KST_STORE_IO_ERROR);
+	checkTrue("and no KST directory left", !fakeFatExists("KST"));
+	card();
+	fakeFatMkdir("KST");
+	fakeFatPut("KST/Tail.TXT", "x", 1);
+	fakeFatFail(FakeFatCall::Write, FR_DISK_ERR);
+	kstFilesIo()->create(nullptr, "Wing.TXT", "x", 1);
+	checkTrue("a directory it did not make stays", fakeFatExists("KST") &&
+	                                               fakeFatExists("KST/Tail.TXT"));
 
 	// One of the two taken: the write runs.
 	card();
@@ -245,10 +305,16 @@ static void testRefusals() {
 	          kstFilesWriteAllowed(&w));
 
 	card();
+	fakeFatMkdir("KST");
 	fakeFatPut("KST/KST.TXT", "x", 1);
 	fakeFatFail(FakeFatCall::Unlink, FR_DISK_ERR);
-	checkInt("a remove that fails: a write error", kstFilesRecordRemove(), KST_STORE_WRITE_ERROR);
+	checkInt("a remove that fails: a write error", kstFilesRecordRemove(&wrote),
+	         KST_STORE_WRITE_ERROR);
 	checkTrue("the record stays", fakeFatExists("KST/KST.TXT"));
+	fakeFatReadOnly("KST/KST.TXT");
+	checkInt("a read-only record: refused", kstFilesRecordRemove(&wrote), KST_STORE_DENIED);
+	card();
+	checkInt("no KST directory: nothing to remove", kstFilesRecordRemove(&wrote), KST_STORE_OK);
 }
 
 static void testRecordLoad() {
@@ -276,6 +342,9 @@ static void testRecordLoad() {
 	checkInt("a read error", kstFilesRecordLoad(buf, sizeof(buf), &len), KST_STORE_READ_ERROR);
 	checkInt("no file left open", fakeFatOpenFiles(), 0);
 	checkInt("a NULL buffer", kstFilesRecordLoad(nullptr, 1, &len), KST_STORE_ARG);
+	len = 7;
+	kstFilesRecordLoad(buf, n - 1, &len);
+	checkInt("a failed load says 0 bytes", (long)len, 0);
 	size_t count = 0, total = 0;
 	kst_store_entry_t e[2];
 	kst_store_list(kstFilesIo(), e, 2, &count, &total, nullptr);
@@ -335,6 +404,7 @@ static void testStoreIo() {
 	          io->create(nullptr, "Tail.TXT", "x", 1) == KST_STORE_IO_ERROR);
 	checkTrue("and leaves no file", !fakeFatExists("KST/Tail.TXT"));
 	checkInt("no file left open", fakeFatOpenFiles(), 0);
+	checkInt("no directory left open, after a walk that failed too", fakeFatOpenDirs(), 0);
 }
 
 static void testWriteAllowed() {
@@ -345,7 +415,7 @@ static void testWriteAllowed() {
 		{ KST_STORE_OK,          KST_STORE_CARD_FULL,   true,  "the backup only" },
 		{ KST_STORE_CARD_FULL,   KST_STORE_OK,          true,  "the record only" },
 		{ KST_STORE_CARD_FULL,   KST_STORE_CARD_FULL,   false, "neither, full" },
-		{ KST_STORE_DENIED,      KST_STORE_DENIED,      false, "neither, write-protected" },
+		{ KST_STORE_DENIED,      KST_STORE_DENIED,      false, "neither, refused" },
 		{ KST_STORE_NO_NUMBER,   KST_STORE_WRITE_ERROR, false, "neither, no number and an error" },
 		{ KST_STORE_NO_CARD,     KST_STORE_WRITE_ERROR, false, "a card that went, and an error" },
 	};

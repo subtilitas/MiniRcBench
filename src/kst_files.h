@@ -16,11 +16,20 @@
  * |---|---|---|
  * | SAVE AS, LOAD, the FILES list | kstFilesIo() with `kst_store.h` | the store's own rules: no file is replaced, `KST.TXT` is refused |
  * | First write of a session | kstFilesFirstWrite() | the backup as the next KSTnnn.TXT, then the image before the write as `KST/KST.TXT` |
- * | Write verified | kstFilesRecordRemove() | `KST/KST.TXT` removed |
+ * | Write verified | kstFilesRecordRemove() | `KST/KST.TXT` removed, when this session wrote it |
  * | The screen opens | kstFilesRecordPresent(), kstFilesRecordLoad() | an interrupted write's record found and read |
  *
  * A record left by an interrupted write is renamed to the next KSTnnn.TXT
- * before a new one is written, so no record is lost.
+ * before a new one is written, so no record is lost; one that stays in place
+ * is never written over or removed.
+ *
+ * Current limitations, from FatFs on this board:
+ * - A write-protected card reports `KST_STORE_WRITE_ERROR`, not
+ *   `KST_STORE_DENIED`: FatFs returns FR_WRITE_PROTECTED only when the disk
+ *   layer sets STA_PROTECT, which this board's card driver never does.
+ * - A create whose close fails leaves its file on the card, open in FatFs,
+ *   which refuses to remove it (FR_LOCKED). It holds one of FatFs's 16 lock
+ *   entries (`FF_FS_LOCK`) until the card is mounted again.
  *
  * @see docs/design/kst-programming.md, "Storage".
  */
@@ -57,7 +66,9 @@ const kst_store_io_t *kstFilesIo();
  * Saves @p backup as the next KSTnnn.TXT (kst_store_preset() and
  * kst_store_save()), then writes @p before as `KST/KST.TXT`. A record already
  * there is renamed to the next KSTnnn.TXT first; a record that cannot be
- * renamed is left as it is, and no new one is written.
+ * renamed is left as it is, and no new one is written. A card that does not
+ * say whether a record is there (an error other than "no file") writes no
+ * record either: `kept` is `KST_STORE_READ_ERROR`.
  *
  * @param backup  The session's backup.
  * @param before  The image the write starts from.
@@ -74,11 +85,14 @@ void kstFilesFirstWrite(const kst_image_t *backup, const kst_image_t *before,
 bool kstFilesWriteAllowed(const KstFirstWrite *w);
 
 /**
- * @brief Remove `KST/KST.TXT`, after a verified write.
- * @return `KST_STORE_OK`, also when there was no record; `KST_STORE_NO_CARD`;
- *         `KST_STORE_DENIED` for a write-protected card; `KST_STORE_WRITE_ERROR`.
+ * @brief Remove `KST/KST.TXT` after a verified write, when this session's
+ *        kstFilesFirstWrite() wrote it.
+ * @param w The session's kstFilesFirstWrite() result; a record it did not
+ *          write, or NULL, removes nothing.
+ * @return `KST_STORE_OK`, also when nothing is removed; `KST_STORE_NO_CARD`;
+ *         `KST_STORE_DENIED` for a read-only file; `KST_STORE_WRITE_ERROR`.
  */
-kst_store_t kstFilesRecordRemove();
+kst_store_t kstFilesRecordRemove(const KstFirstWrite *w);
 
 /** @brief Whether `KST/KST.TXT` is on a mounted card. */
 bool kstFilesRecordPresent();
