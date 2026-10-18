@@ -1302,8 +1302,8 @@ KST and Chaservo are names or trademarks of their respective owners. They
 are used in this repository only to say which servos its KST programming
 code works with. MiniRcBench is not affiliated with
 them and is neither supported nor sponsored by them. The protocol is
-implemented from wire captures of hardware the rcbench project owns; no
-vendor code and no vendor documentation is included.
+implemented from the author's own wire captures of a programming card and a
+servo; no vendor code and no vendor documentation is included.
 
 Every other name of a maker, product, protocol or firmware in this
 repository is a name or trademark of its owner, used only to describe
