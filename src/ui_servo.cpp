@@ -25,6 +25,7 @@
 #include "ui_list.h"
 #include "ui_slider.h"
 #include "ui_widgets.h"
+#include "ui_screen.h"
 #include "gfx.h"
 #include "config.h"
 
@@ -827,6 +828,49 @@ static void drawUnplug() {
 // ---------------------------------------------------------------------------
 
 bool uiServoAvailable() { return true; }
+
+uint8_t uiServoControls(UiControl *out, uint8_t max) {
+	uint8_t n = 0;
+	if (s_view == View::Unplug) {
+		bool due = pinClaimUnplugDue();
+		uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), due);
+		if (due) uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Restart), BTN_RESTART, true);
+		return n;
+	}
+	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
+	if (s_view == View::Set) {
+		uiListAddRows(&s_list, out, &n, max, true);
+		if (s_sel >= 0) {
+			uiControlAdd(out, &n, max, UI_FIX(ServoCtl::EditMinus), BTN_MINUS, canStep(s_sel, -1));
+			uiControlAdd(out, &n, max, UI_FIX(ServoCtl::EditPlus), BTN_PLUS, canStep(s_sel, +1));
+		}
+		uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Apply), BTN_APPLY, s_pending && !s_st.running);
+		uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Defaults), BTN_DEFAULTS, true);
+		return n;
+	}
+	const char *l1, *l2, *l3;
+	uint16_t col;
+	bool retry;
+	claimMessage(&l1, &l2, &l3, &col, &retry);
+	bool run = s_st.running && live();
+	if (retry) uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Retry), BTN_RETRY, true);
+	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Dial),
+	             UiRect{ 0, SERVO_DIAL_Y0, GFX_W, SERVO_DIAL_Y1 - SERVO_DIAL_Y0 + 1 }, run);
+	if (twoServos()) {
+		uiControlAdd(out, &n, max, UI_FIX(ServoCtl::SelA), BTN_SEL_A, true);
+		uiControlAdd(out, &n, max, UI_FIX(ServoCtl::SelB), BTN_SEL_B, true);
+		uiControlAdd(out, &n, max, UI_FIX(ServoCtl::SelAB), BTN_SEL_AB, true);
+	}
+	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Speed), SPEED_TRACK, true);
+	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Min), BTN_MIN, run);
+	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Centre), BTN_CENTRE, run);
+	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Max), BTN_MAX, run);
+	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Sweep), BTN_SWEEP, run);
+	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Start), BTN_START,
+	             s_st.running || live());
+	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Set), BTN_SET, true);
+	return n;
+}
 
 void uiServoEnter() {
 	servoJobNewSession();

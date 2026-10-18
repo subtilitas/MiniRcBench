@@ -30,3 +30,22 @@ bool uiAm32Active();
  * @return false once the user has asked to leave.
  */
 bool uiAm32Tick(const TouchState *t);
+
+/** @brief The AM32 CONFIG controls; the list rows are `UI_ROW(n, Row)`. @see ui_screen.h */
+enum class Am32Ctl : uint8_t {
+	EditMinus = 1, EditPlus,  /**< The editor bar, while a field is selected. */
+	Write,                    /**< HOLD TO WRITE. */
+	Revert,                   /**< REVERT. */
+	Hex,                      /**< HEX or FIELDS. */
+	Ok,                       /**< OK on the write result. */
+};
+
+struct UiControl;
+
+/**
+ * @brief The AM32 CONFIG controls on the current frame. @see ui_screen.h
+ * @param out At most @p max controls.
+ * @param max Room in @p out.
+ * @return The number written.
+ */
+uint8_t uiAm32Controls(UiControl *out, uint8_t max);

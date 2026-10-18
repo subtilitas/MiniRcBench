@@ -129,6 +129,20 @@ int uiListRowAt(const UiList *l, int x, int y);
  */
 UiRect uiListRowRect(const UiList *l, int row);
 
+struct UiControl;
+
+/**
+ * @brief Append `UI_ROW(n, Row)` for each row n with a visible part, at its
+ *        rectangle on the current frame. @see ui_screen.h
+ * @param l       The list.
+ * @param out     Control table.
+ * @param n       Controls in it; advanced per row added.
+ * @param max     Room in @p out.
+ * @param enabled Whether a tap on a row acts.
+ */
+void uiListAddRows(const UiList *l, UiControl *out, uint8_t *n, uint8_t max,
+                   bool enabled);
+
 /**
  * @brief Feed one frame of touch to the list.
  * @param[in,out] l The list.

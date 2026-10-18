@@ -42,3 +42,31 @@ void uiServoEnter();
  *         page, or after BACK when no job had run.
  */
 bool uiServoTick(const TouchState *t);
+
+/**
+ * @brief The SERVO controls, of all three views; the SET rows are
+ *        `UI_ROW(n, Row)`. @see ui_screen.h
+ */
+enum class ServoCtl : uint8_t {
+	Min = 1, Centre, Max, Sweep,  /**< The button row. */
+	Start,                        /**< HOLD TO START, or STOP. */
+	Set,                          /**< SET. */
+	SelA, SelB, SelAB,            /**< The selector, with two servos. */
+	Retry,                        /**< RETRY under a refusal or a job error. */
+	Dial,                         /**< The dial's band; a press drives only on the dial itself. */
+	Speed,                        /**< SPEED's track. */
+	EditMinus, EditPlus,          /**< SET's editor bar, while a row is selected. */
+	Apply,                        /**< HOLD TO APPLY. */
+	Defaults,                     /**< DEFAULTS, or STOP. */
+	Restart,                      /**< RESTART DSHOT on the unplug page. */
+};
+
+struct UiControl;
+
+/**
+ * @brief The SERVO view that is up controls on the current frame. @see ui_screen.h
+ * @param out At most @p max controls.
+ * @param max Room in @p out.
+ * @return The number written.
+ */
+uint8_t uiServoControls(UiControl *out, uint8_t max);

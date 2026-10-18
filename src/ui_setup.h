@@ -37,3 +37,30 @@ void uiSetupEnter();
  *         screen and repaint.
  */
 bool uiSetupTick(const TouchState *t);
+
+/** @brief The SETUP rows, in screen order. @see ui_screen.h */
+enum class SetupRow : uint8_t {
+	Board,      /**< BOARD, read-only. */
+	Pin,        /**< ESC PIN, - and +. */
+	Speed,      /**< DSHOT rate, - and +. */
+	Kiss,       /**< KISS TELEM, toggle. */
+	KissPin,    /**< KISS PIN, - and +, while KISS is on. */
+	Contrast,   /**< HIGH CONTRAST, toggle. */
+	Backlight,  /**< BACKLIGHT, - and +. */
+};
+
+/** @brief The SETUP footer. @see ui_screen.h */
+enum class SetupCtl : uint8_t {
+	Save = 1,  /**< HOLD TO SAVE. */
+	Reset,     /**< RESET. */
+};
+
+struct UiControl;
+
+/**
+ * @brief The SETUP controls on the current frame. @see ui_screen.h
+ * @param out At most @p max controls.
+ * @param max Room in @p out.
+ * @return The number written.
+ */
+uint8_t uiSetupControls(UiControl *out, uint8_t max);
