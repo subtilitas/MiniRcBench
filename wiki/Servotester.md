@@ -136,10 +136,11 @@ spiegelbildlich eingebaut ist.
 
 Zwei Servos brauchen einen freien KISS-Pin. Kommen dort KISS-Telegramme an,
 oder sind ESC-Pin und KISS-Pin unter SETUP derselbe Pin, bietet der
-Bildschirm nur ein Servo an, und der SET-Bildschirm nennt den Grund. Hat der
-Bildschirm den ESC-Pin allein übernommen, bleibt `TWO` aus, bis du den
-Bildschirm erneut öffnest. Wartet er noch auf die Pins, etwa weil ein ESC
-antwortet, wird `TWO` wieder angeboten, sobald der KISS-Pin frei ist.
+Bildschirm nur ein Servo an, und der SET-Bildschirm nennt den Grund.
+Solange der Bildschirm auf die Pins wartet, etwa weil ein ESC antwortet, weiß
+er nicht, ob der KISS-Pin frei ist, und `TWO` lässt sich wählen. Ist der
+KISS-Pin dann belegt, übernimmt der Bildschirm nur den ESC-Pin und schaltet
+auf ein Servo zurück; `TWO` bleibt aus, bis du den Bildschirm erneut öffnest.
 
 <img src="img/servo-samepin.png" width="240" alt="TWO nicht verfügbar: beide Pins sind derselbe GPIO">
 
@@ -198,8 +199,8 @@ Servobildschirm öffnest, beginnt er mit STANDARD PWM, 50 Hz und einem Servo.
 `BACK` beendet die Impulse und fordert dich auf, das Servo abzuziehen. Der
 letzte Impuls läuft vorher vollständig aus; bei 50 Hz dauert das bis zu
 41 ms. Danach hält ein schwacher Pull-down den ESC-Pin auf Low, bis DShot
-wieder läuft, und den KISS-Pin, bis der KISS-Empfänger ihn übernimmt; ist
-KISS aus, bleibt er auf Low.
+wieder läuft. Mit zwei Servos hält er auch den KISS-Pin auf Low, bis der
+KISS-Empfänger ihn übernimmt; ist KISS aus, bleibt er auf Low.
 
 <img src="img/servo-unplug.png" width="240" alt="UNPLUG THE SERVO">
 

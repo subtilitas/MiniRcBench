@@ -117,13 +117,14 @@ protocol.
   `src/servo.cmake`, `src/kst.cmake`, `test/servo.mk` and `test/kst.mk`.
 - The servo tester, slice 2 of
   [docs/design/pin-claim.md](docs/design/pin-claim.md)
-  ([design note](docs/design/servo-tester.md)), on CFG → SERVO. One servo on
-  the ESC pin, or two on the ESC and KISS pins, with hardware PWM pulses of
-  400 µs to 2500 µs at 50 Hz to 560 Hz, in rcbench's five profiles. The screen
-  starts SAFE, the pins at level 0; HOLD TO START, 1000 ms, puts CENTRE on
-  every bound pin, and STOP acts on press. The drawn horn is the control.
-  MIN, CENTRE, MAX, a square, sine or triangle sweep with rate, amplitude,
-  dwell and count, and SPEED, a slew from 10 % to 100 %. A screen stall of
+  ([design note](docs/design/servo-tester.md)), on CFG → SERVO. It drives
+  one servo on the ESC pin, or two on the ESC and KISS pins, with hardware
+  PWM pulses of 400 µs to 2500 µs at 50 Hz to 560 Hz, in rcbench's five
+  profiles. The screen starts SAFE, the pins at level 0; HOLD TO START,
+  1000 ms, puts CENTRE on every bound pin, and STOP acts on press. The drawn
+  horn is the control. MIN, CENTRE and MAX move the servo to an end or the
+  centre, a square, sine or triangle sweep runs with rate, amplitude, dwell
+  and count, and SPEED sets a slew from 10 % to 100 %. A screen stall of
   250 ms stops the pulses until the next HOLD TO START. The SET screen
   changes the profile only while SAFE and holds a heli profile or a rate
   above 60 Hz behind a warning and HOLD TO APPLY; while RUNNING its footer

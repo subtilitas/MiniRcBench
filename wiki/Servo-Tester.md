@@ -127,10 +127,11 @@ moves the opposite way when both follow, for a pair mounted face to face.
 
 Two servos need the KISS pin free. If KISS frames arrive on it, or the ESC pin
 and the KISS pin are the same pin under SETUP, the screen offers one servo
-only, and the SET screen says why. Once the screen has taken the ESC pin
-alone, `TWO` stays off until you open the screen again. While the screen is
-still waiting for the pins, for example while an ESC answers, `TWO` comes
-back as soon as the KISS pin is free.
+only, and the SET screen says why. While the screen waits for the pins, for
+example while an ESC answers, it cannot know whether the KISS pin is free,
+and `TWO` can be chosen. If the screen then finds the KISS pin taken, it takes
+the ESC pin alone and goes back to one servo, and `TWO` stays off until you
+open the screen again.
 
 <img src="img/servo-samepin.png" width="240" alt="TWO not offered: both pins are one GPIO">
 
@@ -185,8 +186,8 @@ starts at STANDARD PWM, 50 Hz, one servo.
 
 `BACK` ends the pulses and asks you to unplug the servo. The last pulse
 completes first, which takes up to 41 ms at 50 Hz. A weak pull-down then
-holds the ESC pin low until DShot runs again. It holds the KISS pin low until
-the KISS receiver takes it, or for good with KISS off.
+holds the ESC pin low until DShot runs again. With two servos it also holds
+the KISS pin low until the KISS receiver takes it, or for good with KISS off.
 
 <img src="img/servo-unplug.png" width="240" alt="UNPLUG THE SERVO">
 

@@ -815,10 +815,11 @@ valid PWM throttle signal; it claims by itself 500 ms after the ESC goes
 quiet. That check misses an ESC that does not answer in bidirectional DShot,
 so the screen says `PULSES ON GP29 ARE THROTTLE TO AN ESC.` Two servos also
 need AUX free: a KISS frame within 500 ms, or SIG and AUX on one GPIO, leaves
-one servo only, with the reason on the SET screen. Once the screen holds SIG
-alone, TWO stays off until the screen is opened again. While the screen holds
-no claim, for example while an ESC answers, each claim asks for both pins
-again, and TWO is offered once AUX is free.
+one servo only, with the reason on the SET screen. While the screen waits for
+the pins, for example while an ESC answers, it cannot know whether AUX is
+free, and TWO can be chosen. If the claim then finds AUX refused, the screen
+takes SIG alone and goes back to one servo, and TWO stays off until the
+screen is opened again.
 
 | Control | What it does |
 |---|---|
