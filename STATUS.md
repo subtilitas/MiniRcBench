@@ -25,7 +25,10 @@ numbers are in the DshotDisplay tracker.
 MiniRcBench is a bench tester for one ESC (electronic speed controller). A
 servo tester and KST and Chaservo servo programming, both on the same two
 signal pins, are planned; their design notes are in
-[docs/design/](docs/design/README.md). The board is the throttle source. It
+[docs/design/](docs/design/README.md). The pin claim they share is built
+(slice 1 of [pin-claim.md](docs/design/pin-claim.md)): the AM32 editor runs on
+it, and the SERVO and KST buttons on CFG are drawn disabled over stub screens.
+The board is the throttle source. It
 sends bidirectional DShot (a digital ESC protocol in which the ESC answers each
 frame on the same wire) and decodes the
 eRPM (electrical revolutions per minute) and EDT (Extended DShot Telemetry)
@@ -37,7 +40,7 @@ The two cores of the RP2350 split the work by deadline:
 
 | | core0 | core1 |
 | --- | --- | --- |
-| Work | USB (Universal Serial Bus) device task, touch, UI (user interface) rendering, SD (Secure Digital) card logging, settings, serial telemetry dump | DShot frame pump, eRPM and EDT decode, KISS request and receive |
+| Work | USB (Universal Serial Bus) device task, touch, UI (user interface) rendering, SD (Secure Digital) card logging, settings, serial telemetry dump, the pin claim's state machine | DShot frame pump, eRPM and EDT decode, KISS request and receive; while a pin claim holds, the claiming screen's job instead (none is built yet) |
 | Rate | one UI frame every 25 ms (40 Hz); USB task, log encode and card flush on every loop pass | one DShot frame every 1000 µs (1 kHz); KISS receive FIFO (first-in, first-out buffer) drained on every loop pass |
 | May block | yes: display DMA (direct memory access) bursts of several ms, card writes of tens of ms | never |
 
@@ -45,7 +48,19 @@ The cores share one struct, `EscTelemetry` in `src/esc_task.h`, guarded by a
 critical section. Core0 sends a heartbeat every UI frame. When none arrives for
 250 ms (`UI_HEARTBEAT_TIMEOUT_MS`), core1 sends zero throttle on its own.
 Writing flash parks core1, because core1 runs from XIP (execute-in-place)
-flash, so a settings save is refused while armed.
+flash, so a settings save is refused while armed and while a pin claim holds.
+
+A screen that needs the signal pins claims them (`src/pin_claim.h`). The claim
+asks core1 to suspend the DShot pump. Once core1 sees the request, it sends
+zero frames for at least 250 ms (`ARM_ZERO_THROTTLE_MS`) after the last
+throttle frame, then stops the pump, releases the pin, which turns its pulls
+off, puts the pull-up back on it and ends the KISS receiver. A rebuild after a
+SETUP pin change drains the same way. `loop1()` runs `escTaskPoll()` and then
+`core1JobPoll()`, which binds, steps and releases the claiming screen's job
+(`src/core1_job.h`); no job is built, and the AM32 transport runs on core0.
+Leaving rebuilds the pump from the wiring it had, disarmed. For SERVO and KST
+the claim restarts DShot only after a page that tells the user to unplug the
+servo.
 
 Rates and defaults, from `src/config.h` and `src/main.cpp`:
 
@@ -72,7 +87,8 @@ Rates and defaults, from `src/config.h` and `src/main.cpp`:
   (`SERIAL_TELEMETRY` = 1).
 - Safety: arming needs a 1000 ms hold with the throttle at zero. The throttle
   ceiling starts at 400 of 2000 (20 %). Idle disarm after 30 s. Entering the
-  settings screens disarms.
+  settings screens disarms. DShot gives up the signal pin only after at least
+  250 ms of zero frames since the last throttle frame.
 
 PIO (programmable input/output) blocks: three, each with 4 state machines and
 32 instruction slots.
@@ -142,7 +158,9 @@ record either way.
 | SDIO card driver in `src/sdio/`: protocol, PIO and DMA bus, library callbacks | CRC7 and CRC16 against the specification's examples, command framing, response parsing, CSD (card-specific data register), four-bit packing, CRC status token; initialisation, reads and writes against a simulated card (standard capacity SDSC v1 and v2, high capacity SDHC, no card, voltage mismatch, timeouts, removal); the two PIO programs run in a cycle-level model against a card model (`test/pio_sdio_emu.py`: CMD0, R1, R2, single and multiple block reads, CMD12, a write and its CRC status token, at 400 kHz, 10 MHz and 25 MHz), a model and not proof of hardware timing; the bus code in `sd_pio.c` is compiled only, and the model's host side follows it by hand | not tested on hardware; open item 7 lists the bench tests |
 | Blackbox logging to SD, CFG → SD LOG screen | encoder, ring buffer, round trip through `blackbox_decode`, screen states | hardware use recorded with the previous SDIO driver on the 2.8" board; see below |
 | USB card reader (read-only mass storage) | handover state machine, screen | not recorded |
-| AM32 settings editor over the signal wire (AM32 is an open-source ESC firmware) | init string, CRC-16/ARC, 39-field codec, timing advance encodings, write interlock | hardware use recorded: ab79c67, bd90e17 |
+| AM32 settings editor over the signal wire (AM32 is an open-source ESC firmware) | init string, CRC-16/ARC, 39-field codec, timing advance encodings, write interlock; the screen on the pin claim, the latched GPIO, the drain before the handover | hardware use recorded: ab79c67, bd90e17, both before the screen moved onto the pin claim; the claim and its drain: not tested on hardware |
+| Pin claim (`src/pin_claim.*`) and core1 job dispatch (`src/core1_job.*`), the zero-throttle drain in `src/esc_task.*` | each refusal rule at its 500 ms boundary and their order; the handover decisions of `escTaskPoll()` (`escHandoverStep()`, `escDrainSlot()`, `escPumpFrameSent()`, `escPumpBind()`) one 1 ms slot at a time: 250 zero frames, the teardown 251 ms after the last throttle frame, the bind disarmed; the order of the two cores' steps against fake jobs, BACK and RETRY, Restoring, the unplug-page rule, the restore wiring, the start guard, the heartbeat rule across a millis() rollover; the PIO and pad calls around those decisions are compiled only | not tested on hardware; open item 9 |
+| Settings screen layout: BEEP and SD LOG in one row, AM32, SERVO, KST and SETUP in the destination row, SERVO and KST disabled | one gap in each row, disabled drawing, no pressed look and no action on SERVO and KST | not recorded |
 | Settings in flash (CFG → SETUP) | block validation, CRC, board id check, pin defaults, the block layout DshotDisplay 2.x writes | not recorded; 46a64a7 states no hardware coverage |
 | Touch handling, high-contrast theme, throttle gauge | tap on release, repeats, screen residue, gauge reach | hardware use recorded: the reports #22 to #24 named in the v2.3 commits; the fixes on hardware: not recorded |
 | Serial telemetry dump | none | not recorded |
@@ -218,6 +236,15 @@ Not in this history: the DshotDisplay repository's branches
    repository's wiki only once its first page exists, so that page is made by
    hand in the Wiki tab. Until then the clone in `docs.yml` fails and no
    manual is published.
+9. **Pin claim on hardware.** The PIO and pad calls of the drain, the
+   teardown and the rebuild run only in the firmware; the host suite runs the
+   decisions they act on. Bench tests needed, with an oscilloscope on the ESC
+   signal pin: AM32 opened within 250 ms of the last throttle frame (zero
+   frames for at least 250 ms after it, then no edges); the line's level
+   after the teardown, which stops, releases and puts the pull-up back, so it
+   should idle high; a SETUP pin change during the same window; and an AM32
+   session left with BACK (DShot back, the EDT enable as its first
+   frames).
 
 ## Known limitations
 
@@ -254,12 +281,12 @@ Not in this history: the DshotDisplay repository's branches
 **Host suite.** `make -C test run` compiles the firmware sources with a C++17
 compiler against the stubs in `test/stubs/`, and the DShot core in
 `src/dshot/` and the SDIO protocol layers in `src/sdio/` as C11, and runs one
-binary, `dshot_tests`. `test/test_main.cpp` runs twelve suites:
+binary, `dshot_tests`. `test/test_main.cpp` runs fifteen suites:
 
 | Suite | File | Covers |
 | --- | --- | --- |
 | `runAm32Tests` | `test_am32.cpp` | AM32 init string, CRC-16/ARC, settings address per MCU (microcontroller) family, field codec, timing advance |
-| `runUiTests` | `test_ui.cpp` (includes `ui_am32.cpp`) | screens, throttle modes, safety interlocks, core1 frame decision, EDT enable, EDT enable at pump start against a simulated ESC, touch, SETUP, SD LOG, USB DRIVE, screenshots |
+| `runUiTests` | `test_ui.cpp` (includes `ui_am32.cpp`) | screens, throttle modes, safety interlocks, core1 frame decision, EDT enable, EDT enable at pump start against a simulated ESC, touch, SETUP, SD LOG, USB DRIVE, the settings rows with SERVO and KST disabled, screenshots |
 | `runKissTests` | `test_kiss.cpp` | KISS CRC-8, decode, resynchronisation, request payload, KISS/EDT merge, expiry, EDT enable rule |
 | `runGfxTests` | `test_gfx.cpp` | dirty bands, glyph rendering, clip rectangle |
 | `runBlackboxTests` | `test_blackbox.cpp` | variable-byte and zig-zag encodings, header, frames, time prediction |
@@ -270,6 +297,13 @@ binary, `dshot_tests`. `test/test_main.cpp` runs twelve suites:
 | `runDshotTelemTests` | `test_dshot_telem.cpp` | line and group code, eRPM and EDT decode, checksum against single-bit errors, sampler (from rcbench); three-state poll, counters, every normalised eRPM frame decoded with EDT on |
 | `runDshotEdtTests` | `test_dshot_edt.cpp` | extended telemetry schedule against an AM32 model (from rcbench) |
 | `runSdioTests` | `test_sdio.cpp` | SDIO driver: CRC7 and CRC16 vectors, framing, responses, CSD, four-bit packing, CRC status token; initialisation, reads and writes against a simulated card |
+| `runClaimTests` | `test_claim.cpp` (includes `core1_job.cpp`) | pin claim refusals at their 500 ms boundaries and their order, the handover decisions of `escTaskPoll()` one 1 ms slot at a time, the zero-throttle drain through the claim, Restoring, the order of the two cores' steps against fake jobs, BACK in every state, RETRY, the unplug-page rule, restore wiring, the job start guard, the heartbeat rule across a millis() rollover, no settings save during a claim, the AM32 screen on the claim |
+| `runServoTests` | `test_servo.cpp` | the servo tester's stub screen: not built, claims nothing, leaves at once |
+| `runKstTests` | `test_kst.cpp` | the KST programming stub screen: not built, claims nothing, leaves at once |
+
+`test/servo.mk` and `test/kst.mk` list each feature's sources and test files
+for `test/Makefile`, as `src/servo.cmake` and `src/kst.cmake` do for
+`CMakeLists.txt`.
 
 Other targets in `test/Makefile`: `syntax` typechecks the device-only sources
 with `-Werror`; `pioemu` runs `test/pio_sdio_emu.py`, the SDIO PIO programs
@@ -326,28 +360,33 @@ model.
 | `src/am32_eeprom.cpp` | 69 | 67 | 97.1% |
 | `src/am32_eeprom.h` | 11 | 11 | 100.0% |
 | `src/blackbox_encode.cpp` | 113 | 113 | 100.0% |
+| `src/core1_job.cpp` | 67 | 67 | 100.0% |
 | `src/dshot/dshot_edt.c` | 33 | 33 | 100.0% |
 | `src/dshot/dshot_frame.c` | 25 | 25 | 100.0% |
 | `src/dshot/dshot_telem.c` | 143 | 143 | 100.0% |
 | `src/esc_merge.cpp` | 44 | 44 | 100.0% |
-| `src/esc_task.h` | 137 | 137 | 100.0% |
+| `src/esc_task.h` | 156 | 156 | 100.0% |
 | `src/gfx.cpp` | 201 | 186 | 92.5% |
 | `src/kiss_telem.cpp` | 37 | 35 | 94.6% |
 | `src/log_ring.cpp` | 43 | 39 | 90.7% |
+| `src/pin_claim.cpp` | 114 | 114 | 100.0% |
+| `src/pin_claim.h` | 11 | 11 | 100.0% |
 | `src/plat.h` | 5 | 5 | 100.0% |
 | `src/rpm_filter.h` | 17 | 17 | 100.0% |
 | `src/sd_log.h` | 4 | 4 | 100.0% |
 | `src/sdio/sd_host.c` | 180 | 180 | 100.0% |
 | `src/sdio/sd_proto.c` | 135 | 135 | 100.0% |
-| `src/settings.cpp` | 118 | 117 | 99.2% |
+| `src/settings.cpp` | 119 | 118 | 99.2% |
 | `src/theme.cpp` | 11 | 11 | 100.0% |
-| `src/ui.cpp` | 608 | 602 | 99.0% |
-| `src/ui_am32.cpp` | 347 | 316 | 91.1% |
+| `src/ui.cpp` | 624 | 611 | 97.9% |
+| `src/ui_am32.cpp` | 353 | 322 | 91.2% |
 | `src/ui_input.cpp` | 25 | 25 | 100.0% |
+| `src/ui_kst.cpp` | 4 | 4 | 100.0% |
+| `src/ui_servo.cpp` | 4 | 4 | 100.0% |
 | `src/ui_setup.cpp` | 187 | 180 | 96.3% |
 | `src/ui_widgets.cpp` | 43 | 43 | 100.0% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **2573** | **2503** | **97.3%** |
+| **Total** | **2815** | **2738** | **97.3%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->

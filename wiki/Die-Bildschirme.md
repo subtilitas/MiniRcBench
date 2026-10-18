@@ -71,7 +71,10 @@ Erreichbar über `CFG`, das dabei **entschärft**.
   welcher ESC angeschlossen ist. Es funktioniert nur im entschärften Zustand.
   Die Bildunterschrift lautet `BEEP NEEDS THE ESC DISARMED`, nach einer
   abgelehnten Betätigung `REFUSED - DISARM THE ESC FIRST`.
-- **AM32 / SD LOG / SETUP**: die drei Unterbildschirme.
+- **SD LOG**: neben BEEP, der Aufzeichnungs-Bildschirm.
+- **AM32 / SERVO / KST / SETUP**: die untere Reihe. `SERVO` (Servotester) und
+  `KST` (Programmierung von KST- und Chaservo-Servos) sind nur umrandet: sie
+  sind noch nicht umgesetzt und tun nichts, wenn du sie antippst.
 
 `UNSAVED` erscheint unter dem Titel, wenn ein Wert hier oder im SETUP vom
 Flash abweicht. Die Schaltfläche zum Speichern liegt im SETUP.

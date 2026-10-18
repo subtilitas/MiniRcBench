@@ -37,8 +37,52 @@ uint16_t fakeThrottle();
 /** @brief Arm state of the fake DShot task. */
 bool fakeArmed();
 
-/** @brief True when the DShot task has been resumed and owns the pin again. */
+/**
+ * @brief True while no suspend is requested: DShot has the pin or rebuilds
+ *        on the next pass.
+ */
 bool fakePinReturned();
+
+/** @brief The wiring escTaskConfigure() last set: what a rebuild binds. */
+struct FakeWiring {
+	uint8_t  dshotPin;    /**< ESC signal GPIO. */
+	uint16_t dshotKbaud;  /**< DShot bitrate. */
+	bool     kissEnable;  /**< KISS wire expected. */
+	uint8_t  kissPin;     /**< KISS GPIO. */
+};
+
+/** @brief The fake pump's wiring at the time of the call. */
+FakeWiring fakeWiring();
+
+/**
+ * @brief One pass of the fake DShot pump on core1: escTaskPoll()'s handover
+ *        and one frame decision on the shipped rules.
+ *
+ * Not modelled: the PIO, the reply fold, the frame timing, the heartbeat
+ * (uiAlive is true), the beacon request and the KISS receiver.
+ */
+void fakePumpPoll();
+
+/** @brief EscPump::lastThrottleMs of the fake pump. */
+uint32_t fakeLastThrottleMs();
+
+/** @brief How many times escTaskResume() has been called. */
+int fakeResumeCount();
+
+/** @brief How many times the fake pump has bound. */
+int fakeRebuildCount();
+
+/** @brief The wiring the fake pump's last bind used. */
+FakeWiring fakeResumeWiring();
+
+/** @brief Whether the core1 job was idle at the last escTaskResume(). */
+bool fakeResumeJobIdle();
+
+/** @brief GPIO the AM32 transport was last handed by am32BlBegin(). */
+uint8_t fakeAm32Pin();
+
+/** @brief Whether a suspend was still requested at the last am32BlEnd(). */
+bool fakeAm32EndBeforeResume();
 
 /** @brief Set the telemetry the fake ESC reports. */
 void fakeSetTelemetry(const EscTelemetry *t);

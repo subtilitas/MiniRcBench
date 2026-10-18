@@ -12,6 +12,7 @@
  */
 
 #include "pico/stdlib.h"
+#include "pico/critical_section.h"
 #include "hardware/adc.h"
 #include "hardware/pwm.h"
 #include "hardware/clocks.h"
@@ -22,6 +23,7 @@
 #include "st7789.h"
 #include "touch.h"
 #include "esc_task.h"
+#include "core1_job.h"
 #include "settings.h"
 #include "config.h"
 #include "am32_bl.h"
@@ -30,6 +32,7 @@
 #include "usb_msc.h"
 #include "ui.h"
 #include "fakes.h"
+#include "plat.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -64,6 +67,11 @@ void pwm_init(unsigned, pwm_config *, bool) {}
 void pwm_set_gpio_level(unsigned, uint16_t) {}
 
 uint32_t clock_get_hz(enum clock_index) { return 150000000u; }
+
+// --- Critical sections: one thread, so there is nothing to exclude ---
+extern "C" void critical_section_init(critical_section_t *) {}
+extern "C" void critical_section_enter_blocking(critical_section_t *) {}
+extern "C" void critical_section_exit(critical_section_t *) {}
 
 // --- I2C: every transfer fails, which is what an absent touch controller
 //     does. touchPoll() then reports no contact and the fake touch injector
@@ -165,8 +173,11 @@ uint16_t am32Crc16(const uint8_t *d, uint16_t n) {
 	return c;
 }
 
-void am32BlBegin(uint8_t) {}
-void am32BlEnd() {}
+static uint8_t g_am32Pin = 255;
+uint8_t fakeAm32Pin() { return g_am32Pin; }
+void am32BlBegin(uint8_t pin) { g_am32Pin = pin; }
+// Defined with the DShot task below: it records whether DShot was still
+// down when the transport let go of the pin.
 void am32BlJumpToBootloader() {}
 void am32BlSetBaud(uint32_t) {}
 uint32_t am32BlBaud() { return 19200; }
@@ -187,12 +198,14 @@ bool am32BlAddrDiv4() { return false; }
 // ---------------------------------------------------------------------------
 static uint16_t g_throttle = 0;
 static bool     g_armed = false;
+static bool     g_suspendReq = false;
+static bool     g_rebuildReq = false;
 static bool     g_suspended = false;
 static EscTelemetry g_tel;
 
 uint16_t fakeThrottle() { return g_throttle; }
 bool fakeArmed() { return g_armed; }
-bool fakePinReturned() { return !g_suspended; }
+bool fakePinReturned() { return !g_suspendReq; }
 void fakeSetTelemetry(const EscTelemetry *t) { g_tel = *t; }
 
 // These three mirror esc_task.cpp deliberately, clamp for clamp. They used not
@@ -208,7 +221,9 @@ void escSetArmed(bool a) {
 static uint8_t g_poles = 14;
 uint8_t fakePoles() { return g_poles; }
 void escSetPoles(uint8_t p) { g_poles = p < 2 ? 2 : p; }
-void escHeartbeat() {}
+static uint32_t g_heartbeatMs = 0;
+void escHeartbeat() { g_heartbeatMs = millis(); }
+uint32_t escHeartbeatMs() { return g_heartbeatMs; }
 // Mirrors the two-line rule in esc_task.cpp: the command is refused while
 // armed. esc_task.cpp cannot be linked here (PIO, UART), so this is a copy --
 // but the thing under test is what the UI does with the answer, and that is
@@ -234,9 +249,71 @@ bool escEdtRequested() { return g_edtRequested; }
 // bug where readings never expired could not have been caught by any of them.
 // Tests that want live data now say when it arrived.
 void escSnapshot(EscTelemetry *o) { *o = g_tel; }
-void escTaskSuspend() { g_suspended = true; }
-void escTaskResume() { g_suspended = false; }
+
+// The pump's handover on the shipped rules: escHandoverStep() decides run,
+// drain or teardown, escDrainSlot() or escPumpSlot() decides the frame,
+// escPumpFrameSent() stamps it, and escPumpBind() starts every binding. The
+// rest of escTaskPoll() is not modelled: no PIO, no reply is read or folded
+// into the telemetry, there is no 1 ms frame timing (one pass sends one frame,
+// however much time has passed), and escPumpSlot() is given uiAlive true, no
+// beacon request and no KISS receiver. Core1 is not a thread here:
+// fakePumpPoll() is one pass, and the tests call it between UI frames, so a
+// suspend, a drain and a rebuild each take as many passes as a test gives them.
+static EscPump    g_pump;
+static bool       g_pumpUp = false;
+static int        g_resumes = 0;
+static int        g_rebuilds = 0;
+static FakeWiring g_rebuildWiring = {};
+static bool       g_resumeJobIdle = true;
+
+void fakePumpPoll() {
+	uint32_t ms = millis();
+	EscHandover h = escHandoverStep(g_suspendReq, g_rebuildReq, g_pumpUp,
+	                                g_pump.lastThrottleMs, ms);
+	if (h == EscHandover::Teardown) {
+		g_pumpUp = false;
+		g_rebuildReq = false;
+		if (g_suspendReq) {
+			g_suspended = true;
+			return;
+		}
+	}
+	if (!g_suspendReq && !g_pumpUp) {
+		escPumpBind(&g_pump, &g_armed, &g_throttle);
+		g_pumpUp = true;
+		g_suspended = false;
+		g_rebuilds++;
+		g_rebuildWiring = fakeWiring();
+	}
+	EscSlot slot = h == EscHandover::Drain
+	             ? escDrainSlot()
+	             : escPumpSlot(&g_pump, &g_tel, g_armed, true, g_throttle, 0,
+	                           false, ms);
+	escPumpFrameSent(&g_pump, &slot.frame, ms);
+}
+
+uint32_t fakeLastThrottleMs() { return g_pump.lastThrottleMs; }
+
+void escTaskSuspend() {
+	escSetArmed(false);
+	g_suspendReq = true;
+}
+// The transport must let go of the pin before DShot is asked to take it back.
+static bool g_am32EndBeforeResume = false;
+bool fakeAm32EndBeforeResume() { return g_am32EndBeforeResume; }
+void am32BlEnd() { g_am32EndBeforeResume = g_suspendReq; }
 bool escTaskSuspended() { return g_suspended; }
+// Only the request, as in esc_task.cpp: the rebuild is the next
+// fakePumpPoll().
+void escTaskResume() {
+	g_suspendReq = false;
+	g_resumes++;
+	g_resumeJobIdle = core1JobPhase() == Core1JobPhase::Idle;
+}
+int fakeResumeCount() { return g_resumes; }
+int fakeRebuildCount() { return g_rebuilds; }
+FakeWiring fakeResumeWiring() { return g_rebuildWiring; }
+bool fakeResumeJobIdle() { return g_resumeJobIdle; }
 
 // Mirrors esc_task.cpp: a wiring change disarms and zeroes the throttle,
 // because the ESC on the old pin stops hearing frames the moment it is
@@ -251,19 +328,30 @@ bool escTaskSuspended() { return g_suspended; }
 // unmistakable. @see cfg_pin_defaults
 static uint8_t  g_dshotPin = 255;
 static uint16_t g_dshotKbaud = DSHOT_SPEED_KBAUD;
+static bool     g_kissEnable = false;
+static uint8_t  g_kissPin = 255;
 static int      g_configures = 0;
 int fakeConfigureCount() { return g_configures; }
 uint16_t fakeDshotKbaud() { return g_dshotKbaud; }
-void escTaskConfigure(uint8_t pin, uint16_t kbaud, bool, uint8_t) {
-	if (g_dshotPin == pin && g_dshotKbaud == kbaud) return;
+void escTaskConfigure(uint8_t pin, uint16_t kbaud, bool kissEnable, uint8_t kissPin) {
+	if (g_dshotPin == pin && g_dshotKbaud == kbaud &&
+	    g_kissEnable == kissEnable && g_kissPin == kissPin)
+		return;
 	g_dshotPin = pin;
 	g_dshotKbaud = kbaud;
-	g_armed = false;
-	g_throttle = 0;
+	g_kissEnable = kissEnable;
+	g_kissPin = kissPin;
+	escSetArmed(false);
+	g_rebuildReq = true;
 	g_configures++;
 }
 uint8_t escTaskDshotPin() { return g_dshotPin; }
 uint16_t escTaskDshotKbaud() { return g_dshotKbaud; }
+uint8_t escTaskKissPin() { return g_kissPin; }
+FakeWiring fakeWiring() {
+	FakeWiring w = {g_dshotPin, g_dshotKbaud, g_kissEnable, g_kissPin};
+	return w;
+}
 
 // ---------------------------------------------------------------------------
 // Settings storage

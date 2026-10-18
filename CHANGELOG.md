@@ -36,7 +36,9 @@ DMA is direct memory access, CSD is the card-specific data register, SCSI is
 Small Computer System Interface. SDSC,
 SDHC and SDXC are the standard, high and extended capacity SD card types.
 KISS telemetry is the serial telemetry protocol of the KISS ESC line, sent on
-its own wire. AM32 is an open-source ESC firmware.
+its own wire. AM32 is an open-source ESC firmware. PWM is pulse-width
+modulation. KST and Chaservo are servo brands that share one programming
+protocol.
 
 ## 0.1.0 - Unreleased
 
@@ -100,6 +102,26 @@ its own wire. AM32 is an open-source ESC firmware.
   within 1 system clock of its sampling point. It is a model, not proof of
   hardware timing. The Host tests job runs it, and the Firmware job holds its
   assembler to the SDK's `pioasm`.
+- The pin claim, slice 1 of
+  [docs/design/pin-claim.md](docs/design/pin-claim.md): `src/pin_claim.h`
+  hands the ESC and KISS pins to one screen at a time and refuses a claim
+  while armed, while another claim holds, while an ESC answers on the signal
+  pin within 500 ms (servo and KST screens; AM32 is exempt), and, for two
+  servos, while KISS frames arrive within 500 ms or both roles name one GPIO.
+  The servo and KST screens restart DShot only after their unplug page.
+- `src/core1_job.h`: core1 binds, steps and releases a job on the claimed
+  pins from `loop1()`, after the DShot pump. A job starts only while the pump
+  is suspended. No job is built yet.
+- Stub screens `src/ui_servo.cpp` and `src/ui_kst.cpp`, and per-feature
+  source lists `src/servo.cmake`, `src/kst.cmake`, `test/servo.mk` and
+  `test/kst.mk`, which the servo tester and the KST programmer replace.
+- `escTaskKissPin()`, and `escUiAlive()`, the one heartbeat rule for the pump
+  and every core1 job.
+- `pinClaimRetry()`: RETRY after a failed job bind keeps the claim.
+- Host tests for the pin claim (`runClaimTests`), and stub suites
+  `runServoTests` and `runKstTests`.
+- Build-time checks that no free GPIO is on the backlight's PWM slice, that
+  the free GPIOs share one slice, and that no two of them share a channel.
 
 ### Changed
 
@@ -174,6 +196,20 @@ its own wire. AM32 is an open-source ESC firmware.
   its card layer calls into it.
 - The SDIO pins need DAT0 to DAT3 consecutive and nothing more; CLK and CMD
   can be any other GPIO below 32.
+- Before the DShot pump gives up its pin, for the AM32 editor or after a SETUP
+  pin change, it sends zero-throttle frames for at least 250 ms
+  (`ARM_ZERO_THROTTLE_MS`) after the last throttle frame, then stops. The
+  release turns the pin's pulls off, and the pump puts the pull-up back on it
+  so the line idles high. An AM32 session opened sooner after a throttle
+  waits for the rest of that time. The decisions are pure functions in
+  `src/esc_task.h` (`escHandoverStep()`, `escDrainSlot()`), and a bind
+  disarms in `escPumpBind()`; the host suite runs them one 1 ms slot at a
+  time.
+- The AM32 editor takes the signal pin through the pin claim.
+- The settings screen puts BEEP and SD LOG in one row, 104 px each, and AM32,
+  SERVO, KST and SETUP in the bottom row, 50 px each. SERVO and KST are drawn
+  disabled and do not act.
+- A settings save is refused while a pin claim holds.
 
 ### Removed
 

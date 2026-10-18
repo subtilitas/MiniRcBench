@@ -45,6 +45,8 @@
  * - @ref config.h — every tunable setting
  * - @ref board_pins.h — the board's pin map, from the schematic
  * - @ref esc_task.h — core1 DShot pump and EDT decode
+ * - @ref pin_claim.h — a screen takes the two signal pins from DShot
+ * - @ref core1_job.h — core1 work on the claimed pins
  * - @ref ui.h — screens, touch handling, arm and throttle state machines
  * - @ref gfx.h — RGB565 framebuffer, dirty bands, fonts
  * - @ref st7789.h — panel init and DMA blitter
@@ -67,6 +69,7 @@
 #include "st7789.h"
 #include "touch.h"
 #include "esc_task.h"
+#include "core1_job.h"
 #include "ui.h"
 #include "sd_log.h"
 #include "usb_dev.h"
@@ -108,6 +111,7 @@ void setup() {
 
 	// Before anything can call escSnapshot(), and before core1 is launched.
 	escTaskInit();
+	core1JobInit();
 
 	gfxInit();
 	st7789Init();
@@ -207,13 +211,16 @@ void setup1() {
 }
 
 /**
- * @brief Core1 loop: nothing but the DShot frame pump.
+ * @brief Core1 loop: the DShot frame pump, or the job on the claimed pins.
  *
- * Deliberately kept free of anything that can block, so frame spacing stays
- * within tolerance regardless of what core0 is doing.
+ * escTaskPoll() returns at once while a pin claim holds the pins, and
+ * core1JobPoll() returns at once while no job runs, so one of the two does
+ * the work on any pass. Deliberately kept free of anything that can block, so
+ * frame spacing stays within tolerance regardless of what core0 is doing.
  */
 void loop1() {
 	escTaskPoll();
+	core1JobPoll();
 }
 
 /**

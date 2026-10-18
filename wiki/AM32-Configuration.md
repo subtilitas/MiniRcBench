@@ -18,7 +18,9 @@ does not update ESC firmware.
 Open `CFG → AM32`.
 
 The screen hands the signal pin from the DShot driver to the bootloader link
-(19200 baud, one wire, half-duplex), then starts searching.
+(19200 baud, one wire, half-duplex), then starts searching. Before DShot lets
+go, it sends throttle zero for at least 250 ms after the last throttle
+command, so an ESC that was running sees a stop before the line goes quiet.
 
 **Then power-cycle the ESC.** The AM32 bootloader listens only in a short
 window after power-up. Unplug the ESC battery and plug it back in while this

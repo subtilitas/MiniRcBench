@@ -68,7 +68,10 @@ Reached with `CFG`, which **disarms**.
   identify which ESC is connected. It works only while disarmed. The caption
   reads `BEEP NEEDS THE ESC DISARMED`, and `REFUSED - DISARM THE ESC FIRST`
   after a refused press.
-- **AM32 / SD LOG / SETUP**: the three sub-screens.
+- **SD LOG**: beside BEEP, the logging screen.
+- **AM32 / SERVO / KST / SETUP**: the bottom row. `SERVO` (servo tester) and
+  `KST` (KST and Chaservo servo programming) are drawn as outlines: they are
+  not built yet and do nothing when tapped.
 
 `UNSAVED` appears under the title when a value here or on SETUP differs from
 flash. The save button is on SETUP.

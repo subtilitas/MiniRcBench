@@ -228,6 +228,8 @@ add_executable(MiniRcBench
     src/cst328.cpp
     src/board_desc.cpp
     src/esc_task.cpp
+    src/pin_claim.cpp
+    src/core1_job.cpp
     src/am32_bl.cpp
     src/am32_eeprom.cpp
     src/kiss_telem.cpp
@@ -244,6 +246,11 @@ add_executable(MiniRcBench
     src/dshot/dshot_edt.c
     src/dshot/out_dshot.c
 )
+
+# The servo tester and the KST programmer list their own sources, so the two
+# never edit this file for that. Each adds to MiniRcBench with target_sources().
+include(src/servo.cmake)
+include(src/kst.cmake)
 
 # The KISS receiver is a PIO program (see pio_uart_rx.h for why it is not one
 # of the two hardware UARTs). pioasm assembles it into the build tree, and this
