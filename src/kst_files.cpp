@@ -234,7 +234,13 @@ static kst_store_t keepOldRecord(KstFirstWrite *out) {
 	kst_store_file_name(base, name, sizeof(name));
 	pathOf(name, to);
 	FRESULT fr = f_rename(from, to);
-	if (fr != FR_OK) return renameError(fr);
+	if (fr != FR_OK) {
+		// FatFs reports a rename whose last sync failed, and its sector
+		// window still holds the change, which the next call writes: ask the
+		// card where the record is.
+		FILINFO a, b;
+		if (f_stat(from, &a) != FR_NO_FILE || f_stat(to, &b) != FR_OK) return renameError(fr);
+	}
 	snprintf(out->keptName, sizeof(out->keptName), "%s", name);
 	return KST_STORE_OK;
 }

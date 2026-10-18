@@ -30,8 +30,9 @@
  * - A write error that persists, as a card that refuses writes gives:
  *   FatFs keeps the sector it could not write in its window, the create's
  *   remove fails with FR_DISK_ERR, and every later call that moves the window
- *   fails with FR_DISK_ERR until the card is mounted again, the list, LOAD
- *   and the record lookup among them. The new file's 0-byte entry stays in
+ *   fails with FR_DISK_ERR until the card is mounted again (SD LOG's RETRY,
+ *   the USB card reader's hand-back or a power cycle), the list, LOAD and
+ *   the record lookup among them. The new file's 0-byte entry stays in
  *   that sector and reaches the card if writes work again before a remount.
  * - A create whose close fails with a clean window, a data sector that does
  *   not take its write, leaves its file on the card, open in FatFs, which
@@ -73,7 +74,9 @@ const kst_store_io_t *kstFilesIo();
  * Saves @p backup as the next KSTnnn.TXT (kst_store_preset() and
  * kst_store_save()), then writes @p before as `KST/KST.TXT`. A record already
  * there is renamed to the next KSTnnn.TXT first; a record that cannot be
- * renamed is left as it is, and no new one is written. A card that does not
+ * renamed is left as it is, and no new one is written. A rename FatFs
+ * reports as failed that still took effect counts as kept: the record is
+ * looked up under both names. A card that does not
  * say whether a record is there (an error other than "no file") writes no
  * record either: `kept` is `KST_STORE_READ_ERROR`.
  *

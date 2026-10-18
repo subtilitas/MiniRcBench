@@ -36,6 +36,7 @@ bool     g_protected = false;
 int      g_open = 0;
 int      g_openDirs = 0;
 Failure  g_fail[(unsigned)FakeFatCall::Count];
+FRESULT  g_renameLate = FR_OK;
 unsigned g_calls[(unsigned)FakeFatCall::Count];
 
 /** @brief Count the call; the armed failure for it, or FR_OK. */
@@ -99,6 +100,7 @@ void fakeFatReset(uint32_t capacity) {
 	g_open = 0;
 	g_openDirs = 0;
 	memset(g_fail, 0, sizeof(g_fail));
+	g_renameLate = FR_OK;
 	memset(g_calls, 0, sizeof(g_calls));
 }
 
@@ -108,6 +110,8 @@ void fakeFatDirLimit(uint32_t entries) { g_dirLimit = entries; }
 void fakeFatFail(FakeFatCall call, FRESULT fr, unsigned skip) {
 	g_fail[(unsigned)call] = Failure{ true, skip, fr };
 }
+
+void fakeFatRenameFailsLate(FRESULT fr) { g_renameLate = fr; }
 
 void fakeFatPut(const char *path, const char *data, size_t len) {
 	int i = find(path);
@@ -308,10 +312,11 @@ FRESULT f_rename(const char *pathOld, const char *pathNew) {
 	if (g_entries[(size_t)i].opens) return FR_LOCKED;
 	if (find(pathNew) >= 0) return FR_EXIST;
 	if ((fr = parentOk(pathNew)) != FR_OK) return fr;
-	// A rename into another directory needs a new entry there.
-	std::string to = parentOf(pathNew);
-	if (strcasecmp(to.c_str(), parentOf(pathOld).c_str()) != 0 && childrenOf(to) >= g_dirLimit)
-		return FR_DENIED;
+	// FatFs registers the new name before it removes the old one, in the
+	// same directory too: a full directory refuses any rename.
+	if (childrenOf(parentOf(pathNew)) >= g_dirLimit) return FR_DENIED;
 	g_entries[(size_t)i].path = pathNew;
-	return FR_OK;
+	fr = g_renameLate;
+	g_renameLate = FR_OK;
+	return fr;
 }

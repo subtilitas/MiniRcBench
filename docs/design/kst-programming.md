@@ -463,26 +463,27 @@ reads: its directory sector is written when the FAT sector is read in and
 again at the sync, which reads it back, then the two data blocks, the two
 copies of the FAT, and FSINFO, the FAT32 free-space sector. The rename adds
 1 write when the old and the new entry share a sector, else 2 writes and 1
-read. Without an old record that is 445 block reads and 14 block writes,
-with one up to 698 reads and 16 writes. These counts are from FatFs R0.15
-run on a host against a FAT32 image with 997 KSTnnn.TXT files, with a disk
-layer that counts its calls. Each path also reads the root directory's
-sector that holds `KST`, 5 reads without an old record and 7 with one when
-the root fits in one sector; a root with many blackbox logs adds more, a
-number not counted here.
+read. Each path also reads the root directory's sector that holds `KST`,
+once per lookup and twice for the rename. Without an old record that is 450
+block reads, 5 of them in the root, and 14 block writes; with one, 705 reads,
+8 in the root, and 15 to 16 writes. These counts are from FatFs R0.15 run on
+a host against a FAT32 image with 997 KSTnnn.TXT files and a root that fits
+in one sector, with a disk layer that counts its calls; a root with many
+blackbox logs adds reads, a number not counted here. Each total below is the
+reads times one read plus the writes times one write.
 
-| Case | One read | One write | 445 reads and 14 writes | 698 reads and 16 writes |
+| Case | One read | One write | 450 reads and 14 writes | 705 reads and 16 writes |
 |---|---|---|---|---|
-| A typical card, busy and access of a few ms | under 10 ms | under 10 ms | under 4.6 s | under 7.2 s |
-| SDHC within the specification: 100 ms access, 250 ms busy | 5 ms command + 100 ms = 105 ms | 5 ms command + 1.2 ms transfer + 250 ms busy + 5 ms status = 261 ms | 46.7 s + 3.7 s = 50.4 s | 73.3 s + 4.2 s = 77.5 s |
-| SDXC within the specification: 500 ms busy | 105 ms | 511 ms | 46.7 s + 7.2 s = 53.9 s | 73.3 s + 8.2 s = 81.5 s |
-| The driver's limits: 250 ms per read block, 1000 ms busy, 3 tries each, every try failing its CRC (cyclic redundancy check) | 3 × 255 ms = 0.77 s | 3 × 1011 ms = 3.03 s | 340 s + 42 s = 383 s | 534 s + 49 s = 583 s |
+| A typical card, busy and access of a few ms | under 10 ms | under 10 ms | under 4.7 s | under 7.3 s |
+| SDHC within the specification: 100 ms access, 250 ms busy | 5 ms command + 100 ms = 105 ms | 5 ms command + 1.2 ms transfer + 250 ms busy + 5 ms status = 261 ms | 50.9 s | 78.2 s |
+| SDXC within the specification: 500 ms busy | 105 ms | 511 ms | 54.4 s | 82.2 s |
+| The driver's limits: 250 ms per read block, 1000 ms busy, 3 tries each, every try failing its CRC (cyclic redundancy check) | 3 × 255 ms = 0.765 s | 3 × 1011 ms = 3.033 s | 386.7 s | 587.9 s |
 
 A timeout ends the card's part sooner: `sdh_err_is_fatal()` marks the card not
 ready, and every later call fails at once. The other phases are smaller: the
 FILES listing is one pass, 63 reads, 6.6 s within the specification; SAVE AS
-is 3 passes and one file, 4 with the proposed name's walk, up to 254 reads and
-7 writes, 30.2 s on SDXC; RETRY MOUNT is the card's initialisation, up to 1.1
+is 3 passes and one file, 4 with the proposed name's walk, up to 257 reads and
+7 writes, 30.6 s on SDXC; RETRY MOUNT is the card's initialisation, up to 1.1
 s of polling with ACMD41, the SD command that waits for the card to be ready,
 and a few reads.
 
@@ -491,7 +492,7 @@ The cap, 15 s, covers every phase of a card whose reads and writes take under
 driver's loops keeps the servo powered in programming mode, with no frame on
 the wire. It does not cover a card that takes the specification's full access
 and busy times with a full directory: the first write's card calls then take
-50.4 s to 81.5 s, and SAVE AS up to 30.2 s. Whether to raise the cap, bound
+50.9 s to 82.2 s, and SAVE AS up to 30.6 s. Whether to raise the cap, bound
 the directory below 999 files or make fewer passes is open for step 5. A card
 past the cap: the supply goes off, the session is power-cycled as for any
 lapse, and the card call goes on to its end on core0; a write that waited for
@@ -1126,9 +1127,12 @@ a host:
 - A write error that persists, as a write-protected or failing card gives:
   FatFs keeps the sector it could not write in its window, the remove fails
   with `FR_DISK_ERR`, and every later call that moves the window fails the
-  same way until the card is mounted again (RETRY MOUNT): the list, LOAD and
-  the record lookup among them. The new file's 0-byte entry stays in that
-  sector and reaches the card if writes work again before a remount.
+  same way until the card is mounted again: SD LOG's RETRY, the USB card
+  reader's hand-back or a power cycle. The card still counts as mounted, so
+  the KST screen's RETRY MOUNT, offered without a card, is not one of them.
+  The list, LOAD and the record lookup fail until then. The new file's 0-byte
+  entry stays in that sector and reaches the card if writes work again before
+  a remount.
 - A create whose close fails with a clean window, a data sector that does
   not take its write: FatFs keeps the file open, refuses to remove it or to
   open it for reading (`FR_LOCKED`), and holds one of its 16 lock entries
@@ -1151,8 +1155,10 @@ The first write's card calls, `kstFilesFirstWrite()`, in order:
 1. A record already on the card, left by an interrupted write, is renamed to
    the next KSTnnn.TXT, so no record is lost. A record that cannot be renamed
    stays: no new record is written over it, and the verified write does not
-   remove it. A card that does not answer whether a record is there gets no
-   record either.
+   remove it. A rename that FatFs reports as failed after it took effect, its
+   last sync failing with the change still in FatFs's window, counts as kept:
+   the record is looked up under both names. A card that does not answer
+   whether a record is there gets no record either.
 2. The backup is saved as the next KSTnnn.TXT.
 3. The image before the write is written as `KST/KST.TXT`.
 
@@ -1228,19 +1234,21 @@ so these run against the same simulated servo:
   to counters, which stay at 0. The job runs from the job table, one
   `core1JobPoll()` a millisecond, on `test/fake_kst_line.cpp`: the simulator
   behind `src/kst_line_port.h`, on the suite's virtual clock.
-- `test_kst_files.cpp`, built in step 3: the FatFs io over an in-memory
-  volume (`test/fake_fatfs.cpp`): the mount rule, no card and a card held by
-  USB with no FatFs call, the first write's backup and record, an old record
-  kept and never removed when it stays, card full, a write-protected card
-  as this board reports it (a disk error) and as `FR_WRITE_PROTECTED`, a full
+- `test_kst_files.cpp`, built in step 3: the FatFs io over an in-memory volume
+  (`test/fake_fatfs.cpp`): the mount rule, no card and a card held by USB with
+  no FatFs call, the first write's backup and record, an old record kept and
+  never removed when it stays, a rename reported failed that took effect, a
+  full directory that refuses a rename, card full, a write-protected card as
+  this board reports it (a disk error) and as `FR_WRITE_PROTECTED`, a full
   directory, a file or a directory in a file's way, a read-only record, a
   one-time write or sync error with no file or new directory left behind, a
-  close error that leaves its file locked, one of the two files taken, the record found and loaded at entry, the store's save, list
-  and load over FatFs. With the screen, step 4: the record written before
-  the first write frame and removed after a verify. With `GP0`, step 5: a
-  card phase around every card call, the first write's opened before the
-  backup and closed by the write command, the others closed by `CardEnd`;
-  `sdh_wait_hook` set only inside a phase.
+  close error that leaves its file locked, one of the two files taken, the
+  record found and loaded at entry, the store's save, list and load over
+  FatFs. With the screen, step 4: the record written before the first write
+  frame and removed after a verify. With `GP0`, step 5: a card phase around
+  every card call, the first write's opened before the backup and closed by
+  the write command, the others closed by `CardEnd`; `sdh_wait_hook` set only
+  inside a phase.
 - `test_sdio.cpp`: `sdh_wait_hook` called on every poll of `busyWait()`, and
   never while null.
 - `test_ui.cpp`, by control id ([menu.md](menu.md#tests-by-control-id)):

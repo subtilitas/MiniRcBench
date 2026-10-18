@@ -191,16 +191,6 @@ static void testFirstWrite() {
 	checkTrue("the backup is still saved, so the write runs",
 	          w.backup == KST_STORE_OK && kstFilesWriteAllowed(&w));
 	checkInt("the verified write removes nothing", kstFilesRecordRemove(&w), KST_STORE_OK);
-	fakeFatFail(FakeFatCall::Rename, FR_DENIED);
-	kstFilesFirstWrite(&before, &before, &w);
-	checkTrue("no room for the rename: card full, the old record stays",
-	          w.kept == KST_STORE_CARD_FULL && w.record == KST_STORE_CARD_FULL &&
-	          fakeFatExists("KST/KST.TXT"));
-	fakeFatWriteProtect(true);
-	kstFilesFirstWrite(&before, &before, &w);
-	checkTrue("a write-protected volume refuses the rename",
-	          w.kept == KST_STORE_DENIED && w.backup == KST_STORE_DENIED);
-	fakeFatWriteProtect(false);
 	checkTrue("the old record is still there",
 	          imageOf("KST/KST.TXT", &got) && memcmp(got.r, b.r, KST_REG_COUNT) == 0);
 
@@ -212,6 +202,33 @@ static void testFirstWrite() {
 	          kstFilesRecordRemove(&w) == KST_STORE_OK && imageOf("KST/KST.TXT", &got) &&
 	          memcmp(got.r, b.r, KST_REG_COUNT) == 0);
 	checkTrue("the backup is saved", w.backup == KST_STORE_OK);
+
+	fakeFatFail(FakeFatCall::Rename, FR_DENIED);
+	kstFilesFirstWrite(&before, &before, &w);
+	checkTrue("no room for the rename: card full, the old record stays",
+	          w.kept == KST_STORE_CARD_FULL && w.record == KST_STORE_CARD_FULL &&
+	          fakeFatExists("KST/KST.TXT"));
+	fakeFatWriteProtect(true);
+	kstFilesFirstWrite(&before, &before, &w);
+	checkTrue("a write-protected volume refuses the rename",
+	          w.kept == KST_STORE_DENIED && w.backup == KST_STORE_DENIED);
+	fakeFatWriteProtect(false);
+	fakeFatDirLimit(fakeFatEntries() - 1);
+	kstFilesFirstWrite(&before, &before, &w);
+	checkTrue("a full directory refuses the rename too: card full, the record stays",
+	          w.kept == KST_STORE_CARD_FULL && fakeFatExists("KST/KST.TXT"));
+	fakeFatDirLimit(0xFFFFFFFFu);
+
+	// A rename that took effect though FatFs reports it failed.
+	fakeFatRenameFailsLate(FR_DISK_ERR);
+	kstFilesFirstWrite(&b, &before, &w);
+	char kept[KST_STORE_NAME_MAX + 4];
+	snprintf(kept, sizeof(kept), "KST/%s", w.keptName);
+	checkTrue("a rename reported failed that took effect: kept, under its new name",
+	          w.kept == KST_STORE_OK && w.keptName[0] != '\0' && fakeFatExists(kept));
+	checkTrue("and the new record is written",
+	          w.record == KST_STORE_OK && imageOf("KST/KST.TXT", &got) &&
+	          memcmp(got.r, before.r, KST_REG_COUNT) == 0);
 }
 
 /** @brief A first write on a card that refuses; nothing may be left behind. */
