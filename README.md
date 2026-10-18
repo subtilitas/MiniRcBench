@@ -1037,7 +1037,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.2%**: 3,833 of 3,905 lines in 33 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.2%**: 3,952 of 4,024 lines in 35 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

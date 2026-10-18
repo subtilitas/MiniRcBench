@@ -47,9 +47,11 @@ INCLUDES += $(SERVO_INCLUDES) $(KST_INCLUDES)
 SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
         test_blackbox.cpp test_log_ring.cpp test_settings.cpp \
         test_usb_msc.cpp test_dshot_frame.cpp test_dshot_telem.cpp \
-        test_dshot_edt.cpp test_sdio.cpp test_claim.cpp fakes.cpp \
+        test_dshot_edt.cpp test_sdio.cpp test_claim.cpp test_widgets.cpp \
+        fakes.cpp \
         ../src/gfx.cpp ../src/ui.cpp ../src/ui_setup.cpp ../src/theme.cpp \
-        ../src/ui_input.cpp ../src/ui_widgets.cpp ../src/board_desc.cpp \
+        ../src/ui_input.cpp ../src/ui_widgets.cpp ../src/ui_list.cpp \
+        ../src/ui_hold.cpp ../src/board_desc.cpp \
         ../src/settings.cpp ../src/am32_eeprom.cpp \
         ../src/kiss_telem.cpp ../src/esc_merge.cpp ../src/blackbox_encode.cpp \
         ../src/log_ring.cpp ../src/pin_claim.cpp \
