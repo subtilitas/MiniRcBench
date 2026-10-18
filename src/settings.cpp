@@ -142,8 +142,8 @@ bool settingsValidate(Settings *s) {
 	// Switched off rather than moved, still. Moving it would silently start
 	// listening on a pin the user never connected anything to, and a telemetry
 	// wire that reads "ON" against the wrong pin is worse than one reading
-	// "OFF". The SETUP screen does move it, because there the pin change is the
-	// thing being asked for. @see uiSetupTick()
+	// "OFF". SETTINGS does move it, because there the pin change is the
+	// thing being asked for. @see uiSettingsTick()
 	if (s->kissEnable) {
 		if (!settingsPinFree(s->kissPin) ||
 		    s->kissPin == s->dshotPin) {
@@ -155,7 +155,7 @@ bool settingsValidate(Settings *s) {
 	if (s->highContrast != 0 && s->highContrast != 1) { s->highContrast = 1; ok = false; }
 
 	// --- backlight: never so dim the panel looks dead ---
-	if (s->backlight < 16) { s->backlight = 16; ok = false; }
+	if (s->backlight < BACKLIGHT_MIN) { s->backlight = BACKLIGHT_MIN; ok = false; }
 
 	return ok;
 }
@@ -232,9 +232,9 @@ Settings *settings() {
 
 bool settingsSave() {
 	// Never during a pin claim. Erasing flash parks core1 for tens of
-	// milliseconds, past a KST transaction's 5 ms driver slack. SETUP, the
-	// one caller, is unreachable while a claim holds, so this is the
-	// assertion under that, and it refuses rather than writes.
+	// milliseconds, past a KST transaction's 5 ms driver slack. SETTINGS, the
+	// one caller, opens from MENU only while the claim is Free, so this is
+	// the assertion under that, and it refuses rather than writes.
 	if (pinClaimHolder() != PinUser::None) return false;
 
 	ensureSeeded();

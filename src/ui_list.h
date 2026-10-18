@@ -9,8 +9,10 @@
  * gesture meets them:
  *
  * - **A press commits nothing.** It records the row under it as a candidate.
- *   The row under a press is the row whose visible part holds the point, so
- *   a row cut by the viewport's edge takes a press anywhere it shows.
+ *   The row under a press is the row whose visible body holds the point. A
+ *   row is a body at the top of its pitch, and a press in the gap below the
+ *   body names no row. A row cut by the viewport's edge takes a press only
+ *   while at least @ref UiList::pressMin px of its body shows.
  * - **Only a gesture that began inside the viewport counts.** A press on an
  *   editor bar or a footer never scrolls the list or steps a row.
  * - **After @ref UI_AXIS_LOCK_PX of travel the gesture locks to one axis.**
@@ -19,8 +21,8 @@
  *   candidate is reported as the swipe's row, and every
  *   @ref UI_SWIPE_STEP_PX of travel is one coarse step.
  * - **A tap fires on release.** A press that never locked and is released
- *   inside the viewport is a tap on its candidate; released outside, it
- *   cancels.
+ *   on its candidate row is a tap on it; released anywhere else, it
+ *   cancels, as a press that slides off a button does.
  *
  * A coarse step is a number of the row's own steps, a factor the row gives.
  * uiSwipeApply() takes them one at a time while the row allows them, so a
@@ -28,6 +30,10 @@
  * The swipe's anchor moves on by whole coarse steps whether or not the row
  * moved, so travel past a rail is not stored, and a swipe back moves the
  * value off the rail after one coarse step of travel back past the anchor.
+ *
+ * A list set up with uiListInitPx() has content of a given height and no
+ * rows: it scrolls and reports no tap or swipe. A screen with rows of
+ * several heights, SETTINGS, hit-tests its own rows on it.
  *
  * Pure but for uiListDraw(), which draws through gfx.h.
  */
@@ -74,8 +80,11 @@ struct UiListEvent {
 /** @brief A list. Set it up with uiListInit() before use. */
 struct UiList {
 	UiRect     view;           /**< The viewport, on the panel. */
-	int16_t    rowH;           /**< Height of a row, and its pitch, px. */
-	int16_t    rows;           /**< Rows in the list. */
+	int16_t    rowH;           /**< A row's pitch, px. */
+	int16_t    bodyH;          /**< A row's body at the top of its pitch, px. */
+	int16_t    pressMin;       /**< Body that must show for a cut row to take a press, px. */
+	int16_t    rows;           /**< Rows in the list; 0 for pixel content. */
+	int        contentPx;      /**< Height of the content, px. */
 	int        scrollPx;       /**< Content rows above the viewport, px. */
 	UiListMode mode;           /**< The axis the gesture locked to. */
 	bool       inside;         /**< The gesture began inside the viewport. */
@@ -95,6 +104,27 @@ struct UiList {
  * @param rows   Rows in the list.
  */
 void uiListInit(UiList *l, UiRect view, int rowH, int rows);
+
+/**
+ * @brief Give the rows a body shorter than their pitch and a press floor.
+ *
+ * After uiListInit(), which sets the body to the pitch and the floor to
+ * 1 px: any visible part of a row takes a press.
+ *
+ * @param[in,out] l The list.
+ * @param bodyH     Body height, px, 1 to the pitch.
+ * @param pressMin  Body that must show for a cut row to take a press, px.
+ */
+void uiListSetBody(UiList *l, int bodyH, int pressMin);
+
+/**
+ * @brief Set up a list of @p contentPx of content and no rows, scrolled to
+ *        0 px, with no gesture under way.
+ * @param[out] l       The list.
+ * @param view         The viewport.
+ * @param contentPx    Height of the content, px.
+ */
+void uiListInitPx(UiList *l, UiRect view, int contentPx);
 
 /**
  * @brief Largest legal scroll: the content's height less the viewport's, or 0
@@ -125,7 +155,8 @@ int uiListRowAt(const UiList *l, int x, int y);
  * @brief A row's rectangle on the current frame, clipped to the viewport.
  * @param l   The list.
  * @param row The row.
- * @return The visible part; its height is 0 when none of the row shows.
+ * @return The visible part of the row's body; its height is 0 when none of
+ *         it shows.
  */
 UiRect uiListRowRect(const UiList *l, int row);
 
@@ -133,12 +164,13 @@ struct UiControl;
 
 /**
  * @brief Append `UI_ROW(n, Row)` for each row n with a visible part, at its
- *        rectangle on the current frame. @see ui_screen.h
+ *        rectangle on the current frame. A row cut below
+ *        @ref UiList::pressMin is listed and does not act. @see ui_screen.h
  * @param l       The list.
  * @param out     Control table.
  * @param n       Controls in it; advanced per row added.
  * @param max     Room in @p out.
- * @param enabled Whether a tap on a row acts.
+ * @param enabled Whether a tap on a whole row acts.
  */
 void uiListAddRows(const UiList *l, UiControl *out, uint8_t *n, uint8_t max,
                    bool enabled);
@@ -187,3 +219,16 @@ int uiSwipeApply(int steps, int factor, UiListStepFn step, void *ctx);
  * @param ctx     Passed to @p drawRow.
  */
 void uiListDraw(const UiList *l, UiListDrawFn drawRow, void *ctx);
+
+/** @brief Width of the scroll bar, px. */
+#define UI_LIST_BAR_W 3
+
+/**
+ * @brief Draw the scroll bar at @p x, @ref UI_LIST_BAR_W px wide, beside the
+ *        viewport: its length the viewport's share of the content, its
+ *        place the scroll's share of the range. Draws nothing while the
+ *        content fits.
+ * @param l The list.
+ * @param x Left edge of the bar.
+ */
+void uiListDrawBar(const UiList *l, int x);

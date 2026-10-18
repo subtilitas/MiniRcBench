@@ -27,7 +27,7 @@ it as described under [Still stuck](#still-stuck).
 
 Nothing answers on the signal wire. Check in this order:
 
-1. **Wrong pin.** Compare **CFG → SETUP → ESC PIN** with where the wire is.
+1. **Wrong pin.** Compare **MENU → SETTINGS → ESC PIN** with where the wire is.
    The `LINK` row on that screen is live. A packet rate above zero means the
    pin is correct.
 2. **No common ground.** The ESC ground and the board ground must be
@@ -45,7 +45,7 @@ Nothing answers on the signal wire. Check in this order:
 The ESC sends eRPM (electrical RPM) and no EDT (Extended DShot Telemetry).
 Either it does not support EDT, or EDT is not enabled yet.
 
-Check the chip under the title on the settings screen. If it reads `EDT OFF`,
+Check the chip under the title on the `MENU` screen. If it reads `EDT OFF`,
 see the next section. If the ESC firmware does not support EDT, two wires give
 RPM only. A [KISS telemetry wire](Telemetry#the-optional-third-wire) provides
 voltage, current, temperature and mAh.
@@ -88,7 +88,7 @@ Three interlocks stop the motor, and each one shows on screen:
 - **Idle interlock.** 30 s without a touch while armed disarms the tester.
   `IDLE ns` counts down in the top right during the last 5 s. The backlight
   dims briefly when it disarms.
-- **Opening `CFG`.** The settings screen always disarms.
+- **Opening `MENU`.** Opening it always disarms.
 - **Heartbeat backstop.** If the display firmware stops, the second core sets
   the throttle to zero after 250 ms. The screen would also be frozen.
 
@@ -147,15 +147,16 @@ screen does not work.
 
 ## My settings reset themselves
 
-They were not saved. Pole count and throttle ceiling are edited on the
-settings screen, and `HOLD TO SAVE` on **SETUP** writes them to flash.
-`UNSAVED` under the title shows unsaved changes.
+They were not saved. Pole count and throttle ceiling are edited on
+**MENU → SETTINGS**, and `HOLD TO SAVE` there writes them to flash. The note
+line reads `UNSAVED - HOLD SAVE TO KEEP` while changes are unsaved, and `MENU`
+shows `UNSAVED` on its `SETTINGS` row.
 
 ---
 
 ## KISS telemetry is off
 
-That is the default. Turn it on under **CFG → SETUP → KISS TELEM**.
+That is the default. Turn it on under **MENU → SETTINGS → KISS TELEM**.
 
 The board has two free GPIOs (general-purpose input/output pins), GP28 and
 GP29, and the ESC signal starts on GP29. KISS defaults to off so that the

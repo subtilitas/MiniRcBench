@@ -227,13 +227,13 @@ In `src/sd_log.cpp` and `src/log_ring.cpp`:
 - Files are `LOG00001.BFL` onwards, at the first free number. Betaflight uses
   `.BFL` for single logs and `.BBL` for concatenated ones.
 - Logging starts on arming and stops on disarming (`SD_LOG_AUTO_ON_ARM`).
-  START and STOP on CFG → SD LOG work by hand, and a log started by hand
-  survives the disarm that entering the settings screens performs.
+  START and STOP on MENU → SD LOG work by hand, and a log started by hand
+  survives the disarm that opening MENU performs.
 - On stop: an `E` frame with `LOG_END` (255), the ring drained, the unused
   pre-allocation released with `f_truncate()`, then sync and close.
 - The directory entry is synced every `SD_LOG_SYNC_MS`, 2000 ms, right after a
   chunk goes out, so a log cut by a power loss is readable up to its last sync.
-- USB DRIVE on CFG → SD LOG hands the card to a USB host as a read-only drive.
+- USB DRIVE on MENU → SD LOG hands the card to a USB host as a read-only drive.
   The logger flushes, closes and unmounts first, and every logging entry point
   is inert until the host ejects. The handover is refused while armed or
   recording, and arming is refused while a host holds the card.
@@ -260,7 +260,8 @@ them.
 6. The ring buffer (`test/test_log_ring.cpp`): all-or-nothing writes,
    wraparound, high-water mark, zero size.
 7. The SD LOG screen, manual logging against auto-on-arm, and the USB DRIVE
-   handover rules, through `test/test_ui.cpp` and `test/test_usb_msc.cpp`.
+   handover rules, through `test/test_ui.cpp` and `test/test_usb_msc.cpp`;
+   BACK from SD LOG to MENU, through `test/test_menu.cpp`.
 
 ## Where the code is
 
@@ -270,8 +271,9 @@ them.
 - `src/sd_log.cpp`: mount, pre-allocation, ring, chunked flush, overrun
   counting, periodic sync, and the field table filled from `EscTelemetry` and
   the commanded throttle.
-- `src/ui.cpp`: CFG → SD LOG, with card state, start and stop, bytes written
-  and drops, and the REC (recording) indicator in the status bar.
+- `src/ui_sdlog.cpp`: MENU → SD LOG, with card state, start and stop, bytes
+  written and drops. The REC (recording) indicator in the status bar is in
+  `src/ui.cpp`.
 - `src/config.h`: log rate, I interval, buffer size, chunk size,
   pre-allocation, sync interval, auto-on-arm. Field selection is not
   configurable.

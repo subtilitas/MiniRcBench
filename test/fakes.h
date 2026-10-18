@@ -82,6 +82,8 @@ bool fakeResumeJobIdle();
 
 /** @brief GPIO the AM32 transport was last handed by am32BlBegin(). */
 uint8_t fakeAm32Pin();
+/** @brief Forget the last am32BlBegin(): fakeAm32Pin() reads 255 until the next one. */
+void fakeAm32Reset();
 
 /** @brief Whether a suspend was still requested at the last am32BlEnd(). */
 bool fakeAm32EndBeforeResume();
@@ -104,7 +106,7 @@ int fakeBeepRequests();
  * @brief Count framebuffer pixels of an exact colour.
  *
  * Used to prove a screen left nothing of the previous one behind: the cyan of
- * the settings screen's nav buttons is distinctive, so more than a trace of it
+ * the SETTINGS section captions is distinctive, so more than a trace of it
  * surviving on the tester screen is a leftover.
  */
 int fakeCountColour(uint16_t c);

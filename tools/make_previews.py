@@ -39,26 +39,29 @@ PREVIEWS = {
         "shot_tester_armed",
         "shot_tester_stale",
     ],
-    # Three states that actually differ. shot_settings is the same screen with
-    # EDT off, so pairing it with shot_config_edt_off published the same
+    # Three states of MENU that actually differ. shot_menu is the same screen
+    # with EDT off, so pairing it with shot_menu_edt_off published the same
     # picture twice.
-    "settings-preview": [
-        "shot_config_edt_on",
-        "shot_config_edt_off",
-        "shot_config_beep_flash",
+    "menu-preview": [
+        "shot_menu_edt_on",
+        "shot_menu_edt_off",
+        "shot_menu_beep_flash",
     ],
     "log-preview": [
         "shot_log_nocard",
         "shot_log_ready",
         "shot_log_screen",
     ],
-    # The SETUP screen, and the same screen in high contrast beside it. The
-    # pair is the point: a palette that reads well on its own tells you nothing
-    # about whether the two are actually different enough to matter outdoors.
-    "setup-preview": [
-        "shot_setup",
-        "shot_setup_contrast",
-        "shot_settings_unsaved",
+    # The SETTINGS screen at the top of its list and scrolled to its end, the
+    # same screen in high contrast, and MENU reading UNSAVED after it. The
+    # contrast pair is the point: a palette that reads well on its own tells
+    # you nothing about whether the two are actually different enough to
+    # matter outdoors.
+    "settings-preview": [
+        "shot_settings",
+        "shot_settings_scrolled",
+        "shot_settings_contrast",
+        "shot_menu_unsaved",
     ],
     # The screen that actually has to survive daylight.
     "contrast-preview": [

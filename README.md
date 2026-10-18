@@ -22,8 +22,8 @@ It is also a servo tester: PWM (pulse-width modulation) servo output on the
 same two signal pins, with manual position, sweep and two servos at once (see
 [Servo tester](#servo-tester); design note `docs/design/servo-tester.md`).
 Planned: KST and Chaservo servo programming, on the same pins
-(`docs/design/kst-programming.md`); its button on the settings screen is drawn
-disabled. The AM32 editor and the servo tester take the pins through the pin
+(`docs/design/kst-programming.md`); it has no row on MENU until it is built.
+The AM32 editor and the servo tester take the pins through the pin
 claim of `docs/design/pin-claim.md`.
 
 ![UI preview](docs/ui-preview.png)
@@ -137,7 +137,7 @@ J5  (4P): 1=GP1  2=GP0  3=3V3   4=GND
 > **not** 5 V tolerant. More than about 3.6 V on a pin exceeds the absolute
 > maximum rating and damages it. The tester needs signal and ground only.
 
-The ESC pin is set on the board under **CFG → SETUP** and stored in flash.
+The ESC pin is set on the board under **MENU → SETTINGS** and stored in flash.
 `DSHOT_PIN_LCD_2_8` in `config.h` is the pin a board with blank flash starts
 on, **GP29**, the last pin on J4. The KISS telemetry wire starts on **GP28**.
 To swap them at build time, build with
@@ -150,7 +150,7 @@ An ESC on the wrong one of the two pins produces no error. **LINK** stays at
 **Power the ESC from its own battery.** Do not power a motor from the board's
 5 V pin. Connect the ESC ground to the board ground, and keep the signal wire
 short. The maximum working lead length is not measured. If the **LINK** error
-rate rises, set **DSHOT KBAUD** to 300 under **CFG → SETUP**.
+rate rises, set **DSHOT KBAUD** to 300 under **MENU → SETTINGS**.
 
 The board has a power-button latch on GP26 (`PIN_BAT_EN`). The firmware drives
 it high as the first action at boot. Without it, the board loses power when
@@ -309,7 +309,8 @@ Two constraints on these dependencies:
   The hint under the RPM readout reads `SWIPE = THROTTLE`, cyan while armed,
   and changes to `SWIPE ACTIVE` in green while a drag is engaged.
 - **HOLD**: off by default. Turning it off sets the throttle to zero.
-- **CFG**: settings and **SETUP**. Opening it disarms.
+- **MENU**: the list of tools and settings. Opening it disarms, sets the
+  throttle to zero and turns HOLD off.
 
 **Button behaviour**
 
@@ -325,39 +326,42 @@ after 2.5 s every 25 ms.
 Arming and disarming dim the backlight to a quarter for 120 ms
 (`BL_DIP_MS`), so the event is visible while watching the motor.
 
-**Settings screen**
+**MENU**
 
-![Settings screen](docs/settings-preview.png)
+![MENU](docs/menu-preview.png)
 
 *EDT live, EDT silent, and BEEP acknowledging a press.*
 
-- **Motor poles**: eRPM to RPM is `RPM = eRPM / (poles / 2)`. Range 2–28, even
-  values only. Default 14.
-- **Throttle ceiling**: default 20 % (400 of 2000). Steps of 5 %, range
-  5–100 %.
-- **EDT ON / EDT OFF**: a read-only chip under the title. Green while EDT
-  frames arrive, red otherwise. The firmware sends the enable command itself
-  (see [Telemetry and logging](#telemetry-and-logging)). The ESC does not
-  acknowledge the command, so the chip shows received frames, not sent
-  commands.
-- **BEEP**: sends `DSHOT_CMD_BEACON1` for 6 frames (`BEEP_REPEATS`), 6 ms at
-  1 kHz. Use it to identify which ESC is connected. Refused while armed; the
-  caption then reads `REFUSED - DISARM THE ESC FIRST`.
-- **SD LOG**: beside BEEP, 104 px each. Logging status and manual start/stop.
-  See below.
-- The bottom row holds four destinations, 50 px each:
-  - **AM32**: the ESC settings editor. See [AM32 ESC configuration](#am32-esc-configuration).
-  - **SERVO**: the servo tester. See [Servo tester](#servo-tester).
-  - **KST**: KST servo programming. Not built yet: drawn as an outline, and a
-    tap does nothing.
-  - **SETUP**: ESC and telemetry pins, DShot bitrate, contrast, backlight, and
-    the button that writes all settings to flash. See below.
-- **UNSAVED** on the strip under the title means a value on this screen or on
-  SETUP differs from flash. The save button is on SETUP.
+MENU is a list of rows. Each row is 40 px tall at a 42 px pitch, with the name
+at scale 2 on the left and its state right-aligned. **BACK** returns to the
+tester. Every tool's **BACK** returns to MENU.
 
-A BEEP press highlights the button for 350 ms (`CMD_FLASH_MS`): white when
-sent, amber when refused. Without it a 6 ms command is not visible against a
-25 ms repaint.
+- **EDT ON / EDT OFF**: a read-only chip on the strip under the title. Green
+  while EDT frames arrive, red otherwise. The firmware sends the enable command
+  itself (see [Telemetry and logging](#telemetry-and-logging)). The ESC does
+  not acknowledge the command, so the chip shows received frames, not sent
+  commands. The strip's caption reads the ESC pin and the DShot rate, for
+  example `GP29  600 KBIT/S`.
+
+| Row | State on the right | A tap |
+|---|---|---|
+| **BEEP THE ESC** | `DISARMED`; for 350 ms after a tap, `SENT` or `REFUSED` | Sends `DSHOT_CMD_BEACON1` for 6 frames (`BEEP_REPEATS`), 6 ms at 1 kHz. Use it to identify which ESC is connected |
+| **AM32 CONFIG** | the ESC pin, `GP29`; `PINS BUSY` | Opens the ESC settings editor. See [AM32 ESC configuration](#am32-esc-configuration) |
+| **SERVO TESTER** | the signal pins, `GP29+28`; `PINS BUSY` | Opens the servo tester. See [Servo tester](#servo-tester) |
+| **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a USB host holds the card | Opens the logging status. See below |
+| **SETTINGS** | `UNSAVED` while the live settings differ from flash, else nothing; `PINS BUSY` while the pin claim is not Free, drawn disabled | Opens SETTINGS. See below |
+
+- **BEEP flash**: a tap fills the row for 350 ms (`BEEP_FLASH_MS`): white
+  with `SENT`, amber with `REFUSED`. Without it a 6 ms command is not visible
+  against a 25 ms repaint. BEEP is refused while armed. Opening MENU disarms,
+  so the refusal is not reachable through the UI; the flash stays as a
+  backstop.
+- **PINS BUSY**: AM32 CONFIG and SERVO TESTER claim the signal pins. While the
+  claim is not free, for example after RESTART DSHOT until the DShot pump runs
+  again, the row reads `PINS BUSY` in amber and a tap opens nothing.
+- **Rows**: six rows fit the screen without scrolling. A seventh makes MENU
+  scroll by 36 px, with a 3 px scroll bar at x 235. KST servo programming has
+  no row until it is built.
 
 **SD LOG screen**
 
@@ -376,39 +380,66 @@ sent, amber when refused. Without it a 6 ms command is not visible against a
 - **RETRY**: mounts again. The card is otherwise mounted only once, at boot.
 - **USB DRIVE**: serves the card to the USB host. See
   [Blackbox logging to microSD](#blackbox-logging-to-microsd).
+- **BACK**: returns to MENU, also while a host holds the card. The handover
+  continues, and arming stays blocked until the card is ejected.
 
-**SETUP screen**
+**SETTINGS screen**
 
-![Setup screen](docs/setup-preview.png)
+![SETTINGS](docs/settings-preview.png)
 
-*SETUP, the same screen in high contrast, and the UNSAVED marker it puts on the
-settings screen.*
+*SETTINGS at the top, scrolled to the end, in high contrast, and the UNSAVED
+marker it puts on MENU.*
 
-| Row | What it does |
-|---|---|
-| **BOARD** | `RP2350-TOUCH-LCD-2.8`, the board the image is built for. Read-only |
-| **ESC PIN** | GPIO for the DShot signal. Steps through the board's two free GPIOs only, skipping the KISS pin while KISS is on |
-| **DSHOT KBAUD** | 150 / 300 / 600 / 1200, wrapping at the ends. Applies at once: the driver is rebuilt on the new pin and rate before the next frame |
-| **KISS TELEM** | Whether to listen for the telemetry wire. Turning it on moves the KISS pin off the ESC pin if they coincide |
-| **KISS PIN** | Steps through the same free GPIOs, skipping the ESC pin. The receiver is a PIO state machine, so any free GPIO works |
-| **CONTRAST** | `NORMAL` or `HIGH`. See below |
-| **BACKLIGHT** | 16–255 in steps of 32. High contrast forces 255 while on |
-| **LINK** | Live packets per second and checksum error rate. Green when packets arrive, amber above 5 % errors |
+SETTINGS is one list in sections. The list fills y 40 to 239 and scrolls under
+a drag. A row is 44 px tall at a 50 px pitch. **MOTOR POLES** and
+**MAX THROTTLE** lead it, so they need no scroll.
+
+| Section | Row | What it does |
+|---|---|---|
+| ESC TESTER | **MOTOR POLES** | eRPM to RPM is `RPM = eRPM / (poles / 2)`. Range 2–28, even values only. Default 14 |
+| ESC TESTER | **MAX THROTTLE** | The throttle ceiling. Default 20 % (400 of 2000). Steps of 5 %, range 5–100 % |
+| WIRING | **ESC PIN** | GPIO for the DShot signal. Steps through the board's two free GPIOs only, skipping the KISS pin while KISS is on |
+| WIRING | **DSHOT KBAUD** | 150 / 300 / 600 / 1200, wrapping at the ends. Applies at once: the driver is rebuilt on the new pin and rate before the next frame |
+| WIRING | **KISS TELEM** | Whether to listen for the telemetry wire. Turning it on moves the KISS pin off the ESC pin if they coincide |
+| WIRING | **KISS PIN** | Steps through the same free GPIOs, skipping the ESC pin. The receiver is a PIO state machine, so any free GPIO works. Reads `--` and does not act while KISS is off |
+| DISPLAY | **CONTRAST** | `NORMAL` or `HIGH`. See below |
+| DISPLAY | **BACKLIGHT** | 16–255 in steps of 32. High contrast forces 255 while on |
+| BOARD | **BUILT FOR** | `RP2350-TOUCH-LCD-2.8`, the board the image is built for. Read-only |
+
+The `-` and `+` buttons are 44 × 44 px and the toggles 94 × 44 px.
+
+**Scrolling.** A drag scrolls the list when it starts off a control: on a
+section name, a row's label or value, or the gap between rows. After 6 px of
+vertical travel the list follows the finger. A press on a control never
+scrolls: `-` and `+` step on touch-down and repeat while held, and a toggle
+acts on release. A control cut by the edge of the list takes a press only
+while at least 40 px of it show (`UI_LIST_TAP_MIN`). Opening SETTINGS sets the
+scroll to 0 px.
+
+Below the list, fixed and not scrolled:
+
+- **LINK**: live packets per second and checksum error rate. Green when
+  packets arrive, amber above 5 % errors.
+- The note line.
+- **HOLD TO SAVE** (150 × 48 px) and **RESET** (70 × 48 px).
 
 A wrong ESC pin produces no error: the ESC receives no frames. **LINK** on this
 screen shows the result of each pin change. A non-zero packet rate means the
 pin is correct.
 
-**HOLD TO SAVE** (1 s, `UI_HOLD_MS`) writes all settings to flash: the rows
-above plus pole count and throttle ceiling. Erasing the flash sector stops
+**HOLD TO SAVE** (1 s, `UI_HOLD_MS`) writes all settings to flash: every row
+above, pole count and throttle ceiling included. Erasing the flash sector stops
 core1, and with it the DShot pump, for the length of the erase. That duration
 is not measured. Saving is refused while armed (`NOT WHILE ARMED - DISARM TO
-SAVE`). **RESET** loads the compiled defaults into the live settings. Flash
-changes only on the next save.
+SAVE`); opening MENU disarms, so the refusal is a backstop. **RESET** loads the
+compiled defaults, pole count and throttle ceiling included, into the live
+settings. Flash changes only on the next save.
 
 Every value applies when changed. Only persistence needs the hold, so a value
 can be tried and then discarded by leaving without saving. The note line reads
-`SAVED SETTINGS IN USE` or `COMPILED DEFAULTS IN USE`.
+`UNSAVED - HOLD SAVE TO KEEP` after a change, and otherwise
+`SAVED SETTINGS IN USE` or `COMPILED DEFAULTS IN USE`. MENU shows `UNSAVED` on
+the SETTINGS row while the live settings differ from flash.
 
 **High contrast**
 
@@ -444,7 +475,7 @@ reading is 25 times coarser. Consumption in mAh appears on the temperature
 tile with KISS only. EDT does not carry it.
 
 The tester's top row shows `DS` plus the bitrate the DShot driver runs at,
-as set under SETUP, cyan once an EDT enable has been sent. `DSERR` in amber
+as set under SETTINGS, cyan once an EDT enable has been sent. `DSERR` in amber
 replaces it when the driver could not claim its two PIO state machines;
 nothing is sent to the ESC then.
 
@@ -457,8 +488,8 @@ The firmware enables EDT itself. There is no button.
 The first frames the DShot pump sends after it starts are the enable,
 `EDT_ENABLE_REPEATS` (10) identical frames of DShot command 13. The pump starts
 at power-up, after a change of the ESC pin, the bitrate, KISS or the KISS pin
-under SETUP, and when the AM32 settings screen hands the pin back. Every reply is decoded with
-EDT on, from the first one:
+under SETTINGS, and when the AM32 editor hands the pin back. Every reply is
+decoded with EDT on, from the first one:
 
 - an ESC that kept EDT on across one of those restarts is read correctly from
   its first reply, and none of its EDT frames is shown as an RPM;
@@ -559,7 +590,7 @@ driver in `src/sdio/`, which is not tested on hardware. The board cannot use
 hardware SPI for the card: its SD clock is on GP19, which is SPI0 TX in the
 pin mux.
 
-Open the screen with **CFG → SD LOG**. By default arming starts a log and
+Open the screen with **MENU → SD LOG**. By default arming starts a log and
 disarming stops it (`SD_LOG_AUTO_ON_ARM`). Auto-stop ends only a log that
 auto-start began. **START/STOP** is always available.
 
@@ -574,7 +605,7 @@ means it was too small.
 
 The logger drops frames rather than block. The UI never waits for the card.
 
-**Getting the files off:** **CFG → SD LOG → USB DRIVE** presents the card to
+**Getting the files off:** **MENU → SD LOG → USB DRIVE** presents the card to
 the USB host as a read-only removable drive, using MSC (mass storage class) on
 the same USB cable as the serial port. The logger unmounts before the drive
 appears and touches the card again only after eject. The host and the
@@ -590,16 +621,16 @@ not one derived from measurement.
 
 Six of these are only *defaults*: the ESC pin, the DShot bitrate, the KISS
 wire, the pole count, the throttle ceiling and the backlight. Each can be
-changed under **CFG → SETUP** and stored in flash. On a board with saved
+changed under **MENU → SETTINGS** and stored in flash. On a board with saved
 settings the stored value wins, so editing `config.h` and reflashing changes
-nothing for those six. The SETUP note line says which set is in use.
+nothing for those six. The SETTINGS note line says which set is in use.
 
 | Setting | Default | What it does |
 |---|---|---|
 | `DSHOT_PIN_LCD_2_8` | `29` | ESC signal GPIO the board starts on |
 | `KISS_TELEM_ENABLE` | `1` | Compile the KISS path in at all |
-| `KISS_ENABLE_LCD_2_8` | `0` | Whether the board listens for a KISS wire. **Off**: the board has two free pins and the ESC takes one. One tap under SETUP turns it on |
-| `KISS_PIN_LCD_2_8` | `28` | GPIO for the telemetry wire. Receive only, changeable under SETUP. The other of the two free pins; `DSHOT_PIN_LCD_2_8` has GP29 |
+| `KISS_ENABLE_LCD_2_8` | `0` | Whether the board listens for a KISS wire. **Off**: the board has two free pins and the ESC takes one. One tap under SETTINGS turns it on |
+| `KISS_PIN_LCD_2_8` | `28` | GPIO for the telemetry wire. Receive only, changeable under SETTINGS. The other of the two free pins; `DSHOT_PIN_LCD_2_8` has GP29 |
 | `KISS_REQUEST_EVERY_N` | `20` | Request every Nth DShot frame; 20 at 1 kHz is 50 Hz. Values below 2 overlap replies and fail an `#error` |
 | `KISS_STALE_MS` | `500` | How long a KISS frame stays in use before the display falls back to EDT |
 | `EDT_STALE_MS` | `1000` | How long an EDT field stays valid after its last frame. Then the tile shows `--` |
@@ -658,7 +689,7 @@ against EDT from the log itself.
 
 ## AM32 ESC configuration
 
-**CFG → AM32** reads and edits an AM32 ESC's settings over the signal wire. It
+**MENU → AM32 CONFIG** reads and edits an AM32 ESC's settings over the signal wire. It
 does not flash ESC firmware. The transport is `src/am32_bl.h`.
 
 ![AM32 config](docs/am32-preview.png)
@@ -772,7 +803,7 @@ The host test harness runs two cross-checks:
 
 ## Servo tester
 
-**CFG → SERVO** drives one servo on the ESC pin, or two servos on the ESC and
+**MENU → SERVO TESTER** drives one servo on the ESC pin, or two servos on the ESC and
 KISS pins, with servo pulses from the RP2350's hardware PWM. It does not
 measure the servo: there is no position feedback, so the horn on the screen
 is drawn where the pulse puts it. Not tested on hardware. Design note:
@@ -805,8 +836,8 @@ ground only.
   before the board. A servo fed while the board is off can drive its signal
   wire into an unpowered pin, rated 3.63 V.
 - The two grounds are joined once, at the board.
-- SIG and AUX are the pins set under CFG → SETUP. With KISS off, SETUP can put
-  both on one GPIO; the screen then offers one servo only.
+- SIG and AUX are the pins set under MENU → SETTINGS. With KISS off, SETTINGS
+  can put both on one GPIO; the screen then offers one servo only.
 
 > **Unplug the servo before DShot runs.** Outside the servo screen the ESC pin
 > carries bidirectional DShot, which idles high and pulls low for about 27 µs
@@ -894,7 +925,8 @@ In the firmware:
 - Auto-disarm after 30 s with no touch input (`IDLE_DISARM_MS`). For the last
   5 s, `IDLE ns` replaces the battery voltage in the top row.
 - Core1 sets the throttle to zero if core0 sends no heartbeat for 250 ms.
-- Opening CFG disarms. The wiring settings are reachable only from there.
+- Opening MENU disarms. The wiring settings and every tool are reachable only
+  from there.
 - Before DShot gives up the signal pin, to the AM32 editor or for a pin
   change, it sends throttle zero for at least 250 ms after the last throttle
   frame.
@@ -940,17 +972,21 @@ src/
   board_rp2350_touch_lcd_2_8.h  the pin map itself, from the schematic
   board_desc.{h,cpp}    the pins and defaults the drivers and settings read, as data
   esc_task.{h,cpp}      core1 DShot pump, EDT decode, cross-core state
-  pin_claim.{h,cpp}     one screen at a time takes the two signal pins from DShot
+  pin_claim.{h,cpp}     one screen at a time takes the two signal pins from DShot; the PIN_USERS table
   core1_job.{h,cpp}     the core1 job on the claimed pins: start, bind, step, stop
   dshot/                bidirectional DShot, from rcbench
     dshot.h, dshot_{frame,telem,edt}.c  frame, reply decode, EDT schedule (pure C)
     out_dshot.{h,c}, dshot.pio          RP2350 pin driver: 2 state machines, 16 instructions
-  ui.{h,cpp}            screens, touch handling, arm/throttle state machine
+  ui.{h,cpp}            the tester (arm/throttle state machine, touch handling) and the navigation
+  ui_screen.h           UiScreen, SettingsRow, SettingsSection, UiMenuEntry and the control ids
+  ui_registry.{h,cpp}   one line per MENU row, and the check that each row's text fits
+  ui_menu.{h,cpp}       MENU and the BEEP action with its flash
+  ui_settings.{h,cpp}   SETTINGS: sections, pins, bitrate, contrast, hold-to-save
+  ui_sdlog.{h,cpp}      SD LOG screen
   ui_widgets.{h,cpp}    shared header, buttons, rows and chips
   ui_list.{h,cpp}       the scrolling list: pixel scroll, axis lock, tap, swipe
   ui_hold.{h,cpp}       the hold-to-act control: 1 s timer, one firing, its bar
   ui_am32.{h,cpp}       AM32 config screen: connect, edit, verified write
-  ui_setup.{h,cpp}      SETUP screen: pins, bitrate, contrast, hold-to-save
   ui_servo.{h,cpp}      servo tester screens: SERVO, SET, the unplug page
   ui_slider.{h,cpp}     slider with delta drag, tap-to-set and presets, from rcbench
   servo_model.{h,cpp}   servo profiles, limits, steppers and mappings (pure)
@@ -1026,16 +1062,16 @@ the card protocol against a simulated card. Time is virtual — `millis()` advan
 when a test says so — which makes hold-to-arm, hold-to-write and gesture repeat
 deterministic rather than dependent on machine speed. The fake ESC serves a real
 settings blob recovered from the reference configurator, so the UI tests operate
-on values a real ESC would report. The suite renders 38 screens to PPM (portable
+on values a real ESC would report. The suite renders 41 screens to PPM (portable
 pixmap) images as it runs, so a layout change is visible in the frames:
 
 - the splash;
 - six of the main screen: disarmed, armed, live, stale, with KISS values,
   high contrast;
-- six of CFG: on arrival, the EDT chip on and off, BEEP accepted and refused,
-  unsaved settings;
-- two of CFG → SETUP: normal and high contrast;
-- six of CFG → SD LOG: ready, recording, no card, a card found by RETRY, USB
+- eight of MENU: on arrival, the EDT chip on and off, BEEP accepted and
+  refused, unsaved settings, PINS BUSY, seven rows;
+- three of MENU → SETTINGS: the top, scrolled to the end, high contrast;
+- six of MENU → SD LOG: ready, recording, no card, a card found by RETRY, USB
   DRIVE refused, USB DRIVE serving;
 - five of the AM32 editor: list, field edit, scrolled, written, hex view;
 - twelve of the servo tester: SAFE, running, sweeping, two servos, stalled,
@@ -1053,7 +1089,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.2%**: 3,967 of 4,039 lines in 36 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.3%**: 4,129 of 4,200 lines in 38 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

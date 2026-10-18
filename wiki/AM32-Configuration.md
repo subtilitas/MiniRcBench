@@ -15,7 +15,7 @@ does not update ESC firmware.
 
 ## Connecting
 
-Open `CFG → AM32`.
+Open **MENU → AM32 CONFIG**.
 
 The screen hands the signal pin from the DShot driver to the bootloader link
 (19200 baud, one wire, half-duplex), then starts searching. Before DShot lets
@@ -49,7 +49,8 @@ recognised. A drag never selects a row.
 A **tap without movement** selects the row under it. The editor bar at the
 bottom then shows the field's name and value.
 
-Rows are grouped, with the group name in grey above each group. The available
+Rows are 40 px tall, so three show at a time. Rows are grouped, with the group
+name in grey above each group. The available
 fields depend on the ESC's settings layout revision. Only fields that apply to
 the revision read are shown.
 
@@ -111,8 +112,8 @@ level. `FIELDS` returns to the list.
 
 ## Leaving
 
-`BACK` hands the signal pin back to the DShot driver and returns to the
-settings screen. The tester is disarmed.
+`BACK` hands the signal pin back to the DShot driver and returns to
+`MENU`. The tester is disarmed.
 
 ---
 

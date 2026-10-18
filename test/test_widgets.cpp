@@ -167,10 +167,13 @@ static void testListTap() {
 	          isEv(uiListTouch(&l, lift()), UiListEv::Tap, (100 - 56) / 26));
 	checkTrue("the frame after: nothing", isEv(uiListTouch(&l, idle()), UiListEv::None));
 
-	// A row boundary crossed without locking: the tap names the row pressed.
+	// A row boundary crossed without locking: the press slid off its row.
 	uiListTouch(&l, press(100, 56 + 25));
 	uiListTouch(&l, move(100, 56 + 29));
-	checkTrue("4 px across a row edge: the row pressed", isEv(uiListTouch(&l, lift()), UiListEv::Tap, 0));
+	checkTrue("4 px across a row edge: no tap", isEv(uiListTouch(&l, lift()), UiListEv::None));
+	uiListTouch(&l, press(100, 56 + 20));
+	uiListTouch(&l, move(100, 56 + 24));
+	checkTrue("4 px within the row: a tap on it", isEv(uiListTouch(&l, lift()), UiListEv::Tap, 0));
 
 	uiListTouch(&l, press(100, 213));
 	uiListTouch(&l, move(100, 216));

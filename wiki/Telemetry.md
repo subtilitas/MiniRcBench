@@ -68,7 +68,7 @@ unplugged or replaced therefore leaves no old values on screen.
 `--` means one of:
 
 - the ESC does not support EDT (RPM still works);
-- EDT is supported but not enabled yet. Watch the chip on the settings screen;
+- EDT is supported but not enabled yet. Watch the chip on the `MENU` screen;
 - the ESC stopped answering.
 
 An **expired status tile reads `--`, never `OK`**.
@@ -81,7 +81,7 @@ The firmware does it, with no button.
 
 The first 10 frames the tester sends to the ESC are the enable: at power-up,
 after a change of the ESC pin, the DShot bitrate, KISS or the KISS pin under
-SETUP, and when the AM32 screen hands the signal wire back. They take 10 ms.
+SETTINGS, and when the AM32 screen hands the signal wire back. They take 10 ms.
 Every reply is decoded with EDT on from the first one, so an ESC that kept
 EDT on through one of those restarts shows its voltage and temperature at
 once and never a false RPM. An ESC with AM32 or Bluejay shows the correct RPM
@@ -102,7 +102,7 @@ hold:
 An ESC executes a DShot command only after a run of identical frames, so an
 enable sent at another time would be lost.
 
-<img src="img/config-edt-on.png" width="240" alt="EDT ON"> <img src="img/config-edt-off.png" width="240" alt="EDT OFF">
+<img src="img/menu-edt-on.png" width="240" alt="EDT ON"> <img src="img/menu-edt-off.png" width="240" alt="EDT OFF">
 
 If the chip stays red with an ESC that supports EDT, see
 [Troubleshooting](Troubleshooting#edt-stays-off).
@@ -127,7 +127,7 @@ The board only receives on this line. The receiver is a UART (universal
 asynchronous receiver-transmitter) built from a PIO (programmable I/O) state
 machine, so **either free GPIO works**. GPIO means
 general-purpose input/output pin. Turn it on under
-**CFG → SETUP → KISS TELEM** and set the pin in the row below. The pin
+**MENU → SETTINGS → KISS TELEM** and set the pin in the row below. The pin
 stepper skips the ESC signal pin.
 
 **Default: off.** The board has two free pins, GP28 and GP29, and the ESC
@@ -151,4 +151,4 @@ above 5 %.
 
 A poor link usually comes from the signal wire: too long, unshielded, or routed
 near motor phase wires. Shorten it first. Otherwise set **DSHOT KBAUD** to 300
-in SETUP. The `LINK` row on the SETUP screen updates live.
+under **MENU → SETTINGS**. The `LINK` row on the SETTINGS screen updates live.

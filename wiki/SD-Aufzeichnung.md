@@ -43,6 +43,10 @@ während der Aufzeichnung, `SD` im Leerlauf, `SDERR` nach einem Kartenfehler,
 
 ## Den Bildschirm lesen
 
+Öffnen über **MENU → SD LOG**. Die Zeile in `MENU` zeigt denselben Zustand:
+`NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, oder `USB DRIVE`, solange ein
+Computer die Karte hält.
+
 <img src="img/log-ready.png" width="240" alt="Karte eingebunden, bereit">
 
 | Zeile | Bedeutung |
@@ -116,8 +120,9 @@ Ohne Karte ist `USB DRIVE` als nicht verfügbar gezeichnet und tut nichts.
 | `STOP RECORDING FIRST` | Die Aufzeichnung beenden |
 
 **Scharfschalten ist gesperrt, solange der Computer die Karte hat.** `BACK`
-verlässt den Bildschirm, ohne die Übergabe abzubrechen. Der Tester-Bildschirm
-ist also erreichbar, schaltet aber erst nach dem Auswerfen scharf. Ein Druck,
+verlässt den Bildschirm Richtung `MENU`, ohne die Übergabe abzubrechen, und
+`BACK` auf `MENU` erreicht den Tester. Der Tester schaltet erst nach dem
+Auswerfen scharf. Ein Druck,
 der beginnt, solange der Computer die Karte hat, schaltet auch nach dem
 Auswerfen nicht scharf. Neu drücken.
 

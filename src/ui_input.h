@@ -13,7 +13,7 @@
  *   appearance when touched, out of about twenty controls. On glass, a control
  *   that does not react reads as one that did not register.
  * - **A stepper repeats while held, and accelerates.** The AM32 editor did
- *   this and the settings screen did not, so raising the throttle ceiling from
+ *   this and SETTINGS did not, so raising the throttle ceiling from
  *   20 % to 100 % was eight separate taps.
  *
  * @see TouchState, which supplies the press position these rules test against.
@@ -44,7 +44,7 @@ struct Repeat {
  * Both halves matter. Without the current position a finger that slid off
  * still looks held; without the start position a finger that slid *on* from
  * elsewhere looks pressed and would fire on release. Shared here because each
- * screen having its own version is how the setup and AM32 screens quietly
+ * screen having its own version is how SETTINGS and the AM32 screen quietly
  * kept firing on touch-down after the main screen stopped.
  *
  * @param t       This frame's touch snapshot; null is treated as no touch.

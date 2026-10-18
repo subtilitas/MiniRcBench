@@ -51,6 +51,9 @@
  */
 #define SETTINGS_VERSION 2
 
+/** @brief Lowest backlight level: below it the panel looks dead. */
+#define BACKLIGHT_MIN 16
+
 /** @brief The persisted settings. */
 struct Settings {
 	/**
@@ -69,7 +72,7 @@ struct Settings {
 	uint8_t  kissPin;      /**< GPIO the ESC's telemetry pad connects to. Any free one. */
 	uint8_t  poles;        /**< Motor pole count, for eRPM to RPM. */
 	uint16_t maxThrottle;  /**< Throttle ceiling, out of 0..2000. */
-	uint8_t  backlight;    /**< Preferred backlight level, 0..255. */
+	uint8_t  backlight;    /**< Preferred backlight level, @ref BACKLIGHT_MIN to 255. */
 	uint8_t  highContrast; /**< Non-zero selects @ref Theme::HighContrast. */
 };
 
@@ -112,7 +115,7 @@ bool settingsPinFree(uint8_t pin);
 /**
  * @brief The next free GPIO after @p from, wrapping.
  *
- * Drives the `-`/`+` buttons on the setup screen. Stepping through only legal
+ * Drives the `-`/`+` buttons on SETTINGS. Stepping through only legal
  * values is what removes the error state entirely: there is no invalid pin to
  * reject, because one cannot be selected.
  *
@@ -174,7 +177,7 @@ Settings *settings();
  * Validates first, so a save can only ever store something loadable.
  *
  * @warning Erasing flash parks core1 and stalls the DShot pump for tens of
- *          milliseconds. Callers must be disarmed. The setup screen enforces
+ *          milliseconds. Callers must be disarmed. SETTINGS enforces
  *          that; this function cannot, because it has no way to ask.
  *
  * Refused, with nothing written, while a pin claim holds (pin_claim.h): a

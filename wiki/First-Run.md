@@ -42,7 +42,7 @@ The board has JST-SH 1.0 mm connectors and no 2.54 mm headers, so the ESC
 lead needs a pigtail with a JST-SH plug.
 
 GP means GPIO (general-purpose input/output pin). The ESC pin can be changed
-later under **CFG → SETUP**, and the setting is stored in flash.
+later under **MENU → SETTINGS**, and the setting is stored in flash.
 
 > **Cut or de-pin the middle wire of the ESC lead first.**
 > The middle conductor of a 3-wire servo plug is the ESC's **+5 V BEC
@@ -51,7 +51,7 @@ later under **CFG → SETUP**, and the setting is stored in flash.
 > chip. The tester needs signal and ground only.
 
 Keep the signal wire short. The maximum working length is not measured. If the
-`LINK` error rate rises, set **DSHOT KBAUD** to 300 in SETUP.
+`LINK` error rate rises, set **DSHOT KBAUD** to 300 under **MENU → SETTINGS**.
 
 ---
 
@@ -119,19 +119,22 @@ it. The bar shows a grab handle. Turning `HOLD` off sets the throttle to zero.
 
 ## Raising the ceiling
 
-`CFG` opens the settings screen. Opening it always disarms.
+`MENU` on the tester opens the list of tools. Opening it always disarms. Tap
+the `SETTINGS` row.
 
-<img src="img/settings.png" width="240" alt="The settings screen">
+<img src="img/settings.png" width="240" alt="The SETTINGS screen">
 
 - **MOTOR POLES**: converts the reported eRPM (electrical RPM) to RPM with
   `RPM = eRPM / (poles / 2)`. Range 2–28, even values only. Default 14. A
   wrong value scales the RPM reading by a fixed factor; other readings are
   unaffected.
-- **THROTTLE CEILING**: 5–100 % in 5 % steps. Hold `-` or `+` to repeat; the
-  repeat speeds up the longer you hold.
+- **MAX THROTTLE**: the throttle ceiling, 5–100 % in 5 % steps. Hold `-` or `+`
+  to repeat; the repeat speeds up the longer you hold.
 
-Both values are stored only when saved, with `HOLD TO SAVE` on **SETUP**.
-`UNSAVED` under the title shows unsaved changes.
+Both rows are at the top of the list. Both values are stored only when saved,
+with `HOLD TO SAVE` under the list. The note line reads
+`UNSAVED - HOLD SAVE TO KEEP` until then, and `MENU` shows `UNSAVED` on its
+`SETTINGS` row.
 
 ---
 

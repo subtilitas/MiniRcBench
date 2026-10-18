@@ -4,7 +4,7 @@
  *        press.
  *
  * HOLD TO WRITE on AM32, HOLD TO START on SERVO, HOLD TO APPLY on SET and
- * HOLD TO SAVE on SETUP run on this. HOLD TO ARM keeps its own timer in
+ * HOLD TO SAVE on SETTINGS run on this. HOLD TO ARM keeps its own timer in
  * ui.cpp: it draws its progress in the status badge and adds a zero-throttle
  * condition.
  *

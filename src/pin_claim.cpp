@@ -24,19 +24,11 @@ static uint8_t    s_jobError = CORE1_JOB_OK;    /**< Why the job did not bind. *
 static bool       s_jobPending = false;
 /** @} */
 
-/** @brief The core1 job a screen runs; None for AM32. */
-static Core1Job jobFor(PinUser who) {
-	switch (who) {
-		case PinUser::Servo: return Core1Job::Servo;
-		case PinUser::Kst:   return Core1Job::Kst;
-		default:             return Core1Job::None;
-	}
-}
+/** @brief The core1 job a screen runs; None for AM32. @see PIN_USERS */
+static Core1Job jobFor(PinUser who) { return pinUserInfo(who).job; }
 
-/** @brief SERVO and KST show the unplug page before DShot restarts. */
-static bool needsUnplug(PinUser who) {
-	return who == PinUser::Servo || who == PinUser::Kst;
-}
+/** @brief SERVO and KST show the unplug page before DShot restarts. @see PIN_USERS */
+static bool needsUnplug(PinUser who) { return pinUserInfo(who).unplug; }
 
 /** @brief Hand the job its pins. AM32 has no job and starts nothing. */
 static void startJob() {
@@ -110,8 +102,8 @@ ClaimState pinClaimPoll() {
 	switch (s_state) {
 		case ClaimState::Stopping:
 			if (escTaskSuspended()) {
-				// Read once, here: SETUP is unreachable during a claim, so
-				// these cannot change before it ends.
+				// Read once, here: SETTINGS opens only while the claim is
+				// Free, so these cannot change before it ends.
 				s_sig = escTaskDshotPin();
 				s_aux = escTaskKissPin();
 				s_state = ClaimState::Held;

@@ -44,7 +44,7 @@ Die Platine hat JST-SH-Stecker mit 1,0 mm Raster und keine 2,54-mm-Stiftleisten,
 das ESC-Kabel braucht also ein Adapterkabel mit JST-SH-Stecker.
 
 GP steht für GPIO (General Purpose Input/Output, frei verwendbarer Pin). Der
-ESC-Pin lässt sich später unter **CFG → SETUP** ändern und wird im Flash
+ESC-Pin lässt sich später unter **MENU → SETTINGS** ändern und wird im Flash
 gespeichert.
 
 > **Vorher das mittlere Kabel des ESC-Steckers abzwicken oder auspinnen.**
@@ -55,8 +55,8 @@ gespeichert.
 > und Masse.
 
 Halte das Signalkabel kurz. Die größte funktionierende Länge ist nicht
-gemessen. Steigt die Fehlerrate unter `LINK`, stelle **DSHOT KBAUD** im SETUP
-auf 300.
+gemessen. Steigt die Fehlerrate unter `LINK`, stelle **DSHOT KBAUD** unter
+**MENU → SETTINGS** auf 300.
 
 ---
 
@@ -126,19 +126,22 @@ null.
 
 ## Die Obergrenze anheben
 
-`CFG` öffnet die Einstellungen. Das Öffnen entschärft immer.
+`MENU` auf dem Tester öffnet die Liste der Werkzeuge. Das Öffnen entschärft
+immer. Tippe auf die Zeile `SETTINGS`.
 
-<img src="img/settings.png" width="240" alt="Einstellungsbildschirm">
+<img src="img/settings.png" width="240" alt="Der SETTINGS-Bildschirm">
 
 - **MOTOR POLES**: rechnet die gemeldete eRPM (elektrische Drehzahl) mit
   `RPM = eRPM / (Pole / 2)` in die Drehzahl um. Bereich 2–28, nur gerade
   Werte. Voreinstellung 14. Ein falscher Wert verfälscht die Drehzahl um einen
   festen Faktor; andere Werte sind nicht betroffen.
-- **THROTTLE CEILING**: 5–100 % in Schritten von 5 %. `-` oder `+` gedrückt
-  halten wiederholt den Schritt, mit der Zeit schneller.
+- **MAX THROTTLE**: die Gas-Obergrenze, 5–100 % in Schritten von 5 %. `-` oder
+  `+` gedrückt halten wiederholt den Schritt, mit der Zeit schneller.
 
-Beide Werte werden erst mit `HOLD TO SAVE` auf **SETUP** gespeichert. `UNSAVED`
-unter dem Titel zeigt ungespeicherte Änderungen.
+Beide Zeilen stehen oben in der Liste. Beide Werte werden erst mit
+`HOLD TO SAVE` unter der Liste gespeichert. Bis dahin zeigt die Hinweiszeile
+`UNSAVED - HOLD SAVE TO KEEP`, und `MENU` zeigt `UNSAVED` in der Zeile
+`SETTINGS`.
 
 ---
 

@@ -9,6 +9,7 @@
  */
 
 #include "ui_am32.h"
+#include "settings.h"
 #include "am32_bl.h"
 #include "am32_eeprom.h"
 #include "pin_claim.h"
@@ -26,7 +27,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#define ROW_H        26      /**< Height of one settings row. */
+#define ROW_H        UI_LIST_TAP_MIN  /**< Height of one settings row, 40 px. */
+#define ROW_PITCH    42      /**< Row top to row top: a 2 px gap under each row. */
 #define HEX_ROW_H    11      /**< Height of one hex-dump line. */
 #define LIST_Y0      UI_BODY_Y  /**< First pixel row of the list viewport. */
 #define LIST_Y1      215     /**< Last pixel row of the list viewport. */
@@ -70,6 +72,8 @@ static const UiRect LIST_VIEW  = { 0, LIST_Y0, GFX_W, LIST_H };
 // Layout invariants, asserted rather than eyeballed. A caption that runs under
 // a button is invisible in code review and obvious only in a screenshot.
 static_assert(LIST_Y0 >= UI_BODY_Y, "the list overlaps the header strip");
+static_assert(ROW_H >= UI_LIST_TAP_MIN && ROW_PITCH > ROW_H,
+              "an AM32 row is lower than the list floor, or has no gap");
 static_assert(LIST_Y1 < EDIT_Y, "list overlaps the editor bar");
 static_assert(EDIT_Y + EDIT_H <= FOOT_Y, "editor bar overlaps the footer");
 static_assert(FOOT_Y + FOOT_H <= GFX_H, "footer runs off the panel");
@@ -119,7 +123,7 @@ static int      s_attempt = 0;     /**< Init strings sent since entering. */
 /**
  * @brief Held-button repeat state for the editor bar.
  *
- * The rule itself lives in ui_input.h now, shared with the settings screen,
+ * The rule itself lives in ui_input.h now, shared with SETTINGS,
  * which had no repeat at all until it was factored out -- getting the throttle
  * ceiling from 20 % to 100 % was eight separate taps.
  */
@@ -158,7 +162,10 @@ static const TouchState *s_frameTouch = nullptr;
  */
 static void openList() {
 	if (s_hexView) uiListInit(&s_list, LIST_VIEW, HEX_ROW_H, HEX_LINES);
-	else           uiListInit(&s_list, LIST_VIEW, ROW_H, s_visibleCount);
+	else {
+		uiListInit(&s_list, LIST_VIEW, ROW_PITCH, s_visibleCount);
+		uiListSetBody(&s_list, ROW_H, UI_LIST_TAP_MIN);
+	}
 }
 
 /**
@@ -196,9 +203,9 @@ static void drawHeader() {
 	uiHeader("AM32 CONFIG", s_frameTouch);
 
 	// The device name qualifies the title rather than being part of it, so it
-	// goes on the shared strip -- the same row SETTINGS puts its EDT chip on.
+	// goes on the shared strip -- the same row MENU puts its EDT chip on.
 	// It used to be a second line inside a 50 px header this screen had to
-	// itself, which is why BACK ended up 8 px lower here than on SETUP.
+	// itself, which is why BACK ended up 8 px lower here than on SETTINGS.
 	uiStripClear();
 	char name[AM32_NAME_LEN + 1];
 	if (s_state == S_LIST || s_state == S_WRITING) {
@@ -268,13 +275,15 @@ static void drawRow(int index, int y, void *) {
 	gfxRect(0, y, GFX_W, ROW_H - 1, sel ? C_PANEL : C_BG);
 	if (changed) gfxRect(0, y, 3, ROW_H - 1, C_AMBER);
 
-	gfxText(8, y + 3, f->group, C_GRID, 1);
-	gfxText(8, y + 13, f->name, sel ? C_TEXT : C_DIM, 1);
+	// The two scale-1 lines and the value, each centred in the 39 px the
+	// row paints above its rule.
+	gfxText(8, y + 11, f->group, C_GRID, 1);
+	gfxText(8, y + 21, f->name, sel ? C_TEXT : C_DIM, 1);
 
 	char val[24];
 	am32FormatValue(f, s_eeprom, val, sizeof(val));
 
-	gfxText(GFX_W - 8 - gfxTextW(val, 2), y + 6, val,
+	gfxText(GFX_W - 8 - gfxTextW(val, 2), y + 13, val,
 	        changed ? C_AMBER : (sel ? C_LIME : C_TEXT), 2);
 	gfxHLine(0, y + ROW_H - 1, GFX_W, C_PANEL);
 }
@@ -365,7 +374,7 @@ static void drawWriting() {
  * @brief Ask for the signal pin. On a refusal the reason goes on the screen
  *        and S_HANDOVER asks again next frame.
  *
- * Neither refusal is reachable through the UI: SETTINGS disarms on entry, and
+ * Neither refusal is reachable through the UI: MENU disarms on entry, and
  * no other screen that claims is open while this one is. AM32 is exempt from
  * the ESC-answering rule, since it needs the ESC on the pin.
  */
@@ -628,7 +637,7 @@ bool uiAm32Tick(const TouchState *t) {
 			if (s_claimed && pinClaimPoll() == ClaimState::Held) {
 				// The pin the claim latched from the pump, not the compiled
 				// default: the two part company the moment the user changes it
-				// on SETUP.
+				// on SETTINGS.
 				am32BlBegin(pinClaimGpio(PIN_SIG));
 				s_state = S_CONNECT;
 				snprintf(s_status, sizeof(s_status), "SEARCHING...");
@@ -681,3 +690,14 @@ bool uiAm32Tick(const TouchState *t) {
 	}
 	return true;
 }
+
+/** @brief AM32 CONFIG's MENU status: the signal pin it claims, from the settings. */
+static void am32MenuStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
+	snprintf(buf, n, "GP%u", (unsigned)settings()->dshotPin);
+	*col = C_DIM;
+}
+
+const UiScreen UI_AM32 = {
+	UiScreenId::Am32, "AM32 CONFIG", PinUser::Am32, am32MenuStatus,
+	uiAm32Enter, uiAm32Tick, nullptr, uiAm32Controls, nullptr, false,
+};

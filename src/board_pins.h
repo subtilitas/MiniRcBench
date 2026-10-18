@@ -14,7 +14,7 @@
  *
  * | Macro | Meaning |
  * |---|---|
- * | `BOARD_LABEL` | Short board name, for the splash and SETUP screens |
+ * | `BOARD_LABEL` | Short board name, for the splash and SETTINGS |
  * | `BOARD_FREE_GPIO_MASK` | GPIOs the ESC and telemetry wires may use |
  * | `PIN_LCD_BL`, `PIN_LCD_DC`, `PIN_LCD_CS` | Panel control lines |
  * | `PIN_LCD_SCK`, `PIN_LCD_MOSI`, `PIN_LCD_RST` | Panel data and reset |

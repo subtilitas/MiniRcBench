@@ -6,7 +6,7 @@ built: the pure model `src/servo_model.*`, the PWM driver `src/servo_pwm.*`,
 the core1 job `src/servo_job.*` in the job table of `core1_job.cpp`, the files
 copied from rcbench in `lib/rcbench/`, `gfxLine()` and `gfxArcDots()` in
 `src/gfx.*`, the slider `src/ui_slider.*`, the screens in `src/ui_servo.cpp`,
-the live SERVO button on CFG, and the user documentation. Item 5, bring-up on
+the live SERVO TESTER row on MENU, and the user documentation. Item 5, bring-up on
 hardware, is open; [STATUS.md](../../STATUS.md) lists its bench tests. Where
 the code and the original plan differ, the Decisions section says how.
 
@@ -110,7 +110,7 @@ The profiles are rcbench's:
 | HELI CYCLIC | 820 µs | 1520 µs | 2220 µs | 50, 120, 200, 333 Hz | 333 Hz | 333 Hz |
 | HELI TAIL 760 | 410 µs | 760 µs | 1110 µs | 200, 333, 560 Hz | 560 Hz | 560 Hz |
 
-Steppers only reach legal values, as SETUP's pin steppers only reach free pins:
+Steppers only reach legal values, as SETTINGS' pin steppers only reach free pins:
 MIN, CENTRE and MAX move in 10 µs steps and stop at the floor, the ceiling and
 each other; RATE steps through the offered rates up to the ceiling the range
 allows. There is no invalid value to reject. In numbers:
@@ -171,7 +171,7 @@ commands the servo." The screen keeps that interaction and its rules.
 
 | | Throttle gauge (`ui.cpp`) | Servo horn |
 |---|---|---|
-| Surface | track 224 × 34 px at y 248, 8 px slop above, 1 px below | annulus around the shaft, 24 px to 124 px radius, ±104° of straight up, clipped to the dial band |
+| Surface | track 224 × 34 px at y 248, 8 px slop above, 1 px below | annulus around the shaft, 24 px to 122 px radius, ±104° of straight up, clipped to the dial band |
 | Spring mode | absolute: finger position is throttle, back to 0 on release | none |
 | HOLD mode | relative, by distance dragged (`HOLD_DRAG_SENSITIVITY_PCT`), so a touch never jumps the motor | always absolute; the release holds |
 | Large pad | relative swipe with a 6 px deadzone (`PAD_DEADZONE_PX`) | none |
@@ -207,22 +207,21 @@ are channels B and A of PWM slice 6, which forces one rate anyway.
 
 ## Screens
 
-Entry: CFG → SETTINGS → SERVO, in the destination row
-([pin-claim.md](pin-claim.md), decision 2). The main screen is the root
-and gets no entry; CFG is its navigation. [menu.md](menu.md), planned,
-changes the entry in its slice C to MENU → SERVO TESTER, and BACK through
-the unplug page then returns to MENU.
+Entry: MENU → SERVO TESTER, a row of the registry
+([menu.md](menu.md)). The main screen is the root and gets no entry; MENU is
+its navigation. BACK through the unplug page returns to MENU. While the claim
+is not Free, the row reads `PINS BUSY` and a tap opens nothing.
 
 ### SERVO
 
 ```
 y   0 +------------------------------------------+
-      | SERVO                            [ BACK ]|  header, UI_HDR_H 30 px
-   34 | GP29  50 HZ  1000-2000 US          (SAFE)|  strip: caption, chip
-   58 | THE SERVO MOVES TO CENTRE AT START.      |  two notes while SAFE
-   56 |                                          |
+      | SERVO                            [ BACK ]|  header, UI_HDR_H 36 px
+   40 | GP29  50 HZ  1000-2000 US          (SAFE)|  strip: caption, chip
+   64 | THE SERVO MOVES TO CENTRE AT START.      |  two notes while SAFE
+   76 | PULSES ON GP29 ARE THROTTLE TO AN ESC.   |
       |               .   -   -   .              |
-      |          .          |          .         |  dial band 56..199
+      |          .          |          .         |  dial band 62..199
       |       .             |             .      |  arc radius 96 px
       |     .               |               .    |  shaft at (120, 184)
       |    MIN              o              MAX   |  0 deg is straight up
@@ -278,19 +277,20 @@ rebind core1 refused.
 
 ### SET
 
-The AM32 list idiom: a scrolling list of rows (26 px), an editor bar with
+The AM32 list idiom: a scrolling list of rows (40 px at a 42 px pitch, so
+three show), an editor bar with
 large − and + (hold to repeat, `repeatFires()`) and a horizontal swipe for
 coarse steps, and a footer.
 
 ```
 y   0 | SERVO SET                        [ BACK ]|
-   36 | STOP TO CHANGE THE PROFILE               |  note band, two lines
-   56 | PULSE   SERVOS                      ONE  |
+   42 | STOP TO CHANGE THE PROFILE               |  note band, two lines
+   62 | PULSE   SERVOS                      ONE  |
       | PULSE   TYPE               STANDARD PWM  |
       | PULSE   RATE                      50 HZ  |
       | PULSE   MIN                     1000 US  |
       | PULSE   CENTRE                  1500 US  |
-      | PULSE   MAX                     2000 US  |  list 56..215, scrolls
+      | PULSE   MAX                     2000 US  |  list 62..215, scrolls
       | PULSE   REVERSE B                    OFF |
       | SWEEP   SHAPE                       SINE |
       | SWEEP   RATE                     0.50 HZ |
@@ -333,7 +333,7 @@ y   0 | SERVO SET                        [ BACK ]|
   is not also a tap on DEFAULTS: DEFAULTS needs a new press. The SWEEP rows
   stay adjustable while RUNNING, and so does SPEED on SERVO.
 
-The note band is two lines under the header, rows 34 to 55, where the other
+The note band is two lines under the header, rows 40 to 61, where the other
 screens have a one-line strip: the warnings and the pin-claim texts do not fit
 one line of 240 px.
 
@@ -480,7 +480,7 @@ UI frames:
   1000 µs); the pulse against the frame (1784 µs at 560 Hz); the warning set;
 - mapping: command to µs with a symmetric and an asymmetric CENTRE; ±90° to
   MIN and MAX; saturation from 90° to 104°; REVERSE B;
-- hit test: inside the annulus, inside 24 px, outside 124 px, past ±104°,
+- hit test: inside the annulus, inside 24 px, outside 122 px, past ±104°,
   below the dial band, and a press that began off the dial;
 - the job against a fake PWM: level 0 while SAFE; CENTRE on every bound pin at
   START; slew per SPEED; sweep start and stop; heartbeat trip latched, not
@@ -499,13 +499,14 @@ UI frames:
 - two servos: the selector, `AB` with REVERSE B.
 
 The screen tests are in `test/test_servo.cpp` too, through the real UI from
-CFG: the SERVO, SET and unplug screens render, the disabled states draw
+MENU: the SERVO, SET and unplug screens render, the disabled states draw
 disabled and do not act, HOLD TO START fires at 1000 ms and not at 999 ms nor
 on a slide off, STOP fires on press, the KissLive and SamePin refusals reach
 the SET screen through the claim, an ESC answering on SIG holds the claim off
 until 500 ms after its last frame, and the unplug page comes before DShot
-restarts. `test/test_ui.cpp` checks the CFG row: SERVO live and opening its
-screen, KST disabled (decision 14). `make previews` adds
+restarts. `test/test_menu.cpp` checks the MENU row: SERVO TESTER opens its screen,
+BACK through the unplug page lands on MENU, and `PINS BUSY` while the claim
+restores. `make previews` adds
 `docs/servo-preview.png`.
 
 ## Work breakdown

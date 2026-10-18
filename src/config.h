@@ -10,13 +10,13 @@
  *
  * The ESC pin, the DShot bitrate, the KISS wire, the pole count, the throttle
  * ceiling and the backlight are all changeable on the board itself and stored
- * in flash — see @ref settings.h and the **CFG -> SETUP** screen. What is
+ * in flash — see @ref settings.h and the **MENU -> SETTINGS** screen. What is
  * written here is the value a board starts with when its flash is blank, or
  * when a stored block fails to validate.
  *
  * The practical consequence: editing one of those values and reflashing will
  * appear to do nothing on a board that has saved settings, because the stored
- * value wins. The SETUP screen shows one note line, `SAVED SETTINGS IN USE` or
+ * value wins. SETTINGS shows one note line, `SAVED SETTINGS IN USE` or
  * `COMPILED DEFAULTS IN USE`, naming which of the two is in effect.
  */
 
@@ -53,7 +53,7 @@
 /**
  * @brief ESC signal pin the board starts on. **GP29**.
  *
- * Runtime-adjustable from **CFG -> SETUP**, which is the intended way to change
+ * Runtime-adjustable from **MENU -> SETTINGS**, which is the intended way to change
  * it; this is what a board with blank flash starts on. @see settings.h
  *
  * J4 pin 12, the end pin of the connector. The RTC, the codec, the IMU and the
@@ -75,7 +75,7 @@
 /**
  * @brief Default DShot bitrate in kBaud. 150 / 300 / 600 / 1200 are legal.
  *
- * Runtime-adjustable from **CFG -> SETUP**. That matters more than it sounds:
+ * Runtime-adjustable from **MENU -> SETTINGS**. That matters more than it sounds:
  * bidirectional DShot is more timing-sensitive than normal DShot, and "drop to
  * 300 before suspecting the firmware" is advice you want to be able to take on
  * the bench with the flaky wire still connected, not after a toolchain
@@ -102,8 +102,8 @@
  * @brief Magnet (pole) count of the motor under test.
  *
  * Used for the eRPM to RPM conversion, `RPM = eRPM / (poles / 2)`. A "2207"
- * style quad motor is almost always 14. Adjustable at runtime in the CFG
- * screen.
+ * style quad motor is almost always 14. Adjustable at runtime in
+ * MENU -> SETTINGS.
  */
 #define DEFAULT_MOTOR_POLES    14
 
@@ -283,10 +283,11 @@
 /**
  * @brief How long a refused USB DRIVE press keeps its explanation on screen.
  *
- * Longer than @ref CMD_FLASH_MS, because this one is a sentence rather than a
- * colour: the reason has to be read, and the thing it tells you to do -- disarm,
- * or stop the recording -- takes a moment to act on. Short enough that it is
- * gone before you next look at the screen for something else.
+ * Longer than the BEEP flash on MENU (`BEEP_FLASH_MS`), because this one is a
+ * sentence rather than a colour: the reason has to be read, and the thing it
+ * tells you to do -- disarm, or stop the recording -- takes a moment to act
+ * on. Short enough that it is gone before you next look at the screen for
+ * something else.
  */
 #define MSC_NOTE_MS          4000
 
@@ -411,7 +412,7 @@
  * @brief Throttle ceiling, out of the 0..2000 DShot range.
  *
  * Starts deliberately low — a motor on the bench with a prop fitted is
- * genuinely dangerous. Adjustable at runtime in the CFG screen.
+ * genuinely dangerous. Adjustable at runtime in MENU -> SETTINGS.
  */
 #define DEFAULT_MAX_THROTTLE   400
 

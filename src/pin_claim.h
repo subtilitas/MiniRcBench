@@ -45,6 +45,7 @@
 
 #include "config.h"
 #include "esc_merge.h"
+#include "core1_job.h"
 
 /** @brief The ESC signal pin: escTaskDshotPin(). */
 #define PIN_SIG 0x01u
@@ -60,7 +61,46 @@ enum class PinUser : uint8_t {
 	Am32,   /**< AM32 CONFIG: SIG, no core1 job. */
 	Servo,  /**< SERVO: SIG, and AUX for two servos. */
 	Kst,    /**< KST SERVO: SIG. */
+	Count,  /**< How many pin users; not a user. */
 };
+
+/** @brief What the claim does for one user: one row per user in @ref PIN_USERS. */
+struct PinUserInfo {
+	PinUser  who;
+	Core1Job job;       /**< The core1 job; None: the screen drives the pin from core0 (AM32). */
+	bool     unplug;    /**< The unplug page comes before DShot restarts. */
+	bool     escCheck;  /**< Refused while an ESC answers on SIG (@ref ClaimRefusal::EscAnswering). */
+};
+
+/** @brief Every pin user. A new user is one enum value and one line here. */
+static constexpr PinUserInfo PIN_USERS[] = {
+	{ PinUser::None,  Core1Job::None,  false, false },
+	{ PinUser::Am32,  Core1Job::None,  false, false },
+	{ PinUser::Servo, Core1Job::Servo, true,  true  },
+	{ PinUser::Kst,   Core1Job::Kst,   true,  true  },
+};
+
+/**
+ * @brief The row of @p who in @ref PIN_USERS.
+ * @param who A pin user.
+ * @return Its row; the None row for a value without one.
+ */
+static constexpr const PinUserInfo &pinUserInfo(PinUser who) {
+	for (const PinUserInfo &u : PIN_USERS)
+		if (u.who == who) return u;
+	return PIN_USERS[0];
+}
+
+/** @brief Each @ref PinUser has exactly one row in @ref PIN_USERS. */
+static constexpr bool pinUsersComplete() {
+	for (int w = 0; w < (int)PinUser::Count; w++) {
+		int n = 0;
+		for (const PinUserInfo &u : PIN_USERS) n += (int)u.who == w;
+		if (n != 1) return false;
+	}
+	return true;
+}
+static_assert(pinUsersComplete(), "a pin user has no row in PIN_USERS, or two");
 
 /** @brief Where the claim is. See the table in this file's description. */
 enum class ClaimState : uint8_t {
@@ -99,7 +139,7 @@ struct ClaimFacts {
  * The rules, in order:
  *
  * - **Armed.** Refused, and nothing is disarmed on the caller's behalf. Every
- *   entry point is on the SETTINGS screen, which disarms on entry, so through
+ *   entry point is on MENU, which disarms on entry, so through
  *   the UI this never fires; a route added later that reaches a claim while
  *   armed shows up as a refusal in a test, not as a motor stopped by
  *   navigation.
@@ -112,7 +152,7 @@ struct ClaimFacts {
  *   on the pin.
  * - **KissLive**, AUX asked for. An ESC telemetry output drives AUX, and servo
  *   PWM would drive against it.
- * - **SamePin**, AUX asked for. With KISS off, SETUP can put the ESC pin on
+ * - **SamePin**, AUX asked for. With KISS off, SETTINGS can put the ESC pin on
  *   the KISS pin's GPIO, and two servos on one pin are one compare register
  *   driven twice.
  *
@@ -127,7 +167,7 @@ static inline ClaimRefusal pinClaimCheck(PinUser who, uint8_t roles,
                                          const ClaimFacts *f) {
 	if (f->armed) return ClaimRefusal::Armed;
 	if (f->held)  return ClaimRefusal::Busy;
-	if (who != PinUser::Am32 &&
+	if (pinUserInfo(who).escCheck &&
 	    escFieldFresh(f->lastRpmMs, f->nowMs, ESC_LINK_STALE_MS))
 		return ClaimRefusal::EscAnswering;
 	if (roles & PIN_AUX) {

@@ -15,9 +15,12 @@
 #include "board_desc.h"
 #include "gfx.h"
 #include "ui.h"
-#include "ui_setup.h"
+#include "ui_settings.h"
+#include "ui_menu.h"
+#include "ui_sdlog.h"
 #include "ui_screen.h"
 #include "ui_servo.h"
+#include "ui_kst.h"
 #include "touch.h"
 #include "esc_task.h"
 #include "esc_merge.h"
@@ -87,7 +90,7 @@ static void swipe(int x0, int x1, int y, int step) {
 static int uiRowY(const char *name) {
 	int v = uiRowOf(name);
 	if (v < 0) return -1;
-	uiListScrollTo(&s_list, v * ROW_H);
+	uiListScrollTo(&s_list, v * ROW_PITCH);
 	UiRect r = ctlRect(UI_ROW(v, Row));
 	return r.y + r.h / 2;
 }
@@ -152,15 +155,15 @@ static void holdToArm(IdExpect want = IdExpect::Enabled) {
 }
 
 /**
- * @brief Navigate main -> SETTINGS -> SD LOG.
+ * @brief Navigate main -> MENU -> SD LOG.
  *
  * Assumes the main screen is showing and the ESC is disarmed.
  */
 static void enterLogScreen() {
-	tapId(UI_FIX(TesterCtl::Cfg));
-	checkTrue("CFG opens SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
-	tapId(UI_FIX(CfgCtl::SdLog));
-	checkTrue("SD LOG opens from SETTINGS", uiCurrentScreen() == UiScreenId::SdLog);
+	tapId(UI_FIX(TesterCtl::Menu));
+	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(menuRow(&UI_SDLOG));
+	checkTrue("SD LOG opens from MENU", uiCurrentScreen() == UiScreenId::SdLog);
 }
 
 /**
@@ -240,9 +243,13 @@ static void testLogScreen() {
 	checkTrue("and its size", st.cardSizeMB > 100000);
 	fakeDumpFrame("shot_log_mounted.ppm");
 
+	// BACK leaves SD LOG for MENU, and MENU's BACK reaches the tester.
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
-	checkTrue("BACK from SD LOG reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
+	checkTrue("BACK from SD LOG reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
 }
 
 /**
@@ -306,10 +313,14 @@ static void testUsbDriveScreen() {
 
 	// Arming is refused while a host holds the card, from the tester screen --
 	// which is reachable, because BACK does not cancel a copy in progress.
+	// BACK leaves SD LOG for MENU while the host holds the card too, and
+	// MENU's BACK then reaches the tester.
 	fakeMscSet(MscState::Serving, 0);
-	// SD LOG opens with SETTINGS closed behind it, so one BACK reaches the tester.
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from SD LOG reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
+	checkTrue("BACK from SD LOG, card held: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("leaving does not end the handover", mscGetState() == MscState::Serving);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
 	frames(2);
 	holdToArm(IdExpect::Disabled);
 	checkTrue("a host holding the card blocks arming", !uiArmed());
@@ -321,8 +332,8 @@ static void testUsbDriveScreen() {
 /**
  * @brief A hand-started log must survive arming and the disarm that follows.
  *
- * Reported from hardware, and a good bug: entering the settings screen
- * force-disarms, and the logging screen is reached *through* settings. So
+ * Reported from hardware, and a good bug: opening MENU force-disarms, and
+ * the logging screen is reached *through* MENU. So
  * auto-stop-on-disarm cancelled exactly the log you walked over to check on,
  * and there was no way to observe a manual log without ending it.
  */
@@ -339,28 +350,34 @@ static void testManualLogSurvivesArming() {
 	tapId(UI_FIX(SdLogCtl::Toggle));
 	checkTrue("manual START begins a log", sdLogActive());
 
-	// Back to the main screen and arm.
+	// Back to the main screen, through MENU, and arm.
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
-	checkTrue("BACK from SD LOG reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
+	checkTrue("BACK from SD LOG reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
 	// A tap will not arm: it takes a one-second hold, and using tap() here is
 	// how an earlier version of this test passed against the broken rule.
 	holdToArm();
 	checkTrue("actually armed", uiArmed());
 	checkTrue("still logging while armed", sdLogActive());
 
-	// Walking back to the logging screen goes through settings, which
+	// Walking back to the logging screen goes through MENU, which
 	// force-disarms. That must not end a log the operator started.
 	enterLogScreen();
 	frames(2);
-	checkTrue("armed state cleared by entering settings", !uiArmed());
+	checkTrue("armed state cleared by opening MENU", !uiArmed());
 	checkTrue("manual log survives the force-disarm", sdLogActive());
 
 	// STOP is still the operator's to press.
 	tapId(UI_FIX(SdLogCtl::Toggle));
 	checkTrue("manual STOP ends it", !sdLogActive());
-	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));               // to MENU
 	frames(2);
+	tapId(UI_FIX(UI_BACK));               // to the tester
+	frames(2);
+	checkTrue("back on the tester", uiCurrentScreen() == UiScreenId::Tester);
 }
 
 /**
@@ -556,30 +573,62 @@ static void testTelemetryExpires() {
 }
 
 /**
- * @brief The EDT chip tracks reception, and BEEP acknowledges a press.
+ * @brief MENU_STATUS_R in ui_menu.cpp: a MENU row's status ends at this x.
+ *        A pixel probe of drawn text, not a control coordinate. Must match.
+ */
+#define MENU_STATUS_R_T 222
+
+/**
+ * @brief Whether MENU row @p r shows @p text in @p col on a @p fill fill.
+ *
+ * The fill is read 5 px in from the row's left edge and 8 px down, clear of
+ * the label. The status is scale 1, right-aligned to MENU_STATUS_R_T, 16 px
+ * below the row's top: the expected text is drawn over the one on screen and
+ * the two hashes compared, so the check is on the rendered glyphs. The
+ * pixels under the probe are put back afterwards.
+ */
+static bool menuStatusIs(const UiRect &r, const char *text, uint16_t col, uint16_t fill) {
+	uint16_t *fb = gfxBuffer();
+	if (fb[(r.y + 8) * GFX_W + r.x + 5] != fill) return false;
+	const int w = gfxTextW(text, 1), x = MENU_STATUS_R_T - w, y = r.y + 16;
+	uint16_t keep[7][GFX_W];
+	for (int j = 0; j < 7; j++) memcpy(keep[j], fb + (y + j) * GFX_W + x, w * sizeof(uint16_t));
+	uint32_t shown = fakeRegionHash(x, y, w, 7);
+	gfxRect(x, y, w, 7, fill);
+	gfxText(x, y, text, col, 1);
+	bool same = fakeRegionHash(x, y, w, 7) == shown;
+	for (int j = 0; j < 7; j++) memcpy(fb + (y + j) * GFX_W + x, keep[j], w * sizeof(uint16_t));
+	return same;
+}
+
+/**
+ * @brief MENU's EDT chip tracks reception, and BEEP's row acknowledges a tap.
  *
  * BEEP was reported as showing no reaction. The command was going out -- the
  * ESC beeped -- but nothing on screen moved, because the command is over in
- * about 6 ms and the UI repaints at 40 Hz.
+ * about 6 ms and the UI repaints at 40 Hz. The acknowledgement is on the row
+ * now: for 350 ms after a tap its status reads SENT on an ink fill, or
+ * REFUSED on an amber fill.
  *
- * The EDT chip beside it is read-only. There is no enable button any more:
+ * The EDT chip on the strip is read-only. There is no enable button any more:
  * the firmware sends one to each ESC as it appears, so the control was for
  * something already handled. What remains is worth showing, because "green"
  * and "all four telemetry tiles read --" are the same fact.
  */
-static void testSettingsCommandRow() {
-	section("Settings command row");
+static void testMenuBeepRow() {
+	section("MENU: the EDT chip and BEEP's row");
 
 	feedLiveTelemetry();
-	tapId(UI_FIX(TesterCtl::Cfg));          // into settings (this force-disarms)
+	tapId(UI_FIX(TesterCtl::Menu));          // into MENU (this force-disarms)
 	frames(2);
-	checkTrue("CFG opens SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
-	// BEEP's band: the button and the caption under it, from 2 px above.
-	const UiRect beep = ctlRect(UI_FIX(CfgCtl::Beep));
-	auto beepBand = [&]() { return fakeRegionHash(0, beep.y - 2, 240, 60); };
+	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
+	const UiRect beep = ctlRect(menuRow(&UI_BEEP));
+	auto beepRow = [&]() { return fakeRegionHash(beep.x, beep.y, beep.w, beep.h); };
 	uint32_t chipOn = fakeRegionHash(120, UI_STRIP_Y, 120, UI_STRIP_H);
-	uint32_t idle   = beepBand();
-	fakeDumpFrame("shot_config_edt_on.ppm");
+	uint32_t idle   = beepRow();
+	checkTrue("BEEP's row reads DISARMED on the panel fill",
+	          menuStatusIs(beep, "DISARMED", C_DIM, C_PANEL));
+	fakeDumpFrame("shot_menu_edt_on.ppm");
 
 	// Letting telemetry expire has to change the chip, or the colour is
 	// decoration rather than a readout.
@@ -589,71 +638,99 @@ static void testSettingsCommandRow() {
 	frames(2);
 	checkTrue("EDT chip changes when telemetry stops",
 	          fakeRegionHash(120, UI_STRIP_Y, 120, UI_STRIP_H) != chipOn);
-	fakeDumpFrame("shot_config_edt_off.ppm");
+	fakeDumpFrame("shot_menu_edt_off.ppm");
 	feedLiveTelemetry();
 	frames(2);
 	checkTrue("and changes back when it returns",
 	          fakeRegionHash(120, UI_STRIP_Y, 120, UI_STRIP_H) == chipOn);
 
 	// The chip is not a button. Tapping it must not be mistaken for one. It
-	// lives on the strip under the title now, not in the header: the header's
-	// right-hand end is BACK's on every screen. Tapping the old spot would
-	// leave the screen, which is a better reason to move it than tidiness.
-	// The chip is drawn on the strip, not a control, so the tap is a point.
+	// lives on the strip under the title, not in the header: the header's
+	// right-hand end is BACK's on every screen. The chip is drawn on the
+	// strip, not a control, so the tap is a point.
 	int beepBefore = fakeBeepRequests();
 	tap(200, UI_STRIP_Y + UI_STRIP_H / 2);
 	checkInt("tapping the chip does nothing", fakeBeepRequests(), beepBefore);
 
-	// BEEP has the left half of the row, SD LOG the right.
-	pressId(UI_FIX(CfgCtl::Beep)); fakeRelease(); frames(1);
+	// BEEP is a row of the list: it fires on release.
+	pressId(menuRow(&UI_BEEP)); fakeRelease(); frames(1);
 	checkInt("tapping BEEP sends the command", fakeBeepRequests(), beepBefore + 1);
-	uint32_t lit = beepBand();
-	checkTrue("and the button acknowledges it", lit != idle);
-	fakeDumpFrame("shot_config_beep_flash.ppm");
+	checkTrue("an action row opens nothing", uiCurrentScreen() == UiScreenId::Menu);
+	uint32_t lit = beepRow();
+	checkTrue("and the row acknowledges it", lit != idle);
+	checkTrue("SENT, on the ink fill", menuStatusIs(beep, "SENT", C_PAPER, C_INK));
+	fakeDumpFrame("shot_menu_beep_flash.ppm");
 
-	fakeAdvance(400);
-	frames(2);
-	checkTrue("the flash clears itself", beepBand() == idle);
+	// 350 ms from the frame of the release: still lit at 349 ms, gone at 350.
+	frameAfter(349);
+	checkTrue("the flash holds for 349 ms", menuStatusIs(beep, "SENT", C_PAPER, C_INK));
+	frameAfter(1);
+	checkTrue("and clears itself at 350 ms", beepRow() == idle);
 
-	// Its far edge, x=117, still hits; x=118 is the gap before SD LOG.
+	// Its far edge, the row's last pixel column, x 231, still hits.
 	fakePress(beep.x + beep.w - 1, beep.y + beep.h / 2); frames(1); fakeRelease(); frames(1);
 	checkInt("BEEP's last pixel is BEEP", fakeBeepRequests(), beepBefore + 2);
 	fakeAdvance(400); frames(2);
 
-	// Refusal. Not reachable by hand -- opening settings force-disarms and
-	// there is no ARM control on that screen -- so this drives the arm state
+	// Refusal. Not reachable by hand -- opening MENU force-disarms and there
+	// is no ARM control on that screen -- so this drives the arm state
 	// directly. It is tested because the request can refuse, not because a
 	// user can currently make it.
 	escSetArmed(true);
-	pressId(UI_FIX(CfgCtl::Beep)); fakeRelease(); frames(1);
-	uint32_t refused = beepBand();
+	pressId(menuRow(&UI_BEEP)); fakeRelease(); frames(1);
+	uint32_t refused = beepRow();
 	checkTrue("a refused command looks different from an accepted one",
 	          refused != lit && refused != idle);
-	fakeDumpFrame("shot_config_beep_refused.ppm");
+	checkTrue("REFUSED, on the amber fill", menuStatusIs(beep, "REFUSED", C_PAPER, C_AMBER));
+	checkInt("and nothing was sent", fakeBeepRequests(), beepBefore + 2);
+	fakeDumpFrame("shot_menu_beep_refused.ppm");
 	escSetArmed(false);
 	fakeAdvance(400); frames(2);
+	checkTrue("the refusal clears too", beepRow() == idle);
 
-	tapId(UI_FIX(UI_BACK));               // BACK, now in the header
+	tapId(UI_FIX(UI_BACK));               // BACK, in the header
 	frames(2);
-	checkTrue("BACK from SETTINGS reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
+	checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
 }
 
 
-// The note line on SETUP (NOTE_Y in ui_setup.cpp) is drawn text, not a control.
-// The tests below probe its pixels, so its y stays a number.
-#define SETUP_NOTE_Y 236
+// The note line on SETTINGS (NOTE_Y in ui_settings.cpp) is drawn text, not a
+// control. The tests below probe its pixels, so its y stays a number.
+#define SETTINGS_NOTE_Y 254
 
-/** @brief Walk from the main screen into CFG, then into SETUP. */
-static void enterSetup() {
-	tapId(UI_FIX(TesterCtl::Cfg));
-	checkTrue("CFG opens SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
-	tapId(UI_FIX(CfgCtl::Setup));
+/** @brief Walk from the main screen into MENU, then into SETTINGS. */
+static void enterSettings() {
+	tapId(UI_FIX(TesterCtl::Menu));
+	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(menuRow(&UI_SETTINGS));
 	frames(2);
-	checkTrue("SETUP opens from SETTINGS", uiCurrentScreen() == UiScreenId::Setup);
+	checkTrue("SETTINGS opens from MENU", uiCurrentScreen() == UiScreenId::Settings);
 }
 
 /**
- * @brief The SETUP screen: wiring changes reach the pump, and only legal
+ * @brief Scroll SETTINGS until the row of @p id is whole, then tap @p id.
+ *
+ * The viewport, y 40 to 239, shows the first rows only, so a row further
+ * down is scrolled into view first; a row already whole is tapped at once.
+ */
+static void tapRowId(UiControlId id, IdExpect want = IdExpect::Enabled) {
+	revealRow(id.row);
+	tapId(id, want);
+}
+
+/**
+ * @brief Drag SETTINGS' list by @p dy px: a press at x 60, on a label or a
+ *        caption, which is no control, so the list scrolls.
+ */
+static void settingsDrag(int dy) {
+	const int x = 60, y0 = dy < 0 ? 230 : 50;
+	fakePress(x, y0); frames(1);
+	for (int k = 1; k <= 8; k++) { fakeHold(x, y0 + dy * k / 8); frames(1); }
+	fakeRelease(); frames(1);
+}
+
+/**
+ * @brief The SETTINGS screen: wiring changes reach the pump, and only legal
  *        values can be selected.
  *
  * The last part is the one worth having. A pin picker whose buttons can land on
@@ -662,23 +739,23 @@ static void enterSetup() {
  * needs none of those, because the invalid selection cannot be made. Asserting
  * it here is what keeps that true when the mask changes.
  */
-static void testSetupWiring() {
-	section("SETUP: wiring");
+static void testSettingsWiring() {
+	section("SETTINGS: wiring");
 
 	fakeFlashClear();
 	settingsLoad();
 	uiInit();
 	frames(2);
-	enterSetup();
+	enterSettings();
 
 	uint8_t start = settings()->dshotPin;
-	checkTrue("entering SETUP does not disturb the pin",
+	checkTrue("entering SETTINGS does not disturb the pin",
 	          escTaskDshotPin() == start);
-	checkControlTable("SETUP");
+	checkControlTable("SETTINGS");
 
 	// One step first: the board offers exactly two free pins, so an even
 	// number of steps lands back where it started and nothing would be dirty.
-	tapId(UI_ROW(SetupRow::Pin, Plus));
+	tapId(UI_ROW(SettingsRowId::Pin, Plus));
 	checkTrue("one step moves the pin", settings()->dshotPin != start);
 	checkTrue("changing the pin is unsaved", settingsDirty());
 	checkTrue("the change reached the DShot pump",
@@ -687,25 +764,28 @@ static void testSetupWiring() {
 	// Then step all the way round and check every stop is legal.
 	bool allFree = true;
 	for (int i = 0; i < 6; i++) {
-		tapId(UI_ROW(SetupRow::Pin, Plus));
+		tapId(UI_ROW(SettingsRowId::Pin, Plus));
 		if (!settingsPinFree(settings()->dshotPin)) allFree = false;
-		tapId(UI_ROW(SetupRow::Pin, Minus));
+		tapId(UI_ROW(SettingsRowId::Pin, Minus));
 		if (!settingsPinFree(settings()->dshotPin)) allFree = false;
 	}
 	checkTrue("every step lands on a free GPIO", allFree);
 
+	// The frame for the docs, at 0 px: the first rows and an unsaved pin.
+	fakeDumpFrame("shot_settings.ppm");
+
 	// Bitrate halves and doubles through the four legal values, and wraps.
+	// DSHOT KBAUD's row is cut by the viewport's bottom at 0 px, 10 px of it
+	// showing, so it is scrolled into view first.
 	settings()->dshotKbaud = 600;
-	tapId(UI_ROW(SetupRow::Speed, Minus));
+	tapRowId(UI_ROW(SettingsRowId::Speed, Minus));
 	checkInt("minus steps the bitrate down", settings()->dshotKbaud, 300);
-	tapId(UI_ROW(SetupRow::Speed, Plus));
-	tapId(UI_ROW(SetupRow::Speed, Plus));
+	tapRowId(UI_ROW(SettingsRowId::Speed, Plus));
+	tapRowId(UI_ROW(SettingsRowId::Speed, Plus));
 	checkInt("plus steps it up", settings()->dshotKbaud, 1200);
-	tapId(UI_ROW(SetupRow::Speed, Plus));
+	tapRowId(UI_ROW(SettingsRowId::Speed, Plus));
 	checkInt("and wraps rather than sticking", settings()->dshotKbaud, 150);
 	checkInt("the pump was told", fakeDshotKbaud(), 150);
-
-	fakeDumpFrame("shot_setup.ppm");
 }
 
 /**
@@ -726,7 +806,7 @@ static bool statusLabelIs(const char *text, uint16_t colour) {
 /**
  * @brief The status bar names the bitrate the pump runs at.
  *
- * SETUP changes the bitrate at run time, so the label follows the pump, not
+ * SETTINGS changes the bitrate at run time, so the label follows the pump, not
  * the compiled default. A pin the driver refused shows DSERR instead: nothing
  * is on the wire at any rate.
  */
@@ -778,19 +858,19 @@ static void testStatusBarBitrate() {
  * ESC pin, so this is the case that decides whether the screen is honest or
  * merely tidy.
  */
-static void testSetupKiss() {
-	section("SETUP: KISS needs a pin of its own");
+static void testSettingsKiss() {
+	section("SETTINGS: KISS needs a pin of its own");
 
 	fakeFlashClear();
 	settingsLoad();
 	uiInit();
 	frames(2);
-	enterSetup();
+	enterSettings();
 
 	// Force the clash the board can create, then let the screen resolve it.
 	settings()->kissEnable = 0;
 	settings()->kissPin = settings()->dshotPin;
-	tapId(UI_ROW(SetupRow::Kiss, Toggle));
+	tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
 
 	// This used to have a second outcome -- "the 2.8" has nowhere to put it, so
 	// it stays off" -- because a KISS pin had to be one of the eight a hardware
@@ -807,14 +887,14 @@ static void testSetupKiss() {
 	// which is the one case where "only legal values can be selected" and "the
 	// button does something" cannot both hold.
 	for (int i = 0; i < 4; i++) {
-		tapId(UI_ROW(SetupRow::KissPin, Plus));
+		tapRowId(UI_ROW(SettingsRowId::KissPin, Plus));
 		checkTrue("stepping KISS never lands on the ESC pin",
 		          settings()->kissPin != settings()->dshotPin);
 		checkTrue("and never leaves the board's free set",
 		          settingsPinFree(settings()->kissPin));
 	}
 	for (int i = 0; i < 4; i++) {
-		tapId(UI_ROW(SetupRow::Pin, Minus));
+		tapRowId(UI_ROW(SettingsRowId::Pin, Minus));
 		checkTrue("and stepping the ESC pin avoids the KISS pin too",
 		          settings()->dshotPin != settings()->kissPin);
 		checkTrue("staying inside the free set as well",
@@ -822,7 +902,7 @@ static void testSetupKiss() {
 	}
 
 	// Switching it off is always available.
-	tapId(UI_ROW(SetupRow::Kiss, Toggle));
+	tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
 	checkInt("toggling again switches it off", settings()->kissEnable, 0);
 
 	// ...and with it off, the pin row stops being a control. It used to look
@@ -836,14 +916,14 @@ static void testSetupKiss() {
 	// not the row is gated, because the two cancel: the first version of this
 	// test did exactly that and proved nothing.
 	int pinWhenOff = (int)settings()->kissPin;
-	tapId(UI_ROW(SetupRow::KissPin, Plus), IdExpect::Disabled);
+	tapRowId(UI_ROW(SettingsRowId::KissPin, Plus), IdExpect::Disabled);
 	checkInt("with KISS off, + does not step the pin",
 	         (int)settings()->kissPin, pinWhenOff);
 	// Re-read rather than reusing pinWhenOff: if + had stepped, - would step
 	// back onto it and the second check would pass on the strength of the
 	// first one failing.
 	int pinBeforeMinus = (int)settings()->kissPin;
-	tapId(UI_ROW(SetupRow::KissPin, Minus), IdExpect::Disabled);
+	tapRowId(UI_ROW(SettingsRowId::KissPin, Minus), IdExpect::Disabled);
 	checkInt("and neither does -", (int)settings()->kissPin, pinBeforeMinus);
 
 	// The row comes back to life with the function, rather than staying dead
@@ -851,40 +931,40 @@ static void testSetupKiss() {
 	//
 	// The board frees two pins and the ESC holds one of them, so the step
 	// correctly stays put -- the same case the loop above is written around.
-	tapId(UI_ROW(SetupRow::Kiss, Toggle));
+	tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
 	checkInt("KISS back on", settings()->kissEnable, 1);
 
-	tapId(UI_ROW(SetupRow::KissPin, Plus));
+	tapRowId(UI_ROW(SettingsRowId::KissPin, Plus));
 	checkTrue("the pin row is live again, with nowhere on this board to go",
 	          settingsPinFree(settings()->kissPin) &&
 	          settings()->kissPin != settings()->dshotPin);
-	tapId(UI_ROW(SetupRow::Kiss, Toggle));
+	tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
 }
 
 /** @brief Contrast and backlight take effect immediately and persist. */
-static void testSetupDisplay() {
-	section("SETUP: high contrast");
+static void testSettingsDisplay() {
+	section("SETTINGS: high contrast");
 
 	fakeFlashClear();
 	settingsLoad();
 	uiInit();
 	frames(2);
-	enterSetup();
+	enterSettings();
 
 	checkTrue("starts in the dark theme", themeGet() == Theme::Dark);
 	uint16_t darkBg = C_BG;
 	const uint16_t darkLime = C_LIME;
 
-	tapId(UI_ROW(SetupRow::Contrast, Toggle));
+	tapRowId(UI_ROW(SettingsRowId::Contrast, Toggle));
 	checkTrue("toggle switches the theme", themeGet() == Theme::HighContrast);
 	checkTrue("the background inverted", C_BG != darkBg);
 	checkTrue("text is now the darker of the two", C_TEXT < C_BG);
 	checkTrue("strokes got heavier", themeStroke() > 1);
 	checkTrue("text got heavier", themeBold());
 	checkInt("backlight is forced to full", themeBacklight(100), 255);
-	fakeDumpFrame("shot_setup_contrast.ppm");
+	fakeDumpFrame("shot_settings_contrast.ppm");
 
-	tapId(UI_ROW(SetupRow::Backlight, Minus));
+	tapRowId(UI_ROW(SettingsRowId::Backlight, Minus));
 	checkTrue("the preferred level still moves", settings()->backlight < LCD_BACKLIGHT_DEFAULT);
 	checkInt("but full brightness still wins while high contrast is on",
 	         themeBacklight(settings()->backlight), 255);
@@ -894,9 +974,9 @@ static void testSetupDisplay() {
 	// Rendering it here is what puts it in the published preview.
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
-	checkTrue("BACK from SETUP reaches SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
-	tapId(UI_FIX(UI_BACK));               // BACK, out of settings
-	checkTrue("BACK from SETTINGS reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
+	checkTrue("BACK from SETTINGS reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(UI_FIX(UI_BACK));               // BACK, out of MENU
+	checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
 	// Live data in both halves of the published pair. A dark screen full of
 	// numbers next to a light screen reading "--" compares two different things.
 	feedLiveTelemetry();
@@ -916,9 +996,9 @@ static void testSetupDisplay() {
 		checkTrue("dark lime is not a high-contrast colour", !inHc);
 		checkInt("no pixel keeps the dark theme's lime", stale, 0);
 	}
-	enterSetup();
+	enterSettings();
 
-	tapId(UI_ROW(SetupRow::Contrast, Toggle));
+	tapRowId(UI_ROW(SettingsRowId::Contrast, Toggle));
 	checkTrue("toggling back restores the dark theme", themeGet() == Theme::Dark);
 	checkInt("and the preferred backlight level",
 	         themeBacklight(settings()->backlight), settings()->backlight);
@@ -931,45 +1011,45 @@ static void testSetupDisplay() {
  * Same interlock as the AM32 write, for a weaker reason and a real one: a flash
  * erase parks core1, which stops the DShot pump. It is a thing to do on purpose.
  */
-static void testSetupSave() {
-	section("SETUP: hold to save");
+static void testSettingsSave() {
+	section("SETTINGS: hold to save");
 
 	fakeFlashClear();
 	settingsLoad();
 	uiInit();
 	frames(2);
-	enterSetup();
+	enterSettings();
 
 	// The progress bar sits 4 px above SAVE, as wide as the button. It is
 	// drawn, not a control, so the probes read its pixels.
-	const UiRect save = ctlRect(UI_FIX(SetupCtl::Save));
+	const UiRect save = ctlRect(UI_FIX(SettingsCtl::Save));
 	const int barX = save.x, barY = save.y - 4, barW = save.w;
 
-	tapId(UI_ROW(SetupRow::Pin, Plus));
+	tapId(UI_ROW(SettingsRowId::Pin, Plus));
 	checkTrue("a change is pending", settingsDirty());
 
 	// A tap is not a save.
-	tapId(UI_FIX(SetupCtl::Save));
+	tapId(UI_FIX(SettingsCtl::Save));
 	checkTrue("a tap does not commit", settingsDirty());
 	checkTrue("and nothing was stored", !settingsStored());
 
 	// Releasing early does not commit either.
-	pressId(UI_FIX(SetupCtl::Save));
-	holdId(UI_FIX(SetupCtl::Save), 20);
+	pressId(UI_FIX(SettingsCtl::Save));
+	holdId(UI_FIX(SettingsCtl::Save), 20);
 	fakeRelease(); frames(1);
 	checkTrue("half a second does not commit", settingsDirty());
 
 	// Moving off the button mid-hold cancels.
-	pressId(UI_FIX(SetupCtl::Save));
-	holdId(UI_FIX(SetupCtl::Save), 20);
-	holdId(UI_FIX(SetupCtl::Reset), 40);
+	pressId(UI_FIX(SettingsCtl::Save));
+	holdId(UI_FIX(SettingsCtl::Save), 20);
+	holdId(UI_FIX(SettingsCtl::Reset), 40);
 	fakeRelease(); frames(1);
 	checkTrue("sliding off cancels the hold", settingsDirty());
 
 	// The bar has to actually appear while holding, or the hold is invisible.
 	uint32_t idle = fakeRegionHash(barX, barY, barW, 3);
-	pressId(UI_FIX(SetupCtl::Save));
-	holdId(UI_FIX(SetupCtl::Save), 20);
+	pressId(UI_FIX(SettingsCtl::Save));
+	holdId(UI_FIX(SettingsCtl::Save), 20);
 	checkTrue("the hold draws a progress bar",
 	          fakeRegionHash(barX, barY, barW, 3) != idle);
 	{
@@ -987,8 +1067,8 @@ static void testSetupSave() {
 	// A full second does, and not a millisecond less.
 	uint8_t want = settings()->dshotPin;
 	int sx, sy;
-	ctlCentre(UI_FIX(SetupCtl::Save), &sx, &sy);
-	pressId(UI_FIX(SetupCtl::Save));
+	ctlCentre(UI_FIX(SettingsCtl::Save), &sx, &sy);
+	pressId(UI_FIX(SettingsCtl::Save));
 	fakeHold(sx, sy); frameAfter(999);
 	checkTrue("held 999 ms: not saved", settingsDirty() && !settingsStored());
 	fakeHold(sx, sy); frameAfter(1);
@@ -998,7 +1078,7 @@ static void testSetupSave() {
 	// Keeping the finger down must not save again a second later: each save is
 	// a flash erase, and a long press is not a request for several.
 	settings()->poles = (uint8_t)(settings()->poles == 12 ? 14 : 12);
-	holdId(UI_FIX(SetupCtl::Save), 120);
+	holdId(UI_FIX(SettingsCtl::Save), 120);
 	checkTrue("holding on does not save again", settingsDirty());
 	fakeRelease(); frames(2);
 
@@ -1010,25 +1090,27 @@ static void testSetupSave() {
 	// RESET restores compiled defaults into the live copy without touching flash.
 	Settings def;
 	settingsDefaults(&def);
-	tapId(UI_FIX(SetupCtl::Reset));
+	tapId(UI_FIX(SettingsCtl::Reset));
 	checkInt("RESET restores the compiled ESC pin", settings()->dshotPin, def.dshotPin);
 	checkTrue("RESET alone leaves flash as it was", settingsStored());
 
-	// SETUP opened again under a press that is on HOLD TO SAVE: the press is
-	// not timed, as the hold waits for a press that lands.
+	// SETTINGS opened again under a press that is on HOLD TO SAVE: the press
+	// is not timed, as the hold waits for a press that lands.
 	checkTrue("RESET left a change pending", settingsDirty());
-	pressId(UI_FIX(SetupCtl::Save));
-	holdId(UI_FIX(SetupCtl::Save), 20);
-	uiSetupEnter();
-	holdId(UI_FIX(SetupCtl::Save), 60);
-	checkTrue("SETUP entered mid-press: held 1500 ms after, not saved", settingsDirty());
+	pressId(UI_FIX(SettingsCtl::Save));
+	holdId(UI_FIX(SettingsCtl::Save), 20);
+	uiSettingsEnter();
+	holdId(UI_FIX(SettingsCtl::Save), 60);
+	checkTrue("SETTINGS entered mid-press: held 1500 ms after, not saved", settingsDirty());
 	fakeRelease(); frames(2);
 
-	// BACK returns to the settings screen.
+	// BACK returns to MENU, whose SETTINGS row reads UNSAVED.
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
-	checkTrue("BACK from SETUP reaches SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
-	fakeDumpFrame("shot_settings_unsaved.ppm");
+	checkTrue("BACK from SETTINGS reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("MENU's SETTINGS row reads UNSAVED in amber",
+	          menuStatusIs(ctlRect(menuRow(&UI_SETTINGS)), "UNSAVED", C_AMBER, C_PANEL));
+	fakeDumpFrame("shot_menu_unsaved.ppm");
 }
 
 
@@ -1071,48 +1153,47 @@ static void testTapCancels() {
 	frames(2);
 	checkTrue("released in place, HOLD latched the throttle", fakeThrottle() > 0);
 	tapId(UI_FIX(TesterCtl::Hold));       // back off, which zeroes it
-	tapId(UI_FIX(TesterCtl::Cfg));        // into settings for the rest
-	checkTrue("CFG opens SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
+	tapId(UI_FIX(TesterCtl::Menu));       // into MENU for the rest
+	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 
-	// The settings screen: press BEEP, slide off it, release. Neither fires.
+	// MENU: press BEEP's row, slide off it, release. Neither fires.
 	int beeps = fakeBeepRequests();
 	int bx, by;
-	ctlCentre(UI_FIX(CfgCtl::Beep), &bx, &by);
+	ctlCentre(menuRow(&UI_BEEP), &bx, &by);
 	fakePress(bx, by);      frames(2);
 	fakeHold(bx, by + 60);  frames(2);
 	fakeRelease();          frames(2);
 	checkInt("sliding off BEEP sent nothing", fakeBeepRequests(), beeps);
 
-	// Still on the settings screen, which the next tap proves by working: the
-	// row the finger slid onto is only hit-tested, so if the slide had
-	// activated anything this fails.
+	// Still on MENU, which the next tap proves by working: the row the
+	// finger slid onto is only hit-tested, so if the slide had activated
+	// anything this fails.
 	fakePress(bx, by);      frames(2);
 	fakeRelease();          frames(2);
 	checkInt("released in place, it fires", fakeBeepRequests(), beeps + 1);
-	checkTrue("so the screen never left", uiCurrentScreen() == UiScreenId::Cfg);
+	checkTrue("so the screen never left", uiCurrentScreen() == UiScreenId::Menu);
 }
 
 /** @brief A held stepper repeats and accelerates; a tap moves exactly one step. */
 static void testStepperRepeat() {
-	section("Touch: hold-to-repeat on the settings steppers");
+	section("Touch: hold-to-repeat on the SETTINGS steppers");
 
 	fakeFlashClear();
 	settingsLoad();
 	uiInit();
 	frames(2);
-	tapId(UI_FIX(TesterCtl::Cfg));
-	checkTrue("CFG opens SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
+	enterSettings();
 
 	// One tap, one step. The delay before repeating is what makes this true.
 	uint16_t start = settings()->maxThrottle;
-	tapId(UI_FIX(CfgCtl::MaxPlus));
+	tapId(UI_ROW(SettingsRowId::MaxThrottle, Plus));
 	checkInt("a tap moves exactly one step",
 	         settings()->maxThrottle, start + MAX_THROTTLE_STEP);
 
 	// Held: many steps, and the whole range is reachable without lifting.
 	start = settings()->maxThrottle;
-	pressId(UI_FIX(CfgCtl::MaxPlus));
-	holdId(UI_FIX(CfgCtl::MaxPlus), 200);
+	pressId(UI_ROW(SettingsRowId::MaxThrottle, Plus));
+	holdId(UI_ROW(SettingsRowId::MaxThrottle, Plus), 200);
 	fakeRelease(); frames(1);
 	checkTrue("holding walks the ceiling up", settings()->maxThrottle > start);
 	checkInt("and reaches the top without lifting",
@@ -1120,17 +1201,17 @@ static void testStepperRepeat() {
 	checkTrue("never past it", settings()->maxThrottle <= MAX_THROTTLE_CEILING);
 
 	// And back down, without underflowing past one step.
-	pressId(UI_FIX(CfgCtl::MaxMinus));
-	holdId(UI_FIX(CfgCtl::MaxMinus), 300);
+	pressId(UI_ROW(SettingsRowId::MaxThrottle, Minus));
+	holdId(UI_ROW(SettingsRowId::MaxThrottle, Minus), 300);
 	fakeRelease(); frames(1);
 	checkInt("and back down to one step, never below",
 	         settings()->maxThrottle, MAX_THROTTLE_STEP);
 
 	// Poles stay even throughout, which is what the eRPM maths assumes.
-	pressId(UI_FIX(CfgCtl::PolesPlus));
+	pressId(UI_ROW(SettingsRowId::Poles, Plus));
 	bool even = true;
 	for (int i = 0; i < 120; i++) {
-		holdId(UI_FIX(CfgCtl::PolesPlus), 1);
+		holdId(UI_ROW(SettingsRowId::Poles, Plus), 1);
 		if (settings()->poles & 1) even = false;
 	}
 	fakeRelease(); frames(1);
@@ -1227,10 +1308,10 @@ static void testArmInterlocks() {
 
 	// Sliding onto the button from elsewhere must not arm, however long it is
 	// then held: the press has to have begun on it.
-	// The press begins 40 px left of CFG's centre and 60 px above ARM's, which
-	// is no button.
+	// The press begins 40 px left of MENU's centre and 60 px above ARM's,
+	// which is no button.
 	int cx, cy, ax, ay;
-	ctlCentre(UI_FIX(TesterCtl::Cfg), &cx, &cy);
+	ctlCentre(UI_FIX(TesterCtl::Menu), &cx, &cy);
 	ctlCentre(UI_FIX(TesterCtl::Arm), &ax, &ay);
 	fakePress(cx - 40, ay - 60); frames(1);
 	holdId(UI_FIX(TesterCtl::Arm), 80);
@@ -1246,7 +1327,7 @@ static void testArmInterlocks() {
 /**
  * @brief DISARM. Never once pressed by the suite before.
  *
- * Every path out of the armed state went through CFG, so the incidental disarm
+ * Every path out of the armed state went through MENU, so the incidental disarm
  * was covered and the deliberate one was not: replacing the button's body with
  * nothing, or inverting it so that pressing DISARM re-armed, both passed.
  */
@@ -1459,9 +1540,9 @@ static void testCeilingBindsInRelativeMode() {
 
 	// Lowering the ceiling while a latched throttle is above it must not leave
 	// the motor above the new limit.
-	tapId(UI_FIX(TesterCtl::Cfg));
-	checkTrue("CFG opens SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
-	checkTrue("entering settings disarmed", !uiArmed());
+	tapId(UI_FIX(TesterCtl::Menu));
+	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("opening MENU disarmed", !uiArmed());
 	checkInt("which zeroed the throttle", fakeThrottle(), 0);
 }
 
@@ -1734,7 +1815,7 @@ static SimPump s_sim;   // 210 kB, most of it trace: static, not on the stack
  *
  * The ESC here is stopped, so any RPM above 0 is an EDT frame read as eRPM:
  * the display's false RPM. Three binds: a board restart (telemetry block
- * cleared), a pump rebuild after a SETUP change, which is also the path an
+ * cleared), a pump rebuild after a SETTINGS change, which is also the path an
  * AM32 settings session returns through, and a rebuild while armed.
  */
 static void testEdtKeptAcrossBind() {
@@ -1758,7 +1839,7 @@ static void testEdtKeptAcrossBind() {
 	checkInt("boot: no scheduled enable, EDT is arriving",
 	         (long)simBurstStarts(p, 0, 3000, starts, 8), 1);
 
-	// A SETUP change: the pump rebinds and the telemetry block carries over.
+	// A SETTINGS change: the pump rebinds and the telemetry block carries over.
 	unsigned at = p->slot;
 	simBind(p);
 	simRun(p, &esc, 3000);
@@ -2070,7 +2151,7 @@ static void testEdtStepRules() {
 	SimEsc esc;
 	unsigned starts[16];
 
-	// A rebuild after a SETUP change disarms with the prop still coasting.
+	// A rebuild after a SETTINGS change disarms with the prop still coasting.
 	// No enable goes out until the motor reports 0 eRPM.
 	memset(&esc, 0, sizeof(esc));
 	esc.present = esc.ready = true;
@@ -2190,24 +2271,23 @@ static void testPoleCountReachesEsc() {
 	settingsLoad();
 	uiInit();
 	frames(2);
-	tapId(UI_FIX(TesterCtl::Cfg));
-	checkTrue("CFG opens SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
+	enterSettings();
 
 	checkInt("the ESC starts with the stored count", fakePoles(), settings()->poles);
 
-	tapId(UI_FIX(CfgCtl::PolesPlus));
+	tapId(UI_ROW(SettingsRowId::Poles, Plus));
 	checkInt("a step reaches the ESC", fakePoles(), settings()->poles);
 
 	// All the way down: the lower clamp is the one nothing tested, and the
 	// eRPM conversion divides by poles/2.
-	pressId(UI_FIX(CfgCtl::PolesMinus));
-	holdId(UI_FIX(CfgCtl::PolesMinus), 200);
+	pressId(UI_ROW(SettingsRowId::Poles, Minus));
+	holdId(UI_ROW(SettingsRowId::Poles, Minus), 200);
 	fakeRelease(); frames(1);
 	checkInt("never below the minimum", settings()->poles, MIN_MOTOR_POLES);
 	checkInt("and the ESC has that too", fakePoles(), MIN_MOTOR_POLES);
 
-	pressId(UI_FIX(CfgCtl::PolesPlus));
-	holdId(UI_FIX(CfgCtl::PolesPlus), 200);
+	pressId(UI_ROW(SettingsRowId::Poles, Plus));
+	holdId(UI_ROW(SettingsRowId::Poles, Plus), 200);
 	fakeRelease(); frames(1);
 	checkInt("never above the maximum", settings()->poles, MAX_MOTOR_POLES);
 	checkInt("and the ESC has that too", fakePoles(), MAX_MOTOR_POLES);
@@ -2274,7 +2354,7 @@ static void testAutoLogOnArm() {
 	checkTrue("and disarming stops it", !sdLogActive());
 }
 
-/** @brief Hit-testing is half-open: a button's far edge belongs to its neighbour. */
+/** @brief Hit-testing is half-open: a control's far edge belongs to its neighbour. */
 static void testHitBoundaries() {
 	section("Safety: button edges");
 
@@ -2282,30 +2362,37 @@ static void testHitBoundaries() {
 	settingsLoad();
 	uiInit();
 	frames(2);
-	tapId(UI_FIX(TesterCtl::Cfg));
-	checkTrue("CFG opens SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
+	tapId(UI_FIX(TesterCtl::Menu));
+	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 
-	// BEEP ends where SD LOG's gap starts, and KST where SETUP's gap starts.
-	// A tap in either gap must hit neither neighbour -- an inclusive far edge
-	// would make adjacent buttons overlap.
-	const UiRect beep = ctlRect(UI_FIX(CfgCtl::Beep));
-	const UiRect kst  = ctlRect(UI_FIX(CfgCtl::Kst));
-	const UiRect pm   = ctlRect(UI_FIX(CfgCtl::PolesMinus));
+	// MENU's rows are 40 px tall at a 42 px pitch: BEEP ends where the gap
+	// above AM32 CONFIG starts, and SD LOG where the gap above SETTINGS
+	// starts. A tap in either gap must hit neither neighbour -- an inclusive
+	// far edge would make adjacent rows overlap.
+	const UiRect beep  = ctlRect(menuRow(&UI_BEEP));
+	const UiRect sdlog = ctlRect(menuRow(&UI_SDLOG));
 	int beeps = fakeBeepRequests();
-	uint16_t polesBefore = settings()->poles;
+	tap(beep.x + beep.w / 2, beep.y + beep.h);
+	frames(2);
+	checkInt("a tap in the BEEP/AM32 gap sends nothing", fakeBeepRequests(), beeps);
+	checkTrue("and opens nothing", uiCurrentScreen() == UiScreenId::Menu);
 	tap(beep.x + beep.w, beep.y + beep.h / 2);
+	checkInt("one past BEEP's right edge sends nothing", fakeBeepRequests(), beeps);
+	tap(sdlog.x + sdlog.w / 2, sdlog.y + sdlog.h);
 	frames(2);
-	checkInt("a tap in the BEEP/SD LOG gap changes nothing", settings()->poles,
-	         polesBefore);
-	checkInt("and sends nothing", fakeBeepRequests(), beeps);
-	tap(kst.x + kst.w, kst.y + kst.h / 2);
-	frames(2);
-	tapId(UI_FIX(CfgCtl::PolesPlus));
-	checkTrue("a tap in the KST/SETUP gap left SETTINGS up",
-	          settings()->poles != polesBefore);
-	tapId(UI_FIX(CfgCtl::PolesMinus));
+	checkTrue("a tap in the SD LOG/SETTINGS gap left MENU up",
+	          uiCurrentScreen() == UiScreenId::Menu);
+	tap(beep.x + beep.w / 2, beep.y + beep.h - 1);
+	checkInt("BEEP's last pixel row is BEEP", fakeBeepRequests(), beeps + 1);
+	fakeAdvance(400); frames(2);
 
-	// POLES - is a rectangle. One past each far edge is outside.
+	// MOTOR POLES - on SETTINGS is a rectangle. One past each far edge is
+	// outside: the gap before + on the right, the gap between rows below.
+	tapId(menuRow(&UI_SETTINGS));
+	frames(2);
+	checkTrue("SETTINGS opens from MENU", uiCurrentScreen() == UiScreenId::Settings);
+	const UiRect pm = ctlRect(UI_ROW(SettingsRowId::Poles, Minus));
+	uint16_t polesBefore = settings()->poles;
 	tap(pm.x + pm.w, pm.y + pm.h / 2);
 	checkInt("one past the right edge misses", settings()->poles, polesBefore);
 	tap(pm.x + pm.w / 2, pm.y + pm.h);
@@ -2317,16 +2404,18 @@ static void testHitBoundaries() {
 }
 
 /**
- * @brief SERVO opens its screen; KST is drawn disabled and does not act.
+ * @brief MENU's rows: SERVO opens its screen, KST has no row, and a tool
+ *        that claims the pins is refused while they are not Free.
  *
- * The KST screen is a stub until its slice lands. A button drawn disabled is
- * an outline with no fill, and its hit test is gated on the same expression,
- * so a tap neither opens a screen nor claims a pin. SERVO is built: a tap
- * opens it and claims the pins, and leaving goes through its unplug page.
- * test_servo.cpp tests the screen itself.
+ * The KST screen is a stub until its slice lands, and MENU has no row for
+ * it. A tool row that claims pins reads PINS BUSY while the claim is not
+ * Free, as for the time Restoring takes after RESTART DSHOT: its control is
+ * gated on the same value, and a tap opens nothing and claims nothing.
+ * SERVO is built: a tap opens it and claims the pins, and leaving goes
+ * through its unplug page to MENU. test_servo.cpp tests the screen itself.
  */
-static void testDisabledDestinations() {
-	section("Settings: SERVO opens its screen, KST is drawn disabled");
+static void testMenuDestinations() {
+	section("MENU: SERVO opens its screen, KST has no row, PINS BUSY refuses");
 
 	fakeFlashClear();
 	settingsLoad();
@@ -2335,38 +2424,76 @@ static void testDisabledDestinations() {
 	memset(&quiet, 0, sizeof(quiet));
 	fakeSetTelemetry(&quiet);
 	frames(2);
-	tapId(UI_FIX(TesterCtl::Cfg));
+	tapId(UI_FIX(TesterCtl::Menu));
 	frames(2);
-	checkTrue("CFG opens SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
+	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkControlTable("MENU");
 
-	// A pixel inside each button, clear of its label: fill for a live button,
-	// background for a disabled one. It is 5 px in from the left edge and 8 px
-	// down from the top.
+	// The registry, in MENU order, and no KST row.
+	uint8_t rows = 0;
+	uiMenuEntries(&rows);
+	checkInt("MENU has five rows", rows, 5);
+	checkTrue("BEEP, AM32 CONFIG, SERVO TESTER, SD LOG, SETTINGS, in that order",
+	          uiMenuRowOf(&UI_BEEP) == 0 && uiMenuRowOf(&UI_AM32) == 1 &&
+	          uiMenuRowOf(&UI_SERVO) == 2 && uiMenuRowOf(&UI_SDLOG) == 3 &&
+	          uiMenuRowOf(&UI_SETTINGS) == 4);
+	checkInt("KST has no row", uiMenuRowOf(&UI_KST), -1);
+
+	// A pixel inside each row, clear of its label: the panel fill of a row.
+	// It is 5 px in from the left edge and 8 px down from the top.
 	const uint16_t *fb = gfxBuffer();
-	auto pixelIn = [&](CfgCtl c) {
-		UiRect r = ctlRect(UI_FIX(c));
+	auto pixelIn = [&](const UiScreen *s) {
+		UiRect r = ctlRect(menuRow(s));
 		return fb[(r.y + 8) * GFX_W + (r.x + 5)];
 	};
-	checkTrue("AM32 is filled", pixelIn(CfgCtl::Am32) == C_PANEL);
-	checkTrue("SETUP is filled", pixelIn(CfgCtl::Setup) == C_PANEL);
-	checkTrue("SERVO is filled", pixelIn(CfgCtl::Servo) == C_PANEL);
-	checkTrue("KST is an outline", pixelIn(CfgCtl::Kst) == C_BG);
+	checkTrue("AM32 is filled", pixelIn(&UI_AM32) == C_PANEL);
+	checkTrue("SETTINGS is filled", pixelIn(&UI_SETTINGS) == C_PANEL);
+	checkTrue("SERVO is filled", pixelIn(&UI_SERVO) == C_PANEL);
+	char pins[16];
+	snprintf(pins, sizeof(pins), "GP%u", (unsigned)escTaskDshotPin());
+	checkTrue("AM32's row names the SIG pin",
+	          menuStatusIs(ctlRect(menuRow(&UI_AM32)), pins, C_DIM, C_PANEL));
 
-	// A screen that opens clears the panel on the frame of the release, before
-	// its first frame of its own. So SETTINGS still drawn on that frame means
-	// the tap opened nothing.
-	const UiRect kst = ctlRect(UI_FIX(CfgCtl::Kst));
-	uint32_t row = fakeRegionHash(kst.x, kst.y, kst.w, kst.h);
+	// Another claim holds the pins, as Restoring does after RESTART DSHOT:
+	// both tools that claim them read PINS BUSY and do not act.
+	checkTrue("another claim holds the pins",
+	          pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
+	frames(2);
+	// A refused row is drawn disabled: an outline, the background inside.
+	checkTrue("AM32 reads PINS BUSY, drawn disabled",
+	          menuStatusIs(ctlRect(menuRow(&UI_AM32)), "PINS BUSY", C_AMBER, C_BG));
+	checkTrue("SERVO reads PINS BUSY, drawn disabled",
+	          menuStatusIs(ctlRect(menuRow(&UI_SERVO)), "PINS BUSY", C_AMBER, C_BG));
+	checkTrue("both rows are gated",
+	          !ctlEnabled(menuRow(&UI_AM32)) && !ctlEnabled(menuRow(&UI_SERVO)));
+	checkTrue("the rows that claim nothing still act",
+	          ctlEnabled(menuRow(&UI_BEEP)) && ctlEnabled(menuRow(&UI_SDLOG)));
+	checkTrue("SETTINGS, which changes the wiring a claim latched, does not",
+	          !ctlEnabled(menuRow(&UI_SETTINGS)));
+	checkControlTable("MENU, pins busy");
+	{
+		UiRect r = ctlRect(menuRow(&UI_SERVO));
+		uint32_t rest = fakeRegionHash(r.x, r.y, r.w, r.h);
+		pressId(menuRow(&UI_SERVO), IdExpect::Disabled);
+		frames(1);
+		checkTrue("a press on the busy SERVO row draws no pressed look",
+		          fakeRegionHash(r.x, r.y, r.w, r.h) == rest);
+		fakeRelease(); frames(1);
+	}
+	tapId(menuRow(&UI_SERVO), IdExpect::Disabled);
+	frames(1);
+	checkTrue("a tap on SERVO opens nothing", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("nor claims a pin", pinClaimHolder() == PinUser::Am32);
+	tapId(menuRow(&UI_AM32), IdExpect::Disabled);
+	frames(1);
+	checkTrue("nor does a tap on AM32", uiCurrentScreen() == UiScreenId::Menu);
+	pinClaimEnd(PinUser::Am32);
+	frames(2);
+	checkTrue("the claim ends: the pins are Free", pinClaimState() == ClaimState::Free);
+	checkTrue("and SERVO acts again", ctlEnabled(menuRow(&UI_SERVO)));
+
 	uint32_t whole = fakeRegionHash(0, UI_HDR_H, GFX_W, GFX_H - UI_HDR_H);
-	pressId(UI_FIX(CfgCtl::Kst), IdExpect::Disabled);
-	checkTrue("a press on KST draws no pressed look",
-	          fakeRegionHash(kst.x, kst.y, kst.w, kst.h) == row);
-	fakeRelease(); frames(1);
-	checkTrue("its release opens no screen",
-	          fakeRegionHash(0, UI_HDR_H, GFX_W, GFX_H - UI_HDR_H) == whole);
-	checkTrue("nor claims a pin", pinClaimHolder() == PinUser::None);
-
-	tapId(UI_FIX(CfgCtl::Servo));
+	tapId(menuRow(&UI_SERVO));
 	checkTrue("a tap on SERVO claims the pins for it", pinClaimHolder() == PinUser::Servo);
 	frames(2);
 	checkTrue("and opens it", fakeRegionHash(0, UI_HDR_H, GFX_W, GFX_H - UI_HDR_H) != whole);
@@ -2380,17 +2507,17 @@ static void testDisabledDestinations() {
 	checkTrue("BACK: the unplug page", pinClaimUnplugDue());
 	tapId(UI_FIX(ServoCtl::Restart));   // RESTART DSHOT
 	frames(2);
-	checkTrue("RESTART DSHOT: DShot back, SETTINGS up",
+	checkTrue("RESTART DSHOT: DShot back, MENU up",
 	          pinClaimState() == ClaimState::Free &&
-	          pixelIn(CfgCtl::Servo) == C_PANEL);
-	checkTrue("RESTART DSHOT leaves to SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
-	uint16_t poles = settings()->poles;
-	tapId(UI_FIX(CfgCtl::PolesPlus));
-	checkTrue("and SETTINGS takes taps", settings()->poles != poles);
-	tapId(UI_FIX(CfgCtl::PolesMinus));
+	          pixelIn(&UI_SERVO) == C_PANEL);
+	checkTrue("RESTART DSHOT leaves to MENU", uiCurrentScreen() == UiScreenId::Menu);
+	int beeps = fakeBeepRequests();
+	tapId(menuRow(&UI_BEEP));
+	checkInt("and MENU takes taps", fakeBeepRequests(), beeps + 1);
+	fakeAdvance(400); frames(2);
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
-	checkTrue("BACK from SETTINGS reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
+	checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
 }
 
 /**
@@ -2455,13 +2582,14 @@ static void testRailReAnchor() {
 
 
 /**
- * @brief The board: named on the SETUP screen, and not offered as a choice.
+ * @brief The board: named on the SETTINGS screen, and not offered as a choice.
  *
- * The image is built for one board. The row that names it carries no control,
- * so nothing on this screen can change which pins the firmware drives.
+ * The image is built for one board. The row that names it, BUILT FOR under
+ * BOARD at the end of the list, carries no control, so nothing on this
+ * screen can change which pins the firmware drives.
  */
 static void testBoardRow() {
-	section("Board: the SETUP row");
+	section("Board: the SETTINGS row");
 
 	fakeFlashClear();
 	settingsLoad();
@@ -2474,23 +2602,24 @@ static void testBoardRow() {
 	checkTrue("whose default ESC pin is free on it",
 	          settingsPinFree(g_board->defaultDshotPin));
 
-	enterSetup();
+	enterSettings();
 	uint8_t recorded = settings()->boardId;
 	uint8_t pumpPin  = escTaskDshotPin();
 	int configures   = fakeConfigureCount();
 
-	// The board row has no control, so nothing in the table is on it. The
-	// presses go where its toggle would be: the KISS toggle's x, one row pitch
-	// above ESC PIN.
+	// The board row has no control, so nothing in the table is on it. It is
+	// the last row, so it is scrolled into view first. The presses go where
+	// its toggle would be: the CONTRAST toggle's x, on BUILT FOR's row.
+	revealRow((int)SettingsRowId::BuiltFor);
 	checkTrue("BOARD has no control",
-	          !ctlPresent(UI_ROW(SetupRow::Board, Toggle)) &&
-	          !ctlPresent(UI_ROW(SetupRow::Board, Minus)) &&
-	          !ctlPresent(UI_ROW(SetupRow::Board, Plus)));
-	int tx, dx, ky, pinY, speedY;
-	ctlCentre(UI_ROW(SetupRow::Kiss, Toggle), &tx, &ky);
-	ctlCentre(UI_ROW(SetupRow::Pin, Plus), &dx, &pinY);
-	ctlCentre(UI_ROW(SetupRow::Speed, Plus), &dx, &speedY);
-	const int boardY = pinY - (speedY - pinY);
+	          !ctlPresent(UI_ROW(SettingsRowId::BuiltFor, Toggle)) &&
+	          !ctlPresent(UI_ROW(SettingsRowId::BuiltFor, Minus)) &&
+	          !ctlPresent(UI_ROW(SettingsRowId::BuiltFor, Plus)));
+	checkTrue("and its row takes no press",
+	          !ctlEnabled(UI_ROW(SettingsRowId::BuiltFor, Row)));
+	int tx, ty, bx, boardY;
+	ctlCentre(UI_ROW(SettingsRowId::Contrast, Toggle), &tx, &ty);
+	ctlCentre(UI_ROW(SettingsRowId::BuiltFor, Row), &bx, &boardY);
 	tap(tx, boardY);
 	checkInt("tapping the board row changes no setting",
 	         settings()->boardId, recorded);
@@ -2504,12 +2633,35 @@ static void testBoardRow() {
 	fakeRelease(); frames(2);
 	checkInt("holding it does nothing either", settings()->boardId, recorded);
 
+	// The scroll range. 4 captions of 20 px and 9 rows at a 50 px pitch are
+	// 530 px of content; the viewport, y 40 to 239, is 200 px, so the list
+	// scrolls 0 px to 330 px. Dragged past its end, it stops at 330 px, with
+	// BUILT FOR's row, content y 480, at y 40 + 480 - 330 = 190.
+	const UiRect save0 = ctlRect(UI_FIX(SettingsCtl::Save));
+	settingsDrag(-180);
+	settingsDrag(-180);
+	checkInt("at the end of the list, BUILT FOR's row is at y 190",
+	         ctlRect(UI_ROW(SettingsRowId::BuiltFor, Row)).y, 190);
+	settingsDrag(-180);
+	checkInt("and a drag past the end does not move it",
+	         ctlRect(UI_ROW(SettingsRowId::BuiltFor, Row)).y, 190);
+	const UiRect save1 = ctlRect(UI_FIX(SettingsCtl::Save));
+	checkTrue("HOLD TO SAVE does not move with the list, at y 268",
+	          save1.y == 268 && save1.y == save0.y && save1.h == save0.h);
+	checkControlTable("SETTINGS, at the end");
+	fakeDumpFrame("shot_settings_scrolled.ppm");
+	// Back up: at 0 px, MOTOR POLES' row, content y 20, is at y 60.
+	settingsDrag(180);
+	settingsDrag(180);
+	checkInt("dragged back, MOTOR POLES' row is at y 60",
+	         ctlRect(UI_ROW(SettingsRowId::Poles, Row)).y, 60);
+
 	// And no save reboots: every setting applies live. This counter staying
 	// still is what fails if a save that needs a restart is ever added.
 	int reboots = fakeRebootCount();
-	tapId(UI_ROW(SetupRow::Pin, Plus));
-	pressId(UI_FIX(SetupCtl::Save));
-	holdId(UI_FIX(SetupCtl::Save), 60);
+	tapId(UI_ROW(SettingsRowId::Pin, Plus));
+	pressId(UI_FIX(SettingsCtl::Save));
+	holdId(UI_FIX(SettingsCtl::Save), 60);
 	fakeRelease(); frames(2);
 	checkTrue("an ordinary save lands", !settingsDirty());
 	checkInt("and no save reboots", fakeRebootCount() - reboots, 0);
@@ -2518,7 +2670,7 @@ static void testBoardRow() {
 
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
-	checkTrue("BACK from SETUP reaches SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
+	checkTrue("BACK from SETTINGS reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
 
 	fakeFlashClear();
 	settingsLoad();
@@ -2528,13 +2680,13 @@ static void testBoardRow() {
  * @brief The armed-save backstop: flash is never erased over a live motor.
  *
  * A save parks core1 for the erase, which stalls the DShot pump; a spinning
- * ESC would time out and cut. CFG force-disarms, so the setup screen cannot be
+ * ESC would time out and cut. MENU force-disarms, so SETTINGS cannot be
  * reached armed through the UI today -- which is exactly why the backstop is
  * driven directly here: the day that routing changes is not a day anyone will
  * remember this rule, but this test will.
  */
 static void testArmedSaveRefused() {
-	section("SETUP: a save while armed is refused");
+	section("SETTINGS: a save while armed is refused");
 
 	fakeFlashClear();
 	settingsLoad();
@@ -2546,23 +2698,23 @@ static void testArmedSaveRefused() {
 	settings()->poles = (uint8_t)(settings()->poles == 12 ? 14 : 12);
 	checkTrue("a change is pending", settingsDirty());
 
-	uiSetupEnter();
+	uiSettingsEnter();
 	int writes = fakeFlashWrites();
 	int reboots = fakeRebootCount();
 
-	// SETUP is entered here without the tester's help, so uiControls() still
-	// reports the tester. SAVE's centre is read from SETUP's own table.
+	// SETTINGS is entered here without the tester's help, so uiControls()
+	// still reports the tester. SAVE's centre is read from SETTINGS' own table.
 	int saveX = -1, saveY = -1;
 	{
 		UiControl tbl[UI_CONTROLS_MAX];
-		uint8_t n = uiSetupControls(tbl, UI_CONTROLS_MAX);
+		uint8_t n = UI_SETTINGS.controls(tbl, UI_CONTROLS_MAX);
 		for (uint8_t i = 0; i < n; i++) {
-			if (tbl[i].id == UI_FIX(SetupCtl::Save)) {
+			if (tbl[i].id == UI_FIX(SettingsCtl::Save)) {
 				saveX = tbl[i].rect.x + tbl[i].rect.w / 2;
 				saveY = tbl[i].rect.y + tbl[i].rect.h / 2;
 			}
 		}
-		checkTrue("SETUP's table has SAVE", saveX >= 0);
+		checkTrue("SETTINGS' table has SAVE", saveX >= 0);
 	}
 
 	TouchState t;
@@ -2570,27 +2722,27 @@ static void testArmedSaveRefused() {
 	t.down = true; t.pressed = true;
 	t.x = t.downX = saveX;
 	t.y = t.downY = saveY;
-	uiSetupTick(&t);
+	uiSettingsTick(&t);
 	t.pressed = false;
-	for (int i = 0; i < 60; i++) { fakeAdvance(UI_FRAME_MS); uiSetupTick(&t); }
+	for (int i = 0; i < 60; i++) { fakeAdvance(UI_FRAME_MS); uiSettingsTick(&t); }
 
 	checkTrue("still armed afterwards", uiArmed());
 	checkTrue("the save was refused", settingsDirty());
 	{
 		// The note line says why, in red: NOT WHILE ARMED - DISARM TO SAVE.
 		// It is drawn text, not a control, so its y is a probe.
-		uint32_t shown = fakeRegionHash(0, SETUP_NOTE_Y, GFX_W, 8);
-		gfxRect(0, SETUP_NOTE_Y, GFX_W, 8, C_BG);
-		gfxText(8, SETUP_NOTE_Y, "NOT WHILE ARMED - DISARM TO SAVE", C_RED, 1);
+		uint32_t shown = fakeRegionHash(0, SETTINGS_NOTE_Y, GFX_W, 8);
+		gfxRect(0, SETTINGS_NOTE_Y, GFX_W, 8, C_BG);
+		gfxText(8, SETTINGS_NOTE_Y, "NOT WHILE ARMED - DISARM TO SAVE", C_RED, 1);
 		checkTrue("the note says NOT WHILE ARMED - DISARM TO SAVE",
-		          fakeRegionHash(0, SETUP_NOTE_Y, GFX_W, 8) == shown);
+		          fakeRegionHash(0, SETTINGS_NOTE_Y, GFX_W, 8) == shown);
 	}
 	checkTrue("nothing was stored", !settingsStored());
 	checkInt("flash was never touched", fakeFlashWrites() - writes, 0);
 	checkInt("and nothing rebooted", fakeRebootCount() - reboots, 0);
 
 	t.down = false; t.released = true;
-	uiSetupTick(&t);
+	uiSettingsTick(&t);
 
 	// Disarm on the main screen and leave the module clean.
 	pressId(UI_FIX(TesterCtl::Arm));
@@ -2616,29 +2768,45 @@ static void testPressedLookClears() {
 	settingsLoad();
 	uiInit();
 	frames(2);
-	tapId(UI_FIX(TesterCtl::Cfg));           // to the settings screen
+	tapId(UI_FIX(TesterCtl::Menu));           // to MENU
 	frames(2);
-	checkTrue("CFG opens SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
+	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 
-	// The pole *value* is drawn outside POLES -'s rectangle, so the hash of the
-	// rectangle isolates the button's own look.
-	const UiRect pm = ctlRect(UI_FIX(CfgCtl::PolesMinus));
-	uint32_t idle = fakeRegionHash(pm.x, pm.y, pm.w, pm.h);
-	pressId(UI_FIX(CfgCtl::PolesMinus));
+	// A MENU row opens its tool on release, so the release frame is not
+	// MENU's. The row is at rest when MENU comes back.
+	const UiRect log = ctlRect(menuRow(&UI_SDLOG));
+	uint32_t idle = fakeRegionHash(log.x, log.y, log.w, log.h);
+	pressId(menuRow(&UI_SDLOG));
+	checkTrue("a held MENU row draws its pressed state",
+	          fakeRegionHash(log.x, log.y, log.w, log.h) != idle);
+	fakeRelease(); frames(1);
+	checkTrue("its release opens SD LOG", uiCurrentScreen() == UiScreenId::SdLog);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	checkTrue("BACK from SD LOG reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("and the row is at rest",
+	          fakeRegionHash(log.x, log.y, log.w, log.h) == idle);
+
+	// The pole stepper, on SETTINGS now. The pole *value* is drawn outside
+	// MOTOR POLES -'s rectangle, so the hash of the rectangle isolates the
+	// button's own look.
+	tapId(menuRow(&UI_SETTINGS));
+	frames(2);
+	checkTrue("SETTINGS opens from MENU", uiCurrentScreen() == UiScreenId::Settings);
+	const UiRect pm = ctlRect(UI_ROW(SettingsRowId::Poles, Minus));
+	idle = fakeRegionHash(pm.x, pm.y, pm.w, pm.h);
+	pressId(UI_ROW(SettingsRowId::Poles, Minus));
 	checkTrue("a held stepper draws its pressed state",
 	          fakeRegionHash(pm.x, pm.y, pm.w, pm.h) != idle);
 	fakeRelease(); frames(1);
 	checkTrue("and returns to rest on release",
 	          fakeRegionHash(pm.x, pm.y, pm.w, pm.h) == idle);
 
-	// The same rule on SETUP, which never had pressed states at all.
-	tapId(UI_FIX(CfgCtl::Setup));
-	frames(2);
-	checkTrue("SETUP opens from SETTINGS", uiCurrentScreen() == UiScreenId::Setup);
-	const UiRect pin = ctlRect(UI_ROW(SetupRow::Pin, Minus));
+	// The same rule on the wiring rows, which never had pressed states at all.
+	const UiRect pin = ctlRect(UI_ROW(SettingsRowId::Pin, Minus));
 	idle = fakeRegionHash(pin.x, pin.y, pin.w, pin.h);
-	pressId(UI_ROW(SetupRow::Pin, Minus));
-	checkTrue("SETUP's stepper draws its pressed state",
+	pressId(UI_ROW(SettingsRowId::Pin, Minus));
+	checkTrue("ESC PIN's stepper draws its pressed state",
 	          fakeRegionHash(pin.x, pin.y, pin.w, pin.h) != idle);
 	fakeRelease(); frames(1);
 	checkTrue("and returns to rest on release",
@@ -2646,12 +2814,12 @@ static void testPressedLookClears() {
 
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
-	checkTrue("BACK from SETUP reaches SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
+	checkTrue("BACK from SETTINGS reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
 	// The old tap here was at (120, 309), the bottom BACK of an earlier layout,
 	// and hit nothing. BACK is in the header now.
-	tapId(UI_FIX(UI_BACK));              // BACK, to the tester screen
+	tapId(UI_FIX(UI_BACK));              // BACK, from MENU to the tester screen
 	frames(2);
-	checkTrue("BACK from SETTINGS reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
+	checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
 }
 
 /**
@@ -2671,20 +2839,22 @@ static void testScreenChangeResidue() {
 
 	// The tester screen legitimately shows some cyan of its own -- KISS source
 	// tags, the EDT chip -- so the assertion is against its *own* baseline: a
-	// round trip through the cyan-rich settings screen must not add any.
+	// round trip through SETTINGS, whose section captions are cyan, must not
+	// add any.
 	int before = fakeCountColour(C_CYAN);
 
-	tapId(UI_FIX(TesterCtl::Cfg));           // into the settings screen
-	frames(2);
-	checkTrue("CFG opens SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
+	enterSettings();
 	int onSettings = fakeCountColour(C_CYAN);
-	checkTrue("the settings screen shows more cyan", onSettings > before);
+	checkTrue("SETTINGS shows more cyan", onSettings > before);
 
+	tapId(UI_FIX(UI_BACK));                 // BACK, to MENU
+	frames(2);
+	checkTrue("BACK from SETTINGS reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
 	tapId(UI_FIX(UI_BACK));                 // BACK, to the tester screen
 	frames(3);
-	checkTrue("BACK from SETTINGS reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
+	checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
 	int after = fakeCountColour(C_CYAN);
-	checkTrue("no settings cyan survives on the tester screen",
+	checkTrue("no SETTINGS cyan survives on the tester screen",
 	          after <= before);
 }
 
@@ -2777,18 +2947,18 @@ void runUiTests() {
 
 	section("Navigation into AM32 config");
 	{
-		tapId(UI_FIX(TesterCtl::Cfg));
-		checkTrue("CFG opens SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
-		checkTrue("entering settings force-disarms", !fakeArmed());
+		tapId(UI_FIX(TesterCtl::Menu));
+		checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
+		checkTrue("opening MENU force-disarms", !fakeArmed());
 		// One more frame before the dump. The tap that navigates is handled by
 		// the *outgoing* screen's handler, so the incoming one is not painted
 		// until the following tick -- and this screenshot, which docs/ publishes,
 		// was of the tester screen for as long as it has existed.
 		frames(2);
-		checkControlTable("SETTINGS");
-		fakeDumpFrame("shot_settings.ppm");
-		tapId(UI_FIX(CfgCtl::Am32));
-		checkTrue("AM32 opens from SETTINGS", uiCurrentScreen() == UiScreenId::Am32);
+		checkControlTable("MENU");
+		fakeDumpFrame("shot_menu.ppm");
+		tapId(menuRow(&UI_AM32));
+		checkTrue("AM32 opens from MENU", uiCurrentScreen() == UiScreenId::Am32);
 		for (int i = 0; i < 8; i++) frames(1);
 		checkTrue("settings read and decoded", uiVisibleCount() > 0);
 		checkInt("poles decoded", uiByte(0x1B), 14);
@@ -2883,7 +3053,7 @@ void runUiTests() {
 		// 4. Which means the offset is normally mid-row, so the top and bottom
 		//    rows are partial -- the case gfxSetClip() exists for. Nothing the
 		//    list draws may reach the header strip above it.
-		checkTrue("the scroll offset is mid-row", uiScroll() % ROW_H != 0);
+		checkTrue("the scroll offset is mid-row", uiScroll() % ROW_PITCH != 0);
 		uint32_t above = fakeRegionHash(0, 0, GFX_W, lv.y);
 		fakePress(lx, lv.y + 94); frames(1);
 		fakeHold(lx, lv.y + 87); frames(1);          // 7 px, so still mid-row
@@ -2896,7 +3066,7 @@ void runUiTests() {
 		//    under the finger -- which with a mid-row offset is not the row a
 		//    slot-index calculation would have named.
 		int y = lv.y + 40;
-		int want = (int)s_visible[(uiScroll() + (y - lv.y)) / ROW_H];
+		int want = (int)s_visible[(uiScroll() + (y - lv.y)) / ROW_PITCH];
 		fakePress(lx, y); frames(2); fakeRelease(); frames(1);
 		checkInt("a tap that stayed put selects the row under it",
 		         uiSelected(), want);
@@ -2907,8 +3077,12 @@ void runUiTests() {
 		//    swipe writes the old selection's value into the new field.
 		s_selected = -1;
 		frames(2);
-		int y2 = lv.y + 70;
-		int want2 = (int)s_visible[(uiScroll() + (y2 - lv.y)) / ROW_H];
+		// 80 px down, on a row's body: rows are 40 px at a 42 px pitch, and a
+		// press on the 2 px gap under a row is no row's.
+		int y2 = lv.y + 80;
+		checkTrue("the swipe starts on a row's body",
+		          (uiScroll() + (y2 - lv.y)) % ROW_PITCH < ROW_H);
+		int want2 = (int)s_visible[(uiScroll() + (y2 - lv.y)) / ROW_PITCH];
 		uint8_t raw2 = s_eeprom[AM32_FIELDS[want2].offset];
 		fakePress(lv.x + 40, y2); frames(1);
 		for (int x = lv.x + 40; x <= lv.x + 200; x += 10) { fakeHold(x, y2); frames(1); }
@@ -2998,55 +3172,81 @@ void runUiTests() {
 		frames(1);
 	}
 
-	section("AM32 list on ui_list: extents and edges as before");
+	section("AM32 list on ui_list: extents, and the 40 px press rule at the edges");
 	{
-		// Scroll extent: the last row ends on the viewport's last pixel row.
-		// The drags are measured from the viewport's top edge.
-		const UiRect lv = listView();
-		const int lx = lv.x + 60;
+		// The viewport, as the rows report it at 0 px: y 62 to 215, 154 px.
+		// The drags are measured from its top edge.
+		uiListScrollTo(&s_list, 0);
 		s_selected = -1;
+		s_redraw = true;
+		frames(1);
+		const UiRect lv = listView();
+		checkTrue("the viewport is y 62 to 215", lv.y == 62 && lv.y + lv.h - 1 == 215);
+		const int lx = lv.x + 60;
+
+		// Scroll extent: the content is a pitch per row, 42 px, the 2 px gap
+		// under the last row included, so the scroll stops at the content less
+		// the 154 px viewport, and the last row's rule is 2 px above the
+		// viewport's last pixel row.
 		for (int i = 0; i < 12; i++) {
-			fakePress(lx, lv.y + 154); frames(1);
-			for (int y = lv.y + 154; y >= lv.y + 4; y -= 30) { fakeHold(lx, y); frames(1); }
+			fakePress(lx, lv.y + 148); frames(1);
+			for (int y = lv.y + 148; y >= lv.y + 4; y -= 30) { fakeHold(lx, y); frames(1); }
 			fakeRelease(); frames(1);
 		}
-		checkInt("dragged up: the scroll stops at the content less 160 px", uiScroll(),
-		         uiVisibleCount() * ROW_H - LIST_H);
-		checkTrue("the last row's rule on y 215, the viewport's last row",
-		          gfxBuffer()[(lv.y + lv.h - 1) * GFX_W + 230] == C_PANEL &&
-		          gfxBuffer()[(lv.y + lv.h - 2) * GFX_W + 230] == C_BG);
+		checkInt("dragged up: the scroll stops at the content less 154 px", uiScroll(),
+		         uiVisibleCount() * ROW_PITCH - LIST_H);
+		const int rule = LIST_Y1 - (ROW_PITCH - ROW_H);
+		checkTrue("the last row's rule on y 213, then the 2 px gap to y 215",
+		          rule == 213 &&
+		          gfxBuffer()[rule * GFX_W + 230] == C_PANEL &&
+		          gfxBuffer()[(rule - 1) * GFX_W + 230] == C_BG &&
+		          gfxBuffer()[(rule + 1) * GFX_W + 230] == C_BG &&
+		          gfxBuffer()[LIST_Y1 * GFX_W + 230] == C_BG);
 		for (int i = 0; i < 12; i++) {
 			fakePress(lx, lv.y + 4); frames(1);
-			for (int y = lv.y + 4; y <= lv.y + 154; y += 30) { fakeHold(lx, y); frames(1); }
+			for (int y = lv.y + 4; y <= lv.y + 148; y += 30) { fakeHold(lx, y); frames(1); }
 			fakeRelease(); frames(1);
 		}
 		checkInt("dragged down: the scroll stops at 0 px", uiScroll(), 0);
 
-		// The press rule at the viewport's edges, at a scroll that cuts a row
-		// at each.
-		uiListScrollTo(&s_list, 13);
+		// The press rule at the viewport's edges: a row cut by an edge takes a
+		// press only while 40 px of it show, which for a 40 px row is all of
+		// it. Rows are at content 0, 42, 84 and 126, so 1 px of scroll leaves
+		// 39 px of the top row, and 11 px leaves 39 px of row 3 at the bottom
+		// (content 126 to 164 in a viewport of content 11 to 164).
+		auto scrollTo = [](int px) {
+			uiListScrollTo(&s_list, px);
+			s_selected = -1;
+			s_redraw = true;
+			frames(1);
+		};
+		scrollTo(1);
+		const UiRect top39 = ctlRect(UI_ROW(0, Row));
+		checkTrue("at 1 px, the top row shows 39 px and does not act",
+		          top39.y == 62 && top39.h == 39 && !ctlEnabled(UI_ROW(0, Row)));
+		tap(lx, top39.y);
+		checkInt("y 62 on it: no row", uiSelected(), -1);
+		scrollTo(0);
+		tap(lx, lv.y);
+		checkInt("at 0 px, all 40 px: y 62 is the top row", uiSelected(), (int)s_visible[0]);
+		scrollTo(11);
+		const UiRect bot39 = ctlRect(UI_ROW(3, Row));
+		checkTrue("at 11 px, row 3 shows 39 px at the bottom and does not act",
+		          bot39.y + bot39.h - 1 == 215 && bot39.h == 39 && !ctlEnabled(UI_ROW(3, Row)));
+		tap(lx, 215);
+		checkInt("y 215 on it: no row", uiSelected(), -1);
+		scrollTo(12);
+		tap(lx, 215);
+		checkInt("at 12 px, all 40 px: y 215 is row 3", uiSelected(), (int)s_visible[3]);
 		s_selected = -1;
-		s_redraw = true;
-		frames(1);
-		// The first and last rows are cut by the viewport: their rectangles
-		// end on its edges.
-		const int lastRow = (13 + LIST_H - 1) / ROW_H;
-		const UiRect topRow = ctlRect(UI_ROW(0, Row));
-		const UiRect botRow = ctlRect(UI_ROW(lastRow, Row));
-		tap(lx, topRow.y);
-		checkInt("y 56: the top row, 13 px of it showing", uiSelected(), (int)s_visible[0]);
-		tap(lx, botRow.y + botRow.h - 1);
-		checkInt("y 215: the bottom row, 17 px of it showing", uiSelected(),
-		         (int)s_visible[lastRow]);
-		s_selected = -1;
-		tap(lx, topRow.y - 1);
-		tap(lx, botRow.y + botRow.h);
-		checkInt("y 55 and y 216, outside the viewport: no row", uiSelected(), -1);
+		tap(lx, lv.y - 1);
+		tap(lx, lv.y + lv.h);
+		checkInt("y 61 and y 216, outside the viewport: no row", uiSelected(), -1);
 
 		// The editor bar and the footer do not move with the list.
 		tapId(UI_ROW(2, Row));
 		frames(1);
-		const int below0 = botRow.y + botRow.h;
+		const int below0 = lv.y + lv.h;
 		uint32_t below = fakeRegionHash(0, below0, GFX_W, GFX_H - below0);
 		fakePress(lx, lv.y + 94); frames(1);
 		fakeHold(lx, lv.y + 64); frames(1);
@@ -3054,7 +3254,7 @@ void runUiTests() {
 		checkTrue("a scroll leaves the editor bar and the footer as they were",
 		          fakeRegionHash(0, below0, GFX_W, GFX_H - below0) == below);
 
-		// HEX: six lines in 160 px, so a drag does not scroll, and the dump
+		// HEX: six lines in 154 px, so a drag does not scroll, and the dump
 		// takes neither taps nor swipes.
 		int sel = uiSelected();
 		uint8_t before[AM32_EEPROM_SIZE];
@@ -3132,16 +3332,15 @@ void runUiTests() {
 		frames(2);
 		fakeDumpFrame("shot_am32_hex.ppm");
 		tapId(UI_FIX(Am32Ctl::Hex));                     // back to fields
-		tapId(UI_FIX(UI_BACK));                   // leave AM32, back to SETTINGS
-		checkTrue("BACK from AM32 reaches SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
+		tapId(UI_FIX(UI_BACK));                   // leave AM32, back to MENU
+		checkTrue("BACK from AM32 reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
 		checkTrue("DShot pin handed back", fakePinReturned());
 		// And back to the main screen, which is what the sections after this
-		// one assume. It used to be left on SETTINGS and get away with it: the
-		// settings nav row stopped at y=293, so enterLogScreen()'s first tap at
-		// y=299 fell into dead space and was harmlessly ignored. The row is
-		// 48 px tall now and that tap lands on SETUP.
+		// one assume. It used to be left on the settings screen and get away
+		// with it: enterLogScreen()'s first tap, at a coordinate then, fell
+		// into dead space there and was harmlessly ignored.
 		tapId(UI_FIX(UI_BACK));
-		checkTrue("BACK from SETTINGS reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
+		checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
 	}
 
 	section("Splash fits the panel");
@@ -3161,7 +3360,7 @@ void runUiTests() {
 	testManualLogSurvivesArming();
 	testKissDisplay();
 	testTelemetryExpires();
-	testSettingsCommandRow();
+	testMenuBeepRow();
 
 	testBoardRow();
 	testArmInterlocks();
@@ -3170,7 +3369,7 @@ void runUiTests() {
 	testRpmGoesDead();
 	testAutoLogOnArm();
 	testHitBoundaries();
-	testDisabledDestinations();
+	testMenuDestinations();
 	testRailReAnchor();
 	testDisarmButton();
 	testArmNeedsLivePress();
@@ -3191,11 +3390,11 @@ void runUiTests() {
 	testRepeatRule();
 	testArmBacklightDip();
 
-	testSetupWiring();
+	testSettingsWiring();
 	testStatusBarBitrate();
-	testSetupKiss();
-	testSetupDisplay();
-	testSetupSave();
+	testSettingsKiss();
+	testSettingsDisplay();
+	testSettingsSave();
 	testArmedSaveRefused();
 	testPressedLookClears();
 	testScreenChangeResidue();

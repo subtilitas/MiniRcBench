@@ -89,7 +89,7 @@ enum class MscRefusal : uint8_t {
  * @brief Decide whether the card may be handed to a host.
  *
  * Recording is a refusal rather than something this silently stops, and that is
- * a deliberate difference from how CFG treats arming. Force-disarming on the way
+ * a deliberate difference from how MENU treats arming. Force-disarming on the way
  * into a screen costs the user nothing they were keeping; ending a recording
  * costs them the run they were in the middle of measuring. So this says no and
  * names the reason, and the user stops the log themselves.

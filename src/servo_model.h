@@ -91,9 +91,9 @@
 /** @brief Inner edge of the hit area, in pixels from the shaft. */
 #define SERVO_DIAL_R_IN       24
 /** @brief Outer edge of the hit area, in pixels from the shaft. */
-#define SERVO_DIAL_R_OUT      124
+#define SERVO_DIAL_R_OUT      122
 /** @brief First row of the dial band. */
-#define SERVO_DIAL_Y0         56
+#define SERVO_DIAL_Y0         62
 /** @brief Last row of the dial band. */
 #define SERVO_DIAL_Y1         199
 /**

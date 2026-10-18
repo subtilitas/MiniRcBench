@@ -56,7 +56,7 @@ bool pioUartRxBegin(uint8_t pin, uint32_t baud);
  *
  * Safe to call when nothing is running. The pin is handed back as a
  * high-impedance input: whatever owns it next — the ESC signal, after a pin
- * change on the SETUP screen — must not find it still driven by a PIO.
+ * change in SETTINGS — must not find it still driven by a PIO.
  */
 void pioUartRxEnd(void);
 

@@ -24,7 +24,7 @@
  *   the 18 px BACK strips this replaces were below it.
  * - **A control that is drawn unavailable does not act.** Pass `enabled=false`
  *   to uiButton() and gate its hit test on the same expression. Before this
- *   there were three answers on three screens: SETUP's KISS PIN steppers looked
+ *   there were three answers on three screens: SETTINGS' KISS PIN steppers looked
  *   live and silently moved a pin that was not in use, the logging screen's
  *   START looked dead and started a log anyway, and AM32's REVERT looked dead
  *   and ran. A greyed control that still fires is worse than either, because
@@ -49,17 +49,27 @@ struct TouchState;
  * @{
  */
 /** @brief Height of the header band on every screen. */
-#define UI_HDR_H        30
+#define UI_HDR_H        36
 /** @brief Left margin for titles, labels and the first control in a row. */
 #define UI_MARGIN        8
 /** @brief Corner radius for every button and chip. */
 #define UI_RADIUS        5
-/** @brief Smallest side of a touch target that a fingertip reliably hits. */
+/**
+ * @brief Smallest side of a touch target outside a list: the tester's button
+ *        row, the SERVO screen's controls, SD LOG's RETRY and USB DRIVE and
+ *        AM32's OK. Their move to @ref UI_LIST_TAP_MIN is a later change.
+ */
 #define UI_TAP_MIN      22
+/**
+ * @brief Smallest height of a list row and of a control in a list row, px:
+ *        about 7.1 mm on this panel. A row or control cut by the viewport's
+ *        edge takes a press only while this much of it shows.
+ */
+#define UI_LIST_TAP_MIN 40
 
-/** @brief BACK button size. Sized by @ref UI_TAP_MIN, not by its label. */
-#define UI_BACK_W       50
-#define UI_BACK_H       UI_TAP_MIN
+/** @brief BACK button size, 64 x 32 px, on every screen with a header. */
+#define UI_BACK_W       64
+#define UI_BACK_H       32
 /** @brief BACK button position: top right of the header, on every screen. */
 #define UI_BACK_X       (240 - UI_BACK_W - 6)
 #define UI_BACK_Y       ((UI_HDR_H - UI_BACK_H) / 2)
@@ -68,7 +78,7 @@ struct TouchState;
  * @brief Top of the optional strip under the header.
  *
  * Where a screen puts the one or two things that qualify what the title says —
- * AM32's device name, SETTINGS' EDT chip and unsaved marker. Below the header
+ * AM32's device name, MENU's pin and rate caption and EDT chip. Below the header
  * rather than inside it, because the header is full: a title at scale 2 and a
  * BACK button leave no room for a second line that is not cramped.
  */
@@ -81,6 +91,7 @@ struct TouchState;
 
 static_assert(UI_BACK_H <= UI_HDR_H, "BACK does not fit in the header band");
 static_assert(UI_BACK_W >= UI_TAP_MIN, "BACK is narrower than a fingertip");
+static_assert(UI_BACK_H >= UI_TAP_MIN, "BACK is lower than a fingertip");
 
 /** @brief A touch target and its drawn rectangle, which are always the same. */
 struct UiRect {

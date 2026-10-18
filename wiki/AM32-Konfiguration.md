@@ -15,7 +15,7 @@ keinen Laptop und keinen Konfigurator. Er aktualisiert keine ESC-Firmware.
 
 ## Verbinden
 
-`CFG → AM32` öffnen.
+**MENU → AM32 CONFIG** öffnen.
 
 Der Bildschirm übergibt den Signalpin vom DShot-Treiber an die
 Bootloader-Verbindung (19200 Baud, ein Draht, halbduplex) und beginnt dann zu
@@ -51,7 +51,8 @@ Bewegung erkannt ist. Ziehen wählt nie eine Zeile aus.
 Ein **Tippen ohne Bewegung** wählt die Zeile darunter aus. Die Editorleiste am
 unteren Rand zeigt dann Namen und Wert des Feldes.
 
-Die Zeilen sind gruppiert, mit dem Gruppennamen in Grau über jeder Gruppe.
+Die Zeilen sind 40 px hoch, es sind also drei auf einmal sichtbar. Sie sind
+gruppiert, mit dem Gruppennamen in Grau über jeder Gruppe.
 Welche Felder es gibt, hängt von der Layout-Version der ESC-Einstellungen ab.
 Angezeigt werden nur die Felder, die zur gelesenen Version passen.
 
@@ -117,8 +118,8 @@ auf Byte-Ebene bewirkt hat. `FIELDS` kehrt zur Liste zurück.
 
 ## Verlassen
 
-`BACK` gibt den Signalpin an den DShot-Treiber zurück und kehrt zum
-Einstellungsbildschirm zurück. Der Tester ist entschärft.
+`BACK` gibt den Signalpin an den DShot-Treiber zurück und kehrt zu
+`MENU` zurück. Der Tester ist entschärft.
 
 ---
 

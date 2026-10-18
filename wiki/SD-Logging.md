@@ -39,6 +39,10 @@ The tester screen shows the state in its top row: `REC` (red) while recording,
 
 ## Reading the screen
 
+Open it with **MENU → SD LOG**. The row on `MENU` shows the same state: `NO CARD`,
+`READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a computer holds the
+card.
+
 <img src="img/log-ready.png" width="240" alt="Card mounted, ready to record">
 
 | Row | Meaning |
@@ -108,8 +112,8 @@ Without a card, `USB DRIVE` is drawn unavailable and does nothing.
 | `STOP RECORDING FIRST` | Stop the recording |
 
 **Arming is blocked while the computer holds the card.** `BACK` leaves the
-screen without cancelling the handover, so the tester screen is reachable, but
-it does not arm until the card is ejected. A press that starts while the
+screen for `MENU` without cancelling the handover, and `BACK` on `MENU` reaches
+the tester. The tester does not arm until the card is ejected. A press that starts while the
 computer holds the card does not arm, even after the eject. Press again.
 
 Eject on the computer, or press `EJECT` on the screen. Both end the handover.

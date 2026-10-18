@@ -12,7 +12,9 @@
 #include "ui_am32.h"
 #include "ui_kst.h"
 #include "ui_servo.h"
-#include "ui_setup.h"
+#include "ui_menu.h"
+#include "ui_sdlog.h"
+#include "ui_settings.h"
 #include "ui_input.h"
 #include "ui_widgets.h"
 #include "ui_screen.h"
@@ -151,13 +153,13 @@ static_assert(THR_EDGE_SAT * 2 < THR_TRACK_W / 2,
 
 // The main screen is the root, so it has no header and no BACK: there is
 // nowhere to go back to, and a disabled or missing control in the place the
-// habit says to look is worse than the habit not applying here. CFG is its
+// habit says to look is worse than the habit not applying here. MENU is its
 // navigation, and it sits with the other two actions.
 #define BTN_ROW_Y     283   /**< Top of the three main-screen buttons. */
 #define BTN_ROW_H      33   /**< ...and their height. */
 static const UiRect BTN_ARM  = { 6, BTN_ROW_Y, 104, BTN_ROW_H };
 static const UiRect BTN_HOLD = { 116, BTN_ROW_Y, 54, BTN_ROW_H };
-static const UiRect BTN_CFG  = { 176, BTN_ROW_Y, 58, BTN_ROW_H };
+static const UiRect BTN_MENU = { 176, BTN_ROW_Y, 58, BTN_ROW_H };
 
 // The grab area may not reach the buttons. Written where both numbers are in
 // scope rather than as a comment on either one, because it is a relationship
@@ -167,143 +169,25 @@ static_assert(THR_TRACK_Y + THR_TRACK_H + THR_TOUCH_PAD_BOT <= BTN_ROW_Y,
 static_assert(BTN_ROW_Y + BTN_ROW_H - 1 <= Z_BTN_Y1,
               "the buttons run off the bottom of the panel");
 
-// config screen
-/**
- * @defgroup ui_cfg_layout Settings screen layout
- * @brief Row positions, with the gaps asserted rather than eyeballed.
- *
- * Everything below the header is derived from @ref UI_BODY_Y and from the row
- * above it, rather than being a hand-picked pixel row. That is not tidiness:
- * the previous version was eleven independent literals, so moving one row meant
- * finding every other number that had quietly been chosen to clear it, and the
- * asserts at the bottom of this block are all scar tissue from a case where
- * that went wrong.
- *
- * The screen also got shorter by one control. BACK used to be an 18 px strip
- * across the bottom — below @ref UI_TAP_MIN, and in a different place from the
- * BACK on SETUP and AM32. It is in the header now, and every row here spent the
- * space it freed on being big enough to hit.
- * @{
- */
-#define CFG_ROW_H      44   /**< Height of a control row. Was 38-40. */
-#define CFG_POLES_LBL  UI_BODY_Y                        /**< "MOTOR POLES". */
-#define CFG_POLES_Y    (CFG_POLES_LBL + 12)             /**< Pole-count -/+ row. */
-#define CFG_MAXT_LBL   (CFG_POLES_Y + CFG_ROW_H + 10)   /**< "THROTTLE CEILING". */
-#define CFG_MAXT_Y     (CFG_MAXT_LBL + 12)              /**< Ceiling -/+ row. */
-#define CFG_CMD_Y      (CFG_MAXT_Y + CFG_ROW_H + 14)    /**< BEEP / SD LOG row. */
-#define CFG_HINT_Y     (CFG_CMD_Y + CFG_ROW_H + 6)      /**< Caption under BEEP. */
-#define CFG_NAV_Y      (CFG_HINT_Y + 16)                /**< AM32 / SERVO / KST / SETUP. */
-#define CFG_NAV_H      48
-#define CFG_STEP_W     46   /**< Width of a `-` or `+` target. */
-/** @} */
-
-static const UiRect BTN_POLES_M = { 14, CFG_POLES_Y, CFG_STEP_W, CFG_ROW_H };
-static const UiRect BTN_POLES_P = { 180, CFG_POLES_Y, CFG_STEP_W, CFG_ROW_H };
-static const UiRect BTN_MAXT_M  = { 14, CFG_MAXT_Y, CFG_STEP_W, CFG_ROW_H };
-static const UiRect BTN_MAXT_P  = { 180, CFG_MAXT_Y, CFG_STEP_W, CFG_ROW_H };
-// BEEP and SD LOG share the command row, 2 x 104 px plus a 4 px gap: the
-// 212 px between the margins. What is left of EDT here is the read-only chip
-// on the strip under the title; the firmware sends the enable itself.
-#define CFG_CMD_W    104
-#define CFG_CMD_GAP    4
-static const UiRect BTN_BEEP  = { 14, CFG_CMD_Y, CFG_CMD_W, CFG_ROW_H };
-static const UiRect BTN_LOG   = { 14 + CFG_CMD_W + CFG_CMD_GAP, CFG_CMD_Y,
-                                  CFG_CMD_W, CFG_ROW_H };
-// One row, four destinations, the screens that own the signal pins and SETUP:
-// 4 x 50 px plus three 4 px gaps is exactly the 212 px between the margins,
-// and the assert below keeps it that way.
-#define CFG_NAV_W    50
-#define CFG_NAV_GAP  4
-static const UiRect BTN_AM32  = { 14, CFG_NAV_Y, CFG_NAV_W, CFG_NAV_H };
-static const UiRect BTN_SERVO = { 14 + CFG_NAV_W + CFG_NAV_GAP, CFG_NAV_Y,
-                                  CFG_NAV_W, CFG_NAV_H };
-static const UiRect BTN_KST   = { 14 + 2 * (CFG_NAV_W + CFG_NAV_GAP), CFG_NAV_Y,
-                                  CFG_NAV_W, CFG_NAV_H };
-static const UiRect BTN_SETUP = { 14 + 3 * (CFG_NAV_W + CFG_NAV_GAP), CFG_NAV_Y,
-                                  CFG_NAV_W, CFG_NAV_H };
-
-static_assert(14 + 2 * CFG_CMD_W + CFG_CMD_GAP == 226,
-              "the BEEP/SD LOG row does not fill the margins");
-static_assert(14 + 4 * CFG_NAV_W + 3 * CFG_NAV_GAP == 226,
-              "the AM32/SERVO/KST/SETUP row does not fill the margins");
-
-/**
- * @defgroup ui_log_layout Logging screen layout
- * @{
- */
-#define LOG_ROW0_Y     (UI_HDR_H + 8)   /**< First status row. */
-#define LOG_ROW_H      21
-#define LOG_ROWS        9   /**< Through MOUNT; CARD and MOUNT are diagnostics. */
-#define LOG_NOTE_Y    228   /**< One line: why a button just refused. */
-#define LOG_TOGGLE_Y  240   /**< START / STOP, or EJECT while a host has the card. */
-#define LOG_TOGGLE_H   44
-#define LOG_BOT_Y     288   /**< RETRY MOUNT and USB DRIVE, side by side. */
-#define LOG_BOT_H      30
-/** @} */
-
-static const UiRect BTN_LOG_TOGGLE = { 14, LOG_TOGGLE_Y, 212, LOG_TOGGLE_H };
-// The bottom row splits rather than the screen growing: 2 x 104 with a 4 px gap
-// is the 212 px between the margins, the same arithmetic the settings nav row
-// uses. Both halves clear UI_TAP_MIN, which is the point of splitting rather
-// than stacking.
-#define LOG_BTN_W    104
-#define LOG_BTN_GAP    4
-static const UiRect BTN_LOG_RETRY  = { 14, LOG_BOT_Y, LOG_BTN_W, LOG_BOT_H };
-static const UiRect BTN_LOG_USB    = { 14 + LOG_BTN_W + LOG_BTN_GAP, LOG_BOT_Y,
-                                       LOG_BTN_W, LOG_BOT_H };
-
-static_assert(LOG_ROW0_Y >= UI_HDR_H, "logging rows overlap the header");
-static_assert(LOG_ROW0_Y + LOG_ROWS * LOG_ROW_H <= LOG_NOTE_Y,
-              "logging rows overlap the note line");
-static_assert(LOG_NOTE_Y + 7 <= LOG_TOGGLE_Y,
-              "the note line overlaps the START/STOP button");
-static_assert(LOG_TOGGLE_Y + LOG_TOGGLE_H <= LOG_BOT_Y,
-              "START/STOP button overlaps the bottom row");
-static_assert(LOG_BOT_Y + LOG_BOT_H <= GFX_H,
-              "the bottom row runs off the panel");
-static_assert(LOG_TOGGLE_H >= UI_TAP_MIN && LOG_BOT_H >= UI_TAP_MIN,
-              "a logging button is smaller than a fingertip");
-// Against the constants rather than the structs: a UiRect is const, not
-// constexpr, so its members are not usable in a constant expression. The nav
-// row on the settings screen is asserted the same way, for the same reason.
-static_assert(14 + 2 * LOG_BTN_W + LOG_BTN_GAP <= 226,
-              "RETRY and USB DRIVE do not fit between the margins");
-
-// Caught by a screenshot rather than by reading the code: the caption used to
-// sit at y=240, inside the band the command row occupies, and was drawn
-// straight through it. Assert the gaps so it cannot recur.
-static_assert(CFG_POLES_LBL >= UI_BODY_Y,
-              "the first settings caption runs into the strip");
-static_assert(CFG_MAXT_LBL >= CFG_POLES_Y + CFG_ROW_H,
-              "the ceiling caption overlaps the pole stepper");
-static_assert(CFG_CMD_Y >= CFG_MAXT_Y + CFG_ROW_H,
-              "the BEEP/SD LOG row overlaps the ceiling stepper");
-static_assert(CFG_HINT_Y >= CFG_CMD_Y + CFG_ROW_H,
-              "settings caption overlaps the BEEP/SD LOG row");
-static_assert(CFG_NAV_Y >= CFG_HINT_Y + 7,
-              "the AM32/SERVO/KST/SETUP row overlaps the caption");
-static_assert(CFG_NAV_Y + CFG_NAV_H <= GFX_H,
-              "the AM32/SERVO/KST/SETUP row runs off the panel");
-static_assert(CFG_ROW_H >= UI_TAP_MIN && CFG_NAV_H >= UI_TAP_MIN &&
-              CFG_NAV_W >= UI_TAP_MIN,
-              "a settings button is smaller than a fingertip");
 
 // ---------------------------------------------------------------------------
 // state
 // ---------------------------------------------------------------------------
 static bool     s_armed = false;
 static bool     s_hold = false;
-static bool     s_config = false;
-static bool     s_am32 = false;   /**< AM32 config mode owns the screen. */
-static bool     s_servo = false;  /**< SERVO owns the screen. */
-static bool     s_kst = false;    /**< KST SERVO owns the screen. */
-static bool     s_setup = false;  /**< SETUP screen owns the screen. */
-static bool     s_logScreen = false; /**< Logging status screen is up. */
+/** @brief Which level of the navigation owns the panel. */
+enum class Level : uint8_t {
+	Tester,  /**< The tester, the root. */
+	Menu,    /**< MENU. */
+	Tool,    /**< A tool opened from MENU: `s_tool`. */
+};
+static Level           s_level = Level::Tester;
+static const UiScreen *s_tool = nullptr;  /**< The open tool at Level::Tool. */
 static uint16_t s_throttle = 0;
 
 // Pole count and throttle ceiling live in the persisted settings rather than in
-// file statics here, so the -/+ buttons on the settings screen and the SAVE on
-// the setup screen act on one value. These two read through to it.
+// file statics here, so the -/+ buttons and the HOLD TO SAVE on SETTINGS act
+// on one value. These two read through to it.
 #define s_maxThrottle (settings()->maxThrottle)
 #define s_poles       (settings()->poles)
 
@@ -324,14 +208,6 @@ static int16_t  s_dragAnchorX = 0;
 static uint16_t s_dragAnchorThrottle = 0;
 
 // relative throttle pad (the number-display area)
-/**
- * @brief Repeat state for the two steppers on the settings screen.
- *
- * One per control, not one shared: sliding a finger from the pole stepper onto
- * the ceiling stepper must not carry the first one's acceleration across.
- */
-static Repeat s_polesRepeat;
-static Repeat s_maxtRepeat;
 
 static bool     s_padDragging = false;
 static bool     s_padEngaged = false;    // deadzone cleared
@@ -339,43 +215,6 @@ static int16_t  s_padTouchY = 0;         // where the finger landed
 static int16_t  s_padAnchorPos = 0;      // negated y, so bigger = higher up
 static uint16_t s_padAnchorThrottle = 0;
 
-/**
- * @defgroup ui_cmdflash Command button feedback
- *
- * EDT and BEEP fire one-shot DShot commands. The command itself is over in
- * 6-10 frames -- 10 ms at 1 kHz -- which at a 40 Hz repaint is invisible, so
- * the buttons appeared dead even though both were working. Worse, both are
- * refused outright while armed, and that refusal was silent too.
- *
- * So the press is latched briefly and the button is drawn
- * inverted for that long: accent-coloured when the command went out, red when
- * it was refused. Long enough to register, short enough not to lag the next
- * press.
- * @{
- */
-/** @brief How long a press stays acknowledged on screen, in ms. */
-#define CMD_FLASH_MS 350
-
-/** @brief Which command button is currently flashing. */
-enum class CmdFlash : uint8_t { None = 0, Beep };
-
-static CmdFlash s_cmdFlash = CmdFlash::None;
-static bool     s_cmdFlashOk = false;   /**< False when the ESC refused it. */
-static uint32_t s_cmdFlashUntilMs = 0;
-
-/** @brief True while a press is still being acknowledged on screen. */
-static bool cmdFlashActive() {
-	return s_cmdFlash != CmdFlash::None &&
-	       (int32_t)(millis() - s_cmdFlashUntilMs) < 0;
-}
-
-/** @brief Latch a press for the UI to show. @param which Button. @param ok Accepted. */
-static void cmdFlashSet(CmdFlash which, bool ok) {
-	s_cmdFlash = which;
-	s_cmdFlashOk = ok;
-	s_cmdFlashUntilMs = millis() + CMD_FLASH_MS;
-}
-/** @} */
 
 /**
  * @defgroup ui_blflash Arm feedback through the backlight
@@ -445,7 +284,7 @@ static struct {
 static void invalidateAll() { memset(&s_shown, 0xFF, sizeof(s_shown)); }
 
 // drawBtn(), hit(), pressing() and tapped() used to live here, and near-copies
-// of all four lived in ui_setup.cpp and ui_am32.cpp. They are uiButton(),
+// of all four lived in ui_settings.cpp and ui_am32.cpp. They are uiButton(),
 // uiPressing() and uiTapped() now. @see ui_widgets.h
 //
 // These two adapt the shared helpers to this file's habit of passing the
@@ -557,8 +396,8 @@ static void drawStatusBar() {
 	}
 #endif
 
-	// The bitrate the pump is running at, not the compiled default: SETUP
-	// changes it, and the label is the one place that rate shows outside SETUP.
+	// The bitrate the pump is running at, not the compiled default: SETTINGS
+	// changes it, and the label follows.
 	int kbaud = (int)escTaskDshotKbaud();
 	int pumpErr = s_tel.initError ? 1 : 0;
 
@@ -818,20 +657,20 @@ static void drawThrottle() {
 	}
 }
 
-/** @brief ARM/DISARM, HOLD and CFG buttons. */
+/** @brief ARM/DISARM, HOLD and MENU buttons. */
 static void drawButtons() {
 	// The pressed state is part of the key, or a button would light up under a
 	// finger and stay lit until something else happened to invalidate the row.
 	int pressKey = (pressing(BTN_ARM, s_touch) ? 1 : 0) |
 	               (pressing(BTN_HOLD, s_touch) ? 2 : 0) |
-	               (pressing(BTN_CFG, s_touch) ? 4 : 0);
+	               (pressing(BTN_MENU, s_touch) ? 4 : 0);
 	if (s_shown.holdOn == (int)s_hold && s_shown.btnArmed == (int)s_armed &&
-	    s_shown.config == (int)s_config && s_shown.btnPress == pressKey)
+	    s_shown.config == 0 && s_shown.btnPress == pressKey)
 		return;
 	s_shown.btnPress = pressKey;
 	s_shown.holdOn = s_hold;
 	s_shown.btnArmed = s_armed;
-	s_shown.config = s_config;
+	s_shown.config = 0;
 
 	// The regions tile exactly (asserted at their definitions), so this is the
 	// whole button band and nothing but it. It used to start a row early to
@@ -842,442 +681,25 @@ static void drawButtons() {
 	        s_armed ? 2 : 1, pressing(BTN_ARM, s_touch));
 	uiButton(BTN_HOLD, "HOLD", s_hold ? C_BLUE : C_PANEL,
 	        s_hold ? C_ONACCENT : C_DIM, 1, pressing(BTN_HOLD, s_touch));
-	uiButton(BTN_CFG, "CFG", C_PANEL, C_DIM, 1, pressing(BTN_CFG, s_touch));
+	uiButton(BTN_MENU, "MENU", C_PANEL, C_DIM, 1, pressing(BTN_MENU, s_touch));
 }
 
 /** @} */
 
-/** @brief Full-screen settings overlay. */
-static void drawConfig() {
-	// Is EDT actually delivering, as opposed to having been asked for? The
-	// enable is fire-and-forget -- the ESC never acknowledges it -- so arriving
-	// frames are the only evidence, and the button cannot report success.
-	EscReading r;
-	escMerge(&s_tel, millis(), KISS_STALE_MS, EDT_STALE_MS, &r);
-	int edtActive = (int)r.edtFresh;
-
-	// The flash is part of the redraw key, so releasing it repaints too --
-	// otherwise the button would light up and stay lit until something else
-	// happened to invalidate the screen.
-	int flashKey = cmdFlashActive() ? ((int)s_cmdFlash * 2 + (s_cmdFlashOk ? 1 : 0)) : 0;
-
-	if (s_shown.config == 1 && s_shown.poles == s_poles &&
-	    s_shown.maxPct == (int)((uint32_t)s_maxThrottle * 100 / 2000) &&
-	    s_shown.cmdFlash == flashKey && s_shown.edtActive == edtActive &&
-	    s_shown.dirty == (int)settingsDirty())
-		return;
-	s_shown.dirty = settingsDirty();
-	s_shown.config = 1;
-	s_shown.poles = s_poles;
-	s_shown.maxPct = (int)((uint32_t)s_maxThrottle * 100 / 2000);
-	s_shown.cmdFlash = flashKey;
-	s_shown.edtActive = edtActive;
-
+/**
+ * @brief The one route from the tester to MENU, and so to every tool: it
+ *        disarms, zeroes the throttle and turns HOLD off.
+ */
+static void uiOpenMenu() {
+	bool wasArmed = s_armed;
+	s_armed = false;
+	s_throttle = 0;
+	s_hold = false;
+	escSetArmed(false);
+	if (wasArmed) backlightDip();
+	s_level = Level::Menu;
+	uiMenuEnter();
 	gfxFill(C_BG);
-	uiHeader("SETTINGS", &s_touch);
-
-	uiStripClear();
-
-	// Poles and the throttle ceiling are persisted, but the button that persists
-	// them is on SETUP. Saying so here is the difference between "my settings
-	// reset themselves" and "I did not press save".
-	if (settingsDirty()) uiStripText("UNSAVED", C_AMBER);
-
-	// Read-only: EDT needs no button any more, since the firmware enables it
-	// for each ESC as it appears. It is still worth showing, because "green"
-	// and "all four telemetry tiles read --" are the same fact and one of them
-	// is quicker to take in. On the strip rather than in the header, because the
-	// header's right-hand end is BACK's on every screen now.
-	uiChip(edtActive ? "EDT ON" : "EDT OFF", edtActive ? C_GREEN : C_RED);
-
-	char buf[24];
-
-	// Value text is centred in its row rather than placed at a literal y, so
-	// changing CFG_ROW_H moves the number with the buttons. It did not, and the
-	// number sat a few pixels high for two releases.
-	gfxText(14, CFG_POLES_LBL, "MOTOR POLES", C_DIM, 1);
-	uiButton(BTN_POLES_M, "-", C_PANEL, C_TEXT, 2, pressing(BTN_POLES_M, s_touch));
-	uiButton(BTN_POLES_P, "+", C_PANEL, C_TEXT, 2, pressing(BTN_POLES_P, s_touch));
-	snprintf(buf, sizeof(buf), "%d", s_poles);
-	gfxText(120 - gfxTextW(buf, 3) / 2, CFG_POLES_Y + (CFG_ROW_H - 21) / 2,
-	        buf, C_TEXT, 3);
-
-	gfxText(14, CFG_MAXT_LBL, "THROTTLE CEILING", C_DIM, 1);
-	uiButton(BTN_MAXT_M, "-", C_PANEL, C_TEXT, 2, pressing(BTN_MAXT_M, s_touch));
-	uiButton(BTN_MAXT_P, "+", C_PANEL, C_TEXT, 2, pressing(BTN_MAXT_P, s_touch));
-	snprintf(buf, sizeof(buf), "%d%%", (int)((uint32_t)s_maxThrottle * 100 / 2000));
-	gfxText(120 - gfxTextW(buf, 3) / 2, CFG_MAXT_Y + (CFG_ROW_H - 21) / 2,
-	        buf, C_AMBER, 3);
-
-	bool beepLit = cmdFlashActive();
-
-	// White for an accepted press, amber for a refused one.
-	// C_INK / C_PAPER rather than white / background: both of those flip with
-	// the theme, so an inverted button stays inverted in either palette.
-	uiButton(BTN_BEEP, "BEEP", beepLit ? (s_cmdFlashOk ? C_INK : C_AMBER)
-	                                  : C_PANEL,
-	        beepLit ? C_PAPER : C_CYAN, 1, pressing(BTN_BEEP, s_touch));
-	uiButton(BTN_LOG, "SD LOG", C_PANEL, C_CYAN, 1, pressing(BTN_LOG, s_touch));
-
-	// The hint turns into the reason when a press is refused, so the amber
-	// flash is explained rather than just noticed.
-	bool refused = beepLit && !s_cmdFlashOk;
-	gfxTextCenter(CFG_HINT_Y,
-	              refused ? "REFUSED - DISARM THE ESC FIRST"
-	                      : "BEEP NEEDS THE ESC DISARMED",
-	              refused ? C_RED : C_DIM, 1);
-
-	uiButton(BTN_AM32, "AM32", C_PANEL, C_CYAN, 1, pressing(BTN_AM32, s_touch));
-	// Drawn disabled until their screens are built, and gated on the same
-	// expression in handleConfigTouch(). @see ui_widgets.h
-	uiButton(BTN_SERVO, "SERVO", C_PANEL, C_CYAN, 1,
-	         pressing(BTN_SERVO, s_touch), uiServoAvailable());
-	uiButton(BTN_KST, "KST", C_PANEL, C_CYAN, 1,
-	         pressing(BTN_KST, s_touch), uiKstAvailable());
-	uiButton(BTN_SETUP, "SETUP", C_PANEL, C_CYAN, 1, pressing(BTN_SETUP, s_touch));
-	// No BACK here: uiHeader() drew it, in the same place as on every other
-	// screen. The 18 px strip that used to be along the bottom is what this
-	// whole rework started from.
-}
-
-/** @brief One label/value row on the logging screen. */
-static void drawLogRow(int row, const char *label, const char *value,
-                       uint16_t vcol) {
-	uiRow(LOG_ROW0_Y + row * LOG_ROW_H, LOG_ROW_H, label, value, vcol, 1);
-}
-
-/**
- * @brief What the last USB DRIVE press was refused for, if it was.
- *
- * Latched rather than recomputed, because the reason stops being true the
- * moment it is acted on -- disarm and the "DISARM FIRST" that told you to would
- * vanish before you had read it.
- */
-static MscRefusal s_mscNote = MscRefusal::None;
-static uint32_t   s_mscNoteUntilMs = 0;
-
-/** @brief True while a refusal is still worth showing. */
-static bool mscNoteActive() {
-	return s_mscNote != MscRefusal::None &&
-	       (int32_t)(millis() - s_mscNoteUntilMs) < 0;
-}
-
-/**
- * @brief The body of the logging screen while a host owns the card.
- *
- * Replaces the counters rather than sitting beside them, because none of them
- * mean anything now: the logger has let go of the card and its numbers are
- * frozen at whatever they were. A screen showing live-looking counters that
- * cannot move is the same lie the telemetry tiles refuse to tell.
- */
-static void drawUsbPanel(MscState st) {
-	gfxRect(0, LOG_ROW0_Y, GFX_W, LOG_NOTE_Y - LOG_ROW0_Y, C_BG);
-
-	bool serving = (st == MscState::Serving);
-	gfxTextCenter(LOG_ROW0_Y + 24, mscStateText(st), serving ? C_LIME : C_AMBER, 3);
-
-	if (serving) {
-		gfxTextCenter(LOG_ROW0_Y + 62, "THE CARD IS ON YOUR COMPUTER", C_TEXT, 1);
-		gfxTextCenter(LOG_ROW0_Y + 78, "READ-ONLY - NOTHING CAN BE WRITTEN", C_DIM, 1);
-
-		// Progress, because full speed USB moves about a megabyte a second and
-		// a big card takes minutes. Without a number that moves, a long copy
-		// and a hung one look identical.
-		char buf[32];
-		uint32_t kb = mscBlocksRead() / 2u;
-		if (kb >= 1024) snprintf(buf, sizeof(buf), "%lu.%lu MB READ",
-		                         (unsigned long)(kb / 1024), (unsigned long)((kb % 1024) * 10 / 1024));
-		else            snprintf(buf, sizeof(buf), "%lu kB READ", (unsigned long)kb);
-		gfxTextCenter(LOG_ROW0_Y + 104, buf, C_CYAN, 2);
-
-		gfxTextCenter(LOG_ROW0_Y + 138, "EJECT ON THE COMPUTER FIRST,", C_GRID, 1);
-		gfxTextCenter(LOG_ROW0_Y + 152, "OR PRESS EJECT BELOW", C_GRID, 1);
-	} else {
-		// Handover and Reclaim are both brief. Saying which one it is beats a
-		// spinner: they fail differently, and a screen stuck on one of them is
-		// worth being able to name in a bug report.
-		gfxTextCenter(LOG_ROW0_Y + 70, "ONE MOMENT", C_DIM, 1);
-	}
-}
-
-/**
- * @brief Logging status screen: card state, counters and manual start/stop.
- *
- * The counters are not decoration. `SD_LOG_BUFFER_BYTES` is a guess until it has
- * been measured, and BUF PEAK and WORST FLUSH are the two numbers to size it
- * from — a peak that approaches the buffer size, or a flush that takes longer
- * than the buffer holds, is the warning that it is too small. DROPS reaching
- * anything but zero says it already was.
- */
-static void drawLogScreen() {
-	SdLogStatus st;
-	sdLogStatus(&st);
-
-	MscState msc = mscGetState();
-	int note = mscNoteActive() ? (int)s_mscNote + 1 : 0;
-	// Blocks read is in the key so the progress figure actually advances, and
-	// only while serving -- otherwise a stale counter would repaint the whole
-	// screen forever at whatever the last read left it on.
-	uint32_t blocks = (msc == MscState::Serving) ? mscBlocksRead() : 0;
-
-	if (s_shown.config == 2 &&
-	    s_shown.logState == (int)st.state && s_shown.logFile == st.fileNumber &&
-	    s_shown.logBytes == st.bytesWritten && s_shown.logFrames == st.framesLogged &&
-	    s_shown.logDrops == (int)st.dropEvents && s_shown.logPeak == st.peakBuffer &&
-	    s_shown.logWorstMs == st.worstFlushMs &&
-	    s_shown.mscState == (int)msc && s_shown.mscNote == note &&
-	    s_shown.mscBlocks == blocks)
-		return;
-
-	s_shown.mscState   = (int)msc;
-	s_shown.mscNote    = note;
-	s_shown.mscBlocks  = blocks;
-	s_shown.config     = 2;
-	s_shown.logState   = (int)st.state;
-	s_shown.logFile    = st.fileNumber;
-	s_shown.logBytes   = st.bytesWritten;
-	s_shown.logFrames  = st.framesLogged;
-	s_shown.logDrops   = st.dropEvents;
-	s_shown.logPeak    = st.peakBuffer;
-	s_shown.logWorstMs = st.worstFlushMs;
-
-	gfxFill(C_BG);
-	uiHeader("SD LOG", &s_touch);
-
-	if (msc != MscState::Idle) {
-		drawUsbPanel(msc);
-		// One button, and it is the way out. START, STOP and RETRY MOUNT all
-		// need the card, and the card is not ours; drawing them disabled would
-		// be four controls saying no where one control saying "give it back"
-		// is the only thing anybody wants.
-		uiButton(BTN_LOG_TOGGLE, "EJECT", C_AMBER, C_PAPER, 2,
-		         pressing(BTN_LOG_TOGGLE, s_touch));
-		gfxRect(0, LOG_BOT_Y, GFX_W, LOG_BOT_H, C_BG);
-		return;
-	}
-
-	char buf[32];
-	const char *stateTxt;
-	uint16_t stateCol;
-	switch (st.state) {
-		case SdLogState::Logging: stateTxt = "RECORDING"; stateCol = C_RED;   break;
-		case SdLogState::Idle:    stateTxt = "READY";     stateCol = C_LIME;  break;
-		case SdLogState::Error:   stateTxt = "CARD ERROR";stateCol = C_AMBER; break;
-		default:                  stateTxt = "NO CARD";   stateCol = C_DIM;   break;
-	}
-	drawLogRow(0, "STATUS", stateTxt, stateCol);
-
-	if (st.fileNumber) snprintf(buf, sizeof(buf), "LOG%05u.BFL", (unsigned)st.fileNumber);
-	else               snprintf(buf, sizeof(buf), "--");
-	drawLogRow(1, "FILE", buf, C_TEXT);
-
-	snprintf(buf, sizeof(buf), "%lu", (unsigned long)st.framesLogged);
-	drawLogRow(2, "FRAMES", buf, C_TEXT);
-
-	// kB rather than bytes: at ~7 kB/s the byte count is unreadable within
-	// seconds, and the useful question is "is it growing".
-	snprintf(buf, sizeof(buf), "%lu kB", (unsigned long)(st.bytesWritten / 1024u));
-	drawLogRow(3, "WRITTEN", buf, C_TEXT);
-
-	snprintf(buf, sizeof(buf), "%lu", (unsigned long)st.dropEvents);
-	drawLogRow(4, "DROPPED FRAMES", buf, st.dropEvents ? C_RED : C_DIM);
-
-	// Against the configured size, so "how close to the edge" needs no mental
-	// arithmetic.
-	snprintf(buf, sizeof(buf), "%lu / %u B", (unsigned long)st.peakBuffer,
-	         (unsigned)SD_LOG_BUFFER_BYTES);
-	uint16_t peakCol = C_TEXT;
-	if (st.peakBuffer > SD_LOG_BUFFER_BYTES / 2) peakCol = C_AMBER;
-	if (st.peakBuffer > (SD_LOG_BUFFER_BYTES * 3) / 4) peakCol = C_RED;
-	drawLogRow(5, "BUF PEAK", buf, peakCol);
-
-	snprintf(buf, sizeof(buf), "%lu ms", (unsigned long)st.worstFlushMs);
-	drawLogRow(6, "WORST FLUSH", buf,
-	           st.worstFlushMs > 50 ? C_AMBER : C_TEXT);
-
-	// What the card itself reported. Non-zero here with a failed mount means the
-	// card is on the bus and talking -- the fault is the filesystem, not the
-	// wiring -- and that is the single most useful thing to know when a card
-	// "is not detected".
-	// Size, not type: card_type is an SPI-mode concept and the SDIO driver
-	// leaves it at zero, so keying presence off it would report "NONE" for a
-	// card that has just mounted.
-	static const char *TYPE_TXT[5] = {"", "SDSC v1 ", "SDSC v2 ", "SDHC/XC ", ""};
-	uint8_t ct = st.cardType < 4 ? st.cardType : 4;
-	if (st.cardSizeMB >= 1024)
-		snprintf(buf, sizeof(buf), "%s%lu.%luGB", TYPE_TXT[ct],
-		         (unsigned long)(st.cardSizeMB / 1024),
-		         (unsigned long)((st.cardSizeMB % 1024) * 10 / 1024));
-	else if (st.cardSizeMB)
-		snprintf(buf, sizeof(buf), "%s%luMB", TYPE_TXT[ct],
-		         (unsigned long)st.cardSizeMB);
-	else
-		snprintf(buf, sizeof(buf), "NONE");
-	drawLogRow(7, "CARD", buf, st.cardSizeMB ? C_TEXT : C_DIM);
-
-	// FatFs FRESULT. 0 is FR_OK, 3 FR_NOT_READY (nothing answered), 13
-	// FR_NO_FILESYSTEM (card fine, no filesystem FatFs can read).
-	static const char *FR_TXT[] = {
-		"OK", "DISK ERR", "INT ERR", "NOT READY", "NO FILE", "NO PATH",
-		"BAD NAME", "DENIED", "EXIST", "BAD OBJ", "WRITE PROT",
-		"BAD DRIVE", "NOT ENABLED", "NO FILESYSTEM",
-	};
-	if (st.mountResult < sizeof(FR_TXT) / sizeof(FR_TXT[0]))
-		snprintf(buf, sizeof(buf), "%u %s", st.mountResult, FR_TXT[st.mountResult]);
-	else
-		snprintf(buf, sizeof(buf), "%u", st.mountResult);
-	drawLogRow(8, "MOUNT", buf, st.mountResult ? C_AMBER : C_LIME);
-
-	bool active = (st.state == SdLogState::Logging);
-	bool usable = (st.state != SdLogState::NoCard);
-	// Without a card there is nothing to start. It was drawn grey for that
-	// reason already, and pressed it anyway. @see #23
-	uiButton(BTN_LOG_TOGGLE, active ? "STOP" : "START",
-	        active ? C_RED : C_PANEL, active ? C_ONACCENT : C_LIME, 2,
-	        pressing(BTN_LOG_TOGGLE, s_touch), usable);
-
-	// The card is only mounted once, at boot, so one inserted afterwards needs
-	// this. Without it, "insert card, nothing happens" is indistinguishable
-	// from a card the firmware cannot read.
-	uiButton(BTN_LOG_RETRY, "RETRY", C_PANEL, C_CYAN, 1,
-	        pressing(BTN_LOG_RETRY, s_touch));
-
-	// Hands the card to a computer over the same USB cable that powers the
-	// board. Cyan like the other navigation-ish controls; it is not
-	// destructive, and it is refused rather than guarded by a hold.
-	// Same again. With a card present it stays live even when it will refuse --
-	// armed, or recording -- because those refusals say something the screen
-	// does not already: "NO CARD TO SHARE" only repeats the CARD row above.
-	uiButton(BTN_LOG_USB, "USB DRIVE", C_PANEL, C_CYAN, 1,
-	        pressing(BTN_LOG_USB, s_touch), usable);
-
-	// The note line says why the last press was refused. Blank the row even
-	// when there is nothing to say, or a stale reason outlives its cause.
-	gfxRect(0, LOG_NOTE_Y, GFX_W, 8, C_BG);
-	if (mscNoteActive())
-		gfxTextCenter(LOG_NOTE_Y, mscRefusalText(s_mscNote), C_AMBER, 1);
-}
-
-/** @brief Touch handling for the logging screen. All three fire on release. */
-static void handleLogTouch() {
-	if (s_touch.down) s_shown.config = -1;   // keep the pressed look live
-
-	// While a host owns the card, the only control that does anything is the
-	// one that takes it back. BACK still works -- leaving the screen does not
-	// end the handover, and should not: the copy is still running.
-	if (mscGetState() != MscState::Idle) {
-		if (tapped(BTN_LOG_TOGGLE, s_touch)) {
-			mscRelease();
-			s_shown.config = -1;
-		} else if (uiBackTapped(&s_touch)) {
-			s_logScreen = false;
-			invalidateAll();
-			gfxFill(C_BG);
-		}
-		return;
-	}
-
-	// The same expression the buttons are drawn with: no card, no start and no
-	// handover. RETRY is exempt and always live -- it is the control that gets
-	// you *out* of the no-card state, and disabling it would be a screen with
-	// nothing on it that does anything.
-	SdLogStatus st;
-	sdLogStatus(&st);
-	const bool usable = (st.state != SdLogState::NoCard);
-
-	if (usable && tapped(BTN_LOG_TOGGLE, s_touch)) {
-		if (sdLogActive()) sdLogStop();
-		else               sdLogStart();
-		s_shown.config = -1;
-	} else if (tapped(BTN_LOG_RETRY, s_touch)) {
-		sdLogRemount();
-		s_shown.config = -1;
-	} else if (usable && tapped(BTN_LOG_USB, s_touch)) {
-		MscRefusal r = mscRequest();
-		if (r != MscRefusal::None) {
-			s_mscNote = r;
-			s_mscNoteUntilMs = millis() + MSC_NOTE_MS;
-		}
-		s_shown.config = -1;
-	} else if (uiBackTapped(&s_touch)) {
-		s_logScreen = false;
-		invalidateAll();
-		gfxFill(C_BG);
-	}
-}
-
-/**
- * @brief Dispatch input on the settings overlay.
- *
- * Two idioms, and which one a control gets follows from what it does. A stepper
- * repeats while held, because its range is wider than anyone wants to tap
- * across -- the throttle ceiling is twenty steps end to end. Everything else
- * fires on release, so it can be cancelled by sliding off.
- */
-static void handleConfigTouch() {
-	int x = s_touch.x, y = s_touch.y;
-
-	// --- steppers: repeat while held ---
-	int polesDir = pressing(BTN_POLES_M, s_touch) ? -1
-	             : pressing(BTN_POLES_P, s_touch) ? +1 : 0;
-	if (repeatFires(&s_polesRepeat, polesDir, millis())) {
-		int p = (int)s_poles + 2 * polesDir;
-		if (p >= MIN_MOTOR_POLES && p <= MAX_MOTOR_POLES) {
-			s_poles = (uint8_t)p;
-			escSetPoles(s_poles);
-			s_shown.poles = -1;
-		}
-	}
-
-	int maxtDir = pressing(BTN_MAXT_M, s_touch) ? -1
-	            : pressing(BTN_MAXT_P, s_touch) ? +1 : 0;
-	if (repeatFires(&s_maxtRepeat, maxtDir, millis())) {
-		int t = (int)s_maxThrottle + MAX_THROTTLE_STEP * maxtDir;
-		if (t >= MAX_THROTTLE_STEP && t <= MAX_THROTTLE_CEILING) {
-			s_maxThrottle = (uint16_t)t;
-			s_shown.maxPct = -1;
-		}
-	}
-
-	// Keep the pressed look live -- and *clear* it. `released` matters as much
-	// as `down`, and this has to run before the stepper early-return: the frame
-	// a held stepper was let go used to change no cached value, so drawConfig()
-	// drew nothing and the button kept its pressed double-frame until something
-	// else happened to invalidate the screen.
-	if (s_touch.down || s_touch.released) { s_shown.cmdFlash = -1; }
-
-	if (polesDir || maxtDir) return;
-
-	// --- everything else: fires on release, inside, having started inside ---
-	if (tapped(BTN_BEEP, s_touch)) {
-		cmdFlashSet(CmdFlash::Beep, escRequestBeep(1));
-	} else if (tapped(BTN_AM32, s_touch)) {
-		s_am32 = true;
-		gfxFill(C_BG);
-		uiAm32Enter();
-	} else if (uiServoAvailable() && tapped(BTN_SERVO, s_touch)) {
-		s_servo = true;
-		gfxFill(C_BG);
-		uiServoEnter();
-	} else if (uiKstAvailable() && tapped(BTN_KST, s_touch)) {
-		s_kst = true;
-		gfxFill(C_BG);
-		uiKstEnter();
-	} else if (tapped(BTN_LOG, s_touch)) {
-		s_logScreen = true;
-		s_config = false;
-		s_shown.config = -1;
-		gfxFill(C_BG);
-	} else if (tapped(BTN_SETUP, s_touch)) {
-		s_setup = true;
-		gfxFill(C_BG);
-		uiSetupEnter();
-	} else if (uiBackTapped(&s_touch)) {
-		s_config = false;
-		invalidateAll();
-		gfxFill(C_BG);
-	}
-	(void)x; (void)y;
 }
 
 /**
@@ -1424,16 +846,8 @@ static void handleMainTouch() {
 	if (tapped(BTN_HOLD, s_touch)) {
 		s_hold = !s_hold;
 		if (!s_hold) s_throttle = 0;
-	} else if (tapped(BTN_CFG, s_touch)) {
-		bool wasArmed = s_armed;
-		s_config = true;
-		s_armed = false;
-		s_throttle = 0;
-		s_hold = false;
-		escSetArmed(false);
-		if (wasArmed) backlightDip();
-		invalidateAll();
-		s_shown.config = -1;
+	} else if (tapped(BTN_MENU, s_touch)) {
+		uiOpenMenu();
 	}
 }
 
@@ -1451,7 +865,7 @@ static uint8_t testerControls(UiControl *out, uint8_t max) {
 	bool cardFree = !mscHoldsCard(mscGetState());
 	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Arm), BTN_ARM, cardFree);
 	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Hold), BTN_HOLD, true);
-	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Cfg), BTN_CFG, true);
+	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Menu), BTN_MENU, true);
 	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Throttle),
 	             UiRect{ THR_TRACK_X, THR_TRACK_Y, THR_TRACK_W, THR_TRACK_H }, s_armed);
 	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Pad),
@@ -1459,81 +873,43 @@ static uint8_t testerControls(UiControl *out, uint8_t max) {
 	return n;
 }
 
-/** @brief The SETTINGS controls, gated as handleConfigTouch() gates them. */
-static uint8_t cfgControls(UiControl *out, uint8_t max) {
-	uint8_t n = 0;
-	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
-	uiControlAdd(out, &n, max, UI_FIX(CfgCtl::PolesMinus), BTN_POLES_M, true);
-	uiControlAdd(out, &n, max, UI_FIX(CfgCtl::PolesPlus), BTN_POLES_P, true);
-	uiControlAdd(out, &n, max, UI_FIX(CfgCtl::MaxMinus), BTN_MAXT_M, true);
-	uiControlAdd(out, &n, max, UI_FIX(CfgCtl::MaxPlus), BTN_MAXT_P, true);
-	uiControlAdd(out, &n, max, UI_FIX(CfgCtl::Beep), BTN_BEEP, true);
-	uiControlAdd(out, &n, max, UI_FIX(CfgCtl::SdLog), BTN_LOG, true);
-	uiControlAdd(out, &n, max, UI_FIX(CfgCtl::Am32), BTN_AM32, true);
-	uiControlAdd(out, &n, max, UI_FIX(CfgCtl::Servo), BTN_SERVO, uiServoAvailable());
-	uiControlAdd(out, &n, max, UI_FIX(CfgCtl::Kst), BTN_KST, uiKstAvailable());
-	uiControlAdd(out, &n, max, UI_FIX(CfgCtl::Setup), BTN_SETUP, true);
-	return n;
-}
+const UiScreen UI_TESTER = {
+	UiScreenId::Tester, nullptr, PinUser::None, nullptr,
+	nullptr, nullptr, nullptr, testerControls, nullptr, false,
+};
 
-/** @brief The SD LOG controls, gated as handleLogTouch() gates them. */
-static uint8_t sdLogControls(UiControl *out, uint8_t max) {
-	uint8_t n = 0;
-	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
-	if (mscGetState() != MscState::Idle) {
-		uiControlAdd(out, &n, max, UI_FIX(SdLogCtl::Toggle), BTN_LOG_TOGGLE, true);
-		return n;
-	}
-	SdLogStatus st;
-	sdLogStatus(&st);
-	const bool usable = (st.state != SdLogState::NoCard);
-	uiControlAdd(out, &n, max, UI_FIX(SdLogCtl::Toggle), BTN_LOG_TOGGLE, usable);
-	uiControlAdd(out, &n, max, UI_FIX(SdLogCtl::Retry), BTN_LOG_RETRY, true);
-	uiControlAdd(out, &n, max, UI_FIX(SdLogCtl::Usb), BTN_LOG_USB, usable);
-	return n;
-}
-
-/** @brief A screen that is never open draws no control. */
-static uint8_t noControls(UiControl *, uint8_t) { return 0; }
-
-/** @brief Every screen, by @ref UiScreenId. */
-static constexpr UiScreen SCREENS[] = {
-	{ UiScreenId::Tester, testerControls },
-	{ UiScreenId::Cfg,    cfgControls },
-	{ UiScreenId::Setup,  uiSetupControls },
-	{ UiScreenId::SdLog,  sdLogControls },
-	{ UiScreenId::Am32,   uiAm32Controls },
-	{ UiScreenId::Servo,  uiServoControls },
-	{ UiScreenId::Kst,    noControls },
+/** @brief Every screen by id, for uiControls(). */
+static constexpr struct { UiScreenId id; const UiScreen *screen; } SCREENS[] = {
+	{ UiScreenId::Tester,   &UI_TESTER },
+	{ UiScreenId::Menu,     &UI_MENU_SCREEN },
+	{ UiScreenId::Settings, &UI_SETTINGS },
+	{ UiScreenId::SdLog,    &UI_SDLOG },
+	{ UiScreenId::Am32,     &UI_AM32 },
+	{ UiScreenId::Servo,    &UI_SERVO },
+	{ UiScreenId::Kst,      &UI_KST },
+	{ UiScreenId::Beep,     &UI_BEEP },
 };
 /** @brief Each @ref UiScreenId has exactly one entry in `SCREENS`. */
 static constexpr bool screensComplete() {
-	for (size_t id = 0; id <= (size_t)UiScreenId::Kst; id++) {
+	for (size_t id = 0; id < (size_t)UiScreenId::Count; id++) {
 		int n = 0;
-		for (const UiScreen &s : SCREENS) n += (size_t)s.id == id;
+		for (const auto &e : SCREENS) n += (size_t)e.id == id;
 		if (n != 1) return false;
 	}
-	return sizeof(SCREENS) / sizeof(SCREENS[0]) == (size_t)UiScreenId::Kst + 1;
+	return sizeof(SCREENS) / sizeof(SCREENS[0]) == (size_t)UiScreenId::Count;
 }
-static_assert(screensComplete(), "a screen has no control table, or two");
-// uiControls() finds a screen by its id, so the order above does not matter.
+static_assert(screensComplete(), "a screen has no entry in SCREENS, or two");
 
-// In the order uiTick() dispatches: SETUP, then the tools, which open from
-// SETTINGS with s_config still set, then SD LOG and SETTINGS.
 UiScreenId uiCurrentScreen() {
-	if (s_setup)     return UiScreenId::Setup;
-	if (s_am32)      return UiScreenId::Am32;
-	if (s_servo)     return UiScreenId::Servo;
-	if (s_kst)       return UiScreenId::Kst;
-	if (s_logScreen) return UiScreenId::SdLog;
-	if (s_config)    return UiScreenId::Cfg;
+	if (s_level == Level::Tool && s_tool) return s_tool->id;
+	if (s_level == Level::Menu) return UiScreenId::Menu;
 	return UiScreenId::Tester;
 }
 
 uint8_t uiControls(UiControl *out, uint8_t max) {
 	UiScreenId id = uiCurrentScreen();
-	for (const UiScreen &s : SCREENS)
-		if (s.id == id) return s.controls(out, max);
+	for (const auto &e : SCREENS)
+		if (e.id == id) return e.screen->controls ? e.screen->controls(out, max) : 0;
 	return 0;
 }
 
@@ -1559,14 +935,10 @@ void uiInit() {
 	// Which screen is showing is UI state too, and this function claims to reset
 	// UI state. It did not, which on hardware is invisible -- it runs once, at
 	// boot, from a cold start -- and in the test suite meant a case that left
-	// the settings overlay up handed it to whatever ran next, where taps landed
+	// MENU up handed it to whatever ran next, where taps landed
 	// on a screen the test did not think it was looking at.
-	s_config = false;
-	s_logScreen = false;
-	s_am32 = false;
-	s_servo = false;
-	s_kst = false;
-	s_setup = false;
+	s_level = Level::Tester;
+	s_tool = nullptr;
 	s_armed = false;
 	s_hold = false;
 	s_throttle = 0;
@@ -1575,12 +947,9 @@ void uiInit() {
 	s_dragging = false;
 	s_padDragging = false;
 	s_padEngaged = false;
-	s_cmdFlash = CmdFlash::None;
 	s_blDipUntil = 0;
 	rpmFilterReset(&s_erpmFilter);
 	s_erpmShown = 0;
-	s_polesRepeat = Repeat{};
-	s_maxtRepeat = Repeat{};
 
 	invalidateAll();
 
@@ -1630,32 +999,18 @@ void uiTick() {
 		st7789SetBacklight(want);
 	}
 
-	// SETUP owns the whole screen while it runs. It can change the pin the pump
-	// drives and the palette everything is rendered in, so leaving it has to
-	// invalidate every cached region -- a theme swap is invisible to caches that
-	// only remember values.
-	if (s_setup) {
-		if (!uiSetupTick(&s_touch)) {
-			s_setup = false;
+	// A tool owns the whole screen, and the pins it claims, while it runs.
+	// SETTINGS can change the pin the pump drives and the palette everything
+	// is rendered in, so leaving any tool invalidates every cached region: a
+	// theme swap is invisible to caches that only remember values. A tool
+	// returns false once it has left, and BACK takes every tool to MENU.
+	if (s_level == Level::Tool) {
+		if (!s_tool->tick(&s_touch)) {
+			s_level = Level::Menu;
+			s_tool = nullptr;
+			uiMenuEnter();
 			invalidateAll();
 			gfxFill(C_BG);
-			s_shown.config = -1;
-		}
-		st7789FlushDirty();
-		return;
-	}
-
-	// AM32 config, SERVO and KST each own the whole screen and the pins they
-	// claim while they run. Each returns false once it has left, and BACK
-	// takes all three to SETTINGS.
-	if (s_am32 || s_servo || s_kst) {
-		bool open = s_am32 ? uiAm32Tick(&s_touch)
-		          : s_servo ? uiServoTick(&s_touch) : uiKstTick(&s_touch);
-		if (!open) {
-			s_am32 = s_servo = s_kst = false;
-			invalidateAll();
-			gfxFill(C_BG);
-			s_shown.config = -1;
 		}
 		st7789FlushDirty();
 		return;
@@ -1676,12 +1031,19 @@ void uiTick() {
 	// back over a cleared frame, and whatever it leaves on a row the incoming
 	// screen's regions do not cover stays there. The residue was invisible for
 	// as long as the palette was dark on black; it is not in high contrast.
-	if (s_logScreen) {
-		handleLogTouch();
-		if (s_logScreen) drawLogScreen();
-	} else if (s_config) {
-		handleConfigTouch();
-		if (s_config && !s_am32 && !s_servo && !s_kst && !s_setup) drawConfig();
+	if (s_level == Level::Menu) {
+		const UiScreen *open = nullptr;
+		UiMenuResult r = uiMenuTick(&s_touch, &open);
+		if (r == UiMenuResult::Back) {
+			s_level = Level::Tester;
+			invalidateAll();
+			gfxFill(C_BG);
+		} else if (r == UiMenuResult::Open) {
+			s_level = Level::Tool;
+			s_tool = open;
+			gfxFill(C_BG);
+			open->enter();
+		}
 	} else {
 		handleMainTouch();
 

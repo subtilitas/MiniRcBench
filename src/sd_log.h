@@ -172,8 +172,7 @@ enum class SdLogArmAction : uint8_t {
  * that the fake agrees with itself.
  *
  * The rule that matters: auto-stop undoes only what auto-start did. Entering
- * the settings screen force-disarms, and the logging screen is reached through
- * it, so without that distinction walking over to check on a hand-started log
+ * MENU force-disarms, and the logging screen is reached through it, so without that distinction walking over to check on a hand-started log
  * is what ends it.
  *
  * @param nowArmed    The new arm state.

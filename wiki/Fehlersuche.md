@@ -30,7 +30,7 @@ Ursache in der Firmware. Melde ihn wie unter
 
 Auf dem Signalkabel antwortet nichts. Prüfe in dieser Reihenfolge:
 
-1. **Falscher Pin.** Vergleiche **CFG → SETUP → ESC PIN** damit, wo das Kabel
+1. **Falscher Pin.** Vergleiche **MENU → SETTINGS → ESC PIN** damit, wo das Kabel
    steckt. Die `LINK`-Zeile auf diesem Bildschirm ist live. Eine Paketrate
    über null heißt, der Pin stimmt.
 2. **Keine gemeinsame Masse.** Die Masse des ESC und die der Platine müssen
@@ -50,7 +50,7 @@ Der ESC sendet eRPM (elektrische Drehzahl) und kein EDT (Extended DShot
 Telemetry). Entweder beherrscht er kein EDT, oder EDT ist noch nicht
 freigegeben.
 
-Sieh auf das Feld unter dem Titel des Einstellungsbildschirms. Steht dort
+Sieh auf das Feld unter dem Titel des Bildschirms `MENU`. Steht dort
 `EDT OFF`, lies den nächsten Abschnitt. Beherrscht die ESC-Firmware kein EDT,
 liefern zwei Kabel nur die Drehzahl. Ein
 [KISS-Telemetriekabel](Telemetrie#das-optionale-dritte-kabel) liefert
@@ -94,7 +94,7 @@ Drei Sperren halten den Motor an, und jede zeigt sich auf dem Bildschirm:
 - **Leerlaufsperre.** 30 s ohne Berührung im scharfen Zustand entschärfen den
   Tester. `IDLE ns` zählt in den letzten 5 s oben rechts herunter. Beim
   Entschärfen dunkelt die Hintergrundbeleuchtung kurz ab.
-- **`CFG` öffnen.** Der Einstellungsbildschirm entschärft immer.
+- **`MENU` öffnen.** Das Öffnen entschärft immer.
 - **Herzschlag-Sicherung.** Hält die Anzeige-Firmware an, setzt der zweite
   Kern das Gas nach 250 ms auf null. Der Bildschirm wäre dann ebenfalls
   eingefroren.
@@ -158,15 +158,16 @@ vor dem Öffnen des Bildschirms funktioniert nicht.
 
 ## Meine Einstellungen setzen sich zurück
 
-Sie wurden nicht gespeichert. Polzahl und Gasobergrenze werden auf dem
-Einstellungsbildschirm geändert, und `HOLD TO SAVE` im **SETUP** schreibt sie
-ins Flash. `UNSAVED` unter dem Titel zeigt ungespeicherte Änderungen.
+Sie wurden nicht gespeichert. Polzahl und Gasobergrenze werden unter
+**MENU → SETTINGS** geändert, und `HOLD TO SAVE` dort schreibt sie ins Flash.
+Die Hinweiszeile zeigt `UNSAVED - HOLD SAVE TO KEEP`, solange Änderungen
+ungespeichert sind, und `MENU` zeigt `UNSAVED` in der Zeile `SETTINGS`.
 
 ---
 
 ## KISS-Telemetrie ist aus
 
-Das ist die Voreinstellung. Einschalten unter **CFG → SETUP → KISS TELEM**.
+Das ist die Voreinstellung. Einschalten unter **MENU → SETTINGS → KISS TELEM**.
 
 Die Platine hat zwei freie GPIOs (General Purpose Input/Output, frei
 verwendbare Pins), GP28 und GP29, und das ESC-Signal liegt anfangs auf GP29.
