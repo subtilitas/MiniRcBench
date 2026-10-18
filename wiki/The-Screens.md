@@ -80,7 +80,7 @@ and its state on the right. `BACK` returns to the tester.
 | **AM32 CONFIG** | the ESC pin, `GP29`; `PINS BUSY` | Opens the AM32 editor |
 | **SERVO TESTER** | the two signal pins, `GP29+28`; `PINS BUSY` | Opens the servo tester |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a computer holds the card | Opens the logging screen |
-| **SETTINGS** | `UNSAVED` while a value differs from flash, else nothing | Opens SETTINGS |
+| **SETTINGS** | `UNSAVED` while a value differs from flash, else nothing; `PINS BUSY` while the pins are still restoring, and it does not open | Opens SETTINGS |
 
 `PINS BUSY` means the signal pins are still in use, for example while DShot
 restarts after the servo tester. A tap on that row opens nothing. The row

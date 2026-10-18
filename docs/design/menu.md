@@ -130,12 +130,12 @@ y   0 | MENU                            [  BACK  ]|  header 36 px; BACK 64 x 32
 
 | Row | Kind | Status | A tap |
 |---|---|---|---|
-| BEEP THE ESC | action | `DISARMED` in `C_DIM`; for 350 ms after a tap, `SENT` on a `C_INK` fill or `REFUSED` on a `C_AMBER` fill (`CMD_FLASH_MS`) | `escRequestBeep(1)` |
+| BEEP THE ESC | action | `DISARMED` in `C_DIM`; for 350 ms after a tap, `SENT` on a `C_INK` fill or `REFUSED` on a `C_AMBER` fill (`BEEP_FLASH_MS`) | `escRequestBeep(1)` |
 | AM32 CONFIG | tool, SIG | the SIG pin, `GP29`; `PINS BUSY` in `C_AMBER` while the claim is not Free | opens AM32 CONFIG |
 | SERVO TESTER | tool, SIG and AUX | `GP29+28`; `PINS BUSY` | opens SERVO |
 | KST SERVO, from slice 3 | tool, SIG | `GP29`; `PINS BUSY` | opens KST SERVO |
 | SD LOG | tool | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a host holds the card, in the SD LOG screen's colours | opens SD LOG |
-| SETTINGS | tool | `UNSAVED` in `C_AMBER` while `settingsDirty()`, else none | opens SETTINGS |
+| SETTINGS | tool | `UNSAVED` in `C_AMBER` while `settingsDirty()`, else none; `PINS BUSY` while the claim is not Free | opens SETTINGS |
 
 Rows fire on release, as every button does, and a press that slides off
 cancels. A press that becomes a vertical drag scrolls once the list is longer
@@ -598,9 +598,19 @@ Slice C is built. The code differs from the sketches above in these places:
   area, x 0 to 137, drawn disabled. A press there scrolls, and a test drag
   can start on it. SETTINGS lays its items out in pixels: it calls
   `uiListInitPx()`, which sets up the list with pixel content and no rows.
-  The layout holds at most 10 sections, 40 items and 24 rows.
+  The layout holds at most 12 sections (the two core sections, up to 8
+  tool sections, DISPLAY and BOARD), 40 items and 24 rows; items past
+  those limits are not shown.
 - MENU's viewport is the rows' width, x 8 to 231, y 62 to 319. The scroll bar
   is drawn at x 235, outside it.
+- `UiScreen` has a tenth member, `bool freePins`: the screen opens only while
+  the pin claim is Free, without claiming. SETTINGS sets it, since it
+  changes the wiring a claim latched, so its row reads `PINS BUSY` while
+  Restoring, as AM32's and SERVO's do. Its widest status is 9 characters.
+- A tap on a list row fires only when it is released on that row; a press
+  that slides onto the next row cancels, on every list.
+- `UiScreenId` and `PinUser` end in a `Count` value, which the completeness
+  checks count to.
 - `menuRowsFit()` takes no argument and walks `UI_MENU` in
   `ui_registry.cpp`. `UI_MENU` is `constexpr`.
 - The control enums differ from the sketch. `CfgCtl` does not exist: MENU's
@@ -608,8 +618,8 @@ Slice C is built. The code differs from the sketches above in these places:
   tester's third button is `TesterCtl::Menu`. SETTINGS has `SettingsCtl`
   (`Save`, `Reset`) and `SettingsRowId` in `ui_settings.h`, in place of
   `SetupCtl` and `SetupRow`. `UiScreenId` is `Tester`, `Menu`, `Settings`,
-  `SdLog`, `Am32`, `Servo`, `Kst` and `Beep`; `Kst` and `Beep` are never the
-  open screen.
+  `SdLog`, `Am32`, `Servo`, `Kst`, `Beep` and `Count`; `Kst` and `Beep` are
+  never the open screen.
 - Test hooks in `ui_menu.h`: `uiMenuUseRegistry()`, `uiMenuEntries()` and
   `uiMenuRowOf()`.
 - `src/ui.cpp` keeps `Level::Tester`, `Level::Menu` and `Level::Tool`. A
@@ -622,7 +632,7 @@ Slice C is built. The code differs from the sketches above in these places:
 |---|---|---|
 | Disarm before any tool | `uiOpenMenu()`: disarm, throttle 0, HOLD off, as `ui.cpp:1406-1416` | MENU is the only way to a tool |
 | No claim while armed or busy | `pinClaimCheck()` (`pin_claim.h:126-139`), unchanged | Armed unreachable; Busy reachable while Restoring, refused on MENU as `PINS BUSY` |
-| No flash write during a claim | `settingsSave()` refuses while a claim holds (`settings.cpp:238`) | SETTINGS is unreachable while a tool is open |
+| No flash write during a claim | `settingsSave()` refuses while a claim holds (`settings.cpp:238`) | SETTINGS opens from MENU only while the claim is Free (`UiScreen::freePins`); its row reads `PINS BUSY` while Restoring |
 | No flash write while armed | the SETTINGS hold (`ui_setup.cpp:407`, moved) | unreachable: MENU disarms |
 | No arming while a USB host holds the card | `handleMainTouch()` (`ui.cpp:1359`), unchanged | SD LOG BACK goes to MENU; the tester stays reachable through MENU's BACK |
 | A tool returns to MENU | the navigation in `ui.cpp` | a test walks the registry and checks it |

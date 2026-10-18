@@ -875,7 +875,7 @@ static uint8_t testerControls(UiControl *out, uint8_t max) {
 
 const UiScreen UI_TESTER = {
 	UiScreenId::Tester, nullptr, PinUser::None, nullptr,
-	nullptr, nullptr, nullptr, testerControls, nullptr,
+	nullptr, nullptr, nullptr, testerControls, nullptr, false,
 };
 
 /** @brief Every screen by id, for uiControls(). */
@@ -891,12 +891,12 @@ static constexpr struct { UiScreenId id; const UiScreen *screen; } SCREENS[] = {
 };
 /** @brief Each @ref UiScreenId has exactly one entry in `SCREENS`. */
 static constexpr bool screensComplete() {
-	for (size_t id = 0; id <= (size_t)UiScreenId::Beep; id++) {
+	for (size_t id = 0; id < (size_t)UiScreenId::Count; id++) {
 		int n = 0;
 		for (const auto &e : SCREENS) n += (size_t)e.id == id;
 		if (n != 1) return false;
 	}
-	return sizeof(SCREENS) / sizeof(SCREENS[0]) == (size_t)UiScreenId::Beep + 1;
+	return sizeof(SCREENS) / sizeof(SCREENS[0]) == (size_t)UiScreenId::Count;
 }
 static_assert(screensComplete(), "a screen has no entry in SCREENS, or two");
 

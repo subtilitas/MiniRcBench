@@ -92,7 +92,9 @@ UiListEvent uiListTouch(UiList *l, const TouchState *t) {
 		return ev;
 	}
 	if (t->released) {
-		if (l->mode == UiListMode::None && l->candidate >= 0 && inView(l, t->x, t->y)) {
+		// A press that slid off its row cancels, as on every button.
+		if (l->mode == UiListMode::None && l->candidate >= 0 &&
+		    uiListRowAt(l, t->x, t->y) == l->candidate) {
 			ev.kind = UiListEv::Tap;
 			ev.row = l->candidate;
 		}

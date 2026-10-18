@@ -992,5 +992,5 @@ static void servoMenuStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
 
 const UiScreen UI_SERVO = {
 	UiScreenId::Servo, "SERVO", PinUser::Servo, servoMenuStatus,
-	uiServoEnter, uiServoTick, nullptr, uiServoControls, nullptr,
+	uiServoEnter, uiServoTick, nullptr, uiServoControls, nullptr, false,
 };

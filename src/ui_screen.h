@@ -38,6 +38,7 @@ enum class UiScreenId : uint8_t {
 	Servo,     /**< SERVO, its SET view and its unplug page. */
 	Kst,       /**< KST SERVO, not built: no MENU row, never open. */
 	Beep,      /**< BEEP THE ESC, an action on MENU: never open. */
+	Count,     /**< How many screens; not a screen. */
 };
 
 /** @brief Row of a control outside any list. */
@@ -131,6 +132,12 @@ struct UiScreen {
 	uint8_t (*controls)(UiControl *out, uint8_t max);
 	/** @brief The tool's persisted SETTINGS rows, or null. */
 	const SettingsSection *settings;
+	/**
+	 * @brief Opens only while the pin claim is Free, without claiming:
+	 *        SETTINGS, which changes the wiring a claim latched. A tool with
+	 *        a @ref pinUser waits for Free anyway.
+	 */
+	bool freePins;
 };
 
 /** @brief One MENU row. */

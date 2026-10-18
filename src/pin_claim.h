@@ -61,6 +61,7 @@ enum class PinUser : uint8_t {
 	Am32,   /**< AM32 CONFIG: SIG, no core1 job. */
 	Servo,  /**< SERVO: SIG, and AUX for two servos. */
 	Kst,    /**< KST SERVO: SIG. */
+	Count,  /**< How many pin users; not a user. */
 };
 
 /** @brief What the claim does for one user: one row per user in @ref PIN_USERS. */
@@ -92,7 +93,7 @@ static constexpr const PinUserInfo &pinUserInfo(PinUser who) {
 
 /** @brief Each @ref PinUser has exactly one row in @ref PIN_USERS. */
 static constexpr bool pinUsersComplete() {
-	for (int w = 0; w <= (int)PinUser::Kst; w++) {
+	for (int w = 0; w < (int)PinUser::Count; w++) {
 		int n = 0;
 		for (const PinUserInfo &u : PIN_USERS) n += (int)u.who == w;
 		if (n != 1) return false;

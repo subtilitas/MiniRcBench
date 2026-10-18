@@ -16,7 +16,7 @@ constexpr UiMenuEntry UI_MENU[] = {
 	{ "AM32 CONFIG",   9, &UI_AM32     },   // ui_am32.cpp: GP29, PINS BUSY
 	{ "SERVO TESTER",  9, &UI_SERVO    },   // ui_servo.cpp: GP29+28, PINS BUSY
 	{ "SD LOG",       10, &UI_SDLOG    },   // ui_sdlog.cpp: CARD ERROR
-	{ "SETTINGS",      7, &UI_SETTINGS },   // ui_settings.cpp: UNSAVED
+	{ "SETTINGS",      9, &UI_SETTINGS },   // ui_settings.cpp: PINS BUSY, UNSAVED
 };
 constexpr uint8_t UI_MENU_COUNT = (uint8_t)(sizeof(UI_MENU) / sizeof(UI_MENU[0]));
 
@@ -33,12 +33,14 @@ static constexpr int textW(int chars, int scale) {
 }
 
 /**
- * @brief Every label, at scale 2 from x 16, ends 8 px before its widest
- *        status, at scale 1 right-aligned to x 222.
+ * @brief Every label, at scale 2 from @ref UI_MENU_LABEL_X, ends
+ *        @ref UI_MENU_LABEL_GAP px before its widest status, at scale 1
+ *        right-aligned to @ref UI_MENU_STATUS_R.
  */
 static constexpr bool menuRowsFit() {
 	for (const UiMenuEntry &e : UI_MENU) {
-		if (16 + textW(textLen(e.label), 2) + 8 > 222 - textW(e.statusWidest, 1))
+		if (UI_MENU_LABEL_X + textW(textLen(e.label), 2) + UI_MENU_LABEL_GAP >
+		    UI_MENU_STATUS_R - textW(e.statusWidest, 1))
 			return false;
 	}
 	return true;

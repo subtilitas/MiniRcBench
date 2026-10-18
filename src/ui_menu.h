@@ -23,6 +23,13 @@
 
 struct TouchState;
 
+/** @brief A MENU row's label, scale 2, starts at this x. */
+#define UI_MENU_LABEL_X  16
+/** @brief A MENU row's status, scale 1, ends at this x. */
+#define UI_MENU_STATUS_R 222
+/** @brief Least space between a MENU label and its widest status, px. */
+#define UI_MENU_LABEL_GAP 8
+
 /** @brief What a MENU frame asks of the navigation. */
 enum class UiMenuResult : uint8_t {
 	Stay,  /**< MENU stays open. */

@@ -66,5 +66,14 @@ void uiSettingsEnter();
  */
 bool uiSettingsTick(const TouchState *t);
 
+/**
+ * @brief The sections SETTINGS shows, in order: the core ones and each
+ *        tool's. Valid after uiSettingsEnter(); for the host tests.
+ * @param[out] out At most @p max sections.
+ * @param max      Room in @p out.
+ * @return The number written.
+ */
+uint8_t uiSettingsSections(const SettingsSection **out, uint8_t max);
+
 /** @brief SETTINGS. */
 extern const UiScreen UI_SETTINGS;

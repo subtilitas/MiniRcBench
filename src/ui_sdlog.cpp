@@ -387,5 +387,5 @@ static void sdLogMenuStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
 
 const UiScreen UI_SDLOG = {
 	UiScreenId::SdLog, "SD LOG", PinUser::None, sdLogMenuStatus,
-	uiSdLogEnter, uiSdLogTick, nullptr, sdLogControls, nullptr,
+	uiSdLogEnter, uiSdLogTick, nullptr, sdLogControls, nullptr, false,
 };

@@ -349,9 +349,9 @@ tester. Every tool's **BACK** returns to MENU.
 | **AM32 CONFIG** | the ESC pin, `GP29`; `PINS BUSY` | Opens the ESC settings editor. See [AM32 ESC configuration](#am32-esc-configuration) |
 | **SERVO TESTER** | the signal pins, `GP29+28`; `PINS BUSY` | Opens the servo tester. See [Servo tester](#servo-tester) |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a USB host holds the card | Opens the logging status. See below |
-| **SETTINGS** | `UNSAVED` while the live settings differ from flash, else nothing | Opens SETTINGS. See below |
+| **SETTINGS** | `UNSAVED` while the live settings differ from flash, else nothing; `PINS BUSY` while the pin claim is not Free, drawn disabled | Opens SETTINGS. See below |
 
-- **BEEP flash**: a press fills the row for 350 ms (`CMD_FLASH_MS`): white
+- **BEEP flash**: a tap fills the row for 350 ms (`BEEP_FLASH_MS`): white
   with `SENT`, amber with `REFUSED`. Without it a 6 ms command is not visible
   against a 25 ms repaint. BEEP is refused while armed. Opening MENU disarms,
   so the refusal is not reachable through the UI; the flash stays as a
@@ -1089,7 +1089,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.3%**: 4,116 of 4,189 lines in 38 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.3%**: 4,127 of 4,200 lines in 38 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

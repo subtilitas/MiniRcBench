@@ -233,8 +233,8 @@ Settings *settings() {
 bool settingsSave() {
 	// Never during a pin claim. Erasing flash parks core1 for tens of
 	// milliseconds, past a KST transaction's 5 ms driver slack. SETTINGS, the
-	// one caller, is unreachable while a claim holds, so this is the
-	// assertion under that, and it refuses rather than writes.
+	// one caller, opens from MENU only while the claim is Free, so this is
+	// the assertion under that, and it refuses rather than writes.
 	if (pinClaimHolder() != PinUser::None) return false;
 
 	ensureSeeded();

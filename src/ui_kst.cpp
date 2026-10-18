@@ -23,5 +23,5 @@ static uint8_t kstControls(UiControl *, uint8_t) { return 0; }
 
 const UiScreen UI_KST = {
 	UiScreenId::Kst, "KST SERVO", PinUser::Kst, nullptr,
-	uiKstEnter, uiKstTick, nullptr, kstControls, nullptr,
+	uiKstEnter, uiKstTick, nullptr, kstControls, nullptr, false,
 };

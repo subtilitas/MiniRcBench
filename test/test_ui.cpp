@@ -2467,8 +2467,9 @@ static void testMenuDestinations() {
 	checkTrue("both rows are gated",
 	          !ctlEnabled(menuRow(&UI_AM32)) && !ctlEnabled(menuRow(&UI_SERVO)));
 	checkTrue("the rows that claim nothing still act",
-	          ctlEnabled(menuRow(&UI_BEEP)) && ctlEnabled(menuRow(&UI_SDLOG)) &&
-	          ctlEnabled(menuRow(&UI_SETTINGS)));
+	          ctlEnabled(menuRow(&UI_BEEP)) && ctlEnabled(menuRow(&UI_SDLOG)));
+	checkTrue("SETTINGS, which changes the wiring a claim latched, does not",
+	          !ctlEnabled(menuRow(&UI_SETTINGS)));
 	checkControlTable("MENU, pins busy");
 	{
 		UiRect r = ctlRect(menuRow(&UI_SERVO));

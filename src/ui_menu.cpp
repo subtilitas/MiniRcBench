@@ -31,8 +31,8 @@
 #define MENU_ROW_PITCH 42                     /**< Row top to row top. */
 #define MENU_ROW_X     8                      /**< Left edge of a row. */
 #define MENU_ROW_W     224                    /**< To x 231. */
-#define MENU_LABEL_X   16                     /**< Label, scale 2. */
-#define MENU_STATUS_R  222                    /**< Status, scale 1, ends here. */
+#define MENU_LABEL_X   UI_MENU_LABEL_X        /**< Label, scale 2. */
+#define MENU_STATUS_R  UI_MENU_STATUS_R       /**< Status, scale 1, ends here. */
 #define MENU_BAR_X     235                    /**< The scroll bar. */
 /** @} */
 
@@ -84,16 +84,21 @@ static void beepStatus(char *buf, size_t n, uint16_t *col, uint16_t *fill) {
 
 const UiScreen UI_BEEP = {
 	UiScreenId::Beep, "BEEP THE ESC", PinUser::None, beepStatus,
-	nullptr, nullptr, beepAction, nullptr, nullptr,
+	nullptr, nullptr, beepAction, nullptr, nullptr, false,
 };
 
 // ---------------------------------------------------------------------------
 // the list
 // ---------------------------------------------------------------------------
 
-/** @brief The tool's claim is refused while the pins are not Free. */
+/**
+ * @brief A tool that claims pins, or changes the wiring a claim latched, is
+ *        refused while the claim is not Free: Restoring outlasts RESTART
+ *        DSHOT's return to MENU.
+ */
 static bool pinsBusy(const UiScreen *s) {
-	return s->pinUser != PinUser::None && pinClaimState() != ClaimState::Free;
+	return (s->pinUser != PinUser::None || s->freePins) &&
+	       pinClaimState() != ClaimState::Free;
 }
 
 /** @brief A row's status, its colours and whether a tap opens nothing. */
@@ -204,7 +209,7 @@ UiMenuResult uiMenuTick(const TouchState *t, const UiScreen **open) {
 		const UiScreen *s = s_entries[e.row].screen;
 		if (s->action) {
 			s->action();
-		} else if (!pinsBusy(s) && s->enter) {
+		} else if (!pinsBusy(s) && s->enter && s->tick) {
 			*open = s;
 			r = UiMenuResult::Open;
 		}
@@ -251,5 +256,5 @@ void uiMenuUseRegistry(const UiMenuEntry *e, uint8_t n) {
 
 const UiScreen UI_MENU_SCREEN = {
 	UiScreenId::Menu, "MENU", PinUser::None, nullptr,
-	uiMenuEnter, nullptr, nullptr, menuControls, nullptr,
+	uiMenuEnter, nullptr, nullptr, menuControls, nullptr, false,
 };

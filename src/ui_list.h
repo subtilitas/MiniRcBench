@@ -21,8 +21,8 @@
  *   candidate is reported as the swipe's row, and every
  *   @ref UI_SWIPE_STEP_PX of travel is one coarse step.
  * - **A tap fires on release.** A press that never locked and is released
- *   inside the viewport is a tap on its candidate; released outside, it
- *   cancels.
+ *   on its candidate row is a tap on it; released anywhere else, it
+ *   cancels, as a press that slides off a button does.
  *
  * A coarse step is a number of the row's own steps, a factor the row gives.
  * uiSwipeApply() takes them one at a time while the row allows them, so a

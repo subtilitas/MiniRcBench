@@ -699,5 +699,5 @@ static void am32MenuStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
 
 const UiScreen UI_AM32 = {
 	UiScreenId::Am32, "AM32 CONFIG", PinUser::Am32, am32MenuStatus,
-	uiAm32Enter, uiAm32Tick, nullptr, uiAm32Controls, nullptr,
+	uiAm32Enter, uiAm32Tick, nullptr, uiAm32Controls, nullptr, false,
 };

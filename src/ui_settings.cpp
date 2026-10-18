@@ -30,6 +30,7 @@
 #include "touch.h"
 #include "config.h"
 #include "board_desc.h"
+#include "board_pins.h"
 
 #include "plat.h"
 #include <stdio.h>
@@ -123,10 +124,13 @@ struct Item {
 	uint8_t                index; /**< The row's number for UI_ROW(); 0 for a caption. */
 };
 
-#define MAX_ITEMS 40
-#define MAX_ROWS  24
+#define MAX_SECTIONS 12  /**< 2 core sections, up to 8 tool sections, DISPLAY and BOARD. */
+#define MAX_ITEMS 40     /**< Captions and rows; items past it are not shown. */
+#define MAX_ROWS  24     /**< Rows; rows past it are not shown. */
 static Item    s_items[MAX_ITEMS];
 static uint8_t s_itemCount = 0;
+static const SettingsSection *s_secs[MAX_SECTIONS];
+static uint8_t s_secCount = 0;
 /** @brief Held-repeat state, one per row. @see ui_input.h */
 static Repeat  s_rep[MAX_ROWS];
 
@@ -183,7 +187,9 @@ static void maxStep(int dir) {
 static void pinValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "GP%u", settings()->dshotPin); *c = C_LIME; }
 static void pinStep(int dir) {
 	Settings *s = settings();
-	s->dshotPin = stepPinAvoiding(s->dshotPin, dir, s->kissPin, s->kissEnable != 0);
+	uint8_t p = stepPinAvoiding(s->dshotPin, dir, s->kissPin, s->kissEnable != 0);
+	if (p == s->dshotPin) return;
+	s->dshotPin = p;
 	s_changed = true;
 }
 
@@ -218,7 +224,9 @@ static void kissPinValue(char *b, size_t n, uint16_t *c) {
 }
 static void kissPinStep(int dir) {
 	Settings *s = settings();
-	s->kissPin = stepPinAvoiding(s->kissPin, dir, s->dshotPin, true);
+	uint8_t p = stepPinAvoiding(s->kissPin, dir, s->dshotPin, true);
+	if (p == s->kissPin) return;
+	s->kissPin = p;
 	s_changed = true;
 }
 
@@ -232,12 +240,15 @@ static void contrastToggle() {
 static void backlightValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "%u", settings()->backlight); *c = C_TEXT; }
 static void backlightStep(int dir) {
 	Settings *s = settings();
+	uint8_t b;
 	if (dir < 0) {
-		s->backlight = (uint8_t)(s->backlight <= BACKLIGHT_STEP ? 16 : s->backlight - BACKLIGHT_STEP);
+		b = (uint8_t)(s->backlight <= BACKLIGHT_STEP ? 16 : s->backlight - BACKLIGHT_STEP);
 	} else {
 		int v = s->backlight + BACKLIGHT_STEP;
-		s->backlight = (uint8_t)(v > 255 ? 255 : v);
+		b = (uint8_t)(v > 255 ? 255 : v);
 	}
+	if (b == s->backlight) return;
+	s->backlight = b;
 	s_changed = true;
 }
 
@@ -257,8 +268,12 @@ static constexpr SettingsRow ROWS_DISPLAY[] = {
 	{ "CONTRAST",     SettingsKind::Toggle,  6, contrastValue,  nullptr, nullptr,       contrastToggle, contrastOn },
 	{ "BACKLIGHT",    SettingsKind::Stepper, 3, backlightValue, nullptr, backlightStep, nullptr,        nullptr },
 };
+/** @brief BUILT FOR's widest value: the board's label, characters. */
+#define BUILT_FOR_WIDEST 20
+static_assert(sizeof(BOARD_LABEL) - 1 <= BUILT_FOR_WIDEST,
+              "the board label is wider than BUILT FOR's value column");
 static constexpr SettingsRow ROWS_BOARD[] = {
-	{ "BUILT FOR",    SettingsKind::ReadOnly, 20, boardValue, nullptr, nullptr, nullptr, nullptr },
+	{ "BUILT FOR", SettingsKind::ReadOnly, BUILT_FOR_WIDEST, boardValue, nullptr, nullptr, nullptr, nullptr },
 };
 
 #define COUNT(a) ((uint8_t)(sizeof(a) / sizeof((a)[0])))
@@ -306,16 +321,18 @@ static_assert(settingsSectionFits(SEC_BOARD), "a BOARD label runs into its value
 
 /** @brief Lay the sections out: the core ones, each tool's in registry order, then DISPLAY and BOARD. */
 static void buildItems() {
-	const SettingsSection *secs[12];
+	const SettingsSection *secs[MAX_SECTIONS];
 	int ns = 0;
 	secs[ns++] = &SEC_TESTER;
 	secs[ns++] = &SEC_WIRING;
 	uint8_t n;
 	const UiMenuEntry *e = uiMenuEntries(&n);
-	for (uint8_t i = 0; i < n && ns < 10; i++)
+	for (uint8_t i = 0; i < n && ns < MAX_SECTIONS - 2; i++)
 		if (e[i].screen->settings) secs[ns++] = e[i].screen->settings;
 	secs[ns++] = &SEC_DISPLAY;
 	secs[ns++] = &SEC_BOARD;
+	memcpy(s_secs, secs, sizeof(secs[0]) * (size_t)ns);
+	s_secCount = (uint8_t)ns;
 
 	s_itemCount = 0;
 	int y = 0;
@@ -361,7 +378,8 @@ static bool showsEnough(const UiRect &clipped) { return clipped.h >= UI_LIST_TAP
 static bool rowEnabled(const SettingsRow &r) { return !r.enabled || r.enabled(); }
 
 /**
- * @brief The row whose live control holds the point (@p x, @p y).
+ * @brief The row whose live control holds the point (@p x, @p y): enabled,
+ *        and showing enough of itself. A press anywhere else scrolls.
  * @param x,y      The point.
  * @param[out] row The row's item index.
  * @return true when a control that shows enough of itself holds the point.
@@ -369,7 +387,7 @@ static bool rowEnabled(const SettingsRow &r) { return !r.enabled || r.enabled();
 static bool controlAt(int x, int y, uint8_t *row) {
 	for (uint8_t i = 0; i < s_itemCount; i++) {
 		const Item &it = s_items[i];
-		if (!it.row || it.row->kind == SettingsKind::ReadOnly) continue;
+		if (!it.row || it.row->kind == SettingsKind::ReadOnly || !rowEnabled(*it.row)) continue;
 		const UiPart parts[2] = {
 			it.row->kind == SettingsKind::Toggle ? UiPart::Toggle : UiPart::Minus,
 			it.row->kind == SettingsKind::Toggle ? UiPart::Toggle : UiPart::Plus,
@@ -665,6 +683,12 @@ static uint8_t settingsControls(UiControl *out, uint8_t max) {
 	return n;
 }
 
+uint8_t uiSettingsSections(const SettingsSection **out, uint8_t max) {
+	uint8_t n = 0;
+	for (; n < s_secCount && n < max; n++) out[n] = s_secs[n];
+	return n;
+}
+
 /** @brief SETTINGS' MENU status: UNSAVED while the live settings differ from flash. */
 static void settingsMenuStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
 	if (settingsDirty()) {
@@ -677,5 +701,5 @@ static void settingsMenuStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
 
 const UiScreen UI_SETTINGS = {
 	UiScreenId::Settings, "SETTINGS", PinUser::None, settingsMenuStatus,
-	uiSettingsEnter, uiSettingsTick, nullptr, settingsControls, nullptr,
+	uiSettingsEnter, uiSettingsTick, nullptr, settingsControls, nullptr, true,
 };

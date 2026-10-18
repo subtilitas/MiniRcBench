@@ -170,9 +170,11 @@ protocol.
   panel and apart, BACK at its rectangle.
 - MENU, a list of rows from the screen registry: BEEP THE ESC, AM32 CONFIG,
   SERVO TESTER, SD LOG and SETTINGS, with a strip for the ESC pin, the DShot
-  rate and the EDT chip. BEEP's flash is on its row. AM32 CONFIG and SERVO
-  TESTER read `PINS BUSY` and open nothing while the pin claim is not Free.
-  SD LOG reads its card state, and SETTINGS reads `UNSAVED`. A seventh row
+  rate and the EDT chip. BEEP's flash is on its row. AM32 CONFIG, SERVO
+  TESTER and SETTINGS read `PINS BUSY`, are drawn disabled and open nothing
+  while the pin claim is not Free. SD LOG reads its card state, and SETTINGS
+  reads `UNSAVED` while a change is not saved. A tap on a list row fires only
+  when released on that row. A seventh row
   makes MENU scroll ([menu.md](docs/design/menu.md), slice C).
 - SETTINGS, one scrolling list in sections: ESC TESTER, WIRING, DISPLAY and
   BOARD. MOTOR POLES and MAX THROTTLE lead it. The list scrolls under a drag
