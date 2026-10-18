@@ -1932,6 +1932,15 @@ static void testSetScreen() {
 	checkTrue("HOLD TO APPLY is live", fillOf(BTN_APPLY) == C_PANEL);
 	fakeDumpFrame("shot_servo_set_warning.ppm");
 	int x = BTN_APPLY.x + 20, y = BTN_APPLY.y + 10;
+	// A hold cut short starts again from zero at the next press.
+	fakePress(x, y); uiFrames(1);
+	fakeHold(x, y); frameAt(500);
+	fakeRelease(); uiFrames(1);
+	frameAt(1000);
+	fakePress(x, y); uiFrames(1);
+	checkTrue("held 500 ms, lifted, pressed 1 s later: still pending",
+	          s_pending && s_profile.type == ServoType::Wide && fakeSlice(6).top == 19999);
+	fakeRelease(); uiFrames(1);
 	fakePress(x, y); uiFrames(1);
 	fakeHold(x, y); frameAt(SV_HOLD_MS - 1); core1();
 	checkTrue("held 999 ms: not applied", s_pending && fakeSlice(6).top == 19999);
