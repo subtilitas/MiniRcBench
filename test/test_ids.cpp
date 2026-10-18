@@ -217,6 +217,11 @@ static void testAm32() {
 	tapId(UI_FIX(Am32Ctl::EditMinus));
 	checkTrue("- on the same row takes it back: WRITE does not act",
 	          ctlPresent(UI_FIX(Am32Ctl::Write)) && !ctlEnabled(UI_FIX(Am32Ctl::Write)));
+	tapId(UI_FIX(Am32Ctl::EditPlus));
+	checkTrue("+ again: REVERT acts", ctlEnabled(UI_FIX(Am32Ctl::Revert)));
+	tapId(UI_FIX(Am32Ctl::Revert));
+	checkTrue("REVERT throws the edit away: WRITE and REVERT do not act",
+	          !ctlEnabled(UI_FIX(Am32Ctl::Write)) && !ctlEnabled(UI_FIX(Am32Ctl::Revert)));
 	tapId(UI_FIX(UI_BACK));
 	idFrames(20);
 	checkTrue("BACK from AM32 reaches SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
