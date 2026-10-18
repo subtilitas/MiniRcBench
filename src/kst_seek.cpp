@@ -28,6 +28,7 @@ void kstSeekBegin(KstSeekState *s, kst_session_t *ses, uint32_t nowMs) {
 	s->attempts = 0;
 	s->result = KST_SES_BUSY;
 	s->rx = KST_RX_NO_REPLY;
+	s->faults = ses->stats.faults;
 	s->stopping = false;
 	s->noUi = false;
 	attempt(s, ses, nowMs);
@@ -38,14 +39,20 @@ KstSeek kstSeekStep(KstSeekState *s, kst_session_t *ses, bool uiAlive, uint32_t 
 	if (!uiAlive) s->noUi = true;
 
 	kst_ses_t r = kst_session_step(ses);
-	uint8_t rx = ses->last_reply.result;
-	if (rx != KST_RX_OK && rx != KST_RX_NO_REPLY) s->rx = rx;
+	// Only a window of this search: last_reply keeps the code of whatever
+	// transaction came before, and the fault count rises with each window
+	// that held no valid reply.
+	if (ses->stats.faults != s->faults) {
+		s->faults = ses->stats.faults;
+		uint8_t rx = ses->last_reply.result;
+		if (rx != KST_RX_OK && rx != KST_RX_NO_REPLY) s->rx = rx;
+	}
 	if (r == KST_SES_BUSY) return KstSeek::Searching;
 
-	// A servo that answered is in the mode, whatever else came: the screen
-	// says so rather than a stop the servo did not see.
-	if (r == KST_SES_OK) return finish(s, KstSeek::Found, r, nowMs);
+	// The session takes an abort before it reads the window, so a stopped
+	// attempt never ends KST_SES_OK.
 	if (s->stopping) return finish(s, KstSeek::Stopped, r, nowMs);
+	if (r == KST_SES_OK) return finish(s, KstSeek::Found, r, nowMs);
 	if (r != KST_SES_ERR_NO_SERVO) return finish(s, KstSeek::Failed, r, nowMs);
 	if (s->noUi) return finish(s, KstSeek::NoUi, r, nowMs);
 	if (nowMs - s->startMs >= KST_SEEK_TIMEOUT_MS) return finish(s, KstSeek::TimedOut, r, nowMs);

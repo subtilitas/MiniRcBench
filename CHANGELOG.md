@@ -53,9 +53,10 @@ protocol.
   copied headers name.
 - The KST search and the KST core1 job (work breakdown step 2).
   `src/kst_seek.h` repeats rcbench's entry sequence, 116.6 ms to 118.8 ms an
-  attempt, until a servo answers, for 30 s; STOP SEARCH and a heartbeat lapse
-  let the frame on the wire finish, and a servo that stops answering is power
-  cycled in the session and searched for again. `src/kst_job.h` runs the
+  attempt, until a servo answers, for 30 s. STOP SEARCH lets the frame on the
+  wire finish; a heartbeat lapse lets the running attempt finish and starts no
+  other. A servo that stops answering is power cycled in the session and
+  searched for again. `src/kst_job.h` runs the
   session on core1 through a command block and a status block: search, read,
   verify, edit and restore in slices, abort, and leave with 100 ms of low line
   before the line closes. `src/kst_line_port.h` puts rcbench's RP2350 line

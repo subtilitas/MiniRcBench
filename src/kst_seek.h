@@ -6,28 +6,33 @@
  *
  * One attempt is one kst_session_enter() stepped to its end, 116.6 ms to
  * 118.8 ms. @c KST_SES_ERR_NO_SERVO starts the next attempt at once; the
- * entry's own 100 ms low is the spacing, about 8.4 attempts a second. The
+ * entry's own 100 ms low is the spacing, 8.4 to 8.6 attempts a second. The
  * session is rcbench's, unchanged: these functions start, step and abort it
  * and call kst_session_power_cycled(), nothing else.
  *
  * | End | When | KstSeekState::result |
  * |---|---|---|
  * | Found | an attempt ends with @c KST_SES_OK | @c KST_SES_OK |
- * | Stopped | the attempt running at kstSeekStop() has ended | what it ended with, @c KST_SES_ERR_ABORTED as a rule |
+ * | Stopped | the attempt running at kstSeekStop() has ended | @c KST_SES_ERR_ABORTED |
  * | TimedOut | an attempt ends @ref KST_SEEK_TIMEOUT_MS or later after kstSeekBegin() | @c KST_SES_ERR_NO_SERVO |
  * | NoUi | an attempt ends after a heartbeat lapse | @c KST_SES_ERR_NO_SERVO |
  * | Failed | an attempt ends with any other result, or does not start | that result |
  *
  * An attempt always runs to its end: a stop or a heartbeat lapse lets the
  * frame on the wire finish (kst_session_abort()), and a lapse lets the
- * attempt's remaining frames go out too. Between attempts and after the end
+ * attempt's remaining frames go out too. The session takes an abort before
+ * it reads the window, so a servo that acknowledges the sync on the wire at
+ * the stop is in programming mode while the search ends Stopped; the first
+ * read of the next search finds it. Between attempts and after the end
  * the line driver holds the line low; nothing here releases it.
  *
  * A reply the session's decoder refuses is not a servo found. The search
  * keeps the last such refusal, a @c kst_rx_t other than @c KST_RX_OK and
  * @c KST_RX_NO_REPLY, so a servo that answers wrongly is told apart from
- * silence. It is read from @c last_reply after each step, so a step is
- * called at least once per transaction: a transaction takes 2.87 ms or more.
+ * silence. It reads @c last_reply after a step in which the session's count
+ * of windows without a valid reply (@c stats.faults) rose, so a code left by
+ * an operation before the search is not taken. A step is called at least once
+ * per transaction: a transaction takes 2.87 ms or more.
  *
  * Every function is pure apart from the session: the clock is a parameter,
  * and the host suite runs them against rcbench's simulated servo.
@@ -63,6 +68,7 @@ struct KstSeekState {
 	uint32_t attempts;  /**< Attempts started. */
 	uint8_t  result;    /**< @c kst_ses_t that ended it; @c KST_SES_BUSY while it runs. */
 	uint8_t  rx;        /**< @c kst_rx_t of the last refused reply; @c KST_RX_NO_REPLY for none. */
+	uint32_t faults;    /**< The session's @c stats.faults when @c rx was last looked at. */
 	bool     stopping;  /**< kstSeekStop() came; the running attempt finishes its frame. */
 	bool     noUi;      /**< The heartbeat lapsed; the running attempt ends, no other starts. */
 };

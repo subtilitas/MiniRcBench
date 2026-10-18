@@ -116,7 +116,7 @@ static void testAttempts() {
 	checkTrue("at 30 s, inside the attempt that crossed it",
 	          ms >= KST_SEEK_TIMEOUT_MS && ms < KST_SEEK_TIMEOUT_MS + 119);
 	checkTrue("frozen after the end", kstSeekMs(&g_b.seek, nowMs() + 5000) == ms);
-	checkTrue("about 250 attempts, 8.4 a second",
+	checkTrue("about 258 attempts, 8.6 a second",
 	          g_b.seek.attempts >= 250 && g_b.seek.attempts <= 260);
 	checkInt("each attempt: read, sync, read",
 	         (long)g_b.sim.n_frames, (long)g_b.seek.attempts * 3);
@@ -188,6 +188,25 @@ static void testStop() {
 	run(2000000u);
 	checkInt("and nothing after", g_b.sim.n_frames, 3);
 
+	// A stop while the sync is on the wire to a servo that answers it: the
+	// session takes the abort first, the servo is in the mode, and the next
+	// search's first read finds it.
+	bench(true);
+	kstSeekBegin(&g_b.seek, &g_b.ses, nowMs());
+	while (!(g_b.sim.busy && g_b.sim.n_frames == 2)) step();
+	checkInt("the sync is on the wire", g_b.sim.log[1].kind, SIM_SYNC);
+	kstSeekStop(&g_b.seek, &g_b.ses);
+	k = run(g_b.sim.now_us + 100000u);
+	checkTrue("a stop during a sync the servo answers: stopped, aborted",
+	          k == KstSeek::Stopped && g_b.seek.result == KST_SES_ERR_ABORTED);
+	checkTrue("the servo is in the mode, the session does not know it",
+	          g_b.sim.in_mode && !g_b.ses.in_mode);
+	checkInt("no frame after the sync", g_b.sim.n_frames, 2);
+	kstSeekBegin(&g_b.seek, &g_b.ses, nowMs());
+	k = run(g_b.sim.now_us + 1000000u);
+	checkTrue("RETRY: found by its first read, no sync",
+	          k == KstSeek::Found && g_b.sim.n_frames == 3 && g_b.sim.n_syncs == 1);
+
 	// The lapse is kept once seen, even if the heartbeat comes back.
 	bench(false);
 	kstSeekBegin(&g_b.seek, &g_b.ses, nowMs());
@@ -207,6 +226,28 @@ static void testFailures() {
 	checkTrue("a reply at a bad rate: not found, still searching",
 	          k == KstSeek::Searching && !g_b.ses.in_mode && g_b.seek.attempts > 1);
 	checkInt("the refusal is kept: RATE", g_b.seek.rx, KST_RX_RATE);
+	g_b.sim.powered = false;
+	k = run(g_b.sim.now_us + 1000000u);
+	checkTrue("then silence for 1 s: still searching", k == KstSeek::Searching);
+	checkInt("and the refusal is kept over the silence", g_b.seek.rx, KST_RX_RATE);
+
+	// A new search does not take the refusal an earlier one left in the
+	// session's last reply.
+	bench(true);
+	sim_add_fault(&g_b.sim, SIM_ANY, -1, 0, 100000, SIM_F_SHAPE_HALF, 27500);
+	kstSeekBegin(&g_b.seek, &g_b.ses, nowMs());
+	run(400000u);
+	kstSeekStop(&g_b.seek, &g_b.ses);
+	run(g_b.sim.now_us + 100000u);
+	checkTrue("stopped with a refused reply last",
+	          g_b.seek.state == KstSeek::Stopped && g_b.ses.last_reply.result == KST_RX_RATE);
+	g_b.sim.powered = false;
+	g_b.sim.n_faults = 0;
+	kstSeekBegin(&g_b.seek, &g_b.ses, nowMs());
+	step();
+	checkInt("RETRY against silence: no refusal after its first step", g_b.seek.rx, KST_RX_NO_REPLY);
+	run(g_b.sim.now_us + 1000000u);
+	checkInt("nor after 1 s of silence", g_b.seek.rx, KST_RX_NO_REPLY);
 
 	bench(true);
 	sim_add_fault(&g_b.sim, SIM_ANY, -1, 0, 1, SIM_F_START_FAIL, 0);

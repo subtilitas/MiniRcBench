@@ -120,6 +120,40 @@ static void startInMode() {
 	until(KstJobState::InMode, 2000);
 }
 
+/** @brief Bring a fresh job to @p want. */
+static void reach(KstJobState want) {
+	bool found = want == KstJobState::InMode || want == KstJobState::Busy;
+	start(found);
+	switch (want) {
+		case KstJobState::Opening:
+			break;
+		case KstJobState::Searching:
+			send(KstOp::Search);
+			passes(10);
+			break;
+		case KstJobState::SearchEnded:
+			send(KstOp::Search);
+			passes(10);
+			send(KstOp::StopSearch);
+			until(KstJobState::SearchEnded, 20);
+			break;
+		case KstJobState::InMode:
+		case KstJobState::Busy:
+			send(KstOp::Search);
+			until(KstJobState::InMode, 1000);
+			if (want == KstJobState::Busy) {
+				send(KstOp::ReadAll);
+				passes(1);
+			}
+			break;
+		case KstJobState::Leaving:
+		case KstJobState::Closed:
+			send(KstOp::Leave);
+			passes(want == KstJobState::Leaving ? 1 : KST_LEAVE_LOW_MS + 1);
+			break;
+	}
+}
+
 static void testBind() {
 	section("KST job: bind and the command block");
 	uint16_t before = send(KstOp::Search);
@@ -131,7 +165,9 @@ static void testBind() {
 	                                    fakeKstLineOpens() == 1);
 	checkTrue("Opening, the line low, nothing sent",
 	          st.job == KstJobState::Opening && fakeKstSim()->n_frames == 0);
-	checkInt("a command sent before the bind is not taken", st.ackSeq, before);
+	checkTrue("a command sent before the bind is not taken",
+	          st.ackSeq == before && st.job == KstJobState::Opening &&
+	          st.seek == KstSeek::Idle);
 	passes(200);
 	checkTrue("nor later", status().job == KstJobState::Opening &&
 	                       fakeKstSim()->n_frames == 0);
@@ -260,6 +296,35 @@ static void testHeartbeat() {
 	checkTrue("a read that started runs to its end without the heartbeat",
 	          status().job == KstJobState::Busy && until(KstJobState::InMode, 2000));
 	checkTrue("and reads the servo", status().result == KST_SES_OK && status().hasImage);
+
+	// The stops are taken without the heartbeat.
+	g_alive = true;
+	send(KstOp::ReadAll);
+	passes(1);
+	g_alive = false;
+	while (core1UiAlive()) passes(1);
+	send(KstOp::Abort);
+	passes(1);
+	checkTrue("Abort with the heartbeat lapsed: taken",
+	          status().refused == KstRefusal::None && until(KstJobState::InMode, 100) &&
+	          status().result == KST_SES_ERR_ABORTED);
+	send(KstOp::Leave);
+	passes(1);
+	checkTrue("Leave with the heartbeat lapsed: taken",
+	          status().refused == KstRefusal::None && until(KstJobState::Closed, 200));
+	finish();
+
+	start(false);
+	send(KstOp::Search);
+	passes(150);
+	g_alive = false;
+	while (core1UiAlive()) passes(1);
+	checkTrue("lapsed, the attempt still running", status().job == KstJobState::Searching);
+	send(KstOp::StopSearch);
+	passes(1);
+	checkTrue("STOP SEARCH with the heartbeat lapsed: taken",
+	          status().refused == KstRefusal::None && until(KstJobState::SearchEnded, 20) &&
+	          status().seek == KstSeek::Stopped);
 	finish();
 }
 
@@ -442,6 +507,27 @@ static void testLeave() {
 	escTaskResume();
 	fakePumpPoll();
 
+	// The release from each state with no frame running: 100 ms low, then
+	// the close, timed from the stop.
+	static const KstJobState QUIET[] = {
+		KstJobState::Opening, KstJobState::SearchEnded, KstJobState::InMode,
+	};
+	static const char *const QUIET_NAMES[] = { "Opening", "SearchEnded", "InMode" };
+	for (int i = 0; i < 3; i++) {
+		reach(QUIET[i]);
+		uint32_t stopUs = time_us_32();
+		core1JobStop();
+		for (int j = 0; j < 300 && core1JobPhase() != Core1JobPhase::Idle; j++) passes(1);
+		uint32_t low = fakeKstLineClosedUs() - stopUs;
+		char what[80];
+		snprintf(what, sizeof(what), "the release from %s: 100 ms low, then closed",
+		         QUIET_NAMES[i]);
+		checkTrue(what, core1JobPhase() == Core1JobPhase::Idle && !kstLineIsOpen() &&
+		                low >= KST_LEAVE_LOW_MS * 1000u && low <= (KST_LEAVE_LOW_MS + 2) * 1000u);
+		escTaskResume();
+		fakePumpPoll();
+	}
+
 	// The release from a read: aborted, finished, 100 ms.
 	startInMode();
 	send(KstOp::ReadAll);
@@ -476,40 +562,6 @@ static void testCommands() {
 	uint16_t b = send(KstOp::ReadAll);
 	checkInt("an untaken command that is no stop is replaced", b, (uint16_t)(a + 1));
 	finish();
-}
-
-/** @brief Bring a fresh job to @p want. */
-static void reach(KstJobState want) {
-	bool found = want == KstJobState::InMode || want == KstJobState::Busy;
-	start(found);
-	switch (want) {
-		case KstJobState::Opening:
-			break;
-		case KstJobState::Searching:
-			send(KstOp::Search);
-			passes(10);
-			break;
-		case KstJobState::SearchEnded:
-			send(KstOp::Search);
-			passes(10);
-			send(KstOp::StopSearch);
-			until(KstJobState::SearchEnded, 20);
-			break;
-		case KstJobState::InMode:
-		case KstJobState::Busy:
-			send(KstOp::Search);
-			until(KstJobState::InMode, 1000);
-			if (want == KstJobState::Busy) {
-				send(KstOp::ReadAll);
-				passes(1);
-			}
-			break;
-		case KstJobState::Leaving:
-		case KstJobState::Closed:
-			send(KstOp::Leave);
-			passes(want == KstJobState::Leaving ? 1 : KST_LEAVE_LOW_MS + 1);
-			break;
-	}
 }
 
 static void testEachOpInEachState() {

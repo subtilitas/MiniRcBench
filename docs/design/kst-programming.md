@@ -671,20 +671,23 @@ uint32_t kstSeekMs(const KstSeekState *s, uint32_t nowMs);
 
 - One attempt is one `kst_session_enter()` stepped to its end, 116.6 ms to
   118.8 ms. Without a switched supply, `KST_SES_ERR_NO_SERVO` starts the
-  next attempt at once; its own 100 ms low is the spacing. That is about 8.4
-  attempts a second. With one, an attempt starts with 2000 ms off
+  next attempt at once; its own 100 ms low is the spacing. That is 8.4 to 8.6
+  attempts a second, 8.6 in the simulation. With one, an attempt starts with 2000 ms off
   ([search with the switch](#search-with-the-switch)). Frames take
   about 6 ms of each attempt (two reads of 1.37 ms and a sync of 3.23 ms);
   the rest is low line and listening.
-- `KST_SES_OK` is `Found`, after a stop too: the servo is in the mode. Any
-  result but `KST_SES_ERR_NO_SERVO` ends the search as `Failed`, with that
-  result shown; a session that refuses the entry, because another operation
-  runs, ends it at once.
+- `KST_SES_OK` is `Found`. Any result but `KST_SES_ERR_NO_SERVO` ends the
+  search as `Failed`, with that result shown; a session that refuses the
+  entry, because another operation runs, ends it at once.
+- The session takes an abort before it reads the window. A STOP SEARCH while
+  the sync is on the wire to a servo that acknowledges it ends the search as
+  `Stopped` with the servo in programming mode; the first read of a RETRY
+  finds it, as it finds any servo already in the mode.
 - The search ends as `TimedOut`, which offers RETRY (decision 2), when an
   attempt ends `KST_SEEK_TIMEOUT_MS`, 30 s, or later after the search began:
   at 30.0 s to 30.12 s. It ends as `Stopped` at STOP SEARCH or BACK. That is
-  258 attempts in the simulation without a switched supply, and 14 with
-  one. `kstSeekStop()` calls
+  258 attempts in the simulation without a switched supply, and 14 with one
+  by the timing in [search with the switch](#search-with-the-switch). `kstSeekStop()` calls
   `kst_session_abort()`, which finishes a frame on the wire before it stops.
 - A heartbeat lapse ([pin-claim.md](pin-claim.md#heartbeat-and-watchdog))
   lets the running attempt end and starts no new one: `NoUi`. With a
@@ -868,7 +871,7 @@ not measured on hardware).
 Memory and stack: the session is 856 bytes and lives in core1's static memory
 with the `kst_line_t`. `kst_session_step()` took 528 bytes of stack in
 rcbench's coprocessor image; core1's stack is `PICO_CORE1_STACK_SIZE`, 2 KB,
-and the DShot pump does not run beside it. GCC's `-fstack-usage` in the
+and the DShot pump does not run beside it. GCC's (the GNU Compiler Collection's) `-fstack-usage` in the
 Release build gives the largest frames on that path as `kst_reply_decode()`
 272 bytes, `kst_session_step()` 264, `kst_limits_edit()` 248 and the job's
 `publish()` 152, each a single function's frame; the deepest chain is not

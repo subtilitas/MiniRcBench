@@ -38,8 +38,10 @@ static uint8_t       s_result;       /**< `kst_ses_t` of the last operation. */
 static uint32_t      s_frames;       /**< Frames of the running operation. */
 static bool          s_stalled;      /**< A lapse ended the last search. */
 static bool          s_drain;        /**< Leaving: the aborted operation still runs. */
-static bool          s_quiet;        /**< Leaving: the low time runs from s_quietMs. */
-static uint32_t      s_quietMs;      /**< millis() when the leave's low time began. */
+static bool          s_quiet;        /**< Leaving: the low time runs from s_quietUs. */
+/** @brief The driver's clock when the leave's low time began, us: millis()
+ *         rounds down and could shorten the 100 ms by up to 1 ms. */
+static uint32_t      s_quietUs;
 static KstStatus     s_published;    /**< The status last copied to s_status. */
 /** @} */
 
@@ -141,9 +143,9 @@ static bool leaveStep(uint32_t nowMs) {
 	}
 	if (!s_quiet) {
 		s_quiet = true;
-		s_quietMs = nowMs;
+		s_quietUs = lineNow(nullptr);
 	}
-	if (nowMs - s_quietMs < KST_LEAVE_LOW_MS) return false;
+	if (lineNow(nullptr) - s_quietUs < KST_LEAVE_LOW_MS * 1000u) return false;
 	kstLineClose();
 	s_state = KstJobState::Closed;
 	return true;
