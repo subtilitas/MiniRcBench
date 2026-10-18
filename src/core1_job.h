@@ -10,9 +10,8 @@
  * core1JobPoll(); with no job, core1JobPoll() returns at once too.
  *
  * Core1Job::Servo and Core1Job::Kst name the two jobs of
- * docs/design/servo-tester.md and docs/design/kst-programming.md. The servo
- * job is built (servo_job.h). The KST job is not, and core1JobStart() refuses
- * it until its slice adds a Core1JobOps for it.
+ * docs/design/servo-tester.md and docs/design/kst-programming.md: servo_job.h
+ * and kst_job.h.
  *
  * Core0 starts and stops a job; core1 binds, steps and releases it. The
  * request and the job's phase are shared under one critical section, in the
@@ -29,7 +28,7 @@
 enum class Core1Job : uint8_t {
 	None,   /**< No job; core1JobPoll() returns at once. */
 	Servo,  /**< Servo PWM on SIG, and AUX in two-servo mode (servo_job.h). */
-	Kst,    /**< KST and Chaservo programming on SIG. Not built yet. */
+	Kst,    /**< KST and Chaservo programming on SIG (kst_job.h). */
 };
 
 /** @brief Where a job is between core1JobStart() and idle. */

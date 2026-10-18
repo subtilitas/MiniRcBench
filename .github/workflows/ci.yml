@@ -329,14 +329,17 @@ jobs:
                     printf 'TX=%s JUMP=%s ROT=%s KISS=%s SD=%s ... ' \
                       "$tx" "$jump" "$rot" "$kiss" "$sd"
                     # lib/rcbench/ holds rcbench's headers that the servo
-                    # job includes; none of them reads config.h, so they are
-                    # used from the checkout rather than copied.
+                    # and KST jobs include; none of them reads config.h, so
+                    # they are used from the checkout rather than copied.
                     if g++ -std=gnu++17 -fsyntax-only -Wall -Wextra -Wshadow -Werror \
                            -Wno-unused-parameter \
                            -DKISS_TELEM_ENABLE=$kiss -DSD_LOG_ENABLE=$sd \
                            -Itest/stubs -I"$work/src" \
                            -Ilib/rcbench/shared/servo/include \
                            -Ilib/rcbench/shared/outputs/include \
+                           -Ilib/rcbench/protocols/kst/include \
+                           -Ilib/rcbench/protocols/kst/rp2350 \
+                           -Ilib/rcbench/shared/logfile/include \
                            "$work"/src/*.cpp; then
                       echo ok
                     else
@@ -350,18 +353,29 @@ jobs:
           done
 
           # And confirm the portrait guard actually refuses landscape, rather
-          # than the assert being decorative.
+          # than the assert being decorative. Only the guard's own assertion
+          # counts: a compile that fails for any other reason, a missing header
+          # among them, would pass the check whatever the guard does. Landscape
+          # also trips the layout assertions that follow from the panel size.
           work=$(mktemp -d)
           cp -r src "$work/src"
           sed -i "s/#define LCD_ROTATION           0/#define LCD_ROTATION           1/" "$work/src/config.h"
           if g++ -std=gnu++17 -fsyntax-only -Itest/stubs -I"$work/src" \
                  -Ilib/rcbench/shared/servo/include \
                  -Ilib/rcbench/shared/outputs/include \
-                 "$work"/src/*.cpp 2>/dev/null; then
+                 -Ilib/rcbench/protocols/kst/include \
+                 -Ilib/rcbench/protocols/kst/rp2350 \
+                 -Ilib/rcbench/shared/logfile/include \
+                 "$work"/src/*.cpp 2>"$work/err.txt"; then
             echo "landscape guard did NOT fire"; fail=1
+          elif ! grep -q "static assertion failed: the UI layout assumes portrait" "$work/err.txt"; then
+            echo "landscape compile failed for another reason:"; cat "$work/err.txt"; fail=1
+          elif grep "error:" "$work/err.txt" | grep -vq "static assertion failed"; then
+            echo "landscape compile has errors besides the guard:"; grep "error:" "$work/err.txt"; fail=1
           else
             echo "landscape correctly rejected ... ok"
           fi
+          rm -rf "$work"
           exit $fail
 
   # Both workflow files, parsed and linted on every push. release.yml only runs

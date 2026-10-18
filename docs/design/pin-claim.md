@@ -118,15 +118,14 @@ the exception.
 4. **Running.** The job binds its pins and reports `Running`, or reports a bind
    failure and binds nothing. A failed bind leaves the claim Held, with the
    reason in `pinClaimJobError()`. RETRY (`pinClaimRetry()`) starts the job
-   again and keeps the claim; BACK goes to step 5. The KST job is not built
-   until slice 3, so `core1JobStart()` refuses KST and the reason is
-   `CORE1_JOB_REFUSED`.
+   again and keeps the claim; BACK goes to step 5.
 5. **Leaving.** BACK (`pinClaimEnd()`) asks the job to stop. The job lets its
    pins go once nothing it drives is under way, which for the servo job is
-   the last pulse (`servoQuietMs()`, 41 ms at 50 Hz), leaves them inputs with
-   the pull-down on and reports `Idle`. The claim stays Leaving until then.
-   Before DShot restarts, SERVO and
-   KST show the unplug page ([restore](#restoring-dshot)):
+   the last pulse (`servoQuietMs()`, 41 ms at 50 Hz) and for the KST job the
+   frame on the wire and then 100 ms of low line (`KST_LEAVE_LOW_MS`). It
+   leaves them inputs with the pull-down on and reports `Idle`. The claim
+   stays Leaving until then. Before DShot restarts, SERVO and KST show the
+   unplug page ([restore](#restoring-dshot)):
    `pinClaimUnplugDue()` is true once the job is idle, RESTART DSHOT calls
    `pinClaimRestart()`, and BACK on the page calls `pinClaimKeep()`, which
    returns the claim to Held and starts the job again. AM32 has neither a job

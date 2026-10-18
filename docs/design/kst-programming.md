@@ -1,10 +1,12 @@
 # KST and Chaservo servo programming
 
-Status: work breakdown step 1 built, host tests only: the KST core, its RP2350
-line driver and the KST file store are copied into `lib/rcbench/`, built by
-the firmware and the host suite, and rcbench's seven tests of them run in
-`make` and CI. Nothing calls them yet: MENU has no KST row, `src/ui_kst.cpp`
-is a stub, and `core1_job.cpp` has no KST job. It depends on the pin claim in
+Status: work breakdown steps 1 and 2 built, host tests only. The KST core,
+its RP2350 line driver and the KST file store are copied into
+`lib/rcbench/`, built by the firmware and the host suite, and rcbench's seven
+tests of them run in `make` and CI. The search (`src/kst_seek.*`) and the
+core1 job (`src/kst_job.*`) run the session on the line, and the host suite
+runs both against rcbench's simulated servo. Nothing starts the job yet: MENU
+has no KST row and `src/ui_kst.cpp` is a stub. It depends on the pin claim in
 [pin-claim.md](pin-claim.md), slice 1 there, which is built. This
 document is slice 3. It comes after slices A to C of [menu.md](menu.md), the
 menu restructure, which are built, and is written for the system they leave:
@@ -270,8 +272,13 @@ One attempt, from `kstSeekStep()`:
    attempt starts at step 1.
 
 One attempt is 2000 ms, plus `KST_SUPPLY_ENTRY_DELAY_MS`, plus the entry's
-116.6 ms to 118.8 ms: about 2.12 s at a delay of 0 ms. The 30 s search is
-then 14 attempts, 14 power-ups.
+116.6 ms to 118.8 ms: about 2.12 s at a delay of 0 ms. The timeout is
+checked outside the entry too: a search that reaches `KST_SEEK_TIMEOUT_MS`,
+30 s, in an off phase or in a positive delay's wait ends there as
+`TimedOut`, with the supply off, and an attempt is counted at its switch-on.
+At a delay of 0 ms the 30 s search then holds 14 power-ups: 14 attempts end
+by 29.66 s, the 15th is in its off phase at 30 s, and `KstStatus.attempts`
+reads 14. Another delay gives another count: 13 at 40 ms.
 
 STOP SEARCH, BACK and the timeout end the search with the supply off. In an
 off phase the supply is not switched on. In an on phase it goes off once
@@ -486,7 +493,7 @@ What remains:
 
 | Step | Strip | Body | Controls |
 |---|---|---|---|
-| Searching, supply switched | `GP29  TRY 3  SUPPLY OFF 1.4 S`, or `SUPPLY ON` | `SWITCHED SUPPLY`, then `THE BENCH SWITCHES THE SERVO OFF FOR 2 S, THEN ON, BEFORE EACH TRY.`, the failsafe line, and in amber `AN ESC ON THIS LEAD GETS THE CONVERTER'S OUTPUT ON ITS BEC WIRE.`; a spinner | STOP SEARCH, BACK |
+| Searching, supply switched | `GP29  TRY 3  SUPPLY OFF 1.4 S`, or `SUPPLY ON`; TRY is the attempt under way, `KstStatus.attempts` + 1 in an off phase | `SWITCHED SUPPLY`, then `THE BENCH SWITCHES THE SERVO OFF FOR 2 S, THEN ON, BEFORE EACH TRY.`, the failsafe line, and in amber `AN ESC ON THIS LEAD GETS THE CONVERTER'S OUTPUT ON ITS BEC WIRE.`; a spinner | STOP SEARCH, BACK |
 | Timed out, supply switched | `NO ANSWER IN 14 POWER-UPS`, the number from `KstStatus.attempts` | `CHECK THE CONVERTER ON GP0, ITS WIRING AND THE SIGNAL. A SERVO ON ITS OWN SUPPLY NEEDS SETTINGS > SERVO SUPPLY AT NONE.` | RETRY, BACK |
 | Stalled, supply switched | `GP29  SUPPLY OFF` | `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF. RETRY POWERS IT UP AND READS IT AGAIN.` Without a card, after a write, in amber, `NO CARD: THE BACKUP IN MEMORY IS LOST.` and nothing more. With a card, for a locked session, in amber, `THE LAST WRITE IS IN DOUBT. AFTER THE READ, LOAD KST005 IN FILES AND HOLD TO WRITE.` | RETRY, BACK |
 | REBOOT | `GP29  SUPPLY OFF 1.4 S`, then `SUPPLY ON 0.6 S` | `REBOOT: DO NOT UNPLUG THE SERVO.`, then `READING 32 REGISTERS` | BACK |
@@ -657,26 +664,40 @@ The repetition is a wrapper in MiniRcBench, `src/kst_seek.cpp`, around the
 unchanged session. The ported `kst_session.c` stays byte for byte rcbench's.
 
 ```c
-enum class KstSeek : uint8_t { Searching, Found, Stopped, TimedOut, NoUi };
+enum class KstSeek : uint8_t { Idle, Searching, Found, Stopped, TimedOut, NoUi, Failed };
 
-void    kstSeekBegin(KstSeekState *s, kst_session_t *ses, uint32_t nowMs);
-KstSeek kstSeekStep(KstSeekState *s, kst_session_t *ses, bool uiAlive, uint32_t nowMs);
-void    kstSeekStop(KstSeekState *s, kst_session_t *ses);   // STOP SEARCH, BACK
+void     kstSeekBegin(KstSeekState *s, kst_session_t *ses, uint32_t nowMs);
+KstSeek  kstSeekStep(KstSeekState *s, kst_session_t *ses, bool uiAlive, uint32_t nowMs);
+void     kstSeekStop(KstSeekState *s, kst_session_t *ses);   // STOP SEARCH, BACK
+bool     kstSeekLost(KstSeekState *s, kst_session_t *ses, kst_ses_t r, bool uiAlive,
+                     uint32_t nowMs);                          // the loss rule below
+uint32_t kstSeekMs(const KstSeekState *s, uint32_t nowMs);
 ```
 
 - One attempt is one `kst_session_enter()` stepped to its end, 116.6 ms to
-  118.8 ms. Without a switched supply, `KST_SES_ERR_NO_SERVO` starts the
-  next attempt at once; its own 100 ms low is the spacing. That is about 8.4
-  attempts a second. With one, an attempt starts with 2000 ms off
-  ([search with the switch](#search-with-the-switch)). Frames take
-  about 6 ms of each attempt (two reads of 1.37 ms and a sync of 3.23 ms);
-  the rest is low line and listening.
-- `KST_SES_OK` is `Found`. Any other result ends the search with that result
-  shown.
-- The search ends after `KST_SEEK_TIMEOUT_MS`, 30 s, as `TimedOut`, which
-  offers RETRY (decision 2), or at STOP SEARCH or BACK. That is about 250
-  attempts without a switched supply and 14 with one. `kstSeekStop()` calls
-  `kst_session_abort()`, which finishes a frame on the wire before it stops.
+  118.8 ms. Without a switched supply, `KST_SES_ERR_NO_SERVO` starts the next
+  attempt at once; its own 100 ms low is the spacing. That is 8.4 to 8.6
+  attempts a second, 8.6 in the simulation. With one, an attempt starts with
+  2000 ms off ([search with the switch](#search-with-the-switch)). Frames take
+  about 6 ms of each attempt (two reads of 1.37 ms and a sync of 3.23 ms); the
+  rest is low line and listening.
+- `KST_SES_OK` is `Found`. Any result but `KST_SES_ERR_NO_SERVO` and a
+  stop's `KST_SES_ERR_ABORTED` ends the search as `Failed`, with that result
+  shown, a stopped attempt's `KST_SES_ERR_DRIVER` too; a session that refuses
+  the entry, because another operation runs, ends it at once.
+- The session takes an abort before it reads the window. A STOP SEARCH while
+  the sync is on the wire to a servo that acknowledges it ends the search as
+  `Stopped` with the servo in programming mode; the first read of a RETRY
+  finds it, as it finds any servo already in the mode.
+- Without a switched supply the search ends as `TimedOut`, which offers
+  RETRY (decision 2), when an attempt ends `KST_SEEK_TIMEOUT_MS`, 30 s, or
+  later after the search began: at 30.0 s to 30.12 s, after 258 attempts in
+  the simulation. With one, at a delay of 0 ms, it ends at 30 s in an off
+  phase, after 14 power-ups
+  ([search with the switch](#search-with-the-switch)). It ends as
+  `Stopped` at STOP SEARCH or BACK once the attempt has ended aborted.
+  `kstSeekStop()` calls `kst_session_abort()`, which finishes a frame on the
+  wire before it stops.
 - A heartbeat lapse ([pin-claim.md](pin-claim.md#heartbeat-and-watchdog))
   lets the running attempt end and starts no new one: `NoUi`. With a
   switched supply the search also ends with the supply off
@@ -787,41 +808,67 @@ the pacing near its minimum, and the driver must hand over a capture within
 `KST_SES_ERR_DRIVER`. Core0 draws every 25 ms and can stall for tens of
 milliseconds on an SD write. Core1 has nothing else to do.
 
+`src/kst_job.h` as built in step 2; the lines marked step 5 come with the
+switched supply.
+
 ```c
 enum class KstOp : uint8_t { Search, StopSearch, ReadAll, Verify, Edit, Restore, Abort, Leave,
-                             Reboot,     // SERVO SUPPLY at GP0 only
-                             CardBegin, CardEnd };   // the card phase
-enum class KstSupply : uint8_t { NotFitted, Off, On };   // NotFitted: SERVO SUPPLY at NONE
+                             Reboot,                 // step 5: SERVO SUPPLY at GP0 only
+                             CardBegin, CardEnd };   // step 5: the card phase
+enum class KstJobState : uint8_t { Opening, Searching, SearchEnded, InMode, Busy,
+                                   Rebooting,        // step 5
+                                   Leaving, Closed };
+enum class KstRefusal : uint8_t { None, State, NoUi };   // of the last command taken
+enum class KstSupply : uint8_t { NotFitted, Off, On };   // step 5; NotFitted: SERVO SUPPLY at NONE
 
 struct KstCmd {
     uint16_t        seq;
     KstOp           op;
-    kst_image_t     target;            // Edit
+    kst_image_t     target;            // Edit's target, Verify's expected image
     kst_field_set_t unlocked;          // Edit; always 0 in this slice
     bool            confirmUnchecked;  // Restore
 };
 
 struct KstStatus {
     uint16_t    ackSeq;
-    uint8_t     job;          // Opening, Searching, SearchEnded, InMode, Busy, Rebooting,
-                              // Leaving, Closed
+    KstJobState job;
+    KstRefusal  refused;
     uint8_t     lineError;    // kst_line_err_t of the open
-    uint8_t     seek;         // KstSeek
+    KstSeek     seek;
     uint32_t    attempts, searchMs;
-    uint8_t     result;       // kst_ses_t of the last operation
+    uint8_t     seekRx;       // kst_rx_t of the search's last refused reply
+    uint8_t     result;       // kst_ses_t of the last operation or search
     uint8_t     lastRx;       // kst_rx_t of the last transaction
-    uint8_t     inMode, hasImage, hasBackup, fingerprintOk, locked;
-    uint8_t     planning, planResult, stepIndex;
+    bool        inMode, hasImage, hasBackup, fingerprintOk, locked, planning;
+    uint8_t     planResult, stepIndex;
     uint32_t    badRegs, diffRegs, wroteRegs;
-    uint32_t    frames;       // frames sent by the running operation
-    uint8_t     supply;       // KstSupply: the level the bench drives, servoSupplyIsOn()
-    uint32_t    supplyMs;     // since the last switch command
-    uint8_t     stalled;      // a heartbeat lapse ended the last operation
-    uint8_t     cardPhase;    // CardBegin taken, not yet closed
+    uint32_t    frames;       // frames sent by the running or last operation or search
+    uint8_t     supply;       // step 5; KstSupply: the level the bench drives, servoSupplyIsOn()
+    uint32_t    supplyMs;     // step 5; since the last switch command
+    bool        stalled;      // a heartbeat lapse ended the last search
+    uint8_t     cardPhase;    // step 5; CardBegin taken, not yet closed
     kst_image_t image, backup;
     kst_stats_t stats;
 };
 ```
+
+A command is taken in these states, and refused as `State` in the others;
+with the heartbeat lapsed, Search and the four operations are refused as
+`NoUi`:
+
+| Command | Taken in |
+|---|---|
+| Search | Opening, SearchEnded (RETRY) |
+| StopSearch | Searching |
+| ReadAll, Verify, Edit, Restore | InMode; a refusal by the session itself is the result, and the job stays InMode |
+| Abort | Searching, Busy |
+| Leave | every state but Leaving and Closed |
+
+The command block holds one command. A new one replaces a command core1 has
+not taken, except that a StopSearch, Abort or Leave not yet taken stays and a
+later command is dropped; a Leave replaces a held StopSearch or Abort.
+Commands held at the bind are not taken. The release, at BACK, leaves as Leave
+does from any state.
 
 Every pass of `loop1()` the job checks the heartbeat, takes a new command,
 steps the search or calls `kst_session_step()`, and publishes the status under
@@ -833,7 +880,11 @@ not measured on hardware).
 Memory and stack: the session is 856 bytes and lives in core1's static memory
 with the `kst_line_t`. `kst_session_step()` took 528 bytes of stack in
 rcbench's coprocessor image; core1's stack is `PICO_CORE1_STACK_SIZE`, 2 KB,
-and the DShot pump does not run beside it. The job never calls
+and the DShot pump does not run beside it. GCC's (the GNU Compiler
+Collection's) `-fstack-usage` in the Release build gives the largest frames
+on that path as `kst_reply_decode()` 272 bytes, `kst_session_step()` 264,
+`kst_limits_edit()` 248 and the job's `publish()` 152, each a single
+function's frame; the deepest chain is not measured. The job never calls
 `kst_session_write()`, `kst_plan_edit()` or `kst_plan_restore()`: they run the
 planner to its end in one call and their stack is not measured. Edits go
 through `kst_session_edit()` and restores through `kst_session_restore()`,
@@ -1106,8 +1157,12 @@ so these run against the same simulated servo:
   a bad rate is shown and is not `Found`.
 - `test_kst_job.cpp`: the command and status blocks; each `KstOp` in each
   state; leave with 100 ms low before the close without a switched supply; the
-  supply rules in [tests for the switch](#tests-for-the-switch); the job never
-  calls `kst_session_write()`.
+  supply rules in [tests for the switch](#tests-for-the-switch), in step 5;
+  the job never calls `kst_session_write()`, `kst_plan_edit()` or
+  `kst_plan_restore()`: the test includes `kst_job.cpp` with the three renamed
+  to counters, which stay at 0. The job runs from the job table, one
+  `core1JobPoll()` a millisecond, on `test/fake_kst_line.cpp`: the simulator
+  behind `src/kst_line_port.h`, on the suite's virtual clock.
 - `test_kst_files.cpp`: the FatFs io over a fake volume: no card, card held by
   USB, card full, write-protected, the record written before the first write
   frame and removed after a verify, the record found at entry; with `GP0`, a
@@ -1125,8 +1180,9 @@ so these run against the same simulated servo:
 ## Work breakdown
 
 1. Vendor the core, the line driver and the store; `test/rcbench/` with the
-   ported tests in `make` and CI.
-2. `kst_seek.*` and `kst_job.*` with their tests.
+   ported tests in `make` and CI. Built.
+2. `kst_seek.*` and `kst_job.*` with their tests. Built, without the
+   switched supply, which is step 5.
 3. `kst_files.cpp` and its tests.
 4. `ui_kst.cpp`: search, field list and FILES on `ui_list`, write, leave,
    the holds on `ui_hold`; its `UiScreen` and its line in `ui_registry.cpp`,

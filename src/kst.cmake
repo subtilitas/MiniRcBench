@@ -7,11 +7,15 @@
 #
 # The KST core, its RP2350 line driver and the file store are rcbench's own
 # files, copied into lib/rcbench/ and built as C (lib/rcbench/README.md). The
-# line's PIO program is assembled from its source by pioasm. Until the KST
-# screen calls them, the linker drops their code from the image.
+# line's PIO program is assembled from its source by pioasm. The search and
+# the core1 job run them; the file store's code is dropped from the image
+# until the KST screen calls it.
 set(KST_LIB ${CMAKE_CURRENT_LIST_DIR}/../lib/rcbench)
 target_sources(MiniRcBench PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/ui_kst.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/kst_seek.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/kst_job.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/kst_line_port.cpp
     ${KST_LIB}/protocols/kst/kst_wire.c
     ${KST_LIB}/protocols/kst/kst_reg.c
     ${KST_LIB}/protocols/kst/kst_limits.c

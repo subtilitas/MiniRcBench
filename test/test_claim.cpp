@@ -88,16 +88,16 @@ static void installJobs() {
 	s_ops[(uint8_t)Core1Job::Kst]   = &FAKE_KST;
 }
 
-/** @brief No job in the table, as KST ships. */
+/** @brief No job in the table. */
 static void removeJobs() {
 	s_ops[(uint8_t)Core1Job::Servo] = nullptr;
 	s_ops[(uint8_t)Core1Job::Kst]   = nullptr;
 }
 
-/** @brief The table as it ships: the servo job, and no KST job. */
+/** @brief The table as it ships: the servo job and the KST job. */
 static void shippedJobs() {
 	s_ops[(uint8_t)Core1Job::Servo] = &SERVO_JOB_OPS;
-	s_ops[(uint8_t)Core1Job::Kst]   = nullptr;
+	s_ops[(uint8_t)Core1Job::Kst]   = &KST_JOB_OPS;
 }
 
 // ---------------------------------------------------------------------------
@@ -745,7 +745,10 @@ static void testJobGuard() {
 	          core1JobStart(Core1Job::Servo, SIG_GPIO, 0xFF));
 	core1JobStop();
 	core1JobPoll();
-	checkTrue("and KST is refused", !core1JobStart(Core1Job::Kst, SIG_GPIO, 0xFF));
+	checkTrue("and so does the KST job", core1JobStart(Core1Job::Kst, SIG_GPIO, 0xFF));
+	core1JobStop();
+	core1JobPoll();
+	checkTrue("stopped before its bind: idle", core1JobPhase() == Core1JobPhase::Idle);
 	escTaskResume();
 	pump();
 	checkTrue("idle, no error", core1JobRunning() == Core1Job::None &&
@@ -1147,9 +1150,9 @@ static void testAm32Screen() {
 
 void runClaimTests() {
 	section("Core1 jobs: the table as it ships");
-	checkTrue("the servo job is in the table, KST is not",
+	checkTrue("the servo job and the KST job are in the table",
 	          s_ops[(uint8_t)Core1Job::Servo] == &SERVO_JOB_OPS &&
-	          s_ops[(uint8_t)Core1Job::Kst] == nullptr);
+	          s_ops[(uint8_t)Core1Job::Kst] == &KST_JOB_OPS);
 	installJobs();
 	s_ops[(uint8_t)Core1Job::Kst] = &FAKE_KST_INIT;
 	core1JobInit();
