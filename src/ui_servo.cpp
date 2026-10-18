@@ -184,7 +184,11 @@ static uint8_t      s_mask = SERVO_MASK_A; /**< What the dial and the buttons dr
 static bool         s_dragging = false;    /**< A press on the dial drives the servo. */
 static uint16_t     s_dragCmd = 0;         /**< The last command the drag sent. */
 static bool         s_wasRunning = false;  /**< RUNNING on the last frame. */
-static UiHold       s_hold;                /**< HOLD TO START or HOLD TO APPLY: one timer. */
+/**
+ * @brief HOLD TO START or HOLD TO APPLY: one timer. A change of view comes on
+ *        a release, which ends any hold.
+ */
+static UiHold       s_hold;
 static bool         s_needLift = false;    /**< A STOP press is down; it starts and taps nothing. */
 static ServoStatus  s_st;                  /**< This frame's status from core1. */
 static const TouchState *s_t = nullptr;    /**< This frame's touch. */
@@ -560,7 +564,6 @@ static void mainTouch(bool startOk) {
 		s_pending = false;
 		s_sel = -1;
 		uiListInit(&s_list, SET_VIEW, SET_ROW_H, SET_ROWS);
-		uiHoldReset(&s_hold);
 		s_full = true;
 	}
 }
@@ -867,7 +870,6 @@ bool uiServoTick(const TouchState *t) {
 	if (back && s_view == View::Unplug && !pinClaimUnplugDue()) back = false;
 	if (back) {
 		s_full = true;
-		uiHoldReset(&s_hold);
 		if (s_view == View::Set) {
 			s_view = View::Main;
 			s_edit = s_profile;

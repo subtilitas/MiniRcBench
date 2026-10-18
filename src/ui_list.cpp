@@ -71,7 +71,6 @@ UiListEvent uiListTouch(UiList *l, const TouchState *t) {
 			ev.kind = UiListEv::Tap;
 			ev.row = l->candidate;
 		}
-		l->mode = UiListMode::None;
 		l->inside = false;
 		l->candidate = -1;
 		return ev;

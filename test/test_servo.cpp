@@ -1524,6 +1524,7 @@ static void testHoldToStart() {
 	core1();
 	checkTrue("held 999 ms: not started", !s_st.running && fakePin(29).level == 0);
 	checkTrue("the bar shows the hold", s_hold.holding && pixel(BTN_START.x + 2, SV_BAR_Y + 1) == C_LIME);
+	checkTrue("and the button is red while held", fillOf(BTN_START) == C_RED);
 	fakeHold(x, y); frameAt(1);
 	core1();
 	ServoStatus st;
@@ -1987,6 +1988,8 @@ static void testSetScreen() {
 	fakePress(x, y); uiFrames(1);
 	fakeHold(x, y); frameAt(SV_HOLD_MS - 1); core1();
 	checkTrue("held 999 ms: not applied", s_pending && fakeSlice(6).top == 19999);
+	checkTrue("the bar shows the hold, the button red",
+	          pixel(BTN_APPLY.x + 2, SET_FOOT_Y - 3) == C_LIME && fillOf(BTN_APPLY) == C_RED);
 	fakeHold(x, y); frameAt(1); core1();
 	checkTrue("1000 ms: applied", !s_pending && s_profile.type == ServoType::HeliCyclic);
 	checkInt("rebound at 333 Hz", fakeSlice(6).top, 3002);
@@ -2170,6 +2173,28 @@ static void testSetList() {
 	checkTrue("a scroll leaves the editor bar and the footer as they were",
 	          s_list.scrollPx == 13 + 30 &&
 	          fakeRegionHash(0, SET_LIST_Y1 + 1, GFX_W, GFX_H - SET_LIST_Y1 - 1) == below);
+	uiTap(UI_BACK_CX, UI_BACK_CY);
+	tapRect(BTN_SET);
+	checkTrue("SET opened again: at 0 px, no row selected", s_list.scrollPx == 0 && s_sel == -1);
+
+	// HOLD TO APPLY with nothing pending: drawn disabled, and a hold on it
+	// hands the job nothing, so the pins are not rebound.
+	int inits = fakeSlice(6).inits;
+	int ax = BTN_APPLY.x + 20, ay = BTN_APPLY.y + 10;
+	fakePress(ax, ay); uiFrames(1);
+	for (int i = 0; i < 48; i++) { fakeHold(ax, ay); uiFrames(1); core1(); }
+	checkTrue("nothing pending: HOLD TO APPLY is an outline", fillOf(BTN_APPLY) == C_BG);
+	// A change forced pending under the same press, which the UI cannot do
+	// with one finger: the press landed on a disabled button, so it is not
+	// timed.
+	s_pending = true;
+	s_edit.rateHz = 60;
+	for (int i = 0; i < 48; i++) { fakeHold(ax, ay); uiFrames(1); core1(); }
+	fakeRelease(); uiFrames(1); core1();
+	checkTrue("held 2400 ms: no rebind, and the forced change not applied",
+	          fakeSlice(6).inits == inits && s_profile.rateHz == 50 && s_pending);
+	s_pending = false;
+	s_edit = s_profile;
 	uiTap(UI_BACK_CX, UI_BACK_CY);
 	leaveServo();
 }

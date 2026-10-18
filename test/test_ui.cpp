@@ -647,6 +647,7 @@ static void testSettingsCommandRow() {
 #define SET_RESET_X   198
 #define SAVE_BAR_X     8   // progress bar spans SAVE_X..+SAVE_W
 #define SAVE_BAR_Y   250   // FOOT_Y - 4
+#define SETUP_NOTE_Y 236   // NOTE_Y, the note line
 
 /** @brief Walk from the main screen into CFG, then into SETUP. */
 static void enterSetup() {
@@ -974,6 +975,8 @@ static void testSetupSave() {
 		checkTrue("500 ms: 75 px of the 150, from the button's left edge",
 		          fb[SAVE_BAR_X] == C_LIME && fb[SAVE_BAR_X + 74] == C_LIME &&
 		          fb[SAVE_BAR_X + 75] == C_BG && fb[SAVE_BAR_X - 1] == C_BG);
+		checkTrue("and the button is blue while held",
+		          gfxBuffer()[(SET_SAVE_Y + 15) * GFX_W + SAVE_BAR_X + 4] == C_BLUE);
 	}
 	fakeRelease(); frames(2);
 	checkTrue("and it clears on release",
@@ -1006,6 +1009,16 @@ static void testSetupSave() {
 	tap(SET_RESET_X, SET_SAVE_Y);
 	checkInt("RESET restores the compiled ESC pin", settings()->dshotPin, def.dshotPin);
 	checkTrue("RESET alone leaves flash as it was", settingsStored());
+
+	// SETUP opened again under a press already on HOLD TO SAVE: the press is
+	// not timed, as the hold waits for a press that lands.
+	checkTrue("RESET left a change pending", settingsDirty());
+	fakePress(SET_SAVE_X, SET_SAVE_Y); frames(1);
+	for (int i = 0; i < 20; i++) { fakeHold(SET_SAVE_X, SET_SAVE_Y); frames(1); }
+	uiSetupEnter();
+	for (int i = 0; i < 60; i++) { fakeHold(SET_SAVE_X, SET_SAVE_Y); frames(1); }
+	checkTrue("SETUP entered mid-press: held 1500 ms after, not saved", settingsDirty());
+	fakeRelease(); frames(2);
 
 	// BACK returns to the settings screen.
 	tap(BACK_X, BACK_Y);
@@ -2484,6 +2497,14 @@ static void testArmedSaveRefused() {
 
 	checkTrue("still armed afterwards", uiArmed());
 	checkTrue("the save was refused", settingsDirty());
+	{
+		// The note line says why, in red: NOT WHILE ARMED - DISARM TO SAVE.
+		uint32_t shown = fakeRegionHash(0, SETUP_NOTE_Y, GFX_W, 8);
+		gfxRect(0, SETUP_NOTE_Y, GFX_W, 8, C_BG);
+		gfxText(8, SETUP_NOTE_Y, "NOT WHILE ARMED - DISARM TO SAVE", C_RED, 1);
+		checkTrue("the note says NOT WHILE ARMED - DISARM TO SAVE",
+		          fakeRegionHash(0, SETUP_NOTE_Y, GFX_W, 8) == shown);
+	}
 	checkTrue("nothing was stored", !settingsStored());
 	checkInt("flash was never touched", fakeFlashWrites() - writes, 0);
 	checkInt("and nothing rebooted", fakeRebootCount() - reboots, 0);
@@ -2685,15 +2706,15 @@ void runUiTests() {
 		tap(AM32_MINUS_X, AM32_EDIT_Y);
 		checkInt("- button steps back", uiByte(0x18), 24);
 
-		// 180 px of travel, 173 after the lock at 7 px: 11 coarse steps of
-		// 13 kHz pass the rail, and the swipe stops on it.
+		// Pressed at x 30, locked at x 40 after 10 px, then 180 px: 11 coarse
+		// steps of 13 kHz pass the rail, and the swipe stops on it.
 		swipe(30, 220, yPwm, 10);
 		checkInt("swipe right is coarse, and stops at 144", uiByte(0x18), 144);
 		swipe(220, 30, yPwm, -10);
 		checkInt("swipe left stops at 8", uiByte(0x18), 8);
 
-		// 105 px after the lock: 6 coarse steps of 2 x 2 poles from 14 would
-		// reach 38; the swipe stops at 36, the rail, on the field's step.
+		// Locked at x 47, then 98 px: 6 coarse steps of 2 x 2 poles from 14
+		// would reach 38; the swipe stops at 36, the rail, on the field's step.
 		int yPoles = uiRowY("POLES"); frames(1);
 		swipe(40, 150, yPoles, 7);
 		checkInt("stepped fields stay on their step, at the rail", uiByte(0x1B), 36);
@@ -2827,6 +2848,10 @@ void runUiTests() {
 		checkInt("ADVANCE, 33 angles: 3", coarseFactor(adv), 3);
 		checkInt("TEMP LIMIT, 70 to 141: 7", coarseFactor(temp), 7);
 		checkInt("DIRECTION, a choice of two: 1", coarseFactor(dir), 1);
+		const Am32Field *beep = nullptr;
+		for (uint16_t i = 0; i < AM32_FIELD_COUNT; i++)
+			if (!strcmp(AM32_FIELDS[i].name, "BEEP VOLUME")) beep = &AM32_FIELDS[i];
+		checkInt("BEEP VOLUME, 0 to 11, a range of exactly 11 steps: 1", coarseFactor(beep), 1);
 		// ADVANCE in the pre-1.90 encoding: raw 2 is 15 degrees, step 16 of
 		// the modern 0.9375 degree steps. A coarse step is three of - and +'s
 		// steps, which convert it, so the angle is kept: step 19, raw 29.
@@ -2944,6 +2969,8 @@ void runUiTests() {
 		checkTrue("held 999 ms: not written", fakeEscByte(0x1B) != want && s_state == S_LIST);
 		checkTrue("the bar shows the hold",
 		          gfxBuffer()[(FOOT_Y - 4) * GFX_W + BTN_WRITE.x + 2] == C_LIME);
+		checkTrue("and the button is red while held",
+		          gfxBuffer()[(BTN_WRITE.y + BTN_WRITE.h - 5) * GFX_W + BTN_WRITE.x + 4] == C_RED);
 		fakeHold(AM32_WRITE_X, AM32_WRITE_Y); frameAfter(1);
 		for (int i = 0; i < 20; i++) { fakeHold(AM32_WRITE_X, AM32_WRITE_Y); frames(1); }
 		fakeRelease(); frames(3);

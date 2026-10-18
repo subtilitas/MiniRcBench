@@ -224,7 +224,7 @@ static void testListScroll() {
 	          isEv(uiListTouch(&l, move(100, 190)), UiListEv::None) && l.scrollPx == 0);
 	uiListTouch(&l, lift());
 
-	// A finger already down when the list is set up: no press, no gesture.
+	// A finger down before the list is set up: no press, no gesture.
 	uiListInit(&l, VIEW, 26, 12);
 	move(100, 100);
 	s_touch.downX = 100; s_touch.downY = 150;
@@ -365,6 +365,11 @@ static void testListDraw() {
 	uiListDraw(&l, recordRow, &ink);
 	checkTrue("a row whose top is the viewport's end is not drawn",
 	          s_drawCount == 7 && s_drawn[6] == 6);
+	uiListScrollTo(&l, 30);   // row 0 ends at y 51, above the viewport
+	s_drawCount = 0;
+	uiListDraw(&l, recordRow, &ink);
+	checkTrue("a row wholly above the viewport is not drawn: from row 1",
+	          s_drawCount == 7 && s_drawn[0] == 1 && s_drawnY[0] == 52);
 	uiListInit(&l, VIEW, 26, 3);
 	gfxFill(C_RED);
 	s_drawCount = 0;

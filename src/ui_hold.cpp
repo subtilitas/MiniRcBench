@@ -48,6 +48,6 @@ int uiHoldPercent(const UiHold *h, uint32_t nowMs) {
 
 void uiHoldDrawBar(const UiHold *h, const UiRect &r, int y, uint32_t nowMs) {
 	gfxRect(r.x, y, r.w, UI_HOLD_BAR_H, C_BG);
-	if (h->holding)
-		gfxRect(r.x, y, r.w * uiHoldPercent(h, nowMs) / 100, UI_HOLD_BAR_H, C_LIME);
+	// uiHoldPercent() is 0 while the hold does not run: no fill.
+	gfxRect(r.x, y, r.w * uiHoldPercent(h, nowMs) / 100, UI_HOLD_BAR_H, C_LIME);
 }

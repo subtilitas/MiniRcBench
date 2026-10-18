@@ -251,9 +251,9 @@ static void drawConnect() {
 /**
  * @brief Draw list row @p index, a field, with its top edge at @p y.
  *
- * Takes a pixel row rather than a slot index, because with a pixel scroll
- * offset the first and last rows drawn are usually partly outside the viewport.
- * The clip uiListDraw() sets is what keeps them there.
+ * Takes the row's index and its top edge in pixels: with a pixel scroll the
+ * first and last rows drawn are usually partly outside the viewport, and the
+ * clip uiListDraw() sets keeps the overhang there.
  *
  * @param index Row of the list, an index into @ref s_visible.
  * @param y     Top of the row, which may be above LIST_Y0 or below LIST_Y1.
@@ -568,7 +568,8 @@ static void handleListGesture(const TouchState *t) {
 	}
 	if (s_hexView || e.kind == UiListEv::None) return;
 	int field = (int)s_visible[e.row];
-	if (field != s_selected || e.kind == UiListEv::Tap) {
+	// A tap comes on a release frame, which repaints anyway (uiAm32Tick()).
+	if (field != s_selected) {
 		s_selected = field;
 		s_redraw = true;
 	}
