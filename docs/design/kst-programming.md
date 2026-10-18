@@ -273,11 +273,12 @@ One attempt, from `kstSeekStep()`:
 
 One attempt is 2000 ms, plus `KST_SUPPLY_ENTRY_DELAY_MS`, plus the entry's
 116.6 ms to 118.8 ms: about 2.12 s at a delay of 0 ms. The timeout is
-checked in an off phase too: a search that reaches `KST_SEEK_TIMEOUT_MS`,
-30 s, in an off phase ends there as `TimedOut`, without the switch-on, and an
-attempt is counted at its switch-on. The 30 s search then holds 14 power-ups:
-14 attempts end by 29.66 s, the 15th is in its off phase at 30 s, and
-`KstStatus.attempts` reads 14.
+checked outside the entry too: a search that reaches `KST_SEEK_TIMEOUT_MS`,
+30 s, in an off phase or in a positive delay's wait ends there as
+`TimedOut`, with the supply off, and an attempt is counted at its switch-on.
+At a delay of 0 ms the 30 s search then holds 14 power-ups: 14 attempts end
+by 29.66 s, the 15th is in its off phase at 30 s, and `KstStatus.attempts`
+reads 14. Another delay gives another count: 13 at 40 ms.
 
 STOP SEARCH, BACK and the timeout end the search with the supply off. In an
 off phase the supply is not switched on. In an on phase it goes off once
@@ -492,7 +493,7 @@ What remains:
 
 | Step | Strip | Body | Controls |
 |---|---|---|---|
-| Searching, supply switched | `GP29  TRY 3  SUPPLY OFF 1.4 S`, or `SUPPLY ON` | `SWITCHED SUPPLY`, then `THE BENCH SWITCHES THE SERVO OFF FOR 2 S, THEN ON, BEFORE EACH TRY.`, the failsafe line, and in amber `AN ESC ON THIS LEAD GETS THE CONVERTER'S OUTPUT ON ITS BEC WIRE.`; a spinner | STOP SEARCH, BACK |
+| Searching, supply switched | `GP29  TRY 3  SUPPLY OFF 1.4 S`, or `SUPPLY ON`; TRY is the attempt under way, `KstStatus.attempts` + 1 in an off phase | `SWITCHED SUPPLY`, then `THE BENCH SWITCHES THE SERVO OFF FOR 2 S, THEN ON, BEFORE EACH TRY.`, the failsafe line, and in amber `AN ESC ON THIS LEAD GETS THE CONVERTER'S OUTPUT ON ITS BEC WIRE.`; a spinner | STOP SEARCH, BACK |
 | Timed out, supply switched | `NO ANSWER IN 14 POWER-UPS`, the number from `KstStatus.attempts` | `CHECK THE CONVERTER ON GP0, ITS WIRING AND THE SIGNAL. A SERVO ON ITS OWN SUPPLY NEEDS SETTINGS > SERVO SUPPLY AT NONE.` | RETRY, BACK |
 | Stalled, supply switched | `GP29  SUPPLY OFF` | `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF. RETRY POWERS IT UP AND READS IT AGAIN.` Without a card, after a write, in amber, `NO CARD: THE BACKUP IN MEMORY IS LOST.` and nothing more. With a card, for a locked session, in amber, `THE LAST WRITE IS IN DOUBT. AFTER THE READ, LOAD KST005 IN FILES AND HOLD TO WRITE.` | RETRY, BACK |
 | REBOOT | `GP29  SUPPLY OFF 1.4 S`, then `SUPPLY ON 0.6 S` | `REBOOT: DO NOT UNPLUG THE SERVO.`, then `READING 32 REGISTERS` | BACK |
@@ -691,8 +692,9 @@ uint32_t kstSeekMs(const KstSeekState *s, uint32_t nowMs);
 - Without a switched supply the search ends as `TimedOut`, which offers
   RETRY (decision 2), when an attempt ends `KST_SEEK_TIMEOUT_MS`, 30 s, or
   later after the search began: at 30.0 s to 30.12 s, after 258 attempts in
-  the simulation. With one it ends at 30 s in an off phase, after 14
-  power-ups ([search with the switch](#search-with-the-switch)). It ends as
+  the simulation. With one, at a delay of 0 ms, it ends at 30 s in an off
+  phase, after 14 power-ups
+  ([search with the switch](#search-with-the-switch)). It ends as
   `Stopped` at STOP SEARCH or BACK once the attempt has ended aborted.
   `kstSeekStop()` calls `kst_session_abort()`, which finishes a frame on the
   wire before it stops.
