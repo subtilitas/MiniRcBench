@@ -1944,9 +1944,14 @@ static void testClaimCorners() {
 	checkTrue("SERVO: PINS BUSY, and no claim of its own",
 	          s_refusal == ClaimRefusal::Busy && pinClaimHolder() == PinUser::Am32);
 	checkTrue("HOLD TO START is an outline", fillOf(BTN_START) == C_BG);
+	// An AUX refusal from an earlier frame, then a frame whose claim of SIG
+	// and AUX goes through: the refusal is forgotten.
+	s_auxRefusal = ClaimRefusal::KissLive;
 	pinClaimEnd(PinUser::Am32);
 	uiFrames(3);
 	checkTrue("the other claim gone: SERVO claims", s_claimed && pinClaimHolder() == PinUser::Servo);
+	checkTrue("with AUX, and the old AUX refusal cleared",
+	          pinClaimGpio(PIN_AUX) == 28 && s_auxRefusal == ClaimRefusal::None);
 	leaveServo();
 	uiTap(UI_BACK_CX, UI_BACK_CY);
 	uiFrames(1);

@@ -261,6 +261,7 @@ static void applyProfile() {
  */
 static void claimPins() {
 	ClaimRefusal r = pinClaimBegin(PinUser::Servo, PIN_SIG | PIN_AUX);
+	if (r == ClaimRefusal::None) s_auxRefusal = ClaimRefusal::None;
 	if (r == ClaimRefusal::KissLive || r == ClaimRefusal::SamePin) {
 		s_auxRefusal = r;
 		r = pinClaimBegin(PinUser::Servo, PIN_SIG);
