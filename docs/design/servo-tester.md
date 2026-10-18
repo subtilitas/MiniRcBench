@@ -209,7 +209,9 @@ are channels B and A of PWM slice 6, which forces one rate anyway.
 
 Entry: CFG → SETTINGS → SERVO, in the destination row
 ([pin-claim.md](pin-claim.md), decision 2). The main screen is the root
-and gets no entry; CFG is its navigation.
+and gets no entry; CFG is its navigation. [menu.md](menu.md), planned,
+changes the entry in its slice C to MENU → SERVO TESTER, and BACK through
+the unplug page then returns to MENU.
 
 ### SERVO
 
@@ -531,6 +533,12 @@ Decisions of the owner, 2026-10-17: recommendations 1 to 5 are accepted.
 2. **Persist the profile.** Not stored in flash. Every boot starts at
    STANDARD PWM 50 Hz, so a heli profile or a high rate is never applied to
    the next servo by accident, and `SETTINGS_VERSION` stays 2.
+
+   Revision of 2026-10-18, after review round 2 of PR #6: "stays 2" holds
+   for this slice. The profile adds nothing to the settings block, so slice
+   2 leaves `SETTINGS_VERSION` at 2; slice 3 takes it to 3 for its
+   `SERVO SUPPLY` field ([kst-programming.md](kst-programming.md#decisions),
+   decision 8).
 3. **One profile or two.** One shared profile with REVERSE B. SIG and AUX
    share a slice and therefore a rate.
 4. **Sweep pause.** Not in this slice. STOP SWEEP holds the servo where the
@@ -615,3 +623,13 @@ Further choices made in building slice 2:
     pull-down on, so the servo lead does not float between the release and
     DShot's bind. DShot sets the pull-up on SIG at its bind, and the KISS
     receiver sets the pull-up on AUX when KISS is on.
+
+Decision of the owner, 2026-10-18, on the switched servo supply that
+[kst-programming.md](kst-programming.md#switched-servo-supply) designs:
+
+20. **Switched supply.** A change after KST programming uses it here too:
+    SAFE is supply off, HOLD TO START switches it on, and STOP and a
+    heartbeat trip switch it off. Not built. Until that change the servo
+    tester never drives GP0, so with a converter fitted the converter stays
+    off here, and the servo is unpowered unless it has a supply of its own.
+    kst-programming.md records the same as its decision 10.
