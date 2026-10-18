@@ -60,7 +60,7 @@ static bool     s_armed = false;
 /**
  * @brief True when the log in progress was begun by arming, not by the button.
  *
- * Auto-stop must only undo what auto-start did. Entering the settings screen
+ * Auto-stop must only undo what auto-start did. Entering MENU
  * force-disarms -- and the logging screen is reached through it -- so without
  * this, walking back to check on a log you started by hand is what stops it.
  */

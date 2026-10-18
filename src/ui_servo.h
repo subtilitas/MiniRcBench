@@ -4,7 +4,7 @@
  *        page before DShot restarts.
  *
  * Servo PWM (pulse-width modulation) on the ESC pin, and on the KISS pin for
- * two servos. Entry: CFG → SETTINGS → SERVO. The screen claims the pins
+ * two servos. Entry: MENU → SERVO TESTER. The screen claims the pins
  * (pin_claim.h) and hands the servo job (servo_job.h) its profile and its
  * commands; core1 makes the pulses.
  *
@@ -25,7 +25,7 @@ struct TouchState;
 
 /**
  * @brief Whether the screen is built.
- * @return true: the CFG button is live.
+ * @return true: the SERVO TESTER row is live.
  */
 bool uiServoAvailable();
 

@@ -282,7 +282,7 @@ static inline EdtAutoAction edtAutoAction(bool linkUp, bool edtFresh,
  * - The first frames after every bind are the EDT enable (escEdtBind()), so
  *   the first reply already answers an enable.
  * - An ESC that kept EDT on across a board restart, a pump rebuild after a
- *   SETUP change, or an AM32 settings session sends EDT frames from its
+ *   SETTINGS change, or an AM32 settings session sends EDT frames from its
  *   first reply. Read as eRPM, a voltage frame of 66 counts (16.5 V) is a
  *   period of 264 us: a false reading of 227,272 eRPM, 32,467 RPM at
  *   14 poles.
@@ -532,7 +532,7 @@ struct EscSlot {
  *        the first free frame. Pure.
  *
  * Called once per bind, before the first frame. A bind is a new ESC as far
- * as the pump is concerned: after a SETUP change, and after a pin claim. It
+ * as the pump is concerned: after a SETTINGS change, and after a pin claim. It
  * starts disarmed whatever core0 last commanded, so arming again takes the
  * full hold on the tester screen. @see escEdtBind()
  *
@@ -756,7 +756,7 @@ enum class EscHandover : uint8_t {
 /**
  * @brief Decide the pin handover for one pass of escTaskPoll(). Pure.
  *
- * A suspend (the pin claim) and a rebuild (a SETUP change) both end the
+ * A suspend (the pin claim) and a rebuild (a SETTINGS change) both end the
  * binding. Neither takes the pin from an ESC that was given a throttle within
  * the drain: while escDrainDone() is false the pump keeps its slots and sends
  * escDrainSlot() in each. A pump that is not bound has nothing to drain, so a
@@ -910,7 +910,7 @@ void escTaskSuspend();
  * @brief Withdraw the suspend.
  *
  * If core1 has torn the pump down, it rebuilds it from the latched wiring:
- * disarmed, with the EDT enable as its first frames, as after a SETUP
+ * disarmed, with the EDT enable as its first frames, as after a SETTINGS
  * change. A resume during the drain leaves the running pump as it is.
  * @see escTaskConfigure()
  */
@@ -924,7 +924,7 @@ bool escTaskSuspended();
  *
  * Core0 hands the values across rather than core1 reading the settings
  * struct directly: core0 owns that struct and edits it a field at a time while the
- * setup screen is open, so core1 reading it would see half-applied
+ * SETTINGS is open, so core1 reading it would see half-applied
  * combinations — a new pin against an old bitrate, for one frame.
  *
  * Takes effect on the next escTaskPoll(): the driver releases the old pin and
@@ -933,7 +933,7 @@ bool escTaskSuspended();
  * the ESC on the old pin stops hearing frames the moment it is released.
  *
  * Safe to call with unchanged values; it is a no-op if nothing differs, so the
- * setup screen can call it freely rather than tracking what it changed.
+ * SETTINGS can call it freely rather than tracking what it changed.
  *
  * @param dshotPin   GPIO for the ESC signal wire.
  * @param dshotKbaud DShot bitrate.

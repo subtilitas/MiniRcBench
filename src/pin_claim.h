@@ -138,7 +138,7 @@ struct ClaimFacts {
  * The rules, in order:
  *
  * - **Armed.** Refused, and nothing is disarmed on the caller's behalf. Every
- *   entry point is on the SETTINGS screen, which disarms on entry, so through
+ *   entry point is on MENU, which disarms on entry, so through
  *   the UI this never fires; a route added later that reaches a claim while
  *   armed shows up as a refusal in a test, not as a motor stopped by
  *   navigation.
@@ -151,7 +151,7 @@ struct ClaimFacts {
  *   on the pin.
  * - **KissLive**, AUX asked for. An ESC telemetry output drives AUX, and servo
  *   PWM would drive against it.
- * - **SamePin**, AUX asked for. With KISS off, SETUP can put the ESC pin on
+ * - **SamePin**, AUX asked for. With KISS off, SETTINGS can put the ESC pin on
  *   the KISS pin's GPIO, and two servos on one pin are one compare register
  *   driven twice.
  *

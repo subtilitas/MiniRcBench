@@ -24,7 +24,7 @@
  *   the 18 px BACK strips this replaces were below it.
  * - **A control that is drawn unavailable does not act.** Pass `enabled=false`
  *   to uiButton() and gate its hit test on the same expression. Before this
- *   there were three answers on three screens: SETUP's KISS PIN steppers looked
+ *   there were three answers on three screens: SETTINGS' KISS PIN steppers looked
  *   live and silently moved a pin that was not in use, the logging screen's
  *   START looked dead and started a log anyway, and AM32's REVERT looked dead
  *   and ran. A greyed control that still fires is worse than either, because
@@ -78,7 +78,7 @@ struct TouchState;
  * @brief Top of the optional strip under the header.
  *
  * Where a screen puts the one or two things that qualify what the title says —
- * AM32's device name, SETTINGS' EDT chip and unsaved marker. Below the header
+ * AM32's device name, MENU's pin and rate caption and EDT chip. Below the header
  * rather than inside it, because the header is full: a title at scale 2 and a
  * BACK button leave no room for a second line that is not cramped.
  */

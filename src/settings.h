@@ -112,7 +112,7 @@ bool settingsPinFree(uint8_t pin);
 /**
  * @brief The next free GPIO after @p from, wrapping.
  *
- * Drives the `-`/`+` buttons on the setup screen. Stepping through only legal
+ * Drives the `-`/`+` buttons on SETTINGS. Stepping through only legal
  * values is what removes the error state entirely: there is no invalid pin to
  * reject, because one cannot be selected.
  *
@@ -174,7 +174,7 @@ Settings *settings();
  * Validates first, so a save can only ever store something loadable.
  *
  * @warning Erasing flash parks core1 and stalls the DShot pump for tens of
- *          milliseconds. Callers must be disarmed. The setup screen enforces
+ *          milliseconds. Callers must be disarmed. SETTINGS enforces
  *          that; this function cannot, because it has no way to ask.
  *
  * Refused, with nothing written, while a pin claim holds (pin_claim.h): a

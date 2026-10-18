@@ -362,6 +362,7 @@ static bool rowEnabled(const SettingsRow &r) { return !r.enabled || r.enabled();
 
 /**
  * @brief The row whose live control holds the point (@p x, @p y).
+ * @param x,y      The point.
  * @param[out] row The row's item index.
  * @return true when a control that shows enough of itself holds the point.
  */

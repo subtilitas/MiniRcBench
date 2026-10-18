@@ -666,7 +666,7 @@ static void setNote(const char **l1, const char **l2, uint16_t *col) {
 			snprintf(a, sizeof(a), "KISS WIRE ON GP%u IS LIVE.", gpioOf(PIN_AUX));
 			*l1 = a; *l2 = "TWO SERVOS NEED IT UNPLUGGED.";
 		} else {
-			*l1 = "ESC AND KISS PIN ARE THE SAME GPIO."; *l2 = "MOVE THE ESC PIN IN SETUP.";
+			*l1 = "ESC AND KISS PIN ARE THE SAME GPIO."; *l2 = "MOVE THE ESC PIN IN SETTINGS.";
 		}
 		return;
 	}

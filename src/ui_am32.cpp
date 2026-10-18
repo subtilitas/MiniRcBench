@@ -123,7 +123,7 @@ static int      s_attempt = 0;     /**< Init strings sent since entering. */
 /**
  * @brief Held-button repeat state for the editor bar.
  *
- * The rule itself lives in ui_input.h now, shared with the settings screen,
+ * The rule itself lives in ui_input.h now, shared with SETTINGS,
  * which had no repeat at all until it was factored out -- getting the throttle
  * ceiling from 20 % to 100 % was eight separate taps.
  */
@@ -203,9 +203,9 @@ static void drawHeader() {
 	uiHeader("AM32 CONFIG", s_frameTouch);
 
 	// The device name qualifies the title rather than being part of it, so it
-	// goes on the shared strip -- the same row SETTINGS puts its EDT chip on.
+	// goes on the shared strip -- the same row MENU puts its EDT chip on.
 	// It used to be a second line inside a 50 px header this screen had to
-	// itself, which is why BACK ended up 8 px lower here than on SETUP.
+	// itself, which is why BACK ended up 8 px lower here than on SETTINGS.
 	uiStripClear();
 	char name[AM32_NAME_LEN + 1];
 	if (s_state == S_LIST || s_state == S_WRITING) {
@@ -374,7 +374,7 @@ static void drawWriting() {
  * @brief Ask for the signal pin. On a refusal the reason goes on the screen
  *        and S_HANDOVER asks again next frame.
  *
- * Neither refusal is reachable through the UI: SETTINGS disarms on entry, and
+ * Neither refusal is reachable through the UI: MENU disarms on entry, and
  * no other screen that claims is open while this one is. AM32 is exempt from
  * the ESC-answering rule, since it needs the ESC on the pin.
  */
@@ -637,7 +637,7 @@ bool uiAm32Tick(const TouchState *t) {
 			if (s_claimed && pinClaimPoll() == ClaimState::Held) {
 				// The pin the claim latched from the pump, not the compiled
 				// default: the two part company the moment the user changes it
-				// on SETUP.
+				// on SETTINGS.
 				am32BlBegin(pinClaimGpio(PIN_SIG));
 				s_state = S_CONNECT;
 				snprintf(s_status, sizeof(s_status), "SEARCHING...");

@@ -153,7 +153,7 @@ static_assert(THR_EDGE_SAT * 2 < THR_TRACK_W / 2,
 
 // The main screen is the root, so it has no header and no BACK: there is
 // nowhere to go back to, and a disabled or missing control in the place the
-// habit says to look is worse than the habit not applying here. CFG is its
+// habit says to look is worse than the habit not applying here. MENU is its
 // navigation, and it sits with the other two actions.
 #define BTN_ROW_Y     283   /**< Top of the three main-screen buttons. */
 #define BTN_ROW_H      33   /**< ...and their height. */
@@ -179,15 +179,15 @@ static bool     s_hold = false;
 enum class Level : uint8_t {
 	Tester,  /**< The tester, the root. */
 	Menu,    /**< MENU. */
-	Tool,    /**< A tool opened from MENU: @ref s_tool. */
+	Tool,    /**< A tool opened from MENU: `s_tool`. */
 };
 static Level           s_level = Level::Tester;
 static const UiScreen *s_tool = nullptr;  /**< The open tool at Level::Tool. */
 static uint16_t s_throttle = 0;
 
 // Pole count and throttle ceiling live in the persisted settings rather than in
-// file statics here, so the -/+ buttons on the settings screen and the SAVE on
-// the setup screen act on one value. These two read through to it.
+// file statics here, so the -/+ buttons and the HOLD TO SAVE on SETTINGS act
+// on one value. These two read through to it.
 #define s_maxThrottle (settings()->maxThrottle)
 #define s_poles       (settings()->poles)
 
@@ -284,7 +284,7 @@ static struct {
 static void invalidateAll() { memset(&s_shown, 0xFF, sizeof(s_shown)); }
 
 // drawBtn(), hit(), pressing() and tapped() used to live here, and near-copies
-// of all four lived in ui_setup.cpp and ui_am32.cpp. They are uiButton(),
+// of all four lived in ui_settings.cpp and ui_am32.cpp. They are uiButton(),
 // uiPressing() and uiTapped() now. @see ui_widgets.h
 //
 // These two adapt the shared helpers to this file's habit of passing the
@@ -396,8 +396,8 @@ static void drawStatusBar() {
 	}
 #endif
 
-	// The bitrate the pump is running at, not the compiled default: SETUP
-	// changes it, and the label is the one place that rate shows outside SETUP.
+	// The bitrate the pump is running at, not the compiled default: SETTINGS
+	// changes it, and the label follows.
 	int kbaud = (int)escTaskDshotKbaud();
 	int pumpErr = s_tel.initError ? 1 : 0;
 
@@ -657,7 +657,7 @@ static void drawThrottle() {
 	}
 }
 
-/** @brief ARM/DISARM, HOLD and CFG buttons. */
+/** @brief ARM/DISARM, HOLD and MENU buttons. */
 static void drawButtons() {
 	// The pressed state is part of the key, or a button would light up under a
 	// finger and stay lit until something else happened to invalidate the row.
@@ -935,7 +935,7 @@ void uiInit() {
 	// Which screen is showing is UI state too, and this function claims to reset
 	// UI state. It did not, which on hardware is invisible -- it runs once, at
 	// boot, from a cold start -- and in the test suite meant a case that left
-	// the settings overlay up handed it to whatever ran next, where taps landed
+	// MENU up handed it to whatever ran next, where taps landed
 	// on a screen the test did not think it was looking at.
 	s_level = Level::Tester;
 	s_tool = nullptr;

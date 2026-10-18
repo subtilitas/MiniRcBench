@@ -33,8 +33,7 @@
 
 static const UiRect BTN_LOG_TOGGLE = { 14, LOG_TOGGLE_Y, 212, LOG_TOGGLE_H };
 // The bottom row splits rather than the screen growing: 2 x 104 with a 4 px gap
-// is the 212 px between the margins, the same arithmetic the settings nav row
-// uses. Both halves clear UI_TAP_MIN, which is the point of splitting rather
+// is the 212 px between the margins. Both halves clear UI_TAP_MIN, which is the point of splitting rather
 // than stacking.
 #define LOG_BTN_W    104
 #define LOG_BTN_GAP    4

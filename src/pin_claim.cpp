@@ -102,7 +102,7 @@ ClaimState pinClaimPoll() {
 	switch (s_state) {
 		case ClaimState::Stopping:
 			if (escTaskSuspended()) {
-				// Read once, here: SETUP is unreachable during a claim, so
+				// Read once, here: SETTINGS is unreachable during a claim, so
 				// these cannot change before it ends.
 				s_sig = escTaskDshotPin();
 				s_aux = escTaskKissPin();

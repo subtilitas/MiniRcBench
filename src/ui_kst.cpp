@@ -2,8 +2,8 @@
  * @file ui_kst.cpp
  * @brief KST and Chaservo programming screen, not built yet. @see ui_kst.h
  *
- * A stub. The CFG entry is drawn disabled while uiKstAvailable() is false,
- * so nothing calls the other two.
+ * A stub. MENU has no KST row while uiKstAvailable() is false, so nothing
+ * calls the other two.
  */
 
 #include "ui_kst.h"
