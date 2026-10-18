@@ -5,7 +5,10 @@
  *
  * kst_files.cpp and rcbench's kst_store.c and kst_file.c run as they ship.
  * The card's mount state comes from the fake logger and the fake card
- * reader in fakes.cpp. After every call the volume holds no open file.
+ * reader in fakes.cpp. After every call the volume holds no open file, except
+ * after a close that failed, which FatFs keeps open. The fake's errors are
+ * one-time: a write error that persists, and FatFs's window that keeps the
+ * sector it could not write, are not modelled (kst_files.h).
  */
 
 #include "check.h"
@@ -188,6 +191,16 @@ static void testFirstWrite() {
 	checkTrue("the backup is still saved, so the write runs",
 	          w.backup == KST_STORE_OK && kstFilesWriteAllowed(&w));
 	checkInt("the verified write removes nothing", kstFilesRecordRemove(&w), KST_STORE_OK);
+	fakeFatFail(FakeFatCall::Rename, FR_DENIED);
+	kstFilesFirstWrite(&before, &before, &w);
+	checkTrue("no room for the rename: card full, the old record stays",
+	          w.kept == KST_STORE_CARD_FULL && w.record == KST_STORE_CARD_FULL &&
+	          fakeFatExists("KST/KST.TXT"));
+	fakeFatWriteProtect(true);
+	kstFilesFirstWrite(&before, &before, &w);
+	checkTrue("a write-protected volume refuses the rename",
+	          w.kept == KST_STORE_DENIED && w.backup == KST_STORE_DENIED);
+	fakeFatWriteProtect(false);
 	checkTrue("the old record is still there",
 	          imageOf("KST/KST.TXT", &got) && memcmp(got.r, b.r, KST_REG_COUNT) == 0);
 
@@ -263,7 +276,8 @@ static void testRefusals() {
 		fakeFatFail(FAILS[i], FR_DISK_ERR);
 		kstFilesFirstWrite(&b, &b, &w);
 		char msg[96];
-		snprintf(msg, sizeof(msg), "a %s error: a write error, the file removed", FAIL_NAMES[i]);
+		snprintf(msg, sizeof(msg), "a one-time %s error: a write error, the file removed",
+		         FAIL_NAMES[i]);
 		checkTrue(msg, w.backup == KST_STORE_WRITE_ERROR && !fakeFatExists("KST/KST001.TXT") &&
 		               fakeFatOpenFiles() == 0);
 	}
@@ -275,6 +289,11 @@ static void testRefusals() {
 	          w.backup == KST_STORE_WRITE_ERROR && fakeFatExists("KST/KST001.TXT") &&
 	          fakeFatOpenFiles() == 1);
 	checkTrue("the record after it is written", w.record == KST_STORE_OK);
+	char lbuf[KST_FILE_MAX];
+	size_t llen = 0;
+	checkInt("the locked file does not load",
+	         kst_store_load(kstFilesIo(), "KST001.TXT", lbuf, sizeof(lbuf), &llen),
+	         KST_STORE_READ_ERROR);
 
 	// A create that fails takes back the directory it made.
 	card();

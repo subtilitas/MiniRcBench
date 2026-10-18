@@ -11,12 +11,13 @@
  * - a full directory, FR_DENIED on a create; a directory or a read-only file
  *   in the way, FR_DENIED;
  * - the lock of `FF_FS_LOCK`: an open file, kept open by an f_close() that
- *   fails, refuses a remove, a rename and a second write open with FR_LOCKED;
+ *   fails, refuses a remove, a rename and a write open with FR_LOCKED, and a
+ *   file open for writing refuses a read open too;
  * - a volume FatFs reports write-protected, FR_WRITE_PROTECTED, which this
  *   board's card driver never makes FatFs report;
- * - any call failing with a given FRESULT.
- * It does not model clusters, the FAT, the lock table's 16-entry limit or a
- * removed card.
+ * - any call failing once with a given FRESULT.
+ * It does not model clusters, the FAT, FatFs's sector window, a write error
+ * that persists, the lock table's 16-entry limit or a removed card.
  */
 
 #pragma once

@@ -5,6 +5,7 @@
 // kst_files.cpp is linked into the suite against fake_fatfs.cpp, an in-memory
 // volume; what FatFs itself does on a card is exercised on hardware.
 #pragma once
+#include <stdbool.h>
 #include <stdint.h>
 
 typedef unsigned int UINT;
@@ -29,7 +30,7 @@ typedef enum {
 #define AM_DIR 0x10
 
 typedef struct { int dummy; } FATFS;
-typedef struct { int handle; FSIZE_t pos; } FIL;
+typedef struct { int handle; FSIZE_t pos; bool writing; } FIL;
 typedef struct { int handle; UINT next; } DIR;
 typedef struct {
 	FSIZE_t fsize;

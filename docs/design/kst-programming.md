@@ -458,38 +458,44 @@ not there, and once more to find room for a new entry. The first write makes
 walk for a name that exists, and a lookup and a room search for each of the
 two files. With an old record to keep it makes 11: the lookup finds it, the
 rename looks up both names and finds room, and the next free name is walked
-for again. Each file under 1024 bytes adds about 6 single-block writes (its
-directory entry, two data blocks, the two copies of the FAT (File Allocation
-Table), and FSINFO, the FAT32 free-space sector) and 1 read of a FAT sector;
-the rename adds about 2 writes. Without an old record that is 443 block reads
-and 12 block writes, with one 695 reads and 14 writes. Each path also looks
-up `KST` in the root directory, which holds the blackbox logs; how many
-sectors that adds depends on the logs on the card and is not counted here.
+for again. Each file under 1024 bytes adds 7 single-block writes and 2
+reads: its directory sector is written when the FAT sector is read in and
+again at the sync, which reads it back, then the two data blocks, the two
+copies of the FAT, and FSINFO, the FAT32 free-space sector. The rename adds
+1 write when the old and the new entry share a sector, else 2 writes and 1
+read. Without an old record that is 445 block reads and 14 block writes,
+with one up to 698 reads and 16 writes. These counts are from FatFs R0.15
+run on a host against a FAT32 image with 997 KSTnnn.TXT files, with a disk
+layer that counts its calls. Each path also reads the root directory's
+sector that holds `KST`, 5 reads without an old record and 7 with one when
+the root fits in one sector; a root with many blackbox logs adds more, a
+number not counted here.
 
-| Case | One read | One write | 443 reads and 12 writes | 695 reads and 14 writes |
+| Case | One read | One write | 445 reads and 14 writes | 698 reads and 16 writes |
 |---|---|---|---|---|
-| A typical card, busy and access of a few ms | under 10 ms | under 10 ms | under 4.6 s | under 7.1 s |
-| SDHC within the specification: 100 ms access, 250 ms busy | 5 ms command + 100 ms = 105 ms | 5 ms command + 1.2 ms transfer + 250 ms busy + 5 ms status = 261 ms | 46.5 s + 3.1 s = 49.6 s | 73.0 s + 3.7 s = 76.6 s |
-| SDXC within the specification: 500 ms busy | 105 ms | 511 ms | 46.5 s + 6.1 s = 52.6 s | 73.0 s + 7.2 s = 80.1 s |
-| The driver's limits: 250 ms per read block, 1000 ms busy, 3 tries each, every try failing its CRC (cyclic redundancy check) | 3 × 255 ms = 0.77 s | 3 × 1011 ms = 3.03 s | 339 s + 36 s = 375 s | 532 s + 42 s = 574 s |
+| A typical card, busy and access of a few ms | under 10 ms | under 10 ms | under 4.6 s | under 7.2 s |
+| SDHC within the specification: 100 ms access, 250 ms busy | 5 ms command + 100 ms = 105 ms | 5 ms command + 1.2 ms transfer + 250 ms busy + 5 ms status = 261 ms | 46.7 s + 3.7 s = 50.4 s | 73.3 s + 4.2 s = 77.5 s |
+| SDXC within the specification: 500 ms busy | 105 ms | 511 ms | 46.7 s + 7.2 s = 53.9 s | 73.3 s + 8.2 s = 81.5 s |
+| The driver's limits: 250 ms per read block, 1000 ms busy, 3 tries each, every try failing its CRC (cyclic redundancy check) | 3 × 255 ms = 0.77 s | 3 × 1011 ms = 3.03 s | 340 s + 42 s = 383 s | 534 s + 49 s = 583 s |
 
 A timeout ends the card's part sooner: `sdh_err_is_fatal()` marks the card not
 ready, and every later call fails at once. The other phases are smaller: the
 FILES listing is one pass, 63 reads, 6.6 s within the specification; SAVE AS
-is 3 passes and one file, 4 with the proposed name's walk, up to 29.6 s on
-SDXC; RETRY MOUNT is the card's initialisation, up to 1.1 s of polling with
-ACMD41, the SD command that waits for the card to be ready, and a few reads.
+is 3 passes and one file, 4 with the proposed name's walk, up to 254 reads and
+7 writes, 30.2 s on SDXC; RETRY MOUNT is the card's initialisation, up to 1.1
+s of polling with ACMD41, the SD command that waits for the card to be ready,
+and a few reads.
 
 The cap, 15 s, covers every phase of a card whose reads and writes take under
 10 ms, up to the store's 999 files, and bounds how long a core0 stuck in the
 driver's loops keeps the servo powered in programming mode, with no frame on
 the wire. It does not cover a card that takes the specification's full access
 and busy times with a full directory: the first write's card calls then take
-49.6 s to 80.1 s. Whether to raise the cap, bound the directory below 999
-files or make fewer passes is open for step 5. A card past the cap: the supply
-goes off, the session is power-cycled as for any lapse, and the card call goes
-on to its end on core0; a write that waited for it then finds the session out
-of the mode and does not run.
+50.4 s to 81.5 s, and SAVE AS up to 30.2 s. Whether to raise the cap, bound
+the directory below 999 files or make fewer passes is open for step 5. A card
+past the cap: the supply goes off, the session is power-cycled as for any
+lapse, and the card call goes on to its end on core0; a write that waited for
+it then finds the session out of the mode and does not run.
 
 What remains:
 
@@ -1113,10 +1119,20 @@ FatFs results map to the store's:
   write-protected card fails as `FR_DISK_ERR`, a write error.
 - Any other error is a write or read error.
 
-A create that fails removes the file it made, and the `KST` directory when
-it made that too. A create whose close fails is the exception: FatFs keeps
-the file open, refuses to remove it (`FR_LOCKED`), and holds one of its 16
-lock entries (`FF_FS_LOCK`) until the card is mounted again.
+A create that fails once removes the file it made, and the `KST` directory
+when it made that too. Current limitations, found by running FatFs R0.15 on
+a host:
+
+- A write error that persists, as a write-protected or failing card gives:
+  FatFs keeps the sector it could not write in its window, the remove fails
+  with `FR_DISK_ERR`, and every later call that moves the window fails the
+  same way until the card is mounted again (RETRY MOUNT): the list, LOAD and
+  the record lookup among them. The new file's 0-byte entry stays in that
+  sector and reaches the card if writes work again before a remount.
+- A create whose close fails with a clean window, a data sector that does
+  not take its write: FatFs keeps the file open, refuses to remove it or to
+  open it for reading (`FR_LOCKED`), and holds one of its 16 lock entries
+  (`FF_FS_LOCK`) until the card is mounted again.
 
 | Situation | Effect |
 |---|---|
@@ -1216,9 +1232,9 @@ so these run against the same simulated servo:
   volume (`test/fake_fatfs.cpp`): the mount rule, no card and a card held by
   USB with no FatFs call, the first write's backup and record, an old record
   kept and never removed when it stays, card full, a write-protected card
-  as this board reports it (a disk error) and as FatFs can (`FR_DENIED` and
-  `FR_WRITE_PROTECTED`), a full directory, a file or a directory in a file's
-  way, write and sync errors with no file or new directory left behind, a
+  as this board reports it (a disk error) and as `FR_WRITE_PROTECTED`, a full
+  directory, a file or a directory in a file's way, a read-only record, a
+  one-time write or sync error with no file or new directory left behind, a
   close error that leaves its file locked, one of the two files taken, the record found and loaded at entry, the store's save, list
   and load over FatFs. With the screen, step 4: the record written before
   the first write frame and removed after a verify. With `GP0`, step 5: a

@@ -27,9 +27,16 @@
  * - A write-protected card reports `KST_STORE_WRITE_ERROR`, not
  *   `KST_STORE_DENIED`: FatFs returns FR_WRITE_PROTECTED only when the disk
  *   layer sets STA_PROTECT, which this board's card driver never does.
- * - A create whose close fails leaves its file on the card, open in FatFs,
- *   which refuses to remove it (FR_LOCKED). It holds one of FatFs's 16 lock
- *   entries (`FF_FS_LOCK`) until the card is mounted again.
+ * - A write error that persists, as a card that refuses writes gives:
+ *   FatFs keeps the sector it could not write in its window, the create's
+ *   remove fails with FR_DISK_ERR, and every later call that moves the window
+ *   fails with FR_DISK_ERR until the card is mounted again, the list, LOAD
+ *   and the record lookup among them. The new file's 0-byte entry stays in
+ *   that sector and reaches the card if writes work again before a remount.
+ * - A create whose close fails with a clean window, a data sector that does
+ *   not take its write, leaves its file on the card, open in FatFs, which
+ *   refuses to remove it (FR_LOCKED) or to read it. It holds one of FatFs's
+ *   16 lock entries (`FF_FS_LOCK`) until the card is mounted again.
  *
  * @see docs/design/kst-programming.md, "Storage".
  */
@@ -101,7 +108,8 @@ bool kstFilesRecordPresent();
  * @brief Read `KST/KST.TXT` into @p buf, as kst_store_load() reads a file.
  * @param[out] buf The file's bytes.
  * @param cap      Room in @p buf.
- * @param[out] len The number of bytes; no terminator is written.
+ * @param[out] len The number of bytes, 0 unless `KST_STORE_OK`; untouched for
+ *                 `KST_STORE_ARG`. No terminator is written.
  * @return `KST_STORE_OK`, `KST_STORE_ARG` for a NULL @p buf or @p len,
  *         `KST_STORE_NO_CARD`, `KST_STORE_NOT_FOUND`,
  *         `KST_STORE_TOO_LARGE` or `KST_STORE_READ_ERROR`.

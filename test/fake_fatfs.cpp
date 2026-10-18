@@ -20,6 +20,7 @@ struct Entry {
 	bool        used;
 	bool        readOnly;
 	int         opens;   /**< Open file objects: FF_FS_LOCK's share count. */
+	int         writers; /**< Of those, opened for writing. */
 };
 
 struct Failure {
@@ -84,7 +85,7 @@ unsigned childrenOf(const std::string &dir) {
 }
 
 int add(const char *path, bool dir) {
-	g_entries.push_back(Entry{ path, dir, std::string(), true, false, 0 });
+	g_entries.push_back(Entry{ path, dir, std::string(), true, false, 0, 0 });
 	return (int)g_entries.size() - 1;
 }
 
@@ -150,12 +151,16 @@ unsigned fakeFatCalls(FakeFatCall call) { return g_calls[(unsigned)call]; }
 FRESULT f_open(FIL *fp, const char *path, uint8_t mode) {
 	FRESULT fr = enter(FakeFatCall::Open);
 	if (fr != FR_OK) return fr;
+	// In f_open()'s order: the volume, the path, the lock (chk_share(): a
+	// write open needs no other open, a read open no writer), then what is
+	// in the way.
+	if ((mode & FA_WRITE) && g_protected) return FR_WRITE_PROTECTED;
 	if ((fr = parentOk(path)) != FR_OK) return fr;
 	int i = find(path);
 	bool create = mode & (FA_CREATE_NEW | FA_CREATE_ALWAYS | FA_OPEN_ALWAYS);
-	// In f_open()'s order: the volume, the lock, then what is in the way.
-	if ((mode & FA_WRITE) && g_protected) return FR_WRITE_PROTECTED;
-	if (i >= 0 && (mode & ~FA_READ) && g_entries[(size_t)i].opens) return FR_LOCKED;
+	bool writing = mode & ~FA_READ;
+	if (i >= 0 && (writing ? g_entries[(size_t)i].opens : g_entries[(size_t)i].writers))
+		return FR_LOCKED;
 	if (i >= 0 && create) {
 		const Entry &e = g_entries[(size_t)i];
 		if (e.dir || e.readOnly) return FR_DENIED;
@@ -172,18 +177,21 @@ FRESULT f_open(FIL *fp, const char *path, uint8_t mode) {
 	}
 	fp->handle = i;
 	fp->pos = 0;
+	fp->writing = writing;
 	g_entries[(size_t)i].opens++;
+	g_entries[(size_t)i].writers += writing;
 	g_open++;
 	return FR_OK;
 }
 
-// As FatFs: f_close() syncs first, and only a close that succeeds frees the
-// file object and its lock entry.
+// As FatFs: only a close that succeeds frees the file object and its lock
+// entry. A failure injected here stands for the sync inside f_close().
 FRESULT f_close(FIL *fp) {
 	if (fp->handle < 0) return FR_INVALID_OBJECT;
 	FRESULT fr = enter(FakeFatCall::Close);
 	if (fr != FR_OK) return fr;
 	g_entries[(size_t)fp->handle].opens--;
+	g_entries[(size_t)fp->handle].writers -= fp->writing;
 	fp->handle = -1;
 	g_open--;
 	return FR_OK;
@@ -294,11 +302,16 @@ FRESULT f_rename(const char *pathOld, const char *pathNew) {
 	FRESULT fr = enter(FakeFatCall::Rename);
 	if (fr != FR_OK) return fr;
 	if (g_protected) return FR_WRITE_PROTECTED;
+	if ((fr = parentOk(pathOld)) != FR_OK) return fr;
 	int i = find(pathOld);
 	if (i < 0) return FR_NO_FILE;
 	if (g_entries[(size_t)i].opens) return FR_LOCKED;
 	if (find(pathNew) >= 0) return FR_EXIST;
 	if ((fr = parentOk(pathNew)) != FR_OK) return fr;
+	// A rename into another directory needs a new entry there.
+	std::string to = parentOf(pathNew);
+	if (strcasecmp(to.c_str(), parentOf(pathOld).c_str()) != 0 && childrenOf(to) >= g_dirLimit)
+		return FR_DENIED;
 	g_entries[(size_t)i].path = pathNew;
 	return FR_OK;
 }
