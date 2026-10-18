@@ -1596,10 +1596,41 @@ static void testHorn() {
 	checkTrue("stalled again", s_st.tripped);
 	leaveServo();
 	uiTap(UI_SERVO_X, UI_NAV_Y);
+	uiFrames(1);
+	checkTrue("opened again, first frame: the job not yet bound",
+	          pinClaimState() != ClaimState::Running);
+	checkTrue("and the chip is not STALLED", !s_st.tripped &&
+	          pixel(GFX_W - UI_MARGIN - 4, UI_STRIP_Y + 3) != C_MAGENTA);
 	uiFrames(3);
 	checkTrue("opened again: SAFE, the old trip forgotten",
 	          pinClaimState() == ClaimState::Running && !s_st.tripped &&
 	          pixel(GFX_W - UI_MARGIN - 4, UI_STRIP_Y + 3) == C_GREEN);
+
+	// Stalled, left, and opened while an ESC answers: refused, and the chip
+	// does not carry the old session's trip beside the reason.
+	holdStart();
+	fakeAdvance(300);
+	core1();
+	uiFrames(1);
+	checkTrue("stalled a third time", s_st.tripped);
+	leaveServo();
+	EscTelemetry t;
+	memset(&t, 0, sizeof(t));
+	t.lastRpmMs = millis();
+	fakeSetTelemetry(&t);
+	uiTap(UI_SERVO_X, UI_NAV_Y);
+	uiFrames(1);
+	checkTrue("refused while an ESC answers, first frame: not STALLED",
+	          s_refusal == ClaimRefusal::EscAnswering && !s_st.tripped &&
+	          pixel(GFX_W - UI_MARGIN - 4, UI_STRIP_Y + 3) != C_MAGENTA);
+	uiFrames(4);
+	checkTrue("nor later in the refused visit", !s_claimed && !s_st.tripped &&
+	          pixel(GFX_W - UI_MARGIN - 4, UI_STRIP_Y + 3) != C_MAGENTA);
+	noEsc();
+	frameAt(1);
+	uiFrames(3);
+	checkTrue("the ESC gone: claimed, SAFE, not STALLED",
+	          pinClaimState() == ClaimState::Running && !s_st.tripped);
 	leaveServo();
 }
 

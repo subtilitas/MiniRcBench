@@ -171,8 +171,9 @@ bool servoJobProfile(const ServoProfile *p);
 /**
  * @brief Start a new screen session. Core0, when the screen opens.
  *
- * The next bind forgets a trip latched in an earlier session. A bind after
- * BACK on the unplug page, and a profile rebind, keep it until START.
+ * The published status forgets a trip latched in an earlier session at
+ * once, and the next bind forgets it in core1's state. A bind after BACK on
+ * the unplug page, and a profile rebind, keep it until START.
  */
 void servoJobNewSession();
 

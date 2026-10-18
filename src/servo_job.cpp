@@ -300,8 +300,11 @@ const Core1JobOps SERVO_JOB_OPS = {
 // ---------------------------------------------------------------------------
 
 void servoJobNewSession() {
+	// The job is idle when a screen opens, so nothing publishes over the
+	// cleared latch before the next bind, which forgets the trip as well.
 	critical_section_enter_blocking(&s_cs);
 	s_fresh = true;
+	s_status.tripped = false;
 	critical_section_exit(&s_cs);
 }
 
