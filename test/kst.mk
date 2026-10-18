@@ -1,12 +1,35 @@
 # The KST programmer's part of the host suite, included by test/Makefile.
 #
 # One list per feature, so the KST programmer and the servo tester (servo.mk)
-# add their sources without editing a file the other edits. Slice 3 of
-# docs/design/pin-claim.md replaces the stub entries here.
+# add their sources without editing a file the other edits.
 #
-#   KST_SRCS         sources linked into the suite
-#   KST_TESTS        the test files; test_kst.cpp holds runKstTests()
-#   KST_DEVICE_SRCS  sources the suite cannot link, typechecked by `syntax`
-KST_SRCS        := ../src/ui_kst.cpp
-KST_TESTS       := test_kst.cpp
-KST_DEVICE_SRCS :=
+#   KST_SRCS            C++ sources linked into the suite
+#   KST_CSRCS           C sources linked into the suite: rcbench's KST core
+#                       and its file store, copied into lib/rcbench/
+#   KST_INCLUDES        their include directories
+#   KST_TESTS           the test files; test_kst.cpp holds runKstTests()
+#   KST_CTESTS          rcbench's own tests of the C sources, each a program
+#                       of its own, built as C11 and run by `make run`
+#   KST_CTEST_DEFINES   the paths test_kst_pio reads: the line's PIO source
+#                       and the words pioasm assembles it to
+#   KST_DEVICE_SRCS     sources the suite cannot link, typechecked by `syntax`
+#
+# The line driver, lib/rcbench/protocols/kst/rp2350/kst_line.c, drives PIO
+# and DMA and is built by the firmware only (src/kst.cmake).
+KST_DIR           := ../lib/rcbench/protocols/kst
+KST_SRCS          := ../src/ui_kst.cpp
+KST_CSRCS         := $(KST_DIR)/kst_wire.c $(KST_DIR)/kst_reg.c \
+                     $(KST_DIR)/kst_limits.c $(KST_DIR)/kst_plan.c \
+                     $(KST_DIR)/kst_session.c $(KST_DIR)/kst_pio.c \
+                     $(KST_DIR)/kst_file.c \
+                     ../lib/rcbench/shared/logfile/kst_store.c
+KST_INCLUDES      := -I$(KST_DIR)/include \
+                     -I../lib/rcbench/shared/logfile/include
+KST_TESTS         := test_kst.cpp
+KST_CTESTS        := rcbench/test_kst_wire.c rcbench/test_kst_reg.c \
+                     rcbench/test_kst_plan.c rcbench/test_kst_session.c \
+                     rcbench/test_kst_pio.c rcbench/test_kst_file.c \
+                     rcbench/test_kst_store.c
+KST_CTEST_DEFINES := -DKST_LINE_PIO=\"$(CURDIR)/$(KST_DIR)/rp2350/kst_line.pio\" \
+                     -DKST_LINE_WORDS=\"$(CURDIR)/rcbench/fixtures/kst_line_words.txt\"
+KST_DEVICE_SRCS   :=

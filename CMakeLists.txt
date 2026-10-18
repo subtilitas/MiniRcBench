@@ -341,6 +341,10 @@ target_compile_options(MiniRcBench PRIVATE
 #
 # Not the default, because a toolchain bump turning a new warning on should be
 # something you read, not something that breaks everyone's build.
+#
+# It covers the rcbench files in lib/rcbench/ as well. They are copied
+# unchanged, so a warning a new toolchain finds in them is fixed in rcbench and
+# the files copied again, not edited here.
 option(STRICT "Treat warnings as errors in this project's own sources" OFF)
 if(STRICT)
     target_compile_options(MiniRcBench PRIVATE -Werror)

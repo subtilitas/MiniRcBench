@@ -27,9 +27,11 @@ for servos. The servo tester (slice 2 of
 [pin-claim.md](docs/design/pin-claim.md),
 [servo-tester.md](docs/design/servo-tester.md)) drives one servo on the ESC
 pin, or two on the ESC and KISS pins, with PWM (pulse-width modulation)
-pulses. KST and Chaservo servo programming, on the same pins, is planned
-(slice 3), with an optional bench-switched servo supply on GP0. Until then
-KST has no row on MENU, and its screen is a stub. Before slice 3 comes a menu restructure
+pulses. KST and Chaservo servo programming, on the same pins, is slice 3,
+with an optional bench-switched servo supply on GP0. Its step 1 is built:
+rcbench's KST core, line driver and file store are copied into `lib/rcbench/`,
+with rcbench's tests of them, 298 cases. The rest is planned: KST has no row
+on MENU, and its screen is a stub. Before slice 3 comes a menu restructure
 ([menu.md](docs/design/menu.md), slices A to C). Slice A is built: one
 scrolling list, `src/ui_list.*`, under the AM32 and SERVO SET lists, and one
 hold, `src/ui_hold.*`, under HOLD TO WRITE, HOLD TO START, HOLD TO APPLY and
@@ -132,8 +134,9 @@ only. The one dependency besides the SDK is pinned by commit:
 driver are built, the SPI driver because the card layer calls into it; its
 SDIO driver is not. The DShot driver in `src/dshot/` is part of the
 tree, from rcbench `protocols/dshot` at commit 453cf334 (MIT, same copyright
-holder). The servo sweep curve and the GPIO-to-PWM fold are rcbench files at
-the same commit, copied unchanged into `lib/rcbench/`
+holder). The servo sweep curve, the GPIO-to-PWM fold, the KST programming
+core, its line driver and the KST file store are rcbench files at the same
+commit, copied unchanged into `lib/rcbench/`
 ([lib/rcbench/README.md](lib/rcbench/README.md)). The SDIO driver in
 `src/sdio/` is part of the tree, MIT, written from
 the SD Association's Physical Layer Simplified Specification v9.10 and the
@@ -359,7 +362,10 @@ binary, `dshot_tests`. `test/test_main.cpp` runs eighteen suites:
 for `test/Makefile`, as `src/servo.cmake` and `src/kst.cmake` do for
 `CMakeLists.txt`. A feature's C sources and C test programs are built as C11:
 `make run` also runs rcbench's `test_servo_sweep.c` (14 cases) and the
-adapted `test_out_pwm_map.c` (5 cases) from `test/rcbench/`.
+adapted `test_out_pwm_map.c` (5 cases) from `test/rcbench/`, and rcbench's KST
+tests, copied unchanged: `test_kst_wire.c` (28 cases), `test_kst_reg.c` (51),
+`test_kst_plan.c` (40), `test_kst_session.c` (77), `test_kst_pio.c` (17),
+`test_kst_file.c` (57) and `test_kst_store.c` (28).
 
 Other targets in `test/Makefile`: `syntax` typechecks the device-only sources
 with `-Werror`; `pioemu` runs `test/pio_sdio_emu.py`, the SDIO PIO programs
