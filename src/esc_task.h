@@ -724,9 +724,9 @@ static inline bool escUiAlive(uint32_t nowMs, uint32_t heartbeatMs) {
  * @p drainMs, @ref ARM_ZERO_THROTTLE_MS, have passed since the last throttle
  * frame, and only then stops. Strictly more: the stamp is a whole
  * millisecond, and the frame went out somewhere inside it, so a teardown at
- * stamp + 251 ms is at least 250 ms after the frame. An ESC therefore sees throttle zero for at
- * least 250 ms before the line goes silent. A pump that sent no throttle
- * frame since its bind needs no drain.
+ * stamp + 251 ms is at least 250 ms after the frame. An ESC therefore sees
+ * throttle zero for at least 250 ms before the line goes silent. A pump that
+ * sent no throttle frame since its bind needs no drain.
  *
  * @param lastThrottleMs EscPump::lastThrottleMs; 0 for none.
  * @param nowMs          millis().
@@ -899,10 +899,12 @@ bool escEdtRequested();
 void escTaskSuspend();
 
 /**
- * @brief Ask core1 to rebuild the DShot driver from the latched wiring.
+ * @brief Withdraw the suspend.
  *
- * Starts disarmed, with the EDT enable as its first frames, as after a
- * SETUP change. @see escTaskConfigure()
+ * If core1 has torn the pump down, it rebuilds it from the latched wiring:
+ * disarmed, with the EDT enable as its first frames, as after a SETUP
+ * change. A resume during the drain leaves the running pump as it is.
+ * @see escTaskConfigure()
  */
 void escTaskResume();
 

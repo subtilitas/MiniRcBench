@@ -49,7 +49,10 @@ static void startJob() {
 	else                                s_jobError = CORE1_JOB_REFUSED;
 }
 
-/** @brief DShot back: the pump rebuilds from the wiring esc_task.cpp latched. */
+/**
+ * @brief DShot back. A torn-down pump rebuilds from the latched wiring; a
+ *        draining one runs on.
+ */
 static void restore() {
 	escTaskResume();
 	s_state = ClaimState::Restoring;

@@ -304,8 +304,9 @@ static void testHandoverRules() {
 	checkTrue("250 ms after a throttle frame: still draining",
 	          !escDrainDone(5000, 5250, ARM_ZERO_THROTTLE_MS));
 	checkTrue("251 ms after: done", escDrainDone(5000, 5251, ARM_ZERO_THROTTLE_MS));
-	// Stamped 16 ms before the rollover, so every check below wraps.
-	checkTrue("across the millis() rollover: draining at 10 ms",
+	// Stamped 16 ms before the rollover. At 10 ms the clock has not wrapped
+	// but stamp + 250 ms has; the checks at 250 and 251 ms are past the wrap.
+	checkTrue("stamp + 250 ms wraps, clock does not: draining at 10 ms",
 	          !escDrainDone(0xFFFFFFF0u, 0xFFFFFFF0u + 10u, ARM_ZERO_THROTTLE_MS));
 	checkTrue("draining at 250 ms",
 	          !escDrainDone(0xFFFFFFF0u, 0xFFFFFFF0u + 250u, ARM_ZERO_THROTTLE_MS));
@@ -913,8 +914,9 @@ static void testHeartbeat() {
 	checkTrue("a fresh heartbeat is alive", escUiAlive(1000, 1000));
 	checkTrue("249 ms old: alive", escUiAlive(1249, 1000));
 	checkTrue("250 ms old: dead", !escUiAlive(1250, 1000));
-	// Stamped 100 ms before the rollover, so every check below wraps.
-	checkTrue("across the rollover at 10 ms: alive",
+	// Stamped 100 ms before the rollover. At 10 ms the clock has not wrapped
+	// but stamp + 250 ms has; the checks at 249 ms and later are past the wrap.
+	checkTrue("stamp + 250 ms wraps, clock does not: alive at 10 ms",
 	          escUiAlive(0xFFFFFF9Cu + 10u, 0xFFFFFF9Cu));
 	checkTrue("at 249 ms: alive", escUiAlive(0xFFFFFF9Cu + 249u, 0xFFFFFF9Cu));
 	checkTrue("dead at 250 ms", !escUiAlive(0xFFFFFF9Cu + 250u, 0xFFFFFF9Cu));
