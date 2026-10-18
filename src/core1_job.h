@@ -73,8 +73,14 @@ struct Core1JobOps {
 	 * heartbeat rule.
 	 */
 	void (*step)(uint32_t nowMs, bool uiAlive);
-	/** Leave the pins as plain inputs. */
-	void (*release)();
+	/**
+	 * Let the pins go, given millis(). Called on every pass while the job is
+	 * Stopping, until it returns true; it never blocks. A job that needs time
+	 * before it lets go, as the servo job does for the last pulse, returns
+	 * false until then. The job stays Stopping, and so the claim stays
+	 * Leaving, until it returns true.
+	 */
+	bool (*release)(uint32_t nowMs);
 	/**
 	 * Initialise the job's shared state. Core0, from core1JobInit(), before
 	 * core1 is launched; null for a job with nothing to initialise.

@@ -107,11 +107,13 @@ void servoPwmRelease(uint8_t pin) {
 		if (o.used && &o != b && out_pwm_same_slice(o.pin, pin)) shared = true;
 	if (!shared) pwm_set_enabled(out_pwm_slice_of(pin), false);
 
-	// A plain input with no pull: a pin left on the PWM function would hold
-	// whatever level the slice stopped at.
+	// An input held low by the pad pull-down: a pin left on the PWM function
+	// would hold whatever level the slice stopped at, and a pin with no pull
+	// would float under the servo still on it. DShot sets its own pulls when
+	// it binds again.
 	gpio_set_function(pin, GPIO_FUNC_SIO);
 	gpio_set_dir(pin, GPIO_IN);
-	gpio_disable_pulls(pin);
+	gpio_pull_down(pin);
 	b->used = false;
 }
 

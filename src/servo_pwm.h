@@ -51,8 +51,12 @@ bool servoPwmBind(uint8_t pin, uint16_t rateHz);
 
 /**
  * @brief Give the pin back: level 0, the slice stopped unless its other
- *        channel is still bound, and the pin a plain input with no pull.
- *        Nothing for a pin that is not bound.
+ *        channel is still bound, and the pin an input with the pad pull-down
+ *        on. Nothing for a pin that is not bound.
+ *
+ * The level-0 write takes effect only at the end of the frame under way, so a
+ * caller that must not cut a pulse short writes level 0 and waits
+ * servoQuietMs() first, as the servo job does.
  * @param pin GPIO.
  */
 void servoPwmRelease(uint8_t pin);

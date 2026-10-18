@@ -47,6 +47,7 @@ struct FakeJob {
 	uint8_t  aux;            /**< AUX GPIO of the last bind(). */
 	bool     uiAlive;        /**< uiAlive of the last step(). */
 	bool     stopInBind;     /**< Core0 asks for a stop while bind() runs. */
+	int      releaseWaits;   /**< release() returns false this many times first. */
 };
 
 static FakeJob g_servoJob, g_kstJob;
@@ -61,10 +62,16 @@ static uint8_t bindInto(FakeJob *j, uint8_t sig, uint8_t aux) {
 }
 static uint8_t servoBind(uint8_t sig, uint8_t aux) { return bindInto(&g_servoJob, sig, aux); }
 static void servoStep(uint32_t, bool alive) { g_servoJob.steps++; g_servoJob.uiAlive = alive; }
-static void servoRelease() { g_servoJob.releases++; }
+/** @brief One release() call: false while a wait is owed, then true. */
+static bool releaseFrom(FakeJob *j) {
+	if (j->releaseWaits > 0) { j->releaseWaits--; return false; }
+	j->releases++;
+	return true;
+}
+static bool servoRelease(uint32_t) { return releaseFrom(&g_servoJob); }
 static uint8_t kstBind(uint8_t sig, uint8_t aux) { return bindInto(&g_kstJob, sig, aux); }
 static void kstStep(uint32_t, bool alive) { g_kstJob.steps++; g_kstJob.uiAlive = alive; }
-static void kstRelease() { g_kstJob.releases++; }
+static bool kstRelease(uint32_t) { return releaseFrom(&g_kstJob); }
 
 static const Core1JobOps FAKE_SERVO = { servoBind, servoStep, servoRelease, nullptr };
 static const Core1JobOps FAKE_KST   = { kstBind, kstStep, kstRelease, nullptr };
@@ -710,6 +717,20 @@ static void testJobGuard() {
 	checkTrue("and the next pass releases it", g_servoJob.releases == 1 &&
 	                                          core1JobPhase() == Core1JobPhase::Idle);
 	checkInt("it never stepped", g_servoJob.steps, 0);
+
+	// A job that needs passes to let go stays Stopping until it says so.
+	g_servoJob = FakeJob{};
+	g_servoJob.releaseWaits = 2;
+	checkTrue("started again", core1JobStart(Core1Job::Servo, SIG_GPIO, 0xFF));
+	core1JobPoll();
+	core1JobStop();
+	core1JobPoll();
+	core1JobPoll();
+	checkTrue("release() said not yet twice: still stopping",
+	          core1JobPhase() == Core1JobPhase::Stopping && g_servoJob.releases == 0);
+	core1JobPoll();
+	checkTrue("the third pass lets go: idle", g_servoJob.releases == 1 &&
+	                                          core1JobPhase() == Core1JobPhase::Idle);
 	escTaskResume();
 	pump();
 

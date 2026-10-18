@@ -131,7 +131,8 @@ void core1JobPoll() {
 	}
 
 	if (ph == Core1JobPhase::Stopping) {
-		if (s_bound) ops->release();
+		// The job may need passes to let go; it stays Stopping until then.
+		if (s_bound && !ops->release(millis())) return;
 		s_bound = false;
 		critical_section_enter_blocking(&s_cs);
 		s_job   = Core1Job::None;

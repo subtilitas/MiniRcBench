@@ -18,12 +18,15 @@
 enum : uint8_t { SERVO_A = 0, SERVO_B = 1 };
 
 void servoCoreReset(ServoCore *c, const ServoProfile *p, bool boundA,
-                    bool boundB, uint16_t ackSeq) {
+                    bool boundB, uint16_t ackSeq, bool tripped) {
+	// Copied first: @p p may point into @p c.
+	ServoProfile prof = *p;
 	memset(c, 0, sizeof(*c));
-	c->prof = *p;
+	c->prof = prof;
 	c->bound[SERVO_A] = boundA;
 	c->bound[SERVO_B] = boundB;
 	c->ackSeq = ackSeq;
+	c->tripped = tripped;
 	for (int i = 0; i < 2; i++) {
 		c->target[i] = SERVO_CMD_CENTRE;
 		c->pos[i] = SERVO_CMD_CENTRE * 1000u;
@@ -136,6 +139,7 @@ static ServoCmd     s_cmd;         /**< The command held for core1. */
 static ServoProfile s_profile;     /**< The profile core0 last handed over. */
 static uint16_t     s_profileSeq;  /**< Bumped with each profile accepted. */
 static ServoStatus  s_status;      /**< What core1 last published. */
+static bool         s_fresh;       /**< A new screen session: the next bind forgets the trip. */
 /** @} */
 
 /**
@@ -147,6 +151,9 @@ static uint8_t   s_pin[2] = {0xFF, 0xFF};  /**< SIG and AUX GPIO; 0xFF for none.
 static uint16_t  s_profileTaken;           /**< s_profileSeq of the profile bound. */
 static uint16_t  s_written[2];             /**< The level last written per pin. */
 static uint8_t   s_bindError;              /**< Why the last rebind failed. */
+/** @brief A non-zero level was written since the pins last went quiet. */
+static bool      s_pulsed;
+static uint32_t  s_zeroMs;                 /**< millis() of the last level-0 write. */
 /** @} */
 
 /** @brief Release whatever is bound. */
@@ -165,13 +172,31 @@ static uint8_t bindAt(const ServoProfile *p, uint16_t ackSeq) {
 	bool wantB = p->servos == 2 && s_pin[SERVO_B] != 0xFF;
 	bool a = servoPwmBind(s_pin[SERVO_A], p->rateHz);
 	bool b = a && wantB && servoPwmBind(s_pin[SERVO_B], p->rateHz);
+	bool tripped = s_core.tripped;
 	if (!a || (wantB && !b)) {
 		if (a) servoPwmRelease(s_pin[SERVO_A]);
-		servoCoreReset(&s_core, p, false, false, ackSeq);
+		servoCoreReset(&s_core, p, false, false, ackSeq, tripped);
 		return CORE1_JOB_PWM;
 	}
-	servoCoreReset(&s_core, p, true, b, ackSeq);
+	servoCoreReset(&s_core, p, true, b, ackSeq, tripped);
 	return CORE1_JOB_OK;
+}
+
+/**
+ * @brief Put level 0 on every bound pin that carries a pulse, and say
+ *        whether the last pulse is over: servoQuietDone() since the last
+ *        level-0 write.
+ */
+static bool quiet(uint32_t nowMs) {
+	for (int i = 0; i < 2; i++) {
+		if (!s_core.bound[i] || s_written[i] == 0) continue;
+		servoPwmWrite(s_pin[i], 0);
+		s_written[i] = 0;
+		s_zeroMs = nowMs;
+	}
+	if (!servoQuietDone(s_pulsed, s_zeroMs, nowMs, s_core.prof.rateHz)) return false;
+	s_pulsed = false;
+	return true;
 }
 
 /** @brief Write each pin whose pulse changed, then publish the status. */
@@ -180,6 +205,8 @@ static void output(uint32_t nowMs) {
 		if (!s_core.bound[i] || s_core.outUs[i] == s_written[i]) continue;
 		servoPwmWrite(s_pin[i], s_core.outUs[i]);
 		s_written[i] = s_core.outUs[i];
+		if (s_written[i]) s_pulsed = true;
+		else              s_zeroMs = nowMs;
 	}
 	ServoStatus st;
 	st.ackSeq     = s_core.ackSeq;
@@ -205,11 +232,17 @@ static uint8_t servoJobBind(uint8_t sigGpio, uint8_t auxGpio) {
 	ServoProfile p = s_profile;
 	s_profileTaken = s_profileSeq;
 	uint16_t seq = s_cmd.seq;
+	bool fresh = s_fresh;
+	s_fresh = false;
 	critical_section_exit(&s_cs);
 
+	// A new screen session forgets an old trip; a bind after BACK on the
+	// unplug page keeps it until START.
+	if (fresh) s_core.tripped = false;
 	s_pin[SERVO_A] = sigGpio;
 	s_pin[SERVO_B] = auxGpio;
 	s_written[0] = s_written[1] = 0;
+	s_pulsed = false;
 	s_bindError = CORE1_JOB_OK;
 	uint8_t err = bindAt(&p, seq);
 	output(millis());
@@ -224,8 +257,13 @@ static void servoJobStep(uint32_t nowMs, bool uiAlive) {
 	critical_section_exit(&s_cs);
 
 	// core0 hands over a profile only while SAFE with no command pending,
-	// so a profile taken here never moves a running servo.
+	// so a profile taken here never moves a running servo. The rebind waits
+	// until the last pulse is over, and takes no command before it.
 	if (pseq != s_profileTaken) {
+		if (!quiet(nowMs)) {
+			output(nowMs);
+			return;
+		}
 		s_profileTaken = pseq;
 		unbind();
 		s_written[0] = s_written[1] = 0;
@@ -236,12 +274,21 @@ static void servoJobStep(uint32_t nowMs, bool uiAlive) {
 	output(nowMs);
 }
 
-static void servoJobRelease() {
+static bool servoJobRelease(uint32_t nowMs) {
+	// First pass: no more pulses. The pins let go once the last one is over.
+	s_core.running = false;
+	s_core.sweeping = false;
+	s_core.outUs[0] = s_core.outUs[1] = 0;
+	if (!quiet(nowMs)) {
+		output(nowMs);
+		return false;
+	}
 	unbind();
-	servoCoreReset(&s_core, &s_core.prof, false, false, s_core.ackSeq);
+	servoCoreReset(&s_core, &s_core.prof, false, false, s_core.ackSeq, s_core.tripped);
 	s_written[0] = s_written[1] = 0;
 	s_bindError = CORE1_JOB_OK;
-	output(millis());
+	output(nowMs);
+	return true;
 }
 
 const Core1JobOps SERVO_JOB_OPS = {
@@ -251,6 +298,12 @@ const Core1JobOps SERVO_JOB_OPS = {
 // ---------------------------------------------------------------------------
 // core0
 // ---------------------------------------------------------------------------
+
+void servoJobNewSession() {
+	critical_section_enter_blocking(&s_cs);
+	s_fresh = true;
+	critical_section_exit(&s_cs);
+}
 
 bool servoJobProfile(const ServoProfile *p) {
 	if (!servoProfileValid(p)) return false;

@@ -185,6 +185,32 @@ void servoProfileDefault(ServoProfile *p);
 void servoProfileLoadType(ServoProfile *p, ServoType t);
 
 /**
+ * @brief How long, in ms, the pins stay bound after a level-0 write before
+ *        they may be let go: `2 × ceil(1000 / rateHz) + 1`.
+ *
+ * The compare register is double-buffered. A level-0 write takes effect at
+ * the end of the frame under way, at most one frame later; one full frame at
+ * level 0 follows; and 1 ms more covers the millisecond clock, whose stamp
+ * may lag the write by up to 1 ms. 41 ms at 50 Hz, 5 ms at 560 Hz.
+ *
+ * @param rateHz The frame rate, Hz; 0 counts as 1 Hz.
+ * @return The wait, ms.
+ */
+uint32_t servoQuietMs(uint16_t rateHz);
+
+/**
+ * @brief Whether the last pulse is over, so the pins may be let go.
+ * @param pulsed True when a non-zero level was written since the pins last
+ *               went quiet; false lets go at once.
+ * @param zeroMs millis() of the last level-0 write.
+ * @param nowMs  millis(). The clock may wrap.
+ * @param rateHz The frame rate, Hz.
+ * @return True when nothing was pulsed, or servoQuietMs() has passed since
+ *         @p zeroMs.
+ */
+bool servoQuietDone(bool pulsed, uint32_t zeroMs, uint32_t nowMs, uint16_t rateHz);
+
+/**
  * @brief The fastest frame rate a type allows with pulses up to @p maxUs:
  *        `1,000,000 / (maxUs + pause)`, under the type's own ceiling.
  *

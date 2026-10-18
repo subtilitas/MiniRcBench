@@ -155,7 +155,7 @@ uint8_t escTaskDshotPin();
 #define FAKE_SLICES 8
 
 /** @brief Which pull a pin has, as the GPIO fake last set it. */
-enum class FakePull : uint8_t { Untouched, None };
+enum class FakePull : uint8_t { Untouched, None, Down };
 
 /** @brief What the fake recorded for one GPIO. */
 struct FakePin {
@@ -164,6 +164,8 @@ struct FakePin {
 	int      levelWrites;  /**< pwm_set_gpio_level() calls. */
 	bool     output;       /**< gpio_set_dir() last set an output. */
 	FakePull pull;         /**< Pull last set. */
+	int      cutPulses;    /**< Pulses cut short or left high by a stop or a mux change. */
+	uint32_t cutAtUs;      /**< How far into the pulse the last cut came, us. */
 };
 
 /** @brief What the fake recorded for one PWM slice. */
@@ -172,7 +174,22 @@ struct FakeSlice {
 	uint16_t top;      /**< Wrap register. */
 	uint32_t div16;    /**< Clock divider, in 1/16ths. */
 	int      inits;    /**< pwm_init() calls. */
+	uint64_t startUs;  /**< time_us_64() when pwm_init() started its counter. */
 };
+
+/**
+ * @brief The compare level a pin's slice latched for the frame under way at
+ *        the virtual time: the last level written before that frame began.
+ *
+ * The counter runs at 1 MHz from pwm_init(), one frame of top + 1 counts. A
+ * level written during a frame takes effect at the wrap that ends it, and a
+ * level written exactly at a frame's start takes effect a frame later. The
+ * pin is high while the counter is below the latched level.
+ *
+ * @param gpio GPIO.
+ * @return The latched level; 0 for a pin whose slice is not counting.
+ */
+uint16_t fakePwmLatched(unsigned gpio);
 
 /** @brief Clear every pin and slice record and the broken map. */
 void fakePwmReset();

@@ -47,6 +47,15 @@ static uint16_t pauseOf(ServoType t) {
 	return servoTypeInfo(t)->heli ? SERVO_HELI_PAUSE_US : SERVO_PAUSE_US;
 }
 
+uint32_t servoQuietMs(uint16_t rateHz) {
+	uint32_t hz = rateHz ? rateHz : 1;
+	return 2u * ((1000u + hz - 1u) / hz) + 1u;
+}
+
+bool servoQuietDone(bool pulsed, uint32_t zeroMs, uint32_t nowMs, uint16_t rateHz) {
+	return !pulsed || (uint32_t)(nowMs - zeroMs) >= servoQuietMs(rateHz);
+}
+
 uint16_t servoMaxRateFor(ServoType t, uint16_t maxUs) {
 	const ServoTypeInfo *ti = servoTypeInfo(t);
 	uint32_t hz = 1000000u / ((uint32_t)maxUs + pauseOf(t));

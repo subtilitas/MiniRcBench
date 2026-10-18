@@ -14,13 +14,19 @@
  * |---|---|---|
  * | SAFE | bound to PWM at level 0: no edges, the line low | Start |
  * | RUNNING | the pulse each servo's command maps to | Safe, a heartbeat lapse |
- * | Tripped | SAFE, latched after a heartbeat lapse while RUNNING | Start |
+ * | Tripped | SAFE, latched after a heartbeat lapse while RUNNING; kept across rebinds | Start, or a new screen session (servoJobNewSession()) |
  *
- * Every pass of `loop1()`, the job takes a new profile while SAFE, checks the
- * heartbeat, takes a new command, computes each servo's target (the sweep
- * curve at millis(), or the position), slews the output towards it at SPEED,
- * and writes the compare register when the pulse changed. The slice latches
- * it at the end of the frame.
+ * Every pass of `loop1()`, the job takes a new profile while SAFE, takes a new
+ * command, checks the heartbeat, computes each servo's target (the sweep curve
+ * at millis(), or the position), slews the output towards it at SPEED, and
+ * writes the compare register when the pulse changed. The slice latches it at
+ * the end of the frame, so a pulse on the wire completes.
+ *
+ * The pins are let go only once the last pulse is over: a release, and the
+ * rebind a new profile needs, first put level 0 on every pin and then wait
+ * servoQuietMs() of the profile's rate, across passes, without blocking.
+ * Stopping or freezing a slice mid-pulse would cut the pulse short or leave
+ * the line high.
  *
  * Servo A is on SIG (index 0, mask bit 0), servo B on AUX (index 1, mask
  * bit 1).
@@ -95,17 +101,18 @@ struct ServoCore {
 };
 
 /**
- * @brief Put @p c into SAFE after a bind: no pulses, no sweep, the trip
- *        cleared, commands up to @p ackSeq treated as taken.
- * @param[out] c  The state.
- * @param p       The profile the pins were bound at.
- * @param boundA  Pin A bound.
- * @param boundB  Pin B bound.
- * @param ackSeq  Seq of the command block at the bind, so no command sent
- *                before it is taken.
+ * @brief Put @p c into SAFE after a bind: no pulses, no sweep, commands up
+ *        to @p ackSeq treated as taken, and the trip latch as given.
+ * @param[out] c   The state.
+ * @param p        The profile the pins were bound at; may point into @p c.
+ * @param boundA   Pin A bound.
+ * @param boundB   Pin B bound.
+ * @param ackSeq   Seq of the command block at the bind, so no command sent
+ *                 before it is taken.
+ * @param tripped  The trip latch to keep: a rebind does not clear it.
  */
 void servoCoreReset(ServoCore *c, const ServoProfile *p, bool boundA,
-                    bool boundB, uint16_t ackSeq);
+                    bool boundB, uint16_t ackSeq, bool tripped);
 
 /**
  * @brief Take a command. Pure.
@@ -160,6 +167,14 @@ void servoCoreStep(ServoCore *c, uint32_t nowMs, bool uiAlive);
  * @return True when the profile was accepted.
  */
 bool servoJobProfile(const ServoProfile *p);
+
+/**
+ * @brief Start a new screen session. Core0, when the screen opens.
+ *
+ * The next bind forgets a trip latched in an earlier session. A bind after
+ * BACK on the unplug page, and a profile rebind, keep it until START.
+ */
+void servoJobNewSession();
 
 /**
  * @brief Send a command. Core0.

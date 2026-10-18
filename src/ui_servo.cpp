@@ -834,6 +834,7 @@ static void drawUnplug() {
 bool uiServoAvailable() { return true; }
 
 void uiServoEnter() {
+	servoJobNewSession();
 	s_view = View::Main;
 	s_claimed = false;
 	s_refusal = ClaimRefusal::None;

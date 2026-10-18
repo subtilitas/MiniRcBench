@@ -471,8 +471,8 @@ static void testPwm() {
 	servoPwmRelease(AUX);
 	p = fakePin(AUX);
 	checkInt("release: level 0", p.level, 0);
-	checkTrue("a plain input", p.function == GPIO_FUNC_SIO && !p.output);
-	checkTrue("with no pull", p.pull == FakePull::None);
+	checkTrue("an input", p.function == GPIO_FUNC_SIO && !p.output);
+	checkTrue("held low by the pull-down", p.pull == FakePull::Down);
 	checkTrue("the slice runs on for GP29", fakeSlice(6).enabled && servoPwmBound(SIG));
 	servoPwmRelease(SIG);
 	checkTrue("the last pin released stops the slice", !fakeSlice(6).enabled);
@@ -534,7 +534,7 @@ static void testCoreStates() {
 	ServoProfile prof = profileOf(ServoType::Standard);
 	prof.servos = 2;
 	ServoCore c;
-	servoCoreReset(&c, &prof, true, true, 7);
+	servoCoreReset(&c, &prof, true, true, 7, false);
 	servoCoreStep(&c, 1000, true);
 	checkTrue("SAFE: no pulse on either pin", c.outUs[0] == 0 && c.outUs[1] == 0 && !c.running);
 
@@ -582,12 +582,12 @@ static void testCoreStates() {
 	checkTrue("STOP: no pulse from this pass", !c.running && c.outUs[0] == 0 && c.outUs[1] == 0);
 
 	ServoCore one;
-	servoCoreReset(&one, &prof, true, false, 0);
+	servoCoreReset(&one, &prof, true, false, 0, false);
 	pass(&one, cmdOf(1, ServoCmdKind::Start), 1000);
 	checkTrue("one pin bound: CENTRE on A, nothing on B",
 	          one.outUs[0] == 1500 && one.outUs[1] == 0);
 	ServoCore none;
-	servoCoreReset(&none, &prof, false, false, 0);
+	servoCoreReset(&none, &prof, false, false, 0, false);
 	pass(&none, cmdOf(1, ServoCmdKind::Start), 1000);
 	checkTrue("no pin bound: START refused", !none.running && none.outUs[0] == 0);
 }
@@ -598,7 +598,7 @@ static void testCoreSlew() {
 
 	ServoProfile prof = profileOf(ServoType::Standard);
 	ServoCore c;
-	servoCoreReset(&c, &prof, true, false, 0);
+	servoCoreReset(&c, &prof, true, false, 0, false);
 	const uint32_t t0 = 0xFFFFFC18u;   // 1000 ms before the clock wraps
 	pass(&c, cmdOf(1, ServoCmdKind::Start, SERVO_MASK_A, 0, servoSlewOf(10)), t0);
 	pass(&c, cmdOf(2, ServoCmdKind::Position, SERVO_MASK_A, 1000, servoSlewOf(10)), t0);
@@ -632,7 +632,7 @@ static void testCoreSweep() {
 	ServoProfile prof = profileOf(ServoType::Standard);
 	prof.servos = 2;
 	ServoCore c;
-	servoCoreReset(&c, &prof, true, true, 0);
+	servoCoreReset(&c, &prof, true, true, 0, false);
 	pass(&c, cmdOf(1, ServoCmdKind::Start), 1000);
 
 	pass(&c, sweepOf(3, SWEEP_OFF, 1000, 400, 0, 0), 1000);
@@ -687,7 +687,7 @@ static void testCoreTrip() {
 
 	ServoProfile prof = profileOf(ServoType::Standard);
 	ServoCore c;
-	servoCoreReset(&c, &prof, true, false, 0);
+	servoCoreReset(&c, &prof, true, false, 0, false);
 	servoCoreStep(&c, 100, false);
 	checkTrue("a lapse while SAFE latches nothing", !c.tripped);
 	pass(&c, cmdOf(1, ServoCmdKind::Start), 200);
@@ -732,6 +732,9 @@ static bool claimRunning(uint8_t roles) {
 /** @brief BACK, the unplug page, RESTART DSHOT, and the pump back. */
 static bool claimEnd() {
 	pinClaimEnd(PinUser::Servo);
+	core1JobPoll();
+	// Long enough for the last pulse at any rate.
+	fakeAdvance(servoQuietMs(SERVO_RATE_MIN_HZ));
 	core1JobPoll();
 	pinClaimPoll();
 	bool page = pinClaimUnplugDue();
@@ -810,6 +813,13 @@ static void testJob() {
 	int inits = fakeSlice(6).inits;
 	checkTrue("two servos at 100 Hz while SAFE: accepted", servoJobProfile(&two));
 	core1JobPoll();
+	checkTrue("the rebind waits for the last pulse, 41 ms after the STOP",
+	          fakeSlice(6).inits == inits && fakePin(AUX).function != GPIO_FUNC_PWM);
+	fakeAdvance(servoQuietMs(50) - 1);
+	core1JobPoll();
+	checkInt("not at 40 ms", fakeSlice(6).inits, inits);
+	fakeAdvance(1);
+	core1JobPoll();
 	checkTrue("both pins on PWM at level 0",
 	          fakePin(SIG).function == GPIO_FUNC_PWM && fakePin(AUX).function == GPIO_FUNC_PWM &&
 	          fakePin(SIG).level == 0 && fakePin(AUX).level == 0);
@@ -838,6 +848,7 @@ static void testJob() {
 	// A rebind the SDK refuses leaves both pins unbound and says why.
 	fakePwmBreakSliceMap(true);
 	checkTrue("a profile accepted", servoJobProfile(&prof));
+	fakeAdvance(servoQuietMs(100));
 	core1JobPoll();
 	servoJobStatus(&st);
 	checkInt("the rebind is refused: PWM", st.bindError, CORE1_JOB_PWM);
@@ -853,8 +864,8 @@ static void testJob() {
 	checkTrue("binds, no error", st.bindError == 0 && fakePin(SIG).function == GPIO_FUNC_PWM);
 
 	checkTrue("BACK: the unplug page, then DShot", claimEnd());
-	checkTrue("SIG a plain input, no pull", fakePin(SIG).function == GPIO_FUNC_SIO &&
-	                                        fakePin(SIG).pull == FakePull::None);
+	checkTrue("SIG an input, pulled down", fakePin(SIG).function == GPIO_FUNC_SIO &&
+	                                       fakePin(SIG).pull == FakePull::Down);
 	checkTrue("the slice stopped", !fakeSlice(6).enabled);
 	servoJobStatus(&st);
 	checkTrue("status after the release: SAFE, no pulse", !st.running && st.outUs[0] == 0);
@@ -917,9 +928,176 @@ static void testJobTrip() {
 	checkTrue("a new START clears it", st.running && !st.tripped && fakePin(SIG).level == 1500);
 	send(cmdOf(0, ServoCmdKind::Safe));
 	checkTrue("back to free", claimEnd());
-	fakeAdvance(0u - toEdge - 250u);
+	fakeAdvance(start - millis());
 	checkInt("the clock is back where it was", millis(), start);
 	escHeartbeat();
+}
+
+/** @brief The wait for the last pulse, as pure functions. */
+static void testQuietRule() {
+	section("Servo model: the last pulse before the pins let go");
+
+	checkInt("50 Hz: two 20 ms frames and 1 ms", servoQuietMs(50), 41);
+	checkInt("333 Hz: two 4 ms frames and 1 ms", servoQuietMs(333), 9);
+	checkInt("560 Hz: two 2 ms frames and 1 ms", servoQuietMs(560), 5);
+	checkInt("rate 0 counts as 1 Hz", servoQuietMs(0), 2001);
+	checkTrue("nothing pulsed: at once", servoQuietDone(false, 1000, 1000, 50));
+	checkTrue("pulsed, 40 ms after level 0: not yet", !servoQuietDone(true, 1000, 1040, 50));
+	checkTrue("41 ms: done", servoQuietDone(true, 1000, 1041, 50));
+	checkTrue("41 ms across the wrap: done", servoQuietDone(true, 0xFFFFFFF0u, 25u, 50));
+	checkTrue("40 ms across the wrap: not yet", !servoQuietDone(true, 0xFFFFFFF0u, 24u, 50));
+}
+
+/** @brief Advance to @p intoUs into the slice's frame, a whole ms. */
+static void toFramePoint(uint32_t intoMs, uint32_t periodMs) {
+	uint64_t into = (time_us_64() - fakeSlice(6).startUs) / 1000u % periodMs;
+	fakeAdvance((uint32_t)((intoMs + periodMs - into) % periodMs));
+}
+
+/** @brief Poll core1 1 ms at a time until the job is idle; the ms it took. */
+static uint32_t pollUntilIdle() {
+	uint32_t t = 0;
+	while (core1JobPhase() != Core1JobPhase::Idle && t < 500) {
+		fakeAdvance(1);
+		t++;
+		core1JobPoll();
+	}
+	return t;
+}
+
+/** @brief No pulse cut short at a release or a rebind, against the counter model. */
+static void testLastPulse() {
+	section("Servo job: the last pulse completes before the pins let go");
+
+	fakePwmReset();
+	freshPump();
+	escHeartbeat();
+	ServoProfile prof;
+	servoProfileDefault(&prof);
+	servoJobProfile(&prof);
+	checkTrue("running", claimRunning(PIN_SIG));
+	send(cmdOf(0, ServoCmdKind::Start));
+	fakeAdvance(60);
+	escHeartbeat();
+	core1JobPoll();
+	checkInt("1500 us latched on the counter", fakePwmLatched(SIG), 1500);
+	toFramePoint(1, 20);
+	pinClaimEnd(PinUser::Servo);
+	core1JobPoll();
+	checkTrue("BACK 1 ms into a 1500 us pulse: level 0 written, the pin kept",
+	          fakePin(SIG).level == 0 && fakePin(SIG).function == GPIO_FUNC_PWM &&
+	          core1JobPhase() == Core1JobPhase::Stopping);
+	checkInt("the pulse under way stays latched to its end", fakePwmLatched(SIG), 1500);
+	pinClaimPoll();
+	checkTrue("no unplug page yet", !pinClaimUnplugDue());
+	uint32_t waited = pollUntilIdle();
+	checkInt("released after 41 ms at 50 Hz", waited, 41);
+	checkInt("no pulse cut short", fakePin(SIG).cutPulses, 0);
+	checkTrue("an input, pulled down", fakePin(SIG).function == GPIO_FUNC_SIO &&
+	                                   fakePin(SIG).pull == FakePull::Down);
+	pinClaimPoll();
+	checkTrue("then the unplug page", pinClaimUnplugDue());
+	pinClaimRestart(PinUser::Servo);
+	fakePumpPoll();
+
+	// Two servos, BACK while RUNNING, at 560 Hz.
+	prof.type = ServoType::HeliTail760;
+	servoProfileLoadType(&prof, ServoType::HeliTail760);
+	prof.servos = 2;
+	checkTrue("HELI TAIL, two servos", servoJobProfile(&prof));
+	escHeartbeat();
+	checkTrue("running", claimRunning(PIN_SIG | PIN_AUX));
+	send(cmdOf(0, ServoCmdKind::Start));
+	fakeAdvance(10);
+	escHeartbeat();
+	core1JobPoll();
+	pinClaimEnd(PinUser::Servo);
+	core1JobPoll();
+	waited = pollUntilIdle();
+	checkInt("both released after 5 ms at 560 Hz", waited, 5);
+	checkTrue("no pulse cut short on either pin",
+	          fakePin(SIG).cutPulses == 0 && fakePin(AUX).cutPulses == 0);
+	checkTrue("both pulled down", fakePin(SIG).pull == FakePull::Down &&
+	                              fakePin(AUX).pull == FakePull::Down);
+	pinClaimPoll();
+	pinClaimRestart(PinUser::Servo);
+	fakePumpPoll();
+
+	// RUNNING, STOP, and a new profile straight after: the rebind waits.
+	servoProfileDefault(&prof);
+	servoJobProfile(&prof);
+	escHeartbeat();
+	checkTrue("running", claimRunning(PIN_SIG));
+	send(cmdOf(0, ServoCmdKind::Start));
+	fakeAdvance(60);
+	escHeartbeat();
+	core1JobPoll();
+	toFramePoint(1, 20);
+	send(cmdOf(0, ServoCmdKind::Safe));
+	int inits = fakeSlice(6).inits;
+	ServoProfile fast = prof;
+	fast.rateHz = 100;
+	checkTrue("a profile at once after the STOP: accepted", servoJobProfile(&fast));
+	core1JobPoll();
+	checkInt("the rebind waits", fakeSlice(6).inits, inits);
+	uint32_t t = 0;
+	while (fakeSlice(6).inits == inits && t < 500) { fakeAdvance(1); t++; core1JobPoll(); }
+	checkInt("and rebinds 41 ms after the STOP", t, 41);
+	checkInt("no pulse cut short", fakePin(SIG).cutPulses, 0);
+	checkInt("at 100 Hz", fakeSlice(6).top, 9999);
+	checkTrue("back to free", claimEnd());
+}
+
+/** @brief The trip latch outlives a rebind; a new session forgets it. */
+static void testTripLatch() {
+	section("Servo job: the trip latch, across rebinds and sessions");
+
+	ServoProfile prof;
+	servoProfileDefault(&prof);
+	ServoCore c;
+	servoCoreReset(&c, &prof, true, false, 0, true);
+	checkTrue("a reset keeps the latch it is given", c.tripped && !c.running);
+	c.prof.minUs = 900;
+	servoCoreReset(&c, &c.prof, true, false, 0, false);
+	checkTrue("and may take its profile from the state it resets", c.prof.minUs == 900 &&
+	                                                             c.prof.rateHz == 50);
+
+	fakePwmReset();
+	freshPump();
+	escHeartbeat();
+	servoJobNewSession();
+	servoJobProfile(&prof);
+	checkTrue("running", claimRunning(PIN_SIG));
+	send(cmdOf(0, ServoCmdKind::Start));
+	fakeAdvance(300);
+	core1JobPoll();
+	ServoStatus st;
+	servoJobStatus(&st);
+	checkTrue("a stall trips it", st.tripped && !st.running);
+	escHeartbeat();
+	ServoProfile fast = prof;
+	fast.rateHz = 100;
+	checkTrue("a new profile", servoJobProfile(&fast));
+	fakeAdvance(100);
+	core1JobPoll();
+	servoJobStatus(&st);
+	checkTrue("the rebind keeps the latch", st.tripped && fakeSlice(6).top == 9999);
+	pinClaimEnd(PinUser::Servo);
+	core1JobPoll();
+	pinClaimPoll();
+	pinClaimKeep(PinUser::Servo);
+	core1JobPoll();
+	pinClaimPoll();
+	servoJobStatus(&st);
+	checkTrue("BACK on the unplug page, the bind again: still latched",
+	          pinClaimState() == ClaimState::Running && st.tripped);
+	checkTrue("back to free", claimEnd());
+	servoJobNewSession();
+	escHeartbeat();
+	checkTrue("a new session claims", claimRunning(PIN_SIG));
+	servoJobStatus(&st);
+	checkTrue("and forgets the old trip", !st.tripped);
+	checkTrue("back to free", claimEnd());
 }
 
 /** @brief One frame of touch, built by hand. */
@@ -1387,6 +1565,18 @@ static void testHorn() {
 	fakeRelease(); uiFrames(1);
 	holdStart();
 	checkTrue("a new HOLD TO START: CENTRE again", fakePin(29).level == 1500 && !s_st.tripped);
+
+	// Stalled, left, opened again: the new session starts SAFE, not STALLED.
+	fakeAdvance(300);
+	core1();
+	uiFrames(1);
+	checkTrue("stalled again", s_st.tripped);
+	leaveServo();
+	uiTap(UI_SERVO_X, UI_NAV_Y);
+	uiFrames(3);
+	checkTrue("opened again: SAFE, the old trip forgotten",
+	          pinClaimState() == ClaimState::Running && !s_st.tripped &&
+	          pixel(GFX_W - UI_MARGIN - 4, UI_STRIP_Y + 3) == C_GREEN);
 	leaveServo();
 }
 
@@ -1582,10 +1772,20 @@ static void testUnplugPage() {
 	openServo();
 	holdStart();
 	int resumes = fakeResumeCount();
+	int cuts = fakePin(29).cutPulses;
 	uiTap(UI_BACK_CX, UI_BACK_CY);
-	uiFrames(1);
+	checkTrue("BACK while RUNNING: the page waits for the last pulse",
+	          s_view == View::Unplug && !pinClaimUnplugDue() &&
+	          core1JobPhase() == Core1JobPhase::Stopping);
+	core1();
+	checkTrue("core1's next pass: still stopping", core1JobPhase() == Core1JobPhase::Stopping);
+	checkTrue("level 0 written, SIG still on PWM",
+	          fakePin(29).level == 0 && fakePin(29).function == GPIO_FUNC_PWM);
+	checkInt("and no DShot", fakeResumeCount(), resumes);
+	uiFrames(2);
 	checkTrue("BACK: the unplug page", s_view == View::Unplug && pinClaimUnplugDue());
-	checkTrue("the job let go: SIG a plain input", fakePin(29).function == GPIO_FUNC_SIO);
+	checkInt("no pulse was cut short", fakePin(29).cutPulses, cuts);
+	checkTrue("the job let go: SIG an input", fakePin(29).function == GPIO_FUNC_SIO);
 	checkInt("DShot not yet restarted", fakeResumeCount(), resumes);
 	fakeDumpFrame("shot_servo_unplug.ppm");
 	uiTap(UI_BACK_CX, UI_BACK_CY);
@@ -1838,6 +2038,9 @@ void runServoTests() {
 	testCoreTrip();
 	testJob();
 	testJobTrip();
+	testQuietRule();
+	testLastPulse();
+	testTripLatch();
 	testSlider();
 	testSliderDraw();
 	testScreenOpens();
