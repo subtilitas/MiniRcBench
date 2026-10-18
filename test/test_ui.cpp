@@ -31,7 +31,7 @@
 // --- probes into the included translation unit ---
 static uint8_t uiByte(int o)     { return s_eeprom[o]; }
 static int     uiSelected()      { return s_selected; }
-static int     uiScroll()        { return s_scrollPx; }
+static int     uiScroll()        { return s_list.scrollPx; }
 static int     uiVisibleCount()  { return (int)s_visibleCount; }
 
 /**
@@ -45,9 +45,8 @@ static int     uiVisibleCount()  { return (int)s_visibleCount; }
 static int uiRowY(const char *name) {
 	for (uint16_t v = 0; v < s_visibleCount; v++) {
 		if (strcmp(AM32_FIELDS[s_visible[v]].name, name) == 0) {
-			s_scrollPx = (int)v * ROW_H;
-			clampScroll();
-			return LIST_Y0 + ((int)v * ROW_H - s_scrollPx) + 13;
+			uiListScrollTo(&s_list, (int)v * ROW_H);
+			return LIST_Y0 + ((int)v * ROW_H - s_list.scrollPx) + 13;
 		}
 	}
 	return -1;
@@ -63,6 +62,8 @@ static void frames(int n) {
 static void tap(int x, int y) {
 	fakePress(x, y); frames(2); fakeRelease(); frames(1);
 }
+/** @brief A frame @p ms after the last, for holds timed to the millisecond. */
+static void frameAfter(uint32_t ms) { fakeAdvance(ms); fakePumpPoll(); uiTick(); }
 static void swipe(int x0, int x1, int y, int step) {
 	fakePress(x0, y); frames(1);
 	for (int x = x0; (step > 0) ? (x <= x1) : (x >= x1); x += step) {
@@ -968,14 +969,22 @@ static void testSetupSave() {
 	for (int i = 0; i < 20; i++) { fakeHold(SET_SAVE_X, SET_SAVE_Y); frames(1); }
 	checkTrue("the hold draws a progress bar",
 	          fakeRegionHash(SAVE_BAR_X, SAVE_BAR_Y, 150, 3) != idle);
+	{
+		const uint16_t *fb = gfxBuffer() + SAVE_BAR_Y * GFX_W;
+		checkTrue("500 ms: 75 px of the 150, from the button's left edge",
+		          fb[SAVE_BAR_X] == C_LIME && fb[SAVE_BAR_X + 74] == C_LIME &&
+		          fb[SAVE_BAR_X + 75] == C_BG && fb[SAVE_BAR_X - 1] == C_BG);
+	}
 	fakeRelease(); frames(2);
 	checkTrue("and it clears on release",
 	          fakeRegionHash(SAVE_BAR_X, SAVE_BAR_Y, 150, 3) == idle);
 
-	// A full second does.
+	// A full second does, and not a millisecond less.
 	uint8_t want = settings()->dshotPin;
 	fakePress(SET_SAVE_X, SET_SAVE_Y); frames(1);
-	for (int i = 0; i < 60; i++) { fakeHold(SET_SAVE_X, SET_SAVE_Y); frames(1); }
+	fakeHold(SET_SAVE_X, SET_SAVE_Y); frameAfter(999);
+	checkTrue("held 999 ms: not saved", settingsDirty() && !settingsStored());
+	fakeHold(SET_SAVE_X, SET_SAVE_Y); frameAfter(1);
 	checkTrue("a one-second hold commits", !settingsDirty());
 	checkTrue("and reports a stored block", settingsStored());
 
@@ -2634,16 +2643,18 @@ void runUiTests() {
 		tap(AM32_MINUS_X, AM32_EDIT_Y);
 		checkInt("- button steps back", uiByte(0x18), 24);
 
+		// 180 px of travel, 173 after the lock at 7 px: 11 coarse steps of
+		// 13 kHz pass the rail, and the swipe stops on it.
 		swipe(30, 220, yPwm, 10);
-		checkTrue("swipe right is coarse", uiByte(0x18) > 100);
-		checkTrue("coarse clamps at 144", uiByte(0x18) <= 144);
+		checkInt("swipe right is coarse, and stops at 144", uiByte(0x18), 144);
 		swipe(220, 30, yPwm, -10);
-		checkTrue("swipe left lowers", uiByte(0x18) < 100);
-		checkTrue("coarse clamps at 8", uiByte(0x18) >= 8);
+		checkInt("swipe left stops at 8", uiByte(0x18), 8);
 
+		// 105 px after the lock: 6 coarse steps of 2 x 2 poles from 14 would
+		// reach 38; the swipe stops at 36, the rail, on the field's step.
 		int yPoles = uiRowY("POLES"); frames(1);
 		swipe(40, 150, yPoles, 7);
-		checkInt("stepped fields stay legal (poles even)", uiByte(0x1B) % 2, 0);
+		checkInt("stepped fields stay on their step, at the rail", uiByte(0x1B), 36);
 
 		// Axis lock: a vertical drag must scroll, never edit.
 		int yKv = uiRowY("KV"); frames(1);
@@ -2669,7 +2680,7 @@ void runUiTests() {
 	 */
 	section("AM32 list: scrolls first, selects only on a tap that stayed put");
 	{
-		s_scrollPx = 0;
+		uiListScrollTo(&s_list, 0);
 		s_selected = -1;
 		frames(2);
 
@@ -2734,6 +2745,145 @@ void runUiTests() {
 		fakeRelease(); frames(1);
 	}
 
+	section("AM32 swipe: 16 px per coarse step, a factor per field");
+	{
+		// Every field, whatever the layout revision, from either rail: 11
+		// coarse steps, 176 px, reach the other.
+		bool reach = true, onStep = true, stops = true;
+		for (uint16_t i = 0; i < AM32_FIELD_COUNT; i++) {
+			const Am32Field *f = &AM32_FIELDS[i];
+			uint8_t keep = s_eeprom[f->offset];
+			int step = f->step ? f->step : 1;
+			if ((f->rawMax - f->rawMin) % step) onStep = false;
+			s_eeprom[f->offset] = f->rawMin;
+			uiSwipeApply(SWIPE_SPAN_STEPS, coarseFactor(f), swipeStep, (void *)f);
+			if (s_eeprom[f->offset] != f->rawMax) reach = false;
+			if (uiSwipeApply(1, coarseFactor(f), swipeStep, (void *)f) != 0) stops = false;
+			uiSwipeApply(-SWIPE_SPAN_STEPS, coarseFactor(f), swipeStep, (void *)f);
+			if (s_eeprom[f->offset] != f->rawMin) reach = false;
+			if (uiSwipeApply(-1, coarseFactor(f), swipeStep, (void *)f) != 0) stops = false;
+			s_eeprom[f->offset] = keep;
+		}
+		checkTrue("every field: 11 coarse steps from a rail reach the other", reach);
+		checkTrue("every range is whole steps, so each rail is on the step", onStep);
+		checkTrue("at either rail, a coarse step outwards takes no step", stops);
+		checkInt("11 coarse steps", SWIPE_SPAN_STEPS, 11);
+		const Am32Field *kv = nullptr, *poles = nullptr, *pwm = nullptr, *adv = nullptr,
+		                *dir = nullptr, *temp = nullptr;
+		for (uint16_t i = 0; i < AM32_FIELD_COUNT; i++) {
+			const char *n = AM32_FIELDS[i].name;
+			if (!strcmp(n, "KV")) kv = &AM32_FIELDS[i];
+			if (!strcmp(n, "POLES")) poles = &AM32_FIELDS[i];
+			if (!strcmp(n, "PWM FREQ")) pwm = &AM32_FIELDS[i];
+			if (!strcmp(n, "ADVANCE")) adv = &AM32_FIELDS[i];
+			if (!strcmp(n, "DIRECTION")) dir = &AM32_FIELDS[i];
+			if (!strcmp(n, "TEMP LIMIT")) temp = &AM32_FIELDS[i];
+		}
+		checkInt("KV, 1 to 255: 24 per coarse step", coarseFactor(kv), 24);
+		checkInt("POLES, 2 to 36 in 2s: 2 steps, 4 poles", coarseFactor(poles), 2);
+		checkInt("PWM FREQ, 8 to 144 kHz: 13", coarseFactor(pwm), 13);
+		checkInt("ADVANCE, 33 angles: 3", coarseFactor(adv), 3);
+		checkInt("TEMP LIMIT, 70 to 141: 7", coarseFactor(temp), 7);
+		checkInt("DIRECTION, a choice of two: 1", coarseFactor(dir), 1);
+		// ADVANCE in the pre-1.90 encoding: raw 2 is 15 degrees, step 16 of
+		// the modern 0.9375 degree steps. A coarse step is three of - and +'s
+		// steps, which convert it, so the angle is kept: step 19, raw 29.
+		uint8_t advKeep = s_eeprom[adv->offset];
+		s_eeprom[adv->offset] = 2;
+		uiSwipeApply(1, coarseFactor(adv), swipeStep, (void *)adv);
+		checkInt("ADVANCE raw 2, old encoding, +1 coarse: raw 29", s_eeprom[adv->offset], 29);
+		s_eeprom[adv->offset] = advKeep;
+
+		// Through the screen, on KV from 100.
+		int yKv = uiRowY("KV"); frames(1);
+		s_eeprom[0x1A] = 100;
+		fakePress(40, yKv); frames(1);
+		fakeHold(47, yKv); frames(1);              // the lock: the anchor
+		fakeHold(62, yKv); frames(1);
+		checkInt("15 px past the lock: unchanged", uiByte(0x1A), 100);
+		fakeHold(63, yKv); frames(1);
+		checkInt("16 px: one coarse step, +24", uiByte(0x1A), 124);
+		fakeHold(100, yKv); frames(1);
+		checkInt("37 px more: two steps, +48", uiByte(0x1A), 172);
+		fakeHold(84, yKv); frames(1);
+		checkInt("11 px back: none, the anchor moved by whole steps", uiByte(0x1A), 172);
+		fakeHold(239, yKv); frames(1);
+		checkInt("9 steps more: stops at the rail, 255", uiByte(0x1A), 255);
+		fakeHold(224, yKv); frames(1);
+		checkInt("15 px back: still 255", uiByte(0x1A), 255);
+		fakeHold(223, yKv); frames(1);
+		checkInt("16 px back: off the rail by one coarse step", uiByte(0x1A), 231);
+		fakeRelease(); frames(1);
+		s_eeprom[0x1A] = s_original[0x1A];
+		frames(1);
+	}
+
+	section("AM32 list on ui_list: extents and edges as before");
+	{
+		// Scroll extent: the last row ends on the viewport's last pixel row.
+		s_selected = -1;
+		for (int i = 0; i < 12; i++) {
+			fakePress(60, 210); frames(1);
+			for (int y = 210; y >= 60; y -= 30) { fakeHold(60, y); frames(1); }
+			fakeRelease(); frames(1);
+		}
+		checkInt("dragged up: the scroll stops at the content less 160 px", uiScroll(),
+		         uiVisibleCount() * ROW_H - LIST_H);
+		checkTrue("the last row's rule on y 215, the viewport's last row",
+		          gfxBuffer()[LIST_Y1 * GFX_W + 230] == C_PANEL &&
+		          gfxBuffer()[(LIST_Y1 - 1) * GFX_W + 230] == C_BG);
+		for (int i = 0; i < 12; i++) {
+			fakePress(60, 60); frames(1);
+			for (int y = 60; y <= 210; y += 30) { fakeHold(60, y); frames(1); }
+			fakeRelease(); frames(1);
+		}
+		checkInt("dragged down: the scroll stops at 0 px", uiScroll(), 0);
+
+		// The press rule at the viewport's edges, at a scroll that cuts a row
+		// at each.
+		uiListScrollTo(&s_list, 13);
+		s_selected = -1;
+		s_redraw = true;
+		frames(1);
+		tap(60, LIST_Y0);
+		checkInt("y 56: the top row, 13 px of it showing", uiSelected(), (int)s_visible[0]);
+		tap(60, LIST_Y1);
+		checkInt("y 215: the bottom row, 17 px of it showing", uiSelected(),
+		         (int)s_visible[(13 + LIST_H - 1) / ROW_H]);
+		s_selected = -1;
+		tap(60, LIST_Y0 - 1);
+		tap(60, LIST_Y1 + 1);
+		checkInt("y 55 and y 216, outside the viewport: no row", uiSelected(), -1);
+
+		// The editor bar and the footer do not move with the list.
+		tap(60, LIST_Y0 + 40);
+		frames(1);
+		uint32_t below = fakeRegionHash(0, LIST_Y1 + 1, GFX_W, GFX_H - LIST_Y1 - 1);
+		fakePress(60, 150); frames(1);
+		fakeHold(60, 120); frames(1);
+		fakeRelease(); frames(2);
+		checkTrue("a scroll leaves the editor bar and the footer as they were",
+		          fakeRegionHash(0, LIST_Y1 + 1, GFX_W, GFX_H - LIST_Y1 - 1) == below);
+
+		// HEX: six lines in 160 px, so a drag does not scroll, and the dump
+		// takes neither taps nor swipes.
+		int sel = uiSelected();
+		uint8_t before[AM32_EEPROM_SIZE];
+		memcpy(before, s_eeprom, sizeof(before));
+		tap(180 + 27, 268 + 23);
+		checkInt("HEX opens at 0 px", uiScroll(), 0);
+		fakePress(60, 150); frames(1);
+		fakeHold(60, 100); frames(1);
+		fakeRelease(); frames(1);
+		checkInt("a drag on the dump does not scroll it", uiScroll(), 0);
+		tap(60, LIST_Y0 + 5);
+		swipe(40, 200, LIST_Y0 + 5, 10);
+		checkTrue("a tap and a swipe on it change nothing",
+		          uiSelected() == sel && memcmp(before, s_eeprom, sizeof(before)) == 0);
+		tap(180 + 27, 268 + 23);
+		checkInt("FIELDS: back at 0 px", uiScroll(), 0);
+	}
+
 	section("Write: interlock, commit, verify, hand back");
 	{
 		int yPoles = uiRowY("POLES"); frames(1);
@@ -2748,12 +2898,21 @@ void runUiTests() {
 		checkTrue("a tap on WRITE does not commit", fakeEscByte(0x1B) != want);
 
 		fakePress(AM32_WRITE_X, AM32_WRITE_Y); frames(1);
-		for (int i = 0; i < 60; i++) { fakeHold(AM32_WRITE_X, AM32_WRITE_Y); frames(1); }
+		fakeHold(AM32_WRITE_X, AM32_WRITE_Y); frameAfter(999);
+		checkTrue("held 999 ms: not written", fakeEscByte(0x1B) != want && s_state == S_LIST);
+		checkTrue("the bar shows the hold",
+		          gfxBuffer()[(FOOT_Y - 4) * GFX_W + BTN_WRITE.x + 2] == C_LIME);
+		fakeHold(AM32_WRITE_X, AM32_WRITE_Y); frameAfter(1);
+		for (int i = 0; i < 20; i++) { fakeHold(AM32_WRITE_X, AM32_WRITE_Y); frames(1); }
 		fakeRelease(); frames(3);
-		checkInt("1 s hold commits and verifies", fakeEscByte(0x1B), want);
+		checkInt("1000 ms commits and verifies", fakeEscByte(0x1B), want);
 		fakeDumpFrame("shot_am32_written.ppm");
 
 		tap(120, 218);                                   // dismiss the result
+		fakePress(AM32_WRITE_X, AM32_WRITE_Y); frames(1);
+		for (int i = 0; i < 50; i++) { fakeHold(AM32_WRITE_X, AM32_WRITE_Y); frames(1); }
+		fakeRelease(); frames(1);
+		checkTrue("held on NO CHANGES: no write", s_state == S_LIST);
 		tap(180 + 27, 268 + 23);                         // HEX view
 		frames(2);
 		fakeDumpFrame("shot_am32_hex.ppm");

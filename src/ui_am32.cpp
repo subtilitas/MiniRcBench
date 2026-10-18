@@ -14,6 +14,7 @@
 #include "pin_claim.h"
 #include "touch.h"
 #include "ui_input.h"
+#include "ui_list.h"
 #include "ui_widgets.h"
 #include "gfx.h"
 #include "config.h"
@@ -29,6 +30,10 @@
 #define LIST_Y1      215     /**< Last pixel row of the list viewport. */
 #define LIST_H       (LIST_Y1 - LIST_Y0 + 1)
 #define WRITE_HOLD_MS 1000   /**< Hold this long to commit a write. */
+/** @brief Lines of the hex dump: 8 bytes each. */
+#define HEX_LINES    ((AM32_SETTINGS_SIZE + 7) / 8)
+/** @brief Coarse steps of a swipe that cover any field's range. */
+#define SWIPE_SPAN_STEPS 11
 
 /**
  * @defgroup am32_edit Editor bar
@@ -58,6 +63,8 @@ static const UiRect BTN_MINUS  = { BTN_MINUS_X, EDIT_Y, EDIT_BTN_W, EDIT_H };
 static const UiRect BTN_PLUS   = { BTN_PLUS_X,  EDIT_Y, EDIT_BTN_W, EDIT_H };
 /** @brief The OK button on the write-result screen. */
 static const UiRect BTN_OK     = { 70, 200, 100, 36 };
+/** @brief The list's viewport. */
+static const UiRect LIST_VIEW  = { 0, LIST_Y0, GFX_W, LIST_H };
 
 // Layout invariants, asserted rather than eyeballed. A caption that runs under
 // a button is invisible in code review and obvious only in a screenshot.
@@ -82,15 +89,10 @@ static uint8_t    s_eeprom[AM32_EEPROM_SIZE];
 static uint8_t    s_original[AM32_EEPROM_SIZE];
 static bool       s_hexView = false;
 /**
- * @brief How far the list is scrolled, in pixels rather than in rows.
- *
- * Rows were the wrong unit and it showed in the one way that matters on glass:
- * with the axis lock at 10 px and a step of a whole 26 px row, the list did not
- * move at all until the finger had travelled 36 px, so a scroll felt like it
- * arrived late and then jumped. Pixels let the content track the finger from
- * the moment the gesture is recognised. @see handleListGesture()
+ * @brief The field list, or the hex dump while `s_hexView` is set: one
+ *        list, scrolled in pixels. @see ui_list.h
  */
-static int        s_scrollPx = 0;
+static UiList     s_list;
 static int        s_selected = -1;
 static char       s_status[40] = "";
 static uint32_t   s_writeHoldStart = 0;
@@ -149,23 +151,41 @@ static bool anyDirty() {
 /** @brief Touch state for the frame being drawn. Set at the top of uiAm32Tick(). */
 static const TouchState *s_frameTouch = nullptr;
 
-/** @brief Total height of the list content, in pixels, for the current view. */
-static int contentHeight() {
-	return s_hexView ? ((AM32_SETTINGS_SIZE + 7) / 8) * HEX_ROW_H
-	                 : (int)s_visibleCount * ROW_H;
+/**
+ * @brief Set the list up for the current view, scrolled to 0 px: the fields
+ *        in 26 px rows, or the hex dump in 11 px lines.
+ */
+static void openList() {
+	if (s_hexView) uiListInit(&s_list, LIST_VIEW, HEX_ROW_H, HEX_LINES);
+	else           uiListInit(&s_list, LIST_VIEW, ROW_H, s_visibleCount);
 }
 
-/** @brief Largest legal @ref s_scrollPx, which is 0 when everything fits. */
-static int maxScrollPx() {
-	int over = contentHeight() - LIST_H;
-	return over > 0 ? over : 0;
+/**
+ * @brief A field's own steps per coarse step of a swipe: the range over
+ *        @ref SWIPE_SPAN_STEPS times the step, rounded up, so that 11 coarse
+ *        steps, 176 px, cover any field's range.
+ * @param f The field.
+ * @return Steps of @p f per coarse step.
+ */
+static int coarseFactor(const Am32Field *f) {
+	int step = f->step ? f->step : 1;
+	int range = (int)f->rawMax - (int)f->rawMin;
+	int span = SWIPE_SPAN_STEPS * step;
+	return (range + span - 1) / span;
 }
 
-/** @brief Clamp @ref s_scrollPx into range. Call after any change to either. */
-static void clampScroll() {
-	int max = maxScrollPx();
-	if (s_scrollPx > max) s_scrollPx = max;
-	if (s_scrollPx < 0)   s_scrollPx = 0;
+/**
+ * @brief One step of a field for a swipe, the step the editor bar's - and +
+ *        take: false at the rail, where the step changes nothing.
+ * @param ctx The field, an Am32Field.
+ * @param dir -1 or +1.
+ * @return true when the value changed.
+ */
+static bool swipeStep(void *ctx, int dir) {
+	const Am32Field *f = (const Am32Field *)ctx;
+	uint8_t before = s_eeprom[f->offset];
+	am32Adjust(f, s_eeprom, dir);
+	return s_eeprom[f->offset] != before;
 }
 
 // ---------------------------------------------------------------------------
@@ -229,16 +249,17 @@ static void drawConnect() {
 }
 
 /**
- * @brief Draw one settings row with its top edge at @p y.
+ * @brief Draw list row @p index, a field, with its top edge at @p y.
  *
  * Takes a pixel row rather than a slot index, because with a pixel scroll
  * offset the first and last rows drawn are usually partly outside the viewport.
- * The clip box set by drawList() is what keeps them there.
+ * The clip uiListDraw() sets is what keeps them there.
  *
- * @param y        Top of the row, which may be above LIST_Y0 or below LIST_Y1.
- * @param fieldIdx Index into AM32_FIELDS.
+ * @param index Row of the list, an index into @ref s_visible.
+ * @param y     Top of the row, which may be above LIST_Y0 or below LIST_Y1.
  */
-static void drawRow(int y, uint16_t fieldIdx) {
+static void drawRow(int index, int y, void *) {
+	uint16_t fieldIdx = s_visible[index];
 	const Am32Field *f = &AM32_FIELDS[fieldIdx];
 	bool sel = (s_selected == (int)fieldIdx);
 	bool changed = s_eeprom[f->offset] != s_original[f->offset];
@@ -257,47 +278,27 @@ static void drawRow(int y, uint16_t fieldIdx) {
 	gfxHLine(0, y + ROW_H - 1, GFX_W, C_PANEL);
 }
 
-/** @brief The hex dump, scrolled by the same pixel offset as the field list. */
-static void drawHex() {
+/**
+ * @brief Draw line @p index of the hex dump with its top edge at @p y.
+ * @param index Line of the dump: bytes 8 x @p index onwards.
+ * @param y     Top of the line.
+ */
+static void drawHexLine(int index, int y, void *) {
 	// 8 bytes per line keeps each row inside 240 px at scale 1.
-	int first = s_scrollPx / HEX_ROW_H;
-	int off   = s_scrollPx % HEX_ROW_H;
-	for (int r = 0;; r++) {
-		int y = LIST_Y0 - off + r * HEX_ROW_H;
-		if (y > LIST_Y1) break;
-		int base = (first + r) * 8;
-		if (base >= AM32_SETTINGS_SIZE) break;
-		char line[64];
-		int n = snprintf(line, sizeof(line), "%02X ", base);
-		for (int i = 0; i < 8 && base + i < AM32_SETTINGS_SIZE; i++) {
-			n += snprintf(line + n, sizeof(line) - n, "%02X ", s_eeprom[base + i]);
-		}
-		gfxText(6, y, line, C_DIM, 1);
+	int base = index * 8;
+	char line[64];
+	int n = snprintf(line, sizeof(line), "%02X ", base);
+	for (int i = 0; i < 8 && base + i < AM32_SETTINGS_SIZE; i++) {
+		n += snprintf(line + n, sizeof(line) - n, "%02X ", s_eeprom[base + i]);
 	}
-}
-
-/** @brief The field list, drawn from @ref s_scrollPx. */
-static void drawFields() {
-	int first = s_scrollPx / ROW_H;
-	int off   = s_scrollPx % ROW_H;
-	for (int r = 0;; r++) {
-		int y = LIST_Y0 - off + r * ROW_H;
-		if (y > LIST_Y1) break;
-		int idx = first + r;
-		if (idx >= (int)s_visibleCount) break;
-		drawRow(y, s_visible[idx]);
-	}
+	gfxText(6, y, line, C_DIM, 1);
 }
 
 static void drawList() {
 	// The clip is what makes a pixel scroll possible at all: the top and bottom
 	// rows are usually partial, and without it the overhang lands on the header
 	// strip above and the editor bar below. @see gfx_clip
-	gfxSetClip(0, LIST_Y0, GFX_W, LIST_H);
-	gfxRect(0, LIST_Y0, GFX_W, LIST_H, C_BG);
-	if (s_hexView) drawHex();
-	else           drawFields();
-	gfxClearClip();
+	uiListDraw(&s_list, s_hexView ? drawHexLine : drawRow, nullptr);
 
 	gfxRect(0, LIST_Y1 + 1, GFX_W, GFX_H - LIST_Y1 - 1, C_BG);
 
@@ -383,12 +384,12 @@ static void claimPins() {
 void uiAm32Enter() {
 	s_state = S_HANDOVER;
 	s_hexView = false;
-	s_scrollPx = 0;
 	s_selected = -1;
 	s_leaving = false;
 	s_redraw = true;
 	s_writeHolding = false;
 	s_visibleCount = 0;
+	openList();
 #if AM32_FORCE_LOW_JUMP
 	s_jumped = false;
 #endif
@@ -458,7 +459,7 @@ static void tryConnect() {
 
 	memcpy(s_original, s_eeprom, sizeof(s_eeprom));
 	buildVisible();
-	s_scrollPx = 0;
+	openList();
 	s_selected = -1;
 	s_state = S_LIST;
 	s_redraw = true;
@@ -545,12 +546,8 @@ static void handleListTouch(const TouchState *t) {
 	}
 	if (!t->down) repeatFires(&s_editRepeat, 0, millis());
 
-	// Row selection is *not* here any more. It used to fire on touch-down, and
-	// that is what made the list feel like it fought back: every scroll began
-	// by selecting whatever the finger happened to land on, repainting the row,
-	// and only then -- 36 px of travel later -- starting to move. The press now
-	// records a candidate and commits nothing; handleListGesture() decides
-	// whether the gesture turned out to be a tap or a drag.
+	// Row selection is not here: a press on the list commits nothing, and
+	// handleListGesture() decides whether the gesture is a tap or a drag.
 
 	// --- destructive taps fire on release, inside, having started inside, so
 	//     a mis-tap can slide off. REVERT throws away every unsaved edit; it
@@ -560,163 +557,37 @@ static void handleListTouch(const TouchState *t) {
 		s_redraw = true;
 	} else if (uiTapped(BTN_HEX, t)) {
 		s_hexView = !s_hexView;
-		s_scrollPx = 0;
+		openList();
 		s_redraw = true;
 	}
 }
 
 /**
- * @brief List gestures: vertical drag scrolls, horizontal drag adjusts, a
- *        press that goes nowhere selects.
+ * @brief List gestures, on ui_list: a vertical drag scrolls, a sideways swipe
+ *        steps the row it began on, a press that goes nowhere selects.
  *
- * The two axes are locked exclusively on first movement, so a swipe is either
- * a scroll or an edit and never both. Horizontal gives coarse control -- one
- * full-width swipe covers a field's entire range -- while the editor-bar
- * buttons stay one step per press for fine work.
- *
- * The important change here is what a press means. It used to select the row
- * under the finger immediately, and scrolling was something the gesture became
- * afterwards; the row lit up, and then 36 px later the list started moving in
- * whole-row jumps. That is backwards for a list, where dragging is the common
- * gesture and tapping the rare one. So a press now records a *candidate* row
- * and commits nothing:
- *
- * - it becomes a selection on release, if the finger never travelled;
- * - it becomes a selection at the moment a horizontal lock happens, so that
- *   press-and-swipe still adjusts the row actually touched;
- * - and a vertical drag never selects anything at all.
- *
- * Scrolling then follows the finger 1:1 in pixels from the press point, so no
- * travel is lost to the axis lock and nothing jumps a row at a time.
+ * The axes lock exclusively, so a swipe is either a scroll or an edit and
+ * never both. Sideways gives coarse control, coarseFactor() steps of the field
+ * per 16 px, while the editor-bar buttons stay one step per press for fine
+ * work. A press selects nothing on its own: a tap selects on release, a swipe
+ * selects its row when it locks, and a vertical drag never selects. The hex
+ * dump scrolls and takes neither taps nor swipes.
  */
 static void handleListGesture(const TouchState *t) {
-	/**
-	 * @brief Travel before an axis is committed to, in pixels.
-	 *
-	 * Lower than it was. It used to be 10 px on top of a 26 px row step; now it
-	 * is only the slop that separates a tap from a drag, and every pixel of it
-	 * is a pixel the list has not moved yet.
-	 */
-	static const int AXIS_LOCK_PX = 6;
-	/** @brief Horizontal travel that spans a field's whole range. */
-	static const int SWIPE_FULL_PX = 180;
-
-	enum GMode : uint8_t { G_NONE, G_VERT, G_HORIZ };
-	static GMode   mode = G_NONE;
-	static int16_t startX = 0, startY = 0;
-	static int16_t anchorX = 0;
-	static uint8_t anchorRaw = 0;
-	static int     scrollAtPress = 0;
-	/** @brief Field index under the finger when it landed; -1 for none. */
-	static int     candidate = -1;
-
-	const Am32Field *sel = (!s_hexView && s_selected >= 0 &&
-	                        s_selected < (int)AM32_FIELD_COUNT)
-	                           ? &AM32_FIELDS[s_selected] : nullptr;
-
-	if (t->pressed) {
-		mode = G_NONE;
-		startX = anchorX = t->x;
-		startY = t->y;
-		scrollAtPress = s_scrollPx;
-		candidate = -1;
-		if (!s_hexView && t->y >= LIST_Y0 && t->y <= LIST_Y1) {
-			int idx = (s_scrollPx + (t->y - LIST_Y0)) / ROW_H;
-			if (idx >= 0 && idx < (int)s_visibleCount)
-				candidate = (int)s_visible[idx];
-		}
-		if (sel) anchorRaw = s_eeprom[sel->offset];
+	UiListEvent e = uiListTouch(&s_list, t);
+	if (e.kind == UiListEv::Scrolled) {
+		s_redraw = true;
 		return;
 	}
-
-	if (t->released) {
-		// A press that never became a drag is a tap, and a tap selects. Doing it
-		// here rather than on touch-down is what makes the list scroll first and
-		// ask questions later.
-		if (mode == G_NONE && candidate >= 0 &&
-		    t->y >= LIST_Y0 && t->y <= LIST_Y1) {
-			s_selected = candidate;
-			s_redraw = true;
-		}
-		mode = G_NONE;
-		candidate = -1;
-		return;
-	}
-	if (!t->down) { mode = G_NONE; return; }
-
-	// Only gestures that began inside the list count, so a drag that strays
-	// out of the editor bar cannot scroll or edit.
-	if (startY < LIST_Y0 || startY > LIST_Y1) return;
-
-	int dx = t->x - startX, dy = t->y - startY;
-	int adx = dx < 0 ? -dx : dx, ady = dy < 0 ? -dy : dy;
-
-	if (mode == G_NONE) {
-		if (adx > AXIS_LOCK_PX && adx >= ady)      mode = G_HORIZ;
-		else if (ady > AXIS_LOCK_PX)               mode = G_VERT;
-		else return;
-		if (mode == G_HORIZ) {
-			// A coarse swipe adjusts the row the finger landed on, so the
-			// selection it never made on touch-down is made now -- before the
-			// anchor is taken, or the first swipe would edit the previous
-			// selection's value into the newly selected field.
-			if (candidate >= 0 && candidate != s_selected) {
-				s_selected = candidate;
-				s_redraw = true;
-			}
-			sel = (s_selected >= 0 && s_selected < (int)AM32_FIELD_COUNT)
-			          ? &AM32_FIELDS[s_selected] : nullptr;
-			// Re-base at the moment of commitment so the value does not jump by
-			// the distance already travelled.
-			anchorX = t->x;
-			if (sel) anchorRaw = s_eeprom[sel->offset];
-		}
-	}
-
-	if (mode == G_VERT) {
-		// Measured from the press, not from the lock: the few pixels spent
-		// deciding this was a scroll are pixels the user dragged, and swallowing
-		// them is exactly the lag this rework is about. Dragging down moves the
-		// content down, which means the offset goes the other way.
-		int want = scrollAtPress - dy;
-		if (want != s_scrollPx) {
-			s_scrollPx = want;
-			clampScroll();
-			s_redraw = true;
-		}
-		return;
-	}
-
-	// --- horizontal: coarse adjustment of the selected field ---
-	if (!sel) return;
-	int32_t range = (int32_t)sel->rawMax - (int32_t)sel->rawMin;
-	if (range <= 0) return;
-
-	int32_t v = (int32_t)anchorRaw +
-	            (int32_t)(t->x - anchorX) * range / SWIPE_FULL_PX;
-
-	// Re-anchor at the rails, so reversing direction responds at once rather
-	// than having to unwind however far past the end the finger went.
-	if (v <= sel->rawMin) {
-		v = sel->rawMin;
-		anchorX = t->x;
-		anchorRaw = sel->rawMin;
-	} else if (v >= sel->rawMax) {
-		v = sel->rawMax;
-		anchorX = t->x;
-		anchorRaw = sel->rawMax;
-	}
-
-	// Snap to the field's own step so stepped fields stay on legal values --
-	// motor poles, for instance, must remain even.
-	if (sel->step > 1) {
-		v = sel->rawMin + ((v - sel->rawMin) / sel->step) * sel->step;
-	}
-
-	if ((uint8_t)v != s_eeprom[sel->offset]) {
-		s_eeprom[sel->offset] = (uint8_t)v;
+	if (s_hexView || e.kind == UiListEv::None) return;
+	int field = (int)s_visible[e.row];
+	if (field != s_selected || e.kind == UiListEv::Tap) {
+		s_selected = field;
 		s_redraw = true;
 	}
+	if (e.kind != UiListEv::Swipe || e.steps == 0) return;
+	const Am32Field *f = &AM32_FIELDS[field];
+	if (uiSwipeApply(e.steps, coarseFactor(f), swipeStep, (void *)f)) s_redraw = true;
 }
 
 bool uiAm32Tick(const TouchState *t) {
@@ -759,9 +630,8 @@ bool uiAm32Tick(const TouchState *t) {
 			break;
 
 		case S_LIST:
-			// Selection first: the press selects the row under the finger, and
-			// the gesture handler then anchors on that field's current value,
-			// so press-and-swipe adjusts the row you actually touched.
+			// The buttons first, then the list's gesture, which selects and
+			// steps the row a gesture began on (handleListGesture()).
 			handleListTouch(t);
 			handleListGesture(t);
 			break;
