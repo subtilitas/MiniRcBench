@@ -76,7 +76,7 @@ struct ServoStatus {
 	bool     tripped;     /**< A heartbeat lapse stopped the pulses. */
 	bool     sweeping;    /**< A sweep runs. */
 	uint8_t  bindError;   /**< 0, or the Core1JobError of a refused rebind. */
-	uint16_t outUs[2];    /**< What each pin carries now, us; 0 for none. */
+	uint16_t outUs[2];    /**< What each pin carries, us; 0 for none. */
 	uint32_t sweepMoves;  /**< Ends the running sweep has reached. */
 };
 

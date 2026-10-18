@@ -88,7 +88,8 @@ erneut; dafür braucht es einen neuen Druck.
 
 Reagiert der Bildschirm 250 ms lang nicht, enden die Impulse von selbst, die
 Statusanzeige zeigt `STALLED`, und der Bildschirm meldet
-`STOPPED: SCREEN STALLED`. Nichts startet neu, bis du wieder `HOLD TO START` hältst.
+`STOPPED: SCREEN STALLED`. Nichts startet neu, bis du wieder
+`HOLD TO START` hältst.
 
 <img src="img/servo-stalled.png" width="240" alt="Gestoppt nach einem Hänger">
 
@@ -193,7 +194,9 @@ Servobildschirm öffnest, beginnt er mit STANDARD PWM, 50 Hz und einem Servo.
 
 `BACK` beendet die Impulse und fordert dich auf, das Servo abzuziehen. Der
 letzte Impuls läuft vorher vollständig aus; bei 50 Hz dauert das bis zu
-41 ms. Bis DShot wieder läuft, hält ein schwacher Pull-down die Pins auf Low.
+41 ms. Danach hält ein schwacher Pull-down den ESC-Pin auf Low, bis DShot
+wieder läuft, und den KISS-Pin, bis der KISS-Empfänger ihn übernimmt; ist
+KISS aus, bleibt er auf Low.
 
 <img src="img/servo-unplug.png" width="240" alt="UNPLUG THE SERVO">
 

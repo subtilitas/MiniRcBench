@@ -16,7 +16,9 @@ void fakeAdvance(uint32_t ms);
 
 struct SdLogStatus;
 
-/** @brief Force the fake logger into a given state. @param st What to report. */
+/**
+ * @brief Force the fake logger into a given state. @param st What to report.
+ */
 void fakeSdLogSet(const SdLogStatus *st);
 
 /** @brief Begin a touch at (@p x, @p y); sets the one-poll `pressed` edge. */

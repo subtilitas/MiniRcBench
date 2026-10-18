@@ -101,9 +101,9 @@ restarts until you hold `HOLD TO START` again.
   drawn as outlines and do nothing.
 - A drag must start on the dial. A press that starts elsewhere and slides onto
   the dial moves nothing.
-- `SPEED` 100 % sends each new position at once, and the servo moves at its own
-  speed. Below 100 % the pulse moves gradually: at 10 % a full travel from MIN
-  to MAX takes 5 s.
+- `SPEED` 100 % sends each new position at once, and the servo moves at its
+  own speed. Below 100 % the pulse moves gradually: at 10 % a full travel from
+  MIN to MAX takes 5 s.
 - A sweep starts at the centre and runs its curve on the board's second core,
   so the screen does not slow it down. While it runs, the readout shows
   `SWEEP 3` or `SWEEP 3/10`: the ends reached, and the count you set.
@@ -116,14 +116,14 @@ restarts until you hold `HOLD TO START` again.
 
 ## Two servos
 
-Set `SERVOS` to `TWO` on the SET screen. Servo B is on the KISS pin. Both share
-one profile and one frame rate.
+Set `SERVOS` to `TWO` on the SET screen. Servo B is on the KISS pin. Both
+share one profile and one frame rate.
 
 <img src="img/servo-two.png" width="240" alt="Two servos">
 
-`A`, `B` and `AB` choose what the dial and the buttons move: one servo, or both
-to the same angle. The chosen horn is drawn wide. With `REVERSE B` on, B moves
-the opposite way when both follow, for a pair mounted face to face.
+`A`, `B` and `AB` choose what the dial and the buttons move: one servo, or
+both to the same angle. The chosen horn is drawn wide. With `REVERSE B` on, B
+moves the opposite way when both follow, for a pair mounted face to face.
 
 Two servos need the KISS pin free. If KISS frames arrive on it, or the ESC pin
 and the KISS pin are the same pin under SETUP, the screen offers one servo
@@ -181,8 +181,9 @@ starts at STANDARD PWM, 50 Hz, one servo.
 ## Leaving
 
 `BACK` ends the pulses and asks you to unplug the servo. The last pulse
-completes first, which takes up to 41 ms at 50 Hz. Until DShot runs again, a
-weak pull-down holds the pins low.
+completes first, which takes up to 41 ms at 50 Hz. A weak pull-down then
+holds the ESC pin low until DShot runs again. It holds the KISS pin low until
+the KISS receiver takes it, or for good with KISS off.
 
 <img src="img/servo-unplug.png" width="240" alt="UNPLUG THE SERVO">
 

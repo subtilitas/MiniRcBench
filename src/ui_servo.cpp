@@ -113,7 +113,10 @@ static_assert(SET_FOOT_Y + SET_FOOT_H <= GFX_H, "the footer runs off the panel")
 static_assert(SET_EDIT_H >= UI_TAP_MIN && SET_FOOT_H >= UI_TAP_MIN,
               "a SET button is smaller than a fingertip");
 
-/** @brief Hold that commits HOLD TO START and HOLD TO APPLY: one length on the device. */
+/**
+ * @brief Hold that commits HOLD TO START and HOLD TO APPLY: one length on the
+ *        device.
+ */
 #define SV_HOLD_MS ARM_HOLD_MS
 
 // ---------------------------------------------------------------------------
@@ -146,7 +149,10 @@ static const SetRow ROWS[] = {
 /** @brief The SERVOS row. */
 #define ROW_SERVOS 0
 
-/** @brief Steps a swipe of one @ref SET_SWIPE_PX applies: numbers coarse, choices one. */
+/**
+ * @brief Steps a swipe of one @ref SET_SWIPE_PX applies: numbers coarse,
+ *        choices one.
+ */
 static int coarseOf(const SetRow &r) {
 	if (!r.pulse) return r.field == (uint8_t)SweepField::Shape ? 1 : 10;
 	ServoField f = (ServoField)r.field;
@@ -194,7 +200,10 @@ static int    s_scroll = 0;      /**< List scroll, px. */
 static Repeat s_repeat;          /**< The editor bar's held repeat. */
 /** @} */
 
-/** @brief Keys of the regions drawn last, so an unchanged region is not repainted. */
+/**
+ * @brief Keys of the regions drawn last, so an unchanged region is not
+ *        repainted.
+ */
 static uint32_t s_keys[8];
 
 // ---------------------------------------------------------------------------
@@ -223,7 +232,10 @@ static bool changed(int i, const void *key, size_t n) {
 static bool pressing(const UiRect &r) { return uiPressing(r, s_t); }
 static bool tapped(const UiRect &r) { return uiTapped(r, s_t); }
 
-/** @brief The GPIO a role names, from the claim, or from the pump before it holds. */
+/**
+ * @brief The GPIO a role names, from the claim, or from the pump before it
+ *        holds.
+ */
 static uint8_t gpioOf(uint8_t role) {
 	uint8_t g = pinClaimGpio(role);
 	if (g != PIN_CLAIM_NO_GPIO) return g;
@@ -250,7 +262,7 @@ static void send(ServoCmdKind kind, uint16_t command = SERVO_CMD_CENTRE) {
 	servoJobCommand(&c);
 }
 
-/** @brief Hand the job s_profile now, or on the first frame it takes it. */
+/** @brief Hand s_profile to the job, at once or on a later frame. */
 static void applyProfile() {
 	s_owed = !servoJobProfile(&s_profile);
 }
@@ -309,7 +321,9 @@ static void drawTop(const char *title, bool caption) {
 	else                   uiChip("SAFE", C_GREEN);
 }
 
-/** @brief What the dial band shows instead of the dial, or null for the dial. */
+/**
+ * @brief What the dial band shows instead of the dial, or null for the dial.
+ */
 static void claimMessage(const char **l1, const char **l2, const char **l3,
                          uint16_t *col, bool *retry) {
 	static char a[40], b[40];
@@ -353,7 +367,10 @@ static void drawHorn(uint16_t us, uint16_t col, bool selected) {
 	if (selected) gfxRoundRect(tx - 6, ty - 6, 12, 12, 6, col);
 }
 
-/** @brief The dial band: the claim's message, or the arc, the notes and the horns. */
+/**
+ * @brief The dial band: the claim's message, or the arc, the notes and the
+ *        horns.
+ */
 static void drawDial() {
 	const char *l1, *l2, *l3;
 	uint16_t col;
@@ -588,7 +605,9 @@ static void valueText(int row, char *buf, size_t n) {
 	}
 }
 
-/** @brief Whether a step of @p row in @p dir is allowed and changes something. */
+/**
+ * @brief Whether a step of @p row in @p dir is allowed and changes something.
+ */
 static bool canStep(int row, int dir) {
 	const SetRow &r = ROWS[row];
 	if (!r.pulse) return servoSweepCanStep(&s_sweep, (SweepField)r.field, dir);

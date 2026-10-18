@@ -106,7 +106,7 @@ uint16_t fakePwmLatched(unsigned gpio) {
 }
 
 /**
- * @brief The pin's output stops following its slice now: a stop, a new
+ * @brief The pin's output stops following its slice: a stop, a new
  *        pwm_init() or a mux change. A pulse under way is cut short; at a
  *        frame's first count it has begun and is cut too.
  */

@@ -77,7 +77,7 @@ since its bind is released at once.
 While SAFE, two lines at the top of the dial band say
 `THE SERVO MOVES TO CENTRE AT START.` and `PULSES ON GP29 ARE THROTTLE TO AN
 ESC.` (the live SIG pin). The first gives the rule: starting at the last
-commanded position instead would move the servo just as far from wherever it
+commanded position instead would move the servo as far from wherever it
 rests, to a place nobody chose this session; centre is the position a servo
 is mounted and trimmed at. The second covers what the ESC check of
 [pin-claim.md](pin-claim.md#interlocks) misses: an ESC that does not answer
@@ -341,8 +341,9 @@ BACK on SERVO, once a job has held the pins, shows the page of
 [pin-claim.md](pin-claim.md#restoring-dshot): `UNPLUG THE SERVO.`, `DSHOT
 RESTARTS ON GP29 AND READS AS` `A 970 US PULSE AT 1000 HZ.`, and RESTART
 DSHOT, a tap. Until core1 has released the pins the page says
-`RELEASING THE PINS`. BACK on the page returns to SERVO and keeps the claim;
-the job binds again, SAFE. BACK from a claim still draining, or with no
+`RELEASING THE PINS`, and BACK on it does nothing. Once they are released,
+BACK on the page returns to SERVO and keeps the claim; the job binds again,
+SAFE. BACK from a claim still draining, or with no
 claim, leaves at once: nothing was driven.
 
 ## Where it runs
@@ -483,8 +484,11 @@ UI frames:
   visit to the screen;
 - the last pulse: no pulse cut short at a release from RUNNING, at a rebind
   from RUNNING then SAFE, nor at `pinClaimEnd()` while RUNNING; the claim
-  stays `Leaving` until the job is idle; a released pin is an input with the
-  pull-down on;
+  stays `Leaving` until the job is idle, and BACK on the unplug page does
+  nothing until then; the status reads SAFE during the wait; a released pin
+  is an input with the pull-down on;
+- a new visit, refused while an ESC answers or before the job binds, does
+  not show the last visit's trip;
 - the stop rules: a drag, MIN, CENTRE, MAX, STOP, BACK, a profile change and a
   trip each end a sweep; a drag across START and STOP ends; a press while SAFE
   takes no drag;
@@ -583,11 +587,14 @@ Further choices made in building slice 2:
 17. **The last pulse at a release.** `Core1JobOps::release` takes the time
     and returns whether the pins are released. The servo job returns false
     until `servoQuietMs()` has passed since level 0 was written, and the
-    claim stays in `Leaving`, or the rebind waits, until then. The pump is
-    not blocked: each pass of `loop1()` asks again.
+    claim stays in `Leaving`, or the rebind waits, until then. Core1's
+    `loop1()` is not blocked: each pass asks again. The DShot pump is
+    suspended for the whole claim.
 18. **The trip latch.** `tripped` is kept across a rebind and across a
-    release, and is cleared by `Start` or by a new visit to the screen
-    (`servoJobNewSession()`). A profile change does not hide a trip.
+    release, and is cleared by `Start` or by a new visit to the screen:
+    `servoJobNewSession()` clears the published latch at once, so the chip
+    of a refused or draining visit never reads STALLED, and core1's own
+    latch at the next bind. A profile change does not hide a trip.
 19. **Released pins.** `servoPwmRelease()` leaves the pin an input with the
     pull-down on, so the servo lead does not float between the release and
     DShot's bind. DShot sets the pull-up on SIG at its bind, and the KISS

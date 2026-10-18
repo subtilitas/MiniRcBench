@@ -529,19 +529,35 @@ replaces whole; one source list per feature, `src/servo.cmake` and
 `test/test_servo.cpp` with `runServoTests()` and `test/test_kst.cpp` with
 `runKstTests()`, which `test/test_main.cpp` runs. `ui.cpp` dispatches to
 both screens and gates their CFG buttons on
-`uiServoAvailable()` and `uiKstAvailable()`. In code the two slices are then
-disjoint but for one line each in the job table of `core1_job.cpp`: slice 2
-edits its own files and `gfx.cpp`/`gfx.h` (line and arc primitives), slice 3
-its own files only. Slice 2 also adds the `init` member to `Core1JobOps`, a
-generic rule in `test/Makefile` for each feature's C sources and C test
-programs (`SERVO_CSRCS`, `SERVO_CTESTS`; `KST_CSRCS` and `KST_CTESTS` when
-slice 3 needs them), the CFG row test in `test/test_ui.cpp`, the
-`lib/rcbench/` rule in `tools/notices.py` and the copied headers' include
-paths in the config permutations of `ci.yml`. They share three documentation
-files, each adding its own section: `README.md` (slice 3 also adds the legal
-notice), `wiki/_Sidebar.md` and `wiki/The-Screens.md` with its German
-counterpart. Each slice's user pages are new wiki files of its own. The second
-slice to merge resolves those sections by hand.
+`uiServoAvailable()` and `uiKstAvailable()`. Each slice adds one line to the
+job table of `core1_job.cpp`, and slice 3 otherwise edits its own files only.
+Slice 2 also changes these shared files:
+
+- `src/core1_job.h` and `.cpp`: the `init` member of `Core1JobOps`,
+  `release` taking the time and returning whether the pins are let go, and
+  `core1UiAlive()` reading the heartbeat stamp before `millis()`;
+- `src/esc_task.h` and `.cpp`: `escUiAlive()` counting a stamp newer than
+  the clock as alive, and the pump reading the stamp first;
+- `src/gfx.cpp` and `gfx.h`: the line and arc primitives;
+- `src/main.cpp`: the servo job and headers in its overview;
+- `test/Makefile`: a generic rule for each feature's C sources and C test
+  programs (`SERVO_CSRCS`, `SERVO_CTESTS`; `KST_CSRCS` and `KST_CTESTS` when
+  slice 3 needs them);
+- `test/fakes.*` and `test/stubs/hardware/`: the PWM register model and the
+  pull-down;
+- `test/test_claim.cpp` (the release contract and the heartbeat rule),
+  `test/test_gfx.cpp` (the primitives) and `test/test_ui.cpp` (the CFG row);
+- `tools/notices.py` (the `lib/rcbench/` rule), `tools/coverage.py` (its
+  scope text), `tools/make_previews.py` and `tools/check_wiki.py` (the servo
+  images and page pair), and the copied headers' include paths in the config
+  permutations of `ci.yml`.
+
+The slices share three documentation files, each adding its own section:
+`README.md` (slice 3 also adds the legal notice), `wiki/_Sidebar.md` and
+`wiki/The-Screens.md` with its German counterpart. Each also updates its
+entries in `STATUS.md`, `CHANGELOG.md`, `docs/design/README.md` and
+`wiki/Home.md`. Each slice's user pages are new wiki files of its own. The
+second slice to merge resolves those sections by hand.
 
 ## Decisions
 

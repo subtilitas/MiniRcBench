@@ -532,13 +532,15 @@ static ServoCmd sweepOf(uint16_t seq, sweep_kind_t kind, uint16_t mhz, uint16_t 
 	return c;
 }
 
-/** @brief Take @p c at @p now and step once. */
-static void pass(ServoCore *core, const ServoCmd &c, uint32_t now, bool alive = true) {
-	servoCoreTake(core, &c, now, alive);
-	servoCoreStep(core, now, alive);
+/** @brief Take @p c at @p nowMs and step once. */
+static void pass(ServoCore *core, const ServoCmd &c, uint32_t nowMs, bool alive = true) {
+	servoCoreTake(core, &c, nowMs, alive);
+	servoCoreStep(core, nowMs, alive);
 }
 
-/** @brief SAFE, START, positions, two servos and REVERSE B, on the pure core. */
+/**
+ * @brief SAFE, START, positions, two servos and REVERSE B, on the pure core.
+ */
 static void testCoreStates() {
 	section("Servo job core: SAFE, START, positions, two servos");
 
@@ -572,7 +574,7 @@ static void testCoreStates() {
 	checkTrue("CENTRE on both pins in the same pass, slew or not",
 	          c.outUs[0] == 1500 && c.outUs[1] == 1500);
 	ServoCmd again = cmdOf(10, ServoCmdKind::Safe);
-	checkTrue("a seq already taken is not new, whatever it says",
+	checkTrue("a seq that was taken is not new, whatever it says",
 	          !servoCoreTake(&c, &again, 1000, true) && c.running);
 
 	pass(&c, cmdOf(11, ServoCmdKind::Position, SERVO_MASK_A, 1000), 1000);
@@ -909,7 +911,10 @@ static void testJob() {
 	checkTrue("back to free", claimEnd());
 }
 
-/** @brief The trip through the job, on the shipped heartbeat rule, across a wrap. */
+/**
+ * @brief The trip through the job, on the shipped heartbeat rule, across a
+ *        wrap.
+ */
 static void testJobTrip() {
 	section("Servo job: the heartbeat trip at 250 ms, across the millis() wrap");
 
@@ -971,7 +976,7 @@ static void testQuietRule() {
 	checkTrue("40 ms across the wrap: not yet", !servoQuietDone(true, 0xFFFFFFF0u, 24u, 50));
 }
 
-/** @brief Advance to @p intoUs into the slice's frame, a whole ms. */
+/** @brief Advance to @p intoMs into the slice's frame of @p periodMs. */
 static void toFramePoint(uint32_t intoMs, uint32_t periodMs) {
 	uint64_t into = (time_us_64() - fakeSlice(6).startUs) / 1000u % periodMs;
 	fakeAdvance((uint32_t)((intoMs + periodMs - into) % periodMs));
@@ -988,7 +993,10 @@ static uint32_t pollUntilIdle() {
 	return t;
 }
 
-/** @brief No pulse cut short at a release or a rebind, against the counter model. */
+/**
+ * @brief No pulse cut short at a release or a rebind, against the counter
+ *        model.
+ */
 static void testLastPulse() {
 	section("Servo job: the last pulse completes before the pins let go");
 
@@ -1139,7 +1147,10 @@ static TouchState touchAt(int x, int y, bool pressed, bool down, bool released,
 	return t;
 }
 
-/** @brief The slider's event logic: the two press contracts, tap-to-set, presets. */
+/**
+ * @brief The slider's event logic: the two press contracts, tap-to-set,
+ *        presets.
+ */
 static void testSlider() {
 	section("Slider: delta drag, tap-to-set, presets, the two press contracts");
 
@@ -1319,7 +1330,10 @@ static void testSliderDraw() {
 #define UI_BACK_CX  (UI_BACK_X + UI_BACK_W / 2)
 #define UI_BACK_CY  (UI_BACK_Y + UI_BACK_H / 2)
 
-/** @brief A frame @p ms after the last: core1's pump and job passes, then the UI. */
+/**
+ * @brief A frame @p ms after the last: core1's pump and job passes, then the
+ *        UI.
+ */
 static void frameAt(uint32_t ms) {
 	fakeAdvance(ms);
 	fakePumpPoll();
@@ -1359,7 +1373,10 @@ static int dialY(float deg, int r = 60) {
 /** @brief The pixel at (@p x, @p y). */
 static uint16_t pixel(int x, int y) { return gfxBuffer()[y * GFX_W + x]; }
 
-/** @brief A pixel inside @p r clear of its label: fill when live, background when disabled. */
+/**
+ * @brief A pixel inside @p r clear of its label: fill when live, background
+ *        when disabled.
+ */
 static uint16_t fillOf(const UiRect &r) { return pixel(r.x + 4, r.y + r.h - 5); }
 
 /** @brief Fresh board: default settings, no ESC, the main screen up. */
@@ -1398,7 +1415,9 @@ static void leaveServo() {
 	uiFrames(2);
 }
 
-/** @brief Drag on the dial from @p deg0 to @p deg1, in 10 deg steps, and lift. */
+/**
+ * @brief Drag on the dial from @p deg0 to @p deg1, in 10 deg steps, and lift.
+ */
 static void dialDrag(float deg0, float deg1, bool lift = true) {
 	fakePress(dialX(deg0), dialY(deg0)); uiFrames(1);
 	float step = deg1 > deg0 ? 10.0f : -10.0f;
@@ -1550,7 +1569,10 @@ static void testHoldToStart() {
 	leaveServo();
 }
 
-/** @brief The horn: absolute, held on release, refused while SAFE, owned by its press. */
+/**
+ * @brief The horn: absolute, held on release, refused while SAFE, owned by its
+ *        press.
+ */
 static void testHorn() {
 	section("Servo screen: the horn is the control");
 
@@ -1742,7 +1764,9 @@ static void testTwoServos() {
 	leaveServo();
 }
 
-/** @brief SamePin and KissLive keep the screen to one servo, through the claim. */
+/**
+ * @brief SamePin and KissLive keep the screen to one servo, through the claim.
+ */
 static void testAuxRefused() {
 	section("Servo screen: TWO is refused when the claim refuses AUX");
 
@@ -1792,14 +1816,17 @@ static void testAuxRefused() {
 	noEsc();
 }
 
-/** @brief An ESC on SIG: no claim, the message, and the claim 500 ms after it goes quiet. */
+/**
+ * @brief An ESC on SIG: no claim, the message, and the claim 500 ms after it
+ *        goes quiet.
+ */
 static void testEscAnswering() {
 	section("Servo screen: an ESC answering on SIG holds the claim off");
 
 	freshUi();
 	EscTelemetry t;
 	memset(&t, 0, sizeof(t));
-	t.lastRpmMs = millis();   // the last eRPM frame, now
+	t.lastRpmMs = millis();   // the last eRPM frame, at this instant
 	fakeSetTelemetry(&t);
 	openServo();
 	checkTrue("no claim while it answers", !s_claimed && pinClaimHolder() == PinUser::None);
@@ -1870,7 +1897,9 @@ static void testUnplugPage() {
 	uiTap(UI_BACK_CX, UI_BACK_CY);
 }
 
-/** @brief SET: the warning, HOLD TO APPLY, the SAFE gate, sweep rows, DEFAULTS. */
+/**
+ * @brief SET: the warning, HOLD TO APPLY, the SAFE gate, sweep rows, DEFAULTS.
+ */
 static void testSetScreen() {
 	section("Servo SET: PULSE rows while SAFE, the warning and HOLD TO APPLY");
 
@@ -2003,7 +2032,9 @@ static void testSetScreen() {
 	leaveServo();
 }
 
-/** @brief Claim refusals the UI cannot reach, and TWO chosen before the claim. */
+/**
+ * @brief Claim refusals the UI cannot reach, and TWO chosen before the claim.
+ */
 static void testClaimCorners() {
 	section("Servo screen: refusals the UI cannot reach, and TWO before the claim");
 

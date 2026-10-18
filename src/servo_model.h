@@ -31,19 +31,28 @@
  * @defgroup servo_limits Pulse limits
  * @{
  */
-/** @brief Shortest pulse any profile reaches, in us (rcbench `OUT_FLOOR_US`). */
+/**
+ * @brief Shortest pulse any profile reaches, in us (rcbench `OUT_FLOOR_US`).
+ */
 #define SERVO_FLOOR_US        400
-/** @brief Longest pulse any profile reaches, in us (rcbench `OUT_CEILING_US`). */
+/**
+ * @brief Longest pulse any profile reaches, in us (rcbench `OUT_CEILING_US`).
+ */
 #define SERVO_CEILING_US      2500
 /** @brief Slowest frame rate, in Hz. Below it a servo steps audibly. */
 #define SERVO_RATE_MIN_HZ     40
 /** @brief Fastest frame rate, in Hz: a 760 us tail servo's rate. */
 #define SERVO_RATE_MAX_HZ     560
-/** @brief Pause after a pulse before the next frame, in us (`PWM_MIN_PAUSE_US`). */
+/**
+ * @brief Pause after a pulse before the next frame, in us (`PWM_MIN_PAUSE_US`).
+ */
 #define SERVO_PAUSE_US        1000
 /** @brief That pause for the heli profiles, in us (`HELI_MIN_PAUSE_US`). */
 #define SERVO_HELI_PAUSE_US   500
-/** @brief Above this frame rate, in Hz, a change needs the warning (`SAFE_RATE_HZ`). */
+/**
+ * @brief Above this frame rate, in Hz, a change needs the warning
+ *        (`SAFE_RATE_HZ`).
+ */
 #define SERVO_SAFE_RATE_HZ    60
 /** @brief One step of the MIN, CENTRE and MAX steppers, in us. */
 #define SERVO_STEP_US         10
@@ -87,7 +96,9 @@
 #define SERVO_DIAL_Y0         56
 /** @brief Last row of the dial band. */
 #define SERVO_DIAL_Y1         199
-/** @brief Angle, in degrees either side of up, where travel ends: MIN and MAX. */
+/**
+ * @brief Angle, in degrees either side of up, where travel ends: MIN and MAX.
+ */
 #define SERVO_DIAL_TRAVEL_DEG 90
 /** @brief Angle, in degrees either side of up, where the hit area ends. */
 #define SERVO_DIAL_EDGE_DEG   104
@@ -155,7 +166,10 @@ enum class SweepField : uint8_t {
 
 /** @brief One step of the sweep RATE, in thousandths of a cycle a second. */
 #define SERVO_SWEEP_MHZ_STEP      50
-/** @brief One step of the sweep AMPLITUDE: 5 % of half the travel, in command units. */
+/**
+ * @brief One step of the sweep AMPLITUDE: 5 % of half the travel, in command
+ *        units.
+ */
 #define SERVO_SWEEP_AMP_STEP      25
 /** @brief One step of the sweep DWELL, ms. */
 #define SERVO_SWEEP_DWELL_STEP_MS 100

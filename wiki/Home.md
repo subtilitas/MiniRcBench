@@ -1,9 +1,10 @@
 # MiniRcBench
 
 A bench tester for RC (radio-controlled) model parts on the Waveshare
-**RP2350-Touch-LCD-2.8**. Today it tests one ESC (electronic speed controller)
-over bidirectional DShot, and drives servos. With two wires to the ESC, the board is the throttle source, the telemetry display and the log
-recorder. It needs no flight controller, laptop or Betaflight.
+**RP2350-Touch-LCD-2.8**. It tests one ESC (electronic speed controller) over
+bidirectional DShot, and drives servos. With two wires to the ESC, the board
+is the throttle source, the telemetry display and the log recorder. It needs
+no flight controller, laptop or Betaflight.
 
 <img src="img/tester-armed.png" width="240" alt="The tester screen, armed">
 
