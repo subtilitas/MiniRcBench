@@ -1534,7 +1534,19 @@ static void testHoldToStart() {
 	fakeHold(x, y); uiFrames(2);
 	core1();
 	checkTrue("still held on the button: STOP does not fire", s_st.running);
+	// The UI stalls with the finger still on the button, and the job trips.
+	// The press that started the servo does not start it again, however
+	// long it stays.
+	fakeAdvance(300);
+	core1();
+	for (int i = 0; i < 50; i++) { fakeHold(x, y); uiFrames(1); }
+	core1();
+	servoJobStatus(&st);
+	checkTrue("tripped under the finger, then held 1250 ms: not started again",
+	          !st.running && st.tripped && fakePin(29).level == 0);
 	fakeRelease(); uiFrames(1);
+	holdStart();
+	checkTrue("a new press starts it", s_st.running && fakePin(29).level == 1500);
 	checkTrue("the chip says RUNNING", pixel(GFX_W - UI_MARGIN - 4, UI_STRIP_Y + 3) == C_RED);
 	checkTrue("MIN, CENTRE, MAX, SWEEP are live", fillOf(BTN_MIN) == C_PANEL && fillOf(BTN_SWEEP) == C_PANEL);
 
