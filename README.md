@@ -996,6 +996,7 @@ src/
   kst_seek.{h,cpp}      the KST search: the entry sequence repeated until a servo answers
   kst_job.{h,cpp}       the KST programmer's core1 job: search, read, write, leave
   kst_line_port.{h,cpp} the job's KST line, rcbench's RP2350 line driver
+  kst_files.{h,cpp}     the KST files and the record of a write on the SD card
   servo.cmake, kst.cmake  each feature's firmware sources (test/*.mk: its tests)
   ui_input.{h,cpp}      tap-on-release and held-repeat rules, shared (pure)
   rpm_filter.h          display smoothing of the RPM readout
@@ -1096,7 +1097,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 4,400 of 4,472 lines in 40 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 4,520 of 4,594 lines in 41 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

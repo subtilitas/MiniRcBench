@@ -1,12 +1,14 @@
 # KST and Chaservo servo programming
 
-Status: work breakdown steps 1 and 2 built, host tests only. The KST core,
+Status: work breakdown steps 1 to 3 built, host tests only. The KST core,
 its RP2350 line driver and the KST file store are copied into
 `lib/rcbench/`, built by the firmware and the host suite, and rcbench's seven
 tests of them run in `make` and CI. The search (`src/kst_seek.*`) and the
 core1 job (`src/kst_job.*`) run the session on the line, and the host suite
-runs both against rcbench's simulated servo. Nothing starts the job yet: MENU
-has no KST row and `src/ui_kst.cpp` is a stub. It depends on the pin claim in
+runs both against rcbench's simulated servo. `src/kst_files.*` puts the file
+store and the record of a write on the card through FatFs, tested against an
+in-memory volume. Nothing starts the job or writes a file yet: MENU has no
+KST row and `src/ui_kst.cpp` is a stub. It depends on the pin claim in
 [pin-claim.md](pin-claim.md), slice 1 there, which is built. This
 document is slice 3. It comes after slices A to C of [menu.md](menu.md), the
 menu restructure, which are built, and is written for the system they leave:
@@ -1079,8 +1081,16 @@ library's `ffconf.h`), which covers `KST_STORE_BASE_MAX`, 32 characters.
 
 `kst_store.c` reaches the card through 5 functions (`kst_store_io_t`:
 `mounted`, `walk`, `size`, `read`, `create`). `src/kst_files.cpp` implements
-them over FatFs on core0 and answers "not mounted" while `mscHoldsCard()` is
-true.
+them over FatFs on core0. The card counts as mounted while the blackbox
+logger has it mounted (`SdLogState` Idle or Logging) and the USB card reader
+is off (`MscState::Idle`): while `mscHoldsCard()` is true, and while the
+reader takes the card back, every call answers "not mounted" and touches no
+FatFs function. Paths are relative to the card's root, as the logs' are.
+
+FatFs results map to the store's: `FR_WRITE_PROTECTED` is DENIED, a file
+named `KST` where the directory goes is DENIED, `FR_DENIED` on a create (a
+full volume or directory) and a short write are CARD_FULL, any other error
+is a write or read error. A create that fails removes the file it made.
 
 | Situation | Effect |
 |---|---|
@@ -1092,7 +1102,18 @@ true.
 
 `KST.TXT` is the base name `kst_store.c` keeps free for this record
 (`KST_STORE_RECORD`); `kst_store` refuses it for a save and a load, so
-`kst_files.cpp` reads and removes it itself. rcbench's full journal
+`kst_files.cpp` reads, writes and removes it itself.
+
+The first write's card calls, `kstFilesFirstWrite()`, in order:
+
+1. A record already on the card, left by an interrupted write, is renamed to
+   the next KSTnnn.TXT, so no record is lost. A record that cannot be renamed
+   stays, and no new record is written over it.
+2. The backup is saved as the next KSTnnn.TXT.
+3. The image before the write is written as `KST/KST.TXT`.
+
+The write runs with no card, or when the card took the backup or the record
+(`kstFilesWriteAllowed()`). rcbench's full journal
 (`kst_prog.c`, the port and the step of a write under way) is not ported; the
 record is the image before the write and nothing else.
 
@@ -1163,9 +1184,14 @@ so these run against the same simulated servo:
   to counters, which stay at 0. The job runs from the job table, one
   `core1JobPoll()` a millisecond, on `test/fake_kst_line.cpp`: the simulator
   behind `src/kst_line_port.h`, on the suite's virtual clock.
-- `test_kst_files.cpp`: the FatFs io over a fake volume: no card, card held by
-  USB, card full, write-protected, the record written before the first write
-  frame and removed after a verify, the record found at entry; with `GP0`, a
+- `test_kst_files.cpp`, built in step 3: the FatFs io over an in-memory
+  volume (`test/fake_fatfs.cpp`): the mount rule, no card and a card held by
+  USB with no FatFs call, the first write's backup and record, an old record
+  kept, card full, write-protected, a full directory, a file named `KST`,
+  write, sync and close errors with no file left behind, one of the two
+  files taken, the record found and loaded at entry, the store's save, list
+  and load over FatFs. With the screen, step 4: the record written before
+  the first write frame and removed after a verify. With `GP0`, step 5: a
   card phase around every card call, the first write's opened before the
   backup and closed by the write command, the others closed by `CardEnd`;
   `sdh_wait_hook` set only inside a phase.
@@ -1183,7 +1209,8 @@ so these run against the same simulated servo:
    ported tests in `make` and CI. Built.
 2. `kst_seek.*` and `kst_job.*` with their tests. Built, without the
    switched supply, which is step 5.
-3. `kst_files.cpp` and its tests.
+3. `kst_files.cpp` and its tests. Built, without the card phase, which is
+   step 5.
 4. `ui_kst.cpp`: search, field list and FILES on `ui_list`, write, leave,
    the holds on `ui_hold`; its `UiScreen` and its line in `ui_registry.cpp`,
    so MENU shows KST SERVO ([menu.md](menu.md#code)); UI tests by control id;
