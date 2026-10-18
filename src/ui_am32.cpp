@@ -406,7 +406,6 @@ void uiAm32Exit() {
 	// pump within the call.
 	am32BlEnd();
 	pinClaimEnd(PinUser::Am32);
-	s_claimed = false;
 	s_state = S_HANDOVER;
 }
 

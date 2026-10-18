@@ -4,8 +4,7 @@
  *
  * Servo PWM on the ESC pin, and on the KISS pin for two servos. Entry:
  * CFG → SETTINGS → SERVO. The design is docs/design/servo-tester.md, and
- * slice 2 of
- * docs/design/pin-claim.md replaces this stub whole. Until then
+ * slice 2 of docs/design/pin-claim.md replaces this stub whole. Until then
  * uiServoAvailable() is false, the CFG button is drawn disabled and does
  * not act, and the screen is unreachable.
  */

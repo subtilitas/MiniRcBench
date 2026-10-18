@@ -37,7 +37,10 @@ uint16_t fakeThrottle();
 /** @brief Arm state of the fake DShot task. */
 bool fakeArmed();
 
-/** @brief True when the DShot task has been resumed and owns the pin again. */
+/**
+ * @brief True while no suspend is requested: DShot has the pin or rebuilds
+ *        on the next pass.
+ */
 bool fakePinReturned();
 
 /** @brief The wiring escTaskConfigure() last set: what a rebuild binds. */
@@ -78,7 +81,7 @@ bool fakeResumeJobIdle();
 /** @brief GPIO the AM32 transport was last handed by am32BlBegin(). */
 uint8_t fakeAm32Pin();
 
-/** @brief Whether DShot was still suspended at the last am32BlEnd(). */
+/** @brief Whether a suspend was still requested at the last am32BlEnd(). */
 bool fakeAm32EndBeforeResume();
 
 /** @brief Set the telemetry the fake ESC reports. */

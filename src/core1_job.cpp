@@ -74,7 +74,7 @@ void core1JobStop() {
 
 Core1Job core1JobRunning() {
 	critical_section_enter_blocking(&s_cs);
-	Core1Job job = s_phase == Core1JobPhase::Idle ? Core1Job::None : s_job;
+	Core1Job job = s_job;
 	critical_section_exit(&s_cs);
 	return job;
 }

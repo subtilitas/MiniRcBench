@@ -2,12 +2,12 @@
  * @file core1_job.h
  * @brief Work core1 runs on the claimed pins while the DShot pump is down.
  *
- * Core1 owns every hardware change on the two signal pins, because the core
- * that claims a PIO state machine is the core that frees it. While the pin
- * claim holds (pin_claim.h), escTaskPoll() returns at once and core1 runs one
- * job instead: the servo tester or the KST programmer. `loop1()` calls
- * escTaskPoll() and then core1JobPoll(); with no job, core1JobPoll() returns
- * at once too.
+ * Core1 makes every PIO change on the two signal pins, because the core that
+ * claims a PIO state machine is the core that frees it; the AM32 transport,
+ * on core0, is the exception. While the pin claim holds (pin_claim.h),
+ * escTaskPoll() returns at once and core1 runs one job instead: the servo
+ * tester or the KST programmer. `loop1()` calls escTaskPoll() and then
+ * core1JobPoll(); with no job, core1JobPoll() returns at once too.
  *
  * No job is built yet. Core1Job::Servo and Core1Job::Kst name the two jobs
  * of docs/design/servo-tester.md and docs/design/kst-programming.md, and
@@ -47,7 +47,7 @@ enum class Core1JobPhase : uint8_t {
  */
 enum Core1JobError : uint8_t {
 	CORE1_JOB_OK      = 0,  /**< Bound, or nothing started. */
-	CORE1_JOB_REFUSED = 1,  /**< core1JobStart() refused it. */
+	CORE1_JOB_REFUSED = 1,  /**< core1JobStart() refused it; pinClaimJobError() only. */
 	CORE1_JOB_PWM     = 2,  /**< No PWM slice or channel for the pin. */
 	CORE1_JOB_PIO     = 3,  /**< No PIO block with room for the program. */
 	CORE1_JOB_DMA     = 4,  /**< No free DMA channel. */
@@ -112,7 +112,10 @@ Core1JobPhase core1JobPhase();
 
 /**
  * @brief Why the last job did not bind. Core0.
- * @return A Core1JobError; CORE1_JOB_OK when it bound or none was started.
+ * @return CORE1_JOB_PWM, CORE1_JOB_PIO, CORE1_JOB_DMA or CORE1_JOB_CLOCK from
+ *         the job's bind; CORE1_JOB_OK when it bound or none was started.
+ *         Never CORE1_JOB_REFUSED: a refused start is reported by
+ *         pinClaimJobError().
  */
 uint8_t core1JobError();
 

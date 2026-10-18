@@ -74,7 +74,6 @@ static void settle() {
 	s_who   = PinUser::None;
 	s_roles = 0;
 	s_sig = s_aux = PIN_CLAIM_NO_GPIO;
-	s_jobPending = false;
 }
 
 ClaimRefusal pinClaimBegin(PinUser who, uint8_t roles) {
@@ -153,7 +152,8 @@ PinUser pinClaimHolder() {
 
 uint8_t pinClaimGpio(uint8_t role) {
 	settle();
-	if (role == PIN_SIG && (s_roles & PIN_SIG)) return s_sig;
+	// Every claim asks for SIG.
+	if (role == PIN_SIG) return s_sig;
 	if (role == PIN_AUX && (s_roles & PIN_AUX)) return s_aux;
 	return PIN_CLAIM_NO_GPIO;
 }
@@ -162,7 +162,7 @@ uint8_t pinClaimJobError() { return s_jobError; }
 
 void pinClaimEnd(PinUser who) {
 	settle();
-	if (who == PinUser::None || who != s_who) return;
+	if (who != s_who) return;
 	switch (s_state) {
 		case ClaimState::Stopping:
 			// No job started and the pins went to nobody: DShot comes back at

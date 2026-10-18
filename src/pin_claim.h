@@ -18,9 +18,10 @@
  * screen's core1 job binds.
  *
  * Core0 runs the claim as a state machine, one step per UI frame, from the
- * screen that holds it. Core1 does every hardware change: the pump's drain
- * and teardown (esc_task.cpp) and the job's bind and release
- * (core1_job.cpp).
+ * screen that holds it. Core1 makes every PIO change on the two signal pins:
+ * the pump's drain and teardown (esc_task.cpp) and the job's bind and release
+ * (core1_job.cpp). The AM32 transport, on core0, is the exception: it binds
+ * SIG itself (am32_bl.cpp).
  *
  * | State | What happens | Next |
  * |---|---|---|

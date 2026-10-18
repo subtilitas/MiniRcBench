@@ -79,9 +79,10 @@ during a claim: SETUP, SD LOG and the main screen sit behind BACK.
 ### Sequence
 
 Core0 runs the claim as a state machine in `src/pin_claim.cpp`, one step per UI
-frame (`UI_PERIOD_MS`, 25 ms). Core1 does every hardware change, because the
-core that claims a PIO state machine is the core that frees it, as
-`esc_task.h` already requires.
+frame (`UI_PERIOD_MS`, 25 ms). Core1 makes every PIO change on the two signal
+pins, because the core that claims a PIO state machine is the core that frees
+it, as `esc_task.h` requires; the AM32 transport, which binds SIG on core0, is
+the exception.
 
 1. **Check.** Core0 refuses the claim while armed, and, for SERVO and KST,
    while an ESC answers on SIG. See [interlocks](#interlocks). DShot keeps
@@ -180,7 +181,8 @@ bool core1JobStart(Core1Job job, uint8_t sigGpio, uint8_t auxGpio);  // core0
 void core1JobStop();                                                   // core0
 Core1Job core1JobRunning();   // core0: which job runs; None once idle
 Core1JobPhase core1JobPhase();// core0
-uint8_t core1JobError();      // core0: CORE1_JOB_REFUSED, _PWM, _PIO, _DMA, _CLOCK
+uint8_t core1JobError();      // core0: CORE1_JOB_PWM, _PIO, _DMA, _CLOCK;
+                              // REFUSED comes from pinClaimJobError()
 void core1JobPoll();          // core1, from loop1() after escTaskPoll()
 bool core1UiAlive();          // core1: escHeartbeat() within 250 ms
 ```

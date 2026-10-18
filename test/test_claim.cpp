@@ -8,9 +8,10 @@
  * claim and the dispatch did to them. The Makefile therefore must not compile
  * core1_job.cpp separately.
  *
- * The fake pump (fakes.cpp) makes escTaskPoll()'s decisions with the shipped
- * functions: escHandoverStep(), escDrainSlot(), escPumpSlot(),
- * escPumpFrameSent() and escPumpBind(). Core1 is not a thread here: a test runs
+ * The fake pump (fakes.cpp) makes escTaskPoll()'s handover and frame
+ * decisions with the shipped functions: escHandoverStep(), escDrainSlot(),
+ * escPumpSlot(), escPumpFrameSent() and escPumpBind(). fakes.cpp lists what it
+ * does not model. Core1 is not a thread here: a test runs
  * core1's side by calling fakePumpPoll() and core1JobPoll() itself, which is
  * how the order of the two cores' steps is put under test. testHandoverSlots()
  * runs the same functions one 1 ms slot at a time.
@@ -303,10 +304,13 @@ static void testHandoverRules() {
 	checkTrue("250 ms after a throttle frame: still draining",
 	          !escDrainDone(5000, 5250, ARM_ZERO_THROTTLE_MS));
 	checkTrue("251 ms after: done", escDrainDone(5000, 5251, ARM_ZERO_THROTTLE_MS));
-	checkTrue("across the millis() rollover: draining at 250 ms",
-	          !escDrainDone(0xFFFFFF00u, 0xFFFFFF00u + 250u, ARM_ZERO_THROTTLE_MS));
+	// Stamped 16 ms before the rollover, so every check below wraps.
+	checkTrue("across the millis() rollover: draining at 10 ms",
+	          !escDrainDone(0xFFFFFFF0u, 0xFFFFFFF0u + 10u, ARM_ZERO_THROTTLE_MS));
+	checkTrue("draining at 250 ms",
+	          !escDrainDone(0xFFFFFFF0u, 0xFFFFFFF0u + 250u, ARM_ZERO_THROTTLE_MS));
 	checkTrue("and done at 251 ms",
-	          escDrainDone(0xFFFFFF00u, 0xFFFFFF00u + 251u, ARM_ZERO_THROTTLE_MS));
+	          escDrainDone(0xFFFFFFF0u, 0xFFFFFFF0u + 251u, ARM_ZERO_THROTTLE_MS));
 
 	EscFrame zero = {false, 0, 0, false};
 	EscFrame thr  = {false, 0, 1, false};
@@ -354,7 +358,9 @@ static void testHandoverRules() {
  *
  * The same functions escTaskPoll() calls, in its order: escHandoverStep(),
  * escPumpBind(), escDrainSlot() or escPumpSlot(), escPumpFrameSent(). What is
- * modelled is core0's requests and the clock.
+ * modelled is core0's requests and the clock. Not modelled: the PIO, the
+ * replies and their fold into the telemetry, the KISS receiver and the
+ * heartbeat (uiAlive is true).
  */
 struct HandoverSim {
 	EscPump      pump;
@@ -670,7 +676,13 @@ static void testJobGuard() {
 	checkTrue("a second start while one is up: refused",
 	          !core1JobStart(Core1Job::Kst, SIG_GPIO, 0xFF));
 	core1JobPoll();
+	checkTrue("a start while one runs: refused",
+	          core1JobPhase() == Core1JobPhase::Running &&
+	          !core1JobStart(Core1Job::Kst, SIG_GPIO, 0xFF));
 	core1JobStop();
+	checkTrue("a start while one stops: refused",
+	          core1JobPhase() == Core1JobPhase::Stopping &&
+	          !core1JobStart(Core1Job::Kst, SIG_GPIO, 0xFF));
 	core1JobPoll();
 	checkTrue("released and idle", g_servoJob.releases == 1 &&
 	                               core1JobPhase() == Core1JobPhase::Idle);
@@ -735,6 +747,18 @@ static void testBackEveryState() {
 	checkInt("and no job was ever bound", g_servoJob.binds, 0);
 	fakeAdvance(1000);
 
+	// Stopping, with the pump torn down before any poll has seen it.
+	checkTrue("claims", pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
+	pump();
+	resumes = fakeResumeCount();
+	pinClaimEnd(PinUser::Servo);
+	checkTrue("BACK while stopping after the teardown: restoring",
+	          fakeResumeCount() == resumes + 1 &&
+	          pinClaimState() == ClaimState::Restoring);
+	pump();
+	checkTrue("free once the pump runs", pinClaimState() == ClaimState::Free);
+	checkInt("still no job bound", g_servoJob.binds, 0);
+
 	// Held, the job asked for and not yet bound.
 	checkTrue("claims", pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
 	pump();
@@ -760,6 +784,7 @@ static void testBackEveryState() {
 	checkInt("and says why", pinClaimJobError(), CORE1_JOB_PWM);
 	checkTrue("binds nothing, so releases nothing", g_servoJob.releases == 0 &&
 	                                               core1JobPhase() == Core1JobPhase::Idle);
+	checkTrue("and core1 holds no job", core1JobRunning() == Core1Job::None);
 	resumes = fakeResumeCount();
 	pinClaimEnd(PinUser::Servo);
 	checkTrue("BACK after a failed bind: the unplug page", pinClaimUnplugDue());
@@ -770,6 +795,10 @@ static void testBackEveryState() {
 	checkInt("then DShot", fakeResumeCount(), resumes + 1);
 	pump();
 	checkTrue("free", pinClaimPoll() == ClaimState::Free);
+	checkTrue("the next claim starts with no error",
+	          pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None &&
+	          pinClaimJobError() == CORE1_JOB_OK);
+	checkTrue("back to free", toFree());
 
 	// Held, the bind failed, then RETRY: the claim is kept.
 	heldWithBind();
@@ -790,6 +819,7 @@ static void testBackEveryState() {
 	core1JobPoll();
 	checkTrue("it binds", g_servoJob.binds == binds + 1 &&
 	                      pinClaimPoll() == ClaimState::Running);
+	checkInt("and the last failure is cleared", core1JobError(), CORE1_JOB_OK);
 	checkInt("DShot stayed down", fakeResumeCount(), resumes);
 	pinClaimRetry(PinUser::Servo);
 	checkTrue("RETRY while running does nothing", pinClaimState() == ClaimState::Running &&
@@ -801,8 +831,13 @@ static void testBackEveryState() {
 	checkTrue("claims", pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
 	pump();
 	checkTrue("held", pinClaimPoll() == ClaimState::Held);
-	checkInt("the start was refused", pinClaimJobError(), CORE1_JOB_REFUSED);
+	pinClaimPoll();
+	pinClaimPoll();
+	checkInt("the start was refused, and polls keep the reason",
+	         pinClaimJobError(), CORE1_JOB_REFUSED);
 	pinClaimRetry(PinUser::Servo);
+	pinClaimPoll();
+	pinClaimPoll();
 	checkInt("RETRY is refused the same way", pinClaimJobError(), CORE1_JOB_REFUSED);
 	pinClaimEnd(PinUser::Servo);
 	checkTrue("BACK: the unplug page", pinClaimUnplugDue());
@@ -878,9 +913,12 @@ static void testHeartbeat() {
 	checkTrue("a fresh heartbeat is alive", escUiAlive(1000, 1000));
 	checkTrue("249 ms old: alive", escUiAlive(1249, 1000));
 	checkTrue("250 ms old: dead", !escUiAlive(1250, 1000));
-	checkTrue("across the rollover at 249 ms: alive",
-	          escUiAlive(0xFFFFFF9Cu + 249u, 0xFFFFFF9Cu));
-	checkTrue("and dead at 250 ms", !escUiAlive(0xFFFFFF9Cu + 250u, 0xFFFFFF9Cu));
+	// Stamped 100 ms before the rollover, so every check below wraps.
+	checkTrue("across the rollover at 10 ms: alive",
+	          escUiAlive(0xFFFFFF9Cu + 10u, 0xFFFFFF9Cu));
+	checkTrue("at 249 ms: alive", escUiAlive(0xFFFFFF9Cu + 249u, 0xFFFFFF9Cu));
+	checkTrue("dead at 250 ms", !escUiAlive(0xFFFFFF9Cu + 250u, 0xFFFFFF9Cu));
+	checkTrue("and dead at 400 ms", !escUiAlive(0xFFFFFF9Cu + 400u, 0xFFFFFF9Cu));
 
 	uiInit();
 	freshPump();
