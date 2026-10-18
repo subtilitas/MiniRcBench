@@ -7,4 +7,5 @@
 # here.
 target_sources(MiniRcBench PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/ui_servo.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/servo_model.cpp
 )

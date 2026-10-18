@@ -7,6 +7,6 @@
 #   SERVO_SRCS         sources linked into the suite
 #   SERVO_TESTS        the test files; test_servo.cpp holds runServoTests()
 #   SERVO_DEVICE_SRCS  sources the suite cannot link, typechecked by `syntax`
-SERVO_SRCS        := ../src/ui_servo.cpp
+SERVO_SRCS        := ../src/ui_servo.cpp ../src/servo_model.cpp
 SERVO_TESTS       := test_servo.cpp
 SERVO_DEVICE_SRCS :=
