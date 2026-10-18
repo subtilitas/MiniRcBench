@@ -47,7 +47,9 @@ struct TouchState;
 
 /** @brief The axis a gesture has locked to. */
 enum class UiListMode : uint8_t {
-	None,      /**< No gesture, or a press that has not travelled far enough. */
+	None,      /**< No axis yet: the press has not travelled far enough.
+	                Between gestures the list keeps the last axis, unread
+	                until the next press sets None again. */
 	Vertical,  /**< The list follows the finger. */
 	Sideways,  /**< The swipe steps the candidate row. */
 };

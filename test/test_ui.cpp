@@ -1010,7 +1010,7 @@ static void testSetupSave() {
 	checkInt("RESET restores the compiled ESC pin", settings()->dshotPin, def.dshotPin);
 	checkTrue("RESET alone leaves flash as it was", settingsStored());
 
-	// SETUP opened again under a press already on HOLD TO SAVE: the press is
+	// SETUP opened again under a press that is on HOLD TO SAVE: the press is
 	// not timed, as the hold waits for a press that lands.
 	checkTrue("RESET left a change pending", settingsDirty());
 	fakePress(SET_SAVE_X, SET_SAVE_Y); frames(1);

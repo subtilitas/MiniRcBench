@@ -558,7 +558,8 @@ static void handleListTouch(const TouchState *t) {
  * per 16 px, while the editor-bar buttons stay one step per press for fine
  * work. A press selects nothing on its own: a tap selects on release, a swipe
  * selects its row when it locks, and a vertical drag never selects. The hex
- * dump scrolls and takes neither taps nor swipes.
+ * dump fits the viewport, does not scroll, and takes neither taps nor
+ * swipes.
  */
 static void handleListGesture(const TouchState *t) {
 	UiListEvent e = uiListTouch(&s_list, t);
