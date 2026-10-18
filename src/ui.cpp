@@ -1409,6 +1409,9 @@ static void handleMainTouch() {
 				s_throttle = 0;
 				escSetArmed(true);
 				s_armPressing = false;
+				// Removing this clear fails no test: no disarm can fire while
+				// the arming finger is still down. It keeps that finger from
+				// arming again if a disarm path ever does.
 				s_armLive = false;
 				backlightDip();
 				invalidateAll();

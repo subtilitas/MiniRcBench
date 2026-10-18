@@ -1,8 +1,9 @@
 # Menu restructure: MENU and SETTINGS
 
-Status: slice A built, host tests only, not tested on hardware: `ui_list`
-under the AM32 and SERVO SET lists, `ui_hold` under four holds. Slices B and
-C are planned. Slices A to C come before KST programming, slice 3 of
+Status: slices A and B built, host tests only, not tested on hardware:
+`ui_list` under the AM32 and SERVO SET lists, `ui_hold` under four holds,
+and a control table per screen (`src/ui_screen.h`) that the host tests tap
+by id. Slice C is planned. Slices A to C come before KST programming, slice 3 of
 [pin-claim.md](pin-claim.md), and [kst-programming.md](kst-programming.md)
 builds on them. Line numbers in `src/`, `test/`, `tools/`, README.md and the
 wiki name 9c0f3b9, the tree the review read, not the tree with slice A; line
@@ -453,6 +454,7 @@ enum class UiScreenId : uint8_t {
 };   // slice C: Cfg becomes Menu, Setup becomes Settings, Beep joins
 
 enum : uint8_t { UI_FIXED = 0xFF };   // row of a control outside any list
+enum : uint8_t { UI_BACK = 0 };       // BACK, fixed control 0 of every screen
 enum class UiPart : uint8_t { Row, Minus, Plus, Toggle };
 
 struct UiControlId {             // which control: (row, part)
@@ -461,6 +463,7 @@ struct UiControlId {             // which control: (row, part)
                                  // enum (BACK, HOLD TO SAVE, ...) for UI_FIXED
 };
 #define UI_ROW(n, p) (UiControlId{ (uint8_t)(n), (uint8_t)UiPart::p })
+#define UI_FIX(c)    (UiControlId{ UI_FIXED, (uint8_t)(c) })
 
 struct UiControl {               // one tappable thing on the current frame
     UiControlId id;
@@ -469,7 +472,15 @@ struct UiControl {               // one tappable thing on the current frame
 };
 
 UiScreenId uiCurrentScreen();    // the open screen
+uint8_t uiControls(UiControl *out, uint8_t max);   // its table, this frame
 ```
+
+Each screen's fixed controls are an enum in its header, numbered from 1:
+`TesterCtl`, `CfgCtl` and `SdLogCtl` in `ui.h`, `Am32Ctl` in `ui_am32.h`,
+`ServoCtl` for all three SERVO views in `ui_servo.h`, `SetupCtl` and the row
+numbers `SetupRow` in `ui_setup.h`. `UI_FIX(CfgCtl::Beep)` is BEEP;
+`UI_ROW(SetupRow::Pin, Plus)` is the + of ESC PIN. A list adds its visible
+rows with `uiListAddRows()`. The firmware does not call `uiControls()`.
 
 `UI_ROW(3, Plus)` is the + of SETTINGS row 3; `UI_ROW(5, Row)` is AM32 list
 row 5, which selects. Slice B gives today's screens, the tester, CFG, SETUP,
@@ -587,9 +598,13 @@ UI a probe, `uiCurrentScreen()`, which returns the open `UiScreenId`, with
 ids for today's screens, CFG and SETUP among them ([code](#code)). Slice C
 renames those ids. The host tests address controls by id:
 
-- `tapId(id)`, `pressId(id)`, `holdId(id, ms)` look the control up on the
-  current frame and fail the test, naming the id, when it is absent or
-  disabled against the test's expectation;
+- `tapId(id)`, `pressId(id)` and `holdId(id, frames)` in `test/ui_ids.h`
+  look the control up on the current frame and fail the test, naming the
+  id, when it is absent or gated against the test's expectation
+  (`IdExpect`); a hold timed to the millisecond takes `ctlCentre(id)` and
+  keeps its own frame loop;
+- `checkControlTable()` checks a frame's table: ids unique, rectangles
+  inside the panel and apart, BACK at `uiBackRect()`;
 - a list row's controls are `UI_ROW(n, Row)`, `UI_ROW(n, Minus)`,
   `UI_ROW(n, Plus)` and `UI_ROW(n, Toggle)`; `revealRow(n)` drags the list
   until row n is whole, then the test taps the part, so the scroll is

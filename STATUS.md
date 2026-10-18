@@ -34,9 +34,10 @@ is a stub. Before slice 3 comes a menu restructure
 ([menu.md](docs/design/menu.md), slices A to C). Slice A is built: one
 scrolling list, `src/ui_list.*`, under the AM32 and SERVO SET lists, and one
 hold, `src/ui_hold.*`, under HOLD TO WRITE, HOLD TO START, HOLD TO APPLY and
-HOLD TO SAVE. Slices B and C are planned: a MENU list replaces the settings
-screen, SETUP becomes one sectioned SETTINGS list with pole count and
-throttle ceiling at its top, and the host tests address controls by id.
+HOLD TO SAVE. Slice B is built: every screen reports its controls by id
+(`src/ui_screen.h`), and the host tests tap them by id. Slice C is planned:
+a MENU list replaces the settings screen, and SETUP becomes one sectioned
+SETTINGS list with pole count and throttle ceiling at its top.
 The pin claim both features share is built (slice 1): the AM32 editor and the
 servo tester run on it. For the ESC, the board is the throttle source. It
 sends bidirectional DShot (a digital ESC protocol in which the ESC
@@ -184,6 +185,7 @@ record either way.
 | Settings in flash (CFG → SETUP) | block validation, CRC, board id check, pin defaults, the block layout DshotDisplay 2.x writes | not recorded; 46a64a7 states no hardware coverage |
 | Touch handling, high-contrast theme, throttle gauge | tap on release, repeats, screen residue, gauge reach | hardware use recorded: the reports #22 to #24 named in the v2.3 commits; the fixes on hardware: not recorded |
 | List and hold widgets (`src/ui_list.*`, `src/ui_hold.*`; slice A of [menu.md](docs/design/menu.md)) | the list: the scroll range and its clamp, the press rule at the viewport's edges, the row rectangle, the axis lock at 6 px, a tap on release and its slide-off, the scroll from the press point, 16 px per coarse step, the factor, the stop at a rail and the anchor after it, the clipped drawing; the hold: 1000 ms and not 999 ms, the reset on a lift and a slide off, a press that slid on, one firing per press, no timing for a press that landed while the control was disabled or whose first frame it missed, the progress bar's extent; through the screens: AM32's swipe on every field of the table, KV at 16 px a step and its rail, the AM32 and SERVO SET scroll ranges and edge rows (checks that 4c91db9 also passes), DWELL's rail on SET, HOLD TO WRITE and HOLD TO SAVE at 999 ms and 1000 ms, each hold's colour and bar, a press on a disabled HOLD TO START, HOLD TO APPLY and HOLD TO WRITE never timed, HOLD TO SAVE's refusal while armed | not tested on hardware |
+| Control tables (`src/ui_screen.h`; slice B of [menu.md](docs/design/menu.md)) | every screen's table on each view the host suite reaches, the ids, rectangles and enabled flags, `uiCurrentScreen()` after each navigation; the UI tests tap by id | host only: the firmware does not call the tables |
 | Serial telemetry dump | none | not recorded |
 | `tools/sdtest`, SD bring-up firmware | none, not built in CI | hardware use recorded in f16a70f and e9c9d9a, the 2.8" board with the previous SDIO driver among them; nothing is recorded for the current build |
 
@@ -355,6 +357,7 @@ binary, `dshot_tests`. `test/test_main.cpp` runs sixteen suites:
 | `runServoTests` | `test_servo.cpp` (includes `ui_servo.cpp`) | the servo model, the PWM driver against a register fake, the job core and the job through the claim, the slider, and the SERVO, SET and unplug screens through the UI, with screenshots |
 | `runKstTests` | `test_kst.cpp` | the KST programming stub screen: not built, claims nothing, leaves at once |
 | `runWidgetTests` | `test_widgets.cpp` | the list (`ui_list`) and the hold (`ui_hold`) driven with touch snapshots, each rule at its boundary |
+| `runIdTests` | `test_ids.cpp` | the control tables of `ui_screen.h` on the tester, SETTINGS, SETUP, SD LOG in three card states, and SERVO's three views: ids unique, rectangles inside the panel and apart, BACK at its rectangle, the enabled flags against the state they follow; the id helpers of `ui_ids.h` |
 
 `test/servo.mk` and `test/kst.mk` list each feature's sources and test files
 for `test/Makefile`, as `src/servo.cmake` and `src/kst.cmake` do for
@@ -438,18 +441,19 @@ model.
 | `src/servo_pwm.cpp` | 55 | 55 | 100.0% |
 | `src/settings.cpp` | 119 | 118 | 99.2% |
 | `src/theme.cpp` | 11 | 11 | 100.0% |
-| `src/ui.cpp` | 634 | 625 | 98.6% |
-| `src/ui_am32.cpp` | 276 | 245 | 88.8% |
+| `src/ui.cpp` | 681 | 671 | 98.5% |
+| `src/ui_am32.cpp` | 293 | 258 | 88.1% |
 | `src/ui_hold.cpp` | 36 | 36 | 100.0% |
 | `src/ui_input.cpp` | 27 | 27 | 100.0% |
 | `src/ui_kst.cpp` | 4 | 4 | 100.0% |
-| `src/ui_list.cpp` | 92 | 92 | 100.0% |
-| `src/ui_servo.cpp` | 474 | 474 | 100.0% |
-| `src/ui_setup.cpp` | 174 | 167 | 96.0% |
+| `src/ui_list.cpp` | 97 | 97 | 100.0% |
+| `src/ui_screen.h` | 5 | 5 | 100.0% |
+| `src/ui_servo.cpp` | 507 | 504 | 99.4% |
+| `src/ui_setup.cpp` | 191 | 184 | 96.3% |
 | `src/ui_slider.cpp` | 109 | 109 | 100.0% |
 | `src/ui_widgets.cpp` | 43 | 43 | 100.0% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **3911** | **3839** | **98.2%** |
+| **Total** | **4035** | **3955** | **98.0%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->

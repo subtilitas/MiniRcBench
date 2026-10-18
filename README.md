@@ -275,6 +275,9 @@ Two constraints on these dependencies:
 
 - **HOLD TO ARM**: press and hold for 1 s (`ARM_HOLD_MS`). Arming is refused
   unless the throttle has been at zero for 250 ms (`ARM_ZERO_THROTTLE_MS`).
+  The hold counts only for a press that starts on the button while disarmed
+  and while no USB host holds the card. The press that disarms, kept down,
+  does not arm again.
   Once armed the button reads **DISARM** and acts on touch-down.
 - **Throttle bar**: the gesture depends on HOLD.
 
@@ -1049,7 +1052,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.2%**: 3,839 of 3,911 lines in 35 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.0%**: 3,955 of 4,035 lines in 36 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

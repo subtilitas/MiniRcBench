@@ -157,6 +157,17 @@ protocol.
   one firing per press, and its 3 px progress bar.
 - Host tests for the list and the hold (`runWidgetTests` in
   `test/test_widgets.cpp`), each rule at its boundary.
+- `src/ui_screen.h`: every screen reports the controls it draws on the
+  current frame, each with an id, the rectangle it takes presses in, and
+  whether it acts. `uiControls()` returns the open screen's table and
+  `uiCurrentScreen()` names the screen. The tables are built from the
+  rectangles and the gating expressions the screens use. The firmware does
+  not call either function.
+- `test/ui_ids.h`: host-test helpers that tap, press and hold a control by
+  id and fail the test, naming the id, when it is absent or gated the other
+  way. `runIdTests` in `test/test_ids.cpp` walks every screen reachable
+  without an ESC and checks each table: ids unique, rectangles inside the
+  panel and apart, BACK at its rectangle.
 
 ### Changed
 
@@ -258,6 +269,11 @@ protocol.
 - HOLD TO WRITE on AM32, HOLD TO START on SERVO, HOLD TO APPLY on SET and
   HOLD TO SAVE on SETUP run on one hold: 1000 ms, one firing per press, and
   its 3 px progress bar. HOLD TO ARM keeps its own timer.
+- `test/test_ui.cpp`, `test/test_servo.cpp` and `test/test_claim.cpp` tap,
+  press and hold controls by id through `test/ui_ids.h`, and check the
+  open screen with `uiCurrentScreen()`. Their coordinate macros are gone, so
+  a layout change moves the control tables and not the tests
+  ([menu.md](docs/design/menu.md), slice B).
 
 ### Removed
 
@@ -288,7 +304,8 @@ protocol.
 - HOLD TO ARM times only a press that lands on it while arming is allowed.
   The press that disarms, kept on the button, armed again 1000 ms later, and
   a press made while a USB host held the card armed 1000 ms after the host
-  let go.
+  let go. README.md and the First Run and SD Logging wiki pages, English
+  and German, state the rule.
 - HOLD TO START, HOLD TO APPLY, HOLD TO WRITE and HOLD TO SAVE time only a
   press that lands on the button while it is live. A press on HOLD TO START
   while it was drawn disabled, before the servo claim held the pins,
