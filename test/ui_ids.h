@@ -29,7 +29,7 @@
 enum class IdExpect : uint8_t { Enabled, Disabled, Any };
 
 /** @brief The id as text: `row 3 Plus` or `fixed 2`. */
-static const char *idText(UiControlId id) {
+static inline const char *idText(UiControlId id) {
 	static char b[32];
 	static const char *PARTS[] = { "Row", "Minus", "Plus", "Toggle" };
 	if (id.row == UI_FIXED) snprintf(b, sizeof(b), "fixed %u", id.part);
@@ -38,7 +38,7 @@ static const char *idText(UiControlId id) {
 }
 
 /** @brief The control @p id on the current frame, if it is there. */
-static bool ctlFind(UiControlId id, UiControl *out) {
+static inline bool ctlFind(UiControlId id, UiControl *out) {
 	UiControl t[UI_CONTROLS_MAX];
 	uint8_t n = uiControls(t, UI_CONTROLS_MAX);
 	for (uint8_t i = 0; i < n; i++) {
@@ -48,10 +48,10 @@ static bool ctlFind(UiControlId id, UiControl *out) {
 }
 
 /** @brief Whether the control @p id is on the current frame. */
-static bool ctlPresent(UiControlId id) { return ctlFind(id, nullptr); }
+static inline bool ctlPresent(UiControlId id) { return ctlFind(id, nullptr); }
 
 /** @brief Whether the control @p id is on the current frame and acts. */
-static bool ctlEnabled(UiControlId id) {
+static inline bool ctlEnabled(UiControlId id) {
 	UiControl c;
 	return ctlFind(id, &c) && c.enabled;
 }
@@ -61,7 +61,7 @@ static bool ctlEnabled(UiControlId id) {
  *        meet @p want.
  * @return false when the caller should not act.
  */
-static bool ctlGet(UiControlId id, UiControl *c, IdExpect want) {
+static inline bool ctlGet(UiControlId id, UiControl *c, IdExpect want) {
 	char what[64];
 	if (!ctlFind(id, c)) {
 		snprintf(what, sizeof(what), "control %s is on the screen", idText(id));
@@ -79,14 +79,14 @@ static bool ctlGet(UiControlId id, UiControl *c, IdExpect want) {
 }
 
 /** @brief The rectangle of @p id; a zero rectangle when it is absent. */
-static UiRect ctlRect(UiControlId id) {
+static inline UiRect ctlRect(UiControlId id) {
 	UiControl c;
 	if (!ctlGet(id, &c, IdExpect::Any)) return UiRect{ 0, 0, 0, 0 };
 	return c.rect;
 }
 
 /** @brief The centre of @p id; (-1, -1) when it is absent. */
-static void ctlCentre(UiControlId id, int *x, int *y) {
+static inline void ctlCentre(UiControlId id, int *x, int *y) {
 	UiControl c;
 	if (!ctlGet(id, &c, IdExpect::Any)) { *x = -1; *y = -1; return; }
 	*x = c.rect.x + c.rect.w / 2;
@@ -94,7 +94,7 @@ static void ctlCentre(UiControlId id, int *x, int *y) {
 }
 
 /** @brief Put a finger down on @p id and run one frame. */
-static void pressId(UiControlId id, IdExpect want = IdExpect::Enabled) {
+static inline void pressId(UiControlId id, IdExpect want = IdExpect::Enabled) {
 	UiControl c;
 	if (!ctlGet(id, &c, want)) return;
 	fakePress(c.rect.x + c.rect.w / 2, c.rect.y + c.rect.h / 2);
@@ -105,7 +105,7 @@ static void pressId(UiControlId id, IdExpect want = IdExpect::Enabled) {
  * @brief Keep a finger on @p id for @p n frames, at the centre it had when
  *        the call began.
  */
-static void holdId(UiControlId id, int n) {
+static inline void holdId(UiControlId id, int n) {
 	int x, y;
 	ctlCentre(id, &x, &y);
 	if (x < 0) return;
@@ -113,7 +113,7 @@ static void holdId(UiControlId id, int n) {
 }
 
 /** @brief Tap @p id: down for two frames, then up for one. */
-static void tapId(UiControlId id, IdExpect want = IdExpect::Enabled) {
+static inline void tapId(UiControlId id, IdExpect want = IdExpect::Enabled) {
 	UiControl c;
 	if (!ctlGet(id, &c, want)) return;
 	fakePress(c.rect.x + c.rect.w / 2, c.rect.y + c.rect.h / 2);
@@ -123,7 +123,7 @@ static void tapId(UiControlId id, IdExpect want = IdExpect::Enabled) {
 }
 
 /** @brief Tallest visible row of the open screen's list: a whole row's height. */
-static int listRowH() {
+static inline int listRowH() {
 	UiControl t[UI_CONTROLS_MAX];
 	uint8_t n = uiControls(t, UI_CONTROLS_MAX);
 	int h = 0;
@@ -139,7 +139,7 @@ static int listRowH() {
  * axis locks after 6 px, so it scrolls and selects nothing. Fails the test
  * when 40 drags do not bring the row in.
  */
-static void revealRow(int row) {
+static inline void revealRow(int row) {
 	for (int attempt = 0; attempt < 40; attempt++) {
 		UiControl t[UI_CONTROLS_MAX];
 		uint8_t n = uiControls(t, UI_CONTROLS_MAX);
@@ -177,7 +177,7 @@ static void revealRow(int row) {
  *        tester.
  * @param where Names the frame in the check's text.
  */
-static void checkControlTable(const char *where) {
+static inline void checkControlTable(const char *where) {
 	UiControl t[UI_CONTROLS_MAX];
 	uint8_t n = uiControls(t, UI_CONTROLS_MAX);
 	char what[96];

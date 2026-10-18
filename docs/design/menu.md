@@ -613,9 +613,19 @@ renames those ids. The host tests address controls by id:
 - tests about geometry (gaps, the viewport's edge, the 40 px partial rule,
   the scroll range) read their coordinates from the control table.
 
-The coordinate macros go: 48 in `test_ui.cpp`, 7 in `test_servo.cpp` and 9
-in `test_claim.cpp`. The tests then survive slice C's header and layout
-changes, and slice C changes the tests only where the behaviour changes.
+Slice B deletes 65 coordinate macros: 49 in `test_ui.cpp`, 7 in
+`test_servo.cpp` and 9 in `test_claim.cpp`. What stays is not a control
+coordinate: frame lengths, pin numbers, the throttle's 16 px saturation
+margin (`THR_EDGE_SAT_T`, a mapping constant), the note line's y
+(`SETUP_NOTE_Y`, a pixel probe of drawn text), a scroll position in rows
+for the SET screenshots, and taps where the exact point is the test (the
+ends of SPEED, the edges of a list viewport). The tests then survive slice
+C's header and layout changes, and slice C changes the tests only where the
+behaviour changes.
+
+Slice B found two taps that hit nothing: a second BACK from SD LOG, which
+leaves to the tester in one tap, and a stale "CFG BACK" coordinate in the
+pressed-look test. Both are taps by id now.
 
 Tests slice C adds:
 
@@ -644,7 +654,7 @@ Tests slice C adds:
 | Slice | Changes | Visible change | Leaves working | Estimate, not measured |
 |---|---|---|---|---|
 | A. Widgets | `ui_list`, `ui_hold`; the AM32 list and SERVO SET on `ui_list` with today's 26 px rows and press rule; AM32's HOLD TO WRITE, SERVO's HOLD TO START, SET's HOLD TO APPLY and SETUP's HOLD TO SAVE on `ui_hold`; `test/test_widgets.cpp` with `runWidgetTests` | AM32's sideways swipe: 16 px per coarse step; README.md:695 and the two wiki rows | every screen as today; HOLD TO ARM keeps its own timer in `ui.cpp` | 2 days |
-| B. Control ids | `ui_screen.h` with `UiScreenId` (today's screens), `UiControlId`, `UiControl` and `UiScreen::controls`; a control table per screen; `uiCurrentScreen()`; the test helpers; `test_ui.cpp`, `test_servo.cpp` and `test_claim.cpp` by id; the 64 coordinate macros deleted | none | everything; the same screenshots | 2 days |
+| B. Control ids | `ui_screen.h` with `UiScreenId` (today's screens), `UiControlId`, `UiControl` and `UiScreen::controls`; a control table per screen; `uiCurrentScreen()`; the test helpers; `test_ui.cpp`, `test_servo.cpp` and `test_claim.cpp` by id; 65 coordinate macros deleted | none | everything; the same screenshots | 2 days |
 | C. MENU and SETTINGS | the rest of `ui_screen.h` and the id renames, `ui_registry.cpp`, `ui_menu.cpp`, `ui_settings.cpp` (from `ui_setup.cpp`), `ui_sdlog.cpp` (from `ui.cpp`), the navigation in `ui.cpp`; the `PinUser` table; the 36 px header and BACK 64 × 32 px; `UI_LIST_TAP_MIN`; AM32 and SERVO SET rows 40 px; SD LOG BACK to MENU; `LOG_ROW_H` 20; the servo dial's 122 px and its notes; the tests above; previews, wiki images, README, wiki, design-note and source-comment text | CFG reads MENU; MENU replaces SETTINGS; SETUP becomes SETTINGS with poles and MAX THROTTLE at its top; the disabled KST button has no row until slice 3; every header 6 px taller; AM32 and SERVO SET show three rows | every tool, the settings block as stored | 4 to 5 days |
 | 3. KST | [kst-programming.md](kst-programming.md): one registry line, the SERVO SUPPLY section, the field list and FILES on `ui_list`, its holds on `ui_hold`, `SETTINGS_VERSION` 3 | KST SERVO live; SERVO SUPPLY in SETTINGS | | inside slice 3 |
 
