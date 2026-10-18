@@ -417,11 +417,11 @@ static void testBacklightFloorAndNoOpSteps() {
 	revealRow((int)SettingsRowId::Pin);
 	tapId(UI_ROW(SettingsRowId::Pin, Plus));
 	checkInt("ESC PIN + with both pins taken stays put", settings()->dshotPin, esc);
-	checkTrue("and applies nothing: SAVED", noteIs("SAVED", C_LIME));
+	checkTrue("ESC PIN applies nothing: SAVED", noteIs("SAVED", C_LIME));
 	revealRow((int)SettingsRowId::KissPin);
 	tapId(UI_ROW(SettingsRowId::KissPin, Plus));
 	checkInt("KISS PIN + with both pins taken stays put", settings()->kissPin, kiss);
-	checkTrue("and applies nothing: SAVED", noteIs("SAVED", C_LIME));
+	checkTrue("KISS PIN applies nothing: SAVED", noteIs("SAVED", C_LIME));
 	tapId(UI_FIX(SettingsCtl::Reset));
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
