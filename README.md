@@ -1062,7 +1062,7 @@ the card protocol against a simulated card. Time is virtual — `millis()` advan
 when a test says so — which makes hold-to-arm, hold-to-write and gesture repeat
 deterministic rather than dependent on machine speed. The fake ESC serves a real
 settings blob recovered from the reference configurator, so the UI tests operate
-on values a real ESC would report. The suite renders 42 screens to PPM (portable
+on values a real ESC would report. The suite renders 41 screens to PPM (portable
 pixmap) images as it runs, so a layout change is visible in the frames:
 
 - the splash;

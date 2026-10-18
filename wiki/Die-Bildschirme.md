@@ -101,7 +101,7 @@ ist. Das Öffnen von `MENU` entschärft, daher ist es nicht zu erwarten.
 `UNSAVED` in der Zeile SETTINGS heißt, dass ein Wert vom Flash abweicht. Die
 Schaltfläche zum Speichern liegt in SETTINGS.
 
-<img src="img/settings-unsaved.png" width="240" alt="UNSAVED in der Zeile SETTINGS, Änderungen noch nicht im Flash">
+<img src="img/menu-unsaved.png" width="240" alt="UNSAVED in der Zeile SETTINGS, Änderungen noch nicht im Flash">
 
 ---
 

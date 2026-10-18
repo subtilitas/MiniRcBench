@@ -97,7 +97,7 @@ is armed. Opening `MENU` disarms, so it is not expected.
 `UNSAVED` on the SETTINGS row means a value differs from flash. The save button
 is on SETTINGS.
 
-<img src="img/settings-unsaved.png" width="240" alt="UNSAVED on the SETTINGS row, with changes not yet written to flash">
+<img src="img/menu-unsaved.png" width="240" alt="UNSAVED on the SETTINGS row, with changes not yet written to flash">
 
 ---
 
