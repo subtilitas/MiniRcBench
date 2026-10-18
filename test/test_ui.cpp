@@ -1027,7 +1027,6 @@ static void testSetupSave() {
 	// BACK returns to the settings screen.
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
-	checkTrue("BACK leaves SETUP", true);
 	checkTrue("BACK from SETUP reaches SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
 	fakeDumpFrame("shot_settings_unsaved.ppm");
 }
@@ -1090,7 +1089,7 @@ static void testTapCancels() {
 	fakePress(bx, by);      frames(2);
 	fakeRelease();          frames(2);
 	checkInt("released in place, it fires", fakeBeepRequests(), beeps + 1);
-	checkTrue("so the screen never left", true);
+	checkTrue("so the screen never left", uiCurrentScreen() == UiScreenId::Cfg);
 }
 
 /** @brief A held stepper repeats and accelerates; a tap moves exactly one step. */
@@ -3063,6 +3062,7 @@ void runUiTests() {
 		tapId(UI_FIX(Am32Ctl::Hex));
 		checkInt("HEX opens at 0 px", uiScroll(), 0);
 		checkControlTable("AM32 hex view");
+		checkTrue("hex: the dump lines are not controls", !ctlPresent(UI_ROW(0, Row)));
 		fakePress(lx, lv.y + 94); frames(1);
 		fakeHold(lx, lv.y + 44); frames(1);
 		fakeRelease(); frames(1);

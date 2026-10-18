@@ -29,7 +29,43 @@ static void idFrames(int n) {
 #define UI_IDS_FRAMES(n) idFrames(n)
 #include "ui_ids.h"
 
-/** @brief The id helpers fail a test on a control that is absent or gated the other way. */
+/** @brief Failures the helpers reported while @ref g_idFailHook pointed here. */
+static int s_idFails = 0;
+static void countFail(const char *) { s_idFails++; }
+
+/**
+ * @brief The id helpers report a control that is absent or gated the other
+ *        way, through @ref g_idFailHook, which counts them here instead of
+ *        failing the suite.
+ */
+static void testHelpersFail() {
+	section("Control ids: a helper fails on an absent or misgated control");
+	fakeFlashClear(); settingsLoad(); uiInit(); idFrames(4);
+	g_idFailHook = countFail;
+
+	s_idFails = 0;
+	tapId(UI_FIX(UI_BACK));
+	int absent = s_idFails;
+	s_idFails = 0;
+	tapId(UI_FIX(TesterCtl::Throttle));
+	int misgated = s_idFails;
+	s_idFails = 0;
+	tapId(UI_FIX(TesterCtl::Cfg), IdExpect::Disabled);
+	int wrongWay = s_idFails;
+	bool cfgOpen = uiCurrentScreen() == UiScreenId::Cfg;
+	s_idFails = 0;
+	tapId(UI_FIX(CfgCtl::Kst), IdExpect::Disabled);
+	int right = s_idFails;
+
+	g_idFailHook = nullptr;
+	checkInt("a tap on a control that is absent reports once", absent, 1);
+	checkInt("a tap expected to act on a control that does not reports once", misgated, 1);
+	checkInt("a tap expected on a disabled control that acts reports once", wrongWay, 1);
+	checkTrue("and still taps: CFG opened SETTINGS", cfgOpen);
+	checkInt("a tap expected on a disabled control that is disabled reports nothing", right, 0);
+}
+
+/** @brief The tester's table and the id helpers on it. */
 static void testHelpersReport() {
 	section("Control ids: the helpers and the tester's table");
 	fakeFlashClear(); settingsLoad(); uiInit(); idFrames(4);
@@ -133,18 +169,53 @@ static void testServo() {
 	checkTrue("BACK from SET shows SERVO's buttons", ctlPresent(UI_FIX(ServoCtl::Min)));
 
 	tapId(UI_FIX(UI_BACK));
-	if (uiCurrentScreen() == UiScreenId::Servo) {
-		checkTrue("the unplug page shows RESTART or a BACK that waits",
-		          ctlPresent(UI_FIX(ServoCtl::Restart)) || !ctlEnabled(UI_FIX(UI_BACK)));
-		for (int i = 0; i < 200 && !ctlPresent(UI_FIX(ServoCtl::Restart)); i++) idFrames(1);
-		checkControlTable("the unplug page");
-		tapId(UI_FIX(ServoCtl::Restart));
-	}
+	checkTrue("BACK from SERVO opens the unplug page", uiCurrentScreen() == UiScreenId::Servo &&
+	          !ctlPresent(UI_FIX(ServoCtl::Min)));
+	checkTrue("the unplug page shows RESTART or a BACK that waits",
+	          ctlPresent(UI_FIX(ServoCtl::Restart)) || !ctlEnabled(UI_FIX(UI_BACK)));
+	for (int i = 0; i < 200 && !ctlPresent(UI_FIX(ServoCtl::Restart)); i++) idFrames(1);
+	checkControlTable("the unplug page");
+	tapId(UI_FIX(ServoCtl::Restart));
 	checkTrue("SERVO leaves to SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
 }
 
+/**
+ * @brief AM32 CONFIG: BACK alone while the claim drains the pump, then the
+ *        list once the fake bootloader has answered.
+ */
+static void testAm32() {
+	section("Control ids: AM32 CONFIG, the handover and the list");
+	fakeFlashClear(); settingsLoad(); uiInit(); idFrames(4);
+	tapId(UI_FIX(TesterCtl::Cfg));
+	tapId(UI_FIX(CfgCtl::Am32));
+	checkTrue("AM32 opens", uiCurrentScreen() == UiScreenId::Am32);
+	UiControl t[UI_CONTROLS_MAX];
+	checkInt("during the handover, BACK is the only control", uiControls(t, UI_CONTROLS_MAX), 1);
+	checkControlTable("AM32, the handover");
+	idFrames(20);
+	checkControlTable("AM32, the list");
+	checkTrue("the list shows its rows", ctlPresent(UI_ROW(0, Row)));
+	checkTrue("nothing to write yet", !ctlEnabled(UI_FIX(Am32Ctl::Write)) &&
+	          !ctlEnabled(UI_FIX(Am32Ctl::Revert)));
+	checkTrue("no editor bar before a row is selected", !ctlPresent(UI_FIX(Am32Ctl::EditPlus)));
+	tapId(UI_ROW(1, Row));
+	checkTrue("a tap on a row by id shows the editor bar", ctlEnabled(UI_FIX(Am32Ctl::EditPlus)));
+	// The fake ESC's field may sit at its top rail, where + changes nothing.
+	tapId(UI_FIX(Am32Ctl::EditPlus));
+	if (!ctlEnabled(UI_FIX(Am32Ctl::Write))) tapId(UI_FIX(Am32Ctl::EditMinus));
+	checkTrue("a step makes WRITE and REVERT act", ctlEnabled(UI_FIX(Am32Ctl::Write)) &&
+	          ctlEnabled(UI_FIX(Am32Ctl::Revert)));
+	checkControlTable("AM32, a field changed");
+	tapId(UI_FIX(Am32Ctl::Revert));
+	tapId(UI_FIX(UI_BACK));
+	idFrames(20);
+	checkTrue("BACK from AM32 reaches SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
+}
+
 void runIdTests() {
+	testHelpersFail();
 	testHelpersReport();
+	testAm32();
 	testCfgSetupLog();
 	testServo();
 }

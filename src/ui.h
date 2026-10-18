@@ -45,7 +45,7 @@ enum class TesterCtl : uint8_t {
 	Arm = 1,   /**< HOLD TO ARM, or DISARM. Acts while no USB host holds the card. */
 	Hold,      /**< HOLD. */
 	Cfg,       /**< CFG. */
-	Throttle,  /**< The throttle gauge's track, as drawn; it takes a press 8 px beyond each side. Acts while armed. */
+	Throttle,  /**< The throttle gauge's track, as drawn. A press lands 8 px beyond its left, right and top edges and 1 px below it (handleMainTouch()). Acts while armed. */
 	Pad,       /**< The relative throttle pad over the readouts. Acts while armed. */
 };
 

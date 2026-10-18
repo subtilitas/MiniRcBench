@@ -598,11 +598,12 @@ UI a probe, `uiCurrentScreen()`, which returns the open `UiScreenId`, with
 ids for today's screens, CFG and SETUP among them ([code](#code)). Slice C
 renames those ids. The host tests address controls by id:
 
-- `tapId(id)`, `pressId(id)` and `holdId(id, frames)` in `test/ui_ids.h`
-  look the control up on the current frame and fail the test, naming the
-  id, when it is absent or gated against the test's expectation
-  (`IdExpect`); a hold timed to the millisecond takes `ctlCentre(id)` and
-  keeps its own frame loop;
+- `tapId(id)` and `pressId(id)` in `test/ui_ids.h` look the control up on
+  the current frame and fail the test, naming the id, when it is absent or
+  gated against the test's expectation (`IdExpect`); `holdId(id, frames)`
+  keeps a finger on a control that a `pressId()` began, and fails only when
+  the control is absent; a hold timed to the millisecond takes
+  `ctlCentre(id)` and keeps its own frame loop;
 - `checkControlTable()` checks a frame's table: ids unique, rectangles
   inside the panel and apart, BACK at `uiBackRect()`;
 - a list row's controls are `UI_ROW(n, Row)`, `UI_ROW(n, Minus)`,
@@ -631,9 +632,10 @@ Tests slice C adds:
 
 - SD LOG BACK goes to MENU, from the card-idle and the card-held branch, and
   MENU's BACK then reaches the tester (decision 11). It fails on today's
-  code, where BACK reaches the tester. The test that taps BACK twice
-  (`test_ui.cpp:306-307`) taps MENU's BACK on purpose and checks that
-  arming is refused while the host holds the card.
+  code, where BACK reaches the tester. `testUsbDriveScreen` taps SD LOG's
+  BACK once and checks that it lands on the tester; slice C adds a second
+  tap, MENU's BACK, changes that check to MENU and then the tester, and
+  keeps the check that arming is refused while the host holds the card.
 - Every registry entry: opened from MENU, BACK lands on MENU, through the
   unplug page for SERVO and KST.
 - MENU: disarms on open; BEEP sent and refused flash on the row; no KST row

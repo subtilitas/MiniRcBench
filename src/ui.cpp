@@ -1441,7 +1441,11 @@ static void handleMainTouch() {
 // control tables (ui_screen.h)
 // ---------------------------------------------------------------------------
 
-/** @brief The tester's controls, from the rectangles handleMainTouch() tests. */
+/**
+ * @brief The tester's controls, from the rectangles handleMainTouch() tests.
+ *        The throttle reports its drawn track, the coordinates its mapping
+ *        is measured from; its grab margin is in @ref TesterCtl.
+ */
 static uint8_t testerControls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
 	bool cardFree = !mscHoldsCard(mscGetState());
@@ -1504,6 +1508,7 @@ static const UiScreen SCREENS[] = {
 };
 static_assert(sizeof(SCREENS) / sizeof(SCREENS[0]) == (size_t)UiScreenId::Kst + 1,
               "a screen has no control table");
+// uiControls() finds a screen by its id, so the order above does not matter.
 
 // In the order uiTick() dispatches: SETUP, then the tools, which open from
 // SETTINGS with s_config still set, then SD LOG and SETTINGS.
@@ -1518,8 +1523,10 @@ UiScreenId uiCurrentScreen() {
 }
 
 uint8_t uiControls(UiControl *out, uint8_t max) {
-	const UiScreen &s = SCREENS[(size_t)uiCurrentScreen()];
-	return s.controls(out, max);
+	UiScreenId id = uiCurrentScreen();
+	for (const UiScreen &s : SCREENS)
+		if (s.id == id) return s.controls(out, max);
+	return 0;
 }
 
 void uiDrawSplash() {

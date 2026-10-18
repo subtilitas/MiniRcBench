@@ -1994,7 +1994,7 @@ static void testUnplugPage() {
 	checkTrue("BACK while RUNNING: the page waits for the last pulse",
 	          s_view == View::Unplug && !pinClaimUnplugDue() &&
 	          core1JobPhase() == Core1JobPhase::Stopping);
-	checkTrue("the page waits: BACK is drawn disabled, RESTART is not there",
+	checkTrue("the page waits: BACK does not act, RESTART is not there",
 	          ctlPresent(UI_FIX(UI_BACK)) && !ctlEnabled(UI_FIX(UI_BACK)) &&
 	          !ctlPresent(UI_FIX(ServoCtl::Restart)));
 	checkControlTable("the unplug page, the job not yet let go");

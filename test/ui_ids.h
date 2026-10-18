@@ -18,12 +18,25 @@
 #include "check.h"
 #include "fakes.h"
 #include "ui_screen.h"
+#include "gfx.h"
 
 #include <stdio.h>
 
 #ifndef UI_IDS_FRAMES
 #error "define UI_IDS_FRAMES(n) before including ui_ids.h"
 #endif
+
+/**
+ * @brief Where a helper reports a failure; null reports it through
+ *        checkTrue(). A test of the helpers themselves points it at a counter.
+ */
+static void (*g_idFailHook)(const char *what) = nullptr;
+
+/** @brief Report a helper's failure. */
+static inline void idFail(const char *what) {
+	if (g_idFailHook) g_idFailHook(what);
+	else checkTrue(what, false);
+}
 
 /** @brief Whether the control expects to act. */
 enum class IdExpect : uint8_t { Enabled, Disabled, Any };
@@ -65,7 +78,7 @@ static inline bool ctlGet(UiControlId id, UiControl *c, IdExpect want) {
 	char what[64];
 	if (!ctlFind(id, c)) {
 		snprintf(what, sizeof(what), "control %s is on the screen", idText(id));
-		checkTrue(what, false);
+		idFail(what);
 		return false;
 	}
 	if (want == IdExpect::Any) return true;
@@ -73,7 +86,7 @@ static inline bool ctlGet(UiControlId id, UiControl *c, IdExpect want) {
 	if (!ok) {
 		snprintf(what, sizeof(what), "control %s is %s", idText(id),
 		         want == IdExpect::Enabled ? "enabled" : "disabled");
-		checkTrue(what, false);
+		idFail(what);
 	}
 	return true;
 }
@@ -167,7 +180,7 @@ static inline void revealRow(int row) {
 	}
 	char what[48];
 	snprintf(what, sizeof(what), "list row %d can be scrolled whole", row);
-	checkTrue(what, false);
+	idFail(what);
 }
 
 /**
@@ -187,7 +200,7 @@ static inline void checkControlTable(const char *where) {
 	bool inside = true, unique = true, apart = true;
 	for (uint8_t i = 0; i < n; i++) {
 		const UiRect &r = t[i].rect;
-		if (r.w <= 0 || r.h <= 0 || r.x < 0 || r.y < 0 || r.x + r.w > 240 || r.y + r.h > 320)
+		if (r.w <= 0 || r.h <= 0 || r.x < 0 || r.y < 0 || r.x + r.w > GFX_W || r.y + r.h > GFX_H)
 			inside = false;
 		for (uint8_t j = i + 1; j < n; j++) {
 			const UiRect &s = t[j].rect;

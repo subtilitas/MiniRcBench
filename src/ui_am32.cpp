@@ -583,8 +583,11 @@ static void handleListGesture(const TouchState *t) {
 uint8_t uiAm32Controls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
 	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
-	if (s_state == S_WRITING && strcmp(s_status, "WRITING...") != 0) {
-		uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Ok), BTN_OK, true);
+	if (s_state == S_WRITING) {
+		// drawWriting() draws OK from the first frame; it acts once the
+		// write has finished.
+		uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Ok), BTN_OK,
+		             strcmp(s_status, "WRITING...") != 0);
 		return n;
 	}
 	if (s_state != S_LIST) return n;

@@ -37,7 +37,7 @@ enum class Am32Ctl : uint8_t {
 	Write,                    /**< HOLD TO WRITE. */
 	Revert,                   /**< REVERT. */
 	Hex,                      /**< HEX or FIELDS. */
-	Ok,                       /**< OK on the write result. */
+	Ok,                       /**< OK under the write; acts once the write has finished. */
 };
 
 struct UiControl;

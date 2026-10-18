@@ -52,7 +52,7 @@ enum class ServoCtl : uint8_t {
 	Start,                        /**< HOLD TO START, or STOP. */
 	Set,                          /**< SET. */
 	SelA, SelB, SelAB,            /**< The selector, with two servos. */
-	Retry,                        /**< RETRY under a refusal or a job error. */
+	Retry,                        /**< RETRY under a job or bind error. */
 	Dial,                         /**< The dial's band; a press drives only on the dial itself. */
 	Speed,                        /**< SPEED's track. */
 	EditMinus, EditPlus,          /**< SET's editor bar, while a row is selected. */

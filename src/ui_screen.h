@@ -67,7 +67,7 @@ inline bool operator==(UiControlId a, UiControlId b) {
 /** @brief One control on the current frame. */
 struct UiControl {
 	UiControlId id;
-	UiRect      rect;     /**< Where it takes a press, clipped to its list's viewport. */
+	UiRect      rect;     /**< Where it takes a press, clipped to its list's viewport; a drag surface's as drawn, with its margin in its enum's doc. */
 	bool        enabled;  /**< Acts; false where it is drawn disabled and gated on the same value. */
 };
 
