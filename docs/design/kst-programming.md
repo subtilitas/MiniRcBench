@@ -1,8 +1,11 @@
 # KST and Chaservo servo programming
 
-Status: planned. Nothing here is built. It depends on the pin claim in
-[pin-claim.md](pin-claim.md), slice 1 there, which is built: MENU has no KST
-row, `src/ui_kst.cpp` is a stub, and `core1_job.cpp` has no KST job. This
+Status: work breakdown step 1 built, host tests only: the KST core, its RP2350
+line driver and the KST file store are copied into `lib/rcbench/`, built by
+the firmware and the host suite, and rcbench's seven tests of them run in
+`make` and CI. Nothing calls them yet: MENU has no KST row, `src/ui_kst.cpp`
+is a stub, and `core1_job.cpp` has no KST job. It depends on the pin claim in
+[pin-claim.md](pin-claim.md), slice 1 there, which is built. This
 document is slice 3. It comes after slices A to C of [menu.md](menu.md), the
 menu restructure, which are built, and is written for the system they leave:
 MENU, to which slice 3 adds the KST SERVO row, the SETTINGS list, the shared
@@ -1076,7 +1079,7 @@ documentation.
 
 **Ported**, copied as they are into `test/rcbench/` with rcbench's harness
 `greatest.h` (its own MIT file, about 100 lines, no framework), the servo and
-line model `kst_sim.h`, `kst_fake_card.h` and `fixtures/kst_line_words.txt`,
+line model `kst_sim.h` and `fixtures/kst_line_words.txt`,
 built as C11 and run by `make` and CI:
 
 | File | Covers |

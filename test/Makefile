@@ -42,6 +42,7 @@ include servo.mk kst.mk
 # expand to nothing.
 FEATURE_CSRCS := $(SERVO_CSRCS) $(KST_CSRCS)
 FEATURE_CTESTS := $(SERVO_CTESTS) $(KST_CTESTS)
+FEATURE_CTEST_DEFINES := $(SERVO_CTEST_DEFINES) $(KST_CTEST_DEFINES)
 INCLUDES += $(SERVO_INCLUDES) $(KST_INCLUDES)
 
 SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
@@ -125,7 +126,7 @@ $(FEATURE_COBJS): $(OBJ_DIR)/%.o: %.c
 $(CTEST_BINS): $(OBJ_DIR)/%: %.c $(FEATURE_COBJS)
 	@mkdir -p $(OBJ_DIR)
 	$(CC) $(CFLAGS) $(WARN) -Werror -I$(dir $<) $(SERVO_INCLUDES) $(KST_INCLUDES) \
-		-o $@ $< $(FEATURE_COBJS) -lm
+		$(FEATURE_CTEST_DEFINES) -o $@ $< $(FEATURE_COBJS) -lm
 
 # The suite, then each C test program. A program prints a line per case; its
 # summary line is shown, and the whole output when it fails.

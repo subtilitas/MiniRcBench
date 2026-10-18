@@ -1056,8 +1056,10 @@ Needs nothing but a C++17 compiler and a C11 compiler: the DShot core in
 `src/dshot/`, the SDIO protocol layers in `src/sdio/` and the rcbench files in
 `lib/rcbench/` are compiled as C, as the firmware compiles them, and linked
 into the C++ suite. `make run` also builds and runs rcbench's own tests of
-those files, `test/rcbench/test_servo_sweep.c` and `test_out_pwm_map.c`, as
-C11 programs. The SDIO tests run
+those files as C11 programs: `test/rcbench/test_servo_sweep.c` and
+`test_out_pwm_map.c`, and the seven KST tests `test_kst_wire.c`,
+`test_kst_reg.c`, `test_kst_plan.c`, `test_kst_session.c`, `test_kst_pio.c`,
+`test_kst_file.c` and `test_kst_store.c`. The SDIO tests run
 the card protocol against a simulated card. Time is virtual — `millis()` advances only
 when a test says so — which makes hold-to-arm, hold-to-write and gesture repeat
 deterministic rather than dependent on machine speed. The fake ESC serves a real
@@ -1274,12 +1276,45 @@ The Host tests job in `ci.yml` runs the same render and check on every push to
 - FatFs is by ChaN. The SPI card driver and the FatFs glue are from carlk3's
   [no-OS-FatFS-SD-SDIO-SPI-RPi-Pico](https://github.com/carlk3/no-OS-FatFS-SD-SDIO-SPI-RPi-Pico),
   whose SPI driver builds on Arm Mbed OS's SDBlockDevice.
+- The KST programming core, its RP2350 line driver and the KST file store in
+  `lib/rcbench/` come from [rcbench](https://github.com/subtilitas/rcbench) at
+  commit 453cf334, by the same copyright holder under the same MIT licence. The
+  KST screen does not use them yet (`docs/design/kst-programming.md`).
 - [logwiju](https://subtilitas.github.io/logwiju/): the browser-based blackbox viewer
   for these logs.
 - [DShot — the missing handbook](https://brushlesswhoop.com/dshot-and-bidirectional-dshot/)
 - [Extended DShot Telemetry](https://github.com/bird-sanctuary/extended-dshot-telemetry)
 - [Waveshare RP2350-Touch-LCD-2.8 wiki](https://www.waveshare.com/wiki/RP2350-Touch-LCD-2.8)
   and [schematic](https://files.waveshare.com/wiki/RP2350-Touch-LCD-2.8/RP2350-Touch-LCD-2.8-Schematic.pdf)
+
+## Legal notice and disclaimer
+
+### Trademark notice
+
+KST and Chaservo are names or trademarks of their respective owners. They
+are used here only to say which servos the KST programming code in
+`lib/rcbench/protocols/kst/` works with. MiniRcBench is not affiliated with
+them and is neither supported nor sponsored by them. The protocol is
+implemented from wire captures of hardware the rcbench project owns; no
+vendor code and no vendor documentation is included.
+
+Every other name of a maker, product, protocol or firmware in this
+repository is a name or trademark of its owner, used only to describe
+compatibility, identify a part or name a reference. MiniRcBench is not
+connected with any of them.
+
+### Disclaimer
+
+MiniRcBench is open-source software for self-build. Use, replication and
+the programming of servos are at one's own risk. To the extent permitted by
+law, the author accepts no liability for:
+
+- damage to servos, for example from a wrong voltage, timing errors or
+  corrupted settings data in the servo;
+- damage to computers, microcontrollers, ESCs or other connected hardware;
+- injury or damage that results from operating the hardware.
+
+The licence terms are in [LICENSE](LICENSE).
 
 ## License
 
