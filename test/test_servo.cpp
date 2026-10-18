@@ -1872,9 +1872,7 @@ static void testSetScreen() {
 	checkTrue("and does nothing", s_profile.minUs == 670 && s_edit.minUs == 670);
 	setNote(&l1, &l2, &col);
 	checkTrue("the note says STOP first", l1 && strcmp(l1, "STOP TO CHANGE THE PROFILE") == 0);
-	checkTrue("DEFAULTS is an outline", fillOf(BTN_DEFAULTS) == C_BG);
-	tapRect(BTN_DEFAULTS);
-	checkTrue("and does nothing", s_profile.minUs == 670 && s_profile.type == ServoType::Wide);
+	checkTrue("the footer shows STOP in place of DEFAULTS", fillOf(BTN_DEFAULTS) == C_RED);
 	fakeDumpFrame("shot_servo_set_running.ppm");
 	selectRow(9);   // AMPLITUDE
 	stepSel(-1, 2);
@@ -1886,8 +1884,19 @@ static void testSetScreen() {
 	tapRect(BTN_SWEEP); core1();
 	servoJobStatus(&s_st);
 	checkTrue("SWEEP takes the new rows", s_st.sweeping);
-	fakePress(BTN_START.x + 20, BTN_START.y + 10); uiFrames(1); core1();
+	tapRect(BTN_SET);
+	int fx = BTN_DEFAULTS.x + BTN_DEFAULTS.w / 2, fy = BTN_DEFAULTS.y + BTN_DEFAULTS.h / 2;
+	fakePress(fx, fy); uiFrames(1); core1();
+	ServoStatus after;
+	servoJobStatus(&after);
+	checkTrue("STOP on SET acts on press: level 0 on core1's next pass",
+	          fakePin(29).level == 0 && !after.running && !after.sweeping);
+	fakeHold(fx, fy); uiFrames(2);
 	fakeRelease(); uiFrames(1);
+	checkTrue("its release is not a tap on DEFAULTS",
+	          s_profile.type == ServoType::Wide && s_profile.minUs == 670 && s_sweep.moves == 3);
+	checkTrue("SAFE: DEFAULTS is back", fillOf(BTN_DEFAULTS) == C_PANEL);
+	uiTap(UI_BACK_CX, UI_BACK_CY);
 
 	tapRect(BTN_SET);
 	selectRow(7);   // SHAPE, so the swipe below is the selection's change

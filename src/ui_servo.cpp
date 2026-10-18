@@ -713,18 +713,20 @@ static void drawSet(int holdPct) {
 		}
 	}
 
+	// While RUNNING the footer's right button is STOP, as on SERVO; DEFAULTS
+	// would change the PULSE rows, which RUNNING locks.
 	bool applyOk = s_pending && !s_st.running;
-	bool defaultsOk = !s_st.running;
-	struct { bool ok, dok, holding, dp; int pct; } kf;
+	struct { bool ok, run, holding, dp; int pct; } kf;
 	memset(&kf, 0, sizeof(kf));
-	kf.ok = applyOk; kf.dok = defaultsOk; kf.holding = s_holding; kf.pct = holdPct;
-	kf.dp = defaultsOk && pressing(BTN_DEFAULTS);
+	kf.ok = applyOk; kf.run = s_st.running; kf.holding = s_holding; kf.pct = holdPct;
+	kf.dp = pressing(BTN_DEFAULTS);
 	if (changed(3, &kf, sizeof(kf))) {
 		gfxRect(0, SET_FOOT_Y - 4, GFX_W, GFX_H - SET_FOOT_Y + 4, C_BG);
 		if (s_holding) gfxRect(BTN_APPLY.x, SET_FOOT_Y - 4, BTN_APPLY.w * holdPct / 100, 3, C_LIME);
 		uiButton(BTN_APPLY, "HOLD TO APPLY", s_holding ? C_RED : C_PANEL,
 		         s_holding ? C_ONACCENT : C_TEXT, 1, s_holding, applyOk);
-		uiButton(BTN_DEFAULTS, "DEFAULTS", C_PANEL, C_AMBER, 1, kf.dp, defaultsOk);
+		if (s_st.running) uiButton(BTN_DEFAULTS, "STOP", C_RED, C_ONACCENT, 2, kf.dp);
+		else              uiButton(BTN_DEFAULTS, "DEFAULTS", C_PANEL, C_AMBER, 1, kf.dp);
 	}
 }
 
@@ -794,13 +796,19 @@ static void setTouch() {
 	if (dir && repeatFires(&s_repeat, dir, millis())) stepRow(s_sel, dir, 1);
 	if (!dir) repeatFires(&s_repeat, 0, millis());
 
-	if (!s_st.running && tapped(BTN_DEFAULTS)) {
+	// STOP on press while RUNNING, as on SERVO. The press that stops the servo
+	// is not also a tap on DEFAULTS when the button changes under it.
+	if (s_st.running && s_t->pressed && pressing(BTN_DEFAULTS)) {
+		send(ServoCmdKind::Safe);
+		s_needLift = true;
+	} else if (!s_st.running && !s_needLift && tapped(BTN_DEFAULTS)) {
 		servoProfileDefault(&s_edit);
 		s_profile = s_edit;
 		s_pending = false;
 		servoSweepDefault(&s_sweep);
 		applyProfile();
 	}
+	if (!s_t->down) s_needLift = false;
 	// The list's own gestures. A press on the editor bar or the footer lies
 	// outside the list, so it names no row and selects nothing.
 	setGesture();
