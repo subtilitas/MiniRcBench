@@ -853,9 +853,12 @@ uint8_t uiServoControls(UiControl *out, uint8_t max) {
 	bool retry;
 	claimMessage(&l1, &l2, &l3, &col, &retry);
 	bool run = s_st.running && live();
+	// A message replaces the dial in its band (drawDial()), and RETRY sits
+	// in that band, so the dial is a control only while no message shows.
 	if (retry) uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Retry), BTN_RETRY, true);
-	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Dial),
-	             UiRect{ 0, SERVO_DIAL_Y0, GFX_W, SERVO_DIAL_Y1 - SERVO_DIAL_Y0 + 1 }, run);
+	if (!l1)
+		uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Dial),
+		             UiRect{ 0, SERVO_DIAL_Y0, GFX_W, SERVO_DIAL_Y1 - SERVO_DIAL_Y0 + 1 }, run);
 	if (twoServos()) {
 		uiControlAdd(out, &n, max, UI_FIX(ServoCtl::SelA), BTN_SEL_A, true);
 		uiControlAdd(out, &n, max, UI_FIX(ServoCtl::SelB), BTN_SEL_B, true);

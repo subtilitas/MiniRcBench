@@ -1321,15 +1321,6 @@ static void testSliderDraw() {
 // the screens, through the real UI
 // ---------------------------------------------------------------------------
 
-// Coordinates, from ui.cpp and the layout constants of ui_servo.cpp.
-#define UI_CFG_X    205   // CFG on the main screen
-#define UI_CFG_Y    299
-#define UI_SERVO_X   93   // SERVO in the destination row, x 68..117
-#define UI_KST_X    147   // KST, x 122..171
-#define UI_NAV_Y    282   // the destination row, y 258..305
-#define UI_BACK_CX  (UI_BACK_X + UI_BACK_W / 2)
-#define UI_BACK_CY  (UI_BACK_Y + UI_BACK_H / 2)
-
 /**
  * @brief A frame @p ms after the last: core1's pump and job passes, then the
  *        UI.
@@ -1346,11 +1337,18 @@ static void uiFrames(int n) {
 	for (int i = 0; i < n; i++) frameAt(25);
 }
 
+// Controls are pressed by id (tapId, pressId, holdId). The tests below read
+// each control's rectangle from the table.
+#define UI_IDS_FRAMES(n) uiFrames(n)
+#include "ui_ids.h"
+
+/**
+ * @brief A tap at a point. For taps whose place within a control or outside
+ *        one is the test; a tap on a control goes through tapId().
+ */
 static void uiTap(int x, int y) {
 	fakePress(x, y); uiFrames(2); fakeRelease(); uiFrames(1);
 }
-
-static void tapRect(const UiRect &r) { uiTap(r.x + r.w / 2, r.y + r.h / 2); }
 
 /** @brief Core1's pass after the frame that sent a command. */
 static void core1() { core1JobPoll(); }
@@ -1390,18 +1388,40 @@ static void freshUi() {
 	uiFrames(2);
 }
 
-/** @brief Main screen to SERVO, through CFG. */
+/** @brief Main screen to SERVO, through CFG and SETTINGS. */
 static void openServo() {
-	uiTap(UI_CFG_X, UI_CFG_Y);
+	tapId(UI_FIX(TesterCtl::Cfg));
 	uiFrames(1);
-	uiTap(UI_SERVO_X, UI_NAV_Y);
+	checkTrue("CFG opens SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
+	tapId(UI_FIX(CfgCtl::Servo));
 	uiFrames(2);
+	checkTrue("SERVO opens from SETTINGS", uiCurrentScreen() == UiScreenId::Servo);
+}
+
+/** @brief SERVO's main view to SET. */
+static void openSet() {
+	tapId(UI_FIX(ServoCtl::Set));
+	checkTrue("SET opens: HOLD TO APPLY is there", ctlPresent(UI_FIX(ServoCtl::Apply)));
+}
+
+/** @brief BACK from SET: SERVO's main view again. */
+static void backFromSet() {
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK from SET reaches SERVO's main view",
+	          uiCurrentScreen() == UiScreenId::Servo && ctlPresent(UI_FIX(ServoCtl::Start)));
+}
+
+/** @brief BACK from SETTINGS: the tester. */
+static void backFromCfg() {
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK from SETTINGS reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
 }
 
 /** @brief Hold HOLD TO START for 1000 ms, then lift. */
 static void holdStart() {
-	int x = BTN_START.x + 20, y = BTN_START.y + 10;
-	fakePress(x, y); uiFrames(1);
+	int x, y;
+	ctlCentre(UI_FIX(ServoCtl::Start), &x, &y);
+	pressId(UI_FIX(ServoCtl::Start));
 	fakeHold(x, y); frameAt(SV_HOLD_MS);
 	fakeRelease(); uiFrames(1);
 	core1();
@@ -1409,10 +1429,13 @@ static void holdStart() {
 
 /** @brief BACK, the unplug page, and RESTART DSHOT: out to SETTINGS. */
 static void leaveServo() {
-	uiTap(UI_BACK_CX, UI_BACK_CY);
+	tapId(UI_FIX(UI_BACK));
 	uiFrames(1);
-	tapRect(BTN_RESTART);
+	// The page offers RESTART DSHOT once the job has let go of the pin.
+	for (int i = 0; i < 200 && !ctlPresent(UI_FIX(ServoCtl::Restart)); i++) uiFrames(1);
+	tapId(UI_FIX(ServoCtl::Restart));
 	uiFrames(2);
+	checkTrue("RESTART DSHOT leaves SERVO for SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
 }
 
 /**
@@ -1429,19 +1452,53 @@ static void dialDrag(float deg0, float deg1, bool lift = true) {
 	core1();
 }
 
-/** @brief The SET row @p i: scroll it into view and tap it. */
+/**
+ * @brief SET's list viewport, read from the rows' rectangles: its first and
+ *        last pixel row, and the middle of a row.
+ */
+static void setViewport(int *top, int *bottom, int *midX) {
+	UiControl t[UI_CONTROLS_MAX];
+	uint8_t n = uiControls(t, UI_CONTROLS_MAX);
+	int lo = 1000, hi = -1;
+	*midX = -1;
+	for (uint8_t i = 0; i < n; i++) {
+		if (t[i].id.row == UI_FIXED || t[i].id.part != (uint8_t)UiPart::Row) continue;
+		if (t[i].rect.y < lo) lo = t[i].rect.y;
+		if (t[i].rect.y + t[i].rect.h - 1 > hi) hi = t[i].rect.y + t[i].rect.h - 1;
+		*midX = t[i].rect.x + t[i].rect.w / 2;
+	}
+	*top = lo;
+	*bottom = hi;
+}
+
+/** @brief The y of the middle of SET row @p row, as the table has it. */
+static int rowCentreY(int row) {
+	int x, y;
+	ctlCentre(UI_ROW(row, Row), &x, &y);
+	return y;
+}
+
+/**
+ * @brief The SET row @p i: put it at the top of the viewport and tap it by id.
+ *
+ * The scroll is set directly, as before: the screenshots show SET at that
+ * scroll. revealRow() then makes sure the row is whole.
+ */
 static void selectRow(int i) {
 	uiListScrollTo(&s_list, i * SET_ROW_H);
 	s_full = true;
 	uiFrames(1);
-	int y = SET_LIST_Y0 + i * SET_ROW_H - s_list.scrollPx + SET_ROW_H / 2;
-	uiTap(120, y);
+	revealRow(i);
+	tapId(UI_ROW(i, Row));
 }
 
-/** @brief Tap + or - in the editor bar @p n times, apart. */
-static void stepSel(int dir, int n = 1) {
+/**
+ * @brief Tap + or - in the editor bar @p n times, apart.
+ * @param want Whether the test expects the button to act.
+ */
+static void stepSel(int dir, int n = 1, IdExpect want = IdExpect::Enabled) {
 	for (int i = 0; i < n; i++) {
-		tapRect(dir > 0 ? BTN_PLUS : BTN_MINUS);
+		tapId(UI_FIX(dir > 0 ? ServoCtl::EditPlus : ServoCtl::EditMinus), want);
 		uiFrames(16);   // past the repeat delay, so each tap is one step
 	}
 	core1();
@@ -1450,8 +1507,8 @@ static void stepSel(int dir, int n = 1) {
 /** @brief Swipe SET row @p i sideways by one swipe step in @p dir. */
 static void swipeRow(int i, int dir) {
 	selectRow(i);
-	int y = SET_LIST_Y0 + i * SET_ROW_H - s_list.scrollPx + SET_ROW_H / 2;
-	int x = 120;
+	int x, y;
+	ctlCentre(UI_ROW(i, Row), &x, &y);
 	fakePress(x, y); uiFrames(1);
 	for (int d = 0; d <= UI_AXIS_LOCK_PX + 2 + UI_SWIPE_STEP_PX; d += 4) {
 		fakeHold(x + dir * d, y); uiFrames(1);
@@ -1465,11 +1522,13 @@ static void testScreenOpens() {
 	section("Servo screen: CFG opens it, and it starts SAFE");
 
 	freshUi();
-	uiTap(UI_CFG_X, UI_CFG_Y);
+	tapId(UI_FIX(TesterCtl::Cfg));
 	uiFrames(2);
-	checkTrue("CFG: SERVO is drawn live", pixel(UI_SERVO_X - 20, UI_NAV_Y - 16) == C_PANEL);
-	checkTrue("KST is still an outline", pixel(UI_KST_X - 20, UI_NAV_Y - 16) == C_BG);
-	uiTap(UI_SERVO_X, UI_NAV_Y);
+	checkTrue("CFG opens SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
+	checkTrue("CFG: SERVO is drawn live", fillOf(ctlRect(UI_FIX(CfgCtl::Servo))) == C_PANEL);
+	checkTrue("KST is still an outline", fillOf(ctlRect(UI_FIX(CfgCtl::Kst))) == C_BG);
+	tapId(UI_FIX(CfgCtl::Servo));
+	checkTrue("SERVO opens from SETTINGS", uiCurrentScreen() == UiScreenId::Servo);
 	checkTrue("the tap claims the pins for SERVO", pinClaimHolder() == PinUser::Servo);
 	uiFrames(3);
 	checkTrue("running on the claim", pinClaimState() == ClaimState::Running);
@@ -1483,17 +1542,19 @@ static void testScreenOpens() {
 	          s_profile.servos == 1 && (int)s_speed.value == 100);
 	checkTrue("the chip says SAFE", pixel(GFX_W - UI_MARGIN - 4, UI_STRIP_Y + 3) == C_GREEN);
 	checkTrue("HOLD TO START is live", fillOf(BTN_START) == C_PANEL);
+	checkControlTable("SERVO, SAFE");
 	checkTrue("MIN, CENTRE, MAX and SWEEP are outlines while SAFE",
 	          fillOf(BTN_MIN) == C_BG && fillOf(BTN_CENTRE) == C_BG &&
 	          fillOf(BTN_MAX) == C_BG && fillOf(BTN_SWEEP) == C_BG);
 	fakeDumpFrame("shot_servo_safe.ppm");
 
 	int writes = fakePin(29).levelWrites;
-	tapRect(BTN_MAX);
+	tapId(UI_FIX(ServoCtl::Max), IdExpect::Disabled);
 	core1();
 	checkTrue("MAX while SAFE does nothing", fakePin(29).level == 0 && fakePin(29).levelWrites == writes);
 	ServoStatus before;
 	servoJobStatus(&before);
+	checkTrue("SAFE: the dial does not act", !ctlEnabled(UI_FIX(ServoCtl::Dial)));
 	dialDrag(-60, 60, false);
 	checkTrue("a press on the dial while SAFE takes no drag", !s_dragging);
 	fakeRelease(); uiFrames(1); core1();
@@ -1518,8 +1579,10 @@ static void testHoldToStart() {
 
 	freshUi();
 	openServo();
-	int x = BTN_START.x + 20, y = BTN_START.y + 10;
-	fakePress(x, y); uiFrames(1);
+	const UiControlId startId = UI_FIX(ServoCtl::Start);
+	int x, y;
+	ctlCentre(startId, &x, &y);
+	pressId(startId);
 	fakeHold(x, y); frameAt(SV_HOLD_MS - 1);
 	core1();
 	checkTrue("held 999 ms: not started", !s_st.running && fakePin(29).level == 0);
@@ -1549,8 +1612,9 @@ static void testHoldToStart() {
 	checkTrue("a new press starts it", s_st.running && fakePin(29).level == 1500);
 	checkTrue("the chip says RUNNING", pixel(GFX_W - UI_MARGIN - 4, UI_STRIP_Y + 3) == C_RED);
 	checkTrue("MIN, CENTRE, MAX, SWEEP are live", fillOf(BTN_MIN) == C_PANEL && fillOf(BTN_SWEEP) == C_PANEL);
+	checkControlTable("SERVO, RUNNING");
 
-	fakePress(x, y); uiFrames(1);
+	pressId(startId);
 	core1();
 	checkInt("STOP on press: level 0 on core1's next pass", fakePin(29).level, 0);
 	servoJobStatus(&st);
@@ -1564,14 +1628,15 @@ static void testHoldToStart() {
 	fakeRelease(); uiFrames(1);
 
 	// A hold that slides off before 1000 ms starts nothing.
-	fakePress(x, y); uiFrames(1);
+	pressId(startId);
 	fakeHold(x, y); frameAt(500);
-	fakeHold(x, BTN_START.y - 40); frameAt(600);
+	fakeHold(x, ctlRect(startId).y - 40); frameAt(600);
 	fakeHold(x, y); uiFrames(1);
 	core1();
 	checkTrue("slid off at 500 ms: nothing", !s_st.running && fakePin(29).level == 0);
 	fakeRelease(); uiFrames(1);
 	// A press that began elsewhere and slid onto the button starts nothing.
+	// The readout row holds no control with one servo.
 	fakePress(x, SV_READ_Y + 5); uiFrames(1);
 	fakeHold(x, y); uiFrames(1);
 	fakeHold(x, y); frameAt(SV_HOLD_MS + 100);
@@ -1589,11 +1654,14 @@ static void testStartNeedsLivePress() {
 	section("Servo screen: a press on a disabled HOLD TO START never starts it");
 
 	freshUi();
-	uiTap(UI_CFG_X, UI_CFG_Y);
+	tapId(UI_FIX(TesterCtl::Cfg));
 	uiFrames(1);
-	uiTap(UI_SERVO_X, UI_NAV_Y);
-	int x = BTN_START.x + 20, y = BTN_START.y + 10;
-	fakePress(x, y); uiFrames(1); core1();
+	checkTrue("CFG opens SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
+	tapId(UI_FIX(CfgCtl::Servo));
+	checkTrue("SERVO opens from SETTINGS", uiCurrentScreen() == UiScreenId::Servo);
+	int x, y;
+	ctlCentre(UI_FIX(ServoCtl::Start), &x, &y);
+	pressId(UI_FIX(ServoCtl::Start), IdExpect::Disabled); core1();
 	checkTrue("at the press the claim is not live: START is an outline",
 	          !live() && fillOf(BTN_START) == C_BG);
 	bool wentLive = false, ran = false;
@@ -1609,7 +1677,7 @@ static void testStartNeedsLivePress() {
 	fakeRelease(); uiFrames(1);
 	holdStart();
 	checkTrue("a new press on the live button starts it", s_st.running);
-	tapRect(BTN_START); core1();
+	tapId(UI_FIX(ServoCtl::Start)); core1();
 	leaveServo();
 }
 
@@ -1665,7 +1733,8 @@ static void testHorn() {
 	uiFrames(1);
 	checkTrue("stalled again", s_st.tripped);
 	leaveServo();
-	uiTap(UI_SERVO_X, UI_NAV_Y);
+	tapId(UI_FIX(CfgCtl::Servo));
+	checkTrue("SERVO opens from SETTINGS", uiCurrentScreen() == UiScreenId::Servo);
 	uiFrames(1);
 	checkTrue("opened again, first frame: the job not yet bound",
 	          pinClaimState() != ClaimState::Running);
@@ -1688,7 +1757,8 @@ static void testHorn() {
 	memset(&t, 0, sizeof(t));
 	t.lastRpmMs = millis();
 	fakeSetTelemetry(&t);
-	uiTap(UI_SERVO_X, UI_NAV_Y);
+	tapId(UI_FIX(CfgCtl::Servo));
+	checkTrue("SERVO opens from SETTINGS", uiCurrentScreen() == UiScreenId::Servo);
 	uiFrames(1);
 	checkTrue("refused while an ESC answers, first frame: not STALLED",
 	          s_refusal == ClaimRefusal::EscAnswering && !s_st.tripped &&
@@ -1711,15 +1781,15 @@ static void testButtonsAndSweep() {
 	freshUi();
 	openServo();
 	holdStart();
-	tapRect(BTN_MAX); core1();
+	tapId(UI_FIX(ServoCtl::Max)); core1();
 	checkInt("MAX", fakePin(29).level, 2000);
-	tapRect(BTN_MIN); core1();
+	tapId(UI_FIX(ServoCtl::Min)); core1();
 	checkInt("MIN", fakePin(29).level, 1000);
-	tapRect(BTN_CENTRE); core1();
+	tapId(UI_FIX(ServoCtl::Centre)); core1();
 	checkInt("CENTRE", fakePin(29).level, 1500);
 
 	ServoStatus st;
-	tapRect(BTN_SWEEP); core1();
+	tapId(UI_FIX(ServoCtl::Sweep)); core1();
 	servoJobStatus(&st);
 	checkTrue("SWEEP: sweeping", st.sweeping);
 	uiFrames(24); core1();
@@ -1727,34 +1797,35 @@ static void testButtonsAndSweep() {
 	uiFrames(1);
 	checkTrue("the screen reads the ends reached", s_st.sweeping && s_st.sweepMoves >= 1);
 	fakeDumpFrame("shot_servo_sweep.ppm");
-	tapRect(BTN_SWEEP); core1();
+	tapId(UI_FIX(ServoCtl::Sweep)); core1();
 	servoJobStatus(&st);
 	checkTrue("STOP SWEEP: still RUNNING, not sweeping", st.running && !st.sweeping);
 
-	tapRect(BTN_SWEEP); core1();
-	tapRect(BTN_MAX); core1();
+	tapId(UI_FIX(ServoCtl::Sweep)); core1();
+	tapId(UI_FIX(ServoCtl::Max)); core1();
 	servoJobStatus(&st);
 	checkTrue("MAX ends a sweep", !st.sweeping && fakePin(29).level == 2000);
-	tapRect(BTN_SWEEP); core1();
+	tapId(UI_FIX(ServoCtl::Sweep)); core1();
 	dialDrag(0, 0);
 	servoJobStatus(&st);
 	checkTrue("a drag ends a sweep", !st.sweeping && fakePin(29).level == 1500);
-	tapRect(BTN_SWEEP); core1();
-	fakePress(BTN_START.x + 20, BTN_START.y + 10); uiFrames(1); core1();
+	tapId(UI_FIX(ServoCtl::Sweep)); core1();
+	pressId(UI_FIX(ServoCtl::Start)); core1();
 	fakeRelease(); uiFrames(1);
 	servoJobStatus(&st);
 	checkTrue("STOP ends a sweep and the pulses", !st.sweeping && !st.running && fakePin(29).level == 0);
 
 	// SPEED: tap-to-set at the left end of the track is 10 %.
-	uiTap(SPEED_TRACK.x, SPEED_TRACK.y + 10);
+	UiRect speed = ctlRect(UI_FIX(ServoCtl::Speed));
+	uiTap(speed.x, speed.y + 10);
 	checkInt("SPEED at the left end: 10 %", (long)lroundf(s_speed.value), 10);
 	holdStart();
-	tapRect(BTN_MAX); core1();
+	tapId(UI_FIX(ServoCtl::Max)); core1();
 	checkTrue("at 10 % MAX is not reached at once", fakePin(29).level < 1600);
 	for (int i = 0; i < 40; i++) uiFrames(1);
 	core1();
 	checkInt("1000 ms later: 200 units of 1000, 1700 us", fakePin(29).level, 1700, 10);
-	uiTap(SPEED_TRACK.x + SPEED_TRACK.w - 1, SPEED_TRACK.y + 10);
+	uiTap(speed.x + speed.w - 1, speed.y + 10);
 	core1();
 	checkInt("SPEED to 100 % mid-move: at MAX at once", fakePin(29).level, 2000);
 	leaveServo();
@@ -1766,11 +1837,13 @@ static void testTwoServos() {
 
 	freshUi();
 	openServo();
-	tapRect(BTN_SET);
+	openSet();
 	uiFrames(1);
 	checkTrue("SET is open", s_view == View::Set);
+	checkControlTable("SET");
 	selectRow(ROW_SERVOS);
 	checkInt("SERVOS selected", s_sel, ROW_SERVOS);
+	checkControlTable("SET, a row selected");
 	stepSel(+1);
 	checkTrue("SERVOS TWO, applied at once", s_profile.servos == 2);
 	checkTrue("AUX bound to PWM at level 0",
@@ -1779,7 +1852,7 @@ static void testTwoServos() {
 	stepSel(+1);
 	checkTrue("REVERSE B on", s_profile.reverseB);
 	fakeDumpFrame("shot_servo_set.ppm");
-	uiTap(UI_BACK_CX, UI_BACK_CY);
+	backFromSet();
 	checkTrue("BACK: SERVO again", s_view == View::Main);
 	bool clean = true;
 	const int gapRows[] = {50, 55, SV_LOW_Y, SV_BTN_Y - 1};
@@ -1789,33 +1862,34 @@ static void testTwoServos() {
 	checkTrue("nothing of SET is left between SERVO's regions", clean);
 	holdStart();
 	checkTrue("START: CENTRE on both", fakePin(29).level == 1500 && fakePin(28).level == 1500);
+	checkControlTable("SERVO, two servos with the selector");
 	checkInt("AB by default", s_mask, SERVO_MASK_AB);
 	dialDrag(45, 45);
 	checkTrue("AB with REVERSE B: B mirrors A", fakePin(29).level == 1750 && fakePin(28).level == 1250);
 	fakeDumpFrame("shot_servo_two.ppm");
-	tapRect(BTN_SEL_A);
+	tapId(UI_FIX(ServoCtl::SelA));
 	dialDrag(-90, -90);
 	checkTrue("A: A follows, B holds", fakePin(29).level == 1000 && fakePin(28).level == 1250);
-	tapRect(BTN_SEL_B);
-	tapRect(BTN_MAX); core1();
+	tapId(UI_FIX(ServoCtl::SelB));
+	tapId(UI_FIX(ServoCtl::Max)); core1();
 	checkTrue("B: B follows unmirrored, A holds", fakePin(29).level == 1000 && fakePin(28).level == 2000);
-	tapRect(BTN_SEL_AB);
-	tapRect(BTN_MIN); core1();
+	tapId(UI_FIX(ServoCtl::SelAB));
+	tapId(UI_FIX(ServoCtl::Min)); core1();
 	checkTrue("AB: MIN mirrors B to MAX", fakePin(29).level == 1000 && fakePin(28).level == 2000);
-	fakePress(BTN_START.x + 20, BTN_START.y + 10); uiFrames(1); core1();
+	pressId(UI_FIX(ServoCtl::Start)); core1();
 	fakeRelease(); uiFrames(1);
 	checkTrue("STOP stops both", fakePin(29).level == 0 && fakePin(28).level == 0);
 	// B selected, then SERVOS ONE: the selection no longer applies, and the
 	// one servo on SIG follows the dial.
-	tapRect(BTN_SEL_B);
-	tapRect(BTN_SET);
+	tapId(UI_FIX(ServoCtl::SelB));
+	openSet();
 	uiFrames(1);
 	selectRow(ROW_SERVOS);
 	stepSel(-1);
 	checkTrue("SERVOS ONE", s_profile.servos == 1);
-	uiTap(UI_BACK_CX, UI_BACK_CY);
+	backFromSet();
 	holdStart();
-	tapRect(BTN_MAX); core1();
+	tapId(UI_FIX(ServoCtl::Max)); core1();
 	checkInt("ONE after B selected: MAX moves A", fakePin(29).level, 2000);
 	leaveServo();
 }
@@ -1833,10 +1907,10 @@ static void testAuxRefused() {
 	checkTrue("one GPIO for both: the screen claims SIG alone",
 	          pinClaimState() == ClaimState::Running && pinClaimGpio(PIN_AUX) == PIN_CLAIM_NO_GPIO);
 	checkTrue("and keeps why", s_auxRefusal == ClaimRefusal::SamePin);
-	tapRect(BTN_SET);
+	openSet();
 	selectRow(ROW_SERVOS);
 	checkTrue("SERVOS + is drawn disabled", fillOf(BTN_PLUS) == C_BG);
-	stepSel(+1);
+	stepSel(+1, 1, IdExpect::Disabled);
 	checkTrue("and does not act", s_profile.servos == 1 && s_edit.servos == 1);
 	const char *l1, *l2; uint16_t col;
 	setNote(&l1, &l2, &col);
@@ -1846,9 +1920,9 @@ static void testAuxRefused() {
 	setNote(&l1, &l2, &col);
 	checkTrue("another row selected: the note says TWO is not offered",
 	          l1 && strstr(l1, "NOT OFFERED") != nullptr);
-	uiTap(UI_BACK_CX, UI_BACK_CY);
+	backFromSet();
 	leaveServo();
-	uiTap(UI_BACK_CX, UI_BACK_CY);
+	backFromCfg();
 	uiFrames(1);
 
 	freshUi();
@@ -1860,14 +1934,14 @@ static void testAuxRefused() {
 	openServo();
 	checkTrue("KISS live on AUX: SIG alone", pinClaimGpio(PIN_AUX) == PIN_CLAIM_NO_GPIO &&
 	                                         s_auxRefusal == ClaimRefusal::KissLive);
-	tapRect(BTN_SET);
+	openSet();
 	selectRow(ROW_SERVOS);
 	setNote(&l1, &l2, &col);
 	checkTrue("the note names the KISS wire", l1 && strcmp(l1, "KISS WIRE ON GP28 IS LIVE.") == 0 &&
 	                                          l2 && strcmp(l2, "TWO SERVOS NEED IT UNPLUGGED.") == 0);
-	stepSel(+1);
+	stepSel(+1, 1, IdExpect::Disabled);
 	checkTrue("SERVOS stays ONE", s_profile.servos == 1);
-	uiTap(UI_BACK_CX, UI_BACK_CY);
+	backFromSet();
 	leaveServo();
 	noEsc();
 }
@@ -1888,9 +1962,11 @@ static void testEscAnswering() {
 	checkTrue("no claim while it answers", !s_claimed && pinClaimHolder() == PinUser::None);
 	checkTrue("the reason", s_refusal == ClaimRefusal::EscAnswering);
 	checkTrue("HOLD TO START is an outline", fillOf(BTN_START) == C_BG);
+	checkControlTable("SERVO, refused: an ESC answers");
 	fakeDumpFrame("shot_servo_esc.ppm");
-	int x = BTN_START.x + 20, y = BTN_START.y + 10;
-	fakePress(x, y); uiFrames(1);
+	int x, y;
+	ctlCentre(UI_FIX(ServoCtl::Start), &x, &y);
+	pressId(UI_FIX(ServoCtl::Start), IdExpect::Disabled);
 	fakeHold(x, y); uiFrames(4);
 	checkTrue("and a hold on it starts no hold", !s_hold.holding);
 	fakeRelease(); uiFrames(1);
@@ -1914,10 +1990,14 @@ static void testUnplugPage() {
 	holdStart();
 	int resumes = fakeResumeCount();
 	int cuts = fakePin(29).cutPulses;
-	uiTap(UI_BACK_CX, UI_BACK_CY);
+	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK while RUNNING: the page waits for the last pulse",
 	          s_view == View::Unplug && !pinClaimUnplugDue() &&
 	          core1JobPhase() == Core1JobPhase::Stopping);
+	checkTrue("the page waits: BACK is drawn disabled, RESTART is not there",
+	          ctlPresent(UI_FIX(UI_BACK)) && !ctlEnabled(UI_FIX(UI_BACK)) &&
+	          !ctlPresent(UI_FIX(ServoCtl::Restart)));
+	checkControlTable("the unplug page, the job not yet let go");
 	core1();
 	checkTrue("core1's next pass: still stopping", core1JobPhase() == Core1JobPhase::Stopping);
 	checkTrue("level 0 written, SIG still on PWM",
@@ -1925,32 +2005,39 @@ static void testUnplugPage() {
 	checkInt("and no DShot", fakeResumeCount(), resumes);
 	// BACK on the page before the job has let go: pinClaimKeep() would
 	// refuse, so the page ignores it and stays.
-	fakePress(UI_BACK_CX, UI_BACK_CY); frameAt(5);
+	// The frames are 5 ms apart here, so the press is by hand, at BACK's centre.
+	int bx, by;
+	ctlCentre(UI_FIX(UI_BACK), &bx, &by);
+	fakePress(bx, by); frameAt(5);
 	fakeRelease(); frameAt(5);
 	checkTrue("BACK while releasing: ignored, the page stays",
 	          s_view == View::Unplug && pinClaimState() == ClaimState::Leaving &&
 	          !pinClaimUnplugDue());
 	uiFrames(2);
 	checkTrue("BACK: the unplug page", s_view == View::Unplug && pinClaimUnplugDue());
+	checkTrue("the job let go: BACK acts and RESTART DSHOT is there",
+	          ctlEnabled(UI_FIX(UI_BACK)) && ctlEnabled(UI_FIX(ServoCtl::Restart)));
+	checkControlTable("the unplug page, the job let go");
 	checkInt("no pulse was cut short", fakePin(29).cutPulses, cuts);
 	checkTrue("the job let go: SIG an input", fakePin(29).function == GPIO_FUNC_SIO);
 	checkInt("DShot not yet restarted", fakeResumeCount(), resumes);
 	fakeDumpFrame("shot_servo_unplug.ppm");
-	uiTap(UI_BACK_CX, UI_BACK_CY);
+	tapId(UI_FIX(UI_BACK));
 	uiFrames(2);
 	checkTrue("BACK on the page: SERVO again, the claim kept",
 	          s_view == View::Main && pinClaimState() == ClaimState::Running);
 	checkTrue("SAFE again, rebound at level 0",
 	          !s_st.running && fakePin(29).function == GPIO_FUNC_PWM && fakePin(29).level == 0);
 	checkInt("still no DShot", fakeResumeCount(), resumes);
-	uiTap(UI_BACK_CX, UI_BACK_CY);
+	tapId(UI_FIX(UI_BACK));
 	uiFrames(1);
-	tapRect(BTN_RESTART);
+	tapId(UI_FIX(ServoCtl::Restart));
 	checkInt("RESTART DSHOT: DShot back", fakeResumeCount(), resumes + 1);
 	uiFrames(2);
 	checkTrue("free, and SETTINGS up", pinClaimState() == ClaimState::Free &&
-	                                   pixel(UI_SERVO_X - 20, UI_NAV_Y - 16) == C_PANEL);
-	uiTap(UI_BACK_CX, UI_BACK_CY);
+	                                   uiCurrentScreen() == UiScreenId::Cfg &&
+	                                   fillOf(ctlRect(UI_FIX(CfgCtl::Servo))) == C_PANEL);
+	backFromCfg();
 }
 
 /**
@@ -1961,7 +2048,7 @@ static void testSetScreen() {
 
 	freshUi();
 	openServo();
-	tapRect(BTN_SET);
+	openSet();
 	selectRow(1);   // TYPE
 	stepSel(+1);
 	checkTrue("NARROW 760 at 50 Hz: applied at once",
@@ -1975,17 +2062,18 @@ static void testSetScreen() {
 	checkTrue("the note names the heli risk", l1 && strstr(l1, "HELI PROFILE") != nullptr);
 	checkTrue("HOLD TO APPLY is live", fillOf(BTN_APPLY) == C_PANEL);
 	fakeDumpFrame("shot_servo_set_warning.ppm");
-	int x = BTN_APPLY.x + 20, y = BTN_APPLY.y + 10;
+	int x, y;
+	ctlCentre(UI_FIX(ServoCtl::Apply), &x, &y);
 	// A hold cut short starts again from zero at the next press.
-	fakePress(x, y); uiFrames(1);
+	pressId(UI_FIX(ServoCtl::Apply));
 	fakeHold(x, y); frameAt(500);
 	fakeRelease(); uiFrames(1);
 	frameAt(1000);
-	fakePress(x, y); uiFrames(1);
+	pressId(UI_FIX(ServoCtl::Apply));
 	checkTrue("held 500 ms, lifted, pressed 1 s later: still pending",
 	          s_pending && s_profile.type == ServoType::Wide && fakeSlice(6).top == 19999);
 	fakeRelease(); uiFrames(1);
-	fakePress(x, y); uiFrames(1);
+	pressId(UI_FIX(ServoCtl::Apply));
 	fakeHold(x, y); frameAt(SV_HOLD_MS - 1); core1();
 	checkTrue("held 999 ms: not applied", s_pending && fakeSlice(6).top == 19999);
 	checkTrue("the bar shows the hold, the button red",
@@ -2009,13 +2097,13 @@ static void testSetScreen() {
 	checkTrue("100 Hz: pending", s_pending && s_profile.rateHz == 60 && s_edit.rateHz == 100);
 	setNote(&l1, &l2, &col);
 	checkTrue("the note names the overheating", l1 && strstr(l1, "ABOVE 60 HZ") != nullptr);
-	uiTap(UI_BACK_CX, UI_BACK_CY);
+	backFromSet();
 	checkTrue("BACK drops the pending change", !s_pending && s_edit.rateHz == 60);
-	tapRect(BTN_SET);
+	openSet();
 	selectRow(3);   // MIN
 	stepSel(-1, 3);
 	checkTrue("MIN -30 us at once", s_profile.minUs == 770);
-	int minY = SET_LIST_Y0 + 3 * SET_ROW_H - s_list.scrollPx + SET_ROW_H / 2;
+	int minY = rowCentreY(3);
 	fakePress(200, minY); uiFrames(1);
 	for (int px = 200; px >= 200 - UI_AXIS_LOCK_PX - 2 - UI_SWIPE_STEP_PX; px -= 4) {
 		fakeHold(px, minY); uiFrames(1);
@@ -2024,12 +2112,13 @@ static void testSetScreen() {
 	checkInt("a swipe left on MIN: one coarse step, -100 us", s_profile.minUs, 670);
 
 	// While RUNNING the PULSE rows are locked; the SWEEP rows are not.
-	uiTap(UI_BACK_CX, UI_BACK_CY);
+	backFromSet();
 	holdStart();
-	tapRect(BTN_SET);
+	openSet();
 	selectRow(3);
+	checkControlTable("SET, RUNNING");
 	checkTrue("RUNNING: MIN's - is an outline", fillOf(BTN_MINUS) == C_BG);
-	stepSel(-1);
+	stepSel(-1, 1, IdExpect::Disabled);
 	checkTrue("and does nothing", s_profile.minUs == 670 && s_edit.minUs == 670);
 	setNote(&l1, &l2, &col);
 	checkTrue("the note says STOP first", l1 && strcmp(l1, "STOP TO CHANGE THE PROFILE") == 0);
@@ -2040,8 +2129,8 @@ static void testSetScreen() {
 	uint16_t rate = s_profile.rateHz;
 	s_pending = true;
 	s_edit.rateHz = 100;
-	fakePress(BTN_APPLY.x + 20, BTN_APPLY.y + 10); uiFrames(1);
-	for (int i = 0; i < 48; i++) { fakeHold(BTN_APPLY.x + 20, BTN_APPLY.y + 10); uiFrames(1); core1(); }
+	pressId(UI_FIX(ServoCtl::Apply), IdExpect::Disabled);
+	for (int i = 0; i < 48; i++) { fakeHold(x, y); uiFrames(1); core1(); }
 	checkTrue("forced pending while RUNNING: HOLD TO APPLY is an outline",
 	          fillOf(BTN_APPLY) == C_BG);
 	fakeRelease(); uiFrames(1);
@@ -2054,13 +2143,14 @@ static void testSetScreen() {
 	selectRow(11);  // MOVES
 	stepSel(+1, 3);
 	checkInt("MOVES 3", s_sweep.moves, 3);
-	uiTap(UI_BACK_CX, UI_BACK_CY);
-	tapRect(BTN_SWEEP); core1();
+	backFromSet();
+	tapId(UI_FIX(ServoCtl::Sweep)); core1();
 	servoJobStatus(&s_st);
 	checkTrue("SWEEP takes the new rows", s_st.sweeping);
-	tapRect(BTN_SET);
-	int fx = BTN_DEFAULTS.x + BTN_DEFAULTS.w / 2, fy = BTN_DEFAULTS.y + BTN_DEFAULTS.h / 2;
-	fakePress(fx, fy); uiFrames(1); core1();
+	openSet();
+	int fx, fy;
+	ctlCentre(UI_FIX(ServoCtl::Defaults), &fx, &fy);
+	pressId(UI_FIX(ServoCtl::Defaults)); core1();
 	ServoStatus after;
 	servoJobStatus(&after);
 	checkTrue("STOP on SET acts on press: level 0 on core1's next pass",
@@ -2070,15 +2160,16 @@ static void testSetScreen() {
 	checkTrue("its release is not a tap on DEFAULTS",
 	          s_profile.type == ServoType::Wide && s_profile.minUs == 670 && s_sweep.moves == 3);
 	checkTrue("SAFE: DEFAULTS is back", fillOf(BTN_DEFAULTS) == C_PANEL);
-	tapRect(BTN_DEFAULTS);
+	tapId(UI_FIX(ServoCtl::Defaults));
 	checkTrue("and a new tap in the same visit applies it",
 	          s_profile.type == ServoType::Standard && s_profile.minUs == 1000 &&
 	          s_sweep.moves == 0);
-	uiTap(UI_BACK_CX, UI_BACK_CY);
+	backFromSet();
 
-	tapRect(BTN_SET);
+	openSet();
 	selectRow(7);   // SHAPE, so the swipe below is the selection's change
-	int rateY = SET_LIST_Y0 + 8 * SET_ROW_H - s_list.scrollPx + SET_ROW_H / 2;
+	revealRow(8);
+	int rateY = rowCentreY(8);
 	fakePress(60, rateY); uiFrames(1);
 	for (int px = 60; px <= 60 + UI_AXIS_LOCK_PX + 2 + UI_SWIPE_STEP_PX; px += 4) {
 		fakeHold(px, rateY); uiFrames(1);
@@ -2092,7 +2183,7 @@ static void testSetScreen() {
 	fakeRelease(); uiFrames(1);
 	checkTrue("a vertical drag scrolls and edits nothing",
 	          s_list.scrollPx < scroll && s_sweep.mhz == 1000 && s_sel == 8);
-	tapRect(BTN_DEFAULTS);
+	tapId(UI_FIX(ServoCtl::Defaults));
 	checkTrue("DEFAULTS: STANDARD PWM, 50 Hz, one servo, sine at 0.50 Hz",
 	          s_profile.type == ServoType::Standard && s_profile.rateHz == 50 &&
 	          s_profile.servos == 1 && s_sweep.kind == SWEEP_SINE && s_sweep.mhz == 500);
@@ -2100,7 +2191,7 @@ static void testSetScreen() {
 	// pass 0 and stops there. The anchor moves on by whole coarse steps, so
 	// the way back starts 16 px past it.
 	selectRow(10);
-	int dwY = SET_LIST_Y0 + 10 * SET_ROW_H - s_list.scrollPx + SET_ROW_H / 2;
+	int dwY = rowCentreY(10);
 	fakePress(200, dwY); uiFrames(1);
 	fakeHold(193, dwY); uiFrames(1);   // the lock: the anchor
 	fakeHold(153, dwY); uiFrames(1);   // 40 px: two coarse steps, the anchor at 161
@@ -2110,7 +2201,7 @@ static void testSetScreen() {
 	fakeHold(177, dwY); uiFrames(1);
 	checkInt("16 px back: one coarse step up, 1000 ms", s_sweep.dwell_ms, 1000);
 	fakeRelease(); uiFrames(1);
-	tapRect(BTN_DEFAULTS);
+	tapId(UI_FIX(ServoCtl::Defaults));
 	// A choice moves one value per swipe step, a number ten.
 	swipeRow(1, +1);
 	checkTrue("TYPE: one swipe step is one type", s_profile.type == ServoType::Narrow760);
@@ -2118,12 +2209,13 @@ static void testSetScreen() {
 	checkTrue("SHAPE: to square", s_sweep.kind == SWEEP_SQUARE);
 	swipeRow(7, +1);
 	checkTrue("then one step back to sine", s_sweep.kind == SWEEP_SINE);
-	uiTap(UI_BACK_CX, UI_BACK_CY);
-	uiTap(SPEED_TRACK.x, SPEED_TRACK.y + 10);
-	tapRect(BTN_SET);
+	backFromSet();
+	UiRect speed = ctlRect(UI_FIX(ServoCtl::Speed));
+	uiTap(speed.x, speed.y + 10);
+	openSet();
 	setNote(&l1, &l2, &col);
 	checkTrue("SPEED 10 %: SPEED LIMITS THE SWEEP", l1 && strcmp(l1, "SPEED LIMITS THE SWEEP") == 0);
-	uiTap(UI_BACK_CX, UI_BACK_CY);
+	backFromSet();
 	leaveServo();
 }
 
@@ -2133,11 +2225,16 @@ static void testSetList() {
 
 	freshUi();
 	openServo();
-	tapRect(BTN_SET);
+	openSet();
 	checkInt("SET opens at 0 px", s_list.scrollPx, 0);
+	// The viewport's edges and middle come from the rows' rectangles: the
+	// first row starts at the viewport's top, the last is cut at its bottom.
+	int vt, vb, vx;
+	setViewport(&vt, &vb, &vx);
+	checkTrue("the rows span the viewport, y 56 to y 215", vt == SET_LIST_Y0 && vb == SET_LIST_Y1);
 	for (int i = 0; i < 8; i++) {
-		fakePress(120, 210); uiFrames(1);
-		for (int y = 210; y >= 60; y -= 30) { fakeHold(120, y); uiFrames(1); }
+		fakePress(vx, vb - 5); uiFrames(1);
+		for (int y = vb - 5; y >= vt + 4; y -= 30) { fakeHold(vx, y); uiFrames(1); }
 		fakeRelease(); uiFrames(1);
 	}
 	checkInt("dragged up: 12 rows of 26 px less 160 px", s_list.scrollPx,
@@ -2145,8 +2242,8 @@ static void testSetList() {
 	checkTrue("the last row's rule on y 215, the viewport's last row",
 	          pixel(230, SET_LIST_Y1) == C_PANEL && pixel(230, SET_LIST_Y1 - 1) == C_BG);
 	for (int i = 0; i < 8; i++) {
-		fakePress(120, 60); uiFrames(1);
-		for (int y = 60; y <= 210; y += 30) { fakeHold(120, y); uiFrames(1); }
+		fakePress(vx, vt + 4); uiFrames(1);
+		for (int y = vt + 4; y <= vb - 5; y += 30) { fakeHold(vx, y); uiFrames(1); }
 		fakeRelease(); uiFrames(1);
 	}
 	checkInt("dragged down: 0 px", s_list.scrollPx, 0);
@@ -2155,33 +2252,34 @@ static void testSetList() {
 	uiListScrollTo(&s_list, 13);
 	s_full = true;
 	uiFrames(1);
-	uiTap(120, SET_LIST_Y0);
+	uiTap(vx, vt);
 	checkInt("y 56: the top row, 13 px of it showing", s_sel, 0);
-	uiTap(120, SET_LIST_Y1);
+	uiTap(vx, vb);
 	checkInt("y 215: the bottom row, 17 px of it showing", s_sel, (13 + SET_LIST_H - 1) / SET_ROW_H);
 	s_sel = -1;
-	uiTap(120, SET_LIST_Y0 - 1);
-	uiTap(120, SET_LIST_Y1 + 1);
+	uiTap(vx, vt - 1);
+	uiTap(vx, vb + 1);
 	checkInt("y 55 and y 216, outside the viewport: no row", s_sel, -1);
 
-	uiTap(120, SET_LIST_Y0 + 40);
+	uiTap(vx, vt + 40);
 	uiFrames(1);
-	uint32_t below = fakeRegionHash(0, SET_LIST_Y1 + 1, GFX_W, GFX_H - SET_LIST_Y1 - 1);
-	fakePress(120, 150); uiFrames(1);
-	fakeHold(120, 120); uiFrames(1);
+	uint32_t below = fakeRegionHash(0, vb + 1, GFX_W, GFX_H - vb - 1);
+	fakePress(vx, vb - 65); uiFrames(1);
+	fakeHold(vx, vb - 95); uiFrames(1);
 	fakeRelease(); uiFrames(2);
 	checkTrue("a scroll leaves the editor bar and the footer as they were",
 	          s_list.scrollPx == 13 + 30 &&
-	          fakeRegionHash(0, SET_LIST_Y1 + 1, GFX_W, GFX_H - SET_LIST_Y1 - 1) == below);
-	uiTap(UI_BACK_CX, UI_BACK_CY);
-	tapRect(BTN_SET);
+	          fakeRegionHash(0, vb + 1, GFX_W, GFX_H - vb - 1) == below);
+	backFromSet();
+	openSet();
 	checkTrue("SET opened again: at 0 px, no row selected", s_list.scrollPx == 0 && s_sel == -1);
 
 	// HOLD TO APPLY with nothing pending: drawn disabled, and a hold on it
 	// hands the job nothing, so the pins are not rebound.
 	int inits = fakeSlice(6).inits;
-	int ax = BTN_APPLY.x + 20, ay = BTN_APPLY.y + 10;
-	fakePress(ax, ay); uiFrames(1);
+	int ax, ay;
+	ctlCentre(UI_FIX(ServoCtl::Apply), &ax, &ay);
+	pressId(UI_FIX(ServoCtl::Apply), IdExpect::Disabled);
 	for (int i = 0; i < 48; i++) { fakeHold(ax, ay); uiFrames(1); core1(); }
 	checkTrue("nothing pending: HOLD TO APPLY is an outline", fillOf(BTN_APPLY) == C_BG);
 	// A change forced pending under the same press, which the UI cannot do
@@ -2195,7 +2293,7 @@ static void testSetList() {
 	          fakeSlice(6).inits == inits && s_profile.rateHz == 50 && s_pending);
 	s_pending = false;
 	s_edit = s_profile;
-	uiTap(UI_BACK_CX, UI_BACK_CY);
+	backFromSet();
 	leaveServo();
 }
 
@@ -2220,13 +2318,13 @@ static void testClaimCorners() {
 	checkTrue("with AUX, and the old AUX refusal cleared",
 	          pinClaimGpio(PIN_AUX) == 28 && s_auxRefusal == ClaimRefusal::None);
 	leaveServo();
-	uiTap(UI_BACK_CX, UI_BACK_CY);
+	backFromCfg();
 	uiFrames(1);
 
 	// Armed, entered without CFG, which would have disarmed.
 	freshUi();
-	fakePress(58, 299); uiFrames(1);
-	for (int i = 0; i < 60; i++) { fakeHold(58, 299); uiFrames(1); }
+	pressId(UI_FIX(TesterCtl::Arm));
+	holdId(UI_FIX(TesterCtl::Arm), 60);
 	fakeRelease(); uiFrames(1);
 	checkTrue("armed on the main screen", uiArmed());
 	uiServoEnter();
@@ -2235,8 +2333,19 @@ static void testClaimCorners() {
 	uiServoTick(&idle);
 	checkTrue("SERVO while armed: DISARM FIRST, nothing claimed",
 	          s_refusal == ClaimRefusal::Armed && pinClaimHolder() == PinUser::None);
+	// SERVO was entered by hand, so uiControls() still reports the tester:
+	// BACK's centre comes from SERVO's own table.
+	UiControl tab[UI_CONTROLS_MAX];
+	uint8_t tn = uiServoControls(tab, UI_CONTROLS_MAX);
+	int bx = -1, by = -1;
+	for (uint8_t i = 0; i < tn; i++)
+		if (tab[i].id == UI_FIX(UI_BACK)) {
+			bx = tab[i].rect.x + tab[i].rect.w / 2;
+			by = tab[i].rect.y + tab[i].rect.h / 2;
+		}
+	checkTrue("SERVO's table lists BACK", bx >= 0);
 	TouchState back = idle;
-	back.released = true; back.x = back.downX = UI_BACK_CX; back.y = back.downY = UI_BACK_CY;
+	back.released = true; back.x = back.downX = (int16_t)bx; back.y = back.downY = (int16_t)by;
 	checkTrue("BACK with no claim leaves at once", !uiServoTick(&back));
 	freshUi();
 
@@ -2249,7 +2358,7 @@ static void testClaimCorners() {
 	openServo();
 	// The fake ESC is a snapshot: stamp it again so it keeps answering.
 	t.lastRpmMs = millis(); fakeSetTelemetry(&t);
-	tapRect(BTN_SET);
+	openSet();
 	t.lastRpmMs = millis(); fakeSetTelemetry(&t);
 	selectRow(ROW_SERVOS);
 	t.lastRpmMs = millis(); fakeSetTelemetry(&t);
@@ -2266,7 +2375,7 @@ static void testClaimCorners() {
 	uiFrames(2);
 	checkTrue("the job bound SIG alone", fakePin(29).function == GPIO_FUNC_PWM &&
 	                                     fakePin(28).function != GPIO_FUNC_PWM);
-	uiTap(UI_BACK_CX, UI_BACK_CY);
+	backFromSet();
 	leaveServo();
 	noEsc();
 }
@@ -2279,28 +2388,31 @@ static void testBindRefused() {
 	fakePwmBreakSliceMap(true);
 	openServo();
 	checkTrue("the claim is held with the reason", pinClaimJobError() == CORE1_JOB_PWM);
+	checkControlTable("SERVO, a job error");
+	checkTrue("a job error offers RETRY", ctlEnabled(UI_FIX(ServoCtl::Retry)));
+	checkTrue("the message replaces the dial", !ctlPresent(UI_FIX(ServoCtl::Dial)));
 	checkTrue("HOLD TO START is an outline", fillOf(BTN_START) == C_BG);
 	fakeDumpFrame("shot_servo_bind.ppm");
 	fakePwmBreakSliceMap(false);
-	tapRect(BTN_RETRY);
+	tapId(UI_FIX(ServoCtl::Retry));
 	uiFrames(2);
 	checkTrue("RETRY: running", pinClaimState() == ClaimState::Running && fillOf(BTN_START) == C_PANEL);
 
-	tapRect(BTN_SET);
+	openSet();
 	selectRow(2);
 	fakePwmBreakSliceMap(true);
 	stepSel(+1);
 	uiFrames(1);
 	checkInt("a rebind refused: the job says why", s_st.bindError, CORE1_JOB_PWM);
-	uiTap(UI_BACK_CX, UI_BACK_CY);
+	backFromSet();
 	checkTrue("HOLD TO START is an outline", fillOf(BTN_START) == C_BG);
 	fakePwmBreakSliceMap(false);
-	tapRect(BTN_RETRY);
+	tapId(UI_FIX(ServoCtl::Retry));
 	core1();
 	uiFrames(2);
 	checkTrue("RETRY rebinds", s_st.bindError == 0 && fakePin(29).function == GPIO_FUNC_PWM);
 	leaveServo();
-	uiTap(UI_BACK_CX, UI_BACK_CY);
+	backFromCfg();
 }
 
 
