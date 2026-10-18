@@ -256,6 +256,14 @@ static void testMapping() {
 	checkInt("command 1001 counts as 1000", servoCmdToUs(&p, 1001), 2000);
 	checkInt("1250 us: command 250", servoUsToCmd(&p, 1250), 250);
 
+	// CENTRE above the middle: the range runs past MAX, and MAX clamps it.
+	ServoProfile high = profileOf(ServoType::Standard);
+	high.centreUs = 1600;
+	checkInt("CENTRE 1600 us: command 1000 clamps to MAX", servoCmdToUs(&high, 1000), 2000);
+	checkInt("command 900, 2080 us in the range: MAX", servoCmdToUs(&high, 900), 2000);
+	checkInt("command 500: CENTRE", servoCmdToUs(&high, 500), 1600);
+	checkInt("command 0: MIN", servoCmdToUs(&high, 0), 1000);
+
 	// CENTRE off the middle: the range is centred on CENTRE and holds both
 	// ends, so command 500 rests the servo at CENTRE.
 	p.centreUs = 1400;
@@ -455,7 +463,7 @@ static void testPwm() {
 	         fakePin(AUX).level, 0);
 	checkTrue("GP12, GP28's compare register: refused", !servoPwmBind(12, 50));
 	checkTrue("GP26, both bindings in use: refused", !servoPwmBind(26, 50));
-	checkTrue("GP30, not on the package: refused", !servoPwmBind(30, 50));
+	checkTrue("GP30 with both bindings in use: refused", !servoPwmBind(30, 50));
 
 	servoPwmWrite(SIG, 1500);
 	checkInt("a 1500 us pulse", fakePin(SIG).level, 1500);
@@ -490,6 +498,9 @@ static void testPwm() {
 	          !servoPwmBind(12, 50));
 	servoPwmRelease(AUX);
 
+	checkTrue("nothing bound", !servoPwmBound(SIG) && !servoPwmBound(AUX));
+	checkTrue("GP30, not on the package, with the table empty: refused",
+	          !servoPwmBind(30, 50) && !servoPwmBound(30));
 	fakePwmBreakSliceMap(true);
 	checkTrue("an SDK slice that differs from the fold: refused", !servoPwmBind(SIG, 50));
 	fakePwmBreakSliceMap(false);
@@ -623,6 +634,18 @@ static void testCoreSlew() {
 	checkInt("SPEED to 10 % mid-move: 100 units in 500 ms", c.outUs[0], 1400);
 	pass(&c, cmdOf(5, ServoCmdKind::Slew, SERVO_MASK_A, 0, servoSlewOf(100)), t0 + 10000);
 	checkInt("SPEED to 100 %: at the target in the same pass", c.outUs[0], 1000);
+
+	// From below, a step longer than the way left lands on the target.
+	pass(&c, cmdOf(6, ServoCmdKind::Position, SERVO_MASK_A, 500, servoSlewOf(10)), t0 + 10000);
+	servoCoreStep(&c, t0 + 12000, true);
+	checkInt("from below: 400 units in 2000 ms", c.pos[0], 400000);
+	servoCoreStep(&c, t0 + 13000, true);
+	checkTrue("then 200 units owed, 100 left: on the target, not past it",
+	          c.pos[0] == 500000 && c.outUs[0] == 1500);
+	pass(&c, cmdOf(7, ServoCmdKind::Position, SERVO_MASK_A, 450, servoSlewOf(10)), t0 + 13000);
+	servoCoreStep(&c, t0 + 14000, true);
+	checkTrue("from above: on the target, not past it",
+	          c.pos[0] == 450000 && c.outUs[0] == 1450);
 }
 
 /** @brief Sweeps: start, shape, count, stop, and what ends them. */
