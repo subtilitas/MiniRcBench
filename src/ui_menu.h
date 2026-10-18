@@ -30,6 +30,9 @@ struct TouchState;
 /** @brief Least space between a MENU label and its widest status, px. */
 #define UI_MENU_LABEL_GAP 8
 
+/** @brief The status of a row refused while the pin claim is not Free. */
+#define UI_MENU_BUSY_TEXT "PINS BUSY"
+
 /** @brief What a MENU frame asks of the navigation. */
 enum class UiMenuResult : uint8_t {
 	Stay,  /**< MENU stays open. */

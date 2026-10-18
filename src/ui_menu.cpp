@@ -108,7 +108,7 @@ static void rowStatus(int i, char *buf, size_t n, uint16_t *col, uint16_t *fill)
 	*col = C_DIM;
 	*fill = C_PANEL;
 	if (pinsBusy(s)) {
-		snprintf(buf, n, "PINS BUSY");
+		snprintf(buf, n, "%s", UI_MENU_BUSY_TEXT);
 		*col = C_AMBER;
 		return;
 	}

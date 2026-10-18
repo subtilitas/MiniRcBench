@@ -83,7 +83,7 @@ links ihren Namen und rechts ihren Zustand. `BACK` führt zum Tester zurück.
 | **AM32 CONFIG** | der ESC-Pin, `GP29`; `PINS BUSY` | Öffnet den AM32-Editor |
 | **SERVO TESTER** | die beiden Signalpins, `GP29+28`; `PINS BUSY` | Öffnet den Servotester |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, oder `USB DRIVE`, solange ein Computer die Karte hält | Öffnet den Aufzeichnungs-Bildschirm |
-| **SETTINGS** | `UNSAVED`, solange ein Wert vom Flash abweicht, sonst nichts; `PINS BUSY`, solange die Pins noch zurückgegeben werden, und es öffnet nicht | Öffnet SETTINGS |
+| **SETTINGS** | `UNSAVED`, solange ein Wert vom Flash abweicht, sonst nichts; `PINS BUSY`, solange die Pins noch zurückgegeben werden, und öffnet sich nicht | Öffnet SETTINGS |
 
 `PINS BUSY` heißt, dass die Signalpins noch belegt sind, zum Beispiel während
 DShot nach dem Servotester neu startet. Ein Tippen auf diese Zeile öffnet

@@ -174,8 +174,8 @@ protocol.
   TESTER and SETTINGS read `PINS BUSY`, are drawn disabled and open nothing
   while the pin claim is not Free. SD LOG reads its card state, and SETTINGS
   reads `UNSAVED` while a change is not saved. A tap on a list row fires only
-  when released on that row. A seventh row
-  makes MENU scroll ([menu.md](docs/design/menu.md), slice C).
+  when released on that row. A seventh row makes MENU scroll
+  ([menu.md](docs/design/menu.md), slice C).
 - SETTINGS, one scrolling list in sections: ESC TESTER, WIRING, DISPLAY and
   BOARD. MOTOR POLES and MAX THROTTLE lead it. The list scrolls under a drag
   that starts off a control. LINK, the note line, HOLD TO SAVE and RESET stay
@@ -194,9 +194,12 @@ protocol.
   answers. `pinUserInfo()` reads it.
 - Host tests for MENU, SETTINGS and the navigation (`runMenuTests` in
   `test/test_menu.cpp`): SD LOG's BACK, every registry entry opened and left,
-  MENU's disarm, BEEP's flash, `PINS BUSY`, MENU's scroll over registries of
-  six and seven rows, the SETTINGS scroll range, each row by id, the 40 px
-  rule for a cut control and HOLD TO SAVE at every scroll position.
+  MENU's disarm, BEEP's flash, `PINS BUSY` on AM32, SERVO and SETTINGS,
+  MENU's scroll over registries of six and seven rows and its return at
+  0 px, every MENU status and SETTINGS value within its widest, the SETTINGS
+  scroll range, each row by id, the 40 px rule for a cut control, HOLD TO
+  SAVE and the UNSAVED note at every scroll position, BACKLIGHT's floor of
+  16, a step that changes nothing, and AM32's own wait beside another claim.
 - `docs/menu-preview.png`, and `docs/settings-preview.png` with a scrolled
   frame of SETTINGS.
 

@@ -47,6 +47,22 @@ static void menuFrames(int n) {
 /** @brief A pixel of the frame. */
 static uint16_t pixel(int x, int y) { return gfxBuffer()[y * GFX_W + x]; }
 
+/**
+ * @brief Whether SETTINGS' note line, y 254, reads @p text in @p col: the line
+ *        is redrawn with it into a copy and compared, and the frame restored.
+ */
+static bool noteIs(const char *text, uint16_t col) {
+	uint16_t *fb = gfxBuffer();
+	uint16_t keep[8][GFX_W];
+	memcpy(keep, fb + 254 * GFX_W, sizeof(keep));
+	uint32_t shown = fakeRegionHash(0, 254, GFX_W, 8);
+	gfxRect(0, 254, GFX_W, 8, C_BG);
+	gfxText(UI_MARGIN, 254, text, col, 1);
+	bool same = fakeRegionHash(0, 254, GFX_W, 8) == shown;
+	memcpy(fb + 254 * GFX_W, keep, sizeof(keep));
+	return same;
+}
+
 /** @brief The tester, from a fresh boot with the compiled defaults. */
 static void freshTester() {
 	// A claim outlives uiInit(); let the last test's claim end first.
@@ -199,6 +215,13 @@ static void testPinsBusy() {
 		framesNoPump(1);
 		checkTrue("the claim still restores", pinClaimState() == ClaimState::Restoring);
 		checkTrue("a tap while busy opens nothing", uiCurrentScreen() == UiScreenId::Menu);
+		ctlFind(menuRow(&UI_SETTINGS), &c);
+		fakePress(c.rect.x + c.rect.w / 2, c.rect.y + c.rect.h / 2);
+		framesNoPump(2);
+		fakeRelease();
+		framesNoPump(1);
+		checkTrue("nor does a tap on SETTINGS while the claim restores",
+		          uiCurrentScreen() == UiScreenId::Menu && pinClaimState() == ClaimState::Restoring);
 	}
 	for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) menuFrames(1);
 	checkTrue("once Free, SERVO TESTER acts again", ctlEnabled(menuRow(&UI_SERVO)));
@@ -360,6 +383,32 @@ static void testSettingsRows() {
 	tapId(UI_FIX(UI_BACK));
 }
 
+/** @brief BACKLIGHT stops at 16, and a step that changes nothing applies nothing. */
+static void testBacklightFloorAndNoOpSteps() {
+	section("SETTINGS: BACKLIGHT's floor of 16, and steps that change nothing");
+	openSettings();
+	settings()->backlight = 40;
+	revealRow((int)SettingsRowId::Backlight);
+	tapId(UI_ROW(SettingsRowId::Backlight, Minus));
+	checkInt("40, then - : 16, the floor", settings()->backlight, 16);
+	checkTrue("no ADJUSTED note: the note reads UNSAVED", noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
+	tapId(UI_ROW(SettingsRowId::Backlight, Minus));
+	checkInt("- at 16 stays at 16", settings()->backlight, 16);
+
+	// Save at 255, then + changes nothing: the note keeps SAVED.
+	settings()->backlight = 255;
+	pressId(UI_FIX(SettingsCtl::Save));
+	holdId(UI_FIX(SettingsCtl::Save), 41);
+	fakeRelease(); menuFrames(1);
+	checkTrue("saved: the note reads SAVED", noteIs("SAVED", C_LIME));
+	tapId(UI_ROW(SettingsRowId::Backlight, Plus));
+	checkInt("+ at 255 stays at 255", settings()->backlight, 255);
+	checkTrue("and applies nothing: the note still reads SAVED", noteIs("SAVED", C_LIME));
+	tapId(UI_FIX(SettingsCtl::Reset));
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+}
+
 /** @brief The note and HOLD TO SAVE do not move with the list, and the hold saves at any scroll. */
 static void testSettingsSaveAnywhere() {
 	section("SETTINGS: UNSAVED and HOLD TO SAVE at every scroll");
@@ -368,14 +417,12 @@ static void testSettingsSaveAnywhere() {
 	menuFrames(1);
 	UiRect save0 = ctlRect(UI_FIX(SettingsCtl::Save));
 	checkTrue("a change: the settings are unsaved", settingsDirty());
-	// The note line, y 254, 8 px: its pixels at 0 px are the UNSAVED note.
-	uint32_t note0 = fakeRegionHash(0, 254, GFX_W, 8);
 	for (int scroll = 0; scroll < 3; scroll++) {
 		char what[64];
 		snprintf(what, sizeof(what), "scroll step %d: HOLD TO SAVE stays at y 268", scroll);
 		checkInt(what, ctlRect(UI_FIX(SettingsCtl::Save)).y, save0.y);
-		snprintf(what, sizeof(what), "scroll step %d: the UNSAVED note stays", scroll);
-		checkTrue(what, fakeRegionHash(0, 254, GFX_W, 8) == note0);
+		snprintf(what, sizeof(what), "scroll step %d: the note reads UNSAVED in amber", scroll);
+		checkTrue(what, noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
 		dragList(200, -120);
 	}
 	pressId(UI_FIX(SettingsCtl::Save));
@@ -429,8 +476,8 @@ static void testMenuStatusWidths() {
 		check(e[i], "at rest");
 		if (e[i].screen->pinUser != PinUser::None || e[i].screen->freePins) {
 			char what[80];
-			snprintf(what, sizeof(what), "%s: PINS BUSY within its widest", e[i].label);
-			checkTrue(what, strlen("PINS BUSY") <= e[i].statusWidest);
+			snprintf(what, sizeof(what), "%s: %s within its widest", e[i].label, UI_MENU_BUSY_TEXT);
+			checkTrue(what, strlen(UI_MENU_BUSY_TEXT) <= e[i].statusWidest);
 		}
 	}
 	// BEEP's flash, sent and refused.
@@ -541,9 +588,15 @@ static void testAm32WaitsBesideAClaim() {
 	freshTester();
 	checkTrue("SERVO takes the pins", pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
 	static const TouchState none = {};
+	uint8_t transportBefore = fakeAm32Pin();
 	uiAm32Enter();
 	for (int i = 0; i < 10; i++) { fakeAdvance(25); fakePumpPoll(); core1JobPoll(); uiAm32Tick(&none); }
 	checkTrue("AM32 does not take the pins", pinClaimHolder() == PinUser::Servo);
+	UiControl tbl[UI_CONTROLS_MAX];
+	checkInt("AM32 stays in its handover: BACK is its only control",
+	         UI_AM32.controls(tbl, UI_CONTROLS_MAX), 1);
+	checkInt("and the bootloader transport never starts on SERVO's pin",
+	         fakeAm32Pin(), transportBefore);
 	uiAm32Exit();
 	checkTrue("leaving AM32 leaves SERVO's claim alone", pinClaimHolder() == PinUser::Servo);
 	uiAm32Enter();
@@ -572,6 +625,7 @@ void runMenuTests() {
 	testSettingsCutControl();
 	testSettingsRows();
 	testSettingsSaveAnywhere();
+	testBacklightFloorAndNoOpSteps();
 	testMenuUnsaved();
 	testMenuStatusWidths();
 	testSettingsValueWidths();
