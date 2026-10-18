@@ -267,7 +267,7 @@ Core0 calls `escHeartbeat()` at the top of every `uiTick()`, on every screen.
 | DShot | throttle forced to zero (`escFrameAction()`, unchanged) | throttle follows the UI again |
 | AM32 | nothing; the transport runs on core0, which is what stopped | nothing |
 | Servo job | both pins to level 0, no edges; the sweep ends; the job latches `Tripped` | nothing restarts. The screen shows `STOPPED: SCREEN STALLED` and needs a new HOLD TO START |
-| KST job | the running operation finishes; no new operation and no new entry attempt starts; the line stays driven low | operations are taken again; the search needs RETRY |
+| KST job | the running operation finishes; no new operation and no new entry attempt starts; the line stays driven low. With a switched supply ([kst-programming.md](kst-programming.md#leave-reboot-loss-and-heartbeat-with-the-switch)), the supply goes off once the operation ends, a wait with the supply off ends with it off, and the supply is switched on only while the heartbeat is trusted | operations are taken again; the search needs RETRY. With a switched supply the screen says the supply went off |
 
 Why KST does not abort: `kst_session_abort()` after the first write frame of a
 plan locks the session and can leave the servo between two images. The
@@ -287,9 +287,13 @@ The claim reads the pins SETUP chose, as latched by `escTaskConfigure()`, not
 the compiled defaults. They cannot change during a claim, because SETUP is
 unreachable. A pin change in SETUP applies to the next claim.
 
-Nothing about the servo tester or the programmer is stored in the settings
-block. `SETTINGS_VERSION` stays 2, so no stored block is discarded by this
-work. See decision 2 in [servo-tester.md](servo-tester.md).
+Nothing about the servo tester is stored in the settings block; see
+decision 2 in [servo-tester.md](servo-tester.md). The programmer stores one
+field, `SERVO SUPPLY`, whether a switched servo supply is fitted on GP0
+([kst-programming.md](kst-programming.md#decisions), decision 8). Slice 3
+takes `SETTINGS_VERSION` from 2 to 3 for it, so the first boot after slice 3
+discards the stored block and starts from the compiled defaults. Slices 1
+and 2 leave it at 2.
 
 ### When the pin is unavailable
 
@@ -446,7 +450,10 @@ servo inputs are commonly specified for 3.3 V logic.
 ### Wiring
 
 The servo's power comes from its own supply. The board supplies signal and
-ground only.
+ground only. For KST programming the supply can be a converter whose enable
+the board switches on GP0
+([kst-programming.md](kst-programming.md#switched-servo-supply)); the board
+still feeds the servo nothing.
 
 ```
   servo supply, 4.8 V to 6.0 V (8.4 V for an HV servo)
@@ -517,21 +524,24 @@ Three slices. Each merges on its own and leaves the firmware working. Slices
 |---|---|---|---|
 | 1. Claim | `pin_claim.*`, `core1_job.*` with no jobs yet, the drain and `escTaskKissPin()` in `esc_task.*`, `loop1()` in `main.cpp`, AM32 onto the claim, the CFG rows with SERVO and KST drawn disabled, stub `ui_servo.cpp` and `ui_kst.cpp`, per-feature source lists `src/servo.cmake`, `src/kst.cmake`, `test/servo.mk`, `test/kst.mk`, board `static_assert`s, `test_claim.cpp` | the DShot driver port | 2 to 3 days |
 | 2. Servo tester | everything in [servo-tester.md](servo-tester.md) | slice 1 | 5 days |
-| 3. KST programming | everything in [kst-programming.md](kst-programming.md) | slice 1 | 8 to 10 days, hardware bring-up not counted |
+| 3. KST programming | everything in [kst-programming.md](kst-programming.md), the switched servo supply and the scrolling SETUP screen included | slice 1 | 11 to 13 days, hardware bring-up not counted |
 
-Slice 1 cannot run beside the DShot port: both edit `esc_task.cpp`,
-`main.cpp` and `CMakeLists.txt`. Slices 2 and 3 run in parallel after slice 1.
-Slice 1 creates the files they would otherwise both edit: the stub screens
+Slice 1 cannot run beside the DShot port: both edit `esc_task.cpp`, `main.cpp`
+and `CMakeLists.txt`. Slices 2 and 3 run in parallel after slice 1. Slice 1
+creates the files they would otherwise both edit: the stub screens
 `src/ui_servo.cpp` and `src/ui_kst.cpp` with their headers, which each slice
 replaces whole; one source list per feature, `src/servo.cmake` and
 `src/kst.cmake`, which `CMakeLists.txt` includes, and `test/servo.mk` and
 `test/kst.mk`, which `test/Makefile` includes; and one stub suite per feature,
 `test/test_servo.cpp` with `runServoTests()` and `test/test_kst.cpp` with
-`runKstTests()`, which `test/test_main.cpp` runs. `ui.cpp` dispatches to
-both screens and gates their CFG buttons on
-`uiServoAvailable()` and `uiKstAvailable()`. Each slice adds one line to the
-job table of `core1_job.cpp`, and slice 3 otherwise edits its own files only.
-Slice 2 also changes these shared files:
+`runKstTests()`, which `test/test_main.cpp` runs. `ui.cpp` dispatches to both
+screens and gates their CFG buttons on `uiServoAvailable()` and
+`uiKstAvailable()`. Each slice adds one line to the job table of
+`core1_job.cpp`. Slice 3 otherwise edits its own files, except for the switched
+supply's shared files: `src/settings.*`, `src/ui_setup.cpp`, `src/main.cpp`,
+`test/test_settings.cpp`, `test/test_ui.cpp`, `docs/setup-preview.png` and the
+wiki's SETUP sections ([work breakdown](kst-programming.md#work-breakdown),
+step 5). Slice 2 also changes these shared files:
 
 - `src/core1_job.h` and `.cpp`: the `init` member of `Core1JobOps`,
   `release` taking the time and returning whether the pins are let go, and

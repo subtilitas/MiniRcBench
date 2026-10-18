@@ -621,5 +621,7 @@ Decision of the owner, 2026-10-18, on the switched servo supply that
 
 20. **Switched supply.** A change after KST programming uses it here too:
     SAFE is supply off, HOLD TO START switches it on, and STOP and a
-    heartbeat trip switch it off. Not built; until then the servo's supply is
-    the user's.
+    heartbeat trip switch it off. Not built. Until that change the servo
+    tester never drives GP0, so with a converter fitted the converter stays
+    off here, and the servo is unpowered unless it has a supply of its own.
+    kst-programming.md records the same as its decision 10.

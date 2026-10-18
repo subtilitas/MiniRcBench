@@ -28,16 +28,16 @@ for servos. The servo tester (slice 2 of
 [servo-tester.md](docs/design/servo-tester.md)) drives one servo on the ESC
 pin, or two on the ESC and KISS pins, with PWM (pulse-width modulation)
 pulses. KST and Chaservo servo programming, on the same pins, is planned
-(slice 3), with an optional bench-switched servo supply on GP0; its CFG
-button is drawn disabled over a stub screen. The pin claim
-both share is built (slice 1): the AM32 editor and the servo tester run on
-it. For the ESC, the board is the throttle source. It
-sends bidirectional DShot (a digital ESC protocol in which the ESC answers each
-frame on the same wire) and decodes the
-eRPM (electrical revolutions per minute) and EDT (Extended DShot Telemetry)
-frames that come back; RPM (revolutions per minute) is eRPM divided by half
-the motor's pole count. An optional third wire carries KISS telemetry, a serial
-protocol from the KISS ESC line with finer voltage and current.
+(slice 3), with an optional bench-switched servo supply on GP0. Until then
+the KST button under CFG is drawn disabled, and the screen behind it
+is a stub. The pin claim both features share is built (slice 1): the AM32
+editor and the servo tester run on it. For the ESC, the board is the throttle
+source. It sends bidirectional DShot (a digital ESC protocol in which the ESC
+answers each frame on the same wire) and decodes the eRPM (electrical
+revolutions per minute) and EDT (Extended DShot Telemetry) frames that come
+back; RPM (revolutions per minute) is eRPM divided by half the motor's pole
+count. An optional third wire carries KISS telemetry, a serial protocol from
+the KISS ESC line with finer voltage and current.
 
 The two cores of the RP2350 split the work by deadline:
 
