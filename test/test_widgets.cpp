@@ -399,22 +399,29 @@ static void testHoldTiming() {
 	uiHoldUpdate(&h, CTRL, idle(), true, 9050);
 	checkTrue("a new press times again", !uiHoldUpdate(&h, CTRL, press(50, 210), true, 9100) && h.holding);
 	checkTrue("and fires 1000 ms after it", uiHoldUpdate(&h, CTRL, move(50, 210), true, 10100));
-	// A new press clears the latch even with no frame between the lift and
-	// the press.
+	// A new press is timed even with no frame between the lift and the press.
 	uiHoldUpdate(&h, CTRL, move(50, 210), true, 10125);
 	TouchState t2 = *press(50, 210);
 	t2.released = true;
 	checkTrue("a press on the frame of a lift: timed", !uiHoldUpdate(&h, CTRL, &t2, true, 10150) && h.holding);
 	uiHoldUpdate(&h, CTRL, lift(), true, 10175);
-	// A lift ends the latch too, so a press whose first frame the hold did
-	// not see is timed from the first frame it does.
+	// A press whose first frame the hold did not see is never timed.
 	uiHoldUpdate(&h, CTRL, press(50, 210), true, 11000);
 	uiHoldUpdate(&h, CTRL, move(50, 210), true, 12000);
 	uiHoldUpdate(&h, CTRL, lift(), true, 12025);
 	press(50, 210);
-	checkTrue("fired, lifted, then a press seen only from its second frame: timed",
-	          !uiHoldUpdate(&h, CTRL, move(50, 210), true, 12050) && h.holding);
-	uiHoldUpdate(&h, CTRL, lift(), true, 12075);
+	bool fired = false;
+	for (uint32_t t = 12050; t <= 14000; t += 25) fired |= uiHoldUpdate(&h, CTRL, move(50, 210), true, t);
+	checkTrue("a press seen only from its second frame: never timed", !fired && !h.holding);
+	uiHoldUpdate(&h, CTRL, lift(), true, 14025);
+	uiHoldUpdate(&h, CTRL, press(50, 210), true, 15000);
+	uiHoldUpdate(&h, CTRL, move(50, 210), true, 15500);
+	uiHoldUpdate(&h, CTRL, lift(), true, 15525);
+	press(50, 210);
+	fired = false;
+	for (uint32_t t = 15550; t <= 17500; t += 25) fired |= uiHoldUpdate(&h, CTRL, move(50, 210), true, t);
+	checkTrue("lifted at 500 ms, then a press seen from its second frame: never timed", !fired && !h.holding);
+	uiHoldUpdate(&h, CTRL, lift(), true, 17525);
 	checkTrue("across the millis() wrap: 999 ms, not fired",
 	          !uiHoldUpdate(&h, CTRL, press(50, 210), true, 0xFFFFFF00u) &&
 	          !uiHoldUpdate(&h, CTRL, move(50, 210), true, 0xFFFFFF00u + 999));
@@ -460,25 +467,34 @@ static void testHoldReset() {
 }
 
 static void testHoldEnabled() {
-	section("Hold: the screen decides when it is live");
+	section("Hold: only a press that lands on the live control is timed");
 
 	UiHold h;
 	uiHoldReset(&h);
 	checkTrue("disabled: a press starts nothing", !uiHoldUpdate(&h, CTRL, press(50, 210), false, 1000) && !h.holding);
-	checkTrue("enabled under the finger: the timer starts then",
-	          !uiHoldUpdate(&h, CTRL, move(50, 210), true, 1200) && h.holding && h.startMs == 1200);
-	checkTrue("disabled at 500 ms: reset", !uiHoldUpdate(&h, CTRL, move(50, 210), false, 1700) && !h.holding);
-	uiHoldUpdate(&h, CTRL, move(50, 210), true, 1725);
-	checkTrue("enabled again: from 0, 999 ms not fired", !uiHoldUpdate(&h, CTRL, move(50, 210), true, 2724));
-	checkTrue("1000 ms fired", uiHoldUpdate(&h, CTRL, move(50, 210), true, 2725));
-	uiHoldUpdate(&h, CTRL, move(50, 210), false, 2750);
 	bool fired = false;
-	for (uint32_t t = 2775; t <= 5000; t += 25) fired |= uiHoldUpdate(&h, CTRL, move(50, 210), true, t);
-	checkTrue("disabled and enabled again under the same press: the latch holds", !fired);
-	uiHoldUpdate(&h, CTRL, lift(), true, 5025);
-	h.holding = true; h.latched = true;
+	for (uint32_t t = 1025; t <= 3000; t += 25) fired |= uiHoldUpdate(&h, CTRL, move(50, 210), true, t);
+	checkTrue("enabled under the finger: that press is never timed", !fired && !h.holding);
+	uiHoldUpdate(&h, CTRL, lift(), true, 3025);
+	checkTrue("a new press on the live control is timed",
+	          !uiHoldUpdate(&h, CTRL, press(50, 210), true, 4000) && h.holding && h.startMs == 4000);
+	checkTrue("disabled at 500 ms: reset", !uiHoldUpdate(&h, CTRL, move(50, 210), false, 4500) && !h.holding);
+	fired = false;
+	for (uint32_t t = 4525; t <= 7000; t += 25) fired |= uiHoldUpdate(&h, CTRL, move(50, 210), true, t);
+	checkTrue("enabled again under the same press: never timed again", !fired && !h.holding);
+	uiHoldUpdate(&h, CTRL, lift(), true, 7025);
+
+	uiHoldUpdate(&h, CTRL, press(50, 210), true, 8000);
+	uiHoldUpdate(&h, CTRL, move(50, 210), true, 8500);
 	uiHoldReset(&h);
-	checkTrue("uiHoldReset() clears the timer and the latch", !h.holding && !h.latched);
+	checkTrue("uiHoldReset() mid-hold stops the timer", !h.holding && !h.live);
+	fired = false;
+	for (uint32_t t = 8525; t <= 11000; t += 25) fired |= uiHoldUpdate(&h, CTRL, move(50, 210), true, t);
+	checkTrue("and the press under way is not timed again", !fired && !h.holding);
+	uiHoldUpdate(&h, CTRL, lift(), true, 11025);
+	checkTrue("the next press is", !uiHoldUpdate(&h, CTRL, press(50, 210), true, 12000) &&
+	          uiHoldUpdate(&h, CTRL, move(50, 210), true, 13000));
+	uiHoldUpdate(&h, CTRL, lift(), true, 13025);
 }
 
 static void testHoldBar() {

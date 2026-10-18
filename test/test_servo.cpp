@@ -1581,6 +1581,38 @@ static void testHoldToStart() {
 }
 
 /**
+ * @brief A press that lands on HOLD TO START while it is drawn disabled never
+ *        starts the servo, however long it stays after the claim goes live.
+ */
+static void testStartNeedsLivePress() {
+	section("Servo screen: a press on a disabled HOLD TO START never starts it");
+
+	freshUi();
+	uiTap(UI_CFG_X, UI_CFG_Y);
+	uiFrames(1);
+	uiTap(UI_SERVO_X, UI_NAV_Y);
+	int x = BTN_START.x + 20, y = BTN_START.y + 10;
+	fakePress(x, y); uiFrames(1); core1();
+	checkTrue("at the press the claim is not live: START is an outline",
+	          !live() && fillOf(BTN_START) == C_BG);
+	bool wentLive = false, ran = false;
+	for (int i = 0; i < 120; i++) {
+		fakeHold(x, y); uiFrames(1); core1();
+		ServoStatus st;
+		servoJobStatus(&st);
+		wentLive |= live();
+		ran |= st.running;
+	}
+	checkTrue("the claim goes live under the finger", wentLive);
+	checkTrue("held 3000 ms after: the servo never starts", !ran && fakePin(29).level == 0);
+	fakeRelease(); uiFrames(1);
+	holdStart();
+	checkTrue("a new press on the live button starts it", s_st.running);
+	tapRect(BTN_START); core1();
+	leaveServo();
+}
+
+/**
  * @brief The horn: absolute, held on release, refused while SAFE, owned by its
  *        press.
  */
@@ -2269,6 +2301,7 @@ void runServoTests() {
 	testSliderDraw();
 	testScreenOpens();
 	testHoldToStart();
+	testStartNeedsLivePress();
 	testHorn();
 	testButtonsAndSweep();
 	testTwoServos();

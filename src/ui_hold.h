@@ -10,18 +10,21 @@
  *
  * The rules:
  *
- * - **Only a press that began on the control counts**, and only while the
- *   finger is on it (uiPressing()). A finger that slides off resets the
- *   timer; sliding back on, the same press starts it again from zero. A
- *   press that began elsewhere never starts it.
- * - **It fires once, @ref UI_HOLD_MS after the timer started.** The timer
- *   starts on the first frame the press is on the live control. The frame on
+ * - **Only a press that landed on the live control counts.** The hold has
+ *   to see the press's first frame (`pressed`) with the finger on the
+ *   control and the control live. A press that landed elsewhere, landed
+ *   while the control was drawn disabled, or whose first frame the hold did
+ *   not see, is never timed, however long it stays.
+ * - **The timer runs while the finger is on the control.** A finger that
+ *   slides off resets it; sliding back on, the same press starts it again
+ *   from zero.
+ * - **It fires once, @ref UI_HOLD_MS after the timer started.** The frame on
  *   which it has run that long fires; one millisecond less does not.
- * - **A hold that fired needs a new press.** The control stays latched until
- *   the finger lifts or a new press lands, so a finger left on it does not
- *   fire it again.
- * - **The screen decides when the control is live.** While it is not, the
- *   timer is reset, and the latch is kept.
+ * - **A hold that fired needs a new press**, so a finger left on the control
+ *   does not fire it again.
+ * - **The screen decides when the control is live.** A frame on which it is
+ *   not resets the timer and ends the press's claim: the control has to be
+ *   live on the frame a press lands, and on every frame after.
  *
  * Pure but for uiHoldDrawBar(), which draws through gfx.h.
  */
@@ -43,12 +46,14 @@ struct TouchState;
 /** @brief One hold. Zero-initialised, or after uiHoldReset(), it is idle. */
 struct UiHold {
 	bool     holding;  /**< A press on the control is being timed. */
-	bool     latched;  /**< The hold fired; the next needs a new press. */
-	uint32_t startMs;  /**< When the timed press reached the control. */
+	bool     live;     /**< The press landed on the live control, has stayed
+	                        live and has not fired: it may be timed. */
+	uint32_t startMs;  /**< When the timer started. */
 };
 
 /**
- * @brief Make the hold idle: no timer, no latch.
+ * @brief Make the hold idle: no timer, and no press it may time. A finger
+ *        already down is not timed; the next press that lands is.
  * @param[out] h The hold.
  */
 void uiHoldReset(UiHold *h);
@@ -58,7 +63,8 @@ void uiHoldReset(UiHold *h);
  * @param[in,out] h  The hold.
  * @param r          The control.
  * @param t          This frame's touch; null is treated as no touch.
- * @param enabled    The control is live. False resets the timer.
+ * @param enabled    The control is live. False resets the timer, and the
+ *                   press under way is not timed again.
  * @param nowMs      Current millis().
  * @return true on the one frame the hold fires.
  */

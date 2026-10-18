@@ -2913,6 +2913,17 @@ void runUiTests() {
 		for (int i = 0; i < 50; i++) { fakeHold(AM32_WRITE_X, AM32_WRITE_Y); frames(1); }
 		fakeRelease(); frames(1);
 		checkTrue("held on NO CHANGES: no write", s_state == S_LIST);
+		// A change made under the same press, which the UI cannot do with
+		// one finger: the press landed on a disabled button, so it is not
+		// timed.
+		fakePress(AM32_WRITE_X, AM32_WRITE_Y); frames(1);
+		s_eeprom[0x1B] = (uint8_t)(s_original[0x1B] + 2);
+		for (int i = 0; i < 60; i++) { fakeHold(AM32_WRITE_X, AM32_WRITE_Y); frames(1); }
+		checkTrue("a press on NO CHANGES, changes made under it: held 1500 ms, no write",
+		          s_state == S_LIST && anyDirty());
+		fakeRelease(); frames(1);
+		s_eeprom[0x1B] = s_original[0x1B];
+		frames(1);
 		tap(180 + 27, 268 + 23);                         // HEX view
 		frames(2);
 		fakeDumpFrame("shot_am32_hex.ppm");

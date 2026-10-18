@@ -511,9 +511,10 @@ static void mainTouch(bool startOk) {
 	if (s_st.running != s_wasRunning) s_dragging = false;
 	s_wasRunning = s_st.running;
 
-	// --- HOLD TO START, or STOP on press. startOk is false while RUNNING,
-	//     which resets the timer and keeps the latch of the hold that started
-	//     the servo: that press does not start it again after a trip ---
+	// --- HOLD TO START, or STOP on press. ui_hold times only a press that
+	//     landed on the live button, and not again once it fired: the press
+	//     that started the servo does not start it again after a trip, and
+	//     one made before the claim was live does not start it at all ---
 	if (uiHoldUpdate(&s_hold, BTN_START, s_t, startOk && !s_needLift, millis()))
 		send(ServoCmdKind::Start);
 	if (s_st.running && s_t->pressed && pressing(BTN_START)) {

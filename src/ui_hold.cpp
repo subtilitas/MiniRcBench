@@ -9,15 +9,24 @@
 
 void uiHoldReset(UiHold *h) {
 	h->holding = false;
-	h->latched = false;
+	h->live = false;
 	h->startMs = 0;
 }
 
 bool uiHoldUpdate(UiHold *h, const UiRect &r, const TouchState *t, bool enabled,
                   uint32_t nowMs) {
-	// A new press, or no finger at all, ends the latch of the last firing.
-	if (!t || !t->down || t->pressed) h->latched = false;
-	if (!t || !enabled || h->latched || !uiPressing(r, t)) {
+	if (!t || !t->down) {
+		h->holding = false;
+		h->live = false;
+		return false;
+	}
+	// A press qualifies on the frame it lands, or never, and only while the
+	// control stays live: a press that lands while the control is drawn
+	// disabled does not start the timer when the control goes live later.
+	// uiPressing() below holds it to the control it landed on.
+	if (t->pressed) h->live = true;
+	if (!enabled) h->live = false;
+	if (!h->live || !uiPressing(r, t)) {
 		h->holding = false;
 		return false;
 	}
@@ -27,7 +36,7 @@ bool uiHoldUpdate(UiHold *h, const UiRect &r, const TouchState *t, bool enabled,
 	}
 	if ((uint32_t)(nowMs - h->startMs) < UI_HOLD_MS) return false;
 	h->holding = false;
-	h->latched = true;
+	h->live = false;
 	return true;
 }
 
