@@ -18,13 +18,13 @@ current steps. The board records the telemetry to microSD as a Betaflight
 blackbox log, offers the card to a USB (Universal Serial Bus) host as a
 read-only drive, and reads and writes AM32 ESC settings over the signal wire.
 
-Planned: a servo tester, with PWM (pulse-width modulation) servo output,
-manual position, sweep and two servos at once, and KST and Chaservo servo
-programming. Both use the same two signal pins. Their design notes are
-`docs/design/servo-tester.md` and `docs/design/kst-programming.md`. The pin
-claim they share, `docs/design/pin-claim.md` slice 1, is built: the AM32
-editor runs on it, and the SERVO and KST buttons on the settings screen are
-drawn disabled.
+It is also a servo tester: PWM (pulse-width modulation) servo output on the
+same two signal pins, with manual position, sweep and two servos at once (see
+[Servo tester](#servo-tester); design note `docs/design/servo-tester.md`).
+Planned: KST and Chaservo servo programming, on the same pins
+(`docs/design/kst-programming.md`); its button on the settings screen is drawn
+disabled. The AM32 editor and the servo tester take the pins through the pin
+claim of `docs/design/pin-claim.md`.
 
 ![UI preview](docs/ui-preview.png)
 
@@ -37,9 +37,9 @@ interface) code.
 > **[English](https://github.com/subtilitas/MiniRcBench/wiki/First-Run)** ·
 > **[Deutsch](https://github.com/subtilitas/MiniRcBench/wiki/Erste-Schritte)**
 >
-> Wiring, first run, every screen, telemetry, logging and AM32 configuration,
-> for someone using the board. This README describes the firmware and the
-> build.
+> Wiring, first run, every screen, telemetry, logging, AM32 configuration and
+> the servo tester, for someone using the board. This README describes the
+> firmware and the build.
 
 Project state and open items: [STATUS.md](https://github.com/subtilitas/MiniRcBench/blob/main/STATUS.md). Changes by release: [CHANGELOG.md](https://github.com/subtilitas/MiniRcBench/blob/main/CHANGELOG.md).
 
@@ -343,8 +343,9 @@ Arming and disarming dim the backlight to a quarter for 120 ms
   See below.
 - The bottom row holds four destinations, 50 px each:
   - **AM32**: the ESC settings editor. See [AM32 ESC configuration](#am32-esc-configuration).
-  - **SERVO** and **KST**: the servo tester and KST servo programming. Not
-    built yet: drawn as outlines, and a tap does nothing.
+  - **SERVO**: the servo tester. See [Servo tester](#servo-tester).
+  - **KST**: KST servo programming. Not built yet: drawn as an outline, and a
+    tap does nothing.
   - **SETUP**: ESC and telemetry pins, DShot bitrate, contrast, backlight, and
     the button that writes all settings to flash. See below.
 - **UNSAVED** on the strip under the title means a value on this screen or on
@@ -760,6 +761,101 @@ The host test harness runs two cross-checks:
 
 ---
 
+## Servo tester
+
+**CFG → SERVO** drives one servo on the ESC pin, or two servos on the ESC and
+KISS pins, with servo pulses from the RP2350's hardware PWM. It does not
+measure the servo: there is no position feedback, so the horn on the screen
+is drawn where the pulse puts it. Not tested on hardware. Design note:
+`docs/design/servo-tester.md`; the rules are pure functions in
+`src/servo_model.h`, and core1 makes the pulses (`src/servo_job.h`).
+
+![Servo tester](docs/servo-preview.png)
+
+### Wiring
+
+The servo takes power from its own supply. The board supplies signal and
+ground only.
+
+```
+  servo supply, 4.8 V to 6.0 V (8.4 V for an HV servo)
+     +  ----------------------------------------------  servo +   (red, middle)
+     -  ----------------+-----------------------------  servo -   (brown or black)
+                        |
+  board GND  -----------+
+  board SIG  ------------------------------------------  servo A signal (orange or white)
+  board AUX  ------------------------------------------  servo B signal, two servos only
+
+  SIG GP29 = J4 pin 12, AUX GP28 = J4 pin 11, GND = J4 pin 1 or 5
+```
+
+- The servo's middle wire goes to its supply, never to a connector pin. The
+  board's 5 V pin is its USB supply, and a servo can draw more than 1 A at
+  stall.
+- Power the board before the servo supply, and switch the servo supply off
+  before the board. A servo fed while the board is off can drive its signal
+  wire into an unpowered pin, rated 3.63 V.
+- The two grounds are joined once, at the board.
+- SIG and AUX are the pins set under CFG → SETUP. With KISS off, SETUP can put
+  both on one GPIO; the screen then offers one servo only.
+
+> **Unplug the servo before DShot runs.** Outside the servo screen the ESC pin
+> carries bidirectional DShot, which idles high and pulls low for about 27 µs
+> per frame at 600 kbit/s, once every 1000 µs. A servo on that pin reads it as
+> a pulse of about 970 µs at 1 kHz: it drives towards one end of its travel,
+> at a frame rate that overheats an analogue servo. That happens at **boot**
+> for a servo left on SIG, and after the servo screen, which therefore shows
+> `UNPLUG THE SERVO.` and restarts DShot only on `RESTART DSHOT`.
+
+### Using it
+
+The screen claims the pins (`src/pin_claim.h`). It does not claim while an ESC
+answers on SIG within 500 ms, because servo pulses of 1000 µs to 2000 µs are a
+valid PWM throttle signal; it claims by itself 500 ms after the ESC goes
+quiet. That check misses an ESC that does not answer in bidirectional DShot,
+so the screen says `PULSES ON GP29 ARE THROTTLE TO AN ESC.` Two servos also
+need AUX free: a KISS frame within 500 ms, or SIG and AUX on one GPIO, leaves
+one servo only, with the reason on the SET screen.
+
+| Control | What it does |
+|---|---|
+| `SAFE` chip | The pins are bound to PWM at level 0: no pulses, the line low |
+| `HOLD TO START` | Hold 1 s (`ARM_HOLD_MS`). Every bound pin goes to CENTRE at once, whatever was commanded before. The chip reads `RUNNING` |
+| `STOP` | Acts on touch. The pulses end from the next PWM frame; the last one ends within one frame, 20 ms at 50 Hz |
+| The horn | Press on the dial and drag: the servo goes to the angle under the finger, −90° MIN, +90° MAX. Release holds. Refused while SAFE; a press that starts off the dial never drags |
+| `MIN` `CENTRE` `MAX` | Act on release, while RUNNING |
+| `SWEEP` / `STOP SWEEP` | A square, sine or triangle about the centre, run on core1; a stopped sweep leaves the servo where the curve was |
+| `SPEED` | A slew, 10 % to 100 %: at 10 % a full MIN to MAX travel takes 5 s; 100 % is no slew |
+| `A` `B` `AB` | Two servos: what the horn and the buttons drive. With `AB`, REVERSE B mirrors B |
+| `SET` | Profile, rate, range, servo count, REVERSE B and the sweep |
+
+If the screen stalls for 250 ms (`UI_HEARTBEAT_TIMEOUT_MS`), core1 ends the
+pulses and the sweep, the chip reads `STALLED`, and nothing restarts until the
+next HOLD TO START.
+
+**SET.** The PULSE rows change only while SAFE. TYPE loads one of rcbench's
+profiles:
+
+| TYPE | MIN | CENTRE | MAX | Rates | Default |
+|---|---|---|---|---|---|
+| STANDARD PWM | 1000 µs | 1500 µs | 2000 µs | 50 to 333 Hz | 50 Hz |
+| NARROW 760 | 660 µs | 760 µs | 860 µs | 50 to 333 Hz | 50 Hz |
+| WIDE | 800 µs | 1500 µs | 2200 µs | 50 to 333 Hz | 50 Hz |
+| HELI CYCLIC | 820 µs | 1520 µs | 2220 µs | 50, 120, 200, 333 Hz | 333 Hz |
+| HELI TAIL 760 | 410 µs | 760 µs | 1110 µs | 200, 333, 560 Hz | 560 Hz |
+
+MIN, CENTRE and MAX move in 10 µs steps between 400 µs and 2500 µs and keep a
+pause of 1000 µs after the longest pulse (500 µs for the heli profiles), so
+the rates offered depend on MAX: 333 Hz at most for 2000 µs. A heli profile,
+or a rate above 60 Hz, at which an analogue servo overheats, is held behind a
+warning until `HOLD TO APPLY` (1 s). The SWEEP rows (shape, 0.05 Hz to
+5.00 Hz, amplitude 0 % to 100 %, dwell 0 ms to 5000 ms, endless or 1 to 9999
+movements) change at any time and apply to the next SWEEP. `DEFAULTS`
+returns to STANDARD PWM 50 Hz, one servo, a sine at 0.50 Hz. Nothing of the
+servo tester is stored: every entry starts at STANDARD PWM 50 Hz.
+
+---
+
 ## Safety
 
 A motor on a bench can injure, and more so with a propeller fitted.
@@ -783,6 +879,11 @@ In the firmware:
   discarded whole and the compiled defaults are used. Fields are never merged
   one by one, so a corrupted byte cannot raise the throttle ceiling.
 - Arming is blocked while a USB host holds the SD card.
+- The servo tester starts SAFE, with no pulses; HOLD TO START is a 1 s hold
+  that puts every pin at CENTRE, and STOP acts on touch. Core1 ends the
+  pulses if core0 sends no heartbeat for 250 ms. The servo screen does not
+  claim the pins while an ESC answers on them, and DShot restarts only after
+  the unplug page.
 
 Not in the firmware:
 
@@ -821,14 +922,18 @@ src/
   ui_widgets.{h,cpp}    shared header, buttons, rows and chips
   ui_am32.{h,cpp}       AM32 config screen: connect, edit, verified write
   ui_setup.{h,cpp}      SETUP screen: pins, bitrate, contrast, hold-to-save
-  ui_servo.{h,cpp}      servo tester screen, a stub until it is built
+  ui_servo.{h,cpp}      servo tester screens: SERVO, SET, the unplug page
+  ui_slider.{h,cpp}     slider with delta drag, tap-to-set and presets, from rcbench
+  servo_model.{h,cpp}   servo profiles, limits, steppers and mappings (pure)
+  servo_pwm.{h,cpp}     hardware PWM servo outputs, from rcbench
+  servo_job.{h,cpp}     the servo tester's core1 job: SAFE, START, slew, sweep, trip
   ui_kst.{h,cpp}        KST programming screen, a stub until it is built
   servo.cmake, kst.cmake  each feature's firmware sources (test/*.mk: its tests)
   ui_input.{h,cpp}      tap-on-release and held-repeat rules, shared (pure)
   rpm_filter.h          display smoothing of the RPM readout
   am32_bl.{h,cpp}       one-wire bootloader transport
   am32_eeprom.{h,cpp}   AM32 settings layout, decoding and presentation
-  gfx.{h,cpp}           RGB565 framebuffer, dirty bands, 5x7 font, 7-seg digits
+  gfx.{h,cpp}           RGB565 framebuffer, dirty bands, 5x7 font, 7-seg digits, lines, arcs
   st7789.{h,cpp}        panel init + DMA blitter
   touch.h               capacitive touch interface
   cst328.cpp            CST328 touch controller driver
@@ -848,6 +953,7 @@ src/
   usb_descriptors.c     USB descriptors
   usb_msc.{h,cpp}       the SD card as a read-only USB drive
   tusb_config.h         TinyUSB configuration
+lib/rcbench/            rcbench files copied unchanged: servo sweep, GPIO-to-PWM fold
 tools/
   sdtest/               standalone SD bring-up test, 2.8" only; built locally, never released
   make_previews.py      restitches docs/*.png and wiki/img/ from the test suite's frames
@@ -856,16 +962,18 @@ tools/
 Doxyfile                API doc config -> docs/html/
 docs/                   generated docs + preview images
 docs/design/            design notes, kept in step with the code
-test/                   host test suites + Pico SDK stubs
+test/                   host test suites + Pico SDK stubs; rcbench/: rcbench's own C tests
 wiki/                   the user manual, mirrored to the GitHub wiki
 .github/workflows/      ci.yml (CI), release.yml (Release), docs.yml (Docs: wiki publishing)
 ```
 
-All firmware source is under `src/`, `main.cpp` included. Files include each
-other as plain siblings, except two drivers with folders of their own: the
-DShot driver in `src/dshot/`, so that it can be compared with its rcbench
-original, and the SDIO card driver in `src/sdio/`, whose `compat/` headers
-have to keep the paths the SD library includes.
+All firmware source is under `src/`, `main.cpp` included, except two rcbench
+files the servo tester uses, copied unchanged into `lib/rcbench/` with
+rcbench's own layout (`lib/rcbench/README.md`). Files include each other as
+plain siblings, except two drivers with folders of their own: the DShot
+driver in `src/dshot/`, so that it can be compared with its rcbench original,
+and the SDIO card driver in `src/sdio/`, whose `compat/` headers have to keep
+the paths the SD library includes.
 
 Modules marked *pure* have no hardware dependency. They are compiled into the
 host test binary and tested directly, without a board.
@@ -880,13 +988,16 @@ cd test && make
 ```
 
 Needs nothing but a C++17 compiler and a C11 compiler: the DShot core in
-`src/dshot/` and the SDIO protocol layers in `src/sdio/` are compiled as C, as
-the firmware compiles them, and linked into the C++ suite. The SDIO tests run
+`src/dshot/`, the SDIO protocol layers in `src/sdio/` and the rcbench files in
+`lib/rcbench/` are compiled as C, as the firmware compiles them, and linked
+into the C++ suite. `make run` also builds and runs rcbench's own tests of
+those files, `test/rcbench/test_servo_sweep.c` and `test_out_pwm_map.c`, as
+C11 programs. The SDIO tests run
 the card protocol against a simulated card. Time is virtual — `millis()` advances only
 when a test says so — which makes hold-to-arm, hold-to-write and gesture repeat
 deterministic rather than dependent on machine speed. The fake ESC serves a real
 settings blob recovered from the reference configurator, so the UI tests operate
-on values a real ESC would report. The suite renders 26 screens to PPM (portable
+on values a real ESC would report. The suite renders 38 screens to PPM (portable
 pixmap) images as it runs, so a layout change is visible in the frames:
 
 - the splash;
@@ -897,7 +1008,10 @@ pixmap) images as it runs, so a layout change is visible in the frames:
 - two of CFG → SETUP: normal and high contrast;
 - six of CFG → SD LOG: ready, recording, no card, a card found by RETRY, USB
   DRIVE refused, USB DRIVE serving;
-- five of the AM32 editor: list, field edit, scrolled, written, hex view.
+- five of the AM32 editor: list, field edit, scrolled, written, hex view;
+- twelve of the servo tester: SAFE, running, sweeping, two servos, stalled,
+  an ESC answering, a refused bind, SET, SET with a warning, SET while
+  running, SET with one GPIO for both pins, the unplug page.
 
 Failing tests dump their frame too.
 
@@ -920,7 +1034,10 @@ accessors.
 `test_ui.cpp` `#include`s `ui_am32.cpp` rather than linking it, so tests can read its
 file-static state without production code carrying test-only accessors. For that reason the
 Makefile does not list `ui_am32.cpp` in `SRCS`. `test_claim.cpp` includes `core1_job.cpp`
-the same way, to put fake jobs in its job table, and the Makefile does not list it either.
+the same way, to put fake jobs in its job table, and the Makefile does not list it either;
+`test_servo.cpp` includes `ui_servo.cpp`, and `test/servo.mk` does not list it. The servo
+PWM driver runs against a register fake in `fakes.cpp` that records each pin's function,
+level and pull and each slice's wrap, divider and enable.
 
 `make pioemu`, which `make` runs too, runs `test/pio_sdio_emu.py`. It assembles
 the two SDIO PIO programs from `src/sdio/sd_pio.pio` itself and runs them one

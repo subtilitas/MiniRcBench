@@ -94,7 +94,7 @@ void uiSliderSetTapToSet(UiSlider *s, bool on);
 
 /**
  * @brief Abandon a drag and a pressed preset that will get no release, for a
- *        screen that is no longer the one under the finger.
+ *        screen that is not the one under the finger any more.
  * @param[in,out] s The slider.
  */
 void uiSliderRelease(UiSlider *s);

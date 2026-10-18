@@ -68,7 +68,7 @@ bool servoPwmBind(uint8_t pin, uint16_t rateHz) {
 		// carry the first one's pulse.
 		if (out_pwm_same_compare(b.pin, pin)) return false;
 		// One wrap register is one frame rate: a second rate would retime
-		// the pin already bound.
+		// the bound pin.
 		if (b.rateHz != rateHz) return false;
 		running = true;
 	}
@@ -84,8 +84,8 @@ bool servoPwmBind(uint8_t pin, uint16_t rateHz) {
 		pwm_config_set_wrap(&c, wrap);
 		pwm_init(slice, &c, true);
 	}
-	// A slice already carrying the other channel is left running: pwm_init()
-	// resets its counter, which would step the servo already on it.
+	// A slice carrying the other channel is left running: pwm_init()
+	// resets its counter, which would step the servo on it.
 	gpio_disable_pulls(pin);
 	gpio_set_function(pin, GPIO_FUNC_PWM);
 

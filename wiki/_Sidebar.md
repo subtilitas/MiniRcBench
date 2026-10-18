@@ -9,6 +9,7 @@
 - [Telemetry](Telemetry)
 - [SD Logging](SD-Logging)
 - [AM32 Configuration](AM32-Configuration)
+- [Servo Tester](Servo-Tester)
 - [Troubleshooting](Troubleshooting)
 
 ---
@@ -20,6 +21,7 @@
 - [Telemetrie](Telemetrie)
 - [SD-Aufzeichnung](SD-Aufzeichnung)
 - [AM32-Konfiguration](AM32-Konfiguration)
+- [Servotester](Servotester)
 - [Fehlersuche](Fehlersuche)
 
 ---

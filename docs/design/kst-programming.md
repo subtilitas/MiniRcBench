@@ -55,7 +55,7 @@ run, supply control. MiniRcBench does not switch the servo's supply.
 | Edge stamp | 4 cycles, 26.7 ns at 150 MHz | |
 | PIO | 1 SM, 24 of 32 words | pio2 once DShot and KISS are released; [budget](pin-claim.md#pio-and-dma-budget) |
 | DMA | 2 channels | 5 of 16 in use during a KST claim |
-| Reply level | at most 5 V, typically 3.3 V, not measured (rcbench README) | SIG is held to 3.6 V; see below |
+| Reply level | at most 5 V, typically 3.3 V, not measured (rcbench README); 3.3 V on the owner's servo, by the owner's statement | SIG is held to 3.6 V; see below |
 
 **Pull-down.** SIG is also the bidirectional DShot pin, which idles high on
 the pad pull-up. A fixed 10 kΩ pull-down on that pin holds the idle line at
@@ -65,14 +65,16 @@ the board pin carries no external pull-down. The driver holds the line low
 outside transactions, so the pull-down matters only inside a reply window,
 1.5 ms after a read and 8 ms after a write, and after the close. If a bench
 test shows the internal 50 kΩ to 80 kΩ is not enough, the pull-down goes into
-a servo-only adapter lead, never onto an ESC lead (open question 3).
+a servo-only adapter lead, never onto an ESC lead (decision 3).
 
 **Reply level.** The servo drives the line during its reply. SIG is GP29, an
 ADC pin of the RP2350A, for which a 5 V rating is not checked
 ([signal level](pin-claim.md#signal-level)); the MiniRcBench README treats
 every pin as 3.6 V maximum. A servo that replies at 5 V is out of range.
-Bring-up measures the reply level on the owner's servo before any write. If
-it is above 3.6 V, the lead needs a level shifter (open question 4).
+The owner states that the servo replies at 3.3 V, so no level shifter is
+needed for it (decision 4); that is the owner's statement, not a recorded
+measurement. The 3.6 V rule stands for every servo: one that replies above
+3.6 V needs a level shifter in its lead.
 
 Wiring is the servo diagram in [pin-claim.md](pin-claim.md#wiring), servo A
 only. The servo's supply is the user's.
@@ -126,8 +128,8 @@ void    kstSeekStop(KstSeekState *s, kst_session_t *ses);   // STOP SEARCH, BACK
   the rest is low line and listening.
 - `KST_SES_OK` is `Found`. Any other result ends the search with that result
   shown.
-- The search ends after `KST_SEEK_TIMEOUT_MS`, 60 s, about 500 attempts, as
-  `TimedOut`, or at STOP SEARCH or BACK. `kstSeekStop()` calls
+- The search ends after `KST_SEEK_TIMEOUT_MS`, 30 s, about 250 attempts, as
+  `TimedOut`, which offers RETRY (decision 2), or at STOP SEARCH or BACK. `kstSeekStop()` calls
   `kst_session_abort()`, which finishes a frame on the wire before it stops.
 - A heartbeat lapse ([pin-claim.md](pin-claim.md#heartbeat-and-watchdog)) lets
   the running attempt end and starts no new one: `NoUi`.
@@ -165,7 +167,7 @@ is therefore unknown too: the owner reports that it cannot, rcbench assumes it
 can, and neither is a recorded measurement. The search covers both: a servo
 that takes entry while powered answers the first attempt. If the window proves
 shorter than about 120 ms, some power-ups are missed and the user powers up
-again (open question 1).
+again (decision 1).
 
 ### A servo already running on PWM
 
@@ -198,7 +200,7 @@ screen says so.
 | Releasing | `RELEASING GP29` | | BACK |
 | Searching | `GP29  TRY 12  1.4 S` | `POWER UP THE SERVO NOW`, then `PLUG IT IN OR SWITCH ITS SUPPLY ON. IT ANSWERS ONLY RIGHT AFTER POWER-ON.` and `A POWERED SERVO ON THIS PIN GETS NO PULSES AND MAY GO TO ITS FAILSAFE POSITION.`, a spinner | STOP SEARCH, BACK |
 | Edges, no valid reply | | adds, in amber, `A REPLY CAME, NOT VALID: LATE` (the `kst_rx_t` code as a word) | as above |
-| Timed out | `NO SERVO IN 60 S` | `CHECK SIGNAL AND GROUND, THEN POWER THE SERVO UP AGAIN.` | RETRY, BACK |
+| Timed out | `NO SERVO IN 30 S` | `CHECK SIGNAL AND GROUND, THEN POWER THE SERVO UP AGAIN.` | RETRY, BACK |
 | Found | `IN PROGRAMMING MODE` | `READING 32 REGISTERS` | BACK |
 | Read failed | | `READ FAILED: NO 3 EQUAL READS` and the registers in `bad_regs` | READ AGAIN, BACK |
 | Read | `V6  GP29  BACKUP KST004` | the field list | see below |
@@ -490,9 +492,9 @@ Not ported: `test_kst_card.c`, `test_kst_link.c`, `test_kst_panel.c`,
 **New**, in MiniRcBench's `check.h` harness. `kst_sim.h` compiles as C++17,
 so these run against the same simulated servo:
 
-- `test_kst_seek.cpp`: a servo powered at 0 s, 3.0 s and 59.9 s is found on
+- `test_kst_seek.cpp`: a servo powered at 0 s, 3.0 s and 29.9 s is found on
   the next attempt; attempt length 116.6 ms to 118.8 ms; no frame closer than
-  3 ms to the last window (the simulator counts it); timeout at 60 s; STOP
+  3 ms to the last window (the simulator counts it); timeout at 30 s; STOP
   SEARCH mid-frame lets the frame finish; a heartbeat lapse lets the attempt
   end and starts none; a loss calls `kst_session_power_cycled()`; a reply with
   a bad rate is shown and is not `Found`.
@@ -527,27 +529,27 @@ so these run against the same simulated servo:
 About 8 to 10 days for 1 to 5. Bring-up depends on the servo and is not
 estimated.
 
-## Open questions
-
-1. **Power-on window shorter than an attempt.** If the servo listens for less
-   than about 120 ms after power-on, the rcbench sequence misses some
-   power-ups. Recommended: keep the sequence unchanged until the window is
-   measured, which is bring-up step 6. If it proves short, change the wrapper
-   to start attempts closer together; the 100 ms low is part of the measured
-   entry and stays in the core.
-2. **Search timeout.** Recommended: 60 s, then RETRY. The search does no harm
-   to a servo, but a screen that holds a pin low for ever without saying so is
-   one the user forgets.
-3. **Pull-down.** Recommended: the internal one only, and a 10 kΩ pull-down in
-   a servo-only lead if bring-up shows reply edges lost at the window start.
-   Never on the board pin, where it would break bidirectional DShot.
-4. **Reply above 3.6 V.** Recommended: measure first. If the owner's servo
-   replies at 5 V, a level shifter in the servo lead, and the README says so
-   before the feature ships.
-
 ## Decisions
 
 Decisions of the owner, 2026-10-17: recommendations 5 and 6 are accepted.
+Decisions of the owner, 2026-10-18: questions 1 to 4, recorded here for
+slice 3, which implements them.
+
+1. **Power-on window shorter than an attempt.** Keep rcbench's sequence
+   unchanged until the window is measured, which is bring-up step 6. If it
+   proves shorter than about 120 ms, the wrapper starts attempts closer
+   together; the 100 ms low is part of the measured entry and stays in the
+   core. As recommended.
+2. **Search timeout.** 30 s, then RETRY; not the 60 s recommended. The search
+   does no harm to a servo, but a screen that holds a pin low for ever without
+   saying so is one the user forgets.
+3. **Pull-down.** The internal one only, and a 10 kΩ pull-down in a
+   servo-only lead if bring-up shows reply edges lost at the window start.
+   Never on the board pin, where it would break bidirectional DShot. As
+   recommended.
+4. **Reply level.** The owner states that the servo replies at 3.3 V, so no
+   level shifter is needed for it. The rule stays: no level above 3.6 V on
+   SIG, so a servo that replies higher needs a level shifter in its lead.
 
 5. **KST on AUX.** Programming runs on SIG only. It is the wire a servo or
    ESC is plugged into, and one pin keeps one rule for the ESC interlock.

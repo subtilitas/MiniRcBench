@@ -2,11 +2,12 @@
 
 # Die Bildschirme
 
-Die Firmware hat fünf Bildschirme. Der Tester ist die Wurzel. Die anderen
+Die Firmware hat sechs Bildschirme. Der Tester ist die Wurzel. Die anderen
 erreichst du über `CFG` und verlässt sie mit `BACK`.
 
 ```
 Tester ──CFG──> Einstellungen ──┬── AM32     ──BACK──> Einstellungen
+                                ├── SERVO    ──BACK──> Abziehseite ──> Einstellungen
                                 ├── SD LOG   ──BACK──> Einstellungen
                                 └── SETUP    ──BACK──> Einstellungen
                           └─────BACK──> Tester
@@ -72,9 +73,9 @@ Erreichbar über `CFG`, das dabei **entschärft**.
   Die Bildunterschrift lautet `BEEP NEEDS THE ESC DISARMED`, nach einer
   abgelehnten Betätigung `REFUSED - DISARM THE ESC FIRST`.
 - **SD LOG**: neben BEEP, der Aufzeichnungs-Bildschirm.
-- **AM32 / SERVO / KST / SETUP**: die untere Reihe. `SERVO` (Servotester) und
-  `KST` (Programmierung von KST- und Chaservo-Servos) sind nur umrandet: sie
-  sind noch nicht umgesetzt und tun nichts, wenn du sie antippst.
+- **AM32 / SERVO / KST / SETUP**: die untere Reihe. `SERVO` öffnet den
+  Servotester. `KST` (Programmierung von KST- und Chaservo-Servos) ist nur
+  umrandet: Es ist noch nicht umgesetzt und tut nichts, wenn du es antippst.
 
 `UNSAVED` erscheint unter dem Titel, wenn ein Wert hier oder im SETUP vom
 Flash abweicht. Die Schaltfläche zum Speichern liegt im SETUP.
@@ -144,6 +145,18 @@ Signalkabel. Siehe [AM32-Konfiguration](AM32-Konfiguration).
 
 ---
 
+## SERVO
+
+<img src="img/servo-safe.png" width="240" alt="Der Servobildschirm in SAFE">
+
+Steuert ein oder zwei Servos mit Servoimpulsen auf dem ESC- und dem KISS-Pin
+an. Er öffnet in SAFE; `HOLD TO START` 1 s lang gehalten startet die Impulse
+in der Mitte, `STOP` wirkt beim Berühren. `SET` öffnet die Einstellungen für
+Profil und Sweep. `BACK` zeigt `UNPLUG THE SERVO.`, bevor der ESC-Treiber die
+Pins zurückbekommt. Siehe [Servotester](Servotester).
+
+---
+
 ## Was jeder Bildschirm gleich macht
 
 - **Ein Tippen wirkt beim Loslassen, nicht beim Berühren.** Rutschst du vor
@@ -156,4 +169,5 @@ Signalkabel. Siehe [AM32-Konfiguration](AM32-Konfiguration).
   2,5 s alle 25 ms.
 - **Schreiben ins Flash braucht 1 s Halten** mit Fortschrittsbalken:
   Einstellungen auf der Platine speichern und Einstellungen in einen ESC
-  schreiben.
+  schreiben. Ein Servo starten und ein riskantes Servoprofil übernehmen
+  brauchen dasselbe Halten von 1 s.

@@ -37,12 +37,11 @@
  *
  * Refused for a pin the package does not have, for a rate whose period does
  * not fit the 16-bit counter, for a pin whose compare register a bound pin
- * already holds, for a pin on a slice bound at another rate, when both
- * bindings are in use, and when the SDK's slice or channel for the pin
- * differs from out_pwm_map.h's. Binding a bound pin at its own rate succeeds
- * and changes nothing. The pin starts at level 0. A slice that already
- * carries the other channel is left running, so the servo on it does not
- * step.
+ * holds, for a pin on a slice bound at another rate, when both bindings are
+ * in use, and when the SDK's slice or channel for the pin differs from
+ * out_pwm_map.h's. Binding a bound pin at its own rate succeeds and changes
+ * nothing. The pin starts at level 0. A slice that carries the other channel
+ * is left running, so the servo on it does not step.
  *
  * @param pin    GPIO.
  * @param rateHz Frame rate, Hz.

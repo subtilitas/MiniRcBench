@@ -2,11 +2,12 @@
 
 # The Screens
 
-The firmware has five screens. The tester is the root. The others are reached
+The firmware has six screens. The tester is the root. The others are reached
 through `CFG` and left with `BACK`.
 
 ```
 Tester ──CFG──> Settings ──┬── AM32     ──BACK──> Settings
+                           ├── SERVO    ──BACK──> unplug page ──> Settings
                            ├── SD LOG   ──BACK──> Settings
                            └── SETUP    ──BACK──> Settings
                      └─────BACK──> Tester
@@ -69,9 +70,9 @@ Reached with `CFG`, which **disarms**.
   reads `BEEP NEEDS THE ESC DISARMED`, and `REFUSED - DISARM THE ESC FIRST`
   after a refused press.
 - **SD LOG**: beside BEEP, the logging screen.
-- **AM32 / SERVO / KST / SETUP**: the bottom row. `SERVO` (servo tester) and
-  `KST` (KST and Chaservo servo programming) are drawn as outlines: they are
-  not built yet and do nothing when tapped.
+- **AM32 / SERVO / KST / SETUP**: the bottom row. `SERVO` opens the servo
+  tester. `KST` (KST and Chaservo servo programming) is drawn as an outline:
+  it is not built yet and does nothing when tapped.
 
 `UNSAVED` appears under the title when a value here or on SETUP differs from
 flash. The save button is on SETUP.
@@ -140,6 +141,18 @@ See [AM32 Configuration](AM32-Configuration).
 
 ---
 
+## SERVO
+
+<img src="img/servo-safe.png" width="240" alt="The servo screen, SAFE">
+
+Drives one or two servos with servo pulses on the ESC and KISS pins. It opens
+SAFE; `HOLD TO START` for 1 s starts the pulses at the centre, `STOP` acts on
+touch. `SET` opens the profile and sweep settings. `BACK` shows
+`UNPLUG THE SERVO.` before the ESC driver takes the pins back. See
+[Servo Tester](Servo-Tester).
+
+---
+
 ## Things every screen does the same way
 
 - **A tap acts on release, not on touch.** Sliding off a button before release
@@ -150,4 +163,5 @@ See [AM32 Configuration](AM32-Configuration).
   400 ms a step every 120 ms; after 1.2 s every 60 ms; after 2.5 s every
   25 ms.
 - **Writing to flash needs a 1 s hold** with a progress bar: saving settings to
-  the board, and writing settings to an ESC.
+  the board, and writing settings to an ESC. Starting a servo and applying a
+  risky servo profile need the same 1 s hold.

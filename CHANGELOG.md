@@ -111,15 +111,39 @@ protocol.
   The servo and KST screens restart DShot only after their unplug page.
 - `src/core1_job.h`: core1 binds, steps and releases a job on the claimed
   pins from `loop1()`, after the DShot pump. A job starts only while the pump
-  is suspended. No job is built yet.
-- Stub screens `src/ui_servo.cpp` and `src/ui_kst.cpp`, and per-feature
-  source lists `src/servo.cmake`, `src/kst.cmake`, `test/servo.mk` and
-  `test/kst.mk`, which the servo tester and the KST programmer replace.
+  is suspended. `Core1JobOps::init` initialises a job's shared state on core0
+  before core1 starts. The servo job is built; the KST job is not.
+- A stub screen `src/ui_kst.cpp`, and per-feature source lists
+  `src/servo.cmake`, `src/kst.cmake`, `test/servo.mk` and `test/kst.mk`.
+- The servo tester, slice 2 of
+  [docs/design/pin-claim.md](docs/design/pin-claim.md)
+  ([design note](docs/design/servo-tester.md)), on CFG → SERVO. One servo on
+  the ESC pin, or two on the ESC and KISS pins, with hardware PWM pulses of
+  400 µs to 2500 µs at 50 Hz to 560 Hz, in rcbench's five profiles. The screen
+  starts SAFE, the pins at level 0; HOLD TO START, 1000 ms, puts CENTRE on
+  every bound pin, and STOP acts on press. The drawn horn is the control.
+  MIN, CENTRE, MAX, a square, sine or triangle sweep with rate, amplitude,
+  dwell and count, and SPEED, a slew from 10 % to 100 %. A screen stall of
+  250 ms stops the pulses until the next HOLD TO START. The SET screen
+  changes the profile only while SAFE and holds a heli profile or a rate
+  above 60 Hz behind a warning and HOLD TO APPLY. BACK shows the unplug page
+  before DShot restarts. Not tested on hardware.
+- `src/servo_model.*`, the servo tester's rules as pure functions;
+  `src/servo_pwm.*`, adapted from rcbench's PWM driver; `src/servo_job.*`,
+  the core1 job; `src/ui_slider.*`, adapted from rcbench's slider; and
+  `gfxLine()` and `gfxArcDots()` in `src/gfx.*`.
+- `lib/rcbench/`: rcbench's sweep curve and GPIO-to-PWM fold at commit
+  453cf334, copied unchanged, MIT, the same copyright holder. Their rcbench
+  tests run in `test/rcbench/` as part of `make -C test`. `tools/notices.py`
+  counts them as MiniRcBench's own code.
 - `escTaskKissPin()`, and `escUiAlive()`, the one heartbeat rule for the pump
   and every core1 job.
 - `pinClaimRetry()`: RETRY after a failed job bind keeps the claim.
-- Host tests for the pin claim (`runClaimTests`), and stub suites
-  `runServoTests` and `runKstTests`.
+- Host tests for the pin claim (`runClaimTests`), the servo tester
+  (`runServoTests`: the model, the PWM driver against a register fake, the
+  job through the claim, the slider and the screens through the UI), and a
+  stub suite `runKstTests`.
+- `docs/servo-preview.png`, four servo screens rendered by the host suite.
 - Build-time checks that no free GPIO is on the backlight's PWM slice, that
   the free GPIOs share one slice, and that no two of them share a channel.
 
@@ -176,8 +200,9 @@ protocol.
   reception through a PIO receiver on any free GPIO, KISS off by default
   rather than impossible, which log fields carry which source, and the USB
   card reader. `pin-claim.md`, `servo-tester.md` and `kst-programming.md`
-  plan for the 2.8" only: SIG on GP29, AUX on GP28, PWM slice 6 channels B
-  and A.
+  are for the 2.8" only: SIG on GP29, AUX on GP28, PWM slice 6 channels B
+  and A. `kst-programming.md` records the owner's decisions on the search
+  timeout, 30 s, the reply level and the pull-down.
 - README.md links STATUS.md and this changelog, and credits the
   collaboration.
 - README.md and every wiki page, English and German, describe the firmware
@@ -207,8 +232,8 @@ protocol.
   time.
 - The AM32 editor takes the signal pin through the pin claim.
 - The settings screen puts BEEP and SD LOG in one row, 104 px each, and AM32,
-  SERVO, KST and SETUP in the bottom row, 50 px each. SERVO and KST are drawn
-  disabled and do not act.
+  SERVO, KST and SETUP in the bottom row, 50 px each. KST is drawn disabled
+  and does not act.
 - A settings save is refused while a pin claim holds.
 
 ### Removed

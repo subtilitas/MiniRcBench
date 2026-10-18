@@ -1,9 +1,10 @@
 # Pin claim and core1 jobs
 
-Status: slice 1 is built: the claim (`src/pin_claim.h`), the core1 job
-dispatch with no job (`src/core1_job.h`), the drain, the AM32 screen on the
-claim, the CFG rows and the stub screens. Host tests only; nothing of it is
-tested on hardware. Slices 2 and 3 are planned. The design uses the DShot
+Status: slices 1 and 2 are built. Slice 1: the claim (`src/pin_claim.h`),
+the core1 job dispatch (`src/core1_job.h`), the drain, the AM32 screen on the
+claim, the CFG rows and the stub screens. Slice 2: the servo tester and its
+core1 job ([servo-tester.md](servo-tester.md)). Host tests only; nothing of
+either is tested on hardware. Slice 3, KST programming, is planned. The design uses the DShot
 driver in `src/dshot/` (`out_dshot_bind()`, `out_dshot_stop()`,
 `out_dshot_release()`).
 
@@ -112,8 +113,8 @@ the exception.
 4. **Running.** The job binds its pins and reports `Running`, or reports a bind
    failure and binds nothing. A failed bind leaves the claim Held, with the
    reason in `pinClaimJobError()`. RETRY (`pinClaimRetry()`) starts the job
-   again and keeps the claim; BACK goes to step 5. In slice 1 no job is built,
-   so `core1JobStart()` refuses SERVO and KST and the reason is
+   again and keeps the claim; BACK goes to step 5. The KST job is not built
+   until slice 3, so `core1JobStart()` refuses KST and the reason is
    `CORE1_JOB_REFUSED`.
 5. **Leaving.** BACK (`pinClaimEnd()`) asks the job to stop. The job leaves its
    pins as plain inputs and reports `Idle`. Before DShot restarts, SERVO and
@@ -174,9 +175,10 @@ struct Core1JobOps {                       // one per job, defined by its slice
     uint8_t (*bind)(uint8_t sigGpio, uint8_t auxGpio);  // 0, or CORE1_JOB_PWM ...
     void    (*step)(uint32_t nowMs, bool uiAlive);
     void    (*release)();
+    void    (*init)();                     // core0, from core1JobInit(); may be null
 };
 
-void core1JobInit();          // core0, before core1 is launched
+void core1JobInit();          // core0, before core1 is launched; calls each init
 bool core1JobStart(Core1Job job, uint8_t sigGpio, uint8_t auxGpio);  // core0
 void core1JobStop();                                                   // core0
 Core1Job core1JobRunning();   // core0: which job runs; None once idle
@@ -192,8 +194,8 @@ once while suspended, and `core1JobPoll()` returns at once, without a lock,
 while no job runs. `core1JobStart()` is refused unless `escTaskSuspended()` is
 true, so the DShot pump and a job never drive a pin together. It is refused
 too for `Core1Job::None`, for a job with no `Core1JobOps` in the table in
-`core1_job.cpp`, and while a job is not idle. Slices 2 and 3 add their entry
-to that table. A stop that arrives while core1 binds is kept, and the next
+`core1_job.cpp`, and while a job is not idle. Slice 2 added the servo job's
+entry, `SERVO_JOB_OPS` from `src/servo_job.h`; slice 3 adds KST's. A stop that arrives while core1 binds is kept, and the next
 pass releases what the bind took.
 
 Each job has its own command block and status block, written and read under
@@ -332,7 +334,7 @@ analogue servo. So before `escTaskResume()` the SERVO and KST screens show:
 
 RESTART DSHOT is a tap. BACK on that page returns to the screen and keeps the
 claim. The same hazard exists at boot for a servo left on SIG; the README
-wiring section carries that warning from slice 2 on, with the servo tester.
+section "Servo tester" and the wiki page Servo-Tester carry that warning.
 
 The page itself is drawn by the SERVO and KST screens. The rule is in the
 claim: for those two users DShot does not restart until `pinClaimRestart()`,
@@ -495,15 +497,17 @@ The AM32 tests in `test/test_ui.cpp` pass with the AM32 screen on the
 claim, and `test_claim.cpp` drives that screen through the UI as well: the
 latched GPIO reaches the transport, BACK restores DShot with no unplug page,
 and opening AM32 100 ms after a throttle frame waits out the drain. The
-unplug page is tested as the claim's rule; the page's drawing belongs to the
-SERVO and KST screens of slices 2 and 3. What `escTaskPoll()` keeps is the
+unplug page is tested as the claim's rule; the SERVO screen's page is tested
+in `test/test_servo.cpp`, with the servo job as it ships. `test_claim.cpp`
+puts fake jobs in the job table, and removes them to test a job with no entry,
+as KST ships. What `escTaskPoll()` keeps is the
 I/O around those functions: the PIO calls, the KISS receiver and the shared
 state. It is compiled only.
 
 ## Slices
 
-Three slices. Each merges on its own and leaves the firmware working. Slice 1
-is built.
+Three slices. Each merges on its own and leaves the firmware working. Slices
+1 and 2 are built.
 
 | Slice | Content | Depends on | Effort |
 |---|---|---|---|
@@ -524,7 +528,12 @@ both screens and gates their CFG buttons on
 `uiServoAvailable()` and `uiKstAvailable()`. In code the two slices are then
 disjoint but for one line each in the job table of `core1_job.cpp`: slice 2
 edits its own files and `gfx.cpp`/`gfx.h` (line and arc primitives), slice 3
-its own files only. They share three documentation
+its own files only. Slice 2 also added the `init` member to `Core1JobOps`, a
+generic rule in `test/Makefile` for each feature's C sources and C test
+programs (`SERVO_CSRCS`, `SERVO_CTESTS`; `KST_CSRCS` and `KST_CTESTS` when
+slice 3 needs them), the CFG row test in `test/test_ui.cpp`, the
+`lib/rcbench/` rule in `tools/notices.py` and the copied headers' include
+paths in the config permutations of `ci.yml`. They share three documentation
 files, each adding its own section: `README.md` (slice 3 also adds the legal
 notice), `wiki/_Sidebar.md` and `wiki/The-Screens.md` with its German
 counterpart. Each slice's user pages are new wiki files of its own. The second
