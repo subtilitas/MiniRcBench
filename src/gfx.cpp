@@ -4,6 +4,8 @@
  */
 
 #include "gfx.h"
+#include <math.h>
+#include <stdlib.h>
 #include <string.h>
 
 /** @brief The framebuffer. 150 KB of the RP2350's 520 KB of SRAM. */
@@ -152,6 +154,33 @@ void gfxRect(int x, int y, int w, int h, uint16_t c) {
 
 void gfxHLine(int x, int y, int w, uint16_t c) { gfxRect(x, y, w, 1, c); }
 void gfxVLine(int x, int y, int h, uint16_t c) { gfxRect(x, y, 1, h, c); }
+
+void gfxLine(int x0, int y0, int x1, int y1, int w, uint16_t c) {
+	if (w < 1) w = 1;
+	int off = w / 2;
+	int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
+	int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+	int err = dx + dy;
+	for (;;) {
+		gfxRect(x0 - off, y0 - off, w, w, c);
+		if (x0 == x1 && y0 == y1) break;
+		int e2 = 2 * err;
+		if (e2 >= dy) { err += dy; x0 += sx; }
+		if (e2 <= dx) { err += dx; y0 += sy; }
+	}
+}
+
+void gfxArcDots(int cx, int cy, int r, int deg0, int deg1, int stepDeg, int d,
+                uint16_t c) {
+	if (stepDeg < 1) stepDeg = 1;
+	if (d < 1) d = 1;
+	for (int a = deg0; a <= deg1; a += stepDeg) {
+		float rad = (float)a * 3.14159265f / 180.0f;
+		int x = cx + (int)floorf((float)r * sinf(rad) + 0.5f);
+		int y = cy - (int)floorf((float)r * cosf(rad) + 0.5f);
+		gfxRect(x - d / 2, y - d / 2, d, d, c);
+	}
+}
 
 void gfxFrame(int x, int y, int w, int h, uint16_t c) {
 	// Thickness grows inward, never outward: the layout static_asserts in ui.cpp

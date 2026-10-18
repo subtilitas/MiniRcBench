@@ -274,8 +274,87 @@ static void testClip() {
 	checkInt("and leaves the buffer alone", gfxBuffer()[100 * GFX_W], 0);
 }
 
+/** @brief Count the pixels of @p c in a rectangle. */
+static int countIn(int x, int y, int w, int h, uint16_t c) {
+	int n = 0;
+	for (int yy = y; yy < y + h; yy++)
+		for (int xx = x; xx < x + w; xx++)
+			if (gfxBuffer()[yy * GFX_W + xx] == c) n++;
+	return n;
+}
+
+/** @brief The pixel at (@p x, @p y). */
+static uint16_t px(int x, int y) { return gfxBuffer()[y * GFX_W + x]; }
+
+/** @brief The thick line and the arc of dots the servo dial is drawn with. */
+static void testLineAndArc() {
+	section("Lines at any angle, and an arc of dots");
+
+	resetGfx();
+	gfxLine(10, 20, 19, 20, 1, TEST_FG);
+	checkInt("a horizontal line: both ends and all between", countIn(0, 0, 40, 40, TEST_FG), 10);
+	checkTrue("from x 10 to x 19", px(10, 20) == TEST_FG && px(19, 20) == TEST_FG &&
+	                               px(9, 20) == 0 && px(20, 20) == 0);
+
+	resetGfx();
+	gfxLine(30, 15, 30, 5, 1, TEST_FG);
+	checkInt("a vertical line drawn upwards: 11 pixels", countIn(0, 0, 40, 40, TEST_FG), 11);
+	checkTrue("from y 5 to y 15", px(30, 5) == TEST_FG && px(30, 15) == TEST_FG &&
+	                              px(30, 4) == 0 && px(30, 16) == 0);
+
+	resetGfx();
+	gfxLine(5, 5, 14, 14, 1, TEST_FG);
+	bool diag = true;
+	for (int i = 0; i < 10; i++) diag = diag && px(5 + i, 5 + i) == TEST_FG;
+	checkTrue("a 45 degree line is the diagonal", diag && countIn(0, 0, 40, 40, TEST_FG) == 10);
+
+	resetGfx();
+	gfxLine(20, 10, 0, 0, 1, TEST_FG);
+	checkInt("a shallow line right to left: one pixel per column",
+	         countIn(0, 0, 40, 40, TEST_FG), 21);
+	checkTrue("ends included", px(0, 0) == TEST_FG && px(20, 10) == TEST_FG);
+
+	resetGfx();
+	gfxLine(50, 50, 59, 50, 4, TEST_FG);
+	checkInt("4 px thick, 10 px long: 13 by 4", countIn(40, 40, 30, 30, TEST_FG), 13 * 4);
+	checkTrue("the stroke is centred: rows 48 to 51",
+	          px(55, 48) == TEST_FG && px(55, 51) == TEST_FG && px(55, 47) == 0 && px(55, 52) == 0);
+	resetGfx();
+	gfxLine(50, 50, 50, 50, 0, TEST_FG);
+	checkInt("thickness 0 counts as 1: one pixel", countIn(40, 40, 30, 30, TEST_FG), 1);
+
+	resetGfx();
+	gfxSetClip(0, 0, GFX_W, 100);
+	gfxLine(10, 90, 10, 110, 3, TEST_FG);
+	gfxClearClip();
+	checkTrue("a line obeys the clip", px(10, 99) == TEST_FG && px(10, 100) == 0);
+	int y0, y1;
+	gfxDirtyBand(0, &y0, &y1);
+	checkTrue("and dirties only what it drew", y0 == 89 && y1 == 99);
+
+	resetGfx();
+	gfxArcDots(120, 150, 50, -90, 90, 90, 1, TEST_FG);
+	checkInt("an arc from -90 to +90 every 90 deg: three dots",
+	         countIn(0, 0, GFX_W, GFX_H, TEST_FG), 3);
+	checkTrue("left, up and right of the centre",
+	          px(70, 150) == TEST_FG && px(120, 100) == TEST_FG && px(170, 150) == TEST_FG);
+
+	resetGfx();
+	gfxArcDots(120, 150, 50, 0, 59, 30, 3, TEST_FG);
+	checkInt("0 to 59 deg every 30: two dots of 3 by 3",
+	         countIn(0, 0, GFX_W, GFX_H, TEST_FG), 18);
+	checkTrue("the 30 deg dot is centred on the arc",
+	          px(145, 107) == TEST_FG && px(144, 106) == TEST_FG && px(146, 108) == TEST_FG);
+
+	resetGfx();
+	gfxArcDots(120, 150, 50, 0, 3, 0, 0, TEST_FG);
+	checkInt("a step and a size of 0 count as 1: four dots of one pixel",
+	         countIn(0, 0, GFX_W, GFX_H, TEST_FG), 4);
+}
+
 void runGfxTests() {
 	testBands();
 	testGlyphs();
 	testClip();
+	testLineAndArc();
 }

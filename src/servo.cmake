@@ -13,6 +13,7 @@ target_sources(MiniRcBench PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/servo_model.cpp
     ${CMAKE_CURRENT_LIST_DIR}/servo_pwm.cpp
     ${CMAKE_CURRENT_LIST_DIR}/servo_job.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/ui_slider.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../lib/rcbench/shared/servo/servo_sweep.c
     ${CMAKE_CURRENT_LIST_DIR}/../lib/rcbench/shared/outputs/out_pwm_map.c
 )

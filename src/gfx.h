@@ -168,6 +168,39 @@ void gfxHLine(int x, int y, int w, uint16_t c);
 /** @brief Vertical line of height @p h. */
 void gfxVLine(int x, int y, int h, uint16_t c);
 
+/**
+ * @brief A line between any two points, @p w pixels thick.
+ *
+ * Bresenham's line, with a @p w by @p w square drawn centred on each of its
+ * points, so both ends are included and a thick line has square ends. For
+ * the servo horn.
+ *
+ * @param x0,y0 One end.
+ * @param x1,y1 The other end.
+ * @param w     Thickness, pixels; below 1 counts as 1.
+ * @param c     Colour.
+ */
+void gfxLine(int x0, int y0, int x1, int y1, int w, uint16_t c);
+
+/**
+ * @brief Square dots along an arc. For the servo dial.
+ *
+ * Angles are degrees from straight up, positive clockwise, so 90 is to the
+ * right of the centre. A dot goes at @p deg0 and every @p stepDeg after it up
+ * to @p deg1, each a @p d by @p d square centred on the arc, its position
+ * rounded to the nearest pixel.
+ *
+ * @param cx,cy   Centre.
+ * @param r       Radius, pixels.
+ * @param deg0    First angle, degrees.
+ * @param deg1    Last angle, degrees; no dot past it.
+ * @param stepDeg Spacing, degrees; below 1 counts as 1.
+ * @param d       Dot size, pixels; below 1 counts as 1.
+ * @param c       Colour.
+ */
+void gfxArcDots(int cx, int cy, int r, int deg0, int deg1, int stepDeg, int d,
+                uint16_t c);
+
 /** @} */
 
 /**

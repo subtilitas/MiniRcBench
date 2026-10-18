@@ -21,6 +21,9 @@
 #include "servo_model.h"
 #include "servo_pwm.h"
 #include "ui_servo.h"
+#include "ui_slider.h"
+#include "gfx.h"
+#include "touch.h"
 #include "plat.h"
 
 #include <hardware/gpio.h>
@@ -860,7 +863,184 @@ static void testJobTrip() {
 	escHeartbeat();
 }
 
-/** @brief The stub screen, until the screen replaces it. */
+/** @brief One frame of touch, built by hand. */
+static TouchState touchAt(int x, int y, bool pressed, bool down, bool released,
+                          int downX = -1, int downY = -1) {
+	TouchState t;
+	memset(&t, 0, sizeof(t));
+	t.x = (int16_t)x; t.y = (int16_t)y;
+	t.pressed = pressed; t.down = down; t.released = released;
+	t.downX = (int16_t)(downX < 0 ? x : downX);
+	t.downY = (int16_t)(downY < 0 ? y : downY);
+	return t;
+}
+
+/** @brief The slider's event logic: the two press contracts, tap-to-set, presets. */
+static void testSlider() {
+	section("Slider: delta drag, tap-to-set, presets, the two press contracts");
+
+	// A track of 101 px from 0 to 100: one unit a pixel.
+	const UiRect track = {20, 100, 101, 20};
+	UiSlider s;
+	uiSliderInit(&s, track, 0, 100);
+	checkTrue("starts at its minimum, no drag, no preset",
+	          s.value == 0 && !s.dragging && s.pressedPreset == -1 && !s.tapToSet);
+	uiSliderSet(&s, 40);
+	TouchState t = touchAt(100, 110, true, true, false);
+	checkTrue("a press on the track commands nothing", !uiSliderEvent(&s, &t) && s.value == 40);
+	checkTrue("and starts a drag", s.dragging);
+	t = touchAt(110, 110, false, true, false, 100, 110);
+	checkTrue("a move of 10 px: +10", uiSliderEvent(&s, &t) && (int)s.value == 50);
+	t = touchAt(115, 300, false, true, false, 100, 110);
+	checkTrue("off the track the drag goes on", uiSliderEvent(&s, &t) && (int)s.value == 55);
+	t = touchAt(115, 300, false, true, false, 100, 110);
+	checkTrue("no move: no change", !uiSliderEvent(&s, &t));
+	// rcbench re-anchors the value and keeps the press's x, so the next move
+	// adds the whole distance from the press to the value set.
+	uiSliderSet(&s, 20);
+	t = touchAt(120, 300, false, true, false, 100, 110);
+	checkTrue("a value set during a drag: the next move adds to it",
+	          uiSliderEvent(&s, &t) && (int)s.value == 40);
+	t = touchAt(300, 300, false, true, false, 100, 110);
+	uiSliderEvent(&s, &t);
+	checkTrue("clamped at the maximum", s.value == 100);
+	t = touchAt(0, 300, false, false, true, 100, 110);
+	checkTrue("the release moves it too, then ends the drag",
+	          uiSliderEvent(&s, &t) && s.value == 0 && !s.dragging);
+
+	uiSliderSet(&s, 30);
+	t = touchAt(60, 50, true, true, false);
+	uiSliderEvent(&s, &t);
+	t = touchAt(60, 110, false, true, false, 60, 50);
+	checkTrue("a press that began off the track never drags",
+	          !uiSliderEvent(&s, &t) && s.value == 30 && !s.dragging);
+	t = touchAt(90, 110, false, false, true, 60, 50);
+	checkTrue("nor does its release", !uiSliderEvent(&s, &t) && s.value == 30);
+
+	t = touchAt(70, 110, true, true, false);
+	uiSliderEvent(&s, &t);
+	t = touchAt(70, 110, false, false, false);
+	checkTrue("no touch at all while dragging: no change", !uiSliderEvent(&s, &t));
+	t = touchAt(40, 110, true, true, false);
+	checkTrue("a new press ends a drag whose release was lost",
+	          !uiSliderEvent(&s, &t) && s.dragging && s.dragX == 40);
+	uiSliderRelease(&s);
+	checkTrue("release abandons the drag", !s.dragging);
+	t = touchAt(80, 110, false, true, false, 40, 110);
+	checkTrue("and a move after it changes nothing", !uiSliderEvent(&s, &t) && s.value == 30);
+	checkTrue("a null touch changes nothing", !uiSliderEvent(&s, nullptr));
+
+	uiSliderSetTapToSet(&s, true);
+	t = touchAt(120, 110, true, true, false);
+	checkTrue("tap-to-set: the far end sets the maximum", uiSliderEvent(&s, &t) && s.value == 100);
+	t = touchAt(110, 110, false, true, false, 120, 110);
+	checkTrue("and the drag measures from there", uiSliderEvent(&s, &t) && (int)s.value == 90);
+	t = touchAt(110, 110, false, false, true, 120, 110);
+	uiSliderEvent(&s, &t);
+	t = touchAt(70, 110, true, true, false);
+	checkTrue("the middle sets 50", uiSliderEvent(&s, &t) && (int)s.value == 50);
+	t = touchAt(70, 110, true, true, false);
+	checkTrue("the same press again: no change", !uiSliderEvent(&s, &t));
+	uiSliderRelease(&s);
+
+	UiSlider thin;
+	uiSliderInit(&thin, UiRect{20, 100, 1, 20}, 0, 100);
+	uiSliderSetTapToSet(&thin, true);
+	t = touchAt(20, 110, true, true, false);
+	checkTrue("a 1 px track: a press sets nothing", !uiSliderEvent(&thin, &t) && thin.value == 0);
+	t = touchAt(30, 110, false, true, false, 20, 110);
+	checkTrue("and a drag moves nothing", !uiSliderEvent(&thin, &t) && thin.value == 0);
+
+	static const float vals[] = {10, 50, 100};
+	static const char *const labels[] = {"10", "50", "100"};
+	uiSliderSetPresets(&s, vals, labels, 3, UiRect{20, 130, 108, 22});
+	checkInt("three presets", s.presetCount, 3);
+	uiSliderSet(&s, 30);
+	checkTrue("laid out with 4 px gaps", s.presets[0].x == 20 && s.presets[0].w == 33 &&
+	                                     s.presets[1].x == 57 && s.presets[2].x == 94);
+	t = touchAt(70, 140, true, true, false);
+	checkTrue("a press on a preset commands nothing", !uiSliderEvent(&s, &t) && s.pressedPreset == 1);
+	t = touchAt(70, 140, false, false, true);
+	checkTrue("its release on the preset sets it", uiSliderEvent(&s, &t) && s.value == 50);
+	t = touchAt(100, 140, true, true, false);
+	uiSliderEvent(&s, &t);
+	t = touchAt(100, 200, false, false, true, 100, 140);
+	checkTrue("a press slid off its preset sets nothing",
+	          !uiSliderEvent(&s, &t) && s.value == 50 && s.pressedPreset == -1);
+	t = touchAt(30, 140, true, true, false);
+	uiSliderEvent(&s, &t);
+	t = touchAt(30, 140, false, false, true);
+	checkTrue("the 10 preset", uiSliderEvent(&s, &t) && s.value == 10);
+	t = touchAt(30, 140, true, true, false);
+	uiSliderEvent(&s, &t);
+	t = touchAt(30, 140, false, false, true);
+	checkTrue("a preset at the value: no change", !uiSliderEvent(&s, &t));
+	t = touchAt(200, 200, true, true, false);
+	checkTrue("a press on neither: nothing", !uiSliderEvent(&s, &t) && s.pressedPreset == -1 && !s.dragging);
+
+	UiRect pr = uiSliderPaintedRect(&s);
+	checkTrue("the painted rect holds the overhang and the presets",
+	          pr.x == 20 && pr.y == 100 - UI_SLIDER_OVERHANG && pr.w == 107 && pr.h == 52 + UI_SLIDER_OVERHANG);
+	uiSliderSetPresets(&s, vals, labels, 0, UiRect{20, 130, 108, 22});
+	checkInt("no presets", s.presetCount, 0);
+	pr = uiSliderPaintedRect(&s);
+	checkTrue("then the track and the overhang only",
+	          pr.y == 97 && pr.h == 26 && pr.x == 20 && pr.w == 101);
+	uiSliderSetPresets(&s, vals, labels, -2, UiRect{20, 130, 108, 22});
+	checkInt("a negative count is none", s.presetCount, 0);
+	static float many[12];
+	static const char *manyL[12];
+	for (int i = 0; i < 12; i++) { many[i] = (float)i; manyL[i] = "X"; }
+	uiSliderSetPresets(&s, many, manyL, 12, UiRect{0, 130, 240, 22});
+	checkInt("more than eight are eight", s.presetCount, UI_SLIDER_MAX_PRESETS);
+}
+
+/** @brief The slider's drawing: fill, thumb, dim, presets. */
+static void testSliderDraw() {
+	section("Slider: the fill, the thumb and the dimmed look");
+
+	gfxInit();
+	UiSlider s;
+	uiSliderInit(&s, UiRect{20, 100, 101, 20}, 0, 100);
+	uiSliderSet(&s, 50);
+	uiSliderDraw(&s, C_LIME);
+	const uint16_t *fb = gfxBuffer();
+	checkTrue("filled to the value", fb[110 * GFX_W + 50] == C_LIME);
+	checkTrue("trough past it", fb[110 * GFX_W + 100] == C_PANEL);
+	checkTrue("the thumb at the value, above the track",
+	          fb[(100 - UI_SLIDER_OVERHANG + 2) * GFX_W + 70] == C_TEXT);
+	checkTrue("nothing above the overhang", fb[(100 - UI_SLIDER_OVERHANG - 1) * GFX_W + 70] == 0);
+
+	gfxInit();
+	uiSliderSet(&s, 1);
+	uiSliderDraw(&s, C_LIME);
+	checkTrue("a fill under one track height is one track height wide",
+	          fb[110 * GFX_W + 20 + 15] == C_LIME);
+	gfxInit();
+	uiSliderSet(&s, 0);
+	uiSliderDraw(&s, C_LIME);
+	checkTrue("at 0 no fill", fb[110 * GFX_W + 60] == C_PANEL);
+	checkTrue("the thumb stays over the track's left end", fb[(100 - 1) * GFX_W + 27] == C_TEXT);
+	gfxInit();
+	uiSliderSet(&s, 100);
+	s.dim = true;
+	uiSliderDraw(&s, C_LIME);
+	checkTrue("dimmed: the fill is grid grey", fb[110 * GFX_W + 50] == C_GRID);
+	checkTrue("and the thumb dim, at the right end", fb[(100 - 1) * GFX_W + 114] == C_DIM);
+	gfxInit();
+	UiSlider flat;
+	uiSliderInit(&flat, UiRect{20, 100, 101, 20}, 5, 5);
+	uiSliderDraw(&flat, C_LIME);
+	checkTrue("an empty range draws at the left end", fb[110 * GFX_W + 60] == C_PANEL);
+
+	gfxInit();
+	static const float vals[] = {10, 50};
+	static const char *const labels[] = {"10", "50"};
+	uiSliderSetPresets(&s, vals, labels, 2, UiRect{20, 130, 104, 22});
+	s.dim = false;
+	uiSliderDraw(&s, C_LIME);
+	checkTrue("presets are drawn as buttons", fb[(130 + 2) * GFX_W + 30] == C_PANEL);
+}
 
 /** @brief The stub screen, until the screen replaces it. */
 static void testStubScreen() {
@@ -886,5 +1066,7 @@ void runServoTests() {
 	testCoreTrip();
 	testJob();
 	testJobTrip();
+	testSlider();
+	testSliderDraw();
 	testStubScreen();
 }

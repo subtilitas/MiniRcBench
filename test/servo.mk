@@ -12,7 +12,8 @@
 #                      of its own, built as C11 and run by `make run`
 #   SERVO_DEVICE_SRCS  sources the suite cannot link, typechecked by `syntax`
 SERVO_SRCS        := ../src/ui_servo.cpp ../src/servo_model.cpp \
-                     ../src/servo_pwm.cpp ../src/servo_job.cpp
+                     ../src/servo_pwm.cpp ../src/servo_job.cpp \
+                     ../src/ui_slider.cpp
 SERVO_CSRCS       := ../lib/rcbench/shared/servo/servo_sweep.c \
                      ../lib/rcbench/shared/outputs/out_pwm_map.c
 SERVO_INCLUDES    := -I../lib/rcbench/shared/servo/include \
