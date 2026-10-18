@@ -158,15 +158,15 @@ protocol.
 - Host tests for the list and the hold (`runWidgetTests` in
   `test/test_widgets.cpp`), each rule at its boundary.
 - `src/ui_screen.h`: every screen reports the controls it draws on the
-  current frame, each with an id, the rectangle it takes presses in, and
-  whether it acts. `uiControls()` returns the open screen's table and
+  current frame, each with an id, the rectangle it is drawn at, and whether
+  it acts; a drag surface's grab margin is in its enum's doc. `uiControls()` returns the open screen's table and
   `uiCurrentScreen()` names the screen. The tables are built from the
   rectangles and the gating expressions the screens use. The firmware does
   not call either function.
 - `test/ui_ids.h`: host-test helpers that tap, press and hold a control by
   id and fail the test, naming the id, when it is absent or gated the other
-  way. `runIdTests` in `test/test_ids.cpp` walks every screen reachable
-  without an ESC and checks each table: ids unique, rectangles inside the
+  way. `runIdTests` in `test/test_ids.cpp` walks every screen the host
+  build opens and checks each table: ids unique, rectangles inside the
   panel and apart, BACK at its rectangle.
 
 ### Changed

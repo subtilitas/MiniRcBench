@@ -3103,6 +3103,8 @@ void runUiTests() {
 		checkTrue("and the button is red while held",
 		          gfxBuffer()[(wr.y + wr.h - 5) * GFX_W + wr.x + 4] == C_RED);
 		fakeHold(wx, wy); frameAfter(1);
+		checkTrue("OK is drawn and does not act during WRITING...", s_state == S_WRITING &&
+		          ctlPresent(UI_FIX(Am32Ctl::Ok)) && !ctlEnabled(UI_FIX(Am32Ctl::Ok)));
 		for (int i = 0; i < 20; i++) { fakeHold(wx, wy); frames(1); }
 		fakeRelease(); frames(3);
 		checkInt("1000 ms commits and verifies", fakeEscByte(0x1B), want);

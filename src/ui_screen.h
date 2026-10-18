@@ -3,7 +3,8 @@
  * @brief The screens and their controls, by id.
  *
  * Every screen reports the controls it draws on the current frame: an id,
- * the rectangle the control takes presses in, and whether it acts. The
+ * the rectangle the control is drawn at, and whether it acts. A drag
+ * surface's grab margin beyond that rectangle is in its enum's doc. The
  * table is built from the same rectangles and the same expressions the
  * screen draws and hit-tests with, so a control the table lists at a
  * rectangle is the control a press there reaches.

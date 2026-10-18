@@ -1497,7 +1497,7 @@ static uint8_t sdLogControls(UiControl *out, uint8_t max) {
 static uint8_t noControls(UiControl *, uint8_t) { return 0; }
 
 /** @brief Every screen, by @ref UiScreenId. */
-static const UiScreen SCREENS[] = {
+static constexpr UiScreen SCREENS[] = {
 	{ UiScreenId::Tester, testerControls },
 	{ UiScreenId::Cfg,    cfgControls },
 	{ UiScreenId::Setup,  uiSetupControls },
@@ -1506,8 +1506,16 @@ static const UiScreen SCREENS[] = {
 	{ UiScreenId::Servo,  uiServoControls },
 	{ UiScreenId::Kst,    noControls },
 };
-static_assert(sizeof(SCREENS) / sizeof(SCREENS[0]) == (size_t)UiScreenId::Kst + 1,
-              "a screen has no control table");
+/** @brief Each @ref UiScreenId has exactly one entry in @ref SCREENS. */
+static constexpr bool screensComplete() {
+	for (size_t id = 0; id <= (size_t)UiScreenId::Kst; id++) {
+		int n = 0;
+		for (const UiScreen &s : SCREENS) n += (size_t)s.id == id;
+		if (n != 1) return false;
+	}
+	return sizeof(SCREENS) / sizeof(SCREENS[0]) == (size_t)UiScreenId::Kst + 1;
+}
+static_assert(screensComplete(), "a screen has no control table, or two");
 // uiControls() finds a screen by its id, so the order above does not matter.
 
 // In the order uiTick() dispatches: SETUP, then the tools, which open from

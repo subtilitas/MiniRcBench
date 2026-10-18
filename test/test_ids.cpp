@@ -2,7 +2,7 @@
  * @file test_ids.cpp
  * @brief The control tables of ui_screen.h, walked through the real UI.
  *
- * Every screen reachable without an ESC is opened by id, and its table is
+ * Every screen the host build opens is opened by id, and its table is
  * checked on each view: the ids, the rectangles, and the enabled flags that
  * follow the state the screen gates on.
  */
@@ -195,18 +195,28 @@ static void testAm32() {
 	idFrames(20);
 	checkControlTable("AM32, the list");
 	checkTrue("the list shows its rows", ctlPresent(UI_ROW(0, Row)));
-	checkTrue("nothing to write yet", !ctlEnabled(UI_FIX(Am32Ctl::Write)) &&
-	          !ctlEnabled(UI_FIX(Am32Ctl::Revert)));
+	checkTrue("nothing to write yet: WRITE and REVERT are there and do not act",
+	          ctlPresent(UI_FIX(Am32Ctl::Write)) && !ctlEnabled(UI_FIX(Am32Ctl::Write)) &&
+	          ctlPresent(UI_FIX(Am32Ctl::Revert)) && !ctlEnabled(UI_FIX(Am32Ctl::Revert)));
 	checkTrue("no editor bar before a row is selected", !ctlPresent(UI_FIX(Am32Ctl::EditPlus)));
 	tapId(UI_ROW(1, Row));
 	checkTrue("a tap on a row by id shows the editor bar", ctlEnabled(UI_FIX(Am32Ctl::EditPlus)));
-	// The fake ESC's field may sit at its top rail, where + changes nothing.
-	tapId(UI_FIX(Am32Ctl::EditPlus));
-	if (!ctlEnabled(UI_FIX(Am32Ctl::Write))) tapId(UI_FIX(Am32Ctl::EditMinus));
-	checkTrue("a step makes WRITE and REVERT act", ctlEnabled(UI_FIX(Am32Ctl::Write)) &&
+	// The fake ESC's image puts some fields on their top rail, where + changes
+	// nothing. The first visible row that + changes is stepped, and - on the
+	// same row takes the change back.
+	int stepped = -1;
+	for (int r = 0; r < 6 && stepped < 0; r++) {
+		tapId(UI_ROW(r, Row));
+		tapId(UI_FIX(Am32Ctl::EditPlus));
+		if (ctlEnabled(UI_FIX(Am32Ctl::Write))) stepped = r;
+	}
+	checkTrue("+ changes one of the first six rows", stepped >= 0);
+	checkTrue("+ makes WRITE and REVERT act", ctlEnabled(UI_FIX(Am32Ctl::Write)) &&
 	          ctlEnabled(UI_FIX(Am32Ctl::Revert)));
 	checkControlTable("AM32, a field changed");
-	tapId(UI_FIX(Am32Ctl::Revert));
+	tapId(UI_FIX(Am32Ctl::EditMinus));
+	checkTrue("- on the same row takes it back: WRITE does not act",
+	          ctlPresent(UI_FIX(Am32Ctl::Write)) && !ctlEnabled(UI_FIX(Am32Ctl::Write)));
 	tapId(UI_FIX(UI_BACK));
 	idFrames(20);
 	checkTrue("BACK from AM32 reaches SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
