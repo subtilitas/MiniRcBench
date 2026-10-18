@@ -47,8 +47,8 @@ protocol.
 - rcbench's KST programming core (`protocols/kst/`), its RP2350 line driver
   and the KST file store, copied unchanged from rcbench commit 453cf334 into
   `lib/rcbench/`, with rcbench's seven tests of them in `test/rcbench/`
-  (298 cases). The firmware and the host suite build them; nothing calls them
-  yet ([kst-programming.md](docs/design/kst-programming.md), work breakdown
+  (298 cases). The firmware and the host suite build them
+  ([kst-programming.md](docs/design/kst-programming.md), work breakdown
   step 1). README.md gains the section "Legal notice and disclaimer" the
   copied headers name.
 - The KST search and the KST core1 job (work breakdown step 2).

@@ -207,6 +207,18 @@ static void testStop() {
 	checkTrue("RETRY: found by its first read, no sync",
 	          k == KstSeek::Found && g_b.sim.n_frames == 3 && g_b.sim.n_syncs == 1);
 
+	// A stop during a frame whose capture never comes: the session ends the
+	// attempt on the driver's slack, and the search names that result.
+	bench(true);
+	sim_add_fault(&g_b.sim, SIM_SYNC, -1, 0, 1, SIM_F_STALL, 0);
+	kstSeekBegin(&g_b.seek, &g_b.ses, nowMs());
+	while (!(g_b.sim.busy && g_b.sim.n_frames == 2)) step();
+	kstSeekStop(&g_b.seek, &g_b.ses);
+	k = run(g_b.sim.now_us + 100000u);
+	checkTrue("a stop during a frame that never finishes: failed, not stopped",
+	          k == KstSeek::Failed && g_b.seek.result == KST_SES_ERR_DRIVER);
+	checkInt("and no attempt after it", g_b.seek.attempts, 1);
+
 	// The lapse is kept once seen, even if the heartbeat comes back.
 	bench(false);
 	kstSeekBegin(&g_b.seek, &g_b.ses, nowMs());

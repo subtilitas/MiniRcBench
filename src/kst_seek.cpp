@@ -51,7 +51,10 @@ KstSeek kstSeekStep(KstSeekState *s, kst_session_t *ses, bool uiAlive, uint32_t 
 
 	// The session takes an abort before it reads the window, so a stopped
 	// attempt never ends KST_SES_OK.
-	if (s->stopping) return finish(s, KstSeek::Stopped, r, nowMs);
+	// A frame that faulted on the wire ends the attempt with its own result,
+	// a stop or not; no attempt starts after a stop.
+	if (s->stopping)
+		return finish(s, r == KST_SES_ERR_ABORTED ? KstSeek::Stopped : KstSeek::Failed, r, nowMs);
 	if (r == KST_SES_OK) return finish(s, KstSeek::Found, r, nowMs);
 	if (r != KST_SES_ERR_NO_SERVO) return finish(s, KstSeek::Failed, r, nowMs);
 	if (s->noUi) return finish(s, KstSeek::NoUi, r, nowMs);

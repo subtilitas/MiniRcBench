@@ -13,13 +13,16 @@
  *
  * | State | The line | Leaves it |
  * |---|---|---|
- * | Opening | driven low, from the bind | Search, Leave |
+ * | Opening | driven low, from the bind | Search: Searching |
  * | Searching | the entry sequence, repeated | Found: InMode; any other end: SearchEnded |
- * | SearchEnded | driven low | Search (RETRY), Leave |
+ * | SearchEnded | driven low | Search (RETRY): Searching |
  * | InMode | driven low; the servo is in programming mode | ReadAll, Verify, Edit, Restore: Busy |
  * | Busy | the operation's frames | its end: InMode; a loss: Searching, or SearchEnded with the heartbeat lapsed |
  * | Leaving | the running operation finishes its frame, then low for @ref KST_LEAVE_LOW_MS | Closed |
  * | Closed | an input with its pull-down on (kstLineClose()) | the release |
+ *
+ * Leave, and the release, take every state but Leaving and Closed to
+ * Leaving.
  *
  * The job never calls kst_session_write(), kst_plan_edit() or
  * kst_plan_restore(): they run the planner to its end in one call and their

@@ -13,10 +13,10 @@
  * | End | When | KstSeekState::result |
  * |---|---|---|
  * | Found | an attempt ends with @c KST_SES_OK | @c KST_SES_OK |
- * | Stopped | the attempt running at kstSeekStop() has ended | @c KST_SES_ERR_ABORTED |
+ * | Stopped | the attempt running at kstSeekStop() has ended aborted | @c KST_SES_ERR_ABORTED |
  * | TimedOut | an attempt ends @ref KST_SEEK_TIMEOUT_MS or later after kstSeekBegin() | @c KST_SES_ERR_NO_SERVO |
  * | NoUi | an attempt ends after a heartbeat lapse | @c KST_SES_ERR_NO_SERVO |
- * | Failed | an attempt ends with any other result, or does not start | that result |
+ * | Failed | an attempt ends with any other result, a stopped one too (@c KST_SES_ERR_DRIVER for a frame that never finished), or does not start | that result |
  *
  * An attempt always runs to its end: a stop or a heartbeat lapse lets the
  * frame on the wire finish (kst_session_abort()), and a lapse lets the
