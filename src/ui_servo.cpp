@@ -877,9 +877,12 @@ bool uiServoTick(const TouchState *t) {
 	else if (s_view != View::Unplug) claimPins();
 
 	// BACK: from SET to SERVO, dropping a pending change; from the unplug
-	// page back to SERVO, keeping the claim; from SERVO out, through the
-	// unplug page once a job has held the pins.
-	if (uiBackTapped(s_t)) {
+	// page back to SERVO, keeping the claim, once the job has let go (until
+	// then pinClaimKeep() refuses, and BACK there does nothing); from SERVO
+	// out, through the unplug page once a job has held the pins.
+	bool back = uiBackTapped(s_t);
+	if (back && s_view == View::Unplug && !pinClaimUnplugDue()) back = false;
+	if (back) {
 		s_full = true;
 		s_holding = false;
 		if (s_view == View::Set) {

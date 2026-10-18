@@ -1836,6 +1836,13 @@ static void testUnplugPage() {
 	checkTrue("level 0 written, SIG still on PWM",
 	          fakePin(29).level == 0 && fakePin(29).function == GPIO_FUNC_PWM);
 	checkInt("and no DShot", fakeResumeCount(), resumes);
+	// BACK on the page before the job has let go: pinClaimKeep() would
+	// refuse, so the page ignores it and stays.
+	fakePress(UI_BACK_CX, UI_BACK_CY); frameAt(5);
+	fakeRelease(); frameAt(5);
+	checkTrue("BACK while releasing: ignored, the page stays",
+	          s_view == View::Unplug && pinClaimState() == ClaimState::Leaving &&
+	          !pinClaimUnplugDue());
 	uiFrames(2);
 	checkTrue("BACK: the unplug page", s_view == View::Unplug && pinClaimUnplugDue());
 	checkInt("no pulse was cut short", fakePin(29).cutPulses, cuts);
