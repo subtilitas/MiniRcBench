@@ -20,7 +20,9 @@
 #include "servo_job.h"
 #include "servo_model.h"
 #include "touch.h"
+#include "ui_hold.h"
 #include "ui_input.h"
+#include "ui_list.h"
 #include "ui_slider.h"
 #include "ui_widgets.h"
 #include "gfx.h"
@@ -78,7 +80,7 @@ static_assert(SV_LOW_Y <= SV_BTN_Y, "SPEED's thumb reaches into the button row")
 static_assert(SV_SPEED_Y - UI_SLIDER_OVERHANG == SV_READ_Y + SV_READ_H,
               "a row between the readout and SPEED is repainted by neither");
 static_assert(SV_BTN_Y + SV_BTN_H <= SV_BAR_Y, "the buttons overlap the progress bar");
-static_assert(SV_BAR_Y + 3 <= SV_BOT_Y, "the progress bar overlaps the bottom row");
+static_assert(SV_BAR_Y + UI_HOLD_BAR_H <= SV_BOT_Y, "the progress bar overlaps the bottom row");
 static_assert(SV_BOT_Y + SV_BOT_H <= GFX_H, "the bottom row runs off the panel");
 static_assert(8 + 4 * SV_BTN_W + 3 * 4 == 232, "the button row does not fill the margins");
 static_assert(SV_BTN_H >= UI_TAP_MIN && SV_BOT_H >= UI_TAP_MIN && 22 >= UI_TAP_MIN &&
@@ -106,6 +108,8 @@ static const UiRect BTN_MINUS    = { 6, SET_EDIT_Y, SET_EDIT_W, SET_EDIT_H };
 static const UiRect BTN_PLUS     = { GFX_W - SET_EDIT_W - 6, SET_EDIT_Y, SET_EDIT_W, SET_EDIT_H };
 static const UiRect BTN_APPLY    = { 6, SET_FOOT_Y, 140, SET_FOOT_H };
 static const UiRect BTN_DEFAULTS = { 152, SET_FOOT_Y, 82, SET_FOOT_H };
+/** @brief The SET list's viewport. */
+static const UiRect SET_VIEW     = { 0, SET_LIST_Y0, GFX_W, SET_LIST_H };
 
 static_assert(SET_LIST_Y1 < SET_EDIT_Y, "the list overlaps the editor bar");
 static_assert(SET_EDIT_Y + SET_EDIT_H <= SET_FOOT_Y, "the editor bar overlaps the footer");
@@ -117,7 +121,7 @@ static_assert(SET_EDIT_H >= UI_TAP_MIN && SET_FOOT_H >= UI_TAP_MIN,
  * @brief Hold that commits HOLD TO START and HOLD TO APPLY: one length on the
  *        device.
  */
-#define SV_HOLD_MS ARM_HOLD_MS
+#define SV_HOLD_MS UI_HOLD_MS
 
 // ---------------------------------------------------------------------------
 // the SET rows
@@ -150,18 +154,14 @@ static const SetRow ROWS[] = {
 #define ROW_SERVOS 0
 
 /**
- * @brief Steps a swipe of one @ref SET_SWIPE_PX applies: numbers coarse,
- *        choices one.
+ * @brief Steps a coarse step of a swipe, @ref UI_SWIPE_STEP_PX, applies:
+ *        numbers ten, choices one.
  */
 static int coarseOf(const SetRow &r) {
 	if (!r.pulse) return r.field == (uint8_t)SweepField::Shape ? 1 : 10;
 	ServoField f = (ServoField)r.field;
 	return (f == ServoField::Min || f == ServoField::Centre || f == ServoField::Max) ? 10 : 1;
 }
-/** @brief Horizontal travel per coarse step of a swipe, px. */
-#define SET_SWIPE_PX 16
-/** @brief Travel before a gesture commits to an axis, px. */
-#define SET_AXIS_PX   6
 
 // ---------------------------------------------------------------------------
 // state
@@ -184,9 +184,8 @@ static uint8_t      s_mask = SERVO_MASK_A; /**< What the dial and the buttons dr
 static bool         s_dragging = false;    /**< A press on the dial drives the servo. */
 static uint16_t     s_dragCmd = 0;         /**< The last command the drag sent. */
 static bool         s_wasRunning = false;  /**< RUNNING on the last frame. */
-static bool         s_holding = false;     /**< HOLD TO START or HOLD TO APPLY is held. */
-static bool         s_needLift = false;    /**< A hold fired; the next needs a new press. */
-static uint32_t     s_holdMs = 0;          /**< When that hold began. */
+static UiHold       s_hold;                /**< HOLD TO START or HOLD TO APPLY: one timer. */
+static bool         s_needLift = false;    /**< A STOP press is down; it starts and taps nothing. */
 static ServoStatus  s_st;                  /**< This frame's status from core1. */
 static const TouchState *s_t = nullptr;    /**< This frame's touch. */
 static bool         s_full = true;         /**< Repaint every region this frame. */
@@ -196,7 +195,7 @@ static bool         s_full = true;         /**< Repaint every region this frame.
  * @{
  */
 static int    s_sel = -1;        /**< Selected row, or -1. */
-static int    s_scroll = 0;      /**< List scroll, px. */
+static UiList s_list;            /**< The rows, scrolled in pixels. */
 static Repeat s_repeat;          /**< The editor bar's held repeat. */
 /** @} */
 
@@ -480,7 +479,7 @@ static void drawButtons(bool startOk, int holdPct) {
 	bool run = s_st.running && live();
 	struct { bool run, sweeping, startOk, holding; int pct; bool p[6]; } k;
 	memset(&k, 0, sizeof(k));
-	k.run = run; k.sweeping = s_st.sweeping; k.startOk = startOk; k.holding = s_holding;
+	k.run = run; k.sweeping = s_st.sweeping; k.startOk = startOk; k.holding = s_hold.holding;
 	k.pct = holdPct;
 	k.p[0] = pressing(BTN_MIN); k.p[1] = pressing(BTN_CENTRE); k.p[2] = pressing(BTN_MAX);
 	k.p[3] = pressing(BTN_SWEEP); k.p[4] = pressing(BTN_START); k.p[5] = pressing(BTN_SET);
@@ -493,9 +492,9 @@ static void drawButtons(bool startOk, int holdPct) {
 	if (s_st.running) {
 		uiButton(BTN_START, "STOP", C_RED, C_ONACCENT, 2, k.p[4]);
 	} else {
-		if (s_holding) gfxRect(BTN_START.x, SV_BAR_Y, BTN_START.w * holdPct / 100, 3, C_LIME);
-		uiButton(BTN_START, "HOLD TO START", s_holding ? C_RED : C_PANEL,
-		         s_holding ? C_ONACCENT : C_TEXT, 1, s_holding, startOk);
+		uiHoldDrawBar(&s_hold, BTN_START, SV_BAR_Y, millis());
+		uiButton(BTN_START, "HOLD TO START", s_hold.holding ? C_RED : C_PANEL,
+		         s_hold.holding ? C_ONACCENT : C_TEXT, 1, s_hold.holding, startOk);
 	}
 	uiButton(BTN_SET, "SET", C_PANEL, C_CYAN, 1, k.p[5]);
 }
@@ -512,25 +511,17 @@ static void mainTouch(bool startOk) {
 	if (s_st.running != s_wasRunning) s_dragging = false;
 	s_wasRunning = s_st.running;
 
-	// --- HOLD TO START, or STOP on press ---
-	if (s_st.running) {
-		s_holding = false;
-		if (s_t->pressed && pressing(BTN_START)) {
-			send(ServoCmdKind::Safe);
-			s_dragging = false;
-			// The press that stopped the servo does not start it again.
-			s_needLift = true;
-			return;
-		}
-	} else if (startOk && !s_needLift && pressing(BTN_START)) {
-		if (!s_holding) { s_holding = true; s_holdMs = millis(); }
-		if ((uint32_t)(millis() - s_holdMs) >= SV_HOLD_MS) {
-			s_holding = false;
-			s_needLift = true;
-			send(ServoCmdKind::Start);
-		}
-	} else {
-		s_holding = false;
+	// --- HOLD TO START, or STOP on press. startOk is false while RUNNING,
+	//     which resets the timer and keeps the latch of the hold that started
+	//     the servo: that press does not start it again after a trip ---
+	if (uiHoldUpdate(&s_hold, BTN_START, s_t, startOk && !s_needLift, millis()))
+		send(ServoCmdKind::Start);
+	if (s_st.running && s_t->pressed && pressing(BTN_START)) {
+		send(ServoCmdKind::Safe);
+		s_dragging = false;
+		// The press that stopped the servo does not start it again.
+		s_needLift = true;
+		return;
 	}
 	if (!s_t->down) s_needLift = false;
 
@@ -567,8 +558,8 @@ static void mainTouch(bool startOk) {
 		s_edit = s_profile;
 		s_pending = false;
 		s_sel = -1;
-		s_scroll = 0;
-		s_holding = false;
+		uiListInit(&s_list, SET_VIEW, SET_ROW_H, SET_ROWS);
+		uiHoldReset(&s_hold);
 		s_full = true;
 	}
 }
@@ -617,19 +608,29 @@ static bool canStep(int row, int dir) {
 }
 
 /**
- * @brief Step @p row by @p dir, @p n times. A PULSE change applies at once,
- *        unless it is a TYPE or RATE that needs the warning, which waits for
- *        HOLD TO APPLY.
+ * @brief One step of a row, while canStep() allows it.
+ * @param ctx The row, an int.
+ * @param dir -1 or +1.
+ * @return true when the step was taken.
  */
-static void stepRow(int row, int dir, int n) {
+static bool rowStep(void *ctx, int dir) {
+	int row = *(const int *)ctx;
 	const SetRow &r = ROWS[row];
-	bool any = false;
-	for (int i = 0; i < n && canStep(row, dir); i++) {
-		if (r.pulse) servoProfileStep(&s_edit, (ServoField)r.field, dir);
-		else         servoSweepStep(&s_sweep, (SweepField)r.field, dir);
-		any = true;
-	}
-	if (!any || !r.pulse) return;
+	if (!canStep(row, dir)) return false;
+	if (r.pulse) servoProfileStep(&s_edit, (ServoField)r.field, dir);
+	else         servoSweepStep(&s_sweep, (SweepField)r.field, dir);
+	return true;
+}
+
+/**
+ * @brief Step @p row by @p steps coarse steps of @p factor steps each, as
+ *        uiSwipeApply() does: one step at a time while canStep() allows it.
+ *        A PULSE change applies at once, unless it is a TYPE or RATE that
+ *        needs the warning, which waits for HOLD TO APPLY.
+ */
+static void stepRow(int row, int steps, int factor) {
+	const SetRow &r = ROWS[row];
+	if (uiSwipeApply(steps, factor, rowStep, &row) == 0 || !r.pulse) return;
 	bool risky = servoDangerous(s_edit.type, s_edit.rateHz) &&
 	             (s_edit.type != s_profile.type || s_edit.rateHz != s_profile.rateHz);
 	s_pending = risky;
@@ -667,6 +668,25 @@ static void setNote(const char **l1, const char **l2, uint16_t *col) {
 	if (aux) { *l1 = "TWO SERVOS ARE NOT OFFERED: SEE SERVOS"; *col = C_DIM; }
 }
 
+/**
+ * @brief Draw SET row @p i with its top edge at @p y.
+ * @param i Row of the list.
+ * @param y Top of the row.
+ */
+static void drawSetRow(int i, int y, void *) {
+	bool sel = i == s_sel;
+	bool locked = ROWS[i].pulse && s_st.running;
+	gfxRect(0, y, GFX_W, SET_ROW_H - 1, sel ? C_PANEL : C_BG);
+	gfxText(UI_MARGIN, y + 3, ROWS[i].group, C_GRID, 1);
+	gfxText(UI_MARGIN, y + 13, ROWS[i].name, sel ? C_TEXT : C_DIM, 1);
+	char v[24];
+	valueText(i, v, sizeof(v));
+	int sc = gfxTextW(v, 2) <= GFX_W - 80 ? 2 : 1;
+	gfxText(GFX_W - UI_MARGIN - gfxTextW(v, sc), y + (SET_ROW_H - 7 * sc) / 2, v,
+	        locked ? C_GRID : (sel ? C_LIME : C_TEXT), sc);
+	gfxHLine(0, y + SET_ROW_H - 1, GFX_W, C_PANEL);
+}
+
 /** @brief Header, note band, list, editor bar and footer of SET. */
 static void drawSet(int holdPct) {
 	const char *l1, *l2;
@@ -684,26 +704,9 @@ static void drawSet(int holdPct) {
 
 	struct { ServoProfile p; sweep_cfg_t w; int sel, scroll; bool run; } kl;
 	memset(&kl, 0, sizeof(kl));
-	kl.p = s_edit; kl.w = s_sweep; kl.sel = s_sel; kl.scroll = s_scroll; kl.run = s_st.running;
+	kl.p = s_edit; kl.w = s_sweep; kl.sel = s_sel; kl.scroll = s_list.scrollPx; kl.run = s_st.running;
 	if (changed(1, &kl, sizeof(kl))) {
-		gfxSetClip(0, SET_LIST_Y0, GFX_W, SET_LIST_H);
-		gfxRect(0, SET_LIST_Y0, GFX_W, SET_LIST_H, C_BG);
-		for (int i = 0; i < SET_ROWS; i++) {
-			int y = SET_LIST_Y0 + i * SET_ROW_H - s_scroll;
-			if (y + SET_ROW_H <= SET_LIST_Y0 || y > SET_LIST_Y1) continue;
-			bool sel = i == s_sel;
-			bool locked = ROWS[i].pulse && s_st.running;
-			gfxRect(0, y, GFX_W, SET_ROW_H - 1, sel ? C_PANEL : C_BG);
-			gfxText(UI_MARGIN, y + 3, ROWS[i].group, C_GRID, 1);
-			gfxText(UI_MARGIN, y + 13, ROWS[i].name, sel ? C_TEXT : C_DIM, 1);
-			char v[24];
-			valueText(i, v, sizeof(v));
-			int sc = gfxTextW(v, 2) <= GFX_W - 80 ? 2 : 1;
-			gfxText(GFX_W - UI_MARGIN - gfxTextW(v, sc), y + (SET_ROW_H - 7 * sc) / 2, v,
-			        locked ? C_GRID : (sel ? C_LIME : C_TEXT), sc);
-			gfxHLine(0, y + SET_ROW_H - 1, GFX_W, C_PANEL);
-		}
-		gfxClearClip();
+		uiListDraw(&s_list, drawSetRow, nullptr);
 	}
 
 	struct { int sel; ServoProfile p; sweep_cfg_t w; bool m, pl, cm, cp; } ke;
@@ -738,76 +741,36 @@ static void drawSet(int holdPct) {
 	bool applyOk = s_pending && !s_st.running;
 	struct { bool ok, run, holding, dp; int pct; } kf;
 	memset(&kf, 0, sizeof(kf));
-	kf.ok = applyOk; kf.run = s_st.running; kf.holding = s_holding; kf.pct = holdPct;
+	kf.ok = applyOk; kf.run = s_st.running; kf.holding = s_hold.holding; kf.pct = holdPct;
 	kf.dp = pressing(BTN_DEFAULTS);
 	if (changed(3, &kf, sizeof(kf))) {
 		gfxRect(0, SET_FOOT_Y - 4, GFX_W, GFX_H - SET_FOOT_Y + 4, C_BG);
-		if (s_holding) gfxRect(BTN_APPLY.x, SET_FOOT_Y - 4, BTN_APPLY.w * holdPct / 100, 3, C_LIME);
-		uiButton(BTN_APPLY, "HOLD TO APPLY", s_holding ? C_RED : C_PANEL,
-		         s_holding ? C_ONACCENT : C_TEXT, 1, s_holding, applyOk);
+		uiHoldDrawBar(&s_hold, BTN_APPLY, SET_FOOT_Y - 4, millis());
+		uiButton(BTN_APPLY, "HOLD TO APPLY", s_hold.holding ? C_RED : C_PANEL,
+		         s_hold.holding ? C_ONACCENT : C_TEXT, 1, s_hold.holding, applyOk);
 		if (s_st.running) uiButton(BTN_DEFAULTS, "STOP", C_RED, C_ONACCENT, 2, kf.dp);
 		else              uiButton(BTN_DEFAULTS, "DEFAULTS", C_PANEL, C_AMBER, 1, kf.dp);
 	}
 }
 
 /**
- * @brief List gestures: a vertical drag scrolls, a sideways swipe steps the
- *        row it began on, a press that goes nowhere selects.
+ * @brief List gestures, on ui_list: a vertical drag scrolls, a sideways swipe
+ *        selects the row it began on and steps it coarseOf() steps per
+ *        16 px, a press that goes nowhere selects.
  */
 static void setGesture() {
-	enum : uint8_t { G_NONE, G_VERT, G_HORIZ };
-	static uint8_t mode = G_NONE;
-	static int scrollAtPress = 0, anchorX = 0, candidate = -1;
-	const TouchState *t = s_t;
-	int maxScroll = SET_ROWS * SET_ROW_H - SET_LIST_H;
-
-	if (t->pressed) {
-		mode = G_NONE;
-		scrollAtPress = s_scroll;
-		anchorX = t->x;
-		candidate = -1;
-		if (t->y >= SET_LIST_Y0 && t->y <= SET_LIST_Y1)
-			candidate = (s_scroll + t->y - SET_LIST_Y0) / SET_ROW_H;
-		return;
-	}
-	if (t->released) {
-		if (mode == G_NONE && candidate >= 0 && t->y >= SET_LIST_Y0 && t->y <= SET_LIST_Y1)
-			s_sel = candidate;
-		mode = G_NONE;
-		candidate = -1;
-		return;
-	}
-	if (!t->down || candidate < 0) return;
-	int dx = t->x - t->downX, dy = t->y - t->downY;
-	int adx = dx < 0 ? -dx : dx, ady = dy < 0 ? -dy : dy;
-	if (mode == G_NONE) {
-		if (adx > SET_AXIS_PX && adx >= ady) { mode = G_HORIZ; s_sel = candidate; anchorX = t->x; }
-		else if (ady > SET_AXIS_PX)          mode = G_VERT;
-		else return;
-	}
-	if (mode == G_VERT) {
-		int want = scrollAtPress - dy;
-		s_scroll = want < 0 ? 0 : (want > maxScroll ? maxScroll : want);
-		return;
-	}
-	int steps = (t->x - anchorX) / SET_SWIPE_PX;
-	if (steps == 0) return;
-	anchorX += steps * SET_SWIPE_PX;
-	stepRow(s_sel, steps > 0 ? +1 : -1, (steps > 0 ? steps : -steps) * coarseOf(ROWS[s_sel]));
+	UiListEvent e = uiListTouch(&s_list, s_t);
+	if (e.kind != UiListEv::Tap && e.kind != UiListEv::Swipe) return;
+	s_sel = e.row;
+	if (e.steps) stepRow(s_sel, e.steps, coarseOf(ROWS[s_sel]));
 }
 
 /** @brief Every touch of the SET view. */
 static void setTouch() {
-	if (s_pending && !s_st.running && pressing(BTN_APPLY)) {
-		if (!s_holding) { s_holding = true; s_holdMs = millis(); }
-		if ((uint32_t)(millis() - s_holdMs) >= SV_HOLD_MS) {
-			s_holding = false;
-			s_pending = false;
-			s_profile = s_edit;
-			applyProfile();
-		}
-	} else {
-		s_holding = false;
+	if (uiHoldUpdate(&s_hold, BTN_APPLY, s_t, s_pending && !s_st.running, millis())) {
+		s_pending = false;
+		s_profile = s_edit;
+		applyProfile();
 	}
 
 	int dir = 0;
@@ -877,10 +840,10 @@ void uiServoEnter() {
 	s_mask = SERVO_MASK_AB;
 	s_dragging = false;
 	s_wasRunning = false;
-	s_holding = false;
+	uiHoldReset(&s_hold);
 	s_needLift = false;
 	s_sel = -1;
-	s_scroll = 0;
+	uiListInit(&s_list, SET_VIEW, SET_ROW_H, SET_ROWS);
 	s_repeat = Repeat{};
 	s_full = true;
 	applyProfile();
@@ -903,7 +866,7 @@ bool uiServoTick(const TouchState *t) {
 	if (back && s_view == View::Unplug && !pinClaimUnplugDue()) back = false;
 	if (back) {
 		s_full = true;
-		s_holding = false;
+		uiHoldReset(&s_hold);
 		if (s_view == View::Set) {
 			s_view = View::Main;
 			s_edit = s_profile;
@@ -947,11 +910,7 @@ bool uiServoTick(const TouchState *t) {
 		setTouch();
 	}
 
-	int pct = 0;
-	if (s_holding) {
-		pct = (int)((uint32_t)(millis() - s_holdMs) * 100u / SV_HOLD_MS);
-		if (pct > 100) pct = 100;
-	}
+	int pct = uiHoldPercent(&s_hold, millis());
 	// A view's regions do not cover the rows between them, so a new view
 	// starts from a clear panel.
 	if (s_full) gfxRect(0, 0, GFX_W, GFX_H, C_BG);

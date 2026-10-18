@@ -3,7 +3,9 @@
  * @brief The shared list and hold widgets, driven directly with touch
  *        snapshots: src/ui_list.cpp and src/ui_hold.cpp as shipped.
  *
- * This file holds each rule at its boundary.
+ * The screens that use them, AM32 CONFIG, SERVO, SERVO SET and SETUP, are
+ * tested through the UI in test_ui.cpp and test_servo.cpp. This file holds
+ * each rule at its boundary.
  */
 
 #include "check.h"

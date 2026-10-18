@@ -3,9 +3,10 @@
  * @brief A hold-to-act control: one timer, its progress bar, one firing per
  *        press.
  *
- * It is for the holds of 1000 ms on the screens with a header. HOLD TO ARM
- * keeps its own timer in ui.cpp: it draws its progress in the status badge
- * and adds a zero-throttle condition.
+ * HOLD TO WRITE on AM32, HOLD TO START on SERVO, HOLD TO APPLY on SET and
+ * HOLD TO SAVE on SETUP run on this. HOLD TO ARM keeps its own timer in
+ * ui.cpp: it draws its progress in the status badge and adds a zero-throttle
+ * condition.
  *
  * The rules:
  *

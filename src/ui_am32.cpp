@@ -13,6 +13,7 @@
 #include "am32_eeprom.h"
 #include "pin_claim.h"
 #include "touch.h"
+#include "ui_hold.h"
 #include "ui_input.h"
 #include "ui_list.h"
 #include "ui_widgets.h"
@@ -29,7 +30,6 @@
 #define LIST_Y0      UI_BODY_Y  /**< First pixel row of the list viewport. */
 #define LIST_Y1      215     /**< Last pixel row of the list viewport. */
 #define LIST_H       (LIST_Y1 - LIST_Y0 + 1)
-#define WRITE_HOLD_MS 1000   /**< Hold this long to commit a write. */
 /** @brief Lines of the hex dump: 8 bytes each. */
 #define HEX_LINES    ((AM32_SETTINGS_SIZE + 7) / 8)
 /** @brief Coarse steps of a swipe that cover any field's range. */
@@ -95,8 +95,8 @@ static bool       s_hexView = false;
 static UiList     s_list;
 static int        s_selected = -1;
 static char       s_status[40] = "";
-static uint32_t   s_writeHoldStart = 0;
-static bool       s_writeHolding = false;
+/** @brief HOLD TO WRITE. */
+static UiHold     s_writeHold;
 static uint8_t    s_layoutRev = 0;
 static bool       s_leaving = false;
 static bool       s_redraw = true;
@@ -336,19 +336,14 @@ static void drawList() {
 	// dead-telemetry digit, which has to read as "off" and therefore inverts
 	// direction between the two palettes. A fill that carries white text needs
 	// to be dark in both, and C_RED is.
-	uint16_t writeFill = s_writeHolding ? C_RED : C_PANEL;
-	if (s_writeHolding) {
-		uint32_t held = millis() - s_writeHoldStart;
-		int pct = (int)(held * 100 / WRITE_HOLD_MS);
-		if (pct > 100) pct = 100;
-		gfxRect(6, FOOT_Y - 4, 110 * pct / 100, 3, C_LIME);
-	}
+	bool holding = s_writeHold.holding;
+	uint16_t writeFill = holding ? C_RED : C_PANEL;
+	uiHoldDrawBar(&s_writeHold, BTN_WRITE, FOOT_Y - 4, millis());
 	// Both are gated on the same `dirty` their hit tests are. WRITE already
 	// was; REVERT was drawn grey and ran regardless, which was harmless only
 	// because reverting nothing to nothing is a no-op. @see #23
 	uiButton(BTN_WRITE, dirty ? "HOLD TO WRITE" : "NO CHANGES",
-	         writeFill, s_writeHolding ? C_ONACCENT : C_TEXT, 1,
-	         s_writeHolding, dirty);
+	         writeFill, holding ? C_ONACCENT : C_TEXT, 1, holding, dirty);
 	uiButton(BTN_REVERT, "REVERT", C_PANEL, C_AMBER, 1,
 	         uiPressing(BTN_REVERT, s_frameTouch), dirty);
 	uiButton(BTN_HEX, s_hexView ? "FIELDS" : "HEX", C_PANEL, C_CYAN, 1,
@@ -387,7 +382,7 @@ void uiAm32Enter() {
 	s_selected = -1;
 	s_leaving = false;
 	s_redraw = true;
-	s_writeHolding = false;
+	uiHoldReset(&s_writeHold);
 	s_visibleCount = 0;
 	openList();
 #if AM32_FORCE_LOW_JUMP
@@ -505,26 +500,18 @@ static void doWrite() {
 
 static void handleListTouch(const TouchState *t) {
 	// --- write button: needs every frame, including finger-off, to time the
-	//     hold and to cancel it the moment the finger moves away. Press-origin
-	//     gated (uiPressing), so a drag that strays in from the list cannot
-	//     start a hold it never announced -- the drawn pressed state already
-	//     required the press to begin on the button, and firing has to agree
-	//     with feedback ---
+	//     hold and to cancel it the moment the finger moves away. Only a press
+	//     that began on the button counts (ui_hold.h), so a drag that strays
+	//     in from the list cannot start a hold ---
 	bool dirty = anyDirty();
-	if (dirty && uiPressing(BTN_WRITE, t)) {
-		if (!s_writeHolding) { s_writeHolding = true; s_writeHoldStart = millis(); }
-		if (millis() - s_writeHoldStart >= WRITE_HOLD_MS) {
-			s_writeHolding = false;
-			s_state = S_WRITING;
-			snprintf(s_status, sizeof(s_status), "WRITING...");
-			s_redraw = true;
-			return;
-		}
+	bool wasHolding = s_writeHold.holding;
+	if (uiHoldUpdate(&s_writeHold, BTN_WRITE, t, dirty, millis())) {
+		s_state = S_WRITING;
+		snprintf(s_status, sizeof(s_status), "WRITING...");
 		s_redraw = true;
-	} else {
-		if (s_writeHolding) s_redraw = true;
-		s_writeHolding = false;
+		return;
 	}
+	if (wasHolding || s_writeHold.holding) s_redraw = true;
 
 	// --- editor bar: also needs every frame, to drive hold-to-repeat.
 	//     Same press-origin rule: a swipe on the bottom list row that slid
