@@ -1,11 +1,12 @@
 # Menu restructure: MENU and SETTINGS
 
-Status: planned, nothing built. Slices A to C below come before KST
-programming, slice 3 of [pin-claim.md](pin-claim.md), and
-[kst-programming.md](kst-programming.md) builds on them. Line numbers in
-`src/`, `test/`, `tools/`, README.md and the wiki name 9c0f3b9, origin/main,
-which this branch leaves unchanged in those files; line numbers in STATUS.md
-and the design notes name this branch.
+Status: slice A built, host tests only, not tested on hardware: `ui_list`
+under the AM32 and SERVO SET lists, `ui_hold` under four holds. Slices B and
+C are planned. Slices A to C come before KST programming, slice 3 of
+[pin-claim.md](pin-claim.md), and [kst-programming.md](kst-programming.md)
+builds on them. Line numbers in `src/`, `test/`, `tools/`, README.md and the
+wiki name 9c0f3b9, the tree the review read, not the tree with slice A; line
+numbers in STATUS.md and the design notes name 4c91db9.
 
 Terms: UI is user interface, ESC electronic speed controller, DShot the
 digital ESC protocol the tester drives, EDT Extended DShot Telemetry, AM32 an
@@ -373,9 +374,9 @@ Two floors, in `ui_widgets.h`:
   100 × 36 px.
 
 AM32 and SERVO SET use one list idiom, so they move together (decision 16).
-In slice A both go onto `ui_list` with today's 26 px rows and today's press
-rule, any visible part of a row. In slice C both go to 40 px rows at a 42 px
-pitch and the 40 px partial-visibility rule. Each viewport, y 62 to 215,
+Slice A puts both on `ui_list` with their 26 px rows and their press rule,
+any visible part of a row. In slice C both go to 40 px rows at a 42 px pitch
+and the 40 px partial-visibility rule. Each viewport, y 62 to 215,
 154 px, then shows three whole rows instead of five and part of a sixth; the
 editor bars and footers do not change. Row text keeps its layout, centred in
 the taller row: today the group caption is at +3, the name at +13 and a
@@ -397,41 +398,45 @@ rows of either list.
 - selects the candidate on release when the finger never locked;
 - counts only a gesture that began inside the viewport;
 - never scrolls under a press that began on a control inside a row
-  (SETTINGS' − and + and toggles);
+  (SETTINGS' − and + and toggles; slice C, which brings the first row with
+  controls);
 - clips each row and control to the viewport, and takes a press on a cut one
   only while at least the list's minimum is visible: in slice A any visible
   part, today's rule for AM32 and SERVO SET; from slice C 40 px for every
   list;
 - sets the scroll to 0 px when its screen opens.
 
-The sideways swipe (decision 10): one coarse step per 16 px of travel
-(`UI_SWIPE_STEP_PX`), the anchor moving by whole steps, times a factor the
-row gives. A coarse step that would pass a rail stops at the rail, on the
-field's step, and the anchor follows the finger there, so a swipe back
-responds at once and both rails are reachable by swipe. That is what both
-lists do today: SERVO SET's `stepRow()` (`ui_servo.cpp:624`) steps one unit
-at a time while `canStep()` (`ui_servo.cpp:611`) allows it, and AM32 clamps to
-`rawMin` or `rawMax` and re-anchors (`ui_am32.cpp:700-708`).
+The sideways swipe (decision 10), built in slice A: one coarse step per
+16 px of travel (`UI_SWIPE_STEP_PX`), the anchor moving by whole steps, times
+a factor the row gives. `uiSwipeApply()` takes the row's own steps one at a
+time while the row allows them, so a coarse step that would pass a rail stops
+at the rail, on the field's step. The anchor moves on by whole steps while
+the value waits at the rail, so travel past the rail is not stored, the first
+coarse step back moves the value off it, and both rails are reachable by
+swipe. SERVO SET's steps are those of `stepRow()`, which steps while
+`canStep()` allows it, as at 9c0f3b9 (`ui_servo.cpp:611`, `:624`); AM32's are
+those of `am32Adjust()`, the steps of − and +.
 
 | List | Factor per coarse step |
 |---|---|
 | SERVO SET | as today (`coarseOf()`): 10 for MIN, CENTRE, MAX and the sweep numbers, 1 for the choices |
-| AM32 | the field's step × ⌈range ÷ (11 × step)⌉: 11 coarse steps, 176 px, cover any field's range, and values stay on the field's step. A range of 255 at step 1 gives 24 per step; the eleventh step lands on the rail, 255, by the clamp |
+| AM32 | the field's step × ⌈range ÷ (11 × step)⌉ (`coarseFactor()`): 11 coarse steps, 176 px, cover any field's range, and values stay on the field's step. A range of 255 at step 1 gives 24 per step; the eleventh step lands on the rail, 255, by the clamp. Every range in the field table is a whole number of its steps, so each rail is on the step; the host suite checks both |
 | KST field list (slice 3) | from the field table, set in slice 3; a value that breaks a hard limit is skipped, as the steppers skip it |
 | MENU, SETTINGS | no sideways mode |
 
-AM32's rule changes: today 180 px cover a field's whole range in proportion
-to the finger's travel (`ui_am32.cpp:602`, `:695-696`). The text that changes
-with it in slice A: README.md:695, `**Coarse**: 180 px of travel covers the
-field's whole range`, and the same row in the wiki pages
-AM32-Configuration.md:66 and AM32-Konfiguration.md:68.
+Slice A replaces AM32's swipe at 9c0f3b9, in which 180 px cover a field's
+whole range in proportion to the finger's travel (`ui_am32.cpp:602`,
+`:695-696`). The text that goes with it: README.md:695, `**Coarse**: 180 px
+of travel covers the field's whole range`, and the same row in the wiki pages
+AM32-Configuration.md:66 and AM32-Konfiguration.md:68, with the paragraph
+under each table.
 
 ## Code
 
 | File | What it holds |
 |---|---|
-| `src/ui_list.{h,cpp}` | the list: geometry, scroll in pixels, the gesture above, clipping, the scroll bar, a row's rectangle on the current frame |
-| `src/ui_hold.{h,cpp}` | one 1000 ms hold (`UI_HOLD_MS`, which is `ARM_HOLD_MS`): counts only a press that began on its control, a slide off cancels, latched until the finger lifts, progress 0 % to 100 %, and the 3 px progress bar |
+| `src/ui_list.{h,cpp}` | slice A: the list: geometry, scroll in pixels, the gesture above, clipping, a row's rectangle on the current frame. Slice C adds the scroll bar, which MENU and SETTINGS draw and AM32 and SERVO SET do not |
+| `src/ui_hold.{h,cpp}` | slice A: one 1000 ms hold (`UI_HOLD_MS`, which is `ARM_HOLD_MS`): counts only a press that began on its control, a slide off cancels, latched until the finger lifts or a new press lands, progress 0 % to 100 %, and the 3 px progress bar |
 | `src/ui_screen.h` | slice B: `UiScreenId`, `UiControlId`, `UiControl`, and `UiScreen` with its `id` and `controls` members; slice C: the rest of `UiScreen`, `SettingsRow`, `SettingsSection`, `UiMenuEntry` |
 | `src/ui_registry.cpp` | slice C: one line per MENU row, in MENU order, and the fit check |
 | `src/ui_menu.cpp` | MENU, the BEEP action and its flash (from `ui.cpp`) |
@@ -651,25 +656,26 @@ in the tool's section and, because the field is new, a version step: slice
 ## Documentation, wiki and screenshots
 
 README.md and the wiki describe the built system, so slice C changes them,
-not this change. Slice A changes the AM32 swipe text only.
+not this change. Slice A changes the AM32 swipe text, the name of the
+hold's constant and the source layout only.
 
 | File | Lines today | Change | Slice |
 |---|---|---|---|
-| README.md | 695 | AM32 coarse swipe: 16 px per coarse step, 176 px for any field's range | A |
+| README.md | 398, 695, 703-706 | `SAVE_HOLD_MS` → `UI_HOLD_MS`; AM32 coarse swipe: 16 px per coarse step, 176 px for any field's range; the rail rule | A |
 | README.md | 25-26 | "its button on the settings screen" → its row on MENU | C |
 | README.md | 140, 153, 443, 456, 558, 573, 589-598, 657, 766, 799 | `CFG → SETUP`, `CFG → SD LOG`, `CFG → AM32`, `CFG → SERVO`, "under SETUP" → MENU paths and SETTINGS | C |
 | README.md | 308 | the CFG bullet → MENU | C |
 | README.md | 324-356 | "Settings screen" → MENU: the rows, BEEP's flash on the row, the strip; today's KST entry (347-348) goes until slice 3 | C |
 | README.md | 376-407 | "SETUP screen" → SETTINGS: the sections, the row table with MOTOR POLES and MAX THROTTLE at the top, the scroll | C |
 | README.md | 885 | Safety: "Opening CFG disarms" → MENU | C |
-| README.md | 925-945 | Layout: `ui_setup` → `ui_settings`; `ui_list`, `ui_hold`, `ui_screen.h`, `ui_registry.cpp`, `ui_menu.cpp`, `ui_sdlog.cpp` | C |
+| README.md | 925-945 | Layout: `ui_list`, `ui_hold` (A); `ui_setup` → `ui_settings`; `ui_screen.h`, `ui_registry.cpp`, `ui_menu.cpp`, `ui_sdlog.cpp` (C) | A, C |
 | README.md | 1012-1026 | the rendered screens: CFG and SETUP shots → MENU and SETTINGS, the scrolled SETTINGS | C |
 | wiki The-Screens.md, Die-Bildschirme.md | 1-16, 28, 52, 56-125; 1-16, 28, 53, and the Settings and SETUP sections | the tree, "as set under SETUP", the `CFG` button, Settings → MENU, SETUP → SETTINGS, SD LOG's BACK | C |
 | wiki First-Run.md, Erste-Schritte.md | 45, 54, 121, 132; 47, 58, 126, 137 | CFG and SETUP paths, "Both values are stored only when saved" | C |
 | wiki Troubleshooting.md, Fehlersuche.md | 30, 91, 151, 158; 33, 97, 162, 169 | CFG and SETUP paths | C |
 | wiki Telemetry.md, Telemetrie.md | 84, 130, 154; 87, 137, 163 | "under SETUP", `CFG → SETUP → KISS TELEM` | C |
 | wiki Servo-Tester.md, Servotester.md | 44, 52, 129, 195, 209; 47, 55, 138, 208, 223 | `CFG → SERVO`, `CFG → SETUP`, "under SETUP", the unplug page returning to "the settings screen" → MENU; the SET list's 40 px rows | C |
-| wiki AM32-Configuration.md, AM32-Konfiguration.md | 66, 18, 112-113; 68, 18, 116 | the swipe row (A); `CFG → AM32`, BACK returning to "the settings screen" → MENU, the 40 px rows (C) | A, C |
+| wiki AM32-Configuration.md, AM32-Konfiguration.md | 66, 72-74, 18, 112-113; 68, 74-76, 18, 116 | the swipe row and the paragraph under it (A); `CFG → AM32`, BACK returning to "the settings screen" → MENU, the 40 px rows (C) | A, C |
 | wiki SD-Logging.md, SD-Aufzeichnung.md | 110; 118 | BACK leaves SD LOG for MENU | C |
 | wiki Home.md | 60, 69 | `CFG → SETUP` | C |
 | CHANGELOG.md | | each slice's entry | A, B, C |

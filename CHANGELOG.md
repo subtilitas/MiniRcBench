@@ -240,6 +240,23 @@ protocol.
   SERVO, KST and SETUP in the bottom row, 50 px each. KST is drawn disabled
   and does not act.
 - A settings save is refused while a pin claim holds.
+- The AM32 list and the SERVO SET list run on one list, `src/ui_list.h` and
+  `src/ui_list.cpp`: scroll in pixels, the axis lock after 6 px, a tap on
+  release, and one sideways swipe of 16 px per coarse step with a factor per
+  row. A coarse step that would pass a rail stops at the rail, and travel
+  past the rail is not stored.
+- AM32's sideways swipe moves a field one coarse step per 16 px: its range
+  over 11 steps, rounded up, 24 for a field of 0 to 255, so 176 px cover any
+  field's range. A 180 px swipe covered the range in proportion to the
+  finger's travel. A coarse step is made of the steps of `-` and `+`, so an
+  ADVANCE byte in the pre-1.90 encoding keeps its angle. SERVO SET's swipe
+  does not change.
+- HOLD TO WRITE on AM32, HOLD TO START on SERVO, HOLD TO APPLY on SET and
+  HOLD TO SAVE on SETUP run on one hold, `src/ui_hold.h` and
+  `src/ui_hold.cpp`: 1000 ms, one firing per press, and its 3 px progress
+  bar. HOLD TO ARM keeps its own timer.
+- The host suite runs `runWidgetTests` from `test/test_widgets.cpp`, the
+  list and the hold at each rule's boundary.
 
 ### Removed
 
