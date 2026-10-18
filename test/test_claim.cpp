@@ -959,7 +959,8 @@ static void testHeartbeat() {
 	checkTrue("dead at 250 ms", !escUiAlive(0xFFFFFF9Cu + 250u, 0xFFFFFF9Cu));
 	checkTrue("and dead at 400 ms", !escUiAlive(0xFFFFFF9Cu + 400u, 0xFFFFFF9Cu));
 	// A stamp newer than the clock, as when a read order lets core0 stamp
-	// between the two reads: alive up to the timeout ahead, as a backstop.
+	// between the two reads: alive while less than the timeout ahead, as a
+	// backstop.
 	checkTrue("a heartbeat 1 ms newer than the clock: alive", escUiAlive(5000, 5001));
 	checkTrue("1 ms newer, across the wrap: alive", escUiAlive(0xFFFFFFFFu, 0u));
 	checkTrue("249 ms newer: alive", escUiAlive(5000, 5249));

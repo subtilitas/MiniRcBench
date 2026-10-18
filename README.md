@@ -815,7 +815,10 @@ valid PWM throttle signal; it claims by itself 500 ms after the ESC goes
 quiet. That check misses an ESC that does not answer in bidirectional DShot,
 so the screen says `PULSES ON GP29 ARE THROTTLE TO AN ESC.` Two servos also
 need AUX free: a KISS frame within 500 ms, or SIG and AUX on one GPIO, leaves
-one servo only, with the reason on the SET screen.
+one servo only, with the reason on the SET screen. Once the screen holds SIG
+alone, TWO stays off until the screen is opened again. While the screen holds
+no claim, for example while an ESC answers, each claim asks for both pins
+again, and TWO is offered once AUX is free.
 
 | Control | What it does |
 |---|---|
@@ -859,7 +862,7 @@ stored: every entry starts at STANDARD PWM 50 Hz.
 **BACK.** `BACK` ends the pulses and shows `UNPLUG THE SERVO.` Core1 lets the
 pins go only after the last pulse has completed: it writes level 0 and waits
 two frames plus 1 ms, 41 ms at 50 Hz, before the pins leave PWM, so no pulse
-is cut short. A rate change waits the same way before the rebind. The
+is cut short. A profile change waits the same way before the rebind. The
 released pins are inputs with the pull-down on until DShot takes SIG back
 and, with KISS on, the KISS receiver takes AUX.
 

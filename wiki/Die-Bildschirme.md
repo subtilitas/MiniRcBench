@@ -160,8 +160,9 @@ Pins zurückbekommt. Siehe [Servotester](Servotester).
 ## Was jeder Bildschirm gleich macht
 
 - **Ein Tippen wirkt beim Loslassen, nicht beim Berühren.** Rutschst du vor
-  dem Loslassen von der Schaltfläche, wird nichts ausgelöst. `DISARM` ist die
-  Ausnahme und wirkt beim Berühren.
+  dem Loslassen von der Schaltfläche, wird nichts ausgelöst. Die Ausnahmen
+  wirken beim Berühren: `DISARM` sowie `STOP` auf dem Servobildschirm und auf
+  seinem SET-Bildschirm.
 - **Eine gedrückte Schaltfläche zeigt einen Druckrahmen.** Zeigt ein
   Bedienelement keinen Rahmen, hat es die Berührung nicht erkannt.
 - **`-` / `+` wiederholen beim Halten und werden schneller.** Ein Schritt beim

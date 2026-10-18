@@ -536,8 +536,8 @@ Slice 2 also changes these shared files:
 - `src/core1_job.h` and `.cpp`: the `init` member of `Core1JobOps`,
   `release` taking the time and returning whether the pins are let go, and
   `core1UiAlive()` reading the heartbeat stamp before `millis()`;
-- `src/esc_task.h` and `.cpp`: `escUiAlive()` counting a stamp newer than
-  the clock as alive, and the pump reading the stamp first;
+- `src/esc_task.h` and `.cpp`: `escUiAlive()` counting a stamp less than
+  250 ms newer than the clock as alive, and the pump reading the stamp first;
 - `src/gfx.cpp` and `gfx.h`: the line and arc primitives;
 - `src/main.cpp`: the servo job and headers in its overview;
 - `test/Makefile`: a generic rule for each feature's C sources and C test
@@ -550,14 +550,18 @@ Slice 2 also changes these shared files:
 - `tools/notices.py` (the `lib/rcbench/` rule), `tools/coverage.py` (its
   scope text), `tools/make_previews.py` and `tools/check_wiki.py` (the servo
   images and page pair), and the copied headers' include paths in the config
-  permutations of `ci.yml`.
+  permutations of `ci.yml`;
+- `docs/design/kst-programming.md`: the owner's KST decisions 1 to 4;
+- `docs/settings-preview.png` and `docs/setup-preview.png`: regenerated,
+  since the CFG screen shows SERVO live.
 
 The slices share three documentation files, each adding its own section:
 `README.md` (slice 3 also adds the legal notice), `wiki/_Sidebar.md` and
 `wiki/The-Screens.md` with its German counterpart. Each also updates its
 entries in `STATUS.md`, `CHANGELOG.md`, `docs/design/README.md` and
-`wiki/Home.md`. Each slice's user pages are new wiki files of its own. The
-second slice to merge resolves those sections by hand.
+`wiki/Home.md`; slice 2 also names its STOP buttons in `wiki/First-Run.md` and
+`wiki/Erste-Schritte.md`. Each slice's user pages are new wiki files of its
+own. The second slice to merge resolves those sections by hand.
 
 ## Decisions
 

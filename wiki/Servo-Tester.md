@@ -127,7 +127,10 @@ moves the opposite way when both follow, for a pair mounted face to face.
 
 Two servos need the KISS pin free. If KISS frames arrive on it, or the ESC pin
 and the KISS pin are the same pin under SETUP, the screen offers one servo
-only, and the SET screen says why.
+only, and the SET screen says why. Once the screen has taken the ESC pin
+alone, `TWO` stays off until you open the screen again. While the screen is
+still waiting for the pins, for example while an ESC answers, `TWO` comes
+back as soon as the KISS pin is free.
 
 <img src="img/servo-samepin.png" width="240" alt="TWO not offered: both pins are one GPIO">
 

@@ -427,8 +427,9 @@ the screen handed over on entry; a command sent before the bind is not taken.
 
 The claim asks for SIG and AUX together. When it refuses AUX, for a live KISS
 wire or one GPIO for both, the screen claims SIG alone and offers one servo
-for the rest of its visit (decision 7). The job binds AUX only for a profile
-with two servos.
+for the rest of its visit. If the claim of SIG alone is refused too, a later
+claim of both that goes through offers TWO again (decision 7). The job binds
+AUX only for a profile with two servos.
 
 ## Porting
 
@@ -544,9 +545,15 @@ Choices made in building slice 2, where the design above was silent or the
 code needed a rule it did not give:
 
 7. **AUX refused.** The screen asks for SIG and AUX; on `KissLive` or
-   `SamePin` it claims SIG alone. TWO is then not offered until the screen is
-   left and opened again. A profile set to TWO before the claim falls back to
-   one servo.
+   `SamePin` it claims SIG alone. Two cases follow:
+   - The claim of SIG alone goes through. TWO is not offered for the rest of
+     the visit: the screen claims only while it holds no claim, and BACK on
+     the unplug page keeps the roles it holds. A profile set to TWO before
+     the claim falls back to one servo.
+   - The claim of SIG alone is refused too, for example while an ESC
+     answers. A later frame asks for SIG and AUX again, and when that claim
+     goes through the AUX refusal is cleared and TWO is offered without
+     leaving the screen.
 8. **Profile at entry.** Every entry to SERVO starts at STANDARD PWM, 50 Hz,
    one servo, SPEED 100 % and the default sweep, not only every boot. BACK
    leads through the unplug page, so the next entry is likely a different

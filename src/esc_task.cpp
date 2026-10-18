@@ -428,7 +428,7 @@ void escTaskPoll() {
 	// does the I/O. During the drain the slot is escDrainSlot(): a plain
 	// zero, with no command and no KISS request.
 	// The heartbeat stamp before the clock, so the clock is never older than
-	// it; escUiAlive() accepts a stamp newer than the clock as well.
+	// it; escUiAlive() also accepts a stamp less than 250 ms newer.
 	uint32_t hb = s_heartbeatMs;
 	uint32_t ms = millis();
 	bool uiAlive = escUiAlive(ms, hb);

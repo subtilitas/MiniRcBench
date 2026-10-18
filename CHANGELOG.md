@@ -127,9 +127,9 @@ protocol.
   250 ms stops the pulses until the next HOLD TO START. The SET screen
   changes the profile only while SAFE and holds a heli profile or a rate
   above 60 Hz behind a warning and HOLD TO APPLY; while RUNNING its footer
-  offers STOP in place of DEFAULTS. BACK and a rate change wait for the last
-  pulse to complete before they let the pins go, and a released pin is an
-  input with the pull-down on. BACK shows the unplug page before DShot
+  offers STOP in place of DEFAULTS. BACK and a profile change wait for the
+  last pulse to complete before they let the pins go, and a released pin is
+  an input with the pull-down on. BACK shows the unplug page before DShot
   restarts. Not tested on hardware.
 - `src/servo_model.*`, the servo tester's rules as pure functions;
   `src/servo_pwm.*`, adapted from rcbench's PWM driver; `src/servo_job.*`,
@@ -267,10 +267,10 @@ protocol.
 ### Fixed
 
 - The DShot pump reads the heartbeat stamp before `millis()`, and
-  `escUiAlive()` counts a stamp newer than the time it is judged at as
-  alive. Core0 could stamp a heartbeat between core1's read of `millis()` and
-  its read of the stamp; the age then read as 2^32 - 1 ms, and the pump sent
-  throttle zero for that frame although the UI ran.
+  `escUiAlive()` counts a stamp less than 250 ms newer than the time it is
+  judged at as alive. Core0 could stamp a heartbeat between core1's read of
+  `millis()` and its read of the stamp; the age then read as 2^32 - 1 ms, and
+  the pump sent throttle zero for that frame although the UI ran.
 - The DShot pump drops a beacon that is owed or not yet latched when the ESC
   arms. No command frame goes out armed, so an arm before the beacon's last
   frame could leave it owed until disarm: no KISS request went out while

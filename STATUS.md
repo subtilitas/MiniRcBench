@@ -271,8 +271,10 @@ Not in this history: the DshotDisplay repository's branches
     - STOP latency: the last pulse ends within one frame, 20 ms at 50 Hz;
     - the heartbeat trip: core0 halted in a debugger, the pulses stop
       250 ms after the last UI frame;
-    - the last pulse at BACK and at a rate change while RUNNING: complete,
-      not cut short, and the pins let go about 41 ms after STOP at 50 Hz;
+    - the last pulse at BACK while RUNNING and at a profile change right
+      after STOP: complete, not cut short; the pins leave PWM about 41 ms
+      after BACK, and the rebind waits until about 41 ms after STOP, at
+      50 Hz;
     - the line after the release (an input with the pull-down on) and
       through the unplug page, then DShot back on RESTART DSHOT;
     - STOP on SET while RUNNING: level 0 within one frame, as on SERVO;

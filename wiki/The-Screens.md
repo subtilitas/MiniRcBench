@@ -156,7 +156,8 @@ touch. `SET` opens the profile and sweep settings. `BACK` shows
 ## Things every screen does the same way
 
 - **A tap acts on release, not on touch.** Sliding off a button before release
-  cancels it. `DISARM` is the exception and acts on touch.
+  cancels it. The exceptions act on touch: `DISARM`, and `STOP` on the servo
+  screen and on its SET screen.
 - **A pressed button shows a pressed outline.** A control that shows no outline
   did not register the touch.
 - **`-` / `+` repeat while held, and speed up.** One step on press; after

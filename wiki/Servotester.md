@@ -136,7 +136,10 @@ spiegelbildlich eingebaut ist.
 
 Zwei Servos brauchen einen freien KISS-Pin. Kommen dort KISS-Telegramme an,
 oder sind ESC-Pin und KISS-Pin unter SETUP derselbe Pin, bietet der
-Bildschirm nur ein Servo an, und der SET-Bildschirm nennt den Grund.
+Bildschirm nur ein Servo an, und der SET-Bildschirm nennt den Grund. Hat der
+Bildschirm den ESC-Pin allein übernommen, bleibt `TWO` aus, bis du den
+Bildschirm erneut öffnest. Wartet er noch auf die Pins, etwa weil ein ESC
+antwortet, wird `TWO` wieder angeboten, sobald der KISS-Pin frei ist.
 
 <img src="img/servo-samepin.png" width="240" alt="TWO nicht verfügbar: beide Pins sind derselbe GPIO">
 
