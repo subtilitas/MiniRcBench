@@ -1773,6 +1773,18 @@ static void testTwoServos() {
 	fakePress(BTN_START.x + 20, BTN_START.y + 10); uiFrames(1); core1();
 	fakeRelease(); uiFrames(1);
 	checkTrue("STOP stops both", fakePin(29).level == 0 && fakePin(28).level == 0);
+	// B selected, then SERVOS ONE: the selection no longer applies, and the
+	// one servo on SIG follows the dial.
+	tapRect(BTN_SEL_B);
+	tapRect(BTN_SET);
+	uiFrames(1);
+	selectRow(ROW_SERVOS);
+	stepSel(-1);
+	checkTrue("SERVOS ONE", s_profile.servos == 1);
+	uiTap(UI_BACK_CX, UI_BACK_CY);
+	holdStart();
+	tapRect(BTN_MAX); core1();
+	checkInt("ONE after B selected: MAX moves A", fakePin(29).level, 2000);
 	leaveServo();
 }
 

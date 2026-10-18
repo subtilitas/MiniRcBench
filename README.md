@@ -980,9 +980,9 @@ wiki/                   the user manual, mirrored to the GitHub wiki
 .github/workflows/      ci.yml (CI), release.yml (Release), docs.yml (Docs: wiki publishing)
 ```
 
-All firmware source is under `src/`, `main.cpp` included, except two rcbench
-files the servo tester uses, copied unchanged into `lib/rcbench/` with
-rcbench's own layout (`lib/rcbench/README.md`). Files include each other as
+All firmware source is under `src/`, `main.cpp` included, except rcbench's
+sweep curve and GPIO-to-PWM map: four files copied unchanged into
+`lib/rcbench/` with rcbench's own layout (`lib/rcbench/README.md`). Files include each other as
 plain siblings, except two drivers with folders of their own: the DShot
 driver in `src/dshot/`, so that it can be compared with its rcbench original,
 and the SDIO card driver in `src/sdio/`, whose `compat/` headers have to keep
