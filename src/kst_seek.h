@@ -98,7 +98,8 @@ KstSeek kstSeekStep(KstSeekState *s, kst_session_t *ses, bool uiAlive, uint32_t 
 
 /**
  * @brief STOP SEARCH or BACK: abort the running attempt. A frame on the wire
- *        finishes; kstSeekStep() returns Stopped once the attempt has ended.
+ *        finishes; kstSeekStep() returns Stopped once the attempt has ended
+ *        aborted, or Failed with the attempt's result when its frame faulted.
  *        A no-op unless Searching.
  */
 void kstSeekStop(KstSeekState *s, kst_session_t *ses);

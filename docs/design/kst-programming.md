@@ -272,9 +272,12 @@ One attempt, from `kstSeekStep()`:
    attempt starts at step 1.
 
 One attempt is 2000 ms, plus `KST_SUPPLY_ENTRY_DELAY_MS`, plus the entry's
-116.6 ms to 118.8 ms: about 2.12 s at a delay of 0 ms. The 30 s search
-then holds 14 power-ups: 14 attempts end by 29.66 s, and at 30 s the 15th
-is in its off phase.
+116.6 ms to 118.8 ms: about 2.12 s at a delay of 0 ms. The timeout is
+checked in an off phase too: a search that reaches `KST_SEEK_TIMEOUT_MS`,
+30 s, in an off phase ends there as `TimedOut`, without the switch-on, and an
+attempt is counted at its switch-on. The 30 s search then holds 14 power-ups:
+14 attempts end by 29.66 s, the 15th is in its off phase at 30 s, and
+`KstStatus.attempts` reads 14.
 
 STOP SEARCH, BACK and the timeout end the search with the supply off. In an
 off phase the supply is not switched on. In an on phase it goes off once
@@ -677,21 +680,22 @@ uint32_t kstSeekMs(const KstSeekState *s, uint32_t nowMs);
   2000 ms off ([search with the switch](#search-with-the-switch)). Frames take
   about 6 ms of each attempt (two reads of 1.37 ms and a sync of 3.23 ms); the
   rest is low line and listening.
-- `KST_SES_OK` is `Found`. Any result but `KST_SES_ERR_NO_SERVO` ends the
-  search as `Failed`, with that result shown, a stopped attempt's
-  `KST_SES_ERR_DRIVER` too; a session that refuses the entry, because
-  another operation runs, ends it at once.
+- `KST_SES_OK` is `Found`. Any result but `KST_SES_ERR_NO_SERVO` and a
+  stop's `KST_SES_ERR_ABORTED` ends the search as `Failed`, with that result
+  shown, a stopped attempt's `KST_SES_ERR_DRIVER` too; a session that refuses
+  the entry, because another operation runs, ends it at once.
 - The session takes an abort before it reads the window. A STOP SEARCH while
   the sync is on the wire to a servo that acknowledges it ends the search as
   `Stopped` with the servo in programming mode; the first read of a RETRY
   finds it, as it finds any servo already in the mode.
-- The search ends as `TimedOut`, which offers RETRY (decision 2), when an
-  attempt ends `KST_SEEK_TIMEOUT_MS`, 30 s, or later after the search began:
-  at 30.0 s to 30.12 s. It ends as `Stopped` at STOP SEARCH or BACK. That is
-  258 attempts in the simulation without a switched supply, and 14
-  power-ups with one by the timing in
-  [search with the switch](#search-with-the-switch). `kstSeekStop()` calls
-  `kst_session_abort()`, which finishes a frame on the wire before it stops.
+- Without a switched supply the search ends as `TimedOut`, which offers
+  RETRY (decision 2), when an attempt ends `KST_SEEK_TIMEOUT_MS`, 30 s, or
+  later after the search began: at 30.0 s to 30.12 s, after 258 attempts in
+  the simulation. With one it ends at 30 s in an off phase, after 14
+  power-ups ([search with the switch](#search-with-the-switch)). It ends as
+  `Stopped` at STOP SEARCH or BACK once the attempt has ended aborted.
+  `kstSeekStop()` calls `kst_session_abort()`, which finishes a frame on the
+  wire before it stops.
 - A heartbeat lapse ([pin-claim.md](pin-claim.md#heartbeat-and-watchdog))
   lets the running attempt end and starts no new one: `NoUi`. With a
   switched supply the search also ends with the supply off
