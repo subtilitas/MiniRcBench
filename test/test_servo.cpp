@@ -1431,11 +1431,10 @@ static void dialDrag(float deg0, float deg1, bool lift = true) {
 
 /** @brief The SET row @p i: scroll it into view and tap it. */
 static void selectRow(int i) {
-	s_scroll = i * SET_ROW_H > SET_ROWS * SET_ROW_H - SET_LIST_H
-	         ? SET_ROWS * SET_ROW_H - SET_LIST_H : i * SET_ROW_H;
+	uiListScrollTo(&s_list, i * SET_ROW_H);
 	s_full = true;
 	uiFrames(1);
-	int y = SET_LIST_Y0 + i * SET_ROW_H - s_scroll + SET_ROW_H / 2;
+	int y = SET_LIST_Y0 + i * SET_ROW_H - s_list.scrollPx + SET_ROW_H / 2;
 	uiTap(120, y);
 }
 
@@ -1451,10 +1450,10 @@ static void stepSel(int dir, int n = 1) {
 /** @brief Swipe SET row @p i sideways by one swipe step in @p dir. */
 static void swipeRow(int i, int dir) {
 	selectRow(i);
-	int y = SET_LIST_Y0 + i * SET_ROW_H - s_scroll + SET_ROW_H / 2;
+	int y = SET_LIST_Y0 + i * SET_ROW_H - s_list.scrollPx + SET_ROW_H / 2;
 	int x = 120;
 	fakePress(x, y); uiFrames(1);
-	for (int d = 0; d <= SET_AXIS_PX + 2 + SET_SWIPE_PX; d += 4) {
+	for (int d = 0; d <= UI_AXIS_LOCK_PX + 2 + UI_SWIPE_STEP_PX; d += 4) {
 		fakeHold(x + dir * d, y); uiFrames(1);
 	}
 	fakeRelease(); uiFrames(1);
@@ -1524,7 +1523,8 @@ static void testHoldToStart() {
 	fakeHold(x, y); frameAt(SV_HOLD_MS - 1);
 	core1();
 	checkTrue("held 999 ms: not started", !s_st.running && fakePin(29).level == 0);
-	checkTrue("the bar shows the hold", s_holding && pixel(BTN_START.x + 2, SV_BAR_Y + 1) == C_LIME);
+	checkTrue("the bar shows the hold", s_hold.holding && pixel(BTN_START.x + 2, SV_BAR_Y + 1) == C_LIME);
+	checkTrue("and the button is red while held", fillOf(BTN_START) == C_RED);
 	fakeHold(x, y); frameAt(1);
 	core1();
 	ServoStatus st;
@@ -1560,7 +1560,7 @@ static void testHoldToStart() {
 	core1();
 	servoJobStatus(&st);
 	checkTrue("the press that stopped it, held 2000 ms, does not start it again",
-	          !st.running && !s_holding);
+	          !st.running && !s_hold.holding);
 	fakeRelease(); uiFrames(1);
 
 	// A hold that slides off before 1000 ms starts nothing.
@@ -1578,6 +1578,38 @@ static void testHoldToStart() {
 	core1();
 	checkTrue("a press slid onto it: nothing", fakePin(29).level == 0);
 	fakeRelease(); uiFrames(1);
+	leaveServo();
+}
+
+/**
+ * @brief A press that lands on HOLD TO START while it is drawn disabled never
+ *        starts the servo, however long it stays after the claim goes live.
+ */
+static void testStartNeedsLivePress() {
+	section("Servo screen: a press on a disabled HOLD TO START never starts it");
+
+	freshUi();
+	uiTap(UI_CFG_X, UI_CFG_Y);
+	uiFrames(1);
+	uiTap(UI_SERVO_X, UI_NAV_Y);
+	int x = BTN_START.x + 20, y = BTN_START.y + 10;
+	fakePress(x, y); uiFrames(1); core1();
+	checkTrue("at the press the claim is not live: START is an outline",
+	          !live() && fillOf(BTN_START) == C_BG);
+	bool wentLive = false, ran = false;
+	for (int i = 0; i < 120; i++) {
+		fakeHold(x, y); uiFrames(1); core1();
+		ServoStatus st;
+		servoJobStatus(&st);
+		wentLive |= live();
+		ran |= st.running;
+	}
+	checkTrue("the claim goes live under the finger", wentLive);
+	checkTrue("held 3000 ms after: the servo never starts", !ran && fakePin(29).level == 0);
+	fakeRelease(); uiFrames(1);
+	holdStart();
+	checkTrue("a new press on the live button starts it", s_st.running);
+	tapRect(BTN_START); core1();
 	leaveServo();
 }
 
@@ -1860,7 +1892,7 @@ static void testEscAnswering() {
 	int x = BTN_START.x + 20, y = BTN_START.y + 10;
 	fakePress(x, y); uiFrames(1);
 	fakeHold(x, y); uiFrames(4);
-	checkTrue("and a hold on it starts no hold", !s_holding);
+	checkTrue("and a hold on it starts no hold", !s_hold.holding);
 	fakeRelease(); uiFrames(1);
 	uint32_t since = millis() - t.lastRpmMs;
 	checkTrue("499 ms after the last frame: still no claim", since < 499 && !s_claimed);
@@ -1956,6 +1988,8 @@ static void testSetScreen() {
 	fakePress(x, y); uiFrames(1);
 	fakeHold(x, y); frameAt(SV_HOLD_MS - 1); core1();
 	checkTrue("held 999 ms: not applied", s_pending && fakeSlice(6).top == 19999);
+	checkTrue("the bar shows the hold, the button red",
+	          pixel(BTN_APPLY.x + 2, SET_FOOT_Y - 3) == C_LIME && fillOf(BTN_APPLY) == C_RED);
 	fakeHold(x, y); frameAt(1); core1();
 	checkTrue("1000 ms: applied", !s_pending && s_profile.type == ServoType::HeliCyclic);
 	checkInt("rebound at 333 Hz", fakeSlice(6).top, 3002);
@@ -1981,9 +2015,9 @@ static void testSetScreen() {
 	selectRow(3);   // MIN
 	stepSel(-1, 3);
 	checkTrue("MIN -30 us at once", s_profile.minUs == 770);
-	int minY = SET_LIST_Y0 + 3 * SET_ROW_H - s_scroll + SET_ROW_H / 2;
+	int minY = SET_LIST_Y0 + 3 * SET_ROW_H - s_list.scrollPx + SET_ROW_H / 2;
 	fakePress(200, minY); uiFrames(1);
-	for (int px = 200; px >= 200 - SET_AXIS_PX - 2 - SET_SWIPE_PX; px -= 4) {
+	for (int px = 200; px >= 200 - UI_AXIS_LOCK_PX - 2 - UI_SWIPE_STEP_PX; px -= 4) {
 		fakeHold(px, minY); uiFrames(1);
 	}
 	fakeRelease(); uiFrames(1);
@@ -2001,6 +2035,19 @@ static void testSetScreen() {
 	checkTrue("the note says STOP first", l1 && strcmp(l1, "STOP TO CHANGE THE PROFILE") == 0);
 	checkTrue("the footer shows STOP in place of DEFAULTS", fillOf(BTN_DEFAULTS) == C_RED);
 	fakeDumpFrame("shot_servo_set_running.ppm");
+	// A pending change while RUNNING is not reachable through the UI; forced
+	// here, HOLD TO APPLY is drawn disabled and does not apply it.
+	uint16_t rate = s_profile.rateHz;
+	s_pending = true;
+	s_edit.rateHz = 100;
+	fakePress(BTN_APPLY.x + 20, BTN_APPLY.y + 10); uiFrames(1);
+	for (int i = 0; i < 48; i++) { fakeHold(BTN_APPLY.x + 20, BTN_APPLY.y + 10); uiFrames(1); core1(); }
+	checkTrue("forced pending while RUNNING: HOLD TO APPLY is an outline",
+	          fillOf(BTN_APPLY) == C_BG);
+	fakeRelease(); uiFrames(1);
+	checkTrue("and held 1200 ms, does not apply", s_profile.rateHz == rate && s_pending);
+	s_pending = false;
+	s_edit = s_profile;
 	selectRow(9);   // AMPLITUDE
 	stepSel(-1, 2);
 	checkInt("AMPLITUDE -10 % while RUNNING", s_sweep.amplitude, 450);
@@ -2031,24 +2078,39 @@ static void testSetScreen() {
 
 	tapRect(BTN_SET);
 	selectRow(7);   // SHAPE, so the swipe below is the selection's change
-	int rateY = SET_LIST_Y0 + 8 * SET_ROW_H - s_scroll + SET_ROW_H / 2;
+	int rateY = SET_LIST_Y0 + 8 * SET_ROW_H - s_list.scrollPx + SET_ROW_H / 2;
 	fakePress(60, rateY); uiFrames(1);
-	for (int px = 60; px <= 60 + SET_AXIS_PX + 2 + SET_SWIPE_PX; px += 4) {
+	for (int px = 60; px <= 60 + UI_AXIS_LOCK_PX + 2 + UI_SWIPE_STEP_PX; px += 4) {
 		fakeHold(px, rateY); uiFrames(1);
 	}
 	fakeRelease(); uiFrames(1);
 	checkInt("a sideways swipe selects the row it began on", s_sel, 8);
 	checkInt("and steps it coarse: +0.50 Hz", s_sweep.mhz, 1000);
-	int scroll = s_scroll;
+	int scroll = s_list.scrollPx;
 	fakePress(60, rateY); uiFrames(1);
 	for (int py = rateY; py <= rateY + 40; py += 8) { fakeHold(60, py); uiFrames(1); }
 	fakeRelease(); uiFrames(1);
 	checkTrue("a vertical drag scrolls and edits nothing",
-	          s_scroll < scroll && s_sweep.mhz == 1000 && s_sel == 8);
+	          s_list.scrollPx < scroll && s_sweep.mhz == 1000 && s_sel == 8);
 	tapRect(BTN_DEFAULTS);
 	checkTrue("DEFAULTS: STANDARD PWM, 50 Hz, one servo, sine at 0.50 Hz",
 	          s_profile.type == ServoType::Standard && s_profile.rateHz == 50 &&
 	          s_profile.servos == 1 && s_sweep.kind == SWEEP_SINE && s_sweep.mhz == 500);
+	// DWELL from 500 ms, 100 ms a step: a coarse step of 1000 ms down would
+	// pass 0 and stops there. The anchor moves on by whole coarse steps, so
+	// the way back starts 16 px past it.
+	selectRow(10);
+	int dwY = SET_LIST_Y0 + 10 * SET_ROW_H - s_list.scrollPx + SET_ROW_H / 2;
+	fakePress(200, dwY); uiFrames(1);
+	fakeHold(193, dwY); uiFrames(1);   // the lock: the anchor
+	fakeHold(153, dwY); uiFrames(1);   // 40 px: two coarse steps, the anchor at 161
+	checkInt("DWELL: two coarse steps down from 500 ms stop at 0 ms", s_sweep.dwell_ms, 0);
+	fakeHold(170, dwY); uiFrames(1);
+	checkInt("9 px back past the anchor: none", s_sweep.dwell_ms, 0);
+	fakeHold(177, dwY); uiFrames(1);
+	checkInt("16 px back: one coarse step up, 1000 ms", s_sweep.dwell_ms, 1000);
+	fakeRelease(); uiFrames(1);
+	tapRect(BTN_DEFAULTS);
 	// A choice moves one value per swipe step, a number ten.
 	swipeRow(1, +1);
 	checkTrue("TYPE: one swipe step is one type", s_profile.type == ServoType::Narrow760);
@@ -2061,6 +2123,78 @@ static void testSetScreen() {
 	tapRect(BTN_SET);
 	setNote(&l1, &l2, &col);
 	checkTrue("SPEED 10 %: SPEED LIMITS THE SWEEP", l1 && strcmp(l1, "SPEED LIMITS THE SWEEP") == 0);
+	uiTap(UI_BACK_CX, UI_BACK_CY);
+	leaveServo();
+}
+
+/** @brief The SET list on ui_list: its scroll range and its edges. */
+static void testSetList() {
+	section("Servo SET: the list's extents and edges, as before ui_list");
+
+	freshUi();
+	openServo();
+	tapRect(BTN_SET);
+	checkInt("SET opens at 0 px", s_list.scrollPx, 0);
+	for (int i = 0; i < 8; i++) {
+		fakePress(120, 210); uiFrames(1);
+		for (int y = 210; y >= 60; y -= 30) { fakeHold(120, y); uiFrames(1); }
+		fakeRelease(); uiFrames(1);
+	}
+	checkInt("dragged up: 12 rows of 26 px less 160 px", s_list.scrollPx,
+	         SET_ROWS * SET_ROW_H - SET_LIST_H);
+	checkTrue("the last row's rule on y 215, the viewport's last row",
+	          pixel(230, SET_LIST_Y1) == C_PANEL && pixel(230, SET_LIST_Y1 - 1) == C_BG);
+	for (int i = 0; i < 8; i++) {
+		fakePress(120, 60); uiFrames(1);
+		for (int y = 60; y <= 210; y += 30) { fakeHold(120, y); uiFrames(1); }
+		fakeRelease(); uiFrames(1);
+	}
+	checkInt("dragged down: 0 px", s_list.scrollPx, 0);
+	checkInt("and no drag selected a row", s_sel, -1);
+
+	uiListScrollTo(&s_list, 13);
+	s_full = true;
+	uiFrames(1);
+	uiTap(120, SET_LIST_Y0);
+	checkInt("y 56: the top row, 13 px of it showing", s_sel, 0);
+	uiTap(120, SET_LIST_Y1);
+	checkInt("y 215: the bottom row, 17 px of it showing", s_sel, (13 + SET_LIST_H - 1) / SET_ROW_H);
+	s_sel = -1;
+	uiTap(120, SET_LIST_Y0 - 1);
+	uiTap(120, SET_LIST_Y1 + 1);
+	checkInt("y 55 and y 216, outside the viewport: no row", s_sel, -1);
+
+	uiTap(120, SET_LIST_Y0 + 40);
+	uiFrames(1);
+	uint32_t below = fakeRegionHash(0, SET_LIST_Y1 + 1, GFX_W, GFX_H - SET_LIST_Y1 - 1);
+	fakePress(120, 150); uiFrames(1);
+	fakeHold(120, 120); uiFrames(1);
+	fakeRelease(); uiFrames(2);
+	checkTrue("a scroll leaves the editor bar and the footer as they were",
+	          s_list.scrollPx == 13 + 30 &&
+	          fakeRegionHash(0, SET_LIST_Y1 + 1, GFX_W, GFX_H - SET_LIST_Y1 - 1) == below);
+	uiTap(UI_BACK_CX, UI_BACK_CY);
+	tapRect(BTN_SET);
+	checkTrue("SET opened again: at 0 px, no row selected", s_list.scrollPx == 0 && s_sel == -1);
+
+	// HOLD TO APPLY with nothing pending: drawn disabled, and a hold on it
+	// hands the job nothing, so the pins are not rebound.
+	int inits = fakeSlice(6).inits;
+	int ax = BTN_APPLY.x + 20, ay = BTN_APPLY.y + 10;
+	fakePress(ax, ay); uiFrames(1);
+	for (int i = 0; i < 48; i++) { fakeHold(ax, ay); uiFrames(1); core1(); }
+	checkTrue("nothing pending: HOLD TO APPLY is an outline", fillOf(BTN_APPLY) == C_BG);
+	// A change forced pending under the same press, which the UI cannot do
+	// with one finger: the press landed on a disabled button, so it is not
+	// timed.
+	s_pending = true;
+	s_edit.rateHz = 60;
+	for (int i = 0; i < 48; i++) { fakeHold(ax, ay); uiFrames(1); core1(); }
+	fakeRelease(); uiFrames(1); core1();
+	checkTrue("held 2400 ms: no rebind, and the forced change not applied",
+	          fakeSlice(6).inits == inits && s_profile.rateHz == 50 && s_pending);
+	s_pending = false;
+	s_edit = s_profile;
 	uiTap(UI_BACK_CX, UI_BACK_CY);
 	leaveServo();
 }
@@ -2192,6 +2326,7 @@ void runServoTests() {
 	testSliderDraw();
 	testScreenOpens();
 	testHoldToStart();
+	testStartNeedsLivePress();
 	testHorn();
 	testButtonsAndSweep();
 	testTwoServos();
@@ -2199,6 +2334,7 @@ void runServoTests() {
 	testEscAnswering();
 	testUnplugPage();
 	testSetScreen();
+	testSetList();
 	testClaimCorners();
 	testBindRefused();
 	freshUi();

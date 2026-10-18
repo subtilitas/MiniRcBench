@@ -150,6 +150,13 @@ protocol.
 - `docs/servo-preview.png`, four servo screens rendered by the host suite.
 - Build-time checks that no free GPIO is on the backlight's PWM slice, that
   the free GPIOs share one slice, and that no two of them share a channel.
+- `src/ui_list.h` and `src/ui_list.cpp`, one scrolling list: scroll in
+  pixels, the axis lock after 6 px, a tap on release, and one sideways
+  swipe of 16 px per coarse step with a factor per row.
+- `src/ui_hold.h` and `src/ui_hold.cpp`, one hold-to-act control: 1000 ms,
+  one firing per press, and its 3 px progress bar.
+- Host tests for the list and the hold (`runWidgetTests` in
+  `test/test_widgets.cpp`), each rule at its boundary.
 
 ### Changed
 
@@ -240,6 +247,17 @@ protocol.
   SERVO, KST and SETUP in the bottom row, 50 px each. KST is drawn disabled
   and does not act.
 - A settings save is refused while a pin claim holds.
+- The AM32 list and the SERVO SET list run on one list. AM32's sideways
+  swipe moves a field one coarse step per 16 px, ⌈range ÷ (11 × step)⌉ ×
+  step per coarse step: 24 for a field of 0 to 255, 4 for motor poles, so
+  176 px cover any field's range. A 180 px swipe covered the range in
+  proportion to the finger's travel. A coarse step that would pass the end
+  of the range stops there, and travel past the end is not stored. A coarse
+  step is made of the steps of `-` and `+`, so an ADVANCE byte in the
+  pre-1.90 encoding keeps its angle. SERVO SET's swipe does not change.
+- HOLD TO WRITE on AM32, HOLD TO START on SERVO, HOLD TO APPLY on SET and
+  HOLD TO SAVE on SETUP run on one hold: 1000 ms, one firing per press, and
+  its 3 px progress bar. HOLD TO ARM keeps its own timer.
 
 ### Removed
 
@@ -267,6 +285,18 @@ protocol.
 
 ### Fixed
 
+- HOLD TO ARM times only a press that lands on it while arming is allowed.
+  The press that disarms, kept on the button, armed again 1000 ms later, and
+  a press made while a USB host held the card armed 1000 ms after the host
+  let go.
+- HOLD TO START, HOLD TO APPLY, HOLD TO WRITE and HOLD TO SAVE time only a
+  press that lands on the button while it is live. A press on HOLD TO START
+  while it was drawn disabled, before the servo claim held the pins,
+  started the servo 1000 ms after the claim went live.
+- `inputPressing()` and `inputTapped()` return false for a null touch
+  instead of dereferencing it, so `uiPressing()`, `uiTapped()`, `uiHeader()`
+  and `uiBackTapped()` treat a null touch as no touch, as `ui_widgets.h`
+  says.
 - The DShot pump reads the heartbeat stamp before `millis()`, and
   `escUiAlive()` counts a stamp less than 250 ms newer than the time it is
   judged at as alive. Core0 could stamp a heartbeat between core1's read of

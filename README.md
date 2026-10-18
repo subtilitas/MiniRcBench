@@ -395,7 +395,7 @@ A wrong ESC pin produces no error: the ESC receives no frames. **LINK** on this
 screen shows the result of each pin change. A non-zero packet rate means the
 pin is correct.
 
-**HOLD TO SAVE** (1 s, `SAVE_HOLD_MS`) writes all settings to flash: the rows
+**HOLD TO SAVE** (1 s, `UI_HOLD_MS`) writes all settings to flash: the rows
 above plus pole count and throttle ceiling. Erasing the flash sector stops
 core1, and with it the DShot pump, for the length of the erase. That duration
 is not measured. Saving is refused while armed (`NOT WHILE ARMED - DISARM TO
@@ -692,7 +692,7 @@ The screen shows which half failed:
 | Gesture | Effect |
 |---|---|
 | Tap a row | Selects it; the editor bar at the bottom shows its name and value |
-| **Swipe the row sideways** | **Coarse**: 180 px of travel covers the field's whole range |
+| **Swipe the row sideways** | **Coarse**: one coarse step per 16 px of travel; 11 steps, 176 px, cover any field's range |
 | `-` / `+` buttons | **Fine**: one step per press; hold to repeat, accelerating |
 | Drag up/down | Scrolls the list 1:1 with the finger |
 
@@ -700,10 +700,15 @@ A press selects nothing on its own. It becomes a selection on release if the
 finger did not move, or when a sideways swipe is recognised, so a swipe adjusts
 the row it started on. A vertical drag never selects.
 
-The axis locks after 6 px of travel (`AXIS_LOCK_PX`), so a gesture is either a
-scroll or an edit. Scrolling is measured from the touch point, so no travel is
-lost to the lock. Coarse swipes snap to each field's step, so motor poles stay
-even. They re-anchor at the ends of the range.
+The axis locks after 6 px of travel (`UI_AXIS_LOCK_PX`), so a gesture is
+either a scroll or an edit. Scrolling is measured from the touch point, so no
+travel is lost to the lock. A coarse step (`UI_SWIPE_STEP_PX`, 16 px) is
+⌈range ÷ (11 × step)⌉ × step: 24 for a field of 0 to 255 at step 1, 4 for
+motor poles at step 2. It is made of the field's own steps, so a value on the
+field's step stays on it, and an even pole count stays even; a value read off
+the step moves by the step from where it is. A coarse step that would pass
+the end of the range stops at the end. Travel past the end is not stored, so
+the first coarse step back moves the value off it.
 
 Changed rows are marked amber on the left edge. **REVERT** restores the values
 that were read. **HEX** shows the raw 48 bytes for checking a field's
@@ -877,6 +882,9 @@ In the firmware:
 
 - Boots disarmed and sends `MOTOR_STOP` (throttle 0) continuously.
 - Arming needs a 1 s hold with the throttle at zero for at least 250 ms.
+  Only a press that lands on the button while arming is allowed counts: the
+  press that disarms, or one made while a USB host holds the card, does not
+  arm however long it stays.
 - With HOLD off, the throttle returns to zero on finger lift.
 - Throttle ceiling, default 20 %.
 - Auto-disarm after 30 s with no touch input (`IDLE_DISARM_MS`). For the last
@@ -893,7 +901,9 @@ In the firmware:
   one by one, so a corrupted byte cannot raise the throttle ceiling.
 - Arming is blocked while a USB host holds the SD card.
 - The servo tester starts SAFE, with no pulses; HOLD TO START is a 1 s hold
-  that puts every pin at CENTRE, and STOP acts on touch. Core1 ends the
+  that puts every pin at CENTRE, and STOP acts on touch. A hold counts only
+  a press that lands on the button while it is live, so a press made while
+  the button is drawn disabled starts nothing. Core1 ends the
   pulses if core0 sends no heartbeat for 250 ms. The servo screen does not
   claim the pins while an ESC answers on them, and DShot restarts only after
   the unplug page.
@@ -933,6 +943,8 @@ src/
     out_dshot.{h,c}, dshot.pio          RP2350 pin driver: 2 state machines, 16 instructions
   ui.{h,cpp}            screens, touch handling, arm/throttle state machine
   ui_widgets.{h,cpp}    shared header, buttons, rows and chips
+  ui_list.{h,cpp}       the scrolling list: pixel scroll, axis lock, tap, swipe
+  ui_hold.{h,cpp}       the hold-to-act control: 1 s timer, one firing, its bar
   ui_am32.{h,cpp}       AM32 config screen: connect, edit, verified write
   ui_setup.{h,cpp}      SETUP screen: pins, bitrate, contrast, hold-to-save
   ui_servo.{h,cpp}      servo tester screens: SERVO, SET, the unplug page
@@ -1037,7 +1049,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.2%**: 3,833 of 3,905 lines in 33 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.2%**: 3,839 of 3,911 lines in 35 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

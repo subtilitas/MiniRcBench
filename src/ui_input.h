@@ -47,7 +47,7 @@ struct Repeat {
  * screen having its own version is how the setup and AM32 screens quietly
  * kept firing on touch-down after the main screen stopped.
  *
- * @param t       This frame's touch snapshot.
+ * @param t       This frame's touch snapshot; null is treated as no touch.
  * @param x,y,w,h The rectangle.
  * @return true while pressed, for pressed-state drawing and held repeats.
  */
@@ -61,7 +61,7 @@ bool inputPressing(const TouchState *t, int x, int y, int w, int h);
  * firing on release means sliding a finger off the button cancels, which is
  * what every touch UI does and therefore what nobody has to be told.
  *
- * @param t       This frame's touch snapshot.
+ * @param t       This frame's touch snapshot; null is treated as no touch.
  * @param x,y,w,h The rectangle.
  * @return true exactly once per completed tap.
  */

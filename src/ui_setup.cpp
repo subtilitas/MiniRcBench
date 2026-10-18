@@ -27,6 +27,7 @@
 #include "settings.h"
 #include "esc_task.h"
 #include "ui.h"
+#include "ui_hold.h"
 #include "ui_input.h"
 #include "ui_widgets.h"
 #include "gfx.h"
@@ -104,24 +105,17 @@ static_assert(DEF_X + DEF_W <= GFX_W - 8 + 1, "DEFAULTS runs off the panel");
 static const UiRect BTN_SAVE     = {SAVE_X, FOOT_Y, SAVE_W, FOOT_H};
 static const UiRect BTN_DEFAULTS = {DEF_X,  FOOT_Y, DEF_W,  FOOT_H};
 
-/** @brief Hold this long to commit the settings to flash. */
-#define SAVE_HOLD_MS 1000
-
 /** @brief Backlight adjustment step. 8 levels across the usable range. */
 #define BACKLIGHT_STEP 32
 
 static bool     s_leaving = false;
 static bool     s_redraw = true;
-static bool     s_saveHolding = false;
-static uint32_t s_saveHoldStart = 0;
 /**
- * @brief Set once a hold has fired; cleared only when the finger lifts.
- *
- * Without it, keeping the button pressed past one second immediately starts a
- * fresh hold and saves again a second later, for as long as the finger stays
- * down. Each of those is a flash erase.
+ * @brief HOLD TO SAVE. It fires once per press (ui_hold.h): a finger kept on
+ *        the button does not save again a second later, and each save is a
+ *        flash erase.
  */
-static bool     s_saveLatched = false;
+static UiHold   s_saveHold;
 
 /** @brief What the last save attempt did. Drives the note line. */
 enum class SaveOutcome : uint8_t { None, Ok, Failed, FailedArmed };
@@ -296,17 +290,10 @@ static void drawAll() {
 
 	// Progress fills across the button itself rather than being a sliver
 	// somewhere else, so the thing you are pressing is the thing that reports.
-	uint16_t saveFill = C_PANEL;
-	gfxRect(SAVE_X, FOOT_Y - 4, SAVE_W, 3, C_BG);
-	if (s_saveHolding) {
-		uint32_t held = millis() - s_saveHoldStart;
-		int pct = (int)(held * 100 / SAVE_HOLD_MS);
-		if (pct > 100) pct = 100;
-		saveFill = C_BLUE;
-		gfxRect(SAVE_X, FOOT_Y - 4, SAVE_W * pct / 100, 3, C_LIME);
-	}
-	uiButton(BTN_SAVE, "HOLD TO SAVE", saveFill,
-	         s_saveHolding ? C_ONACCENT : C_TEXT, 1, s_saveHolding);
+	bool holding = s_saveHold.holding;
+	uiHoldDrawBar(&s_saveHold, BTN_SAVE, FOOT_Y - 4, millis());
+	uiButton(BTN_SAVE, "HOLD TO SAVE", holding ? C_BLUE : C_PANEL,
+	         holding ? C_ONACCENT : C_TEXT, 1, holding);
 	uiButton(BTN_DEFAULTS, "RESET", C_PANEL, C_AMBER, 1,
 	         uiPressing(BTN_DEFAULTS, &s_touchSnap));
 }
@@ -337,8 +324,7 @@ static void applyLive() {
 void uiSetupEnter() {
 	s_leaving = false;
 	s_redraw = true;
-	s_saveHolding = false;
-	s_saveLatched = false;
+	uiHoldReset(&s_saveHold);
 	s_saveOutcome = SaveOutcome::None;
 	s_shownRate = -1;
 	s_shownErr = -1;
@@ -392,30 +378,23 @@ bool uiSetupTick(const TouchState *t) {
 	// not an early return: the hold's progress bar is drawn by the block at the
 	// bottom of this function, so returning here would make the one control that
 	// needs continuous feedback the only one that never repaints.
-	bool onSave = uiPressing(BTN_SAVE, t);
-	if (!t->down) s_saveLatched = false;
-	if (onSave && !s_saveLatched) {
-		if (!s_saveHolding) { s_saveHolding = true; s_saveHoldStart = millis(); }
-		if (millis() - s_saveHoldStart >= SAVE_HOLD_MS) {
-			s_saveHolding = false;
-			s_saveLatched = true;
-			// Refused while armed on purpose. Erasing flash parks core1 for tens
-			// of milliseconds, which stops the DShot pump; the ESC would time out
-			// and cut a spinning motor. Unreachable today -- CFG force-disarms
-			// and this screen is behind it -- and checked anyway, because the day
-			// that stops being true is not a day anyone will remember this.
-			if (uiArmed()) {
-				s_saveOutcome = SaveOutcome::FailedArmed;
-			} else {
-				// Nothing here needs a reboot to take effect: every value on
-				// this screen is applied live by applyLive().
-				s_saveOutcome = settingsSave() ? SaveOutcome::Ok
-				                               : SaveOutcome::Failed;
-			}
+	bool wasHolding = s_saveHold.holding;
+	if (uiHoldUpdate(&s_saveHold, BTN_SAVE, t, true, millis())) {
+		// Refused while armed on purpose. Erasing flash parks core1 for tens
+		// of milliseconds, which stops the DShot pump; the ESC would time out
+		// and cut a spinning motor. Unreachable today -- CFG force-disarms
+		// and this screen is behind it -- and checked anyway, because the day
+		// that stops being true is not a day anyone will remember this.
+		if (uiArmed()) {
+			s_saveOutcome = SaveOutcome::FailedArmed;
+		} else {
+			// Nothing here needs a reboot to take effect: every value on
+			// this screen is applied live by applyLive().
+			s_saveOutcome = settingsSave() ? SaveOutcome::Ok
+			                               : SaveOutcome::Failed;
 		}
 		s_redraw = true;
-	} else if (s_saveHolding) {
-		s_saveHolding = false;
+	} else if (wasHolding || s_saveHold.holding) {
 		s_redraw = true;
 	}
 

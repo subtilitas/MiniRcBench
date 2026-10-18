@@ -65,15 +65,19 @@ Angezeigt werden nur die Felder, die zur gelesenen Version passen.
 |---|---|
 | Zeile antippen | Auswählen |
 | `-` / `+` in der Editorleiste | **Fein**: ein Schritt je Betätigung. Halten wiederholt, zunehmend schneller |
-| Zeile **seitwärts** wischen | **Grob**: 180 px Weg decken den gesamten Bereich des Feldes ab |
+| Zeile **seitwärts** wischen | **Grob**: ein Grobschritt je 16 px Weg; 176 px decken den Bereich jedes Feldes ab |
 | **Hoch / runter** ziehen | Scrollen |
 
 Eine Geste ist entweder Scrollen oder Ändern. Die Achse steht nach 6 px
 Bewegung fest.
 
-Grobe Wischer rasten auf die Schrittweite des Feldes ein, sodass Werte gültig
-bleiben; die Polzahl bleibt zum Beispiel gerade. Am Ende des Bereichs setzt
-der Wischer neu an, sodass ein kleiner Wischer zurück sofort wirkt.
+Ein Grobschritt ist ein ganzzahliges Vielfaches der Schrittweite des Feldes.
+Ein Wert, der auf der Schrittweite liegt, bleibt darauf; eine gerade Polzahl
+bleibt zum Beispiel gerade. Ein Wert, den der ESC außerhalb der Schrittweite
+gespeichert hat, ändert sich von dort aus um die Schrittweite. Ein
+Grobschritt, der über das Ende des Bereichs hinausginge, hält am Ende an. Weg
+über das Ende hinaus zählt nicht, sodass schon der erste Grobschritt zurück
+den Wert vom Ende löst.
 
 **Geänderte Zeilen sind am linken Rand bernsteinfarben markiert**, und ihre
 Werte sind bernsteinfarben. An den ESC ist noch nichts gesendet.

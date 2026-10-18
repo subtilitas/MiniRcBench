@@ -217,6 +217,8 @@ add_executable(MiniRcBench
     src/ui_setup.cpp
     src/ui_input.cpp
     src/ui_widgets.cpp
+    src/ui_list.cpp
+    src/ui_hold.cpp
     src/usb_dev.cpp
     src/usb_descriptors.c
     src/usb_msc.cpp
