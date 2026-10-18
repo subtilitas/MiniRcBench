@@ -220,7 +220,8 @@ static void testAm32() {
 	tapId(UI_FIX(Am32Ctl::EditPlus));
 	checkTrue("+ again: REVERT acts", ctlEnabled(UI_FIX(Am32Ctl::Revert)));
 	tapId(UI_FIX(Am32Ctl::Revert));
-	checkTrue("REVERT throws the edit away: WRITE and REVERT do not act",
+	checkTrue("REVERT throws the edit away: WRITE and REVERT are there and do not act",
+	          ctlPresent(UI_FIX(Am32Ctl::Write)) && ctlPresent(UI_FIX(Am32Ctl::Revert)) &&
 	          !ctlEnabled(UI_FIX(Am32Ctl::Write)) && !ctlEnabled(UI_FIX(Am32Ctl::Revert)));
 	tapId(UI_FIX(UI_BACK));
 	idFrames(20);
