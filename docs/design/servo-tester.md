@@ -615,3 +615,11 @@ Further choices made in building slice 2:
     pull-down on, so the servo lead does not float between the release and
     DShot's bind. DShot sets the pull-up on SIG at its bind, and the KISS
     receiver sets the pull-up on AUX when KISS is on.
+
+Decision of the owner, 2026-10-18, on the switched servo supply that
+[kst-programming.md](kst-programming.md#switched-servo-supply) designs:
+
+20. **Switched supply.** A change after KST programming uses it here too:
+    SAFE is supply off, HOLD TO START switches it on, and STOP and a
+    heartbeat trip switch it off. Not built; until then the servo's supply is
+    the user's.

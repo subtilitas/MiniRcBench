@@ -30,7 +30,8 @@ the card glue `shared/bench/kst_card.c`, the port glue
 On SIG, with DShot released:
 
 1. searches for a servo by repeating the entry sequence while the user powers
-   the servo up;
+   the servo up, or, with a switched supply, powers it up itself before each
+   attempt ([switched servo supply](#switched-servo-supply));
 2. reads the 32 registers, three passes that must agree, and keeps the first
    image read as the session's backup;
 3. shows the named fields with their units, and edits the editable ones within
@@ -40,7 +41,9 @@ On SIG, with DShot released:
 5. saves and loads servo files on the SD card, and restores the backup.
 
 Not in this slice: unlocking locked fields, the pairing release, the limit
-run, supply control. MiniRcBench does not switch the servo's supply.
+run, voltage selection and supply measurement. Switching the servo's supply
+on and off is in this slice, through a DC-DC (direct current to direct
+current) converter whose enable input the bench drives.
 
 ## Electrical
 
@@ -77,7 +80,135 @@ measurement. The 3.6 V rule stands for every servo: one that replies above
 3.6 V needs a level shifter in its lead.
 
 Wiring is the servo diagram in [pin-claim.md](pin-claim.md#wiring), servo A
-only. The servo's supply is the user's.
+only. The servo's supply is the user's, or the switched converter's.
+
+## Switched servo supply
+
+The owner's servos enter programming mode only directly after power-on. With
+the supply in the bench's hand, the bench powers the servo up itself, at a
+known time before the entry sequence, instead of asking the user to plug it
+in while the search repeats. This is rcbench's REBOOT with a plain switch in
+place of the PD mini.
+
+### Hardware
+
+A DC-DC converter between the user's supply and the servo's supply wire. The
+bench drives the converter's enable input; it does not feed the converter.
+
+| Item | Value |
+|---|---|
+| Enable pin | GP0, J5 pin 2 (also J4 pin 9); GP1, J5 pin 1, as the alternative |
+| Level | 3.3 V push-pull from IOVDD |
+| Polarity | set in SETUP: `GP0 HIGH` or `GP0 LOW` (decision 8) |
+| Off-state resistor | external, 10 kΩ to 100 kΩ, on the enable input: a pull-down for `GP0 HIGH`, a pull-up to 3.3 V for `GP0 LOW` |
+| Converter input | the user's supply. J4 pin 2 is USB VBUS and does not feed a servo: a servo can draw more than 1 A at stall |
+| Converter output | the servo's red wire; its rating is the converter's |
+| Ground | converter, servo and board grounds joined once, at the board |
+
+GP0 and GP1 are UART0 TX and RX on J4 and J5. The firmware leaves them
+unused (`pico_enable_stdio_uart(MiniRcBench 0)`; USB serial is
+`usb_dev.cpp`), and SETUP does not offer them for the ESC wires. They are on
+PWM slice 0 with the backlight, GP16, so the enable is a plain GPIO output
+and never a PWM channel.
+
+The external resistor holds the converter off from reset until the firmware
+drives the pin, while the board is unpowered, and while the board is in
+BOOTSEL. The internal pulls are not relied on: RP2350 erratum E9 affects the
+pad pull-down of an input, and the firmware leaves GP0 undriven until the
+settings say which level is off.
+
+```
+  user supply  +  ----------------- VIN   DC-DC   VOUT  ------  servo +  (red)
+               -  ----------+------ GND           EN  --+-----  GP0 (J5 pin 2)
+                            |                           |
+                            |                         10 k to 100 k
+                            |                           |
+  board GND (J5 pin 4)  ----+---------------------------+-----  servo -  (brown or black)
+  board SIG (GP29, J4 pin 12)  ---------------------------------  servo signal
+```
+
+Drawn for `GP0 HIGH`. For `GP0 LOW` the resistor goes from EN to 3.3 V,
+J5 pin 3.
+
+### Firmware
+
+`src/servo_supply.{h,cpp}` owns the pin. `servoSupplyInit()` runs in
+`setup()` directly after `settingsLoad()` and drives GP0 to the off level of
+the configured polarity, or leaves it an input for `NONE`. A SETUP change of
+the row applies at once, with the supply off. Two calls
+change it, `servoSupplyOn()` and `servoSupplyOff()`, and `servoSupplyIsOn()`
+reports the level the bench drives. There is no read-back: the bench knows
+the level it drives, not the voltage on the servo. The level is a fact core1
+writes and core0 reads, under the KST job's status lock.
+
+With `SERVO SUPPLY` at `NONE` the search stays as described above: the user
+powers the servo up. Every screen text that names
+the supply has both forms.
+
+### Search with the switch
+
+One attempt, from `kstSeekStep()`:
+
+1. Supply off, line driven low, for `KST_SUPPLY_OFF_MS`, 2000 ms
+   (rcbench `KST_PORT_RAIL_OFF_MS`, the owner's value).
+2. Supply on. The line stays low.
+3. The entry sequence from `kst_session_enter()`, unchanged: its 100 ms low
+   starts at power-on, so the first sync reaches the servo about 106 ms after
+   the supply switched on, plus the converter's start-up time.
+4. `KST_SES_OK` is `Found`, and the supply stays on. Otherwise the next attempt
+   starts at step 1.
+
+One attempt is about 2.12 s, so the 30 s search is 14 attempts. Each attempt
+is one known power-up, so a servo that does not answer in 14 power cycles
+does not answer at this delay, and the timed-out text says so.
+
+The power-on window question (decision 1) changes form: the delay from power-on
+to the first sync is the bench's to choose. Bring-up step 7 measures the
+window by stepping that delay; if the servo needs a longer start, the wrapper
+waits that long after the supply switches on before the entry starts.
+
+### Leave, loss and heartbeat with the switch
+
+- **Leave** switches the supply off after the 100 ms low, and keeps it off
+  for `KST_SUPPLY_OFF_MS` before the unplug page. A servo without power is in
+  no mode, so the leave page does not ask the user to power it off. It
+  reads `SUPPLY OFF. THE SERVO LEFT PROGRAMMING MODE.`
+- **REBOOT**, a new button on the field list, is rcbench's REBOOT: supply off
+  for `KST_SUPPLY_OFF_MS`, on, `KST_SUPPLY_WAIT_MS`, 1000 ms (rcbench
+  `KST_PORT_RAIL_WAIT_MS`), then the entry and a read. It is the way out of a
+  locked session; LEAVE from a locked session still works and switches off.
+- **Loss** of a found servo with the supply on is not a power cycle the bench
+  made. The wrapper calls `kst_session_power_cycled()` as before and starts a
+  new search, which begins with supply off.
+- **Heartbeat lapse:** the running operation finishes (pin-claim decision 1).
+  After it, the supply goes off, unless a write is in doubt: a locked session
+  keeps the supply on, so the next RETRY can read and restore. No new
+  attempt starts.
+- **Claim end, any path:** the supply is off before the pins return to DShot.
+  An ESC never sees the converter on.
+- **Boot:** off, from the external resistor until `servoSupplyInit()`, then
+  from the firmware.
+
+### Not in this section
+
+- Voltage selection. A converter with I2C (inter-integrated circuit) control,
+  or a digital potentiometer on its feedback, on I2C1 (GP6, GP7, on J3 and
+  J4). The bus carries the touch controller (0x1A), the IMU (0x6B) and the RTC
+  (0x51); a new device avoids those addresses, and a fault on its lead takes
+  the touch screen down with it.
+- Supply measurement: an INA226 current and voltage monitor at 0x40 to 0x4F on
+  the same bus would give the read-back rcbench has from its PD mini.
+- The servo tester. A switched supply could make SAFE supply-off and HOLD TO
+  START supply-on. Slice 2 does not use it.
+
+### Tests for the switch
+
+`test_kst_seek.cpp` gains a switched-supply model in `kst_sim.h`'s servo: a
+servo that listens only within a window after power-on is found on the first
+attempt when the window covers the first sync, and on none when it does not;
+supply off for 2000 ms before every attempt; off after a leave, after a
+heartbeat lapse outside a write, and at every claim end; on through a locked
+session. A mutant table as for slice 1.
 
 ## Entering programming mode
 
@@ -107,8 +238,9 @@ read.
 rcbench assumes a powered servo. Its CONNECT runs one entry, and with a PD
 mini answering it can cycle the servo's supply itself (REBOOT: off for
 2000 ms, on, then 1000 ms more). The owner's servos enter programming mode
-only directly after power-on, and MiniRcBench does not switch the supply. So
-MiniRcBench repeats the entry while the user powers the servo up.
+only directly after power-on. Without a switched supply, MiniRcBench repeats
+the entry while the user powers the servo up. With one, the bench powers the
+servo up before each attempt ([switched servo supply](#switched-servo-supply)).
 
 The repetition is a wrapper in MiniRcBench, `src/kst_seek.cpp`, around the
 unchanged session. The ported `kst_session.c` stays byte for byte rcbench's.
@@ -201,6 +333,7 @@ screen says so.
 | Releasing | `RELEASING GP29` | | BACK |
 | Searching | `GP29  TRY 12  1.4 S` | `POWER UP THE SERVO NOW`, then `PLUG IT IN OR SWITCH ITS SUPPLY ON. IT ANSWERS ONLY RIGHT AFTER POWER-ON.` and `A POWERED SERVO ON THIS PIN GETS NO PULSES AND MAY GO TO ITS FAILSAFE POSITION.`, a spinner | STOP SEARCH, BACK |
 | Edges, no valid reply | | adds, in amber, `A REPLY CAME, NOT VALID: LATE` (the `kst_rx_t` code as a word) | as above |
+| Searching, supply switched | `GP29  TRY 3  SUPPLY ON` or `SUPPLY OFF` | `THE BENCH SWITCHES THE SERVO ON AND OFF.` and the failsafe line, a spinner | STOP SEARCH, BACK |
 | Timed out | `NO SERVO IN 30 S` | `CHECK SIGNAL AND GROUND, THEN POWER THE SERVO UP AGAIN.` | RETRY, BACK |
 | Found | `IN PROGRAMMING MODE` | `READING 32 REGISTERS` | BACK |
 | Read failed | | `READ FAILED: NO 3 EQUAL READS` and the registers in `bad_regs` | READ AGAIN, BACK |
@@ -287,10 +420,10 @@ and the card is only ever touched from core0, as `sd_log.cpp` already does.
 | rcbench port step (`kst_port.h`) | Here |
 |---|---|
 | STOPPING, 50 ms with no pulse | the claim's drain: DShot stops, then silence |
-| LOW, 100 ms at least, and the supply set | `kst_line_open()`, which drives low; no supply |
+| LOW, 100 ms at least, and the supply set | `kst_line_open()`, which drives low; with a switched supply, supply off, then on before each attempt |
 | PROGRAMMING, the entry holds low 100 ms more | the search |
 | LEAVE: low for 100 ms by default, then PWM | low for 100 ms, `kst_line_close()` (input, pull-down on), then the unplug page and DShot |
-| POWER_CYCLED, REBOOT | the loss rule above; no REBOOT, there is no supply to switch |
+| POWER_CYCLED, REBOOT | the loss rule above; REBOOT with a switched supply only |
 
 The servo stays in programming mode until its supply is off
 (`kst_session.h`: "The mode lasts until the servo's supply is removed").
@@ -405,6 +538,9 @@ BACK from the list, or from the search after a servo was found, opens:
   [ LEAVE ]
 ```
 
+With a switched supply the first two lines read `SUPPLY OFF. THE SERVO LEFT
+PROGRAMMING MODE.`, and REBOOT sits beside LEAVE.
+
 LEAVE is a tap. It leaves even a locked session: without a supply to switch
 there is nothing else the screen can do, and the record file below keeps what
 the servo was. Then the unplug page from [pin-claim.md](pin-claim.md), then
@@ -518,16 +654,19 @@ so these run against the same simulated servo:
 3. `kst_files.cpp` and its tests.
 4. `ui_kst.cpp`: search, list, write, files, leave; the CFG entry enabled; UI
    tests; preview.
-5. README: the KST section, the wiring, the legal notice. Wiki pages
+5. `servo_supply.*`, the SETUP row `SERVO SUPPLY` and `SETTINGS_VERSION` 3;
+   the switched search, REBOOT and the supply rules in `kst_seek.*` and
+   `kst_job.*`, with the tests in [tests for the switch](#tests-for-the-switch).
+6. README: the KST section, the wiring, the legal notice. Wiki pages
    `KST-Programming.md` and its German counterpart, and their entries in
    `_Sidebar.md` and the screens pages.
-6. Bring-up, in rcbench's order and before any write is relied on: the reply
+7. Bring-up, in rcbench's order and before any write is relied on: the reply
    level at the connector; the power-on window of the owner's
    servo, measured as the shortest delay from power-on to a sync that still
    enters; frames and replies on a scope; read reliability; one write with
    read-back, then a power cycle and a read.
 
-About 8 to 10 days for 1 to 5. Bring-up depends on the servo and is not
+About 10 to 12 days for 1 to 6. Bring-up depends on the servo and is not
 estimated.
 
 ## Decisions
@@ -537,7 +676,7 @@ Decisions of the owner, 2026-10-18: questions 1 to 4, recorded here for
 slice 3, which implements them.
 
 1. **Power-on window shorter than an attempt.** Keep rcbench's sequence
-   unchanged until the window is measured, which is bring-up step 6. If it
+   unchanged until the window is measured, which is bring-up step 7. If it
    proves shorter than about 120 ms, the wrapper starts attempts closer
    together; the 100 ms low is part of the measured entry and stays in the
    core. As recommended.
@@ -557,3 +696,23 @@ slice 3, which implements them.
 6. **Unlocking locked fields.** Not in this slice. rcbench can lift
    `KST_ACCESS_LOCKED` for a field with a warning held 2 s; the locked fields
    are the ones whose function is not measured.
+
+Decisions of the owner, 2026-10-18, on the switched supply:
+
+7. **Enable pin.** GP0, J5 pin 2.
+8. **Configuration.** A SETUP row, `SERVO SUPPLY`, with three values:
+   `NONE` (no switch fitted; GP0 stays an input with no pull), `GP0 HIGH`
+   (active-high enable) and `GP0 LOW` (active-low enable). `NONE` is the
+   default. The row adds a field to the settings block, so
+   `SETTINGS_VERSION` goes from 2 to 3. A block of another version is
+   discarded whole (`settingsLoad()`), so the first boot after the update
+   starts from defaults once, and a block DshotDisplay saved does not load.
+   Between reset and the settings load the firmware does not drive GP0; the
+   external resistor holds the converter off: a pull-down for `GP0 HIGH`, a
+   pull-up for `GP0 LOW`.
+9. **Timing.** rcbench's values: 2000 ms off before each search attempt and
+   for REBOOT, 1000 ms start for REBOOT, and the entry directly after the
+   switch-on in the search, until bring-up measures the servo.
+10. **Servo tester.** It uses the switched supply in a change after slice 2:
+    SAFE is supply off, HOLD TO START switches it on, STOP and a heartbeat
+    trip switch it off.

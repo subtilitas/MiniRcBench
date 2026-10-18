@@ -28,7 +28,8 @@ for servos. The servo tester (slice 2 of
 [servo-tester.md](docs/design/servo-tester.md)) drives one servo on the ESC
 pin, or two on the ESC and KISS pins, with PWM (pulse-width modulation)
 pulses. KST and Chaservo servo programming, on the same pins, is planned
-(slice 3); its CFG button is drawn disabled over a stub screen. The pin claim
+(slice 3), with an optional bench-switched servo supply on GP0; its CFG
+button is drawn disabled over a stub screen. The pin claim
 both share is built (slice 1): the AM32 editor and the servo tester run on
 it. For the ESC, the board is the throttle source. It
 sends bidirectional DShot (a digital ESC protocol in which the ESC answers each
