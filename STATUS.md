@@ -29,15 +29,16 @@ for servos. The servo tester (slice 2 of
 pin, or two on the ESC and KISS pins, with PWM (pulse-width modulation)
 pulses. KST and Chaservo servo programming, on the same pins, is planned
 (slice 3), with an optional bench-switched servo supply on GP0. Until then
-the KST button under CFG is drawn disabled, and the screen behind it
-is a stub. Before slice 3 comes a menu restructure
+KST has no row on MENU, and its screen is a stub. Before slice 3 comes a menu restructure
 ([menu.md](docs/design/menu.md), slices A to C). Slice A is built: one
 scrolling list, `src/ui_list.*`, under the AM32 and SERVO SET lists, and one
 hold, `src/ui_hold.*`, under HOLD TO WRITE, HOLD TO START, HOLD TO APPLY and
 HOLD TO SAVE. Slice B is built: every screen reports its controls by id
-(`src/ui_screen.h`), and the host tests tap them by id. Slice C is planned:
-a MENU list replaces the settings screen, and SETUP becomes one sectioned
-SETTINGS list with pole count and throttle ceiling at its top.
+(`src/ui_screen.h`), and the host tests tap them by id. Slice C is built:
+MENU, a list from the registry in `src/ui_registry.cpp`, and SETTINGS, one
+sectioned list with pole count and throttle ceiling at its top
+(`src/ui_menu.*`, `src/ui_settings.*`, `src/ui_sdlog.*`). Every header is
+36 px tall and every tool's BACK returns to MENU.
 The pin claim both features share is built (slice 1): the AM32 editor and the
 servo tester run on it. For the ESC, the board is the throttle source. It
 sends bidirectional DShot (a digital ESC protocol in which the ESC
@@ -66,7 +67,7 @@ asks core1 to suspend the DShot pump. Once core1 sees the request, it sends
 zero frames for at least 250 ms (`ARM_ZERO_THROTTLE_MS`) after the last
 throttle frame, then stops the pump, releases the pin, which turns its pulls
 off, puts the pull-up back on it and ends the KISS receiver. A rebuild after a
-SETUP pin change drains the same way. `loop1()` runs `escTaskPoll()` and then
+SETTINGS pin change drains the same way. `loop1()` runs `escTaskPoll()` and then
 `core1JobPoll()`, which binds, steps and releases the claiming screen's job
 (`src/core1_job.h`): the servo job (`src/servo_job.h`) for SERVO; the AM32
 transport runs on core0, and the KST job is not built.
@@ -77,7 +78,7 @@ servo.
 Rates and defaults, from `src/config.h` and `src/main.cpp`:
 
 - DShot bitrate: 150, 300, 600 or 1200 kbit/s. Default 600 kbit/s
-  (`DSHOT_SPEED_KBAUD`), changeable on CFG → SETUP.
+  (`DSHOT_SPEED_KBAUD`), changeable on MENU → SETTINGS.
 - EDT: voltage in 0.25 V steps, current in 1 A steps, temperature in 1 °C
   steps, plus stress and status. A field blanks to `--` 1000 ms after its last
   frame (`EDT_STALE_MS`). The enable command goes out as 10 consecutive frames:
@@ -98,8 +99,8 @@ Rates and defaults, from `src/config.h` and `src/main.cpp`:
 - Serial dump over USB CDC (communications device class) at 10 Hz
   (`SERIAL_TELEMETRY` = 1).
 - Safety: arming needs a 1000 ms hold with the throttle at zero. The throttle
-  ceiling starts at 400 of 2000 (20 %). Idle disarm after 30 s. Entering the
-  settings screens disarms. DShot gives up the signal pin only after at least
+  ceiling starts at 400 of 2000 (20 %). Idle disarm after 30 s. Opening
+  MENU disarms. DShot gives up the signal pin only after at least
   250 ms of zero frames since the last throttle frame.
 
 PIO (programmable input/output) blocks: three, each with 4 state machines and
@@ -157,7 +158,7 @@ means general-purpose input/output.
 | Power latch | GP26, asserted first thing in `setup()` |
 | Other devices | PCF85063 RTC (real-time clock), I2S (Inter-IC Sound) audio codec, neither used |
 
-The ESC and KISS pins are changeable on CFG → SETUP within the free set, and
+The ESC and KISS pins are changeable on MENU → SETTINGS within the free set, and
 the two wires never share a pin.
 
 ## What exists and how far it is verified
@@ -176,13 +177,14 @@ record either way.
 | KISS telemetry: request, PIO receiver, decode, merge, KISS/EDT tags | CRC, decode, resynchronisation, request payload, merge; the PIO receiver is typechecked only | hardware-tested (owner report) with `pico-bidir-dshot`; see below |
 | DShot bitrate label in the status bar, `DSERR` | label at each bitrate, colour, `DSERR` | not recorded |
 | SDIO card driver in `src/sdio/`: protocol, PIO and DMA bus, library callbacks | CRC7 and CRC16 against the specification's examples, command framing, response parsing, CSD (card-specific data register), four-bit packing, CRC status token; initialisation, reads and writes against a simulated card (standard capacity SDSC v1 and v2, high capacity SDHC, no card, voltage mismatch, timeouts, removal); the two PIO programs run in a cycle-level model against a card model (`test/pio_sdio_emu.py`: CMD0, R1, R2, single and multiple block reads, CMD12, a write and its CRC status token, at 400 kHz, 10 MHz and 25 MHz), a model and not proof of hardware timing; the bus code in `sd_pio.c` is compiled only, and the model's host side follows it by hand | not tested on hardware; open item 7 lists the bench tests |
-| Blackbox logging to SD, CFG → SD LOG screen | encoder, ring buffer, round trip through `blackbox_decode`, screen states | hardware use recorded with the previous SDIO driver on the 2.8" board; see below |
+| Blackbox logging to SD, MENU → SD LOG screen | encoder, ring buffer, round trip through `blackbox_decode`, screen states | hardware use recorded with the previous SDIO driver on the 2.8" board; see below |
 | USB card reader (read-only mass storage) | handover state machine, screen | not recorded |
 | AM32 settings editor over the signal wire (AM32 is an open-source ESC firmware) | init string, CRC-16/ARC, 39-field codec, timing advance encodings, write interlock; the screen on the pin claim, the latched GPIO, the drain before the handover; the list on `ui_list` and the swipe of 16 px per coarse step | hardware use recorded: ab79c67, bd90e17, both before the screen moved onto the pin claim; the claim and its drain, and the swipe of 16 px per coarse step: not tested on hardware |
 | Pin claim (`src/pin_claim.*`) and core1 job dispatch (`src/core1_job.*`), the zero-throttle drain in `src/esc_task.*` | each refusal rule at its 500 ms boundary and their order; the handover decisions of `escTaskPoll()` (`escHandoverStep()`, `escDrainSlot()`, `escPumpFrameSent()`, `escPumpBind()`) one 1 ms slot at a time: 250 zero frames, the teardown 251 ms after the last throttle frame, the bind disarmed; the order of the two cores' steps against fake jobs, BACK and RETRY, Restoring, the unplug-page rule, the restore wiring, the start guard, the heartbeat rule across a millis() rollover; the PIO and pad calls around those decisions are compiled only | not tested on hardware; open item 9 |
-| Settings screen layout: BEEP and SD LOG in one row, AM32, SERVO, KST and SETUP in the destination row, KST disabled | one gap in each row; SERVO live and opening its screen; disabled drawing, no pressed look and no action on KST | not recorded |
+| MENU layout (`src/ui_menu.cpp`, `src/ui_registry.cpp`): BEEP THE ESC, AM32 CONFIG, SERVO TESTER, SD LOG and SETTINGS as 40 px rows, no KST row | every registry entry opens and BACK returns to MENU; opening MENU disarms; BEEP's flash and refusal on its row; `PINS BUSY` while the claim restores and a tap on it opens nothing; six rows do not scroll and seven scroll 36 px; the label and status fit check at build time | not recorded |
 | Servo tester: the pure model (`src/servo_model.*`), the PWM driver (`src/servo_pwm.*`), the core1 job (`src/servo_job.*`), the slider and the screens (`src/ui_slider.*`, `src/ui_servo.cpp`); rcbench's sweep and PWM fold in `lib/rcbench/` | profiles, limits at their boundaries, steppers to their stops, command, angle and pulse mappings, SPEED, the dial's hit area; the PWM driver's bind, write, release and sharing rules against a register fake; SAFE at level 0, CENTRE at START, STOP on the next pass, the slew, sweeps, REVERSE B, the trip at 250 ms across a millis() wrap, kept across a rebind, the profile rebind; no pulse cut short at a release or a rebind, against a model of the counter and the latched compare; released pins pulled down; the screens through the UI: HOLD TO START at 1000 ms, the drag rules, the SET warning and HOLD TO APPLY, STOP on SET, the AUX refusals through the claim, the unplug page; rcbench's own sweep and fold tests; the SDK calls are run against the fake only | not tested on hardware; open item 10 |
-| Settings in flash (CFG → SETUP) | block validation, CRC, board id check, pin defaults, the block layout DshotDisplay 2.x writes | not recorded; 46a64a7 states no hardware coverage |
+| SETTINGS layout (`src/ui_settings.cpp`): sections ESC TESTER, WIRING, DISPLAY and BOARD in one scrolling list | the scroll range, 0 px at opening and 330 px at most; each row by id; no scroll from a press on a control; a cut control takes a press only while 40 px show; HOLD TO SAVE in place at every scroll position and saving at the end of the list; the pole count reaches the eRPM divisor, the ceiling steps by 5 %, and RESET restores both | not recorded |
+| Settings in flash (MENU → SETTINGS) | block validation, CRC, board id check, pin defaults, the block layout DshotDisplay 2.x writes | not recorded; 46a64a7 states no hardware coverage |
 | Touch handling, high-contrast theme, throttle gauge | tap on release, repeats, screen residue, gauge reach | hardware use recorded: the reports #22 to #24 named in the v2.3 commits; the fixes on hardware: not recorded |
 | List and hold widgets (`src/ui_list.*`, `src/ui_hold.*`; slice A of [menu.md](docs/design/menu.md)) | the list: the scroll range and its clamp, the press rule at the viewport's edges, the row rectangle, the axis lock at 6 px, a tap on release and its slide-off, the scroll from the press point, 16 px per coarse step, the factor, the stop at a rail and the anchor after it, the clipped drawing; the hold: 1000 ms and not 999 ms, the reset on a lift and a slide off, a press that slid on, one firing per press, no timing for a press that landed while the control was disabled or whose first frame it missed, the progress bar's extent; through the screens: AM32's swipe on every field of the table, KV at 16 px a step and its rail, the AM32 and SERVO SET scroll ranges and edge rows (checks that 4c91db9 also passes), DWELL's rail on SET, HOLD TO WRITE and HOLD TO SAVE at 999 ms and 1000 ms, each hold's colour and bar, a press on a disabled HOLD TO START, HOLD TO APPLY and HOLD TO WRITE never timed, HOLD TO SAVE's refusal while armed | not tested on hardware |
 | Control tables (`src/ui_screen.h`; slice B of [menu.md](docs/design/menu.md)) | every screen's table on each view the host suite reaches, the ids, rectangles and enabled flags, `uiCurrentScreen()` after each navigation; the UI tests tap by id | host only: the firmware does not call the tables |
@@ -265,7 +267,7 @@ Not in this history: the DshotDisplay repository's branches
    signal pin: AM32 opened within 250 ms of the last throttle frame (zero
    frames for at least 250 ms after it, then no edges); the line's level
    after the teardown, which stops, releases and puts the pull-up back, so it
-   should idle high; a SETUP pin change during the same window; and an AM32
+   should idle high; a SETTINGS pin change during the same window; and an AM32
    session left with BACK (DShot back, the EDT enable as its first
    frames).
 
@@ -290,25 +292,18 @@ Not in this history: the DshotDisplay repository's branches
       through the unplug page, then DShot back on RESTART DSHOT;
     - STOP on SET while RUNNING: level 0 within one frame, as on SERVO;
     - a real servo on each profile, and whether it reads 3.3 V pulses.
-11. **BACK from SD LOG returns to the tester.** The SD LOG button on the
-    settings screen clears the settings screen's flag (`src/ui.cpp`, in
-    `handleConfigTouch()`), so BACK from SD LOG lands on the tester, while
-    the wiki page The-Screens says it returns to Settings. The test in
-    `test/test_ui.cpp` that leaves SD LOG taps BACK twice and passes either
-    way. Slice C of [menu.md](docs/design/menu.md) sends BACK to MENU and adds
-    a test that pins it (its decision 11).
 
 ## Known limitations
 
 - **Two free pins.** The board frees two GPIOs, GP28 and GP29. The ESC takes
-  one and KISS the other, so there is no third choice and the SETUP steppers
-  stay put. KISS is off by default and one tap on CFG → SETUP turns it on. A
+  one and KISS the other, so there is no third choice and the SETTINGS steppers
+  stay put. KISS is off by default and one tap on MENU → SETTINGS turns it on. A
   build-time pin override outside the free set, or both wires on one pin,
   fails the build.
 - **Bidirectional DShot only.** An ESC that does not accept the inverted
   bidirectional signal is not driven.
 - **Saved settings outrank `config.h`.** On a board with saved settings, a
-  changed default in `config.h` has no effect after reflashing. SETUP marks the
+  changed default in `config.h` has no effect after reflashing. SETTINGS marks the
   whole block, not each row: while no change is pending, its note line reads
   `SAVED SETTINGS IN USE` or `COMPILED DEFAULTS IN USE`.
 - **Power loss during a log.** A log is readable up to its last directory
@@ -337,12 +332,12 @@ Not in this history: the DshotDisplay repository's branches
 **Host suite.** `make -C test run` compiles the firmware sources with a C++17
 compiler against the stubs in `test/stubs/`, and the DShot core in
 `src/dshot/` and the SDIO protocol layers in `src/sdio/` as C11, and runs one
-binary, `dshot_tests`. `test/test_main.cpp` runs seventeen suites:
+binary, `dshot_tests`. `test/test_main.cpp` runs eighteen suites:
 
 | Suite | File | Covers |
 | --- | --- | --- |
 | `runAm32Tests` | `test_am32.cpp` | AM32 init string, CRC-16/ARC, settings address per MCU (microcontroller) family, field codec, timing advance |
-| `runUiTests` | `test_ui.cpp` (includes `ui_am32.cpp`) | screens, throttle modes, safety interlocks, core1 frame decision, EDT enable, EDT enable at pump start against a simulated ESC, touch, SETUP, SD LOG, USB DRIVE, the settings rows with SERVO live and KST disabled, screenshots |
+| `runUiTests` | `test_ui.cpp` (includes `ui_am32.cpp`) | screens, throttle modes, safety interlocks, core1 frame decision, EDT enable, EDT enable at pump start against a simulated ESC, touch, MENU's strip and BEEP, SETTINGS' wiring, contrast and save, SD LOG, USB DRIVE, screenshots |
 | `runKissTests` | `test_kiss.cpp` | KISS CRC-8, decode, resynchronisation, request payload, KISS/EDT merge, expiry, EDT enable rule |
 | `runGfxTests` | `test_gfx.cpp` | dirty bands, glyph rendering, clip rectangle, lines at any angle and thickness, arcs of dots |
 | `runBlackboxTests` | `test_blackbox.cpp` | variable-byte and zig-zag encodings, header, frames, time prediction |
@@ -357,7 +352,8 @@ binary, `dshot_tests`. `test/test_main.cpp` runs seventeen suites:
 | `runServoTests` | `test_servo.cpp` (includes `ui_servo.cpp`) | the servo model, the PWM driver against a register fake, the job core and the job through the claim, the slider, and the SERVO, SET and unplug screens through the UI, with screenshots |
 | `runKstTests` | `test_kst.cpp` | the KST programming stub screen: not built, claims nothing, leaves at once |
 | `runWidgetTests` | `test_widgets.cpp` | the list (`ui_list`) and the hold (`ui_hold`) driven with touch snapshots, each rule at its boundary |
-| `runIdTests` | `test_ids.cpp` | the control tables of `ui_screen.h` on the tester, SETTINGS, SETUP, SD LOG in three card states, AM32 CONFIG in its handover and its list, and SERVO's three views: ids unique, rectangles inside the panel and apart, BACK at its rectangle, the enabled flags against the state they follow; the id helpers of `ui_ids.h`, and that they report an absent or misgated control |
+| `runIdTests` | `test_ids.cpp` | the control tables of `ui_screen.h` on the tester, MENU, SETTINGS, SD LOG in three card states, AM32 CONFIG in its handover and its list, and SERVO's three views: ids unique, rectangles inside the panel and apart, BACK at its rectangle, the enabled flags against the state they follow; the id helpers of `ui_ids.h`, and that they report an absent or misgated control |
+| `runMenuTests` | `test_menu.cpp` | MENU, SETTINGS and the navigation through the real UI: SD LOG's BACK to MENU, every registry entry opened and left, MENU's disarm, BEEP's flash, `PINS BUSY`, MENU's scroll over registries of six and seven rows, the SETTINGS scroll range, each row by id, a cut control under 40 px, HOLD TO SAVE at every scroll position |
 
 `test/servo.mk` and `test/kst.mk` list each feature's sources and test files
 for `test/Makefile`, as `src/servo.cmake` and `src/kst.cmake` do for
@@ -429,8 +425,8 @@ model.
 | `src/gfx.cpp` | 223 | 209 | 93.7% |
 | `src/kiss_telem.cpp` | 37 | 35 | 94.6% |
 | `src/log_ring.cpp` | 43 | 39 | 90.7% |
-| `src/pin_claim.cpp` | 114 | 114 | 100.0% |
-| `src/pin_claim.h` | 11 | 11 | 100.0% |
+| `src/pin_claim.cpp` | 109 | 109 | 100.0% |
+| `src/pin_claim.h` | 15 | 14 | 93.3% |
 | `src/plat.h` | 5 | 5 | 100.0% |
 | `src/rpm_filter.h` | 17 | 17 | 100.0% |
 | `src/sd_log.h` | 4 | 4 | 100.0% |
@@ -441,19 +437,21 @@ model.
 | `src/servo_pwm.cpp` | 55 | 55 | 100.0% |
 | `src/settings.cpp` | 119 | 118 | 99.2% |
 | `src/theme.cpp` | 11 | 11 | 100.0% |
-| `src/ui.cpp` | 683 | 672 | 98.4% |
-| `src/ui_am32.cpp` | 294 | 265 | 90.1% |
+| `src/ui.cpp` | 412 | 410 | 99.5% |
+| `src/ui_am32.cpp` | 299 | 269 | 90.0% |
 | `src/ui_hold.cpp` | 36 | 36 | 100.0% |
 | `src/ui_input.cpp` | 27 | 27 | 100.0% |
-| `src/ui_kst.cpp` | 4 | 4 | 100.0% |
-| `src/ui_list.cpp` | 97 | 97 | 100.0% |
+| `src/ui_kst.cpp` | 5 | 5 | 100.0% |
+| `src/ui_list.cpp` | 120 | 120 | 100.0% |
+| `src/ui_menu.cpp` | 116 | 116 | 100.0% |
 | `src/ui_screen.h` | 5 | 5 | 100.0% |
-| `src/ui_servo.cpp` | 508 | 508 | 100.0% |
-| `src/ui_setup.cpp` | 191 | 184 | 96.3% |
+| `src/ui_sdlog.cpp` | 165 | 159 | 96.4% |
+| `src/ui_servo.cpp` | 514 | 512 | 99.6% |
+| `src/ui_settings.cpp` | 297 | 290 | 97.6% |
 | `src/ui_slider.cpp` | 109 | 109 | 100.0% |
 | `src/ui_widgets.cpp` | 43 | 43 | 100.0% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **4039** | **3967** | **98.2%** |
+| **Total** | **4189** | **4116** | **98.3%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->

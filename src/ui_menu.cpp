@@ -115,10 +115,17 @@ static UiRect rowRect(int y) {
 	return UiRect{ MENU_ROW_X, (int16_t)y, MENU_ROW_W, MENU_ROW_H };
 }
 
+/** @brief Whether a tap on row @p i acts: an action, or a tool whose pins are free. */
+static bool rowActs(int i) {
+	const UiScreen *s = s_entries[i].screen;
+	return s->action || !pinsBusy(s);
+}
+
 /** @brief Whether the press on row @p i still counts as a tap of it. */
 static bool rowPressed(int i) {
 	if (!s_t || !s_t->down || s_list.candidate != i || s_list.mode != UiListMode::None)
 		return false;
+	if (!rowActs(i)) return false;
 	return uiPressing(uiListRowRect(&s_list, i), s_t);
 }
 
@@ -127,8 +134,12 @@ static void drawRow(int i, int y, void *) {
 	uint16_t col, fill;
 	rowStatus(i, st, sizeof(st), &col, &fill);
 	bool lit = fill != C_PANEL;
-	uiButton(rowRect(y), "", fill, C_TEXT, 2, rowPressed(i));
-	gfxText(MENU_LABEL_X, y + 13, s_entries[i].label, lit ? C_PAPER : C_TEXT, 2);
+	bool acts = rowActs(i);
+	// A refused tool is drawn disabled, an outline, and gated on the same
+	// value in uiMenuTick() and the control table. @see ui_widgets.h
+	uiButton(rowRect(y), "", fill, C_TEXT, 2, rowPressed(i), acts);
+	gfxText(MENU_LABEL_X, y + 13, s_entries[i].label,
+	        lit ? C_PAPER : (acts ? C_TEXT : C_DIM), 2);
 	gfxText(MENU_STATUS_R - gfxTextW(st, 1), y + 16, st, col, 1);
 }
 
@@ -217,10 +228,8 @@ static uint8_t menuControls(UiControl *out, uint8_t max) {
 	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
 	uint8_t first = n;
 	uiListAddRows(&s_list, out, &n, max, true);
-	for (uint8_t i = first; i < n; i++) {
-		const UiScreen *s = s_entries[out[i].id.row].screen;
-		if (!s->action && pinsBusy(s)) out[i].enabled = false;
-	}
+	for (uint8_t i = first; i < n; i++)
+		if (!rowActs(out[i].id.row)) out[i].enabled = false;
 	return n;
 }
 

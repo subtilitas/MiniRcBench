@@ -44,7 +44,7 @@ und Masse.
   Ausschalten zuerst die Servoversorgung.
 - Verbinde die beiden Massen einmal, an der Platine.
 - Servo A hängt am ESC-Pin, Servo B am KISS-Pin, so wie unter
-  `CFG → SETUP` eingestellt. Voreingestellt sind GP29 und GP28.
+  **MENU → SETTINGS** eingestellt. Voreingestellt sind GP29 und GP28.
 - Zieh jeden ESC vom ESC-Pin ab. Der Bildschirm wartet, solange ein ESC
   darauf antwortet, erkennt aber nicht jeden ESC.
 
@@ -52,7 +52,7 @@ und Masse.
 
 ## Öffnen
 
-`CFG → SERVO` öffnen.
+**MENU → SERVO TESTER** öffnen.
 
 Der Bildschirm übernimmt die beiden Signalpins vom ESC-Treiber. Antwortet ein
 ESC auf dem ESC-Pin, wartet er und zeigt `AN ESC ANSWERS ON GP29.` Zieh den
@@ -135,7 +135,7 @@ auf denselben Winkel. Das gewählte Horn ist breit gezeichnet. Mit
 spiegelbildlich eingebaut ist.
 
 Zwei Servos brauchen einen freien KISS-Pin. Kommen dort KISS-Telegramme an,
-oder sind ESC-Pin und KISS-Pin unter SETUP derselbe Pin, bietet der
+oder sind ESC-Pin und KISS-Pin unter SETTINGS derselbe Pin, bietet der
 Bildschirm nur ein Servo an, und der SET-Bildschirm nennt den Grund.
 Solange der Bildschirm auf die Pins wartet, etwa weil ein ESC antwortet, weiß
 er nicht, ob der KISS-Pin frei ist, und `TWO` lässt sich wählen. Ist der
@@ -154,7 +154,8 @@ auf ein Servo zurück; `TWO` bleibt aus, bis du den Bildschirm erneut öffnest.
 
 Tippe auf eine Zeile, um sie auszuwählen. `-` und `+` ändern sie um einen
 Schritt und wiederholen, solange du hältst. Wische die Zeile seitwärts für
-große Schritte. Zieh nach oben oder unten, um zu blättern.
+große Schritte. Zieh nach oben oder unten, um zu blättern. Die Zeilen sind 40 px hoch, es
+sind also drei auf einmal sichtbar.
 
 | Zeile | Werte |
 |---|---|
@@ -205,7 +206,7 @@ KISS-Empfänger ihn übernimmt; ist KISS aus, bleibt er auf Low.
 <img src="img/servo-unplug.png" width="240" alt="UNPLUG THE SERVO">
 
 Zieh das Servo ab und tippe dann auf `RESTART DSHOT`. Der ESC-Treiber
-übernimmt die Pins wieder, und der Einstellungsbildschirm erscheint. `BACK`
+übernimmt die Pins wieder, und `MENU` erscheint. `BACK`
 auf dieser Seite führt stattdessen zurück zum Servobildschirm, in SAFE, und
 behält die Pins.
 
@@ -220,7 +221,7 @@ behält die Pins.
   <img src="img/servo-bind.png" width="240" alt="GP29 COULD NOT BE TAKEN (PWM) mit RETRY">
 
 - **`TWO` lässt sich nicht wählen.** Das KISS-Kabel ist aktiv, oder beide
-  Pins sind unter SETUP derselbe Pin. Der SET-Bildschirm nennt den Grund,
+  Pins sind unter SETTINGS derselbe Pin. Der SET-Bildschirm nennt den Grund,
   wenn `SERVOS` ausgewählt ist.
 - **Das Servo bewegt sich nicht.** Prüfe, ob die Statusanzeige `RUNNING`
   zeigt, ob das Servo eine eigene Versorgung hat und ob seine Masse mit der

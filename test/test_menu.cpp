@@ -149,7 +149,6 @@ static void testMenuDisarmAndBeep() {
 	tapId(menuRow(&UI_BEEP));
 	checkInt("BEEP sends the beacon", fakeBeepRequests(), beeps + 1);
 	checkTrue("its row shows SENT on an ink fill", pixel(beep.x + 4, beep.y + beep.h - 5) == C_INK);
-	fakeDumpFrame("shot_menu_beep_flash.ppm");
 	menuFrames(16);
 	checkTrue("400 ms later the fill is back to the panel",
 	          pixel(beep.x + 4, beep.y + beep.h - 5) == C_PANEL);
@@ -159,7 +158,6 @@ static void testMenuDisarmAndBeep() {
 	tapId(menuRow(&UI_BEEP));
 	checkTrue("refused while armed: the row shows REFUSED on an amber fill",
 	          pixel(beep.x + 4, beep.y + beep.h - 5) == C_AMBER);
-	fakeDumpFrame("shot_menu_beep_refused.ppm");
 	escSetArmed(false);
 	menuFrames(16);
 	tapId(UI_FIX(UI_BACK));
@@ -269,7 +267,6 @@ static void testSettingsScroll() {
 	checkTrue("SETTINGS opens", uiCurrentScreen() == UiScreenId::Settings);
 	UiRect poles = ctlRect(UI_ROW(SettingsRowId::Poles, Row));
 	checkInt("opened at 0 px: MOTOR POLES at y 60", poles.y, 60);
-	fakeDumpFrame("shot_settings.ppm");
 
 	// A press on +, dragged up 40 px: the control keeps the press.
 	UiRect plus = ctlRect(UI_ROW(SettingsRowId::Poles, Plus));
@@ -285,7 +282,6 @@ static void testSettingsScroll() {
 	UiRect board = ctlRect(UI_ROW(SettingsRowId::BuiltFor, Row));
 	checkInt("dragged to the end: BUILT FOR at y 190, so the scroll is 330 px", board.y, 190);
 	checkTrue("and is whole", board.h == 44);
-	fakeDumpFrame("shot_settings_scrolled.ppm");
 	dragList(60, 180);
 	dragList(60, 180);
 	checkInt("dragged back: MOTOR POLES at y 60 again", ctlRect(UI_ROW(SettingsRowId::Poles, Row)).y, 60);

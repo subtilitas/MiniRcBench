@@ -71,7 +71,7 @@ abgezogener oder getauschter ESC hinterlässt daher keine alten Werte.
 
 - der ESC beherrscht kein EDT (die Drehzahl funktioniert trotzdem);
 - EDT wird beherrscht, ist aber noch nicht freigegeben. Beobachte das Feld auf
-  dem Einstellungsbildschirm;
+  dem Bildschirm `MENU`;
 - der ESC antwortet nicht mehr.
 
 Eine **verfallene Statuskachel zeigt `--`, nie `OK`**.
@@ -84,7 +84,7 @@ Das macht die Firmware, ohne Schaltfläche.
 
 Die ersten 10 Frames, die der Tester an den ESC sendet, sind die Freigabe:
 nach dem Einschalten, nach einer Änderung des ESC-Pins, der DShot-Bitrate,
-von KISS oder des KISS-Pins unter SETUP und wenn der AM32-Bildschirm das
+von KISS oder des KISS-Pins unter SETTINGS und wenn der AM32-Bildschirm das
 Signalkabel zurückgibt. Sie dauern 10 ms. Jede Antwort wird von der ersten an
 mit EDT-Decodierung gelesen. Ein ESC, der EDT über einen dieser Neustarts
 hinweg eingeschaltet behalten hat, zeigt Spannung und Temperatur sofort und
@@ -108,7 +108,7 @@ gesendet, wenn alles davon zutrifft:
 Ein ESC führt einen DShot-Befehl erst nach einer Folge gleicher Frames aus.
 Eine Freigabe zu einem anderen Zeitpunkt ginge verloren.
 
-<img src="img/config-edt-on.png" width="240" alt="EDT ON"> <img src="img/config-edt-off.png" width="240" alt="EDT OFF">
+<img src="img/menu-edt-on.png" width="240" alt="EDT ON"> <img src="img/menu-edt-off.png" width="240" alt="EDT OFF">
 
 Bleibt das Feld rot, obwohl der ESC EDT beherrscht, siehe
 [Fehlersuche](Fehlersuche#edt-bleibt-aus).
@@ -134,7 +134,7 @@ Die Platine empfängt auf dieser Leitung nur. Der Empfänger ist ein UART
 (Universal Asynchronous Receiver-Transmitter) aus einer PIO-Zustandsmaschine
 (PIO: programmierbare Ein-/Ausgabe), daher **funktionieren beide freien
 GPIOs**. GPIO steht für General Purpose Input/Output, frei
-verwendbarer Pin. Einschalten unter **CFG → SETUP → KISS TELEM**, den Pin in
+verwendbarer Pin. Einschalten unter **MENU → SETTINGS → KISS TELEM**, den Pin in
 der Zeile darunter setzen. Der Pin-Schrittschalter überspringt den Pin des
 ESC-Signals.
 
@@ -159,5 +159,6 @@ letzten KISS-Wert nicht.
 oberhalb von 5 % bernsteinfarben.
 
 Eine schlechte Verbindung kommt meist vom Signalkabel: zu lang, ungeschirmt
-oder nahe an den Motorphasen verlegt. Zuerst kürzen. Sonst **DSHOT KBAUD** im
-SETUP auf 300 stellen. Die `LINK`-Zeile auf dem SETUP-Bildschirm ist live.
+oder nahe an den Motorphasen verlegt. Zuerst kürzen. Sonst **DSHOT KBAUD** unter
+**MENU → SETTINGS** auf 300 stellen. Die `LINK`-Zeile auf dem Bildschirm
+SETTINGS ist live.

@@ -104,7 +104,7 @@ int fakeBeepRequests();
  * @brief Count framebuffer pixels of an exact colour.
  *
  * Used to prove a screen left nothing of the previous one behind: the cyan of
- * the settings screen's nav buttons is distinctive, so more than a trace of it
+ * the SETTINGS section captions is distinctive, so more than a trace of it
  * surviving on the tester screen is a leftover.
  */
 int fakeCountColour(uint16_t c);

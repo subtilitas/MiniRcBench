@@ -198,8 +198,8 @@ unplugged wire.
 
 Any free GPIO that is not the ESC's can receive. The default is GP28, J4
 pin 11, switched off: the board brings out exactly two pins and most users
-have not soldered the second wire; one tap on CFG → SETUP turns it on. The
-SETUP stepper skips the ESC's pin, so it has no third pin to step to. The
+have not soldered the second wire; one tap on MENU → SETTINGS turns it on. The
+SETTINGS stepper skips the ESC's pin, so it has no third pin to step to. The
 board descriptor fails the build if a pin override leaves the free set or
 puts both wires on one pin.
 
@@ -310,7 +310,7 @@ host.
 - `src/config.h`: `KISS_TELEM_ENABLE`, `KISS_PIN_LCD_2_8`,
   `KISS_ENABLE_LCD_2_8`, `KISS_REQUEST_EVERY_N`,
   `KISS_STALE_MS`, `KISS_REPLY_TIMEOUT_MS`. The pin and the enable are
-  runtime settings on CFG → SETUP; the macros are their defaults.
+  runtime settings on MENU → SETTINGS; the macros are their defaults.
 - README.md, section "KISS telemetry (optional third wire)": the wiring.
 
 ## Hardware record

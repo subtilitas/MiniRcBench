@@ -1,11 +1,12 @@
 # Menu restructure: MENU and SETTINGS
 
-Status: slices A and B built, host tests only, not tested on hardware:
+Status: slices A to C built, host tests only, not tested on hardware:
 `ui_list` under the AM32 and SERVO SET lists, `ui_hold` under four holds,
-and a control table per screen (`src/ui_screen.h`) that the host tests tap
-by id. Slice C is planned. Slices A to C come before KST programming, slice 3 of
-[pin-claim.md](pin-claim.md), and [kst-programming.md](kst-programming.md)
-builds on them. Line numbers in `src/`, `test/`, `tools/`, README.md and the
+a control table per screen (`src/ui_screen.h`) that the host tests tap by id,
+and, from slice C, MENU, SETTINGS and the screen registry. Slices A to C come
+before KST programming, slice 3 of [pin-claim.md](pin-claim.md), and
+[kst-programming.md](kst-programming.md) builds on them. [As built](#as-built)
+lists where the code differs from this note; the code wins. Line numbers in `src/`, `test/`, `tools/`, README.md and the
 wiki name 9c0f3b9, the tree the review read, not the tree with slice A; line
 numbers in STATUS.md and the design notes name 4c91db9.
 
@@ -580,6 +581,41 @@ static const PinUserInfo PIN_USERS[] = {
 `pinUserInfo(who)`, in place of the user. A new pin user is one enum value
 and one line here. Slice C adds no user.
 
+## As built
+
+Slice C is built. The code differs from the sketches above in these places:
+
+- `UiScreen::status` has a fourth out parameter, `uint16_t *fill`, the row's
+  fill colour. BEEP's flash uses it: `SENT` on `C_INK`, `REFUSED` on
+  `C_AMBER`. MENU passes the panel fill, `C_PANEL`, and only BEEP changes it.
+- `SettingsRow` has an eighth member, `bool (*on)()`, the filled state of a
+  toggle (KISS TELEM, CONTRAST). Null: never filled.
+- `PIN_USERS` is in `pin_claim.h`, not `pin_claim.cpp`, and has a row for
+  `PinUser::None` as well. `pinClaimCheck()` keeps its `PinUser` parameter and
+  reads the table through `pinUserInfo()`, so its signature does not change.
+  A `static_assert` (`pinUsersComplete()`) requires one row per user.
+- SETTINGS reports a `UI_ROW(n, Row)` for every row over its label and value
+  area, x 0 to 137, drawn disabled. A press there scrolls, and a test drag
+  can start on it. SETTINGS lays its items out in pixels: it calls
+  `uiListInitPx()`, which sets up the list with pixel content and no rows.
+  The layout holds at most 10 sections, 40 items and 24 rows.
+- MENU's viewport is the rows' width, x 8 to 231, y 62 to 319. The scroll bar
+  is drawn at x 235, outside it.
+- `menuRowsFit()` takes no argument and walks `UI_MENU` in
+  `ui_registry.cpp`. `UI_MENU` is `constexpr`.
+- The control enums differ from the sketch. `CfgCtl` does not exist: MENU's
+  controls are BACK and `UI_ROW(n, Row)`, so BEEP is `UI_ROW(0, Row)`. The
+  tester's third button is `TesterCtl::Menu`. SETTINGS has `SettingsCtl`
+  (`Save`, `Reset`) and `SettingsRowId` in `ui_settings.h`, in place of
+  `SetupCtl` and `SetupRow`. `UiScreenId` is `Tester`, `Menu`, `Settings`,
+  `SdLog`, `Am32`, `Servo`, `Kst` and `Beep`; `Kst` and `Beep` are never the
+  open screen.
+- Test hooks in `ui_menu.h`: `uiMenuUseRegistry()`, `uiMenuEntries()` and
+  `uiMenuRowOf()`.
+- `src/ui.cpp` keeps `Level::Tester`, `Level::Menu` and `Level::Tool`. A
+  tool's `tick()` returning false returns to MENU.
+- SETTINGS shows no tool section yet, since no registry entry has one.
+
 ## Interlocks
 
 | Interlock | Where | Through the UI |
@@ -683,8 +719,9 @@ in the tool's section and, because the field is new, a version step: slice
 
 ## Documentation, wiki and screenshots
 
-README.md and the wiki describe the built system, so slice C changes them,
-not this change. Slice A changes the AM32 swipe text, the name of the
+README.md and the wiki describe the built system, so slice C changed them,
+not slices A and B. The table lists each place by its text; its line numbers
+name 9c0f3b9. Slice A changes the AM32 swipe text, the name of the
 hold's constant and the source layout only.
 
 | File | Lines today | Change | Slice |

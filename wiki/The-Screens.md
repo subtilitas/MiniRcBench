@@ -2,19 +2,22 @@
 
 # The Screens
 
-The firmware has six screens. The tester is the root. The others are reached
-through `CFG` and left with `BACK`.
+The firmware has six screens. The tester is the root. `MENU` opens the list of
+tools, and every tool is left with `BACK`, which returns to `MENU`.
 
 ```
-Tester ──CFG──> Settings ──┬── AM32     ──BACK──> Settings
-                           ├── SERVO    ──BACK──> unplug page ──> Settings
-                           ├── SD LOG   ──BACK──> Settings
-                           └── SETUP    ──BACK──> Settings
-                     └─────BACK──> Tester
+Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MENU
+   ▲                    ├── SERVO TESTER ──BACK──> unplug page ──> MENU
+   │                    ├── SD LOG       ──BACK──> MENU
+   │                    └── SETTINGS     ──BACK──> MENU
+   └──── BACK on MENU ──┘
 ```
+
+`BEEP THE ESC` is a row of `MENU` that acts and opens no screen.
 
 **BACK is at the top right**, in the header band, on every screen except the
-tester. The tester is the root and has no header.
+tester. The header is 36 px tall and `BACK` is 64 × 32 px. The tester is the
+root and has no header.
 
 ---
 
@@ -25,7 +28,7 @@ tester. The tester is the root and has no header.
 **Top row.** From left to right:
 
 - the arm badge: `SAFE` (green) or `ARMED` (red);
-- `DS` and the DShot bitrate in kbit/s, as set under SETUP, cyan once an EDT
+- `DS` and the DShot bitrate in kbit/s, as set under SETTINGS, cyan once an EDT
   (Extended DShot Telemetry) enable has been sent. `DSERR` in amber replaces
   it when the display could not set up its DShot output; nothing is sent to
   the ESC then;
@@ -49,75 +52,101 @@ quality. See [Telemetry](Telemetry).
 percentage is of the full DShot range (0–2000 = 0–100 %): at a 20 % ceiling, a
 full-width drag reads `20%`. While disarmed the bar reads `ARM TO ENABLE`.
 
-**Buttons.** `HOLD TO ARM` / `DISARM`, `HOLD` (latching throttle), `CFG`.
+**Buttons.** `HOLD TO ARM` / `DISARM`, `HOLD` (latching throttle), `MENU`.
 
 ---
 
-## Settings
+## MENU
 
-<img src="img/settings.png" width="240" alt="The settings screen">
+<img src="img/menu.png" width="240" alt="The MENU screen">
 
-Reached with `CFG`, which **disarms**.
+Reached with the tester's `MENU` button. Opening it **disarms**, sets the
+throttle to 0 and turns `HOLD` off.
 
-- **EDT ON / EDT OFF**: a read-only chip under the title. Green while Extended
-  DShot Telemetry frames arrive, red otherwise. There is no enable button. The
-  firmware sends the enable to every ESC that starts answering, and repeats it
-  every 1 s while eRPM arrives and EDT does not. The ESC does not acknowledge
-  the enable, so the chip shows *received frames*, not sent commands.
-- **MOTOR POLES** and **THROTTLE CEILING**: steppers; hold to repeat.
-- **BEEP**: sends the DShot beacon command, so the motor beeps. Use it to
-  identify which ESC is connected. It works only while disarmed. The caption
-  reads `BEEP NEEDS THE ESC DISARMED`, and `REFUSED - DISARM THE ESC FIRST`
-  after a refused press.
-- **SD LOG**: beside BEEP, the logging screen.
-- **AM32 / SERVO / KST / SETUP**: the bottom row. `SERVO` opens the servo
-  tester. `KST` (KST and Chaservo servo programming) is drawn as an outline:
-  it is not built yet and does nothing when tapped.
+Under the title, a strip shows the ESC pin and the DShot rate, for example
+`GP29  600 KBIT/S`, and the **EDT ON / EDT OFF** chip. The chip is read-only.
+It is green while Extended DShot Telemetry frames arrive and red otherwise.
+There is no enable button. The firmware sends the enable to every ESC that
+starts answering, and repeats it every 1 s while eRPM arrives and EDT does not.
+The ESC does not acknowledge the enable, so the chip shows *received frames*,
+not sent commands.
 
-`UNSAVED` appears under the title when a value here or on SETUP differs from
-flash. The save button is on SETUP.
+Below the strip is a list of rows, 40 px tall. Each row has a name on the left
+and its state on the right. `BACK` returns to the tester.
 
-<img src="img/settings-unsaved.png" width="240" alt="UNSAVED, with changes not yet written to flash">
+| Row | State on the right | A tap |
+|---|---|---|
+| **BEEP THE ESC** | `DISARMED`; for 350 ms after a tap, `SENT` or `REFUSED` | Sends the DShot beacon command, so the motor beeps. Use it to identify which ESC is connected |
+| **AM32 CONFIG** | the ESC pin, `GP29`; `PINS BUSY` | Opens the AM32 editor |
+| **SERVO TESTER** | the two signal pins, `GP29+28`; `PINS BUSY` | Opens the servo tester |
+| **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a computer holds the card | Opens the logging screen |
+| **SETTINGS** | `UNSAVED` while a value differs from flash, else nothing | Opens SETTINGS |
 
-The command takes 6 ms (6 frames at 1 kHz). The screen repaints every 25 ms,
-so the firmware highlights the button for 350 ms after each press: white when
-sent, amber when refused.
+`PINS BUSY` means the signal pins are still in use, for example while DShot
+restarts after the servo tester. A tap on that row opens nothing. The row
+reads its pins again once DShot runs.
 
-<img src="img/config-beep-flash.png" width="240" alt="BEEP accepted"> <img src="img/config-beep-refused.png" width="240" alt="BEEP refused because the ESC is armed">
+BEEP works only while disarmed, and opening `MENU` disarms, so it is always
+allowed from here. The command takes 6 ms (6 frames at 1 kHz). The screen
+repaints every 25 ms, so the row is filled for 350 ms after each press:
+white with `SENT`, or amber with `REFUSED`. `REFUSED` is the answer if the ESC
+is armed. Opening `MENU` disarms, so it is not expected.
+
+<img src="img/menu-beep-flash.png" width="240" alt="BEEP accepted"> <img src="img/menu-beep-refused.png" width="240" alt="BEEP refused because the ESC is armed">
+
+`UNSAVED` on the SETTINGS row means a value differs from flash. The save button
+is on SETTINGS.
+
+<img src="img/settings-unsaved.png" width="240" alt="UNSAVED on the SETTINGS row, with changes not yet written to flash">
 
 ---
 
-## SETUP
+## SETTINGS
 
-<img src="img/setup.png" width="240" alt="The SETUP screen">
+<img src="img/settings.png" width="240" alt="The SETTINGS screen">
 
-Wiring and display settings, and the button that writes all settings to
-flash.
+Motor and wiring settings, display settings, and the button that writes all
+settings to flash. One list, in sections, scrolls under a finger.
 
-| Row | What it does |
-|---|---|
-| **BOARD** | Read-only. The board the firmware is built for, `RP2350-TOUCH-LCD-2.8` |
-| **ESC PIN** | GPIO (general-purpose input/output pin) for the signal wire. Only the board's two free GPIOs are offered, GP28 and GP29 |
-| **DSHOT KBAUD** | 150 / 300 / 600 / 1200. Lower it if the `LINK` error rate rises |
-| **KISS TELEM** | Whether to listen on the optional third telemetry wire |
-| **KISS PIN** | GPIO for that wire. Skips the ESC pin, so the two never coincide |
-| **CONTRAST** | `NORMAL` or `HIGH`. High contrast is for daylight |
-| **BACKLIGHT** | 16–255, in steps of 32 |
+| Section | Row | What it does |
+|---|---|---|
+| ESC TESTER | **MOTOR POLES** | 2–28, even values. The RPM readout divides the eRPM by half of it |
+| ESC TESTER | **MAX THROTTLE** | The throttle ceiling, `5%` to `100%` in steps of 5 % |
+| WIRING | **ESC PIN** | GPIO (general-purpose input/output pin) for the signal wire. Only the board's two free GPIOs are offered, GP28 and GP29 |
+| WIRING | **DSHOT KBAUD** | 150 / 300 / 600 / 1200. Lower it if the `LINK` error rate rises |
+| WIRING | **KISS TELEM** | Whether to listen on the optional third telemetry wire |
+| WIRING | **KISS PIN** | GPIO for that wire. Skips the ESC pin, so the two never coincide. Reads `--` and does not act while KISS TELEM is off |
+| DISPLAY | **CONTRAST** | `NORMAL` or `HIGH`. High contrast is for daylight |
+| DISPLAY | **BACKLIGHT** | 16–255, in steps of 32 |
+| BOARD | **BUILT FOR** | Read-only. The board the firmware is built for, `RP2350-TOUCH-LCD-2.8` |
 
-**LINK** below the rows is live: packets per second and error rate. Green
-means packets are arriving, so the ESC pin is correct. Amber means more than
-5 % errors.
+`MOTOR POLES` and `MAX THROTTLE` come first, so they need no scrolling. The `-`
+and `+` buttons are 44 × 44 px; hold one to repeat.
+
+**Scrolling.** Drag the list up or down from a spot that is not a button: a
+section name, a row's name or value, or the gap between rows. A drag that
+starts on `-`, `+` or a toggle never scrolls; it steps or switches the value.
+A button cut by the edge of the list takes a press only while at least 40 px
+of it show.
+
+Under the list, these stay in place:
+
+- **LINK**: live packets per second and error rate. Green means packets are
+  arriving, so the ESC pin is correct. Amber means more than 5 % errors.
+- The note line, which says which set is in use: `SAVED SETTINGS IN USE` or
+  `COMPILED DEFAULTS IN USE`. After a change it reads
+  `UNSAVED - HOLD SAVE TO KEEP`.
+- `HOLD TO SAVE` (150 × 48 px) and `RESET` (70 × 48 px).
 
 **Changes apply at once. Only storing them needs the hold.** A new bitrate
 rebuilds the DShot driver before the next frame. `HOLD TO SAVE` for 1 s writes
-to flash. `RESET` loads the compiled defaults into the live settings only.
-Leaving without saving keeps flash unchanged.
+to flash. `RESET` loads the compiled defaults, the pole count and the throttle
+ceiling included, into the live settings only. Leaving without saving keeps
+flash unchanged.
 
-The note line at the bottom says which set is in use: `SAVED SETTINGS IN USE`
-or `COMPILED DEFAULTS IN USE`. After a change it reads
-`UNSAVED - HOLD SAVE TO KEEP`.
+<img src="img/settings-scrolled.png" width="240" alt="SETTINGS scrolled to the end: DISPLAY and BOARD">
 
-<img src="img/setup-contrast.png" width="240" alt="SETUP in high contrast"> <img src="img/tester-contrast.png" width="240" alt="The tester screen in high contrast">
+<img src="img/settings-contrast.png" width="240" alt="SETTINGS in high contrast"> <img src="img/tester-contrast.png" width="240" alt="The tester screen in high contrast">
 
 *High contrast applies to every screen and sets the backlight to 255 while
 it is on.*
@@ -128,7 +157,8 @@ it is on.*
 
 <img src="img/log-ready.png" width="240" alt="The SD LOG screen, card ready">
 
-Recording state and counters. See [SD Logging](SD-Logging).
+Recording state and counters. `BACK` returns to `MENU`. See
+[SD Logging](SD-Logging).
 
 ---
 
@@ -137,7 +167,7 @@ Recording state and counters. See [SD Logging](SD-Logging).
 <img src="img/am32-list.png" width="240" alt="The AM32 settings list">
 
 Reads, edits and writes the settings of an AM32 ESC over the signal wire.
-See [AM32 Configuration](AM32-Configuration).
+`BACK` returns to `MENU`. See [AM32 Configuration](AM32-Configuration).
 
 ---
 
@@ -148,7 +178,8 @@ See [AM32 Configuration](AM32-Configuration).
 Drives one or two servos with servo pulses on the ESC and KISS pins. It opens
 SAFE; `HOLD TO START` for 1 s starts the pulses at the centre, `STOP` acts on
 touch. `SET` opens the profile and sweep settings. `BACK` shows
-`UNPLUG THE SERVO.` before the ESC driver takes the pins back. See
+`UNPLUG THE SERVO.` before the ESC driver takes the pins back, and
+`RESTART DSHOT` then returns to `MENU`. See
 [Servo Tester](Servo-Tester).
 
 ---

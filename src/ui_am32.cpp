@@ -9,7 +9,7 @@
  */
 
 #include "ui_am32.h"
-#include "esc_task.h"
+#include "settings.h"
 #include "am32_bl.h"
 #include "am32_eeprom.h"
 #include "pin_claim.h"
@@ -691,9 +691,9 @@ bool uiAm32Tick(const TouchState *t) {
 	return true;
 }
 
-/** @brief AM32 CONFIG's MENU status: the signal pin it claims. */
+/** @brief AM32 CONFIG's MENU status: the signal pin it claims, from the settings. */
 static void am32MenuStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
-	snprintf(buf, n, "GP%u", (unsigned)escTaskDshotPin());
+	snprintf(buf, n, "GP%u", (unsigned)settings()->dshotPin);
 	*col = C_DIM;
 }
 

@@ -16,6 +16,7 @@
 #include "ui_servo.h"
 #include "core1_job.h"
 #include "esc_task.h"
+#include "settings.h"
 #include "pin_claim.h"
 #include "servo_job.h"
 #include "servo_model.h"
@@ -983,9 +984,9 @@ bool uiServoTick(const TouchState *t) {
 	return true;
 }
 
-/** @brief SERVO TESTER's MENU status: the signal pins it claims, SIG and AUX. */
+/** @brief SERVO TESTER's MENU status: the signal pins it claims, SIG and AUX, from the settings. */
 static void servoMenuStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
-	snprintf(buf, n, "GP%u+%u", (unsigned)escTaskDshotPin(), (unsigned)escTaskKissPin());
+	snprintf(buf, n, "GP%u+%u", (unsigned)settings()->dshotPin, (unsigned)settings()->kissPin);
 	*col = C_DIM;
 }
 

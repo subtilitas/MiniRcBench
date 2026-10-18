@@ -41,7 +41,7 @@ The servo needs its own supply. The board supplies the signal and ground only.
   before the board.
 - Join the two grounds once, at the board.
 - Servo A is on the ESC pin and servo B on the KISS pin, as set under
-  `CFG → SETUP`. GP29 and GP28 are the defaults.
+  **MENU → SETTINGS**. GP29 and GP28 are the defaults.
 - Unplug any ESC from the ESC pin. The screen waits while an ESC answers on
   it, but it cannot see every ESC.
 
@@ -49,7 +49,7 @@ The servo needs its own supply. The board supplies the signal and ground only.
 
 ## Opening it
 
-Open `CFG → SERVO`.
+Open **MENU → SERVO TESTER**.
 
 The screen takes the two signal pins from the ESC driver. If an ESC answers on
 the ESC pin, it waits and says `AN ESC ANSWERS ON GP29.` Unplug the ESC; the
@@ -126,7 +126,7 @@ both to the same angle. The chosen horn is drawn wide. With `REVERSE B` on, B
 moves the opposite way when both follow, for a pair mounted face to face.
 
 Two servos need the KISS pin free. If KISS frames arrive on it, or the ESC pin
-and the KISS pin are the same pin under SETUP, the screen offers one servo
+and the KISS pin are the same pin under SETTINGS, the screen offers one servo
 only, and the SET screen says why. While the screen waits for the pins, for
 example while an ESC answers, it cannot know whether the KISS pin is free,
 and `TWO` can be chosen. If the screen then finds the KISS pin taken, it takes
@@ -144,7 +144,8 @@ open the screen again.
 <img src="img/servo-set.png" width="240" alt="The SET screen">
 
 Tap a row to select it. `-` and `+` change it one step, and repeat while held.
-Swipe the row sideways for big steps. Drag up or down to scroll.
+Swipe the row sideways for big steps. Drag up or down to scroll. Rows are
+40 px tall, so three show at a time.
 
 | Row | Values |
 |---|---|
@@ -192,7 +193,7 @@ the KISS pin low until the KISS receiver takes it, or for good with KISS off.
 <img src="img/servo-unplug.png" width="240" alt="UNPLUG THE SERVO">
 
 Unplug the servo, then tap `RESTART DSHOT`. The ESC driver takes the pins back
-and the settings screen returns. `BACK` on this page returns to the servo
+and `MENU` returns. `BACK` on this page returns to the servo
 screen instead, SAFE, and keeps the pins.
 
 ---
@@ -206,7 +207,7 @@ screen instead, SAFE, and keeps the pins.
   <img src="img/servo-bind.png" width="240" alt="GP29 COULD NOT BE TAKEN (PWM), with RETRY">
 
 - **`TWO` cannot be chosen.** The KISS wire is live, or both pins are the same
-  pin under SETUP. The SET screen names the cause when `SERVOS` is selected.
+  pin under SETTINGS. The SET screen names the cause when `SERVOS` is selected.
 - **The servo does not move.** Check that the chip reads `RUNNING`, that the
   servo has its own supply, and that its ground is joined to the board's.
   Whether a servo accepts the board's 3.3 V pulses is not recorded per servo.

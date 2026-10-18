@@ -1,12 +1,12 @@
 # KST and Chaservo servo programming
 
 Status: planned. Nothing here is built. It depends on the pin claim in
-[pin-claim.md](pin-claim.md), slice 1 there, which is built: the KST button on
-CFG is drawn disabled, `src/ui_kst.cpp` is a stub, and `core1_job.cpp` has no
-KST job. This document is slice 3. It comes after slices A to C of
-[menu.md](menu.md), the menu restructure, and is written for the system they
-leave: MENU, to which slice 3 adds the KST SERVO row, the SETTINGS list, the
-shared list `ui_list`, the shared hold `ui_hold` and the 36 px header. The
+[pin-claim.md](pin-claim.md), slice 1 there, which is built: MENU has no KST
+row, `src/ui_kst.cpp` is a stub, and `core1_job.cpp` has no KST job. This
+document is slice 3. It comes after slices A to C of [menu.md](menu.md), the
+menu restructure, which are built, and is written for the system they leave:
+MENU, to which slice 3 adds the KST SERVO row, the SETTINGS list, the shared
+list `ui_list`, the shared hold `ui_hold` and the 36 px header. The
 rcbench code it ports has not sent a frame to a servo either: rcbench's
 `protocols/kst/README.md` says "no frame of this code has been sent to a
 servo, and the pin driver has not run on a chip".
@@ -518,7 +518,7 @@ Slice 3 adds the `SERVO SUPPLY` row to the SETTINGS list of
 [menu.md](menu.md#settings). It is a section of its own, SERVO SUPPLY,
 between WIRING and DISPLAY, contributed by KST's registry entry (menu.md
 decisions 8 and 13). The list's geometry, gestures, fixed footer and asserts
-are menu.md's; slice C builds them.
+are menu.md's, built in its slice C.
 
 - Values: `NONE`, 0, the default, for no switch fitted, and `GP0`, 1, an
   active-high enable on GP0 (decision 8).
@@ -1152,15 +1152,14 @@ so these run against the same simulated servo:
    - The SERVO SUPPLY section: one `SettingsRow` in KST's header, named by
      KST's line in `ui_registry.cpp` ([SETTINGS row](#settings-row));
      `test_ui.cpp`: the row by control id. The scrolling list, its asserts
-     and its gesture tests are menu.md slice C.
-   - `docs/settings-preview.png`, the SETTINGS preview after menu.md slice
-     C, regenerated with `make previews`; the SETTINGS sections of the wiki
+     and its gesture tests are built (menu.md slice C).
+   - `docs/settings-preview.png`, the SETTINGS preview of menu.md slice C,
+     regenerated with `make previews`; the SETTINGS sections of the wiki
      pages `The-Screens.md` and `Die-Bildschirme.md`, and their images,
-     which slice C names.
-   - README.md: the SERVO SUPPLY row in the SETTINGS row table, which menu.md
-     slice C writes from today's SETUP row table (README.md:383-392), and the
-     servo supply in the SETTINGS entry of the MENU list, which slice C
-     writes from today's CFG list entry for SETUP (README.md:349-350).
+     which slice C named.
+   - README.md: the SERVO SUPPLY row in the SETTINGS row table of its
+     SETTINGS screen section, and the servo supply in the SETTINGS row of the
+     MENU table.
    - `STATUS.md`: the settings feature row and the `runSettingsTests` row,
      which name the block layout DshotDisplay 2.x writes.
    - `CHANGELOG.md` and the README: the first boot after the update discards
@@ -1170,10 +1169,9 @@ so these run against the same simulated servo:
 6. README: the KST section, the wiring, the legal notice; the converter,
    its requirements and the warning on an ESC's BEC wire; GP0 in the pin
    table as the supply enable with `SERVO SUPPLY` at `GP0`; the KST SERVO
-   entry in the MENU list that menu.md slice C writes, which drops today's
-   CFG list entry for KST (README.md:347-348). Wiki pages
-   `KST-Programming.md` and its German counterpart, and their entries in
-   `_Sidebar.md` and the screens pages.
+   row in the MENU table of README.md, which has no KST row until then. Wiki
+   pages `KST-Programming.md` and its German counterpart, and their entries
+   in `_Sidebar.md` and the screens pages.
 7. Bring-up, in rcbench's order and before any write is relied on:
    - the converter, with the user's supply on: with no servo, EN low and
      VOUT at 0 V with the board unpowered, held in reset, in BOOTSEL, and on
@@ -1194,7 +1192,7 @@ so these run against the same simulated servo:
      read-back, then a power cycle and a read.
 
 About 10 to 12 days for 1 to 6, not measured. The scrolling SETTINGS list
-and its coordinate tests are in menu.md slice C, and the lists and holds are
+and its coordinate tests are built in menu.md slice C, and the lists and holds are
 the shared widgets of menu.md slice A; the card phase and the close rule are
 added here. Bring-up depends on the servo and is not estimated.
 

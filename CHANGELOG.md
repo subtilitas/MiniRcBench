@@ -168,6 +168,35 @@ protocol.
   way. `runIdTests` in `test/test_ids.cpp` walks every screen the host
   build opens and checks each table: ids unique, rectangles inside the
   panel and apart, BACK at its rectangle.
+- MENU, a list of rows from the screen registry: BEEP THE ESC, AM32 CONFIG,
+  SERVO TESTER, SD LOG and SETTINGS, with a strip for the ESC pin, the DShot
+  rate and the EDT chip. BEEP's flash is on its row. AM32 CONFIG and SERVO
+  TESTER read `PINS BUSY` and open nothing while the pin claim is not Free.
+  SD LOG reads its card state, and SETTINGS reads `UNSAVED`. A seventh row
+  makes MENU scroll ([menu.md](docs/design/menu.md), slice C).
+- SETTINGS, one scrolling list in sections: ESC TESTER, WIRING, DISPLAY and
+  BOARD. MOTOR POLES and MAX THROTTLE lead it. The list scrolls under a drag
+  that starts off a control. LINK, the note line, HOLD TO SAVE and RESET stay
+  fixed below it.
+- The screen registry, `src/ui_registry.cpp`, with one line per MENU row and a
+  build-time check that each label clears its status, and `UiScreen`,
+  `SettingsRow`, `SettingsSection` and `UiMenuEntry` in `src/ui_screen.h`. A
+  new tool is a `UiScreen` in its own file and one registry line. New files:
+  `src/ui_menu.cpp`, `src/ui_settings.cpp`, `src/ui_registry.cpp` and
+  `src/ui_sdlog.cpp`.
+- `UI_LIST_TAP_MIN`, 40 px, in `src/ui_widgets.h`: the smallest row of a list
+  and the smallest control in a SETTINGS row. A control cut by the edge of a
+  list takes a press only while 40 px of it show.
+- `PIN_USERS` in `src/pin_claim.h`, one row per pin user: its core1 job,
+  whether it shows the unplug page and whether it is refused while an ESC
+  answers. `pinUserInfo()` reads it.
+- Host tests for MENU, SETTINGS and the navigation (`runMenuTests` in
+  `test/test_menu.cpp`): SD LOG's BACK, every registry entry opened and left,
+  MENU's disarm, BEEP's flash, `PINS BUSY`, MENU's scroll over registries of
+  six and seven rows, the SETTINGS scroll range, each row by id, the 40 px
+  rule for a cut control and HOLD TO SAVE at every scroll position.
+- `docs/menu-preview.png`, and `docs/settings-preview.png` with a scrolled
+  frame of SETTINGS.
 
 ### Changed
 
@@ -274,6 +303,32 @@ protocol.
   open screen with `uiCurrentScreen()`. Their coordinate macros are gone, so
   a layout change moves the control tables and not the tests
   ([menu.md](docs/design/menu.md), slice B).
+- CFG on the tester reads MENU. Opening MENU disarms, sets the throttle to
+  zero and turns HOLD off, as CFG did.
+- SETUP is SETTINGS, reached from MENU. Motor poles and the throttle ceiling
+  moved to it, at the top, and the ceiling reads MAX THROTTLE. The old
+  SETTINGS screen is MENU. Pole count and ceiling are two taps away (MENU,
+  then SETTINGS) instead of one.
+- Every header is 36 px tall, up from 30 px, and BACK is 64 × 32 px, up from
+  50 × 22 px. The strip starts at y 40 and the body at y 62.
+- The AM32 list and the SERVO SET list have rows of 40 px at a 42 px pitch,
+  up from 26 px, so three rows show. A press on a row cut by the edge of the
+  list counts only while 40 px of it show.
+- SD LOG rows are 20 px tall, down from 21 px, so they clear the note line
+  under the taller header.
+- The servo dial's hit area ends at 122 px from its centre, down from 124 px,
+  and its two notes are at y 64 and 76, down from y 58 and 70. The dial
+  band starts at y 62.
+- Every tool's BACK returns to MENU. The unplug page of SERVO returns to MENU
+  through RESTART DSHOT.
+- SETTINGS' controls are larger: `-` and `+` 44 × 44 px, toggles 94 × 44 px,
+  HOLD TO SAVE 150 × 48 px and RESET 70 × 48 px.
+- The pin users are a table, `PIN_USERS`, in place of a switch and two
+  comparisons in `src/pin_claim.cpp` and `src/pin_claim.h`.
+- `src/ui.cpp` holds the tester and the navigation. SD LOG moved to
+  `src/ui_sdlog.cpp`.
+- README.md and the wiki describe MENU and SETTINGS in place of the settings
+  screen and SETUP.
 
 ### Removed
 
@@ -298,9 +353,14 @@ protocol.
   the test Makefile's `both` target and board list, the host tests for board
   selection and the 2.0" descriptor, and CI's DWARF touch-driver and
   board-label assertions.
+- The SETUP screen (`src/ui_setup.cpp`, `src/ui_setup.h`) and the old
+  SETTINGS screen, with its destination row and its disabled KST button. MENU
+  and SETTINGS replace them.
 
 ### Fixed
 
+- SD LOG's BACK returns to MENU. In the code it returned to the tester, while
+  the wiki page The Screens said Settings. A test pins it.
 - HOLD TO ARM times only a press that lands on it while arming is allowed.
   The press that disarms, kept on the button, armed again 1000 ms later, and
   a press made while a USB host held the card armed 1000 ms after the host

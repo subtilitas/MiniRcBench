@@ -2,13 +2,14 @@
 
 Status: slices 1 and 2 are built. Slice 1: the claim (`src/pin_claim.h`),
 the core1 job dispatch (`src/core1_job.h`), the drain, the AM32 screen on the
-claim, the CFG rows and the stub screens. Slice 2: the servo tester and its
+claim, the rows for its tools and the stub screens. Slice 2: the servo tester and its
 core1 job ([servo-tester.md](servo-tester.md)). Host tests only; nothing of
 either is tested on hardware. Slice 3, KST programming, is planned. Slices
-A to C of [menu.md](menu.md), the menu restructure, are planned before slice
-3. They rename the screens this document names as built: CFG on the tester
-reads MENU, the SETTINGS screen becomes the MENU list, and SETUP becomes
-SETTINGS. The rules here hold under both names. The design uses the DShot
+A to C of [menu.md](menu.md), the menu restructure, are built before slice 3.
+Since slice C, the tester's third button reads MENU, the list of tools is
+MENU, and the screen for the persisted settings is SETTINGS. This document
+uses those names; its recorded decisions keep the names they were made
+under. The design uses the DShot
 driver in `src/dshot/` (`out_dshot_bind()`, `out_dshot_stop()`,
 `out_dshot_release()`).
 
@@ -47,7 +48,7 @@ The claim names pins by role, not by number, because the number is a setting.
 | SIG | the ESC signal wire, `settings()->dshotPin` | AM32 config, servo A, KST programming |
 | AUX | the KISS telemetry wire, `settings()->kissPin` | servo B (two-servo mode) |
 
-AUX is the KISS pin whether or not KISS is switched on in SETUP. KISS is off
+AUX is the KISS pin whether or not KISS is switched on in SETTINGS. KISS is off
 by default, and GP28 is still the AUX pin.
 
 | Role | Default | Connector |
@@ -56,8 +57,8 @@ by default, and GP28 is still the AUX pin.
 | AUX | GP28 | J4 pin 11 |
 | GND | | J4 pins 1 and 5 |
 
-SETUP offers GP28 and GP29 only, for either role (`BOARD_FREE_GPIO_MASK`
-0x30000000). With KISS off, SETUP lets the ESC pin take the KISS pin's GPIO,
+SETTINGS offers GP28 and GP29 only, for either role (`BOARD_FREE_GPIO_MASK`
+0x30000000). With KISS off, SETTINGS lets the ESC pin take the KISS pin's GPIO,
 so SIG and AUX can name the same pin.
 
 ## The claim
@@ -79,7 +80,7 @@ screen asks for decide only which pins its job binds.
 
 A claim lasts while its screen is open, its sub-screens included (SERVO SET,
 KST FILES). Leaving the screen with BACK ends it. No other screen is reachable
-during a claim: SETUP, SD LOG and the main screen sit behind BACK.
+during a claim: SETTINGS, SD LOG and the main screen sit behind BACK.
 
 ### Sequence
 
@@ -104,10 +105,10 @@ the exception.
    `kissUartEnd()` ends the PIO receiver on AUX. Core1 then sets
    `escTaskSuspended()`. The drain frames carry no command and no KISS
    request. A pump that sent no throttle frame since its bind needs no drain.
-   Coming from CFG, the 250 ms have usually passed: CFG disarms on entry. A
-   user who taps CFG and AM32 in quick succession can open AM32 about 100 ms
-   after the last throttle frame, and its handover then waits out the rest. A
-   rebuild after a SETUP pin change drains the same way.
+   Coming from MENU, the 250 ms have usually passed: opening MENU disarms. A
+   user who taps MENU and AM32 CONFIG in quick succession can open AM32 about
+   100 ms after the last throttle frame, and its handover then waits out the
+   rest. A rebuild after a SETTINGS pin change drains the same way.
 3. **Held.** Core0 reads the GPIO numbers once: SIG from `escTaskDshotPin()`,
    AUX from `escTaskKissPin()`. `pinClaimGpio()` returns them from here on, for
    the roles the claim asked for. For SERVO and KST it starts the core1 job
@@ -168,6 +169,12 @@ void         pinClaimRestart(PinUser who); // RESTART DSHOT on the unplug page
 void         pinClaimKeep(PinUser who);    // BACK on the unplug page
 ```
 
+What differs per user is a table, `PIN_USERS` in `pin_claim.h`, one row per
+`PinUser`: the core1 job (None: the screen drives the pin from core0, as AM32
+does), whether the unplug page comes before DShot restarts, and whether the
+claim is refused while an ESC answers on SIG. `pinUserInfo()` reads it. A new
+pin user is one enum value and one row.
+
 The refusal check is a pure function, `pinClaimCheck()`, beside it, so the
 host suite tests every rule without the SDK. Its order is Armed, Busy,
 EscAnswering (SERVO and KST only; AM32 is exempt), KissLive, SamePin;
@@ -225,12 +232,10 @@ is alive" for the pump and every job.
 
 **Armed: the claim is refused.** `pinClaimBegin()` returns `Armed` and
 changes nothing. It does not disarm on the caller's behalf. Every entry point
-is on the SETTINGS screen, and the CFG button that opens it disarms
-(`handleMainTouch()`), so through the UI the refusal is unreachable. After
-menu.md slice C every entry point is a MENU row, and `uiOpenMenu()`, the one
-route to MENU, disarms. A route
-added later that reaches a claim while armed then shows up as a refused claim
-in a test, instead of a motor stopped as a side effect of navigation.
+is a MENU row, and `uiOpenMenu()`, the one route from the tester to MENU,
+disarms, so through the UI the refusal is unreachable. A route added later
+that reaches a claim while armed then shows up as a refused claim in a test,
+instead of a motor stopped as a side effect of navigation.
 `escTaskSuspend()` keeps its own forced disarm as the backstop under that
 check.
 
@@ -257,7 +262,7 @@ AM32 is exempt: it needs the ESC on the pin.
 on that pin would drive against it. The two-servo mode is refused with the
 reason; one-servo mode is not affected.
 
-**SIG and AUX on one GPIO: two-servo mode is refused.** With KISS off, SETUP
+**SIG and AUX on one GPIO: two-servo mode is refused.** With KISS off, SETTINGS
 can set the ESC pin to the KISS pin's GPIO. Two servos on one pin would be
 one compare register driven twice. `pinClaimCheck()` returns `SamePin` when
 AUX is asked for and the two roles name the same GPIO; one-servo mode is not
@@ -284,14 +289,14 @@ measurement 2); decision 1 below sets the rule without that measurement.
 
 No flash write happens during a claim. `settingsSave()` parks core1 for tens
 of milliseconds, which would stall a KST transaction past its driver slack.
-SETUP, the only caller, is unreachable while a claim holds, and
+SETTINGS, the only caller, is unreachable while a claim holds, and
 `settingsSave()` checks it: during a claim it refuses and writes nothing.
 
 ### Settings
 
-The claim reads the pins SETUP chose, as latched by `escTaskConfigure()`, not
-the compiled defaults. They cannot change during a claim, because SETUP is
-unreachable. A pin change in SETUP applies to the next claim.
+The claim reads the pins SETTINGS chose, as latched by `escTaskConfigure()`, not
+the compiled defaults. They cannot change during a claim, because SETTINGS is
+unreachable. A pin change in SETTINGS applies to the next claim.
 
 Nothing about the servo tester is stored in the settings block; see
 decision 2 in [servo-tester.md](servo-tester.md). The programmer stores one
@@ -311,18 +316,18 @@ works.
 |---|---|---|
 | An ESC answers on SIG | `AN ESC ANSWERS ON GP29.` `UNPLUG IT: SERVO PULSES READ AS THROTTLE.` | unplug the ESC; the claim follows 500 ms later |
 | KISS frames on AUX, two servos asked | `KISS WIRE ON GP28 IS LIVE.` `TWO SERVOS NEED IT UNPLUGGED.` | unplug it, or choose one servo |
-| SIG and AUX on one GPIO, two servos asked | `ESC AND KISS PIN ARE THE SAME GPIO.` `MOVE THE ESC PIN IN SETUP.` | choose one servo, or change a pin in SETUP |
+| SIG and AUX on one GPIO, two servos asked | `ESC AND KISS PIN ARE THE SAME GPIO.` `MOVE THE ESC PIN IN SETTINGS.` | choose one servo, or change a pin in SETTINGS |
 | The job could not bind | `GP29 COULD NOT BE TAKEN (PWM)` or `(PIO)`, `(DMA)`, `(CLOCK)` | RETRY keeps the claim; BACK shows the unplug page before DShot restarts |
 | Armed, or another screen holds the pins | `DISARM FIRST` or `PINS BUSY` | BACK; unreachable through the UI |
 
-The GPIO numbers in the text are the live ones from SETUP.
+The GPIO numbers in the text are the live ones from SETTINGS.
 
 ### Restoring DShot
 
 `escTaskResume()` rebuilds the driver from the wiring `esc_task.cpp` latched:
 the same SIG pin, bitrate, bidirectional mode, KISS enable and KISS pin. Pole
 count and throttle ceiling live in the settings block and are untouched. The
-pump starts disarmed with HOLD off, as after a SETUP change. Its first frames
+pump starts disarmed with HOLD off, as after a SETTINGS change. Its first frames
 are the EDT enable, and it decodes every reply with EDT on (`escEdtBind()`,
 `ESC_EDT_DECODE`), so an ESC that kept EDT on through the session reads
 correctly from its first reply. The repeated enable starts again for the ESC
@@ -386,7 +391,7 @@ channel is `gpio & 1` (`PWM_GPIO_SLICE_NUM` in Pico SDK 2.1.1,
 The two servos are on one slice, channels A and B: two pulse widths, one
 frame rate. When SIG and AUX are different GPIOs they are on different
 channels, and the servo tester's one frame rate for both servos never needs
-a choice. When SETUP has put them on the same GPIO, the claim refuses
+a choice. When SETTINGS has put them on the same GPIO, the claim refuses
 two-servo mode (`SamePin`).
 
 Neither free pin is on the backlight's slice: slice 0 holds GP0, GP1, GP16
@@ -545,9 +550,8 @@ replaces whole; one source list per feature, `src/servo.cmake` and
 `src/kst.cmake`, which `CMakeLists.txt` includes, and `test/servo.mk` and
 `test/kst.mk`, which `test/Makefile` includes; and one stub suite per feature,
 `test/test_servo.cpp` with `runServoTests()` and `test/test_kst.cpp` with
-`runKstTests()`, which `test/test_main.cpp` runs. `ui.cpp` dispatches to both
-screens and gates their CFG buttons on `uiServoAvailable()` and
-`uiKstAvailable()`. Each slice adds one line to the job table of
+`runKstTests()`, which `test/test_main.cpp` runs. `ui.cpp` opens a tool from
+its MENU row, and a row whose claim is refused reads `PINS BUSY`. Each slice adds one line to the job table of
 `core1_job.cpp`. Slice 3 otherwise edits its own files, except for these
 shared files ([work breakdown](kst-programming.md#work-breakdown)): for the
 screen, step 4, `src/ui_registry.cpp`, one line; for the switched supply,
@@ -571,14 +575,14 @@ the wiki. Slice 2 also changes these shared files:
 - `test/fakes.*` and `test/stubs/hardware/`: the PWM register model and the
   pull-down;
 - `test/test_claim.cpp` (the release contract and the heartbeat rule),
-  `test/test_gfx.cpp` (the primitives) and `test/test_ui.cpp` (the CFG row);
+  `test/test_gfx.cpp` (the primitives) and `test/test_ui.cpp` (the MENU row);
 - `tools/notices.py` (the `lib/rcbench/` rule), `tools/coverage.py` (its
   scope text), `tools/make_previews.py` and `tools/check_wiki.py` (the servo
   images and page pair), and the copied headers' include paths in the config
   permutations of `ci.yml`;
 - `docs/design/kst-programming.md`: the owner's KST decisions 1 to 4;
 - `docs/settings-preview.png` and `docs/setup-preview.png`: regenerated,
-  since the CFG screen shows SERVO live.
+  since MENU shows SERVO TESTER live.
 
 The slices share three documentation files, each adding its own section:
 `README.md` (slice 3 also adds the legal notice), `wiki/_Sidebar.md` and
@@ -611,5 +615,5 @@ numbers stay, so the references above keep pointing at them.
 Revision of 2026-10-18, after the owner's menu decisions
 ([menu.md](menu.md#decisions)): decision 2 is superseded. The MENU list of
 menu.md decision 1 replaces the CFG screen and its destination row, and BEEP
-becomes a MENU row (menu.md decision 2). The CFG layout stays as built until
-menu.md slice C.
+becomes a MENU row (menu.md decision 2). Slice C of menu.md is built: the
+CFG screen and its destination row are gone.
