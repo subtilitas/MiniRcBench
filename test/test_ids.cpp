@@ -13,7 +13,10 @@
 #include "ui.h"
 #include "ui_am32.h"
 #include "ui_servo.h"
-#include "ui_setup.h"
+#include "ui_kst.h"
+#include "ui_settings.h"
+#include "ui_menu.h"
+#include "ui_sdlog.h"
 #include "ui_screen.h"
 #include "sd_log.h"
 #include "usb_msc.h"
@@ -50,18 +53,18 @@ static void testHelpersFail() {
 	tapId(UI_FIX(TesterCtl::Throttle));
 	int misgated = s_idFails;
 	s_idFails = 0;
-	tapId(UI_FIX(TesterCtl::Cfg), IdExpect::Disabled);
-	int wrongWay = s_idFails;
-	bool cfgOpen = uiCurrentScreen() == UiScreenId::Cfg;
-	s_idFails = 0;
-	tapId(UI_FIX(CfgCtl::Kst), IdExpect::Disabled);
+	tapId(UI_FIX(TesterCtl::Throttle), IdExpect::Disabled);
 	int right = s_idFails;
+	s_idFails = 0;
+	tapId(UI_FIX(TesterCtl::Menu), IdExpect::Disabled);
+	int wrongWay = s_idFails;
+	bool menuOpen = uiCurrentScreen() == UiScreenId::Menu;
 
 	g_idFailHook = nullptr;
 	checkInt("a tap on a control that is absent reports once", absent, 1);
 	checkInt("a tap expected to act on a control that does not reports once", misgated, 1);
 	checkInt("a tap expected on a disabled control that acts reports once", wrongWay, 1);
-	checkTrue("and still taps: CFG opened SETTINGS", cfgOpen);
+	checkTrue("and still taps: MENU opened", menuOpen);
 	checkInt("a tap expected on a disabled control that is disabled reports nothing", right, 0);
 }
 
@@ -90,37 +93,41 @@ static void testHelpersReport() {
 	checkTrue("a tap on DISARM by id disarms", !uiArmed());
 }
 
-/** @brief SETTINGS, SETUP and SD LOG by id. */
-static void testCfgSetupLog() {
-	section("Control ids: SETTINGS, SETUP and SD LOG");
+/** @brief MENU, SETTINGS and SD LOG by id. */
+static void testMenuSettingsLog() {
+	section("Control ids: MENU, SETTINGS and SD LOG");
 	fakeFlashClear(); settingsLoad(); uiInit(); idFrames(4);
-	tapId(UI_FIX(TesterCtl::Cfg));
-	checkTrue("CFG opens SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
-	checkControlTable("SETTINGS");
-	checkTrue("SERVO acts", ctlEnabled(UI_FIX(CfgCtl::Servo)));
-	checkTrue("KST is drawn disabled", ctlPresent(UI_FIX(CfgCtl::Kst)) && !ctlEnabled(UI_FIX(CfgCtl::Kst)));
-	tapId(UI_FIX(CfgCtl::Kst), IdExpect::Disabled);
-	checkTrue("a tap on KST stays on SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
+	tapId(UI_FIX(TesterCtl::Menu));
+	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
+	checkControlTable("MENU");
+	checkTrue("SERVO TESTER acts", ctlEnabled(menuRow(&UI_SERVO)));
+	checkTrue("KST has no MENU row before slice 3", uiMenuRowOf(&UI_KST) < 0);
 
-	tapId(UI_FIX(CfgCtl::Setup));
-	checkTrue("SETUP opens", uiCurrentScreen() == UiScreenId::Setup);
-	checkControlTable("SETUP, KISS off");
+	tapId(menuRow(&UI_SETTINGS));
+	checkTrue("SETTINGS opens", uiCurrentScreen() == UiScreenId::Settings);
+	checkControlTable("SETTINGS at 0 px");
+	revealRow((int)SettingsRowId::KissPin);
+	checkControlTable("SETTINGS, KISS PIN in view");
 	bool kissOn = settings()->kissEnable != 0;
 	checkTrue("KISS PIN follows KISS TELEM",
-	          ctlEnabled(UI_ROW(SetupRow::KissPin, Plus)) == kissOn);
-	tapId(UI_ROW(SetupRow::Kiss, Toggle));
+	          ctlEnabled(UI_ROW(SettingsRowId::KissPin, Plus)) == kissOn);
+	tapId(UI_ROW(SettingsRowId::Kiss, Toggle));
 	checkTrue("KISS TELEM by id toggles it", (settings()->kissEnable != 0) != kissOn);
-	checkTrue("and KISS PIN follows", ctlEnabled(UI_ROW(SetupRow::KissPin, Plus)) != kissOn);
-	checkControlTable("SETUP, KISS toggled");
-	checkTrue("BOARD has no control", !ctlPresent(UI_ROW(SetupRow::Board, Minus)));
+	checkTrue("and KISS PIN follows", ctlEnabled(UI_ROW(SettingsRowId::KissPin, Plus)) != kissOn);
+	checkControlTable("SETTINGS, KISS toggled");
+	revealRow((int)SettingsRowId::BuiltFor);
+	checkTrue("BUILT FOR shows and has no control", ctlPresent(UI_ROW(SettingsRowId::BuiltFor, Row)) &&
+	          !ctlPresent(UI_ROW(SettingsRowId::BuiltFor, Minus)) &&
+	          !ctlPresent(UI_ROW(SettingsRowId::BuiltFor, Toggle)));
+	checkControlTable("SETTINGS at the end");
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from SETUP reaches SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
+	checkTrue("BACK from SETTINGS reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
 
 	SdLogStatus st;
 	memset(&st, 0, sizeof(st));
 	st.state = SdLogState::NoCard;
 	fakeSdLogSet(&st);
-	tapId(UI_FIX(CfgCtl::SdLog));
+	tapId(menuRow(&UI_SDLOG));
 	checkTrue("SD LOG opens", uiCurrentScreen() == UiScreenId::SdLog);
 	checkControlTable("SD LOG, no card");
 	checkTrue("no card: START does not act", !ctlEnabled(UI_FIX(SdLogCtl::Toggle)));
@@ -136,15 +143,17 @@ static void testCfgSetupLog() {
 	checkTrue("and USB DRIVE", !ctlPresent(UI_FIX(SdLogCtl::Usb)));
 	fakeMscSet(MscState::Idle, 0); idFrames(1);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from SD LOG reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
+	checkTrue("BACK from SD LOG reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
 }
 
 /** @brief SERVO, its SET view and its unplug page by id. */
 static void testServo() {
 	section("Control ids: SERVO, SET and the unplug page");
 	fakeFlashClear(); settingsLoad(); uiInit(); idFrames(4);
-	tapId(UI_FIX(TesterCtl::Cfg));
-	tapId(UI_FIX(CfgCtl::Servo));
+	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(menuRow(&UI_SERVO));
 	checkTrue("SERVO opens", uiCurrentScreen() == UiScreenId::Servo);
 	idFrames(20);
 	checkControlTable("SERVO, SAFE");
@@ -176,7 +185,7 @@ static void testServo() {
 	for (int i = 0; i < 200 && !ctlPresent(UI_FIX(ServoCtl::Restart)); i++) idFrames(1);
 	checkControlTable("the unplug page");
 	tapId(UI_FIX(ServoCtl::Restart));
-	checkTrue("SERVO leaves to SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
+	checkTrue("SERVO leaves to SETTINGS", uiCurrentScreen() == UiScreenId::Menu);
 }
 
 /**
@@ -186,8 +195,8 @@ static void testServo() {
 static void testAm32() {
 	section("Control ids: AM32 CONFIG, the handover and the list");
 	fakeFlashClear(); settingsLoad(); uiInit(); idFrames(4);
-	tapId(UI_FIX(TesterCtl::Cfg));
-	tapId(UI_FIX(CfgCtl::Am32));
+	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(menuRow(&UI_AM32));
 	checkTrue("AM32 opens", uiCurrentScreen() == UiScreenId::Am32);
 	UiControl t[UI_CONTROLS_MAX];
 	checkInt("during the handover, BACK is the only control", uiControls(t, UI_CONTROLS_MAX), 1);
@@ -225,13 +234,13 @@ static void testAm32() {
 	          !ctlEnabled(UI_FIX(Am32Ctl::Write)) && !ctlEnabled(UI_FIX(Am32Ctl::Revert)));
 	tapId(UI_FIX(UI_BACK));
 	idFrames(20);
-	checkTrue("BACK from AM32 reaches SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
+	checkTrue("BACK from AM32 reaches SETTINGS", uiCurrentScreen() == UiScreenId::Menu);
 }
 
 void runIdTests() {
 	testHelpersFail();
 	testHelpersReport();
 	testAm32();
-	testCfgSetupLog();
+	testMenuSettingsLog();
 	testServo();
 }

@@ -30,3 +30,7 @@ void uiKstEnter();
  * @return false: the screen leaves on its first frame.
  */
 bool uiKstTick(const TouchState *t);
+
+struct UiScreen;
+/** @brief KST SERVO, not built: no MENU row until slice 3. */
+extern const UiScreen UI_KST;

@@ -49,3 +49,7 @@ struct UiControl;
  * @return The number written.
  */
 uint8_t uiAm32Controls(UiControl *out, uint8_t max);
+
+struct UiScreen;
+/** @brief AM32 CONFIG. */
+extern const UiScreen UI_AM32;

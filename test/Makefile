@@ -49,7 +49,7 @@ SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
         test_usb_msc.cpp test_dshot_frame.cpp test_dshot_telem.cpp \
         test_dshot_edt.cpp test_sdio.cpp test_claim.cpp test_widgets.cpp test_ids.cpp \
         fakes.cpp \
-        ../src/gfx.cpp ../src/ui.cpp ../src/ui_setup.cpp ../src/theme.cpp \
+        ../src/gfx.cpp ../src/ui.cpp ../src/ui_settings.cpp ../src/ui_menu.cpp ../src/ui_registry.cpp ../src/ui_sdlog.cpp ../src/theme.cpp \
         ../src/ui_input.cpp ../src/ui_widgets.cpp ../src/ui_list.cpp \
         ../src/ui_hold.cpp ../src/board_desc.cpp \
         ../src/settings.cpp ../src/am32_eeprom.cpp \

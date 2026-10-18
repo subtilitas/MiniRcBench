@@ -49,17 +49,27 @@ struct TouchState;
  * @{
  */
 /** @brief Height of the header band on every screen. */
-#define UI_HDR_H        30
+#define UI_HDR_H        36
 /** @brief Left margin for titles, labels and the first control in a row. */
 #define UI_MARGIN        8
 /** @brief Corner radius for every button and chip. */
 #define UI_RADIUS        5
-/** @brief Smallest side of a touch target that a fingertip reliably hits. */
+/**
+ * @brief Smallest side of a touch target outside a list: the tester's button
+ *        row, the SERVO screen's controls, SD LOG's RETRY and USB DRIVE and
+ *        AM32's OK. Their move to @ref UI_LIST_TAP_MIN is a later change.
+ */
 #define UI_TAP_MIN      22
+/**
+ * @brief Smallest height of a list row and of a control in a list row, px:
+ *        about 7.1 mm on this panel. A row or control cut by the viewport's
+ *        edge takes a press only while this much of it shows.
+ */
+#define UI_LIST_TAP_MIN 40
 
-/** @brief BACK button size. Sized by @ref UI_TAP_MIN, not by its label. */
-#define UI_BACK_W       50
-#define UI_BACK_H       UI_TAP_MIN
+/** @brief BACK button size, 64 x 32 px, on every screen with a header. */
+#define UI_BACK_W       64
+#define UI_BACK_H       32
 /** @brief BACK button position: top right of the header, on every screen. */
 #define UI_BACK_X       (240 - UI_BACK_W - 6)
 #define UI_BACK_Y       ((UI_HDR_H - UI_BACK_H) / 2)
@@ -81,6 +91,7 @@ struct TouchState;
 
 static_assert(UI_BACK_H <= UI_HDR_H, "BACK does not fit in the header band");
 static_assert(UI_BACK_W >= UI_TAP_MIN, "BACK is narrower than a fingertip");
+static_assert(UI_BACK_H >= UI_TAP_MIN, "BACK is lower than a fingertip");
 
 /** @brief A touch target and its drawn rectangle, which are always the same. */
 struct UiRect {

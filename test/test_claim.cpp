@@ -26,6 +26,7 @@
 #include "settings.h"
 #include "ui.h"
 #include "ui_widgets.h"
+#include "ui_am32.h"
 #include "plat.h"
 
 #include "../src/core1_job.cpp"   // NOLINT -- see the note above
@@ -1033,11 +1034,11 @@ static void testAm32Screen() {
 	frames(2);
 	int resumes = fakeResumeCount();
 
-	tapId(UI_FIX(TesterCtl::Cfg));
-	checkTrue("CFG opens SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
+	tapId(UI_FIX(TesterCtl::Menu));
+	checkTrue("CFG opens SETTINGS", uiCurrentScreen() == UiScreenId::Menu);
 	checkControlTable("SETTINGS");
 	frames(2);
-	tapId(UI_FIX(CfgCtl::Am32));
+	tapId(menuRow(&UI_AM32));
 	checkTrue("AM32 opens from SETTINGS", uiCurrentScreen() == UiScreenId::Am32);
 	checkTrue("AM32 holds the claim", pinClaimHolder() == PinUser::Am32);
 	frames(4);
@@ -1046,7 +1047,7 @@ static void testAm32Screen() {
 	         escTaskDshotPin());
 	checkTrue("no core1 job", core1JobRunning() == Core1Job::None);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from AM32 returns to SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
+	checkTrue("BACK from AM32 returns to SETTINGS", uiCurrentScreen() == UiScreenId::Menu);
 	checkTrue("BACK gives DShot the pin, no unplug page",
 	          fakePinReturned() && !pinClaimUnplugDue());
 	checkTrue("the transport let go before DShot was asked back",
@@ -1060,15 +1061,15 @@ static void testAm32Screen() {
 	// in between: only the screens' own calls see Restoring end.
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK from SETTINGS returns to the tester", uiCurrentScreen() == UiScreenId::Tester);
-	tapId(UI_FIX(TesterCtl::Cfg));
+	tapId(UI_FIX(TesterCtl::Menu));
 	frames(2);
-	tapId(UI_FIX(CfgCtl::Am32));
+	tapId(menuRow(&UI_AM32));
 	checkTrue("AM32 opens a second time", uiCurrentScreen() == UiScreenId::Am32);
 	frames(4);
 	checkTrue("AM32 opened again takes the pin again",
 	          !fakePinReturned() && escTaskSuspended());
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from the second AM32 returns to SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
+	checkTrue("BACK from the second AM32 returns to SETTINGS", uiCurrentScreen() == UiScreenId::Menu);
 	frames(1);
 	checkTrue("free", pinClaimState() == ClaimState::Free);
 	tapId(UI_FIX(UI_BACK));
@@ -1089,10 +1090,10 @@ static void testAm32Screen() {
 	for (int x = 120; x <= 180; x += 10) { fakeHold(x, thrY); frames(1); }
 	fakeRelease(); frames(1);
 	checkTrue("armed with a throttle", uiArmed() && fakeThrottle() > 0);
-	tapId(UI_FIX(TesterCtl::Cfg));
-	checkTrue("CFG opens SETTINGS from a running motor", uiCurrentScreen() == UiScreenId::Cfg);
+	tapId(UI_FIX(TesterCtl::Menu));
+	checkTrue("CFG opens SETTINGS from a running motor", uiCurrentScreen() == UiScreenId::Menu);
 	checkTrue("CFG disarms", !uiArmed() && !fakeArmed());
-	tapId(UI_FIX(CfgCtl::Am32));
+	tapId(menuRow(&UI_AM32));
 	checkTrue("AM32 opens from SETTINGS after a running motor", uiCurrentScreen() == UiScreenId::Am32);
 	uint32_t stamp = fakeLastThrottleMs();
 	checkTrue("AM32 opened within 250 ms of the last throttle frame",
@@ -1103,7 +1104,7 @@ static void testAm32Screen() {
 	checkTrue("and takes the pin on the first frame more than 250 ms after it",
 	          pinClaimState() == ClaimState::Held && waited > 250 && waited <= 275);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from the drained AM32 returns to SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
+	checkTrue("BACK from the drained AM32 returns to SETTINGS", uiCurrentScreen() == UiScreenId::Menu);
 	frames(1);
 	checkTrue("free", pinClaimState() == ClaimState::Free);
 
@@ -1111,24 +1112,24 @@ static void testAm32Screen() {
 	// SETTINGS opens a claiming screen. AM32 says so and asks again each frame.
 	checkTrue("a SERVO claim holds",
 	          pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
-	tapId(UI_FIX(CfgCtl::Am32));
+	tapId(menuRow(&UI_AM32));
 	checkTrue("AM32 opens beside the other claim", uiCurrentScreen() == UiScreenId::Am32);
 	checkTrue("AM32 is refused", pinClaimHolder() == PinUser::Servo);
 	frames(2);
 	checkControlTable("AM32, waiting for the other claim");
 	checkTrue("and waits", pinClaimHolder() == PinUser::Servo);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from the waiting AM32 returns to SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
+	checkTrue("BACK from the waiting AM32 returns to SETTINGS", uiCurrentScreen() == UiScreenId::Menu);
 	checkTrue("BACK from AM32 leaves the other claim alone",
 	          pinClaimHolder() == PinUser::Servo);
-	tapId(UI_FIX(CfgCtl::Am32));
+	tapId(menuRow(&UI_AM32));
 	checkTrue("AM32 opens again beside the other claim", uiCurrentScreen() == UiScreenId::Am32);
 	toFree();
 	frames(1);
 	checkTrue("and claims the frame after the other one ends",
 	          pinClaimHolder() == PinUser::Am32);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from the last AM32 returns to SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
+	checkTrue("BACK from the last AM32 returns to SETTINGS", uiCurrentScreen() == UiScreenId::Menu);
 	frames(1);
 	checkTrue("free", pinClaimState() == ClaimState::Free);
 	tapId(UI_FIX(UI_BACK));

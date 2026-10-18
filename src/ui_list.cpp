@@ -18,7 +18,10 @@ static int absOf(int v) { return v < 0 ? -v : v; }
 void uiListInit(UiList *l, UiRect view, int rowH, int rows) {
 	l->view = view;
 	l->rowH = (int16_t)(rowH > 0 ? rowH : 1);
+	l->bodyH = l->rowH;
+	l->pressMin = 1;
 	l->rows = (int16_t)(rows > 0 ? rows : 0);
+	l->contentPx = (int)l->rows * l->rowH;
 	l->scrollPx = 0;
 	l->mode = UiListMode::None;
 	l->inside = false;
@@ -27,8 +30,18 @@ void uiListInit(UiList *l, UiRect view, int rowH, int rows) {
 	l->anchorX = 0;
 }
 
+void uiListSetBody(UiList *l, int bodyH, int pressMin) {
+	l->bodyH = (int16_t)(bodyH < 1 ? 1 : (bodyH > l->rowH ? l->rowH : bodyH));
+	l->pressMin = (int16_t)(pressMin < 1 ? 1 : pressMin);
+}
+
+void uiListInitPx(UiList *l, UiRect view, int contentPx) {
+	uiListInit(l, view, 1, 0);
+	l->contentPx = contentPx > 0 ? contentPx : 0;
+}
+
 int uiListMaxScroll(const UiList *l) {
-	int over = (int)l->rows * l->rowH - l->view.h;
+	int over = l->contentPx - l->view.h;
 	return over > 0 ? over : 0;
 }
 
@@ -40,13 +53,15 @@ int uiListScrollTo(UiList *l, int px) {
 
 int uiListRowAt(const UiList *l, int x, int y) {
 	if (!inView(l, x, y)) return -1;
-	int row = (l->scrollPx + y - l->view.y) / l->rowH;
-	return row < l->rows ? row : -1;
+	int at = l->scrollPx + y - l->view.y;
+	int row = at / l->rowH;
+	if (row >= l->rows || at % l->rowH >= l->bodyH) return -1;
+	return uiListRowRect(l, row).h >= l->pressMin ? row : -1;
 }
 
 UiRect uiListRowRect(const UiList *l, int row) {
 	int top = l->view.y + row * l->rowH - l->scrollPx;
-	int bot = top + l->rowH;
+	int bot = top + l->bodyH;
 	int vBot = l->view.y + l->view.h;
 	if (row < 0 || row >= l->rows) bot = top;
 	if (top < l->view.y) top = l->view.y;
@@ -59,7 +74,8 @@ void uiListAddRows(const UiList *l, UiControl *out, uint8_t *n, uint8_t max,
                    bool enabled) {
 	for (int r = 0; r < l->rows; r++) {
 		UiRect rr = uiListRowRect(l, r);
-		if (rr.h > 0) uiControlAdd(out, n, max, UI_ROW(r, Row), rr, enabled);
+		if (rr.h > 0)
+			uiControlAdd(out, n, max, UI_ROW(r, Row), rr, enabled && rr.h >= l->pressMin);
 	}
 }
 
@@ -138,4 +154,15 @@ void uiListDraw(const UiList *l, UiListDrawFn drawRow, void *ctx) {
 		drawRow(i, y, ctx);
 	}
 	gfxClearClip();
+}
+
+void uiListDrawBar(const UiList *l, int x) {
+	int max = uiListMaxScroll(l);
+	if (max <= 0 || l->contentPx <= 0) return;
+	const UiRect &v = l->view;
+	int len = v.h * v.h / l->contentPx;
+	if (len < 8) len = 8;
+	int top = v.y + (v.h - len) * l->scrollPx / max;
+	gfxRect(x, v.y, UI_LIST_BAR_W, v.h, C_BG);
+	gfxRect(x, top, UI_LIST_BAR_W, len, C_GRID);
 }

@@ -21,18 +21,23 @@
 
 #pragma once
 
+#include <stddef.h>
 #include <stdint.h>
 #include "ui_widgets.h"
+#include "pin_claim.h"
+
+struct TouchState;
 
 /** @brief The screens. SERVO and its SET view are one screen. */
 enum class UiScreenId : uint8_t {
-	Tester,  /**< The root: throttle, ARM, HOLD, CFG. */
-	Cfg,     /**< SETTINGS, reached through CFG. */
-	Setup,   /**< SETUP. */
-	SdLog,   /**< SD LOG. */
-	Am32,    /**< AM32 CONFIG. */
-	Servo,   /**< SERVO, its SET view and its unplug page. */
-	Kst,     /**< KST SERVO, not built: never open. */
+	Tester,    /**< The root: throttle, ARM, HOLD, MENU. */
+	Menu,      /**< MENU, the list of tools and actions. */
+	Settings,  /**< SETTINGS, one list in sections. */
+	SdLog,     /**< SD LOG. */
+	Am32,      /**< AM32 CONFIG. */
+	Servo,     /**< SERVO, its SET view and its unplug page. */
+	Kst,       /**< KST SERVO, not built: no MENU row, never open. */
+	Beep,      /**< BEEP THE ESC, an action on MENU: never open. */
 };
 
 /** @brief Row of a control outside any list. */
@@ -75,11 +80,64 @@ struct UiControl {
 /** @brief Most controls one screen reports. */
 #define UI_CONTROLS_MAX 32
 
-/** @brief A screen: its id and its control table. */
+/** @brief How a SETTINGS row is set. */
+enum class SettingsKind : uint8_t {
+	Stepper,   /**< `-` and `+`: a step on touch-down, repeating while held. */
+	Toggle,    /**< One wide button, fires on release. */
+	ReadOnly,  /**< A value and no control. */
+};
+
+/** @brief One SETTINGS row. */
+struct SettingsRow {
+	const char  *label;   /**< Scale 1. */
+	SettingsKind kind;
+	uint8_t      widest;  /**< Widest value, characters, for the fit check. */
+	/** @brief Writes the value to buf, at most n bytes, and its colour to col. */
+	void (*value)(char *buf, size_t n, uint16_t *col);
+	/** @brief Whether the row's control acts; null: always. */
+	bool (*enabled)();
+	/** @brief Stepper: one step, -1 or +1, to legal values only. */
+	void (*step)(int dir);
+	/** @brief Toggle: flip the setting. */
+	void (*toggle)();
+	/** @brief Toggle: whether the setting is on, which draws it filled; null: never. */
+	bool (*on)();
+};
+
+/** @brief A captioned run of SETTINGS rows. */
+struct SettingsSection {
+	const char        *caption;  /**< ESC TESTER, WIRING, ... */
+	const SettingsRow *rows;
+	uint8_t            count;
+};
+
+/** @brief A screen: what MENU shows of it and how it runs. */
 struct UiScreen {
-	UiScreenId id;
+	UiScreenId  id;
+	const char *title;    /**< Header text, scale 2. */
+	PinUser     pinUser;  /**< The claim it takes; None: claims nothing. */
+	/**
+	 * @brief Writes the MENU row's status to buf, at most n bytes, its text
+	 *        colour to col and the row's fill to fill. Null: no status.
+	 */
+	void (*status)(char *buf, size_t n, uint16_t *col, uint16_t *fill);
+	/** @brief Open the screen; null for an action. */
+	void (*enter)();
+	/** @brief One frame; false once BACK has left. Null for an action. */
+	bool (*tick)(const TouchState *t);
+	/** @brief The action of an action row; null for a screen. */
+	void (*action)();
 	/** @brief Writes at most max controls of the current frame to out, and returns how many. */
 	uint8_t (*controls)(UiControl *out, uint8_t max);
+	/** @brief The tool's persisted SETTINGS rows, or null. */
+	const SettingsSection *settings;
+};
+
+/** @brief One MENU row. */
+struct UiMenuEntry {
+	const char     *label;         /**< Scale 2. */
+	uint8_t         statusWidest;  /**< Widest status, characters, for the fit check. */
+	const UiScreen *screen;
 };
 
 /** @brief The open screen. */

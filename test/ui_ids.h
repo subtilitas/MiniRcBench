@@ -18,6 +18,7 @@
 #include "check.h"
 #include "fakes.h"
 #include "ui_screen.h"
+#include "ui_menu.h"
 #include "gfx.h"
 
 #include <stdio.h>
@@ -36,6 +37,11 @@ static void (*g_idFailHook)(const char *what) = nullptr;
 static inline void idFail(const char *what) {
 	if (g_idFailHook) g_idFailHook(what);
 	else checkTrue(what, false);
+}
+
+/** @brief The MENU row that opens @p s: `UI_ROW(n, Row)`. */
+static inline UiControlId menuRow(const UiScreen *s) {
+	return UI_ROW(uiMenuRowOf(s), Row);
 }
 
 /** @brief Whether the control expects to act. */

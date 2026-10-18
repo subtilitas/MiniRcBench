@@ -143,7 +143,7 @@ bool settingsValidate(Settings *s) {
 	// listening on a pin the user never connected anything to, and a telemetry
 	// wire that reads "ON" against the wrong pin is worse than one reading
 	// "OFF". The SETUP screen does move it, because there the pin change is the
-	// thing being asked for. @see uiSetupTick()
+	// thing being asked for. @see uiSettingsTick()
 	if (s->kissEnable) {
 		if (!settingsPinFree(s->kissPin) ||
 		    s->kissPin == s->dshotPin) {

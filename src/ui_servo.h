@@ -70,3 +70,7 @@ struct UiControl;
  * @return The number written.
  */
 uint8_t uiServoControls(UiControl *out, uint8_t max);
+
+struct UiScreen;
+/** @brief SERVO TESTER. */
+extern const UiScreen UI_SERVO;

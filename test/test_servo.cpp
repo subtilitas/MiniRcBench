@@ -25,6 +25,7 @@
 #include "servo_model.h"
 #include "servo_pwm.h"
 #include "ui_servo.h"
+#include "ui_kst.h"
 #include "ui_slider.h"
 #include "ui.h"
 #include "gfx.h"
@@ -1390,10 +1391,10 @@ static void freshUi() {
 
 /** @brief Main screen to SERVO, through CFG and SETTINGS. */
 static void openServo() {
-	tapId(UI_FIX(TesterCtl::Cfg));
+	tapId(UI_FIX(TesterCtl::Menu));
 	uiFrames(1);
-	checkTrue("CFG opens SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
-	tapId(UI_FIX(CfgCtl::Servo));
+	checkTrue("CFG opens SETTINGS", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(menuRow(&UI_SERVO));
 	uiFrames(2);
 	checkTrue("SERVO opens from SETTINGS", uiCurrentScreen() == UiScreenId::Servo);
 }
@@ -1435,7 +1436,7 @@ static void leaveServo() {
 	for (int i = 0; i < 200 && !ctlPresent(UI_FIX(ServoCtl::Restart)); i++) uiFrames(1);
 	tapId(UI_FIX(ServoCtl::Restart));
 	uiFrames(2);
-	checkTrue("RESTART DSHOT leaves SERVO for SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
+	checkTrue("RESTART DSHOT leaves SERVO for SETTINGS", uiCurrentScreen() == UiScreenId::Menu);
 }
 
 /**
@@ -1522,12 +1523,12 @@ static void testScreenOpens() {
 	section("Servo screen: CFG opens it, and it starts SAFE");
 
 	freshUi();
-	tapId(UI_FIX(TesterCtl::Cfg));
+	tapId(UI_FIX(TesterCtl::Menu));
 	uiFrames(2);
-	checkTrue("CFG opens SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
-	checkTrue("CFG: SERVO is drawn live", fillOf(ctlRect(UI_FIX(CfgCtl::Servo))) == C_PANEL);
-	checkTrue("KST is still an outline", fillOf(ctlRect(UI_FIX(CfgCtl::Kst))) == C_BG);
-	tapId(UI_FIX(CfgCtl::Servo));
+	checkTrue("CFG opens SETTINGS", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("CFG: SERVO is drawn live", fillOf(ctlRect(menuRow(&UI_SERVO))) == C_PANEL);
+	checkTrue("KST has no MENU row", uiMenuRowOf(&UI_KST) < 0);
+	tapId(menuRow(&UI_SERVO));
 	checkTrue("SERVO opens from SETTINGS", uiCurrentScreen() == UiScreenId::Servo);
 	checkTrue("the tap claims the pins for SERVO", pinClaimHolder() == PinUser::Servo);
 	uiFrames(3);
@@ -1654,10 +1655,10 @@ static void testStartNeedsLivePress() {
 	section("Servo screen: a press on a disabled HOLD TO START never starts it");
 
 	freshUi();
-	tapId(UI_FIX(TesterCtl::Cfg));
+	tapId(UI_FIX(TesterCtl::Menu));
 	uiFrames(1);
-	checkTrue("CFG opens SETTINGS", uiCurrentScreen() == UiScreenId::Cfg);
-	tapId(UI_FIX(CfgCtl::Servo));
+	checkTrue("CFG opens SETTINGS", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(menuRow(&UI_SERVO));
 	checkTrue("SERVO opens from SETTINGS", uiCurrentScreen() == UiScreenId::Servo);
 	int x, y;
 	ctlCentre(UI_FIX(ServoCtl::Start), &x, &y);
@@ -1733,7 +1734,7 @@ static void testHorn() {
 	uiFrames(1);
 	checkTrue("stalled again", s_st.tripped);
 	leaveServo();
-	tapId(UI_FIX(CfgCtl::Servo));
+	tapId(menuRow(&UI_SERVO));
 	checkTrue("SERVO opens from SETTINGS", uiCurrentScreen() == UiScreenId::Servo);
 	uiFrames(1);
 	checkTrue("opened again, first frame: the job not yet bound",
@@ -1757,7 +1758,7 @@ static void testHorn() {
 	memset(&t, 0, sizeof(t));
 	t.lastRpmMs = millis();
 	fakeSetTelemetry(&t);
-	tapId(UI_FIX(CfgCtl::Servo));
+	tapId(menuRow(&UI_SERVO));
 	checkTrue("SERVO opens from SETTINGS", uiCurrentScreen() == UiScreenId::Servo);
 	uiFrames(1);
 	checkTrue("refused while an ESC answers, first frame: not STALLED",
@@ -2035,8 +2036,8 @@ static void testUnplugPage() {
 	checkInt("RESTART DSHOT: DShot back", fakeResumeCount(), resumes + 1);
 	uiFrames(2);
 	checkTrue("free, and SETTINGS up", pinClaimState() == ClaimState::Free &&
-	                                   uiCurrentScreen() == UiScreenId::Cfg &&
-	                                   fillOf(ctlRect(UI_FIX(CfgCtl::Servo))) == C_PANEL);
+	                                   uiCurrentScreen() == UiScreenId::Menu &&
+	                                   fillOf(ctlRect(menuRow(&UI_SERVO))) == C_PANEL);
 	backFromCfg();
 }
 

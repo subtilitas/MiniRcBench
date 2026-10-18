@@ -86,7 +86,7 @@ static_assert(SV_BOT_Y + SV_BOT_H <= GFX_H, "the bottom row runs off the panel")
 static_assert(8 + 4 * SV_BTN_W + 3 * 4 == 232, "the button row does not fill the margins");
 static_assert(SV_BTN_H >= UI_TAP_MIN && SV_BOT_H >= UI_TAP_MIN && 22 >= UI_TAP_MIN &&
               SV_SPEED_H >= UI_TAP_MIN, "a servo control is smaller than a fingertip");
-static_assert(SERVO_DIAL_Y - SERVO_DIAL_ARC_R - 4 > 76,
+static_assert(SERVO_DIAL_Y - SERVO_DIAL_ARC_R - 4 > 82,
               "the arc runs into the two note lines");
 
 /**
@@ -94,7 +94,8 @@ static_assert(SERVO_DIAL_Y - SERVO_DIAL_ARC_R - 4 > 76,
  * @brief The AM32 editor's list idiom: rows, an editor bar, a footer.
  * @{
  */
-#define SET_ROW_H    26
+#define SET_ROW_H    UI_LIST_TAP_MIN  /**< A SET row, 40 px. */
+#define SET_ROW_PITCH 42     /**< Row top to row top: a 2 px gap under each row. */
 #define SET_LIST_Y0  UI_BODY_Y
 #define SET_LIST_Y1  215
 #define SET_LIST_H   (SET_LIST_Y1 - SET_LIST_Y0 + 1)
@@ -115,6 +116,8 @@ static const UiRect SET_VIEW     = { 0, SET_LIST_Y0, GFX_W, SET_LIST_H };
 static_assert(SET_LIST_Y1 < SET_EDIT_Y, "the list overlaps the editor bar");
 static_assert(SET_EDIT_Y + SET_EDIT_H <= SET_FOOT_Y, "the editor bar overlaps the footer");
 static_assert(SET_FOOT_Y + SET_FOOT_H <= GFX_H, "the footer runs off the panel");
+static_assert(SET_ROW_H >= UI_LIST_TAP_MIN && SET_ROW_PITCH > SET_ROW_H,
+              "a SET row is lower than the list floor, or has no gap");
 static_assert(SET_EDIT_H >= UI_TAP_MIN && SET_FOOT_H >= UI_TAP_MIN,
               "a SET button is smaller than a fingertip");
 
@@ -399,13 +402,13 @@ static void drawDial() {
 		return;
 	}
 	if (s_st.tripped && !s_st.running) {
-		line(58, "STOPPED: SCREEN STALLED", C_MAGENTA);
-		line(70, "HOLD TO START AGAIN.", C_DIM);
+		line(64, "STOPPED: SCREEN STALLED", C_MAGENTA);
+		line(76, "HOLD TO START AGAIN.", C_DIM);
 	} else if (!s_st.running) {
-		line(58, "THE SERVO MOVES TO CENTRE AT START.", C_DIM);
+		line(64, "THE SERVO MOVES TO CENTRE AT START.", C_DIM);
 		char b[40];
 		snprintf(b, sizeof(b), "PULSES ON GP%u ARE THROTTLE TO AN ESC.", gpioOf(PIN_SIG));
-		line(70, b, C_DIM);
+		line(76, b, C_DIM);
 	}
 	gfxArcDots(SERVO_DIAL_X, SERVO_DIAL_Y, SERVO_DIAL_ARC_R, -90, 90, 10, 3, C_GRID);
 	gfxLine(SERVO_DIAL_X, SERVO_DIAL_Y - SERVO_DIAL_ARC_R - 4, SERVO_DIAL_X,
@@ -564,7 +567,8 @@ static void mainTouch(bool startOk) {
 		s_edit = s_profile;
 		s_pending = false;
 		s_sel = -1;
-		uiListInit(&s_list, SET_VIEW, SET_ROW_H, SET_ROWS);
+		uiListInit(&s_list, SET_VIEW, SET_ROW_PITCH, SET_ROWS);
+		uiListSetBody(&s_list, SET_ROW_H, UI_LIST_TAP_MIN);
 		s_full = true;
 	}
 }
@@ -682,12 +686,12 @@ static void drawSetRow(int i, int y, void *) {
 	bool sel = i == s_sel;
 	bool locked = ROWS[i].pulse && s_st.running;
 	gfxRect(0, y, GFX_W, SET_ROW_H - 1, sel ? C_PANEL : C_BG);
-	gfxText(UI_MARGIN, y + 3, ROWS[i].group, C_GRID, 1);
-	gfxText(UI_MARGIN, y + 13, ROWS[i].name, sel ? C_TEXT : C_DIM, 1);
+	gfxText(UI_MARGIN, y + 11, ROWS[i].group, C_GRID, 1);
+	gfxText(UI_MARGIN, y + 21, ROWS[i].name, sel ? C_TEXT : C_DIM, 1);
 	char v[24];
 	valueText(i, v, sizeof(v));
 	int sc = gfxTextW(v, 2) <= GFX_W - 80 ? 2 : 1;
-	gfxText(GFX_W - UI_MARGIN - gfxTextW(v, sc), y + (SET_ROW_H - 7 * sc) / 2, v,
+	gfxText(GFX_W - UI_MARGIN - gfxTextW(v, sc), y + (SET_ROW_H - 1 - 7 * sc + 1) / 2, v,
 	        locked ? C_GRID : (sel ? C_LIME : C_TEXT), sc);
 	gfxHLine(0, y + SET_ROW_H - 1, GFX_W, C_PANEL);
 }
@@ -894,7 +898,8 @@ void uiServoEnter() {
 	uiHoldReset(&s_hold);
 	s_needLift = false;
 	s_sel = -1;
-	uiListInit(&s_list, SET_VIEW, SET_ROW_H, SET_ROWS);
+	uiListInit(&s_list, SET_VIEW, SET_ROW_PITCH, SET_ROWS);
+	uiListSetBody(&s_list, SET_ROW_H, UI_LIST_TAP_MIN);
 	s_repeat = Repeat{};
 	s_full = true;
 	applyProfile();
@@ -977,3 +982,14 @@ bool uiServoTick(const TouchState *t) {
 	s_full = false;
 	return true;
 }
+
+/** @brief SERVO TESTER's MENU status: the signal pins it claims, SIG and AUX. */
+static void servoMenuStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
+	snprintf(buf, n, "GP%u+%u", (unsigned)escTaskDshotPin(), (unsigned)escTaskKissPin());
+	*col = C_DIM;
+}
+
+const UiScreen UI_SERVO = {
+	UiScreenId::Servo, "SERVO", PinUser::Servo, servoMenuStatus,
+	uiServoEnter, uiServoTick, nullptr, uiServoControls, nullptr,
+};
