@@ -51,6 +51,16 @@ protocol.
   yet ([kst-programming.md](docs/design/kst-programming.md), work breakdown
   step 1). README.md gains the section "Legal notice and disclaimer" the
   copied headers name.
+- The KST search and the KST core1 job (work breakdown step 2).
+  `src/kst_seek.h` repeats rcbench's entry sequence, 116.6 ms to 118.8 ms an
+  attempt, until a servo answers, for 30 s; STOP SEARCH and a heartbeat lapse
+  let the frame on the wire finish, and a servo that stops answering is power
+  cycled in the session and searched for again. `src/kst_job.h` runs the
+  session on core1 through a command block and a status block: search, read,
+  verify, edit and restore in slices, abort, and leave with 100 ms of low line
+  before the line closes. `src/kst_line_port.h` puts rcbench's RP2350 line
+  driver behind the job. The job is in core1's job table; nothing starts it
+  yet. The host suite runs both against rcbench's simulated servo.
 - `src/version.h` holds the firmware version, 0.1.0. CMake takes the project
   version from it, and `picotool info` shows it as the program version.
   `release.yml` refuses a tag that does not name it, with or without a
@@ -119,7 +129,7 @@ protocol.
 - `src/core1_job.h`: core1 binds, steps and releases a job on the claimed
   pins from `loop1()`, after the DShot pump. A job starts only while the pump
   is suspended. `Core1JobOps::init` initialises a job's shared state on core0
-  before core1 starts. The servo job is built; the KST job is not.
+  before core1 starts.
 - A stub screen `src/ui_kst.cpp`, and per-feature source lists
   `src/servo.cmake`, `src/kst.cmake`, `test/servo.mk` and `test/kst.mk`.
 - The servo tester, slice 2 of

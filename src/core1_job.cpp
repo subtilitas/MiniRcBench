@@ -6,20 +6,18 @@
 #include "core1_job.h"
 #include "esc_task.h"
 #include "servo_job.h"
+#include "kst_job.h"
 
 #include "plat.h"
 #include <pico/critical_section.h>
 
 /**
- * @brief The jobs that are built, by Core1Job.
- *
- * The servo tester's is built. The KST programmer adds its Core1JobOps here,
- * and core1JobStart() refuses a job with none.
+ * @brief The jobs, by Core1Job. core1JobStart() refuses a job with none.
  */
 static const Core1JobOps *s_ops[] = {
 	nullptr,         // Core1Job::None
 	&SERVO_JOB_OPS,  // Core1Job::Servo
-	nullptr,         // Core1Job::Kst
+	&KST_JOB_OPS,    // Core1Job::Kst
 };
 static_assert(sizeof(s_ops) / sizeof(s_ops[0]) == (unsigned)Core1Job::Kst + 1,
               "one entry per Core1Job");

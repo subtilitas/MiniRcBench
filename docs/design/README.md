@@ -19,7 +19,7 @@ firmware; the status lines here summarise it per feature.
 | [pin-claim.md](pin-claim.md) | Slices 1 and 2 built, host tests only, not tested on hardware: a screen takes the ESC and KISS pins from DShot while it is open, after a 250 ms zero-throttle drain; the AM32 editor and the servo tester run on it. Shared hardware facts and the slice plan. |
 | [servo-tester.md](servo-tester.md) | Built, host tests only, not tested on hardware. Servo PWM (pulse-width modulation) output, manual position, sweep, two servos, on the pin claim. |
 | [menu.md](menu.md) | Slices A to C built, host tests only, not tested on hardware: one list widget, `ui_list`, and one hold widget, `ui_hold`; a control table per screen that the host tests tap by id; MENU, a list of tools and actions from a registry, and SETTINGS, one list in sections; a 36 px header and BACK of 64 x 32 px. KST programming builds on them. |
-| [kst-programming.md](kst-programming.md) | Step 1 of 7 built, host tests only: rcbench's KST core, line driver and file store copied into `lib/rcbench/` with their tests; nothing calls them yet. The rest is planned: KST and Chaservo servo programming with an optional bench-switched servo supply on GP0. Depends on the pin claim and on the menu restructure, both built. |
+| [kst-programming.md](kst-programming.md) | Steps 1 and 2 of 7 built, host tests only: rcbench's KST core, line driver and file store copied into `lib/rcbench/` with their tests; the search and the core1 job on them, tested against rcbench's simulated servo; nothing starts the job yet. The rest is planned: KST and Chaservo servo programming with an optional bench-switched servo supply on GP0. Depends on the pin claim and on the menu restructure, both built. |
 
 ## Shared context
 

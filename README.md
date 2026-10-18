@@ -993,6 +993,9 @@ src/
   servo_pwm.{h,cpp}     hardware PWM servo outputs, from rcbench
   servo_job.{h,cpp}     the servo tester's core1 job: SAFE, START, slew, sweep, trip
   ui_kst.{h,cpp}        KST programming screen, a stub until it is built
+  kst_seek.{h,cpp}      the KST search: the entry sequence repeated until a servo answers
+  kst_job.{h,cpp}       the KST programmer's core1 job: search, read, write, leave
+  kst_line_port.{h,cpp} the job's KST line, rcbench's RP2350 line driver
   servo.cmake, kst.cmake  each feature's firmware sources (test/*.mk: its tests)
   ui_input.{h,cpp}      tap-on-release and held-repeat rules, shared (pure)
   rpm_filter.h          display smoothing of the RPM readout
@@ -1093,7 +1096,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.3%**: 4,129 of 4,200 lines in 38 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 4,396 of 4,468 lines in 40 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the
@@ -1281,7 +1284,8 @@ The Host tests job in `ci.yml` runs the same render and check on every push to
 - The KST programming core, its RP2350 line driver and the KST file store in
   `lib/rcbench/` come from [rcbench](https://github.com/subtilitas/rcbench) at
   commit 453cf334, by the same copyright holder under the same MIT licence. The
-  KST screen does not use them yet (`docs/design/kst-programming.md`).
+  KST search and core1 job run them; no screen starts the job yet
+  (`docs/design/kst-programming.md`).
 - [logwiju](https://subtilitas.github.io/logwiju/): the browser-based blackbox viewer
   for these logs.
 - [DShot — the missing handbook](https://brushlesswhoop.com/dshot-and-bidirectional-dshot/)

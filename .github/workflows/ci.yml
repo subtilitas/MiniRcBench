@@ -329,14 +329,17 @@ jobs:
                     printf 'TX=%s JUMP=%s ROT=%s KISS=%s SD=%s ... ' \
                       "$tx" "$jump" "$rot" "$kiss" "$sd"
                     # lib/rcbench/ holds rcbench's headers that the servo
-                    # job includes; none of them reads config.h, so they are
-                    # used from the checkout rather than copied.
+                    # and KST jobs include; none of them reads config.h, so
+                    # they are used from the checkout rather than copied.
                     if g++ -std=gnu++17 -fsyntax-only -Wall -Wextra -Wshadow -Werror \
                            -Wno-unused-parameter \
                            -DKISS_TELEM_ENABLE=$kiss -DSD_LOG_ENABLE=$sd \
                            -Itest/stubs -I"$work/src" \
                            -Ilib/rcbench/shared/servo/include \
                            -Ilib/rcbench/shared/outputs/include \
+                           -Ilib/rcbench/protocols/kst/include \
+                           -Ilib/rcbench/protocols/kst/rp2350 \
+                           -Ilib/rcbench/shared/logfile/include \
                            "$work"/src/*.cpp; then
                       echo ok
                     else

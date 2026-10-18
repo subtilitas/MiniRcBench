@@ -1,16 +1,23 @@
 /**
  * @file test_kst.cpp
- * @brief The KST programming suite, for a screen that is a stub.
+ * @brief The KST programming suite: the search (test_kst_seek.cpp), the
+ *        core1 job (test_kst_job.cpp), and the screen, a stub.
  *
- * Slice 3 of docs/design/pin-claim.md replaces ui_kst.cpp and this file
- * whole, with the tests in docs/design/kst-programming.md.
+ * Slice 3 of docs/design/pin-claim.md replaces ui_kst.cpp and the stub's
+ * checks here, with the tests in docs/design/kst-programming.md.
  */
 
 #include "check.h"
 #include "pin_claim.h"
 #include "ui_kst.h"
 
+void runKstSeekTests();
+void runKstJobTests();
+
 void runKstTests() {
+	runKstSeekTests();
+	runKstJobTests();
+
 	section("KST programming: the stub screen");
 
 	checkTrue("the screen is not built", !uiKstAvailable());

@@ -33,9 +33,10 @@ Their rcbench tests are under [test/rcbench/](../../test/rcbench/):
 
 The KST programming core (`protocols/kst/`), its RP2350 line driver
 (`protocols/kst/rp2350/`) and the KST file store (`shared/logfile/kst_store.*`)
-are for the KST screen of
-[kst-programming.md](../../docs/design/kst-programming.md), which does not
-call them yet. The core and the store are built as C11, in the firmware by
+are for the KST programmer of
+[kst-programming.md](../../docs/design/kst-programming.md): the search
+(`src/kst_seek.cpp`) and the core1 job (`src/kst_job.cpp`) call them, and no
+screen starts the job yet. The core and the store are built as C11, in the firmware by
 `src/kst.cmake` and in the host suite by `test/kst.mk`; the line driver drives
 PIO (programmable input/output) and DMA (direct memory access) and is built by
 the firmware only, with pioasm assembling `kst_line.pio`. Their rcbench tests,
