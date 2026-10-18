@@ -2,8 +2,10 @@
 
 Status: planned, nothing built. Slices A to C below come before KST
 programming, slice 3 of [pin-claim.md](pin-claim.md), and
-[kst-programming.md](kst-programming.md) builds on them. Line numbers name
-the tree at 7f94d20.
+[kst-programming.md](kst-programming.md) builds on them. Line numbers in
+`src/`, `test/`, `tools/`, README.md and the wiki name 9c0f3b9, origin/main,
+which this branch leaves unchanged in those files; line numbers in STATUS.md
+and the design notes name this branch.
 
 Terms: UI is user interface, ESC electronic speed controller, DShot the
 digital ESC protocol the tester drives, EDT Extended DShot Telemetry, AM32 an
@@ -15,8 +17,8 @@ screen's header is the band at the top with its title and BACK; its strip is
 the line under the header (`UI_STRIP_Y`); its body starts at `UI_BODY_Y`
 (`src/ui_widgets.h`).
 
-Source: the menu review of 2026-10-18, made against the tree at 026c915 with
-the switched-supply design of PR #6. The owner accepted its 13
+Source: the menu review of 2026-10-18, made against 9c0f3b9 with the
+switched-supply design of PR (pull request) #6. The owner accepted its 13
 recommendations the same day ([decisions](#decisions)). Its statements about
 the code are checked here against `src/`; where the code says otherwise,
 this document follows the code.
@@ -328,7 +330,10 @@ against the table's widest value.
 
 The asserts in `ui_widgets.h` and `ui_widgets.cpp` hold: BACK, 32 px, fits
 the 36 px band, and ends at x 233. `static_assert(UI_BACK_W >= UI_TAP_MIN)`
-stays.
+stays, and `static_assert(UI_BACK_H >= UI_TAP_MIN)` joins it: `UI_BACK_H`
+stops being `UI_TAP_MIN` and becomes 32. The comment at `ui_widgets.h:60`,
+"Sized by UI_TAP_MIN, not by its label", changes to name decision 5's
+64 × 32 px.
 
 What it does to each screen:
 
@@ -339,7 +344,7 @@ What it does to each screen:
 | SD LOG | `LOG_ROW0_Y` is `UI_HDR_H + 8`, 44. Nine rows of 21 px end at y 233, past `LOG_NOTE_Y`, 228, and `static_assert(LOG_ROW0_Y + LOG_ROWS * LOG_ROW_H <= LOG_NOTE_Y)` (`ui.cpp:255`) fails | `LOG_ROW_H` 21 → 20: the rows end at y 224. They are text, not targets. The buttons below do not move |
 | AM32 CONFIG | `LIST_Y0` is `UI_BODY_Y`: the viewport is y 62 to 215, 154 px instead of 160 px. The connect page's text starts at y 84 | none from the header; the 40 px rows of decision 5 below |
 | SERVO | `static_assert(SERVO_DIAL_Y0 == UI_BODY_Y)` (`ui_servo.cpp:73`) needs `SERVO_DIAL_Y0` 62 (`servo_model.h:96`). Then `static_assert(SERVO_DIAL_Y - SERVO_DIAL_R_OUT >= SERVO_DIAL_Y0)` (`servo_model.cpp:274`) fails: 184 − 124 = 60. The two notes at y 58 and 70 (`ui_servo.cpp:398-404`) would start above the band the dial clears | `SERVO_DIAL_R_OUT` 124 → 122: the hit area ends 26 px beyond the 96 px arc instead of 28 px. The notes move to y 64 and 76, and the arc assert (`ui_servo.cpp:86-87`) becomes `> 82`: the second note ends at row 82, the arc's top tick starts at row 84. The shaft, the arc, the readout, SPEED and the buttons do not move |
-| SERVO SET | `SET_LIST_Y0` is `UI_BODY_Y`: viewport y 62 to 215. The two strip lines at `UI_STRIP_Y + 2` and `+ 12` end at row 58 | none |
+| SERVO SET | `SET_LIST_Y0` is `UI_BODY_Y`: viewport y 62 to 215. The two strip lines at `UI_STRIP_Y + 2` and `+ 12` end at row 58 | none from the header; the 40 px rows of decision 5 below |
 | SERVO unplug page | text from y 100 | none |
 | KST (slice 3) | drawn for the 36 px header in [kst-programming.md](kst-programming.md) | |
 
@@ -355,22 +360,30 @@ computed from the diagonal; the active area is not checked. 40 px is about
 
 Two floors, in `ui_widgets.h`:
 
-- `UI_LIST_TAP_MIN`, 40 px, new: every row of a list on `ui_list` and every
-  control in a SETTINGS row. Asserted where each list is defined. It covers
-  MENU, SETTINGS, the AM32 list from slice C, and the KST field list and
-  FILES in slice 3.
+- `UI_LIST_TAP_MIN`, 40 px, new in slice C: every row of a list on
+  `ui_list` and every control in a SETTINGS row. Asserted where each list is
+  defined. It covers MENU, SETTINGS, the AM32 list and the SERVO SET list
+  from slice C, and the KST field list and FILES in slice 3.
 - `UI_TAP_MIN`, 22 px, stays for what decision 5 leaves to a later change:
-  the tester's button row (33 px tall), the servo screen's rows (MIN, CENTRE,
-  MAX and SWEEP 53 × 30 px, A, B and AB 34 × 22 px, HOLD TO START and SET
-  32 px tall, RETRY 100 × 30 px) and SERVO SET's 26 px list rows. Two buttons
-  that are neither list rows nor row controls stay as they are and go with
-  that change: SD LOG's RETRY and USB DRIVE, 104 × 30 px, and AM32's OK on
-  the write result, 100 × 36 px.
+  the tester's button row (33 px tall) and the SERVO screen's controls (MIN,
+  CENTRE, MAX and SWEEP 53 × 30 px, A, B and AB 34 × 22 px, HOLD TO START
+  and SET 32 px tall, RETRY 100 × 30 px). Two buttons that are neither list
+  rows nor row controls stay as they are and go with that change: SD LOG's
+  RETRY and USB DRIVE, 104 × 30 px, and AM32's OK on the write result,
+  100 × 36 px.
 
-The AM32 list's rows go from 26 px to 40 px at a 42 px pitch in slice C. Its
-154 px viewport then shows three whole rows instead of five and part of a
-sixth; the editor bar and footer do not change. The review counted the AM32
-editor as large enough and did not list the list's rows.
+AM32 and SERVO SET use one list idiom, so they move together (decision 16).
+In slice A both go onto `ui_list` with today's 26 px rows and today's press
+rule, any visible part of a row. In slice C both go to 40 px rows at a 42 px
+pitch and the 40 px partial-visibility rule. Each viewport, y 62 to 215,
+154 px, then shows three whole rows instead of five and part of a sixth; the
+editor bars and footers do not change. Row text keeps its layout, centred in
+the taller row: today the group caption is at +3, the name at +13 and a
+scale-2 value at +6 in a 26 px row (`ui_am32.cpp:249-255`,
+`ui_servo.cpp:697-702`); in a 40 px row they are at +11, +21 and +13, the
+two scale-1 lines and the value each centred in the 39 px the row paints.
+The review counted the AM32 editor as large enough and did not list the
+rows of either list.
 
 ## Gestures
 
@@ -386,20 +399,24 @@ editor as large enough and did not list the list's rows.
 - never scrolls under a press that began on a control inside a row
   (SETTINGS' − and + and toggles);
 - clips each row and control to the viewport, and takes a press on a cut one
-  only while at least the list's minimum is visible: 40 px for every list but
-  SERVO SET, which keeps today's rule, any visible part, until the later
-  change of decision 5;
+  only while at least the list's minimum is visible: in slice A any visible
+  part, today's rule for AM32 and SERVO SET; from slice C 40 px for every
+  list;
 - sets the scroll to 0 px when its screen opens.
 
 The sideways swipe (decision 10): one coarse step per 16 px of travel
 (`UI_SWIPE_STEP_PX`), the anchor moving by whole steps, times a factor the
-row gives. A step past a rail is dropped and the anchor follows the finger,
-so a swipe back responds at once.
+row gives. A coarse step that would pass a rail stops at the rail, on the
+field's step, and the anchor follows the finger there, so a swipe back
+responds at once and both rails are reachable by swipe. That is what both
+lists do today: SERVO SET's `stepRow()` (`ui_servo.cpp:624`) steps one unit
+at a time while `canStep()` (`ui_servo.cpp:611`) allows it, and AM32 clamps to
+`rawMin` or `rawMax` and re-anchors (`ui_am32.cpp:700-708`).
 
 | List | Factor per coarse step |
 |---|---|
 | SERVO SET | as today (`coarseOf()`): 10 for MIN, CENTRE, MAX and the sweep numbers, 1 for the choices |
-| AM32 | the field's step × ⌈range ÷ (11 × step)⌉: 11 coarse steps, 176 px, cover any field's range, and values stay on the field's step |
+| AM32 | the field's step × ⌈range ÷ (11 × step)⌉: 11 coarse steps, 176 px, cover any field's range, and values stay on the field's step. A range of 255 at step 1 gives 24 per step; the eleventh step lands on the rail, 255, by the clamp |
 | KST field list (slice 3) | from the field table, set in slice 3; a value that breaks a hard limit is skipped, as the steppers skip it |
 | MENU, SETTINGS | no sideways mode |
 
@@ -415,8 +432,8 @@ AM32-Configuration.md:66 and AM32-Konfiguration.md:68.
 |---|---|
 | `src/ui_list.{h,cpp}` | the list: geometry, scroll in pixels, the gesture above, clipping, the scroll bar, a row's rectangle on the current frame |
 | `src/ui_hold.{h,cpp}` | one 1000 ms hold (`UI_HOLD_MS`, which is `ARM_HOLD_MS`): counts only a press that began on its control, a slide off cancels, latched until the finger lifts, progress 0 % to 100 %, and the 3 px progress bar |
-| `src/ui_screen.h` | `UiScreen`, `UiControl`, `SettingsRow`, `SettingsSection`, `UiScreenId` |
-| `src/ui_registry.cpp` | one line per MENU row, in MENU order, and the fit check |
+| `src/ui_screen.h` | slice B: `UiScreenId`, `UiControlId`, `UiControl`, and `UiScreen` with its `id` and `controls` members; slice C: the rest of `UiScreen`, `SettingsRow`, `SettingsSection`, `UiMenuEntry` |
+| `src/ui_registry.cpp` | slice C: one line per MENU row, in MENU order, and the fit check |
 | `src/ui_menu.cpp` | MENU, the BEEP action and its flash (from `ui.cpp`) |
 | `src/ui_settings.cpp` | SETTINGS: `ui_setup.cpp` with sections, on `ui_list` and `ui_hold`, plus the pole and ceiling steppers from `ui.cpp`. `ui_setup.{h,cpp}` go |
 | `src/ui_sdlog.cpp` | the SD LOG screen, moved out of `ui.cpp` unchanged but for BACK |
@@ -424,16 +441,38 @@ AM32-Configuration.md:66 and AM32-Konfiguration.md:68.
 | `src/pin_claim.cpp` | the `PinUser` table |
 
 ```c
-// ui_screen.h
+// ui_screen.h, slice B: the screens as they are, and their controls
 enum class UiScreenId : uint8_t {
-    Tester, Menu, Beep, Am32, Servo, Kst, SdLog, Settings
+    Tester, Cfg, Setup, SdLog, Am32, Servo, Kst
+};   // slice C: Cfg becomes Menu, Setup becomes Settings, Beep joins
+
+enum : uint8_t { UI_FIXED = 0xFF };   // row of a control outside any list
+enum class UiPart : uint8_t { Row, Minus, Plus, Toggle };
+
+struct UiControlId {             // which control: (row, part)
+    uint8_t row;                 // list row n, or UI_FIXED
+    uint8_t part;                // UiPart for a list row; the screen's own
+                                 // enum (BACK, HOLD TO SAVE, ...) for UI_FIXED
 };
+#define UI_ROW(n, p) (UiControlId{ (uint8_t)(n), (uint8_t)UiPart::p })
 
 struct UiControl {               // one tappable thing on the current frame
-    uint8_t id;                  // the screen's enum, or UI_ROW(n): list row n
-    UiRect  rect;                // as drawn, clipped to its list's viewport
-    bool    enabled;             // drawn disabled and gated on the same value
+    UiControlId id;
+    UiRect      rect;            // as drawn, clipped to its list's viewport
+    bool        enabled;         // drawn disabled and gated on the same value
 };
+
+UiScreenId uiCurrentScreen();    // the open screen
+```
+
+`UI_ROW(3, Plus)` is the + of SETTINGS row 3; `UI_ROW(5, Row)` is AM32 list
+row 5, which selects. Slice B gives today's screens, the tester, CFG, SETUP,
+SD LOG, AM32 CONFIG, SERVO and SERVO SET (under `Servo`), and the KST stub,
+a `UiScreen` with only `id` and `controls`, and `uiCurrentScreen()` reads
+today's booleans. Slice C renames the ids and fills in the rest:
+
+```c
+// ui_screen.h, slice C
 
 enum class SettingsKind : uint8_t { Stepper, Toggle, ReadOnly };
 
@@ -461,8 +500,14 @@ struct UiScreen {
     void    (*enter)();
     bool    (*tick)(const TouchState *t);     // false once BACK has left
     void    (*action)();                      // action row (BEEP); null: tool
-    uint8_t (*controls)(UiControl *out, uint8_t max);
+    uint8_t (*controls)(UiControl *out, uint8_t max);   // from slice B
     const SettingsSection *settings;          // persisted rows, or null
+};
+
+struct UiMenuEntry {             // one MENU row
+    const char     *label;       // scale 2
+    uint8_t         statusWidest;  // characters, for the fit check
+    const UiScreen *screen;
 };
 ```
 
@@ -532,14 +577,17 @@ and one line here. Slice C adds no user.
 ## Tests by control id
 
 Slice B gives every screen a control table (`UiScreen::controls`) and the
-UI a probe, `uiCurrentScreen()`, which returns the open `UiScreenId`. The
-host tests address controls by id:
+UI a probe, `uiCurrentScreen()`, which returns the open `UiScreenId`, with
+ids for today's screens, CFG and SETUP among them ([code](#code)). Slice C
+renames those ids. The host tests address controls by id:
 
 - `tapId(id)`, `pressId(id)`, `holdId(id, ms)` look the control up on the
   current frame and fail the test, naming the id, when it is absent or
   disabled against the test's expectation;
-- a list row is `UI_ROW(n)`; `revealRow(n)` drags the list until row n is
-  whole, then the test taps it, so the scroll is exercised on the way;
+- a list row's controls are `UI_ROW(n, Row)`, `UI_ROW(n, Minus)`,
+  `UI_ROW(n, Plus)` and `UI_ROW(n, Toggle)`; `revealRow(n)` drags the list
+  until row n is whole, then the test taps the part, so the scroll is
+  exercised on the way;
 - a navigation test checks `uiCurrentScreen()`, not a pixel;
 - tests about geometry (gaps, the viewport's edge, the 40 px partial rule,
   the scroll range) read their coordinates from the control table.
@@ -558,12 +606,15 @@ Tests slice C adds:
 - Every registry entry: opened from MENU, BACK lands on MENU, through the
   unplug page for SERVO and KST.
 - MENU: disarms on open; BEEP sent and refused flash on the row; no KST row
-  in slice C; `PINS BUSY` while Restoring; the fit
-  check's widest statuses drawn; seven rows scroll, six do not.
+  in slice C; `PINS BUSY` while Restoring; the fit check's widest statuses
+  drawn. Slice C's registry has five rows, so the scroll test runs MENU over
+  test-only registries of six and seven entries (`uiMenuUseRegistry()`, a
+  test hook in `ui_menu.cpp`): seven rows scroll 36 px, six do not.
 - SETTINGS: the scroll range; each row by id; no scroll from a press on a
   control; a cut control under 40 px takes no press; HOLD TO SAVE and the
   UNSAVED note at every scroll position; pole and ceiling steps reach the
-  RPM readout and the tester's `MAX` caption; RESET restores them.
+  readout of RPM (revolutions per minute) and the tester's `MAX` caption;
+  RESET restores them.
 - The header: BACK by id on every screen; the SD LOG rows clear the note
   line; the SERVO notes and the dial's hit area at 122 px.
 
@@ -571,18 +622,19 @@ Tests slice C adds:
 
 | Slice | Changes | Visible change | Leaves working | Estimate, not measured |
 |---|---|---|---|---|
-| A. Widgets | `ui_list`, `ui_hold`; the AM32 list and SERVO SET on `ui_list`; AM32's HOLD TO WRITE, SERVO's HOLD TO START, SET's HOLD TO APPLY and SETUP's HOLD TO SAVE on `ui_hold`; `test/test_widgets.cpp` with `runWidgetTests` | AM32's sideways swipe: 16 px per coarse step; README.md:695 and the two wiki rows | every screen as today; HOLD TO ARM keeps its own timer in `ui.cpp` | 2 days |
-| B. Control ids | control tables, `uiCurrentScreen()`, the test helpers; `test_ui.cpp`, `test_servo.cpp` and `test_claim.cpp` by id; the 64 coordinate macros deleted | none | everything; the same screenshots | 2 days |
-| C. MENU and SETTINGS | `ui_screen.h`, `ui_registry.cpp`, `ui_menu.cpp`, `ui_settings.cpp` (from `ui_setup.cpp`), `ui_sdlog.cpp` (from `ui.cpp`), the navigation in `ui.cpp`; the `PinUser` table; the 36 px header and BACK 64 × 32 px; `UI_LIST_TAP_MIN`; AM32 rows 40 px; SD LOG BACK to MENU; `LOG_ROW_H` 20; the servo dial's 122 px and its notes; the tests above; previews, wiki images, README and wiki text | CFG reads MENU; MENU replaces SETTINGS; SETUP becomes SETTINGS with poles and MAX THROTTLE at its top; the disabled KST button has no row until slice 3; every header 6 px taller; AM32 shows three rows | every tool, the settings block as stored | 4 to 5 days |
+| A. Widgets | `ui_list`, `ui_hold`; the AM32 list and SERVO SET on `ui_list` with today's 26 px rows and press rule; AM32's HOLD TO WRITE, SERVO's HOLD TO START, SET's HOLD TO APPLY and SETUP's HOLD TO SAVE on `ui_hold`; `test/test_widgets.cpp` with `runWidgetTests` | AM32's sideways swipe: 16 px per coarse step; README.md:695 and the two wiki rows | every screen as today; HOLD TO ARM keeps its own timer in `ui.cpp` | 2 days |
+| B. Control ids | `ui_screen.h` with `UiScreenId` (today's screens), `UiControlId`, `UiControl` and `UiScreen::controls`; a control table per screen; `uiCurrentScreen()`; the test helpers; `test_ui.cpp`, `test_servo.cpp` and `test_claim.cpp` by id; the 64 coordinate macros deleted | none | everything; the same screenshots | 2 days |
+| C. MENU and SETTINGS | the rest of `ui_screen.h` and the id renames, `ui_registry.cpp`, `ui_menu.cpp`, `ui_settings.cpp` (from `ui_setup.cpp`), `ui_sdlog.cpp` (from `ui.cpp`), the navigation in `ui.cpp`; the `PinUser` table; the 36 px header and BACK 64 × 32 px; `UI_LIST_TAP_MIN`; AM32 and SERVO SET rows 40 px; SD LOG BACK to MENU; `LOG_ROW_H` 20; the servo dial's 122 px and its notes; the tests above; previews, wiki images, README, wiki, design-note and source-comment text | CFG reads MENU; MENU replaces SETTINGS; SETUP becomes SETTINGS with poles and MAX THROTTLE at its top; the disabled KST button has no row until slice 3; every header 6 px taller; AM32 and SERVO SET show three rows | every tool, the settings block as stored | 4 to 5 days |
 | 3. KST | [kst-programming.md](kst-programming.md): one registry line, the SERVO SUPPLY section, the field list and FILES on `ui_list`, its holds on `ui_hold`, `SETTINGS_VERSION` 3 | KST SERVO live; SERVO SUPPLY in SETTINGS | | inside slice 3 |
 
 A and B merge in either order; C needs both (decisions 4 and 6). Slice 3
 follows C. Slice C's estimate is the review's 3 to 4 days plus the header
-consequences and the AM32 rows, which the review did not count.
+consequences and the AM32 and SERVO SET rows, which the review did not
+count.
 
 What C does not change: the tester's layout but for its third button's
-label, the servo screen's controls, SERVO SET's rows, the AM32 editor bar and
-footer, the SD LOG buttons, and every core1 job.
+label, the SERVO screen's controls, the editor bars and footers of AM32 and
+SERVO SET, the SD LOG buttons, and every core1 job.
 
 ## Storage
 
@@ -605,23 +657,32 @@ not this change. Slice A changes the AM32 swipe text only.
 |---|---|---|---|
 | README.md | 695 | AM32 coarse swipe: 16 px per coarse step, 176 px for any field's range | A |
 | README.md | 25-26 | "its button on the settings screen" → its row on MENU | C |
-| README.md | 140, 153, 558, 573, 589-598, 657, 766, 799 | `CFG → SETUP`, `CFG → SD LOG`, `CFG → AM32`, `CFG → SERVO`, "under SETUP" → MENU paths and SETTINGS | C |
+| README.md | 140, 153, 443, 456, 558, 573, 589-598, 657, 766, 799 | `CFG → SETUP`, `CFG → SD LOG`, `CFG → AM32`, `CFG → SERVO`, "under SETUP" → MENU paths and SETTINGS | C |
 | README.md | 308 | the CFG bullet → MENU | C |
 | README.md | 324-356 | "Settings screen" → MENU: the rows, BEEP's flash on the row, the strip; today's KST entry (347-348) goes until slice 3 | C |
 | README.md | 376-407 | "SETUP screen" → SETTINGS: the sections, the row table with MOTOR POLES and MAX THROTTLE at the top, the scroll | C |
 | README.md | 885 | Safety: "Opening CFG disarms" → MENU | C |
 | README.md | 925-945 | Layout: `ui_setup` → `ui_settings`; `ui_list`, `ui_hold`, `ui_screen.h`, `ui_registry.cpp`, `ui_menu.cpp`, `ui_sdlog.cpp` | C |
 | README.md | 1012-1026 | the rendered screens: CFG and SETUP shots → MENU and SETTINGS, the scrolled SETTINGS | C |
-| wiki The-Screens.md, Die-Bildschirme.md | 1-16, 56-125 | the tree, Settings → MENU, SETUP → SETTINGS, SD LOG's BACK | C |
+| wiki The-Screens.md, Die-Bildschirme.md | 1-16, 28, 52, 56-125; 1-16, 28, 53, and the Settings and SETUP sections | the tree, "as set under SETUP", the `CFG` button, Settings → MENU, SETUP → SETTINGS, SD LOG's BACK | C |
 | wiki First-Run.md, Erste-Schritte.md | 45, 54, 121, 132; 47, 58, 126, 137 | CFG and SETUP paths, "Both values are stored only when saved" | C |
 | wiki Troubleshooting.md, Fehlersuche.md | 30, 91, 151, 158; 33, 97, 162, 169 | CFG and SETUP paths | C |
-| wiki Telemetry.md, Telemetrie.md | 130, 154; 137, 163 | `CFG → SETUP → KISS TELEM` | C |
-| wiki Servo-Tester.md, Servotester.md | 44, 52; 47, 55 | `CFG → SERVO`, `CFG → SETUP` | C |
-| wiki AM32-Configuration.md, AM32-Konfiguration.md | 66, 18; 68, 18 | the swipe row (A); `CFG → AM32` (C) | A, C |
+| wiki Telemetry.md, Telemetrie.md | 84, 130, 154; 87, 137, 163 | "under SETUP", `CFG → SETUP → KISS TELEM` | C |
+| wiki Servo-Tester.md, Servotester.md | 44, 52, 129, 195, 209; 47, 55, 138, 208, 223 | `CFG → SERVO`, `CFG → SETUP`, "under SETUP", the unplug page returning to "the settings screen" → MENU; the SET list's 40 px rows | C |
+| wiki AM32-Configuration.md, AM32-Konfiguration.md | 66, 18, 112-113; 68, 18, 116 | the swipe row (A); `CFG → AM32`, BACK returning to "the settings screen" → MENU, the 40 px rows (C) | A, C |
 | wiki SD-Logging.md, SD-Aufzeichnung.md | 110; 118 | BACK leaves SD LOG for MENU | C |
 | wiki Home.md | 60, 69 | `CFG → SETUP` | C |
 | CHANGELOG.md | | each slice's entry | A, B, C |
-| STATUS.md | the rows "Settings screen layout" and "Settings in flash", the suites table, open item 11 | MENU and SETTINGS; `runUiTests`; `runWidgetTests` (A); open item 11 closed by the SD LOG BACK fix | A, C |
+| STATUS.md | 32, 76, 98, 156, 175, 299; the rows "Settings screen layout" (179) and "Settings in flash" (181), the suites table, open item 11 | CFG and SETUP paths, "the settings screens disarms", MENU and SETTINGS; `runUiTests`; `runWidgetTests` (A); open item 11 closed by the SD LOG BACK fix | A, C |
+| docs/design/servo-tester.md | 218-235, 281, 285-303, 336 | the SERVO and SET drawings for the 36 px header (strip y 40, dial band 62 to 199, `SERVO_DIAL_R_OUT` 122), SET's 26 px rows → 40 px, the note band rows 34 to 55 → 40 to 61 | C |
+| docs/design/blackbox-logging.md | 230, 236, 273 | `CFG → SD LOG` → `MENU → SD LOG`; `src/ui.cpp` → `src/ui_sdlog.cpp` | C |
+| docs/design/kiss-telemetry.md | 201-202, 313 | `CFG → SETUP` → `MENU → SETTINGS`, the SETUP stepper → the SETTINGS stepper | C |
+| Doxygen comments in `src/` | `config.h:13, 19, 56, 78, 105, 414`; `board_desc.h:36, 83`; `board_pins.h:17`; `esc_task.h:285, 535, 759, 913`; `pin_claim.h:102-104, 115`; `pio_uart_rx.h:59`; `sd_log.h:175`; `settings.h:115`; `ui_widgets.h:60` | CFG, SETUP, the SETTINGS screen and the setup screen → MENU and SETTINGS; BACK's size | C |
+| test/test_ui.cpp | 572, 582, 601, 622, 709, 886, 1005, 2617 | `shot_config_*`, `shot_setup*` and `shot_settings*` → `shot_menu*` and `shot_settings*`, with `tools/make_previews.py:45-62` | C |
+
+blackbox-logging.md and kiss-telemetry.md describe built features, and a
+design note that does not match the code is a bug (README.md of this
+directory), so slice C updates them with the code.
 
 Screenshots: slice C regenerates every preview and wiki image of a screen
 with a header, since the header grows: `docs/am32-preview.png`,
@@ -631,8 +692,16 @@ SETTINGS) becomes `docs/menu-preview.png`, and `docs/setup-preview.png`
 becomes `docs/settings-preview.png`, with a scrolled frame; the wiki's
 `img/settings.png`, `settings-unsaved.png`, `config-*.png`, `setup.png` and
 `setup-contrast.png` become `img/menu*.png` and `img/settings*.png`.
-`tools/make_previews.py` and `tools/check_wiki.py` follow the names. The
-tester's images change in one word.
+`make_previews.py --wiki` names each wiki image after its shot,
+`shot_menu_beep_flash.ppm` → `img/menu-beep-flash.png`, so the renames are
+the shot names in `test_ui.cpp`; the old files in `wiki/img/` are deleted by
+hand, since nothing removes them. `tools/check_wiki.py` holds no image
+names: it checks that every image a page references was rendered, that
+links and anchors resolve and that every page has its counterpart in the
+other language, and it lists rendered images no page shows without failing.
+The tester's images change in one word. README.md names no row height for
+the AM32 or SERVO SET lists, so their 40 px rows change only its
+screenshots there.
 
 ## Risks
 
@@ -640,12 +709,13 @@ tester's images change in one word.
    SETTINGS). They lead the list, so no scroll is needed for them.
 2. **Test rewrite.** `test_ui.cpp` is 2831 lines and `test_servo.cpp` 2205,
    mostly taps by coordinate. Slice B is large and mechanical.
-3. **Flash and RAM.** The headroom against CI's limits, flash under 1 MiB
-   and RAM under 400,000 bytes, is not measured here.
+3. **Flash and RAM.** The headroom against the limits of CI (continuous
+   integration), flash under 1 MiB (mebibyte, 1,048,576 bytes) and RAM
+   (random-access memory) under 400,000 bytes, is not measured here.
 4. **Frame cost.** MENU and SETTINGS repaint their viewport on each scroll
    frame, as the AM32 list does today: no new cost class. Not measured.
-5. **AM32 list.** Three rows at 40 px instead of five at 26 px: more
-   scrolling to reach a field (decision 5).
+5. **AM32 and SERVO SET lists.** Three rows at 40 px instead of five at
+   26 px: more scrolling to reach a field (decision 5).
 6. **Servo dial.** 1 px between the second note and the arc after the header
    grows; the hit area loses 2 px at its outer edge.
 7. **Recorded decisions.** pin-claim.md decision 2 and kst-programming.md
@@ -707,16 +777,21 @@ owner has not decided them:
     strip. Each is the smallest change that keeps the existing asserts.
 16. **Two floors.** `UI_TAP_MIN` stays 22 px for the controls decision 5
     leaves to the later change, and `UI_LIST_TAP_MIN`, 40 px, binds list rows
-    and row controls. The AM32 list is a list, so its rows reach 40 px in
-    slice C. SD LOG's RETRY and USB DRIVE and AM32's OK are neither list rows
-    nor row controls and stay until the later change.
+    and row controls. AM32 and SERVO SET share one list idiom and are treated
+    alike: in slice A both keep today's 26 px rows and the any-visible-part
+    press rule; in slice C both move to 40 px rows and `UI_LIST_TAP_MIN`.
+    The SERVO screen's own controls stay with the later change. SD LOG's
+    RETRY and USB DRIVE and AM32's OK are neither list rows nor row controls
+    and stay until the later change.
 17. **HOLD TO ARM.** Keeps its own timer in `ui.cpp`. It draws its progress
     in the status badge and adds the 250 ms zero-throttle condition; it moves
     to `ui_hold` with the tester's later change.
 18. **MENU rows.** `KST SERVO` in place of `KST PROGRAMMER`, which does not
     fit beside `PINS BUSY`; no row for KST before slice 3, as decision 4
     gives KST its registry line there; the strip carries the ESC pin, the
-    DShot rate and the EDT chip; SD LOG moves to `ui_sdlog.cpp` so that every
-    MENU row is a `UiScreen` in a file of its own.
+    DShot rate and the EDT chip; SD LOG moves to `ui_sdlog.cpp`, so that
+    every tool's `UiScreen` sits in a file of its own and `ui.cpp` holds only
+    the tester and the navigation. BEEP's `UiScreen` sits in `ui_menu.cpp`
+    with MENU, since BEEP is an action on MENU and has no screen.
 19. **Section order and BOARD.** Tool sections sit between WIRING and
     DISPLAY in registry order. The BOARD section's row reads `BUILT FOR`.

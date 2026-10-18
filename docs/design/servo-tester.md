@@ -532,9 +532,13 @@ Decisions of the owner, 2026-10-17: recommendations 1 to 5 are accepted.
    device.
 2. **Persist the profile.** Not stored in flash. Every boot starts at
    STANDARD PWM 50 Hz, so a heli profile or a high rate is never applied to
-   the next servo by accident, and the profile adds nothing to the settings
-   block: slice 2 leaves `SETTINGS_VERSION` at 2; slice 3 takes it to 3
-   ([kst-programming.md](kst-programming.md#decisions), decision 8).
+   the next servo by accident, and `SETTINGS_VERSION` stays 2.
+
+   Revision of 2026-10-18, after review round 2 of PR #6: "stays 2" holds
+   for this slice. The profile adds nothing to the settings block, so slice
+   2 leaves `SETTINGS_VERSION` at 2; slice 3 takes it to 3 for its
+   `SERVO SUPPLY` field ([kst-programming.md](kst-programming.md#decisions),
+   decision 8).
 3. **One profile or two.** One shared profile with REVERSE B. SIG and AUX
    share a slice and therefore a rate.
 4. **Sweep pause.** Not in this slice. STOP SWEEP holds the servo where the

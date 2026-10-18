@@ -203,8 +203,9 @@ The Pololu divider, with a 10 kΩ pull-down from EN to GND and GP0 undriven
 or unpowered: EN = VIN × 10 kΩ / (475 kΩ + 10 kΩ) = VIN × 10 / 485. That is
 0.25 V at 12 V and 0.45 V at 22 V, below the lowest falling threshold of
 0.84 V, so the converter is off, and far below 3.6 V. For EN to stay below
-0.84 V at 22 V the pull-down must be under about 18 kΩ
-(475 kΩ × 0.84 V / 21.16 V, 18.9 kΩ). At 100 kΩ, EN reads 2.09 V at 12 V, so
+0.84 V at 22 V the pull-down must be below 18.9 kΩ
+(475 kΩ × 0.84 V / 21.16 V); 18 kΩ is the largest standard value under it.
+At 100 kΩ, EN reads 2.09 V at 12 V, so
 the converter is on, and 3.83 V at 22 V, above GP0's 3.6 V. GP0 driving
 3.3 V is above the 1.2 V highest rising threshold, so the converter is on,
 and the pull-up then sources at most (22 V − 3.3 V) / 475 kΩ, about 39 µA,
@@ -230,8 +231,8 @@ too.
 | `servoSupplyInit()` | core0, in `setup()` directly after `settingsLoad()`, before core1 starts | with `GP0`: SIO function, output disabled, both pulls off, input disabled. Selecting SIO with `gpio_set_function()` clears the pad's isolation and its output disable and turns its input on (Pico SDK 2.1.1, `src/rp2_common/hardware_gpio/gpio.c`), so the input is disabled after it. The SIO output enable stays off, so the pin is not driven. With `NONE`: nothing; GP0 keeps its reset state |
 | `servoSupplyConfigure()` | core0, from SETTINGS' `applyLive()`, outside every claim | as `servoSupplyInit()`, for the new value. A change to `NONE` leaves GP0 an input with both pulls off |
 | `servoSupplyBind()` | core1, from the KST job's bind, with `GP0` | drives GP0 low: off |
-| `servoSupplyOn()`, `servoSupplyOff()` | core1, the KST job, between bind and release | drives GP0 high or low |
-| `servoSupplyRelease()` | core1, from the KST job's release, at every claim end | drives GP0 low, then makes it an input with both pulls off and its input disabled |
+| `servoSupplyOn()`, `servoSupplyOff()` | core1, the KST job, between bind and release, with `GP0` | drives GP0 high or low |
+| `servoSupplyRelease()` | core1, from the KST job's release, at every claim end, with `GP0` | drives GP0 low, then makes it an input with both pulls off and its input disabled |
 | `servoSupplyIsOn()` | core1 | the level the bench drives; there is no read-back |
 
 GP0 is driven only while a claim that uses the supply holds: the KST claim,
@@ -365,10 +366,10 @@ which all 10 enter are the window, and the constant takes a value inside it.
   - No new operation starts until the heartbeat returns. Then the screen
     shows the stall and RETRY ([screens](#screens-with-the-switch)).
   - A locked session is no exception (decision 14).
-  - In the card phase before a session's first write, a card heartbeat
-    stamped from the waits of the SDIO (Secure Digital input/output) card
-    driver counts as the UI's ([card
-    writes](#card-writes-and-the-heartbeat)).
+  - In a card phase, around every card call core0 makes in the claim, a
+    card heartbeat stamped from the waits of the SDIO (Secure Digital
+    input/output) card driver counts as the UI's, for at most 15 s ([card
+    calls](#card-calls-and-the-heartbeat)).
 - **Claim end, any path:** the supply is off, for 2000 ms from the switch-off
   command ([close](#close-with-the-switch)), and GP0 an input before the
   pins return to DShot, so the DShot pump never runs with the converter on.
@@ -389,47 +390,90 @@ does nothing, and the unplug page follows. Without the wait, a servo that
 entered programming mode in an on phase could reach the unplug page and
 DShot after less than the 2000 ms without power that LEAVE gives it.
 
-### Card writes and the heartbeat
+### Card calls and the heartbeat
 
-The first write of a session saves the backup as the next KSTnnn.TXT and the
-image before the write as `KST/KST.TXT` ([storage](#storage)), on core0,
-before the job takes the write. A card call on core0 can block past the
-250 ms heartbeat. The SDIO driver waits up to 1000 ms for busy after each
-written block and tries a chunk up to 3 times (`SDH_BUSY_TIMEOUT_US` and
-`SDH_ATTEMPTS` in `src/sdio/sd_host.h`, [sdio-driver.md](sdio-driver.md));
-the SD specification lets a card take 250 ms per block on an SDHC (high
-capacity) card and 500 ms on an SDXC (extended capacity) card (4.6.2.2).
-With the switch such a stall would count as a lapse: the supply goes off,
-and `kst_session_power_cycled()` drops the backup the card write was saving.
+Core0 calls the card several times while the KST claim holds: before the
+session's first write it saves the backup as the next KSTnnn.TXT and the
+image before the write as `KST/KST.TXT` ([storage](#storage)); SAVE AS
+writes a file; LOAD and the FILES listing walk the `KST` directory and read a
+file; RETRY MOUNT initialises and mounts the card; a verified write removes
+`KST/KST.TXT`. A card call can block core0 past the 250 ms heartbeat. The
+SDIO driver waits up to 1000 ms for busy after each written block and tries
+a chunk up to 3 times (`SDH_BUSY_TIMEOUT_US` and `SDH_ATTEMPTS` in
+`src/sdio/sd_host.h`, [sdio-driver.md](sdio-driver.md)); the SD
+specification lets a card take 250 ms per written block on an SDHC (high
+capacity) card, 500 ms on an SDXC (extended capacity) card (4.6.2.2), and
+100 ms per read block. With the switch such a stall would count as a lapse:
+the supply goes off, and `kst_session_power_cycled()` drops the backup in
+memory, the one the first write's card call was saving among them.
 
-The card phase (decision 17):
+**The card phase** (decisions 17 and 19). With `SERVO SUPPLY` at `GP0`,
+every card call core0 makes while the KST claim holds runs inside one:
 
 1. `ui_kst.cpp` sends `CardBegin` and waits for the job's acknowledge. The
-   job takes it only while no operation runs or plans; the line stays low and
-   the supply as it is.
-2. Core0 writes the backup and the record. While the card phase is open, the
-   SDIO glue's wait loops (`src/sdio/sd_card_glue.c`, the bus's busy and
-   receive waits) stamp a card heartbeat, `kstCardAlive()`, on every poll.
-3. Core0 sends `Edit` or `Restore`, which closes the card phase, or `CardEnd`
-   when the card took neither file; the write then stops with
+   job takes it only while no operation runs or plans, so a card call waits
+   for a running operation to end. The line stays low and the supply as it
+   is.
+2. Core0 makes the card calls. The SDIO driver offers one generic wait hook,
+   `sdh_wait_hook`, a function pointer declared in `src/sdio/sd_host.h` and
+   null by default, which it calls on every poll of its waits: `busyWait()`
+   (`src/sdio/sd_host.c:29-37`), and the command, receive and status waits on
+   `time_us_32()` in `src/sdio/sd_pio.c` (`:111-131`, `:228-245` and
+   `:273-281`). The driver knows nothing of KST. While the card phase is
+   open, `kst_files.cpp` sets the hook to `kstCardStamp()`, which stamps the
+   time on core0, and sets it back to null when the phase closes.
+3. Core0 closes the phase: with `Edit` or `Restore` after the first write's
+   card calls, and with `CardEnd` after every other card call, or when the
+   card took neither file; the write then stops with
    `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.`
 
-In the card phase the KST job counts the heartbeat as trusted while either
-`core1UiAlive()` or the card heartbeat is within 250 ms. A core0 that hangs
-outside the driver's waits stamps neither, and the lapse rule applies 250 ms
-later. The job starts no operation in the card phase.
+In the card phase the KST job counts the heartbeat as trusted while
+`core1UiAlive()` holds, or while `kstCardStampFresh()`, core1's reader of the
+stamp, finds it within 250 ms and the phase has been open for less than
+`KST_CARD_PHASE_MAX_MS`, 15,000 ms, from the job's acknowledge of
+`CardBegin`. A core0 that hangs outside the driver's waits stamps nothing,
+and the lapse rule applies 250 ms later. A core0 stuck in an outer loop that
+keeps calling the driver stamps without end; the cap ends that after 15 s,
+and the lapse rule applies. The job starts no operation in the card phase.
+
+**The cap.** The largest card phase is the first write's: the walk for the next
+free name, then two files. At the store's limit of 999 files, KSTnnn.TXT names
+of 8.3 form and the record, the `KST` directory holds about 1,000 entries of 32
+bytes, 63 sectors, read one by one. Each file under 1024 bytes is about 6
+single-block writes (its directory entry, two data blocks, the two copies of
+the FAT, and FSINFO, the FAT32 free-space sector) and 2 reads (its directory
+sector and a FAT sector). That is 67 block reads and 12 block writes:
+
+| Case | One read | One write | 67 reads and 12 writes |
+|---|---|---|---|
+| A typical card, busy and access of a few ms | under 10 ms | under 10 ms | under 1 s |
+| SDHC within the specification: 100 ms access, 250 ms busy | 5 ms command + 100 ms = 105 ms | 5 ms command + 1.2 ms transfer + 250 ms busy + 5 ms status = 261 ms | 7.0 s + 3.1 s = 10.2 s |
+| SDXC within the specification: 500 ms busy | 105 ms | 511 ms | 7.0 s + 6.1 s = 13.2 s |
+| The driver's limits: 250 ms per read block, 1000 ms busy, 3 tries each, every try failing its CRC (cyclic redundancy check) | 3 × 255 ms = 0.77 s | 3 × 1011 ms = 3.03 s | 51 s + 36 s = 88 s |
+
+A timeout ends the card's part sooner: `sdh_err_is_fatal()` marks the card not
+ready, and every later call fails at once. The other phases are smaller: the
+FILES listing is the 63 reads alone, 6.6 s within the specification; SAVE AS is
+the walk and one file, 9.9 s on SDXC; RETRY MOUNT is the card's initialisation,
+up to 1.1 s of polling with ACMD41, the SD command that waits for the card to
+be ready, and a few reads. The cap, 15 s, covers the largest phase of a card
+within the specification, 13.2 s, with 1.8 s to spare, and bounds how long a
+core0 stuck in the driver's loops keeps the servo powered in programming mode,
+with no frame on the wire. A card past the cap is retrying or out of
+specification: the supply goes off, the session is power-cycled as for any
+lapse, and the card call goes on to its end on core0; a write that waited for
+it then finds the session out of the mode and does not run.
 
 What remains:
 
-- The screen does not repaint and touch is not read while the card works:
-  up to the driver's timeouts, 1000 ms per busy wait and 3 tries of a chunk.
-  The servo sits powered in programming mode at its unchanged image, and no
-  frame goes out.
+- The screen does not repaint and touch is not read while the card works,
+  up to the cap. The servo sits powered in programming mode at its unchanged
+  image, and no frame goes out.
 - A card wait that times out keeps the supply on until it does. The driver
   then returns an error, and the write stops as above, with the supply on
   and the backup in memory.
-- The card heartbeat counts only for the KST job in the card phase. The
-  servo job and the DShot pump keep the 250 ms rule unchanged.
+- The card heartbeat counts only for the KST job in a card phase. The servo
+  job and the DShot pump keep the 250 ms rule unchanged.
 - A blackbox log started by hand on SD LOG is not stopped by the claim. Its
   card writes are outside the card phase, so a stall there counts as a
   lapse. Whether such a log stalls core0 past 250 ms during a KST claim is
@@ -549,13 +593,19 @@ unanswered. `test_kst_seek.cpp` and `test_kst_job.cpp` run against it:
   commands, then an entry and a read; `kst_session_power_cycled()` called;
   refused while an operation runs or plans, and with `NONE`; the UI sends it
   only after a 1000 ms hold, not on a slide off;
-- the card phase: a fake card whose write blocks for 900 ms and polls the
-  glue's wait hook every 1 ms keeps the supply on and the backup, and the
-  write follows; the same block without the polls, a core0 hung outside the
+- the card phase: a fake card whose write blocks for 900 ms and calls
+  `sdh_wait_hook` every 1 ms keeps the supply on and the backup, and the
+  write follows; the same block without the calls, a core0 hung outside the
   driver, switches the supply off 250 ms after the last stamp and calls
-  `kst_session_power_cycled()`; a card that takes neither file leaves the
-  supply on, the backup kept and nothing written; `CardBegin` refused while
-  an operation runs; the servo job and the pump ignore the card heartbeat;
+  `kst_session_power_cycled()`; a phase that stamps every 1 ms for 20 s
+  keeps the supply on until 15,000 ms after the acknowledge of `CardBegin`
+  and then switches it off, and one of 14,900 ms keeps it on throughout; a
+  card that takes neither file leaves the supply on, the backup kept and
+  nothing written; `CardBegin` refused while an operation runs; a card phase
+  around each of SAVE AS, LOAD, the FILES listing, RETRY MOUNT and the
+  record's removal after a verify, each closed by `CardEnd`, and none with
+  `NONE`; the hook null outside a phase; the servo job and the pump ignore
+  the card heartbeat;
 - GP0 not driven outside a claim: output disabled from boot through SETTINGS
   changes until the job's bind; after every claim end an input with both
   pulls off and its input disabled; with `NONE`, untouched through a whole
@@ -980,8 +1030,8 @@ true.
 
 | Situation | Effect |
 |---|---|
-| First write of a session, card mounted | the backup is saved first as the next KSTnnn.TXT, and `KST/KST.TXT` holds the image before the write, both in the card phase ([card writes](#card-writes-and-the-heartbeat)). A card that takes neither stops the write: `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.` |
-| Write verified | `KST/KST.TXT` is removed |
+| First write of a session, card mounted | the backup is saved first as the next KSTnnn.TXT, and `KST/KST.TXT` holds the image before the write, both in a card phase ([card calls](#card-calls-and-the-heartbeat)). A card that takes neither stops the write: `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.` |
+| Write verified | `KST/KST.TXT` is removed, in a card phase |
 | `KST/KST.TXT` found when the screen opens | `A WRITE WAS INTERRUPTED. KST/KST.TXT HOLDS THE SERVO AS IT WAS.` FILES lists it as RECORD and loads it like a file |
 | No card | read, edit and write work; the write page says `NO CARD: THE BACKUP STAYS IN MEMORY AND ENDS AT LEAVE.` |
 | Card held by a USB host | as no card |
@@ -1057,8 +1107,12 @@ so these run against the same simulated servo:
   calls `kst_session_write()`.
 - `test_kst_files.cpp`: the FatFs io over a fake volume: no card, card held by
   USB, card full, write-protected, the record written before the first write
-  frame and removed after a verify, the record found at entry; the card
-  phase opened before the backup and closed by the write command.
+  frame and removed after a verify, the record found at entry; with `GP0`, a
+  card phase around every card call, the first write's opened before the
+  backup and closed by the write command, the others closed by `CardEnd`;
+  `sdh_wait_hook` set only inside a phase.
+- `test_sdio.cpp`: `sdh_wait_hook` called on every poll of `busyWait()`, and
+  never while null.
 - `test_ui.cpp`, by control id ([menu.md](menu.md#tests-by-control-id)):
   every state of the screen renders, BACK in every state, HOLD TO WRITE fires
   after 1000 ms and not on a slide off, a hard-limit value is unreachable by
@@ -1079,8 +1133,11 @@ so these run against the same simulated servo:
    - `servo_supply.*`, and `servoSupplyInit()` in `main.cpp`'s `setup()`; the
      switched search, REBOOT, the close and the supply rules in `kst_seek.*`
      and `kst_job.*`, `Reboot`, `CardBegin` and `CardEnd` in `KstOp` and the
-     supply fields in `KstStatus`; the card heartbeat, `kstCardAlive()`, and
-     its stamp in the wait loops of `src/sdio/sd_card_glue.c`;
+     supply fields in `KstStatus`; the card phase around every card call,
+     `kstCardStamp()` and `kstCardStampFresh()`, `KST_CARD_PHASE_MAX_MS`;
+     `sdh_wait_hook` in `src/sdio/sd_host.h`, called from the waits of
+     `sd_host.c` and `sd_pio.c`, and in the layers list of
+     [sdio-driver.md](sdio-driver.md#layers) (`sdio-driver.md:309-313`);
      `test/kst_supply_sim.h` and the tests in [tests for the
      switch](#tests-for-the-switch).
    - `settings.h` and `settings.cpp`: the `servoSupply` field at offset 12
@@ -1178,8 +1235,7 @@ decisions 11 and 12 come from that revision:
    default, for no switch fitted, and `GP0`, an active-high enable on GP0.
    There is no active-low form, and GP1 is not offered. An external pull-down
    on EN, 10 kΩ to 100 kΩ, holds the converter off while the board is
-   unpowered, from reset, and in BOOTSEL as long as the boot ROM leaves GP0
-   undriven (bring-up step 7); for an EN with an internal pull-up the
+   unpowered, from reset and in BOOTSEL; for an EN with an internal pull-up the
    divider sets the value ([example modules](#example-modules)). The row adds a
    field to the settings block, so `SETTINGS_VERSION` goes from 2 to 3. A block
    of another version is discarded whole (`settingsLoad()`), so the first boot
@@ -1198,7 +1254,7 @@ decisions 11 and 12 come from that revision:
     ([servo-tester.md](servo-tester.md#decisions), decision 20).
 11. **SETUP scrolls.** Superseded by [menu.md](menu.md#decisions)
     decision 13. SETUP becomes a list scrolled in pixels, as the AM32 list,
-    and `SERVO SUPPLY` is its sixth row of eight, after KISS PIN. HOLD TO
+    and `SERVO SUPPLY` is its eighth row, after KISS PIN. HOLD TO
     SAVE, RESET, LINK and the note line with `UNSAVED` stay fixed below the
     list.
 12. **Larger SETUP rows.** Superseded by [menu.md](menu.md#decisions)
@@ -1245,16 +1301,18 @@ Decision of the owner, 2026-10-18, on the supply voltage:
 Choices made in this design where review round 2 of PR #6 left the choice
 open; the owner has not decided them:
 
-17. **Card writes keep the heartbeat.** During the card phase before a
-    session's first write, the SDIO glue's waits stamp a card heartbeat that
-    the KST job counts as the UI's ([card
-    writes](#card-writes-and-the-heartbeat)). Ordering alone, the card write
-    before the session's write, does not help: the job idles in the mode
-    with the supply on while core0 writes, and the lapse rule would switch it
-    off. A lease of fixed length would keep the supply on through a core0
-    hang for the whole lease. The stamp from inside the driver's bounded
-    waits keeps it on only while core0 waits on the card, and the 250 ms
-    rule holds everywhere else.
+17. **Card calls keep the heartbeat, for at most 15 s.** In a card phase the
+    SDIO driver's waits call a generic hook that stamps a card heartbeat the
+    KST job counts as the UI's ([card calls](#card-calls-and-the-heartbeat)).
+    Ordering alone, the card write before the session's write, does not
+    help: the job idles in the mode with the supply on while core0 writes,
+    and the lapse rule would switch it off. A lease of fixed length alone
+    would keep the supply on through any core0 hang for the whole lease. The
+    stamp from inside the driver's waits keeps the supply on only while
+    core0 waits on the card, and `KST_CARD_PHASE_MAX_MS`, 15 s, caps it: the
+    largest phase of a card within the SD specification takes 13.2 s, while
+    the driver's own limits allow about 88 s and a core0 stuck in an outer
+    loop would stamp for ever.
 18. **Every close waits 2000 ms off.** BACK during REBOOT, on the stalled
     screen and during a switched search closes the line only 2000 ms after
     the switch-off command, as LEAVE does ([close](#close-with-the-switch)).
@@ -1262,6 +1320,12 @@ open; the owner has not decided them:
     the safer: DShot never reaches a servo that may have entered programming
     mode in an on phase before it has been off as long as LEAVE keeps it.
     The cost is up to 2000 ms on the wait text before the unplug page.
+19. **A card phase around every card call.** Not only the first write's
+    backup and record: SAVE AS, LOAD, the FILES listing, RETRY MOUNT and the
+    record's removal after a verify each block core0 on the card too, and
+    each would count as a lapse without one. One rule for every card call is
+    simpler to test than a list of exceptions. With `NONE` there is no
+    supply to keep on, and no card phase.
 
 Revision of 2026-10-18, after the owner's menu decisions
 ([menu.md](menu.md#decisions)) and review round 2 of PR #6. Decisions 11, 12
@@ -1274,3 +1338,5 @@ SETUP in decisions 8, 11, 12 and 15 is the screen menu.md decision 12 names
 SETTINGS. Decision 11's count is corrected: SERVO SUPPLY was the sixth row of
 eight, after KISS PIN, not the eighth. Decision 8's BOOTSEL clause holds as
 long as the boot ROM leaves GP0 undriven, which bring-up step 7 checks.
+Decisions 8 and 11 keep the wording the owner decided; the two corrections
+stand here only.

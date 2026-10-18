@@ -273,7 +273,7 @@ Core0 calls `escHeartbeat()` at the top of every `uiTick()`, on every screen.
 | DShot | throttle forced to zero (`escFrameAction()`, unchanged) | throttle follows the UI again |
 | AM32 | nothing; the transport runs on core0, which is what stopped | nothing |
 | Servo job | both pins to level 0, no edges; the sweep ends; the job latches `Tripped` | nothing restarts. The screen shows `STOPPED: SCREEN STALLED` and needs a new HOLD TO START |
-| KST job | the running operation finishes; no new operation and no new entry attempt starts; the line stays driven low. With a switched supply ([kst-programming.md](kst-programming.md#leave-reboot-loss-and-heartbeat-with-the-switch)), every wait in the search or in REBOOT ends at once with the supply off; a session operation finishes, then the supply goes off; the supply is switched on only while the heartbeat is trusted. In the card phase before a first write, a card heartbeat from the SDIO driver's waits counts as the UI's ([card writes](kst-programming.md#card-writes-and-the-heartbeat)) | operations are taken again; the search needs RETRY. With a switched supply the screen says the supply went off |
+| KST job | the running operation finishes; no new operation and no new entry attempt starts; the line stays driven low. With a switched supply ([kst-programming.md](kst-programming.md#leave-reboot-loss-and-heartbeat-with-the-switch)), every wait in the search or in REBOOT ends at once with the supply off; a session operation finishes, then the supply goes off; the supply is switched on only while the heartbeat is trusted. In a card phase around a card call, a card heartbeat from the SDIO driver's waits counts as the UI's for at most 15 s ([card calls](kst-programming.md#card-calls-and-the-heartbeat)) | operations are taken again; the search needs RETRY. With a switched supply the screen says the supply went off |
 
 Why KST does not abort: `kst_session_abort()` after the first write frame of a
 plan locks the session and can leave the servo between two images. The
@@ -548,13 +548,15 @@ replaces whole; one source list per feature, `src/servo.cmake` and
 `runKstTests()`, which `test/test_main.cpp` runs. `ui.cpp` dispatches to both
 screens and gates their CFG buttons on `uiServoAvailable()` and
 `uiKstAvailable()`. Each slice adds one line to the job table of
-`core1_job.cpp`. Slice 3 otherwise edits its own files, except for the switched
-supply's shared files: `src/settings.*`, `src/main.cpp`, `src/ui_registry.cpp`
-(one line), `src/sdio/sd_card_glue.c` (the card heartbeat's stamp),
-`test/test_settings.cpp`, `test/test_ui.cpp`, `docs/settings-preview.png` and
-the wiki's SETTINGS sections ([work
-breakdown](kst-programming.md#work-breakdown), step 5). Slice 2 also changes
-these shared files:
+`core1_job.cpp`. Slice 3 otherwise edits its own files, except for these
+shared files ([work breakdown](kst-programming.md#work-breakdown)): for the
+screen, step 4, `src/ui_registry.cpp`, one line; for the switched supply,
+step 5, `src/settings.*`, `src/main.cpp`, `src/sdio/sd_host.{h,c}` and
+`src/sdio/sd_pio.c` (the wait hook), `docs/design/sdio-driver.md`,
+`test/test_settings.cpp`, `test/test_ui.cpp`, `test/test_sdio.cpp`,
+`docs/settings-preview.png` and the wiki's SETTINGS sections; and for the
+documentation, steps 5 and 6, `README.md`, `STATUS.md`, `CHANGELOG.md` and
+the wiki. Slice 2 also changes these shared files:
 
 - `src/core1_job.h` and `.cpp`: the `init` member of `Core1JobOps`,
   `release` taking the time and returning whether the pins are let go, and
