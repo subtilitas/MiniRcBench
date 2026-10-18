@@ -420,8 +420,8 @@ those of `am32Adjust()`, the steps of − and +.
 
 | List | Factor per coarse step |
 |---|---|
-| SERVO SET | as today (`coarseOf()`): 10 for MIN, CENTRE, MAX and the sweep numbers, 1 for the choices |
-| AM32 | the field's step × ⌈range ÷ (11 × step)⌉ (`coarseFactor()`): 11 coarse steps, 176 px, cover any field's range, and values stay on the field's step. A range of 255 at step 1 gives 24 per step; the eleventh step lands on the rail, 255, by the clamp. Every range in the field table is a whole number of its steps, so each rail is on the step; the host suite checks both |
+| SERVO SET | as today (`coarseOf()`), in the row's steps: 10 for MIN, CENTRE, MAX and the sweep numbers, 1 for the choices |
+| AM32 | ⌈range ÷ (11 × step)⌉ of the field's steps (`coarseFactor()`), so a coarse step moves the value by that × step: 11 coarse steps, 176 px, cover any field's range, and values stay on the field's step. A range of 255 at step 1 gives 24 per coarse step, and POLES at step 2 moves 4 poles; the eleventh step lands on the rail, 255, by the clamp. Every range in the field table is a whole number of its steps, so each rail is on the step; the host suite checks both |
 | KST field list (slice 3) | from the field table, set in slice 3; a value that breaks a hard limit is skipped, as the steppers skip it |
 | MENU, SETTINGS | no sideways mode |
 

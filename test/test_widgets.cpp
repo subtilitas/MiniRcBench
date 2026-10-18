@@ -136,6 +136,12 @@ static void testListRowRect() {
 	checkInt("row 7 does not show", uiListRowRect(&l, 7).h, 0);
 	checkInt("nor does row -1", uiListRowRect(&l, -1).h, 0);
 	checkInt("nor row 12, past the end", uiListRowRect(&l, 12).h, 0);
+	// A row past the end of a short list lies inside the viewport, so only
+	// the row check keeps it from having a rectangle.
+	UiList s;
+	uiListInit(&s, VIEW, 26, 3);
+	checkInt("row 3 of a 3-row list does not exist", uiListRowRect(&s, 3).h, 0);
+	checkInt("nor does row -1 at scroll 0", uiListRowRect(&s, -1).h, 0);
 	uiListScrollTo(&l, 30);
 	checkInt("row 0 scrolled off the top does not show", uiListRowRect(&l, 0).h, 0);
 	// The press rule and the rectangle agree on every pixel row of the
