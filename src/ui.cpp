@@ -15,6 +15,7 @@
 #include "ui_setup.h"
 #include "ui_input.h"
 #include "ui_widgets.h"
+#include "ui_screen.h"
 #include "settings.h"
 #include "gfx.h"
 #include "touch.h"
@@ -1408,6 +1409,9 @@ static void handleMainTouch() {
 				s_throttle = 0;
 				escSetArmed(true);
 				s_armPressing = false;
+				// Removing this clear fails no test: no disarm can fire while
+				// the arming finger is still down. It keeps that finger from
+				// arming again if a disarm path ever does.
 				s_armLive = false;
 				backlightDip();
 				invalidateAll();
@@ -1431,6 +1435,106 @@ static void handleMainTouch() {
 		invalidateAll();
 		s_shown.config = -1;
 	}
+}
+
+// ---------------------------------------------------------------------------
+// control tables (ui_screen.h)
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief The tester's controls, from the rectangles handleMainTouch() tests.
+ *        The throttle reports its drawn track, the coordinates its mapping
+ *        is measured from; its grab margin is in @ref TesterCtl.
+ */
+static uint8_t testerControls(UiControl *out, uint8_t max) {
+	uint8_t n = 0;
+	bool cardFree = !mscHoldsCard(mscGetState());
+	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Arm), BTN_ARM, cardFree);
+	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Hold), BTN_HOLD, true);
+	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Cfg), BTN_CFG, true);
+	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Throttle),
+	             UiRect{ THR_TRACK_X, THR_TRACK_Y, THR_TRACK_W, THR_TRACK_H }, s_armed);
+	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Pad),
+	             UiRect{ 0, PAD_Y0, GFX_W, PAD_H }, s_armed);
+	return n;
+}
+
+/** @brief The SETTINGS controls, gated as handleConfigTouch() gates them. */
+static uint8_t cfgControls(UiControl *out, uint8_t max) {
+	uint8_t n = 0;
+	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
+	uiControlAdd(out, &n, max, UI_FIX(CfgCtl::PolesMinus), BTN_POLES_M, true);
+	uiControlAdd(out, &n, max, UI_FIX(CfgCtl::PolesPlus), BTN_POLES_P, true);
+	uiControlAdd(out, &n, max, UI_FIX(CfgCtl::MaxMinus), BTN_MAXT_M, true);
+	uiControlAdd(out, &n, max, UI_FIX(CfgCtl::MaxPlus), BTN_MAXT_P, true);
+	uiControlAdd(out, &n, max, UI_FIX(CfgCtl::Beep), BTN_BEEP, true);
+	uiControlAdd(out, &n, max, UI_FIX(CfgCtl::SdLog), BTN_LOG, true);
+	uiControlAdd(out, &n, max, UI_FIX(CfgCtl::Am32), BTN_AM32, true);
+	uiControlAdd(out, &n, max, UI_FIX(CfgCtl::Servo), BTN_SERVO, uiServoAvailable());
+	uiControlAdd(out, &n, max, UI_FIX(CfgCtl::Kst), BTN_KST, uiKstAvailable());
+	uiControlAdd(out, &n, max, UI_FIX(CfgCtl::Setup), BTN_SETUP, true);
+	return n;
+}
+
+/** @brief The SD LOG controls, gated as handleLogTouch() gates them. */
+static uint8_t sdLogControls(UiControl *out, uint8_t max) {
+	uint8_t n = 0;
+	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
+	if (mscGetState() != MscState::Idle) {
+		uiControlAdd(out, &n, max, UI_FIX(SdLogCtl::Toggle), BTN_LOG_TOGGLE, true);
+		return n;
+	}
+	SdLogStatus st;
+	sdLogStatus(&st);
+	const bool usable = (st.state != SdLogState::NoCard);
+	uiControlAdd(out, &n, max, UI_FIX(SdLogCtl::Toggle), BTN_LOG_TOGGLE, usable);
+	uiControlAdd(out, &n, max, UI_FIX(SdLogCtl::Retry), BTN_LOG_RETRY, true);
+	uiControlAdd(out, &n, max, UI_FIX(SdLogCtl::Usb), BTN_LOG_USB, usable);
+	return n;
+}
+
+/** @brief A screen that is never open draws no control. */
+static uint8_t noControls(UiControl *, uint8_t) { return 0; }
+
+/** @brief Every screen, by @ref UiScreenId. */
+static constexpr UiScreen SCREENS[] = {
+	{ UiScreenId::Tester, testerControls },
+	{ UiScreenId::Cfg,    cfgControls },
+	{ UiScreenId::Setup,  uiSetupControls },
+	{ UiScreenId::SdLog,  sdLogControls },
+	{ UiScreenId::Am32,   uiAm32Controls },
+	{ UiScreenId::Servo,  uiServoControls },
+	{ UiScreenId::Kst,    noControls },
+};
+/** @brief Each @ref UiScreenId has exactly one entry in `SCREENS`. */
+static constexpr bool screensComplete() {
+	for (size_t id = 0; id <= (size_t)UiScreenId::Kst; id++) {
+		int n = 0;
+		for (const UiScreen &s : SCREENS) n += (size_t)s.id == id;
+		if (n != 1) return false;
+	}
+	return sizeof(SCREENS) / sizeof(SCREENS[0]) == (size_t)UiScreenId::Kst + 1;
+}
+static_assert(screensComplete(), "a screen has no control table, or two");
+// uiControls() finds a screen by its id, so the order above does not matter.
+
+// In the order uiTick() dispatches: SETUP, then the tools, which open from
+// SETTINGS with s_config still set, then SD LOG and SETTINGS.
+UiScreenId uiCurrentScreen() {
+	if (s_setup)     return UiScreenId::Setup;
+	if (s_am32)      return UiScreenId::Am32;
+	if (s_servo)     return UiScreenId::Servo;
+	if (s_kst)       return UiScreenId::Kst;
+	if (s_logScreen) return UiScreenId::SdLog;
+	if (s_config)    return UiScreenId::Cfg;
+	return UiScreenId::Tester;
+}
+
+uint8_t uiControls(UiControl *out, uint8_t max) {
+	UiScreenId id = uiCurrentScreen();
+	for (const UiScreen &s : SCREENS)
+		if (s.id == id) return s.controls(out, max);
+	return 0;
 }
 
 void uiDrawSplash() {

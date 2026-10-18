@@ -1,8 +1,9 @@
 # Menu restructure: MENU and SETTINGS
 
-Status: slice A built, host tests only, not tested on hardware: `ui_list`
-under the AM32 and SERVO SET lists, `ui_hold` under four holds. Slices B and
-C are planned. Slices A to C come before KST programming, slice 3 of
+Status: slices A and B built, host tests only, not tested on hardware:
+`ui_list` under the AM32 and SERVO SET lists, `ui_hold` under four holds,
+and a control table per screen (`src/ui_screen.h`) that the host tests tap
+by id. Slice C is planned. Slices A to C come before KST programming, slice 3 of
 [pin-claim.md](pin-claim.md), and [kst-programming.md](kst-programming.md)
 builds on them. Line numbers in `src/`, `test/`, `tools/`, README.md and the
 wiki name 9c0f3b9, the tree the review read, not the tree with slice A; line
@@ -453,6 +454,7 @@ enum class UiScreenId : uint8_t {
 };   // slice C: Cfg becomes Menu, Setup becomes Settings, Beep joins
 
 enum : uint8_t { UI_FIXED = 0xFF };   // row of a control outside any list
+enum : uint8_t { UI_BACK = 0 };       // BACK, fixed control 0 of every screen
 enum class UiPart : uint8_t { Row, Minus, Plus, Toggle };
 
 struct UiControlId {             // which control: (row, part)
@@ -461,6 +463,7 @@ struct UiControlId {             // which control: (row, part)
                                  // enum (BACK, HOLD TO SAVE, ...) for UI_FIXED
 };
 #define UI_ROW(n, p) (UiControlId{ (uint8_t)(n), (uint8_t)UiPart::p })
+#define UI_FIX(c)    (UiControlId{ UI_FIXED, (uint8_t)(c) })
 
 struct UiControl {               // one tappable thing on the current frame
     UiControlId id;
@@ -469,7 +472,15 @@ struct UiControl {               // one tappable thing on the current frame
 };
 
 UiScreenId uiCurrentScreen();    // the open screen
+uint8_t uiControls(UiControl *out, uint8_t max);   // its table, this frame
 ```
+
+Each screen's fixed controls are an enum in its header, numbered from 1:
+`TesterCtl`, `CfgCtl` and `SdLogCtl` in `ui.h`, `Am32Ctl` in `ui_am32.h`,
+`ServoCtl` for all three SERVO views in `ui_servo.h`, `SetupCtl` and the row
+numbers `SetupRow` in `ui_setup.h`. `UI_FIX(CfgCtl::Beep)` is BEEP;
+`UI_ROW(SetupRow::Pin, Plus)` is the + of ESC PIN. A list adds its visible
+rows with `uiListAddRows()`. The firmware does not call `uiControls()`.
 
 `UI_ROW(3, Plus)` is the + of SETTINGS row 3; `UI_ROW(5, Row)` is AM32 list
 row 5, which selects. Slice B gives today's screens, the tester, CFG, SETUP,
@@ -587,9 +598,14 @@ UI a probe, `uiCurrentScreen()`, which returns the open `UiScreenId`, with
 ids for today's screens, CFG and SETUP among them ([code](#code)). Slice C
 renames those ids. The host tests address controls by id:
 
-- `tapId(id)`, `pressId(id)`, `holdId(id, ms)` look the control up on the
-  current frame and fail the test, naming the id, when it is absent or
-  disabled against the test's expectation;
+- `tapId(id)` and `pressId(id)` in `test/ui_ids.h` look the control up on
+  the current frame and fail the test, naming the id, when it is absent or
+  gated against the test's expectation (`IdExpect`); `holdId(id, frames)`
+  keeps a finger on a control that a `pressId()` began, and fails only when
+  the control is absent; a hold timed to the millisecond takes
+  `ctlCentre(id)` and keeps its own frame loop;
+- `checkControlTable()` checks a frame's table: ids unique, rectangles
+  inside the panel and apart, BACK at `uiBackRect()`;
 - a list row's controls are `UI_ROW(n, Row)`, `UI_ROW(n, Minus)`,
   `UI_ROW(n, Plus)` and `UI_ROW(n, Toggle)`; `revealRow(n)` drags the list
   until row n is whole, then the test taps the part, so the scroll is
@@ -598,17 +614,28 @@ renames those ids. The host tests address controls by id:
 - tests about geometry (gaps, the viewport's edge, the 40 px partial rule,
   the scroll range) read their coordinates from the control table.
 
-The coordinate macros go: 48 in `test_ui.cpp`, 7 in `test_servo.cpp` and 9
-in `test_claim.cpp`. The tests then survive slice C's header and layout
-changes, and slice C changes the tests only where the behaviour changes.
+Slice B deletes 65 coordinate macros: 49 in `test_ui.cpp`, 7 in
+`test_servo.cpp` and 9 in `test_claim.cpp`. What stays is not a control
+coordinate: frame lengths, pin numbers, the throttle's 16 px saturation
+margin (`THR_EDGE_SAT_T`, a mapping constant), the note line's y
+(`SETUP_NOTE_Y`, a pixel probe of drawn text), a scroll position in rows
+for the SET screenshots, and taps where the exact point is the test (the
+ends of SPEED, the edges of a list viewport). The tests then survive slice
+C's header and layout changes, and slice C changes the tests only where the
+behaviour changes.
+
+Slice B found two taps that hit nothing: a second BACK from SD LOG, which
+leaves to the tester in one tap, and a stale "CFG BACK" coordinate in the
+pressed-look test. Both are taps by id now.
 
 Tests slice C adds:
 
 - SD LOG BACK goes to MENU, from the card-idle and the card-held branch, and
   MENU's BACK then reaches the tester (decision 11). It fails on today's
-  code, where BACK reaches the tester. The test that taps BACK twice
-  (`test_ui.cpp:306-307`) taps MENU's BACK on purpose and checks that
-  arming is refused while the host holds the card.
+  code, where BACK reaches the tester. `testUsbDriveScreen` taps SD LOG's
+  BACK once and checks that it lands on the tester; slice C adds a second
+  tap, MENU's BACK, changes that check to MENU and then the tester, and
+  keeps the check that arming is refused while the host holds the card.
 - Every registry entry: opened from MENU, BACK lands on MENU, through the
   unplug page for SERVO and KST.
 - MENU: disarms on open; BEEP sent and refused flash on the row; no KST row
@@ -629,7 +656,7 @@ Tests slice C adds:
 | Slice | Changes | Visible change | Leaves working | Estimate, not measured |
 |---|---|---|---|---|
 | A. Widgets | `ui_list`, `ui_hold`; the AM32 list and SERVO SET on `ui_list` with today's 26 px rows and press rule; AM32's HOLD TO WRITE, SERVO's HOLD TO START, SET's HOLD TO APPLY and SETUP's HOLD TO SAVE on `ui_hold`; `test/test_widgets.cpp` with `runWidgetTests` | AM32's sideways swipe: 16 px per coarse step; README.md:695 and the two wiki rows | every screen as today; HOLD TO ARM keeps its own timer in `ui.cpp` | 2 days |
-| B. Control ids | `ui_screen.h` with `UiScreenId` (today's screens), `UiControlId`, `UiControl` and `UiScreen::controls`; a control table per screen; `uiCurrentScreen()`; the test helpers; `test_ui.cpp`, `test_servo.cpp` and `test_claim.cpp` by id; the 64 coordinate macros deleted | none | everything; the same screenshots | 2 days |
+| B. Control ids | `ui_screen.h` with `UiScreenId` (today's screens), `UiControlId`, `UiControl` and `UiScreen::controls`; a control table per screen; `uiCurrentScreen()`; the test helpers; `test_ui.cpp`, `test_servo.cpp` and `test_claim.cpp` by id; 65 coordinate macros deleted | none | everything; the same screenshots | 2 days |
 | C. MENU and SETTINGS | the rest of `ui_screen.h` and the id renames, `ui_registry.cpp`, `ui_menu.cpp`, `ui_settings.cpp` (from `ui_setup.cpp`), `ui_sdlog.cpp` (from `ui.cpp`), the navigation in `ui.cpp`; the `PinUser` table; the 36 px header and BACK 64 × 32 px; `UI_LIST_TAP_MIN`; AM32 and SERVO SET rows 40 px; SD LOG BACK to MENU; `LOG_ROW_H` 20; the servo dial's 122 px and its notes; the tests above; previews, wiki images, README, wiki, design-note and source-comment text | CFG reads MENU; MENU replaces SETTINGS; SETUP becomes SETTINGS with poles and MAX THROTTLE at its top; the disabled KST button has no row until slice 3; every header 6 px taller; AM32 and SERVO SET show three rows | every tool, the settings block as stored | 4 to 5 days |
 | 3. KST | [kst-programming.md](kst-programming.md): one registry line, the SERVO SUPPLY section, the field list and FILES on `ui_list`, its holds on `ui_hold`, `SETTINGS_VERSION` 3 | KST SERVO live; SERVO SUPPLY in SETTINGS | | inside slice 3 |
 

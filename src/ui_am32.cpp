@@ -17,6 +17,7 @@
 #include "ui_input.h"
 #include "ui_list.h"
 #include "ui_widgets.h"
+#include "ui_screen.h"
 #include "gfx.h"
 #include "config.h"
 
@@ -577,6 +578,31 @@ static void handleListGesture(const TouchState *t) {
 	if (e.kind != UiListEv::Swipe || e.steps == 0) return;
 	const Am32Field *f = &AM32_FIELDS[field];
 	if (uiSwipeApply(e.steps, coarseFactor(f), swipeStep, (void *)f)) s_redraw = true;
+}
+
+uint8_t uiAm32Controls(UiControl *out, uint8_t max) {
+	uint8_t n = 0;
+	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
+	if (s_state == S_WRITING) {
+		// drawWriting() draws OK from the first frame; it acts once the
+		// write has finished.
+		uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Ok), BTN_OK,
+		             strcmp(s_status, "WRITING...") != 0);
+		return n;
+	}
+	if (s_state != S_LIST) return n;
+	// The hex dump takes no tap, so its lines are not controls.
+	if (!s_hexView) uiListAddRows(&s_list, out, &n, max, true);
+	bool sel = !s_hexView && s_selected >= 0 && s_selected < (int)AM32_FIELD_COUNT;
+	if (sel) {
+		uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::EditMinus), BTN_MINUS, true);
+		uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::EditPlus), BTN_PLUS, true);
+	}
+	bool dirty = anyDirty();
+	uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Write), BTN_WRITE, dirty);
+	uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Revert), BTN_REVERT, dirty);
+	uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Hex), BTN_HEX, true);
+	return n;
 }
 
 bool uiAm32Tick(const TouchState *t) {

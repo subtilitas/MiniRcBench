@@ -4,6 +4,7 @@
  */
 
 #include "ui_list.h"
+#include "ui_screen.h"
 #include "gfx.h"
 #include "touch.h"
 
@@ -52,6 +53,14 @@ UiRect uiListRowRect(const UiList *l, int row) {
 	if (bot > vBot) bot = vBot;
 	if (bot < top) bot = top;
 	return UiRect{l->view.x, (int16_t)top, l->view.w, (int16_t)(bot - top)};
+}
+
+void uiListAddRows(const UiList *l, UiControl *out, uint8_t *n, uint8_t max,
+                   bool enabled) {
+	for (int r = 0; r < l->rows; r++) {
+		UiRect rr = uiListRowRect(l, r);
+		if (rr.h > 0) uiControlAdd(out, n, max, UI_ROW(r, Row), rr, enabled);
+	}
 }
 
 UiListEvent uiListTouch(UiList *l, const TouchState *t) {

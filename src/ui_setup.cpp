@@ -30,6 +30,7 @@
 #include "ui_hold.h"
 #include "ui_input.h"
 #include "ui_widgets.h"
+#include "ui_screen.h"
 #include "gfx.h"
 #include "st7789.h"
 #include "touch.h"
@@ -364,6 +365,25 @@ static uint8_t stepPinAvoiding(uint8_t from, int dir, uint8_t avoid, bool active
 static int stepDir(const TouchState *t, int rowY) {
 	return uiPressing(minusAt(rowY), t) ? -1
 	     : uiPressing(plusAt(rowY), t)  ? +1 : 0;
+}
+
+uint8_t uiSetupControls(UiControl *out, uint8_t max) {
+	const Settings *s = settings();
+	uint8_t n = 0;
+	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
+	uiControlAdd(out, &n, max, UI_ROW(SetupRow::Pin, Minus), minusAt(R_PIN), true);
+	uiControlAdd(out, &n, max, UI_ROW(SetupRow::Pin, Plus), plusAt(R_PIN), true);
+	uiControlAdd(out, &n, max, UI_ROW(SetupRow::Speed, Minus), minusAt(R_SPEED), true);
+	uiControlAdd(out, &n, max, UI_ROW(SetupRow::Speed, Plus), plusAt(R_SPEED), true);
+	uiControlAdd(out, &n, max, UI_ROW(SetupRow::Kiss, Toggle), toggleAt(R_KISS), true);
+	uiControlAdd(out, &n, max, UI_ROW(SetupRow::KissPin, Minus), minusAt(R_KISSPIN), s->kissEnable != 0);
+	uiControlAdd(out, &n, max, UI_ROW(SetupRow::KissPin, Plus), plusAt(R_KISSPIN), s->kissEnable != 0);
+	uiControlAdd(out, &n, max, UI_ROW(SetupRow::Contrast, Toggle), toggleAt(R_CONTRAST), true);
+	uiControlAdd(out, &n, max, UI_ROW(SetupRow::Backlight, Minus), minusAt(R_BACKLIGHT), true);
+	uiControlAdd(out, &n, max, UI_ROW(SetupRow::Backlight, Plus), plusAt(R_BACKLIGHT), true);
+	uiControlAdd(out, &n, max, UI_FIX(SetupCtl::Save), BTN_SAVE, true);
+	uiControlAdd(out, &n, max, UI_FIX(SetupCtl::Reset), BTN_DEFAULTS, true);
+	return n;
 }
 
 bool uiSetupTick(const TouchState *t) {
