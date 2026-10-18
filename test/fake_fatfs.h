@@ -15,8 +15,8 @@
  *   file open for writing refuses a read open too;
  * - a volume FatFs reports write-protected, FR_WRITE_PROTECTED, which this
  *   board's card driver never makes FatFs report;
- * - any call failing once with a given FRESULT, and a rename that takes
- *   effect and reports a failure;
+ * - any call failing once with a given FRESULT, a rename that takes effect
+ *   and reports a failure, and one that stops with both names on the volume;
  * It does not model clusters, the FAT, FatFs's sector window, a write error
  * that persists, the lock table's 16-entry limit or a removed card.
  */
@@ -51,6 +51,13 @@ void fakeFatFail(FakeFatCall call, FRESULT fr, unsigned skip = 0);
  *        in its window for the next call to write.
  */
 void fakeFatRenameFailsLate(FRESULT fr);
+
+/**
+ * @brief Let the next f_rename() register the new name and fail with @p fr
+ *        before it removes the old one, as FatFs does when one write fails
+ *        between the two: both names then point at the same data.
+ */
+void fakeFatRenameFailsHalf(FRESULT fr);
 
 /** @brief Put a file with @p len bytes of @p data on the volume. */
 void fakeFatPut(const char *path, const char *data, size_t len);

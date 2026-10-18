@@ -18,6 +18,16 @@
 /** @brief A file's text, for the backup and the record. */
 static char s_text[KST_FILE_MAX];
 
+/**
+ * @brief The one file open at a time, and the one directory entry looked at.
+ *        A FIL holds a 512-byte sector buffer and a FILINFO a 256-byte name:
+ *        static, off core0's 2 KB stack. Core0 alone calls in here, no file
+ *        call nests in another, and no caller keeps s_fno across a call that
+ *        uses it.
+ */
+static FIL     s_fil;
+static FILINFO s_fno;
+
 bool kstFilesMounted() {
 	SdLogStatus st;
 	sdLogStatus(&st);
@@ -44,7 +54,7 @@ static bool ioWalk(void *, kst_store_visit_fn visit, void *visitCtx) {
 	if (fr != FR_OK) return false;
 	bool ok = true;
 	for (;;) {
-		FILINFO fno;
+		FILINFO &fno = s_fno;
 		fr = f_readdir(&dir, &fno);
 		if (fr != FR_OK) {
 			ok = false;
@@ -60,19 +70,17 @@ static bool ioWalk(void *, kst_store_visit_fn visit, void *visitCtx) {
 static int32_t ioSize(void *, const char *name) {
 	char path[KST_FILES_PATH_MAX];
 	pathOf(name, path);
-	FILINFO fno;
-	if (f_stat(path, &fno) != FR_OK || (fno.fattrib & AM_DIR)) return -1;
-	return fno.fsize > INT32_MAX ? INT32_MAX : (int32_t)fno.fsize;
+	if (f_stat(path, &s_fno) != FR_OK || (s_fno.fattrib & AM_DIR)) return -1;
+	return s_fno.fsize > INT32_MAX ? INT32_MAX : (int32_t)s_fno.fsize;
 }
 
 static int32_t ioRead(void *, const char *name, char *buf, size_t cap) {
 	char path[KST_FILES_PATH_MAX];
 	pathOf(name, path);
-	FIL f;
-	if (f_open(&f, path, FA_READ) != FR_OK) return -1;
+	if (f_open(&s_fil, path, FA_READ) != FR_OK) return -1;
 	UINT got = 0;
-	FRESULT fr = f_read(&f, buf, (UINT)cap, &got);
-	f_close(&f);
+	FRESULT fr = f_read(&s_fil, buf, (UINT)cap, &got);
+	f_close(&s_fil);
 	return fr == FR_OK ? (int32_t)got : -1;
 }
 
@@ -85,11 +93,10 @@ static int32_t ioRead(void *, const char *name, char *buf, size_t cap) {
  * card driver never sets; a card that refuses writes fails as FR_DISK_ERR.
  */
 static kst_store_io_result_t createError(FRESULT fr, const char *path) {
-	FILINFO fno;
 	switch (fr) {
 		case FR_WRITE_PROTECTED: return KST_STORE_IO_DENIED;
 		case FR_DENIED:
-			return f_stat(path, &fno) == FR_OK ? KST_STORE_IO_DENIED : KST_STORE_IO_FULL;
+			return f_stat(path, &s_fno) == FR_OK ? KST_STORE_IO_DENIED : KST_STORE_IO_FULL;
 		default:                 return KST_STORE_IO_ERROR;
 	}
 }
@@ -106,9 +113,8 @@ static kst_store_io_result_t makeDir(bool *made) {
 		return KST_STORE_IO_OK;
 	}
 	if (fr != FR_EXIST) return createError(fr, KST_STORE_DIR);
-	FILINFO fno;
-	if (f_stat(KST_STORE_DIR, &fno) != FR_OK) return KST_STORE_IO_ERROR;
-	return (fno.fattrib & AM_DIR) ? KST_STORE_IO_OK : KST_STORE_IO_DENIED;
+	if (f_stat(KST_STORE_DIR, &s_fno) != FR_OK) return KST_STORE_IO_ERROR;
+	return (s_fno.fattrib & AM_DIR) ? KST_STORE_IO_OK : KST_STORE_IO_DENIED;
 }
 
 static kst_store_io_result_t ioCreate(void *, const char *name, const char *data,
@@ -118,8 +124,7 @@ static kst_store_io_result_t ioCreate(void *, const char *name, const char *data
 	if (d != KST_STORE_IO_OK) return d;
 	char path[KST_FILES_PATH_MAX];
 	pathOf(name, path);
-	FIL f;
-	FRESULT fr = f_open(&f, path, FA_WRITE | FA_CREATE_NEW);
+	FRESULT fr = f_open(&s_fil, path, FA_WRITE | FA_CREATE_NEW);
 	kst_store_io_result_t r = KST_STORE_IO_OK;
 	if (fr == FR_EXIST) {
 		r = KST_STORE_IO_EXISTS;
@@ -127,12 +132,12 @@ static kst_store_io_result_t ioCreate(void *, const char *name, const char *data
 		r = createError(fr, path);
 	} else {
 		UINT put = 0;
-		fr = f_write(&f, data, (UINT)len, &put);
+		fr = f_write(&s_fil, data, (UINT)len, &put);
 		// FatFs reports a full volume as a short write with FR_OK.
 		if (fr != FR_OK)     r = createError(fr, path);
 		else if (put < len)  r = KST_STORE_IO_FULL;
-		else if (f_sync(&f) != FR_OK) r = KST_STORE_IO_ERROR;
-		if (f_close(&f) != FR_OK && r == KST_STORE_IO_OK) r = KST_STORE_IO_ERROR;
+		else if (f_sync(&s_fil) != FR_OK) r = KST_STORE_IO_ERROR;
+		if (f_close(&s_fil) != FR_OK && r == KST_STORE_IO_OK) r = KST_STORE_IO_ERROR;
 		// The contract: a failed create leaves no file behind. A file whose
 		// close failed stays open in FatFs, which then refuses the remove
 		// with FR_LOCKED: it stays on the card, and holds one of FatFs's 16
@@ -221,12 +226,11 @@ kst_store_t kstFilesRecordRemove(const KstFirstWrite *w) {
 static kst_store_t keepOldRecord(KstFirstWrite *out) {
 	char from[KST_FILES_PATH_MAX], to[KST_FILES_PATH_MAX];
 	pathOf(KST_FILES_RECORD_NAME, from);
-	FILINFO fno;
-	FRESULT st = f_stat(from, &fno);
+	FRESULT st = f_stat(from, &s_fno);
 	if (st == FR_NO_FILE || st == FR_NO_PATH) return KST_STORE_OK;
 	if (st != FR_OK) return KST_STORE_READ_ERROR;
 	// A directory of that name is no record; the create then refuses it.
-	if (fno.fattrib & AM_DIR) return KST_STORE_OK;
+	if (s_fno.fattrib & AM_DIR) return KST_STORE_OK;
 	char base[KST_STORE_PRESET_MAX];
 	kst_store_t r = kst_store_preset(&IO, base, sizeof(base));
 	if (r != KST_STORE_OK) return r;
@@ -238,8 +242,8 @@ static kst_store_t keepOldRecord(KstFirstWrite *out) {
 		// FatFs reports a rename whose last sync failed, and its sector
 		// window still holds the change, which the next call writes: ask the
 		// card where the record is.
-		FILINFO a, b;
-		if (f_stat(from, &a) != FR_NO_FILE || f_stat(to, &b) != FR_OK) return renameError(fr);
+		if (f_stat(from, &s_fno) != FR_NO_FILE || f_stat(to, &s_fno) != FR_OK)
+			return renameError(fr);
 	}
 	snprintf(out->keptName, sizeof(out->keptName), "%s", name);
 	return KST_STORE_OK;

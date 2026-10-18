@@ -34,6 +34,11 @@
  *   the USB card reader's hand-back or a power cycle), the list, LOAD and
  *   the record lookup among them. The new file's 0-byte entry stays in
  *   that sector and reaches the card if writes work again before a remount.
+ * - A rename that stops between registering the new name and removing the
+ *   old one leaves both on the card, two entries sharing one cluster chain.
+ *   The first write reports it as not kept and writes no record; removing
+ *   one of the two names on a computer frees the other's data, and later
+ *   sessions keep the second name as one more KSTnnn.TXT.
  * - A create whose close fails with a clean window, a data sector that does
  *   not take its write, leaves its file on the card, open in FatFs, which
  *   refuses to remove it (FR_LOCKED) or to read it. It holds one of FatFs's
@@ -76,9 +81,9 @@ const kst_store_io_t *kstFilesIo();
  * there is renamed to the next KSTnnn.TXT first; a record that cannot be
  * renamed is left as it is, and no new one is written. A rename FatFs
  * reports as failed that still took effect counts as kept: the record is
- * looked up under both names. A card that does not
- * say whether a record is there (an error other than "no file") writes no
- * record either: `kept` is `KST_STORE_READ_ERROR`.
+ * looked up under both names. A card that does not say whether a record is
+ * there (an error other than "no file") writes no record either: `kept` is
+ * `KST_STORE_READ_ERROR`.
  *
  * @param backup  The session's backup.
  * @param before  The image the write starts from.

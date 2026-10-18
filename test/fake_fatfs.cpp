@@ -37,6 +37,7 @@ int      g_open = 0;
 int      g_openDirs = 0;
 Failure  g_fail[(unsigned)FakeFatCall::Count];
 FRESULT  g_renameLate = FR_OK;
+FRESULT  g_renameHalf = FR_OK;
 unsigned g_calls[(unsigned)FakeFatCall::Count];
 
 /** @brief Count the call; the armed failure for it, or FR_OK. */
@@ -101,6 +102,7 @@ void fakeFatReset(uint32_t capacity) {
 	g_openDirs = 0;
 	memset(g_fail, 0, sizeof(g_fail));
 	g_renameLate = FR_OK;
+	g_renameHalf = FR_OK;
 	memset(g_calls, 0, sizeof(g_calls));
 }
 
@@ -112,6 +114,7 @@ void fakeFatFail(FakeFatCall call, FRESULT fr, unsigned skip) {
 }
 
 void fakeFatRenameFailsLate(FRESULT fr) { g_renameLate = fr; }
+void fakeFatRenameFailsHalf(FRESULT fr) { g_renameHalf = fr; }
 
 void fakeFatPut(const char *path, const char *data, size_t len) {
 	int i = find(path);
@@ -315,6 +318,15 @@ FRESULT f_rename(const char *pathOld, const char *pathNew) {
 	// FatFs registers the new name before it removes the old one, in the
 	// same directory too: a full directory refuses any rename.
 	if (childrenOf(parentOf(pathNew)) >= g_dirLimit) return FR_DENIED;
+	if (g_renameHalf != FR_OK) {
+		Entry copy = g_entries[(size_t)i];
+		copy.path = pathNew;
+		copy.opens = copy.writers = 0;
+		g_entries.push_back(copy);
+		fr = g_renameHalf;
+		g_renameHalf = FR_OK;
+		return fr;
+	}
 	g_entries[(size_t)i].path = pathNew;
 	fr = g_renameLate;
 	g_renameLate = FR_OK;

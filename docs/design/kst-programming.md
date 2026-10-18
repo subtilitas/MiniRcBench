@@ -470,7 +470,10 @@ block reads, 5 of them in the root, and 14 block writes; with one, 705 reads,
 a host against a FAT32 image with 997 KSTnnn.TXT files and a root that fits
 in one sector, with a disk layer that counts its calls; a root with many
 blackbox logs adds reads, a number not counted here. Each total below is the
-reads times one read plus the writes times one write.
+reads times one read plus the writes times one write. A rename that FatFs
+reports as failed adds the two lookups that ask where the record went, 128
+reads: 833 reads and 16 writes, 8.5 s on a typical card and 95.6 s on SDXC.
+That path follows only a failed write.
 
 | Case | One read | One write | 450 reads and 14 writes | 705 reads and 16 writes |
 |---|---|---|---|---|
@@ -481,11 +484,11 @@ reads times one read plus the writes times one write.
 
 A timeout ends the card's part sooner: `sdh_err_is_fatal()` marks the card not
 ready, and every later call fails at once. The other phases are smaller: the
-FILES listing is one pass, 63 reads, 6.6 s within the specification; SAVE AS
-is 3 passes and one file, 4 with the proposed name's walk, up to 257 reads and
-7 writes, 30.6 s on SDXC; RETRY MOUNT is the card's initialisation, up to 1.1
-s of polling with ACMD41, the SD command that waits for the card to be ready,
-and a few reads.
+FILES listing is one pass, 64 reads with the root's, 6.7 s within the
+specification; SAVE AS is 3 passes and one file, 4 with the proposed name's
+walk, up to 257 reads and 7 writes, 30.6 s on SDXC; RETRY MOUNT is the card's
+initialisation, up to 1.1 s of polling with ACMD41, the SD command that waits
+for the card to be ready, and a few reads.
 
 The cap, 15 s, covers every phase of a card whose reads and writes take under
 10 ms, up to the store's 999 files, and bounds how long a core0 stuck in the
@@ -1133,6 +1136,12 @@ a host:
   The list, LOAD and the record lookup fail until then. The new file's 0-byte
   entry stays in that sector and reaches the card if writes work again before
   a remount.
+- A rename that stops between registering the new name and removing the old
+  one, a write that fails between the two, leaves both names on the card:
+  two entries that share one cluster chain. The first write reports the
+  record as not kept and writes no record. Removing one of the two on a
+  computer frees the other's data, and later sessions keep the second name
+  as one more KSTnnn.TXT.
 - A create whose close fails with a clean window, a data sector that does
   not take its write: FatFs keeps the file open, refuses to remove it or to
   open it for reading (`FR_LOCKED`), and holds one of its 16 lock entries
@@ -1238,8 +1247,9 @@ so these run against the same simulated servo:
   (`test/fake_fatfs.cpp`): the mount rule, no card and a card held by USB with
   no FatFs call, the first write's backup and record, an old record kept and
   never removed when it stays, a rename reported failed that took effect, a
-  full directory that refuses a rename, card full, a write-protected card as
-  this board reports it (a disk error) and as `FR_WRITE_PROTECTED`, a full
+  rename that left both names, a failed lookup after a rename, a full
+  directory that refuses a rename, card full, a write-protected card as this
+  board reports it (a disk error) and as `FR_WRITE_PROTECTED`, a full
   directory, a file or a directory in a file's way, a read-only record, a
   one-time write or sync error with no file or new directory left behind, a
   close error that leaves its file locked, one of the two files taken, the

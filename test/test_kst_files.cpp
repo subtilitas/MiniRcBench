@@ -229,6 +229,31 @@ static void testFirstWrite() {
 	checkTrue("and the new record is written",
 	          w.record == KST_STORE_OK && imageOf("KST/KST.TXT", &got) &&
 	          memcmp(got.r, before.r, KST_REG_COUNT) == 0);
+
+	// A rename that stopped with both names: not kept, no record over it.
+	kst_image_t third = changed();
+	third.r[4] ^= 0x01;
+	fakeFatRenameFailsHalf(FR_DISK_ERR);
+	kstFilesFirstWrite(&third, &third, &w);
+	checkTrue("a rename that left both names: a write error, no new record",
+	          w.kept == KST_STORE_WRITE_ERROR && w.keptName[0] == '\0' &&
+	          w.record == KST_STORE_WRITE_ERROR && imageOf("KST/KST.TXT", &got) &&
+	          memcmp(got.r, before.r, KST_REG_COUNT) == 0);
+	checkInt("and the verified write removes nothing", kstFilesRecordRemove(&w), KST_STORE_OK);
+
+	// The lookups after a late rename that fail: no claim the record moved.
+	for (unsigned skip = 1; skip <= 2; skip++) {
+		// The late rename moved the record away: put one back each time.
+		char text[KST_FILE_MAX];
+		fakeFatPut("KST/KST.TXT", text, kst_file_format(&third, text, sizeof(text)));
+		fakeFatRenameFailsLate(FR_DISK_ERR);
+		fakeFatFail(FakeFatCall::Stat, FR_DISK_ERR, skip);
+		kstFilesFirstWrite(&third, &third, &w);
+		char msg[96];
+		snprintf(msg, sizeof(msg), "a late rename, lookup %u after it fails: a write error", skip);
+		checkTrue(msg, w.kept == KST_STORE_WRITE_ERROR && w.keptName[0] == '\0' &&
+		               w.record == KST_STORE_WRITE_ERROR);
+	}
 }
 
 /** @brief A first write on a card that refuses; nothing may be left behind. */
