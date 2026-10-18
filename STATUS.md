@@ -30,9 +30,13 @@ pin, or two on the ESC and KISS pins, with PWM (pulse-width modulation)
 pulses. KST and Chaservo servo programming, on the same pins, is planned
 (slice 3), with an optional bench-switched servo supply on GP0. Until then
 the KST button under CFG is drawn disabled, and the screen behind it
-is a stub. The pin claim both features share is built (slice 1): the AM32
-editor and the servo tester run on it. For the ESC, the board is the throttle
-source. It sends bidirectional DShot (a digital ESC protocol in which the ESC
+is a stub. Before slice 3 comes a planned menu restructure
+([menu.md](docs/design/menu.md), slices A to C): a MENU list replaces the
+settings screen, SETUP becomes one sectioned SETTINGS list with pole count
+and throttle ceiling at its top, and the host tests address controls by id.
+The pin claim both features share is built (slice 1): the AM32 editor and the
+servo tester run on it. For the ESC, the board is the throttle source. It
+sends bidirectional DShot (a digital ESC protocol in which the ESC
 answers each frame on the same wire) and decodes the eRPM (electrical
 revolutions per minute) and EDT (Extended DShot Telemetry) frames that come
 back; RPM (revolutions per minute) is eRPM divided by half the motor's pole
@@ -280,6 +284,13 @@ Not in this history: the DshotDisplay repository's branches
       through the unplug page, then DShot back on RESTART DSHOT;
     - STOP on SET while RUNNING: level 0 within one frame, as on SERVO;
     - a real servo on each profile, and whether it reads 3.3 V pulses.
+11. **BACK from SD LOG returns to the tester.** The SD LOG button on the
+    settings screen clears the settings screen's flag (`src/ui.cpp`, in
+    `handleConfigTouch()`), so BACK from SD LOG lands on the tester, while
+    the wiki page The-Screens says it returns to Settings. The test in
+    `test/test_ui.cpp` that leaves SD LOG taps BACK twice and passes either
+    way. Slice C of [menu.md](docs/design/menu.md) sends BACK to MENU and adds
+    a test that pins it (its decision 11).
 
 ## Known limitations
 

@@ -209,7 +209,9 @@ are channels B and A of PWM slice 6, which forces one rate anyway.
 
 Entry: CFG → SETTINGS → SERVO, in the destination row
 ([pin-claim.md](pin-claim.md), decision 2). The main screen is the root
-and gets no entry; CFG is its navigation.
+and gets no entry; CFG is its navigation. [menu.md](menu.md), planned,
+changes the entry in its slice C to MENU → SERVO TESTER, and BACK through
+the unplug page then returns to MENU.
 
 ### SERVO
 
@@ -530,7 +532,9 @@ Decisions of the owner, 2026-10-17: recommendations 1 to 5 are accepted.
    device.
 2. **Persist the profile.** Not stored in flash. Every boot starts at
    STANDARD PWM 50 Hz, so a heli profile or a high rate is never applied to
-   the next servo by accident, and `SETTINGS_VERSION` stays 2.
+   the next servo by accident, and the profile adds nothing to the settings
+   block: slice 2 leaves `SETTINGS_VERSION` at 2; slice 3 takes it to 3
+   ([kst-programming.md](kst-programming.md#decisions), decision 8).
 3. **One profile or two.** One shared profile with REVERSE B. SIG and AUX
    share a slice and therefore a rate.
 4. **Sweep pause.** Not in this slice. STOP SWEEP holds the servo where the
