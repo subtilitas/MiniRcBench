@@ -172,7 +172,7 @@ record either way.
 | AM32 settings editor over the signal wire (AM32 is an open-source ESC firmware) | init string, CRC-16/ARC, 39-field codec, timing advance encodings, write interlock; the screen on the pin claim, the latched GPIO, the drain before the handover | hardware use recorded: ab79c67, bd90e17, both before the screen moved onto the pin claim; the claim and its drain: not tested on hardware |
 | Pin claim (`src/pin_claim.*`) and core1 job dispatch (`src/core1_job.*`), the zero-throttle drain in `src/esc_task.*` | each refusal rule at its 500 ms boundary and their order; the handover decisions of `escTaskPoll()` (`escHandoverStep()`, `escDrainSlot()`, `escPumpFrameSent()`, `escPumpBind()`) one 1 ms slot at a time: 250 zero frames, the teardown 251 ms after the last throttle frame, the bind disarmed; the order of the two cores' steps against fake jobs, BACK and RETRY, Restoring, the unplug-page rule, the restore wiring, the start guard, the heartbeat rule across a millis() rollover; the PIO and pad calls around those decisions are compiled only | not tested on hardware; open item 9 |
 | Settings screen layout: BEEP and SD LOG in one row, AM32, SERVO, KST and SETUP in the destination row, KST disabled | one gap in each row; SERVO live and opening its screen; disabled drawing, no pressed look and no action on KST | not recorded |
-| Servo tester: the pure model (`src/servo_model.*`), the PWM driver (`src/servo_pwm.*`), the core1 job (`src/servo_job.*`), the slider and the screens (`src/ui_slider.*`, `src/ui_servo.cpp`); rcbench's sweep and PWM fold in `lib/rcbench/` | profiles, limits at their boundaries, steppers to their stops, command, angle and pulse mappings, SPEED, the dial's hit area; the PWM driver's bind, write, release and sharing rules against a register fake; SAFE at level 0, CENTRE at START, STOP on the next pass, the slew, sweeps, REVERSE B, the trip at 250 ms across a millis() wrap, the profile rebind; the screens through the UI: HOLD TO START at 1000 ms, the drag rules, the SET warning and HOLD TO APPLY, the AUX refusals through the claim, the unplug page; rcbench's own sweep and fold tests; the SDK calls are run against the fake only | not tested on hardware; open item 10 |
+| Servo tester: the pure model (`src/servo_model.*`), the PWM driver (`src/servo_pwm.*`), the core1 job (`src/servo_job.*`), the slider and the screens (`src/ui_slider.*`, `src/ui_servo.cpp`); rcbench's sweep and PWM fold in `lib/rcbench/` | profiles, limits at their boundaries, steppers to their stops, command, angle and pulse mappings, SPEED, the dial's hit area; the PWM driver's bind, write, release and sharing rules against a register fake; SAFE at level 0, CENTRE at START, STOP on the next pass, the slew, sweeps, REVERSE B, the trip at 250 ms across a millis() wrap, kept across a rebind, the profile rebind; no pulse cut short at a release or a rebind, against a model of the counter and the latched compare; released pins pulled down; the screens through the UI: HOLD TO START at 1000 ms, the drag rules, the SET warning and HOLD TO APPLY, STOP on SET, the AUX refusals through the claim, the unplug page; rcbench's own sweep and fold tests; the SDK calls are run against the fake only | not tested on hardware; open item 10 |
 | Settings in flash (CFG → SETUP) | block validation, CRC, board id check, pin defaults, the block layout DshotDisplay 2.x writes | not recorded; 46a64a7 states no hardware coverage |
 | Touch handling, high-contrast theme, throttle gauge | tap on release, repeats, screen residue, gauge reach | hardware use recorded: the reports #22 to #24 named in the v2.3 commits; the fixes on hardware: not recorded |
 | Serial telemetry dump | none | not recorded |
@@ -271,8 +271,11 @@ Not in this history: the DshotDisplay repository's branches
     - STOP latency: the last pulse ends within one frame, 20 ms at 50 Hz;
     - the heartbeat trip: core0 halted in a debugger, the pulses stop
       250 ms after the last UI frame;
-    - the line after the release (a plain input with no pull) and through the
-      unplug page, then DShot back on RESTART DSHOT;
+    - the last pulse at BACK and at a rate change while RUNNING: complete,
+      not cut short, and the pins let go about 41 ms after STOP at 50 Hz;
+    - the line after the release (an input with the pull-down on) and
+      through the unplug page, then DShot back on RESTART DSHOT;
+    - STOP on SET while RUNNING: level 0 within one frame, as on SERVO;
     - a real servo on each profile, and whether it reads 3.3 V pulses.
 
 ## Known limitations
@@ -395,12 +398,12 @@ model.
 | `src/am32_eeprom.cpp` | 69 | 67 | 97.1% |
 | `src/am32_eeprom.h` | 11 | 11 | 100.0% |
 | `src/blackbox_encode.cpp` | 113 | 113 | 100.0% |
-| `src/core1_job.cpp` | 69 | 69 | 100.0% |
+| `src/core1_job.cpp` | 70 | 70 | 100.0% |
 | `src/dshot/dshot_edt.c` | 33 | 33 | 100.0% |
 | `src/dshot/dshot_frame.c` | 25 | 25 | 100.0% |
 | `src/dshot/dshot_telem.c` | 143 | 143 | 100.0% |
 | `src/esc_merge.cpp` | 44 | 44 | 100.0% |
-| `src/esc_task.h` | 156 | 156 | 100.0% |
+| `src/esc_task.h` | 157 | 157 | 100.0% |
 | `src/gfx.cpp` | 223 | 209 | 93.7% |
 | `src/kiss_telem.cpp` | 37 | 35 | 94.6% |
 | `src/log_ring.cpp` | 43 | 39 | 90.7% |
@@ -411,8 +414,8 @@ model.
 | `src/sd_log.h` | 4 | 4 | 100.0% |
 | `src/sdio/sd_host.c` | 180 | 180 | 100.0% |
 | `src/sdio/sd_proto.c` | 135 | 135 | 100.0% |
-| `src/servo_job.cpp` | 167 | 167 | 100.0% |
-| `src/servo_model.cpp` | 182 | 182 | 100.0% |
+| `src/servo_job.cpp` | 198 | 198 | 100.0% |
+| `src/servo_model.cpp` | 187 | 187 | 100.0% |
 | `src/servo_pwm.cpp` | 55 | 55 | 100.0% |
 | `src/settings.cpp` | 119 | 118 | 99.2% |
 | `src/theme.cpp` | 11 | 11 | 100.0% |
@@ -420,12 +423,12 @@ model.
 | `src/ui_am32.cpp` | 353 | 322 | 91.2% |
 | `src/ui_input.cpp` | 25 | 25 | 100.0% |
 | `src/ui_kst.cpp` | 4 | 4 | 100.0% |
-| `src/ui_servo.cpp` | 510 | 510 | 100.0% |
+| `src/ui_servo.cpp` | 516 | 516 | 100.0% |
 | `src/ui_setup.cpp` | 187 | 180 | 96.3% |
 | `src/ui_slider.cpp` | 109 | 109 | 100.0% |
 | `src/ui_widgets.cpp` | 43 | 43 | 100.0% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **3858** | **3786** | **98.1%** |
+| **Total** | **3902** | **3830** | **98.2%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->

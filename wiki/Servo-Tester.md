@@ -24,7 +24,7 @@ horn on the screen is drawn where the pulse puts it, not where the servo is.
 The servo needs its own supply. The board supplies the signal and ground only.
 
 ```
-  servo supply, 4.8 V to 6.0 V (8.4 V for an HV servo)
+  servo supply, 4.8 V to 6.0 V (8.4 V for an HV (high-voltage) servo)
      +  ----------------------------------------------  servo +   (red, middle)
      -  ----------------+-----------------------------  servo -   (brown or black)
                         |
@@ -158,15 +158,18 @@ Swipe the row sideways for big steps. Drag up or down to scroll.
 - The PULSE rows change only while `SAFE`. While `RUNNING` the screen says
   `STOP TO CHANGE THE PROFILE` and draws their values grey.
 
-  <img src="img/servo-set-running.png" width="240" alt="SET while running: the PULSE rows locked">
+  <img src="img/servo-set-running.png" width="240" alt="SET while running: the PULSE rows locked, STOP in the footer">
+
+- While `RUNNING`, `DEFAULTS` becomes `STOP` and acts on touch, as on the
+  servo screen. The SWEEP rows stay adjustable.
 
 - A heli type, or a frame rate above 60 Hz, can destroy a servo not made for
   it: above 60 Hz an analogue servo overheats. Such a change waits, the screen
   names the risk, and `HOLD TO APPLY` (1 s) applies it. `BACK` drops it.
 - The SWEEP rows change at any time and apply to the next `SWEEP`. When
   `SPEED` is slower than the curve, the screen says `SPEED LIMITS THE SWEEP`.
-- `DEFAULTS` returns to STANDARD PWM at 50 Hz, one servo, and a sine at
-  0.50 Hz.
+- `DEFAULTS`, offered only while `SAFE`, returns to STANDARD PWM at 50 Hz,
+  one servo, and a sine at 0.50 Hz.
 
 <img src="img/servo-set-warning.png" width="240" alt="A heli profile waiting for HOLD TO APPLY">
 
@@ -177,7 +180,9 @@ starts at STANDARD PWM, 50 Hz, one servo.
 
 ## Leaving
 
-`BACK` ends the pulses and asks you to unplug the servo:
+`BACK` ends the pulses and asks you to unplug the servo. The last pulse
+completes first, which takes up to 41 ms at 50 Hz. Until DShot runs again, a
+weak pull-down holds the pins low.
 
 <img src="img/servo-unplug.png" width="240" alt="UNPLUG THE SERVO">
 

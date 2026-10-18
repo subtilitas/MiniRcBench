@@ -126,8 +126,11 @@ protocol.
   dwell and count, and SPEED, a slew from 10 % to 100 %. A screen stall of
   250 ms stops the pulses until the next HOLD TO START. The SET screen
   changes the profile only while SAFE and holds a heli profile or a rate
-  above 60 Hz behind a warning and HOLD TO APPLY. BACK shows the unplug page
-  before DShot restarts. Not tested on hardware.
+  above 60 Hz behind a warning and HOLD TO APPLY; while RUNNING its footer
+  offers STOP in place of DEFAULTS. BACK and a rate change wait for the last
+  pulse to complete before they let the pins go, and a released pin is an
+  input with the pull-down on. BACK shows the unplug page before DShot
+  restarts. Not tested on hardware.
 - `src/servo_model.*`, the servo tester's rules as pure functions;
   `src/servo_pwm.*`, adapted from rcbench's PWM driver; `src/servo_job.*`,
   the core1 job; `src/ui_slider.*`, adapted from rcbench's slider; and
@@ -202,7 +205,8 @@ protocol.
   card reader. `pin-claim.md`, `servo-tester.md` and `kst-programming.md`
   are for the 2.8" only: SIG on GP29, AUX on GP28, PWM slice 6 channels B
   and A. `kst-programming.md` records the owner's decisions on the search
-  timeout, 30 s, the reply level and the pull-down.
+  timeout, 30 s, the reply level, 3.3 V by the owner's statement, and the
+  pull-down.
 - README.md links STATUS.md and this changelog, and credits the
   collaboration.
 - README.md and every wiki page, English and German, describe the firmware

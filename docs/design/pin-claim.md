@@ -4,9 +4,9 @@ Status: slices 1 and 2 are built. Slice 1: the claim (`src/pin_claim.h`),
 the core1 job dispatch (`src/core1_job.h`), the drain, the AM32 screen on the
 claim, the CFG rows and the stub screens. Slice 2: the servo tester and its
 core1 job ([servo-tester.md](servo-tester.md)). Host tests only; nothing of
-either is tested on hardware. Slice 3, KST programming, is planned. The design uses the DShot
-driver in `src/dshot/` (`out_dshot_bind()`, `out_dshot_stop()`,
-`out_dshot_release()`).
+either is tested on hardware. Slice 3, KST programming, is planned. The
+design uses the DShot driver in `src/dshot/` (`out_dshot_bind()`,
+`out_dshot_stop()`, `out_dshot_release()`).
 
 Terms: ESC is electronic speed controller. DShot is the digital ESC protocol
 the tester drives; bidirectional DShot inverts the line and the ESC answers on
@@ -116,8 +116,11 @@ the exception.
    again and keeps the claim; BACK goes to step 5. The KST job is not built
    until slice 3, so `core1JobStart()` refuses KST and the reason is
    `CORE1_JOB_REFUSED`.
-5. **Leaving.** BACK (`pinClaimEnd()`) asks the job to stop. The job leaves its
-   pins as plain inputs and reports `Idle`. Before DShot restarts, SERVO and
+5. **Leaving.** BACK (`pinClaimEnd()`) asks the job to stop. The job lets its
+   pins go once nothing it drives is under way, which for the servo job is
+   the last pulse (`servoQuietMs()`, 41 ms at 50 Hz), leaves them inputs with
+   the pull-down on and reports `Idle`. The claim stays Leaving until then.
+   Before DShot restarts, SERVO and
    KST show the unplug page ([restore](#restoring-dshot)):
    `pinClaimUnplugDue()` is true once the job is idle, RESTART DSHOT calls
    `pinClaimRestart()`, and BACK on the page calls `pinClaimKeep()`, which
@@ -174,7 +177,7 @@ enum class Core1JobPhase : uint8_t { Idle, Starting, Running, Stopping };
 struct Core1JobOps {                       // one per job, defined by its slice
     uint8_t (*bind)(uint8_t sigGpio, uint8_t auxGpio);  // 0, or CORE1_JOB_PWM ...
     void    (*step)(uint32_t nowMs, bool uiAlive);
-    void    (*release)();
+    bool    (*release)(uint32_t nowMs);  // each pass while Stopping, until true
     void    (*init)();                     // core0, from core1JobInit(); may be null
 };
 
@@ -194,9 +197,11 @@ once while suspended, and `core1JobPoll()` returns at once, without a lock,
 while no job runs. `core1JobStart()` is refused unless `escTaskSuspended()` is
 true, so the DShot pump and a job never drive a pin together. It is refused
 too for `Core1Job::None`, for a job with no `Core1JobOps` in the table in
-`core1_job.cpp`, and while a job is not idle. Slice 2 added the servo job's
-entry, `SERVO_JOB_OPS` from `src/servo_job.h`; slice 3 adds KST's. A stop that arrives while core1 binds is kept, and the next
-pass releases what the bind took.
+`core1_job.cpp`, and while a job is not idle. Slice 2 adds the servo job's
+entry, `SERVO_JOB_OPS` from `src/servo_job.h`; slice 3 adds KST's. A stop
+that arrives while core1 binds is kept, and the next pass releases what the
+bind took. A job's `release` never blocks: it returns false while it still
+needs time, and the job stays Stopping, with the next pass asking again.
 
 Each job has its own command block and status block, written and read under
 its own critical section, in the same pattern as `escSnapshot()`. They are in
@@ -316,8 +321,7 @@ it finds, because a rebuild clears its state. Telemetry counters in
 
 `out_dshot_bind()` sets the pull-up and the output inversion on SIG.
 `kissUartBegin()` sets the pull-up on AUX. Both override what the job left:
-servo PWM leaves a plain input with no pull, `kst_line_close()` leaves an
-input with the pull-down on.
+servo PWM and `kst_line_close()` each leave an input with the pull-down on.
 
 **Unplug page.** Bidirectional DShot idles the line high and pulls it low for
 about 27 µs per frame at 600 kbit/s, once per `DSHOT_PERIOD_US`, 1000 µs. A
@@ -528,7 +532,7 @@ both screens and gates their CFG buttons on
 `uiServoAvailable()` and `uiKstAvailable()`. In code the two slices are then
 disjoint but for one line each in the job table of `core1_job.cpp`: slice 2
 edits its own files and `gfx.cpp`/`gfx.h` (line and arc primitives), slice 3
-its own files only. Slice 2 also added the `init` member to `Core1JobOps`, a
+its own files only. Slice 2 also adds the `init` member to `Core1JobOps`, a
 generic rule in `test/Makefile` for each feature's C sources and C test
 programs (`SERVO_CSRCS`, `SERVO_CTESTS`; `KST_CSRCS` and `KST_CTESTS` when
 slice 3 needs them), the CFG row test in `test/test_ui.cpp`, the

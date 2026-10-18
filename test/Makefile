@@ -201,7 +201,9 @@ wiki: run
 	python3 ../tools/make_previews.py --wiki
 	python3 ../tools/check_wiki.py
 
-# Line coverage of the src/ files the suite compiles. The instrumented copy
+# Line coverage of the src/ files the suite compiles. The C files from
+# lib/rcbench/ are instrumented with the rest, but coverage.py counts src/
+# only, so they are not in the figure. The instrumented copy
 # builds in cov/ at -O0, so each counter maps to one source line, and leaves
 # $(BIN) and `make run` unchanged. The run starts from an empty cov/: counters
 # from an earlier run or a removed source would otherwise add to this one.

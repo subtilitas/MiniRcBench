@@ -150,7 +150,7 @@ Signalkabel. Siehe [AM32-Konfiguration](AM32-Konfiguration).
 <img src="img/servo-safe.png" width="240" alt="Der Servobildschirm in SAFE">
 
 Steuert ein oder zwei Servos mit Servoimpulsen auf dem ESC- und dem KISS-Pin
-an. Er öffnet in SAFE; `HOLD TO START` 1 s lang gehalten startet die Impulse
+an. Er startet in SAFE; `HOLD TO START` 1 s lang gehalten startet die Impulse
 in der Mitte, `STOP` wirkt beim Berühren. `SET` öffnet die Einstellungen für
 Profil und Sweep. `BACK` zeigt `UNPLUG THE SERVO.`, bevor der ESC-Treiber die
 Pins zurückbekommt. Siehe [Servotester](Servotester).

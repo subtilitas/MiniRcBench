@@ -14,7 +14,7 @@ zeigt, wohin der Impuls das Servo schickt, nicht, wo das Servo steht.
 > **Zieh das Servo ab, bevor DShot läuft.** Außerhalb dieses Bildschirms liegt
 > auf dem ESC-Pin DShot. Ein Servo an diesem Pin liest das als Impuls von etwa
 > 970 µs mit 1000 Hz: Es fährt Richtung eines Endanschlags, mit einer
-> Bildrate, bei der ein analoges Servo überhitzt. Das passiert, wenn die
+> Framerate, bei der ein analoges Servo überhitzt. Das passiert, wenn die
 > Platine mit einem Servo am ESC-Pin **startet**, und wenn du diesen
 > Bildschirm verlässt. Der Bildschirm fordert dich vorher zum Abziehen auf.
 
@@ -26,7 +26,7 @@ Das Servo braucht eine eigene Stromversorgung. Die Platine liefert nur Signal
 und Masse.
 
 ```
-  Servoversorgung, 4,8 V bis 6,0 V (8,4 V bei einem HV-Servo)
+  Servoversorgung, 4,8 V bis 6,0 V (8,4 V bei einem HV-Servo, Hochvolt)
      +  ----------------------------------------------  Servo +   (rot, Mitte)
      -  ----------------+-----------------------------  Servo -   (braun oder schwarz)
                         |
@@ -62,14 +62,15 @@ Gassignal.
 
 <img src="img/servo-esc.png" width="240" alt="Warten, solange ein ESC antwortet">
 
-Der Bildschirm öffnet **SAFE**: Die Pins liegen auf Low und führen keine
+Der Bildschirm startet in **SAFE**: Die Pins liegen auf Low und führen keine
 Impulse. Was ein Servo ohne Impulse tut, hängt vom Servo ab: Es hält die
 Position, wird kraftlos oder fährt in seine eigene Failsafe-Stellung.
 
 <img src="img/servo-safe.png" width="240" alt="Der Servobildschirm in SAFE">
 
-Die Zeile unter dem Titel zeigt den Pin, die Bildrate und den Impulsbereich,
-dazu ein Etikett: `SAFE` (grün), `RUNNING` (rot) oder `STALLED` (magenta).
+Die Zeile unter dem Titel zeigt den Pin, die Framerate und den Impulsbereich,
+dazu eine Statusanzeige: `SAFE` (grün), `RUNNING` (rot) oder `STALLED`
+(magenta).
 
 ---
 
@@ -77,17 +78,17 @@ dazu ein Etikett: `SAFE` (grün), `RUNNING` (rot) oder `STALLED` (magenta).
 
 **Halte `HOLD TO START` 1 s lang.** Während du hältst, füllt sich ein Balken.
 Danach fährt jedes angeschlossene Servo sofort in die Mitte (CENTRE), egal,
-was es vorher bekommen hat. Das Etikett zeigt `RUNNING`, und die Taste wird zu
-`STOP`.
+was es vorher bekommen hat. Die Statusanzeige zeigt `RUNNING`, und die Taste
+wird zu `STOP`.
 
-**`STOP` wirkt beim Berühren.** Die Impulse enden mit dem nächsten Bild: Der
-letzte Impuls endet innerhalb eines Bildes, bei 50 Hz also innerhalb von
+**`STOP` wirkt beim Berühren.** Die Impulse enden mit dem nächsten Frame: Der
+letzte Impuls endet innerhalb eines Frames, bei 50 Hz also innerhalb von
 20 ms. Wer `STOP` berührt und den Finger liegen lässt, startet das Servo nicht
 erneut; dafür braucht es einen neuen Druck.
 
-Reagiert der Bildschirm 250 ms lang nicht, enden die Impulse von selbst, das
-Etikett zeigt `STALLED`, und der Bildschirm meldet `STOPPED: SCREEN STALLED`.
-Nichts startet neu, bis du wieder `HOLD TO START` hältst.
+Reagiert der Bildschirm 250 ms lang nicht, enden die Impulse von selbst, die
+Statusanzeige zeigt `STALLED`, und der Bildschirm meldet
+`STOPPED: SCREEN STALLED`. Nichts startet neu, bis du wieder `HOLD TO START` hältst.
 
 <img src="img/servo-stalled.png" width="240" alt="Gestoppt nach einem Hänger">
 
@@ -123,7 +124,7 @@ Nichts startet neu, bis du wieder `HOLD TO START` hältst.
 ## Zwei Servos
 
 Stell auf dem SET-Bildschirm `SERVOS` auf `TWO`. Servo B hängt am KISS-Pin.
-Beide teilen sich ein Profil und eine Bildrate.
+Beide teilen sich ein Profil und eine Framerate.
 
 <img src="img/servo-two.png" width="240" alt="Zwei Servos">
 
@@ -154,7 +155,7 @@ große Schritte. Zieh nach oben oder unten, um zu blättern.
 |---|---|
 | SERVOS | ONE oder TWO |
 | TYPE | STANDARD PWM, NARROW 760, WIDE, HELI CYCLIC, HELI TAIL 760 |
-| RATE | die Bildraten, die der Typ anbietet, bis zu dem, was der Bereich zulässt |
+| RATE | die Frameraten, die der Typ anbietet, bis zu dem, was der Bereich zulässt |
 | MIN, CENTRE, MAX | 400 µs bis 2500 µs, Schritte von 10 µs, in dieser Reihenfolge |
 | REVERSE B | OFF oder ON |
 | SHAPE | SQUARE, SINE oder TRIANGLE |
@@ -163,20 +164,23 @@ große Schritte. Zieh nach oben oder unten, um zu blättern.
 | DWELL | 0 ms bis 5000 ms an jedem Ende |
 | MOVES | ENDLESS oder 1 bis 9999 Enden |
 
-- Die PULSE-Zeilen ändern sich nur in `SAFE`. In `RUNNING` zeigt der
+- Die PULSE-Zeilen lassen sich nur in `SAFE` ändern. In `RUNNING` zeigt der
   Bildschirm `STOP TO CHANGE THE PROFILE` und ihre Werte in Grau.
 
-  <img src="img/servo-set-running.png" width="240" alt="SET im Betrieb: die PULSE-Zeilen gesperrt">
+  <img src="img/servo-set-running.png" width="240" alt="SET im Betrieb: die PULSE-Zeilen gesperrt, STOP in der Fußzeile">
 
-- Ein Heli-Typ oder eine Bildrate über 60 Hz kann ein Servo zerstören, das
+- In `RUNNING` wird `DEFAULTS` zu `STOP` und wirkt beim Berühren, wie auf dem
+  Servobildschirm. Die SWEEP-Zeilen lassen sich weiter ändern.
+
+- Ein Heli-Typ oder eine Framerate über 60 Hz kann ein Servo zerstören, das
   nicht dafür gebaut ist: Über 60 Hz überhitzt ein analoges Servo. Eine solche
   Änderung wartet, der Bildschirm nennt das Risiko, und `HOLD TO APPLY` (1 s)
   übernimmt sie. `BACK` verwirft sie.
-- Die SWEEP-Zeilen ändern sich jederzeit und gelten für den nächsten `SWEEP`.
-  Ist `SPEED` langsamer als die Kurve, zeigt der Bildschirm
+- Die SWEEP-Zeilen lassen sich jederzeit ändern und gelten für den nächsten
+  `SWEEP`. Ist `SPEED` langsamer als die Kurve, zeigt der Bildschirm
   `SPEED LIMITS THE SWEEP`.
-- `DEFAULTS` stellt STANDARD PWM mit 50 Hz, ein Servo und einen Sinus mit
-  0,50 Hz ein.
+- `DEFAULTS` gibt es nur in `SAFE`. Es stellt STANDARD PWM mit 50 Hz, ein
+  Servo und einen Sinus mit 0,50 Hz ein.
 
 <img src="img/servo-set-warning.png" width="240" alt="Ein Heli-Profil wartet auf HOLD TO APPLY">
 
@@ -187,7 +191,9 @@ Servobildschirm öffnest, beginnt er mit STANDARD PWM, 50 Hz und einem Servo.
 
 ## Verlassen
 
-`BACK` beendet die Impulse und fordert dich auf, das Servo abzuziehen:
+`BACK` beendet die Impulse und fordert dich auf, das Servo abzuziehen. Der
+letzte Impuls läuft vorher vollständig aus; bei 50 Hz dauert das bis zu
+41 ms. Bis DShot wieder läuft, hält ein schwacher Pull-down die Pins auf Low.
 
 <img src="img/servo-unplug.png" width="240" alt="UNPLUG THE SERVO">
 
@@ -209,9 +215,9 @@ behält die Pins.
 - **`TWO` lässt sich nicht wählen.** Das KISS-Kabel ist aktiv, oder beide
   Pins sind unter SETUP derselbe Pin. Der SET-Bildschirm nennt den Grund,
   wenn `SERVOS` ausgewählt ist.
-- **Das Servo bewegt sich nicht.** Prüfe, ob das Etikett `RUNNING` zeigt, ob
-  das Servo eine eigene Versorgung hat und ob seine Masse mit der der Platine
-  verbunden ist. Ob ein Servo die 3,3-V-Impulse der Platine annimmt, ist nicht
-  für jedes Servo erfasst.
+- **Das Servo bewegt sich nicht.** Prüfe, ob die Statusanzeige `RUNNING`
+  zeigt, ob das Servo eine eigene Versorgung hat und ob seine Masse mit der
+  der Platine verbunden ist. Ob ein Servo die 3,3-V-Impulse der Platine
+  annimmt, ist nicht für jedes Servo erfasst.
 
 Der Servotester ist noch nicht auf Hardware getestet.

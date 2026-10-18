@@ -129,8 +129,9 @@ void    kstSeekStop(KstSeekState *s, kst_session_t *ses);   // STOP SEARCH, BACK
 - `KST_SES_OK` is `Found`. Any other result ends the search with that result
   shown.
 - The search ends after `KST_SEEK_TIMEOUT_MS`, 30 s, about 250 attempts, as
-  `TimedOut`, which offers RETRY (decision 2), or at STOP SEARCH or BACK. `kstSeekStop()` calls
-  `kst_session_abort()`, which finishes a frame on the wire before it stops.
+  `TimedOut`, which offers RETRY (decision 2), or at STOP SEARCH or BACK.
+  `kstSeekStop()` calls `kst_session_abort()`, which finishes a frame on the
+  wire before it stops.
 - A heartbeat lapse ([pin-claim.md](pin-claim.md#heartbeat-and-watchdog)) lets
   the running attempt end and starts no new one: `NoUi`.
 - Between attempts and after the search ends the line stays driven low by the

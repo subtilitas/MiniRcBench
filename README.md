@@ -778,7 +778,7 @@ The servo takes power from its own supply. The board supplies signal and
 ground only.
 
 ```
-  servo supply, 4.8 V to 6.0 V (8.4 V for an HV servo)
+  servo supply, 4.8 V to 6.0 V (8.4 V for an HV (high-voltage) servo)
      +  ----------------------------------------------  servo +   (red, middle)
      -  ----------------+-----------------------------  servo -   (brown or black)
                         |
@@ -850,9 +850,18 @@ the rates offered depend on MAX: 333 Hz at most for 2000 µs. A heli profile,
 or a rate above 60 Hz, at which an analogue servo overheats, is held behind a
 warning until `HOLD TO APPLY` (1 s). The SWEEP rows (shape, 0.05 Hz to
 5.00 Hz, amplitude 0 % to 100 %, dwell 0 ms to 5000 ms, endless or 1 to 9999
-movements) change at any time and apply to the next SWEEP. `DEFAULTS`
-returns to STANDARD PWM 50 Hz, one servo, a sine at 0.50 Hz. Nothing of the
-servo tester is stored: every entry starts at STANDARD PWM 50 Hz.
+movements) change at any time and apply to the next SWEEP. `DEFAULTS`,
+offered only while SAFE, returns to STANDARD PWM 50 Hz, one servo, a sine at
+0.50 Hz. While RUNNING the footer shows `STOP` in its place, which acts on
+touch as `STOP` on the servo screen does. Nothing of the servo tester is
+stored: every entry starts at STANDARD PWM 50 Hz.
+
+**BACK.** `BACK` ends the pulses and shows `UNPLUG THE SERVO.` Core1 lets the
+pins go only after the last pulse has completed: it writes level 0 and waits
+two frames plus 1 ms, 41 ms at 50 Hz, before the pins leave PWM, so no pulse
+is cut short. A rate change waits the same way before the rebind. The
+released pins are inputs with the pull-down on until DShot takes SIG back
+and, with KISS on, the KISS receiver takes AUX.
 
 ---
 
@@ -1019,10 +1028,12 @@ Failing tests dump their frame too.
 target so a test run does not leave the working tree dirty.
 
 `make coverage` builds an instrumented copy of the suite in `test/cov/` and runs it, and
-`python3 tools/coverage.py` writes the figure below from its gcov counters.
+`python3 tools/coverage.py` writes the figure below from its gcov counters. The
+figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
+compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.1%**: 3,786 of 3,858 lines in 33 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.2%**: 3,830 of 3,902 lines in 33 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

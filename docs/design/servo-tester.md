@@ -13,9 +13,11 @@ the code and the original plan differ, the Decisions section says how.
 Terms: PWM is pulse-width modulation, here the RP2350's hardware PWM slices.
 A servo pulse is a high level of 400 µs to 2500 µs repeated at a frame rate.
 ESC is electronic speed controller, DShot the digital ESC protocol the tester
-drives, UI user interface, SD Secure Digital. SIG and AUX are the two signal
-pins as [pin-claim.md](pin-claim.md) defines them: the ESC pin and the KISS
-telemetry pin.
+drives, UI user interface, SD Secure Digital, GPIO general-purpose
+input/output, SDK the Raspberry Pi Pico software development kit and CI
+continuous integration. SIG and AUX are the two signal pins as
+[pin-claim.md](pin-claim.md) defines them: the ESC pin and the KISS telemetry
+pin.
 
 Source: the interaction and the limits come from rcbench, commit 453cf334:
 `shared/ui/servo_screen.c`, `shared/ui/ui_slider.c`,
@@ -63,7 +65,14 @@ held.
 
 STOP writes level 0 at once, and the compare register is double-buffered, so a
 pulse already on the wire completes. The last pulse ends at most one frame
-later: 20 ms at 50 Hz.
+later: 20 ms at 50 Hz. The pins stay bound to PWM at level 0.
+
+A release or a rebind waits for that last pulse. The job writes level 0 and
+keeps the slice running for `servoQuietMs()` after the write, two frames plus
+1 ms (41 ms at 50 Hz, 9 ms at 333 Hz), before it switches the pins away from
+PWM. The wait spans the wrap that latches level 0 and one full frame after
+it, so the slice never cuts a pulse short. A pin that never carried a pulse
+since its bind is released at once.
 
 While SAFE, two lines at the top of the dial band say
 `THE SERVO MOVES TO CENTRE AT START.` and `PULSES ON GP29 ARE THROTTLE TO AN
@@ -287,7 +296,8 @@ y   0 | SERVO SET                        [ BACK ]|
       | SWEEP   DWELL                     500 MS |
       | SWEEP   MOVES                    ENDLESS |
   218 | [ - ]           RATE 50 HZ           [ + ]|  editor bar, 44 px
-  268 | [  HOLD TO APPLY  ]      [ DEFAULTS ]    |  footer, 46 px
+  268 | [  HOLD TO APPLY  ]      [ DEFAULTS ]    |  footer, 46 px, SAFE
+  268 | [  HOLD TO APPLY  ]      [   STOP   ]    |  footer, 46 px, RUNNING
 ```
 
 - PULSE rows change only while SAFE. A new rate needs the PWM slice rebuilt
@@ -314,8 +324,12 @@ y   0 | SERVO SET                        [ BACK ]|
   ([pin-claim.md](pin-claim.md#when-the-pin-is-unavailable)); with another row
   selected it says `TWO SERVOS ARE NOT OFFERED: SEE SERVOS`.
 - DEFAULTS returns to STANDARD PWM at 50 Hz, one servo, REVERSE B off, and a
-  sine at 0.50 Hz, 100 %, 500 ms, endless. It is drawn disabled while RUNNING,
-  because it changes the PULSE rows.
+  sine at 0.50 Hz, 100 %, 500 ms, endless. It changes the PULSE rows, so it
+  is offered only while SAFE.
+- While RUNNING the right footer button is `STOP`, in `C_RED`, and acts on
+  press, as STOP on SERVO does (decision 16). The press that stops the servo
+  is not also a tap on DEFAULTS: DEFAULTS needs a new press. The SWEEP rows
+  stay adjustable while RUNNING, and so does SPEED on SERVO.
 
 The note band is two lines under the header, rows 34 to 55, where the other
 screens have a one-line strip: the warnings and the pin-claim texts do not fit
@@ -378,8 +392,10 @@ a command sent after it is dropped.
 
 Every pass of `loop1()`, the job:
 
-1. takes a new profile if one was handed over: releases both pins and binds
-   them again at the new rate, or leaves both unbound and reports `bindError`;
+1. takes a new profile if one was handed over: writes level 0, waits
+   `servoQuietMs()` for the last pulse, releases both pins and binds them
+   again at the new rate, or leaves both unbound and reports `bindError`;
+   the trip latch is kept across the rebind;
 2. takes a new command if `seq` moved (`servoCoreTake()`); `Start` is
    refused while the heartbeat has lapsed and with SIG unbound, `Sweep` while
    SAFE; a `Position` while SAFE sets a target that moves nothing until
@@ -390,7 +406,7 @@ Every pass of `loop1()`, the job:
 5. moves the output towards it by the slew owed since the last pass;
 6. writes the compare register when the pulse changed (`servoPwmWrite()`);
    the slice latches it at the end of the frame;
-7. publishes the status when it changed.
+7. publishes the status.
 
 Steps 2 to 5 are the pure functions `servoCoreTake()` and `servoCoreStep()`
 on a plain struct, `ServoCore`, which the host suite drives directly. The
@@ -419,15 +435,15 @@ with two servos.
 |---|---|---|
 | `shared/servo/servo_sweep.c`, `include/servo_sweep.h` | `lib/rcbench/shared/servo/` | copied as they are |
 | `shared/outputs/out_pwm_map.c`, `include/out_pwm_map.h` | `lib/rcbench/shared/outputs/` | copied as they are |
-| `firmware/iomcu/src/out_pwm.c`, `.h` | `src/servo_pwm.cpp`, `.h` | adapted: 2 bindings instead of the bank's slot count, `link_pages.h` and `outputs.h` dropped, the stamped write left out, the bind, release, write and sharing rules kept; the pulls are switched off at the bind and at the release |
+| `firmware/iomcu/src/out_pwm.c`, `.h` | `src/servo_pwm.cpp`, `.h` | adapted: 2 bindings instead of the bank's slot count, `link_pages.h` and `outputs.h` dropped, the stamped write left out, the bind, release, write and sharing rules kept; the pulls are switched off at the bind, and the release leaves an input with the pull-down on |
 | `shared/ui/ui_slider.c`, `include/ui_slider.h` | `src/ui_slider.cpp`, `.h` | adapted: the event logic kept (delta drag, tap-to-set, presets, the two press contracts); `touch_event_t` replaced by `TouchState` (`pressed` is DOWN, `down` is MOVE, `released` is UP, one contact); drawing rewritten on `gfx.h` and the theme colours; the scale ticks and the unused step left out |
 | `shared/ui/servo_screen.c` (6957 lines) | `src/servo_model.cpp` (pure) and `src/ui_servo.cpp` | rewritten. Taken: the profile table, `max_rate_for()`, `dangerous()`, `cmd_range()`, `deg_to_us()`, `us_to_deg()`, `slew_of()`, `on_the_dial()` rotated to point up, the drag and stop rules. Left out: the encoder feedback, the limit run, the automatic test, the supply and PD mini rows, the power plot, the keypad, the tabs, the pause and resume with its link lineage (core0 and core1 share memory, so no command is ever in flight long enough to need it) |
 | `test/host/test_servo_sweep.c` | `test/rcbench/` | copied as it is, with rcbench's harness `greatest.h` |
 | out_pwm_map cases of `test/host/test_outputs.c` | `test/rcbench/test_out_pwm_map.c` | adapted: the map cases only |
 
 `gfx.cpp` gains a thick line and an arc of dots for the horn and the dial.
-MiniRcBench draws only rectangles, rounded rectangles, lines along an axis,
-text and seven-segment digits today.
+The other primitives are rectangles, rounded rectangles, lines along an axis,
+text and seven-segment digits.
 
 Copied files keep their text and their `SPDX-License-Identifier: MIT` line.
 `lib/rcbench/README.md` lists each copied file with its rcbench path and the
@@ -446,8 +462,11 @@ Built. Ported, built as C11 in `test/rcbench/` and run by `make run`:
 New, `test/test_servo.cpp`, which includes `ui_servo.cpp` to read its
 file-static state. `servo_pwm.cpp` runs against a register fake in
 `test/fakes.cpp` that records each pin's function, level and pull and each
-slice's wrap, divider and enable; what the SDK does with those calls on the
-chip is not tested on the host. The job runs from the job table, through the
+slice's wrap, divider and enable. The fake models the counter at 1 MHz from
+the slice's enable, the wrap, and the compare latched at each wrap from the
+writes before it, and counts a pulse cut short when a pin leaves PWM or its
+slice stops mid-pulse. What the SDK does with those calls on the chip is not
+tested on the host. The job runs from the job table, through the
 claim and the fake DShot pump, with the test calling `core1JobPoll()` between
 UI frames:
 
@@ -459,8 +478,13 @@ UI frames:
 - hit test: inside the annulus, inside 24 px, outside 124 px, past ±104°,
   below the dial band, and a press that began off the dial;
 - the job against a fake PWM: level 0 while SAFE; CENTRE on every bound pin at
-  START; slew per SPEED; sweep start and stop; heartbeat trip latched and not
-  cleared by the heartbeat coming back;
+  START; slew per SPEED; sweep start and stop; heartbeat trip latched, not
+  cleared by the heartbeat coming back nor by a rebind, cleared by a new
+  visit to the screen;
+- the last pulse: no pulse cut short at a release from RUNNING, at a rebind
+  from RUNNING then SAFE, nor at `pinClaimEnd()` while RUNNING; the claim
+  stays `Leaving` until the job is idle; a released pin is an input with the
+  pull-down on;
 - the stop rules: a drag, MIN, CENTRE, MAX, STOP, BACK, a profile change and a
   trip each end a sweep; a drag across START and STOP ends; a press while SAFE
   takes no drag;
@@ -531,8 +555,8 @@ code needed a rule it did not give:
     finger.
 11. **The warning.** Only a TYPE or RATE change whose result needs it waits
     for HOLD TO APPLY; a MIN change under an applied heli profile applies at
-    once. BACK from SET drops a pending change. DEFAULTS is disabled while
-    RUNNING.
+    once. BACK from SET drops a pending change. DEFAULTS is offered only
+    while SAFE; decision 16 puts STOP in its place while RUNNING.
 12. **SWEEP steps.** RATE 0.05 Hz, AMPLITUDE 5 %, DWELL 100 ms, MOVES 1; a
     swipe step is 10 of them.
 13. **Commands.** `ServoProfile` carries the type; `ServoCmdKind` gains
@@ -547,3 +571,24 @@ code needed a rule it did not give:
 15. **Core1JobOps init.** A fourth member, `init`, called by
     `core1JobInit()` on core0, initialises a job's critical section before
     core1 starts. Null for a job with nothing to initialise.
+
+Decision of the owner, 2026-10-18:
+
+16. **STOP on SET.** While RUNNING, the SET footer shows STOP in place of
+    DEFAULTS, and it behaves like STOP on SERVO: level 0 on press, the sweep
+    ends. The SWEEP rows and SPEED stay adjustable while RUNNING.
+
+Further choices made in building slice 2:
+
+17. **The last pulse at a release.** `Core1JobOps::release` takes the time
+    and returns whether the pins are released. The servo job returns false
+    until `servoQuietMs()` has passed since level 0 was written, and the
+    claim stays in `Leaving`, or the rebind waits, until then. The pump is
+    not blocked: each pass of `loop1()` asks again.
+18. **The trip latch.** `tripped` is kept across a rebind and across a
+    release, and is cleared by `Start` or by a new visit to the screen
+    (`servoJobNewSession()`). A profile change does not hide a trip.
+19. **Released pins.** `servoPwmRelease()` leaves the pin an input with the
+    pull-down on, so the servo lead does not float between the release and
+    DShot's bind. DShot sets the pull-up on SIG at its bind, and the KISS
+    receiver sets the pull-up on AUX when KISS is on.
