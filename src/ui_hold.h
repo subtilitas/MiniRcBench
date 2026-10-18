@@ -14,7 +14,10 @@
  *   to see the press's first frame (`pressed`) with the finger on the
  *   control and the control live. A press that landed elsewhere, landed
  *   while the control was drawn disabled, or whose first frame the hold did
- *   not see, is never timed, however long it stays.
+ *   not see, is never timed, however long it stays. The hold tells one press
+ *   from the next by where it landed (`downX`, `downY`), whatever frames the
+ *   screen feeds it; two presses that land on the same pixel with no fed
+ *   frame between them read as one.
  * - **The timer runs while the finger is on the control.** A finger that
  *   slides off resets it; sliding back on, the same press starts it again
  *   from zero.
@@ -49,11 +52,13 @@ struct UiHold {
 	bool     live;     /**< The press landed on the live control, has stayed
 	                        live and has not fired: it may be timed. */
 	uint32_t startMs;  /**< When the timer started. */
+	int16_t  downX;    /**< x where the last press the hold saw landed. */
+	int16_t  downY;    /**< y where that press landed. */
 };
 
 /**
  * @brief Make the hold idle: no timer, and no press it may time. A finger
- *        already down is not timed; the next press that lands is.
+ *        that is down is not timed; the next press that lands is.
  * @param[out] h The hold.
  */
 void uiHoldReset(UiHold *h);

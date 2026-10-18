@@ -429,6 +429,21 @@ static void testHoldTiming() {
 	for (uint32_t t = 15550; t <= 17500; t += 25) fired |= uiHoldUpdate(&h, CTRL, move(50, 210), true, t);
 	checkTrue("lifted at 500 ms, then a press seen from its second frame: never timed", !fired && !h.holding);
 	uiHoldUpdate(&h, CTRL, lift(), true, 17525);
+	// A press seen landing elsewhere, then its lift and the first frame of a
+	// press on the control not fed: the press is told by where it landed.
+	uiHoldUpdate(&h, CTRL, press(50, 100), true, 18000);
+	uiHoldUpdate(&h, CTRL, move(50, 100), true, 18025);
+	press(50, 210);
+	fired = false;
+	for (uint32_t t = 18100; t <= 20000; t += 25) fired |= uiHoldUpdate(&h, CTRL, move(50, 210), true, t);
+	checkTrue("a press elsewhere, then an unseen press on the control: never timed", !fired && !h.holding);
+	uiHoldUpdate(&h, CTRL, lift(), true, 20025);
+	uiHoldUpdate(&h, CTRL, press(10, 210), true, 21000);   // left of the control, same row
+	press(50, 210);
+	fired = false;
+	for (uint32_t t = 21100; t <= 23000; t += 25) fired |= uiHoldUpdate(&h, CTRL, move(50, 210), true, t);
+	checkTrue("the same, the first press beside it on the same row: never timed", !fired && !h.holding);
+	uiHoldUpdate(&h, CTRL, lift(), true, 23025);
 	checkTrue("across the millis() wrap: 999 ms, not fired",
 	          !uiHoldUpdate(&h, CTRL, press(50, 210), true, 0xFFFFFF00u) &&
 	          !uiHoldUpdate(&h, CTRL, move(50, 210), true, 0xFFFFFF00u + 999));

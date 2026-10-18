@@ -11,6 +11,7 @@ void uiHoldReset(UiHold *h) {
 	h->holding = false;
 	h->live = false;
 	h->startMs = 0;
+	h->downX = h->downY = -1;
 }
 
 bool uiHoldUpdate(UiHold *h, const UiRect &r, const TouchState *t, bool enabled,
@@ -23,8 +24,16 @@ bool uiHoldUpdate(UiHold *h, const UiRect &r, const TouchState *t, bool enabled,
 	// A press qualifies on the frame it lands, or never, and only while the
 	// control stays live: a press that lands while the control is drawn
 	// disabled does not start the timer when the control goes live later.
-	// uiPressing() below holds it to the control it landed on.
-	if (t->pressed) h->live = true;
+	// The press is known by where it landed, so a later press whose first
+	// frame the hold did not see is not taken for it. uiPressing() below
+	// holds the press to the control it landed on.
+	if (t->pressed) {
+		h->live = true;
+		h->downX = t->downX;
+		h->downY = t->downY;
+	} else if (t->downX != h->downX || t->downY != h->downY) {
+		h->live = false;
+	}
 	if (!enabled) h->live = false;
 	if (!h->live || !uiPressing(r, t)) {
 		h->holding = false;
