@@ -71,8 +71,10 @@ Angezeigt werden nur die Felder, die zur gelesenen Version passen.
 Eine Geste ist entweder Scrollen oder Ändern. Die Achse steht nach 6 px
 Bewegung fest.
 
-Ein Grobschritt ist ein ganzzahliges Vielfaches der Schrittweite des Feldes,
-sodass Werte gültig bleiben; die Polzahl bleibt zum Beispiel gerade. Ein
+Ein Grobschritt ist ein ganzzahliges Vielfaches der Schrittweite des Feldes.
+Ein Wert, der auf der Schrittweite liegt, bleibt darauf; eine gerade Polzahl
+bleibt zum Beispiel gerade. Ein Wert, den der ESC außerhalb der Schrittweite
+gespeichert hat, ändert sich von dort aus um die Schrittweite. Ein
 Grobschritt, der über das Ende des Bereichs hinausginge, hält am Ende an. Weg
 über das Ende hinaus zählt nicht, sodass schon der erste Grobschritt zurück
 den Wert vom Ende löst.

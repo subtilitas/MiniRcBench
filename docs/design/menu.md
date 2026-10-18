@@ -55,18 +55,19 @@ What does not scale:
 - **Dispatch.** Six booleans pick the screen (`ui.cpp:295-300`). A new tool
   adds a boolean, an include, a branch in `uiTick()` and one in
   `handleConfigTouch()`, a rectangle, a draw call and test coordinates.
-- **Lists.** AM32 (`ui_am32.cpp:592-720`) and SERVO SET
+- **Lists.** At 9c0f3b9, AM32 (`ui_am32.cpp:592-720`) and SERVO SET
   (`ui_servo.cpp:757-797`) each carry a copy of the list gesture. Both lock
   the axis after 6 px and scroll 1:1; they differ in the sideways swipe: AM32
   spreads a field's range over 180 px (`ui_am32.cpp:602`), SERVO SET applies
   one coarse step per 16 px (`ui_servo.cpp:162`). The scrolling SETUP of PR #6
-  adds a third copy, and KST plans a fourth list and a paged file list.
-- **Holds.** Five 1000 ms holds run on four timers in four files: HOLD TO ARM
-  (`ui.cpp:1376-1398`, `ARM_HOLD_MS`), AM32's HOLD TO WRITE
+  adds a third copy, and KST plans a fourth list and a paged file list. Slice
+  A puts both lists on `ui_list`.
+- **Holds.** At 9c0f3b9, five 1000 ms holds run on four timers in four files:
+  HOLD TO ARM (`ui.cpp:1376-1398`, `ARM_HOLD_MS`), AM32's HOLD TO WRITE
   (`ui_am32.cpp:514-525`, `WRITE_HOLD_MS`), SERVO's HOLD TO START and SET's
   HOLD TO APPLY (`ui_servo.cpp:527` and `:803`, one `s_holdMs`), and SETUP's
   HOLD TO SAVE (`ui_setup.cpp:395-420`, `SAVE_HOLD_MS`). KST would add a
-  fifth file.
+  fifth file. Slice A puts all but HOLD TO ARM on `ui_hold`.
 - **Pin users.** One switch and two comparisons decide per user:
   `jobFor()` (`pin_claim.cpp:28-34`), `needsUnplug()` (`pin_claim.cpp:37-39`)
   and the AM32 exemption in `pinClaimCheck()` (`pin_claim.h:130`).
@@ -436,7 +437,7 @@ under each table.
 | File | What it holds |
 |---|---|
 | `src/ui_list.{h,cpp}` | slice A: the list: geometry, scroll in pixels, the gesture above, clipping, a row's rectangle on the current frame. Slice C adds the scroll bar, which MENU and SETTINGS draw and AM32 and SERVO SET do not |
-| `src/ui_hold.{h,cpp}` | slice A: one 1000 ms hold (`UI_HOLD_MS`, which is `ARM_HOLD_MS`): counts only a press that began on its control, a slide off cancels, latched until the finger lifts or a new press lands, progress 0 % to 100 %, and the 3 px progress bar |
+| `src/ui_hold.{h,cpp}` | slice A: one 1000 ms hold (`UI_HOLD_MS`, which is `ARM_HOLD_MS`): times only a press that landed on its control while the control was live, a slide off resets the timer, one firing per press, progress 0 % to 100 %, and the 3 px progress bar |
 | `src/ui_screen.h` | slice B: `UiScreenId`, `UiControlId`, `UiControl`, and `UiScreen` with its `id` and `controls` members; slice C: the rest of `UiScreen`, `SettingsRow`, `SettingsSection`, `UiMenuEntry` |
 | `src/ui_registry.cpp` | slice C: one line per MENU row, in MENU order, and the fit check |
 | `src/ui_menu.cpp` | MENU, the BEEP action and its flash (from `ui.cpp`) |

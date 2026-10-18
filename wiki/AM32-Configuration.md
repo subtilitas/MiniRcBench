@@ -69,10 +69,11 @@ the revision read are shown.
 A gesture is either a scroll or an edit. The axis is fixed after 6 px of
 travel.
 
-A coarse step is a whole number of the field's steps, so values stay legal;
-motor poles stay even, for example. A coarse step that would pass the end of
-the range stops at the end. Travel past the end does not count, so the first
-coarse step back moves the value off it.
+A coarse step is a whole number of the field's steps. A value on the field's
+step stays on it; an even pole count stays even, for example. A value the ESC
+stored off the step moves by the step from where it is. A coarse step that
+would pass the end of the range stops at the end. Travel past the end does not
+count, so the first coarse step back moves the value off it.
 
 **Changed rows are marked amber on the left edge**, and their values are
 amber. Nothing has been sent to the ESC yet.

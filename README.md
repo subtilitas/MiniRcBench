@@ -702,12 +702,13 @@ the row it started on. A vertical drag never selects.
 
 The axis locks after 6 px of travel (`UI_AXIS_LOCK_PX`), so a gesture is
 either a scroll or an edit. Scrolling is measured from the touch point, so no
-travel is lost to the lock. A coarse step (`UI_SWIPE_STEP_PX`, 16 px) is a
-whole number of the field's steps: its range over 11 steps, rounded up. That
-is 24 for a field of 0 to 255 and two steps of 2 for motor poles, which stay
-even. A coarse step that would pass the end of the range stops at the end.
-Travel past the end is not stored, so the first coarse step back moves the
-value off it.
+travel is lost to the lock. A coarse step (`UI_SWIPE_STEP_PX`, 16 px) is
+⌈range ÷ (11 × step)⌉ × step: 24 for a field of 0 to 255 at step 1, 4 for
+motor poles at step 2. It is made of the field's own steps, so a value on the
+field's step stays on it, and an even pole count stays even; a value read off
+the step moves by the step from where it is. A coarse step that would pass
+the end of the range stops at the end. Travel past the end is not stored, so
+the first coarse step back moves the value off it.
 
 Changed rows are marked amber on the left edge. **REVERT** restores the values
 that were read. **HEX** shows the raw 48 bytes for checking a field's
@@ -881,6 +882,9 @@ In the firmware:
 
 - Boots disarmed and sends `MOTOR_STOP` (throttle 0) continuously.
 - Arming needs a 1 s hold with the throttle at zero for at least 250 ms.
+  Only a press that lands on the button while arming is allowed counts: the
+  press that disarms, or one made while a USB host holds the card, does not
+  arm however long it stays.
 - With HOLD off, the throttle returns to zero on finger lift.
 - Throttle ceiling, default 20 %.
 - Auto-disarm after 30 s with no touch input (`IDLE_DISARM_MS`). For the last
@@ -897,7 +901,9 @@ In the firmware:
   one by one, so a corrupted byte cannot raise the throttle ceiling.
 - Arming is blocked while a USB host holds the SD card.
 - The servo tester starts SAFE, with no pulses; HOLD TO START is a 1 s hold
-  that puts every pin at CENTRE, and STOP acts on touch. Core1 ends the
+  that puts every pin at CENTRE, and STOP acts on touch. A hold counts only
+  a press that lands on the button while it is live, so a press made while
+  the button is drawn disabled starts nothing. Core1 ends the
   pulses if core0 sends no heartbeat for 250 ms. The servo screen does not
   claim the pins while an ESC answers on them, and DShot restarts only after
   the unplug page.
