@@ -13,6 +13,7 @@
 set(KST_LIB ${CMAKE_CURRENT_LIST_DIR}/../lib/rcbench)
 target_sources(MiniRcBench PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/ui_kst.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/kst_view.cpp
     ${CMAKE_CURRENT_LIST_DIR}/kst_seek.cpp
     ${CMAKE_CURRENT_LIST_DIR}/kst_job.cpp
     ${CMAKE_CURRENT_LIST_DIR}/kst_line_port.cpp

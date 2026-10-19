@@ -2404,18 +2404,17 @@ static void testHitBoundaries() {
 }
 
 /**
- * @brief MENU's rows: SERVO opens its screen, KST has no row, and a tool
- *        that claims the pins is refused while they are not Free.
+ * @brief MENU's rows: SERVO opens its screen, and a tool that claims the
+ *        pins is refused while they are not Free.
  *
- * The KST screen is a stub until its slice lands, and MENU has no row for
- * it. A tool row that claims pins reads PINS BUSY while the claim is not
+ * A tool row that claims pins reads PINS BUSY while the claim is not
  * Free, as for the time Restoring takes after RESTART DSHOT: its control is
  * gated on the same value, and a tap opens nothing and claims nothing.
  * SERVO is built: a tap opens it and claims the pins, and leaving goes
  * through its unplug page to MENU. test_servo.cpp tests the screen itself.
  */
 static void testMenuDestinations() {
-	section("MENU: SERVO opens its screen, KST has no row, PINS BUSY refuses");
+	section("MENU: SERVO opens its screen, PINS BUSY refuses");
 
 	fakeFlashClear();
 	settingsLoad();
@@ -2429,15 +2428,14 @@ static void testMenuDestinations() {
 	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 	checkControlTable("MENU");
 
-	// The registry, in MENU order, and no KST row.
+	// The registry, in MENU order.
 	uint8_t rows = 0;
 	uiMenuEntries(&rows);
-	checkInt("MENU has five rows", rows, 5);
-	checkTrue("BEEP, AM32 CONFIG, SERVO TESTER, SD LOG, SETTINGS, in that order",
+	checkInt("MENU has six rows", rows, 6);
+	checkTrue("BEEP, AM32 CONFIG, SERVO TESTER, KST SERVO, SD LOG, SETTINGS, in that order",
 	          uiMenuRowOf(&UI_BEEP) == 0 && uiMenuRowOf(&UI_AM32) == 1 &&
-	          uiMenuRowOf(&UI_SERVO) == 2 && uiMenuRowOf(&UI_SDLOG) == 3 &&
-	          uiMenuRowOf(&UI_SETTINGS) == 4);
-	checkInt("KST has no row", uiMenuRowOf(&UI_KST), -1);
+	          uiMenuRowOf(&UI_SERVO) == 2 && uiMenuRowOf(&UI_KST) == 3 &&
+	          uiMenuRowOf(&UI_SDLOG) == 4 && uiMenuRowOf(&UI_SETTINGS) == 5);
 
 	// A pixel inside each row, clear of its label: the panel fill of a row.
 	// It is 5 px in from the left edge and 8 px down from the top.

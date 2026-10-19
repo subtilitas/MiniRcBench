@@ -2,13 +2,14 @@
 
 # Die Bildschirme
 
-Die Firmware hat sechs Bildschirme. Der Tester ist die Wurzel. `MENU` öffnet
+Die Firmware hat sieben Bildschirme. Der Tester ist die Wurzel. `MENU` öffnet
 die Liste der Werkzeuge, und jedes Werkzeug verlässt du mit `BACK`, das zu
 `MENU` zurückführt.
 
 ```
 Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MENU
    ▲                    ├── SERVO TESTER ──BACK──> Abziehseite ──> MENU
+   │                    ├── KST SERVO    ──BACK──> Verlassenseite ──> Abziehseite ──> MENU
    │                    ├── SD LOG       ──BACK──> MENU
    │                    └── SETTINGS     ──BACK──> MENU
    └──── BACK auf MENU ─┘
@@ -82,12 +83,17 @@ links ihren Namen und rechts ihren Zustand. `BACK` führt zum Tester zurück.
 | **BEEP THE ESC** | `DISARMED`; 350 ms nach einem Tippen `SENT` oder `REFUSED` | Sendet den DShot-Beacon-Befehl, der Motor piept. Damit erkennst du, welcher ESC angeschlossen ist |
 | **AM32 CONFIG** | der ESC-Pin, `GP29`; `PINS BUSY` | Öffnet den AM32-Editor |
 | **SERVO TESTER** | die beiden Signalpins, `GP29+28`; `PINS BUSY` | Öffnet den Servotester |
+| **KST SERVO** | der ESC-Pin, `GP29`; `PINS BUSY` | Öffnet den KST-Programmierer. Siehe [KST-Programmierung](KST-Programmierung) |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, oder `USB DRIVE`, solange ein Computer die Karte hält | Öffnet den Aufzeichnungs-Bildschirm |
 | **SETTINGS** | `UNSAVED`, solange ein Wert vom Flash abweicht, sonst nichts; `PINS BUSY`, solange die Pins noch zurückgegeben werden, und öffnet sich nicht | Öffnet SETTINGS |
 
 `PINS BUSY` heißt, dass die Signalpins noch belegt sind, zum Beispiel während
-DShot nach dem Servotester neu startet. Ein Tippen auf diese Zeile öffnet
-nichts. Die Zeile zeigt ihre Pins wieder, sobald DShot läuft.
+DShot nach dem Servotester oder dem KST-Programmierer neu startet. AM32 CONFIG,
+SERVO TESTER, KST SERVO und SETTINGS zeigen es, und ein Tippen auf eine solche
+Zeile öffnet nichts. Die Zeile zeigt ihre Pins wieder, sobald DShot läuft.
+SD LOG belegt keinen Pin und bleibt bedienbar.
+
+<img src="img/menu-pins-busy.png" width="240" alt="MENU, während die Pins zurückgegeben werden: PINS BUSY bei AM32 CONFIG, SERVO TESTER, KST SERVO und SETTINGS">
 
 BEEP funktioniert nur im entschärften Zustand, und das Öffnen von `MENU`
 entschärft, daher ist es von hier aus immer erlaubt. Der Befehl dauert 6 ms
@@ -187,7 +193,23 @@ Steuert ein oder zwei Servos mit Servoimpulsen auf dem ESC- und dem KISS-Pin
 an. Er startet in SAFE; `HOLD TO START` 1 s lang gehalten startet die Impulse
 in der Mitte, `STOP` wirkt beim Berühren. `SET` öffnet die Einstellungen für
 Profil und Sweep. `BACK` zeigt `UNPLUG THE SERVO.`, bevor der ESC-Treiber die
-Pins zurückbekommt; `RESTART DSHOT` führt danach zu `MENU`. Siehe [Servotester](Servotester).
+Pins zurückbekommt; `RESTART DSHOT` führt danach zu `MENU`. Siehe
+[Servotester](Servotester).
+
+---
+
+## KST SERVO
+
+<img src="img/kst-list.png" width="240" alt="Die KST-Feldliste">
+
+Liest und schreibt die Einstellungen eines KST- oder Chaservo-Servos über das
+Signalkabel am ESC-Pin. Der Bildschirm sucht das Servo, während du es
+einschaltest, liest seine 32 Register und listet 27 Felder zum Verstellen.
+`HOLD TO WRITE` 1 s lang gehalten öffnet die Schreibseite, ein zweites Halten
+von 1 s schreibt, zuvor mit einer Sicherung auf der SD-Karte. `BACK` öffnet
+die Verlassenseite, die dich auffordert, das Servo auszuschalten; `LEAVE`
+zeigt dann `UNPLUG THE SERVO.`, und `RESTART DSHOT` führt zu `MENU`. Siehe
+[KST-Programmierung](KST-Programmierung).
 
 ---
 

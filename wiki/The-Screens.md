@@ -2,12 +2,13 @@
 
 # The Screens
 
-The firmware has six screens. The tester is the root. `MENU` opens the list of
+The firmware has seven screens. The tester is the root. `MENU` opens the list of
 tools, and every tool is left with `BACK`, which returns to `MENU`.
 
 ```
 Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MENU
    ▲                    ├── SERVO TESTER ──BACK──> unplug page ──> MENU
+   │                    ├── KST SERVO    ──BACK──> leave page ──> unplug page ──> MENU
    │                    ├── SD LOG       ──BACK──> MENU
    │                    └── SETTINGS     ──BACK──> MENU
    └──── BACK on MENU ──┘
@@ -79,12 +80,17 @@ and its state on the right. `BACK` returns to the tester.
 | **BEEP THE ESC** | `DISARMED`; for 350 ms after a tap, `SENT` or `REFUSED` | Sends the DShot beacon command, so the motor beeps. Use it to identify which ESC is connected |
 | **AM32 CONFIG** | the ESC pin, `GP29`; `PINS BUSY` | Opens the AM32 editor |
 | **SERVO TESTER** | the two signal pins, `GP29+28`; `PINS BUSY` | Opens the servo tester |
+| **KST SERVO** | the ESC pin, `GP29`; `PINS BUSY` | Opens the KST programmer. See [KST Programming](KST-Programming) |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a computer holds the card | Opens the logging screen |
 | **SETTINGS** | `UNSAVED` while a value differs from flash, else nothing; `PINS BUSY` while the pins are still restoring, and it does not open | Opens SETTINGS |
 
 `PINS BUSY` means the signal pins are still in use, for example while DShot
-restarts after the servo tester. A tap on that row opens nothing. The row
-reads its pins again once DShot runs.
+restarts after the servo tester or the KST programmer. AM32 CONFIG, SERVO
+TESTER, KST SERVO and SETTINGS show it, and a tap on such a row opens nothing.
+The row reads its pins again once DShot runs. SD LOG claims no pin and stays
+available.
+
+<img src="img/menu-pins-busy.png" width="240" alt="MENU while the pins restore: PINS BUSY on AM32 CONFIG, SERVO TESTER, KST SERVO and SETTINGS">
 
 BEEP works only while disarmed, and opening `MENU` disarms, so it is always
 allowed from here. The command takes 6 ms (6 frames at 1 kHz). The screen
@@ -181,6 +187,20 @@ touch. `SET` opens the profile and sweep settings. `BACK` shows
 `UNPLUG THE SERVO.` before the ESC driver takes the pins back, and
 `RESTART DSHOT` then returns to `MENU`. See
 [Servo Tester](Servo-Tester).
+
+---
+
+## KST SERVO
+
+<img src="img/kst-list.png" width="240" alt="The KST field list">
+
+Reads and writes the settings of a KST or Chaservo servo over the signal wire
+on the ESC pin. It searches for the servo while you power it up, reads its 32
+registers, and lists 27 fields to step. `HOLD TO WRITE` for 1 s opens the
+write page, and a second hold of 1 s writes, with a backup on the SD card
+first. `BACK` opens the leave page, which asks you to power the servo off;
+`LEAVE` then shows `UNPLUG THE SERVO.`, and `RESTART DSHOT` returns to `MENU`.
+See [KST Programming](KST-Programming).
 
 ---
 

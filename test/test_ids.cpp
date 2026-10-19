@@ -101,11 +101,7 @@ static void testMenuSettingsLog() {
 	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
 	checkControlTable("MENU");
 	checkTrue("SERVO TESTER acts", ctlEnabled(menuRow(&UI_SERVO)));
-	checkTrue("KST has no MENU row before slice 3", uiMenuRowOf(&UI_KST) < 0);
-	{
-		UiControl t[UI_CONTROLS_MAX];
-		checkInt("and its screen draws no control", UI_KST.controls(t, UI_CONTROLS_MAX), 0);
-	}
+	checkTrue("KST SERVO acts", ctlEnabled(menuRow(&UI_KST)));
 
 	tapId(menuRow(&UI_SETTINGS));
 	checkTrue("SETTINGS opens", uiCurrentScreen() == UiScreenId::Settings);

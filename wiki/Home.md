@@ -23,6 +23,7 @@ run.
 | [SD Logging](SD-Logging) | Recording to microSD and opening the result in [logwiju](https://subtilitas.github.io/logwiju/) |
 | [AM32 Configuration](AM32-Configuration) | Reading, editing and writing ESC settings |
 | [Servo Tester](Servo-Tester) | Driving one or two servos: start, stop, drag, sweep, profiles |
+| [KST Programming](KST-Programming) | Reading and writing the settings of a KST or Chaservo servo, with backup and restore |
 | [Troubleshooting](Troubleshooting) | Symptom first, cause second |
 
 > **Before you power anything on:** a motor on a bench can injure. Read
@@ -43,6 +44,7 @@ der erste Motorlauf.
 | [SD-Aufzeichnung](SD-Aufzeichnung) | Aufzeichnen auf microSD und Auswerten in [logwiju](https://subtilitas.github.io/logwiju/) |
 | [AM32-Konfiguration](AM32-Konfiguration) | ESC-Einstellungen lesen, ändern und schreiben |
 | [Servotester](Servotester) | Ein oder zwei Servos ansteuern: starten, stoppen, ziehen, Sweep, Profile |
+| [KST-Programmierung](KST-Programmierung) | Einstellungen eines KST- oder Chaservo-Servos lesen und schreiben, mit Sicherung und Wiederherstellung |
 | [Fehlersuche](Fehlersuche) | Erst das Symptom, dann die Ursache |
 
 > **Vor dem Einschalten:** Ein Motor auf der Werkbank kann verletzen. Lies

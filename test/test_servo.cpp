@@ -1536,7 +1536,7 @@ static void testScreenOpens() {
 	uiFrames(2);
 	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
 	checkTrue("MENU: SERVO is drawn live", fillOf(ctlRect(menuRow(&UI_SERVO))) == C_PANEL);
-	checkTrue("KST has no MENU row", uiMenuRowOf(&UI_KST) < 0);
+	checkTrue("MENU: KST SERVO is drawn live", fillOf(ctlRect(menuRow(&UI_KST))) == C_PANEL);
 	tapId(menuRow(&UI_SERVO));
 	checkTrue("SERVO opens from MENU", uiCurrentScreen() == UiScreenId::Servo);
 	checkTrue("the tap claims the pins for SERVO", pinClaimHolder() == PinUser::Servo);

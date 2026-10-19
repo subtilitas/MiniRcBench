@@ -10,6 +10,7 @@
 - [SD Logging](SD-Logging)
 - [AM32 Configuration](AM32-Configuration)
 - [Servo Tester](Servo-Tester)
+- [KST Programming](KST-Programming)
 - [Troubleshooting](Troubleshooting)
 
 ---
@@ -22,6 +23,7 @@
 - [SD-Aufzeichnung](SD-Aufzeichnung)
 - [AM32-Konfiguration](AM32-Konfiguration)
 - [Servotester](Servotester)
+- [KST-Programmierung](KST-Programmierung)
 - [Fehlersuche](Fehlersuche)
 
 ---
