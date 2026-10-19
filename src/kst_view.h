@@ -73,16 +73,17 @@ kst_rules_t kstHardRules(const kst_image_t *backup, const kst_image_t *target);
 kst_rules_t kstSoftRules(const kst_image_t *backup, const kst_image_t *target);
 
 /**
- * @brief Step @p field of @p target by @p steps steps in the sign of
- *        @p steps, each step to the next raw value that adds no hard rule to
- *        those @p target already breaks.
+ * @brief Step @p field of @p target by @p steps steps, a positive sign
+ *        raising the value shown and a negative one lowering it, each step to
+ *        the next raw value that adds no hard rule to those @p target already
+ *        breaks. DEAD BAND's raw value falls as its value shown rises.
  * @return The steps taken; fewer when the field's end or no legal value lies
  *         ahead.
  */
 int kstStep(const kst_image_t *backup, kst_image_t *target, kst_field_id_t field,
             int steps);
 
-/** @brief Whether a step of @p field in @p dir, -1 or +1, is possible. */
+/** @brief Whether a step of @p field in @p dir, -1 or +1 as for kstStep(), is possible. */
 bool kstCanStep(const kst_image_t *backup, const kst_image_t *target,
                 kst_field_id_t field, int dir);
 
@@ -128,6 +129,7 @@ void kstFileLineName(const char *text, size_t len, unsigned line, char *buf, siz
 
 /**
  * @brief Break @p text into lines of at most @p width characters, at spaces.
+ *        A width below 4 counts as 4, above 47 as 47.
  * @return The lines written into @p lines, at most @p maxLines; the last
  *         line ends in `...` when the text did not fit.
  */

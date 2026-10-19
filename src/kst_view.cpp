@@ -116,13 +116,33 @@ kst_rules_t kstSoftRules(const kst_image_t *backup, const kst_image_t *target) {
 }
 
 /**
- * @brief One step of @p field in @p dir: the next raw value that adds no hard
- *        rule. False, and @p target unchanged, when none lies ahead.
+ * @brief The raw direction in which @p field's shown value rises: -1 for a
+ *        field whose display falls as its raw value rises, DEAD BAND's
+ *        0.2 µs × (65 − raw), else +1.
+ */
+static int rawSense(kst_field_id_t field) {
+	int32_t max = kst_field_raw_max(field);
+	int32_t lo = 0, hi = 0;
+	bool haveLo = false;
+	for (int32_t raw = 0; raw <= max; raw++) {
+		int32_t d;
+		if (!kst_field_display(field, (uint16_t)raw, &d)) continue;
+		if (!haveLo) { lo = d; haveLo = true; }
+		hi = d;
+	}
+	return haveLo && hi < lo ? -1 : 1;
+}
+
+/**
+ * @brief One step of @p field in @p dir, +1 to raise the value shown: the
+ *        next raw value that adds no hard rule. False, and @p target
+ *        unchanged, when none lies ahead.
  */
 static bool stepOnce(const kst_image_t *backup, kst_image_t *target, kst_field_id_t field,
                      int dir) {
 	const kst_field_t *f = kst_field(field);
 	if (!f || f->access != KST_ACCESS_EDITABLE) return false;
+	dir *= rawSense(field);
 	kst_rules_t now = kstHardRules(backup, target);
 	int32_t max = kst_field_raw_max(field);
 	for (int32_t raw = (int32_t)kst_field_get(target, field) + dir; raw >= 0 && raw <= max;
@@ -333,6 +353,7 @@ void kstFileLineName(const char *text, size_t len, unsigned line, char *buf, siz
 
 int kstWrap(const char *text, int width, char lines[][48], int maxLines) {
 	if (width > 47) width = 47;
+	if (width < 4) width = 4;
 	int count = 0;
 	const char *p = text ? text : "";
 	while (*p && count < maxLines) {

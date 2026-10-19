@@ -9,6 +9,7 @@
 #include "rcbench/kst_sim.h"
 
 #include <ctype.h>
+#include <stdio.h>
 #include <string.h>
 
 static void testRows() {
@@ -117,6 +118,33 @@ static void testStepper() {
 	checkTrue("nor a field with no edit path", !kstCanStep(&backup, &t, KST_F_NODE_ADDR, -1));
 	checkTrue("nothing changed", memcmp(t.r, backup.r, KST_REG_COUNT) == 0);
 
+	// + raises the value shown, whatever way the raw value goes.
+	t = backup;
+	checkInt("DEAD BAND +: one step", kstStep(&backup, &t, KST_F_DEAD_BAND, 1), 1);
+	char was[24], is[24];
+	kstValueText(KST_F_DEAD_BAND, kst_field_get(&backup, KST_F_DEAD_BAND), was, sizeof(was));
+	kstValueText(KST_F_DEAD_BAND, kst_field_get(&t, KST_F_DEAD_BAND), is, sizeof(is));
+	checkTrue("DEAD BAND +: 2.0 US to 2.2 US, the raw value down",
+	          strcmp(was, "2.0 US") == 0 && strcmp(is, "2.2 US") == 0 &&
+	          kst_field_get(&t, KST_F_DEAD_BAND) < kst_field_get(&backup, KST_F_DEAD_BAND));
+	int rising = 0, steppable = 0;
+	int nrows;
+	const KstRow *rows = kstRows(&nrows);
+	for (int i = 0; i < nrows; i++) {
+		if (!kstRowEditable(i)) continue;
+		for (int dir = -1; dir <= 1; dir += 2) {
+			kst_image_t u = backup;
+			if (kstStep(&backup, &u, rows[i].field, dir) != 1) continue;
+			steppable++;
+			int32_t d0 = 0, d1 = 0;
+			kst_field_display(rows[i].field, kst_field_get(&backup, rows[i].field), &d0);
+			kst_field_display(rows[i].field, kst_field_get(&u, rows[i].field), &d1);
+			// One raw step of MAX. DUTY can round to the same percent.
+			if ((dir > 0 && d1 >= d0) || (dir < 0 && d1 <= d0)) rising++;
+		}
+	}
+	checkTrue("every field: + never lowers and - never raises the value shown", steppable > 16 && rising == steppable);
+
 	checkInt("MAX. DUTY's coarse step: 24 raw", kstCoarse(KST_F_DUTY), 24);
 	checkInt("a one-bit field's: 1", kstCoarse(KST_F_SOFT_START), 1);
 
@@ -202,6 +230,8 @@ static void testWrap() {
 	n = kstWrap("ABCDEFGHIJKLMNOP", 8, l, 3);
 	checkStr("a word longer than the line is cut", l[0], "ABCDEFGH");
 	checkInt("empty text: no line", kstWrap("", 10, l, 3), 0);
+	n = kstWrap("ABCDEFGH IJKL", 1, l, 1);
+	checkStr("a width below 4 counts as 4", l[0], "A...");
 }
 
 void runKstViewTests() {

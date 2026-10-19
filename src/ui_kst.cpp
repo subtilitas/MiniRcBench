@@ -300,9 +300,13 @@ static void opEnd() {
 	if (s_resultSes == KST_SES_OK) {
 		// The write is verified: the session's record goes.
 		kstFilesRecordRemove(&s_first);
+		s_recordFound = kstFilesMounted() && kstFilesRecordPresent();
 		s_target = s_st.image;
 	}
-	if (s_leaveQueued) go(KstView::Leave);
+	if (s_leaveQueued) {
+		s_leaveQueued = false;
+		go(KstView::Leave);
+	}
 }
 
 /** @brief The job's state, read each frame, moves the views. */
@@ -315,11 +319,21 @@ static void follow() {
 	if (s_prevJob == KstJobState::Searching && s_st.job == KstJobState::InMode) {
 		s_needRead = true;
 		s_everFound = true;
+		// A servo found, the first or after a loss: the session reads a new
+		// backup, so its first write saves it and writes its own record. A
+		// record an earlier servo left stays, and that first write keeps it.
+		s_firstDone = false;
+		memset(&s_first, 0, sizeof(s_first));
+		s_recordFound = kstFilesRecordPresent();
 	}
 	// A loss: the search runs again, for whatever servo is plugged in next.
-	if (s_st.job == KstJobState::Searching && s_view != KstView::Main &&
-	    s_view != KstView::Unplug) {
+	// With the heartbeat lapsed the job ends that search at once
+	// (SearchEnded), and Main offers RETRY. The operation the loss ended
+	// shows no result: the session is gone with the servo.
+	bool searchState = s_st.job == KstJobState::Searching || s_st.job == KstJobState::SearchEnded;
+	if (searchState && s_view != KstView::Main && s_view != KstView::Unplug) {
 		forgetServo();
+		s_opOpen = false;
 		s_leaveQueued = false;
 		go(KstView::Main);
 	}
@@ -352,6 +366,13 @@ struct MainText {
 static void addLine(MainText *m, const char *s, uint16_t c) {
 	for (int i = 0; i < 6; i++)
 		if (!m->line[i]) { m->line[i] = s; m->lineCol[i] = c; return; }
+}
+
+/** @brief @p text as at most two lines of the main view, broken at spaces. */
+static void addWrapped(MainText *m, const char *text, uint16_t c) {
+	static char wl[2][48];
+	int n = kstWrap(text, 37, wl, 2);
+	for (int i = 0; i < n; i++) addLine(m, wl[i], c);
 }
 
 static void mainBody(MainText *m) {
@@ -401,7 +422,7 @@ static void mainBody(MainText *m) {
 			addLine(m, "A POWERED SERVO ON THIS PIN GETS NO", C_DIM);
 			addLine(m, "PULSES AND MAY GO TO ITS FAILSAFE.", C_DIM);
 			if (s_st.seekRx != KST_RX_NO_REPLY)
-				snprintf(m->rx, sizeof(m->rx), "A REPLY CAME, NOT VALID: %s", kstRxWord(s_st.seekRx));
+				snprintf(m->rx, sizeof(m->rx), "REPLY NOT VALID: %s", kstRxWord(s_st.seekRx));
 			m->spinner = true;
 			m->button = "STOP SEARCH"; m->ctl = KstCtl::StopSearch; m->enabled = true;
 			return;
@@ -426,8 +447,7 @@ static void mainBody(MainText *m) {
 				default: {
 					snprintf(m->strip, sizeof(m->strip), "SEARCH FAILED");
 					KstResultText r = kstResultText((kst_ses_t)s_st.result, s_st.planResult);
-					snprintf(a, sizeof(a), "%.38s", r.text);
-					addLine(m, a, C_AMBER);
+					addWrapped(m, r.text, C_AMBER);
 					return;
 				}
 			}
@@ -436,8 +456,7 @@ static void mainBody(MainText *m) {
 			snprintf(m->strip, sizeof(m->strip), "IN PROGRAMMING MODE");
 			if (s_readFailed) {
 				KstResultText r = kstResultText((kst_ses_t)s_st.result, s_st.planResult);
-				snprintf(a, sizeof(a), "%.38s", r.text);
-				addLine(m, a, C_AMBER);
+				addWrapped(m, r.text, C_AMBER);
 				if (s_st.badRegs) {
 					int k = snprintf(b, sizeof(b), "REGISTERS");
 					for (int i = 0; i < (int)KST_REG_COUNT && k < 40; i++)
@@ -478,7 +497,8 @@ static void drawMain() {
 		gfxText(UI_MARGIN, y, m.line[i], m.lineCol[i], 1);
 		y += (i % 2) ? 18 : 14;
 	}
-	if (m.rx[0]) gfxText(UI_MARGIN, 196, m.rx, C_AMBER, 1);
+	// Below the sixth body line, which ends at y 197.
+	if (m.rx[0]) gfxText(UI_MARGIN, 202, m.rx, C_AMBER, 1);
 	if (m.spinner) {
 		int phase = (int)((millis() / 150) % 12);
 		for (int i = 0; i < 12; i++) {
@@ -540,7 +560,10 @@ static void drawList() {
 	uiListDraw(&s_list, drawFieldRow, nullptr);
 
 	gfxRect(0, KL_LIST_Y1 + 1, GFX_W, KL_FOOT_Y - KL_LIST_Y1 - 1, C_BG);
-	if (s_sel < 0) {
+	if (s_sel < 0 && !s_st.fingerprintOk) {
+		gfxTextCenter(KL_EDIT_Y + 12, "READ ONLY: UNKNOWN LAYOUT", C_AMBER, 1);
+		gfxTextCenter(KL_EDIT_Y + 26, "NOTHING IS WRITTEN TO THIS SERVO", C_GRID, 1);
+	} else if (s_sel < 0) {
 		gfxTextCenter(KL_EDIT_Y + 12, "TAP A ROW TO EDIT IT", C_GRID, 1);
 		gfxTextCenter(KL_EDIT_Y + 26, "SWIPE IT SIDEWAYS FOR COARSE", C_GRID, 1);
 	} else {
@@ -560,6 +583,7 @@ static void drawList() {
 		kst_rules_t rules = editable ? fieldRules(r.field) : 0;
 		if (rules) {
 			snprintf(top, sizeof(top), "%s %s", r.label, want);
+			if (gfxTextW(top, 1) > cw) snprintf(top, sizeof(top), "%s", want);
 			gfxText(cx + (cw - gfxTextW(top, 1)) / 2, KL_EDIT_Y + 2, top, C_LIME, 1);
 			char lines[3][48];
 			int n = kstWrap(kstRuleText(firstRule(rules)), cw / 6, lines, 3);
@@ -569,6 +593,11 @@ static void drawList() {
 		} else {
 			if (changed) snprintf(top, sizeof(top), "%s  %s ->", r.label, now);
 			else         snprintf(top, sizeof(top), "%s%s", r.label, editable ? "" : ": READ ONLY");
+			// The value below names the field's new state; the label goes first.
+			if (gfxTextW(top, 1) > cw) {
+				if (changed) snprintf(top, sizeof(top), "%s ->", now);
+				else         snprintf(top, sizeof(top), "%s", editable ? "" : "READ ONLY");
+			}
 			gfxText(cx + (cw - gfxTextW(top, 1)) / 2, KL_EDIT_Y + 2, top, C_DIM, 1);
 			int sc = gfxTextW(want, 2) <= cw ? 2 : 1;
 			gfxText(cx + (cw - gfxTextW(want, sc)) / 2, KL_EDIT_Y + 16, want,
@@ -585,7 +614,6 @@ static void drawList() {
 	bool rv = pending() != 0;
 	uiButton(BTN_REVERT, "REVERT", C_PANEL, C_TEXT, 1, rv && pressing(BTN_REVERT), rv);
 	uiButton(BTN_FILES, "FILES", C_PANEL, C_TEXT, 1, pressing(BTN_FILES));
-	if (!s_st.fingerprintOk) gfxText(UI_MARGIN, KL_FOOT_Y - 14, "READ ONLY: UNKNOWN LAYOUT", C_AMBER, 1);
 }
 
 /** @brief Step the selected row by @p steps coarse steps of @p factor raw steps. */
@@ -641,7 +669,10 @@ static bool firstWriteFiles() {
 		memset(&s_first, 0, sizeof(s_first));
 		return false;
 	}
-	s_firstDone = true;
+	// Without a card nothing is on it yet: a later write with a card
+	// mounted saves the backup and writes the record then.
+	s_firstDone = !(s_first.backup == KST_STORE_NO_CARD && s_first.record == KST_STORE_NO_CARD);
+	s_recordFound = s_firstDone && kstFilesRecordPresent();
 	return true;
 }
 
@@ -666,8 +697,13 @@ static void drawWrite() {
 	int y = UI_BODY_Y;
 	if (s_restoring) {
 		uiStripText("BACK TO THE SESSION'S BACKUP", C_DIM);
-		kst_field_set_t ch = kstChanged(&s_pageFrom, &s_pageTo);
-		snprintf(buf, sizeof(buf), "%d FIELDS DIFFER FROM THE BACKUP", bits(ch));
+		// Registers, not fields: a session in doubt may differ only in a
+		// LOCKED or unnamed register, which the restore writes too.
+		int regs = 0;
+		for (int i = 0; i < (int)KST_REG_COUNT; i++)
+			if (s_pageFrom.r[i] != s_pageTo.r[i]) regs++;
+		snprintf(buf, sizeof(buf), "%d REGISTER%s DIFFER%s FROM THE BACKUP", regs,
+		         regs == 1 ? "" : "S", regs == 1 ? "S" : "");
 		gfxText(UI_MARGIN, y, buf, C_TEXT, 1);
 		y += 20;
 	} else {
@@ -691,7 +727,10 @@ static void drawWrite() {
 			             kst_field_get(&s_pageTo, all[i].field), a, b, sizeof(a));
 			gfxText(UI_MARGIN, y, all[i].label, C_TEXT, 1);
 			snprintf(buf, sizeof(buf), "%s -> %s", a, b);
-			gfxText(GFX_W - UI_MARGIN - gfxTextW(buf, 1), y, buf, C_LIME, 1);
+			// Values that would meet the label go to the line below it.
+			int vy = UI_MARGIN + gfxTextW(all[i].label, 1) + 6 > GFX_W - UI_MARGIN - gfxTextW(buf, 1)
+			             ? y + 10 : y;
+			gfxText(GFX_W - UI_MARGIN - gfxTextW(buf, 1), vy, buf, C_LIME, 1);
 			y += 20;
 			shown++;
 		}
@@ -854,6 +893,18 @@ static void drawFiles() {
 }
 
 /** @brief The FILES strip's note: @p text, in @p col. */
+/** @brief Characters of the strip, x 8 to 232. */
+#define KST_STRIP_CHARS 37
+
+/**
+ * @brief "LINE n: " and @p what into @p out, without the line number when
+ *        the whole would not fit the strip.
+ */
+static void fitNote(char *out, size_t n, unsigned line, const char *what) {
+	snprintf(out, n, "LINE %u: %s", line, what);
+	if (strlen(out) > KST_STRIP_CHARS) snprintf(out, n, "%s", what);
+}
+
 static void fileNote(uint16_t col, const char *text) {
 	snprintf(s_fileNote, sizeof(s_fileNote), "%s", text);
 	s_fileNoteCol = col;
@@ -874,14 +925,16 @@ static void loadSelected() {
 	unsigned line = 0;
 	kst_file_err_t err = kst_file_parse(s_text, len, &file, &line);
 	if (err != KST_FILE_OK) {
-		char name[32];
+		char name[32], what[48];
 		kstFileLineName(s_text, len, line, name, sizeof(name));
-		if (err == KST_FILE_ERR_VALUE && name[0])
-			snprintf(note, sizeof(note), "LINE %u: NOT A VALUE OF %s", line, name);
-		else if (line)
-			snprintf(note, sizeof(note), "LINE %u: %s", line, kstFileErrText(err));
-		else
+		if (err == KST_FILE_ERR_VALUE && name[0]) {
+			snprintf(what, sizeof(what), "NOT A VALUE OF %s", name);
+			fitNote(note, sizeof(note), line, what);
+		} else if (line) {
+			fitNote(note, sizeof(note), line, kstFileErrText(err));
+		} else {
 			snprintf(note, sizeof(note), "%s", kstFileErrText(err));
+		}
 		fileNote(C_AMBER, note);
 		return;
 	}
@@ -894,12 +947,11 @@ static void loadSelected() {
 	}
 	if (v == KST_FILE_LOAD_HARD_LIMIT) {
 		int row = kstRowOf(load.hard_field);
-		if (row >= 0 && load.hard_line)
-			snprintf(note, sizeof(note), "LINE %u: %s BREAKS A LIMIT", load.hard_line, rowAt(row).label);
-		else if (row >= 0)
-			snprintf(note, sizeof(note), "%s BREAKS A LIMIT", rowAt(row).label);
-		else
-			snprintf(note, sizeof(note), "THE FILE BREAKS A LIMIT");
+		char what[48];
+		if (row >= 0) snprintf(what, sizeof(what), "%s BREAKS A LIMIT", rowAt(row).label);
+		else          snprintf(what, sizeof(what), "THE FILE BREAKS A LIMIT");
+		if (row >= 0 && load.hard_line) fitNote(note, sizeof(note), load.hard_line, what);
+		else                            snprintf(note, sizeof(note), "%s", what);
 		fileNote(C_AMBER, note);
 		return;
 	}
@@ -920,7 +972,17 @@ static void saveAs() {
 	if (r == KST_STORE_OK) fileNote(C_GREEN, note);
 	else if (r == KST_STORE_CARD_FULL) fileNote(C_AMBER, "THE CARD IS FULL");
 	else fileNote(C_AMBER, "THE CARD TOOK NO FILE");
+	// The new file sorts in among the others: the selection follows its name.
+	char sel[KST_STORE_NAME_MAX] = "";
+	bool selRecord = s_fileSel >= 0 && !fileOf(s_fileSel);
+	if (s_fileSel >= 0 && fileOf(s_fileSel)) snprintf(sel, sizeof(sel), "%s", fileOf(s_fileSel));
 	readFiles();
+	s_fileSel = -1;
+	int rows = s_fileCount + (s_recordFound ? 1 : 0);
+	for (int i = 0; i < rows; i++) {
+		const char *f = fileOf(i);
+		if (selRecord ? !f : (sel[0] && f && strcmp(f, sel) == 0)) { s_fileSel = i; break; }
+	}
 }
 
 static void filesTouch() {
@@ -1152,7 +1214,12 @@ bool uiKstTick(const TouchState *t) {
 				if (running() && (s_everFound || s_st.job == KstJobState::InMode ||
 				                  s_st.job == KstJobState::Busy)) {
 					// BACK during a read aborts it; the leave page follows.
-					if (s_opOpen && s_op == KstOp::ReadAll) sendOp(KstOp::Abort);
+					// The aborted read reports no end of its own, so Main offers
+					// READ AGAIN after BACK on the leave page.
+					if (s_opOpen && s_op == KstOp::ReadAll) {
+						sendOp(KstOp::Abort);
+						s_readFailed = true;
+					}
 					go(KstView::Leave);
 				} else if (!endClaim()) {
 					return false;

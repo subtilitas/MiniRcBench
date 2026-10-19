@@ -40,9 +40,13 @@ FRESULT  g_renameLate = FR_OK;
 FRESULT  g_renameHalf = FR_OK;
 unsigned g_calls[(unsigned)FakeFatCall::Count];
 
-/** @brief Count the call; the armed failure for it, or FR_OK. */
+/** @brief Run at the start of every call; null for none. */
+void (*g_onCall)() = nullptr;
+
+/** @brief Count the call, run the hook; the armed failure for it, or FR_OK. */
 FRESULT enter(FakeFatCall c) {
 	g_calls[(unsigned)c]++;
+	if (g_onCall) g_onCall();
 	Failure &f = g_fail[(unsigned)c];
 	if (!f.armed) return FR_OK;
 	if (f.skip) {
@@ -104,7 +108,10 @@ void fakeFatReset(uint32_t capacity) {
 	g_renameLate = FR_OK;
 	g_renameHalf = FR_OK;
 	memset(g_calls, 0, sizeof(g_calls));
+	g_onCall = nullptr;
 }
+
+void fakeFatOnCall(void (*fn)()) { g_onCall = fn; }
 
 void fakeFatWriteProtect(bool on) { g_protected = on; }
 void fakeFatDirLimit(uint32_t entries) { g_dirLimit = entries; }
