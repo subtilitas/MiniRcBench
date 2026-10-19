@@ -7,7 +7,7 @@ link here and in [CHANGELOG.md](CHANGELOG.md) is checked by
 integration) is written and checked by `tools/coverage.py`. Nothing else is
 checked: the architecture figures, pin numbers, suite and job lists and
 verification states are written by hand, against the code and the issue tracker
-as of 2026-10-18. Read them as a dated record, not as an inventory.
+as of 2026-10-19. Read them as a dated record, not as an inventory.
 
 MiniRcBench continues the DshotDisplay firmware, which remains a separate
 project at
@@ -300,6 +300,17 @@ Not in this history: the DshotDisplay repository's branches
       through the unplug page, then DShot back on RESTART DSHOT;
     - STOP on SET while RUNNING: level 0 within one frame, as on SERVO;
     - a real servo on each profile, and whether it reads 3.3 V pulses.
+11. **KST step 4 in review.** The KST SERVO screen is in pull request #13
+    and not in main. [HANDOVER.md](HANDOVER.md) lists its state and
+    what remains before it merges: the firmware build fails on one
+    format-truncation error in `src/ui_kst.cpp`, and the review loop has
+    not reached 0 findings.
+12. **KST card-phase cap, open for step 5.** The cap of 15 s does not cover
+    a first write on a card at the specification's full access and busy
+    times: 50.9 s to 82.2 s computed
+    ([kst-programming.md](docs/design/kst-programming.md)). The choice
+    between raising the cap, bounding the directory below 999 files and
+    fewer passes is the owner's, not yet made.
 
 ## Known limitations
 
