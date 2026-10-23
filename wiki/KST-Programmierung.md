@@ -121,7 +121,10 @@ Antwortet ein Servo, zeigt die Leiste `IN PROGRAMMING MODE` und der Inhalt
 `READING 32 REGISTERS`. Der Bildschirm liest jedes Register, bis 3 von 5
 Lesungen übereinstimmen. Beruhigt sich ein Register nicht, zeigt der Inhalt
 `READ FAILED: NO 3 EQUAL READS` und listet die Register, zum Beispiel
-`REGISTERS 03 0A`. `READ AGAIN` wiederholt das Lesen.
+`REGISTERS 03 0A`. `READ AGAIN` wiederholt das Lesen. Ein mit `BACK`
+abgebrochenes Lesen zeigt `ABORTED. READ THE SERVO AGAIN.` Ein Lesen, das
+der Bildschirm nicht starten konnte, weil er hing, zeigt
+`THE SCREEN STALLED. READ THE SERVO AGAIN.`
 
 <img src="img/kst-readfail.png" width="240" alt="READ FAILED: NO 3 EQUAL READS, Register 05">
 
@@ -223,6 +226,8 @@ unteren Rand sagt, wohin die Sicherung geht:
 | `BACKUP: KST/KST001.TXT` | Die Sicherung liegt auf der Karte |
 | `NO CARD: BACKUP IN MEMORY` | Keine Karte ist eingebunden |
 | `CARD IN USE BY USB: BACKUP IN MEMORY` | Ein USB-Host hält die Karte |
+| `BACKUP FIRST: TO THE CARD` | Eine Karte ist eingebunden und hat keinen freien KSTnnn-Namen genannt |
+| `NO BACKUP ON THE CARD: IN MEMORY` | Die Karte hat die Aufzeichnung angenommen und die Sicherung abgewiesen |
 
 **Ein zweites Halten von 1 s schreibt.** Bevor der erste Frame zum Servo geht,
 kommt das beim Eintritt gelesene Abbild als `KST/KSTnnn.TXT` auf die Karte,
@@ -380,6 +385,9 @@ zeigt die Abziehseite unmittelbar.
   ist gültig. Prüfe Signalkabel, Masse und Versorgung. Der Bildschirm nennt
   nur das Wort des Fehlers, nicht seine Ursache.
 - **`READ FAILED: NO 3 EQUAL READS`.** Tippe auf `READ AGAIN`.
+- **`THE SCREEN STALLED. NOTHING WAS WRITTEN.`** Der Bildschirm hing länger
+  als 250 ms, bevor der Schreibvorgang hinausging, und kein Frame erreichte
+  das Servo. Schreibe erneut.
 - **Der Bildschirm kehrt zur Suche zurück.** Das Servo antwortet nicht mehr.
   Schalte es erneut ein.
 - **`IN DOUBT`.** Stelle über FILES mit `HOLD TO RESTORE` wieder her.

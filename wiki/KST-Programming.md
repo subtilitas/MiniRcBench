@@ -114,7 +114,9 @@ After a servo answers, the strip reads `IN PROGRAMMING MODE` and the body
 reads `READING 32 REGISTERS`. The screen reads each register until 3 of 5
 reads agree. If a register does not settle, the body reads
 `READ FAILED: NO 3 EQUAL READS` and lists the registers, for example
-`REGISTERS 03 0A`. `READ AGAIN` repeats the read.
+`REGISTERS 03 0A`. `READ AGAIN` repeats the read. A read stopped by `BACK`
+reads `ABORTED. READ THE SERVO AGAIN.` A read the screen could not start
+because it stalled reads `THE SCREEN STALLED. READ THE SERVO AGAIN.`
 
 <img src="img/kst-readfail.png" width="240" alt="READ FAILED: NO 3 EQUAL READS, register 05">
 
@@ -210,6 +212,8 @@ backup goes:
 | `BACKUP: KST/KST001.TXT` | The backup is on the card |
 | `NO CARD: BACKUP IN MEMORY` | No card is mounted |
 | `CARD IN USE BY USB: BACKUP IN MEMORY` | A USB host holds the card |
+| `BACKUP FIRST: TO THE CARD` | A card is mounted and gave no free KSTnnn name |
+| `NO BACKUP ON THE CARD: IN MEMORY` | The card took the record and refused the backup |
 
 **A second hold of 1 s writes.** Before the first frame goes to the servo,
 the image read at entry goes to the card as `KST/KSTnnn.TXT`, and the servo
@@ -359,6 +363,9 @@ unplug page directly.
   Check the signal wire, the ground and the supply. The screen names only
   the word of the fault, not its cause.
 - **`READ FAILED: NO 3 EQUAL READS`.** Tap `READ AGAIN`.
+- **`THE SCREEN STALLED. NOTHING WAS WRITTEN.`** The screen stopped for more
+  than 250 ms before the write went out, and no frame reached the servo.
+  Write again.
 - **The screen returns to the search.** The servo stopped answering. Power it
   up again.
 - **`IN DOUBT`.** Restore from FILES with `HOLD TO RESTORE`.

@@ -14,6 +14,7 @@
 #include "fakes.h"
 #include "fake_fatfs.h"
 #include "fake_kst_line.h"
+#include "gfx.h"
 #include "core1_job.h"
 #include "esc_task.h"
 #include "kst_job.h"
@@ -86,6 +87,22 @@ static void cardCallRunsCore1() {
 		core1JobPoll();
 	}
 	s_framesInCard = fakeKstSim()->n_frames;
+}
+
+/**
+ * @brief Whether the 8 px line at @p y reads @p text from x 8 in @p col: the
+ *        line is redrawn with it and compared, and the frame restored.
+ */
+static bool lineIs(int y, const char *text, uint16_t col) {
+	uint16_t *fb = gfxBuffer();
+	static uint16_t keep[8][GFX_W];
+	memcpy(keep, fb + y * GFX_W, sizeof(keep));
+	uint32_t shown = fakeRegionHash(0, y, GFX_W, 8);
+	gfxRect(0, y, GFX_W, 8, C_BG);
+	gfxText(8, y, text, col, 1);
+	bool same = fakeRegionHash(0, y, GFX_W, 8) == shown;
+	memcpy(fb + y * GFX_W, keep, sizeof(keep));
+	return same;
 }
 
 static void card() {
@@ -878,6 +895,62 @@ static void testSlowCard() {
 	writeDeadBand();
 	checkTrue("the backup refused, the record taken: the write verified",
 	          job().result == KST_SES_OK && !fakeFatExists("KST/KST001.TXT"));
+	kstFrames(1);
+	checkTrue("the page names no backup file", lineIs(236, "NO BACKUP ON THE CARD: IN MEMORY", C_DIM));
+	tapId(UI_FIX(KstCtl::WriteOk));
+	leaveAll();
+}
+
+static void testRefusedOps() {
+	section("KST screen: a read and a write the job refuses, and a stopped read");
+	freshKst();
+	// A first read that fails, so READ AGAIN is offered.
+	sim_add_fault(fakeKstSim(), SIM_READ, 0x05, 0, 1000, SIM_F_NO_REPLY, 0);
+	openKst();
+	checkTrue("a failed read: READ AGAIN", untilCtl(UI_FIX(KstCtl::ReadAgain), 400));
+	fakeKstSim()->n_faults = 0;
+	// READ AGAIN, then core0 stalls 300 ms before core1 takes the read.
+	tapId(UI_FIX(KstCtl::ReadAgain));
+	fakeAdvance(300);
+	core1JobPoll();
+	checkTrue("the job refused the read", job().refused == KstRefusal::NoUi);
+	kstFrames(2);
+	checkTrue("Main: the screen stalled, READ AGAIN",
+	          uiKstView() == KstView::Main && ctlEnabled(UI_FIX(KstCtl::ReadAgain)) &&
+	          lineIs(80, "THE SCREEN STALLED. READ THE SERVO", C_AMBER));
+
+	// READ AGAIN, BACK during it, BACK on the leave page: the read stopped.
+	tapId(UI_FIX(KstCtl::ReadAgain));
+	for (int i = 0; i < 40 && job().job != KstJobState::Busy; i++) kstFrame();
+	checkTrue("the read runs", job().job == KstJobState::Busy);
+	tapId(UI_FIX(UI_BACK));
+	kstFrames(20);
+	tapId(UI_FIX(UI_BACK));
+	kstFrames(2);
+	checkTrue("BACK twice: the read aborted, not the stall of the read before",
+	          uiKstView() == KstView::Main &&
+	          lineIs(80, "ABORTED. READ THE SERVO AGAIN.", C_AMBER));
+	tapId(UI_FIX(KstCtl::ReadAgain));
+	checkTrue("READ AGAIN reads it", untilView(KstView::List, 400));
+
+	// The write's hold fires, then core0 stalls 300 ms before core1 takes it.
+	selectField(KST_F_DEAD_BAND);
+	tapId(UI_FIX(KstCtl::EditPlus));
+	holdUntilGone(UI_FIX(KstCtl::Write));
+	unsigned writes = fakeKstSim()->n_writes;
+	int x, y;
+	ctlCentre(UI_FIX(KstCtl::WriteHold), &x, &y);
+	fakePress(x, y);
+	kstFrame();
+	for (int i = 0; i < 80 && ctlPresent(UI_FIX(KstCtl::WriteHold)); i++) { fakeHold(x, y); kstFrame(); }
+	fakeAdvance(300);
+	core1JobPoll();
+	fakeRelease();
+	checkTrue("the job refused the write", job().refused == KstRefusal::NoUi);
+	checkTrue("its result: the screen stalled", untilCtl(UI_FIX(KstCtl::WriteOk), 40) &&
+	          lineIs(196, "THE SCREEN STALLED. NOTHING WAS", C_AMBER));
+	checkTrue("no write frame, the record kept", fakeKstSim()->n_writes == writes &&
+	                                            fakeFatExists("KST/KST.TXT"));
 	tapId(UI_FIX(KstCtl::WriteOk));
 	leaveAll();
 }
@@ -897,6 +970,7 @@ void runKstUiTests() {
 	testAbortQueueAndLapse();
 	testSaveKeepsSelection();
 	testSlowCard();
+	testRefusedOps();
 	fakeKstLineReset();
 	noCard();
 	fakeFatReset();

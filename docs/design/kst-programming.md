@@ -799,12 +799,12 @@ screen says so.
 | Checking | `KST SERVO` | `CHECKING GP29 FOR AN ESC` | BACK |
 | An ESC answers | | the message from [pin-claim.md](pin-claim.md#when-the-pin-is-unavailable) | BACK |
 | Releasing | `RELEASING GP29` | | BACK |
-| Searching, no switch | `GP29  TRY 12  1.4 S` | `POWER UP` and `THE SERVO NOW` on two lines at scale 2, then `PLUG IT IN OR SWITCH ITS SUPPLY ON. IT ANSWERS ONLY RIGHT AFTER POWER-ON.` and `A POWERED SERVO ON THIS PIN GETS NO PULSES AND MAY GO TO ITS FAILSAFE POSITION.`, a spinner | STOP SEARCH, BACK |
+| Searching, no switch | `GP29  TRY 12  1.4 S` | `POWER UP` and `THE SERVO NOW` on two lines at scale 2, then `PLUG IT IN OR SWITCH ITS SUPPLY ON. IT ANSWERS ONLY RIGHT AFTER POWER-ON.` and `A POWERED SERVO ON THIS PIN GETS NO PULSES AND MAY GO TO ITS FAILSAFE.`, a spinner | STOP SEARCH, BACK |
 | Edges, no valid reply | | adds, in amber, `REPLY NOT VALID: LATE` (the `kst_rx_t` code as a word) | as above |
 | Searching, supply switched | see [screens with the switch](#screens-with-the-switch) | | |
 | Timed out, no switch | `NO SERVO IN 30 S` | `CHECK SIGNAL AND GROUND, THEN POWER THE SERVO UP AGAIN.` | RETRY, BACK |
 | Found | `IN PROGRAMMING MODE` | `READING 32 REGISTERS` | BACK |
-| Read failed | | `READ FAILED: NO 3 EQUAL READS` and the registers in `bad_regs` | READ AGAIN, BACK |
+| Read failed | | `READ FAILED: NO 3 EQUAL READS` and the registers in `bad_regs`; `ABORTED. READ THE SERVO AGAIN.` after BACK; `THE SCREEN STALLED. READ THE SERVO AGAIN.` when the job refused the read; `THE READ WAS STOPPED. READ THE SERVO AGAIN.` for a read that ended before its abort was taken | READ AGAIN, BACK |
 | Read | `V6  GP29  BACKUP KST004` | the field list | see below |
 
 The layout of the searching state without a switch:

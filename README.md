@@ -360,7 +360,8 @@ tester. Every tool's **BACK** returns to MENU.
   backstop.
 - **PINS BUSY**: AM32 CONFIG, SERVO TESTER and KST SERVO claim the signal
   pins. While the claim is not free, for example after RESTART DSHOT until
-  the DShot pump runs again, the row reads `PINS BUSY` in amber and a tap opens nothing.
+  the DShot pump runs again, the row reads `PINS BUSY` in amber and a tap
+  opens nothing.
 - **Rows**: six rows fit the screen without scrolling. A seventh makes MENU
   scroll by 36 px, with a 3 px scroll bar at x 235.
 
@@ -1192,7 +1193,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.9%**: 5,484 of 5,599 lines in 42 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.0%**: 5,486 of 5,599 lines in 42 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

@@ -175,6 +175,8 @@ static void sendOp(KstOp op, const kst_image_t *target = nullptr, bool confirm =
 	c.confirmUnchecked = confirm;
 	s_seq = kstJobCommand(&c);
 	s_op = op;
+	// A new read, or an abort of one, ends what the last refusal said.
+	if (op == KstOp::ReadAll || op == KstOp::Abort) s_readRefused = KstRefusal::None;
 	s_opOpen = op == KstOp::ReadAll || op == KstOp::Edit || op == KstOp::Restore ||
 	           op == KstOp::Verify;
 }
@@ -723,8 +725,6 @@ static bool firstWriteFiles() {
 	// Without a card nothing is on it yet: a later write with a card
 	// mounted saves the backup and writes the record then.
 	s_firstDone = !(s_first.backup == KST_STORE_NO_CARD && s_first.record == KST_STORE_NO_CARD);
-	// The card took the record and not the backup: no backup file to name.
-	if (s_firstDone && s_first.backup != KST_STORE_OK) s_preset[0] = '\0';
 	s_recordFound = s_firstDone && kstFilesRecordPresent();
 	return true;
 }

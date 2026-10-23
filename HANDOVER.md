@@ -20,7 +20,7 @@ merges: delete it there, together with the open item in
 
 ## PR #13: what remains, in order
 
-1. **Review loop.** Review round 3, of the round 2 fixes, then fix and
+1. **Review loop.** Review round 4, of the round 3 fixes, then fix and
    review again until a review returns 0 findings.
 2. **Merge rules.** CI green and the bot reviews read (Copilot posted only
    its quota notice), then a squash merge. Strip the session-link footer
@@ -42,13 +42,16 @@ Done on the branch since f549a65:
   loss rule.
 - The doc items of the first review and the screen texts of f549a65 in
   the wiki pages, the README and the design note.
+- Review round 3 of 3c48825: 3 findings and 2 nits, fixed: a stale read
+  refusal, tests for the refused read and write and the backup line, the
+  wiki's backup-line table, a README line, a design-doc quote.
 - Review round 2 of 4be1e6f: 7 findings and 4 nits, fixed. The heartbeat
   is stamped after the first write's card calls and after the record
   lookup on finding a servo; a refused read is no read; BACK from a
   search after a loss stops it; the write page names no backup the card
-  refused; the stepper's answer is cached per field and target. The check
-  that a refused read is no read cannot be reached by a host test once
-  the heartbeat is stamped.
+  refused; the stepper's answer is cached per field and target. A host
+  test reaches a refused read and a refused write by holding core1 off
+  for 300 ms after the screen sends them.
 
 ## Decision the owner has to make before step 5
 
