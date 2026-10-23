@@ -115,9 +115,10 @@ reads `READING 32 REGISTERS`. The screen reads each register until 3 of 5
 reads agree. If a register does not settle, the body reads
 `READ FAILED: NO 3 EQUAL READS` and lists the registers, for example
 `REGISTERS 03 0A`. The line names at most 9 registers; a second line counts
-the rest, for example `AND 3 MORE`. `READ AGAIN` repeats the read. A read stopped by `BACK`
-reads `ABORTED. READ THE SERVO AGAIN.` A read the screen could not start
-because it stalled reads `THE SCREEN STALLED. READ THE SERVO AGAIN.`
+the rest, for example `AND 3 MORE`. `READ AGAIN` repeats the read. A read
+stopped by `BACK` reads `ABORTED. READ THE SERVO AGAIN.` A read the screen
+could not start because it stalled reads
+`THE SCREEN STALLED. READ THE SERVO AGAIN.`
 
 <img src="img/kst-readfail.png" width="240" alt="READ FAILED: NO 3 EQUAL READS, register 05">
 

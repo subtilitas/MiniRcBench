@@ -122,9 +122,9 @@ Antwortet ein Servo, zeigt die Leiste `IN PROGRAMMING MODE` und der Inhalt
 Lesungen übereinstimmen. Beruhigt sich ein Register nicht, zeigt der Inhalt
 `READ FAILED: NO 3 EQUAL READS` und listet die Register, zum Beispiel
 `REGISTERS 03 0A`. Die Zeile nennt höchstens 9 Register; eine zweite Zeile
-zählt den Rest, zum Beispiel `AND 3 MORE`. `READ AGAIN` wiederholt das Lesen. Ein mit `BACK`
-abgebrochenes Lesen zeigt `ABORTED. READ THE SERVO AGAIN.` Ein Lesen, das
-der Bildschirm nicht starten konnte, weil er hing, zeigt
+zählt den Rest, zum Beispiel `AND 3 MORE`. `READ AGAIN` wiederholt das Lesen.
+Ein mit `BACK` abgebrochenes Lesen zeigt `ABORTED. READ THE SERVO AGAIN.`
+Ein Lesen, das der Bildschirm nicht starten konnte, weil er hing, zeigt
 `THE SCREEN STALLED. READ THE SERVO AGAIN.`
 
 <img src="img/kst-readfail.png" width="240" alt="READ FAILED: NO 3 EQUAL READS, Register 05">
