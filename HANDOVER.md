@@ -20,7 +20,7 @@ merges: delete it there, together with the open item in
 
 ## PR #13: what remains, in order
 
-1. **Review loop.** Review round 6, of the round 5 fixes, then fix and
+1. **Review loop.** Review round 7, of the round 6 fixes, then fix and
    review again until a review returns 0 findings.
 2. **Merge rules.** CI green and the bot reviews read (Copilot posted only
    its quota notice), then a squash merge. Strip the session-link footer
@@ -42,6 +42,12 @@ Done on the branch since f549a65:
   loss rule.
 - The doc items of the first review and the screen texts of f549a65 in
   the wiki pages, the README and the design note.
+- Review round 6 of 39eacae: 1 finding and 1 nit, fixed. The LEAVE
+  removal of round 5 removed records the session never wrote: a reset
+  `s_first` read `KST_STORE_OK`, which is 0. forgetFirst() resets it to
+  `KST_STORE_NO_CARD`, and a card that goes away drops the session's
+  claim on its record. Tests for an earlier record, a write cut off by a
+  loss, a swapped card, and a card that took neither file.
 - Review round 5 of 30109fa: 1 finding and 4 nits, fixed. The docs say
   only the session's first write with a card saves the backup and writes
   the record; LEAVE from a servo in programming mode and not in doubt

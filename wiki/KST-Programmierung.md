@@ -129,11 +129,12 @@ Ein Lesen, das der Bildschirm nicht starten konnte, weil er hing, zeigt
 
 <img src="img/kst-readfail.png" width="240" alt="READ FAILED: NO 3 EQUAL READS, Register 05">
 
-Der Vermerk `KST/KST.TXT` bleibt auf der Karte, wenn das erste Schreiben
-einer Sitzung nicht geprüft endet und die Sitzung nicht mit LEAVE von einem
-Servo im Programmiermodus endet, das nicht im Zweifel ist, zum Beispiel nach
-einem Stromausfall während des Schreibens. Der Bildschirm zeigt dann in
-Bernstein
+Der Vermerk `KST/KST.TXT` bleibt auf der Karte, wenn kein Schreiben der
+Sitzung geprüft endet und die Sitzung nicht mit LEAVE von einem Servo im
+Programmiermodus endet, das nicht im Zweifel ist, zum Beispiel nach einem
+Stromausfall während des Schreibens. Eine Sitzung entfernt nur den Vermerk,
+den sie geschrieben hat, und nur, solange ihre Karte eingebunden bleibt.
+Liegt ein Vermerk auf der Karte, zeigt der Bildschirm in Bernstein
 `A WRITE WAS INTERRUPTED. KST/KST.TXT` und `HOLDS THE SERVO AS IT WAS.`
 Siehe [FILES](#files).
 

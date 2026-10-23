@@ -248,6 +248,13 @@ static void forgetServo() {
 	s_confirm = false;
 }
 
+/** @brief No first write yet: no backup or record of the session's own. */
+static void forgetFirst() {
+	memset(&s_first, 0, sizeof(s_first));
+	// KST_STORE_OK is 0: a record at OK counts as the session's to remove.
+	s_first.backup = s_first.record = s_first.kept = KST_STORE_NO_CARD;
+}
+
 /** @brief A new session: the claim's first frame, or after BACK on the unplug page. */
 static void newSession() {
 	s_opOpen = false;
@@ -255,7 +262,7 @@ static void newSession() {
 	s_needRead = false;
 	s_everFound = false;
 	s_firstDone = false;
-	memset(&s_first, 0, sizeof(s_first));
+	forgetFirst();
 	s_leaveQueued = false;
 	s_cardNote = nullptr;
 	s_prevJob = KstJobState::Closed;
@@ -333,6 +340,9 @@ static void opEnd() {
 /** @brief The job's state, read each frame, moves the views. */
 static void follow() {
 	if (!running()) return;
+	// A card that goes away takes the session's record with it: the card
+	// mounted next may hold a record of another session.
+	if (s_first.record == KST_STORE_OK && !kstFilesMounted()) s_first.record = KST_STORE_NO_CARD;
 	if (s_st.job == KstJobState::Opening && !s_searchSent) {
 		sendOp(KstOp::Search);
 		s_searchSent = true;
@@ -344,7 +354,7 @@ static void follow() {
 		// backup, so its first write saves it and writes its own record. A
 		// record an earlier servo left stays, and that first write keeps it.
 		s_firstDone = false;
-		memset(&s_first, 0, sizeof(s_first));
+		forgetFirst();
 		s_recordFound = kstFilesRecordPresent();
 		// The lookup is a card call on core0: the heartbeat is stamped after
 		// it, so the read this frame sends finds it fresh.
@@ -722,7 +732,7 @@ static bool firstWriteFiles() {
 	if (s_firstDone) return true;
 	kstFilesFirstWrite(&s_st.backup, &s_st.image, &s_first);
 	if (!kstFilesWriteAllowed(&s_first)) {
-		memset(&s_first, 0, sizeof(s_first));
+		forgetFirst();
 		return false;
 	}
 	// Without a card nothing is on it yet: a later write with a card

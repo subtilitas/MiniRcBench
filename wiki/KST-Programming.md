@@ -122,10 +122,11 @@ could not start because it stalled reads
 
 <img src="img/kst-readfail.png" width="240" alt="READ FAILED: NO 3 EQUAL READS, register 05">
 
-The record `KST/KST.TXT` stays on the card when a session's first write does
-not verify and the session does not end with LEAVE from a servo in
-programming mode that is not in doubt, for example after a power loss during
-the write. The screen then adds
+The record `KST/KST.TXT` stays on the card when no write of the session
+verifies and the session does not end with LEAVE from a servo in programming
+mode that is not in doubt, for example after a power loss during the write.
+A session removes only the record it wrote, and only while its card stays
+mounted. With a record on the card, the screen adds
 `A WRITE WAS INTERRUPTED. KST/KST.TXT` and `HOLDS THE SERVO AS IT WAS.` in
 amber. See [FILES](#files).
 

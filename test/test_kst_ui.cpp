@@ -987,6 +987,71 @@ static void testRefusedOps() {
 	          !fakeFatExists("KST/KST.TXT") && fakeFatExists("KST/KST001.TXT"));
 }
 
+static void testRecordKeptAtLeave() {
+	section("KST screen: LEAVE removes only the session's own record");
+	// A record an earlier session left.
+	freshKst();
+	kst_image_t rec = sim_bench_image();
+	static char text[KST_FILE_MAX];
+	size_t n = kst_file_format(&rec, text, sizeof(text));
+	fakeFatMkdir("KST");
+	fakeFatPut("KST/KST.TXT", text, n);
+	checkTrue("an earlier record: to the field list", toList());
+	leaveAll();
+	checkTrue("LEAVE without a write keeps it", fakeFatExists("KST/KST.TXT"));
+
+	// The session's first write cut off by a loss, the servo found again.
+	freshKst();
+	checkTrue("to the field list", toList());
+	sim_t *sim = fakeKstSim();
+	selectField(KST_F_DEAD_BAND);
+	tapId(UI_FIX(KstCtl::EditPlus));
+	holdUntilGone(UI_FIX(KstCtl::Write));
+	holdUntilGone(UI_FIX(KstCtl::WriteHold));
+	sim->powered = false;
+	sim->in_mode = false;
+	checkTrue("the write cut off: the search", untilView(KstView::Main, 400) &&
+	                                           fakeFatExists("KST/KST.TXT"));
+	sim->powered = true;
+	checkTrue("found and read again", untilView(KstView::List, 400) && !job().locked);
+	leaveAll();
+	checkTrue("LEAVE keeps the cut-off write's record", fakeFatExists("KST/KST.TXT"));
+
+	// A verified write, then the card swapped for one with a record.
+	freshKst();
+	checkTrue("to the field list", toList());
+	writeDeadBand();
+	checkTrue("verified, its record removed", job().result == KST_SES_OK &&
+	                                         !fakeFatExists("KST/KST.TXT"));
+	tapId(UI_FIX(KstCtl::WriteOk));
+	noCard();
+	kstFrames(2);
+	card();
+	fakeFatMkdir("KST");
+	fakeFatPut("KST/KST.TXT", text, n);
+	kstFrames(2);
+	leaveAll();
+	checkTrue("LEAVE keeps the other card's record", fakeFatExists("KST/KST.TXT"));
+
+	// An earlier record that does not move, and a backup the card refuses:
+	// the card took neither file.
+	freshKst();
+	fakeFatMkdir("KST");
+	fakeFatPut("KST/KST.TXT", text, n);
+	checkTrue("an earlier record: to the field list", toList());
+	fakeFatFail(FakeFatCall::Rename, FR_DISK_ERR);
+	fakeFatFail(FakeFatCall::Write, FR_DISK_ERR);
+	selectField(KST_F_DEAD_BAND);
+	tapId(UI_FIX(KstCtl::EditPlus));
+	holdUntilGone(UI_FIX(KstCtl::Write));
+	holdUntilGone(UI_FIX(KstCtl::WriteHold));
+	checkTrue("the card took no file", ctlPresent(UI_FIX(KstCtl::WriteOk)) &&
+	                                   !fakeFatExists("KST/KST001.TXT"));
+	tapId(UI_FIX(KstCtl::WriteOk));
+	leaveAll();
+	checkTrue("LEAVE keeps the record that stayed", fakeFatExists("KST/KST.TXT"));
+}
+
 void runKstUiTests() {
 	testOpenAndSearch();
 	testEditAndWrite();
@@ -1003,6 +1068,7 @@ void runKstUiTests() {
 	testSaveKeepsSelection();
 	testSlowCard();
 	testRefusedOps();
+	testRecordKeptAtLeave();
 	fakeKstLineReset();
 	noCard();
 	fakeFatReset();
