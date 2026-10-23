@@ -122,8 +122,10 @@ could not start because it stalled reads
 
 <img src="img/kst-readfail.png" width="240" alt="READ FAILED: NO 3 EQUAL READS, register 05">
 
-If an earlier write did not end, the card holds the record `KST/KST.TXT`. The
-screen then adds
+The record `KST/KST.TXT` stays on the card when a session's first write does
+not verify and the session does not end with LEAVE from a servo in
+programming mode that is not in doubt, for example after a power loss during
+the write. The screen then adds
 `A WRITE WAS INTERRUPTED. KST/KST.TXT` and `HOLDS THE SERVO AS IT WAS.` in
 amber. See [FILES](#files).
 
@@ -217,11 +219,13 @@ backup goes:
 | `BACKUP FIRST: TO THE CARD` | A card is mounted and gave no free KSTnnn name |
 | `NO BACKUP ON THE CARD: IN MEMORY` | The card took the record and refused the backup |
 
-**A second hold of 1 s writes.** Before the first frame goes to the servo,
-the image read at entry goes to the card as `KST/KSTnnn.TXT`, and the servo
-as it stands goes to the card as the record `KST/KST.TXT`. The write then runs
-as single-register writes with a read-back, followed by a full verify. A
-verified write removes the record.
+**A second hold of 1 s writes.** Before the first frame of the session's
+first write with a card mounted, the image read at entry goes to the card as
+`KST/KSTnnn.TXT`, and the servo as it stands goes to the card as the record
+`KST/KST.TXT`. Later writes of the session save no backup and write no
+record. The write then runs as single-register writes with a read-back,
+followed by a full verify. A verified write removes the record, and so does
+LEAVE from a servo in programming mode that is not in doubt.
 
 While the write runs, the page reads `WRITING: DO NOT UNPLUG.` and, under it,
 `PLANNING THE ORDER OF THE WRITES` or `FRAMES SENT: 94`. `BACK` during the
@@ -278,11 +282,11 @@ until a restore has run. Restore from [FILES](#files).
 
 - The strip counts the files: `CARD  12 FILES`. The page lists the first 64
   files, then the strip reads `CARD  FIRST 64 OF 100 FILES`, for example.
-- The files sort by name. The KSTnnn files stand together, the highest
-  number first, so the latest of them leads the run. When the record
-  `KST/KST.TXT` is on the card, it is the first row of all, named `RECORD`
-  with `(KST.TXT)` at the right.
-  The backup of this session carries `(BACKUP)`.
+- The files sort by name. The KSTnnn files stand together, the highest number
+  first, so the latest of them leads the run until KST999 is taken. When the
+  record `KST/KST.TXT` is on the card, it is the first row of all, named
+  `RECORD` with `(KST.TXT)` at the right. The backup of this session carries
+  `(BACKUP)`.
 - Tap a row to select it.
 
 | Button | What it does |

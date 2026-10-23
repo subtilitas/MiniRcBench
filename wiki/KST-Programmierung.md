@@ -129,8 +129,11 @@ Ein Lesen, das der Bildschirm nicht starten konnte, weil er hing, zeigt
 
 <img src="img/kst-readfail.png" width="240" alt="READ FAILED: NO 3 EQUAL READS, Register 05">
 
-Ist ein früherer Schreibvorgang nicht zu Ende gelaufen, liegt auf der Karte
-der Vermerk `KST/KST.TXT`. Der Bildschirm zeigt dann in Bernstein
+Der Vermerk `KST/KST.TXT` bleibt auf der Karte, wenn das erste Schreiben
+einer Sitzung nicht geprüft endet und die Sitzung nicht mit LEAVE von einem
+Servo im Programmiermodus endet, das nicht im Zweifel ist, zum Beispiel nach
+einem Stromausfall während des Schreibens. Der Bildschirm zeigt dann in
+Bernstein
 `A WRITE WAS INTERRUPTED. KST/KST.TXT` und `HOLDS THE SERVO AS IT WAS.`
 Siehe [FILES](#files).
 
@@ -230,11 +233,14 @@ unteren Rand sagt, wohin die Sicherung geht:
 | `BACKUP FIRST: TO THE CARD` | Eine Karte ist eingebunden und hat keinen freien KSTnnn-Namen genannt |
 | `NO BACKUP ON THE CARD: IN MEMORY` | Die Karte hat die Aufzeichnung angenommen und die Sicherung abgewiesen |
 
-**Ein zweites Halten von 1 s schreibt.** Bevor der erste Frame zum Servo geht,
-kommt das beim Eintritt gelesene Abbild als `KST/KSTnnn.TXT` auf die Karte,
-und das Servo, wie es gerade ist, als Vermerk `KST/KST.TXT`. Das Schreiben
-läuft dann als Einzelregister-Schreibvorgänge mit Rücklesen, gefolgt von
-einer vollständigen Prüfung. Ein geprüftes Schreiben entfernt den Vermerk.
+**Ein zweites Halten von 1 s schreibt.** Bevor der erste Frame des ersten
+Schreibens der Sitzung mit eingebundener Karte zum Servo geht, kommt das beim
+Eintritt gelesene Abbild als `KST/KSTnnn.TXT` auf die Karte, und das Servo,
+wie es gerade ist, als Vermerk `KST/KST.TXT`. Spätere Schreibvorgänge der
+Sitzung sichern nichts und schreiben keinen Vermerk. Das Schreiben läuft dann
+als Einzelregister-Schreibvorgänge mit Rücklesen, gefolgt von einer
+vollständigen Prüfung. Ein geprüftes Schreiben entfernt den Vermerk, ebenso
+LEAVE von einem Servo im Programmiermodus, das nicht im Zweifel ist.
 
 Während des Schreibens zeigt die Seite `WRITING: DO NOT UNPLUG.` und darunter
 `PLANNING THE ORDER OF THE WRITES` oder `FRAMES SENT: 94`. `BACK` während des
@@ -296,7 +302,8 @@ nimmt kein Schreiben an, bis eine Wiederherstellung gelaufen ist. Stelle
   64 Dateien, danach zeigt die Leiste zum Beispiel
   `CARD  FIRST 64 OF 100 FILES`.
 - Die Dateien stehen nach Namen. Die KSTnnn-Dateien stehen beisammen, die
-  höchste Nummer vorn, also die jüngste von ihnen zuerst. Liegt der Vermerk
+  höchste Nummer vorn, also die jüngste von ihnen zuerst, bis KST999
+  vergeben ist. Liegt der Vermerk
   `KST/KST.TXT` auf der Karte, ist er die allererste Zeile, benannt `RECORD`
   mit `(KST.TXT)` rechts.
   Die Sicherung dieser Sitzung trägt `(BACKUP)`.

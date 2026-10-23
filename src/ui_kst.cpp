@@ -137,6 +137,7 @@ static KstRefusal   s_readRefused = KstRefusal::None;   /**< The job refused the
 static const char  *s_cardNote = nullptr; /**< The card refused the first write's files. */
 static bool         s_leaveQueued = false;
 static char         s_preset[KST_STORE_PRESET_MAX]; /**< The next KSTnnn, for the backup line. */
+static bool         s_presetCard = false; /**< A card was mounted at the write page's last frame. */
 
 static UiList       s_fileList;
 static kst_store_entry_t s_files[KST_UI_FILES_MAX];
@@ -482,17 +483,20 @@ static void mainBody(MainText *m) {
 			if (s_readFailed) {
 				// A refused read, or one that ended before its abort was
 				// taken, leaves a result that is not the read's.
-				if (s_readRefused == KstRefusal::NoUi)
+				// A refused read leaves an earlier read's registers: they are
+				// listed only under the read's own result.
+				if (s_readRefused == KstRefusal::NoUi) {
 					addWrapped(m, "THE SCREEN STALLED. READ THE SERVO AGAIN.", C_AMBER);
-				else if (s_readRefused != KstRefusal::None || s_st.result == KST_SES_OK)
+				} else if (s_readRefused != KstRefusal::None || s_st.result == KST_SES_OK) {
 					addWrapped(m, "THE READ WAS STOPPED. READ THE SERVO AGAIN.", C_AMBER);
-				else
+				} else {
 					addWrapped(m, kstResultText((kst_ses_t)s_st.result, s_st.planResult).text,
 					           C_AMBER);
-				static char more[48];
-				kstBadRegsText(s_st.badRegs, b, more, sizeof(b));
-				if (b[0]) addLine(m, b, C_AMBER);
-				if (more[0]) addLine(m, more, C_AMBER);
+					static char more[48];
+					kstBadRegsText(s_st.badRegs, b, more, sizeof(b));
+					if (b[0]) addLine(m, b, C_AMBER);
+					if (more[0]) addLine(m, more, C_AMBER);
+				}
 				m->button = "READ AGAIN"; m->ctl = KstCtl::ReadAgain; m->enabled = idleMode();
 			} else {
 				addLine(m, "READING 32 REGISTERS", C_TEXT);
@@ -680,7 +684,8 @@ static void listTouch() {
 		s_restoring = false;
 		s_cardNote = nullptr;
 		s_preset[0] = '\0';
-		if (!s_firstDone && kstFilesMounted())
+		s_presetCard = kstFilesMounted();
+		if (!s_firstDone && s_presetCard)
 			kst_store_preset(kstFilesIo(), s_preset, sizeof(s_preset));
 		s_pageFrom = s_st.image;
 		s_pageTo = s_target;
@@ -849,6 +854,14 @@ static void writeTouch() {
 	if (!(s_result || s_cardNote)) s_okPress = false;
 	else if (s_t && s_t->pressed) s_okPress = true;
 	if (s_writing) return;
+	// A card mounted while the page is up: the backup line names the
+	// KSTnnn it saves. The lookup is a card call on core0.
+	bool card = kstFilesMounted();
+	if (card && !s_presetCard && !s_firstDone) {
+		kst_store_preset(kstFilesIo(), s_preset, sizeof(s_preset));
+		escHeartbeat();
+	}
+	s_presetCard = card;
 	if (s_result || s_cardNote) {
 		if (s_okPress && tapped(BTN_WIDE)) {
 			s_result = false;
@@ -1049,7 +1062,8 @@ static void filesTouch() {
 		s_confirm = false;
 		s_cardNote = nullptr;
 		s_preset[0] = '\0';
-		if (!s_firstDone && kstFilesMounted())
+		s_presetCard = kstFilesMounted();
+		if (!s_firstDone && s_presetCard)
 			kst_store_preset(kstFilesIo(), s_preset, sizeof(s_preset));
 		s_pageFrom = s_st.image;
 		s_pageTo = s_st.backup;
@@ -1321,7 +1335,13 @@ bool uiKstTick(const TouchState *t) {
 		case KstView::Write: writeTouch(); break;
 		case KstView::Files: filesTouch(); break;
 		case KstView::Leave:
-			if (!s_writing && tapped(BTN_WIDE) && !endClaim()) return false;
+			if (!s_writing && tapped(BTN_WIDE)) {
+				// The servo leaves in a known state: no write is open, so
+				// the session's record goes.
+				if (s_st.job == KstJobState::InMode && !s_st.locked)
+					kstFilesRecordRemove(&s_first);
+				if (!endClaim()) return false;
+			}
 			break;
 		case KstView::Unplug:
 			if (pinClaimUnplugDue() && tapped(BTN_RESTART)) {

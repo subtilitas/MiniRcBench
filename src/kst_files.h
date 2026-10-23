@@ -16,7 +16,7 @@
  * |---|---|---|
  * | SAVE AS, LOAD, the FILES list | kstFilesIo() with `kst_store.h` | the store's own rules: no file is replaced, `KST.TXT` is refused |
  * | First write of a session | kstFilesFirstWrite() | the backup as the next KSTnnn.TXT, then the image before the write as `KST/KST.TXT` |
- * | Write verified | kstFilesRecordRemove() | `KST/KST.TXT` removed, when this session wrote it |
+ * | Write verified, or LEAVE from a servo in a known state | kstFilesRecordRemove() | `KST/KST.TXT` removed, when this session wrote it |
  * | The screen opens | kstFilesRecordPresent(), kstFilesRecordLoad() | an interrupted write's record found and read |
  *
  * A record left by an interrupted write is renamed to the next KSTnnn.TXT
@@ -100,8 +100,9 @@ void kstFilesFirstWrite(const kst_image_t *backup, const kst_image_t *before,
 bool kstFilesWriteAllowed(const KstFirstWrite *w);
 
 /**
- * @brief Remove `KST/KST.TXT` after a verified write, when this session's
- *        kstFilesFirstWrite() wrote it.
+ * @brief Remove `KST/KST.TXT` after a verified write, or at LEAVE from a
+ *        servo in a known state, when this session's kstFilesFirstWrite()
+ *        wrote it.
  * @param w The session's kstFilesFirstWrite() result; a record it did not
  *          write, or NULL, removes nothing.
  * @return `KST_STORE_OK`, also when nothing is removed; `KST_STORE_NO_CARD`;

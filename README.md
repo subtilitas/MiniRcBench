@@ -960,10 +960,12 @@ hand: a plug, or a switch in its positive lead.
    mark and the rule's text in the editor bar.
 4. HOLD TO WRITE (1 s) opens the write page: the changes, their soft rules,
    and where the backup goes. A second 1 s hold writes. Before the first
-   frame, the image read at entry goes to the card as `KST/KSTnnn.TXT`, and
-   the servo as it stands as the record `KST/KST.TXT`. The write runs as
-   single-register writes with read-back, then a full verify. A verified
-   write removes the record.
+   frame of the session's first write with a card mounted, the image read at
+   entry goes to the card as `KST/KSTnnn.TXT`, and the servo as it stands as
+   the record `KST/KST.TXT`. Later writes of the session save no backup and
+   write no record. The write runs as single-register writes with read-back,
+   then a full verify. A verified write removes the record, and so does LEAVE
+   from a servo in programming mode that is not in doubt.
 5. BACK from the list opens the leave page: `POWER THE SERVO OFF.` The servo
    stays in programming mode until its supply is off. LEAVE holds the line
    low for 100 ms, lets the pin go, and shows `UNPLUG THE SERVO.` RESTART
@@ -976,13 +978,14 @@ hand: a plug, or a switch in its positive lead.
 | `ROLLED BACK: THE SERVO HOLDS ITS OLD VALUES` | amber | A write did not take and was undone |
 | `IN DOUBT: ... RESTORE FROM FILES.` | red | The servo state is unknown; only a restore is taken |
 
-**FILES** lists `KST/*.TXT` on the card by name, the KSTnnn files together
-with the highest number first, and the record first of all when one is
-there. SAVE AS writes the servo as it stands
+**FILES** lists `KST/*.TXT` on the card by name, the KSTnnn files together with
+the highest number first, which is the latest until KST999 is taken, and the
+record first of all when one is there. SAVE AS writes the servo as it stands
 under the next free KSTnnn, KST001 to KST999. LOAD holds the file against the
-servo (type, access classes, hard limits) and puts its values into the list
-as pending changes; a refusal names its line, for example `LINE 14: NOT A
-VALUE OF DEAD BAND`. HOLD TO RESTORE writes the image read at entry back.
+servo (type, access classes, hard limits) and puts its values into the list as
+pending changes; a refusal names its line, for example
+`LINE 14: NOT A VALUE OF DEAD BAND`. HOLD TO RESTORE writes the image read at
+entry back.
 
 Without a card, or with the card held by a USB host, the backup stays in
 memory, and reading, editing and writing still work. A card that is
@@ -1195,7 +1198,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.0%**: 5,498 of 5,609 lines in 42 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.0%**: 5,508 of 5,619 lines in 42 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

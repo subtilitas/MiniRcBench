@@ -408,19 +408,21 @@ DShot after less than the 2000 ms without power that LEAVE gives it.
 ### Card calls and the heartbeat
 
 Core0 calls the card several times while the KST claim holds: before the
-session's first write it saves the backup as the next KSTnnn.TXT and the
-image before the write as `KST/KST.TXT` ([storage](#storage)); SAVE AS
-writes a file; LOAD and the FILES listing walk the `KST` directory and read a
-file; RETRY MOUNT initialises and mounts the card; a verified write removes
-`KST/KST.TXT`. A card call can block core0 past the 250 ms heartbeat. The
-SDIO driver waits up to 1000 ms for busy after each written block and tries
-a chunk up to 3 times (`SDH_BUSY_TIMEOUT_US` and `SDH_ATTEMPTS` in
-`src/sdio/sd_host.h`, [sdio-driver.md](sdio-driver.md)); the SD
-specification lets a card take 250 ms per written block on an SDHC (high
-capacity) card, 500 ms on an SDXC (extended capacity) card (4.6.2.2), and
-100 ms per read block. With the switch such a stall would count as a lapse:
-the supply goes off, and `kst_session_power_cycled()` drops the backup in
-memory, the one the first write's card call was saving among them.
+session's first write it saves the backup as the next KSTnnn.TXT and the image
+before the write as `KST/KST.TXT` ([storage](#storage)); SAVE AS writes a file;
+LOAD and the FILES listing walk the `KST` directory and read a file; RETRY MOUNT
+initialises and mounts the card; a verified write, and LEAVE from a servo in
+programming mode that is not in doubt, remove `KST/KST.TXT`; a card mounted
+while the write page is up gets the next KSTnnn name looked up. A card call can
+block core0 past the 250 ms heartbeat. The SDIO driver waits up to 1000 ms for
+busy after each written block and tries a chunk up to 3 times
+(`SDH_BUSY_TIMEOUT_US` and `SDH_ATTEMPTS` in `src/sdio/sd_host.h`,
+[sdio-driver.md](sdio-driver.md)); the SD specification lets a card take 250 ms
+per written block on an SDHC (high capacity) card, 500 ms on an SDXC (extended
+capacity) card (4.6.2.2), and 100 ms per read block. With the switch such a
+stall would count as a lapse: the supply goes off, and
+`kst_session_power_cycled()` drops the backup in memory, the one the first
+write's card call was saving among them.
 
 **The card phase** (decisions 17 and 19). With `SERVO SUPPLY` at `GP0`,
 every card call core0 makes while the KST claim holds runs inside one:
@@ -1052,7 +1054,8 @@ y   0 | KST FILES                        [ BACK ]|
   in the viewport, a drag scrolls, a tap selects. Twelve files are 504 px of
   content, a scroll range of 0 px to 336 px. There is no sideways mode.
 - The order is `kst_store_list()`'s: by name without case, the KSTnnn files
-  in one run by falling number, so the latest is first. The page reads the
+  in one run by falling number, so the latest is first until KST999 is
+  taken. The page reads the
   first 64 files (`KST_UI_FILES_MAX`); the strip then reads
   `CARD  FIRST 64 OF n FILES`. A record on the card, `KST/KST.TXT`, is the
   first row and loads as a file.
@@ -1185,6 +1188,8 @@ a host:
 |---|---|
 | First write of a session, card mounted | the backup is saved first as the next KSTnnn.TXT, and `KST/KST.TXT` holds the image before the write, both in a card phase ([card calls](#card-calls-and-the-heartbeat)). A card that takes neither stops the write: `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.` |
 | Write verified | `KST/KST.TXT` is removed when this session wrote it, in a card phase |
+| Later writes of the session | no backup is saved and no record is written |
+| LEAVE, the servo in programming mode and not in doubt | `KST/KST.TXT` is removed when this session wrote it: no write is open |
 | `KST/KST.TXT` found when the screen opens | `A WRITE WAS INTERRUPTED. KST/KST.TXT HOLDS THE SERVO AS IT WAS.` FILES lists it as RECORD and loads it like a file |
 | No card | read, edit and write work; the write page says `NO CARD: BACKUP IN MEMORY`, and the backup ends at LEAVE |
 | Card held by a USB host | as no card |

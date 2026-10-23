@@ -20,7 +20,7 @@ merges: delete it there, together with the open item in
 
 ## PR #13: what remains, in order
 
-1. **Review loop.** Review round 5, of the round 4 fixes, then fix and
+1. **Review loop.** Review round 6, of the round 5 fixes, then fix and
    review again until a review returns 0 findings.
 2. **Merge rules.** CI green and the bot reviews read (Copilot posted only
    its quota notice), then a squash merge. Strip the session-link footer
@@ -42,6 +42,12 @@ Done on the branch since f549a65:
   loss rule.
 - The doc items of the first review and the screen texts of f549a65 in
   the wiki pages, the README and the design note.
+- Review round 5 of 30109fa: 1 finding and 4 nits, fixed. The docs say
+  only the session's first write with a card saves the backup and writes
+  the record; LEAVE from a servo in programming mode and not in doubt
+  removes the record; a refused read lists no register of an earlier
+  read; a card mounted on the write page gets its KSTnnn name looked up
+  once; the file order holds until KST999 is taken.
 - Review round 4 of 4b7221f: 2 findings and 4 nits, fixed. The REGISTERS
   line names at most 9 registers, `AND n MORE` counts the rest
   (`kstBadRegsText()`, tested in the view and on Main); the backup-line

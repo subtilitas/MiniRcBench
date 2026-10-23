@@ -80,6 +80,11 @@ static uint16_t simField(kst_field_id_t f) {
 /** @brief Frames the servo had seen at the last card call. */
 static unsigned s_framesInCard = 0;
 
+static unsigned n_cardCalls = 0;
+
+/** @brief fakeFatOnCall(): count the card calls. */
+static void countCardCall() { n_cardCalls++; }
+
 /** @brief fakeFatOnCall(): core1 for 5 ms, then the servo's write count. */
 static void cardCallRunsCore1() {
 	for (int i = 0; i < 5; i++) {
@@ -762,13 +767,21 @@ static void testSecondServoAndLateCard() {
 	writeDeadBand();
 	checkTrue("no card: the write verified", job().result == KST_SES_OK);
 	tapId(UI_FIX(KstCtl::WriteOk));
-	card();
 	selectField(KST_F_BOOST);
 	tapId(UI_FIX(KstCtl::EditMinus));
 	holdUntilGone(UI_FIX(KstCtl::Write));
 	kstFrames(1);
-	checkTrue("a card now: the page names the backup it saves",
+	checkTrue("still no card: the backup in memory",
+	          lineIs(236, "NO CARD: BACKUP IN MEMORY", C_DIM));
+	card();
+	kstFrames(1);
+	checkTrue("a card mounted on the page: it names the backup it saves",
 	          lineIs(236, "BACKUP FIRST: KST/KST001.TXT", C_DIM));
+	n_cardCalls = 0;
+	fakeFatOnCall(countCardCall);
+	kstFrames(10);
+	fakeFatOnCall(nullptr);
+	checkTrue("and looks the name up once, not each frame", n_cardCalls == 0);
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	untilCtl(UI_FIX(KstCtl::WriteOk), 400);
 	static char b1[KST_FILE_MAX];
@@ -932,6 +945,7 @@ static void testRefusedOps() {
 	checkTrue("Main: the screen stalled, READ AGAIN",
 	          uiKstView() == KstView::Main && ctlEnabled(UI_FIX(KstCtl::ReadAgain)) &&
 	          lineIs(80, "THE SCREEN STALLED. READ THE SERVO", C_AMBER));
+	checkTrue("and no register of the read before", lineIs(112, "", C_AMBER));
 
 	// READ AGAIN, BACK during it, BACK on the leave page: the read stopped.
 	tapId(UI_FIX(KstCtl::ReadAgain));
@@ -944,6 +958,8 @@ static void testRefusedOps() {
 	checkTrue("BACK twice: the read aborted, not the stall of the read before",
 	          uiKstView() == KstView::Main &&
 	          lineIs(80, "ABORTED. READ THE SERVO AGAIN.", C_AMBER));
+	checkTrue("and no register of a read before", lineIs(94, "", C_AMBER) &&
+	                                              lineIs(112, "", C_AMBER));
 	tapId(UI_FIX(KstCtl::ReadAgain));
 	checkTrue("READ AGAIN reads it", untilView(KstView::List, 400));
 
@@ -967,6 +983,8 @@ static void testRefusedOps() {
 	                                            fakeFatExists("KST/KST.TXT"));
 	tapId(UI_FIX(KstCtl::WriteOk));
 	leaveAll();
+	checkTrue("LEAVE from a servo in a known state removes the record",
+	          !fakeFatExists("KST/KST.TXT") && fakeFatExists("KST/KST001.TXT"));
 }
 
 void runKstUiTests() {
