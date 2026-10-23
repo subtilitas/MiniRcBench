@@ -128,7 +128,9 @@ mode that is not in doubt, for example after a power loss during the write.
 A session removes only the record it wrote, and only while its card stays
 mounted and the file holds the bytes it wrote. The board has no card-detect
 line: a card swapped in during a session whose record holds the same bytes
-counts as the session's. With a record on the card, the screen adds
+counts as the session's. After such a swap, the strip, the backup line and
+the `(BACKUP)` tag still name the session's backup file, which is on the
+first card. With a record on the card, the screen adds
 `A WRITE WAS INTERRUPTED. KST/KST.TXT` and `HOLDS THE SERVO AS IT WAS.` in
 amber. See [FILES](#files).
 

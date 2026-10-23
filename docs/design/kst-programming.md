@@ -1190,7 +1190,7 @@ a host:
 | Write verified | `KST/KST.TXT` is removed when this session wrote it, the card stayed mounted since, and the file holds the bytes written (FNV-1a, Fowler-Noll-Vo, hash `recordSum`), in a card phase |
 | Later writes of the session | no backup is saved and no record is written |
 | LEAVE, the servo in programming mode and not in doubt | `KST/KST.TXT` is removed on the same terms: no write is open |
-| A card swapped during the session | the board has no card-detect line, and FatFs mounts the new card at its next call: the logger reports no unmount. Its record stays unless it holds the bytes of the session's own record |
+| A card swapped during the session | the board has no card-detect line: the first card access after the swap fails, and FatFs mounts the new card at the call after it. The logger reports no unmount. Its record stays unless it holds the bytes of the session's own record; the strip, the backup line and the `(BACKUP)` tag still name the session's backup file on the first card |
 | A servo found, the first or after a loss | the session holds no record of its own: a record on the card stays until the first write renames it |
 | `KST/KST.TXT` found when the screen opens | `A WRITE WAS INTERRUPTED. KST/KST.TXT HOLDS THE SERVO AS IT WAS.` FILES lists it as RECORD and loads it like a file |
 | No card | read, edit and write work; the write page says `NO CARD: BACKUP IN MEMORY`, and the backup ends at LEAVE |

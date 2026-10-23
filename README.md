@@ -1011,7 +1011,9 @@ reads `READ ONLY: UNKNOWN LAYOUT`.
 - The board has no card-detect line, so a card swapped during a session
   is not seen as an unmount. A record on the new card with the same bytes
   as the session's own record, the same servo image, is removed as the
-  session's.
+  session's. The strip, the write page's backup line and the `(BACKUP)`
+  tag in FILES still name the session's backup file, which is on the first
+  card: a file of that name on the new card carries the tag.
 
 ---
 

@@ -307,10 +307,7 @@ Not in this history: the DshotDisplay repository's branches
     reply level at the connector, the owner's servo's power-on window, frames
     and replies on a scope, read reliability, one write with read-back, then
     a power cycle and a read. The switched supply, step 5, is not built.
-12. **KST step 4 in review.** [HANDOVER.md](HANDOVER.md) lists the state of
-    the KST SERVO screen's pull request and what remains before it merges:
-    the review loop has not reached 0 findings.
-13. **KST card-phase cap, open for step 5.** The cap of 15 s does not cover
+12. **KST card-phase cap, open for step 5.** The cap of 15 s does not cover
     a first write on a card at the specification's full access and busy
     times: 50.9 s to 82.2 s computed
     ([kst-programming.md](docs/design/kst-programming.md)). The choice
