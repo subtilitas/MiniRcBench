@@ -64,7 +64,8 @@ supply has to be switchable by hand: a plug, or a switch in its positive lead.
 Open **MENU → KST SERVO**.
 
 The screen takes SIG from the ESC driver. While it does, the strip reads
-`CHECKING GP29 FOR AN ESC`, then `TAKING GP29`.
+`RELEASING GP29`, then `TAKING GP29`. While an ESC answers on the pin it
+reads `CHECKING GP29 FOR AN ESC` instead.
 
 - If an ESC answers on the pin, the screen says `AN ESC ANSWERS ON GP29.`,
   then `UNPLUG IT: KST FRAMES MAY READ` and `AS THROTTLE.` It takes the pin
@@ -98,7 +99,7 @@ The body reads `POWER UP` and `THE SERVO NOW`, then
 
 **Power the servo up while the screen searches.** The servo enters programming
 mode and answers. If edges arrive on the line but no reply is valid, an amber
-line names the fault, for example `A REPLY CAME, NOT VALID: LATE`. The words
+line names the fault, for example `REPLY NOT VALID: LATE`. The words
 are `EARLY`, `LINE HIGH`, `LATE`, `CELL`, `LENGTH`, `RATE`, `FLAGS`,
 `LONG LAST EDGE`, `WINDOW`, `OVERFLOW` and `CAPTURE`.
 
@@ -147,8 +148,8 @@ Rows are 40 px tall at a 42 px pitch. Drag the list up or down to scroll.
 | LOCKED | `20K SEL`, `LOCK`, `PROT1 CANCLE`, `PROT1 EN`, `PROT1 TIME`, `PROT1 PWM`, `PROT POT ERR`, `POT SAM TIMES`, `PROT PWM ERR`, `NODE ADDR`, `SERVO / GYRO` |
 
 - Values carry their unit: `96 %`, `300.0 US`, `1.0 S`, `X1`, `ON`, `OFF`, or
-  a count in the form `n OF m`. `US` is µs: the screen font has no micro sign. A
-  raw value whose display is not established reads `RAW` and the number.
+  a count in the form `n OF m`. `US` is µs: the screen font has no micro
+  sign. A raw value whose display is not established reads `RAW` and the number.
 - LOCKED fields are read-only. They are drawn grey and a tap on them selects
   nothing.
 - A changed value is drawn green.
@@ -161,7 +162,9 @@ Rows are 40 px tall at a 42 px pitch. Drag the list up or down to scroll.
    stored value, and the pending value, for example `DEAD BAND  2.0 US ->`.
    With no row selected, the bar reads `TAP A ROW TO EDIT IT` and
    `SWIPE IT SIDEWAYS FOR COARSE`.
-2. Tap `-` or `+` (44 × 44 px) to step the value. Hold to repeat.
+2. Tap `-` or `+` (44 × 44 px) to step the value. Hold to repeat. `+`
+   raises the value shown and `-` lowers it, whichever way the raw value
+   goes: `+` widens `DEAD BAND`.
 3. Or swipe the row sideways. One step is an eleventh of the field's range,
    rounded up, at least one raw step.
 4. `REVERT` drops all pending changes.
@@ -231,12 +234,14 @@ The result replaces the buttons with `OK`. `OK` returns to the field list.
 
 The amber results that end in `NOTHING WAS WRITTEN.` include:
 
-- `NO SERVO ANSWERS. CHECK THE PLUG AND THE SUPPLY.`
 - `THE SERVO DIFFERS FROM THE READ. NOTHING WAS WRITTEN.`
 - `A WRITE DID NOT TAKE. NOTHING WAS WRITTEN.`
 - `THE VALUES BREAK A LIMIT. NOTHING WAS WRITTEN.`
 - `NO SAFE ORDER OF WRITES LEADS THERE. NOTHING WAS WRITTEN.`
 - `TOO MANY CHANGES AT ONCE: WRITE FEWER. NOTHING WAS WRITTEN.`
+
+`NO SERVO ANSWERS. CHECK THE PLUG AND THE SUPPLY.` is amber too: the servo
+answered nothing, and nothing was written.
 
 The red results include:
 
@@ -285,9 +290,10 @@ Other notes on the strip:
 
 `HOLD TO RESTORE` acts when the servo differs from the backup or is in doubt.
 The restore page is titled `KST RESTORE`. It reads
-`BACK TO THE SESSION'S BACKUP` and `4 FIELDS DIFFER FROM THE BACKUP`, for
-example. A restore that the planner did not check needs a second hold. The
-page then reads `THE PLANNER DID NOT CHECK THIS` and
+`BACK TO THE SESSION'S BACKUP` and `4 REGISTERS DIFFER FROM THE BACKUP`,
+for example. It counts registers, LOCKED and unnamed ones included, because
+the restore writes them too. A restore that the planner did not check needs
+a second hold. The page then reads `THE PLANNER DID NOT CHECK THIS` and
 `RESTORE. HOLD AGAIN TO RUN IT.`
 
 ### No card, a card held by USB, a card that takes no file
@@ -307,8 +313,9 @@ page then reads `THE PLANNER DID NOT CHECK THIS` and
 ## Unknown layout: READ ONLY
 
 The screen checks the 32 registers against rcbench's layout fingerprint. An
-image that fails the check is shown and not written. The footer reads
-`READ ONLY: UNKNOWN LAYOUT` in amber, and the write button reads `READ ONLY`
+image that fails the check is shown and not written. With no row selected,
+the editor bar reads `READ ONLY: UNKNOWN LAYOUT` in amber and
+`NOTHING IS WRITTEN TO THIS SERVO`, and the write button reads `READ ONLY`
 and does nothing.
 
 ---
@@ -344,7 +351,7 @@ unplug page directly.
 - **`AN ESC ANSWERS ON GP29.`** An ESC is on the ESC pin. Unplug it.
 - **`NO SERVO IN 30 S`.** Check signal and ground. Power the servo up again
   while the screen searches: it answers only right after power-on.
-- **`A REPLY CAME, NOT VALID: ...`.** Edges arrive, but no reply is valid.
+- **`REPLY NOT VALID: ...`.** Edges arrive, but no reply is valid.
   Check the signal wire, the ground and the supply. The screen names only
   the word of the fault, not its cause.
 - **`READ FAILED: NO 3 EQUAL READS`.** Tap `READ AGAIN`.

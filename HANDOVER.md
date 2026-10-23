@@ -20,42 +20,30 @@ merges: delete it there, together with the open item in
 
 ## PR #13: what remains, in order
 
-1. **Firmware build, red on f549a65.** CI job "Firmware (touch-lcd-2.8)"
-   stops at `src/ui_kst.cpp:904`, in `fitNote()`:
-   `'snprintf' output may be truncated` (`-Werror=format-truncation`):
-   `"LINE %u: %s"` with a 48-byte `what` into the 64-byte note. The host
-   build does not warn. Fix: size the note for the worst case, or bound
-   `what` with `%.*s`. Build the firmware locally before the push. Every
-   other check is green on f549a65: host tests, coverage, docs, config
-   permutations, blackbox round-trip, workflow lint.
-2. **Mutation check of the review fixes.** Not run. Script:
-   `$SP/mut_kst4.py` with the list in `$SP/mut5_list.py` (9 mutations,
-   one per fix: B1, B2, S1, S2, S3, S4, N1, N2, S9). Each must fail the
-   host suite. The first 10 screen mutations of d582158 were all caught.
-3. **Doc items from the first review**, not yet changed:
-   - `wiki/KST-Programming.md:66-67` and `wiki/KST-Programmierung.md:71`:
-     the strip reads `CHECKING GP29 FOR AN ESC` only while an ESC answers;
-     the normal sequence is `RELEASING GP29`, then `TAKING GP29`.
-   - `docs/design/kst-programming.md:1184`: the write page reads
-     `NO CARD: BACKUP IN MEMORY`.
-   - `wiki/KST-Programming.md:232-234` and the German page `:247-250`:
-     `NO SERVO ANSWERS. CHECK THE PLUG AND THE SUPPLY.` is listed among
-     results that end in `NOTHING WAS WRITTEN.`; it does not end so.
-   - Prose lines over 80 characters: `README.md:361`,
-     `docs/design/kst-programming.md:1287`.
-   - The screen changed in f549a65 and the docs do not say so yet:
-     - + on DEAD BAND widens the band;
-     - `REPLY NOT VALID: <word>` replaces `A REPLY CAME, NOT VALID:`;
-     - the restore page counts registers (`n REGISTERS DIFFER FROM THE
-       BACKUP`);
-     - READ ONLY sits in the hint area of the field list.
-4. **Review loop.** An Opus review of the new head, then fix and review
-   again until a review returns 0 findings. The first review (of d582158)
-   had 14 findings; all 14 are addressed in f549a65 but not yet
-   re-reviewed.
-5. **Merge rules.** CI green and the bot reviews read (Copilot posted only
+1. **Review loop.** An Opus review of the head after the merge of `main`,
+   then fix and review again until a review returns 0 findings. The first
+   review (of d582158) had 14 findings, addressed in f549a65; the fixes
+   since are not reviewed.
+2. **Merge rules.** CI green and the bot reviews read (Copilot posted only
    its quota notice), then a squash merge. Strip the session-link footer
    that `create_pull_request` adds; none is in the PR body now.
+3. **Before the merge**, in the PR's last commit: delete this file and
+   STATUS.md open item 12, which points to it.
+
+Done on the branch since f549a65:
+
+- `main` merged in, with the Hitec design note.
+- The firmware build: `fitNote()` bounds its text with `%.40s`; built
+  with `-DSTRICT=ON`, the UF2 check passes.
+- The mutation check: 20 bugs put back one at a time, each failing the
+  host suite (`$SP/mut_kst4.py`, and `$SP/mut5_list.py` through
+  `$SP/mut_tail.py`).
+- A test for the record notice after a verified write found a defect:
+  BACK on the search after a lost servo went to the leave page and back
+  to the search on the next frame. The fix exempts the leave page from the
+  loss rule.
+- The doc items of the first review and the screen texts of f549a65 in
+  the wiki pages, the README and the design note.
 
 ## Decision the owner has to make before step 5
 

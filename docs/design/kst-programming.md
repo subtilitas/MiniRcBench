@@ -548,7 +548,7 @@ y   0 | KST SERVO                        [ BACK ]|  header 36 px (menu.md)
   146 |   PULSES AND MAY GO TO ITS FAILSAFE.     |
   164 |   AN ESC ON THIS LEAD GETS THE           |  C_AMBER
   178 |   CONVERTER'S OUTPUT ON ITS BEC WIRE.    |
-  196 |   A REPLY CAME, NOT VALID: LATE          |  C_AMBER, only with edges
+  196 |   REPLY NOT VALID: LATE                  |  C_AMBER, only with edges
   236 |              (spinner)                   |
   272 | [          STOP SEARCH           ]       |  46 px; RETRY after a stop
   320 +------------------------------------------+
@@ -800,7 +800,7 @@ screen says so.
 | An ESC answers | | the message from [pin-claim.md](pin-claim.md#when-the-pin-is-unavailable) | BACK |
 | Releasing | `RELEASING GP29` | | BACK |
 | Searching, no switch | `GP29  TRY 12  1.4 S` | `POWER UP` and `THE SERVO NOW` on two lines at scale 2, then `PLUG IT IN OR SWITCH ITS SUPPLY ON. IT ANSWERS ONLY RIGHT AFTER POWER-ON.` and `A POWERED SERVO ON THIS PIN GETS NO PULSES AND MAY GO TO ITS FAILSAFE POSITION.`, a spinner | STOP SEARCH, BACK |
-| Edges, no valid reply | | adds, in amber, `A REPLY CAME, NOT VALID: LATE` (the `kst_rx_t` code as a word) | as above |
+| Edges, no valid reply | | adds, in amber, `REPLY NOT VALID: LATE` (the `kst_rx_t` code as a word) | as above |
 | Searching, supply switched | see [screens with the switch](#screens-with-the-switch) | | |
 | Timed out, no switch | `NO SERVO IN 30 S` | `CHECK SIGNAL AND GROUND, THEN POWER THE SERVO UP AGAIN.` | RETRY, BACK |
 | Found | `IN PROGRAMMING MODE` | `READING 32 REGISTERS` | BACK |
@@ -818,7 +818,7 @@ y   0 | KST SERVO                        [ BACK ]|  header 36 px (menu.md)
   126 |   IT ANSWERS ONLY RIGHT AFTER POWER-ON.  |
   144 |   A POWERED SERVO ON THIS PIN GETS NO    |
   158 |   PULSES AND MAY GO TO ITS FAILSAFE.     |
-  182 |   A REPLY CAME, NOT VALID: LATE          |  C_AMBER, only with edges
+  202 |   REPLY NOT VALID: LATE                  |  C_AMBER, only with edges
   236 |              (spinner)                   |  AM32's twelve-dot spinner
   272 | [          STOP SEARCH           ]       |  46 px; RETRY after a stop
   320 +------------------------------------------+
@@ -980,13 +980,16 @@ y   0 | KST SERVO                        [ BACK ]|
   `KST_ACCESS_LOCKED` or `KST_ACCESS_NEVER`, read-only.
 - Values come from `kst_field_display()` with their unit. The screens write
   `US` for µs; the font has no micro sign, as in rcbench.
-- − and + step the raw value with `kst_field_edit()`, hold to repeat. A value
+- − and + step the raw value with `kst_field_edit()`, hold to repeat, in
+  the direction of the value shown: + raises it whichever way the raw value
+  goes, so + widens DEAD BAND, 0.2 µs × (65 − raw) (`kstStep()`). A value
   that breaks a hard rule (`kst_limits_edit()` against the backup) is skipped,
   so the stepper reaches legal values only. A value that breaks a soft rule is
   taken; the row gets an amber mark and the editor bar shows the rule's text,
   for example `WITHOUT SOFT START THE SERVO JUMPS AT POWER-ON.`
-- An image that fails the layout fingerprint is read and shown, and the
-  footer reads `READ ONLY: UNKNOWN LAYOUT` and its write button
+- An image that fails the layout fingerprint is read and shown. With no row
+  selected the editor bar reads `READ ONLY: UNKNOWN LAYOUT` and
+  `NOTHING IS WRITTEN TO THIS SERVO`, and the footer's write button reads
   `READ ONLY`; the session refuses its writes.
   A locked session's reads `IN DOUBT`.
 - The strip names the type, `V6` or `V8` (`kst_type()`), the pin and the
@@ -1181,7 +1184,7 @@ a host:
 | First write of a session, card mounted | the backup is saved first as the next KSTnnn.TXT, and `KST/KST.TXT` holds the image before the write, both in a card phase ([card calls](#card-calls-and-the-heartbeat)). A card that takes neither stops the write: `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.` |
 | Write verified | `KST/KST.TXT` is removed when this session wrote it, in a card phase |
 | `KST/KST.TXT` found when the screen opens | `A WRITE WAS INTERRUPTED. KST/KST.TXT HOLDS THE SERVO AS IT WAS.` FILES lists it as RECORD and loads it like a file |
-| No card | read, edit and write work; the write page says `NO CARD: THE BACKUP STAYS IN MEMORY AND ENDS AT LEAVE.` |
+| No card | read, edit and write work; the write page says `NO CARD: BACKUP IN MEMORY`, and the backup ends at LEAVE |
 | Card held by a USB host | as no card |
 
 `KST.TXT` is the base name `kst_store.c` keeps free for this record
@@ -1284,7 +1287,8 @@ so these run against the same simulated servo:
   close error that leaves its file locked, one of the two files taken, the
   record found and loaded at entry, the store's save, list and load over
   FatFs. With the screen, in `test_kst_ui.cpp`: the record written before
-  the first write frame and removed after a verify. With `GP0`, step 5: a card phase around
+  the first write frame and removed after a verify. With `GP0`, step 5: a
+  card phase around
   every card call, the first write's opened before the backup and closed by
   the write command, the others closed by `CardEnd`; `sdh_wait_hook` set only
   inside a phase.

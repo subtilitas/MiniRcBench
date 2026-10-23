@@ -68,7 +68,8 @@ schalten lassen: mit einem Stecker oder einem Schalter im Plusleiter.
 **MENU → KST SERVO** öffnen.
 
 Der Bildschirm übernimmt SIG vom ESC-Treiber. Dabei zeigt die Leiste
-`CHECKING GP29 FOR AN ESC`, dann `TAKING GP29`.
+`RELEASING GP29`, dann `TAKING GP29`. Solange ein ESC auf dem Pin antwortet,
+zeigt sie stattdessen `CHECKING GP29 FOR AN ESC`.
 
 - Antwortet ein ESC auf dem Pin, zeigt der Bildschirm `AN ESC ANSWERS ON GP29.`
   und danach `UNPLUG IT: KST FRAMES MAY READ` und `AS THROTTLE.` Er übernimmt
@@ -105,7 +106,7 @@ Der Inhalt zeigt `POWER UP` und `THE SERVO NOW`, dann
 **Schalte das Servo ein, während der Bildschirm sucht.** Das Servo geht in den
 Programmiermodus und antwortet. Kommen Flanken auf der Leitung an, aber keine
 Antwort ist gültig, nennt eine bernsteinfarbene Zeile den Fehler, zum Beispiel
-`A REPLY CAME, NOT VALID: LATE`. Die Wörter sind `EARLY`, `LINE HIGH`, `LATE`,
+`REPLY NOT VALID: LATE`. Die Wörter sind `EARLY`, `LINE HIGH`, `LATE`,
 `CELL`, `LENGTH`, `RATE`, `FLAGS`, `LONG LAST EDGE`, `WINDOW`, `OVERFLOW` und
 `CAPTURE`.
 
@@ -247,12 +248,14 @@ zurück.
 Zu den bernsteinfarbenen Ergebnissen, die auf `NOTHING WAS WRITTEN.` enden,
 gehören:
 
-- `NO SERVO ANSWERS. CHECK THE PLUG AND THE SUPPLY.`
 - `THE SERVO DIFFERS FROM THE READ. NOTHING WAS WRITTEN.`
 - `A WRITE DID NOT TAKE. NOTHING WAS WRITTEN.`
 - `THE VALUES BREAK A LIMIT. NOTHING WAS WRITTEN.`
 - `NO SAFE ORDER OF WRITES LEADS THERE. NOTHING WAS WRITTEN.`
 - `TOO MANY CHANGES AT ONCE: WRITE FEWER. NOTHING WAS WRITTEN.`
+
+Auch `NO SERVO ANSWERS. CHECK THE PLUG AND THE SUPPLY.` ist bernsteinfarben:
+Das Servo hat nicht geantwortet, und nichts wurde geschrieben.
 
 Zu den roten Ergebnissen gehören:
 
@@ -304,8 +307,10 @@ Eine Ablehnung nennt ihre Zeile, zum Beispiel
 `HOLD TO RESTORE` wirkt, wenn das Servo von der Sicherung abweicht oder im
 Zweifel ist. Die Wiederherstellungsseite heißt `KST RESTORE`. Sie zeigt zum
 Beispiel `BACK TO THE SESSION'S BACKUP` und
-`4 FIELDS DIFFER FROM THE BACKUP`. Eine Wiederherstellung, die der Planer
-nicht geprüft hat, braucht ein zweites Halten. Die Seite zeigt dann
+`4 REGISTERS DIFFER FROM THE BACKUP`. Sie zählt Register, gesperrte und
+unbenannte eingeschlossen, denn die Wiederherstellung schreibt auch sie.
+Eine Wiederherstellung, die der Planer nicht geprüft hat, braucht ein
+zweites Halten. Die Seite zeigt dann
 `THE PLANNER DID NOT CHECK THIS` und `RESTORE. HOLD AGAIN TO RUN IT.`
 
 ### Keine Karte, eine von USB gehaltene Karte, eine Karte ohne Datei
@@ -327,8 +332,10 @@ nicht geprüft hat, braucht ein zweites Halten. Die Seite zeigt dann
 
 Der Bildschirm prüft die 32 Register gegen den Layout-Fingerabdruck von
 rcbench. Ein Abbild, das die Prüfung nicht besteht, wird gezeigt und nicht
-geschrieben. Die Fußzeile zeigt `READ ONLY: UNKNOWN LAYOUT` in Bernstein, und
-die Schreib-Schaltfläche zeigt `READ ONLY` und tut nichts.
+geschrieben. Ohne gewählte Zeile zeigt die Editorleiste
+`READ ONLY: UNKNOWN LAYOUT` in Bernstein und
+`NOTHING IS WRITTEN TO THIS SERVO`, und die Schreib-Schaltfläche zeigt
+`READ ONLY` und tut nichts.
 
 ---
 
@@ -364,7 +371,7 @@ zeigt die Abziehseite unmittelbar.
 - **`NO SERVO IN 30 S`.** Prüfe Signal und Masse. Schalte das Servo erneut
   ein, während der Bildschirm sucht: Es antwortet nur direkt nach dem
   Einschalten.
-- **`A REPLY CAME, NOT VALID: ...`.** Flanken kommen an, aber keine Antwort
+- **`REPLY NOT VALID: ...`.** Flanken kommen an, aber keine Antwort
   ist gültig. Prüfe Signalkabel, Masse und Versorgung. Der Bildschirm nennt
   nur das Wort des Fehlers, nicht seine Ursache.
 - **`READ FAILED: NO 3 EQUAL READS`.** Tippe auf `READ AGAIN`.

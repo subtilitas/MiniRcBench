@@ -486,6 +486,8 @@ static void testLossAndCard() {
 	leaveAll();
 }
 
+static void writeDeadBand();
+
 static void testReadOnlyAndRecord() {
 	section("KST screen: an unknown layout, and a record found at entry");
 	freshKst();
@@ -509,6 +511,28 @@ static void testReadOnlyAndRecord() {
 	tapId(UI_ROW(0, Row));
 	tapId(UI_FIX(KstCtl::Load));
 	checkTrue("it loads like a file", uiKstView() == KstView::List);
+
+	// A verified write keeps the old record under a number and removes its
+	// own: after a loss, Main names no interrupted write.
+	writeDeadBand();
+	checkTrue("a verified write, the record gone", job().result == KST_SES_OK &&
+	                                              !fakeFatExists("KST/KST.TXT"));
+	tapId(UI_FIX(KstCtl::WriteOk));
+	fakeKstSim()->powered = false;
+	fakeKstSim()->in_mode = false;
+	selectField(KST_F_BOOST);
+	tapId(UI_FIX(KstCtl::EditMinus));
+	holdUntilGone(UI_FIX(KstCtl::Write));
+	holdUntilGone(UI_FIX(KstCtl::WriteHold));
+	checkTrue("the servo lost: the search", untilView(KstView::Main, 400) &&
+	                                       untilCtl(UI_FIX(KstCtl::StopSearch), 200));
+	kstFrames(2);
+	checkTrue("no interrupted write named: nothing amber on the search",
+	          fakeCountColour(C_AMBER) == 0);
+	tapId(UI_FIX(UI_BACK));
+	kstFrames(4);
+	checkTrue("BACK on the search after a loss: the leave page stays",
+	          uiKstView() == KstView::Leave);
 	leaveAll();
 }
 

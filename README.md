@@ -358,8 +358,8 @@ tester. Every tool's **BACK** returns to MENU.
   against a 25 ms repaint. BEEP is refused while armed. Opening MENU disarms,
   so the refusal is not reachable through the UI; the flash stays as a
   backstop.
-- **PINS BUSY**: AM32 CONFIG, SERVO TESTER and KST SERVO claim the signal pins. While the
-  claim is not free, for example after RESTART DSHOT until the DShot pump runs
+- **PINS BUSY**: AM32 CONFIG, SERVO TESTER and KST SERVO claim the signal
+  pins. While the claim is not free, for example after RESTART DSHOT until the DShot pump runs
   again, the row reads `PINS BUSY` in amber and a tap opens nothing.
 - **Rows**: six rows fit the screen without scrolling. A seventh makes MENU
   scroll by 36 px, with a 3 px scroll bar at x 235.
@@ -988,7 +988,8 @@ mounted but takes neither the backup nor the record stops the write before
 any frame: `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.`
 
 An image that fails rcbench's layout fingerprint is shown and not written:
-the footer reads `READ ONLY`.
+the write button reads `READ ONLY`, and with no row selected the editor bar
+reads `READ ONLY: UNKNOWN LAYOUT`.
 
 **Current limitations**
 
@@ -1191,7 +1192,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.0%**: 5,458 of 5,570 lines in 42 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.0%**: 5,459 of 5,571 lines in 42 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

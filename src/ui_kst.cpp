@@ -331,7 +331,9 @@ static void follow() {
 	// (SearchEnded), and Main offers RETRY. The operation the loss ended
 	// shows no result: the session is gone with the servo.
 	bool searchState = s_st.job == KstJobState::Searching || s_st.job == KstJobState::SearchEnded;
-	if (searchState && s_view != KstView::Main && s_view != KstView::Unplug) {
+	// The leave page stays: it is where BACK from the search goes.
+	if (searchState && s_view != KstView::Main && s_view != KstView::Unplug &&
+	    s_view != KstView::Leave) {
 		forgetServo();
 		s_opOpen = false;
 		s_leaveQueued = false;
@@ -901,7 +903,9 @@ static void drawFiles() {
  *        the whole would not fit the strip.
  */
 static void fitNote(char *out, size_t n, unsigned line, const char *what) {
-	snprintf(out, n, "LINE %u: %s", line, what);
+	// 40 characters of what bound the first form; one longer than the strip
+	// takes the second anyway.
+	snprintf(out, n, "LINE %u: %.40s", line, what);
 	if (strlen(out) > KST_STRIP_CHARS) snprintf(out, n, "%s", what);
 }
 
