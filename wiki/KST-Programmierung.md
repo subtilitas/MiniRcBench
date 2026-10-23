@@ -133,7 +133,10 @@ Der Vermerk `KST/KST.TXT` bleibt auf der Karte, wenn kein Schreiben der
 Sitzung geprüft endet und die Sitzung nicht mit LEAVE von einem Servo im
 Programmiermodus endet, das nicht im Zweifel ist, zum Beispiel nach einem
 Stromausfall während des Schreibens. Eine Sitzung entfernt nur den Vermerk,
-den sie geschrieben hat, und nur, solange ihre Karte eingebunden bleibt.
+den sie geschrieben hat, und nur, solange ihre Karte eingebunden bleibt und
+die Datei die Bytes enthält, die sie geschrieben hat. Die Platine hat keine
+Kartenerkennungsleitung: Eine während der Sitzung eingesetzte Karte, deren
+Vermerk dieselben Bytes enthält, gilt als die der Sitzung.
 Liegt ein Vermerk auf der Karte, zeigt der Bildschirm in Bernstein
 `A WRITE WAS INTERRUPTED. KST/KST.TXT` und `HOLDS THE SERVO AS IT WAS.`
 Siehe [FILES](#files).

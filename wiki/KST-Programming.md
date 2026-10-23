@@ -126,7 +126,9 @@ The record `KST/KST.TXT` stays on the card when no write of the session
 verifies and the session does not end with LEAVE from a servo in programming
 mode that is not in doubt, for example after a power loss during the write.
 A session removes only the record it wrote, and only while its card stays
-mounted. With a record on the card, the screen adds
+mounted and the file holds the bytes it wrote. The board has no card-detect
+line: a card swapped in during a session whose record holds the same bytes
+counts as the session's. With a record on the card, the screen adds
 `A WRITE WAS INTERRUPTED. KST/KST.TXT` and `HOLDS THE SERVO AS IT WAS.` in
 amber. See [FILES](#files).
 

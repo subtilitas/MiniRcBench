@@ -58,11 +58,15 @@ static kst_image_t changed() {
 	return img;
 }
 
-/** @brief A first write that wrote its record, for kstFilesRecordRemove(). */
-static KstFirstWrite wroteRecord() {
+/** @brief A first write that wrote the record @p text, for kstFilesRecordRemove(). */
+static KstFirstWrite wroteRecord(const char *text = "x") {
 	KstFirstWrite w;
 	memset(&w, 0, sizeof(w));
 	w.record = KST_STORE_OK;
+	// FNV-1a, as kst_files.cpp hashes the record it writes.
+	uint32_t h = 2166136261u;
+	for (const char *c = text; *c; c++) h = (h ^ (uint8_t)*c) * 16777619u;
+	w.recordSum = h;
 	return w;
 }
 
@@ -156,6 +160,17 @@ static void testFirstWrite() {
 	                                           strcmp(e[0].name, "KST001.TXT") == 0);
 
 	checkInt("no directory left open", fakeFatOpenDirs(), 0);
+	// A card swapped in without an unmount: the record holds other bytes.
+	static char mine[KST_FILE_MAX], other[KST_FILE_MAX];
+	int32_t mineLen = fakeFatGet("KST/KST.TXT", mine, sizeof(mine));
+	size_t otherLen = kst_file_format(&b, other, sizeof(other));
+	fakeFatPut("KST/KST.TXT", other, otherLen);
+	checkInt("another card's record: nothing to do", kstFilesRecordRemove(&w), KST_STORE_OK);
+	checkTrue("it stays", fakeFatExists("KST/KST.TXT"));
+	fakeFatPut("KST/KST.TXT", mine, (size_t)mineLen - 1);
+	checkInt("one byte short: nothing to do", kstFilesRecordRemove(&w), KST_STORE_OK);
+	checkTrue("it stays too", fakeFatExists("KST/KST.TXT"));
+	fakeFatPut("KST/KST.TXT", mine, (size_t)mineLen);
 	checkInt("a verified write removes it", kstFilesRecordRemove(&w), KST_STORE_OK);
 	checkTrue("gone", !fakeFatExists("KST/KST.TXT") && !kstFilesRecordPresent());
 	checkInt("removing it again: nothing to do", kstFilesRecordRemove(&w), KST_STORE_OK);
@@ -286,6 +301,8 @@ static void testRefusals() {
 	card();
 	fakeFatWriteProtect(true);
 	refused("a volume FatFs reports write-protected", KST_STORE_DENIED);
+	fakeFatMkdir("KST");
+	fakeFatPut("KST/KST.TXT", "x", 1);
 	KstFirstWrite wrote = wroteRecord();
 	checkInt("write-protected: the record is not removed", kstFilesRecordRemove(&wrote),
 	         KST_STORE_DENIED);

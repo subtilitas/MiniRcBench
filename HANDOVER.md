@@ -20,7 +20,7 @@ merges: delete it there, together with the open item in
 
 ## PR #13: what remains, in order
 
-1. **Review loop.** Review round 7, of the round 6 fixes, then fix and
+1. **Review loop.** Review round 8, of the round 7 fixes, then fix and
    review again until a review returns 0 findings.
 2. **Merge rules.** CI green and the bot reviews read (Copilot posted only
    its quota notice), then a squash merge. Strip the session-link footer
@@ -42,6 +42,14 @@ Done on the branch since f549a65:
   loss rule.
 - The doc items of the first review and the screen texts of f549a65 in
   the wiki pages, the README and the design note.
+- Review round 7 of c50c5fa: 2 findings and 1 nit, fixed. The board has
+  no card-detect line, so a swapped card is not seen as an unmount:
+  kstFilesRecordRemove() removes the record only when the file holds the
+  bytes written (FNV-1a hash in `KstFirstWrite::recordSum`). A new
+  session looks the record up again, so a record removed at LEAVE is not
+  named. README qualification of the record rule, and the remaining
+  limitation (a swapped card's record with the same bytes) documented.
+  The owner allowed up to 3 more review rounds after round 6.
 - Review round 6 of 39eacae: 1 finding and 1 nit, fixed. The LEAVE
   removal of round 5 removed records the session never wrote: a reset
   `s_first` read `KST_STORE_OK`, which is 0. forgetFirst() resets it to

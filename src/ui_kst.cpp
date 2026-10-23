@@ -269,6 +269,10 @@ static void newSession() {
 	forgetServo();
 	s_readRefused = KstRefusal::None;
 	s_resultRefused = KstRefusal::None;
+	// The last session may have removed its record at LEAVE. The lookup is
+	// a card call on core0.
+	s_recordFound = kstFilesRecordPresent();
+	escHeartbeat();
 	int rows;
 	kstRows(&rows);
 	uiListInit(&s_list, FIELD_VIEW, KL_ROW_PITCH, rows);

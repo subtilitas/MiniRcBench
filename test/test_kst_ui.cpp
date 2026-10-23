@@ -928,6 +928,15 @@ static void testSlowCard() {
 	leaveAll();
 }
 
+/** @brief From the list: BACK, LEAVE, then BACK on the unplug page, the next session's search. */
+static void unplugAndBack() {
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(KstCtl::Leave));
+	untilCtl(UI_FIX(KstCtl::Restart), 200);
+	tapId(UI_FIX(UI_BACK));
+	kstFrames(2);
+}
+
 static void testRefusedOps() {
 	section("KST screen: a read and a write the job refuses, and a stopped read");
 	freshKst();
@@ -982,9 +991,11 @@ static void testRefusedOps() {
 	checkTrue("no write frame, the record kept", fakeKstSim()->n_writes == writes &&
 	                                            fakeFatExists("KST/KST.TXT"));
 	tapId(UI_FIX(KstCtl::WriteOk));
-	leaveAll();
+	unplugAndBack();
 	checkTrue("LEAVE from a servo in a known state removes the record",
 	          !fakeFatExists("KST/KST.TXT") && fakeFatExists("KST/KST001.TXT"));
+	checkTrue("the next session names no interrupted write", fakeCountColour(C_AMBER) == 0);
+	leaveAll();
 }
 
 static void testRecordKeptAtLeave() {
@@ -1050,6 +1061,40 @@ static void testRecordKeptAtLeave() {
 	tapId(UI_FIX(KstCtl::WriteOk));
 	leaveAll();
 	checkTrue("LEAVE keeps the record that stayed", fakeFatExists("KST/KST.TXT"));
+
+	// A verified write, then a card swapped in with no unmount the logger
+	// sees: its record holds another servo.
+	freshKst();
+	checkTrue("to the field list", toList());
+	writeDeadBand();
+	checkTrue("verified", job().result == KST_SES_OK && !fakeFatExists("KST/KST.TXT"));
+	tapId(UI_FIX(KstCtl::WriteOk));
+	kst_image_t other = sim_bench_image();
+	other.r[0x0B] ^= 0x01;
+	static char otherText[KST_FILE_MAX];
+	size_t otherLen = kst_file_format(&other, otherText, sizeof(otherText));
+	fakeFatPut("KST/KST.TXT", otherText, otherLen);
+	leaveAll();
+	checkTrue("LEAVE keeps the swapped card's record", fakeFatExists("KST/KST.TXT"));
+
+	// A full card: the earlier record moves to KST001, the backup and the
+	// new record do not fit. The next session names no interrupted write.
+	freshKst();
+	fakeFatReset((uint32_t)n + 64u);
+	fakeFatMkdir("KST");
+	fakeFatPut("KST/KST.TXT", text, n);
+	checkTrue("a full card: to the field list", toList());
+	selectField(KST_F_DEAD_BAND);
+	tapId(UI_FIX(KstCtl::EditPlus));
+	holdUntilGone(UI_FIX(KstCtl::Write));
+	holdUntilGone(UI_FIX(KstCtl::WriteHold));
+	checkTrue("the card took no file, the record moved",
+	          ctlPresent(UI_FIX(KstCtl::WriteOk)) && !fakeFatExists("KST/KST.TXT") &&
+	          fakeFatExists("KST/KST001.TXT"));
+	tapId(UI_FIX(KstCtl::WriteOk));
+	unplugAndBack();
+	checkTrue("the next session: no interrupted write named", fakeCountColour(C_AMBER) == 0);
+	leaveAll();
 }
 
 void runKstUiTests() {

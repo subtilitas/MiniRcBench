@@ -965,7 +965,9 @@ hand: a plug, or a switch in its positive lead.
    the record `KST/KST.TXT`. Later writes of the session save no backup and
    write no record. The write runs as single-register writes with read-back,
    then a full verify. A verified write removes the record, and so does LEAVE
-   from a servo in programming mode that is not in doubt.
+   from a servo in programming mode that is not in doubt: only the record
+   this session wrote, while its card stays mounted and the file holds the
+   bytes the session wrote.
 5. BACK from the list opens the leave page: `POWER THE SERVO OFF.` The servo
    stays in programming mode until its supply is off. LEAVE holds the line
    low for 100 ms, lets the pin go, and shows `UNPLUG THE SERVO.` RESTART
@@ -1006,6 +1008,10 @@ reads `READ ONLY: UNKNOWN LAYOUT`.
   for an SDXC (Secure Digital eXtended Capacity) card at the
   specification's full times. Both are computed from FatFs block counts,
   not measured on a card.
+- The board has no card-detect line, so a card swapped during a session
+  is not seen as an unmount. A record on the new card with the same bytes
+  as the session's own record, the same servo image, is removed as the
+  session's.
 
 ---
 
@@ -1198,7 +1204,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.0%**: 5,513 of 5,624 lines in 42 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.0%**: 5,525 of 5,636 lines in 42 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the
