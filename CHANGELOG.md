@@ -54,6 +54,12 @@ protocol.
   and the unplug page. `src/kst_view.h` holds the rows, the values with
   their units, the stepper and the texts. The host suite runs the screen
   through MENU against rcbench's simulated servo; `docs/kst-preview.png`.
+- The design note for reading Hitec servos,
+  [hitec-reading.md](docs/design/hitec-reading.md), planned and not built:
+  reads and dumps of Hitec classic and D series servos over SIG with
+  rcbench's Hitec wire module and PIO line driver, no write, with the
+  owner's decisions of 2026-10-23. The classic entry uses the switched
+  servo supply of KST step 5.
 - rcbench's KST programming core (`protocols/kst/`), its RP2350 line driver
   and the KST file store, copied unchanged from rcbench commit 453cf334 into
   `lib/rcbench/`, with rcbench's seven tests of them in `test/rcbench/`

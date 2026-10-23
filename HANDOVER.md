@@ -2,8 +2,8 @@
 
 The state of the KST work on branch `ccr-53198405-m8uic9`, for the next
 session. This file goes in the last commit before pull request (PR) #13
-merges: delete it there, together with open item 12 in
-[STATUS.md](STATUS.md).
+merges: delete it there, together with the open item in
+[STATUS.md](STATUS.md) that points to it.
 
 ## Where things stand
 
