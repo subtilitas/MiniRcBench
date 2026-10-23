@@ -13,11 +13,14 @@
  * | List | the 27 fields, an editor bar, HOLD TO WRITE, REVERT, FILES | HOLD TO WRITE: Write; FILES: Files; BACK: Leave |
  * | Write | the changes, their soft rules, the backup line, HOLD TO WRITE, the result | OK or BACK: List |
  * | Files | the card's files, SAVE AS, LOAD, HOLD TO RESTORE | LOAD: List; BACK: List |
- * | Leave | POWER THE SERVO OFF, LEAVE | LEAVE: Unplug; BACK: List |
+ * | Leave | POWER THE SERVO OFF, LEAVE | LEAVE: Unplug; BACK: List, or Main after a loss |
  * | Unplug | UNPLUG THE SERVO, RESTART DSHOT | RESTART DSHOT: MENU; BACK: Main |
  *
  * A loss of the servo, a read that answers nothing in the mode, returns
- * every view but Unplug to Main, where the search runs again.
+ * every view but Unplug and Leave to Main, where the search runs again. A
+ * loss shows only when an operation runs: a servo powered off under an idle
+ * field list leaves the list up until the next read or write. BACK on Main
+ * during that search stops it and opens Leave.
  *
  * Without a switched supply the servo stays in programming mode until its
  * supply is off, so LEAVE asks the user to power it off. Step 5 of the

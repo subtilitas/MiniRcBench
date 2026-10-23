@@ -991,7 +991,7 @@ y   0 | KST SERVO                        [ BACK ]|
   selected the editor bar reads `READ ONLY: UNKNOWN LAYOUT` and
   `NOTHING IS WRITTEN TO THIS SERVO`, and the footer's write button reads
   `READ ONLY`; the session refuses its writes.
-  A locked session's reads `IN DOUBT`.
+  A locked session's write button reads `IN DOUBT`.
 - The strip names the type, `V6` or `V8` (`kst_type()`), the pin and the
   backup file once the first write has saved it, `BACKUP IN MEMORY` before.
 - A value whose raw step does not change its text, MAX. DUTY's 245 and 244
@@ -1121,7 +1121,9 @@ y   0 | KST SERVO                        [ BACK ]|
 - The backup line: without a card, the amber line above. With a card, after
   the session's first write, `THE BACKUP STAYS ON THE CARD: KST005.` With a
   card and no write, none: the servo still holds the backup's values.
-- BACK on the page returns to the field list.
+- BACK on the page returns to the field list, or to the search after a
+  lost servo. The leave page is exempt from the loss rule, so BACK from
+  the search after a loss stays on it; that BACK also stops the search.
 
 REBOOT is on this page and not on the field list, whose footer is full
 (110, 52 and 54 px). The leave page carries the locked session's warning

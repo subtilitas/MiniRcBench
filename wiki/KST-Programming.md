@@ -123,8 +123,11 @@ screen then adds
 `A WRITE WAS INTERRUPTED. KST/KST.TXT` and `HOLDS THE SERVO AS IT WAS.` in
 amber. See [FILES](#files).
 
-If the servo stops answering later, in any view except the unplug page, the
-screen returns here and searches again.
+If the servo stops answering later, the screen returns here and searches
+again, from any view but the leave page and the unplug page. It notices
+only when a read or a write runs: a servo powered off under an idle field
+list leaves the list up until the next read or write. `BACK` during that
+search stops it and opens the leave page.
 
 ---
 
@@ -330,7 +333,8 @@ too, once a servo has answered.
 The page reads `POWER THE SERVO OFF.` and
 `IT STAYS IN PROGRAMMING MODE UNTIL ITS SUPPLY IS OFF.` With pending changes it
 adds `2 CHANGES NOT WRITTEN.`, and in doubt
-`THE SERVO IS IN DOUBT: RESTORE FIRST.` `BACK` returns to the field list.
+`THE SERVO IS IN DOUBT: RESTORE FIRST.` `BACK` returns to the field list,
+or, after a lost servo, to the search.
 
 **Power the servo off. Then tap `LEAVE`.** The screen holds the line low for
 100 ms, lets the pin go, and shows `UNPLUG THE SERVO.` under

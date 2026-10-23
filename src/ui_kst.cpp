@@ -132,6 +132,8 @@ static bool         s_okPress = false;   /**< A press landed on the write page w
 static bool         s_result = false;    /**< The write page shows a result. */
 static uint8_t      s_resultSes = 0;
 static uint8_t      s_resultPlan = 0;
+static KstRefusal   s_resultRefused = KstRefusal::None; /**< The job refused the write. */
+static KstRefusal   s_readRefused = KstRefusal::None;   /**< The job refused the read. */
 static const char  *s_cardNote = nullptr; /**< The card refused the first write's files. */
 static bool         s_leaveQueued = false;
 static char         s_preset[KST_STORE_PRESET_MAX]; /**< The next KSTnnn, for the backup line. */
@@ -192,13 +194,13 @@ static int bits(kst_field_set_t s) {
 	return n;
 }
 
-/** @brief The servo is in the mode, read, and nothing runs. */
 /** @brief In the mode with no operation open; there may be no image yet. */
 static bool idleMode() {
 	return running() && s_st.job == KstJobState::InMode && !s_opOpen;
 }
 
-static bool idleInMode() { return idleMode() && s_st.hasImage; }
+/** @brief The servo is in the mode, read with its backup, and nothing runs. */
+static bool idleInMode() { return idleMode() && s_st.hasImage && s_st.hasBackup; }
 
 /** @brief The rules the change of @p f alone adds, against the backup. */
 static kst_rules_t fieldRules(kst_field_id_t f) {
@@ -255,6 +257,8 @@ static void newSession() {
 	s_cardNote = nullptr;
 	s_prevJob = KstJobState::Closed;
 	forgetServo();
+	s_readRefused = KstRefusal::None;
+	s_resultRefused = KstRefusal::None;
 	int rows;
 	kstRows(&rows);
 	uiListInit(&s_list, FIELD_VIEW, KL_ROW_PITCH, rows);
@@ -270,6 +274,13 @@ static void claimPin() {
 static void readFiles();
 static bool holdOk();
 
+/** @brief The last write's result, or why the job refused it. */
+static KstResultText resultText() {
+	if (s_resultRefused == KstRefusal::NoUi)
+		return { "THE SCREEN STALLED. NOTHING WAS WRITTEN.", KstTone::Nothing };
+	return kstResultText((kst_ses_t)s_resultSes, s_resultPlan);
+}
+
 // ---------------------------------------------------------------------------
 // the session's events
 // ---------------------------------------------------------------------------
@@ -278,7 +289,11 @@ static bool holdOk();
 static void opEnd() {
 	s_opOpen = false;
 	if (s_op == KstOp::ReadAll) {
-		if (s_st.result == KST_SES_OK && s_st.hasImage) {
+		// A refused read leaves the image of an earlier servo in the status:
+		// it is no read of this one.
+		s_readRefused = s_st.refused;
+		if (s_st.refused == KstRefusal::None && s_st.result == KST_SES_OK && s_st.hasImage &&
+		    s_st.hasBackup) {
 			if (!s_haveTarget) s_target = s_st.image;
 			s_haveTarget = true;
 			s_readFailed = false;
@@ -291,7 +306,10 @@ static void opEnd() {
 	// Edit and Restore: the write page shows how it ended.
 	s_writing = false;
 	s_result = true;
+	s_resultRefused = s_st.refused;
 	s_resultSes = s_st.refused == KstRefusal::None ? s_st.result : (uint8_t)KST_SES_ERR_BUSY;
+	// A refused write sent no frame. Its record stays: it holds the servo
+	// as it stands, and the session's next write relies on it.
 	s_resultPlan = s_st.planResult;
 	if (s_op == KstOp::Restore && s_resultSes == KST_SES_ERR_UNCONFIRMED) {
 		s_confirm = true;
@@ -325,6 +343,9 @@ static void follow() {
 		s_firstDone = false;
 		memset(&s_first, 0, sizeof(s_first));
 		s_recordFound = kstFilesRecordPresent();
+		// The lookup is a card call on core0: the heartbeat is stamped after
+		// it, so the read this frame sends finds it fresh.
+		escHeartbeat();
 	}
 	// A loss: the search runs again, for whatever servo is plugged in next.
 	// With the heartbeat lapsed the job ends that search at once
@@ -457,8 +478,15 @@ static void mainBody(MainText *m) {
 		case KstJobState::Busy:
 			snprintf(m->strip, sizeof(m->strip), "IN PROGRAMMING MODE");
 			if (s_readFailed) {
-				KstResultText r = kstResultText((kst_ses_t)s_st.result, s_st.planResult);
-				addWrapped(m, r.text, C_AMBER);
+				// A refused read, or one that ended before its abort was
+				// taken, leaves a result that is not the read's.
+				if (s_readRefused == KstRefusal::NoUi)
+					addWrapped(m, "THE SCREEN STALLED. READ THE SERVO AGAIN.", C_AMBER);
+				else if (s_readRefused != KstRefusal::None || s_st.result == KST_SES_OK)
+					addWrapped(m, "THE READ WAS STOPPED. READ THE SERVO AGAIN.", C_AMBER);
+				else
+					addWrapped(m, kstResultText((kst_ses_t)s_st.result, s_st.planResult).text,
+					           C_AMBER);
 				if (s_st.badRegs) {
 					int k = snprintf(b, sizeof(b), "REGISTERS");
 					for (int i = 0; i < (int)KST_REG_COUNT && k < 40; i++)
@@ -542,9 +570,30 @@ static void drawFieldRow(int i, int y, void *) {
 	gfxHLine(0, y + KL_ROW_H - 1, GFX_W, C_PANEL);
 }
 
+/** @brief kstCanStep() for one direction, kept until its inputs change. */
+struct StepCache {
+	bool        valid;
+	int         sel;
+	kst_image_t target;
+	kst_image_t backup;
+	bool        ok;
+};
+
 static bool stepOk(int dir) {
-	return s_sel >= 0 && kstRowEditable(s_sel) && idleInMode() &&
-	       kstCanStep(&s_st.backup, &s_target, rowAt(s_sel).field, dir);
+	if (s_sel < 0 || !kstRowEditable(s_sel) || !idleInMode()) return false;
+	// kstCanStep() walks the field's raw range against the limits, and the
+	// controls ask it on every frame: the answer is kept per direction.
+	static StepCache cache[2];
+	StepCache &c = cache[dir > 0 ? 1 : 0];
+	if (!c.valid || c.sel != s_sel || memcmp(c.target.r, s_target.r, KST_REG_COUNT) != 0 ||
+	    memcmp(c.backup.r, s_st.backup.r, KST_REG_COUNT) != 0) {
+		c.valid = true;
+		c.sel = s_sel;
+		c.target = s_target;
+		c.backup = s_st.backup;
+		c.ok = kstCanStep(&s_st.backup, &s_target, rowAt(s_sel).field, dir);
+	}
+	return c.ok;
 }
 
 static void drawList() {
@@ -674,6 +723,8 @@ static bool firstWriteFiles() {
 	// Without a card nothing is on it yet: a later write with a card
 	// mounted saves the backup and writes the record then.
 	s_firstDone = !(s_first.backup == KST_STORE_NO_CARD && s_first.record == KST_STORE_NO_CARD);
+	// The card took the record and not the backup: no backup file to name.
+	if (s_firstDone && s_first.backup != KST_STORE_OK) s_preset[0] = '\0';
 	s_recordFound = s_firstDone && kstFilesRecordPresent();
 	return true;
 }
@@ -685,6 +736,9 @@ static void startWrite() {
 		s_cardNote = "THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.";
 		return;
 	}
+	// The card calls block core0, up to seconds on a slow card; the job
+	// takes no write while the heartbeat has lapsed.
+	escHeartbeat();
 	s_writing = true;
 	if (s_restoring) sendOp(KstOp::Restore, nullptr, s_confirm);
 	else             sendOp(KstOp::Edit, &s_target);
@@ -752,6 +806,8 @@ static void drawWrite() {
 	}
 
 	if (s_first.backupName[0]) snprintf(buf, sizeof(buf), "BACKUP: KST/%s", s_first.backupName);
+	else if (s_firstDone)
+		snprintf(buf, sizeof(buf), "NO BACKUP ON THE CARD: IN MEMORY");
 	else if (!kstFilesMounted())
 		snprintf(buf, sizeof(buf), "%s", cardHeldByUsb() ? "CARD IN USE BY USB: BACKUP IN MEMORY"
 		                                                : "NO CARD: BACKUP IN MEMORY");
@@ -767,8 +823,7 @@ static void drawWrite() {
 		return;
 	}
 	if (s_result || s_cardNote) {
-		KstResultText r = s_cardNote ? KstResultText{ s_cardNote, KstTone::Nothing }
-		                             : kstResultText((kst_ses_t)s_resultSes, s_resultPlan);
+		KstResultText r = s_cardNote ? KstResultText{ s_cardNote, KstTone::Nothing } : resultText();
 		uint16_t c = r.tone == KstTone::Done ? C_GREEN : (r.tone == KstTone::Doubt ? C_RED : C_AMBER);
 		char wl[3][48];
 		int n = kstWrap(r.text, 38, wl, 3);
@@ -894,7 +949,6 @@ static void drawFiles() {
 	         s_hold.holding ? C_ONACCENT : C_TEXT, 1, s_hold.holding, r);
 }
 
-/** @brief The FILES strip's note: @p text, in @p col. */
 /** @brief Characters of the strip, x 8 to 232. */
 #define KST_STRIP_CHARS 37
 
@@ -909,6 +963,7 @@ static void fitNote(char *out, size_t n, unsigned line, const char *what) {
 	if (strlen(out) > KST_STRIP_CHARS) snprintf(out, n, "%s", what);
 }
 
+/** @brief The FILES strip's note: @p text, in @p col. */
 static void fileNote(uint16_t col, const char *text) {
 	snprintf(s_fileNote, sizeof(s_fileNote), "%s", text);
 	s_fileNoteCol = col;
@@ -1029,7 +1084,11 @@ static void drawLeave() {
 	uiHeader("KST SERVO", s_t);
 	uiStripClear();
 	char strip[32];
-	snprintf(strip, sizeof(strip), "%s  GP%u", kst_type_name(kst_type(&s_st.image)), sigGpio());
+	// The type is the servo's that was read; after a loss there is none.
+	if (s_haveTarget)
+		snprintf(strip, sizeof(strip), "%s  GP%u", kst_type_name(kst_type(&s_st.image)), sigGpio());
+	else
+		snprintf(strip, sizeof(strip), "GP%u", sigGpio());
 	uiStripText(strip, C_DIM);
 	gfxRect(0, UI_BODY_Y, GFX_W, GFX_H - UI_BODY_Y, C_BG);
 	gfxText(UI_MARGIN, 76, "POWER THE SERVO OFF.", C_AMBER, 1);
@@ -1048,7 +1107,7 @@ static void drawLeave() {
 		y += 14;
 	}
 	if (s_result) {
-		KstResultText r = kstResultText((kst_ses_t)s_resultSes, s_resultPlan);
+		KstResultText r = resultText();
 		char wl[2][48];
 		int k = kstWrap(r.text, 38, wl, 2);
 		for (int i = 0; i < k; i++, y += 12) gfxText(UI_MARGIN, y, wl[i], C_DIM, 1);
@@ -1224,6 +1283,9 @@ bool uiKstTick(const TouchState *t) {
 						sendOp(KstOp::Abort);
 						s_readFailed = true;
 					}
+					// BACK during a search after a loss stops it: no servo
+					// enters the mode behind the leave page.
+					if (s_st.job == KstJobState::Searching) sendOp(KstOp::StopSearch);
 					go(KstView::Leave);
 				} else if (!endClaim()) {
 					return false;

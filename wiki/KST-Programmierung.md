@@ -130,8 +130,12 @@ der Vermerk `KST/KST.TXT`. Der Bildschirm zeigt dann in Bernstein
 `A WRITE WAS INTERRUPTED. KST/KST.TXT` und `HOLDS THE SERVO AS IT WAS.`
 Siehe [FILES](#files).
 
-Antwortet das Servo später nicht mehr, in jeder Ansicht außer der
-Abziehseite, kehrt der Bildschirm hierher zurück und sucht erneut.
+Antwortet das Servo später nicht mehr, kehrt der Bildschirm hierher zurück
+und sucht erneut, aus jeder Ansicht außer der Verlassenseite und der
+Abziehseite. Er bemerkt es nur, während ein Lesen oder Schreiben läuft: Ein
+Servo, das unter einer ruhenden Feldliste ausgeschaltet wird, lässt die
+Liste stehen bis zum nächsten Lesen oder Schreiben. `BACK` während dieser
+Suche beendet sie und öffnet die Verlassenseite.
 
 ---
 
@@ -349,7 +353,8 @@ sie ebenfalls, sobald ein Servo geantwortet hat.
 Die Seite zeigt `POWER THE SERVO OFF.` und
 `IT STAYS IN PROGRAMMING MODE UNTIL ITS SUPPLY IS OFF.` Mit vorgemerkten
 Änderungen kommt `2 CHANGES NOT WRITTEN.` hinzu, im Zweifel
-`THE SERVO IS IN DOUBT: RESTORE FIRST.` `BACK` führt zur Feldliste zurück.
+`THE SERVO IS IN DOUBT: RESTORE FIRST.` `BACK` führt zur Feldliste zurück,
+nach einem verlorenen Servo zur Suche.
 
 **Schalte das Servo aus. Tippe dann auf `LEAVE`.** Der Bildschirm hält die
 Leitung 100 ms lang auf Low, lässt den Pin los und zeigt `UNPLUG THE SERVO.`
