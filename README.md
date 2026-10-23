@@ -976,8 +976,9 @@ hand: a plug, or a switch in its positive lead.
 | `ROLLED BACK: THE SERVO HOLDS ITS OLD VALUES` | amber | A write did not take and was undone |
 | `IN DOUBT: ... RESTORE FROM FILES.` | red | The servo state is unknown; only a restore is taken |
 
-**FILES** lists `KST/*.TXT` on the card, the latest KSTnnn first, and the
-record first of all when one is there. SAVE AS writes the servo as it stands
+**FILES** lists `KST/*.TXT` on the card by name, the KSTnnn files together
+with the highest number first, and the record first of all when one is
+there. SAVE AS writes the servo as it stands
 under the next free KSTnnn, KST001 to KST999. LOAD holds the file against the
 servo (type, access classes, hard limits) and puts its values into the list
 as pending changes; a refusal names its line, for example `LINE 14: NOT A
@@ -999,8 +1000,9 @@ reads `READ ONLY: UNKNOWN LAYOUT`.
 - The first write's card calls run on core0, and the screen does not
   redraw until they end. With 997 KSTnnn files on the card that is under
   7.3 s for a card with access and busy times of a few ms, and up to 82.2 s
-  for an SDXC card at the specification's full times. Both are computed
-  from FatFs block counts, not measured on a card.
+  for an SDXC (Secure Digital eXtended Capacity) card at the
+  specification's full times. Both are computed from FatFs block counts,
+  not measured on a card.
 
 ---
 
@@ -1193,7 +1195,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.0%**: 5,486 of 5,599 lines in 42 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.0%**: 5,498 of 5,609 lines in 42 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

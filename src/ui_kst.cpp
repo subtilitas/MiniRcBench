@@ -489,12 +489,10 @@ static void mainBody(MainText *m) {
 				else
 					addWrapped(m, kstResultText((kst_ses_t)s_st.result, s_st.planResult).text,
 					           C_AMBER);
-				if (s_st.badRegs) {
-					int k = snprintf(b, sizeof(b), "REGISTERS");
-					for (int i = 0; i < (int)KST_REG_COUNT && k < 40; i++)
-						if (s_st.badRegs & (1u << i)) k += snprintf(b + k, sizeof(b) - k, " %02X", i);
-					addLine(m, b, C_AMBER);
-				}
+				static char more[48];
+				kstBadRegsText(s_st.badRegs, b, more, sizeof(b));
+				if (b[0]) addLine(m, b, C_AMBER);
+				if (more[0]) addLine(m, more, C_AMBER);
 				m->button = "READ AGAIN"; m->ctl = KstCtl::ReadAgain; m->enabled = idleMode();
 			} else {
 				addLine(m, "READING 32 REGISTERS", C_TEXT);

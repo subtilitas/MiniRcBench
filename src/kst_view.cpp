@@ -351,6 +351,23 @@ void kstFileLineName(const char *text, size_t len, unsigned line, char *buf, siz
 	buf[k] = '\0';
 }
 
+void kstBadRegsText(uint32_t bad, char *line, char *more, size_t n) {
+	line[0] = more[0] = '\0';
+	if (!bad) return;
+	int k = snprintf(line, n, "REGISTERS");
+	int shown = 0, left = 0;
+	for (int i = 0; i < (int)KST_REG_COUNT; i++) {
+		if (!(bad & (1u << i))) continue;
+		if (shown < 9 && k + 3 < (int)n) {
+			k += snprintf(line + k, n - k, " %02X", i);
+			shown++;
+		} else {
+			left++;
+		}
+	}
+	if (left) snprintf(more, n, "AND %d MORE", left);
+}
+
 int kstWrap(const char *text, int width, char lines[][48], int maxLines) {
 	if (width > 47) width = 47;
 	if (width < 4) width = 4;

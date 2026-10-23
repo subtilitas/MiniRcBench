@@ -216,6 +216,22 @@ static void testTexts() {
 	checkStr("a line past the end names none", name, "");
 }
 
+static void testBadRegs() {
+	section("KST view: the registers a read could not settle");
+	char line[48], more[48];
+	kstBadRegsText(0, line, more, sizeof(line));
+	checkTrue("none: no line", !line[0] && !more[0]);
+	kstBadRegsText((1u << 3) | (1u << 0x0A), line, more, sizeof(line));
+	checkStr("two", line, "REGISTERS 03 0A");
+	checkStr("and nothing more", more, "");
+	kstBadRegsText(0x1FFEu, line, more, sizeof(line));  // 01 to 0C
+	checkStr("twelve: the first nine", line, "REGISTERS 01 02 03 04 05 06 07 08 09");
+	checkTrue("within 37 characters", strlen(line) <= 37);
+	checkStr("the rest counted", more, "AND 3 MORE");
+	kstBadRegsText(0xFFFFFFFFu, line, more, sizeof(line));
+	checkStr("all 32", more, "AND 23 MORE");
+}
+
 static void testWrap() {
 	section("KST view: lines broken at spaces");
 	char l[3][48];
@@ -240,4 +256,5 @@ void runKstViewTests() {
 	testStepper();
 	testTexts();
 	testWrap();
+	testBadRegs();
 }

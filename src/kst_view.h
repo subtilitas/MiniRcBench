@@ -128,6 +128,18 @@ const char *kstFileErrText(kst_file_err_t err);
 void kstFileLineName(const char *text, size_t len, unsigned line, char *buf, size_t n);
 
 /**
+ * @brief The registers a read could not settle, as the main view lists
+ *        them: `REGISTERS 03 0A`, at most 9 registers so the line stays
+ *        within 37 characters, the strip's width from x 8.
+ * @param bad   Bit n: register n did not settle.
+ * @param line  The register line, @p n bytes; empty for no register.
+ * @param more  `AND 3 MORE` for registers past the ninth, else empty;
+ *              @p n bytes.
+ * @param n     Room in @p line and in @p more.
+ */
+void kstBadRegsText(uint32_t bad, char *line, char *more, size_t n);
+
+/**
  * @brief Break @p text into lines of at most @p width characters, at spaces.
  *        A width below 4 counts as 4, above 47 as 47.
  * @return The lines written into @p lines, at most @p maxLines; the last

@@ -121,7 +121,8 @@ Antwortet ein Servo, zeigt die Leiste `IN PROGRAMMING MODE` und der Inhalt
 `READING 32 REGISTERS`. Der Bildschirm liest jedes Register, bis 3 von 5
 Lesungen übereinstimmen. Beruhigt sich ein Register nicht, zeigt der Inhalt
 `READ FAILED: NO 3 EQUAL READS` und listet die Register, zum Beispiel
-`REGISTERS 03 0A`. `READ AGAIN` wiederholt das Lesen. Ein mit `BACK`
+`REGISTERS 03 0A`. Die Zeile nennt höchstens 9 Register; eine zweite Zeile
+zählt den Rest, zum Beispiel `AND 3 MORE`. `READ AGAIN` wiederholt das Lesen. Ein mit `BACK`
 abgebrochenes Lesen zeigt `ABORTED. READ THE SERVO AGAIN.` Ein Lesen, das
 der Bildschirm nicht starten konnte, weil er hing, zeigt
 `THE SCREEN STALLED. READ THE SERVO AGAIN.`
@@ -222,7 +223,7 @@ unteren Rand sagt, wohin die Sicherung geht:
 
 | Zeile | Wann |
 |---|---|
-| `BACKUP FIRST: KST/KST001.TXT` | Eine Karte ist eingebunden, und in dieser Sitzung ist noch nichts geschrieben worden |
+| `BACKUP FIRST: KST/KST001.TXT` | Eine Karte ist eingebunden, und die Sicherung liegt noch nicht auf ihr |
 | `BACKUP: KST/KST001.TXT` | Die Sicherung liegt auf der Karte |
 | `NO CARD: BACKUP IN MEMORY` | Keine Karte ist eingebunden |
 | `CARD IN USE BY USB: BACKUP IN MEMORY` | Ein USB-Host hält die Karte |
@@ -294,8 +295,10 @@ nimmt kein Schreiben an, bis eine Wiederherstellung gelaufen ist. Stelle
 - Die Leiste zählt die Dateien: `CARD  12 FILES`. Die Seite listet die ersten
   64 Dateien, danach zeigt die Leiste zum Beispiel
   `CARD  FIRST 64 OF 100 FILES`.
-- Die jüngste KSTnnn steht vorn. Liegt der Vermerk `KST/KST.TXT` auf der
-  Karte, ist er die allererste Zeile, benannt `RECORD` mit `(KST.TXT)` rechts.
+- Die Dateien stehen nach Namen. Die KSTnnn-Dateien stehen beisammen, die
+  höchste Nummer vorn, also die jüngste von ihnen zuerst. Liegt der Vermerk
+  `KST/KST.TXT` auf der Karte, ist er die allererste Zeile, benannt `RECORD`
+  mit `(KST.TXT)` rechts.
   Die Sicherung dieser Sitzung trägt `(BACKUP)`.
 - Tippe auf eine Zeile, um sie auszuwählen.
 

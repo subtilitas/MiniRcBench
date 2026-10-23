@@ -804,7 +804,7 @@ screen says so.
 | Searching, supply switched | see [screens with the switch](#screens-with-the-switch) | | |
 | Timed out, no switch | `NO SERVO IN 30 S` | `CHECK SIGNAL AND GROUND, THEN POWER THE SERVO UP AGAIN.` | RETRY, BACK |
 | Found | `IN PROGRAMMING MODE` | `READING 32 REGISTERS` | BACK |
-| Read failed | | `READ FAILED: NO 3 EQUAL READS` and the registers in `bad_regs`; `ABORTED. READ THE SERVO AGAIN.` after BACK; `THE SCREEN STALLED. READ THE SERVO AGAIN.` when the job refused the read; `THE READ WAS STOPPED. READ THE SERVO AGAIN.` for a read that ended before its abort was taken | READ AGAIN, BACK |
+| Read failed | | `READ FAILED: NO 3 EQUAL READS` and the registers in `bad_regs`, at most 9 on the line and `AND n MORE` below for the rest; `ABORTED. READ THE SERVO AGAIN.` after BACK; `THE SCREEN STALLED. READ THE SERVO AGAIN.` when the job refused the read; `THE READ WAS STOPPED. READ THE SERVO AGAIN.` for a read that ended before its abort was taken | READ AGAIN, BACK |
 | Read | `V6  GP29  BACKUP KST004` | the field list | see below |
 
 The layout of the searching state without a switch:

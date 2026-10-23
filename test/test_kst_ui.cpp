@@ -279,7 +279,6 @@ static void testEditAndWrite() {
 	// Core1 runs for 5 ms in every card call, as it does beside core0 on
 	// the board: a write command sent before the card calls would send
 	// its frames while they run.
-	unsigned writes = sim->n_writes;
 	unsigned frames = sim->n_frames;
 	s_framesInCard = frames;
 	fakeFatOnCall(cardCallRunsCore1);
@@ -607,6 +606,19 @@ static void testRefusalsAndFailures() {
 	checkControlTable("KST, a failed read");
 	kstFrames(1);
 	fakeDumpFrame("shot_kst_readfail.ppm");
+	// Registers 00 to 0B silent in passes 1 to 3 of 5: 12 registers have 2
+	// equal reads, more than one line of Main names. A fault counts its skip
+	// only on the reads the faults before it let pass, 20 of each 32.
+	fakeKstSim()->n_faults = 0;
+	for (unsigned pass = 0; pass < 3; pass++)
+		sim_add_fault(fakeKstSim(), SIM_READ, -1, pass * 20u, 12, SIM_F_NO_REPLY, 0);
+	tapId(UI_FIX(KstCtl::ReadAgain));
+	checkTrue("12 registers without 3 equal reads: READ AGAIN",
+	          untilCtl(UI_FIX(KstCtl::ReadAgain), 400) && job().badRegs == 0xFFFu);
+	kstFrames(1);
+	checkTrue("Main names the first 9",
+	          lineIs(94, "REGISTERS 00 01 02 03 04 05 06 07 08", C_AMBER));
+	checkTrue("and counts the rest", lineIs(112, "AND 3 MORE", C_AMBER));
 	fakeKstSim()->n_faults = 0;
 	tapId(UI_FIX(KstCtl::ReadAgain));
 	checkTrue("READ AGAIN reads it", untilView(KstView::List, 400));
@@ -754,7 +766,9 @@ static void testSecondServoAndLateCard() {
 	selectField(KST_F_BOOST);
 	tapId(UI_FIX(KstCtl::EditMinus));
 	holdUntilGone(UI_FIX(KstCtl::Write));
-	checkTrue("a card now: the page names the backup it saves", fakeCountColour(C_DIM) > 0);
+	kstFrames(1);
+	checkTrue("a card now: the page names the backup it saves",
+	          lineIs(236, "BACKUP FIRST: KST/KST001.TXT", C_DIM));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	untilCtl(UI_FIX(KstCtl::WriteOk), 400);
 	static char b1[KST_FILE_MAX];

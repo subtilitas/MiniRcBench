@@ -114,7 +114,8 @@ After a servo answers, the strip reads `IN PROGRAMMING MODE` and the body
 reads `READING 32 REGISTERS`. The screen reads each register until 3 of 5
 reads agree. If a register does not settle, the body reads
 `READ FAILED: NO 3 EQUAL READS` and lists the registers, for example
-`REGISTERS 03 0A`. `READ AGAIN` repeats the read. A read stopped by `BACK`
+`REGISTERS 03 0A`. The line names at most 9 registers; a second line counts
+the rest, for example `AND 3 MORE`. `READ AGAIN` repeats the read. A read stopped by `BACK`
 reads `ABORTED. READ THE SERVO AGAIN.` A read the screen could not start
 because it stalled reads `THE SCREEN STALLED. READ THE SERVO AGAIN.`
 
@@ -208,7 +209,7 @@ backup goes:
 
 | Line | When |
 |---|---|
-| `BACKUP FIRST: KST/KST001.TXT` | A card is mounted and no write has happened this session |
+| `BACKUP FIRST: KST/KST001.TXT` | A card is mounted and the backup is not on it yet |
 | `BACKUP: KST/KST001.TXT` | The backup is on the card |
 | `NO CARD: BACKUP IN MEMORY` | No card is mounted |
 | `CARD IN USE BY USB: BACKUP IN MEMORY` | A USB host holds the card |
@@ -276,8 +277,10 @@ until a restore has run. Restore from [FILES](#files).
 
 - The strip counts the files: `CARD  12 FILES`. The page lists the first 64
   files, then the strip reads `CARD  FIRST 64 OF 100 FILES`, for example.
-- The latest KSTnnn is first. When the record `KST/KST.TXT` is on the card,
-  it is the first row of all, named `RECORD` with `(KST.TXT)` at the right.
+- The files sort by name. The KSTnnn files stand together, the highest
+  number first, so the latest of them leads the run. When the record
+  `KST/KST.TXT` is on the card, it is the first row of all, named `RECORD`
+  with `(KST.TXT)` at the right.
   The backup of this session carries `(BACKUP)`.
 - Tap a row to select it.
 

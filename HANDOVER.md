@@ -20,7 +20,7 @@ merges: delete it there, together with the open item in
 
 ## PR #13: what remains, in order
 
-1. **Review loop.** Review round 4, of the round 3 fixes, then fix and
+1. **Review loop.** Review round 5, of the round 4 fixes, then fix and
    review again until a review returns 0 findings.
 2. **Merge rules.** CI green and the bot reviews read (Copilot posted only
    its quota notice), then a squash merge. Strip the session-link footer
@@ -42,6 +42,11 @@ Done on the branch since f549a65:
   loss rule.
 - The doc items of the first review and the screen texts of f549a65 in
   the wiki pages, the README and the design note.
+- Review round 4 of 4b7221f: 2 findings and 4 nits, fixed. The REGISTERS
+  line names at most 9 registers, `AND n MORE` counts the rest
+  (`kstBadRegsText()`, tested in the view and on Main); the backup-line
+  test compares the line; the wiki's BACKUP FIRST condition, the file
+  order, the SDXC expansion.
 - Review round 3 of 3c48825: 3 findings and 2 nits, fixed: a stale read
   refusal, tests for the refused read and write and the backup line, the
   wiki's backup-line table, a README line, a design-doc quote.
