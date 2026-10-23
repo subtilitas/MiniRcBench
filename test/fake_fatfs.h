@@ -85,3 +85,10 @@ int fakeFatOpenDirs();
 
 /** @brief Calls of @p call since fakeFatReset(). */
 unsigned fakeFatCalls(FakeFatCall call);
+
+/**
+ * @brief Run @p fn at the start of every FatFs call, null for none, until
+ *        fakeFatReset(): the other core running while a card call takes
+ *        time on hardware.
+ */
+void fakeFatOnCall(void (*fn)());

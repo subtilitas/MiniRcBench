@@ -28,6 +28,13 @@ static char s_text[KST_FILE_MAX];
 static FIL     s_fil;
 static FILINFO s_fno;
 
+/** @brief FNV-1a (Fowler-Noll-Vo), 32 bits, of @p n bytes at @p p. */
+static uint32_t fnv1a(const char *p, size_t n) {
+	uint32_t h = 2166136261u;
+	for (size_t i = 0; i < n; i++) h = (h ^ (uint8_t)p[i]) * 16777619u;
+	return h;
+}
+
 bool kstFilesMounted() {
 	SdLogStatus st;
 	sdLogStatus(&st);
@@ -204,6 +211,12 @@ kst_store_t kstFilesRecordRemove(const KstFirstWrite *w) {
 	// interrupted write is the servo before that write.
 	if (!w || w->record != KST_STORE_OK) return KST_STORE_OK;
 	if (!kstFilesMounted()) return KST_STORE_NO_CARD;
+	// And only while the file holds its bytes: another card's record stays.
+	size_t len = 0;
+	kst_store_t r = kstFilesRecordLoad(s_text, sizeof(s_text), &len);
+	if (r == KST_STORE_NOT_FOUND || r == KST_STORE_TOO_LARGE) return KST_STORE_OK;
+	if (r != KST_STORE_OK) return r;
+	if (fnv1a(s_text, len) != w->recordSum) return KST_STORE_OK;
 	char path[KST_FILES_PATH_MAX];
 	pathOf(KST_FILES_RECORD_NAME, path);
 	FRESULT fr = f_unlink(path);
@@ -275,6 +288,7 @@ void kstFilesFirstWrite(const kst_image_t *backup, const kst_image_t *before,
 	}
 	size_t n = kst_file_format(before, s_text, sizeof(s_text));
 	out->record = (uint8_t)storeResult(ioCreate(nullptr, KST_FILES_RECORD_NAME, s_text, n));
+	out->recordSum = fnv1a(s_text, n);
 }
 
 bool kstFilesWriteAllowed(const KstFirstWrite *w) {

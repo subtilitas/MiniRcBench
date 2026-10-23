@@ -21,10 +21,11 @@ read-only drive, and reads and writes AM32 ESC settings over the signal wire.
 It is also a servo tester: PWM (pulse-width modulation) servo output on the
 same two signal pins, with manual position, sweep and two servos at once (see
 [Servo tester](#servo-tester); design note `docs/design/servo-tester.md`).
-Planned: KST and Chaservo servo programming, on the same pins
-(`docs/design/kst-programming.md`); it has no row on MENU until it is built.
-The AM32 editor and the servo tester take the pins through the pin
-claim of `docs/design/pin-claim.md`.
+It programs KST and Chaservo servos on the ESC pin (see
+[KST servo programming](#kst-servo-programming); design note
+`docs/design/kst-programming.md`). The AM32 editor, the servo tester and the
+KST programmer take the pins through the pin claim of
+`docs/design/pin-claim.md`.
 
 ![UI preview](docs/ui-preview.png)
 
@@ -348,6 +349,7 @@ tester. Every tool's **BACK** returns to MENU.
 | **BEEP THE ESC** | `DISARMED`; for 350 ms after a tap, `SENT` or `REFUSED` | Sends `DSHOT_CMD_BEACON1` for 6 frames (`BEEP_REPEATS`), 6 ms at 1 kHz. Use it to identify which ESC is connected |
 | **AM32 CONFIG** | the ESC pin, `GP29`; `PINS BUSY` | Opens the ESC settings editor. See [AM32 ESC configuration](#am32-esc-configuration) |
 | **SERVO TESTER** | the signal pins, `GP29+28`; `PINS BUSY` | Opens the servo tester. See [Servo tester](#servo-tester) |
+| **KST SERVO** | the ESC pin, `GP29`; `PINS BUSY` | Opens the KST servo programmer. See [KST servo programming](#kst-servo-programming) |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a USB host holds the card | Opens the logging status. See below |
 | **SETTINGS** | `UNSAVED` while the live settings differ from flash, else nothing; `PINS BUSY` while the pin claim is not Free, drawn disabled | Opens SETTINGS. See below |
 
@@ -356,12 +358,12 @@ tester. Every tool's **BACK** returns to MENU.
   against a 25 ms repaint. BEEP is refused while armed. Opening MENU disarms,
   so the refusal is not reachable through the UI; the flash stays as a
   backstop.
-- **PINS BUSY**: AM32 CONFIG and SERVO TESTER claim the signal pins. While the
-  claim is not free, for example after RESTART DSHOT until the DShot pump runs
-  again, the row reads `PINS BUSY` in amber and a tap opens nothing.
+- **PINS BUSY**: AM32 CONFIG, SERVO TESTER and KST SERVO claim the signal
+  pins. While the claim is not free, for example after RESTART DSHOT until
+  the DShot pump runs again, the row reads `PINS BUSY` in amber and a tap
+  opens nothing.
 - **Rows**: six rows fit the screen without scrolling. A seventh makes MENU
-  scroll by 36 px, with a 3 px scroll bar at x 235. KST servo programming has
-  no row until it is built.
+  scroll by 36 px, with a 3 px scroll bar at x 235.
 
 **SD LOG screen**
 
@@ -907,6 +909,112 @@ is cut short. A profile change waits the same way before the rebind. The
 released pins are inputs with the pull-down on until DShot takes SIG back
 and, with KISS on, the KISS receiver takes AUX.
 
+## KST servo programming
+
+**MENU → KST SERVO** reads and writes the settings of a KST or Chaservo servo
+over its signal wire, on SIG (GP29). Both brands share one programming
+protocol and one set of 32 registers. The protocol code is rcbench's
+(`lib/rcbench/protocols/kst/`): Manchester-coded frames, half duplex, from
+the RP2350's PIO (programmable I/O). Not tested on hardware: no frame of the
+line driver has been on a pin. Design note: `docs/design/kst-programming.md`.
+
+![KST servo programming](docs/kst-preview.png)
+
+### Wiring
+
+As for the servo tester: the servo on its own supply, signal on SIG, the
+grounds joined once at the board. The servo answers only in the first
+moments after its supply comes on, so the supply has to be switchable by
+hand: a plug, or a switch in its positive lead.
+
+```
+  servo supply, 5 V
+     +  ----/ switch /--------------------------------  servo +   (red, middle)
+     -  ----------------+-----------------------------  servo -   (brown or black)
+                        |
+  board GND  -----------+
+  board SIG  ------------------------------------------  servo signal (orange or white)
+
+  SIG GP29 = J4 pin 12, GND = J4 pin 1 or 5
+```
+
+- The owner programs every KST servo, HV (high-voltage) servos included, at
+  5 V. Other voltages are not tested.
+- The power-on order and the unplug rule of the [servo tester
+  wiring](#wiring) apply here too.
+
+### Using it
+
+1. Open KST SERVO. The screen claims SIG and searches: it repeats rcbench's
+   entry sequence, one attempt every 116.6 ms to 118.8 ms, for 30 s. The
+   strip reads `GP29  TRY 12  1.4 S`.
+2. Power the servo up during the search. The servo enters programming mode,
+   and the screen reads its 32 registers, each until 3 of 5 reads agree.
+   A powered servo on SIG gets no pulses while the screen is open and may go
+   to its failsafe position.
+3. The field list shows 27 named fields in four groups: TUNE, PULSE,
+   FAILSAFE and LOCKED. LOCKED fields are read-only. A tap selects a field;
+   − and + step it, and a sideways swipe steps it by an eleventh of its
+   range. The stepper skips values that break a hard limit, for example MAX.
+   DUTY above 98 %. A value that breaks a soft rule is taken, with an amber
+   mark and the rule's text in the editor bar.
+4. HOLD TO WRITE (1 s) opens the write page: the changes, their soft rules,
+   and where the backup goes. A second 1 s hold writes. Before the first
+   frame of the session's first write with a card mounted, the image read at
+   entry goes to the card as `KST/KSTnnn.TXT`, and the servo as it stands as
+   the record `KST/KST.TXT`. Later writes of the session save no backup and
+   write no record. The write runs as single-register writes with read-back,
+   then a full verify. A verified write removes the record, and so does LEAVE
+   from a servo in programming mode that is not in doubt: only the record
+   this session wrote, while its card stays mounted and the file holds the
+   bytes the session wrote.
+5. BACK from the list opens the leave page: `POWER THE SERVO OFF.` The servo
+   stays in programming mode until its supply is off. LEAVE holds the line
+   low for 100 ms, lets the pin go, and shows `UNPLUG THE SERVO.` RESTART
+   DSHOT returns to MENU.
+
+| Result | Colour | Meaning |
+|---|---|---|
+| `WRITE VERIFIED` | green | The servo holds the new values |
+| `... NOTHING WAS WRITTEN.` | amber | No register changed |
+| `ROLLED BACK: THE SERVO HOLDS ITS OLD VALUES` | amber | A write did not take and was undone |
+| `IN DOUBT: ... RESTORE FROM FILES.` | red | The servo state is unknown; only a restore is taken |
+
+**FILES** lists `KST/*.TXT` on the card by name, the KSTnnn files together with
+the highest number first, which is the latest until KST999 is taken, and the
+record first of all when one is there. SAVE AS writes the servo as it stands
+under the next free KSTnnn, KST001 to KST999. LOAD holds the file against the
+servo (type, access classes, hard limits) and puts its values into the list as
+pending changes; a refusal names its line, for example
+`LINE 14: NOT A VALUE OF DEAD BAND`. HOLD TO RESTORE writes the image read at
+entry back.
+
+Without a card, or with the card held by a USB host, the backup stays in
+memory, and reading, editing and writing still work. A card that is
+mounted but takes neither the backup nor the record stops the write before
+any frame: `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.`
+
+An image that fails rcbench's layout fingerprint is shown and not written:
+the write button reads `READ ONLY`, and with no row selected the editor bar
+reads `READ ONLY: UNKNOWN LAYOUT`.
+
+**Current limitations**
+
+- No switched supply: the servo is powered up and down by hand. The design
+  note's step 5 adds a converter on GP0.
+- The first write's card calls run on core0, and the screen does not
+  redraw until they end. With 997 KSTnnn files on the card that is under
+  7.3 s for a card with access and busy times of a few ms, and up to 82.2 s
+  for an SDXC (Secure Digital eXtended Capacity) card at the
+  specification's full times. Both are computed from FatFs block counts,
+  not measured on a card.
+- The board has no card-detect line, so a card swapped during a session
+  is not seen as an unmount. A record on the new card with the same bytes
+  as the session's own record, the same servo image, is removed as the
+  session's. The strip, the write page's backup line and the `(BACKUP)`
+  tag in FILES still name the session's backup file, which is on the first
+  card: a file of that name on the new card carries the tag.
+
 ---
 
 ## Safety
@@ -992,7 +1100,8 @@ src/
   servo_model.{h,cpp}   servo profiles, limits, steppers and mappings (pure)
   servo_pwm.{h,cpp}     hardware PWM servo outputs, from rcbench
   servo_job.{h,cpp}     the servo tester's core1 job: SAFE, START, slew, sweep, trip
-  ui_kst.{h,cpp}        KST programming screen, a stub until it is built
+  ui_kst.{h,cpp}        KST SERVO: the search, the field list, the write, FILES, the leave
+  kst_view.{h,cpp}      what KST SERVO shows: rows, values with units, the stepper, the texts
   kst_seek.{h,cpp}      the KST search: the entry sequence repeated until a servo answers
   kst_job.{h,cpp}       the KST programmer's core1 job: search, read, write, leave
   kst_line_port.{h,cpp} the job's KST line, rcbench's RP2350 line driver
@@ -1097,7 +1206,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 4,540 of 4,613 lines in 41 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.0%**: 5,525 of 5,636 lines in 42 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the
@@ -1284,9 +1393,7 @@ The Host tests job in `ci.yml` runs the same render and check on every push to
   whose SPI driver builds on Arm Mbed OS's SDBlockDevice.
 - The KST programming core, its RP2350 line driver and the KST file store in
   `lib/rcbench/` come from [rcbench](https://github.com/subtilitas/rcbench) at
-  commit 453cf334, by the same copyright holder under the same MIT licence. The
-  KST search and core1 job run them; no screen starts the job yet
-  (`docs/design/kst-programming.md`).
+  commit 453cf334, by the same copyright holder under the same MIT licence.
 - [logwiju](https://subtilitas.github.io/logwiju/): the browser-based blackbox viewer
   for these logs.
 - [DShot — the missing handbook](https://brushlesswhoop.com/dshot-and-bidirectional-dshot/)

@@ -120,7 +120,7 @@ static void testEveryEntry() {
 	openMenu();
 	uint8_t n;
 	const UiMenuEntry *e = uiMenuEntries(&n);
-	checkInt("slice C's registry has five rows", n, 5);
+	checkInt("the registry has six rows", n, 6);
 	for (uint8_t i = 0; i < n; i++) {
 		const UiScreen *s = e[i].screen;
 		char what[64];
@@ -135,11 +135,19 @@ static void testEveryEntry() {
 		menuFrames(10);
 		checkControlTable(e[i].label);
 		tapId(UI_FIX(UI_BACK));
-		// SERVO passes the unplug page once its job has held the pins.
+		// SERVO and KST SERVO pass the unplug page once their job has held the pins.
 		for (int k = 0; k < 200 && ctlPresent(UI_FIX(ServoCtl::Restart)) == false &&
 		                uiCurrentScreen() == UiScreenId::Servo; k++)
 			menuFrames(1);
 		if (uiCurrentScreen() == UiScreenId::Servo) tapId(UI_FIX(ServoCtl::Restart));
+		// KST SERVO asks for LEAVE first when it found the servo.
+		for (int k = 0; k < 200 && ctlPresent(UI_FIX(KstCtl::Restart)) == false &&
+		                uiCurrentScreen() == UiScreenId::Kst; k++) {
+			if (ctlEnabled(UI_FIX(KstCtl::Leave))) tapId(UI_FIX(KstCtl::Leave));
+			else if (uiKstView() == KstView::List) tapId(UI_FIX(UI_BACK));
+			menuFrames(1);
+		}
+		if (uiCurrentScreen() == UiScreenId::Kst) tapId(UI_FIX(KstCtl::Restart));
 		for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) menuFrames(1);
 		snprintf(what, sizeof(what), "BACK from %s lands on MENU", e[i].label);
 		checkTrue(what, uiCurrentScreen() == UiScreenId::Menu);
@@ -147,7 +155,7 @@ static void testEveryEntry() {
 	tapId(UI_FIX(UI_BACK));
 }
 
-/** @brief MENU disarms on open, BEEP flashes on its row, and there is no KST row. */
+/** @brief MENU disarms on open, BEEP flashes on its row, and KST SERVO has its row. */
 static void testMenuDisarmAndBeep() {
 	section("MENU: opening it disarms; BEEP's flash is on its row");
 	freshTester();
@@ -160,7 +168,7 @@ static void testMenuDisarmAndBeep() {
 	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
 	checkTrue("and the tester is disarmed", !uiArmed() && !fakeArmed());
 	checkInt("with the throttle at 0", uiThrottle(), 0);
-	checkTrue("KST has no row before slice 3", uiMenuRowOf(&UI_KST) < 0);
+	checkInt("KST SERVO is the fourth row", uiMenuRowOf(&UI_KST), 3);
 	checkControlTable("MENU");
 
 	UiRect beep = ctlRect(menuRow(&UI_BEEP));

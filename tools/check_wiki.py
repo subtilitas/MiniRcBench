@@ -38,6 +38,7 @@ PAIRS = [
     ("SD-Logging", "SD-Aufzeichnung"),
     ("AM32-Configuration", "AM32-Konfiguration"),
     ("Servo-Tester", "Servotester"),
+    ("KST-Programming", "KST-Programmierung"),
     ("Troubleshooting", "Fehlersuche"),
 ]
 

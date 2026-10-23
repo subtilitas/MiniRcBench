@@ -16,7 +16,7 @@
  * |---|---|---|
  * | SAVE AS, LOAD, the FILES list | kstFilesIo() with `kst_store.h` | the store's own rules: no file is replaced, `KST.TXT` is refused |
  * | First write of a session | kstFilesFirstWrite() | the backup as the next KSTnnn.TXT, then the image before the write as `KST/KST.TXT` |
- * | Write verified | kstFilesRecordRemove() | `KST/KST.TXT` removed, when this session wrote it |
+ * | Write verified, or LEAVE from a servo in a known state | kstFilesRecordRemove() | `KST/KST.TXT` removed, when this session wrote it and it holds the bytes written |
  * | The screen opens | kstFilesRecordPresent(), kstFilesRecordLoad() | an interrupted write's record found and read |
  *
  * A record left by an interrupted write is renamed to the next KSTnnn.TXT
@@ -65,6 +65,7 @@ struct KstFirstWrite {
 	uint8_t record;                          /**< `kst_store_t` of the record. */
 	uint8_t kept;                            /**< `kst_store_t` of keeping an old record; OK when there was none. */
 	char    keptName[KST_STORE_NAME_MAX];    /**< The old record's new file name; empty for none. */
+	uint32_t recordSum;                      /**< FNV-1a (Fowler-Noll-Vo) hash of the record's bytes. */
 };
 
 /** @brief Whether a card is mounted and not held by a USB host. */
@@ -100,11 +101,15 @@ void kstFilesFirstWrite(const kst_image_t *backup, const kst_image_t *before,
 bool kstFilesWriteAllowed(const KstFirstWrite *w);
 
 /**
- * @brief Remove `KST/KST.TXT` after a verified write, when this session's
- *        kstFilesFirstWrite() wrote it.
+ * @brief Remove `KST/KST.TXT` after a verified write, or at LEAVE from a
+ *        servo in a known state, when this session's kstFilesFirstWrite()
+ *        wrote it and the file still holds the bytes it wrote. The board has
+ *        no card-detect line: a card swapped in its place is not seen as an
+ *        unmount, and its record, with other bytes, stays.
  * @param w The session's kstFilesFirstWrite() result; a record it did not
  *          write, or NULL, removes nothing.
  * @return `KST_STORE_OK`, also when nothing is removed; `KST_STORE_NO_CARD`;
+ *         `KST_STORE_READ_ERROR` when the file cannot be read back;
  *         `KST_STORE_DENIED` for a read-only file; `KST_STORE_WRITE_ERROR`.
  */
 kst_store_t kstFilesRecordRemove(const KstFirstWrite *w);

@@ -88,6 +88,14 @@ PREVIEWS = {
         "shot_servo_two",
         "shot_servo_set_warning",
     ],
+    # KST SERVO: the search, an edit in the field list, the write page before
+    # the hold, and FILES after two saves.
+    "kst-preview": [
+        "shot_kst_search",
+        "shot_kst_edit",
+        "shot_kst_write",
+        "shot_kst_files",
+    ],
 }
 
 

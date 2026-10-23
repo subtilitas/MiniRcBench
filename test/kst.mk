@@ -25,7 +25,8 @@
 # src/kst_line_port.cpp, the job's line on it; its header is on the include
 # path for the error codes and for `syntax`.
 KST_DIR           := ../lib/rcbench/protocols/kst
-KST_SRCS          := ../src/ui_kst.cpp ../src/kst_seek.cpp ../src/kst_files.cpp
+KST_SRCS          := ../src/ui_kst.cpp ../src/kst_seek.cpp ../src/kst_files.cpp \
+                     ../src/kst_view.cpp
 KST_CSRCS         := $(KST_DIR)/kst_wire.c $(KST_DIR)/kst_reg.c \
                      $(KST_DIR)/kst_limits.c $(KST_DIR)/kst_plan.c \
                      $(KST_DIR)/kst_session.c $(KST_DIR)/kst_pio.c \
@@ -34,6 +35,7 @@ KST_CSRCS         := $(KST_DIR)/kst_wire.c $(KST_DIR)/kst_reg.c \
 KST_INCLUDES      := -I$(KST_DIR)/include -I$(KST_DIR)/rp2350 \
                      -I../lib/rcbench/shared/logfile/include
 KST_TESTS         := test_kst.cpp test_kst_seek.cpp test_kst_job.cpp \
+                     test_kst_view.cpp test_kst_ui.cpp \
                      test_kst_files.cpp fake_kst_line.cpp fake_fatfs.cpp
 KST_CTESTS        := rcbench/test_kst_wire.c rcbench/test_kst_reg.c \
                      rcbench/test_kst_plan.c rcbench/test_kst_session.c \

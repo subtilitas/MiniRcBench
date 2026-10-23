@@ -44,6 +44,16 @@ protocol.
 
 ### Added
 
+- The KST SERVO screen (work breakdown step 4), MENU's fourth row.
+  `src/ui_kst.cpp` claims SIG, searches, reads the servo and shows its 27
+  named fields in TUNE, PULSE, FAILSAFE and LOCKED; − and + step a field
+  within the hard limits, a sideways swipe by an eleventh of its range.
+  HOLD TO WRITE opens a write page with the changes, their soft rules and
+  the backup's name; a second 1 s hold writes. FILES lists, saves, loads and
+  restores KST files on the card. BACK leaves through `POWER THE SERVO OFF.`
+  and the unplug page. `src/kst_view.h` holds the rows, the values with
+  their units, the stepper and the texts. The host suite runs the screen
+  through MENU against rcbench's simulated servo; `docs/kst-preview.png`.
 - The design note for reading Hitec servos,
   [hitec-reading.md](docs/design/hitec-reading.md), planned and not built:
   reads and dumps of Hitec classic and D series servos over SIG with
@@ -64,7 +74,7 @@ protocol.
   KSTnnn.TXT and the image before the write as `KST/KST.TXT`; an older record
   is renamed to a KSTnnn.TXT first, and a verified write removes only the
   record its session wrote. A card that takes neither file stops the write; no
-  card lets it run. Nothing calls these yet. The host suite runs them against
+  card lets it run. The host suite runs them against
   an in-memory FAT (File Allocation Table) volume, and the FatFs stub header
   gains the directory, read, rename and remove calls.
 - The KST search and the KST core1 job (work breakdown step 2).

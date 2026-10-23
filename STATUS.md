@@ -28,14 +28,15 @@ for servos. The servo tester (slice 2 of
 [servo-tester.md](docs/design/servo-tester.md)) drives one servo on the ESC
 pin, or two on the ESC and KISS pins, with PWM (pulse-width modulation)
 pulses. KST and Chaservo servo programming, on the same pins, is slice 3, with
-an optional bench-switched servo supply on GP0. Its steps 1 to 3 are built:
+an optional bench-switched servo supply on GP0. Its steps 1 to 4 are built:
 rcbench's KST core, line driver and file store are copied into `lib/rcbench/`,
 with rcbench's tests of them, 298 cases; the search (`src/kst_seek.h`) and the
 core1 job (`src/kst_job.h`) run the session on the line, tested against
 rcbench's simulated servo; `src/kst_files.h` puts the files and the record of
-a write on the card through FatFs, tested against an in-memory volume. The
-rest is planned: KST has no row on MENU, its screen is a stub, and nothing
-starts the job or writes a file. Before slice 3 comes a menu restructure
+a write on the card through FatFs, tested against an in-memory volume;
+`src/ui_kst.cpp` is MENU → KST SERVO, run through MENU in the host suite.
+The switched supply (step 5) is planned; the servo is powered up and down by
+hand. Slice 3 builds on the menu restructure
 ([menu.md](docs/design/menu.md), slices A to C). Slice A is built: one
 scrolling list, `src/ui_list.*`, under the AM32 and SERVO SET lists, and one
 hold, `src/ui_hold.*`, under HOLD TO WRITE, HOLD TO START, HOLD TO APPLY and
@@ -188,9 +189,9 @@ record either way.
 | USB card reader (read-only mass storage) | handover state machine, screen | not recorded |
 | AM32 settings editor over the signal wire (AM32 is an open-source ESC firmware) | init string, CRC-16/ARC, 39-field codec, timing advance encodings, write interlock; the screen on the pin claim, the latched GPIO, the drain before the handover; the list on `ui_list` and the swipe of 16 px per coarse step | hardware use recorded: ab79c67, bd90e17, both before the screen moved onto the pin claim; the claim and its drain, and the swipe of 16 px per coarse step: not tested on hardware |
 | Pin claim (`src/pin_claim.*`) and core1 job dispatch (`src/core1_job.*`), the zero-throttle drain in `src/esc_task.*` | each refusal rule at its 500 ms boundary and their order; the handover decisions of `escTaskPoll()` (`escHandoverStep()`, `escDrainSlot()`, `escPumpFrameSent()`, `escPumpBind()`) one 1 ms slot at a time: 250 zero frames, the teardown 251 ms after the last throttle frame, the bind disarmed; the order of the two cores' steps against fake jobs, BACK and RETRY, Restoring, the unplug-page rule, the restore wiring, the start guard, the heartbeat rule across a millis() rollover; the PIO and pad calls around those decisions are compiled only | not tested on hardware; open item 9 |
-| MENU layout (`src/ui_menu.cpp`, `src/ui_registry.cpp`): BEEP THE ESC, AM32 CONFIG, SERVO TESTER, SD LOG and SETTINGS as 40 px rows, no KST row | every registry entry opens and BACK returns to MENU; opening MENU disarms; BEEP's flash and refusal on its row; `PINS BUSY` while the claim restores and a tap on it opens nothing; six rows do not scroll and seven scroll 36 px; the label and status fit check at build time | not recorded |
+| MENU layout (`src/ui_menu.cpp`, `src/ui_registry.cpp`): BEEP THE ESC, AM32 CONFIG, SERVO TESTER, KST SERVO, SD LOG and SETTINGS as 40 px rows | every registry entry opens and BACK returns to MENU; opening MENU disarms; BEEP's flash and refusal on its row; `PINS BUSY` while the claim restores and a tap on it opens nothing; six rows do not scroll and seven scroll 36 px; the label and status fit check at build time | not recorded |
 | Servo tester: the pure model (`src/servo_model.*`), the PWM driver (`src/servo_pwm.*`), the core1 job (`src/servo_job.*`), the slider and the screens (`src/ui_slider.*`, `src/ui_servo.cpp`); rcbench's sweep and PWM fold in `lib/rcbench/` | profiles, limits at their boundaries, steppers to their stops, command, angle and pulse mappings, SPEED, the dial's hit area; the PWM driver's bind, write, release and sharing rules against a register fake; SAFE at level 0, CENTRE at START, STOP on the next pass, the slew, sweeps, REVERSE B, the trip at 250 ms across a millis() wrap, kept across a rebind, the profile rebind; no pulse cut short at a release or a rebind, against a model of the counter and the latched compare; released pins pulled down; the screens through the UI: HOLD TO START at 1000 ms, the drag rules, the SET warning and HOLD TO APPLY, STOP on SET, the AUX refusals through the claim, the unplug page; rcbench's own sweep and fold tests; the SDK calls are run against the fake only | not tested on hardware; open item 10 |
-| KST programming: rcbench's session, line driver and file store (`lib/rcbench/`), the search (`src/kst_seek.*`), the core1 job (`src/kst_job.*`) and its line (`src/kst_line_port.*`), the files on the card (`src/kst_files.*`); no screen and no MENU row yet | rcbench's seven tests, 298 cases, the line's PIO program among them in a model (`test_kst_pio.c`); the search and the job against rcbench's simulated servo, the files against an in-memory FAT (File Allocation Table) volume (`runKstTests`); the line driver and `kst_line_port.cpp` are built by the firmware and typechecked only | not recorded: no frame of the line driver has been on a pin (`kst_line.h`) |
+| KST programming: rcbench's session, line driver and file store (`lib/rcbench/`), the search (`src/kst_seek.*`), the core1 job (`src/kst_job.*`) and its line (`src/kst_line_port.*`), the files on the card (`src/kst_files.*`), the screen (`src/ui_kst.cpp`, `src/kst_view.*`) | rcbench's seven tests, 298 cases, the line's PIO program among them in a model (`test_kst_pio.c`); the search and the job against rcbench's simulated servo, the files against an in-memory FAT (File Allocation Table) volume, the screen through MENU against both (`runKstTests`); the line driver and `kst_line_port.cpp` are built by the firmware and typechecked only | not recorded: no frame of the line driver has been on a pin (`kst_line.h`) |
 | SETTINGS layout (`src/ui_settings.cpp`): sections ESC TESTER, WIRING, DISPLAY and BOARD in one scrolling list | the scroll range, 0 px at opening and 330 px at most; each row by id; no scroll from a press on a control; a cut control takes a press only while 40 px show; HOLD TO SAVE in place at every scroll position and saving at the end of the list; the pole count reaches the eRPM divisor, the ceiling steps by 5 %, and RESET restores both | not recorded |
 | Settings in flash (MENU → SETTINGS) | block validation, CRC, board id check, pin defaults, the block layout DshotDisplay 2.x writes | not recorded; 46a64a7 states no hardware coverage |
 | Touch handling, high-contrast theme, throttle gauge | tap on release, repeats, screen residue, gauge reach | hardware use recorded: the reports #22 to #24 named in the v2.3 commits; the fixes on hardware: not recorded |
@@ -300,11 +301,12 @@ Not in this history: the DshotDisplay repository's branches
       through the unplug page, then DShot back on RESTART DSHOT;
     - STOP on SET while RUNNING: level 0 within one frame, as on SERVO;
     - a real servo on each profile, and whether it reads 3.3 V pulses.
-11. **KST step 4 in review.** The KST SERVO screen is in pull request #13
-    and not in main. [HANDOVER.md](HANDOVER.md) lists its state and
-    what remains before it merges: the firmware build fails on one
-    format-truncation error in `src/ui_kst.cpp`, and the review loop has
-    not reached 0 findings.
+11. **KST programming on hardware.** No frame of the line driver has been on
+    a pin. Bring-up is step 7 of
+    [kst-programming.md](docs/design/kst-programming.md#work-breakdown): the
+    reply level at the connector, the owner's servo's power-on window, frames
+    and replies on a scope, read reliability, one write with read-back, then
+    a power cycle and a read. The switched supply, step 5, is not built.
 12. **KST card-phase cap, open for step 5.** The cap of 15 s does not cover
     a first write on a card at the specification's full access and busy
     times: 50.9 s to 82.2 s computed
@@ -313,6 +315,12 @@ Not in this history: the DshotDisplay repository's branches
     fewer passes is the owner's, not yet made.
 
 ## Known limitations
+
+- **KST: the screen waits for the card.** The first write's card calls run
+  on core0, and the screen does not redraw until they end: under 7.3 s with
+  997 KSTnnn files on a card with access and busy times of a few ms, up to
+  82.2 s on an SDXC card at the specification's full times. Computed from
+  FatFs block counts, not measured.
 
 - **Two free pins.** The board frees two GPIOs, GP28 and GP29. The ESC takes
   one and KISS the other, so there is no third choice and the SETTINGS steppers
@@ -369,7 +377,7 @@ binary, `dshot_tests`. `test/test_main.cpp` runs eighteen suites:
 | `runSdioTests` | `test_sdio.cpp` | SDIO driver: CRC7 and CRC16 vectors, framing, responses, CSD, four-bit packing, CRC status token; initialisation, reads and writes against a simulated card |
 | `runClaimTests` | `test_claim.cpp` (includes `core1_job.cpp`) | pin claim refusals at their 500 ms boundaries and their order, the handover decisions of `escTaskPoll()` one 1 ms slot at a time, the zero-throttle drain through the claim, Restoring, the order of the two cores' steps against fake jobs, BACK in every state, RETRY, the unplug-page rule, restore wiring, the job start guard, the heartbeat rule across a millis() rollover, no settings save during a claim, the AM32 screen on the claim |
 | `runServoTests` | `test_servo.cpp` (includes `ui_servo.cpp`) | the servo model, the PWM driver against a register fake, the job core and the job through the claim, the slider, and the SERVO, SET and unplug screens through the UI, with screenshots |
-| `runKstTests` | `test_kst.cpp`, `test_kst_seek.cpp`, `test_kst_job.cpp` (includes `kst_job.cpp`), `test_kst_files.cpp` | the search against rcbench's simulated servo: power-ups at 0 s, 3.0 s and 29.9 s found on the next attempt, attempts of 116.6 ms to 118.8 ms, no frame within 3 ms of a window, the 30 s timeout across a clock wrap, STOP SEARCH mid-frame, the heartbeat lapse, a reply at a bad rate kept and not found, the loss rule; the core1 job from the job table on the simulated line: the bind and its four refusals, search, RETRY, timeout, the heartbeat, read, verify, edit, restore, abort, a lost servo, leave and release with 100 ms of low line, the command block, each command in each state, and no call of `kst_session_write()`, `kst_plan_edit()` or `kst_plan_restore()`; the files over an in-memory FAT volume: the mount rule, no card and a USB-held card with no FatFs call, the first write's backup and record, an old record kept and never removed when it stays, a rename reported failed that took effect, a rename that left both names, a full card, a write-protected card as this board reports it and as FatFs can, a full directory, a file or directory in a file's way, a one-time write or sync error with no file or new directory left behind, a close error that leaves its file locked, the record found and loaded; the stub screen: claims nothing, leaves at once |
+| `runKstTests` | `test_kst.cpp`, `test_kst_seek.cpp`, `test_kst_job.cpp` (includes `kst_job.cpp`), `test_kst_files.cpp`, `test_kst_view.cpp`, `test_kst_ui.cpp` | the search against rcbench's simulated servo: power-ups at 0 s, 3.0 s and 29.9 s found on the next attempt, attempts of 116.6 ms to 118.8 ms, no frame within 3 ms of a window, the 30 s timeout across a clock wrap, STOP SEARCH mid-frame, the heartbeat lapse, a reply at a bad rate kept and not found, the loss rule; the core1 job from the job table on the simulated line: the bind and its four refusals, search, RETRY, timeout, the heartbeat, read, verify, edit, restore, abort, a lost servo, leave and release with 100 ms of low line, the command block, each command in each state, and no call of `kst_session_write()`, `kst_plan_edit()` or `kst_plan_restore()`; the files over an in-memory FAT volume: the mount rule, no card and a USB-held card with no FatFs call, the first write's backup and record, an old record kept and never removed when it stays, a rename reported failed that took effect, a rename that left both names, a full card, a write-protected card as this board reports it and as FatFs can, a full directory, a file or directory in a file's way, a one-time write or sync error with no file or new directory left behind, a close error that leaves its file locked, the record found and loaded; what the screen shows: 27 rows in four groups, each value with its unit, the stepper within the hard limits, a text for every rule, result and file error; the screen through MENU: the claim, the search, STOP SEARCH and RETRY, the read, an edit and REVERT, HOLD TO WRITE not at 750 ms and not on a slide off, the backup and the record before the first write frame, the verify and the record removed, a hard limit written as its limit, FILES with SAVE AS, LOAD and a refused file, a write in doubt and HOLD TO RESTORE, BACK in every view and during a write, LEAVE and RESTART DSHOT, a lost servo, no card, a USB-held card, a card that takes no file, an unknown layout read-only, a record found at entry |
 | `runWidgetTests` | `test_widgets.cpp` | the list (`ui_list`) and the hold (`ui_hold`) driven with touch snapshots, each rule at its boundary |
 | `runIdTests` | `test_ids.cpp` | the control tables of `ui_screen.h` on the tester, MENU, SETTINGS, SD LOG in three card states, AM32 CONFIG in its handover and its list, and SERVO's three views: ids unique, rectangles inside the panel and apart, BACK at its rectangle, the enabled flags against the state they follow; the id helpers of `ui_ids.h`, and that they report an absent or misgated control |
 | `runMenuTests` | `test_menu.cpp` | MENU, SETTINGS and the navigation through the real UI: SD LOG's BACK to MENU, every registry entry opened and left, MENU's disarm, BEEP's flash, `PINS BUSY` on AM32, SERVO and SETTINGS, MENU's scroll over registries of six and seven rows and its return at 0 px, every MENU status and SETTINGS value within its widest, the SETTINGS scroll range, each row by id, a cut control under 40 px, HOLD TO SAVE and the UNSAVED note at every scroll position, AM32's own wait beside another claim |
@@ -444,11 +452,12 @@ model.
 | `src/dshot/dshot_telem.c` | 143 | 143 | 100.0% |
 | `src/esc_merge.cpp` | 44 | 44 | 100.0% |
 | `src/esc_task.h` | 157 | 157 | 100.0% |
-| `src/gfx.cpp` | 223 | 209 | 93.7% |
+| `src/gfx.cpp` | 223 | 211 | 94.6% |
 | `src/kiss_telem.cpp` | 37 | 35 | 94.6% |
-| `src/kst_files.cpp` | 141 | 140 | 99.3% |
+| `src/kst_files.cpp` | 151 | 150 | 99.3% |
 | `src/kst_job.cpp` | 213 | 212 | 99.5% |
 | `src/kst_seek.cpp` | 59 | 59 | 100.0% |
+| `src/kst_view.cpp` | 160 | 154 | 96.3% |
 | `src/log_ring.cpp` | 43 | 39 | 90.7% |
 | `src/pin_claim.cpp` | 109 | 109 | 100.0% |
 | `src/pin_claim.h` | 15 | 14 | 93.3% |
@@ -466,9 +475,9 @@ model.
 | `src/ui_am32.cpp` | 299 | 270 | 90.3% |
 | `src/ui_hold.cpp` | 36 | 36 | 100.0% |
 | `src/ui_input.cpp` | 27 | 27 | 100.0% |
-| `src/ui_kst.cpp` | 5 | 5 | 100.0% |
+| `src/ui_kst.cpp` | 858 | 825 | 96.2% |
 | `src/ui_list.cpp` | 121 | 121 | 100.0% |
-| `src/ui_menu.cpp` | 117 | 117 | 100.0% |
+| `src/ui_menu.cpp` | 117 | 116 | 99.1% |
 | `src/ui_screen.h` | 5 | 5 | 100.0% |
 | `src/ui_sdlog.cpp` | 165 | 160 | 97.0% |
 | `src/ui_servo.cpp` | 514 | 512 | 99.6% |
@@ -476,7 +485,7 @@ model.
 | `src/ui_slider.cpp` | 109 | 109 | 100.0% |
 | `src/ui_widgets.cpp` | 43 | 43 | 100.0% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **4613** | **4540** | **98.4%** |
+| **Total** | **5636** | **5525** | **98.0%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->
