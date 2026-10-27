@@ -39,6 +39,7 @@ Failure  g_fail[(unsigned)FakeFatCall::Count];
 FRESULT  g_renameLate = FR_OK;
 FRESULT  g_renameHalf = FR_OK;
 unsigned g_calls[(unsigned)FakeFatCall::Count];
+std::string g_cwd;
 
 /** @brief Run at the start of every call; null for none. */
 void (*g_onCall)() = nullptr;
@@ -55,6 +56,17 @@ FRESULT enter(FakeFatCall c) {
 	}
 	f.armed = false;
 	return f.fr;
+}
+
+/** @brief @p path from the root, as FF_FS_RPATH reads it against the current directory. */
+std::string resolve(const char *path) {
+	if (*path == '/') {
+		while (*path == '/') path++;
+		return path;
+	}
+	if (g_cwd.empty()) return path;
+	if (!*path) return g_cwd;
+	return g_cwd + "/" + path;
 }
 
 int find(const char *path) {
@@ -98,6 +110,7 @@ int add(const char *path, bool dir) {
 }  // namespace
 
 void fakeFatReset(uint32_t capacity) {
+	g_cwd.clear();
 	g_entries.clear();
 	g_capacity = capacity;
 	g_dirLimit = 0xFFFFFFFFu;
@@ -158,11 +171,15 @@ int fakeFatOpenFiles() { return g_open; }
 int fakeFatOpenDirs() { return g_openDirs; }
 unsigned fakeFatCalls(FakeFatCall call) { return g_calls[(unsigned)call]; }
 
+const char *fakeFatCwd() { return g_cwd.c_str(); }
+
 // ---------------------------------------------------------------------------
 // FatFs
 // ---------------------------------------------------------------------------
 
 FRESULT f_open(FIL *fp, const char *path, uint8_t mode) {
+	const std::string resolved = resolve(path);
+	path = resolved.c_str();
 	FRESULT fr = enter(FakeFatCall::Open);
 	if (fr != FR_OK) return fr;
 	// In f_open()'s order: the volume, the path, the lock (chk_share(): a
@@ -239,7 +256,16 @@ FRESULT f_write(FIL *fp, const void *buf, UINT btw, UINT *bw) {
 
 FRESULT f_sync(FIL *) { return enter(FakeFatCall::Sync); }
 
+FRESULT f_truncate(FIL *fp) {
+	FRESULT fr = enter(FakeFatCall::Truncate);
+	if (fr != FR_OK) return fr;
+	g_entries[(size_t)fp->handle].data.resize(fp->pos);
+	return FR_OK;
+}
+
 FRESULT f_stat(const char *path, FILINFO *fno) {
+	const std::string resolved = resolve(path);
+	path = resolved.c_str();
 	FRESULT fr = enter(FakeFatCall::Stat);
 	if (fr != FR_OK) return fr;
 	if ((fr = parentOk(path)) != FR_OK) return fr;
@@ -254,6 +280,8 @@ FRESULT f_stat(const char *path, FILINFO *fno) {
 }
 
 FRESULT f_opendir(DIR *dp, const char *path) {
+	const std::string resolved = resolve(path);
+	path = resolved.c_str();
 	FRESULT fr = enter(FakeFatCall::OpenDir);
 	if (fr != FR_OK) return fr;
 	int i = find(path);
@@ -288,6 +316,8 @@ FRESULT f_closedir(DIR *dp) {
 }
 
 FRESULT f_mkdir(const char *path) {
+	const std::string resolved = resolve(path);
+	path = resolved.c_str();
 	FRESULT fr = enter(FakeFatCall::MkDir);
 	if (fr != FR_OK) return fr;
 	if (g_protected) return FR_WRITE_PROTECTED;
@@ -299,6 +329,8 @@ FRESULT f_mkdir(const char *path) {
 }
 
 FRESULT f_unlink(const char *path) {
+	const std::string resolved = resolve(path);
+	path = resolved.c_str();
 	FRESULT fr = enter(FakeFatCall::Unlink);
 	if (fr != FR_OK) return fr;
 	if (g_protected) return FR_WRITE_PROTECTED;
@@ -313,6 +345,9 @@ FRESULT f_unlink(const char *path) {
 }
 
 FRESULT f_rename(const char *pathOld, const char *pathNew) {
+	const std::string oldResolved = resolve(pathOld), newResolved = resolve(pathNew);
+	pathOld = oldResolved.c_str();
+	pathNew = newResolved.c_str();
 	FRESULT fr = enter(FakeFatCall::Rename);
 	if (fr != FR_OK) return fr;
 	if (g_protected) return FR_WRITE_PROTECTED;
@@ -338,4 +373,17 @@ FRESULT f_rename(const char *pathOld, const char *pathNew) {
 	fr = g_renameLate;
 	g_renameLate = FR_OK;
 	return fr;
+}
+
+FRESULT f_chdir(const char *path) {
+	FRESULT fr = enter(FakeFatCall::ChDir);
+	if (fr != FR_OK) return fr;
+	std::string p = resolve(path);
+	if (!p.empty()) {
+		int i = find(p.c_str());
+		if (i < 0 || !g_entries[(size_t)i].dir) return FR_NO_PATH;
+		p = g_entries[(size_t)i].path;
+	}
+	g_cwd = p;
+	return FR_OK;
 }

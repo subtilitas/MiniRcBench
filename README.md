@@ -981,13 +981,20 @@ hand: a plug, or a switch in its positive lead.
 | `IN DOUBT: ... RESTORE FROM FILES.` | red | The servo state is unknown; only a restore is taken |
 
 **FILES** lists `KST/*.TXT` on the card by name, the KSTnnn files together with
-the highest number first, which is the latest until KST999 is taken, and the
-record first of all when one is there. SAVE AS writes the servo as it stands
-under the next free KSTnnn, KST001 to KST999. LOAD holds the file against the
+the latest first, and the record first of all when one is there. SAVE AS writes
+the servo as it stands under the next KSTnnn. LOAD holds the file against the
 servo (type, access classes, hard limits) and puts its values into the list as
 pending changes; a refusal names its line, for example
 `LINE 14: NOT A VALUE OF DEAD BAND`. HOLD TO RESTORE writes the image read at
 entry back.
+
+The backups and SAVE AS files take the names KST001 to KST050 in a ring.
+`KST/LAST` holds the number of the latest, 3 digits and a line feed. The next
+file takes the number after it, KST001 after KST050, and once all 50 are
+taken it writes over the oldest. A file renamed on a computer to any other
+name, KST051 and up included, is never written over and still lists and
+loads. Without `KST/LAST` the latest number is guessed from the names; a ring
+with all 50 names taken then writes over KST001.
 
 Without a card, or with the card held by a USB host, the backup stays in
 memory, and reading, editing and writing still work. A card that is
@@ -1003,11 +1010,13 @@ reads `READ ONLY: UNKNOWN LAYOUT`.
 - No switched supply: the servo is powered up and down by hand. The design
   note's step 5 adds a converter on GP0.
 - The first write's card calls run on core0, and the screen does not
-  redraw until they end. With 997 KSTnnn files on the card that is under
-  7.3 s for a card with access and busy times of a few ms, and up to 82.2 s
-  for an SDXC (Secure Digital eXtended Capacity) card at the
-  specification's full times. Both are computed from FatFs block counts,
-  not measured on a card.
+  redraw until they end. On a full ring that is under 3 s for a card with
+  access and busy times of 10 ms, with up to 1000 blackbox logs in the
+  card's root. At the SD specification's full times it is up to 12.8 s on a
+  FAT32 SDHC (Secure Digital High Capacity) card and 16.3 s on an exFAT SDXC
+  (Secure Digital eXtended Capacity) card with no log in the root, and up to
+  35.9 s with 1000 logs. These are FatFs block counts times card times
+  (`make -C test kstcount`), not measured on a card.
 - The board has no card-detect line, so a card swapped during a session
   is not seen as an unmount. A record on the new card with the same bytes
   as the session's own record, the same servo image, is removed as the
@@ -1206,7 +1215,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.0%**: 5,525 of 5,636 lines in 42 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.1%**: 5,697 of 5,810 lines in 42 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

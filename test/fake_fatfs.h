@@ -17,6 +17,9 @@
  *   board's card driver never makes FatFs report;
  * - any call failing once with a given FRESULT, a rename that takes effect
  *   and reports a failure, and one that stops with both names on the volume;
+ * - the current directory of f_chdir(), with FF_FS_RPATH's paths: a path
+ *   that starts with `/` from the root, any other from the current
+ *   directory, and an empty one the current directory itself;
  * It does not model clusters, the FAT, FatFs's sector window, a write error
  * that persists, the lock table's 16-entry limit or a removed card.
  */
@@ -30,7 +33,7 @@
 
 /** @brief The FatFs calls the volume can fail on demand. */
 enum class FakeFatCall : uint8_t {
-	Open, Close, Read, Write, Sync, Stat, OpenDir, ReadDir, MkDir, Unlink, Rename, Count,
+	Open, Close, Read, Write, Sync, Truncate, Stat, OpenDir, ReadDir, MkDir, Unlink, Rename, ChDir, Count,
 };
 
 /** @brief An empty volume with room for @p capacity bytes of file data. */
@@ -73,6 +76,9 @@ bool fakeFatExists(const char *path);
 
 /** @brief Copy a file's bytes into @p buf. @return Its size, -1 for none. */
 int32_t fakeFatGet(const char *path, char *buf, size_t cap);
+
+/** @brief The current directory, from the root without a leading `/`; empty for the root. */
+const char *fakeFatCwd();
 
 /** @brief Files and directories on the volume. */
 unsigned fakeFatEntries();

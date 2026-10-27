@@ -44,6 +44,18 @@ protocol.
 
 ### Added
 
+- The ring of KST file names. Backups, kept records and SAVE AS take
+  KST001 to KST050; `KST/LAST` holds the latest number as 3 digits and a
+  line feed, and once all 50 are taken the next file writes over the oldest
+  in place. FILES lists the latest first. Every KST card call makes `KST`
+  FatFs's current directory for its scope, so the root is passed over once
+  per call. The `KST` directory holds at most 54 entries, 4 sectors on FAT32.
+- `make -C test kstcount` (`test/kst_card_count.cpp`): the KST card phases in
+  block reads and writes, from FatFs R0.15 at the SD library's pinned commit
+  over a RAM disk that counts them, on FAT32 and exFAT with 0 and 1000 logs
+  in the root. It writes its table into
+  [kst-programming.md](docs/design/kst-programming.md), and the Host tests
+  job fails when the table drifts.
 - The KST SERVO screen (work breakdown step 4), MENU's fourth row.
   `src/ui_kst.cpp` claims SIG, searches, reads the servo and shows its 27
   named fields in TUNE, PULSE, FAILSAFE and LOCKED; − and + step a field

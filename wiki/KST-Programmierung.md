@@ -237,7 +237,7 @@ unteren Rand sagt, wohin die Sicherung geht:
 | `BACKUP: KST/KST001.TXT` | Die Sicherung liegt auf der Karte |
 | `NO CARD: BACKUP IN MEMORY` | Keine Karte ist eingebunden |
 | `CARD IN USE BY USB: BACKUP IN MEMORY` | Ein USB-Host hält die Karte |
-| `BACKUP FIRST: TO THE CARD` | Eine Karte ist eingebunden und hat keinen freien KSTnnn-Namen genannt |
+| `BACKUP FIRST: TO THE CARD` | Eine Karte ist eingebunden, und ihr Verzeichnis `KST` ließ sich nicht bis zum Ende lesen |
 | `NO BACKUP ON THE CARD: IN MEMORY` | Die Karte hat die Aufzeichnung angenommen und die Sicherung abgewiesen |
 
 **Ein zweites Halten von 1 s schreibt.** Bevor der erste Frame des ersten
@@ -309,8 +309,7 @@ nimmt kein Schreiben an, bis eine Wiederherstellung gelaufen ist. Stelle
   64 Dateien, danach zeigt die Leiste zum Beispiel
   `CARD  FIRST 64 OF 100 FILES`.
 - Die Dateien stehen nach Namen. Die KSTnnn-Dateien stehen beisammen, die
-  höchste Nummer vorn, also die jüngste von ihnen zuerst, bis KST999
-  vergeben ist. Liegt der Vermerk
+  jüngste vorn, dann die älteren nach fallender Nummer. Liegt der Vermerk
   `KST/KST.TXT` auf der Karte, ist er die allererste Zeile, benannt `RECORD`
   mit `(KST.TXT)` rechts.
   Die Sicherung dieser Sitzung trägt `(BACKUP)`.
@@ -318,7 +317,7 @@ nimmt kein Schreiben an, bis eine Wiederherstellung gelaufen ist. Stelle
 
 | Schaltfläche | Was sie tut |
 |---|---|
-| `SAVE AS KST003` | Schreibt das Servo, wie es gerade ist, unter dem nächsten freien Namen, KST001 bis KST999. Die Leiste zeigt `SAVED AS KST002` in Grün. Es gibt keine Tastatur, daher keinen anderen Namen |
+| `SAVE AS KST003` | Schreibt das Servo, wie es gerade ist, unter dem nächsten Namen des Rings, siehe unten. Die Leiste zeigt `SAVED AS KST003` in Grün. Es gibt keine Tastatur, daher keinen anderen Namen |
 | `LOAD` | Hält die gewählte Datei gegen das Servo (Typ, Zugriffsklassen, harte Grenzen) und übernimmt ihre Werte als vorgemerkte Änderungen in die Feldliste. Geschrieben wird dann über `HOLD TO WRITE` |
 | `HOLD TO RESTORE` | 1 s halten. Schreibt das beim Eintritt gelesene Abbild über die Wiederherstellungsseite ins Servo zurück |
 
@@ -351,6 +350,14 @@ zweites Halten. Die Seite zeigt dann
   die Sicherung noch den Vermerk an, stoppt das Schreiben vor dem ersten
   Frame. Die Schreibseite zeigt
   `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.`
+
+Die Sicherungen und die SAVE-AS-Dateien tragen die Namen KST001 bis KST050
+in einem Ring. `KST/LAST` hält die Nummer der jüngsten, 3 Ziffern und einen
+Zeilenvorschub; keine Liste zeigt die Datei. Die nächste Datei nimmt die
+Nummer danach, KST001 nach KST050, und sind alle 50 vergeben, überschreibt
+sie die älteste. Dateien mit jedem anderen Namen, auch KST051 und höher,
+werden nie überschrieben. Fehlt `KST/LAST`, wird die jüngste Nummer aus den
+Namen geschätzt; ein Ring mit allen 50 Namen überschreibt dann KST001.
 
 ---
 
@@ -419,10 +426,13 @@ zeigt die Abziehseite unmittelbar.
   Schritt 5 der Entwurfsnotiz (`docs/design/kst-programming.md`) fügt einen
   Wandler an GP0 hinzu.
 - Die Kartenaufrufe des ersten Schreibens laufen auf core0, und der
-  Bildschirm wird erst neu gezeichnet, wenn sie enden. Mit 997 KSTnnn-Dateien
-  auf der Karte sind das unter 7,3 s für eine Karte mit Zugriffs- und
-  Busy-Zeiten von wenigen ms und bis zu 82,2 s für eine SDXC-Karte (Secure
-  Digital eXtended Capacity) mit den vollen Zeiten der Spezifikation. Beide
-  Werte sind aus FatFs-Blockzahlen berechnet, nicht auf einer Karte gemessen.
+  Bildschirm wird erst neu gezeichnet, wenn sie enden. Bei vollem Ring sind
+  das unter 3 s für eine Karte mit Zugriffs- und Busy-Zeiten von 10 ms, mit
+  bis zu 1000 Blackbox-Logs im Wurzelverzeichnis der Karte. Mit den vollen
+  Zeiten der SD-Spezifikation sind es ohne Log im Wurzelverzeichnis bis zu
+  12,8 s auf einer FAT32-SDHC-Karte (Secure Digital High Capacity) und 16,3 s
+  auf einer exFAT-SDXC-Karte (Secure Digital eXtended Capacity), mit 1000 Logs
+  bis zu 35,9 s. Das sind FatFs-Blockzahlen mal Kartenzeiten, nicht auf einer
+  Karte gemessen.
 
 Vom KST-Programmierer ist nichts auf Hardware getestet.

@@ -1050,8 +1050,10 @@ static void testRecordKeptAtLeave() {
 	fakeFatMkdir("KST");
 	fakeFatPut("KST/KST.TXT", text, n);
 	checkTrue("an earlier record: to the field list", toList());
+	// The first write is the marker's for the record's rename, the second the
+	// marker's for the backup.
 	fakeFatFail(FakeFatCall::Rename, FR_DISK_ERR);
-	fakeFatFail(FakeFatCall::Write, FR_DISK_ERR);
+	fakeFatFail(FakeFatCall::Write, FR_DISK_ERR, 1);
 	selectField(KST_F_DEAD_BAND);
 	tapId(UI_FIX(KstCtl::EditPlus));
 	holdUntilGone(UI_FIX(KstCtl::Write));

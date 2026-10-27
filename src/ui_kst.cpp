@@ -700,7 +700,7 @@ static void listTouch() {
 		s_preset[0] = '\0';
 		s_presetCard = kstFilesMounted();
 		if (!s_firstDone && s_presetCard)
-			kst_store_preset(kstFilesIo(), s_preset, sizeof(s_preset));
+			kstFilesNextName(s_preset);
 		s_pageFrom = s_st.image;
 		s_pageTo = s_target;
 		go(KstView::Write);
@@ -872,7 +872,7 @@ static void writeTouch() {
 	// KSTnnn it saves. The lookup is a card call on core0.
 	bool card = kstFilesMounted();
 	if (card && !s_presetCard && !s_firstDone) {
-		kst_store_preset(kstFilesIo(), s_preset, sizeof(s_preset));
+		kstFilesNextName(s_preset);
 		escHeartbeat();
 	}
 	s_presetCard = card;
@@ -893,6 +893,8 @@ static void writeTouch() {
 
 /** @brief Read the card's list into the page. */
 static void readFiles() {
+	// One lookup of KST in the root for the list, the names and the record.
+	KstFilesScope scope;
 	s_fileCount = 0;
 	s_fileTotal = 0;
 	s_recordFound = kstFilesRecordPresent();
@@ -906,12 +908,16 @@ static void readFiles() {
 		s_fileCount = (int)count;
 		s_fileTotal = total;
 	}
+	// The ring's names: the latest first in the list, and the next for SAVE AS.
+	KstNames names;
+	bool named = kstFilesNames(&names) == KST_STORE_OK;
+	if (named) kstFilesOrder(s_files, (size_t)s_fileCount, names.latest);
 	int rows = s_fileCount + (s_recordFound ? 1 : 0);
 	uiListInit(&s_fileList, FILE_VIEW, KL_ROW_PITCH, rows);
 	uiListSetBody(&s_fileList, KL_ROW_H, UI_LIST_TAP_MIN);
 	if (s_fileSel >= rows) s_fileSel = -1;
 	s_preset[0] = '\0';
-	if (kstFilesMounted()) kst_store_preset(kstFilesIo(), s_preset, sizeof(s_preset));
+	if (named) kstNamesBase(kstNamesNext(&names), s_preset);
 }
 
 /** @brief The file of list row @p i: null for the record. */
@@ -996,6 +1002,7 @@ static void fileNote(uint16_t col, const char *text) {
 
 /** @brief LOAD: the selected file, held against the servo, becomes the pending changes. */
 static void loadSelected() {
+	KstFilesScope scope;
 	size_t len = 0;
 	const char *f = fileOf(s_fileSel);
 	kst_store_t r = f ? kst_store_load(kstFilesIo(), f, s_text, sizeof(s_text), &len)
@@ -1049,10 +1056,15 @@ static void loadSelected() {
 }
 
 static void saveAs() {
+	KstFilesScope scope;
 	size_t n = kst_file_format(&s_st.image, s_text, sizeof(s_text));
-	kst_store_t r = kst_store_save(kstFilesIo(), s_preset, s_text, n, nullptr);
-	char note[32];
-	snprintf(note, sizeof(note), "SAVED AS %s", s_preset);
+	char saved[KST_STORE_NAME_MAX];
+	kst_store_t r = kstFilesSaveNext(s_text, n, saved);
+	// The name without its extension, as the button showed it.
+	char *dot = strrchr(saved, '.');
+	if (dot) *dot = '\0';
+	char note[sizeof("SAVED AS ") + sizeof(saved)];
+	snprintf(note, sizeof(note), "SAVED AS %s", saved);
 	if (r == KST_STORE_OK) fileNote(C_GREEN, note);
 	else if (r == KST_STORE_CARD_FULL) fileNote(C_AMBER, "THE CARD IS FULL");
 	else fileNote(C_AMBER, "THE CARD TOOK NO FILE");
@@ -1078,7 +1090,7 @@ static void filesTouch() {
 		s_preset[0] = '\0';
 		s_presetCard = kstFilesMounted();
 		if (!s_firstDone && s_presetCard)
-			kst_store_preset(kstFilesIo(), s_preset, sizeof(s_preset));
+			kstFilesNextName(s_preset);
 		s_pageFrom = s_st.image;
 		s_pageTo = s_st.backup;
 		go(KstView::Write);

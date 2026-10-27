@@ -8,6 +8,8 @@
 #   make previews rebuild the screenshots in docs/ from this run's frames
 #   make wiki     rebuild the wiki's screenshots and check its links
 #   make coverage line coverage of src/ from an instrumented build in cov/
+#   make kstcount the KST card phases over FatFs, checked against the design note
+#   make kstcount-write  rewrite that table
 #   make clean
 #
 # Needs nothing but a C++17 compiler and the C compiler beside it: the firmware
@@ -95,7 +97,7 @@ vpath %.c $(sort $(dir $(FEATURE_CSRCS) $(FEATURE_CTESTS)))
 
 BIN := dshot_tests
 
-.PHONY: all build run syntax pioemu bbcheck previews wiki coverage clean
+.PHONY: all build run syntax pioemu bbcheck previews wiki coverage kstcount kstcount-write clean
 
 all: syntax run pioemu bbcheck
 
@@ -224,6 +226,40 @@ coverage:
 		-o $(COV_DIR)/$(BIN) $(SRCS) $(addprefix $(COV_DIR)/,$(notdir $(CSRCS:.c=.o)))
 	./$(COV_DIR)/$(BIN)
 	python3 ../tools/coverage.py --print
+
+# The KST card phases counted over FatFs R0.15 itself, from the SD library at
+# the commit CMakeLists.txt pins, with the library's ffconf.h: the numbers
+# behind the card-phase cap in docs/design/kst-programming.md. Fetches the
+# library into obj/ once; needs git and the network for that. `kstcount`
+# fails when the table in the design note differs from the counts;
+# `kstcount-write` rewrites it.
+FATFS_REV := $(shell awk '/Declare.no_os_fatfs/{f=1} f&&/GIT_TAG/{print $$2; exit}' ../CMakeLists.txt)
+FATFS_DIR := $(OBJ_DIR)/fatfs-$(FATFS_REV)
+FATFS_SRC := $(FATFS_DIR)/src/ff15/source
+
+$(FATFS_SRC)/ff.c:
+	rm -rf $(FATFS_DIR) && mkdir -p $(FATFS_DIR)
+	git -C $(FATFS_DIR) init -q
+	git -C $(FATFS_DIR) fetch -q --depth 1 \
+		https://github.com/carlk3/no-OS-FatFS-SD-SDIO-SPI-RPi-Pico.git $(FATFS_REV)
+	git -C $(FATFS_DIR) checkout -q FETCH_HEAD
+
+KST_NOTE := ../docs/design/kst-programming.md
+
+$(OBJ_DIR)/kst_card_count: kst_card_count.cpp ../src/kst_files.cpp ../src/kst_files.h $(KST_CSRCS) $(FATFS_SRC)/ff.c
+	mkdir -p $(OBJ_DIR)/kstcount
+	for f in $(FATFS_SRC)/ff.c $(FATFS_SRC)/ffunicode.c $(FATFS_SRC)/ffsystem.c $(KST_CSRCS); do \
+		$(CC) $(CFLAGS) -w -I$(FATFS_SRC) -I$(FATFS_DIR)/src/include $(KST_INCLUDES) \
+			-c -o $(OBJ_DIR)/kstcount/$$(basename $$f .c).o $$f || exit 1; \
+	done
+	$(CXX) $(CXXFLAGS) $(WARN) -I$(FATFS_SRC) -I$(FATFS_DIR)/src/include -I../src $(KST_INCLUDES) \
+		-o $@ kst_card_count.cpp ../src/kst_files.cpp $(OBJ_DIR)/kstcount/*.o
+
+kstcount: $(OBJ_DIR)/kst_card_count
+	./$(OBJ_DIR)/kst_card_count --check $(KST_NOTE)
+
+kstcount-write: $(OBJ_DIR)/kst_card_count
+	./$(OBJ_DIR)/kst_card_count --write $(KST_NOTE)
 
 clean:
 	rm -f $(BIN) gen_blackbox_log *.ppm *.BFL

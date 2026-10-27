@@ -20,6 +20,7 @@
 #include "sd_log.h"
 #include "usb_msc.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 /** @brief A fresh volume, the logger Idle, the card reader off. */
@@ -332,7 +333,8 @@ static void testRefusals() {
 	static const char *const FAIL_NAMES[] = { "write", "sync" };
 	for (int i = 0; i < 2; i++) {
 		card();
-		fakeFatFail(FAILS[i], FR_DISK_ERR);
+		// The marker writes before the backup and does not sync.
+		fakeFatFail(FAILS[i], FR_DISK_ERR, FAILS[i] == FakeFatCall::Write ? 1 : 0);
 		kstFilesFirstWrite(&b, &b, &w);
 		char msg[96];
 		snprintf(msg, sizeof(msg), "a one-time %s error: a write error, the file removed",
@@ -341,8 +343,9 @@ static void testRefusals() {
 		               fakeFatOpenFiles() == 0);
 	}
 	// A close that fails keeps the file open in FatFs: it cannot be removed.
+	// The first close is the marker's.
 	card();
-	fakeFatFail(FakeFatCall::Close, FR_DISK_ERR);
+	fakeFatFail(FakeFatCall::Close, FR_DISK_ERR, 1);
 	kstFilesFirstWrite(&b, &b, &w);
 	checkTrue("a close error: a write error, the file left open and locked",
 	          w.backup == KST_STORE_WRITE_ERROR && fakeFatExists("KST/KST001.TXT") &&
@@ -368,15 +371,16 @@ static void testRefusals() {
 	checkTrue("a directory it did not make stays", fakeFatExists("KST") &&
 	                                               fakeFatExists("KST/Tail.TXT"));
 
-	// One of the two taken: the write runs.
+	// One of the two taken: the write runs. The writes are the marker's, the
+	// backup's and the record's, in that order.
 	card();
-	fakeFatFail(FakeFatCall::Write, FR_DISK_ERR, 1);
+	fakeFatFail(FakeFatCall::Write, FR_DISK_ERR, 2);
 	kstFilesFirstWrite(&b, &b, &w);
 	checkTrue("the backup taken, the record not: the write runs",
 	          w.backup == KST_STORE_OK && w.record == KST_STORE_WRITE_ERROR &&
 	          kstFilesWriteAllowed(&w));
 	card();
-	fakeFatFail(FakeFatCall::Write, FR_DISK_ERR);
+	fakeFatFail(FakeFatCall::Write, FR_DISK_ERR, 1);
 	kstFilesFirstWrite(&b, &b, &w);
 	checkTrue("the record taken, the backup not: the write runs",
 	          w.backup == KST_STORE_WRITE_ERROR && w.record == KST_STORE_OK &&
@@ -473,6 +477,9 @@ static void testStoreIo() {
 	fakeFatFail(FakeFatCall::OpenDir, FR_DISK_ERR);
 	checkInt("a directory that does not open",
 	         kst_store_list(io, e, 4, &count, nullptr, nullptr), KST_STORE_LIST_ERROR);
+	// A change into KST that fails leaves the call in the root, where the
+	// create makes sure of the directory.
+	fakeFatFail(FakeFatCall::ChDir, FR_DISK_ERR);
 	fakeFatFail(FakeFatCall::Stat, FR_DISK_ERR);
 	fakeFatFail(FakeFatCall::MkDir, FR_EXIST);
 	checkTrue("KST exists but cannot be looked at: a write error",
@@ -483,6 +490,183 @@ static void testStoreIo() {
 	checkTrue("and leaves no file", !fakeFatExists("KST/Tail.TXT"));
 	checkInt("no file left open", fakeFatOpenFiles(), 0);
 	checkInt("no directory left open, after a walk that failed too", fakeFatOpenDirs(), 0);
+}
+
+/** @brief The marker's number on the volume, 0 when missing or unreadable. */
+static unsigned marker() {
+	char buf[8];
+	int32_t n = fakeFatGet("KST/" KST_FILES_MARKER_NAME, buf, sizeof(buf));
+	return n < 0 ? 0 : kstNamesMarker(buf, (size_t)n);
+}
+
+/** @brief The first byte of KST/KSTnnn.TXT, or '\0' when it is missing. */
+static char firstByte(unsigned n) {
+	char path[24], buf[4];
+	snprintf(path, sizeof(path), "KST/KST%03u.TXT", n);
+	return fakeFatGet(path, buf, sizeof(buf)) > 0 ? buf[0] : '\0';
+}
+
+static void countEntry(const char *, bool, void *ctx) { ++*(unsigned *)ctx; }
+
+/** @brief The entries of KST, files and directories. */
+static unsigned kstEntries() {
+	unsigned n = 0;
+	kstFilesIo()->walk(nullptr, countEntry, &n);
+	return n;
+}
+
+/** @brief SAVE AS with @p tag as the file's one byte; the number saved, 0 on a refusal. */
+static unsigned saveTag(char tag) {
+	char name[KST_STORE_NAME_MAX];
+	if (kstFilesSaveNext(&tag, 1, name) != KST_STORE_OK) return 0;
+	return (unsigned)atoi(name + 3);
+}
+
+static uint64_t ring(unsigned from, unsigned to) {
+	uint64_t t = 0;
+	for (unsigned n = from; n <= to; n++) t |= 1ull << (n - 1u);
+	return t;
+}
+
+static void testRingRules() {
+	section("KST files: the ring's rules");
+	checkInt("after none: 1", kstNamesAfter(0), 1);
+	checkInt("after 49: 50", kstNamesAfter(49), 50);
+	checkInt("after 50: 1", kstNamesAfter(50), 1);
+	checkInt("no marker, no file: none", kstNamesGuess(0), 0);
+	checkInt("no marker, 1 to 10: 10", kstNamesGuess(ring(1, 10)), 10);
+	checkInt("a gap below the highest does not count",
+	         kstNamesGuess(ring(1, 10) & ~ring(3, 3)), 10);
+	checkInt("2 to 50: 50", kstNamesGuess(ring(2, 50)), 50);
+	checkInt("3 to 50 and 1: 1", kstNamesGuess(ring(3, 50) | ring(1, 1)), 1);
+	checkInt("all 50: 50", kstNamesGuess(ring(1, 50)), 50);
+	checkInt("a marker of 30", kstNamesMarker("030\n", 4), 30);
+	checkInt("50 is the last", kstNamesMarker("050\n", 4), 50);
+	checkInt("0 is no number", kstNamesMarker("000\n", 4), 0);
+	checkInt("51 is outside the ring", kstNamesMarker("051\n", 4), 0);
+	checkInt("2 digits: no number", kstNamesMarker("30\n", 3), 0);
+	checkInt("no line feed: no number", kstNamesMarker("0300", 4), 0);
+	checkInt("a letter: no number", kstNamesMarker("03a\n", 4), 0);
+	KstNames k;
+	memset(&k, 0, sizeof(k));
+	k.latest = 4;
+	k.dirs = k.taken = ring(5, 6);
+	checkInt("directories are passed over", kstNamesNext(&k), 7);
+	k.latest = 50;
+	k.dirs = k.taken = ring(1, 50);
+	checkInt("all directories: the next number all the same", kstNamesNext(&k), 1);
+}
+
+static void testRing() {
+	section("KST files: the ring of 50 names");
+	card(1u << 22);
+	char base[KST_STORE_PRESET_MAX];
+	checkTrue("an empty card: KST001 next",
+	          kstFilesNextName(base) == KST_STORE_OK && strcmp(base, "KST001") == 0);
+	checkInt("SAVE AS takes KST001", saveTag('a'), 1);
+	checkInt("and the marker names it", marker(), 1);
+	unsigned last = 0;
+	for (int i = 0; i < 49; i++) last = saveTag('a');
+	checkInt("50 files: the last is KST050", last, 50);
+	checkInt("the marker names it", marker(), 50);
+	checkInt("50 files, the marker: 51 entries", kstEntries(), 51);
+	checkTrue("KST001 next", kstFilesNextName(base) == KST_STORE_OK && strcmp(base, "KST001") == 0);
+	checkInt("the 51st save takes KST001", saveTag('b'), 1);
+	checkTrue("in place of the oldest", firstByte(1) == 'b' && firstByte(2) == 'a');
+	checkInt("still 51 entries", kstEntries(), 51);
+	checkInt("the next takes KST002", saveTag('b'), 2);
+
+	// The list: the latest first.
+	kst_store_entry_t e[64];
+	size_t count = 0;
+	kst_store_list(kstFilesIo(), e, 64, &count, nullptr, nullptr);
+	KstNames k;
+	kstFilesNames(&k);
+	kstFilesOrder(e, count, k.latest);
+	checkTrue("listed from the latest: KST002, KST001, KST050",
+	          count == 50 && strcmp(e[0].name, "KST002.TXT") == 0 &&
+	          strcmp(e[1].name, "KST001.TXT") == 0 && strcmp(e[2].name, "KST050.TXT") == 0 &&
+	          strcmp(e[49].name, "KST003.TXT") == 0);
+
+	// A file removed on a computer leaves a gap the marker passes over.
+	f_unlink("KST/KST010.TXT");
+	checkInt("a gap at KST010: the next is KST003 all the same", saveTag('c'), 3);
+	checkTrue("KST010 stays free", firstByte(10) == '\0');
+
+	// Without a marker the names give the latest.
+	f_unlink("KST/" KST_FILES_MARKER_NAME);
+	checkInt("no marker: the number before the lowest free", saveTag('d'), 10);
+	// All 50 taken and no marker: the guess is KST050, so KST001 goes.
+	fakeFatPut("KST/" KST_FILES_MARKER_NAME, "x", 1);
+	checkInt("a marker that does not read, all 50 taken: KST001", saveTag('d'), 1);
+	checkInt("and the marker is written again", marker(), 1);
+
+	// A directory under a ring name: passed over and kept.
+	f_unlink("KST/KST002.TXT");
+	fakeFatMkdir("KST/KST002.TXT");
+	checkInt("a directory at KST002: KST003 next", saveTag('e'), 3);
+	checkTrue("the directory stays", fakeFatExists("KST/KST002.TXT"));
+
+	// Names outside the ring stay through a whole turn of it.
+	fakeFatPut("KST/KST051.TXT", "z", 1);
+	fakeFatPut("KST/Wing.TXT", "z", 1);
+	for (int i = 0; i < 60; i++) saveTag('f');
+	checkTrue("KST051 and Wing stay", fakeFatExists("KST/KST051.TXT") &&
+	                                  fakeFatExists("KST/Wing.TXT"));
+	checkTrue("49 ring files, the directory, KST051, Wing and the marker: 53 entries",
+	          kstEntries() == 53);
+
+	// A marker the card refuses: nothing removed.
+	unsigned next = kstNamesAfter(marker());
+	fakeFatFail(FakeFatCall::Write, FR_DISK_ERR);
+	char name[KST_STORE_NAME_MAX];
+	checkInt("a marker that does not write: a write error",
+	         kstFilesSaveNext("g", 1, name), KST_STORE_WRITE_ERROR);
+	checkTrue("and the oldest file stays", firstByte(next) == 'f' && name[0] == '\0');
+	checkInt("the marker names the old latest", kstNamesAfter(marker()), next);
+	checkInt("no file left open", fakeFatOpenFiles(), 0);
+	checkTrue("and the current directory is the root again", fakeFatCwd()[0] == '\0');
+
+	// The oldest is written over in place; a read-only one is refused.
+	char path[24];
+	snprintf(path, sizeof(path), "KST/KST%03u.TXT", next);
+	fakeFatReadOnly(path);
+	checkInt("a read-only oldest file: refused", kstFilesSaveNext("h", 1, name), KST_STORE_DENIED);
+	checkTrue("it keeps its bytes", firstByte(next) == 'f');
+	checkInt("the marker names it all the same", marker(), next);
+	checkInt("the next save takes the number after it", saveTag('i'), kstNamesAfter(next));
+	// A change into KST that fails: the paths name KST/ from the root.
+	fakeFatFail(FakeFatCall::ChDir, FR_DISK_ERR);
+	unsigned got = saveTag('j');
+	checkTrue("a change into KST that fails: saved all the same",
+	          got != 0 && firstByte(got) == 'j' && fakeFatCwd()[0] == '\0');
+	size_t count2 = 0;
+	kst_store_list(kstFilesIo(), e, 64, &count2, nullptr, nullptr);
+	checkTrue("a list through the store leaves the root current",
+	          count2 > 0 && fakeFatCwd()[0] == '\0');
+}
+
+static void testRingFirstWrite() {
+	section("KST files: the first write in a full ring");
+	card(1u << 22);
+	for (int i = 0; i < 50; i++) saveTag('a');
+	kst_image_t b = bench(), before = changed();
+	KstFirstWrite w;
+	kstFilesFirstWrite(&b, &before, &w);
+	checkTrue("the backup replaces the oldest, KST001",
+	          w.backup == KST_STORE_OK && strcmp(w.backupName, "KST001.TXT") == 0 &&
+	          firstByte(1) != 'a' && marker() == 1);
+	// The next session finds the record its write left.
+	kstFilesFirstWrite(&b, &before, &w);
+	checkTrue("an old record is kept as KST002, the backup is KST003",
+	          w.kept == KST_STORE_OK && strcmp(w.keptName, "KST002.TXT") == 0 &&
+	          w.backup == KST_STORE_OK && strcmp(w.backupName, "KST003.TXT") == 0);
+	checkTrue("KST004 stays, the marker names KST003",
+	          firstByte(4) == 'a' && marker() == 3);
+	checkInt("50 files, the record and the marker", kstEntries(), 52);
+	checkTrue("the current directory is the root again", fakeFatCwd()[0] == '\0');
+	checkInt("a verified write removes its record", kstFilesRecordRemove(&w), KST_STORE_OK);
+	checkTrue("gone, and the root current", !fakeFatExists("KST/KST.TXT") && fakeFatCwd()[0] == '\0');
 }
 
 static void testWriteAllowed() {
@@ -513,6 +697,9 @@ void runKstFilesTests() {
 	testRefusals();
 	testRecordLoad();
 	testStoreIo();
+	testRingRules();
+	testRing();
+	testRingFirstWrite();
 	testWriteAllowed();
 	card();
 	logger(SdLogState::NoCard);
