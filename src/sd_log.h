@@ -60,7 +60,7 @@ struct SdLogStatus {
 	uint32_t   dropEvents;    /**< Frames lost to a full ring. */
 	uint32_t   peakBuffer;    /**< Ring high-water mark, bytes. */
 	uint32_t   worstFlushMs;  /**< Longest single card write. Sizes the buffer. */
-	uint16_t   fileNumber;    /**< N in LOGnnnnn.BFL, 0 when not logging. */
+	uint16_t   fileNumber;    /**< N in LOGS/LOGnnnnn.BFL, 0 when not logging. */
 };
 
 /**
@@ -72,7 +72,7 @@ struct SdLogStatus {
 bool sdLogBegin();
 
 /**
- * @brief Open the next free `LOGnnnnn.BFL` and start encoding.
+ * @brief Open the next free `LOGS/LOGnnnnn.BFL` and start encoding.
  * @return True if the file opened.
  */
 bool sdLogStart();

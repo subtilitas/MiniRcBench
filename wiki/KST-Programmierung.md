@@ -233,16 +233,16 @@ unteren Rand sagt, wohin die Sicherung geht:
 
 | Zeile | Wann |
 |---|---|
-| `BACKUP FIRST: KST/KST001.TXT` | Eine Karte ist eingebunden, und die Sicherung liegt noch nicht auf ihr |
-| `BACKUP: KST/KST001.TXT` | Die Sicherung liegt auf der Karte |
+| `BACKUP FIRST: BACKUP/KST001.TXT` | Eine Karte ist eingebunden, und die Sicherung liegt noch nicht auf ihr |
+| `BACKUP: BACKUP/KST001.TXT` | Die Sicherung liegt auf der Karte |
 | `NO CARD: BACKUP IN MEMORY` | Keine Karte ist eingebunden |
 | `CARD IN USE BY USB: BACKUP IN MEMORY` | Ein USB-Host hält die Karte |
-| `BACKUP FIRST: TO THE CARD` | Eine Karte ist eingebunden, und ihr Verzeichnis `KST` ließ sich nicht bis zum Ende lesen |
+| `BACKUP FIRST: TO THE CARD` | Eine Karte ist eingebunden, und ihr Verzeichnis `BACKUP` ließ sich nicht bis zum Ende lesen |
 | `NO BACKUP ON THE CARD: IN MEMORY` | Die Karte hat die Aufzeichnung angenommen und die Sicherung abgewiesen |
 
 **Ein zweites Halten von 1 s schreibt.** Bevor der erste Frame des ersten
 Schreibens der Sitzung mit eingebundener Karte zum Servo geht, kommt das beim
-Eintritt gelesene Abbild als `KST/KSTnnn.TXT` auf die Karte, und das Servo,
+Eintritt gelesene Abbild als Sicherung `BACKUP/KSTnnn.TXT` auf die Karte, und das Servo,
 wie es gerade ist, als Vermerk `KST/KST.TXT`. Spätere Schreibvorgänge der
 Sitzung sichern nichts und schreiben keinen Vermerk. Das Schreiben läuft dann
 als Einzelregister-Schreibvorgänge mit Rücklesen, gefolgt von einer
@@ -308,16 +308,17 @@ nimmt kein Schreiben an, bis eine Wiederherstellung gelaufen ist. Stelle
 - Die Leiste zählt die Dateien: `CARD  12 FILES`. Die Seite listet die ersten
   64 Dateien, danach zeigt die Leiste zum Beispiel
   `CARD  FIRST 64 OF 100 FILES`.
-- Die Dateien stehen nach Namen. Die KSTnnn-Dateien stehen beisammen, die
-  jüngste vorn, dann die älteren nach fallender Nummer. Liegt der Vermerk
-  `KST/KST.TXT` auf der Karte, ist er die allererste Zeile, benannt `RECORD`
-  mit `(KST.TXT)` rechts.
-  Die Sicherung dieser Sitzung trägt `(BACKUP)`.
+- Liegt der Vermerk `KST/KST.TXT` auf der Karte, ist er die allererste
+  Zeile, benannt `RECORD` mit `(KST.TXT)` rechts.
+- Es folgen die KST-Sicherungen aus `BACKUP/`, die jüngste zuerst, jede mit
+  `(BACKUP)` rechts. Eine Sicherung lädt wie eine Datei.
+- Dann die Dateien aus `KST/` nach Namen. Die KSTnnn-Dateien stehen
+  beisammen, die höchste Nummer vorn.
 - Tippe auf eine Zeile, um sie auszuwählen.
 
 | Schaltfläche | Was sie tut |
 |---|---|
-| `SAVE AS KST003` | Schreibt das Servo, wie es gerade ist, unter dem nächsten Namen des Rings, siehe unten. Die Leiste zeigt `SAVED AS KST003` in Grün. Es gibt keine Tastatur, daher keinen anderen Namen |
+| `SAVE AS KST003` | Schreibt das Servo, wie es gerade ist, nach `KST/` unter dem nächsten freien Namen, eins über dem höchsten KSTnnn, und nie über eine Datei. Die Leiste zeigt `SAVED AS KST003` in Grün. Hält `KST/` 50 Dateien, wirkt die Schaltfläche nicht, und die Leiste zeigt `KST/ HOLDS 50 FILES. REMOVE SOME.` Es gibt keine Tastatur, daher keinen anderen Namen |
 | `LOAD` | Hält die gewählte Datei gegen das Servo (Typ, Zugriffsklassen, harte Grenzen) und übernimmt ihre Werte als vorgemerkte Änderungen in die Feldliste. Geschrieben wird dann über `HOLD TO WRITE` |
 | `HOLD TO RESTORE` | 1 s halten. Schreibt das beim Eintritt gelesene Abbild über die Wiederherstellungsseite ins Servo zurück |
 
@@ -351,13 +352,14 @@ zweites Halten. Die Seite zeigt dann
   Frame. Die Schreibseite zeigt
   `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.`
 
-Die Sicherungen und die SAVE-AS-Dateien tragen die Namen KST001 bis KST050
-in einem Ring. `KST/LAST` hält die Nummer der jüngsten, 3 Ziffern und einen
-Zeilenvorschub; keine Liste zeigt die Datei. Die nächste Datei nimmt die
-Nummer danach, KST001 nach KST050, und sind alle 50 vergeben, überschreibt
-sie die älteste. Dateien mit jedem anderen Namen, auch KST051 und höher,
-werden nie überschrieben. Fehlt `KST/LAST`, wird die jüngste Nummer aus den
-Namen geschätzt; ein Ring mit allen 50 Namen überschreibt dann KST001.
+Die Sicherungen teilen sich einen Ring von 50 Nummern mit den Sicherungen des
+AM32-Editors, `BACKUP/KSTnnn.TXT` und `BACKUP/AMnnn.TXT`. `BACKUP/LAST` hält
+die jüngste Nummer, 3 Ziffern und einen Zeilenvorschub; keine Liste zeigt die
+Datei. Die nächste Sicherung nimmt die Nummer danach, 001 nach 050, und sind
+alle 50 vergeben, überschreibt sie die älteste, gleich von welchem Gerät.
+Dateien mit jedem anderen Namen, auch KST051 und höher, werden nie
+überschrieben. Fehlt `BACKUP/LAST`, wird die jüngste Nummer aus den Namen
+geschätzt; ein Ring mit allen 50 Nummern überschreibt dann Nummer 001.
 
 ---
 
@@ -426,13 +428,13 @@ zeigt die Abziehseite unmittelbar.
   Schritt 5 der Entwurfsnotiz (`docs/design/kst-programming.md`) fügt einen
   Wandler an GP0 hinzu.
 - Die Kartenaufrufe des ersten Schreibens laufen auf core0, und der
-  Bildschirm wird erst neu gezeichnet, wenn sie enden. Bei vollem Ring sind
-  das unter 3 s für eine Karte mit Zugriffs- und Busy-Zeiten von 10 ms, mit
-  bis zu 1000 Blackbox-Logs im Wurzelverzeichnis der Karte. Mit den vollen
-  Zeiten der SD-Spezifikation sind es ohne Log im Wurzelverzeichnis bis zu
-  12,8 s auf einer FAT32-SDHC-Karte (Secure Digital High Capacity) und 16,3 s
-  auf einer exFAT-SDXC-Karte (Secure Digital eXtended Capacity), mit 1000 Logs
-  bis zu 35,9 s. Das sind FatFs-Blockzahlen mal Kartenzeiten, nicht auf einer
-  Karte gemessen.
+  Bildschirm wird erst neu gezeichnet, wenn sie enden. Bei voller Karte sind
+  das bis zu 1,0 s für eine Karte mit Zugriffs- und Busy-Zeiten von 10 ms. Mit
+  den vollen Zeiten der SD-Spezifikation sind es bis zu 13,3 s auf einer
+  FAT32-SDHC-Karte (Secure Digital High Capacity) und 16,5 s auf einer
+  exFAT-SDXC-Karte (Secure Digital eXtended Capacity), gleich wie viele Logs
+  `LOGS/` hält. Logs, die eine frühere Firmware ins Wurzelverzeichnis schrieb,
+  verlangsamen jede Suche darin: mit 1000 davon bis zu 135,0 s. Das sind
+  FatFs-Blockzahlen mal Kartenzeiten, nicht auf einer Karte gemessen.
 
 Vom KST-Programmierer ist nichts auf Hardware getestet.

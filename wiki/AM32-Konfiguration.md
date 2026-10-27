@@ -101,6 +101,17 @@ Bestätigung des ESC. Bei Übereinstimmung erscheint `WRITE VERIFIED`. Bei einer
 Abweichung erscheint das erste abweichende Byte als
 `DIFF @xx: GOT xx WANT xx`.
 
+Vor dem ersten Schreiben einer Sitzung gehen die beim Eintritt gelesenen
+Einstellungen als `BACKUP/AMnnn.TXT` auf die SD-Karte, in den Ring der
+Sicherungen, den der KST-Programmierer teilt
+([KST-Programmierung](KST-Programmierung)). Das Ergebnis zeigt dann zum
+Beispiel `WRITE VERIFIED. BACKUP AM018`. Eine Karte, die die Sicherung
+verweigert, hält das Schreiben auf: `NO BACKUP ON THE CARD: NOT WRITTEN`. Ohne
+Karte läuft das Schreiben, und die Sicherung bleibt im Speicher, bis ein
+Schreiben mit Karte sie sichert oder der Editor schließt. Die Datei hält eine
+Zeile je Feld, die 48 Bytes in Hex und eine Prüfsummenzeile; noch liest sie
+nichts zurück.
+
 Die meisten AM32-Einstellungen wirken ab dem nächsten Einschalten des ESC. Das
 ist Verhalten von AM32; der Tester prüft es nicht.
 

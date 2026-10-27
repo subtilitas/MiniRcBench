@@ -217,16 +217,16 @@ backup goes:
 
 | Line | When |
 |---|---|
-| `BACKUP FIRST: KST/KST001.TXT` | A card is mounted and the backup is not on it yet |
-| `BACKUP: KST/KST001.TXT` | The backup is on the card |
+| `BACKUP FIRST: BACKUP/KST001.TXT` | A card is mounted and the backup is not on it yet |
+| `BACKUP: BACKUP/KST001.TXT` | The backup is on the card |
 | `NO CARD: BACKUP IN MEMORY` | No card is mounted |
 | `CARD IN USE BY USB: BACKUP IN MEMORY` | A USB host holds the card |
-| `BACKUP FIRST: TO THE CARD` | A card is mounted and its `KST` directory did not read to its end |
+| `BACKUP FIRST: TO THE CARD` | A card is mounted and its `BACKUP` directory did not read to its end |
 | `NO BACKUP ON THE CARD: IN MEMORY` | The card took the record and refused the backup |
 
 **A second hold of 1 s writes.** Before the first frame of the session's
 first write with a card mounted, the image read at entry goes to the card as
-`KST/KSTnnn.TXT`, and the servo as it stands goes to the card as the record
+the backup `BACKUP/KSTnnn.TXT`, and the servo as it stands goes to the card as the record
 `KST/KST.TXT`. Later writes of the session save no backup and write no
 record. The write then runs as single-register writes with a read-back,
 followed by a full verify. A verified write removes the record, and so does
@@ -287,16 +287,17 @@ until a restore has run. Restore from [FILES](#files).
 
 - The strip counts the files: `CARD  12 FILES`. The page lists the first 64
   files, then the strip reads `CARD  FIRST 64 OF 100 FILES`, for example.
-- The files sort by name. The KSTnnn files stand together, the latest first,
-  then the older ones by falling number. When the
-  record `KST/KST.TXT` is on the card, it is the first row of all, named
-  `RECORD` with `(KST.TXT)` at the right. The backup of this session carries
-  `(BACKUP)`.
+- When the record `KST/KST.TXT` is on the card, it is the first row of all,
+  named `RECORD` with `(KST.TXT)` at the right.
+- The KST backups of `BACKUP/` follow, the latest first, each with `(BACKUP)`
+  at the right. A backup loads as a file.
+- Then the files of `KST/`, by name. The KSTnnn files stand together, the
+  highest number first.
 - Tap a row to select it.
 
 | Button | What it does |
 |---|---|
-| `SAVE AS KST003` | Writes the servo as it stands under the next name of the ring, below. The strip reads `SAVED AS KST003` in green. There is no keyboard, so there is no other name |
+| `SAVE AS KST003` | Writes the servo as it stands into `KST/` under the next free name, one above the highest KSTnnn, and never over a file. The strip reads `SAVED AS KST003` in green. Once `KST/` holds 50 files the button does not act and the strip reads `KST/ HOLDS 50 FILES. REMOVE SOME.` There is no keyboard, so there is no other name |
 | `LOAD` | Holds the selected file against the servo (type, access classes, hard limits) and puts its values into the field list as pending changes. The write then goes through `HOLD TO WRITE` |
 | `HOLD TO RESTORE` | Hold 1 s. Writes the image read at entry back to the servo, through the restore page |
 
@@ -328,13 +329,14 @@ a second hold. The page then reads `THE PLANNER DID NOT CHECK THIS` and
   backup nor the record stops the write before any frame. The write page
   reads `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.`
 
-The backups and SAVE AS files take the names KST001 to KST050 in a ring.
-`KST/LAST` holds the number of the latest, 3 digits and a line feed; no list
-shows it. The next file takes the number after it, KST001 after KST050, and
-once all 50 are taken it writes over the oldest. Files with any other name,
-KST051 and up included, are never written over. Without `KST/LAST` the
-latest number is guessed from the names; a ring with all 50 names taken then
-writes over KST001.
+The backups share one ring of 50 numbers with the backups of the AM32
+editor, `BACKUP/KSTnnn.TXT` and `BACKUP/AMnnn.TXT`. `BACKUP/LAST` holds the
+latest number, 3 digits and a line feed; no list shows it. The next backup
+takes the number after it, 001 after 050, and once all 50 are taken it writes
+over the oldest, whatever device it belongs to. Files with any other name,
+KST051 and up included, are never written over. Without `BACKUP/LAST` the
+latest number is guessed from the names; a ring with all 50 numbers taken
+then writes over number 001.
 
 ---
 
@@ -400,12 +402,12 @@ unplug page directly.
 - No switched supply: the servo is powered up and down by hand. The design
   note's step 5 (`docs/design/kst-programming.md`) adds a converter on GP0.
 - The first write's card calls run on core0, and the screen does not
-  redraw until they end. On a full ring that is under 3 s for a card with
-  access and busy times of 10 ms, with up to 1000 blackbox logs in the
-  card's root. At the SD specification's full times it is up to 12.8 s on a
-  FAT32 SDHC (Secure Digital High Capacity) card and 16.3 s on an exFAT SDXC
-  (Secure Digital eXtended Capacity) card with no log in the root, and up to
-  35.9 s with 1000 logs. These are FatFs block counts times card times, not
-  measured on a card.
+  redraw until they end. On a full card that is up to 1.0 s for a card with
+  access and busy times of 10 ms. At the SD specification's full times it is
+  up to 13.3 s on a FAT32 SDHC (Secure Digital High Capacity) card and 16.5 s
+  on an exFAT SDXC (Secure Digital eXtended Capacity) card, however many logs
+  `LOGS/` holds. Logs an earlier firmware wrote to the card's root slow every
+  lookup in it: with 1000 of them, up to 135.0 s. These are FatFs block counts
+  times card times, not measured on a card.
 
 Nothing of the KST programmer has been tested on hardware.

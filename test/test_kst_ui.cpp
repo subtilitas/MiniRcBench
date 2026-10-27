@@ -20,6 +20,7 @@
 #include "kst_job.h"
 #include "kst_line_port.h"
 #include "kst_line.h"
+#include "kst_files.h"
 #include "kst_view.h"
 #include "pin_claim.h"
 #include "sd_log.h"
@@ -295,7 +296,7 @@ static void testEditAndWrite() {
 	fakeFatOnCall(nullptr);
 	fakeRelease();
 	checkTrue("the hold starts the write", !ctlPresent(UI_FIX(KstCtl::WriteHold)));
-	checkTrue("the backup is on the card first", fakeFatExists("KST/KST001.TXT"));
+	checkTrue("the backup is on the card first", fakeFatExists("BACKUP/KST001.TXT"));
 	checkTrue("and the record", fakeFatExists("KST/KST.TXT"));
 	checkTrue("the card calls ran", fakeFatCalls(FakeFatCall::Open) > calls);
 	checkInt("no frame at all while they ran", (long)s_framesInCard, (long)frames);
@@ -303,7 +304,7 @@ static void testEditAndWrite() {
 	checkTrue("verified", job().result == KST_SES_OK);
 	checkTrue("the servo holds the new dead band", simField(KST_F_DEAD_BAND) != deadBand);
 	checkTrue("the record is removed after the verify", !fakeFatExists("KST/KST.TXT"));
-	checkTrue("the backup stays", fakeFatExists("KST/KST001.TXT"));
+	checkTrue("the backup stays", fakeFatExists("BACKUP/KST001.TXT"));
 	checkTrue("the result page still lists the change", fakeCountColour(C_LIME) > 0);
 	kstFrames(1);
 	fakeDumpFrame("shot_kst_result.ppm");
@@ -323,7 +324,7 @@ static void testEditAndWrite() {
 	untilCtl(UI_FIX(KstCtl::WriteOk), 400);
 	checkInt("the servo holds 98 %, raw 250, and no more", simField(KST_F_DUTY), KST_DUTY_RAW_MAX);
 	checkTrue("a second write writes no new record", !fakeFatExists("KST/KST.TXT") &&
-	                                                !fakeFatExists("KST/KST002.TXT"));
+	                                                !fakeFatExists("BACKUP/KST002.TXT"));
 	tapId(UI_FIX(KstCtl::WriteOk));
 	leaveAll();
 }
@@ -365,6 +366,39 @@ static void testFiles() {
 	tapId(UI_FIX(KstCtl::Load));
 	checkTrue("LOAD: the list, with the file's values pending",
 	          uiKstView() == KstView::List && ctlEnabled(UI_FIX(KstCtl::Write)));
+
+	// The KST backups of BACKUP/ stand first, an ESC's backup not at all.
+	tapId(UI_FIX(KstCtl::Revert));
+	fakeFatMkdir("BACKUP");
+	fakeFatPut("BACKUP/KST005.TXT", text, n);
+	fakeFatPut("BACKUP/AM006.TXT", "AM32 backup, format 1\n", 22);
+	tapId(UI_FIX(KstCtl::Files));
+	// Row 0 is the backup: BAD.TXT, first of KST/, would refuse the LOAD.
+	tapId(UI_ROW(0, Row));
+	tapId(UI_FIX(KstCtl::Load));
+	checkTrue("LOAD of the backup row: its values pending",
+	          uiKstView() == KstView::List && ctlEnabled(UI_FIX(KstCtl::Write)));
+	leaveAll();
+
+	// KST/ with 50 files: SAVE AS refuses.
+	freshKst();
+	fakeFatMkdir("KST");
+	for (int i = 1; i <= KST_FILES_SAVE_MAX; i++) {
+		char name[24];
+		snprintf(name, sizeof(name), "KST/KST%03d.TXT", i);
+		fakeFatPut(name, text, n);
+	}
+	checkTrue("50 files: to the field list", toList());
+	tapId(UI_FIX(KstCtl::Files));
+	checkTrue("50 files in KST/: SAVE AS does not act", !ctlEnabled(UI_FIX(KstCtl::SaveAs)));
+	checkTrue("and the strip says why", fakeCountColour(C_AMBER) > 0);
+	f_unlink("KST/KST001.TXT");
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(KstCtl::Files));
+	checkTrue("49 files: SAVE AS acts again", ctlEnabled(UI_FIX(KstCtl::SaveAs)));
+	tapId(UI_FIX(KstCtl::SaveAs));
+	checkTrue("SAVE AS takes KST051, one above the highest", fakeFatExists("KST/KST051.TXT"));
+	checkTrue("and then refuses", !ctlEnabled(UI_FIX(KstCtl::SaveAs)));
 	leaveAll();
 }
 
@@ -723,7 +757,7 @@ static void testSecondServoAndLateCard() {
 	holdUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	untilCtl(UI_FIX(KstCtl::WriteOk), 400);
-	checkTrue("the first servo in doubt", job().locked && fakeFatExists("KST/KST001.TXT") &&
+	checkTrue("the first servo in doubt", job().locked && fakeFatExists("BACKUP/KST001.TXT") &&
 	                                     fakeFatExists("KST/KST.TXT"));
 	static char rec1[KST_FILE_MAX];
 	int32_t rec1Len = fakeFatGet("KST/KST.TXT", rec1, sizeof(rec1));
@@ -750,7 +784,7 @@ static void testSecondServoAndLateCard() {
 	bool own = false, kept = false;
 	for (int i = 2; i <= 4; i++) {
 		char name[24];
-		snprintf(name, sizeof(name), "KST/KST%03d.TXT", i);
+		snprintf(name, sizeof(name), "BACKUP/KST%03d.TXT", i);
 		int32_t n = fakeFatGet(name, k, sizeof(k));
 		if (n == (int32_t)wn && memcmp(k, want, wn) == 0) own = true;
 		if (n == rec1Len && memcmp(k, rec1, (size_t)n) == 0) kept = true;
@@ -776,7 +810,7 @@ static void testSecondServoAndLateCard() {
 	card();
 	kstFrames(1);
 	checkTrue("a card mounted on the page: it names the backup it saves",
-	          lineIs(236, "BACKUP FIRST: KST/KST001.TXT", C_DIM));
+	          lineIs(236, "BACKUP FIRST: BACKUP/KST001.TXT", C_DIM));
 	n_cardCalls = 0;
 	fakeFatOnCall(countCardCall);
 	kstFrames(10);
@@ -785,7 +819,7 @@ static void testSecondServoAndLateCard() {
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	untilCtl(UI_FIX(KstCtl::WriteOk), 400);
 	static char b1[KST_FILE_MAX];
-	int32_t n1 = fakeFatGet("KST/KST001.TXT", b1, sizeof(b1));
+	int32_t n1 = fakeFatGet("BACKUP/KST001.TXT", b1, sizeof(b1));
 	kst_image_t bench = sim_bench_image();
 	wn = kst_file_format(&bench, want, sizeof(want));
 	checkTrue("the second write saves the session's backup, the servo as first read",
@@ -921,7 +955,7 @@ static void testSlowCard() {
 	fakeFatFail(FakeFatCall::Write, FR_DISK_ERR);
 	writeDeadBand();
 	checkTrue("the backup refused, the record taken: the write verified",
-	          job().result == KST_SES_OK && !fakeFatExists("KST/KST001.TXT"));
+	          job().result == KST_SES_OK && !fakeFatExists("BACKUP/KST001.TXT"));
 	kstFrames(1);
 	checkTrue("the page names no backup file", lineIs(236, "NO BACKUP ON THE CARD: IN MEMORY", C_DIM));
 	tapId(UI_FIX(KstCtl::WriteOk));
@@ -993,7 +1027,7 @@ static void testRefusedOps() {
 	tapId(UI_FIX(KstCtl::WriteOk));
 	unplugAndBack();
 	checkTrue("LEAVE from a servo in a known state removes the record",
-	          !fakeFatExists("KST/KST.TXT") && fakeFatExists("KST/KST001.TXT"));
+	          !fakeFatExists("KST/KST.TXT") && fakeFatExists("BACKUP/KST001.TXT"));
 	checkTrue("the next session names no interrupted write", fakeCountColour(C_AMBER) == 0);
 	leaveAll();
 }
@@ -1059,7 +1093,7 @@ static void testRecordKeptAtLeave() {
 	holdUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	checkTrue("the card took no file", ctlPresent(UI_FIX(KstCtl::WriteOk)) &&
-	                                   !fakeFatExists("KST/KST001.TXT"));
+	                                   !fakeFatExists("BACKUP/KST001.TXT"));
 	tapId(UI_FIX(KstCtl::WriteOk));
 	leaveAll();
 	checkTrue("LEAVE keeps the record that stayed", fakeFatExists("KST/KST.TXT"));
@@ -1092,7 +1126,7 @@ static void testRecordKeptAtLeave() {
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	checkTrue("the card took no file, the record moved",
 	          ctlPresent(UI_FIX(KstCtl::WriteOk)) && !fakeFatExists("KST/KST.TXT") &&
-	          fakeFatExists("KST/KST001.TXT"));
+	          fakeFatExists("BACKUP/KST001.TXT"));
 	tapId(UI_FIX(KstCtl::WriteOk));
 	unplugAndBack();
 	checkTrue("the next session: no interrupted write named", fakeCountColour(C_AMBER) == 0);

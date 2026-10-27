@@ -147,14 +147,10 @@ memory.
 - 16 entries of one block, 8,192 bytes, least recently used out first.
 - A read fills it; a queued write of the same LBA updates the entry.
 - The tool's screen fills it when it opens, while no supply is switched on:
-  it changes into `BACKUP` once for the whole claim (`f_chdir("/BACKUP")`)
-  and walks the ring; KST also looks its record up. The root is passed over
-  here. FatFs keeps `BACKUP` as its current directory until the claim ends.
-  A KST card phase that reaches `KST/` for the record looks `KST` up in the
-  root again: open in [backups.md](backups.md#open).
-- The blackbox logger's paths then start at the root with `/`
-  (`/LOGnnnnn.BFL` in `src/sd_log.cpp`), so a log started by hand during the
-  claim still lands in the root.
+  it walks the ring of `BACKUP/`, and KST also looks its record up in `KST/`.
+  The root holds `LOGS`, `KST` and `BACKUP`
+  ([backups.md](backups.md#card-layout)), so its one block stays in the
+  cache with the two directories' 4 blocks each on FAT32.
 
 A card phase reads 0 to 2 blocks with the cache filled: the counting tool,
 with a 16-block cache modelled and no log in the root, counts 0 to 2 reads
@@ -206,13 +202,13 @@ path, core0 blocking:
 
 ## The blackbox logger during the claim
 
-A log started by hand on SD LOG is not stopped by a claim today. Its
-writes, 7.3 kB/s, 14.3 blocks a second, would join the queue behind the backup's
-blocks; at the specification's 511 ms a block the flush sends 2 blocks a
-second, and the queue fills in under 3 s. Open: whether the claim stops
-a running log at entry, refuses to open while one runs, or lets its writes
-take the synchronous path past the queue (which breaks the queue's order
-for the shared FAT).
+A log's writes, 7.3 kB/s, 14.3 blocks a second, would join the queue behind
+the backup's blocks; at the specification's 511 ms a block the flush sends 2
+blocks a second, and the queue would fill in under 3 s. The owner's decision
+of 2026-10-27: a KST SERVO or AM32 CONFIG claim stops a log that runs when it
+opens, before the cache turns on. During a claim the DShot pump stops, so the
+log has nothing to record; arming, which starts a log, is not possible while
+a claim holds.
 
 ## Memory
 
@@ -264,6 +260,5 @@ About 3 to 4 days for 1 to 5, not measured. Bring-up is not estimated.
 
 ## Open
 
-- The blackbox logger during the claim (above).
 - DAT0 busy with the clock stopped (above).
 - The cap of the card stamp for reads: 2000 ms is a proposal.

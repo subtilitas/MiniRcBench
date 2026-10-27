@@ -50,12 +50,12 @@ INCLUDES += $(SERVO_INCLUDES) $(KST_INCLUDES)
 SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
         test_blackbox.cpp test_log_ring.cpp test_settings.cpp \
         test_usb_msc.cpp test_dshot_frame.cpp test_dshot_telem.cpp \
-        test_dshot_edt.cpp test_sdio.cpp test_claim.cpp test_widgets.cpp test_ids.cpp test_menu.cpp \
+        test_dshot_edt.cpp test_sdio.cpp test_claim.cpp test_widgets.cpp test_ids.cpp test_menu.cpp test_backup_ring.cpp \
         fakes.cpp \
         ../src/gfx.cpp ../src/ui.cpp ../src/ui_settings.cpp ../src/ui_menu.cpp ../src/ui_registry.cpp ../src/ui_sdlog.cpp ../src/theme.cpp \
         ../src/ui_input.cpp ../src/ui_widgets.cpp ../src/ui_list.cpp \
         ../src/ui_hold.cpp ../src/board_desc.cpp \
-        ../src/settings.cpp ../src/am32_eeprom.cpp \
+        ../src/settings.cpp ../src/am32_eeprom.cpp ../src/card_dir.cpp ../src/backup_ring.cpp ../src/am32_backup.cpp \
         ../src/kiss_telem.cpp ../src/esc_merge.cpp ../src/blackbox_encode.cpp \
         ../src/log_ring.cpp ../src/pin_claim.cpp \
         $(SERVO_TESTS) $(SERVO_SRCS) $(KST_TESTS) $(KST_SRCS)
@@ -246,14 +246,17 @@ $(FATFS_SRC)/ff.c:
 
 KST_NOTE := ../docs/design/kst-programming.md
 
-$(OBJ_DIR)/kst_card_count: kst_card_count.cpp ../src/kst_files.cpp ../src/kst_files.h $(KST_CSRCS) $(FATFS_SRC)/ff.c
+KST_COUNT_SRCS := ../src/kst_files.cpp ../src/card_dir.cpp ../src/backup_ring.cpp \
+                  ../src/am32_backup.cpp ../src/am32_eeprom.cpp
+
+$(OBJ_DIR)/kst_card_count: kst_card_count.cpp $(KST_COUNT_SRCS) ../src/kst_files.h ../src/card_dir.h ../src/backup_ring.h ../src/am32_backup.h $(KST_CSRCS) $(FATFS_SRC)/ff.c
 	mkdir -p $(OBJ_DIR)/kstcount
 	for f in $(FATFS_SRC)/ff.c $(FATFS_SRC)/ffunicode.c $(FATFS_SRC)/ffsystem.c $(KST_CSRCS); do \
 		$(CC) $(CFLAGS) -w -I$(FATFS_SRC) -I$(FATFS_DIR)/src/include $(KST_INCLUDES) \
 			-c -o $(OBJ_DIR)/kstcount/$$(basename $$f .c).o $$f || exit 1; \
 	done
 	$(CXX) $(CXXFLAGS) $(WARN) -I$(FATFS_SRC) -I$(FATFS_DIR)/src/include -I../src $(KST_INCLUDES) \
-		-o $@ kst_card_count.cpp ../src/kst_files.cpp $(OBJ_DIR)/kstcount/*.o
+		-o $@ kst_card_count.cpp $(KST_COUNT_SRCS) $(OBJ_DIR)/kstcount/*.o
 
 kstcount: $(OBJ_DIR)/kst_card_count
 	./$(OBJ_DIR)/kst_card_count --check $(KST_NOTE)

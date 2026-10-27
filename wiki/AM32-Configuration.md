@@ -95,6 +95,15 @@ compares them** byte by byte. It does not rely on the ESC's acknowledgement.
 A match shows `WRITE VERIFIED`. A mismatch shows the first differing byte as
 `DIFF @xx: GOT xx WANT xx`.
 
+Before the first write of a session, the settings as read at entry go to the
+SD card as `BACKUP/AMnnn.TXT`, in the ring of backups that the KST programmer
+shares ([KST programming](KST-Programming)). The result then reads
+`WRITE VERIFIED. BACKUP AM018`, for example. A card that refuses the backup
+stops the write: `NO BACKUP ON THE CARD: NOT WRITTEN`. Without a card the
+write runs, and the backup stays in memory until a write with a card saves it
+or the editor closes. The file holds one line per field, the 48 bytes in hex
+and a checksum line; nothing reads it back yet.
+
 Most AM32 settings take effect at the next ESC power-up. This is AM32
 behaviour; the tester does not check it.
 

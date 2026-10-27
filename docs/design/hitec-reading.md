@@ -371,7 +371,7 @@ rcbench reserves `BENCH/HITEC/CONF` for its Hitec programmer's files
 (`shared/logfile/include/card_tree.h`), and nothing reads it yet; this
 board's card holds no BENCH
 tree. The file goes through FatFs on core0, under the mount rule of
-`src/kst_files.cpp`: the card mounted by the logger and not held by a USB
+`src/card_dir.cpp` (`cardMounted()`): the card mounted by the logger and not held by a USB
 host. The file is plain text, one line per address. A D series value has
 four hex digits, a classic one two. A D series file names the request's ID
 in its header and each answer's ID byte on its line; a classic file has no

@@ -17,9 +17,11 @@ einmal beim Start eingebunden, und die Platine hat keinen
 Karten-Erkennungspin. Steck die Karte vor dem Einschalten ein, oder drück nach
 dem Einstecken `RETRY` auf dem SD-LOG-Bildschirm.
 
-Die Dateien landen im Wurzelverzeichnis als `LOG00001.BFL`, `LOG00002.BFL` und
-so weiter. Jede neue Datei erhält die niedrigste freie Nummer von 00001 bis
-09999. Vorhandene Dateien werden nicht überschrieben.
+Die Dateien landen im Verzeichnis `LOGS` als `LOG00001.BFL`, `LOG00002.BFL`
+und so weiter. Jede neue Datei erhält die niedrigste freie Nummer von 00001
+bis 09999. Vorhandene Dateien werden nicht überschrieben. Logs, die eine
+frühere Firmware ins Wurzelverzeichnis schrieb, bleiben dort und zählen nicht
+mit.
 
 Die Platine liest die Karte über 4-Bit-SDIO (Secure Digital Input/Output) mit
 10 MHz.

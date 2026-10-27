@@ -378,6 +378,15 @@
 #define SD_LOG_PREALLOC_BYTES  (16u * 1024u * 1024u)
 
 /**
+ * @brief The directory of the logs, from the root: `LOGS/LOGnnnnn.BFL`.
+ *
+ * Out of the root, so the root holds a few directories (`LOGS`, `KST`,
+ * `BACKUP`) and a lookup of one of them reads one block, however many logs
+ * there are. Logs an earlier firmware wrote to the root stay there.
+ */
+#define SD_LOG_DIR_PATH        "/LOGS"
+
+/**
  * @brief Commit the log file's directory entry at most this often, in ms.
  *
  * A log is only readable up to its last f_sync(). Without a periodic one the
