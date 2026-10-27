@@ -1,16 +1,19 @@
-# SD write cache for the KST claim
+# SD write cache for the backup claims
 
-Planned, nothing built. While the KST claim holds, block writes to the SD
+Planned, nothing built. While the pin claim of KST SERVO or AM32 CONFIG
+holds, the two tools that save device backups
+([backups.md](backups.md)), block writes to the SD
 (Secure Digital) card go into a queue in SRAM (static random-access memory)
 and return at once; a flush task on core0 sends them to the card in the
 order FatFs wrote them, one block per loop pass, without waiting on the
-card's busy line. Block reads come from a read cache that the KST screen
+card's busy line. Block reads come from a read cache that the tool's screen
 fills when it opens. Core0 then keeps drawing, reading touch and sending
 the heartbeat while the card programs, and a card phase of
 [kst-programming.md](kst-programming.md#card-calls-and-the-heartbeat) holds
 no card wait longer than one block read.
 
-Outside the KST claim nothing changes: the blackbox logger, SD LOG and USB
+Outside those two claims nothing changes: SERVO, a Hitec claim, the
+blackbox logger, SD LOG and USB
 (Universal Serial Bus) DRIVE use the synchronous path of
 [sdio-driver.md](sdio-driver.md).
 
@@ -118,7 +121,9 @@ sd_cache_state_t sdCacheFlushState(uint16_t *left);   // Idle, Flushing, Failed
 - `Idle` once the queue is empty and the last block's status was clean.
 - `Failed` after a block that failed 3 times, until the cache is reset.
 
-The KST screen calls `kstFilesFirstWrite()` as today; its results then mean
+The KST screen calls `kstFilesFirstWrite()` as today, and AM32 CONFIG saves
+its backup the same way ([backups.md](backups.md#am32-backup)); the results
+then mean
 "queued". The write page shows the flush:
 
 ```
@@ -141,11 +146,12 @@ memory.
 
 - 16 entries of one block, 8,192 bytes, least recently used out first.
 - A read fills it; a queued write of the same LBA updates the entry.
-- The KST screen fills it when it opens, while no supply is switched on:
-  it changes into `KST` once for the whole claim (`f_chdir("/KST")`), lists
-  the ring and looks the record up. The root is passed over once, here.
-  FatFs keeps `KST` as its current directory until the claim ends, so no
-  card phase looks `KST` up again.
+- The tool's screen fills it when it opens, while no supply is switched on:
+  it changes into `BACKUP` once for the whole claim (`f_chdir("/BACKUP")`)
+  and walks the ring; KST also looks its record up. The root is passed over
+  here. FatFs keeps `BACKUP` as its current directory until the claim ends.
+  A KST card phase that reaches `KST/` for the record looks `KST` up in the
+  root again: open in [backups.md](backups.md#open).
 - The blackbox logger's paths then start at the root with `/`
   (`/LOGnnnnn.BFL` in `src/sd_log.cpp`), so a log started by hand during the
   claim still lands in the root.
@@ -187,22 +193,23 @@ A batch that fails:
 
 ## Handovers
 
-The cache turns on when the KST claim's screen opens and off when the claim
+The cache turns on when the KST SERVO or AM32 CONFIG screen opens its claim
+and off when the claim
 ends. Each of these waits for `Idle` or `Failed` first, on the synchronous
 path, core0 blocking:
 
-- the end of the KST claim: LEAVE, BACK and the loss rule;
+- the end of the claim: KST's LEAVE, BACK and the loss rule, AM32's BACK;
 - `sdLogRemount()` and every `f_unmount()`;
 - the USB DRIVE handover (`mscTick()`). SD LOG starts it, and SD LOG is not
-  reachable while the KST screen is open: KST's BACK and LEAVE return to
-  MENU. The wait covers a handover that a later change makes reachable.
+  reachable while either screen is open: their BACK and KST's LEAVE return
+  to MENU. The wait covers a handover that a later change makes reachable.
 
 ## The blackbox logger during the claim
 
-A log started by hand on SD LOG is not stopped by the KST claim today. Its
-writes, 7.3 kB/s, 14.3 blocks a second, would join the queue behind the KST
+A log started by hand on SD LOG is not stopped by a claim today. Its
+writes, 7.3 kB/s, 14.3 blocks a second, would join the queue behind the backup's
 blocks; at the specification's 511 ms a block the flush sends 2 blocks a
-second, and the queue fills in under 3 s. Open: whether the KST claim stops
+second, and the queue fills in under 3 s. Open: whether the claim stops
 a running log at entry, refuses to open while one runs, or lets its writes
 take the synchronous path past the queue (which breaks the queue's order
 for the shared FAT).
@@ -243,7 +250,8 @@ not recorded in this note.
    tests; the clock question above answered from the specification.
 2. `sd_cache.c`: queue, read cache, flush task, barrier, serial check,
    errors; `sdCachePoll()` in `loop()`; `test_sd_cache.cpp`.
-3. The KST claim turns the cache on and off; `f_chdir()` once per claim;
+3. The KST and AM32 claims turn the cache on and off; `f_chdir()` once per
+   claim;
    the logger's paths from `/`; the handover waits.
 4. The write page, SAVE AS and the record removal on the barrier;
    `kstFilesWriteAllowed()` on the flush result; UI tests.

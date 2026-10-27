@@ -328,7 +328,12 @@ Not in this history: the DshotDisplay repository's branches
     cache filled at the screen's opening, designed in
     [sd-write-cache.md](docs/design/sd-write-cache.md) and not built; its
     open points are listed there.
-13. **Hitec reading, planned.** [hitec-reading.md](docs/design/hitec-reading.md)
+13. **Device backups, planned.** [backups.md](docs/design/backups.md): one
+    `BACKUP/` ring of 50 for the backups of KST SERVO and AM32 CONFIG, the
+    owner's decisions of 2026-10-27; the built ring of `KST/` moves into it,
+    and KST's SAVE AS returns to `KST/`. Open there: two directories in one
+    card phase, SAVE AS in `KST/` unbounded.
+14. **Hitec reading, planned.** [hitec-reading.md](docs/design/hitec-reading.md)
     records the design and the owner's decisions of 2026-10-23; nothing is
     built. It depends on the pin claim and on KST steps 4 and 5.
 
