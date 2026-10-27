@@ -525,8 +525,9 @@ FAT32, 19.3 s, and the first write without one reaches 14,952 ms; on exFAT
 every phase that writes or lists passes it, up to 35.9 s. The logger numbers
 logs up to LOG09999, and the KST store does not bound the root. The choice is
 open for step 5: raise the cap, look `KST` up once per claim instead of once
-per phase (the logger's paths then start at the root with `/`), or move the
-logs out of the root.
+per phase (the logger's paths then start at the root with `/`), move the
+logs out of the root, or take the writes off core0's path with the write
+cache of [sd-write-cache.md](sd-write-cache.md), planned.
 
 The cap, 15 s, bounds how long a core0 stuck in the driver's loops keeps the
 servo powered in programming mode, with no frame on the wire. A card

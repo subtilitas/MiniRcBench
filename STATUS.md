@@ -323,7 +323,11 @@ Not in this history: the DshotDisplay repository's branches
     1000 logs. Looking `KST` up once per claim instead of once per phase
     would take the root out of the phases; that is not counted. A cache
     needs a check of the volume serial number at every phase, because the
-    board has no card-detect line. The choice is the owner's, not yet made.
+    board has no card-detect line. The owner's direction of 2026-10-27: a
+    write cache during the KST claim, flushed by a task on core0, with a read
+    cache filled at the screen's opening, designed in
+    [sd-write-cache.md](docs/design/sd-write-cache.md) and not built; its
+    open points are listed there.
 13. **Hitec reading, planned.** [hitec-reading.md](docs/design/hitec-reading.md)
     records the design and the owner's decisions of 2026-10-23; nothing is
     built. It depends on the pin claim and on KST steps 4 and 5.
