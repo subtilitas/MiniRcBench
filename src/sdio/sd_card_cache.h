@@ -46,7 +46,10 @@ int sd_sdio_cache_state(uint16_t *left);
 /** @brief Flush until idle or failed, blocking; the resulting state. */
 int sd_sdio_cache_flush(sd_card_t *c);
 
-/** @brief Drop the queue and the read cache after a failed flush. */
+/**
+ * @brief Drop the queue and the read cache after a failed flush, and mark
+ *        the card not ready (STA_NOINIT), so the next mount initialises it.
+ */
 void sd_sdio_cache_drop(sd_card_t *c);
 
 /** @brief Flush and turn the cache off. */

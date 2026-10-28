@@ -171,6 +171,12 @@ different number, or a read that fails, drops the queue and the read cache
 and sets `Failed`. A card swapped for a byte-for-byte copy with the same
 serial number is not detected.
 
+Current limitation: the check runs at the start of a batch only. A card
+swapped after the session's backup reached the card, with nothing queued,
+is not detected: the next write of the session queues no backup, finds the
+cache `Idle` and writes to the device, and the card in the slot holds no
+backup of it. The synchronous path has the same gap.
+
 ## Errors
 
 A batch that fails:
@@ -225,9 +231,10 @@ recorded in this note.
 
 - `test_sdio.cpp`: `sdh_write_start()` and `sdh_write_poll()` against the
   simulated card: one block, busy until the card's time, CMD13 after it, a
-  CRC token, busy 1 µs short of the limit and at it, the card still ready
-  and the next attempt landing, a lost token reported after busy, a card not
-  ready.
+  CRC token, busy 1 µs short of the limit and at it, the card then marked
+  not ready and the next attempt refused, a CMD24 without a response that
+  keeps the card ready and the next attempt landing, a lost token reported
+  after busy, a card not ready.
 - `test_sd_cache.cpp` (`runSdCacheTests`): the cache over a fake card with a
   busy time per block. The order kept for a sector written twice; a read of a
   queued sector; one swap check per batch; no command while busy; read cache
