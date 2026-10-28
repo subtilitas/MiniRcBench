@@ -1,7 +1,7 @@
 # Hitec servo programming
 
-Status: work breakdown step 1 built, the rcbench files and their tests;
-nothing in `src/` calls them. The decisions of the owner of 2026-10-23
+Status: work breakdown steps 1 and 2 built, host tests only: the rcbench
+files and their tests, and the core1 job on them; no screen starts the job. The decisions of the owner of 2026-10-23
 and 2026-10-28 set its questions and its scope
 ([decisions of the owner](#decisions-of-the-owner)): port rcbench's Hitec
 module at commit 3e29dc1b, and write. The design rests on rcbench's session
@@ -1129,7 +1129,32 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
    the claim's users; its Restoring text names the D series pull-up.
    [kst-programming.md](kst-programming.md)'s supply sections and the
    comments of `src/servo_supply.h` name the Hitec job as a GP0 user beside
-   KST's. About 3 days.
+   KST's. Built. As built, and differing from the sections above:
+   - The simulated servo is in `test/fake_hitec_line.{h,cpp}`, not in a
+     `test/hitec_servo_sim.h` of its own. It takes its memory from
+     `hitec_reg_fix.h` unchanged: an HS-5645MG or a D485HW.
+   - `hitec_job.cpp` includes `hitec_line.h` for the line's error codes; the
+     host suite compiles it with that header and links the fake line.
+   - The stack is measured in CI, not here: the firmware job compiles
+     `hitec_session.c` and `hitec_reg.c` for the Cortex-M33 at `-O3` with
+     `-fstack-usage`, prints the frames, and fails when all of them together
+     pass 2,048 bytes. That sum bounds every call chain through the two
+     files. The frames on the chip are not measured.
+   - `HitecStatus` carries `lastWrite`, so the screen can tell a write's
+     result from a read's.
+   - Tested in `test_hitec_job.cpp`, 73 checks: the bind with each family
+     and its three refusals, a command held at the bind not taken; the
+     D series entry with `NONE` and with `GP0`, the classic entry with `GP0`
+     and refused without it, a classic entry with no `+` and RETRY; the full
+     read, the backup and READ AGAIN; a write of each family, a read-back
+     that differs, a write cut by a lost servo, `Unknown` until a read;
+     Abort in the off phase, in a LISTEN and in a read, refused in a write;
+     the heartbeat in the off phase, in a LISTEN, in a write, in the mode,
+     and with `NONE`; LEAVE with `GP0` and with `NONE`, the release's
+     2,000 ms, LEAVE during a write; the command block's held Abort; the
+     card phase in four states, 900 ms of stamps, the 15,000 ms cap. Not
+     tested: an entry answered by a byte other than `+`.
+
 3. `src/hitec_files.*` on `card_dir` and `backup_ring`, `test_hitec_files.cpp`;
    the Hitec card phases added to `test/kst_card_count.cpp` and their table
    to this note; the `kstcount` target and its CI step extended to check

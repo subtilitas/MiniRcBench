@@ -27,7 +27,7 @@ static bool       s_jobPending = false;
 /** @brief The core1 job a screen runs; None for AM32. @see PIN_USERS */
 static Core1Job jobFor(PinUser who) { return pinUserInfo(who).job; }
 
-/** @brief SERVO and KST show the unplug page before DShot restarts. @see PIN_USERS */
+/** @brief SERVO, KST and HITEC show the unplug page before DShot restarts. @see PIN_USERS */
 static bool needsUnplug(PinUser who) { return pinUserInfo(who).unplug; }
 
 /** @brief Hand the job its pins. AM32 has no job and starts nothing. */
@@ -53,8 +53,8 @@ static void restore() {
 /**
  * @brief Leaving: restore, unless the unplug page is due.
  *
- * SERVO and KST wait for RESTART DSHOT, which pinClaimUnplugDue() offers only
- * once their job is idle. AM32 has neither a job nor the page, so its claim
+ * SERVO, KST and HITEC wait for RESTART DSHOT, which pinClaimUnplugDue()
+ * offers only once their job is idle. AM32 has neither a job nor the page, so its claim
  * restores within the call that ended it.
  */
 static void leaveStep() {

@@ -4,6 +4,11 @@
 # and the servo tester (servo.mk) add their sources without editing a file
 # the others edit.
 #
+#   HITEC_SRCS           C++ sources linked into the suite: the core1 job
+#   HITEC_TESTS          the test files; test_hitec.cpp holds runHitecTests().
+#                        fake_hitec_line.cpp is the line the job drives: a
+#                        simulated servo behind hitec_line_port.h
+#   HITEC_DEVICE_SRCS    sources the suite cannot link, typechecked by `syntax`
 #   HITEC_CSRCS          C sources linked into the suite: rcbench's Hitec core,
 #                        its servo file text and the CRC that text uses,
 #                        copied into lib/rcbench/
@@ -16,10 +21,13 @@
 #                        and the words pioasm assembles it to
 #
 # The line driver, lib/rcbench/protocols/hitec/rp2350/hitec_line.c, drives
-# PIO and DMA and is built by the firmware only (src/hitec.cmake); its header
-# is on the include path for its error codes. Nothing in src/ calls the
-# module yet.
+# PIO and DMA and is built by the firmware only (src/hitec.cmake), as is
+# src/hitec_line_port.cpp, the job's line on it; its header is on the include
+# path for the error codes and for `syntax`.
 HITEC_DIR           := ../lib/rcbench/protocols/hitec
+HITEC_SRCS          := ../src/hitec_job.cpp
+HITEC_TESTS         := test_hitec.cpp test_hitec_job.cpp fake_hitec_line.cpp
+HITEC_DEVICE_SRCS   := ../src/hitec_line_port.cpp
 HITEC_CSRCS         := $(HITEC_DIR)/hitec_wire.c $(HITEC_DIR)/hitec_pio.c \
                        $(HITEC_DIR)/hitec_pre.c $(HITEC_DIR)/hitec_reg.c \
                        $(HITEC_DIR)/hitec_session.c \

@@ -27,9 +27,9 @@
  * |---|---|---|
  * | Free | DShot runs on both pins | pinClaimBegin() |
  * | Stopping | core1 drains, stops and releases the pump | Held when escTaskSuspended() |
- * | Held | both pins free; the GPIOs are latched; SERVO and KST start their job | Running once it binds |
+ * | Held | both pins free; the GPIOs are latched; SERVO, KST and HITEC start their job | Running once it binds |
  * | Running | the job holds its pins | Leaving on pinClaimEnd() |
- * | Leaving | the job releases its pins; SERVO and KST show the unplug page | Restoring |
+ * | Leaving | the job releases its pins; SERVO, KST and HITEC show the unplug page | Restoring |
  * | Restoring | core1 rebuilds the pump from the latched wiring | Free |
  *
  * AM32 has no core1 job: its bootloader transport runs on core0
@@ -61,6 +61,7 @@ enum class PinUser : uint8_t {
 	Am32,   /**< AM32 CONFIG: SIG, no core1 job. */
 	Servo,  /**< SERVO: SIG, and AUX for two servos. */
 	Kst,    /**< KST SERVO: SIG. */
+	Hitec,  /**< HITEC SERVO: SIG. */
 	Count,  /**< How many pin users; not a user. */
 };
 
@@ -78,6 +79,7 @@ static constexpr PinUserInfo PIN_USERS[] = {
 	{ PinUser::Am32,  Core1Job::None,  false, false },
 	{ PinUser::Servo, Core1Job::Servo, true,  true  },
 	{ PinUser::Kst,   Core1Job::Kst,   true,  true  },
+	{ PinUser::Hitec, Core1Job::Hitec, true,  true  },
 };
 
 /**
@@ -108,7 +110,7 @@ enum class ClaimState : uint8_t {
 	Stopping,   /**< The pump drains and releases. */
 	Held,       /**< Both pins free, no job bound. */
 	Running,    /**< The job holds its pins. */
-	Leaving,    /**< The job releases; the unplug page for SERVO and KST. */
+	Leaving,    /**< The job releases; the unplug page for SERVO, KST and HITEC. */
 	Restoring,  /**< The pump rebuilds. */
 };
 
@@ -117,7 +119,7 @@ enum class ClaimRefusal : uint8_t {
 	None,          /**< Not refused; the claim is Stopping. */
 	Armed,         /**< The tester is armed. */
 	Busy,          /**< A claim holds, or is still restoring. */
-	EscAnswering,  /**< An eRPM frame within @ref ESC_LINK_STALE_MS (500 ms). SERVO and KST; AM32 is exempt. */
+	EscAnswering,  /**< An eRPM frame within @ref ESC_LINK_STALE_MS (500 ms). SERVO, KST and HITEC; AM32 is exempt. */
 	KissLive,      /**< A KISS frame within @ref KISS_STALE_MS (500 ms), AUX asked for. */
 	SamePin,       /**< AUX asked for, and SIG and AUX are the same GPIO. */
 };
@@ -145,9 +147,9 @@ struct ClaimFacts {
  *   navigation.
  * - **Busy.** One claim at a time, and not before the last one has restored
  *   DShot.
- * - **EscAnswering**, SERVO and KST. Servo pulses of 1000 to 2000 us are a
- *   valid PWM throttle signal, and a KST entry sequence sends frames into
- *   whatever is on the wire. The screen keeps asking; the claim follows by
+ * - **EscAnswering**, SERVO, KST and HITEC. Servo pulses of 1000 to 2000 us
+ *   are a valid PWM throttle signal, and a KST or Hitec entry sends frames
+ *   into whatever is on the wire. The screen keeps asking; the claim follows by
  *   itself 500 ms after the ESC goes quiet. AM32 is exempt: it needs the ESC
  *   on the pin.
  * - **KissLive**, AUX asked for. An ESC telemetry output drives AUX, and servo

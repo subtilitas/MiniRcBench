@@ -6,12 +6,12 @@
  * claims a PIO state machine is the core that frees it; the AM32 transport,
  * on core0, is the exception. While the pin claim holds (pin_claim.h),
  * escTaskPoll() returns at once and core1 runs one job instead: the servo
- * tester or the KST programmer. `loop1()` calls escTaskPoll() and then
+ * tester, the KST programmer or the Hitec programmer. `loop1()` calls escTaskPoll() and then
  * core1JobPoll(); with no job, core1JobPoll() returns at once too.
  *
- * Core1Job::Servo and Core1Job::Kst name the two jobs of
- * docs/design/servo-tester.md and docs/design/kst-programming.md: servo_job.h
- * and kst_job.h.
+ * Core1Job::Servo, Core1Job::Kst and Core1Job::Hitec name the three jobs of
+ * docs/design/servo-tester.md, docs/design/kst-programming.md and
+ * docs/design/hitec-programming.md: servo_job.h, kst_job.h and hitec_job.h.
  *
  * Core0 starts and stops a job; core1 binds, steps and releases it. The
  * request and the job's phase are shared under one critical section, in the
@@ -29,6 +29,7 @@ enum class Core1Job : uint8_t {
 	None,   /**< No job; core1JobPoll() returns at once. */
 	Servo,  /**< Servo PWM on SIG, and AUX in two-servo mode (servo_job.h). */
 	Kst,    /**< KST and Chaservo programming on SIG (kst_job.h). */
+	Hitec,  /**< Hitec programming on SIG (hitec_job.h). */
 };
 
 /** @brief Where a job is between core1JobStart() and idle. */

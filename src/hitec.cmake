@@ -8,10 +8,12 @@
 # The Hitec core, its RP2350 line driver, the servo file text and the CRC it
 # uses are rcbench's own files, copied into lib/rcbench/ and built as C
 # (lib/rcbench/README.md). The line's PIO program is assembled from its
-# source by pioasm. Nothing calls them yet (docs/design/hitec-programming.md,
-# work breakdown step 1), so the linker drops their code from the image.
+# source by pioasm. The core1 job runs them (src/hitec_job.cpp) on the line
+# of src/hitec_line_port.cpp.
 set(HITEC_LIB ${CMAKE_CURRENT_LIST_DIR}/../lib/rcbench)
 target_sources(MiniRcBench PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}/hitec_job.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/hitec_line_port.cpp
     ${HITEC_LIB}/protocols/hitec/hitec_wire.c
     ${HITEC_LIB}/protocols/hitec/hitec_pio.c
     ${HITEC_LIB}/protocols/hitec/hitec_pre.c

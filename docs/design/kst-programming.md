@@ -121,6 +121,11 @@ holds with `GP0` only. With `NONE` the bench never drives GP0, the search is
 the one in [entering programming mode](#entering-programming-mode), and
 every screen text that names the supply has its form without a switch.
 
+The Hitec job of [hitec-programming.md](hitec-programming.md#switched-servo-supply)
+is the second user of the same switch, through the same `servo_supply.h`,
+under the off time and the close rule of this section. One core1 job runs at
+a time, so the two never drive GP0 together.
+
 ### Hardware
 
 A DC-DC converter between the user's supply and the servo's supply wire. The

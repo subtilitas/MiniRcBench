@@ -102,6 +102,26 @@ jobs:
             diff -u "test/rcbench/fixtures/${p}_line_words.txt" "build/${p}_line.hex"
           done
 
+      # hitec_session_write() runs hitec_plan() to its end on core1, whose
+      # stack is 2 KB (PICO_CORE1_STACK_SIZE). The frames come from
+      # -fstack-usage at the Release flags; the sum of every frame of the
+      # session and the register model bounds any call chain through them.
+      - name: Hitec session stack on core1
+        run: |
+          d=build/hitec-stack && mkdir -p "$d"
+          for f in hitec_session hitec_reg; do
+            arm-none-eabi-gcc -mcpu=cortex-m33 -mthumb -O3 -fstack-usage \
+              -Ilib/rcbench/protocols/hitec/include \
+              -c "lib/rcbench/protocols/hitec/$f.c" -o "$d/$f.o"
+          done
+          sort -t$'\t' -k2 -n -r "$d"/*.su | head -12
+          total=$(awk -F'\t' '{ s += $2 } END { print s }' "$d"/*.su)
+          echo "every frame together: $total bytes"
+          [ "$total" -le 2048 ] || {
+            echo "::error::the Hitec frames sum to $total bytes; check the deepest chain against core1's 2048-byte stack"
+            exit 1
+          }
+
       # A ceiling, not a printout. The framebuffer alone is 150 kB of the
       # RP2350's 520 kB, and a regression that doubles a buffer otherwise passes
       # CI and fails on the bench. Generous enough not to be a nuisance; tighten

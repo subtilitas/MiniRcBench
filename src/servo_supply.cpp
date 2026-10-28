@@ -1,6 +1,6 @@
 /**
  * @file servo_supply.cpp
- * @brief The KST servo's switched supply on GP0. @see servo_supply.h
+ * @brief The programmed servo's switched supply on GP0. @see servo_supply.h
  */
 
 #include "servo_supply.h"

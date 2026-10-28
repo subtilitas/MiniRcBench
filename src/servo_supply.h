@@ -1,7 +1,7 @@
 /**
  * @file servo_supply.h
- * @brief The KST servo's switched supply: the enable input, EN, of a DC-DC
- *        converter on GP0, J5 pin 2.
+ * @brief The programmed servo's switched supply, for the KST and Hitec
+ *        jobs: the enable input, EN, of a DC-DC converter on GP0, J5 pin 2.
  *
  * Optional. `SERVO SUPPLY` in SETTINGS (@ref Settings::servoSupply) says
  * whether a converter is fitted: @ref ServoSupplyMode::None, the default, or
@@ -55,8 +55,8 @@ void servoSupplyConfigure(uint8_t mode);
 bool servoSupplyFitted();
 
 /**
- * @brief Core1, from the KST job's bind, with a switch fitted: GP0 driven
- *        low, the supply off. Nothing with None.
+ * @brief Core1, from the KST or Hitec job's bind, with a switch fitted:
+ *        GP0 driven low, the supply off. Nothing with None.
  */
 void servoSupplyBind();
 
@@ -67,8 +67,8 @@ void servoSupplyOn();
 void servoSupplyOff();
 
 /**
- * @brief Core1, from the KST job's release, at every claim end: GP0 low,
- *        then an input with both pulls off and its input disabled.
+ * @brief Core1, from the KST or Hitec job's release, at every claim end:
+ *        GP0 low, then an input with both pulls off and its input disabled.
  *        Nothing unbound.
  */
 void servoSupplyRelease();
