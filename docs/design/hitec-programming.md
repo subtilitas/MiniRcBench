@@ -351,8 +351,8 @@ and choosing again.
 `hitec_line_open_rx()` with `HITEC_DRIVE_PUSH_PULL` and
 `HITEC_RX_PRECHARGE` for the D series. It maps `hitec_line_err_t` to
 `CORE1_JOB_PIO`, `_DMA` and `_CLOCK`; `HITEC_LINE_ERR_ARG`, which the port's
-fixed arguments never cause, maps to `CORE1_JOB_PIO`, and is the one file the host suite
-replaces with a fake.
+fixed arguments never cause, maps to `CORE1_JOB_PIO`. The file is the one the host suite replaces with
+a fake.
 
 ### Running a step
 
@@ -400,7 +400,7 @@ once. With a step out it ends at that step's result:
 - a LISTEN is cut with `hitec_line_abort()` and fed CUT; the job polls
   `hitec_line_poll()` until the cut capture comes before it starts the next
   transaction, and a capture marked aborted is fed CUT, as rcbench's
-  `hitec_link.c` does;
+  `shared/outputs/hitec_port.c` does;
 - a POWER in its off phase is fed FAILED, with the supply off.
 
 The session ends the operation with `HITEC_SES_ERR_ABORTED`.
@@ -413,7 +413,7 @@ The session ends the operation with `HITEC_SES_ERR_ABORTED`.
 | ReadAll | InMode | `hitec_session_read_all()`; READ AGAIN |
 | Write | InMode, with a full read and the image known | `hitec_session_write()` to `target`; refused as `Unknown` while `unknown` is set |
 | Abort | Entering, Busy with a read | the abort above; a write is not aborted ([choice 6](#choices-made-in-this-design)) |
-| Leave | every state but Leaving and Closed | the leave of [leave and claim end](#leave-and-claim-end) |
+| Leave | every state but Leaving and Closed | the leave of [leave and claim end](#leave-and-claim-end); a running write finishes first, a read or an entry is aborted |
 | CardBegin, CardEnd | Opening, EntryEnded and InMode | the card phase ([card calls](#card-calls-and-the-heartbeat)) |
 
 A command is refused as `State` in the other states. With the heartbeat
@@ -773,7 +773,7 @@ y   0 | HITEC WRITE                      [ BACK ]|
   `hitec_view.cpp` that the tests hold complete, with OK to return to the
   list. A write that ends in error with `stepIndex` equal to `planSteps`
   sent every write: its text is `ALL WRITES SENT; READ-BACK FAILED. READ
-  THE SERVO BEFORE A WRITE.` in red, whatever the code.
+  THE SERVO BEFORE A WRITE.` in red, whatever the code but ERR_VERIFY.
 
   | Result | Text | Colour |
   |---|---|---|
@@ -782,7 +782,7 @@ y   0 | HITEC WRITE                      [ BACK ]|
   | ERR_WRITE | `CELL 0x06 GOT NO ANSWER. READ THE SERVO BEFORE A WRITE.` | red |
   | ERR_NO_SERVO, ERR_CUT, ERR_LINK, ERR_STEP | `THE WRITE STOPPED AT STEP 3 OF 5. READ THE SERVO BEFORE A WRITE.` | red |
   | ERR_READ | `ALL WRITES SENT; READ-BACK FAILED. READ THE SERVO BEFORE A WRITE.` | red |
-  | ERR_ABORTED | `THE WRITE STOPPED AT STEP 3 OF 5 (LEAVE). READ THE SERVO BEFORE A WRITE.`; only a LEAVE aborts a write | red |
+  | ERR_ABORTED | not reached by a write, which is never aborted; `NOTHING WAS WRITTEN.` with the code | amber |
   | ERR_ENTRY | not reached by a write; `NOTHING WAS WRITTEN.` with the code | amber |
   | ERR_PLAN | `NOTHING WAS WRITTEN: READ THE SERVO FIRST.` for `HITEC_PLAN_ERR_UNKNOWN` | amber |
   | ERR_NOT_IN_MODE, ERR_BUSY, ERR_ARG | `NOTHING WAS WRITTEN.` with the code | amber |
@@ -1130,7 +1130,8 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
    KST's. About 3 days.
 3. `src/hitec_files.*` on `card_dir` and `backup_ring`, `test_hitec_files.cpp`;
    the Hitec card phases added to `test/kst_card_count.cpp` and their table
-   to this note, checked by `make kstcount`;
+   to this note; the `kstcount` target and its CI step extended to check
+   this note as well as kst-programming.md;
    `src/backup_ring.h`'s Hitec row no longer reserved; [backups.md](backups.md)
    and [sd-write-cache.md](sd-write-cache.md) name the Hitec claim. About
    2 days.
