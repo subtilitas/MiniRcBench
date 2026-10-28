@@ -188,16 +188,16 @@ record either way.
 | EDT telemetry, automatic enable, expiry | merge, expiry, enable rule, decode of each frame type; enable at pump start and decode with EDT on against a simulated ESC, with and without EDT | hardware-tested (owner report) with `pico-bidir-dshot`; the enable at pump start and the decode of every reply with EDT on are not tested on hardware |
 | KISS telemetry: request, PIO receiver, decode, merge, KISS/EDT tags | CRC, decode, resynchronisation, request payload, merge; the PIO receiver is typechecked only | hardware-tested (owner report) with `pico-bidir-dshot`; see below |
 | DShot bitrate label in the status bar, `DSERR` | label at each bitrate, colour, `DSERR` | not recorded |
-| SDIO card driver in `src/sdio/`: protocol, PIO and DMA bus, library callbacks | CRC7 and CRC16 against the specification's examples, command framing, response parsing, CSD (card-specific data register), four-bit packing, CRC status token; initialisation, reads and writes against a simulated card (standard capacity SDSC v1 and v2, high capacity SDHC, no card, voltage mismatch, timeouts, removal); the two PIO programs run in a cycle-level model against a card model (`test/pio_sdio_emu.py`: CMD0, R1, R2, single and multiple block reads, CMD12, a write and its CRC status token, at 400 kHz, 10 MHz and 25 MHz), a model and not proof of hardware timing; the bus code in `sd_pio.c` is compiled only, and the model's host side follows it by hand | not tested on hardware; open item 7 lists the bench tests |
+| SDIO card driver in `src/sdio/`: protocol, PIO and DMA bus, library callbacks | CRC7 and CRC16 against the specification's examples, command framing, response parsing, CSD (card-specific data register), four-bit packing, CRC status token; initialisation, reads and writes against a simulated card (standard capacity SDSC v1 and v2, high capacity SDHC, no card, voltage mismatch, timeouts, removal); the two PIO programs run in a cycle-level model against a card model (`test/pio_sdio_emu.py`: CMD0, R1, R2, single and multiple block reads, CMD12, a write and its CRC status token, at 400 kHz, 10 MHz and 25 MHz), a model and not proof of hardware timing; the bus code in `sd_pio.c` is compiled only, and the model's host side follows it by hand | not tested on hardware; open item 6 lists the bench tests |
 | Blackbox logging to SD, MENU → SD LOG screen | encoder, ring buffer, round trip through `blackbox_decode`, screen states | hardware use recorded with the previous SDIO driver on the 2.8" board; see below |
 | USB card reader (read-only mass storage) | handover state machine, screen | not recorded |
 | AM32 settings editor over the signal wire (AM32 is an open-source ESC firmware) | init string, CRC-16/ARC, 39-field codec, timing advance encodings, write interlock; the screen on the pin claim, the latched GPIO, the drain before the handover; the list on `ui_list` and the swipe of 16 px per coarse step; the backup before the first write (`src/am32_backup.*`): its text and checksum, `BACKUP/AM001.TXT` holding the settings as read at entry, a card that refuses it stopping the write, no second backup in a session | hardware use recorded: ab79c67, bd90e17, both before the screen moved onto the pin claim; the claim and its drain, the swipe of 16 px per coarse step and the backup: not tested on hardware |
 | Device backups: the ring of `BACKUP/` (`src/backup_ring.*`), the card calls and the directory scope (`src/card_dir.*`); [backups.md](docs/design/backups.md) | the ring's rules, saves of two devices, a rename under another device's number, the list of one device, gaps, no marker, directories and names outside the ring, refusals, no card and a USB-held card (`runBackupTests`); the card phases over FatFs R0.15 itself (`make -C test kstcount`) | not tested on hardware |
 | Blackbox logs in `LOGS/` (`SD_LOG_DIR_PATH`) | none: `sd_log.cpp` is typechecked only | not tested on hardware |
 | SD write cache for the backup claims (`src/sdio/sd_cache.*`, `src/card_cache.*`, the glue in `src/sdio/sd_card_glue.c`, `sdh_write_start()` and `sdh_write_poll()`); [sd-write-cache.md](docs/design/sd-write-cache.md) | the cache against a fake card (`runSdCacheTests`), the asynchronous block write against the simulated card (`runSdioTests`); the KST write waiting for the flush, a failed flush, the claim turning the cache on and off, a running log stopped, AM32's write refused after a failed flush, against a fake of `card_cache.h`; the glue and `card_cache.cpp` are built by the firmware only | not tested on hardware |
-| Pin claim (`src/pin_claim.*`) and core1 job dispatch (`src/core1_job.*`), the zero-throttle drain in `src/esc_task.*` | each refusal rule at its 500 ms boundary and their order; the handover decisions of `escTaskPoll()` (`escHandoverStep()`, `escDrainSlot()`, `escPumpFrameSent()`, `escPumpBind()`) one 1 ms slot at a time: 250 zero frames, the teardown 251 ms after the last throttle frame, the bind disarmed; the order of the two cores' steps against fake jobs, BACK and RETRY, Restoring, the unplug-page rule, the restore wiring, the start guard, the heartbeat rule across a millis() rollover; the PIO and pad calls around those decisions are compiled only | not tested on hardware; open item 9 |
+| Pin claim (`src/pin_claim.*`) and core1 job dispatch (`src/core1_job.*`), the zero-throttle drain in `src/esc_task.*` | each refusal rule at its 500 ms boundary and their order; the handover decisions of `escTaskPoll()` (`escHandoverStep()`, `escDrainSlot()`, `escPumpFrameSent()`, `escPumpBind()`) one 1 ms slot at a time: 250 zero frames, the teardown 251 ms after the last throttle frame, the bind disarmed; the order of the two cores' steps against fake jobs, BACK and RETRY, Restoring, the unplug-page rule, the restore wiring, the start guard, the heartbeat rule across a millis() rollover; the PIO and pad calls around those decisions are compiled only | not tested on hardware; open item 8 |
 | MENU layout (`src/ui_menu.cpp`, `src/ui_registry.cpp`): BEEP THE ESC, AM32 CONFIG, SERVO TESTER, KST SERVO, SD LOG and SETTINGS as 40 px rows | every registry entry opens and BACK returns to MENU; opening MENU disarms; BEEP's flash and refusal on its row; `PINS BUSY` while the claim restores and a tap on it opens nothing; six rows do not scroll and seven scroll 36 px; the label and status fit check at build time | not recorded |
-| Servo tester: the pure model (`src/servo_model.*`), the PWM driver (`src/servo_pwm.*`), the core1 job (`src/servo_job.*`), the slider and the screens (`src/ui_slider.*`, `src/ui_servo.cpp`); rcbench's sweep and PWM fold in `lib/rcbench/` | profiles, limits at their boundaries, steppers to their stops, command, angle and pulse mappings, SPEED, the dial's hit area; the PWM driver's bind, write, release and sharing rules against a register fake; SAFE at level 0, CENTRE at START, STOP on the next pass, the slew, sweeps, REVERSE B, the trip at 250 ms across a millis() wrap, kept across a rebind, the profile rebind; no pulse cut short at a release or a rebind, against a model of the counter and the latched compare; released pins pulled down; the screens through the UI: HOLD TO START at 1000 ms, the drag rules, the SET warning and HOLD TO APPLY, STOP on SET, the AUX refusals through the claim, the unplug page; rcbench's own sweep and fold tests; the SDK calls are run against the fake only | not tested on hardware; open item 10 |
+| Servo tester: the pure model (`src/servo_model.*`), the PWM driver (`src/servo_pwm.*`), the core1 job (`src/servo_job.*`), the slider and the screens (`src/ui_slider.*`, `src/ui_servo.cpp`); rcbench's sweep and PWM fold in `lib/rcbench/` | profiles, limits at their boundaries, steppers to their stops, command, angle and pulse mappings, SPEED, the dial's hit area; the PWM driver's bind, write, release and sharing rules against a register fake; SAFE at level 0, CENTRE at START, STOP on the next pass, the slew, sweeps, REVERSE B, the trip at 250 ms across a millis() wrap, kept across a rebind, the profile rebind; no pulse cut short at a release or a rebind, against a model of the counter and the latched compare; released pins pulled down; the screens through the UI: HOLD TO START at 1000 ms, the drag rules, the SET warning and HOLD TO APPLY, STOP on SET, the AUX refusals through the claim, the unplug page; rcbench's own sweep and fold tests; the SDK calls are run against the fake only | not tested on hardware; open item 9 |
 | KST programming: rcbench's session, line driver and file store (`lib/rcbench/`), the search (`src/kst_seek.*`), the core1 job (`src/kst_job.*`) and its line (`src/kst_line_port.*`), the files on the card (`src/kst_files.*`), the screen (`src/ui_kst.cpp`, `src/kst_view.*`) | rcbench's seven tests, 298 cases, the line's PIO program among them in a model (`test_kst_pio.c`); the search and the job against rcbench's simulated servo, the files against an in-memory FAT (File Allocation Table) volume, the backup in `BACKUP/` and SAVE AS in `KST/` up to 50 files among them, the card phases' block counts over FatFs R0.15 itself (`make -C test kstcount`), the screen through MENU against both (`runKstTests`); the line driver and `kst_line_port.cpp` are built by the firmware and typechecked only | not recorded: no frame of the line driver has been on a pin (`kst_line.h`) |
 | SETTINGS layout (`src/ui_settings.cpp`): sections ESC TESTER, WIRING, DISPLAY and BOARD in one scrolling list | the scroll range, 0 px at opening and 330 px at most; each row by id; no scroll from a press on a control; a cut control takes a press only while 40 px show; HOLD TO SAVE in place at every scroll position and saving at the end of the list; the pole count reaches the eRPM divisor, the ceiling steps by 5 %, and RESET restores both | not recorded |
 | Settings in flash (MENU → SETTINGS) | block validation, CRC, board id check, pin defaults, the block layout DshotDisplay 2.x writes | not recorded; 46a64a7 states no hardware coverage |
@@ -261,9 +261,7 @@ Not in this history: the DshotDisplay repository's branches
    the main readout uses above the crossover (about 5,500 RPM on a 14-pole
    motor), whether consumption is shown from ESC power-on or from arming,
    whether a slow frame type is worth adding.
-6. **`tools/sdtest` is built by nothing in CI**, so a change that breaks it
-   shows only in a local build.
-7. **SDIO driver on hardware.** The driver in `src/sdio/` is not tested on
+6. **SDIO driver on hardware.** The driver in `src/sdio/` is not tested on
    hardware. Bench tests needed:
    - initialisation on an SDSC card (2 GB or less) and on SDHC and SDXC
      (extended capacity) cards;
@@ -273,11 +271,11 @@ Not in this history: the DshotDisplay repository's branches
    - the card pulled out while logging, while idle and while a host reads,
      then put back;
    - 10 MHz in the firmware, and 10 MHz and 25 MHz in `tools/sdtest`.
-8. **The wiki of this repository has no page yet.** GitHub creates a
+7. **The wiki of this repository has no page yet.** GitHub creates a
    repository's wiki only once its first page exists, so that page is made by
    hand in the Wiki tab. Until then the clone in `docs.yml` fails and no
    manual is published.
-9. **Pin claim on hardware.** The PIO and pad calls of the drain, the
+8. **Pin claim on hardware.** The PIO and pad calls of the drain, the
    teardown and the rebuild run only in the firmware; the host suite runs the
    decisions they act on. Bench tests needed, with an oscilloscope on the ESC
    signal pin: AM32 opened within 250 ms of the last throttle frame (zero
@@ -287,7 +285,7 @@ Not in this history: the DshotDisplay repository's branches
    session left with BACK (DShot back, the EDT enable as its first
    frames).
 
-10. **Servo tester on hardware.** Nothing of it has run on a chip. Bench
+9. **Servo tester on hardware.** Nothing of it has run on a chip. Bench
     tests needed (work breakdown item 5 of
     [servo-tester.md](docs/design/servo-tester.md)), with an oscilloscope on
     SIG and AUX:
@@ -308,13 +306,13 @@ Not in this history: the DshotDisplay repository's branches
       through the unplug page, then DShot back on RESTART DSHOT;
     - STOP on SET while RUNNING: level 0 within one frame, as on SERVO;
     - a real servo on each profile, and whether it reads 3.3 V pulses.
-11. **KST programming on hardware.** No frame of the line driver has been on
+10. **KST programming on hardware.** No frame of the line driver has been on
     a pin. Bring-up is step 7 of
     [kst-programming.md](docs/design/kst-programming.md#work-breakdown): the
     reply level at the connector, the owner's servo's power-on window, frames
     and replies on a scope, read reliability, one write with read-back, then
     a power cycle and a read. The switched supply, step 5, is not built.
-12. **KST card-phase cap, open for step 5.** At the SD specification's SDXC
+11. **KST card-phase cap, open for step 5.** At the SD specification's SDXC
     times every counted phase on FAT32 is under the cap of 15 s, the
     longest 13.3 s; on exFAT the first write that keeps an old record takes
     16.5 s ([kst-programming.md](docs/design/kst-programming.md), "The cap").
@@ -325,23 +323,27 @@ Not in this history: the DshotDisplay repository's branches
     KST SERVO and AM32 CONFIG claims with a card mounted: the writes no
     longer block core0, the reads still do. The phases with the cache are not
     counted, and the card stamp and its cap, step 5, are not built.
-13. **SD write cache on hardware.** Built and run in the host suite only;
+12. **SD write cache on hardware.** Built and run in the host suite only;
     the glue and `src/card_cache.cpp` are built by the firmware only. Bench
     tests needed: busy polled once per loop pass on a scope, a card swapped
     during a flush, power pulled during a flush and the volume checked on a
     computer, and a card swapped between two writes of a session, which the
     serial number read before each write is to catch
     ([sd-write-cache.md](docs/design/sd-write-cache.md#card-swap)).
-14. **Device backups on hardware.** [backups.md](docs/design/backups.md) is
+13. **Device backups on hardware.** [backups.md](docs/design/backups.md) is
     built and runs in the host suite only. Bench tests needed: a backup of
     each device on a FAT32 and an exFAT card, the ring turned past 50 on a
     card, a backup read back on a computer.
-15. **Hitec reading, planned.** [hitec-reading.md](docs/design/hitec-reading.md)
+14. **Hitec reading, planned.** [hitec-reading.md](docs/design/hitec-reading.md)
     records the design and the owner's decisions of 2026-10-23; nothing is
     built. It depends on the pin claim and on KST steps 4 and 5.
 
 ## Known limitations
 
+- **`tools/sdtest` is built by no CI job**, by the owner's decision of
+  2026-10-28: it is a bench bring-up tool and never released, so a red job
+  for it is not worth its cost. A change that breaks it shows only in a local
+  build (`ninja -C build sdtest`).
 - **KST: the screen waits for the card's reads.** With the write cache on,
   the first write's writes queue and the screen keeps drawing while they
   flush; its reads, and every card call without the cache (no card at the
