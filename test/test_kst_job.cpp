@@ -812,6 +812,25 @@ static void testSwitchedLatch() {
 	checkTrue("no operation started after the lapse", st.ackSeq == seq && st.refused != KstRefusal::None);
 	finishSwitched();
 
+	// A lapse during a read that ends in a loss: the new search switches the
+	// supply off, which ends the latch, and the next find stays in the mode.
+	switchedInMode();
+	send(KstOp::ReadAll);
+	passes(1);
+	g_alive = false;
+	passes(300);
+	g_alive = true;
+	g_switched = false;
+	fakeKstSim()->powered = false;
+	fakeKstSim()->in_mode = false;
+	until(KstJobState::Searching, 3000);
+	g_switched = true;
+	checkTrue("a loss after the lapse: the switched search", status().job == KstJobState::Searching && !gp0High());
+	checkTrue("the next find stays in the mode", until(KstJobState::InMode, 5000) && gp0High());
+	passes(50);
+	checkTrue("and is not stalled by the old lapse", status().job == KstJobState::InMode && !status().stalled);
+	finishSwitched();
+
 	// A write, then a lapse: the stalled screen learns the session had written.
 	switchedInMode();
 	KstCmd edit;

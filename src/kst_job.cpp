@@ -85,6 +85,9 @@ static void supplySet(bool on, uint32_t nowMs) {
 	} else {
 		servoSupplyOff();
 		s_offMs = nowMs;
+		// The lapse latch guards a supply left on: a switch-off, by any
+		// path, ends it.
+		s_lapsed = false;
 	}
 }
 
