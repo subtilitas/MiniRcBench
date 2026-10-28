@@ -32,17 +32,35 @@
 #include "ui_menu.h"
 #include "ui_screen.h"
 #include "usb_msc.h"
+#include "servo_supply.h"
+#include "kst_supply_sim.h"
+#include "hardware/gpio.h"
 #include "plat.h"
 
 #include <stdio.h>
 #include <string.h>
 
+/** @brief The switched supply's servo, while a switched test runs. */
+static SupplySim g_sup;
+static bool      g_supOn = false;
+
+/** @brief The level the bench drives on GP0. */
+static bool gp0High() {
+	FakePin p = fakePin(SERVO_SUPPLY_PIN);
+	return p.output && p.high;
+}
+
+/** @brief One pass of core1, the switched servo following GP0. */
+static void core1Pass() {
+	fakeAdvance(1);
+	if (g_supOn) supplySimUpdate(&g_sup, gp0High(), time_us_32());
+	core1JobPoll();
+	if (g_supOn) supplySimUpdate(&g_sup, gp0High(), time_us_32());
+}
+
 /** @brief One UI frame: 25 passes of core1, one of the pump, then the UI. */
 static void kstFrame() {
-	for (int i = 0; i < 25; i++) {
-		fakeAdvance(1);
-		core1JobPoll();
-	}
+	for (int i = 0; i < 25; i++) core1Pass();
 	fakePumpPoll();
 	uiTick();
 }
@@ -1352,6 +1370,77 @@ static void testFlushWait() {
 	fakeCacheReset();
 }
 
+/** @brief The strip's text, as uiStripText() draws it at scale 1. */
+static bool stripIs(const char *text, uint16_t col) { return lineIs(UI_STRIP_Y + 4, text, col); }
+
+static void testSwitchedSupply() {
+	section("KST screen: the switched supply");
+	freshKst(false);
+	settings()->servoSupply = 1;
+	servoSupplyConfigure(1);
+	supplySimInit(&g_sup, fakeKstSim(), time_us_32());
+	g_supOn = true;
+	openKst();
+	kstFrames(20);
+	checkTrue("the switched search: SWITCHED SUPPLY, the ESC warning in amber",
+	          job().job == KstJobState::Searching && job().supplyFitted &&
+	          lineIs(100, "THE BENCH SWITCHES THE SERVO OFF FOR", C_DIM) &&
+	          lineIs(164, "AN ESC ON THIS LEAD GETS THE", C_AMBER));
+	char want[48];
+	unsigned ds = job().supplyLeftDs;
+	snprintf(want, sizeof(want), "GP29  TRY 1  SUPPLY OFF %u.%u S", ds / 10, ds % 10);
+	checkTrue("the strip counts the off phase down", stripIs(want, C_DIM));
+	fakeDumpFrame("shot_kst_switched.ppm");
+	checkTrue("found on the first power-up: the field list", untilView(KstView::List, 400) &&
+	          gp0High() && job().attempts == 1);
+
+	// The leave page offers REBOOT; a hold reboots and reads again.
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the leave page: the supply text, HOLD TO REBOOT",
+	          uiKstView() == KstView::Leave && lineIs(76, "LEAVE SWITCHES THE SERVO'S SUPPLY OFF.", C_AMBER) &&
+	          ctlEnabled(UI_FIX(KstCtl::Reboot)));
+	fakeDumpFrame("shot_kst_leave_switched.ppm");
+	checkTrue("HOLD TO REBOOT fires", holdUntilGone(UI_FIX(KstCtl::Reboot)));
+	kstFrames(4);
+	checkTrue("rebooting: the supply off, the main view says so",
+	          job().job == KstJobState::Rebooting && !gp0High() &&
+	          lineIs(80, "REBOOT: DO NOT UNPLUG THE SERVO.", C_AMBER));
+	checkTrue("then on, an entry, a read: the field list again",
+	          untilView(KstView::List, 300) && job().hasBackup && gp0High());
+
+	// LEAVE: the unplug page counts the 2 s off down, then RESTART DSHOT.
+	tapId(UI_FIX(UI_BACK));
+	uint32_t t0 = time_us_32();
+	tapId(UI_FIX(KstCtl::Leave));
+	kstFrames(4);
+	checkTrue("LEAVE: the supply off, the unplug page waits",
+	          uiKstView() == KstView::Unplug && !gp0High() && !ctlPresent(UI_FIX(KstCtl::Restart)));
+	checkTrue("RESTART DSHOT once the supply has been off 2 s",
+	          untilCtl(UI_FIX(KstCtl::Restart), 200) && time_us_32() - t0 >= 2000000u);
+	FakePin p = fakePin(SERVO_SUPPLY_PIN);
+	checkTrue("GP0 an undriven input after the claim", !p.output && p.inputOff);
+	tapId(UI_FIX(KstCtl::Restart));
+	kstFrames(8);
+	tapId(UI_FIX(UI_BACK));
+	kstFrames(2);
+
+	// The stalled screen: core1 runs, the UI does not.
+	openKst();
+	untilView(KstView::List, 400);
+	for (int i = 0; i < 400; i++) core1Pass();
+	kstFrames(2);
+	checkTrue("a stall: the supply off, the stalled screen, RETRY",
+	          !gp0High() && job().stalled && uiKstView() == KstView::Main &&
+	          stripIs("GP29  SUPPLY OFF", C_DIM) && ctlEnabled(UI_FIX(KstCtl::Retry)));
+	fakeDumpFrame("shot_kst_stalled.ppm");
+	tapId(UI_FIX(KstCtl::Retry));
+	checkTrue("RETRY powers it up and reads it", untilView(KstView::List, 400) && gp0High());
+	leaveAll();
+	g_supOn = false;
+	servoSupplyConfigure(0);
+	settings()->servoSupply = 0;
+}
+
 void runKstUiTests() {
 	testOpenAndSearch();
 	testEditAndWrite();
@@ -1370,6 +1459,7 @@ void runKstUiTests() {
 	testRefusedOps();
 	testRecordKeptAtLeave();
 	testFlushWait();
+	testSwitchedSupply();
 	fakeKstLineReset();
 	noCard();
 	fakeFatReset();

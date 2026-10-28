@@ -434,11 +434,41 @@ zeigt die Abziehseite unmittelbar.
 
 ---
 
+## Geschaltete Versorgung
+
+Mit **SETTINGS → SERVO SUPPLY** auf `GP0` schaltet das Gerät das Servo
+selbst, über einen DC-DC-Wandler, dessen Enable-Eingang an GP0, J5 Pin 2,
+liegt. Der Wandler liefert 5 V, mehr als 1 A, und hat einen externen
+Pull-down an Enable: 10 kΩ bis 100 kΩ für ein Enable ohne internen Pull-up.
+**Ein ESC an dieser Leitung bekommt den Ausgang des Wandlers auf seine
+BEC-Leitung.**
+
+<img src="img/kst-switched.png" width="240" alt="Die geschaltete Suche: SUPPLY OFF 1.4 S"> <img src="img/kst-leave-switched.png" width="240" alt="Die Seite zum Verlassen mit HOLD TO REBOOT"> <img src="img/kst-stalled.png" width="240" alt="Der hängende Bildschirm: SUPPLY OFF">
+
+- **Die Suche** schaltet das Servo vor jedem Versuch 2 s aus, dann ein:
+  `GP29  TRY 3  SUPPLY OFF 1.4 S`. In die 30 s der Suche passen 14
+  Einschaltvorgänge; danach `NO ANSWER IN 14 POWER-UPS`.
+- **Die Seite zum Verlassen** zeigt `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.`
+  Nach LEAVE zeigt die Abziehseite `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`: Der
+  Pin wird 2 s nach dem Ausschalten freigegeben, gleich was die Sitzung
+  beendet.
+- **HOLD TO REBOOT** (1 s) schaltet das Servo 2 s aus und 1 s ein, geht in
+  den Programmiermodus und liest das Servo, wie es ist. Dieses Lesen ist die
+  neue Sicherung, und die offenen Änderungen fallen weg. Ohne Karte geht die
+  Sicherung im Speicher verloren; die Seite sagt das über der Schaltfläche.
+- **Ein Bildschirm, der 250 ms hängt,** schaltet die Versorgung ab, sobald
+  eine laufende Operation geendet hat. Das Servo verlässt den
+  Programmiermodus, und seine Sicherung im Speicher geht verloren. RETRY
+  schaltet es ein und liest es erneut.
+
+---
+
 ## Einschränkungen
 
-- Keine geschaltete Versorgung: Das Servo wird von Hand ein- und ausgeschaltet.
-  Schritt 5 der Entwurfsnotiz (`docs/design/kst-programming.md`) fügt einen
-  Wandler an GP0 hinzu.
+- Mit geschalteter Versorgung zählt ein Kartenzugriff, der den Bildschirm
+  250 ms oder länger blockiert, als Hängen: Die Versorgung geht aus, und die
+  Sicherung im Speicher geht verloren. Die Kartenphase aus Schritt 5 der
+  Entwurfsnotiz ist nicht gebaut.
 - Die Lesezugriffe des ersten Schreibens laufen auf core0, und der
   Bildschirm wird erst neu gezeichnet, wenn sie enden; seine Schreibzugriffe
   warten im Speicher und gehen auf die Karte, während der Bildschirm weiter

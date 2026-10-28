@@ -10,6 +10,7 @@
 #include "check.h"
 #include "kst_seek.h"
 #include "rcbench/kst_sim.h"
+#include "kst_supply_sim.h"
 
 #include <string.h>
 
@@ -326,10 +327,162 @@ static void testLoss() {
 	checkTrue("the session was power cycled", !g_b.ses.in_mode && !g_b.ses.has_backup);
 }
 
+// ---------------------------------------------------------------------------
+// the switched supply
+// ---------------------------------------------------------------------------
+
+static SupplySim g_sup;
+
+/** @brief A switched search on a servo with no supply of its own. */
+static void switchedBench(uint32_t startupUs, uint32_t windowUs, int32_t delayMs = 0) {
+	bench(false);
+	supplySimInit(&g_sup, &g_b.sim, g_b.sim.now_us);
+	g_sup.startupUs = startupUs;
+	g_sup.windowUs = windowUs;
+	kstSeekBegin(&g_b.seek, &g_b.ses, nowMs(), true);
+	g_b.seek.delayMs = delayMs;
+}
+
+/** @brief One switched step: the search, the supply it wants, then 100 us. */
+static KstSeek switchedStep(bool uiAlive = true) {
+	supplySimUpdate(&g_sup, g_b.seek.supply, g_b.sim.now_us);
+	KstSeek k = kstSeekStep(&g_b.seek, &g_b.ses, uiAlive, nowMs());
+	supplySimUpdate(&g_sup, g_b.seek.supply, g_b.sim.now_us);
+	g_b.sim.now_us += 100u;
+	return k;
+}
+
+static KstSeek switchedRun(uint32_t untilUs, bool uiAlive = true) {
+	KstSeek k = g_b.seek.state;
+	while (g_b.sim.now_us < untilUs) {
+		k = switchedStep(uiAlive);
+		if (k != KstSeek::Searching) break;
+	}
+	return k;
+}
+
+/** @brief The first frame at or after @p fromUs, or UINT32_MAX. */
+static uint32_t firstFrameFrom(uint32_t fromUs) {
+	for (unsigned i = 0; i < g_b.sim.n_frames && i < SIM_LOG_MAX; i++)
+		if (g_b.sim.log[i].t_us >= fromUs) return g_b.sim.log[i].t_us;
+	return UINT32_MAX;
+}
+
+static void testSwitchedFound() {
+	section("KST search, switched: a window that covers the first sync");
+	switchedBench(5000, 300000);
+	checkTrue("begun: supply off, no attempt yet",
+	          !g_b.seek.supply && g_b.seek.attempts == 0 && g_b.seek.phase == KstSupplyPhase::Off);
+	switchedRun(1999000u);
+	checkTrue("1999 ms: still off, no frame", !g_b.seek.supply && g_b.sim.n_frames == 0);
+	KstSeek k = switchedRun(5000000u);
+	checkTrue("found on the first power-up, the supply on",
+	          k == KstSeek::Found && g_b.seek.attempts == 1 && g_b.seek.supply && g_b.ses.in_mode);
+	checkTrue("switched on 2000 ms after the off command",
+	          g_sup.switchOns == 1 && g_sup.lastOnUs >= 2000000u && g_sup.lastOnUs < 2000200u);
+	checkTrue("the first read about 100 ms after the switch-on",
+	          firstFrameFrom(0) - g_sup.lastOnUs >= KST_ENTRY_LOW_US &&
+	          firstFrameFrom(0) - g_sup.lastOnUs < KST_ENTRY_LOW_US + 1000u);
+	checkInt("off-phase time left after the find", kstSeekOffLeftMs(&g_b.seek, nowMs()), 0);
+}
+
+static void testSwitchedTimeout() {
+	section("KST search, switched: a window that closes before the first sync");
+	// The sync goes out about 106 ms after the switch-on; a 50 ms window
+	// never sees one.
+	switchedBench(0, 50000);
+	KstSeek k = switchedRun(40000000u);
+	checkTrue("timed out", k == KstSeek::TimedOut);
+	checkInt("14 power-ups in 30 s at a delay of 0 ms", g_b.seek.attempts, 14);
+	checkInt("one switch-on each", g_sup.switchOns, 14);
+	checkTrue("the supply off at the end", !g_b.seek.supply && !g_sup.level);
+	// The search counts whole milliseconds: an off phase is 2000 ms on its
+	// clock, at least 1999 ms in microseconds.
+	checkTrue("off for 2000 ms before every switch-on, to the millisecond",
+	          g_sup.minOffUs >= 1999000u);
+	uint32_t ms = kstSeekMs(&g_b.seek, nowMs());
+	checkTrue("ended at 30 s, in an off phase", ms >= KST_SEEK_TIMEOUT_MS && ms < KST_SEEK_TIMEOUT_MS + 2);
+	checkTrue("no frame outside an on phase", g_b.sim.n_frames == 14u * 3u);
+}
+
+static void testSwitchedDelay() {
+	section("KST search, switched: the entry delay");
+	// -40 ms: the entry starts first, the switch-on 40 ms into its low.
+	switchedBench(20000, 0, -40);
+	KstSeek k = switchedRun(5000000u);
+	checkTrue("a negative delay: found", k == KstSeek::Found && g_b.seek.attempts == 1);
+	uint32_t entryUs = 2000000u;
+	checkTrue("switched on about 40 ms into the entry",
+	          g_sup.lastOnUs >= entryUs + 40000u && g_sup.lastOnUs < entryUs + 40200u);
+	checkTrue("no frame before the switch-on plus the start-up time",
+	          firstFrameFrom(0) >= g_sup.lastOnUs + g_sup.startupUs);
+
+	// +300 ms: the entry waits after the switch-on.
+	switchedBench(0, 0, 300);
+	k = switchedRun(5000000u);
+	checkTrue("a positive delay: found", k == KstSeek::Found);
+	checkTrue("the first read 300 ms plus the low after the switch-on",
+	          firstFrameFrom(0) - g_sup.lastOnUs >= 300000u + KST_ENTRY_LOW_US);
+}
+
+static void testSwitchedStops() {
+	section("KST search, switched: a stop, a lapse and the timeout in a wait");
+	switchedBench(0, 0);
+	switchedRun(1000000u);
+	kstSeekStop(&g_b.seek, &g_b.ses);
+	checkTrue("STOP in the off phase: Stopped at once, never switched on",
+	          switchedStep() == KstSeek::Stopped && g_sup.switchOns == 0 && !g_b.seek.supply);
+
+	switchedBench(0, 0);
+	switchedRun(1500000u);
+	checkTrue("a lapse in the off phase: NoUi at once, never switched on",
+	          switchedStep(false) == KstSeek::NoUi && g_sup.switchOns == 0);
+
+	switchedBench(0, 0, 500);
+	switchedRun(2100000u);
+	checkTrue("a positive delay's wait: on", g_b.seek.supply && g_b.seek.phase == KstSupplyPhase::Delay);
+	checkTrue("a lapse there: NoUi, the supply off",
+	          switchedStep(false) == KstSeek::NoUi && !g_b.seek.supply);
+
+	// A stop during the entry: the frame on the wire finishes, then off.
+	switchedBench(0, 50000);
+	switchedRun(2050000u);
+	checkTrue("in the entry, the supply on", g_b.seek.phase == KstSupplyPhase::Entry && g_b.seek.supply);
+	kstSeekStop(&g_b.seek, &g_b.ses);
+	KstSeek k = switchedRun(3000000u);
+	checkTrue("a stop in the entry: Stopped, the supply off", k == KstSeek::Stopped && !g_b.seek.supply);
+	checkInt("no frame cut", g_b.sim.n_bad_frames, 0);
+
+	// The off-phase time left, for the strip.
+	switchedBench(0, 0);
+	switchedRun(600000u);
+	uint32_t left = kstSeekOffLeftMs(&g_b.seek, nowMs());
+	checkTrue("0.6 s into the off phase: 1.4 s left", left >= 1399 && left <= 1400);
+}
+
+static void testSwitchedLoss() {
+	section("KST search, switched: a loss starts a switched search");
+	switchedBench(0, 0);
+	switchedRun(5000000u);
+	checkTrue("found", g_b.seek.state == KstSeek::Found && g_b.ses.in_mode);
+	bool lost = kstSeekLost(&g_b.seek, &g_b.ses, KST_SES_ERR_NO_SERVO, true, nowMs(), true);
+	checkTrue("lost: a new switched search, the supply wanted off",
+	          lost && g_b.seek.state == KstSeek::Searching && g_b.seek.switched && !g_b.seek.supply &&
+	          g_b.seek.phase == KstSupplyPhase::Off);
+	kstSeekStalled(&g_b.seek, &g_b.ses, nowMs());
+	checkTrue("stalled: NoUi, the supply off, the session power-cycled",
+	          g_b.seek.state == KstSeek::NoUi && !g_b.seek.supply && !g_b.ses.in_mode);
+}
+
 void runKstSeekTests() {
 	testFound();
 	testAttempts();
 	testStop();
 	testFailures();
 	testLoss();
+	testSwitchedFound();
+	testSwitchedTimeout();
+	testSwitchedDelay();
+	testSwitchedStops();
+	testSwitchedLoss();
 }

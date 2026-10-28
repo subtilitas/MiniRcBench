@@ -26,6 +26,9 @@
 #include "fakes.h"
 #include "fake_kst_line.h"
 #include "esc_task.h"
+#include "kst_supply_sim.h"
+#include "servo_supply.h"
+#include "settings.h"
 
 static int g_forbidden = 0;
 
@@ -50,12 +53,24 @@ static const uint8_t SIG = 29;
 /** @brief Whether the heartbeat is fed on each pass. */
 static bool g_alive = true;
 
+/** @brief The switched supply's servo model, while a switched test runs. */
+static SupplySim g_sup;
+static bool      g_switched = false;
+
+/** @brief The level the bench drives on GP0. */
+static bool gp0High() {
+	FakePin p = fakePin(SERVO_SUPPLY_PIN);
+	return p.output && p.high;
+}
+
 /** @brief @p ms passes of core1, one a millisecond. */
 static void passes(uint32_t ms) {
 	for (uint32_t i = 0; i < ms; i++) {
 		fakeAdvance(1);
 		if (g_alive) escHeartbeat();
+		if (g_switched) supplySimUpdate(&g_sup, gp0High(), time_us_32());
 		core1JobPoll();
+		if (g_switched) supplySimUpdate(&g_sup, gp0High(), time_us_32());
 	}
 }
 
@@ -105,7 +120,8 @@ static void start(bool powered) {
 static void finish() {
 	g_alive = true;
 	core1JobStop();
-	for (int i = 0; i < 1000 && core1JobPhase() != Core1JobPhase::Idle; i++) passes(1);
+	// A switched claim closes KST_SUPPLY_OFF_MS after its last switch-off.
+	for (int i = 0; i < 3000 && core1JobPhase() != Core1JobPhase::Idle; i++) passes(1);
 	escTaskResume();
 	fakePumpPoll();
 }
@@ -145,6 +161,9 @@ static void reach(KstJobState want) {
 				send(KstOp::ReadAll);
 				passes(1);
 			}
+			break;
+		case KstJobState::Rebooting:
+			// Not reached without a switch; the switched tests reach it.
 			break;
 		case KstJobState::Leaving:
 		case KstJobState::Closed:
@@ -575,14 +594,15 @@ static void testEachOpInEachState() {
 	};
 	static const KstOp OPS[] = {
 		KstOp::Search, KstOp::StopSearch, KstOp::ReadAll, KstOp::Verify,
-		KstOp::Edit, KstOp::Restore, KstOp::Abort, KstOp::Leave,
+		KstOp::Edit, KstOp::Restore, KstOp::Abort, KstOp::Leave, KstOp::Reboot,
 	};
 	static const char *const OP_NAMES[] = {
 		"Search", "StopSearch", "ReadAll", "Verify", "Edit", "Restore", "Abort", "Leave",
+		"Reboot",
 	};
 	// Taken, by op and state: Opening, Searching, SearchEnded, InMode, Busy,
-	// Leaving, Closed.
-	static const bool TAKEN[8][7] = {
+	// Leaving, Closed. No switch here, so Reboot is refused everywhere.
+	static const bool TAKEN[9][7] = {
 		{ 1, 0, 1, 0, 0, 0, 0 },  // Search
 		{ 0, 1, 0, 0, 0, 0, 0 },  // StopSearch
 		{ 0, 0, 0, 1, 0, 0, 0 },  // ReadAll
@@ -591,9 +611,10 @@ static void testEachOpInEachState() {
 		{ 0, 0, 0, 1, 0, 0, 0 },  // Restore
 		{ 0, 1, 0, 0, 1, 0, 0 },  // Abort
 		{ 1, 1, 1, 1, 1, 0, 0 },  // Leave
+		{ 0, 0, 0, 0, 0, 0, 0 },  // Reboot
 	};
 	for (int si = 0; si < 7; si++) {
-		for (int oi = 0; oi < 8; oi++) {
+		for (int oi = 0; oi < 9; oi++) {
 			reach(STATES[si]);
 			bool there = status().job == STATES[si];
 			uint16_t seq = send(OPS[oi]);
@@ -609,6 +630,202 @@ static void testEachOpInEachState() {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// the switched supply
+// ---------------------------------------------------------------------------
+
+/** @brief SERVO SUPPLY at GP0, the servo on the converter, the job bound. */
+static void startSwitched(uint32_t windowUs = 0) {
+	settings()->servoSupply = 1;
+	servoSupplyConfigure(1);
+	start(false);
+	supplySimInit(&g_sup, fakeKstSim(), time_us_32());
+	g_sup.windowUs = windowUs;
+	g_switched = true;
+}
+
+/** @brief Release, then SERVO SUPPLY back to NONE. */
+static void finishSwitched() {
+	finish();
+	g_switched = false;
+	servoSupplyConfigure(0);
+	settings()->servoSupply = 0;
+}
+
+/** @brief Switched: search, find, read. InMode with a backup and the supply on. */
+static void switchedInMode() {
+	startSwitched();
+	send(KstOp::Search);
+	until(KstJobState::InMode, 5000);
+	send(KstOp::ReadAll);
+	passes(1);
+	until(KstJobState::InMode, 2000);
+}
+
+static void testSwitchedSearchAndLeave() {
+	section("KST job, switched: the search, the leave and the release");
+	startSwitched();
+	FakePin p = fakePin(SERVO_SUPPLY_PIN);
+	checkTrue("bound: GP0 driven low", p.output && !p.high);
+	checkTrue("the status names the switch", status().supplyFitted && !status().supplyOn);
+	send(KstOp::Search);
+	passes(1000);
+	checkTrue("1 s into the search: off, 1.0 s left",
+	          !gp0High() && status().supplyLeftDs >= 10 && status().supplyLeftDs <= 11 &&
+	          status().attempts == 0);
+	checkTrue("found on the first power-up", until(KstJobState::InMode, 5000) &&
+	          status().attempts == 1 && gp0High() && status().supplyOn && status().supplyUsed);
+	send(KstOp::ReadAll);
+	passes(1);
+	until(KstJobState::InMode, 2000);
+	checkTrue("read: a backup", status().hasBackup);
+
+	int closes = fakeKstLineCloses();
+	send(KstOp::Leave);
+	passes(1);
+	checkTrue("LEAVE: off at once, the line still open",
+	          !gp0High() && status().job == KstJobState::Leaving && fakeKstLineCloses() == closes);
+	uint32_t offUs = time_us_32();
+	passes(1990);
+	checkTrue("1.99 s later: still open, 0.1 s left",
+	          fakeKstLineCloses() == closes && status().supplyLeftDs >= 1);
+	checkTrue("closed 2000 ms after the switch-off", until(KstJobState::Closed, 50) &&
+	          fakeKstLineClosedUs() - offUs >= 1999000u);
+	finishSwitched();
+	p = fakePin(SERVO_SUPPLY_PIN);
+	checkTrue("released: GP0 an undriven input", !p.output && p.inputOff && p.pull == FakePull::None);
+}
+
+static void testSwitchedReboot() {
+	section("KST job, switched: REBOOT");
+	switchedInMode();
+	uint32_t framesBefore = fakeKstSim()->n_frames;
+	uint16_t seq = send(KstOp::Reboot);
+	passes(1);
+	KstStatus st = status();
+	checkTrue("taken: Rebooting, off, the backup dropped",
+	          st.ackSeq == seq && st.refused == KstRefusal::None && st.job == KstJobState::Rebooting &&
+	          st.reboot == KstReboot::Off && !gp0High() && !st.hasBackup && !st.inMode);
+	passes(1990);
+	checkTrue("1.99 s: still off, no frame", !gp0High() && fakeKstSim()->n_frames == framesBefore);
+	passes(20);
+	checkTrue("2 s: on for the wait", gp0High() && status().reboot == KstReboot::On);
+	passes(980);
+	checkTrue("0.98 s of the wait: no frame yet", fakeKstSim()->n_frames == framesBefore);
+	checkTrue("then an entry and a read: InMode, a new backup",
+	          until(KstJobState::InMode, 3000) && status().hasBackup && gp0High() &&
+	          status().result == KST_SES_OK && status().reboot == KstReboot::None);
+
+	// Refused while an operation runs.
+	send(KstOp::ReadAll);
+	passes(1);
+	seq = send(KstOp::Reboot);
+	passes(1);
+	checkTrue("refused while Busy", status().ackSeq == seq && status().refused == KstRefusal::State);
+	until(KstJobState::InMode, 2000);
+
+	// BACK during the on wait: off at once, closed 2000 ms after.
+	send(KstOp::Reboot);
+	passes(2100);
+	checkTrue("in the on wait", status().reboot == KstReboot::On && gp0High());
+	int closes = fakeKstLineCloses();
+	send(KstOp::Leave);
+	passes(1);
+	uint32_t offUs = time_us_32();
+	checkTrue("BACK in the on wait: off at once", !gp0High() && status().job == KstJobState::Leaving);
+	checkTrue("closed 2000 ms after the switch-off", until(KstJobState::Closed, 2100) &&
+	          fakeKstLineCloses() == closes + 1 && fakeKstLineClosedUs() - offUs >= 1999000u);
+	finishSwitched();
+
+	// An entry with no answer after the reboot starts the switched search.
+	startSwitched(50000);  // a window the entry 1000 ms after power-on misses
+	g_sup.windowUs = 0;
+	send(KstOp::Search);
+	until(KstJobState::InMode, 5000);
+	g_sup.windowUs = 50000;
+	send(KstOp::Reboot);
+	passes(3200);
+	checkTrue("no answer 1 s after power-on: the switched search", status().job == KstJobState::Searching &&
+	          status().supplyLeftDs > 0 && !gp0High());
+	finishSwitched();
+}
+
+static void testSwitchedLapse() {
+	section("KST job, switched: the heartbeat lapse");
+	switchedInMode();
+	g_alive = false;
+	passes(300);
+	KstStatus st = status();
+	checkTrue("idle in the mode: off, the stalled screen",
+	          !gp0High() && st.job == KstJobState::SearchEnded && st.seek == KstSeek::NoUi &&
+	          st.stalled && !st.inMode && !st.hasBackup);
+	g_alive = true;
+	finishSwitched();
+
+	// A lapse during an operation: it finishes, then off.
+	switchedInMode();
+	send(KstOp::ReadAll);
+	passes(1);
+	checkTrue("a read runs", status().job == KstJobState::Busy);
+	g_alive = false;
+	passes(300);
+	checkTrue("the read still runs, the supply still on",
+	          status().job == KstJobState::Busy && gp0High());
+	until(KstJobState::SearchEnded, 3000);
+	st = status();
+	checkTrue("the read finished, then off and stalled",
+	          !gp0High() && st.job == KstJobState::SearchEnded && st.stalled && st.result == KST_SES_OK);
+	g_alive = true;
+	finishSwitched();
+
+	// A lapse in REBOOT's off wait: ends at once, never on.
+	switchedInMode();
+	send(KstOp::Reboot);
+	passes(500);
+	g_alive = false;
+	passes(300);
+	unsigned ons = g_sup.switchOns;
+	passes(2000);
+	checkTrue("a lapse in REBOOT's off wait: stalled, never switched on",
+	          status().job == KstJobState::SearchEnded && g_sup.switchOns == ons && !gp0High());
+	g_alive = true;
+	finishSwitched();
+}
+
+static void testSwitchedClose() {
+	section("KST job, switched: time off before a leave counts");
+	switchedInMode();
+	// The servo goes: the next read is a loss, and the switched search
+	// begins with the supply off.
+	g_switched = false;
+	fakeKstSim()->powered = false;
+	fakeKstSim()->in_mode = false;
+	send(KstOp::ReadAll);
+	passes(1);
+	until(KstJobState::Searching, 3000);
+	g_switched = true;
+	checkTrue("lost: a switched search, off", !gp0High() && status().supplyLeftDs > 0);
+	passes(1500);
+	send(KstOp::Leave);
+	passes(1);
+	checkTrue("BACK 1.5 s into the off phase: closed about 0.5 s later",
+	          !until(KstJobState::Closed, 400) && until(KstJobState::Closed, 200));
+	finishSwitched();
+
+	// A claim without a switch: GP0 untouched throughout.
+	FakePin before = fakePin(SERVO_SUPPLY_PIN);
+	startInMode();
+	send(KstOp::Leave);
+	passes(1);
+	uint32_t leaveUs = time_us_32();
+	until(KstJobState::Closed, 200);
+	checkTrue("NONE: the close waits only the 100 ms low",
+	          fakeKstLineClosedUs() - leaveUs < (KST_LEAVE_LOW_MS + 2) * 1000u);
+	finish();
+	FakePin after = fakePin(SERVO_SUPPLY_PIN);
+	checkTrue("NONE: GP0 not driven by a claim", !after.output && after.puts == before.puts);
+}
+
 void runKstJobTests() {
 	testBind();
 	testSearch();
@@ -618,4 +835,8 @@ void runKstJobTests() {
 	testLeave();
 	testCommands();
 	testEachOpInEachState();
+	testSwitchedSearchAndLeave();
+	testSwitchedReboot();
+	testSwitchedLapse();
+	testSwitchedClose();
 }

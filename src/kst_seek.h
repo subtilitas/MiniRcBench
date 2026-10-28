@@ -34,6 +34,22 @@
  * an operation before the search is not taken. A step is called at least once
  * per transaction: a transaction takes 2.87 ms or more.
  *
+ * **Switched supply.** A search begun with @p switched true (SETTINGS > SERVO
+ * SUPPLY at GP0) powers the servo up itself. One attempt:
+ *
+ * 1. Supply off, for @ref KST_SUPPLY_OFF_MS from the switch-off command.
+ * 2. Supply on, only while the heartbeat is trusted; the attempt counts here.
+ * 3. kst_session_enter() @ref KST_SUPPLY_ENTRY_DELAY_MS after the switch-on.
+ *    A negative delay starts the entry first and switches on that many
+ *    milliseconds into its 100 ms low.
+ * 4. @c KST_SES_OK is Found, the supply on; otherwise the next attempt.
+ *
+ * The timeout, a stop and a lapse end an off phase or a positive delay's wait
+ * at once, the supply off and never switched on. An entry runs to its end as
+ * without a switch, then the supply goes off. The search only says which
+ * level it wants (@c KstSeekState::supply) and when it last commanded off
+ * (@c KstSeekState::offMs); the caller drives the pin.
+ *
  * Every function is pure apart from the session: the clock is a parameter,
  * and the host suite runs them against rcbench's simulated servo.
  *
@@ -48,6 +64,30 @@
 
 /** @brief How long a search tries, ms: then TimedOut, which offers RETRY. */
 #define KST_SEEK_TIMEOUT_MS 30000u
+
+/** @brief Supply off before each switched attempt, for REBOOT and before a close, ms. */
+#define KST_SUPPLY_OFF_MS 2000u
+
+/** @brief REBOOT: supply on before the entry, ms (rcbench's KST_PORT_RAIL_WAIT_MS). */
+#define KST_SUPPLY_WAIT_MS 1000u
+
+/**
+ * @brief Switched search: the entry's start against the switch-on, ms.
+ *        0 enters at the switch-on; negative switches on inside the entry's
+ *        100 ms low; positive waits after the switch-on. Bring-up step 7
+ *        measures the servo's window and sets it.
+ */
+#ifndef KST_SUPPLY_ENTRY_DELAY_MS
+#define KST_SUPPLY_ENTRY_DELAY_MS 0
+#endif
+
+/** @brief Where a switched attempt is. */
+enum class KstSupplyPhase : uint8_t {
+	None,   /**< No switch: the attempts follow each other. */
+	Off,    /**< Supply off, waiting @ref KST_SUPPLY_OFF_MS. */
+	Delay,  /**< Supply on, waiting a positive entry delay. */
+	Entry,  /**< kst_session_enter() runs. */
+};
 
 /** @brief Where a search is. */
 enum class KstSeek : uint8_t {
@@ -71,19 +111,27 @@ struct KstSeekState {
 	uint32_t faults;    /**< The session's @c stats.faults when @c rx was last looked at. */
 	bool     stopping;  /**< kstSeekStop() came; the running attempt finishes its frame. */
 	bool     noUi;      /**< The heartbeat lapsed; the running attempt ends, no other starts. */
+	bool     switched;  /**< The bench switches the servo's supply. */
+	KstSupplyPhase phase; /**< Where a switched attempt is. */
+	uint32_t phaseMs;   /**< Clock when the phase began. */
+	int32_t  delayMs;   /**< The entry delay, @ref KST_SUPPLY_ENTRY_DELAY_MS unless a test sets it. */
+	bool     supply;    /**< The level the search wants: on. */
+	uint32_t offMs;     /**< Clock of the last switch-off command. */
 };
 
 /**
  * @brief Begin a search, and its first attempt.
  *
  * A session that refuses kst_session_enter(), because another operation
- * runs, ends the search at once as Failed.
+ * runs, ends the search at once as Failed. A switched search begins with
+ * the supply off and enters nothing for @ref KST_SUPPLY_OFF_MS.
  *
- * @param[out] s   The search.
- * @param ses      The session; no operation should run.
- * @param nowMs    The clock, ms. It may wrap.
+ * @param[out] s    The search.
+ * @param ses       The session; no operation should run.
+ * @param nowMs     The clock, ms. It may wrap.
+ * @param switched  The bench switches the servo's supply.
  */
-void kstSeekBegin(KstSeekState *s, kst_session_t *ses, uint32_t nowMs);
+void kstSeekBegin(KstSeekState *s, kst_session_t *ses, uint32_t nowMs, bool switched = false);
 
 /**
  * @brief Step the running attempt, and start the next when it ends without
@@ -100,7 +148,8 @@ KstSeek kstSeekStep(KstSeekState *s, kst_session_t *ses, bool uiAlive, uint32_t 
  * @brief STOP SEARCH or BACK: abort the running attempt. A frame on the wire
  *        finishes; kstSeekStep() returns Stopped once the attempt has ended
  *        aborted, or Failed with the attempt's result when its frame faulted.
- *        A no-op unless Searching.
+ *        In a switched search's off phase or delay it ends at the next step,
+ *        the supply off. A no-op unless Searching.
  */
 void kstSeekStop(KstSeekState *s, kst_session_t *ses);
 
@@ -111,17 +160,31 @@ void kstSeekStop(KstSeekState *s, kst_session_t *ses);
  * mode means the servo is gone: kst_session_power_cycled(), rcbench's
  * POWER_CYCLED, said by the loss itself. The backup and the lock drop and the
  * next read becomes the new backup. With the heartbeat trusted a new search
- * begins; without, the search is set to NoUi and none begins.
+ * begins, switched or not, which a switched search starts with the supply
+ * off; without, the search is set to NoUi and none begins.
  *
- * @param[out] s   The search, set when the servo is lost.
- * @param ses      The session.
- * @param r        The operation's result.
- * @param uiAlive  core1UiAlive().
- * @param nowMs    The clock, ms.
+ * @param[out] s    The search, set when the servo is lost.
+ * @param ses       The session.
+ * @param r         The operation's result.
+ * @param uiAlive   core1UiAlive().
+ * @param nowMs     The clock, ms.
+ * @param switched  The bench switches the servo's supply.
  * @return True when the servo was lost.
  */
 bool kstSeekLost(KstSeekState *s, kst_session_t *ses, kst_ses_t r, bool uiAlive,
-                 uint32_t nowMs);
+                 uint32_t nowMs, bool switched = false);
+
+/**
+ * @brief The heartbeat lapsed with the supply on and no operation running:
+ *        kst_session_power_cycled(), and the search set to NoUi with the
+ *        supply wanted off. The caller switches it off.
+ */
+void kstSeekStalled(KstSeekState *s, kst_session_t *ses, uint32_t nowMs);
+
+/**
+ * @brief A switched search's time left in its off phase, ms; 0 outside one.
+ */
+uint32_t kstSeekOffLeftMs(const KstSeekState *s, uint32_t nowMs);
 
 /**
  * @brief How long the search has run, ms: to now while Searching, to its end

@@ -127,7 +127,7 @@ Abschnitten, die sich mit dem Finger verschieben lässt.
 | WIRING | **DSHOT KBAUD** | 150 / 300 / 600 / 1200. Herunterstellen, wenn die `LINK`-Fehlerrate steigt |
 | WIRING | **KISS TELEM** | Ob auf dem optionalen dritten Telemetriekabel empfangen wird |
 | WIRING | **KISS PIN** | GPIO für dieses Kabel. Überspringt den ESC-Pin, sodass beide nie zusammenfallen. Zeigt `--` und reagiert nicht, solange KISS TELEM aus ist |
-| SERVO SUPPLY | **SERVO SUPPLY** | `NONE` oder `GP0`: ob ein DC-DC-Wandler für die Versorgung des KST-Servos seinen Enable-Eingang an GP0, J5 Pin 2, hat. Standard ist `NONE`. KST SERVO schaltet die Versorgung noch nicht |
+| SERVO SUPPLY | **SERVO SUPPLY** | `NONE` oder `GP0`: ob ein DC-DC-Wandler für die Versorgung des KST-Servos seinen Enable-Eingang an GP0, J5 Pin 2, hat. Standard ist `NONE`. Mit `GP0` schaltet KST SERVO die Versorgung des Servos |
 | DISPLAY | **CONTRAST** | `NORMAL` oder `HIGH`. Hoher Kontrast ist für Tageslicht |
 | DISPLAY | **BACKLIGHT** | 16–255, in Schritten von 32 |
 | BOARD | **BUILT FOR** | Nur Anzeige. Die Platine, für die die Firmware gebaut ist, `RP2350-TOUCH-LCD-2.8` |

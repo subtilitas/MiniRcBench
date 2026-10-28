@@ -404,7 +404,7 @@ a drag. A row is 44 px tall at a 50 px pitch. **MOTOR POLES** and
 | WIRING | **DSHOT KBAUD** | 150 / 300 / 600 / 1200, wrapping at the ends. Applies at once: the driver is rebuilt on the new pin and rate before the next frame |
 | WIRING | **KISS TELEM** | Whether to listen for the telemetry wire. Turning it on moves the KISS pin off the ESC pin if they coincide |
 | WIRING | **KISS PIN** | Steps through the same free GPIOs, skipping the ESC pin. The receiver is a PIO state machine, so any free GPIO works. Reads `--` and does not act while KISS is off |
-| SERVO SUPPLY | **SERVO SUPPLY** | `NONE`, the default, or `GP0`: whether the enable input of a DC-DC converter for the KST servo's supply is wired to GP0, J5 pin 2 (design note `docs/design/kst-programming.md`, "Switched servo supply"). A toggle; it applies at once. With `GP0`, GP0 is an input with both pulls off and its input disabled outside a KST claim, so the converter's external pull-down holds it off. KST SERVO does not switch the supply yet |
+| SERVO SUPPLY | **SERVO SUPPLY** | `NONE`, the default, or `GP0`: whether the enable input of a DC-DC converter for the KST servo's supply is wired to GP0, J5 pin 2 (design note `docs/design/kst-programming.md`, "Switched servo supply"). A toggle; it applies at once. With `GP0`, GP0 is an input with both pulls off and its input disabled outside a KST claim, so the converter's external pull-down holds it off; during a KST claim the bench switches the servo's supply (KST servo programming) |
 | DISPLAY | **CONTRAST** | `NORMAL` or `HIGH`. See below |
 | DISPLAY | **BACKLIGHT** | 16–255 in steps of 32. High contrast forces 255 while on |
 | BOARD | **BUILT FOR** | `RP2350-TOUCH-LCD-2.8`, the board the image is built for. Read-only |
@@ -959,11 +959,46 @@ hand: a plug, or a switch in its positive lead.
 - The power-on order and the unplug rule of the [servo tester
   wiring](#wiring) apply here too.
 
+**Switched supply (optional).** With SETTINGS → SERVO SUPPLY at `GP0`, the
+bench powers the servo itself through a DC-DC converter whose enable input
+(EN) is on GP0, J5 pin 2:
+
+```
+  user supply +  ------- VIN    DC-DC    VOUT  ---------  servo +  (red)
+  user supply -  ---+--- GND             EN  ----+------  GP0, J5 pin 2
+                    |                            |
+                    |                       10 k pull-down
+                    |                            |
+                    +----------------------------+------  servo -  (brown)
+                    |
+  board GND  -------+    one tap: J5 pin 4, or J4 pin 1 or 5
+  board SIG  -------------------------------------------  servo signal (GP29, J4 pin 12)
+```
+
+- The converter: 5 V out, rated above the servo's stall current, more than
+  1 A; a buck, or a type with output disconnect. A plain boost module with
+  no EN passes its input to the servo and does not qualify.
+- EN takes 3.3 V as high. An external pull-down from EN to the supply's
+  minus holds the converter off while GP0 is not driven: 10 kΩ to 100 kΩ
+  for an EN with no internal pull-up. An EN with an internal pull-up needs a
+  pull-down small enough to keep EN below its off threshold, and at most
+  3.6 V, at the highest VIN used: 10 kΩ for the Pololu S13V30F5 (design
+  note, "Example modules").
+- The converter's output is the lead's middle wire. **An ESC on this lead
+  gets the converter's output on its BEC wire**, its own regulated supply.
+  The claim's ESC check sees only an ESC that answers bidirectional DShot.
+- GP0 is driven only during a KST claim; outside it the pull-down alone
+  holds EN low. A reset or a power-off of the board returns GP0 to that
+  state; nothing in the firmware switches the supply off if core1 hangs.
+
 ### Using it
 
 1. Open KST SERVO. The screen claims SIG and searches: it repeats rcbench's
    entry sequence, one attempt every 116.6 ms to 118.8 ms, for 30 s. The
-   strip reads `GP29  TRY 12  1.4 S`.
+   strip reads `GP29  TRY 12  1.4 S`. With the switched supply, each attempt
+   is the supply off for 2 s, then on and the entry at once: 14 power-ups in
+   30 s, the strip `GP29  TRY 3  SUPPLY OFF 1.4 S` or `SUPPLY ON`. A timed-out
+   switched search reads `NO ANSWER IN 14 POWER-UPS`.
 2. Power the servo up during the search. The servo enters programming mode,
    and the screen reads its 32 registers, each until 3 of 5 reads agree.
    A powered servo on SIG gets no pulses while the screen is open and may go
@@ -992,7 +1027,20 @@ hand: a plug, or a switch in its positive lead.
 5. BACK from the list opens the leave page: `POWER THE SERVO OFF.` The servo
    stays in programming mode until its supply is off. LEAVE holds the line
    low for 100 ms, lets the pin go, and shows `UNPLUG THE SERVO.` RESTART
-   DSHOT returns to MENU.
+   DSHOT returns to MENU. With the switched supply the page reads
+   `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.`: LEAVE switches it off, and the
+   unplug page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` until the line
+   closes 2 s after the switch-off. Every claim end does the same once the
+   supply was on. **HOLD TO REBOOT** (1 s) switches the supply off for 2 s
+   and on for 1 s, then enters programming mode and reads the servo as it
+   is: the new backup. The pending changes go; without a card the backup in
+   memory is lost, and the page says so above the button. BACK during REBOOT
+   closes as LEAVE does.
+6. With the switched supply, the supply is on only while the screen runs. A
+   screen that stalls for 250 ms switches it off once a running operation
+   has ended; the servo leaves programming mode and its backup in memory goes.
+   The page then reads `THE SCREEN STALLED, SO THE BENCH SWITCHED THE
+   SERVO'S SUPPLY OFF.`, and RETRY powers it up and reads it again.
 
 | Result | Colour | Meaning |
 |---|---|---|
@@ -1025,9 +1073,18 @@ reads `READ ONLY: UNKNOWN LAYOUT`.
 
 **Current limitations**
 
-- No switched supply: the servo is powered up and down by hand. SETTINGS
-  configures GP0 for a converter (`SERVO SUPPLY`), and the KST job does not
-  drive it yet; the design note's step 5 adds the switching.
+- With the switched supply, a card call on core0 that blocks the screen for
+  250 ms or more counts as a stall: the supply goes off and the backup in
+  memory is lost, the first write's card calls among them. The card phase
+  of the design note's step 5, which lets the card driver's waits keep the
+  supply on for at most 15 s, is not built. With the write cache on, the
+  writes queue and the reads left block: 0 to 2 block reads per phase with
+  the read cache filled, up to 210 ms at the SD specification's 105 ms a
+  read, and more for the FILES page right after a first write
+  (`docs/design/sd-write-cache.md`). Without the cache, a first write
+  blocks for seconds. Not measured on a card.
+- The converter's start-up time, the servo's power-on window and the entry
+  delay (`KST_SUPPLY_ENTRY_DELAY_MS`, 0 ms) are not measured.
 - The first write's card reads run on core0, and the screen does not redraw
   until they end; its writes queue and flush while the screen keeps drawing.
   With no card at the screen's opening the cache stays off, and a card
@@ -1278,7 +1335,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.1%**: 6,151 of 6,269 lines in 47 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.7%**: 6,424 of 6,575 lines in 47 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

@@ -201,7 +201,7 @@ record either way.
 | KST programming: rcbench's session, line driver and file store (`lib/rcbench/`), the search (`src/kst_seek.*`), the core1 job (`src/kst_job.*`) and its line (`src/kst_line_port.*`), the files on the card (`src/kst_files.*`), the screen (`src/ui_kst.cpp`, `src/kst_view.*`) | rcbench's seven tests, 298 cases, the line's PIO program among them in a model (`test_kst_pio.c`); the search and the job against rcbench's simulated servo, the files against an in-memory FAT (File Allocation Table) volume, the backup in `BACKUP/` and SAVE AS in `KST/` up to 50 files among them, the card phases' block counts over FatFs R0.15 itself (`make -C test kstcount`), the screen through MENU against both (`runKstTests`); the line driver and `kst_line_port.cpp` are built by the firmware and typechecked only | not recorded: no frame of the line driver has been on a pin (`kst_line.h`) |
 | SETTINGS layout (`src/ui_settings.cpp`): sections ESC TESTER, WIRING, SERVO SUPPLY, DISPLAY and BOARD in one scrolling list | the scroll range, 0 px at opening and 400 px at most; each row by id; no scroll from a press on a control; a cut control takes a press only while 40 px show; HOLD TO SAVE in place at every scroll position and saving at the end of the list; the pole count reaches the eRPM divisor, the ceiling steps by 5 %, and RESET restores both | not recorded |
 | Settings in flash (MENU → SETTINGS) | block validation, CRC, board id check, pin defaults, the version 3 block layout, a version 2 block discarded, the servo supply clamp | not recorded; 46a64a7 states no hardware coverage |
-| KST switched servo supply on GP0 (`src/servo_supply.*`), the SERVO SUPPLY row | GP0 untouched with `NONE` from boot; with `GP0` an undriven input (SIO, output off, pulls off, input off) at boot and at every SETTINGS change; low at bind, high and low between bind and release, an undriven input after release; the row toggled, applied at once, saved and reset | not tested on hardware; the KST job does not drive the supply yet (step 5 of [kst-programming.md](docs/design/kst-programming.md#work-breakdown)) |
+| KST switched servo supply on GP0 (`src/servo_supply.*`), the SERVO SUPPLY row, the switched search, REBOOT, the close rule and the lapse rule (`src/kst_seek.*`, `src/kst_job.*`, `src/ui_kst.cpp`) | GP0 untouched with `NONE` from boot; with `GP0` an undriven input (SIO, output off, pulls off, input off) at boot and at every SETTINGS change; low at bind, high and low between bind and release, an undriven input after release; the row toggled, applied at once, saved and reset; against a model of the converter and a servo with a power-on window (`test/kst_supply_sim.h`): found on the first power-up, 14 power-ups and the timeout, off 2000 ms before every switch-on, the entry delay at -40 ms and +300 ms, a stop, a lapse and the timeout in a wait, REBOOT's 2000 ms off and 1000 ms on, refused while busy and without a switch, a lapse in the mode, during an operation and in REBOOT's off wait, the close 2000 ms after the switch-off, time off before a leave counted, GP0 untouched with `NONE`; the screens: the switched search, the leave page and HOLD TO REBOOT, the unplug page's wait, the stalled screen and RETRY | not tested on hardware |
 | Touch handling, high-contrast theme, throttle gauge | tap on release, repeats, screen residue, gauge reach | hardware use recorded: the reports #22 to #24 named in the v2.3 commits; the fixes on hardware: not recorded |
 | List and hold widgets (`src/ui_list.*`, `src/ui_hold.*`; slice A of [menu.md](docs/design/menu.md)) | the list: the scroll range and its clamp, the press rule at the viewport's edges, the row rectangle, the axis lock at 6 px, a tap on release and its slide-off, the scroll from the press point, 16 px per coarse step, the factor, the stop at a rail and the anchor after it, the clipped drawing; the hold: 1000 ms and not 999 ms, the reset on a lift and a slide off, a press that slid on, one firing per press, no timing for a press that landed while the control was disabled or whose first frame it missed, the progress bar's extent; through the screens: AM32's swipe on every field of the table, KV at 16 px a step and its rail, the AM32 and SERVO SET scroll ranges and edge rows (checks that 4c91db9 also passes), DWELL's rail on SET, HOLD TO WRITE and HOLD TO SAVE at 999 ms and 1000 ms, each hold's colour and bar, a press on a disabled HOLD TO START, HOLD TO APPLY and HOLD TO WRITE never timed, HOLD TO SAVE's refusal while armed | not tested on hardware |
 | Control tables (`src/ui_screen.h`; slice B of [menu.md](docs/design/menu.md)) | every screen's table on each view the host suite reaches, the ids, rectangles and enabled flags, `uiCurrentScreen()` after each navigation; the UI tests tap by id | host only: the firmware does not call the tables |
@@ -312,8 +312,9 @@ Not in this history: the DshotDisplay repository's branches
     [kst-programming.md](docs/design/kst-programming.md#work-breakdown): the
     reply level at the connector, the owner's servo's power-on window, frames
     and replies on a scope, read reliability, one write with read-back, then
-    a power cycle and a read. Of the switched supply, step 5, the GP0 driver
-    and the SETTINGS row are built; the job does not switch it yet.
+    a power cycle and a read. Of the switched supply, step 5, the card phase
+    is not built: with `GP0`, a card call that blocks core0 for 250 ms or
+    more switches the supply off and loses the backup in memory.
 11. **KST card-phase cap, open for step 5.** At the SD specification's SDXC
     times every counted phase on FAT32 is under the cap of 15 s, the
     longest 13.3 s; on exFAT the first write that keeps an old record takes
@@ -504,8 +505,8 @@ model.
 | `src/gfx.cpp` | 223 | 211 | 94.6% |
 | `src/kiss_telem.cpp` | 37 | 35 | 94.6% |
 | `src/kst_files.cpp` | 163 | 158 | 96.9% |
-| `src/kst_job.cpp` | 213 | 212 | 99.5% |
-| `src/kst_seek.cpp` | 59 | 59 | 100.0% |
+| `src/kst_job.cpp` | 342 | 326 | 95.3% |
+| `src/kst_seek.cpp` | 122 | 122 | 100.0% |
 | `src/kst_view.cpp` | 160 | 154 | 96.3% |
 | `src/log_ring.cpp` | 43 | 39 | 90.7% |
 | `src/pin_claim.cpp` | 109 | 109 | 100.0% |
@@ -526,7 +527,7 @@ model.
 | `src/ui_am32.cpp` | 321 | 292 | 91.0% |
 | `src/ui_hold.cpp` | 36 | 36 | 100.0% |
 | `src/ui_input.cpp` | 27 | 27 | 100.0% |
-| `src/ui_kst.cpp` | 961 | 929 | 96.7% |
+| `src/ui_kst.cpp` | 1075 | 1025 | 95.3% |
 | `src/ui_list.cpp` | 121 | 121 | 100.0% |
 | `src/ui_menu.cpp` | 117 | 116 | 99.1% |
 | `src/ui_screen.h` | 5 | 5 | 100.0% |
@@ -536,7 +537,7 @@ model.
 | `src/ui_slider.cpp` | 109 | 109 | 100.0% |
 | `src/ui_widgets.cpp` | 43 | 43 | 100.0% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **6269** | **6151** | **98.1%** |
+| **Total** | **6575** | **6424** | **97.7%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->

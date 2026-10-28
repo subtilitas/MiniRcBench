@@ -1412,8 +1412,18 @@ so these run against the same simulated servo:
    preview. Built, without the switched supply, which is step 5.
 5. The switched supply, its settings field and its SETTINGS row. Built in
    part: `servo_supply.*` with `servoSupplyInit()`, the settings field and
-   version 3, the clamp, the SETTINGS row and its tests. Not built: the
-   job's switching, REBOOT, the close rule and the card phase.
+   version 3, the clamp, the SETTINGS row, the switched search, REBOOT, the
+   close rule, the lapse rule, their screens and their tests against
+   `test/kst_supply_sim.h`. Not built: the card phase (`CardBegin`,
+   `CardEnd`, `kstCardStamp()`, `sdh_wait_hook`). As built, and differing
+   from the sections above:
+   - The close's wait shows on the unplug page,
+     `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`, not on the leave page; BACK there
+     is disabled until the pin is let go, as without a switch.
+   - REBOOT is taken from InMode only, and drops the pending changes with
+     the old image.
+   - BACK on the stalled screen and during a switched search goes to the
+     leave page as without a switch; BACK during REBOOT ends the claim.
    - `servo_supply.*`, and `servoSupplyInit()` in `main.cpp`'s `setup()`; the
      switched search, REBOOT, the close and the supply rules in `kst_seek.*`
      and `kst_job.*`, `Reboot`, `CardBegin` and `CardEnd` in `KstOp` and the
