@@ -56,8 +56,8 @@ protocol.
   Hitec session on SIG through `src/hitec_line_port.*`, the entry with the
   switched supply on GP0, the full read and its backup, writes with
   read-back, the heartbeat and lapse rules, the close rule and the card
-  phase, as `PinUser::Hitec` and `Core1Job::Hitec`. No screen starts it
-  yet. `tools/stack_depth.py` and a CI step find the job's deepest stack
+  phase, as `PinUser::Hitec` and `Core1Job::Hitec`; HITEC SERVO starts
+  it. `tools/stack_depth.py` and a CI step find the job's deepest stack
   chain on the Cortex-M33 from GCC's call graph and fail above 1,792 bytes.
 - The Hitec files on the card (`src/hitec_files.*`, work breakdown step 3):
   SAVE AS files `HITEC/HTnnn.TXT` and the backup `BACKUP/HTnnn.TXT` in
@@ -65,6 +65,16 @@ protocol.
   an old record moved into the ring, LOAD of a file, a backup or a record.
   `make -C test kstcount` counts the Hitec card phases into
   [hitec-programming.md](docs/design/hitec-programming.md).
+- The HITEC SERVO screen (`src/ui_hitec.*`, `src/hitec_view.*`, work
+  breakdown step 4), the fifth MENU row: the family choice, the entry and
+  the read, the field list with rcbench's rows, units and soft rules, the
+  write page with the backup and the record before the first write frame,
+  FILES with SAVE AS, LOAD, FACTORY VALUES and HOLD TO RESTORE, REPAIR of a
+  classic checksum, the leave and the unplug page. CLASSIC stays disabled
+  until bring-up measures the classic line level
+  (`HITEC_CLASSIC_MEASURED` 0 in `src/config.h`). MENU holds seven rows and
+  scrolls 36 px to reach SETTINGS. `docs/hitec-preview.png` shows the
+  screen.
 - SETTINGS → SERVO SUPPLY, `NONE` or `GP0`, in a section of its own
   between WIRING and DISPLAY: whether a DC-DC converter's enable for the KST
   servo's supply is wired to GP0 (`src/servo_supply.*`). With `GP0`, GP0 is

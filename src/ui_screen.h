@@ -37,6 +37,7 @@ enum class UiScreenId : uint8_t {
 	Am32,      /**< AM32 CONFIG. */
 	Servo,     /**< SERVO, its SET view and its unplug page. */
 	Kst,       /**< KST SERVO: the search, the field list, FILES, the write and leave pages. */
+	Hitec,     /**< HITEC SERVO: the family, the field list, FILES, the write and leave pages. */
 	Beep,      /**< BEEP THE ESC, an action on MENU: never open. */
 	Count,     /**< How many screens; not a screen. */
 };

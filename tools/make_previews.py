@@ -96,6 +96,14 @@ PREVIEWS = {
         "shot_kst_write",
         "shot_kst_files",
     ],
+    # HITEC SERVO: the family choice, an edit in the field list, the write
+    # page before the hold, and FILES after a save.
+    "hitec-preview": [
+        "shot_hitec_family",
+        "shot_hitec_preview",
+        "shot_hitec_write",
+        "shot_hitec_files",
+    ],
 }
 
 

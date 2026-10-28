@@ -604,3 +604,20 @@
 #define AM32_DEBUG             1
 
 /** @} */
+
+/**
+ * @defgroup cfg_hitec Hitec servo programming
+ * @{
+ */
+
+/**
+ * @brief 1 once the classic Hitec line's level is measured at bring-up.
+ *
+ * The classic family's entry and line run on the switched servo supply of
+ * GP0; the voltage the servo puts on the signal wire is not measured
+ * (docs/design/hitec-programming.md, decision 3). At 0 HITEC SERVO offers
+ * the D series only.
+ */
+#define HITEC_CLASSIC_MEASURED 0
+
+/** @} */

@@ -358,7 +358,7 @@ tester. Every tool's **BACK** returns to MENU.
   against a 25 ms repaint. BEEP is refused while armed. Opening MENU disarms,
   so the refusal is not reachable through the UI; the flash stays as a
   backstop.
-- **PINS BUSY**: AM32 CONFIG, SERVO TESTER and KST SERVO claim the signal
+- **PINS BUSY**: AM32 CONFIG, SERVO TESTER, KST SERVO and HITEC SERVO claim the signal
   pins. While the claim is not free, for example after RESTART DSHOT until
   the DShot pump runs again, the row reads `PINS BUSY` in amber and a tap
   opens nothing.
@@ -1338,7 +1338,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.6%**: 7,129 of 7,307 lines in 49 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **96.4%**: 8,263 of 8,568 lines in 51 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

@@ -26,8 +26,10 @@
 # src/hitec_line_port.cpp, the job's line on it; its header is on the include
 # path for the error codes and for `syntax`.
 HITEC_DIR           := ../lib/rcbench/protocols/hitec
-HITEC_SRCS          := ../src/hitec_job.cpp ../src/hitec_files.cpp
+HITEC_SRCS          := ../src/hitec_job.cpp ../src/hitec_files.cpp \
+                       ../src/hitec_view.cpp ../src/ui_hitec.cpp
 HITEC_TESTS         := test_hitec.cpp test_hitec_job.cpp test_hitec_files.cpp \
+                       test_hitec_view.cpp test_hitec_ui.cpp \
                        fake_hitec_line.cpp
 HITEC_DEVICE_SRCS   := ../src/hitec_line_port.cpp
 HITEC_CSRCS         := $(HITEC_DIR)/hitec_wire.c $(HITEC_DIR)/hitec_pio.c \

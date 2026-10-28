@@ -12,7 +12,7 @@ names, what the ring holds and the write cache's scope; the SD write cache of
 |---|---|---|---|
 | KST SERVO | KST and Chaservo servos | the image read at entry, rcbench's text format ([kst-programming.md](kst-programming.md#storage)) | `KST` |
 | AM32 CONFIG | AM32 ESCs (electronic speed controllers) | the settings block read at entry, as text (`src/am32_backup.*`) | `AM` |
-| Hitec | Hitec servos | the first full read after the entry, rcbench's servo file text, saved by `hitecFilesFirstWrite()` (`src/hitec_files.h`, [hitec-programming.md](hitec-programming.md#storage)); no screen calls it yet | `HT` |
+| Hitec | Hitec servos | the first full read after the entry, rcbench's servo file text, saved by `hitecFilesFirstWrite()` (`src/hitec_files.h`, [hitec-programming.md](hitec-programming.md#storage)) | `HT` |
 
 ## Card layout
 
@@ -144,12 +144,12 @@ the AM32 backup among them, are in
 ## The write cache
 
 The cache of [sd-write-cache.md](sd-write-cache.md) runs during the pin
-claims of KST SERVO and AM32 CONFIG, the tools that save backups, and not
-during SERVO. The HITEC SERVO claim runs it as well once its screen is built
+claims of KST SERVO, AM32 CONFIG and HITEC SERVO, the tools that save
+backups, and not during SERVO
 ([hitec-programming.md](hitec-programming.md#decisions-of-the-owner),
-decision 11, work breakdown step 4). Its rules are that note's; a tool's write to
+decision 11). Its rules are that note's; a tool's write to
 its device starts only once the flush of its backup ends clean. A claim of
-either tool stops a blackbox log that runs when it opens: during a claim the
+any of them stops a blackbox log that runs when it opens: during a claim the
 DShot pump stops, so the log has nothing to record.
 
 ## Tests

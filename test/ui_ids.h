@@ -39,10 +39,6 @@ static inline void idFail(const char *what) {
 	else checkTrue(what, false);
 }
 
-/** @brief The MENU row that opens @p s: `UI_ROW(n, Row)`. */
-static inline UiControlId menuRow(const UiScreen *s) {
-	return UI_ROW(uiMenuRowOf(s), Row);
-}
 
 /** @brief Whether the control expects to act. */
 enum class IdExpect : uint8_t { Enabled, Disabled, Any };
@@ -187,6 +183,17 @@ static inline void revealRow(int row) {
 	char what[48];
 	snprintf(what, sizeof(what), "list row %d can be scrolled whole", row);
 	idFail(what);
+}
+
+/**
+ * @brief The MENU row that opens @p s: `UI_ROW(n, Row)`. With MENU open, the
+ *        list is first dragged until that row is whole (revealRow()), as a
+ *        finger reaches a row below the fold.
+ */
+static inline UiControlId menuRow(const UiScreen *s) {
+	int row = uiMenuRowOf(s);
+	if (uiCurrentScreen() == UiScreenId::Menu) revealRow(row);
+	return UI_ROW(row, Row);
 }
 
 /**

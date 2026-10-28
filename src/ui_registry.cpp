@@ -5,6 +5,7 @@
 
 #include "ui_registry.h"
 #include "ui_am32.h"
+#include "ui_hitec.h"
 #include "ui_kst.h"
 #include "ui_menu.h"
 #include "ui_sdlog.h"
@@ -17,6 +18,7 @@ constexpr UiMenuEntry UI_MENU[] = {
 	{ "AM32 CONFIG",   9, &UI_AM32     },   // ui_am32.cpp: GP29, PINS BUSY
 	{ "SERVO TESTER",  9, &UI_SERVO    },   // ui_servo.cpp: GP29+28, PINS BUSY
 	{ "KST SERVO",     9, &UI_KST      },   // ui_kst.cpp: GP29, PINS BUSY
+	{ "HITEC SERVO",   9, &UI_HITEC    },   // ui_hitec.cpp: GP29, PINS BUSY
 	{ "SD LOG",       10, &UI_SDLOG    },   // ui_sdlog.cpp: CARD ERROR
 	{ "SETTINGS",      9, &UI_SETTINGS },   // ui_settings.cpp: PINS BUSY, UNSAVED
 };

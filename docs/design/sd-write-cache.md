@@ -1,7 +1,7 @@
 # SD write cache for the backup claims
 
 Built, host tests only, not tested on hardware. While the pin claim of KST
-SERVO or AM32 CONFIG holds, the two tools that save device backups
+SERVO, AM32 CONFIG or HITEC SERVO holds, the tools that save device backups
 ([backups.md](backups.md)), block writes to the SD (Secure Digital) card go
 into a queue in SRAM (static random-access memory) and return at once. A
 flush step on core0 sends them to the card in the order FatFs wrote them, one
@@ -9,9 +9,9 @@ block per loop pass, without waiting on the card's busy line. Block reads come
 from the queue, from a read cache, or from the card. Core0 keeps drawing,
 reading touch and sending the heartbeat while the card programs.
 
-The HITEC SERVO claim joins them once its screen is built
+The HITEC SERVO claim runs it too
 ([hitec-programming.md](hitec-programming.md#decisions-of-the-owner),
-decision 11, work breakdown step 4). Outside those claims nothing changes:
+decision 11). Outside those claims nothing changes:
 SERVO, the blackbox logger, SD LOG and USB (Universal Serial Bus) DRIVE use the synchronous path
 of [sdio-driver.md](sdio-driver.md).
 
@@ -224,7 +224,7 @@ A batch that fails:
 
 ## Turning on and off
 
-- `cardCacheBegin()` runs when the KST SERVO or AM32 CONFIG screen's claim
+- `cardCacheBegin()` runs when the KST SERVO, AM32 CONFIG or HITEC SERVO screen's claim
   is taken. A blackbox log that runs then stops first: during a claim the
   DShot pump stops, so the log has nothing to record, and its writes, 7.3
   kB/s or 14.3 blocks a second, would fill the queue behind the backup in

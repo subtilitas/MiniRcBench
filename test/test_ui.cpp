@@ -22,6 +22,7 @@
 #include "ui_sdlog.h"
 #include "ui_screen.h"
 #include "ui_servo.h"
+#include "ui_hitec.h"
 #include "ui_kst.h"
 #include "touch.h"
 #include "esc_task.h"
@@ -2473,11 +2474,12 @@ static void testMenuDestinations() {
 	// The registry, in MENU order.
 	uint8_t rows = 0;
 	uiMenuEntries(&rows);
-	checkInt("MENU has six rows", rows, 6);
-	checkTrue("BEEP, AM32 CONFIG, SERVO TESTER, KST SERVO, SD LOG, SETTINGS, in that order",
+	checkInt("MENU has seven rows", rows, 7);
+	checkTrue("BEEP, AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO, SD LOG, SETTINGS, in that order",
 	          uiMenuRowOf(&UI_BEEP) == 0 && uiMenuRowOf(&UI_AM32) == 1 &&
 	          uiMenuRowOf(&UI_SERVO) == 2 && uiMenuRowOf(&UI_KST) == 3 &&
-	          uiMenuRowOf(&UI_SDLOG) == 4 && uiMenuRowOf(&UI_SETTINGS) == 5);
+	          uiMenuRowOf(&UI_HITEC) == 4 && uiMenuRowOf(&UI_SDLOG) == 5 &&
+	          uiMenuRowOf(&UI_SETTINGS) == 6);
 
 	// A pixel inside each row, clear of its label: the panel fill of a row.
 	// It is 5 px in from the left edge and 8 px down from the top.
