@@ -176,15 +176,27 @@ extern "C" void gpio_set_function(uint32_t gpio, gpio_function fn) {
 	if (gpio >= FAKE_GPIOS) return;
 	if (fn != GPIO_FUNC_PWM) cutCheck(gpio);
 	g_pins[gpio].function = (int)fn;
+	// As the SDK does: selecting a function turns the pad's input on.
+	g_pins[gpio].inputOff = false;
 }
 extern "C" void gpio_set_dir(uint32_t gpio, int out) {
-	if (gpio < FAKE_GPIOS) g_pins[gpio].output = out != 0;
+	if (gpio >= FAKE_GPIOS) return;
+	if (out && !g_pins[gpio].output && g_pins[gpio].high) g_pins[gpio].highEnables++;
+	g_pins[gpio].output = out != 0;
 }
 extern "C" void gpio_disable_pulls(uint32_t gpio) {
 	if (gpio < FAKE_GPIOS) g_pins[gpio].pull = FakePull::None;
 }
 extern "C" void gpio_pull_down(uint32_t gpio) {
 	if (gpio < FAKE_GPIOS) g_pins[gpio].pull = FakePull::Down;
+}
+extern "C" void gpio_put(uint32_t gpio, int value) {
+	if (gpio >= FAKE_GPIOS) return;
+	g_pins[gpio].high = value != 0;
+	g_pins[gpio].puts++;
+}
+extern "C" void gpio_set_input_enabled(uint32_t gpio, bool on) {
+	if (gpio < FAKE_GPIOS) g_pins[gpio].inputOff = !on;
 }
 
 uint32_t clock_get_hz(enum clock_index) { return 150000000u; }

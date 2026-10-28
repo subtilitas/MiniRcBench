@@ -400,12 +400,12 @@ static void testBlankNamesTheBoard() {
  * change to any of them belongs with a new @ref SETTINGS_VERSION, and the
  * DshotDisplay block then stops loading on purpose rather than by accident.
  */
-static void testDshotDisplayLayout() {
-	section("Settings: the block layout DshotDisplay 2.x writes");
+static void testLayout() {
+	section("Settings: the version 3 block layout");
 
 	checkTrue("magic \"DSHT\"", SETTINGS_MAGIC == 0x44534854u);
-	checkInt("version", SETTINGS_VERSION, 2);
-	checkInt("payload size", (long)sizeof(Settings), 12);
+	checkInt("version", SETTINGS_VERSION, 3);
+	checkInt("payload size", (long)sizeof(Settings), 14);
 	checkInt("boardId at 0", (long)offsetof(Settings, boardId), 0);
 	checkInt("dshotPin at 1", (long)offsetof(Settings, dshotPin), 1);
 	checkInt("dshotKbaud at 2", (long)offsetof(Settings, dshotKbaud), 2);
@@ -415,28 +415,66 @@ static void testDshotDisplayLayout() {
 	checkInt("maxThrottle at 8", (long)offsetof(Settings, maxThrottle), 8);
 	checkInt("backlight at 10", (long)offsetof(Settings, backlight), 10);
 	checkInt("highContrast at 11", (long)offsetof(Settings, highContrast), 11);
-	checkInt("block size", (long)sizeof(SettingsBlock), 24);
+	checkInt("servoSupply at 12", (long)offsetof(Settings, servoSupply), 12);
+	checkInt("block size", (long)sizeof(SettingsBlock), 28);
 
-	// A block as DshotDisplay saves it on this board: board id 28, the wires
-	// swapped onto each other's default pins, KISS on, and every other field
-	// off its default. It loads as it was stored.
-	Settings dd;
-	settingsDefaults(&dd);
-	dd.boardId      = BOARD_ID_LCD_2_8;
-	dd.dshotPin     = 28;
-	dd.kissEnable   = 1;
-	dd.kissPin      = 29;
-	dd.dshotKbaud   = 300;
-	dd.poles        = 12;
-	dd.maxThrottle  = 800;
-	dd.backlight    = 96;
-	dd.highContrast = 1;
+	// A block with every field off its default, the switch fitted, loads as
+	// it was stored.
+	Settings v3;
+	settingsDefaults(&v3);
+	v3.dshotPin     = 28;
+	v3.kissEnable   = 1;
+	v3.kissPin      = 29;
+	v3.dshotKbaud   = 300;
+	v3.poles        = 12;
+	v3.maxThrottle  = 800;
+	v3.backlight    = 96;
+	v3.highContrast = 1;
+	v3.servoSupply  = 1;
 	fakeFlashClear();
-	storeValid(&dd);
+	storeValid(&v3);
 	settingsLoad();
 	checkTrue("the block is taken", settingsStored());
-	checkTrue("every field as stored", memcmp(settings(), &dd, sizeof(dd)) == 0);
+	checkTrue("every field as stored", memcmp(settings(), &v3, sizeof(v3)) == 0);
 	checkTrue("with nothing to save", !settingsDirty());
+
+	// A version 2 block, as DshotDisplay 2.x and the builds before the
+	// switch wrote it: 12 bytes of payload, its CRC right. Discarded whole.
+	uint8_t v2[24];
+	memset(v2, 0, sizeof(v2));
+	const uint32_t magic = SETTINGS_MAGIC;
+	const uint16_t version = 2, size = 12;
+	memcpy(v2, &magic, 4);
+	memcpy(v2 + 4, &version, 2);
+	memcpy(v2 + 6, &size, 2);
+	memcpy(v2 + 8, &v3, 12);
+	const uint32_t crc = settingsCrc32(v2, 20);
+	memcpy(v2 + 20, &crc, 4);
+	fakeFlashClear();
+	memcpy(fakeFlashBytes(), v2, sizeof(v2));
+	settingsLoad();
+	Settings d;
+	settingsDefaults(&d);
+	checkTrue("a version 2 block is discarded", !settingsStored());
+	checkTrue("and the compiled defaults load, the ESC pin among them",
+	          memcmp(settings(), &d, sizeof(d)) == 0);
+	checkInt("the switch: none", settings()->servoSupply, 0);
+}
+
+/** @brief The servo supply: 0 or 1 pass; anything else reads as none. */
+static void testServoSupplyClamp() {
+	section("Settings: the servo supply clamp");
+	Settings s;
+	settingsDefaults(&s);
+	checkInt("default: none", s.servoSupply, 0);
+	s.servoSupply = 1;
+	checkTrue("GP0 passes", settingsValidate(&s) && s.servoSupply == 1);
+	s.servoSupply = 2;
+	checkTrue("2 is repaired", !settingsValidate(&s));
+	checkInt("to none", s.servoSupply, 0);
+	s.servoSupply = 255;
+	settingsValidate(&s);
+	checkInt("255 to none", s.servoSupply, 0);
 }
 
 void runSettingsTests() {
@@ -453,7 +491,8 @@ void runSettingsTests() {
 	testForeignBoardBlock();
 	testNoOpSaveWritesNothing();
 	testBlankNamesTheBoard();
-	testDshotDisplayLayout();
+	testLayout();
+	testServoSupplyClamp();
 
 	// Leave the module in a known state: test_ui.cpp runs after this and reads
 	// settings() for the pole count and throttle ceiling.

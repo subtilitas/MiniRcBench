@@ -351,7 +351,7 @@ tester. Every tool's **BACK** returns to MENU.
 | **SERVO TESTER** | the signal pins, `GP29+28`; `PINS BUSY` | Opens the servo tester. See [Servo tester](#servo-tester) |
 | **KST SERVO** | the ESC pin, `GP29`; `PINS BUSY` | Opens the KST servo programmer. See [KST servo programming](#kst-servo-programming) |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a USB host holds the card | Opens the logging status. See below |
-| **SETTINGS** | `UNSAVED` while the live settings differ from flash, else nothing; `PINS BUSY` while the pin claim is not Free, drawn disabled | Opens SETTINGS. See below |
+| **SETTINGS** | `UNSAVED` while the live settings differ from flash, else nothing; `PINS BUSY` while the pin claim is not Free, drawn disabled | Opens SETTINGS: the tester, the wiring, the KST servo supply, the display. See below |
 
 - **BEEP flash**: a tap fills the row for 350 ms (`BEEP_FLASH_MS`): white
   with `SENT`, amber with `REFUSED`. Without it a 6 ms command is not visible
@@ -404,6 +404,7 @@ a drag. A row is 44 px tall at a 50 px pitch. **MOTOR POLES** and
 | WIRING | **DSHOT KBAUD** | 150 / 300 / 600 / 1200, wrapping at the ends. Applies at once: the driver is rebuilt on the new pin and rate before the next frame |
 | WIRING | **KISS TELEM** | Whether to listen for the telemetry wire. Turning it on moves the KISS pin off the ESC pin if they coincide |
 | WIRING | **KISS PIN** | Steps through the same free GPIOs, skipping the ESC pin. The receiver is a PIO state machine, so any free GPIO works. Reads `--` and does not act while KISS is off |
+| SERVO SUPPLY | **SERVO SUPPLY** | `NONE`, the default, or `GP0`: whether the enable input of a DC-DC converter for the KST servo's supply is wired to GP0, J5 pin 2 (design note `docs/design/kst-programming.md`, "Switched servo supply"). A toggle; it applies at once. With `GP0`, GP0 is an input with both pulls off and its input disabled outside a KST claim, so the converter's external pull-down holds it off. KST SERVO does not switch the supply yet |
 | DISPLAY | **CONTRAST** | `NORMAL` or `HIGH`. See below |
 | DISPLAY | **BACKLIGHT** | 16–255 in steps of 32. High contrast forces 255 while on |
 | BOARD | **BUILT FOR** | `RP2350-TOUCH-LCD-2.8`, the board the image is built for. Read-only |
@@ -428,6 +429,12 @@ Below the list, fixed and not scrolled:
 A wrong ESC pin produces no error: the ESC receives no frames. **LINK** on this
 screen shows the result of each pin change. A non-zero packet rate means the
 pin is correct.
+
+The settings block is version 3 (`SETTINGS_VERSION`). A block of another
+version is discarded whole, so the first boot after an update from a
+version 2 build, DshotDisplay 2.x among them, starts from the compiled
+defaults, every setting and the ESC pin included. DshotDisplay discards a
+version 3 block the same way.
 
 **HOLD TO SAVE** (1 s, `UI_HOLD_MS`) writes all settings to flash: every row
 above, pole count and throttle ceiling included. Erasing the flash sector stops
@@ -1018,8 +1025,9 @@ reads `READ ONLY: UNKNOWN LAYOUT`.
 
 **Current limitations**
 
-- No switched supply: the servo is powered up and down by hand. The design
-  note's step 5 adds a converter on GP0.
+- No switched supply: the servo is powered up and down by hand. SETTINGS
+  configures GP0 for a converter (`SERVO SUPPLY`), and the KST job does not
+  drive it yet; the design note's step 5 adds the switching.
 - The first write's card reads run on core0, and the screen does not redraw
   until they end; its writes queue and flush while the screen keeps drawing.
   With no card at the screen's opening the cache stays off, and a card
@@ -1270,7 +1278,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.1%**: 6,106 of 6,224 lines in 46 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.1%**: 6,151 of 6,269 lines in 47 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

@@ -1410,7 +1410,10 @@ so these run against the same simulated servo:
    the holds on `ui_hold`; its `UiScreen` and its line in `ui_registry.cpp`,
    so MENU shows KST SERVO ([menu.md](menu.md#code)); UI tests by control id;
    preview. Built, without the switched supply, which is step 5.
-5. The switched supply, its settings field and its SETTINGS row:
+5. The switched supply, its settings field and its SETTINGS row. Built in
+   part: `servo_supply.*` with `servoSupplyInit()`, the settings field and
+   version 3, the clamp, the SETTINGS row and its tests. Not built: the
+   job's switching, REBOOT, the close rule and the card phase.
    - `servo_supply.*`, and `servoSupplyInit()` in `main.cpp`'s `setup()`; the
      switched search, REBOOT, the close and the supply rules in `kst_seek.*`
      and `kst_job.*`, `Reboot`, `CardBegin` and `CardEnd` in `KstOp` and the

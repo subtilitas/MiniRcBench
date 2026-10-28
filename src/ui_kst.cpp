@@ -1567,7 +1567,23 @@ static void kstMenuStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
 	*col = C_DIM;
 }
 
+// ---------------------------------------------------------------------------
+// SETTINGS: the SERVO SUPPLY section
+// ---------------------------------------------------------------------------
+
+static void supplyValue(char *b, size_t n, uint16_t *c) {
+	snprintf(b, n, "%s", settings()->servoSupply ? "GP0" : "NONE");
+	*c = C_TEXT;
+}
+static bool supplyOn() { return settings()->servoSupply != 0; }
+static void supplyToggle() { settings()->servoSupply = settings()->servoSupply ? 0 : 1; }
+
+static constexpr SettingsRow ROWS_SUPPLY[] = {
+	{ "SERVO SUPPLY", SettingsKind::Toggle, 4, supplyValue, nullptr, nullptr, supplyToggle, supplyOn },
+};
+static constexpr SettingsSection SEC_SUPPLY = { "SERVO SUPPLY", ROWS_SUPPLY, 1 };
+
 const UiScreen UI_KST = {
 	UiScreenId::Kst, "KST SERVO", PinUser::Kst, kstMenuStatus,
-	uiKstEnter, uiKstTick, nullptr, uiKstControls, nullptr, false,
+	uiKstEnter, uiKstTick, nullptr, uiKstControls, &SEC_SUPPLY, false,
 };

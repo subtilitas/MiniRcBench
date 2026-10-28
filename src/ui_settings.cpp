@@ -31,6 +31,7 @@
 #include "config.h"
 #include "board_desc.h"
 #include "board_pins.h"
+#include "servo_supply.h"
 
 #include "plat.h"
 #include <stdio.h>
@@ -557,6 +558,9 @@ static void applyLive() {
 	escSetPoles(s->poles);
 	themeSet(s->highContrast ? Theme::HighContrast : Theme::Dark);
 	st7789SetBacklight(themeBacklight(s->backlight));
+	// No claim holds while SETTINGS is open, so GP0 is only configured,
+	// never driven.
+	servoSupplyConfigure(s->servoSupply);
 }
 
 // ---------------------------------------------------------------------------
@@ -606,6 +610,11 @@ bool uiSettingsTick(const TouchState *t) {
 	}
 
 	s_changed = false;
+	// A tool's row writes settings() without this file's flag: a change is
+	// what differs after the rows ran.
+	// memcpy, not a struct copy, so the padding byte compares too.
+	Settings before;
+	memcpy(&before, settings(), sizeof(before));
 	for (uint8_t i = 0; i < s_itemCount; i++) {
 		const Item &it = s_items[i];
 		if (!it.row || it.index >= MAX_ROWS) continue;
@@ -624,6 +633,8 @@ bool uiSettingsTick(const TouchState *t) {
 			if (mine && uiTapped(clipToView(partRect(it, UiPart::Toggle)), s_t)) r.toggle();
 		}
 	}
+
+	if (memcmp(&before, settings(), sizeof(before)) != 0) s_changed = true;
 
 	if (uiBackTapped(s_t)) {
 		s_ctlPress = false;

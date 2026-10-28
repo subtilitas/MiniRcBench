@@ -18,6 +18,7 @@ void runGfxTests();
 void runBlackboxTests();
 void runLogRingTests();
 void runSettingsTests();
+void runServoSupplyTests();
 void runUsbMscTests();
 void runDshotFrameTests();
 void runDshotTelemTests();
@@ -37,6 +38,8 @@ int main() {
 	printf("=======================\n");
 
 	runAm32Tests();
+	// Before the UI suite, whose SETTINGS tests configure the supply.
+	runServoSupplyTests();
 	runUiTests();
 	runKissTests();
 	runGfxTests();
