@@ -97,11 +97,12 @@ busy wait, for one block. The SD clock runs from the block's send until
 `sdh_write_poll()` sees the block done, as it does during `writeChunk()`'s
 busy wait; a block that waits several loop passes keeps the clock running
 for that time. A transfer error after CMD24 waits for busy as well: the
-error is reported once DAT0 is high, so the next attempt never meets a card
-that is still programming. A block is tried again on a CRC, frame, timeout
-or no-response error, up to `SDC_ATTEMPTS`, 3 times in all; neither call
-marks the card not ready, so each attempt reaches the card. A block that
-still fails ends the batch ([errors](#errors)).
+error is reported once DAT0 is high. A block is tried again on a CRC,
+frame, timeout or no-response error, up to `SDC_ATTEMPTS`, 3 times in all;
+a command that gets no response leaves the card ready, so each attempt
+reaches it. A card still busy at `SDH_BUSY_TIMEOUT_US` is marked not ready:
+it would answer no CMD24 while programming, so the batch ends there. A
+block that still fails ends the batch ([errors](#errors)).
 
 ## The flush barrier
 
@@ -120,8 +121,10 @@ still to go, or `Failed`.
 - **Any failed batch on KST.** `Idle` after a recovery says only that the
   queue is empty. A batch that fails off the write page, after BACK during
   the flush, in SAVE AS or in a removal of the record, may have held the
-  backup, so every recovery forgets the first write. A write or a SAVE AS
-  that finds the cache at `Failed` recovers first.
+  backup, so every recovery forgets the first write. A write, a SAVE AS, a
+  LOAD or the FILES page that finds the cache at `Failed` recovers first.
+- **AM32 CONFIG** recovers after any failed batch of its backup, the save's
+  own included, so the next WRITE saves the backup again.
 - **KST SAVE AS** flushes on the spot (`cardCacheFlush()`) and reports what
   the card holds: a failed flush is `THE CARD TOOK NO FILE`, and the next
   write saves the backup again.
@@ -175,6 +178,8 @@ A batch that fails:
 - the queue and the read cache are dropped, and later reads and writes are
   refused until `cardCacheRecover()`: the card's copy of a dropped sector is
   older than the one FatFs wrote;
+- the card is marked not ready, so the remount initialises it again, whether
+  it stopped answering or another card is in the slot;
 - `cardCacheRecover()` mounts the card again (`sdLogRemount()`), so that FatFs
   drops its own sector window, which holds the state it believed written,
   then reads the serial number of the volume it mounted for the swap check.
@@ -196,8 +201,11 @@ A batch that fails:
   rule, AM32's BACK. It flushes, core0 blocking, recovers a failed flush, and
   turns the cache off. BACK on KST's unplug page keeps the claim and turns
   the cache on again.
-- A remount during the claim, KST's RETRY MOUNT or a recovery, keeps the
-  cache on: the queue goes to the card the swap check finds.
+- KST's RETRY MOUNT keeps the cache on with the serial number taken at the
+  claim's start. A card swapped before it fails the next batch at the swap
+  check, with nothing written, and the recovery that follows takes the new
+  card's number. A recovery takes the number of the card it mounted, and
+  turns the cache off when no card mounts.
 - USB DRIVE is started from SD LOG, which neither screen reaches: their BACK
   and KST's LEAVE return to MENU.
 

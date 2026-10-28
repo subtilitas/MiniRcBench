@@ -496,10 +496,10 @@ static void doWrite() {
 		                                s_backupName);
 		// The ESC is written only once the card holds the backup. The AM32
 		// transport blocks core0 anyway, so the flush runs on the spot.
-		if (b == BackupResult::Ok && cardCacheFlush() == CardCache::Failed) {
-			cardCacheRecover();
-			b = BackupResult::WriteError;
-		}
+		if (b == BackupResult::Ok && cardCacheFlush() == CardCache::Failed) b = BackupResult::WriteError;
+		// A batch that failed during the save or its flush: the card is
+		// mounted again, and the next WRITE saves the backup again.
+		if (cardCacheState() == CardCache::Failed) cardCacheRecover();
 		if (b != BackupResult::Ok) {
 			snprintf(s_status, sizeof(s_status), "NO BACKUP ON THE CARD: NOT WRITTEN");
 			return;

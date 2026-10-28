@@ -226,8 +226,8 @@ sd_err_t sdh_write_start(const sdh_bus_t *b, sdh_card_t *c, uint32_t lba, const 
 	w->active = false;
 	if (!c->ready) return SDE_NOT_READY;
 	if (!buf || lba >= c->sectors) return SDE_PARAM;
-	/* The caller tries again, so a timeout leaves the card ready, as within
-	 * sdh_write()'s attempts. */
+	/* The caller tries again, so a command timeout leaves the card ready, as
+	 * within sdh_write()'s attempts. */
 	sd_err_t e = cmdR1(b, 24, address(c, lba), SDP_RESP_R1, 0);
 	if (e != SDE_OK) return finish(b, e);
 	uint32_t tok[2] = { 0xFFFFFFFFu, 0xFFFFFFFFu };
@@ -255,6 +255,9 @@ sd_err_t sdh_write_poll(const sdh_bus_t *b, sdh_card_t *c, sdh_wr_t *w, bool *do
 	sd_err_t e = SDE_OK;
 	if (!b->dat0(b->ctx)) {
 		if ((uint32_t)(b->now_us(b->ctx) - w->t0_us) < SDH_BUSY_TIMEOUT_US) return SDE_OK;
+		/* Still programming after the limit: CMD24 would find the card in
+		 * the prg state and get no response. The card needs sdh_init(). */
+		c->ready = false;
 		e = SDE_TIMEOUT;
 	}
 	*done = true;

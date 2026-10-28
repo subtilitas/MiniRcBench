@@ -156,8 +156,8 @@ typedef struct {
  * @return SDE_OK once CMD24 was taken, whatever the transfer and the token
  *         said: sdh_write_poll() waits for busy and reports their error. A
  *         command error otherwise, with nothing in flight and the clock
- *         stopped. Neither this call nor sdh_write_poll() marks the card not
- *         ready on a timeout: the caller's attempts decide, as sdh_write()'s.
+ *         stopped. A command timeout leaves the card ready: the caller's
+ *         attempts decide, as sdh_write()'s.
  */
 sd_err_t sdh_write_start(const sdh_bus_t *bus, sdh_card_t *card, uint32_t lba,
                          const uint8_t *buf, sdh_wr_t *w);
@@ -169,8 +169,9 @@ sd_err_t sdh_write_start(const sdh_bus_t *bus, sdh_card_t *card, uint32_t lba,
  * @param w    From sdh_write_start().
  * @param done Set true once the block is programmed or has failed; then
  *             CMD13 has run, the clock is stopped and @p w is no longer active.
- * @return While not done, SDE_OK. When done: SDE_OK, the token's error, the
- *         status error, or SDE_TIMEOUT after @ref SDH_BUSY_TIMEOUT_US of busy.
+ * @return While not done, SDE_OK. When done: SDE_OK, the transfer's or the
+ *         token's error, the status error, or SDE_TIMEOUT after
+ *         @ref SDH_BUSY_TIMEOUT_US of busy, which marks the card not ready.
  */
 sd_err_t sdh_write_poll(const sdh_bus_t *bus, sdh_card_t *card, sdh_wr_t *w, bool *done);
 

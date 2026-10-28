@@ -959,6 +959,8 @@ static void writeTouch() {
 
 /** @brief Read the card's list into the page. */
 static void readFiles() {
+	// A failed batch refuses every read until the card is mounted again.
+	if (cardCacheState() == CardCache::Failed) recoverFlush();
 	// One lookup of KST in the root for the list, the names and the record.
 	KstFilesScope scope;
 	s_fileCount = 0;
@@ -1080,6 +1082,7 @@ static void fileNote(uint16_t col, const char *text) {
 
 /** @brief LOAD: the selected file, held against the servo, becomes the pending changes. */
 static void loadSelected() {
+	if (cardCacheState() == CardCache::Failed) recoverFlush();
 	KstFilesScope scope;
 	size_t len = 0;
 	const char *f = fileOf(s_fileSel);
@@ -1136,13 +1139,18 @@ static void loadSelected() {
 
 static void saveAs() {
 	if (cardCacheState() == CardCache::Failed) recoverFlush();
-	KstFilesScope scope;
-	size_t n = kst_file_format(&s_st.image, s_text, sizeof(s_text));
 	char saved[KST_STORE_NAME_MAX];
-	kst_store_t r = kstFilesSaveAs(s_text, n, saved);
-	// SAVE AS reports what the card holds: it waits for the flush. A failed
-	// batch may hold the first write's backup too, so that one starts over.
-	if (r == KST_STORE_OK && cardCacheFlush() == CardCache::Failed) r = KST_STORE_WRITE_ERROR;
+	kst_store_t r;
+	{
+		KstFilesScope scope;
+		size_t n = kst_file_format(&s_st.image, s_text, sizeof(s_text));
+		r = kstFilesSaveAs(s_text, n, saved);
+		// SAVE AS reports what the card holds: it waits for the flush.
+		if (r == KST_STORE_OK && cardCacheFlush() == CardCache::Failed) r = KST_STORE_WRITE_ERROR;
+	}
+	// A failed batch may hold the first write's backup too, so that one
+	// starts over. The remount returns FatFs to the root, so the recovery
+	// runs outside the scope.
 	if (cardCacheState() == CardCache::Failed) recoverFlush();
 	// The name without its extension, as the button showed it.
 	char *dot = strrchr(saved, '.');

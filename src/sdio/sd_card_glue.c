@@ -270,6 +270,10 @@ int sd_sdio_cache_flush(sd_card_t *c) {
 void sd_sdio_cache_drop(sd_card_t *c) {
 	sd_lock(c);
 	sdc_drop();
+	/* The batch failed on this card: the next mount initialises it again,
+	 * whether it stopped answering or another card is in the slot. */
+	c->sdio_if_p->state.card.ready = false;
+	syncStatus(c);
 	sd_unlock(c);
 }
 

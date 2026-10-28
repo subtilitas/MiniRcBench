@@ -1170,10 +1170,19 @@ static void testWriteAsync() {
 	checkTrue("busy 1 us short of the limit: not done", !done);
 	s.t += 1;
 	checkInt("busy at the limit: timeout", sdh_write_poll(&b, &c, &w, &done), SDE_TIMEOUT);
-	checkTrue("done, the card still ready for the caller's next attempt", done && c.ready);
+	checkTrue("done, the card marked not ready", done && !c.ready);
+	checkInt("the next attempt: refused", sdh_write_start(&b, &c, 72, data, &w), SDE_NOT_READY);
 	s.busyForever = false;
 	s.t += 1000;
-	checkInt("the attempt after a timeout goes out", sdh_write_start(&b, &c, 72, data, &w), SDE_OK);
+	sdh_init(&b, &c, 10000000u);
+
+	// CMD24 without a response: the card stays ready for the next attempt.
+	s.removeAtCmd = s.cmdCount;
+	checkInt("CMD24 unanswered: no response", sdh_write_start(&b, &c, 72, data, &w), SDE_NO_RESPONSE);
+	checkTrue("nothing in flight, the card still ready", !w.active && c.ready);
+	s.removeAtCmd = -1;
+	s.removed = false;
+	checkInt("the next attempt goes out", sdh_write_start(&b, &c, 72, data, &w), SDE_OK);
 	s.t += 300;
 	checkInt("and lands", sdh_write_poll(&b, &c, &w, &done), SDE_OK);
 

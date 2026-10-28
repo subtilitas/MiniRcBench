@@ -1242,6 +1242,16 @@ static void testFlushWait() {
 	          job().result == KST_SES_OK && sim->n_writes > writes);
 	tapId(UI_FIX(KstCtl::WriteOk));
 
+	// FILES after a batch failed in the background: mounted again first,
+	// since the failed cache refuses every read.
+	fakeCacheSet(CardCache::Failed, 0);
+	recovers = fakeCacheCalls().recovers;
+	tapId(UI_FIX(KstCtl::Files));
+	checkTrue("FILES after a failed batch: recovered, the list read",
+	          uiKstView() == KstView::Files && fakeCacheCalls().recovers == recovers + 1 &&
+	          cardCacheState() == CardCache::Idle);
+	tapId(UI_FIX(UI_BACK));
+
 	// BACK on the unplug page keeps the claim: the cache is on again.
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(KstCtl::Leave));
