@@ -5,9 +5,10 @@
  *
  * The 5 values of rcbench's link page map that test_hitec_session.c holds
  * the Hitec session's values to, and nothing else. rcbench's header is the
- * page map of its panel-to-IOmcu link (2,734 lines), which MiniRcBench does
- * not port; test_hitec_session.c and hitec_pio_model.h stay byte for byte
- * rcbench's and include this file in its place.
+ * page map of the link between its panel and its IOmcu (input/output
+ * microcontroller), 2,734 lines, which MiniRcBench does not port;
+ * test_hitec_session.c stays byte for byte rcbench's and includes this file
+ * in its place.
  *
  * Hitec is a name or trademark of its owner; it is used here only to say
  * which servos this module works with.

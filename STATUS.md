@@ -344,8 +344,8 @@ Not in this history: the DshotDisplay repository's branches
     [hitec-programming.md](docs/design/hitec-programming.md) records the
     design on rcbench 3e29dc1b, with writes, and the owner's decisions of
     2026-10-23 and 2026-10-28. Step 1 is built: rcbench's Hitec files in
-    `lib/rcbench/` with their 115 test cases; nothing in `src/` calls them. No write plan of rcbench's
-    Hitec session or panel has run on a servo, so bring-up runs one write
+    `lib/rcbench/` with their 115 test cases; nothing in `src/` calls them.
+    No write plan of rcbench's Hitec session or panel has run on a servo, so bring-up runs one write
     with read-back per family before a write is relied on. It depends on the
     pin claim and on KST steps 4 and 5.
 

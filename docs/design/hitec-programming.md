@@ -1037,9 +1037,9 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
 
 - rcbench's tests above, run by `make` and CI.
 - `fixtures/hitec_line_words.txt` against pioasm's output: the firmware
-  build assembles `hitec_line.pio`, and a CI step compares the generated
-  header's words with the fixture, as rcbench's firmware build does
-  (`test_hitec_pio.c`, lines 18 to 19).
+  build assembles `hitec_line.pio`, and a CI step compares pioasm's hex
+  output (`pioasm -o hex`) with the fixture, as rcbench's firmware build
+  holds it (`test_hitec_pio.c`, lines 18 to 19).
 - `test/hitec_servo_sim.h`: a servo behind the fake line, adapted from the
   servo model of rcbench's `hitec_session_rig.h`, which is written for
   `greatest.h`. It takes each transaction the job starts, answers from a
@@ -1112,8 +1112,8 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
 
 1. Copy the module, the card text and the CRC, the tests, the
    `link_pages.h` stub; `src/hitec.cmake` with its `include()` in
-   `CMakeLists.txt`; `test/hitec.mk` with its `include`, `FEATURE_*`,
-   `INCLUDES +=` and `SRCS` lines in `test/Makefile`, its include folders in
+   `CMakeLists.txt`; `test/hitec.mk` with its `include`, `FEATURE_*` and
+   `INCLUDES +=` lines in `test/Makefile`, its include folders in
    the two C test rules and the coverage rule, the C++ test rule; CI include
    lists; `lib/rcbench/README.md`. The firmware links the driver; nothing
    opens it. Built, with a CI step that holds the KST and Hitec line

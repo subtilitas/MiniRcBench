@@ -46,7 +46,7 @@ protocol.
 
 - rcbench's Hitec programming core (`protocols/hitec/`), its RP2350 line
   driver, the Hitec servo file text (`shared/bench/hitec_card.*`) and the
-  CRC-32 it uses (`shared/link/link_crc.*`), copied unchanged from rcbench
+  CRC-16 it uses (`shared/link/link_crc.*`), copied unchanged from rcbench
   commit 3e29dc1b into `lib/rcbench/`, with rcbench's eight tests of them in
   `test/rcbench/` (115 cases) and `hitec_headers.cpp` built as C++11
   ([hitec-programming.md](docs/design/hitec-programming.md), work breakdown
