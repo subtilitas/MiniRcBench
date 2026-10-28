@@ -187,9 +187,11 @@ backup, mounts the card in the slot again (`cardCacheRecover()`):
 With a batch still queued, the first write's after BACK during its flush or
 a removal of the record, KST's write page waits for it as it waits for the
 backup, `SAVING THE BACKUP TO THE CARD.`, and runs the check as the flush
-ends, so a read that fails on the right card drops no half-written batch. The check costs one block read per write, plus the end of the block
-in flight (`sdc_settle()`), and works with the cache on or off; a recovery
-leaves a cache that was off turned off. While USB DRIVE holds the card,
+ends, so a read that fails on the right card drops no half-written batch.
+The check after a flush runs only for such an earlier batch, not after the
+write's own backup, whose card was read as it was saved. The check costs one
+block read per write, plus the end of the block in flight (`sdc_settle()`),
+and works with the cache on or off; a recovery leaves a cache that was off turned off. While USB DRIVE holds the card,
 `cardMounted()` is false: no check runs, and `cardCacheRecover()` returns
 without touching the card.
 

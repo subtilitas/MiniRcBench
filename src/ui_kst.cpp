@@ -117,6 +117,7 @@ static bool         s_firstDone = false; /**< The session's first-write card cal
 static uint32_t     s_firstVolume = 0;   /**< The serial number of the volume they went to. */
 static bool         s_firstOnCard = false; /**< They went to a card: the swap check is armed. */
 static bool         s_firstVolumeRead = false; /**< s_firstVolume was read; false fails the check. */
+static bool         s_checkAfterFlush = false; /**< The write waits for an earlier batch, then the swap check. */
 static KstFirstWrite s_first;
 static bool         s_recordFound = false; /**< KST/KST.TXT on the card at entry. */
 /** @} */
@@ -827,9 +828,11 @@ static void flushStep() {
 		s_cardNote = FLUSH_FAILED;
 		return;
 	}
-	// The batch is on the card: the card in the slot may be another one by
-	// now, after BACK during an earlier flush.
-	if (cardSwapped()) {
+	// An earlier batch is on the card: the card in the slot may be another
+	// one by now. Not after the write's own backup: its card was read then.
+	bool check = s_checkAfterFlush;
+	s_checkAfterFlush = false;
+	if (check && cardSwapped()) {
 		restartOnNewCard();
 		startWrite();
 		return;
@@ -846,8 +849,10 @@ static void startWrite() {
 	// A batch still queued, the first write's after BACK during its flush or
 	// a removal of the record: the page waits for it, and the swap check
 	// runs as it ends (flushStep()), so a read that fails drops no batch.
+	s_checkAfterFlush = false;
 	if (s_firstOnCard && cardCacheState() == CardCache::Flushing) {
 		s_flushing = true;
+		s_checkAfterFlush = true;
 		flushStep();
 		return;
 	}

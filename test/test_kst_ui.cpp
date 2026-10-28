@@ -1293,6 +1293,25 @@ static void testFlushWait() {
 	          fakeFatExists(path) && job().result == KST_SES_OK);
 	tapId(UI_FIX(KstCtl::WriteOk));
 
+	// A serial number that never reads: one remount and one backup for the
+	// write, then the write; no loop of backups.
+	fakeVolumeFailNext(1000);
+	recovers = fakeCacheCalls().recovers;
+	kstFilesNextBackup(next);
+	writes = sim->n_writes;
+	tapId(UI_FIX(KstCtl::EditMinus));
+	holdUntilGone(UI_FIX(KstCtl::Write));
+	holdUntilGone(UI_FIX(KstCtl::WriteHold));
+	checkTrue("a serial that never reads: one remount, one backup, the write",
+	          untilCtl(UI_FIX(KstCtl::WriteOk), 400) && fakeCacheCalls().recovers == recovers + 1 &&
+	          sim->n_writes > writes);
+	char after[BACKUP_NAME_MAX];
+	kstFilesNextBackup(after);
+	checkTrue("and only one new backup", strcmp(after, next) != 0 &&
+	          backupNumber(after, nullptr) == backupAfter(backupNumber(next, nullptr)));
+	tapId(UI_FIX(KstCtl::WriteOk));
+	fakeVolumeFailNext(0);
+
 	// FILES after a batch failed in the background: mounted again first,
 	// since the failed cache refuses every read.
 	fakeCacheSet(CardCache::Failed, 0);
