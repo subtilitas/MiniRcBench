@@ -436,9 +436,10 @@ this lead gets the converter's output on its BEC wire.**
 
 ## Limitations
 
-- With the switched supply, a card call that blocks the screen for 250 ms
-  or more counts as a stall: the supply goes off and the backup in memory
-  is lost. The card phase of the design note's step 5 is not built.
+- With the switched supply, the card keeps the servo powered for at most
+  15 s while the screen waits on it. A card that blocks the screen longer
+  counts as a stall: the supply goes off and the backup in memory is lost.
+  Not tested with a card.
 - The first write's card reads run on core0, and the screen does not redraw
   until they end; its writes queue and flush while the screen keeps drawing.
   With no card at the screen's opening the cache stays off, and a card

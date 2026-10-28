@@ -33,6 +33,7 @@
 #include "ui_screen.h"
 #include "usb_msc.h"
 #include "servo_supply.h"
+#include "sdio/sd_host.h"
 #include "kst_supply_sim.h"
 #include "hardware/gpio.h"
 #include "plat.h"
@@ -1441,6 +1442,85 @@ static void testSwitchedSupply() {
 	settings()->servoSupply = 0;
 }
 
+/** @brief Card calls made with the wait hook set, and without. */
+static unsigned n_hooked = 0, n_unhooked = 0;
+
+/** @brief fakeFatOnCall(): count the calls by the hook. */
+static void hookSeenCall() { (sdh_wait_hook ? n_hooked : n_unhooked)++; }
+
+/** @brief fakeFatOnCall(): core0 300 ms in the driver's waits, which call the hook. */
+static void stampedSlowCall() {
+	hookSeenCall();
+	for (int i = 0; i < 300; i++) {
+		if (sdh_wait_hook) sdh_wait_hook();
+		core1Pass();
+	}
+}
+
+/** @brief fakeFatOnCall(): core0 300 ms in a wait that never calls the hook. */
+static void unstampedSlowCall() {
+	n_cardCalls++;
+	for (int i = 0; i < 300; i++) core1Pass();
+}
+
+static void testCardPhase() {
+	section("KST screen, switched: card calls inside a card phase");
+	freshKst(false);
+	settings()->servoSupply = 1;
+	servoSupplyConfigure(1);
+	supplySimInit(&g_sup, fakeKstSim(), time_us_32());
+	g_supOn = true;
+	fakeCardWaitPass(core1Pass);
+	checkTrue("to the field list", toList() && gp0High());
+	// The first write's card calls each keep core0 300 ms, past the 250 ms
+	// heartbeat; the driver's waits stamp, and the supply stays on.
+	n_hooked = n_unhooked = 0;
+	fakeFatOnCall(stampedSlowCall);
+	writeDeadBand();
+	fakeFatOnCall(nullptr);
+	kstFrames(1);
+	checkTrue("300 ms card calls that stamp: the write verified, the supply on",
+	          job().result == KST_SES_OK && gp0High() && !job().stalled && !job().cardPhase);
+	checkTrue("the backup on the card", fakeFatExists("BACKUP/KST001.TXT"));
+	checkTrue("every card call of the write ran in a phase, the hook set",
+	          n_hooked > 0 && n_unhooked == 0);
+	tapId(UI_FIX(KstCtl::WriteOk));
+	kstFrames(2);
+	checkTrue("no card call open: the hook cleared", sdh_wait_hook == nullptr);
+	leaveAll();
+
+	// The same calls with no stamps: the job counts a lapse and switches off.
+	openKst();
+	checkTrue("to the field list again", untilView(KstView::List, 400));
+	n_cardCalls = 0;
+	uint32_t offBefore = g_sup.lastOffUs;
+	fakeFatOnCall(unstampedSlowCall);
+	selectField(KST_F_DEAD_BAND);
+	tapId(UI_FIX(KstCtl::EditPlus));
+	holdUntilGone(UI_FIX(KstCtl::Write));
+	fakeFatOnCall(nullptr);
+	kstFrames(10);
+	checkTrue("300 ms card calls that do not stamp: the supply switched off",
+	          n_cardCalls > 0 && g_sup.lastOffUs != offBefore && !gp0High());
+	leaveAll();
+	fakeCardWaitPass(nullptr);
+	g_supOn = false;
+	servoSupplyConfigure(0);
+	settings()->servoSupply = 0;
+
+	// NONE: no phase, the hook never set.
+	freshKst();
+	checkTrue("NONE: to the field list", toList());
+	n_hooked = n_unhooked = 0;
+	fakeFatOnCall(hookSeenCall);
+	writeDeadBand();
+	fakeFatOnCall(nullptr);
+	checkTrue("NONE: the first write's card calls run without the hook",
+	          n_unhooked > 0 && n_hooked == 0 && !job().cardPhase);
+	tapId(UI_FIX(KstCtl::WriteOk));
+	leaveAll();
+}
+
 void runKstUiTests() {
 	testOpenAndSearch();
 	testEditAndWrite();
@@ -1460,6 +1540,7 @@ void runKstUiTests() {
 	testRecordKeptAtLeave();
 	testFlushWait();
 	testSwitchedSupply();
+	testCardPhase();
 	fakeKstLineReset();
 	noCard();
 	fakeFatReset();

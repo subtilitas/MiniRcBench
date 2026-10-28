@@ -26,6 +26,7 @@
 #include "ui_screen.h"
 #include "ui_widgets.h"
 #include "usb_msc.h"
+#include "sdio/sd_host.h"
 #include "gfx.h"
 
 #include "plat.h"
@@ -182,6 +183,12 @@ static bool running() {
 	return s_claimed && pinClaimState() == ClaimState::Running && pinClaimJobError() == 0;
 }
 
+/** @brief The seq of the last command sent, an operation or a card phase's. */
+static uint16_t s_sentSeq = 0;
+
+/** @brief Whether the job has taken the command of @p seq, or one sent after it. */
+static bool taken(uint16_t ackSeq, uint16_t seq) { return (int16_t)(ackSeq - seq) >= 0; }
+
 static void sendOp(KstOp op, const kst_image_t *target = nullptr, bool confirm = false) {
 	KstCmd c;
 	memset(&c, 0, sizeof(c));
@@ -189,6 +196,7 @@ static void sendOp(KstOp op, const kst_image_t *target = nullptr, bool confirm =
 	if (target) c.target = *target;
 	c.confirmUnchecked = confirm;
 	s_seq = kstJobCommand(&c);
+	s_sentSeq = s_seq;
 	s_op = op;
 	// A new read, or an abort of one, ends what the last refusal said.
 	if (op == KstOp::ReadAll || op == KstOp::Abort) s_readRefused = KstRefusal::None;
@@ -198,8 +206,65 @@ static void sendOp(KstOp op, const kst_image_t *target = nullptr, bool confirm =
 
 /** @brief The operation sent last has ended: taken, and no longer running. */
 static bool opEnded() {
-	return s_opOpen && s_st.ackSeq == s_seq && s_st.job != KstJobState::Busy;
+	return s_opOpen && taken(s_st.ackSeq, s_seq) && s_st.job != KstJobState::Busy;
 }
+
+/** @brief How long a card phase waits for the job to take its command, ms. */
+#define KST_CARD_BEGIN_WAIT_MS 50u
+
+static uint8_t s_cardDepth = 0;    /**< Card phases open in this call chain. */
+static bool    s_cardSent = false; /**< The outermost one sent CardBegin. */
+
+/**
+ * @brief A card phase around the card calls of a scope, with the switched
+ *        supply: the job counts the SDIO driver's waits as the heartbeat,
+ *        for at most KST_CARD_PHASE_MAX_MS, so a card that keeps core0
+ *        waiting does not switch the servo off. Nested scopes share the
+ *        outermost one. Without a switch, or with the job busy, there is no
+ *        phase and the calls run as they are.
+ */
+struct KstCardPhase {
+	KstCardPhase() {
+		if (s_cardDepth++ || !running() || !s_st.supplyFitted) return;
+		// A command still held would be replaced by CardBegin: it is taken
+		// first, and while it is held there is no phase.
+		KstStatus st;
+		uint32_t t0 = millis();
+		for (kstJobStatus(&st); !taken(st.ackSeq, s_sentSeq) && millis() - t0 < KST_CARD_BEGIN_WAIT_MS;
+		     kstJobStatus(&st))
+			kstCardWaitPoll();
+		if (!taken(st.ackSeq, s_sentSeq)) return;
+		KstCmd c;
+		memset(&c, 0, sizeof(c));
+		c.op = KstOp::CardBegin;
+		uint16_t seq = kstJobCommand(&c);
+		s_sentSeq = seq;
+		s_cardSent = true;
+		t0 = millis();
+		for (kstJobStatus(&st); !taken(st.ackSeq, seq) && millis() - t0 < KST_CARD_BEGIN_WAIT_MS;
+		     kstJobStatus(&st))
+			kstCardWaitPoll();
+		// Refused or not yet taken: the calls run without the card heartbeat.
+		if (!taken(st.ackSeq, seq) || !st.cardPhase) return;
+		kstCardStamp();
+		sdh_wait_hook = kstCardStamp;
+	}
+	~KstCardPhase() {
+		if (--s_cardDepth || !s_cardSent) return;
+		// CardEnd also for a CardBegin the job takes late, so no phase stays open.
+		// The screen's own heartbeat takes over from the card's before the
+		// job closes the phase.
+		escHeartbeat();
+		KstCmd c;
+		memset(&c, 0, sizeof(c));
+		c.op = KstOp::CardEnd;
+		s_sentSeq = kstJobCommand(&c);
+		sdh_wait_hook = nullptr;
+		s_cardSent = false;
+	}
+	KstCardPhase(const KstCardPhase &) = delete;
+	KstCardPhase &operator=(const KstCardPhase &) = delete;
+};
 
 static kst_field_set_t pending() {
 	return s_haveTarget && s_st.hasImage ? kstChanged(&s_st.image, &s_target) : 0;
@@ -275,6 +340,7 @@ static void forgetFirst() {
 
 /** @brief A new session: the claim's first frame, or after BACK on the unplug page. */
 static void newSession() {
+	KstCardPhase phase;
 	s_opOpen = false;
 	s_searchSent = false;
 	s_needRead = false;
@@ -353,6 +419,7 @@ static void opEnd() {
 	}
 	if (s_resultSes == KST_SES_OK) {
 		// The write is verified: the session's record goes.
+		KstCardPhase phase;
 		kstFilesRecordRemove(&s_first);
 		s_recordFound = kstFilesMounted() && kstFilesRecordPresent();
 		s_target = s_st.image;
@@ -380,7 +447,7 @@ static void follow() {
 	}
 	// REBOOT taken: the servo is read again as it is, so the pending changes
 	// go with the old image. Refused: back to the field list.
-	if (s_rebootSent && s_st.ackSeq == s_seq) {
+	if (s_rebootSent && taken(s_st.ackSeq, s_seq)) {
 		s_rebootSent = false;
 		if (s_st.refused == KstRefusal::None) forgetServo();
 		else if (s_view == KstView::Main) go(s_haveTarget ? KstView::List : KstView::Main);
@@ -388,6 +455,7 @@ static void follow() {
 	// REBOOT read the servo as it is: a new backup, a new first write, and
 	// the field list from the new image.
 	if (s_prevJob == KstJobState::Rebooting && s_st.job == KstJobState::InMode) {
+		KstCardPhase phase;
 		s_everFound = true;
 		s_firstDone = false;
 		forgetFirst();
@@ -405,6 +473,7 @@ static void follow() {
 		}
 	}
 	if (s_prevJob == KstJobState::Searching && s_st.job == KstJobState::InMode) {
+		KstCardPhase phase;
 		s_needRead = true;
 		s_everFound = true;
 		// A servo found, the first or after a loss: the session reads a new
@@ -833,8 +902,10 @@ static void listTouch() {
 		s_cardNote = nullptr;
 		s_backupNext[0] = '\0';
 		s_presetCard = kstFilesMounted();
-		if (!s_firstDone && s_presetCard)
+		if (!s_firstDone && s_presetCard) {
+			KstCardPhase phase;
 			kstFilesNextBackup(s_backupNext);
+		}
 		s_pageFrom = s_st.image;
 		s_pageTo = s_target;
 		go(KstView::Write);
@@ -867,6 +938,7 @@ static void listTouch() {
 
 /** @brief The first write's card calls; false when the card took neither file. */
 static bool firstWriteFiles() {
+	KstCardPhase phase;
 	if (s_firstDone) return true;
 	kstFilesFirstWrite(&s_st.backup, &s_st.image, &s_first);
 	if (!kstFilesWriteAllowed(&s_first)) {
@@ -902,6 +974,7 @@ static void sendWrite() {
  *        the backup reached the card.
  */
 static void recoverFlush() {
+	KstCardPhase phase;
 	cardCacheRecover();
 	forgetFirst();
 	s_firstDone = false;
@@ -914,6 +987,7 @@ static void recoverFlush() {
  *        applies and this is false.
  */
 static bool cardSwapped() {
+	KstCardPhase phase;
 	uint32_t v = 0;
 	return s_firstOnCard && cardMounted() &&
 	       (!s_firstVolumeRead || !cardVolumeSerial(&v) || v != s_firstVolume);
@@ -921,6 +995,7 @@ static bool cardSwapped() {
 
 /** @brief Another card: mounted again, the first write to start over on it. */
 static void restartOnNewCard() {
+	KstCardPhase phase;
 	recoverFlush();
 	// The backup line names the backup the card in the slot takes.
 	s_backupNext[0] = '\0';
@@ -1112,6 +1187,7 @@ static void writeTouch() {
 	// KSTnnn it saves. The lookup is a card call on core0.
 	bool card = kstFilesMounted();
 	if (card && !s_presetCard && !s_firstDone) {
+		KstCardPhase phase;
 		kstFilesNextBackup(s_backupNext);
 		escHeartbeat();
 	}
@@ -1133,6 +1209,7 @@ static void writeTouch() {
 
 /** @brief Read the card's list into the page. */
 static void readFiles() {
+	KstCardPhase phase;
 	// A failed batch refuses every read until the card is mounted again.
 	if (cardCacheState() == CardCache::Failed) recoverFlush();
 	// One lookup of KST in the root for the list, the names and the record.
@@ -1256,6 +1333,7 @@ static void fileNote(uint16_t col, const char *text) {
 
 /** @brief LOAD: the selected file, held against the servo, becomes the pending changes. */
 static void loadSelected() {
+	KstCardPhase phase;
 	// A failed batch mounts the card again, which may be another card: the
 	// list on the page is the old card's, so it is read again and nothing
 	// loads until a file is chosen from it.
@@ -1323,6 +1401,7 @@ static void loadSelected() {
 }
 
 static void saveAs() {
+	KstCardPhase phase;
 	if (cardCacheState() == CardCache::Failed) recoverFlush();
 	char saved[KST_STORE_NAME_MAX];
 	kst_store_t r;
@@ -1367,8 +1446,10 @@ static void filesTouch() {
 		s_cardNote = nullptr;
 		s_backupNext[0] = '\0';
 		s_presetCard = kstFilesMounted();
-		if (!s_firstDone && s_presetCard)
+		if (!s_firstDone && s_presetCard) {
+			KstCardPhase phase;
 			kstFilesNextBackup(s_backupNext);
+		}
 		s_pageFrom = s_st.image;
 		s_pageTo = s_st.backup;
 		go(KstView::Write);
@@ -1377,6 +1458,7 @@ static void filesTouch() {
 	}
 	if (!kstFilesMounted()) {
 		if (!cardHeldByUsb() && tapped(BTN_SAVE)) {
+			KstCardPhase phase;
 			s_fileNote[0] = '\0';
 			sdLogRemount();
 			readFiles();
@@ -1482,6 +1564,7 @@ static void drawUnplug() {
 
 /** @brief End the claim; the unplug page follows. @return false when the screen left at once. */
 static bool endClaim() {
+	KstCardPhase phase;
 	if (!s_claimed) return false;
 	cardCacheEnd();
 	pinClaimEnd(PinUser::Kst);
@@ -1699,8 +1782,10 @@ bool uiKstTick(const TouchState *t) {
 			if (!s_writing && tapped(BTN_WIDE)) {
 				// The servo leaves in a known state: no write is open, so
 				// the session's record goes.
-				if (s_st.job == KstJobState::InMode && !s_st.locked)
+				if (s_st.job == KstJobState::InMode && !s_st.locked) {
+					KstCardPhase phase;
 					kstFilesRecordRemove(&s_first);
+				}
 				if (!endClaim()) return false;
 			}
 			break;

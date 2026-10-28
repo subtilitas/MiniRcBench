@@ -55,6 +55,11 @@
  * - The close rule: once the supply was on in the claim, Leave and the
  *   release close the line only @ref KST_SUPPLY_OFF_MS after the last
  *   switch-off command, which they give first if the supply is on.
+ * - The card phase: around a card call on core0, CardBegin opens a phase in
+ *   which the heartbeat also counts as trusted while kstCardStamp(), called
+ *   from the SDIO driver's waits, is younger than the UI's timeout, for at
+ *   most @ref KST_CARD_PHASE_MAX_MS from the acknowledge. CardEnd, or any
+ *   other command, closes it. The job starts no operation in a phase.
  *
  * @see docs/design/kst-programming.md, "Where the session runs".
  */
@@ -70,6 +75,9 @@
 /** @brief The line stays low this long before a leave closes it, ms. */
 #define KST_LEAVE_LOW_MS 100u
 
+/** @brief A card phase keeps the heartbeat for at most this long, ms. */
+#define KST_CARD_PHASE_MAX_MS 15000u
+
 /** @brief What a command asks of the job. */
 enum class KstOp : uint8_t {
 	Search,      /**< Begin a search: from Opening, and RETRY from SearchEnded. */
@@ -81,6 +89,8 @@ enum class KstOp : uint8_t {
 	Abort,       /**< kst_session_abort() of the running operation, or STOP SEARCH. */
 	Leave,       /**< LEAVE: end what runs, the line low for @ref KST_LEAVE_LOW_MS, close. */
 	Reboot,      /**< REBOOT: switched supply only, from InMode. */
+	CardBegin,   /**< A card phase: Opening, SearchEnded or InMode. */
+	CardEnd,     /**< The card phase ends; any other command taken ends it too. */
 };
 
 /** @brief Where the job is. @see the table in kst_job.h */
@@ -152,6 +162,7 @@ struct KstStatus {
 	KstReboot   reboot;         /**< Where a Reboot is. */
 	bool        stallLocked;    /**< The last stall power-cycled a session in doubt. */
 	bool        stallWrote;     /**< The last stall power-cycled a session that had written. */
+	bool        cardPhase;      /**< A card phase is open: the card heartbeat counts. */
 	kst_image_t image;          /**< The servo as last read. */
 	kst_image_t backup;         /**< The first image read since the servo was found. */
 	kst_stats_t stats;          /**< Reply timing since the bind. */
@@ -180,6 +191,19 @@ uint16_t kstJobCommand(const KstCmd *c);
  * @param[out] out The status.
  */
 void kstJobStatus(KstStatus *out);
+
+/**
+ * @brief Core0, from the SDIO driver's waits (`sdh_wait_hook`) during a card
+ *        phase: stamp the card heartbeat.
+ */
+void kstCardStamp();
+
+/**
+ * @brief Core0, while it waits for the job to take a CardBegin: one step of
+ *        the wait. The firmware spins (core1 runs alongside); the host suite
+ *        runs core1 here.
+ */
+void kstCardWaitPoll();
 
 /** @brief The KST job's entry in the job table of core1_job.cpp. */
 extern const Core1JobOps KST_JOB_OPS;

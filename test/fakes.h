@@ -28,6 +28,12 @@ struct FakeCacheCalls {
 	unsigned begins, ends, flushes, recovers;
 };
 
+/**
+ * @brief What one step of kstCardWaitPoll() runs: @p pass, or by default a
+ *        millisecond and one core1JobPoll().
+ */
+void fakeCardWaitPass(void (*pass)());
+
 /** @brief The fake cache off, Idle, no calls counted. */
 void fakeCacheReset();
 

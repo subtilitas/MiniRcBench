@@ -89,6 +89,17 @@ typedef struct {
 	void (*sleep_us)(void *ctx, uint32_t us);
 } sdh_bus_t;
 
+/**
+ * @brief Called on every poll of the driver's waits, busy and the bus's
+ *        command, receive and transmit waits; null by default.
+ *
+ * A generic hook: the driver knows nothing of its user. KST SERVO sets it
+ * during a card phase so that a card call that keeps core0 waiting still
+ * stamps a heartbeat (docs/design/kst-programming.md, "Card calls and the
+ * heartbeat"). It runs on the core that waits and must not touch the card.
+ */
+extern void (*sdh_wait_hook)(void);
+
 /** @brief What initialisation learned about the card. */
 typedef struct {
 	bool     ready;       /**< Initialised and in the transfer state. */

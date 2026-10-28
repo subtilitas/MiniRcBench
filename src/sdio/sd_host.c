@@ -25,10 +25,13 @@ static uint32_t s_bounce[SDP_BLOCK_BYTES / 4u];
 /** @brief Transmit stream of the block being written. */
 static uint32_t s_tx[SDP_TX_WORDS];
 
+void (*sdh_wait_hook)(void) = NULL;
+
 /** @brief Wait for DAT0 high. */
 static sd_err_t busyWait(const sdh_bus_t *b, uint32_t timeout_us) {
 	uint32_t t0 = b->now_us(b->ctx);
 	while (!b->dat0(b->ctx)) {
+		if (sdh_wait_hook) sdh_wait_hook();
 		if ((uint32_t)(b->now_us(b->ctx) - t0) >= timeout_us) return SDE_TIMEOUT;
 		b->sleep_us(b->ctx, 2);
 	}

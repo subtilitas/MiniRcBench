@@ -920,6 +920,113 @@ static void testSwitchedClose() {
 	checkTrue("NONE: GP0 not driven by a claim", !after.output && after.puts == before.puts);
 }
 
+// ---------------------------------------------------------------------------
+// the card phase
+// ---------------------------------------------------------------------------
+
+/** @brief Passes with the heartbeat off and the card stamped on each one. */
+static void stampedPasses(uint32_t ms) {
+	for (uint32_t i = 0; i < ms; i++) {
+		fakeAdvance(1);
+		kstCardStamp();
+		if (g_switched) supplySimUpdate(&g_sup, gp0High(), time_us_32());
+		core1JobPoll();
+		if (g_switched) supplySimUpdate(&g_sup, gp0High(), time_us_32());
+	}
+}
+
+static void testCardPhase() {
+	section("KST job: the card phase");
+	// Taken in Opening, SearchEnded and InMode only.
+	static const KstJobState STATES[] = {
+		KstJobState::Opening, KstJobState::Searching, KstJobState::SearchEnded,
+		KstJobState::InMode, KstJobState::Busy, KstJobState::Leaving, KstJobState::Closed,
+	};
+	static const char *const NAMES[] = {
+		"Opening", "Searching", "SearchEnded", "InMode", "Busy", "Leaving", "Closed",
+	};
+	static const bool TAKEN[7] = { 1, 0, 1, 1, 0, 0, 0 };
+	for (int si = 0; si < 7; si++) {
+		reach(STATES[si]);
+		bool there = status().job == STATES[si];
+		uint16_t seq = send(KstOp::CardBegin);
+		passes(1);
+		KstStatus st = status();
+		char what[80];
+		snprintf(what, sizeof(what), "CardBegin in %s: %s", NAMES[si],
+		         TAKEN[si] ? "taken, the phase open" : "refused");
+		checkTrue(what, there && st.ackSeq == seq &&
+		                (st.refused == KstRefusal::None) == TAKEN[si] && st.cardPhase == TAKEN[si]);
+		seq = send(KstOp::CardEnd);
+		passes(1);
+		st = status();
+		snprintf(what, sizeof(what), "CardEnd in %s: taken, the phase closed", NAMES[si]);
+		checkTrue(what, st.ackSeq == seq && st.refused == KstRefusal::None && !st.cardPhase);
+		finish();
+	}
+
+	// Switched, in the mode: stamps keep the supply on, no stamps lapse it.
+	switchedInMode();
+	send(KstOp::CardBegin);
+	passes(1);
+	g_alive = false;
+	stampedPasses(900);
+	checkTrue("900 ms of card stamps without the UI heartbeat: on, in the mode",
+	          gp0High() && status().job == KstJobState::InMode && status().hasBackup);
+	passes(300);
+	checkTrue("the stamps stop: off at the UI timeout, the stalled screen",
+	          !gp0High() && status().job == KstJobState::SearchEnded && status().stalled);
+	g_alive = true;
+	finishSwitched();
+
+	// The cap: KST_CARD_PHASE_MAX_MS from the acknowledge.
+	switchedInMode();
+	send(KstOp::CardBegin);
+	passes(1);
+	g_alive = false;
+	stampedPasses(KST_CARD_PHASE_MAX_MS - 100);
+	checkTrue("stamped 100 ms short of the cap: on", gp0High() && !status().stalled);
+	stampedPasses(200);
+	checkTrue("stamped past the cap: off, stalled", !gp0High() && status().stalled);
+	g_alive = true;
+	finishSwitched();
+
+	// Any other command closes the phase; so does a leave.
+	switchedInMode();
+	send(KstOp::CardBegin);
+	passes(1);
+	send(KstOp::ReadAll);
+	passes(1);
+	checkTrue("a read taken: the phase closed", !status().cardPhase &&
+	          status().job == KstJobState::Busy);
+	until(KstJobState::InMode, 2000);
+	g_alive = false;
+	stampedPasses(300);
+	checkTrue("then stamps alone do not keep the supply on", !gp0High() && status().stalled);
+	g_alive = true;
+	finishSwitched();
+
+	switchedInMode();
+	send(KstOp::CardBegin);
+	passes(1);
+	send(KstOp::Leave);
+	passes(1);
+	checkTrue("Leave: the phase closed", !status().cardPhase);
+	finishSwitched();
+
+	// A second CardBegin keeps the first one's start.
+	switchedInMode();
+	send(KstOp::CardBegin);
+	passes(1);
+	g_alive = false;
+	stampedPasses(KST_CARD_PHASE_MAX_MS - 1000);
+	send(KstOp::CardBegin);
+	stampedPasses(1200);
+	checkTrue("a repeated CardBegin does not restart the cap", !gp0High() && status().stalled);
+	g_alive = true;
+	finishSwitched();
+}
+
 void runKstJobTests() {
 	testBind();
 	testSearch();
@@ -934,4 +1041,5 @@ void runKstJobTests() {
 	testSwitchedLapse();
 	testSwitchedLatch();
 	testSwitchedClose();
+	testCardPhase();
 }

@@ -109,6 +109,7 @@ static sd_err_t busCommand(void *ctx, uint8_t index, uint32_t arg, unsigned resp
 		/* Sent once the program waits for a start bit that will not come;
 		 * then the 8 clocks of 4.4, then stop. */
 		while (!cmdInWait(h)) {
+			if (sdh_wait_hook) sdh_wait_hook();
 			if (time_us_32() - t0 >= SDH_CMD_TIMEOUT_US) {
 				cmdHalt(h);
 				return SDE_NO_RESPONSE;
@@ -123,6 +124,7 @@ static sd_err_t busCommand(void *ctx, uint8_t index, uint32_t arg, unsigned resp
 	unsigned n = sdp_resp_words(resp_bits);
 	for (unsigned i = 0; i < n; i++) {
 		while (pio_sm_is_rx_fifo_empty(h->pio, h->sm_cmd)) {
+			if (sdh_wait_hook) sdh_wait_hook();
 			if (time_us_32() - t0 >= SDH_CMD_TIMEOUT_US) {
 				cmdHalt(h);
 				return SDE_NO_RESPONSE;
@@ -233,6 +235,7 @@ static sd_err_t busRxWait(void *ctx, uint32_t timeout_us) {
 		if (dma_hw->ch[h->dma_ctrl].read_addr == (uint32_t)(uintptr_t)h->rx_end &&
 		    !dma_channel_is_busy(h->dma_ctrl) && !dma_channel_is_busy(h->dma_data))
 			break;
+		if (sdh_wait_hook) sdh_wait_hook();
 		uint32_t now = time_us_32();
 		uint32_t wa = dma_hw->ch[h->dma_data].write_addr;
 		if (wa != seen) {
@@ -272,6 +275,7 @@ static sd_err_t busTxBlock(void *ctx, const uint32_t *words, uint32_t nwords, ui
 
 	uint32_t t0 = time_us_32();
 	while (pio_sm_get_rx_fifo_level(h->pio, h->sm_dat) < 2u) {
+		if (sdh_wait_hook) sdh_wait_hook();
 		if (time_us_32() - t0 >= timeout_us) {
 			dmaStop(h);
 			datHalt(h);
