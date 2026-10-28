@@ -205,6 +205,7 @@ record either way.
 | SETTINGS layout (`src/ui_settings.cpp`): sections ESC TESTER, WIRING, SERVO SUPPLY, DISPLAY and BOARD in one scrolling list | the scroll range, 0 px at opening and 400 px at most; each row by id; no scroll from a press on a control; a cut control takes a press only while 40 px show; HOLD TO SAVE in place at every scroll position and saving at the end of the list; the pole count reaches the eRPM divisor, the ceiling steps by 5 %, and RESET restores both | not recorded |
 | Settings in flash (MENU → SETTINGS) | block validation, CRC, board id check, pin defaults, the version 3 block layout, a version 2 block discarded, the servo supply clamp | not recorded; 46a64a7 states no hardware coverage |
 | KST switched servo supply on GP0 (`src/servo_supply.*`), the SERVO SUPPLY row, the switched search, REBOOT, the close rule, the lapse rule and the card phase (`src/kst_seek.*`, `src/kst_job.*`, `src/ui_kst.cpp`, `sdh_wait_hook` in `src/sdio/sd_host.h`) | GP0 untouched with `NONE` from boot; with `GP0` an undriven input (SIO, output off, pulls off, input off) at boot and at every SETTINGS change; low at bind, high and low between bind and release, an undriven input after release; the row toggled, applied at once, saved and reset; against a model of the converter and a servo with a power-on window (`test/kst_supply_sim.h`): found on the first power-up, 14 power-ups and the timeout, off 2000 ms before every switch-on, the entry delay at -40 ms and +300 ms, a stop, a lapse and the timeout in a wait, REBOOT's 2000 ms off and 1000 ms on, refused while busy and without a switch, a lapse in the mode, during an operation and in REBOOT's off wait, the close 2000 ms after the switch-off, time off before a leave counted, GP0 untouched with `NONE`; the screens: the switched search, the leave page and HOLD TO REBOOT, the unplug page's wait, the stalled screen and RETRY; the card phase: `CardBegin` and `CardEnd` in each job state, stamps holding the supply on for 900 ms and off 250 ms after the last, the 15,000 ms cap at 14,900 and 15,100 ms, closed by a command and by LEAVE, the first write's 300 ms card calls inside a phase with and without stamps, the hook null with `NONE`, the busy wait calling the hook | not tested on hardware |
+| Hitec programming: rcbench's Hitec session, register model and line driver (`lib/rcbench/`), the core1 job (`src/hitec_job.*`) and its line (`src/hitec_line_port.*`) | rcbench's 115 cases; the job against a simulated servo (`runHitecTests`); the deepest stack chain of the job on the Cortex-M33 checked in CI against 1,792 bytes | not tested on hardware; no screen starts the job |
 | Touch handling, high-contrast theme, throttle gauge | tap on release, repeats, screen residue, gauge reach | hardware use recorded: the reports #22 to #24 named in the v2.3 commits; the fixes on hardware: not recorded |
 | List and hold widgets (`src/ui_list.*`, `src/ui_hold.*`; slice A of [menu.md](docs/design/menu.md)) | the list: the scroll range and its clamp, the press rule at the viewport's edges, the row rectangle, the axis lock at 6 px, a tap on release and its slide-off, the scroll from the press point, 16 px per coarse step, the factor, the stop at a rail and the anchor after it, the clipped drawing; the hold: 1000 ms and not 999 ms, the reset on a lift and a slide off, a press that slid on, one firing per press, no timing for a press that landed while the control was disabled or whose first frame it missed, the progress bar's extent; through the screens: AM32's swipe on every field of the table, KV at 16 px a step and its rail, the AM32 and SERVO SET scroll ranges and edge rows (checks that 4c91db9 also passes), DWELL's rail on SET, HOLD TO WRITE and HOLD TO SAVE at 999 ms and 1000 ms, each hold's colour and bar, a press on a disabled HOLD TO START, HOLD TO APPLY and HOLD TO WRITE never timed, HOLD TO SAVE's refusal while armed | not tested on hardware |
 | Control tables (`src/ui_screen.h`; slice B of [menu.md](docs/design/menu.md)) | every screen's table on each view the host suite reaches, the ids, rectangles and enabled flags, `uiCurrentScreen()` after each navigation; the UI tests tap by id | host only: the firmware does not call the tables |
@@ -340,11 +341,13 @@ Not in this history: the DshotDisplay repository's branches
     built and runs in the host suite only. Bench tests needed: a backup of
     each device on a FAT32 and an exFAT card, the ring turned past 50 on a
     card, a backup read back on a computer.
-14. **Hitec programming, step 1 of 6 built.**
+14. **Hitec programming, steps 1 and 2 of 6 built.**
     [hitec-programming.md](docs/design/hitec-programming.md) records the
     design on rcbench 3e29dc1b, with writes, and the owner's decisions of
-    2026-10-23 and 2026-10-28. Step 1 is built: rcbench's Hitec files in
-    `lib/rcbench/` with their 115 test cases; nothing in `src/` calls them.
+    2026-10-23 and 2026-10-28. Steps 1 and 2 are built: rcbench's Hitec
+    files in `lib/rcbench/` with their 115 test cases, and the core1 job
+    (`src/hitec_job.*`) on them, tested against a simulated servo; no screen
+    starts the job.
     No write plan of rcbench's Hitec session or panel has run on a servo, so bring-up runs one write
     with read-back per family before a write is relied on. It depends on the
     pin claim and on KST steps 4 and 5.
@@ -427,6 +430,7 @@ binary, `dshot_tests`. `test/test_main.cpp` runs twenty-one suites:
 | `runClaimTests` | `test_claim.cpp` (includes `core1_job.cpp`) | pin claim refusals at their 500 ms boundaries and their order, the handover decisions of `escTaskPoll()` one 1 ms slot at a time, the zero-throttle drain through the claim, Restoring, the order of the two cores' steps against fake jobs, BACK in every state, RETRY, the unplug-page rule, restore wiring, the job start guard, the heartbeat rule across a millis() rollover, no settings save during a claim, the AM32 screen on the claim |
 | `runServoTests` | `test_servo.cpp` (includes `ui_servo.cpp`) | the servo model, the PWM driver against a register fake, the job core and the job through the claim, the slider, and the SERVO, SET and unplug screens through the UI, with screenshots |
 | `runKstTests` | `test_kst.cpp`, `test_kst_seek.cpp`, `test_kst_job.cpp` (includes `kst_job.cpp`), `test_kst_files.cpp`, `test_kst_view.cpp`, `test_kst_ui.cpp` | the search against rcbench's simulated servo: power-ups at 0 s, 3.0 s and 29.9 s found on the next attempt, attempts of 116.6 ms to 118.8 ms, no frame within 3 ms of a window, the 30 s timeout across a clock wrap, STOP SEARCH mid-frame, the heartbeat lapse, a reply at a bad rate kept and not found, the loss rule; the core1 job from the job table on the simulated line: the bind and its four refusals, search, RETRY, timeout, the heartbeat, read, verify, edit, restore, abort, a lost servo, leave and release with 100 ms of low line, the command block, each command in each state, and no call of `kst_session_write()`, `kst_plan_edit()` or `kst_plan_restore()`; the files over an in-memory FAT volume: the mount rule, no card and a USB-held card with no FatFs call, the first write's backup and record, an old record kept and never removed when it stays, a rename reported failed that took effect, a rename that left both names, a full card, a write-protected card as this board reports it and as FatFs can, a full directory, a file or directory in a file's way, a one-time write or sync error with no file or new directory left behind, a close error that leaves its file locked, the record found and loaded, the backup and an old record in `BACKUP/`, SAVE AS in `KST/` up to 50 files; what the screen shows: 27 rows in four groups, each value with its unit, the stepper within the hard limits, a text for every rule, result and file error; the screen through MENU: the claim, the search, STOP SEARCH and RETRY, the read, an edit and REVERT, HOLD TO WRITE not at 750 ms and not on a slide off, the backup and the record before the first write frame, the verify and the record removed, a hard limit written as its limit, the write waiting for the backup's flush and a failed flush, FILES with SAVE AS, LOAD, a backup row and its LOAD, SAVE AS refused at 50 files, a refused file, a write in doubt and HOLD TO RESTORE, BACK in every view and during a write, LEAVE and RESTART DSHOT, a lost servo, no card, a USB-held card, a card that takes no file, an unknown layout read-only, a record found at entry; the card phase: `CardBegin` and `CardEnd` in each job state, the card stamp and its 15 s cap, the first write's card calls inside a phase |
+| `runHitecTests` | `test_hitec.cpp`, `test_hitec_job.cpp`, `fake_hitec_line.cpp` | the Hitec core1 job against a simulated HS-5645MG and D485HW: the bind and its refusals, the entries with and without the switched supply, the full read and its backup, writes of each family, a read-back that differs, a write cut by a lost servo, Abort, the heartbeat, LEAVE, the release's 2,000 ms off, the command block, the card phase |
 | `runWidgetTests` | `test_widgets.cpp` | the list (`ui_list`) and the hold (`ui_hold`) driven with touch snapshots, each rule at its boundary |
 | `runIdTests` | `test_ids.cpp` | the control tables of `ui_screen.h` on the tester, MENU, SETTINGS, SD LOG in three card states, AM32 CONFIG in its handover and its list, and SERVO's three views: ids unique, rectangles inside the panel and apart, BACK at its rectangle, the enabled flags against the state they follow; the id helpers of `ui_ids.h`, and that they report an absent or misgated control |
 | `runBackupTests` | `test_backup_ring.cpp` | the ring of `BACKUP/`: its rules, saves of two devices and a rename under another device's number, a rename FatFs reports failed that took effect, two files under one number, the list of one device from the latest, a gap, no marker and an unreadable one, a directory under a ring name, names outside the ring, a marker or a read-only oldest file the card refuses, a change of directory that fails, load, no card and a USB-held card with no FatFs call |
@@ -461,15 +465,15 @@ a RAM disk that counts blocks, and checks the table in
 rewrites; `previews` and `wiki` rebuild screenshots;
 `coverage` builds an instrumented suite. Scripts: `test/check_docs.py`,
 `test/check_uf2.sh`, `test/check_uf2_selftest.sh`, `test/check_blackbox.py`,
-`test/pio_sdio_emu.py`, `test/kst_card_count.cpp`, `tools/check_wiki.py`, `tools/coverage.py`,
-`tools/notices.py`.
+`test/pio_sdio_emu.py`, `test/kst_card_count.cpp`, `tools/check_wiki.py`,
+`tools/coverage.py`, `tools/notices.py`, `tools/stack_depth.py`.
 
 **CI** (`.github/workflows/ci.yml`; on push to `main` or `master`, on pull
 requests, by hand):
 
 | Job | What it does |
 | --- | --- |
-| Firmware (`touch-lcd-2.8`) | builds with arm-none-eabi-gcc 13.3 and `STRICT=ON`; flash under 1 MiB and RAM (random-access memory) under 400,000 bytes; checks from the DWARF compile units that no file of the SD library's SDIO, ZuluSCSI-firmware or SdFat directories is in the image; writes `THIRD_PARTY_NOTICES.txt` with `tools/notices.py` and checks it against the image; compares the PIO model's assembler with the SDK's `pioasm`; checks the two pin overrides reach CMake and that `-DDSHOT_PIN`, `-DKISS_PIN`, `-DDSHOT_PIN_LCD_2`, and `-DKISS_PIN_LCD_2` are refused; validates the UF2 |
+| Firmware (`touch-lcd-2.8`) | builds with arm-none-eabi-gcc 13.3 and `STRICT=ON`; flash under 1 MiB and RAM (random-access memory) under 400,000 bytes; checks from the DWARF compile units that no file of the SD library's SDIO, ZuluSCSI-firmware or SdFat directories is in the image; writes `THIRD_PARTY_NOTICES.txt` with `tools/notices.py` and checks it against the image; compares the PIO model's assembler with the SDK's `pioasm`; holds the KST and Hitec line fixtures to `pioasm`'s words; checks the Hitec job's deepest stack chain against 1,792 bytes (`tools/stack_depth.py`); checks the two pin overrides reach CMake and that `-DDSHOT_PIN`, `-DKISS_PIN`, `-DDSHOT_PIN_LCD_2`, and `-DKISS_PIN_LCD_2` are refused; validates the UF2 |
 | Host tests | `make`, which runs the SDIO PIO model too; the suite again with both pin macros overridden; `make kstcount` against the design note's card-phase table; wiki screenshots and `check_wiki.py` |
 | Blackbox round-trip | builds `blackbox_decode` from source, runs `make bbcheck` |
 | Config permutations | typechecks all of `src/` with `-Werror` for 32 combinations, with the headers in `lib/rcbench/` on the include path: AM32 transmit mode × AM32 low-jump × rotation 0 or 2 × KISS on or off × SD logging on or off; checks the landscape guard fires |
@@ -518,6 +522,7 @@ model.
 | `src/esc_merge.cpp` | 44 | 44 | 100.0% |
 | `src/esc_task.h` | 157 | 157 | 100.0% |
 | `src/gfx.cpp` | 223 | 211 | 94.6% |
+| `src/hitec_job.cpp` | 382 | 372 | 97.4% |
 | `src/kiss_telem.cpp` | 37 | 35 | 94.6% |
 | `src/kst_files.cpp` | 163 | 158 | 96.9% |
 | `src/kst_job.cpp` | 380 | 364 | 95.8% |
@@ -552,7 +557,7 @@ model.
 | `src/ui_slider.cpp` | 109 | 109 | 100.0% |
 | `src/ui_widgets.cpp` | 43 | 43 | 100.0% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **6677** | **6524** | **97.7%** |
+| **Total** | **7059** | **6896** | **97.7%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->

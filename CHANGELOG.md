@@ -50,8 +50,15 @@ protocol.
   commit 3e29dc1b into `lib/rcbench/`, with rcbench's eight tests of them in
   `test/rcbench/` (115 cases) and `hitec_headers.cpp` built as C++11
   ([hitec-programming.md](docs/design/hitec-programming.md), work breakdown
-  step 1). Nothing calls them yet. A CI step holds the KST and Hitec line
-  fixtures to pioasm's words.
+  step 1). A CI step holds the KST and Hitec line fixtures to pioasm's
+  words.
+- The Hitec core1 job (`src/hitec_job.*`, work breakdown step 2): rcbench's
+  Hitec session on SIG through `src/hitec_line_port.*`, the entry with the
+  switched supply on GP0, the full read and its backup, writes with
+  read-back, the heartbeat and lapse rules, the close rule and the card
+  phase, as `PinUser::Hitec` and `Core1Job::Hitec`. No screen starts it
+  yet. `tools/stack_depth.py` and a CI step find the job's deepest stack
+  chain on the Cortex-M33 from GCC's call graph and fail above 1,792 bytes.
 - SETTINGS → SERVO SUPPLY, `NONE` or `GP0`, in a section of its own
   between WIRING and DISPLAY: whether a DC-DC converter's enable for the KST
   servo's supply is wired to GP0 (`src/servo_supply.*`). With `GP0`, GP0 is

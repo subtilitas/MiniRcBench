@@ -92,12 +92,14 @@ static void installJobs() {
 static void removeJobs() {
 	s_ops[(uint8_t)Core1Job::Servo] = nullptr;
 	s_ops[(uint8_t)Core1Job::Kst]   = nullptr;
+	s_ops[(uint8_t)Core1Job::Hitec] = nullptr;
 }
 
-/** @brief The table as it ships: the servo job and the KST job. */
+/** @brief The table as it ships: the servo, KST and Hitec jobs. */
 static void shippedJobs() {
 	s_ops[(uint8_t)Core1Job::Servo] = &SERVO_JOB_OPS;
 	s_ops[(uint8_t)Core1Job::Kst]   = &KST_JOB_OPS;
+	s_ops[(uint8_t)Core1Job::Hitec] = &HITEC_JOB_OPS;
 }
 
 // ---------------------------------------------------------------------------
@@ -1150,9 +1152,10 @@ static void testAm32Screen() {
 
 void runClaimTests() {
 	section("Core1 jobs: the table as it ships");
-	checkTrue("the servo job and the KST job are in the table",
+	checkTrue("the servo, KST and Hitec jobs are in the table",
 	          s_ops[(uint8_t)Core1Job::Servo] == &SERVO_JOB_OPS &&
-	          s_ops[(uint8_t)Core1Job::Kst] == &KST_JOB_OPS);
+	          s_ops[(uint8_t)Core1Job::Kst] == &KST_JOB_OPS &&
+	          s_ops[(uint8_t)Core1Job::Hitec] == &HITEC_JOB_OPS);
 	installJobs();
 	s_ops[(uint8_t)Core1Job::Kst] = &FAKE_KST_INIT;
 	core1JobInit();

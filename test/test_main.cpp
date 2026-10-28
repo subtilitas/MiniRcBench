@@ -27,6 +27,7 @@ void runSdioTests();
 void runClaimTests();
 void runServoTests();
 void runKstTests();
+void runHitecTests();
 void runWidgetTests();
 void runIdTests();
 void runMenuTests();
@@ -54,6 +55,7 @@ int main() {
 	runClaimTests();
 	runServoTests();
 	runKstTests();
+	runHitecTests();
 	runWidgetTests();
 	runIdTests();
 	runBackupTests();

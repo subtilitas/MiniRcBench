@@ -102,6 +102,22 @@ jobs:
             diff -u "test/rcbench/fixtures/${p}_line_words.txt" "build/${p}_line.hex"
           done
 
+      # The Hitec job runs on core1, whose stack is 2 KB
+      # (PICO_CORE1_STACK_SIZE). src/hitec.cmake builds the job, its line
+      # port and driver, the session, the register model and the supply with
+      # -fcallgraph-info=su at the Release flags. The deepest chain from the
+      # job's three entry points may take 1792 bytes, which leaves 256 bytes
+      # for loop1() and core1JobPoll() above them. A frame of no fixed size
+      # or a recursion fails at once.
+      - name: Hitec job stack on core1
+        run: |
+          mapfile -t ci < <(find build -name 'hitec_*.ci' -o -name 'servo_supply.cpp.ci')
+          printf '%s\n' "${ci[@]}"
+          [ "${#ci[@]}" -eq 9 ] || {
+            echo "::error::expected 9 call-graph files, found ${#ci[@]}"; exit 1; }
+          python3 tools/stack_depth.py --limit 1792 \
+            --root hitecJobStep --root hitecJobRelease --root hitecJobBind "${ci[@]}"
+
       # A ceiling, not a printout. The framebuffer alone is 150 kB of the
       # RP2350's 520 kB, and a regression that doubles a buffer otherwise passes
       # CI and fails on the bench. Generous enough not to be a nuisance; tighten
