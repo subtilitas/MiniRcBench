@@ -111,12 +111,12 @@ jobs:
       # or a recursion fails at once.
       - name: Hitec job stack on core1
         run: |
-          ci=$(find build -name 'hitec_*.ci' -o -name 'servo_supply.cpp.ci')
-          echo "$ci"
-          [ "$(echo "$ci" | wc -l)" -eq 9 ] || {
-            echo "::error::expected 9 call-graph files"; exit 1; }
+          mapfile -t ci < <(find build -name 'hitec_*.ci' -o -name 'servo_supply.cpp.ci')
+          printf '%s\n' "${ci[@]}"
+          [ "${#ci[@]}" -eq 9 ] || {
+            echo "::error::expected 9 call-graph files, found ${#ci[@]}"; exit 1; }
           python3 tools/stack_depth.py --limit 1792 \
-            --root hitecJobStep --root hitecJobRelease --root hitecJobBind $ci
+            --root hitecJobStep --root hitecJobRelease --root hitecJobBind "${ci[@]}"
 
       # A ceiling, not a printout. The framebuffer alone is 150 kB of the
       # RP2350's 520 kB, and a regression that doubles a buffer otherwise passes
