@@ -426,11 +426,13 @@ stall would count as a lapse: the supply goes off, and
 write's card call was saving among them.
 
 **The card phase** (decisions 17 and 19). With `SERVO SUPPLY` at `GP0`,
-every card call core0 makes while the KST claim holds runs inside one:
+every card call core0 makes while the KST job runs gets one, unless the job
+refuses it (step 1):
 
 1. `ui_kst.cpp` sends `CardBegin` and waits up to 50 ms
    (`KST_CARD_BEGIN_WAIT_MS`) for the job's acknowledge, after up to 50 ms
-   for a command still held to be taken. The job takes `CardBegin` in
+   for a command still held to be taken; one still held after that gets no
+   phase, so `CardBegin` never replaces it. The job takes `CardBegin` in
    Opening, SearchEnded and InMode, so only while no operation, search or
    REBOOT runs. Refused, or not acknowledged in time, the card calls run
    without the phase. The line stays low and the supply as it is.

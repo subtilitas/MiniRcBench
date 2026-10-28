@@ -226,12 +226,14 @@ static bool    s_cardSent = false; /**< The outermost one sent CardBegin. */
 struct KstCardPhase {
 	KstCardPhase() {
 		if (s_cardDepth++ || !running() || !s_st.supplyFitted) return;
-		// A command still held would be replaced by CardBegin: it is taken first.
+		// A command still held would be replaced by CardBegin: it is taken
+		// first, and while it is held there is no phase.
 		KstStatus st;
 		uint32_t t0 = millis();
 		for (kstJobStatus(&st); !taken(st.ackSeq, s_sentSeq) && millis() - t0 < KST_CARD_BEGIN_WAIT_MS;
 		     kstJobStatus(&st))
 			kstCardWaitPoll();
+		if (!taken(st.ackSeq, s_sentSeq)) return;
 		KstCmd c;
 		memset(&c, 0, sizeof(c));
 		c.op = KstOp::CardBegin;
@@ -250,14 +252,15 @@ struct KstCardPhase {
 	~KstCardPhase() {
 		if (--s_cardDepth || !s_cardSent) return;
 		// CardEnd also for a CardBegin the job takes late, so no phase stays open.
-		sdh_wait_hook = nullptr;
-		s_cardSent = false;
+		// The screen's own heartbeat takes over from the card's before the
+		// job closes the phase.
+		escHeartbeat();
 		KstCmd c;
 		memset(&c, 0, sizeof(c));
 		c.op = KstOp::CardEnd;
 		s_sentSeq = kstJobCommand(&c);
-		// The screen's own heartbeat takes over from the card's.
-		escHeartbeat();
+		sdh_wait_hook = nullptr;
+		s_cardSent = false;
 	}
 	KstCardPhase(const KstCardPhase &) = delete;
 	KstCardPhase &operator=(const KstCardPhase &) = delete;
