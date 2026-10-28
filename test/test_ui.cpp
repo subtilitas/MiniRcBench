@@ -3383,7 +3383,7 @@ void runUiTests() {
 		for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
 		fakeRelease(); frames(3);
 		checkTrue("the serial unread after the backup", fakeFatExists("BACKUP/AM004.TXT") &&
-		                                              s_backupOnCard && s_backupVolume == 0);
+		                                              s_backupOnCard && !s_backupVolumeRead);
 		tapId(UI_FIX(Am32Ctl::Ok));
 		tapId(UI_FIX(Am32Ctl::EditPlus));
 		pressId(UI_FIX(Am32Ctl::Write));

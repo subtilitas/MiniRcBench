@@ -174,19 +174,20 @@ serial number is not detected.
 The check at a batch's start does not cover a card swapped after the
 session's backup reached the card, with nothing queued. So when a tool
 saves its backup, it reads the volume's serial number past the cache
-(`cardVolumeSerial()`, `sd_sdio_read_past()`); a number that does not read
-is kept as 0. Before every later write to its device, with a card mounted,
-it reads the number again. A different number, or a card that does not
-answer, mounts the card in the slot again (`cardCacheRecover()`):
+(`cardVolumeSerial()`, `sd_sdio_read_past()`). Before every later write to
+its device, with a card mounted, it reads the number again. A different
+number, a card that does not answer, or a number that did not read at the
+backup, mounts the card in the slot again (`cardCacheRecover()`):
 
 - a card that mounts takes the backup before the device is written;
 - no card that mounts leaves the cache off for the rest of the claim, and the
   write runs under the no-card rule, the backup in memory
   ([backups.md](backups.md#am32-backup)).
 
-KST flushes a batch still queued, a removal of the record, before the
-check, so a read that fails on the right card drops no half-written
-batch. The check costs one block read per write, plus the end of the block
+With a batch still queued, the first write's after BACK during its flush or
+a removal of the record, KST's write page waits for it as it waits for the
+backup, `SAVING THE BACKUP TO THE CARD.`, and runs the check as the flush
+ends, so a read that fails on the right card drops no half-written batch. The check costs one block read per write, plus the end of the block
 in flight (`sdc_settle()`), and works with the cache on or off; a recovery
 leaves a cache that was off turned off. While USB DRIVE holds the card,
 `cardMounted()` is false: no check runs, and `cardCacheRecover()` returns
@@ -265,12 +266,14 @@ recorded in this note.
   BACK during the flush and a SAVE AS whose flush fails, then the backup
   saved again; a batch failed before a write, recovered; BACK on the unplug
   page turning the cache on again; another card's serial number before a
-  write, mounted again and the backup saved to it; the same card with the
-  record's removal flushing, flushed first, no remount.
+  write, mounted again and the backup saved to it; a batch still queued,
+  the saving page and no write frame until it ends, then the same card with
+  no remount, or another card swapped in meanwhile and the backup saved to
+  it.
 - `test_ui.cpp`: the AM32 write refused after a failed flush; another card,
   and a card that does not answer its serial read, before a later write: the
-  backup saved again; a serial number unread after the backup, then checked
-  and saved again; USB DRIVE holding the card, no recovery.
+  backup saved again; a serial number unread after the backup, then the
+  backup saved again; USB DRIVE holding the card, no recovery.
 - The host suite links a fake of `card_cache.h` (`test/fakes.cpp`);
   `card_cache.cpp` and the glue are built by the firmware only.
 

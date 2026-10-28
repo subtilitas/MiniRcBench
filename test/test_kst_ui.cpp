@@ -1257,19 +1257,40 @@ static void testFlushWait() {
 	          untilCtl(UI_FIX(KstCtl::WriteOk), 400) && fakeCacheCalls().recovers == recovers + 1 &&
 	          fakeFatExists(path) && job().result == KST_SES_OK && sim->n_writes > writes);
 	tapId(UI_FIX(KstCtl::WriteOk));
-	// The same card, the record's removal still flushing: it ends first,
-	// then the check; no remount, no second backup.
+	// The same card, a batch still queued: the page waits for it without
+	// blocking, the check runs as it ends; no remount, no second backup.
 	fakeCacheSet(CardCache::Flushing, 2);
-	unsigned flushes = fakeCacheCalls().flushes;
 	recovers = fakeCacheCalls().recovers;
 	kstFilesNextBackup(next);
+	writes = sim->n_writes;
 	tapId(UI_FIX(KstCtl::EditMinus));
 	holdUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
+	kstFrames(3);
+	checkTrue("a batch still queued: the saving page, no write frame",
+	          lineIs(196, "SAVING THE BACKUP TO THE CARD.", C_AMBER) && sim->n_writes == writes);
+	fakeCacheSet(CardCache::Idle, 0);
 	snprintf(path, sizeof(path), "BACKUP/%s", next);
-	checkTrue("the same card: the flush, the write, no remount, no backup",
+	checkTrue("flushed, the same card: the write, no remount, no backup",
 	          untilCtl(UI_FIX(KstCtl::WriteOk), 400) && fakeCacheCalls().recovers == recovers &&
-	          fakeCacheCalls().flushes > flushes && !fakeFatExists(path));
+	          !fakeFatExists(path) && sim->n_writes > writes);
+	tapId(UI_FIX(KstCtl::WriteOk));
+
+	// Another card swapped in while a batch was queued: the check at the
+	// flush's end mounts it again, and the backup goes to it first.
+	fakeCacheSet(CardCache::Flushing, 2);
+	recovers = fakeCacheCalls().recovers;
+	kstFilesNextBackup(next);
+	tapId(UI_FIX(KstCtl::EditPlus));
+	holdUntilGone(UI_FIX(KstCtl::Write));
+	holdUntilGone(UI_FIX(KstCtl::WriteHold));
+	kstFrames(2);
+	fakeVolumeSet(3);
+	fakeCacheSet(CardCache::Idle, 0);
+	snprintf(path, sizeof(path), "BACKUP/%s", next);
+	checkTrue("swapped during the wait: mounted again, the backup saved, then the write",
+	          untilCtl(UI_FIX(KstCtl::WriteOk), 400) && fakeCacheCalls().recovers == recovers + 1 &&
+	          fakeFatExists(path) && job().result == KST_SES_OK);
 	tapId(UI_FIX(KstCtl::WriteOk));
 
 	// FILES after a batch failed in the background: mounted again first,

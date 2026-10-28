@@ -106,7 +106,8 @@ static char       s_status[40] = "";
 /** @brief The session's backup is on the card; BACKUP/ holds it as s_backupName. */
 static bool       s_backupDone = false;
 static uint32_t   s_backupVolume = 0;     /**< The serial number of the volume the backup went to. */
-static bool       s_backupOnCard = false; /**< That number was read. */
+static bool       s_backupOnCard = false; /**< The backup went to a card: the swap check is armed. */
+static bool       s_backupVolumeRead = false; /**< s_backupVolume was read; false fails the check. */
 /** @brief The settings as read at entry: the session's backup. */
 static uint8_t    s_entry[AM32_SETTINGS_SIZE];
 static char       s_backupName[BACKUP_NAME_MAX] = "";
@@ -497,7 +498,8 @@ static void doWrite() {
 	// A card swapped since the backup reached the card holds none: the card
 	// in the slot is mounted again and the backup saved to it.
 	uint32_t v = 0;
-	if (s_backupOnCard && cardMounted() && (!cardVolumeSerial(&v) || v != s_backupVolume)) {
+	if (s_backupOnCard && cardMounted() &&
+	    (!s_backupVolumeRead || !cardVolumeSerial(&v) || v != s_backupVolume)) {
 		cardCacheRecover();
 		s_backupDone = s_backupOnCard = false;
 	}
@@ -515,10 +517,10 @@ static void doWrite() {
 			return;
 		}
 		s_backupDone = true;
-		// A serial number that does not read stays 0: the next WRITE then
-		// reads another number, or none, and saves the backup again.
+		// A serial number that does not read leaves the check armed and
+		// failing: the next WRITE mounts the card again and saves again.
 		s_backupOnCard = true;
-		if (!cardVolumeSerial(&s_backupVolume)) s_backupVolume = 0;
+		s_backupVolumeRead = cardVolumeSerial(&s_backupVolume);
 	}
 	Am32Result r = am32BlWrite(am32BlEepromAddr(), s_eeprom, AM32_SETTINGS_SIZE);
 	if (r != AM32_OK) {
