@@ -456,7 +456,7 @@ static void testSwitchedStops() {
 	switchedBench(0, 0);
 	switchedRun(600000u);
 	uint32_t left = kstSeekOffLeftMs(&g_b.seek, nowMs());
-	checkTrue("0.6 s into the off phase: 1.4 s left", left >= 1399 && left <= 1400);
+	checkTrue("0.6 s into the off phase: 1.4 s left", left >= 1400 && left <= 1401);
 }
 
 static void testSwitchedLapseFound() {

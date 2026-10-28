@@ -129,7 +129,7 @@ KstSeek kstSeekStep(KstSeekState *s, kst_session_t *ses, bool uiAlive, uint32_t 
 		// leaves the mode with it.
 		if (s->switched && s->noUi) {
 			kst_session_power_cycled(ses);
-			return finishOff(s, KstSeek::NoUi, KST_SES_ERR_NO_SERVO, nowMs);
+			return finishOff(s, KstSeek::NoUi, r, nowMs);
 		}
 		return finish(s, KstSeek::Found, r, nowMs);
 	}
@@ -181,7 +181,8 @@ void kstSeekStalled(KstSeekState *s, kst_session_t *ses, uint32_t nowMs) {
 uint32_t kstSeekOffLeftMs(const KstSeekState *s, uint32_t nowMs) {
 	if (s->state != KstSeek::Searching || s->phase != KstSupplyPhase::Off) return 0;
 	uint32_t gone = nowMs - s->phaseMs;
-	return gone >= KST_SUPPLY_OFF_MS ? 0 : KST_SUPPLY_OFF_MS - gone;
+	// The phase ends after more than KST_SUPPLY_OFF_MS whole ms.
+	return gone > KST_SUPPLY_OFF_MS ? 0 : KST_SUPPLY_OFF_MS - gone + 1u;
 }
 
 uint32_t kstSeekMs(const KstSeekState *s, uint32_t nowMs) {

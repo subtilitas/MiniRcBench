@@ -690,7 +690,7 @@ static void testSwitchedSearchAndLeave() {
 	checkTrue("1.99 s later: still open, 0.1 s left",
 	          fakeKstLineCloses() == closes && status().supplyLeftDs >= 1);
 	checkTrue("closed 2000 ms after the switch-off", until(KstJobState::Closed, 50) &&
-	          fakeKstLineClosedUs() - offUs >= 1999000u);
+	          fakeKstLineClosedUs() - offUs >= 2000000u);
 	finishSwitched();
 	p = fakePin(SERVO_SUPPLY_PIN);
 	checkTrue("released: GP0 an undriven input", !p.output && p.inputOff && p.pull == FakePull::None);
@@ -804,12 +804,28 @@ static void testSwitchedLatch() {
 	g_alive = true;
 	passes(5);
 	checkTrue("the heartbeat back, the read still runs", status().job == KstJobState::Busy && gp0High());
-	uint16_t seq = send(KstOp::Verify);
 	until(KstJobState::SearchEnded, 3000);
 	KstStatus st = status();
 	checkTrue("the read ended: off and stalled, the lapse kept",
 	          !gp0High() && st.job == KstJobState::SearchEnded && st.stalled);
-	checkTrue("no operation started after the lapse", st.ackSeq == seq && st.refused != KstRefusal::None);
+	finishSwitched();
+
+	// A lapse in a switched search's on phase that the heartbeat recovers
+	// from: the search ends NoUi with the supply off, and RETRY is taken.
+	startSwitched(50000);  // a window no entry meets: the search keeps trying
+	send(KstOp::Search);
+	passes(2050);
+	checkTrue("in an attempt's entry, the supply on", gp0High());
+	g_alive = false;
+	passes(300);
+	g_alive = true;
+	until(KstJobState::SearchEnded, 2000);
+	checkTrue("the search ended NoUi, off", status().seek == KstSeek::NoUi && !gp0High());
+	uint16_t retry = send(KstOp::Search);
+	passes(1);
+	checkTrue("RETRY taken: the lapse does not stay latched",
+	          status().ackSeq == retry && status().refused == KstRefusal::None &&
+	          status().job == KstJobState::Searching);
 	finishSwitched();
 
 	// A lapse during a read that ends in a loss: the new search switches the
@@ -848,6 +864,9 @@ static void testSwitchedLatch() {
 	checkTrue("a lapse after a write: the stall says it had written", st.stalled && st.stallWrote &&
 	          !st.stallLocked && st.wroteRegs == 0);
 	g_alive = true;
+	send(KstOp::Search);
+	passes(1);
+	checkTrue("RETRY: the stall's flags cleared", !status().stallWrote && !status().stallLocked);
 	finishSwitched();
 
 	// A bind whose line does not open drives nothing on GP0.

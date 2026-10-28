@@ -97,11 +97,17 @@ static void syncSeek(uint32_t nowMs) {
 }
 
 /** @brief A lapse with the supply on: off, the session power-cycled, the stalled screen. */
+/** @brief Before a power cycle: the lock and the written registers it drops,
+ *         for the stalled screen. */
+static void keepStallFlags() {
+	s_stallLocked = s_ses.locked != 0;
+	s_stallWrote = s_ses.wrote_regs != 0;
+}
+
 static void stall(uint32_t nowMs) {
 	// The power cycle drops the lock and the written registers; the stalled
 	// screen still has to say whether the servo is in doubt.
-	s_stallLocked = s_ses.locked != 0;
-	s_stallWrote = s_ses.wrote_regs != 0;
+	keepStallFlags();
 	s_lapsed = false;
 	supplySet(false, nowMs);
 	kstSeekStalled(&s_seek, &s_ses, nowMs);
@@ -129,7 +135,8 @@ static uint32_t supplyLeftMs(uint32_t nowMs) {
 		default:
 			return 0;
 	}
-	return gone >= total ? 0 : total - gone;
+	// The waits end after more than `total` whole ms: count that last ms.
+	return gone > total ? 0 : total - gone + 1u;
 }
 
 // ---------------------------------------------------------------------------
@@ -284,6 +291,9 @@ static void take(const KstCmd *cmd, uint32_t nowMs, bool uiAlive) {
 		case KstOp::Search:
 			s_frames = 0;
 			s_stalled = false;
+			// A new search: what an earlier stall said no longer holds.
+			s_stallLocked = false;
+			s_stallWrote = false;
 			kstSeekBegin(&s_seek, &s_ses, nowMs, s_switched);
 			syncSeek(nowMs);
 			s_state = KstJobState::Searching;
@@ -369,6 +379,7 @@ static void rebootStep(uint32_t nowMs, bool uiAlive) {
 			s_result = (uint8_t)r;
 			s_reboot = KstReboot::None;
 			s_state = KstJobState::InMode;
+			keepStallFlags();
 			if (kstSeekLost(&s_seek, &s_ses, r, uiAlive, nowMs, true)) {
 				syncSeek(nowMs);
 				s_stalled = !uiAlive;
@@ -402,6 +413,7 @@ static void advance(uint32_t nowMs, bool uiAlive) {
 			s_state = KstJobState::InMode;
 			// The loss rule: a servo in the mode that stops answering was
 			// without power. The new search counts frames from 0.
+			keepStallFlags();
 			if (kstSeekLost(&s_seek, &s_ses, r, uiAlive, nowMs, s_switched)) {
 				syncSeek(nowMs);
 				s_frames = 0;
