@@ -338,9 +338,13 @@ Not in this history: the DshotDisplay repository's branches
     built and runs in the host suite only. Bench tests needed: a backup of
     each device on a FAT32 and an exFAT card, the ring turned past 50 on a
     card, a backup read back on a computer.
-14. **Hitec reading, planned.** [hitec-reading.md](docs/design/hitec-reading.md)
-    records the design and the owner's decisions of 2026-10-23; nothing is
-    built. It depends on the pin claim and on KST steps 4 and 5.
+14. **Hitec programming, planned.**
+    [hitec-programming.md](docs/design/hitec-programming.md) records the
+    design on rcbench 3e29dc1b, with writes, and the owner's decisions of
+    2026-10-23 and 2026-10-28; nothing is built. No write plan of rcbench's
+    Hitec session or panel has run on a servo, so bring-up runs one write
+    with read-back per family before a write is relied on. It depends on the
+    pin claim and on KST steps 4 and 5.
 
 ## Known limitations
 

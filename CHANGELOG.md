@@ -97,12 +97,6 @@ protocol.
   and the unplug page. `src/kst_view.h` holds the rows, the values with
   their units, the stepper and the texts. The host suite runs the screen
   through MENU against rcbench's simulated servo; `docs/kst-preview.png`.
-- The design note for reading Hitec servos,
-  [hitec-reading.md](docs/design/hitec-reading.md), planned and not built:
-  reads and dumps of Hitec classic and D series servos over SIG with
-  rcbench's Hitec wire module and PIO line driver, no write, with the
-  owner's decisions of 2026-10-23. The classic entry uses the switched
-  servo supply of KST step 5.
 - rcbench's KST programming core (`protocols/kst/`), its RP2350 line driver
   and the KST file store, copied unchanged from rcbench commit 453cf334 into
   `lib/rcbench/`, with rcbench's seven tests of them in `test/rcbench/`
@@ -292,6 +286,16 @@ protocol.
 
 ### Changed
 
+- The Hitec design rewritten on rcbench 3e29dc1b with writes, and renamed
+  from `hitec-reading.md` to
+  [hitec-programming.md](docs/design/hitec-programming.md), "Hitec servo
+  programming": rcbench's Hitec session, register model, wire, PIO and
+  RP2350 line driver; the named parameters edited and written by plans with
+  read-back, a backup into the ring of `BACKUP/` before a session's first
+  write, a record of each write, 1 s holds. The owner's decision of
+  2026-10-28 replaces the no-write decision of 2026-10-23. No write plan of
+  rcbench's has run on a servo; bring-up runs one write with read-back per
+  family first. Planned, not built.
 - The settings block is version 3: it adds `servoSupply`, the SERVO SUPPLY
   row. The first boot after the update discards the stored version 2 block
   and starts from the compiled defaults, every setting and the ESC pin

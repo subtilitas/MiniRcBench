@@ -12,7 +12,7 @@ names, what the ring holds and the write cache's scope; the SD write cache of
 |---|---|---|---|
 | KST SERVO | KST and Chaservo servos | the image read at entry, rcbench's text format ([kst-programming.md](kst-programming.md#storage)) | `KST` |
 | AM32 CONFIG | AM32 ESCs (electronic speed controllers) | the settings block read at entry, as text (`src/am32_backup.*`) | `AM` |
-| Hitec | Hitec servos | none: [hitec-reading.md](hitec-reading.md) reads and dumps and never writes | `HT`, reserved |
+| Hitec | Hitec servos | planned, not built: the full read at entry, rcbench's servo file text ([hitec-programming.md](hitec-programming.md#storage)); nothing writes one yet | `HT`, reserved |
 
 ## Card layout
 
