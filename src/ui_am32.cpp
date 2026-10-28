@@ -497,7 +497,7 @@ static void doWrite() {
 	// A card swapped since the backup reached the card holds none: the card
 	// in the slot is mounted again and the backup saved to it.
 	uint32_t v = 0;
-	if (s_backupOnCard && (!cardVolumeSerial(&v) || v != s_backupVolume)) {
+	if (s_backupOnCard && cardMounted() && (!cardVolumeSerial(&v) || v != s_backupVolume)) {
 		cardCacheRecover();
 		s_backupDone = s_backupOnCard = false;
 	}
@@ -515,7 +515,10 @@ static void doWrite() {
 			return;
 		}
 		s_backupDone = true;
-		s_backupOnCard = cardVolumeSerial(&s_backupVolume);
+		// A serial number that does not read stays 0: the next WRITE then
+		// reads another number, or none, and saves the backup again.
+		s_backupOnCard = true;
+		if (!cardVolumeSerial(&s_backupVolume)) s_backupVolume = 0;
 	}
 	Am32Result r = am32BlWrite(am32BlEepromAddr(), s_eeprom, AM32_SETTINGS_SIZE);
 	if (r != AM32_OK) {

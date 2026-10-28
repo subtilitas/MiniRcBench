@@ -46,6 +46,9 @@ FakeCacheCalls fakeCacheCalls();
  */
 void fakeVolumeSet(uint32_t serial, bool answers = true);
 
+/** @brief The next @p n reads of cardVolumeSerial() fail, whatever fakeVolumeSet() said. */
+void fakeVolumeFailNext(unsigned n);
+
 /** @brief Begin a touch at (@p x, @p y); sets the one-poll `pressed` edge. */
 void fakePress(int x, int y);
 

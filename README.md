@@ -1035,9 +1035,10 @@ reads `READ ONLY: UNKNOWN LAYOUT`.
   is not seen as an unmount. A record on the new card with the same bytes
   as the session's own record, the same servo image, is removed as the
   session's. The strip, the write page's backup line and the `(BACKUP)`
-  tag in FILES still name the session's backup file, which is on the first
-  card: a file of that name on the new card carries the tag. The next write
-  sees the swap and saves the backup to the new card first.
+  tag in FILES name the session's backup file, which is on the first card,
+  until the next write: a file of that name on the new card carries the tag
+  meanwhile. The next write sees the swap and saves the backup to the new
+  card first.
 
 ---
 
@@ -1269,7 +1270,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.1%**: 6,076 of 6,194 lines in 46 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.1%**: 6,082 of 6,200 lines in 46 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

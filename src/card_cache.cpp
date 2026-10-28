@@ -6,6 +6,7 @@
 #include "card_cache.h"
 #include "card_dir.h"
 #include "sd_log.h"
+#include "usb_msc.h"
 #include "sdio/sd_card_cache.h"
 #include "sdio/sd_cache.h"
 
@@ -51,7 +52,9 @@ CardCache cardCacheFlush() {
 }
 
 void cardCacheRecover() {
-	if (!card()) return;
+	// USB DRIVE holds the card: a remount is refused, and a card marked for
+	// initialisation would fail every read of the host.
+	if (!card() || mscGetState() != MscState::Idle) return;
 	bool was = sd_sdio_cache_state(nullptr) != SD_SDIO_CACHE_OFF;
 	sd_sdio_cache_drop(card());
 	sdLogRemount();

@@ -755,7 +755,10 @@ static bool firstWriteFiles() {
 	// Without a card nothing is on it yet: a later write with a card
 	// mounted saves the backup and writes the record then.
 	s_firstDone = !(s_first.backup == KST_STORE_NO_CARD && s_first.record == KST_STORE_NO_CARD);
-	s_firstOnCard = s_firstDone && cardVolumeSerial(&s_firstVolume);
+	// A serial number that does not read stays 0: the check before the next
+	// write then reads another number, or none, and starts over.
+	s_firstOnCard = s_firstDone;
+	if (s_firstOnCard && !cardVolumeSerial(&s_firstVolume)) s_firstVolume = 0;
 	s_recordFound = s_firstDone && kstFilesRecordPresent();
 	return true;
 }
@@ -806,13 +809,22 @@ static void flushStep() {
 static void startWrite() {
 	s_cardNote = nullptr;
 	s_result = false;
+	// The serial check below must not drop a batch still flushing to the
+	// right card, a removal of the record: that batch ends first.
+	if (s_firstOnCard && cardCacheState() == CardCache::Flushing) cardCacheFlush();
 	// A batch that failed off this page, after BACK during the flush or a
 	// removal of the record: the first write starts over.
 	if (cardCacheState() == CardCache::Failed) recoverFlush();
 	// A card swapped since the backup reached the card holds none: the card
 	// in the slot is mounted again and the first write starts over on it.
+	// Without a mounted card, USB DRIVE among it, the no-card rule applies.
 	uint32_t v = 0;
-	if (s_firstOnCard && (!cardVolumeSerial(&v) || v != s_firstVolume)) recoverFlush();
+	if (s_firstOnCard && cardMounted() && (!cardVolumeSerial(&v) || v != s_firstVolume)) {
+		recoverFlush();
+		// The backup line names the backup the card in the slot takes.
+		s_backupNext[0] = '\0';
+		if (kstFilesMounted()) kstFilesNextBackup(s_backupNext);
+	}
 	if (!firstWriteFiles()) {
 		s_cardNote = "THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.";
 		return;

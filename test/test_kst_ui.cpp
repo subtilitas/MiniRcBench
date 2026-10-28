@@ -1257,16 +1257,19 @@ static void testFlushWait() {
 	          untilCtl(UI_FIX(KstCtl::WriteOk), 400) && fakeCacheCalls().recovers == recovers + 1 &&
 	          fakeFatExists(path) && job().result == KST_SES_OK && sim->n_writes > writes);
 	tapId(UI_FIX(KstCtl::WriteOk));
-	// The same card: no remount, no second backup.
+	// The same card, the record's removal still flushing: it ends first,
+	// then the check; no remount, no second backup.
+	fakeCacheSet(CardCache::Flushing, 2);
+	unsigned flushes = fakeCacheCalls().flushes;
 	recovers = fakeCacheCalls().recovers;
 	kstFilesNextBackup(next);
 	tapId(UI_FIX(KstCtl::EditMinus));
 	holdUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	snprintf(path, sizeof(path), "BACKUP/%s", next);
-	checkTrue("the same card: the write, no remount, no backup",
+	checkTrue("the same card: the flush, the write, no remount, no backup",
 	          untilCtl(UI_FIX(KstCtl::WriteOk), 400) && fakeCacheCalls().recovers == recovers &&
-	          !fakeFatExists(path));
+	          fakeCacheCalls().flushes > flushes && !fakeFatExists(path));
 	tapId(UI_FIX(KstCtl::WriteOk));
 
 	// FILES after a batch failed in the background: mounted again first,

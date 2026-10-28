@@ -648,9 +648,11 @@ static CardCache g_cacheFlushTo = CardCache::Idle;
 static FakeCacheCalls g_cacheCalls = {};
 static uint32_t  g_volumeSerial = 1;
 static bool      g_volumeAnswers = true;
+static unsigned  g_volumeFailNext = 0;
 
 void fakeCacheReset() {
 	g_volumeSerial = 1;
+	g_volumeFailNext = 0;
 	g_volumeAnswers = true;
 	g_cacheOn = false;
 	g_cacheState = CardCache::Idle;
@@ -665,6 +667,8 @@ void fakeCacheSet(CardCache st, uint16_t left) {
 }
 
 void fakeCacheFlushTo(CardCache st) { g_cacheFlushTo = st; }
+
+void fakeVolumeFailNext(unsigned n) { g_volumeFailNext = n; }
 
 void fakeVolumeSet(uint32_t serial, bool answers) {
 	g_volumeSerial = serial;
@@ -722,6 +726,10 @@ bool cardVolumeSerial(uint32_t *serial) {
 	sdLogStatus(&st);
 	bool mounted = st.state == SdLogState::Idle || st.state == SdLogState::Logging;
 	if (!mounted || mscGetState() != MscState::Idle || !g_volumeAnswers) return false;
+	if (g_volumeFailNext) {
+		g_volumeFailNext--;
+		return false;
+	}
 	*serial = g_volumeSerial;
 	return true;
 }
