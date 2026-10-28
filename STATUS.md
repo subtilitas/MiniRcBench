@@ -329,7 +329,10 @@ Not in this history: the DshotDisplay repository's branches
     the glue and `src/card_cache.cpp` are built by the firmware only. Bench
     tests needed: busy polled once per loop pass on a scope, a card swapped
     during a flush, power pulled during a flush and the volume checked on a
-    computer.
+    computer. Open: a card swapped between batches, after the session's
+    backup reached the card, is not detected, and the next write of the
+    session runs without a backup on the new card
+    ([sd-write-cache.md](docs/design/sd-write-cache.md#card-swap)).
 14. **Device backups on hardware.** [backups.md](docs/design/backups.md) is
     built and runs in the host suite only. Bench tests needed: a backup of
     each device on a FAT32 and an exFAT card, the ring turned past 50 on a
