@@ -77,7 +77,9 @@ unsigned backupNumber(const char *name, BackupDevice *dev) {
 }
 
 void backupName(BackupDevice d, unsigned n, char *out) {
-	snprintf(out, BACKUP_NAME_MAX, "%s%03u%s", backupPrefix(d), n, EXT);
+	// A prefix of at most 3 characters and 3 digits: 10 characters at most,
+	// which the compiler can prove fits BACKUP_NAME_MAX.
+	snprintf(out, BACKUP_NAME_MAX, "%.3s%03u%s", backupPrefix(d), n % 1000u, EXT);
 }
 
 static void markName(const char *name, bool isDir, void *ctx) {
