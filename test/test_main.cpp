@@ -38,7 +38,7 @@ int main() {
 	printf("=======================\n");
 
 	runAm32Tests();
-	// First: it needs GP0 untouched, as from boot.
+	// Before the UI suite, whose SETTINGS tests configure the supply.
 	runServoSupplyTests();
 	runUiTests();
 	runKissTests();

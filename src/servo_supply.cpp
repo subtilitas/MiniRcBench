@@ -16,10 +16,12 @@ static bool            s_on    = false;
 static void undriven() {
 	// Selecting SIO clears the pad's isolation and output disable and turns
 	// its input on (Pico SDK 2.1.1, gpio.c), so the input is disabled after it.
+	// The input goes off before the pulls, so the pad never has its input on
+	// with no pull (erratum RP2350-E9).
 	gpio_set_function(SERVO_SUPPLY_PIN, GPIO_FUNC_SIO);
+	gpio_set_input_enabled(SERVO_SUPPLY_PIN, false);
 	gpio_set_dir(SERVO_SUPPLY_PIN, GPIO_IN);
 	gpio_disable_pulls(SERVO_SUPPLY_PIN);
-	gpio_set_input_enabled(SERVO_SUPPLY_PIN, false);
 }
 
 void servoSupplyInit() { servoSupplyConfigure(settings()->servoSupply); }

@@ -199,6 +199,7 @@ struct FakePin {
 	bool     high;         /**< gpio_put() last drove it high. */
 	bool     inputOff;     /**< gpio_set_input_enabled() last disabled its input. */
 	int      puts;         /**< gpio_put() calls. */
+	int      highEnables;  /**< gpio_set_dir() made it an output while gpio_put() held it high. */
 	int      cutPulses;    /**< Pulses cut short or left high by a stop or a mux change. */
 	uint32_t cutAtUs;      /**< How far into the pulse the last cut came, us. */
 };

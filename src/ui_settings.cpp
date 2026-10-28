@@ -612,7 +612,9 @@ bool uiSettingsTick(const TouchState *t) {
 	s_changed = false;
 	// A tool's row writes settings() without this file's flag: a change is
 	// what differs after the rows ran.
-	Settings before = *settings();
+	// memcpy, not a struct copy, so the padding byte compares too.
+	Settings before;
+	memcpy(&before, settings(), sizeof(before));
 	for (uint8_t i = 0; i < s_itemCount; i++) {
 		const Item &it = s_items[i];
 		if (!it.row || it.index >= MAX_ROWS) continue;

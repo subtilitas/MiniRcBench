@@ -351,7 +351,7 @@ tester. Every tool's **BACK** returns to MENU.
 | **SERVO TESTER** | the signal pins, `GP29+28`; `PINS BUSY` | Opens the servo tester. See [Servo tester](#servo-tester) |
 | **KST SERVO** | the ESC pin, `GP29`; `PINS BUSY` | Opens the KST servo programmer. See [KST servo programming](#kst-servo-programming) |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a USB host holds the card | Opens the logging status. See below |
-| **SETTINGS** | `UNSAVED` while the live settings differ from flash, else nothing; `PINS BUSY` while the pin claim is not Free, drawn disabled | Opens SETTINGS. See below |
+| **SETTINGS** | `UNSAVED` while the live settings differ from flash, else nothing; `PINS BUSY` while the pin claim is not Free, drawn disabled | Opens SETTINGS: the tester, the wiring, the KST servo supply, the display. See below |
 
 - **BEEP flash**: a tap fills the row for 350 ms (`BEEP_FLASH_MS`): white
   with `SENT`, amber with `REFUSED`. Without it a 6 ms command is not visible

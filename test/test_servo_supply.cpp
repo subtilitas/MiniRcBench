@@ -19,12 +19,13 @@ static bool undriven(const FakePin &p) {
 
 void runServoSupplyTests() {
 	section("Servo supply: GP0 with no switch, then with one");
-	// Runs first in the suite: nothing has configured GP0 yet.
+	// Runs before the UI suite: nothing has configured the module yet.
 	fakePwmReset();
 	servoSupplyConfigure(0);
 	FakePin p = fakePin(SERVO_SUPPLY_PIN);
 	checkTrue("none from boot: GP0 untouched",
-	          p.function == 0 && p.pull == FakePull::Untouched && !p.output && p.puts == 0);
+	          p.function == 0 && p.pull == FakePull::Untouched && !p.output && p.puts == 0 &&
+	          !p.inputOff);
 	checkTrue("not fitted", !servoSupplyFitted());
 	servoSupplyBind();
 	servoSupplyOn();
@@ -44,6 +45,7 @@ void runServoSupplyTests() {
 	servoSupplyBind();
 	p = fakePin(SERVO_SUPPLY_PIN);
 	checkTrue("bind: an output, low", p.output && !p.high && !servoSupplyIsOn());
+	checkInt("never made an output while set high", p.highEnables, 0);
 	servoSupplyOn();
 	p = fakePin(SERVO_SUPPLY_PIN);
 	checkTrue("on: high", p.output && p.high && servoSupplyIsOn());
