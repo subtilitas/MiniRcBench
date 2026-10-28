@@ -10,7 +10,9 @@
 
 #include "ui_am32.h"
 #include "settings.h"
+#include "am32_backup.h"
 #include "am32_bl.h"
+#include "card_dir.h"
 #include "am32_eeprom.h"
 #include "pin_claim.h"
 #include "touch.h"
@@ -100,6 +102,11 @@ static bool       s_hexView = false;
 static UiList     s_list;
 static int        s_selected = -1;
 static char       s_status[40] = "";
+/** @brief The session's backup is on the card; BACKUP/ holds it as s_backupName. */
+static bool       s_backupDone = false;
+/** @brief The settings as read at entry: the session's backup. */
+static uint8_t    s_entry[AM32_SETTINGS_SIZE];
+static char       s_backupName[BACKUP_NAME_MAX] = "";
 /** @brief HOLD TO WRITE. */
 static UiHold     s_writeHold;
 static uint8_t    s_layoutRev = 0;
@@ -403,6 +410,8 @@ void uiAm32Enter() {
 	am32BlSetBaud(AM32_LINK_BAUD);
 	memset(s_eeprom, 0, sizeof(s_eeprom));
 	memset(s_original, 0, sizeof(s_original));
+	s_backupDone = false;
+	s_backupName[0] = '\0';
 	claimPins();
 }
 
@@ -463,6 +472,7 @@ static void tryConnect() {
 	}
 
 	memcpy(s_original, s_eeprom, sizeof(s_eeprom));
+	memcpy(s_entry, s_eeprom, sizeof(s_entry));
 	buildVisible();
 	openList();
 	s_selected = -1;
@@ -473,6 +483,19 @@ static void tryConnect() {
 
 /** @brief Commit the settings block. */
 static void doWrite() {
+	// The settings as read at entry go to the card before the first write of
+	// the session. Without a card the write runs and the backup stays in
+	// memory, s_entry, until a write with a card saves it; a card that
+	// refuses it stops the write.
+	if (!s_backupDone && cardMounted()) {
+		BackupResult b = am32BackupSave(s_entry, am32BlEscTypeName(), am32BlEepromAddr(),
+		                                s_backupName);
+		if (b != BackupResult::Ok) {
+			snprintf(s_status, sizeof(s_status), "NO BACKUP ON THE CARD: NOT WRITTEN");
+			return;
+		}
+		s_backupDone = true;
+	}
 	Am32Result r = am32BlWrite(am32BlEepromAddr(), s_eeprom, AM32_SETTINGS_SIZE);
 	if (r != AM32_OK) {
 		snprintf(s_status, sizeof(s_status), "WRITE FAILED: %s", am32ResultText(r));
@@ -504,7 +527,8 @@ static void doWrite() {
 		return;
 	}
 	memcpy(s_original, s_eeprom, AM32_SETTINGS_SIZE);
-	snprintf(s_status, sizeof(s_status), "WRITE VERIFIED");
+	if (s_backupDone) snprintf(s_status, sizeof(s_status), "WRITE VERIFIED. BACKUP %.5s", s_backupName);
+	else snprintf(s_status, sizeof(s_status), "WRITE VERIFIED");
 }
 
 

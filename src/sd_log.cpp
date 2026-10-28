@@ -173,16 +173,16 @@ bool sdLogReacquire() {
 bool sdLogReleased() { return s_released; }
 
 /**
- * @brief Find the lowest unused `LOGnnnnn.BFL`.
+ * @brief Find the lowest unused `LOGS/LOGnnnnn.BFL`.
  *
  * Linear probe. Slow if there are thousands of logs, but it happens once per
  * file and it keeps numbering stable across power cycles, which matters more
  * than the milliseconds — a bench session is a sequence of numbered runs.
  */
 static uint16_t nextFileNumber() {
-	char name[16];
+	char name[24];
 	for (uint16_t n = 1; n < 10000; n++) {
-		snprintf(name, sizeof(name), "LOG%05u.BFL", (unsigned)n);
+		snprintf(name, sizeof(name), SD_LOG_DIR_PATH "/LOG%05u.BFL", (unsigned)n);
 		FILINFO fno;
 		if (f_stat(name, &fno) == FR_NO_FILE) return n;
 	}
@@ -194,11 +194,17 @@ bool sdLogStart() {
 	if (s_state == SdLogState::NoCard) return false;
 	if (s_state == SdLogState::Logging) return true;
 
+	// The logs live in their own directory, so the root holds a few
+	// directories and a lookup in it reads one block. FR_EXIST is the
+	// directory already there.
+	FRESULT md = f_mkdir(SD_LOG_DIR_PATH);
+	if (md != FR_OK && md != FR_EXIST) { s_state = SdLogState::Error; return false; }
+
 	uint16_t n = nextFileNumber();
 	if (n == 0) { s_state = SdLogState::Error; return false; }
 
-	char name[16];
-	snprintf(name, sizeof(name), "LOG%05u.BFL", (unsigned)n);
+	char name[24];
+	snprintf(name, sizeof(name), SD_LOG_DIR_PATH "/LOG%05u.BFL", (unsigned)n);
 	if (f_open(&s_file, name, FA_WRITE | FA_CREATE_ALWAYS) != FR_OK) {
 		s_state = SdLogState::Error;
 		return false;

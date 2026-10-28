@@ -44,6 +44,26 @@ protocol.
 
 ### Added
 
+- Device backups in one ring ([backups.md](docs/design/backups.md)). KST
+  SERVO and AM32 CONFIG save the device's settings, as read at entry, before
+  the first write of a session: `BACKUP/KSTnnn.TXT` and `BACKUP/AMnnn.TXT`,
+  one sequence of 50 numbers for every device, `BACKUP/LAST` naming the
+  latest; once all 50 are taken the next backup writes over the oldest in
+  place. A mounted card that refuses the backup stops the write.
+- The AM32 backup: the 48-byte settings block as text, one line per field,
+  the bytes in hex and a CRC-32 checksum line (`src/am32_backup.*`).
+- KST's SAVE AS writes to `KST/` under the next free KSTnnn and refuses once
+  `KST/` holds 50 files. FILES lists the record, the KST backups of
+  `BACKUP/` and the files of `KST/`; a backup loads as a file.
+- `src/card_dir.*`: the mount rule, the scope that makes one directory
+  FatFs's current one for a card call, and the file calls the KST files and
+  the backups share.
+- `make -C test kstcount` (`test/kst_card_count.cpp`): the KST card phases
+  and the AM32 backup in block reads and writes, from FatFs R0.15 at the SD
+  library's pinned commit over a RAM disk that counts them, on FAT32 and
+  exFAT with no log, 1000 logs in `LOGS/` and 1000 in the root. It writes its table into
+  [kst-programming.md](docs/design/kst-programming.md), and the Host tests
+  job fails when the table drifts.
 - The KST SERVO screen (work breakdown step 4), MENU's fourth row.
   `src/ui_kst.cpp` claims SIG, searches, reads the servo and shows its 27
   named fields in TUNE, PULSE, FAILSAFE and LOCKED; − and + step a field
@@ -248,6 +268,10 @@ protocol.
   frame of SETTINGS.
 
 ### Changed
+
+- Blackbox logs are written to `LOGS/LOGnnnnn.BFL` (`SD_LOG_DIR_PATH`), so the
+  card's root holds a few directories. Logs an earlier firmware wrote to the
+  root stay there and are not counted.
 
 - The project is MiniRcBench, at
   [github.com/subtilitas/MiniRcBench](https://github.com/subtilitas/MiniRcBench).

@@ -227,6 +227,9 @@ add_executable(MiniRcBench
     src/usb_msc.cpp
     src/theme.cpp
     src/settings.cpp
+    src/card_dir.cpp
+    src/backup_ring.cpp
+    src/am32_backup.cpp
     src/settings_flash.cpp
     src/gfx.cpp
     src/st7789.cpp

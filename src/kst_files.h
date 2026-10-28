@@ -14,14 +14,20 @@
  *
  * | Situation | Call | Effect |
  * |---|---|---|
- * | SAVE AS, LOAD, the FILES list | kstFilesIo() with `kst_store.h` | the store's own rules: no file is replaced, `KST.TXT` is refused |
- * | First write of a session | kstFilesFirstWrite() | the backup as the next KSTnnn.TXT, then the image before the write as `KST/KST.TXT` |
+ * | LOAD, the FILES list | kstFilesIo() with `kst_store.h`, kstFilesBackups(), kstFilesBackupLoad() | the files of `KST/` by the store's rules, and the KST backups of `BACKUP/`, latest first |
+ * | SAVE AS, the name it proposes | kstFilesSaveAs(), kstFilesSaveName() | the next free KSTnnn of `KST/`, never written over; refused once `KST/` holds 50 files |
+ * | First write of a session | kstFilesFirstWrite() | the backup into the ring of `BACKUP/` (backup_ring.h), then the image before the write as `KST/KST.TXT` |
  * | Write verified, or LEAVE from a servo in a known state | kstFilesRecordRemove() | `KST/KST.TXT` removed, when this session wrote it and it holds the bytes written |
  * | The screen opens | kstFilesRecordPresent(), kstFilesRecordLoad() | an interrupted write's record found and read |
  *
- * A record left by an interrupted write is renamed to the next KSTnnn.TXT
- * before a new one is written, so no record is lost; one that stays in place
- * is never written over or removed.
+ * A record left by an interrupted write is moved into the ring of `BACKUP/`
+ * as a KST backup before a new one is written, so no record is lost; one that
+ * stays in place is never written over or removed.
+ *
+ * SAVE AS takes the name `kst_store_preset()` proposes, one above the
+ * highest KSTnnn of `KST/`, and refuses once `KST/` holds
+ * `KST_FILES_SAVE_MAX` files the store lists. That bounds the directory a
+ * SAVE AS walks: 50 files, the record, `.` and `..` are 4 sectors on FAT32.
  *
  * Current limitations, from FatFs on this board:
  * - A write-protected card reports `KST_STORE_WRITE_ERROR`, not
@@ -52,34 +58,104 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "backup_ring.h"
+#include "card_dir.h"
 #include "kst_reg.h"
 #include "kst_store.h"
+
+/** @brief The files of `KST/` past which SAVE AS refuses. */
+#define KST_FILES_SAVE_MAX 50
 
 /** @brief The record's file name in `KST_STORE_DIR`. */
 #define KST_FILES_RECORD_NAME KST_STORE_RECORD KST_STORE_EXT
 
 /** @brief What the first write of a session put on the card. */
 struct KstFirstWrite {
-	uint8_t backup;                          /**< `kst_store_t` of the backup's save. */
+	uint8_t backup;                          /**< `kst_store_t` of the backup's save into `BACKUP/`. */
 	char    backupName[KST_STORE_NAME_MAX];  /**< Its file name; empty unless saved. */
 	uint8_t record;                          /**< `kst_store_t` of the record. */
 	uint8_t kept;                            /**< `kst_store_t` of keeping an old record; OK when there was none. */
-	char    keptName[KST_STORE_NAME_MAX];    /**< The old record's new file name; empty for none. */
+	char    keptName[KST_STORE_NAME_MAX];    /**< The old record's file name in `BACKUP/`; empty for none. */
 	uint32_t recordSum;                      /**< FNV-1a (Fowler-Noll-Vo) hash of the record's bytes. */
 };
 
-/** @brief Whether a card is mounted and not held by a USB host. */
+/** @brief Whether a card is mounted and not held by a USB host: cardMounted(). */
 bool kstFilesMounted();
 
-/** @brief The card for `kst_store.h`: KSTnnn names, SAVE AS, LOAD, the list. */
+/**
+ * @brief FatFs's current directory in `KST` for the object's life
+ *        (card_dir.h), with a card mounted. Every function here opens a scope
+ *        of its own; an outer one around several calls, a FILES page that
+ *        lists and looks for the record, looks `KST` up in the root once for
+ *        all of them.
+ */
+class KstFilesScope {
+public:
+	/** @brief Change into `KST` when a card is mounted and no outer scope has. */
+	KstFilesScope();
+	KstFilesScope(const KstFilesScope &) = delete;
+	KstFilesScope &operator=(const KstFilesScope &) = delete;
+private:
+	CardDirScope m_dir;
+};
+
+/** @brief The card for `kst_store.h`: the files of `KST/`. */
 const kst_store_io_t *kstFilesIo();
+
+/**
+ * @brief The base name SAVE AS takes, from `kst_store_preset()`.
+ * @param[out] base `KSTnnn`, `KST_STORE_PRESET_MAX` bytes; empty unless OK.
+ * @return `KST_STORE_OK`, `KST_STORE_NO_NUMBER` once `KST/` holds
+ *         `KST_FILES_SAVE_MAX` files or KST001 to KST999 are taken, or the
+ *         store's `KST_STORE_NO_CARD` and `KST_STORE_LIST_ERROR`.
+ */
+kst_store_t kstFilesSaveName(char *base);
+
+/**
+ * @brief SAVE AS: @p len bytes of @p text as the file kstFilesSaveName() names.
+ * @param text      The file's bytes.
+ * @param len       Their count.
+ * @param[out] name The file name saved, `KST_STORE_NAME_MAX` bytes; empty
+ *                  unless `KST_STORE_OK`.
+ * @return kstFilesSaveName()'s refusals, or `kst_store_save()`'s result.
+ */
+kst_store_t kstFilesSaveAs(const char *text, size_t len, char *name);
+
+/**
+ * @brief The KST backups of `BACKUP/`, latest first.
+ * @param[out] names Up to @p cap file names of `BACKUP_NAME_MAX` bytes.
+ * @param cap        Room in @p names.
+ * @param[out] count The number written.
+ * @return `KST_STORE_OK`, `KST_STORE_NO_CARD` or `KST_STORE_LIST_ERROR`.
+ */
+kst_store_t kstFilesBackups(BackupFileName *names, size_t cap, size_t *count);
+
+/**
+ * @brief Read the KST backup @p name of `BACKUP/` into @p buf.
+ * @param name     A name from kstFilesBackups().
+ * @param[out] buf The file's bytes; no terminator is written.
+ * @param cap      Room in @p buf.
+ * @param[out] len The number of bytes, 0 unless `KST_STORE_OK`.
+ * @return `KST_STORE_OK`, `KST_STORE_NO_CARD`, `KST_STORE_NOT_FOUND`,
+ *         `KST_STORE_TOO_LARGE` or `KST_STORE_READ_ERROR`.
+ */
+kst_store_t kstFilesBackupLoad(const char *name, char *buf, size_t cap, size_t *len);
+
+/**
+ * @brief The name the session's backup takes next in `BACKUP/`, for the
+ *        write page: after a record to keep, the number after the record's.
+ * @param[out] name `BACKUP_NAME_MAX` bytes; empty unless `KST_STORE_OK`.
+ * @return `KST_STORE_OK`, `KST_STORE_NO_CARD` or `KST_STORE_LIST_ERROR`.
+ */
+kst_store_t kstFilesNextBackup(char *name);
 
 /**
  * @brief The card calls before the first write of a session.
  *
- * Saves @p backup as the next KSTnnn.TXT (kst_store_preset() and
- * kst_store_save()), then writes @p before as `KST/KST.TXT`. A record already
- * there is renamed to the next KSTnnn.TXT first; a record that cannot be
+ * Saves @p backup into the ring of `BACKUP/`, then writes @p before as
+ * `KST/KST.TXT`. A record already there is moved into the ring first: it
+ * takes the ring's next number and the backup the one after it, from one
+ * walk of `BACKUP/` and one write of `BACKUP/LAST`; a record that cannot be
  * renamed is left as it is, and no new one is written. A rename FatFs
  * reports as failed that still took effect counts as kept: the record is
  * looked up under both names. A card that does not say whether a record is
