@@ -30,6 +30,20 @@ target_include_directories(MiniRcBench PRIVATE
     ${HITEC_LIB}/shared/link/include
 )
 pico_generate_pio_header(MiniRcBench ${HITEC_LIB}/protocols/hitec/rp2350/hitec_line.pio)
+# The call graph and stack frames of what the job runs on core1, whose stack
+# is 2 KB. CI's "Hitec job stack on core1" finds the deepest chain in them
+# (tools/stack_depth.py).
+set_source_files_properties(
+    ${CMAKE_CURRENT_LIST_DIR}/hitec_job.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/hitec_line_port.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/servo_supply.cpp
+    ${HITEC_LIB}/protocols/hitec/hitec_session.c
+    ${HITEC_LIB}/protocols/hitec/hitec_reg.c
+    ${HITEC_LIB}/protocols/hitec/hitec_wire.c
+    ${HITEC_LIB}/protocols/hitec/hitec_pio.c
+    ${HITEC_LIB}/protocols/hitec/hitec_pre.c
+    ${HITEC_LIB}/protocols/hitec/rp2350/hitec_line.c
+    PROPERTIES COMPILE_OPTIONS -fcallgraph-info=su)
 # The SDK libraries the line driver uses, as rcbench's rp2350/CMakeLists.txt
 # links them.
 target_link_libraries(MiniRcBench

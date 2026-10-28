@@ -205,7 +205,7 @@ record either way.
 | SETTINGS layout (`src/ui_settings.cpp`): sections ESC TESTER, WIRING, SERVO SUPPLY, DISPLAY and BOARD in one scrolling list | the scroll range, 0 px at opening and 400 px at most; each row by id; no scroll from a press on a control; a cut control takes a press only while 40 px show; HOLD TO SAVE in place at every scroll position and saving at the end of the list; the pole count reaches the eRPM divisor, the ceiling steps by 5 %, and RESET restores both | not recorded |
 | Settings in flash (MENU → SETTINGS) | block validation, CRC, board id check, pin defaults, the version 3 block layout, a version 2 block discarded, the servo supply clamp | not recorded; 46a64a7 states no hardware coverage |
 | KST switched servo supply on GP0 (`src/servo_supply.*`), the SERVO SUPPLY row, the switched search, REBOOT, the close rule, the lapse rule and the card phase (`src/kst_seek.*`, `src/kst_job.*`, `src/ui_kst.cpp`, `sdh_wait_hook` in `src/sdio/sd_host.h`) | GP0 untouched with `NONE` from boot; with `GP0` an undriven input (SIO, output off, pulls off, input off) at boot and at every SETTINGS change; low at bind, high and low between bind and release, an undriven input after release; the row toggled, applied at once, saved and reset; against a model of the converter and a servo with a power-on window (`test/kst_supply_sim.h`): found on the first power-up, 14 power-ups and the timeout, off 2000 ms before every switch-on, the entry delay at -40 ms and +300 ms, a stop, a lapse and the timeout in a wait, REBOOT's 2000 ms off and 1000 ms on, refused while busy and without a switch, a lapse in the mode, during an operation and in REBOOT's off wait, the close 2000 ms after the switch-off, time off before a leave counted, GP0 untouched with `NONE`; the screens: the switched search, the leave page and HOLD TO REBOOT, the unplug page's wait, the stalled screen and RETRY; the card phase: `CardBegin` and `CardEnd` in each job state, stamps holding the supply on for 900 ms and off 250 ms after the last, the 15,000 ms cap at 14,900 and 15,100 ms, closed by a command and by LEAVE, the first write's 300 ms card calls inside a phase with and without stamps, the hook null with `NONE`, the busy wait calling the hook | not tested on hardware |
-| Hitec programming: rcbench's Hitec session, register model and line driver (`lib/rcbench/`), the core1 job (`src/hitec_job.*`) and its line (`src/hitec_line_port.*`) | rcbench's 115 cases; the job against a simulated servo (`runHitecTests`); the session's stack frames on the Cortex-M33 summed in CI | not tested on hardware; no screen starts the job |
+| Hitec programming: rcbench's Hitec session, register model and line driver (`lib/rcbench/`), the core1 job (`src/hitec_job.*`) and its line (`src/hitec_line_port.*`) | rcbench's 115 cases; the job against a simulated servo (`runHitecTests`); the deepest stack chain of the job on the Cortex-M33 checked in CI against 1,792 bytes | not tested on hardware; no screen starts the job |
 | Touch handling, high-contrast theme, throttle gauge | tap on release, repeats, screen residue, gauge reach | hardware use recorded: the reports #22 to #24 named in the v2.3 commits; the fixes on hardware: not recorded |
 | List and hold widgets (`src/ui_list.*`, `src/ui_hold.*`; slice A of [menu.md](docs/design/menu.md)) | the list: the scroll range and its clamp, the press rule at the viewport's edges, the row rectangle, the axis lock at 6 px, a tap on release and its slide-off, the scroll from the press point, 16 px per coarse step, the factor, the stop at a rail and the anchor after it, the clipped drawing; the hold: 1000 ms and not 999 ms, the reset on a lift and a slide off, a press that slid on, one firing per press, no timing for a press that landed while the control was disabled or whose first frame it missed, the progress bar's extent; through the screens: AM32's swipe on every field of the table, KV at 16 px a step and its rail, the AM32 and SERVO SET scroll ranges and edge rows (checks that 4c91db9 also passes), DWELL's rail on SET, HOLD TO WRITE and HOLD TO SAVE at 999 ms and 1000 ms, each hold's colour and bar, a press on a disabled HOLD TO START, HOLD TO APPLY and HOLD TO WRITE never timed, HOLD TO SAVE's refusal while armed | not tested on hardware |
 | Control tables (`src/ui_screen.h`; slice B of [menu.md](docs/design/menu.md)) | every screen's table on each view the host suite reaches, the ids, rectangles and enabled flags, `uiCurrentScreen()` after each navigation; the UI tests tap by id | host only: the firmware does not call the tables |
@@ -465,15 +465,15 @@ a RAM disk that counts blocks, and checks the table in
 rewrites; `previews` and `wiki` rebuild screenshots;
 `coverage` builds an instrumented suite. Scripts: `test/check_docs.py`,
 `test/check_uf2.sh`, `test/check_uf2_selftest.sh`, `test/check_blackbox.py`,
-`test/pio_sdio_emu.py`, `test/kst_card_count.cpp`, `tools/check_wiki.py`, `tools/coverage.py`,
-`tools/notices.py`.
+`test/pio_sdio_emu.py`, `test/kst_card_count.cpp`, `tools/check_wiki.py`,
+`tools/coverage.py`, `tools/notices.py`, `tools/stack_depth.py`.
 
 **CI** (`.github/workflows/ci.yml`; on push to `main` or `master`, on pull
 requests, by hand):
 
 | Job | What it does |
 | --- | --- |
-| Firmware (`touch-lcd-2.8`) | builds with arm-none-eabi-gcc 13.3 and `STRICT=ON`; flash under 1 MiB and RAM (random-access memory) under 400,000 bytes; checks from the DWARF compile units that no file of the SD library's SDIO, ZuluSCSI-firmware or SdFat directories is in the image; writes `THIRD_PARTY_NOTICES.txt` with `tools/notices.py` and checks it against the image; compares the PIO model's assembler with the SDK's `pioasm`; checks the two pin overrides reach CMake and that `-DDSHOT_PIN`, `-DKISS_PIN`, `-DDSHOT_PIN_LCD_2`, and `-DKISS_PIN_LCD_2` are refused; validates the UF2 |
+| Firmware (`touch-lcd-2.8`) | builds with arm-none-eabi-gcc 13.3 and `STRICT=ON`; flash under 1 MiB and RAM (random-access memory) under 400,000 bytes; checks from the DWARF compile units that no file of the SD library's SDIO, ZuluSCSI-firmware or SdFat directories is in the image; writes `THIRD_PARTY_NOTICES.txt` with `tools/notices.py` and checks it against the image; compares the PIO model's assembler with the SDK's `pioasm`; holds the KST and Hitec line fixtures to `pioasm`'s words; checks the Hitec job's deepest stack chain against 1,792 bytes (`tools/stack_depth.py`); checks the two pin overrides reach CMake and that `-DDSHOT_PIN`, `-DKISS_PIN`, `-DDSHOT_PIN_LCD_2`, and `-DKISS_PIN_LCD_2` are refused; validates the UF2 |
 | Host tests | `make`, which runs the SDIO PIO model too; the suite again with both pin macros overridden; `make kstcount` against the design note's card-phase table; wiki screenshots and `check_wiki.py` |
 | Blackbox round-trip | builds `blackbox_decode` from source, runs `make bbcheck` |
 | Config permutations | typechecks all of `src/` with `-Werror` for 32 combinations, with the headers in `lib/rcbench/` on the include path: AM32 transmit mode × AM32 low-jump × rotation 0 or 2 × KISS on or off × SD logging on or off; checks the landscape guard fires |
@@ -522,7 +522,7 @@ model.
 | `src/esc_merge.cpp` | 44 | 44 | 100.0% |
 | `src/esc_task.h` | 157 | 157 | 100.0% |
 | `src/gfx.cpp` | 223 | 211 | 94.6% |
-| `src/hitec_job.cpp` | 377 | 367 | 97.3% |
+| `src/hitec_job.cpp` | 382 | 372 | 97.4% |
 | `src/kiss_telem.cpp` | 37 | 35 | 94.6% |
 | `src/kst_files.cpp` | 163 | 158 | 96.9% |
 | `src/kst_job.cpp` | 380 | 364 | 95.8% |
@@ -557,7 +557,7 @@ model.
 | `src/ui_slider.cpp` | 109 | 109 | 100.0% |
 | `src/ui_widgets.cpp` | 43 | 43 | 100.0% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **7054** | **6891** | **97.7%** |
+| **Total** | **7059** | **6896** | **97.7%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->

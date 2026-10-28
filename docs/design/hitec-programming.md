@@ -571,7 +571,8 @@ code ([choice 9](#choices-made-in-this-design)).
   `core1UiAlive()` holds, or while `escUiAlive()` finds the card stamp within
   250 ms and the phase has been open less than `HITEC_CARD_PHASE_MAX_MS`,
   15,000 ms, KST's `KST_CARD_PHASE_MAX_MS`. The job starts no operation in a
-  phase.
+  phase: any other command closes the phase as the job takes it, though the
+  heartbeat that command is judged by still counts the card stamp.
 - `sdh_wait_hook` is the SDIO driver's one generic hook. Only one core1 job
   runs at a time, so the KST and the Hitec phases never meet.
 
@@ -1135,25 +1136,49 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
      `hitec_reg_fix.h` unchanged: an HS-5645MG or a D485HW.
    - `hitec_job.cpp` includes `hitec_line.h` for the line's error codes; the
      host suite compiles it with that header and links the fake line.
-   - The stack is measured in CI, not here: the firmware job compiles
-     `hitec_session.c` and `hitec_reg.c` for the Cortex-M33 at `-O3` with
-     `-fstack-usage`, prints the frames, and fails when all of them together
-     pass 2,048 bytes. That sum bounds every call chain through the two
-     files. The frames on the chip are not measured.
+   - The stack is measured in CI, not here. `src/hitec.cmake` builds the
+     job, its line port and driver, the session, the register model, the
+     wire layer and `servo_supply.cpp` with `-fcallgraph-info=su` at the
+     Release flags. `tools/stack_depth.py` finds the deepest call chain from
+     `hitecJobStep()`, `hitecJobRelease()` and `hitecJobBind()` and fails
+     above 1,792 bytes, which leaves 256 bytes of core1's 2,048 for
+     `loop1()` and `core1JobPoll()` above them; those are not measured. A
+     frame of no fixed size or a recursion fails as well. Calls into the C
+     library and the SDK count 0 bytes and are listed. On the host compiler
+     the deepest chain is `hitecJobStep()` into `publish()`, 1,112 bytes.
+   - `HitecPower` has no `Wait`: the D series entry's 1,000 ms wait is the
+     session's WAIT step, reported as `power` None.
+   - The first full read that completes before a write is the backup, also
+     after a first read that failed or was aborted.
+   - With `NONE` a lapse during an entry ends it with RETRY and does not set
+     `stalled`; the servo's supply is the user's.
+   - `inMode` reads false once a leave with `GP0` has switched the supply
+     off: the servo leaves the mode with its supply.
    - `HitecStatus` carries `lastWrite`, so the screen can tell a write's
      result from a read's.
-   - Tested in `test_hitec_job.cpp`, 73 checks: the bind with each family
+   - Tested in `test_hitec_job.cpp`, 93 checks, against a servo that is
+     powered a start-up time after GP0 goes high and, for the D series,
+     answers 800 ms after power-up: the bind with each family
      and its three refusals, a command held at the bind not taken; the
      D series entry with `NONE` and with `GP0`, the classic entry with `GP0`
      and refused without it, a classic entry with no `+` and RETRY; the full
-     read, the backup and READ AGAIN; a write of each family, a read-back
+     read, the backup and READ AGAIN, the backup after an aborted first
+     read; the classic LISTEN starting at the switch-on with a 300 ms
+     converter start-up, the D series read of 0x00 1,000 ms after it; a write
+     of each family, a read-back
      that differs, a write cut by a lost servo, `Unknown` until a read;
      Abort in the off phase, in a LISTEN and in a read, refused in a write;
-     the heartbeat in the off phase, in a LISTEN, in a write, in the mode,
-     and with `NONE`; LEAVE with `GP0` and with `NONE`, the release's
-     2,000 ms, LEAVE during a write; the command block's held Abort; the
+     the heartbeat in the off phase, in a LISTEN, in the D series wait and
+     its read of 0x00, in a write of each family, in the mode, and with
+     `NONE`; a 300 ms lapse that ends before a read does, then the supply
+     off once it ends; LEAVE with `GP0` and with `NONE`, LEAVE in the off
+     phase, in a LISTEN, in a read with `NONE`, from Opening and from the
+     stalled view, LEAVE and the release during a write, each close
+     2,000 ms after the switch-off; the command block's held Abort; the
      card phase in four states, 900 ms of stamps, the 15,000 ms cap. Not
-     tested: an entry answered by a byte other than `+`.
+     tested: an entry answered by a byte other than `+`; a lapse during a
+     D series entry with `NONE`, which ends within about 150 ms, before the
+     250 ms timeout can pass.
 
 3. `src/hitec_files.*` on `card_dir` and `backup_ring`, `test_hitec_files.cpp`;
    the Hitec card phases added to `test/kst_card_count.cpp` and their table

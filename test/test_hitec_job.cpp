@@ -229,7 +229,9 @@ static void testEntryAndRead() {
 	checkTrue("on after more than 2000 ms off, from the bind",
 	          until(HitecJobState::Busy, 3000) && fakeHitecSim()->switchOns == 1 &&
 	          fakeHitecSim()->onUs - t0 > 2000000u);
-	checkTrue("the model read 1000 ms after the switch-on",
+	checkTrue("the model read more than 1000 ms after the switch-on",
+	          fakeHitecStarts() > 0 && fakeHitecLastStartUs() - fakeHitecSim()->onUs >= 1000000u);
+	checkTrue("then the full read: InMode, the backup, the supply on",
 	          until(HitecJobState::InMode, 20000) && status().hasBackup && gp0High());
 	finish();
 
@@ -242,12 +244,14 @@ static void testEntryAndRead() {
 	finish();
 
 	start(HITEC_CLASSIC, true);
+	fakeHitecSim()->startupMs = 300;
 	send(HitecOp::Enter);
-	passes(2100);
+	for (int i = 0; i < 3000 && fakeHitecSim()->switchOns == 0; i++) passes(1);
 	checkTrue("classic: the LISTEN starts with the switch-on, answering `+`",
-	          fakeHitecSim()->switchOns == 1 && fakeHitecLastXfer()->kind == HITEC_XFER_LISTEN &&
-	          fakeHitecLastXfer()->answer);
-	checkTrue("the second `+`, `67`, the full read: InMode",
+	          fakeHitecSim()->switchOns == 1 && fakeHitecStarts() == 1 &&
+	          fakeHitecLastXfer()->kind == HITEC_XFER_LISTEN && fakeHitecLastXfer()->answer &&
+	          fakeHitecLastStartUs() == fakeHitecSim()->onUs);
+	checkTrue("with a converter start-up of 300 ms: the second `+`, `67`, the full read",
 	          until(HitecJobState::InMode, 30000) && status().result == HITEC_SES_OK &&
 	          status().image.version == fakeHitecSim()->version && status().hasBackup);
 	finish();
@@ -361,6 +365,26 @@ static void testAbort() {
 	          status().result == HITEC_SES_ERR_ABORTED && !gp0High());
 	finish();
 
+	// The first full read aborted: the next one that completes is the backup.
+	start(HITEC_D, false);
+	send(HitecOp::Enter);
+	until(HitecJobState::Busy, 100);
+	passes(20);
+	send(HitecOp::Abort);
+	until(HitecJobState::InMode, 100);
+	checkTrue("the first full read aborted: no image, no backup",
+	          status().result == HITEC_SES_ERR_ABORTED && !status().hasImage && !status().hasBackup);
+	HitecStatus partial = status();
+	send(HitecOp::Write, &partial.image);
+	passes(1);
+	checkTrue("no write before a full read", status().refused == HitecRefusal::State);
+	send(HitecOp::ReadAll);
+	passes(1);
+	until(HitecJobState::InMode, 20000);
+	checkTrue("READ AGAIN completes: the image and the backup",
+	          status().result == HITEC_SES_OK && status().hasImage && status().hasBackup);
+	finish();
+
 	startInMode(HITEC_D, false);
 	send(HitecOp::ReadAll);
 	passes(2);
@@ -388,6 +412,8 @@ static void testAbort() {
 
 static void testHeartbeat() {
 	section("Hitec job: the heartbeat");
+	HitecStatus st;
+	hitec_image_t t;
 	start(HITEC_D, true);
 	send(HitecOp::Enter);
 	passes(500);
@@ -414,8 +440,8 @@ static void testHeartbeat() {
 	finish();
 
 	startInMode(HITEC_D, true);
-	HitecStatus st = status();
-	hitec_image_t t = draftOf(&st.image, HITEC_D);
+	st = status();
+	t = draftOf(&st.image, HITEC_D);
 	send(HitecOp::Write, &t);
 	passes(1);
 	g_alive = false;
@@ -427,6 +453,64 @@ static void testHeartbeat() {
 	checkTrue("the write finished, then off, stalled, out of the mode, stallWrote",
 	          !gp0High() && st.stalled && st.stallWrote && !st.inMode && !st.hasBackup &&
 	          fakeHitecSim()->writes > 0);
+	g_alive = true;
+	finish();
+
+	// The latch: a lapse that ends before the operation does.
+	startInMode(HITEC_D, true);
+	send(HitecOp::ReadAll);
+	passes(1);
+	g_alive = false;
+	passes(300);
+	g_alive = true;
+	checkTrue("a lapse of 300 ms in a read, the heartbeat back: the read runs on",
+	          status().job == HitecJobState::Busy && gp0High());
+	until(HitecJobState::EntryEnded, 20000);
+	checkTrue("once it ends the supply goes off all the same", !gp0High() && status().stalled);
+	finish();
+
+	start(HITEC_CLASSIC, true);
+	send(HitecOp::Enter);
+	until(HitecJobState::InMode, 30000);
+	st = status();
+	t = draftOf(&st.image, HITEC_CLASSIC);
+	send(HitecOp::Write, &t);
+	passes(1);
+	g_alive = false;
+	passes(300);
+	g_alive = true;
+	until(HitecJobState::EntryEnded, 20000);
+	checkTrue("a classic write under a lapse: written, then off, stallWrote",
+	          !gp0High() && status().stalled && status().stallWrote &&
+	          memcmp(fakeHitecSim()->mem, t.mem, 0x24) == 0);
+	finish();
+
+	start(HITEC_D, true);
+	send(HitecOp::Enter);
+	passes(2100);
+	checkTrue("in the D entry's 1000 ms wait: on, only the POWER step's LISTEN run",
+	          gp0High() && fakeHitecStarts() == 1 && fakeHitecLastXfer()->kind == HITEC_XFER_LISTEN);
+	g_alive = false;
+	passes(300);
+	checkTrue("a lapse in that wait: off, stalled, no read sent",
+	          !gp0High() && status().stalled && fakeHitecStarts() == 1);
+	g_alive = true;
+	finish();
+
+	start(HITEC_D, true);
+	send(HitecOp::Enter);
+	for (int i = 0; i < 4000 && fakeHitecSim()->switchOns == 0; i++) passes(1);
+	// The heartbeat stops 245 ms before the read of 0x00 starts, 1000 ms after
+	// the switch-on, so the job sees the lapse about 5 ms into its SEND.
+	uint32_t onUs = fakeHitecSim()->onUs;
+	while (time_us_32() - onUs < 755000u) passes(1);
+	g_alive = false;
+	for (int i = 0; i < 400 && fakeHitecStarts() < 2; i++) passes(1);
+	unsigned sent = fakeHitecStarts();
+	passes(300);
+	checkTrue("a lapse during the read of 0x00: it finishes, no try after it, off, stalled",
+	          sent == 2 && fakeHitecStarts() == 2 && fakeHitecAborts() == 0 && !gp0High() &&
+	          status().stalled);
 	g_alive = true;
 	finish();
 
@@ -461,8 +545,8 @@ static void testLeave() {
 	send(HitecOp::Leave);
 	passes(1);
 	uint32_t offUs = time_us_32();
-	checkTrue("LEAVE with GP0: off at once, the line still open",
-	          !gp0High() && status().job == HitecJobState::Leaving &&
+	checkTrue("LEAVE with GP0: off at once, the line still open, out of the mode",
+	          !gp0High() && status().job == HitecJobState::Leaving && !status().inMode &&
 	          fakeHitecLineCloses() == closes && status().supplyLeftDs > 0);
 	passes(1990);
 	checkTrue("1.99 s later: still open", fakeHitecLineCloses() == closes);
@@ -499,8 +583,78 @@ static void testLeave() {
 	checkTrue("LEAVE during a write: Leaving, the supply still on",
 	          status().job == HitecJobState::Leaving && gp0High());
 	until(HitecJobState::Closed, 20000);
-	checkTrue("the write ran to its end before the close",
-	          status().result == HITEC_SES_OK && !gp0High());
+	bool holds = true;
+	for (int a = 0; a < 256; a++)
+		if (t.mem[a] != st.backup.mem[a]) holds = holds && fakeHitecSim()->mem[a] == t.mem[a];
+	checkTrue("the write ran to its end before the close, the servo holds the draft",
+	          status().result == HITEC_SES_OK && !gp0High() && holds);
+	checkTrue("and the close came 2000 ms after the switch-off",
+	          fakeHitecLineClosedUs() - fakeHitecSim()->lastOffUs >= 2000000u);
+	finish();
+
+	// The release during a write: the write finishes first.
+	startInMode(HITEC_D, true);
+	st = status();
+	t = draftOf(&st.image, HITEC_D);
+	send(HitecOp::Write, &t);
+	passes(1);
+	core1JobStop();
+	for (int i = 0; i < 25000 && core1JobPhase() != Core1JobPhase::Idle; i++) passes(1);
+	holds = true;
+	for (int a = 0; a < 256; a++)
+		if (t.mem[a] != st.backup.mem[a]) holds = holds && fakeHitecSim()->mem[a] == t.mem[a];
+	checkTrue("the release during a write: written, then 2000 ms off, then idle",
+	          core1JobPhase() == Core1JobPhase::Idle && holds &&
+	          fakeHitecLineClosedUs() - fakeHitecSim()->lastOffUs >= 2000000u);
+	escTaskResume();
+	fakePumpPoll();
+	supply(false);
+
+	// LEAVE from the other states.
+	start(HITEC_D, true);
+	send(HitecOp::Enter);
+	passes(500);
+	send(HitecOp::Leave);
+	checkTrue("LEAVE in the entry's off phase: never switched on, closed",
+	          until(HitecJobState::Closed, 100) && fakeHitecSim()->switchOns == 0);
+	finish();
+
+	start(HITEC_CLASSIC, true);
+	fakeHitecSim()->plusMs = 1500;
+	send(HitecOp::Enter);
+	passes(2100);
+	unsigned cuts = fakeHitecAborts();
+	send(HitecOp::Leave);
+	checkTrue("LEAVE in the classic LISTEN: cut, closed 2000 ms after the switch-off",
+	          until(HitecJobState::Closed, 3000) && fakeHitecAborts() == cuts + 1 &&
+	          fakeHitecLineClosedUs() - fakeHitecSim()->lastOffUs >= 2000000u);
+	finish();
+
+	startInMode(HITEC_D, false);
+	send(HitecOp::ReadAll);
+	passes(2);
+	cuts = fakeHitecAborts();
+	send(HitecOp::Leave);
+	checkTrue("LEAVE in a read with NONE: the SEND finishes, the reboot, closed",
+	          until(HitecJobState::Closed, 3000) && fakeHitecAborts() == cuts &&
+	          fakeHitecSim()->reboots == 1);
+	finish();
+
+	start(HITEC_D, false);
+	send(HitecOp::Leave);
+	checkTrue("LEAVE from Opening: closed at once, no reboot",
+	          until(HitecJobState::Closed, 5) && fakeHitecSim()->reboots == 0);
+	finish();
+
+	startInMode(HITEC_D, true);
+	g_alive = false;
+	passes(300);
+	g_alive = true;
+	checkTrue("stalled", status().stalled && status().job == HitecJobState::EntryEnded);
+	send(HitecOp::Leave);
+	checkTrue("LEAVE from the stalled view: closed 2000 ms after the stall's switch-off",
+	          until(HitecJobState::Closed, 3000) &&
+	          fakeHitecLineClosedUs() - fakeHitecSim()->lastOffUs >= 2000000u);
 	finish();
 }
 

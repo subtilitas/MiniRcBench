@@ -102,25 +102,21 @@ jobs:
             diff -u "test/rcbench/fixtures/${p}_line_words.txt" "build/${p}_line.hex"
           done
 
-      # hitec_session_write() runs hitec_plan() to its end on core1, whose
-      # stack is 2 KB (PICO_CORE1_STACK_SIZE). The frames come from
-      # -fstack-usage at the Release flags; the sum of every frame of the
-      # session and the register model bounds any call chain through them.
-      - name: Hitec session stack on core1
+      # The Hitec job runs on core1, whose stack is 2 KB
+      # (PICO_CORE1_STACK_SIZE). src/hitec.cmake builds the job, its line
+      # port and driver, the session, the register model and the supply with
+      # -fcallgraph-info=su at the Release flags. The deepest chain from the
+      # job's three entry points may take 1792 bytes, which leaves 256 bytes
+      # for loop1() and core1JobPoll() above them. A frame of no fixed size
+      # or a recursion fails at once.
+      - name: Hitec job stack on core1
         run: |
-          d=build/hitec-stack && mkdir -p "$d"
-          for f in hitec_session hitec_reg; do
-            arm-none-eabi-gcc -mcpu=cortex-m33 -mthumb -O3 -fstack-usage \
-              -Ilib/rcbench/protocols/hitec/include \
-              -c "lib/rcbench/protocols/hitec/$f.c" -o "$d/$f.o"
-          done
-          sort -t$'\t' -k2 -n -r "$d"/*.su | head -12
-          total=$(awk -F'\t' '{ s += $2 } END { print s }' "$d"/*.su)
-          echo "every frame together: $total bytes"
-          [ "$total" -le 2048 ] || {
-            echo "::error::the Hitec frames sum to $total bytes; check the deepest chain against core1's 2048-byte stack"
-            exit 1
-          }
+          ci=$(find build -name 'hitec_*.ci' -o -name 'servo_supply.cpp.ci')
+          echo "$ci"
+          [ "$(echo "$ci" | wc -l)" -eq 9 ] || {
+            echo "::error::expected 9 call-graph files"; exit 1; }
+          python3 tools/stack_depth.py --limit 1792 \
+            --root hitecJobStep --root hitecJobRelease --root hitecJobBind $ci
 
       # A ceiling, not a printout. The framebuffer alone is 150 kB of the
       # RP2350's 520 kB, and a regression that doubles a buffer otherwise passes

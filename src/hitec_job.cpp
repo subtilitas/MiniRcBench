@@ -245,7 +245,11 @@ static void publish(uint32_t nowMs) {
 	st.stepIndex    = s_ses.step_index;
 	st.planSteps    = s_ses.plan.n;
 	st.planResult   = s_ses.plan_result;
-	st.inMode       = s_ses.in_mode != 0;
+	// With the switch a leave skips the session's own: the servo leaves the
+	// mode with its supply.
+	bool offLeaving = s_switched && !servoSupplyIsOn() &&
+	                  (s_state == HitecJobState::Leaving || s_state == HitecJobState::Closed);
+	st.inMode       = s_ses.in_mode != 0 && !offLeaving;
 	st.hasImage     = s_hasImage;
 	st.hasBackup    = s_hasBackup;
 	st.unknown      = imageUnknown();
@@ -286,6 +290,12 @@ static void stall(uint32_t nowMs) {
 	supplySet(false, nowMs);
 	freshSession();
 	s_stalled = true;
+	s_state = HitecJobState::EntryEnded;
+}
+
+/** @brief An entry that ended without the mode: the supply off, RETRY. */
+static void entryEnded(uint32_t nowMs) {
+	supplySet(false, nowMs);
 	s_state = HitecJobState::EntryEnded;
 }
 
@@ -402,7 +412,9 @@ static void take(const HitecCmd *cmd, uint32_t nowMs, bool uiAlive) {
 			break;
 		}
 		case HitecOp::ReadAll:
-			startRead(false);
+			// The first full read that completes before a write is the
+			// backup, also after a first read that failed or was aborted.
+			startRead(!s_hasBackup && !s_wrote);
 			break;
 		case HitecOp::Write: {
 			s_lastWrite = true;
@@ -440,14 +452,13 @@ static void advance(uint32_t nowMs, bool uiAlive) {
 			if (!runSession(nowMs, uiAlive)) break;
 			s_aborting = false;
 			s_result = (uint8_t)hitec_session_result(&s_ses);
-			if (!uiAlive || s_lapsed) {
+			if ((!uiAlive || s_lapsed) && s_switched) {
 				stall(nowMs);
-			} else if (s_result == HITEC_SES_OK) {
+			} else if (s_result == HITEC_SES_OK && uiAlive) {
 				startRead(true);
 			} else {
-				// An entry that failed leaves the servo unpowered.
-				supplySet(false, nowMs);
-				s_state = HitecJobState::EntryEnded;
+				// An entry that failed, or one a lapse cut with NONE.
+				entryEnded(nowMs);
 			}
 			break;
 		}

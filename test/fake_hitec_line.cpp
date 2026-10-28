@@ -58,6 +58,7 @@ void fakeHitecLineReset(uint8_t family) {
 	}
 	memcpy(g_sim.mem, img.mem, sizeof(g_sim.mem));
 	g_sim.plusMs = 160;
+	g_sim.bootMs = 800;
 	g_sim.minOffUs = UINT32_MAX;
 	g_sim.ignoreAddr = -1;
 	g_sim.dieAfterWrites = -1;
@@ -139,7 +140,9 @@ static void answer(const hitec_xfer_t *x, uint32_t nowUs) {
 	g_doneUs = silentEnd;
 	HitecSim *s = &g_sim;
 	if (x->kind == HITEC_XFER_LISTEN) {
-		if (x->family != HITEC_CLASSIC || !powered(nowUs) || s->cstate >= 2) return;
+		// The `+` comes from the power-up, which may come after the LISTEN starts.
+		if (x->family != HITEC_CLASSIC || s->dead || s->cstate >= 2) return;
+		if (!s->userSupply && !s->level) return;
 		uint32_t plusUs = s->cstate == 0 ? s->onUs + (s->startupMs + s->plusMs) * 1000u
 		                                 : s->firstPlusUs + 250000u;
 		uint32_t at = plusUs - nowUs;
@@ -168,6 +171,9 @@ static void answer(const hitec_xfer_t *x, uint32_t nowUs) {
 			tookWrite();
 			cReply(HITEC_C_ACK, HITEC_C_ACK);
 		}
+	} else if (!s->userSupply && nowUs - s->onUs < (s->startupMs + s->bootMs) * 1000u) {
+		// Still booting: the request goes unanswered.
+		g_doneUs = silentEnd;
 	} else if (x->n_tx == HITEC_D_READ_LEN) {
 		uint8_t a = x->tx[2];
 		uint8_t f[HITEC_D_WRITE_LEN];

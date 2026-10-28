@@ -57,8 +57,8 @@ protocol.
   switched supply on GP0, the full read and its backup, writes with
   read-back, the heartbeat and lapse rules, the close rule and the card
   phase, as `PinUser::Hitec` and `Core1Job::Hitec`. No screen starts it
-  yet. A CI step prints the session's stack frames on the Cortex-M33 and
-  fails above 2,048 bytes.
+  yet. `tools/stack_depth.py` and a CI step find the job's deepest stack
+  chain on the Cortex-M33 from GCC's call graph and fail above 1,792 bytes.
 - SETTINGS → SERVO SUPPLY, `NONE` or `GP0`, in a section of its own
   between WIRING and DISPLAY: whether a DC-DC converter's enable for the KST
   servo's supply is wired to GP0 (`src/servo_supply.*`). With `GP0`, GP0 is

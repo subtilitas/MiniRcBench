@@ -9,7 +9,9 @@
  * The servo answers as the servo model of rcbench's `hitec_session_rig.h`
  * does: classic replies 513 us after the start of the master's last byte,
  * D series answers of 7 bytes 6 ms after the request, the classic `+` 160 ms
- * after power-up and the next one 250 ms after the first. Its memory starts
+ * after power-up and the next one 250 ms after the first. A D series servo
+ * answers nothing for 800 ms after power-up, and every servo is powered only
+ * @ref HitecSim::startupMs after GP0 goes high. Its memory starts
  * from the bench reads of rcbench's `hitec_reg_fix.h`: an HS-5645MG or a
  * D485HW. It follows the level the bench drives on GP0: unpowered it
  * answers nothing, and a classic servo leaves serial mode. A D series servo
@@ -36,6 +38,7 @@ struct HitecSim {
 	bool     dead;           /**< Answers nothing. */
 	uint32_t startupMs;      /**< GP0 high to powered. */
 	uint32_t plusMs;         /**< Classic: powered to the first `+`. */
+	uint32_t bootMs;         /**< D series: powered to the first answer, 800 ms. */
 	bool     level;          /**< The GP0 level last seen. */
 	uint32_t onUs;           /**< When it last went high. */
 	uint8_t  cstate;         /**< Classic: 0 before the first `+`, 1 after it, 2 in serial mode. */
