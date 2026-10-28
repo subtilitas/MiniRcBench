@@ -6,6 +6,7 @@
 #include "card_cache.h"
 #include "card_dir.h"
 #include "sd_log.h"
+#include "usb_msc.h"
 #include "sdio/sd_card_cache.h"
 #include "sdio/sd_cache.h"
 
@@ -51,12 +52,27 @@ CardCache cardCacheFlush() {
 }
 
 void cardCacheRecover() {
-	if (!card()) return;
+	// USB DRIVE holds the card: a remount is refused, and a card marked for
+	// initialisation would fail every read of the host.
+	if (!card() || mscGetState() != MscState::Idle) return;
+	bool was = sd_sdio_cache_state(nullptr) != SD_SDIO_CACHE_OFF;
 	sd_sdio_cache_drop(card());
 	sdLogRemount();
+	if (!was) return;
 	// The card mounted now may be another one: the swap check takes its
 	// serial number. Without a mounted card the cache stays off.
 	uint32_t lba = 0, off = 0;
 	if (!sdLogVolumeId(&lba, &off) || !sd_sdio_cache_begin(card(), lba, off))
 		sd_sdio_cache_end(card());
+}
+
+bool cardVolumeSerial(uint32_t *serial) {
+	*serial = 0;
+	uint32_t lba = 0, off = 0;
+	if (!card() || !cardMounted() || !sdLogVolumeId(&lba, &off)) return false;
+	static uint8_t s_sector[512];
+	if (!sd_sdio_read_past(card(), lba, s_sector)) return false;
+	const uint8_t *p = s_sector + off;
+	*serial = (uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24;
+	return true;
 }

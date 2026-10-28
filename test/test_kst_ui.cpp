@@ -1242,6 +1242,76 @@ static void testFlushWait() {
 	          job().result == KST_SES_OK && sim->n_writes > writes);
 	tapId(UI_FIX(KstCtl::WriteOk));
 
+	// Another card in the slot since the backup reached the card: its serial
+	// differs, so the card is mounted again and the backup saved to it.
+	fakeVolumeSet(2);
+	recovers = fakeCacheCalls().recovers;
+	kstFilesNextBackup(next);
+	writes = sim->n_writes;
+	tapId(UI_FIX(KstCtl::EditPlus));
+	holdUntilGone(UI_FIX(KstCtl::Write));
+	holdUntilGone(UI_FIX(KstCtl::WriteHold));
+	char path[CARD_PATH_MAX];
+	snprintf(path, sizeof(path), "BACKUP/%s", next);
+	checkTrue("another card: mounted again, the backup saved to it, then the write",
+	          untilCtl(UI_FIX(KstCtl::WriteOk), 400) && fakeCacheCalls().recovers == recovers + 1 &&
+	          fakeFatExists(path) && job().result == KST_SES_OK && sim->n_writes > writes);
+	tapId(UI_FIX(KstCtl::WriteOk));
+	// The same card, a batch still queued: the page waits for it without
+	// blocking, the check runs as it ends; no remount, no second backup.
+	fakeCacheSet(CardCache::Flushing, 2);
+	recovers = fakeCacheCalls().recovers;
+	kstFilesNextBackup(next);
+	writes = sim->n_writes;
+	tapId(UI_FIX(KstCtl::EditMinus));
+	holdUntilGone(UI_FIX(KstCtl::Write));
+	holdUntilGone(UI_FIX(KstCtl::WriteHold));
+	kstFrames(3);
+	checkTrue("a batch still queued: the saving page, no write frame",
+	          lineIs(196, "SAVING THE BACKUP TO THE CARD.", C_AMBER) && sim->n_writes == writes);
+	fakeCacheSet(CardCache::Idle, 0);
+	snprintf(path, sizeof(path), "BACKUP/%s", next);
+	checkTrue("flushed, the same card: the write, no remount, no backup",
+	          untilCtl(UI_FIX(KstCtl::WriteOk), 400) && fakeCacheCalls().recovers == recovers &&
+	          !fakeFatExists(path) && sim->n_writes > writes);
+	tapId(UI_FIX(KstCtl::WriteOk));
+
+	// Another card swapped in while a batch was queued: the check at the
+	// flush's end mounts it again, and the backup goes to it first.
+	fakeCacheSet(CardCache::Flushing, 2);
+	recovers = fakeCacheCalls().recovers;
+	kstFilesNextBackup(next);
+	tapId(UI_FIX(KstCtl::EditPlus));
+	holdUntilGone(UI_FIX(KstCtl::Write));
+	holdUntilGone(UI_FIX(KstCtl::WriteHold));
+	kstFrames(2);
+	fakeVolumeSet(3);
+	fakeCacheSet(CardCache::Idle, 0);
+	snprintf(path, sizeof(path), "BACKUP/%s", next);
+	checkTrue("swapped during the wait: mounted again, the backup saved, then the write",
+	          untilCtl(UI_FIX(KstCtl::WriteOk), 400) && fakeCacheCalls().recovers == recovers + 1 &&
+	          fakeFatExists(path) && job().result == KST_SES_OK);
+	tapId(UI_FIX(KstCtl::WriteOk));
+
+	// A serial number that never reads: one remount and one backup for the
+	// write, then the write; no loop of backups.
+	fakeVolumeFailNext(1000);
+	recovers = fakeCacheCalls().recovers;
+	kstFilesNextBackup(next);
+	writes = sim->n_writes;
+	tapId(UI_FIX(KstCtl::EditMinus));
+	holdUntilGone(UI_FIX(KstCtl::Write));
+	holdUntilGone(UI_FIX(KstCtl::WriteHold));
+	checkTrue("a serial that never reads: one remount, one backup, the write",
+	          untilCtl(UI_FIX(KstCtl::WriteOk), 400) && fakeCacheCalls().recovers == recovers + 1 &&
+	          sim->n_writes > writes);
+	char after[BACKUP_NAME_MAX];
+	kstFilesNextBackup(after);
+	checkTrue("and only one new backup", strcmp(after, next) != 0 &&
+	          backupNumber(after, nullptr) == backupAfter(backupNumber(next, nullptr)));
+	tapId(UI_FIX(KstCtl::WriteOk));
+	fakeVolumeFailNext(0);
+
 	// FILES after a batch failed in the background: mounted again first,
 	// since the failed cache refuses every read.
 	fakeCacheSet(CardCache::Failed, 0);

@@ -114,6 +114,10 @@ static kst_image_t  s_target;            /**< The servo with the pending changes
 static kst_image_t  s_pageFrom;          /**< The servo when the write page opened. */
 static kst_image_t  s_pageTo;            /**< What the write page writes: the target or the backup. */
 static bool         s_firstDone = false; /**< The session's first-write card calls are made. */
+static uint32_t     s_firstVolume = 0;   /**< The serial number of the volume they went to. */
+static bool         s_firstOnCard = false; /**< They went to a card: the swap check is armed. */
+static bool         s_firstVolumeRead = false; /**< s_firstVolume was read; false fails the check. */
+static bool         s_checkAfterFlush = false; /**< The write waits for an earlier batch, then the swap check. */
 static KstFirstWrite s_first;
 static bool         s_recordFound = false; /**< KST/KST.TXT on the card at entry. */
 /** @} */
@@ -261,6 +265,8 @@ static void forgetFirst() {
 	memset(&s_first, 0, sizeof(s_first));
 	// KST_STORE_OK is 0: a record at OK counts as the session's to remove.
 	s_first.backup = s_first.record = s_first.kept = KST_STORE_NO_CARD;
+	s_firstOnCard = false;
+	s_firstVolumeRead = false;
 }
 
 /** @brief A new session: the claim's first frame, or after BACK on the unplug page. */
@@ -752,6 +758,10 @@ static bool firstWriteFiles() {
 	// Without a card nothing is on it yet: a later write with a card
 	// mounted saves the backup and writes the record then.
 	s_firstDone = !(s_first.backup == KST_STORE_NO_CARD && s_first.record == KST_STORE_NO_CARD);
+	// A serial number that does not read leaves the check armed and failing:
+	// the next write mounts the card again and starts over.
+	s_firstOnCard = s_firstDone;
+	s_firstVolumeRead = s_firstOnCard && cardVolumeSerial(&s_firstVolume);
 	s_recordFound = s_firstDone && kstFilesRecordPresent();
 	return true;
 }
@@ -779,6 +789,28 @@ static void recoverFlush() {
 	s_firstDone = false;
 }
 
+/**
+ * @brief Whether the card in the slot may not be the one the session's
+ *        backup went to: another serial number, none, or none read then.
+ *        Without a mounted card, USB DRIVE among it, the no-card rule
+ *        applies and this is false.
+ */
+static bool cardSwapped() {
+	uint32_t v = 0;
+	return s_firstOnCard && cardMounted() &&
+	       (!s_firstVolumeRead || !cardVolumeSerial(&v) || v != s_firstVolume);
+}
+
+/** @brief Another card: mounted again, the first write to start over on it. */
+static void restartOnNewCard() {
+	recoverFlush();
+	// The backup line names the backup the card in the slot takes.
+	s_backupNext[0] = '\0';
+	if (kstFilesMounted()) kstFilesNextBackup(s_backupNext);
+}
+
+static void startWrite();
+
 /** @brief The write page's text for a flush the card did not take. */
 static const char *const FLUSH_FAILED = "THE CARD DID NOT TAKE THE BACKUP. NOTHING WAS WRITTEN TO THE SERVO.";
 
@@ -791,9 +823,20 @@ static void flushStep() {
 	CardCache c = cardCacheState();
 	if (c == CardCache::Flushing) return;
 	s_flushing = false;
+	// An earlier batch is on the card: the card in the slot may be another
+	// one by now. Not after the write's own backup: its card was read then.
+	bool check = s_checkAfterFlush;
+	s_checkAfterFlush = false;
 	if (c == CardCache::Failed) {
 		recoverFlush();
-		s_cardNote = FLUSH_FAILED;
+		// An earlier batch may have been a removal of the record, not a backup.
+		s_cardNote = check ? "THE CARD DID NOT TAKE A FILE. NOTHING WAS WRITTEN TO THE SERVO."
+		                   : FLUSH_FAILED;
+		return;
+	}
+	if (check && cardSwapped()) {
+		restartOnNewCard();
+		startWrite();
 		return;
 	}
 	sendWrite();
@@ -805,6 +848,19 @@ static void startWrite() {
 	// A batch that failed off this page, after BACK during the flush or a
 	// removal of the record: the first write starts over.
 	if (cardCacheState() == CardCache::Failed) recoverFlush();
+	// A batch still queued, the first write's after BACK during its flush or
+	// a removal of the record: the page waits for it, and the swap check
+	// runs as it ends (flushStep()), so a read that fails drops no batch.
+	s_checkAfterFlush = false;
+	if (s_firstOnCard && cardCacheState() == CardCache::Flushing) {
+		s_flushing = true;
+		s_checkAfterFlush = true;
+		flushStep();
+		return;
+	}
+	// A card swapped since the backup reached the card holds none: the card
+	// in the slot is mounted again and the first write starts over on it.
+	if (cardSwapped()) restartOnNewCard();
 	if (!firstWriteFiles()) {
 		s_cardNote = "THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.";
 		return;
