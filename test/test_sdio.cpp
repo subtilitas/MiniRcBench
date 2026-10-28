@@ -1133,6 +1133,49 @@ static void testWriteErrors() {
 	checkTrue("DAT0 floats high, so no busy wait hangs", gone.t < 10000000u);
 }
 
+/** @brief A block sent with sdh_write_start() and programmed under sdh_write_poll(). */
+static void testWriteAsync() {
+	section("SDIO: a block written without waiting on busy");
+
+	static uint8_t data[512];
+	memset(data, 0x3C, sizeof data);
+	SimCard s;
+	sdh_bus_t b = busOf(&s);
+	sdh_card_t c;
+	sdh_init(&b, &c, 10000000u);
+
+	sdh_wr_t w;
+	s.log.clear();
+	checkInt("the block goes out", sdh_write_start(&b, &c, 70, data, &w), SDE_OK);
+	checkTrue("in flight, CMD24", w.active && count(s, 24) == 1);
+	bool done = true;
+	checkInt("busy: not done", sdh_write_poll(&b, &c, &w, &done), SDE_OK);
+	checkTrue("still in flight", !done && w.active);
+	checkInt("and no status asked yet", count(s, 13), 0);
+	s.t += 300;   // the simulated card's busy time
+	checkInt("busy over: done, clean", sdh_write_poll(&b, &c, &w, &done), SDE_OK);
+	checkTrue("done, CMD13 after it", done && !w.active && count(s, 13) == 1);
+	checkTrue("the block landed", memcmp(s.sector(70).data(), data, 512) == 0);
+
+	s.crcRejects = 1;
+	sdh_write_start(&b, &c, 71, data, &w);
+	s.t += 300;
+	checkInt("a 101 token: CRC error at the end", sdh_write_poll(&b, &c, &w, &done), SDE_CRC);
+	checkTrue("done, the card still ready", done && c.ready);
+
+	s.busyForever = true;
+	sdh_write_start(&b, &c, 72, data, &w);
+	s.t += SDH_BUSY_TIMEOUT_US - 1;
+	sdh_write_poll(&b, &c, &w, &done);
+	checkTrue("busy 1 us short of the limit: not done", !done);
+	s.t += 1;
+	checkInt("busy at the limit: timeout", sdh_write_poll(&b, &c, &w, &done), SDE_TIMEOUT);
+	checkTrue("done, the card marked not ready", done && !c.ready);
+	checkInt("a card not ready: refused", sdh_write_start(&b, &c, 72, data, &w), SDE_NOT_READY);
+	checkTrue("nothing in flight", !w.active);
+	checkInt("a poll with nothing in flight", sdh_write_poll(&b, &c, &w, &done), SDE_PARAM);
+}
+
 /** @brief SD Status, presence and the error classes. */
 static void testStatusAndProbe() {
 	section("SDIO: SD Status, presence, error classes");
@@ -1249,6 +1292,7 @@ void runSdioTests() {
 	testReadErrors();
 	testWrite();
 	testWriteErrors();
+	testWriteAsync();
 	testStatusAndProbe();
 	testFaultPaths();
 }

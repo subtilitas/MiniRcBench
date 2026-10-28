@@ -6,8 +6,7 @@ write of a session, to the SD (Secure Digital) card first. All of these
 backups share one directory, `BACKUP/`, and one ring of 50 numbers
 (`src/backup_ring.*`). The owner's decisions of 2026-10-27 set the layout, the
 names, what the ring holds and the write cache's scope; the SD write cache of
-[sd-write-cache.md](sd-write-cache.md) that runs during these tools' claims is
-planned, not built.
+[sd-write-cache.md](sd-write-cache.md) runs during these tools' claims.
 
 | Tool | Device | Backup | Prefix |
 |---|---|---|---|
@@ -136,7 +135,7 @@ the AM32 backup among them, are in
 
 ## The write cache
 
-The cache of [sd-write-cache.md](sd-write-cache.md) is to run during the pin
+The cache of [sd-write-cache.md](sd-write-cache.md) runs during the pin
 claims of KST SERVO and AM32 CONFIG, the tools that save backups, and not
 during SERVO or a Hitec claim. Its rules are that note's; a tool's write to
 its device starts only once the flush of its backup ends clean. A claim of
@@ -170,4 +169,4 @@ DShot pump stops, so the log has nothing to record.
    Built.
 4. The blackbox logs into `LOGS/`. Built.
 5. The write cache of sd-write-cache.md, on for the two claims, and the
-   claim that stops a running log. Planned.
+   claim that stops a running log. Built.

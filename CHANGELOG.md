@@ -55,6 +55,15 @@ protocol.
 - KST's SAVE AS writes to `KST/` under the next free KSTnnn and refuses once
   `KST/` holds 50 files. FILES lists the record, the KST backups of
   `BACKUP/` and the files of `KST/`; a backup loads as a file.
+- The SD write cache for the claims of KST SERVO and AM32 CONFIG
+  ([sd-write-cache.md](docs/design/sd-write-cache.md)): card writes queue in
+  SRAM, 32 blocks, and go to the card in FatFs's order, one block per pass of
+  the main loop, without waiting on the busy line (`sdh_write_start()`,
+  `sdh_write_poll()`); a 16-block read cache; the volume's serial number
+  checked before each batch. The KST write page reads
+  `SAVING THE BACKUP TO THE CARD.` and `BLOCKS LEFT: n` and writes the servo
+  only once the flush ends clean; AM32 and SAVE AS flush on the spot. A
+  blackbox log that runs when either claim opens stops.
 - `src/card_dir.*`: the mount rule, the scope that makes one directory
   FatFs's current one for a card call, and the file calls the KST files and
   the backups share.

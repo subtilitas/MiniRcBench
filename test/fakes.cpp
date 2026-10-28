@@ -33,6 +33,7 @@
 #include "usb_msc.h"
 #include "ui.h"
 #include "fakes.h"
+#include "card_cache.h"
 #include "plat.h"
 
 #include <stdio.h>
@@ -632,6 +633,77 @@ void sdLogSetArmed(bool armed) {
 	}
 }
 void sdLogStatus(SdLogStatus *out) { *out = g_log; }
+
+// ---------------------------------------------------------------------------
+// the SD write cache (card_cache.h)
+// ---------------------------------------------------------------------------
+// card_cache.cpp drives the SDIO driver and is not linked here; the cache's
+// own rules are tested in test_sd_cache.cpp. This fake lets a test put the
+// cache into a state and count the calls the screens make.
+
+static bool      g_cacheOn = false;
+static CardCache g_cacheState = CardCache::Idle;
+static uint16_t  g_cacheLeft = 0;
+static CardCache g_cacheFlushTo = CardCache::Idle;
+static FakeCacheCalls g_cacheCalls = {};
+
+void fakeCacheReset() {
+	g_cacheOn = false;
+	g_cacheState = CardCache::Idle;
+	g_cacheLeft = 0;
+	g_cacheFlushTo = CardCache::Idle;
+	g_cacheCalls = FakeCacheCalls{};
+}
+
+void fakeCacheSet(CardCache st, uint16_t left) {
+	g_cacheState = st;
+	g_cacheLeft = left;
+}
+
+void fakeCacheFlushTo(CardCache st) { g_cacheFlushTo = st; }
+
+FakeCacheCalls fakeCacheCalls() { return g_cacheCalls; }
+
+bool cardCacheBegin() {
+	g_cacheCalls.begins++;
+	if (sdLogActive()) sdLogStop();
+	SdLogStatus st;
+	sdLogStatus(&st);
+	bool mounted = st.state == SdLogState::Idle || st.state == SdLogState::Logging;
+	if (!mounted || mscGetState() != MscState::Idle) return false;
+	g_cacheOn = true;
+	g_cacheState = CardCache::Idle;
+	g_cacheLeft = 0;
+	return true;
+}
+
+void cardCacheEnd() {
+	g_cacheCalls.ends++;
+	g_cacheOn = false;
+}
+
+void cardCachePoll() {}
+
+CardCache cardCacheState(uint16_t *left) {
+	if (left) *left = g_cacheOn ? g_cacheLeft : 0;
+	return g_cacheOn ? g_cacheState : CardCache::Off;
+}
+
+CardCache cardCacheFlush() {
+	g_cacheCalls.flushes++;
+	if (!g_cacheOn) return CardCache::Off;
+	if (g_cacheState == CardCache::Flushing || g_cacheFlushTo == CardCache::Failed) {
+		g_cacheState = g_cacheFlushTo;
+		g_cacheLeft = 0;
+	}
+	return g_cacheState;
+}
+
+void cardCacheRecover() {
+	g_cacheCalls.recovers++;
+	g_cacheState = CardCache::Idle;
+	g_cacheLeft = 0;
+}
 
 // ---------------------------------------------------------------------------
 // USB mass storage

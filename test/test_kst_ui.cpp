@@ -20,6 +20,7 @@
 #include "kst_job.h"
 #include "kst_line_port.h"
 #include "kst_line.h"
+#include "card_cache.h"
 #include "kst_files.h"
 #include "kst_view.h"
 #include "pin_claim.h"
@@ -1133,6 +1134,74 @@ static void testRecordKeptAtLeave() {
 	leaveAll();
 }
 
+static void testFlushWait() {
+	section("KST screen: the write waits for the backup's flush to the card");
+	fakeCacheReset();
+	freshKst();
+	SdLogStatus logging;
+	memset(&logging, 0, sizeof(logging));
+	logging.state = SdLogState::Logging;
+	fakeSdLogSet(&logging);
+	checkTrue("to the field list", toList());
+	checkTrue("the claim turned the cache on", fakeCacheCalls().begins >= 1 &&
+	                                          cardCacheState() == CardCache::Idle);
+	checkTrue("and stopped the running log", !sdLogActive());
+	sim_t *sim = fakeKstSim();
+	selectField(KST_F_DEAD_BAND);
+	tapId(UI_FIX(KstCtl::EditMinus));
+	holdUntilGone(UI_FIX(KstCtl::Write));
+	fakeCacheSet(CardCache::Flushing, 12);
+	unsigned writes = sim->n_writes;
+	holdUntilGone(UI_FIX(KstCtl::WriteHold));
+	kstFrames(5);
+	checkTrue("the backup queued: no write frame yet", sim->n_writes == writes &&
+	                                                  fakeFatExists("BACKUP/KST001.TXT"));
+	checkTrue("the page says so", lineIs(196, "SAVING THE BACKUP TO THE CARD.", C_AMBER) &&
+	                              lineIs(210, "BLOCKS LEFT: 12", C_TEXT));
+	checkTrue("no hold to press meanwhile", !ctlPresent(UI_FIX(KstCtl::WriteHold)));
+	fakeCacheSet(CardCache::Flushing, 3);
+	kstFrames(1);
+	checkTrue("the count follows the flush", lineIs(210, "BLOCKS LEFT: 3", C_TEXT));
+	fakeCacheSet(CardCache::Idle, 0);
+	checkTrue("flushed: the write runs and verifies",
+	          untilCtl(UI_FIX(KstCtl::WriteOk), 400) && job().result == KST_SES_OK &&
+	          sim->n_writes > writes);
+	tapId(UI_FIX(KstCtl::WriteOk));
+	unsigned ends = fakeCacheCalls().ends;
+	leaveAll();
+	checkTrue("the claim's end turns the cache off", fakeCacheCalls().ends > ends &&
+	                                                cardCacheState() == CardCache::Off);
+
+	// A flush that fails: nothing reaches the servo.
+	freshKst();
+	checkTrue("again to the field list", toList());
+	selectField(KST_F_DEAD_BAND);
+	tapId(UI_FIX(KstCtl::EditMinus));
+	holdUntilGone(UI_FIX(KstCtl::Write));
+	fakeCacheSet(CardCache::Flushing, 12);
+	writes = sim->n_writes;
+	unsigned recovers = fakeCacheCalls().recovers;
+	holdUntilGone(UI_FIX(KstCtl::WriteHold));
+	kstFrames(2);
+	fakeCacheSet(CardCache::Failed, 0);
+	kstFrames(2);
+	checkTrue("a failed flush: no write frame, the card mounted again",
+	          sim->n_writes == writes && fakeCacheCalls().recovers == recovers + 1);
+	checkTrue("and the page says why", ctlPresent(UI_FIX(KstCtl::WriteOk)) &&
+	          lineIs(196, "THE CARD DID NOT TAKE THE BACKUP.", C_AMBER));
+	tapId(UI_FIX(KstCtl::WriteOk));
+	holdUntilGone(UI_FIX(KstCtl::Write));
+	kstFrames(1);
+	// The fake card kept the files the fake cache failed to flush: the
+	// next number comes from them.
+	char next[BACKUP_NAME_MAX], want[48];
+	kstFilesNextBackup(next);
+	snprintf(want, sizeof(want), "BACKUP FIRST: BACKUP/%s", next);
+	checkTrue("the next write saves the backup again", lineIs(236, want, C_DIM));
+	leaveAll();
+	fakeCacheReset();
+}
+
 void runKstUiTests() {
 	testOpenAndSearch();
 	testEditAndWrite();
@@ -1150,6 +1219,7 @@ void runKstUiTests() {
 	testSlowCard();
 	testRefusedOps();
 	testRecordKeptAtLeave();
+	testFlushWait();
 	fakeKstLineReset();
 	noCard();
 	fakeFatReset();

@@ -10,6 +10,7 @@
  */
 
 #include "ui_kst.h"
+#include "card_cache.h"
 #include "kst_files.h"
 #include "kst_job.h"
 #include "kst_view.h"
@@ -126,6 +127,7 @@ static int          s_sel = -1;          /**< Selected row of the field list. */
 static Repeat       s_repeat;            /**< The editor bar's held repeat. */
 static UiHold       s_hold;              /**< The hold of the view that is up. */
 static bool         s_writing = false;   /**< The write page's operation runs. */
+static bool         s_flushing = false;  /**< The write waits for the backup's flush to the card. */
 static bool         s_restoring = false; /**< The write page is a restore. */
 static bool         s_confirm = false;   /**< An unchecked restore waits for a second hold. */
 static bool         s_okPress = false;   /**< A press landed on the write page while OK showed. */
@@ -236,6 +238,8 @@ static bool cardHeldByUsb() { return mscHoldsCard(mscGetState()); }
 
 /** @brief Go to @p v, with its hold and its press state fresh. */
 static void go(KstView v) {
+	// A write that waited for its backup's flush does not follow the page.
+	if (v != KstView::Write) s_flushing = false;
 	s_view = v;
 	uiHoldReset(&s_hold);
 	s_repeat = Repeat{};
@@ -287,6 +291,8 @@ static void claimPin() {
 	ClaimRefusal r = pinClaimBegin(PinUser::Kst, PIN_SIG);
 	s_claimed = r == ClaimRefusal::None;
 	s_refusal = r;
+	// The card's writes queue in SRAM for the claim; a running log stops.
+	if (s_claimed) cardCacheBegin();
 }
 
 static void readFiles();
@@ -750,13 +756,8 @@ static bool firstWriteFiles() {
 	return true;
 }
 
-static void startWrite() {
-	s_cardNote = nullptr;
-	s_result = false;
-	if (!firstWriteFiles()) {
-		s_cardNote = "THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.";
-		return;
-	}
+/** @brief Send the write or the restore to the job. */
+static void sendWrite() {
 	// The card calls block core0, up to seconds on a slow card; the job
 	// takes no write while the heartbeat has lapsed.
 	escHeartbeat();
@@ -764,6 +765,45 @@ static void startWrite() {
 	if (s_restoring) sendOp(KstOp::Restore, nullptr, s_confirm);
 	else             sendOp(KstOp::Edit, &s_target);
 	s_confirm = false;
+}
+
+/** @brief The write page's text for a flush the card did not take. */
+static const char *const FLUSH_FAILED = "THE CARD DID NOT TAKE THE BACKUP. NOTHING WAS WRITTEN TO THE SERVO.";
+
+/**
+ * @brief While the write waits for the flush: send it once the card has
+ *        the backup, or stop it when the flush failed.
+ */
+static void flushStep() {
+	if (!s_flushing) return;
+	CardCache c = cardCacheState();
+	if (c == CardCache::Flushing) return;
+	s_flushing = false;
+	if (c == CardCache::Failed) {
+		cardCacheRecover();
+		forgetFirst();
+		s_firstDone = false;
+		s_cardNote = FLUSH_FAILED;
+		return;
+	}
+	sendWrite();
+}
+
+static void startWrite() {
+	s_cardNote = nullptr;
+	s_result = false;
+	if (!firstWriteFiles()) {
+		s_cardNote = "THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.";
+		return;
+	}
+	// The backup and the record are queued; the write waits until the card
+	// holds them. The screen keeps drawing meanwhile.
+	if (cardCacheState() != CardCache::Off) {
+		s_flushing = true;
+		flushStep();
+		return;
+	}
+	sendWrite();
 }
 
 static void drawWrite() {
@@ -835,6 +875,14 @@ static void drawWrite() {
 	else if (s_backupNext[0]) snprintf(buf, sizeof(buf), "BACKUP FIRST: BACKUP/%s", s_backupNext);
 	else snprintf(buf, sizeof(buf), "BACKUP FIRST: TO THE CARD");
 	gfxText(UI_MARGIN, 236, buf, C_DIM, 1);
+	if (s_flushing) {
+		uint16_t left = 0;
+		cardCacheState(&left);
+		gfxText(UI_MARGIN, 196, "SAVING THE BACKUP TO THE CARD.", C_AMBER, 1);
+		snprintf(buf, sizeof(buf), "BLOCKS LEFT: %u", (unsigned)left);
+		gfxText(UI_MARGIN, 210, buf, C_TEXT, 1);
+		return;
+	}
 	if (s_writing) {
 		gfxText(UI_MARGIN, 196, "WRITING: DO NOT UNPLUG.", C_AMBER, 1);
 		if (s_st.planning) snprintf(buf, sizeof(buf), "PLANNING THE ORDER OF THE WRITES");
@@ -871,7 +919,8 @@ static void writeTouch() {
 	// the hold lifts on the same rectangle.
 	if (!(s_result || s_cardNote)) s_okPress = false;
 	else if (s_t && s_t->pressed) s_okPress = true;
-	if (s_writing) return;
+	flushStep();
+	if (s_writing || s_flushing) return;
 	// A card mounted while the page is up: the backup line names the
 	// KSTnnn it saves. The lookup is a card call on core0.
 	bool card = kstFilesMounted();
@@ -1077,6 +1126,11 @@ static void saveAs() {
 	size_t n = kst_file_format(&s_st.image, s_text, sizeof(s_text));
 	char saved[KST_STORE_NAME_MAX];
 	kst_store_t r = kstFilesSaveAs(s_text, n, saved);
+	// SAVE AS reports what the card holds: it waits for the flush.
+	if (r == KST_STORE_OK && cardCacheFlush() == CardCache::Failed) {
+		cardCacheRecover();
+		r = KST_STORE_WRITE_ERROR;
+	}
 	// The name without its extension, as the button showed it.
 	char *dot = strrchr(saved, '.');
 	if (dot) *dot = '\0';
@@ -1189,6 +1243,7 @@ static void drawUnplug() {
 /** @brief End the claim; the unplug page follows. @return false when the screen left at once. */
 static bool endClaim() {
 	if (!s_claimed) return false;
+	cardCacheEnd();
 	pinClaimEnd(PinUser::Kst);
 	ClaimState cs = pinClaimState();
 	if (cs == ClaimState::Free || cs == ClaimState::Restoring) return false;
@@ -1235,7 +1290,7 @@ uint8_t uiKstControls(UiControl *out, uint8_t max) {
 			return n;
 		case KstView::Write:
 			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
-			if (s_writing) return n;
+			if (s_writing || s_flushing) return n;
 			if (s_result || s_cardNote) uiControlAdd(out, &n, max, UI_FIX(KstCtl::WriteOk), BTN_WIDE, true);
 			else uiControlAdd(out, &n, max, UI_FIX(KstCtl::WriteHold), BTN_WIDE, holdOk());
 			return n;
@@ -1296,6 +1351,11 @@ static uint32_t frameKey() {
 	h = mix(h, ((uint32_t)(s_sel + 1) << 16) | (uint32_t)(s_fileSel + 1));
 	h = mix(h, (uint32_t)s_list.scrollPx);
 	h = mix(h, (uint32_t)s_fileList.scrollPx);
+	{
+		uint16_t left = 0;
+		CardCache cc = cardCacheState(&left);
+		h = mix(h, ((uint32_t)s_flushing << 24) | ((uint32_t)cc << 16) | left);
+	}
 	h = mix(h, ((uint32_t)s_writing << 0) | ((uint32_t)s_result << 1) | ((uint32_t)s_confirm << 2) |
 	           ((uint32_t)s_readFailed << 3) | ((uint32_t)s_leaveQueued << 4) |
 	           ((uint32_t)s_recordFound << 5) | ((uint32_t)kstFilesMounted() << 6) |

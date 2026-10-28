@@ -30,6 +30,7 @@ void runWidgetTests();
 void runIdTests();
 void runMenuTests();
 void runBackupTests();
+void runSdCacheTests();
 
 int main() {
 	printf("MiniRcBench host tests\n");
@@ -53,6 +54,7 @@ int main() {
 	runWidgetTests();
 	runIdTests();
 	runBackupTests();
+	runSdCacheTests();
 	runMenuTests();
 
 	printf("\n=======================\n");

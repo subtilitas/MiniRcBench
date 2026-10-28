@@ -30,7 +30,15 @@ typedef enum {
 #define AM_RDO 0x01
 #define AM_DIR 0x10
 
-typedef struct { int dummy; } FATFS;
+typedef uint64_t LBA_t;
+
+#define FS_FAT12 1
+#define FS_FAT16 2
+#define FS_FAT32 3
+#define FS_EXFAT 4
+
+/** The fields of FatFs's volume object that sd_log.cpp reads. */
+typedef struct { BYTE fs_type; LBA_t volbase; } FATFS;
 typedef struct { int handle; FSIZE_t pos; bool writing; } FIL;
 typedef struct { int handle; UINT next; } DIR;
 typedef struct {

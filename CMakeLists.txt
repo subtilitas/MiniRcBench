@@ -186,6 +186,7 @@ target_sources(sd_fatfs INTERFACE
     # The SDIO driver: protocol, PIO and DMA bus, library callbacks.
     ${CMAKE_CURRENT_LIST_DIR}/src/sdio/sd_proto.c
     ${CMAKE_CURRENT_LIST_DIR}/src/sdio/sd_host.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/sdio/sd_cache.c
     ${CMAKE_CURRENT_LIST_DIR}/src/sdio/sd_pio.c
     ${CMAKE_CURRENT_LIST_DIR}/src/sdio/sd_card_glue.c
 )
@@ -230,6 +231,7 @@ add_executable(MiniRcBench
     src/card_dir.cpp
     src/backup_ring.cpp
     src/am32_backup.cpp
+    src/card_cache.cpp
     src/settings_flash.cpp
     src/gfx.cpp
     src/st7789.cpp

@@ -172,6 +172,17 @@ bool sdLogReacquire() {
 
 bool sdLogReleased() { return s_released; }
 
+bool sdLogVolumeId(uint32_t *lba, uint32_t *offset) {
+	if (!s_mounted || s_released) return false;
+	*lba = (uint32_t)s_fs.volbase;
+	switch (s_fs.fs_type) {
+		case FS_EXFAT: *offset = 100; break;
+		case FS_FAT32: *offset = 67;  break;
+		default:       *offset = 39;  break;
+	}
+	return true;
+}
+
 /**
  * @brief Find the lowest unused `LOGS/LOGnnnnn.BFL`.
  *

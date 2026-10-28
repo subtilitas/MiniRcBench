@@ -976,7 +976,12 @@ hand: a plug, or a switch in its positive lead.
    then a full verify. A verified write removes the record, and so does LEAVE
    from a servo in programming mode that is not in doubt: only the record
    this session wrote, while its card stays mounted and the file holds the
-   bytes the session wrote.
+   bytes the session wrote. With a card mounted at the screen's opening, the
+   card's writes queue in memory and go to the card while the screen keeps
+   drawing: the write page reads `SAVING THE BACKUP TO THE CARD.` and
+   `BLOCKS LEFT: n` until the card holds the backup and the record, and the
+   servo is written only then. A flush the card does not take stops the
+   write: `THE CARD DID NOT TAKE THE BACKUP. NOTHING WAS WRITTEN TO THE SERVO.`
 5. BACK from the list opens the leave page: `POWER THE SERVO OFF.` The servo
    stays in programming mode until its supply is off. LEAVE holds the line
    low for 100 ms, lets the pin go, and shows `UNPLUG THE SERVO.` RESTART
@@ -1015,13 +1020,16 @@ reads `READ ONLY: UNKNOWN LAYOUT`.
 
 - No switched supply: the servo is powered up and down by hand. The design
   note's step 5 adds a converter on GP0.
-- The first write's card calls run on core0, and the screen does not
-  redraw until they end. On a full card that is up to 1.0 s for a card with
-  access and busy times of 10 ms. At the SD specification's full times it is
-  up to 13.3 s on a FAT32 SDHC (Secure Digital High Capacity) card and 16.5 s
-  on an exFAT SDXC (Secure Digital eXtended Capacity) card, however many logs
-  `LOGS/` holds. Logs an earlier firmware wrote to the card's root slow every
-  lookup in it: with 1000 of them, up to 135.0 s. These are FatFs block counts
+- The first write's card reads run on core0, and the screen does not redraw
+  until they end; its writes queue and flush while the screen keeps drawing.
+  With no card at the screen's opening the cache stays off, and a card
+  mounted later blocks for the writes too. Without the cache the first
+  write's card calls take up to 1.0 s on a full card with access and busy
+  times of 10 ms, and at the SD specification's full times up to 13.3 s on a
+  FAT32 SDHC (Secure Digital High Capacity) card and 16.5 s on an exFAT SDXC
+  (Secure Digital eXtended Capacity) card, however many logs `LOGS/` holds.
+  Logs an earlier firmware wrote to the card's root slow every lookup in it:
+  with 1000 of them, up to 135.0 s. These are FatFs block counts
   times card times (`make -C test kstcount`), not measured on a card.
 - The board has no card-detect line, so a card swapped during a session
   is not seen as an unmount. A record on the new card with the same bytes
@@ -1055,6 +1063,12 @@ CONFIG do. All backups share one directory and one ring of 50 numbers:
 - A card that is mounted and refuses the backup stops the write. Without a
   card the write runs, and the backup stays in memory until a write with a
   card saves it, or the tool closes.
+- While either tool's screen is open, card writes queue in memory and go to
+  the card in the order they were made, one block per pass of the main loop,
+  and the device is written only once the card holds the backup. A running
+  blackbox log stops when the screen opens. Before each batch the card's
+  volume serial number is checked, so a card swapped in the meantime gets no
+  block of the old card.
 
 Blackbox logs go to `LOGS/`, KST's SAVE AS files and its record to `KST/`.
 

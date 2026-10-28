@@ -232,6 +232,14 @@ record. The write then runs as single-register writes with a read-back,
 followed by a full verify. A verified write removes the record, and so does
 LEAVE from a servo in programming mode that is not in doubt.
 
+With a card mounted when the screen opened, the backup and the record first
+go to the card while the screen keeps drawing. The page reads
+`SAVING THE BACKUP TO THE CARD.` and `BLOCKS LEFT: 12`, for example, and the
+servo is written only once the card holds both. A flush the card does not
+take stops the write:
+`THE CARD DID NOT TAKE THE BACKUP. NOTHING WAS WRITTEN TO THE SERVO.` The next
+write saves the backup again.
+
 While the write runs, the page reads `WRITING: DO NOT UNPLUG.` and, under it,
 `PLANNING THE ORDER OF THE WRITES` or `FRAMES SENT: 94`. `BACK` during the
 write is queued: the page reads `LEAVING AFTER THE WRITE ENDS.` and the leave
@@ -401,13 +409,16 @@ unplug page directly.
 
 - No switched supply: the servo is powered up and down by hand. The design
   note's step 5 (`docs/design/kst-programming.md`) adds a converter on GP0.
-- The first write's card calls run on core0, and the screen does not
-  redraw until they end. On a full card that is up to 1.0 s for a card with
-  access and busy times of 10 ms. At the SD specification's full times it is
-  up to 13.3 s on a FAT32 SDHC (Secure Digital High Capacity) card and 16.5 s
-  on an exFAT SDXC (Secure Digital eXtended Capacity) card, however many logs
-  `LOGS/` holds. Logs an earlier firmware wrote to the card's root slow every
-  lookup in it: with 1000 of them, up to 135.0 s. These are FatFs block counts
+- The first write's card reads run on core0, and the screen does not redraw
+  until they end; its writes queue and flush while the screen keeps drawing.
+  With no card at the screen's opening the cache stays off, and a card
+  mounted later blocks for the writes too. Without the cache the first
+  write's card calls take up to 1.0 s on a full card with access and busy
+  times of 10 ms, and at the SD specification's full times up to 13.3 s on a
+  FAT32 SDHC (Secure Digital High Capacity) card and 16.5 s on an exFAT SDXC
+  (Secure Digital eXtended Capacity) card, however many logs `LOGS/` holds.
+  Logs an earlier firmware wrote to the card's root slow every lookup in it:
+  with 1000 of them, up to 135.0 s. These are FatFs block counts
   times card times, not measured on a card.
 
 Nothing of the KST programmer has been tested on hardware.

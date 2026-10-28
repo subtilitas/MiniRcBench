@@ -249,6 +249,14 @@ als Einzelregister-Schreibvorgänge mit Rücklesen, gefolgt von einer
 vollständigen Prüfung. Ein geprüftes Schreiben entfernt den Vermerk, ebenso
 LEAVE von einem Servo im Programmiermodus, das nicht im Zweifel ist.
 
+Mit einer Karte, die beim Öffnen des Bildschirms eingebunden war, gehen die
+Sicherung und der Vermerk zuerst auf die Karte, während der Bildschirm weiter
+zeichnet. Die Seite zeigt `SAVING THE BACKUP TO THE CARD.` und zum Beispiel
+`BLOCKS LEFT: 12`, und das Servo wird erst geschrieben, wenn die Karte beides
+hält. Nimmt die Karte die Daten nicht an, hält das Schreiben an:
+`THE CARD DID NOT TAKE THE BACKUP. NOTHING WAS WRITTEN TO THE SERVO.` Das
+nächste Schreiben sichert erneut.
+
 Während des Schreibens zeigt die Seite `WRITING: DO NOT UNPLUG.` und darunter
 `PLANNING THE ORDER OF THE WRITES` oder `FRAMES SENT: 94`. `BACK` während des
 Schreibens wird vorgemerkt: Die Seite zeigt `LEAVING AFTER THE WRITE ENDS.`,
@@ -427,10 +435,14 @@ zeigt die Abziehseite unmittelbar.
 - Keine geschaltete Versorgung: Das Servo wird von Hand ein- und ausgeschaltet.
   Schritt 5 der Entwurfsnotiz (`docs/design/kst-programming.md`) fügt einen
   Wandler an GP0 hinzu.
-- Die Kartenaufrufe des ersten Schreibens laufen auf core0, und der
-  Bildschirm wird erst neu gezeichnet, wenn sie enden. Bei voller Karte sind
-  das bis zu 1,0 s für eine Karte mit Zugriffs- und Busy-Zeiten von 10 ms. Mit
-  den vollen Zeiten der SD-Spezifikation sind es bis zu 13,3 s auf einer
+- Die Lesezugriffe des ersten Schreibens laufen auf core0, und der
+  Bildschirm wird erst neu gezeichnet, wenn sie enden; seine Schreibzugriffe
+  warten im Speicher und gehen auf die Karte, während der Bildschirm weiter
+  zeichnet. Ohne Karte beim Öffnen bleibt dieser Zwischenspeicher aus, und
+  eine später eingebundene Karte blockiert auch beim Schreiben. Ohne den
+  Zwischenspeicher sind es bei voller Karte bis zu 1,0 s für eine Karte mit
+  Zugriffs- und Busy-Zeiten von 10 ms. Mit den vollen Zeiten der
+  SD-Spezifikation sind es bis zu 13,3 s auf einer
   FAT32-SDHC-Karte (Secure Digital High Capacity) und 16,5 s auf einer
   exFAT-SDXC-Karte (Secure Digital eXtended Capacity), gleich wie viele Logs
   `LOGS/` hält. Logs, die eine frühere Firmware ins Wurzelverzeichnis schrieb,

@@ -110,7 +110,9 @@ verweigert, hält das Schreiben auf: `NO BACKUP ON THE CARD: NOT WRITTEN`. Ohne
 Karte läuft das Schreiben, und die Sicherung bleibt im Speicher, bis ein
 Schreiben mit Karte sie sichert oder der Editor schließt. Die Datei hält eine
 Zeile je Feld, die 48 Bytes in Hex und eine Prüfsummenzeile; noch liest sie
-nichts zurück.
+nichts zurück. Der ESC wird erst geschrieben, wenn die Sicherung auf der
+Karte liegt. Eine Blackbox-Aufzeichnung, die beim Öffnen des Editors läuft,
+endet.
 
 Die meisten AM32-Einstellungen wirken ab dem nächsten Einschalten des ESC. Das
 ist Verhalten von AM32; der Tester prüft es nicht.
