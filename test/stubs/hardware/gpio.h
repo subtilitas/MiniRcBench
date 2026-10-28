@@ -18,4 +18,5 @@ bool gpio_get(uint32_t);
 void gpio_pull_up(uint32_t);
 void gpio_disable_pulls(uint32_t);
 void gpio_pull_down(uint32_t);
+void gpio_set_input_enabled(uint32_t, bool);
 }

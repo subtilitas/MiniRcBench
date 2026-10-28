@@ -122,6 +122,7 @@ settings to flash. One list, in sections, scrolls under a finger.
 | WIRING | **DSHOT KBAUD** | 150 / 300 / 600 / 1200. Lower it if the `LINK` error rate rises |
 | WIRING | **KISS TELEM** | Whether to listen on the optional third telemetry wire |
 | WIRING | **KISS PIN** | GPIO for that wire. Skips the ESC pin, so the two never coincide. Reads `--` and does not act while KISS TELEM is off |
+| SERVO SUPPLY | **SERVO SUPPLY** | `NONE` or `GP0`: whether a DC-DC converter for the KST servo's supply has its enable wired to GP0, J5 pin 2. `NONE` by default. KST SERVO does not switch the supply yet |
 | DISPLAY | **CONTRAST** | `NORMAL` or `HIGH`. High contrast is for daylight |
 | DISPLAY | **BACKLIGHT** | 16–255, in steps of 32 |
 | BOARD | **BUILT FOR** | Read-only. The board the firmware is built for, `RP2350-TOUCH-LCD-2.8` |
@@ -150,7 +151,7 @@ to flash. `RESET` loads the compiled defaults, the pole count and the throttle
 ceiling included, into the live settings only. Leaving without saving keeps
 flash unchanged.
 
-<img src="img/settings-scrolled.png" width="240" alt="SETTINGS scrolled to the end: DISPLAY and BOARD">
+<img src="img/settings-supply.png" width="240" alt="SETTINGS scrolled to SERVO SUPPLY, set to GP0"> <img src="img/settings-scrolled.png" width="240" alt="SETTINGS scrolled to the end: DISPLAY and BOARD">
 
 <img src="img/settings-contrast.png" width="240" alt="SETTINGS in high contrast"> <img src="img/tester-contrast.png" width="240" alt="The tester screen in high contrast">
 

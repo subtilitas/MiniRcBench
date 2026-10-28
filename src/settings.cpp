@@ -82,6 +82,7 @@ void settingsDefaults(Settings *out) {
 	out->maxThrottle  = DEFAULT_MAX_THROTTLE;
 	out->backlight    = LCD_BACKLIGHT_DEFAULT;
 	out->highContrast = 0;
+	out->servoSupply  = 0;
 }
 
 /** @brief The bitrates the DShot driver is built and tested for. */
@@ -117,10 +118,9 @@ bool settingsValidate(Settings *s) {
 	// --- board ---
 	// Not a setting. The field records the board a block was written on, and
 	// this image drives one board, so any other value is overwritten rather
-	// than honoured. A block DshotDisplay wrote on the same board carries the
-	// same id and passes untouched. A block written on other hardware, or by a
-	// build this one is not, is recognisable by the id, and its pins are
-	// re-judged below against this board's free GPIOs.
+	// than honoured. A block written on other hardware, or by a build this one
+	// is not, is recognisable by the id, and its pins are re-judged below
+	// against this board's free GPIOs.
 	if (s->boardId != BOARD_ID_LCD_2_8) {
 		s->boardId = BOARD_ID_LCD_2_8;
 		ok = false;
@@ -153,6 +153,9 @@ bool settingsValidate(Settings *s) {
 	}
 	if (s->kissEnable != 0 && s->kissEnable != 1) { s->kissEnable = 1; ok = false; }
 	if (s->highContrast != 0 && s->highContrast != 1) { s->highContrast = 1; ok = false; }
+	// No switch is the safe reading of a value this build does not know: GP0
+	// is then never driven.
+	if (s->servoSupply > 1) { s->servoSupply = 0; ok = false; }
 
 	// --- backlight: never so dim the panel looks dead ---
 	if (s->backlight < BACKLIGHT_MIN) { s->backlight = BACKLIGHT_MIN; ok = false; }

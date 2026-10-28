@@ -127,6 +127,7 @@ Abschnitten, die sich mit dem Finger verschieben lässt.
 | WIRING | **DSHOT KBAUD** | 150 / 300 / 600 / 1200. Herunterstellen, wenn die `LINK`-Fehlerrate steigt |
 | WIRING | **KISS TELEM** | Ob auf dem optionalen dritten Telemetriekabel empfangen wird |
 | WIRING | **KISS PIN** | GPIO für dieses Kabel. Überspringt den ESC-Pin, sodass beide nie zusammenfallen. Zeigt `--` und reagiert nicht, solange KISS TELEM aus ist |
+| SERVO SUPPLY | **SERVO SUPPLY** | `NONE` oder `GP0`: ob ein DC-DC-Wandler für die Versorgung des KST-Servos seinen Enable-Eingang an GP0, J5 Pin 2, hat. Standard ist `NONE`. KST SERVO schaltet die Versorgung noch nicht |
 | DISPLAY | **CONTRAST** | `NORMAL` oder `HIGH`. Hoher Kontrast ist für Tageslicht |
 | DISPLAY | **BACKLIGHT** | 16–255, in Schritten von 32 |
 | BOARD | **BUILT FOR** | Nur Anzeige. Die Platine, für die die Firmware gebaut ist, `RP2350-TOUCH-LCD-2.8` |
@@ -157,7 +158,7 @@ Bitrate baut den DShot-Treiber vor dem nächsten Frame neu auf. `HOLD TO SAVE`
 Polzahl und Gas-Obergrenze eingeschlossen, nur in die laufenden Einstellungen.
 Wer ohne Speichern weggeht, lässt das Flash unverändert.
 
-<img src="img/settings-scrolled.png" width="240" alt="SETTINGS bis zum Ende verschoben: DISPLAY und BOARD">
+<img src="img/settings-supply.png" width="240" alt="SETTINGS bis SERVO SUPPLY verschoben, auf GP0"> <img src="img/settings-scrolled.png" width="240" alt="SETTINGS bis zum Ende verschoben: DISPLAY und BOARD">
 
 <img src="img/settings-contrast.png" width="240" alt="SETTINGS mit hohem Kontrast"> <img src="img/tester-contrast.png" width="240" alt="Der Tester-Bildschirm mit hohem Kontrast">
 

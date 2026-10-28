@@ -30,9 +30,10 @@
 struct TouchState;
 
 /**
- * @brief The SETTINGS rows of the core sections, as `UI_ROW(n, part)`
- *        numbers them: rows count from the top of the list, captions not
- *        counted. A tool section shifts the rows after WIRING.
+ * @brief The SETTINGS rows, as `UI_ROW(n, part)` numbers them: rows count
+ *        from the top of the list, captions not counted. The tool sections
+ *        follow WIRING in registry order; KST's SERVO SUPPLY is the one there
+ *        is.
  */
 enum class SettingsRowId : uint8_t {
 	Poles,        /**< MOTOR POLES, - and +. */
@@ -41,6 +42,7 @@ enum class SettingsRowId : uint8_t {
 	Speed,        /**< DSHOT KBAUD, - and +. */
 	Kiss,         /**< KISS TELEM, toggle. */
 	KissPin,      /**< KISS PIN, - and +, while KISS is on. */
+	ServoSupply,  /**< SERVO SUPPLY, toggle: KST's section, ui_kst.cpp. */
 	Contrast,     /**< CONTRAST, toggle. */
 	Backlight,    /**< BACKLIGHT, - and +. */
 	BuiltFor,     /**< BUILT FOR, read-only. */

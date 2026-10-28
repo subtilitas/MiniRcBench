@@ -79,6 +79,7 @@
 #include "usb_msc.h"
 #include "card_cache.h"
 #include "settings.h"
+#include "servo_supply.h"
 
 /** @brief UI frame interval in milliseconds (~40 fps). */
 #define UI_PERIOD_MS 25
@@ -112,6 +113,10 @@ void setup() {
 	// other hardware arrives with every pin in it re-judged against this
 	// board. @see settingsValidate()
 	settingsLoad();
+	// Directly after the settings and before core1 starts: with a switch
+	// fitted, GP0 becomes an undriven input, and the converter's external
+	// pull-down holds the servo's supply off. @see servo_supply.h
+	servoSupplyInit();
 
 	// Before anything can call escSnapshot(), and before core1 is launched.
 	escTaskInit();

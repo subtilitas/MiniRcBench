@@ -45,11 +45,11 @@
  * discarded entirely rather than migrated — see @ref settingsLoad() for why
  * that is the safe direction here.
  *
- * The magic, this version and the layout of @ref Settings match DshotDisplay
- * 2.x, so a block DshotDisplay saved on an RP2350-Touch-LCD-2.8 loads here
- * unchanged. The host suite pins the layout.
+ * Version 3 adds @ref Settings::servoSupply, so a version 2 block,
+ * DshotDisplay 2.x's among them, is discarded and the compiled defaults load.
+ * The host suite pins the layout.
  */
-#define SETTINGS_VERSION 2
+#define SETTINGS_VERSION 3
 
 /** @brief Lowest backlight level: below it the panel looks dead. */
 #define BACKLIGHT_MIN 16
@@ -59,8 +59,7 @@ struct Settings {
 	/**
 	 * @brief Which board this block was written on: @ref BOARD_ID_LCD_2_8.
 	 *
-	 * A record, never an input. The field keeps its place so that the layout
-	 * stays DshotDisplay's. @ref settingsValidate() checks it against
+	 * A record, never an input. @ref settingsValidate() checks it against
 	 * @ref BOARD_ID_LCD_2_8 and overwrites any other value, and re-judges every
 	 * pin in the block against this board's free GPIOs. Nothing in the UI
 	 * offers to change it.
@@ -74,6 +73,7 @@ struct Settings {
 	uint16_t maxThrottle;  /**< Throttle ceiling, out of 0..2000. */
 	uint8_t  backlight;    /**< Preferred backlight level, @ref BACKLIGHT_MIN to 255. */
 	uint8_t  highContrast; /**< Non-zero selects @ref Theme::HighContrast. */
+	uint8_t  servoSupply;  /**< KST's switched servo supply: 0 none, 1 an enable on GP0. @see servo_supply.h */
 };
 
 /**
@@ -148,7 +148,7 @@ void settingsDefaults(Settings *out);
  * number of steps and within @ref MAX_THROTTLE_CEILING; DShot bitrate one of
  * the four legal values; board id @ref BOARD_ID_LCD_2_8; ESC pin free; KISS
  * pin free and not the same pin as the ESC — KISS is switched off rather than
- * moved if it is not.
+ * moved if it is not; servo supply 0 or 1, any other value 0.
  *
  * @param[in,out] s Settings to repair in place.
  * @return true if nothing needed changing.

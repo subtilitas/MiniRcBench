@@ -44,6 +44,10 @@ protocol.
 
 ### Added
 
+- SETTINGS → SERVO SUPPLY, `NONE` or `GP0`, in a section of its own
+  between WIRING and DISPLAY: whether a DC-DC converter's enable for the KST
+  servo's supply is wired to GP0 (`src/servo_supply.*`). With `GP0`, GP0 is
+  an undriven input outside a KST claim; the KST job does not switch it yet.
 - Device backups in one ring ([backups.md](docs/design/backups.md)). KST
   SERVO and AM32 CONFIG save the device's settings, as read at entry, before
   the first write of a session: `BACKUP/KSTnnn.TXT` and `BACKUP/AMnnn.TXT`,
@@ -279,6 +283,11 @@ protocol.
 
 ### Changed
 
+- The settings block is version 3: it adds `servoSupply`, the SERVO SUPPLY
+  row. The first boot after the update discards the stored version 2 block
+  and starts from the compiled defaults, every setting and the ESC pin
+  included. DshotDisplay, flashed back, discards a version 3 block the same
+  way.
 - Blackbox logs are written to `LOGS/LOGnnnnn.BFL` (`SD_LOG_DIR_PATH`), so the
   card's root holds a few directories. Logs an earlier firmware wrote to the
   root stay there and are not counted.

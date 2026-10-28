@@ -296,7 +296,7 @@ static void dragList(int y0, int dy) {
 	fakeRelease(); menuFrames(1);
 }
 
-/** @brief SETTINGS' scroll: 0 px on open, 330 px at most, from a drag on a label only. */
+/** @brief SETTINGS' scroll: 0 px on open, 400 px at most, from a drag on a label only. */
 static void testSettingsScroll() {
 	section("SETTINGS: the scroll range, and no scroll from a control");
 	openSettings();
@@ -315,9 +315,11 @@ static void testSettingsScroll() {
 
 	dragList(230, -180);
 	dragList(230, -180);
+	dragList(230, -180);
 	UiRect board = ctlRect(UI_ROW(SettingsRowId::BuiltFor, Row));
-	checkInt("dragged to the end: BUILT FOR at y 190, so the scroll is 330 px", board.y, 190);
+	checkInt("dragged to the end: BUILT FOR at y 190, so the scroll is 400 px", board.y, 190);
 	checkTrue("and is whole", board.h == 44);
+	dragList(60, 180);
 	dragList(60, 180);
 	dragList(60, 180);
 	checkInt("dragged back: MOTOR POLES at y 60 again", ctlRect(UI_ROW(SettingsRowId::Poles, Row)).y, 60);

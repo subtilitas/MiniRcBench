@@ -11,6 +11,8 @@
 #include "check.h"
 #include "fakes.h"
 #include "settings.h"
+#include "servo_supply.h"
+#include "hardware/gpio.h"
 #include "ui_input.h"
 #include "board_desc.h"
 #include "gfx.h"
@@ -942,6 +944,43 @@ static void testSettingsKiss() {
 	          settingsPinFree(settings()->kissPin) &&
 	          settings()->kissPin != settings()->dshotPin);
 	tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
+}
+
+/** @brief SERVO SUPPLY: KST's section, toggled, applied to GP0 at once, saved and reset. */
+static void testSettingsServoSupply() {
+	section("SETTINGS: SERVO SUPPLY");
+
+	fakeFlashClear();
+	settingsLoad();
+	uiInit();
+	frames(2);
+	enterSettings();
+
+	checkInt("none by default", settings()->servoSupply, 0);
+	tapRowId(UI_ROW(SettingsRowId::ServoSupply, Toggle));
+	FakePin p = fakePin(SERVO_SUPPLY_PIN);
+	checkTrue("a tap: GP0, applied at once", settings()->servoSupply == 1 && servoSupplyFitted());
+	checkTrue("and GP0 an undriven input: no claim holds",
+	          p.function == GPIO_FUNC_SIO && !p.output && p.pull == FakePull::None && p.inputOff);
+	checkTrue("unsaved", settingsDirty());
+	fakeDumpFrame("shot_settings_supply.ppm");
+	pressId(UI_FIX(SettingsCtl::Save));
+	holdId(UI_FIX(SettingsCtl::Save), 60);
+	fakeRelease(); frames(2);
+	settingsLoad();
+	checkTrue("saved: a reload keeps GP0", settingsStored() && settings()->servoSupply == 1);
+
+	tapId(UI_FIX(SettingsCtl::Reset));
+	checkTrue("RESET: none, applied at once", settings()->servoSupply == 0 && !servoSupplyFitted());
+	p = fakePin(SERVO_SUPPLY_PIN);
+	checkTrue("GP0 left an undriven input", !p.output && p.inputOff);
+	tapRowId(UI_ROW(SettingsRowId::ServoSupply, Toggle));
+	tapRowId(UI_ROW(SettingsRowId::ServoSupply, Toggle));
+	checkTrue("a tap twice: none again", settings()->servoSupply == 0 && !servoSupplyFitted());
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+	fakeFlashClear();
+	settingsLoad();
 }
 
 /** @brief Contrast and backlight take effect immediately and persist. */
@@ -2634,11 +2673,12 @@ static void testBoardRow() {
 	fakeRelease(); frames(2);
 	checkInt("holding it does nothing either", settings()->boardId, recorded);
 
-	// The scroll range. 4 captions of 20 px and 9 rows at a 50 px pitch are
-	// 530 px of content; the viewport, y 40 to 239, is 200 px, so the list
-	// scrolls 0 px to 330 px. Dragged past its end, it stops at 330 px, with
-	// BUILT FOR's row, content y 480, at y 40 + 480 - 330 = 190.
+	// The scroll range. 5 captions of 20 px and 10 rows at a 50 px pitch are
+	// 600 px of content; the viewport, y 40 to 239, is 200 px, so the list
+	// scrolls 0 px to 400 px. Dragged past its end, it stops at 400 px, with
+	// BUILT FOR's row, content y 550, at y 40 + 550 - 400 = 190.
 	const UiRect save0 = ctlRect(UI_FIX(SettingsCtl::Save));
+	settingsDrag(-180);
 	settingsDrag(-180);
 	settingsDrag(-180);
 	checkInt("at the end of the list, BUILT FOR's row is at y 190",
@@ -2652,6 +2692,7 @@ static void testBoardRow() {
 	checkControlTable("SETTINGS, at the end");
 	fakeDumpFrame("shot_settings_scrolled.ppm");
 	// Back up: at 0 px, MOTOR POLES' row, content y 20, is at y 60.
+	settingsDrag(180);
 	settingsDrag(180);
 	settingsDrag(180);
 	checkInt("dragged back, MOTOR POLES' row is at y 60",
@@ -3502,6 +3543,7 @@ void runUiTests() {
 	testSettingsWiring();
 	testStatusBarBitrate();
 	testSettingsKiss();
+	testSettingsServoSupply();
 	testSettingsDisplay();
 	testSettingsSave();
 	testArmedSaveRefused();

@@ -18,6 +18,7 @@ void runGfxTests();
 void runBlackboxTests();
 void runLogRingTests();
 void runSettingsTests();
+void runServoSupplyTests();
 void runUsbMscTests();
 void runDshotFrameTests();
 void runDshotTelemTests();
@@ -37,6 +38,8 @@ int main() {
 	printf("=======================\n");
 
 	runAm32Tests();
+	// First: it needs GP0 untouched, as from boot.
+	runServoSupplyTests();
 	runUiTests();
 	runKissTests();
 	runGfxTests();
