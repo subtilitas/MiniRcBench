@@ -404,7 +404,7 @@ a drag. A row is 44 px tall at a 50 px pitch. **MOTOR POLES** and
 | WIRING | **DSHOT KBAUD** | 150 / 300 / 600 / 1200, wrapping at the ends. Applies at once: the driver is rebuilt on the new pin and rate before the next frame |
 | WIRING | **KISS TELEM** | Whether to listen for the telemetry wire. Turning it on moves the KISS pin off the ESC pin if they coincide |
 | WIRING | **KISS PIN** | Steps through the same free GPIOs, skipping the ESC pin. The receiver is a PIO state machine, so any free GPIO works. Reads `--` and does not act while KISS is off |
-| SERVO SUPPLY | **SERVO SUPPLY** | `NONE`, the default, or `GP0`: whether the enable input of a DC-DC converter for the KST servo's supply is wired to GP0, J5 pin 2 ([kst-programming.md](docs/design/kst-programming.md#switched-servo-supply)). A toggle; it applies at once. With `GP0`, GP0 is an input with both pulls off and its input disabled outside a KST claim, so the converter's external pull-down holds it off. KST SERVO does not switch the supply yet |
+| SERVO SUPPLY | **SERVO SUPPLY** | `NONE`, the default, or `GP0`: whether the enable input of a DC-DC converter for the KST servo's supply is wired to GP0, J5 pin 2 (design note `docs/design/kst-programming.md`, "Switched servo supply"). A toggle; it applies at once. With `GP0`, GP0 is an input with both pulls off and its input disabled outside a KST claim, so the converter's external pull-down holds it off. KST SERVO does not switch the supply yet |
 | DISPLAY | **CONTRAST** | `NORMAL` or `HIGH`. See below |
 | DISPLAY | **BACKLIGHT** | 16–255 in steps of 32. High contrast forces 255 while on |
 | BOARD | **BUILT FOR** | `RP2350-TOUCH-LCD-2.8`, the board the image is built for. Read-only |
