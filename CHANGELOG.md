@@ -59,6 +59,12 @@ protocol.
   phase, as `PinUser::Hitec` and `Core1Job::Hitec`. No screen starts it
   yet. `tools/stack_depth.py` and a CI step find the job's deepest stack
   chain on the Cortex-M33 from GCC's call graph and fail above 1,792 bytes.
+- The Hitec files on the card (`src/hitec_files.*`, work breakdown step 3):
+  SAVE AS files `HITEC/HTnnn.TXT` and the backup `BACKUP/HTnnn.TXT` in
+  rcbench's servo file text, the record of each write as `HITEC/HITEC.TXT`,
+  an old record moved into the ring, LOAD of a file, a backup or a record.
+  `make -C test kstcount` counts the Hitec card phases into
+  [hitec-programming.md](docs/design/hitec-programming.md).
 - SETTINGS → SERVO SUPPLY, `NONE` or `GP0`, in a section of its own
   between WIRING and DISPLAY: whether a DC-DC converter's enable for the KST
   servo's supply is wired to GP0 (`src/servo_supply.*`). With `GP0`, GP0 is

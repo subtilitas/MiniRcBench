@@ -1,9 +1,10 @@
 /**
  * @file kst_card_count.cpp
- * @brief The card phases of the KST programmer and the AM32 backup in block
- *        reads and writes: `src/kst_files.cpp`, `src/backup_ring.cpp`,
- *        `src/am32_backup.cpp` and rcbench's `kst_store.c` over FatFs R0.15
- *        itself, on a RAM disk that counts every block it moves.
+ * @brief The card phases of the KST and Hitec programmers and the AM32 backup
+ *        in block reads and writes: `src/kst_files.cpp`, `src/hitec_files.cpp`,
+ *        `src/backup_ring.cpp`, `src/am32_backup.cpp` and rcbench's
+ *        `kst_store.c` and `hitec_card.c` over FatFs R0.15 itself, on a RAM
+ *        disk that counts every block it moves.
  *
  * Built by `make -C test kstcount`, which fetches FatFs from the SD library
  * at the commit `CMakeLists.txt` pins, with the library's `ffconf.h`. Each
@@ -19,14 +20,19 @@
  * specification, 105 ms a read and 261 ms a write; SDXC within it, 105 ms a
  * read and 511 ms a write (docs/design/kst-programming.md, "The cap").
  *
- * `--print` prints the table. `--write NOTE` puts it between the
- * `kst-card-count` markers of NOTE, and `--check NOTE` fails when the table
- * there differs. A total over the card-phase cap of 15,000 ms is marked
- * "over the cap".
+ * The Hitec phases run on the same card with 49 SAVE AS files in `HITEC/`
+ * and Hitec backups in the ring too (docs/design/hitec-programming.md).
+ *
+ * `--print` prints both tables. `--write NOTE` puts the KST table between the
+ * `kst-card-count` markers of NOTE and the Hitec table between its
+ * `hitec-card-count` markers, whichever it has, and `--check NOTE` fails when
+ * a table there differs. A total over the card-phase cap of 15,000 ms is
+ * marked "over the cap".
  */
 
 #include "am32_backup.h"
 #include "am32_eeprom.h"
+#include "hitec_files.h"
 #include "kst_files.h"
 #include "kst_file.h"
 #include "kst_store.h"
@@ -42,6 +48,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <vector>
+
+// rcbench's fixture brings its test harness, whose reporting is not used here.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+#include "rcbench/hitec_reg_fix.h"
+#pragma GCC diagnostic pop
 
 /** @brief The card-phase cap the design note sets, in ms. */
 static const double CAP_MS = 15000.0;
@@ -149,6 +161,38 @@ static void fullCard() {
 	}
 }
 
+/**
+ * @brief A full ring that has turned, the marker at 10: KST, AM32 and Hitec
+ *        backups by turns; and 49 SAVE AS files in HITEC/.
+ */
+static void fullHitecCard() {
+	static char text[HITEC_CARD_FILE_MAX];
+	hitec_image_t img;
+	d485(&img);
+	size_t n = hitec_card_file_text(&img, text, sizeof(text));
+	char name[BACKUP_NAME_MAX];
+	static const BackupDevice turn[] = { BackupDevice::Kst, BackupDevice::Am32, BackupDevice::Hitec };
+	for (int i = 0; i < 60; i++) {
+		if (backupSave(turn[i % 3], text, n, name) != BackupResult::Ok) { fprintf(stderr, "backup failed\n"); exit(2); }
+	}
+	char file[HITEC_FILES_NAME_MAX];
+	for (int i = 0; i < HITEC_FILES_SAVE_MAX - 1; i++) {
+		if (hitecFilesSaveAs(&img, file) != HitecFiles::Ok) { fprintf(stderr, "save failed\n"); exit(2); }
+	}
+}
+
+/** @brief A record of a D series write, with SPEED @p speed. */
+static hitec_card_record_t hitecRecord(int speed) {
+	hitec_card_record_t r;
+	memset(&r, 0, sizeof(r));
+	r.series = HITEC_D;
+	r.pin = 29;
+	d485(&r.before);
+	r.target = r.before;
+	hitec_param_set(&r.target, HITEC_LAYOUT_D, HITEC_P_D_SPEED, speed);
+	return r;
+}
+
 static void putRecord() {
 	FIL f;
 	if (f_open(&f, "KST/KST.TXT", FA_WRITE | FA_CREATE_ALWAYS) != FR_OK) exit(2);
@@ -222,8 +266,64 @@ static std::vector<Row> scenarios() {
 	return rows;
 }
 
-/** @brief The table between the markers, every scenario on every volume. */
-static std::string table() {
+static std::vector<Row> hitecScenarios() {
+	std::vector<Row> rows;
+	hitec_image_t backup;
+	d485(&backup);
+	hitec_card_record_t rec = hitecRecord(30);
+	HitecWrite w, w2;
+
+	fullHitecCard();
+	begin();
+	hitecFilesFirstWrite(&backup, &rec, &w);
+	rows.push_back(end("Hitec first write, no old record"));
+	if (w.backup != HitecFiles::Ok || w.record != HitecFiles::Ok) exit(2);
+
+	hitec_card_record_t rec2 = hitecRecord(60);
+	begin();
+	hitecFilesRecordWrite(&w, &rec2, &w2);
+	rows.push_back(end("Hitec record of a later write"));
+	if (w2.record != HitecFiles::Ok) exit(2);
+
+	begin();
+	hitecFilesRecordRemove(&w2);
+	rows.push_back(end("Hitec record removed after the verify"));
+
+	hitecFilesRecordWrite(&w2, &rec, &w);  // a record left by an interrupted write
+	begin();
+	hitecFilesFirstWrite(&backup, &rec2, &w2);
+	rows.push_back(end("Hitec first write, an old record kept"));
+	if (w2.kept != HitecFiles::Ok || w2.backup != HitecFiles::Ok) exit(2);
+	hitecFilesRecordRemove(&w2);
+
+	char file[HITEC_FILES_NAME_MAX];
+	begin();
+	if (hitecFilesSaveAs(&backup, file) != HitecFiles::Ok) exit(2);
+	rows.push_back(end("Hitec SAVE AS, the 50th file of HITEC/"));
+
+	begin();
+	{
+		CardDirScope scope(HITEC_FILES_DIR);  // as the FILES page opens it
+		static HitecFileName files[64];
+		static BackupFileName backups[BACKUP_RING_NAMES];
+		size_t count = 0, nb = 0;
+		hitecFilesList(files, 64, &count);
+		hitecFilesBackups(backups, BACKUP_RING_NAMES, &nb);
+		hitecFilesRecordPresent();
+		hitecFilesSaveName(file);
+		if (count != 50 || nb == 0) exit(2);
+	}
+	rows.push_back(end("Hitec FILES page"));
+
+	hitec_image_t img;
+	begin();
+	if (hitecFilesLoad("HT050.TXT", HITEC_D, &img) != HitecFiles::Ok) exit(2);
+	rows.push_back(end("Hitec LOAD of a file"));
+	return rows;
+}
+
+/** @brief The table between the markers, every scenario of @p list on every volume. */
+static std::string table(std::vector<Row> (*list)()) {
 	struct Vol { const char *name; BYTE fmt; LBA_t sectors; DWORD au; } vols[] = {
 		{ "FAT32, 32 GiB, 32 KiB clusters", FM_FAT32, 67108864ull, 32768 },
 		{ "exFAT, 64 GiB, 128 KiB clusters", FM_EXFAT, 134217728ull, 131072 },
@@ -240,7 +340,7 @@ static std::string table() {
 	for (const Vol &v : vols) {
 		for (const LogsAt &logs : logsAt) {
 			volume(v.fmt, v.sectors, v.au, logs.at);
-			for (const Row &r : scenarios()) {
+			for (const Row &r : list()) {
 				double typ = r.reads * 10.0 + r.writes * 10.0;
 				double hc = r.reads * 105.0 + r.writes * 261.0;
 				double xc = r.reads * 105.0 + r.writes * 511.0;
@@ -255,14 +355,15 @@ static std::string table() {
 	return out;
 }
 
-static const char START[] = "<!-- kst-card-count:start -->\n";
-static const char END[] = "<!-- kst-card-count:end -->";
-
-/** @brief The note with the table between its markers replaced by @p t; empty without markers. */
-static std::string splice(const std::string &note, const std::string &t) {
-	size_t a = note.find(START), b = note.find(END);
-	if (a == std::string::npos || b == std::string::npos || b < a) return std::string();
-	a += sizeof(START) - 1;
+/** @brief The note with the table between the @p tag markers replaced by @p t; the note unchanged without them. */
+static std::string splice(const std::string &note, const char *tag, const std::string &t,
+                          bool *found) {
+	std::string start = std::string("<!-- ") + tag + ":start -->\n";
+	std::string endMark = std::string("<!-- ") + tag + ":end -->";
+	size_t a = note.find(start), b = note.find(endMark);
+	*found = a != std::string::npos && b != std::string::npos && b > a;
+	if (!*found) return note;
+	a += start.size();
 	return note.substr(0, a) + t + "\n" + "Generated by `make -C test kstcount-write`. CI runs `make -C test kstcount` and fails on drift.\n" + note.substr(b);
 }
 
@@ -279,9 +380,10 @@ static std::string readFile(const char *path) {
 
 int main(int argc, char **argv) {
 	const char *mode = argc > 1 ? argv[1] : "--print";
-	std::string t = table();
+	std::string t = table(scenarios), h = table(hitecScenarios);
 	if (strcmp(mode, "--print") == 0) {
 		fputs(t.c_str(), stdout);
+		fputs(h.c_str(), stdout);
 		return 0;
 	}
 	if (argc < 3) {
@@ -289,9 +391,10 @@ int main(int argc, char **argv) {
 		return 2;
 	}
 	std::string note = readFile(argv[2]);
-	std::string want = splice(note, t);
-	if (want.empty()) {
-		fprintf(stderr, "%s: no kst-card-count markers\n", argv[2]);
+	bool kst = false, hitec = false;
+	std::string want = splice(splice(note, "kst-card-count", t, &kst), "hitec-card-count", h, &hitec);
+	if (!kst && !hitec) {
+		fprintf(stderr, "%s: no kst-card-count or hitec-card-count markers\n", argv[2]);
 		return 2;
 	}
 	if (strcmp(mode, "--write") == 0) {
@@ -301,7 +404,7 @@ int main(int argc, char **argv) {
 		return 0;
 	}
 	if (want != note) {
-		fputs(t.c_str(), stdout);
+		fputs((kst ? t : h).c_str(), stdout);
 		fprintf(stderr, "%s: the card-phase table drifts from the counts above; run make -C test kstcount-write\n", argv[2]);
 		return 1;
 	}

@@ -263,12 +263,14 @@ jobs:
         working-directory: test
         run: |
           make run EXTRA_DEFINES="-DDSHOT_PIN_LCD_2_8=28 -DKISS_PIN_LCD_2_8=29"
-      # The KST card phases in block reads and writes, from FatFs R0.15 at the
-      # SD library's pinned commit over a RAM disk that counts them, against
-      # the table in docs/design/kst-programming.md. The cap of the card
-      # phase is argued from that table, so a change to src/kst_files.cpp
-      # that moves a count fails here until the table is rewritten.
-      - name: KST card phases match the design note
+      # The KST and Hitec card phases in block reads and writes, from FatFs
+      # R0.15 at the SD library's pinned commit over a RAM disk that counts
+      # them, against the tables in docs/design/kst-programming.md and
+      # docs/design/hitec-programming.md. The cap of the card phase is argued
+      # from those tables, so a change to src/kst_files.cpp or
+      # src/hitec_files.cpp that moves a count fails here until the table is
+      # rewritten.
+      - name: KST and Hitec card phases match the design notes
         working-directory: test
         run: make kstcount
       # The wiki is only *published* on release, but its links and its

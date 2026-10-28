@@ -59,7 +59,7 @@ typedef char BackupFileName[BACKUP_NAME_MAX];
 enum class BackupDevice : uint8_t {
 	Kst = 0,    /**< KST and Chaservo servos: `KSTnnn.TXT`. */
 	Am32 = 1,   /**< AM32 ESCs (electronic speed controllers): `AMnnn.TXT`. */
-	Hitec = 2,  /**< Hitec servos: `HTnnn.TXT`, reserved; nothing writes one yet. */
+	Hitec = 2,  /**< Hitec servos: `HTnnn.TXT`, rcbench's servo file text (hitec_files.h). */
 	Count = 3,
 };
 
