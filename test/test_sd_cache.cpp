@@ -200,6 +200,21 @@ static void testErrors() {
 	checkTrue("the queue dropped", sdc_state(&left) == SDC_FAILED && left == 0);
 	checkTrue("block 12 never sent", g_card.written == std::vector<uint32_t>({ 10 }));
 	checkInt("writes refused while failed", sdc_write(13, 1, b), SDE_WRITE);
+	checkInt("and reads: the card's copy is older than FatFs's", sdc_read(12, 1, b), SDE_NOT_READY);
+	sdc_drop();
+	checkInt("dropped: reads again", sdc_read(12, 1, b), SDE_OK);
+
+	// A read that misses waits for the block in flight; that block fails.
+	block(b, 0x05);
+	sdc_write(20, 1, b);
+	sdc_write(21, 1, b);
+	sdc_poll();
+	sdc_poll();
+	g_card.failWrites = 3;
+	g_card.failWith = SDE_WRITE;
+	uint8_t r2[2 * SDP_BLOCK_BYTES];
+	checkInt("a miss whose wait ends the batch: refused", sdc_read(22, 2, r2), SDE_NOT_READY);
+	g_card.failWrites = 0;
 	sdc_drop();
 	checkInt("dropped: idle", sdc_state(nullptr), SDC_IDLE);
 

@@ -152,9 +152,12 @@ typedef struct {
  * @param card An initialised card.
  * @param lba  The sector.
  * @param buf  512 bytes, any alignment.
- * @param w    Filled in; active when the block went out.
- * @return SDE_OK when the block went out, whatever its token said; a command
- *         or transmit error otherwise, with nothing in flight.
+ * @param w    Filled in; active once CMD24 was taken.
+ * @return SDE_OK once CMD24 was taken, whatever the transfer and the token
+ *         said: sdh_write_poll() waits for busy and reports their error. A
+ *         command error otherwise, with nothing in flight and the clock
+ *         stopped. Neither this call nor sdh_write_poll() marks the card not
+ *         ready on a timeout: the caller's attempts decide, as sdh_write()'s.
  */
 sd_err_t sdh_write_start(const sdh_bus_t *bus, sdh_card_t *card, uint32_t lba,
                          const uint8_t *buf, sdh_wr_t *w);

@@ -767,6 +767,18 @@ static void sendWrite() {
 	s_confirm = false;
 }
 
+/**
+ * @brief After a batch the card did not take: mount the card again and
+ *        forget the first write, so the next write saves the backup again.
+ *        Idle after the recovery says only that the queue is empty, not that
+ *        the backup reached the card.
+ */
+static void recoverFlush() {
+	cardCacheRecover();
+	forgetFirst();
+	s_firstDone = false;
+}
+
 /** @brief The write page's text for a flush the card did not take. */
 static const char *const FLUSH_FAILED = "THE CARD DID NOT TAKE THE BACKUP. NOTHING WAS WRITTEN TO THE SERVO.";
 
@@ -780,9 +792,7 @@ static void flushStep() {
 	if (c == CardCache::Flushing) return;
 	s_flushing = false;
 	if (c == CardCache::Failed) {
-		cardCacheRecover();
-		forgetFirst();
-		s_firstDone = false;
+		recoverFlush();
 		s_cardNote = FLUSH_FAILED;
 		return;
 	}
@@ -792,6 +802,9 @@ static void flushStep() {
 static void startWrite() {
 	s_cardNote = nullptr;
 	s_result = false;
+	// A batch that failed off this page, after BACK during the flush or a
+	// removal of the record: the first write starts over.
+	if (cardCacheState() == CardCache::Failed) recoverFlush();
 	if (!firstWriteFiles()) {
 		s_cardNote = "THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.";
 		return;
@@ -1122,15 +1135,15 @@ static void loadSelected() {
 }
 
 static void saveAs() {
+	if (cardCacheState() == CardCache::Failed) recoverFlush();
 	KstFilesScope scope;
 	size_t n = kst_file_format(&s_st.image, s_text, sizeof(s_text));
 	char saved[KST_STORE_NAME_MAX];
 	kst_store_t r = kstFilesSaveAs(s_text, n, saved);
-	// SAVE AS reports what the card holds: it waits for the flush.
-	if (r == KST_STORE_OK && cardCacheFlush() == CardCache::Failed) {
-		cardCacheRecover();
-		r = KST_STORE_WRITE_ERROR;
-	}
+	// SAVE AS reports what the card holds: it waits for the flush. A failed
+	// batch may hold the first write's backup too, so that one starts over.
+	if (r == KST_STORE_OK && cardCacheFlush() == CardCache::Failed) r = KST_STORE_WRITE_ERROR;
+	if (cardCacheState() == CardCache::Failed) recoverFlush();
 	// The name without its extension, as the button showed it.
 	char *dot = strrchr(saved, '.');
 	if (dot) *dot = '\0';
@@ -1418,6 +1431,8 @@ bool uiKstTick(const TouchState *t) {
 			case KstView::Leave: go(s_haveTarget ? KstView::List : KstView::Main); break;
 			case KstView::Unplug:
 				pinClaimKeep(PinUser::Kst);
+				// endClaim() turned the cache off; the kept claim turns it on.
+				cardCacheBegin();
 				newSession();
 				go(KstView::Main);
 				break;

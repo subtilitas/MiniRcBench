@@ -177,6 +177,9 @@ static const sdc_block_t *queued(uint32_t lba) {
 sd_err_t sdc_read(uint32_t lba, uint32_t n, uint8_t *buf) {
 	if (!s_on) return SDE_NOT_READY;
 	for (uint32_t i = 0; i < n; i++) {
+		// A failed batch dropped blocks newer than the card's: until
+		// sdc_drop() the card's copy is not what FatFs wrote.
+		if (s_state == SDC_FAILED) return SDE_NOT_READY;
 		uint8_t *dst = buf + i * SDP_BLOCK_BYTES;
 		const sdc_block_t *q = queued(lba + i);
 		if (q) {
@@ -192,6 +195,7 @@ sd_err_t sdc_read(uint32_t lba, uint32_t n, uint8_t *buf) {
 		// A card programming a block takes no read command: the block in
 		// flight ends first.
 		while (s_inFlight) sdc_poll();
+		if (s_state == SDC_FAILED) return SDE_NOT_READY;
 		sd_err_t e = s_dev->read(s_dev->ctx, lba + i, 1, dst);
 		if (e != SDE_OK) return e;
 		keep(lba + i, dst);

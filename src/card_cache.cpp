@@ -54,4 +54,9 @@ void cardCacheRecover() {
 	if (!card()) return;
 	sd_sdio_cache_drop(card());
 	sdLogRemount();
+	// The card mounted now may be another one: the swap check takes its
+	// serial number. Without a mounted card the cache stays off.
+	uint32_t lba = 0, off = 0;
+	if (!sdLogVolumeId(&lba, &off) || !sd_sdio_cache_begin(card(), lba, off))
+		sd_sdio_cache_end(card());
 }

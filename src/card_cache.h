@@ -47,5 +47,9 @@ CardCache cardCacheState(uint16_t *left = nullptr);
 /** @brief Flush until Idle or Failed, blocking; Off with the cache off. */
 CardCache cardCacheFlush();
 
-/** @brief After Failed: drop the queue and mount the card again. */
+/**
+ * @brief After Failed: drop the queue, mount the card again and take the
+ *        mounted volume's serial number for the swap check; Off without a
+ *        mounted card.
+ */
 void cardCacheRecover();

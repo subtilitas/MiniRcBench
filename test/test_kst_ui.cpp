@@ -1199,6 +1199,61 @@ static void testFlushWait() {
 	snprintf(want, sizeof(want), "BACKUP FIRST: BACKUP/%s", next);
 	checkTrue("the next write saves the backup again", lineIs(236, want, C_DIM));
 	leaveAll();
+
+	// BACK during the flush, then a SAVE AS whose flush fails: the batch held
+	// the backup too, so the first write starts over.
+	freshKst();
+	checkTrue("a third time to the field list", toList());
+	selectField(KST_F_DEAD_BAND);
+	tapId(UI_FIX(KstCtl::EditMinus));
+	holdUntilGone(UI_FIX(KstCtl::Write));
+	fakeCacheSet(CardCache::Flushing, 12);
+	writes = sim->n_writes;
+	holdUntilGone(UI_FIX(KstCtl::WriteHold));
+	kstFrames(2);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK during the flush: the list, no write frame",
+	          uiKstView() == KstView::List && sim->n_writes == writes);
+	tapId(UI_FIX(KstCtl::Files));
+	fakeCacheFlushTo(CardCache::Failed);
+	recovers = fakeCacheCalls().recovers;
+	tapId(UI_FIX(KstCtl::SaveAs));
+	kstFrames(1);
+	checkTrue("SAVE AS: the flush fails, the card mounted again",
+	          fakeCacheCalls().recovers == recovers + 1 && cardCacheState() == CardCache::Idle);
+	fakeCacheFlushTo(CardCache::Idle);
+	tapId(UI_FIX(UI_BACK));
+	holdUntilGone(UI_FIX(KstCtl::Write));
+	kstFrames(1);
+	kstFilesNextBackup(next);
+	snprintf(want, sizeof(want), "BACKUP FIRST: BACKUP/%s", next);
+	checkTrue("the write after it saves the backup again", lineIs(236, want, C_DIM));
+	tapId(UI_FIX(UI_BACK));
+
+	// A batch that failed off the write page, with no first write pending:
+	// the next write mounts the card again before its files.
+	fakeCacheSet(CardCache::Failed, 0);
+	recovers = fakeCacheCalls().recovers;
+	writes = sim->n_writes;
+	holdUntilGone(UI_FIX(KstCtl::Write));
+	holdUntilGone(UI_FIX(KstCtl::WriteHold));
+	checkTrue("a failed batch before the write: recovered, the write runs",
+	          untilCtl(UI_FIX(KstCtl::WriteOk), 400) && fakeCacheCalls().recovers == recovers + 1 &&
+	          job().result == KST_SES_OK && sim->n_writes > writes);
+	tapId(UI_FIX(KstCtl::WriteOk));
+
+	// BACK on the unplug page keeps the claim: the cache is on again.
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(KstCtl::Leave));
+	checkTrue("LEAVE: the unplug page, the cache off",
+	          uiKstView() == KstView::Unplug && cardCacheState() == CardCache::Off);
+	untilCtl(UI_FIX(KstCtl::Restart), 200);
+	unsigned begins = fakeCacheCalls().begins;
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK on the unplug page: the cache on again",
+	          uiKstView() == KstView::Main && fakeCacheCalls().begins == begins + 1 &&
+	          cardCacheState() == CardCache::Idle);
+	leaveAll();
 	fakeCacheReset();
 }
 

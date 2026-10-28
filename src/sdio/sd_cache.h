@@ -87,7 +87,11 @@ void sdc_end(void);
 /** @brief Whether the cache is on. */
 bool sdc_on(void);
 
-/** @brief Read @p n blocks: the queue, the read cache, then the card. */
+/**
+ * @brief Read @p n blocks: the queue, the read cache, then the card.
+ * @return SDE_OK; the card's error; SDE_NOT_READY with the cache off or at
+ *         SDC_FAILED, which the wait for the block in flight can reach.
+ */
 sd_err_t sdc_read(uint32_t lba, uint32_t n, uint8_t *buf);
 
 /**

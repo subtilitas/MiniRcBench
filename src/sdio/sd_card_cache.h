@@ -8,8 +8,8 @@
  *        sd_card_glue.c offers above the SD library's sd_card_t.
  *
  * While the cache is on, the card's read_blocks and write_blocks callbacks go
- * through it, so FatFs writes return once queued. Each call takes the card's
- * lock. Core0 only.
+ * through it, so FatFs writes return once queued. Each call but
+ * sd_sdio_cache_state() takes the card's lock. Core0 only.
  */
 
 #ifndef SD_CARD_CACHE_H

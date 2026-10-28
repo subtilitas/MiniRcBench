@@ -96,9 +96,12 @@ the cache.
 busy wait, for one block. The SD clock runs from the block's send until
 `sdh_write_poll()` sees the block done, as it does during `writeChunk()`'s
 busy wait; a block that waits several loop passes keeps the clock running
-for that time. A block is tried again on a CRC, frame, timeout or
-no-response error, up to `SDC_ATTEMPTS`, 3 times in all; a block that still
-fails ends the batch ([errors](#errors)).
+for that time. A transfer error after CMD24 waits for busy as well: the
+error is reported once DAT0 is high, so the next attempt never meets a card
+that is still programming. A block is tried again on a CRC, frame, timeout
+or no-response error, up to `SDC_ATTEMPTS`, 3 times in all; neither call
+marks the card not ready, so each attempt reaches the card. A block that
+still fails ends the batch ([errors](#errors)).
 
 ## The flush barrier
 
@@ -114,8 +117,14 @@ still to go, or `Failed`.
   `THE CARD DID NOT TAKE THE BACKUP. NOTHING WAS WRITTEN TO THE SERVO.` BACK
   during the flush leaves the page; the write is not sent, and the flush goes
   on.
+- **Any failed batch on KST.** `Idle` after a recovery says only that the
+  queue is empty. A batch that fails off the write page, after BACK during
+  the flush, in SAVE AS or in a removal of the record, may have held the
+  backup, so every recovery forgets the first write. A write or a SAVE AS
+  that finds the cache at `Failed` recovers first.
 - **KST SAVE AS** flushes on the spot (`cardCacheFlush()`) and reports what
-  the card holds: a failed flush is `THE CARD TOOK NO FILE`.
+  the card holds: a failed flush is `THE CARD TOOK NO FILE`, and the next
+  write saves the backup again.
 - **The record's removal** after a verify, or at LEAVE, stays queued and goes
   to the card in the flush that follows, at the claim's end at the latest.
 - **AM32 CONFIG.** Its transport blocks core0 anyway, so after the backup
@@ -138,8 +147,9 @@ card the rule is unchanged: the write runs, and the backup stays in memory.
   `KST` and `BACKUP` ([backups.md](backups.md#card-layout)), so its one block
   stays in the cache with the two directories' 4 blocks each on FAT32.
 - A read that misses waits for the block in flight first: a card that is
-  programming takes no read command. That wait is up to 500 ms of busy and
-  105 ms of read within the specification. The card stamp of
+  programming takes no read command. That wait is up to
+  `SDH_BUSY_TIMEOUT_US`, 1 s, of busy, against the specification's 500 ms,
+  and 105 ms of read. A wait that ends the batch refuses the read. The card stamp of
   [kst-programming.md](kst-programming.md#card-calls-and-the-heartbeat),
   planned for step 5, stays for such reads.
 
@@ -162,10 +172,14 @@ serial number is not detected.
 
 A batch that fails:
 
-- the queue and the read cache are dropped, and later writes are refused
-  until `cardCacheRecover()`;
+- the queue and the read cache are dropped, and later reads and writes are
+  refused until `cardCacheRecover()`: the card's copy of a dropped sector is
+  older than the one FatFs wrote;
 - `cardCacheRecover()` mounts the card again (`sdLogRemount()`), so that FatFs
-  drops its own sector window, which holds the state it believed written;
+  drops its own sector window, which holds the state it believed written,
+  then reads the serial number of the volume it mounted for the swap check.
+  A swapped card takes the claim's later batches. Without a mounted card the
+  cache turns off;
 - the volume holds the blocks before the one that failed: FatFs's write order
   leaves it as a power loss at that block would. The files of the batch may
   be missing or empty, and a check on a computer repairs the FAT.
@@ -180,7 +194,8 @@ A batch that fails:
   a mounted card the cache stays off for the claim.
 - `cardCacheEnd()` runs when the claim ends: KST's LEAVE, BACK and the loss
   rule, AM32's BACK. It flushes, core0 blocking, recovers a failed flush, and
-  turns the cache off.
+  turns the cache off. BACK on KST's unplug page keeps the claim and turns
+  the cache on again.
 - A remount during the claim, KST's RETRY MOUNT or a recovery, keeps the
   cache on: the queue goes to the card the swap check finds.
 - USB DRIVE is started from SD LOG, which neither screen reaches: their BACK
@@ -202,18 +217,24 @@ recorded in this note.
 
 - `test_sdio.cpp`: `sdh_write_start()` and `sdh_write_poll()` against the
   simulated card: one block, busy until the card's time, CMD13 after it, a
-  CRC token, busy 1 µs short of the limit and at it, a card not ready.
+  CRC token, busy 1 µs short of the limit and at it, the card still ready
+  and the next attempt landing, a lost token reported after busy, a card not
+  ready.
 - `test_sd_cache.cpp` (`runSdCacheTests`): the cache over a fake card with a
   busy time per block. The order kept for a sector written twice; a read of a
   queued sector; one swap check per batch; no command while busy; read cache
   hits, the oldest pushed out, a written sector's entry; a miss that waits
   for the block in flight; a full queue that flushes until the write fits;
-  two retries that land, three that fail; a write error token; a changed
-  serial number and a check that does not read; refusals with the cache off.
+  two retries that land, three that fail; reads refused while failed, and a
+  miss whose wait ends the batch; a write error token; a changed serial
+  number and a check that does not read; refusals with the cache off.
 - `test_kst_ui.cpp`: the claim turns the cache on and stops a running log;
   no write frame while the flush runs; the page's count; the write after the
   flush; a failed flush with no write frame and the card mounted again; the
-  next write saving the backup again; the claim's end turning the cache off.
+  next write saving the backup again; the claim's end turning the cache off;
+  BACK during the flush and a SAVE AS whose flush fails, then the backup
+  saved again; a batch failed before a write, recovered; BACK on the unplug
+  page turning the cache on again.
 - `test_ui.cpp`: the AM32 write refused after a failed flush.
 - The host suite links a fake of `card_cache.h` (`test/fakes.cpp`);
   `card_cache.cpp` and the glue are built by the firmware only.

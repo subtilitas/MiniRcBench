@@ -409,6 +409,7 @@ bool sdLogBegin() { return false; }
 bool sdLogStart() { return false; }
 void sdLogStop() {}
 bool sdLogRemount() { return false; }
+bool sdLogVolumeId(uint32_t *, uint32_t *) { return false; }
 bool sdLogRelease() { return false; }
 bool sdLogReacquire() { return false; }
 bool sdLogReleased() { return false; }

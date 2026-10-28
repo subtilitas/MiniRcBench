@@ -1170,7 +1170,25 @@ static void testWriteAsync() {
 	checkTrue("busy 1 us short of the limit: not done", !done);
 	s.t += 1;
 	checkInt("busy at the limit: timeout", sdh_write_poll(&b, &c, &w, &done), SDE_TIMEOUT);
-	checkTrue("done, the card marked not ready", done && !c.ready);
+	checkTrue("done, the card still ready for the caller's next attempt", done && c.ready);
+	s.busyForever = false;
+	s.t += 1000;
+	checkInt("the attempt after a timeout goes out", sdh_write_start(&b, &c, 72, data, &w), SDE_OK);
+	s.t += 300;
+	checkInt("and lands", sdh_write_poll(&b, &c, &w, &done), SDE_OK);
+
+	// A transfer whose token is lost: busy still follows CMD24.
+	int status = count(s, 13);
+	s.noToken = true;
+	checkInt("no token: the block in flight", sdh_write_start(&b, &c, 73, data, &w), SDE_OK);
+	s.noToken = false;
+	checkInt("busy: not done", sdh_write_poll(&b, &c, &w, &done), SDE_OK);
+	checkTrue("the error waits for busy", !done && w.active);
+	s.t += 300;
+	checkInt("busy over: a frame error", sdh_write_poll(&b, &c, &w, &done), SDE_FRAME);
+	checkTrue("done, no status asked", done && count(s, 13) == status);
+
+	c.ready = false;
 	checkInt("a card not ready: refused", sdh_write_start(&b, &c, 72, data, &w), SDE_NOT_READY);
 	checkTrue("nothing in flight", !w.active);
 	checkInt("a poll with nothing in flight", sdh_write_poll(&b, &c, &w, &done), SDE_PARAM);
