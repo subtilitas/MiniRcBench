@@ -35,17 +35,19 @@ INCLUDES := -Istubs -I../src -I.
 #   make EXTRA_DEFINES="-DDSHOT_PIN_LCD_2_8=28 -DKISS_PIN_LCD_2_8=29" run
 DEFINES := $(EXTRA_DEFINES)
 
-# The servo tester and the KST programmer list their own sources, so the two
-# never edit this file for that. @see servo.mk, kst.mk
-include servo.mk kst.mk
+# The servo tester and the KST and Hitec programmers list their own sources,
+# so none of them edits this file for that. @see servo.mk, kst.mk, hitec.mk
+include servo.mk kst.mk hitec.mk
 
 # Each feature's C sources, their include directories and their C test
 # programs. A feature with none leaves its variables undefined, and they
 # expand to nothing.
-FEATURE_CSRCS := $(SERVO_CSRCS) $(KST_CSRCS)
-FEATURE_CTESTS := $(SERVO_CTESTS) $(KST_CTESTS)
-FEATURE_CTEST_DEFINES := $(SERVO_CTEST_DEFINES) $(KST_CTEST_DEFINES)
-INCLUDES += $(SERVO_INCLUDES) $(KST_INCLUDES)
+FEATURE_CSRCS := $(SERVO_CSRCS) $(KST_CSRCS) $(HITEC_CSRCS)
+FEATURE_CTESTS := $(SERVO_CTESTS) $(KST_CTESTS) $(HITEC_CTESTS)
+FEATURE_CXXTESTS := $(HITEC_CXXTESTS)
+FEATURE_CTEST_DEFINES := $(SERVO_CTEST_DEFINES) $(KST_CTEST_DEFINES) $(HITEC_CTEST_DEFINES)
+FEATURE_INCLUDES := $(SERVO_INCLUDES) $(KST_INCLUDES) $(HITEC_INCLUDES)
+INCLUDES += $(FEATURE_INCLUDES)
 
 SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
         test_blackbox.cpp test_log_ring.cpp test_settings.cpp test_servo_supply.cpp \
@@ -89,11 +91,14 @@ CSRCS := ../src/dshot/dshot_frame.c ../src/dshot/dshot_telem.c \
 OBJ_DIR := obj
 COBJS := $(addprefix $(OBJ_DIR)/,$(notdir $(CSRCS:.c=.o)))
 FEATURE_COBJS := $(addprefix $(OBJ_DIR)/,$(notdir $(FEATURE_CSRCS:.c=.o)))
-# The features' C test programs, one binary each in obj/.
+# The features' C test programs, one binary each in obj/, and their C++ test
+# programs of C headers, one binary each as well.
 CTEST_BINS := $(addprefix $(OBJ_DIR)/,$(notdir $(FEATURE_CTESTS:.c=)))
+CXXTEST_BINS := $(addprefix $(OBJ_DIR)/,$(notdir $(FEATURE_CXXTESTS:.cpp=)))
 # Where the features' C files are found by name; the rules below name them
 # by file only.
 vpath %.c $(sort $(dir $(FEATURE_CSRCS) $(FEATURE_CTESTS)))
+vpath %.cpp $(sort $(dir $(FEATURE_CXXTESTS)))
 
 BIN := dshot_tests
 
@@ -121,22 +126,34 @@ $(OBJ_DIR)/%.o: ../src/sdio/%.c ../src/sdio/sd_proto.h ../src/sdio/sd_host.h
 # A feature's C source, found through vpath.
 $(FEATURE_COBJS): $(OBJ_DIR)/%.o: %.c
 	@mkdir -p $(OBJ_DIR)
-	$(CC) $(CFLAGS) $(WARN) -Werror $(SERVO_INCLUDES) $(KST_INCLUDES) -c -o $@ $<
+	$(CC) $(CFLAGS) $(WARN) -Werror $(FEATURE_INCLUDES) -c -o $@ $<
 
 # A feature's C test program, linked against the feature's C objects. Its own
 # directory is on the include path, for the harness beside it.
 $(CTEST_BINS): $(OBJ_DIR)/%: %.c $(FEATURE_COBJS)
 	@mkdir -p $(OBJ_DIR)
-	$(CC) $(CFLAGS) $(WARN) -Werror -I$(dir $<) $(SERVO_INCLUDES) $(KST_INCLUDES) \
+	$(CC) $(CFLAGS) $(WARN) -Werror -I$(dir $<) $(FEATURE_INCLUDES) \
 		$(FEATURE_CTEST_DEFINES) -o $@ $< $(FEATURE_COBJS) -lm
+
+# A feature's C++ test program of its C headers, as rcbench builds it: C++11,
+# -Werror, linked against the feature's C objects. It prints nothing; it
+# passes by its exit status.
+$(CXXTEST_BINS): $(OBJ_DIR)/%: %.cpp $(FEATURE_COBJS)
+	@mkdir -p $(OBJ_DIR)
+	$(CXX) -std=c++11 -O1 -g $(WARN) -Werror $(FEATURE_INCLUDES) \
+		-o $@ $< $(FEATURE_COBJS) -lm
 
 # The suite, then each C test program. A program prints a line per case; its
 # summary line is shown, and the whole output when it fails.
-run: $(BIN) $(CTEST_BINS)
+run: $(BIN) $(CTEST_BINS) $(CXXTEST_BINS)
 	./$(BIN)
 	@for t in $(CTEST_BINS); do \
 		out=$$(./$$t) || { echo "$$out"; exit 1; }; \
 		echo "$$out" | tail -1; \
+	done
+	@for t in $(CXXTEST_BINS); do \
+		./$$t || { echo "FAIL $$t"; exit 1; }; \
+		echo "$$(basename $$t): passed"; \
 	done
 
 # Every device source, plus both settings of the two feature switches so the
@@ -219,7 +236,7 @@ COV_DIR := cov
 coverage:
 	rm -rf $(COV_DIR) && mkdir -p $(COV_DIR)
 	for f in $(CSRCS); do \
-		$(CC) -std=c11 -O0 -g --coverage $(WARN) $(SERVO_INCLUDES) $(KST_INCLUDES) \
+		$(CC) -std=c11 -O0 -g --coverage $(WARN) $(FEATURE_INCLUDES) \
 			-c -o $(COV_DIR)/$$(basename $$f .c).o $$f || exit 1; \
 	done
 	$(CXX) -std=gnu++17 -O0 -g --coverage $(WARN) $(INCLUDES) $(DEFINES) \

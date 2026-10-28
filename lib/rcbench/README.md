@@ -1,8 +1,8 @@
 # Files copied from rcbench
 
 The files under this directory are copied from
-[rcbench](https://github.com/subtilitas/rcbench) at commit `453cf334`, with
-their text unchanged. rcbench is MIT licensed by the same copyright holder as
+[rcbench](https://github.com/subtilitas/rcbench) with their text unchanged:
+the Hitec files at commit `3e29dc1b`, every other file at commit `453cf334`. rcbench is MIT licensed by the same copyright holder as
 MiniRcBench, subtilitas, so the copies carry the licence of this repository,
 [LICENSE](../../LICENSE). Each file keeps its `SPDX-License-Identifier: MIT`
 line. The directory layout is rcbench's, so a file here and its original
@@ -20,6 +20,18 @@ compare with one `diff`.
 | `shared/logfile/kst_store.c` | `shared/logfile/kst_store.c` |
 | `shared/logfile/include/kst_store.h` | `shared/logfile/include/kst_store.h` |
 
+The Hitec files, at commit `3e29dc1b`:
+
+| File here | rcbench path |
+| --- | --- |
+| `protocols/hitec/hitec_wire.c`, `hitec_pio.c`, `hitec_pre.c`, `hitec_reg.c`, `hitec_session.c` | the same paths |
+| `protocols/hitec/include/hitec_wire.h`, `hitec_pio.h`, `hitec_pre.h`, `hitec_reg.h`, `hitec_session.h` | the same paths |
+| `protocols/hitec/rp2350/hitec_line.c`, `hitec_line.h`, `hitec_line.pio` | the same paths |
+| `shared/bench/hitec_card.c` | `shared/bench/hitec_card.c` |
+| `shared/bench/include/hitec_card.h` | `shared/bench/include/hitec_card.h` |
+| `shared/link/link_crc.c` | `shared/link/link_crc.c` |
+| `shared/link/include/link_crc.h` | `shared/link/include/link_crc.h` |
+
 The servo tester uses them: `servo_sweep` computes the sweep curve on core1,
 and `out_pwm_map` maps each GPIO (general-purpose input/output) to its PWM
 (pulse-width modulation) slice and channel for `src/servo_pwm.cpp`. Both are
@@ -35,8 +47,8 @@ The KST programming core (`protocols/kst/`), its RP2350 line driver
 (`protocols/kst/rp2350/`) and the KST file store
 (`shared/logfile/kst_store.*`) are for the KST programmer of
 [kst-programming.md](../../docs/design/kst-programming.md): the search
-(`src/kst_seek.cpp`) and the core1 job (`src/kst_job.cpp`) call them, and no
-screen starts the job yet. The core and the store are built as C11, in the
+(`src/kst_seek.cpp`) and the core1 job (`src/kst_job.cpp`) call them, and the
+KST SERVO screen (`src/ui_kst.cpp`) starts the job. The core and the store are built as C11, in the
 firmware by `src/kst.cmake` and in the host suite by `test/kst.mk`; the line
 driver drives PIO (programmable input/output) and DMA (direct memory access)
 and is built by the firmware only, with pioasm assembling `kst_line.pio`.
@@ -48,5 +60,26 @@ Their rcbench tests, copied unchanged from rcbench `test/host/` into
 rcbench's `kst_fake_card.h` is not copied: it serves rcbench's card and prog
 tests, whose code is not ported, and `test_kst_store.c` brings its own fake.
 
-Files adapted rather than copied are in `src/` and start with the line
-`Adapted from rcbench <path>, commit 453cf334, MIT.`
+The Hitec programming core (`protocols/hitec/`), its RP2350 line driver
+(`protocols/hitec/rp2350/`), the servo file text (`shared/bench/hitec_card.*`)
+and the CRC-32 (32-bit cyclic redundancy check) that text uses
+(`shared/link/link_crc.*`) are for the Hitec programmer of
+[hitec-programming.md](../../docs/design/hitec-programming.md). Nothing in
+`src/` calls them yet. The core, the text and the CRC are built as C11, in the
+firmware by `src/hitec.cmake` and in the host suite by `test/hitec.mk`; the
+line driver is built by the firmware only, with pioasm assembling
+`hitec_line.pio`. Their rcbench tests, copied unchanged from rcbench
+`test/host/` into `test/rcbench/`, are `test_hitec_wire.c`, `test_hitec_pre.c`,
+`test_hitec_pio.c`, `test_hitec_reg.c`, `test_hitec_reg_plan.c`,
+`test_hitec_session.c`, `test_hitec_session_write.c` and `test_hitec_card.c`,
+115 cases, with `hitec_headers.cpp`, which compiles the core's headers as
+C++11; the models and fixtures `hitec_pio_model.h`, `hitec_reg_fix.h`,
+`hitec_session_rig.h` and `fixtures/hitec_line_words.txt`. CI holds both line
+fixtures to pioasm's assembly of the `.pio` files.
+`test/rcbench/link_pages.h` is not rcbench's: rcbench's header is the page
+map of its link, which is not ported, and this stub holds only the 5 values
+`test_hitec_session.c` and `hitec_pio_model.h` need, at their `3e29dc1b`
+values.
+
+Files adapted rather than copied start with the line
+`Adapted from rcbench <path>, commit <commit>, MIT.`

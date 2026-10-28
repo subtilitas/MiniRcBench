@@ -1,6 +1,7 @@
 # Hitec servo programming
 
-Status: planned, nothing built. The decisions of the owner of 2026-10-23
+Status: work breakdown step 1 built, the rcbench files and their tests;
+nothing in `src/` calls them. The decisions of the owner of 2026-10-23
 and 2026-10-28 set its questions and its scope
 ([decisions of the owner](#decisions-of-the-owner)): port rcbench's Hitec
 module at commit 3e29dc1b, and write. The design rests on rcbench's session
@@ -1115,7 +1116,8 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
    `INCLUDES +=` and `SRCS` lines in `test/Makefile`, its include folders in
    the two C test rules and the coverage rule, the C++ test rule; CI include
    lists; `lib/rcbench/README.md`. The firmware links the driver; nothing
-   opens it. About 1.5 days.
+   opens it. Built, with a CI step that holds the KST and Hitec line
+   fixtures to pioasm's words.
 2. `PinUser::Hitec`, `Core1Job::Hitec`, `src/hitec_job.*`,
    `src/hitec_line_port.*` with `$(HITEC_DEVICE_SRCS)` on the `DEVICE_SRCS`
    line of `test/Makefile`, the supply rules, the card phase on the job's

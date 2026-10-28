@@ -1275,7 +1275,9 @@ wiki/                   the user manual, mirrored to the GitHub wiki
 All firmware source is under `src/`, `main.cpp` included, except the rcbench
 files copied unchanged into `lib/rcbench/` with rcbench's own layout
 (`lib/rcbench/README.md`): the sweep curve, the GPIO-to-PWM map, the KST
-programming core with its RP2350 line driver, and the KST file store. Files include each other as
+programming core with its RP2350 line driver, the KST file store, and the
+Hitec programming core with its RP2350 line driver, servo file text and CRC,
+which nothing calls yet. Files include each other as
 plain siblings, except two drivers with folders of their own: the DShot
 driver in `src/dshot/`, so that it can be compared with its rcbench original,
 and the SDIO card driver in `src/sdio/`, whose `compat/` headers have to keep
@@ -1300,7 +1302,11 @@ into the C++ suite. `make run` also builds and runs rcbench's own tests of
 those files as C11 programs: `test/rcbench/test_servo_sweep.c` and
 `test_out_pwm_map.c`, and the seven KST tests `test_kst_wire.c`,
 `test_kst_reg.c`, `test_kst_plan.c`, `test_kst_session.c`, `test_kst_pio.c`,
-`test_kst_file.c` and `test_kst_store.c`. The SDIO tests run
+`test_kst_file.c` and `test_kst_store.c`, and the eight Hitec tests
+`test_hitec_wire.c`, `test_hitec_pre.c`, `test_hitec_pio.c`,
+`test_hitec_reg.c`, `test_hitec_reg_plan.c`, `test_hitec_session.c`,
+`test_hitec_session_write.c` and `test_hitec_card.c`, with
+`hitec_headers.cpp` built as C++11. The SDIO tests run
 the card protocol against a simulated card. Time is virtual — `millis()` advances only
 when a test says so — which makes hold-to-arm, hold-to-write and gesture repeat
 deterministic rather than dependent on machine speed. The fake ESC serves a real
