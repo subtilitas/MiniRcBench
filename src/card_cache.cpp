@@ -9,6 +9,7 @@
 #include "sdio/sd_card_cache.h"
 #include "sdio/sd_cache.h"
 
+#include "hw_config.h"
 #include "sd_card.h"
 
 /** @brief The board's one card, as the SD library numbers it. */
