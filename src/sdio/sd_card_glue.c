@@ -38,6 +38,8 @@
 #include "sd_card.h"
 #include "SDIO/SdioCard.h"
 
+#include "sd_cache.h"
+#include "sd_card_cache.h"
 #include "sd_host.h"
 #include "sd_pio.h"
 
@@ -125,7 +127,8 @@ static block_dev_err_t sdioRead(sd_card_t *c, uint8_t *buf, uint32_t lba, uint32
 	block_dev_err_t r = SD_BLOCK_DEVICE_ERROR_NO_INIT;
 	if (!(c->state.m_Status & STA_NOINIT)) {
 		sdh_bus_t b = busOf(c);
-		r = mapErr(sdh_read(&b, &c->sdio_if_p->state.card, lba, n, buf));
+		r = mapErr(sdc_on() ? sdc_read(lba, n, buf)
+		                    : sdh_read(&b, &c->sdio_if_p->state.card, lba, n, buf));
 		syncStatus(c);
 	}
 	sd_unlock(c);
@@ -137,14 +140,19 @@ static block_dev_err_t sdioWrite(sd_card_t *c, const uint8_t *buf, uint32_t lba,
 	block_dev_err_t r = SD_BLOCK_DEVICE_ERROR_NO_INIT;
 	if (!(c->state.m_Status & STA_NOINIT)) {
 		sdh_bus_t b = busOf(c);
-		r = mapErr(sdh_write(&b, &c->sdio_if_p->state.card, lba, n, buf));
+		r = mapErr(sdc_on() ? sdc_write(lba, n, buf)
+		                    : sdh_write(&b, &c->sdio_if_p->state.card, lba, n, buf));
 		syncStatus(c);
 	}
 	sd_unlock(c);
 	return r;
 }
 
-/** @brief Nothing is ever left in flight: every write returns after programming. */
+/**
+ * @brief Without the cache nothing is left in flight: every write returns
+ *        after programming. With it, the queue's barrier is
+ *        sd_sdio_cache_flush(), not this call.
+ */
 static block_dev_err_t sdioSync(sd_card_t *c) {
 	sd_lock(c);
 	block_dev_err_t r = (c->state.m_Status & STA_NOINIT) ? SD_BLOCK_DEVICE_ERROR_NO_INIT
@@ -192,4 +200,88 @@ bool rp2040_sdio_get_sd_status(sd_card_t *c, uint8_t status[64]) {
 	}
 	sd_unlock(c);
 	return e == SDE_OK;
+}
+
+/* --- the write cache (sd_cache.h) ---------------------------------------- */
+
+/** @brief The one block the cache has in flight. */
+static sdh_wr_t s_wr;
+
+static sd_err_t devRead(void *ctx, uint32_t lba, uint32_t n, uint8_t *buf) {
+	sd_card_t *c = (sd_card_t *)ctx;
+	sdh_bus_t b = busOf(c);
+	return sdh_read(&b, &c->sdio_if_p->state.card, lba, n, buf);
+}
+
+static sd_err_t devWriteStart(void *ctx, uint32_t lba, const uint8_t *buf) {
+	sd_card_t *c = (sd_card_t *)ctx;
+	sdh_bus_t b = busOf(c);
+	return sdh_write_start(&b, &c->sdio_if_p->state.card, lba, buf, &s_wr);
+}
+
+static sd_err_t devWritePoll(void *ctx, bool *done) {
+	sd_card_t *c = (sd_card_t *)ctx;
+	sdh_bus_t b = busOf(c);
+	return sdh_write_poll(&b, &c->sdio_if_p->state.card, &s_wr, done);
+}
+
+static sdc_dev_t s_dev;
+
+bool sd_sdio_cache_begin(sd_card_t *c, uint32_t check_lba, uint32_t check_off) {
+	sd_lock(c);
+	bool ok = false;
+	if (!(c->state.m_Status & STA_NOINIT)) {
+		s_dev.ctx = c;
+		s_dev.read = devRead;
+		s_dev.write_start = devWriteStart;
+		s_dev.write_poll = devWritePoll;
+		ok = sdc_begin(&s_dev, check_lba, check_off) == SDE_OK;
+		syncStatus(c);
+	}
+	sd_unlock(c);
+	return ok;
+}
+
+void sd_sdio_cache_poll(sd_card_t *c) {
+	if (!sdc_on()) return;
+	sd_lock(c);
+	sdc_poll();
+	syncStatus(c);
+	sd_unlock(c);
+}
+
+int sd_sdio_cache_state(uint16_t *left) {
+	if (!sdc_on()) {
+		if (left) *left = 0;
+		return SD_SDIO_CACHE_OFF;
+	}
+	return (int)sdc_state(left);
+}
+
+int sd_sdio_cache_flush(sd_card_t *c) {
+	if (!sdc_on()) return SD_SDIO_CACHE_OFF;
+	sd_lock(c);
+	int st = (int)sdc_flush();
+	syncStatus(c);
+	sd_unlock(c);
+	return st;
+}
+
+void sd_sdio_cache_drop(sd_card_t *c) {
+	sd_lock(c);
+	sdc_drop();
+	/* The batch failed on this card: the next mount initialises it again,
+	 * whether it stopped answering or another card is in the slot. */
+	c->sdio_if_p->state.card.ready = false;
+	syncStatus(c);
+	sd_unlock(c);
+}
+
+void sd_sdio_cache_end(sd_card_t *c) {
+	if (!sdc_on()) return;
+	sd_lock(c);
+	sdc_flush();
+	sdc_end();
+	syncStatus(c);
+	sd_unlock(c);
 }

@@ -50,7 +50,7 @@ INCLUDES += $(SERVO_INCLUDES) $(KST_INCLUDES)
 SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
         test_blackbox.cpp test_log_ring.cpp test_settings.cpp \
         test_usb_msc.cpp test_dshot_frame.cpp test_dshot_telem.cpp \
-        test_dshot_edt.cpp test_sdio.cpp test_claim.cpp test_widgets.cpp test_ids.cpp test_menu.cpp test_backup_ring.cpp \
+        test_dshot_edt.cpp test_sdio.cpp test_claim.cpp test_widgets.cpp test_ids.cpp test_menu.cpp test_backup_ring.cpp test_sd_cache.cpp \
         fakes.cpp \
         ../src/gfx.cpp ../src/ui.cpp ../src/ui_settings.cpp ../src/ui_menu.cpp ../src/ui_registry.cpp ../src/ui_sdlog.cpp ../src/theme.cpp \
         ../src/ui_input.cpp ../src/ui_widgets.cpp ../src/ui_list.cpp \
@@ -71,7 +71,7 @@ DEVICE_SRCS := ../src/esc_task.cpp ../src/st7789.cpp \
                ../src/usb_dev.cpp ../src/usb_msc.cpp ../src/usb_descriptors.c \
                ../src/cst328.cpp ../src/am32_bl.cpp ../src/sd_log.cpp \
                ../src/pio_uart_rx.cpp \
-               ../src/settings_flash.cpp ../src/main.cpp \
+               ../src/settings_flash.cpp ../src/main.cpp ../src/card_cache.cpp \
                $(SERVO_DEVICE_SRCS) $(KST_DEVICE_SRCS)
 
 # The DShot core in src/dshot/ and the SD card protocol layers in src/sdio/
@@ -84,7 +84,7 @@ DEVICE_SRCS := ../src/esc_task.cpp ../src/st7789.cpp \
 # PIO and DMA and is not here.
 CSRCS := ../src/dshot/dshot_frame.c ../src/dshot/dshot_telem.c \
          ../src/dshot/dshot_edt.c \
-         ../src/sdio/sd_proto.c ../src/sdio/sd_host.c \
+         ../src/sdio/sd_proto.c ../src/sdio/sd_host.c ../src/sdio/sd_cache.c \
          $(FEATURE_CSRCS)
 OBJ_DIR := obj
 COBJS := $(addprefix $(OBJ_DIR)/,$(notdir $(CSRCS:.c=.o)))

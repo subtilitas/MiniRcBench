@@ -307,16 +307,23 @@ pio1 holds nothing else; DShot and KISS are on pio2
   TRAN_SPEED, write stream packing, receive CRC check, CRC status token.
 - `src/sdio/sd_host.c`: the card protocol over a bus interface of function
   pointers (command, clock, receive, transmit, busy, time). Initialisation,
-  reads, writes, status, retries, every timeout. No hardware access.
+  reads, writes, status, retries, every timeout; `sdh_write_start()` and
+  `sdh_write_poll()` send one block and look at its busy time without
+  waiting on it. No hardware access.
+- `src/sdio/sd_cache.c`: the write-back queue and the read cache of the
+  backup claims ([sd-write-cache.md](sd-write-cache.md)), over a card given as
+  three functions. No hardware access.
 - `src/sdio/sd_pio.c`: the bus interface on PIO and DMA. Thin: it moves words
   and waits, and it decides nothing about the protocol.
 - `src/sdio/sd_card_glue.c`: `sd_sdio_ctor()`, the seven callbacks,
   `rp2040_sdio_get_sd_status()`, the lock, `m_Status`, and the mapping onto
-  `block_dev_err_t`.
+  `block_dev_err_t`; the read and write callbacks go through the cache while
+  it is on, and `sd_sdio_cache_*()` (`sd_card_cache.h`) drive it.
 - `src/sdio/compat/SDIO/`: the two header names the library includes.
 
-The host suite compiles the first two as C and runs them against a simulated
-card in `test/test_sdio.cpp`. `test/pio_sdio_emu.py` assembles the two PIO
+The host suite compiles `sd_proto.c`, `sd_host.c` and `sd_cache.c` as C and
+runs them against a simulated card in `test/test_sdio.cpp` and a fake card in
+`test/test_sd_cache.cpp`. `test/pio_sdio_emu.py` assembles the two PIO
 programs from `sd_pio.pio` and runs them one system clock at a time against a
 card model, through a host model that follows `sd_pio.c`; its docstring lists
 what that model covers. It is a model, not proof of hardware timing.

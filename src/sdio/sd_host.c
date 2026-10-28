@@ -221,6 +221,53 @@ static sd_err_t writeChunk(const sdh_bus_t *b, const sdh_card_t *c, uint32_t lba
 	return finish(b, e);
 }
 
+sd_err_t sdh_write_start(const sdh_bus_t *b, sdh_card_t *c, uint32_t lba, const uint8_t *buf,
+                         sdh_wr_t *w) {
+	w->active = false;
+	if (!c->ready) return SDE_NOT_READY;
+	if (!buf || lba >= c->sectors) return SDE_PARAM;
+	/* The caller tries again, so a command timeout leaves the card ready, as
+	 * within sdh_write()'s attempts. */
+	sd_err_t e = cmdR1(b, 24, address(c, lba), SDP_RESP_R1, 0);
+	if (e != SDE_OK) return finish(b, e);
+	uint32_t tok[2] = { 0xFFFFFFFFu, 0xFFFFFFFFu };
+	sdp_tx_pack(buf, s_tx);
+	e = b->tx_block(b->ctx, s_tx, SDP_TX_WORDS, tok, txTimeoutUs(c->clock_hz));
+	if (e == SDE_OK) {
+		int t = sdp_crc_status(tok);
+		e = t == 2 ? SDE_OK : t == 5 ? SDE_CRC : t < 0 ? SDE_FRAME : SDE_WRITE;
+	}
+	/* Busy follows CMD24 whatever the transfer and the token said: the error
+	 * waits in the block in flight until sdh_write_poll() sees busy end. */
+	w->token = e;
+	w->t0_us = b->now_us(b->ctx);
+	w->active = true;
+	return SDE_OK;
+}
+
+sd_err_t sdh_write_poll(const sdh_bus_t *b, sdh_card_t *c, sdh_wr_t *w, bool *done) {
+	*done = false;
+	if (!w->active) {
+		*done = true;
+		return SDE_PARAM;
+	}
+	/* Busy follows the token whatever it said. */
+	sd_err_t e = SDE_OK;
+	if (!b->dat0(b->ctx)) {
+		if ((uint32_t)(b->now_us(b->ctx) - w->t0_us) < SDH_BUSY_TIMEOUT_US) return SDE_OK;
+		/* Still programming after the limit: CMD24 would find the card in
+		 * the prg state and get no response. The card needs sdh_init(). */
+		c->ready = false;
+		e = SDE_TIMEOUT;
+	}
+	*done = true;
+	w->active = false;
+	if (e == SDE_OK) e = w->token;
+	/* Errors found while programming show in the next status, 4.10.1. */
+	if (e == SDE_OK) e = cmdR1(b, 13, (uint32_t)c->rca << 16, SDP_RESP_R1, 0);
+	return finish(b, e);
+}
+
 /** @brief Common argument checks of read and write. */
 static sd_err_t checkRange(const sdh_card_t *c, uint32_t lba, uint32_t count, const void *buf) {
 	if (!c->ready) return SDE_NOT_READY;

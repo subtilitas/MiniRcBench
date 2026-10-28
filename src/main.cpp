@@ -77,6 +77,7 @@
 #include "sd_log.h"
 #include "usb_dev.h"
 #include "usb_msc.h"
+#include "card_cache.h"
 #include "settings.h"
 
 /** @brief UI frame interval in milliseconds (~40 fps). */
@@ -177,6 +178,11 @@ void loop() {
 	// after the UI has already had its turn. Never on core1: a stall there
 	// would break DShot timing outright.
 	sdLogFlush();
+
+	// The write cache of a backup claim: one block started or one look at
+	// the block in flight per pass, never a wait on the card's busy line.
+	// Nothing while the cache is off. @see card_cache.h
+	cardCachePoll();
 #endif
 
 #if SERIAL_TELEMETRY 

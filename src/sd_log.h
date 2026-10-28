@@ -156,6 +156,15 @@ void sdLogFlush();
  */
 void sdLogStatus(SdLogStatus *out);
 
+/**
+ * @brief Where the mounted volume keeps its serial number: the boot sector's
+ *        LBA (logical block address) and the offset in it, 67 on FAT32, 100
+ *        on exFAT, 39 on FAT12 and FAT16. The write cache compares those 4
+ *        bytes to tell a swapped card (sd_card_cache.h).
+ * @return False without a mounted card.
+ */
+bool sdLogVolumeId(uint32_t *lba, uint32_t *offset);
+
 /** @brief What a change in arm state should do to the log. */
 enum class SdLogArmAction : uint8_t {
 	None,   /**< Leave the log alone. */

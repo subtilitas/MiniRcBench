@@ -31,6 +31,7 @@
 #include "core1_job.h"
 #include "plat.h"
 
+#include "card_cache.h"
 #include "fake_fatfs.h"
 #include "usb_msc.h"
 #include "../src/ui_am32.cpp"   // NOLINT -- see the note above
@@ -3353,6 +3354,23 @@ void runUiTests() {
 		fakeRelease(); frames(3);
 		checkTrue("a second write saves no second backup", !fakeFatExists("BACKUP/AM002.TXT"));
 		tapId(UI_FIX(Am32Ctl::Ok));
+		// A flush that fails: the ESC is not written.
+		s_backupDone = false;
+		fakeCacheReset();
+		cardCacheBegin();
+		fakeCacheFlushTo(CardCache::Failed);
+		uint8_t before3 = fakeEscByte(0x1B);
+		tapId(UI_FIX(Am32Ctl::EditMinus));
+		pressId(UI_FIX(Am32Ctl::Write));
+		for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
+		fakeRelease(); frames(3);
+		checkTrue("a backup the card's flush lost: nothing written to the ESC",
+		          fakeEscByte(0x1B) == before3 &&
+		          strcmp(s_status, "NO BACKUP ON THE CARD: NOT WRITTEN") == 0 &&
+		          fakeCacheCalls().recovers == 1 && fakeCacheCalls().flushes >= 1);
+		tapId(UI_FIX(Am32Ctl::Ok));
+		tapId(UI_FIX(Am32Ctl::EditPlus));
+		fakeCacheReset();
 		logIdle.state = SdLogState::NoCard;
 		fakeSdLogSet(&logIdle);
 		pressId(UI_FIX(Am32Ctl::Write), IdExpect::Disabled);

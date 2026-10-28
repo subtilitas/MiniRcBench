@@ -546,9 +546,11 @@ phase on FAT32 stays under it, the longest the first write that keeps an old
 record, 13.3 s; on exFAT that same write takes 16.5 s, over it. A first write
 keeps an old record only after a write was interrupted. With an earlier
 firmware's 1000 logs in the root, first writes pass the cap on both volumes,
-up to 135.0 s. The write cache of [sd-write-cache.md](sd-write-cache.md),
-planned, takes the writes off core0's path, which brings the exFAT first
-write under the cap.
+up to 135.0 s. The table counts the phases without the write cache of
+[sd-write-cache.md](sd-write-cache.md), which runs during the claim with a
+card mounted: it takes the writes off core0's path, so the screen keeps
+drawing and the heartbeat holds while the card programs, and only the reads
+still block. The phases with the cache are not counted.
 
 The cap, 15 s, bounds how long a core0 stuck in the driver's loops keeps the
 servo powered in programming mode, with no frame on the wire. A card

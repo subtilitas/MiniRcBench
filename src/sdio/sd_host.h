@@ -137,6 +137,44 @@ sd_err_t sdh_read(const sdh_bus_t *bus, sdh_card_t *card, uint32_t lba,
 sd_err_t sdh_write(const sdh_bus_t *bus, sdh_card_t *card, uint32_t lba,
                    uint32_t count, const uint8_t *buf);
 
+/** @brief A block write sent and not yet programmed: sdh_write_start() to sdh_write_poll(). */
+typedef struct {
+	bool     active;  /**< A block is in flight. */
+	sd_err_t token;   /**< What its CRC status token said. */
+	uint32_t t0_us;   /**< now_us() when the block was sent. */
+} sdh_wr_t;
+
+/**
+ * @brief Send one block, CMD24 and the data, and return without waiting for
+ *        the card to program it. The clock keeps running, so the caller can
+ *        poll DAT0; sdh_write_poll() stops it.
+ * @param bus  The bus.
+ * @param card An initialised card.
+ * @param lba  The sector.
+ * @param buf  512 bytes, any alignment.
+ * @param w    Filled in; active once CMD24 was taken.
+ * @return SDE_OK once CMD24 was taken, whatever the transfer and the token
+ *         said: sdh_write_poll() waits for busy and reports their error. A
+ *         command error otherwise, with nothing in flight and the clock
+ *         stopped. A command timeout leaves the card ready: the caller's
+ *         attempts decide, as sdh_write()'s.
+ */
+sd_err_t sdh_write_start(const sdh_bus_t *bus, sdh_card_t *card, uint32_t lba,
+                         const uint8_t *buf, sdh_wr_t *w);
+
+/**
+ * @brief One look at the block in flight: DAT0 read once, no wait.
+ * @param bus  The bus.
+ * @param card The card.
+ * @param w    From sdh_write_start().
+ * @param done Set true once the block is programmed or has failed; then
+ *             CMD13 has run, the clock is stopped and @p w is no longer active.
+ * @return While not done, SDE_OK. When done: SDE_OK, the transfer's or the
+ *         token's error, the status error, or SDE_TIMEOUT after
+ *         @ref SDH_BUSY_TIMEOUT_US of busy, which marks the card not ready.
+ */
+sd_err_t sdh_write_poll(const sdh_bus_t *bus, sdh_card_t *card, sdh_wr_t *w, bool *done);
+
 /**
  * @brief CMD13: the card status.
  * @param bus    The bus.

@@ -21,6 +21,25 @@ struct SdLogStatus;
  */
 void fakeSdLogSet(const SdLogStatus *st);
 
+enum class CardCache : uint8_t;
+
+/** @brief Calls the screens made of the fake write cache. */
+struct FakeCacheCalls {
+	unsigned begins, ends, flushes, recovers;
+};
+
+/** @brief The fake cache off, Idle, no calls counted. */
+void fakeCacheReset();
+
+/** @brief Put the fake cache, while on, into @p st with @p left blocks to go. */
+void fakeCacheSet(CardCache st, uint16_t left);
+
+/** @brief What cardCacheFlush() ends in: Idle, or Failed. */
+void fakeCacheFlushTo(CardCache st);
+
+/** @brief The calls counted since fakeCacheReset(). */
+FakeCacheCalls fakeCacheCalls();
+
 /** @brief Begin a touch at (@p x, @p y); sets the one-poll `pressed` edge. */
 void fakePress(int x, int y);
 

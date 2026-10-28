@@ -102,7 +102,9 @@ shares ([KST programming](KST-Programming)). The result then reads
 stops the write: `NO BACKUP ON THE CARD: NOT WRITTEN`. Without a card the
 write runs, and the backup stays in memory until a write with a card saves it
 or the editor closes. The file holds one line per field, the 48 bytes in hex
-and a checksum line; nothing reads it back yet.
+and a checksum line; nothing reads it back yet. The ESC is written only once
+the backup is on the card. A blackbox log that runs when the editor opens
+stops.
 
 Most AM32 settings take effect at the next ESC power-up. This is AM32
 behaviour; the tester does not check it.

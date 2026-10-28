@@ -12,6 +12,7 @@
 #include "settings.h"
 #include "am32_backup.h"
 #include "am32_bl.h"
+#include "card_cache.h"
 #include "card_dir.h"
 #include "am32_eeprom.h"
 #include "pin_claim.h"
@@ -388,6 +389,8 @@ static void drawWriting() {
 static void claimPins() {
 	ClaimRefusal r = pinClaimBegin(PinUser::Am32, PIN_SIG);
 	s_claimed = (r == ClaimRefusal::None);
+	// The card's writes queue in SRAM for the claim; a running log stops.
+	if (s_claimed) cardCacheBegin();
 	snprintf(s_status, sizeof(s_status), "%s",
 	         s_claimed ? "RELEASING DSHOT PIN"
 	                   : (r == ClaimRefusal::Armed ? "DISARM FIRST" : "PINS BUSY"));
@@ -420,6 +423,7 @@ void uiAm32Exit() {
 	// claim has no core1 job and no unplug page, so pinClaimEnd() resumes the
 	// pump within the call.
 	am32BlEnd();
+	cardCacheEnd();
 	pinClaimEnd(PinUser::Am32);
 	s_state = S_HANDOVER;
 }
@@ -490,6 +494,12 @@ static void doWrite() {
 	if (!s_backupDone && cardMounted()) {
 		BackupResult b = am32BackupSave(s_entry, am32BlEscTypeName(), am32BlEepromAddr(),
 		                                s_backupName);
+		// The ESC is written only once the card holds the backup. The AM32
+		// transport blocks core0 anyway, so the flush runs on the spot.
+		if (b == BackupResult::Ok && cardCacheFlush() == CardCache::Failed) b = BackupResult::WriteError;
+		// A batch that failed during the save or its flush: the card is
+		// mounted again, and the next WRITE saves the backup again.
+		if (cardCacheState() == CardCache::Failed) cardCacheRecover();
 		if (b != BackupResult::Ok) {
 			snprintf(s_status, sizeof(s_status), "NO BACKUP ON THE CARD: NOT WRITTEN");
 			return;
