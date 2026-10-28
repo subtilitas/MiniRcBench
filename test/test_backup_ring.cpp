@@ -207,6 +207,27 @@ static void testRing() {
 	          backupLoad("AM049.TXT", buf, sizeof(buf), &len) == BackupResult::NotFound);
 }
 
+static void testLateRename() {
+	section("Backups: another device's file renamed late");
+	card();
+	checkInt("KST001 first", save(BackupDevice::Kst, 'a'), 1);
+	fakeFatPut("BACKUP/AM002.TXT", "z", 1);
+	// FatFs reports the rename failed, its last sync failing, and the
+	// change took effect all the same.
+	fakeFatRenameFailsLate(FR_DISK_ERR);
+	checkInt("the next takes 2, the ESC's number", save(BackupDevice::Kst, 'b'), 2);
+	checkTrue("written over under the servo's name",
+	          firstByte(BackupDevice::Kst, 2) == 'b' && firstByte(BackupDevice::Am32, 2) == '\0');
+	checkInt("the marker names it", marker(), 2);
+}
+
+/** @brief FatFs calls since the volume was reset. */
+static unsigned fatCalls() {
+	unsigned n = 0;
+	for (unsigned c = 0; c < (unsigned)FakeFatCall::Count; c++) n += fakeFatCalls((FakeFatCall)c);
+	return n;
+}
+
 static void testNoCard() {
 	section("Backups: no card, and a card held by USB");
 	card();
@@ -214,23 +235,21 @@ static void testNoCard() {
 	memset(&st, 0, sizeof(st));
 	st.state = SdLogState::NoCard;
 	fakeSdLogSet(&st);
-	unsigned before = 0;
-	for (unsigned c = 0; c < (unsigned)FakeFatCall::Count; c++) before += fakeFatCalls((FakeFatCall)c);
 	char name[BACKUP_NAME_MAX];
 	checkTrue("no card: refused", backupSave(BackupDevice::Am32, "x", 1, name) == BackupResult::NoCard);
+	checkInt("and no FatFs call", (long)fatCalls(), 0);
 	card();
 	fakeMscSet(MscState::Serving, 0);
 	checkTrue("a card held by USB: refused",
 	          backupSave(BackupDevice::Am32, "x", 1, name) == BackupResult::NoCard);
-	unsigned after = 0;
-	for (unsigned c = 0; c < (unsigned)FakeFatCall::Count; c++) after += fakeFatCalls((FakeFatCall)c);
-	checkInt("and no FatFs call", (long)after, (long)before);
+	checkInt("and no FatFs call either", (long)fatCalls(), 0);
 	card();
 }
 
 void runBackupTests() {
 	testRules();
 	testRing();
+	testLateRename();
 	testNoCard();
 	card();
 	SdLogStatus st;

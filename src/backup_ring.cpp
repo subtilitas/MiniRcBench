@@ -158,7 +158,11 @@ BackupResult backupPut(BackupNames *k, BackupDevice d, unsigned n, const char *t
 		backupName((BackupDevice)other, n, from);
 		cardPath(BACKUP_DIR, from, pf);
 		cardPath(BACKUP_DIR, file, pt);
-		if (f_rename(pf, pt) == FR_OK) {
+		// FatFs reports a rename whose last sync failed, and its sector
+		// window still holds the change: ask the card where the file is.
+		bool moved = f_rename(pf, pt) == FR_OK ||
+		             (f_stat(pf, &s_fno) == FR_NO_FILE && f_stat(pt, &s_fno) == FR_OK);
+		if (moved) {
 			k->devices[n - 1] &= (uint8_t)~(1u << other);
 			k->devices[n - 1] |= mine;
 		}
