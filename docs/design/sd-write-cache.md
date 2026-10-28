@@ -171,11 +171,16 @@ different number, or a read that fails, drops the queue and the read cache
 and sets `Failed`. A card swapped for a byte-for-byte copy with the same
 serial number is not detected.
 
-Current limitation: the check runs at the start of a batch only. A card
-swapped after the session's backup reached the card, with nothing queued,
-is not detected: the next write of the session queues no backup, finds the
-cache `Idle` and writes to the device, and the card in the slot holds no
-backup of it. The synchronous path has the same gap.
+The check at a batch's start does not cover a card swapped after the
+session's backup reached the card, with nothing queued. So when a tool
+saves its backup, it reads the volume's serial number past the cache
+(`cardVolumeSerial()`, `sd_sdio_read_past()`), and reads it again before
+every later write to its device. A different number, or a card that does not
+answer, mounts the card in the slot again (`cardCacheRecover()`), and the
+backup is saved to it before the device is written. That check costs one
+block read per write, plus the end of the block in flight
+(`sdc_settle()`), and works with the cache on or off; a recovery leaves a
+cache that was off turned off.
 
 ## Errors
 
@@ -241,7 +246,7 @@ recorded in this note.
   hits, the oldest pushed out, a written sector's entry; a miss that waits
   for the block in flight; a full queue that flushes until the write fits;
   two retries that land, three that fail; reads refused while failed, and a
-  miss whose wait ends the batch; a write error token; a changed serial
+  miss whose wait ends the batch; `sdc_settle()` ending the block in flight; a write error token; a changed serial
   number and a check that does not read; refusals with the cache off.
 - `test_kst_ui.cpp`: the claim turns the cache on and stops a running log;
   no write frame while the flush runs; the page's count; the write after the
@@ -249,8 +254,12 @@ recorded in this note.
   next write saving the backup again; the claim's end turning the cache off;
   BACK during the flush and a SAVE AS whose flush fails, then the backup
   saved again; a batch failed before a write, recovered; BACK on the unplug
-  page turning the cache on again.
-- `test_ui.cpp`: the AM32 write refused after a failed flush.
+  page turning the cache on again; another card's serial number before a
+  write, mounted again and the backup saved to it; the same card, no
+  remount.
+- `test_ui.cpp`: the AM32 write refused after a failed flush; another card,
+  and a card that does not answer its serial read, before a later write: the
+  backup saved again.
 - The host suite links a fake of `card_cache.h` (`test/fakes.cpp`);
   `card_cache.cpp` and the glue are built by the firmware only.
 

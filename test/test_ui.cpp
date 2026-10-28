@@ -3354,8 +3354,29 @@ void runUiTests() {
 		fakeRelease(); frames(3);
 		checkTrue("a second write saves no second backup", !fakeFatExists("BACKUP/AM002.TXT"));
 		tapId(UI_FIX(Am32Ctl::Ok));
+		// Another card in the slot since the backup: its serial differs.
+		fakeVolumeSet(2);
+		unsigned rec = fakeCacheCalls().recovers;
+		tapId(UI_FIX(Am32Ctl::EditMinus));
+		pressId(UI_FIX(Am32Ctl::Write));
+		for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
+		fakeRelease(); frames(3);
+		checkTrue("another card: mounted again, the backup saved to it, then the write",
+		          fakeCacheCalls().recovers == rec + 1 && fakeFatExists("BACKUP/AM002.TXT") &&
+		          fakeEscByte(0x1B) == want2 && strcmp(s_status, "WRITE VERIFIED. BACKUP AM002") == 0);
+		tapId(UI_FIX(Am32Ctl::Ok));
+		// A card that does not answer its serial read: mounted again too.
+		fakeVolumeSet(2, false);
+		tapId(UI_FIX(Am32Ctl::EditPlus));
+		pressId(UI_FIX(Am32Ctl::Write));
+		for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
+		fakeRelease(); frames(3);
+		checkTrue("a card that does not answer: mounted again, the backup saved again",
+		          fakeCacheCalls().recovers == rec + 2 && fakeFatExists("BACKUP/AM003.TXT"));
+		tapId(UI_FIX(Am32Ctl::Ok));
 		// A flush that fails: the ESC is not written.
 		s_backupDone = false;
+		s_backupOnCard = false;
 		fakeCacheReset();
 		cardCacheBegin();
 		fakeCacheFlushTo(CardCache::Failed);

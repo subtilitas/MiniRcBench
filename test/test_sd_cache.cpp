@@ -160,6 +160,18 @@ static void testReadCache() {
 	sdc_read(61, 1, r);
 	checkTrue("a miss waits for it: no read while busy",
 	          g_card.readWhileBusy == 0 && !g_card.inFlight && g_card.written.back() == 60);
+
+	sdc_write(62, 1, b);
+	sdc_write(63, 1, b);
+	sdc_poll();
+	sdc_poll();
+	checkTrue("another block in flight", g_card.inFlight);
+	sdc_settle();
+	uint16_t left = 0;
+	sdc_state(&left);
+	checkTrue("settle: the block in flight ends, the next stays queued",
+	          !g_card.inFlight && g_card.written.back() == 62 && left == 1);
+	sdc_flush();
 	sdc_end();
 }
 

@@ -52,6 +52,13 @@ int sd_sdio_cache_flush(sd_card_t *c);
  */
 void sd_sdio_cache_drop(sd_card_t *c);
 
+/**
+ * @brief Read one block from card @p c past the cache's queue and read
+ *        cache, whether the cache is on or off.
+ * @return False with the card not initialised or the read failed.
+ */
+bool sd_sdio_read_past(sd_card_t *c, uint32_t lba, uint8_t *buf);
+
 /** @brief Flush and turn the cache off. */
 void sd_sdio_cache_end(sd_card_t *c);
 

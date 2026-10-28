@@ -107,6 +107,12 @@ void sdc_poll(void);
 /** @brief The queue's state; @p left, when not NULL, the blocks still to go. */
 sdc_state_t sdc_state(uint16_t *left);
 
+/**
+ * @brief Poll until no block is in flight, core0 blocking: a programming
+ *        card takes no read command. The queue's other blocks stay queued.
+ */
+void sdc_settle(void);
+
 /** @brief Flush until SDC_IDLE or SDC_FAILED, core0 blocking. */
 sdc_state_t sdc_flush(void);
 

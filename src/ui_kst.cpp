@@ -114,6 +114,8 @@ static kst_image_t  s_target;            /**< The servo with the pending changes
 static kst_image_t  s_pageFrom;          /**< The servo when the write page opened. */
 static kst_image_t  s_pageTo;            /**< What the write page writes: the target or the backup. */
 static bool         s_firstDone = false; /**< The session's first-write card calls are made. */
+static uint32_t     s_firstVolume = 0;   /**< The serial number of the volume they went to. */
+static bool         s_firstOnCard = false; /**< That number was read. */
 static KstFirstWrite s_first;
 static bool         s_recordFound = false; /**< KST/KST.TXT on the card at entry. */
 /** @} */
@@ -261,6 +263,7 @@ static void forgetFirst() {
 	memset(&s_first, 0, sizeof(s_first));
 	// KST_STORE_OK is 0: a record at OK counts as the session's to remove.
 	s_first.backup = s_first.record = s_first.kept = KST_STORE_NO_CARD;
+	s_firstOnCard = false;
 }
 
 /** @brief A new session: the claim's first frame, or after BACK on the unplug page. */
@@ -752,6 +755,7 @@ static bool firstWriteFiles() {
 	// Without a card nothing is on it yet: a later write with a card
 	// mounted saves the backup and writes the record then.
 	s_firstDone = !(s_first.backup == KST_STORE_NO_CARD && s_first.record == KST_STORE_NO_CARD);
+	s_firstOnCard = s_firstDone && cardVolumeSerial(&s_firstVolume);
 	s_recordFound = s_firstDone && kstFilesRecordPresent();
 	return true;
 }
@@ -805,6 +809,10 @@ static void startWrite() {
 	// A batch that failed off this page, after BACK during the flush or a
 	// removal of the record: the first write starts over.
 	if (cardCacheState() == CardCache::Failed) recoverFlush();
+	// A card swapped since the backup reached the card holds none: the card
+	// in the slot is mounted again and the first write starts over on it.
+	uint32_t v = 0;
+	if (s_firstOnCard && (!cardVolumeSerial(&v) || v != s_firstVolume)) recoverFlush();
 	if (!firstWriteFiles()) {
 		s_cardNote = "THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.";
 		return;

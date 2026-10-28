@@ -1036,7 +1036,8 @@ reads `READ ONLY: UNKNOWN LAYOUT`.
   as the session's own record, the same servo image, is removed as the
   session's. The strip, the write page's backup line and the `(BACKUP)`
   tag in FILES still name the session's backup file, which is on the first
-  card: a file of that name on the new card carries the tag.
+  card: a file of that name on the new card carries the tag. The next write
+  sees the swap and saves the backup to the new card first.
 
 ---
 
@@ -1068,7 +1069,9 @@ CONFIG do. All backups share one directory and one ring of 50 numbers:
   and the device is written only once the card holds the backup. A running
   blackbox log stops when the screen opens. Before each batch the card's
   volume serial number is checked, so a card swapped in the meantime gets no
-  block of the old card.
+  block of the old card. Before each later write to the device the number is
+  read again: a card swapped since the backup is mounted again and gets the
+  backup before the device is written.
 
 Blackbox logs go to `LOGS/`, KST's SAVE AS files and its record to `KST/`.
 
@@ -1266,7 +1269,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.1%**: 6,063 of 6,181 lines in 46 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.1%**: 6,076 of 6,194 lines in 46 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

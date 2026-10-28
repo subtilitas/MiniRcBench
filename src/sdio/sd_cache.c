@@ -155,6 +155,10 @@ sdc_state_t sdc_state(uint16_t *left) {
 	return s_state;
 }
 
+void sdc_settle(void) {
+	while (s_on && s_inFlight) sdc_poll();
+}
+
 sdc_state_t sdc_flush(void) {
 	while (s_on && s_state == SDC_FLUSHING) sdc_poll();
 	return s_state;
@@ -194,7 +198,7 @@ sd_err_t sdc_read(uint32_t lba, uint32_t n, uint8_t *buf) {
 		}
 		// A card programming a block takes no read command: the block in
 		// flight ends first.
-		while (s_inFlight) sdc_poll();
+		sdc_settle();
 		if (s_state == SDC_FAILED) return SDE_NOT_READY;
 		sd_err_t e = s_dev->read(s_dev->ctx, lba + i, 1, dst);
 		if (e != SDE_OK) return e;

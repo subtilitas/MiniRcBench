@@ -270,11 +270,26 @@ int sd_sdio_cache_flush(sd_card_t *c) {
 void sd_sdio_cache_drop(sd_card_t *c) {
 	sd_lock(c);
 	sdc_drop();
-	/* The batch failed on this card: the next mount initialises it again,
-	 * whether it stopped answering or another card is in the slot. */
+	/* The next mount initialises the card again, whether it stopped
+	 * answering or another card is in the slot. */
 	c->sdio_if_p->state.card.ready = false;
 	syncStatus(c);
 	sd_unlock(c);
+}
+
+bool sd_sdio_read_past(sd_card_t *c, uint32_t lba, uint8_t *buf) {
+	sd_lock(c);
+	bool ok = false;
+	if (!(c->state.m_Status & STA_NOINIT)) {
+		/* A programming card takes no read command: the block in flight
+		 * ends first, as in sdc_read(). */
+		if (sdc_on()) sdc_settle();
+		sdh_bus_t b = busOf(c);
+		ok = sdh_read(&b, &c->sdio_if_p->state.card, lba, 1, buf) == SDE_OK;
+		syncStatus(c);
+	}
+	sd_unlock(c);
+	return ok;
 }
 
 void sd_sdio_cache_end(sd_card_t *c) {

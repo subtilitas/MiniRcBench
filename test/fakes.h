@@ -40,6 +40,12 @@ void fakeCacheFlushTo(CardCache st);
 /** @brief The calls counted since fakeCacheReset(). */
 FakeCacheCalls fakeCacheCalls();
 
+/**
+ * @brief What cardVolumeSerial() reads while a card is mounted: @p serial, or
+ *        no answer when @p answers is false. fakeCacheReset() sets 1, answering.
+ */
+void fakeVolumeSet(uint32_t serial, bool answers = true);
+
 /** @brief Begin a touch at (@p x, @p y); sets the one-poll `pressed` edge. */
 void fakePress(int x, int y);
 

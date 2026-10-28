@@ -60,7 +60,8 @@ protocol.
   SRAM, 32 blocks, and go to the card in FatFs's order, one block per pass of
   the main loop, without waiting on the busy line (`sdh_write_start()`,
   `sdh_write_poll()`); a 16-block read cache; the volume's serial number
-  checked before each batch. The KST write page reads
+  checked before each batch, and read again before every write to the device
+  after the backup, so a card swapped since gets the backup first. The KST write page reads
   `SAVING THE BACKUP TO THE CARD.` and `BLOCKS LEFT: n` and writes the servo
   only once the flush ends clean; AM32 and SAVE AS flush on the spot. A
   blackbox log that runs when either claim opens stops.

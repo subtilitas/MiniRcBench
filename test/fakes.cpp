@@ -646,8 +646,12 @@ static CardCache g_cacheState = CardCache::Idle;
 static uint16_t  g_cacheLeft = 0;
 static CardCache g_cacheFlushTo = CardCache::Idle;
 static FakeCacheCalls g_cacheCalls = {};
+static uint32_t  g_volumeSerial = 1;
+static bool      g_volumeAnswers = true;
 
 void fakeCacheReset() {
+	g_volumeSerial = 1;
+	g_volumeAnswers = true;
 	g_cacheOn = false;
 	g_cacheState = CardCache::Idle;
 	g_cacheLeft = 0;
@@ -661,6 +665,11 @@ void fakeCacheSet(CardCache st, uint16_t left) {
 }
 
 void fakeCacheFlushTo(CardCache st) { g_cacheFlushTo = st; }
+
+void fakeVolumeSet(uint32_t serial, bool answers) {
+	g_volumeSerial = serial;
+	g_volumeAnswers = answers;
+}
 
 FakeCacheCalls fakeCacheCalls() { return g_cacheCalls; }
 
@@ -703,6 +712,18 @@ void cardCacheRecover() {
 	g_cacheCalls.recovers++;
 	g_cacheState = CardCache::Idle;
 	g_cacheLeft = 0;
+	// The remount reads the card in the slot: one that answers again.
+	g_volumeAnswers = true;
+}
+
+bool cardVolumeSerial(uint32_t *serial) {
+	*serial = 0;
+	SdLogStatus st;
+	sdLogStatus(&st);
+	bool mounted = st.state == SdLogState::Idle || st.state == SdLogState::Logging;
+	if (!mounted || mscGetState() != MscState::Idle || !g_volumeAnswers) return false;
+	*serial = g_volumeSerial;
+	return true;
 }
 
 // ---------------------------------------------------------------------------

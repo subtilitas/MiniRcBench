@@ -48,8 +48,19 @@ CardCache cardCacheState(uint16_t *left = nullptr);
 CardCache cardCacheFlush();
 
 /**
- * @brief After Failed: drop the queue, mount the card again and take the
- *        mounted volume's serial number for the swap check; Off without a
- *        mounted card.
+ * @brief After Failed, or when the card in the slot may be another one:
+ *        drop the queue, mark the card for initialisation and mount it
+ *        again. A cache that was on takes the mounted volume's serial number
+ *        for the swap check, and turns Off without a mounted card; a cache
+ *        that was off stays off.
  */
 void cardCacheRecover();
+
+/**
+ * @brief The mounted volume's serial number, read from the card past the
+ *        cache: the 4 bytes of sdLogVolumeId() as a little-endian number.
+ *        A tool compares it with the one taken when its backup reached the
+ *        card, to tell a card swapped since.
+ * @return False without a mounted card, or when the card does not answer.
+ */
+bool cardVolumeSerial(uint32_t *serial);
