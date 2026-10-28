@@ -22,7 +22,7 @@ names, what the ring holds and the write cache's scope; the SD write cache of
 | `BACKUP/LAST` | the ring's latest number |
 | `KST/KSTnnn.TXT` | KST's SAVE AS files, at most 50 |
 | `KST/KST.TXT` | KST's record of a write under way |
-| `HITEC/HTnnn.TXT` | Hitec's SAVE AS files; with any other `.TXT` there, at most 50 |
+| `HITEC/HTnnn.TXT` | Hitec's SAVE AS files; at most 50 `.TXT` files there, the record left out |
 | `HITEC/HITEC.TXT` | Hitec's record of a write under way |
 | `LOGS/LOGnnnnn.BFL` | the blackbox logs (`SD_LOG_DIR_PATH`) |
 
@@ -89,7 +89,7 @@ Automatic backups only: one per session, before the session's first write.
 - KST's FILES page lists the record, then the KST backups of `BACKUP/`, the
   latest first, then `KST/`. A backup loads as a file.
 - Hitec's SAVE AS writes to `HITEC/` under the next free `HTnnn` and
-  refuses once `HITEC/` holds 50 `.TXT` files. Its record of a write under
+  refuses once `HITEC/` holds 50 `.TXT` files, the record left out. Its record of a write under
   way is `HITEC/HITEC.TXT`; a record left by an interrupted write is moved
   into the ring as a Hitec backup, under the next number, before the
   session's first write, and the session's backup takes the number after

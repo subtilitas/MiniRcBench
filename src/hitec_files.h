@@ -14,7 +14,7 @@
  * |---|---|---|
  * | the FILES list | hitecFilesList(), hitecFilesBackups() | the `.TXT` files of `HITEC/` by name without case, and the Hitec backups of `BACKUP/`, latest first |
  * | LOAD | hitecFilesLoad(), hitecFilesBackupLoad() | a servo file, or a record's image before its write |
- * | SAVE AS | hitecFilesSaveName(), hitecFilesSaveAs() | the next free HTnnn of `HITEC/`, never written over; refused once `HITEC/` holds 50 files |
+ * | SAVE AS | hitecFilesSaveName(), hitecFilesSaveAs() | the next free HTnnn of `HITEC/`, never written over; refused once `HITEC/` holds 50 `.TXT` files, the record left out |
  * | first write of a session | hitecFilesFirstWrite() | an old record moved into the ring, the backup into the ring, then this write's record as `HITEC/HITEC.TXT` |
  * | a later write | hitecFilesRecordWrite() | this write's record written over the session's own |
  * | write verified | hitecFilesRecordRemove() | `HITEC/HITEC.TXT` removed, when this session wrote it and it holds the bytes written |
@@ -27,8 +27,10 @@
  *
  * Current limitations: those of kst_files.h on a failing card hold here
  * unchanged. A later write's record goes over the session's own in place
- * (cardOverwrite()). A failure there that changed the file removes it, so
- * that write has no record; the session's backup stays in `BACKUP/`. A file
+ * (cardOverwrite()). A failure there removes the record, so that write has
+ * no record; the session's backup stays in `BACKUP/`. A card that refuses
+ * the removal as well keeps the file, which the next open reports as an
+ * interrupted write. A file
  * of `HITEC/` with a name longer than 8.3 is not listed and cannot be loaded.
  *
  * @see docs/design/hitec-programming.md, "Storage".
@@ -64,7 +66,7 @@ enum class HitecFiles : uint8_t {
 	Ok,
 	NoCard,      /**< No card mounted, or a USB host holds it. */
 	ListError,   /**< A directory did not read to its end. */
-	NoNumber,    /**< SAVE AS: 50 files, or HT001 to HT999 taken. */
+	NoNumber,    /**< SAVE AS: 50 `.TXT` files, the record left out, or HT001 to HT999 taken. */
 	Exists,      /**< The name is taken; nothing was written. */
 	Full,        /**< No space on the card. */
 	Denied,      /**< Write protected, or a file or directory in the way. */

@@ -369,9 +369,20 @@ static void testFirstWrite() {
 	hitecFilesRecordWrite(&w, &rec2, &w2);
 	fakeFatFail(FakeFatCall::Open, FR_DISK_ERR, 1);
 	hitecFilesRecordWrite(&w2, &rec, &w3);
-	checkTrue("an overwrite that does not open: the earlier record stays as it was",
-	          w3.record != HitecFiles::Ok && hitecFilesRecordLoad(&back) == HitecFiles::Ok &&
-	          sameFileAddrs(&back.target, &rec2.target));
+	checkTrue("an overwrite that does not open: the earlier record goes",
+	          w3.record != HitecFiles::Ok && !hitecFilesRecordPresent() &&
+	          hitecFilesRecordRemove(&w3) == HitecFiles::Ok);
+	HitecWrite w4;
+	hitecFilesRecordWrite(&w3, &rec2, &w4);
+	checkTrue("the next write of the session creates a new record, which its verify removes",
+	          w4.record == HitecFiles::Ok && hitecFilesRecordPresent() &&
+	          hitecFilesRecordRemove(&w4) == HitecFiles::Ok && !hitecFilesRecordPresent());
+	hitecFilesRecordWrite(&w3, &rec2, &w2);
+	fakeFatFail(FakeFatCall::Open, FR_DISK_ERR, 1);
+	fakeFatFail(FakeFatCall::Unlink, FR_DENIED);
+	hitecFilesRecordWrite(&w2, &rec, &w3);
+	checkTrue("a removal the card refuses after it: the file stays",
+	          w3.record != HitecFiles::Ok && hitecFilesRecordPresent());
 	fakeFatFail(FakeFatCall::Truncate, FR_DISK_ERR);
 	hitecFilesRecordWrite(&w2, &rec, &w3);
 	checkTrue("an overwrite that fails part way: the record goes",

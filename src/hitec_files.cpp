@@ -379,13 +379,10 @@ void hitecFilesRecordWrite(const HitecWrite *prev, const hitec_card_record_t *re
 	}
 	out->record = ioResult(cardOverwrite(HITEC_FILES_DIR, HITEC_FILES_RECORD_NAME, s_text, n));
 	out->recordSum = fnv1a(s_text, n);
-	// A failed overwrite that changed the file leaves the session's own
-	// record part written: it parses no more and goes. One that did not
-	// change it keeps the earlier record.
-	if (out->record != HitecFiles::Ok &&
-	    !(readText(HITEC_FILES_DIR, HITEC_FILES_RECORD_NAME, &len) == HitecFiles::Ok &&
-	      fnv1a(s_text, len) == prev->recordSum))
-		unlinkRecord();
+	// A failed overwrite may leave the file part written, and an intact one
+	// would describe an earlier write the session no longer owns: it goes,
+	// and the next write of the session creates a new record.
+	if (out->record != HitecFiles::Ok) unlinkRecord();
 }
 
 bool hitecFilesWriteAllowed(const HitecWrite *w) {
