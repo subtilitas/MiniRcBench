@@ -29,6 +29,7 @@ void runKstTests();
 void runWidgetTests();
 void runIdTests();
 void runMenuTests();
+void runBackupTests();
 
 int main() {
 	printf("MiniRcBench host tests\n");
@@ -51,6 +52,7 @@ int main() {
 	runKstTests();
 	runWidgetTests();
 	runIdTests();
+	runBackupTests();
 	runMenuTests();
 
 	printf("\n=======================\n");

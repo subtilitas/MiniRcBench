@@ -582,8 +582,9 @@ records both. The arithmetic is in `docs/design/erpm_resolution.py`.
 Logs are written in Betaflight's blackbox format. They open in
 [**logwiju**](https://subtilitas.github.io/logwiju/), the viewer written for
 them, and in Blackbox Explorer, `blackbox_decode` and PIDtoolbox. Files are
-named `LOGnnnnn.BFL` on a card formatted with FAT (File Allocation Table). Each new file takes the lowest
-unused number from 00001 to 09999. Existing files are not overwritten.
+named `LOGS/LOGnnnnn.BFL` on a card formatted with FAT (File Allocation Table). Each new file takes the lowest
+unused number from 00001 to 09999. Existing files are not overwritten. Logs an
+earlier firmware wrote to the card's root stay there and are not counted.
 
 ![SD log screen](docs/log-preview.png)
 
@@ -652,7 +653,7 @@ nothing for those six. The SETTINGS note line says which set is in use.
 
 ### Reading the logs
 
-Files are written to the card root as `LOGnnnnn.BFL`.
+Files are written to the directory `LOGS` as `LOGnnnnn.BFL`.
 
 <div align="center">
 
@@ -755,6 +756,14 @@ Writing needs a 1 s hold on `HOLD TO WRITE`. After the write the firmware
 waits `AM32_WRITE_SETTLE_MS` (300 ms), reads the block back, and compares it
 byte for byte. It shows `WRITE VERIFIED` only on a full match. On a mismatch it
 shows the first differing byte: `DIFF @xx: GOT xx WANT xx`.
+
+### Backup
+
+Before the first WRITE of a session, the settings block as read at entry goes
+to the card as `BACKUP/AMnnn.TXT` ([Device backups](#device-backups)). The
+result line then reads `WRITE VERIFIED. BACKUP AM018`, for example. A card
+that refuses the backup stops the write: `NO BACKUP ON THE CARD: NOT WRITTEN`.
+The melody and the CAN block are not saved; nothing reads the file back yet.
 
 ### Protocol
 
@@ -961,8 +970,8 @@ hand: a plug, or a switch in its positive lead.
 4. HOLD TO WRITE (1 s) opens the write page: the changes, their soft rules,
    and where the backup goes. A second 1 s hold writes. Before the first
    frame of the session's first write with a card mounted, the image read at
-   entry goes to the card as `KST/KSTnnn.TXT`, and the servo as it stands as
-   the record `KST/KST.TXT`. Later writes of the session save no backup and
+   entry goes to the card as the backup `BACKUP/KSTnnn.TXT`, and the servo as
+   it stands as the record `KST/KST.TXT`. Later writes of the session save no backup and
    write no record. The write runs as single-register writes with read-back,
    then a full verify. A verified write removes the record, and so does LEAVE
    from a servo in programming mode that is not in doubt: only the record
@@ -980,14 +989,18 @@ hand: a plug, or a switch in its positive lead.
 | `ROLLED BACK: THE SERVO HOLDS ITS OLD VALUES` | amber | A write did not take and was undone |
 | `IN DOUBT: ... RESTORE FROM FILES.` | red | The servo state is unknown; only a restore is taken |
 
-**FILES** lists `KST/*.TXT` on the card by name, the KSTnnn files together with
-the highest number first, which is the latest until KST999 is taken, and the
-record first of all when one is there. SAVE AS writes the servo as it stands
-under the next free KSTnnn, KST001 to KST999. LOAD holds the file against the
+**FILES** lists the record first when one is there, then the KST backups of
+`BACKUP/`, the latest first, then `KST/*.TXT` by name, the KSTnnn files
+together. SAVE AS writes the servo as it stands into `KST/` under the next free
+KSTnnn, never over a file, and refuses once `KST/` holds 50 files:
+`KST/ HOLDS 50 FILES. REMOVE SOME.` LOAD holds the file against the
 servo (type, access classes, hard limits) and puts its values into the list as
 pending changes; a refusal names its line, for example
 `LINE 14: NOT A VALUE OF DEAD BAND`. HOLD TO RESTORE writes the image read at
 entry back.
+
+The backups go to the ring of `BACKUP/` that every device shares: see
+[Device backups](#device-backups).
 
 Without a card, or with the card held by a USB host, the backup stays in
 memory, and reading, editing and writing still work. A card that is
@@ -1003,17 +1016,47 @@ reads `READ ONLY: UNKNOWN LAYOUT`.
 - No switched supply: the servo is powered up and down by hand. The design
   note's step 5 adds a converter on GP0.
 - The first write's card calls run on core0, and the screen does not
-  redraw until they end. With 997 KSTnnn files on the card that is under
-  7.3 s for a card with access and busy times of a few ms, and up to 82.2 s
-  for an SDXC (Secure Digital eXtended Capacity) card at the
-  specification's full times. Both are computed from FatFs block counts,
-  not measured on a card.
+  redraw until they end. On a full card that is up to 1.0 s for a card with
+  access and busy times of 10 ms. At the SD specification's full times it is
+  up to 13.3 s on a FAT32 SDHC (Secure Digital High Capacity) card and 16.5 s
+  on an exFAT SDXC (Secure Digital eXtended Capacity) card, however many logs
+  `LOGS/` holds. Logs an earlier firmware wrote to the card's root slow every
+  lookup in it: with 1000 of them, up to 135.0 s. These are FatFs block counts
+  times card times (`make -C test kstcount`), not measured on a card.
 - The board has no card-detect line, so a card swapped during a session
   is not seen as an unmount. A record on the new card with the same bytes
   as the session's own record, the same servo image, is removed as the
   session's. The strip, the write page's backup line and the `(BACKUP)`
   tag in FILES still name the session's backup file, which is on the first
   card: a file of that name on the new card carries the tag.
+
+---
+
+## Device backups
+
+A tool that writes settings into a device saves the device's settings, as
+read before the session's first write, to the card first. KST SERVO and AM32
+CONFIG do. All backups share one directory and one ring of 50 numbers:
+
+| File | What |
+|---|---|
+| `BACKUP/KSTnnn.TXT` | a KST or Chaservo servo's image, rcbench's KST text format |
+| `BACKUP/AMnnn.TXT` | an AM32 ESC's 48-byte settings block as text: one line per field, the bytes in hex, a checksum line |
+| `BACKUP/LAST` | the latest number, 3 digits and a line feed |
+
+- The numbers 001 to 050 are one sequence for every device. The next backup
+  takes the number after the latest, 001 after 050.
+- Once all 50 are taken, the next backup writes over the oldest, whatever
+  device it belongs to. 50 servo sessions in a row push out every ESC backup
+  before them.
+- A file with another name, KST051 and up included, is never written over.
+- Without `BACKUP/LAST` the latest number is guessed from the names; a ring
+  with all 50 numbers taken then writes over number 001.
+- A card that is mounted and refuses the backup stops the write. Without a
+  card the write runs, and the backup stays in memory until a write with a
+  card saves it, or the tool closes.
+
+Blackbox logs go to `LOGS/`, KST's SAVE AS files and its record to `KST/`.
 
 ---
 
@@ -1105,12 +1148,15 @@ src/
   kst_seek.{h,cpp}      the KST search: the entry sequence repeated until a servo answers
   kst_job.{h,cpp}       the KST programmer's core1 job: search, read, write, leave
   kst_line_port.{h,cpp} the job's KST line, rcbench's RP2350 line driver
-  kst_files.{h,cpp}     the KST files and the record of a write on the SD card
+  kst_files.{h,cpp}     KST's SAVE AS files, its record of a write and its backups
+  backup_ring.{h,cpp}   the ring of device backups in BACKUP/
+  card_dir.{h,cpp}      the card's mount rule, directory scope and file calls
   servo.cmake, kst.cmake  each feature's firmware sources (test/*.mk: its tests)
   ui_input.{h,cpp}      tap-on-release and held-repeat rules, shared (pure)
   rpm_filter.h          display smoothing of the RPM readout
   am32_bl.{h,cpp}       one-wire bootloader transport
   am32_eeprom.{h,cpp}   AM32 settings layout, decoding and presentation
+  am32_backup.{h,cpp}   the AM32 settings block as a backup file
   gfx.{h,cpp}           RGB565 framebuffer, dirty bands, 5x7 font, 7-seg digits, lines, arcs
   st7789.{h,cpp}        panel init + DMA blitter
   touch.h               capacitive touch interface
@@ -1206,7 +1252,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.0%**: 5,525 of 5,636 lines in 42 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.0%**: 5,855 of 5,973 lines in 45 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

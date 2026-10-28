@@ -31,6 +31,8 @@
 #include "core1_job.h"
 #include "plat.h"
 
+#include "fake_fatfs.h"
+#include "usb_msc.h"
 #include "../src/ui_am32.cpp"   // NOLINT -- see the note above
 
 // --- probes into the included translation unit ---
@@ -3311,6 +3313,48 @@ void runUiTests() {
 
 		tapId(UI_FIX(Am32Ctl::Ok));                      // dismiss the result
 		checkTrue("OK returns to the list", s_state == S_LIST);
+
+		// With a card: the settings as read at entry go to BACKUP/ first.
+		// The write above ran without one, so the session has no backup yet.
+		fakeFatReset(1u << 20);
+		SdLogStatus logIdle;
+		memset(&logIdle, 0, sizeof(logIdle));
+		logIdle.state = SdLogState::Idle;
+		fakeSdLogSet(&logIdle);
+		fakeMscSet(MscState::Idle, 0);
+		static char wantText[AM32_BACKUP_MAX], gotText[AM32_BACKUP_MAX];
+		size_t wantLen = am32BackupFormat(s_entry, am32BlEscTypeName(), am32BlEepromAddr(),
+		                                  wantText, sizeof(wantText));
+		checkTrue("the entry differs from the ESC now", memcmp(s_entry, s_original, AM32_SETTINGS_SIZE) != 0);
+		fakeFatWriteProtect(true);
+		// POLES stands at its top, 36: a step down.
+		tapId(UI_FIX(Am32Ctl::EditMinus));
+		uint8_t want2 = uiByte(0x1B);
+		checkTrue("a change to write", want2 != fakeEscByte(0x1B));
+		pressId(UI_FIX(Am32Ctl::Write));
+		for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
+		fakeRelease(); frames(3);
+		checkTrue("a card that refuses the backup: nothing written to the ESC",
+		          fakeEscByte(0x1B) != want2 && strcmp(s_status, "NO BACKUP ON THE CARD: NOT WRITTEN") == 0);
+		tapId(UI_FIX(Am32Ctl::Ok));
+		fakeFatWriteProtect(false);
+		pressId(UI_FIX(Am32Ctl::Write));
+		for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
+		fakeRelease(); frames(3);
+		int32_t gotLen = fakeFatGet("BACKUP/AM001.TXT", gotText, sizeof(gotText));
+		checkTrue("the backup is BACKUP/AM001.TXT, the settings as read at entry",
+		          gotLen == (int32_t)wantLen && memcmp(gotText, wantText, wantLen) == 0);
+		checkInt("then the write", fakeEscByte(0x1B), want2);
+		checkTrue("the result names the backup", strcmp(s_status, "WRITE VERIFIED. BACKUP AM001") == 0);
+		tapId(UI_FIX(Am32Ctl::Ok));
+		tapId(UI_FIX(Am32Ctl::EditPlus));
+		pressId(UI_FIX(Am32Ctl::Write));
+		for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
+		fakeRelease(); frames(3);
+		checkTrue("a second write saves no second backup", !fakeFatExists("BACKUP/AM002.TXT"));
+		tapId(UI_FIX(Am32Ctl::Ok));
+		logIdle.state = SdLogState::NoCard;
+		fakeSdLogSet(&logIdle);
 		pressId(UI_FIX(Am32Ctl::Write), IdExpect::Disabled);
 		holdId(UI_FIX(Am32Ctl::Write), 50);
 		fakeRelease(); frames(1);

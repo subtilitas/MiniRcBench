@@ -136,11 +136,15 @@ static KstRefusal   s_resultRefused = KstRefusal::None; /**< The job refused the
 static KstRefusal   s_readRefused = KstRefusal::None;   /**< The job refused the read. */
 static const char  *s_cardNote = nullptr; /**< The card refused the first write's files. */
 static bool         s_leaveQueued = false;
-static char         s_preset[KST_STORE_PRESET_MAX]; /**< The next KSTnnn, for the backup line. */
+static char         s_preset[KST_STORE_PRESET_MAX]; /**< The KSTnnn SAVE AS takes in KST/. */
+static bool         s_saveFull = false;  /**< KST/ holds KST_FILES_SAVE_MAX files: SAVE AS refuses. */
+static char         s_backupNext[BACKUP_NAME_MAX]; /**< The backup's name in BACKUP/, for the backup line. */
 static bool         s_presetCard = false; /**< A card was mounted at the write page's last frame. */
 
 static UiList       s_fileList;
 static kst_store_entry_t s_files[KST_UI_FILES_MAX];
+static BackupFileName s_backups[BACKUP_RING_NAMES]; /**< The KST backups of BACKUP/, latest first. */
+static int          s_backupCount = 0;
 static int          s_fileCount = 0;     /**< Rows: the record, if any, then the files. */
 static size_t       s_fileTotal = 0;
 static int          s_fileSel = -1;
@@ -697,10 +701,10 @@ static void listTouch() {
 		s_confirm = false;
 		s_restoring = false;
 		s_cardNote = nullptr;
-		s_preset[0] = '\0';
+		s_backupNext[0] = '\0';
 		s_presetCard = kstFilesMounted();
 		if (!s_firstDone && s_presetCard)
-			kst_store_preset(kstFilesIo(), s_preset, sizeof(s_preset));
+			kstFilesNextBackup(s_backupNext);
 		s_pageFrom = s_st.image;
 		s_pageTo = s_target;
 		go(KstView::Write);
@@ -822,13 +826,13 @@ static void drawWrite() {
 		}
 	}
 
-	if (s_first.backupName[0]) snprintf(buf, sizeof(buf), "BACKUP: KST/%s", s_first.backupName);
+	if (s_first.backupName[0]) snprintf(buf, sizeof(buf), "BACKUP: BACKUP/%s", s_first.backupName);
 	else if (s_firstDone)
 		snprintf(buf, sizeof(buf), "NO BACKUP ON THE CARD: IN MEMORY");
 	else if (!kstFilesMounted())
 		snprintf(buf, sizeof(buf), "%s", cardHeldByUsb() ? "CARD IN USE BY USB: BACKUP IN MEMORY"
 		                                                : "NO CARD: BACKUP IN MEMORY");
-	else if (s_preset[0]) snprintf(buf, sizeof(buf), "BACKUP FIRST: KST/%s.TXT", s_preset);
+	else if (s_backupNext[0]) snprintf(buf, sizeof(buf), "BACKUP FIRST: BACKUP/%s", s_backupNext);
 	else snprintf(buf, sizeof(buf), "BACKUP FIRST: TO THE CARD");
 	gfxText(UI_MARGIN, 236, buf, C_DIM, 1);
 	if (s_writing) {
@@ -872,7 +876,7 @@ static void writeTouch() {
 	// KSTnnn it saves. The lookup is a card call on core0.
 	bool card = kstFilesMounted();
 	if (card && !s_presetCard && !s_firstDone) {
-		kst_store_preset(kstFilesIo(), s_preset, sizeof(s_preset));
+		kstFilesNextBackup(s_backupNext);
 		escHeartbeat();
 	}
 	s_presetCard = card;
@@ -893,6 +897,8 @@ static void writeTouch() {
 
 /** @brief Read the card's list into the page. */
 static void readFiles() {
+	// One lookup of KST in the root for the list, the names and the record.
+	KstFilesScope scope;
 	s_fileCount = 0;
 	s_fileTotal = 0;
 	s_recordFound = kstFilesRecordPresent();
@@ -906,20 +912,35 @@ static void readFiles() {
 		s_fileCount = (int)count;
 		s_fileTotal = total;
 	}
-	int rows = s_fileCount + (s_recordFound ? 1 : 0);
+	// The session's backups of BACKUP/, latest first, before the files of KST/.
+	s_backupCount = 0;
+	if (kstFilesMounted()) {
+		size_t nb = 0;
+		if (kstFilesBackups(s_backups, BACKUP_RING_NAMES, &nb) == KST_STORE_OK) s_backupCount = (int)nb;
+	}
+	int rows = s_fileCount + s_backupCount + (s_recordFound ? 1 : 0);
 	uiListInit(&s_fileList, FILE_VIEW, KL_ROW_PITCH, rows);
 	uiListSetBody(&s_fileList, KL_ROW_H, UI_LIST_TAP_MIN);
 	if (s_fileSel >= rows) s_fileSel = -1;
 	s_preset[0] = '\0';
-	if (kstFilesMounted()) kst_store_preset(kstFilesIo(), s_preset, sizeof(s_preset));
+	s_saveFull = false;
+	if (kstFilesMounted()) s_saveFull = kstFilesSaveName(s_preset) == KST_STORE_NO_NUMBER;
 }
 
-/** @brief The file of list row @p i: null for the record. */
+/** @brief Whether list row @p i is a backup of BACKUP/. */
+static bool backupRow(int i) {
+	if (s_recordFound) i--;
+	return i >= 0 && i < s_backupCount;
+}
+
+/** @brief The file of list row @p i: null for the record; a backup's name has no directory. */
 static const char *fileOf(int i) {
 	if (s_recordFound) {
 		if (i == 0) return nullptr;
 		i--;
 	}
+	if (i >= 0 && i < s_backupCount) return s_backups[i];
+	i -= s_backupCount;
 	return i >= 0 && i < s_fileCount ? s_files[i].name : "";
 }
 
@@ -931,7 +952,7 @@ static void drawFileRow(int i, int y, void *) {
 	if (!f) snprintf(name, sizeof(name), "RECORD");
 	else    snprintf(name, sizeof(name), "%.*s", (int)(strlen(f) > 4 ? strlen(f) - 4 : strlen(f)), f);
 	gfxText(UI_MARGIN, y + 16, name, sel ? C_TEXT : C_DIM, 1);
-	const char *tag = !f ? "(KST.TXT)" : (strcmp(f, s_first.backupName) == 0 ? "(BACKUP)" : "");
+	const char *tag = !f ? "(KST.TXT)" : backupRow(i) ? "(BACKUP)" : "";
 	gfxText(GFX_W - UI_MARGIN - gfxTextW(tag, 1), y + 16, tag, !f ? C_AMBER : C_GRID, 1);
 	gfxHLine(0, y + KL_ROW_H - 1, GFX_W, C_PANEL);
 }
@@ -944,6 +965,7 @@ static void drawFiles() {
 	char strip[48];
 	bool mounted = kstFilesMounted();
 	if (s_fileNote[0])        uiStripText(s_fileNote, s_fileNoteCol);
+	else if (mounted && s_saveFull) uiStripText("KST/ HOLDS 50 FILES. REMOVE SOME.", C_AMBER);
 	else if (cardHeldByUsb()) uiStripText("CARD IN USE BY USB", C_AMBER);
 	else if (!mounted)        uiStripText("NO CARD", C_AMBER);
 	else {
@@ -996,10 +1018,12 @@ static void fileNote(uint16_t col, const char *text) {
 
 /** @brief LOAD: the selected file, held against the servo, becomes the pending changes. */
 static void loadSelected() {
+	KstFilesScope scope;
 	size_t len = 0;
 	const char *f = fileOf(s_fileSel);
-	kst_store_t r = f ? kst_store_load(kstFilesIo(), f, s_text, sizeof(s_text), &len)
-	                  : kstFilesRecordLoad(s_text, sizeof(s_text), &len);
+	kst_store_t r = !f ? kstFilesRecordLoad(s_text, sizeof(s_text), &len)
+	              : backupRow(s_fileSel) ? kstFilesBackupLoad(f, s_text, sizeof(s_text), &len)
+	              : kst_store_load(kstFilesIo(), f, s_text, sizeof(s_text), &len);
 	if (r != KST_STORE_OK) {
 		fileNote(C_AMBER, "THE FILE DID NOT READ");
 		return;
@@ -1049,12 +1073,18 @@ static void loadSelected() {
 }
 
 static void saveAs() {
+	KstFilesScope scope;
 	size_t n = kst_file_format(&s_st.image, s_text, sizeof(s_text));
-	kst_store_t r = kst_store_save(kstFilesIo(), s_preset, s_text, n, nullptr);
-	char note[32];
-	snprintf(note, sizeof(note), "SAVED AS %s", s_preset);
+	char saved[KST_STORE_NAME_MAX];
+	kst_store_t r = kstFilesSaveAs(s_text, n, saved);
+	// The name without its extension, as the button showed it.
+	char *dot = strrchr(saved, '.');
+	if (dot) *dot = '\0';
+	char note[sizeof("SAVED AS ") + sizeof(saved)];
+	snprintf(note, sizeof(note), "SAVED AS %s", saved);
 	if (r == KST_STORE_OK) fileNote(C_GREEN, note);
 	else if (r == KST_STORE_CARD_FULL) fileNote(C_AMBER, "THE CARD IS FULL");
+	else if (r == KST_STORE_NO_NUMBER) fileNote(C_AMBER, "KST/ HOLDS 50 FILES. REMOVE SOME.");
 	else fileNote(C_AMBER, "THE CARD TOOK NO FILE");
 	// The new file sorts in among the others: the selection follows its name.
 	char sel[KST_STORE_NAME_MAX] = "";
@@ -1062,7 +1092,7 @@ static void saveAs() {
 	if (s_fileSel >= 0 && fileOf(s_fileSel)) snprintf(sel, sizeof(sel), "%s", fileOf(s_fileSel));
 	readFiles();
 	s_fileSel = -1;
-	int rows = s_fileCount + (s_recordFound ? 1 : 0);
+	int rows = s_fileCount + s_backupCount + (s_recordFound ? 1 : 0);
 	for (int i = 0; i < rows; i++) {
 		const char *f = fileOf(i);
 		if (selRecord ? !f : (sel[0] && f && strcmp(f, sel) == 0)) { s_fileSel = i; break; }
@@ -1075,10 +1105,10 @@ static void filesTouch() {
 		s_result = false;
 		s_confirm = false;
 		s_cardNote = nullptr;
-		s_preset[0] = '\0';
+		s_backupNext[0] = '\0';
 		s_presetCard = kstFilesMounted();
 		if (!s_firstDone && s_presetCard)
-			kst_store_preset(kstFilesIo(), s_preset, sizeof(s_preset));
+			kstFilesNextBackup(s_backupNext);
 		s_pageFrom = s_st.image;
 		s_pageTo = s_st.backup;
 		go(KstView::Write);
@@ -1273,6 +1303,8 @@ static uint32_t frameKey() {
 	h = mix(h, ((uint32_t)s_resultSes << 8) | s_resultPlan);
 	h = mixBytes(h, s_fileNote, strlen(s_fileNote));
 	h = mixBytes(h, s_preset, strlen(s_preset));
+	h = mixBytes(h, s_backupNext, strlen(s_backupNext));
+	h = mix(h, ((uint32_t)s_backupCount << 1) | (uint32_t)s_saveFull);
 	h = mixBytes(h, s_first.backupName, strlen(s_first.backupName));
 	h = mix(h, ((uint32_t)s_fileCount << 16) ^ (uint32_t)s_fileTotal);
 	h = mix(h, (uint32_t)(uintptr_t)s_cardNote);

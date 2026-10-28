@@ -408,12 +408,12 @@ DShot after less than the 2000 ms without power that LEAVE gives it.
 ### Card calls and the heartbeat
 
 Core0 calls the card several times while the KST claim holds: before the
-session's first write it saves the backup as the next KSTnnn.TXT and the image
+session's first write it saves the backup under the ring's next name and the image
 before the write as `KST/KST.TXT` ([storage](#storage)); SAVE AS writes a file;
 LOAD and the FILES listing walk the `KST` directory and read a file; RETRY MOUNT
 initialises and mounts the card; a verified write, and LEAVE from a servo in
 programming mode that is not in doubt, remove `KST/KST.TXT`; a card mounted
-while the write page is up gets the next KSTnnn name looked up. A card call can
+while the write page is up gets the ring's next name looked up. A card call can
 block core0 past the 250 ms heartbeat. The SDIO driver waits up to 1000 ms for
 busy after each written block and tries a chunk up to 3 times
 (`SDH_BUSY_TIMEOUT_US` and `SDH_ATTEMPTS` in `src/sdio/sd_host.h`,
@@ -453,57 +453,105 @@ and the lapse rule applies 250 ms later. A core0 stuck in an outer loop that
 keeps calling the driver stamps without end; the cap ends that after 15 s,
 and the lapse rule applies. The job starts no operation in the card phase.
 
-**The cap.** The largest card phase is the first write's,
-`kstFilesFirstWrite()` of step 3 ([storage](#storage)). At the store's limit
-of 999 files, KSTnnn.TXT names of 8.3 form and the record, the `KST` directory
-holds about 1,000 entries of 32 bytes, 63 sectors, read one by one on every
-pass over it. FatFs R0.15 passes over the directory once for each lookup of a
-name that is not there, and once more to find room for a new entry. The first
-write makes 7 passes: the record's lookup, the walk for the next free name,
-the save's walk for a name that exists, and a lookup and a room search for
-each of the two files. With an old record to keep it makes 11: the lookup
-finds it, the rename looks up both names and finds room, and the next free
-name is walked for again. Each file under 1024 bytes adds 7 single-block
-writes and 2 reads: its directory sector is written when the FAT sector is
-read in and again at the sync, which reads it back, then the two data blocks,
-the two copies of the FAT, and FSINFO, the FAT32 free-space sector. The rename
-adds 1 write when the old and the new entry share a sector, else 2 writes and
-1 read. Each path also reads the root directory's sector that holds `KST`,
-once per lookup and twice for the rename. Without an old record that is 450
-block reads, 5 of them in the root, and 14 block writes; with one, 705 reads,
-8 in the root, and 15 to 16 writes. These counts are from FatFs R0.15 run on a
-host against a FAT32 image with 997 KSTnnn.TXT files and a root that fits in
-one sector, with a disk layer that counts its calls; a root with many blackbox
-logs adds reads, a number not counted here. Each total below is the reads
-times one read plus the writes times one write. A rename that FatFs reports as
-failed adds the two lookups that ask where the record went, 128 reads: 833
-reads and up to 17 writes (the failed write and its rewrite by the first
-lookup), 8.5 s on a typical card and 96.2 s on SDXC. The first lookup follows
-any failed rename and finds the record there; the second follows only a failed
-write.
+**The cap.** The card phases are counted, not estimated. `make -C test
+kstcount` runs `src/kst_files.cpp`, `src/backup_ring.cpp`,
+`src/am32_backup.cpp` and rcbench's `kst_store.c` over FatFs R0.15, from the
+SD library at the commit `CMakeLists.txt` pins and with the library's
+`ffconf.h`, on a RAM disk that counts every block it reads and writes
+(`test/kst_card_count.cpp`). Each phase runs on a full card: a ring of
+`BACKUP/` that has turned, KST and AM32 backups by turns, `BACKUP/LAST`
+([backups.md](backups.md)), and 49 SAVE AS files in `KST/`
+([storage](#storage)). The volumes are FAT32 of 32 GiB with 32 KiB clusters,
+as the SD Association formats an SDHC card, and exFAT of 64 GiB with 128 KiB
+clusters, as it formats an SDXC card. Each holds no blackbox log, 1000 logs in
+`LOGS/`, or 1000 logs in the root as an earlier firmware wrote them, made
+before `KST` and `BACKUP`, so a lookup of either passes over all of them.
+Each total is the reads times one read plus the writes times one write:
 
-| Case | One read | One write | 450 reads and 14 writes | 705 reads and 16 writes |
-|---|---|---|---|---|
-| A typical card, busy and access of a few ms | under 10 ms | under 10 ms | under 4.7 s | under 7.3 s |
-| SDHC within the specification: 100 ms access, 250 ms busy | 5 ms command + 100 ms = 105 ms | 5 ms command + 1.2 ms transfer + 250 ms busy + 5 ms status = 261 ms | 50.9 s | 78.2 s |
-| SDXC within the specification: 500 ms busy | 105 ms | 511 ms | 54.4 s | 82.2 s |
-| The driver's limits: 250 ms per read block, 1000 ms busy, 3 tries each, every try failing its CRC (cyclic redundancy check) | 3 × 255 ms = 0.765 s | 3 × 1011 ms = 3.033 s | 386.7 s | 587.9 s |
+- a typical card: 10 ms a read, 10 ms a write;
+- SDHC within the specification: 105 ms a read (5 ms command, 100 ms
+  access), 261 ms a write (5 ms command, 1.2 ms transfer, 250 ms busy, 5 ms
+  status);
+- SDXC within the specification: 105 ms a read, 511 ms a write (500 ms
+  busy).
 
-A timeout ends the card's part sooner: `sdh_err_is_fatal()` marks the card not
-ready, and every later call fails at once. The other phases are smaller: the
-FILES listing is one pass, 64 reads with the root's, 6.7 s within the
-specification; SAVE AS is 3 passes and one file, 4 with the proposed name's
-walk, up to 257 reads and 7 writes, 30.6 s on SDXC; RETRY MOUNT is the card's
-initialisation, up to 1.1 s of polling with ACMD41, the SD command that waits
-for the card to be ready, and a few reads.
+<!-- kst-card-count:start -->
+| Volume | Blackbox logs | Card phase | Block reads | Block writes | Typical card | SDHC | SDXC |
+| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| FAT32, 32 GiB, 32 KiB clusters | none | KST first write, no old record | 26 | 12 | 0.4 s | 5.9 s | 8.9 s |
+| FAT32, 32 GiB, 32 KiB clusters | none | KST record removed after the verify | 16 | 4 | 0.2 s | 2.7 s | 3.7 s |
+| FAT32, 32 GiB, 32 KiB clusters | none | KST first write, an old record kept | 39 | 18 | 0.6 s | 8.8 s | 13.3 s |
+| FAT32, 32 GiB, 32 KiB clusters | none | KST SAVE AS, the 50th file of KST/ | 23 | 7 | 0.3 s | 4.2 s | 6.0 s |
+| FAT32, 32 GiB, 32 KiB clusters | none | KST FILES page | 21 | 0 | 0.2 s | 2.2 s | 2.2 s |
+| FAT32, 32 GiB, 32 KiB clusters | none | AM32 backup | 9 | 6 | 0.1 s | 2.5 s | 4.0 s |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in LOGS/ | KST first write, no old record | 26 | 12 | 0.4 s | 5.9 s | 8.9 s |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in LOGS/ | KST record removed after the verify | 16 | 4 | 0.2 s | 2.7 s | 3.7 s |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in LOGS/ | KST first write, an old record kept | 39 | 18 | 0.6 s | 8.8 s | 13.3 s |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in LOGS/ | KST SAVE AS, the 50th file of KST/ | 23 | 7 | 0.3 s | 4.2 s | 6.0 s |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in LOGS/ | KST FILES page | 21 | 0 | 0.2 s | 2.2 s | 2.2 s |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in LOGS/ | AM32 backup | 9 | 6 | 0.1 s | 2.5 s | 4.0 s |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in the root, an earlier firmware's | KST first write, no old record | 338 | 12 | 3.5 s | 38.6 s | 41.6 s, over the cap |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in the root, an earlier firmware's | KST record removed after the verify | 78 | 4 | 0.8 s | 9.2 s | 10.2 s |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in the root, an earlier firmware's | KST first write, an old record kept | 413 | 18 | 4.3 s | 48.1 s | 52.6 s, over the cap |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in the root, an earlier firmware's | KST SAVE AS, the 50th file of KST/ | 85 | 7 | 0.9 s | 10.8 s | 12.5 s |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in the root, an earlier firmware's | KST FILES page | 207 | 0 | 2.1 s | 21.7 s | 21.7 s, over the cap |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in the root, an earlier firmware's | AM32 backup | 71 | 6 | 0.8 s | 9.0 s | 10.5 s |
+| exFAT, 64 GiB, 128 KiB clusters | none | KST first write, no old record | 58 | 10 | 0.7 s | 8.7 s | 11.2 s |
+| exFAT, 64 GiB, 128 KiB clusters | none | KST record removed after the verify | 36 | 2 | 0.4 s | 4.3 s | 4.8 s |
+| exFAT, 64 GiB, 128 KiB clusters | none | KST first write, an old record kept | 89 | 14 | 1.0 s | 13.0 s | 16.5 s, over the cap |
+| exFAT, 64 GiB, 128 KiB clusters | none | KST SAVE AS, the 50th file of KST/ | 56 | 5 | 0.6 s | 7.2 s | 8.4 s |
+| exFAT, 64 GiB, 128 KiB clusters | none | KST FILES page | 47 | 0 | 0.5 s | 4.9 s | 4.9 s |
+| exFAT, 64 GiB, 128 KiB clusters | none | AM32 backup | 23 | 6 | 0.3 s | 4.0 s | 5.5 s |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in LOGS/ | KST first write, no old record | 58 | 10 | 0.7 s | 8.7 s | 11.2 s |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in LOGS/ | KST record removed after the verify | 36 | 2 | 0.4 s | 4.3 s | 4.8 s |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in LOGS/ | KST first write, an old record kept | 89 | 14 | 1.0 s | 13.0 s | 16.5 s, over the cap |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in LOGS/ | KST SAVE AS, the 50th file of KST/ | 56 | 5 | 0.6 s | 7.2 s | 8.4 s |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in LOGS/ | KST FILES page | 47 | 0 | 0.5 s | 4.9 s | 4.9 s |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in LOGS/ | AM32 backup | 23 | 6 | 0.3 s | 4.0 s | 5.5 s |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in the root, an earlier firmware's | KST first write, no old record | 999 | 10 | 10.1 s | 107.5 s | 110.0 s, over the cap |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in the root, an earlier firmware's | KST record removed after the verify | 228 | 2 | 2.3 s | 24.5 s | 25.0 s, over the cap |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in the root, an earlier firmware's | KST first write, an old record kept | 1218 | 14 | 12.3 s | 131.5 s | 135.0 s, over the cap |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in the root, an earlier firmware's | KST SAVE AS, the 50th file of KST/ | 249 | 5 | 2.5 s | 27.4 s | 28.7 s, over the cap |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in the root, an earlier firmware's | KST FILES page | 613 | 0 | 6.1 s | 64.4 s | 64.4 s, over the cap |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in the root, an earlier firmware's | AM32 backup | 210 | 6 | 2.2 s | 23.6 s | 25.1 s, over the cap |
 
-The cap, 15 s, covers every phase of a card whose reads and writes take under
-10 ms, up to the store's 999 files, and bounds how long a core0 stuck in the
-driver's loops keeps the servo powered in programming mode, with no frame on
-the wire. It does not cover a card that takes the specification's full access
-and busy times with a full directory: the first write's card calls then take
-50.9 s to 82.2 s, and SAVE AS up to 30.6 s. Whether to raise the cap, bound
-the directory below 999 files or make fewer passes is open for step 5. A card
+Generated by `make -C test kstcount-write`. CI runs `make -C test kstcount` and fails on drift.
+<!-- kst-card-count:end -->
+
+What bounds the counts:
+
+- `BACKUP/` holds at most 50 backups and the marker, and SAVE AS refuses once
+  `KST/` holds 50 files. On FAT32 a name of 8.3 form is one entry of 32 bytes,
+  so each directory with `.` and `..` is 53 or 54 entries, 4 sectors. On exFAT
+  a file is a set of at least 3 entries, 96 bytes, about 10 sectors for the
+  same files. Deleted entries stay in a directory and count: a directory that
+  once held more files keeps its length.
+- The root holds `LOGS`, `KST` and `BACKUP`: a lookup in it reads one block,
+  however many logs `LOGS/` holds. Logs an earlier firmware wrote to the root
+  stay there, and each adds 32 bytes to every lookup in the root on FAT32 and
+  96 on exFAT. A KST first write works in two directories, so it looks one of
+  them up in the root several times: with 1000 such logs, 338 block reads on
+  FAT32 and 999 on exFAT. Moving those logs into `LOGS/` on a computer takes
+  the root back to three entries.
+- Every card phase makes one directory FatFs's current one
+  (`CardDirScope`, `src/card_dir.h`), so the paths inside it name the file
+  alone.
+- The ring's oldest backup is written over in place, which keeps its
+  cluster: its data block and its directory entry, and no FAT sector.
+- `BACKUP/LAST` is rewritten in place once per phase, also for a first write
+  that keeps an old record and saves a backup.
+
+Against the cap of 15 s at the SDXC times, with no log in the root: every
+phase on FAT32 stays under it, the longest the first write that keeps an old
+record, 13.3 s; on exFAT that same write takes 16.5 s, over it. A first write
+keeps an old record only after a write was interrupted. With an earlier
+firmware's 1000 logs in the root, first writes pass the cap on both volumes,
+up to 135.0 s. The write cache of [sd-write-cache.md](sd-write-cache.md),
+planned, takes the writes off core0's path, which brings the exFAT first
+write under the cap.
+
+The cap, 15 s, bounds how long a core0 stuck in the driver's loops keeps the
+servo powered in programming mode, with no frame on the wire. A card
 past the cap: the supply goes off, the session is power-cycled as for any
 lapse, and the card call goes on to its end on core0; a write that waited for
 it then finds the session out of the mode and does not run.
@@ -1042,7 +1090,7 @@ a write that left nothing changed amber, a verified one green.
 y   0 | KST FILES                        [ BACK ]|
    40 | CARD  12 FILES                           |
    62 | RECORD (KST.TXT)                         |  40 px rows, 42 px pitch,
-  104 | KST012                        (BACKUP)   |  viewport 62..229, 168 px,
+  104 | KST017                        (BACKUP)   |  viewport 62..229, 168 px,
   146 | KST011                                   |  on ui_list
   188 | KST010                                   |
   234 | [          SAVE AS KST013          ]     |  228 x 40 px
@@ -1053,16 +1101,19 @@ y   0 | KST FILES                        [ BACK ]|
 - The list scrolls instead of paging (menu.md decision 9): four whole rows
   in the viewport, a drag scrolls, a tap selects. Twelve files are 504 px of
   content, a scroll range of 0 px to 336 px. There is no sideways mode.
-- The order is `kst_store_list()`'s: by name without case, the KSTnnn files
-  in one run by falling number, so the latest is first until KST999 is
-  taken. The page reads the
-  first 64 files (`KST_UI_FILES_MAX`); the strip then reads
-  `CARD  FIRST 64 OF n FILES`. A record on the card, `KST/KST.TXT`, is the
-  first row and loads as a file.
+- The order: a record on the card, `KST/KST.TXT`, first; then the KST
+  backups of `BACKUP/`, the latest first (`kstFilesBackups()`), each tagged
+  `(BACKUP)`; then the files of `KST/` in `kst_store_list()`'s order, by name
+  without case, the KSTnnn files in one run by falling number. The page reads
+  the first 64 files of `KST/` (`KST_UI_FILES_MAX`); the strip then reads
+  `CARD  FIRST 64 OF n FILES`. The record and the backups load as files.
 
-- SAVE AS writes the servo as it stands under the next free name from
-  `kst_store_preset()`, KST001 to KST999. There is no keyboard, so there is no
-  other name; a file renamed on a computer still lists and loads.
+- SAVE AS writes the servo as it stands into `KST/` under the next free name
+  from `kst_store_preset()`, one above the highest KSTnnn, through
+  `kstFilesSaveAs()`, and never over a file. Once `KST/` holds 50 files the
+  button does not act and the strip reads `KST/ HOLDS 50 FILES. REMOVE SOME.`
+  ([storage](#storage)). There is no keyboard, so there is no other name; a
+  file renamed on a computer still lists and loads.
 - LOAD parses the selected file (`kst_file_parse()`), holds it against the
   servo (`kst_file_load()`: type, access classes, hard limits) and puts the
   result into the list as pending edits. A refusal names its code and line,
@@ -1134,8 +1185,10 @@ REBOOT is on this page and not on the field list, whose footer is full
 
 ## Storage
 
-The files live in the `KST` directory of the SD card, `KST_STORE_DIR`, apart
-from the blackbox logs in the root. A file is `<name>.TXT` in rcbench's text
+SAVE AS files and the record of a write under way live in the `KST`
+directory of the SD card, `KST_STORE_DIR`; the session's backups live in the
+ring of `BACKUP/` that every device shares ([backups.md](backups.md)); the
+blackbox logs live in `LOGS/`. A file is `<name>.TXT` in rcbench's text
 format: 35 lines, under 1024 bytes, CRC-32 (cyclic redundancy check) checked,
 editable by hand on a computer once its checksum line is removed. FatFs here
 is built with long file names (`FF_USE_LFN` 3, `FF_MAX_LFN` 255, in the
@@ -1147,21 +1200,39 @@ them over FatFs on core0. The card counts as mounted while the blackbox
 logger has it mounted (`SdLogState` Idle or Logging) and the USB card reader
 is off (`MscState::Idle`): while `mscHoldsCard()` is true, and while the
 reader takes the card back, every call answers "not mounted" and touches no
-FatFs function. Paths are relative to the card's root, as the logs' are.
+FatFs function. Every card call runs in a `CardDirScope` (`src/card_dir.h`),
+which makes its directory FatFs's current one and the root again at its end,
+so the paths inside it name the file alone; `KstFilesScope` is that scope for
+`KST`.
+
+**SAVE AS** takes the name `kst_store_preset()` proposes, one above the
+highest KSTnnn of `KST/`, through `kstFilesSaveAs()`, and its files are never
+written over. It refuses once `KST/` holds `KST_FILES_SAVE_MAX`, 50, files the
+store lists, the record not among them: the FILES strip reads
+`KST/ HOLDS 50 FILES. REMOVE SOME.` and the button does not act. That bounds
+the directory a SAVE AS walks ([the cap](#card-calls-and-the-heartbeat)).
+
+**The backups.** The session's backup and a record moved out of the way take
+numbers in the ring of `BACKUP/`, `KSTnnn.TXT`, as the ring's rules of
+[backups.md](backups.md) and `src/backup_ring.h` set them: one sequence of 50
+numbers for every device, `BACKUP/LAST` naming the latest, the oldest written
+over in place. FILES lists the KST backups of `BACKUP/` first, the latest
+first, each with `(BACKUP)`, then the files of `KST/`; a backup loads as a
+file.
 
 FatFs results map to the store's:
 
 - `FR_DENIED` on a create is CARD_FULL for a full volume or directory, and
   DENIED when a directory or a read-only file has the name; a short write is
   CARD_FULL.
-- A file named `KST` where the directory goes is DENIED.
+- A file named `KST` or `BACKUP` where the directory goes is DENIED.
 - `FR_WRITE_PROTECTED` is DENIED. FatFs reports it only when the disk layer
   sets STA_PROTECT, which this board's card driver never does: a
   write-protected card fails as `FR_DISK_ERR`, a write error.
 - Any other error is a write or read error.
 
-A create that fails once removes the file it made, and the `KST` directory
-when it made that too. Current limitations, found by running FatFs R0.15 on
+A create that fails once removes the file it made, and the `KST` or `BACKUP`
+directory when it made that too. Current limitations, found by running FatFs R0.15 on
 a host:
 
 - A write error that persists, as a write-protected or failing card gives:
@@ -1186,7 +1257,7 @@ a host:
 
 | Situation | Effect |
 |---|---|
-| First write of a session, card mounted | the backup is saved first as the next KSTnnn.TXT, and `KST/KST.TXT` holds the image before the write, both in a card phase ([card calls](#card-calls-and-the-heartbeat)). A card that takes neither stops the write: `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.` |
+| First write of a session, card mounted | the backup is saved first into the ring of `BACKUP/`, and `KST/KST.TXT` holds the image before the write, both in a card phase ([card calls](#card-calls-and-the-heartbeat)). A card that takes neither stops the write: `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.` |
 | Write verified | `KST/KST.TXT` is removed when this session wrote it, the card stayed mounted since, and the file holds the bytes written (FNV-1a, Fowler-Noll-Vo, hash `recordSum`), in a card phase |
 | Later writes of the session | no backup is saved and no record is written |
 | LEAVE, the servo in programming mode and not in doubt | `KST/KST.TXT` is removed on the same terms: no write is open |
@@ -1202,15 +1273,21 @@ a host:
 
 The first write's card calls, `kstFilesFirstWrite()`, in order:
 
-1. A record already on the card, left by an interrupted write, is renamed to
-   the next KSTnnn.TXT, so no record is lost. A record that cannot be renamed
+1. One walk of `BACKUP` and a read of `BACKUP/LAST` name both files: a record
+   to keep takes the ring's next number and the backup the one after it, or
+   the backup the next one alone. `BACKUP/LAST` is written once, with the
+   backup's number.
+2. A record already on the card, left by an interrupted write, is moved into
+   `BACKUP/` under its number, after the files there are removed, so no
+   record is lost. A record that cannot be renamed
    stays: no new record is written over it, and the verified write does not
    remove it. A rename that FatFs reports as failed after it took effect, its
    last sync failing with the change still in FatFs's window, counts as kept:
    the record is looked up under both names. A card that does not answer
    whether a record is there gets no record either.
-2. The backup is saved as the next KSTnnn.TXT.
-3. The image before the write is written as `KST/KST.TXT`.
+3. The backup is saved under its number, over the file there or as a new
+   file.
+4. The image before the write is written as `KST/KST.TXT`.
 
 The write runs with no card, or when the card took the backup or the record
 (`kstFilesWriteAllowed()`). rcbench's full journal
@@ -1509,9 +1586,12 @@ open; the owner has not decided them:
     and the lapse rule would switch it off. A lease of fixed length alone
     would keep the supply on through any core0 hang for the whole lease. The
     stamp from inside the driver's waits keeps the supply on only while
-    core0 waits on the card, and `KST_CARD_PHASE_MAX_MS`, 15 s, caps it: the
-    largest phase of a card within the SD specification takes 13.2 s, while
-    the driver's own limits allow about 88 s and a core0 stuck in an outer
+    core0 waits on the card, and `KST_CARD_PHASE_MAX_MS`, 15 s, caps it. With
+    no log in the root, the longest phase counted at the SD specification's
+    times, the first write that keeps an old record, takes 12.8 s on FAT32
+    and 16.3 s on exFAT ([the cap](#card-calls-and-the-heartbeat)); the
+    driver's own limits, 765 ms a read and 3033 ms a write after 3 tries,
+    allow about 109 s for that write on exFAT, and a core0 stuck in an outer
     loop would stamp for ever.
 18. **Every close waits 2000 ms off.** BACK during REBOOT, on the stalled
     screen and during a switched search closes the line only 2000 ms after

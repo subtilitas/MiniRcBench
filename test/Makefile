@@ -8,6 +8,8 @@
 #   make previews rebuild the screenshots in docs/ from this run's frames
 #   make wiki     rebuild the wiki's screenshots and check its links
 #   make coverage line coverage of src/ from an instrumented build in cov/
+#   make kstcount the KST card phases over FatFs, checked against the design note
+#   make kstcount-write  rewrite that table
 #   make clean
 #
 # Needs nothing but a C++17 compiler and the C compiler beside it: the firmware
@@ -48,12 +50,12 @@ INCLUDES += $(SERVO_INCLUDES) $(KST_INCLUDES)
 SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
         test_blackbox.cpp test_log_ring.cpp test_settings.cpp \
         test_usb_msc.cpp test_dshot_frame.cpp test_dshot_telem.cpp \
-        test_dshot_edt.cpp test_sdio.cpp test_claim.cpp test_widgets.cpp test_ids.cpp test_menu.cpp \
+        test_dshot_edt.cpp test_sdio.cpp test_claim.cpp test_widgets.cpp test_ids.cpp test_menu.cpp test_backup_ring.cpp \
         fakes.cpp \
         ../src/gfx.cpp ../src/ui.cpp ../src/ui_settings.cpp ../src/ui_menu.cpp ../src/ui_registry.cpp ../src/ui_sdlog.cpp ../src/theme.cpp \
         ../src/ui_input.cpp ../src/ui_widgets.cpp ../src/ui_list.cpp \
         ../src/ui_hold.cpp ../src/board_desc.cpp \
-        ../src/settings.cpp ../src/am32_eeprom.cpp \
+        ../src/settings.cpp ../src/am32_eeprom.cpp ../src/card_dir.cpp ../src/backup_ring.cpp ../src/am32_backup.cpp \
         ../src/kiss_telem.cpp ../src/esc_merge.cpp ../src/blackbox_encode.cpp \
         ../src/log_ring.cpp ../src/pin_claim.cpp \
         $(SERVO_TESTS) $(SERVO_SRCS) $(KST_TESTS) $(KST_SRCS)
@@ -95,7 +97,7 @@ vpath %.c $(sort $(dir $(FEATURE_CSRCS) $(FEATURE_CTESTS)))
 
 BIN := dshot_tests
 
-.PHONY: all build run syntax pioemu bbcheck previews wiki coverage clean
+.PHONY: all build run syntax pioemu bbcheck previews wiki coverage kstcount kstcount-write clean
 
 all: syntax run pioemu bbcheck
 
@@ -224,6 +226,43 @@ coverage:
 		-o $(COV_DIR)/$(BIN) $(SRCS) $(addprefix $(COV_DIR)/,$(notdir $(CSRCS:.c=.o)))
 	./$(COV_DIR)/$(BIN)
 	python3 ../tools/coverage.py --print
+
+# The KST card phases counted over FatFs R0.15 itself, from the SD library at
+# the commit CMakeLists.txt pins, with the library's ffconf.h: the numbers
+# behind the card-phase cap in docs/design/kst-programming.md. Fetches the
+# library into obj/ once; needs git and the network for that. `kstcount`
+# fails when the table in the design note differs from the counts;
+# `kstcount-write` rewrites it.
+FATFS_REV := $(shell awk '/Declare.no_os_fatfs/{f=1} f&&/GIT_TAG/{print $$2; exit}' ../CMakeLists.txt)
+FATFS_DIR := $(OBJ_DIR)/fatfs-$(FATFS_REV)
+FATFS_SRC := $(FATFS_DIR)/src/ff15/source
+
+$(FATFS_SRC)/ff.c:
+	rm -rf $(FATFS_DIR) && mkdir -p $(FATFS_DIR)
+	git -C $(FATFS_DIR) init -q
+	git -C $(FATFS_DIR) fetch -q --depth 1 \
+		https://github.com/carlk3/no-OS-FatFS-SD-SDIO-SPI-RPi-Pico.git $(FATFS_REV)
+	git -C $(FATFS_DIR) checkout -q FETCH_HEAD
+
+KST_NOTE := ../docs/design/kst-programming.md
+
+KST_COUNT_SRCS := ../src/kst_files.cpp ../src/card_dir.cpp ../src/backup_ring.cpp \
+                  ../src/am32_backup.cpp ../src/am32_eeprom.cpp
+
+$(OBJ_DIR)/kst_card_count: kst_card_count.cpp $(KST_COUNT_SRCS) ../src/kst_files.h ../src/card_dir.h ../src/backup_ring.h ../src/am32_backup.h $(KST_CSRCS) $(FATFS_SRC)/ff.c
+	mkdir -p $(OBJ_DIR)/kstcount
+	for f in $(FATFS_SRC)/ff.c $(FATFS_SRC)/ffunicode.c $(FATFS_SRC)/ffsystem.c $(KST_CSRCS); do \
+		$(CC) $(CFLAGS) -w -I$(FATFS_SRC) -I$(FATFS_DIR)/src/include $(KST_INCLUDES) \
+			-c -o $(OBJ_DIR)/kstcount/$$(basename $$f .c).o $$f || exit 1; \
+	done
+	$(CXX) $(CXXFLAGS) $(WARN) -I$(FATFS_SRC) -I$(FATFS_DIR)/src/include -I../src $(KST_INCLUDES) \
+		-o $@ kst_card_count.cpp $(KST_COUNT_SRCS) $(OBJ_DIR)/kstcount/*.o
+
+kstcount: $(OBJ_DIR)/kst_card_count
+	./$(OBJ_DIR)/kst_card_count --check $(KST_NOTE)
+
+kstcount-write: $(OBJ_DIR)/kst_card_count
+	./$(OBJ_DIR)/kst_card_count --write $(KST_NOTE)
 
 clean:
 	rm -f $(BIN) gen_blackbox_log *.ppm *.BFL

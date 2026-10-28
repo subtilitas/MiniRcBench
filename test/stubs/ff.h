@@ -20,6 +20,7 @@ typedef enum {
 	FR_TOO_MANY_OPEN_FILES, FR_INVALID_PARAMETER,
 } FRESULT;
 
+#define FA_OPEN_EXISTING 0x00
 #define FA_READ          0x01
 #define FA_WRITE         0x02
 #define FA_CREATE_NEW    0x04
@@ -54,3 +55,4 @@ FRESULT f_closedir(DIR *dp);
 FRESULT f_mkdir(const char *path);
 FRESULT f_unlink(const char *path);
 FRESULT f_rename(const char *path_old, const char *path_new);
+FRESULT f_chdir(const char *path);
