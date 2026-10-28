@@ -1424,6 +1424,18 @@ so these run against the same simulated servo:
      the old image.
    - BACK on the stalled screen and during a switched search goes to the
      leave page as without a switch; BACK during REBOOT ends the claim.
+   - `KstStatus` carries `supplyFitted`, `supplyOn`, `supplyUsed`,
+     `supplyLeftDs` (0.1 s) and `reboot` in place of the fields named above,
+     and `stallLocked` and `stallWrote` for the stalled screen.
+   - The switched leave page reads `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.`
+     and, without a card, `NO CARD: REBOOT LOSES THE BACKUP IN MEMORY.` above
+     HOLD TO REBOOT; its strip names the servo and the pin only.
+   - A heartbeat lapse with the supply on is latched: the supply goes off
+     once what runs has ended, even if the heartbeat returns before. A
+     switched entry that answers during a lapse ends NoUi with the session
+     power-cycled.
+   - Off times count whole milliseconds and end after more than 2000 of
+     them, so a real off time is 2000 ms to 2001 ms.
    - `servo_supply.*`, and `servoSupplyInit()` in `main.cpp`'s `setup()`; the
      switched search, REBOOT, the close and the supply rules in `kst_seek.*`
      and `kst_job.*`, `Reboot`, `CardBegin` and `CardEnd` in `KstOp` and the

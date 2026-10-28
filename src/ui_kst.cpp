@@ -383,7 +383,7 @@ static void follow() {
 	if (s_rebootSent && s_st.ackSeq == s_seq) {
 		s_rebootSent = false;
 		if (s_st.refused == KstRefusal::None) forgetServo();
-		else go(s_haveTarget ? KstView::List : KstView::Main);
+		else if (s_view == KstView::Main) go(s_haveTarget ? KstView::List : KstView::Main);
 	}
 	// REBOOT read the servo as it is: a new backup, a new first write, and
 	// the field list from the new image.
@@ -400,7 +400,8 @@ static void follow() {
 		if (read) {
 			s_target = s_st.image;
 			s_haveTarget = true;
-			go(KstView::List);
+			// BACK may have opened the leave page before the job took REBOOT.
+			if (s_view == KstView::Main) go(KstView::List);
 		}
 	}
 	if (s_prevJob == KstJobState::Searching && s_st.job == KstJobState::InMode) {
@@ -474,11 +475,15 @@ static void addWrapped(MainText *m, const char *text, uint16_t c, int lines = 2)
 /** @brief The stalled screen's card note, with the switched supply. */
 static void stallNote(MainText *m) {
 	static char doubt[96];
+	// The job's own record of the stall: the screen may have missed the end
+	// of the write that left the servo in doubt.
+	bool wrote = s_wroteSeen || s_st.stallWrote;
+	bool locked = s_lockedSeen || s_st.stallLocked;
 	if (!kstFilesMounted()) {
-		if (s_wroteSeen) addLine(m, "NO CARD: THE BACKUP IN MEMORY IS LOST.", C_AMBER);
+		if (wrote) addLine(m, "NO CARD: THE BACKUP IN MEMORY IS LOST.", C_AMBER);
 		return;
 	}
-	if (!s_lockedSeen) return;
+	if (!locked) return;
 	char name[BACKUP_NAME_MAX];
 	// A ring name is 10 characters at most (backup_ring.h).
 	snprintf(name, sizeof(name), "%.10s", s_first.backupName);

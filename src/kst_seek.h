@@ -80,6 +80,9 @@
 #ifndef KST_SUPPLY_ENTRY_DELAY_MS
 #define KST_SUPPLY_ENTRY_DELAY_MS 0
 #endif
+// The switch-on stays inside the entry's 100 ms low, before its first frame.
+static_assert(KST_SUPPLY_ENTRY_DELAY_MS > -(int)(KST_ENTRY_LOW_US / 1000u),
+              "KST_SUPPLY_ENTRY_DELAY_MS must switch on before the entry's first frame");
 
 /** @brief Where a switched attempt is. */
 enum class KstSupplyPhase : uint8_t {

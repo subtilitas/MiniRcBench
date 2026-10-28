@@ -85,7 +85,8 @@ static KstSeek waitStep(KstSeekState *s, kst_session_t *ses, uint32_t nowMs) {
 	if (nowMs - s->startMs >= KST_SEEK_TIMEOUT_MS)
 		return finishOff(s, KstSeek::TimedOut, KST_SES_ERR_NO_SERVO, nowMs);
 	if (s->phase == KstSupplyPhase::Off) {
-		if (nowMs - s->phaseMs < KST_SUPPLY_OFF_MS) return KstSeek::Searching;
+		// "<=": the clock counts whole ms, so 2000 ticks can be 1999.x ms.
+		if (nowMs - s->phaseMs <= KST_SUPPLY_OFF_MS) return KstSeek::Searching;
 		if (s->delayMs < 0) return enter(s, ses, nowMs);
 		switchOn(s);
 		s->phase = KstSupplyPhase::Delay;
@@ -122,7 +123,16 @@ KstSeek kstSeekStep(KstSeekState *s, kst_session_t *ses, bool uiAlive, uint32_t 
 	// a stop or not; no attempt starts after a stop.
 	if (s->stopping)
 		return finishOff(s, r == KST_SES_ERR_ABORTED ? KstSeek::Stopped : KstSeek::Failed, r, nowMs);
-	if (r == KST_SES_OK) return finish(s, KstSeek::Found, r, nowMs);
+	if (r == KST_SES_OK) {
+		// A switched entry that answered during a lapse: nobody is there to
+		// switch the supply off later, so it goes off now and the servo
+		// leaves the mode with it.
+		if (s->switched && s->noUi) {
+			kst_session_power_cycled(ses);
+			return finishOff(s, KstSeek::NoUi, KST_SES_ERR_NO_SERVO, nowMs);
+		}
+		return finish(s, KstSeek::Found, r, nowMs);
+	}
 	if (r != KST_SES_ERR_NO_SERVO) return finishOff(s, KstSeek::Failed, r, nowMs);
 	if (s->noUi) return finishOff(s, KstSeek::NoUi, r, nowMs);
 	if (nowMs - s->startMs >= KST_SEEK_TIMEOUT_MS) return finishOff(s, KstSeek::TimedOut, r, nowMs);

@@ -16,8 +16,9 @@
  * | Opening | driven low, from the bind | Search: Searching |
  * | Searching | the entry sequence, repeated | Found: InMode; any other end: SearchEnded |
  * | SearchEnded | driven low | Search (RETRY): Searching |
- * | InMode | driven low; the servo is in programming mode | ReadAll, Verify, Edit, Restore: Busy |
+ * | InMode | driven low; the servo is in programming mode | ReadAll, Verify, Edit, Restore: Busy; Reboot: Rebooting |
  * | Busy | the operation's frames | its end: InMode; a loss: Searching, or SearchEnded with the heartbeat lapsed |
+ * | Rebooting | driven low; switched supply: off, on, then an entry and a read | InMode; no answer: Searching; a lapse: SearchEnded |
  * | Leaving | the running operation finishes its frame, then low for @ref KST_LEAVE_LOW_MS | Closed |
  * | Closed | an input with its pull-down on (kstLineClose()) | the release |
  *
@@ -149,6 +150,8 @@ struct KstStatus {
 	bool        supplyUsed;     /**< The supply was on in this claim: a close waits. */
 	uint16_t    supplyLeftDs;   /**< Time left of the wait under way, 0.1 s, rounded up; 0 for none. */
 	KstReboot   reboot;         /**< Where a Reboot is. */
+	bool        stallLocked;    /**< The last stall power-cycled a session in doubt. */
+	bool        stallWrote;     /**< The last stall power-cycled a session that had written. */
 	kst_image_t image;          /**< The servo as last read. */
 	kst_image_t backup;         /**< The first image read since the servo was found. */
 	kst_stats_t stats;          /**< Reply timing since the bind. */

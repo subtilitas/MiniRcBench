@@ -792,6 +792,62 @@ static void testSwitchedLapse() {
 	finishSwitched();
 }
 
+static void testSwitchedLatch() {
+	section("KST job, switched: a lapse is latched; a failed bind; the stall's flags");
+	// A lapse during a read that the heartbeat recovers from before the
+	// read ends: the supply still goes off once it has.
+	switchedInMode();
+	send(KstOp::ReadAll);
+	passes(1);
+	g_alive = false;
+	passes(300);
+	g_alive = true;
+	passes(5);
+	checkTrue("the heartbeat back, the read still runs", status().job == KstJobState::Busy && gp0High());
+	uint16_t seq = send(KstOp::Verify);
+	until(KstJobState::SearchEnded, 3000);
+	KstStatus st = status();
+	checkTrue("the read ended: off and stalled, the lapse kept",
+	          !gp0High() && st.job == KstJobState::SearchEnded && st.stalled);
+	checkTrue("no operation started after the lapse", st.ackSeq == seq && st.refused != KstRefusal::None);
+	finishSwitched();
+
+	// A write, then a lapse: the stalled screen learns the session had written.
+	switchedInMode();
+	KstCmd edit;
+	memset(&edit, 0, sizeof(edit));
+	edit.op = KstOp::Edit;
+	edit.target = status().image;
+	kst_field_edit(&edit.target, KST_F_BOOST, 19);
+	kstJobCommand(&edit);
+	passes(1);
+	until(KstJobState::InMode, 5000);
+	checkTrue("written", status().result == KST_SES_OK && status().wroteRegs != 0);
+	g_alive = false;
+	passes(300);
+	st = status();
+	checkTrue("a lapse after a write: the stall says it had written", st.stalled && st.stallWrote &&
+	          !st.stallLocked && st.wroteRegs == 0);
+	g_alive = true;
+	finishSwitched();
+
+	// A bind whose line does not open drives nothing on GP0.
+	settings()->servoSupply = 1;
+	servoSupplyConfigure(1);
+	suspend();
+	fakeKstLineReset();
+	fakeKstLineRefuse(KST_LINE_ERR_PIO);
+	core1JobStart(Core1Job::Kst, SIG, 0xFF);
+	core1JobPoll();
+	FakePin p = fakePin(SERVO_SUPPLY_PIN);
+	checkTrue("a failed bind: GP0 undriven", core1JobError() == CORE1_JOB_PIO && !p.output && p.inputOff);
+	fakeKstLineRefuse(0);
+	escTaskResume();
+	fakePumpPoll();
+	servoSupplyConfigure(0);
+	settings()->servoSupply = 0;
+}
+
 static void testSwitchedClose() {
 	section("KST job, switched: time off before a leave counts");
 	switchedInMode();
@@ -838,5 +894,6 @@ void runKstJobTests() {
 	testSwitchedSearchAndLeave();
 	testSwitchedReboot();
 	testSwitchedLapse();
+	testSwitchedLatch();
 	testSwitchedClose();
 }

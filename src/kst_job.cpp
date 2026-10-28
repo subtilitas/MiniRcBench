@@ -48,6 +48,11 @@ static bool          s_switched;     /**< The bench switches the servo's supply,
 static bool          s_supplyUsed;   /**< The supply was on in this claim: a close waits. */
 static uint32_t      s_offMs;        /**< Clock of the last switch-off command. */
 static KstReboot     s_reboot;       /**< Where a Reboot is. */
+/** @brief The heartbeat lapsed while the supply was on: once what runs has
+ *         ended, the supply goes off, whatever the heartbeat does meanwhile. */
+static bool          s_lapsed;
+static bool          s_stallLocked;  /**< The session was in doubt when the last stall power-cycled it. */
+static bool          s_stallWrote;   /**< It had written a register then. */
 static uint32_t      s_rebootMs;     /**< Clock when the Reboot's phase began. */
 /** @} */
 
@@ -90,6 +95,11 @@ static void syncSeek(uint32_t nowMs) {
 
 /** @brief A lapse with the supply on: off, the session power-cycled, the stalled screen. */
 static void stall(uint32_t nowMs) {
+	// The power cycle drops the lock and the written registers; the stalled
+	// screen still has to say whether the servo is in doubt.
+	s_stallLocked = s_ses.locked != 0;
+	s_stallWrote = s_ses.wrote_regs != 0;
+	s_lapsed = false;
 	supplySet(false, nowMs);
 	kstSeekStalled(&s_seek, &s_ses, nowMs);
 	s_reboot = KstReboot::None;
@@ -154,6 +164,8 @@ static void publish(uint32_t nowMs) {
 	st.supplyUsed    = s_supplyUsed;
 	st.supplyLeftDs  = (uint16_t)((supplyLeftMs(nowMs) + 99u) / 100u);
 	st.reboot        = s_reboot;
+	st.stallLocked   = s_stallLocked;
+	st.stallWrote    = s_stallWrote;
 	st.image         = s_ses.image;
 	st.backup        = s_ses.backup;
 	st.stats         = s_ses.stats;
@@ -219,7 +231,8 @@ static bool leaveStep(uint32_t nowMs) {
 	// The close rule: a servo that was powered in this claim is off for
 	// KST_SUPPLY_OFF_MS before DShot can reach it. Time off before the leave
 	// counts.
-	if (s_supplyUsed && nowMs - s_offMs < KST_SUPPLY_OFF_MS) return false;
+	// "<=": the clock counts whole ms, so 2000 ticks can be 1999.x ms.
+	if (s_supplyUsed && nowMs - s_offMs <= KST_SUPPLY_OFF_MS) return false;
 	kstLineClose();
 	s_state = KstJobState::Closed;
 	return true;
@@ -260,7 +273,7 @@ static void take(const KstCmd *cmd, uint32_t nowMs, bool uiAlive) {
 		s_refused = KstRefusal::State;
 		return;
 	}
-	if (starts && !uiAlive) {
+	if (starts && (!uiAlive || s_lapsed)) {
 		s_refused = KstRefusal::NoUi;
 		return;
 	}
@@ -319,7 +332,7 @@ static void rebootStep(uint32_t nowMs, bool uiAlive) {
 	switch (s_reboot) {
 		case KstReboot::Off:
 			if (!uiAlive) { stall(nowMs); return; }
-			if (nowMs - s_rebootMs < KST_SUPPLY_OFF_MS) return;
+			if (nowMs - s_rebootMs <= KST_SUPPLY_OFF_MS) return;
 			supplySet(true, nowMs);
 			s_reboot = KstReboot::On;
 			s_rebootMs = nowMs;
@@ -338,7 +351,7 @@ static void rebootStep(uint32_t nowMs, bool uiAlive) {
 			if (r == KST_SES_BUSY) return;
 			s_result = (uint8_t)r;
 			// The entry finished; a lapse during it switches off now.
-			if (!uiAlive) { stall(nowMs); return; }
+			if (!uiAlive || s_lapsed) { stall(nowMs); return; }
 			if (r != KST_SES_OK) { rebootSearch(nowMs, uiAlive); return; }
 			r = kst_session_read_all(&s_ses);
 			if (r == KST_SES_BUSY) { s_reboot = KstReboot::Read; return; }
@@ -358,7 +371,7 @@ static void rebootStep(uint32_t nowMs, bool uiAlive) {
 				s_stalled = !uiAlive;
 				s_state = s_seek.state == KstSeek::Searching ? KstJobState::Searching
 				                                             : KstJobState::SearchEnded;
-			} else if (!uiAlive) {
+			} else if (!uiAlive || s_lapsed) {
 				stall(nowMs);
 			}
 			return;
@@ -392,14 +405,15 @@ static void advance(uint32_t nowMs, bool uiAlive) {
 				s_stalled = !uiAlive;
 				s_state = s_seek.state == KstSeek::Searching ? KstJobState::Searching
 				                                             : KstJobState::SearchEnded;
-			} else if (!uiAlive && servoSupplyIsOn()) {
-				// The operation has finished; nobody is there to switch off.
+			} else if ((!uiAlive || s_lapsed) && servoSupplyIsOn()) {
+				// The operation has finished; a lapse during it switches off
+				// now, even if the heartbeat came back meanwhile.
 				stall(nowMs);
 			}
 			break;
 		}
 		case KstJobState::InMode:
-			if (!uiAlive && servoSupplyIsOn()) stall(nowMs);
+			if ((!uiAlive || s_lapsed) && servoSupplyIsOn()) stall(nowMs);
 			break;
 		case KstJobState::Rebooting:
 			rebootStep(nowMs, uiAlive);
@@ -448,9 +462,13 @@ static uint8_t kstJobBind(uint8_t sigGpio, uint8_t auxGpio) {
 	s_switched = servoSupplyFitted();
 	s_supplyUsed = false;
 	s_offMs = millis();
-	servoSupplyBind();
+	s_lapsed = false;
+	s_stallLocked = false;
+	s_stallWrote = false;
 	s_lineError = kstLineOpen(sigGpio);
 	if (s_lineError == KST_LINE_OK) {
+		// Only a bound job is released: a failed bind leaves GP0 undriven.
+		servoSupplyBind();
 		s_line = kstLineDriver();
 		// The port's driver has all three functions, so the init succeeds.
 		kst_session_init(&s_ses, &COUNTING_DRIVER);
@@ -467,6 +485,8 @@ static void kstJobStep(uint32_t nowMs, bool uiAlive) {
 	KstCmd cmd = s_cmd;
 	critical_section_exit(&s_cs);
 
+	// A lapse with the supply on is latched until what runs has ended.
+	if (!uiAlive && servoSupplyIsOn()) s_lapsed = true;
 	if (cmd.seq != s_ackSeq) take(&cmd, nowMs, uiAlive);
 	advance(nowMs, uiAlive);
 	publish(nowMs);

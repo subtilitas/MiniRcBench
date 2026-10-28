@@ -378,8 +378,8 @@ static void testSwitchedFound() {
 	KstSeek k = switchedRun(5000000u);
 	checkTrue("found on the first power-up, the supply on",
 	          k == KstSeek::Found && g_b.seek.attempts == 1 && g_b.seek.supply && g_b.ses.in_mode);
-	checkTrue("switched on 2000 ms after the off command",
-	          g_sup.switchOns == 1 && g_sup.lastOnUs >= 2000000u && g_sup.lastOnUs < 2000200u);
+	checkTrue("switched on 2000 ms to 2001 ms after the off command",
+	          g_sup.switchOns == 1 && g_sup.lastOnUs >= 2000000u && g_sup.lastOnUs < 2001200u);
 	checkTrue("the first read about 100 ms after the switch-on",
 	          firstFrameFrom(0) - g_sup.lastOnUs >= KST_ENTRY_LOW_US &&
 	          firstFrameFrom(0) - g_sup.lastOnUs < KST_ENTRY_LOW_US + 1000u);
@@ -396,10 +396,9 @@ static void testSwitchedTimeout() {
 	checkInt("14 power-ups in 30 s at a delay of 0 ms", g_b.seek.attempts, 14);
 	checkInt("one switch-on each", g_sup.switchOns, 14);
 	checkTrue("the supply off at the end", !g_b.seek.supply && !g_sup.level);
-	// The search counts whole milliseconds: an off phase is 2000 ms on its
-	// clock, at least 1999 ms in microseconds.
-	checkTrue("off for 2000 ms before every switch-on, to the millisecond",
-	          g_sup.minOffUs >= 1999000u);
+	// The search counts whole milliseconds and waits for more than 2000 of
+	// them, so an off phase is at least 2000 ms in microseconds.
+	checkTrue("off for 2000 ms or more before every switch-on", g_sup.minOffUs >= 2000000u);
 	uint32_t ms = kstSeekMs(&g_b.seek, nowMs());
 	checkTrue("ended at 30 s, in an off phase", ms >= KST_SEEK_TIMEOUT_MS && ms < KST_SEEK_TIMEOUT_MS + 2);
 	checkTrue("no frame outside an on phase", g_b.sim.n_frames == 14u * 3u);
@@ -411,9 +410,9 @@ static void testSwitchedDelay() {
 	switchedBench(20000, 0, -40);
 	KstSeek k = switchedRun(5000000u);
 	checkTrue("a negative delay: found", k == KstSeek::Found && g_b.seek.attempts == 1);
-	uint32_t entryUs = 2000000u;
+	uint32_t entryUs = 2001000u;
 	checkTrue("switched on about 40 ms into the entry",
-	          g_sup.lastOnUs >= entryUs + 40000u && g_sup.lastOnUs < entryUs + 40200u);
+	          g_sup.lastOnUs >= entryUs + 40000u && g_sup.lastOnUs < entryUs + 41200u);
 	checkTrue("no frame before the switch-on plus the start-up time",
 	          firstFrameFrom(0) >= g_sup.lastOnUs + g_sup.startupUs);
 
@@ -460,6 +459,17 @@ static void testSwitchedStops() {
 	checkTrue("0.6 s into the off phase: 1.4 s left", left >= 1399 && left <= 1400);
 }
 
+static void testSwitchedLapseFound() {
+	section("KST search, switched: an entry that answers during a lapse");
+	switchedBench(0, 0);
+	switchedRun(2050000u);
+	checkTrue("in the entry, the supply on", g_b.seek.phase == KstSupplyPhase::Entry && g_b.seek.supply);
+	switchedStep(false);
+	KstSeek k = switchedRun(3000000u);
+	checkTrue("it answers, but the lapse ends it: NoUi, off, out of the mode",
+	          k == KstSeek::NoUi && !g_b.seek.supply && !g_b.ses.in_mode);
+}
+
 static void testSwitchedLoss() {
 	section("KST search, switched: a loss starts a switched search");
 	switchedBench(0, 0);
@@ -484,5 +494,6 @@ void runKstSeekTests() {
 	testSwitchedTimeout();
 	testSwitchedDelay();
 	testSwitchedStops();
+	testSwitchedLapseFound();
 	testSwitchedLoss();
 }
