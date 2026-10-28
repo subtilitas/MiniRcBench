@@ -52,6 +52,11 @@ protocol.
   2 s and on before each attempt; HOLD TO REBOOT on the leave page; every
   claim end waits 2 s with the supply off; a screen stall switches the
   supply off and shows the stalled screen.
+- The KST card phase: with the switched supply, the screen's card calls
+  run in a phase in which the SDIO driver's waits stamp a heartbeat
+  (`sdh_wait_hook`, `kstCardStamp()`), so a card that keeps the screen
+  waiting keeps the servo powered for at most 15 s
+  (`KST_CARD_PHASE_MAX_MS`).
 - Device backups in one ring ([backups.md](docs/design/backups.md)). KST
   SERVO and AM32 CONFIG save the device's settings, as read at entry, before
   the first write of a session: `BACKUP/KSTnnn.TXT` and `BACKUP/AMnnn.TXT`,

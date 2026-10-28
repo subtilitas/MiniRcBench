@@ -1073,16 +1073,13 @@ reads `READ ONLY: UNKNOWN LAYOUT`.
 
 **Current limitations**
 
-- With the switched supply, a card call on core0 that blocks the screen for
-  250 ms or more counts as a stall: the supply goes off and the backup in
-  memory is lost, the first write's card calls among them. The card phase
-  of the design note's step 5, which lets the card driver's waits keep the
-  supply on for at most 15 s, is not built. With the write cache on, the
-  writes queue and the reads left block: 0 to 2 block reads per phase with
-  the read cache filled, up to 210 ms at the SD specification's 105 ms a
-  read, and more for the FILES page right after a first write
-  (`docs/design/sd-write-cache.md`). Without the cache, a first write
-  blocks for seconds. Not measured on a card.
+- With the switched supply, the screen's card calls run in a card phase:
+  the card driver's waits keep the supply on for at most 15 s
+  (`KST_CARD_PHASE_MAX_MS`) while the screen does not redraw. A card call
+  that blocks longer, or blocks outside the driver's waits for 250 ms or
+  more, counts as a stall: the supply goes off and the backup in memory is
+  lost. A card call while a read, write, search or REBOOT runs gets no
+  phase. The card phase is tested on the host only, not on a card.
 - The converter's start-up time, the servo's power-on window and the entry
   delay (`KST_SUPPLY_ENTRY_DELAY_MS`, 0 ms) are not measured.
 - The first write's card reads run on core0, and the screen does not redraw
@@ -1335,7 +1332,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.7%**: 6,447 of 6,598 lines in 47 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.7%**: 6,523 of 6,676 lines in 47 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

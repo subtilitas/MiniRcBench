@@ -1091,6 +1091,10 @@ static void testWrite() {
 }
 
 /** @brief Write errors: CRC status, write error, busy, removal. */
+/** @brief Calls of the driver's wait hook. */
+static unsigned g_waitHooks = 0;
+static void countWaitHook() { g_waitHooks++; }
+
 static void testWriteErrors() {
 	section("SDIO: write CRC status and busy");
 
@@ -1123,6 +1127,15 @@ static void testWriteErrors() {
 	checkInt("busy never ends: timeout", sdh_write(&b, &c, 40, 1, data), SDE_TIMEOUT);
 	checkTrue("waited 1 s per attempt", s.t - t0 >= SDH_BUSY_TIMEOUT_US);
 	checkTrue("card marked not ready", !c.ready);
+	s.busyForever = false;
+	sdh_init(&b, &c, 10000000u);
+	s.busyForever = true;
+	g_waitHooks = 0;
+	sdh_wait_hook = countWaitHook;
+	sdh_write(&b, &c, 40, 1, data);
+	sdh_wait_hook = NULL;
+	checkTrue("each busy poll calls the wait hook", g_waitHooks > 1000u);
+	s.busyForever = false;
 
 	SimCard gone;
 	b = busOf(&gone);

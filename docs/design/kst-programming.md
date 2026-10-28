@@ -1,6 +1,6 @@
 # KST and Chaservo servo programming
 
-Status: work breakdown steps 1 to 4 built, host tests only. The KST core,
+Status: work breakdown steps 1 to 5 built, host tests only. The KST core,
 its RP2350 line driver and the KST file store are copied into
 `lib/rcbench/`, built by the firmware and the host suite, and rcbench's seven
 tests of them run in `make` and CI. The search (`src/kst_seek.*`) and the
@@ -10,8 +10,9 @@ store and the record of a write on the card through FatFs, tested against an
 in-memory volume. `src/ui_kst.cpp` is the screen, MENU's KST SERVO row, and
 `src/kst_view.*` the rows, values, stepper and texts it draws; the host suite
 runs the screen through MENU against the simulated servo and the in-memory
-volume. The switched supply, step 5, is not built: LEAVE asks the user to
-power the servo off. It depends on the pin claim in
+volume. The switched supply, step 5, is built: with `SERVO SUPPLY` at
+`GP0` the bench switches the servo's supply, and with `NONE` LEAVE asks the
+user to power the servo off. It depends on the pin claim in
 [pin-claim.md](pin-claim.md), slice 1 there, which is built. This
 document is slice 3. It comes after slices A to C of [menu.md](menu.md), the
 menu restructure, which are built, and is written for the system they leave:
@@ -427,26 +428,30 @@ write's card call was saving among them.
 **The card phase** (decisions 17 and 19). With `SERVO SUPPLY` at `GP0`,
 every card call core0 makes while the KST claim holds runs inside one:
 
-1. `ui_kst.cpp` sends `CardBegin` and waits for the job's acknowledge. The
-   job takes it only while no operation runs or plans, so a card call waits
-   for a running operation to end. The line stays low and the supply as it
-   is.
+1. `ui_kst.cpp` sends `CardBegin` and waits up to 50 ms
+   (`KST_CARD_BEGIN_WAIT_MS`) for the job's acknowledge, after up to 50 ms
+   for a command still held to be taken. The job takes `CardBegin` in
+   Opening, SearchEnded and InMode, so only while no operation, search or
+   REBOOT runs. Refused, or not acknowledged in time, the card calls run
+   without the phase. The line stays low and the supply as it is.
 2. Core0 makes the card calls. The SDIO driver offers one generic wait hook,
    `sdh_wait_hook`, a function pointer declared in `src/sdio/sd_host.h` and
    null by default, which it calls on every poll of its waits: `busyWait()`
    (`src/sdio/sd_host.c:29-37`), and the command, receive and status waits on
    `time_us_32()` in `src/sdio/sd_pio.c` (`:111-131`, `:228-245` and
    `:273-281`). The driver knows nothing of KST. While the card phase is
-   open, `kst_files.cpp` sets the hook to `kstCardStamp()`, which stamps the
+   open, `ui_kst.cpp` sets the hook to `kstCardStamp()`, which stamps the
    time on core0, and sets it back to null when the phase closes.
-3. Core0 closes the phase: with `Edit` or `Restore` after the first write's
-   card calls, and with `CardEnd` after every other card call, or when the
-   card took neither file; the write then stops with
+3. Core0 closes the phase with `CardEnd` after the card calls of the scope,
+   `KstCardPhase` in `ui_kst.cpp`; nested scopes share the outermost one's
+   phase. Every other command the job takes closes it too, so the `Edit` or
+   `Restore` after the first write's card calls starts outside it. When the
+   card took neither file the write stops with
    `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.`
 
 In the card phase the KST job counts the heartbeat as trusted while
-`core1UiAlive()` holds, or while `kstCardStampFresh()`, core1's reader of the
-stamp, finds it within 250 ms and the phase has been open for less than
+`core1UiAlive()` holds, or while `escUiAlive()` finds the stamp within 250 ms
+and the phase has been open for less than
 `KST_CARD_PHASE_MAX_MS`, 15,000 ms, from the job's acknowledge of
 `CardBegin`. A core0 that hangs outside the driver's waits stamps nothing,
 and the lapse rule applies 250 ms later. A core0 stuck in an outer loop that
@@ -1410,13 +1415,13 @@ so these run against the same simulated servo:
    the holds on `ui_hold`; its `UiScreen` and its line in `ui_registry.cpp`,
    so MENU shows KST SERVO ([menu.md](menu.md#code)); UI tests by control id;
    preview. Built, without the switched supply, which is step 5.
-5. The switched supply, its settings field and its SETTINGS row. Built in
-   part: `servo_supply.*` with `servoSupplyInit()`, the settings field and
+5. The switched supply, its settings field and its SETTINGS row. Built:
+   `servo_supply.*` with `servoSupplyInit()`, the settings field and
    version 3, the clamp, the SETTINGS row, the switched search, REBOOT, the
-   close rule, the lapse rule, their screens and their tests against
-   `test/kst_supply_sim.h`. Not built: the card phase (`CardBegin`,
-   `CardEnd`, `kstCardStamp()`, `sdh_wait_hook`). As built, and differing
-   from the sections above:
+   close rule, the lapse rule, the card phase (`CardBegin`, `CardEnd`,
+   `kstCardStamp()`, `sdh_wait_hook`), their screens and their tests
+   against `test/kst_supply_sim.h`. As built, and differing from the
+   sections above:
    - The close's wait shows on the unplug page,
      `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`, not on the leave page; BACK there
      is disabled until the pin is let go, as without a switch.
@@ -1436,11 +1441,30 @@ so these run against the same simulated servo:
      power-cycled.
    - Off times count whole milliseconds and end after more than 2000 of
      them, so a real off time is 2000 ms to 2001 ms.
+   - The card phase is `KstCardPhase` in `ui_kst.cpp`, around each scope
+     that calls the card: the first write's files, the record's lookup and
+     its recovery, a card swapped or mounted while the write page is up,
+     SAVE AS, LOAD, the FILES listing, RETRY MOUNT, the ring's next name, and
+     the record's removal after a verify and at LEAVE. `ui_kst.cpp`, not
+     `kst_files.cpp`, sets the hook. A card call while the job runs an
+     operation, a search or REBOOT gets no phase and does not wait for it;
+     a stall there counts as a lapse. `kstCardStampFresh()` is not built:
+     the job reads the stamp through `escUiAlive()`. A second `CardBegin`
+     in an open phase keeps its start.
+   - Tested: `CardBegin` taken and refused in each job state and `CardEnd`
+     in each; 900 ms of stamps keep the supply on and the backup, and with
+     the stamps stopped the supply goes off at 250 ms; stamps for 14,900 ms
+     keep it on and for 15,100 ms switch it off; a command or LEAVE closes
+     the phase; the first write's 300 ms card calls with the hook called
+     keep the supply on and are each inside a phase, the same calls without
+     it switch the supply off; with `NONE` the hook stays null; the busy
+     wait calls the hook. Not tested one by one: the phase around each of
+     SAVE AS, LOAD, the FILES listing, RETRY MOUNT and the removals.
    - `servo_supply.*`, and `servoSupplyInit()` in `main.cpp`'s `setup()`; the
      switched search, REBOOT, the close and the supply rules in `kst_seek.*`
      and `kst_job.*`, `Reboot`, `CardBegin` and `CardEnd` in `KstOp` and the
      supply fields in `KstStatus`; the card phase around every card call,
-     `kstCardStamp()` and `kstCardStampFresh()`, `KST_CARD_PHASE_MAX_MS`;
+     `kstCardStamp()`, `KST_CARD_PHASE_MAX_MS`;
      `sdh_wait_hook` in `src/sdio/sd_host.h`, called from the waits of
      `sd_host.c` and `sd_pio.c`, and in the layers list of
      [sdio-driver.md](sdio-driver.md#layers) (`sdio-driver.md:309-313`);

@@ -662,6 +662,25 @@ static uint32_t  g_volumeSerial = 1;
 static bool      g_volumeAnswers = true;
 static unsigned  g_volumeFailNext = 0;
 
+// ---------------------------------------------------------------------------
+// the KST card phase's wait (kst_job.h)
+// ---------------------------------------------------------------------------
+// On the firmware core1 runs while core0 waits for the job to take a
+// CardBegin; here the wait runs core1 itself, one millisecond a step.
+
+static void (*g_cardWaitPass)() = nullptr;
+
+void fakeCardWaitPass(void (*pass)()) { g_cardWaitPass = pass; }
+
+void kstCardWaitPoll() {
+	if (g_cardWaitPass) {
+		g_cardWaitPass();
+		return;
+	}
+	fakeAdvance(1);
+	core1JobPoll();
+}
+
 void fakeCacheReset() {
 	g_volumeSerial = 1;
 	g_volumeFailNext = 0;

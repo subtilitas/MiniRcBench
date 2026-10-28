@@ -7,6 +7,7 @@
 #include "kst_line.h"
 #include "kst_line_port.h"
 #include "servo_supply.h"
+#include "esc_task.h"
 
 #include "plat.h"
 #include <pico/critical_section.h>
@@ -53,6 +54,19 @@ static KstReboot     s_reboot;       /**< Where a Reboot is. */
 static bool          s_lapsed;
 static bool          s_stallLocked;  /**< The session was in doubt when the last stall power-cycled it. */
 static bool          s_stallWrote;   /**< It had written a register then. */
+static bool          s_cardPhase;    /**< A card phase is open. */
+static uint32_t      s_cardPhaseMs;  /**< Clock when it was acknowledged. */
+/** @} */
+
+/** @brief Core0 writes it, core1 reads it: millis() of the last card stamp. */
+static volatile uint32_t s_cardStampMs;
+
+void kstCardStamp() { s_cardStampMs = millis(); }
+
+/**
+ * @defgroup kst_job_core1b Core1 only, continued
+ * @{
+ */
 static uint32_t      s_rebootMs;     /**< Clock when the Reboot's phase began. */
 /** @} */
 
@@ -176,6 +190,7 @@ static void publish(uint32_t nowMs) {
 	st.reboot        = s_reboot;
 	st.stallLocked   = s_stallLocked;
 	st.stallWrote    = s_stallWrote;
+	st.cardPhase     = s_cardPhase;
 	st.image         = s_ses.image;
 	st.backup        = s_ses.backup;
 	st.stats         = s_ses.stats;
@@ -204,6 +219,7 @@ static void startOp(const KstCmd *cmd) {
 
 /** @brief Leave from wherever the job is: a running operation is aborted first. */
 static void beginLeave() {
+	s_cardPhase = false;
 	bool rebootOp = s_state == KstJobState::Rebooting &&
 	                (s_reboot == KstReboot::Enter || s_reboot == KstReboot::Read);
 	s_drain = s_state == KstJobState::Searching || s_state == KstJobState::Busy || rebootOp;
@@ -251,6 +267,8 @@ static bool leaveStep(uint32_t nowMs) {
 static void take(const KstCmd *cmd, uint32_t nowMs, bool uiAlive) {
 	s_ackSeq = cmd->seq;
 	s_refused = KstRefusal::None;
+	// Any command closes a card phase: no operation starts inside one.
+	if (cmd->op != KstOp::CardBegin) s_cardPhase = false;
 	bool leaving = s_state == KstJobState::Leaving || s_state == KstJobState::Closed;
 	bool starts = cmd->op == KstOp::Search || cmd->op == KstOp::ReadAll ||
 	              cmd->op == KstOp::Verify || cmd->op == KstOp::Edit ||
@@ -278,6 +296,13 @@ static void take(const KstCmd *cmd, uint32_t nowMs, bool uiAlive) {
 		case KstOp::Reboot:
 			ready = s_switched && s_state == KstJobState::InMode;
 			break;
+		case KstOp::CardBegin:
+			ready = s_state == KstJobState::Opening || s_state == KstJobState::SearchEnded ||
+			        s_state == KstJobState::InMode;
+			break;
+		case KstOp::CardEnd:
+			ready = true;
+			break;
 	}
 	if (!ready) {
 		s_refused = KstRefusal::State;
@@ -297,6 +322,12 @@ static void take(const KstCmd *cmd, uint32_t nowMs, bool uiAlive) {
 			kstSeekBegin(&s_seek, &s_ses, nowMs, s_switched);
 			syncSeek(nowMs);
 			s_state = KstJobState::Searching;
+			break;
+		case KstOp::CardBegin:
+			if (!s_cardPhase) s_cardPhaseMs = nowMs;
+			s_cardPhase = true;
+			break;
+		case KstOp::CardEnd:
 			break;
 		case KstOp::Reboot:
 			// The servo leaves the mode with its supply: the backup, the
@@ -480,6 +511,7 @@ static uint8_t kstJobBind(uint8_t sigGpio, uint8_t auxGpio) {
 	s_lapsed = false;
 	s_stallLocked = false;
 	s_stallWrote = false;
+	s_cardPhase = false;
 	s_lineError = kstLineOpen(sigGpio);
 	if (s_lineError == KST_LINE_OK) {
 		// Only a bound job is released: a failed bind leaves GP0 undriven.
@@ -500,6 +532,12 @@ static void kstJobStep(uint32_t nowMs, bool uiAlive) {
 	KstCmd cmd = s_cmd;
 	critical_section_exit(&s_cs);
 
+	// In a card phase core0 waits on the card, and the driver's waits stamp:
+	// that counts as the heartbeat, for at most KST_CARD_PHASE_MAX_MS.
+	if (s_cardPhase && !uiAlive) {
+		uint32_t stamp = s_cardStampMs;
+		uiAlive = escUiAlive(nowMs, stamp) && nowMs - s_cardPhaseMs < KST_CARD_PHASE_MAX_MS;
+	}
 	// A lapse with the supply on is latched until what runs has ended.
 	if (!uiAlive && servoSupplyIsOn()) s_lapsed = true;
 	if (cmd.seq != s_ackSeq) take(&cmd, nowMs, uiAlive);

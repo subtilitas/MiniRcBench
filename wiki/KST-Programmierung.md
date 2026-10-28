@@ -465,10 +465,11 @@ BEC-Leitung.**
 
 ## Einschränkungen
 
-- Mit geschalteter Versorgung zählt ein Kartenzugriff, der den Bildschirm
-  250 ms oder länger blockiert, als Hängen: Die Versorgung geht aus, und die
-  Sicherung im Speicher geht verloren. Die Kartenphase aus Schritt 5 der
-  Entwurfsnotiz ist nicht gebaut.
+- Mit geschalteter Versorgung hält die Karte den Servo höchstens 15 s lang
+  versorgt, während der Bildschirm auf sie wartet. Eine Karte, die den
+  Bildschirm länger blockiert, zählt als Hängen: Die Versorgung geht aus,
+  und die Sicherung im Speicher geht verloren. Nicht mit einer Karte
+  getestet.
 - Die Lesezugriffe des ersten Schreibens laufen auf core0, und der
   Bildschirm wird erst neu gezeichnet, wenn sie enden; seine Schreibzugriffe
   warten im Speicher und gehen auf die Karte, während der Bildschirm weiter
