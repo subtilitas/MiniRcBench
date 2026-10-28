@@ -47,7 +47,11 @@ protocol.
 - SETTINGS → SERVO SUPPLY, `NONE` or `GP0`, in a section of its own
   between WIRING and DISPLAY: whether a DC-DC converter's enable for the KST
   servo's supply is wired to GP0 (`src/servo_supply.*`). With `GP0`, GP0 is
-  an undriven input outside a KST claim; the KST job does not switch it yet.
+  an undriven input outside a KST claim.
+- KST SERVO with the switched supply: the search switches the servo off for
+  2 s and on before each attempt; HOLD TO REBOOT on the leave page; every
+  claim end waits 2 s with the supply off; a screen stall switches the
+  supply off and shows the stalled screen.
 - Device backups in one ring ([backups.md](docs/design/backups.md)). KST
   SERVO and AM32 CONFIG save the device's settings, as read at entry, before
   the first write of a session: `BACKUP/KSTnnn.TXT` and `BACKUP/AMnnn.TXT`,

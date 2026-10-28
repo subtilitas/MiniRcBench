@@ -16,8 +16,9 @@
  * | Opening | driven low, from the bind | Search: Searching |
  * | Searching | the entry sequence, repeated | Found: InMode; any other end: SearchEnded |
  * | SearchEnded | driven low | Search (RETRY): Searching |
- * | InMode | driven low; the servo is in programming mode | ReadAll, Verify, Edit, Restore: Busy |
+ * | InMode | driven low; the servo is in programming mode | ReadAll, Verify, Edit, Restore: Busy; Reboot: Rebooting |
  * | Busy | the operation's frames | its end: InMode; a loss: Searching, or SearchEnded with the heartbeat lapsed |
+ * | Rebooting | driven low; switched supply: off, on, then an entry and a read | InMode; no answer: Searching; a lapse: SearchEnded |
  * | Leaving | the running operation finishes its frame, then low for @ref KST_LEAVE_LOW_MS | Closed |
  * | Closed | an input with its pull-down on (kstLineClose()) | the release |
  *
@@ -37,6 +38,23 @@
  * operation finishes its frame, the line stays low for @ref KST_LEAVE_LOW_MS,
  * then it closes. The servo stays in programming mode until its supply is
  * off; whether it follows PWM before that is not measured.
+ *
+ * **Switched supply** (servo_supply.h, SETTINGS > SERVO SUPPLY at GP0). The
+ * bind takes GP0 low and the release makes it an input again; between them:
+ *
+ * - The search is switched (kst_seek.h): supply off for
+ *   @ref KST_SUPPLY_OFF_MS before each attempt, on for the entry.
+ * - Reboot, from InMode: supply off for @ref KST_SUPPLY_OFF_MS, on for
+ *   @ref KST_SUPPLY_WAIT_MS, then an entry and a read; the line low
+ *   throughout, kst_session_power_cycled() at the start. An entry without
+ *   an answer starts the switched search.
+ * - The supply is on only while the heartbeat is trusted. A lapse ends an off
+ *   or on wait at once; a running operation finishes first. Then the supply
+ *   goes off, kst_session_power_cycled() runs and the job is SearchEnded with
+ *   the search NoUi, locked session or not.
+ * - The close rule: once the supply was on in the claim, Leave and the
+ *   release close the line only @ref KST_SUPPLY_OFF_MS after the last
+ *   switch-off command, which they give first if the supply is on.
  *
  * @see docs/design/kst-programming.md, "Where the session runs".
  */
@@ -62,6 +80,7 @@ enum class KstOp : uint8_t {
 	Restore,     /**< kst_session_restore() to the backup. */
 	Abort,       /**< kst_session_abort() of the running operation, or STOP SEARCH. */
 	Leave,       /**< LEAVE: end what runs, the line low for @ref KST_LEAVE_LOW_MS, close. */
+	Reboot,      /**< REBOOT: switched supply only, from InMode. */
 };
 
 /** @brief Where the job is. @see the table in kst_job.h */
@@ -73,6 +92,16 @@ enum class KstJobState : uint8_t {
 	Busy,         /**< An operation runs. */
 	Leaving,      /**< Leave or the release: finishing, then the low time. */
 	Closed,       /**< The line is closed. */
+	Rebooting,    /**< Reboot: supply off, on, then an entry and a read. */
+};
+
+/** @brief Where a Reboot is. */
+enum class KstReboot : uint8_t {
+	None,  /**< No reboot runs. */
+	Off,   /**< Supply off for @ref KST_SUPPLY_OFF_MS. */
+	On,    /**< Supply on for @ref KST_SUPPLY_WAIT_MS. */
+	Enter, /**< kst_session_enter() runs. */
+	Read,  /**< kst_session_read_all() runs. */
 };
 
 /** @brief Why the last command taken did nothing. */
@@ -116,6 +145,13 @@ struct KstStatus {
 	uint32_t    wroteRegs;      /**< Bit n: the session wrote register n. */
 	uint32_t    frames;         /**< Frames the running or last operation or search sent. */
 	bool        stalled;        /**< A heartbeat lapse ended the last search. */
+	bool        supplyFitted;   /**< The bench switches the servo's supply. */
+	bool        supplyOn;       /**< The level the bench drives on GP0: on. */
+	bool        supplyUsed;     /**< The supply was on in this claim: a close waits. */
+	uint16_t    supplyLeftDs;   /**< Time left of the wait under way, 0.1 s, rounded up; 0 for none. */
+	KstReboot   reboot;         /**< Where a Reboot is. */
+	bool        stallLocked;    /**< The last stall power-cycled a session in doubt. */
+	bool        stallWrote;     /**< The last stall power-cycled a session that had written. */
 	kst_image_t image;          /**< The servo as last read. */
 	kst_image_t backup;         /**< The first image read since the servo was found. */
 	kst_stats_t stats;          /**< Reply timing since the bind. */

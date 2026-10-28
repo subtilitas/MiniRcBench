@@ -122,7 +122,7 @@ settings to flash. One list, in sections, scrolls under a finger.
 | WIRING | **DSHOT KBAUD** | 150 / 300 / 600 / 1200. Lower it if the `LINK` error rate rises |
 | WIRING | **KISS TELEM** | Whether to listen on the optional third telemetry wire |
 | WIRING | **KISS PIN** | GPIO for that wire. Skips the ESC pin, so the two never coincide. Reads `--` and does not act while KISS TELEM is off |
-| SERVO SUPPLY | **SERVO SUPPLY** | `NONE` or `GP0`: whether a DC-DC converter for the KST servo's supply has its enable wired to GP0, J5 pin 2. `NONE` by default. KST SERVO does not switch the supply yet |
+| SERVO SUPPLY | **SERVO SUPPLY** | `NONE` or `GP0`: whether a DC-DC converter for the KST servo's supply has its enable wired to GP0, J5 pin 2. `NONE` by default. With `GP0`, KST SERVO switches the servo's supply |
 | DISPLAY | **CONTRAST** | `NORMAL` or `HIGH`. High contrast is for daylight |
 | DISPLAY | **BACKLIGHT** | 16–255, in steps of 32 |
 | BOARD | **BUILT FOR** | Read-only. The board the firmware is built for, `RP2350-TOUCH-LCD-2.8` |

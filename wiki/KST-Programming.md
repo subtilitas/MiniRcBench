@@ -408,10 +408,37 @@ unplug page directly.
 
 ---
 
+## Switched supply
+
+With **SETTINGS → SERVO SUPPLY** at `GP0`, the bench powers the servo itself
+through a DC-DC converter whose enable input is on GP0, J5 pin 2. The
+converter gives 5 V, more than 1 A, and has an external pull-down on its
+enable: 10 kΩ to 100 kΩ for an enable with no internal pull-up. **An ESC on
+this lead gets the converter's output on its BEC wire.**
+
+<img src="img/kst-switched.png" width="240" alt="The switched search: SUPPLY OFF 1.4 S"> <img src="img/kst-leave-switched.png" width="240" alt="The leave page with HOLD TO REBOOT"> <img src="img/kst-stalled.png" width="240" alt="The stalled screen: SUPPLY OFF">
+
+- **The search** switches the servo off for 2 s, then on, before each try:
+  `GP29  TRY 3  SUPPLY OFF 1.4 S`. 14 power-ups fit in the 30 s search;
+  then `NO ANSWER IN 14 POWER-UPS`.
+- **The leave page** reads `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.` After
+  LEAVE the unplug page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`: the pin is
+  let go 2 s after the switch-off, whatever ended the session.
+- **HOLD TO REBOOT** (1 s) switches the servo off for 2 s and on for 1 s,
+  enters programming mode and reads the servo as it is. That read is the
+  new backup, and the pending changes go. Without a card the backup in
+  memory is lost; the page says so above the button.
+- **A screen that stalls** for 250 ms switches the supply off once a running
+  operation has ended. The servo leaves programming mode and its backup in
+  memory goes. RETRY powers it up and reads it again.
+
+---
+
 ## Limitations
 
-- No switched supply: the servo is powered up and down by hand. The design
-  note's step 5 (`docs/design/kst-programming.md`) adds a converter on GP0.
+- With the switched supply, a card call that blocks the screen for 250 ms
+  or more counts as a stall: the supply goes off and the backup in memory
+  is lost. The card phase of the design note's step 5 is not built.
 - The first write's card reads run on core0, and the screen does not redraw
   until they end; its writes queue and flush while the screen keeps drawing.
   With no card at the screen's opening the cache stays off, and a card

@@ -79,6 +79,7 @@ enum class KstCtl : uint8_t {
 	RetryMount,  /**< RETRY MOUNT with no card. */
 	Leave,       /**< LEAVE. */
 	Restart,     /**< RESTART DSHOT on the unplug page. */
+	Reboot,      /**< HOLD TO REBOOT on the leave page: switched supply only. */
 };
 
 struct UiControl;

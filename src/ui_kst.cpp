@@ -73,6 +73,7 @@ static const UiRect BTN_SAVE    = { 6, KF_SAVE_Y, 228, KF_BTN_H };
 static const UiRect BTN_LOAD    = { 6, KF_LOAD_Y, 110, KF_BTN_H };
 static const UiRect BTN_RESTORE = { 122, KF_LOAD_Y, 112, KF_BTN_H };
 static const UiRect BTN_RESTART = { 40, 200, 160, 40 };
+static const UiRect BTN_REBOOT  = { 6, 214, 228, 46 };
 
 static_assert(KL_LIST_Y1 < KL_EDIT_Y, "the field list overlaps the editor bar");
 static_assert(KL_EDIT_Y + KL_EDIT_H + UI_HOLD_BAR_H < KL_FOOT_Y,
@@ -120,6 +121,9 @@ static bool         s_firstVolumeRead = false; /**< s_firstVolume was read; fals
 static bool         s_checkAfterFlush = false; /**< The write waits for an earlier batch, then the swap check. */
 static KstFirstWrite s_first;
 static bool         s_recordFound = false; /**< KST/KST.TXT on the card at entry. */
+static bool         s_lockedSeen = false; /**< The servo was in doubt at its last status in the mode. */
+static bool         s_wroteSeen = false;  /**< The session wrote a register: a stall loses its backup in memory. */
+static bool         s_rebootSent = false; /**< HOLD TO REBOOT sent Reboot; the job has not answered yet. */
 /** @} */
 
 /**
@@ -277,6 +281,8 @@ static void newSession() {
 	s_everFound = false;
 	s_firstDone = false;
 	forgetFirst();
+	s_lockedSeen = false;
+	s_wroteSeen = false;
 	s_leaveQueued = false;
 	s_cardNote = nullptr;
 	s_prevJob = KstJobState::Closed;
@@ -367,6 +373,37 @@ static void follow() {
 		sendOp(KstOp::Search);
 		s_searchSent = true;
 	}
+	// What a stall has to say once the session is power-cycled.
+	if (s_st.inMode) {
+		s_lockedSeen = s_st.locked;
+		if (s_st.wroteRegs) s_wroteSeen = true;
+	}
+	// REBOOT taken: the servo is read again as it is, so the pending changes
+	// go with the old image. Refused: back to the field list.
+	if (s_rebootSent && s_st.ackSeq == s_seq) {
+		s_rebootSent = false;
+		if (s_st.refused == KstRefusal::None) forgetServo();
+		else if (s_view == KstView::Main) go(s_haveTarget ? KstView::List : KstView::Main);
+	}
+	// REBOOT read the servo as it is: a new backup, a new first write, and
+	// the field list from the new image.
+	if (s_prevJob == KstJobState::Rebooting && s_st.job == KstJobState::InMode) {
+		s_everFound = true;
+		s_firstDone = false;
+		forgetFirst();
+		s_lockedSeen = false;
+		s_wroteSeen = false;
+		s_recordFound = kstFilesRecordPresent();
+		escHeartbeat();
+		bool read = s_st.result == KST_SES_OK && s_st.hasImage && s_st.hasBackup;
+		s_readFailed = !read;
+		if (read) {
+			s_target = s_st.image;
+			s_haveTarget = true;
+			// BACK may have opened the leave page before the job took REBOOT.
+			if (s_view == KstView::Main) go(KstView::List);
+		}
+	}
 	if (s_prevJob == KstJobState::Searching && s_st.job == KstJobState::InMode) {
 		s_needRead = true;
 		s_everFound = true;
@@ -424,11 +461,37 @@ static void addLine(MainText *m, const char *s, uint16_t c) {
 		if (!m->line[i]) { m->line[i] = s; m->lineCol[i] = c; return; }
 }
 
-/** @brief @p text as at most two lines of the main view, broken at spaces. */
-static void addWrapped(MainText *m, const char *text, uint16_t c) {
-	static char wl[2][48];
-	int n = kstWrap(text, 37, wl, 2);
-	for (int i = 0; i < n; i++) addLine(m, wl[i], c);
+/** @brief @p text as at most @p lines lines of the main view, broken at spaces. */
+static void addWrapped(MainText *m, const char *text, uint16_t c, int lines = 2) {
+	// One buffer per call site in a frame: the lines point into it.
+	static char wl[3][3][48];
+	static int next = 0;
+	char (*buf)[48] = wl[next];
+	next = (next + 1) % 3;
+	int n = kstWrap(text, 37, buf, lines > 3 ? 3 : lines);
+	for (int i = 0; i < n; i++) addLine(m, buf[i], c);
+}
+
+/** @brief The stalled screen's card note, with the switched supply. */
+static void stallNote(MainText *m) {
+	static char doubt[96];
+	// The job's own record of the stall: the screen may have missed the end
+	// of the write that left the servo in doubt.
+	bool wrote = s_wroteSeen || s_st.stallWrote;
+	bool locked = s_lockedSeen || s_st.stallLocked;
+	if (!kstFilesMounted()) {
+		if (wrote) addLine(m, "NO CARD: THE BACKUP IN MEMORY IS LOST.", C_AMBER);
+		return;
+	}
+	if (!locked) return;
+	char name[BACKUP_NAME_MAX];
+	// A ring name is 10 characters at most (backup_ring.h).
+	snprintf(name, sizeof(name), "%.10s", s_first.backupName);
+	char *dot = strrchr(name, '.');
+	if (dot) *dot = '\0';
+	snprintf(doubt, sizeof(doubt), "THE LAST WRITE IS IN DOUBT. AFTER THE READ, LOAD %s IN FILES AND HOLD TO WRITE.",
+	         name[0] ? name : "THE BACKUP");
+	addWrapped(m, doubt, C_AMBER, 3);
 }
 
 static void mainBody(MainText *m) {
@@ -468,6 +531,27 @@ static void mainBody(MainText *m) {
 	}
 	switch (s_st.job) {
 		case KstJobState::Searching: {
+			if (s_st.supplyFitted) {
+				// TRY is the attempt under way: in an off phase, the next one.
+				unsigned tri = (unsigned)s_st.attempts + (s_st.supplyOn ? 0u : 1u);
+				if (s_st.supplyOn)
+					snprintf(m->strip, sizeof(m->strip), "GP%u  TRY %u  SUPPLY ON", sig, tri);
+				else
+					snprintf(m->strip, sizeof(m->strip), "GP%u  TRY %u  SUPPLY OFF %u.%u S", sig, tri,
+					         s_st.supplyLeftDs / 10, s_st.supplyLeftDs % 10);
+				m->big[0] = "SWITCHED SUPPLY";
+				addLine(m, "THE BENCH SWITCHES THE SERVO OFF FOR", C_DIM);
+				addLine(m, "2 S, THEN ON, BEFORE EACH TRY.", C_DIM);
+				addLine(m, "A POWERED SERVO ON THIS PIN GETS NO", C_DIM);
+				addLine(m, "PULSES AND MAY GO TO ITS FAILSAFE.", C_DIM);
+				addLine(m, "AN ESC ON THIS LEAD GETS THE", C_AMBER);
+				addLine(m, "CONVERTER'S OUTPUT ON ITS BEC WIRE.", C_AMBER);
+				if (s_st.seekRx != KST_RX_NO_REPLY)
+					snprintf(m->rx, sizeof(m->rx), "REPLY NOT VALID: %s", kstRxWord(s_st.seekRx));
+				m->spinner = true;
+				m->button = "STOP SEARCH"; m->ctl = KstCtl::StopSearch; m->enabled = true;
+				return;
+			}
 			unsigned ds = s_st.searchMs / 100;
 			snprintf(m->strip, sizeof(m->strip), "GP%u  TRY %lu  %u.%u S", sig,
 			         (unsigned long)s_st.attempts, ds / 10, ds % 10);
@@ -487,11 +571,28 @@ static void mainBody(MainText *m) {
 			m->button = "RETRY"; m->ctl = KstCtl::Retry; m->enabled = true;
 			switch (s_st.seek) {
 				case KstSeek::TimedOut:
+					if (s_st.supplyFitted) {
+						snprintf(m->strip, sizeof(m->strip), "NO ANSWER IN %lu POWER-UPS",
+						         (unsigned long)s_st.attempts);
+						addWrapped(m, "CHECK THE CONVERTER ON GP0, ITS WIRING AND THE SIGNAL.", C_TEXT);
+						addWrapped(m, "A SERVO ON ITS OWN SUPPLY NEEDS SETTINGS > SERVO SUPPLY AT NONE.",
+						           C_TEXT);
+						return;
+					}
 					snprintf(m->strip, sizeof(m->strip), "NO SERVO IN 30 S");
 					addLine(m, "CHECK SIGNAL AND GROUND, THEN POWER", C_TEXT);
 					addLine(m, "THE SERVO UP AGAIN.", C_TEXT);
 					return;
 				case KstSeek::NoUi:
+					if (s_st.supplyFitted) {
+						snprintf(m->strip, sizeof(m->strip), "GP%u  SUPPLY OFF", sig);
+						addWrapped(m, "THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF.",
+						           C_AMBER);
+						// 38 characters: 227 px from x 8, inside the panel.
+						addLine(m, "RETRY POWERS IT UP AND READS IT AGAIN.", C_AMBER);
+						stallNote(m);
+						return;
+					}
 					snprintf(m->strip, sizeof(m->strip), "SEARCH STOPPED");
 					addLine(m, "THE SCREEN STALLED, SO THE SEARCH", C_AMBER);
 					addLine(m, "STOPPED. RETRY SEARCHES AGAIN.", C_AMBER);
@@ -532,6 +633,23 @@ static void mainBody(MainText *m) {
 				addLine(m, "READING 32 REGISTERS", C_TEXT);
 			}
 			return;
+		case KstJobState::Rebooting:
+			switch (s_st.reboot) {
+				case KstReboot::Off:
+					snprintf(m->strip, sizeof(m->strip), "GP%u  SUPPLY OFF %u.%u S", sig,
+					         s_st.supplyLeftDs / 10, s_st.supplyLeftDs % 10);
+					addLine(m, "REBOOT: DO NOT UNPLUG THE SERVO.", C_AMBER);
+					return;
+				case KstReboot::On:
+					snprintf(m->strip, sizeof(m->strip), "GP%u  SUPPLY ON %u.%u S", sig,
+					         s_st.supplyLeftDs / 10, s_st.supplyLeftDs % 10);
+					addLine(m, "REBOOT: DO NOT UNPLUG THE SERVO.", C_AMBER);
+					return;
+				default:
+					snprintf(m->strip, sizeof(m->strip), "GP%u  SUPPLY ON", sig);
+					addLine(m, "READING 32 REGISTERS", C_TEXT);
+					return;
+			}
 		default:
 			snprintf(m->strip, sizeof(m->strip), "STARTING THE SEARCH ON GP%u", sig);
 			return;
@@ -556,7 +674,7 @@ static void drawMain() {
 	int y = 70;
 	for (int i = 0; i < 2; i++)
 		if (m.big[i]) { gfxTextCenter(y, m.big[i], C_LIME, 2); y += 18; }
-	y = m.big[0] ? 112 : 80;
+	y = m.big[1] ? 112 : m.big[0] ? 100 : 80;
 	for (int i = 0; i < 6 && m.line[i]; i++) {
 		gfxText(UI_MARGIN, y, m.line[i], m.lineCol[i], 1);
 		y += (i % 2) ? 18 : 14;
@@ -1278,6 +1396,11 @@ static void filesTouch() {
 // the leave page and the unplug page
 // ---------------------------------------------------------------------------
 
+/** @brief HOLD TO REBOOT acts: a switch, the servo in the mode, nothing running. */
+static bool rebootAllowed() {
+	return s_st.supplyFitted && idleMode() && !s_writing;
+}
+
 static void drawLeave() {
 	uiHeader("KST SERVO", s_t);
 	uiStripClear();
@@ -1289,10 +1412,16 @@ static void drawLeave() {
 		snprintf(strip, sizeof(strip), "GP%u", sigGpio());
 	uiStripText(strip, C_DIM);
 	gfxRect(0, UI_BODY_Y, GFX_W, GFX_H - UI_BODY_Y, C_BG);
-	gfxText(UI_MARGIN, 76, "POWER THE SERVO OFF.", C_AMBER, 1);
-	gfxText(UI_MARGIN, 92, "IT STAYS IN PROGRAMMING MODE UNTIL", C_TEXT, 1);
-	gfxText(UI_MARGIN, 104, "ITS SUPPLY IS OFF.", C_TEXT, 1);
 	int y = 124;
+	if (s_st.supplyFitted) {
+		// A servo without power is in no mode: the bench switches it off.
+		gfxText(UI_MARGIN, 76, "LEAVE SWITCHES THE SERVO'S SUPPLY OFF.", C_AMBER, 1);
+		y = 96;
+	} else {
+		gfxText(UI_MARGIN, 76, "POWER THE SERVO OFF.", C_AMBER, 1);
+		gfxText(UI_MARGIN, 92, "IT STAYS IN PROGRAMMING MODE UNTIL", C_TEXT, 1);
+		gfxText(UI_MARGIN, 104, "ITS SUPPLY IS OFF.", C_TEXT, 1);
+	}
 	char buf[48];
 	int n = bits(pending());
 	if (n) {
@@ -1311,6 +1440,18 @@ static void drawLeave() {
 		for (int i = 0; i < k; i++, y += 12) gfxText(UI_MARGIN, y, wl[i], C_DIM, 1);
 	}
 	if (s_leaveQueued && s_writing) gfxText(UI_MARGIN, y, "LEAVING AFTER THE WRITE ENDS.", C_AMBER, 1);
+	if (s_st.supplyFitted) {
+		// REBOOT reads the servo as it is: the hold confirms the loss of a
+		// backup that exists only in memory.
+		if (!kstFilesMounted()) {
+			gfxText(UI_MARGIN, 186, "NO CARD: REBOOT LOSES THE BACKUP", C_AMBER, 1);
+			gfxText(UI_MARGIN, 198, "IN MEMORY.", C_AMBER, 1);
+		}
+		bool rok = rebootAllowed();
+		uiHoldDrawBar(&s_hold, BTN_REBOOT, BTN_REBOOT.y - 4, millis());
+		uiButton(BTN_REBOOT, "HOLD TO REBOOT", s_hold.holding ? C_RED : C_PANEL,
+		         s_hold.holding ? C_ONACCENT : C_TEXT, 2, s_hold.holding, rok);
+	}
 	bool ok = !s_writing;
 	uiButton(BTN_WIDE, "LEAVE", C_PANEL, C_TEXT, 2, ok && pressing(BTN_WIDE), ok);
 }
@@ -1319,7 +1460,18 @@ static void drawUnplug() {
 	bool due = pinClaimUnplugDue();
 	uiHeader("KST SERVO", s_t);
 	gfxRect(0, UI_STRIP_Y, GFX_W, GFX_H - UI_STRIP_Y, C_BG);
-	if (!due) { gfxTextCenter(120, "RELEASING THE PIN", C_DIM, 1); return; }
+	if (!due) {
+		// The close rule: a servo the bench powered is off for 2 s first.
+		if (s_st.supplyUsed && s_st.supplyLeftDs) {
+			char w[48];
+			snprintf(w, sizeof(w), "SUPPLY OFF FOR 2.0 S: %u.%u S LEFT.", s_st.supplyLeftDs / 10,
+			         s_st.supplyLeftDs % 10);
+			gfxTextCenter(120, w, C_AMBER, 1);
+		} else {
+			gfxTextCenter(120, "RELEASING THE PIN", C_DIM, 1);
+		}
+		return;
+	}
 	gfxTextCenter(100, "UNPLUG THE SERVO.", C_AMBER, 2);
 	char b[48];
 	snprintf(b, sizeof(b), "DSHOT RESTARTS ON GP%u AND READS AS", sigGpio());
@@ -1395,6 +1547,8 @@ uint8_t uiKstControls(UiControl *out, uint8_t max) {
 		}
 		case KstView::Leave:
 			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
+			if (s_st.supplyFitted)
+				uiControlAdd(out, &n, max, UI_FIX(KstCtl::Reboot), BTN_REBOOT, rebootAllowed());
 			uiControlAdd(out, &n, max, UI_FIX(KstCtl::Leave), BTN_WIDE, !s_writing);
 			return n;
 	}
@@ -1480,7 +1634,11 @@ bool uiKstTick(const TouchState *t) {
 	if (back) {
 		switch (s_view) {
 			case KstView::Main:
-				if (running() && (s_everFound || s_st.job == KstJobState::InMode ||
+				// BACK during REBOOT closes as LEAVE does: the supply off,
+				// then the unplug page 2 s after the switch-off.
+				if (running() && s_st.job == KstJobState::Rebooting) {
+					if (!endClaim()) return false;
+				} else if (running() && (s_everFound || s_st.job == KstJobState::InMode ||
 				                  s_st.job == KstJobState::Busy)) {
 					// BACK during a read aborts it; the leave page follows.
 					// The aborted read reports no end of its own, so Main offers
@@ -1531,6 +1689,13 @@ bool uiKstTick(const TouchState *t) {
 		case KstView::Write: writeTouch(); break;
 		case KstView::Files: filesTouch(); break;
 		case KstView::Leave:
+			if (s_st.supplyFitted &&
+			    uiHoldUpdate(&s_hold, BTN_REBOOT, s_t, rebootAllowed(), millis())) {
+				sendOp(KstOp::Reboot);
+				s_rebootSent = true;
+				go(KstView::Main);
+				break;
+			}
 			if (!s_writing && tapped(BTN_WIDE)) {
 				// The servo leaves in a known state: no write is open, so
 				// the session's record goes.
