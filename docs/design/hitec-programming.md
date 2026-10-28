@@ -1,7 +1,7 @@
 # Hitec servo programming
 
-Status: planned, nothing built. The owner decided the design's questions on
-2026-10-23 and set its scope on 2026-10-28
+Status: planned, nothing built. The decisions of the owner of 2026-10-23
+and 2026-10-28 set its questions and its scope
 ([decisions of the owner](#decisions-of-the-owner)): port rcbench's Hitec
 module at commit 3e29dc1b, and write. The design rests on rcbench's session
 (`hitec_session`) and register model (`hitec_reg`), not on single
@@ -50,7 +50,8 @@ microcontroller, which runs its Hitec transactions; the PD mini is
 rcbench's USB PD (Power Delivery) supply module. The HPP-21 Plus and the
 HFP-30 are Hitec's programmers for the classic and the D series.
 
-Source: rcbench, commit 3e29dc1b, MIT, same holder: the core in
+Source: rcbench, commit 3e29dc1b, under the MIT (Massachusetts Institute of
+Technology) licence, same holder: the core in
 `protocols/hitec` (5 C files and 5 headers, 5,800 lines: wire, PIO
 arithmetic, precharge receiver, register model, session), the RP2350 driver
 `protocols/hitec/rp2350/hitec_line.{h,c,pio}` (1,165 lines), the module's
@@ -76,7 +77,7 @@ claim:
    register model, 20 D series and 14 classic, decoded with their stored
    value beside them;
 4. edits the writable ones within their encodings, in a draft on core0;
-5. writes the draft through a 1000 ms hold, as a plan of `hitec_plan()` run
+5. writes the draft through a 1,000 ms hold, as a plan of `hitec_plan()` run
    by `hitec_session_write()`, and verifies it by read-back. Before the
    session's first write the backup goes into the ring of `BACKUP/`; before
    every write a record of it goes to `HITEC/HITEC.TXT`;
@@ -155,7 +156,7 @@ Session timing, from `hitec_session.h` and `hitec_reg.h`:
 | Gap after a classic transaction | 2 ms | `HITEC_SES_C_GAP_MS`, not measured |
 | Gap after a D series transaction | 20 ms | `HITEC_SES_D_GAP_MS`, the HFP-30's write spacing |
 | D series save to reboot | 100 ms | the HFP-30's |
-| D series reboot | 1000 ms | third-party observation; the HFP-30 reads again 834.6 ms after it |
+| D series reboot | 1,000 ms | third-party observation; the HFP-30 reads again 834.6 ms after it |
 | Classic entry: first `+` | a window of 2,000 ms from the switch-on | `HITEC_SES_C_ENTRY_WINDOW_US` |
 | Classic entry: second `+` | a window of 1,000 ms; measured 250 ms to 267 ms after the first | `HITEC_SES_C_NEXT_WINDOW_US` |
 | Supply off time of a POWER step | 500 ms by default, 0 ms to 10,000 ms | `HITEC_SES_OFF_MS`, `HITEC_SES_OFF_MS_MAX` |
@@ -172,7 +173,7 @@ Times computed from the tables, not measured:
   21 registers takes about 0.6 s. A register that does not answer waits out
   the 25 ms window 3 times.
 - A D series write of one setting: 1 to 5 register writes 20 ms apart, the
-  save, 100 ms, the reboot, 1000 ms, and a read-back of the 21 registers:
+  save, 100 ms, the reboot, 1,000 ms, and a read-back of the 21 registers:
   about 1.7 s.
 - A classic write of one setting: its cells and a balance, each about
   3.6 ms plus the gap, then a read-back of cells 0x00 to 0x23, about 0.2 s.
@@ -239,7 +240,8 @@ RESTART DSHOT.
 
 ## Resources
 
-During a claim the DShot pump and the KISS receiver have released their
+During a claim the DShot pump and the KISS (the KISS ESC line's serial
+telemetry) receiver have released their
 SMs, so pio2 is empty, pio0 is empty, and pio1 holds the SDIO driver's
 32 words ([pin-claim.md](pin-claim.md#pio-and-dma-budget)).
 
@@ -326,7 +328,9 @@ struct HitecStatus {
 ```
 
 The fields mirror `hitec_session_t` where it has them. `unknown` is set
-while the image lacks an address a write needs: a failed write made the
+while `hitec_image_known()` is false for a writable address of the model or,
+on a classic servo, cell 0x1C, so while the image lacks an address a write
+needs: a failed write made the
 session forget it (`hitec_image_forget()`), and `hitec_plan()` refuses with
 `HITEC_PLAN_ERR_UNKNOWN` until a read. The supply fields are those the KST
 job's status carries as built ([kst-programming.md](kst-programming.md#work-breakdown),
@@ -346,7 +350,8 @@ and choosing again.
 `hitec_line_open()` with `HITEC_DRIVE_OPEN_DRAIN` for classic,
 `hitec_line_open_rx()` with `HITEC_DRIVE_PUSH_PULL` and
 `HITEC_RX_PRECHARGE` for the D series. It maps `hitec_line_err_t` to
-`CORE1_JOB_PIO`, `_DMA` and `_CLOCK`, and is the one file the host suite
+`CORE1_JOB_PIO`, `_DMA` and `_CLOCK`; `HITEC_LINE_ERR_ARG`, which the port's
+fixed arguments never cause, maps to `CORE1_JOB_PIO`, and is the one file the host suite
 replaces with a fake.
 
 ### Running a step
@@ -392,7 +397,10 @@ once. With a step out it ends at that step's result:
 
 - a SEND, a request on the wire, runs to its end, at most its 25 ms window,
   and its result is fed RAN, as KST finishes a frame on the wire;
-- a LISTEN is cut with `hitec_line_abort()` and fed CUT;
+- a LISTEN is cut with `hitec_line_abort()` and fed CUT; the job polls
+  `hitec_line_poll()` until the cut capture comes before it starts the next
+  transaction, and a capture marked aborted is fed CUT, as rcbench's
+  `hitec_link.c` does;
 - a POWER in its off phase is fed FAILED, with the supply off.
 
 The session ends the operation with `HITEC_SES_ERR_ABORTED`.
@@ -461,17 +469,18 @@ through `servo_supply.h` under the rules KST's job follows there. With
 
 ### Entry
 
-`hitec_session_enter(&ses, power, HITEC_SES_OFF_MS)`, 500 ms off, as
-rcbench's session and panel do:
+`hitec_session_enter(&ses, power, KST_SUPPLY_OFF_MS)`, 2,000 ms off, as the
+KST search switches the same converter off
+([choice 5](#choices-made-in-this-design)):
 
-- **Classic**, `GP0` only. POWER: the supply off for 500 ms from the
+- **Classic**, `GP0` only. POWER: the supply off for 2,000 ms from the
   switch-off command, then on, and a LISTEN of 2,000 ms from the switch-on
   for the servo's `+`, which the line driver answers with `+` (520.8 µs to
   527.3 µs after the start of the servo's byte). Then a LISTEN of 1,000 ms
   for the servo's next `+`, measured 250 ms to 267 ms after the first. Then
   the first command `67 00 00 99`, 3 tries; its answer's value is the
   version. A LISTEN that gets no `+` ends the entry.
-- **D series with `GP0`**, `power` true. POWER: the supply off for 500 ms,
+- **D series with `GP0`**, `power` true. POWER: the supply off for 2,000 ms,
   on, a LISTEN of 1 ms that waits for nothing, then 1,000 ms
   (`HITEC_SES_D_ENTRY_WAIT_MS`), then a read of register 0x00, the model,
   3 tries.
@@ -491,7 +500,7 @@ view shows the result and RETRY ([family and entry](#family-and-entry)).
 ### Leave and claim end
 
 - **With `GP0`, both families.** LEAVE switches the supply off at once; the
-  line stays released. After `KST_SUPPLY_OFF_MS`, 2000 ms from the last
+  line stays released. After `KST_SUPPLY_OFF_MS`, 2,000 ms from the last
   switch-off command, the job closes the line and releases GP0, and the
   unplug page follows, reading `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` while it
   waits, as KST's close does ([kst-programming.md](kst-programming.md#close-with-the-switch),
@@ -503,7 +512,7 @@ view shows the result and RETRY ([family and entry](#family-and-entry)).
   page follows. The servo restarts on the user's supply from its saved
   values.
 - **Every claim end** after the supply was on at least once closes the line
-  and releases GP0 only 2000 ms after the last switch-off command: LEAVE,
+  and releases GP0 only 2,000 ms after the last switch-off command: LEAVE,
   BACK on the stalled view and BACK during an entry alike. BACK switches the
   supply off first if it is on; time spent off before BACK counts.
 
@@ -520,8 +529,8 @@ job does it.
 - **During a read, a write or a D series leave.** The operation finishes,
   as [pin-claim.md](pin-claim.md#decisions) decision 1 requires. A write plan
   that stopped part way could leave a classic servo with a wrong checksum;
-  rcbench measured an HS-7955TG with a wrong checksum drawing 0.88 A to
-  0.89 A under sweep (one servo, measured once). Then the supply goes off.
+  an HS-7955TG with a wrong checksum draws 0.88 A to 0.89 A under sweep
+  (rcbench, one servo, measured once). Then the supply goes off.
 - **After the supply went off** the job re-initialises the session
   (`hitec_session_init()`): not in mode, the image empty. The backup in
   memory drops with it; with a card, the ring holds it if the session wrote.
@@ -550,7 +559,9 @@ The Hitec job reuses KST's card phase as built: the mechanism, not its
 code ([choice 9](#choices-made-in-this-design)).
 
 - `HitecCardPhase` in `ui_hitec.cpp`, around each scope that calls the
-  card, with `SERVO SUPPLY` at `GP0` only. It sends `CardBegin`, waits up to
+  card, with `SERVO SUPPLY` at `GP0` only. It waits up to 50 ms for a
+  command still held to be taken, and gets no phase while one is, so
+  `CardBegin` never replaces it. Then it sends `CardBegin`, waits up to
   50 ms for the acknowledge, and sets `sdh_wait_hook` to
   `hitecCardStamp()`. Its destructor sends `CardEnd` and sets the hook back
   to null. Nested scopes share the outermost phase. Any other command closes
@@ -566,9 +577,13 @@ code ([choice 9](#choices-made-in-this-design)).
 The write cache of [sd-write-cache.md](sd-write-cache.md) takes the card's
 writes off core0's path during the claim
 ([decision 11](#decisions-of-the-owner)); the reads still block, so the phase
-stays. The Hitec card phases are not counted; the counts of
+stays. The Hitec card phases are counted in step 3 of the
+[work breakdown](#work-breakdown), by `test/kst_card_count.cpp` over
+`src/hitec_files.cpp`, against the 15,000 ms cap: the first write does the
+three file operations of KST's, and a record goes to the card before every
+write. Until then the counts of
 [kst-programming.md](kst-programming.md#card-calls-and-the-heartbeat) are
-KST's.
+KST's only.
 
 ## Screens
 
@@ -582,7 +597,7 @@ SETTINGS, the last row, shows 6 px at scroll 0 and takes no tap until MENU
 is scrolled.
 
 The KST screen is the model: lists on `ui_list` with 40 px rows at a 42 px
-pitch, holds on `ui_hold`, `UI_HOLD_MS`, 1000 ms, and the 36 px header with
+pitch, holds on `ui_hold`, `UI_HOLD_MS`, 1,000 ms, and the 36 px header with
 the strip at y 40 and the body from y 62. The screen is `src/ui_hitec.cpp`,
 its rows, values, stepper and texts in `src/hitec_view.*`, as
 `src/kst_view.*`.
@@ -647,9 +662,9 @@ y   0 | HITEC SERVO                      [ BACK ]|
   `MODEL NOT MEASURED: WRITTEN IN THE D LAYOUT.` or `... CLASSIC LAYOUT.`
   above the hold. The measured models are the D485HW, the HS-5645MG and the
   HS-7955TG.
-- After a failed write the write button reads `READ FIRST` and HOLD TO
-  WRITE does not act until READ AGAIN on the leave page or on the result
-  has read the servo ([write](#write)).
+- After a failed write the write button reads `READ AGAIN`; a tap runs
+  ReadAll, and HOLD TO WRITE returns once the read has filled the image
+  ([write](#write)).
 
 ### Editing
 
@@ -667,8 +682,8 @@ by a table value on its first edit; REVERT brings it back.
   sideways swipe steps by one coarse step per 16 px, an eleventh of the
   range, at least one step, as KST's (`kstCoarse()`).
 - Lists (DIRECTION, FAILSAFE, SMART SENSOR, SOFT START, DEAD BAND, OVERLOAD)
-  step through their choices. D series FAILSAFE steps OFF, LIMP, then
-  positions of 900 µs to 2,100 µs.
+  step through their choices. D series FAILSAFE steps LIMP, OFF (`HITEC_FS_LIMP` 0,
+  `HITEC_FS_OFF` 1), then positions of 900 µs to 2,100 µs.
 - Hard rules, skipped by the stepper: the encoding's range and steps
   (`hitec_reg.c`), and the D series order LEFT END below NEUTRAL below
   RIGHT END.
@@ -718,7 +733,7 @@ y   0 | HITEC WRITE                      [ BACK ]|
   126 | KEEP THE SERVO HORN CLEAR.               |
   196 | WRITING: DO NOT UNPLUG. / the result     |  3 lines at most
   236 | BACKUP FIRST: BACKUP/HT005.TXT           |  or NO CARD: BACKUP IN MEMORY
-  268 | [          HOLD TO WRITE           ]     |  1000 ms, progress bar
+  268 | [          HOLD TO WRITE           ]     |  1,000 ms, progress bar
   320 +------------------------------------------+
 ```
 
@@ -738,7 +753,12 @@ y   0 | HITEC WRITE                      [ BACK ]|
   2. The record of this write as `HITEC/HITEC.TXT`.
   3. With the write cache on, the flush: `SAVING THE BACKUP TO THE CARD.`
      and `BLOCKS LEFT: n`; `Write` goes to the job only once the cache reads
-     Idle ([sd-write-cache.md](sd-write-cache.md#the-flush-barrier)).
+     Idle ([sd-write-cache.md](sd-write-cache.md#the-flush-barrier)). The
+     page follows KST's as built (`flushStep()`, `recoverFlush()` and
+     `cardSwapped()` in `ui_kst.cpp`): a flush that ends Failed stops the
+     write with `THE CARD DID NOT TAKE THE BACKUP. NOTHING WAS WRITTEN TO THE
+     SERVO.`, and a card whose volume serial changed since the backup gets
+     the backup and the record again before the write.
   4. `Write` with the draft: `WRITING: DO NOT UNPLUG.`, then
      `WRITES SENT: 3 OF 5` from `stepIndex` and `planSteps`, then
      `READING BACK`.
@@ -749,22 +769,28 @@ y   0 | HITEC WRITE                      [ BACK ]|
   neither the backup nor the record stops the write:
   `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.` No card, or a
   card held by USB, writes with the backup and the record in memory.
-- Results, one text per `hitec_ses_t`, from a table in `hitec_view.cpp`
-  that the tests hold complete, with OK to return to the list:
+- Results, one text per `hitec_ses_t` a write can end with, from a table in
+  `hitec_view.cpp` that the tests hold complete, with OK to return to the
+  list. A write that ends in error with `stepIndex` equal to `planSteps`
+  sent every write: its text is `ALL WRITES SENT; READ-BACK FAILED. READ
+  THE SERVO BEFORE A WRITE.` in red, whatever the code.
 
   | Result | Text | Colour |
   |---|---|---|
   | OK | `n VALUES WRITTEN AND VERIFIED.` | green |
   | ERR_VERIFY | `THE SERVO DOES NOT HOLD THE VALUES: 0x06 0x1C. READ AND CHECK.` (from `diff`) | red |
   | ERR_WRITE | `CELL 0x06 GOT NO ANSWER. READ THE SERVO BEFORE A WRITE.` | red |
-  | ERR_NO_SERVO, ERR_CUT, ERR_LINK | `THE WRITE STOPPED AT STEP 3 OF 5. READ THE SERVO BEFORE A WRITE.` | red |
+  | ERR_NO_SERVO, ERR_CUT, ERR_LINK, ERR_STEP | `THE WRITE STOPPED AT STEP 3 OF 5. READ THE SERVO BEFORE A WRITE.` | red |
+  | ERR_READ | `ALL WRITES SENT; READ-BACK FAILED. READ THE SERVO BEFORE A WRITE.` | red |
+  | ERR_ABORTED | `THE WRITE STOPPED AT STEP 3 OF 5 (LEAVE). READ THE SERVO BEFORE A WRITE.`; only a LEAVE aborts a write | red |
+  | ERR_ENTRY | not reached by a write; `NOTHING WAS WRITTEN.` with the code | amber |
   | ERR_PLAN | `NOTHING WAS WRITTEN: READ THE SERVO FIRST.` for `HITEC_PLAN_ERR_UNKNOWN` | amber |
   | ERR_NOT_IN_MODE, ERR_BUSY, ERR_ARG | `NOTHING WAS WRITTEN.` with the code | amber |
 
 - A write that ends in error after a plan step went out leaves the session
   with the addresses the servo may have changed forgotten, so the next write
-  needs a read. The result's OK returns to the list with READ AGAIN offered
-  in place of HOLD TO WRITE. The record stays on the card.
+  needs a read. The result's OK returns to the list with READ AGAIN in
+  place of HOLD TO WRITE ([field list](#field-list)). The record stays on the card.
 - BACK during a write is queued: the page shows
   `LEAVING AFTER THE WRITE ENDS.` and the leave follows the result. The write
   is never aborted from the screen.
@@ -955,9 +981,10 @@ the copy already there:
 | `test_hitec_reg_plan.c` | 543 | 9 | `hitec_reg_fix.h` |
 | `test_hitec_session.c` | 772 | 15 | `hitec_session_rig.h` (352 lines), `link_pages.h`, see below |
 | `test_hitec_session_write.c` | 544 | 13 | `hitec_session_rig.h` |
+| `test_hitec_card.c` | 518 | 12 | `hitec_reg_fix.h`; tests `hitec_card.c` and `link_crc.c` ([decision 10](#decisions-of-the-owner)) |
 | `hitec_headers.cpp` | 55 | 0 | the 5 core headers compiled and linked as C++11 |
 
-That is 103 cases. Counts are `TEST_CASE(` entries at 3e29dc1b.
+That is 115 cases. Counts are `TEST_CASE(` entries at 3e29dc1b.
 
 `test_hitec_session.c` includes rcbench's `shared/link/include/link_pages.h`
 for 5 static asserts that hold the session's values to the HITEC link
@@ -971,14 +998,15 @@ The test file stays byte for byte rcbench's, so a directory diff against a
 later rcbench shows the stub as the one adapted file. The test's other two
 asserts need only the module's headers.
 
-Not copied: the port, link, prog, card and panel suites
+Not copied: the port, link, prog, card-run and panel suites
 (`test_hitec_port*.c`, `test_hitec_link*.c`, `test_hitec_rx_link.c`,
-`test_hitec_prog*.c`, `test_hitec_card*.c`, `test_hitec_panel*.c`). Their
-code is not ported; `test_hitec_card.c` needs `servo_store.h`.
+`test_hitec_prog*.c`, `test_hitec_card_run.c`, `test_hitec_panel*.c`).
+Their code is not ported.
 
 ### Licence headers
 
-Every copied file but the fixture carries `SPDX-License-Identifier: MIT`.
+Every copied file but the fixture carries `SPDX-License-Identifier: MIT`,
+the licence tag of SPDX (Software Package Data Exchange).
 Six headers carry rcbench's sentence on the Hitec name, "Hitec is a name or
 trademark of its owner; it is used here only to say which servos this
 module works with": `hitec_wire.h`, `hitec_pio.h`, `hitec_pre.h`,
@@ -1007,6 +1035,10 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
 ## Testing
 
 - rcbench's tests above, run by `make` and CI.
+- `fixtures/hitec_line_words.txt` against pioasm's output: the firmware
+  build assembles `hitec_line.pio`, and a CI step compares the generated
+  header's words with the fixture, as rcbench's firmware build does
+  (`test_hitec_pio.c`, lines 18 to 19).
 - `test/hitec_servo_sim.h`: a servo behind the fake line, adapted from the
   servo model of rcbench's `hitec_session_rig.h`, which is written for
   `greatest.h`. It takes each transaction the job starts, answers from a
@@ -1020,10 +1052,10 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
   suite's virtual clock. Cases:
   - the bind with each family and its three refusals; each command in each
     state; commands held at the bind not taken;
-  - the classic entry: off 500 ms from the switch-off command, on, the `+`
+  - the classic entry: off 2,000 ms from the switch-off command, on, the `+`
     answered with `+`, the second `+`, `67`, the version; no `+` in
     2,000 ms, then the supply off and EntryEnded; a byte other than `+`;
-  - the D series entry with `GP0`: off 500 ms, on, 1,000 ms, the model; with
+  - the D series entry with `GP0`: off 2,000 ms, on, 1,000 ms, the model; with
     `NONE`: no POWER, the read of 0x00 at once, GP0 untouched through a
     whole claim;
   - the full read after the entry, its progress, the backup set once and
@@ -1039,10 +1071,10 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
     write letting it finish, then the supply off, the session not in mode,
     `stallWrote` set; the supply switched on only while the heartbeat is
     trusted; with `NONE`, a lapse leaving the session in mode;
-  - the leave: with `GP0` off at once and closed 2000 ms after the
+  - the leave: with `GP0` off at once and closed 2,000 ms after the
     switch-off command, BACK doing nothing in the wait; with `NONE` the
     D series reboot frame, then the close; every claim end after the supply
-    was on waiting 2000 ms off before the line closes and GP0 is released;
+    was on waiting 2,000 ms off before the line closes and GP0 is released;
   - the card phase: `CardBegin` taken and refused in each state; stamps
     for 900 ms keep the supply on and the backup; stamps stopped switch it
     off at 250 ms; stamps for 14,900 ms keep it on and for 15,100 ms switch
@@ -1063,7 +1095,7 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
   and until the line is measured; the claim; the entry and the read; an edit
   and REVERT; HOLD TO WRITE not at 750 ms and not on a slide off; the write
   page, the backup and the record before the first write frame, the flush
-  barrier, the result; a write in error and READ FIRST; FILES with SAVE AS,
+  barrier, the result; a write in error and READ AGAIN; FILES with SAVE AS,
   LOAD, a refused file, FACTORY VALUES, HOLD TO RESTORE; REPAIR on a bad
   classic checksum; a model not measured written with the amber layout
   line; BACK in every view and during a write; LEAVE and RESTART DSHOT; a stall and RETRY; no card, a
@@ -1097,6 +1129,8 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
    comments of `src/servo_supply.h` name the Hitec job as a GP0 user beside
    KST's. About 3 days.
 3. `src/hitec_files.*` on `card_dir` and `backup_ring`, `test_hitec_files.cpp`;
+   the Hitec card phases added to `test/kst_card_count.cpp` and their table
+   to this note, checked by `make kstcount`;
    `src/backup_ring.h`'s Hitec row no longer reserved; [backups.md](backups.md)
    and [sd-write-cache.md](sd-write-cache.md) name the Hitec claim. About
    2 days.
@@ -1117,13 +1151,17 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
    - the converter's checks of KST's bring-up, which they share
      ([kst-programming.md](kst-programming.md#work-breakdown), step 7);
    - the classic entry on the owner's servos: the `+` after the switch-on,
-     the second `+`, the answer to `67`, against the 500 ms off time;
+     the second `+`, the answer to `67`, after the 2,000 ms off time; the
+     converter's output decay to 0 V on a scope, against that off time;
    - the D series entry with `GP0`: the model read after 1,000 ms; a read by
      PRECHARGE, the answer delay against 5.93 ms to 6.52 ms;
    - the full read of each family against what Hitec's programmer shows;
    - one write with read-back per family: one value written, the read-back
      verified, the servo power-cycled and read again, and the value checked
-     with Hitec's programmer; then a restore of the backup the same way.
+     with Hitec's programmer; then a restore of the backup that changes at
+     least three settings in one plan, so the 2 ms spacing of classic
+     writes and the balance after each setting run once, read back,
+     power-cycled and read again.
 
 About 11.5 days for 1 to 5, not measured. Bring-up depends on the servos
 and is not estimated.
@@ -1141,7 +1179,7 @@ contradicts them; the others stand as decided.
    [kst-programming.md](kst-programming.md#switched-servo-supply): off, on,
    and a listen for `+` from the switch-on. Not chosen: `0x67` alone with
    the supply on, and the user powering the servo up by hand during the
-   listen. Updated to rcbench 3e29dc1b: the supply off 500 ms, on, a LISTEN
+   listen. Updated to rcbench 3e29dc1b: the supply off, on, a LISTEN
    of 2,000 ms whose `+` is answered with `+`, a second LISTEN of 1,000 ms
    for the servo's next `+`, then `67 00 00 99` with 3 tries
    ([entry](#entry)). At 4a437488 the entry was not recorded upstream, and
@@ -1192,7 +1230,7 @@ Decisions of the owner, 2026-10-28:
 11. **The write cache.** It runs during the Hitec claim as during the KST
     SERVO and AM32 CONFIG claims, with the flush barrier before a write.
 12. **Models not measured.** Writable in their series' layout, as rcbench's
-    panel allows, with an amber line on the write page; the 1000 ms hold is
+    panel allows, with an amber line on the write page; the 1,000 ms hold is
     the confirmation.
 
 ## Choices made in this design
@@ -1210,13 +1248,15 @@ Decisions of the owner, 2026-10-28:
    becomes 2 ms to 3 ms.
 4. **No session leave with the switched supply.** The classic leave is a
    POWER step that ends with the supply on, and the claim end switches it
-   off for 2000 ms anyway. The D series reboot adds nothing once the supply
+   off for 2,000 ms anyway. The D series reboot adds nothing once the supply
    is off. With `NONE` the D series leave reboots the servo, the one way it
    restarts from its saved values.
-5. **500 ms off for both families.** The session's `HITEC_SES_OFF_MS`.
-   rcbench's panel uses 0 ms for the D series because its PD mini switches
-   off only once it reads its output off; the converter here has no
-   read-back, so the off time is the only wait. A supply off since the bind
+5. **2,000 ms off for both families.** `KST_SUPPLY_OFF_MS`, within
+   `HITEC_SES_OFF_MS_MAX`, 10,000 ms. rcbench's session defaults to 500 ms,
+   and its panel waits first until its PD mini reads its output off, up to
+   3,000 ms. The converter here has no read-back, so the off time is the
+   only wait, and KST's off time for the same converter applies. The
+   output's decay is measured at bring-up. A supply off since the bind
    counts.
 6. **A write is never aborted from the screen.** A plan cut part way leaves
    a classic checksum unbalanced or a D series value unsaved. BACK during a
@@ -1245,7 +1285,7 @@ Decisions of the owner, 2026-10-28:
     here each write's record is the one that names what a cut write may have
     left, since a failed Hitec write forgets addresses and needs a read.
 11. **No ENABLE WRITE switch.** rcbench's panel has a write switch with a 2 s
-    hold; the write page's 1000 ms hold is the confirmation here, as on
+    hold; the write page's 1,000 ms hold is the confirmation here, as on
     KST's screen ([decision 9](#decisions-of-the-owner)).
 12. **No address dump.** The named parameters and the INFO group's raw
     registers show what a dump would; rcbench's panel has none.
