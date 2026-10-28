@@ -91,6 +91,17 @@ jobs:
           python3 test/pio_sdio_emu.py --asm-only \
                   --pioasm build/pioasm-install/pioasm/pioasm
 
+      # The host job's KST and Hitec line models run the words in
+      # test/rcbench/fixtures/*_line_words.txt. The firmware runs pioasm's
+      # assembly of the same .pio files, so the fixtures are held to it here.
+      - name: The line fixtures are pioasm's words
+        run: |
+          pioasm=build/pioasm-install/pioasm/pioasm
+          for p in kst hitec; do
+            "$pioasm" -o hex "lib/rcbench/protocols/$p/rp2350/${p}_line.pio" "build/${p}_line.hex"
+            diff -u "test/rcbench/fixtures/${p}_line_words.txt" "build/${p}_line.hex"
+          done
+
       # A ceiling, not a printout. The framebuffer alone is 150 kB of the
       # RP2350's 520 kB, and a regression that doubles a buffer otherwise passes
       # CI and fails on the bench. Generous enough not to be a nuisance; tighten
@@ -340,8 +351,8 @@ jobs:
                     done
                     printf 'TX=%s JUMP=%s ROT=%s KISS=%s SD=%s ... ' \
                       "$tx" "$jump" "$rot" "$kiss" "$sd"
-                    # lib/rcbench/ holds rcbench's headers that the servo
-                    # and KST jobs include; none of them reads config.h, so
+                    # lib/rcbench/ holds rcbench's headers that the servo,
+                    # KST and Hitec code includes; none of them reads config.h, so
                     # they are used from the checkout rather than copied.
                     if g++ -std=gnu++17 -fsyntax-only -Wall -Wextra -Wshadow -Werror \
                            -Wno-unused-parameter \
@@ -352,6 +363,10 @@ jobs:
                            -Ilib/rcbench/protocols/kst/include \
                            -Ilib/rcbench/protocols/kst/rp2350 \
                            -Ilib/rcbench/shared/logfile/include \
+                           -Ilib/rcbench/protocols/hitec/include \
+                           -Ilib/rcbench/protocols/hitec/rp2350 \
+                           -Ilib/rcbench/shared/bench/include \
+                           -Ilib/rcbench/shared/link/include \
                            "$work"/src/*.cpp; then
                       echo ok
                     else
@@ -378,6 +393,10 @@ jobs:
                  -Ilib/rcbench/protocols/kst/include \
                  -Ilib/rcbench/protocols/kst/rp2350 \
                  -Ilib/rcbench/shared/logfile/include \
+                 -Ilib/rcbench/protocols/hitec/include \
+                 -Ilib/rcbench/protocols/hitec/rp2350 \
+                 -Ilib/rcbench/shared/bench/include \
+                 -Ilib/rcbench/shared/link/include \
                  "$work"/src/*.cpp 2>"$work/err.txt"; then
             echo "landscape guard did NOT fire"; fail=1
           elif ! grep -q "static assertion failed: the UI layout assumes portrait" "$work/err.txt"; then

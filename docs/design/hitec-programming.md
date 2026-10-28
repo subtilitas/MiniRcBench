@@ -1,6 +1,7 @@
 # Hitec servo programming
 
-Status: planned, nothing built. The decisions of the owner of 2026-10-23
+Status: work breakdown step 1 built, the rcbench files and their tests;
+nothing in `src/` calls them. The decisions of the owner of 2026-10-23
 and 2026-10-28 set its questions and its scope
 ([decisions of the owner](#decisions-of-the-owner)): port rcbench's Hitec
 module at commit 3e29dc1b, and write. The design rests on rcbench's session
@@ -1036,9 +1037,9 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
 
 - rcbench's tests above, run by `make` and CI.
 - `fixtures/hitec_line_words.txt` against pioasm's output: the firmware
-  build assembles `hitec_line.pio`, and a CI step compares the generated
-  header's words with the fixture, as rcbench's firmware build does
-  (`test_hitec_pio.c`, lines 18 to 19).
+  build assembles `hitec_line.pio`, and a CI step compares pioasm's hex
+  output (`pioasm -o hex`) with the fixture, as rcbench's firmware build
+  holds it (`test_hitec_pio.c`, lines 18 to 19).
 - `test/hitec_servo_sim.h`: a servo behind the fake line, adapted from the
   servo model of rcbench's `hitec_session_rig.h`, which is written for
   `greatest.h`. It takes each transaction the job starts, answers from a
@@ -1111,11 +1112,12 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
 
 1. Copy the module, the card text and the CRC, the tests, the
    `link_pages.h` stub; `src/hitec.cmake` with its `include()` in
-   `CMakeLists.txt`; `test/hitec.mk` with its `include`, `FEATURE_*`,
-   `INCLUDES +=` and `SRCS` lines in `test/Makefile`, its include folders in
+   `CMakeLists.txt`; `test/hitec.mk` with its `include`, `FEATURE_*` and
+   `INCLUDES +=` lines in `test/Makefile`, its include folders in
    the two C test rules and the coverage rule, the C++ test rule; CI include
    lists; `lib/rcbench/README.md`. The firmware links the driver; nothing
-   opens it. About 1.5 days.
+   opens it. Built, with a CI step that holds the KST and Hitec line
+   fixtures to pioasm's words.
 2. `PinUser::Hitec`, `Core1Job::Hitec`, `src/hitec_job.*`,
    `src/hitec_line_port.*` with `$(HITEC_DEVICE_SRCS)` on the `DEVICE_SRCS`
    line of `test/Makefile`, the supply rules, the card phase on the job's

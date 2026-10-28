@@ -44,6 +44,14 @@ protocol.
 
 ### Added
 
+- rcbench's Hitec programming core (`protocols/hitec/`), its RP2350 line
+  driver, the Hitec servo file text (`shared/bench/hitec_card.*`) and the
+  CRC-16 it uses (`shared/link/link_crc.*`), copied unchanged from rcbench
+  commit 3e29dc1b into `lib/rcbench/`, with rcbench's eight tests of them in
+  `test/rcbench/` (115 cases) and `hitec_headers.cpp` built as C++11
+  ([hitec-programming.md](docs/design/hitec-programming.md), work breakdown
+  step 1). Nothing calls them yet. A CI step holds the KST and Hitec line
+  fixtures to pioasm's words.
 - SETTINGS → SERVO SUPPLY, `NONE` or `GP0`, in a section of its own
   between WIRING and DISPLAY: whether a DC-DC converter's enable for the KST
   servo's supply is wired to GP0 (`src/servo_supply.*`). With `GP0`, GP0 is
