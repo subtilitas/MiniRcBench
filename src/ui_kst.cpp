@@ -1138,7 +1138,16 @@ static void fileNote(uint16_t col, const char *text) {
 
 /** @brief LOAD: the selected file, held against the servo, becomes the pending changes. */
 static void loadSelected() {
-	if (cardCacheState() == CardCache::Failed) recoverFlush();
+	// A failed batch mounts the card again, which may be another card: the
+	// list on the page is the old card's, so it is read again and nothing
+	// loads until a file is chosen from it.
+	if (cardCacheState() == CardCache::Failed) {
+		recoverFlush();
+		s_fileSel = -1;
+		readFiles();
+		fileNote(C_AMBER, "CARD MOUNTED AGAIN: CHOOSE AGAIN");
+		return;
+	}
 	KstFilesScope scope;
 	size_t len = 0;
 	const char *f = fileOf(s_fileSel);

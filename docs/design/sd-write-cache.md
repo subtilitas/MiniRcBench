@@ -123,6 +123,8 @@ still to go, or `Failed`.
   the flush, in SAVE AS or in a removal of the record, may have held the
   backup, so every recovery forgets the first write. A write, a SAVE AS, a
   LOAD or the FILES page that finds the cache at `Failed` recovers first.
+  The card mounted again may be another one, so LOAD then reads the list
+  again, loads nothing and reads `CARD MOUNTED AGAIN: CHOOSE AGAIN`.
 - **AM32 CONFIG** recovers after any failed batch of its backup, the save's
   own included, so the next WRITE saves the backup again.
 - **KST SAVE AS** flushes on the spot (`cardCacheFlush()`) and reports what
@@ -277,7 +279,8 @@ recorded in this note.
   write, mounted again and the backup saved to it; a batch still queued,
   the saving page and no write frame until it ends, then the same card with
   no remount, or another card swapped in meanwhile and the backup saved to
-  it.
+  it; LOAD after a failed batch, the list read again and nothing loaded
+  until a row is chosen.
 - `test_ui.cpp`: the AM32 write refused after a failed flush; another card,
   and a card that does not answer its serial read, before a later write: the
   backup saved again; a serial number unread after the backup, then the

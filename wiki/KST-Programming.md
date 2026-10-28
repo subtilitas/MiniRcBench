@@ -316,6 +316,9 @@ Other notes on the strip:
 - `LINE 7: PULSE UPPER BREAKS A LIMIT`: a value in the file breaks a hard
   limit.
 - `THE FILE DID NOT READ`, `THE CARD IS FULL`, `THE CARD TOOK NO FILE`.
+- `CARD MOUNTED AGAIN: CHOOSE AGAIN`: a write to the card failed earlier, so
+  LOAD mounted the card again and read the list again. The card may be
+  another one. Nothing loads until a row is chosen again.
 
 `HOLD TO RESTORE` acts when the servo differs from the backup or is in doubt.
 The restore page is titled `KST RESTORE`. It reads
