@@ -15,7 +15,11 @@ jobs:
   # here and locally.
   firmware:
     name: Firmware (touch-lcd-2.8)
-    runs-on: ubuntu-latest
+    # A fixed image, not ubuntu-latest: the build compiles the Pico SDK's
+    # pioasm with the runner's host compiler, and the pioasm of SDK 2.1.1
+    # does not build with GCC 15, whose library headers no longer include
+    # <cstdint> for it. Ubuntu 24.04's host compiler is GCC 13.
+    runs-on: ubuntu-24.04
     env:
       SLUG: touch-lcd-2.8
     steps:

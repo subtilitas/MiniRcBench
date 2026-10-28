@@ -54,7 +54,9 @@ jobs:
   build:
     name: Build touch-lcd-2.8
     needs: version
-    runs-on: ubuntu-latest
+    # Pinned for the same reason as CI's firmware job: SDK 2.1.1's pioasm
+    # does not build with GCC 15, the host compiler of newer images.
+    runs-on: ubuntu-24.04
     env:
       SLUG: touch-lcd-2.8
     steps:
