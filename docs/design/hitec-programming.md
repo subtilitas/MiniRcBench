@@ -50,7 +50,10 @@ line, or the pin itself lifting it before each sample
 ([electrical](#electrical)). The IOmcu is rcbench's input/output
 microcontroller, which runs its Hitec transactions; the PD mini is
 rcbench's USB PD (Power Delivery) supply module. The HPP-21 Plus and the
-HFP-30 are Hitec's programmers for the classic and the D series.
+HFP-30 are Hitec's programmers for the classic and the D series. SDHC and
+SDXC are the SD High Capacity and SD eXtended Capacity card classes, exFAT
+the Extended File Allocation Table file system, KiB 1,024 bytes and GiB
+1,073,741,824 bytes.
 
 Source: rcbench, commit 3e29dc1b, under the MIT (Massachusetts Institute of
 Technology) licence, same holder: the core in
@@ -876,9 +879,11 @@ y   0 | HITEC FILES                      [ BACK ]|
 - The order: the record on the card, `HITEC/HITEC.TXT`, first; then the
   Hitec backups of `BACKUP/`, the latest first, each tagged `(BACKUP)`; for a
   classic servo, FACTORY VALUES; then the files of `HITEC/` by name without
-  case, the first 64.
+  case, the first 64. Every `.TXT` other than the record is listed; a name
+  longer than 8.3 (12 characters) is not.
 - SAVE AS writes the servo as last read into `HITEC/` under the next free
-  `HTnnn`, never over a file; it refuses once `HITEC/` holds 50 files:
+  `HTnnn`, never over a file; it refuses once `HITEC/` holds 50 `.TXT`
+  files, the record left out:
   `HITEC/ HOLDS 50 FILES. REMOVE SOME.`
 - LOAD parses the selected file and puts its writable values, raw values
   included, into the draft as pending edits. A file of the other series or
@@ -922,7 +927,7 @@ y   0 | HITEC SERVO                      [ BACK ]|
 | Path | What |
 |---|---|
 | `BACKUP/HTnnn.TXT` | a Hitec backup in the shared ring, `BackupDevice::Hitec`, prefix `HT` |
-| `HITEC/HTnnn.TXT` | SAVE AS files, at most 50 |
+| `HITEC/HTnnn.TXT` | SAVE AS files; with any other `.TXT` there, at most 50 |
 | `HITEC/HITEC.TXT` | the record of a write under way |
 
 `HITEC/` sits at the card's root beside `KST/`, `BACKUP/` and `LOGS/`.
@@ -960,7 +965,9 @@ hand does not load. The image lines hold the addresses of a full read
 
 Before the session's first write, with a card mounted, the backup goes into
 the ring of [backups.md](backups.md#the-ring) as `BACKUP/HTnnn.TXT`, in the
-servo file text, through `backupSave()` with `BackupDevice::Hitec`. The ring
+servo file text, with `BackupDevice::Hitec`: `backupClaim()` claims its
+number and that of a record to keep in one marker write, `backupPut()`
+writes it. The ring
 is one sequence of 50 numbers for every device, `BACKUP/LAST` naming the
 latest, the oldest written over in place. Later writes of the session save
 no backup. A session is an entry and what follows it; a re-entry after a
@@ -976,7 +983,7 @@ registers, and a CRC-16 check line. A D series record is 234 bytes.
 | Situation | Effect |
 |---|---|
 | First write of a session, card mounted | a record already on the card, from an earlier session, is moved into the ring under the next number (`backupMoveIn()`), then the backup is saved, then this write's record is written; in a card phase with `GP0` |
-| Later writes of the session | this write's record is written over the session's own record |
+| Later writes of the session | this write's record is written over the session's own record; an overwrite that fails part way removes it |
 | Write verified | `HITEC/HITEC.TXT` is removed, when this session wrote it and the file holds the bytes written |
 | Write in error | the record stays |
 | `HITEC/HITEC.TXT` found when the screen opens | `A WRITE WAS INTERRUPTED. HITEC/HITEC.TXT HOLDS THE SERVO AS IT WAS.` FILES lists it as RECORD; LOAD puts its `before` into the draft |
@@ -1255,15 +1262,31 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
    - `hitecFilesLoad()` and `hitecFilesBackupLoad()` take a servo file or a
      record and give the image; a file of the other family is refused
      (`OtherSeries`).
-   - SAVE AS names run HT001 to HT999, one above the highest in `HITEC/`.
-   - Tested in `test_hitec_files.cpp`: no card and a card held by USB with
-     no FatFs call; SAVE AS, its text, LOAD of each family, the list by
-     name, the next name, an edited file, a missing file, a file too large,
-     50 files and HT999; the first write with and without an old record,
-     the names in the ring, the record's images, a later write's record over
-     the session's own and with none, another session's record kept, the
-     removal and a record with other bytes kept, an old record that does not
-     move, the backups list, the write allowed and stopped.
+   - SAVE AS names run HT001 to HT999, one above the highest `HTnnn` in
+     `HITEC/`, a directory of that form included.
+   - The FILES list holds every `.TXT` of `HITEC/` other than the record,
+     the first by name without case; a name longer than 8.3 (12
+     characters) counts toward the 50 and is not listed.
+   - The backup goes into the ring through `backupClaim()` and `backupPut()`,
+     not `backupSave()`: one marker write claims the kept record's number and
+     the backup's.
+   - A later write's record that fails part way through the overwrite is
+     removed; one whose overwrite did not change the file keeps the earlier
+     record.
+   - Tested in `test_hitec_files.cpp`: no card, both as a card held by USB
+     and as the logger not mounted, every call with no FatFs call; SAVE AS,
+     its text, LOAD of each family, of an rcbench file name and of the
+     record; the list by name without case with names of other forms, a
+     full list, the next name, a directory in its way, an edited file, a
+     missing file, a file too large, 49 files and the record, 50 files and
+     HT999; the first write with and without an old record, the names in the
+     ring, the record's images, a later write's record over the session's
+     own, of another length, and with none, another session's record kept,
+     the removal and a record with other bytes kept, an old record that does
+     not move, a record that does not stat or create, an overwrite that
+     does not open or fails part way, a record that does not read or is too
+     long, a removal the card refuses, the backups list, the write allowed
+     and stopped.
 4. `src/ui_hitec.cpp`, `src/hitec_view.*`, `HitecCardPhase`, the registry
    line, `test_hitec_view.cpp`, `test_hitec_ui.cpp`, the MENU test changes,
    the preview and its entry in `tools/make_previews.py`. About 4 days.

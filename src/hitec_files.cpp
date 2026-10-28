@@ -77,29 +77,48 @@ static unsigned saveNumber(const char *name) {
 	return n;
 }
 
+/** @brief @p a against @p b without case, as strcmp() orders. */
+static int nameCmp(const char *a, const char *b) {
+	for (;; a++, b++) {
+		int ca = (unsigned char)*a, cb = (unsigned char)*b;
+		if (ca >= 'a' && ca <= 'z') ca -= 0x20;
+		if (cb >= 'a' && cb <= 'z') cb -= 0x20;
+		if (ca != cb || !ca) return ca - cb;
+	}
+}
+
+/** @brief Whether @p name is a file FILES lists: a `.TXT` other than the record. */
+static bool listable(const char *name) {
+	size_t n = strlen(name);
+	if (n < 5 || nameCmp(name + n - 4, ".TXT") != 0) return false;
+	return nameCmp(name, HITEC_FILES_RECORD_NAME) != 0;
+}
+
 /** @brief What a walk of `HITEC/` collects. */
 struct Listing {
 	HitecFileName *names;  /**< Where names go; may be NULL. */
 	size_t        cap;     /**< Room in @c names. */
-	size_t        count;   /**< SAVE AS files seen. */
-	unsigned      highest; /**< Their highest number. */
+	size_t        count;   /**< Names in @c names. */
+	size_t        total;   /**< `.TXT` files seen, the record left out. */
+	unsigned      highest; /**< The highest HTnnn seen. */
 };
 
 static void visitFile(const char *name, bool isDir, void *ctx) {
 	Listing *l = (Listing *)ctx;
-	unsigned n = isDir ? 0 : saveNumber(name);
-	if (!n) return;
-	if (l->names && l->count < l->cap) {
-		// In order of the names: insert, the arrays are at most 50 long.
-		size_t at = l->count;
-		while (at > 0 && strcmp(l->names[at - 1], name) > 0) {
-			memcpy(l->names[at], l->names[at - 1], sizeof(HitecFileName));
-			at--;
-		}
-		snprintf(l->names[at], sizeof(HitecFileName), "%s", name);
-	}
-	l->count++;
+	// A directory named HTnnn.TXT takes its number too: SAVE AS goes above it.
+	unsigned n = saveNumber(name);
 	if (n > l->highest) l->highest = n;
+	if (isDir || !listable(name)) return;
+	l->total++;
+	// A name longer than 8.3 has no room in a HitecFileName: counted, not listed.
+	if (!l->names || strlen(name) >= sizeof(HitecFileName)) return;
+	// The first cap names without case: insert in order, drop the last when full.
+	size_t at = l->count;
+	while (at > 0 && nameCmp(l->names[at - 1], name) > 0) at--;
+	if (at == l->cap) return;
+	if (l->count < l->cap) l->count++;
+	memmove(l->names[at + 1], l->names[at], (l->count - at - 1) * sizeof(HitecFileName));
+	snprintf(l->names[at], sizeof(HitecFileName), "%s", name);
 }
 
 /** @brief Walk `HITEC/`. */
@@ -109,20 +128,24 @@ static HitecFiles listing(Listing *l) {
 	return cardWalk(HITEC_FILES_DIR, visitFile, l) ? HitecFiles::Ok : HitecFiles::ListError;
 }
 
-HitecFiles hitecFilesList(HitecFileName *names, size_t cap, size_t *count) {
+HitecFiles hitecFilesList(HitecFileName *names, size_t cap, size_t *count, size_t *total) {
 	*count = 0;
-	Listing l = { names, cap, 0, 0 };
+	if (total) *total = 0;
+	Listing l = { names, cap, 0, 0, 0 };
 	HitecFiles r = listing(&l);
-	if (r == HitecFiles::Ok) *count = l.count < cap ? l.count : cap;
+	if (r == HitecFiles::Ok) {
+		*count = l.count;
+		if (total) *total = l.total;
+	}
 	return r;
 }
 
 HitecFiles hitecFilesSaveName(char *name) {
 	name[0] = '\0';
-	Listing l = { nullptr, 0, 0, 0 };
+	Listing l = { nullptr, 0, 0, 0, 0 };
 	HitecFiles r = listing(&l);
 	if (r != HitecFiles::Ok) return r;
-	if (l.count >= HITEC_FILES_SAVE_MAX || l.highest >= NUMBER_MAX) return HitecFiles::NoNumber;
+	if (l.total >= HITEC_FILES_SAVE_MAX || l.highest >= NUMBER_MAX) return HitecFiles::NoNumber;
 	snprintf(name, HITEC_FILES_NAME_MAX, "%s%03u.TXT", STEM, l.highest + 1u);
 	return HitecFiles::Ok;
 }
@@ -216,6 +239,33 @@ HitecFiles hitecFilesRecordLoad(hitec_card_record_t *out) {
 	return HitecFiles::Ok;
 }
 
+/**
+ * @brief Whether `HITEC/HITEC.TXT` is a record to keep, by f_stat(): a
+ *        directory of that name is none. Ok, or ReadError for a card that
+ *        does not say whether a record is there; such a card keeps none.
+ */
+static HitecFiles recordState(bool *record) {
+	char path[CARD_PATH_MAX];
+	recordPath(path);
+	FRESULT st = f_stat(path, &s_fno);
+	*record = st == FR_OK && !(s_fno.fattrib & AM_DIR);
+	return st == FR_OK || st == FR_NO_FILE || st == FR_NO_PATH ? HitecFiles::Ok : HitecFiles::ReadError;
+}
+
+/** @brief Remove `HITEC/HITEC.TXT`. */
+static HitecFiles unlinkRecord() {
+	char path[CARD_PATH_MAX];
+	recordPath(path);
+	switch (f_unlink(path)) {
+		case FR_OK:
+		case FR_NO_FILE:
+		case FR_NO_PATH:         return HitecFiles::Ok;
+		case FR_DENIED:
+		case FR_WRITE_PROTECTED: return HitecFiles::Denied;
+		default:                 return HitecFiles::WriteError;
+	}
+}
+
 /** @brief The numbers a first write takes: a record to keep, then the backup. */
 static void firstWriteNumbers(const BackupNames *k, bool record, unsigned *nKept,
                               unsigned *nBackup) {
@@ -232,8 +282,11 @@ HitecFiles hitecFilesNextBackup(char *name) {
 	BackupNames k;
 	HitecFiles r = backupResult(backupNames(&k));
 	if (r != HitecFiles::Ok) return r;
+	bool record = false;
+	// As the first write: a record that does not stat keeps no number.
+	if (recordState(&record) != HitecFiles::Ok) record = false;
 	unsigned nKept, nBackup;
-	firstWriteNumbers(&k, hitecFilesRecordPresent(), &nKept, &nBackup);
+	firstWriteNumbers(&k, record, &nKept, &nBackup);
 	backupName(BackupDevice::Hitec, nBackup, name);
 	return HitecFiles::Ok;
 }
@@ -263,12 +316,9 @@ void hitecFilesFirstWrite(const hitec_image_t *backup, const hitec_card_record_t
 	HitecFiles names = backupResult(backupNames(&k));
 	char from[CARD_PATH_MAX];
 	recordPath(from);
-	FRESULT st = f_stat(from, &s_fno);
 	// A directory of that name is no record; the create then refuses it.
-	bool record = st == FR_OK && !(s_fno.fattrib & AM_DIR);
-	// A card that does not say whether a record is there keeps none.
-	HitecFiles kept = (st == FR_OK || st == FR_NO_FILE || st == FR_NO_PATH)
-	                      ? HitecFiles::Ok : HitecFiles::ReadError;
+	bool record = false;
+	HitecFiles kept = recordState(&record);
 	unsigned nKept = 0, nBackup = 0;
 	HitecFiles mark = names;
 	if (names == HitecFiles::Ok) {
@@ -329,6 +379,13 @@ void hitecFilesRecordWrite(const HitecWrite *prev, const hitec_card_record_t *re
 	}
 	out->record = ioResult(cardOverwrite(HITEC_FILES_DIR, HITEC_FILES_RECORD_NAME, s_text, n));
 	out->recordSum = fnv1a(s_text, n);
+	// A failed overwrite that changed the file leaves the session's own
+	// record part written: it parses no more and goes. One that did not
+	// change it keeps the earlier record.
+	if (out->record != HitecFiles::Ok &&
+	    !(readText(HITEC_FILES_DIR, HITEC_FILES_RECORD_NAME, &len) == HitecFiles::Ok &&
+	      fnv1a(s_text, len) == prev->recordSum))
+		unlinkRecord();
 }
 
 bool hitecFilesWriteAllowed(const HitecWrite *w) {
@@ -347,14 +404,5 @@ HitecFiles hitecFilesRecordRemove(const HitecWrite *w) {
 	if (r != HitecFiles::Ok) return r;
 	// And only while the file holds its bytes: another card's record stays.
 	if (fnv1a(s_text, len) != w->recordSum) return HitecFiles::Ok;
-	char path[CARD_PATH_MAX];
-	recordPath(path);
-	switch (f_unlink(path)) {
-		case FR_OK:
-		case FR_NO_FILE:
-		case FR_NO_PATH:         return HitecFiles::Ok;
-		case FR_DENIED:
-		case FR_WRITE_PROTECTED: return HitecFiles::Denied;
-		default:                 return HitecFiles::WriteError;
-	}
+	return unlinkRecord();
 }

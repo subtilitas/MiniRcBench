@@ -12,7 +12,7 @@
  *
  * | Situation | Call | Effect |
  * |---|---|---|
- * | the FILES list | hitecFilesList(), hitecFilesBackups() | the files of `HITEC/` by name, and the Hitec backups of `BACKUP/`, latest first |
+ * | the FILES list | hitecFilesList(), hitecFilesBackups() | the `.TXT` files of `HITEC/` by name without case, and the Hitec backups of `BACKUP/`, latest first |
  * | LOAD | hitecFilesLoad(), hitecFilesBackupLoad() | a servo file, or a record's image before its write |
  * | SAVE AS | hitecFilesSaveName(), hitecFilesSaveAs() | the next free HTnnn of `HITEC/`, never written over; refused once `HITEC/` holds 50 files |
  * | first write of a session | hitecFilesFirstWrite() | an old record moved into the ring, the backup into the ring, then this write's record as `HITEC/HITEC.TXT` |
@@ -27,7 +27,9 @@
  *
  * Current limitations: those of kst_files.h on a failing card hold here
  * unchanged. A later write's record goes over the session's own in place
- * (cardOverwrite()); a failure there leaves a record that does not parse.
+ * (cardOverwrite()). A failure there that changed the file removes it, so
+ * that write has no record; the session's backup stays in `BACKUP/`. A file
+ * of `HITEC/` with a name longer than 8.3 is not listed and cannot be loaded.
  *
  * @see docs/design/hitec-programming.md, "Storage".
  */
@@ -51,7 +53,7 @@
 /** @brief The record's file name in `HITEC_FILES_DIR`. */
 #define HITEC_FILES_RECORD_NAME HITEC_CARD_RECORD ".TXT"
 
-/** @brief Room for a file name of `HITEC/`, `HT999.TXT`, and its terminator. */
+/** @brief Room for an 8.3 file name of `HITEC/`, `HITEC001.TXT`, and its terminator. */
 #define HITEC_FILES_NAME_MAX 13
 
 /** @brief One file name of `HITEC/`. */
@@ -88,19 +90,24 @@ struct HitecWrite {
 bool hitecFilesMounted();
 
 /**
- * @brief The files `HTnnn.TXT` of `HITEC/`, by name, at most @p cap.
+ * @brief The `.TXT` files of `HITEC/` other than the record, the first @p cap
+ *        by name without case. A name longer than 8.3 (12 characters) is
+ *        counted in @p total and not listed.
  * @param[out] names Up to @p cap names.
  * @param cap        Room in @p names.
  * @param[out] count The number written.
+ * @param[out] total The `.TXT` files of `HITEC/`, the record left out; may be NULL.
  * @return Ok, NoCard or ListError.
  */
-HitecFiles hitecFilesList(HitecFileName *names, size_t cap, size_t *count);
+HitecFiles hitecFilesList(HitecFileName *names, size_t cap, size_t *count, size_t *total = nullptr);
 
 /**
- * @brief The name SAVE AS takes: one above the highest HTnnn of `HITEC/`.
+ * @brief The name SAVE AS takes: one above the highest HTnnn of `HITEC/`,
+ *        a directory of that form included.
  * @param[out] name `HITEC_FILES_NAME_MAX` bytes; empty unless Ok.
  * @return Ok, NoCard, ListError, or NoNumber once `HITEC/` holds
- *         `HITEC_FILES_SAVE_MAX` files or HT999 is taken.
+ *         `HITEC_FILES_SAVE_MAX` `.TXT` files, the record left out, or HT999
+ *         is taken.
  */
 HitecFiles hitecFilesSaveName(char *name);
 

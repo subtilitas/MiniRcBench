@@ -22,9 +22,11 @@ names, what the ring holds and the write cache's scope; the SD write cache of
 | `BACKUP/LAST` | the ring's latest number |
 | `KST/KSTnnn.TXT` | KST's SAVE AS files, at most 50 |
 | `KST/KST.TXT` | KST's record of a write under way |
+| `HITEC/HTnnn.TXT` | Hitec's SAVE AS files; with any other `.TXT` there, at most 50 |
+| `HITEC/HITEC.TXT` | Hitec's record of a write under way |
 | `LOGS/LOGnnnnn.BFL` | the blackbox logs (`SD_LOG_DIR_PATH`) |
 
-The root holds these three directories, so a lookup in it reads one block.
+The root holds these four directories, so a lookup in it reads one block.
 Logs an earlier firmware wrote to the root stay there and slow every lookup
 in it ([kst-programming.md](kst-programming.md#card-calls-and-the-heartbeat)).
 
@@ -86,6 +88,12 @@ Automatic backups only: one per session, before the session's first write.
   number, before the session's first write (`backupMoveIn()`).
 - KST's FILES page lists the record, then the KST backups of `BACKUP/`, the
   latest first, then `KST/`. A backup loads as a file.
+- Hitec's SAVE AS writes to `HITEC/` under the next free `HTnnn` and
+  refuses once `HITEC/` holds 50 `.TXT` files. Its record of a write under
+  way is `HITEC/HITEC.TXT`; a record left by an interrupted write is moved
+  into the ring as a Hitec backup, under the next number, before the
+  session's first write, and the session's backup takes the number after
+  it. A Hitec ring entry holds a servo file or such a record; both load.
 - AM32 has no record and no LOAD.
 
 ## AM32 backup
