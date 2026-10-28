@@ -9,8 +9,10 @@ block per loop pass, without waiting on the card's busy line. Block reads come
 from the queue, from a read cache, or from the card. Core0 keeps drawing,
 reading touch and sending the heartbeat while the card programs.
 
-Outside those two claims nothing changes: SERVO, a Hitec claim, the blackbox
-logger, SD LOG and USB (Universal Serial Bus) DRIVE use the synchronous path
+The HITEC SERVO claim joins them once its screen is built
+([hitec-programming.md](hitec-programming.md#decisions-of-the-owner),
+decision 11, work breakdown step 4). Outside those claims nothing changes:
+SERVO, the blackbox logger, SD LOG and USB (Universal Serial Bus) DRIVE use the synchronous path
 of [sdio-driver.md](sdio-driver.md).
 
 ## What it solves

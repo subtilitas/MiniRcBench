@@ -1,7 +1,8 @@
 # Hitec servo programming
 
-Status: work breakdown steps 1 and 2 built, host tests only: the rcbench
-files and their tests, and the core1 job on them; no screen starts the job. The decisions of the owner of 2026-10-23
+Status: work breakdown steps 1 to 3 built, host tests only: the rcbench
+files and their tests, the core1 job on them, and the files on the card; no
+screen starts the job. The decisions of the owner of 2026-10-23
 and 2026-10-28 set its questions and its scope
 ([decisions of the owner](#decisions-of-the-owner)): port rcbench's Hitec
 module at commit 3e29dc1b, and write. The design rests on rcbench's session
@@ -579,13 +580,74 @@ code ([choice 9](#choices-made-in-this-design)).
 The write cache of [sd-write-cache.md](sd-write-cache.md) takes the card's
 writes off core0's path during the claim
 ([decision 11](#decisions-of-the-owner)); the reads still block, so the phase
-stays. The Hitec card phases are counted in step 3 of the
-[work breakdown](#work-breakdown), by `test/kst_card_count.cpp` over
-`src/hitec_files.cpp`, against the 15,000 ms cap: the first write does the
-three file operations of KST's, and a record goes to the card before every
-write. Until then the counts of
-[kst-programming.md](kst-programming.md#card-calls-and-the-heartbeat) are
-KST's only.
+stays.
+
+**The count.** `test/kst_card_count.cpp` runs `src/hitec_files.cpp`,
+`src/backup_ring.cpp` and rcbench's `hitec_card.c` over FatFs R0.15 on the
+volumes and at the card times of
+[kst-programming.md](kst-programming.md#card-calls-and-the-heartbeat), "The
+cap", on a full card: a ring of `BACKUP/` that has turned, KST, AM32 and
+Hitec backups by turns, and 49 SAVE AS files in `HITEC/`. The counts are
+without the write cache, which takes the writes off core0's path.
+
+<!-- hitec-card-count:start -->
+| Volume | Blackbox logs | Card phase | Block reads | Block writes | Typical card | SDHC | SDXC |
+| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| FAT32, 32 GiB, 32 KiB clusters | none | Hitec first write, no old record | 30 | 11 | 0.4 s | 6.0 s | 8.8 s |
+| FAT32, 32 GiB, 32 KiB clusters | none | Hitec record of a later write | 15 | 2 | 0.2 s | 2.1 s | 2.6 s |
+| FAT32, 32 GiB, 32 KiB clusters | none | Hitec record removed after the verify | 15 | 4 | 0.2 s | 2.6 s | 3.6 s |
+| FAT32, 32 GiB, 32 KiB clusters | none | Hitec first write, an old record kept | 43 | 17 | 0.6 s | 9.0 s | 13.2 s |
+| FAT32, 32 GiB, 32 KiB clusters | none | Hitec SAVE AS, the 50th file of HITEC/ | 15 | 6 | 0.2 s | 3.1 s | 4.6 s |
+| FAT32, 32 GiB, 32 KiB clusters | none | Hitec FILES page | 21 | 0 | 0.2 s | 2.2 s | 2.2 s |
+| FAT32, 32 GiB, 32 KiB clusters | none | Hitec LOAD of a file | 10 | 0 | 0.1 s | 1.1 s | 1.1 s |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in LOGS/ | Hitec first write, no old record | 30 | 11 | 0.4 s | 6.0 s | 8.8 s |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in LOGS/ | Hitec record of a later write | 15 | 2 | 0.2 s | 2.1 s | 2.6 s |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in LOGS/ | Hitec record removed after the verify | 15 | 4 | 0.2 s | 2.6 s | 3.6 s |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in LOGS/ | Hitec first write, an old record kept | 43 | 17 | 0.6 s | 9.0 s | 13.2 s |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in LOGS/ | Hitec SAVE AS, the 50th file of HITEC/ | 15 | 6 | 0.2 s | 3.1 s | 4.6 s |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in LOGS/ | Hitec FILES page | 21 | 0 | 0.2 s | 2.2 s | 2.2 s |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in LOGS/ | Hitec LOAD of a file | 10 | 0 | 0.1 s | 1.1 s | 1.1 s |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in the root, an earlier firmware's | Hitec first write, no old record | 342 | 11 | 3.5 s | 38.8 s | 41.5 s, over the cap |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in the root, an earlier firmware's | Hitec record of a later write | 77 | 2 | 0.8 s | 8.6 s | 9.1 s |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in the root, an earlier firmware's | Hitec record removed after the verify | 77 | 4 | 0.8 s | 9.1 s | 10.1 s |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in the root, an earlier firmware's | Hitec first write, an old record kept | 417 | 17 | 4.3 s | 48.2 s | 52.5 s, over the cap |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in the root, an earlier firmware's | Hitec SAVE AS, the 50th file of HITEC/ | 77 | 6 | 0.8 s | 9.7 s | 11.2 s |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in the root, an earlier firmware's | Hitec FILES page | 207 | 0 | 2.1 s | 21.7 s | 21.7 s, over the cap |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in the root, an earlier firmware's | Hitec LOAD of a file | 72 | 0 | 0.7 s | 7.6 s | 7.6 s |
+| exFAT, 64 GiB, 128 KiB clusters | none | Hitec first write, no old record | 82 | 11 | 0.9 s | 11.5 s | 14.2 s |
+| exFAT, 64 GiB, 128 KiB clusters | none | Hitec record of a later write | 35 | 2 | 0.4 s | 4.2 s | 4.7 s |
+| exFAT, 64 GiB, 128 KiB clusters | none | Hitec record removed after the verify | 35 | 2 | 0.4 s | 4.2 s | 4.7 s |
+| exFAT, 64 GiB, 128 KiB clusters | none | Hitec first write, an old record kept | 107 | 13 | 1.2 s | 14.6 s | 17.9 s, over the cap |
+| exFAT, 64 GiB, 128 KiB clusters | none | Hitec SAVE AS, the 50th file of HITEC/ | 34 | 4 | 0.4 s | 4.6 s | 5.6 s |
+| exFAT, 64 GiB, 128 KiB clusters | none | Hitec FILES page | 47 | 0 | 0.5 s | 4.9 s | 4.9 s |
+| exFAT, 64 GiB, 128 KiB clusters | none | Hitec LOAD of a file | 23 | 0 | 0.2 s | 2.4 s | 2.4 s |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in LOGS/ | Hitec first write, no old record | 82 | 11 | 0.9 s | 11.5 s | 14.2 s |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in LOGS/ | Hitec record of a later write | 35 | 2 | 0.4 s | 4.2 s | 4.7 s |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in LOGS/ | Hitec record removed after the verify | 35 | 2 | 0.4 s | 4.2 s | 4.7 s |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in LOGS/ | Hitec first write, an old record kept | 107 | 13 | 1.2 s | 14.6 s | 17.9 s, over the cap |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in LOGS/ | Hitec SAVE AS, the 50th file of HITEC/ | 34 | 4 | 0.4 s | 4.6 s | 5.6 s |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in LOGS/ | Hitec FILES page | 47 | 0 | 0.5 s | 4.9 s | 4.9 s |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in LOGS/ | Hitec LOAD of a file | 23 | 0 | 0.2 s | 2.4 s | 2.4 s |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in the root, an earlier firmware's | Hitec first write, no old record | 1023 | 11 | 10.3 s | 110.3 s | 113.0 s, over the cap |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in the root, an earlier firmware's | Hitec record of a later write | 227 | 2 | 2.3 s | 24.4 s | 24.9 s, over the cap |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in the root, an earlier firmware's | Hitec record removed after the verify | 227 | 2 | 2.3 s | 24.4 s | 24.9 s, over the cap |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in the root, an earlier firmware's | Hitec first write, an old record kept | 1236 | 13 | 12.5 s | 133.2 s | 136.4 s, over the cap |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in the root, an earlier firmware's | Hitec SAVE AS, the 50th file of HITEC/ | 225 | 4 | 2.3 s | 24.7 s | 25.7 s, over the cap |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in the root, an earlier firmware's | Hitec FILES page | 613 | 0 | 6.1 s | 64.4 s | 64.4 s, over the cap |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in the root, an earlier firmware's | Hitec LOAD of a file | 214 | 0 | 2.1 s | 22.5 s | 22.5 s, over the cap |
+
+Generated by `make -C test kstcount-write`. CI runs `make -C test kstcount` and fails on drift.
+<!-- hitec-card-count:end -->
+
+Against the cap of 15,000 ms at the SDXC times, with no log in the root:
+every phase on FAT32 stays under it, the longest the first write that keeps
+an old record, 13.2 s; on exFAT that write takes 17.9 s, over it, and the
+first write without one 14.2 s. A later write's record takes at most 4.7 s.
+With an earlier firmware's 1000 logs in the root, the first writes and the
+FILES page pass the cap on FAT32, and every phase passes it on exFAT, up to
+136.4 s. As for
+KST, a phase past the cap switches the supply off and drops the backup in
+memory; the card call goes on to its end on core0.
 
 ## Screens
 
@@ -1144,8 +1206,8 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
      above 1,792 bytes, which leaves 256 bytes of core1's 2,048 for
      `loop1()` and `core1JobPoll()` above them; those are not measured. A
      frame of no fixed size or a recursion fails as well. Calls into the C
-     library and the SDK count 0 bytes and are listed. On the host compiler
-     the deepest chain is `hitecJobStep()` into `publish()`, 1,112 bytes.
+     library and the SDK count 0 bytes and are listed. On the Cortex-M33 the
+     deepest chain is `hitecJobStep()` into `publish()`, 1,080 bytes.
    - `HitecPower` has no `Wait`: the D series entry's 1,000 ms wait is the
      session's WAIT step, reported as `power` None.
    - The first full read that completes before a write is the backup, also
@@ -1185,8 +1247,23 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
    to this note; the `kstcount` target and its CI step extended to check
    this note as well as kst-programming.md;
    `src/backup_ring.h`'s Hitec row no longer reserved; [backups.md](backups.md)
-   and [sd-write-cache.md](sd-write-cache.md) name the Hitec claim. About
-   2 days.
+   and [sd-write-cache.md](sd-write-cache.md) name the Hitec claim. Built.
+   As built, and differing from the sections above:
+   - `hitecFilesRecordWrite()` writes a later write's record over the
+     session's own in place; with no record on the card it writes a new one,
+     and a record of another session stays and stops it (`Exists`).
+   - `hitecFilesLoad()` and `hitecFilesBackupLoad()` take a servo file or a
+     record and give the image; a file of the other family is refused
+     (`OtherSeries`).
+   - SAVE AS names run HT001 to HT999, one above the highest in `HITEC/`.
+   - Tested in `test_hitec_files.cpp`: no card and a card held by USB with
+     no FatFs call; SAVE AS, its text, LOAD of each family, the list by
+     name, the next name, an edited file, a missing file, a file too large,
+     50 files and HT999; the first write with and without an old record,
+     the names in the ring, the record's images, a later write's record over
+     the session's own and with none, another session's record kept, the
+     removal and a record with other bytes kept, an old record that does not
+     move, the backups list, the write allowed and stopped.
 4. `src/ui_hitec.cpp`, `src/hitec_view.*`, `HitecCardPhase`, the registry
    line, `test_hitec_view.cpp`, `test_hitec_ui.cpp`, the MENU test changes,
    the preview and its entry in `tools/make_previews.py`. About 4 days.

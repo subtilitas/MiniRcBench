@@ -14,6 +14,7 @@ set(HITEC_LIB ${CMAKE_CURRENT_LIST_DIR}/../lib/rcbench)
 target_sources(MiniRcBench PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/hitec_job.cpp
     ${CMAKE_CURRENT_LIST_DIR}/hitec_line_port.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/hitec_files.cpp
     ${HITEC_LIB}/protocols/hitec/hitec_wire.c
     ${HITEC_LIB}/protocols/hitec/hitec_pio.c
     ${HITEC_LIB}/protocols/hitec/hitec_pre.c

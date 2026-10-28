@@ -245,12 +245,12 @@ coverage:
 	./$(COV_DIR)/$(BIN)
 	python3 ../tools/coverage.py --print
 
-# The KST card phases counted over FatFs R0.15 itself, from the SD library at
-# the commit CMakeLists.txt pins, with the library's ffconf.h: the numbers
-# behind the card-phase cap in docs/design/kst-programming.md. Fetches the
-# library into obj/ once; needs git and the network for that. `kstcount`
-# fails when the table in the design note differs from the counts;
-# `kstcount-write` rewrites it.
+# The KST and Hitec card phases counted over FatFs R0.15 itself, from the SD
+# library at the commit CMakeLists.txt pins, with the library's ffconf.h: the
+# numbers behind the card-phase cap in docs/design/kst-programming.md and
+# docs/design/hitec-programming.md. Fetches the library into obj/ once; needs
+# git and the network for that. `kstcount` fails when a table in a design
+# note differs from the counts; `kstcount-write` rewrites them.
 FATFS_REV := $(shell awk '/Declare.no_os_fatfs/{f=1} f&&/GIT_TAG/{print $$2; exit}' ../CMakeLists.txt)
 FATFS_DIR := $(OBJ_DIR)/fatfs-$(FATFS_REV)
 FATFS_SRC := $(FATFS_DIR)/src/ff15/source
@@ -263,24 +263,28 @@ $(FATFS_SRC)/ff.c:
 	git -C $(FATFS_DIR) checkout -q FETCH_HEAD
 
 KST_NOTE := ../docs/design/kst-programming.md
+HITEC_NOTE := ../docs/design/hitec-programming.md
 
-KST_COUNT_SRCS := ../src/kst_files.cpp ../src/card_dir.cpp ../src/backup_ring.cpp \
-                  ../src/am32_backup.cpp ../src/am32_eeprom.cpp
+KST_COUNT_SRCS := ../src/kst_files.cpp ../src/hitec_files.cpp ../src/card_dir.cpp \
+                  ../src/backup_ring.cpp ../src/am32_backup.cpp ../src/am32_eeprom.cpp
 
-$(OBJ_DIR)/kst_card_count: kst_card_count.cpp $(KST_COUNT_SRCS) ../src/kst_files.h ../src/card_dir.h ../src/backup_ring.h ../src/am32_backup.h $(KST_CSRCS) $(FATFS_SRC)/ff.c
+$(OBJ_DIR)/kst_card_count: kst_card_count.cpp $(KST_COUNT_SRCS) ../src/kst_files.h ../src/hitec_files.h ../src/card_dir.h ../src/backup_ring.h ../src/am32_backup.h $(KST_CSRCS) $(HITEC_CSRCS) $(FATFS_SRC)/ff.c
 	mkdir -p $(OBJ_DIR)/kstcount
-	for f in $(FATFS_SRC)/ff.c $(FATFS_SRC)/ffunicode.c $(FATFS_SRC)/ffsystem.c $(KST_CSRCS); do \
-		$(CC) $(CFLAGS) -w -I$(FATFS_SRC) -I$(FATFS_DIR)/src/include $(KST_INCLUDES) \
+	for f in $(FATFS_SRC)/ff.c $(FATFS_SRC)/ffunicode.c $(FATFS_SRC)/ffsystem.c $(KST_CSRCS) \
+	         $(HITEC_CSRCS); do \
+		$(CC) $(CFLAGS) -w -I$(FATFS_SRC) -I$(FATFS_DIR)/src/include $(KST_INCLUDES) $(HITEC_INCLUDES) \
 			-c -o $(OBJ_DIR)/kstcount/$$(basename $$f .c).o $$f || exit 1; \
 	done
-	$(CXX) $(CXXFLAGS) $(WARN) -I$(FATFS_SRC) -I$(FATFS_DIR)/src/include -I../src $(KST_INCLUDES) \
-		-o $@ kst_card_count.cpp $(KST_COUNT_SRCS) $(OBJ_DIR)/kstcount/*.o
+	$(CXX) $(CXXFLAGS) $(WARN) -I$(FATFS_SRC) -I$(FATFS_DIR)/src/include -I../src -I. \
+		$(KST_INCLUDES) $(HITEC_INCLUDES) -o $@ kst_card_count.cpp $(KST_COUNT_SRCS) $(OBJ_DIR)/kstcount/*.o
 
 kstcount: $(OBJ_DIR)/kst_card_count
 	./$(OBJ_DIR)/kst_card_count --check $(KST_NOTE)
+	./$(OBJ_DIR)/kst_card_count --check $(HITEC_NOTE)
 
 kstcount-write: $(OBJ_DIR)/kst_card_count
 	./$(OBJ_DIR)/kst_card_count --write $(KST_NOTE)
+	./$(OBJ_DIR)/kst_card_count --write $(HITEC_NOTE)
 
 clean:
 	rm -f $(BIN) gen_blackbox_log *.ppm *.BFL
