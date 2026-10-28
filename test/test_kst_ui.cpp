@@ -1312,6 +1312,21 @@ static void testFlushWait() {
 	tapId(UI_FIX(KstCtl::WriteOk));
 	fakeVolumeFailNext(0);
 
+	// LOAD after a batch failed in the background: the card is mounted
+	// again, the list read again, and nothing loads until a row is chosen.
+	tapId(UI_FIX(KstCtl::Files));
+	tapId(UI_ROW(0, Row));
+	fakeCacheSet(CardCache::Failed, 0);
+	recovers = fakeCacheCalls().recovers;
+	tapId(UI_FIX(KstCtl::Load));
+	checkTrue("LOAD after a failed batch: mounted again, FILES stays, no row chosen",
+	          uiKstView() == KstView::Files && fakeCacheCalls().recovers == recovers + 1 &&
+	          !ctlEnabled(UI_FIX(KstCtl::Load)));
+	tapId(UI_ROW(0, Row));
+	tapId(UI_FIX(KstCtl::Load));
+	checkTrue("the row chosen again: it loads", uiKstView() == KstView::List);
+	tapId(UI_FIX(KstCtl::Revert));
+
 	// FILES after a batch failed in the background: mounted again first,
 	// since the failed cache refuses every read.
 	fakeCacheSet(CardCache::Failed, 0);

@@ -337,6 +337,10 @@ Eine Ablehnung nennt ihre Zeile, zum Beispiel
 - `LINE 7: PULSE UPPER BREAKS A LIMIT`: Ein Wert in der Datei verletzt eine
   harte Grenze.
 - `THE FILE DID NOT READ`, `THE CARD IS FULL`, `THE CARD TOOK NO FILE`.
+- `CARD MOUNTED AGAIN: CHOOSE AGAIN`: Ein Schreiben auf die Karte ist vorher
+  fehlgeschlagen, daher hat LOAD die Karte neu eingebunden und die Liste neu
+  gelesen. Es kann eine andere Karte sein. Nichts wird geladen, bis eine
+  Zeile neu gewählt ist.
 
 `HOLD TO RESTORE` wirkt, wenn das Servo von der Sicherung abweicht oder im
 Zweifel ist. Die Wiederherstellungsseite heißt `KST RESTORE`. Sie zeigt zum
