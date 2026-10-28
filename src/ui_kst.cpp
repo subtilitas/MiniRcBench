@@ -1144,8 +1144,10 @@ static void loadSelected() {
 	if (cardCacheState() == CardCache::Failed) {
 		recoverFlush();
 		s_fileSel = -1;
+		s_fileNote[0] = '\0';
 		readFiles();
-		fileNote(C_AMBER, "CARD MOUNTED AGAIN: CHOOSE AGAIN");
+		// A list that did not read, or no card mounted, says so instead.
+		if (!s_fileNote[0] && kstFilesMounted()) fileNote(C_AMBER, "CARD MOUNTED AGAIN: CHOOSE AGAIN");
 		return;
 	}
 	KstFilesScope scope;
