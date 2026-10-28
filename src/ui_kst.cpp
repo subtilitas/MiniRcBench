@@ -823,15 +823,17 @@ static void flushStep() {
 	CardCache c = cardCacheState();
 	if (c == CardCache::Flushing) return;
 	s_flushing = false;
-	if (c == CardCache::Failed) {
-		recoverFlush();
-		s_cardNote = FLUSH_FAILED;
-		return;
-	}
 	// An earlier batch is on the card: the card in the slot may be another
 	// one by now. Not after the write's own backup: its card was read then.
 	bool check = s_checkAfterFlush;
 	s_checkAfterFlush = false;
+	if (c == CardCache::Failed) {
+		recoverFlush();
+		// An earlier batch may have been a removal of the record, not a backup.
+		s_cardNote = check ? "THE CARD DID NOT TAKE A FILE. NOTHING WAS WRITTEN TO THE SERVO."
+		                   : FLUSH_FAILED;
+		return;
+	}
 	if (check && cardSwapped()) {
 		restartOnNewCard();
 		startWrite();

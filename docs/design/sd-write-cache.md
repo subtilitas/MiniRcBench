@@ -152,8 +152,8 @@ card the rule is unchanged: the write runs, and the backup stays in memory.
 - A read that misses waits for the block in flight first: a card that is
   programming takes no read command. That wait is up to
   `SDH_BUSY_TIMEOUT_US`, 1 s, of busy, against the specification's 500 ms,
-  and 105 ms of read. A wait that ends the batch refuses the read. The card stamp of
-  [kst-programming.md](kst-programming.md#card-calls-and-the-heartbeat),
+  and 105 ms of read. A wait that ends the batch refuses the read. The card
+  stamp of [kst-programming.md](kst-programming.md#card-calls-and-the-heartbeat),
   planned for step 5, stays for such reads.
 
 ## Card swap
@@ -191,9 +191,14 @@ ends, so a read that fails on the right card drops no half-written batch.
 The check after a flush runs only for such an earlier batch, not after the
 write's own backup, whose card was read as it was saved. The check costs one
 block read per write, plus the end of the block in flight (`sdc_settle()`),
-and works with the cache on or off; a recovery leaves a cache that was off turned off. While USB DRIVE holds the card,
-`cardMounted()` is false: no check runs, and `cardCacheRecover()` returns
-without touching the card.
+and works with the cache on or off; a recovery leaves a cache that was off
+turned off. While USB DRIVE holds the card, `cardMounted()` is false: no
+check runs, and `cardCacheRecover()` returns without touching the card.
+
+A card whose serial number never reads fails the check at every write: each
+write then mounts the card again and saves one more backup, which takes a
+number of the ring and pushes the oldest backup out
+([backups.md](backups.md#the-ring)).
 
 ## Errors
 
@@ -259,8 +264,9 @@ recorded in this note.
   hits, the oldest pushed out, a written sector's entry; a miss that waits
   for the block in flight; a full queue that flushes until the write fits;
   two retries that land, three that fail; reads refused while failed, and a
-  miss whose wait ends the batch; `sdc_settle()` ending the block in flight; a write error token; a changed serial
-  number and a check that does not read; refusals with the cache off.
+  miss whose wait ends the batch; `sdc_settle()` ending the block in flight;
+  a write error token; a changed serial number and a check that does not
+  read; refusals with the cache off.
 - `test_kst_ui.cpp`: the claim turns the cache on and stops a running log;
   no write frame while the flush runs; the page's count; the write after the
   flush; a failed flush with no write frame and the card mounted again; the
