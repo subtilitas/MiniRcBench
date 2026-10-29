@@ -158,10 +158,18 @@ vor dem Öffnen des Bildschirms funktioniert nicht.
 
 ## Meine Einstellungen setzen sich zurück
 
-Sie wurden nicht gespeichert. Polzahl und Gasobergrenze werden unter
+Sie wurden nicht gespeichert, oder eine neue Firmware hat das Format der
+Einstellungen geändert. Polzahl und Gasobergrenze werden unter
 **MENU → SETTINGS** geändert, und `HOLD TO SAVE` dort schreibt sie ins Flash.
 Die Hinweiszeile zeigt `UNSAVED - HOLD SAVE TO KEEP`, solange Änderungen
 ungespeichert sind, und `MENU` zeigt `UNSAVED` in der Zeile `SETTINGS`.
+
+Eine Firmware, deren Einstellungsformat von dem im Flash abweicht, startet mit
+ihren Voreinstellungen. Wer von einer früheren Firmware auf eine mit
+Einstellungsformat Version 4 aktualisiert, findet alle gespeicherten
+Einstellungen einmal auf der Voreinstellung, auch den ESC-Pin: Der ESC-Pin ist dann GP0,
+KISS ist aus und SERVO SUPPLY steht auf `NONE`. Stelle sie neu ein und
+speichere mit `HOLD TO SAVE`.
 
 ---
 
@@ -170,7 +178,7 @@ ungespeichert sind, und `MENU` zeigt `UNSAVED` in der Zeile `SETTINGS`.
 Das ist die Voreinstellung. Einschalten unter **MENU → SETTINGS → KISS TELEM**.
 
 Die Platine hat zwei freie GPIOs (General Purpose Input/Output, frei
-verwendbare Pins), GP28 und GP29, und das ESC-Signal liegt anfangs auf GP29.
+verwendbare Pins), GP0 und GP1, und das ESC-Signal liegt anfangs auf GP0.
 KISS ist voreingestellt aus, damit der übrige Pin nicht für ein Kabel belegt
 ist, das vielleicht nicht angeschlossen ist.
 

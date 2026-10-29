@@ -189,15 +189,15 @@ telemetry pad goes to a GPIO; the line is transmit-only from the ESC.
 The receiver is a UART built from one PIO state machine
 (`src/pio_uart_rx.pio`, 8 cycles per bit), not one of the RP2350's two hardware
 UARTs. A hardware UART can receive only on GPIOs where `n % 4 == 1`. The board
-frees two GPIOs, GP28 and GP29; only GP29 is a UART receive pin, and GP29
-carries the ESC signal. So the PIO receiver is what makes KISS possible on
-this board. The block and state machine are claimed from whatever is free at
+frees two GPIOs, GP0 and GP1; only GP1 is a UART receive pin. SETTINGS can
+put either wire on either pin, and the PIO receiver takes both. The block and
+state machine are claimed from whatever is free at
 run time, because the DShot driver is always resident and the SDIO card
 driver holds pio1. When no state machine is free the effect is that of an
 unplugged wire.
 
-Any free GPIO that is not the ESC's can receive. The default is GP28, J4
-pin 11, switched off: the board brings out exactly two pins and most users
+Any free GPIO that is not the ESC's can receive. The default is GP1, J4
+pin 10 and J5 pin 1, switched off: the board brings out exactly two pins and most users
 have not soldered the second wire; one tap on MENU → SETTINGS turns it on. The
 SETTINGS stepper skips the ESC's pin, so it has no third pin to step to. The
 board descriptor fails the build if a pin override leaves the free set or
@@ -206,11 +206,10 @@ puts both wires on one pin.
 The firmware enables the internal pull-up on the KISS pin, so an unconnected
 wire reads idle instead of decoding noise.
 
-> **Voltage.** The KISS specification says the line idles at 3.6 V. The
-> RP2350's absolute maximum GPIO voltage is IOVDD + 0.3 V = 3.6 V, so a
-> strictly conforming KISS ESC sits at the limit with no margin. The level
-> real ESCs drive is not measured. A 1 kΩ series resistor on the line limits
-> the current into the pin's clamp diode.
+> **Voltage.** The KISS specification says the line idles at 3.6 V. GP0 and
+> GP1 are "Digital IO (FT)" pins, fault tolerant (RP2350 datasheet,
+> Table 1674): they tolerate 5.5 V while IOVDD is at 3.3 V and 3.63 V while
+> the board is off. The level real ESCs drive is not measured.
 
 ## Merging with EDT
 

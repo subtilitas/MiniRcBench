@@ -50,7 +50,7 @@ Platine verbunden.
   Platine GND  ---------+
   Platine SIG  ----------------------------------------  Servosignal (orange oder weiß)
 
-  SIG GP29 = J4 Pin 12, GND = J4 Pin 1 oder 5
+  SIG GP0 = J4 Pin 9 oder J5 Pin 2, GND = J4 Pin 1 oder 5 oder J5 Pin 4
 ```
 
 GND ist die Masse der Platine.
@@ -68,14 +68,14 @@ GND ist die Masse der Platine.
 - Schalte zuerst die Platine ein und dann die Servoversorgung, und beim
   Ausschalten zuerst die Servoversorgung.
 - SIG ist der ESC-Pin, so wie unter **MENU → SETTINGS** eingestellt.
-  Voreingestellt ist GP29.
+  Voreingestellt ist GP0.
 - Die Läufe von rcbench nutzten eine Servoversorgung von 5,0 V. Andere
   Versorgungen sind nicht getestet, und auf dieser Platine ist nichts
   gelaufen.
 - Zieh jeden ESC vom ESC-Pin ab. Der Bildschirm prüft den Pin auf einen ESC,
   erkennt aber nur einen ESC, der bidirektionales DShot beantwortet.
 
-Mit **SETTINGS → SERVO SUPPLY** auf `GP0` versorgt das Gerät das Servo selbst,
+Mit **SETTINGS → SERVO SUPPLY** auf `GP28` oder `GP29` versorgt das Gerät das Servo selbst,
 über den Wandler, den die
 [KST-Programmierung](KST-Programmierung#geschaltete-versorgung) beschreibt.
 Siehe [Geschaltete Versorgung](#geschaltete-versorgung). **Ein ESC an dieser
@@ -96,25 +96,26 @@ Schaltflächen:
 
 - `CLASSIC`, darunter `HS-5XXX, HS-7XXX`, abgeblendet gezeichnet. Eine
   bernsteinfarbene Zeile nennt den Grund: `LINE LEVEL NOT MEASURED`. Ist der
-  Pegel gemessen, zeigt die Zeile `NEEDS SERVO SUPPLY GP0`, solange SERVO
+  Pegel gemessen, zeigt die Zeile `NEEDS SERVO SUPPLY GP28 OR GP29`, solange SERVO
   SUPPLY auf `NONE` steht.
 - `D SERIES`, darunter `D485HW, D645MW AND THE OTHERS` und
-  `SUPPLY SWITCHED ON GP0` oder `ON THE SERVO'S OWN SUPPLY`.
+  `SUPPLY SWITCHED ON GP28` (oder `GP29`, je nach Einstellung) oder
+  `ON THE SERVO'S OWN SUPPLY`.
 
 **Tippe auf `D SERIES`.** `BACK` in dieser Ansicht führt zu `MENU` zurück.
 
 Der Bildschirm übernimmt dann SIG vom ESC-Treiber. Dabei zeigt die Leiste
-`RELEASING GP29`, dann `TAKING GP29`. Solange ein ESC auf dem Pin antwortet,
-zeigt sie stattdessen `CHECKING GP29 FOR AN ESC`.
+`RELEASING GP0`, dann `TAKING GP0`. Solange ein ESC auf dem Pin antwortet,
+zeigt sie stattdessen `CHECKING GP0 FOR AN ESC`.
 
-- Antwortet ein ESC auf dem Pin, zeigt der Bildschirm `AN ESC ANSWERS ON GP29.`
+- Antwortet ein ESC auf dem Pin, zeigt der Bildschirm `AN ESC ANSWERS ON GP0.`
   und danach `UNPLUG IT: A HITEC ENTRY SENDS` und
   `FRAMES INTO WHAT IS ON THE WIRE.` Er übernimmt den Pin, sobald der ESC weg
   ist.
 - Solange der ESC scharf ist, zeigt der Bildschirm `DISARM FIRST`. Solange die
   Pins noch belegt sind, zeigt er `PINS BUSY`.
 - Kann die Platine die Leitung nicht einrichten, zeigt der Bildschirm
-  `GP29 COULD NOT BE TAKEN (`, danach `REFUSED`, `PWM`, `PIO`, `DMA` oder
+  `GP0 COULD NOT BE TAKEN (`, danach `REFUSED`, `PWM`, `PIO`, `DMA` oder
   `CLOCK` und eine schließende Klammer. PWM ist Pulsweitenmodulation, DMA
   direkter Speicherzugriff (Direct Memory Access). `RETRY` versucht es
   erneut.
@@ -131,10 +132,10 @@ Ist der Pin übernommen, beginnt der Eintritt sofort.
 - **Mit SERVO SUPPLY auf `NONE`** liest der Bildschirm das Servo an der
   Versorgung, die es hat. Schalte das Servo ein, bevor du auf `D SERIES`
   tippst. Der Inhalt zeigt `READING THE MODEL`.
-- **Mit SERVO SUPPLY auf `GP0`** schaltet der Bildschirm die Versorgung
+- **Mit SERVO SUPPLY auf `GP28` oder `GP29`** schaltet der Bildschirm die Versorgung
   2,0 s lang aus und wieder ein. Die Leiste zählt die Aus-Zeit,
-  `GP29  SUPPLY OFF 1.4 S`, und der Inhalt zeigt `SUPPLY OFF`. Dann zeigt
-  die Leiste `GP29  SUPPLY ON` und der Inhalt `SERVO STARTING`, während das
+  `GP0  SUPPLY OFF 1.4 S`, und der Inhalt zeigt `SUPPLY OFF`. Dann zeigt
+  die Leiste `GP0  SUPPLY ON` und der Inhalt `SERVO STARTING`, während das
   Servo startet, etwa 1 s. Für diese Sekunde zeigt der Bildschirm keinen
   Zähler. Unter dem Text stehen zwei bernsteinfarbene Zeilen:
   `AN ESC ON THIS LEAD GETS THE` und `CONVERTER'S OUTPUT ON ITS BEC WIRE.`
@@ -145,13 +146,13 @@ Ist der Pin übernommen, beginnt der Eintritt sofort.
 Antwortet kein Servo, zeigt die Leiste `NO SERVO ANSWERS`. Eine
 bernsteinfarbene Zeile nennt die letzte Antwort, zum Beispiel
 `REPLY: SILENT`, und der Inhalt zeigt
-`CHECK THE SERVO'S SUPPLY, THE SIGNAL AND GROUND.` Mit `GP0` kommt
+`CHECK THE SERVO'S SUPPLY, THE SIGNAL AND GROUND.` Mit `GP28` oder `GP29` kommt
 `THE SUPPLY IS OFF.` hinzu. `RETRY` tritt erneut ein. Die Antwortwörter sind
 `SILENT`, `EARLY`, `LATE`, `NAK`, `LENGTH`, `FRAMING`, `GAP`, `NO ACK`,
 `HEADER`, `ADDRESS`, `SUM`, `CUT`, `OVERFLOW` und `ARG`; `NONE` heißt: kein
 Antwortcode.
 
-Antwortet das Servo, zeigt die Leiste `GP29  IN SERIAL MODE`, und der Inhalt
+Antwortet das Servo, zeigt die Leiste `GP0  IN SERIAL MODE`, und der Inhalt
 zählt das Lesen: `READING 21 REGISTERS`, `7 OF 21`. Dieses erste vollständige
 Lesen ist die Sicherung der Sitzung. Ein fehlgeschlagenes Lesen zeigt zum
 Beispiel `READ FAILED AT 0x32` mit dem Antwortwort darunter und bietet
@@ -171,7 +172,7 @@ Ansichten für Eintritt und Lesen in Bernstein zusätzlich
 ## Die Feldliste
 
 Die Leiste zeigt das Modell, den Pin und die Sicherung:
-`D485HW GP29 BACKUP IN MEMORY`, bis ein Schreibvorgang die Sicherung auf die
+`D485HW GP0 BACKUP IN MEMORY`, bis ein Schreibvorgang die Sicherung auf die
 Karte gelegt hat, danach zum Beispiel `BACKUP HT001`. Ein Modell ohne Namen
 in der Liste von rcbench zeigt `D SERIES` und seine Nummer. Rechts steht ein
 grünes Feld `MODE`.
@@ -431,8 +432,8 @@ Sicherung die älteste, gleich von welchem Gerät. Den Ring beschreibt die
 `BACK` in der Feldliste öffnet die Verlassenseite. `BACK` während eines
 Lesens öffnet sie ebenfalls.
 
-Die Leiste nennt das Modell, den Pin und, mit `GP0`, `SUPPLY ON` oder
-`SUPPLY OFF`. Die Seite zeigt mit `GP0` `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.`,
+Die Leiste nennt das Modell, den Pin und, mit `GP28` oder `GP29`, `SUPPLY ON` oder
+`SUPPLY OFF`. Die Seite zeigt mit `GP28` oder `GP29` `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.`,
 mit `NONE` `LEAVE RESTARTS THE SERVO.` Mit vorgemerkten Änderungen kommt
 `2 CHANGES NOT WRITTEN.` hinzu, nach einem fehlgeschlagenen Schreiben
 `A WRITE DID NOT END VERIFIED.` in Bernstein.
@@ -440,12 +441,12 @@ mit `NONE` `LEAVE RESTARTS THE SERVO.` Mit vorgemerkten Änderungen kommt
 | Schaltfläche | Was sie tut |
 |---|---|
 | `READ AGAIN` | Liest das Servo erneut und führt zur Feldliste zurück. Vorgemerkte Änderungen bleiben |
-| `LEAVE` | Beendet die Sitzung: Mit `GP0` schaltet es die Versorgung aus, mit `NONE` startet es das Servo mit seinen gespeicherten Werten neu |
+| `LEAVE` | Beendet die Sitzung: Mit `GP28` oder `GP29` schaltet es die Versorgung aus, mit `NONE` startet es das Servo mit seinen gespeicherten Werten neu |
 | `BACK` | Führt zur Feldliste zurück |
 
-Nach `LEAVE` mit `GP0` zeigt die nächste Seite
+Nach `LEAVE` mit `GP28` oder `GP29` zeigt die nächste Seite
 `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`, bis die Leitung geschlossen ist. Dann
-zeigt sie `UNPLUG THE SERVO.` über `DSHOT RESTARTS ON GP29 AND READS AS` und
+zeigt sie `UNPLUG THE SERVO.` über `DSHOT RESTARTS ON GP0 AND READS AS` und
 `A 970 US PULSE AT 1000 HZ.`
 
 <img src="img/hitec-unplug.png" width="240" alt="Die Abziehseite: UNPLUG THE SERVO. und RESTART DSHOT">
@@ -461,7 +462,7 @@ und zeigt die Abziehseite.
 
 ## Wenn es nicht funktioniert
 
-- **`AN ESC ANSWERS ON GP29.`** Ein ESC hängt am ESC-Pin. Zieh ihn ab.
+- **`AN ESC ANSWERS ON GP0.`** Ein ESC hängt am ESC-Pin. Zieh ihn ab.
 - **`NO SERVO ANSWERS` mit `REPLY: SILENT`.** Nichts hat geantwortet. Prüfe
   die Versorgung des Servos, das Signalkabel und die Masse. Mit `NONE`
   schalte das Servo vor dem Eintritt ein.
@@ -480,13 +481,13 @@ und zeigt die Abziehseite.
 
 ## Geschaltete Versorgung
 
-Mit **SETTINGS → SERVO SUPPLY** auf `GP0` versorgt das Gerät das Servo über
-den DC-DC-Wandler (Gleichspannungswandler), dessen Enable-Eingang an GP0,
-J5 Pin 2, liegt. Seine Verkabelung steht in der
+Mit **SETTINGS → SERVO SUPPLY** auf `GP28` oder `GP29` versorgt das Gerät das Servo über
+den DC-DC-Wandler (Gleichspannungswandler), dessen Enable-Eingang an GP28,
+J4 Pin 11, oder GP29, J4 Pin 12, liegt. Seine Verkabelung steht in der
 [KST-Programmierung](KST-Programmierung#geschaltete-versorgung). **Ein ESC an
 dieser Leitung bekommt den Ausgang des Wandlers auf seine BEC-Leitung.**
 
-<img src="img/hitec-stall.png" width="240" alt="Der hängende Bildschirm: GP29 SUPPLY OFF, RETRY">
+<img src="img/hitec-stall.png" width="240" alt="Der hängende Bildschirm: GP0 SUPPLY OFF, RETRY">
 
 - **Der Eintritt** schaltet das Servo 2,0 s aus, dann ein, und wartet etwa
   1 s auf seinen Start.
@@ -517,20 +518,21 @@ abgeblendet. Der Grund ist der Signalpegel:
 - Ein klassisches Servo treibt die Signalleitung selbst auf High, über etwa
   1 kΩ.
 - Die Spannung, die es treibt, ist nicht gemessen. Ein 5-V-Servo kann 5 V
-  auf GP29 legen.
-- Die GPIO-Pins (General Purpose Input/Output) der Platine vertragen 3,6 V.
+  auf SIG legen, GP0.
+- GP0 verträgt 5,5 V, solange die Platine eingeschaltet ist, und 3,63 V,
+  solange sie aus ist.
 
 Die klassische Familie öffnet sich, sobald die Inbetriebnahme diesen Pegel
 gemessen hat und die Firmware mit dem Pegel als gemessen gebaut ist. Sie
-braucht dann SERVO SUPPLY auf `GP0`: Ein klassisches Servo geht nur beim
+braucht dann SERVO SUPPLY auf `GP28` oder `GP29`: Ein klassisches Servo geht nur beim
 Einschalten in den Programmiermodus. Unter `NONE` zeigt die Familienauswahl
-`NEEDS SERVO SUPPLY GP0`.
+`NEEDS SERVO SUPPLY GP28 OR GP29`.
 
 Die klassischen Bildschirme sind nur auf dem Host gebaut und getestet, gegen
 ein simuliertes Servo. Die Bilder unten zeigen sie mit dem Leitungspegel als
-gemessen gesetzt und SERVO SUPPLY auf `GP0`.
+gemessen gesetzt und SERVO SUPPLY auf `GP28` oder `GP29`.
 
-<img src="img/hitec-family-classic.png" width="240" alt="Die Familienauswahl mit freigegebenem CLASSIC, erzeugt mit dem Leitungspegel als gemessen und SERVO SUPPLY auf GP0"> <img src="img/hitec-repair.png" width="240" alt="Ein klassisches HS-5645MG: CHECKSUM BAD mit REPAIR"> <img src="img/hitec-not-measured.png" width="240" alt="Ein nicht vermessenes klassisches Modell: MODEL NOT MEASURED: WRITTEN IN THE CLASSIC LAYOUT.">
+<img src="img/hitec-family-classic.png" width="240" alt="Die Familienauswahl mit freigegebenem CLASSIC, erzeugt mit dem Leitungspegel als gemessen und SERVO SUPPLY auf GP28"> <img src="img/hitec-repair.png" width="240" alt="Ein klassisches HS-5645MG: CHECKSUM BAD mit REPAIR"> <img src="img/hitec-not-measured.png" width="240" alt="Ein nicht vermessenes klassisches Modell: MODEL NOT MEASURED: WRITTEN IN THE CLASSIC LAYOUT.">
 
 - **CHECKSUM.** Ein klassisches Servo, dessen Prüfsumme nicht aufgeht, zeigt
   `CHECKSUM` `BAD` in Bernstein. Die Zeile lässt sich auswählen, und die
@@ -551,7 +553,7 @@ gemessen gesetzt und SERVO SUPPLY auf `GP0`.
 
 - Die Platine sendet jeden Frame an die ID 0. Ein Servo der D-Serie mit einer
   anderen ID ist nicht getestet.
-- Mit `GP0` halten die Kartenzugriffe des Bildschirms die Versorgung
+- Mit `GP28` oder `GP29` halten die Kartenzugriffe des Bildschirms die Versorgung
   höchstens 15 s lang an, während der Bildschirm nicht neu zeichnet, wie bei
   KST. Mit den vollen Zeiten der SD-Spezifikation dauert das erste
   Schreiben, das einen alten Vermerk aufbewahrt, 17,9 s auf einer

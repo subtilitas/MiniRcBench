@@ -128,7 +128,7 @@ Strom sowie die verbrauchten mAh.
 
 | | RP2350-Touch-LCD-2.8 |
 |---|---|
-| **Telemetrie-RX** | GP28, J4 Pin 11 |
+| **Telemetrie-RX** | GP1, J4 Pin 10 oder J5 Pin 1 |
 
 Die Platine empfängt auf dieser Leitung nur. Der Empfänger ist ein UART
 (Universal Asynchronous Receiver-Transmitter) aus einer PIO-Zustandsmaschine
@@ -138,14 +138,14 @@ verwendbarer Pin. Einschalten unter **MENU → SETTINGS → KISS TELEM**, den Pi
 der Zeile darunter setzen. Der Pin-Schrittschalter überspringt den Pin des
 ESC-Signals.
 
-**Voreinstellung: aus.** Die Platine hat zwei freie Pins, GP28 und GP29, und
+**Voreinstellung: aus.** Die Platine hat zwei freie Pins, GP0 und GP1, und
 der ESC belegt einen davon. Beim Einschalten von KISS
 wird der KISS-Pin vom ESC-Pin weg verschoben, falls beide zusammenfallen.
 
-> **Spannung.** Die KISS-Spezifikation legt diese Leitung auf 3,6 V, genau den
-> absoluten Grenzwert der RP2350-GPIOs. Welchen Pegel ein bestimmter ESC
-> treibt, hat das Projekt nicht gemessen. Miss deinen, bevor du ihn
-> anschließt.
+> **Spannung.** Die KISS-Spezifikation legt diese Leitung auf 3,6 V. GP0 und
+> GP1 vertragen 5,5 V, solange die Platine eingeschaltet ist, und 3,63 V,
+> solange sie aus ist. Welchen Pegel ein bestimmter ESC treibt, hat das
+> Projekt nicht gemessen.
 
 Wird das Kabel während des Betriebs abgezogen, wechseln die Marken 500 ms nach
 dem letzten KISS-Frame auf `EDT`, und die Werte werden gröber. Sie halten den

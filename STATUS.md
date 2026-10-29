@@ -31,7 +31,8 @@ for servos. The servo tester (slice 2 of
 [servo-tester.md](docs/design/servo-tester.md)) drives one servo on the ESC
 pin, or two on the ESC and KISS pins, with PWM (pulse-width modulation)
 pulses. KST and Chaservo servo programming, on the same pins, is slice 3, with
-an optional bench-switched servo supply on GP0. Its steps 1 to 5 are built:
+an optional bench-switched servo supply whose enable is on GP28 or GP29. Its
+steps 1 to 5 are built:
 rcbench's KST core, line driver and file store are copied into `lib/rcbench/`,
 with rcbench's tests of them, 298 cases; the search (`src/kst_seek.h`) and the
 core1 job (`src/kst_job.h`) run the session on the line, tested against
@@ -41,8 +42,9 @@ ring of `BACKUP/` that the AM32 editor shares (`src/backup_ring.h`,
 [backups.md](docs/design/backups.md)), tested against an in-memory volume;
 `src/ui_kst.cpp` is MENU → KST SERVO, run through MENU in the host suite.
 The switched supply (step 5, `src/servo_supply.h`) powers the servo from a
-converter on GP0 with `SERVO SUPPLY` at `GP0`; with `NONE` the servo is
-powered up and down by hand. Slice 3 builds on the menu restructure
+converter whose enable is on GP28 or GP29, with `SERVO SUPPLY` at `GP28` or
+`GP29`; with `NONE` the servo is powered up and down by hand.
+Slice 3 builds on the menu restructure
 ([menu.md](docs/design/menu.md), slices A to C). Slice A is built: one
 scrolling list, `src/ui_list.*`, under the AM32 and SERVO SET lists, and one
 hold, `src/ui_hold.*`, under HOLD TO WRITE, HOLD TO START, HOLD TO APPLY and
@@ -132,10 +134,11 @@ release, so it always finds a block with no other user. A `static_assert` in
 block: 3 state machines and 25 of 32 instructions. A bind that cannot get two
 adjacent state machines is refused, and the status bar then shows `DSERR`.
 
-PWM slices: slice 6 carries the servo
-pulses during a SERVO claim, GP29 on channel B and GP28 on channel A, one
-frame rate for both, its counter at 1 MHz. The servo tester uses no PIO and
-no DMA.
+PWM slices: slice 0 carries the servo
+pulses during a SERVO claim, GP0 on channel A and GP1 on channel B, one
+frame rate for both, its counter at 1 MHz. The backlight on GP16, also
+slice 0 channel A, runs from pio0, so the slice is free. The servo tester
+uses no PIO and no DMA.
 
 Board: the image is built for the Waveshare RP2350-Touch-LCD-2.8 only.
 
@@ -167,10 +170,12 @@ means general-purpose input/output.
 | Panel bus | SPI1: GP10 clock, GP11 data out |
 | Touch | CST328 on I2C1 (Inter-Integrated Circuit), GP6 and GP7 |
 | SD card | PIO SDIO on pio1, 4 bits, 10 MHz, GP19 to GP24 |
-| GPIOs free for the two wires | 2: GP28, GP29 |
-| ESC signal default | GP29, J4 pin 12 |
-| KISS default | GP28, J4 pin 11, off |
-| Battery sense | GP27, ADC (analog-to-digital converter) input 1, 3:1 divider |
+| GPIOs free for the two wires | 2: GP0, GP1 (`BOARD_FREE_GPIO_MASK` `0x00000003`), the pins of UART0 (universal asynchronous receiver-transmitter 0), which is unused |
+| ESC signal default | GP0, J4 pin 9 and J5 pin 2 |
+| KISS default | GP1, J4 pin 10 and J5 pin 1, off |
+| Switched servo supply enable | GP28, J4 pin 11, or GP29, J4 pin 12, under SETTINGS → SERVO SUPPLY; none by default |
+| Signal pin level | GP0 and GP1 are "Digital IO (FT)", fault tolerant: 5.5 V while IOVDD, the I/O supply, is at 3.3 V, 3.63 V while it is at 0 V (RP2350 datasheet, Table 1674). GP28 and GP29 are ADC (analog-to-digital converter) pins and not fault tolerant; they carry only the enable, a 3.3 V output |
+| Battery sense | GP27, ADC input 1, 3:1 divider |
 | Power latch | GP26, asserted first thing in `setup()` |
 | Other devices | PCF85063 RTC (real-time clock), I2S (Inter-IC Sound) audio codec, neither used |
 
@@ -204,8 +209,8 @@ record either way.
 | Servo tester: the pure model (`src/servo_model.*`), the PWM driver (`src/servo_pwm.*`), the core1 job (`src/servo_job.*`), the slider and the screens (`src/ui_slider.*`, `src/ui_servo.cpp`); rcbench's sweep and PWM fold in `lib/rcbench/` | profiles, limits at their boundaries, steppers to their stops, command, angle and pulse mappings, SPEED, the dial's hit area; the PWM driver's bind, write, release and sharing rules against a register fake; SAFE at level 0, CENTRE at START, STOP on the next pass, the slew, sweeps, REVERSE B, the trip at 250 ms across a millis() wrap, kept across a rebind, the profile rebind; no pulse cut short at a release or a rebind, against a model of the counter and the latched compare; released pins pulled down; the screens through the UI: HOLD TO START at 1000 ms, the drag rules, the SET warning and HOLD TO APPLY, STOP on SET, the AUX refusals through the claim, the unplug page; rcbench's own sweep and fold tests; the SDK calls are run against the fake only | not tested on hardware; open item 9 |
 | KST programming: rcbench's session, line driver and file store (`lib/rcbench/`), the search (`src/kst_seek.*`), the core1 job (`src/kst_job.*`) and its line (`src/kst_line_port.*`), the files on the card (`src/kst_files.*`), the screen (`src/ui_kst.cpp`, `src/kst_view.*`) | rcbench's seven tests, 298 cases, the line's PIO program among them in a model (`test_kst_pio.c`); the search and the job against rcbench's simulated servo, the files against an in-memory FAT (File Allocation Table) volume, the backup in `BACKUP/` and SAVE AS in `KST/` up to 50 files among them, the card phases' block counts over FatFs R0.15 itself (`make -C test kstcount`), the screen through MENU against both (`runKstTests`); the line driver and `kst_line_port.cpp` are built by the firmware and typechecked only | not recorded: no frame of the line driver has been on a pin (`kst_line.h`) |
 | SETTINGS layout (`src/ui_settings.cpp`): sections ESC TESTER, WIRING, SERVO SUPPLY, DISPLAY and BOARD in one scrolling list | the scroll range, 0 px at opening and 400 px at most; each row by id; no scroll from a press on a control; a cut control takes a press only while 40 px show; HOLD TO SAVE in place at every scroll position and saving at the end of the list; the pole count reaches the eRPM divisor, the ceiling steps by 5 %, and RESET restores both | not recorded |
-| Settings in flash (MENU → SETTINGS) | block validation, CRC, board id check, pin defaults, the version 3 block layout, a version 2 block discarded, the servo supply clamp | not recorded; 46a64a7 states no hardware coverage |
-| KST switched servo supply on GP0 (`src/servo_supply.*`), the SERVO SUPPLY row, the switched search, REBOOT, the close rule, the lapse rule and the card phase (`src/kst_seek.*`, `src/kst_job.*`, `src/ui_kst.cpp`, `sdh_wait_hook` in `src/sdio/sd_host.h`) | GP0 untouched with `NONE` from boot; with `GP0` an undriven input (SIO, output off, pulls off, input off) at boot and at every SETTINGS change; low at bind, high and low between bind and release, an undriven input after release; the row toggled, applied at once, saved and reset; against a model of the converter and a servo with a power-on window (`test/kst_supply_sim.h`): found on the first power-up, 14 power-ups and the timeout, off 2000 ms before every switch-on, the entry delay at -40 ms and +300 ms, a stop, a lapse and the timeout in a wait, REBOOT's 2000 ms off and 1000 ms on, refused while busy and without a switch, a lapse in the mode, during an operation and in REBOOT's off wait, the close 2000 ms after the switch-off, time off before a leave counted, GP0 untouched with `NONE`; the screens: the switched search, the leave page and HOLD TO REBOOT, the unplug page's wait, the stalled screen and RETRY; the card phase: `CardBegin` and `CardEnd` in each job state, stamps holding the supply on for 900 ms and off 250 ms after the last, the 15,000 ms cap at 14,900 and 15,100 ms, closed by a command and by LEAVE, the first write's 300 ms card calls inside a phase with and without stamps, the hook null with `NONE`, the busy wait calling the hook | not tested on hardware |
+| Settings in flash (MENU → SETTINGS) | block validation, CRC, board id check, pin defaults on GP0 and GP1 and not GP28 or GP29, the version 4 block layout, a version 3 block discarded, the servo supply clamp at 2 | not recorded; 46a64a7 states no hardware coverage |
+| KST switched servo supply with its enable on GP28 or GP29 (`src/servo_supply.*`), the SERVO SUPPLY row, the switched search, REBOOT, the close rule, the lapse rule and the card phase (`src/kst_seek.*`, `src/kst_job.*`, `src/ui_kst.cpp`, `sdh_wait_hook` in `src/sdio/sd_host.h`) | the enable pin untouched with `NONE` from boot; with `GP28` or `GP29` an undriven input (SIO, output off, pulls off, input off) at boot and at every SETTINGS change, a change from GP28 to GP29 switching only GP29; low at bind, high and low between bind and release, an undriven input after release; the mode to pin map; the row stepped NONE, GP28, GP29, applied at once, saved and reset; against a model of the converter and a servo with a power-on window (`test/kst_supply_sim.h`): found on the first power-up, 14 power-ups and the timeout, off 2000 ms before every switch-on, the entry delay at -40 ms and +300 ms, a stop, a lapse and the timeout in a wait, REBOOT's 2000 ms off and 1000 ms on, refused while busy and without a switch, a lapse in the mode, during an operation and in REBOOT's off wait, the close 2000 ms after the switch-off, time off before a leave counted, the enable pin untouched with `NONE`; the screens: the switched search, the leave page and HOLD TO REBOOT, the unplug page's wait, the stalled screen and RETRY; the card phase: `CardBegin` and `CardEnd` in each job state, stamps holding the supply on for 900 ms and off 250 ms after the last, the 15,000 ms cap at 14,900 and 15,100 ms, closed by a command and by LEAVE, the first write's 300 ms card calls inside a phase with and without stamps, the hook null with `NONE`, the busy wait calling the hook | not tested on hardware |
 | Hitec programming: rcbench's Hitec session, register model and line driver (`lib/rcbench/`), the core1 job (`src/hitec_job.*`) and its line (`src/hitec_line_port.*`), the files on the card (`src/hitec_files.*`), the HITEC SERVO screen (`src/ui_hitec.*`, `src/hitec_view.*`) | rcbench's 115 cases; the job against a simulated servo (`runHitecTests`); the deepest stack chain of the job on the Cortex-M33 checked in CI against 1,792 bytes; the files against an in-memory volume and the card phases' block counts over FatFs R0.15 (`make -C test kstcount`); the screen through MENU by control id | not tested on hardware; CLASSIC disabled until the line level is measured |
 | Touch handling, high-contrast theme, throttle gauge | tap on release, repeats, screen residue, gauge reach | hardware use recorded: the reports #22 to #24 named in the v2.3 commits; the fixes on hardware: not recorded |
 | List and hold widgets (`src/ui_list.*`, `src/ui_hold.*`; slice A of [menu.md](docs/design/menu.md)) | the list: the scroll range and its clamp, the press rule at the viewport's edges, the row rectangle, the axis lock at 6 px, a tap on release and its slide-off, the scroll from the press point, 16 px per coarse step, the factor, the stop at a rail and the anchor after it, the clipped drawing; the hold: 1000 ms and not 999 ms, the reset on a lift and a slide off, a press that slid on, one firing per press, no timing for a press that landed while the control was disabled or whose first frame it missed, the progress bar's extent; through the screens: AM32's swipe on every field of the table, KV at 16 px a step and its rail, the AM32 and SERVO SET scroll ranges and edge rows (checks that 4c91db9 also passes), DWELL's rail on SET, HOLD TO WRITE and HOLD TO SAVE at 999 ms and 1000 ms, each hold's colour and bar, a press on a disabled HOLD TO START, HOLD TO APPLY and HOLD TO WRITE never timed, HOLD TO SAVE's refusal while armed | not tested on hardware |
@@ -257,10 +262,10 @@ Not in this history: the DshotDisplay repository's branches
    7.3 kB/s it holds about 1.1 s. A card stall longer than that drops frames,
    which DROPPED FRAMES counts. BUF PEAK and WORST FLUSH on the SD LOG screen
    are the numbers to size it from.
-3. **KISS line voltage.** The KISS specification puts the line at 3.6 V, the
-   RP2350's absolute maximum GPIO voltage. No measurement is recorded. The
-   firmware enables the internal pull-up on the KISS pin; a 1 kΩ series
-   resistor is suggested in `config.h`.
+3. **KISS line voltage.** The KISS specification puts the line at 3.6 V.
+   GP1, the KISS pin, tolerates 5.5 V while the board is powered and 3.63 V
+   while it is off. The level an ESC drives is not measured. The firmware
+   enables the internal pull-up on the KISS pin.
 4. **Settings flash and the USB card reader on hardware.** Not recorded.
 5. **Design questions left open** in [kiss-telemetry.md](docs/design/kiss-telemetry.md)
    and [blackbox-logging.md](docs/design/blackbox-logging.md): which eRPM source
@@ -357,6 +362,14 @@ Not in this history: the DshotDisplay repository's branches
     plan of rcbench's Hitec session or panel has run on a servo, so step 6,
     the bring-up, runs one write with read-back per family before a write is
     relied on (design note, "Work breakdown", step 6).
+15. **Signal pins GP0 and GP1 and the enable on GP28 or GP29 on hardware.**
+    No hardware report above is recorded on these pins. Not tested on
+    hardware: DShot, the AM32 editor, KST and Hitec on GP0; KISS and servo B
+    on GP1; the servo pulses on PWM slice 0; the converter's enable input
+    (EN) driven from GP28 or GP29; the first boot over a version 3 settings
+    block. Bench tests needed: an ESC on GP0 with **LINK** above
+    0/S, a KISS frame on GP1, both servo channels on a scope, EN high and
+    low at each pin with the converter's output following.
 
 ## Known limitations
 
@@ -379,7 +392,7 @@ Not in this history: the DshotDisplay repository's branches
   lost `BACKUP/LAST` guesses 050 as its latest and writes over 001 next,
   which need not be the oldest ([backups.md](docs/design/backups.md)).
 
-- **Two free pins.** The board frees two GPIOs, GP28 and GP29. The ESC takes
+- **Two free pins.** The board frees two GPIOs, GP0 and GP1. The ESC takes
   one and KISS the other, so there is no third choice and the SETTINGS steppers
   stay put. KISS is off by default and one tap on MENU → SETTINGS turns it on. A
   build-time pin override outside the free set, or both wires on one pin,
@@ -426,8 +439,8 @@ binary, `dshot_tests`. `test/test_main.cpp` runs twenty-one suites:
 | `runGfxTests` | `test_gfx.cpp` | dirty bands, glyph rendering, clip rectangle, lines at any angle and thickness, arcs of dots |
 | `runBlackboxTests` | `test_blackbox.cpp` | variable-byte and zig-zag encodings, header, frames, time prediction |
 | `runLogRingTests` | `test_log_ring.cpp` | ring buffer, all-or-nothing writes, wraparound, high-water mark |
-| `runSettingsTests` | `test_settings.cpp` | settings block, validation, board id check, pin defaults, the version 3 block layout, a version 2 block discarded, the servo supply clamp |
-| `runServoSupplyTests` | `test_servo_supply.cpp` | GP0 with no switch and with one: untouched, undriven, bind, on, off, release, a change to none |
+| `runSettingsTests` | `test_settings.cpp` | settings block, validation, board id check, pin defaults, the version 4 block layout, a version 3 block discarded, the servo supply clamp |
+| `runServoSupplyTests` | `test_servo_supply.cpp` | GP28 and GP29 with no switch and with one: untouched, undriven, bind, on, off, release, a change to none, a change from GP28 to GP29, the mode to pin map |
 | `runUsbMscTests` | `test_usb_msc.cpp` | card handover state machine, RPM smoothing |
 | `runDshotFrameTests` | `test_dshot_frame.cpp` | DShot frame layout, checksum, inverted checksum, EDT enable word, throttle map (from rcbench) |
 | `runDshotTelemTests` | `test_dshot_telem.cpp` | line and group code, eRPM and EDT decode, checksum against single-bit errors, sampler (from rcbench); three-state poll, counters, every normalised eRPM frame decoded with EDT on |
@@ -549,15 +562,15 @@ model.
 | `src/servo_job.cpp` | 199 | 199 | 100.0% |
 | `src/servo_model.cpp` | 187 | 187 | 100.0% |
 | `src/servo_pwm.cpp` | 55 | 55 | 100.0% |
-| `src/servo_supply.cpp` | 34 | 34 | 100.0% |
+| `src/servo_supply.cpp` | 40 | 40 | 100.0% |
 | `src/settings.cpp` | 121 | 120 | 99.2% |
 | `src/theme.cpp` | 11 | 11 | 100.0% |
 | `src/ui.cpp` | 412 | 410 | 99.5% |
 | `src/ui_am32.cpp` | 321 | 292 | 91.0% |
-| `src/ui_hitec.cpp` | 1085 | 1011 | 93.2% |
+| `src/ui_hitec.cpp` | 1087 | 1012 | 93.1% |
 | `src/ui_hold.cpp` | 36 | 36 | 100.0% |
 | `src/ui_input.cpp` | 27 | 27 | 100.0% |
-| `src/ui_kst.cpp` | 1134 | 1082 | 95.4% |
+| `src/ui_kst.cpp` | 1140 | 1086 | 95.3% |
 | `src/ui_list.cpp` | 121 | 121 | 100.0% |
 | `src/ui_menu.cpp` | 117 | 116 | 99.1% |
 | `src/ui_screen.h` | 5 | 5 | 100.0% |
@@ -567,7 +580,7 @@ model.
 | `src/ui_slider.cpp` | 109 | 109 | 100.0% |
 | `src/ui_widgets.cpp` | 43 | 43 | 100.0% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **8610** | **8357** | **97.1%** |
+| **Total** | **8624** | **8368** | **97.0%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->

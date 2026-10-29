@@ -11,8 +11,8 @@ in-memory volume. `src/ui_kst.cpp` is the screen, MENU's KST SERVO row, and
 `src/kst_view.*` the rows, values, stepper and texts it draws; the host suite
 runs the screen through MENU against the simulated servo and the in-memory
 volume. The switched supply, step 5, is built: with `SERVO SUPPLY` at
-`GP0` the bench switches the servo's supply, and with `NONE` LEAVE asks the
-user to power the servo off. It depends on the pin claim in
+`GP28` or `GP29` the bench switches the servo's supply, and with `NONE`
+LEAVE asks the user to power the servo off. It depends on the pin claim in
 [pin-claim.md](pin-claim.md), slice 1 there, which is built. This
 document is slice 3. It comes after slices A to C of [menu.md](menu.md), the
 menu restructure, which are built, and is written for the system they leave:
@@ -91,14 +91,14 @@ outside transactions, so the pull-down matters only inside a reply window,
 test shows the internal 50 kΩ to 80 kΩ is not enough, the pull-down goes into
 a servo-only adapter lead, never onto an ESC lead (decision 3).
 
-**Reply level.** The servo drives the line during its reply. SIG is GP29, an
-ADC pin of the RP2350A, for which a 5 V rating is not checked
-([signal level](pin-claim.md#signal-level)); the MiniRcBench README treats
-every pin as 3.6 V maximum. A servo that replies at 5 V is out of range.
-The owner states that the servo replies at 3.3 V, so no level shifter is
-needed for it (decision 4); that is the owner's statement, not a recorded
-measurement. The 3.6 V rule stands for every servo: one that replies above
-3.6 V needs a level shifter in its lead.
+**Reply level.** The servo drives the line during its reply. SIG is GP0, a
+"Digital IO (FT)" pin of the RP2350A, fault tolerant: it tolerates 5.5 V
+while IOVDD is at 3.3 V and 3.63 V while the board is off
+([signal level](pin-claim.md#signal-level)). The owner states that the
+servo replies at 3.3 V, so no level shifter is needed for it (decision 4);
+that is the owner's statement, not a recorded measurement. Decision 4 keeps
+the rule of no level above 3.6 V on SIG for every servo: one that replies
+above 3.6 V needs a level shifter in its lead.
 
 Wiring is the servo diagram in [pin-claim.md](pin-claim.md#wiring), servo A
 only. The servo's supply is the user's, or, with a switched supply, the
@@ -116,15 +116,17 @@ PD mini, a USB PD (Power Delivery) supply module that it sets and reads back.
 MiniRcBench has an on and off switch and no read-back.
 
 The switch is optional. `SERVO SUPPLY` in SETTINGS says whether one is
-fitted: `NONE`, the default, or `GP0` (decision 8). Every rule in this section
-holds with `GP0` only. With `NONE` the bench never drives GP0, the search is
+fitted and where its enable is: `NONE`, the default, `GP28` or `GP29`
+(decision 8 and its [revision](#decisions)). Every rule in this section
+holds with `GP28` or `GP29` only; "the enable pin" below is the pin chosen.
+With `NONE` the bench drives neither pin, the search is
 the one in [entering programming mode](#entering-programming-mode), and
 every screen text that names the supply has its form without a switch.
 
 The Hitec job of [hitec-programming.md](hitec-programming.md#switched-servo-supply)
 is the second user of the same switch, through the same `servo_supply.h`,
 under the off time and the close rule of this section. One core1 job runs at
-a time, so the two never drive GP0 together.
+a time, so the two never drive the enable pin together.
 
 ### Hardware
 
@@ -134,40 +136,43 @@ converter. VIN and VOUT are the converter's input and output.
 
 | Item | Value |
 |---|---|
-| Enable pin | GP0, J5 pin 2 (also J4 pin 9) |
+| Enable pin | GP28, J4 pin 11, or GP29, J4 pin 12, as `SERVO SUPPLY` says. ADC pins, not fault tolerant ([signal level](pin-claim.md#signal-level)) |
 | Level | 3.3 V push-pull from IOVDD; high is on, low is off (active-high) |
 | Off-state resistor | external pull-down from EN to the supply's minus: 10 kΩ to 100 kΩ for an EN with no internal pull-up; with an internal pull-up, the divider sets the value ([example modules](#example-modules)) |
 | Converter type | buck (step-down), or another type with output disconnect, such as a four-switch buck-boost or a synchronous boost with load disconnect. A disabled boost converter without one passes VIN minus a diode drop to the servo. A plain non-synchronous boost module, for example a 3.7 V to 5 V module with only VIN, GND and VOUT, does not qualify: it has no EN, and its input passes to the output |
-| EN input | takes 3.3 V logic as high. With an internal pull-up from EN to VIN, the pull-up and the external pull-down form a divider while GP0 is undriven or unpowered, and at the highest VIN used it must meet two limits. First, EN below the converter's falling threshold; otherwise the converter is on outside a claim, while DShot runs. With the Pololu module below, a 100 kΩ pull-down puts 2.09 V on EN at 12 V, above its highest rising threshold of 1.2 V. Second, EN at most 3.6 V, the README's limit for every pin and below the 3.63 V an unpowered pin is rated for ([signal level](pin-claim.md#signal-level)); the same 100 kΩ gives 3.83 V at 22 V. No lower limit applies to an unpowered GP0: the first limit holds EN below the falling threshold, 0.84 V or more on the Pololu, and no source here rates an unpowered pin below 3.63 V. A module whose divider fails either limit needs a smaller pull-down, or its pull-up removed |
+| EN input | takes 3.3 V logic as high. With an internal pull-up from EN to VIN, the pull-up and the external pull-down form a divider while the enable pin is undriven or unpowered, and at the highest VIN used it must meet two limits. First, EN below the converter's falling threshold; otherwise the converter is on outside a claim, while DShot runs. With the Pololu module below, a 100 kΩ pull-down puts 2.09 V on EN at 12 V, above its highest rising threshold of 1.2 V. Second, EN at most 3.6 V, the limit this design keeps for GP28 and GP29, which are not fault tolerant ([signal level](pin-claim.md#signal-level)); the same 100 kΩ gives 3.83 V at 22 V. For an unpowered enable pin the first limit holds EN below the falling threshold, 0.84 V or more on the Pololu; the level an unpowered GP28 or GP29 tolerates is not checked here. A module whose divider fails either limit needs a smaller pull-down, or its pull-up removed |
 | Converter output | 5 V nominal, for every servo the owner programs, HV (high-voltage) servos included (decision 16); rated for the servo's stall current, more than 1 A. The servo tester's range in the [pin-claim.md wiring](pin-claim.md#wiring) is not this requirement |
 | Start-up time | from EN high to VOUT in range: unknown until bring-up |
 | Converter input | the user's supply. J4 pin 2 is USB VBUS and does not feed a servo |
 | Ground | servo minus to the supply's minus; one tap from the supply's minus to board GND |
 
-GP0 is UART0's TX pin on J4 and J5. The firmware leaves UART0 unused
-(`pico_enable_stdio_uart(MiniRcBench 0)`; USB serial is `usb_dev.cpp`), and
-SETTINGS does not offer GP0 for the ESC wires. The enable is a plain GPIO output:
+GP28 and GP29 are on J4 only. SETTINGS does not offer them for the ESC
+wires: those are GP0 and GP1, UART0's pins, which are fault tolerant, and
+the firmware leaves UART0 unused (`pico_enable_stdio_uart(MiniRcBench 0)`;
+USB serial is `usb_dev.cpp`). The enable is a plain GPIO output at 3.3 V:
 it switches the converter on or off and is never a PWM channel.
 
 **Off state.** The external pull-down holds EN low whenever nothing drives
-GP0:
+the enable pin:
 
-- Board unpowered: GP0's pad has no supply, and the pull-down alone holds EN
-  low.
+- Board unpowered: the pin's pad has no supply, and the pull-down alone holds
+  EN low.
 - From reset: GPIO0's pad comes up with its pull-down enabled, its input
   disabled and its isolation on (`PADS_BANK0_GPIO0_RESET`, 0x116, in the Pico
   SDK, software development kit, 2.1.1,
-  `src/rp2350/hardware_regs/include/hardware/regs/pads_bank0.h`). The
-  pad pull-down and the external one act together until `servoSupplyInit()`.
+  `src/rp2350/hardware_regs/include/hardware/regs/pads_bank0.h`). Whether
+  the GPIO28 and GPIO29 pads reset to the same value is not checked here;
+  bring-up step 7 checks EN from reset. With that reset state, the pad
+  pull-down and the external one act together until `servoSupplyInit()`.
   Erratum RP2350-E9 affects a pad whose input is enabled: its leakage can hold
-  the pin high against the internal pull-down. GP0's input is disabled from
-  reset, so E9 cannot latch it.
-- BOOTSEL: what the boot ROM (read-only memory) does with GP0 in BOOTSEL is
-  not checked. A boot ROM that drove GP0 high there would switch the
-  converter on. The design relies on the external pull-down; bring-up step 7
-  checks it.
-- Outside a claim that uses the supply: GP0 is an input with both pulls off
-  and its input disabled, so the external pull-down alone holds EN low. A
+  the pin high against the internal pull-down. A pad whose input is disabled
+  from reset cannot latch through E9.
+- BOOTSEL: what the boot ROM (read-only memory) does with GP28 and GP29 in
+  BOOTSEL is not checked. A boot ROM that drove the enable pin high there
+  would switch the converter on. The design relies on the external
+  pull-down; bring-up step 7 checks it.
+- Outside a claim that uses the supply: the enable pin is an input with both
+  pulls off and its input disabled, so the external pull-down alone holds EN low. A
   missing or too-weak pull-down leaves the converter on outside the claim,
   while DShot runs, with its output on the lead's middle wire. Bring-up
   step 7 checks EN and VOUT on the main screen.
@@ -182,21 +187,21 @@ be J5 pin 4, or J4 pin 1 or 5.
 an ESC that wire is the BEC output, the ESC's own regulated supply, and the
 converter drives against it. The claim's ESC check
 ([interlocks](pin-claim.md#interlocks)) does not see an ESC that does not
-speak bidirectional DShot, nor an ESC plugged in after the claim. GP0 is not
-driven during that check, so the converter is off while DShot runs. The
-README's wiring section and the search screen warn of it.
+speak bidirectional DShot, nor an ESC plugged in after the claim. The enable
+pin is not driven during that check, so the converter is off while DShot
+runs. The README's wiring section and the search screen warn of it.
 
 ```
   user supply +  ------- VIN    DC-DC    VOUT  ---------  servo +  (red)
-  user supply -  ---+--- GND             EN  ----+------  GP0, J5 pin 2
-                    |                            |
+  user supply -  ---+--- GND             EN  ----+------  GP28, J4 pin 11,
+                    |                            |        or GP29, J4 pin 12
                     |                       10 k pull-down
                     |                            |
                     +----------------------------+------  servo -  (brown)
                     |
   board GND  -------+    the one tap: J5 pin 4, or J4 pin 1 or 5
   board SIG  -------------------------------------------  servo signal
-                                                          (GP29, J4 pin 12)
+                                                          (GP0, J4 pin 9 or J5 pin 2)
 ```
 
 The drawing shows the 10 kΩ pull-down the Pololu example below needs. For an
@@ -207,24 +212,24 @@ EN with no internal pull-up, any value from 10 kΩ to 100 kΩ holds it off.
 Examples, not owner decisions. The Pololu module meets the requirements
 above with the 10 kΩ pull-down below. The PowerBoost meets them only once its
 pull-up's value is known, since that value sets the pull-down it needs and
-the level GP0 sees.
+the level the enable pin sees.
 
 | Module | Type | VIN | Output | EN | Source |
 |---|---|---|---|---|---|
 | Pololu S13V30F5 | step-up/step-down (buck-boost) | 2.8 V to 22 V; reverse-voltage protection to 20 V | 5 V, 3 % accuracy; typical maximum continuous output 2 A to 4 A depending on VIN, limited by thermal dissipation; 22.9 mm × 22.9 mm × 9.7 mm | on by default through a 475 kΩ pull-up to VIN; rising threshold 1 V to 1.2 V, falling at most 160 mV lower, so at least 0.84 V; sleep draw 2 µA to 10 µA per volt of VIN | Pololu product page [4082](https://pololu.com/product-info-merged/4082) |
 | Adafruit PowerBoost 1000 Basic, the alternative from one lithium cell | synchronous boost, TI TPS61030 | one cell | 5.2 V | pulled up to the battery, resistor value not stated, so it meets the requirements only once the value is known; 20 µA disabled. Adafruit: "connecting the ENable pin to ground ... will completely turn off the output" | [Adafruit guide](https://learn.adafruit.com/adafruit-powerboost-1000-basic) |
 
-The Pololu divider, with a 10 kΩ pull-down from EN to GND and GP0 undriven
-or unpowered: EN = VIN × 10 kΩ / (475 kΩ + 10 kΩ) = VIN × 10 / 485. That is
+The Pololu divider, with a 10 kΩ pull-down from EN to GND and the enable pin
+undriven or unpowered: EN = VIN × 10 kΩ / (475 kΩ + 10 kΩ) = VIN × 10 / 485. That is
 0.25 V at 12 V and 0.45 V at 22 V, below the lowest falling threshold of
 0.84 V, so the converter is off, and far below 3.6 V. For EN to stay below
 0.84 V at 22 V the pull-down must be below 18.9 kΩ
 (475 kΩ × 0.84 V / 21.16 V); 18 kΩ is the largest standard value under it.
 At 100 kΩ, EN reads 2.09 V at 12 V, so
-the converter is on, and 3.83 V at 22 V, above GP0's 3.6 V. GP0 driving
-3.3 V is above the 1.2 V highest rising threshold, so the converter is on,
+the converter is on, and 3.83 V at 22 V, above the enable pin's 3.6 V. The
+enable pin driving 3.3 V is above the 1.2 V highest rising threshold, so the converter is on,
 and the pull-up then sources at most (22 V − 3.3 V) / 475 kΩ, about 39 µA,
-into the GP0 output.
+into the enable pin's output.
 
 Not stated by Pololu: what VOUT does while EN is low, and whether it is
 disconnected from VIN. A four-switch buck-boost is expected to disconnect, so
@@ -232,26 +237,28 @@ this is a bring-up check: VOUT with EN low, at the lowest and the highest VIN
 used.
 
 For the PowerBoost the pull-up's value is not stated, so the pull-down it
-needs and the level an unpowered GP0 sees are not known, and the module meets
-the requirements only once they are; its schematic is not checked here. Its
-battery reaches 4.2 V, above GP0's 3.6 V limit, so the divider matters there
-too.
+needs and the level an unpowered enable pin sees are not known, and the
+module meets the requirements only once they are; its schematic is not checked here. Its
+battery reaches 4.2 V, above the enable pin's 3.6 V limit, so the divider
+matters there too.
 
 ### Firmware
 
-`src/servo_supply.{h,cpp}` owns GP0.
+`src/servo_supply.{h,cpp}` owns the enable pin, GP28 or GP29 as
+`SERVO SUPPLY` says (`servoSupplyPinOf()`, `servoSupplyPin()`).
 
-| Call | Core, when | What it does to GP0 |
+| Call | Core, when | What it does to the enable pin |
 |---|---|---|
-| `servoSupplyInit()` | core0, in `setup()` directly after `settingsLoad()`, before core1 starts | with `GP0`: SIO function, output disabled, both pulls off, input disabled. Selecting SIO with `gpio_set_function()` clears the pad's isolation and its output disable and turns its input on (Pico SDK 2.1.1, `src/rp2_common/hardware_gpio/gpio.c`), so the input is disabled after it. The SIO output enable stays off, so the pin is not driven. With `NONE`: nothing; GP0 keeps its reset state |
-| `servoSupplyConfigure()` | core0, from SETTINGS' `applyLive()`, outside every claim | as `servoSupplyInit()`, for the new value. A change to `NONE` leaves GP0 an input with both pulls off |
-| `servoSupplyBind()` | core1, from the KST job's bind, with `GP0` | drives GP0 low: off |
-| `servoSupplyOn()`, `servoSupplyOff()` | core1, the KST job, between bind and release, with `GP0` | drives GP0 high or low |
-| `servoSupplyRelease()` | core1, from the KST job's release, at every claim end, with `GP0` | drives GP0 low, then makes it an input with both pulls off and its input disabled |
+| `servoSupplyInit()` | core0, in `setup()` directly after `settingsLoad()`, before core1 starts | with `GP28` or `GP29`: SIO function, output disabled, both pulls off, input disabled. Selecting SIO with `gpio_set_function()` clears the pad's isolation and its output disable and turns its input on (Pico SDK 2.1.1, `src/rp2_common/hardware_gpio/gpio.c`), so the input is disabled after it. The SIO output enable stays off, so the pin is not driven. With `NONE`: nothing; GP28 and GP29 keep their reset state |
+| `servoSupplyConfigure()` | core0, from SETTINGS' `applyLive()`, outside every claim | as `servoSupplyInit()`, for the new value. The pin of the value before stays an input with both pulls off and its input disabled, after a change to `NONE` or to the other pin |
+| `servoSupplyBind()` | core1, from the KST or Hitec job's bind, with `GP28` or `GP29` | drives the pin low: off |
+| `servoSupplyOn()`, `servoSupplyOff()` | core1, the KST or Hitec job, between bind and release | drives the pin high or low |
+| `servoSupplyRelease()` | core1, from the KST or Hitec job's release, at every claim end | drives the pin low, then makes it an input with both pulls off and its input disabled |
 | `servoSupplyIsOn()` | core1 | the level the bench drives; there is no read-back |
 
-GP0 is driven only while a claim that uses the supply holds: the KST claim,
-and the servo tester's once decision 10 is built. Two cores write GP0's pad,
+The enable pin is driven only while a claim that uses the supply holds: the
+KST and Hitec claims, and the servo tester's once decision 10 is built. Two
+cores write the pin's pad,
 never at once: core0 at boot and at a SETTINGS change, core1 only inside a
 KST claim, and SETTINGS is unreachable while a claim holds. The level is a fact
 core1 writes and core0 reads, as `KstStatus.supply`, under the KST job's
@@ -262,8 +269,8 @@ servo.
 among them, and the firmware enables no watchdog timer. A core1 that hangs
 with the supply on leaves it on: nothing in the firmware switches it off.
 This is a known limitation. What bounds it lies outside the firmware: a reset
-or a power-off of the board returns GP0 to the off state above, and the user
-can switch off the supply. A core0 that hangs is covered: core1 sees the
+or a power-off of the board returns the enable pin to the off state above,
+and the user can switch off the supply. A core0 that hangs is covered: core1 sees the
 heartbeat lapse and switches the supply off.
 
 ### Search with the switch
@@ -294,8 +301,8 @@ STOP SEARCH, BACK and the timeout end the search with the supply off. In an
 off phase the supply is not switched on. In an on phase it goes off once
 `kst_session_abort()` has finished the frame on the wire.
 
-A switched search with no switch behind it: with `SERVO SUPPLY` at `GP0` and
-no converter fitted, or with the servo on a supply of its own, the switch
+A switched search with no switch behind it: with `SERVO SUPPLY` at `GP28`
+or `GP29` and no converter fitted, or with the servo on a supply of its own, the switch
 does nothing to the servo. The search then makes 14 attempts with 2000 ms of
 silence before each, and frames go out in about 118 ms of each 2.12 s. A
 servo powered up by hand most likely powers up in an off phase, so a
@@ -330,8 +337,8 @@ which all 10 enter are the window, and the constant takes a value inside it.
 
 - **Leave.** LEAVE switches the supply off at once; the line stays low. After
   `KST_SUPPLY_OFF_MS`, 2000 ms from the switch-off command, the job closes the
-  line and releases GP0, and the unplug page follows. A servo without power is
-  in no mode (rcbench `shared/outputs/include/kst_port.h`), so the leave page
+  line and releases the enable pin, and the unplug page follows. A servo
+  without power is in no mode (rcbench `shared/outputs/include/kst_port.h`), so the leave page
   does not ask the user to power it off. How long a KST servo needs without
   power to leave programming mode is not measured; 2000 ms is the owner's
   value. Before the tap the page reads
@@ -341,8 +348,8 @@ which all 10 enter are the window, and the constant takes a value inside it.
   the unplug page. HOLD TO REBOOT is hidden during the wait, and the job
   refuses `Reboot` while Leaving.
 - **REBOOT.** A 1000 ms hold on the leave page ([leave](#leave)), offered with
-  `SERVO SUPPLY` at `GP0` only. The line stays low throughout. The supply goes
-  off and the wrapper calls `kst_session_power_cycled()`. After
+  `SERVO SUPPLY` at `GP28` or `GP29` only. The line stays low throughout.
+  The supply goes off and the wrapper calls `kst_session_power_cycled()`. After
   `KST_SUPPLY_OFF_MS` the supply goes on, only while the heartbeat is trusted.
   After `KST_SUPPLY_WAIT_MS`, 1000 ms (rcbench `KST_PORT_RAIL_WAIT_MS`),
   `kst_session_enter()` and `kst_session_read_all()` follow. Both times count
@@ -391,8 +398,8 @@ which all 10 enter are the window, and the constant takes a value inside it.
     input/output) card driver counts as the UI's, for at most 15 s ([card
     calls](#card-calls-and-the-heartbeat)).
 - **Claim end, any path:** the supply is off, for 2000 ms from the switch-off
-  command ([close](#close-with-the-switch)), and GP0 an input before the
-  pins return to DShot, so the DShot pump never runs with the converter on.
+  command ([close](#close-with-the-switch)), and the enable pin an input
+  before the pins return to DShot, so the DShot pump never runs with the converter on.
   That covers the pump, not an ESC the claim's check misses ([an ESC on the
   lead](#hardware)).
 - **Boot:** off. The reset state and the external pull-down hold EN low until
@@ -401,8 +408,8 @@ which all 10 enter are the window, and the constant takes a value inside it.
 ### Close with the switch
 
 Every claim end after the supply was on at least once in the claim closes
-the line and releases GP0 only once `KST_SUPPLY_OFF_MS`, 2000 ms, have passed
-since the last switch-off command: LEAVE, BACK during REBOOT, BACK on the
+the line and releases the enable pin only once `KST_SUPPLY_OFF_MS`,
+2000 ms, have passed since the last switch-off command: LEAVE, BACK during REBOOT, BACK on the
 stalled screen and BACK during a switched search alike (decision 18). BACK
 switches the supply off first if it is on; time spent off before BACK counts.
 Until the close the page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`, BACK
@@ -429,8 +436,8 @@ stall would count as a lapse: the supply goes off, and
 `kst_session_power_cycled()` drops the backup in memory, the one the first
 write's card call was saving among them.
 
-**The card phase** (decisions 17 and 19). With `SERVO SUPPLY` at `GP0`,
-every card call core0 makes while the KST job runs gets one, unless the job
+**The card phase** (decisions 17 and 19). With `SERVO SUPPLY` at `GP28` or
+`GP29`, every card call core0 makes while the KST job runs gets one, unless the job
 refuses it (step 1):
 
 1. `ui_kst.cpp` sends `CardBegin` and waits up to 50 ms
@@ -588,11 +595,12 @@ What remains:
 
 | Step | Strip | Body | Controls |
 |---|---|---|---|
-| Searching, supply switched | `GP29  TRY 3  SUPPLY OFF 1.4 S`, or `SUPPLY ON`; TRY is the attempt under way, `KstStatus.attempts` + 1 in an off phase | `SWITCHED SUPPLY`, then `THE BENCH SWITCHES THE SERVO OFF FOR 2 S, THEN ON, BEFORE EACH TRY.`, the failsafe line, and in amber `AN ESC ON THIS LEAD GETS THE CONVERTER'S OUTPUT ON ITS BEC WIRE.`; a spinner | STOP SEARCH, BACK |
-| Timed out, supply switched | `NO ANSWER IN 14 POWER-UPS`, the number from `KstStatus.attempts` | `CHECK THE CONVERTER ON GP0, ITS WIRING AND THE SIGNAL. A SERVO ON ITS OWN SUPPLY NEEDS SETTINGS > SERVO SUPPLY AT NONE.` | RETRY, BACK |
-| Stalled, supply switched | `GP29  SUPPLY OFF` | `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF. RETRY POWERS IT UP AND READS IT AGAIN.` Without a card, after a write, in amber, `NO CARD: THE BACKUP IN MEMORY IS LOST.` and nothing more. With a card, for a locked session, in amber, `THE LAST WRITE IS IN DOUBT. AFTER THE READ, LOAD KST005 IN FILES AND HOLD TO WRITE.` | RETRY, BACK |
-| REBOOT | `GP29  SUPPLY OFF 1.4 S`, then `SUPPLY ON 0.6 S` | `REBOOT: DO NOT UNPLUG THE SERVO.`, then `READING 32 REGISTERS` | BACK |
+| Searching, supply switched | `GP0  TRY 3  SUPPLY OFF 1.4 S`, or `SUPPLY ON`; TRY is the attempt under way, `KstStatus.attempts` + 1 in an off phase | `SWITCHED SUPPLY`, then `THE BENCH SWITCHES THE SERVO OFF FOR 2 S, THEN ON, BEFORE EACH TRY.`, the failsafe line, and in amber `AN ESC ON THIS LEAD GETS THE CONVERTER'S OUTPUT ON ITS BEC WIRE.`; a spinner | STOP SEARCH, BACK |
+| Timed out, supply switched | `NO ANSWER IN 14 POWER-UPS`, the number from `KstStatus.attempts` | `CHECK THE CONVERTER ON GP28, ITS WIRING AND THE SIGNAL. A SERVO ON ITS OWN SUPPLY NEEDS SETTINGS > SERVO SUPPLY AT NONE.` | RETRY, BACK |
+| Stalled, supply switched | `GP0  SUPPLY OFF` | `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF. RETRY POWERS IT UP AND READS IT AGAIN.` Without a card, after a write, in amber, `NO CARD: THE BACKUP IN MEMORY IS LOST.` and nothing more. With a card, for a locked session, in amber, `THE LAST WRITE IS IN DOUBT. AFTER THE READ, LOAD KST005 IN FILES AND HOLD TO WRITE.` | RETRY, BACK |
+| REBOOT | `GP0  SUPPLY OFF 1.4 S`, then `SUPPLY ON 0.6 S` | `REBOOT: DO NOT UNPLUG THE SERVO.`, then `READING 32 REGISTERS` | BACK |
 
+The converter text names the enable pin SETTINGS chose, `GP28` or `GP29`.
 BACK on the stalled screen goes to the unplug page once the supply has been
 off for 2000 ms; the session is not in the mode. BACK during REBOOT switches
 the supply off if it is on, waits as LEAVE does, 2000 ms from the switch-off
@@ -603,7 +611,7 @@ switch:
 
 ```
 y   0 | KST SERVO                        [ BACK ]|  header 36 px (menu.md)
-   40 | GP29  TRY 3  SUPPLY OFF 1.4 S            |
+   40 | GP0  TRY 3  SUPPLY OFF 1.4 S             |
    70 |           SWITCHED SUPPLY                |  scale 2, C_LIME, 178 px
   100 |   THE BENCH SWITCHES THE SERVO OFF FOR   |  scale 1, C_DIM
   114 |   2 S, THEN ON, BEFORE EACH TRY.         |
@@ -625,21 +633,27 @@ between WIRING and DISPLAY, contributed by KST's registry entry (menu.md
 decisions 8 and 13). The list's geometry, gestures, fixed footer and asserts
 are menu.md's, built in its slice C.
 
-- Values: `NONE`, 0, the default, for no switch fitted, and `GP0`, 1, an
-  active-high enable on GP0 (decision 8).
-- The row is a toggle, as KISS TELEM is: a tap switches `NONE` and `GP0`. A
-  change applies at once through `servoSupplyConfigure()`; no claim holds
+- Values: `NONE`, 0, the default, for no switch fitted; `GP28`, 1, an
+  active-high enable on GP28, J4 pin 11; `GP29`, 2, one on GP29, J4 pin 12
+  (decision 8 and its [revision](#decisions)).
+- The row is a stepper, as KISS PIN is: - and + step `NONE`, `GP28`,
+  `GP29` and stop at the ends. A change applies at once through
+  `servoSupplyConfigure()`; no claim holds
   while SETTINGS is open, so nothing is driven. HOLD TO SAVE stores it with
   every other row, and RESET sets it to `NONE` with the other compiled
   defaults.
-- Version: the row adds the `servoSupply` field to the settings block, so
-  `SETTINGS_VERSION` goes from 2 to 3. The first boot after slice 3 discards
-  the stored block and starts from the compiled defaults, every setting and
-  the ESC pin included. A block DshotDisplay saved does not load, and
-  DshotDisplay discards a version 3 block.
-- Validation: `settingsValidate()` sets any value but 0 or 1 to 0.
-- Fit: the label, 71 px at scale 1, ends at x 78; the 94 × 44 px toggle
-  starts at x 138. The list grows by a 20 px caption and a 50 px row, from
+- Version: the row adds the `servoSupply` field to the settings block, at
+  version 3. The layout is version 4, with the signal pins on GP0 and GP1
+  and the enable on GP28 or GP29. A block of another version, a version 3
+  block with its ESC pin on GP29 or GP28 or its switch on GP0 among them, is
+  discarded whole, and the compiled defaults load, every setting and the
+  ESC pin included. A block DshotDisplay saved does not load, and
+  DshotDisplay discards this project's blocks.
+- Validation: `settingsValidate()` sets any value above 2
+  (`SERVO_SUPPLY_MODE_MAX`) to 0.
+- Fit: the label, 71 px at scale 1, ends at x 78; the value, at most four
+  characters at scale 2, ends at x 132, and - and + are 44 × 44 px at x 138
+  and x 188. The list grows by a 20 px caption and a 50 px row, from
   530 px to 600 px, and its scroll range from 0 px to 330 px to 0 px to
   400 px.
 
@@ -650,7 +664,7 @@ At 230 px:
    50 | KISS TELEM          [    OFF     ]        |
   100 | KISS PIN          --  [  -  ] [  +  ]     |  disabled while KISS is off
   150 | SERVO SUPPLY                              |  section caption
-  170 | SERVO SUPPLY        [    NONE    ]        |  toggle, scale 2
+  170 | SERVO SUPPLY    NONE  [  -  ] [  +  ]     |  stepper, scale 2
   220 | DISPLAY                                   |  caption, ends at y 239
 ```
 
@@ -665,15 +679,15 @@ At 230 px:
   on the same bus would give the read-back rcbench has from its PD mini.
 - The servo tester's use of the supply: decided (decision 10), and built in a
   change after KST programming. Until then the servo tester never drives
-  GP0, so with a converter fitted its servo is unpowered unless it has a
-  supply of its own.
+  the enable pin, so with a converter fitted its servo is unpowered unless
+  it has a supply of its own.
 
 ### Tests for the switch
 
 `kst_sim.h` is copied unchanged. The switched-supply servo is a model in a
 MiniRcBench test file, `test/kst_supply_sim.h`, around `kst_sim.h`'s servo.
-It reads the fake GP0 level, applies a start-up time, and drives the
-servo's `powered`: on while the supply is up, with `in_mode` cleared when it
+It reads the fake level of the enable pin, applies a start-up time, and
+drives the servo's `powered`: on while the supply is up, with `in_mode` cleared when it
 goes off. For a servo with a power-on window it holds `powered` off outside
 the window until the servo is in the mode, so a sync outside the window goes
 unanswered. `test_kst_seek.cpp` and `test_kst_job.cpp` run against it:
@@ -711,14 +725,17 @@ unanswered. `test_kst_seek.cpp` and `test_kst_job.cpp` run against it:
   record's removal after a verify, each closed by `CardEnd`, and none with
   `NONE`; the hook null outside a phase; the servo job and the pump ignore
   the card heartbeat;
-- GP0 not driven outside a claim: output disabled from boot through SETTINGS
-  changes until the job's bind; after every claim end an input with both
+- the enable pin not driven outside a claim: output disabled from boot
+  through SETTINGS changes until the job's bind; after every claim end an input with both
   pulls off and its input disabled; with `NONE`, untouched through a whole
   KST claim;
 - the supply off at every claim end, and off after BACK during an off phase;
-- settings: the version 3 layout, the `servoSupply` clamp, a version 2 block
-  discarded whole;
-- SETTINGS, by control id: `SERVO SUPPLY` scrolled into view, toggled,
+- settings: the version 4 layout, the `servoSupply` clamp at 2, a version 3
+  block discarded whole;
+- the mode to pin map, and a change from GP28 to GP29 that switches only
+  GP29;
+- SETTINGS, by control id: `SERVO SUPPLY` scrolled into view, stepped
+  `NONE`, `GP28`, `GP29`,
   saved and reset; the list's 400 px scroll range; every value the row shows
   against its row table entry. The list's gestures, partial-visibility rule
   and fixed footer are tested in [menu.md](menu.md#slices) slice C.
@@ -859,22 +876,22 @@ screen says so.
 
 | Step | Strip | Body | Controls |
 |---|---|---|---|
-| Checking | `KST SERVO` | `CHECKING GP29 FOR AN ESC` | BACK |
+| Checking | `KST SERVO` | `CHECKING GP0 FOR AN ESC` | BACK |
 | An ESC answers | | the message from [pin-claim.md](pin-claim.md#when-the-pin-is-unavailable) | BACK |
-| Releasing | `RELEASING GP29` | | BACK |
-| Searching, no switch | `GP29  TRY 12  1.4 S` | `POWER UP` and `THE SERVO NOW` on two lines at scale 2, then `PLUG IT IN OR SWITCH ITS SUPPLY ON. IT ANSWERS ONLY RIGHT AFTER POWER-ON.` and `A POWERED SERVO ON THIS PIN GETS NO PULSES AND MAY GO TO ITS FAILSAFE.`, a spinner | STOP SEARCH, BACK |
+| Releasing | `RELEASING GP0` | | BACK |
+| Searching, no switch | `GP0  TRY 12  1.4 S` | `POWER UP` and `THE SERVO NOW` on two lines at scale 2, then `PLUG IT IN OR SWITCH ITS SUPPLY ON. IT ANSWERS ONLY RIGHT AFTER POWER-ON.` and `A POWERED SERVO ON THIS PIN GETS NO PULSES AND MAY GO TO ITS FAILSAFE.`, a spinner | STOP SEARCH, BACK |
 | Edges, no valid reply | | adds, in amber, `REPLY NOT VALID: LATE` (the `kst_rx_t` code as a word) | as above |
 | Searching, supply switched | see [screens with the switch](#screens-with-the-switch) | | |
 | Timed out, no switch | `NO SERVO IN 30 S` | `CHECK SIGNAL AND GROUND, THEN POWER THE SERVO UP AGAIN.` | RETRY, BACK |
 | Found | `IN PROGRAMMING MODE` | `READING 32 REGISTERS` | BACK |
 | Read failed | | `READ FAILED: NO 3 EQUAL READS` and the registers in `bad_regs`, at most 9 on the line and `AND n MORE` below for the rest; `ABORTED. READ THE SERVO AGAIN.` after BACK; `THE SCREEN STALLED. READ THE SERVO AGAIN.` when the job refused the read; `THE READ WAS STOPPED. READ THE SERVO AGAIN.` for a read that ended before its abort was taken | READ AGAIN, BACK |
-| Read | `V6  GP29  BACKUP KST004` | the field list | see below |
+| Read | `V6  GP0  BACKUP KST004` | the field list | see below |
 
 The layout of the searching state without a switch:
 
 ```
 y   0 | KST SERVO                        [ BACK ]|  header 36 px (menu.md)
-   40 | GP29  TRY 12  1.4 S                      |
+   40 | GP0  TRY 12  1.4 S                       |
    70 |                POWER UP                  |  scale 2, C_LIME, 94 px
    88 |             THE SERVO NOW                |  scale 2, C_LIME, 154 px
   112 |   PLUG IT IN OR SWITCH ITS SUPPLY ON.    |  scale 1, C_DIM
@@ -908,7 +925,7 @@ switched supply.
 
 ```c
 enum class KstOp : uint8_t { Search, StopSearch, ReadAll, Verify, Edit, Restore, Abort, Leave,
-                             Reboot,                 // step 5: SERVO SUPPLY at GP0 only
+                             Reboot,                 // step 5: SERVO SUPPLY at GP28 or GP29 only
                              CardBegin, CardEnd };   // step 5: the card phase
 enum class KstJobState : uint8_t { Opening, Searching, SearchEnded, InMode, Busy,
                                    Rebooting,        // step 5
@@ -993,7 +1010,7 @@ and the card is only ever touched from core0, as `sd_log.cpp` already does.
 | rcbench port step (`kst_port.h`) | Here |
 |---|---|
 | STOPPING, 50 ms with no pulse | the claim's drain: DShot stops, then silence |
-| LOW, 100 ms at least, and the supply set | `kst_line_open()`, which drives low. With a switched supply, `servoSupplyBind()` drives GP0 low at the job's bind, and the search switches the supply off for 2000 ms and on before each attempt |
+| LOW, 100 ms at least, and the supply set | `kst_line_open()`, which drives low. With a switched supply, `servoSupplyBind()` drives the enable pin low at the job's bind, and the search switches the supply off for 2000 ms and on before each attempt |
 | PROGRAMMING, the entry holds low 100 ms more | the search |
 | LEAVE: low for 100 ms by default, then PWM | without a switched supply: low for 100 ms, `kst_line_close()` (input, pull-down on), then the unplug page and DShot. With one: supply off and the line low for 2000 ms, `kst_line_close()`, `servoSupplyRelease()`, then the unplug page and DShot |
 | POWER_CYCLED, REBOOT | the loss rule above. REBOOT with a switched supply only, on the leave page; not rcbench's REBOOT, which counts from its PD mini's read-back and ends in PWM: here the times count from the switch commands, and an entry and a read follow |
@@ -1020,7 +1037,7 @@ decision 5.
 
 ```
 y   0 | KST SERVO                        [ BACK ]|
-   40 | V6  GP29  BACKUP KST004            (MODE)|  strip, chip C_GREEN
+   40 | V6  GP0  BACKUP KST004             (MODE)|  strip, chip C_GREEN
    62 | TUNE      MAX. DUTY                 96 % |  40 px rows, 42 px pitch,
   104 | TUNE      BOOST                300.0 US  |  viewport 62..215,
   146 | TUNE      DEAD BAND              2.0 US  |  on ui_list
@@ -1163,7 +1180,7 @@ With a switched supply:
 
 ```
 y   0 | KST SERVO                        [ BACK ]|
-   40 | V6  GP29  SUPPLY ON                      |  strip
+   40 | V6  GP0  SUPPLY ON                       |  strip
    66 | LEAVE SWITCHES THE SERVO'S SUPPLY OFF.   |  scale 1, centred, 227 px
    86 | 2 CHANGES NOT WRITTEN.                   |  only with pending edits
   100 | THE SERVO IS IN DOUBT: RESTORE FIRST.    |  only while locked, C_AMBER
@@ -1386,8 +1403,8 @@ so these run against the same simulated servo:
   close error that leaves its file locked, one of the two files taken, the
   record found and loaded at entry, the store's save, list and load over
   FatFs. With the screen, in `test_kst_ui.cpp`: the record written before
-  the first write frame and removed after a verify. With `GP0`, step 5: a
-  card phase around
+  the first write frame and removed after a verify. With `GP28` or `GP29`,
+  step 5: a card phase around
   every card call, the first write's opened before the backup and closed by
   the write command, the others closed by `CardEnd`; `sdh_wait_hook` set only
   inside a phase.
@@ -1423,8 +1440,8 @@ so these run against the same simulated servo:
    preview. Built, without the switched supply, which is step 5.
 5. The switched supply, its settings field and its SETTINGS row. Built:
    `servo_supply.*` with `servoSupplyInit()`, the settings field and
-   version 3, the clamp, the SETTINGS row, the switched search, REBOOT, the
-   close rule, the lapse rule, the card phase (`CardBegin`, `CardEnd`,
+   version 3 (4 with the enable on GP28 or GP29), the clamp, the SETTINGS
+   row, the switched search, REBOOT, the close rule, the lapse rule, the card phase (`CardBegin`, `CardEnd`,
    `kstCardStamp()`, `sdh_wait_hook`), their screens and their tests
    against `test/kst_supply_sim.h`. As built, and differing from the
    sections above:
@@ -1478,13 +1495,15 @@ so these run against the same simulated servo:
      switch](#tests-for-the-switch).
    - `settings.h` and `settings.cpp`: the `servoSupply` field at offset 12
      (payload 14 bytes, block 28 bytes on the host compiler's layout),
-     `SETTINGS_VERSION` 3, and a `settingsValidate()` clamp: any value but 0
-     (`NONE`) or 1 (`GP0`) becomes 0. The comments that say a DshotDisplay
+     `SETTINGS_VERSION` 3 (4 with the enable on GP28 or GP29), and a
+     `settingsValidate()` clamp: any value but 0 (`NONE`), 1 (`GP28`) or 2
+     (`GP29`) becomes 0. The comments that say a DshotDisplay
      block loads unchanged go: on `SETTINGS_VERSION`, on `boardId`, and at
      the board check in `settingsValidate()`.
-   - `test_settings.cpp`: `testDshotDisplayLayout` becomes the version 3
-     layout test, and a DshotDisplay 2.x block is discarded whole and loads
-     the compiled defaults.
+   - `test_settings.cpp`: `testDshotDisplayLayout` becomes the layout test,
+     version 4 with the enable on GP28 or GP29, and a DshotDisplay 2.x block
+     and a version 3 block are each discarded whole and load the compiled
+     defaults.
    - The SERVO SUPPLY section: one `SettingsRow` in KST's header, named by
      KST's line in `ui_registry.cpp` ([SETTINGS row](#settings-row));
      `test_ui.cpp`: the row by control id. The scrolling list, its asserts
@@ -1503,15 +1522,16 @@ so these run against the same simulated servo:
      and the ESC pin included. DshotDisplay, flashed back, discards a
      version 3 block the same way.
 6. README: the KST section, the wiring, the legal notice; the converter,
-   its requirements and the warning on an ESC's BEC wire; GP0 in the pin
-   table as the supply enable with `SERVO SUPPLY` at `GP0`; the KST SERVO
+   its requirements and the warning on an ESC's BEC wire; GP28 and GP29 in
+   the pin table as the supply enable with `SERVO SUPPLY` at `GP28` or
+   `GP29`; the KST SERVO
    row in the MENU table of README.md, which has no KST row until then. Wiki
    pages `KST-Programming.md` and its German counterpart, and their entries
    in `_Sidebar.md` and the screens pages.
 7. Bring-up, in rcbench's order and before any write is relied on:
    - the converter, with the user's supply on: with no servo, EN low and
      VOUT at 0 V with the board unpowered, held in reset, in BOOTSEL, and on
-     the main screen with `SERVO SUPPLY` at `GP0`; the
+     the main screen with `SERVO SUPPLY` at `GP28` and at `GP29`; the
      start-up time from EN high to VOUT in range, on a scope; with the
      servo as the load, VOUT at the end of the 2000 ms off time. The level
      at which a KST servo resets is not known, so the record is the voltage
@@ -1674,6 +1694,19 @@ y 40; 15 by menu.md decision 14, which carries it into `ui_list` unchanged.
 SETUP in decisions 8, 11, 12 and 15 is the screen menu.md decision 12 names
 SETTINGS. Decision 11's count is corrected: SERVO SUPPLY was the sixth row of
 eight, after KISS PIN, not the eighth. Decision 8's BOOTSEL clause holds as
-long as the boot ROM leaves GP0 undriven, which bring-up step 7 checks.
+long as the boot ROM leaves the enable pin undriven, which bring-up step 7
+checks.
 Decisions 8 and 11 keep the wording the owner decided; the two corrections
 stand here only.
+
+Revision of 2026-10-29, the pin plan. GP0 and GP1 are "Digital IO (FT)"
+pins and GP28 and GP29 are ADC pins, not fault tolerant
+([signal level](pin-claim.md#signal-level)), so the signal wires take GP0
+and GP1 and the enable takes GP28 or GP29. Decision 7's enable pin is GP28,
+J4 pin 11, or GP29, J4 pin 12. Decision 8's row is a stepper with three
+values, `NONE`, `GP28` and `GP29`; GP0 and GP1 are not offered for the
+enable. The settings layout is version 4, and a block of an earlier version
+is discarded whole, as decision 8 describes for version 2. Under decision
+10 the servo tester never drives the enable pin. Decision 4's rule, no
+level above 3.6 V on SIG, stands as decided. Decisions 4, 7, 8 and 10 keep
+the wording the owner decided; these changes stand here only.

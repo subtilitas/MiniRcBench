@@ -52,17 +52,20 @@ The claim names pins by role, not by number, because the number is a setting.
 | AUX | the KISS telemetry wire, `settings()->kissPin` | servo B (two-servo mode) |
 
 AUX is the KISS pin whether or not KISS is switched on in SETTINGS. KISS is off
-by default, and GP28 is still the AUX pin.
+by default, and GP1 is still the AUX pin.
 
 | Role | Default | Connector |
 |---|---|---|
-| SIG | GP29 | J4 pin 12 |
-| AUX | GP28 | J4 pin 11 |
-| GND | | J4 pins 1 and 5 |
+| SIG | GP0 | J4 pin 9, J5 pin 2 |
+| AUX | GP1 | J4 pin 10, J5 pin 1 |
+| GND | | J4 pins 1 and 5, J5 pin 4 |
 
-SETTINGS offers GP28 and GP29 only, for either role (`BOARD_FREE_GPIO_MASK`
-0x30000000). With KISS off, SETTINGS lets the ESC pin take the KISS pin's GPIO,
-so SIG and AUX can name the same pin.
+SETTINGS offers GP0 and GP1 only, for either role (`BOARD_FREE_GPIO_MASK`
+0x00000003). They are UART0's pins, and the firmware does not use UART0
+(universal asynchronous receiver-transmitter). GP28 (J4 pin 11) and GP29 (J4
+pin 12) carry only the optional switched servo supply's enable; see [Signal
+level](#signal-level). With KISS off, SETTINGS lets the ESC pin take the KISS
+pin's GPIO, so SIG and AUX can name the same pin.
 
 ## The claim
 
@@ -311,11 +314,15 @@ unreachable. A pin change in SETTINGS applies to the next claim.
 
 Nothing about the servo tester is stored in the settings block; see
 decision 2 in [servo-tester.md](servo-tester.md). The programmer stores one
-field, `SERVO SUPPLY`, whether a switched servo supply is fitted on GP0
-([kst-programming.md](kst-programming.md#decisions), decision 8). Slice 3
-takes `SETTINGS_VERSION` from 2 to 3 for it, so the first boot after slice 3
-discards the stored block and starts from the compiled defaults. Slices 1
-and 2, and slices A to C of [menu.md](menu.md#storage), leave it at 2.
+field, `SERVO SUPPLY`, whether a switched servo supply is fitted and whether
+its enable is on GP28 or GP29
+([kst-programming.md](kst-programming.md#decisions), decision 8). Slices 1
+and 2, and slices A to C of [menu.md](menu.md#storage), leave
+`SETTINGS_VERSION` at 2; slice 3 makes it 3 for the field. The layout is
+version 4, with the signal pins on GP0 and GP1 and the enable on GP28 or
+GP29. A stored block of an earlier version, its ESC pin on GP29 or GP28 or
+its enable on GP0, is discarded whole and the compiled defaults load, so
+every saved setting returns to its default once after the update.
 
 ### When the pin is unavailable
 
@@ -325,10 +332,10 @@ works.
 
 | Cause | Screen text | Way out |
 |---|---|---|
-| An ESC answers on SIG | `AN ESC ANSWERS ON GP29.` `UNPLUG IT: SERVO PULSES READ AS THROTTLE.` | unplug the ESC; the claim follows 500 ms later |
-| KISS frames on AUX, two servos asked | `KISS WIRE ON GP28 IS LIVE.` `TWO SERVOS NEED IT UNPLUGGED.` | unplug it, or choose one servo |
+| An ESC answers on SIG | `AN ESC ANSWERS ON GP0.` `UNPLUG IT: SERVO PULSES READ AS THROTTLE.` | unplug the ESC; the claim follows 500 ms later |
+| KISS frames on AUX, two servos asked | `KISS WIRE ON GP1 IS LIVE.` `TWO SERVOS NEED IT UNPLUGGED.` | unplug it, or choose one servo |
 | SIG and AUX on one GPIO, two servos asked | `ESC AND KISS PIN ARE THE SAME GPIO.` `MOVE THE ESC PIN IN SETTINGS.` | choose one servo, or change a pin in SETTINGS |
-| The job could not bind | `GP29 COULD NOT BE TAKEN (PWM)` or `(PIO)`, `(DMA)`, `(CLOCK)` | RETRY keeps the claim; BACK shows the unplug page before DShot restarts |
+| The job could not bind | `GP0 COULD NOT BE TAKEN (PWM)` or `(PIO)`, `(DMA)`, `(CLOCK)` | RETRY keeps the claim; BACK shows the unplug page before DShot restarts |
 | Armed, or another screen holds the pins | `DISARM FIRST` or `PINS BUSY` | BACK; unreachable through the UI |
 
 The GPIO numbers in the text are the live ones from SETTINGS.
@@ -358,7 +365,7 @@ show:
 
 ```
   UNPLUG THE SERVO.
-  DSHOT RESTARTS ON GP29 AND READS AS
+  DSHOT RESTARTS ON GP0 AND READS AS
   A 970 US PULSE AT 1000 HZ.
   [ RESTART DSHOT ]
 ```
@@ -396,8 +403,8 @@ channel is `gpio & 1` (`PWM_GPIO_SLICE_NUM` in Pico SDK 2.1.1,
 
 | GPIO | Slice | Channel | Use |
 |---|---|---|---|
-| GP28 | 6 | A | AUX |
-| GP29 | 6 | B | SIG |
+| GP0 | 0 | A | SIG |
+| GP1 | 0 | B | AUX |
 | GP16 | 0 | A | backlight; driven by PIO (`backlight.pio`), not by the slice |
 
 The two servos are on one slice, channels A and B: two pulse widths, one
@@ -459,15 +466,20 @@ the panel driver changes it. The KST driver needs a 25.40 µs half-cell within
 
 ### Signal level
 
-The pins drive 3.3 V, from IOVDD. The MiniRcBench README treats every GPIO as
-3.6 V maximum. rcbench's documents rate RP2350 GPIO0 to GPIO39 at 5.5 V while
-IOVDD is at 3.3 V and at 3.63 V while it is off. That statement is for
-rcbench's RP2350B, whose ADC pins are GP40 to GP47. On the RP2350A of this
-board the ADC pins are GP26 to GP29, which includes GP28 and GP29; whether
-the 5.5 V rating covers them is not checked here against the datasheet. This
-design keeps the stricter rule for both signal pins: no level
-above 3.6 V on SIG or AUX. It matters for KST, where the servo drives the line in
-its reply ([kst-programming.md](kst-programming.md)).
+The pins drive 3.3 V, from IOVDD, the RP2350's GPIO supply, 3.3 V on this
+board. SIG and AUX are GP0 and GP1. On the RP2350A of this board both are
+"Digital IO (FT)" pins, fault tolerant (RP2350 datasheet, Table 1674): they
+tolerate voltages up to 5.5 V while IOVDD is at 3.3 V, and with IOVDD at
+0 V very little current flows below 3.63 V. So SIG and AUX take up to 5.5 V
+while the board is powered and up to 3.63 V while it is off. That matters
+for KST, where the servo drives the line in its reply
+([kst-programming.md](kst-programming.md)), and for KISS telemetry, which
+the ESC drives.
+
+GP28 and GP29 are "Digital IO / Analogue" pins, the ADC inputs GP26 to GP29
+of the RP2350A, and not fault tolerant. They are not offered for SIG or
+AUX. They carry only the switched servo supply's enable, a 3.3 V output
+([kst-programming.md](kst-programming.md#switched-servo-supply)).
 
 Whether a given servo reads 3.3 V as high is not recorded per servo. Standard
 servo inputs are commonly specified for 3.3 V logic.
@@ -475,8 +487,8 @@ servo inputs are commonly specified for 3.3 V logic.
 ### Wiring
 
 The servo's power comes from its own supply. The board supplies signal and
-ground only. For KST programming the supply can be a converter whose enable
-the board switches on GP0
+ground only. For KST and Hitec programming the supply can be a converter
+whose enable the board switches on GP28 or GP29
 ([kst-programming.md](kst-programming.md#switched-servo-supply)); the board
 still feeds the servo nothing.
 
@@ -489,7 +501,8 @@ still feeds the servo nothing.
   board SIG  ------------------------------------------  servo A signal (orange or white)
   board AUX  ------------------------------------------  servo B signal, two-servo mode only
 
-  SIG GP29 = J4 pin 12, AUX GP28 = J4 pin 11, GND = J4 pin 1 or 5
+  SIG GP0 = J4 pin 9 or J5 pin 2, AUX GP1 = J4 pin 10 or J5 pin 1,
+  GND = J4 pin 1 or 5, or J5 pin 4
 ```
 
 - The servo's middle wire goes to its supply, never to a connector pin.

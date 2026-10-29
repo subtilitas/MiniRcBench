@@ -131,7 +131,7 @@ struct ServoTypeInfo {
 /**
  * @brief Everything the pins carry, shared by both servos.
  *
- * SIG and AUX are channels B and A of one PWM slice, which has one frame rate,
+ * SIG and AUX are channels A and B of one PWM slice, which has one frame rate,
  * so both servos share one rate and one pulse range.
  */
 struct ServoProfile {

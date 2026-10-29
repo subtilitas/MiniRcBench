@@ -147,10 +147,17 @@ screen does not work.
 
 ## My settings reset themselves
 
-They were not saved. Pole count and throttle ceiling are edited on
-**MENU → SETTINGS**, and `HOLD TO SAVE` there writes them to flash. The note
-line reads `UNSAVED - HOLD SAVE TO KEEP` while changes are unsaved, and `MENU`
-shows `UNSAVED` on its `SETTINGS` row.
+They were not saved, or new firmware changed the settings layout. Pole
+count and throttle ceiling are edited on **MENU → SETTINGS**, and
+`HOLD TO SAVE` there writes them to flash. The note line reads
+`UNSAVED - HOLD SAVE TO KEEP` while changes are unsaved, and `MENU` shows
+`UNSAVED` on its `SETTINGS` row.
+
+Firmware whose settings layout differs from the one in flash starts from its
+defaults. Updating from earlier firmware to firmware with settings layout
+version 4 returns every saved setting to its default once, the ESC pin
+included: the ESC pin is then GP0, KISS is off and SERVO SUPPLY is `NONE`.
+Set them again and save with `HOLD TO SAVE`.
 
 ---
 
@@ -158,8 +165,8 @@ shows `UNSAVED` on its `SETTINGS` row.
 
 That is the default. Turn it on under **MENU → SETTINGS → KISS TELEM**.
 
-The board has two free GPIOs (general-purpose input/output pins), GP28 and
-GP29, and the ESC signal starts on GP29. KISS defaults to off so that the
+The board has two free GPIOs (general-purpose input/output pins), GP0 and
+GP1, and the ESC signal starts on GP0. KISS defaults to off so that the
 spare pin is not used for a wire that may not be fitted.
 
 Turning KISS on moves the KISS pin to the other free pin if it coincides with

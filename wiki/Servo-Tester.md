@@ -29,10 +29,11 @@ The servo needs its own supply. The board supplies the signal and ground only.
      -  ----------------+-----------------------------  servo -   (brown or black)
                         |
   board GND  -----------+
-  board GP29 ------------------------------------------  servo A signal (orange or white)
-  board GP28 ------------------------------------------  servo B signal, two servos only
+  board GP0  ------------------------------------------  servo A signal (orange or white)
+  board GP1  ------------------------------------------  servo B signal, two servos only
 
-  GP29 = J4 pin 12, GP28 = J4 pin 11, GND = J4 pin 1 or 5
+  GP0 = J4 pin 9 or J5 pin 2, GP1 = J4 pin 10 or J5 pin 1,
+  GND = J4 pin 1 or 5, or J5 pin 4
 ```
 
 - The servo's middle wire goes to its supply, never to a pin of the board.
@@ -41,7 +42,7 @@ The servo needs its own supply. The board supplies the signal and ground only.
   before the board.
 - Join the two grounds once, at the board.
 - Servo A is on the ESC pin and servo B on the KISS pin, as set under
-  **MENU → SETTINGS**. GP29 and GP28 are the defaults.
+  **MENU → SETTINGS**. GP0 and GP1 are the defaults.
 - Unplug any ESC from the ESC pin. The screen waits while an ESC answers on
   it, but it cannot see every ESC.
 
@@ -52,7 +53,7 @@ The servo needs its own supply. The board supplies the signal and ground only.
 Open **MENU → SERVO TESTER**.
 
 The screen takes the two signal pins from the ESC driver. If an ESC answers on
-the ESC pin, it waits and says `AN ESC ANSWERS ON GP29.` Unplug the ESC; the
+the ESC pin, it waits and says `AN ESC ANSWERS ON GP0.` Unplug the ESC; the
 screen takes the pins by itself 500 ms later. Servo pulses of 1000 µs to
 2000 µs are a valid throttle signal for many ESCs.
 
@@ -200,11 +201,11 @@ screen instead, SAFE, and keeps the pins.
 
 ## When it does not work
 
-- **`AN ESC ANSWERS ON GP29.`** An ESC is on the ESC pin. Unplug it.
-- **`GP29 COULD NOT BE TAKEN (PWM)`.** The board could not set up its pulse
+- **`AN ESC ANSWERS ON GP0.`** An ESC is on the ESC pin. Unplug it.
+- **`GP0 COULD NOT BE TAKEN (PWM)`.** The board could not set up its pulse
   output. Tap `RETRY`.
 
-  <img src="img/servo-bind.png" width="240" alt="GP29 COULD NOT BE TAKEN (PWM), with RETRY">
+  <img src="img/servo-bind.png" width="240" alt="GP0 COULD NOT BE TAKEN (PWM), with RETRY">
 
 - **`TWO` cannot be chosen.** The KISS wire is live, or both pins are the same
   pin under SETTINGS. The SET screen names the cause when `SERVOS` is selected.

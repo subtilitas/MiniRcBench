@@ -46,7 +46,7 @@ its own supply, its signal on SIG, the two grounds joined once at the board.
   board GND  -----------+
   board SIG  ------------------------------------------  servo signal (orange or white)
 
-  SIG GP29 = J4 pin 12, GND = J4 pin 1 or 5
+  SIG GP0 = J4 pin 9 or J5 pin 2, GND = J4 pin 1 or 5, or J5 pin 4
 ```
 
 GND is the board's ground.
@@ -60,14 +60,14 @@ GND is the board's ground.
   The board's 5 V pin is its USB (Universal Serial Bus) supply.
 - Switch the board on before the servo supply, and the servo supply off
   before the board.
-- SIG is the ESC pin, as set under **MENU → SETTINGS**. GP29 is the
+- SIG is the ESC pin, as set under **MENU → SETTINGS**. GP0 is the
   default.
 - rcbench's runs used a 5.0 V servo supply. Other supplies are not tested,
   and nothing has run on this board.
 - Unplug any ESC from the ESC pin. The screen checks for an ESC on the pin,
   but it sees only an ESC that answers bidirectional DShot.
 
-With **SETTINGS → SERVO SUPPLY** at `GP0`, the bench powers the servo itself,
+With **SETTINGS → SERVO SUPPLY** at `GP28` or `GP29`, the bench powers the servo itself,
 through the converter described under
 [KST Programming](KST-Programming#switched-supply). See
 [Switched supply](#switched-supply). **An ESC on this lead gets the
@@ -87,24 +87,25 @@ The strip reads `CHOOSE THE SERVO'S FAMILY`. Two buttons follow:
 
 - `CLASSIC`, with `HS-5XXX, HS-7XXX` under it, drawn disabled. A line in
   amber gives the reason: `LINE LEVEL NOT MEASURED`. Once the level is
-  measured, the line reads `NEEDS SERVO SUPPLY GP0` while SERVO SUPPLY is
+  measured, the line reads `NEEDS SERVO SUPPLY GP28 OR GP29` while SERVO SUPPLY is
   `NONE`.
 - `D SERIES`, with `D485HW, D645MW AND THE OTHERS` under it, and
-  `SUPPLY SWITCHED ON GP0` or `ON THE SERVO'S OWN SUPPLY`.
+  `SUPPLY SWITCHED ON GP28` (or `GP29`, the pin set) or
+  `ON THE SERVO'S OWN SUPPLY`.
 
 **Tap `D SERIES`.** `BACK` on this view returns to `MENU`.
 
 The screen then takes SIG from the ESC driver. While it does, the strip reads
-`RELEASING GP29`, then `TAKING GP29`. While an ESC answers on the pin it
-reads `CHECKING GP29 FOR AN ESC` instead.
+`RELEASING GP0`, then `TAKING GP0`. While an ESC answers on the pin it
+reads `CHECKING GP0 FOR AN ESC` instead.
 
-- If an ESC answers on the pin, the screen says `AN ESC ANSWERS ON GP29.`,
+- If an ESC answers on the pin, the screen says `AN ESC ANSWERS ON GP0.`,
   then `UNPLUG IT: A HITEC ENTRY SENDS` and
   `FRAMES INTO WHAT IS ON THE WIRE.` It takes the pin when the ESC is gone.
 - While the ESC is armed, the screen says `DISARM FIRST`. While the pins are
   still in use, it says `PINS BUSY`.
 - If the board cannot set up the line, the screen says
-  `GP29 COULD NOT BE TAKEN (` followed by `REFUSED`, `PWM`, `PIO`, `DMA` or
+  `GP0 COULD NOT BE TAKEN (` followed by `REFUSED`, `PWM`, `PIO`, `DMA` or
   `CLOCK` and a closing bracket. PWM is pulse-width modulation and DMA is
   direct memory access. `RETRY` tries again.
 
@@ -120,9 +121,9 @@ When the pin is taken, the entry starts at once.
 - **With SERVO SUPPLY at `NONE`**, the screen reads the servo on the supply
   it has. Power the servo before you tap `D SERIES`. The body reads
   `READING THE MODEL`.
-- **With SERVO SUPPLY at `GP0`**, the screen switches the supply off for
-  2.0 s and on again. The strip counts the off time, `GP29  SUPPLY OFF 1.4 S`,
-  and the body reads `SUPPLY OFF`. Then the strip reads `GP29  SUPPLY ON` and
+- **With SERVO SUPPLY at `GP28` or `GP29`**, the screen switches the supply off for
+  2.0 s and on again. The strip counts the off time, `GP0  SUPPLY OFF 1.4 S`,
+  and the body reads `SUPPLY OFF`. Then the strip reads `GP0  SUPPLY ON` and
   the body `SERVO STARTING` while the servo starts, about 1 s. The screen
   shows no count for this second. Two amber lines stay under the text:
   `AN ESC ON THIS LEAD GETS THE` and `CONVERTER'S OUTPUT ON ITS BEC WIRE.`
@@ -132,12 +133,12 @@ When the pin is taken, the entry starts at once.
 
 A servo that does not answer gives the strip `NO SERVO ANSWERS`. An amber
 line names the last reply, for example `REPLY: SILENT`, and the body reads
-`CHECK THE SERVO'S SUPPLY, THE SIGNAL AND GROUND.` With `GP0` the screen adds
+`CHECK THE SERVO'S SUPPLY, THE SIGNAL AND GROUND.` With `GP28` or `GP29` the screen adds
 `THE SUPPLY IS OFF.` `RETRY` enters again. The reply words are `SILENT`,
 `EARLY`, `LATE`, `NAK`, `LENGTH`, `FRAMING`, `GAP`, `NO ACK`, `HEADER`,
 `ADDRESS`, `SUM`, `CUT`, `OVERFLOW` and `ARG`; `NONE` means no reply code.
 
-Once the servo answers, the strip reads `GP29  IN SERIAL MODE` and the body
+Once the servo answers, the strip reads `GP0  IN SERIAL MODE` and the body
 counts the read: `READING 21 REGISTERS`, `7 OF 21`. This first full read is
 the session's backup. A read that fails reads `READ FAILED AT 0x32`, for
 example, with the reply word under it, and offers `READ AGAIN`. A read
@@ -155,7 +156,7 @@ add in amber `A WRITE WAS INTERRUPTED. HITEC/` and
 ## The field list
 
 The strip shows the model, the pin and the backup:
-`D485HW GP29 BACKUP IN MEMORY` until a write has put the backup on the card,
+`D485HW GP0 BACKUP IN MEMORY` until a write has put the backup on the card,
 then `BACKUP HT001`, for example. A model that has no name in rcbench's list
 reads `D SERIES` and its number. A green chip at the right reads `MODE`.
 
@@ -397,21 +398,21 @@ belongs to. See [KST Programming](KST-Programming#files) for the ring.
 `BACK` on the field list opens the leave page. `BACK` during a read opens it
 too.
 
-The strip names the model, the pin and, with `GP0`, `SUPPLY ON` or
+The strip names the model, the pin and, with `GP28` or `GP29`, `SUPPLY ON` or
 `SUPPLY OFF`. The page reads `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.` with
-`GP0`, or `LEAVE RESTARTS THE SERVO.` with `NONE`. With pending changes it
+`GP28` or `GP29`, or `LEAVE RESTARTS THE SERVO.` with `NONE`. With pending changes it
 adds `2 CHANGES NOT WRITTEN.`, and after a write that failed
 `A WRITE DID NOT END VERIFIED.` in amber.
 
 | Button | What it does |
 |---|---|
 | `READ AGAIN` | Reads the servo again and returns to the field list. Pending changes stay |
-| `LEAVE` | Ends the session: with `GP0` it switches the supply off, with `NONE` it restarts the servo from its saved values |
+| `LEAVE` | Ends the session: with `GP28` or `GP29` it switches the supply off, with `NONE` it restarts the servo from its saved values |
 | `BACK` | Returns to the field list |
 
-After `LEAVE` with `GP0`, the next page reads
+After `LEAVE` with `GP28` or `GP29`, the next page reads
 `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` until the line closes. Then it reads
-`UNPLUG THE SERVO.` over `DSHOT RESTARTS ON GP29 AND READS AS` and
+`UNPLUG THE SERVO.` over `DSHOT RESTARTS ON GP0 AND READS AS` and
 `A 970 US PULSE AT 1000 HZ.`
 
 <img src="img/hitec-unplug.png" width="240" alt="The unplug page: UNPLUG THE SERVO. and RESTART DSHOT">
@@ -427,7 +428,7 @@ unplug page.
 
 ## When it does not work
 
-- **`AN ESC ANSWERS ON GP29.`** An ESC is on the ESC pin. Unplug it.
+- **`AN ESC ANSWERS ON GP0.`** An ESC is on the ESC pin. Unplug it.
 - **`NO SERVO ANSWERS` with `REPLY: SILENT`.** Nothing answered. Check the
   servo's supply, the signal wire and the ground. With `NONE`, power the
   servo before the entry.
@@ -446,13 +447,13 @@ unplug page.
 
 ## Switched supply
 
-With **SETTINGS → SERVO SUPPLY** at `GP0`, the bench powers the servo through
+With **SETTINGS → SERVO SUPPLY** at `GP28` or `GP29`, the bench powers the servo through
 the DC-DC converter (direct-current voltage converter) whose enable input is
-on GP0, J5 pin 2. Its wiring is on the
+on GP28, J4 pin 11, or GP29, J4 pin 12. Its wiring is on the
 [KST Programming](KST-Programming#switched-supply) page. **An ESC on this
 lead gets the converter's output on its BEC wire.**
 
-<img src="img/hitec-stall.png" width="240" alt="The stalled screen: GP29 SUPPLY OFF, RETRY">
+<img src="img/hitec-stall.png" width="240" alt="The stalled screen: GP0 SUPPLY OFF, RETRY">
 
 - **The entry** switches the servo off for 2.0 s, then on, and waits about
   1 s for its start.
@@ -479,19 +480,21 @@ next operation is refused until the screen runs again: a write then reads
 The reason is the signal level:
 
 - A classic servo drives the signal line high itself, through about 1 kΩ.
-- The voltage it drives is not measured. A 5 V servo may put 5 V on GP29.
-- The board's GPIO (general-purpose input/output) pins allow 3.6 V.
+- The voltage it drives is not measured. A 5 V servo may put 5 V on SIG,
+  GP0.
+- GP0 tolerates 5.5 V while the board is powered and 3.63 V while it is
+  off.
 
 The classic family opens once bring-up has measured that level and the
 firmware is built with it marked as measured. It then needs SERVO SUPPLY at
-`GP0`: a classic servo enters programming mode only at its power-up. Under
-`NONE` the family view reads `NEEDS SERVO SUPPLY GP0`.
+`GP28` or `GP29`: a classic servo enters programming mode only at its power-up. Under
+`NONE` the family view reads `NEEDS SERVO SUPPLY GP28 OR GP29`.
 
 The classic screens are built and tested on the host only, against a
 simulated servo. The pictures below show them with the line level set as
-measured and SERVO SUPPLY at `GP0`.
+measured and SERVO SUPPLY at `GP28` or `GP29`.
 
-<img src="img/hitec-family-classic.png" width="240" alt="The family view with CLASSIC enabled, rendered with the line level set as measured and SERVO SUPPLY at GP0"> <img src="img/hitec-repair.png" width="240" alt="A classic HS-5645MG: CHECKSUM BAD with REPAIR"> <img src="img/hitec-not-measured.png" width="240" alt="A classic model not measured: MODEL NOT MEASURED: WRITTEN IN THE CLASSIC LAYOUT.">
+<img src="img/hitec-family-classic.png" width="240" alt="The family view with CLASSIC enabled, rendered with the line level set as measured and SERVO SUPPLY at GP28"> <img src="img/hitec-repair.png" width="240" alt="A classic HS-5645MG: CHECKSUM BAD with REPAIR"> <img src="img/hitec-not-measured.png" width="240" alt="A classic model not measured: MODEL NOT MEASURED: WRITTEN IN THE CLASSIC LAYOUT.">
 
 - **CHECKSUM.** A classic servo whose checksum does not sum shows
   `CHECKSUM` `BAD` in amber. The row can be selected, and the editor bar
@@ -510,7 +513,7 @@ measured and SERVO SUPPLY at `GP0`.
 
 - The bench sends every frame to ID 0. A D series servo with another ID is
   not tested.
-- With `GP0`, the screen's card calls keep the supply on for at most 15 s
+- With `GP28` or `GP29`, the screen's card calls keep the supply on for at most 15 s
   while the screen does not redraw, as for KST. At the SD specification's
   full times, the first write that keeps an old record takes 17.9 s on an
   exFAT (Extended File Allocation Table) SDXC (Secure Digital eXtended

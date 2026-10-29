@@ -37,8 +37,8 @@ Zwei Kabel: Signal und Masse.
 
 | | RP2350-Touch-LCD-2.8 |
 |---|---|
-| **Signal** | GP29, J4 Pin 12 |
-| **Masse** | GND, J4 Pin 1 oder 5 |
+| **Signal** | GP0, J4 Pin 9 oder J5 Pin 2 |
+| **Masse** | GND, J4 Pin 1 oder 5 oder J5 Pin 4 |
 
 Die Platine hat JST-SH-Stecker mit 1,0 mm Raster und keine 2,54-mm-Stiftleisten,
 das ESC-Kabel braucht also ein Adapterkabel mit JST-SH-Stecker.
@@ -49,10 +49,10 @@ gespeichert.
 
 > **Vorher das mittlere Kabel des ESC-Steckers abzwicken oder auspinnen.**
 > Der mittlere Leiter eines dreipoligen Servosteckers ist der
-> **+5-V-Ausgang des BEC** (Battery Eliminator Circuit) im ESC. Die Pins des
-> RP2350 sind **nicht** 5-V-tolerant. Mehr als etwa 3,6 V überschreitet den
-> absoluten Grenzwert und beschädigt den Chip. Der Tester braucht nur Signal
-> und Masse.
+> **+5-V-Ausgang des BEC** (Battery Eliminator Circuit) im ESC, und er kommt
+> an keinen Pin. GP0 und GP1, die Signalpins, vertragen 5,5 V, solange die
+> Platine eingeschaltet ist, und 3,63 V, solange sie aus ist. Der Tester
+> braucht nur Signal und Masse.
 
 Halte das Signalkabel kurz. Die größte funktionierende Länge ist nicht
 gemessen. Steigt die Fehlerrate unter `LINK`, stelle **DSHOT KBAUD** unter
