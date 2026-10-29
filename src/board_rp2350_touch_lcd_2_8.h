@@ -12,8 +12,8 @@
  *
  * | GPIO | Function     | Notes                                          |
  * |------|--------------|------------------------------------------------|
- * | 0    | UART0 TX     | J5 pin 2, J4 pin 9                              |
- * | 1    | UART0 RX     | J5 pin 1, J4 pin 10                             |
+ * | 0    | **free**     | J4 pin 9, J5 pin 2 — ESC signal, @ref DSHOT_PIN_LCD_2_8 |
+ * | 1    | **free**     | J4 pin 10, J5 pin 1 — telemetry, @ref KISS_PIN_LCD_2_8 |
  * | 2    | I2S_BCK      | PCM5101A codec                                  |
  * | 3    | I2S_LRCK     | PCM5101A codec                                  |
  * | 4    | I2S_DIN      | PCM5101A codec                                  |
@@ -40,8 +40,8 @@
  * | 25   | KEY_BAT      | power button, 10 k pull-up, pressed = low        |
  * | 26   | BAT_EN       | battery power latch — see @ref PIN_BAT_EN        |
  * | 27   | BAT_ADC      | ADC1, 200k/100k divider                          |
- * | 28   | **free**     | J4 pin 11                                        |
- * | 29   | **free**     | J4 pin 12 — ESC signal, @ref DSHOT_PIN_LCD_2_8   |
+ * | 28   | supply EN    | J4 pin 11, with SERVO SUPPLY at GP28 (servo_supply.h) |
+ * | 29   | supply EN    | J4 pin 12, with SERVO SUPPLY at GP29                  |
  *
  * There are no 2.54 mm headers on this board. Everything is brought out on
  * JST-SH 1.0 mm connectors, so an ESC lead needs a pigtail either way:
@@ -69,19 +69,19 @@
 /**
  * @brief GPIOs a user may assign to the ESC or telemetry wire, as a bitmask.
  *
- * Two of them: GP28 (J4 pin 11) and GP29 (J4 pin 12). Between the panel, the
- * touch bus, the IMU, the RTC, the codec and a six-line SD interface, this
- * board has nothing else left.
+ * Two of them: GP0 (J4 pin 9, J5 pin 2) and GP1 (J4 pin 10, J5 pin 1), UART0's
+ * pins, which the firmware leaves unused. Both are 5 V tolerant ("Digital IO
+ * (FT)", RP2350 datasheet Table 1674) while IOVDD is at 3.3 V. GP28 and GP29
+ * are ADC pins and not 5 V tolerant: they carry only the switched servo
+ * supply's enable, an output (servo_supply.h).
  *
- * Two is enough for both wires, one each: the ESC starts on GP29
- * (@ref DSHOT_PIN_LCD_2_8) and the telemetry pad on GP28
+ * Two is enough for both wires, one each: the ESC starts on GP0
+ * (@ref DSHOT_PIN_LCD_2_8) and the telemetry pad on GP1
  * (@ref KISS_PIN_LCD_2_8). They cannot share, and @ref settingsValidate
- * switches KISS off rather than let them.
- *
- * Only GP29 is a hardware UART RX function here (GP28 is UART0 *TX*). The KISS
- * receiver is a PIO state machine and samples either pin. @see pio_uart_rx.h
+ * switches KISS off rather than let them. The KISS receiver is a PIO state
+ * machine and samples either pin. @see pio_uart_rx.h
  */
-#define BOARD_FREE_GPIO_MASK 0x30000000u
+#define BOARD_FREE_GPIO_MASK 0x00000003u
 
 /**
  * @defgroup lcd28_pins_lcd LCD — ST7789T3, 240x320, SPI1

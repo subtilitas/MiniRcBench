@@ -36,10 +36,11 @@ option(SD_DEBUG "Enable verbose SD driver logging over USB serial" OFF)
 # Which GPIOs the ESC signal and telemetry wires land on. Empty means "leave
 # config.h's default alone".
 #
-#   cmake -B build -DDSHOT_PIN_LCD_2_8=28 -DKISS_PIN_LCD_2_8=29 ...
+#   cmake -B build -DDSHOT_PIN_LCD_2_8=1 -DKISS_PIN_LCD_2_8=0 ...
 #
-# The board brings out GP28 (J4 pin 11) and GP29 (J4 pin 12) and nothing else,
-# so those are the only two choices and the two wires take one each. An
+# The board's signal pins are GP0 (J4 pin 9) and GP1 (J4 pin 10), the two
+# 5 V tolerant pins left free, so those are the only two choices and the two
+# wires take one each. An
 # override outside the board's free mask, or one putting both wires on the same
 # pin, is a static_assert in the descriptor -- it fails the build, it is not
 # repaired at run time. The suffix names the board, as the image's file name

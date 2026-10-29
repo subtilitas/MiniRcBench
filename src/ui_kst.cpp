@@ -18,6 +18,7 @@
 #include "esc_task.h"
 #include "pin_claim.h"
 #include "sd_log.h"
+#include "servo_supply.h"
 #include "settings.h"
 #include "touch.h"
 #include "ui_hold.h"
@@ -643,7 +644,10 @@ static void mainBody(MainText *m) {
 					if (s_st.supplyFitted) {
 						snprintf(m->strip, sizeof(m->strip), "NO ANSWER IN %lu POWER-UPS",
 						         (unsigned long)s_st.attempts);
-						addWrapped(m, "CHECK THE CONVERTER ON GP0, ITS WIRING AND THE SIGNAL.", C_TEXT);
+						static char conv[64];
+						snprintf(conv, sizeof(conv), "CHECK THE CONVERTER ON GP%u, ITS WIRING AND THE SIGNAL.",
+						         (unsigned)servoSupplyPin());
+						addWrapped(m, conv, C_TEXT);
 						addWrapped(m, "A SERVO ON ITS OWN SUPPLY NEEDS SETTINGS > SERVO SUPPLY AT NONE.",
 						           C_TEXT);
 						return;
@@ -1821,15 +1825,22 @@ static void kstMenuStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
 // SETTINGS: the SERVO SUPPLY section
 // ---------------------------------------------------------------------------
 
+/** @brief NONE, GP28 or GP29: the switched supply's enable pin. */
 static void supplyValue(char *b, size_t n, uint16_t *c) {
-	snprintf(b, n, "%s", settings()->servoSupply ? "GP0" : "NONE");
+	uint8_t pin = servoSupplyPinOf(settings()->servoSupply);
+	if (pin == SERVO_SUPPLY_NO_PIN) snprintf(b, n, "NONE");
+	else                            snprintf(b, n, "GP%u", (unsigned)pin);
 	*c = C_TEXT;
 }
-static bool supplyOn() { return settings()->servoSupply != 0; }
-static void supplyToggle() { settings()->servoSupply = settings()->servoSupply ? 0 : 1; }
+/** @brief - and + step NONE, GP28, GP29, and stop at the ends. */
+static void supplyStep(int dir) {
+	int m = (int)settings()->servoSupply + (dir < 0 ? -1 : 1);
+	if (m < 0 || m > (int)SERVO_SUPPLY_MODE_MAX) return;
+	settings()->servoSupply = (uint8_t)m;
+}
 
 static constexpr SettingsRow ROWS_SUPPLY[] = {
-	{ "SERVO SUPPLY", SettingsKind::Toggle, 4, supplyValue, nullptr, nullptr, supplyToggle, supplyOn },
+	{ "SERVO SUPPLY", SettingsKind::Stepper, 4, supplyValue, nullptr, supplyStep, nullptr, nullptr },
 };
 static constexpr SettingsSection SEC_SUPPLY = { "SERVO SUPPLY", ROWS_SUPPLY, 1 };
 

@@ -204,7 +204,7 @@ static void testPinDefaults() {
 	         BOARD_DESC_LCD_2_8.defaultKissEnable ? 1 : 0, KISS_ENABLE_LCD_2_8 ? 1 : 0);
 
 	// The board frees two pins, one wire each, and a default that put both on
-	// GP29 would describe a wiring nobody can solder.
+	// GP0 would describe a wiring nobody can solder.
 	checkTrue("the two wires are on different pins",
 	          BOARD_DESC_LCD_2_8.defaultDshotPin != BOARD_DESC_LCD_2_8.defaultKissPin);
 
@@ -230,11 +230,13 @@ static void testPinRules() {
 	checkTrue("the default ESC pin is free on this board",
 	          settingsPinFree(g_board->defaultDshotPin));
 	checkTrue("GP30 is not a pin", !settingsPinFree(30));
-	// The board brings out GP28 and GP29 and nothing else.
+	// The signal wires go on GP0 and GP1, the 5 V tolerant pins, and nothing
+	// else: GP28 and GP29 are ADC pins that carry only the supply's enable.
 	int freeCount = 0;
 	for (int p = 0; p <= 29; p++) if (settingsPinFree((uint8_t)p)) freeCount++;
 	checkInt("two free pins", freeCount, 2);
-	checkTrue("GP28 and GP29", settingsPinFree(28) && settingsPinFree(29));
+	checkTrue("GP0 and GP1", settingsPinFree(0) && settingsPinFree(1));
+	checkTrue("not GP28 or GP29", !settingsPinFree(28) && !settingsPinFree(29));
 
 	// Stepping only ever lands somewhere legal, in both directions, for every
 	// GPIO -- which is what removes the invalid-selection state entirely.
@@ -279,7 +281,7 @@ static void testKissNeedsItsOwnPin() {
 	// The rule that used to sit between those two is gone: a KISS pin no longer
 	// has to be one of the eight a hardware UART can receive on. That rule is
 	// what made KISS impossible to enable on the 2.8" -- two free pins, only
-	// GP29 of them a UART RX, and the ESC starts on GP29 -- so every free pin
+	// one of them a UART RX, and the ESC starting on it -- so every free pin
 	// that is not the ESC's is now a legal telemetry pin on every board.
 	int legal = 0;
 	for (int p = 0; p <= 29 && legal < 4; p++) {
@@ -401,10 +403,10 @@ static void testBlankNamesTheBoard() {
  * DshotDisplay block then stops loading on purpose rather than by accident.
  */
 static void testLayout() {
-	section("Settings: the version 3 block layout");
+	section("Settings: the version 4 block layout");
 
 	checkTrue("magic \"DSHT\"", SETTINGS_MAGIC == 0x44534854u);
-	checkInt("version", SETTINGS_VERSION, 3);
+	checkInt("version", SETTINGS_VERSION, 4);
 	checkInt("payload size", (long)sizeof(Settings), 14);
 	checkInt("boardId at 0", (long)offsetof(Settings, boardId), 0);
 	checkInt("dshotPin at 1", (long)offsetof(Settings, dshotPin), 1);
@@ -418,25 +420,47 @@ static void testLayout() {
 	checkInt("servoSupply at 12", (long)offsetof(Settings, servoSupply), 12);
 	checkInt("block size", (long)sizeof(SettingsBlock), 28);
 
-	// A block with every field off its default, the switch fitted, loads as
-	// it was stored.
-	Settings v3;
-	settingsDefaults(&v3);
-	v3.dshotPin     = 28;
-	v3.kissEnable   = 1;
-	v3.kissPin      = 29;
-	v3.dshotKbaud   = 300;
-	v3.poles        = 12;
-	v3.maxThrottle  = 800;
-	v3.backlight    = 96;
-	v3.highContrast = 1;
-	v3.servoSupply  = 1;
+	// A block with every field off its default, the switch fitted on GP29,
+	// loads as it was stored.
+	Settings v4;
+	settingsDefaults(&v4);
+	v4.dshotPin     = 1;
+	v4.kissEnable   = 1;
+	v4.kissPin      = 0;
+	v4.dshotKbaud   = 300;
+	v4.poles        = 12;
+	v4.maxThrottle  = 800;
+	v4.backlight    = 96;
+	v4.highContrast = 1;
+	v4.servoSupply  = 2;
 	fakeFlashClear();
-	storeValid(&v3);
+	storeValid(&v4);
 	settingsLoad();
 	checkTrue("the block is taken", settingsStored());
-	checkTrue("every field as stored", memcmp(settings(), &v3, sizeof(v3)) == 0);
+	checkTrue("every field as stored", memcmp(settings(), &v4, sizeof(v4)) == 0);
 	checkTrue("with nothing to save", !settingsDirty());
+
+	// A version 3 block, its ESC pin on GP29 and its switch on GP0: the same
+	// layout and a valid CRC, discarded whole for its version.
+	SettingsBlock old;
+	memset(&old, 0, sizeof(old));
+	old.magic = SETTINGS_MAGIC;
+	old.version = 3;
+	old.size = sizeof(Settings);
+	old.s = v4;
+	old.s.dshotPin = 29;
+	old.s.kissPin = 28;
+	old.s.servoSupply = 1;
+	old.crc32 = settingsCrc32(&old, offsetof(SettingsBlock, crc32));
+	fakeFlashClear();
+	memcpy(fakeFlashBytes(), &old, sizeof(old));
+	settingsLoad();
+	Settings fresh;
+	settingsDefaults(&fresh);
+	checkTrue("a version 3 block is discarded", !settingsStored());
+	checkTrue("and the defaults load: the ESC on the board's default, no switch",
+	          memcmp(settings(), &fresh, sizeof(fresh)) == 0 &&
+	          settings()->dshotPin == g_board->defaultDshotPin && settings()->servoSupply == 0);
 
 	// A version 2 block, as DshotDisplay 2.x and the builds before the
 	// switch wrote it: 12 bytes of payload, its CRC right. Discarded whole.
@@ -447,7 +471,7 @@ static void testLayout() {
 	memcpy(v2, &magic, 4);
 	memcpy(v2 + 4, &version, 2);
 	memcpy(v2 + 6, &size, 2);
-	memcpy(v2 + 8, &v3, 12);
+	memcpy(v2 + 8, &v4, 12);
 	const uint32_t crc = settingsCrc32(v2, 20);
 	memcpy(v2 + 20, &crc, 4);
 	fakeFlashClear();
@@ -461,16 +485,18 @@ static void testLayout() {
 	checkInt("the switch: none", settings()->servoSupply, 0);
 }
 
-/** @brief The servo supply: 0 or 1 pass; anything else reads as none. */
+/** @brief The servo supply: 0 to 2 pass; anything else reads as none. */
 static void testServoSupplyClamp() {
 	section("Settings: the servo supply clamp");
 	Settings s;
 	settingsDefaults(&s);
 	checkInt("default: none", s.servoSupply, 0);
 	s.servoSupply = 1;
-	checkTrue("GP0 passes", settingsValidate(&s) && s.servoSupply == 1);
+	checkTrue("GP28 passes", settingsValidate(&s) && s.servoSupply == 1);
 	s.servoSupply = 2;
-	checkTrue("2 is repaired", !settingsValidate(&s));
+	checkTrue("GP29 passes", settingsValidate(&s) && s.servoSupply == 2);
+	s.servoSupply = 3;
+	checkTrue("3 is repaired", !settingsValidate(&s));
 	checkInt("to none", s.servoSupply, 0);
 	s.servoSupply = 255;
 	settingsValidate(&s);

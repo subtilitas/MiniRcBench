@@ -189,7 +189,7 @@ jobs:
           # descriptor's static_assert stops the build -- which is the intended
           # behaviour, not something to test around.
           rm -rf build-pin
-          pindefs=(-DDSHOT_PIN_LCD_2_8=28 -DKISS_PIN_LCD_2_8=29)
+          pindefs=(-DDSHOT_PIN_LCD_2_8=1 -DKISS_PIN_LCD_2_8=0)
           # FETCHCONTENT_BASE_DIR points at the main build's _deps so the
           # dependencies fetched (and cached) there are reused instead of
           # being downloaded again.
@@ -265,7 +265,7 @@ jobs:
       - name: Pin overrides reach the descriptor
         working-directory: test
         run: |
-          make run EXTRA_DEFINES="-DDSHOT_PIN_LCD_2_8=28 -DKISS_PIN_LCD_2_8=29"
+          make run EXTRA_DEFINES="-DDSHOT_PIN_LCD_2_8=1 -DKISS_PIN_LCD_2_8=0"
       # The KST and Hitec card phases in block reads and writes, from FatFs
       # R0.15 at the SD library's pinned commit over a RAM disk that counts
       # them, against the tables in docs/design/kst-programming.md and

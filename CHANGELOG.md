@@ -54,7 +54,7 @@ protocol.
   words.
 - The Hitec core1 job (`src/hitec_job.*`, work breakdown step 2): rcbench's
   Hitec session on SIG through `src/hitec_line_port.*`, the entry with the
-  switched supply on GP0, the full read and its backup, writes with
+  switched supply, the full read and its backup, writes with
   read-back, the heartbeat and lapse rules, the close rule and the card
   phase, as `PinUser::Hitec` and `Core1Job::Hitec`; HITEC SERVO starts
   it. `tools/stack_depth.py` and a CI step find the job's deepest stack
@@ -80,10 +80,11 @@ protocol.
   and current limitations, the MENU row, the Hitec trademark notice and
   credit, and the wiki pages Hitec-Programming and Hitec-Programmierung with
   their entries in the sidebar, the home page and the screens pages.
-- SETTINGS → SERVO SUPPLY, `NONE` or `GP0`, in a section of its own
-  between WIRING and DISPLAY: whether a DC-DC converter's enable for the KST
-  servo's supply is wired to GP0 (`src/servo_supply.*`). With `GP0`, GP0 is
-  an undriven input outside a KST claim.
+- SETTINGS → SERVO SUPPLY, `NONE`, `GP28` or `GP29`, in a section of its
+  own between WIRING and DISPLAY: whether a DC-DC converter's enable for the
+  KST and Hitec servo's supply is wired, and to which pin
+  (`src/servo_supply.*`). The chosen pin is an undriven input outside a
+  claim.
 - KST SERVO with the switched supply: the search switches the servo off for
   2 s and on before each attempt; HOLD TO REBOOT on the leave page; every
   claim end waits 2 s with the supply off; a screen stall switches the
@@ -326,6 +327,24 @@ protocol.
   20 kHz (`src/backlight.pio`), no longer from PWM slice 0, which it shares
   with GP0 and GP1. `test/pio_backlight_emu.py` checks every level, and the
   Firmware job holds its words to `pioasm`.
+- The signal pins move to GP0 and GP1, and the switched servo supply's
+  enable to GP28 or GP29. GP0 and GP1 are "Digital IO (FT)" pins, fault
+  tolerant: they take up to 5.5 V while IOVDD, the I/O supply, is at 3.3 V
+  (RP2350 datasheet, Table 1674). GP28 and GP29 are ADC (analog-to-digital
+  converter) pins and not fault tolerant. SIG, the ESC wire and servo A,
+  starts on GP0 (J4 pin 9, J5 pin 2) instead of GP29 (J4 pin 12); AUX, the
+  KISS telemetry wire and servo B, on GP1 (J4 pin 10, J5 pin 1) instead of
+  GP28 (J4 pin 11). `BOARD_FREE_GPIO_MASK` is `0x00000003`; UART0, whose
+  pins they are, is unused. The servo tester's pulses run on PWM slice 0,
+  GP0 on channel A and GP1 on channel B. SETTINGS → SERVO SUPPLY is a
+  stepper, `NONE`, `GP28` (J4 pin 11) or `GP29` (J4 pin 12). The override
+  pair in the examples and in CI is
+  `-DDSHOT_PIN_LCD_2_8=1 -DKISS_PIN_LCD_2_8=0`. The settings block is
+  version 4: a stored block of an earlier version is discarded whole and
+  the compiled defaults load, so every saved setting returns to its default
+  once after the update. The release notes give the ESC on GP0, KISS on
+  GP1, the menu path MENU → SETTINGS, and GP28 and GP29 as supply enables
+  only.
 - The Hitec design rewritten on rcbench 3e29dc1b with writes, and renamed
   from `hitec-reading.md` to
   [hitec-programming.md](docs/design/hitec-programming.md), "Hitec servo
@@ -366,8 +385,8 @@ protocol.
   the image is built for.
 - The settings block's board id is a record checked against the 2.8"'s, 28;
   validation rewrites any other value and re-judges the stored pins against
-  GP28 and GP29. The host suite pins the block layout DshotDisplay 2.x
-  writes.
+  the board's free pins, GP0 and GP1. The host suite pins the block layout
+  DshotDisplay 2.x writes.
 - The CMake pin options are `DSHOT_PIN_LCD_2_8` and `KISS_PIN_LCD_2_8`. A
   configure step with `-DDSHOT_PIN`, `-DKISS_PIN`, `-DDSHOT_PIN_LCD_2` or
   `-DKISS_PIN_LCD_2` fails with a message naming the options the build
@@ -396,8 +415,8 @@ protocol.
   reception through a PIO receiver on any free GPIO, KISS off by default
   rather than impossible, which log fields carry which source, and the USB
   card reader. `pin-claim.md`, `servo-tester.md` and `kst-programming.md`
-  are for the 2.8" only: SIG on GP29, AUX on GP28, PWM slice 6 channels B
-  and A. `kst-programming.md` records the owner's decisions on the search
+  are for the 2.8" only: SIG on GP0, AUX on GP1, PWM slice 0 channels A
+  and B. `kst-programming.md` records the owner's decisions on the search
   timeout, 30 s, the reply level, 3.3 V by the owner's statement, and the
   pull-down.
 - README.md links STATUS.md and this changelog, and credits the

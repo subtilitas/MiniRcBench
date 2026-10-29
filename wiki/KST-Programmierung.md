@@ -45,7 +45,7 @@ schalten lassen: mit einem Stecker oder einem Schalter im Plusleiter.
   Platine GND  ---------+
   Platine SIG  ----------------------------------------  Servosignal (orange oder weiß)
 
-  SIG GP29 = J4 Pin 12, GND = J4 Pin 1 oder 5
+  SIG GP0 = J4 Pin 9 oder J5 Pin 2, GND = J4 Pin 1 oder 5 oder J5 Pin 4
 ```
 
 - Der Besitzer programmiert jedes KST-Servo, auch HV-Servos (Hochvolt), mit
@@ -57,7 +57,7 @@ schalten lassen: mit einem Stecker oder einem Schalter im Plusleiter.
   Ausschalten zuerst die Servoversorgung.
 - Verbinde die beiden Massen einmal, an der Platine.
 - SIG ist der ESC-Pin, so wie unter **MENU → SETTINGS** eingestellt.
-  Voreingestellt ist GP29.
+  Voreingestellt ist GP0.
 - Zieh jeden ESC vom ESC-Pin ab. Der Bildschirm wartet, solange ein ESC
   darauf antwortet, erkennt aber nicht jeden ESC.
 
@@ -68,16 +68,16 @@ schalten lassen: mit einem Stecker oder einem Schalter im Plusleiter.
 **MENU → KST SERVO** öffnen.
 
 Der Bildschirm übernimmt SIG vom ESC-Treiber. Dabei zeigt die Leiste
-`RELEASING GP29`, dann `TAKING GP29`. Solange ein ESC auf dem Pin antwortet,
-zeigt sie stattdessen `CHECKING GP29 FOR AN ESC`.
+`RELEASING GP0`, dann `TAKING GP0`. Solange ein ESC auf dem Pin antwortet,
+zeigt sie stattdessen `CHECKING GP0 FOR AN ESC`.
 
-- Antwortet ein ESC auf dem Pin, zeigt der Bildschirm `AN ESC ANSWERS ON GP29.`
+- Antwortet ein ESC auf dem Pin, zeigt der Bildschirm `AN ESC ANSWERS ON GP0.`
   und danach `UNPLUG IT: KST FRAMES MAY READ` und `AS THROTTLE.` Er übernimmt
   den Pin, sobald der ESC weg ist.
 - Solange der ESC scharf ist, zeigt der Bildschirm `DISARM FIRST`. Solange die
   Pins noch belegt sind, zeigt er `PINS BUSY`.
 - Kann die Platine die Leitung nicht einrichten, zeigt der Bildschirm
-  `GP29 COULD NOT BE TAKEN (`, danach `REFUSED`, `PWM`, `PIO`, `DMA` oder
+  `GP0 COULD NOT BE TAKEN (`, danach `REFUSED`, `PWM`, `PIO`, `DMA` oder
   `CLOCK` und eine schließende Klammer. PWM ist Pulsweitenmodulation, DMA
   direkter Speicherzugriff (Direct Memory Access). `RETRY` versucht es
   erneut.
@@ -96,7 +96,7 @@ Servoimpulse.
 
 Der Bildschirm wiederholt die Eintrittsfolge des KST-Codes von rcbench, einen
 Versuch alle 116,6 ms bis 118,8 ms, 30 s lang. Die Leiste zählt Versuche und
-Zeit: `GP29  TRY 12  1.4 S`. Solange die Suche läuft, dreht sich ein Kreis aus
+Zeit: `GP0  TRY 12  1.4 S`. Solange die Suche läuft, dreht sich ein Kreis aus
 Punkten.
 
 Der Inhalt zeigt `POWER UP` und `THE SERVO NOW`, dann
@@ -112,7 +112,7 @@ Antwort ist gültig, nennt eine bernsteinfarbene Zeile den Fehler, zum Beispiel
 
 | Leiste | Was geschehen ist | Schaltfläche |
 |---|---|---|
-| `GP29  TRY 12  1.4 S` | Die Suche läuft | `STOP SEARCH` |
+| `GP0  TRY 12  1.4 S` | Die Suche läuft | `STOP SEARCH` |
 | `NO SERVO IN 30 S` | Kein Servo hat in 30 s geantwortet. Der Inhalt zeigt `CHECK SIGNAL AND GROUND, THEN POWER THE SERVO UP AGAIN.` | `RETRY` |
 | `SEARCH STOPPED` | `STOP SEARCH` hat sie beendet, oder der Bildschirm hat gehangen und die Suche hat sich selbst gestoppt | `RETRY` |
 | `SEARCH FAILED` | Die Sitzung endete mit einem Ergebnis, das der Inhalt in Bernstein nennt | `RETRY` |
@@ -401,7 +401,7 @@ nach einem verlorenen Servo zur Suche.
 
 **Schalte das Servo aus. Tippe dann auf `LEAVE`.** Der Bildschirm hält die
 Leitung 100 ms lang auf Low, lässt den Pin los und zeigt `UNPLUG THE SERVO.`
-über `DSHOT RESTARTS ON GP29 AND READS AS` und `A 970 US PULSE AT 1000 HZ.`
+über `DSHOT RESTARTS ON GP0 AND READS AS` und `A 970 US PULSE AT 1000 HZ.`
 `LEAVE` verlässt auch eine Sitzung, die im Zweifel ist.
 
 **Zieh das Servo ab und tippe dann auf `RESTART DSHOT`.** Der ESC-Treiber
@@ -415,7 +415,7 @@ zeigt die Abziehseite unmittelbar.
 
 ## Wenn es nicht funktioniert
 
-- **`AN ESC ANSWERS ON GP29.`** Ein ESC hängt am ESC-Pin. Zieh ihn ab.
+- **`AN ESC ANSWERS ON GP0.`** Ein ESC hängt am ESC-Pin. Zieh ihn ab.
 - **`NO SERVO IN 30 S`.** Prüfe Signal und Masse. Schalte das Servo erneut
   ein, während der Bildschirm sucht: Es antwortet nur direkt nach dem
   Einschalten.
@@ -436,8 +436,9 @@ zeigt die Abziehseite unmittelbar.
 
 ## Geschaltete Versorgung
 
-Mit **SETTINGS → SERVO SUPPLY** auf `GP0` schaltet das Gerät das Servo
-selbst, über einen DC-DC-Wandler, dessen Enable-Eingang an GP0, J5 Pin 2,
+Mit **SETTINGS → SERVO SUPPLY** auf `GP28` oder `GP29` schaltet das Gerät das Servo
+selbst, über einen DC-DC-Wandler, dessen Enable-Eingang an GP28, J4 Pin 11,
+oder GP29, J4 Pin 12,
 liegt. Der Wandler liefert 5 V, mehr als 1 A, und hat einen externen
 Pull-down an Enable: 10 kΩ bis 100 kΩ für ein Enable ohne internen Pull-up.
 **Ein ESC an dieser Leitung bekommt den Ausgang des Wandlers auf seine
@@ -446,7 +447,7 @@ BEC-Leitung.**
 <img src="img/kst-switched.png" width="240" alt="Die geschaltete Suche: SUPPLY OFF 1.4 S"> <img src="img/kst-leave-switched.png" width="240" alt="Die Seite zum Verlassen mit HOLD TO REBOOT"> <img src="img/kst-stalled.png" width="240" alt="Der hängende Bildschirm: SUPPLY OFF">
 
 - **Die Suche** schaltet das Servo vor jedem Versuch 2 s aus, dann ein:
-  `GP29  TRY 3  SUPPLY OFF 1.4 S`. In die 30 s der Suche passen 14
+  `GP0  TRY 3  SUPPLY OFF 1.4 S`. In die 30 s der Suche passen 14
   Einschaltvorgänge; danach `NO ANSWER IN 14 POWER-UPS`.
 - **Die Seite zum Verlassen** zeigt `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.`
   Nach LEAVE zeigt die Abziehseite `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`: Der

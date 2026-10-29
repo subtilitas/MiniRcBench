@@ -10,6 +10,7 @@
  */
 
 #include "fake_hitec_line.h"
+#include "servo_supply.h"
 #include "hitec_line.h"
 #include "hitec_line_port.h"
 
@@ -100,9 +101,10 @@ const hitec_xfer_t *fakeHitecLastXfer() { return &g_xfer; }
 uint32_t fakeHitecLastStartUs() { return g_startUs; }
 unsigned fakeHitecAborts() { return g_aborts; }
 
-/** @brief The level the bench drives on GP0, as the fakes record it. */
-static bool gp0() {
-	FakePin p = fakePin(0);
+/** @brief The level the bench drives on the supply's enable pin, as the fakes record it. */
+static bool supplyLevel() {
+	if (servoSupplyPin() == SERVO_SUPPLY_NO_PIN) return false;
+	FakePin p = fakePin(servoSupplyPin());
 	return p.output && p.high;
 }
 
@@ -215,7 +217,7 @@ bool hitecLineIsOpen() { return g_open; }
 
 bool hitecLineStart(const hitec_xfer_t *xfer) {
 	uint32_t now = time_us_32();
-	fakeHitecSimUpdate(gp0(), now);
+	fakeHitecSimUpdate(supplyLevel(), now);
 	if (!g_open || g_busy || xfer->family != g_family) return false;
 	g_xfer = *xfer;
 	g_startUs = now;
@@ -228,7 +230,7 @@ bool hitecLineStart(const hitec_xfer_t *xfer) {
 
 bool hitecLinePoll(hitec_capture_t *out) {
 	uint32_t now = time_us_32();
-	fakeHitecSimUpdate(gp0(), now);
+	fakeHitecSimUpdate(supplyLevel(), now);
 	if (!g_busy) return false;
 	if (g_cut) {
 		// The bytes so far: none of an answer that was still due.

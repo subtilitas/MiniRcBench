@@ -947,7 +947,7 @@ static void testSettingsKiss() {
 	tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
 }
 
-/** @brief SERVO SUPPLY: KST's section, toggled, applied to GP0 at once, saved and reset. */
+/** @brief SERVO SUPPLY: KST's section, stepped NONE, GP28, GP29, applied at once, saved and reset. */
 static void testSettingsServoSupply() {
 	section("SETTINGS: SERVO SUPPLY");
 
@@ -958,26 +958,36 @@ static void testSettingsServoSupply() {
 	enterSettings();
 
 	checkInt("none by default", settings()->servoSupply, 0);
-	tapRowId(UI_ROW(SettingsRowId::ServoSupply, Toggle));
-	FakePin p = fakePin(SERVO_SUPPLY_PIN);
-	checkTrue("a tap: GP0, applied at once", settings()->servoSupply == 1 && servoSupplyFitted());
-	checkTrue("and GP0 an undriven input: no claim holds",
+	tapRowId(UI_ROW(SettingsRowId::ServoSupply, Minus));
+	checkInt("- at NONE stays", settings()->servoSupply, 0);
+	tapRowId(UI_ROW(SettingsRowId::ServoSupply, Plus));
+	FakePin p = fakePin(28);
+	checkTrue("+: GP28, applied at once",
+	          settings()->servoSupply == 1 && servoSupplyFitted() && servoSupplyPin() == 28);
+	checkTrue("and GP28 an undriven input: no claim holds",
 	          p.function == GPIO_FUNC_SIO && !p.output && p.pull == FakePull::None && p.inputOff);
+	tapRowId(UI_ROW(SettingsRowId::ServoSupply, Plus));
+	p = fakePin(29);
+	checkTrue("+ again: GP29", settings()->servoSupply == 2 && servoSupplyPin() == 29);
+	checkTrue("GP29 an undriven input", p.function == GPIO_FUNC_SIO && !p.output && p.inputOff);
+	checkTrue("GP28 stays one", !fakePin(28).output && fakePin(28).inputOff);
+	tapRowId(UI_ROW(SettingsRowId::ServoSupply, Plus));
+	checkInt("+ at GP29 stays", settings()->servoSupply, 2);
 	checkTrue("unsaved", settingsDirty());
 	fakeDumpFrame("shot_settings_supply.ppm");
 	pressId(UI_FIX(SettingsCtl::Save));
 	holdId(UI_FIX(SettingsCtl::Save), 60);
 	fakeRelease(); frames(2);
 	settingsLoad();
-	checkTrue("saved: a reload keeps GP0", settingsStored() && settings()->servoSupply == 1);
+	checkTrue("saved: a reload keeps GP29", settingsStored() && settings()->servoSupply == 2);
 
 	tapId(UI_FIX(SettingsCtl::Reset));
 	checkTrue("RESET: none, applied at once", settings()->servoSupply == 0 && !servoSupplyFitted());
-	p = fakePin(SERVO_SUPPLY_PIN);
-	checkTrue("GP0 left an undriven input", !p.output && p.inputOff);
-	tapRowId(UI_ROW(SettingsRowId::ServoSupply, Toggle));
-	tapRowId(UI_ROW(SettingsRowId::ServoSupply, Toggle));
-	checkTrue("a tap twice: none again", settings()->servoSupply == 0 && !servoSupplyFitted());
+	p = fakePin(29);
+	checkTrue("GP29 left an undriven input", !p.output && p.inputOff);
+	tapRowId(UI_ROW(SettingsRowId::ServoSupply, Plus));
+	tapRowId(UI_ROW(SettingsRowId::ServoSupply, Minus));
+	checkTrue("+ then -: none again", settings()->servoSupply == 0 && !servoSupplyFitted());
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 	fakeFlashClear();

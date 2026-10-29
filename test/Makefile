@@ -32,7 +32,7 @@ INCLUDES := -Istubs -I../src -I.
 # tautology: a descriptor that carried literals would pass at the defaults and
 # fail the moment a macro says something else.
 #
-#   make EXTRA_DEFINES="-DDSHOT_PIN_LCD_2_8=28 -DKISS_PIN_LCD_2_8=29" run
+#   make EXTRA_DEFINES="-DDSHOT_PIN_LCD_2_8=1 -DKISS_PIN_LCD_2_8=0" run
 DEFINES := $(EXTRA_DEFINES)
 
 # The servo tester and the KST and Hitec programmers list their own sources,

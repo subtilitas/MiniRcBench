@@ -35,8 +35,8 @@ Two wires: signal and ground.
 
 | | RP2350-Touch-LCD-2.8 |
 |---|---|
-| **Signal** | GP29, J4 pin 12 |
-| **Ground** | GND, J4 pin 1 or 5 |
+| **Signal** | GP0, J4 pin 9 or J5 pin 2 |
+| **Ground** | GND, J4 pin 1 or 5, or J5 pin 4 |
 
 The board has JST-SH 1.0 mm connectors and no 2.54 mm headers, so the ESC
 lead needs a pigtail with a JST-SH plug.
@@ -46,9 +46,9 @@ later under **MENU → SETTINGS**, and the setting is stored in flash.
 
 > **Cut or de-pin the middle wire of the ESC lead first.**
 > The middle conductor of a 3-wire servo plug is the ESC's **+5 V BEC
-> (battery eliminator circuit) output**. RP2350 pins are **not** 5 V tolerant.
-> More than about 3.6 V exceeds the absolute maximum rating and damages the
-> chip. The tester needs signal and ground only.
+> (battery eliminator circuit) output**, and it goes to no pin. GP0 and GP1,
+> the signal pins, tolerate 5.5 V while the board is powered and 3.63 V
+> while it is off. The tester needs signal and ground only.
 
 Keep the signal wire short. The maximum working length is not measured. If the
 `LINK` error rate rises, set **DSHOT KBAUD** to 300 under **MENU → SETTINGS**.

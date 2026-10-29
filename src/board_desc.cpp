@@ -73,7 +73,7 @@ static_assert(DSHOT_PIN_LCD_2_8 != KISS_PIN_LCD_2_8,
  * - All free pins are on one slice. A slice has one wrap register, so two
  *   servos run at one frame rate.
  * - At most one free pin per channel of that slice. A channel is one compare
- *   register, and GP12 and GP28, say, share slice 6 channel A. With one even
+ *   register, and GP0 and GP16, say, share slice 0 channel A. With one even
  *   and one odd free pin, any two different free pins are the slice's two
  *   channels: two pulse widths.
  */

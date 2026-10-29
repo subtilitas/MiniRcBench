@@ -31,10 +31,11 @@ und Masse.
      -  ----------------+-----------------------------  Servo -   (braun oder schwarz)
                         |
   Platine GND  ---------+
-  Platine GP29 ----------------------------------------  Signal Servo A (orange oder weiß)
-  Platine GP28 ----------------------------------------  Signal Servo B, nur bei zwei Servos
+  Platine GP0  ----------------------------------------  Signal Servo A (orange oder weiß)
+  Platine GP1  ----------------------------------------  Signal Servo B, nur bei zwei Servos
 
-  GP29 = J4 Pin 12, GP28 = J4 Pin 11, GND = J4 Pin 1 oder 5
+  GP0 = J4 Pin 9 oder J5 Pin 2, GP1 = J4 Pin 10 oder J5 Pin 1,
+  GND = J4 Pin 1 oder 5 oder J5 Pin 4
 ```
 
 - Das mittlere Kabel des Servos geht an seine Versorgung, nie an einen Pin
@@ -44,7 +45,7 @@ und Masse.
   Ausschalten zuerst die Servoversorgung.
 - Verbinde die beiden Massen einmal, an der Platine.
 - Servo A hängt am ESC-Pin, Servo B am KISS-Pin, so wie unter
-  **MENU → SETTINGS** eingestellt. Voreingestellt sind GP29 und GP28.
+  **MENU → SETTINGS** eingestellt. Voreingestellt sind GP0 und GP1.
 - Zieh jeden ESC vom ESC-Pin ab. Der Bildschirm wartet, solange ein ESC
   darauf antwortet, erkennt aber nicht jeden ESC.
 
@@ -55,7 +56,7 @@ und Masse.
 **MENU → SERVO TESTER** öffnen.
 
 Der Bildschirm übernimmt die beiden Signalpins vom ESC-Treiber. Antwortet ein
-ESC auf dem ESC-Pin, wartet er und zeigt `AN ESC ANSWERS ON GP29.` Zieh den
+ESC auf dem ESC-Pin, wartet er und zeigt `AN ESC ANSWERS ON GP0.` Zieh den
 ESC ab; 500 ms später übernimmt der Bildschirm die Pins von selbst.
 Servoimpulse von 1000 µs bis 2000 µs sind für viele ESCs ein gültiges
 Gassignal.
@@ -214,11 +215,11 @@ behält die Pins.
 
 ## Wenn es nicht funktioniert
 
-- **`AN ESC ANSWERS ON GP29.`** Ein ESC hängt am ESC-Pin. Zieh ihn ab.
-- **`GP29 COULD NOT BE TAKEN (PWM)`.** Die Platine konnte ihren
+- **`AN ESC ANSWERS ON GP0.`** Ein ESC hängt am ESC-Pin. Zieh ihn ab.
+- **`GP0 COULD NOT BE TAKEN (PWM)`.** Die Platine konnte ihren
   Impulsausgang nicht einrichten. Tippe auf `RETRY`.
 
-  <img src="img/servo-bind.png" width="240" alt="GP29 COULD NOT BE TAKEN (PWM) mit RETRY">
+  <img src="img/servo-bind.png" width="240" alt="GP0 COULD NOT BE TAKEN (PWM) mit RETRY">
 
 - **`TWO` lässt sich nicht wählen.** Das KISS-Kabel ist aktiv, oder beide
   Pins sind unter SETTINGS derselbe Pin. Der SET-Bildschirm nennt den Grund,

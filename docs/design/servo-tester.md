@@ -75,7 +75,7 @@ it, so the slice never cuts a pulse short. A pin that never carried a pulse
 since its bind is released at once.
 
 While SAFE, two lines at the top of the dial band say
-`THE SERVO MOVES TO CENTRE AT START.` and `PULSES ON GP29 ARE THROTTLE TO AN
+`THE SERVO MOVES TO CENTRE AT START.` and `PULSES ON GP0 ARE THROTTLE TO AN
 ESC.` (the live SIG pin). The first gives the rule: starting at the last
 commanded position instead would move the servo as far from wherever it
 rests, to a place nobody chose this session; centre is the position a servo
@@ -202,8 +202,8 @@ The touch driver reports one contact (`TouchState`, from the CST328), so one
 finger drives one selection; there is no second drag.
 START starts both pins at CENTRE. STOP stops both.
 
-Both servos share one profile and one frame rate. SIG (GP29) and AUX (GP28)
-are channels B and A of PWM slice 6, which forces one rate anyway.
+Both servos share one profile and one frame rate. SIG (GP0) and AUX (GP1)
+are channels A and B of PWM slice 0, which forces one rate anyway.
 
 ## Screens
 
@@ -217,9 +217,9 @@ is not Free, the row reads `PINS BUSY` and a tap opens nothing.
 ```
 y   0 +------------------------------------------+
       | SERVO                            [ BACK ]|  header, UI_HDR_H 36 px
-   40 | GP29  50 HZ  1000-2000 US          (SAFE)|  strip: caption, chip
+   40 | GP0  50 HZ  1000-2000 US           (SAFE)|  strip: caption, chip
    64 | THE SERVO MOVES TO CENTRE AT START.      |  two notes while SAFE
-   76 | PULSES ON GP29 ARE THROTTLE TO AN ESC.   |
+   76 | PULSES ON GP0 ARE THROTTLE TO AN ESC.    |
       |               .   -   -   .              |
       |          .          |          .         |  dial band 62..199
       |       .             |             .      |  arc radius 96 px
@@ -241,7 +241,7 @@ Two-servo readout row, 200..223:
 ```
 
 - Header and BACK are `uiHeader()`. The strip carries the live pin, the rate
-  and the range as a caption (`GP29+28` for two servos), and a chip: `SAFE` in
+  and the range as a caption (`GP0+1` for two servos), and a chip: `SAFE` in
   `C_GREEN`, `RUNNING` in `C_RED`, `STALLED` in `C_MAGENTA` after a heartbeat
   trip, when the notes read `STOPPED: SCREEN STALLED` and
   `HOLD TO START AGAIN.`
@@ -271,8 +271,8 @@ While the pin is unavailable, the dial band holds the message from
 [pin-claim.md](pin-claim.md) and HOLD TO START is drawn disabled. The
 messages the screen shows there: the ESC answering on SIG, wrapped over three
 lines; `DISARM FIRST` and `PINS BUSY`, which the UI does not reach;
-`RELEASING DSHOT PIN` during the drain; `TAKING GP29` until the job binds; and
-`GP29 COULD NOT BE TAKEN (PWM)` with a RETRY button, for a first bind or a
+`RELEASING DSHOT PIN` during the drain; `TAKING GP0` until the job binds; and
+`GP0 COULD NOT BE TAKEN (PWM)` with a RETRY button, for a first bind or a
 rebind core1 refused.
 
 ### SET
@@ -341,7 +341,7 @@ one line of 240 px.
 
 BACK on SERVO, once a job has held the pins, shows the page of
 [pin-claim.md](pin-claim.md#restoring-dshot): `UNPLUG THE SERVO.`, `DSHOT
-RESTARTS ON GP29 AND READS AS` `A 970 US PULSE AT 1000 HZ.`, and RESTART
+RESTARTS ON GP0 AND READS AS` `A 970 US PULSE AT 1000 HZ.`, and RESTART
 DSHOT, a tap. Until core1 has released the pins the page says
 `RELEASING THE PINS`, and BACK on it does nothing. Once they are released,
 BACK on the page returns to SERVO and keeps the claim; the job binds again,
@@ -423,7 +423,7 @@ servo does not step at 40 Hz below 100 % SPEED.
 
 Profile and bind: `servoJobProfile()` in SAFE releases and rebinds both pins
 at the new rate. A refused bind leaves both pins unbound and reports
-`bindError`; the screen shows `GP29 COULD NOT BE TAKEN (PWM)` and its RETRY
+`bindError`; the screen shows `GP0 COULD NOT BE TAKEN (PWM)` and its RETRY
 hands the profile over again. The first bind, at the claim, takes the profile
 the screen handed over on entry; a command sent before the bind is not taken.
 
@@ -631,6 +631,7 @@ Decision of the owner, 2026-10-18, on the switched servo supply that
 20. **Switched supply.** A change after KST programming uses it here too:
     SAFE is supply off, HOLD TO START switches it on, and STOP and a
     heartbeat trip switch it off. Not built. Until that change the servo
-    tester never drives GP0, so with a converter fitted the converter stays
-    off here, and the servo is unpowered unless it has a supply of its own.
+    tester never drives the enable pin, GP28 or GP29, so with a converter
+    fitted the converter stays off here, and the servo is unpowered unless
+    it has a supply of its own.
     kst-programming.md records the same as its decision 10.

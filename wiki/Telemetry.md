@@ -121,7 +121,7 @@ which is 50 Hz. The wire adds finer voltage and current, and consumed mAh.
 
 | | RP2350-Touch-LCD-2.8 |
 |---|---|
-| **Telemetry RX** | GP28, J4 pin 11 |
+| **Telemetry RX** | GP1, J4 pin 10 or J5 pin 1 |
 
 The board only receives on this line. The receiver is a UART (universal
 asynchronous receiver-transmitter) built from a PIO (programmable I/O) state
@@ -130,13 +130,13 @@ general-purpose input/output pin. Turn it on under
 **MENU → SETTINGS → KISS TELEM** and set the pin in the row below. The pin
 stepper skips the ESC signal pin.
 
-**Default: off.** The board has two free pins, GP28 and GP29, and the ESC
+**Default: off.** The board has two free pins, GP0 and GP1, and the ESC
 uses one of them. Turning KISS on moves the KISS pin
 off the ESC pin if they coincide.
 
-> **Voltage.** The KISS specification puts this line at 3.6 V, which equals the
-> RP2350's absolute-maximum GPIO voltage. The level a given ESC drives is not
-> measured by this project. Measure yours before connecting it.
+> **Voltage.** The KISS specification puts this line at 3.6 V. GP0 and GP1
+> tolerate 5.5 V while the board is powered and 3.63 V while it is off. The
+> level a given ESC drives is not measured by this project.
 
 If the wire is unplugged during a session, the tags change to `EDT` 500 ms
 after the last KISS frame, and the readings get coarser. They do not hold the

@@ -5,16 +5,11 @@
  *
  * The RP2350's two hardware UARTs can only receive on GPIOs where `n % 4 == 1`
  * — eight pins out of thirty, and which of the two instances each belongs to
- * alternates in pairs of groups. That was fine while the KISS pin was a
- * compile-time constant on a board with pins to spare, and useless on the 2.8":
- * its free-GPIO mask is GP28 and GP29, only GP29 can receive, and GP29 is where
- * the ESC signal wire goes. Enabling KISS there found no pin at all and
- * validation switched it straight back off, which is exactly as helpful as it
- * sounds.
+ * alternates in pairs of groups. On the 2.8" the free pins are GP0 and GP1;
+ * only GP1 is a UART RX pin, and SETTINGS may put the ESC wire on it.
  *
- * A state machine samples whichever pin it is told to. So the rule "the KISS
- * pin must be a UART RX pin" is gone, along with the function that enforced it,
- * and any free GPIO that is not the ESC pin will do.
+ * A state machine samples whichever pin it is told to, so the KISS pin need
+ * not be a UART RX pin: any free GPIO that is not the ESC pin will do.
  *
  * @section pio_uart_rx_cost What it costs
  *

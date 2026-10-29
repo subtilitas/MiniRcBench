@@ -105,11 +105,11 @@ and slice 3 adds KST's line (decision 4).
 
 ```
 y   0 | MENU                            [  BACK  ]|  header 36 px; BACK 64 x 32
-   40 | GP29  600 KBIT/S                 (EDT ON) |  strip: caption and chip
+   40 | GP0  600 KBIT/S                  (EDT ON) |  strip: caption and chip
    62 | BEEP THE ESC                    DISARMED  |  rows 40 px tall,
-  104 | AM32 CONFIG                         GP29  |  42 px pitch
-  146 | SERVO TESTER                     GP29+28  |
-  188 | KST SERVO                           GP29  |  from slice 3
+  104 | AM32 CONFIG                          GP0  |  42 px pitch
+  146 | SERVO TESTER                       GP0+1  |
+  188 | KST SERVO                            GP0  |  from slice 3
   230 | SD LOG                             READY  |
   272 | SETTINGS                         UNSAVED  |  C_AMBER
   312 |                                           |  sixth row ends at 311
@@ -131,9 +131,9 @@ y   0 | MENU                            [  BACK  ]|  header 36 px; BACK 64 x 32
 | Row | Kind | Status | A tap |
 |---|---|---|---|
 | BEEP THE ESC | action | `DISARMED` in `C_DIM`; for 350 ms after a tap, `SENT` on a `C_INK` fill or `REFUSED` on a `C_AMBER` fill (`BEEP_FLASH_MS`) | `escRequestBeep(1)` |
-| AM32 CONFIG | tool, SIG | the SIG pin, `GP29`; `PINS BUSY` in `C_AMBER` while the claim is not Free | opens AM32 CONFIG |
-| SERVO TESTER | tool, SIG and AUX | `GP29+28`; `PINS BUSY` | opens SERVO |
-| KST SERVO, from slice 3 | tool, SIG | `GP29`; `PINS BUSY` | opens KST SERVO |
+| AM32 CONFIG | tool, SIG | the SIG pin, `GP0`; `PINS BUSY` in `C_AMBER` while the claim is not Free | opens AM32 CONFIG |
+| SERVO TESTER | tool, SIG and AUX | `GP0+1`; `PINS BUSY` | opens SERVO |
+| KST SERVO, from slice 3 | tool, SIG | `GP0`; `PINS BUSY` | opens KST SERVO |
 | SD LOG | tool | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a host holds the card, in the SD LOG screen's colours | opens SD LOG |
 | SETTINGS | tool | `UNSAVED` in `C_AMBER` while `settingsDirty()`, else none; `PINS BUSY` while the claim is not Free | opens SETTINGS |
 
@@ -177,7 +177,7 @@ y   0 | SETTINGS                        [  BACK  ]|  header 36 px
    60 | MOTOR POLES       14  [  -  ] [  +  ]     |  44 px rows, 50 px pitch
   110 | MAX THROTTLE     20%  [  -  ] [  +  ]     |  labels scale 1,
   160 | WIRING                                    |  values scale 2
-  180 | ESC PIN         GP29  [  -  ] [  +  ]     |
+  180 | ESC PIN          GP0  [  -  ] [  +  ]     |
   230 | DSHOT KBAUD      600  [  -  ] [  +  ]     |  cut: 10 px visible
   240 +-------------------------------------------+  end of the viewport
   242 | LINK                    998/S  0% ERR     |  fixed
@@ -190,7 +190,7 @@ y   0 | SETTINGS                        [  BACK  ]|  header 36 px
 At the end of slice C's list, 330 px:
 
 ```
-   40 | KISS PIN        GP28  [  -  ] [  +  ]     |  rows 290..333: cut, 4 px
+   40 | KISS PIN         GP1  [  -  ] [  +  ]     |  rows 290..333: cut, 4 px
    50 | DISPLAY                                   |
    70 | CONTRAST            [   NORMAL   ]        |  toggle, label scale 2
   120 | BACKLIGHT        192  [  -  ] [  +  ]     |
@@ -211,7 +211,7 @@ In content coordinates, 0 px at the top of the list:
 | 240 | KISS TELEM, toggle | C |
 | 290 | KISS PIN, stepper | C |
 | 340 | caption SERVO SUPPLY | 3 |
-| 360 | SERVO SUPPLY, toggle | 3 |
+| 360 | SERVO SUPPLY, stepper | 3 |
 | 340 (C), 410 (3) | caption DISPLAY | C |
 | 360 (C), 430 (3) | CONTRAST, toggle | C |
 | 410 (C), 480 (3) | BACKLIGHT, stepper | C |
@@ -227,7 +227,7 @@ In content coordinates, 0 px at the top of the list:
 | Content | slice C: 4 captions and 9 rows, 530 px; slice 3: 5 captions and 10 rows, 600 px |
 | Scroll range | slice C: 0 px to 330 px; slice 3: 0 px to 400 px (`MAX_SCROLL_PX`, content minus 200 px) |
 | Label | scale 1, 7 px tall, from x 8, centred in the row. The widest, `MAX THROTTLE` and `SERVO SUPPLY`, are 71 px and end at x 78 |
-| Value | scale 2, 14 px tall, right-aligned to x 132 (`VAL_R`). The widest, 4 characters (`GP29`, `1200`, `100%`), is 46 px and starts at x 86 |
+| Value | scale 2, 14 px tall, right-aligned to x 132 (`VAL_R`). The widest, 4 characters (`NONE`, `1200`, `100%`), is 46 px and starts at x 86 |
 | − and + | 44 × 44 px, at x 138 and x 188 |
 | Toggle | 94 × 44 px, at x 138, its label at scale 2 |
 | BUILT FOR value | scale 1, right-aligned to x 232: `RP2350-TOUCH-LCD-2.8`, 119 px |
@@ -249,11 +249,11 @@ The rows and their values:
 |---|---|---|---|---|---|---|
 | ESC TESTER | MOTOR POLES | stepper | 2 to 28, even (`MIN_MOTOR_POLES`, `MAX_MOTOR_POLES`) | 2 | 72 | 110 |
 | ESC TESTER | MAX THROTTLE | stepper | `5%` to `100%`, 5 % steps (`MAX_THROTTLE_STEP`) | 4 | 78 | 86 |
-| WIRING | ESC PIN | stepper | `GP28`, `GP29` | 4 | 48 | 86 |
+| WIRING | ESC PIN | stepper | `GP0`, `GP1` | 4 | 48 | 86 |
 | WIRING | DSHOT KBAUD | stepper | 150, 300, 600, 1200 | 4 | 72 | 86 |
 | WIRING | KISS TELEM | toggle | `OFF`, `ON` | | 66 | 138 |
-| WIRING | KISS PIN | stepper | `GP28`, `GP29`; `--` and disabled while KISS is off | 4 | 54 | 86 |
-| SERVO SUPPLY | SERVO SUPPLY | toggle | `NONE`, `GP0` (slice 3) | | 78 | 138 |
+| WIRING | KISS PIN | stepper | `GP0`, `GP1`; `--` and disabled while KISS is off | 4 | 54 | 86 |
+| SERVO SUPPLY | SERVO SUPPLY | stepper | `NONE`, `GP28`, `GP29` (slice 3) | 4 | 78 | 86 |
 | DISPLAY | CONTRAST | toggle | `NORMAL`, `HIGH` | | 54 | 138 |
 | DISPLAY | BACKLIGHT | stepper | 16 to 255, steps of 32 | 3 | 60 | 98 |
 | BOARD | BUILT FOR | read-only | `RP2350-TOUCH-LCD-2.8` | 20 at scale 1 | 60 | 113 |
@@ -725,7 +725,9 @@ as SETUP does. The order of the rows on screen has no relation to the block
 layout. A tool's persisted row is a field in the one block, a `SettingsRow`
 in the tool's section and, because the field is new, a version step: slice
 3's `SERVO SUPPLY` takes `SETTINGS_VERSION` to 3
-([kst-programming.md](kst-programming.md#decisions), decision 8).
+([kst-programming.md](kst-programming.md#decisions), decision 8). The
+layout is version 4, with the signal pins on GP0 and GP1 and the supply's
+enable on GP28 or GP29 (the revision of 2026-10-29 in the same section).
 
 ## Documentation, wiki and screenshots
 

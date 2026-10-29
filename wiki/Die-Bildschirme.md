@@ -70,7 +70,7 @@ Erreichbar über die Schaltfläche `MENU` des Testers. Das Öffnen **entschärft
 setzt das Gas auf 0 und schaltet `HOLD` aus.
 
 Unter dem Titel zeigt eine Leiste den ESC-Pin und die DShot-Rate, zum Beispiel
-`GP29  600 KBIT/S`, sowie das Feld **EDT ON / EDT OFF**. Das Feld ist nur eine
+`GP0  600 KBIT/S`, sowie das Feld **EDT ON / EDT OFF**. Das Feld ist nur eine
 Anzeige. Es ist grün, solange Extended-DShot-Telemetry-Frames eintreffen, sonst
 rot. Es gibt keine Einschalt-Schaltfläche. Die Firmware schickt die Freigabe an
 jeden ESC, der zu antworten beginnt, und wiederholt sie jede Sekunde, solange
@@ -89,10 +89,10 @@ breiter Rollbalken am rechten Rand zeigt die Lage.
 | Zeile | Zustand rechts | Ein Tippen |
 |---|---|---|
 | **BEEP THE ESC** | `DISARMED`; 350 ms nach einem Tippen `SENT` oder `REFUSED` | Sendet den DShot-Beacon-Befehl, der Motor piept. Damit erkennst du, welcher ESC angeschlossen ist |
-| **AM32 CONFIG** | der ESC-Pin, `GP29`; `PINS BUSY` | Öffnet den AM32-Editor |
-| **SERVO TESTER** | die beiden Signalpins, `GP29+28`; `PINS BUSY` | Öffnet den Servotester |
-| **KST SERVO** | der ESC-Pin, `GP29`; `PINS BUSY` | Öffnet den KST-Programmierer. Siehe [KST-Programmierung](KST-Programmierung) |
-| **HITEC SERVO** | der ESC-Pin, `GP29`; `PINS BUSY` | Öffnet den Hitec-Programmierer. Siehe [Hitec-Programmierung](Hitec-Programmierung) |
+| **AM32 CONFIG** | der ESC-Pin, `GP0`; `PINS BUSY` | Öffnet den AM32-Editor |
+| **SERVO TESTER** | die beiden Signalpins, `GP0+1`; `PINS BUSY` | Öffnet den Servotester |
+| **KST SERVO** | der ESC-Pin, `GP0`; `PINS BUSY` | Öffnet den KST-Programmierer. Siehe [KST-Programmierung](KST-Programmierung) |
+| **HITEC SERVO** | der ESC-Pin, `GP0`; `PINS BUSY` | Öffnet den Hitec-Programmierer. Siehe [Hitec-Programmierung](Hitec-Programmierung) |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, oder `USB DRIVE`, solange ein Computer die Karte hält | Öffnet den Aufzeichnungs-Bildschirm |
 | **SETTINGS** | `UNSAVED`, solange ein Wert vom Flash abweicht, sonst nichts; `PINS BUSY`, solange die Pins noch zurückgegeben werden, und öffnet sich nicht | Öffnet SETTINGS |
 
@@ -132,11 +132,11 @@ Abschnitten, die sich mit dem Finger verschieben lässt.
 |---|---|---|
 | ESC TESTER | **MOTOR POLES** | 2–28, nur gerade Werte. Die Drehzahlanzeige teilt die eRPM durch die Hälfte davon |
 | ESC TESTER | **MAX THROTTLE** | Die Gas-Obergrenze, `5%` bis `100%` in Schritten von 5 % |
-| WIRING | **ESC PIN** | GPIO (General Purpose Input/Output, frei verwendbarer Pin) für das Signalkabel. Angeboten werden nur die zwei freien GPIOs der Platine, GP28 und GP29 |
+| WIRING | **ESC PIN** | GPIO (General Purpose Input/Output, frei verwendbarer Pin) für das Signalkabel. Angeboten werden nur die zwei freien GPIOs der Platine, GP0 und GP1 |
 | WIRING | **DSHOT KBAUD** | 150 / 300 / 600 / 1200. Herunterstellen, wenn die `LINK`-Fehlerrate steigt |
 | WIRING | **KISS TELEM** | Ob auf dem optionalen dritten Telemetriekabel empfangen wird |
 | WIRING | **KISS PIN** | GPIO für dieses Kabel. Überspringt den ESC-Pin, sodass beide nie zusammenfallen. Zeigt `--` und reagiert nicht, solange KISS TELEM aus ist |
-| SERVO SUPPLY | **SERVO SUPPLY** | `NONE` oder `GP0`: ob ein DC-DC-Wandler (Gleichspannungswandler) für die Versorgung eines zu programmierenden Servos seinen Enable-Eingang an GP0, J5 Pin 2, hat. Standard ist `NONE`. Mit `GP0` schalten KST SERVO und HITEC SERVO die Versorgung des Servos |
+| SERVO SUPPLY | **SERVO SUPPLY** | `NONE`, `GP28` oder `GP29`: ob ein DC-DC-Wandler (Gleichspannungswandler) für die Versorgung eines zu programmierenden Servos einen Enable-Eingang hat und an welchem Pin: GP28, J4 Pin 11, oder GP29, J4 Pin 12. Standard ist `NONE`. - und + schalten durch die drei Werte. Mit `GP28` oder `GP29` schalten KST SERVO und HITEC SERVO die Versorgung des Servos |
 | DISPLAY | **CONTRAST** | `NORMAL` oder `HIGH`. Hoher Kontrast ist für Tageslicht |
 | DISPLAY | **BACKLIGHT** | 16–255, in Schritten von 32 |
 | BOARD | **BUILT FOR** | Nur Anzeige. Die Platine, für die die Firmware gebaut ist, `RP2350-TOUCH-LCD-2.8` |
@@ -167,7 +167,7 @@ Bitrate baut den DShot-Treiber vor dem nächsten Frame neu auf. `HOLD TO SAVE`
 Polzahl und Gas-Obergrenze eingeschlossen, nur in die laufenden Einstellungen.
 Wer ohne Speichern weggeht, lässt das Flash unverändert.
 
-<img src="img/settings-supply.png" width="240" alt="SETTINGS bis SERVO SUPPLY verschoben, auf GP0"> <img src="img/settings-scrolled.png" width="240" alt="SETTINGS bis zum Ende verschoben: DISPLAY und BOARD">
+<img src="img/settings-supply.png" width="240" alt="SETTINGS bis SERVO SUPPLY verschoben, auf GP29"> <img src="img/settings-scrolled.png" width="240" alt="SETTINGS bis zum Ende verschoben: DISPLAY und BOARD">
 
 <img src="img/settings-contrast.png" width="240" alt="SETTINGS mit hohem Kontrast"> <img src="img/tester-contrast.png" width="240" alt="Der Tester-Bildschirm mit hohem Kontrast">
 

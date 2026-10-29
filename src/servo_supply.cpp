@@ -1,6 +1,6 @@
 /**
  * @file servo_supply.cpp
- * @brief The programmed servo's switched supply on GP0. @see servo_supply.h
+ * @brief The programmed servo's switched supply on GP28 or GP29. @see servo_supply.h
  */
 
 #include "servo_supply.h"
@@ -8,59 +8,69 @@
 
 #include "hardware/gpio.h"
 
-static ServoSupplyMode s_mode  = ServoSupplyMode::None;
-static bool            s_bound = false;
-static bool            s_on    = false;
+static uint8_t s_pin   = SERVO_SUPPLY_NO_PIN;  /**< The enable pin; none with None. */
+static bool    s_bound = false;
+static bool    s_on    = false;
 
-/** @brief GP0 to an undriven input: the external pull-down alone holds EN low. */
-static void undriven() {
+/** @brief @p pin to an undriven input: the external pull-down alone holds EN low. */
+static void undriven(uint8_t pin) {
 	// Selecting SIO clears the pad's isolation and output disable and turns
 	// its input on (Pico SDK 2.1.1, gpio.c), so the input is disabled after it.
 	// The input goes off before the pulls, so the pad never has its input on
 	// with no pull (erratum RP2350-E9).
-	gpio_set_function(SERVO_SUPPLY_PIN, GPIO_FUNC_SIO);
-	gpio_set_input_enabled(SERVO_SUPPLY_PIN, false);
-	gpio_set_dir(SERVO_SUPPLY_PIN, GPIO_IN);
-	gpio_disable_pulls(SERVO_SUPPLY_PIN);
+	gpio_set_function(pin, GPIO_FUNC_SIO);
+	gpio_set_input_enabled(pin, false);
+	gpio_set_dir(pin, GPIO_IN);
+	gpio_disable_pulls(pin);
 }
+
+uint8_t servoSupplyPinOf(uint8_t mode) {
+	switch ((ServoSupplyMode)mode) {
+		case ServoSupplyMode::Gp28: return 28;
+		case ServoSupplyMode::Gp29: return 29;
+		default:                    return SERVO_SUPPLY_NO_PIN;
+	}
+}
+
+uint8_t servoSupplyPin() { return s_pin; }
 
 void servoSupplyInit() { servoSupplyConfigure(settings()->servoSupply); }
 
 void servoSupplyConfigure(uint8_t mode) {
-	ServoSupplyMode m = mode == 1 ? ServoSupplyMode::Gp0 : ServoSupplyMode::None;
-	// None from boot leaves GP0 in its reset state; a change away from Gp0
-	// leaves it the undriven input Gp0 set.
-	if (m == ServoSupplyMode::Gp0 || s_mode == ServoSupplyMode::Gp0) undriven();
-	s_mode = m;
+	uint8_t pin = servoSupplyPinOf(mode);
+	// None from boot leaves both pins in their reset state; the pin of the
+	// mode before stays the undriven input it was set to.
+	if (pin != SERVO_SUPPLY_NO_PIN) undriven(pin);
+	s_pin = pin;
 }
 
-bool servoSupplyFitted() { return s_mode == ServoSupplyMode::Gp0; }
+bool servoSupplyFitted() { return s_pin != SERVO_SUPPLY_NO_PIN; }
 
 void servoSupplyBind() {
 	if (!servoSupplyFitted()) return;
 	// The level first, so the output comes up low.
-	gpio_put(SERVO_SUPPLY_PIN, 0);
-	gpio_set_dir(SERVO_SUPPLY_PIN, GPIO_OUT);
+	gpio_put(s_pin, 0);
+	gpio_set_dir(s_pin, GPIO_OUT);
 	s_bound = true;
 	s_on = false;
 }
 
 void servoSupplyOn() {
 	if (!s_bound) return;
-	gpio_put(SERVO_SUPPLY_PIN, 1);
+	gpio_put(s_pin, 1);
 	s_on = true;
 }
 
 void servoSupplyOff() {
 	if (!s_bound) return;
-	gpio_put(SERVO_SUPPLY_PIN, 0);
+	gpio_put(s_pin, 0);
 	s_on = false;
 }
 
 void servoSupplyRelease() {
 	if (!s_bound) return;
-	gpio_put(SERVO_SUPPLY_PIN, 0);
-	undriven();
+	gpio_put(s_pin, 0);
+	undriven(s_pin);
 	s_bound = false;
 	s_on = false;
 }

@@ -36,7 +36,7 @@
  * latched; once what runs has ended the supply goes off, the session is
  * initialised again and the job is EntryEnded with `stalled` set.
  *
- * **Switched supply** (servo_supply.h). The bind takes GP0 low and the
+ * **Switched supply** (servo_supply.h). The bind takes the enable pin low and the
  * release makes it an input again. An entry's POWER step switches the
  * supply off for @ref KST_SUPPLY_OFF_MS from the last switch-off command,
  * then on and starts its LISTEN in the same pass, only while the heartbeat
@@ -129,7 +129,7 @@ struct HitecStatus {
 	bool          unknown;       /**< The image lacks an address a write needs. */
 	HitecPower    power;         /**< Where an entry's POWER step is. */
 	bool          supplyFitted;  /**< The bench switches the servo's supply. */
-	bool          supplyOn;      /**< The level the bench drives on GP0: on. */
+	bool          supplyOn;      /**< The level the bench drives on the enable pin: on. */
 	bool          supplyUsed;    /**< The supply was on in this claim: a close waits. */
 	uint16_t      supplyLeftDs;  /**< Time left of the off wait under way, 0.1 s, rounded up; 0 for none. */
 	bool          stalled;       /**< A heartbeat lapse ended the session. */

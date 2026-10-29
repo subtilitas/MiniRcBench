@@ -39,8 +39,9 @@
  * then it closes. The servo stays in programming mode until its supply is
  * off; whether it follows PWM before that is not measured.
  *
- * **Switched supply** (servo_supply.h, SETTINGS > SERVO SUPPLY at GP0). The
- * bind takes GP0 low and the release makes it an input again; between them:
+ * **Switched supply** (servo_supply.h, SETTINGS > SERVO SUPPLY at GP28 or
+ * GP29). The bind takes the enable pin low and the release makes it an
+ * input again; between them:
  *
  * - The search is switched (kst_seek.h): supply off for
  *   @ref KST_SUPPLY_OFF_MS before each attempt, on for the entry.
@@ -156,7 +157,7 @@ struct KstStatus {
 	uint32_t    frames;         /**< Frames the running or last operation or search sent. */
 	bool        stalled;        /**< A heartbeat lapse ended the last search. */
 	bool        supplyFitted;   /**< The bench switches the servo's supply. */
-	bool        supplyOn;       /**< The level the bench drives on GP0: on. */
+	bool        supplyOn;       /**< The level the bench drives on the enable pin: on. */
 	bool        supplyUsed;     /**< The supply was on in this claim: a close waits. */
 	uint16_t    supplyLeftDs;   /**< Time left of the wait under way, 0.1 s, rounded up; 0 for none. */
 	KstReboot   reboot;         /**< Where a Reboot is. */

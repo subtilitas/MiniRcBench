@@ -45,11 +45,12 @@
  * discarded entirely rather than migrated — see @ref settingsLoad() for why
  * that is the safe direction here.
  *
- * Version 3 adds @ref Settings::servoSupply, so a version 2 block,
- * DshotDisplay 2.x's among them, is discarded and the compiled defaults load.
- * The host suite pins the layout.
+ * Version 4 moves the signal pins to GP0 and GP1 and the switched supply's
+ * enable to GP28 or GP29, so a block of an earlier version, with its ESC pin
+ * on GP29 or GP28 or its supply enable on GP0, is discarded and the compiled
+ * defaults load. The host suite pins the layout.
  */
-#define SETTINGS_VERSION 3
+#define SETTINGS_VERSION 4
 
 /** @brief Lowest backlight level: below it the panel looks dead. */
 #define BACKLIGHT_MIN 16
@@ -73,7 +74,7 @@ struct Settings {
 	uint16_t maxThrottle;  /**< Throttle ceiling, out of 0..2000. */
 	uint8_t  backlight;    /**< Preferred backlight level, @ref BACKLIGHT_MIN to 255. */
 	uint8_t  highContrast; /**< Non-zero selects @ref Theme::HighContrast. */
-	uint8_t  servoSupply;  /**< KST's switched servo supply: 0 none, 1 an enable on GP0. @see servo_supply.h */
+	uint8_t  servoSupply;  /**< The switched servo supply: 0 none, 1 an enable on GP28, 2 on GP29. @see servo_supply.h */
 };
 
 /**

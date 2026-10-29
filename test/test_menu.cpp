@@ -538,10 +538,10 @@ static void testMenuStatusWidths() {
 	check(e[uiMenuRowOf(&UI_SETTINGS)], "unsaved");
 	settingsLoad();
 	// The two pin readouts at the widest pins the board offers.
-	settings()->dshotPin = 29;
-	settings()->kissPin = 28;
-	check(e[uiMenuRowOf(&UI_AM32)], "GP29");
-	check(e[uiMenuRowOf(&UI_SERVO)], "GP29+28");
+	settings()->dshotPin = 0;
+	settings()->kissPin = 1;
+	check(e[uiMenuRowOf(&UI_AM32)], "GP0");
+	check(e[uiMenuRowOf(&UI_SERVO)], "GP0+1");
 	settingsLoad();
 	tapId(UI_FIX(UI_BACK));
 }

@@ -106,8 +106,8 @@ static void shippedJobs() {
 // helpers
 // ---------------------------------------------------------------------------
 
-#define SIG_GPIO 29
-#define AUX_GPIO 28
+#define SIG_GPIO 0
+#define AUX_GPIO 1
 
 /** @brief No ESC on either wire. */
 static void quiet() {

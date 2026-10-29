@@ -67,7 +67,7 @@ Reached with the tester's `MENU` button. Opening it **disarms**, sets the
 throttle to 0 and turns `HOLD` off.
 
 Under the title, a strip shows the ESC pin and the DShot rate, for example
-`GP29  600 KBIT/S`, and the **EDT ON / EDT OFF** chip. The chip is read-only.
+`GP0  600 KBIT/S`, and the **EDT ON / EDT OFF** chip. The chip is read-only.
 It is green while Extended DShot Telemetry frames arrive and red otherwise.
 There is no enable button. The firmware sends the enable to every ESC that
 starts answering, and repeats it every 1 s while eRPM arrives and EDT does not.
@@ -85,10 +85,10 @@ only then. A 3 px scroll bar at the right edge shows the position.
 | Row | State on the right | A tap |
 |---|---|---|
 | **BEEP THE ESC** | `DISARMED`; for 350 ms after a tap, `SENT` or `REFUSED` | Sends the DShot beacon command, so the motor beeps. Use it to identify which ESC is connected |
-| **AM32 CONFIG** | the ESC pin, `GP29`; `PINS BUSY` | Opens the AM32 editor |
-| **SERVO TESTER** | the two signal pins, `GP29+28`; `PINS BUSY` | Opens the servo tester |
-| **KST SERVO** | the ESC pin, `GP29`; `PINS BUSY` | Opens the KST programmer. See [KST Programming](KST-Programming) |
-| **HITEC SERVO** | the ESC pin, `GP29`; `PINS BUSY` | Opens the Hitec programmer. See [Hitec Programming](Hitec-Programming) |
+| **AM32 CONFIG** | the ESC pin, `GP0`; `PINS BUSY` | Opens the AM32 editor |
+| **SERVO TESTER** | the two signal pins, `GP0+1`; `PINS BUSY` | Opens the servo tester |
+| **KST SERVO** | the ESC pin, `GP0`; `PINS BUSY` | Opens the KST programmer. See [KST Programming](KST-Programming) |
+| **HITEC SERVO** | the ESC pin, `GP0`; `PINS BUSY` | Opens the Hitec programmer. See [Hitec Programming](Hitec-Programming) |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a computer holds the card | Opens the logging screen |
 | **SETTINGS** | `UNSAVED` while a value differs from flash, else nothing; `PINS BUSY` while the pins are still restoring, and it does not open | Opens SETTINGS |
 
@@ -127,11 +127,11 @@ settings to flash. One list, in sections, scrolls under a finger.
 |---|---|---|
 | ESC TESTER | **MOTOR POLES** | 2–28, even values. The RPM readout divides the eRPM by half of it |
 | ESC TESTER | **MAX THROTTLE** | The throttle ceiling, `5%` to `100%` in steps of 5 % |
-| WIRING | **ESC PIN** | GPIO (general-purpose input/output pin) for the signal wire. Only the board's two free GPIOs are offered, GP28 and GP29 |
+| WIRING | **ESC PIN** | GPIO (general-purpose input/output pin) for the signal wire. Only the board's two free GPIOs are offered, GP0 and GP1 |
 | WIRING | **DSHOT KBAUD** | 150 / 300 / 600 / 1200. Lower it if the `LINK` error rate rises |
 | WIRING | **KISS TELEM** | Whether to listen on the optional third telemetry wire |
 | WIRING | **KISS PIN** | GPIO for that wire. Skips the ESC pin, so the two never coincide. Reads `--` and does not act while KISS TELEM is off |
-| SERVO SUPPLY | **SERVO SUPPLY** | `NONE` or `GP0`: whether a DC-DC converter (direct-current voltage converter) for a programmed servo's supply has its enable wired to GP0, J5 pin 2. `NONE` by default. With `GP0`, KST SERVO and HITEC SERVO switch the servo's supply |
+| SERVO SUPPLY | **SERVO SUPPLY** | `NONE`, `GP28` or `GP29`: whether a DC-DC converter (direct-current voltage converter) for a programmed servo's supply has its enable wired, and to which pin: GP28, J4 pin 11, or GP29, J4 pin 12. `NONE` by default. - and + step through the three. With `GP28` or `GP29`, KST SERVO and HITEC SERVO switch the servo's supply |
 | DISPLAY | **CONTRAST** | `NORMAL` or `HIGH`. High contrast is for daylight |
 | DISPLAY | **BACKLIGHT** | 16–255, in steps of 32 |
 | BOARD | **BUILT FOR** | Read-only. The board the firmware is built for, `RP2350-TOUCH-LCD-2.8` |
@@ -160,7 +160,7 @@ to flash. `RESET` loads the compiled defaults, the pole count and the throttle
 ceiling included, into the live settings only. Leaving without saving keeps
 flash unchanged.
 
-<img src="img/settings-supply.png" width="240" alt="SETTINGS scrolled to SERVO SUPPLY, set to GP0"> <img src="img/settings-scrolled.png" width="240" alt="SETTINGS scrolled to the end: DISPLAY and BOARD">
+<img src="img/settings-supply.png" width="240" alt="SETTINGS scrolled to SERVO SUPPLY, set to GP29"> <img src="img/settings-scrolled.png" width="240" alt="SETTINGS scrolled to the end: DISPLAY and BOARD">
 
 <img src="img/settings-contrast.png" width="240" alt="SETTINGS in high contrast"> <img src="img/tester-contrast.png" width="240" alt="The tester screen in high contrast">
 

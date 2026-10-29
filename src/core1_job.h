@@ -43,7 +43,7 @@ enum class Core1JobPhase : uint8_t {
 /**
  * @brief Why a job did not bind. 0 is none.
  *
- * The bind failures name the resource, as the screens show them: `GP29 COULD
+ * The bind failures name the resource, as the screens show them: `GP0 COULD
  * NOT BE TAKEN (PWM)`, `(PIO)`, `(DMA)` or `(CLOCK)`.
  */
 enum Core1JobError : uint8_t {
