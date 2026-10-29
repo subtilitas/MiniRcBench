@@ -464,7 +464,7 @@ static void testPwm() {
 	         fakePin(AUX).level, 0);
 	checkTrue("GP17, GP1's compare register: refused", !servoPwmBind(17, 50));
 	checkTrue("GP26, both bindings in use: refused", !servoPwmBind(26, 50));
-	checkTrue("GP30, both bindings in use: refused", !servoPwmBind(30, 50));
+	checkTrue("GP30, a pin the RP2350A does not have: refused", !servoPwmBind(30, 50));
 
 	servoPwmWrite(SIG, 1500);
 	checkInt("a 1500 us pulse", fakePin(SIG).level, 1500);

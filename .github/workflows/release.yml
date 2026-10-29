@@ -252,9 +252,8 @@ jobs:
 
           Cut or depin the middle wire of the ESC lead: it is the BEC (battery
           eliminator circuit) +5 V output, and the board must not be fed
-          from it. GP0 and GP1 are fault-tolerant pins: they take up to 5.5 V
-          while the board is powered, and with the board off very little
-          current flows below 3.63 V.
+          from it. GP0 and GP1 are fault-tolerant pins, rated 5.5 V while the
+          board is powered and 3.63 V while it is off.
 
           ## Optional: KISS telemetry
 
@@ -264,9 +263,8 @@ jobs:
           **MENU → SETTINGS → KISS TELEM** turns it on.
 
           The level the ESC drives on this line is not measured by this
-          project. The KISS specification puts it at 3.6 V. GP1 takes up to
-          5.5 V while the board is powered, and with the board off very
-          little current flows below 3.63 V.
+          project. The KISS specification puts it at 3.6 V. GP1 is rated
+          5.5 V while the board is powered and 3.63 V while it is off.
 
           ## Licences
 
