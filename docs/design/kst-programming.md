@@ -140,7 +140,7 @@ converter. VIN and VOUT are the converter's input and output.
 | Level | 3.3 V push-pull from IOVDD; high is on, low is off (active-high) |
 | Off-state resistor | external pull-down from EN to the supply's minus: 10 kΩ to 100 kΩ for an EN with no internal pull-up; with an internal pull-up, the divider sets the value ([example modules](#example-modules)) |
 | Converter type | buck (step-down), or another type with output disconnect, such as a four-switch buck-boost or a synchronous boost with load disconnect. A disabled boost converter without one passes VIN minus a diode drop to the servo. A plain non-synchronous boost module, for example a 3.7 V to 5 V module with only VIN, GND and VOUT, does not qualify: it has no EN, and its input passes to the output |
-| EN input | takes 3.3 V logic as high. With an internal pull-up from EN to VIN, the pull-up and the external pull-down form a divider while the enable pin is undriven or unpowered, and at the highest VIN used it must meet two limits. First, EN below the converter's falling threshold; otherwise the converter is on outside a claim, while DShot runs. With the Pololu module below, a 100 kΩ pull-down puts 2.09 V on EN at 12 V, above its highest rising threshold of 1.2 V. Second, EN at most 3.6 V, the limit this design keeps for GP28 and GP29, which are not fault tolerant ([signal level](pin-claim.md#signal-level)); the same 100 kΩ gives 3.83 V at 22 V. For an unpowered enable pin the first limit holds EN below the falling threshold, 0.84 V or more on the Pololu; the level an unpowered GP28 or GP29 tolerates is not checked here. A module whose divider fails either limit needs a smaller pull-down, or its pull-up removed |
+| EN input | takes 3.3 V logic as high. With an internal pull-up from EN to VIN, the pull-up and the external pull-down form a divider while the enable pin is undriven or unpowered, and at the highest VIN used it must meet three limits. First, EN below the converter's falling threshold; otherwise the converter is on outside a claim, while DShot runs. With the Pololu module below, a 100 kΩ pull-down puts 2.09 V on EN at 12 V, above its highest rising threshold of 1.2 V. Second, EN at most 3.6 V, the limit this design keeps for GP28 and GP29, which are not fault tolerant ([signal level](pin-claim.md#signal-level)); the same 100 kΩ gives 3.83 V at 22 V. Third, while the board is unpowered and the converter's VIN is present, EN at most 0.5 V: GP28 and GP29 are standard pads, rated to IOVDD + 0.5 V (RP2350 datasheet, Table 1680), and IOVDD is 0 V. Above that, the divider feeds IOVDD through the pad's protection diode. With the Pololu module's 10 kΩ pull-down, EN is 0.45 V at 22 V. A module whose divider fails a limit needs a smaller pull-down, or its pull-up removed |
 | Converter output | 5 V nominal, for every servo the owner programs, HV (high-voltage) servos included (decision 16); rated for the servo's stall current, more than 1 A. The servo tester's range in the [pin-claim.md wiring](pin-claim.md#wiring) is not this requirement |
 | Start-up time | from EN high to VOUT in range: unknown until bring-up |
 | Converter input | the user's supply. J4 pin 2 is USB VBUS and does not feed a servo |
@@ -156,14 +156,14 @@ it switches the converter on or off and is never a PWM channel.
 the enable pin:
 
 - Board unpowered: the pin's pad has no supply, and the pull-down alone holds
-  EN low.
-- From reset: GPIO0's pad comes up with its pull-down enabled, its input
-  disabled and its isolation on (`PADS_BANK0_GPIO0_RESET`, 0x116, in the Pico
-  SDK, software development kit, 2.1.1,
-  `src/rp2350/hardware_regs/include/hardware/regs/pads_bank0.h`). Whether
-  the GPIO28 and GPIO29 pads reset to the same value is not checked here;
-  bring-up step 7 checks EN from reset. With that reset state, the pad
-  pull-down and the external one act together until `servoSupplyInit()`.
+  EN low. The pad is rated to IOVDD + 0.5 V, 0.5 V while IOVDD is 0 V
+  (RP2350 datasheet, Table 1680); an EN with no internal pull-up stays at
+  0 V.
+- From reset: the GPIO28 and GPIO29 pads come up with their pull-down
+  enabled, their input disabled and their isolation on (RP2350 datasheet,
+  Tables 913 and 914: ISO 1, IE 0, PDE 1); bring-up step 7 checks EN from
+  reset. With that reset state, the pad pull-down and the external one act
+  together until `servoSupplyInit()`.
   Erratum RP2350-E9 affects a pad whose input is enabled: its leakage can hold
   the pin high against the internal pull-down. A pad whose input is disabled
   from reset cannot latch through E9.
@@ -222,10 +222,12 @@ the level the enable pin sees.
 The Pololu divider, with a 10 kΩ pull-down from EN to GND and the enable pin
 undriven or unpowered: EN = VIN × 10 kΩ / (475 kΩ + 10 kΩ) = VIN × 10 / 485. That is
 0.25 V at 12 V and 0.45 V at 22 V, below the lowest falling threshold of
-0.84 V, so the converter is off, and far below 3.6 V. For EN to stay below
-0.84 V at 22 V the pull-down must be below 18.9 kΩ
-(475 kΩ × 0.84 V / 21.16 V); 18 kΩ is the largest standard value under it.
-At 100 kΩ, EN reads 2.09 V at 12 V, so
+0.84 V, so the converter is off, far below 3.6 V, and below the 0.5 V an
+unpowered GP28 or GP29 takes. For EN to stay below 0.84 V at 22 V the
+pull-down must be below 18.9 kΩ (475 kΩ × 0.84 V / 21.16 V). For EN to stay
+at or below 0.5 V at 22 V with the board unpowered it must be at most
+11.0 kΩ (475 kΩ × 0.5 V / 21.5 V); 10 kΩ is
+under it. At 100 kΩ, EN reads 2.09 V at 12 V, so
 the converter is on, and 3.83 V at 22 V, above the enable pin's 3.6 V. The
 enable pin driving 3.3 V is above the 1.2 V highest rising threshold, so the converter is on,
 and the pull-up then sources at most (22 V − 3.3 V) / 475 kΩ, about 39 µA,

@@ -237,30 +237,35 @@ jobs:
 
           | ESC | Board |
           |---|---|
-          | Signal | **GP29** — J4 pin 12 |
+          | Signal | **GP0** — J4 pin 9 or J5 pin 2 |
           | Ground | **GND** — J4 pin 1 or 5 |
 
-          The board brings out only GP28 and GP29. The ESC pin is a setting
-          under **CFG → SETUP**, kept across power cycles after **HOLD TO SAVE**.
-          A wrong pin produces no error: the ESC receives no frames. The
-          **LINK** row on the same screen shows the live packet rate. A
-          non-zero rate means the pin is correct.
+          The board brings out two free signal pins, GP0 and GP1. The ESC pin
+          is a setting under **MENU → SETTINGS**, kept across power cycles
+          after **HOLD TO SAVE**. A wrong pin produces no error: the ESC
+          receives no frames. The **LINK** row on the same screen shows the
+          live packet rate. A non-zero rate means the pin is correct.
+
+          GP28 (J4 pin 11) and GP29 (J4 pin 12) are not signal pins. Either
+          can be the enable of a switched servo supply, under **MENU →
+          SETTINGS → SERVO SUPPLY**. Do not wire an ESC to them.
 
           Cut or depin the middle wire of the ESC lead: it is the BEC (battery
-          eliminator circuit) +5 V output, and RP2350 GPIO (general-purpose
-          input/output) pins are not 5 V tolerant.
+          eliminator circuit) +5 V output, and the board must not be fed
+          from it. GP0 and GP1 are fault-tolerant pins: they take up to 5.5 V
+          while the board is powered, and up to 3.63 V while it is off.
 
           ## Optional: KISS telemetry
 
           A third wire from the ESC's telemetry pad gives 0.01 V and 0.01 A
           steps instead of Extended DShot Telemetry's 0.25 V and 1 A. It lands
-          on **GP28**, J4 pin 11. KISS is off by default, because the ESC
-          takes one of the two free pins. One tap under **CFG → SETUP** turns
-          it on.
+          on **GP1**, J4 pin 10 or J5 pin 1. KISS is off by default, because
+          the ESC takes one of the two free pins. One tap under **MENU →
+          SETTINGS** turns it on.
 
           The level the ESC drives on this line is not measured by this
-          project. The KISS specification puts it at 3.6 V, the RP2350's
-          absolute-maximum GPIO voltage. Measure yours before connecting it.
+          project. The KISS specification puts it at 3.6 V. GP1 takes up to
+          5.5 V while the board is powered, and up to 3.63 V while it is off.
 
           ## Licences
 

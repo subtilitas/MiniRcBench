@@ -30,8 +30,8 @@
  * pio0 the backlight (1 state machine, 6 words), and nothing else uses pio2, so
  * the DShot bind always finds pio2 with no other user. These two checks are
  * what makes the KISS receiver fit beside it in that block, on every board and
- * in every configuration. Checked in the
- * firmware build only: the host stubs carry no PIO programs.
+ * in every configuration. Checked in the firmware build only: the host stubs
+ * carry no PIO programs.
  */
 static_assert(2 + 1 <= NUM_PIO_STATE_MACHINES,
               "DShot and the KISS receiver need 3 state machines in one PIO block");

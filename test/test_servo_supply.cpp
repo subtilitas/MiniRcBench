@@ -1,8 +1,9 @@
 /**
  * @file test_servo_supply.cpp
- * @brief The switched servo supply on GP28 against the fake pads: undriven
- *        outside a claim, low at bind, high and low between bind and
- *        release, an undriven input after it, and untouched with no switch.
+ * @brief The switched servo supply on GP28 or GP29 against the fake pads:
+ *        undriven outside a claim, low at bind, high and low between bind
+ *        and release, an undriven input after it, untouched with no switch,
+ *        and only the configured pin switched after a change of pin.
  */
 
 #include "check.h"
@@ -12,7 +13,7 @@
 
 #include "hardware/gpio.h"
 
-/** @brief GP28 as the converter's pull-down alone sees it: SIO, not driven, no pulls, input off. */
+/** @brief An enable pin as the converter's pull-down alone sees it: SIO, not driven, no pulls, input off. */
 static bool undriven(const FakePin &p) {
 	return p.function == GPIO_FUNC_SIO && !p.output && p.pull == FakePull::None && p.inputOff;
 }

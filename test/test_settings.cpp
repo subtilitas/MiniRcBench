@@ -403,7 +403,7 @@ static void testBlankNamesTheBoard() {
  * DshotDisplay block then stops loading on purpose rather than by accident.
  */
 static void testLayout() {
-	section("Settings: the version 3 block layout");
+	section("Settings: the version 4 block layout");
 
 	checkTrue("magic \"DSHT\"", SETTINGS_MAGIC == 0x44534854u);
 	checkInt("version", SETTINGS_VERSION, 4);
@@ -422,22 +422,22 @@ static void testLayout() {
 
 	// A block with every field off its default, the switch fitted on GP29,
 	// loads as it was stored.
-	Settings v3;
-	settingsDefaults(&v3);
-	v3.dshotPin     = 1;
-	v3.kissEnable   = 1;
-	v3.kissPin      = 0;
-	v3.dshotKbaud   = 300;
-	v3.poles        = 12;
-	v3.maxThrottle  = 800;
-	v3.backlight    = 96;
-	v3.highContrast = 1;
-	v3.servoSupply  = 2;
+	Settings v4;
+	settingsDefaults(&v4);
+	v4.dshotPin     = 1;
+	v4.kissEnable   = 1;
+	v4.kissPin      = 0;
+	v4.dshotKbaud   = 300;
+	v4.poles        = 12;
+	v4.maxThrottle  = 800;
+	v4.backlight    = 96;
+	v4.highContrast = 1;
+	v4.servoSupply  = 2;
 	fakeFlashClear();
-	storeValid(&v3);
+	storeValid(&v4);
 	settingsLoad();
 	checkTrue("the block is taken", settingsStored());
-	checkTrue("every field as stored", memcmp(settings(), &v3, sizeof(v3)) == 0);
+	checkTrue("every field as stored", memcmp(settings(), &v4, sizeof(v4)) == 0);
 	checkTrue("with nothing to save", !settingsDirty());
 
 	// A version 3 block, its ESC pin on GP29 and its switch on GP0: the same
@@ -447,7 +447,7 @@ static void testLayout() {
 	old.magic = SETTINGS_MAGIC;
 	old.version = 3;
 	old.size = sizeof(Settings);
-	old.s = v3;
+	old.s = v4;
 	old.s.dshotPin = 29;
 	old.s.kissPin = 28;
 	old.s.servoSupply = 1;
@@ -471,7 +471,7 @@ static void testLayout() {
 	memcpy(v2, &magic, 4);
 	memcpy(v2 + 4, &version, 2);
 	memcpy(v2 + 6, &size, 2);
-	memcpy(v2 + 8, &v3, 12);
+	memcpy(v2 + 8, &v4, 12);
 	const uint32_t crc = settingsCrc32(v2, 20);
 	memcpy(v2 + 20, &crc, 4);
 	fakeFlashClear();

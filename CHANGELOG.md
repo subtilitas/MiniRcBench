@@ -338,11 +338,13 @@ protocol.
   pins they are, is unused. The servo tester's pulses run on PWM slice 0,
   GP0 on channel A and GP1 on channel B. SETTINGS → SERVO SUPPLY is a
   stepper, `NONE`, `GP28` (J4 pin 11) or `GP29` (J4 pin 12). The override
-  pair in the
-  examples and in CI is `-DDSHOT_PIN_LCD_2_8=1 -DKISS_PIN_LCD_2_8=0`. The
-  settings block is version 4: a stored block of an earlier version is
-  discarded whole and the compiled defaults load, so every saved setting
-  returns to its default once after the update.
+  pair in the examples and in CI is
+  `-DDSHOT_PIN_LCD_2_8=1 -DKISS_PIN_LCD_2_8=0`. The settings block is
+  version 4: a stored block of an earlier version is discarded whole and
+  the compiled defaults load, so every saved setting returns to its default
+  once after the update. The release notes give the ESC on GP0, KISS on
+  GP1, the menu path MENU → SETTINGS, and GP28 and GP29 as supply enables
+  only.
 - The Hitec design rewritten on rcbench 3e29dc1b with writes, and renamed
   from `hitec-reading.md` to
   [hitec-programming.md](docs/design/hitec-programming.md), "Hitec servo
@@ -383,8 +385,8 @@ protocol.
   the image is built for.
 - The settings block's board id is a record checked against the 2.8"'s, 28;
   validation rewrites any other value and re-judges the stored pins against
-  the board's free pins, GP0 and GP1. The host suite pins the block layout DshotDisplay 2.x
-  writes.
+  the board's free pins, GP0 and GP1. The host suite pins the block layout
+  DshotDisplay 2.x writes.
 - The CMake pin options are `DSHOT_PIN_LCD_2_8` and `KISS_PIN_LCD_2_8`. A
   configure step with `-DDSHOT_PIN`, `-DKISS_PIN`, `-DDSHOT_PIN_LCD_2` or
   `-DKISS_PIN_LCD_2` fails with a message naming the options the build
