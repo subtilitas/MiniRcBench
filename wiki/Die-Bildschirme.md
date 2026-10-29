@@ -11,6 +11,7 @@ Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MEN
    ▲                    ├── SERVO TESTER ──BACK──> Abziehseite ──> MENU
    │                    ├── KST SERVO    ──BACK──> Verlassenseite ──> Abziehseite ──> MENU
    │                    ├── HITEC SERVO  ──BACK──> Verlassenseite ──> Abziehseite ──> MENU
+   │                    │   (in der Familienauswahl führt BACK zu MENU; während des Eintritts zur Abziehseite)
    │                    ├── SD LOG       ──BACK──> MENU
    │                    └── SETTINGS     ──BACK──> MENU
    └──── BACK auf MENU ─┘
@@ -229,8 +230,8 @@ zeigt dann `UNPLUG THE SERVO.`, und `RESTART DSHOT` führt zu `MENU`. Siehe
 Liest und schreibt die Einstellungen eines Hitec-Servos der D-Serie über das
 Signalkabel am ESC-Pin. Der Bildschirm öffnet mit der Familienauswahl:
 `D SERIES` wirkt, `CLASSIC` ist mit `LINE LEVEL NOT MEASURED` abgeblendet. Er
-tritt in das Servo ein, liest seine 21 Register und listet 20 Parameter zum
-Verstellen. An der Leitung hängt ein Servo, ohne Pull-up-Widerstand.
+tritt in das Servo ein, liest seine 21 Register und listet 20 Parameter, davon 11
+verstellbar. An der Leitung hängt ein Servo, ohne Pull-up-Widerstand.
 `HOLD TO WRITE` 1 s lang gehalten öffnet die Schreibseite, ein zweites Halten
 von 1 s schreibt, zuvor mit einer Sicherung auf der SD-Karte. `BACK` öffnet
 die Verlassenseite; `LEAVE` zeigt dann `UNPLUG THE SERVO.`, und

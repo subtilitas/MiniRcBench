@@ -53,9 +53,11 @@ Platine verbunden.
   SIG GP29 = J4 Pin 12, GND = J4 Pin 1 oder 5
 ```
 
+GND ist die Masse der Platine.
+
 - **Ein Servo an der Leitung.** Jeder Frame geht an die ID 0
   (Identifikationsnummer), und jedes Servo der D-Serie an der Leitung nimmt
-  die ID 0 an.
+  einen Frame an, der an die ID 0 geht.
 - **Kein Pull-up-Widerstand** am Signalkabel. Die Platine empfängt die
   Antwort des Servos durch Vorladen: Vor jeder Abtastung hebt der Pin die
   Leitung 100 ns lang an. Den Empfang von rcbench über einen
@@ -67,7 +69,9 @@ Platine verbunden.
   Ausschalten zuerst die Servoversorgung.
 - SIG ist der ESC-Pin, so wie unter **MENU → SETTINGS** eingestellt.
   Voreingestellt ist GP29.
-- Andere Servoversorgungen als 5,0 V sind nicht getestet.
+- Die Läufe von rcbench nutzten eine Servoversorgung von 5,0 V. Andere
+  Versorgungen sind nicht getestet, und auf dieser Platine ist nichts
+  gelaufen.
 - Zieh jeden ESC vom ESC-Pin ab. Der Bildschirm prüft den Pin auf einen ESC,
   erkennt aber nur einen ESC, der bidirektionales DShot beantwortet.
 
@@ -186,7 +190,8 @@ oder unten, um zu verschieben.
 - Werte tragen ihre Einheit und den gespeicherten Wert in Klammern:
   `90 % (18)`, `STEP 1 (1)`, `CW (0)`. `CW` heißt im Uhrzeigersinn, `CCW`
   gegen den Uhrzeigersinn. `NEUTRAL`, die Endpunkte und `POSITION` sind
-  Zählwerte, zum Beispiel `8192`, ohne Klammer. `FAILSAFE` zeigt `LIMP`,
+  Zählwerte, zum Beispiel `8192`, ohne Klammer; ebenso `ID` und die
+  INFO-Zahlen `MODEL`, `SENSITIVITY` und `R04` bis `RD6`. `FAILSAFE` zeigt `LIMP`,
   `OFF` oder eine Stellung in `US`. `US` steht für µs: Die Bildschirmschrift
   hat kein Mikro-Zeichen.
 - Ein gespeicherter Wert, den keine Codierung annimmt, zeigt `RAW` und die
@@ -306,8 +311,11 @@ Dateien zuerst auf die Karte, während der Bildschirm weiter zeichnet. Die
 Seite zeigt `SAVING THE BACKUP TO THE CARD.` (bei einem späteren Schreiben
 `SAVING THE FILES TO THE CARD.`) und zum Beispiel `BLOCKS LEFT: 12`. Das Servo
 wird erst geschrieben, wenn die Karte die Dateien hält. Nimmt die Karte die
-Daten nicht an, hält das Schreiben an:
-`THE CARD DID NOT TAKE THE BACKUP. NOTHING WAS WRITTEN TO THE SERVO.`
+Daten nicht an, hält das Schreiben an. Beim ersten Schreiben der Sitzung
+zeigt die Seite
+`THE CARD DID NOT TAKE THE BACKUP. NOTHING WAS WRITTEN TO THE SERVO.`, bei
+einem späteren Schreiben
+`THE CARD DID NOT TAKE A FILE. NOTHING WAS WRITTEN TO THE SERVO.`
 
 Das Schreiben sendet dann die geänderten Register im Abstand von 20 ms,
 speichert sie im Servo, startet das Servo neu (1,0 s) und liest alle 21
@@ -345,7 +353,7 @@ Zu den bernsteinfarbenen Ergebnissen gehören:
 - `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.`
 - `THE CARD DID NOT TAKE A FILE. NOTHING WAS WRITTEN TO THE SERVO.`
 
-Nach einem Schreiben, das fehlschlug, nachdem Rahmen gesendet waren, hält
+Nach einem Schreiben, das fehlschlug, nachdem Frames gesendet waren, hält
 das Abbild die berührten Register nicht mehr: Die Schreib-Schaltfläche zeigt
 `READ AGAIN`, bis ein Lesen sie füllt. Der Vermerk bleibt auf der Karte.
 
@@ -357,7 +365,8 @@ das Abbild die berührten Register nicht mehr: Die Schreib-Schaltfläche zeigt
 
 <img src="img/hitec-files.png" width="240" alt="Die Seite HITEC FILES nach SAVE AS: SAVED AS HT001">
 
-- Die Leiste zählt die Dateien: `CARD  12 FILES`.
+- Die Leiste zählt die `.TXT`-Dateien aus `HITEC/`, die die Liste zeigt:
+  `CARD  12 FILES`. Vermerk und Sicherungen zählt sie nicht.
 - Liegt der Vermerk `HITEC/HITEC.TXT` auf der Karte, ist er die erste Zeile,
   benannt `RECORD` mit `(HITEC.TXT)` in Bernstein rechts.
 - Es folgen die Hitec-Sicherungen aus `BACKUP/`, die jüngste zuerst, jede mit
@@ -491,8 +500,12 @@ dieser Leitung bekommt den Ausgang des Wandlers auf seine BEC-Leitung.**
 - **LEAVE** schaltet die Versorgung ab. Der Pin wird 2,0 s nach dem
   Ausschalten freigegeben.
 
-Mit `NONE` beendet ein Hängen die Sitzung ebenfalls. Die Seite zeigt
-`THE SCREEN STALLED. RETRY ENTERS AGAIN.`
+Mit `NONE` beendet ein Hängen die Sitzung nicht. Ein Hängen während des
+Eintritts beendet den Eintritt: Die Seite zeigt `NO SERVO ANSWERS` mit
+RETRY. Später endet ein laufendes Lesen oder Schreiben, das Servo bleibt im
+Programmiermodus, und der nächste Vorgang wird abgewiesen, bis der
+Bildschirm wieder läuft: Ein Schreiben zeigt dann
+`THE SCREEN STALLED. NOTHING WAS WRITTEN.`
 
 ---
 
@@ -542,8 +555,9 @@ gemessen gesetzt und SERVO SUPPLY auf `GP0`.
   höchstens 15 s lang an, während der Bildschirm nicht neu zeichnet, wie bei
   KST. Mit den vollen Zeiten der SD-Spezifikation dauert das erste
   Schreiben, das einen alten Vermerk aufbewahrt, 17,9 s auf einer
-  exFAT-SDXC-Karte (Secure Digital eXtended Capacity). Das liegt über der
-  Grenze, und die Versorgung geht aus. Auf FAT32 dauert jede Kartenphase von
+  exFAT-SDXC-Karte (Extended File Allocation Table, Secure Digital eXtended
+  Capacity). Das liegt über der Grenze, und die Versorgung geht aus. Auf
+  FAT32 (File Allocation Table, 32 Bit) dauert jede Kartenphase von
   Hitec höchstens 13,2 s, ohne Logs im Wurzelverzeichnis der Karte. Das sind
   FatFs-Blockzahlen mal Kartenzeiten, nicht auf einer Karte gemessen.
 - Ein späteres Schreiben, dessen Vermerk die Karte nicht annimmt, läuft

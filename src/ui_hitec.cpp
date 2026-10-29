@@ -545,14 +545,12 @@ static void mainText(MainText *m) {
 			return;
 		case HitecJobState::EntryEnded:
 			m->button = "RETRY"; m->ctl = HitecCtl::Retry; m->enabled = true;
+			// Only the switched supply stalls a session: with NONE a lapse lets
+			// the running operation end and refuses the next one (hitec_job.h).
 			if (s_st.stalled) {
-				snprintf(m->strip, sizeof(m->strip), "GP%u  %s", sig, s_st.supplyFitted ? "SUPPLY OFF" : "STOPPED");
-				if (s_st.supplyFitted) {
-					addWrapped(m, "THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF.", C_AMBER);
-					addLine(m, "RETRY POWERS IT UP AND READS IT AGAIN.", C_AMBER);
-				} else {
-					addWrapped(m, "THE SCREEN STALLED. RETRY ENTERS AGAIN.", C_AMBER);
-				}
+				snprintf(m->strip, sizeof(m->strip), "GP%u  SUPPLY OFF", sig);
+				addWrapped(m, "THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF.", C_AMBER);
+				addLine(m, "RETRY POWERS IT UP AND READS IT AGAIN.", C_AMBER);
 				if (!hitecFilesMounted() && s_st.stallWrote)
 					addLine(m, "NO CARD: THE BACKUP IN MEMORY IS LOST.", C_AMBER);
 				return;
@@ -1198,11 +1196,11 @@ static void readFiles() {
 	if (hitecFilesMounted()) s_saveFull = hitecFilesSaveName(s_preset) == HitecFiles::NoNumber;
 }
 
-/** @brief @p name without its extension: `HITEC001.TXT` reads `HITEC001`, 8 characters at most. */
+/** @brief @p name without its extension, cut at the last dot: `HITEC001.TXT` reads `HITEC001`. */
 static void stemOf(const char *name, char *out, size_t n) {
-	const char *dot = strchr(name, '.');
+	const char *dot = strrchr(name, '.');
 	int len = dot ? (int)(dot - name) : (int)strlen(name);
-	snprintf(out, n, "%.*s", len < 8 ? len : 8, name);
+	snprintf(out, n, "%.*s", len, name);
 }
 
 static void drawFileRow(int i, int y, void *) {

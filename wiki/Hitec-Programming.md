@@ -49,8 +49,10 @@ its own supply, its signal on SIG, the two grounds joined once at the board.
   SIG GP29 = J4 pin 12, GND = J4 pin 1 or 5
 ```
 
+GND is the board's ground.
+
 - **One servo on the lead.** Every frame goes to ID (identifier) 0, and
-  every D series servo on the line takes ID 0.
+  every D series servo on the line takes a frame sent to ID 0.
 - **No pull-up resistor** on the signal wire. The bench receives the
   servo's answer by precharge: before each sample the pin lifts the line for
   100 ns. rcbench's receive through a pull-up resistor is not offered.
@@ -60,7 +62,8 @@ its own supply, its signal on SIG, the two grounds joined once at the board.
   before the board.
 - SIG is the ESC pin, as set under **MENU → SETTINGS**. GP29 is the
   default.
-- Servo supplies other than 5.0 V are not tested.
+- rcbench's runs used a 5.0 V servo supply. Other supplies are not tested,
+  and nothing has run on this board.
 - Unplug any ESC from the ESC pin. The screen checks for an ESC on the pin,
   but it sees only an ESC that answers bidirectional DShot.
 
@@ -169,7 +172,8 @@ Rows are 40 px tall at a 42 px pitch. Drag the list up or down to scroll.
 - Values carry their unit and the stored value in brackets: `90 % (18)`,
   `STEP 1 (1)`, `CW (0)`. `CW` is clockwise and `CCW` counter-clockwise.
   `NEUTRAL`, the end points and `POSITION` are counts, for example `8192`,
-  with no bracket. `FAILSAFE` reads `LIMP`, `OFF`, or a position in `US`.
+  with no bracket; so are `ID` and the INFO numbers `MODEL`, `SENSITIVITY`
+  and `R04` to `RD6`. `FAILSAFE` reads `LIMP`, `OFF`, or a position in `US`.
   `US` is µs: the screen font has no micro sign.
 - A stored value that no encoding takes reads `RAW` and the number in amber,
   for example `RAW 1234`. A value that does not decode reads `?`.
@@ -281,7 +285,9 @@ card while the screen keeps drawing. The page reads
 `SAVING THE BACKUP TO THE CARD.` (or `SAVING THE FILES TO THE CARD.` on a
 later write) and `BLOCKS LEFT: 12`, for example. The servo is written only
 once the card holds the files. A flush the card does not take stops the
-write: `THE CARD DID NOT TAKE THE BACKUP. NOTHING WAS WRITTEN TO THE SERVO.`
+write. On the session's first write the page reads
+`THE CARD DID NOT TAKE THE BACKUP. NOTHING WAS WRITTEN TO THE SERVO.`, on a
+later write `THE CARD DID NOT TAKE A FILE. NOTHING WAS WRITTEN TO THE SERVO.`
 
 The write then sends the changed registers 20 ms apart, saves them in the
 servo, restarts the servo (1.0 s) and reads all 21 registers back. For one
@@ -330,7 +336,8 @@ until a read fills them. The record stays on the card.
 
 <img src="img/hitec-files.png" width="240" alt="The HITEC FILES page after SAVE AS: SAVED AS HT001">
 
-- The strip counts the files: `CARD  12 FILES`.
+- The strip counts the `.TXT` files of `HITEC/` that the list shows:
+  `CARD  12 FILES`. The record and the backups are not counted.
 - When the record `HITEC/HITEC.TXT` is on the card, it is the first row,
   named `RECORD` with `(HITEC.TXT)` in amber at the right.
 - The Hitec backups of `BACKUP/` follow, the latest first, each with
@@ -458,8 +465,11 @@ lead gets the converter's output on its BEC wire.**
 - **LEAVE** switches the supply off. The pin is let go 2.0 s after the
   switch-off.
 
-With `NONE`, a stall ends the session too. The page reads
-`THE SCREEN STALLED. RETRY ENTERS AGAIN.`
+With `NONE` a stall does not end the session. A stall during the entry
+ends the entry: the page reads `NO SERVO ANSWERS` with RETRY. Later, a
+running read or write ends, the servo stays in programming mode, and the
+next operation is refused until the screen runs again: a write then reads
+`THE SCREEN STALLED. NOTHING WAS WRITTEN.`
 
 ---
 
@@ -503,8 +513,9 @@ measured and SERVO SUPPLY at `GP0`.
 - With `GP0`, the screen's card calls keep the supply on for at most 15 s
   while the screen does not redraw, as for KST. At the SD specification's
   full times, the first write that keeps an old record takes 17.9 s on an
-  exFAT SDXC (Secure Digital eXtended Capacity) card. That is over the cap,
-  and the supply goes off. On FAT32 every Hitec card phase takes at most
+  exFAT (Extended File Allocation Table) SDXC (Secure Digital eXtended
+  Capacity) card. That is over the cap, and the supply goes off. On FAT32
+  (File Allocation Table, 32-bit) every Hitec card phase takes at most
   13.2 s with no logs in the card's root. These are FatFs block counts times
   card times, not measured on a card.
 - A later write whose record the card does not take still runs, on the first

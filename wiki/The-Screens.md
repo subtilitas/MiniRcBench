@@ -10,6 +10,7 @@ Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MEN
    ▲                    ├── SERVO TESTER ──BACK──> unplug page ──> MENU
    │                    ├── KST SERVO    ──BACK──> leave page ──> unplug page ──> MENU
    │                    ├── HITEC SERVO  ──BACK──> leave page ──> unplug page ──> MENU
+   │                    │   (on the family view BACK returns to MENU; during the entry, to the unplug page)
    │                    ├── SD LOG       ──BACK──> MENU
    │                    └── SETTINGS     ──BACK──> MENU
    └──── BACK on MENU ──┘
@@ -220,7 +221,7 @@ See [KST Programming](KST-Programming).
 Reads and writes the settings of a Hitec D series servo over the signal wire
 on the ESC pin. It opens on the family view: `D SERIES` acts, and `CLASSIC`
 is drawn disabled with `LINE LEVEL NOT MEASURED`. The screen enters the
-servo, reads its 21 registers, and lists 20 parameters to step. One servo
+servo, reads its 21 registers, and lists 20 parameters, 11 of them editable. One servo
 goes on the lead, with no pull-up resistor. `HOLD TO WRITE` for 1 s opens the
 write page, and a second hold of 1 s writes, with a backup on the SD card
 first. `BACK` opens the leave page; `LEAVE` then shows `UNPLUG THE SERVO.`,

@@ -3,8 +3,9 @@
 Status: work breakdown steps 1 to 5 built, host tests only: the rcbench
 files and their tests, the core1 job on them, the files on the card, the
 HITEC SERVO screen on MENU, and its README section and wiki pages. Step 6,
-the bring-up on hardware, is open; CLASSIC stays disabled until it. The decisions of the owner of 2026-10-23
-and 2026-10-28 set its questions and its scope
+the bring-up on hardware, is open; CLASSIC stays disabled until it. The
+decisions of the owner of 2026-10-23 and 2026-10-28 set its questions and
+its scope
 ([decisions of the owner](#decisions-of-the-owner)): port rcbench's Hitec
 module at commit 3e29dc1b, and write. The design rests on rcbench's session
 (`hitec_session`) and register model (`hitec_reg`), not on single

@@ -1128,7 +1128,7 @@ rcbench's has run on a servo. Design note:
 
 As for KST: the servo on its own supply, signal on SIG, the grounds joined
 once at the board. **One servo on the lead**: every frame goes to ID 0,
-which every D series servo on the line takes.
+and every D series servo on the line takes a frame sent to ID 0.
 
 ```
   servo supply, 5 V
@@ -1148,7 +1148,8 @@ which every D series servo on the line takes.
   power-cycles it for the entry. **An ESC on this lead gets the converter's
   output on its BEC wire**, its own regulated supply; the claim's ESC check
   sees only an ESC that answers bidirectional DShot.
-- Servo supplies other than 5.0 V are not tested.
+- rcbench's runs used a 5.0 V servo supply. Other supplies are not tested,
+  and nothing has run on this board.
 
 ### Using it
 
@@ -1163,9 +1164,11 @@ which every D series servo on the line takes.
    `REPLY: SILENT`, and RETRY.
 3. The field list shows rcbench's 20 parameters in four groups: MOTION,
    TRAVEL, PROTECT and INFO. Each value shows its unit and the stored value
-   in brackets, `90 % (18)`; a stored value no encoding takes reads
+   in brackets, `90 % (18)`; the counts of NEUTRAL, the ends and POSITION,
+   ID and the INFO numbers show no bracket. A stored value no encoding takes
+   reads
    `RAW 1234` in amber. Read-only rows are dim and cannot be selected. A tap
-   selects a row; − and + step it to the next value the encoding takes, and
+   selects a row; - and + step it to the next value the encoding takes, and
    a sideways swipe steps it by an eleventh of its range. LEFT END stays
    below NEUTRAL, below RIGHT END. A value that breaks one of rcbench's seven
    soft rules, for example SPEED below 30 %, is taken with an amber mark and
@@ -1175,15 +1178,17 @@ which every D series servo on the line takes.
    servo holds, and whether a servo with another ID still answers ID 0 is
    not measured: the editor bar and the write page say
    `THE BENCH ADDRESSES ID 0. ANOTHER ID IS NOT TESTED.`
-5. HOLD TO WRITE (1 s) opens the write page: the changes, their soft rules,
-   `KEEP THE SERVO HORN CLEAR.` and where the backup goes. A second 1 s hold
+5. HOLD TO WRITE (1 s) opens the write page: the changes, their soft rules
+   and where the backup goes, and `KEEP THE SERVO HORN CLEAR.` on the
+   session's first write and on a write that moves DIRECTION, NEUTRAL or an
+   end point. A second 1 s hold
    writes. Before the first frame of the session's first write with a card
    mounted, the backup goes to the card as `BACKUP/HTnnn.TXT`; before every
    write, the servo as it is and the target go to `HITEC/HITEC.TXT` as the
    record of the write. The write sends the changed registers 20 ms apart,
    saves, reboots the servo (1.0 s) and reads all 21 registers back: about
-   1.7 s for one setting, computed from rcbench's timings and not measured. The page reads `WRITES SENT: 2 OF 4`, then
-   `READING BACK`. A verified write removes its record.
+   1.7 s for one setting, computed from rcbench's timings and not measured.
+   The page reads `WRITES SENT: 2 OF 4`, then `READING BACK`. A verified write removes its record.
 6. BACK from the list opens the leave page. LEAVE with `GP0` switches the
    supply off; the unplug page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`
    until the line closes. With `NONE`, LEAVE restarts the servo from its
@@ -1511,7 +1516,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.1%**: 8,358 of 8,612 lines in 51 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.1%**: 8,357 of 8,610 lines in 51 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the
