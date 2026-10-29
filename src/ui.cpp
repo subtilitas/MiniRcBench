@@ -10,6 +10,7 @@
 
 #include "ui.h"
 #include "ui_am32.h"
+#include "ui_hitec.h"
 #include "ui_kst.h"
 #include "ui_servo.h"
 #include "ui_menu.h"
@@ -887,6 +888,7 @@ static constexpr struct { UiScreenId id; const UiScreen *screen; } SCREENS[] = {
 	{ UiScreenId::Am32,     &UI_AM32 },
 	{ UiScreenId::Servo,    &UI_SERVO },
 	{ UiScreenId::Kst,      &UI_KST },
+	{ UiScreenId::Hitec,    &UI_HITEC },
 	{ UiScreenId::Beep,     &UI_BEEP },
 };
 /** @brief Each @ref UiScreenId has exactly one entry in `SCREENS`. */

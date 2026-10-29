@@ -1,8 +1,8 @@
 # Hitec servo programming
 
-Status: work breakdown steps 1 to 3 built, host tests only: the rcbench
-files and their tests, the core1 job on them, and the files on the card; no
-screen starts the job. The decisions of the owner of 2026-10-23
+Status: work breakdown steps 1 to 4 built, host tests only: the rcbench
+files and their tests, the core1 job on them, the files on the card, and
+the HITEC SERVO screen on MENU. The decisions of the owner of 2026-10-23
 and 2026-10-28 set its questions and its scope
 ([decisions of the owner](#decisions-of-the-owner)): port rcbench's Hitec
 module at commit 3e29dc1b, and write. The design rests on rcbench's session
@@ -1290,7 +1290,65 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
      and stopped.
 4. `src/ui_hitec.cpp`, `src/hitec_view.*`, `HitecCardPhase`, the registry
    line, `test_hitec_view.cpp`, `test_hitec_ui.cpp`, the MENU test changes,
-   the preview and its entry in `tools/make_previews.py`. About 4 days.
+   the preview and its entry in `tools/make_previews.py`. Built.
+   `HITEC_CLASSIC_MEASURED` in `src/config.h` is 0, so CLASSIC stays
+   disabled until bring-up. As built, and differing from the sections above:
+   - The classic INFO group has no MODEL row: the register model has no
+     classic model parameter, so the strip names the model.
+   - The entry views show no progress: `LISTENING` without the window's
+     progress, `SERVO STARTING` without its 1.0 s count. The off phase
+     counts its 2.0 s in the strip.
+   - A change of the classic CHECKSUM counts as a value to write
+     (`hitecWritten()`), so a REPAIR alone opens the write page; the write
+     page lists the parameters that go to the servo and not the cell 0x1C
+     balance of other edits.
+   - The strip drops the pin, then the backup, when the line would reach
+     the MODE chip at x 197: a classic strip reads
+     `HS-5645MG V16 BACKUP IN MEMORY`.
+   - The write page shows the ID note in amber when the write changes the
+     D series ID to another value than 0, as a LOAD can.
+   - A read keeps the pending edits: the writable addresses they changed
+     go onto the servo as read, so DIRECTION keeps its mirrored end points;
+     a classic draft is rebalanced after.
+     A REPAIR alone does not carry over: cell 0x1C is not a writable
+     address, so the read shows CHECKSUM `BAD` again and REPAIR is tapped
+     again.
+   - BACK during a read, the entry's own or READ AGAIN, sends Abort; the
+     leave page follows.
+   - A stall drops a leave queued by BACK during a write; the main view
+     with RETRY follows.
+   - A later write whose record the card does not take still runs on the
+     backup of the first write, as `hitec_files.h` states; the write page
+     does not say so.
+   - The MENU tests reach SETTINGS through `menuRow()` in `test/ui_ids.h`,
+     which drags MENU until the row is whole (`revealRow()`), not through a
+     scroll in `openSettings()`.
+   - Tested in `test_hitec_view.cpp`: the rows of the three layouts in their
+     groups; each unit's text with its stored value, `RAW` and `?`; the
+     stepper at the ends, through FAILSAFE's LIMP and OFF, past a RAW value
+     and in the D series order; the coarse step; each soft rule, its row
+     filter and its text; a text for every `hitec_ses_t` and `hitec_rx_t`;
+     the model texts, layouts and the measured models. In
+     `test_hitec_ui.cpp`: MENU opens the screen; the family, CLASSIC
+     disabled under `NONE` and until measured; the claim, the entry and the
+     read; an edit and REVERT; HOLD TO WRITE not at 750 ms and not on a
+     slide off; the write page, the record on the card before the first
+     write frame, the backup, the result, a second write without a second
+     backup; the flush barrier, a flush that fails, a later write while an
+     earlier batch flushes with its record on the card before its first
+     frame; BACK during a write; a stall during a write; the ID note;
+     STOP and BACK in the entry, BACK in the entry's read, BACK on the
+     unplug page; an edit kept through READ AGAIN with FILES opened during
+     the read, and a DIRECTION reversal written after it with its ends
+     mirrored; a sideways swipe on NEUTRAL; a write in error and READ AGAIN; FILES
+     with SAVE AS, LOAD, a file of the other family refused, HOLD TO
+     RESTORE; no card, a card held by USB, a card that takes no file; a
+     record found at entry and moved into the ring; a classic servo on GP0
+     with REPAIR written and FACTORY VALUES loaded; an HS-5955TG, a model
+     not measured; a stall and RETRY; BACK in each view; LEAVE and RESTART
+     DSHOT; another card in the slot since the backup, before a write and
+     during a flush wait; `checkControlTable()` in each view. Not tested on
+     the screen: a volume serial that never reads.
 5. README section, wiring with the warning that an ESC on the lead gets the
    converter's output on its BEC wire and that one servo goes on the lead,
    legal notice and MENU table row; wiki pages `Hitec-Programming.md` and its

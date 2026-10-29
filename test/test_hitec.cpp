@@ -11,8 +11,12 @@
 
 void runHitecJobTests();
 void runHitecFilesTests();
+void runHitecViewTests();
+void runHitecUiTests();
 
 void runHitecTests() {
 	runHitecJobTests();
 	runHitecFilesTests();
+	runHitecViewTests();
+	runHitecUiTests();
 }

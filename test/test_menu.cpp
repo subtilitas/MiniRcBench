@@ -20,6 +20,7 @@
 #include "ui_registry.h"
 #include "ui_sdlog.h"
 #include "ui_servo.h"
+#include "ui_hitec.h"
 #include "ui_kst.h"
 #include "ui_settings.h"
 #include "ui_screen.h"
@@ -120,11 +121,11 @@ static void testEveryEntry() {
 	openMenu();
 	uint8_t n;
 	const UiMenuEntry *e = uiMenuEntries(&n);
-	checkInt("the registry has six rows", n, 6);
+	checkInt("the registry has seven rows", n, 7);
 	for (uint8_t i = 0; i < n; i++) {
 		const UiScreen *s = e[i].screen;
 		char what[64];
-		tapId(UI_ROW(i, Row));
+		tapId(menuRow(s));
 		if (s->action) {
 			snprintf(what, sizeof(what), "%s acts and MENU stays", e[i].label);
 			checkTrue(what, uiCurrentScreen() == UiScreenId::Menu);
@@ -209,10 +210,17 @@ static void testPinsBusy() {
 	bool busySeen = uiCurrentScreen() == UiScreenId::Menu && pinClaimState() != ClaimState::Free;
 	checkTrue("RESTART DSHOT returns to MENU while the claim restores", busySeen);
 	if (busySeen) {
+		// SETTINGS is MENU's seventh row: a drag brings it whole, with no pump
+		// pass, so the claim stays Restoring.
+		fakePress(120, 250); framesNoPump(1);
+		for (int k = 1; k <= 12; k++) { fakeHold(120, 250 - 6 * k); framesNoPump(1); }
+		fakeRelease(); framesNoPump(1);
+		const UiControlId settingsRow = UI_ROW(uiMenuRowOf(&UI_SETTINGS), Row);
+		checkInt("SETTINGS' row is whole", ctlRect(settingsRow).h, 40);
 		checkTrue("SERVO TESTER does not act", !ctlEnabled(menuRow(&UI_SERVO)));
 		checkTrue("nor AM32 CONFIG", !ctlEnabled(menuRow(&UI_AM32)));
 		checkTrue("nor SETTINGS, which changes the wiring the claim latched",
-		          !ctlEnabled(menuRow(&UI_SETTINGS)));
+		          !ctlEnabled(settingsRow));
 		checkTrue("SD LOG, which claims nothing, acts", ctlEnabled(menuRow(&UI_SDLOG)));
 		fakeDumpFrame("shot_menu_pins_busy.ppm");
 		UiControl c;
@@ -223,7 +231,7 @@ static void testPinsBusy() {
 		framesNoPump(1);
 		checkTrue("the claim still restores", pinClaimState() == ClaimState::Restoring);
 		checkTrue("a tap while busy opens nothing", uiCurrentScreen() == UiScreenId::Menu);
-		ctlFind(menuRow(&UI_SETTINGS), &c);
+		ctlFind(settingsRow, &c);
 		fakePress(c.rect.x + c.rect.w / 2, c.rect.y + c.rect.h / 2);
 		framesNoPump(2);
 		fakeRelease();
