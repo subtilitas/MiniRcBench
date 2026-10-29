@@ -561,8 +561,10 @@ static void mainText(MainText *m) {
 			} else {
 				snprintf(a, sizeof(a), "REPLY: %s", s_st.lastRx ? hitecRxWord(s_st.lastRx) : "NONE");
 				addLine(m, a, C_AMBER);
-				addWrapped(m, classic ? "CHECK THE CONVERTER ON GP0, THE SIGNAL AND GROUND."
-				                      : "CHECK THE SERVO'S SUPPLY, THE SIGNAL AND GROUND.", C_TEXT);
+				static char conv[64];
+				snprintf(conv, sizeof(conv), "CHECK THE CONVERTER ON GP%u, THE SIGNAL AND GROUND.",
+				         (unsigned)servoSupplyPin());
+				addWrapped(m, classic ? conv : "CHECK THE SERVO'S SUPPLY, THE SIGNAL AND GROUND.", C_TEXT);
 			}
 			if (s_st.supplyFitted) addLine(m, "THE SUPPLY IS OFF.", C_DIM);
 			return;
@@ -628,12 +630,14 @@ static void drawFamily() {
 	uiButton(BTN_CLASSIC, "CLASSIC", C_PANEL, C_TEXT, 2, c && pressing(BTN_CLASSIC), c);
 	gfxText(UI_MARGIN, BTN_CLASSIC.y + BTN_CLASSIC.h + 4, "HS-5XXX, HS-7XXX", C_DIM, 1);
 	const char *why = !s_classicMeasured ? "LINE LEVEL NOT MEASURED"
-	                  : !servoSupplyFitted() ? "NEEDS SERVO SUPPLY GP0" : "";
+	                  : !servoSupplyFitted() ? "NEEDS SERVO SUPPLY GP28 OR GP29" : "";
 	if (why[0]) gfxText(UI_MARGIN, BTN_CLASSIC.y + BTN_CLASSIC.h + 18, why, C_AMBER, 1);
 	uiButton(BTN_DSERIES, "D SERIES", C_PANEL, C_TEXT, 2, pressing(BTN_DSERIES));
 	gfxText(UI_MARGIN, BTN_DSERIES.y + BTN_DSERIES.h + 4, "D485HW, D645MW AND THE OTHERS", C_DIM, 1);
+	char sw[32];
+	snprintf(sw, sizeof(sw), "SUPPLY SWITCHED ON GP%u", (unsigned)servoSupplyPin());
 	gfxText(UI_MARGIN, BTN_DSERIES.y + BTN_DSERIES.h + 18,
-	        servoSupplyFitted() ? "SUPPLY SWITCHED ON GP0" : "ON THE SERVO'S OWN SUPPLY", C_DIM, 1);
+	        servoSupplyFitted() ? sw : "ON THE SERVO'S OWN SUPPLY", C_DIM, 1);
 }
 
 static void familyTouch() {

@@ -47,18 +47,18 @@
 #include <stdio.h>
 #include <string.h>
 
-/** @brief The level the bench drives on GP0. */
-static bool gp0High() {
-	FakePin p = fakePin(SERVO_SUPPLY_PIN);
+/** @brief The level the bench drives on GP28. */
+static bool enHigh() {
+	FakePin p = fakePin(servoSupplyPinOf(1));
 	return p.output && p.high;
 }
 
-/** @brief One pass of core1, the servo following GP0. */
+/** @brief One pass of core1, the servo following GP28. */
 static void core1Pass() {
 	fakeAdvance(1);
-	fakeHitecSimUpdate(gp0High(), time_us_32());
+	fakeHitecSimUpdate(enHigh(), time_us_32());
 	core1JobPoll();
-	fakeHitecSimUpdate(gp0High(), time_us_32());
+	fakeHitecSimUpdate(enHigh(), time_us_32());
 }
 
 /** @brief One UI frame: 25 passes of core1, one of the pump, then the UI. */
@@ -137,7 +137,7 @@ static void noCard() {
 	fakeSdLogSet(&st);
 }
 
-/** @brief SERVO SUPPLY at GP0 (@p switched) or NONE. */
+/** @brief SERVO SUPPLY at GP28 (@p switched) or NONE. */
 static void supply(bool switched) {
 	settings()->servoSupply = switched ? 1 : 0;
 	servoSupplyConfigure(switched ? 1 : 0);
@@ -145,7 +145,7 @@ static void supply(bool switched) {
 
 /**
  * @brief The board fresh, a card, a servo of @p family on the line, the
- *        tester up. With @p switched the servo runs on GP0's supply, else on
+ *        tester up. With @p switched the servo runs on GP28's supply, else on
  *        its own.
  */
 static void freshHitec(uint8_t family, bool switched) {
@@ -155,7 +155,7 @@ static void freshHitec(uint8_t family, bool switched) {
 	memset(&t, 0, sizeof(t));
 	fakeSetTelemetry(&t);
 	uiInit();
-	escTaskConfigure(29, 600, false, 28);
+	escTaskConfigure(0, 600, false, 1);
 	supply(switched);
 	fakeHitecLineReset(family);
 	fakeHitecSim()->userSupply = !switched;
@@ -267,10 +267,10 @@ static void testFamily() {
 
 	freshHitec(HITEC_CLASSIC, true);
 	openHitec();
-	checkTrue("with GP0, the line not measured: CLASSIC disabled", !ctlEnabled(UI_FIX(HitecCtl::Classic)));
+	checkTrue("with GP28, the line not measured: CLASSIC disabled", !ctlEnabled(UI_FIX(HitecCtl::Classic)));
 	uiHitecSetClassicMeasured(true);
 	hitecFrames(1);
-	checkTrue("measured and GP0: CLASSIC acts", ctlEnabled(UI_FIX(HitecCtl::Classic)));
+	checkTrue("measured and GP28: CLASSIC acts", ctlEnabled(UI_FIX(HitecCtl::Classic)));
 	fakeDumpFrame("shot_hitec_family_classic.ppm");
 	leaveAll();
 	uiHitecSetClassicMeasured(false);
@@ -289,7 +289,7 @@ static void testDSeriesRead() {
 	HitecStatus st = job();
 	checkTrue("in the mode with the image and the backup",
 	          st.job == HitecJobState::InMode && st.hasImage && st.hasBackup);
-	checkTrue("GP0 untouched", !gp0High());
+	checkTrue("GP28 untouched", !enHigh());
 	checkControlTable("Hitec list");
 	checkTrue("HOLD TO WRITE waits for an edit", !ctlEnabled(UI_FIX(HitecCtl::Write)));
 	checkTrue("REVERT too", !ctlEnabled(UI_FIX(HitecCtl::Revert)));
@@ -592,7 +592,7 @@ static void testRecordAtEntry() {
 	hitec_card_record_t r;
 	memset(&r, 0, sizeof(r));
 	r.series = HITEC_D;
-	r.pin = 29;
+	r.pin = 0;
 	d485(&r.before);
 	r.target = r.before;
 	hitec_param_set(&r.target, HITEC_LAYOUT_D, HITEC_P_D_SPEED, 40);
@@ -618,13 +618,13 @@ static void testRecordAtEntry() {
 }
 
 static void testClassic() {
-	section("Hitec screen: a classic servo on GP0, REPAIR, FACTORY VALUES, a model not measured");
+	section("Hitec screen: a classic servo on GP28, REPAIR, FACTORY VALUES, a model not measured");
 	freshHitec(HITEC_CLASSIC, true);
 	// A checksum that does not sum: the classic cells 0x00 to 0x1C.
 	fakeHitecSim()->mem[0x1C] ^= 0x01;
 	uiHitecSetClassicMeasured(true);
 	checkTrue("the field list", toList(HITEC_CLASSIC));
-	checkTrue("GP0 on", gp0High());
+	checkTrue("GP28 on", enHigh());
 	int sumRow = -1;
 	HitecRow rows[HITEC_ROWS_MAX];
 	int nr = hitecRows(HITEC_LAYOUT_HS5, rows);
@@ -655,7 +655,7 @@ static void testClassic() {
 	tapId(UI_FIX(HitecCtl::Load));
 	checkTrue("into the draft: the field list", uiHitecView() == HitecView::List);
 	leaveAll();
-	checkTrue("LEAVE switched GP0 off", !gp0High());
+	checkTrue("LEAVE switched GP28 off", !enHigh());
 
 	// An HS-5955TG: not measured, written in the HS-5xxx layout.
 	freshHitec(HITEC_CLASSIC, true);
@@ -680,12 +680,12 @@ static void testClassic() {
 static void testStallAndBack() {
 	section("Hitec screen: a stall and RETRY, BACK in every view, RESTART DSHOT");
 	freshHitec(HITEC_D, true);
-	checkTrue("the field list on GP0", toList(HITEC_D));
+	checkTrue("the field list on GP28", toList(HITEC_D));
 	// The UI stops for 400 ms: the heartbeat lapses and the job switches off.
 	for (int i = 0; i < 400; i++) core1Pass();
 	hitecFrames(4);
 	checkTrue("the stall: the main view with RETRY", untilCtl(UI_FIX(HitecCtl::Retry), 200));
-	checkTrue("GP0 off", !gp0High());
+	checkTrue("GP28 off", !enHigh());
 	checkControlTable("Hitec stall");
 	fakeDumpFrame("shot_hitec_stall.ppm");
 	tapId(UI_FIX(HitecCtl::Retry));
@@ -706,7 +706,7 @@ static void testStallAndBack() {
 	tapId(UI_FIX(HitecCtl::Leave));
 	checkTrue("LEAVE: the unplug page", uiHitecView() == HitecView::Unplug);
 	hitecFrame();
-	checkTrue("GP0 off on the next frame", !gp0High());
+	checkTrue("GP28 off on the next frame", !enHigh());
 	checkTrue("RESTART DSHOT after the 2 s off", untilCtl(UI_FIX(HitecCtl::Restart), 200));
 	checkControlTable("Hitec unplug");
 	fakeDumpFrame("shot_hitec_unplug.ppm");
@@ -781,7 +781,7 @@ static void testIdAndBack() {
 	checkTrue("the entry offers STOP", untilCtl(UI_FIX(HitecCtl::Stop), 200));
 	tapId(UI_FIX(HitecCtl::Stop));
 	checkTrue("STOP: RETRY", untilCtl(UI_FIX(HitecCtl::Retry), 400));
-	checkTrue("the supply is off", !gp0High());
+	checkTrue("the supply is off", !enHigh());
 	tapId(UI_FIX(HitecCtl::Retry));
 	checkTrue("RETRY enters again", untilCtl(UI_FIX(HitecCtl::Stop), 200));
 	tapId(UI_FIX(UI_BACK));
@@ -857,7 +857,7 @@ static void testCardSwap() {
 static void testStallInWrite() {
 	section("Hitec screen: a stall during a write");
 	freshHitec(HITEC_D, true);
-	checkTrue("the field list on GP0", toList(HITEC_D));
+	checkTrue("the field list on GP28", toList(HITEC_D));
 	speedDown();
 	holdUntilGone(UI_FIX(HitecCtl::Write));
 	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
@@ -866,7 +866,7 @@ static void testStallInWrite() {
 	for (int i = 0; i < 2000; i++) core1Pass();
 	hitecFrames(4);
 	checkTrue("the stall: RETRY", untilCtl(UI_FIX(HitecCtl::Retry), 200));
-	checkTrue("GP0 off", !gp0High());
+	checkTrue("GP28 off", !enHigh());
 	checkTrue("the job says it wrote", job().stallWrote);
 	checkTrue("the record stays on the card", fakeFatExists("HITEC/HITEC.TXT"));
 	leaveAll();

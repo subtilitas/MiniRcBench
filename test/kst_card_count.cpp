@@ -186,7 +186,7 @@ static hitec_card_record_t hitecRecord(int speed) {
 	hitec_card_record_t r;
 	memset(&r, 0, sizeof(r));
 	r.series = HITEC_D;
-	r.pin = 29;
+	r.pin = 0;
 	d485(&r.before);
 	r.target = r.before;
 	hitec_param_set(&r.target, HITEC_LAYOUT_D, HITEC_P_D_SPEED, speed);

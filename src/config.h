@@ -38,7 +38,7 @@
  *
  * Override them from the build:
  *
- *     cmake -B build -DDSHOT_PIN_LCD_2_8=28 -DKISS_PIN_LCD_2_8=29 .
+ *     cmake -B build -DDSHOT_PIN_LCD_2_8=1 -DKISS_PIN_LCD_2_8=0 .
  *
  * The board frees two pins and both defaults are spoken for, so the two
  * overrides move together.
@@ -51,25 +51,28 @@
  */
 
 /**
- * @brief ESC signal pin the board starts on. **GP29**.
+ * @brief ESC signal pin the board starts on. **GP0**.
  *
  * Runtime-adjustable from **MENU -> SETTINGS**, which is the intended way to change
  * it; this is what a board with blank flash starts on. @see settings.h
  *
- * J4 pin 12, the end pin of the connector. The RTC, the codec, the IMU and the
- * SD slot leave GP28 (J4 pin 11) and GP29 as the only two GPIOs unclaimed; the
- * telemetry wire takes the other one.
+ * J4 pin 9 and J5 pin 2. GP0 and GP1 (J4 pin 10, J5 pin 1) are the signal
+ * pins: UART0 is unused, and both are 5 V tolerant ("Digital IO (FT)", RP2350
+ * datasheet Table 1674) while IOVDD is at 3.3 V. GP28 and GP29 are ADC pins,
+ * not 5 V tolerant, and carry only the switched servo supply's enable
+ * (servo_supply.h). The telemetry wire takes the other signal pin.
  * @see KISS_PIN_LCD_2_8
  *
  * Getting this wrong is quiet. Nothing errors, nothing warns — the ESC never
  * hears a frame, because the firmware is driving a pin no wire is on.
  *
- * @warning The middle wire of an ESC lead is the BEC +5 V output, and RP2350
- *          GPIO is **not** 5 V tolerant. Depin or cut that wire before
- *          plugging anything in.
+ * @warning The middle wire of an ESC lead is the BEC +5 V output. GP0
+ *          tolerates 5.5 V on its signal only while the board is powered, and
+ *          the BEC wire goes to no pin: depin or cut it before plugging
+ *          anything in.
  */
 #ifndef DSHOT_PIN_LCD_2_8
-  #define DSHOT_PIN_LCD_2_8   29
+  #define DSHOT_PIN_LCD_2_8   0
 #endif
 
 /**
@@ -137,27 +140,27 @@
 #endif
 
 /**
- * @brief Telemetry pin the board starts on. **GP28**, J4 pin 11.
+ * @brief Telemetry pin the board starts on. **GP1**, J4 pin 10, J5 pin 1.
  *
- * The other of the board's two free pins; @ref DSHOT_PIN_LCD_2_8 has GP29.
+ * The other of the board's two free pins; @ref DSHOT_PIN_LCD_2_8 has GP0.
  * With only two to go round, one default settles the other, and the descriptor
  * static_asserts that they did not end up the same pin. The receiver is a PIO
  * state machine rather than one of the two hardware UARTs, so either free pin
  * can receive. @see pio_uart_rx.h
  *
- * @warning The KISS spec puts this line at 3.6 V, which is exactly the RP2350's
- *          absolute-maximum GPIO voltage — no margin at all. Most BLHeli_32 and
- *          AM32 ESCs drive 3.3 V, but measure yours before connecting it, and
- *          consider a 1 k series resistor.
+ * @warning The KISS spec puts this line at 3.6 V. GP1 tolerates 5.5 V while
+ *          IOVDD is at 3.3 V and 3.63 V while the board is off (RP2350
+ *          datasheet, "Digital IO (FT)"). Most BLHeli_32 and AM32 ESCs drive
+ *          3.3 V.
  */
 #ifndef KISS_PIN_LCD_2_8
-  #define KISS_PIN_LCD_2_8    28
+  #define KISS_PIN_LCD_2_8    1
 #endif
 
 /**
  * @brief Whether the board expects a KISS wire. **Off**.
  *
- * Not because it cannot — GP28 is free and the PIO receiver will take it — but
+ * Not because it cannot — GP1 is free and the PIO receiver will take it — but
  * because the board brings out exactly two pins, and defaulting to on spends
  * the spare one on a wire most people have not soldered. One tap turns it on.
  */
@@ -613,8 +616,8 @@
 /**
  * @brief 1 once the classic Hitec line's level is measured at bring-up.
  *
- * The classic family's entry and line run on the switched servo supply of
- * GP0; the voltage the servo puts on the signal wire is not measured
+ * The classic family's entry and line run on the switched servo supply;
+ * the voltage the servo puts on the signal wire is not measured
  * (docs/design/hitec-programming.md, decision 3). At 0 HITEC SERVO offers
  * the D series only.
  */

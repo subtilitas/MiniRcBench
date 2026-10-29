@@ -558,8 +558,8 @@ static void applyLive() {
 	escSetPoles(s->poles);
 	themeSet(s->highContrast ? Theme::HighContrast : Theme::Dark);
 	st7789SetBacklight(themeBacklight(s->backlight));
-	// No claim holds while SETTINGS is open, so GP0 is only configured,
-	// never driven.
+	// No claim holds while SETTINGS is open, so the enable pin is only
+	// configured, never driven.
 	servoSupplyConfigure(s->servoSupply);
 }
 

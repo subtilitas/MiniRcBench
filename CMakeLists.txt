@@ -36,7 +36,7 @@ option(SD_DEBUG "Enable verbose SD driver logging over USB serial" OFF)
 # Which GPIOs the ESC signal and telemetry wires land on. Empty means "leave
 # config.h's default alone".
 #
-#   cmake -B build -DDSHOT_PIN_LCD_2_8=28 -DKISS_PIN_LCD_2_8=29 ...
+#   cmake -B build -DDSHOT_PIN_LCD_2_8=1 -DKISS_PIN_LCD_2_8=0 ...
 #
 # The board brings out GP28 (J4 pin 11) and GP29 (J4 pin 12) and nothing else,
 # so those are the only two choices and the two wires take one each. An

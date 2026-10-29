@@ -504,7 +504,7 @@ static uint8_t kstJobBind(uint8_t sigGpio, uint8_t auxGpio) {
 	s_drain = false;
 	s_quiet = false;
 	s_reboot = KstReboot::None;
-	// The supply comes up off: GP0 driven low until the release.
+	// The supply comes up off: its enable pin driven low until the release.
 	s_switched = servoSupplyFitted();
 	s_supplyUsed = false;
 	s_offMs = millis();
@@ -514,7 +514,7 @@ static uint8_t kstJobBind(uint8_t sigGpio, uint8_t auxGpio) {
 	s_cardPhase = false;
 	s_lineError = kstLineOpen(sigGpio);
 	if (s_lineError == KST_LINE_OK) {
-		// Only a bound job is released: a failed bind leaves GP0 undriven.
+		// Only a bound job is released: a failed bind leaves the enable pin undriven.
 		servoSupplyBind();
 		s_line = kstLineDriver();
 		// The port's driver has all three functions, so the init succeeds.
@@ -548,7 +548,7 @@ static void kstJobStep(uint32_t nowMs, bool uiAlive) {
 static bool kstJobRelease(uint32_t nowMs) {
 	if (s_state != KstJobState::Leaving && s_state != KstJobState::Closed) beginLeave();
 	bool done = leaveStep(nowMs);
-	// GP0 an input again before the pins return to DShot.
+	// The enable pin an input again before the pins return to DShot.
 	if (done) servoSupplyRelease();
 	publish(nowMs);
 	return done;

@@ -62,7 +62,7 @@ static hitec_card_record_t dRecord(int speed = 30) {
 	memset(&r, 0, sizeof(r));
 	r.series = HITEC_D;
 	r.port = 0;
-	r.pin = 29;
+	r.pin = 0;
 	r.before = dImage();
 	r.target = r.before;
 	hitec_param_set(&r.target, HITEC_LAYOUT_D, HITEC_P_D_SPEED, speed);
@@ -252,7 +252,7 @@ static void testFirstWrite() {
 	hitec_card_record_t back;
 	checkTrue("the record parses to the write's images",
 	          hitecFilesRecordLoad(&back) == HitecFiles::Ok && back.series == HITEC_D &&
-	          back.pin == 29 && sameFileAddrs(&back.before, &rec.before) &&
+	          back.pin == 0 && sameFileAddrs(&back.before, &rec.before) &&
 	          sameFileAddrs(&back.target, &rec.target));
 	hitec_image_t img;
 	checkTrue("the backup loads", hitecFilesBackupLoad("HT001.TXT", HITEC_D, &img) == HitecFiles::Ok &&
@@ -393,7 +393,7 @@ static void testFirstWrite() {
 	hitec_card_record_t cr;
 	memset(&cr, 0, sizeof(cr));
 	cr.series = HITEC_CLASSIC;
-	cr.pin = 29;
+	cr.pin = 0;
 	cr.before = cImage();
 	cr.target = cr.before;
 	hitecFilesRecordWrite(&w, &cr, &w2);

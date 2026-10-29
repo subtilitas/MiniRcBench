@@ -114,7 +114,7 @@ void setup() {
 	// board. @see settingsValidate()
 	settingsLoad();
 	// Directly after the settings and before core1 starts: with a switch
-	// fitted, GP0 becomes an undriven input, and the converter's external
+	// fitted, its enable pin becomes an undriven input, and the converter's external
 	// pull-down holds the servo's supply off. @see servo_supply.h
 	servoSupplyInit();
 

@@ -525,7 +525,7 @@ static uint8_t hitecJobBind(uint8_t sigGpio, uint8_t auxGpio) {
 	s_drain = false;
 	s_rebooting = false;
 	s_rebooted = false;
-	// The supply comes up off: GP0 driven low until the release.
+	// The supply comes up off: its enable pin driven low until the release.
 	s_switched = servoSupplyFitted();
 	s_supplyUsed = false;
 	s_offMs = millis();
@@ -534,7 +534,7 @@ static uint8_t hitecJobBind(uint8_t sigGpio, uint8_t auxGpio) {
 	freshSession();
 	s_lineError = hitecLineOpen(sigGpio, s_bound);
 	if (s_lineError == HITEC_LINE_OK) {
-		// Only a bound job is released: a failed bind leaves GP0 undriven.
+		// Only a bound job is released: a failed bind leaves the enable pin undriven.
 		servoSupplyBind();
 	} else {
 		s_state = HitecJobState::Closed;
@@ -564,7 +564,7 @@ static void hitecJobStep(uint32_t nowMs, bool uiAlive) {
 static bool hitecJobRelease(uint32_t nowMs) {
 	if (s_state != HitecJobState::Leaving && s_state != HitecJobState::Closed) beginLeave(nowMs);
 	bool done = leaveStep(nowMs);
-	// GP0 an input again before the pins return to DShot.
+	// The enable pin an input again before the pins return to DShot.
 	if (done) servoSupplyRelease();
 	publish(nowMs);
 	return done;

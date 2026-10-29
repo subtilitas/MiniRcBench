@@ -11,11 +11,11 @@
  * D series answers of 7 bytes 6 ms after the request, the classic `+` 160 ms
  * after power-up and the next one 250 ms after the first. A D series servo
  * answers nothing for 800 ms after power-up, and every servo is powered only
- * @ref HitecSim::startupMs after GP0 goes high. Its memory starts
+ * @ref HitecSim::startupMs after GP28 goes high. Its memory starts
  * from the bench reads of rcbench's `hitec_reg_fix.h`: an HS-5645MG or a
- * D485HW. It follows the level the bench drives on GP0: unpowered it
+ * D485HW. It follows the level the bench drives on GP28: unpowered it
  * answers nothing, and a classic servo leaves serial mode. A D series servo
- * on the user's supply (@ref HitecSim::userSupply) is powered whatever GP0
+ * on the user's supply (@ref HitecSim::userSupply) is powered whatever GP28
  * does.
  *
  * A transaction ends at the virtual clock's time its answer is done, or at
@@ -34,16 +34,16 @@ struct HitecSim {
 	uint8_t  family;         /**< `hitec_family_t` of the servo. */
 	uint8_t  mem[HITEC_MEM_SIZE];  /**< Cells, or registers low byte first. */
 	uint8_t  version;        /**< Classic: the answer to `67`. */
-	bool     userSupply;     /**< Powered whatever GP0 does (D series with NONE). */
+	bool     userSupply;     /**< Powered whatever GP28 does (D series with NONE). */
 	bool     dead;           /**< Answers nothing. */
-	uint32_t startupMs;      /**< GP0 high to powered. */
+	uint32_t startupMs;      /**< GP28 high to powered. */
 	uint32_t plusMs;         /**< Classic: powered to the first `+`. */
 	uint32_t bootMs;         /**< D series: powered to the first answer, 800 ms. */
-	bool     level;          /**< The GP0 level last seen. */
+	bool     level;          /**< The GP28 level last seen. */
 	uint32_t onUs;           /**< When it last went high. */
 	uint8_t  cstate;         /**< Classic: 0 before the first `+`, 1 after it, 2 in serial mode. */
 	uint32_t firstPlusUs;    /**< Classic: when the first `+` went out. */
-	unsigned switchOns;      /**< Rising edges of GP0 seen. */
+	unsigned switchOns;      /**< Rising edges of GP28 seen. */
 	uint32_t lastOffUs;      /**< The last falling edge. */
 	uint32_t minOffUs;       /**< Shortest time low before a rising edge; UINT32_MAX for none. */
 	unsigned writes;         /**< Write frames taken, saves and reboots included. */
@@ -61,7 +61,7 @@ HitecSim *fakeHitecSim();
  */
 void fakeHitecLineReset(uint8_t family);
 
-/** @brief The servo sees GP0 at @p level at @p nowUs. Tests call it every pass. */
+/** @brief The servo sees GP28 at @p level at @p nowUs. Tests call it every pass. */
 void fakeHitecSimUpdate(bool level, uint32_t nowUs);
 
 /** @brief Make the next opens fail with @p err, a `hitec_line_err_t`; 0 accepts. */

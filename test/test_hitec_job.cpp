@@ -8,7 +8,7 @@
  *
  * The job runs as it ships: core1JobStart() after the fake DShot pump is
  * down, and core1JobPoll() once a millisecond, which the test calls itself in
- * core1's place. The servo follows GP0 on every pass.
+ * core1's place. The servo follows GP28 on every pass.
  */
 
 #include "check.h"
@@ -27,7 +27,7 @@
 #include <string.h>
 
 /** @brief The SIG GPIO the job is started on. */
-static const uint8_t SIG = 29;
+static const uint8_t SIG = 0;
 
 /** @brief Whether the heartbeat is fed on each pass. */
 static bool g_alive = true;
@@ -35,9 +35,9 @@ static bool g_alive = true;
 /** @brief Whether the card stamp is fed on each pass. */
 static bool g_stamp = false;
 
-/** @brief The level the bench drives on GP0. */
-static bool gp0High() {
-	FakePin p = fakePin(SERVO_SUPPLY_PIN);
+/** @brief The level the bench drives on GP28. */
+static bool enHigh() {
+	FakePin p = fakePin(servoSupplyPinOf(1));
 	return p.output && p.high;
 }
 
@@ -47,9 +47,9 @@ static void passes(uint32_t ms) {
 		fakeAdvance(1);
 		if (g_alive) escHeartbeat();
 		if (g_stamp) hitecCardStamp();
-		fakeHitecSimUpdate(gp0High(), time_us_32());
+		fakeHitecSimUpdate(enHigh(), time_us_32());
 		core1JobPoll();
-		fakeHitecSimUpdate(gp0High(), time_us_32());
+		fakeHitecSimUpdate(enHigh(), time_us_32());
 	}
 }
 
@@ -85,7 +85,7 @@ static void suspend() {
 	}
 }
 
-/** @brief SERVO SUPPLY at GP0 (@p switched) or NONE. */
+/** @brief SERVO SUPPLY at GP28 (@p switched) or NONE. */
 static void supply(bool switched) {
 	settings()->servoSupply = switched ? 1 : 0;
 	servoSupplyConfigure(switched ? 1 : 0);
@@ -152,9 +152,9 @@ static void testBind() {
 	          fakeHitecLineFamily() == HITEC_D && status().family == HITEC_D);
 	finish();
 	start(HITEC_CLASSIC, true);
-	checkTrue("classic: open for classic, GP0 driven low",
-	          fakeHitecLineFamily() == HITEC_CLASSIC && fakePin(SERVO_SUPPLY_PIN).output &&
-	          !gp0High() && status().supplyFitted);
+	checkTrue("classic: open for classic, GP28 driven low",
+	          fakeHitecLineFamily() == HITEC_CLASSIC && fakePin(servoSupplyPinOf(1)).output &&
+	          !enHigh() && status().supplyFitted);
 	finish();
 
 	static const uint8_t ERRS[] = { HITEC_LINE_ERR_PIO, HITEC_LINE_ERR_DMA, HITEC_LINE_ERR_CLOCK };
@@ -171,8 +171,8 @@ static void testBind() {
 		core1JobStart(Core1Job::Hitec, SIG, 0xFF);
 		core1JobPoll();
 		char what[64];
-		snprintf(what, sizeof(what), "a refused open: %s, GP0 not driven", NAMES[i]);
-		checkTrue(what, core1JobError() == JOB[i] && !fakePin(SERVO_SUPPLY_PIN).output);
+		snprintf(what, sizeof(what), "a refused open: %s, GP28 not driven", NAMES[i]);
+		checkTrue(what, core1JobError() == JOB[i] && !fakePin(servoSupplyPinOf(1)).output);
 		escTaskResume();
 		fakePumpPoll();
 		supply(false);
@@ -196,7 +196,7 @@ static void testBind() {
 static void testEntryAndRead() {
 	section("Hitec job: entries and the full read");
 	start(HITEC_D, false);
-	int puts = fakePin(SERVO_SUPPLY_PIN).puts;
+	int puts = fakePin(servoSupplyPinOf(1)).puts;
 	send(HitecOp::Enter);
 	passes(1);
 	const hitec_xfer_t *x = fakeHitecLastXfer();
@@ -216,15 +216,15 @@ static void testEntryAndRead() {
 	          until(HitecJobState::InMode, 20000) && status().result == HITEC_SES_OK);
 	send(HitecOp::Leave);
 	until(HitecJobState::Closed, 3000);
-	checkTrue("NONE: GP0 untouched through the claim", fakePin(SERVO_SUPPLY_PIN).puts == puts);
+	checkTrue("NONE: GP28 untouched through the claim", fakePin(servoSupplyPinOf(1)).puts == puts);
 	finish();
 
 	start(HITEC_D, true);
 	uint32_t t0 = time_us_32();
 	send(HitecOp::Enter);
 	passes(1990);
-	checkTrue("D series with GP0: 1.99 s into the entry, off, nothing sent",
-	          !gp0High() && fakeHitecStarts() == 0 && status().power == HitecPower::Off &&
+	checkTrue("D series with GP28: 1.99 s into the entry, off, nothing sent",
+	          !enHigh() && fakeHitecStarts() == 0 && status().power == HitecPower::Off &&
 	          status().supplyLeftDs >= 1);
 	checkTrue("on after more than 2000 ms off, from the bind",
 	          until(HitecJobState::Busy, 3000) && fakeHitecSim()->switchOns == 1 &&
@@ -232,7 +232,7 @@ static void testEntryAndRead() {
 	checkTrue("the model read more than 1000 ms after the switch-on",
 	          fakeHitecStarts() > 0 && fakeHitecLastStartUs() - fakeHitecSim()->onUs >= 1000000u);
 	checkTrue("then the full read: InMode, the backup, the supply on",
-	          until(HitecJobState::InMode, 20000) && status().hasBackup && gp0High());
+	          until(HitecJobState::InMode, 20000) && status().hasBackup && enHigh());
 	finish();
 
 	supply(false);
@@ -260,7 +260,7 @@ static void testEntryAndRead() {
 	fakeHitecSim()->dead = true;
 	send(HitecOp::Enter);
 	checkTrue("classic, no `+`: EntryEnded with the supply off",
-	          until(HitecJobState::EntryEnded, 6000) && !gp0High() &&
+	          until(HitecJobState::EntryEnded, 6000) && !enHigh() &&
 	          status().result != HITEC_SES_OK && !status().stalled);
 	fakeHitecSim()->dead = false;
 	send(HitecOp::Enter);
@@ -362,7 +362,7 @@ static void testAbort() {
 	passes(5);
 	checkTrue("in the LISTEN: cut, EntryEnded, the supply off",
 	          fakeHitecAborts() == cuts + 1 && status().job == HitecJobState::EntryEnded &&
-	          status().result == HITEC_SES_ERR_ABORTED && !gp0High());
+	          status().result == HITEC_SES_ERR_ABORTED && !enHigh());
 	finish();
 
 	// The first full read aborted: the next one that completes is the backup.
@@ -435,7 +435,7 @@ static void testHeartbeat() {
 	g_alive = false;
 	passes(400);
 	checkTrue("a lapse in the classic LISTEN: cut, off, stalled",
-	          !gp0High() && status().job == HitecJobState::EntryEnded && status().stalled);
+	          !enHigh() && status().job == HitecJobState::EntryEnded && status().stalled);
 	g_alive = true;
 	finish();
 
@@ -447,11 +447,11 @@ static void testHeartbeat() {
 	g_alive = false;
 	passes(300);
 	checkTrue("a lapse during a write: it runs on, the supply on",
-	          status().job == HitecJobState::Busy && gp0High());
+	          status().job == HitecJobState::Busy && enHigh());
 	until(HitecJobState::EntryEnded, 20000);
 	st = status();
 	checkTrue("the write finished, then off, stalled, out of the mode, stallWrote",
-	          !gp0High() && st.stalled && st.stallWrote && !st.inMode && !st.hasBackup &&
+	          !enHigh() && st.stalled && st.stallWrote && !st.inMode && !st.hasBackup &&
 	          fakeHitecSim()->writes > 0);
 	g_alive = true;
 	finish();
@@ -464,9 +464,9 @@ static void testHeartbeat() {
 	passes(300);
 	g_alive = true;
 	checkTrue("a lapse of 300 ms in a read, the heartbeat back: the read runs on",
-	          status().job == HitecJobState::Busy && gp0High());
+	          status().job == HitecJobState::Busy && enHigh());
 	until(HitecJobState::EntryEnded, 20000);
-	checkTrue("once it ends the supply goes off all the same", !gp0High() && status().stalled);
+	checkTrue("once it ends the supply goes off all the same", !enHigh() && status().stalled);
 	finish();
 
 	start(HITEC_CLASSIC, true);
@@ -481,7 +481,7 @@ static void testHeartbeat() {
 	g_alive = true;
 	until(HitecJobState::EntryEnded, 20000);
 	checkTrue("a classic write under a lapse: written, then off, stallWrote",
-	          !gp0High() && status().stalled && status().stallWrote &&
+	          !enHigh() && status().stalled && status().stallWrote &&
 	          memcmp(fakeHitecSim()->mem, t.mem, 0x24) == 0);
 	finish();
 
@@ -489,11 +489,11 @@ static void testHeartbeat() {
 	send(HitecOp::Enter);
 	passes(2100);
 	checkTrue("in the D entry's 1000 ms wait: on, only the POWER step's LISTEN run",
-	          gp0High() && fakeHitecStarts() == 1 && fakeHitecLastXfer()->kind == HITEC_XFER_LISTEN);
+	          enHigh() && fakeHitecStarts() == 1 && fakeHitecLastXfer()->kind == HITEC_XFER_LISTEN);
 	g_alive = false;
 	passes(300);
 	checkTrue("a lapse in that wait: off, stalled, no read sent",
-	          !gp0High() && status().stalled && fakeHitecStarts() == 1);
+	          !enHigh() && status().stalled && fakeHitecStarts() == 1);
 	g_alive = true;
 	finish();
 
@@ -509,7 +509,7 @@ static void testHeartbeat() {
 	unsigned sent = fakeHitecStarts();
 	passes(300);
 	checkTrue("a lapse during the read of 0x00: it finishes, no try after it, off, stalled",
-	          sent == 2 && fakeHitecStarts() == 2 && fakeHitecAborts() == 0 && !gp0High() &&
+	          sent == 2 && fakeHitecStarts() == 2 && fakeHitecAborts() == 0 && !enHigh() &&
 	          status().stalled);
 	g_alive = true;
 	finish();
@@ -518,7 +518,7 @@ static void testHeartbeat() {
 	g_alive = false;
 	passes(300);
 	checkTrue("a lapse in the mode: off, stalled, not written",
-	          !gp0High() && status().stalled && !status().stallWrote);
+	          !enHigh() && status().stalled && !status().stallWrote);
 	g_alive = true;
 	finish();
 
@@ -545,16 +545,16 @@ static void testLeave() {
 	send(HitecOp::Leave);
 	passes(1);
 	uint32_t offUs = time_us_32();
-	checkTrue("LEAVE with GP0: off at once, the line still open, out of the mode",
-	          !gp0High() && status().job == HitecJobState::Leaving && !status().inMode &&
+	checkTrue("LEAVE with GP28: off at once, the line still open, out of the mode",
+	          !enHigh() && status().job == HitecJobState::Leaving && !status().inMode &&
 	          fakeHitecLineCloses() == closes && status().supplyLeftDs > 0);
 	passes(1990);
 	checkTrue("1.99 s later: still open", fakeHitecLineCloses() == closes);
 	checkTrue("closed 2000 ms after the switch-off",
 	          until(HitecJobState::Closed, 50) && fakeHitecLineClosedUs() - offUs >= 2000000u);
 	finish();
-	FakePin p = fakePin(SERVO_SUPPLY_PIN);
-	checkTrue("released: GP0 an undriven input", !p.output && p.inputOff);
+	FakePin p = fakePin(servoSupplyPinOf(1));
+	checkTrue("released: GP28 an undriven input", !p.output && p.inputOff);
 
 	startInMode(HITEC_D, false);
 	send(HitecOp::Leave);
@@ -581,13 +581,13 @@ static void testLeave() {
 	send(HitecOp::Leave);
 	passes(1);
 	checkTrue("LEAVE during a write: Leaving, the supply still on",
-	          status().job == HitecJobState::Leaving && gp0High());
+	          status().job == HitecJobState::Leaving && enHigh());
 	until(HitecJobState::Closed, 20000);
 	bool holds = true;
 	for (int a = 0; a < 256; a++)
 		if (t.mem[a] != st.backup.mem[a]) holds = holds && fakeHitecSim()->mem[a] == t.mem[a];
 	checkTrue("the write ran to its end before the close, the servo holds the draft",
-	          status().result == HITEC_SES_OK && !gp0High() && holds);
+	          status().result == HITEC_SES_OK && !enHigh() && holds);
 	checkTrue("and the close came 2000 ms after the switch-off",
 	          fakeHitecLineClosedUs() - fakeHitecSim()->lastOffUs >= 2000000u);
 	finish();
@@ -710,10 +710,10 @@ static void testCardPhase() {
 	g_alive = false;
 	g_stamp = true;
 	passes(900);
-	checkTrue("900 ms of card stamps: on, in the mode", gp0High() && status().job == HitecJobState::InMode);
+	checkTrue("900 ms of card stamps: on, in the mode", enHigh() && status().job == HitecJobState::InMode);
 	g_stamp = false;
 	passes(300);
-	checkTrue("the stamps stop: off at the UI timeout", !gp0High() && status().stalled);
+	checkTrue("the stamps stop: off at the UI timeout", !enHigh() && status().stalled);
 	finish();
 
 	startInMode(HITEC_D, true);
@@ -722,9 +722,9 @@ static void testCardPhase() {
 	g_alive = false;
 	g_stamp = true;
 	passes(HITEC_CARD_PHASE_MAX_MS - 100);
-	checkTrue("stamped 100 ms short of the cap: on", gp0High());
+	checkTrue("stamped 100 ms short of the cap: on", enHigh());
 	passes(200);
-	checkTrue("stamped past the cap: off", !gp0High() && status().stalled);
+	checkTrue("stamped past the cap: off", !enHigh() && status().stalled);
 	finish();
 }
 

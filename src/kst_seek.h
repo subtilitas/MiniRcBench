@@ -35,7 +35,7 @@
  * per transaction: a transaction takes 2.87 ms or more.
  *
  * **Switched supply.** A search begun with @p switched true (SETTINGS > SERVO
- * SUPPLY at GP0) powers the servo up itself. One attempt:
+ * SUPPLY at GP28 or GP29) powers the servo up itself. One attempt:
  *
  * 1. Supply off, for @ref KST_SUPPLY_OFF_MS from the switch-off command.
  * 2. Supply on, only while the heartbeat is trusted; the attempt counts here.

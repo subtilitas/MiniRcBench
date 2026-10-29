@@ -434,35 +434,35 @@ static void testDial() {
 	         (long)lroundf(servoDialAngle(239, SERVO_DIAL_Y)), 90);
 }
 
-#define SIG 29
-#define AUX 28
+#define SIG 0
+#define AUX 1
 
 /** @brief The PWM driver against the register fake. */
 static void testPwm() {
 	section("Servo PWM: bind, write, release and the sharing rules");
 
 	fakePwmReset();
-	checkTrue("GP29 at 50 Hz binds", servoPwmBind(SIG, 50));
+	checkTrue("GP0 at 50 Hz binds", servoPwmBind(SIG, 50));
 	FakePin p = fakePin(SIG);
-	FakeSlice sl = fakeSlice(6);
+	FakeSlice sl = fakeSlice(0);
 	checkTrue("on the PWM function", p.function == GPIO_FUNC_PWM);
 	checkInt("at level 0: no edges", p.level, 0);
 	checkTrue("with the pulls off", p.pull == FakePull::None);
-	checkTrue("slice 6 counting", sl.enabled && sl.inits == 1);
+	checkTrue("slice 0 counting", sl.enabled && sl.inits == 1);
 	checkInt("wrap 19999 at 50 Hz", sl.top, 19999);
 	checkInt("150 MHz divided by 150: 1 us a count", sl.div16, 150 * 16);
 	checkTrue("bound", servoPwmBound(SIG) && !servoPwmBound(AUX));
 
 	checkTrue("again at 50 Hz: accepted", servoPwmBind(SIG, 50));
-	checkInt("and the slice is not set up again", fakeSlice(6).inits, 1);
+	checkInt("and the slice is not set up again", fakeSlice(0).inits, 1);
 	checkTrue("again at 100 Hz: refused", !servoPwmBind(SIG, 100));
-	checkTrue("GP28, same slice, 100 Hz: refused", !servoPwmBind(AUX, 100));
+	checkTrue("GP1, same slice, 100 Hz: refused", !servoPwmBind(AUX, 100));
 	pwm_set_gpio_level(AUX, 777);   // a compare value left from before
-	checkTrue("GP28 at 50 Hz binds", servoPwmBind(AUX, 50));
-	checkInt("the running slice is left alone", fakeSlice(6).inits, 1);
-	checkInt("and GP28 starts at level 0, not at what its register held",
+	checkTrue("GP1 at 50 Hz binds", servoPwmBind(AUX, 50));
+	checkInt("the running slice is left alone", fakeSlice(0).inits, 1);
+	checkInt("and GP1 starts at level 0, not at what its register held",
 	         fakePin(AUX).level, 0);
-	checkTrue("GP12, GP28's compare register: refused", !servoPwmBind(12, 50));
+	checkTrue("GP17, GP1's compare register: refused", !servoPwmBind(17, 50));
 	checkTrue("GP26, both bindings in use: refused", !servoPwmBind(26, 50));
 	checkTrue("GP30 with both bindings in use: refused", !servoPwmBind(30, 50));
 
@@ -482,9 +482,9 @@ static void testPwm() {
 	checkInt("release: level 0", p.level, 0);
 	checkTrue("an input", p.function == GPIO_FUNC_SIO && !p.output);
 	checkTrue("held low by the pull-down", p.pull == FakePull::Down);
-	checkTrue("the slice runs on for GP29", fakeSlice(6).enabled && servoPwmBound(SIG));
+	checkTrue("the slice runs on for GP0", fakeSlice(0).enabled && servoPwmBound(SIG));
 	servoPwmRelease(SIG);
-	checkTrue("the last pin released stops the slice", !fakeSlice(6).enabled);
+	checkTrue("the last pin released stops the slice", !fakeSlice(0).enabled);
 	writes = fakePin(SIG).levelWrites;
 	servoPwmRelease(SIG);
 	checkInt("a second release does nothing", fakePin(SIG).levelWrites, writes);
@@ -492,11 +492,11 @@ static void testPwm() {
 	checkTrue("rate 0: refused", !servoPwmBind(SIG, 0));
 	checkTrue("15 Hz, a period the counter cannot hold: refused", !servoPwmBind(SIG, 15));
 	checkTrue("560 Hz binds", servoPwmBind(SIG, 560));
-	checkInt("wrap 1784", fakeSlice(6).top, 1784);
+	checkInt("wrap 1784", fakeSlice(0).top, 1784);
 	servoPwmRelease(SIG);
-	checkTrue("GP28 binds", servoPwmBind(AUX, 50));
-	checkTrue("GP12 on its compare register: refused, a binding free",
-	          !servoPwmBind(12, 50));
+	checkTrue("GP1 binds", servoPwmBind(AUX, 50));
+	checkTrue("GP17 on its compare register: refused, a binding free",
+	          !servoPwmBind(17, 50));
 	servoPwmRelease(AUX);
 
 	checkTrue("nothing bound", !servoPwmBound(SIG) && !servoPwmBound(AUX));
@@ -790,7 +790,7 @@ static void testJob() {
 	checkTrue("SIG bound to PWM at level 0", fakePin(SIG).function == GPIO_FUNC_PWM &&
 	                                         fakePin(SIG).level == 0);
 	checkTrue("AUX left alone with one servo", fakePin(AUX).function != GPIO_FUNC_PWM);
-	checkInt("at 50 Hz", fakeSlice(6).top, 19999);
+	checkInt("at 50 Hz", fakeSlice(0).top, 19999);
 	ServoStatus st;
 	servoJobStatus(&st);
 	checkTrue("status: SAFE, no pulse, no error",
@@ -836,21 +836,21 @@ static void testJob() {
 	ServoProfile two = prof;
 	two.servos = 2;
 	two.rateHz = 100;
-	int inits = fakeSlice(6).inits;
+	int inits = fakeSlice(0).inits;
 	checkTrue("two servos at 100 Hz while SAFE: accepted", servoJobProfile(&two));
 	core1JobPoll();
 	checkTrue("the rebind waits for the last pulse, 41 ms after the STOP",
-	          fakeSlice(6).inits == inits && fakePin(AUX).function != GPIO_FUNC_PWM);
+	          fakeSlice(0).inits == inits && fakePin(AUX).function != GPIO_FUNC_PWM);
 	fakeAdvance(servoQuietMs(50) - 1);
 	core1JobPoll();
-	checkInt("not at 40 ms", fakeSlice(6).inits, inits);
+	checkInt("not at 40 ms", fakeSlice(0).inits, inits);
 	fakeAdvance(1);
 	core1JobPoll();
 	checkTrue("both pins on PWM at level 0",
 	          fakePin(SIG).function == GPIO_FUNC_PWM && fakePin(AUX).function == GPIO_FUNC_PWM &&
 	          fakePin(SIG).level == 0 && fakePin(AUX).level == 0);
 	checkTrue("the slice set up again, at 100 Hz",
-	          fakeSlice(6).inits == inits + 1 && fakeSlice(6).top == 9999);
+	          fakeSlice(0).inits == inits + 1 && fakeSlice(0).top == 9999);
 	send(cmdOf(0, ServoCmdKind::Start));
 	checkTrue("START: CENTRE on both", fakePin(SIG).level == 1500 && fakePin(AUX).level == 1500);
 	send(cmdOf(0, ServoCmdKind::Position, SERVO_MASK_B, 1000));
@@ -892,7 +892,7 @@ static void testJob() {
 	checkTrue("BACK: the unplug page, then DShot", claimEnd());
 	checkTrue("SIG an input, pulled down", fakePin(SIG).function == GPIO_FUNC_SIO &&
 	                                       fakePin(SIG).pull == FakePull::Down);
-	checkTrue("the slice stopped", !fakeSlice(6).enabled);
+	checkTrue("the slice stopped", !fakeSlice(0).enabled);
 	servoJobStatus(&st);
 	checkTrue("status after the release: SAFE, no pulse", !st.running && st.outUs[0] == 0);
 
@@ -979,7 +979,7 @@ static void testQuietRule() {
 
 /** @brief Advance to @p intoMs into the slice's frame of @p periodMs. */
 static void toFramePoint(uint32_t intoMs, uint32_t periodMs) {
-	uint64_t into = (time_us_64() - fakeSlice(6).startUs) / 1000u % periodMs;
+	uint64_t into = (time_us_64() - fakeSlice(0).startUs) / 1000u % periodMs;
 	fakeAdvance((uint32_t)((intoMs + periodMs - into) % periodMs));
 }
 
@@ -1070,17 +1070,17 @@ static void testLastPulse() {
 	core1JobPoll();
 	toFramePoint(1, 20);
 	send(cmdOf(0, ServoCmdKind::Safe));
-	int inits = fakeSlice(6).inits;
+	int inits = fakeSlice(0).inits;
 	ServoProfile fast = prof;
 	fast.rateHz = 100;
 	checkTrue("a profile at once after the STOP: accepted", servoJobProfile(&fast));
 	core1JobPoll();
-	checkInt("the rebind waits", fakeSlice(6).inits, inits);
+	checkInt("the rebind waits", fakeSlice(0).inits, inits);
 	uint32_t t = 0;
-	while (fakeSlice(6).inits == inits && t < 500) { fakeAdvance(1); t++; core1JobPoll(); }
+	while (fakeSlice(0).inits == inits && t < 500) { fakeAdvance(1); t++; core1JobPoll(); }
 	checkInt("and rebinds 41 ms after the STOP", t, 41);
 	checkInt("no pulse cut short", fakePin(SIG).cutPulses, 0);
-	checkInt("at 100 Hz", fakeSlice(6).top, 9999);
+	checkInt("at 100 Hz", fakeSlice(0).top, 9999);
 	checkTrue("back to free", claimEnd());
 }
 
@@ -1117,7 +1117,7 @@ static void testTripLatch() {
 	fakeAdvance(100);
 	core1JobPoll();
 	servoJobStatus(&st);
-	checkTrue("the rebind keeps the latch", st.tripped && fakeSlice(6).top == 9999);
+	checkTrue("the rebind keeps the latch", st.tripped && fakeSlice(0).top == 9999);
 	pinClaimEnd(PinUser::Servo);
 	core1JobPoll();
 	pinClaimPoll();
@@ -1394,7 +1394,7 @@ static void freshUi() {
 	fakePwmReset();
 	noEsc();
 	uiInit();
-	escTaskConfigure(29, 600, false, 28);
+	escTaskConfigure(0, 600, false, 1);
 	uiFrames(2);
 }
 
@@ -1542,11 +1542,11 @@ static void testScreenOpens() {
 	checkTrue("the tap claims the pins for SERVO", pinClaimHolder() == PinUser::Servo);
 	uiFrames(3);
 	checkTrue("running on the claim", pinClaimState() == ClaimState::Running);
-	checkInt("with SIG", pinClaimGpio(PIN_SIG), 29);
-	checkInt("and AUX", pinClaimGpio(PIN_AUX), 28);
+	checkInt("with SIG", pinClaimGpio(PIN_SIG), 0);
+	checkInt("and AUX", pinClaimGpio(PIN_AUX), 1);
 	checkTrue("SIG on PWM at level 0: SAFE, no pulses",
-	          fakePin(29).function == GPIO_FUNC_PWM && fakePin(29).level == 0);
-	checkTrue("one servo: AUX not bound", fakePin(28).function != GPIO_FUNC_PWM);
+	          fakePin(0).function == GPIO_FUNC_PWM && fakePin(0).level == 0);
+	checkTrue("one servo: AUX not bound", fakePin(1).function != GPIO_FUNC_PWM);
 	checkTrue("STANDARD PWM 50 Hz, one servo, SPEED 100 %",
 	          s_profile.type == ServoType::Standard && s_profile.rateHz == 50 &&
 	          s_profile.servos == 1 && (int)s_speed.value == 100);
@@ -1558,10 +1558,10 @@ static void testScreenOpens() {
 	          fillOf(BTN_MAX) == C_BG && fillOf(BTN_SWEEP) == C_BG);
 	fakeDumpFrame("shot_servo_safe.ppm");
 
-	int writes = fakePin(29).levelWrites;
+	int writes = fakePin(0).levelWrites;
 	tapId(UI_FIX(ServoCtl::Max), IdExpect::Disabled);
 	core1();
-	checkTrue("MAX while SAFE does nothing", fakePin(29).level == 0 && fakePin(29).levelWrites == writes);
+	checkTrue("MAX while SAFE does nothing", fakePin(0).level == 0 && fakePin(0).levelWrites == writes);
 	ServoStatus before;
 	servoJobStatus(&before);
 	checkTrue("SAFE: the dial does not act", !ctlEnabled(UI_FIX(ServoCtl::Dial)));
@@ -1571,7 +1571,7 @@ static void testScreenOpens() {
 	ServoStatus after;
 	servoJobStatus(&after);
 	checkTrue("sends the job no command", after.ackSeq == before.ackSeq);
-	checkTrue("and moves nothing", fakePin(29).level == 0 && fakePin(29).levelWrites == writes);
+	checkTrue("and moves nothing", fakePin(0).level == 0 && fakePin(0).levelWrites == writes);
 	// uiTick() flushes, which clears the bands, so the screen's own frame is
 	// called here with no flush after it.
 	uiFrames(2);
@@ -1595,7 +1595,7 @@ static void testHoldToStart() {
 	pressId(startId);
 	fakeHold(x, y); frameAt(SV_HOLD_MS - 1);
 	core1();
-	checkTrue("held 999 ms: not started", !s_st.running && fakePin(29).level == 0);
+	checkTrue("held 999 ms: not started", !s_st.running && fakePin(0).level == 0);
 	checkTrue("the bar shows the hold", s_hold.holding && pixel(BTN_START.x + 2, SV_BAR_Y + 1) == C_LIME);
 	checkTrue("and the button is red while held", fillOf(BTN_START) == C_RED);
 	fakeHold(x, y); frameAt(1);
@@ -1603,7 +1603,7 @@ static void testHoldToStart() {
 	ServoStatus st;
 	servoJobStatus(&st);
 	checkTrue("1000 ms: started", st.running);
-	checkInt("CENTRE at the start", fakePin(29).level, 1500);
+	checkInt("CENTRE at the start", fakePin(0).level, 1500);
 	fakeHold(x, y); uiFrames(2);
 	core1();
 	checkTrue("still held on the button: STOP does not fire", s_st.running);
@@ -1616,17 +1616,17 @@ static void testHoldToStart() {
 	core1();
 	servoJobStatus(&st);
 	checkTrue("tripped under the finger, then held 1250 ms: not started again",
-	          !st.running && st.tripped && fakePin(29).level == 0);
+	          !st.running && st.tripped && fakePin(0).level == 0);
 	fakeRelease(); uiFrames(1);
 	holdStart();
-	checkTrue("a new press starts it", s_st.running && fakePin(29).level == 1500);
+	checkTrue("a new press starts it", s_st.running && fakePin(0).level == 1500);
 	checkTrue("the chip says RUNNING", pixel(GFX_W - UI_MARGIN - 4, UI_STRIP_Y + 3) == C_RED);
 	checkTrue("MIN, CENTRE, MAX, SWEEP are live", fillOf(BTN_MIN) == C_PANEL && fillOf(BTN_SWEEP) == C_PANEL);
 	checkControlTable("SERVO, RUNNING");
 
 	pressId(startId);
 	core1();
-	checkInt("STOP on press: level 0 on core1's next pass", fakePin(29).level, 0);
+	checkInt("STOP on press: level 0 on core1's next pass", fakePin(0).level, 0);
 	servoJobStatus(&st);
 	checkTrue("SAFE", !st.running);
 	fakeHold(x, y); frameAt(SV_HOLD_MS);
@@ -1643,7 +1643,7 @@ static void testHoldToStart() {
 	fakeHold(x, ctlRect(startId).y - 40); frameAt(600);
 	fakeHold(x, y); uiFrames(1);
 	core1();
-	checkTrue("slid off at 500 ms: nothing", !s_st.running && fakePin(29).level == 0);
+	checkTrue("slid off at 500 ms: nothing", !s_st.running && fakePin(0).level == 0);
 	fakeRelease(); uiFrames(1);
 	// A press that began elsewhere and slid onto the button starts nothing.
 	// The readout row holds no control with one servo.
@@ -1651,7 +1651,7 @@ static void testHoldToStart() {
 	fakeHold(x, y); uiFrames(1);
 	fakeHold(x, y); frameAt(SV_HOLD_MS + 100);
 	core1();
-	checkTrue("a press slid onto it: nothing", fakePin(29).level == 0);
+	checkTrue("a press slid onto it: nothing", fakePin(0).level == 0);
 	fakeRelease(); uiFrames(1);
 	leaveServo();
 }
@@ -1683,7 +1683,7 @@ static void testStartNeedsLivePress() {
 		ran |= st.running;
 	}
 	checkTrue("the claim goes live under the finger", wentLive);
-	checkTrue("held 3000 ms after: the servo never starts", !ran && fakePin(29).level == 0);
+	checkTrue("held 3000 ms after: the servo never starts", !ran && fakePin(0).level == 0);
 	fakeRelease(); uiFrames(1);
 	holdStart();
 	checkTrue("a new press on the live button starts it", s_st.running);
@@ -1702,40 +1702,40 @@ static void testHorn() {
 	openServo();
 	holdStart();
 	dialDrag(45, 45, false);
-	checkInt("a press at +45 deg: 1750 us", fakePin(29).level, 1750);
+	checkInt("a press at +45 deg: 1750 us", fakePin(0).level, 1750);
 	checkTrue("a drag", s_dragging);
 	fakeHold(dialX(-45), dialY(-45)); uiFrames(1); core1();
-	checkInt("moved to -45 deg: 1250 us", fakePin(29).level, 1250);
+	checkInt("moved to -45 deg: 1250 us", fakePin(0).level, 1250);
 	fakeHold(dialX(30, 150), dialY(30, 150)); uiFrames(1); core1();
-	checkInt("off the dial, the drag goes on: +30 deg", fakePin(29).level, 1667, 1);
+	checkInt("off the dial, the drag goes on: +30 deg", fakePin(0).level, 1667, 1);
 	fakeHold(dialX(100, 60), dialY(100, 60)); uiFrames(1); core1();
-	checkInt("past +90 deg: MAX", fakePin(29).level, 2000);
+	checkInt("past +90 deg: MAX", fakePin(0).level, 2000);
 	fakeHold(dialX(-97, 60), dialY(-97, 60)); uiFrames(1); core1();
-	checkInt("past -90 deg: MIN", fakePin(29).level, 1000);
+	checkInt("past -90 deg: MIN", fakePin(0).level, 1000);
 	fakeRelease(); uiFrames(2); core1();
-	checkTrue("released: the servo holds", fakePin(29).level == 1000 && !s_dragging);
+	checkTrue("released: the servo holds", fakePin(0).level == 1000 && !s_dragging);
 	fakeDumpFrame("shot_servo_running.ppm");
 
 	fakePress(dialX(0, 140), dialY(0, 140)); uiFrames(1);
 	fakeHold(dialX(30), dialY(30)); uiFrames(2); core1();
 	checkTrue("a press that began off the dial never drags",
-	          !s_dragging && fakePin(29).level == 1000);
+	          !s_dragging && fakePin(0).level == 1000);
 	fakeRelease(); uiFrames(1);
 
 	// A drag under way when the screen stalls: the trip ends the pulses and
 	// the drag, and moving the same finger drives nothing afterwards.
 	dialDrag(20, 20, false);
-	checkTrue("dragging", s_dragging && fakePin(29).level > 1500);
+	checkTrue("dragging", s_dragging && fakePin(0).level > 1500);
 	fakeAdvance(300);
 	core1();
-	checkTrue("the stall trips the job", fakePin(29).level == 0);
+	checkTrue("the stall trips the job", fakePin(0).level == 0);
 	fakeHold(dialX(60), dialY(60)); uiFrames(1); core1();
-	checkTrue("the drag ended at the edge", !s_dragging && fakePin(29).level == 0);
+	checkTrue("the drag ended at the edge", !s_dragging && fakePin(0).level == 0);
 	checkTrue("STALLED on the chip", pixel(GFX_W - UI_MARGIN - 4, UI_STRIP_Y + 3) == C_MAGENTA);
 	fakeDumpFrame("shot_servo_stalled.ppm");
 	fakeRelease(); uiFrames(1);
 	holdStart();
-	checkTrue("a new HOLD TO START: CENTRE again", fakePin(29).level == 1500 && !s_st.tripped);
+	checkTrue("a new HOLD TO START: CENTRE again", fakePin(0).level == 1500 && !s_st.tripped);
 
 	// Stalled, left, opened again: the new session starts SAFE, not STALLED.
 	fakeAdvance(300);
@@ -1792,18 +1792,18 @@ static void testButtonsAndSweep() {
 	openServo();
 	holdStart();
 	tapId(UI_FIX(ServoCtl::Max)); core1();
-	checkInt("MAX", fakePin(29).level, 2000);
+	checkInt("MAX", fakePin(0).level, 2000);
 	tapId(UI_FIX(ServoCtl::Min)); core1();
-	checkInt("MIN", fakePin(29).level, 1000);
+	checkInt("MIN", fakePin(0).level, 1000);
 	tapId(UI_FIX(ServoCtl::Centre)); core1();
-	checkInt("CENTRE", fakePin(29).level, 1500);
+	checkInt("CENTRE", fakePin(0).level, 1500);
 
 	ServoStatus st;
 	tapId(UI_FIX(ServoCtl::Sweep)); core1();
 	servoJobStatus(&st);
 	checkTrue("SWEEP: sweeping", st.sweeping);
 	uiFrames(24); core1();
-	checkTrue("the curve moves the servo", fakePin(29).level != 1500);
+	checkTrue("the curve moves the servo", fakePin(0).level != 1500);
 	uiFrames(1);
 	checkTrue("the screen reads the ends reached", s_st.sweeping && s_st.sweepMoves >= 1);
 	fakeDumpFrame("shot_servo_sweep.ppm");
@@ -1814,16 +1814,16 @@ static void testButtonsAndSweep() {
 	tapId(UI_FIX(ServoCtl::Sweep)); core1();
 	tapId(UI_FIX(ServoCtl::Max)); core1();
 	servoJobStatus(&st);
-	checkTrue("MAX ends a sweep", !st.sweeping && fakePin(29).level == 2000);
+	checkTrue("MAX ends a sweep", !st.sweeping && fakePin(0).level == 2000);
 	tapId(UI_FIX(ServoCtl::Sweep)); core1();
 	dialDrag(0, 0);
 	servoJobStatus(&st);
-	checkTrue("a drag ends a sweep", !st.sweeping && fakePin(29).level == 1500);
+	checkTrue("a drag ends a sweep", !st.sweeping && fakePin(0).level == 1500);
 	tapId(UI_FIX(ServoCtl::Sweep)); core1();
 	pressId(UI_FIX(ServoCtl::Start)); core1();
 	fakeRelease(); uiFrames(1);
 	servoJobStatus(&st);
-	checkTrue("STOP ends a sweep and the pulses", !st.sweeping && !st.running && fakePin(29).level == 0);
+	checkTrue("STOP ends a sweep and the pulses", !st.sweeping && !st.running && fakePin(0).level == 0);
 
 	// SPEED: tap-to-set at the left end of the track is 10 %.
 	UiRect speed = ctlRect(UI_FIX(ServoCtl::Speed));
@@ -1831,13 +1831,13 @@ static void testButtonsAndSweep() {
 	checkInt("SPEED at the left end: 10 %", (long)lroundf(s_speed.value), 10);
 	holdStart();
 	tapId(UI_FIX(ServoCtl::Max)); core1();
-	checkTrue("at 10 % MAX is not reached at once", fakePin(29).level < 1600);
+	checkTrue("at 10 % MAX is not reached at once", fakePin(0).level < 1600);
 	for (int i = 0; i < 40; i++) uiFrames(1);
 	core1();
-	checkInt("1000 ms later: 200 units of 1000, 1700 us", fakePin(29).level, 1700, 10);
+	checkInt("1000 ms later: 200 units of 1000, 1700 us", fakePin(0).level, 1700, 10);
 	uiTap(speed.x + speed.w - 1, speed.y + 10);
 	core1();
-	checkInt("SPEED to 100 % mid-move: at MAX at once", fakePin(29).level, 2000);
+	checkInt("SPEED to 100 % mid-move: at MAX at once", fakePin(0).level, 2000);
 	leaveServo();
 }
 
@@ -1857,7 +1857,7 @@ static void testTwoServos() {
 	stepSel(+1);
 	checkTrue("SERVOS TWO, applied at once", s_profile.servos == 2);
 	checkTrue("AUX bound to PWM at level 0",
-	          fakePin(28).function == GPIO_FUNC_PWM && fakePin(28).level == 0);
+	          fakePin(1).function == GPIO_FUNC_PWM && fakePin(1).level == 0);
 	selectRow(6);
 	stepSel(+1);
 	checkTrue("REVERSE B on", s_profile.reverseB);
@@ -1873,24 +1873,24 @@ static void testTwoServos() {
 			clean = clean && pixel(x, y) == C_BG;
 	checkTrue("nothing of SET is left between SERVO's regions", clean);
 	holdStart();
-	checkTrue("START: CENTRE on both", fakePin(29).level == 1500 && fakePin(28).level == 1500);
+	checkTrue("START: CENTRE on both", fakePin(0).level == 1500 && fakePin(1).level == 1500);
 	checkControlTable("SERVO, two servos with the selector");
 	checkInt("AB by default", s_mask, SERVO_MASK_AB);
 	dialDrag(45, 45);
-	checkTrue("AB with REVERSE B: B mirrors A", fakePin(29).level == 1750 && fakePin(28).level == 1250);
+	checkTrue("AB with REVERSE B: B mirrors A", fakePin(0).level == 1750 && fakePin(1).level == 1250);
 	fakeDumpFrame("shot_servo_two.ppm");
 	tapId(UI_FIX(ServoCtl::SelA));
 	dialDrag(-90, -90);
-	checkTrue("A: A follows, B holds", fakePin(29).level == 1000 && fakePin(28).level == 1250);
+	checkTrue("A: A follows, B holds", fakePin(0).level == 1000 && fakePin(1).level == 1250);
 	tapId(UI_FIX(ServoCtl::SelB));
 	tapId(UI_FIX(ServoCtl::Max)); core1();
-	checkTrue("B: B follows unmirrored, A holds", fakePin(29).level == 1000 && fakePin(28).level == 2000);
+	checkTrue("B: B follows unmirrored, A holds", fakePin(0).level == 1000 && fakePin(1).level == 2000);
 	tapId(UI_FIX(ServoCtl::SelAB));
 	tapId(UI_FIX(ServoCtl::Min)); core1();
-	checkTrue("AB: MIN mirrors B to MAX", fakePin(29).level == 1000 && fakePin(28).level == 2000);
+	checkTrue("AB: MIN mirrors B to MAX", fakePin(0).level == 1000 && fakePin(1).level == 2000);
 	pressId(UI_FIX(ServoCtl::Start)); core1();
 	fakeRelease(); uiFrames(1);
-	checkTrue("STOP stops both", fakePin(29).level == 0 && fakePin(28).level == 0);
+	checkTrue("STOP stops both", fakePin(0).level == 0 && fakePin(1).level == 0);
 	// B selected, then SERVOS ONE: the selection no longer applies, and the
 	// one servo on SIG follows the dial.
 	tapId(UI_FIX(ServoCtl::SelB));
@@ -1902,7 +1902,7 @@ static void testTwoServos() {
 	backFromSet();
 	holdStart();
 	tapId(UI_FIX(ServoCtl::Max)); core1();
-	checkInt("ONE after B selected: MAX moves A", fakePin(29).level, 2000);
+	checkInt("ONE after B selected: MAX moves A", fakePin(0).level, 2000);
 	leaveServo();
 }
 
@@ -1913,7 +1913,7 @@ static void testAuxRefused() {
 	section("Servo screen: TWO is refused when the claim refuses AUX");
 
 	freshUi();
-	escTaskConfigure(29, 600, false, 29);   // SETTINGS put the ESC pin on the KISS GPIO
+	escTaskConfigure(1, 600, false, 1);   // SETTINGS put the ESC pin on the KISS GPIO
 	uiFrames(2);
 	openServo();
 	checkTrue("one GPIO for both: the screen claims SIG alone",
@@ -1949,7 +1949,7 @@ static void testAuxRefused() {
 	openSet();
 	selectRow(ROW_SERVOS);
 	setNote(&l1, &l2, &col);
-	checkTrue("the note names the KISS wire", l1 && strcmp(l1, "KISS WIRE ON GP28 IS LIVE.") == 0 &&
+	checkTrue("the note names the KISS wire", l1 && strcmp(l1, "KISS WIRE ON GP1 IS LIVE.") == 0 &&
 	                                          l2 && strcmp(l2, "TWO SERVOS NEED IT UNPLUGGED.") == 0);
 	stepSel(+1, 1, IdExpect::Disabled);
 	checkTrue("SERVOS stays ONE", s_profile.servos == 1);
@@ -2001,7 +2001,7 @@ static void testUnplugPage() {
 	openServo();
 	holdStart();
 	int resumes = fakeResumeCount();
-	int cuts = fakePin(29).cutPulses;
+	int cuts = fakePin(0).cutPulses;
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK while RUNNING: the page waits for the last pulse",
 	          s_view == View::Unplug && !pinClaimUnplugDue() &&
@@ -2013,7 +2013,7 @@ static void testUnplugPage() {
 	core1();
 	checkTrue("core1's next pass: still stopping", core1JobPhase() == Core1JobPhase::Stopping);
 	checkTrue("level 0 written, SIG still on PWM",
-	          fakePin(29).level == 0 && fakePin(29).function == GPIO_FUNC_PWM);
+	          fakePin(0).level == 0 && fakePin(0).function == GPIO_FUNC_PWM);
 	checkInt("and no DShot", fakeResumeCount(), resumes);
 	// BACK on the page before the job has let go: pinClaimKeep() would
 	// refuse, so the page ignores it and stays.
@@ -2030,8 +2030,8 @@ static void testUnplugPage() {
 	checkTrue("the job let go: BACK acts and RESTART DSHOT is there",
 	          ctlEnabled(UI_FIX(UI_BACK)) && ctlEnabled(UI_FIX(ServoCtl::Restart)));
 	checkControlTable("the unplug page, the job let go");
-	checkInt("no pulse was cut short", fakePin(29).cutPulses, cuts);
-	checkTrue("the job let go: SIG an input", fakePin(29).function == GPIO_FUNC_SIO);
+	checkInt("no pulse was cut short", fakePin(0).cutPulses, cuts);
+	checkTrue("the job let go: SIG an input", fakePin(0).function == GPIO_FUNC_SIO);
 	checkInt("DShot not yet restarted", fakeResumeCount(), resumes);
 	fakeDumpFrame("shot_servo_unplug.ppm");
 	tapId(UI_FIX(UI_BACK));
@@ -2039,7 +2039,7 @@ static void testUnplugPage() {
 	checkTrue("BACK on the page: SERVO again, the claim kept",
 	          s_view == View::Main && pinClaimState() == ClaimState::Running);
 	checkTrue("SAFE again, rebound at level 0",
-	          !s_st.running && fakePin(29).function == GPIO_FUNC_PWM && fakePin(29).level == 0);
+	          !s_st.running && fakePin(0).function == GPIO_FUNC_PWM && fakePin(0).level == 0);
 	checkInt("still no DShot", fakeResumeCount(), resumes);
 	tapId(UI_FIX(UI_BACK));
 	uiFrames(1);
@@ -2068,7 +2068,7 @@ static void testSetScreen() {
 	stepSel(+1, 2);
 	checkTrue("HELI CYCLIC: held as pending", s_edit.type == ServoType::HeliCyclic && s_pending &&
 	                                          s_profile.type == ServoType::Wide);
-	checkInt("the pins still at 50 Hz", fakeSlice(6).top, 19999);
+	checkInt("the pins still at 50 Hz", fakeSlice(0).top, 19999);
 	const char *l1, *l2; uint16_t col;
 	setNote(&l1, &l2, &col);
 	checkTrue("the note names the heli risk", l1 && strstr(l1, "HELI PROFILE") != nullptr);
@@ -2083,16 +2083,16 @@ static void testSetScreen() {
 	frameAt(1000);
 	pressId(UI_FIX(ServoCtl::Apply));
 	checkTrue("held 500 ms, lifted, pressed 1 s later: still pending",
-	          s_pending && s_profile.type == ServoType::Wide && fakeSlice(6).top == 19999);
+	          s_pending && s_profile.type == ServoType::Wide && fakeSlice(0).top == 19999);
 	fakeRelease(); uiFrames(1);
 	pressId(UI_FIX(ServoCtl::Apply));
 	fakeHold(x, y); frameAt(SV_HOLD_MS - 1); core1();
-	checkTrue("held 999 ms: not applied", s_pending && fakeSlice(6).top == 19999);
+	checkTrue("held 999 ms: not applied", s_pending && fakeSlice(0).top == 19999);
 	checkTrue("the bar shows the hold, the button red",
 	          pixel(BTN_APPLY.x + 2, SET_FOOT_Y - 3) == C_LIME && fillOf(BTN_APPLY) == C_RED);
 	fakeHold(x, y); frameAt(1); core1();
 	checkTrue("1000 ms: applied", !s_pending && s_profile.type == ServoType::HeliCyclic);
-	checkInt("rebound at 333 Hz", fakeSlice(6).top, 3002);
+	checkInt("rebound at 333 Hz", fakeSlice(0).top, 3002);
 	fakeRelease(); uiFrames(1);
 	selectRow(3);   // MIN, under the applied heli profile
 	stepSel(-1);
@@ -2100,7 +2100,7 @@ static void testSetScreen() {
 	          !s_pending && s_profile.minUs == 810);
 	selectRow(1);
 	stepSel(-1);
-	checkTrue("back to WIDE at 50 Hz: at once", !s_pending && fakeSlice(6).top == 19999);
+	checkTrue("back to WIDE at 50 Hz: at once", !s_pending && fakeSlice(0).top == 19999);
 
 	selectRow(2);   // RATE
 	stepSel(+1);
@@ -2166,7 +2166,7 @@ static void testSetScreen() {
 	ServoStatus after;
 	servoJobStatus(&after);
 	checkTrue("STOP on SET acts on press: level 0 on core1's next pass",
-	          fakePin(29).level == 0 && !after.running && !after.sweeping);
+	          fakePin(0).level == 0 && !after.running && !after.sweeping);
 	fakeHold(fx, fy); uiFrames(2);
 	fakeRelease(); uiFrames(1);
 	checkTrue("its release is not a tap on DEFAULTS",
@@ -2309,7 +2309,7 @@ static void testSetList() {
 
 	// HOLD TO APPLY with nothing pending: drawn disabled, and a hold on it
 	// hands the job nothing, so the pins are not rebound.
-	int inits = fakeSlice(6).inits;
+	int inits = fakeSlice(0).inits;
 	int ax, ay;
 	ctlCentre(UI_FIX(ServoCtl::Apply), &ax, &ay);
 	pressId(UI_FIX(ServoCtl::Apply), IdExpect::Disabled);
@@ -2323,7 +2323,7 @@ static void testSetList() {
 	for (int i = 0; i < 48; i++) { fakeHold(ax, ay); uiFrames(1); core1(); }
 	fakeRelease(); uiFrames(1); core1();
 	checkTrue("held 2400 ms: no rebind, and the forced change not applied",
-	          fakeSlice(6).inits == inits && s_profile.rateHz == 50 && s_pending);
+	          fakeSlice(0).inits == inits && s_profile.rateHz == 50 && s_pending);
 	s_pending = false;
 	s_edit = s_profile;
 	backFromSet();
@@ -2360,7 +2360,7 @@ static void testClaimCorners() {
 	          uiCurrentScreen() == UiScreenId::Servo && s_claimed &&
 	          pinClaimHolder() == PinUser::Servo);
 	uiFrames(3);
-	checkTrue("with AUX, once held", pinClaimGpio(PIN_AUX) == 28 && s_auxRefusal == ClaimRefusal::None);
+	checkTrue("with AUX, once held", pinClaimGpio(PIN_AUX) == 1 && s_auxRefusal == ClaimRefusal::None);
 	leaveServo();
 	backFromMenu();
 	uiFrames(1);
@@ -2382,7 +2382,7 @@ static void testClaimCorners() {
 	uiFrames(3);
 	checkTrue("the ESC quiet: SERVO claims", s_claimed && pinClaimHolder() == PinUser::Servo);
 	checkTrue("with AUX, and the old AUX refusal cleared",
-	          pinClaimGpio(PIN_AUX) == 28 && s_auxRefusal == ClaimRefusal::None);
+	          pinClaimGpio(PIN_AUX) == 1 && s_auxRefusal == ClaimRefusal::None);
 	leaveServo();
 	backFromMenu();
 	uiFrames(1);
@@ -2439,8 +2439,8 @@ static void testClaimCorners() {
 	          s_claimed && s_auxRefusal == ClaimRefusal::KissLive);
 	checkTrue("and back to one servo", s_profile.servos == 1 && s_edit.servos == 1);
 	uiFrames(2);
-	checkTrue("the job bound SIG alone", fakePin(29).function == GPIO_FUNC_PWM &&
-	                                     fakePin(28).function != GPIO_FUNC_PWM);
+	checkTrue("the job bound SIG alone", fakePin(0).function == GPIO_FUNC_PWM &&
+	                                     fakePin(1).function != GPIO_FUNC_PWM);
 	backFromSet();
 	leaveServo();
 	noEsc();
@@ -2476,7 +2476,7 @@ static void testBindRefused() {
 	tapId(UI_FIX(ServoCtl::Retry));
 	core1();
 	uiFrames(2);
-	checkTrue("RETRY rebinds", s_st.bindError == 0 && fakePin(29).function == GPIO_FUNC_PWM);
+	checkTrue("RETRY rebinds", s_st.bindError == 0 && fakePin(0).function == GPIO_FUNC_PWM);
 	leaveServo();
 	backFromMenu();
 }

@@ -45,18 +45,18 @@
 static SupplySim g_sup;
 static bool      g_supOn = false;
 
-/** @brief The level the bench drives on GP0. */
-static bool gp0High() {
-	FakePin p = fakePin(SERVO_SUPPLY_PIN);
+/** @brief The level the bench drives on GP28. */
+static bool enHigh() {
+	FakePin p = fakePin(servoSupplyPinOf(1));
 	return p.output && p.high;
 }
 
-/** @brief One pass of core1, the switched servo following GP0. */
+/** @brief One pass of core1, the switched servo following GP28. */
 static void core1Pass() {
 	fakeAdvance(1);
-	if (g_supOn) supplySimUpdate(&g_sup, gp0High(), time_us_32());
+	if (g_supOn) supplySimUpdate(&g_sup, enHigh(), time_us_32());
 	core1JobPoll();
-	if (g_supOn) supplySimUpdate(&g_sup, gp0High(), time_us_32());
+	if (g_supOn) supplySimUpdate(&g_sup, enHigh(), time_us_32());
 }
 
 /** @brief One UI frame: 25 passes of core1, one of the pump, then the UI. */
@@ -155,7 +155,7 @@ static void freshKst(bool powered = true) {
 	memset(&t, 0, sizeof(t));
 	fakeSetTelemetry(&t);
 	uiInit();
-	escTaskConfigure(29, 600, false, 28);
+	escTaskConfigure(0, 600, false, 1);
 	fakeKstLineReset();
 	fakeKstSim()->powered = powered;
 	card();
@@ -228,7 +228,7 @@ static void testOpenAndSearch() {
 	checkTrue("it claims SIG", pinClaimHolder() == PinUser::Kst);
 	checkTrue("the search starts", untilCtl(UI_FIX(KstCtl::StopSearch), 40));
 	checkTrue("the job searches", job().job == KstJobState::Searching);
-	checkTrue("on SIG", fakeKstLinePin() == 29);
+	checkTrue("on SIG", fakeKstLinePin() == 0);
 	checkControlTable("KST search");
 	kstFrames(20);
 	fakeDumpFrame("shot_kst_search.ppm");
@@ -1389,11 +1389,11 @@ static void testSwitchedSupply() {
 	          lineIs(164, "AN ESC ON THIS LEAD GETS THE", C_AMBER));
 	char want[48];
 	unsigned ds = job().supplyLeftDs;
-	snprintf(want, sizeof(want), "GP29  TRY 1  SUPPLY OFF %u.%u S", ds / 10, ds % 10);
+	snprintf(want, sizeof(want), "GP0  TRY 1  SUPPLY OFF %u.%u S", ds / 10, ds % 10);
 	checkTrue("the strip counts the off phase down", stripIs(want, C_DIM));
 	fakeDumpFrame("shot_kst_switched.ppm");
 	checkTrue("found on the first power-up: the field list", untilView(KstView::List, 400) &&
-	          gp0High() && job().attempts == 1);
+	          enHigh() && job().attempts == 1);
 
 	// The leave page offers REBOOT; a hold reboots and reads again.
 	tapId(UI_FIX(UI_BACK));
@@ -1404,10 +1404,10 @@ static void testSwitchedSupply() {
 	checkTrue("HOLD TO REBOOT fires", holdUntilGone(UI_FIX(KstCtl::Reboot)));
 	kstFrames(4);
 	checkTrue("rebooting: the supply off, the main view says so",
-	          job().job == KstJobState::Rebooting && !gp0High() &&
+	          job().job == KstJobState::Rebooting && !enHigh() &&
 	          lineIs(80, "REBOOT: DO NOT UNPLUG THE SERVO.", C_AMBER));
 	checkTrue("then on, an entry, a read: the field list again",
-	          untilView(KstView::List, 300) && job().hasBackup && gp0High());
+	          untilView(KstView::List, 300) && job().hasBackup && enHigh());
 
 	// LEAVE: the unplug page counts the 2 s off down, then RESTART DSHOT.
 	tapId(UI_FIX(UI_BACK));
@@ -1415,11 +1415,11 @@ static void testSwitchedSupply() {
 	tapId(UI_FIX(KstCtl::Leave));
 	kstFrames(4);
 	checkTrue("LEAVE: the supply off, the unplug page waits",
-	          uiKstView() == KstView::Unplug && !gp0High() && !ctlPresent(UI_FIX(KstCtl::Restart)));
+	          uiKstView() == KstView::Unplug && !enHigh() && !ctlPresent(UI_FIX(KstCtl::Restart)));
 	checkTrue("RESTART DSHOT once the supply has been off 2 s",
 	          untilCtl(UI_FIX(KstCtl::Restart), 200) && time_us_32() - t0 >= 2000000u);
-	FakePin p = fakePin(SERVO_SUPPLY_PIN);
-	checkTrue("GP0 an undriven input after the claim", !p.output && p.inputOff);
+	FakePin p = fakePin(servoSupplyPinOf(1));
+	checkTrue("GP28 an undriven input after the claim", !p.output && p.inputOff);
 	tapId(UI_FIX(KstCtl::Restart));
 	kstFrames(8);
 	tapId(UI_FIX(UI_BACK));
@@ -1431,11 +1431,11 @@ static void testSwitchedSupply() {
 	for (int i = 0; i < 400; i++) core1Pass();
 	kstFrames(2);
 	checkTrue("a stall: the supply off, the stalled screen, RETRY",
-	          !gp0High() && job().stalled && uiKstView() == KstView::Main &&
-	          stripIs("GP29  SUPPLY OFF", C_DIM) && ctlEnabled(UI_FIX(KstCtl::Retry)));
+	          !enHigh() && job().stalled && uiKstView() == KstView::Main &&
+	          stripIs("GP0  SUPPLY OFF", C_DIM) && ctlEnabled(UI_FIX(KstCtl::Retry)));
 	fakeDumpFrame("shot_kst_stalled.ppm");
 	tapId(UI_FIX(KstCtl::Retry));
-	checkTrue("RETRY powers it up and reads it", untilView(KstView::List, 400) && gp0High());
+	checkTrue("RETRY powers it up and reads it", untilView(KstView::List, 400) && enHigh());
 	leaveAll();
 	g_supOn = false;
 	servoSupplyConfigure(0);
@@ -1471,7 +1471,7 @@ static void testCardPhase() {
 	supplySimInit(&g_sup, fakeKstSim(), time_us_32());
 	g_supOn = true;
 	fakeCardWaitPass(core1Pass);
-	checkTrue("to the field list", toList() && gp0High());
+	checkTrue("to the field list", toList() && enHigh());
 	// The first write's card calls each keep core0 300 ms, past the 250 ms
 	// heartbeat; the driver's waits stamp, and the supply stays on.
 	n_hooked = n_unhooked = 0;
@@ -1480,7 +1480,7 @@ static void testCardPhase() {
 	fakeFatOnCall(nullptr);
 	kstFrames(1);
 	checkTrue("300 ms card calls that stamp: the write verified, the supply on",
-	          job().result == KST_SES_OK && gp0High() && !job().stalled && !job().cardPhase);
+	          job().result == KST_SES_OK && enHigh() && !job().stalled && !job().cardPhase);
 	checkTrue("the backup on the card", fakeFatExists("BACKUP/KST001.TXT"));
 	checkTrue("every card call of the write ran in a phase, the hook set",
 	          n_hooked > 0 && n_unhooked == 0);
@@ -1501,7 +1501,7 @@ static void testCardPhase() {
 	fakeFatOnCall(nullptr);
 	kstFrames(10);
 	checkTrue("300 ms card calls that do not stamp: the supply switched off",
-	          n_cardCalls > 0 && g_sup.lastOffUs != offBefore && !gp0High());
+	          n_cardCalls > 0 && g_sup.lastOffUs != offBefore && !enHigh());
 	leaveAll();
 	fakeCardWaitPass(nullptr);
 	g_supOn = false;

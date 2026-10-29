@@ -10,6 +10,7 @@
  */
 
 #include "settings.h"
+#include "servo_supply.h"
 #include "config.h"
 #include "board_desc.h"
 #include "pin_claim.h"
@@ -153,9 +154,9 @@ bool settingsValidate(Settings *s) {
 	}
 	if (s->kissEnable != 0 && s->kissEnable != 1) { s->kissEnable = 1; ok = false; }
 	if (s->highContrast != 0 && s->highContrast != 1) { s->highContrast = 1; ok = false; }
-	// No switch is the safe reading of a value this build does not know: GP0
-	// is then never driven.
-	if (s->servoSupply > 1) { s->servoSupply = 0; ok = false; }
+	// No switch is the safe reading of a value this build does not know: no
+	// enable pin is then driven.
+	if (s->servoSupply > SERVO_SUPPLY_MODE_MAX) { s->servoSupply = 0; ok = false; }
 
 	// --- backlight: never so dim the panel looks dead ---
 	if (s->backlight < BACKLIGHT_MIN) { s->backlight = BACKLIGHT_MIN; ok = false; }
