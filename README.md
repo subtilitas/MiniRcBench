@@ -1568,7 +1568,9 @@ assembler to the SDK's `pioasm`.
 cycle at a time for every level from 0 to 255, set up as `st7789Init()` sets
 it up: the period is 516 cycles (515 at level 0, 20 kHz at a divider of
 14.5), the pin is high for 2 × level cycles, and a level written into the
-running machine takes effect at the next period. The Firmware job holds its
+running machine, at a period's start or at 5 points inside one, takes effect
+at the next period. It runs the init's forced `pull noblock` and
+`out isr, 32` too. The Firmware job holds its
 words to `pioasm` too.
 
 ### Continuous integration

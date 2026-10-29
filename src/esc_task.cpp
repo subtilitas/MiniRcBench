@@ -26,9 +26,9 @@
  * The PIO budget. Core1 runs two PIO users: bidirectional DShot, a transmitter
  * and a receiver on adjacent state machines of one block, and the KISS
  * receiver on one more. Both claim from whichever block has room, and the SDK
- * searches pio2 first. pio1 carries the SDIO card driver on the 2.8" board and
- * nothing else uses pio0 or pio2, so the DShot bind always finds a block with
- * no other user. These two checks are what makes the KISS receiver fit beside
+ * searches pio2 first. pio1 carries the SDIO card driver on the 2.8" board,
+ * pio0 the backlight (1 state machine, 6 words), and nothing else uses pio2, so
+ * the DShot bind always finds pio2 with no other user. These two checks are what makes the KISS receiver fit beside
  * it in that block, on every board and in every configuration. Checked in the
  * firmware build only: the host stubs carry no PIO programs.
  */

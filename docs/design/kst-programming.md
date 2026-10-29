@@ -146,8 +146,8 @@ converter. VIN and VOUT are the converter's input and output.
 
 GP0 is UART0's TX pin on J4 and J5. The firmware leaves UART0 unused
 (`pico_enable_stdio_uart(MiniRcBench 0)`; USB serial is `usb_dev.cpp`), and
-SETTINGS does not offer GP0 for the ESC wires. The enable is a plain GPIO output
-and never a PWM channel.
+SETTINGS does not offer GP0 for the ESC wires. The enable is a plain GPIO output:
+it switches the converter on or off and is never a PWM channel.
 
 **Off state.** The external pull-down holds EN low whenever nothing drives
 GP0:

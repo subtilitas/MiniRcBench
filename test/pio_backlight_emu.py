@@ -17,8 +17,11 @@ checks, over 3 periods after the first:
     1 % of L / 256;
   - level 0 never high, and every level above 0 high once per period.
 
-A level written while the program runs takes effect at the next period: the
-check writes each level into the running machine, not into a fresh one.
+The init is run as st7789Init() runs it: 255 into the FIFO, then the forced
+`pull noblock` and `out isr, 32`. A level written while the program runs,
+at the start of a period or at 5 points inside one, takes effect at the next
+period: the check writes each level into the running machine, not into a
+fresh one.
 """
 
 import pathlib
@@ -84,8 +87,14 @@ class Machine:
                 self.isr = val
             elif dst == emu.MOV_DST["osr"]:
                 self.osr = val
-            elif not (dst == emu.MOV_DST["y"] and src == emu.MOV_SRC["y"]):
+            else:
                 raise emu.Fail(f"mov destination {dst} is not modelled")
+            return None
+        if op == emu.OP_OUT:
+            dst, count = (w >> 5) & 7, w & 31
+            if dst != emu.OUT_DST["isr"] or count != 0:
+                raise emu.Fail("only out isr, 32 is modelled")
+            self.isr = self.osr          # a count of 0 is 32 bits
             return None
         raise emu.Fail(f"instruction {w:#06x} is not modelled")
 
@@ -130,9 +139,14 @@ def main():
         print("backlight: pioasm assembles the same words")
     prog = progs["backlight"]
     m = Machine(prog)
-    # st7789Init(): 255 into the ISR through the OSR.
-    m.osr = 255
-    m.isr = m.osr
+    # st7789Init(): 255 into the FIFO, then the forced pull noblock and
+    # out isr, 32 that it runs through pio_sm_exec() before the enable.
+    m.fifo = [255]
+    m.execute((emu.OP_PUSHPULL << 13) | (1 << 7))                 # pull noblock
+    m.execute((emu.OP_OUT << 13) | (emu.OUT_DST["isr"] << 5))     # out isr, 32
+    if m.isr != 255 or m.fifo:
+        print(f"init: ISR {m.isr}, FIFO {m.fifo}  FAIL")
+        return 1
     fails = 0
     for level in list(range(256)) + [0, 255, 128]:
         m.fifo = [level_word(level)]
@@ -146,8 +160,26 @@ def main():
             print(f"level {level:3}: period {lengths} high {highs} duty {duty:.4f}"
                   f"{'' if ok else '  FAIL'}")
         fails += not ok
-    print(f"backlight: {len(prog.words)} words, 259 levels, "
-          f"{'all pass' if not fails else f'{fails} fail'}")
+    # A level written in the middle of a period, as st7789SetBacklight()
+    # writes it (the FIFO cleared, then the word): the next period is the new
+    # level.
+    writes = 0
+    for old, new in ((40, 200), (200, 0), (0, 128), (255, 1)):
+        for at in (1, 100, 257, 400, 514):
+            m.fifo = [level_word(old)]
+            measure(m, 2)
+            for _ in range(at):
+                m.step()
+            m.fifo = [level_word(new)]
+            lengths, highs = measure(m, 1)
+            ok = highs[0] == 2 * new and lengths[0] == (PERIOD_ON if new else PERIOD_OFF)
+            if verbose or not ok:
+                print(f"{old:3} -> {new:3} at cycle {at:3}: high {highs[0]}"
+                      f"{'' if ok else '  FAIL'}")
+            fails += not ok
+            writes += 1
+    print(f"backlight: {len(prog.words)} words, 259 levels and {writes} writes "
+          f"mid-period, {'all pass' if not fails else f'{fails} fail'}")
     return 1 if fails else 0
 
 

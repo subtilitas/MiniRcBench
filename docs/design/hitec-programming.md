@@ -254,8 +254,8 @@ pio1 holds the SDIO driver's 32 words ([pin-claim.md](pin-claim.md#pio-and-dma-b
 
 | | Words | SMs | DMA channels | Block |
 |---|---|---|---|---|
-| Hitec line | 30 of 32, one copy per open line | 1 | 2 | pio2 or pio0, the first with room that reaches the pin |
-| PRECHARGE sampler | 7 at 150 MHz, 12 at most | 1 | 1 | the other of pio2 and pio0 |
+| Hitec line | 30 of 32, one copy per open line | 1 | 2 | pio2; pio0 has 26 words free beside the backlight |
+| PRECHARGE sampler | 7 at 150 MHz, 12 at most | 1 | 1 | pio0, beside the backlight |
 | SDIO, from the first card initialisation | 32 | 2 | 2 | pio1 |
 | Panel | 0 | 0 | 1 | |
 | Backlight | 6 | 1 | 0 | pio0 |

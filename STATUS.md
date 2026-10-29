@@ -121,7 +121,7 @@ PIO (programmable input/output) blocks: three, each with 4 state machines and
 
 | Block | Use |
 | --- | --- |
-| pio0 | free |
+| pio0 | backlight on GP16, 20 kHz (`src/backlight.pio`): 1 state machine, 6 of 32 instructions |
 | pio1 | SDIO (Secure Digital input/output) card driver in `src/sdio/`: 2 state machines, 32 of 32 instructions, plus 2 DMA channels and no interrupt (`src/sd_hw_config.c`) |
 | pio2 | DShot transmitter and receiver on adjacent state machines, 16 instructions; KISS receiver when KISS is on, 1 state machine, 9 instructions |
 
@@ -132,8 +132,7 @@ release, so it always finds a block with no other user. A `static_assert` in
 block: 3 state machines and 25 of 32 instructions. A bind that cannot get two
 adjacent state machines is refused, and the status bar then shows `DSERR`.
 
-PIO: a state machine on pio0 drives the backlight (GP16) at 20 kHz, 6 words.
-PWM slices: none for the backlight. Slice 6 carries the servo
+PWM slices: slice 6 carries the servo
 pulses during a SERVO claim, GP29 on channel B and GP28 on channel A, one
 frame rate for both, its counter at 1 MHz. The servo tester uses no PIO and
 no DMA.
@@ -465,7 +464,7 @@ with `-Werror`; `pioemu` runs `test/pio_sdio_emu.py`, the SDIO PIO programs
 assembled from `src/sdio/sd_pio.pio` and run one system clock at a time
 against a card model, 18 runs over three clock rates, three card output
 delays and two card latencies, and `test/pio_backlight_emu.py`, the backlight
-PIO program at every level from 0 to 255, and `make` runs both; `bbcheck` encodes 2000 frames and decodes them with
+PIO program at every level from 0 to 255 and on 20 writes mid-period, and `make` runs both; `bbcheck` encodes 2000 frames and decodes them with
 Betaflight's `blackbox_decode`; `kstcount` runs `src/kst_files.cpp` over
 FatFs R0.15 from the SD library's pinned commit, fetched into `test/obj/`, on
 a RAM disk that counts blocks, and checks the table in

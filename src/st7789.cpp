@@ -158,7 +158,8 @@ void st7789Init() {
 	// the PWM (backlight.pio) and leaves the slices to the servo outputs. pio0
 	// holds nothing else outside a claim (docs/design/pin-claim.md, "PIO and
 	// DMA budget"). A period is 516 cycles, so the divider is
-	// 150e6 / (20e3 * 516) = 14.5.
+	// 150e6 / (20e3 * 516) = 14.5. Level L is 2 * L of 516 cycles high:
+	// 255 gives 98.8 %.
 	s_blSm = (unsigned)pio_claim_unused_sm(pio0, true);
 	unsigned off = pio_add_program(pio0, &backlight_program);
 	pio_gpio_init(pio0, g_board->lcdBl);
