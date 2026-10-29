@@ -100,7 +100,7 @@ The pin map is `src/board_rp2350_touch_lcd_2_8.h`.
 | Function | GPIO | Notes |
 |---|---|---|
 | LCD (liquid-crystal display) SCK / MOSI / CS / DC / RST | 10 / 11 / 13 / 14 / 15 | SPI1. SCK is serial clock, MOSI master out, slave in, CS chip select, DC data/command, RST reset. GP12 is the panel's MISO (master in, slave out) line, wired and not used |
-| LCD backlight | 16 | NPN (negative-positive-negative) transistor as low-side switch, PWM at 20 kHz, 8-bit |
+| LCD backlight | 16 | NPN (negative-positive-negative) transistor as low-side switch, 20 kHz, 8-bit, from a PIO state machine on pio0 (`src/backlight.pio`), so PWM slice 0 stays free |
 | Touch + IMU + RTC I2C SDA / SCL | 6 / 7 | I2C1, **shared bus** (touch 0x1A, IMU 0x6B, RTC 0x51). SDA is serial data, SCL serial clock |
 | Touch INT / RESET | 18 / 17 | Interrupt, active low. The touch reset is a net of its own, separate from LCD_RST |
 | microSD CLK / CMD / D0–D3 | 19 / 20 / 21–24 | 4-bit SDIO (Secure Digital Input/Output) on PIO, blackbox logging, see below. CLK is clock, CMD command, D0–D3 the data lines |
@@ -1562,6 +1562,16 @@ model, not proof of hardware timing. It has no analogue behaviour and no trace
 delay, its DMA is ideal, it has one card model and no card initialisation, and
 its host side follows `sd_pio.c` by hand. The Firmware job in CI holds its
 assembler to the SDK's `pioasm`.
+
+`make pioemu` also runs `test/pio_backlight_emu.py`. It assembles
+`src/backlight.pio` with the same assembler and runs it one state machine
+cycle at a time for every level from 0 to 255, set up as `st7789Init()` sets
+it up: the period is 516 cycles (515 at level 0, 20 kHz at a divider of
+14.5), the pin is high for 2 × level cycles, and a level written into the
+running machine, at a period's start or at 5 points inside one, takes effect
+at the next period. It runs the init's forced `pull noblock` and
+`out isr, 32` too. The Firmware job holds its
+words to `pioasm` too.
 
 ### Continuous integration
 

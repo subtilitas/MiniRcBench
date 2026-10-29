@@ -1,0 +1,28 @@
+;
+; backlight.pio -- the panel backlight's 20 kHz PWM from one state machine.
+;
+; The backlight transistor is on GP16, which is PWM slice 0, channel A, the
+; same slice and channel as GP0. A state machine leaves the PWM slices to the
+; servo outputs.
+;
+; A period is 256 loops of 2 cycles plus 3 cycles of overhead, and 1 more
+; cycle at the count where the pin goes high: 516 cycles at a level above 0,
+; 515 at level 0.
+; The pin is high from the loop whose count equals X down to count 0, so a
+; level L written as X = L - 1 gives L of 256 loops high. X = 0xFFFFFFFF
+; never matches a count, so the pin stays low: level 0. Y is reloaded each
+; period from the ISR, which init loads once with 255.
+
+.program backlight
+.side_set 1 opt
+
+.wrap_target
+    pull noblock    side 0  ; a new level, or the last one: an empty FIFO copies X
+    mov x, osr              ; X = the level's last count before high
+    mov y, isr              ; Y = 255, counted down to 0
+count:
+    jmp x!=y low            ; not yet at the level: the pin stays as it is
+    nop             side 1  ; at the level: high to the end of the period
+low:
+    jmp y-- count
+.wrap

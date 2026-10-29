@@ -3,7 +3,7 @@
 #   make          syntax-check, build and run
 #   make build    build only
 #   make syntax   typecheck the device-only sources
-#   make pioemu   run the SDIO PIO programs in a cycle-level model
+#   make pioemu   run the SDIO and backlight PIO programs in cycle-level models
 #   make bbcheck  round-trip a log through the upstream blackbox_decode
 #   make previews rebuild the screenshots in docs/ from this run's frames
 #   make wiki     rebuild the wiki's screenshots and check its links
@@ -184,6 +184,7 @@ syntax:
 # script's docstring lists what it covers and what it does not.
 pioemu:
 	python3 pio_sdio_emu.py --cc "$(CC)"
+	python3 pio_backlight_emu.py
 
 # Round-trip a generated log through the upstream decoder.
 #

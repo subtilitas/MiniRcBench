@@ -43,6 +43,28 @@ void sm_config_set_in_shift(pio_sm_config *c, bool shift_right, bool autopush,
                             uint push_threshold);
 void sm_config_set_fifo_join(pio_sm_config *c, enum pio_fifo_join join);
 void sm_config_set_clkdiv(pio_sm_config *c, float div);
+void sm_config_set_sideset_pins(pio_sm_config *c, uint sideset_base);
+
+enum pio_src_dest {
+	pio_pins = 0u,
+	pio_x = 1u,
+	pio_y = 2u,
+	pio_null = 3u,
+	pio_pindirs = 4u,
+	pio_exec_mov = 4u,
+	pio_status = 5u,
+	pio_pc = 5u,
+	pio_isr = 6u,
+	pio_osr = 7u,
+	pio_exec_out = 7u,
+};
+int pio_claim_unused_sm(PIO pio, bool required);
+uint pio_add_program(PIO pio, const pio_program_t *program);
+uint pio_encode_pull(bool if_empty, bool block);
+uint pio_encode_out(enum pio_src_dest dest, uint count);
+void pio_sm_exec(PIO pio, uint sm, uint instr);
+void pio_sm_put(PIO pio, uint sm, uint32_t data);
+void pio_sm_put_blocking(PIO pio, uint sm, uint32_t data);
 
 void pio_gpio_init(PIO pio, uint pin);
 void pio_sm_set_consecutive_pindirs(PIO pio, uint sm, uint pin_base, uint pin_count,

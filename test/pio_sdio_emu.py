@@ -231,8 +231,8 @@ def encode(prog, mnem, ops, side, delay, line):
     raise Fail(f"line {line}: instruction '{mnem}' is not modelled")
 
 
-def assemble(path):
-    """Programs of a .pio file, by name."""
+def assemble(path, expect=("sdpio_cmd", "sdpio_dat")):
+    """Programs of a .pio file, by name; @p expect names the programs it must hold."""
     progs, prog = {}, None
     for n, raw in enumerate(path.read_text().splitlines(), 1):
         text = re.split(r";|//", raw, maxsplit=1)[0].strip()
@@ -286,10 +286,10 @@ def assemble(path):
             p.wrap_target = 0
         if p.wrap is None:
             p.wrap = len(p.words) - 1
-    if set(progs) != {"sdpio_cmd", "sdpio_dat"}:
-        raise Fail(f"{path} defines {sorted(progs)}, not sdpio_cmd and sdpio_dat")
+    if set(progs) != set(expect):
+        raise Fail(f"{path} defines {sorted(progs)}, not {' and '.join(expect)}")
     if sum(len(p.words) for p in progs.values()) > 32:
-        raise Fail("the two programs do not fit one PIO block")
+        raise Fail("the programs do not fit one PIO block")
     return progs
 
 

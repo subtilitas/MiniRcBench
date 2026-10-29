@@ -270,6 +270,7 @@ include(src/hitec.cmake)
 # also puts that directory on the include path so `#include "pio_uart_rx.pio.h"`
 # resolves.
 pico_generate_pio_header(MiniRcBench ${CMAKE_CURRENT_LIST_DIR}/src/pio_uart_rx.pio)
+pico_generate_pio_header(MiniRcBench ${CMAKE_CURRENT_LIST_DIR}/src/backlight.pio)
 # The DShot transmitter and receiver, assembled the same way into dshot.pio.h.
 pico_generate_pio_header(MiniRcBench ${CMAKE_CURRENT_LIST_DIR}/src/dshot/dshot.pio)
 

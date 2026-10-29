@@ -249,19 +249,20 @@ RESTART DSHOT.
 
 During a claim the DShot pump and the KISS (the KISS ESC line's serial
 telemetry) receiver have released their
-SMs, so pio2 is empty, pio0 is empty, and pio1 holds the SDIO driver's
-32 words ([pin-claim.md](pin-claim.md#pio-and-dma-budget)).
+SMs, so pio2 is empty, pio0 holds the backlight's 6 words and 1 SM, and
+pio1 holds the SDIO driver's 32 words ([pin-claim.md](pin-claim.md#pio-and-dma-budget)).
 
 | | Words | SMs | DMA channels | Block |
 |---|---|---|---|---|
-| Hitec line | 30 of 32, one copy per open line | 1 | 2 | pio2 or pio0, the first with room that reaches the pin |
-| PRECHARGE sampler | 7 at 150 MHz, 12 at most | 1 | 1 | the other of pio2 and pio0 |
+| Hitec line | 30 of 32, one copy per open line | 1 | 2 | pio2; pio0 has 26 words free beside the backlight |
+| PRECHARGE sampler | 7 at 150 MHz, 12 at most | 1 | 1 | pio0, beside the backlight |
 | SDIO, from the first card initialisation | 32 | 2 | 2 | pio1 |
 | Panel | 0 | 0 | 1 | |
+| Backlight | 6 | 1 | 0 | pio0 |
 
 With PRECHARGE the line takes 2 SMs and 3 DMA channels. With the SDIO
-driver initialised and the panel's channel that is 4 of 12 SMs and 6 of
-16 DMA channels. No other core1 job runs during the claim. No interrupt and
+driver initialised, the backlight and the panel's channel that is 5 of 12
+SMs and 6 of 16 DMA channels. No other core1 job runs during the claim. No interrupt and
 no PIO interrupt flag is used. `clk_sys` stays at 150 MHz while a line is
 open, as rcbench requires: the classic divider is exact (488 + 72/256), the
 D series one 0.002 % short (81 + 97/256), and rcbench accepts 0.05 %.

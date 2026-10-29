@@ -66,11 +66,10 @@ static_assert(DSHOT_PIN_LCD_2_8 != KISS_PIN_LCD_2_8,
  * The servo tester drives the two free pins from the RP2350's PWM slices. For
  * GP0 to GP31 the slice is (gpio >> 1) & 7 and the channel is gpio & 1, A for
  * an even GPIO and B for an odd one (PWM_GPIO_SLICE_NUM in Pico SDK 2.1.1).
- * Three rules follow, and a board whose free pins break one fails here.
- * @see docs/design/pin-claim.md
+ * Two rules follow, and a board whose free pins break one fails here. The
+ * backlight on GP16, slice 0, runs from PIO (backlight.pio), so slice 0 is
+ * free for the servo outputs. @see docs/design/pin-claim.md
  *
- * - No free pin is on the backlight's slice: pwm_init() on that slice would
- *   retime the backlight. GP16 is slice 0, with GP0, GP1 and GP17.
  * - All free pins are on one slice. A slice has one wrap register, so two
  *   servos run at one frame rate.
  * - At most one free pin per channel of that slice. A channel is one compare
@@ -80,13 +79,6 @@ static_assert(DSHOT_PIN_LCD_2_8 != KISS_PIN_LCD_2_8,
  */
 /** @brief PWM slice of a GPIO below 32. */
 static constexpr unsigned pwmSliceOf(unsigned gpio) { return (gpio >> 1) & 7u; }
-
-/** @brief True if no GPIO in @p mask is on PWM slice @p slice. */
-static constexpr bool maskClearOfSlice(uint32_t mask, unsigned slice) {
-	for (unsigned g = 0; g < 32; g++)
-		if (((mask >> g) & 1u) && pwmSliceOf(g) == slice) return false;
-	return true;
-}
 
 /** @brief True if every GPIO in @p mask is on PWM slice @p slice. */
 static constexpr bool maskOnSlice(uint32_t mask, unsigned slice) {
@@ -103,8 +95,6 @@ static constexpr unsigned maskOnChannel(uint32_t mask, unsigned chan) {
 	return n;
 }
 
-static_assert(maskClearOfSlice(BOARD_FREE_GPIO_MASK, pwmSliceOf(PIN_LCD_BL)),
-              "a free GPIO is on the backlight's PWM slice");
 static_assert(maskOnSlice(BOARD_FREE_GPIO_MASK, pwmSliceOf(DSHOT_PIN_LCD_2_8)),
               "the free GPIOs are not on one PWM slice");
 static_assert(maskOnChannel(BOARD_FREE_GPIO_MASK, 0) <= 1 &&
