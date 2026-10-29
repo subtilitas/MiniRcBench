@@ -259,6 +259,7 @@ static void testFamily() {
 	checkTrue("CLASSIC disabled with NONE", !ctlEnabled(UI_FIX(HitecCtl::Classic)));
 	checkTrue("D SERIES acts", ctlEnabled(UI_FIX(HitecCtl::DSeries)));
 	checkControlTable("Hitec family");
+	fakeDumpFrame("shot_hitec_family.ppm");
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
 	tapId(UI_FIX(UI_BACK));
@@ -270,7 +271,7 @@ static void testFamily() {
 	uiHitecSetClassicMeasured(true);
 	hitecFrames(1);
 	checkTrue("measured and GP0: CLASSIC acts", ctlEnabled(UI_FIX(HitecCtl::Classic)));
-	fakeDumpFrame("shot_hitec_family.ppm");
+	fakeDumpFrame("shot_hitec_family_classic.ppm");
 	leaveAll();
 	uiHitecSetClassicMeasured(false);
 }
@@ -519,6 +520,25 @@ static void testFiles() {
 	checkTrue("the restore ends", untilCtl(UI_FIX(HitecCtl::WriteOk), 800));
 	checkInt("the servo is back to the backup", jobSpeed(), before);
 	tapId(UI_FIX(HitecCtl::WriteOk));
+	leaveAll();
+}
+
+static void testRcbenchName() {
+	section("Hitec screen: a file of rcbench's name in FILES");
+	freshHitec(HITEC_D, false);
+	fakeFatMkdir("HITEC");
+	hitec_image_t d;
+	d485(&d);
+	char text[HITEC_CARD_FILE_MAX];
+	size_t n = hitec_card_file_text(&d, text, sizeof(text));
+	fakeFatPut("HITEC/HITEC001.TXT", text, n);
+	checkTrue("the field list", toList(HITEC_D));
+	tapId(UI_FIX(HitecCtl::Files));
+	checkTrue("the file's row reads its name whole, without .TXT",
+	          lineIs(UI_BODY_Y + 16, "HITEC001", C_DIM));
+	tapId(UI_ROW(0, Row));
+	tapId(UI_FIX(HitecCtl::Load));
+	checkTrue("it loads", uiHitecView() == HitecView::List);
 	leaveAll();
 }
 
@@ -859,6 +879,7 @@ void runHitecUiTests() {
 	testFlushWait();
 	testWriteError();
 	testFiles();
+	testRcbenchName();
 	testNoCardWrite();
 	testRecordAtEntry();
 	testClassic();

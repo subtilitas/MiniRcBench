@@ -2,7 +2,7 @@
 
 # Die Bildschirme
 
-Die Firmware hat sieben Bildschirme. Der Tester ist die Wurzel. `MENU` öffnet
+Die Firmware hat acht Bildschirme. Der Tester ist die Wurzel. `MENU` öffnet
 die Liste der Werkzeuge, und jedes Werkzeug verlässt du mit `BACK`, das zu
 `MENU` zurückführt.
 
@@ -10,6 +10,8 @@ die Liste der Werkzeuge, und jedes Werkzeug verlässt du mit `BACK`, das zu
 Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MENU
    ▲                    ├── SERVO TESTER ──BACK──> Abziehseite ──> MENU
    │                    ├── KST SERVO    ──BACK──> Verlassenseite ──> Abziehseite ──> MENU
+   │                    ├── HITEC SERVO  ──BACK──> Verlassenseite ──> Abziehseite ──> MENU
+   │                    │   (in der Familienauswahl führt BACK zu MENU; während des Eintritts zur Abziehseite)
    │                    ├── SD LOG       ──BACK──> MENU
    │                    └── SETTINGS     ──BACK──> MENU
    └──── BACK auf MENU ─┘
@@ -75,8 +77,14 @@ jeden ESC, der zu antworten beginnt, und wiederholt sie jede Sekunde, solange
 eRPM eintrifft und EDT nicht. Der ESC bestätigt die Freigabe nicht, daher zeigt
 das Feld *empfangene Frames*, nicht gesendete Befehle.
 
-Unter der Leiste steht eine Liste mit Zeilen von 40 px Höhe. Jede Zeile zeigt
-links ihren Namen und rechts ihren Zustand. `BACK` führt zum Tester zurück.
+Unter der Leiste steht eine Liste mit sieben Zeilen von 40 px Höhe und 42 px
+Abstand. Jede Zeile zeigt links ihren Namen und rechts ihren Zustand. `BACK`
+führt zum Tester zurück.
+
+**Verschieben.** Sechs Zeilen passen auf den Bildschirm. Von der siebten,
+SETTINGS, sind zuerst nur 6 px sichtbar. Ziehe MENU um 36 px nach oben, um
+SETTINGS ganz zu sehen; erst dann nimmt die Zeile ein Tippen an. Ein 3 px
+breiter Rollbalken am rechten Rand zeigt die Lage.
 
 | Zeile | Zustand rechts | Ein Tippen |
 |---|---|---|
@@ -84,16 +92,17 @@ links ihren Namen und rechts ihren Zustand. `BACK` führt zum Tester zurück.
 | **AM32 CONFIG** | der ESC-Pin, `GP29`; `PINS BUSY` | Öffnet den AM32-Editor |
 | **SERVO TESTER** | die beiden Signalpins, `GP29+28`; `PINS BUSY` | Öffnet den Servotester |
 | **KST SERVO** | der ESC-Pin, `GP29`; `PINS BUSY` | Öffnet den KST-Programmierer. Siehe [KST-Programmierung](KST-Programmierung) |
+| **HITEC SERVO** | der ESC-Pin, `GP29`; `PINS BUSY` | Öffnet den Hitec-Programmierer. Siehe [Hitec-Programmierung](Hitec-Programmierung) |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, oder `USB DRIVE`, solange ein Computer die Karte hält | Öffnet den Aufzeichnungs-Bildschirm |
 | **SETTINGS** | `UNSAVED`, solange ein Wert vom Flash abweicht, sonst nichts; `PINS BUSY`, solange die Pins noch zurückgegeben werden, und öffnet sich nicht | Öffnet SETTINGS |
 
 `PINS BUSY` heißt, dass die Signalpins noch belegt sind, zum Beispiel während
-DShot nach dem Servotester oder dem KST-Programmierer neu startet. AM32 CONFIG,
-SERVO TESTER, KST SERVO und SETTINGS zeigen es, und ein Tippen auf eine solche
-Zeile öffnet nichts. Die Zeile zeigt ihre Pins wieder, sobald DShot läuft.
+DShot nach dem Servotester, dem KST-Programmierer oder dem Hitec-Programmierer
+neu startet. AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO und SETTINGS
+zeigen es, und ein Tippen auf eine solche Zeile öffnet nichts. Die Zeile zeigt ihre Pins wieder, sobald DShot läuft.
 SD LOG belegt keinen Pin und bleibt bedienbar.
 
-<img src="img/menu-pins-busy.png" width="240" alt="MENU, während die Pins zurückgegeben werden: PINS BUSY bei AM32 CONFIG, SERVO TESTER, KST SERVO und SETTINGS">
+<img src="img/menu-pins-busy.png" width="240" alt="MENU nach oben gezogen, während die Pins zurückgegeben werden: PINS BUSY bei AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO und SETTINGS">
 
 BEEP funktioniert nur im entschärften Zustand, und das Öffnen von `MENU`
 entschärft, daher ist es von hier aus immer erlaubt. Der Befehl dauert 6 ms
@@ -127,7 +136,7 @@ Abschnitten, die sich mit dem Finger verschieben lässt.
 | WIRING | **DSHOT KBAUD** | 150 / 300 / 600 / 1200. Herunterstellen, wenn die `LINK`-Fehlerrate steigt |
 | WIRING | **KISS TELEM** | Ob auf dem optionalen dritten Telemetriekabel empfangen wird |
 | WIRING | **KISS PIN** | GPIO für dieses Kabel. Überspringt den ESC-Pin, sodass beide nie zusammenfallen. Zeigt `--` und reagiert nicht, solange KISS TELEM aus ist |
-| SERVO SUPPLY | **SERVO SUPPLY** | `NONE` oder `GP0`: ob ein DC-DC-Wandler für die Versorgung des KST-Servos seinen Enable-Eingang an GP0, J5 Pin 2, hat. Standard ist `NONE`. Mit `GP0` schaltet KST SERVO die Versorgung des Servos |
+| SERVO SUPPLY | **SERVO SUPPLY** | `NONE` oder `GP0`: ob ein DC-DC-Wandler (Gleichspannungswandler) für die Versorgung eines zu programmierenden Servos seinen Enable-Eingang an GP0, J5 Pin 2, hat. Standard ist `NONE`. Mit `GP0` schalten KST SERVO und HITEC SERVO die Versorgung des Servos |
 | DISPLAY | **CONTRAST** | `NORMAL` oder `HIGH`. Hoher Kontrast ist für Tageslicht |
 | DISPLAY | **BACKLIGHT** | 16–255, in Schritten von 32 |
 | BOARD | **BUILT FOR** | Nur Anzeige. Die Platine, für die die Firmware gebaut ist, `RP2350-TOUCH-LCD-2.8` |
@@ -211,6 +220,23 @@ von 1 s schreibt, zuvor mit einer Sicherung auf der SD-Karte. `BACK` öffnet
 die Verlassenseite, die dich auffordert, das Servo auszuschalten; `LEAVE`
 zeigt dann `UNPLUG THE SERVO.`, und `RESTART DSHOT` führt zu `MENU`. Siehe
 [KST-Programmierung](KST-Programmierung).
+
+---
+
+## HITEC SERVO
+
+<img src="img/hitec-list.png" width="240" alt="Die Hitec-Feldliste">
+
+Liest und schreibt die Einstellungen eines Hitec-Servos der D-Serie über das
+Signalkabel am ESC-Pin. Der Bildschirm öffnet mit der Familienauswahl:
+`D SERIES` wirkt, `CLASSIC` ist mit `LINE LEVEL NOT MEASURED` abgeblendet. Er
+tritt in das Servo ein, liest seine 21 Register und listet 20 Parameter, davon 11
+verstellbar. An der Leitung hängt ein Servo, ohne Pull-up-Widerstand.
+`HOLD TO WRITE` 1 s lang gehalten öffnet die Schreibseite, ein zweites Halten
+von 1 s schreibt, zuvor mit einer Sicherung auf der SD-Karte. `BACK` öffnet
+die Verlassenseite; `LEAVE` zeigt dann `UNPLUG THE SERVO.`, und
+`RESTART DSHOT` führt zu `MENU`. Nicht auf Hardware getestet. Siehe
+[Hitec-Programmierung](Hitec-Programmierung).
 
 ---
 

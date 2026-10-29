@@ -23,8 +23,10 @@ same two signal pins, with manual position, sweep and two servos at once (see
 [Servo tester](#servo-tester); design note `docs/design/servo-tester.md`).
 It programs KST and Chaservo servos on the ESC pin (see
 [KST servo programming](#kst-servo-programming); design note
-`docs/design/kst-programming.md`). The AM32 editor, the servo tester and the
-KST programmer take the pins through the pin claim of
+`docs/design/kst-programming.md`), and Hitec D series servos (see
+[Hitec servo programming](#hitec-servo-programming); design note
+`docs/design/hitec-programming.md`). The AM32 editor, the servo tester and
+the two servo programmers take the pins through the pin claim of
 `docs/design/pin-claim.md`.
 
 ![UI preview](docs/ui-preview.png)
@@ -350,6 +352,7 @@ tester. Every tool's **BACK** returns to MENU.
 | **AM32 CONFIG** | the ESC pin, `GP29`; `PINS BUSY` | Opens the ESC settings editor. See [AM32 ESC configuration](#am32-esc-configuration) |
 | **SERVO TESTER** | the signal pins, `GP29+28`; `PINS BUSY` | Opens the servo tester. See [Servo tester](#servo-tester) |
 | **KST SERVO** | the ESC pin, `GP29`; `PINS BUSY` | Opens the KST servo programmer. See [KST servo programming](#kst-servo-programming) |
+| **HITEC SERVO** | the ESC pin, `GP29`; `PINS BUSY` | Opens the Hitec servo programmer. See [Hitec servo programming](#hitec-servo-programming) |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a USB host holds the card | Opens the logging status. See below |
 | **SETTINGS** | `UNSAVED` while the live settings differ from flash, else nothing; `PINS BUSY` while the pin claim is not Free, drawn disabled | Opens SETTINGS: the tester, the wiring, the KST servo supply, the display. See below |
 
@@ -362,8 +365,9 @@ tester. Every tool's **BACK** returns to MENU.
   pins. While the claim is not free, for example after RESTART DSHOT until
   the DShot pump runs again, the row reads `PINS BUSY` in amber and a tap
   opens nothing.
-- **Rows**: six rows fit the screen without scrolling. A seventh makes MENU
-  scroll by 36 px, with a 3 px scroll bar at x 235.
+- **Rows**: six rows fit the screen without scrolling. MENU holds seven, so
+  it scrolls by 36 px, with a 3 px scroll bar at x 235: SETTINGS shows 6 px
+  until MENU is dragged up, and takes a tap only then.
 
 **SD LOG screen**
 
@@ -1104,15 +1108,183 @@ reads `READ ONLY: UNKNOWN LAYOUT`.
 
 ---
 
+## Hitec servo programming
+
+**MENU → HITEC SERVO** reads and writes the settings of a Hitec D series
+servo over its signal wire, on SIG (GP29). The protocol code is rcbench's
+(`lib/rcbench/protocols/hitec/`): its session, register model, wire and PIO
+(programmable I/O) line driver. D series frames run at 115,200 bit/s, half
+duplex, and the bench receives the servo's answer without a pull-up
+resistor (PRECHARGE: the pin lifts the line for 100 ns before each sample).
+The classic family (HS-5xxx, HS-7xxx) is in the code and stays disabled:
+see [Classic servos](#classic-servos). Not tested on hardware: no byte of
+the line driver has been on a pin of this board, and no write plan of
+rcbench's has run on a servo. Design note:
+`docs/design/hitec-programming.md`.
+
+![Hitec servo programming](docs/hitec-preview.png)
+
+### Wiring
+
+As for KST: the servo on its own supply, signal on SIG, the grounds joined
+once at the board. **One servo on the lead**: every frame goes to ID 0,
+and every D series servo on the line takes a frame sent to ID 0.
+
+```
+  servo supply, 5 V
+     +  ----/ switch /--------------------------------  servo +   (red, middle)
+     -  ----------------+-----------------------------  servo -   (brown or black)
+                        |
+  board GND  -----------+
+  board SIG  ------------------------------------------  servo signal (orange or white)
+
+  SIG GP29 = J4 pin 12, GND = J4 pin 1 or 5
+```
+
+- No pull-up resistor on the signal wire: the bench's PRECHARGE receive
+  needs none, and rcbench's PULL-UP receive is not offered.
+- With SETTINGS → SERVO SUPPLY at `GP0`, the bench powers the servo through
+  the converter of the [KST switched supply](#kst-servo-programming) and
+  power-cycles it for the entry. **An ESC on this lead gets the converter's
+  output on its BEC wire**, its own regulated supply; the claim's ESC check
+  sees only an ESC that answers bidirectional DShot.
+- rcbench's runs used a 5.0 V servo supply. Other supplies are not tested,
+  and nothing has run on this board.
+
+### Using it
+
+1. Open HITEC SERVO and tap D SERIES. Nothing is claimed before the
+   choice. The screen claims SIG and enters: with `GP0` it switches the
+   supply off for 2.0 s and on again, the strip counting `SUPPLY OFF 1.4 S`,
+   then waits for the servo's start, about 1 s; with `NONE` it reads the
+   servo at once on the supply it has.
+2. The screen reads the 21 registers, `READING 21 REGISTERS`, `7 OF 21`, and
+   keeps this first full read as the session's backup. A servo that does
+   not answer gives `NO SERVO ANSWERS` with the decoder's word, for example
+   `REPLY: SILENT`, and RETRY.
+3. The field list shows rcbench's 20 parameters in four groups: MOTION,
+   TRAVEL, PROTECT and INFO. Each value shows its unit and the stored value
+   in brackets, `90 % (18)`; the counts of NEUTRAL, the ends and POSITION,
+   ID, SENSITIVITY and the INFO numbers show no bracket. A stored value no
+   encoding takes reads `RAW 1234` in amber. Read-only rows are dim and cannot be selected. A tap
+   selects a row; - and + step it to the next value the encoding takes, and
+   a sideways swipe steps it by an eleventh of its range. LEFT END stays
+   below NEUTRAL, below RIGHT END. A value that breaks one of rcbench's seven
+   soft rules, for example SPEED below 30 %, is taken with an amber mark and
+   the rule's text. Reversing DIRECTION mirrors NEUTRAL and both ends, as
+   Hitec's programmer does.
+4. ID edits the servo's own ID. The bench addresses ID 0 whatever the
+   servo holds, and whether a servo with another ID still answers ID 0 is
+   not measured: the editor bar and the write page say
+   `THE BENCH ADDRESSES ID 0. ANOTHER ID IS NOT TESTED.`
+5. HOLD TO WRITE (1 s) opens the write page: the changes, their soft rules
+   and where the backup goes, and `KEEP THE SERVO HORN CLEAR.` on the
+   session's first write and on a write that moves DIRECTION, NEUTRAL or an
+   end point. A second 1 s hold
+   writes. Before the first frame of the session's first write with a card
+   mounted, the backup goes to the card as `BACKUP/HTnnn.TXT`; before every
+   write, the servo as it is and the target go to `HITEC/HITEC.TXT` as the
+   record of the write. The write sends the changed registers 20 ms apart,
+   saves, reboots the servo (1.0 s) and reads all 21 registers back: about
+   1.7 s for one setting, computed from rcbench's timings and not measured.
+   The page reads `WRITES SENT: 2 OF 4`, then `READING BACK`. A verified
+   write removes its record.
+6. BACK from the list opens the leave page. LEAVE with `GP0` switches the
+   supply off; the unplug page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`
+   until the line closes. With `NONE`, LEAVE restarts the servo from its
+   saved values. RESTART DSHOT returns to MENU. READ AGAIN on the leave page
+   reads the servo again and keeps the pending changes.
+7. With `GP0` the supply is on only while the screen runs. A screen that
+   stalls for 250 ms switches it off: at once during the entry, else once
+   a running read or write has ended. The page then reads
+   `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF.` with
+   RETRY.
+
+| Result | Colour | Meaning |
+|---|---|---|
+| `n VALUES WRITTEN AND VERIFIED.` | green | The servo holds the new values |
+| `NOTHING WAS WRITTEN ...` | amber | No frame reached the servo |
+| `THE SERVO DOES NOT HOLD THE VALUES: 0x54. READ AND CHECK.` | red | The read-back differs at the named registers |
+| `THE WRITE STOPPED AT STEP 2 OF 4. READ THE SERVO BEFORE A WRITE.` | red | Part of the plan ran; the servo state is not known |
+| `ALL WRITES SENT; READ-BACK FAILED. ...` | red | Every write went out and the read-back did not end |
+
+After a write that failed once frames had gone out, the image no longer
+holds the registers the write touched: the write button reads READ AGAIN
+until a read fills them.
+
+**FILES** lists the record `HITEC/HITEC.TXT` first when one is there, then
+the Hitec backups of `BACKUP/`, the latest first, then the `.TXT` files of
+`HITEC/` by name without case, at most 64. SAVE AS writes the servo as last
+read into `HITEC/` under the next free `HTnnn`, never over a file, and
+refuses once `HITEC/` holds 50 `.TXT` files, the record left out. LOAD puts
+the file's writable values into the list as pending changes; a file of the
+other family or of another layout is refused:
+`NOT A FILE FOR THIS SERVO: CLASSIC`. A file of another model of the same
+layout loads, and the write page names it. The files are rcbench's servo
+file text with a CRC-16 (cyclic redundancy check) line, so a file from
+rcbench's card loads once copied into `HITEC/`, and a file edited by hand
+does not. HOLD TO RESTORE writes the session's backup back.
+
+Without a card, or with the card held by a USB host, the backup stays in
+memory, and reading, editing and writing still work. A card that is
+mounted but takes neither the backup nor the record stops the write before
+any frame: `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.` With a
+card mounted at the screen's opening, the card's writes queue in memory, as
+for KST, and the servo is written only once the card holds the files.
+
+A record left by an interrupted write is named while the screen enters and
+reads the servo: `A WRITE WAS INTERRUPTED. HITEC/HITEC.TXT HOLDS THE SERVO AS IT WAS.`
+LOAD of the record puts that servo back into the list. The session's first
+write moves the record into the ring of `BACKUP/` before it writes its own.
+
+A model rcbench has not measured is read and written in the D series
+layout, and the write page says so in amber:
+`MODEL NOT MEASURED: WRITTEN IN THE D LAYOUT.` The measured D series model
+is the D485HW.
+
+### Classic servos
+
+HITEC SERVO lists CLASSIC (HS-5xxx, HS-7xxx) disabled, with
+`LINE LEVEL NOT MEASURED`. A classic servo drives the signal line high
+itself, through about 1 kΩ, and the voltage it drives is not measured: a
+5 V servo may put 5 V on GP29, and the board's GPIO allows 3.6 V. The
+classic family opens once bring-up has measured that level and
+`HITEC_CLASSIC_MEASURED` in `src/config.h` is set to 1. It then needs
+SERVO SUPPLY at `GP0`, since a classic servo enters programming mode only at
+its power-up. The classic screens are built and tested on the host:
+REPAIR of a checksum that does not sum, `FACTORY VALUES` from the servo's
+own factory cells, and the HS-5xxx and HS-7xxx layouts.
+
+**Current limitations**
+
+- The bench sends every frame to ID 0. A D series servo with another ID is
+  not tested.
+- With `GP0`, the screen's card calls run in a card phase that keeps the
+  supply on for at most 15 s while the screen does not redraw, as for KST.
+  At the SD specification's full times the first write that keeps an old
+  record takes 17.9 s on an exFAT SDXC (Secure Digital eXtended Capacity)
+  card, over that cap, and the supply goes off; on FAT32 every Hitec card
+  phase takes at most 13.2 s with no logs in the card's root. These are FatFs
+  block counts times card times (`make -C test kstcount`), not measured on a
+  card.
+- A later write whose record the card does not take still runs, on the
+  first write's backup; the write page does not say so.
+- READ AGAIN drops a pending REPAIR, which READ AGAIN shows as `BAD` again.
+- The entry views show no countdown for the servo's 1 s start.
+
+---
+
 ## Device backups
 
 A tool that writes settings into a device saves the device's settings, as
-read before the session's first write, to the card first. KST SERVO and AM32
-CONFIG do. All backups share one directory and one ring of 50 numbers:
+read before the session's first write, to the card first. KST SERVO, AM32
+CONFIG and HITEC SERVO do. All backups share one directory and one ring of
+50 numbers:
 
 | File | What |
 |---|---|
 | `BACKUP/KSTnnn.TXT` | a KST or Chaservo servo's image, rcbench's KST text format |
+| `BACKUP/HTnnn.TXT` | a Hitec servo's first full read as rcbench's servo file text, or a record of an interrupted write moved into the ring |
 | `BACKUP/AMnnn.TXT` | an AM32 ESC's 48-byte settings block as text: one line per field, the bytes in hex, a checksum line |
 | `BACKUP/LAST` | the latest number, 3 digits and a line feed |
 
@@ -1127,7 +1299,7 @@ CONFIG do. All backups share one directory and one ring of 50 numbers:
 - A card that is mounted and refuses the backup stops the write. Without a
   card the write runs, and the backup stays in memory until a write with a
   card saves it, or the tool closes.
-- While either tool's screen is open, card writes queue in memory and go to
+- While one of these tools' screens is open, card writes queue in memory and go to
   the card in the order they were made, one block per pass of the main loop,
   and the device is written only once the card holds the backup. A running
   blackbox log stops when the screen opens. Before each batch the card's
@@ -1136,7 +1308,8 @@ CONFIG do. All backups share one directory and one ring of 50 numbers:
   read again: a card swapped since the backup is mounted again and gets the
   backup before the device is written.
 
-Blackbox logs go to `LOGS/`, KST's SAVE AS files and its record to `KST/`.
+Blackbox logs go to `LOGS/`, KST's SAVE AS files and its record to `KST/`,
+Hitec's to `HITEC/`.
 
 ---
 
@@ -1229,6 +1402,11 @@ src/
   kst_job.{h,cpp}       the KST programmer's core1 job: search, read, write, leave
   kst_line_port.{h,cpp} the job's KST line, rcbench's RP2350 line driver
   kst_files.{h,cpp}     KST's SAVE AS files, its record of a write and its backups
+  ui_hitec.{h,cpp}      HITEC SERVO: the family, the entry, the field list, the write, FILES
+  hitec_view.{h,cpp}    what HITEC SERVO shows: rows, values with units, the stepper, the texts
+  hitec_job.{h,cpp}     the Hitec programmer's core1 job: rcbench's session, entry, read, write
+  hitec_line_port.{h,cpp} the job's Hitec line, rcbench's RP2350 line driver
+  hitec_files.{h,cpp}   Hitec's SAVE AS files, its record of a write and its backups
   backup_ring.{h,cpp}   the ring of device backups in BACKUP/
   card_dir.{h,cpp}      the card's mount rule, directory scope and file calls
   servo.cmake, kst.cmake  each feature's firmware sources (test/*.mk: its tests)
@@ -1338,7 +1516,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.0%**: 8,353 of 8,607 lines in 51 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.1%**: 8,357 of 8,610 lines in 51 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the
@@ -1526,6 +1704,9 @@ The Host tests job in `ci.yml` runs the same render and check on every push to
 - The KST programming core, its RP2350 line driver and the KST file store in
   `lib/rcbench/` come from [rcbench](https://github.com/subtilitas/rcbench) at
   commit 453cf334, by the same copyright holder under the same MIT licence.
+- The Hitec programming core, its RP2350 line driver, the Hitec servo file
+  text and its CRC in `lib/rcbench/` come from rcbench at commit 3e29dc1b,
+  by the same copyright holder under the same MIT licence.
 - [logwiju](https://subtilitas.github.io/logwiju/): the browser-based blackbox viewer
   for these logs.
 - [DShot — the missing handbook](https://brushlesswhoop.com/dshot-and-bidirectional-dshot/)
@@ -1543,6 +1724,15 @@ code works with. MiniRcBench is not affiliated with
 them and is neither supported nor sponsored by them. The protocol is
 implemented from the author's own wire captures of a programming card and a
 servo; no vendor code and no vendor documentation is included.
+
+Hitec is a name or trademark of its owner. It is used in this repository
+only to say which servos its Hitec programming code works with. MiniRcBench
+is not affiliated with Hitec and is neither supported nor sponsored by it.
+The Hitec protocol code is rcbench's, written from wire captures of Hitec's
+programmers, the HPP-21 Plus and the HFP-30, and of servos. Some register
+meanings rest on published documentation or third-party observation;
+rcbench's register model marks the source of each (`hitec_src_t`). No
+vendor code is included.
 
 Every other name of a maker, product, protocol or firmware in this
 repository is a name or trademark of its owner, used only to describe

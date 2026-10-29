@@ -1,9 +1,11 @@
 # Hitec servo programming
 
-Status: work breakdown steps 1 to 4 built, host tests only: the rcbench
-files and their tests, the core1 job on them, the files on the card, and
-the HITEC SERVO screen on MENU. The decisions of the owner of 2026-10-23
-and 2026-10-28 set its questions and its scope
+Status: work breakdown steps 1 to 5 built, host tests only: the rcbench
+files and their tests, the core1 job on them, the files on the card, the
+HITEC SERVO screen on MENU, and its README section and wiki pages. Step 6,
+the bring-up on hardware, is open; CLASSIC stays disabled until it. The
+decisions of the owner of 2026-10-23 and 2026-10-28 set its questions and
+its scope
 ([decisions of the owner](#decisions-of-the-owner)): port rcbench's Hitec
 module at commit 3e29dc1b, and write. The design rests on rcbench's session
 (`hitec_session`) and register model (`hitec_reg`), not on single
@@ -1354,7 +1356,10 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
    legal notice and MENU table row; wiki pages `Hitec-Programming.md` and its
    German counterpart `Hitec-Programmierung.md`, the pair in
    `tools/check_wiki.py`, their entries in `_Sidebar.md`, `Home.md` and the
-   screens pages; STATUS.md and CHANGELOG.md. About 1 day.
+   screens pages; STATUS.md and CHANGELOG.md. Built. The README's trademark
+   notice for Hitec does not say "no vendor documentation": some register
+   meanings in rcbench's register model rest on published documentation or
+   third-party observation (`hitec_src_t`).
 6. Bring-up, before a write is relied on:
    - the classic line's high level on a scope, the servo's signal lead on a
      68 kΩ resistor to ground and not on the board, while Hitec's

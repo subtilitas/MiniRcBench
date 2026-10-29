@@ -75,6 +75,11 @@ protocol.
   (`HITEC_CLASSIC_MEASURED` 0 in `src/config.h`). MENU holds seven rows and
   scrolls 36 px to reach SETTINGS. `docs/hitec-preview.png` shows the
   screen.
+- The Hitec user documentation (work breakdown step 5): the README section
+  "Hitec servo programming" with its wiring, results, files, classic status
+  and current limitations, the MENU row, the Hitec trademark notice and
+  credit, and the wiki pages Hitec-Programming and Hitec-Programmierung with
+  their entries in the sidebar, the home page and the screens pages.
 - SETTINGS → SERVO SUPPLY, `NONE` or `GP0`, in a section of its own
   between WIRING and DISPLAY: whether a DC-DC converter's enable for the KST
   servo's supply is wired to GP0 (`src/servo_supply.*`). With `GP0`, GP0 is
