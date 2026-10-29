@@ -1198,6 +1198,13 @@ static void readFiles() {
 	if (hitecFilesMounted()) s_saveFull = hitecFilesSaveName(s_preset) == HitecFiles::NoNumber;
 }
 
+/** @brief @p name without its extension: `HITEC001.TXT` reads `HITEC001`, 8 characters at most. */
+static void stemOf(const char *name, char *out, size_t n) {
+	const char *dot = strchr(name, '.');
+	int len = dot ? (int)(dot - name) : (int)strlen(name);
+	snprintf(out, n, "%.*s", len < 8 ? len : 8, name);
+}
+
 static void drawFileRow(int i, int y, void *) {
 	bool sel = i == s_fileSel;
 	gfxRect(0, y, GFX_W, HL_ROW_H - 1, sel ? C_PANEL : C_BG);
@@ -1208,9 +1215,9 @@ static void drawFileRow(int i, int y, void *) {
 	uint16_t tagCol = C_GRID;
 	switch (k) {
 		case FileRow::Record:  snprintf(name, sizeof(name), "RECORD"); tag = "(HITEC.TXT)"; tagCol = C_AMBER; break;
-		case FileRow::Backup:  snprintf(name, sizeof(name), "%.5s", s_backups[idx]); tag = "(BACKUP)"; break;
+		case FileRow::Backup:  stemOf(s_backups[idx], name, sizeof(name)); tag = "(BACKUP)"; break;
 		case FileRow::Factory: snprintf(name, sizeof(name), "FACTORY VALUES"); tag = "(SERVO)"; break;
-		default:               snprintf(name, sizeof(name), "%.5s", s_files[idx]); break;
+		default:               stemOf(s_files[idx], name, sizeof(name)); break;
 	}
 	gfxText(UI_MARGIN, y + 16, name, sel ? C_TEXT : C_DIM, 1);
 	gfxText(GFX_W - UI_MARGIN - gfxTextW(tag, 1), y + 16, tag, tagCol, 1);

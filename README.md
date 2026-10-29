@@ -1203,8 +1203,9 @@ which every D series servo on the line takes.
 | `THE WRITE STOPPED AT STEP 2 OF 4. READ THE SERVO BEFORE A WRITE.` | red | Part of the plan ran; the servo state is not known |
 | `ALL WRITES SENT; READ-BACK FAILED. ...` | red | Every write went out and the read-back did not end |
 
-After a failed write the write button reads READ AGAIN until a read has
-filled the image.
+After a write that failed once frames had gone out, the image no longer
+holds the registers the write touched: the write button reads READ AGAIN
+until a read fills them.
 
 **FILES** lists the record `HITEC/HITEC.TXT` first when one is there, then
 the Hitec backups of `BACKUP/`, the latest first, then the `.TXT` files of
@@ -1510,7 +1511,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.0%**: 8,353 of 8,607 lines in 51 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.1%**: 8,358 of 8,612 lines in 51 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

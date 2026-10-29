@@ -11,6 +11,7 @@
 - [AM32 Configuration](AM32-Configuration)
 - [Servo Tester](Servo-Tester)
 - [KST Programming](KST-Programming)
+- [Hitec Programming](Hitec-Programming)
 - [Troubleshooting](Troubleshooting)
 
 ---
@@ -24,6 +25,7 @@
 - [AM32-Konfiguration](AM32-Konfiguration)
 - [Servotester](Servotester)
 - [KST-Programmierung](KST-Programmierung)
+- [Hitec-Programmierung](Hitec-Programmierung)
 - [Fehlersuche](Fehlersuche)
 
 ---

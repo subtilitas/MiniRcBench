@@ -2,13 +2,14 @@
 
 # The Screens
 
-The firmware has seven screens. The tester is the root. `MENU` opens the list of
+The firmware has eight screens. The tester is the root. `MENU` opens the list of
 tools, and every tool is left with `BACK`, which returns to `MENU`.
 
 ```
 Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MENU
    ▲                    ├── SERVO TESTER ──BACK──> unplug page ──> MENU
    │                    ├── KST SERVO    ──BACK──> leave page ──> unplug page ──> MENU
+   │                    ├── HITEC SERVO  ──BACK──> leave page ──> unplug page ──> MENU
    │                    ├── SD LOG       ──BACK──> MENU
    │                    └── SETTINGS     ──BACK──> MENU
    └──── BACK on MENU ──┘
@@ -72,8 +73,13 @@ starts answering, and repeats it every 1 s while eRPM arrives and EDT does not.
 The ESC does not acknowledge the enable, so the chip shows *received frames*,
 not sent commands.
 
-Below the strip is a list of rows, 40 px tall. Each row has a name on the left
-and its state on the right. `BACK` returns to the tester.
+Below the strip is a list of seven rows, 40 px tall at a 42 px pitch. Each
+row has a name on the left and its state on the right. `BACK` returns to the
+tester.
+
+**Scrolling.** Six rows fit the screen. The seventh, SETTINGS, shows only
+6 px at first. Drag MENU up 36 px to bring SETTINGS into view; it takes a tap
+only then. A 3 px scroll bar at the right edge shows the position.
 
 | Row | State on the right | A tap |
 |---|---|---|
@@ -81,16 +87,18 @@ and its state on the right. `BACK` returns to the tester.
 | **AM32 CONFIG** | the ESC pin, `GP29`; `PINS BUSY` | Opens the AM32 editor |
 | **SERVO TESTER** | the two signal pins, `GP29+28`; `PINS BUSY` | Opens the servo tester |
 | **KST SERVO** | the ESC pin, `GP29`; `PINS BUSY` | Opens the KST programmer. See [KST Programming](KST-Programming) |
+| **HITEC SERVO** | the ESC pin, `GP29`; `PINS BUSY` | Opens the Hitec programmer. See [Hitec Programming](Hitec-Programming) |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a computer holds the card | Opens the logging screen |
 | **SETTINGS** | `UNSAVED` while a value differs from flash, else nothing; `PINS BUSY` while the pins are still restoring, and it does not open | Opens SETTINGS |
 
 `PINS BUSY` means the signal pins are still in use, for example while DShot
-restarts after the servo tester or the KST programmer. AM32 CONFIG, SERVO
-TESTER, KST SERVO and SETTINGS show it, and a tap on such a row opens nothing.
+restarts after the servo tester, the KST programmer or the Hitec programmer.
+AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO and SETTINGS show it, and a
+tap on such a row opens nothing.
 The row reads its pins again once DShot runs. SD LOG claims no pin and stays
 available.
 
-<img src="img/menu-pins-busy.png" width="240" alt="MENU while the pins restore: PINS BUSY on AM32 CONFIG, SERVO TESTER, KST SERVO and SETTINGS">
+<img src="img/menu-pins-busy.png" width="240" alt="MENU dragged up while the pins restore: PINS BUSY on AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO and SETTINGS">
 
 BEEP works only while disarmed, and opening `MENU` disarms, so it is always
 allowed from here. The command takes 6 ms (6 frames at 1 kHz). The screen
@@ -122,7 +130,7 @@ settings to flash. One list, in sections, scrolls under a finger.
 | WIRING | **DSHOT KBAUD** | 150 / 300 / 600 / 1200. Lower it if the `LINK` error rate rises |
 | WIRING | **KISS TELEM** | Whether to listen on the optional third telemetry wire |
 | WIRING | **KISS PIN** | GPIO for that wire. Skips the ESC pin, so the two never coincide. Reads `--` and does not act while KISS TELEM is off |
-| SERVO SUPPLY | **SERVO SUPPLY** | `NONE` or `GP0`: whether a DC-DC converter for the KST servo's supply has its enable wired to GP0, J5 pin 2. `NONE` by default. With `GP0`, KST SERVO switches the servo's supply |
+| SERVO SUPPLY | **SERVO SUPPLY** | `NONE` or `GP0`: whether a DC-DC converter (direct-current voltage converter) for a programmed servo's supply has its enable wired to GP0, J5 pin 2. `NONE` by default. With `GP0`, KST SERVO and HITEC SERVO switch the servo's supply |
 | DISPLAY | **CONTRAST** | `NORMAL` or `HIGH`. High contrast is for daylight |
 | DISPLAY | **BACKLIGHT** | 16–255, in steps of 32 |
 | BOARD | **BUILT FOR** | Read-only. The board the firmware is built for, `RP2350-TOUCH-LCD-2.8` |
@@ -202,6 +210,22 @@ write page, and a second hold of 1 s writes, with a backup on the SD card
 first. `BACK` opens the leave page, which asks you to power the servo off;
 `LEAVE` then shows `UNPLUG THE SERVO.`, and `RESTART DSHOT` returns to `MENU`.
 See [KST Programming](KST-Programming).
+
+---
+
+## HITEC SERVO
+
+<img src="img/hitec-list.png" width="240" alt="The Hitec field list">
+
+Reads and writes the settings of a Hitec D series servo over the signal wire
+on the ESC pin. It opens on the family view: `D SERIES` acts, and `CLASSIC`
+is drawn disabled with `LINE LEVEL NOT MEASURED`. The screen enters the
+servo, reads its 21 registers, and lists 20 parameters to step. One servo
+goes on the lead, with no pull-up resistor. `HOLD TO WRITE` for 1 s opens the
+write page, and a second hold of 1 s writes, with a backup on the SD card
+first. `BACK` opens the leave page; `LEAVE` then shows `UNPLUG THE SERVO.`,
+and `RESTART DSHOT` returns to `MENU`. Not tested on hardware. See
+[Hitec Programming](Hitec-Programming).
 
 ---
 

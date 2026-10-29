@@ -39,6 +39,7 @@ PAIRS = [
     ("AM32-Configuration", "AM32-Konfiguration"),
     ("Servo-Tester", "Servotester"),
     ("KST-Programming", "KST-Programmierung"),
+    ("Hitec-Programming", "Hitec-Programmierung"),
     ("Troubleshooting", "Fehlersuche"),
 ]
 
