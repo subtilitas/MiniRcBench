@@ -20,9 +20,10 @@
  * | Leave | what LEAVE does, READ AGAIN, LEAVE | LEAVE: Unplug; BACK: List, or Main |
  * | Unplug | the 2 s off wait, UNPLUG THE SERVO, RESTART DSHOT | RESTART DSHOT: MENU; BACK: Main |
  *
- * CLASSIC stays disabled until its line level is measured at bring-up
- * (docs/design/hitec-programming.md, decision 3): `HITEC_CLASSIC_MEASURED`
- * in config.h, 0 by default. It needs SERVO SUPPLY at GP0 as well.
+ * CLASSIC needs SERVO SUPPLY at GP28 or GP29: its entry switches the
+ * servo's supply. The classic servo drives SIG to its supply, 5 V nominal;
+ * SIG is a fault tolerant pin (docs/design/hitec-programming.md,
+ * decision 13).
  *
  * @see docs/design/hitec-programming.md, "Screens".
  */
@@ -51,15 +52,6 @@ enum class HitecView : uint8_t { Family, Main, List, Write, Files, Leave, Unplug
 
 /** @brief The view that is up. For the host tests. */
 HitecView uiHitecView();
-
-/**
- * @brief Whether CLASSIC may be chosen once SERVO SUPPLY is GP0: the
- *        classic line's level measured. `HITEC_CLASSIC_MEASURED` at boot.
- */
-bool uiHitecClassicMeasured();
-
-/** @brief Set what uiHitecClassicMeasured() answers. For the host tests and bring-up. */
-void uiHitecSetClassicMeasured(bool measured);
 
 /**
  * @brief The Hitec controls outside the lists. The field list's rows and the
