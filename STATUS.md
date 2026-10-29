@@ -357,10 +357,9 @@ Not in this history: the DshotDisplay repository's branches
     its README section and the wiki pages Hitec-Programming and
     Hitec-Programmierung. CLASSIC opens with SERVO SUPPLY at GP28 or GP29,
     by the owner's decision of 2026-10-29: SIG is a fault tolerant pin and
-    the servo supply is 5 V; the classic line voltage is not measured. At
-    the SD
-    specification's SDXC times the Hitec first write that keeps an old
-    record takes 17.9 s on exFAT, over the card-phase cap of 15 s. No write
+    the servo supply is 5 V; the classic line voltage is not measured.
+    At the SD specification's SDXC times the Hitec first write that keeps
+    an old record takes 17.9 s on exFAT, over the card-phase cap of 15 s. No write
     plan of rcbench's Hitec session or panel has run on a servo, so step 6,
     the bring-up, runs one write with read-back per family before a write is
     relied on (design note, "Work breakdown", step 6).

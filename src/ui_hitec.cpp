@@ -1461,7 +1461,6 @@ static bool endClaim() {
 
 HitecView uiHitecView() { return s_view; }
 
-
 uint8_t uiHitecControls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
 	switch (s_view) {

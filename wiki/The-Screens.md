@@ -218,12 +218,12 @@ See [KST Programming](KST-Programming).
 
 <img src="img/hitec-list.png" width="240" alt="The Hitec field list">
 
-Reads and writes the settings of a Hitec D series servo over the signal wire
-on the ESC pin. It opens on the family view: `D SERIES` acts, and `CLASSIC`
+Reads and writes the settings of a Hitec D series or classic servo over the
+signal wire on the ESC pin. It opens on the family view: `D SERIES` acts, and `CLASSIC`
 acts with SERVO SUPPLY at `GP28` or `GP29`; under `NONE` it is drawn
 disabled with `NEEDS SERVO SUPPLY GP28 OR GP29`. The screen enters the
-servo, reads its 21 registers, and lists 20 parameters, 11 of them editable. One servo
-goes on the lead, with no pull-up resistor. `HOLD TO WRITE` for 1 s opens the
+servo and reads it. A D series servo gives 21 registers and 20 parameters,
+11 of them editable. One servo goes on the lead, with no pull-up resistor. `HOLD TO WRITE` for 1 s opens the
 write page, and a second hold of 1 s writes, with a backup on the SD card
 first. `BACK` opens the leave page; `LEAVE` then shows `UNPLUG THE SERVO.`,
 and `RESTART DSHOT` returns to `MENU`. Not tested on hardware. See

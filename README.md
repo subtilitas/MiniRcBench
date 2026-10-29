@@ -23,7 +23,7 @@ same two signal pins, with manual position, sweep and two servos at once (see
 [Servo tester](#servo-tester); design note `docs/design/servo-tester.md`).
 It programs KST and Chaservo servos on the ESC pin (see
 [KST servo programming](#kst-servo-programming); design note
-`docs/design/kst-programming.md`), and Hitec D series servos (see
+`docs/design/kst-programming.md`), and Hitec D series and classic servos (see
 [Hitec servo programming](#hitec-servo-programming); design note
 `docs/design/hitec-programming.md`). The AM32 editor, the servo tester and
 the two servo programmers take the pins through the pin claim of
@@ -1131,8 +1131,9 @@ reads `READ ONLY: UNKNOWN LAYOUT`.
 
 ## Hitec servo programming
 
-**MENU → HITEC SERVO** reads and writes the settings of a Hitec D series
-servo over its signal wire, on SIG (GP0). The protocol code is rcbench's
+**MENU → HITEC SERVO** reads and writes the settings of a Hitec D series or
+classic servo over its signal wire, on SIG (GP0). A classic servo needs
+SERVO SUPPLY at `GP28` or `GP29`. The protocol code is rcbench's
 (`lib/rcbench/protocols/hitec/`): its session, register model, wire and PIO
 (programmable I/O) line driver. D series frames run at 115,200 bit/s, half
 duplex, and the bench receives the servo's answer without a pull-up

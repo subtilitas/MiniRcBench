@@ -2,11 +2,12 @@
 
 # Hitec Programming
 
-This screen reads and writes the settings of a Hitec D series servo over its
-signal wire. The protocol code is rcbench's: its session, register model,
+This screen reads and writes the settings of a Hitec D series or classic
+servo over its signal wire. A classic servo needs SERVO SUPPLY at `GP28` or
+`GP29`. The protocol code is rcbench's: its session, register model,
 wire layer and PIO (programmable I/O) line driver. D series frames run at
-115,200 bit/s, half duplex, on the ESC (electronic speed controller) pin. The
-screen reads the servo's 21 registers, shows 20 parameters with their units,
+115,200 bit/s, half duplex, on the ESC (electronic speed controller) pin. For a
+D series servo the screen reads its 21 registers, shows 20 parameters with their units,
 steps the ones that may change, and writes them back with a backup on the SD
 (Secure Digital) card first.
 

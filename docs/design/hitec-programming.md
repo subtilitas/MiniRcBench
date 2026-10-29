@@ -202,8 +202,9 @@ Times computed from the tables, not measured:
 **Classic high level.** A classic servo drives the high level itself,
 through about 1 kΩ, from a supply of 5.0 V in rcbench's runs. The line
 voltage is not measured. If the servo drives its signal wire to its supply,
-a 5 V servo puts 5 V on SIG, GP0. GP0 is a fault tolerant pin: it
-tolerates 5.5 V while the board is powered and 3.63 V while it is off
+a 5 V servo puts 5 V on SIG, GP0 or GP1. Both are fault tolerant pins,
+with an absolute maximum of 5.5 V while the board is powered and 3.63 V
+while it is off
 ([pin-claim.md](pin-claim.md#signal-level)). When the master drives low
 against the servo's 1 kΩ, the pad sinks about 5 mA at 5 V. On a classic line
 the driver sets no drive strength, so the pad keeps its reset value, 4 mA;
