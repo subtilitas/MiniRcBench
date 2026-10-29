@@ -1310,6 +1310,9 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
    - A read keeps the pending edits: the writable addresses they changed
      go onto the servo as read, so DIRECTION keeps its mirrored end points;
      a classic draft is rebalanced after.
+     A REPAIR alone does not carry over: cell 0x1C is not a writable
+     address, so the read shows CHECKSUM `BAD` again and REPAIR is tapped
+     again.
    - BACK during a read, the entry's own or READ AGAIN, sends Abort; the
      leave page follows.
    - A stall drops a leave queued by BACK during a write; the main view
