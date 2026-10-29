@@ -3,11 +3,13 @@
 # Hitec-Programmierung
 
 Dieser Bildschirm liest und schreibt die Einstellungen eines Hitec-Servos der
-D-Serie über dessen Signalkabel. Der Protokollcode stammt von rcbench: Sitzung,
+D-Serie oder der klassischen Familie über dessen Signalkabel. Ein klassisches
+Servo braucht SERVO SUPPLY auf `GP28` oder `GP29`. Der Protokollcode stammt von rcbench: Sitzung,
 Registermodell, Leitungsschicht und der Leitungstreiber im PIO
 (Programmable I/O, programmierbare Ein-/Ausgabe). Frames der D-Serie laufen
 mit 115.200 bit/s, halbduplex, auf dem ESC-Pin (Electronic Speed Controller,
-Motorregler). Der Bildschirm liest die 21 Register des Servos, zeigt 20
+Motorregler). Bei einem Servo der D-Serie liest der Bildschirm dessen 21
+Register, zeigt 20
 Parameter mit ihren Einheiten, stellt die änderbaren ein und schreibt sie
 zurück, zuvor mit einer Sicherung auf der SD-Karte (Secure Digital).
 
@@ -18,9 +20,10 @@ zurück, zuvor mit einer Sicherung auf der SD-Karte (Secure Digital).
 > an einem Servo. Die Bildschirme in diesem Wiki entstehen aus dem Code der
 > Bedienoberfläche (UI, User Interface) gegen ein simuliertes Servo.
 
-> **Nur die D-Serie lässt sich öffnen.** Die klassische Familie (HS-5xxx,
-> HS-7xxx) wird angezeigt und ist abgeblendet. Ihr Leitungspegel ist nicht
-> gemessen. Siehe [Klassische Servos](#klassische-servos).
+> **Die klassische Familie braucht die geschaltete Servoversorgung.**
+> `CLASSIC` (HS-5xxx, HS-7xxx) wirkt mit SERVO SUPPLY auf `GP28` oder
+> `GP29`. Unter `NONE` lässt sich nur die D-Serie öffnen. Siehe
+> [Klassische Servos](#klassische-servos).
 
 > **Zieh das Servo ab, bevor DShot läuft.** Außerhalb dieses Bildschirms liegt
 > auf dem ESC-Pin DShot, das digitale Gasprotokoll. Ein Servo an diesem Pin
@@ -89,15 +92,15 @@ Eliminator Circuit), die Leitung seiner eigenen geregelten Versorgung.
 **MENU → HITEC SERVO** öffnen. Der Bildschirm öffnet mit der
 Familienauswahl. Er belegt noch keinen Pin.
 
-<img src="img/hitec-family.png" width="240" alt="Die Familienauswahl: CLASSIC abgeblendet mit LINE LEVEL NOT MEASURED, D SERIES an der eigenen Versorgung des Servos">
+<img src="img/hitec-family.png" width="240" alt="Die Familienauswahl mit SERVO SUPPLY auf NONE: CLASSIC abgeblendet mit NEEDS SERVO SUPPLY GP28 OR GP29, D SERIES an der eigenen Versorgung des Servos">
 
 Die Leiste zeigt `CHOOSE THE SERVO'S FAMILY`. Darunter liegen zwei
 Schaltflächen:
 
-- `CLASSIC`, darunter `HS-5XXX, HS-7XXX`, abgeblendet gezeichnet. Eine
-  bernsteinfarbene Zeile nennt den Grund: `LINE LEVEL NOT MEASURED`. Ist der
-  Pegel gemessen, zeigt die Zeile `NEEDS SERVO SUPPLY GP28 OR GP29`, solange SERVO
-  SUPPLY auf `NONE` steht.
+- `CLASSIC`, darunter `HS-5XXX, HS-7XXX`. Es wirkt, solange SERVO SUPPLY
+  auf `GP28` oder `GP29` steht. Steht SERVO SUPPLY auf `NONE`, ist es
+  abgeblendet gezeichnet, und eine bernsteinfarbene Zeile nennt den Grund:
+  `NEEDS SERVO SUPPLY GP28 OR GP29`.
 - `D SERIES`, darunter `D485HW, D645MW AND THE OTHERS` und
   `SUPPLY SWITCHED ON GP28` (oder `GP29`, je nach Einstellung) oder
   `ON THE SERVO'S OWN SUPPLY`.
@@ -512,27 +515,29 @@ Bildschirm wieder läuft: Ein Schreiben zeigt dann
 
 ## Klassische Servos
 
-`CLASSIC` (HS-5xxx, HS-7xxx) bleibt mit `LINE LEVEL NOT MEASURED`
-abgeblendet. Der Grund ist der Signalpegel:
+`CLASSIC` (HS-5xxx, HS-7xxx) braucht SERVO SUPPLY auf `GP28` oder `GP29`:
+Ein klassisches Servo geht nur beim Einschalten in den Programmiermodus,
+und die Platine schaltet seine Versorgung. Unter `NONE` zeigt die
+Familienauswahl `NEEDS SERVO SUPPLY GP28 OR GP29`.
+
+Der Signalpegel:
 
 - Ein klassisches Servo treibt die Signalleitung selbst auf High, über etwa
-  1 kΩ.
-- Die Spannung, die es treibt, ist nicht gemessen. Ein 5-V-Servo kann 5 V
-  auf SIG legen, GP0.
-- GP0 verträgt 5,5 V, solange die Platine eingeschaltet ist, und 3,63 V,
-  solange sie aus ist.
-
-Die klassische Familie öffnet sich, sobald die Inbetriebnahme diesen Pegel
-gemessen hat und die Firmware mit dem Pegel als gemessen gebaut ist. Sie
-braucht dann SERVO SUPPLY auf `GP28` oder `GP29`: Ein klassisches Servo geht nur beim
-Einschalten in den Programmiermodus. Unter `NONE` zeigt die Familienauswahl
-`NEEDS SERVO SUPPLY GP28 OR GP29`.
+  1 kΩ, aus seiner Versorgung. Der Wandler liefert nominal 5 V.
+- SIG, GP0 oder GP1, ist ein fehlertoleranter Pin. Er verträgt 5,5 V,
+  solange die Platine eingeschaltet ist, und 3,63 V, solange sie aus ist.
+  Schalte die Platine vor der Servoversorgung ein.
+- Die Spannung auf der klassischen Leitung ist nicht gemessen.
+- Zieht die Platine die Leitung gegen das 1 kΩ des Servos auf Low, nimmt
+  der Pin bei 5 V etwa 5 mA auf. Der Low-Pegel bei diesem Strom ist nicht
+  spezifiziert.
 
 Die klassischen Bildschirme sind nur auf dem Host gebaut und getestet, gegen
-ein simuliertes Servo. Die Bilder unten zeigen sie mit dem Leitungspegel als
-gemessen gesetzt und SERVO SUPPLY auf `GP28` oder `GP29`.
+ein simuliertes Servo. Noch kein klassischer Eintritt, kein Lesen und kein
+Schreiben lief an einem Servo auf dieser Platine. Die Bilder unten zeigen
+sie mit SERVO SUPPLY auf `GP28`.
 
-<img src="img/hitec-family-classic.png" width="240" alt="Die Familienauswahl mit freigegebenem CLASSIC, erzeugt mit dem Leitungspegel als gemessen und SERVO SUPPLY auf GP28"> <img src="img/hitec-repair.png" width="240" alt="Ein klassisches HS-5645MG: CHECKSUM BAD mit REPAIR"> <img src="img/hitec-not-measured.png" width="240" alt="Ein nicht vermessenes klassisches Modell: MODEL NOT MEASURED: WRITTEN IN THE CLASSIC LAYOUT.">
+<img src="img/hitec-family-classic.png" width="240" alt="Die Familienauswahl mit SERVO SUPPLY auf GP28: CLASSIC freigegeben"> <img src="img/hitec-repair.png" width="240" alt="Ein klassisches HS-5645MG: CHECKSUM BAD mit REPAIR"> <img src="img/hitec-not-measured.png" width="240" alt="Ein nicht vermessenes klassisches Modell: MODEL NOT MEASURED: WRITTEN IN THE CLASSIC LAYOUT.">
 
 - **CHECKSUM.** Ein klassisches Servo, dessen Prüfsumme nicht aufgeht, zeigt
   `CHECKSUM` `BAD` in Bernstein. Die Zeile lässt sich auswählen, und die
@@ -553,6 +558,8 @@ gemessen gesetzt und SERVO SUPPLY auf `GP28` oder `GP29`.
 
 - Die Platine sendet jeden Frame an die ID 0. Ein Servo der D-Serie mit einer
   anderen ID ist nicht getestet.
+- Die Spannung auf der klassischen Leitung ist nicht gemessen, und der
+  Low-Pegel des Pins gegen ein klassisches Servo ist nicht spezifiziert.
 - Mit `GP28` oder `GP29` halten die Kartenzugriffe des Bildschirms die Versorgung
   höchstens 15 s lang an, während der Bildschirm nicht neu zeichnet, wie bei
   KST. Mit den vollen Zeiten der SD-Spezifikation dauert das erste

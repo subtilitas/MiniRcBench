@@ -70,9 +70,9 @@ protocol.
   the read, the field list with rcbench's rows, units and soft rules, the
   write page with the backup and the record before the first write frame,
   FILES with SAVE AS, LOAD, FACTORY VALUES and HOLD TO RESTORE, REPAIR of a
-  classic checksum, the leave and the unplug page. CLASSIC stays disabled
-  until bring-up measures the classic line level
-  (`HITEC_CLASSIC_MEASURED` 0 in `src/config.h`). MENU holds seven rows and
+  classic checksum, the leave and the unplug page. CLASSIC opens with
+  SETTINGS → SERVO SUPPLY at `GP28` or `GP29`, and is drawn disabled with
+  `NEEDS SERVO SUPPLY GP28 OR GP29` under `NONE`. MENU holds seven rows and
   scrolls 36 px to reach SETTINGS. `docs/hitec-preview.png` shows the
   screen.
 - The Hitec user documentation (work breakdown step 5): the README section
@@ -345,6 +345,12 @@ protocol.
   once after the update. The release notes give the ESC on GP0, KISS on
   GP1, the menu path MENU → SETTINGS, and GP28 and GP29 as supply enables
   only.
+- Hitec CLASSIC opens whenever SERVO SUPPLY is `GP28` or `GP29`, by the
+  owner's decision of 2026-10-29: SIG is a fault tolerant pin, rated 5.5 V
+  while the board is powered, and the servo supply is 5 V. The
+  `HITEC_CLASSIC_MEASURED` switch and the `LINE LEVEL NOT MEASURED` text
+  are removed. A `static_assert` in `src/ui_hitec.cpp` holds every free pin
+  to the fault tolerant pads, GP0 to GP25.
 - The Hitec design rewritten on rcbench 3e29dc1b with writes, and renamed
   from `hitec-reading.md` to
   [hitec-programming.md](docs/design/hitec-programming.md), "Hitec servo

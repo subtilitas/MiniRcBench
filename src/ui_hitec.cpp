@@ -13,6 +13,7 @@
  */
 
 #include "ui_hitec.h"
+#include "board_pins.h"
 #include "card_cache.h"
 #include "config.h"
 #include "core1_job.h"
@@ -103,7 +104,6 @@ static_assert(HL_STEP_W >= UI_TAP_MIN && HL_FOOT_H >= UI_TAP_MIN && HF_BTN_H >= 
 // ---------------------------------------------------------------------------
 
 static HitecView    s_view = HitecView::Family;
-static bool         s_classicMeasured = HITEC_CLASSIC_MEASURED != 0;
 static uint8_t      s_family = HITEC_D;     /**< The family chosen. */
 static bool         s_claimed = false;      /**< pinClaimBegin() took the claim. */
 static ClaimRefusal s_refusal = ClaimRefusal::None;
@@ -290,7 +290,14 @@ static bool restoreAllowed() {
 
 static bool cardHeldByUsb() { return mscHoldsCard(mscGetState()); }
 
-static bool classicAllowed() { return s_classicMeasured && servoSupplyFitted(); }
+// A classic servo drives SIG to its own supply, 5 V nominal on the
+// converter. SIG is one of the board's free pins, and every one of them must
+// be a fault tolerant pad, GP0 to GP25 on the RP2350A: GP26 to GP29 are ADC
+// pads, rated IOVDD + 0.5 V (RP2350 datasheet, Table 1680).
+static_assert((BOARD_FREE_GPIO_MASK & 0x3C000000u) == 0,
+              "a classic Hitec servo drives SIG to 5 V: SIG must be a fault tolerant pin");
+
+static bool classicAllowed() { return servoSupplyFitted(); }
 
 static void go(HitecView v) {
 	if (v != HitecView::Write) s_flushing = false;
@@ -629,9 +636,8 @@ static void drawFamily() {
 	bool c = classicAllowed();
 	uiButton(BTN_CLASSIC, "CLASSIC", C_PANEL, C_TEXT, 2, c && pressing(BTN_CLASSIC), c);
 	gfxText(UI_MARGIN, BTN_CLASSIC.y + BTN_CLASSIC.h + 4, "HS-5XXX, HS-7XXX", C_DIM, 1);
-	const char *why = !s_classicMeasured ? "LINE LEVEL NOT MEASURED"
-	                  : !servoSupplyFitted() ? "NEEDS SERVO SUPPLY GP28 OR GP29" : "";
-	if (why[0]) gfxText(UI_MARGIN, BTN_CLASSIC.y + BTN_CLASSIC.h + 18, why, C_AMBER, 1);
+	if (!c) gfxText(UI_MARGIN, BTN_CLASSIC.y + BTN_CLASSIC.h + 18, "NEEDS SERVO SUPPLY GP28 OR GP29",
+	                C_AMBER, 1);
 	uiButton(BTN_DSERIES, "D SERIES", C_PANEL, C_TEXT, 2, pressing(BTN_DSERIES));
 	gfxText(UI_MARGIN, BTN_DSERIES.y + BTN_DSERIES.h + 4, "D485HW, D645MW AND THE OTHERS", C_DIM, 1);
 	char sw[32];
@@ -1455,10 +1461,6 @@ static bool endClaim() {
 
 HitecView uiHitecView() { return s_view; }
 
-bool uiHitecClassicMeasured() { return s_classicMeasured; }
-
-void uiHitecSetClassicMeasured(bool measured) { s_classicMeasured = measured; }
-
 uint8_t uiHitecControls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
 	switch (s_view) {
@@ -1559,7 +1561,7 @@ static uint32_t frameKey() {
 	           ((uint32_t)s_leaveQueued << 4) | ((uint32_t)s_recordFound << 5) |
 	           ((uint32_t)hitecFilesMounted() << 6) | ((uint32_t)cardHeldByUsb() << 7) |
 	           ((uint32_t)s_haveDraft << 8) | ((uint32_t)s_lastFailed << 9) |
-	           ((uint32_t)servoSupplyFitted() << 10) | ((uint32_t)s_classicMeasured << 11));
+	           ((uint32_t)servoSupplyFitted() << 10));
 	h = mix(h, s_resultSes);
 	h = mixBytes(h, s_fileNote, strlen(s_fileNote));
 	h = mixBytes(h, s_preset, strlen(s_preset));

@@ -24,7 +24,7 @@ run.
 | [AM32 Configuration](AM32-Configuration) | Reading, editing and writing ESC settings |
 | [Servo Tester](Servo-Tester) | Driving one or two servos: start, stop, drag, sweep, profiles |
 | [KST Programming](KST-Programming) | Reading and writing the settings of a KST or Chaservo servo, with backup and restore |
-| [Hitec Programming](Hitec-Programming) | Reading and writing the settings of a Hitec D series servo, with backup and restore. Not tested on hardware |
+| [Hitec Programming](Hitec-Programming) | Reading and writing the settings of a Hitec D series or classic servo, with backup and restore. Not tested on hardware |
 | [Troubleshooting](Troubleshooting) | Symptom first, cause second |
 
 > **Before you power anything on:** a motor on a bench can injure. Read
@@ -46,7 +46,7 @@ der erste Motorlauf.
 | [AM32-Konfiguration](AM32-Konfiguration) | ESC-Einstellungen lesen, ändern und schreiben |
 | [Servotester](Servotester) | Ein oder zwei Servos ansteuern: starten, stoppen, ziehen, Sweep, Profile |
 | [KST-Programmierung](KST-Programmierung) | Einstellungen eines KST- oder Chaservo-Servos lesen und schreiben, mit Sicherung und Wiederherstellung |
-| [Hitec-Programmierung](Hitec-Programmierung) | Einstellungen eines Hitec-Servos der D-Serie lesen und schreiben, mit Sicherung und Wiederherstellung. Nicht auf Hardware getestet |
+| [Hitec-Programmierung](Hitec-Programmierung) | Einstellungen eines Hitec-Servos der D-Serie oder der klassischen Familie lesen und schreiben, mit Sicherung und Wiederherstellung. Nicht auf Hardware getestet |
 | [Fehlersuche](Fehlersuche) | Erst das Symptom, dann die Ursache |
 
 > **Vor dem Einschalten:** Ein Motor auf der Werkbank kann verletzen. Lies

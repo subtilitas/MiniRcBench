@@ -159,7 +159,6 @@ static void freshHitec(uint8_t family, bool switched) {
 	supply(switched);
 	fakeHitecLineReset(family);
 	fakeHitecSim()->userSupply = !switched;
-	uiHitecSetClassicMeasured(false);
 	card();
 	hitecFrames(2);
 }
@@ -267,13 +266,9 @@ static void testFamily() {
 
 	freshHitec(HITEC_CLASSIC, true);
 	openHitec();
-	checkTrue("with GP28, the line not measured: CLASSIC disabled", !ctlEnabled(UI_FIX(HitecCtl::Classic)));
-	uiHitecSetClassicMeasured(true);
-	hitecFrames(1);
-	checkTrue("measured and GP28: CLASSIC acts", ctlEnabled(UI_FIX(HitecCtl::Classic)));
+	checkTrue("with GP28: CLASSIC acts", ctlEnabled(UI_FIX(HitecCtl::Classic)));
 	fakeDumpFrame("shot_hitec_family_classic.ppm");
 	leaveAll();
-	uiHitecSetClassicMeasured(false);
 }
 
 static void testDSeriesRead() {
@@ -622,7 +617,6 @@ static void testClassic() {
 	freshHitec(HITEC_CLASSIC, true);
 	// A checksum that does not sum: the classic cells 0x00 to 0x1C.
 	fakeHitecSim()->mem[0x1C] ^= 0x01;
-	uiHitecSetClassicMeasured(true);
 	checkTrue("the field list", toList(HITEC_CLASSIC));
 	checkTrue("GP28 on", enHigh());
 	int sumRow = -1;
@@ -663,7 +657,6 @@ static void testClassic() {
 	hs5955(&img);
 	memcpy(fakeHitecSim()->mem, img.mem, sizeof(fakeHitecSim()->mem));
 	fakeHitecSim()->version = img.version;
-	uiHitecSetClassicMeasured(true);
 	checkTrue("an HS-5955TG reads", toList(HITEC_CLASSIC));
 	checkTrue("not measured", !hitecModelMeasuredNow());
 	revealRow(0);
@@ -674,7 +667,6 @@ static void testClassic() {
 	fakeDumpFrame("shot_hitec_not_measured.ppm");
 	tapId(UI_FIX(UI_BACK));
 	leaveAll();
-	uiHitecSetClassicMeasured(false);
 }
 
 static void testStallAndBack() {

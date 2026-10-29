@@ -211,7 +211,7 @@ record either way.
 | SETTINGS layout (`src/ui_settings.cpp`): sections ESC TESTER, WIRING, SERVO SUPPLY, DISPLAY and BOARD in one scrolling list | the scroll range, 0 px at opening and 400 px at most; each row by id; no scroll from a press on a control; a cut control takes a press only while 40 px show; HOLD TO SAVE in place at every scroll position and saving at the end of the list; the pole count reaches the eRPM divisor, the ceiling steps by 5 %, and RESET restores both | not recorded |
 | Settings in flash (MENU → SETTINGS) | block validation, CRC, board id check, pin defaults on GP0 and GP1 and not GP28 or GP29, the version 4 block layout, a version 3 block discarded, the servo supply clamp at 2 | not recorded; 46a64a7 states no hardware coverage |
 | KST switched servo supply with its enable on GP28 or GP29 (`src/servo_supply.*`), the SERVO SUPPLY row, the switched search, REBOOT, the close rule, the lapse rule and the card phase (`src/kst_seek.*`, `src/kst_job.*`, `src/ui_kst.cpp`, `sdh_wait_hook` in `src/sdio/sd_host.h`) | the enable pin untouched with `NONE` from boot; with `GP28` or `GP29` an undriven input (SIO, output off, pulls off, input off) at boot and at every SETTINGS change, a change from GP28 to GP29 switching only GP29; low at bind, high and low between bind and release, an undriven input after release; the mode to pin map; the row stepped NONE, GP28, GP29, applied at once, saved and reset; against a model of the converter and a servo with a power-on window (`test/kst_supply_sim.h`): found on the first power-up, 14 power-ups and the timeout, off 2000 ms before every switch-on, the entry delay at -40 ms and +300 ms, a stop, a lapse and the timeout in a wait, REBOOT's 2000 ms off and 1000 ms on, refused while busy and without a switch, a lapse in the mode, during an operation and in REBOOT's off wait, the close 2000 ms after the switch-off, time off before a leave counted, the enable pin untouched with `NONE`; the screens: the switched search, the leave page and HOLD TO REBOOT, the unplug page's wait, the stalled screen and RETRY; the card phase: `CardBegin` and `CardEnd` in each job state, stamps holding the supply on for 900 ms and off 250 ms after the last, the 15,000 ms cap at 14,900 and 15,100 ms, closed by a command and by LEAVE, the first write's 300 ms card calls inside a phase with and without stamps, the hook null with `NONE`, the busy wait calling the hook | not tested on hardware |
-| Hitec programming: rcbench's Hitec session, register model and line driver (`lib/rcbench/`), the core1 job (`src/hitec_job.*`) and its line (`src/hitec_line_port.*`), the files on the card (`src/hitec_files.*`), the HITEC SERVO screen (`src/ui_hitec.*`, `src/hitec_view.*`) | rcbench's 115 cases; the job against a simulated servo (`runHitecTests`); the deepest stack chain of the job on the Cortex-M33 checked in CI against 1,792 bytes; the files against an in-memory volume and the card phases' block counts over FatFs R0.15 (`make -C test kstcount`); the screen through MENU by control id | not tested on hardware; CLASSIC disabled until the line level is measured |
+| Hitec programming: rcbench's Hitec session, register model and line driver (`lib/rcbench/`), the core1 job (`src/hitec_job.*`) and its line (`src/hitec_line_port.*`), the files on the card (`src/hitec_files.*`), the HITEC SERVO screen (`src/ui_hitec.*`, `src/hitec_view.*`) | rcbench's 115 cases; the job against a simulated servo (`runHitecTests`); the deepest stack chain of the job on the Cortex-M33 checked in CI against 1,792 bytes; the files against an in-memory volume and the card phases' block counts over FatFs R0.15 (`make -C test kstcount`); the screen through MENU by control id | not tested on hardware; CLASSIC needs SERVO SUPPLY at GP28 or GP29; the classic line voltage not measured |
 | Touch handling, high-contrast theme, throttle gauge | tap on release, repeats, screen residue, gauge reach | hardware use recorded: the reports #22 to #24 named in the v2.3 commits; the fixes on hardware: not recorded |
 | List and hold widgets (`src/ui_list.*`, `src/ui_hold.*`; slice A of [menu.md](docs/design/menu.md)) | the list: the scroll range and its clamp, the press rule at the viewport's edges, the row rectangle, the axis lock at 6 px, a tap on release and its slide-off, the scroll from the press point, 16 px per coarse step, the factor, the stop at a rail and the anchor after it, the clipped drawing; the hold: 1000 ms and not 999 ms, the reset on a lift and a slide off, a press that slid on, one firing per press, no timing for a press that landed while the control was disabled or whose first frame it missed, the progress bar's extent; through the screens: AM32's swipe on every field of the table, KV at 16 px a step and its rail, the AM32 and SERVO SET scroll ranges and edge rows (checks that 4c91db9 also passes), DWELL's rail on SET, HOLD TO WRITE and HOLD TO SAVE at 999 ms and 1000 ms, each hold's colour and bar, a press on a disabled HOLD TO START, HOLD TO APPLY and HOLD TO WRITE never timed, HOLD TO SAVE's refusal while armed | not tested on hardware |
 | Control tables (`src/ui_screen.h`; slice B of [menu.md](docs/design/menu.md)) | every screen's table on each view the host suite reaches, the ids, rectangles and enabled flags, `uiCurrentScreen()` after each navigation; the UI tests tap by id | host only: the firmware does not call the tables |
@@ -350,15 +350,16 @@ Not in this history: the DshotDisplay repository's branches
 14. **Hitec programming, steps 1 to 5 of 6 built; bring-up open.**
     [hitec-programming.md](docs/design/hitec-programming.md) records the
     design on rcbench 3e29dc1b, with writes, and the owner's decisions of
-    2026-10-23 and 2026-10-28. Built: rcbench's Hitec files in
+    2026-10-23, 2026-10-28 and 2026-10-29. Built: rcbench's Hitec files in
     `lib/rcbench/` with their 115 test cases, the core1 job
     (`src/hitec_job.*`) on them, tested against a simulated servo, the
     files on the card (`src/hitec_files.*`), the HITEC SERVO screen on MENU,
     its README section and the wiki pages Hitec-Programming and
-    Hitec-Programmierung. CLASSIC stays disabled until bring-up measures the
-    classic line level (`HITEC_CLASSIC_MEASURED` 0). At the SD
-    specification's SDXC times the Hitec first write that keeps an old
-    record takes 17.9 s on exFAT, over the card-phase cap of 15 s. No write
+    Hitec-Programmierung. CLASSIC opens with SERVO SUPPLY at GP28 or GP29,
+    by the owner's decision of 2026-10-29: SIG is a fault tolerant pin and
+    the servo supply is 5 V; the classic line voltage is not measured.
+    At the SD specification's SDXC times the Hitec first write that keeps
+    an old record takes 17.9 s on exFAT, over the card-phase cap of 15 s. No write
     plan of rcbench's Hitec session or panel has run on a servo, so step 6,
     the bring-up, runs one write with read-back per family before a write is
     relied on (design note, "Work breakdown", step 6).
@@ -567,7 +568,7 @@ model.
 | `src/theme.cpp` | 11 | 11 | 100.0% |
 | `src/ui.cpp` | 412 | 410 | 99.5% |
 | `src/ui_am32.cpp` | 321 | 292 | 91.0% |
-| `src/ui_hitec.cpp` | 1087 | 1012 | 93.1% |
+| `src/ui_hitec.cpp` | 1084 | 1010 | 93.2% |
 | `src/ui_hold.cpp` | 36 | 36 | 100.0% |
 | `src/ui_input.cpp` | 27 | 27 | 100.0% |
 | `src/ui_kst.cpp` | 1140 | 1086 | 95.3% |
@@ -580,7 +581,7 @@ model.
 | `src/ui_slider.cpp` | 109 | 109 | 100.0% |
 | `src/ui_widgets.cpp` | 43 | 43 | 100.0% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **8624** | **8368** | **97.0%** |
+| **Total** | **8621** | **8366** | **97.0%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->

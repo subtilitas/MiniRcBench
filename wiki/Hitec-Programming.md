@@ -2,11 +2,12 @@
 
 # Hitec Programming
 
-This screen reads and writes the settings of a Hitec D series servo over its
-signal wire. The protocol code is rcbench's: its session, register model,
+This screen reads and writes the settings of a Hitec D series or classic
+servo over its signal wire. A classic servo needs SERVO SUPPLY at `GP28` or
+`GP29`. The protocol code is rcbench's: its session, register model,
 wire layer and PIO (programmable I/O) line driver. D series frames run at
-115,200 bit/s, half duplex, on the ESC (electronic speed controller) pin. The
-screen reads the servo's 21 registers, shows 20 parameters with their units,
+115,200 bit/s, half duplex, on the ESC (electronic speed controller) pin. For a
+D series servo the screen reads its 21 registers, shows 20 parameters with their units,
 steps the ones that may change, and writes them back with a backup on the SD
 (Secure Digital) card first.
 
@@ -17,9 +18,9 @@ steps the ones that may change, and writes them back with a backup on the SD
 > in this wiki are rendered from the UI (user interface) code against a
 > simulated servo.
 
-> **Only the D series opens.** The classic family (HS-5xxx, HS-7xxx) is
-> shown and disabled. Its line level is not measured. See
-> [Classic servos](#classic-servos).
+> **The classic family needs the switched servo supply.** `CLASSIC`
+> (HS-5xxx, HS-7xxx) acts with SERVO SUPPLY at `GP28` or `GP29`. Under
+> `NONE` only the D series opens. See [Classic servos](#classic-servos).
 
 > **Unplug the servo before DShot runs.** Outside this screen the ESC pin
 > carries DShot, the digital throttle protocol. A servo on that pin reads it
@@ -81,14 +82,13 @@ of its own regulated supply.
 Open **MENU → HITEC SERVO**. The screen opens on the family view. It claims
 no pin yet.
 
-<img src="img/hitec-family.png" width="240" alt="The family view: CLASSIC disabled with LINE LEVEL NOT MEASURED, D SERIES on the servo's own supply">
+<img src="img/hitec-family.png" width="240" alt="The family view with SERVO SUPPLY at NONE: CLASSIC disabled with NEEDS SERVO SUPPLY GP28 OR GP29, D SERIES on the servo's own supply">
 
 The strip reads `CHOOSE THE SERVO'S FAMILY`. Two buttons follow:
 
-- `CLASSIC`, with `HS-5XXX, HS-7XXX` under it, drawn disabled. A line in
-  amber gives the reason: `LINE LEVEL NOT MEASURED`. Once the level is
-  measured, the line reads `NEEDS SERVO SUPPLY GP28 OR GP29` while SERVO SUPPLY is
-  `NONE`.
+- `CLASSIC`, with `HS-5XXX, HS-7XXX` under it. It acts while SERVO SUPPLY
+  is `GP28` or `GP29`. While SERVO SUPPLY is `NONE` it is drawn disabled,
+  and a line in amber gives the reason: `NEEDS SERVO SUPPLY GP28 OR GP29`.
 - `D SERIES`, with `D485HW, D645MW AND THE OTHERS` under it, and
   `SUPPLY SWITCHED ON GP28` (or `GP29`, the pin set) or
   `ON THE SERVO'S OWN SUPPLY`.
@@ -476,25 +476,27 @@ next operation is refused until the screen runs again: a write then reads
 
 ## Classic servos
 
-`CLASSIC` (HS-5xxx, HS-7xxx) stays disabled with `LINE LEVEL NOT MEASURED`.
-The reason is the signal level:
+`CLASSIC` (HS-5xxx, HS-7xxx) needs SERVO SUPPLY at `GP28` or `GP29`: a
+classic servo enters programming mode only at its power-up, and the bench
+switches its supply. Under `NONE` the family view reads
+`NEEDS SERVO SUPPLY GP28 OR GP29`.
 
-- A classic servo drives the signal line high itself, through about 1 kΩ.
-- The voltage it drives is not measured. A 5 V servo may put 5 V on SIG,
-  GP0.
-- GP0 tolerates 5.5 V while the board is powered and 3.63 V while it is
-  off.
+The signal level:
 
-The classic family opens once bring-up has measured that level and the
-firmware is built with it marked as measured. It then needs SERVO SUPPLY at
-`GP28` or `GP29`: a classic servo enters programming mode only at its power-up. Under
-`NONE` the family view reads `NEEDS SERVO SUPPLY GP28 OR GP29`.
+- A classic servo drives the signal line high itself, through about 1 kΩ,
+  from its supply. The converter supplies 5 V nominal.
+- SIG, GP0 or GP1, is a fault tolerant pin. It tolerates 5.5 V while the
+  board is powered and 3.63 V while it is off. Power the board before the
+  servo supply.
+- The voltage on the classic line is not measured.
+- When the bench drives the line low against the servo's 1 kΩ, the pin
+  sinks about 5 mA at 5 V. The low level at that current is not specified.
 
 The classic screens are built and tested on the host only, against a
-simulated servo. The pictures below show them with the line level set as
-measured and SERVO SUPPLY at `GP28` or `GP29`.
+simulated servo. No classic entry, read or write has run on a servo on this
+board. The pictures below show them with SERVO SUPPLY at `GP28`.
 
-<img src="img/hitec-family-classic.png" width="240" alt="The family view with CLASSIC enabled, rendered with the line level set as measured and SERVO SUPPLY at GP28"> <img src="img/hitec-repair.png" width="240" alt="A classic HS-5645MG: CHECKSUM BAD with REPAIR"> <img src="img/hitec-not-measured.png" width="240" alt="A classic model not measured: MODEL NOT MEASURED: WRITTEN IN THE CLASSIC LAYOUT.">
+<img src="img/hitec-family-classic.png" width="240" alt="The family view with SERVO SUPPLY at GP28: CLASSIC enabled"> <img src="img/hitec-repair.png" width="240" alt="A classic HS-5645MG: CHECKSUM BAD with REPAIR"> <img src="img/hitec-not-measured.png" width="240" alt="A classic model not measured: MODEL NOT MEASURED: WRITTEN IN THE CLASSIC LAYOUT.">
 
 - **CHECKSUM.** A classic servo whose checksum does not sum shows
   `CHECKSUM` `BAD` in amber. The row can be selected, and the editor bar
@@ -513,6 +515,8 @@ measured and SERVO SUPPLY at `GP28` or `GP29`.
 
 - The bench sends every frame to ID 0. A D series servo with another ID is
   not tested.
+- The classic line's voltage is not measured, and the pin's low level
+  against a classic servo is not specified.
 - With `GP28` or `GP29`, the screen's card calls keep the supply on for at most 15 s
   while the screen does not redraw, as for KST. At the SD specification's
   full times, the first write that keeps an old record takes 17.9 s on an
