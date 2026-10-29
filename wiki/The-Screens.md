@@ -220,7 +220,8 @@ See [KST Programming](KST-Programming).
 
 Reads and writes the settings of a Hitec D series servo over the signal wire
 on the ESC pin. It opens on the family view: `D SERIES` acts, and `CLASSIC`
-is drawn disabled with `LINE LEVEL NOT MEASURED`. The screen enters the
+acts with SERVO SUPPLY at `GP28` or `GP29`; under `NONE` it is drawn
+disabled with `NEEDS SERVO SUPPLY GP28 OR GP29`. The screen enters the
 servo, reads its 21 registers, and lists 20 parameters, 11 of them editable. One servo
 goes on the lead, with no pull-up resistor. `HOLD TO WRITE` for 1 s opens the
 write page, and a second hold of 1 s writes, with a backup on the SD card

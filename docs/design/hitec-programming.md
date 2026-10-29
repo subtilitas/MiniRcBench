@@ -3,9 +3,9 @@
 Status: work breakdown steps 1 to 5 built, host tests only: the rcbench
 files and their tests, the core1 job on them, the files on the card, the
 HITEC SERVO screen on MENU, and its README section and wiki pages. Step 6,
-the bring-up on hardware, is open; CLASSIC stays disabled until it. The
-decisions of the owner of 2026-10-23 and 2026-10-28 set its questions and
-its scope
+the bring-up on hardware, is open: no classic entry, read or write has run
+on a servo on this board. The decisions of the owner of
+2026-10-23, 2026-10-28 and 2026-10-29 set its questions and its scope
 ([decisions of the owner](#decisions-of-the-owner)): port rcbench's Hitec
 module at commit 3e29dc1b, and write. The design rests on rcbench's session
 (`hitec_session`) and register model (`hitec_reg`), not on single
@@ -207,9 +207,11 @@ tolerates 5.5 V while the board is powered and 3.63 V while it is off
 ([pin-claim.md](pin-claim.md#signal-level)). When the master drives low
 against the servo's 1 kΩ, the pad sinks about 5 mA at 5 V. On a classic line
 the driver sets no drive strength, so the pad keeps its reset value, 4 mA;
-the low level at 5 mA is not specified. This is
-[decision 3](#decisions-of-the-owner): until the level is measured, the
-classic family does not open on a bench pin.
+the low level at 5 mA is not specified. CLASSIC opens with SERVO SUPPLY at
+GP28 or GP29 on the fault tolerant SIG
+([decision 13](#decisions-of-the-owner)). A static_assert in
+`src/ui_hitec.cpp` holds every free pin, `BOARD_FREE_GPIO_MASK`, to the
+fault tolerant pads GP0 to GP25.
 
 **D series high level.** The servo pulls the line low and leaves it
 released for a high level; it has a 3 kΩ pull-down of its own, reported with
@@ -681,7 +683,7 @@ its rows, values, stepper and texts in `src/hitec_view.*`, as
 
 | View | What it shows | Controls |
 |---|---|---|
-| Family | CLASSIC (HS-5XXX, HS-7XXX) and D SERIES, with the wiring note of each; no pin is claimed yet. CLASSIC disabled with `LINE LEVEL NOT MEASURED` until bring-up ([decision 3](#decisions-of-the-owner)), and with `NEEDS SERVO SUPPLY GP28 OR GP29` under `NONE` | CLASSIC, D SERIES, BACK |
+| Family | CLASSIC (HS-5XXX, HS-7XXX) and D SERIES, with the wiring note of each; no pin is claimed yet. CLASSIC disabled with `NEEDS SERVO SUPPLY GP28 OR GP29` under `NONE`, enabled with `GP28` or `GP29` ([decision 13](#decisions-of-the-owner)) | CLASSIC, D SERIES, BACK |
 | Claim | the KST screen's: `CHECKING GP0 FOR AN ESC`, `RELEASING GP0`, the refusals and bind errors | BACK |
 | Entry, classic | `SUPPLY OFF 0.5 S`, then `LISTENING FOR THE SERVO` with the window's progress, then `ENTERING`; the amber ESC line below | STOP, BACK |
 | Entry, D series | with a switch, `SUPPLY OFF 0.5 S`, then `SERVO STARTING 1.0 S` and the amber ESC line; then `READING THE MODEL` | STOP, BACK |
@@ -1170,8 +1172,8 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
   step, each soft rule and its text, a text for every `hitec_ses_t` and
   `hitec_rx_t`.
 - `test_hitec_ui.cpp`, by control id ([menu.md](menu.md#tests-by-control-id)):
-  MENU opens the screen; the family choice, CLASSIC disabled under `NONE`
-  and until the line is measured; the claim; the entry and the read; an edit
+  MENU opens the screen; the family choice, CLASSIC disabled under `NONE`;
+  the claim; the entry and the read; an edit
   and REVERT; HOLD TO WRITE not at 750 ms and not on a slide off; the write
   page, the backup and the record before the first write frame, the flush
   barrier, the result; a write in error and READ AGAIN; FILES with SAVE AS,
@@ -1299,8 +1301,9 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
 4. `src/ui_hitec.cpp`, `src/hitec_view.*`, `HitecCardPhase`, the registry
    line, `test_hitec_view.cpp`, `test_hitec_ui.cpp`, the MENU test changes,
    the preview and its entry in `tools/make_previews.py`. Built.
-   `HITEC_CLASSIC_MEASURED` in `src/config.h` is 0, so CLASSIC stays
-   disabled until bring-up. As built, and differing from the sections above:
+   CLASSIC is enabled with SERVO SUPPLY at `GP28` or `GP29`
+   ([decision 13](#decisions-of-the-owner)). As built, and differing from
+   the sections above:
    - The classic INFO group has no MODEL row: the register model has no
      classic model parameter, so the strip names the model.
    - The entry views show no progress: `LISTENING` without the window's
@@ -1338,7 +1341,7 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
      filter and its text; a text for every `hitec_ses_t` and `hitec_rx_t`;
      the model texts, layouts and the measured models. In
      `test_hitec_ui.cpp`: MENU opens the screen; the family, CLASSIC
-     disabled under `NONE` and until measured; the claim, the entry and the
+     disabled under `NONE`; the claim, the entry and the
      read; an edit and REVERT; HOLD TO WRITE not at 750 ms and not on a
      slide off; the write page, the record on the card before the first
      write frame, the backup, the result, a second write without a second
@@ -1369,8 +1372,9 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
 6. Bring-up, before a write is relied on:
    - the classic line's high level on a scope, the servo's signal lead on a
      68 kΩ resistor to ground and not on the board, while Hitec's
-     programmer or the converter makes the servo drive the line; CLASSIC
-     stays disabled until it is measured ([decision 3](#decisions-of-the-owner));
+     programmer or the converter makes the servo drive the line, and the
+     pad's low level against the servo's 1 kΩ; a check, not a gate: CLASSIC
+     is enabled without it ([decision 13](#decisions-of-the-owner));
    - the converter's checks of KST's bring-up, which they share
      ([kst-programming.md](kst-programming.md#work-breakdown), step 7);
    - the classic entry on the owner's servos: the `+` after the switch-on,
@@ -1393,9 +1397,9 @@ and is not estimated.
 
 Decisions of the owner, 2026-10-23, questions 1 to 7, on the note's first
 version, written against rcbench 4a437488. Decision 1 is replaced by
-decision 9. Decisions 2 and 5 are updated to rcbench 3e29dc1b on 2026-10-28,
-as the owner's decision 8 requires where rcbench's recorded behaviour
-contradicts them; the others stand as decided.
+decision 9, decision 3 by decision 13. Decisions 2 and 5 are updated to
+rcbench 3e29dc1b on 2026-10-28, as the owner's decision 8 requires where
+rcbench's recorded behaviour contradicts them; the others stand as decided.
 
 1. **Writes.** None: reads, position and dumps only. Replaced by decision 9.
 2. **Classic entry.** By the switched servo supply of
@@ -1413,7 +1417,7 @@ contradicts them; the others stand as decided.
    low reach the servo as V × R / (R + 1 kΩ), 2.5 V at R = 1 kΩ and 5 V,
    which may read as high; a clamp to 3.3 V feeds an unpowered board
    through the clamp. rcbench at 3e29dc1b still records the classic line
-   voltages as not measured.
+   voltages as not measured. Replaced by decision 13.
 4. **D series receive.** PRECHARGE only. PULL-UP is not offered: 2.2 kΩ to
    the servo supply puts more than 3.6 V on the line from a 6.24 V supply,
    and a value to 3.3 V is not tested.
@@ -1455,6 +1459,19 @@ Decisions of the owner, 2026-10-28:
 12. **Models not measured.** Writable in their series' layout, as rcbench's
     panel allows, with an amber line on the write page; the 1,000 ms hold is
     the confirmation.
+
+Decisions of the owner, 2026-10-29:
+
+13. **Classic line level.** CLASSIC read and write are enabled without a
+    line-level measurement. SIG, GP0 by default or GP1, is a fault tolerant
+    pin, "Digital IO (FT)" (RP2350 datasheet, Tables 1674 and 1680): rated
+    5.5 V while IOVDD is 3.3 V and 3.63 V while IOVDD is 0 V. The servo
+    supply is the converter, 5 V nominal, and CLASSIC needs SERVO SUPPLY at
+    `GP28` or `GP29`. This replaces decision 3 of 2026-10-23. Unknown: the
+    classic line voltage, not measured; the pad's low level when it sinks
+    about 5 mA against the servo's 1 kΩ at 5 V with the 4 mA drive setting,
+    not specified. No classic entry, read or write has run on a servo on
+    this board.
 
 ## Choices made in this design
 

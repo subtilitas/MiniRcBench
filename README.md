@@ -114,11 +114,11 @@ The pin map is `src/board_rp2350_touch_lcd_2_8.h`.
 | Switched servo supply enable (EN) | 28 or 29 | J4 pin 11 or J4 pin 12. Optional, under SETTINGS → SERVO SUPPLY. An output at 3.3 V |
 
 Only GP0 and GP1 are free (`BOARD_FREE_GPIO_MASK` = `0x00000003`). Both are
-"Digital IO (FT)" pins, fault tolerant (RP2350 datasheet, Table 1674): they
-tolerate up to 5.5 V while IOVDD, the board's I/O supply, is at 3.3 V, and
-with IOVDD at 0 V very little current flows below 3.63 V. GP28 and GP29 are
-"Digital IO / Analogue" pins, ADC inputs, and not fault tolerant, so they
-carry only the switched supply's enable, an output.
+"Digital IO (FT)" pins, fault tolerant (RP2350 datasheet, Tables 1674 and
+1680): they are rated 5.5 V while IOVDD, the board's I/O supply, is at
+3.3 V, and 3.63 V while it is off. GP28 and GP29 are "Digital IO /
+Analogue" pins, ADC inputs, and not fault tolerant: they are rated IOVDD +
+0.5 V. They carry only the switched supply's enable, an output.
 
 ### Wiring the ESC
 
@@ -1137,7 +1137,7 @@ servo over its signal wire, on SIG (GP0). The protocol code is rcbench's
 (programmable I/O) line driver. D series frames run at 115,200 bit/s, half
 duplex, and the bench receives the servo's answer without a pull-up
 resistor (PRECHARGE: the pin lifts the line for 100 ns before each sample).
-The classic family (HS-5xxx, HS-7xxx) is in the code and stays disabled:
+The classic family (HS-5xxx, HS-7xxx) needs the switched servo supply:
 see [Classic servos](#classic-servos). Not tested on hardware: no byte of
 the line driver has been on a pin of this board, and no write plan of
 rcbench's has run on a servo. Design note:
@@ -1265,15 +1265,14 @@ is the D485HW.
 
 ### Classic servos
 
-HITEC SERVO lists CLASSIC (HS-5xxx, HS-7xxx) disabled, with
-`LINE LEVEL NOT MEASURED`. A classic servo drives the signal line high
-itself, through about 1 kΩ, and the voltage it drives is not measured: a
-5 V servo may put 5 V on SIG, GP0. GP0 tolerates 5.5 V while the board is
-powered and 3.63 V while it is off. The
-classic family opens once bring-up has measured that level and
-`HITEC_CLASSIC_MEASURED` in `src/config.h` is set to 1. It then needs
-SERVO SUPPLY at `GP28` or `GP29`, since a classic servo enters programming mode only at
-its power-up. The classic screens are built and tested on the host:
+HITEC SERVO offers CLASSIC (HS-5xxx, HS-7xxx) with SERVO SUPPLY at `GP28`
+or `GP29`, since a classic servo enters programming mode only at its
+power-up. Under `NONE` it is drawn disabled, with
+`NEEDS SERVO SUPPLY GP28 OR GP29`. A classic servo drives the signal line
+high itself, through about 1 kΩ, to its supply: 5 V nominal from the
+converter. SIG is GP0 or GP1, both fault tolerant, rated 5.5 V while the
+board is powered and 3.63 V while it is off. The line voltage is not
+measured. The classic screens are built and tested on the host:
 REPAIR of a checksum that does not sum, `FACTORY VALUES` from the servo's
 own factory cells, and the HS-5xxx and HS-7xxx layouts.
 
@@ -1293,6 +1292,10 @@ own factory cells, and the HS-5xxx and HS-7xxx layouts.
   first write's backup; the write page does not say so.
 - READ AGAIN drops a pending REPAIR, which READ AGAIN shows as `BAD` again.
 - The entry views show no countdown for the servo's 1 s start.
+- No classic entry, read or write has run on a servo on this board. The
+  classic line voltage is not measured. The pad sinks about 5 mA against the
+  servo's 1 kΩ at 5 V, above its 4 mA drive setting; the low level at that
+  current is not specified.
 
 ---
 
@@ -1538,7 +1541,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.0%**: 8,368 of 8,624 lines in 51 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.0%**: 8,366 of 8,621 lines in 51 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

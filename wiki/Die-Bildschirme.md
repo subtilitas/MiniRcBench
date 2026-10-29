@@ -229,7 +229,8 @@ zeigt dann `UNPLUG THE SERVO.`, und `RESTART DSHOT` führt zu `MENU`. Siehe
 
 Liest und schreibt die Einstellungen eines Hitec-Servos der D-Serie über das
 Signalkabel am ESC-Pin. Der Bildschirm öffnet mit der Familienauswahl:
-`D SERIES` wirkt, `CLASSIC` ist mit `LINE LEVEL NOT MEASURED` abgeblendet. Er
+`D SERIES` wirkt, `CLASSIC` wirkt mit SERVO SUPPLY auf `GP28` oder `GP29`;
+unter `NONE` ist es mit `NEEDS SERVO SUPPLY GP28 OR GP29` abgeblendet. Er
 tritt in das Servo ein, liest seine 21 Register und listet 20 Parameter, davon 11
 verstellbar. An der Leitung hängt ein Servo, ohne Pull-up-Widerstand.
 `HOLD TO WRITE` 1 s lang gehalten öffnet die Schreibseite, ein zweites Halten
