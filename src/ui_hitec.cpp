@@ -194,7 +194,16 @@ static uint16_t s_sentSeq = 0;
 
 static bool taken(uint16_t ackSeq, uint16_t seq) { return (int16_t)(ackSeq - seq) >= 0; }
 
+/** @brief The refusal of the operation sent last, latched while the status answers its command. */
+static HitecRefusal s_opRefused = HitecRefusal::None;
+
+/** @brief Latch the operation's refusal from @p st when it answers the operation's command. */
+static void latchRefusal(const HitecStatus &st) {
+	if (st.ackSeq == s_seq) s_opRefused = st.refused;
+}
+
 static void sendOp(HitecOp op, const hitec_image_t *target = nullptr) {
+	s_opRefused = HitecRefusal::None;
 	HitecCmd c;
 	memset(&c, 0, sizeof(c));
 	c.op = op;
@@ -231,6 +240,7 @@ struct HitecCardPhase {
 		     hitecJobStatus(&st))
 			kstCardWaitPoll();
 		if (!taken(st.ackSeq, s_sentSeq)) return;
+		latchRefusal(st);
 		HitecCmd c;
 		memset(&c, 0, sizeof(c));
 		c.op = HitecOp::CardBegin;
@@ -351,8 +361,8 @@ static void readFiles();
 
 /**
  * @brief A read completed: the draft is the servo, the list on its layout.
- *        A read with a draft keeps its pending edits, each taken onto the
- *        servo as read; one the model refuses there is dropped.
+ *        A read with a draft keeps its pending edits: the writable
+ *        addresses they changed go onto the servo as read.
  */
 static void readDone() {
 	bool fresh = !s_haveDraft || hitecLayoutOf(&s_st.image) != s_layout;
@@ -360,15 +370,24 @@ static void readDone() {
 	if (fresh) layoutRows();
 	s_draft = s_st.image;
 	if (!fresh) {
-		for (int i = 0; i < s_rowCount; i++) {
-			uint8_t p = s_rows[i].param;
-			hitec_value_t v;
-			if (!hitecEditable(s_layout, p) || !hitecDiffers(&s_base, &keep, s_layout, p) ||
-			    hitec_param_get(&keep, s_layout, p, &v) != HITEC_GET_OK)
+		// The writable addresses the edits changed, as they stand in the
+		// draft: a side effect of one edit, such as DIRECTION's mirrored end
+		// points, comes with it, and no edit runs twice.
+		bool any = false;
+		for (unsigned a = 0; a < HITEC_MEM_SIZE; a++) {
+			uint8_t x = (uint8_t)a;
+			if (!hitec_writable(s_family, x) || !hitec_image_known(&keep, x) || !hitec_image_known(&s_base, x))
 				continue;
-			hitec_image_t t = s_draft;
-			if (hitec_param_set(&t, s_layout, p, v.value) == HITEC_SET_OK) s_draft = t;
+			if (s_family == HITEC_D) {
+				if (hitec_image_reg(&keep, x) == hitec_image_reg(&s_base, x)) continue;
+				hitec_image_put_reg(&s_draft, x, hitec_image_reg(&keep, x));
+			} else {
+				if (hitec_image_cell(&keep, x) == hitec_image_cell(&s_base, x)) continue;
+				hitec_image_put_cell(&s_draft, x, hitec_image_cell(&keep, x));
+			}
+			any = true;
 		}
+		if (any && s_family == HITEC_CLASSIC) hitec_c_rebalance(&s_draft);
 	}
 	s_base = s_st.image;
 	s_haveDraft = true;
@@ -379,9 +398,10 @@ static void readDone() {
 
 static void opEnd() {
 	s_opOpen = false;
-	// The refusal is that of the last command taken: a card phase's command
-	// after the operation has its own.
-	HitecRefusal refused = s_st.ackSeq == s_seq ? s_st.refused : HitecRefusal::None;
+	// The status's refusal is that of the last command taken; a card phase's
+	// command after the operation has its own, so the operation's is latched.
+	latchRefusal(s_st);
+	HitecRefusal refused = s_opRefused;
 	if (s_op == HitecOp::ReadAll) {
 		if (refused == HitecRefusal::None && s_st.result == HITEC_SES_OK && s_st.hasImage) readDone();
 		else s_readFailed = true;
@@ -408,6 +428,7 @@ static void opEnd() {
 
 static void follow() {
 	if (!running()) return;
+	latchRefusal(s_st);
 	if (s_write.record == HitecFiles::Ok && !hitecFilesMounted()) s_write.record = HitecFiles::NoCard;
 	if (s_st.job == HitecJobState::Opening && !s_enterSent) {
 		sendOp(HitecOp::Enter);
@@ -906,6 +927,8 @@ static void restartOnNewCard() {
 /** @brief What a flush that runs holds up: the files of this write, or the write itself. */
 enum class FlushWait : uint8_t { None, BeforeFiles, BeforeWrite };
 static FlushWait s_flushWait = FlushWait::None;
+/** @brief The batch the write waits for holds the session's backup: its first write. */
+static bool s_flushFirst = false;
 
 static void filesThenWrite();
 
@@ -925,7 +948,7 @@ static void flushStep() {
 	s_flushWait = FlushWait::None;
 	if (c == CardCache::Failed) {
 		recoverFlush();
-		s_cardNote = w == FlushWait::BeforeFiles
+		s_cardNote = w == FlushWait::BeforeFiles || !s_flushFirst
 		                 ? "THE CARD DID NOT TAKE A FILE. NOTHING WAS WRITTEN TO THE SERVO."
 		                 : FLUSH_FAILED;
 		return;
@@ -947,6 +970,7 @@ static void waitFlush(FlushWait w) {
  */
 static void filesThenWrite() {
 	if (cardSwapped()) restartOnNewCard();
+	s_flushFirst = !s_firstDone;
 	if (!writeFiles()) {
 		s_cardNote = "THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.";
 		return;
@@ -1056,7 +1080,9 @@ static void drawWrite() {
 	if (s_flushing) {
 		uint16_t left = 0;
 		cardCacheState(&left);
-		gfxText(UI_MARGIN, 196, "SAVING THE BACKUP TO THE CARD.", C_AMBER, 1);
+		gfxText(UI_MARGIN, 196, s_flushWait == FlushWait::BeforeWrite && s_flushFirst
+		                            ? "SAVING THE BACKUP TO THE CARD." : "SAVING THE FILES TO THE CARD.",
+		        C_AMBER, 1);
 		snprintf(buf, sizeof(buf), "BLOCKS LEFT: %u", (unsigned)left);
 		gfxText(UI_MARGIN, 210, buf, C_TEXT, 1);
 		return;

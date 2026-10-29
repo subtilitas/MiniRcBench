@@ -43,6 +43,7 @@
 #include "rcbench/hitec_reg_fix.h"
 #pragma GCC diagnostic pop
 
+#include <initializer_list>
 #include <stdio.h>
 #include <string.h>
 
@@ -727,6 +728,30 @@ static void testIdAndBack() {
 	hitecFrames(2);
 	checkTrue("the read ended in the mode", job().job == HitecJobState::InMode && job().result == HITEC_SES_OK);
 	checkTrue("the edit is still pending", ctlEnabled(UI_FIX(HitecCtl::Write)));
+	tapId(UI_FIX(HitecCtl::Revert));
+
+	// A DIRECTION reversal kept through READ AGAIN keeps its mirrored ends.
+	revealRow(6);
+	tapId(UI_ROW(6, Row));
+	tapId(UI_FIX(HitecCtl::EditPlus));
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(HitecCtl::LeaveRead));
+	hitecFrame();
+	for (int i = 0; i < 800 && job().job != HitecJobState::InMode; i++) hitecFrame();
+	hitecFrames(2);
+	holdUntilGone(UI_FIX(HitecCtl::Write));
+	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
+	checkTrue("the reversal writes", untilCtl(UI_FIX(HitecCtl::WriteOk), 800) && job().result == HITEC_SES_OK);
+	hitec_image_t want;
+	d485(&want);
+	hitec_param_set(&want, HITEC_LAYOUT_D, HITEC_P_D_DIRECTION, HITEC_CCW);
+	hitec_image_t got = jobImage();
+	bool same = true;
+	for (uint8_t p : { (uint8_t)HITEC_P_D_DIRECTION, (uint8_t)HITEC_P_D_NEUTRAL, (uint8_t)HITEC_P_D_LEFT_END,
+	                   (uint8_t)HITEC_P_D_RIGHT_END })
+		if (hitecDiffers(&want, &got, HITEC_LAYOUT_D, p)) same = false;
+	checkTrue("the servo holds the reversal with its ends mirrored", same);
+	tapId(UI_FIX(HitecCtl::WriteOk));
 	leaveAll();
 
 	// STOP during the entry, BACK during the entry.
