@@ -238,7 +238,7 @@ jobs:
           | ESC | Board |
           |---|---|
           | Signal | **GP0** — J4 pin 9 or J5 pin 2 |
-          | Ground | **GND** — J4 pin 1 or 5 |
+          | Ground | **GND** — J4 pin 1 or 5, or J5 pin 4 |
 
           The board brings out two free signal pins, GP0 and GP1. The ESC pin
           is a setting under **MENU → SETTINGS**, kept across power cycles
@@ -253,19 +253,20 @@ jobs:
           Cut or depin the middle wire of the ESC lead: it is the BEC (battery
           eliminator circuit) +5 V output, and the board must not be fed
           from it. GP0 and GP1 are fault-tolerant pins: they take up to 5.5 V
-          while the board is powered, and up to 3.63 V while it is off.
+          while the board is powered, and with the board off very little
+          current flows below 3.63 V.
 
           ## Optional: KISS telemetry
 
           A third wire from the ESC's telemetry pad gives 0.01 V and 0.01 A
           steps instead of Extended DShot Telemetry's 0.25 V and 1 A. It lands
-          on **GP1**, J4 pin 10 or J5 pin 1. KISS is off by default, because
-          the ESC takes one of the two free pins. One tap under **MENU →
-          SETTINGS** turns it on.
+          on **GP1**, J4 pin 10 or J5 pin 1. KISS is off by default.
+          **MENU → SETTINGS → KISS TELEM** turns it on.
 
           The level the ESC drives on this line is not measured by this
           project. The KISS specification puts it at 3.6 V. GP1 takes up to
-          5.5 V while the board is powered, and up to 3.63 V while it is off.
+          5.5 V while the board is powered, and with the board off very
+          little current flows below 3.63 V.
 
           ## Licences
 

@@ -462,9 +462,9 @@ static void testPwm() {
 	checkInt("the running slice is left alone", fakeSlice(0).inits, 1);
 	checkInt("and GP1 starts at level 0, not at what its register held",
 	         fakePin(AUX).level, 0);
-	checkTrue("GP17, both bindings in use: refused", !servoPwmBind(17, 50));
+	checkTrue("GP17, GP1's compare register: refused", !servoPwmBind(17, 50));
 	checkTrue("GP26, both bindings in use: refused", !servoPwmBind(26, 50));
-	checkTrue("GP30 with both bindings in use: refused", !servoPwmBind(30, 50));
+	checkTrue("GP30, both bindings in use: refused", !servoPwmBind(30, 50));
 
 	servoPwmWrite(SIG, 1500);
 	checkInt("a 1500 us pulse", fakePin(SIG).level, 1500);
