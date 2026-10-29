@@ -302,7 +302,15 @@ static void testDSeriesRead() {
 	tapId(UI_FIX(HitecCtl::Revert));
 	checkTrue("REVERT drops it", !ctlEnabled(UI_FIX(HitecCtl::Write)) && !ctlEnabled(UI_FIX(HitecCtl::Revert)));
 
-	// A sideways swipe on a row steps it coarsely.
+	// A sideways swipe on NEUTRAL steps it by a coarse step, 1490 counts.
+	revealRow(3);
+	int x, y;
+	ctlCentre(UI_ROW(3, Row), &x, &y);
+	fakePress(x, y); hitecFrame();
+	for (int k = 1; k <= 10; k++) { fakeHold(x - 4 * k, y); hitecFrame(); }
+	fakeRelease(); hitecFrame();
+	checkTrue("a sideways swipe on NEUTRAL is an edit", ctlEnabled(UI_FIX(HitecCtl::Write)));
+	tapId(UI_FIX(HitecCtl::Revert));
 	leaveAll();
 }
 
@@ -354,6 +362,25 @@ static void testWrite() {
 	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
 	checkTrue("a second write ends", untilCtl(UI_FIX(HitecCtl::WriteOk), 800));
 	checkTrue("no second backup", !fakeFatExists("BACKUP/HT002.TXT"));
+	tapId(UI_FIX(HitecCtl::WriteOk));
+
+	// A later write while the record removal still flushes: the flush ends,
+	// then this write's record, then its frames.
+	speedDown();
+	holdUntilGone(UI_FIX(HitecCtl::Write));
+	fakeCacheSet(CardCache::Flushing, 4);
+	s_writesAtRecord = -1;
+	fakeFatOnCall(watchRecord);
+	unsigned writes1 = fakeHitecSim()->writes;
+	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
+	hitecFrames(4);
+	checkTrue("an earlier batch flushing: no write frame yet", fakeHitecSim()->writes == writes1);
+	fakeCacheSet(CardCache::Idle, 0);
+	checkTrue("then the write ends", untilCtl(UI_FIX(HitecCtl::WriteOk), 800));
+	fakeFatOnCall(nullptr);
+	checkTrue("its record stood on the card before its first write frame",
+	          s_writesAtRecord == (int)writes1);
+	checkTrue("verified", job().result == HITEC_SES_OK);
 	tapId(UI_FIX(HitecCtl::WriteOk));
 
 	// BACK during a write: the write ends, then the leave page.
@@ -672,6 +699,134 @@ static void testStallAndBack() {
 	supply(false);
 }
 
+static void testIdAndBack() {
+	section("Hitec screen: the ID note, STOP, BACK in the entry and the read, a kept edit");
+	freshHitec(HITEC_D, false);
+	checkTrue("the field list", toList(HITEC_D));
+	revealRow(12);
+	tapId(UI_ROW(12, Row));
+	tapId(UI_FIX(HitecCtl::EditPlus));
+	holdUntilGone(UI_FIX(HitecCtl::Write));
+	checkTrue("an ID write: its page", uiHitecView() == HitecView::Write);
+	checkTrue("names the ID the bench addresses",
+	          fakeCountColour(C_AMBER) > 0);
+	fakeDumpFrame("shot_hitec_id.ppm");
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(HitecCtl::Revert));
+
+	// An edit survives READ AGAIN, and FILES during the read does not fail it.
+	speedDown();
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the leave page", uiHitecView() == HitecView::Leave);
+	tapId(UI_FIX(HitecCtl::LeaveRead));
+	hitecFrame();
+	checkTrue("the read runs", job().job == HitecJobState::Busy);
+	tapId(UI_FIX(HitecCtl::Files));
+	tapId(UI_FIX(UI_BACK));
+	for (int i = 0; i < 800 && job().job != HitecJobState::InMode; i++) hitecFrame();
+	hitecFrames(2);
+	checkTrue("the read ended in the mode", job().job == HitecJobState::InMode && job().result == HITEC_SES_OK);
+	checkTrue("the edit is still pending", ctlEnabled(UI_FIX(HitecCtl::Write)));
+	leaveAll();
+
+	// STOP during the entry, BACK during the entry.
+	freshHitec(HITEC_D, true);
+	openHitec();
+	tapId(UI_FIX(HitecCtl::DSeries));
+	checkTrue("the entry offers STOP", untilCtl(UI_FIX(HitecCtl::Stop), 200));
+	tapId(UI_FIX(HitecCtl::Stop));
+	checkTrue("STOP: RETRY", untilCtl(UI_FIX(HitecCtl::Retry), 400));
+	checkTrue("the supply is off", !gp0High());
+	tapId(UI_FIX(HitecCtl::Retry));
+	checkTrue("RETRY enters again", untilCtl(UI_FIX(HitecCtl::Stop), 200));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK during the entry: the unplug page", uiHitecView() == HitecView::Unplug);
+	checkTrue("RESTART DSHOT after the off time", untilCtl(UI_FIX(HitecCtl::Restart), 200));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK on the unplug page: a new session on the main view", uiHitecView() == HitecView::Main);
+	checkTrue("it reads the servo again", untilView(HitecView::List, 1200));
+	leaveAll();
+
+	// BACK during the entry's own read: it stops, the leave page follows.
+	freshHitec(HITEC_D, false);
+	openHitec();
+	tapId(UI_FIX(HitecCtl::DSeries));
+	for (int i = 0; i < 400 && job().job != HitecJobState::Busy; i++) hitecFrame();
+	hitecFrames(2);
+	checkTrue("the entry's read runs", job().job == HitecJobState::Busy && uiHitecView() == HitecView::Main);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: the leave page", uiHitecView() == HitecView::Leave);
+	for (int i = 0; i < 200 && job().job == HitecJobState::Busy; i++) hitecFrame();
+	checkTrue("the read stopped", job().job == HitecJobState::InMode && !job().hasImage);
+	checkTrue("READ AGAIN acts", ctlEnabled(UI_FIX(HitecCtl::LeaveRead)));
+	tapId(UI_FIX(HitecCtl::LeaveRead));
+	checkTrue("READ AGAIN: the field list", untilView(HitecView::List, 1200));
+	leaveAll();
+}
+
+static void testCardSwap() {
+	section("Hitec screen: another card in the slot since the backup");
+	fakeCacheReset();
+	fakeVolumeSet(1);
+	freshHitec(HITEC_D, false);
+	checkTrue("the field list", toList(HITEC_D));
+	speedDown();
+	holdUntilGone(UI_FIX(HitecCtl::Write));
+	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
+	checkTrue("the first write", untilCtl(UI_FIX(HitecCtl::WriteOk), 800) && fakeFatExists("BACKUP/HT001.TXT"));
+	tapId(UI_FIX(HitecCtl::WriteOk));
+
+	// Another serial: the card is mounted again and the backup saved to it.
+	fakeVolumeSet(2);
+	unsigned recovers = fakeCacheCalls().recovers;
+	unsigned writes = fakeHitecSim()->writes;
+	speedDown();
+	holdUntilGone(UI_FIX(HitecCtl::Write));
+	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
+	checkTrue("another card: mounted again, the backup saved to it, then the write",
+	          untilCtl(UI_FIX(HitecCtl::WriteOk), 800) && fakeCacheCalls().recovers == recovers + 1 &&
+	          fakeFatExists("BACKUP/HT002.TXT") && job().result == HITEC_SES_OK &&
+	          fakeHitecSim()->writes > writes);
+	tapId(UI_FIX(HitecCtl::WriteOk));
+
+	// Swapped while a batch was queued: the check at the flush's end.
+	fakeCacheSet(CardCache::Flushing, 2);
+	recovers = fakeCacheCalls().recovers;
+	writes = fakeHitecSim()->writes;
+	speedDown();
+	holdUntilGone(UI_FIX(HitecCtl::Write));
+	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
+	hitecFrames(2);
+	checkTrue("a batch queued: no write frame", fakeHitecSim()->writes == writes);
+	fakeVolumeSet(3);
+	fakeCacheSet(CardCache::Idle, 0);
+	checkTrue("swapped during the wait: mounted again, the backup saved, then the write",
+	          untilCtl(UI_FIX(HitecCtl::WriteOk), 800) && fakeCacheCalls().recovers == recovers + 1 &&
+	          fakeFatExists("BACKUP/HT003.TXT") && job().result == HITEC_SES_OK);
+	tapId(UI_FIX(HitecCtl::WriteOk));
+	leaveAll();
+	fakeVolumeSet(1);
+	fakeCacheReset();
+}
+
+static void testStallInWrite() {
+	section("Hitec screen: a stall during a write");
+	freshHitec(HITEC_D, true);
+	checkTrue("the field list on GP0", toList(HITEC_D));
+	speedDown();
+	holdUntilGone(UI_FIX(HitecCtl::Write));
+	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
+	checkTrue("the write runs", job().job == HitecJobState::Busy);
+	// The UI stops for 2 s: the job finishes the write, then switches off.
+	for (int i = 0; i < 2000; i++) core1Pass();
+	hitecFrames(4);
+	checkTrue("the stall: RETRY", untilCtl(UI_FIX(HitecCtl::Retry), 200));
+	checkTrue("GP0 off", !gp0High());
+	checkTrue("the job says it wrote", job().stallWrote);
+	checkTrue("the record stays on the card", fakeFatExists("HITEC/HITEC.TXT"));
+	leaveAll();
+}
+
 void runHitecUiTests() {
 	testFamily();
 	testDSeriesRead();
@@ -683,4 +838,7 @@ void runHitecUiTests() {
 	testRecordAtEntry();
 	testClassic();
 	testStallAndBack();
+	testIdAndBack();
+	testCardSwap();
+	testStallInWrite();
 }

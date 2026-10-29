@@ -21,6 +21,7 @@
 #include "hitec_job.h"
 #include "hitec_view.h"
 #include "kst_job.h"
+#include "kst_seek.h"
 #include "kst_view.h"
 #include "pin_claim.h"
 #include "sd_log.h"
@@ -120,6 +121,7 @@ static bool          s_enterSent = false;
 static bool          s_readFailed = false;  /**< The last read did not complete. */
 static bool          s_haveDraft = false;
 static hitec_image_t s_draft;               /**< The servo with the pending changes. */
+static hitec_image_t s_base;                /**< The servo the draft's edits are made against. */
 static uint8_t       s_layout = HITEC_LAYOUT_D;
 static hitec_image_t s_pageFrom;            /**< The servo when the write page opened. */
 static hitec_image_t s_pageTo;              /**< What the write page writes. */
@@ -129,7 +131,6 @@ static HitecWrite    s_write;               /**< What the last write put on the 
 static uint32_t      s_firstVolume = 0;     /**< The serial number of the volume the backup went to. */
 static bool          s_firstOnCard = false; /**< The backup went to a card: the swap check is armed. */
 static bool          s_firstVolumeRead = false;
-static bool          s_checkAfterFlush = false;
 static bool          s_recordFound = false; /**< HITEC/HITEC.TXT on the card. */
 static bool          s_lastFailed = false;  /**< The last write did not end verified. */
 static char          s_otherModel[24];      /**< A loaded file of another model: its model; empty for none. */
@@ -348,11 +349,28 @@ static void readFiles();
 // the session's events
 // ---------------------------------------------------------------------------
 
-/** @brief A read completed: the draft is the servo, the list on its layout. */
+/**
+ * @brief A read completed: the draft is the servo, the list on its layout.
+ *        A read with a draft keeps its pending edits, each taken onto the
+ *        servo as read; one the model refuses there is dropped.
+ */
 static void readDone() {
-	bool fresh = !s_haveDraft;
+	bool fresh = !s_haveDraft || hitecLayoutOf(&s_st.image) != s_layout;
+	hitec_image_t keep = s_draft;
 	if (fresh) layoutRows();
 	s_draft = s_st.image;
+	if (!fresh) {
+		for (int i = 0; i < s_rowCount; i++) {
+			uint8_t p = s_rows[i].param;
+			hitec_value_t v;
+			if (!hitecEditable(s_layout, p) || !hitecDiffers(&s_base, &keep, s_layout, p) ||
+			    hitec_param_get(&keep, s_layout, p, &v) != HITEC_GET_OK)
+				continue;
+			hitec_image_t t = s_draft;
+			if (hitec_param_set(&t, s_layout, p, v.value) == HITEC_SET_OK) s_draft = t;
+		}
+	}
+	s_base = s_st.image;
 	s_haveDraft = true;
 	s_readFailed = false;
 	s_otherModel[0] = '\0';
@@ -361,21 +379,25 @@ static void readDone() {
 
 static void opEnd() {
 	s_opOpen = false;
+	// The refusal is that of the last command taken: a card phase's command
+	// after the operation has its own.
+	HitecRefusal refused = s_st.ackSeq == s_seq ? s_st.refused : HitecRefusal::None;
 	if (s_op == HitecOp::ReadAll) {
-		if (s_st.refused == HitecRefusal::None && s_st.result == HITEC_SES_OK && s_st.hasImage) readDone();
+		if (refused == HitecRefusal::None && s_st.result == HITEC_SES_OK && s_st.hasImage) readDone();
 		else s_readFailed = true;
 		return;
 	}
 	s_writing = false;
 	s_result = true;
-	s_resultRefused = s_st.refused;
-	s_resultSes = s_st.refused == HitecRefusal::None ? s_st.result : (uint8_t)HITEC_SES_ERR_BUSY;
+	s_resultRefused = refused;
+	s_resultSes = refused == HitecRefusal::None ? s_st.result : (uint8_t)HITEC_SES_ERR_BUSY;
 	s_lastFailed = s_resultSes != HITEC_SES_OK;
 	if (s_resultSes == HITEC_SES_OK) {
 		HitecCardPhase phase;
 		hitecFilesRecordRemove(&s_write);
 		s_recordFound = hitecFilesMounted() && hitecFilesRecordPresent();
 		s_draft = s_st.image;
+		s_base = s_st.image;
 		s_otherModel[0] = '\0';
 	}
 	if (s_leaveQueued) {
@@ -628,9 +650,23 @@ static bool selectable(int i) {
 	       v.value == HITEC_SUM_BAD;
 }
 
+/**
+ * @brief Whether - (@p dir -1) or + steps the selected row. The answer is
+ *        kept while the draft and the selection stay: at the D series order's
+ *        bound one answer tries the whole range.
+ */
 static bool stepOk(int dir) {
 	if (s_sel < 0 || !hitecEditable(s_layout, s_rows[s_sel].param) || !idleRead()) return false;
-	return hitecCanStep(&s_draft, s_layout, s_rows[s_sel].param, dir);
+	static hitec_image_t s_memoDraft;
+	static int s_memoSel = -1;
+	static bool s_memo[2];
+	if (s_memoSel != s_sel || memcmp(&s_memoDraft, &s_draft, sizeof(s_draft)) != 0) {
+		s_memoDraft = s_draft;
+		s_memoSel = s_sel;
+		s_memo[0] = hitecCanStep(&s_draft, s_layout, s_rows[s_sel].param, -1);
+		s_memo[1] = hitecCanStep(&s_draft, s_layout, s_rows[s_sel].param, +1);
+	}
+	return s_memo[dir > 0];
 }
 
 static void drawFieldRow(int i, int y, void *) {
@@ -667,14 +703,18 @@ static bool readFirst() { return s_st.unknown; }
 static void drawList() {
 	uiHeader("HITEC SERVO", s_t);
 	uiStripClear();
-	char model[24], strip[48];
+	char model[24], strip[48], backup[24], gp[8];
 	hitecModelText(&s_st.image, model, sizeof(model));
 	char ver[8] = "";
 	if (s_family == HITEC_CLASSIC) snprintf(ver, sizeof(ver), " V%02X", s_st.image.version);
-	if (s_write.backupName[0])
-		snprintf(strip, sizeof(strip), "%.12s%s GP%u BACKUP %.5s", model, ver, sigGpio(), s_write.backupName);
-	else
-		snprintf(strip, sizeof(strip), "%.12s%s GP%u BACKUP IN MEMORY", model, ver, sigGpio());
+	snprintf(gp, sizeof(gp), " GP%u", sigGpio());
+	if (s_write.backupName[0]) snprintf(backup, sizeof(backup), " BACKUP %.5s", s_write.backupName);
+	else                       snprintf(backup, sizeof(backup), " BACKUP IN MEMORY");
+	// The longest of these that ends before the MODE chip, 4 px clear of it.
+	const int room = GFX_W - UI_MARGIN - (gfxTextW("MODE", 1) + 12) - 4 - UI_MARGIN;
+	snprintf(strip, sizeof(strip), "%.12s%s%s%s", model, ver, gp, backup);
+	if (gfxTextW(strip, 1) > room) snprintf(strip, sizeof(strip), "%.12s%s%s", model, ver, backup);
+	if (gfxTextW(strip, 1) > room) snprintf(strip, sizeof(strip), "%.12s%s%s", model, ver, gp);
 	uiStripText(strip, C_DIM);
 	uiChip("MODE", C_GREEN);
 	uiListDraw(&s_list, drawFieldRow, nullptr);
@@ -863,25 +903,56 @@ static void restartOnNewCard() {
 	if (hitecFilesMounted()) hitecFilesNextBackup(s_backupNext);
 }
 
-static void startWrite();
+/** @brief What a flush that runs holds up: the files of this write, or the write itself. */
+enum class FlushWait : uint8_t { None, BeforeFiles, BeforeWrite };
+static FlushWait s_flushWait = FlushWait::None;
+
+static void filesThenWrite();
 
 static const char *const FLUSH_FAILED = "THE CARD DID NOT TAKE THE BACKUP. NOTHING WAS WRITTEN TO THE SERVO.";
 
+/**
+ * @brief The flush a write waits for has ended: with an earlier batch on the
+ *        card, this write's files follow; with this write's own batch, the
+ *        write goes out. A failed flush stops it.
+ */
 static void flushStep() {
 	if (!s_flushing) return;
 	CardCache c = cardCacheState();
 	if (c == CardCache::Flushing) return;
 	s_flushing = false;
-	bool check = s_checkAfterFlush;
-	s_checkAfterFlush = false;
+	FlushWait w = s_flushWait;
+	s_flushWait = FlushWait::None;
 	if (c == CardCache::Failed) {
 		recoverFlush();
-		s_cardNote = check ? "THE CARD DID NOT TAKE A FILE. NOTHING WAS WRITTEN TO THE SERVO." : FLUSH_FAILED;
+		s_cardNote = w == FlushWait::BeforeFiles
+		                 ? "THE CARD DID NOT TAKE A FILE. NOTHING WAS WRITTEN TO THE SERVO."
+		                 : FLUSH_FAILED;
 		return;
 	}
-	if (check && cardSwapped()) {
-		restartOnNewCard();
-		startWrite();
+	if (w == FlushWait::BeforeFiles) filesThenWrite();
+	else sendWrite();
+}
+
+/** @brief Wait for the flush that runs; @p w says what follows it. */
+static void waitFlush(FlushWait w) {
+	s_flushing = true;
+	s_flushWait = w;
+	flushStep();
+}
+
+/**
+ * @brief The swap check, this write's files, the flush barrier, then the
+ *        write: every write puts its record on the card before its first frame.
+ */
+static void filesThenWrite() {
+	if (cardSwapped()) restartOnNewCard();
+	if (!writeFiles()) {
+		s_cardNote = "THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.";
+		return;
+	}
+	if (cardCacheState() != CardCache::Off) {
+		waitFlush(FlushWait::BeforeWrite);
 		return;
 	}
 	sendWrite();
@@ -891,24 +962,13 @@ static void startWrite() {
 	s_cardNote = nullptr;
 	s_result = false;
 	if (cardCacheState() == CardCache::Failed) recoverFlush();
-	s_checkAfterFlush = false;
+	// With the swap check armed, an earlier batch still flushing ends before
+	// this write's files go in, so the check reads the volume they land on.
 	if (s_firstOnCard && cardCacheState() == CardCache::Flushing) {
-		s_flushing = true;
-		s_checkAfterFlush = true;
-		flushStep();
+		waitFlush(FlushWait::BeforeFiles);
 		return;
 	}
-	if (cardSwapped()) restartOnNewCard();
-	if (!writeFiles()) {
-		s_cardNote = "THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.";
-		return;
-	}
-	if (cardCacheState() != CardCache::Off) {
-		s_flushing = true;
-		flushStep();
-		return;
-	}
-	sendWrite();
+	filesThenWrite();
 }
 
 /** @brief Whether the write moves the travel: the horn line shows. */
@@ -972,6 +1032,10 @@ static void drawWrite() {
 	if (!hitecModelMeasured(&s_st.image))
 		note(s_family == HITEC_D ? "MODEL NOT MEASURED: WRITTEN IN THE D LAYOUT."
 		                         : "MODEL NOT MEASURED: WRITTEN IN THE CLASSIC LAYOUT.", false);
+	hitec_value_t id;
+	if (s_family == HITEC_D && hitecDiffers(&s_pageFrom, &s_pageTo, s_layout, HITEC_P_D_ID) &&
+	    hitec_param_get(&s_pageTo, s_layout, HITEC_P_D_ID, &id) == HITEC_GET_OK && id.value != 0)
+		note("THE BENCH ADDRESSES ID 0. ANOTHER ID IS NOT TESTED.", false);
 	if (s_otherModel[0] && !s_restoring) {
 		snprintf(buf, sizeof(buf), "FILE OF ANOTHER MODEL: %s.", s_otherModel);
 		note(buf, false);
@@ -1323,8 +1387,8 @@ static void drawUnplug() {
 	if (!due) {
 		if (s_st.supplyUsed && s_st.supplyLeftDs) {
 			char w[48];
-			snprintf(w, sizeof(w), "SUPPLY OFF FOR 2.0 S: %u.%u S LEFT.", s_st.supplyLeftDs / 10,
-			         s_st.supplyLeftDs % 10);
+			snprintf(w, sizeof(w), "SUPPLY OFF FOR %u.%u S: %u.%u S LEFT.", KST_SUPPLY_OFF_MS / 1000u,
+			         KST_SUPPLY_OFF_MS / 100u % 10u, s_st.supplyLeftDs / 10, s_st.supplyLeftDs % 10);
 			gfxTextCenter(120, w, C_AMBER, 1);
 		} else {
 			gfxTextCenter(120, "RELEASING THE PIN", C_DIM, 1);
@@ -1495,8 +1559,9 @@ bool uiHitecTick(const TouchState *t) {
 				return false;
 			case HitecView::Main:
 				if (running() && (s_st.job == HitecJobState::InMode || s_st.job == HitecJobState::Busy)) {
-					// BACK during a read stops it; the leave page follows.
-					if (s_opOpen && s_op == HitecOp::ReadAll) {
+					// BACK during a read, the entry's own or READ AGAIN, stops it;
+					// the leave page follows.
+					if (s_st.job == HitecJobState::Busy && !(s_opOpen && s_op == HitecOp::Write)) {
 						sendOp(HitecOp::Abort);
 						s_readFailed = true;
 					}

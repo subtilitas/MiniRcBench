@@ -1302,6 +1302,20 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
      (`hitecWritten()`), so a REPAIR alone opens the write page; the write
      page lists the parameters that go to the servo and not the cell 0x1C
      balance of other edits.
+   - The strip drops the pin, then the backup, when the line would reach
+     the MODE chip at x 197: a classic strip reads
+     `HS-5645MG V16 BACKUP IN MEMORY`.
+   - The write page shows the ID note in amber when the write changes the
+     D series ID to another value than 0, as a LOAD can.
+   - A read keeps the pending edits: each is taken onto the servo as read,
+     and one the register model refuses there is dropped.
+   - BACK during a read, the entry's own or READ AGAIN, sends Abort; the
+     leave page follows.
+   - A stall drops a leave queued by BACK during a write; the main view
+     with RETRY follows.
+   - A later write whose record the card does not take still runs on the
+     backup of the first write, as `hitec_files.h` states; the write page
+     does not say so.
    - The MENU tests reach SETTINGS through `menuRow()` in `test/ui_ids.h`,
      which drags MENU until the row is whole (`revealRow()`), not through a
      scroll in `openSettings()`.
@@ -1316,14 +1330,20 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
      read; an edit and REVERT; HOLD TO WRITE not at 750 ms and not on a
      slide off; the write page, the record on the card before the first
      write frame, the backup, the result, a second write without a second
-     backup; the flush barrier, a flush that fails; BACK during a write; a write in error and READ AGAIN; FILES
+     backup; the flush barrier, a flush that fails, a later write while an
+     earlier batch flushes with its record on the card before its first
+     frame; BACK during a write; a stall during a write; the ID note;
+     STOP and BACK in the entry, BACK in the entry's read, BACK on the
+     unplug page; an edit kept through READ AGAIN with FILES opened during
+     the read; a sideways swipe on NEUTRAL; a write in error and READ AGAIN; FILES
      with SAVE AS, LOAD, a file of the other family refused, HOLD TO
      RESTORE; no card, a card held by USB, a card that takes no file; a
      record found at entry and moved into the ring; a classic servo on GP0
      with REPAIR written and FACTORY VALUES loaded; an HS-5955TG, a model
      not measured; a stall and RETRY; BACK in each view; LEAVE and RESTART
-     DSHOT; `checkControlTable()` in each view. Not tested: a stall during a
-     write; a sideways swipe on a row.
+     DSHOT; another card in the slot since the backup, before a write and
+     during a flush wait; `checkControlTable()` in each view. Not tested on
+     the screen: a volume serial that never reads.
 5. README section, wiring with the warning that an ESC on the lead gets the
    converter's output on its BEC wire and that one servo goes on the lead,
    legal notice and MENU table row; wiki pages `Hitec-Programming.md` and its
