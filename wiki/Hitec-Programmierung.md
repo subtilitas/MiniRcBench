@@ -190,8 +190,8 @@ oder unten, um zu verschieben.
 - Werte tragen ihre Einheit und den gespeicherten Wert in Klammern:
   `90 % (18)`, `STEP 1 (1)`, `CW (0)`. `CW` heißt im Uhrzeigersinn, `CCW`
   gegen den Uhrzeigersinn. `NEUTRAL`, die Endpunkte und `POSITION` sind
-  Zählwerte, zum Beispiel `8192`, ohne Klammer; ebenso `ID` und die
-  INFO-Zahlen `MODEL`, `SENSITIVITY` und `R04` bis `RD6`. `FAILSAFE` zeigt `LIMP`,
+  Zählwerte, zum Beispiel `8192`, ohne Klammer; ebenso `ID`, `SENSITIVITY`
+  und die INFO-Zahlen `MODEL` und `R04` bis `RD6`. `FAILSAFE` zeigt `LIMP`,
   `OFF` oder eine Stellung in `US`. `US` steht für µs: Die Bildschirmschrift
   hat kein Mikro-Zeichen.
 - Ein gespeicherter Wert, den keine Codierung annimmt, zeigt `RAW` und die

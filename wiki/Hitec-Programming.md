@@ -172,7 +172,7 @@ Rows are 40 px tall at a 42 px pitch. Drag the list up or down to scroll.
 - Values carry their unit and the stored value in brackets: `90 % (18)`,
   `STEP 1 (1)`, `CW (0)`. `CW` is clockwise and `CCW` counter-clockwise.
   `NEUTRAL`, the end points and `POSITION` are counts, for example `8192`,
-  with no bracket; so are `ID` and the INFO numbers `MODEL`, `SENSITIVITY`
+  with no bracket; so are `ID`, `SENSITIVITY` and the INFO numbers `MODEL`
   and `R04` to `RD6`. `FAILSAFE` reads `LIMP`, `OFF`, or a position in `US`.
   `US` is µs: the screen font has no micro sign.
 - A stored value that no encoding takes reads `RAW` and the number in amber,
