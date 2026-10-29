@@ -27,3 +27,6 @@ _to_delete/
 # Not committed: they are a function of the UI code, CI regenerates them on
 # every run, and 24 PNGs of churn per layout tweak buys nothing.
 wiki/img/
+
+# Python byte code from the test scripts importing each other
+__pycache__/

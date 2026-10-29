@@ -398,7 +398,7 @@ channel is `gpio & 1` (`PWM_GPIO_SLICE_NUM` in Pico SDK 2.1.1,
 |---|---|---|---|
 | GP28 | 6 | A | AUX |
 | GP29 | 6 | B | SIG |
-| GP16 | 0 | A | backlight PWM (`st7789.cpp`) |
+| GP16 | 0 | A | backlight; driven by PIO (`backlight.pio`), not by the slice |
 
 The two servos are on one slice, channels A and B: two pulse widths, one
 frame rate. When SIG and AUX are different GPIOs they are on different
@@ -406,10 +406,10 @@ channels, and the servo tester's one frame rate for both servos never needs
 a choice. When SETTINGS has put them on the same GPIO, the claim refuses
 two-servo mode (`SamePin`).
 
-Neither free pin is on the backlight's slice: slice 0 holds GP0, GP1, GP16
-and GP17, none free. `board_desc.cpp` asserts this at build time, because
-`pwm_init()` on the backlight's slice would retime the backlight. It also
-asserts that every free GPIO is on one slice, so two servos share one frame
+The backlight on GP16 is slice 0, channel A, as GP0 is, and runs from a
+PIO state machine on pio0 at 20 kHz (`src/backlight.pio`), so slice 0 is
+free for the servo outputs. `board_desc.cpp` asserts that every free GPIO is
+on one slice, so two servos share one frame
 rate, and that at most one free GPIO is on each channel of that slice, so two
 different free pins are its two channels and never one compare register.
 
@@ -429,6 +429,7 @@ v3.6.2.
 | KISS receiver (`pio_uart_rx`) | 9 | 1 | 0 | ESC running, KISS on |
 | SDIO card (`sdio_cmd_clk` + `sdio_data_rx` + `sdio_data_tx`), fixed to pio1 | 18 + 5 + 9 = 32 | 2 | 2 | always |
 | Panel (`st7789.cpp`) | 0 | 0 | 1 | always |
+| Backlight (`backlight`), fixed to pio0 | 6 | 1 | 0 | always |
 | KST line (`kst_line`) | 24 | 1 | 2 | during a KST claim |
 | Hitec line (`hitec_line`), and its PRECHARGE sampler for the D series | 30, and 7 at 150 MHz | 1, and 1 | 2, and 1 | during a Hitec claim |
 | Servo PWM | 0 | 0 | 0 | PWM slices only |
@@ -439,7 +440,7 @@ time that DShot and KISS fit one block (3 state machines, 25 of 32 words):
 
 | Block | ESC running | KST claim | Hitec claim, D series |
 |---|---|---|---|
-| pio0 | free | free | the sampler, 7 words |
+| pio0 | backlight, 6 words, 1 SM | backlight | backlight, and the sampler, 7 words |
 | pio1 | SDIO, 32 of 32 words, 2 SMs | SDIO, full | SDIO, full |
 | pio2 | DShot 16 + KISS 9 = 25 words, SM0 to SM2 | KST 24 words, SM0 | Hitec 30 words, SM0 |
 | DMA | 3 of 16 | 5 of 16 | 6 of 16 |

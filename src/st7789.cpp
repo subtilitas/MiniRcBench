@@ -9,7 +9,8 @@
 #include "gfx.h"
 
 #include "plat.h"
-#include <hardware/pwm.h>
+#include "backlight.pio.h"
+#include <hardware/pio.h>
 #include <hardware/clocks.h>
 #include <hardware/spi.h>
 #include <hardware/dma.h>
@@ -21,6 +22,11 @@
 #define LCD_SPI ((spi_inst_t *)g_board->lcdSpi)
 
 static int s_dma = -1; /**< DMA channel claimed for pixel transfers. */
+
+/** @brief Cycles of one backlight period at a level above 0: 256 loops of 2, plus 4. */
+#define BACKLIGHT_PERIOD_CYCLES 516.0f
+static unsigned s_blSm = 0;       /**< pio0's state machine for the backlight. */
+static bool     s_blReady = false; /**< The backlight's state machine is set up. */
 
 /** @brief Block until the SPI peripheral has drained. */
 static inline void spiWait() {
@@ -145,26 +151,36 @@ void st7789Init() {
 	cmd(0x29);            // DISPON
 	delay(50);
 
-	// --- backlight on GP16 (g_board->lcdBl) via an NPN, PWM-able ---
+	// --- backlight on GP16 (g_board->lcdBl) via an NPN ---
 	//
-	// 20 kHz, comfortably above audible: the backlight boost inductor whines at
-	// PWM frequencies inside the audio band, which is a surprising and annoying
-	// thing to track down later.
-	//
-	// clk_sys is 150 MHz. Wrap 255 gives an 8-bit duty range to match the
-	// existing API, so the divider is 150e6 / (20e3 * 256) = 29.3.
-	gpio_set_function(g_board->lcdBl, GPIO_FUNC_PWM);
-	unsigned slice = pwm_gpio_to_slice_num(g_board->lcdBl);
-	pwm_config cfg = pwm_get_default_config();
-	pwm_config_set_clkdiv(&cfg, (float)clock_get_hz(clk_sys) / (20000.0f * 256.0f));
-	pwm_config_set_wrap(&cfg, 255);
-	pwm_init(slice, &cfg, true);
-
+	// 20 kHz, above the audio band, where the backlight boost inductor whines.
+	// GP16 is PWM slice 0, channel A, as GP0 is: a state machine on pio0 makes
+	// the PWM (backlight.pio) and leaves the slices to the servo outputs. pio0
+	// holds nothing else outside a claim (docs/design/pin-claim.md, "PIO and
+	// DMA budget"). A period is 516 cycles, so the divider is
+	// 150e6 / (20e3 * 516) = 14.5.
+	s_blSm = (unsigned)pio_claim_unused_sm(pio0, true);
+	unsigned off = pio_add_program(pio0, &backlight_program);
+	pio_gpio_init(pio0, g_board->lcdBl);
+	pio_sm_set_consecutive_pindirs(pio0, s_blSm, g_board->lcdBl, 1, true);
+	pio_sm_config c = backlight_program_get_default_config(off);
+	sm_config_set_sideset_pins(&c, g_board->lcdBl);
+	sm_config_set_clkdiv(&c, (float)clock_get_hz(clk_sys) / (20000.0f * BACKLIGHT_PERIOD_CYCLES));
+	pio_sm_init(pio0, s_blSm, off, &c);
+	// The period's 256 counts: ISR = 255, loaded once through the OSR.
+	pio_sm_put(pio0, s_blSm, 255u);
+	pio_sm_exec(pio0, s_blSm, pio_encode_pull(false, false));
+	pio_sm_exec(pio0, s_blSm, pio_encode_out(pio_isr, 32));
+	s_blReady = true;
 	st7789SetBacklight(LCD_BACKLIGHT_DEFAULT);
+	pio_sm_set_enabled(pio0, s_blSm, true);
 }
 
 void st7789SetBacklight(uint8_t level) {
-	pwm_set_gpio_level(g_board->lcdBl, level);
+	if (!s_blReady) return;
+	// Level L is L of 256 counts high: X = L - 1, and for 0 a count never met.
+	pio_sm_clear_fifos(pio0, s_blSm);
+	pio_sm_put(pio0, s_blSm, level ? (uint32_t)level - 1u : 0xFFFFFFFFu);
 }
 
 void st7789Sleep(bool on) {

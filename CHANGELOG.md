@@ -322,6 +322,10 @@ protocol.
 
 ### Changed
 
+- The panel backlight on GP16 runs from a PIO state machine on pio0 at
+  20 kHz (`src/backlight.pio`), no longer from PWM slice 0, which it shares
+  with GP0 and GP1. `test/pio_backlight_emu.py` checks every level, and the
+  Firmware job holds its words to `pioasm`.
 - The Hitec design rewritten on rcbench 3e29dc1b with writes, and renamed
   from `hitec-reading.md` to
   [hitec-programming.md](docs/design/hitec-programming.md), "Hitec servo

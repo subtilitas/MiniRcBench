@@ -82,13 +82,15 @@ jobs:
           # not this pipeline's job to prove it.
           arm-none-eabi-size "build/MiniRcBench-$SLUG.elf"
 
-      # The host job's PIO emulator assembles src/sdio/sd_pio.pio with its own
-      # assembler. This build has the SDK's pioasm, so the emulator's
+      # The host job's PIO emulators assemble src/sdio/sd_pio.pio and
+      # src/backlight.pio with their own assembler. This build has the SDK's pioasm, so the emulator's
       # assembler is held to it here: every instruction word, wrap point,
       # public label and side-set setting has to match.
       - name: The PIO emulator assembles as pioasm does
         run: |
           python3 test/pio_sdio_emu.py --asm-only \
+                  --pioasm build/pioasm-install/pioasm/pioasm
+          python3 test/pio_backlight_emu.py \
                   --pioasm build/pioasm-install/pioasm/pioasm
 
       # The host job's KST and Hitec line models run the words in

@@ -132,7 +132,8 @@ release, so it always finds a block with no other user. A `static_assert` in
 block: 3 state machines and 25 of 32 instructions. A bind that cannot get two
 adjacent state machines is refused, and the status bar then shows `DSERR`.
 
-PWM slices: slice 0 drives the backlight (GP16). Slice 6 carries the servo
+PIO: a state machine on pio0 drives the backlight (GP16) at 20 kHz, 6 words.
+PWM slices: none for the backlight. Slice 6 carries the servo
 pulses during a SERVO claim, GP29 on channel B and GP28 on channel A, one
 frame rate for both, its counter at 1 MHz. The servo tester uses no PIO and
 no DMA.
@@ -463,7 +464,8 @@ Other targets in `test/Makefile`: `syntax` typechecks the device-only sources
 with `-Werror`; `pioemu` runs `test/pio_sdio_emu.py`, the SDIO PIO programs
 assembled from `src/sdio/sd_pio.pio` and run one system clock at a time
 against a card model, 18 runs over three clock rates, three card output
-delays and two card latencies, and `make` runs it too; `bbcheck` encodes 2000 frames and decodes them with
+delays and two card latencies, and `test/pio_backlight_emu.py`, the backlight
+PIO program at every level from 0 to 255, and `make` runs both; `bbcheck` encodes 2000 frames and decodes them with
 Betaflight's `blackbox_decode`; `kstcount` runs `src/kst_files.cpp` over
 FatFs R0.15 from the SD library's pinned commit, fetched into `test/obj/`, on
 a RAM disk that counts blocks, and checks the table in
@@ -471,7 +473,7 @@ a RAM disk that counts blocks, and checks the table in
 rewrites; `previews` and `wiki` rebuild screenshots;
 `coverage` builds an instrumented suite. Scripts: `test/check_docs.py`,
 `test/check_uf2.sh`, `test/check_uf2_selftest.sh`, `test/check_blackbox.py`,
-`test/pio_sdio_emu.py`, `test/kst_card_count.cpp`, `tools/check_wiki.py`,
+`test/pio_sdio_emu.py`, `test/pio_backlight_emu.py`, `test/kst_card_count.cpp`, `tools/check_wiki.py`,
 `tools/coverage.py`, `tools/notices.py`, `tools/stack_depth.py`.
 
 **CI** (`.github/workflows/ci.yml`; on push to `main` or `master`, on pull
