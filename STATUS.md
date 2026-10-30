@@ -236,16 +236,15 @@ Not in this history: the DshotDisplay repository's branches
 
 ## Next steps
 
-State on 2026-10-30, after #31 (bff4215): no pull request is open, and CI
-on `main` passes: the host suite, coverage, the docs checks and the
-firmware build. Every part below waits
-on the bench; nothing is open that the host suite can settle. In the order
-the parts depend on each other:
+State on 2026-10-30, after #31 (bff4215): no other pull request is open,
+and all seven CI jobs pass on `main`. Every part below waits on the bench;
+nothing is open that the host suite can settle. In the order the parts
+depend on each other:
 
 1. The pins of item 15: DShot on GP0, KISS on GP1, the backlight, EN on
    GP28 or GP29 with the converter fitted.
-2. The pin claim (item 8) and the SDIO driver (item 6), which every tool
-   below uses.
+2. The pin claim (item 8), which every tool below uses, and the SDIO driver
+   (item 6), which KST and Hitec use for their backups and files.
 3. The servo tester (item 9).
 4. KST bring-up (item 10, design note step 7), which also checks the
    converter.

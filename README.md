@@ -951,7 +951,7 @@ and, with KISS on, the KISS receiver takes AUX.
 ## KST servo programming
 
 **MENU → KST SERVO** reads and writes the settings of a KST or Chaservo servo
-over its signal wire, on SIG (GP0). Both brands share one programming
+over its signal wire, on SIG (GP0 or GP1). Both brands share one programming
 protocol and one set of 32 registers. The protocol code is rcbench's
 (`lib/rcbench/protocols/kst/`): Manchester-coded frames, half duplex, from
 the RP2350's PIO (programmable I/O). Not tested on hardware: no frame of the
