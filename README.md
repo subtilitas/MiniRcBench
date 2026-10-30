@@ -1132,7 +1132,7 @@ reads `READ ONLY: UNKNOWN LAYOUT`.
 ## Hitec servo programming
 
 **MENU → HITEC SERVO** reads and writes the settings of a Hitec D series or
-classic servo over its signal wire, on SIG (GP0). A classic servo needs
+classic servo over its signal wire, on SIG (GP0 or GP1). A classic servo needs
 SERVO SUPPLY at `GP28` or `GP29`. The protocol code is rcbench's
 (`lib/rcbench/protocols/hitec/`): its session, register model, wire and PIO
 (programmable I/O) line driver. D series frames run at 115,200 bit/s, half

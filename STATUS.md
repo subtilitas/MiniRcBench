@@ -7,7 +7,7 @@ link here and in [CHANGELOG.md](CHANGELOG.md) is checked by
 integration) is written and checked by `tools/coverage.py`. Nothing else is
 checked: the architecture figures, pin numbers, suite and job lists and
 verification states are written by hand, against the code and the issue tracker
-as of 2026-10-29. The KST and Hitec card-phase tables in
+as of 2026-10-30. The KST and Hitec card-phase tables in
 [kst-programming.md](docs/design/kst-programming.md) and
 [hitec-programming.md](docs/design/hitec-programming.md) are written and
 checked by `make -C test kstcount`. Read them as a dated record, not as an inventory.
@@ -234,6 +234,27 @@ Not in this history: the DshotDisplay repository's branches
 `feat/usb-bridge` (a USB to one-wire bridge, 6693084) and
 `copilot/create-lcars-display` (a themed UI, 5d17541) are not merged.
 
+## Next steps
+
+State on 2026-10-30, after #31 (bff4215): no pull request is open, and CI
+on `main` passes: the host suite, coverage, the docs checks and the
+firmware build. Every part below waits
+on the bench; nothing is open that the host suite can settle. In the order
+the parts depend on each other:
+
+1. The pins of item 15: DShot on GP0, KISS on GP1, the backlight, EN on
+   GP28 or GP29 with the converter fitted.
+2. The pin claim (item 8) and the SDIO driver (item 6), which every tool
+   below uses.
+3. The servo tester (item 9).
+4. KST bring-up (item 10, design note step 7), which also checks the
+   converter.
+5. Hitec bring-up (item 14, design note step 6): the classic line on a
+   scope, then one write with read-back per family before a write is
+   relied on.
+
+A first `v*` tag runs Release and then publishes the manual (item 7).
+
 ## Open items
 
 1. **[Issue #1](https://github.com/subtilitas/DshotDisplay/issues/1),
@@ -282,10 +303,10 @@ Not in this history: the DshotDisplay repository's branches
    - the card pulled out while logging, while idle and while a host reads,
      then put back;
    - 10 MHz in the firmware, and 10 MHz and 25 MHz in `tools/sdtest`.
-7. **The wiki of this repository has no page yet.** GitHub creates a
-   repository's wiki only once its first page exists, so that page is made by
-   hand in the Wiki tab. Until then the clone in `docs.yml` fails and no
-   manual is published.
+7. **The manual is not published.** The repository's wiki exists with one
+   hand-made page, Home, dated 2026-10-29. `docs.yml` publishes `wiki/` after
+   a successful Release run or by hand; no `v*` tag exists and the workflow
+   has no run, so the wiki holds none of `wiki/`.
 8. **Pin claim on hardware.** The PIO and pad calls of the drain, the
    teardown and the rebuild run only in the firmware; the host suite runs the
    decisions they act on. Bench tests needed, with an oscilloscope on the ESC
@@ -355,22 +376,23 @@ Not in this history: the DshotDisplay repository's branches
     (`src/hitec_job.*`) on them, tested against a simulated servo, the
     files on the card (`src/hitec_files.*`), the HITEC SERVO screen on MENU,
     its README section and the wiki pages Hitec-Programming and
-    Hitec-Programmierung. CLASSIC opens with SERVO SUPPLY at GP28 or GP29,
-    by the owner's decision of 2026-10-29: SIG is a fault tolerant pin and
-    the servo supply is 5 V; the classic line voltage is not measured.
-    At the SD specification's SDXC times the Hitec first write that keeps
-    an old record takes 17.9 s on exFAT, over the card-phase cap of 15 s. No write
-    plan of rcbench's Hitec session or panel has run on a servo, so step 6,
-    the bring-up, runs one write with read-back per family before a write is
+    Hitec-Programmierung. CLASSIC opens with SERVO SUPPLY at GP28 or GP29, by
+    the owner's decision of 2026-10-29: SIG is a fault tolerant pin and the
+    servo supply is 5 V; the classic line voltage is not measured. At the SD
+    specification's SDXC times the Hitec first write that keeps an old record
+    takes 17.9 s on exFAT, over the card-phase cap of 15 s. No write plan of
+    rcbench's Hitec session or panel has run on a servo, so step 6, the
+    bring-up, runs one write with read-back per family before a write is
     relied on (design note, "Work breakdown", step 6).
 15. **Signal pins GP0 and GP1 and the enable on GP28 or GP29 on hardware.**
     No hardware report above is recorded on these pins. Not tested on
     hardware: DShot, the AM32 editor, KST and Hitec on GP0; KISS and servo B
     on GP1; the servo pulses on PWM slice 0; the converter's enable input
     (EN) driven from GP28 or GP29; the first boot over a version 3 settings
-    block. Bench tests needed: an ESC on GP0 with **LINK** above
-    0/S, a KISS frame on GP1, both servo channels on a scope, EN high and
-    low at each pin with the converter's output following.
+    block; the backlight on pio0 at 20 kHz. Bench tests needed: an ESC on GP0
+    with **LINK** above 0/S, a KISS frame on GP1, both servo channels on a
+    scope, EN high and low at each pin with the converter's output
+    following, the backlight at BACKLIGHT 16 and 255 on GP16.
 
 ## Known limitations
 

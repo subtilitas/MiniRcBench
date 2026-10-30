@@ -4,14 +4,14 @@
 
 Dieser Bildschirm liest und schreibt die Einstellungen eines Hitec-Servos der
 D-Serie oder der klassischen Familie über dessen Signalkabel. Ein klassisches
-Servo braucht SERVO SUPPLY auf `GP28` oder `GP29`. Der Protokollcode stammt von rcbench: Sitzung,
-Registermodell, Leitungsschicht und der Leitungstreiber im PIO
-(Programmable I/O, programmierbare Ein-/Ausgabe). Frames der D-Serie laufen
-mit 115.200 bit/s, halbduplex, auf dem ESC-Pin (Electronic Speed Controller,
-Motorregler). Bei einem Servo der D-Serie liest der Bildschirm dessen 21
-Register, zeigt 20
-Parameter mit ihren Einheiten, stellt die änderbaren ein und schreibt sie
-zurück, zuvor mit einer Sicherung auf der SD-Karte (Secure Digital).
+Servo braucht SERVO SUPPLY auf `GP28` oder `GP29`. Der Protokollcode stammt
+von rcbench: Sitzung, Registermodell, Leitungsschicht und der Leitungstreiber
+im PIO (Programmable I/O, programmierbare Ein-/Ausgabe). Frames der D-Serie
+laufen mit 115.200 bit/s, halbduplex, auf dem ESC-Pin (Electronic Speed
+Controller, Motorregler). Bei einem Servo der D-Serie liest der Bildschirm
+dessen 21 Register, zeigt 20 Parameter mit ihren Einheiten, stellt die
+änderbaren ein und schreibt sie zurück, zuvor mit einer Sicherung auf der
+SD-Karte (Secure Digital).
 
 <img src="img/hitec-list.png" width="240" alt="Die Hitec-Feldliste eines D485HW">
 
