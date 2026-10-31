@@ -131,7 +131,7 @@ One sheet, four parts:
 | Board connectors | J5, J4 and J3 pin by pin, each with its role | [Pin map](#pin-map-from-the-official-schematic) |
 | A | ESC: signal on SIG, ground, KISS telemetry on AUX, the BEC (battery eliminator circuit) wire cut | [Wiring the ESC](#wiring-the-esc), [KISS telemetry](#kiss-telemetry-optional-third-wire) |
 | B | Servo on its own supply with a switch in the positive lead; a second servo on AUX for the servo tester | [Servo tester wiring](#wiring), [KST wiring](#wiring-1), [Hitec wiring](#wiring-2) |
-| C | Servo on a DC-DC (direct current to direct current) converter whose enable input (EN) is on GP28 or GP29, with a 10 kΩ pull-down at the converter; SIG, EN and GND on J4 | [KST wiring, switched supply](#wiring-1), [Classic servos](#classic-servos) |
+| C | Servo on a DC-DC (direct current to direct current) converter whose enable input (EN) is on GP28 or GP29, with a 10 kΩ pull-down at the converter; SIG, EN and GND (ground) on J4 | [KST wiring, switched supply](#wiring-1), [Classic servos](#classic-servos) |
 
 `tools/make_wiring.py` draws `docs/wiring.svg` (Scalable Vector Graphics)
 from the connector table in `src/board_rp2350_touch_lcd_2_8.h`, the start

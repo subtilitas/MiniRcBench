@@ -33,8 +33,8 @@ wenn das EN-Kabel an einem Steckverbinder abgeht.
 - Ein EN mit internem Pull-up nach VIN, der Eingangsspannung des Wandlers,
   etwa die 475 kΩ des Pololu S13V30F5: Beide bilden einen Spannungsteiler.
   Bei der höchsten benutzten VIN muss der Pull-down EN unter der
-  Ausschaltschwelle des Wandlers und auf höchstens 3,6 V halten, solange die
-  Platine aus ist auf höchstens 0,5 V.
+  Ausschaltschwelle des Wandlers und auf höchstens 3,6 V halten, und auf
+  höchstens 0,5 V, solange die Platine aus ist.
   Für das Pololu-Modul sind das 10 kΩ: EN liegt bei 22 V auf 0,45 V.
   100 kΩ legen bei 12 V 2,09 V an EN, und der Wandler bleibt auch außerhalb
   der KST- und Hitec-Bildschirme an.
