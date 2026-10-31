@@ -9,13 +9,15 @@ the drawing follows the code:
 - DSHOT_PIN_LCD_2_8 and KISS_PIN_LCD_2_8 in src/config.h, the pins a board
   with blank flash starts on;
 - the ServoSupplyMode values in src/servo_supply.h, which name the enable
-  pins and their connector pins.
+  pins and their connector pins, held against servoSupplyPinOf() in
+  src/servo_supply.cpp, the mapping the firmware runs.
 
 Usage:
     python3 tools/make_wiring.py           # write docs/wiring.svg
     python3 tools/make_wiring.py --check   # fail when docs/wiring.svg differs
 """
 
+import difflib
 import os
 import re
 import sys
@@ -24,6 +26,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BOARD_H = os.path.join(ROOT, "src", "board_rp2350_touch_lcd_2_8.h")
 CONFIG_H = os.path.join(ROOT, "src", "config.h")
 SUPPLY_H = os.path.join(ROOT, "src", "servo_supply.h")
+SUPPLY_CPP = os.path.join(ROOT, "src", "servo_supply.cpp")
 OUT = os.path.join(ROOT, "docs", "wiring.svg")
 
 W = 1200
@@ -86,15 +89,33 @@ def define(path, name):
 
 
 def supply_pins():
-    """[(gpio, connector, pin)] for each ServoSupplyMode with a pin."""
-    found = re.findall(r"Gp(\d+)\s*=\s*\d+,\s*/\*\*<[^*]*GP(\d+), (J\d+) pin (\d+)",
-                       read(SUPPLY_H))
-    if not found:
-        raise SystemExit("%s: no ServoSupplyMode enable pins" % SUPPLY_H)
+    """[(gpio, connector, pin)] for each ServoSupplyMode with a pin.
+
+    Every enum member named GpN has to name its connector pin in its comment,
+    the members have to number SERVO_SUPPLY_MODE_MAX, and servoSupplyPinOf()
+    has to map each one to GPIO N: a member that parses short fails here
+    rather than dropping out of the drawing.
+    """
+    body = re.search(r"enum class ServoSupplyMode[^{]*\{(.*?)\};", read(SUPPLY_H), re.S)
+    if not body:
+        raise SystemExit("%s: enum class ServoSupplyMode not found" % SUPPLY_H)
+    members = re.findall(r"\bGp(\d+)\s*=", body.group(1))
+    found = re.findall(r"\bGp(\d+)\s*=\s*\d+,?\s*/\*\*<[^*]*?\bGP(\d+), (J\d+) pin (\d+)",
+                       body.group(1))
+    if not members or len(found) != len(members):
+        raise SystemExit("%s: %d of the %d enable pins in ServoSupplyMode name their "
+                         "connector pin as 'GPn, Jn pin n'" % (SUPPLY_H, len(found), len(members)))
+    most = define(SUPPLY_H, "SERVO_SUPPLY_MODE_MAX")
+    if most != len(members):
+        raise SystemExit("%s: SERVO_SUPPLY_MODE_MAX is %d, ServoSupplyMode has %d enable pins"
+                         % (SUPPLY_H, most, len(members)))
+    cpp = read(SUPPLY_CPP)
     out = []
     for enum_gp, gp, conn, pin in found:
         if enum_gp != gp:
             raise SystemExit("%s: Gp%s names GP%s" % (SUPPLY_H, enum_gp, gp))
+        if not re.search(r"case ServoSupplyMode::Gp%s:\s*return %s;" % (gp, gp), cpp):
+            raise SystemExit("%s: servoSupplyPinOf() does not map Gp%s to %s" % (SUPPLY_CPP, gp, gp))
         out.append((int(gp), conn, int(pin)))
     return out
 
@@ -319,7 +340,7 @@ def draw():
         (ys[aux_j5], "telemetry"), (ys[sig_j5], "signal"),
         (ys[v3_j5], "BEC +5 V"), (ys[gnd_j5], "GND")])
     svg.wire([p[aux_j5], (520, ys[aux_j5])], AUX, dash=True)
-    svg.text(300, ys[aux_j5] - 6, "optional, SETTINGS > KISS", 11, AUX, "middle")
+    svg.text(300, ys[aux_j5] - 6, "optional, SETTINGS > KISS TELEM", 11, AUX, "middle")
     svg.wire([p[sig_j5], (520, ys[sig_j5])], SIG)
     svg.wire([(400, ys[v3_j5]), (520, ys[v3_j5])], PLUS)
     svg.cross(400, ys[v3_j5])
@@ -347,7 +368,7 @@ def draw():
 
     # --- B: a servo on a hand-switched supply --------------------------------
     yb = ya + 282
-    panel(svg, yb, 342, "B  Servo, supply switched by hand: servo tester, KST, Hitec D series")
+    panel(svg, yb, 360, "B  Servo, supply switched by hand: servo tester, KST, Hitec D series")
     p = stub(svg, 40, yb + 56, "J5", j5_rows())
     ys = {n: p[n][1] for n in conns["J5"]["pins"]}
     sy_sig, sy_plus, sy_minus = ys[sig_j5], ys[sig_j5] + 24, ys[sig_j5] + 48
@@ -367,88 +388,98 @@ def draw():
     svg.dot(sm[0], rail, MINUS)
     svg.text(236, ys[gnd_j5] + 18, "one ground tap", 11, MINUS)
     svg.text(p[v3_j5][0] + 8, ys[v3_j5] + 4, "n.c.", 11, DIM)
-    # servo B, the tester's second servo
-    svg.wire([p[aux_j5], (1100, ys[aux_j5]), (1100, ys[aux_j5] + 36)], AUX, dash=True)
-    svg.rect(1035, ys[aux_j5] + 36, 135, 60, dash=True)
-    svg.text(1102, ys[aux_j5] + 56, "servo B", 13, INK, "middle", "bold")
-    svg.text(1102, ys[aux_j5] + 72, "tester only;", 11, DIM, "middle")
-    svg.text(1102, ys[aux_j5] + 86, "+ and - as A", 11, DIM, "middle")
+    # servo B, the tester's second servo, reached over the top of servo A
+    # whichever J5 row AUX has
+    sb = yb + 70
+    svg.wire([p[aux_j5], (200, ys[aux_j5]), (200, yb + 40), (1100, yb + 40), (1100, sb)],
+             AUX, dash=True)
+    svg.rect(1035, sb, 135, 60, dash=True)
+    svg.text(1102, sb + 20, "servo B", 13, INK, "middle", "bold")
+    svg.text(1102, sb + 36, "tester only;", 11, DIM, "middle")
+    svg.text(1102, sb + 50, "+ and - as A", 11, DIM, "middle")
     notes(svg, 40, yb + 296, [
-        "The servo's middle wire goes to its supply, never to a connector pin. Power the board before the servo supply.",
-        "KST and Hitec D series answer only just after power-up: switch the supply on when the screen searches.",
+        "The servo's middle wire goes to its supply, never to a connector pin. Power the board before the servo supply,",
+        "and switch the servo supply off first. KST answers only just after power-up: switch the supply on when the screen",
+        "searches. Power a Hitec D series servo before tapping D SERIES.",
     ])
 
     # --- C: a servo on the switched supply ---------------------------------
-    yc = yb + 362
-    panel(svg, yc, 550, "C  Servo on the switched supply: KST, Hitec D series and classic"
+    yc = yb + 380
+    sig_j4 = pin_of(conns, "J4", sig)
+    j4_rows = sorted([(gnd_j4, "GND", MINUS), (sig_j4, "GP%d SIG" % sig, SIG)] + [
+        (pin, ("GP%d EN" if i == 0 else "or GP%d EN") % gp, EN)
+        for i, (gp, _, pin) in enumerate(supplies)])
+    # the converter: EN on the left, VIN on the right, VOUT on top, GND below
+    cx, cy = 480, yc + 250
+    rail = cy + 150
+    panel(svg, yc, rail + 140 - yc, "C  Servo on the switched supply: KST, Hitec D series and classic"
           " (SETTINGS > SERVO SUPPLY GP%d)" % en_gp)
-    p = stub(svg, 40, yc + 56, "J5", j5_rows())
-    ys = {n: p[n][1] for n in conns["J5"]["pins"]}
-    j4_rows = [(gnd_j4, "GND", MINUS)] + [
-        (pin, "GP%d EN" % gp + ("" if i == 0 else " or"), EN)
-        for i, (gp, _, pin) in enumerate(supplies)]
-    q = stub(svg, 40, yc + 206, "J4 (part)", j4_rows)
-    sy_sig, sy_plus, sy_minus = ys[sig_j5], ys[sig_j5] + 24, ys[sig_j5] + 48
+    q = stub(svg, 40, yc + 56, "J4 (part)", j4_rows)
+    en_y = q[en_pin][1]
+    sy_sig, sy_plus, sy_minus = yc + 190, yc + 214, yc + 238
     part(svg, 900, sy_sig - 18, 120, 84, "servo", [
         (sy_sig, "signal"), (sy_plus, "+ red"), (sy_minus, "- brown")])
-    svg.wire([p[sig_j5], (900, sy_sig)], SIG)
-    svg.text(p[v3_j5][0] + 8, ys[v3_j5] + 4, "n.c.", 11, DIM)
-    svg.text(p[gnd_j5][0] + 8, ys[gnd_j5] + 4, "free: ground via J4", 11, DIM)
-    en_y = q[en_pin][1]
-    rail = yc + 450
-    # the converter
-    cx, cy = 480, yc + 300
+    svg.wire([q[sig_j4], (820, q[sig_j4][1]), (820, sy_sig), (900, sy_sig)], SIG)
     svg.rect(cx, cy, 160, 90)
     svg.text(cx + 80, cy + 50, "DC-DC", 14, INK, "middle", "bold")
     svg.text(cx + 80, cy + 66, "5 V out", 11, DIM, "middle")
-    svg.text(cx + 6, cy + 24, "VIN", 11, DIM)
-    svg.text(cx + 154, cy + 24, "VOUT", 11, DIM, "end")
-    svg.text(cx + 90, cy + 16, "EN", 11, DIM, "middle")
-    svg.text(cx + 40, cy + 84, "GND", 11, DIM, "middle")
-    svg.text(cx + 52, cy + 108, "> 1 A; buck, or output disconnect", 11, DIM)
-    svg.text(cx + 52, cy + 122, "e.g. Pololu S13V30F5, 2.8 V to 22 V in", 11, DIM)
-    # supply into VIN
-    sp, sm = svg.supply(300, yc + 340, ["user supply"])
-    svg.wire([sp, (sp[0], cy + 20), (cx, cy + 20)], PLUS)
+    svg.text(cx + 6, cy + 24, "EN", 11, DIM)
+    svg.text(cx + 154, cy + 24, "VIN", 11, DIM, "end")
+    svg.text(cx + 80, cy + 14, "VOUT", 11, DIM, "middle")
+    svg.text(cx + 80, cy + 84, "GND", 11, DIM, "middle")
+    # the user supply into VIN
+    sp, sm = svg.supply(700, cy + 40, ["user supply"])
+    svg.wire([sp, (sp[0], cy + 20), (cx + 160, cy + 20)], PLUS)
     svg.wire([sm, (sm[0], rail)], MINUS)
-    svg.wire([(cx + 40, cy + 90), (cx + 40, rail)], MINUS)
-    svg.dot(cx + 40, rail, MINUS)
     svg.dot(sm[0], rail, MINUS)
-    # enable and its pull-down
-    svg.wire([q[en_pin], (cx + 90, en_y), (cx + 90, cy)], EN)
-    svg.dot(230, en_y, EN)
-    svg.resistor(230, en_y, rail, EN)
-    svg.dot(230, rail, MINUS)
-    svg.text(242, en_y + 50, "10 k\u03a9", 12, EN, weight="bold")
-    svg.text(242, en_y + 66, "pull-down", 11, DIM)
+    svg.wire([(cx + 80, cy + 90), (cx + 80, rail)], MINUS)
+    svg.dot(cx + 80, rail, MINUS)
+    # the enable, and its pull-down at the converter from EN to GND
+    svg.wire([q[en_pin], (440, en_y), (440, cy + 20), (cx, cy + 20)], EN)
+    svg.dot(460, cy + 20, EN)
+    svg.resistor(460, cy + 20, rail, EN)
+    svg.dot(460, rail, MINUS)
+    svg.text(448, cy + 64, "10 k\u03a9", 12, EN, "end", "bold")
+    svg.text(448, cy + 80, "EN to GND,", 11, DIM, "end")
+    svg.text(448, cy + 94, "at the converter", 11, DIM, "end")
     # the converter's output to the servo, and the ground rail
-    svg.wire([(cx + 160, cy + 20), (860, cy + 20), (860, sy_plus), (900, sy_plus)], PLUS)
+    svg.wire([(cx + 80, cy), (cx + 80, cy - 30), (860, cy - 30), (860, sy_plus),
+              (900, sy_plus)], PLUS)
     svg.wire([q[-gnd_j4], (30, q[gnd_j4][1]), (30, rail), (880, rail), (880, sy_minus),
               (900, sy_minus)], MINUS)
     svg.text(36, rail - 8, "one ground tap", 11, MINUS)
-    notes(svg, 40, yc + 480, [
-        "EN on %s with SERVO SUPPLY %s. EN is high only during a KST or Hitec claim; the pull-down holds"
-        % (" or ".join("GP%d (%s pin %d)" % t for t in supplies), " or ".join("GP%d" % t[0] for t in supplies)),
-        "the converter off otherwise. The servo tester does not switch it: a servo there needs a supply of its own.",
-        "An ESC on this lead gets VOUT on its BEC wire.",
+    svg.text(cx, rail + 20, "DC-DC: > 1 A; buck, or output disconnect;", 11, DIM)
+    svg.text(cx, rail + 34, "e.g. Pololu S13V30F5, 2.8 V to 22 V in", 11, DIM)
+    notes(svg, 40, rail + 62, [
+        "EN on %s, with SERVO SUPPLY at that pin. SIG, EN and GND share one J4 pigtail;"
+        % " or ".join("GP%d (%s pin %d)" % t for t in supplies),
+        "J5 stays free. The pull-down sits at the converter: 10 k\u03a9 for the Pololu S13V30F5, whose EN has a 475 k\u03a9",
+        "pull-up; 10 k\u03a9 to 100 k\u03a9 for an EN without one. EN is high only during a KST or Hitec claim. The servo tester",
+        "does not switch it: a servo there needs a supply of its own. An ESC on this lead gets VOUT on its BEC wire.",
     ])
 
-    height = yc + 570
+    height = rail + 140 + 20
     svg.text(W - 24, height - 8,
-             "tools/make_wiring.py, from src/board_rp2350_touch_lcd_2_8.h, src/config.h, src/servo_supply.h",
+             "tools/make_wiring.py, from src/board_rp2350_touch_lcd_2_8.h, src/config.h, src/servo_supply.{h,cpp}",
              10, DIM, "end")
     return svg.render(height)
 
 
 def main(argv):
-    check = "--check" in argv
+    if argv not in ([], ["--check"]):
+        print("usage: python3 tools/make_wiring.py [--check]", file=sys.stderr)
+        return 2
+    check = argv == ["--check"]
     out = draw()
     if check:
         try:
             have = read(OUT)
         except FileNotFoundError:
-            have = None
+            have = ""
         if have != out:
+            diff = list(difflib.unified_diff(have.splitlines(), out.splitlines(),
+                                             "docs/wiring.svg", "drawn", lineterm="", n=0))
+            print("\n".join(diff[:20]), file=sys.stderr)
             print("docs/wiring.svg is stale -- run: python3 tools/make_wiring.py",
                   file=sys.stderr)
             return 1
