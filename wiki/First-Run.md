@@ -31,7 +31,8 @@ The firmware has these interlocks. They do not replace the steps above:
 
 ## Wiring the ESC
 
-Two wires: signal and ground.
+Two wires: signal and ground. [Wiring](Wiring) shows every connection on one
+sheet.
 
 | | RP2350-Touch-LCD-2.8 |
 |---|---|

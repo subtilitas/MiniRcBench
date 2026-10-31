@@ -508,7 +508,8 @@ rewrites; `previews` and `wiki` rebuild screenshots;
 `coverage` builds an instrumented suite. Scripts: `test/check_docs.py`,
 `test/check_uf2.sh`, `test/check_uf2_selftest.sh`, `test/check_blackbox.py`,
 `test/pio_sdio_emu.py`, `test/pio_backlight_emu.py`, `test/kst_card_count.cpp`, `tools/check_wiki.py`,
-`tools/coverage.py`, `tools/notices.py`, `tools/stack_depth.py`.
+`tools/coverage.py`, `tools/make_wiring.py`, `tools/notices.py`,
+`tools/stack_depth.py`.
 
 **CI** (`.github/workflows/ci.yml`; on push to `main` or `master`, on pull
 requests, by hand):
@@ -520,7 +521,7 @@ requests, by hand):
 | Blackbox round-trip | builds `blackbox_decode` from source, runs `make bbcheck` |
 | Config permutations | typechecks all of `src/` with `-Werror` for 32 combinations, with the headers in `lib/rcbench/` on the include path: AM32 transmit mode × AM32 low-jump × rotation 0 or 2 × KISS on or off × SD logging on or off; checks the landscape guard fires |
 | Workflow lint | actionlint 1.7.7 and a duplicate-key check on every workflow in `.github/workflows/` |
-| Docs | `test/check_docs.py`, then Doxygen with zero warnings allowed |
+| Docs | `test/check_docs.py`; `tools/make_wiring.py --check` against `docs/wiring.svg`; then Doxygen with zero warnings allowed |
 | Coverage | `make -C test coverage`, then `python3 tools/coverage.py --check`; fails on drift from the table below, below 93 % in total, or below 85 % in any file |
 
 **Release** (`.github/workflows/release.yml`; on `v*` tags, by hand): resolves

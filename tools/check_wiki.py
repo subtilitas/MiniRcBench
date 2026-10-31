@@ -33,6 +33,7 @@ IMG = os.path.join(WIKI, "img")
 # the same page and share no substring worth matching on.
 PAIRS = [
     ("First-Run", "Erste-Schritte"),
+    ("Wiring", "Verdrahtung"),
     ("The-Screens", "Die-Bildschirme"),
     ("Telemetry", "Telemetrie"),
     ("SD-Logging", "SD-Aufzeichnung"),

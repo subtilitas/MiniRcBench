@@ -44,6 +44,12 @@ protocol.
 
 ### Added
 
+- A wiring diagram, `docs/wiring.svg`, in the README and on the wiki pages
+  Wiring and Verdrahtung: the board's connectors pin by pin, an ESC with KISS
+  telemetry, a servo on a hand-switched supply, and a servo on the switched
+  supply with its 10 kΩ pull-down. `tools/make_wiring.py` draws it from the
+  firmware's pin sources; the Docs CI job runs its `--check`.
+
 - rcbench's Hitec programming core (`protocols/hitec/`), its RP2350 line
   driver, the Hitec servo file text (`shared/bench/hitec_card.*`) and the
   CRC-16 it uses (`shared/link/link_crc.*`), copied unchanged from rcbench

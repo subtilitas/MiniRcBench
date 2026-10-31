@@ -5,6 +5,7 @@
 **English**
 
 - [First Run](First-Run)
+- [Wiring](Wiring)
 - [The Screens](The-Screens)
 - [Telemetry](Telemetry)
 - [SD Logging](SD-Logging)
@@ -19,6 +20,7 @@
 **Deutsch**
 
 - [Erste Schritte](Erste-Schritte)
+- [Verdrahtung](Verdrahtung)
 - [Die Bildschirme](Die-Bildschirme)
 - [Telemetrie](Telemetrie)
 - [SD-Aufzeichnung](SD-Aufzeichnung)

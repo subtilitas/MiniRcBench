@@ -120,6 +120,25 @@ Only GP0 and GP1 are free (`BOARD_FREE_GPIO_MASK` = `0x00000003`). Both are
 Analogue" pins, ADC inputs, and not fault tolerant: they are rated IOVDD +
 0.5 V. They carry only the switched supply's enable, an output.
 
+### Wiring diagram
+
+![Wiring: the board's connectors, an ESC, a servo on a hand-switched supply and a servo on the switched supply](docs/wiring.svg)
+
+One sheet, four parts:
+
+| Part | Wiring | Details |
+|---|---|---|
+| Board connectors | J5, J4 and J3 pin by pin, each with its role | [Pin map](#pin-map-from-the-official-schematic) |
+| A | ESC: signal on SIG, ground, KISS telemetry on AUX, the BEC wire cut | [Wiring the ESC](#wiring-the-esc), [KISS telemetry](#kiss-telemetry-optional-third-wire) |
+| B | Servo on its own supply with a switch in the positive lead; a second servo on AUX for the servo tester | [Servo tester wiring](#wiring) |
+| C | Servo on a DC-DC converter whose enable input (EN) is on GP28, with a 10 kΩ pull-down | [KST servo programming](#kst-servo-programming), [Hitec servo programming](#hitec-servo-programming) |
+
+`tools/make_wiring.py` draws `docs/wiring.svg` (Scalable Vector Graphics)
+from the connector table in `src/board_rp2350_touch_lcd_2_8.h`, the start
+pins in `src/config.h` and the enable pins in `src/servo_supply.h`. The Docs
+job in `ci.yml` runs `python3 tools/make_wiring.py --check`, which fails when
+the file differs from what the script draws.
+
 ### Wiring the ESC
 
 Two wires:
@@ -1466,6 +1485,7 @@ lib/rcbench/            rcbench files copied unchanged: servo sweep, GPIO-to-PWM
 tools/
   sdtest/               standalone SD bring-up test, 2.8" only; built locally, never released
   make_previews.py      restitches docs/*.png and wiki/img/ from the test suite's frames
+  make_wiring.py        draws docs/wiring.svg from the pin sources; --check fails on drift
   check_wiki.py         wiki link, anchor and image checks
   coverage.py           host-suite line coverage: writes and checks the README and STATUS.md figures
 Doxyfile                API doc config -> docs/html/
@@ -1609,7 +1629,7 @@ at the next period. It also runs the init's forced `pull noblock` and
 | **Coverage** | Line coverage below 93% in total or 85% in any file, or a README or STATUS.md coverage figure that no longer matches `tools/coverage.py` |
 | **Blackbox round-trip** | Encodes a log and decodes it with Betaflight's own `blackbox_decode`, comparing every value |
 | **Config permutations** | All 32 combinations of `AM32_PUSH_PULL_TX`, `AM32_FORCE_LOW_JUMP`, `LCD_ROTATION`, `KISS_TELEM_ENABLE` and `SD_LOG_ENABLE`, warnings fatal |
-| **Docs** | Undocumented additions, through Doxygen and `test/check_docs.py` |
+| **Docs** | Undocumented additions, through Doxygen and `test/check_docs.py`, and a `docs/wiring.svg` that differs from what `tools/make_wiring.py` draws |
 | **Workflow lint** | `actionlint`, plus a duplicate-key check that PyYAML would otherwise let through and GitHub would not |
 
 The firmware job also checks the size against ceilings of 1 MiB flash and 400,000 bytes of RAM (random-access memory), that
@@ -1710,7 +1730,8 @@ Every page says so in its footer.
 
 Its screenshots are not committed. The host suite renders them, one PNG
 (Portable Network Graphics) image per captured screen, with the same tool that
-builds the previews above:
+builds the previews above. The same tool copies `docs/wiring.svg` into
+`wiki/img/`:
 
 ```bash
 cd test && make wiki      # render wiki/img/, then check every link and image
