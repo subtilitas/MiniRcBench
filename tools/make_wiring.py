@@ -92,24 +92,28 @@ def supply_pins():
     """[(gpio, connector, pin)] for each ServoSupplyMode with a pin.
 
     Every enum member named GpN has to name its connector pin in its comment,
-    the members have to number SERVO_SUPPLY_MODE_MAX, and servoSupplyPinOf()
+    the highest member has to be SERVO_SUPPLY_MODE_MAX, and servoSupplyPinOf()
     has to map each one to GPIO N: a member that parses short fails here
     rather than dropping out of the drawing.
     """
     body = re.search(r"enum class ServoSupplyMode[^{]*\{(.*?)\};", read(SUPPLY_H), re.S)
     if not body:
         raise SystemExit("%s: enum class ServoSupplyMode not found" % SUPPLY_H)
-    members = re.findall(r"\bGp(\d+)\s*=", body.group(1))
+    members = re.findall(r"\bGp(\d+)\s*=\s*(\d+)", body.group(1))
     found = re.findall(r"\bGp(\d+)\s*=\s*\d+,?\s*/\*\*<[^*]*?\bGP(\d+), (J\d+) pin (\d+)",
                        body.group(1))
     if not members or len(found) != len(members):
         raise SystemExit("%s: %d of the %d enable pins in ServoSupplyMode name their "
                          "connector pin as 'GPn, Jn pin n'" % (SUPPLY_H, len(found), len(members)))
     most = define(SUPPLY_H, "SERVO_SUPPLY_MODE_MAX")
-    if most != len(members):
-        raise SystemExit("%s: SERVO_SUPPLY_MODE_MAX is %d, ServoSupplyMode has %d enable pins"
-                         % (SUPPLY_H, most, len(members)))
-    cpp = read(SUPPLY_CPP)
+    highest = max(int(v) for _, v in members)
+    if most != highest:
+        raise SystemExit("%s: SERVO_SUPPLY_MODE_MAX is %d, the highest ServoSupplyMode is %d"
+                         % (SUPPLY_H, most, highest))
+    fn = re.search(r"servoSupplyPinOf\([^)]*\)\s*\{(.*?)\n\}", read(SUPPLY_CPP), re.S)
+    if not fn:
+        raise SystemExit("%s: servoSupplyPinOf() not found" % SUPPLY_CPP)
+    cpp = fn.group(1)
     out = []
     for enum_gp, gp, conn, pin in found:
         if enum_gp != gp:
@@ -221,13 +225,11 @@ def stub(svg, x, y, conn, rows):
     return ports
 
 
-def part(svg, x, y, w, h, title, pins, title_lines=(), below=False):
+def part(svg, x, y, w, h, title, pins, below=False):
     """A component box with labelled pins on its left edge at absolute ys; the
     title above the box, or under it with @p below."""
     svg.rect(x, y, w, h)
     svg.text(x + w / 2, y + h + 18 if below else y - 8, title, 13, INK, "middle", "bold")
-    for i, s in enumerate(title_lines):
-        svg.text(x + w / 2, y + h + 16 + 14 * i, s, 11, DIM, "middle")
     for py, label in pins:
         svg.text(x + 6, py + 4, label, 11, DIM)
 
@@ -243,19 +245,13 @@ def panel(svg, y, h, title):
     svg.text(36, y + 26, title, 15, INK, weight="bold")
 
 
-ROLE_COLOUR = {"SIG": SIG, "AUX": AUX, "EN": EN, "GND": MINUS}
-
-
 def draw():
     conns = connectors()
     sig = define(CONFIG_H, "DSHOT_PIN_LCD_2_8")
     aux = define(CONFIG_H, "KISS_PIN_LCD_2_8")
     supplies = supply_pins()
-    en_gp, en_conn, en_pin = supplies[0]
-    if pin_of(conns, en_conn, en_gp) != en_pin:
-        raise SystemExit("%s says GP%d is %s pin %d; %s disagrees"
-                         % (SUPPLY_H, en_gp, en_conn, en_pin, BOARD_H))
-    for gp, conn, pin in supplies[1:]:
+    en_gp, _, en_pin = supplies[0]
+    for gp, conn, pin in supplies:
         if pin_of(conns, conn, gp) != pin:
             raise SystemExit("%s says GP%d is %s pin %d; %s disagrees"
                              % (SUPPLY_H, gp, conn, pin, BOARD_H))
@@ -268,7 +264,7 @@ def draw():
         if bare == "GP%d" % aux:
             return "AUX", "KISS telemetry, servo B", AUX
         if bare in en_names:
-            return "EN", "servo supply enable, option", EN
+            return "EN", "servo supply enable, optional", EN
         if name == "GND":
             return "", "ground", MINUS
         if name == "3V3":
@@ -278,7 +274,7 @@ def draw():
         if name in ("USB_N", "USB_P"):
             return "", "USB data, not used", DIM
         if name.endswith("*"):
-            return "", "shared I2C bus: do not use", "#9e9e9e"
+            return "", "shared I2C bus: do not use", "#616161"
         return "", "", DIM
 
     svg = Svg()
@@ -299,8 +295,10 @@ def draw():
             short, what, color = role(name)
             svg.rect(x, py - 8, 16, 16, fill=color, stroke=INK, rx=2)
             svg.text(x + 8, py + 4, str(num), 10, "#ffffff", "middle", "bold")
-            label = "%-6s %-4s %s" % (name.rstrip("*"), short, what)
-            svg.text(x + 24, py + 4, label, 12, INK if short or name == "GND" else DIM)
+            col = INK if short or name == "GND" else DIM
+            svg.text(x + 24, py + 4, name.rstrip("*"), 12, col)
+            svg.text(x + 76, py + 4, short, 12, col)
+            svg.text(x + 112, py + 4, what, 12, col)
     sig_j5 = pin_of(conns, "J5", sig)
     aux_j5 = pin_of(conns, "J5", aux)
     gnd_j5 = ground_of(conns, "J5")[0]
@@ -349,7 +347,7 @@ def draw():
     svg.wire([p[gnd_j5], (520, ys[gnd_j5])], MINUS)
     # motor and battery
     mx, my = 900, ya + 96
-    for k, dy in enumerate((-16, 0, 16)):
+    for dy in (-16, 0, 16):
         svg.wire([(680, my + dy), (mx - 34 + abs(dy) / 4, my + dy)], INK, width=2)
     svg.add('<circle cx="%g" cy="%g" r="34" fill="%s" stroke="%s" stroke-width="1.5"/>'
             % (mx, my, BOX, INK))

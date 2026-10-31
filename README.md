@@ -129,13 +129,14 @@ One sheet, four parts:
 | Part | Wiring | Details |
 |---|---|---|
 | Board connectors | J5, J4 and J3 pin by pin, each with its role | [Pin map](#pin-map-from-the-official-schematic) |
-| A | ESC: signal on SIG, ground, KISS telemetry on AUX, the BEC wire cut | [Wiring the ESC](#wiring-the-esc), [KISS telemetry](#kiss-telemetry-optional-third-wire) |
+| A | ESC: signal on SIG, ground, KISS telemetry on AUX, the BEC (battery eliminator circuit) wire cut | [Wiring the ESC](#wiring-the-esc), [KISS telemetry](#kiss-telemetry-optional-third-wire) |
 | B | Servo on its own supply with a switch in the positive lead; a second servo on AUX for the servo tester | [Servo tester wiring](#wiring), [KST wiring](#wiring-1), [Hitec wiring](#wiring-2) |
 | C | Servo on a DC-DC (direct current to direct current) converter whose enable input (EN) is on GP28 or GP29, with a 10 kΩ pull-down at the converter; SIG, EN and GND on J4 | [KST wiring, switched supply](#wiring-1), [Classic servos](#classic-servos) |
 
 `tools/make_wiring.py` draws `docs/wiring.svg` (Scalable Vector Graphics)
 from the connector table in `src/board_rp2350_touch_lcd_2_8.h`, the start
-pins in `src/config.h` and the enable pins in `src/servo_supply.h`. The Docs
+pins in `src/config.h` and the enable pins in `src/servo_supply.h`, checked
+against `servoSupplyPinOf()` in `src/servo_supply.cpp`. The Docs
 job in `ci.yml` runs `python3 tools/make_wiring.py --check`, which fails when
 the file differs from what the script draws.
 
@@ -1026,8 +1027,9 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
   driven: 10 kΩ to 100 kΩ for an EN with no internal pull-up. Fitted at the
   converter, it also holds EN low when the EN wire comes off at a
   connector. An EN with an internal pull-up needs a pull-down small enough
-  to keep EN below its off threshold, and at most 3.6 V, at the highest VIN
-  used: 10 kΩ for the Pololu S13V30F5 (design note, "Example modules").
+  to keep EN below its off threshold and at most 3.6 V at the highest VIN
+  used, and at most 0.5 V while the board is off: 10 kΩ for the Pololu
+  S13V30F5 (design note, "Example modules").
 - The converter's output is the lead's middle wire. **An ESC on this lead
   gets the converter's output on its BEC wire**, its own regulated supply.
   The claim's ESC check sees only an ESC that answers bidirectional DShot.

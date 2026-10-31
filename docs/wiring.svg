@@ -7,66 +7,106 @@
 <text x="40" y="138" font-size="13" fill="#1a1a1a" text-anchor="start" font-weight="bold">J5, 4 pins</text>
 <rect x="40" y="152" width="16" height="16" rx="2" fill="#1565c0" stroke="#1a1a1a" stroke-width="1.5"/>
 <text x="48" y="164" font-size="10" fill="#ffffff" text-anchor="middle" font-weight="bold">1</text>
-<text x="64" y="164" font-size="12" fill="#1a1a1a" text-anchor="start">GP1    AUX  KISS telemetry, servo B</text>
+<text x="64" y="164" font-size="12" fill="#1a1a1a" text-anchor="start">GP1</text>
+<text x="116" y="164" font-size="12" fill="#1a1a1a" text-anchor="start">AUX</text>
+<text x="152" y="164" font-size="12" fill="#1a1a1a" text-anchor="start">KISS telemetry, servo B</text>
 <rect x="40" y="172" width="16" height="16" rx="2" fill="#e65100" stroke="#1a1a1a" stroke-width="1.5"/>
 <text x="48" y="184" font-size="10" fill="#ffffff" text-anchor="middle" font-weight="bold">2</text>
-<text x="64" y="184" font-size="12" fill="#1a1a1a" text-anchor="start">GP0    SIG  ESC or servo signal</text>
+<text x="64" y="184" font-size="12" fill="#1a1a1a" text-anchor="start">GP0</text>
+<text x="116" y="184" font-size="12" fill="#1a1a1a" text-anchor="start">SIG</text>
+<text x="152" y="184" font-size="12" fill="#1a1a1a" text-anchor="start">ESC or servo signal</text>
 <rect x="40" y="192" width="16" height="16" rx="2" fill="#5f6368" stroke="#1a1a1a" stroke-width="1.5"/>
 <text x="48" y="204" font-size="10" fill="#ffffff" text-anchor="middle" font-weight="bold">3</text>
-<text x="64" y="204" font-size="12" fill="#5f6368" text-anchor="start">3V3         3.3 V out, not used</text>
+<text x="64" y="204" font-size="12" fill="#5f6368" text-anchor="start">3V3</text>
+<text x="116" y="204" font-size="12" fill="#5f6368" text-anchor="start"></text>
+<text x="152" y="204" font-size="12" fill="#5f6368" text-anchor="start">3.3 V out, not used</text>
 <rect x="40" y="212" width="16" height="16" rx="2" fill="#4e342e" stroke="#1a1a1a" stroke-width="1.5"/>
 <text x="48" y="224" font-size="10" fill="#ffffff" text-anchor="middle" font-weight="bold">4</text>
-<text x="64" y="224" font-size="12" fill="#1a1a1a" text-anchor="start">GND         ground</text>
+<text x="64" y="224" font-size="12" fill="#1a1a1a" text-anchor="start">GND</text>
+<text x="116" y="224" font-size="12" fill="#1a1a1a" text-anchor="start"></text>
+<text x="152" y="224" font-size="12" fill="#1a1a1a" text-anchor="start">ground</text>
 <text x="420" y="138" font-size="13" fill="#1a1a1a" text-anchor="start" font-weight="bold">J4, 12 pins</text>
 <rect x="420" y="152" width="16" height="16" rx="2" fill="#4e342e" stroke="#1a1a1a" stroke-width="1.5"/>
 <text x="428" y="164" font-size="10" fill="#ffffff" text-anchor="middle" font-weight="bold">1</text>
-<text x="444" y="164" font-size="12" fill="#1a1a1a" text-anchor="start">GND         ground</text>
+<text x="444" y="164" font-size="12" fill="#1a1a1a" text-anchor="start">GND</text>
+<text x="496" y="164" font-size="12" fill="#1a1a1a" text-anchor="start"></text>
+<text x="532" y="164" font-size="12" fill="#1a1a1a" text-anchor="start">ground</text>
 <rect x="420" y="172" width="16" height="16" rx="2" fill="#5f6368" stroke="#1a1a1a" stroke-width="1.5"/>
 <text x="428" y="184" font-size="10" fill="#ffffff" text-anchor="middle" font-weight="bold">2</text>
-<text x="444" y="184" font-size="12" fill="#5f6368" text-anchor="start">VBUS        USB 5 V, feeds no servo or ESC</text>
+<text x="444" y="184" font-size="12" fill="#5f6368" text-anchor="start">VBUS</text>
+<text x="496" y="184" font-size="12" fill="#5f6368" text-anchor="start"></text>
+<text x="532" y="184" font-size="12" fill="#5f6368" text-anchor="start">USB 5 V, feeds no servo or ESC</text>
 <rect x="420" y="192" width="16" height="16" rx="2" fill="#5f6368" stroke="#1a1a1a" stroke-width="1.5"/>
 <text x="428" y="204" font-size="10" fill="#ffffff" text-anchor="middle" font-weight="bold">3</text>
-<text x="444" y="204" font-size="12" fill="#5f6368" text-anchor="start">USB_N       USB data, not used</text>
+<text x="444" y="204" font-size="12" fill="#5f6368" text-anchor="start">USB_N</text>
+<text x="496" y="204" font-size="12" fill="#5f6368" text-anchor="start"></text>
+<text x="532" y="204" font-size="12" fill="#5f6368" text-anchor="start">USB data, not used</text>
 <rect x="420" y="212" width="16" height="16" rx="2" fill="#5f6368" stroke="#1a1a1a" stroke-width="1.5"/>
 <text x="428" y="224" font-size="10" fill="#ffffff" text-anchor="middle" font-weight="bold">4</text>
-<text x="444" y="224" font-size="12" fill="#5f6368" text-anchor="start">USB_P       USB data, not used</text>
+<text x="444" y="224" font-size="12" fill="#5f6368" text-anchor="start">USB_P</text>
+<text x="496" y="224" font-size="12" fill="#5f6368" text-anchor="start"></text>
+<text x="532" y="224" font-size="12" fill="#5f6368" text-anchor="start">USB data, not used</text>
 <rect x="420" y="232" width="16" height="16" rx="2" fill="#4e342e" stroke="#1a1a1a" stroke-width="1.5"/>
 <text x="428" y="244" font-size="10" fill="#ffffff" text-anchor="middle" font-weight="bold">5</text>
-<text x="444" y="244" font-size="12" fill="#1a1a1a" text-anchor="start">GND         ground</text>
+<text x="444" y="244" font-size="12" fill="#1a1a1a" text-anchor="start">GND</text>
+<text x="496" y="244" font-size="12" fill="#1a1a1a" text-anchor="start"></text>
+<text x="532" y="244" font-size="12" fill="#1a1a1a" text-anchor="start">ground</text>
 <rect x="420" y="252" width="16" height="16" rx="2" fill="#5f6368" stroke="#1a1a1a" stroke-width="1.5"/>
 <text x="428" y="264" font-size="10" fill="#ffffff" text-anchor="middle" font-weight="bold">6</text>
-<text x="444" y="264" font-size="12" fill="#5f6368" text-anchor="start">3V3         3.3 V out, not used</text>
-<rect x="420" y="272" width="16" height="16" rx="2" fill="#9e9e9e" stroke="#1a1a1a" stroke-width="1.5"/>
+<text x="444" y="264" font-size="12" fill="#5f6368" text-anchor="start">3V3</text>
+<text x="496" y="264" font-size="12" fill="#5f6368" text-anchor="start"></text>
+<text x="532" y="264" font-size="12" fill="#5f6368" text-anchor="start">3.3 V out, not used</text>
+<rect x="420" y="272" width="16" height="16" rx="2" fill="#616161" stroke="#1a1a1a" stroke-width="1.5"/>
 <text x="428" y="284" font-size="10" fill="#ffffff" text-anchor="middle" font-weight="bold">7</text>
-<text x="444" y="284" font-size="12" fill="#5f6368" text-anchor="start">GP7         shared I2C bus: do not use</text>
-<rect x="420" y="292" width="16" height="16" rx="2" fill="#9e9e9e" stroke="#1a1a1a" stroke-width="1.5"/>
+<text x="444" y="284" font-size="12" fill="#5f6368" text-anchor="start">GP7</text>
+<text x="496" y="284" font-size="12" fill="#5f6368" text-anchor="start"></text>
+<text x="532" y="284" font-size="12" fill="#5f6368" text-anchor="start">shared I2C bus: do not use</text>
+<rect x="420" y="292" width="16" height="16" rx="2" fill="#616161" stroke="#1a1a1a" stroke-width="1.5"/>
 <text x="428" y="304" font-size="10" fill="#ffffff" text-anchor="middle" font-weight="bold">8</text>
-<text x="444" y="304" font-size="12" fill="#5f6368" text-anchor="start">GP6         shared I2C bus: do not use</text>
+<text x="444" y="304" font-size="12" fill="#5f6368" text-anchor="start">GP6</text>
+<text x="496" y="304" font-size="12" fill="#5f6368" text-anchor="start"></text>
+<text x="532" y="304" font-size="12" fill="#5f6368" text-anchor="start">shared I2C bus: do not use</text>
 <rect x="420" y="312" width="16" height="16" rx="2" fill="#e65100" stroke="#1a1a1a" stroke-width="1.5"/>
 <text x="428" y="324" font-size="10" fill="#ffffff" text-anchor="middle" font-weight="bold">9</text>
-<text x="444" y="324" font-size="12" fill="#1a1a1a" text-anchor="start">GP0    SIG  ESC or servo signal</text>
+<text x="444" y="324" font-size="12" fill="#1a1a1a" text-anchor="start">GP0</text>
+<text x="496" y="324" font-size="12" fill="#1a1a1a" text-anchor="start">SIG</text>
+<text x="532" y="324" font-size="12" fill="#1a1a1a" text-anchor="start">ESC or servo signal</text>
 <rect x="420" y="332" width="16" height="16" rx="2" fill="#1565c0" stroke="#1a1a1a" stroke-width="1.5"/>
 <text x="428" y="344" font-size="10" fill="#ffffff" text-anchor="middle" font-weight="bold">10</text>
-<text x="444" y="344" font-size="12" fill="#1a1a1a" text-anchor="start">GP1    AUX  KISS telemetry, servo B</text>
+<text x="444" y="344" font-size="12" fill="#1a1a1a" text-anchor="start">GP1</text>
+<text x="496" y="344" font-size="12" fill="#1a1a1a" text-anchor="start">AUX</text>
+<text x="532" y="344" font-size="12" fill="#1a1a1a" text-anchor="start">KISS telemetry, servo B</text>
 <rect x="420" y="352" width="16" height="16" rx="2" fill="#2e7d32" stroke="#1a1a1a" stroke-width="1.5"/>
 <text x="428" y="364" font-size="10" fill="#ffffff" text-anchor="middle" font-weight="bold">11</text>
-<text x="444" y="364" font-size="12" fill="#1a1a1a" text-anchor="start">GP28   EN   servo supply enable, option</text>
+<text x="444" y="364" font-size="12" fill="#1a1a1a" text-anchor="start">GP28</text>
+<text x="496" y="364" font-size="12" fill="#1a1a1a" text-anchor="start">EN</text>
+<text x="532" y="364" font-size="12" fill="#1a1a1a" text-anchor="start">servo supply enable, optional</text>
 <rect x="420" y="372" width="16" height="16" rx="2" fill="#2e7d32" stroke="#1a1a1a" stroke-width="1.5"/>
 <text x="428" y="384" font-size="10" fill="#ffffff" text-anchor="middle" font-weight="bold">12</text>
-<text x="444" y="384" font-size="12" fill="#1a1a1a" text-anchor="start">GP29   EN   servo supply enable, option</text>
+<text x="444" y="384" font-size="12" fill="#1a1a1a" text-anchor="start">GP29</text>
+<text x="496" y="384" font-size="12" fill="#1a1a1a" text-anchor="start">EN</text>
+<text x="532" y="384" font-size="12" fill="#1a1a1a" text-anchor="start">servo supply enable, optional</text>
 <text x="820" y="138" font-size="13" fill="#1a1a1a" text-anchor="start" font-weight="bold">J3, 4 pins</text>
-<rect x="820" y="152" width="16" height="16" rx="2" fill="#9e9e9e" stroke="#1a1a1a" stroke-width="1.5"/>
+<rect x="820" y="152" width="16" height="16" rx="2" fill="#616161" stroke="#1a1a1a" stroke-width="1.5"/>
 <text x="828" y="164" font-size="10" fill="#ffffff" text-anchor="middle" font-weight="bold">1</text>
-<text x="844" y="164" font-size="12" fill="#5f6368" text-anchor="start">GP7         shared I2C bus: do not use</text>
-<rect x="820" y="172" width="16" height="16" rx="2" fill="#9e9e9e" stroke="#1a1a1a" stroke-width="1.5"/>
+<text x="844" y="164" font-size="12" fill="#5f6368" text-anchor="start">GP7</text>
+<text x="896" y="164" font-size="12" fill="#5f6368" text-anchor="start"></text>
+<text x="932" y="164" font-size="12" fill="#5f6368" text-anchor="start">shared I2C bus: do not use</text>
+<rect x="820" y="172" width="16" height="16" rx="2" fill="#616161" stroke="#1a1a1a" stroke-width="1.5"/>
 <text x="828" y="184" font-size="10" fill="#ffffff" text-anchor="middle" font-weight="bold">2</text>
-<text x="844" y="184" font-size="12" fill="#5f6368" text-anchor="start">GP6         shared I2C bus: do not use</text>
+<text x="844" y="184" font-size="12" fill="#5f6368" text-anchor="start">GP6</text>
+<text x="896" y="184" font-size="12" fill="#5f6368" text-anchor="start"></text>
+<text x="932" y="184" font-size="12" fill="#5f6368" text-anchor="start">shared I2C bus: do not use</text>
 <rect x="820" y="192" width="16" height="16" rx="2" fill="#5f6368" stroke="#1a1a1a" stroke-width="1.5"/>
 <text x="828" y="204" font-size="10" fill="#ffffff" text-anchor="middle" font-weight="bold">3</text>
-<text x="844" y="204" font-size="12" fill="#5f6368" text-anchor="start">3V3         3.3 V out, not used</text>
+<text x="844" y="204" font-size="12" fill="#5f6368" text-anchor="start">3V3</text>
+<text x="896" y="204" font-size="12" fill="#5f6368" text-anchor="start"></text>
+<text x="932" y="204" font-size="12" fill="#5f6368" text-anchor="start">3.3 V out, not used</text>
 <rect x="820" y="212" width="16" height="16" rx="2" fill="#4e342e" stroke="#1a1a1a" stroke-width="1.5"/>
 <text x="828" y="224" font-size="10" fill="#ffffff" text-anchor="middle" font-weight="bold">4</text>
-<text x="844" y="224" font-size="12" fill="#1a1a1a" text-anchor="start">GND         ground</text>
+<text x="844" y="224" font-size="12" fill="#1a1a1a" text-anchor="start">GND</text>
+<text x="896" y="224" font-size="12" fill="#1a1a1a" text-anchor="start"></text>
+<text x="932" y="224" font-size="12" fill="#1a1a1a" text-anchor="start">ground</text>
 <text x="40" y="280" font-size="12" fill="#1a1a1a" text-anchor="start">USB-C: power and the USB serial port.</text>
 <text x="40" y="298" font-size="12" fill="#1a1a1a" text-anchor="start">LiPo cell: optional, charged by the board.</text>
 <text x="40" y="316" font-size="12" fill="#1a1a1a" text-anchor="start">SIG and AUX are set under</text>

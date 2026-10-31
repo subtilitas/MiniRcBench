@@ -30,14 +30,16 @@ Platine mit leerem Flash; beide lassen sich unter **MENU → SETTINGS** ändern.
 wenn das EN-Kabel an einem Steckverbinder abgeht.
 
 - Ein EN ohne internen Pull-up: 10 kΩ bis 100 kΩ.
-- Ein EN mit internem Pull-up nach VIN, etwa die 475 kΩ des Pololu
-  S13V30F5: Beide bilden einen Spannungsteiler. Bei der höchsten benutzten
-  VIN muss der Pull-down EN unter der Ausschaltschwelle des Wandlers halten,
-  bei höchstens 3,6 V und bei höchstens 0,5 V, solange die Platine aus ist.
+- Ein EN mit internem Pull-up nach VIN, der Eingangsspannung des Wandlers,
+  etwa die 475 kΩ des Pololu S13V30F5: Beide bilden einen Spannungsteiler.
+  Bei der höchsten benutzten VIN muss der Pull-down EN unter der
+  Ausschaltschwelle des Wandlers und auf höchstens 3,6 V halten, solange die
+  Platine aus ist auf höchstens 0,5 V.
   Für das Pololu-Modul sind das 10 kΩ: EN liegt bei 22 V auf 0,45 V.
   100 kΩ legen bei 12 V 2,09 V an EN, und der Wandler bleibt auch außerhalb
   der KST- und Hitec-Bildschirme an.
 
-Die Rechnung steht im README-Abschnitt
-[KST servo programming](https://github.com/subtilitas/MiniRcBench#kst-servo-programming)
-und in der Entwurfsnotiz `docs/design/kst-programming.md`, "Example modules".
+Die Regel steht im README-Abschnitt
+[KST servo programming](https://github.com/subtilitas/MiniRcBench#kst-servo-programming),
+die Rechnung in der Entwurfsnotiz `docs/design/kst-programming.md`, "Example
+modules".

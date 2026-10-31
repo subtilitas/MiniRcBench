@@ -28,13 +28,15 @@ needs a pigtail with a JST-SH plug. SIG is GP0 (J5 pin 2) and AUX is GP1
 when the EN wire comes off at a connector.
 
 - An EN with no internal pull-up: 10 kΩ to 100 kΩ.
-- An EN with an internal pull-up to VIN, such as the Pololu S13V30F5's
-  475 kΩ: the two form a divider. At the highest VIN used, the pull-down
-  must hold EN below the converter's off threshold, at most 3.6 V, and at
-  most 0.5 V while the board is off. For the Pololu module that is 10 kΩ:
+- An EN with an internal pull-up to VIN, the converter's input voltage,
+  such as the Pololu S13V30F5's 475 kΩ: the two form a divider. At the
+  highest VIN used, the pull-down must hold EN below the converter's off
+  threshold and at or below 3.6 V, and at or below 0.5 V while the board is
+  off. For the Pololu module that is 10 kΩ:
   EN reads 0.45 V at 22 V. 100 kΩ puts 2.09 V on EN at 12 V, and the
   converter stays on outside the KST and Hitec screens.
 
-The arithmetic is in the README section
-[KST servo programming](https://github.com/subtilitas/MiniRcBench#kst-servo-programming)
-and in the design note `docs/design/kst-programming.md`, "Example modules".
+The rule is in the README section
+[KST servo programming](https://github.com/subtilitas/MiniRcBench#kst-servo-programming),
+the arithmetic in the design note `docs/design/kst-programming.md`, "Example
+modules".
