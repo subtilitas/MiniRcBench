@@ -33,7 +33,8 @@ Die Firmware hat diese Sperren. Sie ersetzen die Schritte oben nicht:
 
 ## ESC anschließen
 
-Zwei Kabel: Signal und Masse.
+Zwei Kabel: Signal und Masse. [Verdrahtung](Verdrahtung) zeigt jede
+Verbindung auf einem Blatt.
 
 | | RP2350-Touch-LCD-2.8 |
 |---|---|

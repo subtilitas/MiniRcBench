@@ -493,6 +493,12 @@ jobs:
       - name: Documentation checks
         run: python3 test/check_docs.py
 
+      # The wiring diagram is drawn from the board header's connector table,
+      # config.h and servo_supply.{h,cpp}. A pin moved there and not in the
+      # drawing fails here.
+      - name: Wiring diagram matches the pin sources
+        run: python3 tools/make_wiring.py --check
+
       - name: Install doxygen
         run: |
           sudo apt-get update && sudo apt-get install -y doxygen graphviz

@@ -18,6 +18,7 @@ run.
 | Page | What it covers |
 |---|---|
 | [First Run](First-Run) | Wiring an ESC, powering up, arming, first throttle input |
+| [Wiring](Wiring) | Every connection on one sheet: the board's connectors, an ESC, a servo with a hand switch or on the switched supply |
 | [The Screens](The-Screens) | Every screen and every control, in order |
 | [Telemetry](Telemetry) | What each tile means, where the value comes from, and why a tile reads `--` |
 | [SD Logging](SD-Logging) | Recording to microSD and opening the result in [logwiju](https://subtilitas.github.io/logwiju/) |
@@ -40,6 +41,7 @@ der erste Motorlauf.
 | Seite | Inhalt |
 |---|---|
 | [Erste Schritte](Erste-Schritte) | ESC anschließen, einschalten, scharfschalten, erster Gasbefehl |
+| [Verdrahtung](Verdrahtung) | Jede Verbindung auf einem Blatt: die Steckverbinder der Platine, ein ESC, ein Servo mit Handschalter oder an der geschalteten Versorgung |
 | [Die Bildschirme](Die-Bildschirme) | Jeder Bildschirm und jedes Bedienelement, der Reihe nach |
 | [Telemetrie](Telemetrie) | Was jede Kachel bedeutet, woher der Wert stammt und warum eine Kachel `--` zeigt |
 | [SD-Aufzeichnung](SD-Aufzeichnung) | Aufzeichnen auf microSD und Auswerten in [logwiju](https://subtilitas.github.io/logwiju/) |

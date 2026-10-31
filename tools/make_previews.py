@@ -17,6 +17,7 @@ survived as long as it did.
 """
 
 import os
+import shutil
 import struct
 import sys
 import zlib
@@ -235,6 +236,12 @@ def build_wiki():
         write_png(os.path.join(out_dir, name + ".png"), sw, sh, scaled)
         print("wiki/img/%-24s %dx%d" % (name + ".png", sw, sh))
     print("%d screen(s)" % len(shots))
+
+    # The wiring diagram is drawn by tools/make_wiring.py, not captured, and
+    # is committed under docs/; the wiki's copy is made here with the screens.
+    shutil.copyfile(os.path.join(ROOT, "docs", "wiring.svg"),
+                    os.path.join(out_dir, "wiring.svg"))
+    print("wiki/img/wiring.svg               from docs/wiring.svg")
 
 
 def main():
