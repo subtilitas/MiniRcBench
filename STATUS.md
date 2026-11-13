@@ -206,7 +206,7 @@ record either way.
 | Blackbox logs in `LOGS/` (`SD_LOG_DIR_PATH`) | none: `sd_log.cpp` is typechecked only | not tested on hardware |
 | SD write cache for the backup claims (`src/sdio/sd_cache.*`, `src/card_cache.*`, the glue in `src/sdio/sd_card_glue.c`, `sdh_write_start()` and `sdh_write_poll()`); [sd-write-cache.md](docs/design/sd-write-cache.md) | the cache against a fake card (`runSdCacheTests`), the asynchronous block write against the simulated card (`runSdioTests`); the KST write waiting for the flush, a failed flush, the claim turning the cache on and off, a running log stopped, AM32's write refused after a failed flush, against a fake of `card_cache.h`; the glue and `card_cache.cpp` are built by the firmware only | not tested on hardware |
 | Pin claim (`src/pin_claim.*`) and core1 job dispatch (`src/core1_job.*`), the zero-throttle drain in `src/esc_task.*` | each refusal rule at its 500 ms boundary and their order; the handover decisions of `escTaskPoll()` (`escHandoverStep()`, `escDrainSlot()`, `escPumpFrameSent()`, `escPumpBind()`) one 1 ms slot at a time: 250 zero frames, the teardown 251 ms after the last throttle frame, the bind disarmed; the order of the two cores' steps against fake jobs, BACK and RETRY, Restoring, the unplug-page rule, the restore wiring, the start guard, the heartbeat rule across a millis() rollover; the PIO and pad calls around those decisions are compiled only | not tested on hardware; open item 8 |
-| MENU layout (`src/ui_menu.cpp`, `src/ui_registry.cpp`): BEEP THE ESC, AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO, SD LOG and SETTINGS as 40 px rows, scrolled 36 px to reach SETTINGS | every registry entry opens and BACK returns to MENU; opening MENU disarms; BEEP's flash and refusal on its row; `PINS BUSY` while the claim restores and a tap on it opens nothing; six rows do not scroll and seven scroll 36 px; the label and status fit check at build time | not recorded |
+| MENU layout (`src/ui_menu.cpp`, `src/ui_registry.cpp`): BEEP THE ESC, AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO, SETTINGS and SD LOG as 40 px rows, scrolled 36 px to reach SD LOG | every registry entry opens and BACK returns to MENU; opening MENU disarms; BEEP's flash and refusal on its row; `PINS BUSY` while the claim restores and a tap on it opens nothing; six rows do not scroll and seven scroll 36 px; SETTINGS, the sixth row, is whole and takes a tap at 0 px, and SD LOG, the seventh, is cut until MENU is dragged; the UNSAVED status shows on MENU at 0 px after leaving SETTINGS; the label and status fit check at build time | not recorded |
 | Servo tester: the pure model (`src/servo_model.*`), the PWM driver (`src/servo_pwm.*`), the core1 job (`src/servo_job.*`), the slider and the screens (`src/ui_slider.*`, `src/ui_servo.cpp`); rcbench's sweep and PWM fold in `lib/rcbench/` | profiles, limits at their boundaries, steppers to their stops, command, angle and pulse mappings, SPEED, the dial's hit area; the PWM driver's bind, write, release and sharing rules against a register fake; SAFE at level 0, CENTRE at START, STOP on the next pass, the slew, sweeps, REVERSE B, the trip at 250 ms across a millis() wrap, kept across a rebind, the profile rebind; no pulse cut short at a release or a rebind, against a model of the counter and the latched compare; released pins pulled down; the screens through the UI: HOLD TO START at 1000 ms, the drag rules, the SET warning and HOLD TO APPLY, STOP on SET, the AUX refusals through the claim, the unplug page; rcbench's own sweep and fold tests; the SDK calls are run against the fake only | not tested on hardware; open item 9 |
 | KST programming: rcbench's session, line driver and file store (`lib/rcbench/`), the search (`src/kst_seek.*`), the core1 job (`src/kst_job.*`) and its line (`src/kst_line_port.*`), the files on the card (`src/kst_files.*`), the screen (`src/ui_kst.cpp`, `src/kst_view.*`) | rcbench's seven tests, 298 cases, the line's PIO program among them in a model (`test_kst_pio.c`); the search and the job against rcbench's simulated servo, the files against an in-memory FAT (File Allocation Table) volume, the backup in `BACKUP/` and SAVE AS in `KST/` up to 50 files among them, the card phases' block counts over FatFs R0.15 itself (`make -C test kstcount`), the screen through MENU against both (`runKstTests`); the line driver and `kst_line_port.cpp` are built by the firmware and typechecked only | not recorded: no frame of the line driver has been on a pin (`kst_line.h`) |
 | SETTINGS layout (`src/ui_settings.cpp`): sections ESC TESTER, WIRING, SERVO SUPPLY, DISPLAY and BOARD in one scrolling list | the scroll range, 0 px at opening and 500 px at most; each row by id; no scroll from a press on a control; a cut control takes a press only while 40 px show; HOLD TO SAVE in place at every scroll position and saving at the end of the list; the pole count reaches the eRPM divisor, the ceiling steps by 5 %, and RESET restores both | not recorded |
@@ -498,7 +498,7 @@ binary, `dshot_tests`. `test/test_main.cpp` runs twenty-two suites:
 | `runIdTests` | `test_ids.cpp` | the control tables of `ui_screen.h` on the tester, MENU, SETTINGS, SD LOG in three card states, AM32 CONFIG in its handover and its list, and SERVO's three views: ids unique, rectangles inside the panel and apart, BACK at its rectangle, the enabled flags against the state they follow; the id helpers of `ui_ids.h`, and that they report an absent or misgated control |
 | `runBackupTests` | `test_backup_ring.cpp` | the ring of `BACKUP/`: its rules, saves of two devices and a rename under another device's number, a rename FatFs reports failed that took effect, two files under one number, the list of one device from the latest, a gap, no marker and an unreadable one, a directory under a ring name, names outside the ring, a marker or a read-only oldest file the card refuses, a change of directory that fails, load, no card and a USB-held card with no FatFs call |
 | `runSdCacheTests` | `test_sd_cache.cpp` | the SD write cache over a fake card: the queue's order, a read of a queued sector, one swap check per batch, no command while busy, read cache hits and the oldest pushed out, a miss that waits for the block in flight, a full queue, retries, a failed block, a changed serial number, refusals with the cache off |
-| `runMenuTests` | `test_menu.cpp` | MENU, SETTINGS and the navigation through the real UI: SD LOG's BACK to MENU, every registry entry opened and left, MENU's disarm, BEEP's flash, `PINS BUSY` on AM32, SERVO and SETTINGS, MENU's scroll over registries of six and seven rows and its return at 0 px, every MENU status and SETTINGS value within its widest, the SETTINGS scroll range, each row by id, a cut control under 40 px, HOLD TO SAVE and the UNSAVED note at every scroll position, AM32's own wait beside another claim |
+| `runMenuTests` | `test_menu.cpp` | MENU, SETTINGS and the navigation through the real UI: SD LOG's BACK to MENU, every registry entry opened and left, MENU's disarm, BEEP's flash, `PINS BUSY` on AM32, SERVO and SETTINGS, MENU's scroll over registries of six and seven rows and its return at 0 px, SETTINGS whole at 0 px and SD LOG cut until dragged, every MENU status and SETTINGS value within its widest, the SETTINGS scroll range, each row by id, a cut control under 40 px, HOLD TO SAVE and the UNSAVED note at every scroll position, AM32's own wait beside another claim |
 
 `test/servo.mk`, `test/kst.mk`, `test/hitec.mk`, `test/rx.mk` and
 `test/sense.mk` list each feature's sources and test files for
@@ -609,7 +609,7 @@ model.
 | `src/sdio/sd_cache.c` | 132 | 129 | 97.7% |
 | `src/sdio/sd_host.c` | 212 | 212 | 100.0% |
 | `src/sdio/sd_proto.c` | 135 | 135 | 100.0% |
-| `src/sense.cpp` | 205 | 205 | 100.0% |
+| `src/sense.cpp` | 212 | 211 | 99.5% |
 | `src/sense.h` | 3 | 3 | 100.0% |
 | `src/servo_job.cpp` | 199 | 199 | 100.0% |
 | `src/servo_model.cpp` | 187 | 187 | 100.0% |
@@ -620,10 +620,10 @@ model.
 | `src/touch.h` | 4 | 4 | 100.0% |
 | `src/ui.cpp` | 430 | 428 | 99.5% |
 | `src/ui_am32.cpp` | 327 | 298 | 91.1% |
-| `src/ui_hitec.cpp` | 1091 | 1017 | 93.2% |
+| `src/ui_hitec.cpp` | 1090 | 1016 | 93.2% |
 | `src/ui_hold.cpp` | 36 | 36 | 100.0% |
 | `src/ui_input.cpp` | 27 | 27 | 100.0% |
-| `src/ui_kst.cpp` | 1171 | 1117 | 95.4% |
+| `src/ui_kst.cpp` | 1170 | 1116 | 95.4% |
 | `src/ui_list.cpp` | 121 | 121 | 100.0% |
 | `src/ui_menu.cpp` | 127 | 126 | 99.2% |
 | `src/ui_screen.h` | 5 | 5 | 100.0% |
@@ -633,7 +633,7 @@ model.
 | `src/ui_slider.cpp` | 109 | 109 | 100.0% |
 | `src/ui_widgets.cpp` | 43 | 43 | 100.0% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **9056** | **8801** | **97.2%** |
+| **Total** | **9061** | **8805** | **97.2%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->

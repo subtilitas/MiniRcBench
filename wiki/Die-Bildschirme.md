@@ -12,8 +12,8 @@ Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MEN
    │                    ├── KST SERVO    ──BACK──> Verlassenseite ──> Abziehseite ──> MENU
    │                    ├── HITEC SERVO  ──BACK──> Verlassenseite ──> Abziehseite ──> MENU
    │                    │   (in der Familienauswahl führt BACK zu MENU; während des Eintritts zur Abziehseite)
-   │                    ├── SD LOG       ──BACK──> MENU
-   │                    └── SETTINGS     ──BACK──> MENU
+   │                    ├── SETTINGS     ──BACK──> MENU
+   │                    └── SD LOG       ──BACK──> MENU
    └──── BACK auf MENU ─┘
 ```
 
@@ -99,10 +99,12 @@ Unter der Leiste steht eine Liste mit sieben Zeilen von 40 px Höhe und 42 px
 Abstand. Jede Zeile zeigt links ihren Namen und rechts ihren Zustand. `BACK`
 führt zum Tester zurück.
 
-**Verschieben.** Sechs Zeilen passen auf den Bildschirm. Von der siebten,
-SETTINGS, sind zuerst nur 6 px sichtbar. Ziehe MENU um 36 px nach oben, um
-SETTINGS ganz zu sehen; erst dann nimmt die Zeile ein Tippen an. Ein 3 px
-breiter Rollbalken am rechten Rand zeigt die Lage.
+**Verschieben.** Sechs Zeilen passen auf den Bildschirm. SETTINGS ist die
+sechste, ganz sichtbar und ohne Ziehen antippbar, so bleibt ihr Zustand
+`UNSAVED` im Blick. Von der siebten, SD LOG, sind zuerst nur 6 px sichtbar.
+Ziehe MENU um 36 px nach oben, um SD LOG ganz zu sehen; erst dann nimmt die
+Zeile ein Tippen an. Ein 3 px breiter Rollbalken am rechten Rand zeigt die
+Lage.
 
 | Zeile | Zustand rechts | Ein Tippen |
 |---|---|---|
@@ -111,8 +113,8 @@ breiter Rollbalken am rechten Rand zeigt die Lage.
 | **SERVO TESTER** | die beiden Signalpins, `GP0+1`; `PINS BUSY` | Öffnet den Servotester |
 | **KST SERVO** | der ESC-Pin, `GP0`; `PINS BUSY` | Öffnet den KST-Programmierer. Siehe [KST-Programmierung](KST-Programmierung) |
 | **HITEC SERVO** | der ESC-Pin, `GP0`; `PINS BUSY` | Öffnet den Hitec-Programmierer. Siehe [Hitec-Programmierung](Hitec-Programmierung) |
-| **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, oder `USB DRIVE`, solange ein Computer die Karte hält | Öffnet den Aufzeichnungs-Bildschirm |
 | **SETTINGS** | `UNSAVED`, solange ein Wert vom Flash abweicht, sonst nichts; `PINS BUSY`, solange die Pins noch zurückgegeben werden, und öffnet sich nicht | Öffnet SETTINGS |
+| **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, oder `USB DRIVE`, solange ein Computer die Karte hält | Öffnet den Aufzeichnungs-Bildschirm |
 
 `PINS BUSY` heißt, dass die Signalpins noch belegt sind, zum Beispiel während
 DShot nach dem Servotester, dem KST-Programmierer oder dem Hitec-Programmierer

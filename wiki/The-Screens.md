@@ -11,8 +11,8 @@ Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MEN
    │                    ├── KST SERVO    ──BACK──> leave page ──> unplug page ──> MENU
    │                    ├── HITEC SERVO  ──BACK──> leave page ──> unplug page ──> MENU
    │                    │   (on the family view BACK returns to MENU; during the entry, to the unplug page)
-   │                    ├── SD LOG       ──BACK──> MENU
-   │                    └── SETTINGS     ──BACK──> MENU
+   │                    ├── SETTINGS     ──BACK──> MENU
+   │                    └── SD LOG       ──BACK──> MENU
    └──── BACK on MENU ──┘
 ```
 
@@ -94,9 +94,11 @@ Below the strip is a list of seven rows, 40 px tall at a 42 px pitch. Each
 row has a name on the left and its state on the right. `BACK` returns to the
 tester.
 
-**Scrolling.** Six rows fit the screen. The seventh, SETTINGS, shows only
-6 px at first. Drag MENU up 36 px to bring SETTINGS into view; it takes a tap
-only then. A 3 px scroll bar at the right edge shows the position.
+**Scrolling.** Six rows fit the screen. SETTINGS is the sixth, whole and
+tappable without a drag, so its `UNSAVED` status stays in view. The seventh,
+SD LOG, shows only 6 px at first. Drag MENU up 36 px to bring SD LOG into
+view; it takes a tap only then. A 3 px scroll bar at the right edge shows the
+position.
 
 | Row | State on the right | A tap |
 |---|---|---|
@@ -105,8 +107,8 @@ only then. A 3 px scroll bar at the right edge shows the position.
 | **SERVO TESTER** | the two signal pins, `GP0+1`; `PINS BUSY` | Opens the servo tester |
 | **KST SERVO** | the ESC pin, `GP0`; `PINS BUSY` | Opens the KST programmer. See [KST Programming](KST-Programming) |
 | **HITEC SERVO** | the ESC pin, `GP0`; `PINS BUSY` | Opens the Hitec programmer. See [Hitec Programming](Hitec-Programming) |
-| **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a computer holds the card | Opens the logging screen |
 | **SETTINGS** | `UNSAVED` while a value differs from flash, else nothing; `PINS BUSY` while the pins are still restoring, and it does not open | Opens SETTINGS |
+| **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a computer holds the card | Opens the logging screen |
 
 `PINS BUSY` means the signal pins are still in use, for example while DShot
 restarts after the servo tester, the KST programmer or the Hitec programmer.

@@ -585,6 +585,10 @@ and one line here. Slice C adds no user.
 
 Slice C is built. The code differs from the sketches above in these places:
 
+- The drawing under "MENU" shows SD LOG at y 230 and SETTINGS at y 272. The
+  registry's last two rows are SETTINGS, the sixth, at y 230, then SD LOG,
+  the seventh. At 240 × 320 six rows fit, so SETTINGS is whole at 0 px and
+  its `UNSAVED` status stays in view; SD LOG takes a 36 px drag.
 - `UiScreen::status` has a fourth out parameter, `uint16_t *fill`, the row's
   fill colour. BEEP's flash uses it: `SENT` on `C_INK`, `REFUSED` on
   `C_AMBER`. MENU passes the panel fill, `C_PANEL`, and only BEEP changes it.
