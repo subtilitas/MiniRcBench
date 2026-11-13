@@ -823,10 +823,9 @@ hands it back.
 Leaving sends the bootloader no `RUN` command. The transport has one,
 `am32BlRun()` in `src/am32_bl.h`, and nothing calls it. An ESC that answered
 is in its bootloader when the screen closes, and DShot frames follow on the
-signal wire. Whether the bootloader then starts the ESC firmware on its own,
-on those frames or not at all, is not known: it has not been tried on
-hardware. A power cycle of the ESC starts it from power-up, as the write
-result asks (`POWER-CYCLE THE ESC TO APPLY.`).
+signal wire. What the ESC does after the screen is left, its firmware
+started on its own, on those frames or not at all, is not recorded.
+Power-cycle the ESC after leaving, before driving a motor.
 
 ### Connecting
 

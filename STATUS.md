@@ -318,8 +318,8 @@ A first `v*` tag runs Release and then publishes the manual (item 7).
    should idle high; a SETTINGS pin change during the same window; and an AM32
    session left with BACK (DShot back, the EDT enable as its first
    frames). Leaving sends the bootloader no RUN command (`am32BlRun()` has
-   no caller); whether the ESC then starts its firmware without a power
-   cycle is not known.
+   no caller). What the ESC does after the screen is left is not recorded,
+   in the hardware use of ab79c67 and bd90e17 either, which sent no RUN.
 
 9. **Servo tester on hardware.** Nothing of it has run on a chip. Bench
     tests needed (work breakdown item 5 of
@@ -426,8 +426,9 @@ A first `v*` tag runs Release and then publishes the manual (item 7).
     clears older CHIP_RESET flags when it records a new one, and whether a
     reset that leaves the watchdog block alone (GLITCH, possibly
     HZD_SYS_RESET_REQ) clears the watchdog's REASON register; if it does
-    not, that glitch reset reads `UPDATE` or `REBOOT`, not `GLITCH`. No
-    watchdog is armed. A persistent fault log is not built; its open
+    not, that glitch reset reads `UPDATE` or `REBOOT`, not `GLITCH`, and a
+    HZD_SYS_RESET_REQ reset reads them, not `DEBUGGER`. No watchdog is
+    armed. A persistent fault log is not built; its open
     questions are in [diagnostics.md](docs/design/diagnostics.md).
 
 ## Known limitations

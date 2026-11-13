@@ -131,9 +131,8 @@ level. `FIELDS` returns to the list.
 `MENU`. The tester is disarmed.
 
 The firmware sends the bootloader no command to start the ESC firmware when
-the screen closes. Whether the ESC starts its firmware on its own after
-that is not known: it has not been tried on hardware. **Power-cycle the ESC
-after leaving** before driving a motor.
+the screen closes. What the ESC does after the screen is left is not
+recorded. **Power-cycle the ESC after leaving**, before driving a motor.
 
 ---
 

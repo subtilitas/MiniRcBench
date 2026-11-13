@@ -388,13 +388,15 @@ protocol.
 
 - README and the wiki pages AM32-Configuration and AM32-Konfiguration state
   what leaving AM32 CONFIG does to the ESC: no RUN command goes to the
-  bootloader, and whether the ESC starts its firmware without a power cycle
-  is not known. The wiki asks for a power cycle after leaving.
+  bootloader, and what the ESC does after the screen is left is not
+  recorded. Both ask for a power cycle of the ESC after leaving, before
+  driving a motor.
 - `docs/design/diagnostics.md` and `src/diag.h` state that it is not known
   whether a glitch reset, or possibly a HZD_SYS_RESET_REQ reset, clears the
   watchdog's REASON register, so a UF2 copy followed by a glitch reset may
-  read `UPDATE` or `REBOOT` instead of `GLITCH`; the bench list has that
-  check.
+  read `UPDATE` or `REBOOT` instead of `GLITCH`, and one followed by a
+  HZD_SYS_RESET_REQ reset instead of `DEBUGGER`; the bench list has the
+  glitch check.
 - MENU lists SETTINGS as the sixth row and SD LOG as the seventh, a swap.
   Six rows fit the 240 × 320 screen and the seventh needs a 36 px drag, so
   SETTINGS, which holds the motor pole count, the throttle ceiling and the

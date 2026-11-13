@@ -32,7 +32,7 @@
 enum Am32BlCmd : uint8_t {
 	AM32_CMD_RUN          = 0x00, /**< Leave the bootloader and start firmware. */
 	AM32_CMD_PROG_FLASH   = 0x01, /**< Commit the staged buffer to flash. */
-	AM32_CMD_ERASE_FLASH  = 0x02, /**< Erase the page at the current address. */
+	AM32_CMD_ERASE_FLASH  = 0x02, /**< Erase the page at the address. Not sent. */
 	AM32_CMD_READ_FLASH   = 0x03, /**< Read back from the current address. */
 	AM32_CMD_SET_BUFFER   = 0xFE, /**< Stage a payload for the next write. */
 	AM32_CMD_SET_ADDRESS  = 0xFF, /**< Set the flash address for what follows. */
@@ -158,9 +158,9 @@ Am32Result am32BlWrite(uint16_t addr, const uint8_t *buf, uint8_t len);
 /**
  * @brief Tell the bootloader to start the application firmware.
  *
- * Nothing calls it: leaving the AM32 screen sends no RUN. Whether the ESC
- * starts its firmware after the screen is left without a power cycle, and
- * whether leaving should send RUN, is not known; nothing has run on hardware.
+ * Nothing calls it: leaving the AM32 screen sends no RUN. What the ESC does
+ * after the screen is left is not recorded, so whether leaving should send
+ * RUN is an open question.
  */
 Am32Result am32BlRun();
 

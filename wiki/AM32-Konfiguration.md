@@ -140,9 +140,9 @@ auf Byte-Ebene bewirkt hat. `FIELDS` kehrt zur Liste zurück.
 `MENU` zurück. Der Tester ist entschärft.
 
 Beim Verlassen schickt die Firmware dem Bootloader keinen Befehl, die
-ESC-Firmware zu starten. Ob der ESC danach von selbst seine Firmware
-startet, ist nicht bekannt: Auf Hardware ist es nicht ausprobiert. **Starte
-den ESC nach dem Verlassen neu**, bevor du einen Motor ansteuerst.
+ESC-Firmware zu starten. Was der ESC nach dem Verlassen des Bildschirms
+tut, ist nicht aufgezeichnet. **Starte den ESC nach dem Verlassen neu**,
+bevor du einen Motor ansteuerst.
 
 ---
 
