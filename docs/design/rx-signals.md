@@ -572,13 +572,13 @@ resources: the claim exists for the pin.
 
 Today MENU has seven rows and scrolls 36 px. The two tools sit after the
 servo tools, SERVO TESTER, KST SERVO and HITEC SERVO, which take the signal
-pins as they do, and before SD LOG:
+pins as they do, and before SETTINGS:
 
 | | Rows | Content | Scroll range |
 |---|---|---|---|
-| Today | 7 | BEEP THE ESC, AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO, SD LOG, SETTINGS | 0 to 36 px |
-| Today, RX MONITOR only | 8 | ... HITEC SERVO, RX MONITOR, SD LOG, SETTINGS | 0 to 78 px |
-| Today, both tools | 9 | ... HITEC SERVO, RX MONITOR, PPM OUTPUT, SD LOG, SETTINGS | 0 to 120 px |
+| Today | 7 | BEEP THE ESC, AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO, SETTINGS, SD LOG | 0 to 36 px |
+| Today, RX MONITOR only | 8 | ... HITEC SERVO, RX MONITOR, SETTINGS, SD LOG | 0 to 78 px |
+| Today, both tools | 9 | ... HITEC SERVO, RX MONITOR, PPM OUTPUT, SETTINGS, SD LOG | 0 to 120 px |
 
 The scroll range is rows × 42 px − 258 px, by the rules of
 [menu.md](menu.md#menu). MENU structure B (`docs/design/menu-b.md`, not

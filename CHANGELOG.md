@@ -101,7 +101,7 @@ protocol.
   classic checksum, the leave and the unplug page. CLASSIC opens with
   SETTINGS → SERVO SUPPLY at `GP28` or `GP29`, and is drawn disabled with
   `NEEDS SERVO SUPPLY GP28 OR GP29` under `NONE`. MENU holds seven rows and
-  scrolls 36 px to reach SETTINGS. `docs/hitec-preview.png` shows the
+  scrolls 36 px to reach its last row. `docs/hitec-preview.png` shows the
   screen.
 - The Hitec user documentation (work breakdown step 5): the README section
   "Hitec servo programming" with its wiring, results, files, classic status
