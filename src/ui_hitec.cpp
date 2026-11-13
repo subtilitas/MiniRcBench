@@ -58,9 +58,9 @@
 #define HL_LIST_Y1   215              /**< Last row of the field list. */
 #define HL_EDIT_Y    218              /**< The editor bar. */
 #define HL_EDIT_H    44
-#define HL_STEP_W    44               /**< - and +. */
-#define HL_FOOT_Y    268              /**< HOLD TO WRITE, REVERT, FILES; the wide button. */
-#define HL_FOOT_H    46
+#define HL_STEP_W    UI_EDIT_BTN_W    /**< - and +, 44 px. */
+#define HL_FOOT_Y    UI_FOOT_Y        /**< HOLD TO WRITE, REVERT, FILES; the wide button. */
+#define HL_FOOT_H    UI_FOOT_H
 #define HF_LIST_Y1   229              /**< Last row of the file list. */
 #define HF_SAVE_Y    234              /**< SAVE AS, or RETRY MOUNT. */
 #define HF_BTN_H     40

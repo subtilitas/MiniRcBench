@@ -57,8 +57,8 @@
 #define BTN_PLUS_X   (GFX_W - EDIT_BTN_W - 6)
 /** @} */
 
-#define FOOT_Y       268     /**< Top of the write/revert/hex row. */
-#define FOOT_H       46
+#define FOOT_Y       UI_FOOT_Y  /**< Top of the write/revert/hex row. */
+#define FOOT_H       UI_FOOT_H
 
 /** @brief The three footer targets. */
 static const UiRect BTN_WRITE  = { 6, FOOT_Y, 110, FOOT_H };

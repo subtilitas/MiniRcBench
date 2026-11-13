@@ -44,6 +44,20 @@ protocol.
 
 ### Added
 
+- The building blocks of menu structure B, slice 1 of
+  [menu-b.md](docs/design/menu-b.md), with nothing drawn differently:
+  the leave page widget `src/ui_leave.*`, with its three phases, numbered
+  steps and RESTART DSHOT's wait as a parameter; the BACK guard
+  (`UiBackGuard`, `uiBackGuard()`, `uiBackGuardDraw()`) and
+  `uiStripTwoLines()` in `src/ui_widgets.*`; the field row
+  `uiListDrawField()` in `src/ui_list.*`, with the "changed" colour as a
+  parameter; the colour role names `UI_COL_*` and the layout constants
+  `UI_EDGE`, `UI_FOOT_Y`, `UI_FOOT_H` and `UI_EDIT_BTN_W`. No screen uses the
+  leave page, the guard or the field row yet. SERVO TESTER draws its supply
+  line through `uiStripTwoLines()`; BACK and the footers of AM32 CONFIG, KST
+  SERVO and HITEC SERVO take the layout constants at their values. Host
+  tests in `test/test_widgets.cpp`. The design note, with its eight open
+  questions and the slices each one holds, is in `docs/design/`.
 - SETTINGS → DIAGNOSTICS, after BOARD, with two read-only rows. LAST RESTART
   names why the chip last restarted: `POWER-ON`, `BROWN-OUT`, `RUN PIN`,
   `WATCHDOG`, `UPDATE`, `REBOOT`, `DEBUGGER`, `GLITCH`, `POWER-DOWN` or

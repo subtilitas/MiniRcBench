@@ -220,6 +220,60 @@ int uiSwipeApply(int steps, int factor, UiListStepFn step, void *ctx);
  */
 void uiListDraw(const UiList *l, UiListDrawFn drawRow, void *ctx);
 
+/** @brief What a field row's value is, which sets its colour. */
+enum class UiValue : uint8_t {
+	Plain,     /**< As the device holds it: `C_TEXT`. */
+	Changed,   /**< Edited and not yet written: the caller's colour. */
+	ReadOnly,  /**< Not editable: `C_GRID`, the label too. */
+	Odd,       /**< A value the screen cannot show as a setting, or a row
+	                that needs a repair: @ref UI_COL_WARN. */
+};
+
+/** @brief The bar at a field row's left edge. */
+enum class UiEdge : uint8_t {
+	None,     /**< No bar. */
+	Changed,  /**< A change: a bar in the caller's colour. */
+	Rule,     /**< A change that breaks a soft rule: @ref UI_COL_WARN. */
+};
+
+/** @brief One field row of an editor's list: what uiListDrawField() draws. */
+struct UiField {
+	const char *group;     /**< Scale 1, `C_GRID`, at the row's top + 11; or null. */
+	const char *label;     /**< Scale 1 at the row's top + 21. */
+	const char *value;     /**< Right-aligned to x 231. */
+	UiValue     state;     /**< The value's colour. */
+	UiEdge      edge;      /**< The bar at the left edge. */
+	bool        selected;  /**< The row the editor bar edits. */
+};
+
+/** @brief Widest value drawn at scale 2, px; a wider one is drawn at scale 1. */
+#define UI_FIELD_VALUE_W2 104
+/** @brief Width of a field row's edge bar, px. */
+#define UI_FIELD_EDGE_W     3
+
+/**
+ * @brief Draw one field row of an editor's list: AM32 CONFIG, KST SERVO,
+ *        HITEC SERVO and SERVO SET draw their rows this way
+ *        (docs/design/menu-b.md, decision 8).
+ *
+ * The row fills @p h - 1 px from @p y, `C_PANEL` while selected and `C_BG`
+ * otherwise, with a `C_PANEL` rule on its last line. The group is at y + 11,
+ * the label at y + 21, `C_TEXT` while selected and `C_DIM` otherwise, or
+ * `C_GRID` for a read-only value. The value is at scale 2 while it is at most
+ * @ref UI_FIELD_VALUE_W2 px wide and at scale 1 otherwise, centred in the
+ * filled height and right-aligned to x 231. Selection never changes the
+ * value's colour. The edge bar is @ref UI_FIELD_EDGE_W px wide at x 0, as
+ * tall as the fill.
+ *
+ * @param y          Top of the row, which may lie outside the viewport.
+ * @param h          The row's body, px, rule included.
+ * @param f          What the row shows.
+ * @param changedCol The colour of @ref UiValue::Changed and
+ *                   @ref UiEdge::Changed. It is a parameter while open
+ *                   question 4 of the note, the "changed" colour, stands.
+ */
+void uiListDrawField(int y, int h, const UiField &f, uint16_t changedCol);
+
 /** @brief Width of the scroll bar, px. */
 #define UI_LIST_BAR_W 3
 

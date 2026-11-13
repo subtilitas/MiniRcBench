@@ -51,9 +51,9 @@
 #define KL_LIST_Y1   215              /**< Last row of the field list. */
 #define KL_EDIT_Y    218              /**< The editor bar. */
 #define KL_EDIT_H    44
-#define KL_STEP_W    44               /**< - and +. */
-#define KL_FOOT_Y    268              /**< HOLD TO WRITE, REVERT, FILES; the wide button. */
-#define KL_FOOT_H    46
+#define KL_STEP_W    UI_EDIT_BTN_W    /**< - and +, 44 px. */
+#define KL_FOOT_Y    UI_FOOT_Y        /**< HOLD TO WRITE, REVERT, FILES; the wide button. */
+#define KL_FOOT_H    UI_FOOT_H
 #define KF_LIST_Y1   229              /**< Last row of the file list. */
 #define KF_SAVE_Y    234              /**< SAVE AS, or RETRY MOUNT. */
 #define KF_BTN_H     40

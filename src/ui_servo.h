@@ -29,13 +29,10 @@ struct TouchState;
  */
 /**
  * @brief The strip's second line while SERVO SUPPLY is GP28 or GP29, with
- *        the pin's number for `%u`: 27 characters, 161 px, from x 8.
+ *        the pin's number for `%u`: 27 characters, 161 px, from x 8, drawn
+ *        by uiStripTwoLines() under the caption.
  */
 #define SERVO_UI_SUPPLY_FMT "GP%u SUPPLY STAYS OFF HERE."
-/** @brief y of the caption while the supply line is under it; else centred. */
-#define SERVO_UI_STRIP_Y1 42
-/** @brief y of the supply line: it ends at y 58, above the dial at y 62. */
-#define SERVO_UI_STRIP_Y2 52
 /** @brief The readout's hint while SAFE with one servo, first line, right-aligned. */
 #define SERVO_UI_TWO_1 "TWO SERVOS:"
 /** @brief ...and its second line. */

@@ -2679,15 +2679,15 @@ static void testSupplyLineAndHint() {
 		snprintf(want, sizeof(want), SERVO_UI_SUPPLY_FMT, (unsigned)servoSupplyPinOf(mode));
 		checkStr("the line", want, mode == 1 ? "GP28 SUPPLY STAYS OFF HERE." : "GP29 SUPPLY STAYS OFF HERE.");
 		checkTrue("the caption moves up to y 42",
-		          fakeTextIs(UI_MARGIN, SERVO_UI_STRIP_Y1, cap, C_DIM, C_BG, 1));
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, cap, C_DIM, C_BG, 1));
 		checkTrue("the supply's line under it at y 52, amber",
-		          fakeTextIs(UI_MARGIN, SERVO_UI_STRIP_Y2, want, C_AMBER, C_BG, 1));
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, want, C_AMBER, C_BG, 1));
 		checkInt("27 characters, 161 px", gfxTextW(want, 1), 161);
 		// It ends at x 168, before the widest chip, STALLED, at x 179, and
 		// at y 58, before the dial band at y 62.
 		checkTrue("clear of the widest chip",
 		          UI_MARGIN + gfxTextW(want, 1) + 4 <= GFX_W - UI_MARGIN - gfxTextW("STALLED", 1) - 12);
-		checkTrue("and above the dial", SERVO_UI_STRIP_Y2 + 7 <= SERVO_DIAL_Y0);
+		checkTrue("and above the dial", UI_STRIP_LINE2_Y + 7 <= SERVO_DIAL_Y0);
 		checkTrue("the chip still says SAFE", pixel(GFX_W - UI_MARGIN - 4, UI_STRIP_Y + 3) == C_GREEN);
 		checkTrue("the supply stays off: GP28 or GP29 undriven",
 		          !fakePin(servoSupplyPinOf(mode)).output);
@@ -2695,7 +2695,7 @@ static void testSupplyLineAndHint() {
 		holdStart();
 		uiFrames(2);
 		checkTrue("running: the line stays", s_st.running &&
-		          fakeTextIs(UI_MARGIN, SERVO_UI_STRIP_Y2, want, C_AMBER, C_BG, 1));
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, want, C_AMBER, C_BG, 1));
 		checkTrue("and the supply stays off", !fakePin(servoSupplyPinOf(mode)).output);
 		tapId(UI_FIX(ServoCtl::Start));
 		uiFrames(2);

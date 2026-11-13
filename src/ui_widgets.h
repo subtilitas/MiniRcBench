@@ -67,11 +67,23 @@ struct TouchState;
  */
 #define UI_LIST_TAP_MIN 40
 
+/**
+ * @brief Button edge, px: a button starts at x 6 and ends at x 234, as BACK
+ *        does. List rows keep x 0 to 239 and text keeps @ref UI_MARGIN.
+ */
+#define UI_EDGE          6
+/** @brief Top of a screen's footer row of buttons, y 268. */
+#define UI_FOOT_Y      268
+/** @brief Height of a footer button, 46 px: the footer ends at y 313. */
+#define UI_FOOT_H       46
+/** @brief Width of an editor bar's - and + buttons, 44 px. */
+#define UI_EDIT_BTN_W   44
+
 /** @brief BACK button size, 64 x 32 px, on every screen with a header. */
 #define UI_BACK_W       64
 #define UI_BACK_H       32
 /** @brief BACK button position: top right of the header, on every screen. */
-#define UI_BACK_X       (240 - UI_BACK_W - 6)
+#define UI_BACK_X       (240 - UI_BACK_W - UI_EDGE)
 #define UI_BACK_Y       ((UI_HDR_H - UI_BACK_H) / 2)
 
 /**
@@ -87,11 +99,44 @@ struct TouchState;
 #define UI_STRIP_H      16
 /** @brief First row a screen's own content may use. */
 #define UI_BODY_Y       (UI_STRIP_Y + UI_STRIP_H + 6)
+/** @brief Top of the first of the strip's two lines, y 42. @see uiStripTwoLines() */
+#define UI_STRIP_LINE1_Y (UI_STRIP_Y + 2)
+/** @brief Top of the second line, y 52: it ends at y 58, above the body. */
+#define UI_STRIP_LINE2_Y (UI_STRIP_Y + 12)
+/** @} */
+
+/**
+ * @defgroup uiw_roles Colour roles
+ * @brief One meaning per colour: the role names of the `C_*` palette entries
+ *        (docs/design/menu-b.md, decision 11).
+ *
+ * Each name expands to its palette entry, so it follows the active theme.
+ * The role "changed", a value edited and not yet written, has no name here:
+ * its colour is open question 4 of the note. The neutral role is three
+ * colours, `C_TEXT`, `C_DIM` and `C_GRID`, and keeps their names.
+ * @{
+ */
+/** @brief Safe, done: the SAFE badge and chip, EDT ON, WRITE VERIFIED, SAVED. */
+#define UI_COL_SAFE     C_GREEN
+/** @brief A live reading: RPM, the throttle fill, hold progress bars, LINK. */
+#define UI_COL_LIVE     C_LIME
+/** @brief Output on, or a failure: ARMED, RUNNING, a running hold's fill. */
+#define UI_COL_ON       C_RED
+/** @brief Warning: text to read before the next action, the current step. */
+#define UI_COL_WARN     C_AMBER
+/** @brief Alert: the ESC status alert, STALLED. */
+#define UI_COL_ALERT    C_MAGENTA
+/** @brief Latched: LATCH on, a toggle that is on, servo B. */
+#define UI_COL_LATCHED  C_BLUE
 /** @} */
 
 static_assert(UI_BACK_H <= UI_HDR_H, "BACK does not fit in the header band");
 static_assert(UI_BACK_W >= UI_TAP_MIN, "BACK is narrower than a fingertip");
 static_assert(UI_BACK_H >= UI_TAP_MIN, "BACK is lower than a fingertip");
+static_assert(UI_FOOT_Y + UI_FOOT_H <= 320, "the footer runs off the panel");
+static_assert(UI_FOOT_H >= UI_LIST_TAP_MIN && UI_EDIT_BTN_W >= UI_LIST_TAP_MIN,
+              "a footer or editor button is smaller than the list floor");
+static_assert(UI_STRIP_LINE2_Y + 7 <= UI_BODY_Y, "the strip's second line runs into the body");
 
 /** @brief A touch target and its drawn rectangle, which are always the same. */
 struct UiRect {
@@ -180,6 +225,67 @@ void uiStripClear();
  * @param col  Colour.
  */
 void uiStripText(const char *text, uint16_t col);
+
+/**
+ * @brief Two lines on the strip, for a strip that says more than one line
+ *        holds: the first at y 42 (@ref UI_STRIP_LINE1_Y), the second at
+ *        y 52 (@ref UI_STRIP_LINE2_Y), both scale 1 from @ref UI_MARGIN.
+ *
+ * Clears y 40 to y 61 first, the strip and the gap above the body, since the
+ * second line ends at y 58, below the strip. A chip drawn after it sits on
+ * the first line. A null line is not drawn.
+ *
+ * @param top       First line, or null.
+ * @param topCol    Its colour.
+ * @param bottom    Second line, or null.
+ * @param bottomCol Its colour.
+ */
+void uiStripTwoLines(const char *top, uint16_t topCol, const char *bottom, uint16_t bottomCol);
+
+/**
+ * @brief The guard on a BACK that drops edits nobody wrote
+ *        (docs/design/menu-b.md, decision 7).
+ *
+ * With changes pending, the first BACK arms the guard and the screen shows
+ * uiBackGuardDraw() in place of its strip; a second BACK leaves and drops
+ * them. A press that lands anywhere but BACK disarms it. There is no timer.
+ * Zero-initialised it is disarmed.
+ */
+struct UiBackGuard {
+	bool armed;  /**< The first BACK landed; the next one leaves. */
+};
+
+/** @brief What one frame of touch did to a @ref UiBackGuard. */
+enum class UiGuardEv : uint8_t {
+	None,      /**< Nothing for the screen to act on. */
+	Armed,     /**< The first BACK with changes pending: show the warning. */
+	Disarmed,  /**< A press elsewhere, or no change left: the strip returns. */
+	Back,      /**< BACK acts: leave, dropping the changes. */
+};
+
+/**
+ * @brief Feed one frame of touch to the guard.
+ *
+ * A BACK tap with no change pending is @ref UiGuardEv::Back at once. The
+ * caller feeds the guard only while BACK is live.
+ *
+ * @param[in,out] g The guard.
+ * @param t         This frame's touch; null is treated as no touch.
+ * @param pending   Changes not yet written or applied.
+ * @return The event; @ref UiGuardEv::None for most frames.
+ */
+UiGuardEv uiBackGuard(UiBackGuard *g, const TouchState *t, int pending);
+
+/**
+ * @brief Draw the armed guard's two lines on the strip, in
+ *        @ref UI_COL_WARN, through uiStripTwoLines(). With two changes
+ *        they read `2 CHANGES NOT WRITTEN.` over
+ *        `BACK AGAIN DISCARDS THEM.`; with one, `1 CHANGE NOT WRITTEN.`
+ *        over `BACK AGAIN DISCARDS IT.`
+ * @param pending Changes not yet written or applied, 1 or more.
+ * @param verb    The last word but the full stop: `WRITTEN`, `APPLIED`.
+ */
+void uiBackGuardDraw(int pending, const char *verb);
 
 /**
  * @brief Right-aligned pill badge on the strip under the header.
