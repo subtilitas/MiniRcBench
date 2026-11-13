@@ -256,11 +256,8 @@ static uint8_t  s_lastRxLen = 0;                  /**< Valid bytes in s_lastRx. 
  */
 static uint8_t  s_escType = 0;                    /**< @see Am32EscType */
 static uint16_t s_eepromAddr = 0;                 /**< Settings page address. */
-static bool     s_addrDiv4 = false;               /**< Firmware addresses need >>2. */
 
 uint16_t am32BlEepromAddr() { return s_eepromAddr; }
-uint8_t  am32BlEscType()    { return s_escType; }
-bool     am32BlAddrDiv4()   { return s_addrDiv4; }
 
 const char *am32BlEscTypeName() {
 	switch (s_escType) {
@@ -336,12 +333,11 @@ Am32Result am32BlHandshake(uint8_t *deviceInfo) {
 	// where its settings live. Getting this wrong reads the wrong flash page.
 	s_escType = reply[got - 5];
 	switch (s_escType) {
-		case AM32_ESC_G071_2KB: s_eepromAddr = 0x7E00; s_addrDiv4 = true;  break;
-		case AM32_ESC_F051_1KB: s_eepromAddr = 0x7C00; s_addrDiv4 = false; break;
-		case AM32_ESC_F3_2KB:   s_eepromAddr = 0xF800; s_addrDiv4 = false; break;
+		case AM32_ESC_G071_2KB: s_eepromAddr = 0x7E00; break;
+		case AM32_ESC_F051_1KB: s_eepromAddr = 0x7C00; break;
+		case AM32_ESC_F3_2KB:   s_eepromAddr = 0xF800; break;
 		default:
 			s_eepromAddr = 0;
-			s_addrDiv4 = false;
 			return AM32_ERR_NAK;   // answered, but not a family we know
 	}
 
@@ -394,13 +390,6 @@ Am32Result am32BlWrite(uint16_t addr, const uint8_t *buf, uint8_t len) {
 	// PROG_FLASH is two bytes, 0x01 0x01 -- a bare 0x01 is not accepted.
 	const uint8_t prog[2] = {AM32_CMD_PROG_FLASH, 0x01};
 	return txFrame(prog, sizeof(prog), nullptr, 0, false);
-}
-
-Am32Result am32BlErasePage(uint16_t addr) {
-	Am32Result r = setAddress(addr);
-	if (r != AM32_OK) return r;
-	const uint8_t cmd[1] = {AM32_CMD_ERASE_FLASH};
-	return txFrame(cmd, sizeof(cmd), nullptr, 0, false);
 }
 
 Am32Result am32BlRun() {

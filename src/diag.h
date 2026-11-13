@@ -66,7 +66,10 @@ enum class RestartReason : uint8_t {
  * The watchdog decides first, because a watchdog reset that only reaches
  * the power-on state machine need not change CHIP_RESET:
  * watchdog_enable_caused_reboot() is WATCHDOG; a non-zero REASON is UPDATE
- * after a flash update boot and REBOOT otherwise. Then the CHIP_RESET flags,
+ * after a flash update boot and REBOOT otherwise. Whether a reset that
+ * leaves the watchdog block alone (GLITCH, possibly HZD_SYS_RESET_REQ)
+ * clears REASON is not known: if not, a UF2 copy followed by a glitch reset
+ * reads UPDATE or REBOOT instead of GLITCH. Then the CHIP_RESET flags,
  * the first set deciding: first those of resets that leave the power
  * manager alone, which can only be newer than the others (GLITCH, the
  * watchdog's RSM and SWCORE, HZD_SYS_RESET_REQ, SWCORE_PD); then those of

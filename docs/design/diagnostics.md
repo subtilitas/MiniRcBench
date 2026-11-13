@@ -68,7 +68,10 @@ the SDK select the reset through the power-on state machine (PSM) only
 (`psm_hw->wdsel`), not through the power manager's own WDSEL register. A
 reset of that kind need not change CHIP_RESET, which then still reads the
 reset before it. Whether it does is not known: the SDK headers do not say,
-and it is not measured.
+and it is not measured. It is also not known whether a reset that leaves
+the watchdog block alone (GLITCH, possibly HZD_SYS_RESET_REQ) clears the
+watchdog's REASON register. If it does not, a UF2 copy followed by a glitch
+reset reads `UPDATE`, or `REBOOT`, instead of `GLITCH`.
 
 Orders 4 to 7 and 8 to 12 split the flags by what `hardware/regs/powman.h`
 says each reset does to the power manager ("powman no" or "yes"). GLITCH,
@@ -109,9 +112,8 @@ The firmware arms no watchdog: nothing calls `watchdog_enable()`.
 flags of orders 5 and 12 follow the power manager's WDSEL register
 (RESET_RSM, RESET_SWCORE, RESET_POWMAN, RESET_POWMAN_ASYNC), which this
 firmware does not set either. The watchdog reason can only appear once a
-watchdog is armed. `platReboot()` in `src/plat.h` calls `watchdog_reboot()`
-and has no caller, so `REBOOT` shows only after a reboot that another
-program requested.
+watchdog is armed. Nothing in the firmware calls `watchdog_reboot()`, so
+`REBOOT` shows only after a reboot that another program requested.
 
 ## Uptime
 
@@ -141,7 +143,9 @@ reading LAST RESTART after it:
 - a UF2 copy in BOOTSEL mode: `UPDATE` expected;
 - `picotool reboot`: `REBOOT` expected;
 - a power-on, then a glitch or a debugger reset: whether CHIP_RESET then
-  holds one flag or two.
+  holds one flag or two;
+- a UF2 copy, then a glitch reset: `GLITCH` if the glitch reset clears
+  REASON, `UPDATE` or `REBOOT` if it does not.
 
 ## Open questions for a fault log
 

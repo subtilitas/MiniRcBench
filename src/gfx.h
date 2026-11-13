@@ -147,9 +147,6 @@ void gfxFill(uint16_t c);
 /** @brief Filled rectangle at (@p x, @p y) of @p w by @p h in colour @p c. */
 void gfxRect(int x, int y, int w, int h, uint16_t c);
 
-/** @brief One-pixel outline of the rectangle at (@p x, @p y), @p w by @p h. */
-void gfxFrame(int x, int y, int w, int h, uint16_t c);
-
 /**
  * @brief Filled rectangle with rounded corners.
  * @param x,y Top-left corner.

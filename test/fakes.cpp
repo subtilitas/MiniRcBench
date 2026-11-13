@@ -330,13 +330,9 @@ uint32_t am32BlBaud() { return 19200; }
 Am32Result am32BlHandshake(uint8_t *) { return AM32_OK; }
 Am32Result am32BlRead(uint16_t, uint8_t *b, uint8_t n) { memcpy(b, g_esc, n); return AM32_OK; }
 Am32Result am32BlWrite(uint16_t, const uint8_t *b, uint8_t n) { memcpy(g_esc, b, n); return AM32_OK; }
-Am32Result am32BlErasePage(uint16_t) { return AM32_OK; }
-Am32Result am32BlRun() { return AM32_OK; }
 uint8_t am32BlLastRx(const uint8_t **b) { static uint8_t none[1] = {0}; *b = none; return 0; }
 uint16_t am32BlEepromAddr() { return 0x7C00; }
-uint8_t am32BlEscType() { return AM32_ESC_F051_1KB; }
 const char *am32BlEscTypeName() { return "F051"; }
-bool am32BlAddrDiv4() { return false; }
 
 // ---------------------------------------------------------------------------
 // DShot task
@@ -538,8 +534,8 @@ bool settingsStorageWrite(const void *src, uint32_t len) {
 // ---------------------------------------------------------------------------
 // Reboot
 //
-// platReboot() has no caller: every setting applies live. So this counts a
-// thing that must never happen -- see testBoardRow().
+// Nothing in the firmware calls watchdog_reboot(): every setting applies
+// live. So this counts a thing that must never happen -- see testBoardRow().
 // ---------------------------------------------------------------------------
 static int g_reboots = 0;
 

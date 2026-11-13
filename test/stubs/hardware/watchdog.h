@@ -1,9 +1,8 @@
 // Host-test stub for hardware/watchdog.h.
 //
-// platReboot() (plat.h) has no caller: saving used to reboot when it changed
-// the stored board, and the board is detected rather than stored now. The stub
-// stays because plat.h includes this header, and fakes.cpp still defines the
-// symbol so the suite can assert that no save reboots.
+// Nothing in the firmware calls watchdog_reboot(): every setting applies
+// live. fakes.cpp defines it and counts the calls, so the suite can assert
+// that no save reboots.
 //
 // watchdog_enable_caused_reboot() is what diag.cpp reads at boot; fakes.cpp
 // returns what a test set with fakeSetWatchdog().

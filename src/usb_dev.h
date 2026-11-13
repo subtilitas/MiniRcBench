@@ -21,7 +21,7 @@
  * One composite device, two functions:
  *
  * - **CDC ACM** on interfaces 0 and 1 — the serial port, exactly as before, so
- *   `SD_DEBUG` and `AM32_DEBUG` output still arrives and picocom still works.
+ *   `SD_DEBUG` output still arrives and picocom still works.
  * - **MSC** on interface 2 — a removable drive that reports *no medium* until
  *   the user asks for it. @see usb_msc.h
  *
@@ -53,6 +53,3 @@ void usbDevInit();
  * processes what has arrived and returns.
  */
 void usbDevTask();
-
-/** @brief True once a host has configured the device. @return Enumerated. */
-bool usbDevMounted();

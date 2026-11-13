@@ -26,19 +26,6 @@
 
 #include "pico/stdlib.h"
 #include "pico/time.h"
-#include "hardware/watchdog.h"
-
-/**
- * @brief Reboot the chip, now.
- *
- * Deliberately without a caller. Every setting applies live, so nothing needs
- * a restart to take effect. The host suite counts calls to this and asserts
- * the count never moves, which is what fails if a save that needs a restart
- * is ever added.
- */
-static inline void platReboot() {
-	watchdog_reboot(0, 0, 0);
-}
 
 /**
  * @brief Milliseconds since boot.

@@ -3,8 +3,8 @@
  * @brief AM32 ESC settings block: layout, decoding and presentation.
  *
  * The byte layout matches the AM32 configurator's `EepromLayout`. Offsets are
- * absolute within the settings region, which starts at @ref AM32_EEPROM_ADDR in
- * the ESC's flash.
+ * absolute within the settings region, which starts at the address
+ * am32BlEepromAddr() reports for the connected ESC's MCU family.
  *
  * Region map:
  *
@@ -25,16 +25,6 @@
 #pragma once
 
 #include <stdint.h>
-
-/**
- * @brief Settings-page address on an STM32F051 part.
- *
- * @warning Not a universal constant. G071 parts keep theirs at 0x7E00 and F3
- *          parts at 0xF800, so use am32BlEepromAddr(), which reports whatever
- *          the connected ESC identified itself as. This is kept only as the
- *          documented F051 value.
- */
-#define AM32_EEPROM_ADDR   0x7C00
 
 /** @brief Bytes we read back: settings + melody + CAN block. */
 #define AM32_EEPROM_SIZE   0xC0

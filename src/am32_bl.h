@@ -56,17 +56,8 @@ enum Am32EscType : uint8_t {
 /** @brief Settings-page address for the connected ESC. 0 until identified. */
 uint16_t am32BlEepromAddr();
 
-/** @brief Raw MCU family byte from the handshake. @see Am32EscType */
-uint8_t am32BlEscType();
-
 /** @brief Short name of the detected family, for display. */
 const char *am32BlEscTypeName();
-
-/**
- * @brief Whether flash addresses must be shifted right by two for this part.
- * @note Applies to firmware images, not to the settings page.
- */
-bool am32BlAddrDiv4();
 
 /** @brief Outcome of a transport operation. */
 enum Am32Result : uint8_t {
@@ -165,12 +156,12 @@ Am32Result am32BlRead(uint16_t addr, uint8_t *buf, uint8_t len);
 Am32Result am32BlWrite(uint16_t addr, const uint8_t *buf, uint8_t len);
 
 /**
- * @brief Erase the flash page containing @p addr.
- * @note Not needed for settings writes; present for firmware flashing.
+ * @brief Tell the bootloader to start the application firmware.
+ *
+ * Nothing calls it: leaving the AM32 screen sends no RUN. Whether the ESC
+ * starts its firmware after the screen is left without a power cycle, and
+ * whether leaving should send RUN, is not known; nothing has run on hardware.
  */
-Am32Result am32BlErasePage(uint16_t addr);
-
-/** @brief Tell the bootloader to start the application firmware. */
 Am32Result am32BlRun();
 
 /**

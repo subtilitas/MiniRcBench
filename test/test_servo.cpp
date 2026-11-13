@@ -1455,7 +1455,7 @@ static void holdStart() {
 	int x, y;
 	ctlCentre(UI_FIX(ServoCtl::Start), &x, &y);
 	pressId(UI_FIX(ServoCtl::Start));
-	fakeHold(x, y); frameAt(SV_HOLD_MS);
+	fakeHold(x, y); frameAt(UI_HOLD_MS);
 	fakeRelease(); uiFrames(1);
 	core1();
 }
@@ -1616,7 +1616,7 @@ static void testHoldToStart() {
 	int x, y;
 	ctlCentre(startId, &x, &y);
 	pressId(startId);
-	fakeHold(x, y); frameAt(SV_HOLD_MS - 1);
+	fakeHold(x, y); frameAt(UI_HOLD_MS - 1);
 	core1();
 	checkTrue("held 999 ms: not started", !s_st.running && fakePin(0).level == 0);
 	checkTrue("the bar shows the hold", s_hold.holding && pixel(BTN_START.x + 2, SV_BAR_Y + 1) == C_LIME);
@@ -1652,8 +1652,8 @@ static void testHoldToStart() {
 	checkInt("STOP on press: level 0 on core1's next pass", fakePin(0).level, 0);
 	servoJobStatus(&st);
 	checkTrue("SAFE", !st.running);
-	fakeHold(x, y); frameAt(SV_HOLD_MS);
-	fakeHold(x, y); frameAt(SV_HOLD_MS);
+	fakeHold(x, y); frameAt(UI_HOLD_MS);
+	fakeHold(x, y); frameAt(UI_HOLD_MS);
 	core1();
 	servoJobStatus(&st);
 	checkTrue("the press that stopped it, held 2000 ms, does not start it again",
@@ -1672,7 +1672,7 @@ static void testHoldToStart() {
 	// The readout row holds no control with one servo.
 	fakePress(x, SV_READ_Y + 5); uiFrames(1);
 	fakeHold(x, y); uiFrames(1);
-	fakeHold(x, y); frameAt(SV_HOLD_MS + 100);
+	fakeHold(x, y); frameAt(UI_HOLD_MS + 100);
 	core1();
 	checkTrue("a press slid onto it: nothing", fakePin(0).level == 0);
 	fakeRelease(); uiFrames(1);
@@ -2116,7 +2116,7 @@ static void testSetScreen() {
 	          s_pending && s_profile.type == ServoType::Wide && fakeSlice(0).top == 19999);
 	fakeRelease(); uiFrames(1);
 	pressId(UI_FIX(ServoCtl::Apply));
-	fakeHold(x, y); frameAt(SV_HOLD_MS - 1); core1();
+	fakeHold(x, y); frameAt(UI_HOLD_MS - 1); core1();
 	checkTrue("held 999 ms: not applied", s_pending && fakeSlice(0).top == 19999);
 	checkTrue("the bar shows the hold, the button red",
 	          pixel(BTN_APPLY.x + 2, SET_FOOT_Y - 3) == C_LIME && fillOf(BTN_APPLY) == C_RED);

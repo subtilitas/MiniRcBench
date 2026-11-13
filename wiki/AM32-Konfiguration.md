@@ -139,6 +139,11 @@ auf Byte-Ebene bewirkt hat. `FIELDS` kehrt zur Liste zurück.
 `BACK` gibt den Signalpin an den DShot-Treiber zurück und kehrt zu
 `MENU` zurück. Der Tester ist entschärft.
 
+Beim Verlassen schickt die Firmware dem Bootloader keinen Befehl, die
+ESC-Firmware zu starten. Ob der ESC danach von selbst seine Firmware
+startet, ist nicht bekannt: Auf Hardware ist es nicht ausprobiert. **Starte
+den ESC nach dem Verlassen neu**, bevor du einen Motor ansteuerst.
+
 ---
 
 ## Wenn keine Verbindung zustande kommt
