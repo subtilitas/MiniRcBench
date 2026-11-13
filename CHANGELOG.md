@@ -46,8 +46,8 @@ protocol.
 
 - The firmware version on the device: `VERSION 0.1.0` on the splash under
   the board's name, and a read-only VERSION row in SETTINGS' BOARD section.
-- A splash line in amber that names the ESC pin while DShot starts on it:
-  `UNPLUG ANY SERVO FROM GP0 NOW`.
+- A splash line in amber that names the ESC pin, on which DShot starts when
+  the splash ends: `UNPLUG ANY SERVO FROM GP0 NOW`.
 - `BOARD` beside the tester's voltage at the top right, which is the board's
   own battery, not the ESC's pack.
 - SERVO TESTER: with SERVO SUPPLY at `GP28` or `GP29`, a second strip line
@@ -567,9 +567,9 @@ protocol.
   holds the card, as its control table already reported, and the throttle
   bar reads `EJECT THE USB DRIVE TO ARM`. It looked live and did nothing.
 - AM32 CONFIG's write result fits the 240 px panel: a result longer than
-  18 characters is drawn at scale 1, broken at a space after 37 characters
-  at most. `WRITE VERIFIED. BACKUP AM001`, 334 px at scale 2, and
-  `NO BACKUP ON THE CARD: NOT WRITTEN` ran off both edges.
+  18 characters is drawn at scale 1, on one line; build-time checks keep
+  every result within 37 characters. `WRITE VERIFIED. BACKUP AM001`, 334 px
+  at scale 2, and `NO BACKUP ON THE CARD: NOT WRITTEN` ran off both edges.
 - KST SERVO's search with the switched supply names an interrupted write:
   its two warning lines take the place of the view's first two explanation
   lines, where they found no free line and were dropped.

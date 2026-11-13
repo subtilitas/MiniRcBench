@@ -95,8 +95,7 @@ compares them** byte by byte. It does not rely on the ESC's acknowledgement.
 A match shows `WRITE VERIFIED`, with `POWER-CYCLE THE ESC TO APPLY.` under
 it. A mismatch shows the first differing byte as
 `DIFF @xx: GOT xx WANT xx`. A result longer than 18 characters is drawn in
-the small font, on two lines where it needs them, so it stays on the
-screen.
+the small font, so it stays on the screen.
 
 Before the first write of a session, the settings as read at entry go to the
 SD card as `BACKUP/AMnnn.TXT`, in the ring of backups that the KST programmer

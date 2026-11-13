@@ -74,7 +74,7 @@ Der Startbildschirm steht 3 s lang, dann erscheint der Tester-Bildschirm. Er
 nennt die Platine, für die die Firmware gebaut ist, RP2350-TOUCH-LCD-2.8, und
 die Firmware-Version, zum Beispiel `VERSION 0.1.0`. Seine letzte Zeile nennt
 in Bernstein den ESC-Pin: `UNPLUG ANY SERVO FROM GP0 NOW`. DShot startet
-während des Startbildschirms auf diesem Pin, und ein dort vergessenes Servo
+am Ende des Startbildschirms auf diesem Pin, und ein dort vergessenes Servo
 liest die Frames als Impulse und fährt an ein Ende seines Wegs.
 
 <img src="img/splash.png" width="240" alt="Startbildschirm">

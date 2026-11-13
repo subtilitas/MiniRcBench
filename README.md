@@ -314,10 +314,10 @@ Two constraints on these dependencies:
 
 For 3 s (`SPLASH_MS`) after power-up the board shows its name, the board the
 image is built for, `RP2350-TOUCH-LCD-2.8`, and the firmware version, for
-example `VERSION 0.1.0`. DShot starts on the ESC pin during these 3 s, so the
-last line names that pin in amber: `UNPLUG ANY SERVO FROM GP0 NOW`. A servo
-left on it reads the DShot frames as pulses and drives towards one end of its
-travel.
+example `VERSION 0.1.0`. DShot starts on the ESC pin when the splash ends,
+so the last line names that pin in amber: `UNPLUG ANY SERVO FROM GP0 NOW`. A
+servo left on it reads the DShot frames as pulses and drives towards one end
+of its travel.
 
 **Main screen**
 
@@ -828,8 +828,8 @@ byte for byte. It shows `WRITE VERIFIED` only on a full match, with
 starts the ESC's firmware, and whether the ESC runs the new settings without
 a power cycle is not tested. On a mismatch it shows the first differing byte:
 `DIFF @xx: GOT xx WANT xx`. A result of up to 18 characters is drawn at
-scale 2; a longer one at scale 1, broken at a space after 37 characters at
-most, so it stays on the 240 px panel.
+scale 2; a longer one at scale 1, where every result fits one 37-character
+line, so it stays on the 240 px panel.
 
 ### Backup
 
@@ -1609,7 +1609,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.0%**: 8,425 of 8,687 lines in 51 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.1%**: 8,444 of 8,699 lines in 52 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

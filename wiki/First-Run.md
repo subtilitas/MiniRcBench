@@ -67,9 +67,9 @@ power-cycled at any time.
 The splash screen shows for 3 s, then the tester screen appears. It names
 the board the firmware is built for, RP2350-TOUCH-LCD-2.8, and the firmware
 version, for example `VERSION 0.1.0`. Its last line, in amber, names the ESC
-pin: `UNPLUG ANY SERVO FROM GP0 NOW`. DShot starts on that pin during the
-splash, and a servo left on it reads the frames as pulses and moves to one
-end of its travel.
+pin: `UNPLUG ANY SERVO FROM GP0 NOW`. DShot starts on that pin when the
+splash ends, and a servo left on it reads the frames as pulses and moves to
+one end of its travel.
 
 <img src="img/splash.png" width="240" alt="Splash screen">
 

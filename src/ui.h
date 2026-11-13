@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <stddef.h>
 #include <stdint.h>
 
 /**
@@ -33,6 +34,16 @@ void uiDrawSplash();
  * at a steady rate; the firmware uses ~40 Hz.
  */
 void uiTick();
+
+/**
+ * @brief The tester's board voltage as drawn top right: rounded to 0.01 V
+ *        and clamped to 0.00 V to 9.99 V, so at most five characters,
+ *        for example `3.92V`.
+ * @param volts The board's battery voltage.
+ * @param[out] buf The text.
+ * @param n Room in @p buf; 6 bytes or more.
+ */
+void uiBoardVoltText(float volts, char *buf, size_t n);
 
 /** @brief Current commanded throttle, 0..2000. @return Throttle value. */
 uint16_t uiThrottle();

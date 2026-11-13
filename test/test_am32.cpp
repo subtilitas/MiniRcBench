@@ -195,6 +195,20 @@ void runAm32Tests() {
 		          am32Crc16(REF, 19) != (uint16_t)(0x7DF4));
 	}
 
+	section("AM32 result texts");
+	{
+		// Run at run time too: the screens' static_asserts evaluate them at
+		// build time, which no counter sees.
+		volatile int r = AM32_ERR_BUSY;
+		checkStr("OK", am32ResultText(AM32_OK), "OK");
+		checkStr("timeout", am32ResultText(AM32_ERR_TIMEOUT), "NO REPLY");
+		checkStr("NAK", am32ResultText(AM32_ERR_NAK), "REFUSED");
+		checkStr("CRC", am32ResultText(AM32_ERR_CRC), "CRC FAIL");
+		checkStr("busy", am32ResultText((Am32Result)r), "NOT READY");
+		checkStr("a value out of range", am32ResultText((Am32Result)(r + 1)), "?");
+		checkInt("the longest is NOT READY, 9 characters", am32ResultTextMax(), 9);
+	}
+
 	section("CRC-16/ARC (poly 0xA001, init 0)");
 	{
 		const uint8_t v[] = {'1','2','3','4','5','6','7','8','9'};

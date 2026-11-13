@@ -139,7 +139,8 @@ uint32_t fakeRegionHash(int x, int y, int w, int h);
  *
  * The expected text is drawn over the one on screen and the two hashes are
  * compared, so the check is on the rendered glyphs and on where they start.
- * The pixels under the probe are put back afterwards.
+ * The pixels under the probe are put back afterwards. In high contrast the
+ * probe is one row taller, as the glyphs are (themeBold()).
  */
 bool fakeTextIs(int x, int y, const char *text, uint16_t col, uint16_t bg, int scale);
 
@@ -152,6 +153,15 @@ bool fakeTextCentredIs(int y, const char *text, uint16_t col, uint16_t bg, int s
  * @return false when every pixel there is @p bg.
  */
 bool fakeInkExtent(int y, int h, uint16_t bg, int *x0, int *x1);
+
+/**
+ * @brief Set what the fake ADC reads, 0 to 4095: the board's battery through
+ *        its divider, `raw * 3.3 / 4095 * 3` V.
+ */
+void fakeAdcSet(uint16_t raw);
+
+/** @brief The fake ADC's reading at start, about 3.92 V. */
+uint16_t fakeAdcDefault();
 
 /** @brief How many times the UI has asked for a beep. */
 int fakeBeepRequests();

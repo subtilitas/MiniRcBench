@@ -56,12 +56,12 @@ crimp contacts.
 >   board: J5 pin 4, or J4 pin 1 or 5.
 
 > **No servo on SIG while the board starts.** Outside the servo screens SIG
-> carries DShot, from power-up on. A servo reads it as a pulse and drives
-> towards one end of its travel, at a frame rate that overheats an analogue
-> servo. Plug the servo in after its screen is open. On HITEC SERVO, SIG
-> carries DShot until a family is tapped: keep the time on the family view
-> short. Power the board before the servo supply, and switch the servo
-> supply off before the board: [Servo Tester](Servo-Tester#wiring).
+> carries DShot from the end of the 3 s splash on. A servo reads it as a pulse
+> and drives towards one end of its travel, at a frame rate that overheats an
+> analogue servo. Plug the servo in after its screen is open. On HITEC SERVO,
+> SIG carries DShot until a family is tapped: keep the time on the family view
+> short. Power the board before the servo supply, and switch the servo supply
+> off before the board: [Servo Tester](Servo-Tester#wiring).
 
 The wire colours of a JST-SH cable follow no standard. Find pin 1 by the
 connector, not by colour: [Wiring](Wiring) lists every pin. Where pin 1 sits

@@ -1753,6 +1753,7 @@ static void testHorn() {
 	fakeHold(dialX(60), dialY(60)); uiFrames(1); core1();
 	checkTrue("the drag ended at the edge", !s_dragging && fakePin(0).level == 0);
 	checkTrue("STALLED on the chip", pixel(GFX_W - UI_MARGIN - 4, UI_STRIP_Y + 3) == C_MAGENTA);
+	checkTrue("STALLED is not SAFE: no two-servo hint", s_st.tripped && twoHintBlank());
 	fakeDumpFrame("shot_servo_stalled.ppm");
 	fakeRelease(); uiFrames(1);
 	holdStart();
@@ -2477,6 +2478,7 @@ static void testBindRefused() {
 	fakePwmBreakSliceMap(true);
 	openServo();
 	checkTrue("the claim is held with the reason", pinClaimJobError() == CORE1_JOB_PWM);
+	checkTrue("GP0 COULD NOT BE TAKEN: no two-servo hint", twoHintBlank());
 	checkControlTable("SERVO, a job error");
 	checkTrue("a job error offers RETRY", ctlEnabled(UI_FIX(ServoCtl::Retry)));
 	checkTrue("the message replaces the dial", !ctlPresent(UI_FIX(ServoCtl::Dial)));
@@ -2494,6 +2496,8 @@ static void testBindRefused() {
 	uiFrames(1);
 	checkInt("a rebind refused: the job says why", s_st.bindError, CORE1_JOB_PWM);
 	backFromSet();
+	uiFrames(1);
+	checkTrue("a refused rebind: no two-servo hint", twoHintBlank());
 	checkTrue("HOLD TO START is an outline", fillOf(BTN_START) == C_BG);
 	fakePwmBreakSliceMap(false);
 	tapId(UI_FIX(ServoCtl::Retry));
@@ -2518,8 +2522,15 @@ static void testSupplyLineAndHint() {
 	section("Servo screen: the supply stays off here; two servos are possible");
 
 	freshUi();
-	openServo();
+	tapId(UI_FIX(TesterCtl::Menu));
+	uiFrames(1);
+	tapId(menuRow(&UI_SERVO));
+	uiTick();   // SERVO's first frame, at once: the pump is still draining
+	checkTrue("the first frame: the claim is not Running yet",
+	          uiCurrentScreen() == UiScreenId::Servo && pinClaimState() != ClaimState::Running);
+	checkTrue("RELEASING or TAKING GP0: no two-servo hint", twoHintBlank());
 	uiFrames(3);
+	checkTrue("then running on the claim", pinClaimState() == ClaimState::Running);
 	char cap[40];
 	snprintf(cap, sizeof(cap), "GP%u  %u HZ  %u-%u US", 0u, (unsigned)s_profile.rateHz,
 	         (unsigned)s_profile.minUs, (unsigned)s_profile.maxUs);

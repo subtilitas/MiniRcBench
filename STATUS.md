@@ -208,7 +208,7 @@ record either way.
 | MENU layout (`src/ui_menu.cpp`, `src/ui_registry.cpp`): BEEP THE ESC, AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO, SD LOG and SETTINGS as 40 px rows, scrolled 36 px to reach SETTINGS | every registry entry opens and BACK returns to MENU; opening MENU disarms; BEEP's flash and refusal on its row; `PINS BUSY` while the claim restores and a tap on it opens nothing; six rows do not scroll and seven scroll 36 px; the label and status fit check at build time | not recorded |
 | Servo tester: the pure model (`src/servo_model.*`), the PWM driver (`src/servo_pwm.*`), the core1 job (`src/servo_job.*`), the slider and the screens (`src/ui_slider.*`, `src/ui_servo.cpp`); rcbench's sweep and PWM fold in `lib/rcbench/` | profiles, limits at their boundaries, steppers to their stops, command, angle and pulse mappings, SPEED, the dial's hit area; the PWM driver's bind, write, release and sharing rules against a register fake; SAFE at level 0, CENTRE at START, STOP on the next pass, the slew, sweeps, REVERSE B, the trip at 250 ms across a millis() wrap, kept across a rebind, the profile rebind; no pulse cut short at a release or a rebind, against a model of the counter and the latched compare; released pins pulled down; the screens through the UI: HOLD TO START at 1000 ms, the drag rules, the SET warning and HOLD TO APPLY, STOP on SET, the AUX refusals through the claim, the unplug page; rcbench's own sweep and fold tests; the SDK calls are run against the fake only | not tested on hardware; open item 9 |
 | KST programming: rcbench's session, line driver and file store (`lib/rcbench/`), the search (`src/kst_seek.*`), the core1 job (`src/kst_job.*`) and its line (`src/kst_line_port.*`), the files on the card (`src/kst_files.*`), the screen (`src/ui_kst.cpp`, `src/kst_view.*`) | rcbench's seven tests, 298 cases, the line's PIO program among them in a model (`test_kst_pio.c`); the search and the job against rcbench's simulated servo, the files against an in-memory FAT (File Allocation Table) volume, the backup in `BACKUP/` and SAVE AS in `KST/` up to 50 files among them, the card phases' block counts over FatFs R0.15 itself (`make -C test kstcount`), the screen through MENU against both (`runKstTests`); the line driver and `kst_line_port.cpp` are built by the firmware and typechecked only | not recorded: no frame of the line driver has been on a pin (`kst_line.h`) |
-| SETTINGS layout (`src/ui_settings.cpp`): sections ESC TESTER, WIRING, SERVO SUPPLY, DISPLAY and BOARD in one scrolling list | the scroll range, 0 px at opening and 400 px at most; each row by id; no scroll from a press on a control; a cut control takes a press only while 40 px show; HOLD TO SAVE in place at every scroll position and saving at the end of the list; the pole count reaches the eRPM divisor, the ceiling steps by 5 %, and RESET restores both | not recorded |
+| SETTINGS layout (`src/ui_settings.cpp`): sections ESC TESTER, WIRING, SERVO SUPPLY, DISPLAY and BOARD in one scrolling list | the scroll range, 0 px at opening and 450 px at most; each row by id; no scroll from a press on a control; a cut control takes a press only while 40 px show; HOLD TO SAVE in place at every scroll position and saving at the end of the list; the pole count reaches the eRPM divisor, the ceiling steps by 5 %, and RESET restores both | not recorded |
 | Settings in flash (MENU → SETTINGS) | block validation, CRC, board id check, pin defaults on GP0 and GP1 and not GP28 or GP29, the version 4 block layout, a version 3 block discarded, the servo supply clamp at 2 | not recorded; 46a64a7 states no hardware coverage |
 | KST switched servo supply with its enable on GP28 or GP29 (`src/servo_supply.*`), the SERVO SUPPLY row, the switched search, REBOOT, the close rule, the lapse rule and the card phase (`src/kst_seek.*`, `src/kst_job.*`, `src/ui_kst.cpp`, `sdh_wait_hook` in `src/sdio/sd_host.h`) | the enable pin untouched with `NONE` from boot; with `GP28` or `GP29` an undriven input (SIO, output off, pulls off, input off) at boot and at every SETTINGS change, a change from GP28 to GP29 switching only GP29; low at bind, high and low between bind and release, an undriven input after release; the mode to pin map; the row stepped NONE, GP28, GP29, applied at once, saved and reset; against a model of the converter and a servo with a power-on window (`test/kst_supply_sim.h`): found on the first power-up, 14 power-ups and the timeout, off 2000 ms before every switch-on, the entry delay at -40 ms and +300 ms, a stop, a lapse and the timeout in a wait, REBOOT's 2000 ms off and 1000 ms on, refused while busy and without a switch, a lapse in the mode, during an operation and in REBOOT's off wait, the close 2000 ms after the switch-off, time off before a leave counted, the enable pin untouched with `NONE`; the screens: the switched search, the leave page and HOLD TO REBOOT, the unplug page's wait, the stalled screen and RETRY; the card phase: `CardBegin` and `CardEnd` in each job state, stamps holding the supply on for 900 ms and off 250 ms after the last, the 15,000 ms cap at 14,900 and 15,100 ms, closed by a command and by LEAVE, the first write's 300 ms card calls inside a phase with and without stamps, the hook null with `NONE`, the busy wait calling the hook | not tested on hardware |
 | Hitec programming: rcbench's Hitec session, register model and line driver (`lib/rcbench/`), the core1 job (`src/hitec_job.*`) and its line (`src/hitec_line_port.*`), the files on the card (`src/hitec_files.*`), the HITEC SERVO screen (`src/ui_hitec.*`, `src/hitec_view.*`) | rcbench's 115 cases; the job against a simulated servo (`runHitecTests`); the deepest stack chain of the job on the Cortex-M33 checked in CI against 1,792 bytes; the files against an in-memory volume and the card phases' block counts over FatFs R0.15 (`make -C test kstcount`); the screen through MENU by control id | not tested on hardware; CLASSIC needs SERVO SUPPLY at GP28 or GP29; the classic line voltage not measured |
@@ -455,8 +455,8 @@ binary, `dshot_tests`. `test/test_main.cpp` runs twenty-one suites:
 
 | Suite | File | Covers |
 | --- | --- | --- |
-| `runAm32Tests` | `test_am32.cpp` | AM32 init string, CRC-16/ARC, settings address per MCU (microcontroller) family, field codec, timing advance, the backup's text and its CRC-32 |
-| `runUiTests` | `test_ui.cpp` (includes `ui_am32.cpp`) | the AM32 backup through the screen, screens, throttle modes, safety interlocks, core1 frame decision, EDT enable, EDT enable at pump start against a simulated ESC, touch, MENU's strip, its EDT chip in its three states and BEEP, SETTINGS' wiring, contrast and save and its VERSION row, SD LOG, USB DRIVE, the splash's version and ESC pin line, the tester's `BOARD` caption and HOLD TO ARM drawn disabled while a USB host holds the card, the AM32 write result inside the panel with its power-cycle line, screenshots |
+| `runAm32Tests` | `test_am32.cpp` | AM32 init string, CRC-16/ARC, settings address per MCU (microcontroller) family, field codec, timing advance, the backup's text and its CRC-32, the result texts and the longest of them |
+| `runUiTests` | `test_ui.cpp` (includes `ui_am32.cpp`) | the AM32 backup through the screen, screens, throttle modes, safety interlocks, core1 frame decision, EDT enable, EDT enable at pump start against a simulated ESC, touch, MENU's strip, its EDT chip in its three states and BEEP, SETTINGS' wiring, contrast and save and its VERSION row, SD LOG, USB DRIVE, the text probes of `fakes.h` in high contrast, the splash's version and ESC pin line, the tester's `BOARD` caption, the board voltage's text rounded to 0.01 V and clamped to five characters, HOLD TO ARM drawn disabled while a USB host holds the card, the AM32 write result inside the panel with its power-cycle line, screenshots |
 | `runKissTests` | `test_kiss.cpp` | KISS CRC-8, decode, resynchronisation, request payload, KISS/EDT merge, expiry, EDT enable rule |
 | `runGfxTests` | `test_gfx.cpp` | dirty bands, glyph rendering, clip rectangle, lines at any angle and thickness, arcs of dots |
 | `runBlackboxTests` | `test_blackbox.cpp` | variable-byte and zig-zag encodings, header, frames, time prediction |
@@ -553,6 +553,7 @@ model.
 | File | Lines | Covered | Coverage |
 | --- | ---: | ---: | ---: |
 | `src/am32_backup.cpp` | 44 | 44 | 100.0% |
+| `src/am32_bl.h` | 16 | 16 | 100.0% |
 | `src/am32_eeprom.cpp` | 69 | 68 | 98.6% |
 | `src/am32_eeprom.h` | 11 | 11 | 100.0% |
 | `src/backup_ring.cpp` | 154 | 152 | 98.7% |
@@ -588,8 +589,8 @@ model.
 | `src/servo_supply.cpp` | 40 | 40 | 100.0% |
 | `src/settings.cpp` | 121 | 120 | 99.2% |
 | `src/theme.cpp` | 11 | 11 | 100.0% |
-| `src/ui.cpp` | 423 | 421 | 99.5% |
-| `src/ui_am32.cpp` | 339 | 303 | 89.4% |
+| `src/ui.cpp` | 429 | 427 | 99.5% |
+| `src/ui_am32.cpp` | 327 | 298 | 91.1% |
 | `src/ui_hitec.cpp` | 1085 | 1011 | 93.2% |
 | `src/ui_hold.cpp` | 36 | 36 | 100.0% |
 | `src/ui_input.cpp` | 27 | 27 | 100.0% |
@@ -598,12 +599,12 @@ model.
 | `src/ui_menu.cpp` | 127 | 126 | 99.2% |
 | `src/ui_screen.h` | 5 | 5 | 100.0% |
 | `src/ui_sdlog.cpp` | 167 | 162 | 97.0% |
-| `src/ui_servo.cpp` | 526 | 524 | 99.6% |
+| `src/ui_servo.cpp` | 528 | 526 | 99.6% |
 | `src/ui_settings.cpp` | 310 | 303 | 97.7% |
 | `src/ui_slider.cpp` | 109 | 109 | 100.0% |
 | `src/ui_widgets.cpp` | 43 | 43 | 100.0% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **8687** | **8425** | **97.0%** |
+| **Total** | **8699** | **8444** | **97.1%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->

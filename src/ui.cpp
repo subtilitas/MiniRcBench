@@ -269,7 +269,7 @@ static float s_batteryV = 0.0f;
  */
 static struct {
 	int  armed, btnArmed, holdOn, armProgress;
-	int  battMv;
+	int  battKey;
 	uint32_t rpm, erpm;
 	int  linkAlive, rpmArmed;
 	int  volts100, amps100, tempC, stress, status, rate, errPct, edt;
@@ -385,11 +385,26 @@ static bool telemetryAlive() {
 #define STATUS_BOARD_TEXT "BOARD"
 #define STATUS_BOARD_X    140
 #define STATUS_BOARD_Y    14
-/** @brief The voltage's widest text, `9.90V`: 3.3 V at the ADC is 9.90 V. */
-#define STATUS_VOLT_WIDEST "9.90V"
+/**
+ * @brief The voltage's widest text: five characters, `9.99V`.
+ *
+ * uiBoardVoltText() rounds to centivolts and clamps at 9.99 V. On this board
+ * the clamp is never reached: the 12-bit ADC tops out at 3.3 V, which the
+ * 200 kOhm/100 kOhm divider makes 9.90 V. It keeps the text at five
+ * characters for any divider a board descriptor could name.
+ */
+#define STATUS_VOLT_WIDEST "9.99V"
 static_assert(STATUS_BOARD_X + (6 * (int)(sizeof(STATUS_BOARD_TEXT) - 1) - 1) + 4 <=
                   240 - 4 - (6 * (int)(sizeof(STATUS_VOLT_WIDEST) - 1) - 1) * 2,
               "BOARD runs into the voltage beside it");
+
+void uiBoardVoltText(float volts, char *buf, size_t n) {
+	// Rounded once, to centivolts: rounding the fraction on its own carried
+	// 3.996 V to "3.100V", a wrong value and a sixth character over BOARD.
+	int cv = volts <= 0.0f ? 0 : (int)(volts * 100.0f + 0.5f);
+	if (cv > 999) cv = 999;
+	snprintf(buf, n, "%u.%02uV", (unsigned)(cv / 100) % 10u, (unsigned)(cv % 100));
+}
 
 /** @brief Arm badge, DShot rate, EDT indicator and the board's voltage. */
 static void drawStatusBar() {
@@ -399,7 +414,12 @@ static void drawStatusBar() {
 		progress = (int)(held * 100 / ARM_HOLD_MS);
 		if (progress > 100) progress = 100;
 	}
-	int battMv = (int)(s_batteryV * 100.0f);
+	char volts[12];
+	uiBoardVoltText(s_batteryV, volts, sizeof(volts));
+	// Keyed on the drawn text, so a change the text does not show repaints
+	// nothing and one it shows always repaints.
+	int battKey = 0;
+	for (const char *c = volts; *c; c++) battKey = battKey * 31 + *c;
 
 	SdLogStatus log;
 	sdLogStatus(&log);
@@ -423,7 +443,7 @@ static void drawStatusBar() {
 	int pumpErr = s_tel.initError ? 1 : 0;
 
 	if (s_shown.armed == (int)s_armed && s_shown.armProgress == progress &&
-	    s_shown.battMv == battMv && s_shown.edt == (int)escEdtRequested() &&
+	    s_shown.battKey == battKey && s_shown.edt == (int)escEdtRequested() &&
 	    s_shown.logState == (int)log.state && s_shown.idleLeft == idleLeft &&
 	    s_shown.kbaud == kbaud && s_shown.pumpErr == pumpErr)
 		return;
@@ -433,7 +453,7 @@ static void drawStatusBar() {
 	s_shown.idleLeft = idleLeft;
 	s_shown.armed = s_armed;
 	s_shown.armProgress = progress;
-	s_shown.battMv = battMv;
+	s_shown.battKey = battKey;
 	s_shown.edt = escEdtRequested();
 	s_shown.logState = (int)log.state;
 
@@ -478,9 +498,7 @@ static void drawStatusBar() {
 		snprintf(buf, sizeof(buf), "IDLE %ds", idleLeft);
 		gfxText(GFX_W - 4 - gfxTextW(buf, 2), 7, buf, C_AMBER, 2);
 	} else {
-		snprintf(buf, sizeof(buf), "%d.%02dV", (int)s_batteryV,
-		         (int)((s_batteryV - (int)s_batteryV) * 100.0f + 0.5f));
-		gfxText(GFX_W - 4 - gfxTextW(buf, 2), 7, buf, C_TEXT, 2);
+		gfxText(GFX_W - 4 - gfxTextW(volts, 2), 7, volts, C_TEXT, 2);
 		// Names whose voltage it is. IDLE displaces it with the voltage.
 		gfxText(STATUS_BOARD_X, STATUS_BOARD_Y, STATUS_BOARD_TEXT, C_DIM, 1);
 	}
@@ -961,8 +979,9 @@ void uiDrawSplash() {
 	// The board this image is built for, and the firmware's version.
 	gfxTextCenter(248, g_board->label, C_GRID, 1);
 	gfxTextCenter(260, "VERSION " FW_VERSION_STRING, C_GRID, 1);
-	// DShot starts on the ESC pin while this shows, and a servo left there
-	// takes the frames as pulses and moves.
+	// DShot starts on the ESC pin when this ends (main() launches core1
+	// after setup()), and a servo left there takes the frames as pulses and
+	// moves. The warning names the pin before that happens.
 	char pin[40];
 	snprintf(pin, sizeof(pin), UI_SPLASH_PIN_FMT, (unsigned)settings()->dshotPin);
 	gfxTextCenter(288, pin, C_AMBER, 1);
@@ -992,6 +1011,8 @@ void uiInit() {
 	s_padEngaged = false;
 	s_blDipUntil = 0;
 	s_blDip = false;
+	// The first frame takes the reading as it is, unsmoothed.
+	s_batteryV = 0.0f;
 	rpmFilterReset(&s_erpmFilter);
 	s_erpmShown = 0;
 

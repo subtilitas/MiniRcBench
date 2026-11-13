@@ -100,8 +100,8 @@ zurück und vergleicht sie** Byte für Byte. Sie verlässt sich nicht auf die
 Bestätigung des ESC. Bei Übereinstimmung erscheint `WRITE VERIFIED`, darunter
 `POWER-CYCLE THE ESC TO APPLY.`. Bei einer Abweichung erscheint das erste
 abweichende Byte als `DIFF @xx: GOT xx WANT xx`. Ein Ergebnis mit mehr als
-18 Zeichen steht in der kleinen Schrift, wo nötig auf zwei Zeilen, damit es
-auf dem Bildschirm bleibt.
+18 Zeichen steht in der kleinen Schrift, damit es auf dem Bildschirm
+bleibt.
 
 Vor dem ersten Schreiben einer Sitzung gehen die beim Eintritt gelesenen
 Einstellungen als `BACKUP/AMnnn.TXT` auf die SD-Karte, in den Ring der

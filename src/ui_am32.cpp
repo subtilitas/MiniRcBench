@@ -76,6 +76,23 @@ static const UiRect BTN_OK     = { 70, 200, 100, 36 };
 // The result's lines, the power-cycle line 30 px under its first, end above OK.
 static_assert(RESULT_Y + 30 + 7 < 200, "the result runs into OK");
 static_assert(sizeof(AM32_UI_POWER_CYCLE) - 1 <= RESULT_CHARS, "the power-cycle line runs off the panel");
+// The write's texts. Each status doWrite() sets fits one scale-1 line, as
+// the asserts below check, so drawResultText() never wraps.
+#define ST_NO_BACKUP    "NO BACKUP ON THE CARD: NOT WRITTEN" /**< A card refused the backup. */
+#define ST_WRITE_FAILED "WRITE FAILED: "  /**< Before am32ResultText(). */
+#define ST_VERIFY_READ  "VERIFY READ: "   /**< Before am32ResultText(). */
+#define ST_DIFF_WIDEST  "DIFF @2F: GOT FF WANT FF" /**< The widest DIFF: the settings are 48 bytes. */
+#define ST_VERIFIED     "WRITE VERIFIED"  /**< A write read back equal. */
+#define ST_BACKUP       ". BACKUP "       /**< Before the backup's five-character name. */
+static_assert(AM32_SETTINGS_SIZE <= 0x30, "a DIFF offset takes more than two hex digits");
+static_assert(sizeof(ST_NO_BACKUP) - 1 <= RESULT_CHARS, "NO BACKUP runs off the panel");
+static_assert((int)sizeof(ST_WRITE_FAILED) - 1 + am32ResultTextMax() <= RESULT_CHARS,
+              "WRITE FAILED runs off the panel");
+static_assert((int)sizeof(ST_VERIFY_READ) - 1 + am32ResultTextMax() <= RESULT_CHARS,
+              "VERIFY READ runs off the panel");
+static_assert(sizeof(ST_DIFF_WIDEST) - 1 <= RESULT_CHARS, "DIFF runs off the panel");
+static_assert(sizeof(ST_VERIFIED ST_BACKUP) - 1 + 5 <= RESULT_CHARS,
+              "WRITE VERIFIED. BACKUP AMnnn runs off the panel");
 /** @brief The list's viewport. */
 static const UiRect LIST_VIEW  = { 0, LIST_Y0, GFX_W, LIST_H };
 
@@ -381,30 +398,14 @@ static void drawList() {
 }
 
 /**
- * @brief The write's state or result, centred from y @ref RESULT_Y, at
- *        scale 2 when it fits the panel, else at scale 1, broken at the last
- *        space within @ref RESULT_CHARS characters. `WRITE VERIFIED. BACKUP
- *        AM001` is 334 px at scale 2 and ran off both edges.
- * @param s The text, at most 39 characters.
+ * @brief The write's state or result, centred at y @ref RESULT_Y, at scale 2
+ *        when it fits the panel, else at scale 1. `WRITE VERIFIED. BACKUP
+ *        AM001` is 334 px at scale 2 and ran off both edges. Every status of
+ *        the write fits one scale-1 line: the asserts at @ref RESULT_CHARS.
+ * @param s The text.
  */
 static void drawResultText(const char *s) {
-	if (gfxTextW(s, 2) <= GFX_W - 2 * UI_MARGIN) {
-		gfxTextCenter(RESULT_Y, s, C_TEXT, 2);
-		return;
-	}
-	int len = (int)strlen(s);
-	if (len <= RESULT_CHARS) {
-		gfxTextCenter(RESULT_Y, s, C_TEXT, 1);
-		return;
-	}
-	int cut = RESULT_CHARS;
-	while (cut > 0 && s[cut] != ' ') cut--;
-	if (cut == 0) cut = RESULT_CHARS;
-	char a[RESULT_CHARS + 1];
-	memcpy(a, s, (size_t)cut);
-	a[cut] = '\0';
-	gfxTextCenter(RESULT_Y, a, C_TEXT, 1);
-	gfxTextCenter(RESULT_Y + 12, s + cut + (s[cut] == ' ' ? 1 : 0), C_TEXT, 1);
+	gfxTextCenter(RESULT_Y, s, C_TEXT, gfxTextW(s, 2) <= GFX_W - 2 * UI_MARGIN ? 2 : 1);
 }
 
 static void drawWriting() {
@@ -552,7 +553,7 @@ static void doWrite() {
 		// mounted again, and the next WRITE saves the backup again.
 		if (cardCacheState() == CardCache::Failed) cardCacheRecover();
 		if (b != BackupResult::Ok) {
-			snprintf(s_status, sizeof(s_status), "NO BACKUP ON THE CARD: NOT WRITTEN");
+			snprintf(s_status, sizeof(s_status), ST_NO_BACKUP);
 			return;
 		}
 		s_backupDone = true;
@@ -563,7 +564,7 @@ static void doWrite() {
 	}
 	Am32Result r = am32BlWrite(am32BlEepromAddr(), s_eeprom, AM32_SETTINGS_SIZE);
 	if (r != AM32_OK) {
-		snprintf(s_status, sizeof(s_status), "WRITE FAILED: %s", am32ResultText(r));
+		snprintf(s_status, sizeof(s_status), ST_WRITE_FAILED "%s", am32ResultText(r));
 		return;
 	}
 	// Read back rather than trusting the ACK: a write that reports success but
@@ -579,7 +580,7 @@ static void doWrite() {
 		r = am32BlRead(am32BlEepromAddr(), check, AM32_SETTINGS_SIZE);
 	}
 	if (r != AM32_OK) {
-		snprintf(s_status, sizeof(s_status), "VERIFY READ: %s", am32ResultText(r));
+		snprintf(s_status, sizeof(s_status), ST_VERIFY_READ "%s", am32ResultText(r));
 		return;
 	}
 	if (memcmp(check, s_eeprom, AM32_SETTINGS_SIZE) != 0) {
@@ -593,8 +594,8 @@ static void doWrite() {
 	}
 	memcpy(s_original, s_eeprom, AM32_SETTINGS_SIZE);
 	s_verified = true;
-	if (s_backupDone) snprintf(s_status, sizeof(s_status), "WRITE VERIFIED. BACKUP %.5s", s_backupName);
-	else snprintf(s_status, sizeof(s_status), "WRITE VERIFIED");
+	if (s_backupDone) snprintf(s_status, sizeof(s_status), ST_VERIFIED ST_BACKUP "%.5s", s_backupName);
+	else snprintf(s_status, sizeof(s_status), ST_VERIFIED);
 }
 
 

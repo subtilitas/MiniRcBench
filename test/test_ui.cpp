@@ -3024,8 +3024,46 @@ static void testTesterBoardAndCard() {
 		vx++;
 	}
 	checkTrue("the voltage starts 4 px or more after BOARD", vx >= 169 + 4 && vx < GFX_W);
-	checkTrue("BOARD keeps 4 px from 9.90 V, the widest voltage",
-	          140 + gfxTextW("BOARD", 1) + 4 <= GFX_W - 4 - gfxTextW("9.90V", 2));
+	checkTrue("BOARD keeps 4 px from 9.99V, the widest voltage text",
+	          140 + gfxTextW("BOARD", 1) + 4 <= GFX_W - 4 - gfxTextW("9.99V", 2));
+
+	// The text rounds once, to centivolts. Rounding the fraction alone gave
+	// 3.996 V as "3.100V": a wrong value, six characters, over BOARD.
+	char vt[12];
+	uiBoardVoltText(3.994f, vt, sizeof(vt));
+	checkStr("3.994 V reads 3.99V", vt, "3.99V");
+	uiBoardVoltText(3.996f, vt, sizeof(vt));
+	checkStr("3.996 V reads 4.00V", vt, "4.00V");
+	uiBoardVoltText(9.996f, vt, sizeof(vt));
+	checkStr("9.996 V, past what the divider can read, clamps to 9.99V", vt, "9.99V");
+	uiBoardVoltText(0.0f, vt, sizeof(vt));
+	checkStr("0 V reads 0.00V", vt, "0.00V");
+	// Drawn: ADC readings either side of 3.995 V, and the ADC's top, 4095,
+	// which the 200 kOhm/100 kOhm divider makes 9.90 V: the most this board
+	// can show.
+	struct { uint16_t raw; const char *want; } volts[] = {
+		{ 1652, "3.99V" },   // 3.9938 V
+		{ 1653, "4.00V" },   // 3.9963 V
+		{ 4095, "9.90V" },
+	};
+	for (const auto &vc : volts) {
+		fakeAdcSet(vc.raw);
+		uiInit();
+		frames(2);
+		const int w = gfxTextW(vc.want, 2), x = GFX_W - 4 - w;
+		char what[64];
+		snprintf(what, sizeof(what), "ADC %u: %s, right-aligned at y 7", vc.raw, vc.want);
+		checkTrue(what, fakeTextIs(x, 7, vc.want, C_TEXT, C_PANEL, 2));
+		bool clear = true;
+		for (int y = 3; y < 22; y++)
+			for (int xx = 169; xx < x; xx++) clear = clear && gfxBuffer()[y * GFX_W + xx] == C_PANEL;
+		snprintf(what, sizeof(what), "ADC %u: no ink between BOARD and the value", vc.raw);
+		checkTrue(what, clear && fakeTextIs(140, 14, "BOARD", C_DIM, C_PANEL, 1));
+	}
+	fakeAdcSet(fakeAdcDefault());
+	uiInit();
+	feedLiveTelemetry();
+	frames(4);
 
 	const UiRect arm = ctlRect(UI_FIX(TesterCtl::Arm));
 	const UiRect thr = ctlRect(UI_FIX(TesterCtl::Throttle));
@@ -3068,6 +3106,35 @@ static void testTesterBoardAndCard() {
 	checkTrue("and it arms", uiArmed());
 	pressId(UI_FIX(TesterCtl::Arm));
 	fakeRelease(); frames(2);
+}
+
+/**
+ * @brief The text probes of fakes.h in high contrast, where every glyph is
+ *        one row taller: a blank region reads false and is left as it was;
+ *        a drawn text reads true.
+ */
+static void testTextProbes() {
+	section("Test helpers: the text probes in high contrast");
+
+	themeSet(Theme::HighContrast);
+	gfxFill(C_BG);
+	const uint32_t blank = fakeRegionHash(0, 0, GFX_W, 80);
+	checkTrue("a blank region is not the text", !fakeTextIs(20, 20, "ABC", C_TEXT, C_BG, 1));
+	checkTrue("and the probe leaves it blank, its bold row included",
+	          fakeRegionHash(0, 0, GFX_W, 80) == blank);
+	checkTrue("a blank region is not centred text either",
+	          !fakeTextCentredIs(40, "ABC", C_TEXT, C_BG, 2) && fakeRegionHash(0, 0, GFX_W, 80) == blank);
+	gfxText(20, 20, "ABC", C_TEXT, 1);
+	gfxTextCenter(40, "ABC", C_TEXT, 2);
+	const uint32_t drawn = fakeRegionHash(0, 0, GFX_W, 80);
+	checkTrue("drawn text is the text", fakeTextIs(20, 20, "ABC", C_TEXT, C_BG, 1) &&
+	          fakeTextCentredIs(40, "ABC", C_TEXT, C_BG, 2));
+	checkTrue("and the probe leaves it as drawn", fakeRegionHash(0, 0, GFX_W, 80) == drawn);
+	checkTrue("another text is not", !fakeTextIs(20, 20, "ABD", C_TEXT, C_BG, 1));
+	checkTrue("text wider than the panel is never centred on it",
+	          !fakeTextCentredIs(60, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", C_TEXT, C_BG, 2));
+	themeSet(Theme::Dark);
+	gfxFill(C_BG);
 }
 
 /**
@@ -3794,6 +3861,7 @@ void runUiTests() {
 	testScreenChangeResidue();
 	testTesterBoardAndCard();
 	testSplash();
+	testTextProbes();
 
 	// Back to a known state for anything that runs after this.
 	fakeFlashClear();

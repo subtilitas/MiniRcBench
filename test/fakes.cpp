@@ -21,6 +21,7 @@
 #include "hardware/spi.h"
 #include "hardware/uart.h"
 #include "gfx.h"
+#include "theme.h"
 #include "st7789.h"
 #include "touch.h"
 #include "esc_task.h"
@@ -58,7 +59,11 @@ void sleep_us(uint64_t us) { g_ms += (uint32_t)(us / 1000u); }
 void adc_init() {}
 void adc_gpio_init(unsigned) {}
 void adc_select_input(unsigned) {}
-uint16_t adc_read() { return (uint16_t)(3.92f / 3.0f / 3.3f * 4095.0f); }
+/** @brief The fake ADC's reading: the board's battery at about 3.92 V. */
+static uint16_t s_adcRaw = (uint16_t)(3.92f / 3.0f / 3.3f * 4095.0f);
+uint16_t adc_read() { return s_adcRaw; }
+void fakeAdcSet(uint16_t raw) { s_adcRaw = raw; }
+uint16_t fakeAdcDefault() { return (uint16_t)(3.92f / 3.0f / 3.3f * 4095.0f); }
 
 // --- PWM and GPIO: a record of the registers the servo PWM driver sets.
 //     The slice and channel follow the RP2350's fold for GP0 to GP29; a test
@@ -320,7 +325,6 @@ Am32Result am32BlRead(uint16_t, uint8_t *b, uint8_t n) { memcpy(b, g_esc, n); re
 Am32Result am32BlWrite(uint16_t, const uint8_t *b, uint8_t n) { memcpy(g_esc, b, n); return AM32_OK; }
 Am32Result am32BlErasePage(uint16_t) { return AM32_OK; }
 Am32Result am32BlRun() { return AM32_OK; }
-const char *am32ResultText(Am32Result r) { return r == AM32_OK ? "OK" : "ERR"; }
 uint8_t am32BlLastRx(const uint8_t **b) { static uint8_t none[1] = {0}; *b = none; return 0; }
 uint16_t am32BlEepromAddr() { return 0x7C00; }
 uint8_t am32BlEscType() { return AM32_ESC_F051_1KB; }
@@ -557,7 +561,9 @@ uint32_t fakeRegionHash(int x, int y, int w, int h) {
 
 bool fakeTextIs(int x, int y, const char *text, uint16_t col, uint16_t bg, int scale) {
 	uint16_t *fb = gfxBuffer();
-	const int w = gfxTextW(text, scale), h = 7 * scale;
+	// High contrast draws each glyph one row taller (gfxChar()): the probe
+	// covers, hashes and restores that row too.
+	const int w = gfxTextW(text, scale), h = 7 * scale + (themeBold() ? 1 : 0);
 	if (x < 0 || y < 0 || x + w > GFX_W || y + h > GFX_H) return false;
 	static uint16_t keep[GFX_H][GFX_W];
 	for (int j = 0; j < h; j++) memcpy(keep[j], fb + (y + j) * GFX_W + x, (size_t)w * sizeof(uint16_t));
@@ -570,7 +576,10 @@ bool fakeTextIs(int x, int y, const char *text, uint16_t col, uint16_t bg, int s
 }
 
 bool fakeTextCentredIs(int y, const char *text, uint16_t col, uint16_t bg, int scale) {
-	return fakeTextIs((GFX_W - gfxTextW(text, scale)) / 2, y, text, col, bg, scale);
+	// gfxTextCenter()'s x, clamped at 0 as it clamps.
+	int x = (GFX_W - gfxTextW(text, scale)) / 2;
+	if (x < 0) x = 0;
+	return fakeTextIs(x, y, text, col, bg, scale);
 }
 
 bool fakeInkExtent(int y, int h, uint16_t bg, int *x0, int *x1) {

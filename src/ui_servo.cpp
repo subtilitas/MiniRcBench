@@ -450,7 +450,11 @@ static void drawReadout() {
 	struct { uint16_t us[2]; bool sweeping; uint32_t moves; uint16_t limit; uint8_t mask, servos;
 	         bool pa, pb, pab, hint; } k;
 	memset(&k, 0, sizeof(k));
-	k.hint = !twoServos() && !s_st.running && s_claimed && s_auxRefusal == ClaimRefusal::None;
+	// SAFE only: not running, not STALLED, and the pins bound, so not while
+	// the claim is taken or released and not under a bind error.
+	k.hint = !twoServos() && !s_st.running && !s_st.tripped && s_claimed &&
+	         pinClaimState() == ClaimState::Running && !pinClaimJobError() && !s_st.bindError &&
+	         s_auxRefusal == ClaimRefusal::None;
 	k.us[0] = s_st.outUs[0]; k.us[1] = s_st.outUs[1];
 	k.sweeping = s_st.sweeping; k.moves = s_st.sweepMoves; k.limit = s_sweep.moves;
 	k.mask = s_mask; k.servos = s_profile.servos;
