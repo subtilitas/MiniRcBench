@@ -56,12 +56,6 @@ bool pioUartRxBegin(uint8_t pin, uint32_t baud);
 void pioUartRxEnd(void);
 
 /**
- * @brief Whether a receiver is currently running.
- * @return true between a successful pioUartRxBegin() and pioUartRxEnd().
- */
-bool pioUartRxActive(void);
-
-/**
  * @brief Whether at least one byte is waiting.
  * @return true if pioUartRxGetc() would return a received byte.
  */

@@ -118,9 +118,6 @@ bool sdLogRelease();
  */
 bool sdLogReacquire();
 
-/** @brief True while something else owns the card. @return Release state. */
-bool sdLogReleased();
-
 /** @brief True while a file is open. @return Logging state. */
 bool sdLogActive();
 

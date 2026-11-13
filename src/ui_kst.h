@@ -35,8 +35,6 @@
 
 struct TouchState;
 
-/** @brief Whether the screen is built. @return true: MENU has a KST SERVO row. */
-bool uiKstAvailable();
 
 /**
  * @brief Open the screen: a new session, and a claim of SIG, asked again

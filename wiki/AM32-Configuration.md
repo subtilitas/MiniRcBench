@@ -130,6 +130,10 @@ level. `FIELDS` returns to the list.
 `BACK` hands the signal pin back to the DShot driver and returns to
 `MENU`. The tester is disarmed.
 
+The firmware sends the bootloader no command to start the ESC firmware when
+the screen closes. What the ESC does after the screen is left is not
+recorded. **Power-cycle the ESC after leaving**, before driving a motor.
+
 ---
 
 ## When it will not connect

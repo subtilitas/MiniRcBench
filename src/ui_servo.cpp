@@ -136,12 +136,6 @@ static_assert(SET_ROW_H >= UI_LIST_TAP_MIN && SET_ROW_PITCH > SET_ROW_H,
 static_assert(SET_EDIT_H >= UI_TAP_MIN && SET_FOOT_H >= UI_TAP_MIN,
               "a SET button is smaller than a fingertip");
 
-/**
- * @brief Hold that commits HOLD TO START and HOLD TO APPLY: one length on the
- *        device.
- */
-#define SV_HOLD_MS UI_HOLD_MS
-
 // ---------------------------------------------------------------------------
 // the SET rows
 // ---------------------------------------------------------------------------
@@ -943,8 +937,6 @@ static void drawUnplug() {
 // ---------------------------------------------------------------------------
 // entry points
 // ---------------------------------------------------------------------------
-
-bool uiServoAvailable() { return true; }
 
 uint8_t uiServoControls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;

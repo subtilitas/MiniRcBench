@@ -25,8 +25,6 @@ void hitecLineClose() {
 	if (s_init) hitec_line_close(&s_line);
 }
 
-bool hitecLineIsOpen() { return s_init && hitec_line_is_open(&s_line); }
-
 bool hitecLineStart(const hitec_xfer_t *xfer) { return hitec_line_start(&s_line, xfer); }
 
 bool hitecLinePoll(hitec_capture_t *out) { return hitec_line_poll(&s_line, out); }

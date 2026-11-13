@@ -472,8 +472,6 @@ void uiAm32Exit() {
 	s_state = S_HANDOVER;
 }
 
-bool uiAm32Active() { return !s_leaving; }
-
 /** @brief Attempt one handshake plus settings read. */
 static void tryConnect() {
 	uint8_t info[9];
