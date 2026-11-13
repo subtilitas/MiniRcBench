@@ -296,6 +296,26 @@ static void testUsbDriveScreen() {
 	          fakeRegionHash(0, 224, GFX_W, 14) != quiet);
 	fakeDumpFrame("shot_log_usb_refused.ppm");
 
+	// The note lasts 4000 ms and does not come back 2^31 ms after it ended.
+	frames(170);
+	checkTrue("4250 ms later the note is gone", fakeRegionHash(0, 224, GFX_W, 14) == quiet);
+	fakeAdvance(0x80000000u);
+	frames(2);
+	checkTrue("2^31 ms after its end the note is not back",
+	          fakeRegionHash(0, 224, GFX_W, 14) == quiet);
+	// Nor a note that leaving the screen cut short, past 2^31 ms.
+	tapId(UI_FIX(SdLogCtl::Usb));
+	frames(2);
+	checkTrue("refused again: the note shows", fakeRegionHash(0, 224, GFX_W, 14) != quiet);
+	tapId(UI_FIX(UI_BACK));
+	fakeAdvance(0x80000000u + 5000u);
+	frames(1);
+	tapId(menuRow(&UI_SDLOG));
+	frames(2);
+	checkTrue("a note cut short by BACK is not back past 2^31 ms",
+	          uiCurrentScreen() == UiScreenId::SdLog &&
+	          fakeRegionHash(0, 224, GFX_W, 14) == quiet);
+
 	// Stop the log and it goes through.
 	tapId(UI_FIX(SdLogCtl::Toggle));                       // STOP
 	checkTrue("stopped", !sdLogActive());
@@ -1327,6 +1347,11 @@ static void testArmBacklightDip() {
 	checkTrue("disarming dips it too", fakeBacklightMin() < resting);
 	frames(20);
 	checkInt("and comes back again", fakeBacklight(), resting);
+
+	fakeAdvance(0x80000000u);
+	fakeBacklightResetMin();
+	frames(2);
+	checkInt("2^31 ms after the dip the panel is not dimmed", fakeBacklightMin(), resting);
 }
 
 

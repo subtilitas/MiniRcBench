@@ -13,7 +13,8 @@
  *
  * Core0 commands it with single volatile writes, escSetThrottle() and
  * escSetArmed(), and reads it back with escSnapshot(), which copies the
- * telemetry under the shared critical section.
+ * telemetry under the shared critical section. escRequestBeep() takes that
+ * section too.
  *
  * @warning Core0 must call escHeartbeat() regularly. If it stops for longer
  *          than @ref UI_HEARTBEAT_TIMEOUT_MS, core1 assumes the UI has died and
@@ -148,7 +149,7 @@ void escTaskPoll();
 /**
  * @defgroup esc_core0 Core0 API
  * @brief Safe to call from core0. The commands are single volatile writes;
- *        escSnapshot() takes the shared critical section.
+ *        escRequestBeep() and escSnapshot() take the shared critical section.
  * @{
  */
 

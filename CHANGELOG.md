@@ -536,8 +536,8 @@ protocol.
 ### Fixed
 
 - KST SERVO's search with the switched supply names an interrupted write:
-  its two warning lines take the place of the view's explanations, where
-  they found no free line and were dropped.
+  its two warning lines take the place of the view's first two explanation
+  lines, where they found no free line and were dropped.
 - A blackbox log whose last flush or directory sync fails ends in the error
   state; it read as a clean stop.
 - MENU's BEEP flash, the backlight dip and SD LOG's refusal note no longer

@@ -268,9 +268,6 @@ void sdLogStop() {
 	// the file's number, as after a flush that fails while logging.
 	if (s_state != SdLogState::Logging) return;
 
-	s_fileNo = 0;
-	s_autoStarted = false;
-
 	// Hand back the unused pre-allocation, then commit the directory entry.
 	// A sync or close that fails leaves the entry unwritten: that is an error,
 	// not a clean stop.
@@ -279,6 +276,11 @@ void sdLogStop() {
 	FRESULT close = f_close(&s_file);
 	(void)trunc;
 	s_state = (sync == FR_OK && close == FR_OK) ? SdLogState::Idle : SdLogState::Error;
+	// An error keeps the file's number for the screen, as a failed flush does.
+	if (s_state == SdLogState::Idle) {
+		s_fileNo = 0;
+		s_autoStarted = false;
+	}
 }
 
 bool sdLogActive() { return s_state == SdLogState::Logging; }
