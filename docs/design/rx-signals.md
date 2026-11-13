@@ -581,10 +581,9 @@ pins as they do, and before SD LOG:
 | Today, both tools | 9 | ... HITEC SERVO, RX MONITOR, PPM OUTPUT, SD LOG, SETTINGS | 0 to 120 px |
 
 The scroll range is rows × 42 px − 258 px, by the rules of
-[menu.md](menu.md#menu). A restructure of MENU is planned in
-`docs/design/menu-b.md` on the branch `ccr-menu-b`, not merged. Where the
-two rows sit after it is settled in that note when it lands. The placement
-is the owner's to confirm (question 4).
+[menu.md](menu.md#menu). MENU structure B (`docs/design/menu-b.md`, not
+built) places the rows; question 4 holds until then. The placement is the
+owner's to confirm.
 
 | Row | Label | Fit | Status |
 |---|---|---|---|
@@ -779,7 +778,7 @@ files differ by one line each. Slice 1a is built.
 |---|---|---|---|
 | 1a. S.BUS copies, built | `sbus.c`, `sbus.h`, `test_sbus.c`; `test/rx.mk`; the `test/Makefile` lists, `lib/rcbench/README.md`, README, STATUS, CHANGELOG | 3 copied, 1 new, 5 edited | 695 copied; 80 new or changed |
 | 1b. PPM copies, waiting on question 1 | `ppm.c`, `ppm.h`, `test_ppm.c`; the `outputs.h` stub, `test/ppm.mk`; the `test/Makefile` lists, `lib/rcbench/README.md`, README, STATUS, CHANGELOG | 3 copied, 2 new, 5 edited | 441 copied; 80 new or changed |
-| 2. S.BUS job | `sbus_job.*`, `rx.cmake`, `CORE1_JOB_NO_GP1`, the job and user rows, the microsecond clock, the UART fake, `sbus_line.h`, the job's tests, the `-I` lists of `ci.yml` | 4 new in `src/`, 7 edited, 3 new in `test/` | 350 in `src/`; 700 in `test/` |
+| 2. S.BUS job | `sbus_job.*`, `rx.cmake`, `CORE1_JOB_NO_GP1`, the job and user rows, the microsecond clock, the UART fake, `sbus_line.h`, the job's tests, the `-I` lists of `ci.yml` | 4 new in `src/`, about 13 edited, 3 new in `test/` | 350 in `src/`; 700 in `test/` |
 | 3. S.BUS screen | `sbus_view.*`, `ui_sbus.*`, the registry line, the screen and MENU tests, `test_ids.cpp`, the preview, `tools/check_wiki.py`, `tools/make_previews.py`, README section, wiki pages in English and German, STATUS, CHANGELOG, this note's status | 4 new in `src/`, 2 new and 10 edited elsewhere | 650 in `src/`; 600 in `test/`; 250 of documentation |
 | 4. PPM job | the `out_ppm` driver copies, `ppm_job.*`, `ppm.cmake`, the job and user rows, the `out_ppm.h` fake, `pio_ppm_emu.py`, the job's tests, the `-I` lists of `ci.yml` | 3 copied, 3 new in `src/`, 3 new in `test/`, 6 edited | 490 copied; 300 in `src/`; 600 in `test/` |
 | 5. PPM screen | `ui_ppm.*`, the registry line, the screen tests, the preview, `tools/check_wiki.py`, `tools/make_previews.py`, README, wiki pages in English and German, STATUS, CHANGELOG | 2 new in `src/`, 2 new and 10 edited elsewhere | 600 in `src/`; 500 in `test/`; 200 of documentation |
