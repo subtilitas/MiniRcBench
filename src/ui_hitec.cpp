@@ -27,6 +27,7 @@
 #include "pin_claim.h"
 #include "sd_log.h"
 #include "servo_supply.h"
+#include "sense.h"
 #include "settings.h"
 #include "touch.h"
 #include "ui_hold.h"
@@ -561,11 +562,13 @@ static void mainText(MainText *m) {
 				addLine(m, classic ? "MODE AT ITS POWER-UP." : "THE BENCH READS ITS MODEL.", C_DIM);
 			} else if (classic) {
 				snprintf(m->strip, sizeof(m->strip), "GP%u  SUPPLY ON", sig);
+				senseAppendCurrent(m->strip, sizeof(m->strip));
 				m->big = "LISTENING";
 				addLine(m, "FOR THE SERVO'S + AFTER ITS", C_DIM);
 				addLine(m, "POWER-UP, THEN THE FIRST COMMAND.", C_DIM);
 			} else {
 				snprintf(m->strip, sizeof(m->strip), "GP%u  %s", sig, s_st.supplyFitted ? "SUPPLY ON" : "");
+				if (s_st.supplyFitted) senseAppendCurrent(m->strip, sizeof(m->strip));
 				m->big = s_st.supplyFitted ? "SERVO STARTING" : "READING THE MODEL";
 				addLine(m, "THEN THE BENCH READS ITS MODEL.", C_DIM);
 			}
@@ -1601,6 +1604,14 @@ static uint32_t frameKey() {
 	h = mix(h, (uint32_t)s_fileCount);
 	h = mix(h, (uint32_t)(uintptr_t)s_cardNote);
 	h = mix(h, (uint32_t)uiHoldPercent(&s_hold, millis()));
+	if (s_view == HitecView::Main) {
+		// The main view's strip as composed: the current counts only in the
+		// states that show it, and a reading that rounds to the same text
+		// repaints nothing. Static: off core0's stack.
+		static MainText km;
+		mainText(&km);
+		h = mixBytes(h, km.strip, strlen(km.strip));
+	}
 	static UiControl c[UI_CONTROLS_MAX];
 	uint8_t n = uiHitecControls(c, UI_CONTROLS_MAX);
 	for (uint8_t i = 0; i < n; i++) h = mix(h, uiPressing(c[i].rect, s_t));

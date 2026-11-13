@@ -1,8 +1,16 @@
-// Host-test stub for hardware/i2c.h. Transfers always fail, which is what a
+// Host-test stub for hardware/i2c.h. test/fake_i2c.cpp is the bus behind it:
+// with no part added, every address answers with a NACK, which is what a
 // board with no touch controller attached would do.
 #pragma once
 #include <stdint.h>
 #include <stddef.h>
+// The SDK's codes for a failed transfer, as pico/error.h numbers them.
+#ifndef PICO_ERROR_GENERIC
+#define PICO_ERROR_GENERIC (-1)
+#endif
+#ifndef PICO_ERROR_TIMEOUT
+#define PICO_ERROR_TIMEOUT (-2)
+#endif
 typedef struct i2c_inst i2c_inst_t;
 extern i2c_inst_t *i2c0;
 extern i2c_inst_t *i2c1;

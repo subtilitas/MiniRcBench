@@ -104,6 +104,12 @@ struct SettingsRow {
 	void (*toggle)();
 	/** @brief Toggle: whether the setting is on, which draws it filled; null: never. */
 	bool (*on)();
+	/**
+	 * @brief A caption under the label, scale 1: writes it to buf, at most n
+	 *        bytes, and its colour to col; an empty string for none. Null:
+	 *        the row has none, and its label is centred.
+	 */
+	void (*caption)(char *buf, size_t n, uint16_t *col);
 };
 
 /** @brief A captioned run of SETTINGS rows. */

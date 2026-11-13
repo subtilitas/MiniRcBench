@@ -20,6 +20,7 @@
 #include "pin_claim.h"
 #include "servo_job.h"
 #include "servo_model.h"
+#include "sense.h"
 #include "servo_supply.h"
 #include "touch.h"
 #include "ui_hold.h"
@@ -57,6 +58,8 @@
 #define SV_BOT_H      32
 #define SV_HORN_R     84   /**< Horn length, px from the shaft. */
 #define SV_SHAFT_R     8   /**< Shaft radius, px. */
+#define SV_CUR_DY      1   /**< The current, scale 2, from the readout row's top. */
+#define SV_VOLT_DY    16   /**< The bus voltage under it, scale 1. */
 /** @brief First row of the region below SPEED: the buttons and the bar. */
 #define SV_LOW_Y     (SV_SPEED_Y + SV_SPEED_H + UI_SLIDER_OVERHANG)
 /** @} */
@@ -83,6 +86,16 @@ static_assert(SV_LOW_Y <= SV_BTN_Y, "SPEED's thumb reaches into the button row")
 static_assert(SV_SPEED_Y - UI_SLIDER_OVERHANG == SV_READ_Y + SV_READ_H,
               "a row between the readout and SPEED is repainted by neither");
 static_assert(SV_BTN_Y + SV_BTN_H <= SV_BAR_Y, "the buttons overlap the progress bar");
+static_assert(SV_CUR_DY + 14 < SV_VOLT_DY && SV_VOLT_DY + 7 <= SV_READ_H,
+              "the current and the bus voltage overlap, or leave the readout row");
+// The widest pulse text, `NO PULSE` at scale 2 from x 8, ends 4 px or more
+// before the widest current at scale 2, right-aligned at x 232.
+static_assert(UI_MARGIN + (6 * 8 - 1) * 2 + 4 <= GFX_W - UI_MARGIN - (6 * SENSE_TEXT_MAX - 1) * 2,
+              "the current runs into the pulse");
+// `A+B ` and the widest current at scale 1 from x 8 end 4 px or more before
+// the A button.
+static_assert(UI_MARGIN + (6 * (4 + SENSE_TEXT_MAX) - 1) + 4 <= 122,
+              "the summed current runs into the selector");
 static_assert(SV_BAR_Y + UI_HOLD_BAR_H <= SV_BOT_Y, "the progress bar overlaps the bottom row");
 static_assert(SV_BOT_Y + SV_BOT_H <= GFX_H, "the bottom row runs off the panel");
 static_assert(8 + 4 * SV_BTN_W + 3 * 4 == 232, "the button row does not fill the margins");
@@ -304,6 +317,17 @@ static void claimPins() {
 	}
 }
 
+/**
+ * @brief The sweep's count, `SWEEP 12/20` or `SWEEP 12`; empty while no
+ *        sweep runs.
+ */
+static void sweepText(char *buf, size_t n) {
+	buf[0] = '\0';
+	if (!s_st.sweeping) return;
+	if (s_sweep.moves) snprintf(buf, n, "SWEEP %lu/%u", (unsigned long)s_st.sweepMoves, s_sweep.moves);
+	else               snprintf(buf, n, "SWEEP %lu", (unsigned long)s_st.sweepMoves);
+}
+
 /** @brief Draw @p text centred at @p y, scale 1. */
 static void line(int y, const char *text, uint16_t c) { gfxTextCenter(y, text, c, 1); }
 
@@ -411,9 +435,15 @@ static void drawDial() {
 	uint16_t col;
 	bool retry;
 	claimMessage(&l1, &l2, &l3, &col, &retry);
-	struct { uint32_t l1, l2, l3; bool retry, rp; uint16_t us[2]; uint8_t mask, servos;
+	// With a sensor declared the readout row holds the current, and the
+	// sweep's count moves to the dial band's first line, which is free while
+	// the servo runs.
+	char sw[24] = "";
+	if (senseDeclared()) sweepText(sw, sizeof(sw));
+	struct { uint32_t l1, l2, l3, sw; bool retry, rp; uint16_t us[2]; uint8_t mask, servos;
 	         bool running, tripped; } k;
 	memset(&k, 0, sizeof(k));
+	k.sw = textKey(sw[0] ? sw : nullptr);
 	k.l1 = textKey(l1); k.l2 = textKey(l2); k.l3 = textKey(l3);
 	k.retry = retry; k.rp = retry && pressing(BTN_RETRY);
 	k.us[0] = s_st.outUs[0]; k.us[1] = s_st.outUs[1];
@@ -437,6 +467,8 @@ static void drawDial() {
 		char b[40];
 		snprintf(b, sizeof(b), "PULSES ON GP%u ARE THROTTLE TO AN ESC.", gpioOf(PIN_SIG));
 		line(76, b, C_DIM);
+	} else if (sw[0]) {
+		line(64, sw, C_CYAN);
 	}
 	gfxArcDots(SERVO_DIAL_X, SERVO_DIAL_Y, SERVO_DIAL_ARC_R, -90, 90, 10, 3, C_GRID);
 	gfxLine(SERVO_DIAL_X, SERVO_DIAL_Y - SERVO_DIAL_ARC_R - 4, SERVO_DIAL_X,
@@ -454,34 +486,63 @@ static void drawDial() {
 	             2 * SV_SHAFT_R, SV_SHAFT_R, C_TEXT);
 }
 
-/** @brief The pulse in us, the sweep's count, and the A/B/AB selector. */
+/**
+ * @brief The current sensor's part of the readout row, with a sensor
+ *        declared: the current and the bus voltage as text, and the current's
+ *        colour: amber for a clipped reading, dim for none.
+ * @return false with no sensor declared.
+ */
+static bool senseReadout(char *cur, char *volt, size_t n, uint16_t *col) {
+	if (!senseDeclared()) return false;
+	SenseSample smp;
+	senseSample(&smp);
+	uint32_t now = millis();
+	bool clipped = senseCurrentText(&smp, now, cur, n);
+	senseVoltText(&smp, now, volt, n);
+	*col = clipped ? C_AMBER : senseFresh(&smp, now) ? C_TEXT : C_DIM;
+	return true;
+}
+
+/**
+ * @brief The pulse in us, the sweep's count, and the A/B/AB selector; with a
+ *        sensor declared, the current and the bus voltage beside the pulse.
+ */
 static void drawReadout() {
+	char cur[SENSE_TEXT_MAX + 1] = "", volt[SENSE_TEXT_MAX + 1] = "";
+	uint16_t curCol = C_DIM;
+	bool sensed = senseReadout(cur, volt, sizeof(cur), &curCol);
 	struct { uint16_t us[2]; bool sweeping; uint32_t moves; uint16_t limit; uint8_t mask, servos;
-	         bool pa, pb, pab, hint; } k;
+	         bool pa, pb, pab, hint; uint32_t cur, volt; uint16_t curCol; } k;
 	memset(&k, 0, sizeof(k));
 	// SAFE only: not running, not STALLED, and the pins bound, so not while
 	// the claim is taken or released and not under a bind error.
 	k.hint = !twoServos() && !s_st.running && !s_st.tripped && s_claimed &&
 	         pinClaimState() == ClaimState::Running && !pinClaimJobError() && !s_st.bindError &&
-	         s_auxRefusal == ClaimRefusal::None;
+	         s_auxRefusal == ClaimRefusal::None &&
+	         !sensed;   // a declared sensor's readout takes the row's right side
 	k.us[0] = s_st.outUs[0]; k.us[1] = s_st.outUs[1];
 	k.sweeping = s_st.sweeping; k.moves = s_st.sweepMoves; k.limit = s_sweep.moves;
 	k.mask = s_mask; k.servos = s_profile.servos;
 	k.pa = pressing(BTN_SEL_A); k.pb = pressing(BTN_SEL_B); k.pab = pressing(BTN_SEL_AB);
+	k.cur = textKey(sensed ? cur : nullptr); k.volt = textKey(sensed ? volt : nullptr);
+	k.curCol = curCol;
 	if (!changed(2, &k, sizeof(k))) return;
 
 	gfxRect(0, SV_READ_Y, GFX_W, SV_READ_H, C_BG);
+	// The sweep's count is on this row only without a sensor; with one it is
+	// in the dial band (drawDial()).
 	char sw[24] = "";
-	if (s_st.sweeping) {
-		if (s_sweep.moves) snprintf(sw, sizeof(sw), "SWEEP %lu/%u", (unsigned long)s_st.sweepMoves, s_sweep.moves);
-		else               snprintf(sw, sizeof(sw), "SWEEP %lu", (unsigned long)s_st.sweepMoves);
-	}
+	if (!sensed) sweepText(sw, sizeof(sw));
 	char buf[32];
 	if (!twoServos()) {
 		if (s_st.outUs[0]) snprintf(buf, sizeof(buf), "%u US", s_st.outUs[0]);
 		else               snprintf(buf, sizeof(buf), "NO PULSE");
 		gfxText(UI_MARGIN, SV_READ_Y + 5, buf, s_st.outUs[0] ? C_LIME : C_DIM, 2);
 		if (sw[0]) gfxText(GFX_W - UI_MARGIN - gfxTextW(sw, 1), SV_READ_Y + 9, sw, C_CYAN, 1);
+		if (sensed) {
+			gfxText(GFX_W - UI_MARGIN - gfxTextW(cur, 2), SV_READ_Y + SV_CUR_DY, cur, curCol, 2);
+			gfxText(GFX_W - UI_MARGIN - gfxTextW(volt, 1), SV_READ_Y + SV_VOLT_DY, volt, C_DIM, 1);
+		}
 		// SAFE with one servo: where the second one is switched on. Not while
 		// AUX is refused, where SERVOS cannot be set to TWO.
 		if (k.hint) {
@@ -500,6 +561,12 @@ static void drawReadout() {
 	gfxText(UI_MARGIN + 50, SV_READ_Y + 3, "B", C_CYAN, 1);
 	gfxText(UI_MARGIN + 60, SV_READ_Y + 3, b, C_TEXT, 1);
 	if (sw[0]) gfxText(UI_MARGIN, SV_READ_Y + 14, sw, C_CYAN, 1);
+	if (sensed) {
+		// Both servos are on the one supply: the current is their sum.
+		char sum[32];
+		snprintf(sum, sizeof(sum), "A+B %s", cur);
+		gfxText(UI_MARGIN, SV_READ_Y + 14, sum, curCol, 1);
+	}
 	uiButton(BTN_SEL_A, "A", s_mask == SERVO_MASK_A ? C_LIME : C_PANEL,
 	         s_mask == SERVO_MASK_A ? C_ONACCENT : C_TEXT, 1, k.pa);
 	uiButton(BTN_SEL_B, "B", s_mask == SERVO_MASK_B ? C_CYAN : C_PANEL,

@@ -27,7 +27,10 @@ It programs KST and Chaservo servos on the ESC pin (see
 [Hitec servo programming](#hitec-servo-programming); design note
 `docs/design/hitec-programming.md`). The AM32 editor, the servo tester and
 the two servo programmers take the pins through the pin claim of
-`docs/design/pin-claim.md`.
+`docs/design/pin-claim.md`. An optional INA219 current sensor on the
+board's I2C (Inter-Integrated Circuit) bus reads the servo supply's current
+and voltage (see [Current sensor](#current-sensor); design note
+`docs/design/current-sense.md`).
 
 ![UI preview](docs/ui-preview.png)
 
@@ -101,7 +104,7 @@ The pin map is `src/board_rp2350_touch_lcd_2_8.h`.
 |---|---|---|
 | LCD (liquid-crystal display) SCK / MOSI / CS / DC / RST | 10 / 11 / 13 / 14 / 15 | SPI1. SCK is serial clock, MOSI master out, slave in, CS chip select, DC data/command, RST reset. GP12 is the panel's MISO (master in, slave out) line, wired and not used |
 | LCD backlight | 16 | NPN (negative-positive-negative) transistor as low-side switch, 20 kHz, 8-bit, from a PIO state machine on pio0 (`src/backlight.pio`), so PWM slice 0 stays free |
-| Touch + IMU + RTC I2C SDA / SCL | 6 / 7 | I2C1, **shared bus** (touch 0x1A, IMU 0x6B, RTC 0x51). SDA is serial data, SCL serial clock |
+| Touch + IMU + RTC I2C SDA / SCL | 6 / 7 | I2C1, **shared bus** (touch 0x1A, IMU 0x6B, RTC 0x51), 400 kHz, on J3 too. SDA is serial data, SCL serial clock. An optional INA219 current sensor at 0x40 shares it, under SETTINGS → CURRENT SENSE |
 | Touch INT / RESET | 18 / 17 | Interrupt, active low. The touch reset is a net of its own, separate from LCD_RST |
 | microSD CLK / CMD / D0–D3 | 19 / 20 / 21–24 | 4-bit SDIO (Secure Digital Input/Output) on PIO, blackbox logging, see below. CLK is clock, CMD command, D0–D3 the data lines |
 | Power latch | 26 | `PIN_BAT_EN`, driven high first at boot |
@@ -251,7 +254,7 @@ To flash: hold **BOOT**, tap **RESET**, release **BOOT**, and copy the `.uf2`
 onto the USB drive that appears.
 
 A board whose flash holds a settings block of another layout version starts
-from the compiled defaults. This image's layout is version 4: flashed over an
+from the compiled defaults. This image's layout is version 5: flashed over an
 image with an earlier version, it returns every saved setting to its default
 once, and the ESC pin is GP0. See SETTINGS under [Using it](#using-it).
 
@@ -462,6 +465,7 @@ a drag. A row is 44 px tall at a 50 px pitch. **MOTOR POLES** and
 | WIRING | **KISS TELEM** | Whether to listen for the telemetry wire. Turning it on moves the KISS pin off the ESC pin if they coincide |
 | WIRING | **KISS PIN** | Steps through the same free GPIOs, skipping the ESC pin. The receiver is a PIO state machine, so any free GPIO works. Reads `--` and does not act while KISS is off |
 | SERVO SUPPLY | **SERVO SUPPLY** | `NONE`, the default, `GP28` or `GP29`: whether the enable input of a DC-DC converter for the programmed servo's supply is wired, and to which pin: GP28, J4 pin 11, or GP29, J4 pin 12 (design note `docs/design/kst-programming.md`, "Switched servo supply"). A stepper: - and + step NONE, GP28, GP29 and stop at the ends; it applies at once. With a pin chosen, that pin is an input with both pulls off and its input disabled outside a KST or Hitec claim, so the converter's external pull-down holds it off; during a claim the bench switches the servo's supply (KST servo programming, Hitec servo programming) |
+| SERVO SUPPLY | **CURRENT SENSE** | `NONE`, the default, or `INA219`: whether an INA219 current sensor is on the I2C bus at 0x40 ([Current sensor](#current-sensor)). A toggle; it applies at once. With `NONE` nothing is sent to 0x40. With `INA219` the bench probes the part at once and every 1000 ms while it is not found, and a caption under the label reads `FOUND`, `NOT FOUND` or `OTHER PART`. `OTHER PART` is another chip at 0x40, or an INA219 left on another configuration: power-cycle the module |
 | DISPLAY | **CONTRAST** | `NORMAL` or `HIGH`. See below |
 | DISPLAY | **BACKLIGHT** | 16–255 in steps of 32. High contrast forces 255 while on |
 | BOARD | **BUILT FOR** | `RP2350-TOUCH-LCD-2.8`, the board the image is built for. Read-only |
@@ -488,12 +492,13 @@ A wrong ESC pin produces no error: the ESC receives no frames. **LINK** on this
 screen shows the result of each pin change. A non-zero packet rate means the
 pin is correct.
 
-The settings block is version 4 (`SETTINGS_VERSION`). A block of another
+The settings block is version 5 (`SETTINGS_VERSION`). A block of another
 version is discarded whole, and the compiled defaults load, every setting
 and the ESC pin included. So the first boot after an update from an earlier
-build returns every saved setting to its default once: a version 3 block,
-with its ESC pin on GP29 or GP28 or its supply enable on GP0, does not load,
-nor does DshotDisplay 2.x's version 2 block. DshotDisplay discards this
+build returns every saved setting to its default once: a version 4 block,
+which has no CURRENT SENSE, does not load, nor does a version 3 block, with
+its ESC pin on GP29 or GP28 or its supply enable on GP0, nor DshotDisplay
+2.x's version 2 block. DshotDisplay discards this
 project's blocks the same way.
 
 **HOLD TO SAVE** (1 s, `UI_HOLD_MS`) writes all settings to flash: every row
@@ -1006,10 +1011,7 @@ pins go only after the last pulse has completed: it writes level 0 and waits
 two frames plus 1 ms, 41 ms at 50 Hz, before the pins leave PWM, so no pulse
 is cut short. A profile change waits the same way before the rebind. The
 released pins are inputs with the pull-down on until DShot takes SIG back
-and, with KISS on, the KISS receiver takes AUX. Until the pins are let go the
-page reads `RELEASING THE PINS`, and its BACK is drawn disabled, an outline,
-and does nothing; it returns to the servo screen once `UNPLUG THE SERVO.`
-shows.
+and, with KISS on, the KISS receiver takes AUX.
 
 ## KST servo programming
 
@@ -1121,12 +1123,11 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
    `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.`: LEAVE switches it off, and the
    unplug page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` until the line
    closes 2 s after the switch-off. Every claim end does the same once the
-   supply was on. Until the pin is let go, the unplug page's BACK is drawn
-   disabled and does nothing. **HOLD TO REBOOT** (1 s) switches the supply
-   off for 2 s and on for 1 s, then enters programming mode and reads the
-   servo as it is: the new backup. The pending changes go; without a card
-   the backup in memory is lost, and the page says so above the button.
-   BACK during REBOOT closes as LEAVE does.
+   supply was on. **HOLD TO REBOOT** (1 s) switches the supply off for 2 s
+   and on for 1 s, then enters programming mode and reads the servo as it
+   is: the new backup. The pending changes go; without a card the backup in
+   memory is lost, and the page says so above the button. BACK during REBOOT
+   closes as LEAVE does.
 6. With the switched supply, the supply is on only while the screen runs. A
    screen that stalls for 250 ms switches it off once a running operation
    has ended; the servo leaves programming mode and its backup in memory goes.
@@ -1281,10 +1282,9 @@ and every D series servo on the line takes a frame sent to ID 0.
    write removes its record.
 6. BACK from the list opens the leave page. LEAVE with `GP28` or `GP29` switches the
    supply off; the unplug page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`
-   until the line closes, and its BACK is drawn disabled until then. With
-   `NONE`, LEAVE restarts the servo from its saved values. RESTART DSHOT
-   returns to MENU. READ AGAIN on the leave page reads the servo again and
-   keeps the pending changes.
+   until the line closes. With `NONE`, LEAVE restarts the servo from its
+   saved values. RESTART DSHOT returns to MENU. READ AGAIN on the leave page
+   reads the servo again and keeps the pending changes.
 7. With `GP28` or `GP29` the supply is on only while the screen runs. A screen that
    stalls for 250 ms switches it off: at once during the entry, else once
    a running read or write has ended. The page then reads
@@ -1371,6 +1371,79 @@ own factory cells, and the HS-5xxx and HS-7xxx layouts.
   current is not specified.
 
 ---
+
+## Current sensor
+
+An optional INA219, Texas Instruments' current and power monitor, measures
+the servo supply's current and voltage. It sits on the high side of the
+supply: the current flows through the shunt of the module, 0.1 Ω, between
+the supply's output and the servo's plus wire. Not tested on hardware: no
+INA219 has been on the board's bus. Design note:
+`docs/design/current-sense.md`.
+
+**What it measures.**
+
+- The current through the shunt, from the shunt voltage, 10 µV a step:
+  100 µA a step on 0.1 Ω, ±3.2 A at the gain the bench sets (/8,
+  ±320 mV). A reading at the end of that range is clipped and reads
+  `>3.2 A`; past it the part gives no value.
+- The voltage at the shunt's servo side, IN-, against the board's ground,
+  4 mV a step, in the 16 V range.
+- The bench writes one configuration, 19EFh: the shunt averaged over
+  32 samples, 17.02 ms, the bus voltage at 12 bit, 532 µs, both
+  continuously. Each reading represents 17.02 ms of the 25 ms between two
+  reads.
+
+It does not measure the horn's angle and does not set the supply's
+voltage.
+
+**Wiring.** The module's VCC, GND, SDA and SCL go to J3, the connector of
+the board's I2C1 bus: SCL to J3 pin 1, SDA to pin 2, VCC to pin 3, 3.3 V,
+GND to pin 4, and the module's GND to nothing else. A pigtail goes to the
+module's header pins; a Qwiic or STEMMA QT cable puts SCL on the module's
+GND. The module is never fed from 5 V: its pull-ups would pull SDA and SCL,
+and with them the touch controller, to 5 V. The servo's current goes through
+the module's screw terminal only: IN+ from the supply's output, IN- to the
+servo's plus wire. The VIN- and VIN+ pins of the module's header stay
+unconnected. The address is 0x40, both address pins at GND, the common
+module's default (`INA219_ADDR`). The design note's "Electrical" section
+has the circuit, the ratings and the bus's pull-ups.
+
+**SETTINGS → CURRENT SENSE.** `NONE`, the default, or `INA219`, in the
+SERVO SUPPLY section below SERVO SUPPLY. With `INA219` the bench probes the
+part at boot and every 1000 ms while it is not online, and the row's caption
+reads `FOUND`, `NOT FOUND`, or `OTHER PART` for a part at 0x40 that is no
+INA219. An INA219 left on another configuration by other firmware also reads
+`OTHER PART`: power-cycle the module. With `NONE` nothing is sent to 0x40.
+
+**Readout.** With CURRENT SENSE at `INA219`:
+
+- SERVO TESTER: the current at scale 2 right of the pulse, `0.42 A`, and
+  under it the bus voltage, `5.02 V`. With two servos on the one supply the
+  row reads their sum, `A+B 0.84 A`. A clipped reading reads `>3.2 A` in
+  amber. The sweep's count moves to the first line of the dial.
+- KST SERVO and HITEC SERVO: on the strip, after the supply's state,
+  `SUPPLY ON 0.08 A`.
+- A reading 250 ms old or older, or none, reads `-- A`.
+
+**How it is read.** Core0 reads the shunt and bus registers once per UI
+frame, 25 ms, directly after the touch read, so the touch read is never
+delayed by the sensor; one core owns the bus and no lock is needed. A
+frame's sensor read is 96 clocks of the bus, 240 µs at 400 kHz; the
+configuration is read back once a second, and a part found on its power-on
+configuration twice in a row is probed and configured again. rcbench's
+`sense_bus.c`, copied into `lib/rcbench/shared/sense/`, decides on faults:
+three failed transactions take the part offline, two timeouts of 1000 µs in
+a row or a line held low mark the bus stuck, and a recovery, 9 clocks on SCL
+and a STOP, runs at once and every 100 ms while it is stuck. The touch
+driver reports its own transfers to the same record; an abort with a line
+still low 10 µs after it counts as a stuck bus, not as a missing part. The
+probe reads the configuration register first and writes a register only
+when it reads as an INA219's, 399Fh or 19EFh; another chip at 0x40 is read
+once a second, and nothing but the register pointer is written to it. Each
+reading is published as a `SenseSample` (`src/sense.h`), under a lock of its
+own, for core1; slices 3 and 4 of the design note read it there, and nothing
+on core1 reads it yet.
 
 ## Device backups
 
@@ -1508,7 +1581,8 @@ src/
   hitec_files.{h,cpp}   Hitec's SAVE AS files, its record of a write and its backups
   backup_ring.{h,cpp}   the ring of device backups in BACKUP/
   card_dir.{h,cpp}      the card's mount rule, directory scope and file calls
-  servo.cmake, kst.cmake  each feature's firmware sources (test/*.mk: its tests)
+  sense.{h,cpp}         the INA219 current sensor on the shared I2C bus: codec, probe, readings, recovery
+  servo.cmake, kst.cmake, hitec.cmake, sense.cmake  each feature's firmware sources (test/*.mk: its tests)
   ui_input.{h,cpp}      tap-on-release and held-repeat rules, shared (pure)
   rpm_filter.h          display smoothing of the RPM readout
   am32_bl.{h,cpp}       one-wire bootloader transport
@@ -1536,7 +1610,7 @@ src/
   tusb_config.h         TinyUSB configuration
 lib/rcbench/            rcbench files copied unchanged: servo sweep, GPIO-to-PWM fold,
                         KST core and line driver, KST file store, Hitec core,
-                        S.BUS decoder
+                        S.BUS decoder, sensor bus
 tools/
   sdtest/               standalone SD bring-up test, 2.8" only; built locally, never released
   make_previews.py      restitches docs/*.png and wiki/img/ from the test suite's frames
@@ -1556,9 +1630,10 @@ files copied unchanged into `lib/rcbench/` with rcbench's own layout
 (`lib/rcbench/README.md`): the sweep curve, the GPIO-to-PWM map, the KST
 programming core with its RP2350 line driver, the KST file store, and the
 Hitec programming core with its RP2350 line driver, servo file text and CRC,
-and the S.BUS (Futaba's serial bus for receiver channels) decoder. The
-decoder is built in the host suite only so far: nothing in `src/` calls it
-and the firmware does not build it. Files include each other as plain
+the S.BUS (Futaba's serial bus for receiver channels) decoder, and the
+current sensor's bus record (`sense_bus.c`). The decoder is built in the host
+suite only so far: nothing in `src/` calls it and the firmware does not build
+it. Files include each other as plain
 siblings, except two drivers with folders of their own: the DShot
 driver in `src/dshot/`, so that it can be compared with its rcbench original,
 and the SDIO card driver in `src/sdio/`, whose `compat/` headers have to keep
@@ -1593,7 +1668,7 @@ tests run the card protocol against a simulated card. Time is virtual —
 hold-to-write and gesture repeat deterministic rather than dependent on
 machine speed. The fake ESC serves a real settings blob recovered from the
 reference configurator, so the UI tests operate on values a real ESC would
-report. The suite renders 45 screens to PPM (portable pixmap) images as it
+report. The suite renders 47 screens to PPM (portable pixmap) images as it
 runs, so a layout change is visible in the frames:
 
 - the splash;
@@ -1601,15 +1676,16 @@ runs, so a layout change is visible in the frames:
   high contrast, the card held by a USB host;
 - nine of MENU: on arrival, the EDT chip on, off and reading NO ESC, BEEP
   accepted and refused, unsaved settings, PINS BUSY, seven rows;
-- three of MENU → SETTINGS: the top, scrolled to the end, high contrast;
+- four of MENU → SETTINGS: the top, scrolled to the end, high contrast, the
+  CURRENT SENSE row with a sensor found;
 - six of MENU → SD LOG: ready, recording, no card, a card found by RETRY, USB
   DRIVE refused, USB DRIVE serving;
 - six of the AM32 editor: list, field edit, scrolled, written, written with
   a backup, hex view;
-- thirteen of the servo tester: SAFE, running, sweeping, two servos,
+- fourteen of the servo tester: SAFE, running, sweeping, two servos,
   stalled, an ESC answering, a refused bind, SET, SET with a warning, SET
   while running, SET with one GPIO for both pins, the unplug page, the
-  switched supply's line.
+  switched supply's line, the current sensor's readout.
 
 Failing tests dump their frame too.
 
@@ -1622,7 +1698,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.1%**: 8,449 of 8,704 lines in 52 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.2%**: 8,814 of 9,069 lines in 56 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the
@@ -1638,6 +1714,23 @@ the same way, to put fake jobs in its job table, and the Makefile does not list 
 `test_servo.cpp` includes `ui_servo.cpp`, and `test/servo.mk` does not list it. The servo
 PWM driver runs against a register fake in `fakes.cpp` that records each pin's function,
 level and pull and each slice's wrap, divider and enable.
+
+The I2C1 bus is `test/fake_i2c.cpp`: the parts on it by address, the clocks of
+each transaction (9 per byte, 2 for a start and a stop, 1 for a repeated
+start), and faults on demand: a part absent, the next transfers failing with a
+NACK (not acknowledged) or a timeout, SDA or SCL held low, SDA held until the
+recovery's clocks. With no part added every address answers with a NACK. Its
+INA219 model holds the six registers and their power-on values, RST, the
+pointer, the PG (gain) range and the 16 V or 32 V range, the shunt code from a
+current and a shunt, the bus code at IN-, and on request the conversion time
+the configuration sets. `test_sense.cpp` runs the sensor against it: the codec
+at the range ends, the probe, the readings, the faults rcbench's `sense_bus.c`
+decides on, the read-back, the sample's 250 ms age across a `millis()` wrap,
+the readout's text, and the touch driver, `cst328.cpp`, reading every frame
+beside the sensor present, absent and failing. It includes `cst328.cpp` in a
+namespace of its own, beside the scripted touch of `fakes.cpp` the screen tests
+use. rcbench has no test of `sense_bus.c` of its own; its tests reach it
+through drivers that are not copied.
 
 `make pioemu`, which `make` runs too, runs `test/pio_sdio_emu.py`. It assembles
 the two SDIO PIO programs from `src/sdio/sd_pio.pio` itself and runs them one
