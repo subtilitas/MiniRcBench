@@ -185,6 +185,14 @@ static bool running() {
 	return s_claimed && pinClaimState() == ClaimState::Running && pinClaimJobError() == 0;
 }
 
+/**
+ * @brief Whether BACK acts on this frame: everywhere but on the unplug page
+ *        before the job has let the pin go (pinClaimUnplugDue()), where
+ *        pinClaimKeep() would refuse. The control table reports it, the tap
+ *        is gated on it, the frame key holds it and the header draws it.
+ */
+static bool backActs() { return s_view != KstView::Unplug || pinClaimUnplugDue(); }
+
 /** @brief The seq of the last command sent, an operation or a card phase's. */
 static uint16_t s_sentSeq = 0;
 
@@ -765,7 +773,7 @@ static void mainText(MainText *m) {
 static void drawMain() {
 	static MainText m;
 	mainText(&m);
-	uiHeader("KST SERVO", s_t);
+	uiHeader("KST SERVO", s_t, backActs());
 	uiStripClear();
 	if (m.strip[0]) uiStripText(m.strip, m.stripCol);
 	gfxRect(0, UI_BODY_Y, GFX_W, GFX_H - UI_BODY_Y, C_BG);
@@ -847,7 +855,7 @@ static bool stepOk(int dir) {
 }
 
 static void drawList() {
-	uiHeader("KST SERVO", s_t);
+	uiHeader("KST SERVO", s_t, backActs());
 	uiStripClear();
 	char strip[48];
 	const char *type = kst_type_name(kst_type(&s_st.image));
@@ -1098,7 +1106,7 @@ static void startWrite() {
 }
 
 static void drawWrite() {
-	uiHeader(s_restoring ? "KST RESTORE" : "KST WRITE", s_t);
+	uiHeader(s_restoring ? "KST RESTORE" : "KST WRITE", s_t, backActs());
 	uiStripClear();
 	gfxRect(0, UI_BODY_Y, GFX_W, GFX_H - UI_BODY_Y, C_BG);
 	char buf[64];
@@ -1304,7 +1312,7 @@ static void drawFileRow(int i, int y, void *) {
 static bool loadOk() { return s_fileSel >= 0 && kstFilesMounted() && idleInMode(); }
 
 static void drawFiles() {
-	uiHeader("KST FILES", s_t);
+	uiHeader("KST FILES", s_t, backActs());
 	uiStripClear();
 	char strip[48];
 	bool mounted = kstFilesMounted();
@@ -1513,7 +1521,7 @@ static bool rebootAllowed() {
 }
 
 static void drawLeave() {
-	uiHeader("KST SERVO", s_t);
+	uiHeader("KST SERVO", s_t, backActs());
 	uiStripClear();
 	char strip[32];
 	// The type is the servo's that was read; after a loss there is none.
@@ -1569,7 +1577,7 @@ static void drawLeave() {
 
 static void drawUnplug() {
 	bool due = pinClaimUnplugDue();
-	uiHeader("KST SERVO", s_t);
+	uiHeader("KST SERVO", s_t, backActs());
 	gfxRect(0, UI_STRIP_Y, GFX_W, GFX_H - UI_STRIP_Y, C_BG);
 	if (!due) {
 		// The close rule: a servo the bench powered is off for 2 s first.
@@ -1616,19 +1624,19 @@ uint8_t uiKstControls(UiControl *out, uint8_t max) {
 	switch (s_view) {
 		case KstView::Unplug: {
 			bool due = pinClaimUnplugDue();
-			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), due);
+			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
 			if (due) uiControlAdd(out, &n, max, UI_FIX(KstCtl::Restart), BTN_RESTART, true);
 			return n;
 		}
 		case KstView::Main: {
-			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
+			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
 			static MainText m;
 			mainText(&m);
 			if (m.button) uiControlAdd(out, &n, max, UI_FIX(m.ctl), BTN_WIDE, m.enabled);
 			return n;
 		}
 		case KstView::List:
-			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
+			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
 			uiListAddRows(&s_list, out, &n, max, true);
 			for (uint8_t i = 1; i < n; i++)
 				if (!kstRowEditable(out[i].id.row)) out[i].enabled = false;
@@ -1641,13 +1649,13 @@ uint8_t uiKstControls(UiControl *out, uint8_t max) {
 			uiControlAdd(out, &n, max, UI_FIX(KstCtl::Files), BTN_FILES, true);
 			return n;
 		case KstView::Write:
-			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
+			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
 			if (s_writing || s_flushing) return n;
 			if (s_result || s_cardNote) uiControlAdd(out, &n, max, UI_FIX(KstCtl::WriteOk), BTN_WIDE, true);
 			else uiControlAdd(out, &n, max, UI_FIX(KstCtl::WriteHold), BTN_WIDE, holdOk());
 			return n;
 		case KstView::Files: {
-			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
+			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
 			uiListAddRows(&s_fileList, out, &n, max, true);
 			if (!kstFilesMounted())
 				uiControlAdd(out, &n, max, UI_FIX(KstCtl::RetryMount), BTN_SAVE, !cardHeldByUsb());
@@ -1658,7 +1666,7 @@ uint8_t uiKstControls(UiControl *out, uint8_t max) {
 			return n;
 		}
 		case KstView::Leave:
-			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
+			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
 			if (s_st.supplyFitted)
 				uiControlAdd(out, &n, max, UI_FIX(KstCtl::Reboot), BTN_REBOOT, rebootAllowed());
 			uiControlAdd(out, &n, max, UI_FIX(KstCtl::Leave), BTN_WIDE, !s_writing);
@@ -1701,6 +1709,7 @@ static uint32_t frameKey() {
 	h = mix(h, ((uint32_t)s_claimed << 8) | (uint32_t)s_refusal);
 	h = mix(h, ((uint32_t)pinClaimState() << 8) | pinClaimJobError());
 	h = mix(h, pinClaimUnplugDue());
+	h = mix(h, backActs());
 	h = mixBytes(h, &s_target, sizeof(s_target));
 	h = mix(h, ((uint32_t)(s_sel + 1) << 16) | (uint32_t)(s_fileSel + 1));
 	h = mix(h, (uint32_t)s_list.scrollPx);
@@ -1749,8 +1758,8 @@ bool uiKstTick(const TouchState *t) {
 	if (s_view != KstView::Unplug) follow();
 	s_prevJob = s_st.job;
 
-	bool back = uiBackTapped(s_t);
-	if (back && s_view == KstView::Unplug && !pinClaimUnplugDue()) back = false;
+	// BACK on the unplug page waits for the job to let the pin go: backActs().
+	bool back = backActs() && uiBackTapped(s_t);
 	if (back) {
 		switch (s_view) {
 			case KstView::Main:

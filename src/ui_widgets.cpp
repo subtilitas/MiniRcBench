@@ -53,12 +53,13 @@ bool uiBackTapped(const TouchState *t) {
 	return uiTapped(uiBackRect(), t);
 }
 
-void uiHeader(const char *title, const TouchState *t) {
+void uiHeader(const char *title, const TouchState *t, bool backEnabled) {
 	gfxRect(0, 0, GFX_W, UI_HDR_H, C_PANEL);
 	// Scale 2 is 14 px tall, centred in the band rather than at a hand-picked y,
 	// so the title sits on the same baseline on every screen.
 	gfxText(UI_MARGIN, (UI_HDR_H - 14) / 2, title, C_TEXT, 2);
-	uiButton(uiBackRect(), "BACK", C_PANEL, C_TEXT, 1, uiPressing(uiBackRect(), t));
+	uiButton(uiBackRect(), "BACK", C_PANEL, C_TEXT, 1, uiPressing(uiBackRect(), t),
+	         backEnabled);
 }
 
 void uiStripClear() {

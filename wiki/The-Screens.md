@@ -20,7 +20,9 @@ Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MEN
 
 **BACK is at the top right**, in the header band, on every screen except the
 tester. The header is 36 px tall and `BACK` is 64 × 32 px. The tester is the
-root and has no header.
+root and has no header. On the unplug page of SERVO TESTER, KST SERVO and
+HITEC SERVO, `BACK` waits until the pins are let go: until then it is drawn
+disabled, an outline with a grey label, and a tap on it does nothing.
 
 ---
 

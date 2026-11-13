@@ -22,7 +22,10 @@ Bildschirm öffnet.
 
 **BACK sitzt oben rechts** im Kopfbereich, auf jedem Bildschirm außer dem
 Tester. Der Kopfbereich ist 36 px hoch, `BACK` misst 64 × 32 px. Der Tester ist
-die Wurzel und hat keinen Kopfbereich.
+die Wurzel und hat keinen Kopfbereich. Auf der Abziehseite von SERVO TESTER,
+KST SERVO und HITEC SERVO wartet `BACK`, bis die Pins freigegeben sind: Bis
+dahin ist es deaktiviert gezeichnet, als Umriss mit grauer Beschriftung, und
+ein Tippen darauf bewirkt nichts.
 
 ---
 

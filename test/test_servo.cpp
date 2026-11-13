@@ -2036,6 +2036,8 @@ static void testUnplugPage() {
 	          ctlPresent(UI_FIX(UI_BACK)) && !ctlEnabled(UI_FIX(UI_BACK)) &&
 	          !ctlPresent(UI_FIX(ServoCtl::Restart)));
 	checkControlTable("the unplug page, the job not yet let go");
+	checkTrue("and BACK is drawn so: an outline, its label grey",
+	          backLook() == BackLook::Disabled);
 	core1();
 	checkTrue("core1's next pass: still stopping", core1JobPhase() == Core1JobPhase::Stopping);
 	checkTrue("level 0 written, SIG still on PWM",
@@ -2047,6 +2049,7 @@ static void testUnplugPage() {
 	int bx, by;
 	ctlCentre(UI_FIX(UI_BACK), &bx, &by);
 	fakePress(bx, by); frameAt(5);
+	checkTrue("a press on it draws no pressed look", backLook() == BackLook::Disabled);
 	fakeRelease(); frameAt(5);
 	checkTrue("BACK while releasing: ignored, the page stays",
 	          s_view == View::Unplug && pinClaimState() == ClaimState::Leaving &&
@@ -2056,6 +2059,7 @@ static void testUnplugPage() {
 	checkTrue("the job let go: BACK acts and RESTART DSHOT is there",
 	          ctlEnabled(UI_FIX(UI_BACK)) && ctlEnabled(UI_FIX(ServoCtl::Restart)));
 	checkControlTable("the unplug page, the job let go");
+	checkTrue("and BACK is drawn live on that frame", backLook() == BackLook::Live);
 	checkInt("no pulse was cut short", fakePin(0).cutPulses, cuts);
 	checkTrue("the job let go: SIG an input", fakePin(0).function == GPIO_FUNC_SIO);
 	checkInt("DShot not yet restarted", fakeResumeCount(), resumes);

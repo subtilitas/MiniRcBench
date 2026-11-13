@@ -20,6 +20,7 @@
 #include "ui_screen.h"
 #include "ui_menu.h"
 #include "gfx.h"
+#include "theme.h"
 
 #include <stdio.h>
 
@@ -196,11 +197,34 @@ static inline UiControlId menuRow(const UiScreen *s) {
 	return UI_ROW(row, Row);
 }
 
+/** @brief How the header's BACK looks on the panel. */
+enum class BackLook : uint8_t {
+	Live,      /**< Panel fill, the label in C_TEXT, at rest or pressed. */
+	Disabled,  /**< uiButton()'s disabled look: an outline, C_BG inside, the label in C_GRID. */
+	Other,     /**< Neither: not drawn, or drawn some other way. */
+};
+
+/** @brief How the header's BACK is drawn on the panel now. */
+static inline BackLook backLook() {
+	const UiRect r = uiBackRect();
+	const uint16_t *fb = gfxBuffer();
+	const uint16_t fill = fb[(r.y + r.h / 2) * GFX_W + r.x + 4];
+	const uint16_t edge = fb[r.y * GFX_W + r.x + r.w / 2];
+	const int lx = r.x + (r.w - gfxTextW("BACK", 1)) / 2, ly = r.y + (r.h - 7) / 2;
+	if (fill == C_PANEL && (fakeTextIs(lx, ly, "BACK", C_TEXT, C_PANEL, 1) ||
+	                        fakeTextIs(lx + 1, ly + 1, "BACK", C_TEXT, C_PANEL, 1)))
+		return BackLook::Live;
+	if (fill == C_BG && edge == C_GRID && fakeTextIs(lx, ly, "BACK", C_GRID, C_BG, 1))
+		return BackLook::Disabled;
+	return BackLook::Other;
+}
+
 /**
  * @brief The open screen's table on the current frame: ids unique, every
  *        rectangle inside the panel and not empty, no two controls
  *        overlapping, and BACK at uiBackRect() on every screen but the
- *        tester.
+ *        tester, drawn live where the table says it acts and disabled
+ *        where it says it does not.
  * @param where Names the frame in the check's text.
  */
 static inline void checkControlTable(const char *where) {
@@ -235,5 +259,10 @@ static inline void checkControlTable(const char *where) {
 		            b.rect.w == br.w && b.rect.h == br.h;
 		snprintf(what, sizeof(what), "%s: BACK is in the table at its rectangle", where);
 		checkTrue(what, back);
+		if (back) {
+			snprintf(what, sizeof(what), "%s: BACK is drawn %s, as the table says", where,
+			         b.enabled ? "live" : "disabled");
+			checkTrue(what, backLook() == (b.enabled ? BackLook::Live : BackLook::Disabled));
+		}
 	}
 }

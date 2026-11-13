@@ -232,7 +232,9 @@ the KISS pin low until the KISS receiver takes it, or for good with KISS off.
 
 Unplug the servo, then tap `RESTART DSHOT`. The ESC driver takes the pins back
 and `MENU` returns. `BACK` on this page returns to the servo
-screen instead, SAFE, and keeps the pins.
+screen instead, SAFE, and keeps the pins. Until the last pulse has completed
+the page reads `RELEASING THE PINS`, and `BACK` is drawn disabled, an outline
+with a grey label: it acts from the moment `UNPLUG THE SERVO.` shows.
 
 ---
 

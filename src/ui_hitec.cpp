@@ -203,6 +203,14 @@ static bool running() {
 	return s_claimed && pinClaimState() == ClaimState::Running && pinClaimJobError() == 0;
 }
 
+/**
+ * @brief Whether BACK acts on this frame: everywhere but on the unplug page
+ *        before the job has let the pin go (pinClaimUnplugDue()), where
+ *        pinClaimKeep() would refuse. The control table reports it, the tap
+ *        is gated on it, the frame key holds it and the header draws it.
+ */
+static bool backActs() { return s_view != HitecView::Unplug || pinClaimUnplugDue(); }
+
 /** @brief The seq of the last command sent, an operation or a card phase's. */
 static uint16_t s_sentSeq = 0;
 
@@ -622,7 +630,7 @@ static void mainText(MainText *m) {
 static void drawMain() {
 	static MainText m;
 	mainText(&m);
-	uiHeader("HITEC SERVO", s_t);
+	uiHeader("HITEC SERVO", s_t, backActs());
 	uiStripClear();
 	if (m.strip[0]) uiStripText(m.strip, C_DIM);
 	gfxRect(0, UI_BODY_Y, GFX_W, GFX_H - UI_BODY_Y, C_BG);
@@ -645,7 +653,7 @@ static void drawMain() {
 // ---------------------------------------------------------------------------
 
 static void drawFamily() {
-	uiHeader("HITEC SERVO", s_t);
+	uiHeader("HITEC SERVO", s_t, backActs());
 	uiStripClear();
 	uiStripText("CHOOSE THE SERVO'S FAMILY", C_DIM);
 	gfxRect(0, UI_BODY_Y, GFX_W, GFX_H - UI_BODY_Y, C_BG);
@@ -752,7 +760,7 @@ static HitecRule firstRule(uint32_t rules) {
 static bool readFirst() { return s_st.unknown; }
 
 static void drawList() {
-	uiHeader("HITEC SERVO", s_t);
+	uiHeader("HITEC SERVO", s_t, backActs());
 	uiStripClear();
 	char model[24], strip[48], backup[24], gp[8];
 	hitecModelText(&s_st.image, model, sizeof(model));
@@ -1043,7 +1051,7 @@ static bool holdOk() {
 }
 
 static void drawWrite() {
-	uiHeader(s_restoring ? "HITEC RESTORE" : "HITEC WRITE", s_t);
+	uiHeader(s_restoring ? "HITEC RESTORE" : "HITEC WRITE", s_t, backActs());
 	uiStripClear();
 	gfxRect(0, UI_BODY_Y, GFX_W, GFX_H - UI_BODY_Y, C_BG);
 	char buf[96];
@@ -1262,7 +1270,7 @@ static bool loadOk() {
 }
 
 static void drawFiles() {
-	uiHeader("HITEC FILES", s_t);
+	uiHeader("HITEC FILES", s_t, backActs());
 	uiStripClear();
 	char strip[48];
 	bool mounted = hitecFilesMounted();
@@ -1410,7 +1418,7 @@ static void filesTouch() {
 // ---------------------------------------------------------------------------
 
 static void drawLeave() {
-	uiHeader("HITEC SERVO", s_t);
+	uiHeader("HITEC SERVO", s_t, backActs());
 	uiStripClear();
 	char strip[48];
 	if (s_haveDraft) {
@@ -1446,7 +1454,7 @@ static void drawLeave() {
 
 static void drawUnplug() {
 	bool due = pinClaimUnplugDue();
-	uiHeader("HITEC SERVO", s_t);
+	uiHeader("HITEC SERVO", s_t, backActs());
 	gfxRect(0, UI_STRIP_Y, GFX_W, GFX_H - UI_STRIP_Y, C_BG);
 	if (!due) {
 		if (s_st.supplyUsed && s_st.supplyLeftDs) {
@@ -1488,25 +1496,25 @@ uint8_t uiHitecControls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
 	switch (s_view) {
 		case HitecView::Family:
-			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
+			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
 			uiControlAdd(out, &n, max, UI_FIX(HitecCtl::Classic), BTN_CLASSIC, classicAllowed());
 			uiControlAdd(out, &n, max, UI_FIX(HitecCtl::DSeries), BTN_DSERIES, true);
 			return n;
 		case HitecView::Unplug: {
 			bool due = pinClaimUnplugDue();
-			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), due);
+			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
 			if (due) uiControlAdd(out, &n, max, UI_FIX(HitecCtl::Restart), BTN_RESTART, true);
 			return n;
 		}
 		case HitecView::Main: {
-			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
+			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
 			static MainText m;
 			mainText(&m);
 			if (m.button) uiControlAdd(out, &n, max, UI_FIX(m.ctl), BTN_WIDE, m.enabled);
 			return n;
 		}
 		case HitecView::List:
-			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
+			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
 			uiListAddRows(&s_list, out, &n, max, true);
 			for (uint8_t i = 1; i < n; i++)
 				if (!selectable(out[i].id.row)) out[i].enabled = false;
@@ -1522,13 +1530,13 @@ uint8_t uiHitecControls(UiControl *out, uint8_t max) {
 			uiControlAdd(out, &n, max, UI_FIX(HitecCtl::Files), BTN_FILES, true);
 			return n;
 		case HitecView::Write:
-			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
+			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
 			if (s_writing || s_flushing) return n;
 			if (s_result || s_cardNote) uiControlAdd(out, &n, max, UI_FIX(HitecCtl::WriteOk), BTN_WIDE, true);
 			else uiControlAdd(out, &n, max, UI_FIX(HitecCtl::WriteHold), BTN_WIDE, holdOk());
 			return n;
 		case HitecView::Files:
-			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
+			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
 			uiListAddRows(&s_fileList, out, &n, max, true);
 			if (!hitecFilesMounted())
 				uiControlAdd(out, &n, max, UI_FIX(HitecCtl::RetryMount), BTN_SAVE, !cardHeldByUsb());
@@ -1538,7 +1546,7 @@ uint8_t uiHitecControls(UiControl *out, uint8_t max) {
 			uiControlAdd(out, &n, max, UI_FIX(HitecCtl::Restore), BTN_RESTORE, restoreAllowed());
 			return n;
 		case HitecView::Leave:
-			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
+			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
 			uiControlAdd(out, &n, max, UI_FIX(HitecCtl::LeaveRead), BTN_LREAD, idleMode());
 			uiControlAdd(out, &n, max, UI_FIX(HitecCtl::Leave), BTN_WIDE, !s_writing);
 			return n;
@@ -1571,6 +1579,7 @@ static uint32_t frameKey() {
 	h = mix(h, ((uint32_t)s_claimed << 8) | (uint32_t)s_refusal);
 	h = mix(h, ((uint32_t)pinClaimState() << 8) | pinClaimJobError());
 	h = mix(h, pinClaimUnplugDue());
+	h = mix(h, backActs());
 	h = mixBytes(h, &s_draft, sizeof(s_draft));
 	h = mix(h, ((uint32_t)(s_sel + 1) << 16) | (uint32_t)(s_fileSel + 1));
 	h = mix(h, (uint32_t)s_list.scrollPx);
@@ -1619,8 +1628,8 @@ bool uiHitecTick(const TouchState *t) {
 		if (s_view != HitecView::Unplug) follow();
 	}
 
-	bool back = uiBackTapped(s_t);
-	if (back && s_view == HitecView::Unplug && !pinClaimUnplugDue()) back = false;
+	// BACK on the unplug page waits for the job to let the pin go: backActs().
+	bool back = backActs() && uiBackTapped(s_t);
 	if (back) {
 		switch (s_view) {
 			case HitecView::Family:
