@@ -1,10 +1,12 @@
 # Receiver signals: S.BUS monitor and PPM output
 
-Status: planned, not built. Two tools on the pin claim of
-[pin-claim.md](pin-claim.md): RX MONITOR, which reads a receiver's S.BUS
-output on GP1, and PPM OUTPUT, which sends eight channels of PPM on GP0. The
-protocol cores are rcbench's, host-tested there and nowhere measured on a
-pin. The PPM output's use is thin
+Status: slice 1a built, the rest planned. Slice 1a copied rcbench's S.BUS
+decoder and its test into `lib/rcbench/` and `test/rcbench/`, run in the
+host suite only ([work breakdown](#work-breakdown)). The design: two tools
+on the pin claim of [pin-claim.md](pin-claim.md), RX MONITOR, which reads a
+receiver's S.BUS output on GP1, and PPM OUTPUT, which sends eight channels
+of PPM on GP0. The protocol cores are rcbench's, host-tested there and
+nowhere measured on a pin. The PPM output's use is thin
 ([what PPM output is for](#what-ppm-output-is-for)); whether to build it is
 the owner's first question ([open questions](#open-questions)). The rows'
 place on MENU is the owner's to confirm.
@@ -18,7 +20,9 @@ next. UART is universal asynchronous receiver-transmitter; the RP2350's two
 hardware UARTs are ARM PL011 cells. 8E2 is 8 data bits, even parity and 2
 stop bits. PIO is the RP2350's programmable input/output block, SM one PIO
 state machine, DMA direct memory access, FIFO a first-in, first-out buffer,
-GPIO general-purpose input/output. INOVER and OUTOVER are the input and
+GPIO general-purpose input/output, PWM pulse-width modulation, SDIO Secure
+Digital input/output (the card bus), USB Universal Serial Bus. IOVDD is the
+RP2350's I/O supply, 3.3 V on this board. INOVER and OUTOVER are the input and
 output override fields of a GPIO's control register, which can invert the
 signal between the pad and the peripheral. ESC is electronic speed
 controller, FC flight controller, UI user interface. SIG and AUX are the
@@ -26,7 +30,7 @@ claim's two roles ([pin-claim.md](pin-claim.md#the-two-pins)): the ESC pin,
 GP0 by default, and the KISS pin, GP1 by default. CRSF is the Crossfire
 serial receiver protocol, iBUS FlySky's, F.Port FrSky's.
 
-Futaba, S.BUS, FrSky, F.Port, FlySky, iBUS, TBS and Crossfire are names or
+Futaba, S.BUS, FrSky, F.Port, FlySky, iBUS and Crossfire are names or
 trademarks of their owners, used here only to say which receivers a tool
 works with.
 
@@ -42,14 +46,15 @@ rcbench at `origin/main`, commit 5ef42efd (2026-11-13):
 | `test/host/test_sbus.c` | 12 cases on the decoder |
 | `test/host/test_ppm.c` | 9 cases on the frame layout; includes rcbench's `outputs.h` |
 
-rcbench's [STATUS](https://github.com/subtilitas/rcbench) records the decoder
+rcbench's [STATUS.md](https://github.com/subtilitas/rcbench/blob/main/STATUS.md)
+records the decoder
 as built and tested, with no PIO receiver written, and says of its output
 drivers, PPM among them: "No instrument has been on any output pin." Both
 modules are host-tested only. Commits 453cf334 and 3e29dc1b, from which
 `lib/rcbench/` holds the servo, KST and Hitec files, already contain both
 modules; the changes since then are Doxygen comments and unit spacing, no
-change in behaviour. The copies come from 5ef42efd for the comments, because
-the Docs job runs Doxygen with no warnings allowed.
+change in behaviour. The copies come from 5ef42efd because it was rcbench's
+`origin/main` at the time of the copy.
 
 ## S.BUS frame
 
@@ -63,7 +68,7 @@ What this note relies on, checked against rcbench's decoder and README:
 | Header | 0x0F, also an ordinary value inside channel data | stated (`SBUS_HEADER`) |
 | Channels | 16 of 11 bits, packed least significant bit first across bytes 1 to 22 | stated (`unpack()`) |
 | Flag byte, byte 23 | bit 0 channel 17, bit 1 channel 18, bit 2 frame lost, bit 3 failsafe | stated (`SBUS_FLAG_*`) |
-| Footer, byte 24 | 0x00; also accepted: 0x04, 0x14, 0x24, 0x34 (low nibble 0x0 or 0x4) | stated as "what the specification says" and "receivers in the field also send"; which receivers, and whether those are S.BUS2 frames, is not stated. To confirm |
+| Footer, byte 24 | 0x00 by the specification; `footer_ok()` accepts every byte whose low nibble is 0x0 or 0x4, 32 values, among them the 0x04, 0x14, 0x24 and 0x34 its comment names | 0x00 stated as "what the specification says", and 0x04 to 0x34 as what "receivers in the field also send"; which receivers, and whether those are S.BUS2 frames, is not stated. To confirm |
 | Checksum | none | stated |
 | Byte time | 120 µs: 12 bits of 10 µs | stated |
 | Frame time | 3 ms: 25 bytes of 120 µs | stated |
@@ -100,7 +105,7 @@ It sends nothing and measures nothing electrical.
 | Receiver output level | unknown. S.BUS outputs are commonly 3.3 V logic; neither this project nor rcbench has measured one. A receiver whose output swings to its supply would exceed 5.5 V with a supply above 5.5 V |
 | Line idle | low; the pad's pull-down holds it there with nothing plugged in |
 | Board input threshold | the RP2350's at IOVDD 3.3 V; that a 3.3 V output clears it with margin is to confirm on the bench |
-| Receiver supply | its own source, or the switched servo supply of [kst-programming.md](kst-programming.md#switched-servo-supply). Never the board: J5 pin 3 is 3.3 V, J4 pin 2 is USB VBUS |
+| Receiver supply | its own source, or the switched servo supply of [kst-programming.md](kst-programming.md#switched-servo-supply). Never the board: J5 pin 3 and J4 pin 6 are 3.3 V, J4 pin 2 is VBUS, the USB 5 V supply |
 
 The line idles low and is high only for the start bit and the zero bits. A
 3.3 V receiver on an unpowered board therefore puts at most 3.3 V on the
@@ -116,9 +121,11 @@ the converter is unpowered there unless the owner chooses otherwise
 **RP2350-E9.** A pad with the internal pull-down can latch at about 2.1 V
 instead of 0 V (`src/board_pins.h`). After a receiver that drove the line
 high is unplugged, GP1 may read high, which the inversion turns into a
-continuous low at the UART: a stream of break errors, not silence. The
-screen therefore decides `NO SIGNAL` from frames and clean bytes, never from
-the line level, and counts breaks apart.
+continuous low at the UART. The PL011 loads one 0 character with the break
+flag and then waits for the line to return high (SDK 2.1.1, the description
+of `UART_UARTDR_BE`): one break entry, then silence. The screen decides
+`NO SIGNAL` from frames and clean bytes, never from the line level, so the
+latched pad reads as `NO SIGNAL` with the break count one higher.
 
 ### Wiring
 
@@ -161,7 +168,8 @@ no PIO and no DMA, it reports parity, framing, break and overrun per byte,
 its FIFO holds more than a whole 25-byte frame, and it touches no code that
 works today. The baud divisor is exact: Pico SDK 2.1.1 runs `clk_peri` from
 `clk_sys` at 150 MHz (`runtime_init_clocks.c`), and `uart_set_baudrate()`
-computes IBRD 93 and FBRD 48, which is 150 MHz × 4 / (64 × 93 + 48) =
+computes an integer baud-rate divisor (IBRD) of 93 and a fractional one
+(FBRD) of 48, which is 150 MHz × 4 / (64 × 93 + 48) =
 100,000 baud. A is rejected because it puts KISS at risk; C because it needs
 a new PIO model and gains only the second stop bit and GP0. The price of B
 is the pin: the monitor reads GP1 whatever role GP1 has.
@@ -169,8 +177,8 @@ is the pin: the monitor reads GP1 whatever role GP1 has.
 | Wiring in SETTINGS | Role on GP1 | Claim | Job binds |
 |---|---|---|---|
 | ESC GP0, KISS GP1 (default) | AUX | `PIN_SIG \| PIN_AUX` | GP1 |
-| ESC GP1, KISS GP0 | SIG | `PIN_SIG` | GP1 |
-| ESC GP1, KISS GP1 (KISS off) | SIG | `PIN_SIG` | GP1 |
+| ESC GP1, KISS GP0 | SIG | `PIN_SIG`, once no ESC answers on GP1 | GP1 |
+| ESC GP1, KISS GP1 (KISS off) | SIG | `PIN_SIG`, once no ESC answers on GP1 | GP1 |
 | ESC GP0, KISS GP0 (KISS off) | none | not asked | nothing: the screen says `S.BUS NEEDS GP1.` `SET A PIN TO GP1 IN SETTINGS.` |
 
 The bind sets the pad in this order: `gpio_set_function(1, GPIO_FUNC_UART)`,
@@ -180,9 +188,12 @@ zeroes the overrides (SDK 2.1.1, `gpio.c`), the rule `hitec_line.c` already
 follows. Then `uart_init(uart0, 100000)` and `uart_set_format(uart0, 8, 2,
 UART_PARITY_EVEN)`. GP0 keeps its function: the UART's TX reaches no pad.
 The bind refuses with `CORE1_JOB_CLOCK` when the baud rate `uart_init()`
-returns is more than 1 % from 100,000, and with a new `CORE1_JOB_UART`
-(`GP1 COULD NOT BE TAKEN (UART)`) when no role is GP1. The firmware uses
-UART0 nowhere else: `pico_enable_stdio_uart` is 0 in `CMakeLists.txt`.
+returns is more than 1 % from 100,000 (`GP1 COULD NOT BE TAKEN (CLOCK)`),
+and with a new `CORE1_JOB_NO_GP1` when no role is GP1. The screen checks the
+wiring before it claims, so that refusal is a backstop; its text is the
+screen's own, `S.BUS NEEDS GP1.` `SET A PIN TO GP1 IN SETTINGS.` The
+firmware uses UART0 nowhere else: `pico_enable_stdio_uart` is 0 in
+`CMakeLists.txt`.
 
 The release calls `uart_deinit(uart0)`, sets INOVER back to normal, returns
 GP1 to a plain input with the pull-down on, as the servo job leaves its
@@ -215,7 +226,8 @@ void sbusCoreStep(SbusCore *c, uint32_t nowUs);               // once per pass
 Every pass of `loop1()`, the job:
 
 1. reads `micros()` once;
-2. drains the receive FIFO while `UARTFR.RXFE` is clear, handing each
+2. drains the receive FIFO while `UARTFR.RXFE`, the receive-FIFO-empty
+   flag, is clear, handing each
    `UARTDR` word (the byte in bits 0 to 7, the error flags in bits 8 to 11)
    to `sbusCoreFeed()` with that time;
 3. publishes the status under the job's critical section when it changed.
@@ -229,8 +241,11 @@ arrival. With the claim held, core1 runs `escTaskPoll()`, which returns at
 once, and this job; no flash write parks it (settings saves are refused
 during a claim). A pass is therefore far shorter than the 2000 µs threshold,
 so bytes of one frame never look 2000 µs apart, and the 4 ms gap between
-frames is never missed. The FIFO holds 32 bytes, 3,840 µs of line, so a pass
-can be that late before an overrun. The pass time with this job is not
+frames is never missed. The binding limit on a late pass is 2000 µs: a
+pass that late in the middle of a frame stamps the bytes after it 2000 µs
+or more after those before it, and the gap rule splits the frame. The FIFO's
+32 bytes, 3,840 µs of line, would allow more before an overrun. The pass
+time with this job is not
 measured. The heartbeat (`core1UiAlive()`) stops nothing here: the job sends
 nothing.
 
@@ -302,7 +317,7 @@ y   0 +------------------------------------------+
 | Element | Rectangle (x, y, w, h) | Content |
 |---|---|---|
 | Strip caption | 8, 44, 125, 7 | `GP1 100 KBAUD 8E2 INV`, 21 characters, 125 px |
-| Strip chip | 171, 40, 61, 16 | widest `NO SIGNAL` or `NO FRAMES`, 9 characters, 53 px plus 4 px each side; right edge x 231 |
+| Strip chip | 161, 40, 71, 16 | `uiChip()`: the text's width plus 6 px each side, right edge x 231. Widest `FRAME LOST`, 10 characters, 59 px. The caption ends at x 132, 28 px clear |
 | Channel row i, i = 0 to 15 | 8, 62 + 12i, 224, 11 | number, bar, value |
 | Number | right-aligned to x 18, y + 2 | `1` to `16`, 2 characters, 11 px |
 | Bar outline | 24, y + 1, 176, 9 | 1 px frame in `C_DIM` |
@@ -334,9 +349,13 @@ frame.
 **When the pin is unavailable**, as in
 [pin-claim.md](pin-claim.md#when-the-pin-is-unavailable): `KISS WIRE ON GP1
 IS LIVE.` `UNPLUG IT: THE RECEIVER GOES THERE.`; `S.BUS NEEDS GP1.` `SET A
-PIN TO GP1 IN SETTINGS.`; `GP1 COULD NOT BE TAKEN (UART)` with RETRY.
+PIN TO GP1 IN SETTINGS.`; `AN ESC ANSWERS ON GP1.` `UNPLUG IT: THE RECEIVER
+GOES THERE.` when GP1 is SIG ([interlocks](#interlocks)); `GP1 COULD NOT BE
+TAKEN (CLOCK)` with RETRY.
 
-**Unplug page.** BACK shows `UNPLUG THE RECEIVER.`, then `DSHOT RESTARTS ON
+**Unplug page.** BACK shows `UNPLUG RECEIVER.` at scale 2, as the other
+unplug pages draw their title: 16 characters, 190 px, inside the 224 px
+between the margins. Then, at scale 1, `DSHOT RESTARTS ON
 GP0.` in the default wiring, or `DSHOT RESTARTS ON GP1, WHERE THE` `RECEIVER
 DRIVES THE LINE.` when GP1 is SIG, and RESTART DSHOT
 ([interlocks](#interlocks)).
@@ -349,8 +368,8 @@ else. Later work, each a change to this screen and its job:
 | Signal | What it needs |
 |---|---|
 | Non-inverted S.BUS, as some receivers offer on a pad of their own | INOVER normal instead of inverted: one choice on the screen, same job. Smallest addition |
-| S.BUS2 | the servo frames already decode, if the footers 0x04 to 0x34 are S.BUS2's (to confirm). Its telemetry slots on the same wire need a slot decoder and the slot timing, which rcbench does not state |
-| "SBUS_FAST" and F.Port | rate, framing and checksum not stated in rcbench; each needs its facts confirmed and a decoder |
+| S.BUS2 | the servo frames already decode, if the footers 0x04 to 0x34 are S.BUS2's (to confirm). Its telemetry slots on the same wire need a slot decoder; rcbench's STATUS names a 325 µs slot and puts answering in it out of scope, and states no more of the slot timing |
+| F.Port | rate, framing and checksum not stated in rcbench; its facts confirmed and a decoder |
 | CRSF | a decoder (rcbench STATUS: not started), a rate the PL011 reaches from 150 MHz, and a reply path, since CRSF is bidirectional (to confirm) |
 | iBUS | a decoder (rcbench STATUS: not started) and its rate and framing (to confirm) |
 | Plain PWM input | pulse width on GP1, channel B of PWM slice 0, which can count while its B input is high; GP0 is a channel A pin and needs a PIO capture. One or two channels, not a receiver's eight |
@@ -512,23 +531,23 @@ y   0 +------------------------------------------+
 | Element | Rectangle (x, y, w, h) | Content |
 |---|---|---|
 | Strip caption | 8, 44, 131, 7 | `GP0 8 CH 42 HZ 23.8 MS`, 22 characters |
-| Strip chip | 183, 40, 49, 16 | `SAFE` `C_GREEN`, `RUNNING` `C_RED`, `STALLED` `C_MAGENTA`: at most 7 characters, 41 px plus 4 px each side |
+| Strip chip | 179, 40, 53, 16 | `SAFE` `C_GREEN`, `RUNNING` `C_RED`, `STALLED` `C_MAGENTA`: at most 7 characters, 41 px plus 6 px each side (`uiChip()`). The caption ends at x 138, 40 px clear |
 | Notes | 8, 62, 224, 7 and 8, 71, 224, 7 | SAFE: as drawn, 31 and 29 characters. RUNNING: `THROTTLE CEILING 1200 US (20 %).`, 32 characters. STALLED: `STOPPED: SCREEN STALLED` and `HOLD TO START AGAIN.` |
 | Row i, i = 0 to 7 | 8, 80 + 25i, 224, 22 | label, slider, value; 22 px is `UI_TAP_MIN` |
 | Label | 8, y + 8, at most 41, 7 | `CH1` to `CH8`, `CH3 THR` on the throttle channel in `C_AMBER`, at most 7 characters |
-| Track | 54, y + 6, 146, 10 | 1000 µs at x 54, 1500 µs at x 126, 2000 µs at x 199: 6.8 µs a pixel |
-| Knob | 8 × 22 px, centred on the value | `UI_SLIDER_OVERHANG` 3 px over the track |
+| Track | 54, y + 6, 146, 10 | 1000 µs at x 54, 1500 µs at x 126, 2000 µs at x 199: 1000 / 145 = 6.9 µs a pixel |
+| Knob | `THUMB_W` 14 px wide, the track's height plus 6 px, 16 px tall (`ui_slider.cpp`) | centred on the value and clamped inside the track; `UI_SLIDER_OVERHANG` 3 px above and below it |
 | Ceiling mark | x 54 + 145 × (ceiling − 1000) / 1000, y, 1, 22 | throttle row only, `C_AMBER`: x 83 at 1200 µs; the track past it `C_DIM` |
 | Value | right-aligned to x 231, y + 8 | µs, 4 characters, 23 px |
 | HOLD TO START | 8, 282, 150, 32 | `STOP` in `C_RED` while RUNNING, acting on press |
 | THR CH | 162, 282, 70, 32 | `THR CH3`, 7 characters, 41 px; a tap steps the throttle channel 1 to 8 and back to 1; disabled while RUNNING |
 
-A slider moves in 5 µs steps; a drag of one pixel is 6.8 µs. When the
+A slider moves in 5 µs steps; a drag of one pixel is 6.9 µs. When the
 throttle channel changes, the label tag and the ceiling mark move with it.
 The unavailable-pin texts are the servo tester's, with `PPM` for `SERVO`:
 `AN ESC ANSWERS ON GP0.` `UNPLUG IT: PPM MARKS MAY READ AS` `THROTTLE.`
-The unplug page reads `UNPLUG THE PPM LEAD.` `DSHOT RESTARTS ON GP0 AND
-READS AS` `PULSES EVERY 1000 US.`
+The unplug page reads `UNPLUG PPM LEAD.` at scale 2, 16 characters, 190 px,
+then `DSHOT RESTARTS ON GP0 AND READS AS` `PULSES EVERY 1000 US.` at scale 1.
 
 ## Resources
 
@@ -551,19 +570,21 @@ resources: the claim exists for the pin.
 
 ## MENU
 
-Today MENU has seven rows and scrolls 36 px. The two tools sit after SERVO
-TESTER, with the other tools that take the signal pins, and before SD LOG:
+Today MENU has seven rows and scrolls 36 px. The two tools sit after the
+servo tools, SERVO TESTER, KST SERVO and HITEC SERVO, which take the signal
+pins as they do, and before SD LOG:
 
 | | Rows | Content | Scroll range |
 |---|---|---|---|
 | Today | 7 | BEEP THE ESC, AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO, SD LOG, SETTINGS | 0 to 36 px |
+| Today, RX MONITOR only | 8 | ... HITEC SERVO, RX MONITOR, SD LOG, SETTINGS | 0 to 78 px |
 | Today, both tools | 9 | ... HITEC SERVO, RX MONITOR, PPM OUTPUT, SD LOG, SETTINGS | 0 to 120 px |
-| Restructure, both tools | 8 | BEEP THE ESC, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX MONITOR, PPM OUTPUT, SD LOG, SETTINGS | 0 to 78 px |
-| Restructure, RX MONITOR only | 7 | as above without PPM OUTPUT | 0 to 36 px |
 
 The scroll range is rows × 42 px − 258 px, by the rules of
-[menu.md](menu.md#menu). The placement is the owner's to confirm (question
-4).
+[menu.md](menu.md#menu). A restructure of MENU is planned in
+`docs/design/menu-b.md` on the branch `ccr-menu-b`, not merged. Where the
+two rows sit after it is settled in that note when it lands. The placement
+is the owner's to confirm (question 4).
 
 | Row | Label | Fit | Status |
 |---|---|---|---|
@@ -581,15 +602,27 @@ Each tool is one `PinUser`, one `Core1Job` and one row in `PIN_USERS`:
 
 | PinUser | Core1Job | `unplug` | `escCheck` | Roles |
 |---|---|---|---|---|
-| `Sbus` | `Sbus` | true | false | `PIN_SIG \| PIN_AUX` when GP1 is AUX, `PIN_SIG` when GP1 is SIG |
+| `Sbus` | `Sbus` | true | false, and the screen's own check when GP1 is SIG (below) | `PIN_SIG \| PIN_AUX` when GP1 is AUX, `PIN_SIG` when GP1 is SIG |
 | `Ppm` | `Ppm` | true | true | `PIN_SIG` |
 
 - **Armed and Busy** apply to both, as to every claim. Opening MENU disarms;
   the 250 ms zero-throttle drain runs before either job binds.
 - **The ESC check.** PPM waits while an ESC answers on SIG within 500 ms:
-  its marks are pulses into the ESC. The monitor is exempt, as AM32 is: it
-  drives nothing, and an ESC on SIG only loses its frames, which the drain
-  ends with zero throttle first.
+  its marks are pulses into the ESC. The monitor drives nothing, but the
+  receiver does. In the default wiring GP1 is AUX, no ESC signal is on it,
+  and the claim's check is off for the monitor (`escCheck` false): an ESC
+  on SIG only loses its frames, which the drain ends with zero throttle
+  first. When GP1 is SIG, the receiver goes onto the SIG net, where an ESC
+  may still sit, and the receiver's S.BUS output would drive the ESC's
+  signal input. In those wirings the monitor waits while an ESC answers on
+  GP1 within `ESC_LINK_STALE_MS`, 500 ms, and shows `AN ESC ANSWERS ON
+  GP1.` `UNPLUG IT: THE RECEIVER GOES THERE.` (22 and 35 characters, 131 px
+  and 209 px). `PinUserInfo.escCheck` is one flag per user, so the screen
+  makes the check itself before each `pinClaimBegin()`, with
+  `escFieldFresh()` on the snapshot's `lastRpmMs`, the rule
+  `pinClaimCheck()` uses, and asks again every frame; the claim's table
+  stays as it is. Like the claim's check, it misses an ESC that does not
+  answer in bidirectional DShot.
 - **KissLive** refuses the monitor while a KISS frame arrived on GP1 within
   500 ms in the default wiring: a telemetry wire is where the receiver
   goes. PPM does not ask for AUX.
@@ -619,7 +652,7 @@ Each tool is one `PinUser`, one `Core1Job` and one row in `PIN_USERS`:
 | `test/host/test_sbus.c` | `test/rcbench/` | copied unchanged, 12 cases |
 | `test/host/test_ppm.c` | `test/rcbench/` | copied unchanged, 9 cases |
 | `shared/outputs/include/outputs.h` | `test/rcbench/outputs.h` | adapted: `OUT_FLOOR_US` 400 and `OUT_CEILING_US` 2500 only, the two values `test_ppm.c` holds the module to, as `test/rcbench/link_pages.h` does for Hitec |
-| the modules' `README.md` and `CMakeLists.txt` | none | Mini lists its sources in its own `.cmake` and `.mk` files |
+| the modules' `README.md` and `CMakeLists.txt` | none | MiniRcBench lists its sources in its own `.cmake` and `.mk` files |
 
 `lib/rcbench/README.md` gains the rows and the commit. Copied files keep
 their text and their SPDX line.
@@ -636,10 +669,17 @@ New code in `src/`:
 | `rx.cmake`, `ppm.cmake` | the features' firmware sources |
 
 Shared files each slice edits by a line or a few: `core1_job.h` (two jobs,
-`CORE1_JOB_UART`), `core1_job.cpp` (the job table), `pin_claim.h` (two
+`CORE1_JOB_NO_GP1`), `core1_job.cpp` (the job table), `pin_claim.h` (two
 users and rows), `ui_registry.cpp` (one line each), `CMakeLists.txt`,
-`test/Makefile`, `test/test_main.cpp`, `test/fakes.*` and
-`test/stubs/hardware/`.
+`test/Makefile`, `test/test_main.cpp`, `test/fakes.*`,
+`test/stubs/hardware/` and `.github/workflows/ci.yml`. The Config
+permutations job of `ci.yml` compiles `src/*.cpp` with two hand-kept `-I`
+lists, which need `lib/rcbench/protocols/sbus/include`, and
+`lib/rcbench/protocols/ppm/include` and `lib/rcbench/protocols/ppm/rp2350`,
+once a file in `src/` includes their headers, as Hitec step 1 added its own
+(commit 424014a). The screen slices also edit `tools/check_wiki.py`, for the
+pair of new wiki pages, and `tools/make_previews.py`, for the new preview,
+as Hitec step 5 did (commit 5e1666d).
 
 ## Testing
 
@@ -673,8 +713,10 @@ New fakes and models:
 Checked:
 
 - the monitor's bind for each wiring of the table above, the refusal with
-  no role on GP1, the pad order (function, then INOVER, then pull) and the
-  release leaving no override and the pull-down on;
+  no role on GP1, the wait while an ESC answers on GP1 when GP1 is SIG and
+  its end 500 ms after the last eRPM frame, no such wait when GP1 is AUX;
+  the pad order (function, then INOVER, then pull) and the release leaving
+  no override and the pull-down on;
 - the clock check at 150 MHz (100,000 baud exactly) and at a `clk_peri`
   that misses 1 %;
 - a clean stream at 7 ms and 14 ms: every frame decodes, the interval and
@@ -699,8 +741,11 @@ Checked:
   with the new row count; previews `docs/sbus-preview.png` and
   `docs/ppm-preview.png`.
 
-`make syntax` typechecks `sbus_job.cpp`'s device part and `out_ppm.c` with
-stubs, `ppm.pio.h` among them. The coverage table of STATUS.md is
+`make syntax` typechecks `sbus_job.cpp`'s device part, as it does the other
+C++ device sources. It typechecks no rcbench driver today: `out_ppm.c` is
+built by the firmware only, as the KST and Hitec line drivers are, and
+checking it on the host would need a C rule and stubs of its own,
+`ppm.pio.h` among them. The coverage table of STATUS.md is
 regenerated by `tools/coverage.py` in each slice that adds a file to
 `src/`.
 
@@ -726,20 +771,21 @@ Only hardware settles these:
 
 ## Work breakdown
 
-Each slice builds, passes the host suite and merges alone. Slices 2 and 4
-depend on slice 1 and not on each other; their shared files differ by one
-line each.
+Each slice builds, passes the host suite and merges alone. Slice 2 depends
+on slice 1a and slice 4 on slice 1b, and neither on the other; their shared
+files differ by one line each. Slice 1a is built.
 
 | Slice | Content | Files | Lines, rough |
 |---|---|---|---|
-| 1. rcbench copies | `sbus.*` and `ppm.*` cores, `test_sbus.c`, `test_ppm.c`, the `outputs.h` stub, `test/rx.mk`, `test/ppm.mk`, the `test/Makefile` lists, `lib/rcbench/README.md` | 7 copied, 5 new or edited | 1,100 copied; 80 new |
-| 2. S.BUS job | `sbus_job.*`, `rx.cmake`, `CORE1_JOB_UART`, the job and user rows, the microsecond clock, the UART fake, `sbus_line.h`, the job's tests | 4 new in `src/`, 6 edited, 3 new in `test/` | 350 in `src/`; 700 in `test/` |
-| 3. S.BUS screen | `sbus_view.*`, `ui_sbus.*`, the registry line, the screen and MENU tests, `test_ids.cpp`, the preview, README section, wiki pages in English and German, STATUS, CHANGELOG, this note's status | 4 new in `src/`, 2 new and 8 edited elsewhere | 650 in `src/`; 600 in `test/`; 250 of documentation |
-| 4. PPM job | the `out_ppm` driver copies, `ppm_job.*`, `ppm.cmake`, the job and user rows, the `out_ppm.h` fake, the `ppm.pio.h` stub, `pio_ppm_emu.py`, the job's tests | 3 copied, 3 new in `src/`, 4 new in `test/`, 5 edited | 490 copied; 300 in `src/`; 650 in `test/` |
-| 5. PPM screen | `ui_ppm.*`, the registry line, the screen tests, the preview, README, wiki, STATUS, CHANGELOG | 2 new in `src/`, 2 new and 8 edited elsewhere | 600 in `src/`; 500 in `test/`; 200 of documentation |
+| 1a. S.BUS copies, built | `sbus.c`, `sbus.h`, `test_sbus.c`; `test/rx.mk`; the `test/Makefile` lists, `lib/rcbench/README.md`, README, STATUS, CHANGELOG | 3 copied, 1 new, 5 edited | 695 copied; 80 new or changed |
+| 1b. PPM copies, waiting on question 1 | `ppm.c`, `ppm.h`, `test_ppm.c`; the `outputs.h` stub, `test/ppm.mk`; the `test/Makefile` lists, `lib/rcbench/README.md`, README, STATUS, CHANGELOG | 3 copied, 2 new, 5 edited | 441 copied; 80 new or changed |
+| 2. S.BUS job | `sbus_job.*`, `rx.cmake`, `CORE1_JOB_NO_GP1`, the job and user rows, the microsecond clock, the UART fake, `sbus_line.h`, the job's tests, the `-I` lists of `ci.yml` | 4 new in `src/`, 7 edited, 3 new in `test/` | 350 in `src/`; 700 in `test/` |
+| 3. S.BUS screen | `sbus_view.*`, `ui_sbus.*`, the registry line, the screen and MENU tests, `test_ids.cpp`, the preview, `tools/check_wiki.py`, `tools/make_previews.py`, README section, wiki pages in English and German, STATUS, CHANGELOG, this note's status | 4 new in `src/`, 2 new and 10 edited elsewhere | 650 in `src/`; 600 in `test/`; 250 of documentation |
+| 4. PPM job | the `out_ppm` driver copies, `ppm_job.*`, `ppm.cmake`, the job and user rows, the `out_ppm.h` fake, `pio_ppm_emu.py`, the job's tests, the `-I` lists of `ci.yml` | 3 copied, 3 new in `src/`, 3 new in `test/`, 6 edited | 490 copied; 300 in `src/`; 600 in `test/` |
+| 5. PPM screen | `ui_ppm.*`, the registry line, the screen tests, the preview, `tools/check_wiki.py`, `tools/make_previews.py`, README, wiki pages in English and German, STATUS, CHANGELOG | 2 new in `src/`, 2 new and 10 edited elsewhere | 600 in `src/`; 500 in `test/`; 200 of documentation |
 | 6. Bring-up | the bench tests above, each tool on its own | none | none |
 
-Slices 4 and 5 wait for the owner's answer to question 1.
+Slices 1b, 4 and 5 wait for the owner's answer to question 1.
 
 ## Open questions
 
@@ -758,10 +804,11 @@ Slices 4 and 5 wait for the owner's answer to question 1.
    2047. (c) Percent, −100 % at 172 and +100 % at 1811. Recommendation: (a),
    with the bar in raw units; (b) as a later toggle if a user compares with
    an FC that reads raw.
-4. **MENU placement.** (a) Two rows after SERVO TESTER, as drawn. (b) One
-   row, `RX AND PPM`, opening a list of the two. (c) After SD LOG, before
-   SETTINGS. Recommendation: (a); with (b) of question 1 it is one row, and
-   MENU after the restructure is seven rows and scrolls 36 px.
+4. **MENU placement.** (a) Two rows after the servo tools, before SD LOG,
+   as drawn. (b) One row, `RX AND PPM`, opening a list of the two. (c) After
+   SD LOG, before SETTINGS. Recommendation: (a); with (b) of question 1 it
+   is one row, and today's MENU has eight rows and scrolls 78 px. The place
+   after the planned restructure is settled in its own note.
 5. **PPM pin.** (a) SIG, GP0, under the claim's ESC check. (b) AUX, GP1,
    where no ESC signal goes, but where KISS lives and the ESC check does not
    look. Recommendation: (a).
@@ -791,5 +838,5 @@ Not stated by rcbench and not measured by this project:
 - whether FCs, dongles and trainer ports accept a 23.8 ms PPM frame,
   3.3 V marks, this polarity and a cut last frame;
 - what an ESC does with 300 µs PPM marks on its signal pin;
-- the facts of S.BUS2 slots, "SBUS_FAST", F.Port, CRSF and iBUS listed as
-  later work.
+- the facts of S.BUS2 slots beyond the 325 µs rcbench names, F.Port, CRSF
+  and iBUS, listed as later work.

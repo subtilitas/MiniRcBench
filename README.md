@@ -1505,9 +1505,10 @@ files copied unchanged into `lib/rcbench/` with rcbench's own layout
 (`lib/rcbench/README.md`): the sweep curve, the GPIO-to-PWM map, the KST
 programming core with its RP2350 line driver, the KST file store, and the
 Hitec programming core with its RP2350 line driver, servo file text and CRC,
-and the S.BUS (Futaba's serial bus for receiver channels) decoder, which
-nothing calls yet. Files include each other as
-plain siblings, except two drivers with folders of their own: the DShot
+and the S.BUS (Futaba's serial bus for receiver channels) decoder. The
+decoder is built in the host suite only so far: nothing in `src/` calls it
+and the firmware does not build it. Files include each other as plain
+siblings, except two drivers with folders of their own: the DShot
 driver in `src/dshot/`, so that it can be compared with its rcbench original,
 and the SDIO card driver in `src/sdio/`, whose `compat/` headers have to keep
 the paths the SD library includes.
@@ -1536,13 +1537,13 @@ those files as C11 programs: `test/rcbench/test_servo_sweep.c` and
 `test_hitec_reg.c`, `test_hitec_reg_plan.c`, `test_hitec_session.c`,
 `test_hitec_session_write.c` and `test_hitec_card.c`, with
 `hitec_headers.cpp` built as C++11, and `test_sbus.c` (12 cases). The SDIO
-tests run
-the card protocol against a simulated card. Time is virtual — `millis()` advances only
-when a test says so — which makes hold-to-arm, hold-to-write and gesture repeat
-deterministic rather than dependent on machine speed. The fake ESC serves a real
-settings blob recovered from the reference configurator, so the UI tests operate
-on values a real ESC would report. The suite renders 41 screens to PPM (portable
-pixmap) images as it runs, so a layout change is visible in the frames:
+tests run the card protocol against a simulated card. Time is virtual —
+`millis()` advances only when a test says so — which makes hold-to-arm,
+hold-to-write and gesture repeat deterministic rather than dependent on
+machine speed. The fake ESC serves a real settings blob recovered from the
+reference configurator, so the UI tests operate on values a real ESC would
+report. The suite renders 41 screens to PPM (portable pixmap) images as it
+runs, so a layout change is visible in the frames:
 
 - the splash;
 - six of the main screen: disarmed, armed, live, stale, with KISS values,
@@ -1797,6 +1798,11 @@ programmers, the HPP-21 Plus and the HFP-30, and of servos. Some register
 meanings rest on published documentation or third-party observation;
 rcbench's register model marks the source of each (`hitec_src_t`). No
 vendor code is included.
+
+Futaba and S.BUS are names or trademarks of their owners. They are used in
+this repository only to say which receivers its S.BUS decoder works with.
+MiniRcBench is not affiliated with Futaba and is neither supported nor
+sponsored by it. The S.BUS decoder is rcbench's; no vendor code is included.
 
 Every other name of a maker, product, protocol or firmware in this
 repository is a name or trademark of its owner, used only to describe

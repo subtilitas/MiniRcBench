@@ -4,10 +4,10 @@ The files under this directory are copied from
 [rcbench](https://github.com/subtilitas/rcbench) with their text unchanged:
 the Hitec files at commit `3e29dc1b`, the S.BUS files at commit `5ef42efd`,
 every other file at commit `453cf334`. rcbench is MIT licensed by the same
-copyright holder as MiniRcBench, subtilitas, so the copies carry the licence of this repository,
-[LICENSE](../../LICENSE). Each file keeps its `SPDX-License-Identifier: MIT`
-line. The directory layout is rcbench's, so a file here and its original
-compare with one `diff`.
+copyright holder as MiniRcBench, subtilitas, so the copies carry the licence
+of this repository, [LICENSE](../../LICENSE). Each file keeps its
+`SPDX-License-Identifier: MIT` line. The directory layout is rcbench's, so a
+file here and its original compare with one `diff`.
 
 | File here | rcbench path |
 | --- | --- |
@@ -96,6 +96,9 @@ until the S.BUS job. Its rcbench test, copied unchanged from rcbench
 `test/host/test_sbus.c` into `test/rcbench/`, is `test_sbus.c`, 12 cases.
 rcbench's `README.md` and `CMakeLists.txt` of the module are not copied:
 this repository lists its sources in its own `.cmake` and `.mk` files.
+`sbus.h` cites `(NOTICE, "Trademarks")`: that NOTICE file is rcbench's, and
+this repository has none. Here the trademark notice of
+[README.md](../../README.md#trademark-notice) covers Futaba and S.BUS.
 
 Files adapted rather than copied start with the line
 `Adapted from rcbench <path>, commit <commit>, MIT.`

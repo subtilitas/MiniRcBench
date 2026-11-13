@@ -480,10 +480,9 @@ binary, `dshot_tests`. `test/test_main.cpp` runs twenty-one suites:
 | `runMenuTests` | `test_menu.cpp` | MENU, SETTINGS and the navigation through the real UI: SD LOG's BACK to MENU, every registry entry opened and left, MENU's disarm, BEEP's flash, `PINS BUSY` on AM32, SERVO and SETTINGS, MENU's scroll over registries of six and seven rows and its return at 0 px, every MENU status and SETTINGS value within its widest, the SETTINGS scroll range, each row by id, a cut control under 40 px, HOLD TO SAVE and the UNSAVED note at every scroll position, AM32's own wait beside another claim |
 
 `test/servo.mk`, `test/kst.mk`, `test/hitec.mk` and `test/rx.mk` list each
-feature's
-sources and test files for `test/Makefile`, as `src/servo.cmake`,
-`src/kst.cmake` and `src/hitec.cmake` do for
-`CMakeLists.txt`. A feature's C sources and C test programs are built as C11:
+feature's sources and test files for `test/Makefile`, as `src/servo.cmake`,
+`src/kst.cmake` and `src/hitec.cmake` do for `CMakeLists.txt`. A feature's C
+sources and C test programs are built as C11:
 `make run` also runs rcbench's `test_servo_sweep.c` (14 cases) and the
 adapted `test_out_pwm_map.c` (5 cases) from `test/rcbench/`, and rcbench's KST
 tests, copied unchanged: `test_kst_wire.c` (28 cases), `test_kst_reg.c` (51),
