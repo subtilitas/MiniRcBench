@@ -1476,6 +1476,21 @@ static void testSupplyCurrent() {
 	g_supOn = false;
 	servoSupplyConfigure(0);
 	settings()->servoSupply = 0;
+
+	// SEARCH STOPPED on the servo's own supply: the strip shows no current,
+	// so a new reading repaints nothing.
+	freshKst(false);
+	settings()->currentSense = 1;
+	senseConfigure(1);
+	openKst();
+	untilCtl(UI_FIX(KstCtl::StopSearch), 40);
+	tapId(UI_FIX(KstCtl::StopSearch));
+	checkTrue("SEARCH STOPPED: RETRY", untilCtl(UI_FIX(KstCtl::Retry), 40));
+	kstFrames(3);
+	ina->currentA = 0.31;
+	kstFrame();
+	checkInt("a new reading while the strip shows none: nothing repainted", fakeLastFlushBands(), 0);
+	leaveAll();
 	settings()->currentSense = 0;
 	senseConfigure(0);
 	fakeI2cReset();

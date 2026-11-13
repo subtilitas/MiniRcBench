@@ -1431,8 +1431,13 @@ configuration twice in a row is probed and configured again. rcbench's
 three failed transactions take the part offline, two timeouts of 1000 µs in
 a row or a line held low mark the bus stuck, and a recovery, 9 clocks on SCL
 and a STOP, runs at once and every 100 ms while it is stuck. The touch
-driver reports its own transfers to the same record. Each reading goes to
-core1 as a `SenseSample` (`src/sense.h`), under a lock of its own.
+driver reports its own transfers to the same record; an abort with a line
+held low after it counts as a stuck bus, not as a missing part. The probe
+reads the configuration register first and writes to the part only when it
+reads as an INA219's, 399Fh or 19EFh; another chip at 0x40 is read once a
+second and never written. Each reading is published as a `SenseSample`
+(`src/sense.h`), under a lock of its own, for core1; slices 3 and 4 of the
+design note read it there, and nothing on core1 reads it yet.
 
 ## Device backups
 

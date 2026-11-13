@@ -181,8 +181,11 @@ Eine Firmware, deren Einstellungsformat von dem im Flash abweicht, startet mit
 ihren Voreinstellungen. Wer von einer früheren Firmware auf eine mit
 Einstellungsformat Version 4 aktualisiert, findet alle gespeicherten
 Einstellungen einmal auf der Voreinstellung, auch den ESC-Pin: Der ESC-Pin ist dann GP0,
-KISS ist aus und SERVO SUPPLY steht auf `NONE`. Stelle sie neu ein und
-speichere mit `HOLD TO SAVE`.
+KISS ist aus und SERVO SUPPLY steht auf `NONE`. Version 5 bringt CURRENT
+SENSE, daher geschieht dasselbe beim Wechsel von Version 4 auf Version 5
+noch einmal: Alle gespeicherten Einstellungen stehen wieder auf der
+Voreinstellung, CURRENT SENSE auf `NONE`. Stelle sie neu ein und speichere
+mit `HOLD TO SAVE`.
 
 ---
 

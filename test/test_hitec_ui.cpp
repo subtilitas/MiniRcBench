@@ -714,6 +714,22 @@ static void testSupplyCurrent() {
 	checkTrue("listening, the supply on: GP0  SUPPLY ON 0.08 A",
 	          job().power == HitecPower::Listen && lineIs(UI_STRIP_Y + 4, "GP0  SUPPLY ON 0.08 A", C_DIM));
 	leaveAll();
+
+	// STOP during a D series entry: RETRY, the supply off, no current on the
+	// strip, so a new reading repaints nothing.
+	freshHitec(HITEC_D, true);
+	settings()->currentSense = 1;
+	senseConfigure(1);
+	openHitec();
+	tapId(UI_FIX(HitecCtl::DSeries));
+	untilCtl(UI_FIX(HitecCtl::Stop), 200);
+	tapId(UI_FIX(HitecCtl::Stop));
+	checkTrue("STOP: RETRY", untilCtl(UI_FIX(HitecCtl::Retry), 400));
+	hitecFrames(3);
+	ina->currentA = 0.31;
+	hitecFrame();
+	checkInt("a new reading while the strip shows none: nothing repainted", fakeLastFlushBands(), 0);
+	leaveAll();
 	settings()->currentSense = 0;
 	senseConfigure(0);
 	fakeI2cReset();

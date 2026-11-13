@@ -11,6 +11,9 @@
 
 struct EscTelemetry;
 
+/** @brief Dirty bands the last st7789FlushDirty() found: 0 when the frame repainted nothing. */
+int fakeLastFlushBands();
+
 /** @brief Advance the virtual clock. Time only moves when a test says so. */
 void fakeAdvance(uint32_t ms);
 

@@ -44,7 +44,8 @@ sense_err_t senseErrOf(int result, size_t want) {
 	if (result >= 0 && (size_t)result == want) return SENSE_OK;
 	if (result == PICO_ERROR_TIMEOUT) return SENSE_TIMEOUT;
 	// PICO_ERROR_GENERIC: an abort, an address or a byte not acknowledged,
-	// or arbitration lost.
+	// or arbitration lost; a short count. The wire tells a lost arbitration
+	// from a NACK by the lines (errAfter()).
 	return SENSE_NACK;
 }
 
@@ -134,12 +135,33 @@ static bool linesLow() {
 	return !gpio_get(g_board->sda) || !gpio_get(g_board->scl);
 }
 
+/**
+ * @brief What a transfer came to, with a lost arbitration told from a NACK.
+ *
+ * The SDK returns PICO_ERROR_GENERIC for every abort of the I2C block,
+ * a NACK and a lost arbitration alike. A part holding SDA low makes the
+ * block lose arbitration on the first 1 it sends (DW_apb_i2c, the RP2350's
+ * I2C block, as its abort source register describes it; to be confirmed on
+ * hardware, bench test B3). A NACK leaves both lines high, so a line read
+ * low after the abort makes it SENSE_BUS_LOW, which marks the bus stuck,
+ * where a NACK would clear it.
+ *
+ * @param result The SDK's return.
+ * @param want   The byte count asked.
+ * @return As senseErrOf(), with SENSE_NACK as SENSE_BUS_LOW while a line is low.
+ */
+static sense_err_t errAfter(int result, size_t want) {
+	sense_err_t e = senseErrOf(result, want);
+	if (e == SENSE_NACK && linesLow()) return SENSE_BUS_LOW;
+	return e;
+}
+
 /** @brief The wire's read: the pointer, a repeated start, @p n bytes. */
 static sense_err_t wireRead(void *, uint8_t addr, uint8_t reg, uint8_t *buf, size_t n) {
 	if (linesLow()) return SENSE_BUS_LOW;
-	sense_err_t e = senseErrOf(i2c_write_timeout_us(bus(), addr, &reg, 1, true, SENSE_TIMEOUT_US), 1);
+	sense_err_t e = errAfter(i2c_write_timeout_us(bus(), addr, &reg, 1, true, SENSE_TIMEOUT_US), 1);
 	if (e != SENSE_OK) return e;
-	return senseErrOf(i2c_read_timeout_us(bus(), addr, buf, n, false, SENSE_TIMEOUT_US), n);
+	return errAfter(i2c_read_timeout_us(bus(), addr, buf, n, false, SENSE_TIMEOUT_US), n);
 }
 
 /** @brief The wire's write: the pointer and @p n bytes in one transfer. */
@@ -148,7 +170,7 @@ static sense_err_t wireWrite(void *, uint8_t addr, uint8_t reg, const uint8_t *b
 	uint8_t b[3] = { reg, 0, 0 };
 	if (n > 2) n = 2;
 	memcpy(b + 1, buf, n);
-	return senseErrOf(i2c_write_timeout_us(bus(), addr, b, n + 1, false, SENSE_TIMEOUT_US), n + 1);
+	return errAfter(i2c_write_timeout_us(bus(), addr, b, n + 1, false, SENSE_TIMEOUT_US), n + 1);
 }
 
 static const sense_i2c_t WIRE = { wireRead, wireWrite, nullptr };
@@ -230,28 +252,42 @@ static sense_err_t readRaw(uint8_t reg, uint16_t *v) {
 }
 
 /**
- * @brief RST, the power-on value read as the identity, the bench's
- *        configuration written and read back.
+ * @brief Whether register 00h's value is one an INA219 holds on this bench:
+ *        its power-on value, or the bench's own configuration, which an
+ *        INA219 keeps across a reset of the board alone.
+ *
+ * The identity rule: nothing is written to a part at @ref INA219_ADDR
+ * before register 00h reads one of these two. Another chip at the address,
+ * a PCA9685 whose register 00h is MODE1 among them, is only ever read.
+ */
+bool ina219Identity(uint16_t config) {
+	return config == INA219_CONFIG_POR || config == INA219_CONFIG_BENCH;
+}
+
+/**
+ * @brief Register 00h read as the identity, then RST, the power-on value
+ *        read again, the bench's configuration written and read back.
  * @param nowMs millis() now.
  * @return The state the probe reached.
  */
 static sense_state_t probe(uint32_t nowMs) {
 	uint16_t v = 0;
+	if (readRaw(INA219_REG_CONFIG, &v) != SENSE_OK) return SENSE_PART_ABSENT;
+	// FFFFh is the bus that no part drives.
+	if (v == 0xFFFFu) return SENSE_PART_ABSENT;
+	// The INA219's configuration after a power-on reset is 399Fh (SBOS448G,
+	// "Register Maps", to confirm); an INA226 or an INA3221 reads 4127h or
+	// 7127h after its reset. Anything else is another part: read, never
+	// written.
+	s_part.id_device = v;
+	if (!ina219Identity(v)) return SENSE_PART_WRONG_ID;
 	if (sense_bus_write16(&s_bus, INA219_ADDR, INA219_REG_CONFIG, INA219_CONFIG_RST) != SENSE_OK)
 		return SENSE_PART_ABSENT;
 	// The time the part needs after RST before it answers is not stated
 	// (SBOS448G, to confirm); a read that fails here retries at the next
 	// probe, 1000 ms on.
 	if (readRaw(INA219_REG_CONFIG, &v) != SENSE_OK) return SENSE_PART_ABSENT;
-	// FFFFh is the bus that no part drives.
-	if (v == 0xFFFFu) return SENSE_PART_ABSENT;
-	// The INA219's configuration after RST is 399Fh (SBOS448G, "Register
-	// Maps", to confirm); an INA226 or an INA3221 reads 4127h or 7127h.
-	if (v != INA219_CONFIG_POR) {
-		s_part.id_device = v;
-		return SENSE_PART_WRONG_ID;
-	}
-	s_part.id_device = v;
+	if (v != INA219_CONFIG_POR) return SENSE_PART_REFUSED;
 	if (sense_bus_write16(&s_bus, INA219_ADDR, INA219_REG_CONFIG, INA219_CONFIG_BENCH) != SENSE_OK)
 		return SENSE_PART_ABSENT;
 	if (readRaw(INA219_REG_CONFIG, &v) != SENSE_OK) return SENSE_PART_ABSENT;
@@ -353,7 +389,7 @@ void senseTick(uint32_t nowMs) {
 }
 
 void senseNoteTouch(int result, size_t want) {
-	sense_bus_note(&s_bus, senseErrOf(result, want));
+	sense_bus_note(&s_bus, errAfter(result, want));
 }
 
 bool senseDeclared() { return s_mode == (uint8_t)SenseMode::Ina219; }
@@ -362,6 +398,8 @@ const char *senseCaption() {
 	if (!senseDeclared()) return nullptr;
 	if (s_part.state == SENSE_PART_ONLINE && !s_bus.stuck) return "FOUND";
 	if (s_part.state == SENSE_PART_WRONG_ID) return "OTHER PART";
+	// Not probed yet, the frame CURRENT SENSE is set: nothing to say.
+	if (s_part.state == SENSE_PART_UNPROBED) return "";
 	return "NOT FOUND";
 }
 

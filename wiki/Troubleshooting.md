@@ -170,7 +170,9 @@ Firmware whose settings layout differs from the one in flash starts from its
 defaults. Updating from earlier firmware to firmware with settings layout
 version 4 returns every saved setting to its default once, the ESC pin
 included: the ESC pin is then GP0, KISS is off and SERVO SUPPLY is `NONE`.
-Set them again and save with `HOLD TO SAVE`.
+Version 5 adds CURRENT SENSE, so updating from version 4 to version 5 does
+the same once more: every saved setting returns to its default, and
+CURRENT SENSE is `NONE`. Set them again and save with `HOLD TO SAVE`.
 
 ---
 

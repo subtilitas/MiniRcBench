@@ -39,6 +39,9 @@ static bool captionIs(const char *want) {
 	return c && strcmp(c, want) == 0;
 }
 
+/** @brief Whether SDA reads low. */
+static bool sdaHeld() { return !gpio_get(g_board->sda); }
+
 /** @brief One UI frame of the sensor: 25 ms on, then the read. */
 static void tick(uint32_t ms = 25) {
 	fakeAdvance(ms);
@@ -125,30 +128,52 @@ static void testCodec() {
 // ---------------------------------------------------------------------------
 
 static void testProbe() {
-	section("Sense: the probe writes 19EFh");
+	section("Sense: the probe reads 00h, then writes RST and 19EFh");
 	declared();
+	checkTrue("declared, not probed yet: no caption", captionIs(""));
 	FakeIna219 *p = fakeI2cAddIna219(INA219_ADDR);
-	p->reg[0] = 0x1234;
 	FakeI2cStats s0 = fakeI2cStats();
 	tick();
 	FakeI2cStats s1 = fakeI2cStats();
-	checkInt("RST, then 19EFh: two writes", p->configWrites, 2);
+	checkInt("399Fh read: RST, then 19EFh, two writes", p->configWrites, 2);
 	checkInt("the configuration is the bench's", p->reg[0], 0x19EF);
 	checkInt("calibration left at 0", p->reg[5], 0);
 	checkTrue("online", state() == SenseState::Online && captionIs("FOUND"));
-	checkInt("the probe: 172 clocks", (long)(s1.clocks - s0.clocks), 172);
+	checkInt("the probe: 220 clocks, three reads and two writes", (long)(s1.clocks - s0.clocks), 220);
+	checkTrue("identity: 399Fh and 19EFh only",
+	          ina219Identity(0x399F) && ina219Identity(0x19EF) && !ina219Identity(0x4127) &&
+	          !ina219Identity(0x7127) && !ina219Identity(0x0000) && !ina219Identity(0x1234));
+	declared();
+	p = fakeI2cAddIna219(INA219_ADDR);
+	p->reg[0] = 0x19EF;   // the board reset, the INA219 kept its configuration
+	tick();
+	checkTrue("19EFh read: an INA219, reset and configured again",
+	          state() == SenseState::Online && p->configWrites == 2);
 
-	section("Sense: another part, no part, a refused set-up");
-	declared();
-	p = fakeI2cAddIna219(INA219_ADDR, 0x4127);
-	tick();
-	checkTrue("4127h after RST: OTHER PART, not used",
-	          state() == SenseState::Absent && captionIs("OTHER PART") &&
-	          p->configWrites == 1 && sensePart()->id_device == 0x4127);
-	declared();
-	p = fakeI2cAddIna219(INA219_ADDR, 0x7127);
-	tick();
-	checkTrue("7127h: OTHER PART", captionIs("OTHER PART") && p->configWrites == 1);
+	section("Sense: another chip at 0x40 is read, never written");
+	const uint16_t others[3] = { 0x4127, 0x7127, 0x1234 };
+	for (uint16_t id : others) {
+		declared();
+		p = fakeI2cAddIna219(INA219_ADDR, id);
+		uint32_t t0 = fakeI2cTransactionsTo(INA219_ADDR);
+		tick();
+		char what[48];
+		snprintf(what, sizeof(what), "%04Xh: OTHER PART", id);
+		checkTrue(what, state() == SenseState::Absent && captionIs("OTHER PART") &&
+		          sensePart()->id_device == id);
+		for (int i = 0; i < 120; i++) tick();
+		snprintf(what, sizeof(what), "%04Xh: no write in 3000 ms", id);
+		checkInt(what, p->configWrites, 0);
+		snprintf(what, sizeof(what), "%04Xh: read again once a second", id);
+		checkInt(what, (long)(fakeI2cTransactionsTo(INA219_ADDR) - t0), 4);
+	}
+	// The other chip taken off and an INA219 put in its place: found at the
+	// next read-only probe, without CURRENT SENSE touched.
+	fakeI2cRemove(INA219_ADDR);
+	p = fakeI2cAddIna219(INA219_ADDR);
+	for (int i = 0; i < 40 && state() != SenseState::Online; i++) tick();
+	checkTrue("an INA219 put in its place later is found", state() == SenseState::Online &&
+	          p->reg[0] == 0x19EF);
 	declared();
 	p = fakeI2cAddIna219(INA219_ADDR, 0xFFFF);
 	tick();
@@ -163,8 +188,9 @@ static void testProbe() {
 	          sensePart()->state == SENSE_PART_REFUSED);
 	declared();
 	p = fakeI2cAddIna219(INA219_ADDR);
-	// RST and its read go out; the write of 19EFh is not answered.
-	fakeI2cFailNext(1, PICO_ERROR_GENERIC, 3);
+	// The identity read, RST and its read go out; the write of 19EFh is
+	// not answered.
+	fakeI2cFailNext(1, PICO_ERROR_GENERIC, 5);
 	tick();
 	checkTrue("the set-up write NACKed: absent", sensePart()->state == SENSE_PART_ABSENT);
 	tick(1000);
@@ -186,7 +212,7 @@ static void testProbe() {
 	declared();
 	tick();
 	uint32_t n = fakeI2cTransactionsTo(INA219_ADDR);
-	checkInt("one transaction: the RST write, NACKed", n, 1);
+	checkInt("one transaction: the identity read, NACKed", n, 1);
 	checkTrue("absent: NOT FOUND",
 	          state() == SenseState::Absent && captionIs("NOT FOUND"));
 	tick(999);
@@ -306,6 +332,8 @@ static void testFaults() {
 	FakeI2cStats s2 = fakeI2cStats();
 	checkInt("a recovery at once: 9 clocks on SCL", (long)(s2.sclPulses - s1.sclPulses), 9);
 	checkInt("and the block initialised again", (long)(s2.inits - s1.inits), 1);
+	checkTrue("after the clocks, one START and one STOP on SDA, SCL high",
+	          s2.starts - s1.starts == 1 && s2.stops - s1.stops == 1);
 	checkTrue("SDA and SCL back to I2C",
 	          fakePin(g_board->sda).function == GPIO_FUNC_I2C &&
 	          fakePin(g_board->scl).function == GPIO_FUNC_I2C);
@@ -607,6 +635,134 @@ static void testTouchBeside() {
 	fakeI2cReset();
 }
 
+/**
+ * @brief A part holding SDA, the I2C block losing arbitration: the touch
+ *        driver's transfers return PICO_ERROR_GENERIC, which must count as a
+ *        line held low and not as a NACK, or no recovery ever runs.
+ */
+static void testArbitrationLost() {
+	section("Sense: SDA held, touch losing arbitration, the recovery still runs");
+	senseConfigure(0);
+	fakeI2cReset();
+	fakePwmReset();
+	fakeI2cAddCst328(CST328_I2C_ADDR);
+	cst::touchInit();
+	senseConfigure(1);
+	fakeI2cAddIna219(INA219_ADDR);
+	TouchState ts;
+	memset(&ts, 0, sizeof(ts));
+	touchEveryFrame(2, &ts);
+	checkTrue("online", state() == SenseState::Online);
+	uint32_t r0 = senseBus()->recoveries;
+	uint32_t reads0 = fakeCst328Reads();
+	fakeI2cHeldSdaCode(PICO_ERROR_GENERIC);
+	fakeI2cSdaReleaseAfter(5);
+	senseNoteTouch(PICO_ERROR_GENERIC, 2);
+	checkTrue("a touch abort with SDA low: the bus stuck, not a NACK", senseBus()->stuck);
+	int frames = 0;
+	while (frames < 200 && senseBus()->recoveries == r0) {
+		touchEveryFrame(1, &ts);
+		frames++;
+	}
+	checkTrue("a recovery runs", senseBus()->recoveries > r0 && frames <= 2);
+	touchEveryFrame(2, &ts);
+	checkTrue("SDA freed by its clocks, the bus free, the part online",
+	          !sdaHeld() && !senseBus()->stuck && state() == SenseState::Online);
+	checkTrue("touch reads again", fakeCst328Reads() > reads0);
+	senseConfigure(0);
+	fakeI2cReset();
+}
+
+/** @brief The worst bus time of one frame's touch read and sensor read, µs. */
+struct FrameCost { uint32_t touchUs, senseUs; };
+
+/** @brief @p n frames of touch and sensor; the worst of each part. */
+static FrameCost worstFrames(int n) {
+	TouchState ts;
+	memset(&ts, 0, sizeof(ts));
+	FrameCost w = { 0, 0 };
+	for (int i = 0; i < n; i++) {
+		fakeAdvance(25);
+		FakeI2cStats a = fakeI2cStats();
+		cst::touchPoll(&ts);
+		FakeI2cStats b = fakeI2cStats();
+		senseTick(millis());
+		FakeI2cStats c = fakeI2cStats();
+		uint32_t t = fakeI2cBusyUs(b) - fakeI2cBusyUs(a), se = fakeI2cBusyUs(c) - fakeI2cBusyUs(b);
+		if (t > w.touchUs) w.touchUs = t;
+		if (se > w.senseUs) w.senseUs = se;
+	}
+	return w;
+}
+
+/** @brief The bus with the CST328 and an online INA219, as each failure mode starts from. */
+static void healthyBus() {
+	senseConfigure(0);
+	fakeI2cReset();
+	fakePwmReset();
+	fakeI2cAddCst328(CST328_I2C_ADDR);
+	cst::touchInit();
+	senseConfigure(1);
+	fakeI2cAddIna219(INA219_ADDR);
+	senseTick(millis());
+}
+
+/**
+ * @brief How long core0 blocks on the bus in one frame, for each failure
+ *        mode, against the note's bound: the sensor at most two timeouts of
+ *        1000 µs, touch at most two transfers of 2000 µs.
+ */
+static void testFrameTime() {
+	section("Sense: bus time per frame, each failure mode");
+	struct Mode { const char *name; void (*arm)(); };
+	static const Mode modes[] = {
+		{ "healthy", [] {} },
+		{ "sensor absent", [] { fakeI2cRemove(INA219_ADDR); } },
+		{ "every transfer NACKed", [] { fakeI2cFailNext(100000, PICO_ERROR_GENERIC); } },
+		{ "every transfer timing out", [] { fakeI2cFailNext(100000, PICO_ERROR_TIMEOUT); } },
+		{ "SDA held, transfers time out", [] { fakeI2cHoldSda(true); } },
+		{ "SDA held, arbitration lost",
+		  [] { fakeI2cHeldSdaCode(PICO_ERROR_GENERIC); fakeI2cHoldSda(true); } },
+		{ "SCL held", [] { fakeI2cHoldScl(true); } },
+	};
+	const uint32_t senseBound = 2 * SENSE_TIMEOUT_US, touchBound = 2 * 2000u;
+	for (const Mode &m : modes) {
+		healthyBus();
+		m.arm();
+		FrameCost w = worstFrames(120);
+		printf("  %-30s touch %5u us, sensor %5u us\n", m.name, (unsigned)w.touchUs,
+		       (unsigned)w.senseUs);
+		char what[64];
+		snprintf(what, sizeof(what), "%s: sensor within 2 x 1000 us", m.name);
+		checkTrue(what, w.senseUs <= senseBound);
+		snprintf(what, sizeof(what), "%s: touch within 2 x 2000 us", m.name);
+		checkTrue(what, w.touchUs <= touchBound);
+	}
+	healthyBus();
+	FrameCost h = worstFrames(80);
+	checkInt("healthy: touch 84 clocks, 210 us", h.touchUs, 210);
+	checkInt("healthy: sensor 96 clocks and the read-back, 360 us at most", h.senseUs, 360);
+	senseConfigure(0);
+	fakeI2cReset();
+}
+
+/** @brief A data byte not acknowledged: the SDK's short count, through the wire. */
+static void testShortCount() {
+	section("Sense: a short count through the wire is a failed transaction");
+	FakeIna219 *p = online();
+	p->currentA = 0.1;
+	tick();
+	uint32_t seq = sample().seq;
+	fakeI2cShortNext(1);
+	tick();
+	checkTrue("the shunt read one byte short: no reading, one fail, the bus not stuck",
+	          sample().seq == seq && sensePart()->fails == 1 && !senseBus()->stuck &&
+	          sensePart()->last_err == SENSE_NACK);
+	tick();
+	checkTrue("the next frame reads", sample().seq == seq + 1 && sensePart()->fails == 0);
+	senseConfigure(0);
+}
+
 void runSenseTests() {
 	testCodec();
 	testProbe();
@@ -616,4 +772,7 @@ void runSenseTests() {
 	testSampleAge();
 	testReadoutText();
 	testTouchBeside();
+	testArbitrationLost();
+	testFrameTime();
+	testShortCount();
 }

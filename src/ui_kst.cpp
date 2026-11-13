@@ -1725,11 +1725,12 @@ static uint32_t frameKey() {
 	h = mix(h, (uint32_t)uiHoldPercent(&s_hold, millis()));
 	if (s_view == KstView::Main && s_st.job == KstJobState::Searching) h = mix(h, millis() / 150);
 	if (s_view == KstView::Main) {
-		// The current on the main view's strip, as text: a reading that
-		// rounds to the same text repaints nothing.
-		char cur[16] = "";
-		senseAppendCurrent(cur, sizeof(cur));
-		h = mixBytes(h, cur, strlen(cur));
+		// The main view's strip as composed: the current counts only in the
+		// states that show it, and a reading that rounds to the same text
+		// repaints nothing. Static: off core0's stack.
+		static MainText km;
+		mainText(&km);
+		h = mixBytes(h, km.strip, strlen(km.strip));
 	}
 	// Static: 384 bytes off core0's stack, which the first write's FatFs
 	// calls share with this frame.

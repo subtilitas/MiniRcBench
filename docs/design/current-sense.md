@@ -53,7 +53,7 @@ Sources:
   switches its EN, as `SERVO SUPPLY` in SETTINGS says today. It takes the
   place of the converter of wiring part C.
 - Core0 reads the sensor once per UI frame, after the touch read, and
-  hands each reading to core1.
+  publishes each reading for core1, where slices 3 and 4 read it.
 - The readings feed a readout, the servo tester's switched supply, a cut
   on overcurrent and stall, timing of a servo's move from its current, and
   a log on the card.
@@ -487,7 +487,7 @@ Clocks per transaction, as rcbench counts them (`sense_sched.h`):
 | INA219 register write: address, pointer, 2 data bytes | 4 | 38 | 380 µs | 95 µs |
 | An address with no answer | 1 | 11 | 110 µs | 27.5 µs |
 | The sensor's frame: shunt and bus registers | 10 | 96 | 960 µs | 240 µs |
-| The probe: reset, read, configure, read back | 18 | 172 | 1720 µs | 430 µs |
+| The probe: read, reset, read, configure, read back | 23 | 220 | 2200 µs | 550 µs |
 
 Per frame, touch and sensor take 450 µs of 25 ms at 400 kHz, 1.8 %, and
 1800 µs at 100 kHz, 7.2 %. Once a second the configuration is read back,
@@ -500,14 +500,27 @@ Worst case added to the frame:
 - the sensor absent: one NACK per register before the part goes offline,
   then one probe a second, 27.5 µs each;
 - the bus timing out: each sensor transfer has a timeout of 1000 µs
-  (`SENSE_TIMEOUT_US`), eight times its 400 kHz length and twice its
-  100 kHz length; two timeouts in a row mark the bus stuck, so one frame
-  takes at most 2 ms more, after which nothing is sent until a recovery.
+  (`SENSE_TIMEOUT_US`), about 10.5 times the longest sensor transfer at
+  400 kHz, a write of 95 µs, and about 2.6 times it at 100 kHz, 380 µs.
+  A failed transfer ends the sensor's frame, so a frame takes at most
+  1000 µs more for the sensor (host suite, `testFrameTime`). Two timeouts
+  in a row mark the bus stuck, but a touch read that answers clears the
+  mark again, so the sensor keeps trying, one transfer a frame, until
+  three failures take the part offline; then it is probed once a second.
 
 The touch read itself is unchanged in each case. With the bus stuck it
-times out on its own, as today: two transfers of 2000 µs.
+times out on its own, as today: a transfer of 2000 µs, a second only when
+the first answered. The host suite measures each failure mode's worst
+frame against these bounds (`testFrameTime` in `test/test_sense.cpp`): at
+most 1000 µs for the sensor and 2000 µs for touch; a lost arbitration ends
+a transfer within a few clocks. The recovery's 9 clocks, about 100 µs, are
+GPIO time and not counted there.
 
 ### The reading on core1
+
+Built in slice 1: the sample, its lock and its age rule (`senseSample()`,
+`senseFresh()`). Planned for slices 3 and 4: the core1 job that copies it,
+described below; nothing on core1 reads it yet.
 
 ```
 struct SenseSample {           // src/sense.h
@@ -515,7 +528,7 @@ struct SenseSample {           // src/sense.h
     uint32_t takenMs;          // millis() at the read, core0
     int32_t  currentUa;        // shunt code x 10 uV / shunt, signed
     uint16_t busMv;            // bus code x 4 mV, at IN-
-    uint8_t  flags;            // clipped, reset seen, reversed
+    uint8_t  flags;            // clipped, reset seen; reversed: slice 3
     uint8_t  state;            // NONE, ABSENT, ONLINE, OFFLINE, STUCK
 };
 void senseSample(SenseSample *out);   // either core, under the lock
@@ -539,7 +552,8 @@ supplies them over the SDK:
 | SDK result | `sense_err_t` |
 |---|---|
 | the byte count asked | `SENSE_OK` |
-| `PICO_ERROR_GENERIC`, an abort: an address or byte not acknowledged, or arbitration lost | `SENSE_NACK` |
+| `PICO_ERROR_GENERIC`, an abort, or a short count, with SDA and SCL high after it: an address or byte not acknowledged | `SENSE_NACK` |
+| `PICO_ERROR_GENERIC` with SDA or SCL low after it: arbitration lost to a part holding the line (DW_apb_i2c's abort behaviour, to be confirmed on hardware, bench test B3) | `SENSE_BUS_LOW` |
 | `PICO_ERROR_TIMEOUT` | `SENSE_TIMEOUT` |
 | SDA or SCL reads low before the transaction (`gpio_get()` on GP6 and GP7) | `SENSE_BUS_LOW`, nothing sent |
 
@@ -556,19 +570,26 @@ supplies them over the SDK:
   bus. The touch
   driver reports each of its transfers to the same record with
   `sense_bus_note()`, so a bus that fails touch is seen between sensor
-  reads too. A touch NACK is not a stuck bus.
+  reads too. A touch NACK is not a stuck bus; a touch abort with a line
+  low after it is, so a part holding SDA cannot hide behind the touch
+  driver's lost arbitrations.
 - **A reset of the part.** Once a second the configuration is read back.
   399Fh, or any value but 19EFh, twice in a row is a reset: the part goes
   offline, is probed and configured again, and the reading carries the
   reset flag. FFFFh, the bus that no part drives, counts the same.
-- **Probe.** Write RST (8000h) to the configuration; read it, expecting
-  399Fh, the POR value; write 19EFh; read it back. The INA219 has no
-  identity register, so the POR value is the identity check: an INA226 or
-  an INA3221 at 0x40 reads 4127h or 7127h after its reset (`ina3221.h`,
-  `INA3221_CONFIG_RESET`; INA226 from its datasheet, to confirm) and is
-  reported as another part and not used. How long the part needs after
-  RST before it answers is not stated as far as known; the probe retries
-  on the next due time.
+- **Probe.** Read the configuration first. The INA219 has no identity
+  register, so its value is the identity check: 399Fh, the POR value, or
+  19EFh, the bench's own, which an INA219 keeps across a reset of the
+  board alone (`ina219Identity()`). Any other value is another part: an
+  INA226 or an INA3221 at 0x40 reads 4127h or 7127h after its reset
+  (`ina3221.h`, `INA3221_CONFIG_RESET`; INA226 from its datasheet, to
+  confirm), and a PCA9685's register 00h is its MODE1. Such a part is
+  reported as `OTHER PART` and never written: the probe stays read-only
+  and reads it again every 1000 ms, so an INA219 put in its place is found
+  without a change in SETTINGS. FFFFh is no part. On an INA219's value the
+  probe writes RST (8000h), reads 399Fh, writes 19EFh and reads it back.
+  How long the part needs after RST before it answers is not stated as far
+  as known; the probe retries on the next due time.
 
 ### Detection and the SETTINGS row
 
@@ -883,7 +904,9 @@ Only hardware settles these. Each names what it records.
   one frame's I2C traffic on a scope; touch with and without the module.
 - B3. Touch with J3 empty, with the module's VCC lead open, with SDA held
   low through 100 Ω to GND during a run (the supply goes off, the bus
-  recovers); IN- leakage with VS at 0 V and 5 V on IN+.
+  recovers); what `i2c_write_timeout_us()` returns while SDA is held, a
+  lost arbitration, `PICO_ERROR_GENERIC`, or a timeout; IN- leakage with
+  VS at 0 V and 5 V on IN+.
 - B4. Current against a reference meter at 0 A, 0.1 A, 1 A, 2 A and 3 A
   through a resistive load: offset and gain error at /8; the code at
   3.5 A, beyond the range.
@@ -992,6 +1015,22 @@ during an operation, or only between operations.
 Recommendation: option 1 now, with the collapse rule at 4.0 V for
 1000 ms, revised after B8. In the KST and Hitec claims the hard cut acts
 at once, during an operation too.
+
+### Q5. A version 4 settings block
+
+Settings version 5 adds `currentSense` in the byte that was padding in
+version 4; the layout is otherwise byte for byte the same. Options:
+
+1. Discard a version 4 block, as built: the rule of `settingsLoad()` for
+   every version step, so every saved setting returns to its default once
+   after the update.
+2. Accept a version 4 block with `currentSense` at 0, `NONE`: the saved
+   settings survive the update.
+
+Recommendation: option 1 stays until the owner decides. Option 2 is the
+first migration in `settingsLoad()`, which has none by design; the byte it
+reads is the padding a version 4 build wrote, 0 from the `memset()` of
+`settingsDefaults()`, so `NONE` is what it would load.
 
 ## Decisions
 

@@ -189,6 +189,15 @@ sense_value_t ina219CurrentUa(uint16_t raw, uint32_t shuntMohm);
 uint16_t ina219BusMv(uint16_t raw);
 
 /**
+ * @brief Whether a configuration register value identifies an INA219: its
+ *        power-on value, 399Fh, or the bench's, 19EFh. The probe writes
+ *        nothing to a part at @ref INA219_ADDR that reads otherwise.
+ * @param config Register 00h as read.
+ * @return true for an INA219's value.
+ */
+bool ina219Identity(uint16_t config);
+
+/**
  * @brief What a transfer of the SDK came to, for sense_bus.h.
  * @param result The SDK's return: the byte count or a PICO_ERROR_ code.
  * @param want   The byte count asked.
@@ -279,7 +288,8 @@ bool senseDeclared();
 
 /**
  * @brief The CURRENT SENSE row's caption: `FOUND`, `NOT FOUND` or
- *        `OTHER PART`; null with @ref SenseMode::None.
+ *        `OTHER PART`; empty before the first probe; null with
+ *        @ref SenseMode::None.
  * @return The text, or null.
  */
 const char *senseCaption();

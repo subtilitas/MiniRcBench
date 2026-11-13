@@ -10,6 +10,7 @@
 #include "hardware/gpio.h"
 #include "hardware/i2c.h"
 #include "pico/time.h"
+#include "pico/stdlib.h"
 
 #include <math.h>
 #include <string.h>
@@ -36,6 +37,9 @@ int          g_failN = 0;
 int          g_failSkip = 0;
 int          g_failCode = 0;
 bool         g_holdSda = false, g_holdScl = false;
+int          g_heldCode = PICO_ERROR_TIMEOUT;  /**< What a transfer returns while SDA alone is held. */
+int          g_shortN = 0;          /**< Transfers left that return one byte short. */
+bool         g_sdaStart = false;    /**< A recovery pulled SDA low while SCL was high. */
 int          g_sdaReleaseAfter = 0;
 bool         g_finger = false;
 int          g_fx = 0, g_fy = 0;
@@ -149,27 +153,51 @@ void cstRead(Part *p, uint8_t *dst, size_t len) {
 	}
 }
 
+/** @brief A transfer that waits out its whole timeout: counted, and the clock moved by it. */
+int timedOut(unsigned timeoutUs) {
+	g_open = false;
+	g_stats.timeouts++;
+	g_stats.timeoutUs += timeoutUs;
+	sleep_us(timeoutUs);
+	return PICO_ERROR_TIMEOUT;
+}
+
 /** @brief A transfer: the fault, the held line or the NACK first, then the part. */
-int transfer(uint8_t addr, uint8_t *dst, const uint8_t *src, size_t len, bool nostop) {
+int transfer(uint8_t addr, uint8_t *dst, const uint8_t *src, size_t len, bool nostop,
+             unsigned timeoutUs) {
 	g_stats.transfers++;
 	if (g_failN > 0 && g_failSkip > 0) {
 		g_failSkip--;
 	} else if (g_failN > 0) {
 		g_failN--;
+		if (g_failCode == PICO_ERROR_TIMEOUT) return timedOut(timeoutUs);
 		countClocks(0, false);
-		if (g_failCode == PICO_ERROR_TIMEOUT) g_stats.timeouts++;
 		return g_failCode;
 	}
-	if (sdaLow() || sclLow()) {
+	if (sclLow() || (sdaLow() && g_heldCode == PICO_ERROR_TIMEOUT)) {
 		// The block cannot finish a START or a clock: it waits out its time.
+		return timedOut(timeoutUs);
+	}
+	if (sdaLow()) {
+		// SCL free, SDA held: the block loses arbitration on the first 1 of
+		// the address and aborts, PICO_ERROR_GENERIC.
 		g_open = false;
-		g_stats.timeouts++;
-		return PICO_ERROR_TIMEOUT;
+		g_stats.clocks += 2;
+		return g_heldCode;
 	}
 	Part *p = find(addr);
 	if (!p) {
 		countClocks(0, false);
 		return PICO_ERROR_GENERIC;
+	}
+	if (g_shortN > 0 && len > 1) {
+		// A data byte not acknowledged: the SDK returns the bytes sent.
+		g_shortN--;
+		countClocks(len - 1, false);
+		if (!dst) {
+			if (p->kind == Kind::Ina219 && len >= 1) p->ina.ptr = src[0] < 6 ? src[0] : 0;
+		}
+		return (int)len - 1;
 	}
 	countClocks(len, nostop);
 	if (p->kind == Kind::Ina219) {
@@ -190,15 +218,15 @@ void i2c_init(i2c_inst_t *, unsigned) { g_stats.inits++; g_open = false; }
 void i2c_deinit(i2c_inst_t *) {}
 
 int i2c_write_timeout_us(i2c_inst_t *, uint8_t addr, const uint8_t *src, size_t len, bool nostop,
-                         unsigned) {
+                         unsigned timeoutUs) {
 	if (!g_open) g_toAddr[addr & 127]++;
-	return transfer(addr, nullptr, src, len, nostop);
+	return transfer(addr, nullptr, src, len, nostop, timeoutUs);
 }
 
 int i2c_read_timeout_us(i2c_inst_t *, uint8_t addr, uint8_t *dst, size_t len, bool nostop,
-                        unsigned) {
+                        unsigned timeoutUs) {
 	if (!g_open) g_toAddr[addr & 127]++;
-	return transfer(addr, dst, nullptr, len, nostop);
+	return transfer(addr, dst, nullptr, len, nostop, timeoutUs);
 }
 
 extern "C" bool gpio_get(uint32_t gpio) {
@@ -217,7 +245,19 @@ extern "C" void gpio_init(uint32_t gpio) {
 // ---------------------------------------------------------------------------
 
 void fakeI2cPinDir(uint32_t gpio, bool out) {
+	if (gpio == g_board->sda && fakePin(gpio).function == GPIO_FUNC_SIO && !sclLow()) {
+		// SDA changing while SCL is high: falling a START, rising a STOP.
+		if (out && !fakePin(gpio).high) {
+			g_sdaStart = true;
+			g_stats.starts++;
+		} else if (!out && g_sdaStart) {
+			g_sdaStart = false;
+			g_stats.stops++;
+		}
+		return;
+	}
 	if (gpio != g_board->scl || !out || fakePin(gpio).function != GPIO_FUNC_SIO) return;
+	g_sdaStart = false;
 	if (fakePin(gpio).high) return;
 	g_stats.sclPulses++;
 	if (g_sdaReleaseAfter > 0 && --g_sdaReleaseAfter == 0) g_holdSda = false;
@@ -231,6 +271,9 @@ void fakeI2cReset() {
 	g_failN = 0;
 	g_failSkip = 0;
 	g_holdSda = g_holdScl = false;
+	g_heldCode = PICO_ERROR_TIMEOUT;
+	g_shortN = 0;
+	g_sdaStart = false;
 	g_sdaReleaseAfter = 0;
 	g_finger = false;
 	g_cstReads = 0;
@@ -293,6 +336,8 @@ void fakeI2cFailNext(int n, int code, int skip) {
 
 void fakeI2cHoldSda(bool low) { g_holdSda = low; }
 void fakeI2cHoldScl(bool low) { g_holdScl = low; }
+void fakeI2cHeldSdaCode(int code) { g_heldCode = code; }
+void fakeI2cShortNext(int n) { g_shortN = n; }
 
 void fakeI2cSdaReleaseAfter(int clocks) {
 	g_sdaReleaseAfter = clocks;

@@ -68,10 +68,12 @@ protocol.
 - The INA219 current sensor on J3, the board's shared I2C1 bus (slice 1 of
   [current-sense.md](docs/design/current-sense.md)): `src/sense.*` reads the
   shunt and bus registers on core0 once per UI frame after the touch read,
-  writes the configuration 19EFh at each probe, reads it back once a second,
-  recovers a stuck bus with 9 clocks on SCL, and hands each reading to core1
-  as a `SenseSample` that counts as none at 250 ms. rcbench's `sense_bus.c`
-  and `sense_bus.h`, copied unchanged from rcbench commit 5ef42efdc into
+  identifies the part by its configuration, 399Fh or 19EFh, before it writes
+  anything, writes the configuration 19EFh at each probe, reads it back once
+  a second, recovers a stuck bus with 9 clocks on SCL, and publishes each
+  reading for core1 as a `SenseSample` that counts as none at 250 ms; slices
+  3 and 4 read it. Another chip at 0x40 is read, never written. rcbench's `sense_bus.c`
+  and `sense_bus.h`, copied unchanged from rcbench commit 5ef42efd into
   `lib/rcbench/shared/sense/`, decide on faults; the touch driver reports its
   transfers to them. SETTINGS → CURRENT SENSE, `NONE` or `INA219`, below
   SERVO SUPPLY, with the caption `FOUND`, `NOT FOUND` or `OTHER PART`. The

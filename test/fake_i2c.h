@@ -20,6 +20,16 @@
  * converter's output less I × R, 4 mV a code. With a clock, the shunt and bus
  * registers change only at the end of each conversion cycle the
  * configuration sets.
+ *
+ * Time: a transfer that times out moves the fake clock on by its timeout, in
+ * whole milliseconds as the clock counts them, and adds it to
+ * FakeI2cStats::timeoutUs, so fakeI2cBusyUs() bounds how long core0 blocks.
+ *
+ * Not modelled: the SDK's restart_on_next. After a write with nostop that
+ * fails, the SDK starts the next transfer with a RESTART; the block has
+ * already sent a STOP on the abort, and a RESTART on an idle bus is a START,
+ * so the next transaction looks the same on the wire. The fake therefore
+ * closes the transaction on every failure.
  */
 
 #pragma once
@@ -51,7 +61,13 @@ struct FakeI2cStats {
 	uint32_t timeouts;      /**< Transfers answered with PICO_ERROR_TIMEOUT. */
 	uint32_t inits;         /**< i2c_init() calls. */
 	uint32_t sclPulses;     /**< SCL driven low as a GPIO (general-purpose input/output), a recovery's clocks. */
+	uint32_t timeoutUs;     /**< Time spent in transfers that timed out, µs. */
+	uint32_t starts;        /**< SDA driven low as a GPIO while SCL was high: a START. */
+	uint32_t stops;         /**< SDA released after such a START while SCL was high: a STOP. */
 };
+
+/** @brief The bus time of @p s, µs: 2.5 µs a clock at 400 kHz, and every timeout in full. */
+inline uint32_t fakeI2cBusyUs(const FakeI2cStats &s) { return s.clocks * 5u / 2u + s.timeoutUs; }
 
 /** @brief An empty bus: no parts, both lines free, no faults, counters at 0. */
 void fakeI2cReset();
@@ -93,6 +109,16 @@ void fakeI2cHoldSda(bool low);
 
 /** @brief SCL held low: every transfer times out, gpio_get() reads it low. */
 void fakeI2cHoldScl(bool low);
+
+/**
+ * @brief What a transfer returns while SDA alone is held: PICO_ERROR_TIMEOUT,
+ *        the default, or PICO_ERROR_GENERIC, a lost arbitration, after 2
+ *        clocks.
+ */
+void fakeI2cHeldSdaCode(int code);
+
+/** @brief The next @p n transfers to a part, of 2 bytes or more, end one byte short: a data NACK. */
+void fakeI2cShortNext(int n);
 
 /**
  * @brief SDA held low until @p clocks more clocks on SCL driven as a GPIO,
