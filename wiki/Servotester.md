@@ -147,6 +147,30 @@ auf ein Servo zurück; `TWO` bleibt aus, bis du den Bildschirm erneut öffnest.
 
 ---
 
+## Strom
+
+Mit einem INA219-Strommessmodul an J3 und SETTINGS → CURRENT SENSE auf
+`INA219` zeigt die Zeile unter der Skala den Strom der Servoversorgung,
+`0.42 A`, und darunter die Spannung auf der Servoseite des Sensors,
+`5.02 V`. Der Sensor ist optional und nicht auf Hardware getestet. Seine
+Verkabelung steht in der Entwurfsnotiz `docs/design/current-sense.md`,
+"Place in the circuit": VCC des Moduls an J3 Pin 3, 3,3 V, nie an 5 V, und
+der Strom des Servos nur über die Schraubklemme des Moduls.
+
+<img src="img/servo-sense.png" width="240" alt="Der Servobildschirm mit Strom und Spannung rechts vom Impuls">
+
+- Mit zwei Servos an einer Versorgung zeigt die Zeile ihre Summe,
+  `A+B 0.84 A`.
+- `>3.2 A` in Bernstein: Der Strom liegt am Ende des Messbereichs, 3,2 A,
+  oder darüber; der wahre Wert ist unbekannt.
+- `-- A`: seit 250 ms kein Messwert. Der Sensor fehlt oder der Bus
+  versagt; SETTINGS zeigt `NOT FOUND` unter CURRENT SENSE.
+- Während ein Sweep läuft, steht sein Zähler oben auf der Skala.
+
+Der Strom wird 40-mal pro Sekunde gelesen, jeder Wert als Mittel über 17 ms.
+
+---
+
 ## Der SET-Bildschirm
 
 `SET` öffnet die Einstellungen. Das Servo läuft darunter weiter.

@@ -137,6 +137,7 @@ Abschnitten, die sich mit dem Finger verschieben lässt.
 | WIRING | **KISS TELEM** | Ob auf dem optionalen dritten Telemetriekabel empfangen wird |
 | WIRING | **KISS PIN** | GPIO für dieses Kabel. Überspringt den ESC-Pin, sodass beide nie zusammenfallen. Zeigt `--` und reagiert nicht, solange KISS TELEM aus ist |
 | SERVO SUPPLY | **SERVO SUPPLY** | `NONE`, `GP28` oder `GP29`: ob ein DC-DC-Wandler (Gleichspannungswandler) für die Versorgung eines zu programmierenden Servos einen Enable-Eingang hat und an welchem Pin: GP28, J4 Pin 11, oder GP29, J4 Pin 12. Standard ist `NONE`. - und + schalten durch die drei Werte. Mit `GP28` oder `GP29` schalten KST SERVO und HITEC SERVO die Versorgung des Servos |
+| SERVO SUPPLY | **CURRENT SENSE** | `NONE` oder `INA219`: ob ein INA219-Strommessmodul an J3 hängt. Standard ist `NONE`. Ein Tippen wechselt zwischen beiden. Mit `INA219` steht unter dem Namen `FOUND`, `NOT FOUND` oder, für einen anderen Chip an der Adresse des Sensors, `OTHER PART`. Servotester, KST SERVO und HITEC SERVO zeigen dann den Strom der Versorgung |
 | DISPLAY | **CONTRAST** | `NORMAL` oder `HIGH`. Hoher Kontrast ist für Tageslicht |
 | DISPLAY | **BACKLIGHT** | 16–255, in Schritten von 32 |
 | BOARD | **BUILT FOR** | Nur Anzeige. Die Platine, für die die Firmware gebaut ist, `RP2350-TOUCH-LCD-2.8` |
@@ -168,6 +169,8 @@ Polzahl und Gas-Obergrenze eingeschlossen, nur in die laufenden Einstellungen.
 Wer ohne Speichern weggeht, lässt das Flash unverändert.
 
 <img src="img/settings-supply.png" width="240" alt="SETTINGS bis SERVO SUPPLY verschoben, auf GP29"> <img src="img/settings-scrolled.png" width="240" alt="SETTINGS bis zum Ende verschoben: DISPLAY und BOARD">
+
+<img src="img/settings-sense.png" width="240" alt="SETTINGS: CURRENT SENSE auf INA219, FOUND">
 
 <img src="img/settings-contrast.png" width="240" alt="SETTINGS mit hohem Kontrast"> <img src="img/tester-contrast.png" width="240" alt="Der Tester-Bildschirm mit hohem Kontrast">
 
@@ -203,8 +206,9 @@ Steuert ein oder zwei Servos mit Servoimpulsen auf dem ESC- und dem KISS-Pin
 an. Er startet in SAFE; `HOLD TO START` 1 s lang gehalten startet die Impulse
 in der Mitte, `STOP` wirkt beim Berühren. `SET` öffnet die Einstellungen für
 Profil und Sweep. `BACK` zeigt `UNPLUG THE SERVO.`, bevor der ESC-Treiber die
-Pins zurückbekommt; `RESTART DSHOT` führt danach zu `MENU`. Siehe
-[Servotester](Servotester).
+Pins zurückbekommt; `RESTART DSHOT` führt danach zu `MENU`. Mit CURRENT
+SENSE auf `INA219` zeigt die Zeile unter der Skala Strom und Spannung der
+Servoversorgung. Siehe [Servotester](Servotester).
 
 ---
 
@@ -218,8 +222,9 @@ einschaltest, liest seine 32 Register und listet 27 Felder zum Verstellen.
 `HOLD TO WRITE` 1 s lang gehalten öffnet die Schreibseite, ein zweites Halten
 von 1 s schreibt, zuvor mit einer Sicherung auf der SD-Karte. `BACK` öffnet
 die Verlassenseite, die dich auffordert, das Servo auszuschalten; `LEAVE`
-zeigt dann `UNPLUG THE SERVO.`, und `RESTART DSHOT` führt zu `MENU`. Siehe
-[KST-Programmierung](KST-Programmierung).
+zeigt dann `UNPLUG THE SERVO.`, und `RESTART DSHOT` führt zu `MENU`. Mit
+CURRENT SENSE auf `INA219` zeigt der Streifen den Strom hinter dem Zustand der
+Versorgung, `SUPPLY ON 0.08 A`. Siehe [KST-Programmierung](KST-Programmierung).
 
 ---
 
@@ -237,7 +242,8 @@ hängt ein Servo, ohne Pull-up-Widerstand. `HOLD TO WRITE` 1 s lang gehalten
 öffnet die Schreibseite, ein zweites Halten von 1 s schreibt, zuvor mit einer
 Sicherung auf der SD-Karte. `BACK` öffnet
 die Verlassenseite; `LEAVE` zeigt dann `UNPLUG THE SERVO.`, und
-`RESTART DSHOT` führt zu `MENU`. Nicht auf Hardware getestet. Siehe
+`RESTART DSHOT` führt zu `MENU`. Mit CURRENT SENSE auf `INA219` zeigt der
+Streifen den Strom hinter `SUPPLY ON`. Nicht auf Hardware getestet. Siehe
 [Hitec-Programmierung](Hitec-Programmierung).
 
 ---

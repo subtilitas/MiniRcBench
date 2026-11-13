@@ -403,10 +403,10 @@ static void testBlankNamesTheBoard() {
  * DshotDisplay block then stops loading on purpose rather than by accident.
  */
 static void testLayout() {
-	section("Settings: the version 4 block layout");
+	section("Settings: the version 5 block layout");
 
 	checkTrue("magic \"DSHT\"", SETTINGS_MAGIC == 0x44534854u);
-	checkInt("version", SETTINGS_VERSION, 4);
+	checkInt("version", SETTINGS_VERSION, 5);
 	checkInt("payload size", (long)sizeof(Settings), 14);
 	checkInt("boardId at 0", (long)offsetof(Settings, boardId), 0);
 	checkInt("dshotPin at 1", (long)offsetof(Settings, dshotPin), 1);
@@ -418,12 +418,15 @@ static void testLayout() {
 	checkInt("backlight at 10", (long)offsetof(Settings, backlight), 10);
 	checkInt("highContrast at 11", (long)offsetof(Settings, highContrast), 11);
 	checkInt("servoSupply at 12", (long)offsetof(Settings, servoSupply), 12);
+	checkInt("currentSense at 13, the byte that was padding",
+	         (long)offsetof(Settings, currentSense), 13);
 	checkInt("block size", (long)sizeof(SettingsBlock), 28);
 
-	// A block with every field off its default, the switch fitted on GP29,
-	// loads as it was stored.
+	// A block with every field off its default, the switch fitted on GP29 and
+	// the sensor declared, loads as it was stored.
 	Settings v4;
 	settingsDefaults(&v4);
+	v4.currentSense = 1;
 	v4.dshotPin     = 1;
 	v4.kissEnable   = 1;
 	v4.kissPin      = 0;
@@ -439,6 +442,28 @@ static void testLayout() {
 	checkTrue("the block is taken", settingsStored());
 	checkTrue("every field as stored", memcmp(settings(), &v4, sizeof(v4)) == 0);
 	checkTrue("with nothing to save", !settingsDirty());
+
+	// A version 4 block: the same size, the sensor's byte its padding, a
+	// valid CRC. Discarded whole for its version, every setting included.
+	{
+		SettingsBlock b4;
+		memset(&b4, 0, sizeof(b4));
+		b4.magic = SETTINGS_MAGIC;
+		b4.version = 4;
+		b4.size = sizeof(Settings);
+		b4.s = v4;
+		b4.s.currentSense = 0;
+		b4.crc32 = settingsCrc32(&b4, offsetof(SettingsBlock, crc32));
+		fakeFlashClear();
+		memcpy(fakeFlashBytes(), &b4, sizeof(b4));
+		settingsLoad();
+		Settings def;
+		settingsDefaults(&def);
+		checkTrue("a version 4 block is discarded", !settingsStored());
+		checkTrue("and the compiled defaults load, every setting: no sensor, no switch",
+		          memcmp(settings(), &def, sizeof(def)) == 0 && settings()->currentSense == 0 &&
+		          settings()->servoSupply == 0 && settings()->poles == DEFAULT_MOTOR_POLES);
+	}
 
 	// A version 3 block, its ESC pin on GP29 and its switch on GP0: the same
 	// layout and a valid CRC, discarded whole for its version.
@@ -503,6 +528,22 @@ static void testServoSupplyClamp() {
 	checkInt("255 to none", s.servoSupply, 0);
 }
 
+/** @brief The current sensor: 0 and 1 pass; anything else reads as none. */
+static void testCurrentSenseClamp() {
+	section("Settings: the current sensor clamp");
+	Settings s;
+	settingsDefaults(&s);
+	checkInt("default: none", s.currentSense, 0);
+	s.currentSense = 1;
+	checkTrue("INA219 passes", settingsValidate(&s) && s.currentSense == 1);
+	s.currentSense = 2;
+	checkTrue("2 is repaired", !settingsValidate(&s));
+	checkInt("to none", s.currentSense, 0);
+	s.currentSense = 255;
+	settingsValidate(&s);
+	checkInt("255 to none", s.currentSense, 0);
+}
+
 void runSettingsTests() {
 	testBlankFlash();
 	testRoundTrip();
@@ -519,6 +560,7 @@ void runSettingsTests() {
 	testBlankNamesTheBoard();
 	testLayout();
 	testServoSupplyClamp();
+	testCurrentSenseClamp();
 
 	// Leave the module in a known state: test_ui.cpp runs after this and reads
 	// settings() for the pole count and throttle ceiling.

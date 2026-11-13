@@ -138,6 +138,29 @@ open the screen again.
 
 ---
 
+## Current
+
+With an INA219 current sensor module on J3 and SETTINGS → CURRENT SENSE at
+`INA219`, the row under the dial shows the servo supply's current, `0.42 A`,
+and under it the voltage on the servo's side of the sensor, `5.02 V`. The
+sensor is optional and not tested on hardware. Its wiring is in the design
+note `docs/design/current-sense.md`, "Place in the circuit": the module's
+VCC on J3 pin 3, 3.3 V, never 5 V, and the servo's current through the
+module's screw terminal only.
+
+<img src="img/servo-sense.png" width="240" alt="The servo screen with the current and the voltage right of the pulse">
+
+- With two servos on one supply the row shows their sum, `A+B 0.84 A`.
+- `>3.2 A` in amber: the current is at or past the end of the sensor's
+  range, 3.2 A, and the true value is not known.
+- `-- A`: no reading for 250 ms. The sensor is missing, or the bus is
+  failing; SETTINGS shows `NOT FOUND` under CURRENT SENSE.
+- While a sweep runs, its count moves to the top of the dial.
+
+The current is read 40 times a second, each reading the mean over 17 ms.
+
+---
+
 ## The SET screen
 
 `SET` opens the settings. The servo keeps running under it.

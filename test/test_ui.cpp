@@ -12,6 +12,8 @@
 #include "fakes.h"
 #include "settings.h"
 #include "servo_supply.h"
+#include "sense.h"
+#include "fake_i2c.h"
 #include "hardware/gpio.h"
 #include "ui_input.h"
 #include "board_desc.h"
@@ -1012,6 +1014,69 @@ static void testSettingsServoSupply() {
 	tapId(UI_FIX(UI_BACK));
 	fakeFlashClear();
 	settingsLoad();
+}
+
+/** @brief Whether CURRENT SENSE's caption is @p want; false for none. */
+static bool captionIs(const char *want) {
+	const char *c = senseCaption();
+	return c && strcmp(c, want) == 0;
+}
+
+/**
+ * @brief CURRENT SENSE: KST's section below SERVO SUPPLY, toggled NONE and
+ *        INA219, applied at once, its caption from the probe, saved and
+ *        reset; nothing sent to 0x40 with NONE.
+ */
+static void testSettingsCurrentSense() {
+	section("SETTINGS: CURRENT SENSE");
+
+	fakeFlashClear();
+	settingsLoad();
+	senseConfigure(0);
+	fakeI2cReset();
+	uiInit();
+	frames(2);
+	enterSettings();
+
+	checkInt("none by default", settings()->currentSense, 0);
+	FakeIna219 *p = fakeI2cAddIna219(INA219_ADDR);
+	frames(40);
+	checkInt("NONE: 40 frames, nothing to 0x40", fakeI2cTransactionsTo(INA219_ADDR), 0);
+	checkTrue("no caption", senseCaption() == nullptr);
+
+	tapRowId(UI_ROW(SettingsRowId::CurrentSense, Toggle));
+	checkTrue("INA219, applied at once", settings()->currentSense == 1 && senseDeclared());
+	frames(1);
+	checkTrue("probed: FOUND, the part on 19EFh",
+	          captionIs("FOUND") && p->reg[0] == 0x19EF);
+	fakeDumpFrame("shot_settings_sense.ppm");
+	checkTrue("unsaved", settingsDirty());
+	pressId(UI_FIX(SettingsCtl::Save));
+	holdId(UI_FIX(SettingsCtl::Save), 60);
+	fakeRelease(); frames(2);
+	settingsLoad();
+	checkTrue("saved: a reload keeps INA219", settingsStored() && settings()->currentSense == 1);
+
+	fakeI2cRemove(INA219_ADDR);
+	frames(5);
+	checkTrue("the part gone: NOT FOUND", captionIs("NOT FOUND"));
+	fakeI2cAddIna219(INA219_ADDR, 0x4127);
+	frames(45);
+	checkTrue("another part at 0x40: OTHER PART", captionIs("OTHER PART"));
+
+	tapId(UI_FIX(SettingsCtl::Reset));
+	checkTrue("RESET: NONE, applied at once", settings()->currentSense == 0 && !senseDeclared());
+	uint32_t n = fakeI2cTransactionsTo(INA219_ADDR);
+	frames(80);
+	checkInt("and nothing sent to 0x40 after", fakeI2cTransactionsTo(INA219_ADDR), n);
+	tapRowId(UI_ROW(SettingsRowId::CurrentSense, Toggle));
+	tapRowId(UI_ROW(SettingsRowId::CurrentSense, Toggle));
+	checkTrue("toggled twice: NONE again", settings()->currentSense == 0 && !senseDeclared());
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+	fakeFlashClear();
+	settingsLoad();
+	fakeI2cReset();
 }
 
 /** @brief Contrast and backlight take effect immediately and persist. */
@@ -3581,6 +3646,7 @@ void runUiTests() {
 	testStatusBarBitrate();
 	testSettingsKiss();
 	testSettingsServoSupply();
+	testSettingsCurrentSense();
 	testSettingsDisplay();
 	testSettingsSave();
 	testArmedSaveRefused();

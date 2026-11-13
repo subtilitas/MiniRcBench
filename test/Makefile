@@ -35,18 +35,19 @@ INCLUDES := -Istubs -I../src -I.
 #   make EXTRA_DEFINES="-DDSHOT_PIN_LCD_2_8=1 -DKISS_PIN_LCD_2_8=0" run
 DEFINES := $(EXTRA_DEFINES)
 
-# The servo tester and the KST and Hitec programmers list their own sources,
-# so none of them edits this file for that. @see servo.mk, kst.mk, hitec.mk
-include servo.mk kst.mk hitec.mk
+# The servo tester, the KST and Hitec programmers and the current sensor list
+# their own sources, so none of them edits this file for that.
+# @see servo.mk, kst.mk, hitec.mk, sense.mk
+include servo.mk kst.mk hitec.mk sense.mk
 
 # Each feature's C sources, their include directories and their C test
 # programs. A feature with none leaves its variables undefined, and they
 # expand to nothing.
-FEATURE_CSRCS := $(SERVO_CSRCS) $(KST_CSRCS) $(HITEC_CSRCS)
+FEATURE_CSRCS := $(SERVO_CSRCS) $(KST_CSRCS) $(HITEC_CSRCS) $(SENSE_CSRCS)
 FEATURE_CTESTS := $(SERVO_CTESTS) $(KST_CTESTS) $(HITEC_CTESTS)
 FEATURE_CXXTESTS := $(HITEC_CXXTESTS)
 FEATURE_CTEST_DEFINES := $(SERVO_CTEST_DEFINES) $(KST_CTEST_DEFINES) $(HITEC_CTEST_DEFINES)
-FEATURE_INCLUDES := $(SERVO_INCLUDES) $(KST_INCLUDES) $(HITEC_INCLUDES)
+FEATURE_INCLUDES := $(SERVO_INCLUDES) $(KST_INCLUDES) $(HITEC_INCLUDES) $(SENSE_INCLUDES)
 INCLUDES += $(FEATURE_INCLUDES)
 
 SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
@@ -61,7 +62,7 @@ SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
         ../src/kiss_telem.cpp ../src/esc_merge.cpp ../src/blackbox_encode.cpp \
         ../src/log_ring.cpp ../src/pin_claim.cpp \
         $(SERVO_TESTS) $(SERVO_SRCS) $(KST_TESTS) $(KST_SRCS) \
-        $(HITEC_TESTS) $(HITEC_SRCS)
+        $(HITEC_TESTS) $(HITEC_SRCS) $(SENSE_TESTS) $(SENSE_SRCS)
 
 # Sources the tests cannot link -- they drive real hardware -- but which still
 # have to compile. CI's "Config permutations" job already builds all of src/

@@ -259,12 +259,13 @@ add_executable(MiniRcBench
     src/dshot/out_dshot.c
 )
 
-# The servo tester and the KST and Hitec programmers list their own sources,
-# so none of them edits this file for that. Each adds to MiniRcBench with
-# target_sources().
+# The servo tester, the KST and Hitec programmers and the current sensor list
+# their own sources, so none of them edits this file for that. Each adds to
+# MiniRcBench with target_sources().
 include(src/servo.cmake)
 include(src/kst.cmake)
 include(src/hitec.cmake)
+include(src/sense.cmake)
 
 # The KISS receiver is a PIO program (see pio_uart_rx.h for why it is not one
 # of the two hardware UARTs). pioasm assembles it into the build tree, and this

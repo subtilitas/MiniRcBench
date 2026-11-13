@@ -132,6 +132,7 @@ settings to flash. One list, in sections, scrolls under a finger.
 | WIRING | **KISS TELEM** | Whether to listen on the optional third telemetry wire |
 | WIRING | **KISS PIN** | GPIO for that wire. Skips the ESC pin, so the two never coincide. Reads `--` and does not act while KISS TELEM is off |
 | SERVO SUPPLY | **SERVO SUPPLY** | `NONE`, `GP28` or `GP29`: whether a DC-DC converter (direct-current voltage converter) for a programmed servo's supply has its enable wired, and to which pin: GP28, J4 pin 11, or GP29, J4 pin 12. `NONE` by default. - and + step through the three. With `GP28` or `GP29`, KST SERVO and HITEC SERVO switch the servo's supply |
+| SERVO SUPPLY | **CURRENT SENSE** | `NONE` or `INA219`: whether an INA219 current sensor module is on J3. `NONE` by default. A tap switches between the two. With `INA219` a caption under the name reads `FOUND`, `NOT FOUND`, or `OTHER PART` for another chip at the sensor's address. The servo tester, KST SERVO and HITEC SERVO then show the supply's current |
 | DISPLAY | **CONTRAST** | `NORMAL` or `HIGH`. High contrast is for daylight |
 | DISPLAY | **BACKLIGHT** | 16–255, in steps of 32 |
 | BOARD | **BUILT FOR** | Read-only. The board the firmware is built for, `RP2350-TOUCH-LCD-2.8` |
@@ -161,6 +162,8 @@ ceiling included, into the live settings only. Leaving without saving keeps
 flash unchanged.
 
 <img src="img/settings-supply.png" width="240" alt="SETTINGS scrolled to SERVO SUPPLY, set to GP29"> <img src="img/settings-scrolled.png" width="240" alt="SETTINGS scrolled to the end: DISPLAY and BOARD">
+
+<img src="img/settings-sense.png" width="240" alt="SETTINGS: CURRENT SENSE at INA219, FOUND">
 
 <img src="img/settings-contrast.png" width="240" alt="SETTINGS in high contrast"> <img src="img/tester-contrast.png" width="240" alt="The tester screen in high contrast">
 
@@ -195,7 +198,8 @@ Drives one or two servos with servo pulses on the ESC and KISS pins. It opens
 SAFE; `HOLD TO START` for 1 s starts the pulses at the centre, `STOP` acts on
 touch. `SET` opens the profile and sweep settings. `BACK` shows
 `UNPLUG THE SERVO.` before the ESC driver takes the pins back, and
-`RESTART DSHOT` then returns to `MENU`. See
+`RESTART DSHOT` then returns to `MENU`. With CURRENT SENSE at `INA219` the
+row under the dial shows the servo supply's current and voltage. See
 [Servo Tester](Servo-Tester).
 
 ---
@@ -210,7 +214,8 @@ registers, and lists 27 fields to step. `HOLD TO WRITE` for 1 s opens the
 write page, and a second hold of 1 s writes, with a backup on the SD card
 first. `BACK` opens the leave page, which asks you to power the servo off;
 `LEAVE` then shows `UNPLUG THE SERVO.`, and `RESTART DSHOT` returns to `MENU`.
-See [KST Programming](KST-Programming).
+With CURRENT SENSE at `INA219` the strip shows the current after the
+supply's state, `SUPPLY ON 0.08 A`. See [KST Programming](KST-Programming).
 
 ---
 
@@ -227,7 +232,8 @@ them editable. One servo goes on the lead, with no pull-up resistor.
 `HOLD TO WRITE` for 1 s opens the write page, and a second hold of 1 s writes,
 with a backup on the SD card first. `BACK` opens the leave page; `LEAVE` then
 shows `UNPLUG THE SERVO.`,
-and `RESTART DSHOT` returns to `MENU`. Not tested on hardware. See
+and `RESTART DSHOT` returns to `MENU`. With CURRENT SENSE at `INA219` the
+strip shows the current after `SUPPLY ON`. Not tested on hardware. See
 [Hitec Programming](Hitec-Programming).
 
 ---

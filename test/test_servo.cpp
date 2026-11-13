@@ -31,6 +31,8 @@
 #include "gfx.h"
 #include "touch.h"
 #include "settings.h"
+#include "sense.h"
+#include "fake_i2c.h"
 #include "plat.h"
 
 #include "../src/ui_servo.cpp"   // NOLINT -- see the note above
@@ -2482,6 +2484,104 @@ static void testBindRefused() {
 }
 
 
+/**
+ * @brief Whether @p text at scale @p scale, in @p col, is what the panel
+ *        shows with its top left at (@p x, @p y): the box redrawn with it
+ *        hashes the same.
+ */
+static bool textAt(int x, int y, const char *text, uint16_t col, int scale) {
+	int w = gfxTextW(text, scale), h = 7 * scale;
+	static uint16_t keep[14][GFX_W];
+	uint16_t *fb = gfxBuffer();
+	for (int r = 0; r < h; r++) memcpy(keep[r], fb + (y + r) * GFX_W, sizeof(keep[r]));
+	uint32_t shown = fakeRegionHash(x, y, w, h);
+	gfxRect(x, y, w, h, C_BG);
+	gfxText(x, y, text, col, scale);
+	bool same = fakeRegionHash(x, y, w, h) == shown;
+	for (int r = 0; r < h; r++) memcpy(fb + (y + r) * GFX_W, keep[r], sizeof(keep[r]));
+	return same;
+}
+
+/** @brief Whether any pixel of the box is @p col. */
+static bool anyOf(int x0, int y0, int w, int h, uint16_t col) {
+	for (int y = y0; y < y0 + h; y++)
+		for (int x = x0; x < x0 + w; x++)
+			if (pixel(x, y) == col) return true;
+	return false;
+}
+
+/**
+ * @brief The readout row with CURRENT SENSE at INA219: the current at
+ *        scale 2 right of the pulse, the bus voltage under it, the clip in
+ *        amber, `-- A` once 250 ms pass without a reading, `A+B` with two
+ *        servos, and the sweep's count moved to the dial band.
+ */
+static void testSenseReadout() {
+	section("Servo screen: the current sensor's readout");
+	freshUi();
+	fakeI2cReset();
+	FakeIna219 *ina = fakeI2cAddIna219(INA219_ADDR);
+	ina->currentA = 0.42;
+	ina->voutV = 5.062;   // 5.020 V at IN-
+	openServo();
+	uiFrames(1);
+	checkTrue("NONE: nothing right of the pulse",
+	          !anyOf(120, SV_READ_Y, GFX_W - 120, SV_READ_H, C_TEXT) &&
+	          !anyOf(120, SV_READ_Y, GFX_W - 120, SV_READ_H, C_DIM));
+	settings()->currentSense = 1;
+	senseConfigure(1);
+	uiFrames(2);
+	const int curY = SV_READ_Y + SV_CUR_DY, voltY = SV_READ_Y + SV_VOLT_DY;
+	checkTrue("0.42 A at scale 2, right of the pulse",
+	          textAt(GFX_W - UI_MARGIN - gfxTextW("0.42 A", 2), curY, "0.42 A", C_TEXT, 2));
+	checkTrue("5.02 V under it at scale 1",
+	          textAt(GFX_W - UI_MARGIN - gfxTextW("5.02 V", 1), voltY, "5.02 V", C_DIM, 1));
+	checkTrue("the pulse where it was", textAt(UI_MARGIN, SV_READ_Y + 5, "NO PULSE", C_DIM, 2));
+	fakeDumpFrame("shot_servo_sense.ppm");
+	ina->currentA = 4.0;
+	uiFrames(1);
+	checkTrue("clipped: >3.2 A in amber",
+	          textAt(GFX_W - UI_MARGIN - gfxTextW(">3.2 A", 2), curY, ">3.2 A", C_AMBER, 2));
+	ina->currentA = 0.42;
+	uiFrames(1);
+
+	holdStart();
+	tapId(UI_FIX(ServoCtl::Sweep)); core1();
+	uiFrames(24); core1();
+	uiFrames(1);
+	char sw[24];
+	sweepText(sw, sizeof(sw));
+	checkTrue("sweeping: the count on the dial band's first line, in cyan",
+	          sw[0] && textAt((GFX_W - gfxTextW(sw, 1)) / 2, 64, sw, C_CYAN, 1));
+	checkTrue("and not on the readout row", !anyOf(UI_MARGIN, voltY, 100, 7, C_CYAN));
+	pressId(UI_FIX(ServoCtl::Start)); core1();
+	fakeRelease(); uiFrames(1);
+
+	s_profile.servos = 2;
+	s_full = true;
+	drawReadout();
+	s_full = false;
+	checkTrue("two servos: A+B 0.42 A on the second line",
+	          textAt(UI_MARGIN, SV_READ_Y + 14, "A+B 0.42 A", C_TEXT, 1));
+	checkTrue("clear of the selector", UI_MARGIN + gfxTextW("A+B <-3.2 A", 1) + 4 <= BTN_SEL_A.x);
+	s_profile.servos = 1;
+	s_full = true;
+
+	fakeI2cRemove(INA219_ADDR);
+	uiFrames(9);
+	checkTrue("225 ms after the last reading: still shown",
+	          textAt(GFX_W - UI_MARGIN - gfxTextW("0.42 A", 2), curY, "0.42 A", C_TEXT, 2));
+	uiFrames(1);
+	checkTrue("250 ms: -- A in dim",
+	          textAt(GFX_W - UI_MARGIN - gfxTextW("-- A", 2), curY, "-- A", C_DIM, 2));
+	checkTrue("and -- V", textAt(GFX_W - UI_MARGIN - gfxTextW("-- V", 1), voltY, "-- V", C_DIM, 1));
+
+	leaveServo();
+	settings()->currentSense = 0;
+	senseConfigure(0);
+	fakeI2cReset();
+}
+
 void runServoTests() {
 	testProfiles();
 	testValidity();
@@ -2515,5 +2615,6 @@ void runServoTests() {
 	testSetList();
 	testClaimCorners();
 	testBindRefused();
+	testSenseReadout();
 	freshUi();
 }

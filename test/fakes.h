@@ -193,7 +193,7 @@ uint8_t escTaskDshotPin();
 #define FAKE_SLICES 8
 
 /** @brief Which pull a pin has, as the GPIO fake last set it. */
-enum class FakePull : uint8_t { Untouched, None, Down };
+enum class FakePull : uint8_t { Untouched, None, Down, Up };
 
 /** @brief What the fake recorded for one GPIO. */
 struct FakePin {

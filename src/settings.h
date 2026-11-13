@@ -48,9 +48,12 @@
  * Version 4 moves the signal pins to GP0 and GP1 and the switched supply's
  * enable to GP28 or GP29, so a block of an earlier version, with its ESC pin
  * on GP29 or GP28 or its supply enable on GP0, is discarded and the compiled
- * defaults load. The host suite pins the layout.
+ * defaults load. Version 5 adds @ref Settings::currentSense in the byte that
+ * was padding, so a version 4 block has the same size: its version alone
+ * discards it, and the compiled defaults load, every setting included. The
+ * host suite pins the layout.
  */
-#define SETTINGS_VERSION 4
+#define SETTINGS_VERSION 5
 
 /** @brief Lowest backlight level: below it the panel looks dead. */
 #define BACKLIGHT_MIN 16
@@ -75,6 +78,7 @@ struct Settings {
 	uint8_t  backlight;    /**< Preferred backlight level, @ref BACKLIGHT_MIN to 255. */
 	uint8_t  highContrast; /**< Non-zero selects @ref Theme::HighContrast. */
 	uint8_t  servoSupply;  /**< The switched servo supply: 0 none, 1 an enable on GP28, 2 on GP29. @see servo_supply.h */
+	uint8_t  currentSense; /**< The current sensor: 0 none, 1 an INA219 on J3. @see sense.h */
 };
 
 /**
@@ -149,7 +153,8 @@ void settingsDefaults(Settings *out);
  * number of steps and within @ref MAX_THROTTLE_CEILING; DShot bitrate one of
  * the four legal values; board id @ref BOARD_ID_LCD_2_8; ESC pin free; KISS
  * pin free and not the same pin as the ESC — KISS is switched off rather than
- * moved if it is not; servo supply 0 or 1, any other value 0.
+ * moved if it is not; servo supply 0 to 2, any other value 0; current
+ * sensor 0 or 1, any other value 0.
  *
  * @param[in,out] s Settings to repair in place.
  * @return true if nothing needed changing.

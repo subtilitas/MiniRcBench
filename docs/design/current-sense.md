@@ -1,6 +1,7 @@
 # Current sense and the bench converter
 
-Status: design, nothing built. The owner's decisions of 2026-11-13 are
+Status: slice 1 built and host-tested, not tested on hardware; slices 2 to
+6 not built. The owner's decisions of 2026-11-13 are
 recorded under [decisions](#decisions). No INA219 has been on the board's
 bus, and no boost converter has been on GP28 or GP29: every figure below is
 from a datasheet, from rcbench's records or computed, and the ones that are

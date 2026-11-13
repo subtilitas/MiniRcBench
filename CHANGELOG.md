@@ -44,6 +44,21 @@ protocol.
 
 ### Added
 
+- The INA219 current sensor on J3, the board's shared I2C1 bus (slice 1 of
+  [current-sense.md](docs/design/current-sense.md)): `src/sense.*` reads the
+  shunt and bus registers on core0 once per UI frame after the touch read,
+  writes the configuration 19EFh at each probe, reads it back once a second,
+  recovers a stuck bus with 9 clocks on SCL, and hands each reading to core1
+  as a `SenseSample` that counts as none at 250 ms. rcbench's `sense_bus.c`
+  and `sense_bus.h`, copied unchanged from rcbench commit 5ef42efdc into
+  `lib/rcbench/shared/sense/`, decide on faults; the touch driver reports its
+  transfers to them. SETTINGS → CURRENT SENSE, `NONE` or `INA219`, below
+  SERVO SUPPLY, with the caption `FOUND`, `NOT FOUND` or `OTHER PART`. The
+  readout: the current and the bus voltage on the servo tester's readout
+  row, `A+B` with two servos, `>3.2 A` in amber when clipped; the current
+  after `SUPPLY ON` on the KST SERVO and HITEC SERVO strips; `-- A` for no
+  reading. The host suite runs on an I2C fake with an INA219 and a CST328
+  model (`test/fake_i2c.*`, `test/test_sense.cpp`). Not tested on hardware.
 - The wiki pages Setup and Einrichtung: the parts for each tool, the
   adapter cable from J5 to a servo plug, and installing the `.uf2` image.
 - A wiring diagram, `docs/wiring.svg`, in the README and on the wiki pages
@@ -353,6 +368,13 @@ protocol.
   once after the update. The release notes give the ESC on GP0, KISS on
   GP1, the menu path MENU → SETTINGS, and GP28 and GP29 as supply enables
   only.
+- The settings block is version 5: it adds CURRENT SENSE in the byte that
+  was padding. A version 4 block is discarded whole and the compiled
+  defaults load, so every saved setting returns to its default once after
+  the update.
+- With CURRENT SENSE at `INA219`, the servo tester's sweep count moves from
+  the readout row to the first line of the dial, where the current takes
+  its place.
 - Hitec CLASSIC opens whenever SERVO SUPPLY is `GP28` or `GP29`, by the
   owner's decision of 2026-10-29: SIG is a fault tolerant pin, rated 5.5 V
   while the board is powered, and the servo supply is 5 V. The

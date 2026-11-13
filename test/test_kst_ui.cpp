@@ -33,6 +33,8 @@
 #include "ui_screen.h"
 #include "usb_msc.h"
 #include "servo_supply.h"
+#include "sense.h"
+#include "fake_i2c.h"
 #include "sdio/sd_host.h"
 #include "kst_supply_sim.h"
 #include "hardware/gpio.h"
@@ -1442,6 +1444,43 @@ static void testSwitchedSupply() {
 	settings()->servoSupply = 0;
 }
 
+/**
+ * @brief With CURRENT SENSE at INA219, the strip reads the current after
+ *        SUPPLY ON; with NONE it does not.
+ */
+static void testSupplyCurrent() {
+	section("KST screen: the current after SUPPLY ON");
+	freshKst(false);
+	settings()->servoSupply = 1;
+	servoSupplyConfigure(1);
+	settings()->currentSense = 1;
+	senseConfigure(1);
+	fakeI2cReset();
+	FakeIna219 *ina = fakeI2cAddIna219(INA219_ADDR);
+	ina->currentA = 0.08;
+	supplySimInit(&g_sup, fakeKstSim(), time_us_32());
+	g_supOn = true;
+	openKst();
+	int i = 0;
+	for (; i < 400 && !(job().job == KstJobState::Searching && job().supplyOn); i++) kstFrame();
+	kstFrames(1);
+	char want[48];
+	snprintf(want, sizeof(want), "GP0  TRY %u  SUPPLY ON 0.08 A", (unsigned)job().attempts);
+	checkTrue("the switched search, supply on: SUPPLY ON 0.08 A",
+	          job().supplyOn && uiKstView() == KstView::Main && stripIs(want, C_DIM));
+	ina->currentA = 0.12;
+	kstFrames(1);
+	snprintf(want, sizeof(want), "GP0  TRY %u  SUPPLY ON 0.12 A", (unsigned)job().attempts);
+	checkTrue("a new reading repaints the strip", !job().supplyOn || stripIs(want, C_DIM));
+	leaveAll();
+	g_supOn = false;
+	servoSupplyConfigure(0);
+	settings()->servoSupply = 0;
+	settings()->currentSense = 0;
+	senseConfigure(0);
+	fakeI2cReset();
+}
+
 /** @brief Card calls made with the wait hook set, and without. */
 static unsigned n_hooked = 0, n_unhooked = 0;
 
@@ -1584,6 +1623,7 @@ void runKstUiTests() {
 	testRecordKeptAtLeave();
 	testFlushWait();
 	testSwitchedSupply();
+	testSupplyCurrent();
 	testCardPhase();
 	fakeKstLineReset();
 	noCard();

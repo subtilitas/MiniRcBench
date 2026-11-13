@@ -2,12 +2,12 @@
 
 The files under this directory are copied from
 [rcbench](https://github.com/subtilitas/rcbench) with their text unchanged:
-the Hitec files at commit `3e29dc1b`, every other file at commit
-`453cf334`. rcbench is MIT licensed by the same copyright holder as
-MiniRcBench, subtilitas, so the copies carry the licence of this repository,
-[LICENSE](../../LICENSE). Each file keeps its `SPDX-License-Identifier: MIT`
-line. The directory layout is rcbench's, so a file here and its original
-compare with one `diff`.
+the Hitec files at commit `3e29dc1b`, the sensor bus at commit `5ef42efdc`,
+every other file at commit `453cf334`. rcbench is MIT licensed by the same
+copyright holder as MiniRcBench, subtilitas, so the copies carry the licence
+of this repository, [LICENSE](../../LICENSE). Each file keeps its
+`SPDX-License-Identifier: MIT` line. The directory layout is rcbench's, so a
+file here and its original compare with one `diff`.
 
 | File here | rcbench path |
 | --- | --- |
@@ -32,6 +32,13 @@ The Hitec files, at commit `3e29dc1b`:
 | `shared/bench/include/hitec_card.h` | `shared/bench/include/hitec_card.h` |
 | `shared/link/link_crc.c` | `shared/link/link_crc.c` |
 | `shared/link/include/link_crc.h` | `shared/link/include/link_crc.h` |
+
+The sensor bus, at commit `5ef42efdc`:
+
+| File here | rcbench path |
+| --- | --- |
+| `shared/sense/sense_bus.c` | `shared/sense/sense_bus.c` |
+| `shared/sense/include/sense_bus.h` | `shared/sense/include/sense_bus.h` |
 
 The servo tester uses them: `servo_sweep` computes the sweep curve on core1,
 and `out_pwm_map` maps each GPIO (general-purpose input/output) to its PWM
@@ -80,6 +87,16 @@ fixtures to pioasm's assembly of the `.pio` files.
 `test/rcbench/link_pages.h` is not rcbench's: rcbench's header is the page
 map of its link, which is not ported, and this stub holds only the 5 values
 `test_hitec_session.c` needs, at their `3e29dc1b` values.
+
+The sensor bus (`shared/sense/sense_bus.*`) is for the INA219 current sensor
+on the I2C (Inter-Integrated Circuit) bus, of
+[current-sense.md](../../docs/design/current-sense.md): it decides when a part
+goes offline and when the bus is stuck, and `src/sense.cpp` supplies its wire
+over the Pico SDK (software development kit) and reads the INA219 through it.
+It is built as C11, in the firmware by `src/sense.cmake` and in the host suite
+by `test/sense.mk`. rcbench has no test of it of its own: its tests reach it
+through the INA228 and INA3221 drivers, which are not copied, so none is in
+`test/rcbench/`; `test/test_sense.cpp` tests it through the INA219 driver.
 
 Files adapted rather than copied start with the line
 `Adapted from rcbench <path>, commit <commit>, MIT.`
