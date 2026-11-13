@@ -20,10 +20,7 @@
 #include "pin_claim.h"
 #include "servo_job.h"
 #include "servo_model.h"
-<<<<<<< HEAD
 #include "sense.h"
-=======
->>>>>>> origin/main
 #include "servo_supply.h"
 #include "touch.h"
 #include "ui_hold.h"
@@ -506,22 +503,14 @@ static void drawReadout() {
 	uint16_t curCol = C_DIM;
 	bool sensed = senseReadout(cur, volt, sizeof(cur), &curCol);
 	struct { uint16_t us[2]; bool sweeping; uint32_t moves; uint16_t limit; uint8_t mask, servos;
-<<<<<<< HEAD
 	         bool pa, pb, pab, hint; uint32_t cur, volt; uint16_t curCol; } k;
-=======
-	         bool pa, pb, pab, hint; } k;
->>>>>>> origin/main
 	memset(&k, 0, sizeof(k));
 	// SAFE only: not running, not STALLED, and the pins bound, so not while
 	// the claim is taken or released and not under a bind error.
 	k.hint = !twoServos() && !s_st.running && !s_st.tripped && s_claimed &&
 	         pinClaimState() == ClaimState::Running && !pinClaimJobError() && !s_st.bindError &&
-<<<<<<< HEAD
 	         s_auxRefusal == ClaimRefusal::None &&
 	         !sensed;   // a declared sensor's readout takes the row's right side
-=======
-	         s_auxRefusal == ClaimRefusal::None;
->>>>>>> origin/main
 	k.us[0] = s_st.outUs[0]; k.us[1] = s_st.outUs[1];
 	k.sweeping = s_st.sweeping; k.moves = s_st.sweepMoves; k.limit = s_sweep.moves;
 	k.mask = s_mask; k.servos = s_profile.servos;
@@ -541,13 +530,10 @@ static void drawReadout() {
 		else               snprintf(buf, sizeof(buf), "NO PULSE");
 		gfxText(UI_MARGIN, SV_READ_Y + 5, buf, s_st.outUs[0] ? C_LIME : C_DIM, 2);
 		if (sw[0]) gfxText(GFX_W - UI_MARGIN - gfxTextW(sw, 1), SV_READ_Y + 9, sw, C_CYAN, 1);
-<<<<<<< HEAD
 		if (sensed) {
 			gfxText(GFX_W - UI_MARGIN - gfxTextW(cur, 2), SV_READ_Y + SV_CUR_DY, cur, curCol, 2);
 			gfxText(GFX_W - UI_MARGIN - gfxTextW(volt, 1), SV_READ_Y + SV_VOLT_DY, volt, C_DIM, 1);
 		}
-=======
->>>>>>> origin/main
 		// SAFE with one servo: where the second one is switched on. Not while
 		// AUX is refused, where SERVOS cannot be set to TWO.
 		if (k.hint) {

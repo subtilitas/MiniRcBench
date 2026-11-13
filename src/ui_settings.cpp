@@ -32,10 +32,7 @@
 #include "board_desc.h"
 #include "board_pins.h"
 #include "servo_supply.h"
-<<<<<<< HEAD
 #include "sense.h"
-=======
->>>>>>> origin/main
 #include "version.h"
 
 #include "plat.h"
@@ -295,13 +292,8 @@ static_assert(sizeof(BOARD_LABEL) - 1 <= BUILT_FOR_WIDEST,
 static_assert(sizeof(FW_VERSION_STRING) - 1 <= VERSION_WIDEST,
               "the version is wider than VERSION's value column");
 static constexpr SettingsRow ROWS_BOARD[] = {
-<<<<<<< HEAD
 	{ "BUILT FOR", SettingsKind::ReadOnly, BUILT_FOR_WIDEST, boardValue,   nullptr, nullptr, nullptr, nullptr, nullptr },
 	{ "VERSION",   SettingsKind::ReadOnly, VERSION_WIDEST,   versionValue, nullptr, nullptr, nullptr, nullptr, nullptr },
-=======
-	{ "BUILT FOR", SettingsKind::ReadOnly, BUILT_FOR_WIDEST, boardValue,   nullptr, nullptr, nullptr, nullptr },
-	{ "VERSION",   SettingsKind::ReadOnly, VERSION_WIDEST,   versionValue, nullptr, nullptr, nullptr, nullptr },
->>>>>>> origin/main
 };
 
 #define COUNT(a) ((uint8_t)(sizeof(a) / sizeof((a)[0])))
