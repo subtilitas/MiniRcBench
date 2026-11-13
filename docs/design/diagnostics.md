@@ -87,7 +87,7 @@ row shows, and not while it is scrolled out.
 ## Layout
 
 DIAGNOSTICS adds a 20 px caption and two 50 px rows. The list's content is
-770 px tall; it scrolls from 0 px to 570 px. At 570 px VERSION is at y 70,
+820 px tall; it scrolls from 0 px to 620 px. At 620 px VERSION is at y 70,
 LAST RESTART at y 140 and UPTIME at y 190. Both values are right-aligned to
 x 232 at scale 1, as BUILT FOR and VERSION are.
 

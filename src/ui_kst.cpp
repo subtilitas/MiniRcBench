@@ -19,6 +19,7 @@
 #include "pin_claim.h"
 #include "sd_log.h"
 #include "servo_supply.h"
+#include "sense.h"
 #include "settings.h"
 #include "touch.h"
 #include "ui_hold.h"
@@ -614,9 +615,10 @@ static void mainBody(MainText *m) {
 			if (s_st.supplyFitted) {
 				// TRY is the attempt under way: in an off phase, the next one.
 				unsigned tri = (unsigned)s_st.attempts + (s_st.supplyOn ? 0u : 1u);
-				if (s_st.supplyOn)
+				if (s_st.supplyOn) {
 					snprintf(m->strip, sizeof(m->strip), "GP%u  TRY %u  SUPPLY ON", sig, tri);
-				else
+					senseAppendCurrent(m->strip, sizeof(m->strip));
+				} else
 					snprintf(m->strip, sizeof(m->strip), "GP%u  TRY %u  SUPPLY OFF %u.%u S", sig, tri,
 					         s_st.supplyLeftDs / 10, s_st.supplyLeftDs % 10);
 				m->big[0] = "SWITCHED SUPPLY";
@@ -726,10 +728,12 @@ static void mainBody(MainText *m) {
 				case KstReboot::On:
 					snprintf(m->strip, sizeof(m->strip), "GP%u  SUPPLY ON %u.%u S", sig,
 					         s_st.supplyLeftDs / 10, s_st.supplyLeftDs % 10);
+					senseAppendCurrent(m->strip, sizeof(m->strip));
 					addLine(m, "REBOOT: DO NOT UNPLUG THE SERVO.", C_AMBER);
 					return;
 				default:
 					snprintf(m->strip, sizeof(m->strip), "GP%u  SUPPLY ON", sig);
+					senseAppendCurrent(m->strip, sizeof(m->strip));
 					addLine(m, "READING 32 REGISTERS", C_TEXT);
 					return;
 			}
@@ -1733,6 +1737,14 @@ static uint32_t frameKey() {
 	h = mix(h, (uint32_t)(uintptr_t)s_cardNote);
 	h = mix(h, (uint32_t)uiHoldPercent(&s_hold, millis()));
 	if (s_view == KstView::Main && s_st.job == KstJobState::Searching) h = mix(h, millis() / 150);
+	if (s_view == KstView::Main) {
+		// The main view's strip as composed: the current counts only in the
+		// states that show it, and a reading that rounds to the same text
+		// repaints nothing. Static: off core0's stack.
+		static MainText km;
+		mainText(&km);
+		h = mixBytes(h, km.strip, strlen(km.strip));
+	}
 	// Static: 384 bytes off core0's stack, which the first write's FatFs
 	// calls share with this frame.
 	static UiControl c[UI_CONTROLS_MAX];
@@ -1873,10 +1885,30 @@ static void supplyStep(int dir) {
 	settings()->servoSupply = (uint8_t)m;
 }
 
+/** @brief NONE or INA219: the current sensor on J3. */
+static void senseValue(char *b, size_t n, uint16_t *c) {
+	snprintf(b, n, "%s", settings()->currentSense ? "INA219" : "NONE");
+	*c = C_TEXT;
+}
+static bool senseOn() { return settings()->currentSense != 0; }
+/** @brief NONE and INA219, in turn. */
+static void senseToggle() {
+	settings()->currentSense = settings()->currentSense ? (uint8_t)SenseMode::None
+	                                                    : (uint8_t)SenseMode::Ina219;
+}
+/** @brief FOUND, NOT FOUND or OTHER PART under the label; none with NONE. */
+static void senseCaptionText(char *b, size_t n, uint16_t *c) {
+	const char *cap = senseCaption();
+	snprintf(b, n, "%s", cap ? cap : "");
+	*c = cap && strcmp(cap, "FOUND") == 0 ? C_LIME : C_AMBER;
+}
+
 static constexpr SettingsRow ROWS_SUPPLY[] = {
-	{ "SERVO SUPPLY", SettingsKind::Stepper, 4, supplyValue, nullptr, supplyStep, nullptr, nullptr },
+	{ "SERVO SUPPLY", SettingsKind::Stepper, 4, supplyValue, nullptr, supplyStep, nullptr, nullptr, nullptr },
+	{ "CURRENT SENSE", SettingsKind::Toggle, 6, senseValue, nullptr, nullptr, senseToggle, senseOn,
+	  senseCaptionText },
 };
-static constexpr SettingsSection SEC_SUPPLY = { "SERVO SUPPLY", ROWS_SUPPLY, 1 };
+static constexpr SettingsSection SEC_SUPPLY = { "SERVO SUPPLY", ROWS_SUPPLY, 2 };
 
 const UiScreen UI_KST = {
 	UiScreenId::Kst, "KST SERVO", PinUser::Kst, kstMenuStatus,

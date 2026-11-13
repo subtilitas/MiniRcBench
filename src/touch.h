@@ -17,6 +17,13 @@
 
 #include "config.h"
 
+/**
+ * @brief The shared I2C1 bus's clock, Hz: 400 kHz, fast mode. touchInit()
+ *        starts the bus at it, and the current sensor's recovery (sense.h)
+ *        restarts it at it.
+ */
+#define TOUCH_I2C_HZ (400u * 1000u)
+
 /** @brief Native panel width, in portrait, independent of @ref LCD_ROTATION. */
 #define TOUCH_NATIVE_W 240
 /** @brief Native panel height, in portrait, independent of @ref LCD_ROTATION. */

@@ -9,6 +9,7 @@
  */
 
 #include "ui.h"
+#include "sense.h"
 #include "ui_am32.h"
 #include "ui_hitec.h"
 #include "ui_kst.h"
@@ -1040,6 +1041,9 @@ void uiTick() {
 	escHeartbeat();
 	escSnapshot(&s_tel);
 	touchPoll(&s_touch);
+	// The current sensor shares the touch controller's bus, on this core:
+	// after the touch read, so the touch read is never delayed by it.
+	senseTick(millis());
 
 	// battery, lightly smoothed
 	adc_select_input(g_board->batAdcChan);

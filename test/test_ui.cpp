@@ -13,6 +13,8 @@
 #include "diag.h"
 #include "settings.h"
 #include "servo_supply.h"
+#include "sense.h"
+#include "fake_i2c.h"
 #include "hardware/gpio.h"
 #include "ui_input.h"
 #include "board_desc.h"
@@ -1053,6 +1055,69 @@ static void testSettingsServoSupply() {
 	tapId(UI_FIX(UI_BACK));
 	fakeFlashClear();
 	settingsLoad();
+}
+
+/** @brief Whether CURRENT SENSE's caption is @p want; false for none. */
+static bool captionIs(const char *want) {
+	const char *c = senseCaption();
+	return c && strcmp(c, want) == 0;
+}
+
+/**
+ * @brief CURRENT SENSE: KST's section below SERVO SUPPLY, toggled NONE and
+ *        INA219, applied at once, its caption from the probe, saved and
+ *        reset; nothing sent to 0x40 with NONE.
+ */
+static void testSettingsCurrentSense() {
+	section("SETTINGS: CURRENT SENSE");
+
+	fakeFlashClear();
+	settingsLoad();
+	senseConfigure(0);
+	fakeI2cReset();
+	uiInit();
+	frames(2);
+	enterSettings();
+
+	checkInt("none by default", settings()->currentSense, 0);
+	FakeIna219 *p = fakeI2cAddIna219(INA219_ADDR);
+	frames(40);
+	checkInt("NONE: 40 frames, nothing to 0x40", fakeI2cTransactionsTo(INA219_ADDR), 0);
+	checkTrue("no caption", senseCaption() == nullptr);
+
+	tapRowId(UI_ROW(SettingsRowId::CurrentSense, Toggle));
+	checkTrue("INA219, applied at once", settings()->currentSense == 1 && senseDeclared());
+	frames(1);
+	checkTrue("probed: FOUND, the part on 19EFh",
+	          captionIs("FOUND") && p->reg[0] == 0x19EF);
+	fakeDumpFrame("shot_settings_sense.ppm");
+	checkTrue("unsaved", settingsDirty());
+	pressId(UI_FIX(SettingsCtl::Save));
+	holdId(UI_FIX(SettingsCtl::Save), 60);
+	fakeRelease(); frames(2);
+	settingsLoad();
+	checkTrue("saved: a reload keeps INA219", settingsStored() && settings()->currentSense == 1);
+
+	fakeI2cRemove(INA219_ADDR);
+	frames(5);
+	checkTrue("the part gone: NOT FOUND", captionIs("NOT FOUND"));
+	fakeI2cAddIna219(INA219_ADDR, 0x4127);
+	frames(45);
+	checkTrue("another part at 0x40: OTHER PART", captionIs("OTHER PART"));
+
+	tapId(UI_FIX(SettingsCtl::Reset));
+	checkTrue("RESET: NONE, applied at once", settings()->currentSense == 0 && !senseDeclared());
+	uint32_t n = fakeI2cTransactionsTo(INA219_ADDR);
+	frames(80);
+	checkInt("and nothing sent to 0x40 after", fakeI2cTransactionsTo(INA219_ADDR), n);
+	tapRowId(UI_ROW(SettingsRowId::CurrentSense, Toggle));
+	tapRowId(UI_ROW(SettingsRowId::CurrentSense, Toggle));
+	checkTrue("toggled twice: NONE again", settings()->currentSense == 0 && !senseDeclared());
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+	fakeFlashClear();
+	settingsLoad();
+	fakeI2cReset();
 }
 
 /** @brief Contrast and backlight take effect immediately and persist. */
@@ -2759,12 +2824,12 @@ static void testBoardRow() {
 	fakeRelease(); frames(2);
 	checkInt("holding it does nothing either", settings()->boardId, recorded);
 
-	// The scroll range. 6 captions of 20 px and 13 rows at a 50 px pitch are
-	// 770 px of content; the viewport, y 40 to 239, is 200 px, so the list
-	// scrolls 0 px to 570 px. Dragged past its end, it stops at 570 px, with
-	// VERSION's row, content y 600, at y 40 + 600 - 570 = 70, then the
+	// The scroll range. 6 captions of 20 px and 14 rows at a 50 px pitch are
+	// 820 px of content; the viewport, y 40 to 239, is 200 px, so the list
+	// scrolls 0 px to 620 px. Dragged past its end, it stops at 620 px, with
+	// VERSION's row, content y 650, at y 40 + 650 - 620 = 70, then the
 	// DIAGNOSTICS caption, LAST RESTART's row at y 140 and UPTIME's, content
-	// y 720, at y 190.
+	// y 770, at y 190.
 	const UiRect save0 = ctlRect(UI_FIX(SettingsCtl::Save));
 	settingsDrag(-180);
 	settingsDrag(-180);
@@ -2790,7 +2855,7 @@ static void testBoardRow() {
 	          !ctlEnabled(UI_ROW(SettingsRowId::Version, Row)));
 	checkControlTable("SETTINGS, at the end");
 	fakeDumpFrame("shot_settings_scrolled.ppm");
-	// 120 px back: BUILT FOR's row, content y 550, at y 40 + 550 - 450 = 140.
+	// 120 px back: BUILT FOR's row, content y 600, at y 40 + 600 - 500 = 140.
 	settingsDrag(120);
 	checkInt("120 px back, BUILT FOR's row is at y 140",
 	         ctlRect(UI_ROW(SettingsRowId::BuiltFor, Row)).y, 140);
@@ -3871,6 +3936,7 @@ void runUiTests() {
 	testStatusBarBitrate();
 	testSettingsKiss();
 	testSettingsServoSupply();
+	testSettingsCurrentSense();
 	testSettingsDisplay();
 	testSettingsSave();
 	testArmedSaveRefused();

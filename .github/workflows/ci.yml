@@ -373,8 +373,9 @@ jobs:
                     printf 'TX=%s JUMP=%s ROT=%s KISS=%s SD=%s ... ' \
                       "$tx" "$jump" "$rot" "$kiss" "$sd"
                     # lib/rcbench/ holds rcbench's headers that the servo,
-                    # KST and Hitec code includes; none of them reads config.h, so
-                    # they are used from the checkout rather than copied.
+                    # KST and Hitec code and the current sensor include; none
+                    # of them reads config.h, so they are used from the
+                    # checkout rather than copied.
                     if g++ -std=gnu++17 -fsyntax-only -Wall -Wextra -Wshadow -Werror \
                            -Wno-unused-parameter \
                            -DKISS_TELEM_ENABLE=$kiss -DSD_LOG_ENABLE=$sd \
@@ -388,6 +389,7 @@ jobs:
                            -Ilib/rcbench/protocols/hitec/rp2350 \
                            -Ilib/rcbench/shared/bench/include \
                            -Ilib/rcbench/shared/link/include \
+                           -Ilib/rcbench/shared/sense/include \
                            "$work"/src/*.cpp; then
                       echo ok
                     else
@@ -418,6 +420,7 @@ jobs:
                  -Ilib/rcbench/protocols/hitec/rp2350 \
                  -Ilib/rcbench/shared/bench/include \
                  -Ilib/rcbench/shared/link/include \
+                 -Ilib/rcbench/shared/sense/include \
                  "$work"/src/*.cpp 2>"$work/err.txt"; then
             echo "landscape guard did NOT fire"; fail=1
           elif ! grep -q "static assertion failed: the UI layout assumes portrait" "$work/err.txt"; then

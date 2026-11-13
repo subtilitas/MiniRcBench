@@ -43,7 +43,8 @@ enum class SettingsRowId : uint8_t {
 	Speed,        /**< DSHOT KBAUD, - and +. */
 	Kiss,         /**< KISS TELEM, toggle. */
 	KissPin,      /**< KISS PIN, - and +, while KISS is on. */
-	ServoSupply,  /**< SERVO SUPPLY, toggle: KST's section, ui_kst.cpp. */
+	ServoSupply,  /**< SERVO SUPPLY, - and +: KST's section, ui_kst.cpp. */
+	CurrentSense, /**< CURRENT SENSE, toggle, below SERVO SUPPLY in KST's section. */
 	Contrast,     /**< CONTRAST, toggle. */
 	Backlight,    /**< BACKLIGHT, - and +. */
 	BuiltFor,     /**< BUILT FOR, read-only. */

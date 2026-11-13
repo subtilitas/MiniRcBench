@@ -32,6 +32,7 @@
 #include "board_desc.h"
 #include "board_pins.h"
 #include "servo_supply.h"
+#include "sense.h"
 #include "version.h"
 #include "diag.h"
 
@@ -65,6 +66,8 @@
 #define SAVE_W      150
 #define DEF_X       162
 #define DEF_W       70
+#define CAP_LABEL_DY 12         /**< A captioned row's label, from the row's top. */
+#define CAP_TEXT_DY  25         /**< Its caption, from the row's top. */
 /** @} */
 
 static_assert(VIEW_Y0 >= UI_HDR_H, "the list overlaps the header");
@@ -80,6 +83,8 @@ static_assert(BTN_M_X + BTN_W < BTN_P_X, "the row buttons overlap");
 static_assert(BTN_P_X + BTN_W < BAR_X && BTN_M_X + TOGGLE_W < BAR_X,
               "a row button runs into the scroll bar");
 static_assert(DEF_X + DEF_W <= GFX_W - 8, "RESET runs off the panel");
+static_assert(CAP_TEXT_DY >= CAP_LABEL_DY + 7 + 4 && CAP_TEXT_DY + 7 <= ROW_H,
+              "a row's caption overlaps its label or leaves the row");
 
 /** @brief Backlight adjustment step. 8 levels across the usable range. */
 #define BACKLIGHT_STEP 32
@@ -109,6 +114,9 @@ static SaveOutcome s_saveOutcome = SaveOutcome::None;
 static bool s_repaired = false;
 /** @brief True when that repair was specifically KISS being switched off. */
 static bool s_repairKiss = false;
+
+/** @brief A hash of every row's caption as last drawn: a caption that changes repaints the list. */
+static uint32_t s_captionKey = 0;
 
 /** @brief Cached LINK values, so the live row repaints only when it changes. */
 static int s_shownRate = -1, s_shownErr = -1;
@@ -265,18 +273,18 @@ static void boardValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "%s", g_
 static void versionValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "%s", FW_VERSION_STRING); *c = C_GRID; }
 
 static constexpr SettingsRow ROWS_TESTER[] = {
-	{ "MOTOR POLES",  SettingsKind::Stepper, 2, polesValue, nullptr, polesStep, nullptr, nullptr },
-	{ "MAX THROTTLE", SettingsKind::Stepper, 4, maxValue,   nullptr, maxStep,   nullptr, nullptr },
+	{ "MOTOR POLES",  SettingsKind::Stepper, 2, polesValue, nullptr, polesStep, nullptr, nullptr, nullptr },
+	{ "MAX THROTTLE", SettingsKind::Stepper, 4, maxValue,   nullptr, maxStep,   nullptr, nullptr, nullptr },
 };
 static constexpr SettingsRow ROWS_WIRING[] = {
-	{ "ESC PIN",      SettingsKind::Stepper, 4, pinValue,     nullptr, pinStep,     nullptr,    nullptr },
-	{ "DSHOT KBAUD",  SettingsKind::Stepper, 4, speedValue,   nullptr, speedStep,   nullptr,    nullptr },
-	{ "KISS TELEM",   SettingsKind::Toggle,  3, kissValue,    nullptr, nullptr,     kissToggle, kissOn  },
-	{ "KISS PIN",     SettingsKind::Stepper, 4, kissPinValue, kissOn,  kissPinStep, nullptr,    nullptr },
+	{ "ESC PIN",      SettingsKind::Stepper, 4, pinValue,     nullptr, pinStep,     nullptr,    nullptr, nullptr },
+	{ "DSHOT KBAUD",  SettingsKind::Stepper, 4, speedValue,   nullptr, speedStep,   nullptr,    nullptr, nullptr },
+	{ "KISS TELEM",   SettingsKind::Toggle,  3, kissValue,    nullptr, nullptr,     kissToggle, kissOn, nullptr },
+	{ "KISS PIN",     SettingsKind::Stepper, 4, kissPinValue, kissOn,  kissPinStep, nullptr,    nullptr, nullptr },
 };
 static constexpr SettingsRow ROWS_DISPLAY[] = {
-	{ "CONTRAST",     SettingsKind::Toggle,  6, contrastValue,  nullptr, nullptr,       contrastToggle, contrastOn },
-	{ "BACKLIGHT",    SettingsKind::Stepper, 3, backlightValue, nullptr, backlightStep, nullptr,        nullptr },
+	{ "CONTRAST",     SettingsKind::Toggle,  6, contrastValue,  nullptr, nullptr,       contrastToggle, contrastOn, nullptr },
+	{ "BACKLIGHT",    SettingsKind::Stepper, 3, backlightValue, nullptr, backlightStep, nullptr,        nullptr, nullptr },
 };
 /** @brief BUILT FOR's widest value: the board's label, characters. */
 #define BUILT_FOR_WIDEST 20
@@ -287,8 +295,8 @@ static_assert(sizeof(BOARD_LABEL) - 1 <= BUILT_FOR_WIDEST,
 static_assert(sizeof(FW_VERSION_STRING) - 1 <= VERSION_WIDEST,
               "the version is wider than VERSION's value column");
 static constexpr SettingsRow ROWS_BOARD[] = {
-	{ "BUILT FOR", SettingsKind::ReadOnly, BUILT_FOR_WIDEST, boardValue,   nullptr, nullptr, nullptr, nullptr },
-	{ "VERSION",   SettingsKind::ReadOnly, VERSION_WIDEST,   versionValue, nullptr, nullptr, nullptr, nullptr },
+	{ "BUILT FOR", SettingsKind::ReadOnly, BUILT_FOR_WIDEST, boardValue,   nullptr, nullptr, nullptr, nullptr, nullptr },
+	{ "VERSION",   SettingsKind::ReadOnly, VERSION_WIDEST,   versionValue, nullptr, nullptr, nullptr, nullptr, nullptr },
 };
 
 /**
@@ -307,8 +315,8 @@ static void uptimeValue(char *b, size_t n, uint16_t *c) {
 	*c = C_GRID;
 }
 static constexpr SettingsRow ROWS_DIAG[] = {
-	{ "LAST RESTART", SettingsKind::ReadOnly, DIAG_RESTART_TEXT_WIDEST, restartValue, nullptr, nullptr, nullptr, nullptr },
-	{ "UPTIME",       SettingsKind::ReadOnly, DIAG_UPTIME_TEXT_WIDEST,  uptimeValue,  nullptr, nullptr, nullptr, nullptr },
+	{ "LAST RESTART", SettingsKind::ReadOnly, DIAG_RESTART_TEXT_WIDEST, restartValue, nullptr, nullptr, nullptr, nullptr, nullptr },
+	{ "UPTIME",       SettingsKind::ReadOnly, DIAG_UPTIME_TEXT_WIDEST,  uptimeValue,  nullptr, nullptr, nullptr, nullptr, nullptr },
 };
 
 #define COUNT(a) ((uint8_t)(sizeof(a) / sizeof((a)[0])))
@@ -388,6 +396,21 @@ static void buildItems() {
 		}
 	}
 	uiListInitPx(&s_list, UiRect{ 0, VIEW_Y0, GFX_W, VIEW_H }, y);
+}
+
+/** @brief FNV-1a over every row's caption text. */
+static uint32_t captionKey() {
+	uint32_t h = 2166136261u;
+	for (uint8_t i = 0; i < s_itemCount; i++) {
+		const SettingsRow *r = s_items[i].row;
+		if (!r || !r->caption) continue;
+		char cap[32] = "";
+		uint16_t col = 0;
+		r->caption(cap, sizeof(cap), &col);
+		for (const char *c = cap; *c; c++) { h ^= (uint8_t)*c; h *= 16777619u; }
+		h ^= col; h *= 16777619u;
+	}
+	return h;
 }
 
 /** @brief Top of item @p it on the panel at the current scroll. */
@@ -470,7 +493,16 @@ static void drawItem(uint8_t i) {
 		return;
 	}
 	const SettingsRow &r = *it.row;
-	gfxText(UI_MARGIN, y + (ROW_H - 7) / 2, r.label, C_DIM, 1);
+	char cap[32] = "";
+	uint16_t capCol = C_DIM;
+	if (r.caption) r.caption(cap, sizeof(cap), &capCol);
+	if (cap[0]) {
+		// Label and caption, 7 px each with 6 px between, centred in the row.
+		gfxText(UI_MARGIN, y + CAP_LABEL_DY, r.label, C_DIM, 1);
+		gfxText(UI_MARGIN, y + CAP_TEXT_DY, cap, capCol, 1);
+	} else {
+		gfxText(UI_MARGIN, y + (ROW_H - 7) / 2, r.label, C_DIM, 1);
+	}
 	char v[32];
 	uint16_t col = C_TEXT;
 	r.value(v, sizeof(v), &col);
@@ -607,6 +639,8 @@ static void applyLive() {
 	// No claim holds while SETTINGS is open, so the enable pin is only
 	// configured, never driven.
 	servoSupplyConfigure(s->servoSupply);
+	// A sensor declared now is probed on the next frame's read.
+	senseConfigure(s->currentSense);
 }
 
 // ---------------------------------------------------------------------------
@@ -691,6 +725,14 @@ bool uiSettingsTick(const TouchState *t) {
 		settingsDefaults(settings());
 		s_saveOutcome = SaveOutcome::None;
 		s_changed = true;
+	}
+
+	// A row's caption follows state outside the settings, the current
+	// sensor's probe among them.
+	uint32_t ck = captionKey();
+	if (ck != s_captionKey) {
+		s_captionKey = ck;
+		s_redraw = true;
 	}
 
 	if (s_changed) {

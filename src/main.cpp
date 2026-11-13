@@ -72,6 +72,7 @@
 #include "gfx.h"
 #include "st7789.h"
 #include "touch.h"
+#include "sense.h"
 #include "esc_task.h"
 #include "core1_job.h"
 #include "ui.h"
@@ -131,6 +132,7 @@ void setup() {
 	gfxInit();
 	st7789Init();
 	touchInit();        // pulses the touch controller's own reset line
+	senseInit();        // the current sensor, on the bus touchInit() set up
 	uiInit();
 
 	// The splash, while the ESC finishes booting. Core1 is not running yet:

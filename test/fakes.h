@@ -11,6 +11,9 @@
 
 struct EscTelemetry;
 
+/** @brief Dirty bands the last st7789FlushDirty() found: 0 when the frame repainted nothing. */
+int fakeLastFlushBands();
+
 /** @brief Advance the virtual clock. Time only moves when a test says so. */
 void fakeAdvance(uint32_t ms);
 
@@ -227,7 +230,7 @@ uint8_t escTaskDshotPin();
 #define FAKE_SLICES 8
 
 /** @brief Which pull a pin has, as the GPIO fake last set it. */
-enum class FakePull : uint8_t { Untouched, None, Down };
+enum class FakePull : uint8_t { Untouched, None, Down, Up };
 
 /** @brief What the fake recorded for one GPIO. */
 struct FakePin {

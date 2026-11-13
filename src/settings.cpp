@@ -11,6 +11,7 @@
 
 #include "settings.h"
 #include "servo_supply.h"
+#include "sense.h"
 #include "config.h"
 #include "board_desc.h"
 #include "pin_claim.h"
@@ -84,6 +85,7 @@ void settingsDefaults(Settings *out) {
 	out->backlight    = LCD_BACKLIGHT_DEFAULT;
 	out->highContrast = 0;
 	out->servoSupply  = 0;
+	out->currentSense = (uint8_t)SenseMode::None;
 }
 
 /** @brief The bitrates the DShot driver is built and tested for. */
@@ -157,6 +159,8 @@ bool settingsValidate(Settings *s) {
 	// No switch is the safe reading of a value this build does not know: no
 	// enable pin is then driven.
 	if (s->servoSupply > SERVO_SUPPLY_MODE_MAX) { s->servoSupply = 0; ok = false; }
+	// Likewise no sensor: nothing is then sent to its address.
+	if (s->currentSense > SENSE_MODE_MAX) { s->currentSense = 0; ok = false; }
 
 	// --- backlight: never so dim the panel looks dead ---
 	if (s->backlight < BACKLIGHT_MIN) { s->backlight = BACKLIGHT_MIN; ok = false; }

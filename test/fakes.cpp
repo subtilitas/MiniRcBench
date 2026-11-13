@@ -35,6 +35,7 @@
 #include "usb_msc.h"
 #include "ui.h"
 #include "fakes.h"
+#include "fake_i2c.h"
 #include "card_cache.h"
 #include "plat.h"
 
@@ -189,12 +190,16 @@ extern "C" void gpio_set_dir(uint32_t gpio, int out) {
 	if (gpio >= FAKE_GPIOS) return;
 	if (out && !g_pins[gpio].output && g_pins[gpio].high) g_pins[gpio].highEnables++;
 	g_pins[gpio].output = out != 0;
+	fakeI2cPinDir(gpio, out != 0);
 }
 extern "C" void gpio_disable_pulls(uint32_t gpio) {
 	if (gpio < FAKE_GPIOS) g_pins[gpio].pull = FakePull::None;
 }
 extern "C" void gpio_pull_down(uint32_t gpio) {
 	if (gpio < FAKE_GPIOS) g_pins[gpio].pull = FakePull::Down;
+}
+extern "C" void gpio_pull_up(uint32_t gpio) {
+	if (gpio < FAKE_GPIOS) g_pins[gpio].pull = FakePull::Up;
 }
 extern "C" void gpio_put(uint32_t gpio, int value) {
 	if (gpio >= FAKE_GPIOS) return;
@@ -212,20 +217,14 @@ extern "C" void critical_section_init(critical_section_t *) {}
 extern "C" void critical_section_enter_blocking(critical_section_t *) {}
 extern "C" void critical_section_exit(critical_section_t *) {}
 
-// --- I2C: every transfer fails, which is what an absent touch controller
-//     does. touchPoll() then reports no contact and the fake touch injector
-//     in this file drives the UI tests instead ---
-i2c_inst_t *i2c0 = nullptr;
-i2c_inst_t *i2c1 = nullptr;
+// --- I2C: fake_i2c.cpp is the bus. The scripted touchPoll() below drives
+//     the UI tests; the real driver runs on that bus in test_sense.cpp ---
 
 // The board descriptor names an SPI instance. On the host it is never dialled
 // -- the panel is faked -- but the descriptor is a real object whose fields
 // have to resolve at link time.
 spi_inst_t *spi0 = nullptr;
 spi_inst_t *spi1 = nullptr;
-void i2c_init(i2c_inst_t *, unsigned) {}
-int i2c_write_timeout_us(i2c_inst_t *, uint8_t, const uint8_t *, size_t, bool, unsigned) { return -1; }
-int i2c_read_timeout_us(i2c_inst_t *, uint8_t, uint8_t *, size_t, bool, unsigned) { return -1; }
 
 // --- UART: never readable. No ESC here to answer a telemetry request ---
 uart_inst_t *uart0 = nullptr;
@@ -240,7 +239,12 @@ void uart_set_fifo_enabled(uart_inst_t *, bool) {}
 // ---------------------------------------------------------------------------
 // display: render into the real framebuffer, never push pixels anywhere
 // ---------------------------------------------------------------------------
-void st7789FlushDirty() { gfxClearDirty(); }
+static int g_lastFlushBands = 0;
+int fakeLastFlushBands() { return g_lastFlushBands; }
+void st7789FlushDirty() {
+	g_lastFlushBands = gfxDirtyCount();
+	gfxClearDirty();
+}
 // Recorded rather than discarded: the arm-feedback dip is only observable as a
 // backlight level, so a fake that threw it away would make it untestable.
 static uint8_t g_backlight = 0;

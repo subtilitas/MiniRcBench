@@ -35,6 +35,8 @@
 #include "ui_screen.h"
 #include "usb_msc.h"
 #include "servo_supply.h"
+#include "sense.h"
+#include "fake_i2c.h"
 #include "plat.h"
 
 // rcbench's fixture brings its test harness, whose reporting is not used here.
@@ -692,6 +694,47 @@ static void testClassic() {
 	leaveAll();
 }
 
+/**
+ * @brief With CURRENT SENSE at INA219, the strip reads the current after
+ *        SUPPLY ON while the switched supply powers the servo up.
+ */
+static void testSupplyCurrent() {
+	section("Hitec screen: the current after SUPPLY ON");
+	freshHitec(HITEC_CLASSIC, true);
+	settings()->currentSense = 1;
+	senseConfigure(1);
+	fakeI2cReset();
+	FakeIna219 *ina = fakeI2cAddIna219(INA219_ADDR);
+	ina->currentA = 0.08;
+	openHitec();
+	tapId(UI_FIX(HitecCtl::Classic));
+	for (int i = 0; i < 400 && !(job().job == HitecJobState::Entering && job().power == HitecPower::Listen);
+	     i++)
+		hitecFrame();
+	checkTrue("listening, the supply on: GP0  SUPPLY ON 0.08 A",
+	          job().power == HitecPower::Listen && lineIs(UI_STRIP_Y + 4, "GP0  SUPPLY ON 0.08 A", C_DIM));
+	leaveAll();
+
+	// STOP during a D series entry: RETRY, the supply off, no current on the
+	// strip, so a new reading repaints nothing.
+	freshHitec(HITEC_D, true);
+	settings()->currentSense = 1;
+	senseConfigure(1);
+	openHitec();
+	tapId(UI_FIX(HitecCtl::DSeries));
+	untilCtl(UI_FIX(HitecCtl::Stop), 200);
+	tapId(UI_FIX(HitecCtl::Stop));
+	checkTrue("STOP: RETRY", untilCtl(UI_FIX(HitecCtl::Retry), 400));
+	hitecFrames(3);
+	ina->currentA = 0.31;
+	hitecFrame();
+	checkInt("a new reading while the strip shows none: nothing repainted", fakeLastFlushBands(), 0);
+	leaveAll();
+	settings()->currentSense = 0;
+	senseConfigure(0);
+	fakeI2cReset();
+}
+
 static void testStallAndBack() {
 	section("Hitec screen: a stall and RETRY, BACK in every view, RESTART DSHOT");
 	freshHitec(HITEC_D, true);
@@ -903,6 +946,7 @@ void runHitecUiTests() {
 	testNoCardWrite();
 	testRecordAtEntry();
 	testClassic();
+	testSupplyCurrent();
 	testStallAndBack();
 	testIdAndBack();
 	testCardSwap();

@@ -354,7 +354,7 @@ static void dragList(int y0, int dy) {
 	fakeRelease(); menuFrames(1);
 }
 
-/** @brief SETTINGS' scroll: 0 px on open, 570 px at most, from a drag on a label only. */
+/** @brief SETTINGS' scroll: 0 px on open, 620 px at most, from a drag on a label only. */
 static void testSettingsScroll() {
 	section("SETTINGS: the scroll range, and no scroll from a control");
 	openSettings();
@@ -376,7 +376,7 @@ static void testSettingsScroll() {
 	dragList(230, -180);
 	dragList(230, -180);
 	UiRect last = ctlRect(UI_ROW(SettingsRowId::Uptime, Row));
-	checkInt("dragged to the end: UPTIME, the last row, at y 190, so the scroll is 570 px",
+	checkInt("dragged to the end: UPTIME, the last row, at y 190, so the scroll is 620 px",
 	         last.y, 190);
 	checkTrue("and is whole", last.h == 44);
 	checkInt("LAST RESTART above it at y 140", ctlRect(UI_ROW(SettingsRowId::LastRestart, Row)).y, 140);

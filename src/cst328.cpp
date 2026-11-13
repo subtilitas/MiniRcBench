@@ -9,6 +9,10 @@
  * single-touch throughout, so the other four would be I2C traffic and dead
  * code. Reading one finger is a 5-byte transfer instead of 27.
  *
+ * The bus is shared with the current sensor (sense.h). Each transfer is
+ * reported to the sensor's bus record with senseNoteTouch(), so a bus that
+ * fails touch is seen as stuck between two sensor reads.
+ *
  * @see touch.h for the interface this driver implements.
  */
 
@@ -16,6 +20,7 @@
 #include "board_desc.h"
 #include "config.h"
 #include "gfx.h"
+#include "sense.h"
 
 #include "plat.h"
 #include <hardware/i2c.h>
@@ -83,8 +88,9 @@ static int16_t s_downX = 0, s_downY = 0; /**< Where the current press started. *
 static bool wrCmd(uint16_t reg) {
 	// 16-bit register address, big-endian, and the address alone is the command.
 	uint8_t a[2] = { (uint8_t)(reg >> 8), (uint8_t)(reg & 0xFF) };
-	return i2c_write_timeout_us(TOUCH_I2C, TOUCH_ADDR, a, 2, false,
-	                            I2C_TIMEOUT_US) == 2;
+	int rc = i2c_write_timeout_us(TOUCH_I2C, TOUCH_ADDR, a, 2, false, I2C_TIMEOUT_US);
+	senseNoteTouch(rc, 2);
+	return rc == 2;
 }
 
 /**
@@ -99,10 +105,12 @@ static bool rdRegs(uint16_t reg, uint8_t *buf, uint8_t n) {
 	uint8_t a[2] = { (uint8_t)(reg >> 8), (uint8_t)(reg & 0xFF) };
 	// nostop=true leaves a repeated start; a stop here would make the
 	// controller forget the register pointer.
-	if (i2c_write_timeout_us(TOUCH_I2C, TOUCH_ADDR, a, 2, true,
-	                         I2C_TIMEOUT_US) != 2) return false;
-	return i2c_read_timeout_us(TOUCH_I2C, TOUCH_ADDR, buf, n, false,
-	                           I2C_TIMEOUT_US) == n;
+	int rc = i2c_write_timeout_us(TOUCH_I2C, TOUCH_ADDR, a, 2, true, I2C_TIMEOUT_US);
+	senseNoteTouch(rc, 2);
+	if (rc != 2) return false;
+	rc = i2c_read_timeout_us(TOUCH_I2C, TOUCH_ADDR, buf, n, false, I2C_TIMEOUT_US);
+	senseNoteTouch(rc, n);
+	return rc == n;
 }
 
 bool touchInit() {
@@ -110,7 +118,7 @@ bool touchInit() {
 	gpio_set_dir(g_board->tpInt, GPIO_IN);
 	gpio_pull_up(g_board->tpInt);
 
-	i2c_init(TOUCH_I2C, 400 * 1000);
+	i2c_init(TOUCH_I2C, TOUCH_I2C_HZ);
 	gpio_set_function(g_board->sda, GPIO_FUNC_I2C);
 	gpio_set_function(g_board->scl, GPIO_FUNC_I2C);
 	gpio_pull_up(g_board->sda);
