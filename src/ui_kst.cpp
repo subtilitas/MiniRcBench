@@ -729,9 +729,28 @@ static void mainBody(MainText *m) {
 	}
 }
 
+/**
+ * @brief Make room for @p want more lines: the view's explanations, its
+ *        C_DIM lines, go first, from the last one up. A warning outranks
+ *        them; a view whose six lines are all warnings keeps them.
+ */
+static void makeRoom(MainText *m, int want) {
+	int used = 0;
+	while (used < 6 && m->line[used]) used++;
+	for (int i = used - 1; i >= 0 && used + want > 6; i--) {
+		if (m->lineCol[i] != C_DIM) continue;
+		for (int k = i; k < used - 1; k++) {
+			m->line[k] = m->line[k + 1];
+			m->lineCol[k] = m->lineCol[k + 1];
+		}
+		m->line[--used] = nullptr;
+	}
+}
+
 static void mainText(MainText *m) {
 	mainBody(m);
 	if (running() && s_recordFound) {
+		makeRoom(m, 2);
 		addLine(m, "A WRITE WAS INTERRUPTED. KST/KST.TXT", C_AMBER);
 		addLine(m, "HOLDS THE SERVO AS IT WAS.", C_AMBER);
 	}

@@ -438,17 +438,23 @@ void escTaskPoll() {
 #else
 	bool kissRx = false;
 #endif
+	uint8_t beepReq = s_beepReq;
 	EscSlot slot = handover == EscHandover::Drain
 	             ? escDrainSlot()
 	             : escPumpSlot(&s_pump, &s_tel, s_armed, uiAlive, s_throttle,
-	                           s_beepReq, kissRx, ms);
+	                           beepReq, kissRx, ms);
 	if (slot.forgetEdt) {
 		critical_section_enter_blocking(&s_cs);
 		escEdtForget(&s_tel);
 		critical_section_exit(&s_cs);
 	}
 	s_edtRequested = s_pump.edt.sent;
-	if (slot.beepTaken) s_beepReq = 0;
+	// Only the request this pass read: one core0 wrote since stays.
+	if (slot.beepTaken) {
+		critical_section_enter_blocking(&s_cs);
+		if (s_beepReq == beepReq) s_beepReq = 0;
+		critical_section_exit(&s_cs);
+	}
 
 	const EscFrame &f = slot.frame;
 	if (f.sendCommand) {

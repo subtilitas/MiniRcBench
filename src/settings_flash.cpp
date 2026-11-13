@@ -79,7 +79,8 @@ bool settingsStorageRead(void *dst, uint32_t len) {
 }
 
 bool settingsStorageWrite(const void *src, uint32_t len) {
-	if (len > FLASH_SECTOR_SIZE) return false;
+	// The block is programmed from one page on the stack.
+	if (len > FLASH_PAGE_SIZE) return false;
 	if (!sectorIsFree()) return false;
 
 	// Programming happens a page at a time and a page must be written whole, so

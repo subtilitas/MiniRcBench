@@ -1521,7 +1521,42 @@ static void testCardPhase() {
 	leaveAll();
 }
 
+
+static bool anyLine(const char *text, uint16_t col) {
+	for (int y = 60; y < 240; y++) if (lineIs(y, text, col)) return true;
+	return false;
+}
+static void testRecordWarningOnSearch() {
+	section("KST screen: the interrupted-write warning on the search, by hand and switched");
+	kst_image_t rec = sim_bench_image();
+	static char text[KST_FILE_MAX];
+	size_t n = kst_file_format(&rec, text, sizeof(text));
+	freshKst(false);
+	fakeFatMkdir("KST");
+	fakeFatPut("KST/KST.TXT", text, n);
+	openKst();
+	kstFrames(10);
+	checkTrue("by hand: the search names the interrupted write",
+	          job().job == KstJobState::Searching && anyLine("A WRITE WAS INTERRUPTED. KST/KST.TXT", C_AMBER));
+	leaveAll();
+	freshKst(false);
+	fakeFatMkdir("KST");
+	fakeFatPut("KST/KST.TXT", text, n);
+	settings()->servoSupply = 1;
+	servoSupplyConfigure(1);
+	supplySimInit(&g_sup, fakeKstSim(), time_us_32());
+	g_supOn = true;
+	openKst();
+	kstFrames(10);
+	checkTrue("switched: the search still names it, ahead of the explanations",
+	          job().job == KstJobState::Searching && anyLine("A WRITE WAS INTERRUPTED. KST/KST.TXT", C_AMBER));
+	leaveAll();
+	g_supOn = false;
+	servoSupplyConfigure(0);
+	settings()->servoSupply = 0;
+}
 void runKstUiTests() {
+	testRecordWarningOnSearch();
 	testOpenAndSearch();
 	testEditAndWrite();
 	testFiles();

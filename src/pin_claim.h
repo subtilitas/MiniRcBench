@@ -251,7 +251,7 @@ void pinClaimEnd(PinUser who);
 void pinClaimRetry(PinUser who);
 
 /**
- * @brief True while SERVO or KST must show the unplug page.
+ * @brief True while SERVO, KST or HITEC must show the unplug page.
  *
  * Leaving, with the job idle and DShot not yet restarted. DShot idles the
  * line high and pulls it low for about 27 us per 1000 us frame, which a PWM

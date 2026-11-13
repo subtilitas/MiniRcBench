@@ -89,8 +89,10 @@ static uint32_t   s_mscNoteUntilMs = 0;
 
 /** @brief True while a refusal is still worth showing. */
 static bool mscNoteActive() {
-	return s_mscNote != MscRefusal::None &&
-	       (int32_t)(millis() - s_mscNoteUntilMs) < 0;
+	// Cleared once past: the deadline alone reads true again 2^31 ms on.
+	if (s_mscNote != MscRefusal::None && (int32_t)(millis() - s_mscNoteUntilMs) >= 0)
+		s_mscNote = MscRefusal::None;
+	return s_mscNote != MscRefusal::None;
 }
 
 /**

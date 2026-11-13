@@ -62,10 +62,17 @@ static uint32_t s_beepUntil = 0;
 // BEEP
 // ---------------------------------------------------------------------------
 
-static bool beepFlashing() { return (int32_t)(millis() - s_beepUntil) < 0; }
+/** @brief A flash is up: the deadline alone reads true again 2^31 ms on. */
+static bool     s_beepShown = false;
+
+static bool beepFlashing() {
+	if (s_beepShown && (int32_t)(millis() - s_beepUntil) >= 0) s_beepShown = false;
+	return s_beepShown;
+}
 
 static void beepAction() {
 	s_beepOk = escRequestBeep(1);
+	s_beepShown = true;
 	s_beepUntil = millis() + BEEP_FLASH_MS;
 }
 

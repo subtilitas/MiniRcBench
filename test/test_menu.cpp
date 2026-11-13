@@ -188,6 +188,11 @@ static void testMenuDisarmAndBeep() {
 	          pixel(beep.x + 4, beep.y + beep.h - 5) == C_AMBER);
 	escSetArmed(false);
 	menuFrames(16);
+	checkTrue("the flash is over", pixel(beep.x + 4, beep.y + beep.h - 5) == C_PANEL);
+	fakeAdvance(0x80000000u);
+	menuFrames(2);
+	checkTrue("2^31 ms after the last BEEP the row does not flash",
+	          pixel(beep.x + 4, beep.y + beep.h - 5) == C_PANEL);
 	tapId(UI_FIX(UI_BACK));
 }
 

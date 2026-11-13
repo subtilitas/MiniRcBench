@@ -238,7 +238,9 @@ static uint16_t s_padAnchorThrottle = 0;
 static uint32_t s_blDipUntil = 0;
 
 /** @brief Start a dip. Called on every arm and disarm, however it happened. */
-static void backlightDip() { s_blDipUntil = millis() + BL_DIP_MS; }
+/** @brief A dip is running: the deadline alone reads true again 2^31 ms on. */
+static bool     s_blDip = false;
+static void backlightDip() { s_blDip = true; s_blDipUntil = millis() + BL_DIP_MS; }
 /** @} */
 
 static TouchState s_touch;
@@ -950,6 +952,7 @@ void uiInit() {
 	s_padDragging = false;
 	s_padEngaged = false;
 	s_blDipUntil = 0;
+	s_blDip = false;
 	rpmFilterReset(&s_erpmFilter);
 	s_erpmShown = 0;
 
@@ -997,7 +1000,8 @@ void uiTick() {
 	// tracking who last changed which of the three.
 	{
 		uint8_t want = themeBacklight(settings()->backlight);
-		if ((int32_t)(millis() - s_blDipUntil) < 0) want = (uint8_t)(want / BL_DIP_DIV);
+		if (s_blDip && (int32_t)(millis() - s_blDipUntil) >= 0) s_blDip = false;
+		if (s_blDip) want = (uint8_t)(want / BL_DIP_DIV);
 		st7789SetBacklight(want);
 	}
 

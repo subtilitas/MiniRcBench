@@ -110,7 +110,6 @@ static void syncSeek(uint32_t nowMs) {
 	if (s_switched) supplySet(s_seek.supply, nowMs);
 }
 
-/** @brief A lapse with the supply on: off, the session power-cycled, the stalled screen. */
 /** @brief Before a power cycle: the lock and the written registers it drops,
  *         for the stalled screen. */
 static void keepStallFlags() {
@@ -118,6 +117,7 @@ static void keepStallFlags() {
 	s_stallWrote = s_ses.wrote_regs != 0;
 }
 
+/** @brief A lapse with the supply on: off, the session power-cycled, the stalled screen. */
 static void stall(uint32_t nowMs) {
 	// The power cycle drops the lock and the written registers; the stalled
 	// screen still has to say whether the servo is in doubt.

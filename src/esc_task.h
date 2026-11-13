@@ -11,8 +11,9 @@
  * bidirectional-DShot spec, independent of speed), so each slot first drains
  * the previous frame's reply, then sends the next one.
  *
- * Core0 talks to it through a small critical-section-guarded state block:
- * escSetThrottle() and escSetArmed() to command, escSnapshot() to read back.
+ * Core0 commands it with single volatile writes, escSetThrottle() and
+ * escSetArmed(), and reads it back with escSnapshot(), which copies the
+ * telemetry under the shared critical section.
  *
  * @warning Core0 must call escHeartbeat() regularly. If it stops for longer
  *          than @ref UI_HEARTBEAT_TIMEOUT_MS, core1 assumes the UI has died and
@@ -146,7 +147,8 @@ void escTaskPoll();
 
 /**
  * @defgroup esc_core0 Core0 API
- * @brief Safe to call from core0; each takes the shared critical section.
+ * @brief Safe to call from core0. The commands are single volatile writes;
+ *        escSnapshot() takes the shared critical section.
  * @{
  */
 
@@ -937,7 +939,7 @@ bool escTaskSuspended();
  *
  * @param dshotPin   GPIO for the ESC signal wire.
  * @param dshotKbaud DShot bitrate.
- * @param kissEnable Claim a UART for KISS telemetry.
+ * @param kissEnable Start the PIO receiver for KISS telemetry.
  * @param kissPin    GPIO for the telemetry wire. Ignored unless @p kissEnable.
  */
 void escTaskConfigure(uint8_t dshotPin, uint16_t dshotKbaud,
