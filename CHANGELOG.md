@@ -58,7 +58,12 @@ protocol.
   and `fakeTextIs()`, `fakeTextCentredIs()` and `fakeInkExtent()` in
   `test/fakes.h`, which check drawn text against a redraw and the extent of
   drawn pixels.
-
+- rcbench's S.BUS decoder (`protocols/sbus/sbus.c`, `include/sbus.h`), copied
+  unchanged from rcbench commit 5ef42efd into `lib/rcbench/`, with rcbench's
+  test of it, `test_sbus.c` (12 cases), in `test/rcbench/`, listed in
+  `test/rx.mk` ([rx-signals.md](docs/design/rx-signals.md), work breakdown
+  slice 1, the S.BUS part). S.BUS is Futaba's serial bus for receiver
+  channels. Nothing in `src/` calls it yet.
 - The wiki pages Setup and Einrichtung: the parts for each tool, the
   adapter cable from J5 to a servo plug, and installing the `.uf2` image.
 - A wiring diagram, `docs/wiring.svg`, in the README and on the wiki pages

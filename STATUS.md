@@ -151,8 +151,9 @@ tree, from rcbench `protocols/dshot` at commit 453cf334 (MIT, same copyright
 holder). The servo sweep curve, the GPIO-to-PWM fold, the KST programming
 core, its line driver and the KST file store are rcbench files at the same
 commit, and the Hitec programming core, its line driver, the Hitec servo file
-text and its CRC are rcbench files at commit 3e29dc1b, all copied unchanged
-into `lib/rcbench/`
+text and its CRC are rcbench files at commit 3e29dc1b, and the S.BUS decoder
+is an rcbench file at commit 5ef42efd, all copied unchanged into
+`lib/rcbench/`
 ([lib/rcbench/README.md](lib/rcbench/README.md)). The SDIO driver in
 `src/sdio/` is part of the tree, MIT, written from
 the SD Association's Physical Layer Simplified Specification v9.10 and the
@@ -478,10 +479,10 @@ binary, `dshot_tests`. `test/test_main.cpp` runs twenty-one suites:
 | `runSdCacheTests` | `test_sd_cache.cpp` | the SD write cache over a fake card: the queue's order, a read of a queued sector, one swap check per batch, no command while busy, read cache hits and the oldest pushed out, a miss that waits for the block in flight, a full queue, retries, a failed block, a changed serial number, refusals with the cache off |
 | `runMenuTests` | `test_menu.cpp` | MENU, SETTINGS and the navigation through the real UI: SD LOG's BACK to MENU, every registry entry opened and left, MENU's disarm, BEEP's flash, `PINS BUSY` on AM32, SERVO and SETTINGS, MENU's scroll over registries of six and seven rows and its return at 0 px, every MENU status and SETTINGS value within its widest, the SETTINGS scroll range, each row by id, a cut control under 40 px, HOLD TO SAVE and the UNSAVED note at every scroll position, AM32's own wait beside another claim |
 
-`test/servo.mk`, `test/kst.mk` and `test/hitec.mk` list each feature's
-sources and test files for `test/Makefile`, as `src/servo.cmake`,
-`src/kst.cmake` and `src/hitec.cmake` do for
-`CMakeLists.txt`. A feature's C sources and C test programs are built as C11:
+`test/servo.mk`, `test/kst.mk`, `test/hitec.mk` and `test/rx.mk` list each
+feature's sources and test files for `test/Makefile`, as `src/servo.cmake`,
+`src/kst.cmake` and `src/hitec.cmake` do for `CMakeLists.txt`. A feature's C
+sources and C test programs are built as C11:
 `make run` also runs rcbench's `test_servo_sweep.c` (14 cases) and the
 adapted `test_out_pwm_map.c` (5 cases) from `test/rcbench/`, and rcbench's KST
 tests, copied unchanged: `test_kst_wire.c` (28 cases), `test_kst_reg.c` (51),
@@ -491,7 +492,9 @@ tests, copied unchanged: `test_hitec_wire.c` (11 cases), `test_hitec_pre.c`
 (18), `test_hitec_pio.c` (23), `test_hitec_reg.c` (14),
 `test_hitec_reg_plan.c` (9), `test_hitec_session.c` (15),
 `test_hitec_session_write.c` (13) and `test_hitec_card.c` (12), and
-`hitec_headers.cpp`, the core's headers compiled as C++11. CI holds the KST
+`hitec_headers.cpp`, the core's headers compiled as C++11, and rcbench's
+S.BUS (Futaba's serial bus for receiver channels) decoder test, copied
+unchanged: `test_sbus.c` (12 cases). CI holds the KST
 and Hitec line fixtures to pioasm's words.
 
 Other targets in `test/Makefile`: `syntax` typechecks the device-only sources
