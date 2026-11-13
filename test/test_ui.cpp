@@ -2791,7 +2791,7 @@ static void testBoardRow() {
 
 	// LAST RESTART shows in the screenshot at the end of the list: a power-on.
 	fakeSetChipReset(DIAG_CR_HAD_POR);
-	fakeSetWatchdogCaused(false, false);
+	fakeSetWatchdog(0, false);
 	diagCaptureRestart();
 	enterSettings();
 	uint8_t recorded = settings()->boardId;

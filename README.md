@@ -470,34 +470,47 @@ a drag. A row is 44 px tall at a 50 px pitch. **MOTOR POLES** and
 | DISPLAY | **BACKLIGHT** | 16–255 in steps of 32. High contrast forces 255 while on |
 | BOARD | **BUILT FOR** | `RP2350-TOUCH-LCD-2.8`, the board the image is built for. Read-only |
 | BOARD | **VERSION** | The firmware version from `src/version.h`, for example `0.1.0`. Read-only |
-| DIAGNOSTICS | **LAST RESTART** | Why the chip last restarted, read once at boot: `POWER-ON`, `BROWN-OUT`, `RUN PIN`, `WATCHDOG`, `REBOOT`, `DEBUGGER`, `GLITCH`, `POWER-DOWN` or `UNKNOWN`. Amber for `BROWN-OUT`, `GLITCH` and `WATCHDOG`. Read-only. See below |
+| DIAGNOSTICS | **LAST RESTART** | Why the chip last restarted, read once at boot: `POWER-ON`, `BROWN-OUT`, `RUN PIN`, `WATCHDOG`, `UPDATE`, `REBOOT`, `DEBUGGER`, `GLITCH`, `POWER-DOWN` or `UNKNOWN`. Amber for `BROWN-OUT`, `GLITCH` and `WATCHDOG`. Read-only. See below |
 | DIAGNOSTICS | **UPTIME** | Time since boot as hours, minutes and seconds, `H:MM:SS`, for example `1:02:03`. Redrawn once a second while its row shows. Read-only |
 
 The `-` and `+` buttons are 44 × 44 px and the toggles 94 × 44 px.
 
-**LAST RESTART.** `src/diag.cpp` reads three values first thing in
+**LAST RESTART.** `src/diag.cpp` reads four values first thing in
 `setup()`: the power manager's CHIP_RESET register
-(`powman_hw->chip_reset`), `watchdog_caused_reboot()` and
-`watchdog_enable_caused_reboot()` of the Pico SDK. A pure function,
-`diagDecodeRestart()`, turns them into the reason, in this order:
+(`powman_hw->chip_reset`), the watchdog's REASON register
+(`watchdog_hw->reason`), `watchdog_enable_caused_reboot()` and the boot ROM's
+`rom_get_last_boot_type()`. A pure function, `diagDecodeRestart()`, turns
+them into the reason; the first line that matches decides:
 
 | Read | Shows |
 |---|---|
-| `watchdog_enable_caused_reboot()` | `WATCHDOG` |
-| `watchdog_caused_reboot()` | `REBOOT`: a reboot through the watchdog without an armed watchdog, for example `watchdog_reboot()` |
+| `watchdog_enable_caused_reboot()` | `WATCHDOG`: an armed watchdog timed out |
+| REASON non-zero and boot type `BOOT_TYPE_FLASH_UPDATE` (4) | `UPDATE`: the reboot after a UF2 copy |
+| REASON non-zero otherwise | `REBOOT`: a reboot through the watchdog that another program asked for, for example picotool |
+| HAD_GLITCH_DETECT | `GLITCH` |
+| HAD_WATCHDOG_RESET_RSM, HAD_WATCHDOG_RESET_SWCORE | `WATCHDOG` |
+| HAD_HZD_SYS_RESET_REQ | `DEBUGGER` |
+| HAD_SWCORE_PD | `POWER-DOWN` |
 | HAD_POR | `POWER-ON` |
 | HAD_BOR | `BROWN-OUT` |
 | HAD_RUN_LOW | `RUN PIN` |
-| HAD_DP_RESET_REQ, HAD_RESCUE, HAD_HZD_SYS_RESET_REQ | `DEBUGGER` |
-| HAD_GLITCH_DETECT | `GLITCH` |
-| HAD_WATCHDOG_RESET_RSM, `_SWCORE`, `_POWMAN`, `_POWMAN_ASYNC` | `WATCHDOG` |
-| HAD_SWCORE_PD | `POWER-DOWN` |
+| HAD_DP_RESET_REQ, HAD_RESCUE | `DEBUGGER` |
+| HAD_WATCHDOG_RESET_POWMAN, HAD_WATCHDOG_RESET_POWMAN_ASYNC | `WATCHDOG` |
 | none of these | `UNKNOWN` |
 
-The firmware arms no watchdog: nothing calls `watchdog_enable()`. So
-`WATCHDOG` can only appear once a watchdog is armed. Not tested on
-hardware: which reason a given restart shows on the board, after a UF2 copy
-and after a debugger's reset among them, is not recorded. The design note is
+The SDK's register header marks for each CHIP_RESET flag whether its reset
+resets the power manager. The flags of resets that leave it alone come
+first: CHIP_RESET may still hold an older flag beside them, and theirs is the
+newer. Whether the chip clears older flags when it records a new one is not
+known.
+
+According to the boot ROM source, not verified on hardware, the reboot after
+a UF2 copy goes through the watchdog with the boot type of a flash update,
+so it reads `UPDATE`, not the CHIP_RESET flag of an older reset. The
+firmware arms no watchdog: nothing calls `watchdog_enable()`. So `WATCHDOG`
+can only appear once a watchdog is armed. Nothing in the firmware calls
+`watchdog_reboot()` either. Not tested on hardware: which reason a given
+restart shows on the board is not recorded. The design note is
 `docs/design/diagnostics.md`.
 
 **Scrolling.** A drag scrolls the list when it starts off a control: on a
@@ -1734,7 +1747,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.2%**: 8,860 of 9,116 lines in 57 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.2%**: 8,863 of 9,119 lines in 57 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

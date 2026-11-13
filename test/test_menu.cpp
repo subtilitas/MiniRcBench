@@ -393,13 +393,14 @@ static void testSettingsScroll() {
 
 /**
  * @brief DIAGNOSTICS, the last section: LAST RESTART as captured at boot and
- *        UPTIME, read-only; UPTIME repaints each second while it shows and
- *        not while it is scrolled out.
+ *        UPTIME, read-only; each reason's colour; UPTIME repaints once a
+ *        second while it shows, not within the second, and not while it is
+ *        scrolled out.
  */
 static void testSettingsDiagnostics() {
 	section("SETTINGS: DIAGNOSTICS, LAST RESTART and UPTIME");
 	fakeSetChipReset(DIAG_CR_HAD_BOR);
-	fakeSetWatchdogCaused(false, false);
+	fakeSetWatchdog(0, false);
 	diagCaptureRestart();
 	openSettings();
 
@@ -434,22 +435,48 @@ static void testSettingsDiagnostics() {
 	checkTrue("UPTIME's label", fakeTextIs(UI_MARGIN, 190 + 18, "UPTIME", C_DIM, C_BG, 1));
 	checkTrue("UPTIME reads the time since boot, H:MM:SS",
 	          fakeTextIs(232 - gfxTextW(up, 1), 190 + 18, up, C_GRID, C_BG, 1));
-	// To the next whole second, then one frame more.
+	// Frames to the first one of the next whole second.
 	uint32_t s0 = diagUptimeSeconds();
 	while (diagUptimeSeconds() == s0) menuFrames(1);
 	diagUptimeText(up, sizeof(up), diagUptimeSeconds());
 	checkTrue("a second later it reads one second more, with no touch",
 	          fakeTextIs(232 - gfxTextW(up, 1), 190 + 18, up, C_GRID, C_BG, 1));
 
-	// A power-on reads in the grid colour, not amber.
+	// Within that second nothing repaints: a pixel put in the list, away from
+	// UPTIME's value, stays for 30 frames, 750 ms. The next second repaints.
+	gfxBuffer()[100 * GFX_W + 120] = 0x1234;
+	uint32_t s1 = diagUptimeSeconds();
+	menuFrames(30);
+	checkTrue("still the same second", diagUptimeSeconds() == s1);
+	checkTrue("UPTIME in view: no repaint within a second", pixel(120, 100) == 0x1234);
+	while (diagUptimeSeconds() == s1) menuFrames(1);
+	checkTrue("and a repaint once the next second turns", pixel(120, 100) != 0x1234);
+
+	// Each reason's colour: amber for a fault, the grid colour otherwise.
+	struct { uint32_t cr, reason; int boot; const char *text; uint16_t col; } shown[] = {
+		{ DIAG_CR_HAD_POR,            0, 0, "POWER-ON", C_GRID },
+		{ DIAG_CR_HAD_GLITCH_DETECT,  0, 0, "GLITCH",   C_AMBER },
+		{ DIAG_CR_HAD_WATCHDOG_RESET_RSM, 0, 0, "WATCHDOG", C_AMBER },
+		{ DIAG_CR_HAD_POR,            1, DIAG_BOOT_TYPE_FLASH_UPDATE, "UPDATE", C_GRID },
+		{ DIAG_CR_HAD_POR,            1, 0, "REBOOT",   C_GRID },
+	};
+	for (const auto &c : shown) {
+		fakeSetChipReset(c.cr);
+		fakeSetWatchdog(c.reason, false);
+		fakeSetBootType(c.boot);
+		diagCaptureRestart();
+		tapId(UI_FIX(UI_BACK));
+		tapId(menuRow(&UI_SETTINGS));
+		for (int i = 0; i < 4; i++) dragList(230, -180);
+		char what[64];
+		snprintf(what, sizeof(what), "%s in %s", c.text, c.col == C_AMBER ? "amber" : "the grid colour");
+		checkTrue(what, fakeTextIs(232 - gfxTextW(c.text, 1), 140 + 18, c.text, c.col, C_BG, 1));
+	}
+	checkControlTable("SETTINGS, DIAGNOSTICS");
+	fakeSetWatchdog(0, false);
+	fakeSetBootType(0);
 	fakeSetChipReset(DIAG_CR_HAD_POR);
 	diagCaptureRestart();
-	tapId(UI_FIX(UI_BACK));
-	tapId(menuRow(&UI_SETTINGS));
-	for (int i = 0; i < 4; i++) dragList(230, -180);
-	checkTrue("a power-on reads POWER-ON in the grid colour",
-	          fakeTextIs(232 - gfxTextW("POWER-ON", 1), 140 + 18, "POWER-ON", C_GRID, C_BG, 1));
-	checkControlTable("SETTINGS, DIAGNOSTICS");
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 }

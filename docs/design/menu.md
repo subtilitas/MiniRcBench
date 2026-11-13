@@ -163,11 +163,12 @@ at x 169, so the row reads `KST SERVO`, the title of the KST screen.
 
 ## SETTINGS
 
-One list in sections: ESC TESTER, WIRING, SERVO SUPPLY (from slice 3),
-DISPLAY, BOARD and DIAGNOSTICS ([diagnostics.md](diagnostics.md)). Pole count and throttle ceiling lead it, under the label
-`MAX THROTTLE`. The geometry is the scrolling SETUP design of PR #6, which
-was kst-programming.md decisions 11, 12 and 15, moved here and adjusted for
-the 36 px header, the two rows from today's SETTINGS screen and the sections.
+One list in sections: ESC TESTER, WIRING, SERVO SUPPLY (from slice 3), DISPLAY,
+BOARD and DIAGNOSTICS ([diagnostics.md](diagnostics.md)). Pole count and
+throttle ceiling lead it, under the label `MAX THROTTLE`. The geometry is the
+scrolling SETUP design of PR #6, which was kst-programming.md decisions 11, 12
+and 15, moved here and adjusted for the 36 px header, the two rows from today's
+SETTINGS screen and the sections.
 
 At 0 px, the top:
 

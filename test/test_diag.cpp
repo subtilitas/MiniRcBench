@@ -35,43 +35,64 @@ static void testEachFlag() {
 	for (const auto &c : cases) {
 		char what[48];
 		snprintf(what, sizeof(what), "0x%08X", (unsigned)c.bits);
-		checkStr(what, diagRestartText(diagDecodeRestart(c.bits, false, false)), c.text);
+		checkStr(what, diagRestartText(diagDecodeRestart(c.bits, 0, false, 0)), c.text);
 	}
 }
 
-/** @brief The order: the watchdog functions first, then POR before the rest. */
+/** @brief Shorthand: the text CHIP_RESET @p cr decodes to, no watchdog reason. */
+static const char *flags(uint32_t cr) { return diagRestartText(diagDecodeRestart(cr, 0, false, 0)); }
+
+/**
+ * @brief The order: the watchdog first, then the flags of resets that leave
+ *        the power manager alone, then those of resets that reset it.
+ */
 static void testOrder() {
 	section("Diagnostics: the decoding order");
 	const uint32_t all = DIAG_CR_HAD_POR | DIAG_CR_HAD_BOR | DIAG_CR_HAD_RUN_LOW |
-	                     DIAG_CR_HAD_DP_RESET_REQ | DIAG_CR_HAD_GLITCH_DETECT |
-	                     DIAG_CR_HAD_WATCHDOG_RESET_RSM | DIAG_CR_HAD_SWCORE_PD;
-	checkStr("every flag", diagRestartText(diagDecodeRestart(all, false, false)), "POWER-ON");
-	checkStr("all but POR", diagRestartText(diagDecodeRestart(all & ~DIAG_CR_HAD_POR, false, false)),
-	         "BROWN-OUT");
-	checkStr("RUN and debugger",
-	         diagRestartText(diagDecodeRestart(DIAG_CR_HAD_RUN_LOW | DIAG_CR_HAD_RESCUE, false, false)),
-	         "RUN PIN");
-	checkStr("debugger and glitch",
-	         diagRestartText(diagDecodeRestart(DIAG_CR_HAD_RESCUE | DIAG_CR_HAD_GLITCH_DETECT, false, false)),
-	         "DEBUGGER");
-	checkStr("glitch and watchdog",
-	         diagRestartText(diagDecodeRestart(DIAG_CR_HAD_GLITCH_DETECT | DIAG_CR_HAD_WATCHDOG_RESET_RSM,
-	                                           false, false)),
-	         "GLITCH");
-	checkStr("watchdog and power-down",
-	         diagRestartText(diagDecodeRestart(DIAG_CR_HAD_WATCHDOG_RESET_POWMAN | DIAG_CR_HAD_SWCORE_PD,
-	                                           false, false)),
+	                     DIAG_CR_HAD_DP_RESET_REQ | DIAG_CR_HAD_RESCUE |
+	                     DIAG_CR_HAD_HZD_SYS_RESET_REQ | DIAG_CR_HAD_GLITCH_DETECT |
+	                     DIAG_CR_HAD_WATCHDOG_RESET_RSM | DIAG_CR_HAD_WATCHDOG_RESET_SWCORE |
+	                     DIAG_CR_HAD_WATCHDOG_RESET_POWMAN | DIAG_CR_HAD_WATCHDOG_RESET_POWMAN_ASYNC |
+	                     DIAG_CR_HAD_SWCORE_PD;
+	checkStr("every flag: GLITCH, a newer reset", flags(all), "GLITCH");
+	// A reset that leaves the power manager alone beside an older flag.
+	checkStr("POR and GLITCH", flags(DIAG_CR_HAD_POR | DIAG_CR_HAD_GLITCH_DETECT), "GLITCH");
+	checkStr("POR and WATCHDOG RSM", flags(DIAG_CR_HAD_POR | DIAG_CR_HAD_WATCHDOG_RESET_RSM), "WATCHDOG");
+	checkStr("POR and WATCHDOG SWCORE", flags(DIAG_CR_HAD_POR | DIAG_CR_HAD_WATCHDOG_RESET_SWCORE), "WATCHDOG");
+	checkStr("BOR and HZD debugger", flags(DIAG_CR_HAD_BOR | DIAG_CR_HAD_HZD_SYS_RESET_REQ), "DEBUGGER");
+	checkStr("RUN and SWCORE_PD", flags(DIAG_CR_HAD_RUN_LOW | DIAG_CR_HAD_SWCORE_PD), "POWER-DOWN");
+	// Among the resets that leave the power manager alone.
+	checkStr("GLITCH and WATCHDOG RSM",
+	         flags(DIAG_CR_HAD_GLITCH_DETECT | DIAG_CR_HAD_WATCHDOG_RESET_RSM), "GLITCH");
+	checkStr("WATCHDOG RSM and HZD",
+	         flags(DIAG_CR_HAD_WATCHDOG_RESET_RSM | DIAG_CR_HAD_HZD_SYS_RESET_REQ), "WATCHDOG");
+	checkStr("HZD and SWCORE_PD",
+	         flags(DIAG_CR_HAD_HZD_SYS_RESET_REQ | DIAG_CR_HAD_SWCORE_PD), "DEBUGGER");
+	// Among the resets that reset it.
+	const uint32_t pm = DIAG_CR_HAD_POR | DIAG_CR_HAD_BOR | DIAG_CR_HAD_RUN_LOW |
+	                    DIAG_CR_HAD_DP_RESET_REQ | DIAG_CR_HAD_WATCHDOG_RESET_POWMAN;
+	checkStr("the powman resets: POR first", flags(pm), "POWER-ON");
+	checkStr("all but POR", flags(pm & ~DIAG_CR_HAD_POR), "BROWN-OUT");
+	checkStr("RUN and RESCUE", flags(DIAG_CR_HAD_RUN_LOW | DIAG_CR_HAD_RESCUE), "RUN PIN");
+	checkStr("DP and WATCHDOG POWMAN",
+	         flags(DIAG_CR_HAD_DP_RESET_REQ | DIAG_CR_HAD_WATCHDOG_RESET_POWMAN), "DEBUGGER");
+
+	// The watchdog's REASON and the boot type decide before any flag.
+	auto dec = [](uint32_t cr, uint32_t reason, bool en, int boot) {
+		return diagRestartText(diagDecodeRestart(cr, reason, en, boot));
+	};
+	checkStr("enable caused, REASON timer", dec(DIAG_CR_HAD_POR, 1, true, 0), "WATCHDOG");
+	checkStr("enable caused after a flash update", dec(DIAG_CR_HAD_POR, 1, true, DIAG_BOOT_TYPE_FLASH_UPDATE),
 	         "WATCHDOG");
-	// A watchdog reset that reaches only the power-on state machine can leave
-	// CHIP_RESET as the power-on left it: the SDK's answer decides.
-	checkStr("POR with watchdog_caused_reboot()",
-	         diagRestartText(diagDecodeRestart(DIAG_CR_HAD_POR, true, false)), "REBOOT");
-	checkStr("POR with watchdog_enable_caused_reboot()",
-	         diagRestartText(diagDecodeRestart(DIAG_CR_HAD_POR, true, true)), "WATCHDOG");
-	checkStr("enable caused without caused",
-	         diagRestartText(diagDecodeRestart(0, false, true)), "WATCHDOG");
-	checkStr("caused, nothing in CHIP_RESET",
-	         diagRestartText(diagDecodeRestart(0, true, false)), "REBOOT");
+	checkStr("REASON timer, flash update boot", dec(DIAG_CR_HAD_POR, 1, false, DIAG_BOOT_TYPE_FLASH_UPDATE),
+	         "UPDATE");
+	checkStr("REASON force, flash update boot", dec(0, 2, false, DIAG_BOOT_TYPE_FLASH_UPDATE), "UPDATE");
+	checkStr("REASON timer, normal boot", dec(DIAG_CR_HAD_POR, 1, false, 0), "REBOOT");
+	checkStr("REASON timer, BOOTSEL boot type 2", dec(0, 1, false, 2), "REBOOT");
+	checkStr("REASON timer, boot type 5", dec(0, 1, false, DIAG_BOOT_TYPE_FLASH_UPDATE + 1), "REBOOT");
+	checkStr("REASON timer, boot type an error", dec(0, 1, false, -1), "REBOOT");
+	checkStr("no REASON, flash update boot type", dec(DIAG_CR_HAD_RUN_LOW, 0, false, DIAG_BOOT_TYPE_FLASH_UPDATE),
+	         "RUN PIN");
 }
 
 /** @brief Every text fits DIAG_RESTART_TEXT_WIDEST, and the widest reaches it. */
@@ -85,20 +106,25 @@ static void testTextWidths() {
 	checkInt("the longest text, characters", (long)widest, DIAG_RESTART_TEXT_WIDEST);
 }
 
-/** @brief diagCaptureRestart() reads the register and both SDK calls. */
+/** @brief diagCaptureRestart() reads both registers and both SDK calls. */
 static void testCapture() {
 	section("Diagnostics: the capture reads the fakes");
 	fakeSetChipReset(DIAG_CR_HAD_BOR);
-	fakeSetWatchdogCaused(false, false);
+	fakeSetWatchdog(0, false);
+	fakeSetBootType(0);
 	diagCaptureRestart();
 	checkTrue("CHIP_RESET HAD_BOR: BROWN-OUT", diagLastRestart() == RestartReason::BrownOut);
-	fakeSetWatchdogCaused(true, false);
+	fakeSetWatchdog(1, false);
 	diagCaptureRestart();
-	checkTrue("watchdog_caused_reboot(): REBOOT", diagLastRestart() == RestartReason::Reboot);
-	fakeSetWatchdogCaused(true, true);
+	checkTrue("REASON set, normal boot: REBOOT", diagLastRestart() == RestartReason::Reboot);
+	fakeSetBootType(DIAG_BOOT_TYPE_FLASH_UPDATE);
+	diagCaptureRestart();
+	checkTrue("REASON set, flash update boot: UPDATE", diagLastRestart() == RestartReason::Update);
+	fakeSetWatchdog(1, true);
 	diagCaptureRestart();
 	checkTrue("watchdog_enable_caused_reboot(): WATCHDOG", diagLastRestart() == RestartReason::Watchdog);
-	fakeSetWatchdogCaused(false, false);
+	fakeSetWatchdog(0, false);
+	fakeSetBootType(0);
 	fakeSetChipReset(DIAG_CR_HAD_RUN_LOW);
 	diagCaptureRestart();
 	checkTrue("HAD_RUN_LOW: RUN PIN", diagLastRestart() == RestartReason::RunPin);

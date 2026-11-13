@@ -212,8 +212,10 @@ int fakeFlashWrites();
 int fakeRebootCount();
 /** @brief What powman_hw->chip_reset reads. */
 void fakeSetChipReset(uint32_t v);
-/** @brief What watchdog_caused_reboot() and watchdog_enable_caused_reboot() return. */
-void fakeSetWatchdogCaused(bool caused, bool enableCaused);
+/** @brief What watchdog_hw->reason reads and watchdog_enable_caused_reboot() returns. */
+void fakeSetWatchdog(uint32_t reason, bool enableCaused);
+/** @brief What rom_get_last_boot_type() returns. */
+void fakeSetBootType(int type);
 
 /** @brief How many times the UI has rebuilt the DShot pump's wiring. */
 int fakeConfigureCount();

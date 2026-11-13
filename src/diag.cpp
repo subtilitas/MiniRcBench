@@ -10,6 +10,8 @@
 #include "pico/time.h"
 #include "hardware/watchdog.h"
 #include "hardware/structs/powman.h"
+#include "hardware/structs/watchdog.h"
+#include "pico/bootrom.h"
 
 #if PICO_ON_DEVICE
 #include "hardware/regs/powman.h"
@@ -25,6 +27,7 @@ static_assert(DIAG_CR_HAD_DP_RESET_REQ == POWMAN_CHIP_RESET_HAD_DP_RESET_REQ_BIT
 static_assert(DIAG_CR_HAD_RUN_LOW == POWMAN_CHIP_RESET_HAD_RUN_LOW_BITS, "CHIP_RESET bit");
 static_assert(DIAG_CR_HAD_BOR == POWMAN_CHIP_RESET_HAD_BOR_BITS, "CHIP_RESET bit");
 static_assert(DIAG_CR_HAD_POR == POWMAN_CHIP_RESET_HAD_POR_BITS, "CHIP_RESET bit");
+static_assert(DIAG_BOOT_TYPE_FLASH_UPDATE == BOOT_TYPE_FLASH_UPDATE, "boot type");
 #endif
 
 static RestartReason s_reason = RestartReason::Unknown;
@@ -35,23 +38,33 @@ struct FlagReason {
 	RestartReason reason;
 };
 
+/*
+ * hardware/regs/powman.h says per flag whether its reset resets the power
+ * manager. The resets that leave it alone come first: CHIP_RESET may still
+ * hold an older flag beside theirs, and theirs is the newer. Whether older
+ * flags are cleared when a new one is recorded is not known.
+ */
 static const FlagReason FLAG_ORDER[] = {
+	// powman no
+	{ DIAG_CR_HAD_GLITCH_DETECT, RestartReason::Glitch },
+	{ DIAG_CR_HAD_WATCHDOG_RESET_RSM | DIAG_CR_HAD_WATCHDOG_RESET_SWCORE, RestartReason::Watchdog },
+	{ DIAG_CR_HAD_HZD_SYS_RESET_REQ, RestartReason::Debugger },
+	{ DIAG_CR_HAD_SWCORE_PD, RestartReason::PowerDown },
+	// powman yes
 	{ DIAG_CR_HAD_POR, RestartReason::PowerOn },
 	{ DIAG_CR_HAD_BOR, RestartReason::BrownOut },
 	{ DIAG_CR_HAD_RUN_LOW, RestartReason::RunPin },
-	{ DIAG_CR_HAD_DP_RESET_REQ | DIAG_CR_HAD_RESCUE | DIAG_CR_HAD_HZD_SYS_RESET_REQ,
-	  RestartReason::Debugger },
-	{ DIAG_CR_HAD_GLITCH_DETECT, RestartReason::Glitch },
-	{ DIAG_CR_HAD_WATCHDOG_RESET_RSM | DIAG_CR_HAD_WATCHDOG_RESET_SWCORE |
-	  DIAG_CR_HAD_WATCHDOG_RESET_POWMAN | DIAG_CR_HAD_WATCHDOG_RESET_POWMAN_ASYNC,
+	{ DIAG_CR_HAD_DP_RESET_REQ | DIAG_CR_HAD_RESCUE, RestartReason::Debugger },
+	{ DIAG_CR_HAD_WATCHDOG_RESET_POWMAN | DIAG_CR_HAD_WATCHDOG_RESET_POWMAN_ASYNC,
 	  RestartReason::Watchdog },
-	{ DIAG_CR_HAD_SWCORE_PD, RestartReason::PowerDown },
 };
 
-RestartReason diagDecodeRestart(uint32_t chipReset, bool watchdogCaused,
-                                bool watchdogEnableCaused) {
+RestartReason diagDecodeRestart(uint32_t chipReset, uint32_t watchdogReason,
+                                bool watchdogEnableCaused, int bootType) {
 	if (watchdogEnableCaused) return RestartReason::Watchdog;
-	if (watchdogCaused) return RestartReason::Reboot;
+	if (watchdogReason)
+		return bootType == DIAG_BOOT_TYPE_FLASH_UPDATE ? RestartReason::Update
+		                                               : RestartReason::Reboot;
 	for (const FlagReason &f : FLAG_ORDER)
 		if (chipReset & f.bits) return f.reason;
 	return RestartReason::Unknown;
@@ -63,6 +76,7 @@ const char *diagRestartText(RestartReason r) {
 		case RestartReason::BrownOut:  return "BROWN-OUT";
 		case RestartReason::RunPin:    return "RUN PIN";
 		case RestartReason::Watchdog:  return "WATCHDOG";
+		case RestartReason::Update:    return "UPDATE";
 		case RestartReason::Reboot:    return "REBOOT";
 		case RestartReason::Debugger:  return "DEBUGGER";
 		case RestartReason::Glitch:    return "GLITCH";
@@ -73,8 +87,9 @@ const char *diagRestartText(RestartReason r) {
 }
 
 void diagCaptureRestart() {
-	s_reason = diagDecodeRestart(powman_hw->chip_reset, watchdog_caused_reboot(),
-	                             watchdog_enable_caused_reboot());
+	s_reason = diagDecodeRestart(powman_hw->chip_reset, watchdog_hw->reason,
+	                             watchdog_enable_caused_reboot(),
+	                             rom_get_last_boot_type());
 }
 
 RestartReason diagLastRestart() { return s_reason; }

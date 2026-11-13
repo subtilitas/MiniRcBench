@@ -158,8 +158,8 @@ a finger.
 | DISPLAY | **BACKLIGHT** | 16–255, in steps of 32 |
 | BOARD | **BUILT FOR** | Read-only. The board the firmware is built for, `RP2350-TOUCH-LCD-2.8` |
 | BOARD | **VERSION** | Read-only. The firmware version, for example `0.1.0` |
-| DIAGNOSTICS | **LAST RESTART** | Read-only. Why the board last started: `POWER-ON`, `BROWN-OUT` (the supply dipped too low), `RUN PIN` (the reset input), `WATCHDOG`, `REBOOT` (a restart the firmware asked for), `DEBUGGER`, `GLITCH` (a short supply glitch), `POWER-DOWN` or `UNKNOWN`. Amber for `BROWN-OUT`, `GLITCH` and `WATCHDOG` |
-| DIAGNOSTICS | **UPTIME** | Read-only. Time since the board started, hours, minutes and seconds, for example `1:02:03`. Counts up while it shows |
+| DIAGNOSTICS | **LAST RESTART** | Read-only. Why the board last started: `POWER-ON`, `BROWN-OUT` (the supply dipped too low), `RUN PIN` (the reset input), `WATCHDOG`, `UPDATE` (the restart after copying a new firmware onto the board), `REBOOT` (a restart through the watchdog that another program asked for, for example picotool), `DEBUGGER`, `GLITCH` (a short supply glitch), `POWER-DOWN` or `UNKNOWN`. Amber for `BROWN-OUT`, `GLITCH` and `WATCHDOG` |
+| DIAGNOSTICS | **UPTIME** | Read-only. Time since the board started, hours, minutes and seconds, for example `1:02:03`. Redrawn once a second while the row shows |
 
 `MOTOR POLES` and `MAX THROTTLE` come first, so they need no scrolling. The `-`
 and `+` buttons are 44 × 44 px; hold one to repeat.
@@ -188,8 +188,10 @@ flash unchanged.
 **LAST RESTART.** The firmware reads the reason once, when it starts. A
 board that restarts on its own while a motor spins and then reads
 `BROWN-OUT` points at the supply. The firmware arms no watchdog, so
-`WATCHDOG` does not appear with this firmware. Not tested on hardware:
-which reason a given restart shows on the board is not recorded.
+`WATCHDOG` does not appear with this firmware. According to the boot ROM's
+source, not verified on hardware, the restart after copying a firmware file
+onto the board reads `UPDATE`. Not tested on hardware: which reason a given
+restart shows on the board is not recorded.
 
 <img src="img/settings-supply.png" width="240" alt="SETTINGS scrolled to SERVO SUPPLY, set to GP29"> <img src="img/settings-scrolled.png" width="240" alt="SETTINGS scrolled to the end: BOARD and DIAGNOSTICS">
 
