@@ -125,6 +125,13 @@ static_assert(INA219_CONFIG_BENCH == 0x19EFu, "the bench configuration is not 19
 /** @brief Read-backs in a row of another value than the bench's: the part reset. */
 #define SENSE_READBACK_MISSES 2u
 
+/**
+ * @brief How long a line low after an abort may take to rise, µs, polled
+ *        once a microsecond: the I2C block's own STOP, about 10 µs at
+ *        100 kHz. A line still low after it is held by a part.
+ */
+#define SENSE_SETTLE_US      10u
+
 /** @brief Clocks on SCL in a recovery. */
 #define SENSE_RECOVER_CLOCKS 9u
 

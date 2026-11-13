@@ -146,13 +146,22 @@ static bool linesLow() {
  * low after the abort makes it SENSE_BUS_LOW, which marks the bus stuck,
  * where a NACK would clear it.
  *
+ * The SDK's read returns on the abort without waiting for the STOP the
+ * block sends after it, so the block's own STOP can still hold a line low.
+ * The lines are therefore polled for up to @ref SENSE_SETTLE_US, and only a
+ * line low for all of it counts.
+ *
  * @param result The SDK's return.
  * @param want   The byte count asked.
  * @return As senseErrOf(), with SENSE_NACK as SENSE_BUS_LOW while a line is low.
  */
 static sense_err_t errAfter(int result, size_t want) {
 	sense_err_t e = senseErrOf(result, want);
-	if (e == SENSE_NACK && linesLow()) return SENSE_BUS_LOW;
+	if (e != SENSE_NACK) return e;
+	for (uint32_t us = 0; linesLow(); us++) {
+		if (us >= SENSE_SETTLE_US) return SENSE_BUS_LOW;
+		delayMicroseconds(1);
+	}
 	return e;
 }
 
@@ -256,9 +265,10 @@ static sense_err_t readRaw(uint8_t reg, uint16_t *v) {
  *        its power-on value, or the bench's own configuration, which an
  *        INA219 keeps across a reset of the board alone.
  *
- * The identity rule: nothing is written to a part at @ref INA219_ADDR
- * before register 00h reads one of these two. Another chip at the address,
- * a PCA9685 whose register 00h is MODE1 among them, is only ever read.
+ * The identity rule: nothing but the register pointer, 00h, is written to
+ * a part at @ref INA219_ADDR before register 00h reads one of these two.
+ * Another chip at the address, a PCA9685 whose register 00h is MODE1 among
+ * them, gets only that pointer.
  */
 bool ina219Identity(uint16_t config) {
 	return config == INA219_CONFIG_POR || config == INA219_CONFIG_BENCH;
@@ -277,8 +287,8 @@ static sense_state_t probe(uint32_t nowMs) {
 	if (v == 0xFFFFu) return SENSE_PART_ABSENT;
 	// The INA219's configuration after a power-on reset is 399Fh (SBOS448G,
 	// "Register Maps", to confirm); an INA226 or an INA3221 reads 4127h or
-	// 7127h after its reset. Anything else is another part: read, never
-	// written.
+	// 7127h after its reset. Anything else is another part: read, and
+	// nothing written to it but the register pointer.
 	s_part.id_device = v;
 	if (!ina219Identity(v)) return SENSE_PART_WRONG_ID;
 	if (sense_bus_write16(&s_bus, INA219_ADDR, INA219_REG_CONFIG, INA219_CONFIG_RST) != SENSE_OK)

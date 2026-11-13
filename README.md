@@ -465,7 +465,7 @@ a drag. A row is 44 px tall at a 50 px pitch. **MOTOR POLES** and
 | WIRING | **KISS TELEM** | Whether to listen for the telemetry wire. Turning it on moves the KISS pin off the ESC pin if they coincide |
 | WIRING | **KISS PIN** | Steps through the same free GPIOs, skipping the ESC pin. The receiver is a PIO state machine, so any free GPIO works. Reads `--` and does not act while KISS is off |
 | SERVO SUPPLY | **SERVO SUPPLY** | `NONE`, the default, `GP28` or `GP29`: whether the enable input of a DC-DC converter for the programmed servo's supply is wired, and to which pin: GP28, J4 pin 11, or GP29, J4 pin 12 (design note `docs/design/kst-programming.md`, "Switched servo supply"). A stepper: - and + step NONE, GP28, GP29 and stop at the ends; it applies at once. With a pin chosen, that pin is an input with both pulls off and its input disabled outside a KST or Hitec claim, so the converter's external pull-down holds it off; during a claim the bench switches the servo's supply (KST servo programming, Hitec servo programming) |
-| SERVO SUPPLY | **CURRENT SENSE** | `NONE`, the default, or `INA219`: whether an INA219 current sensor is on the I2C bus at 0x40 ([Current sensor](#current-sensor)). A toggle; it applies at once. With `NONE` nothing is sent to 0x40. With `INA219` the bench probes the part at once and every 1000 ms while it is not found, and a caption under the label reads `FOUND`, `NOT FOUND` or `OTHER PART` |
+| SERVO SUPPLY | **CURRENT SENSE** | `NONE`, the default, or `INA219`: whether an INA219 current sensor is on the I2C bus at 0x40 ([Current sensor](#current-sensor)). A toggle; it applies at once. With `NONE` nothing is sent to 0x40. With `INA219` the bench probes the part at once and every 1000 ms while it is not found, and a caption under the label reads `FOUND`, `NOT FOUND` or `OTHER PART`. `OTHER PART` is another chip at 0x40, or an INA219 left on another configuration: power-cycle the module |
 | DISPLAY | **CONTRAST** | `NORMAL` or `HIGH`. See below |
 | DISPLAY | **BACKLIGHT** | 16–255 in steps of 32. High contrast forces 255 while on |
 | BOARD | **BUILT FOR** | `RP2350-TOUCH-LCD-2.8`, the board the image is built for. Read-only |
@@ -1413,7 +1413,8 @@ has the circuit, the ratings and the bus's pull-ups.
 SERVO SUPPLY section below SERVO SUPPLY. With `INA219` the bench probes the
 part at boot and every 1000 ms while it is not online, and the row's caption
 reads `FOUND`, `NOT FOUND`, or `OTHER PART` for a part at 0x40 that is no
-INA219. With `NONE` nothing is sent to 0x40.
+INA219. An INA219 left on another configuration by other firmware also reads
+`OTHER PART`: power-cycle the module. With `NONE` nothing is sent to 0x40.
 
 **Readout.** With CURRENT SENSE at `INA219`:
 
@@ -1436,12 +1437,13 @@ three failed transactions take the part offline, two timeouts of 1000 µs in
 a row or a line held low mark the bus stuck, and a recovery, 9 clocks on SCL
 and a STOP, runs at once and every 100 ms while it is stuck. The touch
 driver reports its own transfers to the same record; an abort with a line
-held low after it counts as a stuck bus, not as a missing part. The probe
-reads the configuration register first and writes to the part only when it
-reads as an INA219's, 399Fh or 19EFh; another chip at 0x40 is read once a
-second and never written. Each reading is published as a `SenseSample`
-(`src/sense.h`), under a lock of its own, for core1; slices 3 and 4 of the
-design note read it there, and nothing on core1 reads it yet.
+still low 10 µs after it counts as a stuck bus, not as a missing part. The
+probe reads the configuration register first and writes a register only
+when it reads as an INA219's, 399Fh or 19EFh; another chip at 0x40 is read
+once a second, and nothing but the register pointer is written to it. Each
+reading is published as a `SenseSample` (`src/sense.h`), under a lock of its
+own, for core1; slices 3 and 4 of the design note read it there, and nothing
+on core1 reads it yet.
 
 ## Device backups
 
@@ -1696,7 +1698,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.2%**: 8,805 of 9,061 lines in 56 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.2%**: 8,809 of 9,064 lines in 56 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

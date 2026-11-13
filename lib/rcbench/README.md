@@ -42,7 +42,6 @@ The S.BUS files and the sensor bus, at commit `5ef42efd`:
 | `shared/sense/sense_bus.c` | `shared/sense/sense_bus.c` |
 | `shared/sense/include/sense_bus.h` | `shared/sense/include/sense_bus.h` |
 
-
 The servo tester uses them: `servo_sweep` computes the sweep curve on core1,
 and `out_pwm_map` maps each GPIO (general-purpose input/output) to its PWM
 (pulse-width modulation) slice and channel for `src/servo_pwm.cpp`. Both are

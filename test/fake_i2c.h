@@ -25,17 +25,29 @@
  * whole milliseconds as the clock counts them, and adds it to
  * FakeI2cStats::timeoutUs, so fakeI2cBusyUs() bounds how long core0 blocks.
  *
+ * The STOP after a read's abort: the SDK's read returns on the abort without
+ * waiting for the STOP the block sends after it. So after a read that aborts,
+ * at its address or by an injected PICO_ERROR_GENERIC, the next
+ * FAKE_I2C_STOP_READS reads of SDA with gpio_get() return low, as the block's
+ * own STOP set-up would. The next transfer or i2c_init() ends the window. A
+ * write waits for its STOP in the SDK and opens no window.
+ *
  * Not modelled: the SDK's restart_on_next. After a write with nostop that
- * fails, the SDK starts the next transfer with a RESTART; the block has
- * already sent a STOP on the abort, and a RESTART on an idle bus is a START,
- * so the next transaction looks the same on the wire. The fake therefore
- * closes the transaction on every failure.
+ * fails, the SDK starts the next transfer with a RESTART. On an abort the
+ * block has already sent a STOP, and a RESTART on an idle bus is a START, so
+ * the next transaction looks the same on the wire. On a timeout the block
+ * sends no STOP and is left active; that case is not modelled and is left to
+ * the recovery's i2c_init(). The fake therefore closes the transaction on
+ * every failure.
  */
 
 #pragma once
 
 #include <stddef.h>
 #include <stdint.h>
+
+/** @brief SDA reads that return low after a read's abort: the block's STOP. */
+#define FAKE_I2C_STOP_READS 3
 
 /** @brief One INA219 on the bus. Fields a test may set are marked. */
 struct FakeIna219 {

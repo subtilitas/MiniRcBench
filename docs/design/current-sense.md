@@ -502,19 +502,33 @@ Worst case added to the frame:
 - the bus timing out: each sensor transfer has a timeout of 1000 µs
   (`SENSE_TIMEOUT_US`), about 10.5 times the longest sensor transfer at
   400 kHz, a write of 95 µs, and about 2.6 times it at 100 kHz, 380 µs.
-  A failed transfer ends the sensor's frame, so a frame takes at most
-  1000 µs more for the sensor (host suite, `testFrameTime`). Two timeouts
-  in a row mark the bus stuck, but a touch read that answers clears the
-  mark again, so the sensor keeps trying, one transfer a frame, until
-  three failures take the part offline; then it is probed once a second.
+  A failed transfer ends the sensor's frame, so a frame takes the
+  transfers that answered before it plus 1000 µs. Two timeouts in a row
+  mark the bus stuck, but a touch read that answers clears the mark
+  again, so the sensor keeps trying, one transfer a frame, until three
+  failures take the part offline; then it is probed once a second.
 
 The touch read itself is unchanged in each case. With the bus stuck it
-times out on its own, as today: a transfer of 2000 µs, a second only when
-the first answered. The host suite measures each failure mode's worst
-frame against these bounds (`testFrameTime` in `test/test_sense.cpp`): at
-most 1000 µs for the sensor and 2000 µs for touch; a lost arbitration ends
-a transfer within a few clocks. The recovery's 9 clocks, about 100 µs, are
-GPIO time and not counted there.
+times out on its own: a transfer of 2000 µs, a second only when the first
+answered. A lost arbitration ends a transfer within a few clocks.
+
+The host suite measures each failure mode's worst frame at 400 kHz
+(`testFrameTime` in `test/test_sense.cpp`), with one timeout after each
+count of transfers that answer:
+
+| Frame | The transfer that times out | Bus time |
+|---|---|---|
+| Sensor, probe | the read-back of 19EFh, its data read, after 192 clocks | 1480 µs |
+| Sensor, probe | the write of 19EFh, after 134 clocks | 1335 µs |
+| Sensor, reading with the read-back | the bus register's data read, after 116 clocks | 1290 µs |
+| Sensor, reading | the bus register's data read, after 68 clocks | 1170 µs |
+| Sensor, any frame | its first transfer | 1000 µs |
+| Touch | the data read of D000h, after 29 clocks | 2072.5 µs |
+| Touch | the pointer write | 2000 µs |
+
+So a frame blocks core0 on the bus for at most 1480 µs for the sensor and
+2072.5 µs for touch. The recovery's 9 clocks, about 100 µs, and the wait
+for the lines after an abort, up to 10 µs, are GPIO time and not counted.
 
 ### The reading on core1
 
@@ -552,10 +566,16 @@ supplies them over the SDK:
 | SDK result | `sense_err_t` |
 |---|---|
 | the byte count asked | `SENSE_OK` |
-| `PICO_ERROR_GENERIC`, an abort, or a short count, with SDA and SCL high after it: an address or byte not acknowledged | `SENSE_NACK` |
-| `PICO_ERROR_GENERIC` with SDA or SCL low after it: arbitration lost to a part holding the line (DW_apb_i2c's abort behaviour, to be confirmed on hardware, bench test B3) | `SENSE_BUS_LOW` |
+| `PICO_ERROR_GENERIC`, an abort, or a short count, with SDA and SCL high within 10 µs after it: an address or byte not acknowledged | `SENSE_NACK` |
+| `PICO_ERROR_GENERIC` with SDA or SCL low for 10 µs after it: arbitration lost to a part holding the line (DW_apb_i2c's abort behaviour, to be confirmed on hardware, bench test B3) | `SENSE_BUS_LOW` |
 | `PICO_ERROR_TIMEOUT` | `SENSE_TIMEOUT` |
 | SDA or SCL reads low before the transaction (`gpio_get()` on GP6 and GP7) | `SENSE_BUS_LOW`, nothing sent |
+
+The SDK's read returns on an abort without waiting for the STOP the I2C
+block sends after it, so the block's own STOP can still hold a line low
+for a moment. `errAfter()` therefore polls the lines once a microsecond
+for up to 10 µs (`SENSE_SETTLE_US`), about the length of a STOP at
+100 kHz, and only a line low for all of it counts.
 
 - **NACK.** The address went out and the lines came back: the bus works and
   the part is missing. Three failed transactions in a row
@@ -584,12 +604,15 @@ supplies them over the SDK:
   INA226 or an INA3221 at 0x40 reads 4127h or 7127h after its reset
   (`ina3221.h`, `INA3221_CONFIG_RESET`; INA226 from its datasheet, to
   confirm), and a PCA9685's register 00h is its MODE1. Such a part is
-  reported as `OTHER PART` and never written: the probe stays read-only
-  and reads it again every 1000 ms, so an INA219 put in its place is found
-  without a change in SETTINGS. FFFFh is no part. On an INA219's value the
-  probe writes RST (8000h), reads 399Fh, writes 19EFh and reads it back.
-  How long the part needs after RST before it answers is not stated as far
-  as known; the probe retries on the next due time.
+  reported as `OTHER PART`. Nothing is written to it but the register
+  pointer, 00h, that the read needs. The probe reads it again every
+  1000 ms, so an INA219 put in its place is found without a change in
+  SETTINGS. An INA219 left on another configuration, such as 019Fh, also
+  reads as `OTHER PART` until its supply is cycled. FFFFh is no part. On
+  an INA219's value the probe writes RST (8000h), reads 399Fh, writes
+  19EFh and reads it back. How long the part needs after RST before it
+  answers is not stated as far as known; the probe retries on the next due
+  time.
 
 ### Detection and the SETTINGS row
 
@@ -871,8 +894,11 @@ boost's EN as it does to every EN on part C.
   touch NACK not stuck.
 - The read-back of the configuration every 1000 ms; a POR found within
   two read-backs; the reset flag.
-- Bus time per frame: 96 clocks for the sensor, 84 for touch; at most two
-  timeouts of 1000 µs in a frame.
+- Bus time per frame: 96 clocks for the sensor, 84 for touch; with one
+  timeout after each count of transfers that answer, at most 1480 µs for
+  the sensor and 2072.5 µs for touch.
+- A read's abort with SDA low for the I2C block's own STOP: a NACK, not a
+  line held low.
 - The sample: `seq`, its age, 250 ms stale and not at 249 ms, across a
   `millis()` wrap.
 - SETTINGS: the CURRENT SENSE row by control id, `NONE` and `INA219`,

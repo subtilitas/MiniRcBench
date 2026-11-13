@@ -150,7 +150,7 @@ static void testProbe() {
 	checkTrue("19EFh read: an INA219, reset and configured again",
 	          state() == SenseState::Online && p->configWrites == 2);
 
-	section("Sense: another chip at 0x40 is read, never written");
+	section("Sense: another chip at 0x40 is read, only the pointer written");
 	const uint16_t others[3] = { 0x4127, 0x7127, 0x1234 };
 	for (uint16_t id : others) {
 		declared();
@@ -162,13 +162,13 @@ static void testProbe() {
 		checkTrue(what, state() == SenseState::Absent && captionIs("OTHER PART") &&
 		          sensePart()->id_device == id);
 		for (int i = 0; i < 120; i++) tick();
-		snprintf(what, sizeof(what), "%04Xh: no write in 3000 ms", id);
+		snprintf(what, sizeof(what), "%04Xh: no register written in 3000 ms", id);
 		checkInt(what, p->configWrites, 0);
 		snprintf(what, sizeof(what), "%04Xh: read again once a second", id);
 		checkInt(what, (long)(fakeI2cTransactionsTo(INA219_ADDR) - t0), 4);
 	}
 	// The other chip taken off and an INA219 put in its place: found at the
-	// next read-only probe, without CURRENT SENSE touched.
+	// next probe, without CURRENT SENSE touched.
 	fakeI2cRemove(INA219_ADDR);
 	p = fakeI2cAddIna219(INA219_ADDR);
 	for (int i = 0; i < 40 && state() != SenseState::Online; i++) tick();
@@ -673,8 +673,29 @@ static void testArbitrationLost() {
 	fakeI2cReset();
 }
 
+/**
+ * @brief Bus time of @p clocks at 400 kHz, 2.5 µs a clock, rounded up, plus
+ *        @p timeoutUs.
+ */
+static uint32_t busUs(uint32_t clocks, uint32_t timeoutUs) {
+	return (clocks * 5u + 1u) / 2u + timeoutUs;
+}
+
+/**
+ * @brief The clocks of one transfer of @p bytes after the address, with a
+ *        start and a stop, or a repeated start.
+ */
+static uint32_t xferClocks(uint32_t bytes, bool restart) {
+	return 9u * (1u + bytes) + (restart ? 1u : 2u);
+}
+
 /** @brief The worst bus time of one frame's touch read and sensor read, µs. */
 struct FrameCost { uint32_t touchUs, senseUs; };
+
+/** @brief The bus time from @p a to @p b, µs. */
+static uint32_t busBetween(const FakeI2cStats &a, const FakeI2cStats &b) {
+	return busUs(b.clocks - a.clocks, b.timeoutUs - a.timeoutUs);
+}
 
 /** @brief @p n frames of touch and sensor; the worst of each part. */
 static FrameCost worstFrames(int n) {
@@ -688,7 +709,7 @@ static FrameCost worstFrames(int n) {
 		FakeI2cStats b = fakeI2cStats();
 		senseTick(millis());
 		FakeI2cStats c = fakeI2cStats();
-		uint32_t t = fakeI2cBusyUs(b) - fakeI2cBusyUs(a), se = fakeI2cBusyUs(c) - fakeI2cBusyUs(b);
+		uint32_t t = busBetween(a, b), se = busBetween(b, c);
 		if (t > w.touchUs) w.touchUs = t;
 		if (se > w.senseUs) w.senseUs = se;
 	}
@@ -709,11 +730,26 @@ static void healthyBus() {
 
 /**
  * @brief How long core0 blocks on the bus in one frame, for each failure
- *        mode, against the note's bound: the sensor at most two timeouts of
- *        1000 µs, touch at most two transfers of 2000 µs.
+ *        mode, against the note's bound.
+ *
+ * A failed transfer ends a frame, so the worst frame is the longest run of
+ * transfers that answer followed by one that times out. For the sensor that
+ * is the probe up to its read-back of 19EFh, whose data read times out:
+ * read, RST, read, 19EFh and the read-back's pointer, 192 clocks, 480 µs,
+ * and 1000 µs; 1480 µs. For touch it is the pointer write of D000h, 29
+ * clocks, 72.5 µs, and a data read of 2000 µs; 2072.5 µs. Every frame of
+ * every mode is measured, and the worst of all must meet each bound exactly.
  */
 static void testFrameTime() {
 	section("Sense: bus time per frame, each failure mode");
+	const uint32_t regRead = xferClocks(1, false) + xferClocks(2, true);
+	const uint32_t regWrite = xferClocks(3, false);
+	const uint32_t senseBound =
+		busUs(regRead + regWrite + regRead + regWrite + xferClocks(1, false), SENSE_TIMEOUT_US);
+	const uint32_t touchBound = busUs(xferClocks(2, false), 2000u);
+	checkInt("the sensor's bound: 192 clocks and a timeout, 1480 us", senseBound, 1480);
+	checkInt("touch's bound: 29 clocks and a timeout, 2073 us", touchBound, 2073);
+
 	struct Mode { const char *name; void (*arm)(); };
 	static const Mode modes[] = {
 		{ "healthy", [] {} },
@@ -725,23 +761,91 @@ static void testFrameTime() {
 		  [] { fakeI2cHeldSdaCode(PICO_ERROR_GENERIC); fakeI2cHoldSda(true); } },
 		{ "SCL held", [] { fakeI2cHoldScl(true); } },
 	};
-	const uint32_t senseBound = 2 * SENSE_TIMEOUT_US, touchBound = 2 * 2000u;
+	FrameCost all = { 0, 0 };
+	char what[96];
 	for (const Mode &m : modes) {
 		healthyBus();
 		m.arm();
 		FrameCost w = worstFrames(120);
-		printf("  %-30s touch %5u us, sensor %5u us\n", m.name, (unsigned)w.touchUs,
+		printf("  %-34s touch %5u us, sensor %5u us\n", m.name, (unsigned)w.touchUs,
 		       (unsigned)w.senseUs);
-		char what[64];
-		snprintf(what, sizeof(what), "%s: sensor within 2 x 1000 us", m.name);
+		snprintf(what, sizeof(what), "%s: sensor within %u us", m.name, (unsigned)senseBound);
 		checkTrue(what, w.senseUs <= senseBound);
-		snprintf(what, sizeof(what), "%s: touch within 2 x 2000 us", m.name);
+		snprintf(what, sizeof(what), "%s: touch within %u us", m.name, (unsigned)touchBound);
 		checkTrue(what, w.touchUs <= touchBound);
+		if (w.senseUs > all.senseUs) all.senseUs = w.senseUs;
+		if (w.touchUs > all.touchUs) all.touchUs = w.touchUs;
 	}
+
+	// One timeout after k transfers answer, from each start a frame has: the
+	// probe due, a reading, and a reading with the read-back due. Touch's two
+	// transfers come first in each frame.
+	struct Start { const char *name; void (*arm)(); };
+	static const Start starts[] = {
+		{ "probe", [] { senseConfigure(0); senseConfigure(1); } },
+		{ "reading", [] {} },
+		{ "read-back", [] { fakeAdvance(SENSE_READBACK_MS); } },
+	};
+	for (const Start &st : starts) {
+		FrameCost worst = { 0, 0 };
+		int worstK = 0;
+		for (int k = 0; k <= 12; k++) {
+			healthyBus();
+			st.arm();
+			fakeI2cFailNext(1, PICO_ERROR_TIMEOUT, k);
+			FrameCost w = worstFrames(80);
+			snprintf(what, sizeof(what), "%s, a timeout after %d transfers: within the bounds",
+			         st.name, k);
+			checkTrue(what, w.senseUs <= senseBound && w.touchUs <= touchBound);
+			if (w.senseUs > worst.senseUs) {
+				worst.senseUs = w.senseUs;
+				worstK = k;
+			}
+			if (w.touchUs > worst.touchUs) worst.touchUs = w.touchUs;
+		}
+		printf("  %-34s touch %5u us, sensor %5u us (after %d)\n", st.name,
+		       (unsigned)worst.touchUs, (unsigned)worst.senseUs, worstK);
+		if (worst.senseUs > all.senseUs) all.senseUs = worst.senseUs;
+		if (worst.touchUs > all.touchUs) all.touchUs = worst.touchUs;
+	}
+	checkInt("the worst sensor frame meets its bound: the probe's last read timing out",
+	         all.senseUs, senseBound);
+	checkInt("the worst touch frame meets its bound: the data read timing out", all.touchUs,
+	         touchBound);
+
 	healthyBus();
 	FrameCost h = worstFrames(80);
 	checkInt("healthy: touch 84 clocks, 210 us", h.touchUs, 210);
 	checkInt("healthy: sensor 96 clocks and the read-back, 360 us at most", h.senseUs, 360);
+	senseConfigure(0);
+	fakeI2cReset();
+}
+
+/**
+ * @brief A read that aborts at its address: the SDK returns before the
+ *        block's STOP, which still holds SDA low for a moment. It is a NACK,
+ *        not a line held low.
+ */
+static void testReadAbortStop() {
+	section("Sense: a read's abort, the block's own STOP on SDA, still a NACK");
+	FakeIna219 *p = online();
+	(void)p;
+	tick();
+	fakeI2cFailNext(1, PICO_ERROR_GENERIC, 1);
+	tick();
+	checkTrue("the shunt's data read aborted: a NACK, one fail, the bus not stuck",
+	          sensePart()->last_err == SENSE_NACK && sensePart()->fails == 1 &&
+	          !senseBus()->stuck);
+	checkTrue("and SDA reads high after it", !sdaHeld());
+	tick();
+	checkTrue("the next frame reads", sensePart()->fails == 0 && state() == SenseState::Online);
+
+	fakeI2cAddCst328(CST328_I2C_ADDR);
+	TouchState ts;
+	memset(&ts, 0, sizeof(ts));
+	fakeI2cFailNext(1, PICO_ERROR_GENERIC, 1);
+	cst::touchPoll(&ts);
+	checkTrue("a touch read aborted the same way: not stuck", !senseBus()->stuck);
 	senseConfigure(0);
 	fakeI2cReset();
 }
@@ -774,5 +878,6 @@ void runSenseTests() {
 	testTouchBeside();
 	testArbitrationLost();
 	testFrameTime();
+	testReadAbortStop();
 	testShortCount();
 }

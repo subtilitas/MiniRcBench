@@ -39,6 +39,7 @@ int          g_failCode = 0;
 bool         g_holdSda = false, g_holdScl = false;
 int          g_heldCode = PICO_ERROR_TIMEOUT;  /**< What a transfer returns while SDA alone is held. */
 int          g_shortN = 0;          /**< Transfers left that return one byte short. */
+int          g_stopReads = 0;       /**< SDA reads left in the block's STOP. */
 bool         g_sdaStart = false;    /**< A recovery pulled SDA low while SCL was high. */
 int          g_sdaReleaseAfter = 0;
 bool         g_finger = false;
@@ -166,12 +167,14 @@ int timedOut(unsigned timeoutUs) {
 int transfer(uint8_t addr, uint8_t *dst, const uint8_t *src, size_t len, bool nostop,
              unsigned timeoutUs) {
 	g_stats.transfers++;
+	g_stopReads = 0;
 	if (g_failN > 0 && g_failSkip > 0) {
 		g_failSkip--;
 	} else if (g_failN > 0) {
 		g_failN--;
 		if (g_failCode == PICO_ERROR_TIMEOUT) return timedOut(timeoutUs);
 		countClocks(0, false);
+		if (dst) g_stopReads = FAKE_I2C_STOP_READS;
 		return g_failCode;
 	}
 	if (sclLow() || (sdaLow() && g_heldCode == PICO_ERROR_TIMEOUT)) {
@@ -188,6 +191,7 @@ int transfer(uint8_t addr, uint8_t *dst, const uint8_t *src, size_t len, bool no
 	Part *p = find(addr);
 	if (!p) {
 		countClocks(0, false);
+		if (dst) g_stopReads = FAKE_I2C_STOP_READS;
 		return PICO_ERROR_GENERIC;
 	}
 	if (g_shortN > 0 && len > 1) {
@@ -214,7 +218,11 @@ int transfer(uint8_t addr, uint8_t *dst, const uint8_t *src, size_t len, bool no
 // the SDK surface
 // ---------------------------------------------------------------------------
 
-void i2c_init(i2c_inst_t *, unsigned) { g_stats.inits++; g_open = false; }
+void i2c_init(i2c_inst_t *, unsigned) {
+	g_stats.inits++;
+	g_open = false;
+	g_stopReads = 0;
+}
 void i2c_deinit(i2c_inst_t *) {}
 
 int i2c_write_timeout_us(i2c_inst_t *, uint8_t addr, const uint8_t *src, size_t len, bool nostop,
@@ -230,7 +238,13 @@ int i2c_read_timeout_us(i2c_inst_t *, uint8_t addr, uint8_t *dst, size_t len, bo
 }
 
 extern "C" bool gpio_get(uint32_t gpio) {
-	if (gpio == g_board->sda) return !sdaLow();
+	if (gpio == g_board->sda) {
+		if (g_stopReads > 0) {
+			g_stopReads--;
+			return false;
+		}
+		return !sdaLow();
+	}
 	if (gpio == g_board->scl) return !sclLow();
 	return fakePin(gpio).high;
 }
@@ -273,6 +287,7 @@ void fakeI2cReset() {
 	g_holdSda = g_holdScl = false;
 	g_heldCode = PICO_ERROR_TIMEOUT;
 	g_shortN = 0;
+	g_stopReads = 0;
 	g_sdaStart = false;
 	g_sdaReleaseAfter = 0;
 	g_finger = false;
