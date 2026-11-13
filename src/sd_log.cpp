@@ -175,8 +175,6 @@ bool sdLogReacquire() {
 	return sdLogBegin();
 }
 
-bool sdLogReleased() { return s_released; }
-
 bool sdLogVolumeId(uint32_t *lba, uint32_t *offset) {
 	if (!s_mounted || s_released) return false;
 	*lba = (uint32_t)s_fs.volbase;
@@ -427,7 +425,6 @@ bool sdLogRemount() { return false; }
 bool sdLogVolumeId(uint32_t *, uint32_t *) { return false; }
 bool sdLogRelease() { return false; }
 bool sdLogReacquire() { return false; }
-bool sdLogReleased() { return false; }
 bool sdLogActive() { return false; }
 void sdLogTick(uint32_t, uint16_t) {}
 void sdLogFlush() {}

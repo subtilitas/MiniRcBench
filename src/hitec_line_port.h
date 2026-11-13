@@ -35,9 +35,6 @@ uint8_t hitecLineOpen(uint8_t gpio, uint8_t family);
  */
 void hitecLineClose();
 
-/** @brief Whether the line is open. */
-bool hitecLineIsOpen();
-
 /** @brief Start @p xfer. @return False when it did not start. */
 bool hitecLineStart(const hitec_xfer_t *xfer);
 

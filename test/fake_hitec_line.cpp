@@ -213,8 +213,6 @@ void hitecLineClose() {
 	g_closedUs = time_us_32();
 }
 
-bool hitecLineIsOpen() { return g_open; }
-
 bool hitecLineStart(const hitec_xfer_t *xfer) {
 	uint32_t now = time_us_32();
 	fakeHitecSimUpdate(supplyLevel(), now);

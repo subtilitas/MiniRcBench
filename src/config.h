@@ -606,8 +606,5 @@
 /** @brief Extra gap for settings-page operations, which are slower still. */
 #define AM32_EEPROM_GAP_MS     50
 
-/** @brief Log every AM32 transport step to USB serial. */
-#define AM32_DEBUG             1
-
 /** @} */
 

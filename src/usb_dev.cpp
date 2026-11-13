@@ -105,5 +105,3 @@ void usbDevInit() {
 }
 
 void usbDevTask() { tud_task(); }
-
-bool usbDevMounted() { return tud_mounted(); }

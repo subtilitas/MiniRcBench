@@ -41,12 +41,6 @@ void st7789SetBacklight(uint8_t level);
 void st7789Blit(int x0, int y0, int x1, int y1, const uint16_t *pixels);
 
 /**
- * @brief Enter or leave panel sleep mode.
- * @param on true to sleep, false to wake.
- */
-void st7789Sleep(bool on);
-
-/**
  * @brief Push every dirty band recorded by gfx, then clear them.
  * @see gfxMarkDirty()
  */

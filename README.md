@@ -820,6 +820,13 @@ sends throttle zero for at least 250 ms after the last throttle frame,
 stops the DShot driver and hands the pin to the bootloader transport. Leaving
 hands it back.
 
+Leaving sends the bootloader no `RUN` command. The transport has one,
+`am32BlRun()` in `src/am32_bl.h`, and nothing calls it. An ESC that answered
+is in its bootloader when the screen closes, and DShot frames follow on the
+signal wire. What the ESC does after the screen is left, its firmware
+started on its own, on those frames or not at all, is not recorded.
+Power-cycle the ESC after leaving, before driving a motor.
+
 ### Connecting
 
 Open the screen, then power-cycle the ESC. The AM32 bootloader listens only in
@@ -840,8 +847,6 @@ The screen shows which half failed:
 | `REPLY NOT UNDERSTOOD:` followed by `nB: xx xx xx @19200` | The ESC sent bytes that did not parse | Baud rate or framing. The first three bytes are shown |
 | `READ FAILED (...)` | Handshake succeeded, settings read failed | Retry; check the wire |
 | `NO VALID SETTINGS` | The settings block is implausible | Do not write |
-
-`AM32_DEBUG` (default 1) mirrors every transport step to USB serial.
 
 ### Editing
 
@@ -1748,7 +1753,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.2%**: 8,962 of 9,218 lines in 58 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.4%**: 8,962 of 9,205 lines in 58 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

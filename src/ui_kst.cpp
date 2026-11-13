@@ -1618,8 +1618,6 @@ static bool endClaim() {
 // entry points
 // ---------------------------------------------------------------------------
 
-bool uiKstAvailable() { return true; }
-
 KstView uiKstView() { return s_view; }
 
 uint8_t uiKstControls(UiControl *out, uint8_t max) {

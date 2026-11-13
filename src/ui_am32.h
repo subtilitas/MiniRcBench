@@ -21,9 +21,6 @@ void uiAm32Enter();
 /** @brief Leave config mode and end the claim, which resumes DShot. */
 void uiAm32Exit();
 
-/** @brief True while config mode owns the screen. */
-bool uiAm32Active();
-
 /**
  * @brief Run one frame of the config screen.
  * @param t Touch state for this frame.

@@ -184,11 +184,6 @@ void st7789SetBacklight(uint8_t level) {
 	pio_sm_put(pio0, s_blSm, level ? (uint32_t)level - 1u : 0xFFFFFFFFu);
 }
 
-void st7789Sleep(bool on) {
-	cmd(on ? 0x10 : 0x11);
-	delay(120);
-}
-
 /** @brief Set the panel's write window via CASET/RASET, inclusive bounds. */
 static void setWindow(int x0, int y0, int x1, int y1) {
 	uint8_t buf[4];

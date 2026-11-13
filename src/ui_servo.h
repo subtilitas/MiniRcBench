@@ -40,12 +40,6 @@ struct TouchState;
 /** @} */
 
 /**
- * @brief Whether the screen is built.
- * @return true: the SERVO TESTER row is live.
- */
-bool uiServoAvailable();
-
-/**
  * @brief Open the screen: the default profile, SPEED and sweep, and a claim
  *        of the pins, asked again every frame until it is accepted.
  */

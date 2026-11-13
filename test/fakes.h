@@ -208,7 +208,7 @@ uint8_t *fakeFlashBytes();
 /** @brief How many storage writes have been *attempted* since process start. */
 int fakeFlashWrites();
 
-/** @brief How many times platReboot() has fired. Asserted to stay put. */
+/** @brief Calls of watchdog_reboot(). Asserted to stay put. */
 int fakeRebootCount();
 /** @brief What powman_hw->chip_reset reads. */
 void fakeSetChipReset(uint32_t v);

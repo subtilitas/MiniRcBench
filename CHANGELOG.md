@@ -400,6 +400,17 @@ protocol.
 
 ### Changed
 
+- README and the wiki pages AM32-Configuration and AM32-Konfiguration state
+  what leaving AM32 CONFIG does to the ESC: no RUN command goes to the
+  bootloader, and what the ESC does after the screen is left is not
+  recorded. Both ask for a power cycle of the ESC after leaving, before
+  driving a motor.
+- `docs/design/diagnostics.md` and `src/diag.h` state that it is not known
+  whether a glitch reset, or possibly a HZD_SYS_RESET_REQ reset, clears the
+  watchdog's REASON register, so a UF2 copy followed by a glitch reset may
+  read `UPDATE` or `REBOOT` instead of `GLITCH`, and one followed by a
+  HZD_SYS_RESET_REQ reset instead of `DEBUGGER`; the bench list has the
+  glitch check.
 - MENU lists SETTINGS as the sixth row and SD LOG as the seventh, a swap.
   Six rows fit the 240 × 320 screen and the seventh needs a 36 px drag, so
   SETTINGS, which holds the motor pole count, the throttle ceiling and the
@@ -605,6 +616,15 @@ protocol.
 
 ### Removed
 
+- Functions and constants nothing in the firmware called or read:
+  `am32BlErasePage()`, `am32BlEscType()` and `am32BlAddrDiv4()` with its
+  flag, `gfxFrame()`, `hitecLineIsOpen()`, `pioUartRxActive()`,
+  `platReboot()`, `sdLogReleased()`, `st7789Sleep()`, `uiAm32Active()`,
+  `uiKstAvailable()`, `uiServoAvailable()`, `usbDevMounted()`,
+  `AM32_EEPROM_ADDR`, `SV_HOLD_MS` and `AM32_DEBUG`, with their fakes. The
+  README said `AM32_DEBUG` mirrored every transport step to USB serial;
+  nothing read it. `am32BlRun()` stays: it is the command that would start
+  the ESC firmware when AM32 CONFIG is left, an open question.
 - The Waveshare RP2350-Touch-LCD-2 (2.0") board: its pin map
   (`src/board_rp2350_touch_lcd_2.h`), its board descriptor
   (`src/board_desc_lcd2.cpp`), the CST816D touch driver (`src/cst816.cpp`),

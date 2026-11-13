@@ -182,20 +182,6 @@ void gfxArcDots(int cx, int cy, int r, int deg0, int deg1, int stepDeg, int d,
 	}
 }
 
-void gfxFrame(int x, int y, int w, int h, uint16_t c) {
-	// Thickness grows inward, never outward: the layout static_asserts in ui.cpp
-	// and ui_am32.cpp bound every region by its outer edge, and a frame that
-	// grew outward in high contrast would silently overrun them.
-	int t = themeStroke();
-	if (t > w / 2) t = w / 2;
-	if (t > h / 2) t = h / 2;
-	if (t < 1) t = 1;
-	gfxRect(x, y, w, t, c);
-	gfxRect(x, y + h - t, w, t, c);
-	gfxRect(x, y, t, h, c);
-	gfxRect(x + w - t, y, t, h, c);
-}
-
 /**
  * @brief Filled rounded rectangle: a square body with the corners chamfered
  *        against an integer circle of radius @p r.

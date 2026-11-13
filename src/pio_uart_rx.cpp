@@ -84,8 +84,6 @@ void pioUartRxEnd(void) {
 	s_active = false;
 }
 
-bool pioUartRxActive(void) { return s_active; }
-
 bool pioUartRxReadable(void) {
 	return s_active && !pio_sm_is_rx_fifo_empty(s_pio, s_sm);
 }
