@@ -2511,6 +2511,7 @@ static void testBindRefused() {
 }
 
 
+<<<<<<< HEAD
 /**
  * @brief Whether @p text at scale @p scale, in @p col, is what the panel
  *        shows with its top left at (@p x, @p y): the box redrawn with it
@@ -2614,6 +2615,8 @@ static void testSenseReadout() {
 	senseConfigure(0);
 	fakeI2cReset();
 }
+=======
+>>>>>>> origin/main
 
 /**
  * @brief The switched supply's line on the strip, and the two-servo hint.
@@ -2736,7 +2739,10 @@ void runServoTests() {
 	testSetList();
 	testClaimCorners();
 	testBindRefused();
+<<<<<<< HEAD
 	testSenseReadout();
+=======
+>>>>>>> origin/main
 	testSupplyLineAndHint();
 	freshUi();
 }

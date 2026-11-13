@@ -230,9 +230,14 @@ der Leiste `GP28 SUPPLY STAYS OFF HERE.` in Bernstein: Der Servotester
 schaltet den Wandler nie ein, das Servo braucht hier also eine eigene
 Versorgung. `SET` öffnet die Einstellungen für Profil und Sweep. `BACK`
 zeigt `UNPLUG THE SERVO.`, bevor der ESC-Treiber die Pins zurückbekommt;
+<<<<<<< HEAD
 `RESTART DSHOT` führt danach zu `MENU`. Mit CURRENT SENSE auf `INA219`
 zeigt die Zeile unter der Skala statt des Hinweises Strom und Spannung der
 Servoversorgung. Siehe [Servotester](Servotester).
+=======
+`RESTART DSHOT` führt danach zu `MENU`. Siehe
+[Servotester](Servotester).
+>>>>>>> origin/main
 
 ---
 

@@ -2815,11 +2815,19 @@ static void testBoardRow() {
 	fakeRelease(); frames(2);
 	checkInt("holding it does nothing either", settings()->boardId, recorded);
 
+<<<<<<< HEAD
 	// The scroll range. 5 captions of 20 px and 12 rows at a 50 px pitch are
 	// 700 px of content; the viewport, y 40 to 239, is 200 px, so the list
 	// scrolls 0 px to 500 px. Dragged past its end, it stops at 500 px, with
 	// BUILT FOR's row, content y 600, at y 40 + 600 - 500 = 140 and VERSION's,
 	// content y 650, at y 190.
+=======
+	// The scroll range. 5 captions of 20 px and 11 rows at a 50 px pitch are
+	// 650 px of content; the viewport, y 40 to 239, is 200 px, so the list
+	// scrolls 0 px to 450 px. Dragged past its end, it stops at 450 px, with
+	// BUILT FOR's row, content y 550, at y 40 + 550 - 450 = 140 and VERSION's,
+	// content y 600, at y 190.
+>>>>>>> origin/main
 	const UiRect save0 = ctlRect(UI_FIX(SettingsCtl::Save));
 	settingsDrag(-180);
 	settingsDrag(-180);
