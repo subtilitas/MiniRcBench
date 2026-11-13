@@ -1006,7 +1006,10 @@ pins go only after the last pulse has completed: it writes level 0 and waits
 two frames plus 1 ms, 41 ms at 50 Hz, before the pins leave PWM, so no pulse
 is cut short. A profile change waits the same way before the rebind. The
 released pins are inputs with the pull-down on until DShot takes SIG back
-and, with KISS on, the KISS receiver takes AUX.
+and, with KISS on, the KISS receiver takes AUX. Until the pins are let go the
+page reads `RELEASING THE PINS`, and its BACK is drawn disabled, an outline,
+and does nothing; it returns to the servo screen once `UNPLUG THE SERVO.`
+shows.
 
 ## KST servo programming
 
@@ -1118,11 +1121,12 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
    `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.`: LEAVE switches it off, and the
    unplug page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` until the line
    closes 2 s after the switch-off. Every claim end does the same once the
-   supply was on. **HOLD TO REBOOT** (1 s) switches the supply off for 2 s
-   and on for 1 s, then enters programming mode and reads the servo as it
-   is: the new backup. The pending changes go; without a card the backup in
-   memory is lost, and the page says so above the button. BACK during REBOOT
-   closes as LEAVE does.
+   supply was on. Until the pin is let go, the unplug page's BACK is drawn
+   disabled and does nothing. **HOLD TO REBOOT** (1 s) switches the supply
+   off for 2 s and on for 1 s, then enters programming mode and reads the
+   servo as it is: the new backup. The pending changes go; without a card
+   the backup in memory is lost, and the page says so above the button.
+   BACK during REBOOT closes as LEAVE does.
 6. With the switched supply, the supply is on only while the screen runs. A
    screen that stalls for 250 ms switches it off once a running operation
    has ended; the servo leaves programming mode and its backup in memory goes.
@@ -1277,9 +1281,10 @@ and every D series servo on the line takes a frame sent to ID 0.
    write removes its record.
 6. BACK from the list opens the leave page. LEAVE with `GP28` or `GP29` switches the
    supply off; the unplug page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`
-   until the line closes. With `NONE`, LEAVE restarts the servo from its
-   saved values. RESTART DSHOT returns to MENU. READ AGAIN on the leave page
-   reads the servo again and keeps the pending changes.
+   until the line closes, and its BACK is drawn disabled until then. With
+   `NONE`, LEAVE restarts the servo from its saved values. RESTART DSHOT
+   returns to MENU. READ AGAIN on the leave page reads the servo again and
+   keeps the pending changes.
 7. With `GP28` or `GP29` the supply is on only while the screen runs. A screen that
    stalls for 250 ms switches it off: at once during the entry, else once
    a running read or write has ended. The page then reads
@@ -1617,7 +1622,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.1%**: 8,444 of 8,699 lines in 52 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.1%**: 8,449 of 8,704 lines in 52 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

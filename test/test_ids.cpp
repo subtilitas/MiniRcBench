@@ -99,12 +99,16 @@ static void testMenuSettingsLog() {
 	fakeFlashClear(); settingsLoad(); uiInit(); idFrames(4);
 	tapId(UI_FIX(TesterCtl::Menu));
 	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
+	// One frame for each screen's first paint: the table check compares the
+	// header's BACK with the table.
+	idFrames(1);
 	checkControlTable("MENU");
 	checkTrue("SERVO TESTER acts", ctlEnabled(menuRow(&UI_SERVO)));
 	checkTrue("KST SERVO acts", ctlEnabled(menuRow(&UI_KST)));
 
 	tapId(menuRow(&UI_SETTINGS));
 	checkTrue("SETTINGS opens", uiCurrentScreen() == UiScreenId::Settings);
+	idFrames(1);
 	checkControlTable("SETTINGS at 0 px");
 	revealRow((int)SettingsRowId::KissPin);
 	checkControlTable("SETTINGS, KISS PIN in view");
@@ -134,6 +138,7 @@ static void testMenuSettingsLog() {
 	fakeSdLogSet(&st);
 	tapId(menuRow(&UI_SDLOG));
 	checkTrue("SD LOG opens", uiCurrentScreen() == UiScreenId::SdLog);
+	idFrames(1);
 	checkControlTable("SD LOG, no card");
 	checkTrue("no card: START does not act", !ctlEnabled(UI_FIX(SdLogCtl::Toggle)));
 	checkTrue("nor USB DRIVE", !ctlEnabled(UI_FIX(SdLogCtl::Usb)));
@@ -203,6 +208,7 @@ static void testAm32() {
 	tapId(UI_FIX(TesterCtl::Menu));
 	tapId(menuRow(&UI_AM32));
 	checkTrue("AM32 opens", uiCurrentScreen() == UiScreenId::Am32);
+	idFrames(1);  // its first paint, for the table check's BACK
 	UiControl t[UI_CONTROLS_MAX];
 	checkInt("during the handover, BACK is the only control", uiControls(t, UI_CONTROLS_MAX), 1);
 	checkControlTable("AM32, the handover");

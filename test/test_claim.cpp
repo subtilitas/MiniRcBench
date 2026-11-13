@@ -1050,6 +1050,7 @@ static void testAm32Screen() {
 
 	tapId(UI_FIX(TesterCtl::Menu));
 	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
+	frames(1);  // MENU's first paint: the table check compares BACK's look.
 	checkControlTable("MENU");
 	frames(2);
 	tapId(menuRow(&UI_AM32));
