@@ -26,7 +26,8 @@ it as described under [Still stuck](#still-stuck).
 
 <img src="img/tester-disarmed.png" width="240" alt="No telemetry">
 
-Nothing answers on the signal wire. Check in this order:
+Nothing answers on the signal wire, and the chip under the title on the
+`MENU` screen reads `NO ESC`. Check in this order:
 
 1. **Wrong pin.** Compare **MENU → SETTINGS → ESC PIN** with where the wire is.
    The `LINK` row on that screen is live. A packet rate above zero means the
@@ -79,6 +80,17 @@ Reported by a user in
 reproduced by the project. With RAZOR32 and EXUAV 70A ESCs running BLHeli_32
 32.6, the ESC does not finish initialising, and the zero-throttle beep is
 missing. The cause is unknown. No workaround is known.
+
+---
+
+## `HOLD TO ARM` is an outline and does nothing
+
+<img src="img/tester-card-held.png" width="240" alt="HOLD TO ARM drawn as an outline, the bar reading EJECT THE USB DRIVE TO ARM">
+
+The throttle bar reads `EJECT THE USB DRIVE TO ARM`: a computer holds the SD
+card over USB (**MENU → SD LOG → USB DRIVE**), and arming is refused until it
+lets go. Eject the drive on the computer, or press `EJECT` on SD LOG. See
+[SD Logging](SD-Logging).
 
 ---
 

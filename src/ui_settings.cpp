@@ -33,6 +33,7 @@
 #include "board_pins.h"
 #include "servo_supply.h"
 #include "sense.h"
+#include "version.h"
 
 #include "plat.h"
 #include <stdio.h>
@@ -265,6 +266,8 @@ static void backlightStep(int dir) {
 }
 
 static void boardValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "%s", g_board->label); *c = C_GRID; }
+/** @brief The firmware's version, from version.h. */
+static void versionValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "%s", FW_VERSION_STRING); *c = C_GRID; }
 
 static constexpr SettingsRow ROWS_TESTER[] = {
 	{ "MOTOR POLES",  SettingsKind::Stepper, 2, polesValue, nullptr, polesStep, nullptr, nullptr, nullptr },
@@ -284,8 +287,13 @@ static constexpr SettingsRow ROWS_DISPLAY[] = {
 #define BUILT_FOR_WIDEST 20
 static_assert(sizeof(BOARD_LABEL) - 1 <= BUILT_FOR_WIDEST,
               "the board label is wider than BUILT FOR's value column");
+/** @brief VERSION's widest value, `99.9.9`, characters: version.h's ranges. */
+#define VERSION_WIDEST 6
+static_assert(sizeof(FW_VERSION_STRING) - 1 <= VERSION_WIDEST,
+              "the version is wider than VERSION's value column");
 static constexpr SettingsRow ROWS_BOARD[] = {
-	{ "BUILT FOR", SettingsKind::ReadOnly, BUILT_FOR_WIDEST, boardValue, nullptr, nullptr, nullptr, nullptr, nullptr },
+	{ "BUILT FOR", SettingsKind::ReadOnly, BUILT_FOR_WIDEST, boardValue,   nullptr, nullptr, nullptr, nullptr, nullptr },
+	{ "VERSION",   SettingsKind::ReadOnly, VERSION_WIDEST,   versionValue, nullptr, nullptr, nullptr, nullptr, nullptr },
 };
 
 #define COUNT(a) ((uint8_t)(sizeof(a) / sizeof((a)[0])))

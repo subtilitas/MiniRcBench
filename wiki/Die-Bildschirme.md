@@ -39,10 +39,12 @@ die Wurzel und hat keinen Kopfbereich.
   einrichten konnte; dann wird nichts an den ESC gesendet;
 - der Aufzeichnungszustand: `REC`, `SD`, `SDERR` oder `NOSD`
   (siehe [SD-Aufzeichnung](SD-Aufzeichnung));
-- die Spannung des platineneigenen Akkus, gemessen über den
-  200k/100k-Teiler. Was sie bei reiner USB-Versorgung (Universal Serial Bus)
-  anzeigt, ist nicht gemessen. In den letzten 5 s vor dem Entschärfen durch
-  die Leerlaufsperre ersetzt `IDLE ns` in Bernstein die Spannung.
+- `BOARD` und die Spannung des platineneigenen Akkus, gemessen über den
+  Teiler aus 200 kΩ und 100 kΩ; höchstens 9,90 V. Es ist nicht der Akku des
+  ESC: Dessen Spannung steht in der Kachel `VOLTAGE`. Was sie bei reiner
+  USB-Versorgung (Universal Serial Bus) anzeigt, ist nicht gemessen. In den
+  letzten 5 s vor dem Entschärfen durch die Leerlaufsperre ersetzt `IDLE ns`
+  in Bernstein die Spannung und `BOARD`.
 
 **Drehzahl.** Mechanische Drehzahl (RPM, Umdrehungen pro Minute), berechnet
 aus der vom ESC (Electronic Speed Controller, Motorregler) gemeldeten eRPM
@@ -60,6 +62,14 @@ Zustand zeigt der Balken `ARM TO ENABLE`.
 
 **Schaltflächen.** `HOLD TO ARM` / `DISARM`, `HOLD` (haltendes Gas), `MENU`.
 
+Solange ein Computer die SD-Karte über USB hält, ist Scharfschalten gesperrt:
+`HOLD TO ARM` ist nur als Umriss gezeichnet, und der Balken zeigt
+`EJECT THE USB DRIVE TO ARM` in Bernstein. Wirf das Laufwerk am Computer aus
+oder drücke `EJECT` in SD LOG, dann ist die Schaltfläche wieder bedienbar
+(siehe [SD-Aufzeichnung](SD-Aufzeichnung)).
+
+<img src="img/tester-card-held.png" width="240" alt="Der Tester, während ein Computer die Karte hält: HOLD TO ARM als Umriss, der Balken zeigt EJECT THE USB DRIVE TO ARM">
+
 ---
 
 ## MENU
@@ -70,9 +80,17 @@ Erreichbar über die Schaltfläche `MENU` des Testers. Das Öffnen **entschärft
 setzt das Gas auf 0 und schaltet `HOLD` aus.
 
 Unter dem Titel zeigt eine Leiste den ESC-Pin und die DShot-Rate, zum Beispiel
-`GP0  600 KBIT/S`, sowie das Feld **EDT ON / EDT OFF**. Das Feld ist nur eine
-Anzeige. Es ist grün, solange Extended-DShot-Telemetry-Frames eintreffen, sonst
-rot. Es gibt keine Einschalt-Schaltfläche. Die Firmware schickt die Freigabe an
+`GP0  600 KBIT/S`, sowie das EDT-Feld. Das Feld ist nur eine Anzeige:
+
+| Feld | Wann |
+|---|---|
+| `EDT ON`, grün | Extended-DShot-Telemetry-Frames treffen ein |
+| `EDT OFF`, rot | eRPM-Frames treffen ein, EDT-Frames nicht |
+| `NO ESC`, gedämpftes Grau | seit 500 ms kein eRPM-Frame: kein ESC angeschlossen, oder keiner antwortet |
+
+<img src="img/menu-no-esc.png" width="240" alt="MENU ohne angeschlossenen ESC: das Feld zeigt NO ESC"> <img src="img/menu-edt-off.png" width="240" alt="MENU mit einem ESC, der eRPM und kein EDT sendet: das Feld zeigt EDT OFF in Rot">
+
+Es gibt keine Einschalt-Schaltfläche. Die Firmware schickt die Freigabe an
 jeden ESC, der zu antworten beginnt, und wiederholt sie jede Sekunde, solange
 eRPM eintrifft und EDT nicht. Der ESC bestätigt die Freigabe nicht, daher zeigt
 das Feld *empfangene Frames*, nicht gesendete Befehle.
@@ -141,6 +159,7 @@ Abschnitten, die sich mit dem Finger verschieben lässt.
 | DISPLAY | **CONTRAST** | `NORMAL` oder `HIGH`. Hoher Kontrast ist für Tageslicht |
 | DISPLAY | **BACKLIGHT** | 16–255, in Schritten von 32 |
 | BOARD | **BUILT FOR** | Nur Anzeige. Die Platine, für die die Firmware gebaut ist, `RP2350-TOUCH-LCD-2.8` |
+| BOARD | **VERSION** | Nur Anzeige. Die Firmware-Version, zum Beispiel `0.1.0` |
 
 `MOTOR POLES` und `MAX THROTTLE` stehen ganz oben, du musst dafür nicht
 verschieben. Die Schaltflächen `-` und `+` messen 44 × 44 px. Gedrückt
@@ -204,10 +223,15 @@ Signalkabel. `BACK` führt zu `MENU` zurück. Siehe
 
 Steuert ein oder zwei Servos mit Servoimpulsen auf dem ESC- und dem KISS-Pin
 an. Er startet in SAFE; `HOLD TO START` 1 s lang gehalten startet die Impulse
-in der Mitte, `STOP` wirkt beim Berühren. `SET` öffnet die Einstellungen für
-Profil und Sweep. `BACK` zeigt `UNPLUG THE SERVO.`, bevor der ESC-Treiber die
-Pins zurückbekommt; `RESTART DSHOT` führt danach zu `MENU`. Mit CURRENT
-SENSE auf `INA219` zeigt die Zeile unter der Skala Strom und Spannung der
+in der Mitte, `STOP` wirkt beim Berühren. In SAFE mit einem Servo zeigt die
+Anzeigezeile `TWO SERVOS:` und `SET > SERVOS`: Dort wird das zweite Servo
+eingeschaltet. Mit SERVO SUPPLY auf `GP28` oder `GP29` zeigt die zweite Zeile
+der Leiste `GP28 SUPPLY STAYS OFF HERE.` in Bernstein: Der Servotester
+schaltet den Wandler nie ein, das Servo braucht hier also eine eigene
+Versorgung. `SET` öffnet die Einstellungen für Profil und Sweep. `BACK`
+zeigt `UNPLUG THE SERVO.`, bevor der ESC-Treiber die Pins zurückbekommt;
+`RESTART DSHOT` führt danach zu `MENU`. Mit CURRENT SENSE auf `INA219`
+zeigt die Zeile unter der Skala statt des Hinweises Strom und Spannung der
 Servoversorgung. Siehe [Servotester](Servotester).
 
 ---
@@ -235,8 +259,12 @@ Versorgung, `SUPPLY ON 0.08 A`. Siehe [KST-Programmierung](KST-Programmierung).
 Liest und schreibt die Einstellungen eines Hitec-Servos der D-Serie oder der
 klassischen Familie über das Signalkabel am ESC-Pin. Der Bildschirm öffnet mit
 der Familienauswahl: `D SERIES` wirkt, `CLASSIC` wirkt mit SERVO SUPPLY auf
-`GP28` oder `GP29`; unter `NONE` ist es mit `NEEDS SERVO SUPPLY GP28 OR GP29`
-abgeblendet. Er tritt in das Servo ein und liest es. Ein Servo der D-Serie
+`GP28` oder `GP29`; unter `NONE` ist es abgeblendet, mit
+`NEEDS THE CONVERTER OF WIRING PART C` und
+`AND SETTINGS > SERVO SUPPLY GP28/29.`: Zuerst kommt der Wandler aus Teil C
+der [Verdrahtung](Verdrahtung), dann die Einstellung. Unter `NONE` steht bei
+D SERIES `POWER THE SERVO UP BEFORE THE TAP.`. Der Bildschirm tritt in das
+Servo ein und liest es. Ein Servo der D-Serie
 liefert 21 Register und 20 Parameter, davon 11 verstellbar. An der Leitung
 hängt ein Servo, ohne Pull-up-Widerstand. `HOLD TO WRITE` 1 s lang gehalten
 öffnet die Schreibseite, ein zweites Halten von 1 s schreibt, zuvor mit einer

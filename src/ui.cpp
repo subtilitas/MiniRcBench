@@ -31,6 +31,7 @@
 #include "usb_msc.h"
 #include "board_desc.h"
 #include "config.h"
+#include "version.h"
 
 #include "plat.h"
 #include <hardware/adc.h>
@@ -269,7 +270,7 @@ static float s_batteryV = 0.0f;
  */
 static struct {
 	int  armed, btnArmed, holdOn, armProgress;
-	int  battMv;
+	int  battKey;
 	uint32_t rpm, erpm;
 	int  linkAlive, rpmArmed;
 	int  volts100, amps100, tempC, stress, status, rate, errPct, edt;
@@ -278,6 +279,7 @@ static struct {
 	int  throttleRaw, maxPct, thrArmed, thrHold;
 	int  config, poles;
 	int  cmdFlash, edtActive, dirty, btnPress, idleLeft, padLive;
+	int  thrCard, btnCard;
 	int  logState, logFile, logDrops;
 	uint32_t logBytes, logFrames, logPeak, logWorstMs;
 	int  mscState, mscNote;
@@ -374,7 +376,38 @@ static bool telemetryAlive() {
  * @{
  */
 
-/** @brief Arm badge, DShot rate, EDT indicator and pack voltage. */
+/**
+ * @brief The caption of the voltage top right, scale 1, and its left edge.
+ *
+ * The voltage is the board's own battery, read through a 200 kOhm/100 kOhm
+ * divider on GP27, not the ESC's pack: the pack voltage is the VOLTAGE tile.
+ * Unlabelled, the large figure top right read as the pack.
+ */
+#define STATUS_BOARD_TEXT "BOARD"
+#define STATUS_BOARD_X    140
+#define STATUS_BOARD_Y    14
+/**
+ * @brief The voltage's widest text: five characters, `9.99V`.
+ *
+ * uiBoardVoltText() rounds to centivolts and clamps at 9.99 V. On this board
+ * the clamp is never reached: the 12-bit ADC tops out at 3.3 V, which the
+ * 200 kOhm/100 kOhm divider makes 9.90 V. It keeps the text at five
+ * characters for any divider a board descriptor could name.
+ */
+#define STATUS_VOLT_WIDEST "9.99V"
+static_assert(STATUS_BOARD_X + (6 * (int)(sizeof(STATUS_BOARD_TEXT) - 1) - 1) + 4 <=
+                  240 - 4 - (6 * (int)(sizeof(STATUS_VOLT_WIDEST) - 1) - 1) * 2,
+              "BOARD runs into the voltage beside it");
+
+void uiBoardVoltText(float volts, char *buf, size_t n) {
+	// Rounded once, to centivolts: rounding the fraction on its own carried
+	// 3.996 V to "3.100V", a wrong value and a sixth character over BOARD.
+	int cv = volts <= 0.0f ? 0 : (int)(volts * 100.0f + 0.5f);
+	if (cv > 999) cv = 999;
+	snprintf(buf, n, "%u.%02uV", (unsigned)(cv / 100) % 10u, (unsigned)(cv % 100));
+}
+
+/** @brief Arm badge, DShot rate, EDT indicator and the board's voltage. */
 static void drawStatusBar() {
 	int progress = 0;
 	if (s_armPressing) {
@@ -382,7 +415,12 @@ static void drawStatusBar() {
 		progress = (int)(held * 100 / ARM_HOLD_MS);
 		if (progress > 100) progress = 100;
 	}
-	int battMv = (int)(s_batteryV * 100.0f);
+	char volts[12];
+	uiBoardVoltText(s_batteryV, volts, sizeof(volts));
+	// Keyed on the drawn text, so a change the text does not show repaints
+	// nothing and one it shows always repaints.
+	int battKey = 0;
+	for (const char *c = volts; *c; c++) battKey = battKey * 31 + *c;
 
 	SdLogStatus log;
 	sdLogStatus(&log);
@@ -406,7 +444,7 @@ static void drawStatusBar() {
 	int pumpErr = s_tel.initError ? 1 : 0;
 
 	if (s_shown.armed == (int)s_armed && s_shown.armProgress == progress &&
-	    s_shown.battMv == battMv && s_shown.edt == (int)escEdtRequested() &&
+	    s_shown.battKey == battKey && s_shown.edt == (int)escEdtRequested() &&
 	    s_shown.logState == (int)log.state && s_shown.idleLeft == idleLeft &&
 	    s_shown.kbaud == kbaud && s_shown.pumpErr == pumpErr)
 		return;
@@ -416,7 +454,7 @@ static void drawStatusBar() {
 	s_shown.idleLeft = idleLeft;
 	s_shown.armed = s_armed;
 	s_shown.armProgress = progress;
-	s_shown.battMv = battMv;
+	s_shown.battKey = battKey;
 	s_shown.edt = escEdtRequested();
 	s_shown.logState = (int)log.state;
 
@@ -455,15 +493,15 @@ static void drawStatusBar() {
 	gfxText(104, 14, lg, lgCol, 1);
 
 	if (idleLeft >= 0) {
-		// Displaces the pack voltage rather than squeezing in beside it: for the
+		// Displaces the board voltage rather than squeezing in beside it: for the
 		// five seconds this is up it is the more urgent of the two, and there is
 		// not room for both at a legible size.
 		snprintf(buf, sizeof(buf), "IDLE %ds", idleLeft);
 		gfxText(GFX_W - 4 - gfxTextW(buf, 2), 7, buf, C_AMBER, 2);
 	} else {
-		snprintf(buf, sizeof(buf), "%d.%02dV", (int)s_batteryV,
-		         (int)((s_batteryV - (int)s_batteryV) * 100.0f + 0.5f));
-		gfxText(GFX_W - 4 - gfxTextW(buf, 2), 7, buf, C_TEXT, 2);
+		gfxText(GFX_W - 4 - gfxTextW(volts, 2), 7, volts, C_TEXT, 2);
+		// Names whose voltage it is. IDLE displaces it with the voltage.
+		gfxText(STATUS_BOARD_X, STATUS_BOARD_Y, STATUS_BOARD_TEXT, C_DIM, 1);
 	}
 }
 
@@ -608,10 +646,13 @@ static void drawTelemetry() {
 static void drawThrottle() {
 	int pct = (int)((uint32_t)s_throttle * 100 / 2000);
 	int maxPct = (int)((uint32_t)s_maxThrottle * 100 / 2000);
+	int card = mscHoldsCard(mscGetState()) ? 1 : 0;
 
 	if (s_shown.throttleRaw == (int)s_throttle && s_shown.maxPct == maxPct &&
-	    s_shown.thrArmed == (int)s_armed && s_shown.thrHold == (int)s_hold)
+	    s_shown.thrArmed == (int)s_armed && s_shown.thrHold == (int)s_hold &&
+	    s_shown.thrCard == card)
 		return;
+	s_shown.thrCard = card;
 	s_shown.throttleRaw = s_throttle;
 	s_shown.maxPct = maxPct;
 	s_shown.thrArmed = s_armed;
@@ -655,11 +696,17 @@ static void drawThrottle() {
 	}
 
 	gfxRoundFrame(THR_TRACK_X, THR_TRACK_Y, THR_TRACK_W, THR_TRACK_H, 5, C_GRID);
+	// While a USB host holds the card HOLD TO ARM is drawn disabled, and the
+	// track says why: a greyed button with no reason reads as a fault.
 	if (!s_armed) {
 		gfxText(THR_TRACK_X + 8, THR_TRACK_Y + (THR_TRACK_H - 7) / 2,
-		        "ARM TO ENABLE", C_DIM, 1);
+		        card ? UI_TESTER_CARD_TEXT : "ARM TO ENABLE", card ? C_AMBER : C_DIM, 1);
 	}
 }
+
+/** @brief The track's text while a USB host holds the card: 26 characters, 155 px. */
+static_assert(8 + (6 * (int)(sizeof(UI_TESTER_CARD_TEXT) - 1) - 1) + 8 <= THR_TRACK_W,
+              "the card text runs off the throttle track");
 
 /** @brief ARM/DISARM, HOLD and MENU buttons. */
 static void drawButtons() {
@@ -668,9 +715,13 @@ static void drawButtons() {
 	int pressKey = (pressing(BTN_ARM, s_touch) ? 1 : 0) |
 	               (pressing(BTN_HOLD, s_touch) ? 2 : 0) |
 	               (pressing(BTN_MENU, s_touch) ? 4 : 0);
+	// ARM is gated on the card in handleMainTouch() and in the control table;
+	// it is drawn on the same expression. @see ui_widgets.h
+	int cardFree = mscHoldsCard(mscGetState()) ? 0 : 1;
 	if (s_shown.holdOn == (int)s_hold && s_shown.btnArmed == (int)s_armed &&
-	    s_shown.config == 0 && s_shown.btnPress == pressKey)
+	    s_shown.config == 0 && s_shown.btnPress == pressKey && s_shown.btnCard == cardFree)
 		return;
+	s_shown.btnCard = cardFree;
 	s_shown.btnPress = pressKey;
 	s_shown.holdOn = s_hold;
 	s_shown.btnArmed = s_armed;
@@ -682,7 +733,7 @@ static void drawButtons() {
 	gfxRect(0, Z_BTN_Y0, GFX_W, Z_BTN_Y1 - Z_BTN_Y0 + 1, C_BG);
 	uiButton(BTN_ARM, s_armed ? "DISARM" : "HOLD TO ARM",
 	        s_armed ? C_RED : C_PANEL, s_armed ? C_ONACCENT : C_TEXT,
-	        s_armed ? 2 : 1, pressing(BTN_ARM, s_touch));
+	        s_armed ? 2 : 1, cardFree && pressing(BTN_ARM, s_touch), cardFree != 0);
 	uiButton(BTN_HOLD, "HOLD", s_hold ? C_BLUE : C_PANEL,
 	        s_hold ? C_ONACCENT : C_DIM, 1, pressing(BTN_HOLD, s_touch));
 	uiButton(BTN_MENU, "MENU", C_PANEL, C_DIM, 1, pressing(BTN_MENU, s_touch));
@@ -926,8 +977,15 @@ void uiDrawSplash() {
 	gfxTextCenter(144, "BENCH", C_TEXT, 4);
 	gfxTextCenter(188, "BIDIRECTIONAL ESC TESTER", C_DIM, 1);
 	gfxTextCenter(216, "JuWi made", C_CYAN, 2);
-	// The board this image is built for.
+	// The board this image is built for, and the firmware's version.
 	gfxTextCenter(248, g_board->label, C_GRID, 1);
+	gfxTextCenter(260, "VERSION " FW_VERSION_STRING, C_GRID, 1);
+	// DShot starts on the ESC pin when this ends (main() launches core1
+	// after setup()), and a servo left there takes the frames as pulses and
+	// moves. The warning names the pin before that happens.
+	char pin[40];
+	snprintf(pin, sizeof(pin), UI_SPLASH_PIN_FMT, (unsigned)settings()->dshotPin);
+	gfxTextCenter(288, pin, C_AMBER, 1);
 }
 
 uint16_t uiThrottle() { return s_throttle; }
@@ -954,6 +1012,8 @@ void uiInit() {
 	s_padEngaged = false;
 	s_blDipUntil = 0;
 	s_blDip = false;
+	// The first frame takes the reading as it is, unsmoothed.
+	s_batteryV = 0.0f;
 	rpmFilterReset(&s_erpmFilter);
 	s_erpmShown = 0;
 

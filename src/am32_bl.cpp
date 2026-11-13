@@ -408,13 +408,3 @@ Am32Result am32BlRun() {
 	return txFrame(cmd, sizeof(cmd), nullptr, 0, false);
 }
 
-const char *am32ResultText(Am32Result r) {
-	switch (r) {
-		case AM32_OK:          return "OK";
-		case AM32_ERR_TIMEOUT: return "NO REPLY";
-		case AM32_ERR_NAK:     return "REFUSED";
-		case AM32_ERR_CRC:     return "CRC FAIL";
-		case AM32_ERR_BUSY:    return "NOT READY";
-	}
-	return "?";
-}

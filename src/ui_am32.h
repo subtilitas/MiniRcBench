@@ -31,6 +31,12 @@ bool uiAm32Active();
  */
 bool uiAm32Tick(const TouchState *t);
 
+/**
+ * @brief The line under a verified write's result: the ESC reads its
+ *        settings at its own boot. 29 characters, 173 px at scale 1.
+ */
+#define AM32_UI_POWER_CYCLE "POWER-CYCLE THE ESC TO APPLY."
+
 /** @brief The AM32 CONFIG controls; the list rows are `UI_ROW(n, Row)`. @see ui_screen.h */
 enum class Am32Ctl : uint8_t {
 	EditMinus = 1, EditPlus,  /**< The editor bar, while a field is selected. */

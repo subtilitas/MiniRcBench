@@ -19,8 +19,9 @@ Digital) card first.
 > simulated servo.
 
 > **The classic family needs the switched servo supply.** `CLASSIC`
-> (HS-5xxx, HS-7xxx) acts with SERVO SUPPLY at `GP28` or `GP29`. Under
-> `NONE` only the D series opens. See [Classic servos](#classic-servos).
+> (HS-5xxx, HS-7xxx) needs the DC-DC converter (direct current to direct
+> current) of [wiring](Wiring) part C, and SERVO SUPPLY at `GP28` or `GP29`.
+> Under `NONE` only the D series opens. See [Classic servos](#classic-servos).
 
 > **Unplug the servo before DShot runs.** Outside this screen the ESC pin
 > carries DShot, the digital throttle protocol. A servo on that pin reads it
@@ -82,18 +83,22 @@ of its own regulated supply.
 Open **MENU → HITEC SERVO**. The screen opens on the family view. It claims
 no pin yet.
 
-<img src="img/hitec-family.png" width="240" alt="The family view with SERVO SUPPLY at NONE: CLASSIC disabled with NEEDS SERVO SUPPLY GP28 OR GP29, D SERIES on the servo's own supply">
+<img src="img/hitec-family.png" width="240" alt="The family view with SERVO SUPPLY at NONE: CLASSIC disabled with NEEDS THE CONVERTER OF WIRING PART C, D SERIES with POWER THE SERVO UP BEFORE THE TAP.">
 
 The strip reads `CHOOSE THE SERVO'S FAMILY`. Two buttons follow:
 
 - `CLASSIC`, with `HS-5XXX, HS-7XXX` under it. It acts while SERVO SUPPLY
   is `GP28` or `GP29`. While SERVO SUPPLY is `NONE` it is drawn disabled,
-  and a line in amber gives the reason: `NEEDS SERVO SUPPLY GP28 OR GP29`.
+  and two lines in amber give the reason, the hardware first:
+  `NEEDS THE CONVERTER OF WIRING PART C` and
+  `AND SETTINGS > SERVO SUPPLY GP28/29.`
 - `D SERIES`, with `D485HW, D645MW AND THE OTHERS` under it, and
-  `SUPPLY SWITCHED ON GP28` (or `GP29`, the pin set) or
-  `ON THE SERVO'S OWN SUPPLY`.
+  `SUPPLY SWITCHED ON GP28` (or `GP29`, the pin set) or, under `NONE`,
+  `POWER THE SERVO UP BEFORE THE TAP.`: on its own supply the servo must be
+  running when the screen enters, because the entry reads its model at once.
 
-**Tap `D SERIES`.** `BACK` on this view returns to `MENU`.
+**Power the servo up, then tap `D SERIES`.** With `GP28` or `GP29` the bench
+powers it. `BACK` on this view returns to `MENU`.
 
 The screen then takes SIG from the ESC driver. While it does, the strip reads
 `RELEASING GP0`, then `TAKING GP0`. While an ESC answers on the pin it
@@ -478,8 +483,9 @@ next operation is refused until the screen runs again: a write then reads
 
 `CLASSIC` (HS-5xxx, HS-7xxx) needs SERVO SUPPLY at `GP28` or `GP29`: a
 classic servo enters programming mode only at its power-up, and the bench
-switches its supply. Under `NONE` the family view reads
-`NEEDS SERVO SUPPLY GP28 OR GP29`.
+switches its supply through the converter of [wiring](Wiring) part C. Under
+`NONE` the family view reads `NEEDS THE CONVERTER OF WIRING PART C` and
+`AND SETTINGS > SERVO SUPPLY GP28/29.`
 
 The signal level:
 

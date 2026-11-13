@@ -313,6 +313,15 @@ Two constraints on these dependencies:
 
 ## Using it
 
+**Splash**
+
+For 3 s (`SPLASH_MS`) after power-up the board shows its name, the board the
+image is built for, `RP2350-TOUCH-LCD-2.8`, and the firmware version, for
+example `VERSION 0.1.0`. DShot starts on the ESC pin when the splash ends,
+so the last line names that pin in amber: `UNPLUG ANY SERVO FROM GP0 NOW`. A
+servo left on it reads the DShot frames as pulses and drives towards one end
+of its travel.
+
 **Main screen**
 
 - **HOLD TO ARM**: press and hold for 1 s (`ARM_HOLD_MS`). Arming is refused
@@ -321,6 +330,9 @@ Two constraints on these dependencies:
   and while no USB host holds the card. A host that takes the card during
   the hold cancels that press. The press that disarms, kept down, does not
   arm again.
+  While a USB host holds the card the button is drawn as an outline, the
+  disabled look, and the throttle bar reads `EJECT THE USB DRIVE TO ARM` in
+  amber.
   Once armed the button reads **DISARM** and acts on touch-down.
 - **Throttle bar**: the gesture depends on HOLD.
 
@@ -378,10 +390,13 @@ MENU is a list of rows. Each row is 40 px tall at a 42 px pitch, with the name
 at scale 2 on the left and its state right-aligned. **BACK** returns to the
 tester. Every tool's **BACK** returns to MENU.
 
-- **EDT ON / EDT OFF**: a read-only chip on the strip under the title. Green
-  while EDT frames arrive, red otherwise. The firmware sends the enable command
-  itself (see [Telemetry and logging](#telemetry-and-logging)). The ESC does
-  not acknowledge the command, so the chip shows received frames, not sent
+- **EDT ON / EDT OFF / NO ESC**: a read-only chip on the strip under the
+  title. `EDT ON` in green while EDT frames arrive; `EDT OFF` in red while
+  eRPM frames arrive without EDT; `NO ESC` in dim grey while no eRPM frame
+  has arrived for 500 ms (`ESC_LINK_STALE_MS`), the normal state with no ESC
+  connected. The firmware sends the enable command itself (see
+  [Telemetry and logging](#telemetry-and-logging)). The ESC does not
+  acknowledge the command, so the chip shows received frames, not sent
   commands. The strip's caption reads the ESC pin and the DShot rate, for
   example `GP0  600 KBIT/S`.
 
@@ -452,6 +467,7 @@ a drag. A row is 44 px tall at a 50 px pitch. **MOTOR POLES** and
 | DISPLAY | **CONTRAST** | `NORMAL` or `HIGH`. See below |
 | DISPLAY | **BACKLIGHT** | 16–255 in steps of 32. High contrast forces 255 while on |
 | BOARD | **BUILT FOR** | `RP2350-TOUCH-LCD-2.8`, the board the image is built for. Read-only |
+| BOARD | **VERSION** | The firmware version from `src/version.h`, for example `0.1.0`. Read-only |
 
 The `-` and `+` buttons are 44 × 44 px and the toggles 94 × 44 px.
 
@@ -534,6 +550,10 @@ The tester's top row shows `DS` plus the bitrate the DShot driver runs at,
 as set under SETTINGS, cyan once an EDT enable has been sent. `DSERR` in amber
 replaces it when the driver could not claim its two PIO state machines;
 nothing is sent to the ESC then.
+
+The large voltage at the top right, captioned `BOARD`, is the board's own
+battery, read through the 200 kΩ/100 kΩ divider on GP27. It reads at most
+9.90 V. The ESC's pack voltage is the **VOLTAGE** tile.
 
 ---
 
@@ -808,14 +828,20 @@ decoding.
 
 Writing needs a 1 s hold on `HOLD TO WRITE`. After the write the firmware
 waits `AM32_WRITE_SETTLE_MS` (300 ms), reads the block back, and compares it
-byte for byte. It shows `WRITE VERIFIED` only on a full match. On a mismatch it
-shows the first differing byte: `DIFF @xx: GOT xx WANT xx`.
+byte for byte. It shows `WRITE VERIFIED` only on a full match, with
+`POWER-CYCLE THE ESC TO APPLY.` under it: the bench sends no command that
+starts the ESC's firmware, and whether the ESC runs the new settings without
+a power cycle is not tested. On a mismatch it shows the first differing byte:
+`DIFF @xx: GOT xx WANT xx`. A result of up to 18 characters is drawn at
+scale 2; a longer one at scale 1, where every result fits one 37-character
+line, so it stays on the 240 px panel.
 
 ### Backup
 
 Before the first WRITE of a session, the settings block as read at entry goes
 to the card as `BACKUP/AMnnn.TXT` ([Device backups](#device-backups)). The
-result line then reads `WRITE VERIFIED. BACKUP AM018`, for example. A card
+result line then reads `WRITE VERIFIED. BACKUP AM018`, for example, at
+scale 1. A card
 that refuses the backup stops the write: `NO BACKUP ON THE CARD: NOT WRITTEN`.
 The melody and the CAN block are not saved; nothing reads the file back yet.
 
@@ -910,8 +936,9 @@ ground only.
 > per frame at 600 kbit/s, once every 1000 µs. A servo on that pin reads it as
 > a pulse of about 970 µs at 1 kHz: it drives towards one end of its travel,
 > at a frame rate that overheats an analogue servo. That happens at **boot**
-> for a servo left on SIG, and after the servo screen, which therefore shows
-> `UNPLUG THE SERVO.` and restarts DShot only on `RESTART DSHOT`.
+> for a servo left on SIG, which the splash warns of with
+> `UNPLUG ANY SERVO FROM GP0 NOW`, and after the servo screen, which therefore
+> shows `UNPLUG THE SERVO.` and restarts DShot only on `RESTART DSHOT`.
 
 ### Using it
 
@@ -942,6 +969,15 @@ screen is opened again.
 If the screen stalls for 250 ms (`UI_HEARTBEAT_TIMEOUT_MS`), core1 ends the
 pulses and the sweep, the chip reads `STALLED`, and nothing restarts until the
 next HOLD TO START.
+
+While SAFE with one servo, the readout row reads `TWO SERVOS:` and
+`SET > SERVOS` on the right: SET's SERVOS row switches the second servo on.
+The hint is not shown while the claim refuses AUX.
+
+The servo tester never drives the switched supply's enable pin. With SERVO
+SUPPLY at `GP28` or `GP29` the converter stays off on this screen, and a servo
+with no supply of its own does not move: the strip reads
+`GP28 SUPPLY STAYS OFF HERE.` in amber under its caption.
 
 **SET.** The PULSE rows change only while SAFE. TYPE loads one of rcbench's
 profiles:
@@ -1206,7 +1242,9 @@ and every D series servo on the line takes a frame sent to ID 0.
    choice. The screen claims SIG and enters: with `GP28` or `GP29` it switches the
    supply off for 2.0 s and on again, the strip counting `SUPPLY OFF 1.4 S`,
    then waits for the servo's start, about 1 s; with `NONE` it reads the
-   servo at once on the supply it has.
+   servo at once on the supply it has, so the servo must be powered before
+   the tap. The family view says so under D SERIES:
+   `POWER THE SERVO UP BEFORE THE TAP.`
 2. The screen reads the 21 registers, `READING 21 REGISTERS`, `7 OF 21`, and
    keeps this first full read as the session's backup. A servo that does
    not answer gives `NO SERVO ANSWERS` with the decoder's word, for example
@@ -1296,7 +1334,10 @@ is the D485HW.
 HITEC SERVO offers CLASSIC (HS-5xxx, HS-7xxx) with SERVO SUPPLY at `GP28`
 or `GP29`, since a classic servo enters programming mode only at its
 power-up. Under `NONE` it is drawn disabled, with
-`NEEDS SERVO SUPPLY GP28 OR GP29`. A classic servo drives the signal line
+`NEEDS THE CONVERTER OF WIRING PART C` and
+`AND SETTINGS > SERVO SUPPLY GP28/29.`: the switched supply is the DC-DC
+converter of part C of the [wiring diagram](#wiring-diagram), and the
+setting only names its enable pin. A classic servo drives the signal line
 high itself, through about 1 kΩ, to its supply: 5 V nominal from the
 converter. SIG is GP0 or GP1, both fault tolerant, rated 5.5 V while the
 board is powered and 3.63 V while it is off. The line voltage is not
@@ -1446,7 +1487,8 @@ In the firmware:
 - With HOLD off, the throttle returns to zero on finger lift.
 - Throttle ceiling, default 20 %.
 - Auto-disarm after 30 s with no touch input (`IDLE_DISARM_MS`). For the last
-  5 s, `IDLE ns` replaces the battery voltage in the top row.
+  5 s, `IDLE ns` replaces the board's battery voltage and its `BOARD`
+  caption in the top row.
 - Core1 sets the throttle to zero if core0 sends no heartbeat for 250 ms.
 - Opening MENU disarms. The wiring settings and every tool are reachable only
   from there.
@@ -1556,7 +1598,8 @@ src/
   usb_msc.{h,cpp}       the SD card as a read-only USB drive
   tusb_config.h         TinyUSB configuration
 lib/rcbench/            rcbench files copied unchanged: servo sweep, GPIO-to-PWM fold,
-                        KST core and line driver, KST file store, Hitec core, sensor bus
+                        KST core and line driver, KST file store, Hitec core,
+                        S.BUS decoder, sensor bus
 tools/
   sdtest/               standalone SD bring-up test, 2.8" only; built locally, never released
   make_previews.py      restitches docs/*.png and wiki/img/ from the test suite's frames
@@ -1576,8 +1619,11 @@ files copied unchanged into `lib/rcbench/` with rcbench's own layout
 (`lib/rcbench/README.md`): the sweep curve, the GPIO-to-PWM map, the KST
 programming core with its RP2350 line driver, the KST file store, and the
 Hitec programming core with its RP2350 line driver, servo file text and CRC,
-and the current sensor's bus record (`sense_bus.c`). Files include each other as
-plain siblings, except two drivers with folders of their own: the DShot
+the S.BUS (Futaba's serial bus for receiver channels) decoder, and the
+current sensor's bus record (`sense_bus.c`). The decoder is built in the host
+suite only so far: nothing in `src/` calls it and the firmware does not build
+it. Files include each other as plain
+siblings, except two drivers with folders of their own: the DShot
 driver in `src/dshot/`, so that it can be compared with its rcbench original,
 and the SDIO card driver in `src/sdio/`, whose `compat/` headers have to keep
 the paths the SD library includes.
@@ -1605,28 +1651,30 @@ those files as C11 programs: `test/rcbench/test_servo_sweep.c` and
 `test_hitec_wire.c`, `test_hitec_pre.c`, `test_hitec_pio.c`,
 `test_hitec_reg.c`, `test_hitec_reg_plan.c`, `test_hitec_session.c`,
 `test_hitec_session_write.c` and `test_hitec_card.c`, with
-`hitec_headers.cpp` built as C++11. The SDIO tests run
-the card protocol against a simulated card. Time is virtual — `millis()` advances only
-when a test says so — which makes hold-to-arm, hold-to-write and gesture repeat
-deterministic rather than dependent on machine speed. The fake ESC serves a real
-settings blob recovered from the reference configurator, so the UI tests operate
-on values a real ESC would report. The suite renders 43 screens to PPM (portable
-pixmap) images as it runs, so a layout change is visible in the frames:
+`hitec_headers.cpp` built as C++11, and `test_sbus.c` (12 cases). The SDIO
+tests run the card protocol against a simulated card. Time is virtual —
+`millis()` advances only when a test says so — which makes hold-to-arm,
+hold-to-write and gesture repeat deterministic rather than dependent on
+machine speed. The fake ESC serves a real settings blob recovered from the
+reference configurator, so the UI tests operate on values a real ESC would
+report. The suite renders 47 screens to PPM (portable pixmap) images as it
+runs, so a layout change is visible in the frames:
 
 - the splash;
-- six of the main screen: disarmed, armed, live, stale, with KISS values,
-  high contrast;
-- eight of MENU: on arrival, the EDT chip on and off, BEEP accepted and
-  refused, unsaved settings, PINS BUSY, seven rows;
+- seven of the main screen: disarmed, armed, live, stale, with KISS values,
+  high contrast, the card held by a USB host;
+- nine of MENU: on arrival, the EDT chip on, off and reading NO ESC, BEEP
+  accepted and refused, unsaved settings, PINS BUSY, seven rows;
 - four of MENU → SETTINGS: the top, scrolled to the end, high contrast, the
   CURRENT SENSE row with a sensor found;
 - six of MENU → SD LOG: ready, recording, no card, a card found by RETRY, USB
   DRIVE refused, USB DRIVE serving;
-- five of the AM32 editor: list, field edit, scrolled, written, hex view;
-- thirteen of the servo tester: SAFE, running, sweeping, two servos, stalled,
-  an ESC answering, a refused bind, SET, SET with a warning, SET while
-  running, SET with one GPIO for both pins, the unplug page, the current
-  sensor's readout.
+- six of the AM32 editor: list, field edit, scrolled, written, written with
+  a backup, hex view;
+- fourteen of the servo tester: SAFE, running, sweeping, two servos,
+  stalled, an ESC answering, a refused bind, SET, SET with a warning, SET
+  while running, SET with one GPIO for both pins, the unplug page, the
+  switched supply's line, the current sensor's readout.
 
 Failing tests dump their frame too.
 
@@ -1639,7 +1687,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.2%**: 8,741 of 8,996 lines in 55 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.2%**: 8,801 of 9,056 lines in 56 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the
@@ -1857,6 +1905,8 @@ The Host tests job in `ci.yml` runs the same render and check on every push to
 - The Hitec programming core, its RP2350 line driver, the Hitec servo file
   text and its CRC in `lib/rcbench/` come from rcbench at commit 3e29dc1b,
   by the same copyright holder under the same MIT licence.
+- The S.BUS decoder in `lib/rcbench/` comes from rcbench at commit 5ef42efd,
+  by the same copyright holder under the same MIT licence.
 - [logwiju](https://subtilitas.github.io/logwiju/): the browser-based blackbox viewer
   for these logs.
 - [DShot — the missing handbook](https://brushlesswhoop.com/dshot-and-bidirectional-dshot/)
@@ -1883,6 +1933,11 @@ programmers, the HPP-21 Plus and the HFP-30, and of servos. Some register
 meanings rest on published documentation or third-party observation;
 rcbench's register model marks the source of each (`hitec_src_t`). No
 vendor code is included.
+
+Futaba and S.BUS are names or trademarks of their owners. They are used in
+this repository only to say which receivers its S.BUS decoder works with.
+MiniRcBench is not affiliated with Futaba and is neither supported nor
+sponsored by it. The S.BUS decoder is rcbench's; no vendor code is included.
 
 Every other name of a maker, product, protocol or firmware in this
 repository is a name or trademark of its owner, used only to describe

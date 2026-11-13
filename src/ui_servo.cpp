@@ -21,6 +21,7 @@
 #include "servo_job.h"
 #include "servo_model.h"
 #include "sense.h"
+#include "servo_supply.h"
 #include "touch.h"
 #include "ui_hold.h"
 #include "ui_input.h"
@@ -326,9 +327,17 @@ static void line(int y, const char *text, uint16_t c) { gfxTextCenter(y, text, c
 // the SERVO view
 // ---------------------------------------------------------------------------
 
-/** @brief The header, the caption and the chip. */
+/**
+ * @brief The header, the caption and the chip, and under the caption the
+ *        switched supply's line.
+ *
+ * With SERVO SUPPLY at GP28 or GP29 the servo tester never drives the enable
+ * pin (servo-tester.md decision 20), so the converter stays off here and a
+ * servo without a supply of its own does not move. The strip says so on a
+ * second line, in amber, and the caption moves up 2 px to make room.
+ */
 static void drawTop(const char *title, bool caption) {
-	struct { bool back; uint8_t chip; ServoProfile p; uint8_t sig, aux; bool cap; } k;
+	struct { bool back; uint8_t chip; ServoProfile p; uint8_t sig, aux; bool cap; uint8_t supply; } k;
 	memset(&k, 0, sizeof(k));
 	k.back = uiPressing(uiBackRect(), s_t);
 	k.chip = s_st.running ? 1 : (s_st.tripped ? 2 : 0);
@@ -336,10 +345,13 @@ static void drawTop(const char *title, bool caption) {
 	k.sig = gpioOf(PIN_SIG);
 	k.aux = gpioOf(PIN_AUX);
 	k.cap = caption;
+	k.supply = servoSupplyFitted() ? servoSupplyPin() : 0;
 	if (!changed(0, &k, sizeof(k))) return;
 	uiHeader(title, s_t);
 	uiStripClear();
 	if (!caption) return;
+	// The second line ends at y 58, under the strip: the rows to the body.
+	gfxRect(0, UI_STRIP_Y, GFX_W, UI_BODY_Y - UI_STRIP_Y, C_BG);
 	char buf[40];
 	if (twoServos())
 		snprintf(buf, sizeof(buf), "GP%u+%u  %u HZ  %u-%u US", k.sig, k.aux,
@@ -347,7 +359,13 @@ static void drawTop(const char *title, bool caption) {
 	else
 		snprintf(buf, sizeof(buf), "GP%u  %u HZ  %u-%u US", k.sig, s_profile.rateHz,
 		         s_profile.minUs, s_profile.maxUs);
-	uiStripText(buf, C_DIM);
+	if (k.supply) {
+		gfxText(UI_MARGIN, SERVO_UI_STRIP_Y1, buf, C_DIM, 1);
+		snprintf(buf, sizeof(buf), SERVO_UI_SUPPLY_FMT, (unsigned)k.supply);
+		gfxText(UI_MARGIN, SERVO_UI_STRIP_Y2, buf, C_AMBER, 1);
+	} else {
+		uiStripText(buf, C_DIM);
+	}
 	if (s_st.running)      uiChip("RUNNING", C_RED);
 	else if (s_st.tripped) uiChip("STALLED", C_MAGENTA);
 	else                   uiChip("SAFE", C_GREEN);
@@ -485,8 +503,14 @@ static void drawReadout() {
 	uint16_t curCol = C_DIM;
 	bool sensed = senseReadout(cur, volt, sizeof(cur), &curCol);
 	struct { uint16_t us[2]; bool sweeping; uint32_t moves; uint16_t limit; uint8_t mask, servos;
-	         bool pa, pb, pab; uint32_t cur, volt; uint16_t curCol; } k;
+	         bool pa, pb, pab, hint; uint32_t cur, volt; uint16_t curCol; } k;
 	memset(&k, 0, sizeof(k));
+	// SAFE only: not running, not STALLED, and the pins bound, so not while
+	// the claim is taken or released and not under a bind error.
+	k.hint = !twoServos() && !s_st.running && !s_st.tripped && s_claimed &&
+	         pinClaimState() == ClaimState::Running && !pinClaimJobError() && !s_st.bindError &&
+	         s_auxRefusal == ClaimRefusal::None &&
+	         !sensed;   // a declared sensor's readout takes the row's right side
 	k.us[0] = s_st.outUs[0]; k.us[1] = s_st.outUs[1];
 	k.sweeping = s_st.sweeping; k.moves = s_st.sweepMoves; k.limit = s_sweep.moves;
 	k.mask = s_mask; k.servos = s_profile.servos;
@@ -509,6 +533,14 @@ static void drawReadout() {
 		if (sensed) {
 			gfxText(GFX_W - UI_MARGIN - gfxTextW(cur, 2), SV_READ_Y + SV_CUR_DY, cur, curCol, 2);
 			gfxText(GFX_W - UI_MARGIN - gfxTextW(volt, 1), SV_READ_Y + SV_VOLT_DY, volt, C_DIM, 1);
+		}
+		// SAFE with one servo: where the second one is switched on. Not while
+		// AUX is refused, where SERVOS cannot be set to TWO.
+		if (k.hint) {
+			gfxText(GFX_W - UI_MARGIN - gfxTextW(SERVO_UI_TWO_1, 1), SV_READ_Y + 3,
+			        SERVO_UI_TWO_1, C_DIM, 1);
+			gfxText(GFX_W - UI_MARGIN - gfxTextW(SERVO_UI_TWO_2, 1), SV_READ_Y + 14,
+			        SERVO_UI_TWO_2, C_DIM, 1);
 		}
 		return;
 	}

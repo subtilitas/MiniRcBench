@@ -173,5 +173,36 @@ Am32Result am32BlErasePage(uint16_t addr);
 /** @brief Tell the bootloader to start the application firmware. */
 Am32Result am32BlRun();
 
-/** @brief Human-readable form of an @ref Am32Result. */
-const char *am32ResultText(Am32Result r);
+/**
+ * @brief Human-readable form of an @ref Am32Result.
+ *
+ * Constant-evaluable, so the screens that print it can check at build time
+ * that the longest text fits their lines. @see am32ResultTextMax()
+ * @param r The result.
+ * @return The text, at most am32ResultTextMax() characters.
+ */
+constexpr const char *am32ResultText(Am32Result r) {
+	switch (r) {
+		case AM32_OK:          return "OK";
+		case AM32_ERR_TIMEOUT: return "NO REPLY";
+		case AM32_ERR_NAK:     return "REFUSED";
+		case AM32_ERR_CRC:     return "CRC FAIL";
+		case AM32_ERR_BUSY:    return "NOT READY";
+	}
+	return "?";
+}
+
+/**
+ * @brief Characters of the longest text am32ResultText() returns.
+ * @return 9, `NOT READY`, today.
+ */
+constexpr int am32ResultTextMax() {
+	int most = 0;
+	for (int r = AM32_OK; r <= AM32_ERR_BUSY; r++) {
+		const char *s = am32ResultText((Am32Result)r);
+		int n = 0;
+		while (s[n]) n++;
+		if (n > most) most = n;
+	}
+	return most;
+}

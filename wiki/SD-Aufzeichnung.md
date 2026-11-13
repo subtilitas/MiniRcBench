@@ -124,7 +124,8 @@ Ohne Karte ist `USB DRIVE` als nicht verfügbar gezeichnet und tut nichts.
 **Scharfschalten ist gesperrt, solange der Computer die Karte hat.** `BACK`
 verlässt den Bildschirm Richtung `MENU`, ohne die Übergabe abzubrechen, und
 `BACK` auf `MENU` erreicht den Tester. Der Tester schaltet erst nach dem
-Auswerfen scharf. Ein Druck,
+Auswerfen scharf: `HOLD TO ARM` ist nur als Umriss gezeichnet, und der
+Gasbalken zeigt `EJECT THE USB DRIVE TO ARM`. Ein Druck,
 der beginnt, solange der Computer die Karte hat, schaltet auch nach dem
 Auswerfen nicht scharf. Neu drücken.
 

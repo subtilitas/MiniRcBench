@@ -21,9 +21,10 @@ SD-Karte (Secure Digital).
 > Bedienoberfläche (UI, User Interface) gegen ein simuliertes Servo.
 
 > **Die klassische Familie braucht die geschaltete Servoversorgung.**
-> `CLASSIC` (HS-5xxx, HS-7xxx) wirkt mit SERVO SUPPLY auf `GP28` oder
-> `GP29`. Unter `NONE` lässt sich nur die D-Serie öffnen. Siehe
-> [Klassische Servos](#klassische-servos).
+> `CLASSIC` (HS-5xxx, HS-7xxx) braucht den DC-DC-Wandler
+> (Gleichspannungswandler) aus Teil C der [Verdrahtung](Verdrahtung) und
+> SERVO SUPPLY auf `GP28` oder `GP29`. Unter `NONE` lässt sich nur die
+> D-Serie öffnen. Siehe [Klassische Servos](#klassische-servos).
 
 > **Zieh das Servo ab, bevor DShot läuft.** Außerhalb dieses Bildschirms liegt
 > auf dem ESC-Pin DShot, das digitale Gasprotokoll. Ein Servo an diesem Pin
@@ -92,20 +93,24 @@ Eliminator Circuit), die Leitung seiner eigenen geregelten Versorgung.
 **MENU → HITEC SERVO** öffnen. Der Bildschirm öffnet mit der
 Familienauswahl. Er belegt noch keinen Pin.
 
-<img src="img/hitec-family.png" width="240" alt="Die Familienauswahl mit SERVO SUPPLY auf NONE: CLASSIC abgeblendet mit NEEDS SERVO SUPPLY GP28 OR GP29, D SERIES an der eigenen Versorgung des Servos">
+<img src="img/hitec-family.png" width="240" alt="Die Familienauswahl mit SERVO SUPPLY auf NONE: CLASSIC abgeblendet mit NEEDS THE CONVERTER OF WIRING PART C, D SERIES mit POWER THE SERVO UP BEFORE THE TAP.">
 
 Die Leiste zeigt `CHOOSE THE SERVO'S FAMILY`. Darunter liegen zwei
 Schaltflächen:
 
 - `CLASSIC`, darunter `HS-5XXX, HS-7XXX`. Es wirkt, solange SERVO SUPPLY
   auf `GP28` oder `GP29` steht. Steht SERVO SUPPLY auf `NONE`, ist es
-  abgeblendet gezeichnet, und eine bernsteinfarbene Zeile nennt den Grund:
-  `NEEDS SERVO SUPPLY GP28 OR GP29`.
+  abgeblendet gezeichnet, und zwei bernsteinfarbene Zeilen nennen den Grund,
+  zuerst die Hardware: `NEEDS THE CONVERTER OF WIRING PART C` und
+  `AND SETTINGS > SERVO SUPPLY GP28/29.`
 - `D SERIES`, darunter `D485HW, D645MW AND THE OTHERS` und
-  `SUPPLY SWITCHED ON GP28` (oder `GP29`, je nach Einstellung) oder
-  `ON THE SERVO'S OWN SUPPLY`.
+  `SUPPLY SWITCHED ON GP28` (oder `GP29`, je nach Einstellung) oder, unter
+  `NONE`, `POWER THE SERVO UP BEFORE THE TAP.`: An seiner eigenen
+  Versorgung muss das Servo laufen, wenn der Bildschirm eintritt, denn der
+  Eintritt liest sofort sein Modell.
 
-**Tippe auf `D SERIES`.** `BACK` in dieser Ansicht führt zu `MENU` zurück.
+**Schalte das Servo ein, dann tippe auf `D SERIES`.** Mit `GP28` oder `GP29`
+schaltet die Platine es ein. `BACK` in dieser Ansicht führt zu `MENU` zurück.
 
 Der Bildschirm übernimmt dann SIG vom ESC-Treiber. Dabei zeigt die Leiste
 `RELEASING GP0`, dann `TAKING GP0`. Solange ein ESC auf dem Pin antwortet,
@@ -517,8 +522,10 @@ Bildschirm wieder läuft: Ein Schreiben zeigt dann
 
 `CLASSIC` (HS-5xxx, HS-7xxx) braucht SERVO SUPPLY auf `GP28` oder `GP29`:
 Ein klassisches Servo geht nur beim Einschalten in den Programmiermodus,
-und die Platine schaltet seine Versorgung. Unter `NONE` zeigt die
-Familienauswahl `NEEDS SERVO SUPPLY GP28 OR GP29`.
+und die Platine schaltet seine Versorgung über den Wandler aus Teil C der
+[Verdrahtung](Verdrahtung). Unter `NONE` zeigt die Familienauswahl
+`NEEDS THE CONVERTER OF WIRING PART C` und
+`AND SETTINGS > SERVO SUPPLY GP28/29.`
 
 Der Signalpegel:
 

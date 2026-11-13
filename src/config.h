@@ -527,8 +527,10 @@
 /**
  * @brief How long the splash screen stays up, in milliseconds.
  *
- * This also covers core1 claiming its PIO state machines and the ESC finishing
- * its own boot, so shortening it much below a second is not advisable.
+ * This also covers the ESC finishing its own boot before the first DShot
+ * frame: main() launches core1, and with it the DShot pump, only after
+ * setup() has shown the splash for this long. Shortening it much below a
+ * second is not advisable.
  */
 #define SPLASH_MS              3000
 

@@ -54,6 +54,19 @@ enum class HitecView : uint8_t { Family, Main, List, Write, Files, Leave, Unplug
 HitecView uiHitecView();
 
 /**
+ * @defgroup ui_hitec_family The family view's notes
+ * @brief Scale 1 from x 8, at most 37 characters each.
+ * @{
+ */
+/** @brief Why CLASSIC is drawn disabled, first line: the hardware it needs. */
+#define HITEC_UI_CLASSIC_WHY_1 "NEEDS THE CONVERTER OF WIRING PART C"
+/** @brief ...and second line: the setting that names the converter's pin. */
+#define HITEC_UI_CLASSIC_WHY_2 "AND SETTINGS > SERVO SUPPLY GP28/29."
+/** @brief D SERIES' note with SERVO SUPPLY at NONE: the entry reads at once. */
+#define HITEC_UI_D_POWER "POWER THE SERVO UP BEFORE THE TAP."
+/** @} */
+
+/**
  * @brief The Hitec controls outside the lists. The field list's rows and the
  *        file list's rows are `UI_ROW(n, Row)`. @see ui_screen.h
  */

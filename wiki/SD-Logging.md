@@ -114,7 +114,9 @@ Without a card, `USB DRIVE` is drawn unavailable and does nothing.
 
 **Arming is blocked while the computer holds the card.** `BACK` leaves the
 screen for `MENU` without cancelling the handover, and `BACK` on `MENU` reaches
-the tester. The tester does not arm until the card is ejected. A press that starts while the
+the tester. The tester does not arm until the card is ejected: `HOLD TO ARM`
+is drawn as an outline, and the throttle bar reads
+`EJECT THE USB DRIVE TO ARM`. A press that starts while the
 computer holds the card does not arm, even after the eject. Press again.
 
 Eject on the computer, or press `EJECT` on the screen. Both end the handover.

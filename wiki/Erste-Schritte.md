@@ -70,8 +70,12 @@ eigenen Akku. Die Reihenfolge ist egal. Die Firmware schickt die
 Telemetrie-Freigabe an jeden ESC, der zu antworten beginnt. Du kannst den ESC
 also jederzeit anstecken oder neu starten.
 
-Der Startbildschirm nennt 3 s lang die Platine, für die die Firmware gebaut
-ist, RP2350-TOUCH-LCD-2.8, dann erscheint der Tester-Bildschirm.
+Der Startbildschirm steht 3 s lang, dann erscheint der Tester-Bildschirm. Er
+nennt die Platine, für die die Firmware gebaut ist, RP2350-TOUCH-LCD-2.8, und
+die Firmware-Version, zum Beispiel `VERSION 0.1.0`. Seine letzte Zeile nennt
+in Bernstein den ESC-Pin: `UNPLUG ANY SERVO FROM GP0 NOW`. DShot startet
+am Ende des Startbildschirms auf diesem Pin, und ein dort vergessenes Servo
+liest die Frames als Impulse und fährt an ein Ende seines Wegs.
 
 <img src="img/splash.png" width="240" alt="Startbildschirm">
 
@@ -82,7 +86,9 @@ ist, RP2350-TOUCH-LCD-2.8, dann erscheint der Tester-Bildschirm.
 <img src="img/tester-disarmed.png" width="240" alt="Tester-Bildschirm ohne ESC">
 
 Antwortet kein ESC, zeigt der Bildschirm `NO TELEMETRY` unter der Drehzahl,
-`--` in jeder Kachel und eine dunkelrote Null als Drehzahl.
+`--` in jeder Kachel und eine dunkelrote Null als Drehzahl. Die große
+Spannung oben rechts, beschriftet mit `BOARD`, ist der platineneigene Akku,
+nicht der des ESC; die Spannung des ESC steht in der Kachel `VOLTAGE`.
 
 Ändert sich das trotz versorgtem und verkabeltem ESC nicht, geht es bei
 [Fehlersuche](Fehlersuche#keine-telemetrie) weiter.

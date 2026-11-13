@@ -110,7 +110,9 @@ Eine Freigabe zu einem anderen Zeitpunkt ginge verloren.
 
 <img src="img/menu-edt-on.png" width="240" alt="EDT ON"> <img src="img/menu-edt-off.png" width="240" alt="EDT OFF">
 
-Bleibt das Feld rot, obwohl der ESC EDT beherrscht, siehe
+Solange kein eRPM eintrifft, zeigt das Feld `NO ESC` auf Grau; ein rotes
+`EDT OFF` heißt, der ESC antwortet und sendet kein EDT. Bleibt das Feld rot,
+obwohl der ESC EDT beherrscht, siehe
 [Fehlersuche](Fehlersuche#edt-bleibt-aus).
 
 ---

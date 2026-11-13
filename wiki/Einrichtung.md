@@ -58,14 +58,13 @@ Lötkolben und Schrumpfschlauch oder Crimpkontakte.
 >   J5 Pin 4 oder J4 Pin 1 oder 5.
 
 > **Kein Servo an SIG, während die Platine startet.** Außerhalb der
-> Servobildschirme führt SIG DShot, vom Einschalten an. Ein Servo liest das
-> als Impuls und fährt in Richtung eines Endes seines Wegs, mit einer
-> Framerate, die ein analoges Servo überhitzt. Stecke das Servo erst an,
-> wenn sein Bildschirm offen ist. Bei HITEC SERVO führt SIG DShot, bis
-> eine Familie gewählt ist: Halte die Zeit in der Familienansicht kurz.
-> Schalte die Platine vor der Servoversorgung ein und die Servoversorgung
-> vor der Platine aus:
-> [Servotester](Servotester#verkabelung).
+> Servobildschirme führt SIG DShot, vom Ende des 3 s langen Startbildschirms an.
+> Ein Servo liest das als Impuls und fährt in Richtung eines Endes seines Wegs,
+> mit einer Framerate, die ein analoges Servo überhitzt. Stecke das Servo erst
+> an, wenn sein Bildschirm offen ist. Bei HITEC SERVO führt SIG DShot, bis eine
+> Familie gewählt ist: Halte die Zeit in der Familienansicht kurz. Schalte die
+> Platine vor der Servoversorgung ein und die Servoversorgung vor der Platine
+> aus: [Servotester](Servotester#verkabelung).
 
 Die Aderfarben eines JST-SH-Kabels folgen keiner Norm. Finde Pin 1 am
 Steckverbinder, nicht an der Farbe: [Verdrahtung](Verdrahtung) nennt jeden
