@@ -406,7 +406,10 @@ Leitung 100 ms lang auf Low, lässt den Pin los und zeigt `UNPLUG THE SERVO.`
 
 **Zieh das Servo ab und tippe dann auf `RESTART DSHOT`.** Der ESC-Treiber
 übernimmt den Pin wieder, und `MENU` erscheint. `BACK` auf dieser Seite führt
-stattdessen zur Suche zurück und behält den Pin.
+stattdessen zur Suche zurück und behält den Pin. Solange die Seite
+`RELEASING THE PIN` oder `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` zeigt, ist
+`BACK` deaktiviert gezeichnet, als Umriss mit grauer Beschriftung: Es wirkt
+ab dem Moment, in dem `UNPLUG THE SERVO.` erscheint.
 
 `BACK` in der Suche, bevor ein Servo geantwortet hat, gibt den Pin frei und
 zeigt die Abziehseite unmittelbar.

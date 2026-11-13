@@ -143,10 +143,18 @@ void uiButton(const UiRect &r, const char *label, uint16_t fill, uint16_t fg,
  * Draws BACK on every screen that has a header, which is what stops it being a
  * control that exists on some of them and is remembered on all of them.
  *
- * @param title Screen name, drawn at scale 2.
- * @param t     This frame's touch snapshot, for BACK's pressed state. May be null.
+ * @param title       Screen name, drawn at scale 2.
+ * @param t           This frame's touch snapshot, for BACK's pressed state.
+ *                    May be null.
+ * @param backEnabled False draws BACK unavailable, as uiButton() draws a
+ *                    disabled control: an outline, a grey label and no pressed
+ *                    look. Pass the expression the screen's control table
+ *                    reports for `UI_FIX(UI_BACK)` and gates the tap on, and
+ *                    key the repaint on it: the unplug pages of SERVO, KST
+ *                    SERVO and HITEC SERVO, whose BACK waits for
+ *                    pinClaimUnplugDue().
  */
-void uiHeader(const char *title, const TouchState *t);
+void uiHeader(const char *title, const TouchState *t, bool backEnabled = true);
 
 /** @brief Rectangle of the header's BACK button. @return The shared target. */
 UiRect uiBackRect();

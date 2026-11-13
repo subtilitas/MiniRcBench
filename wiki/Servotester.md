@@ -224,7 +224,10 @@ KISS-Empfänger ihn übernimmt; ist KISS aus, bleibt er auf Low.
 Zieh das Servo ab und tippe dann auf `RESTART DSHOT`. Der ESC-Treiber
 übernimmt die Pins wieder, und `MENU` erscheint. `BACK`
 auf dieser Seite führt stattdessen zurück zum Servobildschirm, in SAFE, und
-behält die Pins.
+behält die Pins. Bis der letzte Impuls ausgelaufen ist, zeigt die Seite
+`RELEASING THE PINS`, und `BACK` ist deaktiviert gezeichnet, als Umriss mit
+grauer Beschriftung: Es wirkt ab dem Moment, in dem `UNPLUG THE SERVO.`
+erscheint.
 
 ---
 

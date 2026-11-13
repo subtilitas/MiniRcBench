@@ -1416,8 +1416,13 @@ static void testSwitchedSupply() {
 	kstFrames(4);
 	checkTrue("LEAVE: the supply off, the unplug page waits",
 	          uiKstView() == KstView::Unplug && !enHigh() && !ctlPresent(UI_FIX(KstCtl::Restart)));
+	checkTrue("BACK waits with it: disabled, and drawn so",
+	          !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
+	checkControlTable("KST unplug, the supply off");
 	checkTrue("RESTART DSHOT once the supply has been off 2 s",
 	          untilCtl(UI_FIX(KstCtl::Restart), 200) && time_us_32() - t0 >= 2000000u);
+	checkTrue("BACK acts from that frame on, and is drawn live",
+	          ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Live);
 	FakePin p = fakePin(servoSupplyPinOf(1));
 	checkTrue("GP28 an undriven input after the claim", !p.output && p.inputOff);
 	tapId(UI_FIX(KstCtl::Restart));

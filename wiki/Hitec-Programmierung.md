@@ -461,7 +461,10 @@ zeigt sie `UNPLUG THE SERVO.` über `DSHOT RESTARTS ON GP0 AND READS AS` und
 
 **Zieh das Servo ab und tippe dann auf `RESTART DSHOT`.** Der ESC-Treiber
 übernimmt den Pin wieder, und `MENU` erscheint. `BACK` auf dieser Seite
-behält den Pin und tritt erneut in das Servo ein.
+behält den Pin und tritt erneut in das Servo ein. Solange die Seite
+`RELEASING THE PIN` zeigt oder die Versorgung herunterzählt, ist `BACK`
+deaktiviert gezeichnet, als Umriss mit grauer Beschriftung: Es wirkt ab dem
+Moment, in dem `UNPLUG THE SERVO.` erscheint.
 
 `BACK` während des Eintritts, bevor das Servo geantwortet hat, bricht ihn ab
 und zeigt die Abziehseite.

@@ -424,7 +424,9 @@ After `LEAVE` with `GP28` or `GP29`, the next page reads
 
 **Unplug the servo, then tap `RESTART DSHOT`.** The ESC driver takes the pin
 back and `MENU` returns. `BACK` on this page keeps the pin and enters the
-servo again.
+servo again. While the page reads `RELEASING THE PIN` or counts the supply
+down, `BACK` is drawn disabled, an outline with a grey label: it acts from
+the moment `UNPLUG THE SERVO.` shows.
 
 `BACK` during the entry, before the servo answered, stops it and shows the
 unplug page.

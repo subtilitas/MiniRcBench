@@ -567,6 +567,49 @@ static void testNullTouch() {
 	gfxFill(C_BG);
 }
 
+/** @brief A copy of the header band, for comparing two draws of it. */
+static void headerCopy(uint16_t *out) {
+	memcpy(out, gfxBuffer(), sizeof(uint16_t) * GFX_W * UI_HDR_H);
+}
+
+static void testHeaderBackDisabled() {
+	section("Widgets: uiHeader() draws a disabled BACK as uiButton() does");
+
+	static uint16_t live[GFX_W * UI_HDR_H], off[GFX_W * UI_HDR_H], ref[GFX_W * UI_HDR_H];
+	const UiRect b = uiBackRect();
+	gfxFill(C_RED);
+	uiHeader("UNPLUG", idle());
+	headerCopy(live);
+	gfxFill(C_RED);
+	uiHeader("UNPLUG", idle(), false);
+	headerCopy(off);
+	// The reference: the live header with BACK drawn over it disabled.
+	gfxFill(C_RED);
+	uiHeader("UNPLUG", idle());
+	uiButton(b, "BACK", C_PANEL, C_TEXT, 1, false, false);
+	headerCopy(ref);
+	checkTrue("disabled: the band matches the live header with a disabled uiButton() BACK",
+	          memcmp(off, ref, sizeof(off)) == 0);
+	checkTrue("and differs from the live one", memcmp(off, live, sizeof(off)) != 0);
+	bool sameOutside = true;
+	for (int y = 0; y < UI_HDR_H; y++)
+		for (int x = 0; x < GFX_W; x++) {
+			bool in = x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h;
+			if (!in && off[y * GFX_W + x] != live[y * GFX_W + x]) sameOutside = false;
+		}
+	checkTrue("only inside BACK's rectangle", sameOutside);
+	checkTrue("an outline with C_BG inside",
+	          off[(b.y + b.h / 2) * GFX_W + b.x + 4] == C_BG && off[b.y * GFX_W + b.x + b.w / 2] == C_GRID);
+	checkTrue("the default is live", live[(b.y + b.h / 2) * GFX_W + b.x + 4] == C_PANEL);
+
+	gfxFill(C_RED);
+	uiHeader("UNPLUG", press(b.x + b.w / 2, b.y + b.h / 2), false);
+	headerCopy(live);
+	checkTrue("a finger on a disabled BACK draws no pressed look", memcmp(live, off, sizeof(off)) == 0);
+	idle();
+	gfxFill(C_BG);
+}
+
 void runWidgetTests() {
 	testListGeometry();
 	testListPressRule();
@@ -581,4 +624,5 @@ void runWidgetTests() {
 	testHoldEnabled();
 	testHoldBar();
 	testNullTouch();
+	testHeaderBackDisabled();
 }

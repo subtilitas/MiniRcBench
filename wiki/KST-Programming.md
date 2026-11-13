@@ -381,7 +381,9 @@ or, after a lost servo, to the search.
 
 **Unplug the servo, then tap `RESTART DSHOT`.** The ESC driver takes the pin
 back and `MENU` returns. `BACK` on this page returns to the search instead and
-keeps the pin.
+keeps the pin. While the page reads `RELEASING THE PIN` or
+`SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`, `BACK` is drawn disabled, an outline
+with a grey label: it acts from the moment `UNPLUG THE SERVO.` shows.
 
 `BACK` on the search before any servo answered releases the pin and shows the
 unplug page directly.

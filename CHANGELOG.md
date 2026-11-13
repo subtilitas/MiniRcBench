@@ -575,6 +575,11 @@ protocol.
 
 ### Fixed
 
+- BACK on the unplug page of SERVO TESTER, KST SERVO and HITEC SERVO is
+  drawn disabled, an outline with a grey label, until the job has let the
+  pins go, as the control table already reported. It looked live and did
+  nothing. `uiHeader()` takes BACK's enabled flag; each screen passes the
+  expression its table reports and its tap is gated on.
 - The tester's HOLD TO ARM is drawn disabled, an outline, while a USB host
   holds the card, as its control table already reported, and the throttle
   bar reads `EJECT THE USB DRIVE TO ARM`. It looked live and did nothing.

@@ -722,7 +722,12 @@ static void testStallAndBack() {
 	checkTrue("LEAVE: the unplug page", uiHitecView() == HitecView::Unplug);
 	hitecFrame();
 	checkTrue("GP28 off on the next frame", !enHigh());
+	checkTrue("BACK waits for the 2 s off: disabled, and drawn so",
+	          !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
+	checkControlTable("Hitec unplug, the supply off");
 	checkTrue("RESTART DSHOT after the 2 s off", untilCtl(UI_FIX(HitecCtl::Restart), 200));
+	checkTrue("BACK acts from that frame on, and is drawn live",
+	          ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Live);
 	checkControlTable("Hitec unplug");
 	fakeDumpFrame("shot_hitec_unplug.ppm");
 	tapId(UI_FIX(HitecCtl::Restart));

@@ -242,6 +242,14 @@ static bool pressing(const UiRect &r) { return uiPressing(r, s_t); }
 static bool tapped(const UiRect &r) { return uiTapped(r, s_t); }
 
 /**
+ * @brief Whether BACK acts on this frame: everywhere but on the unplug page
+ *        before the job has let the pins go (pinClaimUnplugDue()), where
+ *        pinClaimKeep() would refuse. The control table reports it, the tap
+ *        is gated on it and the header draws it.
+ */
+static bool backActs() { return s_view != View::Unplug || pinClaimUnplugDue(); }
+
+/**
  * @brief The GPIO a role names, from the claim, or from the pump before it
  *        holds.
  */
@@ -313,9 +321,10 @@ static void line(int y, const char *text, uint16_t c) { gfxTextCenter(y, text, c
  * second line, in amber, and the caption moves up 2 px to make room.
  */
 static void drawTop(const char *title, bool caption) {
-	struct { bool back; uint8_t chip; ServoProfile p; uint8_t sig, aux; bool cap; uint8_t supply; } k;
+	struct { bool back, backOk; uint8_t chip; ServoProfile p; uint8_t sig, aux; bool cap; uint8_t supply; } k;
 	memset(&k, 0, sizeof(k));
 	k.back = uiPressing(uiBackRect(), s_t);
+	k.backOk = backActs();
 	k.chip = s_st.running ? 1 : (s_st.tripped ? 2 : 0);
 	k.p = s_profile;
 	k.sig = gpioOf(PIN_SIG);
@@ -323,7 +332,7 @@ static void drawTop(const char *title, bool caption) {
 	k.cap = caption;
 	k.supply = servoSupplyFitted() ? servoSupplyPin() : 0;
 	if (!changed(0, &k, sizeof(k))) return;
-	uiHeader(title, s_t);
+	uiHeader(title, s_t, k.backOk);
 	uiStripClear();
 	if (!caption) return;
 	// The second line ends at y 58, under the strip: the rows to the body.
@@ -733,11 +742,12 @@ static void drawSet(int holdPct) {
 	const char *l1, *l2;
 	uint16_t col;
 	setNote(&l1, &l2, &col);
-	struct { bool back; uint32_t l1, l2; } kt;
+	struct { bool back, backOk; uint32_t l1, l2; } kt;
 	memset(&kt, 0, sizeof(kt));
 	kt.back = uiPressing(uiBackRect(), s_t); kt.l1 = textKey(l1); kt.l2 = textKey(l2);
+	kt.backOk = backActs();
 	if (changed(0, &kt, sizeof(kt))) {
-		uiHeader("SERVO SET", s_t);
+		uiHeader("SERVO SET", s_t, kt.backOk);
 		gfxRect(0, UI_STRIP_Y, GFX_W, SET_LIST_Y0 - UI_STRIP_Y, C_BG);
 		if (l1) gfxText(UI_MARGIN, UI_STRIP_Y + 2, l1, col, 1);
 		if (l2) gfxText(UI_MARGIN, UI_STRIP_Y + 12, l2, col, 1);
@@ -844,11 +854,12 @@ static void setTouch() {
 
 static void drawUnplug() {
 	bool due = pinClaimUnplugDue();
-	struct { bool back, due, p; } k;
+	struct { bool back, backOk, due, p; } k;
 	memset(&k, 0, sizeof(k));
-	k.back = uiPressing(uiBackRect(), s_t); k.due = due; k.p = due && pressing(BTN_RESTART);
+	k.backOk = backActs();
+	k.back = k.backOk && uiPressing(uiBackRect(), s_t); k.due = due; k.p = due && pressing(BTN_RESTART);
 	if (!changed(0, &k, sizeof(k))) return;
-	uiHeader("SERVO", s_t);
+	uiHeader("SERVO", s_t, k.backOk);
 	gfxRect(0, UI_STRIP_Y, GFX_W, GFX_H - UI_STRIP_Y, C_BG);
 	if (!due) { line(120, "RELEASING THE PINS", C_DIM); return; }
 	gfxTextCenter(100, "UNPLUG THE SERVO.", C_AMBER, 2);
@@ -869,11 +880,11 @@ uint8_t uiServoControls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
 	if (s_view == View::Unplug) {
 		bool due = pinClaimUnplugDue();
-		uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), due);
+		uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
 		if (due) uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Restart), BTN_RESTART, true);
 		return n;
 	}
-	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
+	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
 	if (s_view == View::Set) {
 		uiListAddRows(&s_list, out, &n, max, true);
 		if (s_sel >= 0) {
@@ -948,10 +959,10 @@ bool uiServoTick(const TouchState *t) {
 
 	// BACK: from SET to SERVO, dropping a pending change; from the unplug
 	// page back to SERVO, keeping the claim, once the job has let go (until
-	// then pinClaimKeep() refuses, and BACK there does nothing); from SERVO
-	// out, through the unplug page once a job has held the pins.
-	bool back = uiBackTapped(s_t);
-	if (back && s_view == View::Unplug && !pinClaimUnplugDue()) back = false;
+	// then pinClaimKeep() refuses, and BACK there is drawn disabled and does
+	// nothing: backActs()); from SERVO out, through the unplug page once a job
+	// has held the pins.
+	bool back = backActs() && uiBackTapped(s_t);
 	if (back) {
 		s_full = true;
 		if (s_view == View::Set) {
