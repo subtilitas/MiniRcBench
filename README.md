@@ -665,9 +665,9 @@ hardware SPI for the card: its SD clock is on GP19, which is SPI0 TX in the
 pin mux.
 
 Open the screen with **MENU → SD LOG**, the seventh row: drag MENU up 36 px
-first. By default arming starts a log and
-disarming stops it (`SD_LOG_AUTO_ON_ARM`). Auto-stop ends only a log that
-auto-start began. **START/STOP** is always available.
+first. By default arming starts a log and disarming stops it
+(`SD_LOG_AUTO_ON_ARM`). Auto-stop ends only a log that auto-start began.
+**START/STOP** is always available.
 
 At the default 500 Hz (`SD_LOG_RATE_HZ`) a frame averages 14.5 bytes
 (measured). That is 7.3 kB/s, or 26 MB per hour.
@@ -680,14 +680,15 @@ means it was too small.
 
 The logger drops frames rather than block. The UI never waits for the card.
 
-**Getting the files off:** **MENU → SD LOG → USB DRIVE** presents the card to
-the USB host as a read-only removable drive, using MSC (mass storage class) on
-the same USB cable as the serial port. The logger unmounts before the drive
-appears and touches the card again only after eject. The host and the
-firmware never share the FAT volume. Without a card the button is drawn
-unavailable and does nothing. With a card, the request is refused while armed
-(`DISARM FIRST`) or while recording (`STOP RECORDING FIRST`). Arming is
-blocked while the host holds the card. See `src/usb_msc.h`.
+**Getting the files off:** **MENU → SD LOG → USB DRIVE** (SD LOG is the seventh
+row: drag MENU up 36 px) presents the card to the USB host as a read-only
+removable drive, using MSC (mass storage class) on the same USB cable as the
+serial port. The logger unmounts before the drive appears and touches the card
+again only after eject. The host and the firmware never share the FAT volume.
+Without a card the button is drawn unavailable and does nothing. With a card,
+the request is refused while armed (`DISARM FIRST`) or while recording (`STOP
+RECORDING FIRST`). Arming is blocked while the host holds the card. See
+`src/usb_msc.h`.
 
 ### Tuning
 

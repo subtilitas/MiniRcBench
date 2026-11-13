@@ -93,11 +93,11 @@ bei Gas null fehlt. Die Ursache ist unbekannt. Ein Behelf ist nicht bekannt.
 
 <img src="img/tester-card-held.png" width="240" alt="HOLD TO ARM als Umriss, der Balken zeigt EJECT THE USB DRIVE TO ARM">
 
-Der Gasbalken zeigt `EJECT THE USB DRIVE TO ARM`: Ein Computer hält die
-SD-Karte über USB (**MENU → SD LOG → USB DRIVE**; ziehe `MENU` um 36 px nach
-oben, um SD LOG zu erreichen), und Scharfschalten ist
-gesperrt, bis er sie freigibt. Wirf das Laufwerk am Computer aus oder drücke
-`EJECT` in SD LOG. Siehe [SD-Aufzeichnung](SD-Aufzeichnung).
+Der Gasbalken zeigt `EJECT THE USB DRIVE TO ARM`: Ein Computer hält die SD-Karte
+über USB (**MENU → SD LOG → USB DRIVE**; ziehe `MENU` um 36 px nach oben, um SD
+LOG zu erreichen), und Scharfschalten ist gesperrt, bis er sie freigibt. Wirf
+das Laufwerk am Computer aus oder drücke `EJECT` in SD LOG. Siehe
+[SD-Aufzeichnung](SD-Aufzeichnung).
 
 ---
 

@@ -6,7 +6,8 @@
  * The cases slice C of docs/design/menu.md lists: SD LOG's BACK to MENU,
  * every registry entry opened from MENU and back, MENU's disarm, BEEP's
  * flash on its row, PINS BUSY while the claim restores, MENU's scroll over
- * registries of six and seven rows, and SETTINGS' list: its scroll range,
+ * registries of six and seven rows, SETTINGS whole and tappable at 0 px as the
+ * sixth row, SD LOG cut until dragged, and SETTINGS' list: its scroll range,
  * each row by id, no scroll from a control, the 40 px rule for a cut
  * control, HOLD TO SAVE at every scroll, and the pole and ceiling rows.
  */

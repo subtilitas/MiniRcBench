@@ -672,7 +672,7 @@ Entry: MENU → HITEC SERVO, one line in `ui_registry.cpp`
 `PINS BUSY` at x 169. The row follows KST SERVO
 ([decision 6](#decisions-of-the-owner)). As the fifth row it makes MENU seven
 rows, which scroll 0 px to 36 px, as [menu.md](menu.md#menu) designs, so
-SETTINGS, the last row, shows 6 px at scroll 0 and takes no tap until MENU
+SD LOG, the last row, shows 6 px at scroll 0 and takes no tap until MENU
 is scrolled.
 
 The KST screen is the model: lists on `ui_list` with 40 px rows at a 42 px
@@ -1334,7 +1334,7 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
      backup of the first write, as `hitec_files.h` states; the write page
      does not say so.
    - The MENU tests reach SETTINGS through `menuRow()` in `test/ui_ids.h`,
-     which drags MENU until the row is whole (`revealRow()`), not through a
+     which drags MENU when the row is cut (`revealRow()`), not through a
      scroll in `openSettings()`.
    - Tested in `test_hitec_view.cpp`: the rows of the three layouts in their
      groups; each unit's text with its stored value, `RAW` and `?`; the
@@ -1430,7 +1430,8 @@ rcbench's recorded behaviour contradicts them; the others stand as decided.
    stepper. The servo's own ID, register 0x32, is an edited parameter
    ([editing](#editing)).
 6. **MENU row.** HITEC SERVO follows KST SERVO; SETTINGS becomes the
-   seventh row, which takes a tap after a scroll.
+   seventh row, which takes a tap after a scroll. (SD LOG is the seventh row
+   as built; SETTINGS is the sixth.)
 7. **Origin wording.** The legal notice states rcbench's origin claim for
    the Hitec code: wire captures of the project's own hardware and Hitec's
    published D series manual; no vendor code and no vendor document is

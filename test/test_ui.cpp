@@ -2488,7 +2488,8 @@ static void testHitBoundaries() {
 	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 
 	// MENU's rows are 40 px tall at a 42 px pitch: BEEP ends where the gap
-	// above AM32 CONFIG starts, and SETTINGS where the gap below it starts. A tap in either gap must hit neither neighbour -- an inclusive
+	// above AM32 CONFIG starts, and SETTINGS where the gap above SD LOG
+	// starts. A tap in either gap must hit neither neighbour -- an inclusive
 	// far edge would make adjacent rows overlap.
 	const UiRect beep  = ctlRect(menuRow(&UI_BEEP));
 	const UiRect settingsRow = ctlRect(menuRow(&UI_SETTINGS));
