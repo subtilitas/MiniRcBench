@@ -104,7 +104,9 @@ enable sent at another time would be lost.
 
 <img src="img/menu-edt-on.png" width="240" alt="EDT ON"> <img src="img/menu-edt-off.png" width="240" alt="EDT OFF">
 
-If the chip stays red with an ESC that supports EDT, see
+The chip reads `NO ESC` on grey while no eRPM arrives; red `EDT OFF` means
+the ESC answers and sends no EDT. If the chip stays red with an ESC that
+supports EDT, see
 [Troubleshooting](Troubleshooting#edt-stays-off).
 
 ---

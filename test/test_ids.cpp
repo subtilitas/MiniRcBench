@@ -119,6 +119,11 @@ static void testMenuSettingsLog() {
 	checkTrue("BUILT FOR shows and has no control", ctlPresent(UI_ROW(SettingsRowId::BuiltFor, Row)) &&
 	          !ctlPresent(UI_ROW(SettingsRowId::BuiltFor, Minus)) &&
 	          !ctlPresent(UI_ROW(SettingsRowId::BuiltFor, Toggle)));
+	revealRow((int)SettingsRowId::Version);
+	checkTrue("VERSION shows and has no control", ctlPresent(UI_ROW(SettingsRowId::Version, Row)) &&
+	          !ctlEnabled(UI_ROW(SettingsRowId::Version, Row)) &&
+	          !ctlPresent(UI_ROW(SettingsRowId::Version, Minus)) &&
+	          !ctlPresent(UI_ROW(SettingsRowId::Version, Toggle)));
 	checkControlTable("SETTINGS at the end");
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK from SETTINGS reaches MENU", uiCurrentScreen() == UiScreenId::Menu);

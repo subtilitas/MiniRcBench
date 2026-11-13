@@ -69,6 +69,13 @@ static const UiRect BTN_MINUS  = { BTN_MINUS_X, EDIT_Y, EDIT_BTN_W, EDIT_H };
 static const UiRect BTN_PLUS   = { BTN_PLUS_X,  EDIT_Y, EDIT_BTN_W, EDIT_H };
 /** @brief The OK button on the write-result screen. */
 static const UiRect BTN_OK     = { 70, 200, 100, 36 };
+/** @brief Top of the write's state or result. @see drawResultText() */
+#define RESULT_Y     140
+/** @brief Characters of a scale-1 line from x 8 to x 232. */
+#define RESULT_CHARS 37
+// The result's lines, the power-cycle line 30 px under its first, end above OK.
+static_assert(RESULT_Y + 30 + 7 < 200, "the result runs into OK");
+static_assert(sizeof(AM32_UI_POWER_CYCLE) - 1 <= RESULT_CHARS, "the power-cycle line runs off the panel");
 /** @brief The list's viewport. */
 static const UiRect LIST_VIEW  = { 0, LIST_Y0, GFX_W, LIST_H };
 
@@ -103,6 +110,8 @@ static bool       s_hexView = false;
 static UiList     s_list;
 static int        s_selected = -1;
 static char       s_status[40] = "";
+/** @brief The last write verified: the result names the power cycle. */
+static bool       s_verified = false;
 /** @brief The session's backup is on the card; BACKUP/ holds it as s_backupName. */
 static bool       s_backupDone = false;
 static uint32_t   s_backupVolume = 0;     /**< The serial number of the volume the backup went to. */
@@ -371,9 +380,39 @@ static void drawList() {
 	         uiPressing(BTN_HEX, s_frameTouch));
 }
 
+/**
+ * @brief The write's state or result, centred from y @ref RESULT_Y, at
+ *        scale 2 when it fits the panel, else at scale 1, broken at the last
+ *        space within @ref RESULT_CHARS characters. `WRITE VERIFIED. BACKUP
+ *        AM001` is 334 px at scale 2 and ran off both edges.
+ * @param s The text, at most 39 characters.
+ */
+static void drawResultText(const char *s) {
+	if (gfxTextW(s, 2) <= GFX_W - 2 * UI_MARGIN) {
+		gfxTextCenter(RESULT_Y, s, C_TEXT, 2);
+		return;
+	}
+	int len = (int)strlen(s);
+	if (len <= RESULT_CHARS) {
+		gfxTextCenter(RESULT_Y, s, C_TEXT, 1);
+		return;
+	}
+	int cut = RESULT_CHARS;
+	while (cut > 0 && s[cut] != ' ') cut--;
+	if (cut == 0) cut = RESULT_CHARS;
+	char a[RESULT_CHARS + 1];
+	memcpy(a, s, (size_t)cut);
+	a[cut] = '\0';
+	gfxTextCenter(RESULT_Y, a, C_TEXT, 1);
+	gfxTextCenter(RESULT_Y + 12, s + cut + (s[cut] == ' ' ? 1 : 0), C_TEXT, 1);
+}
+
 static void drawWriting() {
 	gfxRect(0, LIST_Y0, GFX_W, GFX_H - LIST_Y0, C_BG);
-	gfxTextCenter(140, s_status, C_TEXT, 2);
+	drawResultText(s_status);
+	// The ESC reads its settings at boot: whether it runs the new ones
+	// without a power cycle is not known, and the line is right either way.
+	if (s_verified) gfxTextCenter(RESULT_Y + 30, AM32_UI_POWER_CYCLE, C_TEXT, 1);
 	uiButton(BTN_OK, "OK", C_PANEL, C_TEXT, 1, uiPressing(BTN_OK, s_frameTouch));
 }
 
@@ -553,6 +592,7 @@ static void doWrite() {
 		return;
 	}
 	memcpy(s_original, s_eeprom, AM32_SETTINGS_SIZE);
+	s_verified = true;
 	if (s_backupDone) snprintf(s_status, sizeof(s_status), "WRITE VERIFIED. BACKUP %.5s", s_backupName);
 	else snprintf(s_status, sizeof(s_status), "WRITE VERIFIED");
 }
@@ -567,6 +607,7 @@ static void handleListTouch(const TouchState *t) {
 	bool wasHolding = s_writeHold.holding;
 	if (uiHoldUpdate(&s_writeHold, BTN_WRITE, t, dirty, millis())) {
 		s_state = S_WRITING;
+		s_verified = false;
 		snprintf(s_status, sizeof(s_status), "WRITING...");
 		s_redraw = true;
 		return;

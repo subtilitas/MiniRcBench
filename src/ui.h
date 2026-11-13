@@ -49,6 +49,18 @@ enum class TesterCtl : uint8_t {
 	Pad,       /**< The relative throttle pad over the readouts. Acts while armed. */
 };
 
+/**
+ * @brief The throttle track's text while a USB host holds the card, in place
+ *        of ARM TO ENABLE: HOLD TO ARM is drawn disabled then.
+ */
+#define UI_TESTER_CARD_TEXT "EJECT THE USB DRIVE TO ARM"
+
+/**
+ * @brief The splash's warning, with the ESC pin's GPIO number for `%u`:
+ *        DShot runs on that pin from boot, and a servo on it moves.
+ */
+#define UI_SPLASH_PIN_FMT "UNPLUG ANY SERVO FROM GP%u NOW"
+
 struct UiScreen;
 
 /** @brief The tester, the root screen. */

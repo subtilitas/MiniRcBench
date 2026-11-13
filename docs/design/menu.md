@@ -126,7 +126,7 @@ y   0 | MENU                            [  BACK  ]|  header 36 px; BACK 64 x 32
 | Label | scale 2 at x 16, 13 px below the row's top |
 | Status | scale 1, right-aligned to x 222, 16 px below the row's top, in the fact's colour |
 | Scroll bar | 3 px wide at x 235, drawn only while the list scrolls |
-| Strip | caption: the ESC pin and the DShot rate; chip: `EDT ON` in `C_GREEN` or `EDT OFF` in `C_RED`, as SETTINGS shows it today |
+| Strip | caption: the ESC pin and the DShot rate; chip: `EDT ON` in `C_GREEN` while EDT arrives, `EDT OFF` in `C_RED` while eRPM arrives without EDT, `NO ESC` in `C_GRID` while no eRPM arrives |
 
 | Row | Kind | Status | A tap |
 |---|---|---|---|

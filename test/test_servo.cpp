@@ -24,6 +24,7 @@
 #include "servo_job.h"
 #include "servo_model.h"
 #include "servo_pwm.h"
+#include "servo_supply.h"
 #include "ui_servo.h"
 #include "ui_kst.h"
 #include "ui_slider.h"
@@ -1378,6 +1379,26 @@ static uint16_t pixel(int x, int y) { return gfxBuffer()[y * GFX_W + x]; }
  */
 static uint16_t fillOf(const UiRect &r) { return pixel(r.x + 4, r.y + r.h - 5); }
 
+/** @brief Whether every pixel of the rectangle is @p c. */
+static bool allOf(int x, int y, int w, int h, uint16_t c) {
+	for (int yy = y; yy < y + h; yy++)
+		for (int xx = x; xx < x + w; xx++)
+			if (pixel(xx, yy) != c) return false;
+	return true;
+}
+
+/** @brief Whether the readout shows the two-servo hint, right-aligned to x 232. */
+static bool twoHintShown() {
+	return fakeTextIs(GFX_W - UI_MARGIN - gfxTextW(SERVO_UI_TWO_1, 1), SV_READ_Y + 3,
+	                  SERVO_UI_TWO_1, C_DIM, C_BG, 1) &&
+	       fakeTextIs(GFX_W - UI_MARGIN - gfxTextW(SERVO_UI_TWO_2, 1), SV_READ_Y + 14,
+	                  SERVO_UI_TWO_2, C_DIM, C_BG, 1);
+}
+
+/** @brief Whether the readout's right half, where the hint goes, is blank. */
+static bool twoHintBlank() { return allOf(140, SV_READ_Y + 3, GFX_W - 140, 18, C_BG); }
+
+
 /** @brief Whether MENU row @p id shows a status in C_AMBER: PINS BUSY. */
 static bool busyShown(UiControlId id) {
 	UiRect r = ctlRect(id);
@@ -1954,6 +1975,8 @@ static void testAuxRefused() {
 	stepSel(+1, 1, IdExpect::Disabled);
 	checkTrue("SERVOS stays ONE", s_profile.servos == 1);
 	backFromSet();
+	uiFrames(2);
+	checkTrue("AUX refused: no two-servo hint", !twoHintShown() && twoHintBlank());
 	leaveServo();
 	noEsc();
 }
@@ -2482,6 +2505,88 @@ static void testBindRefused() {
 }
 
 
+
+/**
+ * @brief The switched supply's line on the strip, and the two-servo hint.
+ *
+ * With SERVO SUPPLY at GP28 or GP29 the converter stays off on this screen
+ * (servo-tester.md decision 20), so the strip says so under its caption.
+ * SAFE with one servo, the readout names where the second one is switched
+ * on.
+ */
+static void testSupplyLineAndHint() {
+	section("Servo screen: the supply stays off here; two servos are possible");
+
+	freshUi();
+	openServo();
+	uiFrames(3);
+	char cap[40];
+	snprintf(cap, sizeof(cap), "GP%u  %u HZ  %u-%u US", 0u, (unsigned)s_profile.rateHz,
+	         (unsigned)s_profile.minUs, (unsigned)s_profile.maxUs);
+	checkTrue("NONE: the caption alone, centred in the strip at y 44",
+	          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, cap, C_DIM, C_BG, 1));
+	checkTrue("and no second line", allOf(0, UI_STRIP_Y + 11, 190, UI_BODY_Y - UI_STRIP_Y - 11, C_BG));
+	checkTrue("SAFE, one servo: the readout names TWO SERVOS: SET > SERVOS", twoHintShown());
+	// "NO PULSE" at scale 2 ends at x 101; the hint's widest line starts at
+	// x 161.
+	checkTrue("clear of NO PULSE by 4 px or more",
+	          UI_MARGIN + gfxTextW("NO PULSE", 2) + 4 <= GFX_W - UI_MARGIN - gfxTextW(SERVO_UI_TWO_2, 1));
+	holdStart();
+	uiFrames(2);
+	checkTrue("running: no hint", s_st.running && twoHintBlank());
+	tapId(UI_FIX(ServoCtl::Start));
+	uiFrames(2);
+	checkTrue("SAFE again: the hint is back", !s_st.running && twoHintShown());
+	openSet();
+	selectRow(ROW_SERVOS);
+	stepSel(+1);
+	checkTrue("SERVOS TWO, applied at once", s_profile.servos == 2);
+	backFromSet();
+	uiFrames(2);
+	checkTrue("two servos: no hint", s_profile.servos == 2 && !twoHintShown());
+	leaveServo();
+	backFromMenu();
+
+	// GP28, then GP29: the line names the pin. SETTINGS is closed while the
+	// tool runs, so the supply is set before the screen opens.
+	for (uint8_t mode = 1; mode <= 2; mode++) {
+		freshUi();
+		settings()->servoSupply = mode;
+		servoSupplyConfigure(mode);
+		openServo();
+		uiFrames(3);
+		char want[40];
+		snprintf(want, sizeof(want), SERVO_UI_SUPPLY_FMT, (unsigned)servoSupplyPinOf(mode));
+		checkStr("the line", want, mode == 1 ? "GP28 SUPPLY STAYS OFF HERE." : "GP29 SUPPLY STAYS OFF HERE.");
+		checkTrue("the caption moves up to y 42",
+		          fakeTextIs(UI_MARGIN, SERVO_UI_STRIP_Y1, cap, C_DIM, C_BG, 1));
+		checkTrue("the supply's line under it at y 52, amber",
+		          fakeTextIs(UI_MARGIN, SERVO_UI_STRIP_Y2, want, C_AMBER, C_BG, 1));
+		checkInt("27 characters, 161 px", gfxTextW(want, 1), 161);
+		// It ends at x 168, before the widest chip, STALLED, at x 179, and
+		// at y 58, before the dial band at y 62.
+		checkTrue("clear of the widest chip",
+		          UI_MARGIN + gfxTextW(want, 1) + 4 <= GFX_W - UI_MARGIN - gfxTextW("STALLED", 1) - 12);
+		checkTrue("and above the dial", SERVO_UI_STRIP_Y2 + 7 <= SERVO_DIAL_Y0);
+		checkTrue("the chip still says SAFE", pixel(GFX_W - UI_MARGIN - 4, UI_STRIP_Y + 3) == C_GREEN);
+		checkTrue("the supply stays off: GP28 or GP29 undriven",
+		          !fakePin(servoSupplyPinOf(mode)).output);
+		if (mode == 1) fakeDumpFrame("shot_servo_supply.ppm");
+		holdStart();
+		uiFrames(2);
+		checkTrue("running: the line stays", s_st.running &&
+		          fakeTextIs(UI_MARGIN, SERVO_UI_STRIP_Y2, want, C_AMBER, C_BG, 1));
+		checkTrue("and the supply stays off", !fakePin(servoSupplyPinOf(mode)).output);
+		tapId(UI_FIX(ServoCtl::Start));
+		uiFrames(2);
+		leaveServo();
+		backFromMenu();
+	}
+	settings()->servoSupply = 0;
+	servoSupplyConfigure(0);
+	freshUi();
+}
+
 void runServoTests() {
 	testProfiles();
 	testValidity();
@@ -2515,5 +2620,6 @@ void runServoTests() {
 	testSetList();
 	testClaimCorners();
 	testBindRefused();
+	testSupplyLineAndHint();
 	freshUi();
 }

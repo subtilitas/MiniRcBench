@@ -44,6 +44,21 @@ protocol.
 
 ### Added
 
+- The firmware version on the device: `VERSION 0.1.0` on the splash under
+  the board's name, and a read-only VERSION row in SETTINGS' BOARD section.
+- A splash line in amber that names the ESC pin while DShot starts on it:
+  `UNPLUG ANY SERVO FROM GP0 NOW`.
+- `BOARD` beside the tester's voltage at the top right, which is the board's
+  own battery, not the ESC's pack.
+- SERVO TESTER: with SERVO SUPPLY at `GP28` or `GP29`, a second strip line
+  `GP28 SUPPLY STAYS OFF HERE.` in amber; while SAFE with one servo, the
+  readout's hint `TWO SERVOS:` `SET > SERVOS`.
+- AM32 CONFIG: `POWER-CYCLE THE ESC TO RUN THEM.` under a verified write.
+- Host tests for each of these texts, their pixel widths and their states,
+  and `fakeTextIs()`, `fakeTextCentredIs()` and `fakeInkExtent()` in
+  `test/fakes.h`, which check drawn text against a redraw and the extent of
+  drawn pixels.
+
 - The wiki pages Setup and Einrichtung: the parts for each tool, the
   adapter cable from J5 to a servo plug, and installing the `.uf2` image.
 - A wiring diagram, `docs/wiring.svg`, in the README and on the wiki pages
@@ -331,6 +346,17 @@ protocol.
 
 ### Changed
 
+- MENU's EDT chip reads `NO ESC` on `C_GRID` while no eRPM frame has arrived
+  for 500 ms, the normal state with no ESC connected. Red `EDT OFF` now means
+  an ESC answers eRPM without EDT; green `EDT ON` is unchanged.
+- HITEC SERVO's family view names the hardware CLASSIC needs:
+  `NEEDS THE CONVERTER OF WIRING PART C` and
+  `AND SETTINGS > SERVO SUPPLY GP28/29.`, in place of
+  `NEEDS SERVO SUPPLY GP28 OR GP29`. With SERVO SUPPLY at `NONE`, D SERIES
+  reads `POWER THE SERVO UP BEFORE THE TAP.` in place of
+  `ON THE SERVO'S OWN SUPPLY`.
+- SETTINGS scrolls 450 px, 50 px more, for the VERSION row.
+
 - The panel backlight on GP16 runs from a PIO state machine on pio0 at
   20 kHz (`src/backlight.pio`), no longer from PWM slice 0, which it shares
   with GP0 and GP1. `test/pio_backlight_emu.py` checks every level, and the
@@ -537,6 +563,13 @@ protocol.
 
 ### Fixed
 
+- The tester's HOLD TO ARM is drawn disabled, an outline, while a USB host
+  holds the card, as its control table already reported, and the throttle
+  bar reads `EJECT THE USB DRIVE TO ARM`. It looked live and did nothing.
+- AM32 CONFIG's write result fits the 240 px panel: a result longer than
+  18 characters is drawn at scale 1, broken at a space after 37 characters
+  at most. `WRITE VERIFIED. BACKUP AM001`, 334 px at scale 2, and
+  `NO BACKUP ON THE CARD: NOT WRITTEN` ran off both edges.
 - KST SERVO's search with the switched supply names an interrupted write:
   its two warning lines take the place of the view's first two explanation
   lines, where they found no free line and were dropped.

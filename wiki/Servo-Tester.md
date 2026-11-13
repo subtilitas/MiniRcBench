@@ -14,8 +14,9 @@ horn on the screen is drawn where the pulse puts it, not where the servo is.
 > carries DShot. A servo on that pin reads it as a pulse of about 970 µs at
 > 1000 Hz: it drives towards one end of its travel, at a frame rate that
 > overheats an analogue servo. That happens when the board **boots** with a
-> servo on the ESC pin, and when you leave this screen. The screen asks you to
-> unplug it first.
+> servo on the ESC pin, which the splash screen warns of with
+> `UNPLUG ANY SERVO FROM GP0 NOW`, and when you leave this screen. The screen
+> asks you to unplug it first.
 
 ---
 
@@ -67,6 +68,19 @@ its own failsafe position.
 
 The line under the title shows the pin, the frame rate and the pulse range,
 and a chip: `SAFE` (green), `RUNNING` (red) or `STALLED` (magenta).
+
+While SAFE with one servo, the right of the readout row reads `TWO SERVOS:`
+and `SET > SERVOS`: the SERVOS row of the SET screen switches servo B on (see
+[Two servos](#two-servos)). The hint is not shown while the KISS pin is
+refused.
+
+With **SERVO SUPPLY** at `GP28` or `GP29` under SETTINGS, a second line under
+the title reads `GP28 SUPPLY STAYS OFF HERE.` in amber. The servo tester never
+switches the converter of the KST and Hitec programmers on, so a servo that
+only has that converter as its supply gets no power on this screen. Give it a
+supply of its own, as in [Wiring](#wiring).
+
+<img src="img/servo-supply.png" width="240" alt="The servo screen with SERVO SUPPLY at GP28: GP28 SUPPLY STAYS OFF HERE. under the title">
 
 ---
 
@@ -211,6 +225,8 @@ screen instead, SAFE, and keeps the pins.
   pin under SETTINGS. The SET screen names the cause when `SERVOS` is selected.
 - **The servo does not move.** Check that the chip reads `RUNNING`, that the
   servo has its own supply, and that its ground is joined to the board's.
+  With `GP28 SUPPLY STAYS OFF HERE.` under the title, the switched converter
+  is off on this screen.
   Whether a servo accepts the board's 3.3 V pulses is not recorded per servo.
 
 Nothing of the servo tester has been tested on hardware yet.

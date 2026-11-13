@@ -97,9 +97,11 @@ Fortschrittsbalken. Ohne Änderungen zeigt die Schaltfläche `NO CHANGES`.
 
 Nach dem Schreiben wartet die Firmware 300 ms, **liest die Einstellungen
 zurück und vergleicht sie** Byte für Byte. Sie verlässt sich nicht auf die
-Bestätigung des ESC. Bei Übereinstimmung erscheint `WRITE VERIFIED`. Bei einer
-Abweichung erscheint das erste abweichende Byte als
-`DIFF @xx: GOT xx WANT xx`.
+Bestätigung des ESC. Bei Übereinstimmung erscheint `WRITE VERIFIED`, darunter
+`POWER-CYCLE THE ESC TO RUN THEM.`. Bei einer Abweichung erscheint das erste
+abweichende Byte als `DIFF @xx: GOT xx WANT xx`. Ein Ergebnis mit mehr als
+18 Zeichen steht in der kleinen Schrift, wo nötig auf zwei Zeilen, damit es
+auf dem Bildschirm bleibt.
 
 Vor dem ersten Schreiben einer Sitzung gehen die beim Eintritt gelesenen
 Einstellungen als `BACKUP/AMnnn.TXT` auf die SD-Karte, in den Ring der
@@ -114,8 +116,11 @@ nichts zurück. Der ESC wird erst geschrieben, wenn die Sicherung auf der
 Karte liegt. Eine Blackbox-Aufzeichnung, die beim Öffnen des Editors läuft,
 endet.
 
-Die meisten AM32-Einstellungen wirken ab dem nächsten Einschalten des ESC. Das
-ist Verhalten von AM32; der Tester prüft es nicht.
+<img src="img/am32-written-backup.png" width="240" alt="Schreiben überprüft, mit genannter Sicherung und der Zeile POWER-CYCLE THE ESC TO RUN THEM.">
+
+Die meisten AM32-Einstellungen wirken ab dem nächsten Einschalten des ESC,
+daher die Zeile unter dem Ergebnis. Das ist Verhalten von AM32; der Tester
+prüft es nicht.
 
 ---
 

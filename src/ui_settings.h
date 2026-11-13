@@ -46,6 +46,7 @@ enum class SettingsRowId : uint8_t {
 	Contrast,     /**< CONTRAST, toggle. */
 	Backlight,    /**< BACKLIGHT, - and +. */
 	BuiltFor,     /**< BUILT FOR, read-only. */
+	Version,      /**< VERSION, the firmware's, read-only. */
 };
 
 /** @brief The SETTINGS controls outside the list. @see ui_screen.h */

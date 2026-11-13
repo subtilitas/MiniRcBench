@@ -555,6 +555,39 @@ uint32_t fakeRegionHash(int x, int y, int w, int h) {
 	return hash;
 }
 
+bool fakeTextIs(int x, int y, const char *text, uint16_t col, uint16_t bg, int scale) {
+	uint16_t *fb = gfxBuffer();
+	const int w = gfxTextW(text, scale), h = 7 * scale;
+	if (x < 0 || y < 0 || x + w > GFX_W || y + h > GFX_H) return false;
+	static uint16_t keep[GFX_H][GFX_W];
+	for (int j = 0; j < h; j++) memcpy(keep[j], fb + (y + j) * GFX_W + x, (size_t)w * sizeof(uint16_t));
+	uint32_t shown = fakeRegionHash(x, y, w, h);
+	gfxRect(x, y, w, h, bg);
+	gfxText(x, y, text, col, scale);
+	bool same = fakeRegionHash(x, y, w, h) == shown;
+	for (int j = 0; j < h; j++) memcpy(fb + (y + j) * GFX_W + x, keep[j], (size_t)w * sizeof(uint16_t));
+	return same;
+}
+
+bool fakeTextCentredIs(int y, const char *text, uint16_t col, uint16_t bg, int scale) {
+	return fakeTextIs((GFX_W - gfxTextW(text, scale)) / 2, y, text, col, bg, scale);
+}
+
+bool fakeInkExtent(int y, int h, uint16_t bg, int *x0, int *x1) {
+	const uint16_t *fb = gfxBuffer();
+	int lo = GFX_W, hi = -1;
+	for (int yy = y; yy < y + h && yy < GFX_H; yy++)
+		for (int xx = 0; xx < GFX_W; xx++)
+			if (fb[yy * GFX_W + xx] != bg) {
+				if (xx < lo) lo = xx;
+				if (xx > hi) hi = xx;
+			}
+	if (hi < 0) return false;
+	*x0 = lo;
+	*x1 = hi;
+	return true;
+}
+
 /** @brief Count framebuffer pixels of an exact colour. @see fakes.h */
 int fakeCountColour(uint16_t c) {
 	const uint16_t *fb = gfxBuffer();

@@ -133,6 +133,26 @@ void fakeSetTelemetry(const EscTelemetry *t);
  */
 uint32_t fakeRegionHash(int x, int y, int w, int h);
 
+/**
+ * @brief Whether @p text, drawn at (@p x, @p y) in @p col at @p scale over a
+ *        @p bg fill, is what the framebuffer shows there.
+ *
+ * The expected text is drawn over the one on screen and the two hashes are
+ * compared, so the check is on the rendered glyphs and on where they start.
+ * The pixels under the probe are put back afterwards.
+ */
+bool fakeTextIs(int x, int y, const char *text, uint16_t col, uint16_t bg, int scale);
+
+/** @brief As fakeTextIs(), with the text centred on the panel as gfxTextCenter() does. */
+bool fakeTextCentredIs(int y, const char *text, uint16_t col, uint16_t bg, int scale);
+
+/**
+ * @brief The leftmost and rightmost columns in rows @p y to @p y + @p h - 1
+ *        that hold a pixel other than @p bg.
+ * @return false when every pixel there is @p bg.
+ */
+bool fakeInkExtent(int y, int h, uint16_t bg, int *x0, int *x1);
+
 /** @brief How many times the UI has asked for a beep. */
 int fakeBeepRequests();
 

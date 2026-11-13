@@ -37,6 +37,7 @@
 #include "card_cache.h"
 #include "fake_fatfs.h"
 #include "usb_msc.h"
+#include "version.h"
 #include "../src/ui_am32.cpp"   // NOLINT -- see the note above
 
 // --- probes into the included translation unit ---
@@ -628,6 +629,16 @@ static bool menuStatusIs(const UiRect &r, const char *text, uint16_t col, uint16
 }
 
 /**
+ * @brief Whether MENU's strip chip reads @p text on a @p fill pill: the chip
+ *        is right-aligned to x 232, its text 6 px in and white.
+ */
+static bool menuChipIs(const char *text, uint16_t fill) {
+	const int w = gfxTextW(text, 1) + 12, x = GFX_W - UI_MARGIN - w;
+	return gfxBuffer()[(UI_STRIP_Y + UI_STRIP_H / 2) * GFX_W + x + 2] == fill &&
+	       fakeTextIs(x + 6, UI_STRIP_Y + (UI_STRIP_H - 7) / 2, text, C_ONACCENT, fill, 1);
+}
+
+/**
  * @brief MENU's EDT chip tracks reception, and BEEP's row acknowledges a tap.
  *
  * BEEP was reported as showing no reaction. The command was going out -- the
@@ -656,6 +667,8 @@ static void testMenuBeepRow() {
 	          menuStatusIs(beep, "DISARMED", C_DIM, C_PANEL));
 	fakeDumpFrame("shot_menu_edt_on.ppm");
 
+	checkTrue("EDT frames: the chip reads EDT ON, green", menuChipIs(UI_MENU_EDT_ON, C_GREEN));
+
 	// Letting telemetry expire has to change the chip, or the colour is
 	// decoration rather than a readout.
 	EscTelemetry none;
@@ -664,7 +677,34 @@ static void testMenuBeepRow() {
 	frames(2);
 	checkTrue("EDT chip changes when telemetry stops",
 	          fakeRegionHash(120, UI_STRIP_Y, 120, UI_STRIP_H) != chipOn);
+	// No ESC is the normal state of a bench with nothing plugged in: no
+	// alarm red, a dim NO ESC.
+	checkTrue("no eRPM: the chip reads NO ESC, dim", menuChipIs(UI_MENU_NO_ESC, C_GRID));
+	checkTrue("and not EDT OFF in red", !menuChipIs(UI_MENU_EDT_OFF, C_RED));
+	fakeDumpFrame("shot_menu_no_esc.ppm");
+
+	// An ESC that answers eRPM and sends no EDT: that is the red state.
+	EscTelemetry rpmOnly;
+	memset(&rpmOnly, 0, sizeof(rpmOnly));
+	rpmOnly.erpm = 84210;
+	rpmOnly.lastRpmMs = millis();
+	rpmOnly.packetRate = 998;
+	fakeSetTelemetry(&rpmOnly);
+	frames(2);
+	checkTrue("eRPM without EDT: the chip reads EDT OFF, red", menuChipIs(UI_MENU_EDT_OFF, C_RED));
 	fakeDumpFrame("shot_menu_edt_off.ppm");
+	// 500 ms (ESC_LINK_STALE_MS) after the last eRPM frame it is NO ESC again.
+	rpmOnly.lastRpmMs = millis();
+	fakeSetTelemetry(&rpmOnly);
+	frameAfter(ESC_LINK_STALE_MS - 1);
+	checkTrue("eRPM 499 ms old: still EDT OFF", menuChipIs(UI_MENU_EDT_OFF, C_RED));
+	frameAfter(1);
+	checkTrue("eRPM 500 ms old: NO ESC", menuChipIs(UI_MENU_NO_ESC, C_GRID));
+	// The widest text the chip shows keeps clear of the strip's caption,
+	// `GP29  1200 KBIT/S` at its widest: 17 characters from x 8.
+	checkTrue("the widest chip clears the widest caption",
+	          UI_MARGIN + gfxTextW("GP29  1200 KBIT/S", 1) + 4 <=
+	              GFX_W - UI_MARGIN - gfxTextW(UI_MENU_EDT_OFF, 1) - 12);
 	feedLiveTelemetry();
 	frames(2);
 	checkTrue("and changes back when it returns",
@@ -2710,19 +2750,35 @@ static void testBoardRow() {
 	fakeRelease(); frames(2);
 	checkInt("holding it does nothing either", settings()->boardId, recorded);
 
-	// The scroll range. 5 captions of 20 px and 10 rows at a 50 px pitch are
-	// 600 px of content; the viewport, y 40 to 239, is 200 px, so the list
-	// scrolls 0 px to 400 px. Dragged past its end, it stops at 400 px, with
-	// BUILT FOR's row, content y 550, at y 40 + 550 - 400 = 190.
+	// The scroll range. 5 captions of 20 px and 11 rows at a 50 px pitch are
+	// 650 px of content; the viewport, y 40 to 239, is 200 px, so the list
+	// scrolls 0 px to 450 px. Dragged past its end, it stops at 450 px, with
+	// BUILT FOR's row, content y 550, at y 40 + 550 - 450 = 140 and VERSION's,
+	// content y 600, at y 190.
 	const UiRect save0 = ctlRect(UI_FIX(SettingsCtl::Save));
 	settingsDrag(-180);
 	settingsDrag(-180);
 	settingsDrag(-180);
-	checkInt("at the end of the list, BUILT FOR's row is at y 190",
-	         ctlRect(UI_ROW(SettingsRowId::BuiltFor, Row)).y, 190);
+	checkInt("at the end of the list, BUILT FOR's row is at y 140",
+	         ctlRect(UI_ROW(SettingsRowId::BuiltFor, Row)).y, 140);
+	checkInt("and VERSION's, the last, at y 190",
+	         ctlRect(UI_ROW(SettingsRowId::Version, Row)).y, 190);
 	settingsDrag(-180);
 	checkInt("and a drag past the end does not move it",
-	         ctlRect(UI_ROW(SettingsRowId::BuiltFor, Row)).y, 190);
+	         ctlRect(UI_ROW(SettingsRowId::Version, Row)).y, 190);
+	// The rows' text: label at x 8, value right-aligned to x 232, both
+	// 18 px down the 44 px row.
+	checkTrue("BUILT FOR names the board, right-aligned",
+	          fakeTextIs(232 - gfxTextW(g_board->label, 1), 140 + 18, g_board->label,
+	                     C_GRID, C_BG, 1));
+	checkTrue("VERSION's label", fakeTextIs(UI_MARGIN, 190 + 18, "VERSION", C_DIM, C_BG, 1));
+	checkTrue("VERSION reads the firmware's version, " FW_VERSION_STRING,
+	          fakeTextIs(232 - gfxTextW(FW_VERSION_STRING, 1), 190 + 18, FW_VERSION_STRING,
+	                     C_GRID, C_BG, 1));
+	checkTrue("VERSION has no control",
+	          !ctlPresent(UI_ROW(SettingsRowId::Version, Minus)) &&
+	          !ctlPresent(UI_ROW(SettingsRowId::Version, Toggle)) &&
+	          !ctlEnabled(UI_ROW(SettingsRowId::Version, Row)));
 	const UiRect save1 = ctlRect(UI_FIX(SettingsCtl::Save));
 	checkTrue("HOLD TO SAVE does not move with the list, at y 268",
 	          save1.y == 268 && save1.y == save0.y && save1.h == save0.h);
@@ -2935,6 +2991,130 @@ static void testScreenChangeResidue() {
 	int after = fakeCountColour(C_CYAN);
 	checkTrue("no SETTINGS cyan survives on the tester screen",
 	          after <= before);
+}
+
+
+/**
+ * @brief The tester's top right names whose voltage it shows, and HOLD TO ARM
+ *        looks like what it does while a USB host holds the card.
+ *
+ * The large voltage is the board's own battery, not the ESC's pack: BOARD
+ * under the DShot rate's column says so. While a host holds the card ARM
+ * does not act (the control table and handleMainTouch() agree); it is drawn
+ * disabled, and the throttle track says why.
+ */
+static void testTesterBoardAndCard() {
+	section("Tester: BOARD names the voltage; ARM while a USB host holds the card");
+
+	fakeFlashClear();
+	settingsLoad();
+	uiInit();
+	feedLiveTelemetry();
+	frames(4);
+	checkTrue("BOARD at x 140, y 14, dim on the status bar",
+	          fakeTextIs(140, 14, "BOARD", C_DIM, C_PANEL, 1));
+	// The voltage, scale 2 from y 7, is right-aligned to x 236. Between
+	// BOARD's last column, x 168, and the voltage's first, at least 4 px of
+	// panel: no glyph of either runs into the other.
+	int vx = 169;
+	while (vx < GFX_W) {
+		bool ink = false;
+		for (int y = 7; y < 21; y++) ink |= gfxBuffer()[y * GFX_W + vx] != C_PANEL;
+		if (ink) break;
+		vx++;
+	}
+	checkTrue("the voltage starts 4 px or more after BOARD", vx >= 169 + 4 && vx < GFX_W);
+	checkTrue("BOARD keeps 4 px from 9.90 V, the widest voltage",
+	          140 + gfxTextW("BOARD", 1) + 4 <= GFX_W - 4 - gfxTextW("9.90V", 2));
+
+	const UiRect arm = ctlRect(UI_FIX(TesterCtl::Arm));
+	const UiRect thr = ctlRect(UI_FIX(TesterCtl::Throttle));
+	const int tx = thr.x + 8, ty = thr.y + (thr.h - 7) / 2;
+	auto armFill = [&]() { return gfxBuffer()[(arm.y + arm.h / 2) * GFX_W + arm.x + 4]; };
+	const int lx = arm.x + (arm.w - gfxTextW("HOLD TO ARM", 1)) / 2, ly = arm.y + (arm.h - 7) / 2;
+	checkTrue("card free: HOLD TO ARM on the panel fill", armFill() == C_PANEL &&
+	          fakeTextIs(lx, ly, "HOLD TO ARM", C_TEXT, C_PANEL, 1));
+	checkTrue("and the track reads ARM TO ENABLE", fakeTextIs(tx, ty, "ARM TO ENABLE", C_DIM, C_PANEL, 1));
+
+	fakeMscSet(MscState::Serving, 0);
+	frames(2);
+	checkTrue("card on USB: ARM does not act", !ctlEnabled(UI_FIX(TesterCtl::Arm)));
+	checkTrue("and is drawn so: an outline with no fill", armFill() == C_BG);
+	checkTrue("its label in the outline's grey", fakeTextIs(lx, ly, "HOLD TO ARM", C_GRID, C_BG, 1));
+	checkTrue("the track says why: " UI_TESTER_CARD_TEXT,
+	          fakeTextIs(tx, ty, UI_TESTER_CARD_TEXT, C_AMBER, C_PANEL, 1));
+	checkInt("26 characters, 155 px", gfxTextW(UI_TESTER_CARD_TEXT, 1), 155);
+	checkTrue("ending 8 px or more inside the track",
+	          tx + gfxTextW(UI_TESTER_CARD_TEXT, 1) <= thr.x + thr.w - 8);
+	fakeDumpFrame("shot_tester_card_held.ppm");
+	// A press on it stays a press on nothing: no pressed look either.
+	fakePress(arm.x + arm.w / 2, arm.y + arm.h / 2); frames(1);
+	checkTrue("a press draws no pressed frame", armFill() == C_BG &&
+	          gfxBuffer()[arm.y * GFX_W + arm.x + arm.w / 2] == C_GRID);
+	fakeRelease(); frames(2);
+	// The handover's first state holds the card too.
+	fakeMscSet(MscState::Handover, 0);
+	frames(2);
+	checkTrue("handing over: still disabled", armFill() == C_BG &&
+	          fakeTextIs(tx, ty, UI_TESTER_CARD_TEXT, C_AMBER, C_PANEL, 1));
+
+	fakeMscSet(MscState::Idle, 0);
+	frames(2);
+	checkTrue("card back: HOLD TO ARM live again", armFill() == C_PANEL &&
+	          fakeTextIs(lx, ly, "HOLD TO ARM", C_TEXT, C_PANEL, 1));
+	checkTrue("and the track reads ARM TO ENABLE again",
+	          fakeTextIs(tx, ty, "ARM TO ENABLE", C_DIM, C_PANEL, 1));
+	holdToArm();
+	checkTrue("and it arms", uiArmed());
+	pressId(UI_FIX(TesterCtl::Arm));
+	fakeRelease(); frames(2);
+}
+
+/**
+ * @brief The splash: the firmware's version under the board's name, and the
+ *        ESC pin named while DShot starts on it.
+ */
+static void testSplash() {
+	section("Splash: the version and the ESC pin");
+
+	fakeFlashClear();
+	settingsLoad();
+	uiDrawSplash();
+	checkTrue("the board's name keeps its line, y 248",
+	          fakeTextCentredIs(248, g_board->label, C_GRID, C_BG, 1));
+	checkTrue("VERSION " FW_VERSION_STRING " under it, y 260",
+	          fakeTextCentredIs(260, "VERSION " FW_VERSION_STRING, C_GRID, C_BG, 1));
+	checkTrue("the credit keeps its line", fakeTextCentredIs(216, "JuWi made", C_CYAN, C_BG, 2));
+	char want[48];
+	snprintf(want, sizeof(want), UI_SPLASH_PIN_FMT, (unsigned)settings()->dshotPin);
+	checkInt("the defaults put the ESC on the board's default pin",
+	         settings()->dshotPin, g_board->defaultDshotPin);
+	if (g_board->defaultDshotPin == 0)
+		checkStr("the warning names the ESC pin", want, "UNPLUG ANY SERVO FROM GP0 NOW");
+	checkTrue("in amber, y 288", fakeTextCentredIs(288, want, C_AMBER, C_BG, 1));
+	int x0 = 0, x1 = 0;
+	checkTrue("the warning stays 8 px or more from both edges",
+	          fakeInkExtent(288, 7, C_BG, &x0, &x1) && x0 >= UI_MARGIN && x1 < GFX_W - UI_MARGIN);
+	checkTrue("and nothing else is drawn on its rows or the 20 px above",
+	          fakeInkExtent(268, 20, C_BG, &x0, &x1) == false);
+	fakeDumpFrame("shot_splash.ppm");
+
+	// The pin follows the settings: the ESC on the other free GPIO.
+	const uint8_t other = settingsNextPin(settings()->dshotPin, +1);
+	checkTrue("the board offers another pin", other != settings()->dshotPin);
+	settings()->dshotPin = other;
+	uiDrawSplash();
+	snprintf(want, sizeof(want), UI_SPLASH_PIN_FMT, (unsigned)other);
+	checkTrue("ESC PIN moved: the warning names the new pin",
+	          fakeTextCentredIs(288, want, C_AMBER, C_BG, 1));
+	snprintf(want, sizeof(want), UI_SPLASH_PIN_FMT, 29u);
+	checkTrue("a two-digit pin fits too: 30 characters, 179 px",
+	          gfxTextW(want, 1) == 179 && gfxTextW(want, 1) <= GFX_W - 2 * UI_MARGIN);
+
+	fakeFlashClear();
+	settingsLoad();
+	uiInit();
+	frames(2);
 }
 
 void runUiTests() {
@@ -3388,6 +3568,12 @@ void runUiTests() {
 		fakeRelease(); frames(3);
 		checkInt("1000 ms commits and verifies", fakeEscByte(0x1B), want);
 		checkControlTable("AM32 write result");
+		// No card: WRITE VERIFIED fits at scale 2, and the next step is named.
+		checkTrue("no card: WRITE VERIFIED at scale 2, y 140",
+		          fakeTextCentredIs(140, "WRITE VERIFIED", C_TEXT, C_BG, 2));
+		checkTrue("then " AM32_UI_POWER_CYCLE ", y 170",
+		          fakeTextCentredIs(170, AM32_UI_POWER_CYCLE, C_TEXT, C_BG, 1));
+		checkInt("32 characters, 191 px", gfxTextW(AM32_UI_POWER_CYCLE, 1), 191);
 		fakeDumpFrame("shot_am32_written.ppm");
 
 		tapId(UI_FIX(Am32Ctl::Ok));                      // dismiss the result
@@ -3415,6 +3601,13 @@ void runUiTests() {
 		fakeRelease(); frames(3);
 		checkTrue("a card that refuses the backup: nothing written to the ESC",
 		          fakeEscByte(0x1B) != want2 && strcmp(s_status, "NO BACKUP ON THE CARD: NOT WRITTEN") == 0);
+		// 34 characters: 406 px at scale 2, so scale 1, and no power cycle
+		// for a write that did not happen.
+		int rx0 = 0, rx1 = 0;
+		checkTrue("the refusal, at scale 1, inside the panel",
+		          fakeTextCentredIs(140, "NO BACKUP ON THE CARD: NOT WRITTEN", C_TEXT, C_BG, 1) &&
+		          fakeInkExtent(140, 40, C_BG, &rx0, &rx1) && rx0 >= UI_MARGIN && rx1 < GFX_W - UI_MARGIN);
+		checkTrue("and no power-cycle line", !fakeInkExtent(165, 20, C_BG, &rx0, &rx1));
 		tapId(UI_FIX(Am32Ctl::Ok));
 		fakeFatWriteProtect(false);
 		pressId(UI_FIX(Am32Ctl::Write));
@@ -3425,6 +3618,19 @@ void runUiTests() {
 		          gotLen == (int32_t)wantLen && memcmp(gotText, wantText, wantLen) == 0);
 		checkInt("then the write", fakeEscByte(0x1B), want2);
 		checkTrue("the result names the backup", strcmp(s_status, "WRITE VERIFIED. BACKUP AM001") == 0);
+		// With the backup named the result is 28 characters: 334 px at
+		// scale 2, which ran off both edges of the 240 px panel. Every lit
+		// pixel of the result's band stays 8 px or more inside the edges.
+		int ex0 = 0, ex1 = 0;
+		checkTrue("the result's band has text", fakeInkExtent(140, 40, C_BG, &ex0, &ex1));
+		checkTrue("and it stays inside the panel's 8 px margins",
+		          ex0 >= UI_MARGIN && ex1 < GFX_W - UI_MARGIN);
+		checkTrue("WRITE VERIFIED. BACKUP AM001 at scale 1, y 140: 167 px",
+		          gfxTextW("WRITE VERIFIED. BACKUP AM001", 1) == 167 &&
+		          fakeTextCentredIs(140, "WRITE VERIFIED. BACKUP AM001", C_TEXT, C_BG, 1));
+		checkTrue("then " AM32_UI_POWER_CYCLE,
+		          fakeTextCentredIs(170, AM32_UI_POWER_CYCLE, C_TEXT, C_BG, 1));
+		fakeDumpFrame("shot_am32_written_backup.ppm");
 		tapId(UI_FIX(Am32Ctl::Ok));
 		tapId(UI_FIX(Am32Ctl::EditPlus));
 		pressId(UI_FIX(Am32Ctl::Write));
@@ -3586,6 +3792,8 @@ void runUiTests() {
 	testArmedSaveRefused();
 	testPressedLookClears();
 	testScreenChangeResidue();
+	testTesterBoardAndCard();
+	testSplash();
 
 	// Back to a known state for anything that runs after this.
 	fakeFlashClear();

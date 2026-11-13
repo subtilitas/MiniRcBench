@@ -29,7 +29,8 @@ Ursache in der Firmware. Melde ihn wie unter
 
 <img src="img/tester-disarmed.png" width="240" alt="Keine Telemetrie">
 
-Auf dem Signalkabel antwortet nichts. Prüfe in dieser Reihenfolge:
+Auf dem Signalkabel antwortet nichts, und das Feld unter dem Titel des
+Bildschirms `MENU` zeigt `NO ESC`. Prüfe in dieser Reihenfolge:
 
 1. **Falscher Pin.** Vergleiche **MENU → SETTINGS → ESC PIN** damit, wo das Kabel
    steckt. Die `LINK`-Zeile auf diesem Bildschirm ist live. Eine Paketrate
@@ -85,6 +86,17 @@ Von einem Nutzer gemeldet in
 Projekt nicht nachgestellt. Mit den ESCs RAZOR32 und EXUAV 70A unter
 BLHeli_32 32.6 schließt der ESC seine Initialisierung nicht ab, und der Piepton
 bei Gas null fehlt. Die Ursache ist unbekannt. Ein Behelf ist nicht bekannt.
+
+---
+
+## `HOLD TO ARM` ist nur ein Umriss und tut nichts
+
+<img src="img/tester-card-held.png" width="240" alt="HOLD TO ARM als Umriss, der Balken zeigt EJECT THE USB DRIVE TO ARM">
+
+Der Gasbalken zeigt `EJECT THE USB DRIVE TO ARM`: Ein Computer hält die
+SD-Karte über USB (**MENU → SD LOG → USB DRIVE**), und Scharfschalten ist
+gesperrt, bis er sie freigibt. Wirf das Laufwerk am Computer aus oder drücke
+`EJECT` in SD LOG. Siehe [SD-Aufzeichnung](SD-Aufzeichnung).
 
 ---
 
