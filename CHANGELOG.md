@@ -53,7 +53,7 @@ protocol.
 - SERVO TESTER: with SERVO SUPPLY at `GP28` or `GP29`, a second strip line
   `GP28 SUPPLY STAYS OFF HERE.` in amber; while SAFE with one servo, the
   readout's hint `TWO SERVOS:` `SET > SERVOS`.
-- AM32 CONFIG: `POWER-CYCLE THE ESC TO RUN THEM.` under a verified write.
+- AM32 CONFIG: `POWER-CYCLE THE ESC TO APPLY.` under a verified write.
 - Host tests for each of these texts, their pixel widths and their states,
   and `fakeTextIs()`, `fakeTextCentredIs()` and `fakeInkExtent()` in
   `test/fakes.h`, which check drawn text against a redraw and the extent of

@@ -824,7 +824,7 @@ decoding.
 Writing needs a 1 s hold on `HOLD TO WRITE`. After the write the firmware
 waits `AM32_WRITE_SETTLE_MS` (300 ms), reads the block back, and compares it
 byte for byte. It shows `WRITE VERIFIED` only on a full match, with
-`POWER-CYCLE THE ESC TO RUN THEM.` under it: the bench sends no command that
+`POWER-CYCLE THE ESC TO APPLY.` under it: the bench sends no command that
 starts the ESC's firmware, and whether the ESC runs the new settings without
 a power cycle is not tested. On a mismatch it shows the first differing byte:
 `DIFF @xx: GOT xx WANT xx`. A result of up to 18 characters is drawn at

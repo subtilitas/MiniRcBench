@@ -92,7 +92,7 @@ changes the button reads `NO CHANGES`.
 
 After the write the firmware waits 300 ms, **reads the settings back and
 compares them** byte by byte. It does not rely on the ESC's acknowledgement.
-A match shows `WRITE VERIFIED`, with `POWER-CYCLE THE ESC TO RUN THEM.` under
+A match shows `WRITE VERIFIED`, with `POWER-CYCLE THE ESC TO APPLY.` under
 it. A mismatch shows the first differing byte as
 `DIFF @xx: GOT xx WANT xx`. A result longer than 18 characters is drawn in
 the small font, on two lines where it needs them, so it stays on the
@@ -109,7 +109,7 @@ and a checksum line; nothing reads it back yet. The ESC is written only once
 the backup is on the card. A blackbox log that runs when the editor opens
 stops.
 
-<img src="img/am32-written-backup.png" width="240" alt="Write verified, with the backup named and the line POWER-CYCLE THE ESC TO RUN THEM.">
+<img src="img/am32-written-backup.png" width="240" alt="Write verified, with the backup named and the line POWER-CYCLE THE ESC TO APPLY.">
 
 Most AM32 settings take effect at the next ESC power-up, hence the line
 under the result. This is AM32 behaviour; the tester does not check it.

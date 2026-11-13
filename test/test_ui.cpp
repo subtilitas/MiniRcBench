@@ -3573,7 +3573,7 @@ void runUiTests() {
 		          fakeTextCentredIs(140, "WRITE VERIFIED", C_TEXT, C_BG, 2));
 		checkTrue("then " AM32_UI_POWER_CYCLE ", y 170",
 		          fakeTextCentredIs(170, AM32_UI_POWER_CYCLE, C_TEXT, C_BG, 1));
-		checkInt("32 characters, 191 px", gfxTextW(AM32_UI_POWER_CYCLE, 1), 191);
+		checkInt("29 characters, 173 px", gfxTextW(AM32_UI_POWER_CYCLE, 1), 173);
 		fakeDumpFrame("shot_am32_written.ppm");
 
 		tapId(UI_FIX(Am32Ctl::Ok));                      // dismiss the result
