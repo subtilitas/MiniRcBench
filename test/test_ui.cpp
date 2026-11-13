@@ -1221,6 +1221,10 @@ static void testSettingsSave() {
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
 	checkTrue("BACK from SETTINGS reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
+	// MENU opens at 0 px: the SETTINGS row, the sixth, is whole and its
+	// status shows with no drag.
+	checkInt("MENU's SETTINGS row is whole at 0 px, no drag",
+	         ctlRect(UI_ROW(uiMenuRowOf(&UI_SETTINGS), Row)).h, 40);
 	checkTrue("MENU's SETTINGS row reads UNSAVED in amber",
 	          menuStatusIs(ctlRect(menuRow(&UI_SETTINGS)), "UNSAVED", C_AMBER, C_PANEL));
 	fakeDumpFrame("shot_menu_unsaved.ppm");
@@ -2484,11 +2488,10 @@ static void testHitBoundaries() {
 	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 
 	// MENU's rows are 40 px tall at a 42 px pitch: BEEP ends where the gap
-	// above AM32 CONFIG starts, and SD LOG where the gap above SETTINGS
-	// starts. A tap in either gap must hit neither neighbour -- an inclusive
+	// above AM32 CONFIG starts, and SETTINGS where the gap below it starts. A tap in either gap must hit neither neighbour -- an inclusive
 	// far edge would make adjacent rows overlap.
 	const UiRect beep  = ctlRect(menuRow(&UI_BEEP));
-	const UiRect sdlog = ctlRect(menuRow(&UI_SDLOG));
+	const UiRect settingsRow = ctlRect(menuRow(&UI_SETTINGS));
 	int beeps = fakeBeepRequests();
 	tap(beep.x + beep.w / 2, beep.y + beep.h);
 	frames(2);
@@ -2496,9 +2499,9 @@ static void testHitBoundaries() {
 	checkTrue("and opens nothing", uiCurrentScreen() == UiScreenId::Menu);
 	tap(beep.x + beep.w, beep.y + beep.h / 2);
 	checkInt("one past BEEP's right edge sends nothing", fakeBeepRequests(), beeps);
-	tap(sdlog.x + sdlog.w / 2, sdlog.y + sdlog.h);
+	tap(settingsRow.x + settingsRow.w / 2, settingsRow.y + settingsRow.h);
 	frames(2);
-	checkTrue("a tap in the SD LOG/SETTINGS gap left MENU up",
+	checkTrue("a tap in the gap below SETTINGS left MENU up",
 	          uiCurrentScreen() == UiScreenId::Menu);
 	tap(beep.x + beep.w / 2, beep.y + beep.h - 1);
 	checkInt("BEEP's last pixel row is BEEP", fakeBeepRequests(), beeps + 1);
@@ -2550,11 +2553,11 @@ static void testMenuDestinations() {
 	uint8_t rows = 0;
 	uiMenuEntries(&rows);
 	checkInt("MENU has seven rows", rows, 7);
-	checkTrue("BEEP, AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO, SD LOG, SETTINGS, in that order",
+	checkTrue("BEEP, AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO, SETTINGS, SD LOG, in that order",
 	          uiMenuRowOf(&UI_BEEP) == 0 && uiMenuRowOf(&UI_AM32) == 1 &&
 	          uiMenuRowOf(&UI_SERVO) == 2 && uiMenuRowOf(&UI_KST) == 3 &&
-	          uiMenuRowOf(&UI_HITEC) == 4 && uiMenuRowOf(&UI_SDLOG) == 5 &&
-	          uiMenuRowOf(&UI_SETTINGS) == 6);
+	          uiMenuRowOf(&UI_HITEC) == 4 && uiMenuRowOf(&UI_SETTINGS) == 5 &&
+	          uiMenuRowOf(&UI_SDLOG) == 6);
 
 	// A pixel inside each row, clear of its label: the panel fill of a row.
 	// It is 5 px in from the left edge and 8 px down from the top.
@@ -2919,6 +2922,7 @@ static void testPressedLookClears() {
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
 	checkTrue("BACK from SD LOG reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
+	menuRow(&UI_SDLOG);                       // MENU opens at 0 px: drag to the row again
 	checkTrue("and the row is at rest",
 	          fakeRegionHash(log.x, log.y, log.w, log.h) == idle);
 

@@ -404,8 +404,8 @@ tester. Every tool's **BACK** returns to MENU.
 | **SERVO TESTER** | the signal pins, `GP0+1`; `PINS BUSY` | Opens the servo tester. See [Servo tester](#servo-tester) |
 | **KST SERVO** | the ESC pin, `GP0`; `PINS BUSY` | Opens the KST servo programmer. See [KST servo programming](#kst-servo-programming) |
 | **HITEC SERVO** | the ESC pin, `GP0`; `PINS BUSY` | Opens the Hitec servo programmer. See [Hitec servo programming](#hitec-servo-programming) |
-| **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a USB host holds the card | Opens the logging status. See below |
 | **SETTINGS** | `UNSAVED` while the live settings differ from flash, else nothing; `PINS BUSY` while the pin claim is not Free, drawn disabled | Opens SETTINGS: the tester, the wiring, the KST servo supply, the display. See below |
+| **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a USB host holds the card | Opens the logging status. See below |
 
 - **BEEP flash**: a tap fills the row for 350 ms (`BEEP_FLASH_MS`): white
   with `SENT`, amber with `REFUSED`. Without it a 6 ms command is not visible
@@ -417,8 +417,10 @@ tester. Every tool's **BACK** returns to MENU.
   the DShot pump runs again, the row reads `PINS BUSY` in amber and a tap
   opens nothing.
 - **Rows**: six rows fit the screen without scrolling. MENU holds seven, so
-  it scrolls by 36 px, with a 3 px scroll bar at x 235: SETTINGS shows 6 px
-  until MENU is dragged up, and takes a tap only then.
+  it scrolls by 36 px, with a 3 px scroll bar at x 235. SETTINGS is the sixth
+  row, whole and tappable without a drag, so its `UNSAVED` status stays in
+  view. SD LOG, the seventh, shows 6 px until MENU is dragged up, and takes
+  a tap only then.
 
 **SD LOG screen**
 
@@ -662,7 +664,8 @@ driver in `src/sdio/`, which is not tested on hardware. The board cannot use
 hardware SPI for the card: its SD clock is on GP19, which is SPI0 TX in the
 pin mux.
 
-Open the screen with **MENU → SD LOG**. By default arming starts a log and
+Open the screen with **MENU → SD LOG**, the seventh row: drag MENU up 36 px
+first. By default arming starts a log and
 disarming stops it (`SD_LOG_AUTO_ON_ARM`). Auto-stop ends only a log that
 auto-start began. **START/STOP** is always available.
 

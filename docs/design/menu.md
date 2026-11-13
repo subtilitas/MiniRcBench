@@ -682,6 +682,9 @@ Tests slice C adds:
   BACK once and checks that it lands on the tester; slice C adds a second
   tap, MENU's BACK, changes that check to MENU and then the tester, and
   keeps the check that arming is refused while the host holds the card.
+- The registry's last two rows are SETTINGS, the sixth, then SD LOG, the
+  seventh. At 240 × 320 six rows fit, so SETTINGS is whole at 0 px and its
+  `UNSAVED` status stays in view; SD LOG takes a 36 px drag.
 - Every registry entry: opened from MENU, BACK lands on MENU, through the
   unplug page for SERVO and KST.
 - MENU: disarms on open; BEEP sent and refused flash on the row; no KST row

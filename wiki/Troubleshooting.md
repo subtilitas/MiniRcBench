@@ -88,9 +88,9 @@ missing. The cause is unknown. No workaround is known.
 <img src="img/tester-card-held.png" width="240" alt="HOLD TO ARM drawn as an outline, the bar reading EJECT THE USB DRIVE TO ARM">
 
 The throttle bar reads `EJECT THE USB DRIVE TO ARM`: a computer holds the SD
-card over USB (**MENU → SD LOG → USB DRIVE**), and arming is refused until it
-lets go. Eject the drive on the computer, or press `EJECT` on SD LOG. See
-[SD Logging](SD-Logging).
+card over USB (**MENU → SD LOG → USB DRIVE**; drag `MENU` up 36 px to reach
+SD LOG), and arming is refused until it lets go. Eject the drive on the
+computer, or press `EJECT` on SD LOG. See [SD Logging](SD-Logging).
 
 ---
 

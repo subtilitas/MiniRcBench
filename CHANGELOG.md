@@ -351,6 +351,13 @@ protocol.
 
 ### Changed
 
+- MENU lists SETTINGS as the sixth row and SD LOG as the seventh, a swap.
+  Six rows fit the 240 × 320 screen and the seventh needs a 36 px drag, so
+  SETTINGS, which holds the motor pole count, the throttle ceiling and the
+  pins, showed 6 px and its amber `UNSAVED` status was hidden after leaving
+  it. SD LOG's state shows on the tester's status bar (`REC`, `SD`, `NOSD`,
+  `SDERR`) and logging starts on arming, so it loses least below the fold.
+  Reaching SD LOG takes a 36 px drag of MENU.
 - MENU's EDT chip reads `NO ESC` on `C_GRID` while no eRPM frame has arrived
   for 500 ms, the normal state with no ESC connected. Red `EDT OFF` now means
   an ESC answers eRPM without EDT; green `EDT ON` is unchanged.
