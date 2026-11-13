@@ -55,6 +55,7 @@
  * - @ref st7789.h — panel init and DMA blitter
  * - @ref touch.h — capacitive touch, CST328
  * - @ref sd_log.h — blackbox logging to the microSD slot (core0)
+ * - @ref diag.h — the restart reason and the uptime, shown on SETTINGS
  *
  * @warning This drives a real motor. Read the safety section of README.md
  *          before connecting anything with a propeller on it.
@@ -80,6 +81,7 @@
 #include "card_cache.h"
 #include "settings.h"
 #include "servo_supply.h"
+#include "diag.h"
 
 /** @brief UI frame interval in milliseconds (~40 fps). */
 #define UI_PERIOD_MS 25
@@ -99,6 +101,10 @@ void setup() {
 	gpio_init(g_board->batEnPin);
 	gpio_set_dir(g_board->batEnPin, GPIO_OUT);
 	gpio_put(g_board->batEnPin, 1);
+
+	// The restart reason, read once: three register reads, before anything
+	// else touches the watchdog. SETTINGS shows it under DIAGNOSTICS. @see diag.h
+	diagCaptureRestart();
 
 	// USB, ours rather than the SDK's. stdio_init_all() would have brought up
 	// pico_stdio_usb, which owns the USB descriptors and cannot share the device

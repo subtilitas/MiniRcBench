@@ -4,9 +4,15 @@
 // the stored board, and the board is detected rather than stored now. The stub
 // stays because plat.h includes this header, and fakes.cpp still defines the
 // symbol so the suite can assert that no save reboots.
+//
+// watchdog_caused_reboot() and watchdog_enable_caused_reboot() are what
+// diag.cpp reads at boot; fakes.cpp returns what a test set with
+// fakeSetWatchdogCaused().
 #pragma once
 #include <stdint.h>
 
 extern "C" {
 void watchdog_reboot(uint32_t pc, uint32_t sp, uint32_t delay_ms);
+bool watchdog_caused_reboot(void);
+bool watchdog_enable_caused_reboot(void);
 }

@@ -20,6 +20,7 @@
 #include "hardware/i2c.h"
 #include "hardware/spi.h"
 #include "hardware/uart.h"
+#include "hardware/structs/powman.h"
 #include "gfx.h"
 #include "theme.h"
 #include "st7789.h"
@@ -539,6 +540,23 @@ static int g_reboots = 0;
 int fakeRebootCount() { return g_reboots; }
 
 extern "C" void watchdog_reboot(uint32_t, uint32_t, uint32_t) { g_reboots++; }
+
+// ---------------------------------------------------------------------------
+// Restart reason
+//
+// The power manager's CHIP_RESET register and the two watchdog queries that
+// diagCaptureRestart() reads. They read 0 and false until a test sets them.
+// ---------------------------------------------------------------------------
+powman_hw_t g_fakePowman = {};
+static bool g_wdCaused = false, g_wdEnableCaused = false;
+
+void fakeSetChipReset(uint32_t v) { g_fakePowman.chip_reset = v; }
+void fakeSetWatchdogCaused(bool caused, bool enableCaused) {
+	g_wdCaused = caused;
+	g_wdEnableCaused = enableCaused;
+}
+extern "C" bool watchdog_caused_reboot(void) { return g_wdCaused; }
+extern "C" bool watchdog_enable_caused_reboot(void) { return g_wdEnableCaused; }
 
 // ---------------------------------------------------------------------------
 // Region fingerprint

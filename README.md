@@ -404,7 +404,7 @@ tester. Every tool's **BACK** returns to MENU.
 | **SERVO TESTER** | the signal pins, `GP0+1`; `PINS BUSY` | Opens the servo tester. See [Servo tester](#servo-tester) |
 | **KST SERVO** | the ESC pin, `GP0`; `PINS BUSY` | Opens the KST servo programmer. See [KST servo programming](#kst-servo-programming) |
 | **HITEC SERVO** | the ESC pin, `GP0`; `PINS BUSY` | Opens the Hitec servo programmer. See [Hitec servo programming](#hitec-servo-programming) |
-| **SETTINGS** | `UNSAVED` while the live settings differ from flash, else nothing; `PINS BUSY` while the pin claim is not Free, drawn disabled | Opens SETTINGS: the tester, the wiring, the KST servo supply, the display. See below |
+| **SETTINGS** | `UNSAVED` while the live settings differ from flash, else nothing; `PINS BUSY` while the pin claim is not Free, drawn disabled | Opens SETTINGS: the tester, the wiring, the KST servo supply, the display, the board, diagnostics. See below |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a USB host holds the card | Opens the logging status. See below |
 
 - **BEEP flash**: a tap fills the row for 350 ms (`BEEP_FLASH_MS`): white
@@ -466,8 +466,35 @@ a drag. A row is 44 px tall at a 50 px pitch. **MOTOR POLES** and
 | DISPLAY | **BACKLIGHT** | 16–255 in steps of 32. High contrast forces 255 while on |
 | BOARD | **BUILT FOR** | `RP2350-TOUCH-LCD-2.8`, the board the image is built for. Read-only |
 | BOARD | **VERSION** | The firmware version from `src/version.h`, for example `0.1.0`. Read-only |
+| DIAGNOSTICS | **LAST RESTART** | Why the chip last restarted, read once at boot: `POWER-ON`, `BROWN-OUT`, `RUN PIN`, `WATCHDOG`, `REBOOT`, `DEBUGGER`, `GLITCH`, `POWER-DOWN` or `UNKNOWN`. Amber for `BROWN-OUT`, `GLITCH` and `WATCHDOG`. Read-only. See below |
+| DIAGNOSTICS | **UPTIME** | Time since boot as hours, minutes and seconds, `H:MM:SS`, for example `1:02:03`. Redrawn once a second while its row shows. Read-only |
 
 The `-` and `+` buttons are 44 × 44 px and the toggles 94 × 44 px.
+
+**LAST RESTART.** `src/diag.cpp` reads three values first thing in
+`setup()`: the power manager's CHIP_RESET register
+(`powman_hw->chip_reset`), `watchdog_caused_reboot()` and
+`watchdog_enable_caused_reboot()` of the Pico SDK. A pure function,
+`diagDecodeRestart()`, turns them into the reason, in this order:
+
+| Read | Shows |
+|---|---|
+| `watchdog_enable_caused_reboot()` | `WATCHDOG` |
+| `watchdog_caused_reboot()` | `REBOOT`: a reboot through the watchdog without an armed watchdog, for example `watchdog_reboot()` |
+| HAD_POR | `POWER-ON` |
+| HAD_BOR | `BROWN-OUT` |
+| HAD_RUN_LOW | `RUN PIN` |
+| HAD_DP_RESET_REQ, HAD_RESCUE, HAD_HZD_SYS_RESET_REQ | `DEBUGGER` |
+| HAD_GLITCH_DETECT | `GLITCH` |
+| HAD_WATCHDOG_RESET_RSM, `_SWCORE`, `_POWMAN`, `_POWMAN_ASYNC` | `WATCHDOG` |
+| HAD_SWCORE_PD | `POWER-DOWN` |
+| none of these | `UNKNOWN` |
+
+The firmware arms no watchdog: nothing calls `watchdog_enable()`. So
+`WATCHDOG` can only appear once a watchdog is armed. Not tested on
+hardware: which reason a given restart shows on the board, after a UF2 copy
+and after a debugger's reset among them, is not recorded. The design note is
+[docs/design/diagnostics.md](docs/design/diagnostics.md).
 
 **Scrolling.** A drag scrolls the list when it starts off a control: on a
 section name, a row's label or value, or the gap between rows. After 6 px of
@@ -1282,7 +1309,9 @@ and every D series servo on the line takes a frame sent to ID 0.
 6. BACK from the list opens the leave page. LEAVE with `GP28` or `GP29` switches the
    supply off; the unplug page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`
    until the line closes, and its BACK is drawn disabled until then. With
-   `NONE`, LEAVE restarts the servo from its saved values. RESTART DSHOT
+   `NONE`, LEAVE restarts the servo from its saved values; the unplug page
+   reads `RELEASING THE PIN`, and its BACK is drawn disabled until
+   `UNPLUG THE SERVO.` shows. RESTART DSHOT
    returns to MENU. READ AGAIN on the leave page reads the servo again and
    keeps the pending changes.
 7. With `GP28` or `GP29` the supply is on only while the screen runs. A screen that
@@ -1485,6 +1514,7 @@ src/
   ui_registry.{h,cpp}   one line per MENU row, and the check that each row's text fits
   ui_menu.{h,cpp}       MENU and the BEEP action with its flash
   ui_settings.{h,cpp}   SETTINGS: sections, pins, bitrate, contrast, hold-to-save
+  diag.{h,cpp}          the restart reason, decoded from the reset registers, and the uptime
   ui_sdlog.{h,cpp}      SD LOG screen
   ui_widgets.{h,cpp}    shared header, buttons, rows and chips
   ui_list.{h,cpp}       the scrolling list: pixel scroll, axis lock, tap, swipe
@@ -1622,7 +1652,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.1%**: 8,449 of 8,704 lines in 52 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.1%**: 8,495 of 8,751 lines in 53 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

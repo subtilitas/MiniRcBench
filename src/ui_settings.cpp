@@ -33,6 +33,7 @@
 #include "board_pins.h"
 #include "servo_supply.h"
 #include "version.h"
+#include "diag.h"
 
 #include "plat.h"
 #include <stdio.h>
@@ -111,6 +112,8 @@ static bool s_repairKiss = false;
 
 /** @brief Cached LINK values, so the live row repaints only when it changes. */
 static int s_shownRate = -1, s_shownErr = -1;
+/** @brief The uptime second last drawn, so UPTIME repaints once a second. */
+static uint32_t s_shownUptime = 0;
 
 /** @brief This frame's touch. */
 static const TouchState *s_t = nullptr;
@@ -126,7 +129,7 @@ struct Item {
 	uint8_t                index; /**< The row's number for UI_ROW(); 0 for a caption. */
 };
 
-#define MAX_SECTIONS 12  /**< 2 core sections, up to 8 tool sections, DISPLAY and BOARD. */
+#define MAX_SECTIONS 12  /**< 2 core sections, up to 7 tool sections, DISPLAY, BOARD and DIAGNOSTICS. */
 #define MAX_ITEMS 40     /**< Captions and rows; items past it are not shown. */
 #define MAX_ROWS  24     /**< Rows; rows past it are not shown. */
 static Item    s_items[MAX_ITEMS];
@@ -288,11 +291,32 @@ static constexpr SettingsRow ROWS_BOARD[] = {
 	{ "VERSION",   SettingsKind::ReadOnly, VERSION_WIDEST,   versionValue, nullptr, nullptr, nullptr, nullptr },
 };
 
+/**
+ * @brief Why the chip last restarted, read at boot (diag.h). Amber for a
+ *        reason that points at a fault: brown-out, glitch, watchdog.
+ */
+static void restartValue(char *b, size_t n, uint16_t *c) {
+	RestartReason r = diagLastRestart();
+	snprintf(b, n, "%s", diagRestartText(r));
+	*c = r == RestartReason::BrownOut || r == RestartReason::Glitch ||
+	     r == RestartReason::Watchdog ? C_AMBER : C_GRID;
+}
+/** @brief Time since boot, `H:MM:SS`. */
+static void uptimeValue(char *b, size_t n, uint16_t *c) {
+	diagUptimeText(b, n, diagUptimeSeconds());
+	*c = C_GRID;
+}
+static constexpr SettingsRow ROWS_DIAG[] = {
+	{ "LAST RESTART", SettingsKind::ReadOnly, DIAG_RESTART_TEXT_WIDEST, restartValue, nullptr, nullptr, nullptr, nullptr },
+	{ "UPTIME",       SettingsKind::ReadOnly, DIAG_UPTIME_TEXT_WIDEST,  uptimeValue,  nullptr, nullptr, nullptr, nullptr },
+};
+
 #define COUNT(a) ((uint8_t)(sizeof(a) / sizeof((a)[0])))
 static constexpr SettingsSection SEC_TESTER  = { "ESC TESTER", ROWS_TESTER,  COUNT(ROWS_TESTER) };
 static constexpr SettingsSection SEC_WIRING  = { "WIRING",     ROWS_WIRING,  COUNT(ROWS_WIRING) };
 static constexpr SettingsSection SEC_DISPLAY = { "DISPLAY",    ROWS_DISPLAY, COUNT(ROWS_DISPLAY) };
 static constexpr SettingsSection SEC_BOARD   = { "BOARD",      ROWS_BOARD,   COUNT(ROWS_BOARD) };
+static constexpr SettingsSection SEC_DIAG    = { "DIAGNOSTICS", ROWS_DIAG,  COUNT(ROWS_DIAG) };
 
 /** @brief Characters of @p s. */
 static constexpr int textLen(const char *s) {
@@ -326,12 +350,16 @@ static_assert(settingsSectionFits(SEC_TESTER), "an ESC TESTER label runs into it
 static_assert(settingsSectionFits(SEC_WIRING), "a WIRING label runs into its value");
 static_assert(settingsSectionFits(SEC_DISPLAY), "a DISPLAY label runs into its value");
 static_assert(settingsSectionFits(SEC_BOARD), "a BOARD label runs into its value");
+static_assert(settingsSectionFits(SEC_DIAG), "a DIAGNOSTICS label runs into its value");
 
 // ---------------------------------------------------------------------------
 // geometry
 // ---------------------------------------------------------------------------
 
-/** @brief Lay the sections out: the core ones, each tool's in registry order, then DISPLAY and BOARD. */
+/**
+ * @brief Lay the sections out: the core ones, each tool's in registry order,
+ *        then DISPLAY, BOARD and DIAGNOSTICS.
+ */
 static void buildItems() {
 	const SettingsSection *secs[MAX_SECTIONS];
 	int ns = 0;
@@ -339,10 +367,11 @@ static void buildItems() {
 	secs[ns++] = &SEC_WIRING;
 	uint8_t n;
 	const UiMenuEntry *e = uiMenuEntries(&n);
-	for (uint8_t i = 0; i < n && ns < MAX_SECTIONS - 2; i++)
+	for (uint8_t i = 0; i < n && ns < MAX_SECTIONS - 3; i++)
 		if (e[i].screen->settings) secs[ns++] = e[i].screen->settings;
 	secs[ns++] = &SEC_DISPLAY;
 	secs[ns++] = &SEC_BOARD;
+	secs[ns++] = &SEC_DIAG;
 	memcpy(s_secs, secs, sizeof(secs[0]) * (size_t)ns);
 	s_secCount = (uint8_t)ns;
 
@@ -382,6 +411,15 @@ static UiRect partRect(const Item &it, UiPart part) {
 		case UiPart::Toggle: return UiRect{ BTN_M_X, y, TOGGLE_W, ROW_H };
 		default:             return UiRect{ 0, y, BTN_M_X, ROW_H };
 	}
+}
+
+/** @brief Whether any of the UPTIME row shows in the viewport. */
+static bool uptimeInView() {
+	for (uint8_t i = 0; i < s_itemCount; i++) {
+		if (s_items[i].row != &ROWS_DIAG[1]) continue;
+		return clipToView(partRect(s_items[i], UiPart::Row)).h > 0;
+	}
+	return false;
 }
 
 /** @brief Whether a cut control shows enough of itself to take a press. */
@@ -666,7 +704,13 @@ bool uiSettingsTick(const TouchState *t) {
 	// with a finger involved repaints.
 	if (s_t->down || s_t->released) s_redraw = true;
 
+	// UPTIME is the one value that moves on its own: a repaint each second
+	// while its row shows.
+	uint32_t up = diagUptimeSeconds();
+	if (up != s_shownUptime && uptimeInView()) s_redraw = true;
+
 	if (s_redraw) {
+		s_shownUptime = up;
 		s_redraw = false;
 		drawAll();
 	} else {

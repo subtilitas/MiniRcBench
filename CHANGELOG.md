@@ -44,6 +44,19 @@ protocol.
 
 ### Added
 
+- SETTINGS → DIAGNOSTICS, after BOARD, with two read-only rows. LAST RESTART
+  names why the chip last restarted: `POWER-ON`, `BROWN-OUT`, `RUN PIN`,
+  `WATCHDOG`, `REBOOT`, `DEBUGGER`, `GLITCH`, `POWER-DOWN` or `UNKNOWN`, in
+  amber for a brown-out, a glitch or a watchdog. `src/diag.cpp` reads the
+  power manager's CHIP_RESET register, `watchdog_caused_reboot()` and
+  `watchdog_enable_caused_reboot()` once at boot and decodes them with a pure
+  function. UPTIME shows the time since boot as `H:MM:SS`, redrawn once a
+  second while it shows. The firmware arms no watchdog. SETTINGS scrolls to
+  570 px instead of 450 px. Host tests: `runDiagTests` and
+  `testSettingsDiagnostics`, against fakes of the register and the two SDK
+  calls. Not tested on hardware
+  ([diagnostics.md](docs/design/diagnostics.md), which also lists the open
+  questions for a persistent fault log).
 - The firmware version on the device: `VERSION 0.1.0` on the splash under
   the board's name, and a read-only VERSION row in SETTINGS' BOARD section.
 - A splash line in amber that names the ESC pin, on which DShot starts when
@@ -575,6 +588,14 @@ protocol.
 
 ### Fixed
 
+- On the unplug page of SERVO TESTER, KST SERVO and HITEC SERVO, the
+  drawing reads `pinClaimUnplugDue()` once and takes both the page's text
+  and BACK's enabled flag from that read; the control table does the same.
+  Core1 can change the value between two reads, so one frame could show
+  `UNPLUG THE SERVO.` with BACK still drawn disabled.
+- README, Hitec leave steps: with SERVO SUPPLY at `NONE` the unplug page
+  reads `RELEASING THE PIN`, and BACK is drawn disabled until
+  `UNPLUG THE SERVO.` shows.
 - BACK on the unplug page of SERVO TESTER, KST SERVO and HITEC SERVO is
   drawn disabled, an outline with a grey label, until the job has let the
   pins go, as the control table already reported. It looked live and did
