@@ -4,7 +4,9 @@
 
 Diese Seite beschreibt, wie du einen ESC (Electronic Speed Controller,
 Motorregler) anschließt, einschaltest und zum ersten Mal scharfschaltest. Du
-brauchst zwei Kabel und einen Akku für den ESC.
+brauchst zwei Kabel und einen Akku für den ESC. Die Teile, das Adapterkabel
+und das Aufspielen der Firmware stehen vorher in
+[Einrichtung](Einrichtung).
 
 ---
 

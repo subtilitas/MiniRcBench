@@ -37,8 +37,8 @@ interface) code.
 
 > ### [User manual — the Wiki](https://github.com/subtilitas/MiniRcBench/wiki)
 >
-> **[English](https://github.com/subtilitas/MiniRcBench/wiki/First-Run)** ·
-> **[Deutsch](https://github.com/subtilitas/MiniRcBench/wiki/Erste-Schritte)**
+> **[English](https://github.com/subtilitas/MiniRcBench/wiki/Setup)** ·
+> **[Deutsch](https://github.com/subtilitas/MiniRcBench/wiki/Einrichtung)**
 >
 > Wiring, first run, every screen, telemetry, logging, AM32 configuration and
 > the servo tester, for someone using the board. This README describes the

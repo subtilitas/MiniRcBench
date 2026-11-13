@@ -3,7 +3,8 @@
 # First Run
 
 This page covers wiring an ESC (electronic speed controller), powering up, and
-the first arm. You need two wires and a battery for the ESC.
+the first arm. You need two wires and a battery for the ESC. For the parts,
+the adapter cable and installing the firmware, see [Setup](Setup) first.
 
 ---
 

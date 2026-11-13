@@ -14,7 +14,8 @@ RP2350-Touch-LCD-2, use
 [DshotDisplay](https://github.com/subtilitas/DshotDisplay).
 
 To reflash: hold **BOOT**, tap **RESET**, release **BOOT**. The board appears
-as a USB (Universal Serial Bus) drive whatever firmware it holds.
+as a USB (Universal Serial Bus) drive whatever firmware it holds. Copy the
+`.uf2` file onto it: [Setup](Setup#installing-the-firmware).
 
 On an RP2350-Touch-LCD-2.8, a dark screen has no known firmware cause. Report
 it as described under [Still stuck](#still-stuck).

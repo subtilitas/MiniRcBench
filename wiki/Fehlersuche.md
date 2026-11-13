@@ -16,7 +16,8 @@ RP2350-Touch-LCD-2 gibt es
 
 Neu flashen: **BOOT** halten, **RESET** antippen, **BOOT** loslassen. Die
 Platine erscheint als USB-Laufwerk (USB: Universal Serial Bus), gleich welche
-Firmware sie trägt.
+Firmware sie trägt. Kopiere die `.uf2`-Datei darauf:
+[Einrichtung](Einrichtung#firmware-aufspielen).
 
 Auf einer RP2350-Touch-LCD-2.8 hat ein dunkler Bildschirm keine bekannte
 Ursache in der Firmware. Melde ihn wie unter

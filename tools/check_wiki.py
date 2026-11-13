@@ -32,6 +32,7 @@ IMG = os.path.join(WIKI, "img")
 # naming rule that could express it -- "SD Logging" and "SD-Aufzeichnung" are
 # the same page and share no substring worth matching on.
 PAIRS = [
+    ("Setup", "Einrichtung"),
     ("First-Run", "Erste-Schritte"),
     ("Wiring", "Verdrahtung"),
     ("The-Screens", "Die-Bildschirme"),
