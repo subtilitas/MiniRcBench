@@ -3139,7 +3139,7 @@ static void testTextProbes() {
 
 /**
  * @brief The splash: the firmware's version under the board's name, and the
- *        ESC pin named while DShot starts on it.
+ *        ESC pin named before DShot starts on it.
  */
 static void testSplash() {
 	section("Splash: the version and the ESC pin");

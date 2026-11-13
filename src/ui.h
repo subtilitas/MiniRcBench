@@ -68,7 +68,8 @@ enum class TesterCtl : uint8_t {
 
 /**
  * @brief The splash's warning, with the ESC pin's GPIO number for `%u`:
- *        DShot runs on that pin from boot, and a servo on it moves.
+ *        DShot runs on that pin from the end of the splash, and a servo
+ *        on it moves.
  */
 #define UI_SPLASH_PIN_FMT "UNPLUG ANY SERVO FROM GP%u NOW"
 

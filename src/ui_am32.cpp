@@ -84,7 +84,7 @@ static_assert(sizeof(AM32_UI_POWER_CYCLE) - 1 <= RESULT_CHARS, "the power-cycle 
 #define ST_DIFF_WIDEST  "DIFF @2F: GOT FF WANT FF" /**< The widest DIFF: the settings are 48 bytes. */
 #define ST_VERIFIED     "WRITE VERIFIED"  /**< A write read back equal. */
 #define ST_BACKUP       ". BACKUP "       /**< Before the backup's five-character name. */
-static_assert(AM32_SETTINGS_SIZE <= 0x30, "a DIFF offset takes more than two hex digits");
+static_assert(AM32_SETTINGS_SIZE <= 0x100, "a DIFF offset takes more than two hex digits");
 static_assert(sizeof(ST_NO_BACKUP) - 1 <= RESULT_CHARS, "NO BACKUP runs off the panel");
 static_assert((int)sizeof(ST_WRITE_FAILED) - 1 + am32ResultTextMax() <= RESULT_CHARS,
               "WRITE FAILED runs off the panel");
