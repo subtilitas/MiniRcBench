@@ -2,12 +2,12 @@
 
 The files under this directory are copied from
 [rcbench](https://github.com/subtilitas/rcbench) with their text unchanged:
-the Hitec files at commit `3e29dc1b`, every other file at commit
-`453cf334`. rcbench is MIT licensed by the same copyright holder as
-MiniRcBench, subtilitas, so the copies carry the licence of this repository,
-[LICENSE](../../LICENSE). Each file keeps its `SPDX-License-Identifier: MIT`
-line. The directory layout is rcbench's, so a file here and its original
-compare with one `diff`.
+the Hitec files at commit `3e29dc1b`, the S.BUS files at commit `5ef42efd`,
+every other file at commit `453cf334`. rcbench is MIT licensed by the same
+copyright holder as MiniRcBench, subtilitas, so the copies carry the licence
+of this repository, [LICENSE](../../LICENSE). Each file keeps its
+`SPDX-License-Identifier: MIT` line. The directory layout is rcbench's, so a
+file here and its original compare with one `diff`.
 
 | File here | rcbench path |
 | --- | --- |
@@ -32,6 +32,13 @@ The Hitec files, at commit `3e29dc1b`:
 | `shared/bench/include/hitec_card.h` | `shared/bench/include/hitec_card.h` |
 | `shared/link/link_crc.c` | `shared/link/link_crc.c` |
 | `shared/link/include/link_crc.h` | `shared/link/include/link_crc.h` |
+
+The S.BUS files, at commit `5ef42efd`:
+
+| File here | rcbench path |
+| --- | --- |
+| `protocols/sbus/sbus.c` | `protocols/sbus/sbus.c` |
+| `protocols/sbus/include/sbus.h` | `protocols/sbus/include/sbus.h` |
 
 The servo tester uses them: `servo_sweep` computes the sweep curve on core1,
 and `out_pwm_map` maps each GPIO (general-purpose input/output) to its PWM
@@ -80,6 +87,18 @@ fixtures to pioasm's assembly of the `.pio` files.
 `test/rcbench/link_pages.h` is not rcbench's: rcbench's header is the page
 map of its link, which is not ported, and this stub holds only the 5 values
 `test_hitec_session.c` needs, at their `3e29dc1b` values.
+
+The S.BUS decoder (`protocols/sbus/`) is for the S.BUS monitor of
+[rx-signals.md](../../docs/design/rx-signals.md). S.BUS is Futaba's serial
+bus for receiver channels. Nothing in `src/` calls the decoder yet. It is
+built as C11 in the host suite by `test/rx.mk`; the firmware does not build it
+until the S.BUS job. Its rcbench test, copied unchanged from rcbench
+`test/host/test_sbus.c` into `test/rcbench/`, is `test_sbus.c`, 12 cases.
+rcbench's `README.md` and `CMakeLists.txt` of the module are not copied:
+this repository lists its sources in its own `.cmake` and `.mk` files.
+`sbus.h` cites `(NOTICE, "Trademarks")`: that NOTICE file is rcbench's, and
+this repository has none. Here the trademark notice of
+[README.md](../../README.md#trademark-notice) covers Futaba and S.BUS.
 
 Files adapted rather than copied start with the line
 `Adapted from rcbench <path>, commit <commit>, MIT.`
