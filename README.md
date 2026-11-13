@@ -498,7 +498,7 @@ The firmware arms no watchdog: nothing calls `watchdog_enable()`. So
 `WATCHDOG` can only appear once a watchdog is armed. Not tested on
 hardware: which reason a given restart shows on the board, after a UF2 copy
 and after a debugger's reset among them, is not recorded. The design note is
-[docs/design/diagnostics.md](docs/design/diagnostics.md).
+`docs/design/diagnostics.md`.
 
 **Scrolling.** A drag scrolls the list when it starts off a control: on a
 section name, a row's label or value, or the gap between rows. After 6 px of
