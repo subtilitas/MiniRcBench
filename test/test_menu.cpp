@@ -188,6 +188,25 @@ static void testMenuDisarmAndBeep() {
 	          pixel(beep.x + 4, beep.y + beep.h - 5) == C_AMBER);
 	escSetArmed(false);
 	menuFrames(16);
+	checkTrue("the flash is over", pixel(beep.x + 4, beep.y + beep.h - 5) == C_PANEL);
+	fakeAdvance(0x80000000u);
+	menuFrames(2);
+	checkTrue("2^31 ms after the last BEEP the row does not flash",
+	          pixel(beep.x + 4, beep.y + beep.h - 5) == C_PANEL);
+
+	// A flash cut short by leaving MENU, 100 ms into its 350 ms.
+	tapId(menuRow(&UI_BEEP));
+	menuFrames(4);
+	tapId(UI_FIX(UI_BACK));
+	// Past 2^31 ms after the flash's end, where the bare deadline reads
+	// "not yet" again.
+	fakeAdvance(0x80000000u + 1000u);
+	uiTick();
+	tapId(UI_FIX(TesterCtl::Menu));
+	menuFrames(2);
+	checkTrue("a flash cut short by BACK is not back past 2^31 ms",
+	          uiCurrentScreen() == UiScreenId::Menu &&
+	          pixel(beep.x + 4, beep.y + beep.h - 5) == C_PANEL);
 	tapId(UI_FIX(UI_BACK));
 }
 

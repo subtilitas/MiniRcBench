@@ -47,6 +47,11 @@ static uint16_t   s_fileNo = 0;
 static BlackboxEncoder s_enc;
 static LogRing         s_ring;
 static uint8_t         s_ringBuf[SD_LOG_BUFFER_BYTES];
+// sdLogFlush() writes whole chunks from the ring's contiguous run. With a
+// ring that is no multiple of the chunk, the run before the wrap stays short
+// of one chunk and is never written.
+static_assert(SD_LOG_BUFFER_BYTES % SD_LOG_CHUNK_BYTES == 0,
+              "SD_LOG_BUFFER_BYTES must be a multiple of SD_LOG_CHUNK_BYTES");
 
 static uint32_t s_nextFrameUs = 0;
 static uint32_t s_worstFlushMs = 0;
@@ -255,17 +260,27 @@ void sdLogStop() {
 	// s_draining lets sdLogFlush() write a partial chunk, which it otherwise
 	// refuses to do -- without it the tail of every log would be discarded.
 	s_draining = true;
-	for (int i = 0; i < 64 && logRingUsed(&s_ring) > 0; i++) sdLogFlush();
+	for (int i = 0; i < 64 && logRingUsed(&s_ring) > 0 && s_state == SdLogState::Logging; i++)
+		sdLogFlush();
 	s_draining = false;
 
-	// Hand back the unused pre-allocation, then commit the directory entry.
-	f_truncate(&s_file);
-	f_sync(&s_file);
-	f_close(&s_file);
+	// A flush that failed has closed the file and set Error: it stays, with
+	// the file's number, as after a flush that fails while logging.
+	if (s_state != SdLogState::Logging) return;
 
-	s_fileNo = 0;
-	s_autoStarted = false;
-	s_state = SdLogState::Idle;
+	// Hand back the unused pre-allocation, then commit the directory entry.
+	// A sync or close that fails leaves the entry unwritten: that is an error,
+	// not a clean stop.
+	FRESULT trunc = f_truncate(&s_file);
+	FRESULT sync = f_sync(&s_file);
+	FRESULT close = f_close(&s_file);
+	(void)trunc;
+	s_state = (sync == FR_OK && close == FR_OK) ? SdLogState::Idle : SdLogState::Error;
+	// An error keeps the file's number for the screen, as a failed flush does.
+	if (s_state == SdLogState::Idle) {
+		s_fileNo = 0;
+		s_autoStarted = false;
+	}
 }
 
 bool sdLogActive() { return s_state == SdLogState::Logging; }

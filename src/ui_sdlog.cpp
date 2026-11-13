@@ -89,8 +89,10 @@ static uint32_t   s_mscNoteUntilMs = 0;
 
 /** @brief True while a refusal is still worth showing. */
 static bool mscNoteActive() {
-	return s_mscNote != MscRefusal::None &&
-	       (int32_t)(millis() - s_mscNoteUntilMs) < 0;
+	// Cleared once past: the deadline alone reads true again 2^31 ms on.
+	if (s_mscNote != MscRefusal::None && (int32_t)(millis() - s_mscNoteUntilMs) >= 0)
+		s_mscNote = MscRefusal::None;
+	return s_mscNote != MscRefusal::None;
 }
 
 /**
@@ -355,6 +357,8 @@ static uint8_t sdLogControls(UiControl *out, uint8_t max) {
 // ---------------------------------------------------------------------------
 
 void uiSdLogEnter() {
+	// A note cut short by leaving the screen does not come back.
+	s_mscNote = MscRefusal::None;
 	memset(&s_shown, 0xFF, sizeof(s_shown));
 	memset(&s_touch, 0, sizeof(s_touch));
 }

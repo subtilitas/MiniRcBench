@@ -537,6 +537,21 @@ protocol.
 
 ### Fixed
 
+- KST SERVO's search with the switched supply names an interrupted write:
+  its two warning lines take the place of the view's first two explanation
+  lines, where they found no free line and were dropped.
+- A blackbox log whose last flush or directory sync fails ends in the error
+  state; it read as a clean stop.
+- MENU's BEEP flash, the backlight dip and SD LOG's refusal note no longer
+  return 2^31 ms (24.9 days) after they ended, or after a flash or note that
+  leaving its screen cut short.
+- A BEEP request made while core1 takes the one before it is kept: the
+  requests are counted, and core1 clears only the one it took.
+- The settings write refuses a block larger than one flash page, 256 bytes;
+  the guard allowed up to 4096 bytes into a 256-byte buffer. No caller
+  passes more than a page.
+- The build refuses a log buffer that is no multiple of the 512-byte chunk:
+  such a buffer stopped logging at its first wrap.
 - SD LOG's BACK returns to MENU. In the code it returned to the tester, while
   the wiki page The Screens said Settings. A test pins it.
 - HOLD TO ARM times only a press that lands on it while arming is allowed.

@@ -741,9 +741,10 @@ static void drawList() {
 	else                       snprintf(backup, sizeof(backup), " BACKUP IN MEMORY");
 	// The longest of these that ends before the MODE chip, 4 px clear of it.
 	const int room = GFX_W - UI_MARGIN - (gfxTextW("MODE", 1) + 12) - 4 - UI_MARGIN;
-	snprintf(strip, sizeof(strip), "%.12s%s%s%s", model, ver, gp, backup);
-	if (gfxTextW(strip, 1) > room) snprintf(strip, sizeof(strip), "%.12s%s%s", model, ver, backup);
-	if (gfxTextW(strip, 1) > room) snprintf(strip, sizeof(strip), "%.12s%s%s", model, ver, gp);
+	// Precisions as the buffers above: 12 + 7 + 7 + 17 characters at most.
+	snprintf(strip, sizeof(strip), "%.12s%.7s%.7s%.17s", model, ver, gp, backup);
+	if (gfxTextW(strip, 1) > room) snprintf(strip, sizeof(strip), "%.12s%.7s%.17s", model, ver, backup);
+	if (gfxTextW(strip, 1) > room) snprintf(strip, sizeof(strip), "%.12s%.7s%.7s", model, ver, gp);
 	uiStripText(strip, C_DIM);
 	uiChip("MODE", C_GREEN);
 	uiListDraw(&s_list, drawFieldRow, nullptr);

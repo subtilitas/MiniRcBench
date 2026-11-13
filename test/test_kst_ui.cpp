@@ -1521,7 +1521,51 @@ static void testCardPhase() {
 	leaveAll();
 }
 
+static bool anyLine(const char *text, uint16_t col) {
+	for (int y = 60; y < 240; y++) if (lineIs(y, text, col)) return true;
+	return false;
+}
+static void testRecordWarningOnSearch() {
+	section("KST screen: the interrupted-write warning on the search, by hand and switched");
+	kst_image_t rec = sim_bench_image();
+	static char text[KST_FILE_MAX];
+	size_t n = kst_file_format(&rec, text, sizeof(text));
+	freshKst(false);
+	fakeFatMkdir("KST");
+	fakeFatPut("KST/KST.TXT", text, n);
+	openKst();
+	kstFrames(10);
+	checkTrue("by hand: the search names the interrupted write",
+	          job().job == KstJobState::Searching && anyLine("A WRITE WAS INTERRUPTED. KST/KST.TXT", C_AMBER));
+	leaveAll();
+	freshKst(false);
+	fakeFatMkdir("KST");
+	fakeFatPut("KST/KST.TXT", text, n);
+	settings()->servoSupply = 1;
+	servoSupplyConfigure(1);
+	supplySimInit(&g_sup, fakeKstSim(), time_us_32());
+	g_supOn = true;
+	openKst();
+	kstFrames(10);
+	checkTrue("switched: the search still names it, ahead of the explanations",
+	          job().job == KstJobState::Searching && anyLine("A WRITE WAS INTERRUPTED. KST/KST.TXT", C_AMBER));
+	checkTrue("with its second line", anyLine("HOLDS THE SERVO AS IT WAS.", C_AMBER));
+	checkTrue("the failsafe caution stays",
+	          anyLine("A POWERED SERVO ON THIS PIN GETS NO", C_DIM) &&
+	          anyLine("PULSES AND MAY GO TO ITS FAILSAFE.", C_DIM));
+	checkTrue("and the converter warning",
+	          anyLine("AN ESC ON THIS LEAD GETS THE", C_AMBER) &&
+	          anyLine("CONVERTER'S OUTPUT ON ITS BEC WIRE.", C_AMBER));
+	checkTrue("the how-it-works pair gives way",
+	          !anyLine("THE BENCH SWITCHES THE SERVO OFF FOR", C_DIM));
+	leaveAll();
+	g_supOn = false;
+	servoSupplyConfigure(0);
+	settings()->servoSupply = 0;
+}
+
 void runKstUiTests() {
+	testRecordWarningOnSearch();
 	testOpenAndSearch();
 	testEditAndWrite();
 	testFiles();

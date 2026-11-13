@@ -360,6 +360,7 @@
  * At 7.3 kB/s an 8 kB buffer absorbs roughly a second, which should be ample
  * for an erase pause — but this is a guess until measured. @ref LogRing tracks
  * a high-water mark; the UI shows it, and it is the number to size this from.
+ * A multiple of @ref SD_LOG_CHUNK_BYTES, which `sd_log.cpp` asserts.
  */
 #define SD_LOG_BUFFER_BYTES    8192
 

@@ -729,9 +729,30 @@ static void mainBody(MainText *m) {
 	}
 }
 
+/**
+ * @brief Make room for @p want more lines: the view's C_DIM lines go, from
+ *        the first one down, so what a view explains first, how it works,
+ *        goes before a caution below it. A warning outranks both; a view
+ *        whose six lines are all warnings keeps them. The views write their
+ *        lines in pairs, and @p want is even: no half sentence is left.
+ */
+static void makeRoom(MainText *m, int want) {
+	int used = 0;
+	while (used < 6 && m->line[used]) used++;
+	for (int i = 0; i < used && used + want > 6; ) {
+		if (m->lineCol[i] != C_DIM) { i++; continue; }
+		for (int k = i; k < used - 1; k++) {
+			m->line[k] = m->line[k + 1];
+			m->lineCol[k] = m->lineCol[k + 1];
+		}
+		m->line[--used] = nullptr;
+	}
+}
+
 static void mainText(MainText *m) {
 	mainBody(m);
 	if (running() && s_recordFound) {
+		makeRoom(m, 2);
 		addLine(m, "A WRITE WAS INTERRUPTED. KST/KST.TXT", C_AMBER);
 		addLine(m, "HOLDS THE SERVO AS IT WAS.", C_AMBER);
 	}

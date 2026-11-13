@@ -62,10 +62,17 @@ static uint32_t s_beepUntil = 0;
 // BEEP
 // ---------------------------------------------------------------------------
 
-static bool beepFlashing() { return (int32_t)(millis() - s_beepUntil) < 0; }
+/** @brief A flash is up: the deadline alone reads true again 2^31 ms on. */
+static bool     s_beepShown = false;
+
+static bool beepFlashing() {
+	if (s_beepShown && (int32_t)(millis() - s_beepUntil) >= 0) s_beepShown = false;
+	return s_beepShown;
+}
 
 static void beepAction() {
 	s_beepOk = escRequestBeep(1);
+	s_beepShown = true;
 	s_beepUntil = millis() + BEEP_FLASH_MS;
 }
 
@@ -189,6 +196,8 @@ static void drawMenu(bool edt) {
 // ---------------------------------------------------------------------------
 
 void uiMenuEnter() {
+	// A flash cut short by leaving MENU does not come back.
+	s_beepShown = false;
 	s_entries = s_wantEntries;
 	s_count = s_wantCount;
 	uiListInit(&s_list, UiRect{ MENU_ROW_X, MENU_VIEW_Y0, MENU_ROW_W, MENU_VIEW_H },
