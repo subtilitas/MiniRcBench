@@ -44,6 +44,8 @@ protocol.
 
 ### Added
 
+- The wiki pages Setup and Einrichtung: the parts for each tool, the
+  adapter cable from J5 to a servo plug, and installing the `.uf2` image.
 - A wiring diagram, `docs/wiring.svg`, in the README and on the wiki pages
   Wiring and Verdrahtung: the board's connectors pin by pin, an ESC with KISS
   telemetry, a servo on a hand-switched supply, and a servo on the switched

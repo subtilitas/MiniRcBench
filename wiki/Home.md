@@ -12,11 +12,13 @@ no flight controller, laptop or Betaflight.
 
 ## English
 
-**Start here:** [First Run](First-Run): wiring, power, and the first motor
+**Start here:** [Setup](Setup): parts, the cable and installing the
+firmware. Then [First Run](First-Run): wiring, power, and the first motor
 run.
 
 | Page | What it covers |
 |---|---|
+| [Setup](Setup) | What you need, the adapter cable, installing the firmware |
 | [First Run](First-Run) | Wiring an ESC, powering up, arming, first throttle input |
 | [Wiring](Wiring) | Every connection on one sheet: the board's connectors, an ESC, a servo with a hand switch or on the switched supply |
 | [The Screens](The-Screens) | Every screen and every control, in order |
@@ -35,11 +37,13 @@ run.
 
 ## Deutsch
 
-**Hier anfangen:** [Erste Schritte](Erste-Schritte): Verkabelung, Strom und
-der erste Motorlauf.
+**Hier anfangen:** [Einrichtung](Einrichtung): Teile, das Kabel und das
+Aufspielen der Firmware. Dann [Erste Schritte](Erste-Schritte): Verkabelung,
+Strom und der erste Motorlauf.
 
 | Seite | Inhalt |
 |---|---|
+| [Einrichtung](Einrichtung) | Was du brauchst, das Adapterkabel, Firmware aufspielen |
 | [Erste Schritte](Erste-Schritte) | ESC anschließen, einschalten, scharfschalten, erster Gasbefehl |
 | [Verdrahtung](Verdrahtung) | Jede Verbindung auf einem Blatt: die Steckverbinder der Platine, ein ESC, ein Servo mit Handschalter oder an der geschalteten Versorgung |
 | [Die Bildschirme](Die-Bildschirme) | Jeder Bildschirm und jedes Bedienelement, der Reihe nach |

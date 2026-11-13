@@ -4,6 +4,7 @@
 
 **English**
 
+- [Setup](Setup)
 - [First Run](First-Run)
 - [Wiring](Wiring)
 - [The Screens](The-Screens)
@@ -19,6 +20,7 @@
 
 **Deutsch**
 
+- [Einrichtung](Einrichtung)
 - [Erste Schritte](Erste-Schritte)
 - [Verdrahtung](Verdrahtung)
 - [Die Bildschirme](Die-Bildschirme)
