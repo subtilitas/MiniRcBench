@@ -34,6 +34,7 @@
 #include "config.h"
 #include "plat.h"
 #include "touch.h"
+#include "diag.h"
 
 #include <stdio.h>
 
@@ -353,7 +354,7 @@ static void dragList(int y0, int dy) {
 	fakeRelease(); menuFrames(1);
 }
 
-/** @brief SETTINGS' scroll: 0 px on open, 500 px at most, from a drag on a label only. */
+/** @brief SETTINGS' scroll: 0 px on open, 620 px at most, from a drag on a label only. */
 static void testSettingsScroll() {
 	section("SETTINGS: the scroll range, and no scroll from a control");
 	openSettings();
@@ -373,17 +374,110 @@ static void testSettingsScroll() {
 	dragList(230, -180);
 	dragList(230, -180);
 	dragList(230, -180);
-	UiRect board = ctlRect(UI_ROW(SettingsRowId::Version, Row));
-	checkInt("dragged to the end: VERSION, the last row, at y 190, so the scroll is 500 px",
-	         board.y, 190);
-	checkTrue("and is whole", board.h == 44);
-	checkInt("BUILT FOR above it at y 140", ctlRect(UI_ROW(SettingsRowId::BuiltFor, Row)).y, 140);
+	dragList(230, -180);
+	UiRect last = ctlRect(UI_ROW(SettingsRowId::Uptime, Row));
+	checkInt("dragged to the end: UPTIME, the last row, at y 190, so the scroll is 620 px",
+	         last.y, 190);
+	checkTrue("and is whole", last.h == 44);
+	checkInt("LAST RESTART above it at y 140", ctlRect(UI_ROW(SettingsRowId::LastRestart, Row)).y, 140);
+	checkInt("VERSION above the DIAGNOSTICS caption at y 70", ctlRect(UI_ROW(SettingsRowId::Version, Row)).y, 70);
+	dragList(60, 180);
 	dragList(60, 180);
 	dragList(60, 180);
 	dragList(60, 180);
 	checkInt("dragged back: MOTOR POLES at y 60 again", ctlRect(UI_ROW(SettingsRowId::Poles, Row)).y, 60);
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(UI_FIX(UI_BACK));
+}
+
+/**
+ * @brief DIAGNOSTICS, the last section: LAST RESTART as captured at boot and
+ *        UPTIME, read-only; each reason's colour; UPTIME repaints once a
+ *        second while it shows, not within the second, and not while it is
+ *        scrolled out.
+ */
+static void testSettingsDiagnostics() {
+	section("SETTINGS: DIAGNOSTICS, LAST RESTART and UPTIME");
+	fakeSetChipReset(DIAG_CR_HAD_BOR);
+	fakeSetWatchdog(0, false);
+	diagCaptureRestart();
+	openSettings();
+
+	// At 0 px UPTIME is out of view: a pixel put in the list stays, so
+	// nothing repaints when the second turns.
+	menuFrames(2);
+	gfxBuffer()[100 * GFX_W + 120] = 0x1234;
+	menuFrames(41);
+	checkTrue("UPTIME out of view: no repaint as the seconds pass",
+	          pixel(120, 100) == 0x1234);
+
+	for (int i = 0; i < 4; i++) dragList(230, -180);
+	UiRect last = ctlRect(UI_ROW(SettingsRowId::LastRestart, Row));
+	checkInt("LAST RESTART at y 140 at the end of the list", last.y, 140);
+	checkTrue("DIAGNOSTICS' caption at y 128, 8 px into it",
+	          fakeTextIs(UI_MARGIN, 128, "DIAGNOSTICS", C_CYAN, C_BG, 1));
+	checkTrue("LAST RESTART's label",
+	          fakeTextIs(UI_MARGIN, 140 + 18, "LAST RESTART", C_DIM, C_BG, 1));
+	checkTrue("a brown-out reads BROWN-OUT in amber, right-aligned to x 232",
+	          fakeTextIs(232 - gfxTextW("BROWN-OUT", 1), 140 + 18, "BROWN-OUT", C_AMBER, C_BG, 1));
+	checkTrue("LAST RESTART has no control",
+	          !ctlPresent(UI_ROW(SettingsRowId::LastRestart, Minus)) &&
+	          !ctlPresent(UI_ROW(SettingsRowId::LastRestart, Toggle)) &&
+	          !ctlEnabled(UI_ROW(SettingsRowId::LastRestart, Row)));
+	checkTrue("UPTIME has no control",
+	          !ctlPresent(UI_ROW(SettingsRowId::Uptime, Minus)) &&
+	          !ctlPresent(UI_ROW(SettingsRowId::Uptime, Toggle)) &&
+	          !ctlEnabled(UI_ROW(SettingsRowId::Uptime, Row)));
+
+	char up[24];
+	diagUptimeText(up, sizeof(up), diagUptimeSeconds());
+	checkTrue("UPTIME's label", fakeTextIs(UI_MARGIN, 190 + 18, "UPTIME", C_DIM, C_BG, 1));
+	checkTrue("UPTIME reads the time since boot, H:MM:SS",
+	          fakeTextIs(232 - gfxTextW(up, 1), 190 + 18, up, C_GRID, C_BG, 1));
+	// Frames to the first one of the next whole second.
+	uint32_t s0 = diagUptimeSeconds();
+	while (diagUptimeSeconds() == s0) menuFrames(1);
+	diagUptimeText(up, sizeof(up), diagUptimeSeconds());
+	checkTrue("a second later it reads one second more, with no touch",
+	          fakeTextIs(232 - gfxTextW(up, 1), 190 + 18, up, C_GRID, C_BG, 1));
+
+	// Within that second nothing repaints: a pixel put in the list, away from
+	// UPTIME's value, stays for 30 frames, 750 ms. The next second repaints.
+	gfxBuffer()[100 * GFX_W + 120] = 0x1234;
+	uint32_t s1 = diagUptimeSeconds();
+	menuFrames(30);
+	checkTrue("still the same second", diagUptimeSeconds() == s1);
+	checkTrue("UPTIME in view: no repaint within a second", pixel(120, 100) == 0x1234);
+	while (diagUptimeSeconds() == s1) menuFrames(1);
+	checkTrue("and a repaint once the next second turns", pixel(120, 100) != 0x1234);
+
+	// Each reason's colour: amber for a fault, the grid colour otherwise.
+	struct { uint32_t cr, reason; int boot; const char *text; uint16_t col; } shown[] = {
+		{ DIAG_CR_HAD_POR,            0, 0, "POWER-ON", C_GRID },
+		{ DIAG_CR_HAD_GLITCH_DETECT,  0, 0, "GLITCH",   C_AMBER },
+		{ DIAG_CR_HAD_WATCHDOG_RESET_RSM, 0, 0, "WATCHDOG", C_AMBER },
+		{ DIAG_CR_HAD_POR,            1, DIAG_BOOT_TYPE_FLASH_UPDATE, "UPDATE", C_GRID },
+		{ DIAG_CR_HAD_POR,            1, 0, "REBOOT",   C_GRID },
+	};
+	for (const auto &c : shown) {
+		fakeSetChipReset(c.cr);
+		fakeSetWatchdog(c.reason, false);
+		fakeSetBootType(c.boot);
+		diagCaptureRestart();
+		tapId(UI_FIX(UI_BACK));
+		tapId(menuRow(&UI_SETTINGS));
+		for (int i = 0; i < 4; i++) dragList(230, -180);
+		char what[64];
+		snprintf(what, sizeof(what), "%s in %s", c.text, c.col == C_AMBER ? "amber" : "the grid colour");
+		checkTrue(what, fakeTextIs(232 - gfxTextW(c.text, 1), 140 + 18, c.text, c.col, C_BG, 1));
+	}
+	checkControlTable("SETTINGS, DIAGNOSTICS");
+	fakeSetWatchdog(0, false);
+	fakeSetBootType(0);
+	fakeSetChipReset(DIAG_CR_HAD_POR);
+	diagCaptureRestart();
+	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 }
 
@@ -710,6 +804,7 @@ void runMenuTests() {
 	testMenuScroll();
 	testSettingsRowVisible();
 	testSettingsScroll();
+	testSettingsDiagnostics();
 	testSettingsCutControl();
 	testSettingsRows();
 	testSettingsSaveAnywhere();

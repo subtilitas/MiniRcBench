@@ -208,6 +208,8 @@ static bool running() {
  *        before the job has let the pin go (pinClaimUnplugDue()), where
  *        pinClaimKeep() would refuse. The control table reports it, the tap
  *        is gated on it, the frame key holds it and the header draws it.
+ *        The unplug page draws its header and reports its table from its own
+ *        one read of pinClaimUnplugDue(), which this equals on that page.
  */
 static bool backActs() { return s_view != HitecView::Unplug || pinClaimUnplugDue(); }
 
@@ -1453,8 +1455,9 @@ static void drawLeave() {
 }
 
 static void drawUnplug() {
+	// One read decides both: core1 can change it between two.
 	bool due = pinClaimUnplugDue();
-	uiHeader("HITEC SERVO", s_t, backActs());
+	uiHeader("HITEC SERVO", s_t, due);
 	gfxRect(0, UI_STRIP_Y, GFX_W, GFX_H - UI_STRIP_Y, C_BG);
 	if (!due) {
 		if (s_st.supplyUsed && s_st.supplyLeftDs) {
@@ -1501,8 +1504,9 @@ uint8_t uiHitecControls(UiControl *out, uint8_t max) {
 			uiControlAdd(out, &n, max, UI_FIX(HitecCtl::DSeries), BTN_DSERIES, true);
 			return n;
 		case HitecView::Unplug: {
+			// One read decides both: core1 can change it between two.
 			bool due = pinClaimUnplugDue();
-			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
+			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), due);
 			if (due) uiControlAdd(out, &n, max, UI_FIX(HitecCtl::Restart), BTN_RESTART, true);
 			return n;
 		}

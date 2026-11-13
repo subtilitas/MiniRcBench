@@ -147,9 +147,9 @@ Schaltfläche zum Speichern liegt in SETTINGS.
 
 <img src="img/settings.png" width="240" alt="Der SETTINGS-Bildschirm">
 
-Motor- und Verkabelungseinstellungen, Anzeigeeinstellungen und die
-Schaltfläche, die alle Einstellungen ins Flash schreibt. Eine Liste in
-Abschnitten, die sich mit dem Finger verschieben lässt.
+Motor- und Verkabelungseinstellungen, Anzeigeeinstellungen, die Platine,
+Diagnose und die Schaltfläche, die alle Einstellungen ins Flash schreibt. Eine
+Liste in Abschnitten, die sich mit dem Finger verschieben lässt.
 
 | Abschnitt | Zeile | Bedeutung |
 |---|---|---|
@@ -165,6 +165,8 @@ Abschnitten, die sich mit dem Finger verschieben lässt.
 | DISPLAY | **BACKLIGHT** | 16–255, in Schritten von 32 |
 | BOARD | **BUILT FOR** | Nur Anzeige. Die Platine, für die die Firmware gebaut ist, `RP2350-TOUCH-LCD-2.8` |
 | BOARD | **VERSION** | Nur Anzeige. Die Firmware-Version, zum Beispiel `0.1.0` |
+| DIAGNOSTICS | **LAST RESTART** | Nur Anzeige. Warum die Platine zuletzt gestartet ist: `POWER-ON` (eingeschaltet), `BROWN-OUT` (die Versorgung ist zu weit abgesunken), `RUN PIN` (der Reset-Eingang), `WATCHDOG`, `UPDATE` (der Neustart, nachdem eine neue Firmware auf die Platine kopiert wurde), `REBOOT` (ein Neustart über den Watchdog, den ein anderes Programm angefordert hat, zum Beispiel picotool), `DEBUGGER`, `GLITCH` (ein kurzer Einbruch der Versorgung), `POWER-DOWN` oder `UNKNOWN`. Bernstein bei `BROWN-OUT`, `GLITCH` und `WATCHDOG` |
+| DIAGNOSTICS | **UPTIME** | Nur Anzeige. Zeit seit dem Start der Platine, Stunden, Minuten und Sekunden, zum Beispiel `1:02:03`. Wird einmal pro Sekunde neu gezeichnet, solange die Zeile sichtbar ist |
 
 `MOTOR POLES` und `MAX THROTTLE` stehen ganz oben, du musst dafür nicht
 verschieben. Die Schaltflächen `-` und `+` messen 44 × 44 px. Gedrückt
@@ -192,7 +194,16 @@ Bitrate baut den DShot-Treiber vor dem nächsten Frame neu auf. `HOLD TO SAVE`
 Polzahl und Gas-Obergrenze eingeschlossen, nur in die laufenden Einstellungen.
 Wer ohne Speichern weggeht, lässt das Flash unverändert.
 
-<img src="img/settings-supply.png" width="240" alt="SETTINGS bis SERVO SUPPLY verschoben, auf GP29"> <img src="img/settings-scrolled.png" width="240" alt="SETTINGS bis zum Ende verschoben: DISPLAY und BOARD">
+**LAST RESTART.** Die Firmware liest den Grund einmal beim Start. Startet die
+Platine bei drehendem Motor von selbst neu und zeigt danach `BROWN-OUT`, liegt
+die Ursache bei der Versorgung. Die Firmware schaltet keinen Watchdog ein,
+daher erscheint `WATCHDOG` mit dieser Firmware nicht. Laut dem Quelltext des
+Boot-ROMs, nicht auf Hardware geprüft, zeigt der Neustart nach dem Kopieren
+einer Firmware-Datei auf die Platine `UPDATE`. Nicht auf Hardware getestet:
+Welchen Grund ein bestimmter Neustart auf der Platine zeigt, ist nicht
+festgehalten.
+
+<img src="img/settings-supply.png" width="240" alt="SETTINGS bis SERVO SUPPLY verschoben, auf GP29"> <img src="img/settings-scrolled.png" width="240" alt="SETTINGS bis zum Ende verschoben: BOARD und DIAGNOSTICS">
 
 <img src="img/settings-sense.png" width="240" alt="SETTINGS: CURRENT SENSE auf INA219, FOUND">
 

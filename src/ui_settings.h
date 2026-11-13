@@ -5,7 +5,8 @@
  *
  * Reached from MENU. The sections, in order: ESC TESTER (motor poles and
  * the throttle ceiling), WIRING, each tool's own section in registry order,
- * DISPLAY and BOARD. Every change applies at once; only writing flash needs
+ * DISPLAY, BOARD and DIAGNOSTICS (the last restart's reason and the uptime,
+ * read-only, @ref diag.h). Every change applies at once; only writing flash needs
  * HOLD TO SAVE, 1000 ms. RESET loads the compiled defaults into the live
  * settings and writes nothing.
  *
@@ -48,6 +49,8 @@ enum class SettingsRowId : uint8_t {
 	Backlight,    /**< BACKLIGHT, - and +. */
 	BuiltFor,     /**< BUILT FOR, read-only. */
 	Version,      /**< VERSION, the firmware's, read-only. */
+	LastRestart,  /**< LAST RESTART, why the chip restarted, read-only. */
+	Uptime,       /**< UPTIME, time since boot, read-only. */
 };
 
 /** @brief The SETTINGS controls outside the list. @see ui_screen.h */

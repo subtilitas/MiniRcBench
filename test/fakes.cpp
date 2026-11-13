@@ -20,6 +20,9 @@
 #include "hardware/i2c.h"
 #include "hardware/spi.h"
 #include "hardware/uart.h"
+#include "hardware/structs/powman.h"
+#include "hardware/structs/watchdog.h"
+#include "pico/bootrom.h"
 #include "gfx.h"
 #include "theme.h"
 #include "st7789.h"
@@ -543,6 +546,28 @@ static int g_reboots = 0;
 int fakeRebootCount() { return g_reboots; }
 
 extern "C" void watchdog_reboot(uint32_t, uint32_t, uint32_t) { g_reboots++; }
+
+// ---------------------------------------------------------------------------
+// Restart reason
+//
+// The power manager's CHIP_RESET register, the watchdog's REASON register,
+// watchdog_enable_caused_reboot() and rom_get_last_boot_type(), which
+// diagCaptureRestart() reads. They read 0, false and BOOT_TYPE_NORMAL until
+// a test sets them.
+// ---------------------------------------------------------------------------
+powman_hw_t g_fakePowman = {};
+watchdog_hw_t g_fakeWatchdog = {};
+static bool g_wdEnableCaused = false;
+static int g_bootType = BOOT_TYPE_NORMAL;
+
+void fakeSetChipReset(uint32_t v) { g_fakePowman.chip_reset = v; }
+void fakeSetWatchdog(uint32_t reason, bool enableCaused) {
+	g_fakeWatchdog.reason = reason;
+	g_wdEnableCaused = enableCaused;
+}
+void fakeSetBootType(int type) { g_bootType = type; }
+int rom_get_last_boot_type(void) { return g_bootType; }
+extern "C" bool watchdog_enable_caused_reboot(void) { return g_wdEnableCaused; }
 
 // ---------------------------------------------------------------------------
 // Region fingerprint

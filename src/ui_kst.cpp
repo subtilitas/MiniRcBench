@@ -190,6 +190,8 @@ static bool running() {
  *        before the job has let the pin go (pinClaimUnplugDue()), where
  *        pinClaimKeep() would refuse. The control table reports it, the tap
  *        is gated on it, the frame key holds it and the header draws it.
+ *        The unplug page draws its header and reports its table from its own
+ *        one read of pinClaimUnplugDue(), which this equals on that page.
  */
 static bool backActs() { return s_view != KstView::Unplug || pinClaimUnplugDue(); }
 
@@ -1576,8 +1578,9 @@ static void drawLeave() {
 }
 
 static void drawUnplug() {
+	// One read decides both: core1 can change it between two.
 	bool due = pinClaimUnplugDue();
-	uiHeader("KST SERVO", s_t, backActs());
+	uiHeader("KST SERVO", s_t, due);
 	gfxRect(0, UI_STRIP_Y, GFX_W, GFX_H - UI_STRIP_Y, C_BG);
 	if (!due) {
 		// The close rule: a servo the bench powered is off for 2 s first.
@@ -1623,8 +1626,9 @@ uint8_t uiKstControls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
 	switch (s_view) {
 		case KstView::Unplug: {
+			// One read decides both: core1 can change it between two.
 			bool due = pinClaimUnplugDue();
-			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
+			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), due);
 			if (due) uiControlAdd(out, &n, max, UI_FIX(KstCtl::Restart), BTN_RESTART, true);
 			return n;
 		}

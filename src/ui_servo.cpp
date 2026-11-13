@@ -259,6 +259,8 @@ static bool tapped(const UiRect &r) { return uiTapped(r, s_t); }
  *        before the job has let the pins go (pinClaimUnplugDue()), where
  *        pinClaimKeep() would refuse. The control table reports it, the tap
  *        is gated on it and the header draws it.
+ *        The unplug page draws its header and reports its table from its own
+ *        one read of pinClaimUnplugDue(), which this equals on that page.
  */
 static bool backActs() { return s_view != View::Unplug || pinClaimUnplugDue(); }
 
@@ -923,7 +925,8 @@ static void drawUnplug() {
 	bool due = pinClaimUnplugDue();
 	struct { bool back, backOk, due, p; } k;
 	memset(&k, 0, sizeof(k));
-	k.backOk = backActs();
+	// One read decides both: core1 can change it between two.
+	k.backOk = due;
 	k.back = k.backOk && uiPressing(uiBackRect(), s_t); k.due = due; k.p = due && pressing(BTN_RESTART);
 	if (!changed(0, &k, sizeof(k))) return;
 	uiHeader("SERVO", s_t, k.backOk);
@@ -946,8 +949,9 @@ bool uiServoAvailable() { return true; }
 uint8_t uiServoControls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
 	if (s_view == View::Unplug) {
+		// One read decides both: core1 can change it between two.
 		bool due = pinClaimUnplugDue();
-		uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
+		uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), due);
 		if (due) uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Restart), BTN_RESTART, true);
 		return n;
 	}

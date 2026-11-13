@@ -127,8 +127,11 @@ static_assert(INA219_CONFIG_BENCH == 0x19EFu, "the bench configuration is not 19
 
 /**
  * @brief How long a line low after an abort may take to rise, µs, polled
- *        once a microsecond: the I2C block's own STOP, about 10 µs at
- *        100 kHz. A line still low after it is held by a part.
+ *        once a microsecond. The I2C block's own STOP holds a line low for
+ *        about 2.5 µs at the bus's 400 kHz (the SDK's low count 1.5 µs and
+ *        high count 1.0 µs), so 10 µs is a margin of about 4 times; it is
+ *        about the length of a STOP at 100 kHz, the ceiling. A line still
+ *        low after it is held by a part.
  */
 #define SENSE_SETTLE_US      10u
 

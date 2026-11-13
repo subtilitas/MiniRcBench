@@ -34,6 +34,7 @@ void runIdTests();
 void runMenuTests();
 void runBackupTests();
 void runSdCacheTests();
+void runDiagTests();
 
 int main() {
 	printf("MiniRcBench host tests\n");
@@ -63,6 +64,7 @@ int main() {
 	runBackupTests();
 	runSdCacheTests();
 	runMenuTests();
+	runDiagTests();
 
 	printf("\n=======================\n");
 	if (g_failures) printf("%d CHECK(S) FAILED\n", g_failures);

@@ -210,6 +210,12 @@ int fakeFlashWrites();
 
 /** @brief How many times platReboot() has fired. Asserted to stay put. */
 int fakeRebootCount();
+/** @brief What powman_hw->chip_reset reads. */
+void fakeSetChipReset(uint32_t v);
+/** @brief What watchdog_hw->reason reads and watchdog_enable_caused_reboot() returns. */
+void fakeSetWatchdog(uint32_t reason, bool enableCaused);
+/** @brief What rom_get_last_boot_type() returns. */
+void fakeSetBootType(int type);
 
 /** @brief How many times the UI has rebuilt the DShot pump's wiring. */
 int fakeConfigureCount();

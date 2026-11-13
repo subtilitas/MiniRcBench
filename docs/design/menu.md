@@ -163,11 +163,12 @@ at x 169, so the row reads `KST SERVO`, the title of the KST screen.
 
 ## SETTINGS
 
-One list in sections: ESC TESTER, WIRING, SERVO SUPPLY (from slice 3),
-DISPLAY and BOARD. Pole count and throttle ceiling lead it, under the label
-`MAX THROTTLE`. The geometry is the scrolling SETUP design of PR #6, which
-was kst-programming.md decisions 11, 12 and 15, moved here and adjusted for
-the 36 px header, the two rows from today's SETTINGS screen and the sections.
+One list in sections: ESC TESTER, WIRING, SERVO SUPPLY (from slice 3), DISPLAY,
+BOARD and DIAGNOSTICS ([diagnostics.md](diagnostics.md)). Pole count and
+throttle ceiling lead it, under the label `MAX THROTTLE`. The geometry is the
+scrolling SETUP design of PR #6, which was kst-programming.md decisions 11, 12
+and 15, moved here and adjusted for the 36 px header, the two rows from today's
+SETTINGS screen and the sections.
 
 At 0 px, the top:
 
@@ -602,9 +603,9 @@ Slice C is built. The code differs from the sketches above in these places:
   area, x 0 to 137, drawn disabled. A press there scrolls, and a test drag
   can start on it. SETTINGS lays its items out in pixels: it calls
   `uiListInitPx()`, which sets up the list with pixel content and no rows.
-  The layout holds at most 12 sections (the two core sections, up to 8
-  tool sections, DISPLAY and BOARD), 40 items and 24 rows; items past
-  those limits are not shown.
+  The layout holds at most 12 sections (the two core sections, up to 7
+  tool sections, DISPLAY, BOARD and DIAGNOSTICS), 40 items and 24 rows;
+  items past those limits are not shown.
 - MENU's viewport is the rows' width, x 8 to 231, y 62 to 319. The scroll bar
   is drawn at x 235, outside it.
 - `UiScreen` has a tenth member, `bool freePins`: the screen opens only while
