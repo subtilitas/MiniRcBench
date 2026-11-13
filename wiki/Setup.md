@@ -22,12 +22,12 @@ For each tool you also need:
 
 | Tool | You need |
 |---|---|
-| ESC tester | An ESC that takes **bidirectional DShot**, with its motor and its own battery. BLHeli_32, Bluejay and AM32 firmware do. The ESC tester sends DShot only: an ESC that takes only PWM (pulse-width modulation) pulses is not tested on it. BLHeli_S without Bluejay is not tested |
+| ESC tester | An ESC that takes **bidirectional DShot**, a digital ESC protocol, with its motor and its own battery. BLHeli_32, Bluejay and AM32 firmware do. The ESC tester sends DShot only: an ESC that takes only PWM (pulse-width modulation) pulses cannot be tested on it. BLHeli_S without Bluejay is not tested |
 | AM32 Configuration | An ESC running AM32 |
 | Servo Tester | A servo and its own supply, 4.8 V to 6.0 V, or 8.4 V for a high-voltage servo |
 | KST Programming | A KST or Chaservo servo and a 5 V supply you can switch: a plug, or a switch in the plus lead |
 | Hitec Programming, D series | A Hitec D series servo and a 5 V supply |
-| Hitec Programming, classic | A Hitec classic servo (HS-5xxx, HS-7xxx) and the switched supply of [Wiring](Wiring), part C: a 5 V DC-DC (direct current to direct current) converter with an enable input (EN), its input supply, and a 10 kΩ pull-down resistor from EN to ground |
+| Hitec Programming, classic | A Hitec classic servo (HS-5xxx, HS-7xxx) and the switched supply of [Wiring](Wiring), part C: a 5 V DC-DC (direct current to direct current) converter with an enable input (EN), a buck converter or a type with output disconnect, rated above 1 A, its input supply, and a 10 kΩ pull-down resistor from EN to ground |
 
 ---
 
@@ -40,7 +40,7 @@ joins J5 to a servo plug:
 |---|---|---|
 | 2 | SIG (GP0) | the signal wire: orange or white |
 | 4 | GND (ground) | the minus wire: brown or black |
-| 1 | AUX (GP1) | optional: the telemetry wire of an ESC with KISS telemetry, or the signal of a second servo |
+| 1 | AUX (GP1) | optional: the telemetry wire of an ESC with KISS telemetry, a serial ESC telemetry protocol, or the signal of a second servo |
 | 3 | 3.3 V | nothing. Cut it short and insulate it |
 
 GP0 and GP1 are the board's GPIO 0 and 1 (general-purpose input/output
@@ -51,13 +51,14 @@ crimp contacts.
 > - On an ESC it carries the ESC's +5 V output. Cut it or pull its contact
 >   out of the plug.
 > - On a servo it is the servo's supply. Connect it, and the minus wire, to
->   the servo's own supply as in [Wiring](Wiring), part B. The minus wire
->   also goes to J5 pin 4.
+>   the servo's own supply as in [Wiring](Wiring), part B, or part C for
+>   the switched supply. The minus wire also goes to a GND pin of the
+>   board: J5 pin 4, or J4 pin 1 or 5.
 
 > **No servo on SIG while the board starts.** Outside the servo screens SIG
 > carries DShot, from power-up on. A servo reads it as a pulse and drives
 > towards one end of its travel, at a frame rate that overheats an analogue
-> servo. Plug the servo in when the servo screen asks for it. Power the
+> servo. Plug the servo in after its screen is open. Power the
 > board before the servo supply, and switch the servo supply off before the
 > board: [Servo Tester](Servo-Tester#wiring).
 

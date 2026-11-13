@@ -23,12 +23,12 @@ Für jedes Werkzeug brauchst du außerdem:
 
 | Werkzeug | Du brauchst |
 |---|---|
-| ESC-Tester | Einen ESC, der **bidirektionales DShot** annimmt, mit Motor und eigenem Akku. BLHeli_32, Bluejay und AM32 können das. Der ESC-Tester sendet nur DShot: Ein ESC, der nur PWM-Impulse (Pulsweitenmodulation) annimmt, ist damit nicht getestet. BLHeli_S ohne Bluejay ist nicht getestet |
+| ESC-Tester | Einen ESC, der **bidirektionales DShot** annimmt, ein digitales ESC-Protokoll, mit Motor und eigenem Akku. BLHeli_32, Bluejay und AM32 können das. Der ESC-Tester sendet nur DShot: Ein ESC, der nur PWM-Impulse (Pulsweitenmodulation) annimmt, lässt sich damit nicht testen. BLHeli_S ohne Bluejay ist nicht getestet |
 | AM32-Konfiguration | Einen ESC mit AM32 |
 | Servotester | Ein Servo und seine eigene Versorgung, 4,8 V bis 6,0 V, oder 8,4 V für ein Hochvolt-Servo |
 | KST-Programmierung | Ein KST- oder Chaservo-Servo und eine schaltbare 5-V-Versorgung: ein Stecker oder ein Schalter in der Plusleitung |
 | Hitec-Programmierung, D-Serie | Ein Hitec-Servo der D-Serie und eine 5-V-Versorgung |
-| Hitec-Programmierung, klassisch | Ein klassisches Hitec-Servo (HS-5xxx, HS-7xxx) und die geschaltete Versorgung aus [Verdrahtung](Verdrahtung), Teil C: ein 5-V-DC-DC-Wandler (Gleichspannungswandler) mit Enable-Eingang (EN), seine Eingangsversorgung und ein Pull-down-Widerstand von 10 kΩ von EN nach Masse |
+| Hitec-Programmierung, klassisch | Ein klassisches Hitec-Servo (HS-5xxx, HS-7xxx) und die geschaltete Versorgung aus [Verdrahtung](Verdrahtung), Teil C: ein 5-V-DC-DC-Wandler (Gleichspannungswandler) mit Enable-Eingang (EN), ein Abwärtswandler oder einer mit Ausgangstrennung, für mehr als 1 A, seine Eingangsversorgung und ein Pull-down-Widerstand von 10 kΩ von EN nach Masse |
 
 ---
 
@@ -41,7 +41,7 @@ Die Platine hat JST-SH-Steckverbinder mit 1,0 mm Raster und keine
 |---|---|---|
 | 2 | SIG (GP0) | die Signalader: orange oder weiß |
 | 4 | GND (Masse) | die Minusader: braun oder schwarz |
-| 1 | AUX (GP1) | optional: die Telemetrieader eines ESC mit KISS-Telemetrie oder das Signal eines zweiten Servos |
+| 1 | AUX (GP1) | optional: die Telemetrieader eines ESC mit KISS-Telemetrie, einem seriellen ESC-Telemetrieprotokoll, oder das Signal eines zweiten Servos |
 | 3 | 3,3 V | nichts. Kurz abschneiden und isolieren |
 
 GP0 und GP1 sind GPIO 0 und 1 der Platine (General-Purpose Input/Output,
@@ -53,15 +53,16 @@ Lötkolben und Schrumpfschlauch oder Crimpkontakte.
 >   Kontakt aus dem Stecker.
 > - Am Servo ist sie die Versorgung des Servos. Verbinde sie und die
 >   Minusader mit der eigenen Versorgung des Servos, wie in
->   [Verdrahtung](Verdrahtung), Teil B. Die Minusader geht außerdem an
->   J5 Pin 4.
+>   [Verdrahtung](Verdrahtung), Teil B, oder Teil C für die geschaltete
+>   Versorgung. Die Minusader geht außerdem an einen GND-Pin der Platine:
+>   J5 Pin 4 oder J4 Pin 1 oder 5.
 
 > **Kein Servo an SIG, während die Platine startet.** Außerhalb der
 > Servobildschirme führt SIG DShot, vom Einschalten an. Ein Servo liest das
-> als Impuls und fährt gegen ein Ende seines Wegs, mit einer Bildrate, die
-> ein analoges Servo überhitzt. Stecke das Servo an, wenn der
-> Servobildschirm es verlangt. Schalte die Platine vor der Servoversorgung
-> ein und die Servoversorgung vor der Platine aus:
+> als Impuls und fährt in Richtung eines Endes seines Wegs, mit einer
+> Framerate, die ein analoges Servo überhitzt. Stecke das Servo erst an,
+> wenn sein Bildschirm offen ist. Schalte die Platine vor der
+> Servoversorgung ein und die Servoversorgung vor der Platine aus:
 > [Servotester](Servotester#verkabelung).
 
 Die Aderfarben eines JST-SH-Kabels folgen keiner Norm. Finde Pin 1 am
@@ -83,7 +84,7 @@ Herstellers; in dieser Anleitung ist es nicht gezeichnet.
    hier nicht geprüft.
 4. Kopiere die `.uf2`-Datei auf dieses Laufwerk. Die Platine startet neu.
 5. Der Startbildschirm erscheint 3 s lang und nennt die Platine,
-   `RP2350-TOUCH-LCD-2.8`. Danach erscheint der Tester.
+   `RP2350-TOUCH-LCD-2.8`. Danach erscheint der Tester-Bildschirm.
 
 <img src="img/splash.png" width="240" alt="Der Startbildschirm">
 
