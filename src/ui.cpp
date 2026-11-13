@@ -237,9 +237,9 @@ static uint16_t s_padAnchorThrottle = 0;
 
 static uint32_t s_blDipUntil = 0;
 
-/** @brief Start a dip. Called on every arm and disarm, however it happened. */
 /** @brief A dip is running: the deadline alone reads true again 2^31 ms on. */
 static bool     s_blDip = false;
+/** @brief Start a dip. Called on every arm and disarm, however it happened. */
 static void backlightDip() { s_blDip = true; s_blDipUntil = millis() + BL_DIP_MS; }
 /** @} */
 

@@ -1521,7 +1521,6 @@ static void testCardPhase() {
 	leaveAll();
 }
 
-
 static bool anyLine(const char *text, uint16_t col) {
 	for (int y = 60; y < 240; y++) if (lineIs(y, text, col)) return true;
 	return false;
@@ -1550,11 +1549,21 @@ static void testRecordWarningOnSearch() {
 	kstFrames(10);
 	checkTrue("switched: the search still names it, ahead of the explanations",
 	          job().job == KstJobState::Searching && anyLine("A WRITE WAS INTERRUPTED. KST/KST.TXT", C_AMBER));
+	checkTrue("with its second line", anyLine("HOLDS THE SERVO AS IT WAS.", C_AMBER));
+	checkTrue("the failsafe caution stays",
+	          anyLine("A POWERED SERVO ON THIS PIN GETS NO", C_DIM) &&
+	          anyLine("PULSES AND MAY GO TO ITS FAILSAFE.", C_DIM));
+	checkTrue("and the converter warning",
+	          anyLine("AN ESC ON THIS LEAD GETS THE", C_AMBER) &&
+	          anyLine("CONVERTER'S OUTPUT ON ITS BEC WIRE.", C_AMBER));
+	checkTrue("the how-it-works pair gives way",
+	          !anyLine("THE BENCH SWITCHES THE SERVO OFF FOR", C_DIM));
 	leaveAll();
 	g_supOn = false;
 	servoSupplyConfigure(0);
 	settings()->servoSupply = 0;
 }
+
 void runKstUiTests() {
 	testRecordWarningOnSearch();
 	testOpenAndSearch();

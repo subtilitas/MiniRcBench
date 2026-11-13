@@ -357,6 +357,8 @@ static uint8_t sdLogControls(UiControl *out, uint8_t max) {
 // ---------------------------------------------------------------------------
 
 void uiSdLogEnter() {
+	// A note cut short by leaving the screen does not come back.
+	s_mscNote = MscRefusal::None;
 	memset(&s_shown, 0xFF, sizeof(s_shown));
 	memset(&s_touch, 0, sizeof(s_touch));
 }

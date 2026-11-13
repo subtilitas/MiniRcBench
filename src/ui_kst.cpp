@@ -730,15 +730,17 @@ static void mainBody(MainText *m) {
 }
 
 /**
- * @brief Make room for @p want more lines: the view's explanations, its
- *        C_DIM lines, go first, from the last one up. A warning outranks
- *        them; a view whose six lines are all warnings keeps them.
+ * @brief Make room for @p want more lines: the view's C_DIM lines go, from
+ *        the first one down, so what a view explains first, how it works,
+ *        goes before a caution below it. A warning outranks both; a view
+ *        whose six lines are all warnings keeps them. The views write their
+ *        lines in pairs, and @p want is even: no half sentence is left.
  */
 static void makeRoom(MainText *m, int want) {
 	int used = 0;
 	while (used < 6 && m->line[used]) used++;
-	for (int i = used - 1; i >= 0 && used + want > 6; i--) {
-		if (m->lineCol[i] != C_DIM) continue;
+	for (int i = 0; i < used && used + want > 6; ) {
+		if (m->lineCol[i] != C_DIM) { i++; continue; }
 		for (int k = i; k < used - 1; k++) {
 			m->line[k] = m->line[k + 1];
 			m->lineCol[k] = m->lineCol[k + 1];

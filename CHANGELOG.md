@@ -541,8 +541,10 @@ protocol.
 - A blackbox log whose last flush or directory sync fails ends in the error
   state; it read as a clean stop.
 - MENU's BEEP flash, the backlight dip and SD LOG's refusal note no longer
-  return 2^31 ms (24.9 days) after they ended.
-- A BEEP request written while core1 takes the one before it is kept.
+  return 2^31 ms (24.9 days) after they ended, or after a flash or note that
+  leaving its screen cut short.
+- A BEEP request made while core1 takes the one before it is kept: the
+  requests are counted, and core1 clears only the one it took.
 - The settings write refuses a block larger than one flash page, 256 bytes;
   the guard allowed up to 4096 bytes into a 256-byte buffer. No caller
   passes more than a page.

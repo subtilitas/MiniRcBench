@@ -264,10 +264,12 @@ void sdLogStop() {
 		sdLogFlush();
 	s_draining = false;
 
+	// A flush that failed has closed the file and set Error: it stays, with
+	// the file's number, as after a flush that fails while logging.
+	if (s_state != SdLogState::Logging) return;
+
 	s_fileNo = 0;
 	s_autoStarted = false;
-	// A flush that failed has closed the file and set Error: it stays.
-	if (s_state != SdLogState::Logging) return;
 
 	// Hand back the unused pre-allocation, then commit the directory entry.
 	// A sync or close that fails leaves the entry unwritten: that is an error,

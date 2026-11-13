@@ -196,6 +196,8 @@ static void drawMenu(bool edt) {
 // ---------------------------------------------------------------------------
 
 void uiMenuEnter() {
+	// A flash cut short by leaving MENU does not come back.
+	s_beepShown = false;
 	s_entries = s_wantEntries;
 	s_count = s_wantCount;
 	uiListInit(&s_list, UiRect{ MENU_ROW_X, MENU_VIEW_Y0, MENU_ROW_W, MENU_VIEW_H },

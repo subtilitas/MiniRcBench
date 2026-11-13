@@ -71,7 +71,8 @@ static volatile uint16_t s_throttle    = 0;   /**< Commanded throttle, 0..2000. 
 static volatile bool     s_armed       = false; /**< Arm state. */
 static volatile uint8_t  s_poles       = DEFAULT_MOTOR_POLES; /**< Pole count. */
 static volatile uint32_t s_heartbeatMs = 0;   /**< millis() of the last heartbeat. */
-static volatile uint8_t  s_beepReq     = 0;   /**< Beacon 1..5 core0 wants; 0 none. */
+static volatile uint8_t  s_beepReq     = 0;   /**< Beacon 1..5 core0 wants; 0 none. Under s_cs. */
+static volatile uint8_t  s_beepGen     = 0;   /**< Counts the requests, so core1 clears only the one it took. Under s_cs. */
 static volatile bool     s_edtRequested = false; /**< Mirror of EscEdtState::sent. */
 /** @} */
 
@@ -235,7 +236,10 @@ bool escRequestBeep(uint8_t n) {
 	// A request, not a queue write. Core1 latches it into its own repeat
 	// counter when the wire is free, so a press cannot land in the middle of an
 	// EDT enable and truncate it. An arm drops it. @see esc_cmd
+	critical_section_enter_blocking(&s_cs);
 	s_beepReq = n;
+	s_beepGen = (uint8_t)(s_beepGen + 1);
+	critical_section_exit(&s_cs);
 	return true;
 }
 
@@ -438,7 +442,10 @@ void escTaskPoll() {
 #else
 	bool kissRx = false;
 #endif
+	critical_section_enter_blocking(&s_cs);
 	uint8_t beepReq = s_beepReq;
+	uint8_t beepGen = s_beepGen;
+	critical_section_exit(&s_cs);
 	EscSlot slot = handover == EscHandover::Drain
 	             ? escDrainSlot()
 	             : escPumpSlot(&s_pump, &s_tel, s_armed, uiAlive, s_throttle,
@@ -449,10 +456,10 @@ void escTaskPoll() {
 		critical_section_exit(&s_cs);
 	}
 	s_edtRequested = s_pump.edt.sent;
-	// Only the request this pass read: one core0 wrote since stays.
+	// Only the request this pass read: one core0 made since stays.
 	if (slot.beepTaken) {
 		critical_section_enter_blocking(&s_cs);
-		if (s_beepReq == beepReq) s_beepReq = 0;
+		if (s_beepGen == beepGen) s_beepReq = 0;
 		critical_section_exit(&s_cs);
 	}
 
