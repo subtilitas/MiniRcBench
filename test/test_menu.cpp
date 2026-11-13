@@ -6,7 +6,8 @@
  * The cases slice C of docs/design/menu.md lists: SD LOG's BACK to MENU,
  * every registry entry opened from MENU and back, MENU's disarm, BEEP's
  * flash on its row, PINS BUSY while the claim restores, MENU's scroll over
- * registries of six and seven rows, and SETTINGS' list: its scroll range,
+ * registries of six and seven rows, SETTINGS whole and tappable at 0 px as the
+ * sixth row, SD LOG cut until dragged, and SETTINGS' list: its scroll range,
  * each row by id, no scroll from a control, the 40 px rule for a cut
  * control, HOLD TO SAVE at every scroll, and the pole and ceiling rows.
  */
@@ -229,18 +230,21 @@ static void testPinsBusy() {
 	bool busySeen = uiCurrentScreen() == UiScreenId::Menu && pinClaimState() != ClaimState::Free;
 	checkTrue("RESTART DSHOT returns to MENU while the claim restores", busySeen);
 	if (busySeen) {
-		// SETTINGS is MENU's seventh row: a drag brings it whole, with no pump
-		// pass, so the claim stays Restoring.
-		fakePress(120, 250); framesNoPump(1);
-		for (int k = 1; k <= 12; k++) { fakeHold(120, 250 - 6 * k); framesNoPump(1); }
-		fakeRelease(); framesNoPump(1);
+		// SETTINGS is MENU's sixth row, whole at scroll 0. SD LOG is the
+		// seventh: a drag brings it whole, with no pump pass, so the claim
+		// stays Restoring.
 		const UiControlId settingsRow = UI_ROW(uiMenuRowOf(&UI_SETTINGS), Row);
-		checkInt("SETTINGS' row is whole", ctlRect(settingsRow).h, 40);
+		checkInt("SETTINGS' row is whole without a drag", ctlRect(settingsRow).h, 40);
 		checkTrue("SERVO TESTER does not act", !ctlEnabled(menuRow(&UI_SERVO)));
 		checkTrue("nor AM32 CONFIG", !ctlEnabled(menuRow(&UI_AM32)));
 		checkTrue("nor SETTINGS, which changes the wiring the claim latched",
 		          !ctlEnabled(settingsRow));
-		checkTrue("SD LOG, which claims nothing, acts", ctlEnabled(menuRow(&UI_SDLOG)));
+		fakePress(120, 250); framesNoPump(1);
+		for (int k = 1; k <= 12; k++) { fakeHold(120, 250 - 6 * k); framesNoPump(1); }
+		fakeRelease(); framesNoPump(1);
+		const UiControlId logRow = UI_ROW(uiMenuRowOf(&UI_SDLOG), Row);
+		checkInt("SD LOG's row is whole after the drag", ctlRect(logRow).h, 40);
+		checkTrue("SD LOG, which claims nothing, acts", ctlEnabled(logRow));
 		fakeDumpFrame("shot_menu_pins_busy.ppm");
 		UiControl c;
 		ctlFind(menuRow(&UI_SERVO), &c);
@@ -273,9 +277,9 @@ static void testMenuScroll() {
 	};
 	static const UiMenuEntry seven[] = {
 		{ "BEEP THE ESC", 8, &UI_BEEP }, { "AM32 CONFIG", 9, &UI_AM32 },
-		{ "SERVO TESTER", 9, &UI_SERVO }, { "SD LOG", 10, &UI_SDLOG },
-		{ "SETTINGS", 9, &UI_SETTINGS }, { "SD LOG", 10, &UI_SDLOG },
-		{ "SETTINGS", 9, &UI_SETTINGS },
+		{ "SERVO TESTER", 9, &UI_SERVO }, { "KST SERVO", 9, &UI_KST },
+		{ "HITEC SERVO", 9, &UI_HITEC }, { "SETTINGS", 9, &UI_SETTINGS },
+		{ "SD LOG", 10, &UI_SDLOG },
 	};
 	freshTester();
 
@@ -306,6 +310,32 @@ static void testMenuScroll() {
 	checkControlTable("MENU of seven, scrolled");
 	tapId(UI_FIX(UI_BACK));
 	uiMenuUseRegistry(nullptr, 0);
+}
+
+/** @brief The built registry: SETTINGS is the sixth row, whole and tappable at 0 px. */
+static void testSettingsRowVisible() {
+	section("MENU: SETTINGS is the sixth row, whole without a drag");
+	freshTester();
+	uiMenuUseRegistry(nullptr, 0);
+	openMenu();
+	checkInt("SETTINGS is the sixth row", uiMenuRowOf(&UI_SETTINGS), 5);
+	checkInt("SD LOG is the seventh row", uiMenuRowOf(&UI_SDLOG), 6);
+	const UiControlId settingsRow = UI_ROW(5, Row);
+	checkInt("SETTINGS is whole at 0 px", ctlRect(settingsRow).h, 40);
+	checkInt("and ends at y 311", ctlRect(settingsRow).y + ctlRect(settingsRow).h, 312);
+	checkTrue("SD LOG, the seventh, is cut at 0 px", !ctlEnabled(UI_ROW(6, Row)));
+	checkTrue("SETTINGS acts at 0 px", ctlEnabled(settingsRow));
+	tapId(settingsRow);
+	checkTrue("a tap with no drag opens SETTINGS", uiCurrentScreen() == UiScreenId::Settings);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK lands on MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("SD LOG is cut again at 0 px", !ctlEnabled(UI_ROW(6, Row)));
+	checkTrue("a drag brings SD LOG whole and acts",
+	          ctlEnabled(menuRow(&UI_SDLOG)) && ctlRect(UI_ROW(6, Row)).h == 40);
+	tapId(menuRow(&UI_SDLOG));
+	checkTrue("and a tap opens SD LOG", uiCurrentScreen() == UiScreenId::SdLog);
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
 }
 
 /** @brief Opens SETTINGS from a fresh tester. */
@@ -613,9 +643,9 @@ static void testMenuScrollResets() {
 	section("MENU: a tool's return opens MENU at 0 px");
 	static const UiMenuEntry seven[] = {
 		{ "BEEP THE ESC", 8, &UI_BEEP }, { "AM32 CONFIG", 9, &UI_AM32 },
-		{ "SERVO TESTER", 9, &UI_SERVO }, { "SD LOG", 10, &UI_SDLOG },
-		{ "SETTINGS", 9, &UI_SETTINGS }, { "SD LOG", 10, &UI_SDLOG },
-		{ "SETTINGS", 9, &UI_SETTINGS },
+		{ "SERVO TESTER", 9, &UI_SERVO }, { "KST SERVO", 9, &UI_KST },
+		{ "HITEC SERVO", 9, &UI_HITEC }, { "SETTINGS", 9, &UI_SETTINGS },
+		{ "SD LOG", 10, &UI_SDLOG },
 	};
 	freshTester();
 	uiMenuUseRegistry(seven, 7);
@@ -625,7 +655,7 @@ static void testMenuScrollResets() {
 	fakeRelease(); menuFrames(1);
 	checkInt("scrolled 36 px: the seventh row at y 278", ctlRect(UI_ROW(6, Row)).y, 278);
 	tapId(UI_ROW(6, Row));
-	checkTrue("its SETTINGS opens", uiCurrentScreen() == UiScreenId::Settings);
+	checkTrue("its SD LOG opens", uiCurrentScreen() == UiScreenId::SdLog);
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK lands on MENU", uiCurrentScreen() == UiScreenId::Menu);
 	checkTrue("at 0 px: the first row whole at y 62",
@@ -678,6 +708,7 @@ void runMenuTests() {
 	testMenuDisarmAndBeep();
 	testPinsBusy();
 	testMenuScroll();
+	testSettingsRowVisible();
 	testSettingsScroll();
 	testSettingsCutControl();
 	testSettingsRows();

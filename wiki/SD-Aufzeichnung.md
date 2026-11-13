@@ -45,7 +45,8 @@ während der Aufzeichnung, `SD` im Leerlauf, `SDERR` nach einem Kartenfehler,
 
 ## Den Bildschirm lesen
 
-Öffnen über **MENU → SD LOG**. Die Zeile in `MENU` zeigt denselben Zustand:
+Öffnen über **MENU → SD LOG**. SD LOG ist die siebte Zeile: Ziehe `MENU` um
+36 px nach oben, damit sie sichtbar wird. Die Zeile zeigt denselben Zustand:
 `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, oder `USB DRIVE`, solange ein
 Computer die Karte hält.
 

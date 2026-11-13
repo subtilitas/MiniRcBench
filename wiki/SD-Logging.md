@@ -40,7 +40,8 @@ The tester screen shows the state in its top row: `REC` (red) while recording,
 
 ## Reading the screen
 
-Open it with **MENU → SD LOG**. The row on `MENU` shows the same state: `NO CARD`,
+Open it with **MENU → SD LOG**. SD LOG is the seventh row: drag `MENU` up
+36 px to bring it into view. The row shows the same state: `NO CARD`,
 `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a computer holds the
 card.
 

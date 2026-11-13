@@ -570,15 +570,18 @@ resources: the claim exists for the pin.
 
 ## MENU
 
-Today MENU has seven rows and scrolls 36 px. The two tools sit after the
-servo tools, SERVO TESTER, KST SERVO and HITEC SERVO, which take the signal
-pins as they do, and before SD LOG:
+Today MENU has seven rows and scrolls 36 px. The two tools sit after the servo
+tools, SERVO TESTER, KST SERVO and HITEC SERVO, which take the signal pins as
+they do, and before SETTINGS. SETTINGS is the sixth row today, whole at scroll
+0. With the new rows before it, SETTINGS becomes the eighth or ninth row and is
+below the fold again; question 4 decides between that and placing the new rows
+after SETTINGS:
 
 | | Rows | Content | Scroll range |
 |---|---|---|---|
-| Today | 7 | BEEP THE ESC, AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO, SD LOG, SETTINGS | 0 to 36 px |
-| Today, RX MONITOR only | 8 | ... HITEC SERVO, RX MONITOR, SD LOG, SETTINGS | 0 to 78 px |
-| Today, both tools | 9 | ... HITEC SERVO, RX MONITOR, PPM OUTPUT, SD LOG, SETTINGS | 0 to 120 px |
+| Today | 7 | BEEP THE ESC, AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO, SETTINGS, SD LOG | 0 to 36 px |
+| Today, RX MONITOR only | 8 | ... HITEC SERVO, RX MONITOR, SETTINGS, SD LOG | 0 to 78 px |
+| Today, both tools | 9 | ... HITEC SERVO, RX MONITOR, PPM OUTPUT, SETTINGS, SD LOG | 0 to 120 px |
 
 The scroll range is rows × 42 px − 258 px, by the rules of
 [menu.md](menu.md#menu). MENU structure B (`docs/design/menu-b.md`, not
@@ -803,9 +806,10 @@ Slices 1b, 4 and 5 wait for the owner's answer to question 1.
    2047. (c) Percent, −100 % at 172 and +100 % at 1811. Recommendation: (a),
    with the bar in raw units; (b) as a later toggle if a user compares with
    an FC that reads raw.
-4. **MENU placement.** (a) Two rows after the servo tools, before SD LOG,
+4. **MENU placement.** (a) Two rows after the servo tools, before SETTINGS,
    as drawn. (b) One row, `RX AND PPM`, opening a list of the two. (c) After
-   SD LOG, before SETTINGS. Recommendation: (a); with (b) of question 1 it
+   SETTINGS, before SD LOG. (d) After SD LOG, so that SETTINGS stays the
+   sixth row. Recommendation: (a); with (b) of question 1 it
    is one row, and today's MENU has eight rows and scrolls 78 px. The place
    after the planned restructure is settled in its own note.
 5. **PPM pin.** (a) SIG, GP0, under the claim's ESC check. (b) AUX, GP1,

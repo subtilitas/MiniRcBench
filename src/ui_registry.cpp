@@ -19,8 +19,8 @@ constexpr UiMenuEntry UI_MENU[] = {
 	{ "SERVO TESTER",  9, &UI_SERVO    },   // ui_servo.cpp: GP0+1, PINS BUSY
 	{ "KST SERVO",     9, &UI_KST      },   // ui_kst.cpp: GP0, PINS BUSY
 	{ "HITEC SERVO",   9, &UI_HITEC    },   // ui_hitec.cpp: GP0, PINS BUSY
-	{ "SD LOG",       10, &UI_SDLOG    },   // ui_sdlog.cpp: CARD ERROR
 	{ "SETTINGS",      9, &UI_SETTINGS },   // ui_settings.cpp: PINS BUSY, UNSAVED
+	{ "SD LOG",       10, &UI_SDLOG    },   // ui_sdlog.cpp: CARD ERROR
 };
 constexpr uint8_t UI_MENU_COUNT = (uint8_t)(sizeof(UI_MENU) / sizeof(UI_MENU[0]));
 
