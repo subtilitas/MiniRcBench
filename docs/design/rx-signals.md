@@ -570,12 +570,12 @@ resources: the claim exists for the pin.
 
 ## MENU
 
-Today MENU has seven rows and scrolls 36 px. The two tools sit after the
-servo tools, SERVO TESTER, KST SERVO and HITEC SERVO, which take the signal
-pins as they do, and before SETTINGS. SETTINGS is the sixth row today, whole at scroll 0.
-With the new rows before it, SETTINGS becomes the eighth or ninth row and is
-below the fold again; question 4 decides between that and placing the new
-rows after SETTINGS:
+Today MENU has seven rows and scrolls 36 px. The two tools sit after the servo
+tools, SERVO TESTER, KST SERVO and HITEC SERVO, which take the signal pins as
+they do, and before SETTINGS. SETTINGS is the sixth row today, whole at scroll
+0. With the new rows before it, SETTINGS becomes the eighth or ninth row and is
+below the fold again; question 4 decides between that and placing the new rows
+after SETTINGS:
 
 | | Rows | Content | Scroll range |
 |---|---|---|---|
