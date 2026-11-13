@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <stddef.h>
 #include <stdint.h>
 
 /**
@@ -34,6 +35,16 @@ void uiDrawSplash();
  */
 void uiTick();
 
+/**
+ * @brief The tester's board voltage as drawn top right: rounded to 0.01 V
+ *        and clamped to 0.00 V to 9.99 V, so at most five characters,
+ *        for example `3.92V`.
+ * @param volts The board's battery voltage.
+ * @param[out] buf The text.
+ * @param n Room in @p buf; 6 bytes or more.
+ */
+void uiBoardVoltText(float volts, char *buf, size_t n);
+
 /** @brief Current commanded throttle, 0..2000. @return Throttle value. */
 uint16_t uiThrottle();
 
@@ -48,6 +59,19 @@ enum class TesterCtl : uint8_t {
 	Throttle,  /**< The throttle gauge's track, as drawn. A press lands 8 px beyond its left, right and top edges and 1 px below it (handleMainTouch()). Acts while armed. */
 	Pad,       /**< The relative throttle pad over the readouts. Acts while armed. */
 };
+
+/**
+ * @brief The throttle track's text while a USB host holds the card, in place
+ *        of ARM TO ENABLE: HOLD TO ARM is drawn disabled then.
+ */
+#define UI_TESTER_CARD_TEXT "EJECT THE USB DRIVE TO ARM"
+
+/**
+ * @brief The splash's warning, with the ESC pin's GPIO number for `%u`:
+ *        DShot runs on that pin from the end of the splash, and a servo
+ *        on it moves.
+ */
+#define UI_SPLASH_PIN_FMT "UNPLUG ANY SERVO FROM GP%u NOW"
 
 struct UiScreen;
 

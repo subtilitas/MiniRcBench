@@ -37,10 +37,11 @@ root and has no header.
   the ESC then;
 - the recording state: `REC`, `SD`, `SDERR` or `NOSD`
   (see [SD Logging](SD-Logging));
-- the board's own battery voltage, read through its 200k/100k divider. With
-  only USB (Universal Serial Bus) power connected, what this reads is not
-  measured. During the last 5 s before the idle interlock disarms, `IDLE ns`
-  in amber replaces the voltage.
+- `BOARD` and the board's own battery voltage, read through its
+  200 kΩ/100 kΩ divider; at most 9.90 V. It is not the ESC's pack: that is
+  the `VOLTAGE` tile. With only USB (Universal Serial Bus) power connected,
+  what this reads is not measured. During the last 5 s before the idle
+  interlock disarms, `IDLE ns` in amber replaces the voltage and `BOARD`.
 
 **RPM.** Mechanical RPM (revolutions per minute), computed from the eRPM
 (electrical RPM) the ESC (electronic speed controller) reports and the pole
@@ -57,6 +58,13 @@ full-width drag reads `20%`. While disarmed the bar reads `ARM TO ENABLE`.
 
 **Buttons.** `HOLD TO ARM` / `DISARM`, `HOLD` (latching throttle), `MENU`.
 
+While a computer holds the SD card over USB, arming is refused: `HOLD TO ARM`
+is drawn as an outline, and the bar reads `EJECT THE USB DRIVE TO ARM` in
+amber. Eject the drive on the computer, or press `EJECT` on SD LOG, and the
+button is live again (see [SD Logging](SD-Logging)).
+
+<img src="img/tester-card-held.png" width="240" alt="The tester while a computer holds the card: HOLD TO ARM drawn as an outline, the bar reading EJECT THE USB DRIVE TO ARM">
+
 ---
 
 ## MENU
@@ -67,8 +75,16 @@ Reached with the tester's `MENU` button. Opening it **disarms**, sets the
 throttle to 0 and turns `HOLD` off.
 
 Under the title, a strip shows the ESC pin and the DShot rate, for example
-`GP0  600 KBIT/S`, and the **EDT ON / EDT OFF** chip. The chip is read-only.
-It is green while Extended DShot Telemetry frames arrive and red otherwise.
+`GP0  600 KBIT/S`, and the EDT chip. The chip is read-only:
+
+| Chip | When |
+|---|---|
+| `EDT ON`, green | Extended DShot Telemetry frames arrive |
+| `EDT OFF`, red | eRPM frames arrive and EDT frames do not |
+| `NO ESC`, dim grey | no eRPM frame for 500 ms: no ESC connected, or none answering |
+
+<img src="img/menu-no-esc.png" width="240" alt="MENU with no ESC connected: the chip reads NO ESC"> <img src="img/menu-edt-off.png" width="240" alt="MENU with an ESC that sends eRPM and no EDT: the chip reads EDT OFF in red">
+
 There is no enable button. The firmware sends the enable to every ESC that
 starts answering, and repeats it every 1 s while eRPM arrives and EDT does not.
 The ESC does not acknowledge the enable, so the chip shows *received frames*,
@@ -135,6 +151,7 @@ settings to flash. One list, in sections, scrolls under a finger.
 | DISPLAY | **CONTRAST** | `NORMAL` or `HIGH`. High contrast is for daylight |
 | DISPLAY | **BACKLIGHT** | 16–255, in steps of 32 |
 | BOARD | **BUILT FOR** | Read-only. The board the firmware is built for, `RP2350-TOUCH-LCD-2.8` |
+| BOARD | **VERSION** | Read-only. The firmware version, for example `0.1.0` |
 
 `MOTOR POLES` and `MAX THROTTLE` come first, so they need no scrolling. The `-`
 and `+` buttons are 44 × 44 px; hold one to repeat.
@@ -193,7 +210,12 @@ Reads, edits and writes the settings of an AM32 ESC over the signal wire.
 
 Drives one or two servos with servo pulses on the ESC and KISS pins. It opens
 SAFE; `HOLD TO START` for 1 s starts the pulses at the centre, `STOP` acts on
-touch. `SET` opens the profile and sweep settings. `BACK` shows
+touch. While SAFE with one servo, the readout reads `TWO SERVOS:` and
+`SET > SERVOS`, where the second servo is switched on. With SERVO SUPPLY at
+`GP28` or `GP29` the strip's second line reads `GP28 SUPPLY STAYS OFF HERE.`
+in amber: the servo tester never switches the converter on, so the servo
+needs a supply of its own here. `SET` opens the profile and sweep settings.
+`BACK` shows
 `UNPLUG THE SERVO.` before the ESC driver takes the pins back, and
 `RESTART DSHOT` then returns to `MENU`. See
 [Servo Tester](Servo-Tester).
@@ -221,7 +243,10 @@ See [KST Programming](KST-Programming).
 Reads and writes the settings of a Hitec D series or classic servo over the
 signal wire on the ESC pin. It opens on the family view: `D SERIES` acts, and
 `CLASSIC` acts with SERVO SUPPLY at `GP28` or `GP29`; under `NONE` it is drawn
-disabled with `NEEDS SERVO SUPPLY GP28 OR GP29`. The screen enters the servo
+disabled with `NEEDS THE CONVERTER OF WIRING PART C` and
+`AND SETTINGS > SERVO SUPPLY GP28/29.`: the converter of
+[wiring](Wiring) part C comes first, then the setting. Under `NONE`, D SERIES
+reads `POWER THE SERVO UP BEFORE THE TAP.`. The screen enters the servo
 and reads it. A D series servo gives 21 registers and 20 parameters, 11 of
 them editable. One servo goes on the lead, with no pull-up resistor.
 `HOLD TO WRITE` for 1 s opens the write page, and a second hold of 1 s writes,

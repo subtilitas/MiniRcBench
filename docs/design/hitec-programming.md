@@ -474,8 +474,9 @@ the job touches neither pin.
 
 - **Classic needs it.** A classic servo enters serial mode at a power-up
   ([decision 2](#decisions-of-the-owner)). CLASSIC is drawn disabled, with
-  `NEEDS SERVO SUPPLY GP28 OR GP29` under it, while `SERVO SUPPLY` is
-  `NONE`.
+  `NEEDS THE CONVERTER OF WIRING PART C` and
+  `AND SETTINGS > SERVO SUPPLY GP28/29.` under it, while `SERVO SUPPLY` is
+  `NONE`; D SERIES then reads `POWER THE SERVO UP BEFORE THE TAP.`
 - **D series uses it when it is set.** With a switch the converter is the
   servo's only supply, so every D series entry runs a POWER step. With
   `NONE` the entry runs on the user's supply as it is.
@@ -684,7 +685,7 @@ its rows, values, stepper and texts in `src/hitec_view.*`, as
 
 | View | What it shows | Controls |
 |---|---|---|
-| Family | CLASSIC (HS-5XXX, HS-7XXX) and D SERIES, with the wiring note of each; no pin is claimed yet. CLASSIC disabled with `NEEDS SERVO SUPPLY GP28 OR GP29` under `NONE`, enabled with `GP28` or `GP29` ([decision 13](#decisions-of-the-owner)) | CLASSIC, D SERIES, BACK |
+| Family | CLASSIC (HS-5XXX, HS-7XXX) and D SERIES, with the wiring note of each; no pin is claimed yet. CLASSIC disabled with `NEEDS THE CONVERTER OF WIRING PART C` and `AND SETTINGS > SERVO SUPPLY GP28/29.` under `NONE`, enabled with `GP28` or `GP29` ([decision 13](#decisions-of-the-owner)); under `NONE`, D SERIES with `POWER THE SERVO UP BEFORE THE TAP.` | CLASSIC, D SERIES, BACK |
 | Claim | the KST screen's: `CHECKING GP0 FOR AN ESC`, `RELEASING GP0`, the refusals and bind errors | BACK |
 | Entry, classic | `SUPPLY OFF 0.5 S`, then `LISTENING FOR THE SERVO` with the window's progress, then `ENTERING`; the amber ESC line below | STOP, BACK |
 | Entry, D series | with a switch, `SUPPLY OFF 0.5 S`, then `SERVO STARTING 1.0 S` and the amber ESC line; then `READING THE MODEL` | STOP, BACK |

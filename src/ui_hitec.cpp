@@ -66,14 +66,27 @@
 #define HF_LOAD_Y    278              /**< LOAD and HOLD TO RESTORE. */
 /** @brief Files the FILES page lists at most. */
 #define HITEC_UI_FILES_MAX 64
+#define HF_CLASSIC_Y 80               /**< The family view: CLASSIC's top. */
+#define HF_DSERIES_Y 168              /**< D SERIES' top. */
+#define HF_FAMILY_H  46               /**< Both buttons' height. */
+#define HF_WHY_1     16               /**< CLASSIC's first note line, px under the button. */
+#define HF_WHY_2     28               /**< ...and its second. */
 /** @brief Changes the write page lists before AND n MORE. */
 #define HITEC_UI_CHANGES_MAX 6
 /** @} */
 
 static const UiRect FIELD_VIEW  = { 0, UI_BODY_Y, GFX_W, HL_LIST_Y1 - UI_BODY_Y + 1 };
 static const UiRect FILE_VIEW   = { 0, UI_BODY_Y, GFX_W, HF_LIST_Y1 - UI_BODY_Y + 1 };
-static const UiRect BTN_CLASSIC = { 6, 80, 228, 46 };
-static const UiRect BTN_DSERIES = { 6, 168, 228, 46 };
+static const UiRect BTN_CLASSIC = { 6, HF_CLASSIC_Y, 228, HF_FAMILY_H };
+static const UiRect BTN_DSERIES = { 6, HF_DSERIES_Y, 228, HF_FAMILY_H };
+// The family view's notes are scale 1 from x 8: 37 characters reach x 228.
+static_assert(sizeof(HITEC_UI_CLASSIC_WHY_1) - 1 <= 37 && sizeof(HITEC_UI_CLASSIC_WHY_2) - 1 <= 37 &&
+                  sizeof(HITEC_UI_D_POWER) - 1 <= 37,
+              "a family note runs off the panel");
+// CLASSIC's model line and two note lines at a 12 px pitch from 4 px under
+// the button: the last, 7 px tall, ends 7 px or more above D SERIES.
+static_assert(HF_CLASSIC_Y + HF_FAMILY_H + HF_WHY_2 + 7 + 7 <= HF_DSERIES_Y,
+              "CLASSIC's note runs into D SERIES");
 static const UiRect BTN_MINUS   = { 6, HL_EDIT_Y, HL_STEP_W, HL_EDIT_H };
 static const UiRect BTN_PLUS    = { GFX_W - 6 - HL_STEP_W, HL_EDIT_Y, HL_STEP_W, HL_EDIT_H };
 static const UiRect BTN_REPAIR  = { 6, HL_EDIT_Y, 70, HL_EDIT_H };
@@ -636,14 +649,20 @@ static void drawFamily() {
 	bool c = classicAllowed();
 	uiButton(BTN_CLASSIC, "CLASSIC", C_PANEL, C_TEXT, 2, c && pressing(BTN_CLASSIC), c);
 	gfxText(UI_MARGIN, BTN_CLASSIC.y + BTN_CLASSIC.h + 4, "HS-5XXX, HS-7XXX", C_DIM, 1);
-	if (!c) gfxText(UI_MARGIN, BTN_CLASSIC.y + BTN_CLASSIC.h + 18, "NEEDS SERVO SUPPLY GP28 OR GP29",
-	                C_AMBER, 1);
+	// CLASSIC needs hardware, the converter of wiring part C, before the
+	// setting means anything: the two lines name both, the part first.
+	if (!c) {
+		gfxText(UI_MARGIN, BTN_CLASSIC.y + BTN_CLASSIC.h + HF_WHY_1, HITEC_UI_CLASSIC_WHY_1, C_AMBER, 1);
+		gfxText(UI_MARGIN, BTN_CLASSIC.y + BTN_CLASSIC.h + HF_WHY_2, HITEC_UI_CLASSIC_WHY_2, C_AMBER, 1);
+	}
 	uiButton(BTN_DSERIES, "D SERIES", C_PANEL, C_TEXT, 2, pressing(BTN_DSERIES));
 	gfxText(UI_MARGIN, BTN_DSERIES.y + BTN_DSERIES.h + 4, "D485HW, D645MW AND THE OTHERS", C_DIM, 1);
+	// A D series servo on its own supply must be running before the tap: the
+	// entry reads its model at once, with no wait for a power-up.
 	char sw[32];
 	snprintf(sw, sizeof(sw), "SUPPLY SWITCHED ON GP%u", (unsigned)servoSupplyPin());
 	gfxText(UI_MARGIN, BTN_DSERIES.y + BTN_DSERIES.h + 18,
-	        servoSupplyFitted() ? sw : "ON THE SERVO'S OWN SUPPLY", C_DIM, 1);
+	        servoSupplyFitted() ? sw : HITEC_UI_D_POWER, C_DIM, 1);
 }
 
 static void familyTouch() {

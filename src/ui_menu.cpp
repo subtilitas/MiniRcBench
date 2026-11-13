@@ -157,11 +157,18 @@ static void drawRow(int i, int y, void *) {
 
 static uint32_t mix(uint32_t h, uint32_t v) { return (h ^ v) * 16777619u; }
 
+/** @brief What the strip's chip says. */
+enum class MenuEdt : uint8_t {
+	NoEsc,  /**< No eRPM frame within ESC_LINK_STALE_MS: NO ESC, dim. */
+	Off,    /**< eRPM arrives and EDT does not: EDT OFF, red. */
+	On,     /**< EDT arrives: EDT ON, green. */
+};
+
 /** @brief Everything a frame draws, hashed: a change repaints. */
-static uint32_t frameKey(bool edt) {
+static uint32_t frameKey(MenuEdt edt) {
 	uint32_t h = 2166136261u;
 	h = mix(h, (uint32_t)s_list.scrollPx);
-	h = mix(h, edt);
+	h = mix(h, (uint32_t)edt);
 	h = mix(h, settings()->dshotPin);
 	h = mix(h, settings()->dshotKbaud);
 	for (int i = 0; i < s_count; i++) {
@@ -176,7 +183,7 @@ static uint32_t frameKey(bool edt) {
 	return h | 1u;
 }
 
-static void drawMenu(bool edt) {
+static void drawMenu(MenuEdt edt) {
 	gfxFill(C_BG);
 	uiHeader("MENU", s_t);
 	uiStripClear();
@@ -185,8 +192,14 @@ static void drawMenu(bool edt) {
 	         (unsigned)settings()->dshotKbaud);
 	uiStripText(cap, C_DIM);
 	// Read-only: the firmware enables EDT for each ESC as it appears, and
-	// arriving frames are the only evidence that it is delivering.
-	uiChip(edt ? "EDT ON" : "EDT OFF", edt ? C_GREEN : C_RED);
+	// arriving frames are the only evidence that it is delivering. Red is for
+	// an ESC that answers without EDT; with no ESC on the pin there is nothing
+	// wrong to flag, so the chip says that, dim.
+	switch (edt) {
+		case MenuEdt::On:    uiChip(UI_MENU_EDT_ON, C_GREEN);  break;
+		case MenuEdt::Off:   uiChip(UI_MENU_EDT_OFF, C_RED);   break;
+		case MenuEdt::NoEsc: uiChip(UI_MENU_NO_ESC, C_GRID);   break;
+	}
 	uiListDraw(&s_list, drawRow, nullptr);
 	uiListDrawBar(&s_list, MENU_BAR_X);
 }
@@ -228,10 +241,13 @@ UiMenuResult uiMenuTick(const TouchState *t, const UiScreen **open) {
 		escSnapshot(&tel);
 		EscReading rd;
 		escMerge(&tel, millis(), KISS_STALE_MS, EDT_STALE_MS, &rd);
-		uint32_t key = frameKey(rd.edtFresh);
+		MenuEdt edt = rd.edtFresh ? MenuEdt::On
+		            : escFieldFresh(tel.lastRpmMs, millis(), ESC_LINK_STALE_MS) ? MenuEdt::Off
+		                                                                        : MenuEdt::NoEsc;
+		uint32_t key = frameKey(edt);
 		if (key != s_drawnKey) {
 			s_drawnKey = key;
-			drawMenu(rd.edtFresh);
+			drawMenu(edt);
 		}
 	}
 	return r;

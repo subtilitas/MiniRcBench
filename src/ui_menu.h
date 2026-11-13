@@ -33,6 +33,17 @@ struct TouchState;
 /** @brief The status of a row refused while the pin claim is not Free. */
 #define UI_MENU_BUSY_TEXT "PINS BUSY"
 
+/**
+ * @defgroup ui_menu_chip The strip's EDT chip
+ * @brief Its three texts: green while EDT frames arrive, red while eRPM
+ *        arrives without them, dim while no eRPM arrives at all.
+ * @{
+ */
+#define UI_MENU_EDT_ON  "EDT ON"   /**< On `C_GREEN`. */
+#define UI_MENU_EDT_OFF "EDT OFF"  /**< On `C_RED`: the ESC answers, EDT does not. */
+#define UI_MENU_NO_ESC  "NO ESC"   /**< On `C_GRID`: no eRPM within 500 ms. */
+/** @} */
+
 /** @brief What a MENU frame asks of the navigation. */
 enum class UiMenuResult : uint8_t {
 	Stay,  /**< MENU stays open. */

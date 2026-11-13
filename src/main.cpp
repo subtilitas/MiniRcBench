@@ -127,7 +127,9 @@ void setup() {
 	touchInit();        // pulses the touch controller's own reset line
 	uiInit();
 
-	// splash while core1 brings the PIO up and the ESC finishes booting
+	// The splash, while the ESC finishes booting. Core1 is not running yet:
+	// main() launches it after setup() returns, so DShot starts on the ESC
+	// pin once the splash has ended and the card is mounted.
 	uiDrawSplash();
 	st7789FlushDirty();
 	delay(SPLASH_MS);

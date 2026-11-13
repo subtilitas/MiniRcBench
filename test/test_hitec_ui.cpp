@@ -258,6 +258,25 @@ static void testFamily() {
 	checkTrue("CLASSIC disabled with NONE", !ctlEnabled(UI_FIX(HitecCtl::Classic)));
 	checkTrue("D SERIES acts", ctlEnabled(UI_FIX(HitecCtl::DSeries)));
 	checkControlTable("Hitec family");
+	// CLASSIC's reason names the hardware first, then the setting; D SERIES
+	// says when to power the servo. Each line is redrawn over the full width,
+	// so nothing else may share its rows.
+	const UiRect cl = ctlRect(UI_FIX(HitecCtl::Classic));
+	const UiRect ds = ctlRect(UI_FIX(HitecCtl::DSeries));
+	checkTrue("NONE: CLASSIC needs the converter of wiring part C",
+	          lineIs(cl.y + cl.h + 16, HITEC_UI_CLASSIC_WHY_1, C_AMBER));
+	checkTrue("and SETTINGS > SERVO SUPPLY GP28/29",
+	          lineIs(cl.y + cl.h + 28, HITEC_UI_CLASSIC_WHY_2, C_AMBER));
+	checkTrue("the second line ends above D SERIES", cl.y + cl.h + 28 + 7 < ds.y);
+	checkTrue("D SERIES: power the servo up before the tap",
+	          lineIs(ds.y + ds.h + 18, HITEC_UI_D_POWER, C_DIM));
+	checkTrue("36, 36 and 34 characters: 215, 215 and 203 px, to x 223 at most",
+	          gfxTextW(HITEC_UI_CLASSIC_WHY_1, 1) == 215 && gfxTextW(HITEC_UI_CLASSIC_WHY_2, 1) == 215 &&
+	          gfxTextW(HITEC_UI_D_POWER, 1) == 203);
+	int x0 = 0, x1 = 0;
+	checkTrue("no note reaches the panel's 8 px margin",
+	          fakeInkExtent(cl.y + cl.h + 4, 34, C_BG, &x0, &x1) && x0 >= 8 && x1 < GFX_W - 8 &&
+	          fakeInkExtent(ds.y + ds.h + 4, 24, C_BG, &x0, &x1) && x0 >= 8 && x1 < GFX_W - 8);
 	fakeDumpFrame("shot_hitec_family.ppm");
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
@@ -267,6 +286,10 @@ static void testFamily() {
 	freshHitec(HITEC_CLASSIC, true);
 	openHitec();
 	checkTrue("with GP28: CLASSIC acts", ctlEnabled(UI_FIX(HitecCtl::Classic)));
+	checkTrue("and its reason is gone", lineIs(cl.y + cl.h + 16, "", C_AMBER) &&
+	          lineIs(cl.y + cl.h + 28, "", C_AMBER));
+	checkTrue("D SERIES names the switch, not the power-up",
+	          lineIs(ds.y + ds.h + 18, "SUPPLY SWITCHED ON GP28", C_DIM));
 	fakeDumpFrame("shot_hitec_family_classic.ppm");
 	leaveAll();
 }
