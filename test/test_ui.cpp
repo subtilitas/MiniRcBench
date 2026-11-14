@@ -3403,6 +3403,7 @@ static void testAm32Guidance() {
 	{
 		// The Air preset as the configurator ships it: 3D MODE on.
 		fakeEscSet(AM32_OFF_BI_DIRECTION, 1);
+		fakeEscSet(0x1B, 14);   // the preset's poles; the writes above moved them
 		enterAm32(6);
 		checkTrue("the list is open", s_state == S_LIST);
 		checkTrue("3D MODE on: two amber lines on the strip",
