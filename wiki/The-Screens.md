@@ -42,14 +42,20 @@ disabled, an outline with a grey label, and a tap on it does nothing.
 - `BOARD` and the board's own battery voltage, read through its
   200 kΩ/100 kΩ divider; at most 9.90 V. It is not the ESC's pack: that is
   the `VOLTAGE` tile. With only USB (Universal Serial Bus) power connected,
-  what this reads is not measured. During the last 5 s before the idle
-  interlock disarms, `IDLE ns` in amber replaces the voltage and `BOARD`.
+  what this reads is not measured, and the firmware cannot tell USB power
+  from the cell: no pin of the board senses USB power. The voltage is amber
+  below 3.50 V and red below 3.30 V, a lithium-polymer cell's usual low
+  range, not measured on this board. It returns to the colour above once
+  it is 50 mV over the threshold. No write and no arm is refused on it.
+  During the last 5 s before the idle interlock disarms, `IDLE ns` in amber
+  replaces the voltage and `BOARD`.
 
 **RPM.** Mechanical RPM (revolutions per minute), computed from the eRPM
 (electrical RPM) the ESC (electronic speed controller) reports and the pole
 count. The `ERPM` value and the pole count are shown below it. Green digits:
 eRPM arrived within the last 500 ms. Dark red zero: it did not, and the line
-reads `NO TELEMETRY`.
+reads `NO TELEMETRY`. The line under it, right, is the swipe hint:
+`SWIPE = THROTTLE`, or `SWIPE ACTIVE` while a swipe moves the throttle.
 
 **Six tiles.** Voltage, current, ESC temperature, stress, ESC status and link
 quality. See [Telemetry](Telemetry).
@@ -66,6 +72,20 @@ amber. Eject the drive on the computer, or press `EJECT` on SD LOG, and the
 button is live again (see [SD Logging](SD-Logging)).
 
 <img src="img/tester-card-held.png" width="240" alt="The tester while a computer holds the card: HOLD TO ARM drawn as an outline, the bar reading EJECT THE USB DRIVE TO ARM">
+
+**Touch.** The screen reads one finger: the first contact the touch
+controller reports. While one finger rests on the glass, a second is
+ignored, so lift the throttle finger before pressing `DISARM`. What the
+controller reports with two contacts is not measured. A wet screen, or a
+lead lying across the glass, can count as a finger and block every tap.
+
+When the touch controller has not answered for 100 ms, `TOUCH NOT ANSWERING`
+in amber replaces the swipe hint; `NO TELEMETRY` keeps its line. While it
+shows, the tester cannot be armed, and an armed tester disarms: the throttle
+goes to zero and `HOLD` goes off, as when the idle interlock disarms. The
+note goes when the controller answers again; the tester stays disarmed.
+
+<img src="img/tester-touch-lost.png" width="240" alt="The tester with TOUCH NOT ANSWERING in amber under the RPM readout">
 
 ---
 
@@ -237,7 +257,9 @@ Reads, edits and writes the settings of an AM32 ESC over the signal wire.
 
 Drives one or two servos with servo pulses on the ESC and KISS pins. It opens
 SAFE; `HOLD TO START` for 1 s starts the pulses at the centre, `STOP` acts on
-touch. While SAFE with one servo, the readout reads `TWO SERVOS:` and
+touch. When the touch controller has not answered for 100 ms, a running
+servo stops as on `STOP`, and the dial reads `TOUCH NOT ANSWERING` until it
+answers again. While SAFE with one servo, the readout reads `TWO SERVOS:` and
 `SET > SERVOS`, where the second servo is switched on. With SERVO SUPPLY at
 `GP28` or `GP29` the strip's second line reads `GP28 SUPPLY STAYS OFF HERE.`
 in amber: the servo tester never switches the converter on, so the servo

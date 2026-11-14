@@ -113,6 +113,13 @@ Statusanzeige zeigt `STALLED`, und der Bildschirm meldet
 
 <img src="img/servo-stalled.png" width="240" alt="Gestoppt nach einem Hänger">
 
+Hat der Touch-Controller 100 ms lang nicht geantwortet, hält ein laufendes
+Servo an wie bei `STOP`, ob im Sweep oder auf einer Position, im
+Hauptbildschirm wie in SET. Eine Berührung, die nicht ankommt, erreicht
+`STOP` nicht, und der Servotester hat keine Leerlaufsperre. Die Skala zeigt
+`TOUCH NOT ANSWERING` in Bernstein und `THE SERVO IS STOPPED.`, bis der
+Controller antwortet; `HOLD TO START` ist so lange gesperrt gezeichnet.
+
 ---
 
 ## Das Servo bewegen

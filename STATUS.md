@@ -212,6 +212,7 @@ record either way.
 | --- | --- | --- |
 | DShot driver in `src/dshot/` (from rcbench 453cf334): frame, reply decode, three-state poll, RP2350 pin driver | frame and checksum, throttle map, line and group code, sampler against clock error, extended telemetry schedule against an AM32 model, three-state poll and the counters it feeds; the pin driver is compiled only | not tested on hardware in MiniRcBench. rcbench ran it at bidirectional DShot600 on one AM32 2.21 ESC (Skystars 35A); other rates and ESC firmwares are untested |
 | Bidirectional DShot throttle, eRPM and RPM readout | core1 frame decision, throttle and arming interlocks, HOLD TO ARM timing only a press that landed while arming was allowed, RPM smoothing | hardware-tested (owner report) with `pico-bidir-dshot`, the driver before `src/dshot/`; the owner has found no bug since DshotDisplay v2.3, and issue #1 is a separate, unreproduced report; the HOLD TO ARM press rule is not tested on hardware |
+| Touch loss (`touchLastAnswer()` in `src/cst328.cpp`, `uiTouchLost()`, `TOUCH_LOST_MS`) and the BOARD voltage's colour (`uiBoardCell()`) | against a touch fake that stops answering: a latched throttle disarmed at 100 ms and not at 75 ms, HOLD off, the note in the swipe hint's place with NO TELEMETRY kept, gone on an answer with the tester still disarmed, the note alone while disarmed; the servo tester stopped at 100 ms sweeping and holding a position on SET, its note, HOLD TO START disabled; the splash line at boot without an answer, cleared by one; each band edge and the 50 mV hysteresis, drawn through the ADC fake; the driver's record is compiled only | not tested on hardware; open item 21 |
 | EDT telemetry, automatic enable, expiry | merge, expiry, enable rule, decode of each frame type; enable at pump start and decode with EDT on against a simulated ESC, with and without EDT | hardware-tested (owner report) with `pico-bidir-dshot`; the enable at pump start and the decode of every reply with EDT on are not tested on hardware |
 | KISS telemetry: request, PIO receiver, decode, merge, KISS/EDT tags | CRC, decode, resynchronisation, request payload, merge; the PIO receiver is typechecked only | hardware-tested (owner report) with `pico-bidir-dshot`; see below |
 | DShot bitrate label in the status bar, `DSERR` | label at each bitrate, colour, `DSERR` | not recorded |
@@ -474,6 +475,18 @@ Menu structure B waits on the owner's answers, not on the bench (item 18).
       fault log": 7, before a fault log is built.
 
     The design questions of item 5 are not addressed to the owner.
+20. **Two owner decisions from the safety and usability audit.**
+    - Whether a KST, Hitec or AM32 write is refused, or only warned about,
+      while the BOARD voltage is amber or red. Today nothing is refused on
+      it, and the reading with USB power alone is not measured.
+    - Whether the tester disarms on a second contact, once the CST328's
+      report with two fingers on the glass is measured. The driver reads
+      finger 1 only.
+21. **Touch loss and the BOARD colour on hardware.** The 100 ms touch-loss
+    stop and the BOARD colour run in the host suite only. Not measured: the
+    CST328's answers with a wedged bus or a loose flex cable, whether its
+    reads ever complete with stale data, and what the divider on GP27 reads
+    with USB power and no cell.
 
 ## Known limitations
 
@@ -508,7 +521,14 @@ Menu structure B waits on the owner's answers, not on the bench (item 18).
   marks the whole block, not each row: while no change is pending, its note
   line reads `SAVED SETTINGS IN USE` or `COMPILED DEFAULTS IN USE`.
 - **Power loss during a log.** A log is readable up to its last directory
-  sync, so pulling power loses up to 2000 ms (`SD_LOG_SYNC_MS`).
+  sync, so pulling power loses up to 2000 ms (`SD_LOG_SYNC_MS`). The file
+  keeps the 16 MiB `f_expand()` gave it, and after the written data holds
+  old card data; only a stop truncates it. The wiki tells the user to stop
+  the recording first.
+- **One finger.** The touch driver reads the first contact only. A second
+  finger is ignored while the first rests on the glass, so DISARM needs the
+  throttle finger lifted. What the CST328 reports with two contacts is not
+  measured (open item 20).
 - **Logs past the pre-allocation.** 16 MiB lasts about 38 minutes at
   7.3 kB/s. Past that, or when `f_expand()` finds no contiguous space, FatFs
   allocates clusters as the file grows. The stall that causes is not measured,
@@ -649,7 +669,7 @@ model.
 | `src/blackbox_encode.cpp` | 113 | 113 | 100.0% |
 | `src/card_dir.cpp` | 96 | 96 | 100.0% |
 | `src/core1_job.cpp` | 70 | 70 | 100.0% |
-| `src/cst328.cpp` | 63 | 63 | 100.0% |
+| `src/cst328.cpp` | 73 | 70 | 95.9% |
 | `src/diag.cpp` | 31 | 31 | 100.0% |
 | `src/dshot/dshot_edt.c` | 33 | 33 | 100.0% |
 | `src/dshot/dshot_frame.c` | 25 | 25 | 100.0% |
@@ -683,7 +703,7 @@ model.
 | `src/settings.cpp` | 123 | 122 | 99.2% |
 | `src/theme.cpp` | 11 | 11 | 100.0% |
 | `src/touch.h` | 4 | 4 | 100.0% |
-| `src/ui.cpp` | 430 | 428 | 99.5% |
+| `src/ui.cpp` | 460 | 458 | 99.6% |
 | `src/ui_am32.cpp` | 378 | 373 | 98.7% |
 | `src/ui_hitec.cpp` | 1117 | 1049 | 93.9% |
 | `src/ui_hold.cpp` | 36 | 36 | 100.0% |
@@ -694,12 +714,12 @@ model.
 | `src/ui_menu.cpp` | 130 | 129 | 99.2% |
 | `src/ui_screen.h` | 5 | 5 | 100.0% |
 | `src/ui_sdlog.cpp` | 185 | 181 | 97.8% |
-| `src/ui_servo.cpp` | 564 | 563 | 99.8% |
+| `src/ui_servo.cpp` | 572 | 571 | 99.8% |
 | `src/ui_settings.cpp` | 363 | 357 | 98.3% |
 | `src/ui_slider.cpp` | 109 | 109 | 100.0% |
 | `src/ui_widgets.cpp` | 67 | 67 | 100.0% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **9440** | **9229** | **97.8%** |
+| **Total** | **9488** | **9274** | **97.7%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->

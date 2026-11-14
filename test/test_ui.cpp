@@ -2571,6 +2571,13 @@ static void testTouchLoss() {
 	EscTelemetry none;
 	memset(&none, 0, sizeof(none));
 	fakeSetTelemetry(&none);
+	// A card, idle, for the screenshot; the logger's state is put back at
+	// the end.
+	SdLogStatus logWas, card;
+	sdLogStatus(&logWas);
+	memset(&card, 0, sizeof(card));
+	card.state = SdLogState::Idle;
+	fakeSdLogSet(&card);
 	fakeFlashClear();
 	settingsLoad();
 	uiInit();
@@ -2597,6 +2604,7 @@ static void testTouchLoss() {
 	          hintIs(UI_TOUCH_LOST_TEXT, C_AMBER));
 	checkTrue("NO TELEMETRY keeps its line",
 	          fakeTextIs(10, 102, "NO TELEMETRY", C_AMBER, C_BG, 1));
+	fakeDumpFrame("shot_tester_touch_lost.ppm");
 	checkTrue("the note fits left of x 226 and clear of the pole count",
 	          226 - gfxTextW(UI_TOUCH_LOST_TEXT, 1) > 10 + gfxTextW("14P", 1) + 4);
 	frames(40);
@@ -2625,6 +2633,7 @@ static void testTouchLoss() {
 	fakeTouchAnswers(true);
 	frames(1);
 	checkTrue("answering: the note goes", hintIs("SWIPE = THROTTLE", C_GRID));
+	fakeSdLogSet(&logWas);
 }
 
 /**

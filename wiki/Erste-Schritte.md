@@ -87,6 +87,14 @@ liest die Frames als Impulse und fährt an ein Ende seines Wegs.
 
 <img src="img/splash.png" width="240" alt="Startbildschirm">
 
+Hat der Touch-Controller beim Einschalten nicht geantwortet, zeigt der
+Startbildschirm über dem Namen in Bernstein `TOUCH CONTROLLER NOT FOUND`. Die
+Zeile verschwindet, sobald der Controller antwortet. Steht sie noch, wenn der
+Tester erscheint, zeigt der Tester `TOUCH NOT ANSWERING` und lässt sich nicht
+scharf schalten; siehe [Die Bildschirme](Die-Bildschirme#der-tester).
+
+<img src="img/splash-no-touch.png" width="240" alt="Der Startbildschirm mit TOUCH CONTROLLER NOT FOUND in Bernstein über dem Namen">
+
 ---
 
 ## Solange kein ESC angeschlossen ist
@@ -122,6 +130,18 @@ Zum Stoppen `DISARM` drücken. Es wirkt beim Berühren. Der Druck, der
 entschärft, schaltet nicht wieder scharf, auch wenn der Finger liegen bleibt.
 Zum Scharfschalten braucht es einen neuen Druck, der auf der Schaltfläche
 beginnt.
+
+**Der Bildschirm liest einen Finger.** Die Firmware liest nur die erste
+Berührung, die der Touch-Controller meldet. Solange ein Finger auf dem Glas
+liegt, wird ein zweiter nicht beachtet: Ein Finger auf dem Gas hält `DISARM`
+davon ab, auf einen anderen zu reagieren. Erst den Gas-Finger heben, dann
+`DISARM` drücken. Was der Controller bei zwei Berührungen meldet, ist nicht
+gemessen. Ein nasser Bildschirm oder ein Kabel, das auf dem Glas liegt, kann
+als Finger zählen und jedes Tippen blockieren.
+
+Antwortet der Touch-Controller im scharfen Zustand nicht mehr, entschärft der
+Tester nach 100 ms ohne Antwort, setzt das Gas auf null, schaltet `HOLD` aus
+und zeigt `TOUCH NOT ANSWERING`.
 
 ---
 

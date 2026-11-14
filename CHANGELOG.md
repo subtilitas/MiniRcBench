@@ -44,6 +44,33 @@ protocol.
 
 ### Added
 
+- A touch controller that stops answering stops the outputs. The touch
+  driver records its last completed read (`touchLastAnswer()`); after
+  100 ms without one (`TOUCH_LOST_MS`, four UI frames) an armed tester
+  disarms by the idle interlock's path, arming is refused, and
+  `TOUCH NOT ANSWERING` replaces the swipe hint in amber; the servo tester
+  stops a running servo as STOP does and shows the same note on its dial.
+  Before, a latched throttle ran until the idle interlock, 30 s after the
+  last touch. The splash shows `TOUCH CONTROLLER NOT FOUND` while the
+  controller has not answered since `touchInit()`. Host tests
+  `testTouchLoss()`, `testSplashTouch()` and `testTouchLossStops()`, with a
+  touch fake that stops answering (`fakeTouchAnswers()`); the wiki shows
+  `tester-touch-lost.png` and `splash-no-touch.png`.
+- The tester's BOARD voltage is amber below 3.50 V and red below 3.30 V,
+  with 50 mV of hysteresis (`uiBoardCell()`, `BOARD_CELL_*` in
+  `src/config.h`). The thresholds are a lithium-polymer cell's usual low
+  range, not measured on this board. Nothing is refused on them. Host test
+  `testBoardCellColour()`.
+- The manual says the screen reads one finger: a second is ignored while
+  the first rests on the glass, so the throttle finger lifts before
+  DISARM; a wet screen or a lead on the glass can block every tap (README,
+  wiki First-Run, The-Screens and their German pairs).
+- The wiki pages SD-Logging and SD-Aufzeichnung say to stop a recording
+  before cutting the board's power or pulling the card, and what a log cut
+  by a power loss holds: its reserved 16 MiB, valid up to its last sync,
+  2 s apart, then old card data. `docs/design/blackbox-logging.md` answers
+  its open question from the code; the hardware check stays open.
+
 - AM32 CONFIG says what a value does and what to do next. Two amber lines
   replace the ESC name on the strip: while 3D MODE is on, `3D MODE: 50%
   THROTTLE IS FULL POWER,` / `ABOVE 50% THE OTHER WAY. PROP OFF.`; with TEMP

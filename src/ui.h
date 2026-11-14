@@ -79,8 +79,8 @@ void uiBoardVoltText(float volts, char *buf, size_t n);
 /** @brief The colour band of the board's battery voltage. */
 enum class BoardCell : uint8_t {
 	Ok,        /**< @ref BOARD_CELL_LOW_MV or more: drawn in the text colour. */
-	Low,       /**< Below @ref BOARD_CELL_LOW_MV: amber. */
-	Critical,  /**< Below @ref BOARD_CELL_CRIT_MV: red. */
+	Low,       /**< Below @ref BOARD_CELL_LOW_MV, amber. */
+	Critical,  /**< Below @ref BOARD_CELL_CRIT_MV, red. */
 };
 
 /**

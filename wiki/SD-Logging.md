@@ -37,6 +37,20 @@ started by hand is not stopped by a disarm. `STOP` ends it.
 The tester screen shows the state in its top row: `REC` (red) while recording,
 `SD` while idle, `SDERR` after a card error, `NOSD` with no card.
 
+**Stop the recording before cutting the board's power or pulling the card:**
+disarm, or press `STOP` on SD LOG, and wait until the top row reads `SD`.
+A stop writes the end of the log, gives back the unused space and closes the
+file. A log cut by a power loss or a pulled card is not closed:
+
+- It keeps the size reserved when it opened, 16 MiB, whatever was recorded.
+- It is valid up to its last sync. The firmware syncs the file every 2 s
+  while recording, so up to about the last 2 s are missing.
+- What follows the recorded data, up to 16 MiB, is whatever the card held in
+  that space before: old data, not part of the log.
+
+These are facts of the firmware's code. How a viewer handles such a file is
+not tested.
+
 ---
 
 ## Reading the screen

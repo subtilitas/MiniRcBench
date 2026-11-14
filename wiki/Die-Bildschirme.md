@@ -45,7 +45,13 @@ ein Tippen darauf bewirkt nichts.
 - `BOARD` und die Spannung des platineneigenen Akkus, gemessen über den
   Teiler aus 200 kΩ und 100 kΩ; höchstens 9,90 V. Es ist nicht der Akku des
   ESC: Dessen Spannung steht in der Kachel `VOLTAGE`. Was sie bei reiner
-  USB-Versorgung (Universal Serial Bus) anzeigt, ist nicht gemessen. In den
+  USB-Versorgung (Universal Serial Bus) anzeigt, ist nicht gemessen, und die
+  Firmware kann USB-Versorgung nicht vom Akku unterscheiden: Kein Pin der
+  Platine erfasst die USB-Versorgung. Die Spannung ist unter 3,50 V
+  bernsteinfarben und unter 3,30 V rot, der übliche untere Bereich einer
+  Lithium-Polymer-Zelle, auf dieser Platine nicht gemessen. Sie erhält die
+  Farbe darüber zurück, sobald sie 50 mV über der Schwelle liegt. Kein
+  Schreiben und kein Scharfschalten wird deswegen verweigert. In den
   letzten 5 s vor dem Entschärfen durch die Leerlaufsperre ersetzt `IDLE ns`
   in Bernstein die Spannung und `BOARD`.
 
@@ -53,7 +59,9 @@ ein Tippen darauf bewirkt nichts.
 aus der vom ESC (Electronic Speed Controller, Motorregler) gemeldeten eRPM
 (elektrische Drehzahl) und der Polzahl. Der `ERPM`-Wert und die Polzahl stehen
 darunter. Grüne Ziffern: eRPM ist in den letzten 500 ms eingetroffen.
-Dunkelrote Null: nicht, und die Zeile zeigt `NO TELEMETRY`.
+Dunkelrote Null: nicht, und die Zeile zeigt `NO TELEMETRY`. Die Zeile
+darunter, rechts, ist der Wisch-Hinweis: `SWIPE = THROTTLE`, oder
+`SWIPE ACTIVE`, solange ein Wischer das Gas bewegt.
 
 **Sechs Kacheln.** Spannung, Strom, ESC-Temperatur, Stress, ESC-Status und
 Verbindungsqualität. Siehe [Telemetrie](Telemetrie).
@@ -72,6 +80,23 @@ oder drücke `EJECT` in SD LOG, dann ist die Schaltfläche wieder bedienbar
 (siehe [SD-Aufzeichnung](SD-Aufzeichnung)).
 
 <img src="img/tester-card-held.png" width="240" alt="Der Tester, während ein Computer die Karte hält: HOLD TO ARM als Umriss, der Balken zeigt EJECT THE USB DRIVE TO ARM">
+
+**Berührung.** Der Bildschirm liest einen Finger: die erste Berührung, die
+der Touch-Controller meldet. Solange ein Finger auf dem Glas liegt, wird ein
+zweiter nicht beachtet. Erst den Gas-Finger heben, dann `DISARM` drücken.
+Was der Controller bei zwei Berührungen meldet, ist nicht gemessen. Ein
+nasser Bildschirm oder ein Kabel, das auf dem Glas liegt, kann als Finger
+zählen und jedes Tippen blockieren.
+
+Hat der Touch-Controller 100 ms lang nicht geantwortet, ersetzt
+`TOUCH NOT ANSWERING` in Bernstein den Wisch-Hinweis; `NO TELEMETRY` behält
+seine Zeile. Solange der Hinweis steht, lässt sich der Tester nicht scharf
+schalten, und ein scharfer Tester entschärft: Das Gas geht auf null und
+`HOLD` aus, wie beim Entschärfen durch die Leerlaufsperre. Der Hinweis
+verschwindet, wenn der Controller wieder antwortet; der Tester bleibt
+entschärft.
+
+<img src="img/tester-touch-lost.png" width="240" alt="Der Tester mit TOUCH NOT ANSWERING in Bernstein unter der Drehzahl">
 
 ---
 
@@ -251,7 +276,10 @@ Signalkabel. `BACK` führt zu `MENU` zurück. Siehe
 
 Steuert ein oder zwei Servos mit Servoimpulsen auf dem ESC- und dem KISS-Pin
 an. Er startet in SAFE; `HOLD TO START` 1 s lang gehalten startet die Impulse
-in der Mitte, `STOP` wirkt beim Berühren. In SAFE mit einem Servo zeigt die
+in der Mitte, `STOP` wirkt beim Berühren. Hat der Touch-Controller 100 ms
+lang nicht geantwortet, hält ein laufendes Servo an wie bei `STOP`, und die
+Skala zeigt `TOUCH NOT ANSWERING`, bis er wieder antwortet. In SAFE mit
+einem Servo zeigt die
 Anzeigezeile `TWO SERVOS:` und `SET > SERVOS`: Dort wird das zweite Servo
 eingeschaltet. Mit SERVO SUPPLY auf `GP28` oder `GP29` zeigt die zweite Zeile
 der Leiste `GP28 SUPPLY STAYS OFF HERE.` in Bernstein: Der Servotester
