@@ -3,7 +3,7 @@
 Status: designed, not built; waits on the owner's answers to the ten
 [open questions](#open-questions). The feature is item (1) of the owner's
 feature choice of 2026-11-14, recorded in [STATUS.md](../../STATUS.md)
-open item 27: an ESC commands page and an RPM-per-volt and kV estimate on
+open item 28: an ESC commands page and an RPM-per-volt and kV estimate on
 the tester, a design note first, then slices with reviews. No command of
 this design has gone to an ESC from this board. The firmware
 facts below are read from the sources under [sources](#sources), with the
@@ -52,7 +52,7 @@ that commit.
 | BLHeli_32 (same repository) | a5bcf99 | `BLHeli_32 ARM/BLHeli_32 Firmware specs/Digital_Cmd_Spec.txt` | a text file of 46 lines; BLHeli_32 itself is closed source |
 | Betaflight (`betaflight/betaflight`) | 134ce0f | `src/main/drivers/dshot_command.h` lines 35 to 62; `dshot_command.c` lines 38 to 41, 186 to 275; `src/main/cli/cli.c` lines 4561 to 4744; `src/main/sensors/esc_sensor.c` lines 113, 138 | GPL-3.0; read as the FC side's reference |
 | rcbench (`subtilitas/rcbench`) | b88593d3 | `docs/DShot.md`, `docs/BLHeli32.md`, `shared/ui/motor_draw.c` lines 140 to 212 | MIT, same holder |
-| This repository | `main` at bbf04e3 | `src/dshot/dshot.h`, `src/esc_task.{h,cpp}`, `src/config.h`, `src/ui.cpp`, `src/ui_menu.cpp`, `src/ui_am32.{h,cpp}`, `src/am32_eeprom.cpp`, `src/kiss_telem.cpp`, [kiss-telemetry.md](kiss-telemetry.md), [menu-b.md](menu-b.md) | |
+| This repository | `main` at 51f10e0 | `src/dshot/dshot.h`, `src/esc_task.{h,cpp}`, `src/config.h`, `src/ui.cpp`, `src/ui_menu.cpp`, `src/ui_am32.{h,cpp}`, `src/am32_eeprom.cpp`, `src/kiss_telem.cpp`, [kiss-telemetry.md](kiss-telemetry.md), [menu-b.md](menu-b.md) | |
 
 PR #66, slice 9 of menu structure B, is on `main` since 33079ee: the
 SERVO PROGRAMMER chooser and seven MENU rows (`src/ui_registry.cpp`
@@ -174,7 +174,7 @@ last such frame. On this bench the KISS receiver assembles 10-byte frames
 
 ## The command path today
 
-As built on `main` at bbf04e3:
+As built on `main` at 51f10e0:
 
 - **Frames.** Core1 sends one frame every 1000 µs whatever the arm state;
   disarmed, the throttle is 0 (`escFrameAction()`, `src/esc_task.h` line
