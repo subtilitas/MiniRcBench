@@ -698,6 +698,23 @@ static void testChip() {
 	gfxFill(C_BG);
 }
 
+static void testChangeText() {
+	section("Widgets: uiChangeText() draws the old value dim, the new one cyan");
+
+	gfxFill(C_BG);
+	const char *pair = "24KHZ -> 25KHZ";
+	const int x = GFX_W - UI_MARGIN - gfxTextW(pair, 1);
+	uiChangeText(x, 100, "24KHZ", "25KHZ");
+	checkTrue("24KHZ -> in C_DIM from the left edge",
+	          fakeTextIs(x, 100, "24KHZ -> ", C_DIM, C_BG, 1));
+	checkTrue("25KHZ in C_CYAN right after it, 6 px a character",
+	          fakeTextIs(x + 6 * 9, 100, "25KHZ", C_CYAN, C_BG, 1));
+	int x0 = 0, x1 = 0;
+	checkTrue("as wide as the pair: its ink from x to x 231",
+	          fakeInkExtent(100, 7, C_BG, &x0, &x1) && x0 == x && x1 == GFX_W - UI_MARGIN - 1);
+	gfxFill(C_BG);
+}
+
 /** @brief A tap on BACK's centre: the press frame, then the lift. */
 static UiGuardEv tapBack(UiBackGuard *g, int pending) {
 	UiRect b = uiBackRect();
@@ -1150,6 +1167,7 @@ void runWidgetTests() {
 	testLayoutConstants();
 	testStripTwoLines();
 	testChip();
+	testChangeText();
 	testBackGuard();
 	testBackGuardDraw();
 	testListDrawField();

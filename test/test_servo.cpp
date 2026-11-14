@@ -2010,6 +2010,104 @@ static void testTwoServos() {
 	leaveServo();
 }
 
+static bool textAt(int x, int y, const char *text, uint16_t col, int scale);
+
+/** @brief Whether any pixel of the rectangle is @p col. */
+static bool someOf(int x, int y, int w, int h, uint16_t c) {
+	for (int j = y; j < y + h; j++)
+		for (int i = x; i < x + w; i++)
+			if (pixel(i, j) == c) return true;
+	return false;
+}
+
+/** @brief Whether SET row @p row's value region, scale 2 or 1, holds @p c. */
+static bool setValueHas(int row, uint16_t c) {
+	UiRect r = ctlRect(UI_ROW(row, Row));
+	return someOf(100, r.y + 13, 132, 14, c);
+}
+
+/**
+ * @brief The colour roles on SERVO TESTER and SERVO SET (docs/design/menu-b.md,
+ *        decisions 8 and 11): command labels in the text colour, SPEED's fill
+ *        dim, servo B blue; a pending row cyan with a cyan bar until HOLD TO
+ *        APPLY, a selected row's value never lime, the PULSE rows grey while
+ *        RUNNING.
+ */
+static void testColourRoles() {
+	section("Servo screen: the colour roles");
+	freshUi();
+	openServo();
+	uiFrames(1);
+	checkTrue("SET's label in the text colour",
+	          fakeTextIs(BTN_SET.x + (BTN_SET.w - gfxTextW("SET", 1)) / 2, BTN_SET.y + (BTN_SET.h - 7) / 2,
+	                     "SET", C_TEXT, C_PANEL, 1));
+	UiRect sr = uiSliderPaintedRect(&s_speed);
+	checkTrue("SPEED's fill dim, not cyan",
+	          someOf(sr.x, sr.y, sr.w, sr.h, C_DIM) && !someOf(sr.x, sr.y, sr.w, sr.h, C_CYAN));
+
+	openSet();
+	selectRow(1);   // TYPE
+	uiFrames(1);
+	UiRect r = ctlRect(UI_ROW(1, Row));
+	checkTrue("TYPE selected, as applied: the value in the text colour, never lime; no bar",
+	          setValueHas(1, C_TEXT) && !setValueHas(1, C_LIME) && pixel(1, r.y + 5) == C_PANEL);
+	checkTrue("the editor bar's value in the text colour",
+	          someOf(52, SET_EDIT_Y + 16, 136, 14, C_TEXT) && !someOf(52, SET_EDIT_Y + 16, 136, 14, C_LIME));
+	stepSel(+1, 3);
+	uiFrames(1);
+	r = ctlRect(UI_ROW(1, Row));
+	checkTrue("HELI CYCLIC pending: the value cyan, a 3 px cyan bar",
+	          s_pending && setValueHas(1, C_CYAN) && !setValueHas(1, C_TEXT) &&
+	          pixel(0, r.y + 5) == C_CYAN && pixel(2, r.y + 5) == C_CYAN && pixel(3, r.y + 5) == C_PANEL);
+	checkTrue("the editor bar's value cyan", someOf(52, SET_EDIT_Y + 16, 136, 14, C_CYAN));
+	UiRect rr = ctlRect(UI_ROW(2, Row));
+	checkTrue("RATE, loaded with the type, pending too: cyan",
+	          setValueHas(2, C_CYAN) && pixel(1, rr.y + 5) == C_CYAN);
+	holdApply();
+	uiFrames(1);
+	r = ctlRect(UI_ROW(1, Row));
+	checkTrue("applied: the value in the text colour again, the bar gone",
+	          !s_pending && setValueHas(1, C_TEXT) && !setValueHas(1, C_CYAN) && pixel(1, r.y + 5) == C_PANEL);
+	checkTrue("and the editor bar's value", !someOf(52, SET_EDIT_Y + 16, 136, 14, C_CYAN));
+	backFromSet();
+	leaveServo();
+	backFromMenu();
+
+	freshUi();
+	openServo();
+	openSet();
+	selectRow(ROW_SERVOS);
+	stepSel(+1);
+	backFromSet();
+	holdStart();
+	core1();
+	uiFrames(2);
+	checkTrue("two servos running: the B label blue",
+	          s_profile.servos == 2 && textAt(UI_MARGIN + 50, SV_READ_Y + 3, "B", C_BLUE, 1));
+	checkTrue("MIN's label in the text colour while running",
+	          fakeTextIs(BTN_MIN.x + (BTN_MIN.w - gfxTextW("MIN", 1)) / 2, BTN_MIN.y + (BTN_MIN.h - 7) / 2,
+	                     "MIN", C_TEXT, C_PANEL, 1));
+	tapId(UI_FIX(ServoCtl::SelB));
+	uiFrames(1);
+	checkTrue("B selected: its selector fills blue", fillOf(BTN_SEL_B) == C_BLUE);
+	tapId(UI_FIX(ServoCtl::Max)); core1();
+	uiFrames(2);
+	checkTrue("B at MAX, apart from A: servo B's horn blue on the dial",
+	          fakePin(1).level == 2000 && someOf(0, SERVO_DIAL_Y0, GFX_W, 120, C_BLUE));
+	openSet();
+	uiFrames(1);
+	checkTrue("RUNNING locks the PULSE rows: TYPE's value grey",
+	          setValueHas(1, C_GRID) && !setValueHas(1, C_TEXT));
+	backFromSet();
+	pressId(UI_FIX(ServoCtl::Start)); core1();
+	fakeRelease(); uiFrames(1);
+	openSet();
+	selectRow(ROW_SERVOS);
+	stepSel(-1);
+	backFromSet();
+	leaveServo();
+}
+
 /**
  * @brief SamePin and KissLive keep the screen to one servo, through the claim.
  */
@@ -3196,5 +3294,6 @@ void runServoTests() {
 	testBindRefused();
 	testSenseReadout();
 	testSupplyLineAndHint();
+	testColourRoles();
 	freshUi();
 }

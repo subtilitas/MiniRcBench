@@ -1266,6 +1266,43 @@ static void testSettingsValueWidths() {
 	tapId(UI_FIX(UI_BACK));
 }
 
+/**
+ * @brief SETTINGS values are neutral (menu-b.md, decision 11): the MAX
+ *        THROTTLE, ESC PIN and KISS PIN values in the text colour, and no
+ *        value in cyan, the "changed" colour, or in lime, a live reading.
+ */
+static void testSettingsValueColours() {
+	section("SETTINGS: values in the text colour, no cyan or lime");
+	openSettings();
+	const SettingsSection *secs[16];
+	uint8_t ns = uiSettingsSections(secs, 16);
+	Settings keep = *settings();
+	settings()->kissEnable = 1;
+	settings()->kissPin = (uint8_t)(settings()->dshotPin == 0 ? 1 : 0);
+	int named = 0;
+	bool neutral = true;
+	char what[64];
+	for (uint8_t i = 0; i < ns; i++)
+		for (uint8_t r = 0; r < secs[i]->count; r++) {
+			const SettingsRow &row = secs[i]->rows[r];
+			char b[40];
+			uint16_t col;
+			row.value(b, sizeof(b), &col);
+			if (col == C_CYAN || col == C_LIME) neutral = false;
+			if (!strcmp(row.label, "MAX THROTTLE") || !strcmp(row.label, "ESC PIN") ||
+			    !strcmp(row.label, "KISS PIN")) {
+				snprintf(what, sizeof(what), "%s: %s in the text colour", row.label, b);
+				checkTrue(what, col == C_TEXT);
+				named++;
+			}
+		}
+	checkInt("the three rows found", named, 3);
+	checkTrue("no value cyan or lime", neutral);
+	*settings() = keep;
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+}
+
 /** @brief MENU opens at 0 px again when a tool returns to it. */
 static void testMenuScrollResets() {
 	section("MENU: a tool's return opens MENU at 0 px");
@@ -1351,6 +1388,7 @@ void runMenuTests() {
 	testEscPinNote();
 	testMenuStatusWidths();
 	testSettingsValueWidths();
+	testSettingsValueColours();
 	testMenuScrollResets();
 	testAm32WaitsBesideAClaim();
 }

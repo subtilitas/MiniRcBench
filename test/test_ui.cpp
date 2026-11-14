@@ -202,6 +202,16 @@ static void testLogScreen() {
 	checkTrue("not recording on arrival", !sdLogActive());
 	checkControlTable("SD LOG, card idle");
 	fakeDumpFrame("shot_log_ready.ppm");
+	{
+		// Command buttons carry the neutral text colour (menu-b.md, decision 11).
+		UiRect t = ctlRect(UI_FIX(SdLogCtl::Toggle)), u = ctlRect(UI_FIX(SdLogCtl::Usb));
+		checkTrue("START's label in the text colour, scale 2",
+		          fakeTextIs(t.x + (t.w - gfxTextW("START", 2)) / 2, t.y + (t.h - 14) / 2,
+		                     "START", C_TEXT, C_PANEL, 2));
+		checkTrue("USB DRIVE's label in the text colour",
+		          fakeTextIs(u.x + (u.w - gfxTextW("USB DRIVE", 1)) / 2, u.y + (u.h - 7) / 2,
+		                     "USB DRIVE", C_TEXT, C_PANEL, 1));
+	}
 
 	tapId(UI_FIX(SdLogCtl::Toggle));
 	checkTrue("START begins a log", sdLogActive());
@@ -823,6 +833,8 @@ static void testUsbDriveScreen() {
 	frames(2);
 	checkControlTable("SD LOG, card held");
 	fakeDumpFrame("shot_log_usb_serving.ppm");
+	checkTrue("the read counter in lime, a live reading, at scale 2",
+	          fakeTextCentredIs(UI_HDR_H + 8 + 104, "3.0 MB READ", C_LIME, C_BG, 2));
 
 	// START must not work while a host owns the card: the logger has let go.
 	tapId(UI_FIX(SdLogCtl::Toggle));                       // now EJECT, not START
@@ -943,6 +955,10 @@ static void testKissDisplay() {
 	fakeSetTelemetry(&tel);
 	frames(2);
 	fakeDumpFrame("shot_tester_kiss.ppm");
+	// A source tag is neutral: KISS in the text colour, 6 px in from the
+	// tile's right edge at x 119, on the label row at y 133.
+	checkTrue("the KISS tag in the text colour",
+	          fakeTextIs(119 - 6 - gfxTextW("KISS", 1), 133, "KISS", C_TEXT, C_PANEL, 1));
 
 	// --- what the screen shows, not what escMerge() returns ---
 	//
@@ -978,6 +994,8 @@ static void testKissDisplay() {
 	fakeSetTelemetry(&tel);
 	frames(2);
 	checkTrue("the voltage tile changes when KISS expires", voltTile() != voltsFromKiss);
+	checkTrue("the EDT tag dim",
+	          fakeTextIs(119 - 6 - gfxTextW("EDT", 1), 133, "EDT", C_DIM, C_PANEL, 1));
 	checkTrue("and so does the current tile", ampTile() != ampsFromKiss);
 
 	// Bring KISS back and the fine values must return -- the same pixels as
@@ -5084,6 +5102,23 @@ void runUiTests() {
 	const UiRect thr = ctlRect(UI_FIX(TesterCtl::Throttle));
 	const int ty = thr.y + thr.h / 2;
 
+	section("Tester: the readouts and the hint take the neutral colours");
+	{
+		const int hx = 226 - gfxTextW("SWIPE = THROTTLE", 1);
+		checkTrue("disarmed: SWIPE = THROTTLE grey",
+		          fakeTextIs(hx, 114, "SWIPE = THROTTLE", C_GRID, C_BG, 1));
+		checkTrue("MAX 20% in the text colour at x 88, y 236",
+		          fakeTextIs(88, 236, "MAX 20%", C_TEXT, C_BG, 1));
+		holdToArm();
+		checkTrue("armed: SWIPE = THROTTLE in the text colour",
+		          fakeArmed() && fakeTextIs(hx, 114, "SWIPE = THROTTLE", C_TEXT, C_BG, 1));
+		checkTrue("armed: MAX 20% still the text colour",
+		          fakeTextIs(88, 236, "MAX 20%", C_TEXT, C_BG, 1));
+		tapId(UI_FIX(TesterCtl::Arm));                     // DISARM
+		frames(2);
+		checkTrue("disarmed again", !fakeArmed());
+	}
+
 	section("Throttle: spring mode is absolute");
 	{
 		holdToArm();
@@ -5181,8 +5216,39 @@ void runUiTests() {
 		checkInt("row selects", uiByte(0x18), 24);
 		checkControlTable("AM32 list, a field selected");
 
+		{
+			// As read and selected: the row's fill lights, the value stays in
+			// the text colour, no bar (menu-b.md, decision 8).
+			frames(1);
+			const UiRect r = ctlRect(UI_ROW(vPwm, Row));
+			const uint16_t *fb = gfxBuffer();
+			checkTrue("selected, as read: 24KHZ in the text colour on the row's fill, no bar",
+			          fakeTextIs(232 - gfxTextW("24KHZ", 2), r.y + 13, "24KHZ", C_TEXT, C_PANEL, 2) &&
+			          fb[(r.y + 5) * GFX_W + 1] == C_PANEL);
+			checkTrue("the editor bar's value in the text colour too",
+			          fakeTextCentredIs(EDIT_Y + 14, "24KHZ", C_TEXT, C_BG, 2));
+		}
 		tapId(UI_FIX(Am32Ctl::EditPlus));
 		checkInt("+ button is one fine step", uiByte(0x18), 25);
+		{
+			frames(1);
+			const UiRect r = ctlRect(UI_ROW(vPwm, Row));
+			const uint16_t *fb = gfxBuffer();
+			checkTrue("changed: 25KHZ cyan, and a 3 px cyan bar at the row's left edge",
+			          fakeTextIs(232 - gfxTextW("25KHZ", 2), r.y + 13, "25KHZ", C_CYAN, C_PANEL, 2) &&
+			          fb[(r.y + 5) * GFX_W] == C_CYAN && fb[(r.y + 5) * GFX_W + 2] == C_CYAN &&
+			          fb[(r.y + 5) * GFX_W + 3] == C_PANEL);
+			checkTrue("the editor bar's value cyan",
+			          fakeTextCentredIs(EDIT_Y + 14, "25KHZ", C_CYAN, C_BG, 2));
+			const UiRect h = ctlRect(UI_FIX(Am32Ctl::Hex));
+			checkTrue("HEX, a command button: its label in the text colour",
+			          fakeTextIs(h.x + (h.w - gfxTextW("HEX", 1)) / 2, h.y + (h.h - 7) / 2,
+			                     "HEX", C_TEXT, C_PANEL, 1));
+			const UiRect rv = ctlRect(UI_FIX(Am32Ctl::Revert));
+			checkTrue("REVERT's label amber",
+			          fakeTextIs(rv.x + (rv.w - gfxTextW("REVERT", 1)) / 2, rv.y + (rv.h - 7) / 2,
+			                     "REVERT", C_AMBER, C_PANEL, 1));
+		}
 		fakeDumpFrame("shot_am32_edit.ppm");
 		tapId(UI_FIX(Am32Ctl::EditMinus));
 		checkInt("- button steps back", uiByte(0x18), 24);

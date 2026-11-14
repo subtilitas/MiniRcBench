@@ -1501,6 +1501,98 @@ static void testBoardLow() {
 	fakeAdcSet(fakeAdcDefault());
 }
 
+/** @brief The framebuffer's pixel at (@p x, @p y). */
+static uint16_t pixel(int x, int y) { return gfxBuffer()[y * GFX_W + x]; }
+
+/** @brief Whether any pixel of the rectangle is @p col. */
+static bool regionHas(int x, int y, int w, int h, uint16_t col) {
+	for (int j = y; j < y + h; j++)
+		for (int i = x; i < x + w; i++)
+			if (pixel(i, j) == col) return true;
+	return false;
+}
+
+/** @brief The D series list row labelled @p label, or -1. */
+static int dRowOf(const char *label) {
+	HitecRow rows[HITEC_ROWS_MAX];
+	int n = hitecRows(HITEC_LAYOUT_D, rows);
+	for (int i = 0; i < n; i++)
+		if (!strcmp(rows[i].label, label)) return i;
+	return -1;
+}
+
+/**
+ * @brief The colour roles on HITEC SERVO (docs/design/menu-b.md, decisions 8
+ *        and 11): the headline amber, PROG MODE on blue, a row's value by its
+ *        state with its bar and no `*`, the editor bar's value likewise,
+ *        REVERT amber.
+ */
+static void testColourRoles() {
+	section("Hitec screen: the colour roles");
+	freshHitec(HITEC_D, true);
+	openHitec();
+	tapId(UI_FIX(HitecCtl::DSeries));
+	hitecFrames(2);
+	checkTrue("SUPPLY OFF in amber, the current step",
+	          fakeTextCentredIs(70, "SUPPLY OFF", C_AMBER, C_BG, 2));
+	checkTrue("the field list", untilView(HitecView::List, 800));
+	hitecFrames(1);
+	const int cw = gfxTextW("PROG MODE", 1) + 12, cx = GFX_W - UI_MARGIN - cw;
+	checkTrue("PROG MODE on blue, a square 65 px chip from x 167",
+	          cx == 167 && fakeTextIs(cx + 6, 44, "PROG MODE", C_ONACCENT, C_BLUE, 1) &&
+	          pixel(cx, 42) == C_BLUE && pixel(cx + cw - 1, 53) == C_BLUE && pixel(cx, 41) == C_BG);
+	checkTrue("the strip's caption ends 4 px or more before the chip",
+	          !regionHas(cx - 4, UI_STRIP_Y, 4, UI_STRIP_H, C_DIM));
+
+	const int sp = dRowOf("SPEED"), db = dRowOf("DIRECTION");
+	checkTrue("SPEED and DIRECTION rows", sp >= 0 && db >= 0);
+	revealRow(sp);
+	tapId(UI_ROW(sp, Row));
+	hitecFrames(1);
+	UiRect r = ctlRect(UI_ROW(sp, Row));
+	auto valueHas = [&](const UiRect &q, uint16_t col) { return regionHas(120, q.y + 13, 112, 14, col); };
+	checkTrue("selected, as read: the value in the text colour, never lime; no bar",
+	          valueHas(r, C_TEXT) && !valueHas(r, C_LIME) && pixel(1, r.y + 5) == C_PANEL);
+	checkTrue("the editor bar's value in the text colour",
+	          regionHas(52, 234, 136, 14, C_TEXT) && !regionHas(52, 234, 136, 14, C_LIME));
+	tapId(UI_FIX(HitecCtl::EditMinus));
+	hitecFrames(1);
+	r = ctlRect(UI_ROW(sp, Row));
+	checkTrue("-: changed, the value cyan, a 3 px cyan bar",
+	          valueHas(r, C_CYAN) && !valueHas(r, C_TEXT) && pixel(0, r.y + 5) == C_CYAN &&
+	          pixel(2, r.y + 5) == C_CYAN && pixel(3, r.y + 5) == C_PANEL);
+	checkTrue("the label carries no *: SPEED from x 8 in the text colour",
+	          fakeTextIs(UI_MARGIN, r.y + 21, "SPEED", C_TEXT, C_PANEL, 1));
+	checkTrue("the editor bar's value cyan",
+	          regionHas(52, 234, 136, 14, C_CYAN) && !regionHas(52, 234, 136, 14, C_LIME));
+	const UiRect rv = ctlRect(UI_FIX(HitecCtl::Revert));
+	checkTrue("REVERT's label amber",
+	          fakeTextIs(rv.x + (rv.w - gfxTextW("REVERT", 1)) / 2, rv.y + (rv.h - 7) / 2,
+	                     "REVERT", C_AMBER, C_PANEL, 1));
+	tapId(UI_FIX(HitecCtl::Revert));
+	revealRow(db);
+	tapId(UI_ROW(db, Row));
+	tapId(UI_FIX(ctlEnabled(UI_FIX(HitecCtl::EditMinus)) ? HitecCtl::EditMinus : HitecCtl::EditPlus));
+	hitecFrames(1);
+	r = ctlRect(UI_ROW(db, Row));
+	checkTrue("DIRECTION reversed, a soft rule: the bar amber, the value cyan",
+	          valueHas(r, C_CYAN) && pixel(1, r.y + 5) == C_AMBER);
+	checkTrue("the rule's top line in cyan, the new value", regionHas(52, 220, 136, 7, C_CYAN));
+	tapId(UI_FIX(HitecCtl::Revert));
+	HitecRow rows[HITEC_ROWS_MAX];
+	int n = hitecRows(HITEC_LAYOUT_D, rows), ro = -1;
+	for (int i = 0; i < n && ro < 0; i++)
+		if (!hitecEditable(HITEC_LAYOUT_D, rows[i].param)) ro = i;
+	checkTrue("a row the bench does not write", ro >= 0);
+	revealRow(ro);
+	hitecFrames(1);
+	r = ctlRect(UI_ROW(ro, Row));
+	checkTrue("read-only: its label and value grey",
+	          fakeTextIs(UI_MARGIN, r.y + 21, rows[ro].label, C_GRID, C_BG, 1) &&
+	          !valueHas(r, C_TEXT) && !valueHas(r, C_LIME));
+	leaveAll();
+}
+
 void runHitecUiTests() {
 	testFamily();
 	testDSeriesRead();
@@ -1519,4 +1611,5 @@ void runHitecUiTests() {
 	testCardSwap();
 	testStallInWrite();
 	testBoardLow();
+	testColourRoles();
 }

@@ -1805,6 +1805,110 @@ static void testBoardLow() {
 	fakeAdcSet(fakeAdcDefault());
 }
 
+/** @brief The framebuffer's pixel at (@p x, @p y). */
+static uint16_t pixel(int x, int y) { return gfxBuffer()[y * GFX_W + x]; }
+
+/** @brief Whether any pixel of the rectangle is @p col. */
+static bool regionHas(int x, int y, int w, int h, uint16_t col) {
+	const uint16_t *fb = gfxBuffer();
+	for (int j = y; j < y + h; j++)
+		for (int i = x; i < x + w; i++)
+			if (fb[j * GFX_W + i] == col) return true;
+	return false;
+}
+
+/**
+ * @brief The colour roles on KST SERVO (docs/design/menu-b.md, decisions 8
+ *        and 11): the headline amber, PROG MODE on blue in a square chip, a
+ *        row's value by its state with its bar, the editor bar's value
+ *        likewise, REVERT amber, IN DOUBT red, the write page's new value
+ *        cyan beside the old one dim.
+ */
+static void testColourRoles() {
+	section("KST screen: the colour roles");
+	freshKst(false);
+	openKst();
+	checkTrue("the search", untilCtl(UI_FIX(KstCtl::StopSearch), 40));
+	kstFrames(2);
+	checkTrue("POWER UP / THE SERVO NOW in amber, the current step",
+	          fakeTextCentredIs(70, "POWER UP", C_AMBER, C_BG, 2) &&
+	          fakeTextCentredIs(88, "THE SERVO NOW", C_AMBER, C_BG, 2));
+	fakeKstSim()->powered = true;
+	checkTrue("the field list", untilView(KstView::List, 400));
+	kstFrames(1);
+	const int cw = gfxTextW("PROG MODE", 1) + 12, cx = GFX_W - UI_MARGIN - cw;
+	checkTrue("PROG MODE on blue, a square 65 px chip from x 167",
+	          cx == 167 && fakeTextIs(cx + 6, 44, "PROG MODE", C_ONACCENT, C_BLUE, 1) &&
+	          pixel(cx, 42) == C_BLUE && pixel(cx + cw - 1, 53) == C_BLUE &&
+	          pixel(cx, 41) == C_BG && pixel(cx, 54) == C_BG);
+	checkTrue("the strip's caption ends 4 px or more before the chip",
+	          !regionHas(cx - 4, UI_STRIP_Y, 4, UI_STRIP_H, C_DIM));
+
+	selectField(KST_F_DEAD_BAND);
+	kstFrames(1);
+	int row = kstRowOf(KST_F_DEAD_BAND);
+	UiRect r = ctlRect(UI_ROW(row, Row));
+	// The value is right-aligned to x 231 at scale 2, y + 13 to y + 26.
+	auto valueHas = [&](uint16_t col) { return regionHas(120, r.y + 13, 112, 14, col); };
+	checkTrue("selected, as read: the value in the text colour, never lime; no bar",
+	          valueHas(C_TEXT) && !valueHas(C_LIME) && !valueHas(C_CYAN) && pixel(1, r.y + 5) == C_PANEL);
+	checkTrue("the editor bar's value in the text colour",
+	          regionHas(52, 234, 136, 14, C_TEXT) && !regionHas(52, 234, 136, 14, C_LIME));
+	const UiRect rv = ctlRect(UI_FIX(KstCtl::Revert));
+	tapId(UI_FIX(KstCtl::EditPlus));
+	kstFrames(1);
+	r = ctlRect(UI_ROW(row, Row));
+	checkTrue("+: changed, the value cyan and a 3 px cyan bar",
+	          valueHas(C_CYAN) && !valueHas(C_TEXT) && pixel(0, r.y + 5) == C_CYAN &&
+	          pixel(2, r.y + 5) == C_CYAN && pixel(3, r.y + 5) == C_PANEL);
+	checkTrue("the editor bar's value cyan",
+	          regionHas(52, 234, 136, 14, C_CYAN) && !regionHas(52, 234, 136, 14, C_LIME));
+	checkTrue("REVERT's label amber",
+	          fakeTextIs(rv.x + (rv.w - gfxTextW("REVERT", 1)) / 2, rv.y + (rv.h - 7) / 2,
+	                     "REVERT", C_AMBER, C_PANEL, 1));
+	tapId(UI_FIX(KstCtl::EditMinus));
+	tapId(UI_FIX(KstCtl::EditMinus));
+	kstFrames(1);
+	r = ctlRect(UI_ROW(row, Row));
+	checkTrue("- below the backup narrows the band, a soft rule: the bar amber, the value cyan",
+	          valueHas(C_CYAN) && pixel(1, r.y + 5) == C_AMBER);
+	checkTrue("the rule's top line in cyan, the new value", regionHas(52, 220, 136, 7, C_CYAN));
+	int lockRow = kstRowOf(KST_F_LOCK);
+	revealRow(lockRow);
+	kstFrames(1);
+	UiRect lr = ctlRect(UI_ROW(lockRow, Row));
+	checkTrue("a LOCKED row: read-only, the value and the label grey",
+	          regionHas(120, lr.y + 13, 112, 14, C_GRID) && !regionHas(120, lr.y + 13, 112, 14, C_TEXT) &&
+	          !regionHas(UI_MARGIN, lr.y + 21, 60, 7, C_DIM));
+
+	tapId(UI_FIX(KstCtl::Revert));
+	selectField(KST_F_DEAD_BAND);
+	tapId(UI_FIX(KstCtl::EditPlus));
+	checkTrue("the write page", holdUntilGone(UI_FIX(KstCtl::Write)) && uiKstView() == KstView::Write);
+	kstFrames(1);
+	checkTrue("the change at y 62: the old value and the arrow dim, the new value cyan",
+	          regionHas(120, UI_BODY_Y, 112, 7, C_DIM) && regionHas(120, UI_BODY_Y, 112, 7, C_CYAN) &&
+	          !regionHas(0, UI_BODY_Y, GFX_W, 17, C_LIME));
+	leaveAll();
+
+	// A write left in doubt: the chip reads IN DOUBT on red, a failure.
+	freshKst();
+	checkTrue("to the field list again", toList());
+	sim_add_fault(fakeKstSim(), SIM_WRITE, 0x03, 0, 1, SIM_F_WRITE_ALSO, 0x13);
+	selectField(KST_F_BOOST);
+	tapId(UI_FIX(KstCtl::EditMinus));
+	holdUntilGone(UI_FIX(KstCtl::Write));
+	holdUntilGone(UI_FIX(KstCtl::WriteHold));
+	checkTrue("in doubt", untilCtl(UI_FIX(KstCtl::WriteOk), 400) && job().locked);
+	tapId(UI_FIX(KstCtl::WriteOk));
+	kstFrames(1);
+	const int dw = gfxTextW("IN DOUBT", 1) + 12;
+	checkTrue("IN DOUBT on red, square",
+	          fakeTextIs(GFX_W - UI_MARGIN - dw + 6, 44, "IN DOUBT", C_ONACCENT, C_RED, 1) &&
+	          pixel(GFX_W - UI_MARGIN - dw, 42) == C_RED);
+	leaveAll();
+}
+
 void runKstUiTests() {
 	testRecordWarningOnSearch();
 	testOpenAndSearch();
@@ -1828,6 +1932,7 @@ void runKstUiTests() {
 	testSupplyCurrent();
 	testCardPhase();
 	testBoardLow();
+	testColourRoles();
 	fakeKstLineReset();
 	noCard();
 	fakeFatReset();
