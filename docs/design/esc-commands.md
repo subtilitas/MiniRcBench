@@ -52,10 +52,11 @@ that commit.
 | BLHeli_32 (same repository) | a5bcf99 | `BLHeli_32 ARM/BLHeli_32 Firmware specs/Digital_Cmd_Spec.txt` | a text file of 46 lines; BLHeli_32 itself is closed source |
 | Betaflight (`betaflight/betaflight`) | 134ce0f | `src/main/drivers/dshot_command.h` lines 35 to 62; `dshot_command.c` lines 38 to 41, 186 to 275; `src/main/cli/cli.c` lines 4561 to 4744; `src/main/sensors/esc_sensor.c` lines 113, 138 | GPL-3.0; read as the FC side's reference |
 | rcbench (`subtilitas/rcbench`) | b88593d3 | `docs/DShot.md`, `docs/BLHeli32.md`, `shared/ui/motor_draw.c` lines 140 to 212 | MIT, same holder |
-| This repository | `main` at d4606a6 | `src/dshot/dshot.h`, `src/esc_task.{h,cpp}`, `src/config.h`, `src/ui.cpp`, `src/ui_menu.cpp`, `src/ui_am32.{h,cpp}`, `src/am32_eeprom.cpp`, `src/kiss_telem.cpp`, [kiss-telemetry.md](kiss-telemetry.md), [menu-b.md](menu-b.md) | |
+| This repository | `main` at 33079ee | `src/dshot/dshot.h`, `src/esc_task.{h,cpp}`, `src/config.h`, `src/ui.cpp`, `src/ui_menu.cpp`, `src/ui_am32.{h,cpp}`, `src/am32_eeprom.cpp`, `src/kiss_telem.cpp`, [kiss-telemetry.md](kiss-telemetry.md), [menu-b.md](menu-b.md) | |
 
-PR #66, the chooser of menu structure B (branch `ccr-mb9-chooser` at
-f0f746b), is read here for the MENU rows it adds; it is not merged.
+PR #66, slice 9 of menu structure B, is on `main` since 33079ee: the
+SERVO PROGRAMMER chooser and seven MENU rows (`src/ui_registry.cpp`
+lines 22 to 30).
 
 ## What it is for
 
@@ -172,7 +173,7 @@ last such frame. On this bench the KISS receiver assembles 10-byte frames
 
 ## The command path today
 
-As built on `main` at d4606a6:
+As built on `main` at 33079ee:
 
 - **Frames.** Core1 sends one frame every 1000 µs whatever the arm state;
   disarmed, the throttle is 0 (`escFrameAction()`, `src/esc_task.h` line
@@ -274,11 +275,11 @@ from the answer rule is part of [question 5](#open-questions).
 ### The page
 
 ESC COMMANDS is a screen with `PinUser::None` and `freePins` true
-(`src/ui_screen.h` line 154): it claims no pin and needs DShot running, so
+(`src/ui_screen.h` line 157): it claims no pin and needs DShot running, so
 it opens only while the claim is Free. It opens through `uiOpenTool()`
-(`src/ui.cpp` line 956), which runs the tester's disarm first
-(`testerDisarm()`, line 930). It has no arm control. Core0 sends its
-heartbeat on every frame of every screen (`uiTick()`, line 1293), so the
+(`src/ui.cpp` line 969), which runs the tester's disarm first
+(`testerDisarm()`, line 938). It has no arm control. Core0 sends its
+heartbeat on every frame of every screen (`uiTick()`, line 1315), so the
 250 ms heartbeat rule holds here as on the tester.
 
 - **BEEP 1 to 5:** a tap each; the screen shows `SENT 3 (BEEP 3).`, and
@@ -362,7 +363,7 @@ is built.
 
 ### MENU entry
 
-With PR #66, menu structure B has seven MENU rows: BEEP THE ESC, AM32
+Since PR #66, MENU has seven rows: BEEP THE ESC, AM32
 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, SETTINGS, at a
 42 px pitch in a 258 px viewport, so MENU scrolls 36 px
 ([menu-b.md](menu-b.md#menu), decision 33). The page needs a way in, and
@@ -487,7 +488,7 @@ In 3D the assumption is false (above).
 
 In integers, as the tester holds them: `rpm` from the filtered eRPM over
 half the pole count, the figure the big readout shows (`drawRpm()`,
-`src/ui.cpp` line 664); `volts100`, hundredths of a volt, from the merged
+`src/ui.cpp` line 672); `volts100`, hundredths of a volt, from the merged
 reading the VOLTAGE tile shows, KISS where fresh, EDT otherwise
 (`escMerge()`); `t` = `s_throttle`.
 
@@ -666,7 +667,7 @@ and changed lines, rough.
 | Slice | Content | Code | Tests | Docs | Depends on |
 |---|---|---|---|---|---|
 | 1. Command slot | `EscPump`'s sequence, `escCommandReady()`, `escRequestCommand()`, `escCancelCommand()`, `escCommandState()`, the answer check per block, the settle, gap and wait constants in `src/config.h`, `escRequestBeep()` through it; the model ESCs | about 200 | about 450 | README's MENU table row on BEEP THE ESC and its EDT paragraph, STATUS, CHANGELOG | |
-| 2. ESC COMMANDS page | `src/ui_esc_cmd.{h,cpp}`, `src/esc_3d.{h,cpp}` and `ui_am32.cpp` on it, the MENU entry by question 1, `test_ids.cpp`, the preview, `tools/make_previews.py`, `tools/check_wiki.py`, README section, wiki pages in English and German, STATUS, CHANGELOG, this note's status | about 450 | about 500 | about 250 | 1, and PR #66 for options (a) to (c) |
+| 2. ESC COMMANDS page | `src/ui_esc_cmd.{h,cpp}`, `src/esc_3d.{h,cpp}` and `ui_am32.cpp` on it, the MENU entry by question 1, `test_ids.cpp`, the preview, `tools/make_previews.py`, `tools/check_wiki.py`, README section, wiki pages in English and German, STATUS, CHANGELOG, this note's status | about 450 | about 500 | about 250 | 1 |
 | 3. kV estimate | `src/kv_est.h`, `drawRpm()` in `src/ui.cpp`, the tester previews, README and wiki on the tester in both languages | about 120 | about 250 | about 120 | none |
 | 4. ESC information | not designed: question 8 | | | | 1 |
 | 5. Bring-up | B1 to B9 | none | none | the record in STATUS | 1 to 3 |
