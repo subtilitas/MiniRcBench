@@ -107,8 +107,12 @@ HitecView uiHitecView();
 #define HITEC_UI_CHIP UI_CHIP_PROG_MODE
 /** @brief The leave page's first step without the switch: 25 characters from x 20. */
 #define HITEC_UI_LEAVE_RESTARTS "LEAVE RESTARTS THE SERVO."
-/** @brief The leave page's note once the pin is let go, without the switch: 36 characters. */
-#define HITEC_UI_NEXT_POWER "NEXT SERVO: POWER IT BEFORE THE TAP."
+/**
+ * @brief The leave page's note once the pin is let go, without the switch:
+ *        35 characters. NEXT SERVO returns to the READ wait, which asks for
+ *        the power (docs/design/menu-b.md, decision 34).
+ */
+#define HITEC_UI_NEXT_POWER "NEXT SERVO: POWER IT AFTER THE TAP."
 
 /** @} */
 

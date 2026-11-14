@@ -338,7 +338,8 @@ static void testEntry() {
 	          leaveStepIs(UI_LEAVE_STEP_Y + 38, '2', "RESTART DSHOT.", false));
 	checkTrue("NEXT SERVO once the pin is let go", untilEnabled(UI_FIX(HitecCtl::NextServo), 10));
 	checkTrue("RESTART DSHOT waits 1000 ms: disabled", !ctlEnabled(UI_FIX(HitecCtl::Restart)));
-	checkTrue("released, no switch: NEXT SERVO: POWER IT BEFORE THE TAP., dim",
+	checkStr("the note's text", HITEC_UI_NEXT_POWER, "NEXT SERVO: POWER IT AFTER THE TAP.");
+	checkTrue("released, no switch: NEXT SERVO: POWER IT AFTER THE TAP., dim",
 	          leaveNoteIs(0, HITEC_UI_NEXT_POWER, C_DIM));
 	checkTrue("DShot is still down", fakeResumeCount() == resumes && escTaskSuspended());
 	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
@@ -370,6 +371,54 @@ static void testEntry() {
 	checkTrue("READ: the job binds and opens the line", untilCtl(UI_FIX(HitecCtl::Stop), 40) &&
 	          fakeHitecLineOpens() == 1 && !ctlPresent(UI_FIX(HitecCtl::Read)));
 	checkTrue("the entry reads the servo: the field list", untilView(HitecView::List, 800));
+	// NEXT SERVO asks for the next servo's power after its tap, as the first
+	// one's: the READ wait again, with no job and no frame on SIG.
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: the leave page before LEAVE", untilEnabled(UI_FIX(HitecCtl::Leave), 400));
+	tapId(UI_FIX(HitecCtl::Leave));
+	checkTrue("LEAVE: NEXT SERVO once the pin is let go", untilEnabled(UI_FIX(HitecCtl::NextServo), 400));
+	checkTrue("its note: NEXT SERVO: POWER IT AFTER THE TAP.", leaveNoteIs(0, HITEC_UI_NEXT_POWER, C_DIM));
+	{
+		const int opens = fakeHitecLineOpens();
+		const unsigned writes = fakeHitecSim()->writes;
+		tapId(UI_FIX(HitecCtl::NextServo));
+		hitecFrames(40);
+		checkTrue("NEXT SERVO after a read: the READ wait, Held, no job",
+		          uiHitecView() == HitecView::Main && pinClaimState() == ClaimState::Held &&
+		          core1JobPhase() == Core1JobPhase::Idle && ctlEnabled(UI_FIX(HitecCtl::Read)));
+		checkTrue("no line opened and nothing written for the next servo",
+		          fakeHitecLineOpens() == opens && fakeHitecSim()->writes == writes);
+		checkTrue("the strip asks for the power",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, HITEC_UI_POWER_READ, UI_COL_WARN, C_BG, 1));
+		tapId(UI_FIX(HitecCtl::Read));
+		checkTrue("READ: the next servo read", untilView(HitecView::List, 800) &&
+		          fakeHitecLineOpens() == opens + 1);
+	}
+	leaveAll();
+
+	section("Hitec entry: READ takes only a press that landed on it");
+	openChooser();
+	tapId(PROG_ENTRY(progEntryOf(uiHitecEnterD)));
+	{
+		const int opens = fakeHitecLineOpens();
+		const UiRect w = { 6, UI_FOOT_Y, 228, UI_FOOT_H };
+		// The press lands while DShot drains, before READ shows.
+		fakePress(w.x + w.w / 2, w.y + w.h / 2);
+		uiTick();
+		checkTrue("pressed while Stopping: no READ yet", pinClaimState() == ClaimState::Stopping &&
+		          !ctlPresent(UI_FIX(HitecCtl::Read)));
+		for (int i = 0; i < 4; i++) { fakeHold(w.x + w.w / 2, w.y + w.h / 2); hitecFrame(); }
+		checkTrue("READ shows under the finger, drawn at rest",
+		          ctlEnabled(UI_FIX(HitecCtl::Read)) &&
+		          fakeTextCentredIs(UI_FOOT_Y + 16, "READ", C_TEXT, C_PANEL, 2));
+		fakeRelease();
+		hitecFrames(4);
+		checkTrue("its lift starts nothing", pinClaimState() == ClaimState::Held &&
+		          core1JobPhase() == Core1JobPhase::Idle && fakeHitecLineOpens() == opens);
+		tapId(UI_FIX(HitecCtl::Read));
+		checkTrue("a fresh tap on READ starts the job", untilCtl(UI_FIX(HitecCtl::Stop), 40) &&
+		          fakeHitecLineOpens() == opens + 1);
+	}
 	leaveAll();
 
 	section("Hitec entry: an ESC answering on SIG keeps DShot");

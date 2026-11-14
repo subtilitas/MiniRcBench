@@ -1354,6 +1354,7 @@ void uiTick() {
 	// MENU as its origin, so its BACK and RESTART DSHOT return to MENU.
 	if (s_level == Level::Tool) {
 		if (!s_tool->tick(&s_touch)) {
+			s_chosen = nullptr;
 			s_level = s_toolFrom == Level::Tester ? Level::Tester : Level::Menu;
 			s_tool = nullptr;
 			if (s_level == Level::Menu) uiMenuEnter();

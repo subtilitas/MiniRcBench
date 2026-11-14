@@ -123,8 +123,10 @@ static bool         s_claimed = false;      /**< pinClaimBegin() took the claim.
  *        (docs/design/menu-b.md, decision 34).
  */
 static bool         s_startNow = false;
-/** @brief pinClaimStartJob() was called in this claim: the job is wanted, and NEXT SERVO starts it again. */
+/** @brief pinClaimStartJob() was called for this servo: the job is wanted until NEXT SERVO. */
 static bool         s_jobAsked = false;
+/** @brief The press under way landed on READ while READ acted: only such a press reads. */
+static bool         s_readPress = false;
 static ClaimRefusal s_refusal = ClaimRefusal::None;
 static HitecStatus  s_st;                   /**< This frame's status from core1. */
 static const TouchState *s_t = nullptr;
@@ -701,8 +703,11 @@ static void drawMain() {
 		gfxText(UI_MARGIN, 230, "A WRITE WAS INTERRUPTED. HITEC/", C_AMBER, 1);
 		gfxText(UI_MARGIN, 242, "HITEC.TXT HOLDS THE SERVO AS IT WAS.", C_AMBER, 1);
 	}
-	if (m.button)
-		uiButton(BTN_WIDE, m.button, C_PANEL, C_TEXT, 2, m.enabled && pressing(BTN_WIDE), m.enabled);
+	if (m.button) {
+		bool counts = m.ctl != HitecCtl::Read || s_readPress;
+		uiButton(BTN_WIDE, m.button, C_PANEL, C_TEXT, 2, m.enabled && counts && pressing(BTN_WIDE),
+		         m.enabled);
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1569,9 +1574,9 @@ static void leaveText(UiLeaveText *tx) {
 			tx->note[k++] = UI_LEAVE_RELEASING;
 		}
 	} else if (!servoSupplyFitted()) {
-		// The setting, not the job: no job runs before NEXT SERVO.
-		// The D series entry reads at once: the next servo runs before the
-		// tap that starts its session.
+		// The setting, not the job: no job runs before NEXT SERVO. NEXT
+		// SERVO returns to the READ wait, so the next servo is powered
+		// after the tap, once DShot cannot reach it.
 		tx->note[k++] = HITEC_UI_NEXT_POWER;
 	}
 }
@@ -1642,9 +1647,12 @@ static bool leaveTouch() {
 			if (!pinClaimUnplugDue()) break;
 			pinClaimKeep(PinUser::Hitec);
 			cardCacheBegin(SdLogEnd::ByHitec);
-			// A new session in the family chosen on PROGRAMMER: the job
-			// starts again if it was wanted, else Main waits for READ.
+			// A new session in the family chosen on PROGRAMMER, asked for as
+			// the first was: at once with the switched supply or CLASSIC, else
+			// on READ, once the next servo is powered (decision 34).
 			newSession();
+			s_jobAsked = false;
+			if (s_startNow) startJob();
 			go(HitecView::Main);
 			break;
 		case UiLeaveEv::Restart:
@@ -1733,6 +1741,7 @@ static void enterFamily(uint8_t family) {
 	s_view = HitecView::Main;
 	s_claimed = false;
 	s_jobAsked = false;
+	s_readPress = false;
 	s_startNow = family == HITEC_CLASSIC || servoSupplyFitted();
 	s_refusal = ClaimRefusal::None;
 	newSession();
@@ -1759,7 +1768,8 @@ static uint32_t frameKey() {
 	uint32_t h = 2166136261u;
 	h = mix(h, (uint32_t)s_view);
 	h = mixBytes(h, &s_st, sizeof(s_st));
-	h = mix(h, ((uint32_t)s_jobAsked << 16) | ((uint32_t)s_claimed << 8) | (uint32_t)s_refusal);
+	h = mix(h, ((uint32_t)s_readPress << 17) | ((uint32_t)s_jobAsked << 16) | ((uint32_t)s_claimed << 8) |
+	           (uint32_t)s_refusal);
 	h = mix(h, ((uint32_t)pinClaimState() << 8) | pinClaimJobError());
 	h = mix(h, pinClaimUnplugDue());
 	h = mix(h, backActs());
@@ -1856,7 +1866,12 @@ bool uiHitecTick(const TouchState *t) {
 		case HitecView::Main: {
 			static MainText m;
 			mainText(&m);
-			if (m.button && m.enabled && tapped(BTN_WIDE)) {
+			// READ counts a press by when it landed, as LEAVE does: a
+			// press that landed while DShot drained, or on another button
+			// in the wide rectangle, does not start the job on its lift.
+			if (s_t->pressed) s_readPress = m.button && m.ctl == HitecCtl::Read && m.enabled;
+			bool counts = m.ctl != HitecCtl::Read || s_readPress;
+			if (m.button && m.enabled && counts && tapped(BTN_WIDE)) {
 				if (m.ctl == HitecCtl::Read) {
 					// The servo is powered: the job binds and the entry
 					// starts. No frame went to SIG before this tap.

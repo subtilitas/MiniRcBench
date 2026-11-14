@@ -38,7 +38,8 @@
  *
  * HITEC defers its job: the entry tap on PROGRAMMER claims SIG, and the
  * screen calls pinClaimStartJob() at once for CLASSIC and for D SERIES with
- * the switched supply, and on READ for D SERIES on OWN. Until then the
+ * the switched supply, and on READ for D SERIES on OWN, for each servo:
+ * pinClaimKeep() leaves it unasked again. Until then the
  * claim stays in Held with no job, the pad an input with the pull-up
  * esc_task.cpp leaves on it. BACK from there is pinClaimEnd(): the pin went
  * to a servo, so the leave page comes before DShot restarts.
@@ -252,9 +253,10 @@ void pinClaimEnd(PinUser who);
  *
  * Acts only while @p who holds the claim, Stopping or Held. From Stopping
  * the job starts once the claim is Held; from Held, with no job started
- * yet, it starts now. From then on the claim keeps the job wanted:
- * pinClaimKeep() starts it again. A user that does not defer its job has
- * it wanted from pinClaimBegin().
+ * yet, it starts now. The job stays wanted until pinClaimKeep(), which
+ * returns a deferring user to Held with no job, to ask again. A user that
+ * does not defer its job has it wanted from pinClaimBegin() and from
+ * pinClaimKeep().
  *
  * @param who The screen.
  */
@@ -299,8 +301,9 @@ void pinClaimRestart(PinUser who);
  *        Core0. BACK on the leave page is disabled.
  *
  * Acts only while pinClaimUnplugDue() is true and @p who holds the claim. The
- * claim returns to Held and the job starts again, if it was wanted: a HITEC
- * claim left before its job was asked for returns to Held with no job.
+ * claim returns to Held. SERVO and KST start their job again; HITEC, which
+ * defers its job, returns to Held with no job and asks for it again with
+ * pinClaimStartJob(), at once or on READ, as for its first servo.
  *
  * @param who The screen.
  */
