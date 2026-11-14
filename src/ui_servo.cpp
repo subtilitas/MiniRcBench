@@ -3,8 +3,8 @@
  * @brief The servo tester screens. @see ui_servo.h
  *
  * Three views share one claim: SERVO, where the servo is driven; SET, where
- * the profile, SPEED's sweep and the servo count are chosen; and the unplug
- * page, between BACK and DShot's restart. Every rule about pulses, limits and
+ * the profile, SPEED's sweep and the servo count are chosen; and the leave
+ * page (ui_leave.h), between BACK and DShot's restart. Every rule about pulses, limits and
  * steppers is in servo_model.h, and every pulse is core1's (servo_job.h); this
  * file draws, reads the touch and sends commands.
  *
@@ -25,6 +25,7 @@
 #include "touch.h"
 #include "ui_hold.h"
 #include "ui_input.h"
+#include "ui_leave.h"
 #include "ui_list.h"
 #include "ui_slider.h"
 #include "ui_widgets.h"
@@ -74,7 +75,6 @@ static const UiRect BTN_SEL_A  = { 122, SV_READ_Y + 1, 34, 22 };
 static const UiRect BTN_SEL_B  = { 160, SV_READ_Y + 1, 34, 22 };
 static const UiRect BTN_SEL_AB = { 198, SV_READ_Y + 1, 34, 22 };
 static const UiRect BTN_RETRY  = { 70,  150, 100, 30 };
-static const UiRect BTN_RESTART = { 40, 200, 160, 40 };
 /** @brief SPEED's track: between its label and its value. */
 static const UiRect SPEED_TRACK = { 44, SV_SPEED_Y, 150, SV_SPEED_H };
 
@@ -193,7 +193,7 @@ static int coarseOf(const SetRow &r) {
 // ---------------------------------------------------------------------------
 
 /** @brief Which view owns the panel. */
-enum class View : uint8_t { Main, Set, Unplug };
+enum class View : uint8_t { Main, Set, Leave };
 
 static View         s_view = View::Main;
 static bool         s_claimed = false;     /**< pinClaimBegin() took this screen's claim. */
@@ -219,6 +219,7 @@ static bool         s_wasRunning = false;  /**< RUNNING on the last frame. */
  *        a release, which ends any hold.
  */
 static UiHold       s_hold;
+static UiLeave      s_leave;               /**< The leave page: its phase and its presses. */
 static bool         s_needLift = false;    /**< A STOP press is down; it starts and taps nothing. */
 static ServoStatus  s_st;                  /**< This frame's status from core1. */
 static const TouchState *s_t = nullptr;    /**< This frame's touch. */
@@ -266,14 +267,12 @@ static bool pressing(const UiRect &r) { return uiPressing(r, s_t); }
 static bool tapped(const UiRect &r) { return uiTapped(r, s_t); }
 
 /**
- * @brief Whether BACK acts on this frame: everywhere but on the unplug page
- *        before the job has let the pins go (pinClaimUnplugDue()), where
- *        pinClaimKeep() would refuse. The control table reports it, the tap
- *        is gated on it and the header draws it.
- *        The unplug page draws its header and reports its table from its own
- *        one read of pinClaimUnplugDue(), which this equals on that page.
+ * @brief Whether BACK acts on this frame: everywhere but on the leave page,
+ *        in every phase, where BACK TO SERVO and RESTART DSHOT are the ways
+ *        on (docs/design/menu-b.md, decision 5). The control table reports
+ *        it, the tap is gated on it and the header draws it.
  */
-static bool backActs() { return s_view != View::Unplug || pinClaimUnplugDue(); }
+static bool backActs() { return s_view != View::Leave; }
 
 /**
  * @brief The GPIO a role names, from the claim, or from the pump before it
@@ -1046,26 +1045,43 @@ static void setTouch() {
 }
 
 // ---------------------------------------------------------------------------
-// the unplug page
+// the leave page
 // ---------------------------------------------------------------------------
 
-static void drawUnplug() {
-	bool due = pinClaimUnplugDue();
-	struct { bool back, backOk, due, p; } k;
+/**
+ * @brief Draw the leave page: no step before LEAVE, since BACK on SERVO
+ *        TESTER is the leave, so it opens releasing.
+ */
+static void drawLeave() {
+	uint32_t now = millis();
+	struct {
+		bool    back, left, wide, live, restartPress, released, two;
+		uint8_t sig, aux;
+	} k;
 	memset(&k, 0, sizeof(k));
-	// One read decides both: core1 can change it between two.
-	k.backOk = due;
-	k.back = k.backOk && uiPressing(uiBackRect(), s_t); k.due = due; k.p = due && pressing(BTN_RESTART);
+	k.back = uiPressing(uiBackRect(), s_t);
+	k.left = uiPressing(UI_LEAVE_LEFT, s_t);
+	k.wide = uiPressing(UI_LEAVE_WIDE, s_t);
+	k.live = uiLeaveRestartLive(&s_leave, now);
+	k.restartPress = s_leave.restartPress;
+	k.released = s_leave.phase == UiLeavePhase::Released;
+	k.two = pinClaimGpio(PIN_AUX) != PIN_CLAIM_NO_GPIO;
+	k.sig = gpioOf(PIN_SIG);
+	k.aux = gpioOf(PIN_AUX);
 	if (!changed(0, &k, sizeof(k))) return;
-	uiHeader(SERVO_UI_TITLE, s_t, k.backOk);
-	gfxRect(0, UI_STRIP_Y, GFX_W, GFX_H - UI_STRIP_Y, C_BG);
-	if (!due) { line(120, "RELEASING THE PINS", C_DIM); return; }
-	gfxTextCenter(100, "UNPLUG THE SERVO.", C_AMBER, 2);
-	char b[48];
-	snprintf(b, sizeof(b), "DSHOT RESTARTS ON GP%u AND READS AS", gpioOf(PIN_SIG));
-	line(140, b, C_TEXT);
-	line(154, "A 970 US PULSE AT 1000 HZ.", C_TEXT);
-	uiButton(BTN_RESTART, "RESTART DSHOT", C_PANEL, C_TEXT, 1, k.p);
+	uiHeader(SERVO_UI_TITLE, s_t, backActs());
+	uiStripClear();
+	char strip[32];
+	if (k.two) snprintf(strip, sizeof(strip), "SIG GP%u  AUX GP%u", k.sig, k.aux);
+	else       snprintf(strip, sizeof(strip), "SIG GP%u", k.sig);
+	uiStripText(strip, C_DIM);
+	static char dshot[40];
+	UiLeaveText tx;
+	memset(&tx, 0, sizeof(tx));
+	uiLeaveUnplugSteps(&tx, 0, k.sig, dshot, sizeof(dshot));
+	tx.next = "BACK TO SERVO";
+	if (!k.released) tx.note[0] = k.two ? SERVO_UI_RELEASING_TWO : UI_LEAVE_RELEASING;
+	uiLeaveDraw(&s_leave, tx, s_t, now);
 }
 
 // ---------------------------------------------------------------------------
@@ -1074,11 +1090,12 @@ static void drawUnplug() {
 
 uint8_t uiServoControls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
-	if (s_view == View::Unplug) {
-		// One read decides both: core1 can change it between two.
-		bool due = pinClaimUnplugDue();
-		uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), due);
-		if (due) uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Restart), BTN_RESTART, true);
+	if (s_view == View::Leave) {
+		uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
+		uiControlAdd(out, &n, max, UI_FIX(ServoCtl::BackToServo), UI_LEAVE_LEFT,
+		             s_leave.phase == UiLeavePhase::Released);
+		uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Restart), UI_LEAVE_WIDE,
+		             uiLeaveRestartLive(&s_leave, millis()));
 		return n;
 	}
 	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
@@ -1152,14 +1169,13 @@ bool uiServoTick(const TouchState *t) {
 	servoJobStatus(&s_st);
 	if (s_owed) applyProfile();
 	if (s_claimed) pinClaimPoll();
-	else if (s_view != View::Unplug) claimPins();
+	else if (s_view != View::Leave) claimPins();
 
 	// BACK: from SET to SERVO, through the guard while a change waits for
 	// HOLD TO APPLY, the second BACK dropping it (docs/design/menu-b.md,
-	// decision 7); from the unplug page back to SERVO, keeping the claim,
-	// once the job has let go (until then pinClaimKeep() refuses, and BACK
-	// there is drawn disabled and does nothing: backActs()); from SERVO out,
-	// through the unplug page once a job has held the pins.
+	// decision 7); from SERVO out, through the leave page once a job has held
+	// the pins. On the leave page BACK is drawn disabled and does nothing
+	// (backActs()): BACK TO SERVO keeps the claim.
 	bool back;
 	if (s_view == View::Set) back = uiBackGuard(&s_guard, s_t, setPending()) == UiGuardEv::Back;
 	else back = backActs() && uiBackTapped(s_t);
@@ -1169,28 +1185,38 @@ bool uiServoTick(const TouchState *t) {
 			s_view = View::Main;
 			s_edit = s_profile;
 			s_pending = false;
-		} else if (s_view == View::Unplug) {
-			pinClaimKeep(PinUser::Servo);
-			s_view = View::Main;
 		} else {
 			uiSliderRelease(&s_speed);
 			if (!s_claimed) return false;
 			pinClaimEnd(PinUser::Servo);
 			ClaimState cs = pinClaimState();
 			if (cs == ClaimState::Free || cs == ClaimState::Restoring) return false;
-			s_view = View::Unplug;
+			s_view = View::Leave;
+			// RESTART DSHOT waits 1000 ms after the pins are let go: about
+			// 41 ms after BACK at 50 Hz, so a double tap restarts nothing.
+			uiLeaveOpen(&s_leave, UiLeavePhase::Releasing, UI_HOLD_MS);
 		}
 	}
 
-	if (s_view == View::Unplug) {
-		if (pinClaimUnplugDue() && tapped(BTN_RESTART)) {
+	if (s_view == View::Leave) {
+		uiLeavePoll(&s_leave, pinClaimUnplugDue(), millis());
+		UiLeaveEv ev = uiLeaveTouch(&s_leave, s_t, millis());
+		// pinClaimKeep() and pinClaimRestart() act only while the pins are
+		// let go.
+		if (ev == UiLeaveEv::Restart && pinClaimUnplugDue()) {
 			pinClaimRestart(PinUser::Servo);
 			return false;
 		}
-		if (s_full) gfxRect(0, 0, GFX_W, GFX_H, C_BG);
-		drawUnplug();
-		s_full = false;
-		return true;
+		if (ev == UiLeaveEv::Next && pinClaimUnplugDue()) {
+			pinClaimKeep(PinUser::Servo);
+			s_view = View::Main;
+			s_full = true;
+		} else {
+			if (s_full) gfxRect(0, 0, GFX_W, GFX_H, C_BG);
+			drawLeave();
+			s_full = false;
+			return true;
+		}
 	}
 
 	bool startOk = live() && !s_st.running;

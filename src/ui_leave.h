@@ -4,9 +4,8 @@
  *        pins, from the last step on the device to DShot running again
  *        (docs/design/menu-b.md, "The leave page").
  *
- * No screen uses it yet. Slice 6 of the note moves KST SERVO, HITEC SERVO
- * and SERVO TESTER onto it in place of their leave and unplug pages. The page
- * has three phases:
+ * KST SERVO, HITEC SERVO and SERVO TESTER fill it; it is the one page between
+ * a servo on SIG and DShot restarting there. The page has three phases:
  *
  * - **Before LEAVE.** The first step is current. The left button reads STAY
  *   and the wide button LEAVE. A tap on LEAVE moves the page to Releasing.
@@ -34,15 +33,17 @@
  * @ref UI_COL_WARN before LEAVE and in `C_DIM` after it.
  *
  * The screen draws the header and the strip; BACK on the page is the
- * screen's (open question 3 of the note). A right-hand button, HOLD TO REBOOT
- * or READ AGAIN, is the screen's too: it sits at `UI_LEAVE_RIGHT` before
- * LEAVE and is not drawn from the tap on LEAVE on.
+ * screen's, drawn disabled in every phase (owner decision 25 of the note). A
+ * right-hand button, HOLD TO REBOOT or READ AGAIN, is the screen's too: it
+ * sits at `UI_LEAVE_RIGHT` before LEAVE and is not drawn from the tap on
+ * LEAVE on.
  *
  * Pure but for uiLeaveDraw(), which draws through gfx.h.
  */
 
 #pragma once
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include "ui_widgets.h"
@@ -95,6 +96,43 @@ static_assert(UI_LEAVE_LEFT.x + UI_LEAVE_LEFT.w < UI_LEAVE_RIGHT.x &&
 static_assert(UI_LEAVE_BTN_Y + UI_LEAVE_BTN_H < UI_LEAVE_WIDE.y,
               "the two buttons run into the wide one");
 
+/**
+ * @defgroup ui_leave_text The steps the three screens share
+ * @brief A step's text starts at @ref UI_LEAVE_TEXT_X: 35 characters at
+ *        scale 1 end by x 229. A note starts at x 8: 37 characters.
+ * @{
+ */
+/** @brief The step that unplugs the servo. */
+#define UI_LEAVE_UNPLUG      "UNPLUG THE SERVO."
+/** @brief Its first detail line, with SIG's GPIO. */
+#define UI_LEAVE_DSHOT_FMT   "DSHOT RESTARTS ON SIG GP%u AND READS"
+/** @brief Its second detail line: what DShot looks like to a servo. */
+#define UI_LEAVE_PULSE       "AS A 970 US PULSE AT 1000 HZ."
+/** @brief The last step. */
+#define UI_LEAVE_RESTART     "RESTART DSHOT."
+/** @brief The first step with a switched supply, KST and Hitec. */
+#define UI_LEAVE_SWITCHED    "LEAVE SWITCHES THE SUPPLY OFF."
+/** @brief The note while the job lets the pin go. */
+#define UI_LEAVE_RELEASING   "RELEASING THE PIN"
+/** @brief The note while a switched supply stays off: its time, the time left. */
+#define UI_LEAVE_SUPPLY_FMT  "SUPPLY OFF FOR %u.%u S: %u.%u S LEFT."
+/** @} */
+
+/** @brief Characters a step line holds from @ref UI_LEAVE_TEXT_X. */
+#define UI_LEAVE_STEP_CHARS  35
+/** @brief Characters a note line holds from x 8. */
+#define UI_LEAVE_NOTE_CHARS  37
+
+// SIG's GPIO is one digit: ui_leave.cpp holds the board to it.
+static_assert(sizeof(UI_LEAVE_DSHOT_FMT) - 1 - 2 + 1 <= UI_LEAVE_STEP_CHARS &&
+              sizeof(UI_LEAVE_UNPLUG) - 1 <= UI_LEAVE_STEP_CHARS &&
+              sizeof(UI_LEAVE_PULSE) - 1 <= UI_LEAVE_STEP_CHARS &&
+              sizeof(UI_LEAVE_SWITCHED) - 1 <= UI_LEAVE_STEP_CHARS,
+              "a leave step runs past x 232");
+// Four one-digit numbers in place of four %u.
+static_assert(sizeof(UI_LEAVE_SUPPLY_FMT) - 1 - 4 * 2 + 4 <= UI_LEAVE_NOTE_CHARS,
+              "the supply note runs past x 232");
+
 /** @brief The page's phase. */
 enum class UiLeavePhase : uint8_t {
 	Before,     /**< Before the tap on LEAVE. */
@@ -141,7 +179,8 @@ struct UiLeaveText {
  * @param phase  @ref UiLeavePhase::Before, or Releasing for a page with no
  *               step before LEAVE; Released opens it as Releasing.
  * @param waitMs RESTART DSHOT's wait, ms; 0 makes it live with the released
- *               phase. Open question 8 of the note.
+ *               phase. The screens pass @ref UI_HOLD_MS, 1000 ms, by owner
+ *               decision 30 of the note.
  */
 void uiLeaveOpen(UiLeave *l, UiLeavePhase phase, uint32_t waitMs);
 
@@ -177,6 +216,19 @@ bool uiLeaveRestartLive(const UiLeave *l, uint32_t nowMs);
  * @return The event; @ref UiLeaveEv::None for most frames.
  */
 UiLeaveEv uiLeaveTouch(UiLeave *l, const TouchState *t, uint32_t nowMs);
+
+/**
+ * @brief Fill the two steps every leave ends with: UNPLUG THE SERVO., with
+ *        DShot's restart on SIG and the pulse it reads as, then
+ *        RESTART DSHOT.
+ * @param[out] text  The page's text; steps @p first and @p first + 1.
+ * @param first      The index of the unplug step: 1 after a step before
+ *                   LEAVE, 0 on a page opened releasing.
+ * @param sig        SIG's GPIO.
+ * @param buf        Room for the DShot line; it must outlive the draw.
+ * @param n          Size of @p buf, 40 bytes or more.
+ */
+void uiLeaveUnplugSteps(UiLeaveText *text, int first, unsigned sig, char *buf, size_t n);
 
 /**
  * @brief Draw the page from @ref UI_BODY_Y down: the steps, the notes, the

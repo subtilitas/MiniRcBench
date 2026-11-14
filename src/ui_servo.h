@@ -1,7 +1,7 @@
 /**
  * @file ui_servo.h
  * @brief The servo tester screens: SERVO TESTER, its SET screen, and the
- *        unplug page before DShot restarts.
+ *        leave page before DShot restarts.
  *
  * Servo PWM (pulse-width modulation) on the ESC pin, and on the KISS pin for
  * two servos. Entry: MENU → SERVO TESTER. The screen claims the pins
@@ -24,7 +24,7 @@
 struct TouchState;
 
 /**
- * @brief The header's title on the main view and the unplug page: MENU's
+ * @brief The header's title on the main view and the leave page: MENU's
  *        row label, 12 characters, 142 px at scale 2, from x 8 to x 149,
  *        20 px before BACK at x 170.
  */
@@ -40,6 +40,8 @@ struct TouchState;
  *        by uiStripTwoLines() under the caption.
  */
 #define SERVO_UI_SUPPLY_FMT "GP%u SUPPLY STAYS OFF HERE."
+/** @brief The leave page's note while the job lets SIG and AUX go: 18 characters. */
+#define SERVO_UI_RELEASING_TWO "RELEASING THE PINS"
 /** @brief SET's note while SIG and AUX share a GPIO, refusing TWO: line 1. */
 #define SERVO_UI_SAME_PIN_1 "SIG AND AUX ARE THE SAME GPIO."
 /** @brief ...and its second line: the rows that set them. */
@@ -59,7 +61,7 @@ void uiServoEnter();
 /**
  * @brief Run one frame of the screen.
  * @param t Touch state for this frame.
- * @return false once the screen has left, after RESTART DSHOT on the unplug
+ * @return false once the screen has left, after RESTART DSHOT on the leave
  *         page, or after BACK when no job had run.
  */
 bool uiServoTick(const TouchState *t);
@@ -79,7 +81,8 @@ enum class ServoCtl : uint8_t {
 	EditMinus, EditPlus,          /**< SET's editor bar, while a row is selected. */
 	Apply,                        /**< HOLD TO APPLY. */
 	Defaults,                     /**< DEFAULTS, or STOP. */
-	Restart,                      /**< RESTART DSHOT on the unplug page. */
+	Restart,                      /**< RESTART DSHOT on the leave page, live 1000 ms after the pins are let go. */
+	BackToServo,                  /**< BACK TO SERVO on the leave page: the claim kept, SERVO TESTER SAFE. */
 };
 
 struct UiControl;

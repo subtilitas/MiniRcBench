@@ -157,9 +157,9 @@ static void testMenuSettingsLog() {
 	checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
 }
 
-/** @brief SERVO, its SET view and its unplug page by id. */
+/** @brief SERVO, its SET view and its leave page by id. */
 static void testServo() {
-	section("Control ids: SERVO, SET and the unplug page");
+	section("Control ids: SERVO, SET and the leave page");
 	fakeFlashClear(); settingsLoad(); uiInit(); idFrames(4);
 	tapId(UI_FIX(TesterCtl::Menu));
 	tapId(menuRow(&UI_SERVO));
@@ -187,12 +187,14 @@ static void testServo() {
 	checkTrue("BACK from SET shows SERVO's buttons", ctlPresent(UI_FIX(ServoCtl::Min)));
 
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from SERVO opens the unplug page", uiCurrentScreen() == UiScreenId::Servo &&
+	checkTrue("BACK from SERVO opens the leave page", uiCurrentScreen() == UiScreenId::Servo &&
 	          !ctlPresent(UI_FIX(ServoCtl::Min)));
-	checkTrue("the unplug page shows RESTART or a BACK that waits",
-	          ctlPresent(UI_FIX(ServoCtl::Restart)) || !ctlEnabled(UI_FIX(UI_BACK)));
-	for (int i = 0; i < 200 && !ctlPresent(UI_FIX(ServoCtl::Restart)); i++) idFrames(1);
-	checkControlTable("the unplug page");
+	checkTrue("the leave page: BACK TO SERVO, RESTART DSHOT, BACK disabled",
+	          ctlPresent(UI_FIX(ServoCtl::BackToServo)) && ctlPresent(UI_FIX(ServoCtl::Restart)) &&
+	          !ctlEnabled(UI_FIX(UI_BACK)));
+	checkControlTable("the leave page, releasing");
+	for (int i = 0; i < 200 && !ctlEnabled(UI_FIX(ServoCtl::Restart)); i++) idFrames(1);
+	checkControlTable("the leave page");
 	tapId(UI_FIX(ServoCtl::Restart));
 	checkTrue("SERVO leaves to MENU", uiCurrentScreen() == UiScreenId::Menu);
 }
@@ -324,7 +326,7 @@ static void testLayoutTable() {
 	checkControlTable("SERVO SET, the layout table");
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
-	for (int i = 0; i < 200 && !ctlPresent(UI_FIX(ServoCtl::Restart)); i++) idFrames(1);
+	for (int i = 0; i < 200 && !ctlEnabled(UI_FIX(ServoCtl::Restart)); i++) idFrames(1);
 	tapId(UI_FIX(ServoCtl::Restart));
 	checkTrue("back at MENU", uiCurrentScreen() == UiScreenId::Menu);
 	tapId(UI_FIX(UI_BACK));
