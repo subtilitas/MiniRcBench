@@ -737,16 +737,27 @@ static bool rowStep(void *ctx, int dir) {
 }
 
 /**
+ * @brief Whether the pending change is a TYPE or RATE that needs the heli or
+ *        the 60 Hz warning.
+ */
+static bool ratePending() {
+	return servoDangerous(s_edit.type, s_edit.rateHz) &&
+	       (s_edit.type != s_profile.type || s_edit.rateHz != s_profile.rateHz);
+}
+
+/**
  * @brief Step @p row by @p steps coarse steps of @p factor steps each, as
  *        uiSwipeApply() does: one step at a time while canStep() allows it.
  *        A PULSE change applies at once, unless it is a TYPE or RATE that
- *        needs the warning, which waits for HOLD TO APPLY.
+ *        needs the heli or 60 Hz warning, or a TYPE, MIN or MAX that takes
+ *        the profile further past its travel (servoTravelNeedsHold()): those
+ *        wait for HOLD TO APPLY. Each step decides again, so a step back
+ *        ends the wait and applies.
  */
 static void stepRow(int row, int steps, int factor) {
 	const SetRow &r = ROWS[row];
 	if (uiSwipeApply(steps, factor, rowStep, &row) == 0 || !r.pulse) return;
-	bool risky = servoDangerous(s_edit.type, s_edit.rateHz) &&
-	             (s_edit.type != s_profile.type || s_edit.rateHz != s_profile.rateHz);
+	bool risky = ratePending() || servoTravelNeedsHold(&s_edit, &s_profile);
 	s_pending = risky;
 	if (!risky) {
 		s_profile = s_edit;
@@ -764,7 +775,9 @@ static bool endRow(int row) {
 /**
  * @brief The note band under the header: up to two lines.
  *
- * First wins: the HOLD TO APPLY warning; STOP TO CHANGE THE PROFILE; the
+ * First wins: the HOLD TO APPLY warning, the heli or 60 Hz one for a TYPE
+ * or RATE that needs it, else the end-stop note for a change past the
+ * travel; STOP TO CHANGE THE PROFILE; the
  * cause of a refused TWO on the SERVOS row; the end-stop note while TYPE,
  * MIN or MAX is selected; SPEED LIMITS THE SWEEP; TWO SERVOS ARE NOT
  * OFFERED; the end-stop note on any other row. A dim note keeps its place on
@@ -778,8 +791,9 @@ static void setNote(const char **l1, const char **l2, uint16_t *col) {
 	static const char *const TRAVEL2 = "HEATS. TRY MIN AND MAX HORN-FREE.";
 	bool travel = servoPastTravel(&s_edit);
 	if (s_pending) {
-		if (servoTypeInfo(s_edit.type)->heli) { *l1 = "A HELI PROFILE CAN DESTROY"; *l2 = "A SERVO NOT MADE FOR IT."; }
-		else                                   { *l1 = "ABOVE 60 HZ AN ANALOGUE"; *l2 = "SERVO OVERHEATS."; }
+		if (!ratePending())                         { *l1 = TRAVEL1; *l2 = TRAVEL2; }
+		else if (servoTypeInfo(s_edit.type)->heli) { *l1 = "A HELI PROFILE CAN DESTROY"; *l2 = "A SERVO NOT MADE FOR IT."; }
+		else                                        { *l1 = "ABOVE 60 HZ AN ANALOGUE"; *l2 = "SERVO OVERHEATS."; }
 		return;
 	}
 	if (s_st.running) { *l1 = "STOP TO CHANGE THE PROFILE"; return; }
