@@ -1,15 +1,20 @@
-# Receiver signals: S.BUS monitor and PPM output
+# Receiver signals: S.BUS monitor and S.BUS output
 
 Status: slice 1a built, the rest planned. Slice 1a copied rcbench's S.BUS
 decoder and its test into `lib/rcbench/` and `test/rcbench/`, run in the
-host suite only ([work breakdown](#work-breakdown)). The design: two tools
-on the pin claim of [pin-claim.md](pin-claim.md), RX MONITOR, which reads a
-receiver's S.BUS output on GP1, and PPM OUTPUT, which sends eight channels
-of PPM on GP0. The protocol cores are rcbench's, host-tested there and
-nowhere measured on a pin. The PPM output's use is thin
-([what PPM output is for](#what-ppm-output-is-for)); whether to build it is
-the owner's first question ([open questions](#open-questions)). The rows'
-place on MENU is the owner's to confirm.
+host suite only ([work breakdown](#work-breakdown)). The owner answered the
+note's open questions on 2026-11-14 ([decisions](#decisions)): build the
+S.BUS monitor and an S.BUS output, no PPM output. The S.BUS monitor, which
+reads a receiver's S.BUS output on GP1 through UART0, is designed below
+and waits on being built (slices 2 and 3). The S.BUS output, inverted 8E2
+at 100,000 baud on GP0 through UART0's TX, is not designed: its open points
+are listed under [S.BUS output](#sbus-output), and its encoder is written
+and tested in rcbench first. The PPM sections stay as the record of a
+design that is not built, by decision 1. Both tools sit on the pin claim of
+[pin-claim.md](pin-claim.md) under one MENU row, RX SIGNALS, which opens a
+chooser with MONITOR and OUTPUT (decision 4); the MENU section is to be
+redesigned for it. The decoder is rcbench's, host-tested there and nowhere
+measured on a pin.
 
 ## Terms
 
@@ -163,6 +168,8 @@ receiver are torn down, so pio2 is empty and any of them fits
 | Second stop bit | not checked | not checked: a PL011 receiver checks the first stop bit only (PL011 reference manual; to confirm in the RP2350 datasheet) | can check both |
 | Risk | edits the program of KISS, the one receiver with a hardware report | none to existing code | a program with no hardware record and no model yet |
 
+The owner chose B on 2026-11-14 ([decision 2](#decisions)).
+
 Recommendation: **B, UART0 on GP1 with the pad's input inverted.** It costs
 no PIO and no DMA, it reports parity, framing, break and overrun per byte,
 its FIFO holds more than a whole 25-byte frame, and it touches no code that
@@ -291,7 +298,9 @@ is widely quoted as 5/8 of raw plus 880 µs, which puts raw 172 at 987.5 µs
 and raw 1811 at 2011.9 µs (to confirm against Betaflight's source). A value
 on this screen can therefore differ from an FC's by about 12 µs at the ends
 and match at the centre. The bar is drawn in raw units, so it shows the
-same thing whichever convention reads it.
+same thing whichever convention reads it. The owner chose this scale on
+2026-11-14: µs by `sbus_to_us()`, the bar in raw units
+([decision 3](#decisions)).
 
 ### Screen
 
@@ -375,7 +384,42 @@ else. Later work, each a change to this screen and its job:
 | Plain PWM input | pulse width on GP1, channel B of PWM slice 0, which can count while its B input is high; GP0 is a channel A pin and needs a PIO capture. One or two channels, not a receiver's eight |
 | Supply on the switched converter | a hold to switch it on, off at BACK, at a heartbeat lapse and at the claim's end, the rules of [kst-programming.md](kst-programming.md#switched-servo-supply) |
 
+## S.BUS output
+
+The owner's choice of 2026-11-14 ([decision 1](#decisions)), option (c) of
+the question it answered: an S.BUS output on GP0, UART0's TX pin, inverted
+8E2 at 100,000 baud, with the pad's output inverted by OUTOVER, the PL011
+sending, no PIO and no DMA. rcbench has no S.BUS encoder: the encoder is
+written and tested in rcbench first and then copied here unchanged, as the
+decoder was (decision 5). The throttle channel obeys MAX THROTTLE of
+SETTINGS (decision 6). Not designed. To design:
+
+- **Frame timing.** The frame period, 7 ms or 14 ms or a choice, and what
+  sends each frame on core1: the PL011's 32-entry transmit FIFO holds a
+  25-byte frame, and the gap between frames comes from the pass that loads
+  the next one.
+- **Channel sliders.** How the 16 proportional channels and the two
+  digital ones are set on a 240 px wide screen, the throttle channel and
+  its ceiling from MAX THROTTLE, and the values at START.
+- **Failsafe and frame-lost flags.** Whether the screen sets the failsafe
+  and frame-lost bits, to test an FC's reaction to each, and what a frame
+  stop on demand looks like.
+- **The pin claim's ESC check.** GP0 is SIG in the default wiring, where
+  the ESC sits: the output drives an ESC's signal input if one is plugged
+  in. What the claim's ESC check (`escCheck`) means for an output on GP0,
+  and for the wirings in which GP0 is AUX, is to be designed, after the
+  PPM section's rule, which waited while an ESC answered on SIG.
+- **SAFE, START, STOP and the heartbeat trip,** as the servo tester and the
+  PPM design have them, and the line's level after the release.
+- **Electrical.** The level an FC's S.BUS input takes, 3.3 V from GP0, and
+  the idle level of the inverted line, high, against the line's low idle
+  on the monitor.
+
 ## PPM output
+
+Not built, by the owner's decision of 2026-11-14 ([decision
+1](#decisions)): no PPM output. This section, and the PPM rows of the
+sections after it, stay as the record of the design.
 
 ### What PPM output is for
 
@@ -393,7 +437,8 @@ transmitter in. Modern receivers and FCs favour serial buses over PPM; which
 current FC firmwares still take PPM is not checked here. What this tool adds
 is fixed, repeatable values and a frame stop on demand. Unless the owner has
 a concrete PPM device to test, the recommendation is not to build it
-([open questions](#open-questions), question 1).
+(question 1 of 2026-11-13, answered by [decision 1](#decisions): no PPM
+output).
 
 ### Electrical
 
@@ -570,12 +615,20 @@ resources: the claim exists for the pin.
 
 ## MENU
 
+To be redesigned. The owner decided on 2026-11-14 for one MENU row, RX
+SIGNALS, that opens a chooser with MONITOR and OUTPUT ([decision
+4](#decisions)). In menu structure B ([menu-b.md](menu-b.md), decision 32)
+the row comes after SERVO PROGRAMMER, and MENU has seven rows. The chooser
+is not designed. Where the row sits on MENU as built, before structure B,
+is not decided. The rest of this section is the design of 2026-11-13, with
+two rows, RX MONITOR and PPM OUTPUT.
+
 Today MENU has seven rows and scrolls 36 px. The two tools sit after the servo
 tools, SERVO TESTER, KST SERVO and HITEC SERVO, which take the signal pins as
 they do, and before SETTINGS. SETTINGS is the sixth row today, whole at scroll
 0. With the new rows before it, SETTINGS becomes the eighth or ninth row and is
-below the fold again; question 4 decides between that and placing the new rows
-after SETTINGS:
+below the fold again; question 4, now decision 4, decided between that
+and placing the new rows after SETTINGS:
 
 | | Rows | Content | Scroll range |
 |---|---|---|---|
@@ -585,8 +638,8 @@ after SETTINGS:
 
 The scroll range is rows × 42 px − 258 px, by the rules of
 [menu.md](menu.md#menu). MENU structure B (`docs/design/menu-b.md`, not
-built) places the rows; question 4 holds until then. The placement is the
-owner's to confirm.
+built) places the rows; question 4 held until then. The owner's answer
+is decision 4.
 
 | Row | Label | Fit | Status |
 |---|---|---|---|
@@ -606,6 +659,9 @@ Each tool is one `PinUser`, one `Core1Job` and one row in `PIN_USERS`:
 |---|---|---|---|---|
 | `Sbus` | `Sbus` | true | false, and the screen's own check when GP1 is SIG (below) | `PIN_SIG \| PIN_AUX` when GP1 is AUX, `PIN_SIG` when GP1 is SIG |
 | `Ppm` | `Ppm` | true | true | `PIN_SIG` |
+
+The `Ppm` row and the PPM rules below are not built, by decision 1. The
+S.BUS output's row is to be designed ([S.BUS output](#sbus-output)).
 
 - **Armed and Busy** apply to both, as to every claim. Opening MENU disarms;
   the 250 ms zero-throttle drain runs before either job binds.
@@ -655,6 +711,9 @@ Each tool is one `PinUser`, one `Core1Job` and one row in `PIN_USERS`:
 | `test/host/test_ppm.c` | `test/rcbench/` | copied unchanged, 9 cases |
 | `shared/outputs/include/outputs.h` | `test/rcbench/outputs.h` | adapted: `OUT_FLOOR_US` 400 and `OUT_CEILING_US` 2500 only, the two values `test_ppm.c` holds the module to, as `test/rcbench/link_pages.h` does for Hitec |
 | the modules' `README.md` and `CMakeLists.txt` | none | MiniRcBench lists its sources in its own `.cmake` and `.mk` files |
+
+The PPM rows are not built, by decision 1. The S.BUS output's encoder
+comes from rcbench once it is written there (decision 5).
 
 `lib/rcbench/README.md` gains the rows and the commit. Copied files keep
 their text and their SPDX line.
@@ -730,11 +789,11 @@ Checked:
   99 ms, `NO FRAMES` with clean bytes and no frame, `FAILSAFE`, `FRAME
   LOST` held 250 ms, `OK`; across a `millis()` wrap;
 - a new visit starts its counts at 0;
-- the PPM core: SAFE writes nothing; START's first frame (the throttle
-  channel and channels 5 to 8 at 1000 µs, the rest at 1500 µs); the clamp
-  to 1000 µs to 2000 µs and to the ceiling; the trip at 250 ms and not at
-  249 ms, latched, cleared only by START; STOP on the next pass; a refused
-  write; the bind refusal; the release and the pull-down;
+- the PPM core, not built by decision 1: SAFE writes nothing; START's first
+  frame (the throttle channel and channels 5 to 8 at 1000 µs, the rest at
+  1500 µs); the clamp to 1000 µs to 2000 µs and to the ceiling; the trip at
+  250 ms and not at 249 ms, latched, cleared only by START; STOP on the next
+  pass; a refused write; the bind refusal; the release and the pull-down;
 - the screens through MENU by control id: both rows open their screens and
   BACK passes the unplug page; `PINS BUSY`; the unavailable texts;
   HOLD TO START at 1000 ms and not at 999 ms; STOP on press; sliders and
@@ -763,13 +822,13 @@ Only hardware settles these:
   modes; `NO SIGNAL` within 100 ms plus one UI frame of unplugging; GP1's
   level after unplugging (RP2350-E9) and what the counts show; KISS on GP1
   after the claim, to show no inversion is left.
-- **PPM.** On a scope at GP0: the 300 µs mark, each channel within 1 µs,
-  the 23,809 µs frame, the line low while SAFE and after STOP; STOP and a
-  heartbeat trip (core0 halted in a debugger) with the cut last frame; an
-  FC's receiver page reading the eight channels, its reaction to the
-  23.8 ms frame, to the cut frame and to the loss of frames; a dongle or
-  trainer port if the owner has one; the line after the release and
-  through the unplug page.
+- **PPM,** not built by decision 1. On a scope at GP0: the 300 µs mark, each
+  channel within 1 µs, the 23,809 µs frame, the line low while SAFE and after
+  STOP; STOP and a heartbeat trip (core0 halted in a debugger) with the cut
+  last frame; an FC's receiver page reading the eight channels, its reaction
+  to the 23.8 ms frame, to the cut frame and to the loss of frames; a dongle
+  or trainer port if the owner has one; the line after the release and through
+  the unplug page.
 
 ## Work breakdown
 
@@ -780,49 +839,53 @@ files differ by one line each. Slice 1a is built.
 | Slice | Content | Files | Lines, rough |
 |---|---|---|---|
 | 1a. S.BUS copies, built | `sbus.c`, `sbus.h`, `test_sbus.c`; `test/rx.mk`; the `test/Makefile` lists, `lib/rcbench/README.md`, README, STATUS, CHANGELOG | 3 copied, 1 new, 5 edited | 695 copied; 80 new or changed |
-| 1b. PPM copies, waiting on question 1 | `ppm.c`, `ppm.h`, `test_ppm.c`; the `outputs.h` stub, `test/ppm.mk`; the `test/Makefile` lists, `lib/rcbench/README.md`, README, STATUS, CHANGELOG | 3 copied, 2 new, 5 edited | 441 copied; 80 new or changed |
+| 1b. PPM copies: not built, by decision 1 | `ppm.c`, `ppm.h`, `test_ppm.c`; the `outputs.h` stub, `test/ppm.mk`; the `test/Makefile` lists, `lib/rcbench/README.md`, README, STATUS, CHANGELOG | 3 copied, 2 new, 5 edited | 441 copied; 80 new or changed |
 | 2. S.BUS job | `sbus_job.*`, `rx.cmake`, `CORE1_JOB_NO_GP1`, the job and user rows, the microsecond clock, the UART fake, `sbus_line.h`, the job's tests, the `-I` lists of `ci.yml` | 4 new in `src/`, about 13 edited, 3 new in `test/` | 350 in `src/`; 700 in `test/` |
 | 3. S.BUS screen | `sbus_view.*`, `ui_sbus.*`, the registry line, the screen and MENU tests, `test_ids.cpp`, the preview, `tools/check_wiki.py`, `tools/make_previews.py`, README section, wiki pages in English and German, STATUS, CHANGELOG, this note's status | 4 new in `src/`, 2 new and 10 edited elsewhere | 650 in `src/`; 600 in `test/`; 250 of documentation |
-| 4. PPM job | the `out_ppm` driver copies, `ppm_job.*`, `ppm.cmake`, the job and user rows, the `out_ppm.h` fake, `pio_ppm_emu.py`, the job's tests, the `-I` lists of `ci.yml` | 3 copied, 3 new in `src/`, 3 new in `test/`, 6 edited | 490 copied; 300 in `src/`; 600 in `test/` |
-| 5. PPM screen | `ui_ppm.*`, the registry line, the screen tests, the preview, `tools/check_wiki.py`, `tools/make_previews.py`, README, wiki pages in English and German, STATUS, CHANGELOG | 2 new in `src/`, 2 new and 10 edited elsewhere | 600 in `src/`; 500 in `test/`; 200 of documentation |
+| 4. PPM job: not built, by decision 1 | the `out_ppm` driver copies, `ppm_job.*`, `ppm.cmake`, the job and user rows, the `out_ppm.h` fake, `pio_ppm_emu.py`, the job's tests, the `-I` lists of `ci.yml` | 3 copied, 3 new in `src/`, 3 new in `test/`, 6 edited | 490 copied; 300 in `src/`; 600 in `test/` |
+| 5. PPM screen: not built, by decision 1 | `ui_ppm.*`, the registry line, the screen tests, the preview, `tools/check_wiki.py`, `tools/make_previews.py`, README, wiki pages in English and German, STATUS, CHANGELOG | 2 new in `src/`, 2 new and 10 edited elsewhere | 600 in `src/`; 500 in `test/`; 200 of documentation |
 | 6. Bring-up | the bench tests above, each tool on its own | none | none |
 
-Slices 1b, 4 and 5 wait for the owner's answer to question 1.
+Slices 1b, 4 and 5 are not built, by the owner's decision 1 of
+2026-11-14. The S.BUS output has no slices yet: its encoder in rcbench
+comes first (decision 5), then its design ([S.BUS output](#sbus-output)).
+The RX SIGNALS row and its chooser (decision 4) are to be designed with
+slice 3. Slices 2 and 3 wait on being built.
+
+## Decisions
+
+Decisions of the owner, 2026-11-14, answering the open questions of
+2026-11-13:
+
+1. **Scope.** Build the S.BUS monitor and an S.BUS output, option (c) of
+   the first question: inverted 8E2 at 100,000 baud on GP0, UART0's TX. No
+   PPM output: slices 1b, 4 and 5 and the PPM sections are not built. The
+   questions on the PPM pin, the PPM frame length and the PPM throttle
+   ceiling fall away with it. This follows the note's remark that (c) is
+   the better output, and goes beyond its recommendation, (b), the monitor
+   only.
+2. **Receive path.** UART0 on GP1, AUX by default, with the pad's input
+   inverted by INOVER, as recommended.
+3. **Value scale.** µs by rcbench's `sbus_to_us()`, the bar in raw units,
+   as recommended.
+4. **MENU placement.** One row, RX SIGNALS, opening a chooser with
+   MONITOR and OUTPUT. This is not the note's recommendation of two rows;
+   the [MENU](#menu) section is to be redesigned for it. Its place in menu
+   structure B is [menu-b.md](menu-b.md) decision 32.
+
+Further decisions of the owner, 2026-11-14, on the output:
+
+5. **The encoder comes from rcbench.** The S.BUS encoder is written and
+   tested in rcbench first, then copied here unchanged, like the decoder.
+6. **The throttle channel obeys MAX THROTTLE** of SETTINGS, the ceiling the
+   DShot throttle obeys.
 
 ## Open questions
 
-1. **Build PPM output at all.** (a) Build slices 4 and 5 as designed.
-   (b) Build the S.BUS monitor only. (c) Build an S.BUS output instead:
-   UART0's TX is GP0, so inverted 8E2 at 100,000 baud on GP0 is OUTOVER and
-   the PL011, no PIO and no DMA, and it feeds the serial input most current
-   FCs take. rcbench has no S.BUS encoder, so (c) is new code, best written
-   upstream first. Recommendation: (b), and (a) only for a PPM device the
-   owner has in hand; (c) is the better output if one is wanted.
-2. **S.BUS receive path.** (a) UART0 on GP1 with INOVER, as recommended:
-   no PIO, hardware error flags, GP1 only. (b) A new PIO program on AUX,
-   any pin, about 12 words, with a PIO model to write. Recommendation: (a);
-   the one wiring it cannot serve, both roles on GP0, says so on the screen.
-3. **S.BUS value scale.** (a) µs by rcbench's `sbus_to_us()`. (b) Raw 0 to
-   2047. (c) Percent, −100 % at 172 and +100 % at 1811. Recommendation: (a),
-   with the bar in raw units; (b) as a later toggle if a user compares with
-   an FC that reads raw.
-4. **MENU placement.** (a) Two rows after the servo tools, before SETTINGS,
-   as drawn. (b) One row, `RX AND PPM`, opening a list of the two. (c) After
-   SETTINGS, before SD LOG. (d) After SD LOG, so that SETTINGS stays the
-   sixth row. Recommendation: (a); with (b) of question 1 it
-   is one row, and today's MENU has eight rows and scrolls 78 px. The place
-   after the planned restructure is settled in its own note.
-5. **PPM pin.** (a) SIG, GP0, under the claim's ESC check. (b) AUX, GP1,
-   where no ESC signal goes, but where KISS lives and the ESC check does not
-   look. Recommendation: (a).
-6. **PPM frame length.** (a) 42 Hz, 23.8 ms, rcbench's driver unchanged.
-   (b) 22.5 ms by a changed copy of `out_ppm.c`, which then differs from
-   rcbench. (c) A bind by frame length in rcbench first, then a copy.
-   Recommendation: (a), and (c) if the bench finds a device that refuses
-   23.8 ms.
-7. **PPM throttle ceiling.** (a) The throttle channel obeys MAX THROTTLE of
-   SETTINGS. (b) Full travel, the throttle channel only starting low.
-   Recommendation: (a): one throttle rule on the device.
+None open. Questions 1 to 4 of 2026-11-13 are answered by decisions 1 to
+4; questions 5 to 7 were on the PPM output and fell away with decision 1.
+The S.BUS output's open points are design work, listed under
+[S.BUS output](#sbus-output).
 
 ## To confirm
 
@@ -838,8 +901,9 @@ Not stated by rcbench and not measured by this project:
 - that the PL011 checks only the first of two stop bits, in the RP2350
   datasheet;
 - core1's pass time with either job;
-- whether FCs, dongles and trainer ports accept a 23.8 ms PPM frame,
-  3.3 V marks, this polarity and a cut last frame;
-- what an ESC does with 300 µs PPM marks on its signal pin;
+- for the PPM output, not built by decision 1: whether FCs, dongles and
+  trainer ports accept a 23.8 ms PPM frame, 3.3 V marks, this polarity and
+  a cut last frame, and what an ESC does with 300 µs PPM marks on its
+  signal pin;
 - the facts of S.BUS2 slots beyond the 325 µs rcbench names, F.Port, CRSF
   and iBUS, listed as later work.

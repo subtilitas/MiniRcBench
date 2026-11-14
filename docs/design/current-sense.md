@@ -1,11 +1,17 @@
 # Current sense and the bench converter
 
 Status: slice 1 built and host-tested, not tested on hardware; slices 2 to
-6 not built. The owner's decisions of 2026-11-13 are
-recorded under [decisions](#decisions). No INA219 has been on the board's
-bus, and no boost converter has been on GP28 or GP29: every figure below is
-from a datasheet, from rcbench's records or computed, and the ones that are
-not known are stated as unknown. The slices are at the end
+6 not built. The owner's decisions of 2026-11-13 and 2026-11-14 are
+recorded under [decisions](#decisions). On 2026-11-14 the owner answered
+Q1 to Q5: one LiPo cell into a synchronous boost, the 0.1 Ω shunt as sold,
+the servo tester switching the supply always, rcbench's limit run as the
+protection, and the settings carried over from the older layouts. One point
+is open: the converter module ([Q1](#q1-the-converter-module)). Slices 2
+to 6 wait on being built and on that module; the protection section and
+the settings row's version rule are to be redesigned for the decisions.
+No INA219 has been on the board's bus, and no boost converter has been on
+GP28 or GP29: every figure below is from a datasheet, from rcbench's
+records or computed, and the ones that are not known are stated as unknown. The slices are at the end
 ([slices](#slices)); each builds, passes the host suite and merges alone.
 
 Terms: INA219 is Texas Instruments' (TI) current and power monitor with an
@@ -163,17 +169,17 @@ never as a value, as rcbench's fake parts treat the end code
 source in reach; a 2512 resistor is commonly rated 1 W to 2 W. Adafruit
 states 2 W for its own INA219 module's shunt (to confirm on Adafruit's
 product page). At 3.2 A the dissipation reaches a 1 W rating, so a stall
-held for long is outside it; the stall cut holds it to 1000 ms
-([protection](#protection)). Neither the screw terminal's nor the module's
-trace current rating is known.
+held for long is outside it; the stall cut of the owner's limit run holds
+a current above 1.0 A to 400 ms ([protection](#protection)). Neither the
+screw terminal's nor the module's trace current rating is known.
 
 **Burden.** The shunt drops 0.10 V at 1 A and 0.30 V at 3 A. On a 5.0 V
 supply the servo sees 4.90 V at 1 A, 2 % low, and 4.70 V at 3 A, 6 % low
 and under the 4.8 V the servo tester's wiring range starts at
 ([pin-claim.md](pin-claim.md#wiring)). The leads and the terminal add an
 unknown drop. The bus voltage reading is taken behind the shunt, so it
-shows the voltage after the drop. A smaller shunt is the open question
-[Q2](#q2-shunt-value).
+shows the voltage after the drop. The owner kept the 0.1 Ω shunt as sold
+on 2026-11-14 ([decision 11](#decisions)).
 
 ### Bus voltage
 
@@ -363,8 +369,10 @@ charge; that limits the choice of input.
 
 ### Input
 
-The owner has not named the converter's input. The options and what each
-means, with an efficiency of 85 % assumed for the input current:
+The owner chose one LiPo cell, 3.0 V to 4.2 V, on 2026-11-14 ([decision
+10](#decisions)): the first row below. The module is not named yet
+([Q1](#q1-the-converter-module)). The options and what each means, with
+an efficiency of 85 % assumed for the input current:
 
 | Input | 5.0 V rail | Input current at 5.0 V, 3 A out | HV servo |
 |---|---|---|---|
@@ -374,8 +382,7 @@ means, with an efficiency of 85 % assumed for the input current:
 
 The cell's own protection, its charging and a fuse at the cell are outside
 the bench; a fuse is needed, since a LiPo cell delivers far more current
-than the converter's wiring takes. The open question
-[Q1](#q1-the-converters-input-and-module) asks the owner.
+than the converter's wiring takes.
 
 ### Output voltage and current
 
@@ -637,7 +644,10 @@ HOLD TO START on the switched supply until it answers or the row is set to
 The row adds a field to the settings block, `currentSense`, and
 `SETTINGS_VERSION` goes from 4 to 5. A block of another version is
 discarded whole and the compiled defaults load once, every setting
-included ([pin-claim.md](pin-claim.md#settings)). The shunt is a build
+included ([pin-claim.md](pin-claim.md#settings)), until the migration of
+[decision 14](#decisions) is built: then a block of version 2, 3 or 4
+loads into version 5 with the new fields at their defaults, and only a
+block of a version the firmware does not know is discarded. The shunt is a build
 constant, `INA219_SHUNT_MOHM`, 100; the address is `INA219_ADDR`, 0x40.
 The list grows by one 50 px row ([menu.md](menu.md#settings)).
 
@@ -687,22 +697,33 @@ with `SERVO SUPPLY` at `GP28` or `GP29`:
 ### Protection
 
 Rules on core1, in a pure module `src/supply_guard.{h,cpp}` fed each new
-reading and the time. The values are recommendations; the open question
-[Q4](#q4-protection-thresholds) asks the owner.
+reading and the time.
+
+To be redesigned for the owner's decision of 2026-11-14 ([decision
+13](#decisions)): the servo tester's protection is rcbench's limit run,
+readings above 1.0 A for 400 ms and a hard cut at 3.0 A, not the stall
+rule this section recommended; the hard cut acts at once in the KST and
+Hitec claims, during an operation too. The stall row below carries the
+decided values; the rest of the section is the design of 2026-11-13. A
+known consequence, which this section warned of: the rule trips on many
+servos held against a stop at MIN or MAX, which draw stall current there
+in normal use. Bench test B8 checks it on the owner's servos.
 
 | Cut | Condition | Constant |
 |---|---|---|
 | Hard | one reading at or above 3.0 A, or clipped | `GUARD_HARD_MA` 3000 |
-| Stall | readings above 2.0 A for 1000 ms, none at or below it between | `GUARD_STALL_MA` 2000, `GUARD_STALL_MS` 1000 |
+| Stall | readings above 1.0 A for 400 ms, none at or below it between (decision 13; designed as 2.0 A for 1000 ms) | `GUARD_STALL_MA` 1000, `GUARD_STALL_MS` 400 |
 | Collapse | after start-up, readings under 4.0 V for 1000 ms | `GUARD_LOW_MV` 4000, `GUARD_LOW_MS` 1000 |
 | Sensor lost | with CURRENT SENSE at INA219: the part offline, the bus stuck, or no reading for 250 ms | `SENSE_STALE_MS` 250 |
 
-The stall rule is rcbench's automatic test's (`SERVO_TEST_STALL_ABORT_MS`,
+The stall rule as designed was rcbench's automatic test's
+(`SERVO_TEST_STALL_ABORT_MS`,
 1000 ms; STALL AT's default, 2.00 A). rcbench's limit run uses 3000 mA
 hard and 1000 mA for 400 ms (`servo_limrun.h`), for a search that drives
 into a stop by design; the servo tester drives to MIN and MAX, where a
 servo against its mechanical stop draws stall current in normal use, so
-the tester's stall rule is the longer one.
+the tester's stall rule was the longer one. The owner chose the limit run's
+values (decision 13).
 
 What the bench does on a cut, in the servo tester: the supply off at once,
 level 0 on the pins, the sweep ended, the chip `OVERCURRENT`, `STALL`,
@@ -718,8 +739,8 @@ take the supply's loss as they take a lapse today: `kst_session_power_cycled()`,
 or the Hitec job's off path. The stall rule does not apply there: a
 programmed servo is at rest. Pin-claim decision 1, which lets a running
 operation finish on a heartbeat lapse, is about the UI stopping, not about
-a fault on the supply; whether the owner wants the cut there too is part of
-[Q4](#q4-protection-thresholds).
+a fault on the supply. The owner decided on 2026-11-14 that the hard cut
+acts there too, during an operation ([decision 13](#decisions)).
 
 Detection takes up to about 60 ms from a step of current
 ([the reading on core1](#the-reading-on-core1)). The cuts protect the
@@ -803,7 +824,7 @@ changes:
   name.
 - **Part C.** The converter box reads `BOOST`, `5 V out`, `output
   disconnect`; its input box reads the input the owner chooses
-  ([Q1](#q1-the-converters-input-and-module)). An INA219 box sits on the
+  (one LiPo cell, [decision 10](#decisions)). An INA219 box sits on the
   VOUT wire: VIN+ from VOUT, VIN- to the servo's plus. A J3 stub with four
   wires runs to its header. The panel title names the servo tester too.
   The address comes from `INA219_ADDR` in `src/sense.h`, read by the
@@ -821,7 +842,7 @@ changes:
 |---|---|---|
 | INA219 module, 0.1 Ω shunt, address 0x40 | current and voltage of the servo supply | Powered from J3 pin 3, 3.3 V. The servo's current through the screw terminal only |
 | JST-SH 1.0 mm cable, 4 pins | connector J3, to the INA219 | A pigtail to the module's header; not a Qwiic cable |
-| Boost converter with EN and output disconnect, 5 V, 3 A | the switched servo supply, every servo tool | Its input as decided in Q1; a 10 kΩ pull-down from EN to ground |
+| Boost converter with EN and output disconnect, 5 V, 3 A | the switched servo supply, every servo tool | Its input one LiPo cell, 3.0 V to 4.2 V (decision 10); the module is not named ([Q1](#q1-the-converter-module)); a 10 kΩ pull-down from EN to ground |
 
 The Hitec classic row of the tool table names the boost converter instead
 of "a buck converter or a type with output disconnect".
@@ -906,16 +927,16 @@ boost's EN as it does to every EN on part C.
 - The sample: `seq`, its age, 250 ms stale and not at 249 ms, across a
   `millis()` wrap.
 - SETTINGS: the CURRENT SENSE row by control id, `NONE` and `INA219`,
-  saved, reset; version 5; a version 4 block discarded; nothing sent to
-  0x40 with `NONE`.
+  saved, reset; version 5; a version 4 block discarded, until the
+  migration of decision 14 is built; nothing sent to 0x40 with `NONE`.
 - The servo tester on the switched supply: the enable pin low at bind,
   high at START, low at STOP, at the trip and at every cut, released after
   the quiet wait; pulses only after 4.5 V; did not come on after 500 ms;
   not off after 2000 ms; the start-up time shown; START refused with the
   sensor declared and not found.
 - The cuts at their boundaries: 2999 mA and 3000 mA; a clipped reading;
-  stall at 999 ms and 1000 ms; collapse likewise; sensor lost at 250 ms;
-  a stuck bus and a silent touch controller each switching the supply
+  stall at 399 ms and 400 ms above 1.0 A (decision 13); collapse likewise;
+  sensor lost at 250 ms; a stuck bus and a silent touch controller each switching the supply
   off; KST and Hitec: the hard cut during a write, then the loss path.
 - `servo_move` through the job: an MG90S-like move from `servo_sim`
   timed within one read and one cycle; UNSEEN with no current change.
@@ -948,8 +969,10 @@ Only hardware settles these. Each names what it records.
 - B7. The converter at 1 A, 2 A and 3 A: VOUT, its current limit, its
   temperature after 1000 ms of stall.
 - B8. The owner's servos: idle, moving and holding current at 5.0 V, and
-  stall at an end stop; the shunt's temperature after a 1000 ms stall.
-- B9. The cuts: a servo held at its stop (stall at 1000 ms); a 1.5 Ω load
+  stall at an end stop; the shunt's temperature after a 1000 ms stall;
+  whether the limit run of decision 13, above 1.0 A for 400 ms, trips at
+  MIN and MAX against a stop, as the design expects on many servos.
+- B9. The cuts: a servo held at its stop (stall at 400 ms); a 1.5 Ω load
   (3.3 A, hard cut); the time from the step to EN low on a scope.
 - B10. A move timed by `servo_move` against a scope on SIG and the
   current, on an MG90S, beside rcbench's record of the same servo.
@@ -982,85 +1005,20 @@ bench tests B1 to B13, follows slice 3 and is no slice of its own.
 
 ## Open questions
 
-### Q1. The converter's input and module
+Q2 to Q5 and the input of Q1 are answered by the owner's decisions of
+2026-11-14 (decisions 10 to 14). One point is open.
 
-Options:
+### Q1. The converter module
 
-1. One LiPo cell, 3.0 V to 4.2 V, into a synchronous boost with load
-   disconnect, 5.0 V, at least 3 A out. A true boost over the whole
-   discharge; 5.3 A from the cell at 3.3 V; a fuse at the cell; HV servos
-   at 5.0 V only.
-2. USB 5 V from a source of its own. A boost cannot make 5.0 V from it, so
-   this means a converter above 5.25 V, which breaks decision 16's 5 V,
-   or a buck-boost instead of a boost.
-3. A 2S pack or a bench supply. Not a boost: a buck or a buck-boost, such
-   as the Pololu S13V30F5 the bench already documents.
-
-Recommendation: option 1, if "boost" is the requirement, with the module
-named by the owner after B6 and B7 on it. If "boost" stands for "the bench
-converter" rather than the topology, option 3 with the S13V30F5 covers
-every input up to 22 V with one part; its disconnect is still a B6 check.
-
-### Q2. Shunt value
-
-Options: 0.1 Ω as sold (3.2 A, 0.30 V at 3 A, 100 µA a code, 0.90 W at
-3 A); 0.05 Ω (6.4 A, 0.15 V at 3 A, 200 µA a code, 0.45 W at 3 A);
-0.02 Ω (16 A, 0.06 V at 3 A, 500 µA a code, 0.18 W at 3 A). A new shunt is
-a 2512 part soldered on the module, and `INA219_SHUNT_MOHM` changes with
-it.
-
-Recommendation: 0.1 Ω as sold while the converter is rated 3 A, since the
-range then matches the converter and the hard cut sits inside both. 0.05 Ω
-if B8 finds stall currents above 3 A on the owner's servos.
-
-### Q3. Whether the servo tester switches the supply
-
-Decision 20 says it does. With one converter for the whole bench the fork
-is how:
-
-1. Always, with `SERVO SUPPLY` at `GP28` or `GP29`: every servo on the
-   tester runs at 5.0 V from the bench.
-2. A choice per visit on SET, `SUPPLY BENCH` or `SUPPLY OWN`, for a servo
-   on a supply of its own, an HV servo at 8.4 V among them.
-3. Never; the converter stays the programmers'.
-
-Recommendation: option 1, as decision 20 reads. A servo that needs its own
-supply is tested with `SERVO SUPPLY` at `NONE`; a choice per visit adds a
-state in which the converter's output and a second supply can meet on one
-lead.
-
-### Q4. Protection thresholds
-
-Options for the servo tester:
-
-1. rcbench's automatic test: stall above 2.0 A for 1000 ms, a hard cut at
-   3.0 A or a clipped reading.
-2. rcbench's limit run: 1.0 A for 400 ms and 3.0 A hard; trips on many
-   servos that reach MIN or MAX against a stop.
-3. Values per servo class from B8.
-
-And for the KST and Hitec claims: the hard cut and the collapse rule
-during an operation, or only between operations.
-
-Recommendation: option 1 now, with the collapse rule at 4.0 V for
-1000 ms, revised after B8. In the KST and Hitec claims the hard cut acts
-at once, during an operation too.
-
-### Q5. A version 4 settings block
-
-Settings version 5 adds `currentSense` in the byte that was padding in
-version 4; the layout is otherwise byte for byte the same. Options:
-
-1. Discard a version 4 block, as built: the rule of `settingsLoad()` for
-   every version step, so every saved setting returns to its default once
-   after the update.
-2. Accept a version 4 block with `currentSense` at 0, `NONE`: the saved
-   settings survive the update.
-
-Recommendation: option 1 stays until the owner decides. Option 2 is the
-first migration in `settingsLoad()`, which has none by design; the byte it
-reads is the padding a version 4 build wrote, 0 from the `memset()` of
-`settingsDefaults()`, so `NONE` is what it would load.
+The owner chose the input and the topology: one LiPo cell, 3.0 V to 4.2 V,
+into a synchronous boost with load disconnect, 5.0 V, at least 3 A out
+([decision 10](#decisions)). The module is not named. Whichever module the
+owner names is checked on the bench before it is relied on: B6, its
+disconnect with EN low at the lowest and the highest VIN, its EN from
+reset, in BOOTSEL and with the board off, its start-up time and its decay;
+B7, VOUT, its current limit and its temperature at 1 A, 2 A and 3 A. Its EN
+must also meet the rule of
+[enable and its pull-down](#enable-and-its-pull-down).
 
 ## Decisions
 
@@ -1088,3 +1046,30 @@ Choices made in this design; the owner has not decided them:
 8. **J3 is the sensor's connector,** and J4 pins 7 and 8 stay unused.
 9. **The servo current through the screw terminal only;** the module's
    header VIN pins stay unconnected, away from SDA.
+
+Decisions of the owner, 2026-11-14, answering Q1 to Q5:
+
+10. **The converter's input** (Q1). One LiPo cell, 3.0 V to 4.2 V, into a
+    synchronous boost with load disconnect, 5.0 V, at least 3 A out. The
+    module is not named yet: [Q1](#q1-the-converter-module).
+11. **The shunt** (Q2). 0.1 Ω as sold; `INA219_SHUNT_MOHM` stays 100.
+12. **The servo tester switches the supply** (Q3). Always, with `SERVO
+    SUPPLY` at a pin, `GP28` or `GP29`, as decision 20 of
+    [servo-tester.md](servo-tester.md#decisions) reads.
+13. **Protection on the servo tester** (Q4). rcbench's limit run: readings
+    above 1.0 A for 400 ms, and a hard cut at 3.0 A or a clipped reading
+    (`SERVO_LIMRUN_STALL_MA` 1000, `SERVO_LIMRUN_STALL_MS` 400 and
+    `SERVO_LIMRUN_HARD_MA` 3000 in rcbench's `servo_limrun.h` at
+    5ef42efd). In the KST and Hitec claims the hard cut acts at once,
+    during an operation too. This is not the recommendation, which was the
+    automatic test's stall rule, 2.0 A for 1000 ms: the limit run trips on
+    many servos that reach MIN or MAX against a stop. That is a known
+    consequence, checked on the bench in B8. The
+    [protection](#protection) section is to be redesigned for it.
+14. **Settings carried over** (Q5). The firmware carries the settings over
+    from the older layouts it knows, versions 2, 3 and 4, into version 5,
+    with the new fields at their defaults. A block of a version it does not
+    know is discarded and announced as now (`settingsResetByUpdate()`).
+    This is the first migration in `settingsLoad()`, which has none today.
+    Not built; how each older layout's fields map into version 5 is to be
+    designed with it.
