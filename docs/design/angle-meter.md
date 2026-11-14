@@ -748,9 +748,9 @@ New code in `src/`:
   configuration write single and read back, a mismatch restarting; the
   burst decoded little-endian into signed counts; a repeated time stamp
   not counted twice; a time stamp that changes between burst and re-read
-  dropping the burst; NACK, timeout and a held line mapped as `sense.cpp` maps them,
-  noted to the bus record, offline after three; CTRL7 0x00 on BACK; no
-  transfer to 0x6B while the meter is closed; the frame's bus time at
+  dropping the burst; NACK, timeout and a held line mapped as `sense.cpp`
+  maps them, noted to the bus record, offline after three; CTRL7 0x00 on
+  BACK; no transfer to 0x6B while the meter is closed; the frame's bus time at
   400 kHz, as `testFrameTime` measures the sensor's.
 - **Model**, `test/test_angle_model.cpp`, on synthetic gravity vectors:
   a rotation of δ about an axis tilted α gives δ within 0.001° for α 0° to

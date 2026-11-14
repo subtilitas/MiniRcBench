@@ -19,6 +19,8 @@
 #include "fakes.h"
 #include "ui_screen.h"
 #include "ui_menu.h"
+#include "ui_registry.h"
+#include "ui_servo_prog.h"
 #include "ui.h"
 #include "ui_leave.h"
 #include "gfx.h"
@@ -197,6 +199,38 @@ static inline UiControlId menuRow(const UiScreen *s) {
 	int row = uiMenuRowOf(s);
 	if (uiCurrentScreen() == UiScreenId::Menu) revealRow(row);
 	return UI_ROW(row, Row);
+}
+
+/**
+ * @brief The PROGRAMMER entry whose entry point is @p enter: its index in
+ *        `UI_PROGRAMMERS`, or -1, failing the test, when none has it.
+ */
+static inline int progEntryOf(void (*enter)()) {
+	for (int i = 0; i < UI_PROGRAMMERS_COUNT; i++)
+		if (UI_PROGRAMMERS[i].enter == enter) return i;
+	idFail("a PROGRAMMER entry runs the entry point");
+	return -1;
+}
+
+/**
+ * @brief From the tester, through MENU and its SERVO PROGRAMMER row, to
+ *        PROGRAMMER, the chooser.
+ */
+static inline void openChooser() {
+	tapId(UI_FIX(TesterCtl::Menu));
+	UI_IDS_FRAMES(1);
+	tapId(menuRow(&UI_SERVO_PROG));
+	UI_IDS_FRAMES(1);
+}
+
+/**
+ * @brief From the tester to the PROGRAMMER entry whose entry point is
+ *        @p enter, tapped: the tool opens and claims SIG on the tap's frame.
+ */
+static inline void openProgrammer(void (*enter)()) {
+	openChooser();
+	int i = progEntryOf(enter);
+	if (i >= 0) tapId(PROG_ENTRY(i));
 }
 
 /** @brief How the header's BACK looks on the panel. */

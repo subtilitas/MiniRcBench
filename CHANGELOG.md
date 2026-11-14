@@ -537,6 +537,44 @@ protocol.
 
 ### Changed
 
+- After v0.1.0-rc1 (a93e1c1): MENU's seven rows and PROGRAMMER, slice 9 of
+  menu structure B ([menu-b.md](docs/design/menu-b.md#slice-9-as-built),
+  owner decisions 1 and 2 and decisions 15 d, 16, 18, 19, 23 and 31 to 35).
+  MENU's rows go by device: BEEP THE ESC, AM32 CONFIG, SERVO TESTER, SERVO
+  PROGRAMMER, RX SIGNALS, SD LOG, SETTINGS; SD LOG is whole at 0 px and
+  SETTINGS is reached with a 36 px drag. The tool rows show no pin status,
+  `GP0` or `GP0+1`: the strip names the pins. KST SERVO and HITEC SERVO
+  leave MENU; SERVO PROGRAMMER opens PROGRAMMER (`src/ui_servo_prog.*`), a
+  chooser of KST / CHASERVO, HITEC D SERIES and HITEC CLASSIC from
+  `UI_PROGRAMMERS` in `src/ui_registry.cpp`, with the models, the power line
+  (`POWER THE SERVO UP AFTER THE TAP.` or `THE BENCH SWITCHES IT ON GP28.`)
+  and, for HITEC CLASSIC without the switched supply, the amber lines that
+  say why it is drawn disabled. The chooser claims nothing, and its tap
+  claims SIG on that frame through `uiOpenTool()`. RX SIGNALS stands drawn
+  disabled with `NOT BUILT` in every claim state and opens nothing. HITEC
+  SERVO's family view, `HitecView::Family`, `HitecCtl::Classic` and
+  `HitecCtl::DSeries` are gone; `uiHitecEnterD()` and
+  `uiHitecEnterClassic()` replace `uiHitecEnter()`. A D series servo on its
+  own supply is powered after the tap: HITEC SERVO stops in Held with
+  `SIG GP0 IS THE SERVO'S: DSHOT IS OFF.` over
+  `POWER THE SERVO UP, THEN TAP READ.`, and READ (`HitecCtl::Read`) starts
+  the job; with the switched supply, and for a classic servo, the job starts
+  as soon as DShot has stopped. While an ESC answers, HITEC SERVO reads
+  `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` on its main view, as KST SERVO
+  does. NEXT SERVO on the leave page asks for the job as for the first
+  servo: `pinClaimKeep()` returns a user that defers its job, HITEC, to
+  Held with no job, so a D series servo on its own supply returns to the
+  READ wait, and the page's note reads `NEXT SERVO: POWER IT AFTER THE
+  TAP.` in place of `NEXT SERVO: POWER IT BEFORE THE TAP.` READ takes only
+  a press that landed while it acted. Host tests in `test/test_menu.cpp`
+  (`testSettingsRowVisible()`, `testRxSignalsRow()`, `testServoProg()`),
+  `test/test_hitec_ui.cpp` (`testEntry()`), `test/test_kst_ui.cpp`,
+  `test/test_ui.cpp`, `test/test_ids.cpp`, `test/test_claim.cpp`
+  (`testDeferredJob()`) and the helpers `openChooser()`, `openProgrammer()`
+  and `progEntryOf()` in `test/ui_ids.h`. The wiki shows `prog-chooser.png`,
+  `prog-chooser-switched.png`, `hitec-read-wait.png` and `hitec-esc.png` in
+  place of `hitec-family.png`, `hitec-family-esc.png` and
+  `hitec-family-classic.png`.
 - After v0.1.0-rc1 (a93e1c1): the leave page, slice 6 of menu structure B
   ([menu-b.md](docs/design/menu-b.md#slice-6-as-built), decisions 5 and 21
   and owner decisions 3, 25 and 30). KST SERVO, HITEC SERVO and SERVO TESTER
