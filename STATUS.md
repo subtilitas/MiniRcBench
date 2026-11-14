@@ -263,8 +263,8 @@ touch-loss stop of item 23; all seven CI jobs pass on `main` at 22c1e4b
 (#51). The owner answered the questions of items 18 to 21 and 24 on
 2026-11-14: what they decided waits on building where it changes
 anything, and items 22 and 23 wait on the bench. Still open to the owner:
-the converter module (item 19), the seventh MENU row of menu structure B
-(item 18), and the second contact once it is measured (item 21). The order
+the converter module's name (item 19) and the second contact once it is
+measured (item 21). The order
 of work the owner decided: the eight small decisions of items 20, 21 and 24
 first, then menu structure B.
 The bench parts, in the order they depend on each other:
@@ -484,14 +484,15 @@ on being built, not on the bench (item 18).
     entries take the pin, which changes the note's decision 19; and a MENU
     row RX SIGNALS after SERVO PROGRAMMER (item 19) gives seven rows, BEEP
     THE ESC, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD
-    LOG, SETTINGS. Seven rows scroll 36 px and contradict the owner's six
-    rows that never scroll of 2026-11-13: that is open to the owner (the
-    note's open question 1) and holds slice 9.
+    LOG, SETTINGS. The owner decided on 2026-11-14 that MENU keeps its
+    42 px rows and scrolls 36 px with seven rows, as today's seven-row MENU
+    does, SETTINGS reached with a short drag; this revises the six rows
+    that never scroll of 2026-11-13 (the note's decision 33).
 19. **The design notes' questions, answered on 2026-11-14.** The owner
     answered the questions of four design notes; each note records the
     answers as decisions:
-    - [menu-b.md](docs/design/menu-b.md): all eight (item 18). Waits on
-      building; one new question on the seventh MENU row.
+    - [menu-b.md](docs/design/menu-b.md): all eight, and the seventh MENU
+      row that followed from them (item 18). Waits on building.
     - [rx-signals.md](docs/design/rx-signals.md): build the S.BUS (Futaba's
       serial bus for receiver channels) monitor and an S.BUS output, no PPM
       (pulse-position modulation) output; the monitor reads UART0 on GP1

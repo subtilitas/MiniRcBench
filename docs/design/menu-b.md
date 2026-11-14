@@ -1,19 +1,18 @@
 # Menu structure B
 
-Status: slice 1 built, host tests only; slices 2 to 10 not built. The
-owner answered the note's eight open questions on 2026-11-14 ([decisions 23
-to 30](#decisions)). Slices 2 to 8 and 10 wait on being built; slice 9
-also waits on a new question that follows from those decisions. By the
-owner's order of work of 2026-11-14 they follow the eight small decisions
-of STATUS.md items 20, 21 and 24. Three of the
-owner's decisions of 2026-11-14 change this design, and the sections they
-touch are marked "to be redesigned": each slice updates its own README.md
-and wiki lines and images (decision 27, against this note's
-recommendation), so the [slice table](#slices) is reworked and slice 10
-shrinks; HITEC SERVO takes SIG when it opens (decision 31), which changes
-decision 19; and MENU gains a seventh row, RX SIGNALS (decision 32), which
-contradicts owner decision 1's six rows that never scroll
-([open question 1](#open-questions)).
+Status: slice 1 built, host tests only; slices 2 to 10 not built. The owner
+answered the note's eight open questions on 2026-11-14 ([decisions 23 to
+30](#decisions)), and the question that followed from them (decision 33).
+Slices 2 to 10 wait on being built. By the owner's order of work of
+2026-11-14 they follow the eight small decisions of STATUS.md items 20, 21
+and 24. Three of the owner's decisions of 2026-11-14 change this design, and
+the sections they touch are marked "to be redesigned": each slice updates
+its own README.md and wiki lines and images (decision 27, against this
+note's recommendation), so the [slice table](#slices) is reworked and slice
+10 shrinks; HITEC SERVO takes SIG when it opens (decision 31), which changes
+decision 19; and MENU gains a seventh row, RX SIGNALS (decision 32), so MENU
+scrolls 36 px, which revises owner decision 1's six rows that never scroll
+(decision 33).
 
 The owner decided on 2026-11-13 to build structure B ([decisions 1 to
 4](#decisions)). Decisions 5 to 15 are the rules this note sets for the
@@ -152,16 +151,18 @@ What header BACK does on every view:
 
 ## MENU
 
-To be redesigned: by [decision 32](#decisions) MENU has seven rows, BEEP
-THE ESC, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG,
-SETTINGS. Seven rows at the 42 px pitch below need 294 px of the 258 px
-viewport, so MENU scrolls 36 px, as seven rows do on `main`
-(`src/ui_menu.cpp`), and SETTINGS, the seventh row, starts at y 314 with
-6 px showing until MENU is dragged. That contradicts owner decision 1 and
-is [open question 1](#open-questions). The drawing and the tables below
-are the six-row design of 2026-11-13; RX SIGNALS, 10 characters at scale
-2, 118 px, ends at x 134 from x 16, within `menuRowsFit()`'s rule with no
-status.
+By [decision 32](#decisions) MENU has seven rows, BEEP THE ESC, AM32
+CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, SETTINGS. By
+the owner's [decision 33](#decisions) the rows keep their 40 px height and
+42 px pitch, and MENU scrolls: seven rows take 7 × 42 = 294 px of the
+258 px viewport (`MENU_VIEW_H`, y 62 to 320, in `src/ui_menu.cpp`), so
+the scroll range is 294 − 258 = 36 px (`uiListMaxScroll()` in
+`src/ui_list.cpp`), as the seven rows on `main` scroll. SETTINGS, the
+seventh row, starts at y 314 with 6 px showing at scroll 0 and is reached
+with a short drag. The drawing and the tables below are the six-row design
+of 2026-11-13 and are to be redrawn with the seven rows; RX SIGNALS, 10
+characters at scale 2, 118 px, ends at x 134 from x 16, within
+`menuRowsFit()`'s rule with no status.
 
 ```
 y   0 | MENU                            [  BACK  ]|  header 36 px; BACK 64 x 32
@@ -598,8 +599,8 @@ caption (decision 10) and the title (decision 13).
 Decisions of the owner, 2026-11-13:
 
 1. **Six rows.** MENU has six rows and never scrolls. The order is this
-   note's choice, decision 16. Decision 32 of 2026-11-14 adds a seventh
-   row; [open question 1](#open-questions).
+   note's choice, decision 16. Revised by decision 33 of 2026-11-14: seven
+   rows, and MENU scrolls 36 px.
 2. **SERVO PROGRAMMER.** KST SERVO and HITEC SERVO fold into one row that
    opens a chooser: KST / CHASERVO, HITEC D SERIES, HITEC CLASSIC. CLASSIC is
    drawn disabled without the switched supply and names the path to enable
@@ -991,10 +992,13 @@ Decisions of the owner, 2026-11-14, answering the open questions of
     decision 4). With decision 23 MENU then has seven rows: BEEP THE ESC,
     AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG,
     SETTINGS. This follows from the two decisions; "after SERVO
-    PROGRAMMER" puts RX SIGNALS before SD LOG. Seven rows contradict
-    decision 1, six rows that never scroll: the MENU section and slice 9
-    are to be redesigned, and [open question 1](#open-questions) asks the
-    owner.
+    PROGRAMMER" puts RX SIGNALS before SD LOG. Seven rows contradicted
+    decision 1, six rows that never scroll; decision 33 settles it.
+33. **Seven rows scroll** (the question decision 32 raised). With seven
+    rows MENU keeps its 40 px rows at the 42 px pitch and scrolls 36 px, as
+    the seven-row MENU on `main` does; SETTINGS is reached with a short
+    drag. This revises decision 1 of 2026-11-13, six rows that never
+    scroll.
 
 ## Interlocks
 
@@ -1045,8 +1049,8 @@ deliberate actions than at 9f965a3.
 | `src/ui_settings.{h,cpp}` | SERVO SUPPLY section, SIG PIN and AUX PIN, footer, DEFAULTS, colours, return to origin | 2, 3, 4, 7 |
 | `src/settings.cpp` | `settingsValidate()`: AUX never on SIG | 3 |
 | `src/kst_view.cpp` | four labels | 3 |
-| `src/ui_menu.cpp` | strip, statuses, busy state, six rows (seven by decision 32: to be redesigned) | 2, 3, 9 |
-| `src/ui_registry.cpp` | six rows (seven by decision 32: to be redesigned); `UI_PROGRAMMERS` and its fit check | 9 |
+| `src/ui_menu.cpp` | strip, statuses, busy state, seven rows scrolling 36 px (decisions 32 and 33) | 2, 3, 9 |
+| `src/ui_registry.cpp` | seven rows (decisions 32 and 33); `UI_PROGRAMMERS` and its fit check | 9 |
 | `src/ui_servo_prog.{h,cpp}` | new: the chooser | 9 |
 | `src/ui.cpp` | `uiOpenTool()`, the origin, readouts, LATCH, BOARD, ARM while the card is held, DSHOT600, colours | 2, 3, 7 |
 | `src/ui_am32.{h,cpp}` | write page, editor old value, guard, HEX title, colours, footer | 2, 4, 5 |
@@ -1067,7 +1071,7 @@ CHANGELOG.md, STATUS.md and the design notes it touches. Slice 10 keeps
 only what no single slice owns. The sizes and estimates of slices 2 to 9
 below were made with the documentation in slice 10 and do not include
 that work; they are to be redone. Slice 9 is to be redesigned for
-decisions 31 and 32.
+decisions 31 to 33.
 
 | Slice | Changes | Needs | Files | Lines, roughly | Tests rewritten / new | Estimate |
 |---|---|---|---|---|---|---|
@@ -1079,7 +1083,7 @@ decisions 31 and 32.
 | 6. Leave page | decision 5 and owner decision 3: KST, Hitec and SERVO TESTER on `ui_leave`; STAY, NEXT SERVO, BACK TO SERVO; RESTART DSHOT's wait | 1, 5 | 6 | +180, −300 | 90 and three helpers / 80 | 2 to 3 days |
 | 7. Tester | owner decision 4, decisions 15 a to c, 17: readouts, `uiOpenTool()`, origin, LATCH, BOARD, ARM while the card is held | 1, 3 | 4 | +150 | 15 / 100 | 1.5 days |
 | 8. SERVO TESTER | decision 13: the title; decision 12 is on `main` | 1, 3 | 2 | +10 | 0 / 5 | 0.5 day |
-| 9. Chooser | owner decisions 1 and 2, decisions 16, 18, 19, 15 d, 23, 31 and 32: six MENU rows, seven by decision 32 (to be redesigned), `ui_servo_prog`, `UI_PROGRAMMERS`, Hitec family entry points, family view removed | 3, 6, 7 | 9, 2 new | +350, −120 | 50 / 120 | 2 to 3 days |
+| 9. Chooser | owner decisions 1 and 2, decisions 16, 18, 19, 15 d, 23, 31, 32 and 33: seven MENU rows scrolling 36 px, `ui_servo_prog`, `UI_PROGRAMMERS`, Hitec family entry points, family view removed | 3, 6, 7 | 9, 2 new | +350, −120 | 50 / 120 | 2 to 3 days |
 | 10. Documentation | what no slice owns: menu.md (the tree, MENU, revision lines on decisions 1, 12 and 18), pin-claim.md's revision line on decision 4, README "Layout", "Tests" and "The user manual", and a check that no README section, wiki page or image still shows the old structure | 1 to 9 | to be redone | to be redone | none | to be redone |
 
 Slice 1 is built ([slice 1 as built](#slice-1-as-built)). Slice 4 is not
@@ -1165,14 +1169,6 @@ What slice 1 left to the open questions, which the owner answered on
 
 ## Open questions
 
-The eight questions of 2026-11-13 are answered: decisions 23 to 30. One
-question follows from the owner's decisions of 2026-11-14:
-
-1. **Seven MENU rows.** Decision 32 adds RX SIGNALS, so MENU has seven
-   rows and scrolls 36 px, and SETTINGS, the seventh row, shows 6 px at
-   scroll 0. Owner decision 1 asked for six rows and no scroll, and this
-   note's "Why" counts a seventh row that is cut until MENU is dragged as a
-   flaw of `main`. The order is what the decisions give: "after SERVO
-   PROGRAMMER" puts RX SIGNALS before SD LOG and SETTINGS. Open to the
-   owner: keep seven rows and the scroll, or another way to six rows.
-   Waiting: slice 9.
+None open. The eight questions of 2026-11-13 are answered by decisions 23
+to 30, and the question of the seventh MENU row, which followed from
+decisions 23 and 32, by decision 33.
