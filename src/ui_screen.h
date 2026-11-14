@@ -161,6 +161,19 @@ struct UiMenuEntry {
 	const UiScreen *screen;
 };
 
+/**
+ * @brief @p s is refused while the pin claim is not Free: it claims pins
+ *        (@ref UiScreen::pinUser), or changes the wiring a claim latched
+ *        (@ref UiScreen::freePins). MENU refuses its row on it, and the
+ *        tester its readouts.
+ * @param s The screen.
+ * @return true while @p s may not open.
+ */
+inline bool uiPinsRefuse(const UiScreen *s) {
+	return (s->pinUser != PinUser::None || s->freePins) &&
+	       pinClaimState() != ClaimState::Free;
+}
+
 /** @brief The open screen. */
 UiScreenId uiCurrentScreen();
 

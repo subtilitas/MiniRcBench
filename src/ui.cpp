@@ -167,10 +167,11 @@ static const UiRect BTN_MENU = { 176, BTN_ROW_Y, 58, BTN_ROW_H };
 /**
  * @defgroup ui_readouts The readouts that open SETTINGS
  * @brief The pole count and the ceiling, with their tap targets and
- *        underlines (docs/design/menu-b.md, "The tester", owner decision 4
- *        and decisions 11 and 20). A tap on either opens SETTINGS through
- *        uiOpenTool(), while disarmed and while the pin claim is Free;
- *        otherwise they are inert and drawn without the underline. The pole
+ *        underlines: slice 7 of docs/design/menu-b.md, "The tester", owner
+ *        decision 4 and decisions 11 (the MAX row), 15 a to c, 17, 19 and
+ *        20. A tap on either opens SETTINGS through uiOpenTool(), while
+ *        disarmed and while the pin claim is Free; otherwise they are inert
+ *        and drawn without the underline. The pole
  *        target lies in the throttle pad and the MAX target over the pad's
  *        bottom rows and the track's grab band: both act only while those do
  *        not.
@@ -221,7 +222,7 @@ static bool     s_latch = false;
 enum class Level : uint8_t {
 	Tester,  /**< The tester, the root. */
 	Menu,    /**< MENU. */
-	Tool,    /**< A tool opened from MENU: `s_tool`. */
+	Tool,    /**< A tool, `s_tool`, opened from MENU or a readout: `s_toolFrom`. */
 };
 static Level           s_level = Level::Tester;
 static const UiScreen *s_tool = nullptr;  /**< The open tool at Level::Tool. */
@@ -318,14 +319,14 @@ static float s_batteryV = 0.0f;
  * would otherwise consume the change and leave the others stale.
  */
 static struct {
-	int  armed, btnArmed, holdOn, armProgress;
+	int  armed, btnArmed, latchOn, armProgress;
 	int  battKey;
 	uint32_t rpm, erpm;
 	int  linkAlive, rpmArmed;
 	int  volts100, amps100, tempC, stress, status, rate, errPct, edt;
 	int  kbaud, pumpErr;
 	int  voltsSrc, ampsSrc, mah;
-	int  throttleRaw, maxPct, thrArmed, thrHold;
+	int  throttleRaw, maxPct, thrArmed, thrLatch;
 	int  config, poles;
 	int  rpmReadout, thrReadout;
 	int  cmdFlash, edtActive, dirty, btnPress, idleLeft, padLive;
@@ -423,19 +424,10 @@ static bool telemetryAlive() {
 }
 
 /**
- * @brief @p s is refused while the pin claim is not Free: it claims pins, or
- *        changes the wiring a claim latched, as MENU refuses its row.
- */
-static bool toolRefused(const UiScreen *s) {
-	return (s->pinUser != PinUser::None || s->freePins) &&
-	       pinClaimState() != ClaimState::Free;
-}
-
-/**
  * @brief The readouts open SETTINGS: disarmed, and SETTINGS not refused for
  *        the pin claim. Drawn underlined exactly then. @see ui_readouts
  */
-static bool readoutsAct() { return !s_armed && !toolRefused(&UI_SETTINGS); }
+static bool readoutsAct() { return !s_armed && !uiPinsRefuse(&UI_SETTINGS); }
 
 /** @brief The pole count is drawn: the 3D note does not take its row. */
 static bool polesShown() { return !uiAm32Esc3d(); }
@@ -835,7 +827,7 @@ static void drawThrottle() {
 	int readout = readoutsAct() ? 1 : 0;
 
 	if (s_shown.throttleRaw == (int)s_throttle && s_shown.maxPct == maxPct &&
-	    s_shown.thrArmed == (int)s_armed && s_shown.thrHold == (int)s_latch &&
+	    s_shown.thrArmed == (int)s_armed && s_shown.thrLatch == (int)s_latch &&
 	    s_shown.thrCard == card && s_shown.thrReadout == readout)
 		return;
 	s_shown.thrReadout = readout;
@@ -843,7 +835,7 @@ static void drawThrottle() {
 	s_shown.throttleRaw = s_throttle;
 	s_shown.maxPct = maxPct;
 	s_shown.thrArmed = s_armed;
-	s_shown.thrHold = s_latch;
+	s_shown.thrLatch = s_latch;
 
 	gfxRect(0, Z_THR_Y0, GFX_W, Z_THR_Y1 - Z_THR_Y0 + 1, C_BG);
 
@@ -908,12 +900,12 @@ static void drawButtons() {
 	// ARM is gated on the card in handleMainTouch() and in the control table;
 	// it is drawn on the same expression. @see ui_widgets.h
 	int cardFree = mscHoldsCard(mscGetState()) ? 0 : 1;
-	if (s_shown.holdOn == (int)s_latch && s_shown.btnArmed == (int)s_armed &&
+	if (s_shown.latchOn == (int)s_latch && s_shown.btnArmed == (int)s_armed &&
 	    s_shown.config == 0 && s_shown.btnPress == pressKey && s_shown.btnCard == cardFree)
 		return;
 	s_shown.btnCard = cardFree;
 	s_shown.btnPress = pressKey;
-	s_shown.holdOn = s_latch;
+	s_shown.latchOn = s_latch;
 	s_shown.btnArmed = s_armed;
 	s_shown.config = 0;
 

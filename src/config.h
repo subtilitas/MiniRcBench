@@ -442,9 +442,9 @@
 /**
  * @brief Drag sensitivity on the throttle gauge with LATCH on, as a percentage.
  *
- * With LATCH on the gauge moves the throttle *relatively* — by how far your finger
- * travelled, not to where it landed — so touching the bar never makes the
- * motor jump. 100 means one track width of travel covers the full ceiling.
+ * With LATCH on the gauge moves the throttle *relatively* — by how far your
+ * finger travelled, not to where it landed — so touching the bar never makes
+ * the motor jump. 100 means one track width of travel covers the full ceiling.
  * Lower values give finer control and let you build throttle up over several
  * swipes.
  *

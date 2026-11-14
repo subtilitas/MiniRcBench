@@ -4247,6 +4247,39 @@ static void testTesterReadouts() {
 	frames(1);
 	checkTrue("nor does a tap on MAX: the track took it, and sprang back",
 	          uiCurrentScreen() == UiScreenId::Tester && uiArmed() && fakeThrottle() == 0);
+	// The press is the throttle's: MAX's centre is in the track's grab band,
+	// the pole count in the pad.
+	{
+		const int mx = max.x + max.w / 2, my = max.y + max.h / 2;
+		fakePress(mx, my); frames(1); fakeHold(mx, my); frames(1);
+		checkTrue("armed: a press on MAX drives the track", fakeThrottle() > 0);
+		fakeRelease(); frames(1);
+		checkInt("and springs back on the lift", fakeThrottle(), 0);
+		const int px = poles.x + poles.w / 2, py = poles.y + poles.h / 2;
+		fakePress(px, py); frames(1);
+		for (int d = 4; d <= 4 * PAD_DEADZONE_PX; d += 4) { fakeHold(px, py - d); frames(1); }
+		checkTrue("armed: a swipe up from the pole count drives the pad", fakeThrottle() > 0);
+		fakeRelease(); frames(1);
+		checkInt("and springs back on the lift", fakeThrottle(), 0);
+		checkTrue("still armed, still the tester",
+		          uiArmed() && uiCurrentScreen() == UiScreenId::Tester);
+	}
+	// MENU leaves the tester over a cleared frame, as the readouts do: with
+	// LATCH on, its disarm changes the throttle band and the buttons, and
+	// the frame of the tap paints neither back.
+	tapId(UI_FIX(TesterCtl::Latch));
+	tapId(UI_FIX(TesterCtl::Menu));
+	{
+		bool clear = true;
+		for (int y = 234; y < GFX_H; y++) clear = clear && rowIs(y, 0, GFX_W - 1, C_BG);
+		checkTrue("MENU from the armed tester with LATCH on: no tester row painted over it",
+		          uiCurrentScreen() == UiScreenId::Menu && !uiArmed() && clear);
+	}
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	holdToArm();
+	checkTrue("armed again", uiArmed());
 	tapId(UI_FIX(TesterCtl::Arm));                     // DISARM
 	frames(2);
 	checkTrue("disarmed: the underlines are back",

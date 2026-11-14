@@ -19,6 +19,7 @@
 #include "fakes.h"
 #include "ui_screen.h"
 #include "ui_menu.h"
+#include "ui.h"
 #include "gfx.h"
 #include "theme.h"
 
@@ -219,12 +220,26 @@ static inline BackLook backLook() {
 	return BackLook::Other;
 }
 
+/** @brief @p a and @p b are a tester readout and the pad or the track, either way round. */
+static inline bool readoutOverPad(UiControlId a, UiControlId b) {
+	if (uiCurrentScreen() != UiScreenId::Tester) return false;
+	auto readout = [](UiControlId c) {
+		return c == UI_FIX(TesterCtl::Poles) || c == UI_FIX(TesterCtl::Max);
+	};
+	auto surface = [](UiControlId c) {
+		return c == UI_FIX(TesterCtl::Pad) || c == UI_FIX(TesterCtl::Throttle);
+	};
+	return (readout(a) && surface(b)) || (readout(b) && surface(a));
+}
+
 /**
  * @brief The open screen's table on the current frame: ids unique, every
  *        rectangle inside the panel and not empty, no two controls
- *        overlapping (on the tester, no two that act), and BACK at uiBackRect() on every screen but the
+ *        overlapping, and BACK at uiBackRect() on every screen but the
  *        tester, drawn live where the table says it acts and disabled
- *        where it says it does not.
+ *        where it says it does not. The one overlap allowed is the tester's
+ *        readouts (`TesterCtl::Poles`, `TesterCtl::Max`) over the pad
+ *        and the track, never with both acting.
  * @param where Names the frame in the check's text.
  */
 static inline void checkControlTable(const char *where) {
@@ -243,12 +258,11 @@ static inline void checkControlTable(const char *where) {
 			const UiRect &s = t[j].rect;
 			if (t[i].id == t[j].id) unique = false;
 			// The tester's readouts lie in the throttle pad and the track's
-			// grab band, and act only while those do not: there, a control
-			// that does not act may lie under one that does. Two that act
-			// never overlap, on any screen.
-			bool tester = uiCurrentScreen() == UiScreenId::Tester;
+			// grab band, and act only while those do not: a readout may lie
+			// over the pad or the track while the two do not both act. Every
+			// other pair stays apart.
 			if (r.x < s.x + s.w && s.x < r.x + r.w && r.y < s.y + s.h && s.y < r.y + r.h &&
-			    (!tester || (t[i].enabled && t[j].enabled)))
+			    !(readoutOverPad(t[i].id, t[j].id) && !(t[i].enabled && t[j].enabled)))
 				apart = false;
 		}
 	}
