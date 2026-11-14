@@ -1048,19 +1048,19 @@ at once, during an operation too.
 
 ### Q5. A version 4 settings block
 
-Decided by the owner on 2026-11-14 and built: option 2, widened to
-versions 2 and 3. Settings version 5 adds `currentSense` in the byte that
-was padding in version 4; the layout is otherwise byte for byte the same.
-`settingsLoad()` carries a whole block of version 2, 3 or 4 over
-(`settingsCarriedOver()`): every field the old layout has keeps its value,
-validated as a version 5 block is, and `currentSense` takes its default,
-0, `NONE`, whatever the version 4 padding byte holds. Flash keeps the old
-block until a save lands. The options were:
+Settings version 5 adds `currentSense` in the byte that was padding in
+version 4; the layout is otherwise byte for byte the same. Options:
 
-1. Discard a version 4 block, the rule before the decision: every saved
-   setting returned to its default once after the update.
+1. Discard a version 4 block, as built: the rule of `settingsLoad()` for
+   every version step, so every saved setting returns to its default once
+   after the update.
 2. Accept a version 4 block with `currentSense` at 0, `NONE`: the saved
    settings survive the update.
+
+Recommendation: option 1 stays until the owner decides. Option 2 is the
+first migration in `settingsLoad()`, which has none by design; the byte it
+reads is the padding a version 4 build wrote, 0 from the `memset()` of
+`settingsDefaults()`, so `NONE` is what it would load.
 
 ## Decisions
 
