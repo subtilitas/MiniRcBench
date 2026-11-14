@@ -121,6 +121,27 @@ bool uiAm32Tick(const TouchState *t);
  */
 bool uiAm32RunCue(uint32_t lastRpmMs);
 
+/**
+ * @brief The tester's note while @ref uiAm32Esc3d() is true: 35 characters,
+ *        209 px at scale 1, amber, on the RPM area's bottom row (y 114) in
+ *        place of the pole count and the swipe hint.
+ */
+#define AM32_UI_TESTER_3D "3D MODE ESC: THROTTLE SCALE DIFFERS"
+
+/**
+ * @brief Whether the ESC on the pin is known to run in 3D mode, for the
+ *        tester's @ref AM32_UI_TESTER_3D.
+ *
+ * Set by a read that opens the list on settings with 3D MODE on, and by a
+ * verified write of settings with 3D MODE on. Cleared by such a read or
+ * verified write with 3D MODE off, and by a restart, since it is not stored.
+ * A write that is not verified leaves it as it was. Nothing tells it that
+ * the ESC on the pin was swapped for another one.
+ *
+ * @return true while the note stands.
+ */
+bool uiAm32Esc3d();
+
 /** @brief The AM32 CONFIG controls; the list rows are `UI_ROW(n, Row)`. @see ui_screen.h */
 enum class Am32Ctl : uint8_t {
 	EditMinus = 1, EditPlus,  /**< The editor bar, while a field is selected. */

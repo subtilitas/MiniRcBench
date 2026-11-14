@@ -563,6 +563,14 @@ static void drawStatusBar() {
 	}
 }
 
+/** @brief The RPM area's bottom row: pole count and swipe hint, or the 3D note. */
+#define TESTER_NOTE_Y 114
+/** @brief Where the 3D note starts: the pole count's x. */
+#define TESTER_NOTE_X 10
+static_assert(TESTER_NOTE_X + 6 * (int)(sizeof(AM32_UI_TESTER_3D) - 1) - 1 <= 226,
+              "the 3D note runs past the RPM label's right edge, x 226");
+static_assert(TESTER_NOTE_Y + 8 <= Z_RPM_Y1, "the 3D note leaves the RPM area");
+
 /** @brief Big seven-segment RPM readout, eRPM line and the pad affordance. */
 static void drawRpm() {
 	bool alive = telemetryAlive();
@@ -572,6 +580,10 @@ static void drawRpm() {
 	uint32_t erpm = alive ? s_erpmShown : 0;
 	uint32_t rpm  = (alive && s_poles >= 2) ? erpm / (s_poles / 2) : 0;
 	if (rpm > 99999) rpm = 99999;
+	// An AM32 session in this power-up left the ESC in 3D mode. It changes
+	// only on AM32 CONFIG, and the tester repaints whole when it opens, so
+	// it is not part of the key below. @see uiAm32Esc3d()
+	bool esc3d = uiAm32Esc3d();
 
 	if (s_shown.rpm == rpm && s_shown.erpm == erpm &&
 	    s_shown.linkAlive == (int)alive && s_shown.rpmArmed == (int)s_armed &&
@@ -595,8 +607,16 @@ static void drawRpm() {
 	else       snprintf(buf, sizeof(buf), "NO TELEMETRY");
 	gfxText(10, 102, buf, alive ? C_DIM : C_AMBER, 1);
 
+	// The bottom row. A 3D-mode ESC's note takes all of it, armed or not,
+	// with the pad engaged or not: the pole count and the swipe hint give
+	// way, the ERPM line above, and NO TELEMETRY on it, stay.
+	if (esc3d) {
+		gfxText(TESTER_NOTE_X, TESTER_NOTE_Y, AM32_UI_TESTER_3D, C_AMBER, 1);
+		return;
+	}
+
 	snprintf(buf, sizeof(buf), "%dP", s_poles);
-	gfxText(10, 114, buf, C_DIM, 1);
+	gfxText(10, TESTER_NOTE_Y, buf, C_DIM, 1);
 
 	// Tell the user this whole region is a throttle pad -- a relative control
 	// with no visible handle is invisible otherwise.
@@ -605,7 +625,7 @@ static void drawRpm() {
 	// drag engaged is the throttle number moving -- which is exactly what you
 	// are not watching while a motor spins up.
 	const char *hint = s_padEngaged ? "SWIPE ACTIVE" : "SWIPE = THROTTLE";
-	gfxText(226 - gfxTextW(hint, 1), 114, hint,
+	gfxText(226 - gfxTextW(hint, 1), TESTER_NOTE_Y, hint,
 	        s_padEngaged ? C_LIME : s_armed ? C_CYAN : C_GRID, 1);
 }
 

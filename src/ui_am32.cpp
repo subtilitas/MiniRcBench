@@ -186,6 +186,8 @@ static ConnectNote s_connectNote = CN_NONE;
 static bool     s_blReached = false;
 /** @brief When that handshake succeeded, ms. */
 static uint32_t s_blReachedMs = 0;
+/** @brief The last list read or verified write had 3D MODE on. @see uiAm32Esc3d() */
+static bool     s_esc3d = false;
 
 /**
  * @brief Held-button repeat state for the editor bar.
@@ -630,6 +632,7 @@ static void tryConnect() {
 	s_state = S_LIST;
 	s_redraw = true;
 	snprintf(s_status, sizeof(s_status), "READ OK");
+	s_esc3d = am32Is3d(s_eeprom);
 }
 
 /** @brief Commit the settings block. */
@@ -701,6 +704,7 @@ static void doWrite() {
 	}
 	memcpy(s_original, s_eeprom, AM32_SETTINGS_SIZE);
 	s_verified = true;
+	s_esc3d = am32Is3d(s_eeprom);
 	if (s_backupDone) snprintf(s_status, sizeof(s_status), ST_VERIFIED ST_BACKUP "%.5s", s_backupName);
 	else snprintf(s_status, sizeof(s_status), ST_VERIFIED);
 }
@@ -897,6 +901,8 @@ bool uiAm32RunCue(uint32_t lastRpmMs) {
 		s_blReached = false;
 	return s_blReached;
 }
+
+bool uiAm32Esc3d() { return s_esc3d; }
 
 /** @brief AM32 CONFIG's MENU status: the signal pin it claims, from the settings. */
 static void am32MenuStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
