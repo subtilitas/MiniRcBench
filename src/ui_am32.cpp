@@ -660,7 +660,7 @@ static const char *backupLine(uint16_t *col) {
  */
 static void drawWritePage() {
 	gfxRect(0, LIST_Y0, GFX_W, GFX_H - LIST_Y0, C_BG);
-	char buf[48];
+	char buf[64];  // two values of 23 characters and ` -> `
 	int y = WP_LINE_Y, shown = 0;
 	int total = changeCount(s_pageFrom, s_pageTo);
 	for (uint16_t i = 0; i < s_visibleCount; i++) {
