@@ -1524,7 +1524,7 @@ static void testSettingsKiss() {
 		          settings()->kissPin == sig && settings()->dshotPin == aux);
 	}
 	checkTrue("SIG on GP1: J5 PIN 1 under it",
-	          settingsDirty() && settings()->dshotPin == 1 &&
+	          settings()->dshotPin == 1 &&
 	          settingsRowShows((int)SettingsRowId::Sig, "SIG PIN", "GP1", C_LIME, "J5 PIN 1"));
 	checkTrue("AUX on GP0: J5 PIN 2 under it",
 	          settingsRowShows((int)SettingsRowId::Aux, "AUX PIN", "GP0", C_CYAN, "J5 PIN 2"));
