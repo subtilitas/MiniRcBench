@@ -62,6 +62,19 @@ bool sd_sdio_read_past(sd_card_t *c, uint32_t lba, uint8_t *buf);
 /** @brief Flush and turn the cache off. */
 void sd_sdio_cache_end(sd_card_t *c);
 
+/**
+ * @defgroup sd_sdio_init What the last card initialisation found
+ * @{
+ */
+#define SD_SDIO_INIT_OK       0  /**< The card initialised, or was already. */
+#define SD_SDIO_INIT_SILENT   1  /**< Nothing answered CMD8 or the first CMD55: no card. */
+#define SD_SDIO_INIT_UNUSABLE 2  /**< A card answered, and its initialisation failed. */
+#define SD_SDIO_INIT_NO_BUS   3  /**< The PIO and DMA resources could not be claimed. */
+/** @} */
+
+/** @brief The SD_SDIO_INIT_ value of the last initialisation attempt. */
+int sd_sdio_init_result(void);
+
 #ifdef __cplusplus
 }
 #endif

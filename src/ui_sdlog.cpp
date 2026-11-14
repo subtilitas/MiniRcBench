@@ -62,7 +62,7 @@ static TouchState s_touch;
 
 /** @brief What the last frame drew, so an unchanged screen is not repainted. */
 static struct {
-	int      config, logState, logFile, logDrops, mscState, mscNote, logMount;
+	int      config, logState, logFile, logDrops, mscState, mscNote, logMount, logInit;
 	uint32_t logBytes, logFrames, logPeak, logWorstMs, mscBlocks, logCardMB;
 } s_shown;
 
@@ -95,21 +95,38 @@ static bool mscNoteActive() {
 	return s_mscNote != MscRefusal::None;
 }
 
-/** @brief FatFs FR_NOT_READY: the mount found nothing on the bus. */
+/** @brief FatFs FR_NOT_READY: the card did not initialise. */
 #define LOG_FR_NOT_READY 3
 
+/** @brief SdLogStatus::cardInit: nothing answered (SD_SDIO_INIT_SILENT). */
+#define LOG_INIT_SILENT   1
+/** @brief SdLogStatus::cardInit: a card answered and failed (SD_SDIO_INIT_UNUSABLE). */
+#define LOG_INIT_UNUSABLE 2
+
 /**
- * @brief Whether the note line says `INSERT A CARD, THEN RETRY MOUNT`.
+ * @brief The note line's hint for a failed mount, or null.
  *
- * Only when inserting a card is the remedy: NO CARD, the mount ended in
- * FR_NOT_READY (3), and the driver read no size, so nothing answered. A card
- * that answered and failed otherwise (13 NO FILESYSTEM, 1 DISK ERR) needs
- * another fix, and a card handed to a computer is not in this state's view.
+ * Both hints need NO CARD, the mount ended in FR_NOT_READY (3) and no size
+ * read: the card never initialised. `INSERT A CARD, THEN RETRY MOUNT` when
+ * nothing answered CMD8 or the first CMD55; `CARD NOT USABLE: RESEAT OR
+ * REPLACE` when a card answered and its initialisation failed (a bad echo,
+ * a voltage window refused, ACMD41 timing out). Nothing for a bus the
+ * firmware could not claim, or for a card that initialised and failed
+ * otherwise (13 NO FILESYSTEM, 1 DISK ERR), which want other fixes; a card
+ * handed to a computer is not in this state's view.
  * @param st The logger's status.
+ * @param[out] col Dim for no card, the normal case on a bench; amber for a
+ *        card that fails.
  */
-static bool insertCardHint(const SdLogStatus &st) {
-	return st.state == SdLogState::NoCard && st.mountResult == LOG_FR_NOT_READY &&
-	       st.cardSizeMB == 0;
+static const char *mountHint(const SdLogStatus &st, uint16_t *col) {
+	if (st.state != SdLogState::NoCard || st.mountResult != LOG_FR_NOT_READY ||
+	    st.cardSizeMB != 0)
+		return nullptr;
+	*col = C_DIM;
+	if (st.cardInit == LOG_INIT_SILENT) return "INSERT A CARD, THEN RETRY MOUNT";
+	*col = C_AMBER;
+	if (st.cardInit == LOG_INIT_UNUSABLE) return "CARD NOT USABLE: RESEAT OR REPLACE";
+	return nullptr;
 }
 
 /**
@@ -176,6 +193,7 @@ static void drawLogScreen() {
 	    s_shown.logDrops == (int)st.dropEvents && s_shown.logPeak == st.peakBuffer &&
 	    s_shown.logWorstMs == st.worstFlushMs &&
 	    s_shown.logMount == st.mountResult && s_shown.logCardMB == st.cardSizeMB &&
+	    s_shown.logInit == st.cardInit &&
 	    s_shown.mscState == (int)msc && s_shown.mscNote == note &&
 	    s_shown.mscBlocks == blocks)
 		return;
@@ -191,9 +209,10 @@ static void drawLogScreen() {
 	s_shown.logDrops   = st.dropEvents;
 	s_shown.logPeak    = st.peakBuffer;
 	s_shown.logWorstMs = st.worstFlushMs;
-	// MOUNT, CARD and the insert hint follow these two.
+	// MOUNT, CARD and the mount hint follow these three.
 	s_shown.logMount   = st.mountResult;
 	s_shown.logCardMB  = st.cardSizeMB;
+	s_shown.logInit    = st.cardInit;
 
 	gfxFill(C_BG);
 	uiHeader("SD LOG", &s_touch);
@@ -269,8 +288,9 @@ static void drawLogScreen() {
 		snprintf(buf, sizeof(buf), "NONE");
 	drawLogRow(7, "CARD", buf, st.cardSizeMB ? C_TEXT : C_DIM);
 
-	// FatFs FRESULT. 0 is FR_OK, 3 FR_NOT_READY (nothing answered), 13
-	// FR_NO_FILESYSTEM (card fine, no filesystem FatFs can read).
+	// FatFs FRESULT. 0 is FR_OK, 3 FR_NOT_READY (the card did not
+	// initialise: none, or one that failed), 13 FR_NO_FILESYSTEM (card fine,
+	// no filesystem FatFs can read).
 	static const char *FR_TXT[] = {
 		"OK", "DISK ERR", "INT ERR", "NOT READY", "NO FILE", "NO PATH",
 		"BAD NAME", "DENIED", "EXIST", "BAD OBJ", "WRITE PROT",
@@ -305,14 +325,16 @@ static void drawLogScreen() {
 	uiButton(BTN_LOG_USB, "USB DRIVE", C_PANEL, C_CYAN, 1,
 	        pressing(BTN_LOG_USB, s_touch), usable);
 
-	// The note line says why the last press was refused, or, with no card on
-	// the bus, what to do. Blank the row even when there is nothing to say, or
-	// a stale reason outlives its cause.
+	// The note line says why the last press was refused, or, after a mount
+	// that found no usable card, what to do. Blank the row even when there is
+	// nothing to say, or a stale reason outlives its cause.
 	gfxRect(0, LOG_NOTE_Y, GFX_W, 8, C_BG);
+	uint16_t hintCol = C_DIM;
+	const char *hint = mountHint(st, &hintCol);
 	if (mscNoteActive())
 		gfxTextCenter(LOG_NOTE_Y, mscRefusalText(s_mscNote), C_AMBER, 1);
-	else if (insertCardHint(st))
-		gfxTextCenter(LOG_NOTE_Y, "INSERT A CARD, THEN RETRY MOUNT", C_DIM, 1);
+	else if (hint)
+		gfxTextCenter(LOG_NOTE_Y, hint, hintCol, 1);
 }
 
 /** @brief Touch handling for the logging screen. All three fire on release. */

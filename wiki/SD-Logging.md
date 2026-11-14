@@ -70,11 +70,14 @@ The usual cause is a slow card. Try another card first.
 
 <img src="img/log-nocard.png" width="240" alt="No card">
 
-`NO CARD` with `MOUNT 3 NOT READY` means nothing answered on the bus: no card,
-or the card is not seated. The note line above `START` then reads
-`INSERT A CARD, THEN RETRY MOUNT`. `MOUNT 13 NO FILESYSTEM` with a size under
-`CARD` means the card answers and the filesystem is the problem. Format it as
-FAT32; the note line stays blank, as inserting a card does not help.
+`NO CARD` with `MOUNT 3 NOT READY` means the card did not start. When
+nothing answered on the bus, no card or one not seated, the note line above
+`START` reads `INSERT A CARD, THEN RETRY MOUNT`. When a card answered and
+still did not start, it reads `CARD NOT USABLE: RESEAT OR REPLACE` in amber:
+take the card out and in again, or try another. `MOUNT 13 NO FILESYSTEM` with
+a size under `CARD` means the card answers and the filesystem is the problem.
+Format it as FAT32; the note line stays blank, as inserting a card does not
+help.
 
 ### A card inserted after boot
 

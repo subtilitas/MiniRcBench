@@ -223,10 +223,16 @@ In `src/sd_log.cpp` and `src/log_ring.cpp`:
 
 - The card is mounted at boot. An absent card is not an error: logging is
   unavailable and the screen says so. RETRY MOUNT mounts a card inserted
-  later. A failed mount shows the FatFs result and the card type. With NO
-  CARD, FR_NOT_READY (3) and no card size, nothing answered on the bus, and
-  the note line says `INSERT A CARD, THEN RETRY MOUNT`; a card that answered
-  and failed otherwise (13 FR_NO_FILESYSTEM, 1 FR_DISK_ERR) gets no hint.
+  later. A failed mount shows the FatFs result and the card type. NO CARD
+  with FR_NOT_READY (3) and no card size means the card did not initialise,
+  and the driver's initialisation tells why (`sd_sdio_init_result()`,
+  `SdLogStatus::cardInit`): when nothing answered CMD8 or the first CMD55
+  the note line says `INSERT A CARD, THEN RETRY MOUNT`; when a card
+  answered and failed (a bad CMD8 echo, a refused voltage window, ACMD41
+  timing out, a damaged response) it says `CARD NOT USABLE: RESEAT OR
+  REPLACE`, in amber. A bus the firmware could not claim, and a card that
+  initialised and failed otherwise (13 FR_NO_FILESYSTEM, 1 FR_DISK_ERR), get
+  no hint.
 - Files are `LOGS/LOG00001.BFL` onwards, at the first free number
   (`SD_LOG_DIR_PATH`). The directory keeps the root to a few entries, so the
   KST files' and the device backups' lookups in it read one block

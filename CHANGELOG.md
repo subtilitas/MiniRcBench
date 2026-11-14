@@ -447,8 +447,12 @@ protocol.
   `test/test_hitec_ui.cpp`.
 - SD LOG's mount button reads `RETRY MOUNT`, as on the KST and Hitec FILES
   pages. With NO CARD, mount result 3 NOT READY and no card size, the note
-  line says `INSERT A CARD, THEN RETRY MOUNT`; a card that answers and fails
-  otherwise gets no hint. The screen also redraws when only the mount result
+  line says `INSERT A CARD, THEN RETRY MOUNT` when nothing answered the
+  card initialisation (CMD8 and the first CMD55), and
+  `CARD NOT USABLE: RESEAT OR REPLACE`, in amber, when a card answered and
+  failed it (`sdh_card_t::answered`, `sd_sdio_init_result()`,
+  `SdLogStatus::cardInit`); a card that initialises and fails otherwise
+  gets no hint. The screen also redraws when only the mount result
   or the card size changes, so MOUNT and CARD no longer show a stale value.
   Host tests in `test/test_ui.cpp`.
 - README and the wiki pages AM32-Configuration and AM32-Konfiguration state

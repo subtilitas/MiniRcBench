@@ -75,12 +75,16 @@ Meist ist eine langsame Karte die Ursache. Probiere zuerst eine andere Karte.
 
 <img src="img/log-nocard.png" width="240" alt="Keine Karte">
 
-`NO CARD` mit `MOUNT 3 NOT READY` heißt, auf dem Bus hat nichts geantwortet:
-keine Karte, oder sie sitzt nicht richtig. Die Hinweiszeile über `START`
-zeigt dann `INSERT A CARD, THEN RETRY MOUNT` (Karte einstecken, dann
-`RETRY MOUNT`). `MOUNT 13 NO FILESYSTEM` mit einer Größe unter `CARD` heißt,
-die Karte antwortet und das Dateisystem ist das Problem. Formatiere sie als
-FAT32; die Hinweiszeile bleibt leer, denn Einstecken hilft hier nicht.
+`NO CARD` mit `MOUNT 3 NOT READY` heißt, die Karte ist nicht angelaufen. Hat
+auf dem Bus nichts geantwortet, keine Karte oder eine, die nicht richtig
+sitzt, zeigt die Hinweiszeile über `START`
+`INSERT A CARD, THEN RETRY MOUNT` (Karte einstecken, dann `RETRY MOUNT`). Hat
+eine Karte geantwortet und ist trotzdem nicht angelaufen, zeigt sie in
+Bernstein `CARD NOT USABLE: RESEAT OR REPLACE`: Karte heraus- und wieder
+hineinstecken oder eine andere probieren. `MOUNT 13 NO FILESYSTEM` mit einer
+Größe unter `CARD` heißt, die Karte antwortet und das Dateisystem ist das
+Problem. Formatiere sie als FAT32; die Hinweiszeile bleibt leer, denn
+Einstecken hilft hier nicht.
 
 ### Eine nach dem Start eingesteckte Karte
 

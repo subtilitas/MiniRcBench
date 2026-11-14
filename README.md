@@ -460,7 +460,9 @@ tester. Every tool's **BACK** returns to MENU.
   for example `0 OK`, `3 NOT READY`, `13 NO FILESYSTEM`.
 - **RETRY MOUNT**: mounts again. The card is otherwise mounted only once, at
   boot. With `NO CARD` and `3 NOT READY` and no card size, the note line
-  above START reads `INSERT A CARD, THEN RETRY MOUNT`.
+  above START reads `INSERT A CARD, THEN RETRY MOUNT` when nothing answered
+  the card initialisation, and `CARD NOT USABLE: RESEAT OR REPLACE` when a
+  card answered and failed.
 - **USB DRIVE**: serves the card to the USB host. See
   [Blackbox logging to microSD](#blackbox-logging-to-microsd).
 - **BACK**: returns to MENU, also while a host holds the card. The handover

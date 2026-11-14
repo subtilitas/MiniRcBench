@@ -102,6 +102,7 @@ sd_err_t sdh_init(const sdh_bus_t *b, sdh_card_t *c, uint32_t data_hz) {
 	 * card. A response that does not echo is a card not to use. */
 	uint32_t r7 = 0;
 	e = cmd(b, 8, SDP_CMD8_ARG, SDP_RESP_R7, &r7, NULL);
+	if (e != SDE_NO_RESPONSE) c->answered = true;
 	if (e == SDE_OK) {
 		if ((r7 & 0xFFFu) != SDP_CMD8_ARG) return finish(b, SDE_UNUSABLE);
 		c->v2 = true;
@@ -114,6 +115,7 @@ sd_err_t sdh_init(const sdh_bus_t *b, sdh_card_t *c, uint32_t data_hz) {
 	uint32_t t0 = b->now_us(b->ctx);
 	for (;;) {
 		e = cmd(b, 55, 0, SDP_RESP_R1, NULL, NULL);
+		if (e != SDE_NO_RESPONSE) c->answered = true;
 		if (e != SDE_OK) return finish(b, e);
 		e = cmd(b, 41, arg, SDP_RESP_R3, &c->ocr, NULL);
 		/* A card outside the window goes inactive and stops answering. */

@@ -155,8 +155,11 @@ wenn die Drehzahlanzeige funktioniert.
 
 Sieh auf die `MOUNT`-Zeile des SD-LOG-Bildschirms.
 
-- **`3 NOT READY`**: Auf dem Bus hat nichts geantwortet. Keine Karte, oder sie
-  sitzt nicht richtig.
+- **`3 NOT READY`**: Die Karte ist nicht angelaufen. Mit
+  `INSERT A CARD, THEN RETRY MOUNT` hat nichts geantwortet: keine Karte, oder
+  sie sitzt nicht richtig. Mit `CARD NOT USABLE: RESEAT OR REPLACE` hat eine
+  Karte geantwortet und ist gescheitert: neu einstecken oder eine andere
+  probieren.
 - **`13 NO FILESYSTEM`** mit einer Größe unter `CARD`: Die Karte antwortet,
   das Dateisystem ist das Problem. Als FAT32 formatieren.
 - **Karte nach dem Start eingesteckt**: `RETRY MOUNT` drücken. Die Karte wird

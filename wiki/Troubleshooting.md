@@ -144,7 +144,10 @@ works.
 
 Check the `MOUNT` row on the SD LOG screen.
 
-- **`3 NOT READY`**: nothing answered on the bus. No card, or not seated.
+- **`3 NOT READY`**: the card did not start. With
+  `INSERT A CARD, THEN RETRY MOUNT` nothing answered: no card, or not seated.
+  With `CARD NOT USABLE: RESEAT OR REPLACE` a card answered and failed:
+  reseat it, or try another.
 - **`13 NO FILESYSTEM`** with a size under `CARD`: the card answers and the
   filesystem is the problem. Format it as FAT32.
 - **Card inserted after boot**: press `RETRY MOUNT`. The card is mounted only
