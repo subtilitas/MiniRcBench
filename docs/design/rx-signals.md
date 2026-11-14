@@ -369,7 +369,10 @@ unplug pages draw their title: 16 characters, 190 px, inside the 224 px
 between the margins. Then, at scale 1, `DSHOT RESTARTS ON
 GP0.` in the default wiring, or `DSHOT RESTARTS ON GP1, WHERE THE` `RECEIVER
 DRIVES THE LINE.` when GP1 is SIG, and RESTART DSHOT
-([interlocks](#interlocks)).
+([interlocks](#interlocks)). In menu structure B, built, every unplug page
+is the leave page of [menu-b.md](menu-b.md#the-leave-page) (owner decision
+3), `src/ui_leave.*`, with numbered steps, STAY, LEAVE and RESTART DSHOT in
+LEAVE's rectangle; these texts become its steps when slice 3 is designed.
 
 ### Scope
 
@@ -627,25 +630,26 @@ state, and a tap opens nothing (`UI_RX_SIGNALS` in `src/ui_menu.cpp`, a
 screen with no entry point). It acts once a screen behind it exists. The
 chooser is not designed. By the owner's order of work of 2026-11-14 (the eight
 small decisions, then menu structure B, then the features), RX SIGNALS is
-built on structure B, not on MENU as built today. The rest of this section
-is the design of 2026-11-13, with two rows, RX MONITOR and PPM OUTPUT.
+built on structure B, which is built. The rest of this section is the
+design of 2026-11-13, made for MENU before structure B, with two rows, RX
+MONITOR and PPM OUTPUT; it stays as that record.
 
-Today MENU has seven rows and scrolls 36 px. The two tools sit after the servo
-tools, SERVO TESTER, KST SERVO and HITEC SERVO, which take the signal pins as
-they do, and before SETTINGS. SETTINGS is the sixth row today, whole at scroll
-0. With the new rows before it, SETTINGS becomes the eighth or ninth row and is
-below the fold again; question 4, now decision 4, decided between that
-and placing the new rows after SETTINGS:
+On 2026-11-13 MENU had seven rows and scrolled 36 px. The two tools sat
+after the servo tools, SERVO TESTER, KST SERVO and HITEC SERVO, which take
+the signal pins as they do, and before SETTINGS. SETTINGS was the sixth row,
+whole at scroll 0. With the new rows before it, SETTINGS became the eighth
+or ninth row and was below the fold again; question 4, now decision 4,
+decided between that and placing the new rows after SETTINGS:
 
 | | Rows | Content | Scroll range |
 |---|---|---|---|
-| Today | 7 | BEEP THE ESC, AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO, SETTINGS, SD LOG | 0 to 36 px |
-| Today, RX MONITOR only | 8 | ... HITEC SERVO, RX MONITOR, SETTINGS, SD LOG | 0 to 78 px |
-| Today, both tools | 9 | ... HITEC SERVO, RX MONITOR, PPM OUTPUT, SETTINGS, SD LOG | 0 to 120 px |
+| 2026-11-13 | 7 | BEEP THE ESC, AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO, SETTINGS, SD LOG | 0 to 36 px |
+| 2026-11-13, RX MONITOR only | 8 | ... HITEC SERVO, RX MONITOR, SETTINGS, SD LOG | 0 to 78 px |
+| 2026-11-13, both tools | 9 | ... HITEC SERVO, RX MONITOR, PPM OUTPUT, SETTINGS, SD LOG | 0 to 120 px |
 
 The scroll range is rows × 42 px − 258 px, by the rules of
-[menu.md](menu.md#menu). MENU structure B (`docs/design/menu-b.md`, not
-built) places the rows; question 4 held until then. The owner's answer
+[menu.md](menu.md#menu). MENU structure B ([menu-b.md](menu-b.md)), now
+built, places the rows; question 4 held until then. The owner's answer
 is decision 4.
 
 | Row | Label | Fit | Status |
@@ -657,6 +661,12 @@ is decision 4.
 of `PINS BUSY`, so the registry's fit check refuses it. `RX MONITOR` also
 names the screen that the later protocols join. The screen's own title is
 `S.BUS MONITOR`.
+
+In structure B MENU's tool rows show no pin status and `PINS BUSY` is gone
+([menu-b.md](menu-b.md#decisions) decisions 15 f and 18): a row refused
+while the claim is not Free is drawn disabled under the strip's
+`DSHOT RESTARTING ON SIG GP0`. The one row, RX SIGNALS, shows `NOT BUILT`
+until its tools exist.
 
 ## Interlocks
 
@@ -803,7 +813,8 @@ Checked:
   250 ms and not at 249 ms, latched, cleared only by START; STOP on the next
   pass; a refused write; the bind refusal; the release and the pull-down;
 - the S.BUS MONITOR screen through MENU and the RX SIGNALS chooser by
-  control id: it opens and BACK passes the unplug page; `PINS BUSY`; the
+  control id: it opens and BACK passes the leave page; the row drawn
+  disabled while the claim restores; the
   unavailable texts; every string within its rectangle; the preview
   `docs/sbus-preview.png`;
 - the MENU row and its chooser: to be redesigned with decision 4;

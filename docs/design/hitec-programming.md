@@ -25,7 +25,9 @@ depends on the switched servo supply, step 5 of
 design is a user of the pin claim of [pin-claim.md](pin-claim.md), and is
 written for the system the KST work of
 [kst-programming.md](kst-programming.md) leaves after its step 5: MENU with a
-KST SERVO row, the switched servo supply with its enable on GP28 or GP29,
+KST SERVO row, which menu structure B's SERVO PROGRAMMER row and its chooser
+replace ([menu-b.md](menu-b.md)), the switched servo supply with its enable
+on GP28 or GP29,
 the card phase, the shared
 list `ui_list`, the shared hold `ui_hold`, the 36 px header, the ring of
 [backups.md](backups.md) and the write cache of
@@ -1511,6 +1513,11 @@ rcbench's recorded behaviour contradicts them; the others stand as decided.
 6. **MENU row.** HITEC SERVO follows KST SERVO; SETTINGS becomes the
    seventh row, which takes a tap after a scroll. (SD LOG is the seventh row
    as built; SETTINGS is the sixth.)
+   Revised by [menu-b.md](menu-b.md#decisions) owner decision 2 and
+   decisions 32 and 33: MENU has no HITEC SERVO row; PROGRAMMER's HITEC D
+   SERIES and HITEC CLASSIC entries open the screen. MENU's seven rows end
+   with SD LOG, the sixth, and SETTINGS, the seventh, reached after a 36 px
+   drag.
 7. **Origin wording.** The legal notice states rcbench's origin claim for
    the Hitec code: wire captures of the project's own hardware and Hitec's
    published D series manual; no vendor code and no vendor document is
