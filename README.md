@@ -169,7 +169,8 @@ J4 (12P): 1=GND  2=VBUS 3=USB_N 4=USB_P 5=GND   6=3V3
           7=GP7* 8=GP6* 9=GP0   10=GP1  11=GP28 12=GP29
 J3  (4P): 1=GP7* 2=GP6* 3=3V3   4=GND
 J5  (4P): 1=GP1  2=GP0  3=3V3   4=GND
-                                (* = on the shared I2C bus, do not reuse)
+                                (* = on the shared I2C bus: only the optional
+                                     INA219, at 0x40, joins it)
                                 (J5 pin 3: never connect)
 
 ESC signal (SIG)     GP0   J4 pin 9  or J5 pin 2

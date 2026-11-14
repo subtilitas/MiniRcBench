@@ -51,7 +51,10 @@ protocol.
   a pointer in the wiring sections of Servo-Tester, KST-Programming and
   Hitec-Programming and their German pairs;
   `docs/wiring.svg` labels J5 pin 3 never connect, in red, and J3 pin 3
-  INA219 VCC only.
+  INA219 VCC only. The drawing, the README pin sketch and the wiki pages
+  Wiring and Verdrahtung name the optional INA219, at 0x40, as the only part
+  to connect to the I2C bus the touch controller, IMU and RTC share, in
+  place of "do not use".
 - The wiki pages AM32-Configuration and AM32-Konfiguration list every result
   of a write, what the code saw, that OK keeps the edits for another hold,
   and what to do when a result repeats.

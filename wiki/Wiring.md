@@ -15,7 +15,7 @@ needs a pigtail with a JST-SH plug. SIG is GP0 (J5 pin 2) and AUX is GP1
 
 | Part | What it shows | Details |
 |---|---|---|
-| Board connectors | J5, J4 and J3, each pin with its role. J4 pins 7 and 8 and J3 pins 1 and 2 are the shared I2C (Inter-Integrated Circuit) bus of the touch controller: do not use them | |
+| Board connectors | J5, J4 and J3, each pin with its role. J4 pins 7 and 8 and J3 pins 1 and 2 are the I2C (Inter-Integrated Circuit) bus the touch controller (0x1A), the IMU (inertial measurement unit, 0x6B) and the RTC (real-time clock, 0x51) share. The optional INA219 current sensor, at 0x40, on J3, is the only part to connect there: [Servo Tester](Servo-Tester#current) | |
 | A | An ESC (electronic speed controller): signal on SIG, ground on GND, the optional KISS telemetry wire on AUX. The middle wire of the ESC lead, the BEC (battery eliminator circuit) +5 V, is cut | [First Run](First-Run#wiring-the-esc), [Telemetry](Telemetry#the-optional-third-wire) |
 | B | A servo on its own supply, with a switch in the positive lead. The servo tester's second servo goes on AUX | [Servo Tester](Servo-Tester#wiring), [KST Programming](KST-Programming#wiring), [Hitec Programming](Hitec-Programming#wiring) |
 | C | A servo on a DC-DC (direct current to direct current) converter that the bench switches: its enable input (EN) on GP28 (J4 pin 11) or GP29 (J4 pin 12), with a pull-down from EN to GND at the converter. SIG, EN and GND all come from J4. Set **MENU → SETTINGS → SERVO SUPPLY** to the pin used | [KST Programming](KST-Programming#switched-supply), [Hitec Programming](Hitec-Programming#switched-supply) |

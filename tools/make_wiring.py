@@ -281,7 +281,9 @@ def draw():
         if name in ("USB_N", "USB_P"):
             return "", "USB data, not used", DIM
         if name.endswith("*"):
-            return "", "shared I2C bus: do not use", "#616161"
+            # The bus of the touch controller, IMU and RTC; the optional
+            # INA219 current sensor, at 0x40, is the one part added to it.
+            return "", "shared I2C: INA219 0x40 only", "#616161"
         return "", "", DIM
 
     svg = Svg()
