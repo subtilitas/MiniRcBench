@@ -338,6 +338,19 @@ void uiChip(const char *text, uint16_t fill);
 #define UI_CHIP_PROG_MODE "PROG MODE"
 
 /**
+ * @brief The KST and Hitec strips' backup item before the first write has
+ *        put the backup on the card. Hitec's `D485HW  BACKUP IN RAM  GP0` is
+ *        26 characters, 155 px, and ends 4 px before the PROG MODE chip.
+ */
+#define UI_BACKUP_RAM "BACKUP IN RAM"
+/**
+ * @brief The KST and Hitec main views' line after a stall without a card,
+ *        once a write has run: 35 characters, 209 px.
+ */
+#define UI_NO_CARD_RAM_LOST "NO CARD: THE BACKUP IN RAM IS LOST."
+static_assert(sizeof(UI_NO_CARD_RAM_LOST) - 1 <= 37, "the RAM line is wider than a scale-1 line");
+
+/**
  * @brief One change on a write page at scale 1: `old -> new`, the old value
  *        and the arrow in `C_DIM`, the new value in @ref UI_COL_CHANGED
  *        (docs/design/menu-b.md, decision 8). It is as wide as the string

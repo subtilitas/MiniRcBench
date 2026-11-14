@@ -565,7 +565,7 @@ static void stallNote(MainText *m) {
 	bool wrote = s_wroteSeen || s_st.stallWrote;
 	bool locked = s_lockedSeen || s_st.stallLocked;
 	if (!kstFilesMounted()) {
-		if (wrote) addLine(m, "NO CARD: THE BACKUP IN MEMORY IS LOST.", C_AMBER);
+		if (wrote) addLine(m, UI_NO_CARD_RAM_LOST, C_AMBER);
 		return;
 	}
 	if (!locked) return;
@@ -871,7 +871,7 @@ static void drawList() {
 	if (s_first.backupName[0])
 		snprintf(strip, sizeof(strip), "%s  GP%u  BACKUP %.6s", type, sigGpio(), s_first.backupName);
 	else
-		snprintf(strip, sizeof(strip), "%s  GP%u  BACKUP IN MEMORY", type, sigGpio());
+		snprintf(strip, sizeof(strip), "%s  GP%u  " UI_BACKUP_RAM, type, sigGpio());
 	uiStripText(strip, C_DIM);
 	// In the mode: latched until LEAVE. In doubt: a write whose outcome is
 	// not known, a failure (docs/design/menu-b.md, decision 11).
@@ -1605,10 +1605,10 @@ static void drawLeave() {
 	if (s_leaveQueued && s_writing) gfxText(UI_MARGIN, y, "LEAVING AFTER THE WRITE ENDS.", C_AMBER, 1);
 	if (s_st.supplyFitted) {
 		// REBOOT reads the servo as it is: the hold confirms the loss of a
-		// backup that exists only in memory.
+		// backup that exists only in RAM.
 		if (!kstFilesMounted()) {
-			gfxText(UI_MARGIN, 186, "NO CARD: REBOOT LOSES THE BACKUP", C_AMBER, 1);
-			gfxText(UI_MARGIN, 198, "IN MEMORY.", C_AMBER, 1);
+			gfxText(UI_MARGIN, 186, KST_UI_REBOOT_LOSES_1, C_AMBER, 1);
+			gfxText(UI_MARGIN, 198, KST_UI_REBOOT_LOSES_2, C_AMBER, 1);
 		}
 		bool rok = rebootAllowed();
 		uiHoldDrawBar(&s_hold, BTN_REBOOT, BTN_REBOOT.y - 4, millis());

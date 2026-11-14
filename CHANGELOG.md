@@ -541,8 +541,10 @@ protocol.
   horn, letter and selector are blue; SPEED's fill is grey; the sweep count
   and SD LOG's read counter are lime; SETTINGS' `SAVED` and AM32's
   `WRITE VERIFIED` are green; HOLD TO SAVE fills red while held, as every
-  hold. KST's and Hitec's REVERT labels are amber. HITEC SERVO's strip reads
-  `BACKUP IN RAM` before the first write, in place of `BACKUP IN MEMORY`, so
+  hold. KST's and Hitec's REVERT labels are amber. KST SERVO and HITEC SERVO
+  name a backup not yet on the card `BACKUP IN RAM`, in place of
+  `BACKUP IN MEMORY`, on the strip, in `NO CARD: THE BACKUP IN RAM IS LOST.`
+  and in KST's `NO CARD: REBOOT LOSES THE BACKUP` / `IN RAM.`, so
   `D485HW  BACKUP IN RAM  GP0` fits beside the wider chip. `UI_COL_CHANGED`,
   `uiChip()` and `uiChangeText()` in `src/ui_widgets.*`; the rows through
   `uiListDrawField()`. Host tests in `test/test_widgets.cpp`,

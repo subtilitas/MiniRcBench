@@ -599,7 +599,7 @@ What remains:
 |---|---|---|---|
 | Searching, supply switched | `GP0  TRY 3  SUPPLY OFF 1.4 S`, or `SUPPLY ON`; TRY is the attempt under way, `KstStatus.attempts` + 1 in an off phase | `SWITCHED SUPPLY`, then `THE BENCH SWITCHES THE SERVO OFF FOR 2 S, THEN ON, BEFORE EACH TRY.`, the failsafe line, and in amber `AN ESC ON THIS LEAD GETS THE CONVERTER'S OUTPUT ON ITS BEC WIRE.`; a spinner | STOP SEARCH, BACK |
 | Timed out, supply switched | `NO ANSWER IN 14 POWER-UPS`, the number from `KstStatus.attempts` | `CHECK THE CONVERTER ON GP28, ITS WIRING AND THE SIGNAL. A SERVO ON ITS OWN SUPPLY NEEDS SETTINGS > SERVO SUPPLY AT NONE.` | RETRY, BACK |
-| Stalled, supply switched | `GP0  SUPPLY OFF` | `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF. RETRY POWERS IT UP AND READS IT AGAIN.` Without a card, after a write, in amber, `NO CARD: THE BACKUP IN MEMORY IS LOST.` and nothing more. With a card, for a locked session, in amber, `THE LAST WRITE IS IN DOUBT. AFTER THE READ, LOAD KST005 IN FILES AND HOLD TO WRITE.` | RETRY, BACK |
+| Stalled, supply switched | `GP0  SUPPLY OFF` | `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF. RETRY POWERS IT UP AND READS IT AGAIN.` Without a card, after a write, in amber, `NO CARD: THE BACKUP IN RAM IS LOST.` and nothing more. With a card, for a locked session, in amber, `THE LAST WRITE IS IN DOUBT. AFTER THE READ, LOAD KST005 IN FILES AND HOLD TO WRITE.` | RETRY, BACK |
 | REBOOT | `GP0  SUPPLY OFF 1.4 S`, then `SUPPLY ON 0.6 S` | `REBOOT: DO NOT UNPLUG THE SERVO.`, then `READING 32 REGISTERS` | BACK |
 
 The converter text names the enable pin SETTINGS chose, `GP28` or `GP29`.
@@ -1080,7 +1080,7 @@ y   0 | KST SERVO                        [ BACK ]|
   A locked session's write button reads `IN DOUBT`, and the strip's chip
   reads `IN DOUBT` on `C_RED` in place of `PROG MODE` on `C_BLUE`.
 - The strip names the type, `V6` or `V8` (`kst_type()`), the pin and the
-  backup file once the first write has saved it, `BACKUP IN MEMORY` before.
+  backup file once the first write has saved it, `BACKUP IN RAM` before.
 - A value whose raw step does not change its text, MAX. DUTY's 245 and 244
   both reading `96 %`, carries its raw value in the editor bar and on the
   write page: `96 % (245) -> 96 % (244)` (`kstValuePair()`).
@@ -1464,7 +1464,7 @@ so these run against the same simulated servo:
      `supplyLeftDs` (0.1 s) and `reboot` in place of the fields named above,
      and `stallLocked` and `stallWrote` for the stalled screen.
    - The switched leave page reads `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.`
-     and, without a card, `NO CARD: REBOOT LOSES THE BACKUP IN MEMORY.` above
+     and, without a card, `NO CARD: REBOOT LOSES THE BACKUP IN RAM.` above
      HOLD TO REBOOT; its strip names the servo and the pin only.
    - A heartbeat lapse with the supply on is latched: the supply goes off
      once what runs has ended, even if the heartbeat returns before. A

@@ -398,7 +398,7 @@ KST SERVO, HITEC SERVO and AM32 CONFIG share one footer and one editor bar.
 SERVO SET shares the editor bar.
 
 ```
-y  40 | V6  BACKUP IN MEMORY           [PROG MODE]|  strip; chip C_BLUE
+y  40 | V6  BACKUP IN RAM              [PROG MODE]|  strip; chip C_BLUE
    62 | TUNE                                      |  rows 40 px, 42 px pitch
       | DEAD BAND                         2.2 US  |  changed: C_CYAN, 3 px C_CYAN bar
   ... |                                           |  viewport y 62..215
@@ -1194,20 +1194,29 @@ Readings of the decisions where the code asked for a choice:
   `HELI TAIL 760` are scale 1; a Hitec value shown raw is Odd, its label lit
   as a live row's; a KST or Hitec row that differs from the servo carries
   the bar whether or not it is editable.
+- **Hitec's note line.** With a soft rule or the ID note the editor bar's
+  top line names the new value in its state's colour, the raw flag passed
+  as for the value below it. A note shows only for a value that decodes:
+  the rules compare decoded values and the ID note needs one, so the flag
+  is false there and the line is never amber.
 - **AM32 values.** AM32 rows are Plain or Changed; `? (2)` and the other
   values the table cannot name stay Plain, as on `main`.
 - **Hitec's strip beside PROG MODE.** Slice 4's strip, model, backup, pin
   and version two spaces apart, dropped from the right, has 155 px beside
   the 65 px chip, 30 px less than beside `MODE`. The backup item before the
-  first write reads `BACKUP IN RAM` (`HITEC_UI_BACKUP_RAM`), not
+  first write reads `BACKUP IN RAM` (`UI_BACKUP_RAM`), not
   `BACKUP IN MEMORY`, so a D series strip keeps its pin:
   `D485HW  BACKUP IN RAM  GP0` is 155 px. A classic strip reads
-  `HS-5645MG  BACKUP IN RAM`, then `HS-5645MG  BACKUP HT001`: its pin no
-  longer fits after the first write. A D series model rcbench does not
+  `HS-5645MG  BACKUP IN RAM`, then `HS-5645MG  BACKUP HT001`: its pin does
+  not fit after the first write. A D series model rcbench does not
   name, `D SERIES` and its number, keeps the backup with a number of 2
   digits, `D SERIES 42  BACKUP IN RAM` at 155 px, and shows the model alone
-  with 3 or more. KST's strip keeps `BACKUP IN MEMORY`:
-  `V6  GP0  BACKUP IN MEMORY` is 149 px and fits its 155 px room. Strips at
+  with 3 or more. KST uses the same word for one backup: its strip reads
+  `V6  GP0  BACKUP IN RAM`, 131 px, the stall line
+  `NO CARD: THE BACKUP IN RAM IS LOST.` (`UI_NO_CARD_RAM_LOST`, Hitec's
+  too) and the leave page's notes `NO CARD: REBOOT LOSES THE BACKUP` /
+  `IN RAM.`; the leave page this note designs for slice 6 still names
+  `NO CARD: REBOOT LOSES THE BACKUP IN` / `MEMORY.`. Strips at
   scale 1 are 6 n - 1 px wide, so the room's 4 px term never changes which
   items show: with or without it, a strip of 155 px fits and one of 161 px
   does not.

@@ -546,7 +546,7 @@ lead gets the converter's output on its BEC wire.**
   read or write has ended. The page then reads
   `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF.` and
   `RETRY POWERS IT UP AND READS IT AGAIN.` Without a card, after a write, it
-  adds `NO CARD: THE BACKUP IN MEMORY IS LOST.`
+  adds `NO CARD: THE BACKUP IN RAM IS LOST.`
 - **LEAVE** switches the supply off. The pin is let go 2.0 s after the
   switch-off.
 

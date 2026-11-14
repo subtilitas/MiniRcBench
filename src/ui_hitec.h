@@ -94,12 +94,7 @@ HitecView uiHitecView();
 #define HITEC_UI_MORE_RULES_FMT "AND %d MORE RULE%s: SEE EACH ROW."
 /** @brief The field list's chip, right of its strip: `PROG MODE`, 65 px. */
 #define HITEC_UI_CHIP UI_CHIP_PROG_MODE
-/**
- * @brief The strip's backup item before the first write has put the backup
- *        on the card. `D485HW  BACKUP IN RAM  GP0` is 26 characters,
- *        155 px, and ends 4 px before the PROG MODE chip.
- */
-#define HITEC_UI_BACKUP_RAM "BACKUP IN RAM"
+
 /** @} */
 
 /**

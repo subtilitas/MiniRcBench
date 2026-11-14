@@ -167,7 +167,7 @@ Suche beendet sie und öffnet die Verlassenseite.
 Ein abgeschlossenes Lesen öffnet die Feldliste.
 
 Die Leiste zeigt den Servotyp, `V6` oder `V8`, den Pin und die Sicherung:
-`BACKUP IN MEMORY`, bis ein Schreibvorgang die Sicherung auf die Karte gelegt
+`BACKUP IN RAM`, bis ein Schreibvorgang die Sicherung auf die Karte gelegt
 hat, danach `BACKUP KST001`. Rechts steht ein eckiges Feld: `PROG MODE` auf
 Blau, solange das Servo im Programmiermodus ist, oder `IN DOUBT` auf Rot, wenn
 ein Schreibvorgang das Servo in einem unbekannten Zustand zurückgelassen hat.

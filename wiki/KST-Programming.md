@@ -156,7 +156,7 @@ search stops it and opens the leave page.
 A finished read opens the field list.
 
 The strip shows the servo type, `V6` or `V8`, the pin, and the backup:
-`BACKUP IN MEMORY` until a write has put the backup on the card, then
+`BACKUP IN RAM` until a write has put the backup on the card, then
 `BACKUP KST001`. A square chip at the right reads `PROG MODE` on blue while
 the servo is in programming mode, or `IN DOUBT` on red after a write left the
 servo in an unknown state.

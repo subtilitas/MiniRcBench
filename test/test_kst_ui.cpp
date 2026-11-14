@@ -1470,6 +1470,12 @@ static void testSwitchedSupply() {
 	          uiKstView() == KstView::Leave && lineIs(76, "LEAVE SWITCHES THE SERVO'S SUPPLY OFF.", C_AMBER) &&
 	          ctlEnabled(UI_FIX(KstCtl::Reboot)));
 	fakeDumpFrame("shot_kst_leave_switched.ppm");
+	noCard();
+	kstFrames(4);
+	checkTrue("no card: the two notes above HOLD TO REBOOT name the backup in RAM",
+	          lineIs(186, "NO CARD: REBOOT LOSES THE BACKUP", C_AMBER) && lineIs(198, "IN RAM.", C_AMBER));
+	card();
+	kstFrames(4);
 	checkTrue("HOLD TO REBOOT fires", holdUntilGone(UI_FIX(KstCtl::Reboot)));
 	kstFrames(4);
 	checkTrue("rebooting: the supply off, the main view says so",
@@ -1848,6 +1854,8 @@ static void testColourRoles() {
 	          pixel(cx, 41) == C_BG && pixel(cx, 54) == C_BG);
 	checkTrue("the strip's caption ends 4 px or more before the chip",
 	          !regionHas(cx - 4, UI_STRIP_Y, 4, UI_STRIP_H, C_DIM));
+	checkTrue("the strip names the backup in RAM: V6  GP0  BACKUP IN RAM",
+	          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "V6  GP0  BACKUP IN RAM", C_DIM, C_BG, 1));
 
 	selectField(KST_F_DEAD_BAND);
 	kstFrames(1);

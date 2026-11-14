@@ -697,7 +697,7 @@ its rows, values, stepper and texts in `src/hitec_view.*`, as
 | Entry failed | `NO SERVO IN SERIAL MODE` or `NO SERVO ANSWERS`, the decoder's word (`SILENT`, `LATE`, `SUM` and the rest of rcbench's 14 codes); `THE SUPPLY IS OFF.` with a switch; with a switch and the classic family, `CHECK THE CONVERTER ON GP28, THE SIGNAL AND GROUND.`, naming the enable pin | RETRY, BACK |
 | Reading | `READING 100 CELLS` or `READING 21 REGISTERS`, `37 OF 100` | STOP, BACK |
 | Read failed | `READ FAILED AT 0x32`, the decoder's word | READ AGAIN, BACK |
-| Stalled, with a switch | `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF. RETRY POWERS IT UP AND READS IT AGAIN.` Without a card, after a write, in amber, `NO CARD: THE BACKUP IN MEMORY IS LOST.` | RETRY, BACK |
+| Stalled, with a switch | `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF. RETRY POWERS IT UP AND READS IT AGAIN.` Without a card, after a write, in amber, `NO CARD: THE BACKUP IN RAM IS LOST.` | RETRY, BACK |
 
 The amber ESC line, in every entry view with a switch:
 `AN ESC ON THIS LEAD GETS THE CONVERTER'S OUTPUT ON ITS BEC WIRE.` The
@@ -708,7 +708,7 @@ claim's ESC check misses an ESC without bidirectional DShot
 
 ```
 y   0 | HITEC SERVO                      [ BACK ]|
-   40 | D485HW  GP0  BACKUP HT004     [PROG MODE]|  strip, square chip C_BLUE
+   40 | D485HW  BACKUP HT004  GP0     [PROG MODE]|  strip, square chip C_BLUE
    62 | MOTION   SPEED            60 % (12)      |  40 px rows, 42 px pitch,
   104 | MOTION   DEAD BAND         STEP 2 (4)    |  viewport 62..215,
   146 | MOTION   SOFT START       20 % (1)       |  on ui_list

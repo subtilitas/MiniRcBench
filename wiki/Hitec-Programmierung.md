@@ -593,7 +593,7 @@ dieser Leitung bekommt den Ausgang des Wandlers auf seine BEC-Leitung.**
   Seite zeigt dann
   `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF.` und
   `RETRY POWERS IT UP AND READS IT AGAIN.` Ohne Karte, nach einem
-  Schreiben, kommt `NO CARD: THE BACKUP IN MEMORY IS LOST.` hinzu.
+  Schreiben, kommt `NO CARD: THE BACKUP IN RAM IS LOST.` hinzu.
 - **LEAVE** schaltet die Versorgung ab. Der Pin wird 2,0 s nach dem
   Ausschalten freigegeben.
 

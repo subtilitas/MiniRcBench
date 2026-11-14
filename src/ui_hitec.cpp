@@ -580,7 +580,7 @@ static void mainText(MainText *m) {
 				addWrapped(m, "THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF.", C_AMBER);
 				addLine(m, "RETRY POWERS IT UP AND READS IT AGAIN.", C_AMBER);
 				if (!hitecFilesMounted() && s_st.stallWrote)
-					addLine(m, "NO CARD: THE BACKUP IN MEMORY IS LOST.", C_AMBER);
+					addLine(m, UI_NO_CARD_RAM_LOST, C_AMBER);
 				return;
 			}
 			snprintf(m->strip, sizeof(m->strip), "%s", classic ? "NO SERVO IN SERIAL MODE" : "NO SERVO ANSWERS");
@@ -819,7 +819,7 @@ static void drawList() {
 	if (s_family == HITEC_CLASSIC) snprintf(ver, sizeof(ver), "  V%02X", s_st.image.version);
 	snprintf(gp, sizeof(gp), "  GP%u", sigGpio());
 	if (s_write.backupName[0]) snprintf(backup, sizeof(backup), "  BACKUP %.5s", s_write.backupName);
-	else                       snprintf(backup, sizeof(backup), "  " HITEC_UI_BACKUP_RAM);
+	else                       snprintf(backup, sizeof(backup), "  " UI_BACKUP_RAM);
 	// Items two spaces apart, as on MENU, KST and SERVO, the backup's state
 	// first after the model. A strip that does not end 4 px before the chip
 	// drops items from the right: the version, then the pin, then the backup.
