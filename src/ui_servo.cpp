@@ -881,11 +881,11 @@ static void drawSet(int holdPct) {
 		if (l2) gfxText(UI_MARGIN, UI_STRIP_Y + 12, l2, col, 1);
 	}
 
-	// The applied profile and the wait are in the key: a row's value state,
-	// Changed or not, follows them (setValue()).
-	struct { ServoProfile p, applied; sweep_cfg_t w; int sel, scroll; bool run, pending; } kl;
+	// The wait is in the key: a row's value state, Changed or not, follows
+	// it (setValue()). HOLD TO APPLY ends it and leaves s_edit as it was.
+	struct { ServoProfile p; sweep_cfg_t w; int sel, scroll; bool run, pending; } kl;
 	memset(&kl, 0, sizeof(kl));
-	kl.p = s_edit; kl.applied = s_profile; kl.w = s_sweep; kl.sel = s_sel; kl.scroll = s_list.scrollPx;
+	kl.p = s_edit; kl.w = s_sweep; kl.sel = s_sel; kl.scroll = s_list.scrollPx;
 	kl.run = s_st.running; kl.pending = s_pending;
 	if (changed(1, &kl, sizeof(kl))) {
 		uiListDraw(&s_list, drawSetRow, nullptr);
