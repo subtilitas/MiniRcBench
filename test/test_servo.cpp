@@ -1942,7 +1942,7 @@ static void testTouchLossStops() {
 
 	// The start refusal itself: a driver that still reports the finger while
 	// the controller counts as lost does not start the servo.
-	fakeTouchAnswers(false, true);
+	fakeTouchAnswers(false);
 	uiFrames(4);
 	int sx, sy;
 	ctlCentre(UI_FIX(ServoCtl::Start), &sx, &sy);

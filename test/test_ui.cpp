@@ -2900,7 +2900,7 @@ static void testTouchLoss() {
 
 	// The refusal itself: a driver that still reports the finger while the
 	// controller counts as lost does not arm the tester.
-	fakeTouchAnswers(false, true);
+	fakeTouchAnswers(false);
 	frames(4);
 	checkTrue("lost, the finger still reported: the note", hintIs(UI_TOUCH_LOST_TEXT, C_AMBER));
 	// The touch-loss disarm would undo an arm in the same frame; the panel's
