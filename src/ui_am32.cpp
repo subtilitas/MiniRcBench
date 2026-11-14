@@ -562,7 +562,8 @@ static void drawWriting() {
 	// Not verified: the edits stay in the list, and the next hold of WRITE
 	// runs the write, and the backup if it is missing, again.
 	else if (s_nextStep) gfxTextCenter(RESULT_Y + 30, s_nextStep, UI_COL_WARN, 1);
-	uiButton(BTN_OK, "OK", C_PANEL, C_TEXT, 2, uiPressing(BTN_OK, s_frameTouch));
+	// Pressed only under a press that can act: not under the hold's finger.
+	uiButton(BTN_OK, "OK", C_PANEL, C_TEXT, 2, s_okPress && uiPressing(BTN_OK, s_frameTouch));
 }
 
 // ---------------------------------------------------------------------------

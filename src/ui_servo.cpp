@@ -130,9 +130,16 @@ static const UiRect BTN_DEFAULTS = { 162, SET_FOOT_Y, 72, SET_FOOT_H };
 static const UiRect SET_VIEW     = { 0, SET_LIST_Y0, GFX_W, SET_LIST_H };
 
 static_assert(SET_LIST_Y1 < SET_EDIT_Y, "the list overlaps the editor bar");
-// The footer's labels, 4 px clear of each side: HOLD TO APPLY at scale 1 in
-// 150 px, DEFAULTS at scale 1 and STOP at scale 2 in 72 px.
-static_assert(6 * 13 - 1 + 2 * 4 <= 150 && 6 * 8 - 1 + 2 * 4 <= 72 && (6 * 4 - 1) * 2 + 2 * 4 <= 72,
+/** @brief SET's footer labels: HOLD TO APPLY and DEFAULTS at scale 1, STOP at scale 2. */
+#define SET_APPLY_LABEL    "HOLD TO APPLY"
+#define SET_DEFAULTS_LABEL "DEFAULTS"
+#define SET_STOP_LABEL     "STOP"
+/** @brief Width of a scale-1 literal @p s, px, as gfxTextW() measures it. */
+#define SET_LABEL_W(s)     (6 * (int)(sizeof(s) - 1) - 1)
+// Each label 4 px clear of each side of its button: 150 px and 72 px.
+static_assert(SET_LABEL_W(SET_APPLY_LABEL) + 2 * 4 <= 150 &&
+                  SET_LABEL_W(SET_DEFAULTS_LABEL) + 2 * 4 <= 72 &&
+                  2 * SET_LABEL_W(SET_STOP_LABEL) + 2 * 4 <= 72,
               "a SET footer label does not fit its button");
 static_assert(SET_EDIT_Y + SET_EDIT_H <= SET_FOOT_Y, "the editor bar overlaps the footer");
 static_assert(SET_FOOT_Y + SET_FOOT_H <= GFX_H, "the footer runs off the panel");
@@ -910,10 +917,10 @@ static void drawSet(int holdPct) {
 	if (changed(3, &kf, sizeof(kf))) {
 		gfxRect(0, SET_FOOT_Y - 4, GFX_W, GFX_H - SET_FOOT_Y + 4, C_BG);
 		uiHoldDrawBar(&s_hold, BTN_APPLY, SET_FOOT_Y - 4, millis());
-		uiButton(BTN_APPLY, "HOLD TO APPLY", s_hold.holding ? C_RED : C_PANEL,
+		uiButton(BTN_APPLY, SET_APPLY_LABEL, s_hold.holding ? C_RED : C_PANEL,
 		         s_hold.holding ? C_ONACCENT : C_TEXT, 1, s_hold.holding, applyOk);
-		if (s_st.running) uiButton(BTN_DEFAULTS, "STOP", C_RED, C_ONACCENT, 2, kf.dp);
-		else              uiButton(BTN_DEFAULTS, "DEFAULTS", C_PANEL, C_AMBER, 1, kf.dp);
+		if (s_st.running) uiButton(BTN_DEFAULTS, SET_STOP_LABEL, C_RED, C_ONACCENT, 2, kf.dp);
+		else              uiButton(BTN_DEFAULTS, SET_DEFAULTS_LABEL, C_PANEL, C_AMBER, 1, kf.dp);
 	}
 }
 

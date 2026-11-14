@@ -4521,6 +4521,10 @@ static void testAm32LayoutTable() {
 	ctlCentre(UI_FIX(Am32Ctl::Write), &wx, &wy);
 	pressId(UI_FIX(Am32Ctl::Write));
 	for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
+	const int okX = 6 + (228 - gfxTextW("OK", 2)) / 2, okY = 268 + (46 - 14) / 2;
+	checkTrue("the hold's finger still down on OK: OK drawn at rest, not pressed",
+	          s_state == S_WRITING && s_verified && fakeTextIs(okX, okY, "OK", C_TEXT, C_PANEL, 2) &&
+	          !fakeTextIs(okX + 1, okY + 1, "OK", C_TEXT, C_PANEL, 2));
 	fakeRelease(); frames(3);
 	checkTrue("written and verified", fakeEscByte(0x1B) == want && s_verified);
 	UiRect ok = ctlRect(UI_FIX(Am32Ctl::Ok));
@@ -4533,7 +4537,10 @@ static void testAm32LayoutTable() {
 	          fakeTextIs(6 + (228 - gfxTextW("OK", 2)) / 2, 268 + (46 - 14) / 2, "OK", C_TEXT, C_PANEL, 2));
 	checkTrue("the power-cycle line above it", fakeTextCentredIs(170, AM32_UI_POWER_CYCLE, C_TEXT, C_BG, 1));
 	checkControlTable("AM32 result, the layout table");
-	tapId(UI_FIX(Am32Ctl::Ok));
+	pressId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("a fresh press on OK draws it pressed, 1 px in",
+	          fakeTextIs(okX + 1, okY + 1, "OK", C_TEXT, C_PANEL, 2));
+	fakeRelease(); frames(1);
 	checkTrue("a tap on OK: the list", s_state == S_LIST);
 
 	// Put the fake ESC back as it was.

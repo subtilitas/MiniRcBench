@@ -624,11 +624,18 @@ static void mainText(MainText *m) {
 	}
 }
 
+/**
+ * @brief Clear the whole strip band, y 40 to 61: the family view draws two
+ *        strip lines (uiStripTwoLines()), whose second ends below the
+ *        16 px uiStripClear() clears.
+ */
+static void stripClear() { uiStripTwoLines(nullptr, C_BG, nullptr, C_BG); }
+
 static void drawMain() {
 	static MainText m;
 	mainText(&m);
 	uiHeader("HITEC SERVO", s_t, backActs());
-	uiStripClear();
+	stripClear();
 	if (m.strip[0]) uiStripText(m.strip, C_DIM);
 	gfxRect(0, UI_BODY_Y, GFX_W, GFX_H - UI_BODY_Y, C_BG);
 	int y = 80;
@@ -797,7 +804,7 @@ static bool readFirst() { return s_st.unknown; }
 
 static void drawList() {
 	uiHeader("HITEC SERVO", s_t, backActs());
-	uiStripClear();
+	stripClear();
 	char model[24], strip[48], backup[24], gp[8];
 	hitecModelText(&s_st.image, model, sizeof(model));
 	char ver[8] = "";
@@ -805,16 +812,17 @@ static void drawList() {
 	snprintf(gp, sizeof(gp), "  GP%u", sigGpio());
 	if (s_write.backupName[0]) snprintf(backup, sizeof(backup), "  BACKUP %.5s", s_write.backupName);
 	else                       snprintf(backup, sizeof(backup), "  BACKUP IN MEMORY");
-	// Items two spaces apart, as on MENU, KST and SERVO. A strip that does
-	// not end before the MODE chip, 4 px clear of it, drops items from the
-	// right: the backup, then the pin.
-	const int room = GFX_W - UI_MARGIN - (gfxTextW("MODE", 1) + 12) - 4 - UI_MARGIN;
-	// Precisions as the buffers above: 12 + 8 + 8 + 18 characters at most.
-	snprintf(strip, sizeof(strip), "%.12s%.8s%.8s%.18s", model, ver, gp, backup);
-	if (gfxTextW(strip, 1) > room) snprintf(strip, sizeof(strip), "%.12s%.8s%.8s", model, ver, gp);
-	if (gfxTextW(strip, 1) > room) snprintf(strip, sizeof(strip), "%.12s%.8s", model, ver);
+	// Items two spaces apart, as on MENU, KST and SERVO, the backup's state
+	// first after the model. A strip that does not end 4 px before the chip
+	// drops items from the right: the version, then the pin, then the backup.
+	const int room = uiChipX(HITEC_UI_CHIP) - 4 - UI_MARGIN;
+	// Precisions as the buffers above: 12 + 18 + 8 + 8 characters at most.
+	snprintf(strip, sizeof(strip), "%.12s%.18s%.8s%.8s", model, backup, gp, ver);
+	if (gfxTextW(strip, 1) > room) snprintf(strip, sizeof(strip), "%.12s%.18s%.8s", model, backup, gp);
+	if (gfxTextW(strip, 1) > room) snprintf(strip, sizeof(strip), "%.12s%.18s", model, backup);
+	if (gfxTextW(strip, 1) > room) snprintf(strip, sizeof(strip), "%.12s", model);
 	uiStripText(strip, C_DIM);
-	uiChip("MODE", C_GREEN);
+	uiChip(HITEC_UI_CHIP, C_GREEN);
 	uiListDraw(&s_list, drawFieldRow, nullptr);
 
 	gfxRect(0, HL_LIST_Y1 + 1, GFX_W, HL_FOOT_Y - HL_LIST_Y1 - 1, C_BG);
@@ -1124,7 +1132,7 @@ static bool holdOk() {
 
 static void drawWrite() {
 	uiHeader(s_restoring ? "HITEC RESTORE" : "HITEC WRITE", s_t, backActs());
-	uiStripClear();
+	stripClear();
 	gfxRect(0, UI_BODY_Y, GFX_W, GFX_H - UI_BODY_Y, C_BG);
 	char buf[96];
 	int changed = hitecChangedCount(&s_pageFrom, &s_pageTo, s_layout);
@@ -1391,7 +1399,7 @@ static bool loadOk() {
 
 static void drawFiles() {
 	uiHeader("HITEC FILES", s_t, backActs());
-	uiStripClear();
+	stripClear();
 	char strip[48];
 	bool mounted = hitecFilesMounted();
 	if (s_fileNote[0])              uiStripText(s_fileNote, s_fileNoteCol);
@@ -1539,7 +1547,7 @@ static void filesTouch() {
 
 static void drawLeave() {
 	uiHeader("HITEC SERVO", s_t, backActs());
-	uiStripClear();
+	stripClear();
 	char strip[48];
 	if (s_haveDraft) {
 		char model[24];
