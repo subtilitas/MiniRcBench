@@ -168,7 +168,7 @@ struct Am32Field {
 	/**
 	 * @brief AM32 firmware, major x 100 + minor, from which @p rawMax exists:
 	 *        below it the editor stops one lower and a stored @p rawMax reads
-	 *        `? (n)`. 0: every firmware. @see am32FieldMax()
+	 *        "? (n)". 0: every firmware. @see am32FieldMax()
 	 */
 	uint16_t    topFw;
 };
