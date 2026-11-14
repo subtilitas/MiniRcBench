@@ -538,16 +538,6 @@ static void drawItem(uint8_t i) {
 }
 
 /**
- * @brief The note line: the single most useful thing to say right now.
- *
- * Ordered by urgency: a failed save outranks everything; a setting the
- * firmware had to repair outranks the saved or unsaved state, because the
- * user asked for something and did not get it.
- *
- * @param[out] col Colour to draw it in.
- * @return The text.
- */
-/**
  * @brief Whether RESET's note is true now: RESET was the last change (the
  *        tick ends s_resetNote at any other), and the live settings
  *        differ from what the next boot loads (the saved settings, or the
@@ -558,6 +548,17 @@ static bool resetNoteShown() {
 	return s_resetNote && settingsDirty();
 }
 
+/**
+ * @brief The note line: the single most useful thing to say right now.
+ *
+ * Ordered by urgency: a failed save outranks everything; a setting the
+ * firmware had to repair outranks the saved or unsaved state, because the
+ * user asked for something and did not get it. RESET's note outranks
+ * UNSAVED: it is the same state, said with what undoes it.
+ *
+ * @param[out] col Colour to draw it in.
+ * @return The text.
+ */
 static const char *noteText(uint16_t *col) {
 	if (s_saveOutcome == SaveOutcome::FailedArmed) {
 		*col = C_RED;
