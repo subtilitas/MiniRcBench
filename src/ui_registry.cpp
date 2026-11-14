@@ -16,7 +16,7 @@
 constexpr UiMenuEntry UI_MENU[] = {
 	{ "BEEP THE ESC",  8, &UI_BEEP     },   // ui_menu.cpp: DISARMED, REFUSED
 	{ "AM32 CONFIG",   4, &UI_AM32     },   // ui_am32.cpp: GP0
-	{ "SERVO TESTER",  7, &UI_SERVO    },   // ui_servo.cpp: GP0+1
+	{ SERVO_UI_TITLE,  7, &UI_SERVO    },   // ui_servo.cpp: GP0+1
 	{ "KST SERVO",     4, &UI_KST      },   // ui_kst.cpp: GP0
 	{ "HITEC SERVO",   4, &UI_HITEC    },   // ui_hitec.cpp: GP0
 	{ "SETTINGS",      7, &UI_SETTINGS },   // ui_settings.cpp: UNSAVED, UPDATED
