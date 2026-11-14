@@ -8,6 +8,8 @@ either is tested on hardware. Slice 3, KST programming, is built through its
 step 5 ([kst-programming.md](kst-programming.md)). Slice 4, Hitec programming
 ([hitec-programming.md](hitec-programming.md)), adds the Hitec job; its
 steps 1 to 5 of 6 are built, and step 6, the bring-up on hardware, is open.
+The S.BUS monitor of [rx-signals.md](rx-signals.md) adds the S.BUS job and
+its pin user (its slice 2, built, host tests only); its screen is not built.
 Slices A to C of [menu.md](menu.md), the menu restructure, are built before
 slice 3.
 Since slice C, the tester's third button reads MENU, the list of tools is
@@ -49,8 +51,8 @@ The claim names pins by role, not by number, because the number is a setting.
 
 | Role | Outside a claim | Claimed by |
 |---|---|---|
-| SIG | the ESC signal wire, `settings()->dshotPin` | AM32 config, servo A, KST programming, Hitec programming |
-| AUX | the KISS telemetry wire, `settings()->kissPin` | servo B (two-servo mode) |
+| SIG | the ESC signal wire, `settings()->dshotPin` | AM32 config, servo A, KST programming, Hitec programming, the S.BUS monitor |
+| AUX | the KISS telemetry wire, `settings()->kissPin` | servo B (two-servo mode), the S.BUS monitor when AUX is GP1 |
 
 AUX is the KISS pin whether or not KISS is switched on in SETTINGS. KISS is off
 by default, and GP1 is still the AUX pin.
@@ -62,8 +64,10 @@ by default, and GP1 is still the AUX pin.
 | GND | | J4 pins 1 and 5, J5 pin 4 |
 
 SETTINGS offers GP0 and GP1 only, for either role (`BOARD_FREE_GPIO_MASK`
-0x00000003). They are UART0's pins, and the firmware does not use UART0
-(universal asynchronous receiver-transmitter). GP28 (J4 pin 11) and GP29 (J4
+0x00000003). They are UART0's pins (universal asynchronous
+receiver-transmitter). The firmware uses UART0 only in the S.BUS job, which
+receives on GP1 during its claim; UART0's transmit pin, GP0, keeps its
+function. GP28 (J4 pin 11) and GP29 (J4
 pin 12) carry only the optional switched servo supply's enable; see [Signal
 level](#signal-level). The SETTINGS rows are SIG PIN and AUX PIN, each with
 its J5 pin under the value, both live whatever KISS is. A step of either
@@ -89,6 +93,7 @@ screen asks for decide only which pins its job binds.
 | SERVO, two servos | SIG and AUX | servo | core1, hardware PWM |
 | KST SERVO | SIG | KST | core1, `kst_line` PIO driver and session |
 | HITEC SERVO | SIG | Hitec | core1, `hitec_line` PIO driver and session |
+| S.BUS monitor ([rx-signals.md](rx-signals.md); the job is built, the screen is not) | the role on GP1: SIG and AUX when AUX is GP1, SIG when SIG is GP1 | S.BUS | nobody: the receiver drives GP1, and UART0 receives on it with the pad's input inverted |
 
 A claim lasts while its screen is open, its sub-screens included (SERVO SET,
 KST FILES). Leaving the screen with BACK ends it. No other screen is reachable
@@ -140,21 +145,24 @@ the exception.
    reason in `pinClaimJobError()`. RETRY (`pinClaimRetry()`) starts the job
    again and keeps the claim; BACK goes to step 5.
 5. **Leaving.** BACK (`pinClaimEnd()`) asks the job to stop. The job lets its
-   pins go once nothing it drives is under way, which for the servo job is
-   the last pulse (`servoQuietMs()`, 41 ms at 50 Hz) and for the KST job the
-   frame on the wire and then 100 ms of low line (`KST_LEAVE_LOW_MS`); for
-   the Hitec job a running write, then 2000 ms of switched supply off, or
-   the D series reboot with `SERVO SUPPLY` at `NONE`. The servo and KST jobs
-   leave their pins inputs with the pull-down on, the Hitec job leaves SIG an
-   input with its family's pull: the pull-down for classic, the pull-up for
-   the D series. Then the job reports `Idle`. The claim stays Leaving until
-   then. Before DShot restarts, SERVO, KST and HITEC show the
-   leave page ([restore](#restoring-dshot)):
-   `pinClaimUnplugDue()` is true once the job is idle, RESTART DSHOT calls
-   `pinClaimRestart()` 1000 ms after that at the earliest, and NEXT SERVO or
-   BACK TO SERVO calls `pinClaimKeep()`, which returns the claim to Held and
-   starts the job again. AM32 has neither a job
-   nor the page, so its BACK restores DShot within the `pinClaimEnd()` call.
+   pins go once nothing it drives is under way, which for the servo job is the
+   last pulse (`servoQuietMs()`, 41 ms at 50 Hz) and for the KST job the frame
+   on the wire and then 100 ms of low line (`KST_LEAVE_LOW_MS`); for the Hitec
+   job a running write, then 2000 ms of switched supply off, or the D series
+   reboot with `SERVO SUPPLY` at `NONE`; the S.BUS job drives nothing and lets
+   go at once. The servo and KST jobs leave their pins inputs with the
+   pull-down on, the Hitec job leaves SIG an input with its family's pull: the
+   pull-down for classic, the pull-up for the D series; the S.BUS job turns
+   UART0 off and leaves GP1 an input with no inversion and the pull-down on.
+   Then the job reports `Idle`. The claim stays Leaving until then. Before
+   DShot restarts, SERVO, KST and HITEC show the leave page
+   ([restore](#restoring-dshot)), and the S.BUS monitor its unplug page
+   ([rx-signals.md](rx-signals.md), slice 3, not built): `pinClaimUnplugDue()`
+   is true once the job is idle, RESTART DSHOT calls `pinClaimRestart()`
+   1000 ms after that at the earliest, and NEXT SERVO or BACK TO SERVO calls
+   `pinClaimKeep()`, which returns the claim to Held and starts the job again.
+   AM32 has neither a job nor the page, so its BACK restores DShot within the
+   `pinClaimEnd()` call.
 6. **Restoring.** Core0 calls `escTaskResume()`. Core1 rebuilds the driver from
    the wiring latched in `esc_task.cpp`, and the claim is `Free` from the
    first look after `escTaskSuspended()` turns false. Nothing is left for
@@ -169,7 +177,7 @@ been driven, so no leave page is shown.
 Core0, in `src/pin_claim.h`:
 
 ```c
-enum class PinUser : uint8_t { None, Am32, Servo, Kst, Hitec };
+enum class PinUser : uint8_t { None, Am32, Servo, Kst, Hitec, Sbus };
 enum class ClaimState : uint8_t { Free, Stopping, Held, Running, Leaving, Restoring };
 enum class ClaimRefusal : uint8_t {
     None,
@@ -197,8 +205,9 @@ void         pinClaimKeep(PinUser who);    // NEXT SERVO, BACK TO SERVO on the l
 What differs per user is a table, `PIN_USERS` in `pin_claim.h`, one row per
 `PinUser`: the core1 job (None: the screen drives the pin from core0, as AM32
 does), whether the leave page comes before DShot restarts, whether the
-claim is refused while an ESC answers on SIG, and whether Held waits for
-`pinClaimStartJob()` before the job starts (HITEC alone). `pinUserInfo()`
+claim is refused while an ESC answers on SIG (not for AM32 and the S.BUS
+monitor), and whether Held waits for `pinClaimStartJob()` before the job
+starts (HITEC alone). `pinUserInfo()`
 reads it. A new pin user is one enum value and one row.
 
 The refusal check is a pure function, `pinClaimCheck()`, beside it, so the
@@ -209,7 +218,7 @@ freshness is `escFieldFresh()`, the rule the readouts use.
 Core1, in `src/core1_job.h`:
 
 ```c
-enum class Core1Job : uint8_t { None, Servo, Kst, Hitec };
+enum class Core1Job : uint8_t { None, Servo, Kst, Hitec, Sbus };
 enum class Core1JobPhase : uint8_t { Idle, Starting, Running, Stopping };
 struct Core1JobOps {                       // one per job, defined by its slice
     uint8_t (*bind)(uint8_t sigGpio, uint8_t auxGpio);  // 0, or CORE1_JOB_PWM ...
@@ -223,7 +232,7 @@ bool core1JobStart(Core1Job job, uint8_t sigGpio, uint8_t auxGpio);  // core0
 void core1JobStop();                                                   // core0
 Core1Job core1JobRunning();   // core0: which job runs; None once idle
 Core1JobPhase core1JobPhase();// core0
-uint8_t core1JobError();      // core0: CORE1_JOB_PWM, _PIO, _DMA, _CLOCK;
+uint8_t core1JobError();      // core0: CORE1_JOB_PWM, _PIO, _DMA, _CLOCK, _NO_GP1;
                               // REFUSED comes from pinClaimJobError()
 void core1JobPoll();          // core1, from loop1() after escTaskPoll()
 bool core1UiAlive();          // core1: escHeartbeat() within 250 ms
@@ -235,8 +244,9 @@ while no job runs. `core1JobStart()` is refused unless `escTaskSuspended()` is
 true, so the DShot pump and a job never drive a pin together. It is refused
 too for `Core1Job::None`, for a job with no `Core1JobOps` in the table in
 `core1_job.cpp`, and while a job is not idle. Slice 2 adds the servo job's
-entry, `SERVO_JOB_OPS` from `src/servo_job.h`; slice 3 adds KST's, and
-slice 4 `HITEC_JOB_OPS` from `src/hitec_job.h`. A stop
+entry, `SERVO_JOB_OPS` from `src/servo_job.h`; slice 3 adds KST's,
+slice 4 `HITEC_JOB_OPS` from `src/hitec_job.h`, and slice 2 of
+[rx-signals.md](rx-signals.md) `SBUS_JOB_OPS` from `src/sbus_job.h`. A stop
 that arrives while core1 binds is kept, and the next pass releases what the
 bind took. A job's `release` never blocks: it returns false while it still
 needs time, and the job stays Stopping, with the next pass asking again.
@@ -255,6 +265,7 @@ is alive" for the pump and every job.
 | SERVO | the servo job: holds the PWM bindings, slews the pulse width at SPEED, runs the sweep curve, checks the heartbeat, every pass of `loop1()` | core0 draws at 40 Hz and stalls for tens of milliseconds on SD writes; a 5 Hz sine sampled at 40 Hz is 8 steps per cycle. Core1 samples the curve every millisecond and PWM latches it at each frame |
 | Hitec | the Hitec job: `hitec_session_next()`, the step on the `hitec_line` driver or the switched supply, `hitec_session_feed()` | the line driver wants a poll every 1 ms or faster; a PRECHARGE receive decodes about 29 sampler words a millisecond ([hitec-programming.md](hitec-programming.md#where-the-session-runs)) |
 | KST | the KST job: the entry loop wrapper, `kst_session_step()` and the `kst_line` driver | the session needs a step every 1 ms or faster, and its driver slack is 5 ms (`KST_DRIVER_SLACK_US`); core0 cannot promise either |
+| S.BUS | the S.BUS job: drains UART0's receive FIFO into rcbench's decoder, each byte stamped with the pass's `micros()` | the decoder frames on a gap of 2000 µs between bytes, so a byte's time must be within a small part of that; core0 stalls for tens of milliseconds |
 
 ### Interlocks
 
@@ -308,6 +319,7 @@ Core0 calls `escHeartbeat()` at the top of every `uiTick()`, on every screen.
 | Servo job | both pins to level 0, no edges; the sweep ends; the job latches `Tripped` | nothing restarts. The screen shows `STOPPED: SCREEN STALLED` and needs a new HOLD TO START |
 | Hitec job | an entry is cut: an off phase ends with the supply never on, a LISTEN is cut, a SEND finishes; a read or a write finishes; then, with a switched supply, the supply goes off and the session starts again; with `NONE` the session stays in the mode, and a cut entry ends with RETRY. In a card phase the card heartbeat counts for at most 15 s ([hitec-programming.md](hitec-programming.md#heartbeat-and-lapses)) | entries and operations are taken again; after a stall the entry needs RETRY |
 | KST job | the running operation finishes; no new operation and no new entry attempt starts; the line stays driven low. With a switched supply ([kst-programming.md](kst-programming.md#leave-reboot-loss-and-heartbeat-with-the-switch)), every wait in the search or in REBOOT ends at once with the supply off; a session operation finishes, then the supply goes off; the supply is switched on only while the heartbeat is trusted. In a card phase around a card call, a card heartbeat from the SDIO driver's waits counts as the UI's for at most 15 s ([card calls](kst-programming.md#card-calls-and-the-heartbeat)) | operations are taken again; the search needs RETRY. With a switched supply the screen says the supply went off |
+| S.BUS job | nothing: the job drives no pin, so it decodes on | nothing |
 
 Why KST does not abort: `kst_session_abort()` after the first write frame of a
 plan locks the session and can leave the servo between two images. The
@@ -464,6 +476,7 @@ v3.6.2.
 | KST line (`kst_line`) | 24 | 1 | 2 | during a KST claim |
 | Hitec line (`hitec_line`), and its PRECHARGE sampler for the D series | 30, and 7 at 150 MHz | 1, and 1 | 2, and 1 | during a Hitec claim |
 | Servo PWM | 0 | 0 | 0 | PWM slices only |
+| S.BUS receive (UART0) | 0 | 0 | 0 | during an S.BUS claim |
 
 Placement, with DShot built before KISS as `escTaskPoll()` does. The SDK's
 free-block search starts at pio2, and `src/esc_task.cpp` asserts at build

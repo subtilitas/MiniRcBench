@@ -1,12 +1,15 @@
 # Receiver signals: S.BUS monitor and S.BUS output
 
-Status: slice 1a built, the rest planned. Slice 1a copied rcbench's S.BUS
-decoder and its test into `lib/rcbench/` and `test/rcbench/`, run in the
-host suite only ([work breakdown](#work-breakdown)). The owner answered the
+Status: slices 1a and 2 built, the rest planned. Slice 1a copied rcbench's
+S.BUS decoder and its test into `lib/rcbench/` and `test/rcbench/`. Slice 2
+is the S.BUS monitor's core1 job, `src/sbus_job.*`, with its pin user and its
+host tests ([slice 2 as built](#slice-2-as-built)); no screen opens it yet.
+Both are tested on the host only ([work breakdown](#work-breakdown)). The
+owner answered the
 note's open questions on 2026-11-14 ([decisions](#decisions)): build the
 S.BUS monitor and an S.BUS output, no PPM output. The S.BUS monitor, which
-reads a receiver's S.BUS output on GP1 through UART0, is designed below
-and waits on being built (slices 2 and 3). The S.BUS output, inverted 8E2
+reads a receiver's S.BUS output on GP1 through UART0, is designed below;
+its screen waits on being built (slice 3). The S.BUS output, inverted 8E2
 at 100,000 baud on GP0 through UART0's TX, is not designed: its open points
 are listed under [S.BUS output](#sbus-output), and its encoder is written
 and tested in rcbench first. The PPM sections stay as the record of a
@@ -227,8 +230,12 @@ which the host suite drives without the SDK:
 ```c
 void sbusCoreReset(SbusCore *c);
 void sbusCoreFeed(SbusCore *c, uint16_t dr, uint32_t nowUs);  // one UARTDR word
-void sbusCoreStep(SbusCore *c, uint32_t nowUs);               // once per pass
+bool sbusCoreStep(SbusCore *c, uint32_t nowMs);               // once per pass
 ```
+
+`sbusCoreStep()` takes `millis()`, not `micros()`: it stamps
+`lastFrameMs` and `lastByteMs` for what the pass fed, and returns whether a
+word arrived, which is when the job publishes.
 
 Every pass of `loop1()`, the job:
 
@@ -806,8 +813,9 @@ Checked:
   disabled while SAFE and RUNNING respectively, the throttle slider at its
   ceiling, the preview `docs/ppm-preview.png`.
 
-`make syntax` typechecks `sbus_job.cpp`'s device part, as it does the other
-C++ device sources. It typechecks no rcbench driver today: `out_ppm.c` is
+`sbus_job.cpp` has no device part left for `make syntax`: the suite links
+all of it, the UART calls against the UART0 fake. `make syntax` typechecks
+no rcbench driver today: `out_ppm.c` is
 built by the firmware only, as the KST and Hitec line drivers are, and
 checking it on the host would need a C rule and stubs of its own,
 `ppm.pio.h` among them. The coverage table of STATUS.md is
@@ -844,7 +852,7 @@ files differ by one line each. Slice 1a is built.
 |---|---|---|---|
 | 1a. S.BUS copies, built | `sbus.c`, `sbus.h`, `test_sbus.c`; `test/rx.mk`; the `test/Makefile` lists, `lib/rcbench/README.md`, README, STATUS, CHANGELOG | 3 copied, 1 new, 5 edited | 695 copied; 80 new or changed |
 | 1b. PPM copies: not built, by decision 1 | `ppm.c`, `ppm.h`, `test_ppm.c`; the `outputs.h` stub, `test/ppm.mk`; the `test/Makefile` lists, `lib/rcbench/README.md`, README, STATUS, CHANGELOG | 3 copied, 2 new, 5 edited | 441 copied; 80 new or changed |
-| 2. S.BUS job | `sbus_job.*`, `rx.cmake`, `CORE1_JOB_NO_GP1`, the job and user rows, the microsecond clock, the UART fake, `sbus_line.h`, the job's tests, the `-I` lists of `ci.yml` | 4 new in `src/`, about 13 edited, 3 new in `test/` | 350 in `src/`; 700 in `test/` |
+| 2. S.BUS job, built | `sbus_job.*`, `rx.cmake`, `CORE1_JOB_NO_GP1`, the job and user rows, the microsecond clock, the UART fake, `sbus_line.h`, the job's tests, the `-I` lists of `ci.yml` | 3 new in `src/`, 18 edited, 2 new in `test/` | 380 in `src/`; 1,000 in `test/` |
 | 3. S.BUS screen | `sbus_view.*`, `ui_sbus.*`, the registry line, the screen and MENU tests, `test_ids.cpp`, the preview, `tools/check_wiki.py`, `tools/make_previews.py`, README section, wiki pages in English and German, STATUS, CHANGELOG, this note's status | 4 new in `src/`, 2 new and 10 edited elsewhere | 650 in `src/`; 600 in `test/`; 250 of documentation |
 | 4. PPM job: not built, by decision 1 | the `out_ppm` driver copies, `ppm_job.*`, `ppm.cmake`, the job and user rows, the `out_ppm.h` fake, `pio_ppm_emu.py`, the job's tests, the `-I` lists of `ci.yml` | 3 copied, 3 new in `src/`, 3 new in `test/`, 6 edited | 490 copied; 300 in `src/`; 600 in `test/` |
 | 5. PPM screen: not built, by decision 1 | `ui_ppm.*`, the registry line, the screen tests, the preview, `tools/check_wiki.py`, `tools/make_previews.py`, README, wiki pages in English and German, STATUS, CHANGELOG | 2 new in `src/`, 2 new and 10 edited elsewhere | 600 in `src/`; 500 in `test/`; 200 of documentation |
@@ -854,7 +862,42 @@ Slices 1b, 4 and 5 are not built, by the owner's decision 1 of
 2026-11-14. The S.BUS output has no slices yet: its encoder in rcbench
 comes first (decision 5), then its design ([S.BUS output](#sbus-output)).
 The RX SIGNALS row and its chooser (decision 4) are to be designed with
-slice 3. Slices 2 and 3 wait on being built.
+slice 3. Slice 2 is built; slice 3 waits on being built.
+
+### Slice 2 as built
+
+`src/sbus_job.h` and `.cpp`, `src/rx.cmake`, the `Sbus` rows of
+`Core1Job` and `PinUser`, `CORE1_JOB_NO_GP1`; in the host suite the
+microsecond clock (`fakeAdvanceUs()`), the UART0 fake, `test/sbus_line.h`
+and `test/test_sbus_job.cpp`. Choices the note left open:
+
+- **One count per bad word.** A word with BE counts as a break only, one
+  with FE and not BE as a framing error only, one with PE alone as a parity
+  error. OE is counted beside any of them, and its byte is fed only when no
+  other flag is set. The line model flags a break as BE and FE, as a
+  character low throughout.
+- **The mean interval starts again after a lost link.** An interval of
+  `SBUS_LOST_MS`, 100 ms, or more is no frame period: it empties the ring
+  of 16, and `intervalUs` reads 0 until the next frame, rather than showing
+  a rate from a 10 s gap for the next 16 frames.
+- **Frame rate.** `sbusRateDeciHz()` gives the rate in tenths of a hertz,
+  rounded to the nearest: 714 at 14,000 µs, 1429 at 7,000 µs.
+- **The roles.** `sbusClaimRoles()` gives the roles of the wiring table of
+  [receive path](#receive-path), so the screen of slice 3 asks for the role
+  that is GP1; the job binds GP1 from whichever role carries it.
+- **A clock refusal binds nothing.** The pad is set before `uart_init()`, as
+  the note orders; when the rate is refused, the bind turns UART0 off and
+  leaves GP1 as the release does.
+- **The status after the release** keeps the last frame and the counts until
+  the next bind, which sets every count to 0.
+
+The UART0 fake hears the line only while UART0 is on, GP1 is on the UART
+function with INOVER inverted and the format is 8 data bits with even
+parity; it models the 32-entry FIFO, a word lost to a full FIFO and OE on
+the next word that enters, and the divisors of SDK 2.1.1's
+`uart_set_baudrate()`. It does not model the bits on the wire or what a line
+that is not inverted reads. The inversion on the pin, the receiver's level
+and the PL011's flags on a real line are not measured (bench, below).
 
 ## Decisions
 

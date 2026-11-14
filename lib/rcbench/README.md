@@ -101,11 +101,12 @@ through the INA228 and INA3221 drivers, which are not copied, so none is in
 `test/rcbench/`; `test/test_sense.cpp` tests it through the INA219 driver.
 
 The S.BUS decoder (`protocols/sbus/`) is for the S.BUS monitor of
-[rx-signals.md](../../docs/design/rx-signals.md). S.BUS is Futaba's serial
-bus for receiver channels. Nothing in `src/` calls the decoder yet. It is
-built as C11 in the host suite by `test/rx.mk`; the firmware does not build it
-until the S.BUS job. Its rcbench test, copied unchanged from rcbench
-`test/host/test_sbus.c` into `test/rcbench/`, is `test_sbus.c`, 12 cases.
+[rx-signals.md](../../docs/design/rx-signals.md). S.BUS is Futaba's serial bus
+for receiver channels. The S.BUS job, `src/sbus_job.cpp`, feeds it the bytes
+UART0 (universal asynchronous receiver-transmitter 0) receives. It is built as
+C11, in the firmware by `src/rx.cmake` and in the host suite by `test/rx.mk`.
+Its rcbench test, copied unchanged from rcbench `test/host/test_sbus.c` into
+`test/rcbench/`, is `test_sbus.c`, 12 cases.
 rcbench's `README.md` and `CMakeLists.txt` of the module are not copied:
 this repository lists its sources in its own `.cmake` and `.mk` files.
 `sbus.h` cites `(NOTICE, "Trademarks")`: that NOTICE file is rcbench's, and
