@@ -22,16 +22,20 @@ with a backup on the SD (Secure Digital) card first.
 > **boots** with a servo on the ESC pin, and when you leave this screen. The
 > screen asks you to unplug the servo first.
 
-The screen does not switch the servo's supply. You power the servo up and down
-by hand, with a plug or a switch. See [Limitations](#limitations).
+With **SETTINGS → SERVO SUPPLY** at `NONE`, the default, you power the servo
+up and down by hand, with a plug or a switch. With `GP28` or `GP29` the bench
+switches the servo's supply through a DC-DC (direct current to direct
+current) converter: see [Switched supply](#switched-supply).
 
 ---
 
 ## Wiring
 
 The servo needs its own supply. The board supplies the signal and ground only.
-The servo answers only in the first moments after its supply comes on, so the
-supply has to be switchable by hand: a plug, or a switch in its positive lead.
+The servo answers only in the first moments after its supply comes on, so
+with SERVO SUPPLY at `NONE` the supply has to be switchable by hand: a plug,
+or a switch in its positive lead. With `GP28` or `GP29` the bench switches it:
+see [Switched supply](#switched-supply).
 
 ```
   servo supply, 5 V
@@ -43,6 +47,10 @@ supply has to be switchable by hand: a plug, or a switch in its positive lead.
 
   SIG GP0 = J4 pin 9 or J5 pin 2, GND = J4 pin 1 or 5, or J5 pin 4
 ```
+
+> **Never connect a servo lead straight across to J5.** J5 pin 3 is the
+> board's 3.3 V supply, in the place of a servo plug's plus: see
+> [Setup](Setup#the-adapter-cable).
 
 - The owner programs every KST servo, HV (high-voltage) servos included, at
   5 V. Other voltages are not tested.

@@ -11,7 +11,7 @@ and installing the firmware. [First Run](First-Run) continues from there.
 
 | Part | For | Notes |
 |---|---|---|
-| Waveshare RP2350-Touch-LCD-2.8 | everything | The firmware runs on this board only |
+| Waveshare RP2350-Touch-LCD-2.8 | everything | The firmware runs on this board only. It does not check which board it runs on: flashed onto another board, it can drive pins that are wired to other parts there |
 | USB-C cable (USB: Universal Serial Bus) | power, installing the firmware | A cable with data wires |
 | JST-SH 1.0 mm cable, 4 pins | connector J5: signal and ground | Open wire ends on one side. Whether the board's box holds one is not checked |
 | Servo extension lead, or a 3-pin header | the plug of the ESC (electronic speed controller) or servo | See [The adapter cable](#the-adapter-cable) |
@@ -41,7 +41,14 @@ joins J5 to a servo plug:
 | 2 | SIG (GP0) | the signal wire: orange or white |
 | 4 | GND (ground) | the minus wire: brown or black |
 | 1 | AUX (GP1) | optional: the telemetry wire of an ESC with KISS telemetry, a serial ESC telemetry protocol, or the signal of a second servo |
-| 3 | 3.3 V | nothing. Cut it short and insulate it |
+| 3 | 3.3 V | nothing, ever. Cut it short and insulate it |
+
+> **Warning: never connect a servo or ESC lead straight across to J5.**
+> J5 pins 2, 3 and 4 are SIG, 3.3 V and GND: the same order as a servo plug,
+> signal, plus and minus. Pin 3 is the board's 3.3 V supply. Joined straight
+> across, it gets the ESC's BEC (battery eliminator circuit) output, +5 V, or
+> the servo's supply, 4.8 V to 6.0 V or 8.4 V for a high-voltage servo, and
+> that can destroy the board. Leave J5 pin 3 unconnected.
 
 GP0 and GP1 are the board's GPIO 0 and 1 (general-purpose input/output
 pins). Joining the wires takes a soldering iron and heat-shrink tube, or

@@ -16,15 +16,25 @@ Platine mit leerem Flash; beide lassen sich unter **MENU → SETTINGS** ändern.
 
 | Teil | Was er zeigt | Details |
 |---|---|---|
-| Steckverbinder der Platine | J5, J4 und J3, jeder Pin mit seiner Aufgabe. J4 Pin 7 und 8 und J3 Pin 1 und 2 sind der gemeinsame I2C-Bus (Inter-Integrated Circuit) des Touch-Controllers: nicht benutzen | |
+| Steckverbinder der Platine | J5, J4 und J3, jeder Pin mit seiner Aufgabe. J4 Pin 7 und 8 und J3 Pin 1 und 2 sind der I2C-Bus (Inter-Integrated Circuit), den Touch-Controller (0x1A), IMU (Inertial Measurement Unit, Inertialsensor, 0x6B) und RTC (Real-Time Clock, Echtzeituhr, 0x51) teilen. Der optionale INA219-Stromsensor, auf 0x40, an J3, ist das einzige Teil, das dort angeschlossen wird: [Servotester](Servotester#strom) | |
 | A | Ein ESC (Electronic Speed Controller, Motorregler): Signal an SIG, Masse an GND, das optionale KISS-Telemetriekabel an AUX. Die mittlere Ader des ESC-Kabels, die BEC-Ausgangsspannung (Battery Eliminator Circuit) von +5 V, ist durchtrennt | [Erste Schritte](Erste-Schritte#esc-anschließen), [Telemetrie](Telemetrie#das-optionale-dritte-kabel) |
 | B | Ein Servo an seiner eigenen Versorgung, mit einem Schalter in der Plusleitung. Das zweite Servo des Servotesters kommt an AUX | [Servotester](Servotester#verkabelung), [KST-Programmierung](KST-Programmierung#verkabelung), [Hitec-Programmierung](Hitec-Programmierung#verkabelung) |
 | C | Ein Servo an einem DC-DC-Wandler (Gleichspannungswandler), den der Prüfstand schaltet: sein Enable-Eingang (EN) an GP28 (J4 Pin 11) oder GP29 (J4 Pin 12), mit einem Pull-down von EN nach GND am Wandler. SIG, EN und GND kommen alle von J4. **MENU → SETTINGS → SERVO SUPPLY** auf den benutzten Pin stellen | [KST-Programmierung](KST-Programmierung#geschaltete-versorgung), [Hitec-Programmierung](Hitec-Programmierung#geschaltete-versorgung) |
 
 > **Die mittlere Ader eines Servos oder ESC nie an einen Pin der
 > Steckverbinder legen.** J4 Pin 2 ist die 5-V-USB-Spannung (Universal Serial
-> Bus) der Platine und versorgt kein Servo und keinen ESC; die 3,3-V-Pins
+> Bus) der Platine und versorgt kein Servo und keinen ESC. Die 3,3 V an J3
+> versorgen den optionalen INA219-Stromsensor
+> ([Servotester](Servotester#strom)); die anderen 3,3-V-Pins
 > bleiben frei.
+
+> **Warnung: Ein Servo- oder ESC-Kabel nie 1:1 an J5 anschließen.**
+> J5 Pin 2, 3 und 4 sind SIG, 3,3 V und GND: dieselbe Reihenfolge wie bei
+> einem Servostecker, Signal, Plus und Minus. Pin 3 ist die 3,3-V-Versorgung
+> der Platine. 1:1 verbunden, bekommt er die BEC-Ausgangsspannung
+> (Battery Eliminator Circuit) des ESC, +5 V, oder die Versorgung des Servos,
+> 4,8 V bis 6,0 V oder 8,4 V für ein Hochvolt-Servo, und das kann die Platine
+> zerstören. J5 Pin 3 bleibt frei.
 
 **Der Pull-down.** Er sitzt am Wandler, von EN nach GND, damit EN low bleibt,
 wenn das EN-Kabel an einem Steckverbinder abgeht.

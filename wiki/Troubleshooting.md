@@ -29,15 +29,19 @@ it as described under [Still stuck](#still-stuck).
 Nothing answers on the signal wire, and the chip under the title on the
 `MENU` screen reads `NO ESC`. Check in this order:
 
-1. **Wrong pin.** Compare **MENU → SETTINGS → ESC PIN** with where the wire is.
+1. **The ESC has not been power-cycled since AM32 CONFIG.** Leaving that
+   screen sends the bootloader no command to start the ESC firmware, and
+   what the ESC does then is not recorded. Power-cycle the ESC before you
+   test it: [AM32 Configuration](AM32-Configuration#leaving).
+2. **Wrong pin.** Compare **MENU → SETTINGS → ESC PIN** with where the wire is.
    The `LINK` row on that screen is live. A packet rate above zero means the
    pin is correct.
-2. **No common ground.** The ESC ground and the board ground must be
+3. **No common ground.** The ESC ground and the board ground must be
    connected.
-3. **The ESC has no power.** It runs from its own battery, not from the board.
-4. **The ESC does not support bidirectional DShot**, or it is disabled in the
+4. **The ESC has no power.** It runs from its own battery, not from the board.
+5. **The ESC does not support bidirectional DShot**, or it is disabled in the
    ESC's settings. Unidirectional DShot sends nothing back.
-5. **The wire is too long or picks up noise.** Set **DSHOT KBAUD** to 300 and
+6. **The wire is too long or picks up noise.** Set **DSHOT KBAUD** to 300 and
    watch `LINK`.
 
 ---
@@ -107,6 +111,19 @@ Three interlocks stop the motor, and each one shows on screen:
 
 If the motor stops without any of these, check the ESC's own protections (low
 voltage cutoff, temperature, desync), and look at `ESC STATUS` and `ESC TEMP`.
+
+---
+
+## `ESC STATUS` reads `WARN`, `ERROR` or `ALERT`
+
+The tile is amber for `WARN`, red for `ERROR` and magenta for `ALERT`. The
+ESC sends the status over EDT; the ESC firmware defines what each one means.
+
+1. **Disarm.** Press `DISARM`.
+2. **Let the ESC cool.**
+3. **Read `ESC TEMP` and `CURRENT`.** `ESC TEMP` turns red at 90 °C.
+4. Look the status up in the ESC firmware's documentation before you arm
+   again. See [Telemetry](Telemetry#the-tiles).
 
 ---
 

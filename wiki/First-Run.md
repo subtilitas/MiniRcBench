@@ -52,6 +52,13 @@ later under **MENU → SETTINGS**, and the setting is stored in flash.
 > the signal pins, tolerate 5.5 V while the board is powered and 3.63 V
 > while it is off. The tester needs signal and ground only.
 
+> **Warning: never connect a servo or ESC lead straight across to J5.**
+> J5 pins 2, 3 and 4 are SIG, 3.3 V and GND: the same order as a servo plug,
+> signal, plus and minus. Pin 3 is the board's 3.3 V supply. Joined straight
+> across, it gets the ESC's BEC (battery eliminator circuit) output, +5 V, or
+> the servo's supply, 4.8 V to 6.0 V or 8.4 V for a high-voltage servo, and
+> that can destroy the board. Leave J5 pin 3 unconnected.
+
 Keep the signal wire short. The maximum working length is not measured. If the
 `LINK` error rate rises, set **DSHOT KBAUD** to 300 under **MENU → SETTINGS**.
 

@@ -183,9 +183,11 @@ Under the list, these stay in place:
 
 **Changes apply at once. Only storing them needs the hold.** A new bitrate
 rebuilds the DShot driver before the next frame. `HOLD TO SAVE` for 1 s writes
-to flash. `RESET` loads the compiled defaults, the pole count and the throttle
-ceiling included, into the live settings only. Leaving without saving keeps
-flash unchanged.
+to flash. One tap on `RESET` replaces the live settings with the compiled
+defaults, the pole count and the throttle ceiling included; flash is
+untouched. Leaving the screen keeps the defaults in use. The saved values
+load only when the board starts, so restarting the board without
+`HOLD TO SAVE` returns to them.
 
 **LAST RESTART.** The firmware reads the reason once, when it starts. A
 board that restarts on its own while a motor spins and then reads

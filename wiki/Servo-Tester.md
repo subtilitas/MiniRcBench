@@ -37,6 +37,10 @@ The servo needs its own supply. The board supplies the signal and ground only.
   GND = J4 pin 1 or 5, or J5 pin 4
 ```
 
+> **Never connect a servo lead straight across to J5.** J5 pin 3 is the
+> board's 3.3 V supply, in the place of a servo plug's plus: see
+> [Setup](Setup#the-adapter-cable).
+
 - The servo's middle wire goes to its supply, never to a pin of the board.
   The board's 5 V pin is its USB supply, and a servo can draw more than 1 A.
 - Switch the board on before the servo supply, and the servo supply off
