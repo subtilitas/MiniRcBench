@@ -608,15 +608,19 @@ static void drawRpm() {
 	gfxText(10, 102, buf, alive ? C_DIM : C_AMBER, 1);
 
 	// The bottom row. A 3D-mode ESC's note takes all of it, armed or not,
-	// with the pad engaged or not: the pole count and the swipe hint give
-	// way, the ERPM line above, and NO TELEMETRY on it, stay.
-	if (esc3d) {
+	// while the pad is not engaged: the pole count and the swipe hint give
+	// way, the ERPM line above, and NO TELEMETRY on it, stay. While a drag is
+	// engaged SWIPE ACTIVE takes the row alone, since it is the only sign the
+	// drag took hold (below); the note returns on release.
+	if (esc3d && !s_padEngaged) {
 		gfxText(TESTER_NOTE_X, TESTER_NOTE_Y, AM32_UI_TESTER_3D, C_AMBER, 1);
 		return;
 	}
 
-	snprintf(buf, sizeof(buf), "%dP", s_poles);
-	gfxText(10, TESTER_NOTE_Y, buf, C_DIM, 1);
+	if (!esc3d) {
+		snprintf(buf, sizeof(buf), "%dP", s_poles);
+		gfxText(10, TESTER_NOTE_Y, buf, C_DIM, 1);
+	}
 
 	// Tell the user this whole region is a throttle pad -- a relative control
 	// with no visible handle is invisible otherwise.

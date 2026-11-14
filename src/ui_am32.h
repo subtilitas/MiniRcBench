@@ -124,7 +124,8 @@ bool uiAm32RunCue(uint32_t lastRpmMs);
 /**
  * @brief The tester's note while @ref uiAm32Esc3d() is true: 35 characters,
  *        209 px at scale 1, amber, on the RPM area's bottom row (y 114) in
- *        place of the pole count and the swipe hint.
+ *        place of the pole count and the swipe hint, except while a drag on
+ *        the pad is engaged: SWIPE ACTIVE takes the row then.
  */
 #define AM32_UI_TESTER_3D "3D MODE ESC: THROTTLE SCALE DIFFERS"
 
