@@ -212,14 +212,14 @@ record either way.
 | --- | --- | --- |
 | DShot driver in `src/dshot/` (from rcbench 453cf334): frame, reply decode, three-state poll, RP2350 pin driver | frame and checksum, throttle map, line and group code, sampler against clock error, extended telemetry schedule against an AM32 model, three-state poll and the counters it feeds; the pin driver is compiled only | not tested on hardware in MiniRcBench. rcbench ran it at bidirectional DShot600 on one AM32 2.21 ESC (Skystars 35A); other rates and ESC firmwares are untested |
 | Bidirectional DShot throttle, eRPM and RPM readout | core1 frame decision, throttle and arming interlocks, HOLD TO ARM timing only a press that landed while arming was allowed, RPM smoothing | hardware-tested (owner report) with `pico-bidir-dshot`, the driver before `src/dshot/`; the owner has found no bug since DshotDisplay v2.3, and issue #1 is a separate, unreproduced report; the HOLD TO ARM press rule is not tested on hardware |
-| The tester's and the servo tester's stop on a touch that does not answer (`touchFailedReads()`, `uiTouchLost()`, `TOUCH_LOST_MS`) | against a touch fake that stops answering, with the finger reported up or kept down: a latched throttle kept armed for 1, 2 and 3 failed reads and disarmed on the 4th, also after a 150 ms stall, and kept armed for 9 failed reads 10 ms apart and disarmed at 100 ms; HOLD off; HOLD TO ARM refused, with no arm even for a frame, and drawn disabled while lost; the note in the swipe hint's place with NO TELEMETRY kept, gone on an answer with the tester still disarmed; the servo tester stopped sweeping and holding a position on SET, its note, HOLD TO START refused, with no pulse written, and disabled; the real driver against the CST328 model: the answer's time frozen at the last ACK while it NACKs, failures counted, a wrong-ID probe recording none | not tested on hardware; open item 21 |
-| The splash's `TOUCH CONTROLLER NOT FOUND` (`touchLastAnswer()` in `src/cst328.cpp`, `uiSplashTick()`) and the BOARD voltage's colour (`uiBoardCell()`) | against a touch fake that stops answering: the splash line at boot without an answer, kept while none comes, cleared by one; a finger on the glass from the splash on presses nothing on the tester until lifted; each band edge, the centivolt rounding at 3.50 V and 3.30 V, the 50 mV hysteresis, the text colour below 2.50 V and at 0 V, drawn through the ADC fake | not tested on hardware; open item 21 |
+| The tester's and the servo tester's stop on a touch that does not answer (`touchFailedReads()`, `uiTouchLost()`, `TOUCH_LOST_MS`) | against a touch fake that stops answering, with the finger reported up or kept down: a latched throttle kept armed for 1, 2 and 3 failed reads and disarmed on the 4th, also after a 150 ms stall, and kept armed for 9 failed reads 10 ms apart and disarmed at 100 ms; HOLD off; HOLD TO ARM refused, with no arm even for a frame, and drawn disabled while lost; the note in the swipe hint's place with NO TELEMETRY kept, gone on an answer with the tester still disarmed; the servo tester stopped sweeping and holding a position on SET, its note, HOLD TO START refused, with no pulse written, and disabled; the real driver against the CST328 model: the answer's time frozen at the last ACK while it NACKs, failures counted, a wrong-ID probe recording none | not tested on hardware; open item 22 |
+| The splash's `TOUCH CONTROLLER NOT FOUND` (`touchAnswered()` in `src/cst328.cpp`, `uiSplashTick()`) and the BOARD voltage's colour (`uiBoardCell()`) | against a touch fake that stops answering: the splash line at boot without an answer, kept while none comes, cleared by one; a finger on the glass from the splash on does not arm, and its lift completes a tap on MENU; the real driver against the CST328 model: a probe with another ID records no answer, a finger read that completes records one, `touchInit()` starts the record again; each band edge, the centivolt rounding at 3.50 V and 3.30 V, the 50 mV hysteresis, the text colour below 2.50 V and at 0 V and red again from 2.55 V, drawn through the ADC fake; IDLE's countdown in amber in place of an amber voltage | not tested on hardware; open item 22 |
 | EDT telemetry, automatic enable, expiry | merge, expiry, enable rule, decode of each frame type; enable at pump start and decode with EDT on against a simulated ESC, with and without EDT | hardware-tested (owner report) with `pico-bidir-dshot`; the enable at pump start and the decode of every reply with EDT on are not tested on hardware |
 | KISS telemetry: request, PIO receiver, decode, merge, KISS/EDT tags | CRC, decode, resynchronisation, request payload, merge; the PIO receiver is typechecked only | hardware-tested (owner report) with `pico-bidir-dshot`; see below |
 | DShot bitrate label in the status bar, `DSERR` | label at each bitrate, colour, `DSERR` | not recorded |
 | SDIO card driver in `src/sdio/`: protocol, PIO and DMA bus, library callbacks | CRC7 and CRC16 against the specification's examples, command framing, response parsing, CSD (card-specific data register), four-bit packing, CRC status token; initialisation, reads and writes against a simulated card (standard capacity SDSC v1 and v2, high capacity SDHC, no card, voltage mismatch, timeouts, removal); the two PIO programs run in a cycle-level model against a card model (`test/pio_sdio_emu.py`: CMD0, R1, R2, single and multiple block reads, CMD12, a write and its CRC status token, at 400 kHz, 10 MHz and 25 MHz), a model and not proof of hardware timing; the bus code in `sd_pio.c` is compiled only, and the model's host side follows it by hand | not tested on hardware; open item 6 lists the bench tests |
-| Blackbox logging to SD, MENU → SD LOG screen | encoder, ring buffer, round trip through `blackbox_decode`, screen states | hardware use recorded with the previous SDIO driver on the 2.8" board; see below |
-| USB card reader (read-only mass storage) | handover state machine, screen | not recorded |
+| Blackbox logging to SD, MENU → SD LOG screen | encoder, ring buffer, round trip through `blackbox_decode`, screen states; how a log ended (`sdLogWriteEnd()`: a short write with `FR_OK` is a full card, any error a failed write), each end's two note lines and their colour, a USB DRIVE refusal ahead of them, START clearing them, a mount clearing a card fault and keeping a tool's stop (`sdLogMountForget()`), a mount hint under a tool's stop, a mount resetting FILE and the counters beside it, AM32 CONFIG's, KST SERVO's and HITEC SERVO's claims recording the stop, the FILE row's `(LAST)`, `SDERR` on an amber chip while armed, against the fake logger: the clearing and the recording in `sd_log.cpp` are typechecked only | hardware use recorded with the previous SDIO driver on the 2.8" board; see below |
+| USB card reader (read-only mass storage) | handover state machine, screen; `src/usb_msc.cpp` itself in `test/test_usb_msc_cb.cpp`: `tud_umount_cb()` while serving reclaims the card as an eject does, nothing while idle | not recorded. On the TinyUSB 0.18.0 port a pulled cable reaches the firmware as a suspend, which is not handled (open item 20) |
 | AM32 settings editor over the signal wire (AM32 is an open-source ESC firmware) | init string, CRC-16/ARC, 39-field codec, timing advance encodings, write interlock; PROTOCOL zero-based as AM32's `enum inputType`, TEMP LIMIT and CURRENT LIMIT `OFF` where AM32 applies no limit, `3D MODE` at byte 0x12; LOW VOLT CUTOFF, PWM TYPE and BRAKE ON STOP as three values with the third gated by firmware and an unedited byte written back as read; KV, MAX RAMP, MIN DUTY, ABS VOLT CUT and ACTIVE BRAKE on AM32's scales; the strip's notes for 3D MODE, a protection off and a PROTOCOL without DShot, the next step under a write that is not verified, the connect page's lines for a reply it cannot parse and for `NO VALID SETTINGS`, MENU's `POWER-CYCLE THE ESC TO RUN IT` until an eRPM frame after the handshake (`testAm32Guidance()`); the firmware gates (ABSOLUTE from 2.21, the 200 A limit from 2.21, PWM FREQ above 48 kHz from 2.19), the PROTOCOL note for 2 to 9 (EDT ARM included: a zero frame relocks it), layouts 1 and 5 and up refused, bytes 0x2A to 0x2D listed from 1.80, 0x2E from 1.94, 0x2F from 2.16 with a note below 1.80 (AlkaMotors commits 9909ea7, f917c01, aa590e8), ADVANCE in 0..3 below 2.19, every row tapped on 14 firmware versions and three layouts, a stored number outside the firmware's range read as the byte, every field over all 256 bytes on eight firmware versions against a literal table of ranges, arbitrary blocks written back through the screen; the facts behind them read from AM32's source (am32-firmware/AM32 tags v2.05, v2.16, v2.18 to v2.22 and `main` 077b6a4; the configurator at 06955fe; AlkaMotors/AM32-MultiRotor-ESC-firmware tags v1.77 to v2.01), not measured; the screen on the pin claim, the latched GPIO, the drain before the handover; the list on `ui_list` and the swipe of 16 px per coarse step; the backup before the first write (`src/am32_backup.*`): its text and checksum, `BACKUP/AM001.TXT` holding the settings as read at entry, a card that refuses it stopping the write, no second backup in a session | hardware use recorded: ab79c67, bd90e17, both before the screen moved onto the pin claim; the claim and its drain, the swipe of 16 px per coarse step and the backup: not tested on hardware |
 | Device backups: the ring of `BACKUP/` (`src/backup_ring.*`), the card calls and the directory scope (`src/card_dir.*`); [backups.md](docs/design/backups.md) | the ring's rules, saves of two devices, a rename under another device's number, the list of one device, gaps, no marker, directories and names outside the ring, refusals, no card and a USB-held card (`runBackupTests`); the card phases over FatFs R0.15 itself (`make -C test kstcount`) | not tested on hardware |
 | Blackbox logs in `LOGS/` (`SD_LOG_DIR_PATH`) | none: `sd_log.cpp` is typechecked only | not tested on hardware |
@@ -228,9 +228,9 @@ record either way.
 | MENU layout (`src/ui_menu.cpp`, `src/ui_registry.cpp`): BEEP THE ESC, AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO, SETTINGS and SD LOG as 40 px rows, scrolled 36 px to reach SD LOG | every registry entry opens and BACK returns to MENU; opening MENU disarms; BEEP's flash and refusal on its row; `PINS BUSY` while the claim restores and a tap on it opens nothing; six rows do not scroll and seven scroll 36 px; SETTINGS, the sixth row, is whole and takes a tap at 0 px, and SD LOG, the seventh, is cut until MENU is dragged; the UNSAVED status shows on MENU at 0 px after leaving SETTINGS; the label and status fit check at build time | not recorded |
 | Servo tester: the pure model (`src/servo_model.*`), the PWM driver (`src/servo_pwm.*`), the core1 job (`src/servo_job.*`), the slider and the screens (`src/ui_slider.*`, `src/ui_servo.cpp`); rcbench's sweep and PWM fold in `lib/rcbench/` | profiles, limits at their boundaries, steppers to their stops, command, angle and pulse mappings, SPEED, the dial's hit area; the PWM driver's bind, write, release and sharing rules against a register fake; SAFE at level 0, CENTRE at START, STOP on the next pass, the slew, sweeps, REVERSE B, the trip at 250 ms across a millis() wrap, kept across a rebind, the profile rebind; no pulse cut short at a release or a rebind, against a model of the counter and the latched compare; released pins pulled down; the screens through the UI: HOLD TO START at 1000 ms, the drag rules, the SET warning and HOLD TO APPLY, the end-stop note and its place among SET's notes, STOP on SET, the AUX refusals through the claim, the unplug page; rcbench's own sweep and fold tests; the SDK calls are run against the fake only | not tested on hardware; open item 9 |
 | KST programming: rcbench's session, line driver and file store (`lib/rcbench/`), the search (`src/kst_seek.*`), the core1 job (`src/kst_job.*`) and its line (`src/kst_line_port.*`), the files on the card (`src/kst_files.*`), the screen (`src/ui_kst.cpp`, `src/kst_view.*`) | rcbench's seven tests, 298 cases, the line's PIO program among them in a model (`test_kst_pio.c`); the search and the job against rcbench's simulated servo, the files against an in-memory FAT (File Allocation Table) volume, the backup in `BACKUP/` and SAVE AS in `KST/` up to 50 files among them, the card phases' block counts over FatFs R0.15 itself (`make -C test kstcount`), the screen through MENU against both (`runKstTests`); the line driver and `kst_line_port.cpp` are built by the firmware and typechecked only | not recorded: no frame of the line driver has been on a pin (`kst_line.h`) |
-| SETTINGS layout (`src/ui_settings.cpp`): sections ESC TESTER, WIRING, SERVO SUPPLY, DISPLAY, BOARD and DIAGNOSTICS in one scrolling list | the scroll range, 0 px at opening and 620 px at most; each row by id; no scroll from a press on a control; a cut control takes a press only while 40 px show; HOLD TO SAVE in place at every scroll position and saving at the end of the list; the pole count reaches the eRPM divisor, the ceiling steps by 5 %, and RESET restores both | not recorded |
+| SETTINGS layout (`src/ui_settings.cpp`): sections ESC TESTER, WIRING, SERVO SUPPLY, DISPLAY, BOARD and DIAGNOSTICS in one scrolling list | the scroll range, 0 px at opening and 620 px at most, 632 px while the ESC pin's warning shows; each row by id; no scroll from a press on a control; a cut control takes a press only while 40 px show; HOLD TO SAVE in place at every scroll position and saving at the end of the list; the pole count reaches the eRPM divisor, the ceiling steps by 5 %, and RESET restores both | not recorded |
 | Restart reason and uptime (`src/diag.*`), SETTINGS → DIAGNOSTICS: LAST RESTART and UPTIME; [diagnostics.md](docs/design/diagnostics.md) | the decoding of every CHIP_RESET flag alone and in pairs, the flags of resets that leave the power manager alone before those that reset it (POR and GLITCH read GLITCH), the watchdog before them: enable caused, REASON with a flash update boot (UPDATE) and with any other boot type or an error (REBOOT); every text within 10 characters; the capture through fakes of `powman_hw->chip_reset`, `watchdog_hw->reason`, `watchdog_enable_caused_reboot()` and `rom_get_last_boot_type()`; the uptime's text up to 1193046:28:15; the rows' place, text and each reason's colour, no control on either, UPTIME repainted once a second while it shows, not within the second and not while scrolled out; the SDK bit values held by `static_assert` in the firmware build | not tested on hardware; open item 17. No watchdog is armed, so `WATCHDOG` cannot appear |
-| Settings in flash (MENU → SETTINGS) | block validation, CRC, board id check, pin defaults on GP0 and GP1 and not GP28 or GP29, the version 5 block layout with CURRENT SENSE at byte 13, a version 4 and a version 3 block discarded, the servo supply clamp at 2, the current sensor clamp at 1 | not recorded; 46a64a7 states no hardware coverage |
+| Settings in flash (MENU → SETTINGS) | block validation, CRC, board id check, pin defaults on GP0 and GP1 and not GP28 or GP29, the version 5 block layout with CURRENT SENSE at byte 13, a version 4 and a version 3 block discarded, the servo supply clamp at 2, the current sensor clamp at 1; a reset by an update (`settingsResetByUpdate()`) for versions 2, 3, 4 and 6, not for blank flash, a bad CRC, a wrong size of this version or a payload over `SETTINGS_OTHER_MAX`, its CRC at the next 4-byte boundary, ended by a save that lands and not by one the flash refuses; the splash's two lines, `UPDATED` on MENU and the note line; the ESC pin's warning in SETTINGS against the boot pin, on its own line at y 230 beside UNSAVED, SAVED, SAVE FAILED and DEFAULTS LOADED, the list ending at y 227 and scrolling 632 px while it shows | not recorded; 46a64a7 states no hardware coverage |
 | KST switched servo supply with its enable on GP28 or GP29 (`src/servo_supply.*`), the SERVO SUPPLY row, the switched search, REBOOT, the close rule, the lapse rule and the card phase (`src/kst_seek.*`, `src/kst_job.*`, `src/ui_kst.cpp`, `sdh_wait_hook` in `src/sdio/sd_host.h`) | the enable pin untouched with `NONE` from boot; with `GP28` or `GP29` an undriven input (SIO, output off, pulls off, input off) at boot and at every SETTINGS change, a change from GP28 to GP29 switching only GP29; low at bind, high and low between bind and release, an undriven input after release; the mode to pin map; the row stepped NONE, GP28, GP29, applied at once, saved and reset; against a model of the converter and a servo with a power-on window (`test/kst_supply_sim.h`): found on the first power-up, 14 power-ups and the timeout, off 2000 ms before every switch-on, the entry delay at -40 ms and +300 ms, a stop, a lapse and the timeout in a wait, REBOOT's 2000 ms off and 1000 ms on, refused while busy and without a switch, a lapse in the mode, during an operation and in REBOOT's off wait, the close 2000 ms after the switch-off, time off before a leave counted, the enable pin untouched with `NONE`; the screens: the switched search, the leave page and HOLD TO REBOOT, the unplug page's wait, the stalled screen and RETRY; the card phase: `CardBegin` and `CardEnd` in each job state, stamps holding the supply on for 900 ms and off 250 ms after the last, the 15,000 ms cap at 14,900 and 15,100 ms, closed by a command and by LEAVE, the first write's 300 ms card calls inside a phase with and without stamps, the hook null with `NONE`, the busy wait calling the hook | not tested on hardware |
 | Hitec programming: rcbench's Hitec session, register model and line driver (`lib/rcbench/`), the core1 job (`src/hitec_job.*`) and its line (`src/hitec_line_port.*`), the files on the card (`src/hitec_files.*`), the HITEC SERVO screen (`src/ui_hitec.*`, `src/hitec_view.*`) | rcbench's 115 cases; the job against a simulated servo (`runHitecTests`); the deepest stack chain of the job on the Cortex-M33 checked in CI against 1,792 bytes; the files against an in-memory volume and the card phases' block counts over FatFs R0.15 (`make -C test kstcount`); the screen through MENU by control id | not tested on hardware; CLASSIC needs SERVO SUPPLY at GP28 or GP29; the classic line voltage not measured |
 | INA219 current sensor on J3, the shared I2C1 bus (`src/sense.*`, slice 1 of [current-sense.md](docs/design/current-sense.md)): the codec, the probe, the reading on core0 after the touch read, the read-back, the recovery, the `SenseSample` published for core1, which slices 3 and 4 read (nothing on core1 reads it yet); rcbench's `sense_bus.c` (5ef42efd) in `lib/rcbench/shared/sense/`; the touch driver's transfers noted; SETTINGS → CURRENT SENSE; the readout on SERVO TESTER, KST SERVO and HITEC SERVO | against an I2C fake with an INA219 and a CST328 model (`test/fake_i2c.*`, `runSenseTests`): 19EFh written at the probe, the shunt code to µA on 0.1 Ω at ±1, ±31999, ±32000 and beyond, the bus code to mV, the clip, a negative current; 399Fh and 19EFh accepted as an INA219, 4127h, 7127h and any other value as another part read every second, nothing but the register pointer written to it over 3000 ms, an INA219 put in its place found, FFFFh as none, a refused set-up; absent and probed again 1000 ms on, not 999 ms; three NACKs to offline, two timeouts to stuck, a held SDA, a recovery at once and every 100 ms, a part freed by its clocks, touch transfers noted, a touch abort with SDA held as a line low and the recovery run, a short count through the wire; the read-back once a second, a power-on reset found within two, the reset flag; 220 clocks for the probe, 96 for a reading, 84 for touch; the worst bus time of a frame in each failure mode and with one timeout after each count of transfers that answer, with timeouts moving the clock: the sensor at most 1480 µs, the probe's last data read timing out (1335 µs with the 19EFh write timing out, 1290 µs in a frame with the read-back, 1170 µs in a reading), touch at most 2073 µs, its data read timing out; a read's abort with SDA low for the block's own STOP a NACK, not a line held low; the recovery's START and STOP; the sample's 250 ms age, not at 249 ms, across a `millis()` wrap; the readout's texts and widths; touch read every frame with the sensor present, absent and failing; the SETTINGS row by id, saved, reset, nothing sent to 0x40 with NONE; the readout on the three screens | not tested on hardware: no INA219 has been on the board's bus; open item 16 |
@@ -476,14 +476,32 @@ Menu structure B waits on the owner's answers, not on the bench (item 18).
       fault log": 7, before a fault log is built.
 
     The design questions of item 5 are not addressed to the owner.
-20. **Two owner decisions from the safety and usability audit.**
+20. **Card and log questions open to the owner**, from the usability audit
+    of 2026-11-14, none decided:
+    - **A KST or Hitec write with no card.** The write goes through with the
+      only copy of the servo's old values in memory, lost at LEAVE, REBOOT
+      (KST) or a power loss; the write page says so in amber. Allow it as
+      now, ask for a second hold, or refuse it as AM32 CONFIG does
+      (`NO BACKUP ON THE CARD: NOT WRITTEN`).
+    - **Log numbering.** A new log takes the lowest unused number in `LOGS/`,
+      so after a file is deleted on a computer the highest number is not the
+      newest log, and the board sets no clock for the file dates. Number new
+      logs after the highest existing file instead.
+    - Not a question, recorded here: a USB cable pulled with the board on its
+      battery leaves the card with the host. TinyUSB 0.18.0's RP2040 port
+      (`FORCE_VBUS_DETECT` 1 in `dcd_rp2040.c`) reports the pull as a bus
+      suspend, the same event a sleeping host sends, and never calls
+      `tud_umount_cb()` for it. A suspend is not handled; EJECT on SD LOG
+      takes the card back. Whether this board has a VBUS sense line that
+      could tell the two apart is not verified.
+21. **Two owner decisions.**
     - Whether a KST, Hitec or AM32 write is refused, or only warned about,
       while the BOARD voltage is amber or red. Today nothing is refused on
       it, and the reading with USB power alone is not measured.
     - Whether the tester disarms on a second contact, once the CST328's
       report with two fingers on the glass is measured. The driver reads
       finger 1 only.
-21. **The splash's touch line, the touch-loss stop and the BOARD colour on
+22. **The splash's touch line, the touch-loss stop and the BOARD colour on
     hardware.** All run in the host suite only. Not measured: what the
     divider on GP27 reads with USB power and no cell; the CST328's answers
     to its probe and its finger reads on a board whose controller is
@@ -528,21 +546,26 @@ Menu structure B waits on the owner's answers, not on the bench (item 18).
   changed default in `config.h` has no effect after reflashing. SETTINGS
   marks the whole block, not each row: while no change is pending, its note
   line reads `SAVED SETTINGS IN USE` or `COMPILED DEFAULTS IN USE`.
-- **Power loss during a log.** A log is readable up to its last directory
-  sync, so pulling power loses up to 2000 ms (`SD_LOG_SYNC_MS`). The file
-  keeps the 16 MiB `f_expand()` gave it, and after the written data holds
-  old card data; only a stop truncates it. The wiki tells the user to stop
-  the recording first.
-- **One finger.** The touch driver reads the first contact only. A second
-  finger is ignored while the first rests on the glass, so DISARM needs the
-  throttle finger lifted. What the CST328 reports with two contacts is not
-  measured (open item 20).
+- **Power loss during a log.** The size reaches the directory entry at
+  each sync, every 2000 ms (`SD_LOG_SYNC_MS`), the first 2000 ms after the
+  start. A log cut within its first 2 s reads 0 bytes. Cut later, with the
+  16 MiB run `f_expand()` reserved, it is 16 MiB long, holds what reached
+  the card, lagging by up to the 8192-byte ring, then old card data; only a
+  stop truncates it. Without the run, or past 16 MiB, its size is the one
+  at the last sync. From the code and FatFs, not measured; the wiki tells
+  the user to stop the recording first.
+- **One contact slot.** The touch driver reads the controller's first
+  contact slot only. Which contact the CST328 puts there with two on the
+  glass is not measured (open item 21), so the manual says to lift the
+  throttle finger before DISARM.
 - **Logs past the pre-allocation.** 16 MiB lasts about 38 minutes at
   7.3 kB/s. Past that, or when `f_expand()` finds no contiguous space, FatFs
   allocates clusters as the file grows. The stall that causes is not measured,
   and a failed pre-allocation is not reported.
 - **USB DRIVE.** Read-only. Refused while armed or recording, with the reason
-  shown for 4000 ms. Arming is refused while a host holds the card.
+  shown for 4000 ms. Arming is refused while a host holds the card. A cable
+  pulled with the board on its battery does not give the card back: EJECT
+  does (open item 20).
 - **Consumption.** KISS mAh (milliampere-hours) counts from ESC power-on, not
   from arming. EDT carries no consumption.
 - **Log field names.** `eRPM[0]` and `escTemperature[0]` follow Betaflight's
@@ -589,6 +612,11 @@ binary, `dshot_tests`. `test/test_main.cpp` runs twenty-four suites:
 | `runSdCacheTests` | `test_sd_cache.cpp` | the SD write cache over a fake card: the queue's order, a read of a queued sector, one swap check per batch, no command while busy, read cache hits and the oldest pushed out, a miss that waits for the block in flight, a full queue, retries, a failed block, a changed serial number, refusals with the cache off |
 | `runDiagTests` | `test_diag.cpp` | the restart reason's decoding from CHIP_RESET, the watchdog's REASON, the enable query and the boot type, its order, its texts' widths, the capture through the fakes, the uptime's text |
 | `runMenuTests` | `test_menu.cpp` | MENU, SETTINGS and the navigation through the real UI: SD LOG's BACK to MENU, every registry entry opened and left, MENU's disarm, BEEP's flash, `PINS BUSY` on AM32, SERVO and SETTINGS, MENU's scroll over registries of six and seven rows and its return at 0 px, SETTINGS whole at 0 px and SD LOG cut until dragged, every MENU status and SETTINGS value within its widest, the SETTINGS scroll range, each row by id, DIAGNOSTICS' LAST RESTART and UPTIME, a cut control under 40 px, HOLD TO SAVE and the UNSAVED note at every scroll position, RESET's `DEFAULTS LOADED - RESTART TO UNDO` note and what ends it, AM32's own wait beside another claim |
+
+`make run` also builds and runs `test/test_usb_msc_cb.cpp`, a program of
+its own that links the real `src/usb_msc.cpp` against stubs of the logger,
+the card and TinyUSB and drives its callbacks: the suite links a fake of that
+file's runtime half for the screens.
 
 `test/servo.mk`, `test/kst.mk`, `test/hitec.mk`, `test/rx.mk` and
 `test/sense.mk` list each feature's sources and test files for
@@ -677,7 +705,7 @@ model.
 | `src/blackbox_encode.cpp` | 113 | 113 | 100.0% |
 | `src/card_dir.cpp` | 96 | 96 | 100.0% |
 | `src/core1_job.cpp` | 70 | 70 | 100.0% |
-| `src/cst328.cpp` | 74 | 74 | 100.0% |
+| `src/cst328.cpp` | 66 | 66 | 100.0% |
 | `src/diag.cpp` | 31 | 31 | 100.0% |
 | `src/dshot/dshot_edt.c` | 33 | 33 | 100.0% |
 | `src/dshot/dshot_frame.c` | 25 | 25 | 100.0% |
@@ -685,7 +713,7 @@ model.
 | `src/esc_merge.cpp` | 44 | 44 | 100.0% |
 | `src/esc_task.h` | 157 | 157 | 100.0% |
 | `src/gfx.cpp` | 213 | 211 | 99.1% |
-| `src/hitec_files.cpp` | 248 | 236 | 95.2% |
+| `src/hitec_files.cpp` | 248 | 237 | 95.6% |
 | `src/hitec_job.cpp` | 382 | 372 | 97.4% |
 | `src/hitec_view.cpp` | 265 | 261 | 98.5% |
 | `src/kiss_telem.cpp` | 37 | 35 | 94.6% |
@@ -698,7 +726,7 @@ model.
 | `src/pin_claim.h` | 15 | 14 | 93.3% |
 | `src/plat.h` | 8 | 8 | 100.0% |
 | `src/rpm_filter.h` | 17 | 17 | 100.0% |
-| `src/sd_log.h` | 4 | 4 | 100.0% |
+| `src/sd_log.h` | 11 | 11 | 100.0% |
 | `src/sdio/sd_cache.c` | 132 | 129 | 97.7% |
 | `src/sdio/sd_host.c` | 214 | 214 | 100.0% |
 | `src/sdio/sd_proto.c` | 135 | 135 | 100.0% |
@@ -708,26 +736,26 @@ model.
 | `src/servo_model.cpp` | 194 | 194 | 100.0% |
 | `src/servo_pwm.cpp` | 55 | 55 | 100.0% |
 | `src/servo_supply.cpp` | 40 | 40 | 100.0% |
-| `src/settings.cpp` | 123 | 122 | 99.2% |
+| `src/settings.cpp` | 142 | 141 | 99.3% |
 | `src/theme.cpp` | 11 | 11 | 100.0% |
 | `src/touch.h` | 4 | 4 | 100.0% |
-| `src/ui.cpp` | 464 | 462 | 99.6% |
+| `src/ui.cpp` | 464 | 463 | 99.8% |
 | `src/ui_am32.cpp` | 378 | 373 | 98.7% |
-| `src/ui_hitec.cpp` | 1117 | 1049 | 93.9% |
+| `src/ui_hitec.cpp` | 1117 | 1050 | 94.0% |
 | `src/ui_hold.cpp` | 36 | 36 | 100.0% |
 | `src/ui_input.cpp` | 27 | 27 | 100.0% |
-| `src/ui_kst.cpp` | 1170 | 1117 | 95.5% |
+| `src/ui_kst.cpp` | 1170 | 1118 | 95.6% |
 | `src/ui_leave.cpp` | 64 | 64 | 100.0% |
 | `src/ui_list.cpp` | 139 | 139 | 100.0% |
 | `src/ui_menu.cpp` | 130 | 129 | 99.2% |
 | `src/ui_screen.h` | 5 | 5 | 100.0% |
-| `src/ui_sdlog.cpp` | 185 | 181 | 97.8% |
-| `src/ui_servo.cpp` | 572 | 571 | 99.8% |
-| `src/ui_settings.cpp` | 363 | 357 | 98.3% |
+| `src/ui_sdlog.cpp` | 216 | 212 | 98.1% |
+| `src/ui_servo.cpp` | 564 | 563 | 99.8% |
+| `src/ui_settings.cpp` | 383 | 377 | 98.4% |
 | `src/ui_slider.cpp` | 109 | 109 | 100.0% |
 | `src/ui_widgets.cpp` | 67 | 67 | 100.0% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **9493** | **9282** | **97.8%** |
+| **Total** | **9554** | **9347** | **97.8%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->

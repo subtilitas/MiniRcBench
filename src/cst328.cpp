@@ -76,18 +76,16 @@
 
 static bool s_prevDown = false;        /**< Contact state at the previous poll. */
 static bool s_answered = false;        /**< A read completed since touchInit(). */
-static uint32_t s_answerMs = 0;        /**< millis() at the last completed read. */
+static uint32_t s_answerMs = 0;        /**< millis() at the last answer. */
 
-/** @brief Record a completed read for touchLastAnswer(). */
+/** @brief Record an answer: for touchAnswered() and touchLastAnswerMs(). */
 static void noteAnswer() {
 	s_answered = true;
 	s_answerMs = millis();
 }
 
-bool touchLastAnswer(uint32_t *ms) {
-	if (s_answered) *ms = s_answerMs;
-	return s_answered;
-}
+bool touchAnswered() { return s_answered; }
+uint32_t touchLastAnswerMs() { return s_answerMs; }
 static int16_t s_downX = 0, s_downY = 0; /**< Where the current press started. */
 
 /**

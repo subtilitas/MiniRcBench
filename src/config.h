@@ -505,7 +505,7 @@
  * @ref IDLE_DISARM_MS.
  *
  * Not measured: whether the CST328 answers with no finger on the glass for
- * minutes (STATUS.md, open item 21).
+ * minutes (STATUS.md, open item 22).
  */
 #define TOUCH_LOST_READS       4
 
@@ -564,6 +564,8 @@
 /**
  * @brief How far above a threshold the reading has to rise before the
  *        colour goes back, mV, so that noise at a threshold does not flicker.
+ *        Also above @ref BOARD_CELL_IMPLAUSIBLE_MV, before a reading leaves
+ *        the text colour for red.
  */
 #define BOARD_CELL_HYST_MV     50
 /** @} */

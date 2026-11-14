@@ -87,11 +87,22 @@ liest die Frames als Impulse und fährt an ein Ende seines Wegs.
 
 <img src="img/splash.png" width="240" alt="Startbildschirm">
 
+Nach einem Firmware-Update, das den Aufbau der gespeicherten Einstellungen
+geändert hat, werden die gespeicherten Einstellungen verworfen, und jede
+Einstellung beginnt mit ihrer Voreinstellung. Der Startbildschirm zeigt dann
+über dem Namen zwei Zeilen in Bernstein: `SETTINGS RESET BY UPDATE` und
+`CHECK MENU > SETTINGS`. Prüfe mindestens Polzahl, `MAX THROTTLE`, `ESC PIN`,
+KISS, `SERVO SUPPLY` und `CURRENT SENSE` und halte dann `HOLD TO SAVE`. Bis
+ein Speichern gelingt, zeigt die Zeile SETTINGS in MENU `UPDATED`. Eine Platine,
+die nie Einstellungen gespeichert hatte, zeigt beides nicht.
+
+<img src="img/splash-reset.png" width="240" alt="Startbildschirm, nachdem ein Update die gespeicherten Einstellungen verworfen hat">
+
 Hat der Touch-Controller beim Einschalten nicht geantwortet, zeigt der
 Startbildschirm über dem Namen in Bernstein `TOUCH CONTROLLER NOT FOUND`. Die
 Zeile verschwindet, sobald der Controller antwortet. Steht sie noch, wenn der
-Tester erscheint, zeigt der Tester `TOUCH NOT ANSWERING` und lässt sich nicht
-scharf schalten; siehe [Die Bildschirme](Die-Bildschirme#der-tester).
+Tester erscheint, funktioniert die Berührung nicht; siehe
+[Fehlersuche](Fehlersuche#der-bildschirm-reagiert-nicht-auf-berührung).
 
 <img src="img/splash-no-touch.png" width="240" alt="Der Startbildschirm mit TOUCH CONTROLLER NOT FOUND in Bernstein über dem Namen">
 
@@ -131,17 +142,18 @@ entschärft, schaltet nicht wieder scharf, auch wenn der Finger liegen bleibt.
 Zum Scharfschalten braucht es einen neuen Druck, der auf der Schaltfläche
 beginnt.
 
-**Der Bildschirm liest einen Finger.** Die Firmware liest nur die erste
-Berührung, die der Touch-Controller meldet. Solange ein Finger auf dem Glas
-liegt, wird ein zweiter nicht beachtet: Ein Finger auf dem Gas hält `DISARM`
-davon ab, auf einen anderen zu reagieren. Erst den Gas-Finger heben, dann
-`DISARM` drücken. Was der Controller bei zwei Berührungen meldet, ist nicht
-gemessen. Ein nasser Bildschirm oder ein Kabel, das auf dem Glas liegt, kann
-als Finger zählen und jedes Tippen blockieren.
+**Den Gas-Finger vor `DISARM` heben.** Die Firmware liest nur den ersten
+Berührungsplatz des Touch-Controllers. Welche Berührung der Controller dort
+meldet, während zwei Finger auf dem Glas liegen, ist nicht gemessen; ein
+Druck, während der Gas-Finger aufliegt, kommt also womöglich nicht an. Ein
+nasser Bildschirm oder ein Kabel, das auf dem Glas liegt, kann als Finger
+zählen und jedes Tippen blockieren.
 
-Ein Finger, der schon auf dem Glas liegt, wenn der Tester erscheint, drückt
-nichts, bis er gehoben wird. Hast du beim Einschalten den Bildschirm
-berührt, hebe den Finger vor `HOLD TO ARM`.
+Ein Finger, der schon auf dem Glas liegt, wenn der Tester erscheint,
+schaltet nicht scharf und bewegt das Gas nicht. Wird er gehoben, wirkt das
+trotzdem als Tippen auf eine Schaltfläche, die beim Loslassen auslöst, etwa
+`HOLD` oder `MENU`, wenn er darauf liegt. Hast du beim Einschalten den
+Bildschirm berührt, hebe den Finger vor `HOLD TO ARM`.
 
 Antwortet der Touch-Controller im scharfen Zustand nicht mehr, entschärft der
 Tester, sobald vier Lesungen in Folge über 100 ms oder länger fehlgeschlagen
@@ -175,7 +187,7 @@ null.
 `MENU` auf dem Tester öffnet die Liste der Werkzeuge. Das Öffnen entschärft
 immer. Tippe auf die Zeile `SETTINGS`.
 
-<img src="img/settings.png" width="240" alt="SETTINGS nach einer Änderung: ESC PIN auf GP1 und UNSAVED - HOLD SAVE TO KEEP">
+<img src="img/settings.png" width="240" alt="SETTINGS nach einer Änderung: MOTOR POLES auf 16 und UNSAVED - HOLD SAVE TO KEEP">
 
 - **MOTOR POLES**: rechnet die gemeldete eRPM (elektrische Drehzahl) mit
   `RPM = eRPM / (Pole / 2)` in die Drehzahl um. Bereich 2–28, nur gerade
@@ -188,6 +200,14 @@ Beide Zeilen stehen oben in der Liste. Beide Werte werden erst mit
 `HOLD TO SAVE` unter der Liste gespeichert. Bis dahin zeigt die Hinweiszeile
 `UNSAVED - HOLD SAVE TO KEEP`, und `MENU` zeigt `UNSAVED` in der Zeile
 `SETTINGS`.
+
+`ESC PIN`, weiter unten, legt DShot sofort auf den anderen Pin. Solange es
+nicht der Pin ist, den der Startbildschirm nannte, wiederholt eine eigene
+Zeile über `LINK` dessen Warnung für den neuen Pin in Bernstein,
+`UNPLUG ANY SERVO FROM GP1 NOW`; die Hinweiszeile darunter sagt weiter, ob die
+Einstellungen gespeichert sind.
+
+<img src="img/settings-pin.png" width="240" alt="SETTINGS, nachdem ESC PIN auf GP1 gewechselt hat: UNPLUG ANY SERVO FROM GP1 NOW über LINK, UNSAVED in der Hinweiszeile">
 
 ---
 

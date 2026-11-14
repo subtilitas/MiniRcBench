@@ -342,13 +342,19 @@ image is built for, `RP2350-TOUCH-LCD-2.8`, and the firmware version, for
 example `VERSION 0.1.0`. DShot starts on the ESC pin when the splash ends,
 so the last line names that pin in amber: `UNPLUG ANY SERVO FROM GP0 NOW`. A
 servo left on it reads the DShot frames as pulses and drives towards one end
+of its travel. When `settingsLoad()` discarded a whole block of another
+settings version (`settingsResetByUpdate()`), two amber lines at y 40 and
+y 52 read `SETTINGS RESET BY UPDATE` and `CHECK MENU > SETTINGS`; blank flash
+and a damaged block show neither.
 of its travel. While the touch controller has not answered once since
 `touchInit()`, the splash shows `TOUCH CONTROLLER NOT FOUND` in amber above
 the name; the line goes at the controller's first answer (`uiSplashTick()`).
 The splash reads the touch every 25 ms into a state of its own, so a finger
-resting on the glass when the tester appears gives no press edge: it
-presses nothing until it is lifted. A finger on the glass at power-up is
-lifted before HOLD TO ARM.
+resting on the glass when the tester appears gives no press edge: it does
+not arm, does not move the throttle and does not start a hold. Lifting it
+still ends a tap where it rests, on a button that acts on release such as
+HOLD or MENU, because the driver keeps where the press began. A finger on
+the glass at power-up is lifted before HOLD TO ARM.
 
 **Main screen**
 
@@ -396,15 +402,16 @@ lifted before HOLD TO ARM.
 
 **Touch**
 
-The CST328 driver (`src/cst328.cpp`) reads only the first contact the
-controller reports, a 5-byte read of finger 1. While one finger rests on
-the glass a second is ignored, so the throttle finger has to lift before
-DISARM registers. What the controller reports with two contacts is not
-measured. A wet screen, or a lead lying across the glass, can count as a
-contact and block every tap.
+The CST328 driver (`src/cst328.cpp`) reads only the controller's first
+contact slot, a 5-byte read of finger 1. Which contact the controller puts
+there while two touch the glass is not measured, so a press made while the
+throttle finger rests on the glass may not register: lift the throttle
+finger before DISARM. A wet screen, or a lead lying across the glass, can
+count as a contact and block every tap.
 
-The driver records when the controller last answered (`touchLastAnswer()`)
-and counts its failed finger reads in a row (`touchFailedReads()`). The
+The driver records whether and when the controller last answered
+(`touchAnswered()`, `touchLastAnswerMs()`) and counts its failed finger
+reads in a row (`touchFailedReads()`). The
 touch counts as not answering (`uiTouchLost()`) when the controller has not
 answered since `touchInit()`, or when four or more reads in a row have
 failed and 100 ms or more (`TOUCH_LOST_MS`, four UI frames of 25 ms) have
@@ -432,7 +439,7 @@ the glass for minutes. Some controllers of its maker doze when idle and
 NACK until touched; this one would then disarm a HOLD-latched motor
 shortly after the finger lifts. Before this rule a NACK while idle read as
 "finger up", so earlier use on hardware does not answer it. The bench
-check is in STATUS.md, open item 21.
+check is in STATUS.md, open item 22.
 
 **Button behaviour**
 
@@ -475,7 +482,7 @@ tester. Every tool's **BACK** returns to MENU.
 | **SERVO TESTER** | the signal pins, `GP0+1`; `PINS BUSY` | Opens the servo tester. See [Servo tester](#servo-tester) |
 | **KST SERVO** | the ESC pin, `GP0`; `PINS BUSY` | Opens the KST servo programmer. See [KST servo programming](#kst-servo-programming) |
 | **HITEC SERVO** | the ESC pin, `GP0`; `PINS BUSY` | Opens the Hitec servo programmer. See [Hitec servo programming](#hitec-servo-programming) |
-| **SETTINGS** | `UNSAVED` while the live settings differ from flash, else nothing; `PINS BUSY` while the pin claim is not Free, drawn disabled | Opens SETTINGS: the tester, the wiring, the servo supply and current sensor, the display, the board, diagnostics. See below |
+| **SETTINGS** | `UNSAVED` while the live settings differ from flash; else `UPDATED` while an update's reset is not saved over (`settingsResetByUpdate()`); else nothing; both amber. `PINS BUSY` while the pin claim is not Free, drawn disabled | Opens SETTINGS: the tester, the wiring, the servo supply and current sensor, the display, the board, diagnostics. See below |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a USB host holds the card | Opens the logging status. See below |
 
 - **BEEP flash**: a tap fills the row for 350 ms (`BEEP_FLASH_MS`): white
@@ -499,6 +506,22 @@ tester. Every tool's **BACK** returns to MENU.
   no card-detect pin, so the firmware learns of a card only by mounting it.
 - **START / STOP**: starts or ends a log. Disabled with no card.
 - **FILE**, **FRAMES**, **WRITTEN**: the open file, frames logged, kB written.
+  After a log ends, FILE keeps its name with `(LAST)`, for example
+  `LOG00012.BFL (LAST)`, until the next start or mount; `--` before the first
+  log and after a mount (`sdLogBegin()`), which also zeroes the counters: the
+  card may be another one.
+- **Note lines** (y 217 and y 228): how the last log ended, when it ended
+  on its own or a tool took the card, in amber (`SdLogEnd`); a card's fault
+  until the next start or mount, a tool's stop until the next start
+  (`sdLogMountForget()`), with a mount hint on its second line:
+  `RECORDING STOPPED: CARD FULL` / `FREE SPACE ON A COMPUTER, RETRY MOUNT`
+  (FatFs wrote fewer bytes than asked with `FR_OK`),
+  `RECORDING STOPPED: CARD WRITE FAILED` / `REMOVED? REINSERT, THEN RETRY MOUNT`
+  (a write, sync or close returned an error),
+  `NO LOG STARTED: THE FILE DID NOT OPEN` / `CHECK THE CARD, THEN RETRY MOUNT`,
+  and `RECORDING STOPPED BY KST SERVO`, `HITEC SERVO` or `AM32 CONFIG` when
+  the tool's claim stopped the log (`cardCacheBegin()`). A USB DRIVE refusal
+  outranks them for its 4000 ms.
 - **DROPPED FRAMES**: frames the ring buffer refused because the card was
   slower than the data. Red when non-zero. Non-zero means the buffer is too
   small for that card.
@@ -524,8 +547,9 @@ tester. Every tool's **BACK** returns to MENU.
 *SETTINGS at the top, scrolled to the end, in high contrast, and the UNSAVED
 marker it puts on MENU.*
 
-SETTINGS is one list in sections. The list fills y 40 to 239 and scrolls under
-a drag. A row is 44 px tall at a 50 px pitch. **MOTOR POLES** and
+SETTINGS is one list in sections. The list fills y 40 to 239 (to y 227 while
+the ESC pin's warning shows, see below) and scrolls under a drag. A row is
+44 px tall at a 50 px pitch. **MOTOR POLES** and
 **MAX THROTTLE** lead it, so they need no scroll.
 
 | Section | Row | What it does |
@@ -611,7 +635,11 @@ build returns every saved setting to its default once: a version 4 block,
 which has no CURRENT SENSE, does not load, nor does a version 3 block, with
 its ESC pin on GP29 or GP28 or its supply enable on GP0, nor DshotDisplay
 2.x's version 2 block. DshotDisplay discards this
-project's blocks the same way.
+project's blocks the same way. A discarded block that is whole (the magic,
+another version, at most `SETTINGS_OTHER_MAX` bytes of payload and its own
+CRC right) sets `settingsResetByUpdate()` until a save lands: the splash's
+two lines, `UPDATED` on MENU's SETTINGS row, and the note line
+`RESET BY UPDATE - CHECK AND SAVE` while nothing else is pending.
 
 **HOLD TO SAVE** (1 s, `UI_HOLD_MS`) writes all settings to flash: every row
 above, pole count and throttle ceiling included. Erasing the flash sector stops
@@ -631,6 +659,19 @@ compiled defaults when none are stored). Any other change ends it, and so
 does every completed HOLD TO SAVE, failed saves included: a save whose
 read-back fails has already rewritten the sector. MENU shows `UNSAVED` on
 the SETTINGS row while the live settings differ from flash.
+
+ESC PIN moves DShot at once (`escTaskConfigure()`). While the live ESC pin
+is not the one `settingsLoad()` put live, the pin the splash named
+(`settingsBootDshotPin()`), a line of its own at y 230 (`PIN_Y`) repeats
+the splash's warning for the live pin in amber, for example
+`UNPLUG ANY SERVO FROM GP1 NOW`, and the list ends at y 227 (`VIEW_H_PIN`),
+so it scrolls 12 px further; its top rows do not move. The rule is the boot
+pin rather than the saved pin, which a save would end, or the pin at
+opening, which a return to SETTINGS would end, while DShot stays on a pin
+the splash did not name. The note line keeps its own order: SAVE FAILED and
+NOT WHILE ARMED, until the next save or leaving; ADJUSTED and KISS OFF,
+until the next change; DEFAULTS LOADED; UNSAVED; SAVED; the reset by an
+update; then the set in use.
 
 **High contrast**
 
@@ -682,7 +723,8 @@ red. What the divider reads with USB power alone is not measured, and no
 GPIO senses USB power, so the firmware cannot tell USB from the cell. With
 USB power alone the value can be low and then says nothing about a cell;
 below 2.50 V (`BOARD_CELL_IMPLAUSIBLE_MV`), implausible for a working cell,
-it is drawn in the normal text colour. Nothing is refused on the reading.
+it is drawn in the normal text colour, and red again from 2.55 V, the same
+50 mV band. Nothing is refused on the reading.
 
 ---
 
@@ -788,6 +830,10 @@ them, and in Blackbox Explorer, `blackbox_decode` and PIDtoolbox. Files are
 named `LOGS/LOGnnnnn.BFL` on a card formatted with FAT (File Allocation Table). Each new file takes the lowest
 unused number from 00001 to 09999. Existing files are not overwritten. Logs an
 earlier firmware wrote to the card's root stay there and are not counted.
+The highest number is therefore not always the newest log: a number freed on
+a computer is taken again. The board sets no clock, so the file dates do not
+order the logs either. Numbering after the highest file is open to the owner
+(STATUS.md, open item 20).
 
 ![SD log screen](docs/log-preview.png)
 
@@ -820,7 +866,12 @@ again only after eject. The host and the firmware never share the FAT volume.
 Without a card the button is drawn unavailable and does nothing. With a card,
 the request is refused while armed (`DISARM FIRST`) or while recording (`STOP
 RECORDING FIRST`). Arming is blocked while the host holds the card. See
-`src/usb_msc.h`.
+`src/usb_msc.h`. A host that unconfigures the device (`tud_umount_cb()`)
+gives the card back as an eject does. TinyUSB 0.18.0's RP2040 port, which the
+RP2350 uses, forces VBUS detection on and never reports an unplug: a cable
+pulled with the board on its battery arrives as a bus suspend, as a sleeping
+host does, and a suspend is not handled. EJECT on SD LOG takes the card back
+then. Not tested on hardware.
 
 ### Tuning
 
@@ -853,7 +904,7 @@ nothing for those six. The SETTINGS note line says which set is in use.
 | `SD_LOG_BUFFER_BYTES` | `8192` | Ring buffer. Size it from BUF PEAK and WORST FLUSH |
 | `SD_LOG_CHUNK_BYTES` | `512` | Flush size. Keep it a multiple of 512 to avoid read-modify-write in the card |
 | `SD_LOG_PREALLOC_BYTES` | `16 MiB` | Contiguous space reserved per file, so the FAT is not rewritten mid-log. About 38 min at 7.3 kB/s. Unused space is released at close |
-| `SD_LOG_SYNC_MS` | `2000` | Interval for committing the file's directory entry. A power cut loses at most the data since the last commit |
+| `SD_LOG_SYNC_MS` | `2000` | Interval for committing the file's directory entry, the first 2000 ms after the start. A log cut before the first commit reads 0 bytes. After it, with the 16 MiB reservation, the entry says 16 MiB and data written since the last commit is readable; without it, or past 16 MiB, the size is the one at the last commit |
 | `SD_LOG_AUTO_ON_ARM` | `1` | Start and stop logging with ARM, in addition to the manual button |
 
 ### Reading the logs
@@ -1307,7 +1358,13 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
    drawing: the write page reads `SAVING THE BACKUP TO THE CARD.` and
    `BLOCKS LEFT: n` until the card holds the backup and the record, and the
    servo is written only then. A flush the card does not take stops the
-   write: `THE CARD DID NOT TAKE THE BACKUP. NOTHING WAS WRITTEN TO THE SERVO.`
+   write:
+   `THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+   A flush fails on a block write that fails or a card swapped since
+   (`src/sdio/sd_cache.h`), not on a full card, which FatFs refuses before
+   anything is queued. Nothing is sent to the servo; the card is mounted
+   again and the first write forgotten, so the next hold saves the backup
+   again and then writes.
 5. BACK from the list opens the leave page: `POWER THE SERVO OFF.` The servo
    stays in programming mode until its supply is off. LEAVE holds the line
    low for 100 ms, lets the pin go, and shows `UNPLUG THE SERVO.` RESTART
@@ -1348,9 +1405,18 @@ The backups go to the ring of `BACKUP/` that every device shares: see
 [Device backups](#device-backups).
 
 Without a card, or with the card held by a USB host, the backup stays in
-memory, and reading, editing and writing still work. A card that is
+memory, and reading, editing and writing still work. The write page's backup
+line then reads, in amber, `NO CARD: OLD VALUES LOST AT LEAVE` or
+`CARD ON USB: OLD VALUES LOST AT LEAVE`, and
+`NO BACKUP ON THE CARD: LOST AT LEAVE` when the card took the record and
+refused the backup: until a later write with a card mounted saves it, the
+session's backup is the only copy of the
+servo's old values, and LEAVE, REBOOT or a power loss ends it. Whether such a
+write should be refused or need a second hold is open to the owner
+(STATUS.md, open item 20). A card that is
 mounted but takes neither the backup nor the record stops the write before
-any frame: `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.`
+any frame:
+`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
 
 An image that fails rcbench's layout fingerprint is shown and not written:
 the write button reads `READ ONLY`, and with no row selected the editor bar
@@ -1521,11 +1587,24 @@ rcbench's card loads once copied into `HITEC/`, and a file edited by hand
 does not. HOLD TO RESTORE writes the session's backup back.
 
 Without a card, or with the card held by a USB host, the backup stays in
-memory, and reading, editing and writing still work. A card that is
+memory, and reading, editing and writing still work. The write page's backup
+line then reads, in amber, `NO CARD: OLD VALUES LOST AT LEAVE` or
+`CARD ON USB: OLD VALUES LOST AT LEAVE`, and
+`NO BACKUP ON THE CARD: LOST AT LEAVE` when the card took the record and
+refused the backup: until a later write with a card mounted saves it, the
+session's backup is the only copy of the
+servo's old values, and LEAVE or a power loss ends it. Whether such a
+write should be refused or need a second hold is open to the owner
+(STATUS.md, open item 20). A card that is
 mounted but takes neither the backup nor the record stops the write before
-any frame: `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.` With a
-card mounted at the screen's opening, the card's writes queue in memory, as
-for KST, and the servo is written only once the card holds the files.
+any frame:
+`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+With a card mounted at the screen's opening, the card's writes queue in
+memory, as for KST, and the servo is written only once the card holds the
+files. A flush that fails stops the write with
+`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`,
+or `A FILE` in place of `THE BACKUP` when the batch held a later write's
+files.
 
 A record left by an interrupted write is named while the screen enters and
 reads the servo: `A WRITE WAS INTERRUPTED. HITEC/HITEC.TXT HOLDS THE SERVO AS IT WAS.`
@@ -1905,7 +1984,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.8%**: 9,282 of 9,493 lines in 58 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.8%**: 9,347 of 9,554 lines in 58 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

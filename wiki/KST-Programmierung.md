@@ -245,10 +245,19 @@ unteren Rand sagt, wohin die Sicherung geht:
 |---|---|
 | `BACKUP FIRST: BACKUP/KST001.TXT` | Eine Karte ist eingebunden, und die Sicherung liegt noch nicht auf ihr |
 | `BACKUP: BACKUP/KST001.TXT` | Die Sicherung liegt auf der Karte |
-| `NO CARD: BACKUP IN MEMORY` | Keine Karte ist eingebunden |
-| `CARD IN USE BY USB: BACKUP IN MEMORY` | Ein USB-Host hält die Karte |
+| `NO CARD: OLD VALUES LOST AT LEAVE` | Keine Karte ist eingebunden |
+| `CARD ON USB: OLD VALUES LOST AT LEAVE` | Ein USB-Host hält die Karte |
 | `BACKUP FIRST: TO THE CARD` | Eine Karte ist eingebunden, und ihr Verzeichnis `BACKUP` ließ sich nicht bis zum Ende lesen |
-| `NO BACKUP ON THE CARD: IN MEMORY` | Die Karte hat die Aufzeichnung angenommen und die Sicherung abgewiesen |
+| `NO BACKUP ON THE CARD: LOST AT LEAVE` | Die Karte hat die Aufzeichnung angenommen und die Sicherung abgewiesen |
+
+<img src="img/kst-write-nocard.png" width="240" alt="Die Schreibseite ohne Karte: NO CARD: OLD VALUES LOST AT LEAVE in Bernstein">
+
+`NO CARD`, `CARD ON USB` und `NO BACKUP ON THE CARD` stehen in Bernstein:
+Die Werte des Servos vor dem ersten Schreiben liegen nur im Speicher, bis ein
+späteres Schreiben mit eingebundener Karte sie sichert; LEAVE, REBOOT oder ein
+Stromausfall verliert sie. Ohne Karte geht das Schreiben trotzdem durch. Ob
+es abgelehnt werden oder ein zweites Halten brauchen soll, ist beim Eigentümer
+offen.
 
 **Ein zweites Halten von 1 s schreibt.** Bevor der erste Frame des ersten
 Schreibens der Sitzung mit eingebundener Karte zum Servo geht, kommt das beim
@@ -264,8 +273,14 @@ Sicherung und der Vermerk zuerst auf die Karte, während der Bildschirm weiter
 zeichnet. Die Seite zeigt `SAVING THE BACKUP TO THE CARD.` und zum Beispiel
 `BLOCKS LEFT: 12`, und das Servo wird erst geschrieben, wenn die Karte beides
 hält. Nimmt die Karte die Daten nicht an, hält das Schreiben an:
-`THE CARD DID NOT TAKE THE BACKUP. NOTHING WAS WRITTEN TO THE SERVO.` Das
-nächste Schreiben sichert erneut.
+`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+Das Übertragen scheitert, wenn ein Blockschreiben fehlschlägt oder die Karte
+im Steckplatz gewechselt hat, nicht bei einer vollen Karte: Eine volle Karte
+endet in `THE CARD TOOK NO FILE`, bevor etwas eingereiht ist. Zum Servo ging
+nichts. Die Karte wird neu eingebunden, und `OK` führt zur Feldliste zurück;
+das nächste `HOLD TO WRITE` sichert erneut und schreibt dann.
+
+<img src="img/kst-flush-failed.png" width="240" alt="Die Schreibseite, nachdem die Karte die Daten nicht annahm">
 
 Während des Schreibens zeigt die Seite `WRITING: DO NOT UNPLUG.` und darunter
 `PLANNING THE ORDER OF THE WRITES` oder `FRAMES SENT: 94`. `BACK` während des
@@ -372,7 +387,7 @@ zweites Halten. Die Seite zeigt dann
 - **Eine Karte, die keine Datei annimmt.** Nimmt eine eingebundene Karte weder
   die Sicherung noch den Vermerk an, stoppt das Schreiben vor dem ersten
   Frame. Die Schreibseite zeigt
-  `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.`
+  `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
 
 Die Sicherungen teilen sich einen Ring von 50 Nummern mit den Sicherungen des
 AM32-Editors und des Hitec-Programmierers, `BACKUP/KSTnnn.TXT`,
@@ -443,8 +458,9 @@ zeigt die Abziehseite unmittelbar.
 - **Der Bildschirm kehrt zur Suche zurück.** Das Servo antwortet nicht mehr.
   Schalte es erneut ein.
 - **`IN DOUBT`.** Stelle über FILES mit `HOLD TO RESTORE` wieder her.
-- **`THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.`** Prüfe die
-  Karte, oder nimm sie aus der USB-Nutzung, und schreibe dann erneut.
+- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`**
+  Prüfe die Karte, oder nimm sie aus der USB-Nutzung, und schreibe dann
+  erneut.
 
 ---
 

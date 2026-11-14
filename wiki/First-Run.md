@@ -80,11 +80,22 @@ one end of its travel.
 
 <img src="img/splash.png" width="240" alt="Splash screen">
 
+After a firmware update that changed the layout of the stored settings, the
+saved settings are discarded and every setting starts at its compiled
+default. The splash then shows two amber lines above the name:
+`SETTINGS RESET BY UPDATE` and `CHECK MENU > SETTINGS`. Check at least the
+pole count, `MAX THROTTLE`, `ESC PIN`, KISS, `SERVO SUPPLY` and
+`CURRENT SENSE`, then hold `HOLD TO SAVE`. Until a save lands, MENU's
+SETTINGS row reads `UPDATED`. A board that never had saved settings shows
+neither.
+
+<img src="img/splash-reset.png" width="240" alt="Splash screen after an update discarded the saved settings">
+
 If the touch controller did not answer at power-up, the splash shows
 `TOUCH CONTROLLER NOT FOUND` in amber above the name. The line goes as soon
-as the controller answers. If it is still there when the tester appears, the
-tester shows `TOUCH NOT ANSWERING` and cannot be armed; see
-[The Screens](The-Screens#the-tester).
+as the controller answers. If it is still there when the tester appears,
+touch does not work; see
+[Troubleshooting](Troubleshooting#the-screen-does-not-react-to-touch).
 
 <img src="img/splash-no-touch.png" width="240" alt="The splash with TOUCH CONTROLLER NOT FOUND in amber above the name">
 
@@ -121,16 +132,17 @@ Disarmed, the badge reads `SAFE` and the throttle bar reads `ARM TO ENABLE`.
 To stop, press `DISARM`. It acts on touch. The press that disarms, kept down,
 does not arm again: arming needs a new press that starts on the button.
 
-**The screen reads one finger.** The firmware reads only the first contact
-the touch controller reports. While one finger rests on the glass, a second
-one is ignored: a finger on the throttle keeps `DISARM` from reacting to
-another. Lift the throttle finger, then press `DISARM`. What the controller
-reports with two contacts on the glass is not measured. A wet screen, or a
-lead lying across the glass, can count as a finger and block every tap.
+**Lift the throttle finger before `DISARM`.** The firmware reads only the
+touch controller's first contact slot. Which contact the controller puts
+there while two fingers touch the glass is not measured, so a press made
+while the throttle finger rests on the glass may not register. A wet
+screen, or a lead lying across the glass, can count as a finger and block
+every tap.
 
-A finger already on the glass when the tester appears presses nothing until
-it is lifted. If you touched the screen at power-up, lift the finger before
-`HOLD TO ARM`.
+A finger already on the glass when the tester appears does not arm and
+does not move the throttle. Lifting it still acts as a tap where it rests
+on a button that acts on release, such as `HOLD` or `MENU`. If you touched
+the screen at power-up, lift the finger before `HOLD TO ARM`.
 
 If the touch controller stops answering while the tester is armed, the
 tester disarms once four reads in a row have failed over 100 ms or more,
@@ -164,7 +176,7 @@ it. The bar shows a grab handle. Turning `HOLD` off sets the throttle to zero.
 `MENU` on the tester opens the list of tools. Opening it always disarms. Tap
 the `SETTINGS` row.
 
-<img src="img/settings.png" width="240" alt="SETTINGS after a change: ESC PIN at GP1 and UNSAVED - HOLD SAVE TO KEEP">
+<img src="img/settings.png" width="240" alt="SETTINGS after a change: MOTOR POLES at 16 and UNSAVED - HOLD SAVE TO KEEP">
 
 - **MOTOR POLES**: converts the reported eRPM (electrical RPM) to RPM with
   `RPM = eRPM / (poles / 2)`. Range 2–28, even values only. Default 14. A
@@ -177,6 +189,13 @@ Both rows are at the top of the list. Both values are stored only when saved,
 with `HOLD TO SAVE` under the list. The note line reads
 `UNSAVED - HOLD SAVE TO KEEP` until then, and `MENU` shows `UNSAVED` on its
 `SETTINGS` row.
+
+`ESC PIN`, further down, moves DShot to the other pin at once. While it is
+not the pin the splash named, a line of its own above `LINK` repeats the
+splash's warning for the new pin in amber, `UNPLUG ANY SERVO FROM GP1 NOW`;
+the note line under it still says whether the settings are saved.
+
+<img src="img/settings-pin.png" width="240" alt="SETTINGS after ESC PIN moved to GP1: UNPLUG ANY SERVO FROM GP1 NOW above LINK, UNSAVED on the note line">
 
 ---
 

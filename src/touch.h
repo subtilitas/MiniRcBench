@@ -79,20 +79,18 @@ struct TouchState {
  * requirement.
  *
  * @return true if the controller answered the presence check with the
- *         0xCACA ID. Only that counts as an answer in touchLastAnswer()'s
- *         record; a probe that reads another ID records none.
+ *         0xCACA ID. Only that counts as an answer for touchAnswered(); a
+ *         probe that reads another ID records none.
  */
 bool touchInit();
 
 /**
- * @brief Whether the controller has answered since touchInit(), and when it
- *        last did.
+ * @brief Whether the controller has answered since touchInit().
  *
  * An answer is the presence check in touchInit() returning the 0xCACA ID,
- * or a finger read in touchPoll() that completes. The time is millis() at
- * that read. The splash reads it (uiSplashTick()); the UI takes the
- * controller as not answering by the rule of uiTouchLost(), which also
- * counts the failed reads in a row (touchFailedReads()).
+ * or a finger read in touchPoll() that completes. The splash reads it
+ * (uiSplashTick()); the tester and the servo tester read it, with
+ * touchLastAnswerMs() and touchFailedReads(), through uiTouchLost().
  *
  * This is the touch controller's own record. The shared bus's record in
  * sense.h counts timeouts and held lines for the stuck decision and not a
@@ -100,17 +98,23 @@ bool touchInit();
  * flex for instance, returns; so it cannot say whether the controller
  * answers.
  *
- * @param[out] ms millis() at the last answer; untouched when there was none.
  * @return false while the controller has not answered once since
  *         touchInit().
  */
-bool touchLastAnswer(uint32_t *ms);
+bool touchAnswered();
+
+/**
+ * @brief millis() at the controller's last answer. Meaningful only while
+ *        touchAnswered() is true.
+ * @return The time of the last answer.
+ */
+uint32_t touchLastAnswerMs();
 
 /**
  * @brief How many finger reads in a row have failed: 0 after a read that
  *        completes, held at 255.
  *
- * With touchLastAnswer() it tells a controller that stopped answering from a
+ * With touchLastAnswerMs() it tells a controller that stopped answering from a
  * core0 stall: after a stall of any length the next read is one failure, not
  * several. @see uiTouchLost()
  *

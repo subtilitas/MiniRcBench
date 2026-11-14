@@ -95,6 +95,7 @@ static void testRejectsCorruption() {
 	fakeFlashBytes()[offsetof(SettingsBlock, s)] ^= 0x01;
 	settingsLoad();
 	checkTrue("bad CRC: not treated as stored", !settingsStored());
+	checkTrue("bad CRC, this version: not reset by an update", !settingsResetByUpdate());
 	checkInt("bad CRC: ceiling falls back", settings()->maxThrottle, def.maxThrottle);
 	checkInt("bad CRC: poles fall back", settings()->poles, def.poles);
 
@@ -112,6 +113,7 @@ static void testRejectsCorruption() {
 	// could hand back a plausible 2000 as easily as a 400, and there is no
 	// version of that trade worth taking: losing a pole count costs two taps.
 	checkTrue("version bump: not treated as stored", !settingsStored());
+	checkTrue("version bump: reset by an update", settingsResetByUpdate());
 	checkInt("version bump: ceiling falls back, never carried over",
 	         settings()->maxThrottle, def.maxThrottle);
 
@@ -126,6 +128,7 @@ static void testRejectsCorruption() {
 	}
 	settingsLoad();
 	checkTrue("size mismatch: not treated as stored", !settingsStored());
+	checkTrue("size mismatch, this version: not reset by an update", !settingsResetByUpdate());
 	checkInt("size mismatch: ceiling falls back",
 	         settings()->maxThrottle, def.maxThrottle);
 
@@ -460,6 +463,7 @@ static void testLayout() {
 		Settings def;
 		settingsDefaults(&def);
 		checkTrue("a version 4 block is discarded", !settingsStored());
+		checkTrue("as reset by an update", settingsResetByUpdate());
 		checkTrue("and the compiled defaults load, every setting: no sensor, no switch",
 		          memcmp(settings(), &def, sizeof(def)) == 0 && settings()->currentSense == 0 &&
 		          settings()->servoSupply == 0 && settings()->poles == DEFAULT_MOTOR_POLES);
@@ -483,6 +487,7 @@ static void testLayout() {
 	Settings fresh;
 	settingsDefaults(&fresh);
 	checkTrue("a version 3 block is discarded", !settingsStored());
+	checkTrue("as reset by an update", settingsResetByUpdate());
 	checkTrue("and the defaults load: the ESC on the board's default, no switch",
 	          memcmp(settings(), &fresh, sizeof(fresh)) == 0 &&
 	          settings()->dshotPin == g_board->defaultDshotPin && settings()->servoSupply == 0);
@@ -505,6 +510,74 @@ static void testLayout() {
 	Settings d;
 	settingsDefaults(&d);
 	checkTrue("a version 2 block is discarded", !settingsStored());
+	checkTrue("as reset by an update: its CRC over its 12 bytes", settingsResetByUpdate());
+	// The same block with one payload byte flipped: damaged, not a reset.
+	fakeFlashBytes()[9] ^= 0x01;
+	settingsLoad();
+	checkTrue("a version 2 block with a bad CRC: not reset by an update",
+	          !settingsStored() && !settingsResetByUpdate());
+	// A size past SETTINGS_OTHER_MAX is not judged at all.
+	{
+		// The CRC sits at the next 4-byte boundary after the payload.
+		uint8_t big[8 + SETTINGS_OTHER_MAX + 4 + 4];
+		memset(big, 0, sizeof(big));
+		const uint16_t bigSize = SETTINGS_OTHER_MAX + 1;
+		const uint32_t bigAt = (8u + bigSize + 3u) & ~3u;
+		memcpy(big, &magic, 4);
+		memcpy(big + 4, &version, 2);
+		memcpy(big + 6, &bigSize, 2);
+		const uint32_t bigCrc = settingsCrc32(big, bigAt);
+		memcpy(big + bigAt, &bigCrc, 4);
+		fakeFlashClear();
+		memcpy(fakeFlashBytes(), big, bigAt + 4);
+		settingsLoad();
+		checkTrue("a payload of SETTINGS_OTHER_MAX + 1 bytes: not judged, not a reset",
+		          !settingsStored() && !settingsResetByUpdate());
+		const uint16_t maxSize = SETTINGS_OTHER_MAX;
+		const uint32_t maxAt = (8u + maxSize + 3u) & ~3u;
+		memset(big + 8, 0, sizeof(big) - 8);
+		memcpy(big + 6, &maxSize, 2);
+		const uint32_t maxCrc = settingsCrc32(big, maxAt);
+		memcpy(big + maxAt, &maxCrc, 4);
+		fakeFlashClear();
+		memcpy(fakeFlashBytes(), big, maxAt + 4);
+		settingsLoad();
+		checkTrue("one of SETTINGS_OTHER_MAX bytes: a reset", settingsResetByUpdate());
+		// A version 5 block of an odd payload size, its CRC 2 bytes after it.
+		uint8_t odd[8 + 14 + 2 + 4];
+		memset(odd, 0, sizeof(odd));
+		const uint16_t v6 = SETTINGS_VERSION + 1, oddSize = 14;
+		memcpy(odd, &magic, 4);
+		memcpy(odd + 4, &v6, 2);
+		memcpy(odd + 6, &oddSize, 2);
+		const uint32_t oddCrc = settingsCrc32(odd, 24);
+		memcpy(odd + 24, &oddCrc, 4);
+		fakeFlashClear();
+		memcpy(fakeFlashBytes(), odd, sizeof(odd));
+		settingsLoad();
+		checkTrue("14 bytes of payload: the CRC at byte 24, a reset", settingsResetByUpdate());
+		memcpy(fakeFlashBytes() + 22, &oddCrc, 4);
+		settingsLoad();
+		checkTrue("the CRC right after the payload, at byte 22: not judged whole",
+		          !settingsResetByUpdate());
+	}
+	// Blank flash: a board that never had settings.
+	fakeFlashClear();
+	settingsLoad();
+	checkTrue("blank flash: not reset by an update", !settingsStored() && !settingsResetByUpdate());
+	// A save that lands ends it; one the flash refuses does not.
+	fakeFlashClear();
+	memcpy(fakeFlashBytes(), &old, sizeof(old));
+	settingsLoad();
+	checkTrue("version 3 again: reset by an update", settingsResetByUpdate());
+	fakeFlashSetWritable(false);
+	checkTrue("a save the flash refuses fails", !settingsSave());
+	checkTrue("and the reset still shows", settingsResetByUpdate());
+	fakeFlashSetWritable(true);
+	checkTrue("a save that lands", settingsSave());
+	checkTrue("ends it", !settingsResetByUpdate());
+	settingsLoad();
+	checkTrue("and the next boot loads its own block", settingsStored() && !settingsResetByUpdate());
 	checkTrue("and the compiled defaults load, the ESC pin among them",
 	          memcmp(settings(), &d, sizeof(d)) == 0);
 	checkInt("the switch: none", settings()->servoSupply, 0);

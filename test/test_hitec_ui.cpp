@@ -423,9 +423,19 @@ static void testFlushWait() {
 	section("Hitec screen: the write waits for the backup's flush to the card");
 	fakeCacheReset();
 	freshHitec(HITEC_D, false);
+	SdLogStatus logging;
+	memset(&logging, 0, sizeof(logging));
+	logging.state = SdLogState::Logging;
+	fakeSdLogSet(&logging);
 	checkTrue("the field list", toList(HITEC_D));
 	checkTrue("the claim turned the cache on", fakeCacheCalls().begins >= 1 &&
 	                                          cardCacheState() == CardCache::Idle);
+	{
+		SdLogStatus ended;
+		sdLogStatus(&ended);
+		checkTrue("the claim stopped the running log, recorded as HITEC SERVO's",
+		          ended.state == SdLogState::Idle && ended.end == SdLogEnd::ByHitec);
+	}
 	speedDown();
 	holdUntilGone(UI_FIX(HitecCtl::Write));
 	fakeCacheSet(CardCache::Flushing, 12);
@@ -461,8 +471,33 @@ static void testFlushWait() {
 	hitecFrames(2);
 	checkTrue("a failed flush: no write frame, the card mounted again",
 	          fakeHitecSim()->writes == writes && fakeCacheCalls().recovers == recovers + 1);
-	checkTrue("and the page says why", ctlPresent(UI_FIX(HitecCtl::WriteOk)) &&
-	          lineIs(196, "THE CARD DID NOT TAKE THE BACKUP.", C_AMBER));
+	checkTrue("and the page says why, and what next, in three lines",
+	          ctlPresent(UI_FIX(HitecCtl::WriteOk)) &&
+	          lineIs(196, "THE CARD DID NOT TAKE THE BACKUP", C_AMBER) &&
+	          lineIs(208, "(REMOVED OR SWAPPED?). NOTHING WENT TO", C_AMBER) &&
+	          lineIs(220, "THE SERVO. CHECK THE CARD, HOLD AGAIN.", C_AMBER));
+	tapId(UI_FIX(HitecCtl::WriteOk));
+	// Holding again retries: the backup is saved again, then the write runs.
+	holdUntilGone(UI_FIX(HitecCtl::Write));
+	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
+	checkTrue("held again: the write sent and verified",
+	          untilCtl(UI_FIX(HitecCtl::WriteOk), 800) && fakeHitecSim()->writes > writes &&
+	          job().result == HITEC_SES_OK);
+	tapId(UI_FIX(HitecCtl::WriteOk));
+	// A later write whose batch fails: the page names a file, not the backup.
+	writes = fakeHitecSim()->writes;
+	speedDown();
+	holdUntilGone(UI_FIX(HitecCtl::Write));
+	fakeCacheSet(CardCache::Flushing, 12);
+	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
+	hitecFrames(2);
+	fakeCacheSet(CardCache::Failed, 0);
+	hitecFrames(2);
+	checkTrue("a later write's batch failed: A FILE, nothing to the servo, in three lines",
+	          ctlPresent(UI_FIX(HitecCtl::WriteOk)) && fakeHitecSim()->writes == writes &&
+	          lineIs(196, "THE CARD DID NOT TAKE A FILE (REMOVED", C_AMBER) &&
+	          lineIs(208, "OR SWAPPED?). NOTHING WENT TO THE", C_AMBER) &&
+	          lineIs(220, "SERVO. CHECK THE CARD, HOLD AGAIN.", C_AMBER));
 	tapId(UI_FIX(HitecCtl::WriteOk));
 	leaveAll();
 	fakeCacheReset();
@@ -576,6 +611,9 @@ static void testNoCardWrite() {
 	int32_t before = jobSpeed();
 	speedDown();
 	holdUntilGone(UI_FIX(HitecCtl::Write));
+	hitecFrames(1);
+	checkTrue("no card: the old values lost at LEAVE, amber",
+	          lineIs(236, "NO CARD: OLD VALUES LOST AT LEAVE", C_AMBER));
 	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
 	checkTrue("the write runs without a card", untilCtl(UI_FIX(HitecCtl::WriteOk), 800));
 	checkTrue("verified", job().result == HITEC_SES_OK && jobSpeed() < before);
@@ -587,6 +625,12 @@ static void testNoCardWrite() {
 	checkTrue("the field list", toList(HITEC_D));
 	tapId(UI_FIX(HitecCtl::Files));
 	checkTrue("a card held by USB: RETRY MOUNT disabled", !ctlEnabled(UI_FIX(HitecCtl::RetryMount)));
+	tapId(UI_FIX(UI_BACK));
+	speedDown();
+	holdUntilGone(UI_FIX(HitecCtl::Write));
+	hitecFrames(1);
+	checkTrue("a card held by USB: the same cost, amber",
+	          lineIs(236, "CARD ON USB: OLD VALUES LOST AT LEAVE", C_AMBER));
 	tapId(UI_FIX(UI_BACK));
 	leaveAll();
 	fakeMscSet(MscState::Idle, 0);
@@ -601,7 +645,27 @@ static void testNoCardWrite() {
 	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
 	checkTrue("a card that takes no file: a note and OK", untilCtl(UI_FIX(HitecCtl::WriteOk), 200));
 	checkTrue("nothing written to the servo", fakeHitecSim()->writes == writes0);
+	checkTrue("the note says why, that the servo is unchanged, and what next",
+	          lineIs(196, "THE CARD TOOK NO FILE (FULL OR", C_AMBER) &&
+	          lineIs(208, "REMOVED?). NOTHING WENT TO THE SERVO.", C_AMBER) &&
+	          lineIs(220, "CHECK THE CARD, HOLD AGAIN.", C_AMBER));
 	fakeFatWriteProtect(false);
+	tapId(UI_FIX(HitecCtl::WriteOk));
+	leaveAll();
+
+	// The card refuses the backup's write and takes the record.
+	freshHitec(HITEC_D, false);
+	checkTrue("the field list", toList(HITEC_D));
+	speedDown();
+	holdUntilGone(UI_FIX(HitecCtl::Write));
+	fakeFatFail(FakeFatCall::Write, FR_DISK_ERR);
+	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
+	checkTrue("the backup refused, the record taken: the write runs",
+	          untilCtl(UI_FIX(HitecCtl::WriteOk), 800) && job().result == HITEC_SES_OK &&
+	          !fakeFatExists("BACKUP/HT001.TXT"));
+	hitecFrames(1);
+	checkTrue("the page names no backup file: lost at LEAVE, amber",
+	          lineIs(236, "NO BACKUP ON THE CARD: LOST AT LEAVE", C_AMBER));
 	tapId(UI_FIX(HitecCtl::WriteOk));
 	leaveAll();
 }

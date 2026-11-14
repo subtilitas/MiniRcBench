@@ -25,6 +25,41 @@ Ursache in der Firmware. Melde ihn wie unter
 
 ---
 
+## Der Bildschirm reagiert nicht auf Berührung
+
+<img src="img/splash-no-touch.png" width="240" alt="Der Startbildschirm mit TOUCH CONTROLLER NOT FOUND in Bernstein über dem Namen">
+
+`TOUCH CONTROLLER NOT FOUND` in Bernstein auf dem Startbildschirm bedeutet,
+dass der Touch-Controller der Firmware beim Einschalten nicht geantwortet
+hat. Die Zeile verschwindet, sobald er antwortet. Steht sie noch, wenn der
+Tester erscheint, wirkt kein Tippen. Nach einem Update, das die
+Einstellungen zurückgesetzt hat, steht sie unter den beiden Zeilen zu den
+Einstellungen.
+
+<img src="img/splash-reset-no-touch.png" width="240" alt="Der Startbildschirm mit SETTINGS RESET BY UPDATE, CHECK MENU > SETTINGS und TOUCH CONTROLLER NOT FOUND über dem Namen">
+
+Ohne Berührung lässt sich die Platine nicht bedienen: Scharfschalten,
+`DISARM`, `HOLD` und `MENU` brauchen sie alle. Ein Tester, der scharf war,
+als die Berührung ausfiel, entschärft durch die Leerlaufsperre 30 s nach
+der letzten Berührung. Um einen Motor sofort anzuhalten, trenne den Akku
+des ESC.
+
+Versuche der Reihe nach:
+
+1. Den Bildschirm trocknen und alles vom Glas nehmen, ein Kabel oder ein
+   Werkzeug: Es kann als Finger zählen und jedes Tippen blockieren.
+2. Die Platine aus- und einschalten: USB abziehen. Mit eingesetzter Zelle
+   läuft die Platine von der Zelle weiter, also auch die Zelle abstecken.
+
+Nicht bekannt: warum ein Controller nicht antwortet. Ein Controller, der
+nicht startet, sein Flachbandkabel in der Anzeige und ein hängender I2C-Bus
+(Inter-Integrated Circuit) werden nicht unterschieden. Das Flachbandkabel
+gehört zur Platine und ist nichts zum Öffnen; kein Reparaturschritt ist hier
+geprüft. Bleibt die Zeile nach einem Neustart, melde es wie unter
+[Immer noch nicht weiter](#immer-noch-nicht-weiter) beschrieben.
+
+---
+
 ## Keine Telemetrie
 
 <img src="img/tester-noesc.png" width="240" alt="Keine Telemetrie">
@@ -103,6 +138,12 @@ Der Gasbalken zeigt `EJECT THE USB DRIVE TO ARM`: Ein Computer hält die SD-Kart
 LOG zu erreichen), und Scharfschalten ist gesperrt, bis er sie freigibt. Wirf
 das Laufwerk am Computer aus oder drücke `EJECT` in SD LOG. Siehe
 [SD-Aufzeichnung](SD-Aufzeichnung).
+
+Ein Computer, der das Laufwerk abmeldet, gibt die Karte ebenfalls zurück. Ein
+gezogenes Kabel bei einer Platine am Akku tut das nicht: Der USB-Stack dieser
+Firmware sieht ein gezogenes Kabel wie einen Computer, der schlafen ging, und
+ein schlafender Computer behält die Karte. Drücke dann `EJECT` in SD LOG.
+Beides ist auf der Hardware nicht geprüft.
 
 ---
 
@@ -231,6 +272,24 @@ SENSE, daher geschieht dasselbe beim Wechsel von Version 4 auf Version 5
 noch einmal: Alle gespeicherten Einstellungen stehen wieder auf der
 Voreinstellung, CURRENT SENSE auf `NONE`. Stelle sie neu ein und speichere
 mit `HOLD TO SAVE`.
+
+Ein solches Zurücksetzen wird angezeigt: Der Startbildschirm zeigt
+`SETTINGS RESET BY UPDATE` und `CHECK MENU > SETTINGS`, die Zeile `SETTINGS`
+in MENU zeigt `UPDATED`, und die Hinweiszeile in SETTINGS zeigt
+`RESET BY UPDATE - CHECK AND SAVE`, bis ein Speichern gelingt. Ein
+beschädigter Block, statt eines von einer anderen Version geschriebenen, wird
+ohne diese Hinweise verworfen; die Hinweiszeile zeigt dann
+`COMPILED DEFAULTS IN USE`.
+
+---
+
+## `SDERR` auf dem Tester, oder eine Aufzeichnung, die anhielt
+
+Die Aufzeichnung endete ohne `STOP`. **MENU → SD LOG** sagt über `START`,
+wie: eine volle Karte, ein fehlgeschlagener Schreibvorgang, eine Datei, die
+sich nicht öffnen ließ, oder das Werkzeug (KST SERVO, HITEC SERVO, AM32
+CONFIG), das die Karte nahm. Siehe
+[SD-Aufzeichnung](SD-Aufzeichnung#wie-die-letzte-aufzeichnung-endete).
 
 ---
 

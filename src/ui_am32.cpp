@@ -520,7 +520,7 @@ static void claimPins() {
 	ClaimRefusal r = pinClaimBegin(PinUser::Am32, PIN_SIG);
 	s_claimed = (r == ClaimRefusal::None);
 	// The card's writes queue in SRAM for the claim; a running log stops.
-	if (s_claimed) cardCacheBegin();
+	if (s_claimed) cardCacheBegin(SdLogEnd::ByAm32);
 	snprintf(s_status, sizeof(s_status), "%s",
 	         s_claimed ? "RELEASING DSHOT PIN"
 	                   : (r == ClaimRefusal::Armed ? "DISARM FIRST" : "PINS BUSY"));

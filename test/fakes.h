@@ -70,9 +70,9 @@ void fakeRelease();
 /**
  * @brief Whether the fake touch controller answers. While it does not,
  *        touchPoll() reports the finger up, as the driver does after its
- *        failed reads, touchLastAnswer() keeps the last answer's time and
+ *        failed reads, touchLastAnswerMs() keeps the last answer's time and
  *        touchFailedReads() counts; touchInit() returns @p on and, with
- *        false, leaves no answer on record.
+ *        false, leaves no answer on record (touchAnswered()).
  * @param on         Reads complete.
  * @param keepFinger With @p on false: the scripted finger is still reported,
  *                   presses included, as a driver that misreads a lost

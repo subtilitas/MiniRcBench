@@ -45,7 +45,7 @@ protocol.
 ### Added
 
 - A touch controller that stops answering stops the outputs. The touch
-  driver records its last answer (`touchLastAnswer()`) and counts its
+  driver records its last answer (`touchLastAnswerMs()`) and counts its
   failed finger reads in a row (`touchFailedReads()`). With four or more
   failed reads in a row and 100 ms or more since the last answer
   (`TOUCH_LOST_MS`, four UI frames), or no answer since `touchInit()`, the
@@ -57,34 +57,66 @@ protocol.
   it is one failed read at most. Before, a latched throttle ran until the
   idle interlock, 30 s after the last touch. Whether the controller answers
   with no finger on the glass for minutes is not measured (STATUS open
-  item 21). Host tests `testTouchLoss()`, `testTouchLossStall()`,
+  item 22). Host tests `testTouchLoss()`, `testTouchLossStall()`,
   `testTouchLossStops()` and the driver against the CST328 model; the wiki
   shows `tester-touch-lost.png`.
 - The splash shows `TOUCH CONTROLLER NOT FOUND` in amber while the touch
-  controller has not answered since `touchInit()`: the driver records its
-  last answer (`touchLastAnswer()`), and the splash reads the touch every
-  25 ms (`uiSplashTick()`) and clears the line at the first answer. That
+  controller has not answered since `touchInit()`: the driver records
+  whether it has answered (`touchAnswered()`), and the splash reads the
+  touch every 25 ms (`uiSplashTick()`) and clears the line at the first
+  answer. That
   read goes into a state of its own, so a finger resting on the glass when
-  the tester appears gives no press edge and presses nothing until it is
-  lifted: a finger on the glass at power-up is lifted before HOLD TO ARM.
+  the tester appears gives no press edge: it does not arm or move the
+  throttle, and its lift still ends a tap on a button that acts on release.
+  A finger on the glass at power-up is lifted before HOLD TO ARM.
   Host test `testSplashTouch()`, with a touch fake that stops answering
   (`fakeTouchAnswers()`); the wiki shows `splash-no-touch.png`.
 - The tester's BOARD voltage is amber below 3.50 V and red below 3.30 V,
   with 50 mV of hysteresis (`uiBoardCell()`, `BOARD_CELL_*` in
   `src/config.h`), taken from the value as drawn, rounded to centivolts.
   Below 2.50 V, implausible for a working cell and possible with USB power
-  alone, it stays in the text colour. The thresholds are a lithium-polymer
-  cell's usual low range, not measured on this board. Nothing is refused on
-  them. Host test `testBoardCellColour()`.
-- The manual says the screen reads one finger: a second is ignored while
-  the first rests on the glass, so the throttle finger lifts before
-  DISARM; a wet screen or a lead on the glass can block every tap (README,
-  wiki First-Run, The-Screens and their German pairs).
+  alone, it stays in the text colour, and turns red again from 2.55 V. The
+  thresholds are a lithium-polymer cell's usual low range, not measured on
+  this board. Nothing is refused on them. Host test
+  `testBoardCellColour()`.
+- The manual says the driver reads the controller's first contact slot
+  only and that what the controller puts there with two contacts is not
+  measured, so the throttle finger lifts before DISARM; a wet screen or a
+  lead on the glass can block every tap (README, wiki First-Run,
+  The-Screens and their German pairs). Troubleshooting and Fehlersuche have
+  a section for a screen that does not react to touch.
 - The wiki pages SD-Logging and SD-Aufzeichnung say to stop a recording
   before cutting the board's power or pulling the card, and what a log cut
-  by a power loss holds: its reserved 16 MiB, valid up to its last sync,
-  2 s apart, then old card data. `docs/design/blackbox-logging.md` answers
-  its open question from the code; the hardware check stays open.
+  by a power loss holds: 0 bytes within its first 2 s; later its reserved
+  16 MiB, holding what reached the card, lagging by up to the 8192-byte
+  buffer, then old card data; without the reservation, or past 16 MiB, the
+  size at the last sync. `docs/design/blackbox-logging.md` answers its open
+  question from the code; the hardware check stays open.
+- SD LOG says how the last log ended when it ended on its own or a tool
+  took the card, on amber lines above START: a card's fault until the next
+  start or mount, a tool's stop until the next start
+  (`sdLogMountForget()`). `RECORDING STOPPED: CARD
+  FULL` / `FREE SPACE ON A COMPUTER, RETRY MOUNT` when FatFs wrote fewer
+  bytes than asked, `RECORDING STOPPED: CARD WRITE FAILED` / `REMOVED?
+  REINSERT, THEN RETRY MOUNT` when a write, sync or close failed, `NO LOG
+  STARTED: THE FILE DID NOT OPEN` / `CHECK THE CARD, THEN RETRY MOUNT`, and
+  `RECORDING STOPPED BY KST SERVO`, `HITEC SERVO` or `AM32 CONFIG` when the
+  tool's claim stopped the log (`SdLogEnd`, `sdLogStopFor()`,
+  `sdLogWriteEnd()`; `cardCacheBegin()` takes the tool).
+- The splash reads `SETTINGS RESET BY UPDATE` and `CHECK MENU > SETTINGS` in
+  amber, MENU's SETTINGS row `UPDATED`, and SETTINGS' note line `RESET BY
+  UPDATE - CHECK AND SAVE`, after the load discarded a whole settings block
+  of another version, until a save lands (`settingsResetByUpdate()`). Blank
+  flash and a damaged block show none of them.
+- SETTINGS repeats the splash's warning, `UNPLUG ANY SERVO FROM GP1 NOW`
+  for example, in amber on a line of its own at y 230 while the live ESC pin
+  is not the one the splash named (`settingsBootDshotPin()`). The list then
+  ends at y 227 and scrolls 12 px further; the note line keeps UNSAVED and
+  SAVED.
+- A USB host that unconfigures the device gives the card back as an eject
+  does (`tud_umount_cb()`). A program of its own,
+  `test/test_usb_msc_cb.cpp`, links the real `src/usb_msc.cpp` and drives
+  its callbacks.
 - AM32 CONFIG says what a value does and what to do next. Two amber lines
   replace the ESC name on the strip: while 3D MODE is on, `3D MODE: 50%
   THROTTLE IS FULL POWER,` / `ABOVE 50% THE OTHER WAY. PROP OFF.`; with TEMP
@@ -491,6 +523,22 @@ protocol.
 
 ### Changed
 
+- SD LOG's FILE row keeps the last log's name after it ends, marked
+  `(LAST)`, beside the counters that log left, until the next start or
+  mount; a mount resets the name and the counters (`sdLogBegin()`). The
+  rows are 19 px apart, for the two note lines.
+- The tester draws `SDERR` on an amber chip in the status bar, between the
+  arm badge and `BOARD`.
+- KST SERVO and HITEC SERVO: a refused backup names the likely cause and the
+  next step. `THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING
+  WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`, the same with `A FILE`,
+  and `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO.
+  CHECK THE CARD, HOLD AGAIN.` replace the texts that ended in `NOTHING WAS
+  WRITTEN TO THE SERVO.` `HitecResultText` holds 128 bytes.
+- KST SERVO and HITEC SERVO: the write page's backup line reads `NO CARD:
+  OLD VALUES LOST AT LEAVE`, `CARD ON USB: OLD VALUES LOST AT LEAVE` and `NO
+  BACKUP ON THE CARD: LOST AT LEAVE` in amber, in place of the dim `... IN
+  MEMORY` lines. The write is still allowed.
 - The AM32 previews show an ESC with 3D MODE off, the ESC name on the
   strip; `am32-3d.png` shows the 3D note on the wiki's AM32 pages.
 - AM32 CONFIG's `BIDIRECTIONAL` row is `3D MODE`: byte 0x12 is AM32's

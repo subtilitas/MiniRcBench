@@ -67,6 +67,7 @@ typedef struct __attribute__((packed)) {
 bool tusb_init(void);
 void tud_task(void);
 bool tud_mounted(void);
+void tud_umount_cb(void);
 
 // --- CDC ---
 bool     tud_cdc_connected(void);
