@@ -333,7 +333,6 @@ static_assert((BOARD_FREE_GPIO_MASK & 0x3C000000u) == 0,
 static bool classicAllowed() { return servoSupplyFitted(); }
 
 static void go(HitecView v) {
-	s_boardLow = false;
 	if (v != HitecView::Write) s_flushing = false;
 	s_view = v;
 	uiHoldReset(&s_hold);
@@ -531,24 +530,9 @@ static void mainText(MainText *m) {
 	static char a[48], b[48];
 	memset(m, 0, sizeof(*m));
 	uint8_t sig = sigGpio();
-	if (!s_claimed) {
-		switch (s_refusal) {
-			case ClaimRefusal::EscAnswering:
-				snprintf(a, sizeof(a), "AN ESC ANSWERS ON GP%u.", sig);
-				addLine(m, a, C_AMBER);
-				addLine(m, "UNPLUG IT: A HITEC ENTRY SENDS", C_AMBER);
-				addLine(m, "FRAMES INTO WHAT IS ON THE WIRE.", C_AMBER);
-				snprintf(m->strip, sizeof(m->strip), "CHECKING GP%u FOR AN ESC", sig);
-				return;
-			case ClaimRefusal::Armed: addLine(m, "DISARM FIRST", C_AMBER); return;
-			default:                  addLine(m, "PINS BUSY", C_AMBER);    return;
-		}
-	}
+	// The main view follows a family tap, which acts only while the claim is
+	// Held (familyOpen()): the claim is taken and DShot is down here.
 	ClaimState cs = pinClaimState();
-	if (cs == ClaimState::Stopping) {
-		snprintf(m->strip, sizeof(m->strip), "RELEASING GP%u", sig);
-		return;
-	}
 	uint8_t err = pinClaimJobError();
 	if (err) {
 		static const char *const WHY[] = {"", "REFUSED", "PWM", "PIO", "DMA", "CLOCK"};
@@ -681,6 +665,9 @@ static void drawFamilyStrip() {
 			snprintf(a, sizeof(a), HITEC_UI_ESC_FMT, sig);
 			uiStripTwoLines(a, C_AMBER, HITEC_UI_ESC_2, C_AMBER);
 		} else {
+			// Neither is reachable through the UI: MENU disarms on entry, and
+			// its row stays disabled while another claim holds or restores.
+			// Kept so that a refusal never leaves the strip blank.
 			uiStripText(s_refusal == ClaimRefusal::Armed ? "DISARM FIRST" : "PINS BUSY", C_AMBER);
 		}
 		return;
@@ -987,6 +974,8 @@ static bool writeFiles() {
 
 static void sendWrite() {
 	// Asked again here: the write may have waited for a flush since the hold.
+	// Refused now, the backup and the record are on the card; no frame goes
+	// out.
 	s_boardLow = uiBoardWriteRefused();
 	if (s_boardLow) return;
 	escHeartbeat();
@@ -1077,6 +1066,10 @@ static void waitFlush(FlushWait w) {
  *        write: every write puts its record on the card before its first frame.
  */
 static void filesThenWrite() {
+	// Asked again here: an earlier batch's flush may have run since the hold,
+	// and this write's record goes to the card next.
+	s_boardLow = uiBoardWriteRefused();
+	if (s_boardLow) return;
 	if (cardSwapped()) restartOnNewCard();
 	s_flushFirst = !s_firstDone;
 	if (!writeFiles()) {
@@ -1094,7 +1087,8 @@ static void startWrite() {
 	s_cardNote = nullptr;
 	s_result = false;
 	// The BOARD voltage red: no file goes to the card and no frame to the
-	// servo. A write already running is not stopped.
+	// servo. A write already running is not stopped: cut off, it would leave
+	// the servo partly written and unverified.
 	s_boardLow = uiBoardWriteRefused();
 	if (s_boardLow) return;
 	if (cardCacheState() == CardCache::Failed) recoverFlush();

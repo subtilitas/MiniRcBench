@@ -1717,6 +1717,11 @@ static void testBoardLow() {
 	checkTrue("HOLD TO WRITE stays", ctlEnabled(UI_FIX(KstCtl::WriteHold)));
 	checkControlTable("KST write page, board low");
 	fakeDumpFrame("shot_kst_board_low.ppm");
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: the field list", uiKstView() == KstView::List);
+	checkTrue("the write page again: no refusal lines before a hold",
+	          holdUntilGone(UI_FIX(KstCtl::Write)) && uiKstView() == KstView::Write &&
+	          !lineIs(196, UI_BOARD_LOW_1, C_AMBER) && !lineIs(208, UI_BOARD_LOW_2, C_AMBER));
 
 	// Amber, no cell to judge, the text colour: each writes.
 	const float volts[] = { 3.40f, 1.00f, 3.92f };

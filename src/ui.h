@@ -103,9 +103,12 @@ BoardCell uiBoardCellNow();
  *        the BOARD voltage is red, BoardCell::Critical, below
  *        @ref BOARD_CELL_CRIT_MV until it reaches that plus
  *        @ref BOARD_CELL_HYST_MV. Amber, Ok and NoCell (below 2.50 V, no cell
- *        to judge) refuse nothing. Each screen asks at the hold and again
- *        just before the write goes out; a write already running is not
- *        stopped.
+ *        to judge) refuse nothing. KST and Hitec ask at the hold, which
+ *        then writes no file and sends no frame, and again before the write
+ *        goes out after a flush: the backup and the record are on the card
+ *        by then, and no frame goes out. AM32 asks once, before its backup.
+ *        A write already running is not stopped: cut off, it would leave the
+ *        servo or the ESC partly written and unverified.
  * @return true while a write must not start.
  */
 static inline bool uiBoardWriteRefused() { return uiBoardCellNow() == BoardCell::Critical; }

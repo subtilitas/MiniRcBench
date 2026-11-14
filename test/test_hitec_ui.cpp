@@ -316,7 +316,7 @@ static void testFamily() {
 	tapId(UI_FIX(HitecCtl::Restart));
 	checkTrue("RESTART DSHOT: MENU, DShot resumed", uiCurrentScreen() == UiScreenId::Menu &&
 	          fakePinReturned() && fakeResumeCount() == resumes + 1);
-	checkTrue("MENU reads PINS BUSY until the pump runs", pinClaimState() == ClaimState::Free ||
+	checkTrue("MENU reads PINS BUSY while the pump rebuilds", pinClaimState() == ClaimState::Restoring &&
 	          !ctlEnabled(menuRow(&UI_HITEC)));
 	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) hitecFrame();
 	checkTrue("then the claim is free", pinClaimState() == ClaimState::Free &&
@@ -1374,6 +1374,11 @@ static void testBoardLow() {
 	checkTrue("the horn line stays: nothing was written", hornLineY() >= 0);
 	checkControlTable("Hitec write page, board low");
 	fakeDumpFrame("shot_hitec_board_low.ppm");
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: the field list", uiHitecView() == HitecView::List);
+	checkTrue("the write page again: no refusal lines before a hold",
+	          holdUntilGone(UI_FIX(HitecCtl::Write)) && uiHitecView() == HitecView::Write &&
+	          !lineIs(196, UI_BOARD_LOW_1, C_AMBER) && !lineIs(208, UI_BOARD_LOW_2, C_AMBER));
 
 	// Amber and no cell to judge: each writes.
 	const float volts[] = { 3.40f, 1.00f };
@@ -1401,6 +1406,9 @@ static void testBoardLow() {
 	checkTrue("3.92 V: the hold starts the write", uiBoardCellNow() == BoardCell::Ok &&
 	          holdUntilGone(UI_FIX(HitecCtl::WriteHold)));
 	fakeAdcSet((uint16_t)(3.20f / 3.0f / 3.3f * 4095.0f + 0.5f));
+	for (int i = 0; i < 40 && uiBoardCellNow() != BoardCell::Critical; i++) hitecFrame();
+	checkTrue("the band turns red while the write runs", uiBoardCellNow() == BoardCell::Critical &&
+	          job().job == HitecJobState::Busy && !ctlPresent(UI_FIX(HitecCtl::WriteOk)));
 	checkTrue("red while it runs: the write ends verified",
 	          untilCtl(UI_FIX(HitecCtl::WriteOk), 800) && job().result == HITEC_SES_OK &&
 	          jobSpeed() < was);
@@ -1445,6 +1453,28 @@ static void testBoardLow() {
 	          lineIs(196, UI_BOARD_LOW_1, C_AMBER) && ctlEnabled(UI_FIX(HitecCtl::WriteHold)));
 	boardVolts(3.92f);
 	checkTrue("3.92 V: the next hold writes", holdUntilGone(UI_FIX(HitecCtl::WriteHold)) &&
+	          untilCtl(UI_FIX(HitecCtl::WriteOk), 800) && jobSpeed() < before);
+	tapId(UI_FIX(HitecCtl::WriteOk));
+
+	// A later write waits for an earlier batch before its record goes in:
+	// red when that flush ends, the record stays off the card too.
+	before = jobSpeed();
+	speedDown();
+	holdUntilGone(UI_FIX(HitecCtl::Write));
+	fakeCacheSet(CardCache::Flushing, 5);
+	writes0 = fakeHitecSim()->writes;
+	checkTrue("no record on the card after the verified write", !fakeFatExists("HITEC/HITEC.TXT"));
+	checkTrue("the hold at 3.92 V waits for the earlier batch",
+	          holdUntilGone(UI_FIX(HitecCtl::WriteHold)) &&
+	          lineIs(196, "SAVING THE FILES TO THE CARD.", C_AMBER));
+	boardVolts(3.20f);
+	fakeCacheSet(CardCache::Idle, 0);
+	hitecFrames(5);
+	checkTrue("red when it ends: no record, no write, the two lines",
+	          !fakeFatExists("HITEC/HITEC.TXT") && fakeHitecSim()->writes == writes0 &&
+	          jobSpeed() == before && lineIs(196, UI_BOARD_LOW_1, C_AMBER));
+	boardVolts(3.92f);
+	checkTrue("3.92 V: the hold writes", holdUntilGone(UI_FIX(HitecCtl::WriteHold)) &&
 	          untilCtl(UI_FIX(HitecCtl::WriteOk), 800) && jobSpeed() < before);
 	tapId(UI_FIX(HitecCtl::WriteOk));
 	leaveAll();

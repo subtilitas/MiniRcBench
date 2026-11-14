@@ -27,9 +27,9 @@
  * the table is not checked against, outside 2 to 4, has no field line and
  * one line after `Firmware:`, `Layout not known: fields not read, not
  * verified` (am32FieldShown()). The byte lines hold all 48 bytes
- * (`AM32_SETTINGS_SIZE`), so a byte no field covers is kept too. The melody and the CAN (Controller Area Network) block, which the
- * editor neither shows nor writes, are not saved. Nothing reads the file back
- * yet.
+ * (`AM32_SETTINGS_SIZE`), so a byte no field covers is kept too. The
+ * melody and the CAN (Controller Area Network) block, which the editor
+ * neither shows nor writes, are not saved. Nothing reads the file back yet.
  */
 
 #pragma once

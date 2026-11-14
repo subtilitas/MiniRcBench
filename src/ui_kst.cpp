@@ -1002,6 +1002,8 @@ static bool firstWriteFiles() {
 /** @brief Send the write or the restore to the job. */
 static void sendWrite() {
 	// Asked again here: the write may have waited for a flush since the hold.
+	// Refused now, the backup and the record are on the card; no frame goes
+	// out.
 	s_boardLow = uiBoardWriteRefused();
 	if (s_boardLow) return;
 	// The card calls block core0, up to seconds on a slow card; the job
@@ -1101,7 +1103,8 @@ static void startWrite() {
 	s_cardNote = nullptr;
 	s_result = false;
 	// The BOARD voltage red: no file goes to the card and no frame to the
-	// servo. A write already running is not stopped.
+	// servo. A write already running is not stopped: cut off, it would leave
+	// the servo partly written and unverified.
 	s_boardLow = uiBoardWriteRefused();
 	if (s_boardLow) return;
 	// A batch that failed off this page, after BACK during the flush or a

@@ -496,8 +496,10 @@
  * The values are a lithium-polymer (LiPo) cell's usual low range. They are
  * not measured on this board: neither the cell's voltage under the board's
  * load nor what the divider reads with USB (Universal Serial Bus) power
- * alone. Nothing is refused on them. The band is taken from the voltage as
- * drawn, rounded to centivolts.
+ * alone. While the band is red, below @ref BOARD_CELL_CRIT_MV, KST, Hitec
+ * and AM32 writes are refused (uiBoardWriteRefused() in ui.h); amber and the
+ * text colour refuse nothing. The band is taken from the voltage as drawn,
+ * rounded to centivolts.
  * @{
  */
 /**

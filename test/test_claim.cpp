@@ -940,7 +940,6 @@ static void testDeferredJob() {
 	          !pinUserInfo(PinUser::Am32).deferJob);
 	int resumes = fakeResumeCount();
 	checkTrue("HITEC claims", pinClaimBegin(PinUser::Hitec, PIN_SIG) == ClaimRefusal::None);
-	pinClaimStartJob(PinUser::Servo);
 	pump();
 	checkTrue("held", pinClaimPoll() == ClaimState::Held);
 	core1JobPoll();
@@ -949,7 +948,10 @@ static void testDeferredJob() {
 	          g_hitecJob.binds == 0 && pinClaimState() == ClaimState::Held &&
 	          pinClaimJobError() == CORE1_JOB_OK);
 	checkInt("the pin is latched", pinClaimGpio(PIN_SIG), SIG_GPIO);
-	checkTrue("a start from another screen does nothing", core1JobPhase() == Core1JobPhase::Idle);
+	pinClaimStartJob(PinUser::Servo);
+	core1JobPoll();
+	checkTrue("a start from another screen does nothing", core1JobPhase() == Core1JobPhase::Idle &&
+	          g_hitecJob.binds == 0 && pinClaimPoll() == ClaimState::Held);
 
 	// BACK before the tap: the unplug page, as after a session.
 	pinClaimEnd(PinUser::Hitec);
