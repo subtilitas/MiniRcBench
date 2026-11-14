@@ -707,6 +707,20 @@ the tag. Menu structure B waits on being built, not on the bench (item 18).
     draw radii, or drop them, is open; the chips are square by decision 11
     either way.
 
+26. **ESC commands and the kV estimate, chosen on 2026-11-14.** The
+    owner's feature choice of 2026-11-14 puts six features on the build
+    list, each with a design note first; this is the first.
+    [esc-commands.md](docs/design/esc-commands.md) designs an ESC COMMANDS
+    page, beacons 1 to 5, direction and 3D mode, each change saved in the
+    ESC behind a 1 s hold, and an RPM/V reading and a kV estimate on the
+    tester. Not built. The note waits on the owner's answers to its eight
+    open questions: where the page lives, save with each change, a hold or
+    a write page, the 3D note after 3D OFF, commands with no ESC answering,
+    where the two figures go on the tester, the estimate's minimum throttle,
+    and the ESC information reply. Its firmware facts are read from source
+    and the BLHeli_32 command specification; none has been checked on an
+    ESC.
+
 ## Known limitations
 
 - **`tools/sdtest` is built by no CI job**, by the owner's decision of
