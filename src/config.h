@@ -440,11 +440,11 @@
 #define ARM_HOLD_MS            1000
 
 /**
- * @brief Drag sensitivity on the throttle gauge in HOLD mode, as a percentage.
+ * @brief Drag sensitivity on the throttle gauge with LATCH on, as a percentage.
  *
- * HOLD mode moves the throttle *relatively* — by how far your finger
- * travelled, not to where it landed — so touching the bar never makes the
- * motor jump. 100 means one track width of travel covers the full ceiling.
+ * With LATCH on the gauge moves the throttle *relatively* — by how far your
+ * finger travelled, not to where it landed — so touching the bar never makes
+ * the motor jump. 100 means one track width of travel covers the full ceiling.
  * Lower values give finer control and let you build throttle up over several
  * swipes.
  *
@@ -457,7 +457,7 @@
  *
  * The whole number-display area above the gauge (RPM readout plus telemetry
  * tiles) doubles as a relative throttle pad: swipe up for more, down for less.
- * It is *always* relative regardless of HOLD, because a big blank area has no
+ * It is *always* relative regardless of LATCH, because a big blank area has no
  * positional meaning — a tap on it must never move the motor.
  *
  * 100 means one full-height swipe covers the whole ceiling. Lower is finer;

@@ -30,7 +30,7 @@ struct TouchState;
 
 /** @brief The screens. SERVO and its SET view are one screen. */
 enum class UiScreenId : uint8_t {
-	Tester,    /**< The root: throttle, ARM, HOLD, MENU. */
+	Tester,    /**< The root: throttle, ARM, LATCH, MENU, the two readouts. */
 	Menu,      /**< MENU, the list of tools and actions. */
 	Settings,  /**< SETTINGS, one list in sections. */
 	SdLog,     /**< SD LOG. */
@@ -160,6 +160,19 @@ struct UiMenuEntry {
 	uint8_t         statusWidest;  /**< Widest status, characters, for the fit check. */
 	const UiScreen *screen;
 };
+
+/**
+ * @brief @p s is refused while the pin claim is not Free: it claims pins
+ *        (@ref UiScreen::pinUser), or changes the wiring a claim latched
+ *        (@ref UiScreen::freePins). MENU refuses its row on it, and the
+ *        tester its readouts.
+ * @param s The screen.
+ * @return true while @p s may not open.
+ */
+inline bool uiPinsRefuse(const UiScreen *s) {
+	return (s->pinUser != PinUser::None || s->freePins) &&
+	       pinClaimState() != ClaimState::Free;
+}
 
 /** @brief The open screen. */
 UiScreenId uiCurrentScreen();

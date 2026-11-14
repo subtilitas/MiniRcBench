@@ -110,9 +110,7 @@ static bool claimBusy() { return pinClaimState() != ClaimState::Free; }
  *        refused while the claim is not Free: Restoring outlasts RESTART
  *        DSHOT's return to MENU.
  */
-static bool pinsBusy(const UiScreen *s) {
-	return (s->pinUser != PinUser::None || s->freePins) && claimBusy();
-}
+static bool pinsBusy(const UiScreen *s) { return uiPinsRefuse(s); }
 
 /**
  * @brief A row's status and its colours: the screen's own, whether or not

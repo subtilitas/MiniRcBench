@@ -1198,7 +1198,7 @@ static void testAm32Screen() {
 	pressId(UI_FIX(TesterCtl::Arm));
 	holdId(UI_FIX(TesterCtl::Arm), 60);
 	fakeRelease(); frames(2);
-	tapId(UI_FIX(TesterCtl::Hold));
+	tapId(UI_FIX(TesterCtl::Latch));
 	// The drag starts mid-track, at the track's vertical centre.
 	const UiRect thr = ctlRect(UI_FIX(TesterCtl::Throttle));
 	const int thrY = thr.y + thr.h / 2;

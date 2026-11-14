@@ -4,7 +4,8 @@
 
 Die Firmware hat acht Bildschirme. Der Tester ist die Wurzel. `MENU` öffnet
 die Liste der Werkzeuge, und jedes Werkzeug verlässt du mit `BACK`, das zu
-`MENU` zurückführt.
+`MENU` zurückführt. SETTINGS öffnet auch über die Polzahl und die Obergrenze
+des Testers; `BACK` führt dann zum Tester zurück.
 
 ```
 Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MENU
@@ -15,6 +16,7 @@ Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MEN
    │                    ├── SETTINGS     ──BACK──> MENU
    │                    └── SD LOG       ──BACK──> MENU
    └──── BACK auf MENU ─┘
+Tester ──14 POLES oder MAX 20% (entschärft)──> SETTINGS ──BACK──> Tester
 ```
 
 `BEEP THE ESC` ist eine Zeile von `MENU`, die etwas auslöst und keinen
@@ -36,7 +38,7 @@ wird, `REC`, ein Schreiben mit unklarem Ausgang. Bernstein ist eine Warnung oder
 der Schritt, der jetzt dran ist. Magenta ist ein Alarm, etwa `STALLED`. Cyan ist
 ein geänderter Wert, der noch nicht geschrieben oder übernommen ist, mit einem
 cyanfarbenen Balken am linken Rand seiner Zeile. Blau ist eine
-Einstellung, die an bleibt: `HOLD`, ein eingeschalteter Schalter, `PROG MODE`,
+Einstellung, die an bleibt: `LATCH`, ein eingeschalteter Schalter, `PROG MODE`,
 Servo B. Beschriftungen, Überschriften und die Schaltflächen, die etwas öffnen
 oder auslösen, stehen in der Textfarbe oder in Grau. Ein Feld auf der Leiste
 unter einem Titel ist eckig, damit es nicht wie eine Schaltfläche aussieht.
@@ -87,8 +89,9 @@ und `WRITE FAILED` bei AM32.
 
 **Drehzahl.** Mechanische Drehzahl (RPM, Umdrehungen pro Minute), berechnet
 aus der vom ESC (Electronic Speed Controller, Motorregler) gemeldeten eRPM
-(elektrische Drehzahl) und der Polzahl. Der `ERPM`-Wert und die Polzahl stehen
-darunter. Grüne Ziffern: eRPM ist in den letzten 500 ms eingetroffen.
+(elektrische Drehzahl) und der Polzahl. Der `ERPM`-Wert und die Polzahl, zum
+Beispiel `14 POLES`, stehen darunter. Grüne Ziffern: eRPM ist in den letzten
+500 ms eingetroffen.
 Dunkelrote Null: nicht, und die Zeile zeigt `NO TELEMETRY`.
 
 Hat AM32 CONFIG seit dem Einschalten einen ESC mit 3D MODE an gelesen, oder
@@ -114,10 +117,22 @@ Verbindungsqualität. Siehe [Telemetrie](Telemetrie).
 **Gas.** Die Anzeige, die Obergrenze und der befohlene Prozentwert. Der
 Prozentwert bezieht sich auf den vollen DShot-Bereich (0–2000 = 0–100 %): Bei
 20 % Obergrenze zeigt ein Zug über die volle Breite `20%`. Die Obergrenze
-steht als `MAX 20%` in der Textfarbe neben `THROTTLE`. Im entschärften
-Zustand zeigt der Balken `ARM TO ENABLE`.
+steht als `MAX 20%` in der Textfarbe neben `THROTTLE`; mit `LATCH` an steht
+dort `LATCHED`. Im entschärften Zustand zeigt der Balken `ARM TO ENABLE`.
 
-**Schaltflächen.** `HOLD TO ARM` / `DISARM`, `HOLD` (haltendes Gas), `MENU`.
+**Polzahl und Obergrenze öffnen SETTINGS.** Solange der Tester entschärft ist,
+sind `14 POLES` und `MAX 20%` unterstrichen, und ein Tippen auf eines davon
+öffnet SETTINGS. Das Tippen entschärft wie `MENU`, und `BACK` in SETTINGS
+führt zum Tester zurück. Scharf verschwindet die Unterstreichung, und ein
+Tippen darauf tut nichts: Die Polzahl liegt in der Gasfläche und `MAX` reicht
+in den Greifbereich des Balkens, also steuert der Druck dort das Gas. Während
+DShot nach einem Servo-Werkzeug neu startet, verschwindet die Unterstreichung
+ebenfalls und ein Tippen tut nichts, so wie `MENU` SETTINGS dann gesperrt
+zeichnet. Solange der 3D-Hinweis die Zeile einnimmt, öffnet nur `MAX`
+SETTINGS.
+
+**Schaltflächen.** `HOLD TO ARM` / `DISARM`, `LATCH` (das Gas bleibt, wo der
+Finger es loslässt; blau, solange an), `MENU`.
 
 Solange ein Computer die SD-Karte über USB hält, ist Scharfschalten gesperrt:
 `HOLD TO ARM` ist nur als Umriss gezeichnet, und der Balken zeigt
@@ -141,7 +156,7 @@ dem Glas liegt, kann als Finger zählen und jedes Tippen blockieren.
 <img src="img/menu.png" width="240" alt="Der MENU-Bildschirm">
 
 Erreichbar über die Schaltfläche `MENU` des Testers. Das Öffnen **entschärft**,
-setzt das Gas auf 0 und schaltet `HOLD` aus.
+setzt das Gas auf 0 und schaltet `LATCH` aus.
 
 Unter dem Titel nennt eine Leiste die beiden Signalpins, SIG für den ESC und
 AUX für das KISS-Kabel oder ein zweites Servo, und die DShot-Rate, zum
@@ -235,7 +250,9 @@ Startbildschirm sagt dasselbe beim Einschalten (siehe
 
 Motor- und Verkabelungseinstellungen, Anzeigeeinstellungen, die Platine,
 Diagnose und die Schaltfläche, die alle Einstellungen ins Flash schreibt. Eine
-Liste in Abschnitten, die sich mit dem Finger verschieben lässt.
+Liste in Abschnitten, die sich mit dem Finger verschieben lässt. Sie öffnet
+über `MENU` oder, entschärft, über ein Tippen auf die Polzahl oder die
+Obergrenze des Testers; `BACK` führt dorthin zurück, wo sie geöffnet wurde.
 
 | Abschnitt | Zeile | Bedeutung |
 |---|---|---|

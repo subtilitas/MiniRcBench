@@ -531,6 +531,26 @@ protocol.
 
 ### Changed
 
+- After v0.1.0-rc1 (a93e1c1): the tester of menu structure B, slice 7 of
+  [menu-b.md](docs/design/menu-b.md#slice-7-as-built) (owner decision 4 and
+  decisions 11 (the MAX row), 15 a to c, 17, 19 and 20). The pole count reads
+  `14 POLES` in the text colour, in place of `14P` in grey. While the tester is
+  disarmed and no other screen holds the signal pins, `14 POLES` and `MAX 20%`
+  are underlined, and a tap on either opens SETTINGS; the tap disarms as MENU
+  does, through `uiOpenTool()` in `src/ui.cpp`, and BACK on SETTINGS opened this
+  way returns to the tester. Armed, or while DShot restarts after a servo tool,
+  they show no underline and a tap on them does nothing; while the 3D note takes
+  the row only `MAX` opens SETTINGS. The throttle latch `HOLD` reads `LATCH`
+  (`TesterCtl::Latch`), and the track's caption with it on reads `LATCHED` in
+  place of `THROTTLE REL`. A tap that leaves the tester for MENU or SETTINGS
+  paints no tester region over the cleared frame. BOARD and the disabled HOLD TO
+  ARM while a USB host holds the card, decision 15 b and c, were built before
+  and are unchanged. Host tests `testTesterReadouts()` and `testSplashTouch()`
+  in test_ui.cpp; `checkControlTable()` in `test/ui_ids.h` lets a readout lie
+  over the pad or the track while the two do not both act. MENU and the readouts
+  share one refusal for a busy pin claim, `uiPinsRefuse()` in `src/ui_screen.h`.
+  A finger resting on a readout at power-up opens SETTINGS when it lifts, as one
+  on MENU opens MENU.
 - After v0.1.0-rc1 (a93e1c1): the uses that decision 11's tables name take
   their role's colour, slice 2 of menu structure B (`docs/design/menu-b.md`,
   decisions 8, 11 and 26). A value edited and not yet written or applied is cyan

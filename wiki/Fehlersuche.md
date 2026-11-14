@@ -42,7 +42,7 @@ Einstellungen.
 <img src="img/splash-reset-no-touch.png" width="240" alt="Der Startbildschirm mit SETTINGS RESET BY UPDATE, CHECK MENU > SETTINGS und TOUCH CONTROLLER NOT FOUND über dem Namen">
 
 Ohne Berührung lässt sich die Platine nicht bedienen: Scharfschalten,
-`DISARM`, `HOLD` und `MENU` brauchen sie alle. Die Leerlaufsperre
+`DISARM`, `LATCH` und `MENU` brauchen sie alle. Die Leerlaufsperre
 entschärft 30 s nach der letzten Berührung, die der Controller meldet. Ein
 nasser Bildschirm oder etwas, das auf dem Glas liegt, zählt als Berührung
 und hält einen scharfen Tester scharf. Um einen Motor anzuhalten, trenne

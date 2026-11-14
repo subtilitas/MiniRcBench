@@ -861,7 +861,7 @@ bool uiSettingsTick(const TouchState *t) {
 	if (uiHoldUpdate(&s_saveHold, BTN_SAVE, s_t, true, now)) {
 		// Refused while armed: erasing flash parks core1, which stops the
 		// DShot pump, and the ESC would cut a spinning motor. Unreachable,
-		// since MENU disarms, and checked anyway.
+		// since uiOpenTool() disarms, and checked anyway.
 		if (uiArmed()) {
 			s_saveOutcome = SaveOutcome::FailedArmed;
 		} else {
@@ -876,7 +876,7 @@ bool uiSettingsTick(const TouchState *t) {
 		s_redraw = true;
 	}
 	// --- hold for the defaults: the same rules. Not refused while armed, as the tap
-	//     before it was not: MENU disarms, so SETTINGS never opens armed ---
+	//     before it was not: uiOpenTool() disarms, so SETTINGS never opens armed ---
 	bool wasResetting = s_resetHold.holding;
 	bool reset = uiHoldUpdate(&s_resetHold, BTN_DEFAULTS, s_t, true, now);
 	if (wasResetting || s_resetHold.holding) s_redraw = true;   // mirrors SAVE's redraw

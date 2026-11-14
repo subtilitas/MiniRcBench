@@ -1981,30 +1981,30 @@ static void testTapCancels() {
 	uiInit();
 	frames(2);
 
-	// HOLD is observable through the throttle gauge: with it on, the bar latches
+	// LATCH is observable through the throttle gauge: with it on, the bar latches
 	// instead of springing back. Arm, prove it springs back, then try to turn
-	// HOLD on by a press that slides away -- it must still spring back.
+	// LATCH on by a press that slides away -- it must still spring back.
 	holdToArm();
 	swipe(20, 160, thrY(), 8);
 	frames(2);
 	checkInt("spring mode: released throttle returns to zero", fakeThrottle(), 0);
 
 	int hx, hy, ax, ay;
-	ctlCentre(UI_FIX(TesterCtl::Hold), &hx, &hy);
+	ctlCentre(UI_FIX(TesterCtl::Latch), &hx, &hy);
 	ctlCentre(UI_FIX(TesterCtl::Arm), &ax, &ay);
 	fakePress(hx, hy); frames(2);
 	fakeHold(ax, ay);  frames(2);   // slide off, onto ARM
 	fakeRelease();     frames(2);
 	swipe(20, 160, thrY(), 8);
 	frames(2);
-	checkInt("sliding off HOLD never turned it on", fakeThrottle(), 0);
+	checkInt("sliding off LATCH never turned it on", fakeThrottle(), 0);
 
 	// The same press, released in place, does toggle it.
-	tapId(UI_FIX(TesterCtl::Hold));
+	tapId(UI_FIX(TesterCtl::Latch));
 	swipe(20, 160, thrY(), 8);
 	frames(2);
-	checkTrue("released in place, HOLD latched the throttle", fakeThrottle() > 0);
-	tapId(UI_FIX(TesterCtl::Hold));       // back off, which zeroes it
+	checkTrue("released in place, LATCH latched the throttle", fakeThrottle() > 0);
+	tapId(UI_FIX(TesterCtl::Latch));       // back off, which zeroes it
 	tapId(UI_FIX(TesterCtl::Menu));       // into MENU for the rest
 	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 
@@ -2199,9 +2199,9 @@ static void testDisarmButton() {
 	checkTrue("armed to begin with", uiArmed());
 
 	// Put some throttle on and make it stay, so the zeroing is observable.
-	// HOLD latches it; in spring mode the release at the end of a swipe would
+	// LATCH latches it; in spring mode the release at the end of a swipe would
 	// have already returned it to zero and the check below would prove nothing.
-	tapId(UI_FIX(TesterCtl::Hold));
+	tapId(UI_FIX(TesterCtl::Latch));
 	swipe(20, 120, thrY(), 8);
 	frames(2);
 	checkTrue("throttle is latched up", fakeThrottle() > 0);
@@ -2216,7 +2216,7 @@ static void testDisarmButton() {
 	checkInt("and the commanded throttle is zeroed", fakeThrottle(), 0);
 	checkInt("the UI agrees", uiThrottle(), 0);
 
-	// HOLD is dropped too, so re-arming cannot resume a latched throttle.
+	// LATCH is dropped too, so re-arming cannot resume a latched throttle.
 	holdToArm();
 	swipe(20, 120, thrY(), 8);
 	frames(2);
@@ -2344,7 +2344,7 @@ static void testThrottleBarStopsAtTheButtons() {
 	const UiRect thr = ctlRect(UI_FIX(TesterCtl::Throttle));
 	checkInt("the track's grab area ends where ARM begins", thr.y + thr.h + 1, arm.y);
 	int hx, hy;
-	ctlCentre(UI_FIX(TesterCtl::Hold), &hx, &hy);
+	ctlCentre(UI_FIX(TesterCtl::Latch), &hx, &hy);
 	fakePress(hx, arm.y - 1); frames(1);
 	fakeHold(hx, arm.y - 1);  frames(1);
 	checkTrue("the last row of the band still drives the bar", fakeThrottle() > 0);
@@ -2375,12 +2375,12 @@ static void testCeilingBindsInRelativeMode() {
 
 	uint16_t ceiling = settings()->maxThrottle;
 
-	// HOLD mode: the gauge is relative. Swipe far past the right-hand end,
+	// LATCH mode: the gauge is relative. Swipe far past the right-hand end,
 	// several times, and it must sit exactly on the ceiling.
-	tapId(UI_FIX(TesterCtl::Hold));
+	tapId(UI_FIX(TesterCtl::Latch));
 	for (int i = 0; i < 4; i++) swipe(10, 235, thrY(), 6);
 	frames(2);
-	checkTrue("HOLD mode never exceeds the ceiling", fakeThrottle() <= ceiling);
+	checkTrue("LATCH mode never exceeds the ceiling", fakeThrottle() <= ceiling);
 	checkInt("and reaches it", fakeThrottle(), ceiling);
 
 	// The pad: always relative, in either mode. Swipe up the full height
@@ -3114,8 +3114,8 @@ static void testIdleAutoDisarm() {
 	for (int i = 0; i < 3; i++) {
 		fakeAdvance(IDLE_DISARM_MS - 2000);
 		frames(2);
-		tapId(UI_FIX(TesterCtl::Hold));      // any touch counts
-		tapId(UI_FIX(TesterCtl::Hold));      // and back off
+		tapId(UI_FIX(TesterCtl::Latch));      // any touch counts
+		tapId(UI_FIX(TesterCtl::Latch));      // and back off
 	}
 	checkTrue("touching keeps it armed", uiArmed());
 }
@@ -3329,6 +3329,23 @@ static void testSplashTouch() {
 	frames(2);
 	checkTrue("its lift opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK to the tester", uiCurrentScreen() == UiScreenId::Tester);
+
+	// The same for a finger resting on a readout: its lift opens SETTINGS.
+	uiInit();
+	uiDrawSplash();
+	ctlCentre(UI_FIX(TesterCtl::Max), &mx, &my);
+	fakePress(mx, my);
+	fakeAdvance(UI_FRAME_MS);
+	uiSplashTick();
+	frames(4);
+	checkTrue("a finger on MAX from the splash on: the tester stays, disarmed",
+	          uiCurrentScreen() == UiScreenId::Tester && !uiArmed() && fakeThrottle() == 0);
+	fakeRelease();
+	frames(2);
+	checkTrue("its lift opens SETTINGS", uiCurrentScreen() == UiScreenId::Settings);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
 	checkTrue("BACK to the tester", uiCurrentScreen() == UiScreenId::Tester);
 
 	// Answering at boot: no line.
@@ -3628,7 +3645,7 @@ static void testRailReAnchor() {
 	uiInit();
 	frames(4);
 	holdToArm();
-	tapId(UI_FIX(TesterCtl::Hold));           // HOLD: the gauge is relative
+	tapId(UI_FIX(TesterCtl::Latch));           // LATCH: the gauge is relative
 
 	uint16_t ceiling = settings()->maxThrottle;
 
@@ -4103,6 +4120,224 @@ static void testTesterBoardAndCard() {
 	fakeRelease(); frames(2);
 }
 
+static bool tester3dShown();
+
+/** @brief Every pixel of row @p y from x @p x0 to @p x1, inclusive, is @p col. */
+static bool rowIs(int y, int x0, int x1, uint16_t col) {
+	for (int x = x0; x <= x1; x++)
+		if (gfxBuffer()[y * GFX_W + x] != col) return false;
+	return true;
+}
+
+/** @brief The underline under @p text at (x, y): the text's width in C_TEXT, C_BG either side. */
+static bool underlined(int x, int y, const char *text) {
+	const int w = gfxTextW(text, 1);
+	return rowIs(y, x, x + w - 1, C_TEXT) && rowIs(y, x - 1, x - 1, C_BG) &&
+	       rowIs(y, x + w, x + w, C_BG);
+}
+
+/** @brief Row @p y from x @p x0 to @p x1 carries no C_TEXT pixel. */
+static bool noTextOn(int y, int x0, int x1) {
+	for (int x = x0; x <= x1; x++)
+		if (gfxBuffer()[y * GFX_W + x] == C_TEXT) return false;
+	return true;
+}
+
+/**
+ * @brief The tester's readouts open SETTINGS, and BACK there returns to the
+ *        tester (docs/design/menu-b.md, owner decision 4 and decisions 17
+ *        and 20); LATCH names the throttle latch (decision 15 a).
+ *
+ * `14 POLES` and `MAX 20%` are underlined while a tap on them acts:
+ * disarmed, and the pin claim Free, as MENU's SETTINGS row. The tap runs
+ * the disarm MENU runs, so LATCH is off afterwards. Armed, the pad and the
+ * track take the press and the readouts do nothing. The pole count gives
+ * way to the 3D note, and so does its target.
+ */
+static void testTesterReadouts() {
+	section("Tester: the readouts open SETTINGS; LATCH");
+
+	fakeFlashClear();
+	settingsLoad();
+	uiInit();
+	feedLiveTelemetry();
+	frames(4);
+	const uint16_t *fb = gfxBuffer();
+
+	// --- the texts and their underlines ---
+	checkTrue("14 POLES in the text colour at x 10, y 114",
+	          fakeTextIs(10, 114, "14 POLES", C_TEXT, C_BG, 1));
+	checkInt("14 POLES is 47 px", gfxTextW("14 POLES", 1), 47);
+	checkTrue("underlined at y 122, x 10 to 56", underlined(10, 122, "14 POLES"));
+	checkTrue("MAX 20% at x 88, y 236", fakeTextIs(88, 236, "MAX 20%", C_TEXT, C_BG, 1));
+	checkTrue("underlined at y 244, x 88 to 128", underlined(88, 244, "MAX 20%"));
+	checkTrue("the widest texts fit their targets: 28 POLES, MAX 100%",
+	          10 + gfxTextW("28 POLES", 1) <= 4 + 72 && 88 + gfxTextW("MAX 100%", 1) <= 82 + 60);
+	checkTrue("LATCH on the middle button, THROTTLE on the track's caption",
+	          fakeTextIs(116 + (54 - gfxTextW("LATCH", 1)) / 2, 283 + (33 - 7) / 2, "LATCH",
+	                     C_DIM, C_PANEL, 1) &&
+	          fakeTextIs(8, 236, "THROTTLE", C_DIM, C_BG, 1));
+
+	// --- the control table ---
+	const UiRect poles = ctlRect(UI_FIX(TesterCtl::Poles));
+	const UiRect max = ctlRect(UI_FIX(TesterCtl::Max));
+	checkTrue("Poles at {4, 106, 72, 22}",
+	          poles.x == 4 && poles.y == 106 && poles.w == 72 && poles.h == 22);
+	checkTrue("Max at {82, 230, 60, 22}",
+	          max.x == 82 && max.y == 230 && max.w == 60 && max.h == 22);
+	checkTrue("both act while disarmed",
+	          ctlEnabled(UI_FIX(TesterCtl::Poles)) && ctlEnabled(UI_FIX(TesterCtl::Max)));
+	checkControlTable("tester, the readouts live");
+
+	// --- a tap opens SETTINGS; BACK returns to the tester ---
+	tapId(UI_FIX(TesterCtl::Poles));
+	checkTrue("a tap on the pole count opens SETTINGS",
+	          uiCurrentScreen() == UiScreenId::Settings);
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	checkTrue("BACK from SETTINGS returns to the tester", uiCurrentScreen() == UiScreenId::Tester);
+	checkTrue("which is drawn whole again", fakeTextIs(140, 14, "BOARD", C_DIM, C_PANEL, 1) &&
+	          underlined(10, 122, "14 POLES") && underlined(88, 244, "MAX 20%"));
+	tapId(UI_FIX(TesterCtl::Max));
+	checkTrue("a tap on MAX opens SETTINGS", uiCurrentScreen() == UiScreenId::Settings);
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	checkTrue("BACK returns to the tester", uiCurrentScreen() == UiScreenId::Tester);
+
+	// The origin goes with the open: SETTINGS from MENU returns to MENU.
+	enterSettings();
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	checkTrue("SETTINGS opened from MENU returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	checkTrue("and MENU to the tester", uiCurrentScreen() == UiScreenId::Tester);
+
+	// A press that slides off the readout opens nothing.
+	fakePress(poles.x + poles.w / 2, poles.y + poles.h / 2); frames(1);
+	fakeHold(poles.x + poles.w / 2, poles.y - 20); frames(1);
+	fakeRelease(); frames(1);
+	checkTrue("a press that slides off opens nothing", uiCurrentScreen() == UiScreenId::Tester);
+
+	// --- the tap runs MENU's disarm: LATCH goes off ---
+	tapId(UI_FIX(TesterCtl::Latch));
+	frames(1);
+	checkTrue("LATCH on: the button fills blue, the caption reads " UI_TESTER_LATCHED_TEXT,
+	          fb[(283 + 4) * GFX_W + 116 + 4] == C_BLUE &&
+	          fakeTextIs(8, 236, UI_TESTER_LATCHED_TEXT, C_DIM, C_BG, 1));
+	checkInt("LATCHED is 41 px", gfxTextW(UI_TESTER_LATCHED_TEXT, 1), 41);
+	{
+		const int mx = max.x + max.w / 2, my = max.y + max.h / 2;
+		fakePress(mx, my); frames(2);
+		checkTrue("disarmed, the press on MAX in the track's grab band moves nothing",
+		          fakeThrottle() == 0 && !fakeArmed());
+		fakeRelease(); frames(1);
+		checkTrue("the tap opens SETTINGS, disarmed",
+		          uiCurrentScreen() == UiScreenId::Settings && !uiArmed() && !fakeArmed());
+		// The frame that opened SETTINGS paints none of the tester over it.
+		bool clear = true;
+		for (int y = 234; y < GFX_H; y++) clear = clear && rowIs(y, 0, GFX_W - 1, C_BG);
+		checkTrue("and paints no tester row over the cleared frame", clear);
+	}
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	checkTrue("back on the tester: LATCH is off",
+	          fb[(283 + 4) * GFX_W + 116 + 4] == C_PANEL &&
+	          fakeTextIs(8, 236, "THROTTLE", C_DIM, C_BG, 1));
+
+	// --- armed: inert, no underline ---
+	holdToArm();
+	checkTrue("armed", uiArmed() && fakeArmed());
+	checkTrue("armed: 14 POLES and MAX 20% stay, without the underline",
+	          fakeTextIs(10, 114, "14 POLES", C_TEXT, C_BG, 1) && noTextOn(122, 4, 75) &&
+	          fakeTextIs(88, 236, "MAX 20%", C_TEXT, C_BG, 1) && noTextOn(244, 82, 141));
+	checkTrue("armed: neither acts",
+	          !ctlEnabled(UI_FIX(TesterCtl::Poles)) && !ctlEnabled(UI_FIX(TesterCtl::Max)));
+	checkControlTable("tester, armed, the readouts inert");
+	tapId(UI_FIX(TesterCtl::Poles), IdExpect::Disabled);
+	checkTrue("armed: a tap on the pole count opens nothing and keeps the arm",
+	          uiCurrentScreen() == UiScreenId::Tester && uiArmed() && fakeArmed());
+	tapId(UI_FIX(TesterCtl::Max), IdExpect::Disabled);
+	frames(1);
+	checkTrue("nor does a tap on MAX: the track took it, and sprang back",
+	          uiCurrentScreen() == UiScreenId::Tester && uiArmed() && fakeThrottle() == 0);
+	// The press is the throttle's: MAX's centre is in the track's grab band,
+	// the pole count in the pad.
+	{
+		const int mx = max.x + max.w / 2, my = max.y + max.h / 2;
+		fakePress(mx, my); frames(1); fakeHold(mx, my); frames(1);
+		checkTrue("armed: a press on MAX drives the track", fakeThrottle() > 0);
+		fakeRelease(); frames(1);
+		checkInt("and springs back on the lift", fakeThrottle(), 0);
+		const int px = poles.x + poles.w / 2, py = poles.y + poles.h / 2;
+		fakePress(px, py); frames(1);
+		for (int d = 4; d <= 4 * PAD_DEADZONE_PX; d += 4) { fakeHold(px, py - d); frames(1); }
+		checkTrue("armed: a swipe up from the pole count drives the pad", fakeThrottle() > 0);
+		fakeRelease(); frames(1);
+		checkInt("and springs back on the lift", fakeThrottle(), 0);
+		checkTrue("still armed, still the tester",
+		          uiArmed() && uiCurrentScreen() == UiScreenId::Tester);
+	}
+	// MENU leaves the tester over a cleared frame, as the readouts do: with
+	// LATCH on, its disarm changes the throttle band and the buttons, and
+	// the frame of the tap paints neither back.
+	tapId(UI_FIX(TesterCtl::Latch));
+	tapId(UI_FIX(TesterCtl::Menu));
+	{
+		bool clear = true;
+		for (int y = 234; y < GFX_H; y++) clear = clear && rowIs(y, 0, GFX_W - 1, C_BG);
+		checkTrue("MENU from the armed tester with LATCH on: no tester row painted over it",
+		          uiCurrentScreen() == UiScreenId::Menu && !uiArmed() && clear);
+	}
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	holdToArm();
+	checkTrue("armed again", uiArmed());
+	tapId(UI_FIX(TesterCtl::Arm));                     // DISARM
+	frames(2);
+	checkTrue("disarmed: the underlines are back",
+	          !uiArmed() && underlined(10, 122, "14 POLES") && underlined(88, 244, "MAX 20%"));
+
+	// --- another claim holds the pins: inert, no underline ---
+	checkTrue("another claim holds the pins",
+	          pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
+	frames(2);
+	checkTrue("claim busy: no underline", noTextOn(122, 4, 75) && noTextOn(244, 82, 141));
+	checkTrue("claim busy: neither acts",
+	          !ctlEnabled(UI_FIX(TesterCtl::Poles)) && !ctlEnabled(UI_FIX(TesterCtl::Max)));
+	checkControlTable("tester, claim busy");
+	tapId(UI_FIX(TesterCtl::Poles), IdExpect::Disabled);
+	tapId(UI_FIX(TesterCtl::Max), IdExpect::Disabled);
+	checkTrue("claim busy: a tap on either opens nothing", uiCurrentScreen() == UiScreenId::Tester);
+	pinClaimEnd(PinUser::Am32);
+	frames(2);
+	checkTrue("the claim ends: both act and are underlined again",
+	          ctlEnabled(UI_FIX(TesterCtl::Poles)) && underlined(10, 122, "14 POLES") &&
+	          underlined(88, 244, "MAX 20%"));
+
+	// --- the 3D note takes the pole count's row, and its target ---
+	s_esc3d = true;
+	uiInit();
+	frames(2);
+	checkTrue("3D note: no pole count, no Poles control",
+	          tester3dShown() && !ctlPresent(UI_FIX(TesterCtl::Poles)));
+	fakePress(poles.x + poles.w / 2, poles.y + poles.h / 2); frames(2);
+	fakeRelease(); frames(1);
+	checkTrue("a tap on the note opens nothing", uiCurrentScreen() == UiScreenId::Tester);
+	tapId(UI_FIX(TesterCtl::Max));
+	checkTrue("MAX still opens SETTINGS", uiCurrentScreen() == UiScreenId::Settings);
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	s_esc3d = false;
+	uiInit();
+	frames(2);
+}
+
 /**
  * @brief The text probes of fakes.h in high contrast, where every glyph is
  *        one row taller: a blank region reads false and is left as it was;
@@ -4208,9 +4443,9 @@ static bool tester3dShown() {
 
 /** @brief The tester's bottom row as it is without the 3D note: the pole count. */
 static bool testerPolesShown() {
-	char p[8];
-	snprintf(p, sizeof(p), "%dP", settings()->poles);
-	return fakeTextIs(10, 114, p, C_DIM, C_BG, 1);
+	char p[16];
+	snprintf(p, sizeof(p), "%d POLES", settings()->poles);
+	return fakeTextIs(10, 114, p, C_TEXT, C_BG, 1);
 }
 
 /** @brief Select 3D MODE in the open list and step it to @p on. */
@@ -5387,10 +5622,10 @@ void runUiTests() {
 		checkInt("springs back to zero on release", fakeThrottle(), 0);
 	}
 
-	section("Throttle: HOLD mode is relative");
+	section("Throttle: LATCH mode is relative");
 	{
 		const int mid = thr.x + thr.w / 2;
-		tapId(UI_FIX(TesterCtl::Hold));                       // HOLD on
+		tapId(UI_FIX(TesterCtl::Latch));                       // LATCH on
 		fakePress(mid, ty); frames(2);
 		checkInt("touching the bar does not jump", fakeThrottle(), 0);
 		for (int x = mid; x <= mid + 56; x += 8) { fakeHold(x, ty); frames(1); }
@@ -5406,8 +5641,8 @@ void runUiTests() {
 		fakeHold(thr.x + 22, ty); frames(1);
 		checkInt("reverse re-anchors, no windup", fakeThrottle(), 39, 6);
 		fakeRelease(); frames(2);
-		tapId(UI_FIX(TesterCtl::Hold));                       // HOLD off
-		checkInt("turning HOLD off zeroes throttle", fakeThrottle(), 0);
+		tapId(UI_FIX(TesterCtl::Latch));                       // LATCH off
+		checkInt("turning LATCH off zeroes throttle", fakeThrottle(), 0);
 	}
 
 	section("Throttle pad: the number area is always relative");
@@ -5415,7 +5650,7 @@ void runUiTests() {
 		// Points on the pad are measured up from its bottom edge.
 		const UiRect pad = ctlRect(UI_FIX(TesterCtl::Pad));
 		const int px = pad.x + pad.w / 2, pb = pad.y + pad.h;
-		tapId(UI_FIX(TesterCtl::Hold));                       // HOLD on
+		tapId(UI_FIX(TesterCtl::Latch));                       // LATCH on
 		fakePress(px, pb - 60); frames(2); fakeRelease(); frames(2);
 		checkInt("a tap on the pad does nothing", fakeThrottle(), 0);
 		fakePress(px, pb - 60); frames(1);
@@ -5428,7 +5663,7 @@ void runUiTests() {
 		for (int y = pb - 40; y >= pb - 146; y -= 6) { fakeHold(px, y); frames(1); }
 		checkInt("swipe up raises", fakeThrottle(), 400 * 100 / 213 * 60 / 100, 4);
 		fakeRelease(); frames(2);
-		tapId(UI_FIX(TesterCtl::Hold));                       // HOLD off
+		tapId(UI_FIX(TesterCtl::Latch));                       // LATCH off
 	}
 
 	section("Navigation into AM32 config");
@@ -6072,6 +6307,7 @@ void runUiTests() {
 	testPressedLookClears();
 	testScreenChangeResidue();
 	testTesterBoardAndCard();
+	testTesterReadouts();
 	testBoardCellColour();
 	testSplash();
 	testSplashTouch();

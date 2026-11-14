@@ -162,8 +162,9 @@ zählen und jedes Tippen blockieren.
 Ein Finger, der schon auf dem Glas liegt, wenn der Tester erscheint,
 schaltet nicht scharf und bewegt das Gas nicht. Wird er gehoben, wirkt das
 trotzdem als Tippen auf eine Schaltfläche, die beim Loslassen auslöst, etwa
-`HOLD` oder `MENU`, wenn er darauf liegt. Hast du beim Einschalten den
-Bildschirm berührt, hebe den Finger vor `HOLD TO ARM`.
+`LATCH` oder `MENU`, wenn er darauf liegt; auf `14 POLES` oder `MAX 20%`
+öffnet das Heben SETTINGS. Hast du beim Einschalten den Bildschirm berührt,
+hebe den Finger vor `HOLD TO ARM`.
 
 ---
 
@@ -171,7 +172,7 @@ Bildschirm berührt, hebe den Finger vor `HOLD TO ARM`.
 
 Zwei Flächen stellen denselben Gaswert ein.
 
-**Der Balken unten.** Mit `HOLD` aus ist die Fingerposition auf der Bahn das
+**Der Balken unten.** Mit `LATCH` aus ist die Fingerposition auf der Bahn das
 Gas, und beim Loslassen geht das Gas auf null. Die volle Breite der Bahn ist
 die *Obergrenze*: Bei den voreingestellten 20 % gibt das rechte Ende 20 %.
 
@@ -184,16 +185,19 @@ Stelle der 3D-Hinweis aus [Die Bildschirme](Die-Bildschirme), ersetzt
 `SWIPE ACTIVE` ihn trotzdem, solange ein Wischer greift, und nach dem
 Loslassen kehrt der 3D-Hinweis zurück.
 
-`HOLD` macht den Balken relativ und haltend: Das Gas bleibt, wo du es
-loslässt. Der Balken zeigt einen Griff. `HOLD` auszuschalten setzt das Gas auf
-null.
+`LATCH` macht den Balken relativ und haltend: Das Gas bleibt, wo du es
+loslässt. Der Balken zeigt einen Griff, und seine Beschriftung lautet
+`LATCHED`. `LATCH` auszuschalten setzt das Gas auf null.
 
 ---
 
 ## Die Obergrenze anheben
 
 `MENU` auf dem Tester öffnet die Liste der Werkzeuge. Das Öffnen entschärft
-immer. Tippe auf die Zeile `SETTINGS`.
+immer. Tippe auf die Zeile `SETTINGS`. Oder tippe entschärft auf `MAX 20%`
+oder `14 POLES` im Tester, unterstrichen, solange ein Tippen darauf wirkt:
+Das Tippen entschärft genauso und öffnet SETTINGS, und `BACK` führt dort zum
+Tester zurück.
 
 <img src="img/settings.png" width="240" alt="SETTINGS nach einer Änderung: MOTOR POLES auf 16 und UNSAVED - HOLD SAVE TO KEEP">
 
