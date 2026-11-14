@@ -33,10 +33,10 @@ bool uiLeaveRestartLive(const UiLeave *l, uint32_t nowMs) {
 
 UiLeaveEv uiLeaveTouch(UiLeave *l, const TouchState *t, uint32_t nowMs) {
 	if (!t) return UiLeaveEv::None;
-	// LEAVE and RESTART DSHOT count a press by when it landed: one that
-	// landed while LEAVE was disabled, while RESTART DSHOT waited, or on
-	// LEAVE, never acts. uiTapped() below holds the press to the button it
-	// landed on.
+	// LEAVE and RESTART DSHOT count a press by when it landed. A press that
+	// landed while LEAVE was disabled never leaves; one that landed while
+	// RESTART DSHOT waited, or on LEAVE, never restarts DShot. uiTapped()
+	// below holds the press to the button it landed on.
 	if (t->pressed) {
 		l->leavePress = l->phase == UiLeavePhase::Before && l->leaveEnabled;
 		l->restartPress = uiLeaveRestartLive(l, nowMs);

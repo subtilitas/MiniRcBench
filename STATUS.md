@@ -31,9 +31,10 @@ for servos. The servo tester (slice 2 of
 [pin-claim.md](docs/design/pin-claim.md),
 [servo-tester.md](docs/design/servo-tester.md)) drives one servo on the ESC
 pin, or two on the ESC and KISS pins, with PWM (pulse-width modulation)
-pulses. KST and Chaservo servo programming, on the same pins, is slice 3, with
-an optional bench-switched servo supply whose enable is on GP28 or GP29. Its
-steps 1 to 5 are built:
+pulses. KST and Chaservo servo programming, on the same pins, is slice 3 of
+[pin-claim.md](docs/design/pin-claim.md), with an optional bench-switched
+servo supply whose enable is on GP28 or GP29. Steps 1 to 5 of
+[kst-programming.md](docs/design/kst-programming.md) are built:
 rcbench's KST core, line driver and file store are copied into `lib/rcbench/`,
 with rcbench's tests of them, 298 cases; the search (`src/kst_seek.h`) and the
 core1 job (`src/kst_job.h`) run the session on the line, tested against
@@ -45,8 +46,9 @@ ring of `BACKUP/` that the AM32 editor shares (`src/backup_ring.h`,
 The switched supply (step 5, `src/servo_supply.h`) powers the servo from a
 converter whose enable is on GP28 or GP29, with `SERVO SUPPLY` at `GP28` or
 `GP29`; with `NONE` the servo is powered up and down by hand.
-Hitec programming, on the same pins, is slice 4: steps 1 to 5 of 6 of
-[hitec-programming.md](docs/design/hitec-programming.md) are built, the
+Hitec programming, on the same pins, is slice 4 of
+[pin-claim.md](docs/design/pin-claim.md): steps 1 to 5 of 6 of
+[hitec-programming.md](docs/design/hitec-programming.md) are built; the
 bring-up is open (open item 14).
 Slice 3 builds on the menu restructure
 ([menu.md](docs/design/menu.md), slices A to C). Slice A is built: one
@@ -135,9 +137,9 @@ PIO (programmable input/output) blocks: three, each with 4 state machines and
 
 | Block | Use |
 | --- | --- |
-| pio0 | backlight on GP16, 20 kHz (`src/backlight.pio`): 1 state machine, 6 of 32 instructions |
+| pio0 | backlight on GP16, 20 kHz (`src/backlight.pio`): 1 state machine, 6 of 32 instructions. While a Hitec D series line is open with PRECHARGE receive, its sampler takes 1 more state machine, up to 12 instructions (7 at 150 MHz), built at run time |
 | pio1 | SDIO (Secure Digital input/output) card driver in `src/sdio/`: 2 state machines, 32 of 32 instructions, plus 2 DMA channels and no interrupt (`src/sd_hw_config.c`) |
-| pio2 | DShot transmitter and receiver on adjacent state machines, 16 instructions; KISS receiver when KISS is on, 1 state machine, 9 instructions. While a KST or Hitec claim holds, DShot and KISS are released and the line program takes 1 state machine: the KST line, 24 instructions, or the Hitec line, 30 instructions, or its precharge program, built at run time |
+| pio2 | DShot transmitter and receiver on adjacent state machines, 16 instructions; KISS receiver when KISS is on, 1 state machine, 9 instructions. While a KST or Hitec claim holds, DShot and KISS are released and the line program takes 1 state machine: the KST line, 24 instructions, or the Hitec line, 30 instructions |
 
 DShot and KISS claim from whichever block has room, and the Pico SDK
 (software development kit) searches pio2 first. DShot binds first after every
@@ -255,8 +257,8 @@ Not in this history: the DshotDisplay repository's branches
 
 ## Next steps
 
-State on 2026-11-14, after #43 (c0d2952): no pull request is open, and all
-seven CI jobs pass on `main` at c0d2952. Every part below waits on the bench;
+State on 2026-11-14: no other pull request is open; all seven CI jobs pass
+on `main` at c0d2952 (#43). Every part below waits on the bench;
 nothing is open that the host suite can settle. In the order the parts
 depend on each other:
 
@@ -460,13 +462,14 @@ Menu structure B waits on the owner's answers, not on the bench (item 18).
     the layout table, waits on the fifth: it changes what the previews,
     README.md and the wiki show.
 19. **Questions open to the owner.** 27 questions in four design notes, each
-    answered in its note:
+    listed in its note:
     - [menu-b.md](docs/design/menu-b.md), "Open questions": 8, which hold
       slices 2 to 10 (item 18);
     - [rx-signals.md](docs/design/rx-signals.md), "Open questions": 7, on
       the S.BUS monitor and the PPM (pulse-position modulation) output;
     - [current-sense.md](docs/design/current-sense.md), "Open questions":
-      5, Q1 to Q5, on the converter, the shunt and the protection;
+      5, Q1 to Q5, on the converter, the shunt, the tester's supply, the
+      protection and a version 4 settings block;
     - [diagnostics.md](docs/design/diagnostics.md), "Open questions for a
       fault log": 7, before a fault log is built.
 

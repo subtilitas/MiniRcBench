@@ -54,8 +54,7 @@ interface) code.
 >
 > Setup, wiring, first run, every screen, telemetry, logging, AM32
 > configuration, the servo tester and KST and Hitec programming, for someone
-> using the board. This README describes the
-> firmware and the build.
+> using the board. This README describes the firmware and the build.
 
 Project state and open items: [STATUS.md](https://github.com/subtilitas/MiniRcBench/blob/main/STATUS.md). Changes by release: [CHANGELOG.md](https://github.com/subtilitas/MiniRcBench/blob/main/CHANGELOG.md).
 

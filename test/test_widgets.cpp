@@ -1056,6 +1056,11 @@ static void testLeaveLatch() {
 	idle();
 
 	l.leaveEnabled = true;
+	uiLeaveTouch(&l, press(w.x + 20, w.y + 20), 45);
+	uiLeaveOpen(&l, UiLeavePhase::Before, 1000);
+	checkTrue("a press from before the page opened again: its lift does nothing",
+	          uiLeaveTouch(&l, lift(), 48) == UiLeaveEv::None && l.phase == UiLeavePhase::Before);
+	idle();
 	checkTrue("the next press that lands enabled leaves",
 	          tapLeave(&l, w, 50) == UiLeaveEv::Leave && l.phase == UiLeavePhase::Releasing);
 	idle();
