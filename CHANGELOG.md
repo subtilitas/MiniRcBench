@@ -761,9 +761,15 @@ protocol.
   byte AM32 did not write counts as the oldest. Settings in layout revision
   1 or above 4 do not open: the connect page shows `LAYOUT n NOT KNOWN`
   with `THE TESTER KNOWS LAYOUTS 2 TO 4.` and `NOTHING WILL BE WRITTEN.`
-  On firmware below 2.00 bytes 0x2A to 0x2F are hidden, with
-  `FIRMWARE BELOW 2.00 OR UNKNOWN:` / `FIELDS IT MAY NOT READ ARE HIDDEN.`
-  on the strip; AUTO ADVANCE is hidden below 2.16. The garbled-reply page
+  A field whose byte the ESC's firmware does not read is not listed: 0x2A
+  to 0x2D below 1.80, 0x2E below 1.94, 0x2F below 2.16 (AlkaMotors commits
+  9909ea7 and aa590e8 add those reads with the version), and below 1.80 the
+  strip says `FIRMWARE BELOW 1.80 OR UNKNOWN:` /
+  `FIELDS IT MAY NOT READ ARE HIDDEN.`; the backup file lists only the
+  fields the firmware reads. CURRENT LIMIT acts from 2 at 1.80. ADVANCE
+  steps in the old 0..3 encoding below 2.19, which reads nothing else, and a
+  stored 10 to 42 reads `? (n)` there; edits wrote the 10..42 encoding on
+  every firmware before. The garbled-reply page
   names the bytes once in its body; the strip shows the status too.
 - AM32 CONFIG's KV read 20 KV low: AM32 takes raw x 40 + 20. MAX RAMP,
   MIN DUTY, ABS VOLT CUT and ACTIVE BRAKE showed raw bytes over 0 to 255;

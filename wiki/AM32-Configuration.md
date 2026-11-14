@@ -83,14 +83,13 @@ the revision read are shown.
 Some values change what the tester can do with the ESC, or turn a protection
 off. For these the strip under the title shows two amber lines in place of the
 ESC name. The selected row's note comes first, then 3D MODE, then PROTOCOL,
-then firmware below 2.00.
-What AM32 does with each value is taken from the AM32 source code: the
-releases v2.05, v2.16 and v2.18 to v2.22, and the `main` branch at 077b6a4
-(November 2026), with the AM32 configurator at 06955fe, and AlkaMotors'
-firmware tags v1.77 to v2.01 for firmware below 2.00. It is not measured
-on the bench. The firmware version is the one the ESC stores in its settings,
-shown on the strip as `FW`; a version byte AM32 did not write counts as the
-oldest.
+then firmware below 1.80. What AM32 does with each value is taken from the AM32
+source code: the releases v2.05, v2.16 and v2.18 to v2.22, and the `main`
+branch at 077b6a4 (November 2026), with the AM32 configurator at 06955fe, and
+AlkaMotors' firmware tags v1.77 to v2.01 and their history for firmware below
+2.00. It is not measured on the bench. The firmware version is the one the ESC
+stores in its settings, shown on the strip as `FW`; a version byte AM32 did not
+write counts as the oldest.
 
 <img src="img/am32-3d.png" width="240" alt="3D MODE on: two amber lines on the strip in place of the ESC name"> <img src="img/am32-protection-off.png" width="240" alt="TEMP LIMIT selected at OFF: PROTECTION OFF: THE ESC DOES NOT CUT POWER ON THIS LIMIT.">
 
@@ -128,6 +127,7 @@ command here.
 | `PWM TYPE` | `FIXED`, `VARIABLE`, `BY RPM` | `BY RPM` from 2.18. 2.16 and older vary the PWM on `VARIABLE` alone |
 | `BRAKE ON STOP` | `OFF`, `BRAKE`, `ACTIVE` | `ACTIVE` from 2.19. 2.18 brakes on any value but 0; 2.16 and older on `BRAKE` alone |
 | `PWM FREQ` | 8 to 144 kHz | 8 to 48 kHz before 2.19 |
+| `ADVANCE` | 0.0 to 30.0 degrees in 0.9375 degree steps; a stored 0 to 3 (the old encoding, 7.5 degree steps) is read too, and a press writes the new encoding | Before 2.19, and on unknown firmware, 0.0 to 22.5 degrees in 7.5 degree steps, stored as 0 to 3: that firmware takes any other byte as 15 degrees, so a stored 10 to 42 reads `? (n)` |
 | `ABS VOLT CUT` | 0.5 to 50.0 V in 0.5 V steps | Before 2.21 the stored byte, without a unit: 2.19 and 2.20 do not read it as volts |
 | `ACTIVE BRAKE` | 0.0 to 2.5 % of the PWM period in 0.5 % steps | The configurator shows the stored 0 to 5 as percent; AM32 uses 0.5 % a step |
 
@@ -144,17 +144,30 @@ names are the configurator's, shortened to fit: `CELL` is "Cell based",
 
 <img src="img/am32-fw222.png" width="240" alt="Firmware 2.22: ABS VOLT CUT reads 10.0V">
 
-### Firmware below 2.00
+### Firmware that does not read every byte
 
-The bytes from 0x2A to 0x2F (RUNNING LEVEL, TEMP LIMIT, CURRENT LIMIT, SINE
-POWER, PROTOCOL, AUTO ADVANCE) are hidden on firmware below 2.00, and on an
-ESC whose version byte AM32 did not write; the strip says
-`FIRMWARE BELOW 2.00 OR UNKNOWN:` / `FIELDS IT MAY NOT READ ARE HIDDEN.`
-AlkaMotors' tagged releases read 0x2A to 0x2D from v1.80 and 0x2E from
-v1.94, but the version an ESC stores does not follow the tags (the v1.99 tag
-stores 1.95), so which bytes such an ESC reads is not verified. AUTO
-ADVANCE is hidden below 2.16: the releases v2.05 to v2.12 do not read it.
-Hidden bytes are written back as read.
+Older firmware reads fewer bytes. A field whose byte the ESC's firmware does
+not read is not listed, and its byte is written back as read:
+
+| Bytes | Fields | Listed from |
+|---|---|---|
+| 0x2A to 0x2D | RUNNING LEVEL, TEMP LIMIT, CURRENT LIMIT, SINE POWER | 1.80 |
+| 0x2E | PROTOCOL | 1.94 |
+| 0x2F | AUTO ADVANCE | 2.16 |
+
+In AlkaMotors' firmware history, commit 9909ea7 adds the reads of 0x2A to
+0x2D and raises the version from 1.79 to 1.80, and commit aa590e8 adds the
+read of 0x2E and raises it from 1.93 to 1.94. A release may store a lower
+version than its code (the v1.99 tag stores 1.95), never a higher one, so a
+stored version at or above the gate reads the byte. The am32-firmware/AM32
+releases v2.05 to v2.12 do not read 0x2F and v2.16 does; the untagged
+releases between are taken as not reading it. At 1.80 CURRENT LIMIT acts on
+2 to 99 (4 to 198 A); from 1.81 (commit f917c01) on 1 to 99.
+
+Below 1.80, and on an ESC whose version byte AM32 did not write, the strip
+says `FIRMWARE BELOW 1.80 OR UNKNOWN:` / `FIELDS IT MAY NOT READ ARE HIDDEN.`
+
+<img src="img/am32-oldfw.png" width="240" alt="Firmware 1.35: FIRMWARE BELOW 1.80 OR UNKNOWN: FIELDS IT MAY NOT READ ARE HIDDEN.">
 
 ---
 
@@ -211,8 +224,8 @@ shares ([KST programming](KST-Programming)). The result then reads
 stops the write: `NO BACKUP ON THE CARD: NOT WRITTEN`, with
 `CHECK THE CARD, THEN WRITE AGAIN.` under it. Without a card the
 write runs, and the backup stays in memory until a write with a card saves it
-or the editor closes. The file holds one line per field, the 48 bytes in hex
-and a checksum line; nothing reads it back yet. The ESC is written only once
+or the editor closes. The file holds one line per field the firmware reads,
+the 48 bytes in hex and a checksum line; nothing reads it back yet. The ESC is written only once
 the backup is on the card. A blackbox log that runs when the editor opens
 stops.
 

@@ -16,7 +16,7 @@
  * Layout revision: 3
  * Firmware: 2.21
  * MOTOR POLES = 14
- * ...                               one line per field the layout has
+ * ...                               one line per field the ESC reads
  * bytes 48
  * 00: 01 03 01 02 15 ...            16 bytes a line, 3 lines
  * checksum 1A2B3C4D

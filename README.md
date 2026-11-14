@@ -923,11 +923,12 @@ WRITTEN` it reads `CHECK THE CARD, THEN WRITE AGAIN.`.
 
 Some values put two amber lines on the strip in place of the ESC name
 (`listNote()` in `src/ui_am32.cpp`): the selected row's first, then 3D
-MODE, then PROTOCOL, then firmware below 2.00. The facts behind them are
+MODE, then PROTOCOL, then firmware below 1.80. The facts behind them are
 from the AM32 source, not from the bench: am32-firmware/AM32 at the tags
 v2.05, v2.16 and v2.18 to v2.22 and `main` at 077b6a4, the AM32
 configurator at 06955fe, and for firmware below 2.00 the tags v1.77 to v2.01
-of AlkaMotors/AM32-MultiRotor-ESC-firmware. The
+of AlkaMotors/AM32-MultiRotor-ESC-firmware and its commits 9909ea7, f917c01
+and aa590e8. The
 firmware version is bytes 0x03 and 0x04 (`am32Firmware()`); a major outside
 1 to 9 or a minor above 99 counts as 0, the oldest.
 
@@ -938,7 +939,7 @@ firmware version is bytes 0x03 and 0x04 (`am32Firmware()`); a major outside
 | `CURRENT LIMIT` selected, `OFF` (0, 101, 102; 100 below 2.21) | as TEMP LIMIT | the limit acts for 1..100 from v2.21 (`<= 100`), for 1..99 in v2.05 to v2.20 (`< 100`), in 2 A steps |
 | `LOW VOLT CUTOFF` selected, `OFF` or `? (2)` | as TEMP LIMIT | 0 is off; 1 per cell; 2 absolute, which trips from v2.21 (`absolute_voltage_cutoff * 50`). v2.19 and v2.20 compare the raw byte with the voltage in 10 mV, so it never trips; v2.18 and older act on 1 alone |
 | `PROTOCOL` at 2 to 9 | `THE TESTER SENDS DSHOT ONLY:` / `THE ESC WILL NOT RUN HERE.` | `enum inputType`, zero-based: 0 AUTO, 1 DSHOT, 2 SERVO, 3 SERIAL, 4 EDT ARM, 5 DRONECAN. SERVO detects servo pulses only. SERIAL, 5 and 6 to 9 leave `EDT_ARMED` at 0, and `dshot.c` takes a throttle above 47 only with it set; 10 and above are AUTO. EDT ARM sets it on the EDT enable (command 13, after 6 frames, armed and stopped) and clears it on every zero frame; the tester sends the enable only while disarmed (`escFrameAction()`) and zero frames after it, so the throttle is dropped too. The editor offers 0 to 4, as the configurator does |
-| Firmware below 2.00, or a version byte AM32 did not write | `FIRMWARE BELOW 2.00 OR UNKNOWN:` / `FIELDS IT MAY NOT READ ARE HIDDEN.` | bytes 0x2A to 0x2F are not listed (`am32FieldShown()`, `AM32_FW_VERIFIED`): AlkaMotors' tags read 0x2A..0x2D from v1.80 and 0x2E from v1.94, but the stored version does not follow the tags (the v1.99 tag stores 1.95). AUTO ADVANCE, 0x2F, is not listed below 2.16; v2.05 to v2.12 do not read it |
+| Firmware below 1.80, or a version byte AM32 did not write | `FIRMWARE BELOW 1.80 OR UNKNOWN:` / `FIELDS IT MAY NOT READ ARE HIDDEN.` | A field the firmware does not read is not listed (`am32FieldShown()`, `Am32Field::readFw`): 0x2A..0x2D from 1.80 (`AM32_FW_READS_2A`; AlkaMotors commit 9909ea7 adds the reads and raises VERSION_MINOR 79 to 80), 0x2E from 1.94 (`AM32_FW_READS_2E`; aa590e8, 93 to 94), 0x2F from 2.16 (`AM32_FW_READS_2F`; the tags v2.05 to v2.12 do not read it). A tag may store a lower version than its code (v1.99 stores 1.95), never a higher one. At 1.80 CURRENT LIMIT acts on 2..99, from 1.81 (f917c01) on 1..99. The backup file lists the fields the firmware reads; its hex lines hold every byte |
 
 ### Backup
 
@@ -1003,7 +1004,9 @@ The host test harness runs two cross-checks:
   the field says from which version (`Am32Field::topFw`, `onFw`, `scaleFw`;
   `am32FieldMax()`): ABSOLUTE low-voltage cutoff from 2.21, BY RPM PWM from
   2.18, ACTIVE brake from 2.19, PWM FREQ above 48 kHz from 2.19, a 200 A
-  current limit from 2.21, ABS VOLT CUT in volts from 2.21. On older
+  current limit from 2.21, ABS VOLT CUT in volts from 2.21, ADVANCE in the
+  10..42 encoding from 2.19 (`AM32_ADVANCE_NEW_FW`; before it 0..3 in 7.5°
+  steps, v2.05 main.c:629-633, v2.18 main.c:591). On older
   firmware the editor stops at that firmware's top, and a stored value
   outside the range offered on that firmware, a number included, reads
   `? (n)`, as does an on/off byte of 2 or more. A host test runs every
@@ -1592,7 +1595,7 @@ CONFIG and HITEC SERVO do. All backups share one directory and one ring of
 |---|---|
 | `BACKUP/KSTnnn.TXT` | a KST or Chaservo servo's image, rcbench's KST text format |
 | `BACKUP/HTnnn.TXT` | a Hitec servo's first full read as rcbench's servo file text, or a record of an interrupted write moved into the ring |
-| `BACKUP/AMnnn.TXT` | an AM32 ESC's 48-byte settings block as text: one line per field, the bytes in hex, a checksum line |
+| `BACKUP/AMnnn.TXT` | an AM32 ESC's 48-byte settings block as text: one line per field its firmware reads, the bytes in hex, a checksum line |
 | `BACKUP/LAST` | the latest number, 3 digits and a line feed |
 
 - The numbers 001 to 050 are one sequence for every device. The next backup
@@ -1836,7 +1839,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.5%**: 9,096 of 9,330 lines in 58 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.8%**: 9,229 of 9,440 lines in 58 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

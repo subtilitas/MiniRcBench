@@ -87,14 +87,14 @@ Angezeigt werden nur die Felder, die zur gelesenen Version passen.
 Manche Werte ändern, was der Tester mit dem ESC tun kann, oder schalten einen
 Schutz ab. Für diese zeigt der Streifen unter dem Titel zwei bernsteinfarbene
 Zeilen statt des ESC-Namens. Der Hinweis der ausgewählten Zeile kommt zuerst,
-dann 3D MODE, dann PROTOCOL, dann Firmware unter 2.00. Was AM32 mit jedem Wert
+dann 3D MODE, dann PROTOCOL, dann Firmware unter 1.80. Was AM32 mit jedem Wert
 tut, stammt aus dem AM32-Quellcode: den Versionen v2.05, v2.16 und v2.18 bis
 v2.22 und dem Zweig `main` bei 077b6a4 (November 2026), mit dem
 AM32-Konfigurator bei 06955fe und den Tags v1.77 bis v2.01 der Firmware von
-AlkaMotors für Firmware unter 2.00. Am Prüfstand gemessen ist es nicht. Die
-Firmware-Version ist die, die der ESC in seinen Einstellungen speichert; der
-Streifen zeigt sie als `FW`. Ein Versionsbyte, das AM32 nicht geschrieben hat,
-zählt als die älteste.
+AlkaMotors und ihrer Geschichte für Firmware unter 2.00. Am Prüfstand gemessen
+ist es nicht. Die Firmware-Version ist die, die der ESC in seinen Einstellungen
+speichert; der Streifen zeigt sie als `FW`. Ein Versionsbyte, das AM32 nicht
+geschrieben hat, zählt als die älteste.
 
 <img src="img/am32-3d.png" width="240" alt="3D MODE an: zwei bernsteinfarbene Zeilen auf dem Streifen statt des ESC-Namens"> <img src="img/am32-protection-off.png" width="240" alt="TEMP LIMIT ausgewählt bei OFF: PROTECTION OFF: THE ESC DOES NOT CUT POWER ON THIS LIMIT.">
 
@@ -132,6 +132,7 @@ null, vor jedem Gas; ein ESC auf `EDT ARM` verwirft hier also jeden Gasbefehl.
 | `PWM TYPE` | `FIXED`, `VARIABLE`, `BY RPM` | `BY RPM` ab 2.18. 2.16 und älter variieren die PWM nur bei `VARIABLE` |
 | `BRAKE ON STOP` | `OFF`, `BRAKE`, `ACTIVE` | `ACTIVE` ab 2.19. 2.18 bremst bei jedem Wert außer 0; 2.16 und älter nur bei `BRAKE` |
 | `PWM FREQ` | 8 bis 144 kHz | 8 bis 48 kHz vor 2.19 |
+| `ADVANCE` | 0,0 bis 30,0 Grad in 0,9375-Grad-Schritten; ein gespeichertes 0 bis 3 (die alte Kodierung, 7,5-Grad-Schritte) wird auch gelesen, und ein Druck schreibt die neue Kodierung | Vor 2.19 und auf unbekannter Firmware 0,0 bis 22,5 Grad in 7,5-Grad-Schritten, gespeichert als 0 bis 3: Diese Firmware nimmt jedes andere Byte als 15 Grad, ein gespeichertes 10 bis 42 zeigt also `? (n)` |
 | `ABS VOLT CUT` | 0,5 bis 50,0 V in 0,5-V-Schritten | Vor 2.21 das gespeicherte Byte ohne Einheit: 2.19 und 2.20 lesen es nicht als Volt |
 | `ACTIVE BRAKE` | 0,0 bis 2,5 % der PWM-Periode in 0,5-%-Schritten | Der Konfigurator zeigt die gespeicherten 0 bis 5 als Prozent; AM32 nutzt 0,5 % je Schritt |
 
@@ -149,18 +150,33 @@ stop“, `ACTIVE` ist „Active brake“.
 
 <img src="img/am32-fw222.png" width="240" alt="Firmware 2.22: ABS VOLT CUT zeigt 10.0V">
 
-### Firmware unter 2.00
+### Firmware, die nicht jedes Byte liest
 
-Die Bytes von 0x2A bis 0x2F (RUNNING LEVEL, TEMP LIMIT, CURRENT LIMIT, SINE
-POWER, PROTOCOL, AUTO ADVANCE) sind auf Firmware unter 2.00 ausgeblendet,
-und auf einem ESC, dessen Versionsbyte AM32 nicht geschrieben hat; der
-Streifen zeigt `FIRMWARE BELOW 2.00 OR UNKNOWN:` /
-`FIELDS IT MAY NOT READ ARE HIDDEN.` Die getaggten Versionen von AlkaMotors
-lesen 0x2A bis 0x2D ab v1.80 und 0x2E ab v1.94, aber die Version, die ein
-ESC speichert, folgt den Tags nicht (der Tag v1.99 speichert 1.95); welche
-Bytes ein solcher ESC liest, ist also nicht geprüft. AUTO ADVANCE ist unter
-2.16 ausgeblendet: Die Versionen v2.05 bis v2.12 lesen es nicht.
-Ausgeblendete Bytes werden so zurückgeschrieben, wie sie gelesen wurden.
+Ältere Firmware liest weniger Bytes. Ein Feld, dessen Byte die Firmware des
+ESC nicht liest, steht nicht in der Liste, und sein Byte wird so
+zurückgeschrieben, wie es gelesen wurde:
+
+| Bytes | Felder | Angezeigt ab |
+|---|---|---|
+| 0x2A bis 0x2D | RUNNING LEVEL, TEMP LIMIT, CURRENT LIMIT, SINE POWER | 1.80 |
+| 0x2E | PROTOCOL | 1.94 |
+| 0x2F | AUTO ADVANCE | 2.16 |
+
+In der Geschichte der Firmware von AlkaMotors fügt Commit 9909ea7 das Lesen
+von 0x2A bis 0x2D hinzu und hebt die Version von 1.79 auf 1.80, und Commit
+aa590e8 fügt das Lesen von 0x2E hinzu und hebt sie von 1.93 auf 1.94. Eine
+Version kann eine niedrigere Nummer speichern als ihr Code (der Tag v1.99
+speichert 1.95), nie eine höhere; eine gespeicherte Version ab der Grenze
+liest das Byte also. Die Versionen v2.05 bis v2.12 von am32-firmware/AM32
+lesen 0x2F nicht, v2.16 liest es; die Versionen ohne Tag dazwischen gelten
+als nicht lesend. Bei 1.80 wirkt CURRENT LIMIT bei 2 bis 99 (4 bis 198 A),
+ab 1.81 (Commit f917c01) bei 1 bis 99.
+
+Unter 1.80 und auf einem ESC, dessen Versionsbyte AM32 nicht geschrieben hat,
+zeigt der Streifen `FIRMWARE BELOW 1.80 OR UNKNOWN:` /
+`FIELDS IT MAY NOT READ ARE HIDDEN.`
+
+<img src="img/am32-oldfw.png" width="240" alt="Firmware 1.35: FIRMWARE BELOW 1.80 OR UNKNOWN: FIELDS IT MAY NOT READ ARE HIDDEN.">
 
 ---
 
@@ -223,7 +239,7 @@ verweigert, hält das Schreiben auf: `NO BACKUP ON THE CARD: NOT WRITTEN`,
 darunter `CHECK THE CARD, THEN WRITE AGAIN.`. Ohne
 Karte läuft das Schreiben, und die Sicherung bleibt im Speicher, bis ein
 Schreiben mit Karte sie sichert oder der Editor schließt. Die Datei hält eine
-Zeile je Feld, die 48 Bytes in Hex und eine Prüfsummenzeile; noch liest sie
+Zeile je Feld, das die Firmware liest, die 48 Bytes in Hex und eine Prüfsummenzeile; noch liest sie
 nichts zurück. Der ESC wird erst geschrieben, wenn die Sicherung auf der
 Karte liegt. Eine Blackbox-Aufzeichnung, die beim Öffnen des Editors läuft,
 endet.
