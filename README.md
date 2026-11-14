@@ -866,10 +866,10 @@ The screen shows which half failed:
 | Message | Meaning | What to change |
 |---|---|---|
 | `WAITING... (TRY n)` | No reply yet | Power-cycle the ESC while the screen is open |
-| `REPLY NOT UNDERSTOOD:` followed by `nB: xx xx xx @19200` and `IS THE ESC RUNNING AM32?` | The ESC sent bytes that did not parse | Baud rate or framing, or firmware other than AM32. The first three bytes are shown |
+| `nB: xx xx xx @19200`, then `REPLY NOT UNDERSTOOD:` and `IS THE ESC RUNNING AM32?` | The ESC sent bytes that did not parse | Baud rate or framing, or firmware other than AM32. The first three bytes are shown |
 | `READ FAILED (...)` | Handshake succeeded, settings read failed | Retry; check the wire |
 | `NO VALID SETTINGS`, with `NOT AN AM32 ESC, OR BLANK SETTINGS.` and `NOTHING WILL BE WRITTEN.` | The settings block is implausible (`am32Plausible()`) | Nothing to do: the screen stays on the connect page, which has no WRITE |
-| `LAYOUT n NOT KNOWN`, with `THE TESTER KNOWS LAYOUTS 1 TO 4.` and `NOTHING WILL BE WRITTEN.` | A layout revision above `AM32_LAYOUT_MAX_KNOWN`, 4, the newest AM32 v2.22 writes | Nothing on this tester: the field table is not checked against that layout |
+| `LAYOUT n NOT KNOWN`, with `THE TESTER KNOWS LAYOUTS 2 TO 4.` and `NOTHING WILL BE WRITTEN.` | A layout revision outside `AM32_LAYOUT_MIN_KNOWN` to `AM32_LAYOUT_MAX_KNOWN`, 2 to 4: layout 1 is AlkaMotors' firmware before 1.78, which reads nothing above byte 0x29, and 4 is the newest AM32 v2.22 writes. The text is built from the two constants | Nothing on this tester: the field table is not checked against that layout |
 
 ### Editing
 
@@ -914,9 +914,11 @@ WRITTEN` it reads `CHECK THE CARD, THEN WRITE AGAIN.`.
 
 Some values put two amber lines on the strip in place of the ESC name
 (`listNote()` in `src/ui_am32.cpp`): the selected row's first, then 3D
-MODE, then PROTOCOL. The facts behind them are from the AM32 source, not
-from the bench: am32-firmware/AM32 at the tags v2.05, v2.16 and v2.18 to
-v2.22 and `main` at 077b6a4, and the AM32 configurator at 06955fe. The
+MODE, then PROTOCOL, then firmware below 2.00. The facts behind them are
+from the AM32 source, not from the bench: am32-firmware/AM32 at the tags
+v2.05, v2.16 and v2.18 to v2.22 and `main` at 077b6a4, the AM32
+configurator at 06955fe, and for firmware below 2.00 the tags v1.77 to v2.01
+of AlkaMotors/AM32-MultiRotor-ESC-firmware. The
 firmware version is bytes 0x03 and 0x04 (`am32Firmware()`); a major outside
 1 to 9 or a minor above 99 counts as 0, the oldest.
 
@@ -926,7 +928,8 @@ firmware version is bytes 0x03 and 0x04 (`am32Firmware()`); a major outside
 | `TEMP LIMIT` selected, `OFF` (141) | `PROTECTION OFF: THE ESC DOES NOT` / `CUT POWER ON THIS LIMIT.` | `loadEEpromSettings()` sets a value outside 70..140 to 255, no limit |
 | `CURRENT LIMIT` selected, `OFF` (0, 101, 102; 100 below 2.21) | as TEMP LIMIT | the limit acts for 1..100 from v2.21 (`<= 100`), for 1..99 in v2.05 to v2.20 (`< 100`), in 2 A steps |
 | `LOW VOLT CUTOFF` selected, `OFF` or `? (2)` | as TEMP LIMIT | 0 is off; 1 per cell; 2 absolute, which trips from v2.21 (`absolute_voltage_cutoff * 50`). v2.19 and v2.20 compare the raw byte with the voltage in 10 mV, so it never trips; v2.18 and older act on 1 alone |
-| `PROTOCOL` at 2, 3 or 5 to 9 | `THE TESTER SENDS DSHOT ONLY:` / `THE ESC WILL NOT RUN HERE.` | `enum inputType`, zero-based: 0 AUTO, 1 DSHOT, 2 SERVO, 3 SERIAL, 4 EDT ARM, 5 DRONECAN. SERVO detects servo pulses only. SERIAL, 5 and 6 to 9 leave `EDT_ARMED` at 0, and `dshot.c` takes a throttle above 47 only with it set; 10 and above are AUTO. The editor offers 0 to 4, as the configurator does |
+| `PROTOCOL` at 2 to 9 | `THE TESTER SENDS DSHOT ONLY:` / `THE ESC WILL NOT RUN HERE.` | `enum inputType`, zero-based: 0 AUTO, 1 DSHOT, 2 SERVO, 3 SERIAL, 4 EDT ARM, 5 DRONECAN. SERVO detects servo pulses only. SERIAL, 5 and 6 to 9 leave `EDT_ARMED` at 0, and `dshot.c` takes a throttle above 47 only with it set; 10 and above are AUTO. EDT ARM sets it on the EDT enable (command 13, after 6 frames, armed and stopped) and clears it on every zero frame; the tester sends the enable only while disarmed (`escFrameAction()`) and zero frames after it, so the throttle is dropped too. The editor offers 0 to 4, as the configurator does |
+| Firmware below 2.00, or a version byte AM32 did not write | `FIRMWARE BELOW 2.00 OR UNKNOWN:` / `FIELDS IT MAY NOT READ ARE HIDDEN.` | bytes 0x2A to 0x2F are not listed (`am32FieldShown()`, `AM32_FW_VERIFIED`): AlkaMotors' tags read 0x2A..0x2D from v1.80 and 0x2E from v1.94, but the stored version does not follow the tags (the v1.99 tag stores 1.95). AUTO ADVANCE, 0x2F, is not listed below 2.16; v2.05 to v2.12 do not read it |
 
 ### Backup
 
@@ -992,11 +995,15 @@ The host test harness runs two cross-checks:
   `am32FieldMax()`): ABSOLUTE low-voltage cutoff from 2.21, BY RPM PWM from
   2.18, ACTIVE brake from 2.19, PWM FREQ above 48 kHz from 2.19, a 200 A
   current limit from 2.21, ABS VOLT CUT in volts from 2.21. On older
-  firmware the editor stops at that firmware's top and a stored value above
-  it reads `? (n)`, as does an on/off byte of 2 or more. A host test runs
-  every field over all 256 byte values on eight firmware versions: reading
-  changes no byte, a press on one field leaves every other byte as read, and
-  one press lands inside the range that firmware accepts.
+  firmware the editor stops at that firmware's top, and a stored value
+  outside the range offered on that firmware, a number included, reads
+  `? (n)`, as does an on/off byte of 2 or more. A host test runs every
+  field over all 256 byte values on eight firmware versions: a press changes
+  no byte of the 48 but its own, and lands inside a literal table of ranges
+  per firmware written from AM32's source, on the end of it when it starts
+  outside. A screen test writes eight blocks of arbitrary bytes, layouts 2
+  to 4, on those firmware versions back through the UI after one press on
+  POLES: the ESC holds every other byte as read.
 
 ---
 
@@ -1812,7 +1819,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.6%**: 9,074 of 9,293 lines in 58 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.6%**: 9,084 of 9,303 lines in 58 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

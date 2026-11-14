@@ -40,16 +40,23 @@ first three bytes and the baud rate, then `REPLY NOT UNDERSTOOD:` and
 bootloader's. The ESC may run other firmware, or its bootloader may use a
 protocol this transport does not implement.
 
+<img src="img/am32-connect-garbled.png" width="240" alt="A reply that does not parse: the bytes, REPLY NOT UNDERSTOOD: and IS THE ESC RUNNING AM32?">
+
 If the bootloader answers and its settings block fails the plausibility
 check (first byte 0x00 or 0xFF, layout revision 0 or above 8, or 0 motor
 poles), the screen shows `NO VALID SETTINGS` with
 `NOT AN AM32 ESC, OR BLANK SETTINGS.` and `NOTHING WILL BE WRITTEN.` The
 screen stays on this page, which has no write button, and keeps reading.
 
-Settings in a layout revision above 4 are newer than the field table, which
-is checked against layouts 1 to 4 (AM32 2.22 writes 4). The screen shows
-`LAYOUT n NOT KNOWN` with `THE TESTER KNOWS LAYOUTS 1 TO 4.` and
-`NOTHING WILL BE WRITTEN.`, and stays on the connect page.
+The field table is checked against layout revisions 2 to 4: every
+am32-firmware/AM32 release writes one of them (2.22 writes 4), and
+AlkaMotors' firmware from 1.78 writes 2. Layout 1, AlkaMotors' firmware
+before 1.78, reads nothing above byte 0x29, and a revision above 4 is newer
+than the table. For either the screen shows `LAYOUT n NOT KNOWN` with
+`THE TESTER KNOWS LAYOUTS 2 TO 4.` and `NOTHING WILL BE WRITTEN.`, and stays
+on the connect page.
+
+<img src="img/am32-layout.png" width="240" alt="LAYOUT 5 NOT KNOWN, with THE TESTER KNOWS LAYOUTS 2 TO 4. and NOTHING WILL BE WRITTEN.">
 
 The firmware does not record which firmware an ESC that does not answer
 runs.
@@ -75,15 +82,17 @@ the revision read are shown.
 
 Some values change what the tester can do with the ESC, or turn a protection
 off. For these the strip under the title shows two amber lines in place of the
-ESC name. The selected row's note comes first, then 3D MODE, then PROTOCOL.
+ESC name. The selected row's note comes first, then 3D MODE, then PROTOCOL,
+then firmware below 2.00.
 What AM32 does with each value is taken from the AM32 source code: the
 releases v2.05, v2.16 and v2.18 to v2.22, and the `main` branch at 077b6a4
-(November 2026), with the AM32 configurator at 06955fe. It is not measured
+(November 2026), with the AM32 configurator at 06955fe, and AlkaMotors'
+firmware tags v1.77 to v2.01 for firmware below 2.00. It is not measured
 on the bench. The firmware version is the one the ESC stores in its settings,
 shown on the strip as `FW`; a version byte AM32 did not write counts as the
 oldest.
 
-<img src="img/am32-3d.png" width="240" alt="3D MODE on: two amber lines on the strip in place of the ESC name">
+<img src="img/am32-3d.png" width="240" alt="3D MODE on: two amber lines on the strip in place of the ESC name"> <img src="img/am32-protection-off.png" width="240" alt="TEMP LIMIT selected at OFF: PROTECTION OFF: THE ESC DOES NOT CUT POWER ON THIS LIMIT.">
 
 | Field | Values | Note on the strip |
 |---|---|---|
@@ -91,7 +100,7 @@ oldest.
 | `TEMP LIMIT` | 70 to 140 °C; `OFF` at 141. AM32 takes any value outside 70 to 140 as no limit | Selected and `OFF`: `PROTECTION OFF: THE ESC DOES NOT` / `CUT POWER ON THIS LIMIT.` |
 | `CURRENT LIMIT` | 2 to 200 A in 2 A steps; `OFF` at 0 and above. AM32 2.21 and later limit the current for stored values 1 to 100; older AM32 for 1 to 99, so 200 A reads `OFF` there | as TEMP LIMIT |
 | `LOW VOLT CUTOFF` | `OFF`, `CELL` (per cell, at CELL CUTOFF), `ABSOLUTE` (at ABS VOLT CUT, from 2.21) | as TEMP LIMIT, when `OFF`, and when `? (2)` |
-| `PROTOCOL` | `AUTO`, `DSHOT`, `SERVO`, `SERIAL`, `EDT ARM`, stored as 0 to 4; a stored 5 reads `DRONECAN` | At every value but `AUTO`, `DSHOT`, `EDT ARM` and 10 or above: `THE TESTER SENDS DSHOT ONLY:` / `THE ESC WILL NOT RUN HERE.` |
+| `PROTOCOL` | `AUTO`, `DSHOT`, `SERVO`, `SERIAL`, `EDT ARM`, stored as 0 to 4; a stored 5 reads `DRONECAN` | At every value but `AUTO`, `DSHOT` and 10 or above: `THE TESTER SENDS DSHOT ONLY:` / `THE ESC WILL NOT RUN HERE.` |
 
 In 3D mode AM32 splits the DShot throttle range: values 48 to 1047 run the
 motor one way, 1048 to 2047 the other way, each from low to full power. The
@@ -105,9 +114,11 @@ the stored values 6 to 9 AM32 detects DShot, but its start-up code leaves the
 throttle locked (`EDT_ARMED` at 0), so it drops every throttle command; a
 value of 10 or above works as `AUTO`. The editor offers 0 to 4, as the
 configurator does: `DRONECAN` is for DroneCAN builds, and a stored 5 keeps
-its name. `EDT ARM` takes DShot and arms once the ESC receives the EDT
-(Extended DShot Telemetry) enable command, which the tester sends; whether
-such an ESC runs on the tester is not tested.
+its name. `EDT ARM` takes DShot only after the EDT (Extended DShot Telemetry)
+enable command, and AM32 locks the throttle again on every zero-throttle
+frame. The tester sends the enable only while disarmed and zero frames after
+it, before any throttle, so an ESC set to `EDT ARM` drops every throttle
+command here.
 
 ### Values that depend on the firmware
 
@@ -120,14 +131,30 @@ such an ESC runs on the tester is not tested.
 | `ABS VOLT CUT` | 0.5 to 50.0 V in 0.5 V steps | Before 2.21 the stored byte, without a unit: 2.19 and 2.20 do not read it as volts |
 | `ACTIVE BRAKE` | 0.0 to 2.5 % of the PWM period in 0.5 % steps | The configurator shows the stored 0 to 5 as percent; AM32 uses 0.5 % a step |
 
-On older firmware the editor stops at the last value that firmware accepts,
-and a stored value above it reads `? (n)`. An on/off field that holds 2 or
+On older firmware the editor stops at the last value that firmware accepts.
+A stored value outside the range the tester offers on that firmware reads
+`? (n)`, numbers included: on 2.18 a PWM FREQ byte of 100 reads `? (100)`,
+since 2.18 ignores it. An on/off field that holds 2 or
 more reads `? (n)` as well: the configurator writes 0 and 1 only, and AM32
 before 2.18 acts on several of these bytes when they are 1 alone. The tester
 writes back every byte you did not change as it read it: a `? (n)` stays
 until you press `-` or `+` on that row, which moves it into the range. The
 names are the configurator's, shortened to fit: `CELL` is "Cell based",
 `BRAKE` is "Brake on stop", `ACTIVE` is "Active brake".
+
+<img src="img/am32-fw222.png" width="240" alt="Firmware 2.22: ABS VOLT CUT reads 10.0V">
+
+### Firmware below 2.00
+
+The bytes from 0x2A to 0x2F (RUNNING LEVEL, TEMP LIMIT, CURRENT LIMIT, SINE
+POWER, PROTOCOL, AUTO ADVANCE) are hidden on firmware below 2.00, and on an
+ESC whose version byte AM32 did not write; the strip says
+`FIRMWARE BELOW 2.00 OR UNKNOWN:` / `FIELDS IT MAY NOT READ ARE HIDDEN.`
+AlkaMotors' tagged releases read 0x2A to 0x2D from v1.80 and 0x2E from
+v1.94, but the version an ESC stores does not follow the tags (the v1.99 tag
+stores 1.95), so which bytes such an ESC reads is not verified. AUTO
+ADVANCE is hidden below 2.16: the releases v2.05 to v2.12 do not read it.
+Hidden bytes are written back as read.
 
 ---
 
@@ -174,6 +201,8 @@ the small font, so it stays on the screen. Under every result that is not a
 verified write (`WRITE FAILED: ...`, `VERIFY READ: ...`, `DIFF @..`) the
 screen shows `NOT VERIFIED. TAP OK, WRITE AGAIN.` in amber; see
 [If the write fails](#if-the-write-fails).
+
+<img src="img/am32-write-failed.png" width="240" alt="WRITE FAILED: REFUSED with NOT VERIFIED. TAP OK, WRITE AGAIN.">
 
 Before the first write of a session, the settings as read at entry go to the
 SD card as `BACKUP/AMnnn.TXT`, in the ring of backups that the KST programmer
@@ -252,6 +281,8 @@ After a session in which the bootloader answered, MENU shows
 `POWER-CYCLE THE ESC TO RUN IT` in amber under the strip's caption. It goes
 when an eRPM frame arrives, which only the ESC's firmware sends, or when the
 board restarts.
+
+<img src="img/menu-run-cue.png" width="240" alt="MENU with POWER-CYCLE THE ESC TO RUN IT in amber under the strip's caption">
 
 ---
 
