@@ -4214,8 +4214,11 @@ static void testTesterReadouts() {
 	{
 		const int mx = max.x + max.w / 2, my = max.y + max.h / 2;
 		fakePress(mx, my); frames(2);
+		checkTrue("disarmed, the press on MAX in the track's grab band moves nothing",
+		          fakeThrottle() == 0 && !fakeArmed());
 		fakeRelease(); frames(1);
-		checkTrue("the tap opens SETTINGS", uiCurrentScreen() == UiScreenId::Settings);
+		checkTrue("the tap opens SETTINGS, disarmed",
+		          uiCurrentScreen() == UiScreenId::Settings && !uiArmed() && !fakeArmed());
 		// The frame that opened SETTINGS paints none of the tester over it.
 		bool clear = true;
 		for (int y = 234; y < GFX_H; y++) clear = clear && rowIs(y, 0, GFX_W - 1, C_BG);

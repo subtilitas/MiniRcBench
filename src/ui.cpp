@@ -955,22 +955,19 @@ static void uiOpenMenu() {
 /**
  * @brief The one route from a screen to a tool (docs/design/menu-b.md,
  *        decision 19): from MENU's rows and from the tester's readouts. It
- *        refuses a tool the pin claim refuses, as MENU refuses its row, then
- *        runs uiOpenMenu()'s disarm and opens the tool, whose BACK returns
- *        to @p from.
+ *        runs uiOpenMenu()'s disarm, then opens the tool, whose BACK returns
+ *        to @p from. The caller refuses a tool the pin claim refuses first:
+ *        MENU for its rows, readoutsAct() for the readouts.
  * @param s    The tool.
  * @param from Level::Menu or Level::Tester.
- * @return false when refused: nothing changed.
  */
-static bool uiOpenTool(const UiScreen *s, Level from) {
-	if (toolRefused(s)) return false;
+static void uiOpenTool(const UiScreen *s, Level from) {
 	testerDisarm();
 	s_level = Level::Tool;
 	s_tool = s;
 	s_toolFrom = from;
 	gfxFill(C_BG);
 	s->enter();
-	return true;
 }
 
 /**
