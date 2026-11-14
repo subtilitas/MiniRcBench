@@ -225,9 +225,9 @@ stops the write: `NO BACKUP ON THE CARD: NOT WRITTEN`, with
 `CHECK THE CARD, THEN WRITE AGAIN.` under it. Without a card the
 write runs, and the backup stays in memory until a write with a card saves it
 or the editor closes. The file holds one line per field the firmware reads,
-the 48 bytes in hex and a checksum line; nothing reads it back yet. The ESC is written only once
-the backup is on the card. A blackbox log that runs when the editor opens
-stops.
+the 48 bytes in hex and a checksum line; nothing reads it back yet. The ESC
+is written only once the backup is on the card. A blackbox log that runs
+when the editor opens stops.
 
 <img src="img/am32-written-backup.png" width="240" alt="Write verified, with the backup named and the line POWER-CYCLE THE ESC TO APPLY.">
 

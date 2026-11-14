@@ -53,8 +53,8 @@ bool uiAm32Tick(const TouchState *t);
  *        device caption, through uiStripTwoLines(). Each line is at most 37
  *        characters, 221 px.
  *
- * The selected row's note comes first, then 3D MODE, then PROTOCOL, then
- * firmware below 2.00.
+ * The selected row's note comes first, then 3D MODE, then PROTOCOL where the
+ * firmware reads byte 0x2E, then firmware below 1.80 or unknown.
  * @{
  */
 /** @brief 3D MODE on: AM32 splits DShot 48..2047 into two directions, and the

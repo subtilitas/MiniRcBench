@@ -105,13 +105,13 @@ static bool acceptedRange(const char *n, uint16_t fw, int *lo, int *hi) {
  * Reported from the bench as "the initial value of timing is read without
  * conversion into the display; when you change it it gets corrected". Both
  * halves of that sentence were symptoms of the same thing: the field table
- * described the pre-1.90 encoding only, so a modern ESC's byte was scaled as
+ * described the old encoding only, so a modern ESC's byte was scaled as
  * though it were an old one, and the first `-` or `+` press clamped it into the
  * old range -- which made the number plausible again by destroying it.
  *
  * The encodings, from AM32's own start-up code:
- *   0..3   pre-1.90, 7.5 degree steps
- *   10..42 1.90 and later, (raw - 10) steps of 0.9375 degrees
+ *   0..3   the old encoding, read by every firmware, 7.5 degree steps
+ *   10..42 read from firmware 2.19, (raw - 10) steps of 0.9375 degrees
  */
 static void testAdvanceEncodings() {
 	section("AM32: timing advance, both encodings");

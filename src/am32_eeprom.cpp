@@ -207,8 +207,9 @@ void am32FormatValue(const Am32Field *f, const uint8_t *eeprom, char *out, int o
 		snprintf(out, outLen, "OFF");
 		return;
 	}
-	// A number outside what the editor offers on this firmware: AM32 ignores
-	// it or puts its own default in its place, so the byte, not a reading.
+	// A number outside what the editor offers on this firmware reads as the
+	// byte, not as a reading. For most fields AM32 puts its own default in
+	// its place; CELL CUTOFF, POLES and DEAD BAND it takes as stored.
 	if ((f->type == A32_RAW || f->type == A32_SCALED) &&
 	    (raw < f->rawMin || raw > am32FieldMax(f, eeprom))) {
 		snprintf(out, outLen, "? (%u)", raw);

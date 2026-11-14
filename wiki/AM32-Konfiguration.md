@@ -239,9 +239,9 @@ verweigert, hält das Schreiben auf: `NO BACKUP ON THE CARD: NOT WRITTEN`,
 darunter `CHECK THE CARD, THEN WRITE AGAIN.`. Ohne
 Karte läuft das Schreiben, und die Sicherung bleibt im Speicher, bis ein
 Schreiben mit Karte sie sichert oder der Editor schließt. Die Datei hält eine
-Zeile je Feld, das die Firmware liest, die 48 Bytes in Hex und eine Prüfsummenzeile; noch liest sie
-nichts zurück. Der ESC wird erst geschrieben, wenn die Sicherung auf der
-Karte liegt. Eine Blackbox-Aufzeichnung, die beim Öffnen des Editors läuft,
+Zeile je Feld, das die Firmware liest, die 48 Bytes in Hex und eine
+Prüfsummenzeile; noch liest sie nichts zurück. Der ESC wird erst
+geschrieben, wenn die Sicherung auf der Karte liegt. Eine Blackbox-Aufzeichnung, die beim Öffnen des Editors läuft,
 endet.
 
 <img src="img/am32-written-backup.png" width="240" alt="Schreiben überprüft, mit genannter Sicherung und der Zeile POWER-CYCLE THE ESC TO APPLY.">

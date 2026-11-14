@@ -200,7 +200,8 @@ static Repeat s_editRepeat;
 // helpers
 // ---------------------------------------------------------------------------
 
-/** @brief Rebuild the visible-field list for the layout revision just read. */
+/** @brief Rebuild the visible-field list for the layout revision and the
+ *         firmware version just read. */
 static void buildVisible() {
 	s_layoutRev = s_eeprom[AM32_OFF_LAYOUT_REVISION];
 	s_visibleCount = 0;
@@ -277,7 +278,9 @@ static bool protocolShown() {
 /**
  * @brief The strip's note for the settings list, if one applies: the
  *        selected row's first (a protection turned off), then 3D MODE on,
- *        then a PROTOCOL on which AM32 takes no DShot. @see am32_notes
+ *        then a PROTOCOL on which AM32 takes no DShot, shown only where the
+ *        PROTOCOL row is listed, then firmware that does not read every
+ *        byte. @see am32_notes
  * @param[out] l1 First line.
  * @param[out] l2 Second line.
  * @return false when none applies: the strip keeps the device caption.
