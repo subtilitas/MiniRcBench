@@ -84,6 +84,12 @@ bool servoPastTravel(const ServoProfile *p) {
 	return p->minUs < SERVO_TRAVEL_MIN_US || p->maxUs > SERVO_TRAVEL_MAX_US;
 }
 
+bool servoTravelNeedsHold(const ServoProfile *edit, const ServoProfile *applied) {
+	return servoPastTravel(edit) &&
+	       (edit->type != applied->type || edit->minUs < applied->minUs ||
+	        edit->maxUs > applied->maxUs || edit->servos > applied->servos);
+}
+
 /** @brief Whether the type offers @p hz. */
 static bool offered(const ServoTypeInfo *ti, uint16_t hz) {
 	for (uint8_t i = 0; i < ti->rateCount; i++)

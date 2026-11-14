@@ -1536,6 +1536,13 @@ static void testSettingsKiss() {
 	tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
 }
 
+/** @brief Hold HOLD RESET until it fires, then lift. */
+static void holdReset() {
+	pressId(UI_FIX(SettingsCtl::Reset));
+	holdId(UI_FIX(SettingsCtl::Reset), 60);
+	fakeRelease(); frames(1);
+}
+
 /** @brief SERVO SUPPLY: KST's section, stepped NONE, GP28, GP29, applied at once, saved and reset. */
 static void testSettingsServoSupply() {
 	section("SETTINGS: SERVO SUPPLY");
@@ -1570,7 +1577,7 @@ static void testSettingsServoSupply() {
 	settingsLoad();
 	checkTrue("saved: a reload keeps GP29", settingsStored() && settings()->servoSupply == 2);
 
-	tapId(UI_FIX(SettingsCtl::Reset));
+	holdReset();
 	checkTrue("RESET: none, applied at once", settings()->servoSupply == 0 && !servoSupplyFitted());
 	p = fakePin(29);
 	checkTrue("GP29 left an undriven input", !p.output && p.inputOff);
@@ -1631,7 +1638,7 @@ static void testSettingsCurrentSense() {
 	frames(45);
 	checkTrue("another part at 0x40: OTHER PART", captionIs("OTHER PART"));
 
-	tapId(UI_FIX(SettingsCtl::Reset));
+	holdReset();
 	checkTrue("RESET: NONE, applied at once", settings()->currentSense == 0 && !senseDeclared());
 	uint32_t n = fakeI2cTransactionsTo(INA219_ADDR);
 	frames(80);
@@ -1795,7 +1802,7 @@ static void testSettingsSave() {
 	// RESET restores compiled defaults into the live copy without touching flash.
 	Settings def;
 	settingsDefaults(&def);
-	tapId(UI_FIX(SettingsCtl::Reset));
+	holdReset();
 	checkInt("RESET restores the compiled ESC pin", settings()->dshotPin, def.dshotPin);
 	checkTrue("RESET alone leaves flash as it was", settingsStored());
 
@@ -4016,6 +4023,199 @@ static bool menuRunCueShown() {
 	return fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_RUN_CUE, UI_COL_WARN, C_BG, 1);
 }
 
+/** @brief The tester shows @ref AM32_UI_TESTER_3D on the RPM area's bottom row. */
+static bool tester3dShown() {
+	return fakeTextIs(10, 114, AM32_UI_TESTER_3D, C_AMBER, C_BG, 1);
+}
+
+/** @brief The tester's bottom row as it is without the 3D note: the pole count. */
+static bool testerPolesShown() {
+	char p[8];
+	snprintf(p, sizeof(p), "%dP", settings()->poles);
+	return fakeTextIs(10, 114, p, C_DIM, C_BG, 1);
+}
+
+/** @brief Select 3D MODE in the open list and step it to @p on. */
+static void am32Set3d(bool on) {
+	const int v = uiRowOf("3D MODE");
+	uiRowY("3D MODE"); frames(1);
+	tapId(UI_ROW(v, Row));
+	tapId(UI_FIX(on ? Am32Ctl::EditPlus : Am32Ctl::EditMinus));
+}
+
+/** @brief Hold WRITE for 50 frames, then dismiss the result with OK. */
+static void am32HoldWrite() {
+	int wx, wy;
+	ctlCentre(UI_FIX(Am32Ctl::Write), &wx, &wy);
+	pressId(UI_FIX(Am32Ctl::Write));
+	for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
+	fakeRelease(); frames(3);
+	tapId(UI_FIX(Am32Ctl::Ok));
+}
+
+/**
+ * @brief The tester's 3D note: set by a list read with 3D MODE on and by a
+ *        write of it on that the ESC accepted, verified or not; cleared by a
+ *        list read or a verified write with it off; kept by an edit not
+ *        written, a refused write, a failed read, a read that opens no list
+ *        and the read-only view; shown armed and disarmed and beside NO
+ *        TELEMETRY, with SWIPE ACTIVE in its place while the pad is engaged.
+ */
+static void testAm32TesterNote() {
+	EscTelemetry quiet;
+	memset(&quiet, 0, sizeof(quiet));
+	fakeSetTelemetry(&quiet);
+	uint8_t keep[AM32_SETTINGS_SIZE];
+	for (int i = 0; i < AM32_SETTINGS_SIZE; i++) keep[i] = fakeEscByte(i);
+	s_esc3d = false;
+
+	section("Tester: the 3D note");
+	{
+		fakeEscSet(AM32_OFF_BI_DIRECTION, 0);
+		frames(2);
+		checkTrue("no AM32 read yet: the pole count, no note",
+		          testerPolesShown() && !tester3dShown());
+		checkTrue("35 characters, 209 px, from x 10 to the RPM label's right edge, x 226",
+		          gfxTextW(AM32_UI_TESTER_3D, 1) == 209 && 10 + gfxTextW(AM32_UI_TESTER_3D, 1) <= 226);
+
+		enterAm32(6);
+		checkTrue("a read with 3D MODE off: no note", s_state == S_LIST && !uiAm32Esc3d());
+		am32Set3d(true);
+		leaveAm32ToTester();
+		frames(2);
+		checkTrue("3D MODE edited on, not written: no note", !uiAm32Esc3d() && !tester3dShown());
+
+		enterAm32(6);
+		am32Set3d(true);
+		fakeAm32FailWrites(1);
+		am32HoldWrite();
+		checkTrue("a write of 3D MODE on that the ESC refuses: no note",
+		          !s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 0 && !uiAm32Esc3d());
+		fakeAm32FailReads(3);
+		am32HoldWrite();
+		checkTrue("accepted, its read-back failed: the note is set, fail-safe",
+		          !s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 1 && uiAm32Esc3d());
+		am32HoldWrite();
+		checkTrue("the write verifies with 3D MODE on: the note stands",
+		          s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 1 && uiAm32Esc3d());
+		leaveAm32ToTester();
+		frames(2);
+		checkTrue("the tester: " AM32_UI_TESTER_3D " in amber at x 10, y 114", tester3dShown());
+		checkTrue("the pole count and the swipe hint give way",
+		          !testerPolesShown() &&
+		          !fakeTextIs(226 - gfxTextW("SWIPE = THROTTLE", 1), 114, "SWIPE = THROTTLE", C_GRID, C_BG, 1));
+		checkTrue("NO TELEMETRY stays on its row, y 102",
+		          fakeTextIs(10, 102, "NO TELEMETRY", C_AMBER, C_BG, 1));
+		holdToArm();
+		feedLiveTelemetry();
+		frames(2);
+		checkTrue("armed: the note stays", fakeArmed() && tester3dShown());
+		const UiRect pad = ctlRect(UI_FIX(TesterCtl::Pad));
+		const int px = pad.x + pad.w / 2, pb = pad.y + pad.h;
+		const uint16_t before = fakeThrottle();
+		fakePress(px, pb - 40); frames(1);
+		for (int y = pb - 40; y >= pb - 70; y -= 6) { fakeHold(px, y); frames(1); }
+		checkTrue("the pad engaged: SWIPE ACTIVE in green in place of the note",
+		          !tester3dShown() && !testerPolesShown() &&
+		          fakeTextIs(226 - gfxTextW("SWIPE ACTIVE", 1), 114, "SWIPE ACTIVE", C_LIME, C_BG, 1));
+		checkTrue("and the swipe raised the throttle, as without the note",
+		          fakeThrottle() > before);
+		fakeRelease(); frames(2);
+		checkTrue("released: the note returns, no SWIPE ACTIVE",
+		          tester3dShown() &&
+		          !fakeTextIs(226 - gfxTextW("SWIPE ACTIVE", 1), 114, "SWIPE ACTIVE", C_LIME, C_BG, 1));
+		fakeDumpFrame("shot_tester_3d.ppm");
+		tapId(UI_FIX(TesterCtl::Arm));                         // DISARM
+		frames(2);
+		checkTrue("disarmed: the note stays", !fakeArmed() && tester3dShown());
+		fakeSetTelemetry(&quiet);
+
+		// A read of the ESC as it is: 3D MODE on, the note kept; edited off
+		// and not written, kept; written off and verified, cleared.
+		enterAm32(6);
+		checkTrue("a read with 3D MODE on: the note stands", uiAm32Esc3d());
+		am32Set3d(false);
+		checkTrue("edited off, not written: the note stands", uiAm32Esc3d());
+		fakeAm32SkewWrites(1);
+		am32HoldWrite();
+		checkTrue("a write that reads back different: the note stands", !s_verified && uiAm32Esc3d());
+		am32HoldWrite();
+		checkTrue("written off and verified: the note goes",
+		          s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 0 && !uiAm32Esc3d());
+		leaveAm32ToTester();
+		frames(2);
+		checkTrue("the tester: the pole count again, no note", testerPolesShown() && !tester3dShown());
+
+		// A write of 3D MODE on that the ESC accepts and that reads back
+		// different sets the note too; a verified write of it off clears it.
+		enterAm32(6);
+		am32Set3d(true);
+		fakeAm32SkewWrites(1);
+		am32HoldWrite();
+		checkTrue("3D MODE on, accepted, read back different: the note is set",
+		          !s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 1 && uiAm32Esc3d());
+		fakeAm32FailReads(1000);
+		leaveAm32ToTester();
+		enterAm32(6);
+		checkTrue("a read that fails: the note stands",
+		          s_state != S_LIST && strncmp(s_status, "READ FAILED", 11) == 0 && uiAm32Esc3d());
+		fakeAm32FailReads(0);
+		leaveAm32ToTester();
+		enterAm32(6);
+		am32Set3d(false);
+		am32HoldWrite();
+		checkTrue("written off and verified: the note goes again",
+		          s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 0 && !uiAm32Esc3d());
+		leaveAm32ToTester();
+
+		// Another ESC, or one set elsewhere: the read decides.
+		fakeEscSet(AM32_OFF_BI_DIRECTION, 1);
+		enterAm32(6);
+		checkTrue("an ESC read with 3D MODE on: the note is set", uiAm32Esc3d());
+		leaveAm32ToTester();
+		fakeEscSet(AM32_OFF_BI_DIRECTION, 0);
+		enterAm32(6);
+		checkTrue("one read with 3D MODE off: the note goes", !uiAm32Esc3d());
+		// A read that does not open the list leaves it as it was.
+		fakeEscSet(AM32_OFF_BI_DIRECTION, 1);
+		leaveAm32ToTester();
+		enterAm32(6);
+		leaveAm32ToTester();
+		fakeEscSet(AM32_OFF_BI_DIRECTION, 0);
+		fakeAm32Blank(true);
+		enterAm32(6);
+		checkTrue("NO VALID SETTINGS: the note stands", s_state == S_CONNECT && uiAm32Esc3d());
+		// Left while the page still finds no valid settings, so no retry
+		// reads the ESC before BACK.
+		leaveAm32ToTester();
+		fakeAm32Blank(false);
+		// The read-only view of a layout not known does not read byte 0x12
+		// as 3D MODE: it neither clears nor sets the note.
+		const uint8_t lay = fakeEscByte(AM32_OFF_LAYOUT_REVISION);
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 5);
+		checkTrue("the note before the read-only view", uiAm32Esc3d());
+		enterAm32(6);
+		checkTrue("the read-only view, byte 0x12 at 0: the note stands", s_state == S_VIEW && uiAm32Esc3d());
+		leaveAm32ToTester();
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, lay);
+		enterAm32(6);
+		checkTrue("a list read with 3D MODE off: no note", s_state == S_LIST && !uiAm32Esc3d());
+		leaveAm32ToTester();
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 5);
+		fakeEscSet(AM32_OFF_BI_DIRECTION, 1);
+		enterAm32(6);
+		checkTrue("the read-only view, byte 0x12 at 1: no note", s_state == S_VIEW && !uiAm32Esc3d());
+		leaveAm32ToTester();
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, lay);
+		fakeEscSet(AM32_OFF_BI_DIRECTION, 0);
+	}
+
+	// The skewed writes above flip byte 0x1B in the ESC: every byte back.
+	for (int i = 0; i < AM32_SETTINGS_SIZE; i++) fakeEscSet(i, keep[i]);
+	s_esc3d = false;
+	frames(2);
+}
+
 /** @brief A card in the slot, idle, nothing on it. */
 static void am32Card() {
 	fakeFatReset(1u << 20);
@@ -5552,6 +5752,7 @@ void runUiTests() {
 	testSplashTouch();
 	testTextProbes();
 	testAm32Guidance();
+	testAm32TesterNote();
 	testAm32ReadOnly();
 	testAm32BoardLow();
 

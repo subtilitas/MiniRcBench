@@ -72,6 +72,23 @@ aus der vom ESC (Electronic Speed Controller, Motorregler) gemeldeten eRPM
 darunter. Grüne Ziffern: eRPM ist in den letzten 500 ms eingetroffen.
 Dunkelrote Null: nicht, und die Zeile zeigt `NO TELEMETRY`.
 
+Hat AM32 CONFIG seit dem Einschalten einen ESC mit 3D MODE an gelesen, oder
+3D MODE an geschrieben (vom ESC angenommen, bestätigt oder nicht), zeigt die
+Zeile unter der `ERPM`-Zeile in Bernstein `3D MODE ESC: THROTTLE SCALE DIFFERS`
+(3D-ESC: die Gasskala ist eine andere), an Stelle der Polzahl und des
+Wisch-Hinweises, scharf oder nicht; `NO TELEMETRY` bleibt auf seiner eigenen
+Zeile darüber. Solange ein Wischer auf der Gasfläche greift, steht
+`SWIPE ACTIVE` in Grün in der Zeile, und nach dem Loslassen kehrt der Hinweis
+zurück. Im 3D-Modus ist 50 % Gas volle Leistung in die eine Richtung, über 50 %
+dreht der Motor in die andere. Den Propeller abnehmen. Scharfschalten wird
+deswegen nicht verweigert. Der Hinweis weiß nicht, ob der ESC am Pin gegen einen
+anderen getauscht wurde; nur ein bestätigtes Schreiben oder ein Lesen, das die
+Liste öffnet, mit 3D MODE aus oder ein Neustart nimmt ihn weg; die
+Nur-Lese-Ansicht eines unbekannten Layouts lässt ihn. Siehe
+[AM32-Konfiguration](AM32-Konfiguration#felder-mit-hinweis).
+
+<img src="img/tester-3d.png" width="240" alt="Der Tester scharf, mit 3D MODE ESC: THROTTLE SCALE DIFFERS in Bernstein unter der Drehzahl">
+
 **Sechs Kacheln.** Spannung, Strom, ESC-Temperatur, Stress, ESC-Status und
 Verbindungsqualität. Siehe [Telemetrie](Telemetrie).
 
@@ -242,7 +259,7 @@ Unter der Liste bleiben diese Elemente an ihrem Platz:
   2. `ADJUSTED TO THIS BOARD'S LIMITS` oder `KISS OFF: NEEDS A PIN OF ITS OWN`
      (Bernstein), bis zur nächsten Änderung;
   3. `DEFAULTS LOADED - RESTART TO UNDO` (Voreinstellungen geladen, ein
-     Neustart macht es rückgängig; Bernstein) nach `RESET`, solange ein
+     Neustart macht es rückgängig; Bernstein) nach `HOLD RESET`, solange ein
      Neustart die gespeicherten Werte zurückbrächte, bis zur nächsten
      Änderung oder zu einem `HOLD TO SAVE`, gescheitert oder nicht;
   4. `UNSAVED - HOLD SAVE TO KEEP` (Bernstein) nach einer Änderung;
@@ -258,13 +275,15 @@ Unter der Liste bleiben diese Elemente an ihrem Platz:
 
 <img src="img/settings-pin.png" width="240" alt="SETTINGS, nachdem ESC PIN auf GP1 gewechselt hat: UNPLUG ANY SERVO FROM GP1 NOW über LINK, UNSAVED in der Hinweiszeile">
 
-- `HOLD TO SAVE` (150 × 48 px) und `RESET` (70 × 48 px).
+- `HOLD TO SAVE` (150 × 48 px) und `HOLD RESET` (70 × 48 px).
 
 **Änderungen wirken sofort. Nur das Speichern braucht das Halten.** Eine neue
 Bitrate baut den DShot-Treiber vor dem nächsten Frame neu auf. `HOLD TO SAVE`
-1 s lang schreibt ins Flash. Ein Tippen auf `RESET` ersetzt die laufenden
+1 s lang schreibt ins Flash. `HOLD RESET` 1 s lang ersetzt die laufenden
 Einstellungen durch die kompilierten Voreinstellungen, Polzahl und
-Gas-Obergrenze eingeschlossen; das Flash bleibt unverändert. Wer den
+Gas-Obergrenze eingeschlossen; das Flash bleibt unverändert. Ein Tippen
+bewirkt nichts, ein Wegschieben vom Knopf bricht das Halten ab. Ein Balken
+über dem Knopf füllt sich, solange er gehalten wird. Wer den
 Bildschirm verlässt, behält die Voreinstellungen in Gebrauch. Die
 gespeicherten Werte lädt die Platine nur beim Start, ein Neustart ohne
 `HOLD TO SAVE` kehrt also zu ihnen zurück.

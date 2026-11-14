@@ -287,6 +287,20 @@ bool servoDangerous(ServoType t, uint16_t rateHz);
 bool servoPastTravel(const ServoProfile *p);
 
 /**
+ * @brief Whether a change to a profile waits for HOLD TO APPLY because of
+ *        its travel.
+ *
+ * True when @p edit is past travel (servoPastTravel()) and its TYPE differs
+ * from @p applied's, or its MIN is below @p applied's, or its MAX above, or
+ * it drives more servos (ONE to TWO). A change that moves MIN or MAX back
+ * toward the centre, TWO to ONE, or one of another row, applies at once.
+ * @param edit    The profile as SET shows it.
+ * @param applied The profile the job drives.
+ * @return True when the change waits.
+ */
+bool servoTravelNeedsHold(const ServoProfile *edit, const ServoProfile *applied);
+
+/**
  * @brief Whether a profile is one the job may drive.
  *
  * MIN at least @ref SERVO_FLOOR_US; MIN, CENTRE and MAX each at least

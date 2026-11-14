@@ -150,7 +150,9 @@ only, and the SET screen says why. While the screen waits for the pins, for
 example while an ESC answers, it cannot know whether the KISS pin is free,
 and `TWO` can be chosen. If the screen then finds the KISS pin taken, it takes
 the ESC pin alone and goes back to one servo, and `TWO` stays off until you
-open the screen again.
+open the screen again. This holds for a `TWO` still waiting for
+`HOLD TO APPLY` too: it goes back to one servo, and a wait that held only for
+`TWO` ends.
 
 <img src="img/servo-samepin.png" width="240" alt="TWO not offered: both pins are one GPIO">
 
@@ -213,22 +215,31 @@ Swipe the row sideways for big steps. Drag up or down to scroll. Rows are
 - A heli type, or a frame rate above 60 Hz, can destroy a servo not made for
   it: above 60 Hz an analogue servo overheats. Such a change waits, the screen
   names the risk, and `HOLD TO APPLY` (1 s) applies it. `BACK` drops it.
-- A pulse past a servo's travel drives it against its end stop, where it
-  stalls and heats. With TYPE WIDE, MIN below 900 µs or MAX above 2100 µs
-  the screen says `PAST ITS TRAVEL A SERVO STALLS AND HEATS. TRY MIN AND MAX
-  HORN-FREE.` in amber. HELI CYCLIC shows it at its own 820 µs to 2220 µs.
-  NARROW 760 and HELI TAIL 760 are measured against their own ranges: the
-  note shows when MIN lies more than 100 µs below the type's MIN, or MAX more
-  than 100 µs above the type's MAX. The change applies at once. The note
-  shows while TYPE, MIN or MAX is selected, and on other rows when no other
-  note does.
-  The travel of a servo is in its data sheet; the bench does not measure it.
+- A pulse past a servo's travel drives it against its end stop, where it stalls
+  and heats. With TYPE WIDE, MIN below 900 µs or MAX above 2100 µs the screen
+  says `PAST ITS TRAVEL A SERVO STALLS AND HEATS. TRY MIN AND MAX HORN-FREE.` in
+  amber. HELI CYCLIC shows it at its own 820 µs to 2220 µs. NARROW 760 and HELI
+  TAIL 760 are measured against their own ranges: the note shows when MIN lies
+  more than 100 µs below the type's MIN, or MAX more than 100 µs above the
+  type's MAX. A TYPE, MIN or MAX change that leaves the profile past its travel
+  waits when it changes TYPE or takes MIN or MAX further out than the applied
+  profile: the note is its warning, on every row, and `HOLD TO APPLY` (1 s)
+  applies it. Stepping further while it waits keeps it waiting; stepping back
+  inside the margin, or back to the applied value, applies at once when nothing
+  else waits. A step toward the centre applies at once. `BACK` drops a waiting
+  change. A heli or 60 Hz change shows its own warning first, and HELI CYCLIC's
+  one hold covers both. With TWO servos the hold covers both. Changing SERVOS
+  from ONE to TWO on a profile past its travel waits for the hold too, since it
+  drives a second servo there; on a profile within its travel, and from TWO to
+  ONE, it applies at once. Once applied, the note shows while TYPE, MIN or MAX
+  is selected, and on other rows when no other note does. The travel of a servo
+  is in its data sheet; the bench does not measure it.
 - The SWEEP rows change at any time and apply to the next `SWEEP`. When
   `SPEED` is slower than the curve, the screen says `SPEED LIMITS THE SWEEP`.
 - `DEFAULTS`, offered only while `SAFE`, returns to STANDARD PWM at 50 Hz,
   one servo, and a sine at 0.50 Hz.
 
-<img src="img/servo-set-warning.png" width="240" alt="A heli profile waiting for HOLD TO APPLY">
+<img src="img/servo-set-warning.png" width="240" alt="A heli profile waiting for HOLD TO APPLY"> <img src="img/servo-set-travel.png" width="240" alt="TYPE WIDE waiting for HOLD TO APPLY behind the end-stop note">
 
 Nothing on this screen is stored. Every time you open the servo screen it
 starts at STANDARD PWM, 50 Hz, one servo.

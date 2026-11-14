@@ -44,6 +44,18 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1 (a93e1c1): the tester shows
+  `3D MODE ESC: THROTTLE SCALE DIFFERS` in amber on the RPM area's bottom row,
+  in place of the pole count and the swipe hint, armed or not, while the pad is
+  not engaged (`SWIPE ACTIVE` takes the row while a drag is engaged), after
+  AM32 CONFIG read an ESC whose settings have 3D MODE on (a read that opens the
+  list) or wrote 3D MODE on and the ESC accepted the write, whether its
+  read-back verified, failed or differed, in this power-up. Only a list read or
+  a verified write with 3D MODE off clears it, and so does a restart; a failed
+  read or a refused write leaves it. Arming is unchanged. A swapped ESC is not
+  detected. By the owner's decision of 2026-11-14. `uiAm32Esc3d()` in
+  `src/ui_am32.*`; host test `testAm32TesterNote()`; the wiki shows
+  `tester-3d.png`.
 - The Release workflow publishes a tag with a suffix, such as `v0.1.0-rc1`,
   as a GitHub pre-release, and the Docs workflow publishes no manual for it.
 - The splash shows `TOUCH CONTROLLER NOT FOUND` in amber while the touch
@@ -503,12 +515,31 @@ protocol.
   outside the type's own range) the note band says
   `PAST ITS TRAVEL A SERVO STALLS AND` `HEATS. TRY MIN AND MAX HORN-FREE.`
   in amber, ahead of the dim notes while TYPE, MIN or MAX is selected and
-  after them on the other rows. The change still applies at once.
+  after them on the other rows. The change still applies at once. After
+  v0.1.0-rc1 a change that takes the profile further past its travel waits
+  for HOLD TO APPLY, with this note as its warning (see Changed).
   `servoPastTravel()` in `src/servo_model.*`; host tests in
   `test/test_servo.cpp`.
 
 ### Changed
 
+- After v0.1.0-rc1 (a93e1c1): SERVO TESTER → SET: a TYPE, MIN or MAX step that
+  leaves the profile past its travel and changes TYPE or takes MIN or MAX
+  further out than the applied profile waits for `HOLD TO APPLY`, with the amber
+  end-stop note as its warning; the heli and 60 Hz warnings come first. A step
+  back inside the margin or to the applied value applies at once, as does a step
+  toward the centre. SERVOS ONE to TWO on a profile past its travel waits too;
+  TWO to ONE, and ONE to TWO within the travel, apply at once. A claim that
+  takes SIG alone drops a pending TWO to one servo as it drops an applied one,
+  and a wait that held only for TWO ends (`claimPins()`). By the owner's
+  decisions of 2026-11-14, decisions 21 and 22 of `docs/design/servo-tester.md`.
+  `servoTravelNeedsHold()` in `src/servo_model.*`; the wiki shows
+  `servo-set-travel.png`.
+- After v0.1.0-rc1 (a93e1c1): SETTINGS: RESET reads `HOLD RESET` and loads the
+  defaults after a 1 s hold on the shared hold widget (`src/ui_hold.*`), with a
+  bar over the button and a `C_RED` fill while held, as on every other hold of
+  `src/ui_hold.*` but HOLD TO SAVE; a tap loads nothing and a slide off cancels.
+  By the owner's decision of 2026-11-14. Host test `testResetHold()`.
 - After v0.1.0-rc1 (a93e1c1): stored settings of versions 2, 3 and 4 carry
   over into version 5, by the owner's decision of 2026-11-14, in place of
   being discarded whole as v0.1.0-rc1 does and the entries below say
@@ -622,7 +653,9 @@ protocol.
   or elsewhere, and so does every completed HOLD TO SAVE, failed saves
   included, and a RESET over settings a restart would load anyway does not
   show it. RESET
-  keeps its name and its single tap. Host tests in `test/test_menu.cpp`.
+  keeps its name and its single tap. After v0.1.0-rc1 it reads `HOLD RESET`
+  and loads the defaults only after a 1 s hold (see Changed). Host tests in
+  `test/test_menu.cpp`.
 - HITEC SERVO's ID note states the consequence: the editor bar reads
   `BENCH ADDRESSES ID 0. A WRITE MAY LOCK OUT READ AND RESTORE.` and the
   write page `THE BENCH ADDRESSES ID 0 AND MAY NOT READ OR RESTORE THIS

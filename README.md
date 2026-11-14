@@ -401,7 +401,10 @@ TO ARM.
 
   The pad ends where the gauge's grab area begins, with no overlap and no gap.
   The hint under the RPM readout reads `SWIPE = THROTTLE`, cyan while armed,
-  and changes to `SWIPE ACTIVE` in green while a drag is engaged.
+  and changes to `SWIPE ACTIVE` in green while a drag is engaged. While the
+  3D note shows ([Telemetry and logging](#telemetry-and-logging)), the note
+  stands in the hint's place until a drag engages; `SWIPE ACTIVE` then
+  replaces the note, and the note returns on release. The pad works the same.
 - **HOLD**: off by default. Turning it off sets the throttle to zero.
 - **MENU**: the list of tools and settings. Opening it disarms, sets the
   throttle to zero and turns HOLD off.
@@ -599,7 +602,7 @@ Below the list, fixed and not scrolled:
 - **LINK**: live packets per second and checksum error rate. Green when
   packets arrive, amber above 5 % errors.
 - The note line.
-- **HOLD TO SAVE** (150 × 48 px) and **RESET** (70 × 48 px).
+- **HOLD TO SAVE** (150 × 48 px) and **HOLD RESET** (70 × 48 px).
 
 A wrong ESC pin produces no error: the ESC receives no frames. **LINK** on this
 screen shows the result of each pin change. A non-zero packet rate means the
@@ -641,15 +644,19 @@ splash's two lines, `UPDATED` on MENU's SETTINGS row, and the note line
 above, pole count and throttle ceiling included. Erasing the flash sector stops
 core1, and with it the DShot pump, for the length of the erase. That duration
 is not measured. Saving is refused while armed (`NOT WHILE ARMED - DISARM TO
-SAVE`); opening MENU disarms, so the refusal is a backstop. **RESET** loads the
-compiled defaults, pole count and throttle ceiling included, into the live
-settings. Flash changes only on the next save.
+SAVE`); opening MENU disarms, so the refusal is a backstop. **HOLD RESET**
+(1 s, `UI_HOLD_MS`, the same hold widget, `src/ui_hold.*`) loads the compiled
+defaults, pole count and throttle ceiling included, into the live settings. A
+tap loads nothing, a slide off the button cancels the hold, and a bar over
+the button and a `C_RED` fill, as on every other hold of `src/ui_hold.*` but
+HOLD TO SAVE, show it running. It has no armed check: SETTINGS opens only
+through MENU, which disarms. Flash changes only on the next save.
 
 Every value applies when changed. Only persistence needs the hold, so a value
 can be tried and then discarded by leaving without saving. The note line reads
 `UNSAVED - HOLD SAVE TO KEEP` after a change, and otherwise
-`SAVED SETTINGS IN USE` or `COMPILED DEFAULTS IN USE`. After RESET it reads
-`DEFAULTS LOADED - RESTART TO UNDO` while the live settings are what RESET
+`SAVED SETTINGS IN USE` or `COMPILED DEFAULTS IN USE`. After HOLD RESET it
+reads `DEFAULTS LOADED - RESTART TO UNDO` while the live settings are what it
 left and differ from what the next boot loads (the saved settings, or the
 compiled defaults when none are stored). Any other change ends it, and so
 does every completed HOLD TO SAVE, failed saves included: a save whose
@@ -790,6 +797,24 @@ shows `--`. RPM shows a dark red zero, and the line under it reads
 `NO TELEMETRY`, after `ESC_LINK_STALE_MS` (500 ms) without eRPM. A display that
 held old values would show a plausible reading from an ESC that is no longer
 connected.
+
+The RPM area's bottom row, y 114, holds the pole count and the swipe hint. While
+`uiAm32Esc3d()` is true it holds `3D MODE ESC: THROTTLE SCALE DIFFERS`
+(`AM32_UI_TESTER_3D`, 35 characters, 209 px, x 10 to x 218) in amber in their
+place, armed or not, while the pad is not engaged. While a drag is engaged,
+`SWIPE ACTIVE` in green takes the row alone, as the only sign the drag took
+hold, and the note returns on release. The `ERPM` / `NO TELEMETRY` line above
+it, y 102, does not change. Arming is not refused on it. The flag is set by an
+AM32 CONFIG read that opens the list on settings with 3D MODE on and by a write
+of settings with 3D MODE on that the ESC accepted (`am32BlWrite()` returned OK),
+whether the read-back then verifies, fails or differs: such an ESC may run in 3D
+mode. Only a list read or a verified write with 3D MODE off clears it, and a
+restart does, since it is not stored ([AM32 ESC configuration](#editing)
+explains the throttle scale). A failed read, a read that does not open the list
+(the read-only view of a layout not known among them: byte 0x12 may be another
+field there), a write the ESC refused and a write of 3D MODE off that is not
+verified leave it. It describes the last ESC AM32 CONFIG reached, not the one on
+the pin now: a swapped ESC is not detected.
 
 An expired **ESC STATUS** reads `--`, never `OK`.
 
@@ -1098,6 +1123,13 @@ firmware version is bytes 0x03 and 0x04 (`am32Firmware()`); a major outside
 | `PROTOCOL` at 2 to 9 | `THE TESTER SENDS DSHOT ONLY:` / `THE ESC WILL NOT RUN HERE.` | `enum inputType`, zero-based: 0 AUTO, 1 DSHOT, 2 SERVO, 3 SERIAL, 4 EDT ARM, 5 DRONECAN. SERVO detects servo pulses only. SERIAL, 5 and 6 to 9 leave `EDT_ARMED` at 0, and `dshot.c` takes a throttle above 47 only with it set; 10 and above are AUTO. EDT ARM sets it on the EDT enable (command 13, after 6 frames, armed and stopped) and clears it on every zero frame; the tester sends the enable only while disarmed (`escFrameAction()`) and zero frames after it, so the throttle is dropped too. The editor offers 0 to 4, as the configurator does |
 | Firmware below 1.80, or a version byte AM32 did not write | `FIRMWARE BELOW 1.80 OR UNKNOWN:` / `FIELDS IT MAY NOT READ ARE HIDDEN.` | A field the firmware does not read is not listed (`am32FieldShown()`, `Am32Field::readFw`): 0x2A..0x2D from 1.80 (`AM32_FW_READS_2A`; AlkaMotors commit 9909ea7 adds the reads and raises VERSION_MINOR 79 to 80), 0x2E from 1.94 (`AM32_FW_READS_2E`; aa590e8, 93 to 94), 0x2F from 2.16 (`AM32_FW_READS_2F`; the tags v2.05 to v2.12 do not read it). A tag may store a lower version than its code (v1.99 stores 1.95), never a higher one. At 1.80 CURRENT LIMIT acts on 2..99, from 1.81 (f917c01) on 1..99. The backup file lists the fields the firmware reads; its hex lines hold every byte |
 
+After a list read with 3D MODE on, or a write of 3D MODE on that the ESC
+accepted, verified or not, the tester shows
+`3D MODE ESC: THROTTLE SCALE DIFFERS` (`uiAm32Esc3d()`, set and cleared in
+`tryConnect()` and `doWrite()`;
+[Telemetry and logging](#telemetry-and-logging) says where it is drawn).
+Arming is not refused on it.
+
 ### Backup
 
 Before the first WRITE of a session, the settings block as read at entry goes
@@ -1239,7 +1271,9 @@ one servo only, with the reason on the SET screen. While the screen waits for
 the pins, for example while an ESC answers, it cannot know whether AUX is
 free, and TWO can be chosen. If the claim then finds AUX refused, the screen
 takes SIG alone and goes back to one servo, and TWO stays off until the
-screen is opened again.
+screen is opened again. A TWO still waiting for `HOLD TO APPLY` goes back to
+one servo too (`claimPins()`); the wait is decided again, so one that held
+only for TWO ends and the rest of the change applies.
 
 | Control | What it does |
 |---|---|
@@ -1278,15 +1312,30 @@ profiles:
 | HELI TAIL 760 | 410 µs | 760 µs | 1110 µs | 200, 333, 560 Hz | 560 Hz |
 
 MIN, CENTRE and MAX move in 10 µs steps between 400 µs and 2500 µs and keep a
-pause of 1000 µs after the longest pulse (500 µs for the heli profiles), so
-the rates offered depend on MAX: 333 Hz at most for 2000 µs. A heli profile,
-or a rate above 60 Hz, at which an analogue servo overheats, is held behind a
-warning until `HOLD TO APPLY` (1 s). The SWEEP rows (shape, 0.05 Hz to
-5.00 Hz, amplitude 0 % to 100 %, dwell 0 ms to 5000 ms, endless or 1 to 9999
-movements) change at any time and apply to the next SWEEP. `DEFAULTS`,
-offered only while SAFE, returns to STANDARD PWM 50 Hz, one servo, a sine at
-0.50 Hz. While RUNNING the footer shows `STOP` in its place, which acts on
-touch as `STOP` on the servo screen does. Nothing of the servo tester is
+pause of 1000 µs after the longest pulse (500 µs for the heli profiles), so the
+rates offered depend on MAX: 333 Hz at most for 2000 µs. A heli profile, or a
+rate above 60 Hz, at which an analogue servo overheats, is held behind a warning
+until `HOLD TO APPLY` (1 s). So is a TYPE, MIN or MAX step that leaves the
+profile past its travel (`servoPastTravel()`: TYPE WIDE, MIN below 900 µs or MAX
+above 2100 µs, NARROW 760 and HELI TAIL 760 more than 100 µs outside their own
+range) and either changes TYPE or takes MIN below or MAX above the applied
+profile's (`servoTravelNeedsHold()`). Its warning is the amber end-stop note,
+`PAST ITS TRAVEL A SERVO STALLS AND` / `HEATS. TRY MIN AND MAX HORN-FREE.`; a
+heli or 60 Hz warning comes first when both apply. Each step decides again
+against the applied profile: a step back inside the margin, or back to the
+applied MIN or MAX, ends the wait and applies when nothing else waits. A step
+toward the centre, SERVOS TWO to ONE, a CENTRE or REVERSE B change, and a RATE
+change up to 60 Hz on a type that is not a heli type apply at once while nothing
+waits and join a waiting change otherwise. SERVOS ONE to TWO waits for the hold
+when the profile is past its travel, since it drives a second servo there, and
+applies at once on a profile within it. HELI CYCLIC's own 820 µs
+to 2220 µs are past the travel; its one hold covers both warnings. BACK from SET
+drops a waiting change, and SET opens again on the applied profile. The SWEEP
+rows (shape, 0.05 Hz to 5.00 Hz, amplitude 0 % to 100 %, dwell 0 ms to 5000 ms,
+endless or 1 to 9999 movements) change at any time and apply to the next SWEEP.
+`DEFAULTS`, offered only while SAFE, returns to STANDARD PWM 50 Hz, one servo, a
+sine at 0.50 Hz. While RUNNING the footer shows `STOP` in its place, which acts
+on touch as `STOP` on the servo screen does. Nothing of the servo tester is
 stored: every entry starts at STANDARD PWM 50 Hz.
 
 **BACK.** `BACK` ends the pulses and shows `UNPLUG THE SERVO.` Core1 lets the
@@ -1865,6 +1914,13 @@ In the firmware:
   block of an older layout, version 2 to 4, is read field by field from
   that layout and validated as a current block.
 - Arming is blocked while a USB host holds the SD card.
+- After AM32 CONFIG read 3D MODE on, or wrote it and the ESC accepted the
+  write, verified or not, the tester shows
+  `3D MODE ESC: THROTTLE SCALE DIFFERS`; arming is not refused on it.
+- On SERVO TESTER → SET a heli profile, a rate above 60 Hz, a profile taken
+  further past its travel and a second servo on such a profile wait for
+  HOLD TO APPLY (1 s).
+- SETTINGS loads the compiled defaults only after a 1 s hold of HOLD RESET.
 - The servo tester starts SAFE, with no pulses; HOLD TO START is a 1 s hold
   that puts every pin at CENTRE, and STOP acts on touch. A hold counts only
   a press that lands on the button while it is live, so a press made while
@@ -2053,7 +2109,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.0%**: 9,502 of 9,699 lines in 59 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.0%**: 9,529 of 9,724 lines in 59 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

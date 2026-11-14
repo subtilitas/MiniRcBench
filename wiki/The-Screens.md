@@ -67,6 +67,20 @@ count. The `ERPM` value and the pole count are shown below it. Green digits:
 eRPM arrived within the last 500 ms. Dark red zero: it did not, and the line
 reads `NO TELEMETRY`.
 
+After AM32 CONFIG has read an ESC with 3D MODE on, or written 3D MODE on
+(accepted by the ESC, verified or not), in this power-up, the row under the
+`ERPM` line reads `3D MODE ESC: THROTTLE SCALE DIFFERS` in amber, in place of
+the pole count and the swipe hint, armed or not; `NO TELEMETRY` stays on its own
+line above it. While a swipe on the pad is engaged, `SWIPE ACTIVE` in green
+takes the row, and the note returns on release. In 3D mode 50 % throttle is full
+power one way, and above 50 % the motor runs the other way. Keep the propeller
+off. Arming is not refused on it. The note does not know that the ESC on the pin
+was swapped for another one; only a verified write or a list read with 3D MODE
+off, or a restart, removes it. The read-only view of a layout not known leaves
+it. See [AM32 Configuration](AM32-Configuration#fields-with-a-note).
+
+<img src="img/tester-3d.png" width="240" alt="The tester armed, with 3D MODE ESC: THROTTLE SCALE DIFFERS in amber under the RPM readout">
+
 **Six tiles.** Voltage, current, ESC temperature, stress, ESC status and link
 quality. See [Telemetry](Telemetry).
 
@@ -228,7 +242,7 @@ Under the list, these stay in place:
      leaving SETTINGS;
   2. `ADJUSTED TO THIS BOARD'S LIMITS` or `KISS OFF: NEEDS A PIN OF ITS OWN`
      (amber), until the next change;
-  3. `DEFAULTS LOADED - RESTART TO UNDO` (amber) after `RESET`, while a
+  3. `DEFAULTS LOADED - RESTART TO UNDO` (amber) after `HOLD RESET`, while a
      restart would bring the saved values back, until another change or a
      `HOLD TO SAVE`, failed or not;
   4. `UNSAVED - HOLD SAVE TO KEEP` (amber) after a change;
@@ -243,15 +257,16 @@ Under the list, these stay in place:
 
 <img src="img/settings-pin.png" width="240" alt="SETTINGS after ESC PIN moved to GP1: UNPLUG ANY SERVO FROM GP1 NOW above LINK, UNSAVED on the note line">
 
-- `HOLD TO SAVE` (150 × 48 px) and `RESET` (70 × 48 px).
+- `HOLD TO SAVE` (150 × 48 px) and `HOLD RESET` (70 × 48 px).
 
 **Changes apply at once. Only storing them needs the hold.** A new bitrate
 rebuilds the DShot driver before the next frame. `HOLD TO SAVE` for 1 s writes
-to flash. One tap on `RESET` replaces the live settings with the compiled
+to flash. `HOLD RESET` for 1 s replaces the live settings with the compiled
 defaults, the pole count and the throttle ceiling included; flash is
-untouched. Leaving the screen keeps the defaults in use. The saved values
-load only when the board starts, so restarting the board without
-`HOLD TO SAVE` returns to them.
+untouched. A tap does nothing, and sliding off the button cancels the hold.
+A bar over the button fills while it is held. Leaving the screen keeps the
+defaults in use. The saved values load only when the board starts, so
+restarting the board without `HOLD TO SAVE` returns to them.
 
 **LAST RESTART.** The firmware reads the reason once, when it starts. A
 board that restarts on its own while a motor spins and then reads

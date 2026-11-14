@@ -155,6 +155,50 @@ static void testProfiles() {
 	checkTrue("HELI TAIL 760 410-1110 us: its own range, no note", !servoPastTravel(&q));
 	q.maxUs = 1210; checkTrue("HELI TAIL 760, MAX 1210 us: no note", !servoPastTravel(&q));
 	q.maxUs = 1220; checkTrue("HELI TAIL 760, MAX 1220 us: the note", servoPastTravel(&q));
+
+	// What waits for HOLD TO APPLY: past the travel, and further out than
+	// the applied profile, or of another TYPE.
+	ServoProfile a, e;
+	servoProfileDefault(&a);
+	e = a; e.minUs = 900;
+	checkTrue("MIN 900 us from 1000 us: inside, at once", !servoTravelNeedsHold(&e, &a));
+	e.minUs = 890;
+	checkTrue("MIN 890 us: waits", servoTravelNeedsHold(&e, &a));
+	e = a; e.maxUs = 2110;
+	checkTrue("MAX 2110 us: waits", servoTravelNeedsHold(&e, &a));
+	servoProfileLoadType(&e, ServoType::Wide);
+	checkTrue("TYPE WIDE: waits", servoTravelNeedsHold(&e, &a));
+	a = e;
+	checkTrue("WIDE as applied: at once", !servoTravelNeedsHold(&e, &a));
+	e.minUs = 790;
+	checkTrue("WIDE, MIN 790 us from 800 us: waits", servoTravelNeedsHold(&e, &a));
+	e.minUs = 810;
+	checkTrue("WIDE, MIN 810 us: toward the centre, at once", !servoTravelNeedsHold(&e, &a));
+	e.minUs = 800; e.maxUs = 2210;
+	checkTrue("WIDE, MAX 2210 us from 2200 us: waits", servoTravelNeedsHold(&e, &a));
+	e.maxUs = 2190;
+	checkTrue("WIDE, MAX 2190 us: at once", !servoTravelNeedsHold(&e, &a));
+	e = a; e.rateHz = 60; e.centreUs = 1510;
+	checkTrue("RATE or CENTRE on WIDE as applied: at once", !servoTravelNeedsHold(&e, &a));
+	e = a; e.servos = 2;
+	checkTrue("SERVOS ONE to TWO on WIDE as applied: waits", servoTravelNeedsHold(&e, &a));
+	a.servos = 2; e.servos = 1;
+	checkTrue("SERVOS TWO to ONE on WIDE: at once", !servoTravelNeedsHold(&e, &a));
+	a.servos = 1;
+	{
+		ServoProfile s1, s2;
+		servoProfileDefault(&s1);
+		s2 = s1; s2.servos = 2;
+		checkTrue("SERVOS ONE to TWO on STANDARD, inside the travel: at once",
+		          !servoTravelNeedsHold(&s2, &s1));
+	}
+	servoProfileLoadType(&a, ServoType::HeliCyclic);
+	servoProfileLoadType(&e, ServoType::Wide);
+	checkTrue("WIDE from HELI CYCLIC: another TYPE, waits", servoTravelNeedsHold(&e, &a));
+	e = a; e.type = ServoType::Wide;
+	checkTrue("another TYPE, MIN and MAX the same: waits", servoTravelNeedsHold(&e, &a));
+	servoProfileLoadType(&e, ServoType::Standard);
+	checkTrue("STANDARD from HELI CYCLIC: inside, at once", !servoTravelNeedsHold(&e, &a));
 }
 
 /** @brief servoProfileValid() refuses each broken rule on its own. */
@@ -1563,6 +1607,16 @@ static void stepSel(int dir, int n = 1, IdExpect want = IdExpect::Enabled) {
 	core1();
 }
 
+/** @brief Hold HOLD TO APPLY for @ref UI_HOLD_MS, then lift. */
+static void holdApply() {
+	int x, y;
+	ctlCentre(UI_FIX(ServoCtl::Apply), &x, &y);
+	pressId(UI_FIX(ServoCtl::Apply));
+	fakeHold(x, y); frameAt(UI_HOLD_MS);
+	fakeRelease(); uiFrames(1);
+	core1();
+}
+
 /** @brief Swipe SET row @p i sideways by one swipe step in @p dir. */
 static void swipeRow(int i, int dir) {
 	selectRow(i);
@@ -2122,8 +2176,9 @@ static void testSetScreen() {
 	checkTrue("NARROW 760 at 50 Hz: applied at once",
 	          s_profile.type == ServoType::Narrow760 && !s_pending);
 	stepSel(+1, 2);
-	checkTrue("HELI CYCLIC: held as pending", s_edit.type == ServoType::HeliCyclic && s_pending &&
-	                                          s_profile.type == ServoType::Wide);
+	checkTrue("WIDE, then HELI CYCLIC: held as pending, NARROW 760 still applied",
+	          s_edit.type == ServoType::HeliCyclic && s_pending &&
+	          s_profile.type == ServoType::Narrow760);
 	checkInt("the pins still at 50 Hz", fakeSlice(0).top, 19999);
 	const char *l1, *l2; uint16_t col;
 	setNote(&l1, &l2, &col);
@@ -2139,7 +2194,7 @@ static void testSetScreen() {
 	frameAt(1000);
 	pressId(UI_FIX(ServoCtl::Apply));
 	checkTrue("held 500 ms, lifted, pressed 1 s later: still pending",
-	          s_pending && s_profile.type == ServoType::Wide && fakeSlice(0).top == 19999);
+	          s_pending && s_profile.type == ServoType::Narrow760 && fakeSlice(0).top == 19999);
 	fakeRelease(); uiFrames(1);
 	pressId(UI_FIX(ServoCtl::Apply));
 	fakeHold(x, y); frameAt(UI_HOLD_MS - 1); core1();
@@ -2150,13 +2205,29 @@ static void testSetScreen() {
 	checkTrue("1000 ms: applied", !s_pending && s_profile.type == ServoType::HeliCyclic);
 	checkInt("rebound at 333 Hz", fakeSlice(0).top, 3002);
 	fakeRelease(); uiFrames(1);
+	checkTrue("HELI CYCLIC's 820 us to 2220 us are past the travel: one hold applied both",
+	          servoPastTravel(&s_profile) && s_profile.minUs == 820 && s_profile.maxUs == 2220);
 	selectRow(3);   // MIN, under the applied heli profile
+	setNote(&l1, &l2, &col);
+	checkTrue("applied: the end-stop note, not the heli warning",
+	          !s_pending && l1 && strcmp(l1, "PAST ITS TRAVEL A SERVO STALLS AND") == 0);
 	stepSel(-1);
-	checkTrue("MIN under an applied heli profile: at once, no warning",
-	          !s_pending && s_profile.minUs == 810);
+	checkTrue("MIN 810 us under an applied heli profile: further out, pending",
+	          s_pending && s_edit.minUs == 810 && s_profile.minUs == 820);
+	setNote(&l1, &l2, &col);
+	checkTrue("the warning is the end-stop note, not the heli one",
+	          l1 && strcmp(l1, "PAST ITS TRAVEL A SERVO STALLS AND") == 0 && col == C_AMBER);
+	stepSel(+1);
+	checkTrue("back to 820 us: nothing pending", !s_pending && s_profile.minUs == 820);
+	stepSel(+1);
+	checkTrue("830 us, toward the centre: at once", !s_pending && s_profile.minUs == 830);
 	selectRow(1);
 	stepSel(-1);
-	checkTrue("back to WIDE at 50 Hz: at once", !s_pending && fakeSlice(0).top == 19999);
+	checkTrue("back to WIDE at 50 Hz: 800 us, further out, pending",
+	          s_pending && s_edit.type == ServoType::Wide && s_profile.type == ServoType::HeliCyclic);
+	holdApply();
+	checkTrue("held: WIDE at 50 Hz", !s_pending && s_profile.type == ServoType::Wide &&
+	                                 fakeSlice(0).top == 19999);
 
 	selectRow(2);   // RATE
 	stepSel(+1);
@@ -2170,14 +2241,19 @@ static void testSetScreen() {
 	openSet();
 	selectRow(3);   // MIN
 	stepSel(-1, 3);
-	checkTrue("MIN -30 us at once", s_profile.minUs == 770);
+	checkTrue("MIN -30 us on WIDE: pending", s_pending && s_edit.minUs == 770 && s_profile.minUs == 800);
+	holdApply();
+	checkTrue("held: applied", !s_pending && s_profile.minUs == 770);
 	int minY = rowCentreY(3);
 	fakePress(200, minY); uiFrames(1);
 	for (int px = 200; px >= 200 - UI_AXIS_LOCK_PX - 2 - UI_SWIPE_STEP_PX; px -= 4) {
 		fakeHold(px, minY); uiFrames(1);
 	}
 	fakeRelease(); uiFrames(1);
-	checkInt("a swipe left on MIN: one coarse step, -100 us", s_profile.minUs, 670);
+	checkInt("a swipe left on MIN: one coarse step, -100 us", s_edit.minUs, 670);
+	checkTrue("further out: pending", s_pending && s_profile.minUs == 770);
+	holdApply();
+	checkInt("held: applied", s_profile.minUs, 670);
 
 	// While RUNNING the PULSE rows are locked; the SWEEP rows are not.
 	backFromSet();
@@ -2315,9 +2391,18 @@ static void testTravelNote() {
 	selectRow(1);   // TYPE
 	checkTrue("STANDARD: no note", noteIs(nullptr, nullptr, 0));
 	stepSel(+1, 2);
-	checkTrue("WIDE at 50 Hz: applied at once, no HOLD TO APPLY",
-	          s_profile.type == ServoType::Wide && !s_pending);
-	checkTrue("TYPE selected: the end-stop note, amber", noteIs(T1, T2, C_AMBER));
+	checkTrue("WIDE at 50 Hz: past the travel, pending, NARROW 760 still applied",
+	          s_edit.type == ServoType::Wide && s_pending && s_profile.type == ServoType::Narrow760);
+	checkTrue("the pending warning is the end-stop note, amber", noteIs(T1, T2, C_AMBER));
+	uiFrames(1);
+	checkTrue("HOLD TO APPLY is live", fillOf(BTN_APPLY) == C_PANEL);
+	fakeDumpFrame("shot_servo_set_travel.ppm");
+	selectRow(7);   // SHAPE
+	checkTrue("pending: the note on every row", noteIs(T1, T2, C_AMBER));
+	selectRow(1);
+	holdApply();
+	checkTrue("held: WIDE applied", s_profile.type == ServoType::Wide && !s_pending);
+	checkTrue("TYPE selected: the end-stop note stays, amber", noteIs(T1, T2, C_AMBER));
 	uiFrames(1);
 	checkTrue("drawn on the band's first line",
 	          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 2, T1, C_AMBER, C_BG, 1));
@@ -2333,6 +2418,33 @@ static void testTravelNote() {
 	          noteIs("A HELI PROFILE CAN DESTROY", "A SERVO NOT MADE FOR IT.", C_AMBER));
 	stepSel(-1);
 	checkTrue("back to WIDE: nothing pending", !s_pending && s_edit.type == ServoType::Wide);
+	backFromSet();
+	openSet();
+	checkTrue("WIDE applied, SET opened again: nothing pending, the end-stop note",
+	          !s_pending && s_profile.type == ServoType::Wide && noteIs(T1, T2, C_AMBER));
+	selectRow(ROW_SERVOS);
+	stepSel(+1);
+	checkTrue("TWO under an applied WIDE: pending, one servo still driven",
+	          s_pending && s_edit.servos == 2 && s_profile.servos == 1 && noteIs(T1, T2, C_AMBER));
+	holdApply();
+	checkTrue("held: TWO on WIDE", !s_pending && s_profile.servos == 2);
+	selectRow(5);   // MAX
+	stepSel(+1);
+	checkTrue("TWO servos, MAX 2210 us: pending for both", s_pending && s_profile.servos == 2 &&
+	                                                     s_profile.maxUs == 2200 && s_edit.maxUs == 2210);
+	stepSel(+1);
+	checkTrue("a step further while pending: still pending", s_pending && s_edit.maxUs == 2220 &&
+	                                                       s_profile.maxUs == 2200);
+	holdApply();
+	checkTrue("held: MAX 2220 us on both", !s_pending && s_profile.maxUs == 2220 && s_profile.servos == 2);
+	stepSel(-1);
+	checkTrue("MAX 2210 us, back toward the centre: at once", !s_pending && s_profile.maxUs == 2210);
+	selectRow(ROW_SERVOS);
+	stepSel(-1);
+	checkTrue("TWO to ONE on WIDE: at once", !s_pending && s_profile.servos == 1);
+	selectRow(5);
+	stepSel(-1);
+	checkTrue("ONE, MAX 2200 us", s_profile.servos == 1 && s_profile.maxUs == 2200);
 
 	// A refused TWO keeps its cause on SERVOS and its pointer on the
 	// rows that do not set the ends.
@@ -2368,13 +2480,37 @@ static void testTravelNote() {
 	stepSel(-1, 10);
 	checkTrue("MIN 900 us: no end-stop note", s_profile.minUs == 900 && noteIs(sl, nullptr, C_DIM));
 	stepSel(-1);
-	checkTrue("MIN 890 us: the end-stop note", s_profile.minUs == 890 && noteIs(T1, T2, C_AMBER));
+	checkTrue("MIN 890 us: pending, the end-stop note", s_pending && s_profile.minUs == 900 &&
+	          s_edit.minUs == 890 && noteIs(T1, T2, C_AMBER));
+	{
+		// BACK drops a wait for the travel as it drops a heli or 60 Hz one.
+		const FakeSlice sl0 = fakeSlice(0);
+		backFromSet();
+		const FakeSlice sl1 = fakeSlice(0);
+		checkTrue("BACK with MIN 890 us pending: MIN stays 900 us, the slice untouched",
+		          s_profile.minUs == 900 && sl1.top == sl0.top && sl1.div16 == sl0.div16 &&
+		          sl1.inits == sl0.inits && sl1.enabled == sl0.enabled);
+		openSet();
+		checkTrue("SET again: nothing pending, MIN 900 us", !s_pending && s_edit.minUs == 900);
+		selectRow(3);
+		stepSel(-1);
+		checkTrue("MIN 890 us again: pending", s_pending && s_edit.minUs == 890);
+	}
+	stepSel(-1);
+	checkTrue("880 us: still pending", s_pending && s_edit.minUs == 880 && s_profile.minUs == 900);
+	stepSel(+1, 2);
+	checkTrue("back to 900 us, inside the margin: the wait ends, applied",
+	          !s_pending && s_profile.minUs == 900 && noteIs(sl, nullptr, C_DIM));
 	stepSel(+1);
 	selectRow(5);
 	stepSel(+1, 10);
 	checkTrue("MAX 2100 us: no end-stop note", s_profile.maxUs == 2100 && noteIs(sl, nullptr, C_DIM));
 	stepSel(+1);
-	checkTrue("MAX 2110 us: the end-stop note", s_profile.maxUs == 2110 && noteIs(T1, T2, C_AMBER));
+	checkTrue("MAX 2110 us: pending, the end-stop note", s_pending && s_edit.maxUs == 2110 &&
+	          s_profile.maxUs == 2100 && noteIs(T1, T2, C_AMBER));
+	holdApply();
+	checkTrue("held: applied, the end-stop note stays",
+	          !s_pending && s_profile.maxUs == 2110 && noteIs(T1, T2, C_AMBER));
 
 	// NARROW 760 against its own 660 us to 860 us.
 	tapId(UI_FIX(ServoCtl::Defaults));
@@ -2387,8 +2523,8 @@ static void testTravelNote() {
 	checkTrue("NARROW 760, MAX 960 us: no end-stop note",
 	          s_profile.maxUs == 960 && !noteIs(T1, T2, C_AMBER));
 	stepSel(+1);
-	checkTrue("NARROW 760, MAX 970 us: the end-stop note",
-	          s_profile.maxUs == 970 && noteIs(T1, T2, C_AMBER));
+	checkTrue("NARROW 760, MAX 970 us: pending, the end-stop note",
+	          s_pending && s_edit.maxUs == 970 && noteIs(T1, T2, C_AMBER));
 	tapId(UI_FIX(ServoCtl::Defaults));
 
 	// While RUNNING the profile is locked and STOP TO CHANGE THE PROFILE wins.
@@ -2504,6 +2640,52 @@ static void testSetList() {
 	leaveServo();
 }
 
+/** @brief Stamp the fake ESC's eRPM now, so it keeps answering on SIG. */
+static void escAnswers(EscTelemetry *t) {
+	t->lastRpmMs = millis();
+	fakeSetTelemetry(t);
+}
+
+/**
+ * @brief From the tester, with an ESC answering so nothing is claimed: SERVO,
+ *        SET, WIDE applied with HOLD TO APPLY, then TWO pending on it.
+ */
+static void wideTwoPendingUnclaimed(EscTelemetry *t) {
+	memset(t, 0, sizeof(*t));
+	escAnswers(t);
+	openServo();
+	escAnswers(t);
+	openSet();
+	escAnswers(t);
+	selectRow(1);   // TYPE
+	escAnswers(t);
+	stepSel(+1);    // NARROW 760
+	escAnswers(t);
+	stepSel(+1);    // WIDE
+	escAnswers(t);
+	int x, y;
+	ctlCentre(UI_FIX(ServoCtl::Apply), &x, &y);
+	pressId(UI_FIX(ServoCtl::Apply));
+	for (int i = 0; i < 41; i++) { escAnswers(t); fakeHold(x, y); uiFrames(1); }
+	fakeRelease();
+	escAnswers(t);
+	uiFrames(1);
+	selectRow(ROW_SERVOS);
+	escAnswers(t);
+	stepSel(+1);
+	escAnswers(t);
+}
+
+/** @brief The ESC goes quiet with KISS live on AUX: the claim takes SIG alone. */
+static void claimSigAloneKiss(EscTelemetry *t) {
+	t->lastRpmMs = 0;
+	t->kissLastMs = millis();
+	t->haveKiss = true;
+	fakeSetTelemetry(t);
+	uiFrames(2);
+}
+
+
 /**
  * @brief Claim refusals the UI cannot reach, and TWO chosen before the claim.
  */
@@ -2615,6 +2797,131 @@ static void testClaimCorners() {
 	uiFrames(2);
 	checkTrue("the job bound SIG alone", fakePin(0).function == GPIO_FUNC_PWM &&
 	                                     fakePin(1).function != GPIO_FUNC_PWM);
+	backFromSet();
+	leaveServo();
+	backFromMenu();
+	noEsc();
+
+	// The same with TWO pending, not applied: WIDE applied while the ESC
+	// holds the claim off, then TWO waits for HOLD TO APPLY as decision 22
+	// has it. The claim of SIG alone drops the pending TWO and ends the
+	// wait, so no hold can apply a profile for an AUX that is not bound.
+	memset(&t, 0, sizeof(t));
+	t.lastRpmMs = millis(); fakeSetTelemetry(&t);
+	openServo();
+	t.lastRpmMs = millis(); fakeSetTelemetry(&t);
+	openSet();
+	t.lastRpmMs = millis(); fakeSetTelemetry(&t);
+	selectRow(1);   // TYPE
+	t.lastRpmMs = millis(); fakeSetTelemetry(&t);
+	stepSel(+1);    // NARROW 760
+	t.lastRpmMs = millis(); fakeSetTelemetry(&t);
+	stepSel(+1);    // WIDE
+	t.lastRpmMs = millis(); fakeSetTelemetry(&t);
+	checkTrue("WIDE pending before the claim", s_pending && s_edit.type == ServoType::Wide && !s_claimed);
+	{
+		int x, y;
+		ctlCentre(UI_FIX(ServoCtl::Apply), &x, &y);
+		pressId(UI_FIX(ServoCtl::Apply));
+		for (int i = 0; i < 41; i++) {
+			t.lastRpmMs = millis(); fakeSetTelemetry(&t);
+			fakeHold(x, y); uiFrames(1);
+		}
+		fakeRelease();
+		t.lastRpmMs = millis(); fakeSetTelemetry(&t);
+		uiFrames(1);
+	}
+	checkTrue("WIDE applied before the claim", !s_pending && s_profile.type == ServoType::Wide && !s_claimed);
+	selectRow(ROW_SERVOS);
+	t.lastRpmMs = millis(); fakeSetTelemetry(&t);
+	stepSel(+1);
+	checkTrue("TWO on WIDE pending before the claim",
+	          s_pending && s_edit.servos == 2 && s_profile.servos == 1 && !s_claimed);
+	t.lastRpmMs = millis(); fakeSetTelemetry(&t);
+	selectRow(4);   // CENTRE
+	t.lastRpmMs = millis(); fakeSetTelemetry(&t);
+	stepSel(+1);
+	t.lastRpmMs = millis(); fakeSetTelemetry(&t);
+	checkTrue("CENTRE 1510 us joins the wait", s_pending && s_edit.centreUs == 1510 &&
+	          s_profile.centreUs == 1500 && !s_claimed);
+	t.lastRpmMs = 0;
+	t.kissLastMs = millis();
+	t.haveKiss = true;
+	fakeSetTelemetry(&t);
+	uiFrames(2);
+	checkTrue("claimed SIG alone: KISS live on AUX",
+	          s_claimed && s_auxRefusal == ClaimRefusal::KissLive);
+	checkTrue("the pending TWO dropped to one, the wait ended",
+	          s_edit.servos == 1 && s_profile.servos == 1 && !s_pending &&
+	          s_profile.type == ServoType::Wide);
+	checkTrue("and CENTRE, which waited with it, applied", s_profile.centreUs == 1510);
+	{
+		UiControl c;
+		checkTrue("HOLD TO APPLY drawn disabled: nothing waits",
+		          ctlFind(UI_FIX(ServoCtl::Apply), &c) && !c.enabled);
+		int x, y;
+		ctlCentre(UI_FIX(ServoCtl::Apply), &x, &y);
+		fakePress(x, y); uiFrames(1);
+		for (int i = 0; i < 41; i++) { fakeHold(x, y); uiFrames(1); }
+		fakeRelease(); uiFrames(1);
+		core1();
+	}
+	uiFrames(2);
+	checkTrue("held on it all the same: still one servo, AUX not driven",
+	          s_profile.servos == 1 && !twoServos() && fakePin(0).function == GPIO_FUNC_PWM &&
+	          fakePin(1).function != GPIO_FUNC_PWM);
+	backFromSet();
+	leaveServo();
+	backFromMenu();
+	noEsc();
+
+	// A wait that holds for more than TWO outlasts the claim of SIG alone:
+	// TWO drops to one, and the other change still waits for the hold.
+	wideTwoPendingUnclaimed(&t);
+	selectRow(1);   // TYPE
+	escAnswers(&t);
+	stepSel(+1);    // HELI CYCLIC: the heli warning
+	escAnswers(&t);
+	checkTrue("WIDE applied, TWO and HELI CYCLIC pending before the claim",
+	          s_pending && s_edit.type == ServoType::HeliCyclic && s_edit.servos == 2 && !s_claimed);
+	claimSigAloneKiss(&t);
+	checkTrue("SIG alone: TWO dropped, HELI CYCLIC still waits, WIDE on one servo applied",
+	          s_claimed && s_auxRefusal == ClaimRefusal::KissLive && s_pending &&
+	          s_edit.servos == 1 && s_profile.type == ServoType::Wide && s_profile.servos == 1);
+	backFromSet();
+	leaveServo();
+	backFromMenu();
+	noEsc();
+
+	wideTwoPendingUnclaimed(&t);
+	selectRow(3);   // MIN
+	escAnswers(&t);
+	stepSel(-1);    // 790 us: further past the travel
+	escAnswers(&t);
+	checkTrue("WIDE applied, TWO and MIN 790 us pending before the claim",
+	          s_pending && s_edit.minUs == 790 && s_edit.servos == 2 && !s_claimed);
+	claimSigAloneKiss(&t);
+	checkTrue("SIG alone: TWO dropped, MIN 790 us still waits, MIN 800 us applied",
+	          s_claimed && s_pending && s_edit.servos == 1 && s_edit.minUs == 790 &&
+	          s_profile.minUs == 800 && s_profile.servos == 1);
+	backFromSet();
+	leaveServo();
+	backFromMenu();
+	noEsc();
+
+	wideTwoPendingUnclaimed(&t);
+	selectRow(2);   // RATE
+	escAnswers(&t);
+	stepSel(+1);    // 60 Hz
+	escAnswers(&t);
+	stepSel(+1);    // 100 Hz: the 60 Hz warning
+	escAnswers(&t);
+	checkTrue("WIDE applied, TWO and 100 Hz pending before the claim",
+	          s_pending && s_edit.rateHz == 100 && s_edit.servos == 2 && !s_claimed);
+	claimSigAloneKiss(&t);
+	checkTrue("SIG alone: TWO dropped, 100 Hz still waits, 50 Hz applied",
+	          s_claimed && s_pending && s_edit.servos == 1 && s_profile.rateHz == 50 &&
+	          s_profile.servos == 1);
 	backFromSet();
 	leaveServo();
 	noEsc();

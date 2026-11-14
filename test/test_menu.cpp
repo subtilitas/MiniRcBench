@@ -504,6 +504,13 @@ static void testSettingsDiagnostics() {
 	tapId(UI_FIX(UI_BACK));
 }
 
+/** @brief Hold HOLD RESET until it fires, then lift. */
+static void holdReset() {
+	pressId(UI_FIX(SettingsCtl::Reset));
+	holdId(UI_FIX(SettingsCtl::Reset), 41);
+	fakeRelease(); menuFrames(1);
+}
+
 /** @brief A control cut by the viewport takes a press only while 40 px show. */
 static void testSettingsCutControl() {
 	section("SETTINGS: a cut control takes a press only while 40 px show");
@@ -523,7 +530,7 @@ static void testSettingsCutControl() {
 	          ctlFind(UI_ROW(SettingsRowId::Speed, Plus), &c) && c.rect.h == 44 && c.enabled);
 	tapId(UI_ROW(SettingsRowId::Speed, Plus));
 	checkTrue("and a tap steps it", settings()->dshotKbaud != kbaud);
-	tapId(UI_FIX(SettingsCtl::Reset));
+	holdReset();
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 }
@@ -561,7 +568,7 @@ static void testSettingsRows() {
 	checkTrue("BUILT FOR has no control", !ctlPresent(UI_ROW(SettingsRowId::BuiltFor, Minus)) &&
 	          !ctlPresent(UI_ROW(SettingsRowId::BuiltFor, Toggle)));
 
-	tapId(UI_FIX(SettingsCtl::Reset));
+	holdReset();
 	checkInt("RESET restores the pole count", settings()->poles, DEFAULT_MOTOR_POLES);
 	checkInt("and the ceiling", settings()->maxThrottle, DEFAULT_MAX_THROTTLE);
 	checkInt("and the eRPM divisor follows", fakePoles(), DEFAULT_MOTOR_POLES);
@@ -608,7 +615,7 @@ static void testBacklightFloorAndNoOpSteps() {
 	tapId(UI_ROW(SettingsRowId::KissPin, Plus));
 	checkInt("KISS PIN + with both pins taken stays put", settings()->kissPin, kiss);
 	checkTrue("KISS PIN applies nothing: SAVED", noteIs("SAVED", C_LIME));
-	tapId(UI_FIX(SettingsCtl::Reset));
+	holdReset();
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 }
@@ -635,7 +642,7 @@ static void testResetNote() {
 	checkTrue("saved poles other than the default", !settingsDirty() &&
 	          settings()->poles != DEFAULT_MOTOR_POLES);
 
-	tapId(UI_FIX(SettingsCtl::Reset));
+	holdReset();
 	checkTrue("RESET: the defaults live, unsaved", settingsDirty() &&
 	          settings()->poles == DEFAULT_MOTOR_POLES);
 	checkTrue("the note reads DEFAULTS LOADED - RESTART TO UNDO", noteIs(NOTE, C_AMBER));
@@ -660,7 +667,7 @@ static void testResetNote() {
 	          noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
 
 	// A save ends it: a restart loads these values now.
-	tapId(UI_FIX(SettingsCtl::Reset));
+	holdReset();
 	checkTrue("RESET again: the note", noteIs(NOTE, C_AMBER));
 	holdSave();
 	checkTrue("HOLD TO SAVE: SAVED, not the RESET note", !settingsDirty() && noteIs("SAVED", C_LIME));
@@ -668,14 +675,14 @@ static void testResetNote() {
 	checkTrue("and it does not come back", noteIs("SAVED", C_LIME));
 
 	// RESET while the defaults are what a restart loads: nothing to undo.
-	tapId(UI_FIX(SettingsCtl::Reset));
+	holdReset();
 	checkTrue("RESET over saved defaults: no RESET note", !settingsDirty() && !noteIs(NOTE, C_AMBER));
 
 	// A change in KST's SERVO SUPPLY row, which writes the settings itself.
 	revealRow((int)SettingsRowId::Poles);
 	tapId(UI_ROW(SettingsRowId::Poles, Plus));
 	holdSave();
-	tapId(UI_FIX(SettingsCtl::Reset));
+	holdReset();
 	checkTrue("saved other poles, RESET: the note", noteIs(NOTE, C_AMBER));
 	revealRow((int)SettingsRowId::ServoSupply);
 	tapId(UI_ROW(SettingsRowId::ServoSupply, Plus));
@@ -685,7 +692,7 @@ static void testResetNote() {
 	checkTrue("and back: still not the RESET note", noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
 
 	// A change made while SETTINGS is not open ends it too.
-	tapId(UI_FIX(SettingsCtl::Reset));
+	holdReset();
 	checkTrue("RESET again: the note", noteIs(NOTE, C_AMBER));
 	tapId(UI_FIX(UI_BACK));
 	settings()->backlight = (uint8_t)(settings()->backlight - 8);
@@ -694,7 +701,7 @@ static void testResetNote() {
 	checkTrue("changed elsewhere: UNSAVED on return", noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
 
 	// A failed save ends it: the sector may already be erased and written.
-	tapId(UI_FIX(SettingsCtl::Reset));
+	holdReset();
 	checkTrue("RESET: the note", noteIs(NOTE, C_AMBER));
 	fakeFlashSetWritable(false);
 	holdSave();
@@ -706,6 +713,70 @@ static void testResetNote() {
 	checkTrue("SETTINGS again: UNSAVED, not the RESET note",
 	          settingsDirty() && noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
 	fakeFlashSetWritable(true);
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+}
+
+/**
+ * @brief HOLD RESET: a tap loads nothing, 1000 ms on the button load the
+ *        defaults, a slide off cancels, and its bar and fill show the hold.
+ */
+static void testResetHold() {
+	section("SETTINGS: HOLD RESET loads the defaults after a 1 s hold");
+	openSettings();
+	revealRow((int)SettingsRowId::Poles);
+	tapId(UI_ROW(SettingsRowId::Poles, Plus));
+	holdSave();
+	const uint8_t saved = settings()->poles;
+	checkTrue("saved poles other than the default", !settingsDirty() && saved != DEFAULT_MOTOR_POLES);
+
+	const UiRect r = ctlRect(UI_FIX(SettingsCtl::Reset));
+	checkTrue("the label reads HOLD RESET, amber, inside its 70 px",
+	          fakeTextIs(r.x + (r.w - gfxTextW("HOLD RESET", 1)) / 2, r.y + (r.h - 7) / 2,
+	                     "HOLD RESET", C_AMBER, C_PANEL, 1) &&
+	          gfxTextW("HOLD RESET", 1) == 59 && r.w == 70);
+	tapId(UI_FIX(SettingsCtl::Reset));
+	checkTrue("a tap: nothing loaded", settings()->poles == saved && !settingsDirty());
+
+	// The press frame starts the timer; frame k is k x 25 ms after it.
+	pressId(UI_FIX(SettingsCtl::Reset));
+	holdId(UI_FIX(SettingsCtl::Reset), 20);
+	{
+		const uint16_t *fb = gfxBuffer() + (r.y - 4) * GFX_W;
+		checkTrue("500 ms: the bar over RESET, 35 px of the 70",
+		          fb[r.x] == C_LIME && fb[r.x + 34] == C_LIME && fb[r.x + 35] == C_BG);
+		checkTrue("and the button red while held, as the other ui_hold holds but SAVE",
+		          pixel(r.x + 4, r.y + r.h - 5) == C_RED);
+		checkTrue("its label in C_ONACCENT on the red, pressed 1 px in",
+		          fakeTextIs(r.x + 1 + (r.w - gfxTextW("HOLD RESET", 1)) / 2, r.y + 1 + (r.h - 7) / 2,
+		                     "HOLD RESET", C_ONACCENT, C_RED, 1));
+	}
+	holdId(UI_FIX(SettingsCtl::Reset), 19);
+	checkTrue("975 ms: nothing loaded", settings()->poles == saved && !settingsDirty());
+	holdId(UI_FIX(SettingsCtl::Reset), 1);
+	checkTrue("1000 ms: the defaults live, unsaved",
+	          settings()->poles == DEFAULT_MOTOR_POLES && settingsDirty() &&
+	          noteIs("DEFAULTS LOADED - RESTART TO UNDO", C_AMBER));
+	settings()->poles = saved;
+	holdId(UI_FIX(SettingsCtl::Reset), 60);
+	checkTrue("held 1.5 s more: one firing per press, the change after it kept",
+	          settings()->poles == saved);
+	settings()->poles = DEFAULT_MOTOR_POLES;
+	fakeRelease(); menuFrames(1);
+	checkTrue("lifted: the button back to its panel fill", pixel(r.x + 4, r.y + r.h - 5) == C_PANEL);
+
+	// Back to the saved poles: a slide off the button mid-hold loads nothing.
+	tapId(UI_FIX(UI_BACK));
+	settingsLoad();
+	tapId(menuRow(&UI_SETTINGS));
+	menuFrames(2);
+	checkTrue("saved poles again", settings()->poles == saved && !settingsDirty());
+	pressId(UI_FIX(SettingsCtl::Reset));
+	holdId(UI_FIX(SettingsCtl::Reset), 20);
+	holdId(UI_FIX(SettingsCtl::Save), 40);
+	fakeRelease(); menuFrames(1);
+	checkTrue("slid onto SAVE after 500 ms, held 1 s more: nothing loaded, nothing saved",
+	          settings()->poles == saved && !settingsDirty());
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 }
@@ -1049,7 +1120,7 @@ static void testEscPinNote() {
 		checkInt(how ? "pin moved, at the end: UPTIME at y 178"
 		             : "pin moved, at the end, before RESET: UPTIME at y 178",
 		         ctlRect(UI_ROW(SettingsRowId::Uptime, Row)).y, 178);
-		if (how == 0) tapId(UI_FIX(SettingsCtl::Reset));
+		if (how == 0) holdReset();
 		else          settings()->dshotPin = boot;
 		menuFrames(1);
 		UiRect up = ctlRect(UI_ROW(SettingsRowId::Uptime, Row));
@@ -1081,7 +1152,7 @@ static void testEscPinNote() {
 	checkTrue("booted on the other pin: no warning",
 	          noteIs("SAVED SETTINGS IN USE", C_DIM) &&
 	          !fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1));
-	tapId(UI_FIX(SettingsCtl::Reset));
+	holdReset();
 	snprintf(want, sizeof(want), UI_SPLASH_PIN_FMT, (unsigned)boot);
 	checkTrue("RESET: the warning for the default pin, and RESET's note",
 	          settings()->dshotPin == boot && fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1) &&
@@ -1273,6 +1344,7 @@ void runMenuTests() {
 	testSettingsSaveAnywhere();
 	testBacklightFloorAndNoOpSteps();
 	testResetNote();
+	testResetHold();
 	testMenuUnsaved();
 	testResetByUpdate();
 	testCarriedOver();
