@@ -4640,8 +4640,9 @@ static void testAm32BoardLow() {
 	          strcmp(s_status, UI_BOARD_LOW_1) == 0);
 	checkTrue(UI_BOARD_LOW_1 " in amber, y 196",
 	          fakeTextIs(UI_MARGIN, 196, UI_BOARD_LOW_1, UI_COL_WARN, C_BG, 1));
-	checkTrue("then " UI_BOARD_LOW_2 " in amber, y 208",
-	          fakeTextIs(UI_MARGIN, 208, UI_BOARD_LOW_2, UI_COL_WARN, C_BG, 1));
+	checkTrue("then " AM32_UI_BOARD_LOW_2 " in amber, y 208: OK, then WRITE... and the hold",
+	          fakeTextIs(UI_MARGIN, 208, AM32_UI_BOARD_LOW_2, UI_COL_WARN, C_BG, 1));
+	checkInt("37 characters, 221 px", gfxTextW(AM32_UI_BOARD_LOW_2, 1), 221);
 	fakeDumpFrame("shot_am32_board_low.ppm");
 	tapId(UI_FIX(Am32Ctl::Ok));
 	checkTrue("OK: the list, the change kept", s_state == S_LIST && uiByte(0x1B) == want);
@@ -4925,6 +4926,71 @@ static void testAm32WritePage() {
 	          memcmp(s_original, s_entry, AM32_SETTINGS_SIZE) == 0);
 	leaveAm32ToTester();
 	am32NoCard();
+}
+
+/**
+ * @brief AM32 WRITE writes what it shows or nothing: settings changed under
+ *        the page behind the screen's back are refused, and a page that
+ *        lists no change, edits only in bytes no listed field covers, has no
+ *        live hold.
+ */
+static void testAm32PageWritesWhatItShows() {
+	section("AM32 WRITE: the page writes what it shows, or nothing");
+	EscTelemetry quiet;
+	memset(&quiet, 0, sizeof(quiet));
+	fakeSetTelemetry(&quiet);
+	am32NoCard();
+	enterAm32(6);
+	const uint8_t poles = s_original[0x1B];
+	checkTrue("POLES steps", am32Step("POLES"));
+	int writes = fakeAm32Writes();
+	struct Case { const char *what; uint8_t *bytes; int off; };
+	const int dead = am32Field("DEAD BAND")->offset;
+	const Case cases[] = {
+		{ "an edit under the page: refused, nothing written", s_eeprom, dead },
+		{ "the settings as read changed under the page: refused, nothing written", s_original, dead },
+	};
+	for (const Case &c : cases) {
+		checkTrue("a tap on WRITE... opens AM32 WRITE", am32OpenPage());
+		c.bytes[c.off] ^= 0x01;
+		pressId(UI_FIX(Am32Ctl::WriteHold));
+		holdId(UI_FIX(Am32Ctl::WriteHold), 50);
+		fakeRelease(); frames(3);
+		checkTrue(c.what, s_state == S_WRITING && strcmp(s_status, AM32_UI_PAGE_STALE) == 0 &&
+		          fakeAm32Writes() == writes && fakeEscByte(0x1B) == poles &&
+		          fakeTextIs(UI_MARGIN, 196, AM32_UI_PAGE_STALE, UI_COL_WARN, C_BG, 1) &&
+		          fakeTextIs(UI_MARGIN, 208, AM32_UI_PAGE_STALE_2, UI_COL_WARN, C_BG, 1));
+		c.bytes[c.off] ^= 0x01;
+		tapId(UI_FIX(Am32Ctl::Ok));
+		checkTrue("  OK: the list, the edit kept", s_state == S_LIST && s_eeprom[0x1B] != poles);
+	}
+	tapId(UI_FIX(Am32Ctl::Revert));
+
+	// A byte that no listed field covers, changed behind the screen's back:
+	// WRITE... opens, the page lists nothing, and its hold does not act.
+	int off = -1;
+	for (int i = AM32_SETTINGS_SIZE - 1; i > AM32_OFF_SUB_REVISION && off < 0; i--) {
+		bool listed = false;
+		for (uint16_t v = 0; v < s_visibleCount; v++)
+			if (AM32_FIELDS[s_visible[v]].offset == i) listed = true;
+		if (!listed) off = i;
+	}
+	checkTrue("a byte no listed field covers", off > 0);
+	s_eeprom[off] ^= 0x01;
+	frames(1);
+	checkTrue("WRITE... acts on it", ctlEnabled(UI_FIX(Am32Ctl::Write)));
+	checkTrue("the page opens", am32OpenPage());
+	checkTrue("  0 CHANGES, HOLD TO WRITE drawn disabled",
+	          am32StripIs("0 CHANGES", C_DIM) && !ctlEnabled(UI_FIX(Am32Ctl::WriteHold)));
+	pressId(UI_FIX(Am32Ctl::WriteHold), IdExpect::Disabled);
+	holdId(UI_FIX(Am32Ctl::WriteHold), 60);
+	fakeRelease(); frames(2);
+	checkTrue("  held 1500 ms: nothing written", s_state == S_PAGE && fakeAm32Writes() == writes);
+	tapId(UI_FIX(UI_BACK));
+	s_eeprom[off] ^= 0x01;
+	frames(1);
+	checkTrue("the list as read", s_state == S_LIST && !anyDirty());
+	leaveAm32ToTester();
 }
 
 /**
@@ -6380,6 +6446,7 @@ void runUiTests() {
 	testAm32BoardLow();
 	testAm32LayoutTable();
 	testAm32WritePage();
+	testAm32PageWritesWhatItShows();
 	testAm32Guard();
 
 	// Back to a known state for anything that runs after this.

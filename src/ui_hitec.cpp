@@ -1044,19 +1044,20 @@ static void filesThenWrite();
  *        write failed or the card in the slot changed (sd_cache.h), so a
  *        full card does not end here; it ends in CARD_TOOK_NO_FILE. The
  *        card is mounted again and the first write forgotten, so the next
- *        hold saves the backup again. Three lines of 38 characters.
+ *        write saves the backup again. Three lines of 38 characters under
+ *        OK, which returns to the list.
  */
 static const char *const FLUSH_FAILED =
-	"THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.";
+	"THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. TAP OK, WRITE AGAIN.";
 /** @brief As FLUSH_FAILED, for a batch that held another file. */
 static const char *const FLUSH_FAILED_FILE =
-	"THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.";
+	"THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. TAP OK, WRITE AGAIN.";
 /**
  * @brief The write page's text when FatFs refused the first write's files:
  *        among the causes a full card and a card that is gone.
  */
 static const char *const CARD_TOOK_NO_FILE =
-	"THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.";
+	"THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.";
 
 /**
  * @brief The flush a write waits for has ended: with an earlier batch on the

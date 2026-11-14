@@ -609,7 +609,7 @@ static void testFlushWait() {
 	          ctlPresent(UI_FIX(HitecCtl::WriteOk)) &&
 	          lineIs(196, "THE CARD DID NOT TAKE THE BACKUP", C_AMBER) &&
 	          lineIs(208, "(REMOVED OR SWAPPED?). NOTHING WENT TO", C_AMBER) &&
-	          lineIs(220, "THE SERVO. CHECK THE CARD, HOLD AGAIN.", C_AMBER));
+	          lineIs(220, "THE SERVO. TAP OK, WRITE AGAIN.", C_AMBER));
 	tapId(UI_FIX(HitecCtl::WriteOk));
 	// Holding again retries: the backup is saved again, then the write runs.
 	tapUntilGone(UI_FIX(HitecCtl::Write));
@@ -631,7 +631,7 @@ static void testFlushWait() {
 	          ctlPresent(UI_FIX(HitecCtl::WriteOk)) && fakeHitecSim()->writes == writes &&
 	          lineIs(196, "THE CARD DID NOT TAKE A FILE (REMOVED", C_AMBER) &&
 	          lineIs(208, "OR SWAPPED?). NOTHING WENT TO THE", C_AMBER) &&
-	          lineIs(220, "SERVO. CHECK THE CARD, HOLD AGAIN.", C_AMBER));
+	          lineIs(220, "SERVO. TAP OK, WRITE AGAIN.", C_AMBER));
 	tapId(UI_FIX(HitecCtl::WriteOk));
 	leaveAll();
 	fakeCacheReset();
@@ -788,7 +788,7 @@ static void testNoCardWrite() {
 	checkTrue("the note says why, that the servo is unchanged, and what next",
 	          lineIs(196, "THE CARD TOOK NO FILE (FULL OR", C_AMBER) &&
 	          lineIs(208, "REMOVED?). NOTHING WENT TO THE SERVO.", C_AMBER) &&
-	          lineIs(220, "CHECK THE CARD, HOLD AGAIN.", C_AMBER));
+	          lineIs(220, "CHECK THE CARD, TAP OK, WRITE AGAIN.", C_AMBER));
 	fakeFatWriteProtect(false);
 	tapId(UI_FIX(HitecCtl::WriteOk));
 	leaveAll();

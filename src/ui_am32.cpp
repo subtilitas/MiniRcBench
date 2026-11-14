@@ -141,7 +141,8 @@ static_assert(sizeof(AM32_UI_RO_UNVERIFIED AM32_UI_RO_NO_CARD) - 1 <= RESULT_CHA
               sizeof(AM32_UI_RO_BYTES) - 1 <= RESULT_CHARS && sizeof(AM32_UI_RO_TABLE) - 1 <= RESULT_CHARS,
               "a read-only line runs off the panel");
 // The refusals of a write, on the result page: one scale-1 line each.
-static_assert(sizeof(UI_BOARD_LOW_1) - 1 <= RESULT_CHARS && sizeof(UI_BOARD_LOW_2) - 1 <= RESULT_CHARS &&
+static_assert(sizeof(UI_BOARD_LOW_1) - 1 <= RESULT_CHARS && sizeof(AM32_UI_BOARD_LOW_2) - 1 <= RESULT_CHARS &&
+              sizeof(AM32_UI_PAGE_STALE) - 1 <= RESULT_CHARS && sizeof(AM32_UI_PAGE_STALE_2) - 1 <= RESULT_CHARS &&
               sizeof(AM32_UI_RO_REFUSED) - 1 <= RESULT_CHARS,
               "a refusal runs off the panel");
 /** @brief The list's viewport. */
@@ -305,6 +306,13 @@ static bool writing() { return s_state == S_WRITING && strcmp(s_status, "WRITING
 
 /** @brief Header BACK acts: in every state but while the write runs. */
 static bool backLive() { return !writing(); }
+
+/**
+ * @brief The write page's HOLD TO WRITE acts: there are edits, and the page
+ *        names at least one of them. A byte no listed field covers is never
+ *        written from a page that lists nothing.
+ */
+static bool pageWritable() { return anyDirty() && changeCount(s_pageFrom, s_pageTo) > 0; }
 
 /**
  * @brief The changes BACK on the list would drop, for the guard: the listed
@@ -707,7 +715,7 @@ static void drawWritePage() {
 		// is the dead-telemetry digit, which has to read as "off" and
 		// therefore inverts direction between the two palettes. A fill that
 		// carries white text needs to be dark in both, and C_RED is.
-		bool ok = anyDirty();
+		bool ok = pageWritable();
 		bool holding = s_writeHold.holding;
 		uiHoldDrawBar(&s_writeHold, BTN_OK, FOOT_Y - 4, millis());
 		uiButton(BTN_OK, "HOLD TO WRITE", holding ? C_RED : C_PANEL, holding ? C_ONACCENT : C_TEXT, 2,
@@ -874,8 +882,9 @@ static void tryConnect() {
 
 /**
  * @brief Whether the write may not start, and why, on the result page: a
- *        block read in a layout the table is not checked against, or the
- *        board's voltage in the red band. Nothing goes to the card or the
+ *        block read in a layout the table is not checked against, settings
+ *        other than those the write page showed, or the board's voltage in
+ *        the red band. Nothing goes to the card or the
  *        ESC. The layout is taken from the bytes as read, not from the
  *        screen's state, so a way into S_WRITING from the read-only view,
  *        were there one, still writes nothing.
@@ -886,9 +895,19 @@ static bool writeRefused() {
 		s_nextStep = nullptr;
 		return true;
 	}
+	// The page writes what it shows: the settings it listed, from the ESC as
+	// read when it opened. Nothing edits under the page, so this holds on
+	// every path through the screen; any other way into S_WRITING writes
+	// nothing.
+	if (memcmp(s_pageFrom, s_original, AM32_SETTINGS_SIZE) != 0 ||
+	    memcmp(s_pageTo, s_eeprom, AM32_SETTINGS_SIZE) != 0) {
+		snprintf(s_status, sizeof(s_status), AM32_UI_PAGE_STALE);
+		s_nextStep = AM32_UI_PAGE_STALE_2;
+		return true;
+	}
 	if (uiBoardWriteRefused()) {
 		snprintf(s_status, sizeof(s_status), UI_BOARD_LOW_1);
-		s_nextStep = UI_BOARD_LOW_2;
+		s_nextStep = AM32_UI_BOARD_LOW_2;
 		return true;
 	}
 	return false;
@@ -1025,7 +1044,7 @@ static void pageTouch(const TouchState *t) {
 		s_redraw = true;
 	}
 	bool wasHolding = s_writeHold.holding;
-	if (uiHoldUpdate(&s_writeHold, BTN_OK, t, anyDirty(), millis())) {
+	if (uiHoldUpdate(&s_writeHold, BTN_OK, t, pageWritable(), millis())) {
 		s_state = S_WRITING;
 		s_verified = false;
 		s_nextStep = nullptr;
@@ -1116,7 +1135,7 @@ uint8_t uiAm32Controls(UiControl *out, uint8_t max) {
 	// BACK is drawn disabled while the write runs (backLive()).
 	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backLive());
 	if (s_state == S_PAGE) {
-		uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::WriteHold), BTN_OK, anyDirty());
+		uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::WriteHold), BTN_OK, pageWritable());
 		return n;
 	}
 	if (s_state == S_WRITING) {

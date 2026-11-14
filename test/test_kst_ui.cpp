@@ -1241,7 +1241,7 @@ static void testRecordKeptAtLeave() {
 	checkTrue("the page says why, that the servo is unchanged, and what next",
 	          lineIs(196, "THE CARD TOOK NO FILE (FULL OR", C_AMBER) &&
 	          lineIs(208, "REMOVED?). NOTHING WENT TO THE SERVO.", C_AMBER) &&
-	          lineIs(220, "CHECK THE CARD, HOLD AGAIN.", C_AMBER));
+	          lineIs(220, "CHECK THE CARD, TAP OK, WRITE AGAIN.", C_AMBER));
 	tapId(UI_FIX(KstCtl::WriteOk));
 	unplugAndBack();
 	checkTrue("the next session: no interrupted write named", amberBesideHeadline() == 0);
@@ -1310,7 +1310,7 @@ static void testFlushWait() {
 	          ctlPresent(UI_FIX(KstCtl::WriteOk)) &&
 	          lineIs(196, "THE CARD DID NOT TAKE THE BACKUP", C_AMBER) &&
 	          lineIs(208, "(REMOVED OR SWAPPED?). NOTHING WENT TO", C_AMBER) &&
-	          lineIs(220, "THE SERVO. CHECK THE CARD, HOLD AGAIN.", C_AMBER));
+	          lineIs(220, "THE SERVO. TAP OK, WRITE AGAIN.", C_AMBER));
 	fakeDumpFrame("shot_kst_flush_failed.ppm");
 	tapId(UI_FIX(KstCtl::WriteOk));
 	tapUntilGone(UI_FIX(KstCtl::Write));
@@ -1467,7 +1467,7 @@ static void testFlushWait() {
 	          ctlPresent(UI_FIX(KstCtl::WriteOk)) && sim->n_writes == writes &&
 	          lineIs(196, "THE CARD DID NOT TAKE A FILE (REMOVED", C_AMBER) &&
 	          lineIs(208, "OR SWAPPED?). NOTHING WENT TO THE", C_AMBER) &&
-	          lineIs(220, "SERVO. CHECK THE CARD, HOLD AGAIN.", C_AMBER));
+	          lineIs(220, "SERVO. TAP OK, WRITE AGAIN.", C_AMBER));
 	tapId(UI_FIX(KstCtl::WriteOk));
 
 	// LOAD after a batch failed in the background: the card is mounted
@@ -1621,6 +1621,8 @@ static void testSwitchedSupply() {
  *        on a tap and sends nothing until its own hold, whatever the card
  *        does meanwhile.
  */
+static bool anyLine(const char *text, uint16_t col);
+
 static void testFlushWaitEndsWithThePage() {
 	section("KST screen: a stall during the flush wait; the next write needs its hold");
 	fakeCacheReset();
@@ -1669,6 +1671,25 @@ static void testFlushWaitEndsWithThePage() {
 	checkTrue("the hold writes, and the write verifies", untilCtl(UI_FIX(KstCtl::WriteOk), 800) &&
 	          sim->n_writes > writes && job().result == KST_SES_OK);
 	tapId(UI_FIX(KstCtl::WriteOk));
+
+	// A write left in doubt, then a stall: the stalled screen names the
+	// steps that restore the servo, the backup by name. The session after
+	// RETRY saved its backup as KST003, after the record that took KST002.
+	sim_add_fault(sim, SIM_WRITE, 0x03, 0, 1, SIM_F_WRITE_ALSO, 0x13);
+	selectField(KST_F_BOOST);
+	tapId(UI_FIX(KstCtl::EditMinus));
+	tapUntilGone(UI_FIX(KstCtl::Write));
+	holdUntilGone(UI_FIX(KstCtl::WriteHold));
+	checkTrue("the write ends in doubt", untilCtl(UI_FIX(KstCtl::WriteOk), 800) && job().locked);
+	tapId(UI_FIX(KstCtl::WriteOk));
+	for (int i = 0; i < 400; i++) core1Pass();
+	kstFrames(2);
+	checkTrue("a stall in doubt: LOAD the backup in FILES, then WRITE... and the hold",
+	          uiKstView() == KstView::Main &&
+	          anyLine("THE LAST WRITE IS IN DOUBT. AFTER THE", C_AMBER) &&
+	          anyLine("READ, LOAD KST003 IN FILES, TAP", C_AMBER) &&
+	          anyLine("WRITE... AND HOLD.", C_AMBER));
+	sim->n_faults = 0;
 	leaveAll();
 	g_supOn = false;
 	servoSupplyConfigure(0);
