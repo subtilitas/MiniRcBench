@@ -11,8 +11,9 @@ to 6 wait on being built and on that module; the protection section and
 the settings row's version rule are to be redesigned for the decisions.
 No INA219 has been on the board's bus, and no boost converter has been on
 GP28 or GP29: every figure below is from a datasheet, from rcbench's
-records or computed, and the ones that are not known are stated as unknown. The slices are at the end
-([slices](#slices)); each builds, passes the host suite and merges alone.
+records or computed, and the ones that are not known are stated as unknown.
+The slices are at the end ([slices](#slices)); each builds, passes the host
+suite and merges alone.
 
 Terms: INA219 is Texas Instruments' (TI) current and power monitor with an
 I2C (Inter-Integrated Circuit) interface; SDA is the I2C serial data line
@@ -647,8 +648,8 @@ discarded whole and the compiled defaults load once, every setting
 included ([pin-claim.md](pin-claim.md#settings)), until the migration of
 [decision 14](#decisions) is built: then a block of version 2, 3 or 4
 loads into version 5 with the new fields at their defaults, and only a
-block of a version the firmware does not know is discarded. The shunt is a build
-constant, `INA219_SHUNT_MOHM`, 100; the address is `INA219_ADDR`, 0x40.
+block of a version the firmware does not know is discarded. The shunt is a
+build constant, `INA219_SHUNT_MOHM`, 100; the address is `INA219_ADDR`, 0x40.
 The list grows by one 50 px row ([menu.md](menu.md#settings)).
 
 ## Uses
@@ -936,8 +937,9 @@ boost's EN as it does to every EN on part C.
   sensor declared and not found.
 - The cuts at their boundaries: 2999 mA and 3000 mA; a clipped reading;
   stall at 399 ms and 400 ms above 1.0 A (decision 13); collapse likewise;
-  sensor lost at 250 ms; a stuck bus and a silent touch controller each switching the supply
-  off; KST and Hitec: the hard cut during a write, then the loss path.
+  sensor lost at 250 ms; a stuck bus and a silent touch controller each
+  switching the supply off; KST and Hitec: the hard cut during a write,
+  then the loss path.
 - `servo_move` through the job: an MG90S-like move from `servo_sim`
   timed within one read and one cycle; UNSEEN with no current change.
 - The log: rows per reading, the file closed at each end, a full queue

@@ -264,8 +264,9 @@ touch-loss stop of item 23; all seven CI jobs pass on `main` at 22c1e4b
 2026-11-14: what they decided waits on building where it changes
 anything, and items 22 and 23 wait on the bench. Still open to the owner:
 the converter module (item 19), the seventh MENU row of menu structure B
-(item 18), and the second contact once it is measured (item 21). The order of work the owner decided: the
-eight small decisions of items 20, 21 and 24 first, then menu structure B.
+(item 18), and the second contact once it is measured (item 21). The order
+of work the owner decided: the eight small decisions of items 20, 21 and 24
+first, then menu structure B.
 The bench parts, in the order they depend on each other:
 
 1. The pins of item 15: DShot on GP0, KISS on GP1, the backlight, EN on
