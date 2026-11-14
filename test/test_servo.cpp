@@ -2753,6 +2753,79 @@ static void testClaimCorners() {
 	                                     fakePin(1).function != GPIO_FUNC_PWM);
 	backFromSet();
 	leaveServo();
+	backFromMenu();
+	noEsc();
+
+	// The same with TWO pending, not applied: WIDE applied while the ESC
+	// holds the claim off, then TWO waits for HOLD TO APPLY as decision 22
+	// has it. The claim of SIG alone drops the pending TWO and ends the
+	// wait, so no hold can apply a profile for an AUX that is not bound.
+	memset(&t, 0, sizeof(t));
+	t.lastRpmMs = millis(); fakeSetTelemetry(&t);
+	openServo();
+	t.lastRpmMs = millis(); fakeSetTelemetry(&t);
+	openSet();
+	t.lastRpmMs = millis(); fakeSetTelemetry(&t);
+	selectRow(1);   // TYPE
+	t.lastRpmMs = millis(); fakeSetTelemetry(&t);
+	stepSel(+1);    // NARROW 760
+	t.lastRpmMs = millis(); fakeSetTelemetry(&t);
+	stepSel(+1);    // WIDE
+	t.lastRpmMs = millis(); fakeSetTelemetry(&t);
+	checkTrue("WIDE pending before the claim", s_pending && s_edit.type == ServoType::Wide && !s_claimed);
+	{
+		int x, y;
+		ctlCentre(UI_FIX(ServoCtl::Apply), &x, &y);
+		pressId(UI_FIX(ServoCtl::Apply));
+		for (int i = 0; i < 41; i++) {
+			t.lastRpmMs = millis(); fakeSetTelemetry(&t);
+			fakeHold(x, y); uiFrames(1);
+		}
+		fakeRelease();
+		t.lastRpmMs = millis(); fakeSetTelemetry(&t);
+		uiFrames(1);
+	}
+	checkTrue("WIDE applied before the claim", !s_pending && s_profile.type == ServoType::Wide && !s_claimed);
+	selectRow(ROW_SERVOS);
+	t.lastRpmMs = millis(); fakeSetTelemetry(&t);
+	stepSel(+1);
+	checkTrue("TWO on WIDE pending before the claim",
+	          s_pending && s_edit.servos == 2 && s_profile.servos == 1 && !s_claimed);
+	t.lastRpmMs = millis(); fakeSetTelemetry(&t);
+	selectRow(4);   // CENTRE
+	t.lastRpmMs = millis(); fakeSetTelemetry(&t);
+	stepSel(+1);
+	t.lastRpmMs = millis(); fakeSetTelemetry(&t);
+	checkTrue("CENTRE 1510 us joins the wait", s_pending && s_edit.centreUs == 1510 &&
+	          s_profile.centreUs == 1500 && !s_claimed);
+	t.lastRpmMs = 0;
+	t.kissLastMs = millis();
+	t.haveKiss = true;
+	fakeSetTelemetry(&t);
+	uiFrames(2);
+	checkTrue("claimed SIG alone: KISS live on AUX",
+	          s_claimed && s_auxRefusal == ClaimRefusal::KissLive);
+	checkTrue("the pending TWO dropped to one, the wait ended",
+	          s_edit.servos == 1 && s_profile.servos == 1 && !s_pending &&
+	          s_profile.type == ServoType::Wide);
+	checkTrue("and CENTRE, which waited with it, applied", s_profile.centreUs == 1510);
+	{
+		UiControl c;
+		checkTrue("HOLD TO APPLY drawn disabled: nothing waits",
+		          ctlFind(UI_FIX(ServoCtl::Apply), &c) && !c.enabled);
+		int x, y;
+		ctlCentre(UI_FIX(ServoCtl::Apply), &x, &y);
+		fakePress(x, y); uiFrames(1);
+		for (int i = 0; i < 41; i++) { fakeHold(x, y); uiFrames(1); }
+		fakeRelease(); uiFrames(1);
+		core1();
+	}
+	uiFrames(2);
+	checkTrue("held on it all the same: still one servo, AUX not driven",
+	          s_profile.servos == 1 && !twoServos() && fakePin(0).function == GPIO_FUNC_PWM &&
+	          fakePin(1).function != GPIO_FUNC_PWM);
+	backFromSet();
+	leaveServo();
 	noEsc();
 }
 

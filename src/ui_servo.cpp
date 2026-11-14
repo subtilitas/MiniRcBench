@@ -293,9 +293,16 @@ static void applyProfile() {
 	s_owed = !servoJobProfile(&s_profile);
 }
 
+static bool ratePending();
+
 /**
  * @brief Ask for the pins: SIG and AUX, or SIG alone when the claim refuses
  *        AUX, which then leaves TWO off the SET screen.
+ *
+ * With SIG alone a TWO goes back to ONE, applied or pending: a pending TWO
+ * would otherwise become a profile for an AUX that is not bound. The wait is
+ * then decided again, as a step on SET decides it, so a wait that held only
+ * for TWO ends and the edit applies.
  */
 static void claimPins() {
 	ClaimRefusal r = pinClaimBegin(PinUser::Servo, PIN_SIG | PIN_AUX);
@@ -306,9 +313,12 @@ static void claimPins() {
 	}
 	s_claimed = r == ClaimRefusal::None;
 	s_refusal = r;
-	if (s_claimed && s_auxRefusal != ClaimRefusal::None && s_profile.servos == 2) {
+	if (s_claimed && s_auxRefusal != ClaimRefusal::None &&
+	    (s_profile.servos == 2 || s_edit.servos == 2)) {
 		s_profile.servos = 1;
 		s_edit.servos = 1;
+		s_pending = ratePending() || servoTravelNeedsHold(&s_edit, &s_profile);
+		if (!s_pending) s_profile = s_edit;
 		applyProfile();
 	}
 }
