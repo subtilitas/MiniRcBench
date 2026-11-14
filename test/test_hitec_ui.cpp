@@ -520,6 +520,11 @@ static void testWrite() {
 	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
 	hitecFrames(4);
 	checkTrue("an earlier batch flushing: no write frame yet", fakeHitecSim()->writes == writes1);
+	checkTrue("waiting for the flush: BACK disabled, and drawn so", uiHitecView() == HitecView::Write &&
+	          !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
+	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
+	checkTrue("a tap on it: the page waits, no write frame", uiHitecView() == HitecView::Write &&
+	          fakeHitecSim()->writes == writes1);
 	fakeCacheSet(CardCache::Idle, 0);
 	checkTrue("then the write ends", untilCtl(UI_FIX(HitecCtl::WriteOk), 800));
 	fakeFatOnCall(nullptr);
