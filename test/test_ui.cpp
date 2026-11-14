@@ -3401,15 +3401,17 @@ static void testAm32Guidance() {
 
 	section("AM32 list: the strip's notes");
 	{
+		// The Air preset as the configurator ships it: 3D MODE on.
+		fakeEscSet(AM32_OFF_BI_DIRECTION, 1);
 		enterAm32(6);
 		checkTrue("the list is open", s_state == S_LIST);
-		// The fake ESC holds the Air preset: 3D MODE on.
 		checkTrue("3D MODE on: two amber lines on the strip",
 		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_3D_1, UI_COL_WARN, C_BG, 1) &&
 		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_3D_2, UI_COL_WARN, C_BG, 1));
 		checkTrue("36 and 34 characters inside the panel",
 		          UI_MARGIN + gfxTextW(AM32_UI_3D_1, 1) <= GFX_W - UI_MARGIN &&
 		          UI_MARGIN + gfxTextW(AM32_UI_3D_2, 1) <= GFX_W - UI_MARGIN);
+		fakeDumpFrame("shot_am32_3d.ppm");
 		// Edited off: the device caption comes back.
 		const int v3d = uiRowOf("3D MODE");
 		uiRowY("3D MODE"); frames(1);
@@ -3505,6 +3507,71 @@ static void testAm32Guidance() {
 		frames(1);
 		checkTrue("REVERT: the preset again, 3D MODE's note",
 		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_3D_1, UI_COL_WARN, C_BG, 1));
+	}
+
+	section("AM32 list: LOW VOLT CUTOFF's three values, written back as read");
+	{
+		// Every value name fits the editor bar between - and +.
+		int room = BTN_PLUS_X - (BTN_MINUS_X + EDIT_BTN_W);
+		bool fits = true;
+		for (uint16_t i = 0; i < AM32_FIELD_COUNT; i++) {
+			const Am32Field *f = &AM32_FIELDS[i];
+			for (uint8_t k = 0; f->names && k < f->nameCount; k++)
+				if (gfxTextW(f->names[k], 2) > room) fits = false;
+		}
+		checkTrue("every value name fits the editor's 112 px at scale 2", fits && room == 112);
+		const uint8_t fw[2] = { fakeEscByte(AM32_OFF_MAIN_REVISION), fakeEscByte(AM32_OFF_SUB_REVISION) };
+		int wx, wy;
+		for (int old = 0; old < 2; old++) {
+			// ABSOLUTE, stored by another tool, on 2.22; then the same byte
+			// on 1.35, where AM32 cuts off on 1 alone.
+			fakeEscSet(AM32_OFF_MAIN_REVISION, old ? 1 : 2);
+			fakeEscSet(AM32_OFF_SUB_REVISION, old ? 35 : 22);
+			fakeEscSet(AM32_OFF_LOW_VOLT_CUTOFF, 2);
+			leaveAm32ToTester();
+			enterAm32(6);
+			const int vl = uiRowOf("LOW VOLT CUTOFF");
+			uiRowY("LOW VOLT CUTOFF"); frames(1);
+			tapId(UI_ROW(vl, Row));
+			frames(1);
+			const char *want = old ? "? (2)" : "ABSOLUTE";
+			checkTrue(old ? "1.35: the editor reads ? (2)" : "2.22: the editor reads ABSOLUTE",
+			          fakeTextCentredIs(EDIT_Y + 14, want, C_LIME, C_PANEL, 2) ||
+			          fakeTextCentredIs(EDIT_Y + 14, want, C_LIME, C_BG, 2));
+			checkTrue(old ? "1.35: AM32 does not cut off on 2: the protection note"
+			              : "2.22: no protection note",
+			          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROT_1, UI_COL_WARN, C_BG, 1) == (old == 1));
+			// Another field edited and written: the cutoff byte goes back as read.
+			const int vPoles = uiRowOf("POLES");
+			uiRowY("POLES"); frames(1);
+			tapId(UI_ROW(vPoles, Row));
+			tapId(UI_FIX(Am32Ctl::EditMinus));
+			uint8_t poles = uiByte(0x1B);
+			ctlCentre(UI_FIX(Am32Ctl::Write), &wx, &wy);
+			pressId(UI_FIX(Am32Ctl::Write));
+			for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
+			fakeRelease(); frames(3);
+			checkTrue("  written and verified, LOW VOLT CUTOFF still 2",
+			          s_verified && fakeEscByte(0x1B) == poles && fakeEscByte(AM32_OFF_LOW_VOLT_CUTOFF) == 2);
+			tapId(UI_FIX(Am32Ctl::Ok));
+			// Put POLES back.
+			tapId(UI_FIX(Am32Ctl::EditPlus));
+			pressId(UI_FIX(Am32Ctl::Write));
+			for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
+			fakeRelease(); frames(3);
+			tapId(UI_FIX(Am32Ctl::Ok));
+		}
+		// A press on 2 under 1.35 snaps to CELL: the pilot's own press.
+		uiRowY("LOW VOLT CUTOFF"); frames(1);
+		tapId(UI_ROW(uiRowOf("LOW VOLT CUTOFF"), Row));
+		tapId(UI_FIX(Am32Ctl::EditMinus));
+		checkInt("1.35: - on ? (2) is CELL, 1", uiByte(AM32_OFF_LOW_VOLT_CUTOFF), 1);
+		tapId(UI_FIX(Am32Ctl::Revert));
+		fakeEscSet(AM32_OFF_LOW_VOLT_CUTOFF, 1);
+		fakeEscSet(AM32_OFF_MAIN_REVISION, fw[0]);
+		fakeEscSet(AM32_OFF_SUB_REVISION, fw[1]);
+		leaveAm32ToTester();
+		enterAm32(6);
 	}
 
 	section("AM32 write: a result that is not verified names the next step");
@@ -3656,6 +3723,9 @@ void runUiTests() {
 
 	section("Navigation into AM32 config");
 	{
+		// The published list shows the common case: 3D MODE off, the ESC's
+		// name on the strip. testAm32Guidance() turns it on for the note.
+		fakeEscSet(AM32_OFF_BI_DIRECTION, 0);
 		tapId(UI_FIX(TesterCtl::Menu));
 		checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 		checkTrue("opening MENU force-disarms", !fakeArmed());
@@ -3814,7 +3884,7 @@ void runUiTests() {
 			if ((f->rawMax - f->rawMin) % step) onStep = false;
 			s_eeprom[f->offset] = f->rawMin;
 			uiSwipeApply(SWIPE_SPAN_STEPS, coarseFactor(f), swipeStep, (void *)f);
-			if (s_eeprom[f->offset] != f->rawMax) reach = false;
+			if (s_eeprom[f->offset] != am32FieldMax(f, s_eeprom)) reach = false;
 			if (uiSwipeApply(1, coarseFactor(f), swipeStep, (void *)f) != 0) stops = false;
 			uiSwipeApply(-SWIPE_SPAN_STEPS, coarseFactor(f), swipeStep, (void *)f);
 			if (s_eeprom[f->offset] != f->rawMin) reach = false;

@@ -441,6 +441,8 @@ protocol.
 
 ### Changed
 
+- The AM32 previews show an ESC with 3D MODE off, the ESC name on the
+  strip; `am32-3d.png` shows the 3D note on the wiki's AM32 pages.
 - AM32 CONFIG's `BIDIRECTIONAL` row is `3D MODE`: byte 0x12 is AM32's
   `bi_direction`, the reversible mode, not bidirectional DShot. TEMP LIMIT at
   141 and CURRENT LIMIT at 0, 101 or 102 read `OFF`, in the list and the
@@ -698,6 +700,20 @@ protocol.
 
 ### Fixed
 
+- AM32 CONFIG showed LOW VOLT CUTOFF, VARIABLE PWM and BRAKE ON STOP as off
+  and on, and AM32 stores three values in each: a stored 2 read ON, and a
+  press of - or + made it 1, changing the mode. They are three-value
+  choices now, with the configurator's names shortened to fit: LOW VOLT
+  CUTOFF `OFF`, `CELL`, `ABSOLUTE`; PWM TYPE `FIXED`, `VARIABLE`, `BY RPM`;
+  BRAKE ON STOP `OFF`, `BRAKE`, `ACTIVE`. The third value exists from AM32
+  2.19, 2.18 and 2.19 on; on older firmware, read from bytes 0x03 and 0x04,
+  the editor stops at the second value and a stored third reads `? (2)`.
+  LOW VOLT CUTOFF's PROTECTION OFF note covers `? (2)`, which older AM32
+  does not cut off on. An unedited byte is written back as read.
+- AM32 CONFIG's KV read 20 KV low: AM32 takes raw x 40 + 20. MAX RAMP,
+  MIN DUTY, ABS VOLT CUT and ACTIVE BRAKE showed raw bytes over 0 to 255;
+  they read 0.1 %/ms, 0.5 %, 0.5 V and % steps over the configurator's
+  ranges. DEAD BAND loses its `US`: AM32 counts it in input units.
 - AM32 CONFIG's PROTOCOL names were one off: AM32's `enum inputType` is
   zero-based, so 0 is AUTO and 1 DSHOT, where the screen showed UNSET and
   AUTO. The names are now `AUTO`, `DSHOT`, `SERVO`, `SERIAL`, `EDT ARM` and

@@ -241,28 +241,28 @@ void runAm32Tests() {
 	section("AIR preset decodes to the tool's values");
 	expect(AIR, "POLES", "14");
 	expect(AIR, "PWM FREQ", "24KHZ");
-	expect(AIR, "KV", "1920KV");
+	expect(AIR, "KV", "1940KV");                  // 48 x 40 + 20
 	expect(AIR, "POWER", "104");
 	expect(AIR, "ADVANCE", "22.5DEG");
 	expect(AIR, "DIRECTION", "NORMAL");
 	expect(AIR, "3D MODE", "ON");
-	expect(AIR, "LOW VOLT CUTOFF", "ON");
+	expect(AIR, "LOW VOLT CUTOFF", "CELL");
 	expect(AIR, "CELL CUTOFF", "3.3V");
 	expect(AIR, "TEMP LIMIT", "101C");
 	expect(AIR, "CURRENT LIMIT", "40A");
 	expect(AIR, "NEUTRAL", "1502US");
 	expect(AIR, "LOW THRESHOLD", "1006US");
 	expect(AIR, "HIGH THRESHOLD", "2006US");
-	expect(AIR, "DEAD BAND", "50US");
+	expect(AIR, "DEAD BAND", "50");
 	expect(AIR, "BEEP VOLUME", "5");
-	expect(AIR, "BRAKE ON STOP", "ON");
+	expect(AIR, "BRAKE ON STOP", "BRAKE");
 
 	section("CRAWLER preset differences show through");
 	expect(CRAWLER, "3D MODE", "OFF");
 	expect(CRAWLER, "SINE STARTUP", "OFF");
 	expect(CRAWLER, "ADVANCE", "15.0DEG");
 	expect(CRAWLER, "POWER", "100");
-	expect(CRAWLER, "KV", "2200KV");
+	expect(CRAWLER, "KV", "2220KV");
 	expect(CRAWLER, "LOW VOLT CUTOFF", "OFF");
 	expect(CRAWLER, "CELL CUTOFF", "3.0V");
 	expect(CRAWLER, "TEMP LIMIT", "OFF");         // 141: no limit
@@ -275,7 +275,8 @@ void runAm32Tests() {
 	expect(REF_PY, "ADVANCE", "15.0DEG");        // "2 = 15 degrees"
 	expect(REF_PY, "PWM FREQ", "24KHZ");         // "default 24khz"
 	expect(REF_PY, "POWER", "100");              // "default 100 percent"
-	expect(REF_PY, "KV", "2200KV");              // "55 = 2200kv"
+	// "55 = 2200kv" in the tool; AM32 reads raw x 40 + 20.
+	expect(REF_PY, "KV", "2220KV");
 	expect(REF_PY, "POLES", "14");               // "default 14"
 	expect(REF_PY, "LOW THRESHOLD", "1006US");   // "(value*2) + 750"
 	expect(REF_PY, "HIGH THRESHOLD", "2006US");  // "(value*2) + 1750"
@@ -334,13 +335,73 @@ void runAm32Tests() {
 		e[AM32_OFF_LOW_VOLT_CUTOFF] = 0;
 		checkTrue("cutoff 0: off", am32ProtectionOff(lvc, e));
 		e[AM32_OFF_LOW_VOLT_CUTOFF] = 2;
-		checkTrue("cutoff 2: on", !am32ProtectionOff(lvc, e));
+		checkTrue("cutoff 2 on firmware 1.35: off, AM32 acts on 1 alone", am32ProtectionOff(lvc, e));
+		e[AM32_OFF_MAIN_REVISION] = 2; e[AM32_OFF_SUB_REVISION] = 19;
+		checkTrue("cutoff 2 on firmware 2.19: on", !am32ProtectionOff(lvc, e));
+		e[AM32_OFF_MAIN_REVISION] = AIR[AM32_OFF_MAIN_REVISION];
+		e[AM32_OFF_SUB_REVISION] = AIR[AM32_OFF_SUB_REVISION];
 		e[0x1B] = 0;
 		checkTrue("a field that is no protection is never off", !am32ProtectionOff(poles, e));
 		// Stepping from OFF at the top comes back into the range.
 		e[0x2B] = 141;
 		am32Adjust(temp, e, -1);
 		expect(e, "TEMP LIMIT", "140C");
+	}
+
+	section("AM32: three-value fields, the top value gated by firmware");
+	{
+		struct C { const char *name; uint8_t off; uint16_t fw; const char *n[3]; };
+		static const C cs[] = {
+			{ "LOW VOLT CUTOFF", 0x24, 219, { "OFF", "CELL", "ABSOLUTE" } },
+			{ "PWM TYPE",        0x15, 218, { "FIXED", "VARIABLE", "BY RPM" } },
+			{ "BRAKE ON STOP",   0x1C, 219, { "OFF", "BRAKE", "ACTIVE" } },
+		};
+		for (const C &c : cs) {
+			const Am32Field *f = field(c.name);
+			checkTrue(c.name, f && f->offset == c.off && f->type == A32_ENUM);
+			if (!f) continue;
+			uint8_t e[AM32_SETTINGS_SIZE];
+			memcpy(e, AIR, sizeof(e));
+			// New enough: all three, and the editor reaches 2 and stops.
+			e[AM32_OFF_MAIN_REVISION] = (uint8_t)(c.fw / 100);
+			e[AM32_OFF_SUB_REVISION] = (uint8_t)(c.fw % 100);
+			for (uint8_t v = 0; v < 3; v++) { e[c.off] = v; expect(e, c.name, c.n[v]); }
+			checkInt("  firmware at the gate: the editor reaches 2", am32FieldMax(f, e), 2);
+			e[c.off] = 2;
+			am32Adjust(f, e, +1);
+			checkInt("  + at 2 stays at 2", e[c.off], 2);
+			am32Adjust(f, e, -1);
+			checkInt("  - at 2 is 1", e[c.off], 1);
+			// One minor version older: 2 is not a value this firmware has.
+			e[AM32_OFF_SUB_REVISION] = (uint8_t)(c.fw % 100 - 1);
+			checkInt("  one version older: the editor stops at 1", am32FieldMax(f, e), 1);
+			e[c.off] = 1;
+			am32Adjust(f, e, +1);
+			checkInt("  + at 1 stays at 1", e[c.off], 1);
+			e[c.off] = 2;
+			expect(e, c.name, "? (2)");
+			e[c.off] = 3;
+			e[AM32_OFF_SUB_REVISION] = (uint8_t)(c.fw % 100);
+			expect(e, c.name, "? (3)");
+		}
+		checkInt("2.19 reads as 219", am32Firmware((const uint8_t[]){0, 0, 0, 2, 19}), 219);
+	}
+
+	section("AM32: field scales against AM32's source and the configurator");
+	{
+		uint8_t e[AM32_SETTINGS_SIZE];
+		memcpy(e, AIR, sizeof(e));
+		e[AM32_OFF_LAYOUT_REVISION] = 3;
+		e[0x1A] = 0;   expect(e, "KV", "20KV");
+		e[0x1A] = 255; expect(e, "KV", "10220KV");
+		e[0x05] = 1;   expect(e, "MAX RAMP", "0.1%/MS");
+		e[0x05] = 200; expect(e, "MAX RAMP", "20.0%/MS");
+		e[0x06] = 50;  expect(e, "MIN DUTY", "25.0%");
+		e[0x08] = 1;   expect(e, "ABS VOLT CUT", "0.5V");
+		e[0x08] = 100; expect(e, "ABS VOLT CUT", "50.0V");
+		e[0x0C] = 5;   expect(e, "ACTIVE BRAKE", "5%");
+		checkInt("ACTIVE BRAKE stops at 5 %", field("ACTIVE BRAKE")->rawMax, 5);
+		checkInt("ABS VOLT CUT stops at 100", field("ABS VOLT CUT")->rawMax, 100);
 	}
 
 	section("AM32: 3D MODE is byte 0x12, bi_direction");

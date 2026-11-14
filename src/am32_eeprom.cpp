@@ -22,6 +22,11 @@ static const char *const NAMES_PROTOCOL[]  = {
 	"AUTO", "DSHOT", "SERVO", "SERIAL", "EDT ARM", "DRONECAN"
 };
 static const char *const NAMES_OFFON[]     = {"OFF", "ON"};
+// The configurator's names, shortened to the editor's 112 px at scale 2:
+// "Cell based" is CELL, "Brake on stop" BRAKE, "Active brake" ACTIVE.
+static const char *const NAMES_LOW_VOLT[]  = {"OFF", "CELL", "ABSOLUTE"};
+static const char *const NAMES_PWM_TYPE[]  = {"FIXED", "VARIABLE", "BY RPM"};
+static const char *const NAMES_BRAKE[]     = {"OFF", "BRAKE", "ACTIVE"};
 
 /**
  * @defgroup am32_tablemacros Field table shorthand
@@ -38,22 +43,28 @@ static const char *const NAMES_OFFON[]     = {"OFF", "ON"};
 
 /** @brief Off/on field. */
 #define F_BOOL(grp, nm, off, ver)                                              \
-	{grp, nm, off, A32_BOOL, 0, 1, 1, ver, 0, 0, 0, 0, "", NAMES_OFFON, 2, 0, 0}
+	{grp, nm, off, A32_BOOL, 0, 1, 1, ver, 0, 0, 0, 0, "", NAMES_OFFON, 2, 0, 0, 0}
 /** @brief Plain integer over @c lo..@c hi in steps of @c st, suffixed @c unit. */
 #define F_RAW(grp, nm, off, lo, hi, st, unit, ver)                             \
-	{grp, nm, off, A32_RAW, lo, hi, st, ver, 0, 0, 0, 0, unit, nullptr, 0, 0, 0}
+	{grp, nm, off, A32_RAW, lo, hi, st, ver, 0, 0, 0, 0, unit, nullptr, 0, 0, 0, 0}
 /** @brief Displayed as `(raw * m + a) / d`, with one decimal when @c d > 1. */
 #define F_SCALED(grp, nm, off, lo, hi, st, m, d, a, unit, ver)                 \
-	{grp, nm, off, A32_SCALED, lo, hi, st, ver, 0, m, d, a, unit, nullptr, 0, 0, 0}
+	{grp, nm, off, A32_SCALED, lo, hi, st, ver, 0, m, d, a, unit, nullptr, 0, 0, 0, 0}
 /** @brief Index into the @c cnt labels of @c tbl. */
 #define F_ENUM(grp, nm, off, tbl, cnt, ver)                                    \
-	{grp, nm, off, A32_ENUM, 0, (uint8_t)((cnt) - 1), 1, ver, 0, 0, 0, 0, "", tbl, cnt, 0, 0}
+	{grp, nm, off, A32_ENUM, 0, (uint8_t)((cnt) - 1), 1, ver, 0, 0, 0, 0, "", tbl, cnt, 0, 0, 0}
+/**
+ * @brief Index into the @c cnt labels of @c tbl, whose last label exists from
+ *        AM32 firmware @c fw (major x 100 + minor) on. @see am32FieldMax()
+ */
+#define F_CHOICE(grp, nm, off, tbl, cnt, fw)                                   \
+	{grp, nm, off, A32_ENUM, 0, (uint8_t)((cnt) - 1), 1, 0, 0, 0, 0, 0, "", tbl, cnt, 0, 0, fw}
 /** @brief As F_RAW(), with values outside @c onLo..@c onHi shown as `OFF`. */
 #define F_RAW_LIMIT(grp, nm, off, lo, hi, st, unit, onLo, onHi)                \
-	{grp, nm, off, A32_RAW, lo, hi, st, 0, 0, 0, 0, 0, unit, nullptr, 0, onLo, onHi}
+	{grp, nm, off, A32_RAW, lo, hi, st, 0, 0, 0, 0, 0, unit, nullptr, 0, onLo, onHi, 0}
 /** @brief As F_SCALED(), with raw values outside @c onLo..@c onHi shown as `OFF`. */
 #define F_SCALED_LIMIT(grp, nm, off, lo, hi, st, m, d, a, unit, onLo, onHi)    \
-	{grp, nm, off, A32_SCALED, lo, hi, st, 0, 0, m, d, a, unit, nullptr, 0, onLo, onHi}
+	{grp, nm, off, A32_SCALED, lo, hi, st, 0, 0, m, d, a, unit, nullptr, 0, onLo, onHi, 0}
 /** @} */
 
 const Am32Field AM32_FIELDS[] = {
@@ -64,8 +75,9 @@ const Am32Field AM32_FIELDS[] = {
 	// (setInput() in AM32's Src/main.c).
 	F_BOOL  ("MOTOR", "3D MODE",          AM32_OFF_BI_DIRECTION, 0),
 	F_RAW   ("MOTOR", "POLES",            0x1B, 2, 36, 2, "", 0),
-	// Stored as KV/40, so the editable range 1..255 spans 40..10200 KV.
-	F_SCALED("MOTOR", "KV",               0x1A, 1, 255, 1, 40, 1, 0, "KV", 0),
+	// AM32 reads it as raw x 40 + 20 (`motor_kv` in loadEEpromSettings()), and
+	// the configurator offers 20..10220 KV: raw 0..255.
+	F_SCALED("MOTOR", "KV",               0x1A, 0, 255, 1, 40, 1, 20, "KV", 0),
 	F_BOOL  ("MOTOR", "HALL SENSORS",     0x27, 0),
 
 	// ---- Timing and PWM --------------------------------------------------
@@ -73,12 +85,14 @@ const Am32Field AM32_FIELDS[] = {
 	// that with a single mul/div, so the type carries the rule.
 	// @see am32AdvanceDeciDeg()
 	{"TIMING", "ADVANCE", AM32_OFF_ADVANCE, A32_ADVANCE, 10, 42, 1, 0, 0,
-	 0, 0, 0, "DEG", nullptr, 0, 0, 0},
+	 0, 0, 0, "DEG", nullptr, 0, 0, 0, 0},
 	F_BOOL  ("TIMING", "AUTO ADVANCE",    0x2F, 0),
 	// AM32 accepts up to 144 kHz, not the 48 the older configurator UI capped
 	// its slider at. Worth a coarse swipe rather than 136 taps.
 	F_RAW   ("TIMING", "PWM FREQ",        0x18, 8, 144, 1, "KHZ", 0),
-	F_BOOL  ("TIMING", "VARIABLE PWM",    0x15, 0),
+	// variable_pwm: 0 fixed, 1 variable, 2 by RPM. AM32 acts on 2 from 2.18
+	// on; 2.16 and older act on 1 alone.
+	F_CHOICE("TIMING", "PWM TYPE",        0x15, NAMES_PWM_TYPE, 3, 218),
 	F_BOOL  ("TIMING", "COMPLEMENTARY",   0x14, 0),
 
 	// ---- Startup ---------------------------------------------------------
@@ -90,13 +104,17 @@ const Am32Field AM32_FIELDS[] = {
 	F_BOOL  ("STARTUP", "STALL PROTECT",  0x1D, 0),
 
 	// ---- Braking ---------------------------------------------------------
-	F_BOOL  ("BRAKE", "BRAKE ON STOP",    0x1C, 0),
+	// brake_on_stop: 0 off, 1 brake on stop, 2 active brake, from 2.19 on.
+	// 2.18 brakes on any value but 0; 2.16 and older on 1 alone.
+	F_CHOICE("BRAKE", "BRAKE ON STOP",    0x1C, NAMES_BRAKE, 3, 219),
 	F_RAW   ("BRAKE", "STOPPED LEVEL",    0x29, 1, 10, 1, "", 0),
 	F_RAW   ("BRAKE", "RUNNING LEVEL",    0x2A, 1, 10, 1, "", 0),
 	F_BOOL  ("BRAKE", "RC CAR REVERSE",   0x26, 0),
 
 	// ---- Limits ----------------------------------------------------------
-	F_BOOL  ("LIMITS", "LOW VOLT CUTOFF", AM32_OFF_LOW_VOLT_CUTOFF, 0),
+	// low_voltage_cut_off: 0 off, 1 per cell (CELL CUTOFF), 2 absolute (ABS
+	// VOLT CUT), from 2.19 on. 2.18 and older cut off on 1 alone.
+	F_CHOICE("LIMITS", "LOW VOLT CUTOFF", AM32_OFF_LOW_VOLT_CUTOFF, NAMES_LOW_VOLT, 3, 219),
 	// Cell cutoff is stored as hundredths of a volt above 2.50 V.
 	F_SCALED("LIMITS", "CELL CUTOFF",     0x25, 0, 100, 1, 1, 100, 250, "V", 0),
 	// AM32 takes 70..140 as a limit in degrees C and anything else as none:
@@ -119,17 +137,23 @@ const Am32Field AM32_FIELDS[] = {
 	F_SCALED("SERVO", "LOW THRESHOLD",    0x20, 0, 255, 1, 2, 1, 750,  "US", 0),
 	F_SCALED("SERVO", "HIGH THRESHOLD",   0x21, 0, 255, 1, 2, 1, 1750, "US", 0),
 	F_SCALED("SERVO", "NEUTRAL",          0x22, 0, 255, 1, 1, 1, 1374, "US", 0),
-	F_RAW   ("SERVO", "DEAD BAND",        0x23, 0, 100, 1, "US", 0),
+	// In AM32's input units, not microseconds: the configurator gives no unit.
+	F_RAW   ("SERVO", "DEAD BAND",        0x23, 0, 100, 1, "", 0),
 
 	// ---- Layout revision 3 and later only --------------------------------
-	F_RAW   ("ADVANCED", "MAX RAMP",      0x05, 0, 255, 1, "", 3),
-	F_RAW   ("ADVANCED", "MIN DUTY",      0x06, 0, 255, 1, "", 3),
+	// Ramp in 0.1 % duty per ms and minimum duty in 0.5 %, as the
+	// configurator shows them over its ranges, 0.1..20 and 0..25.
+	F_SCALED("ADVANCED", "MAX RAMP",      0x05, 1, 200, 1, 1, 10, 0, "%/MS", 3),
+	F_SCALED("ADVANCED", "MIN DUTY",      0x06, 0, 50, 1, 1, 2, 0, "%", 3),
 	F_BOOL  ("ADVANCED", "NO STICK CAL",  0x07, 3),
-	F_RAW   ("ADVANCED", "ABS VOLT CUT",  0x08, 0, 255, 1, "", 3),
+	// The absolute cutoff in 0.5 V steps (`absolute_voltage_cutoff * 50`
+	// against the battery voltage in 10 mV), 0.5..50 V.
+	F_SCALED("ADVANCED", "ABS VOLT CUT",  0x08, 1, 100, 1, 1, 2, 0, "V", 3),
 	F_RAW   ("ADVANCED", "CURRENT P",     0x09, 0, 255, 1, "", 3),
 	F_RAW   ("ADVANCED", "CURRENT I",     0x0A, 0, 255, 1, "", 3),
 	F_RAW   ("ADVANCED", "CURRENT D",     0x0B, 0, 255, 1, "", 3),
-	F_RAW   ("ADVANCED", "ACTIVE BRAKE",  0x0C, 0, 255, 1, "", 3),
+	// Active brake duty, 0..5 %, used when BRAKE ON STOP is ACTIVE.
+	F_RAW   ("ADVANCED", "ACTIVE BRAKE",  0x0C, 0, 5, 1, "%", 3),
 };
 
 const uint16_t AM32_FIELD_COUNT = (uint16_t)(sizeof(AM32_FIELDS) / sizeof(AM32_FIELDS[0]));
@@ -154,7 +178,10 @@ void am32FormatValue(const Am32Field *f, const uint8_t *eeprom, char *out, int o
 			return;
 
 		case A32_ENUM:
-			if (f->names && raw < f->nameCount) snprintf(out, outLen, "%s", f->names[raw]);
+			// A value this firmware does not know, the top one before
+			// Am32Field::topFw among them, reads as the byte.
+			if (f->names && raw < f->nameCount && raw <= am32FieldMax(f, eeprom))
+				snprintf(out, outLen, "%s", f->names[raw]);
 			else                                snprintf(out, outLen, "? (%u)", raw);
 			return;
 
@@ -234,13 +261,24 @@ void am32Adjust(const Am32Field *f, uint8_t *eeprom, int dir) {
 
 	// A value already outside the field's range would otherwise need several
 	// presses before it re-entered it; snap to the nearest end instead.
+	int32_t hi = am32FieldMax(f, eeprom);
 	if (v < f->rawMin) v = f->rawMin;
-	else if (v > f->rawMax) v = f->rawMax;
+	else if (v > hi) v = hi;
 	else v += (dir > 0 ? step : -step);
 
 	if (v < f->rawMin) v = f->rawMin;
-	if (v > f->rawMax) v = f->rawMax;
+	if (v > hi) v = hi;
 	eeprom[f->offset] = (uint8_t)v;
+}
+
+uint16_t am32Firmware(const uint8_t *eeprom) {
+	return (uint16_t)(eeprom[AM32_OFF_MAIN_REVISION] * 100u + eeprom[AM32_OFF_SUB_REVISION]);
+}
+
+uint8_t am32FieldMax(const Am32Field *f, const uint8_t *eeprom) {
+	if (f->topFw && f->rawMax > f->rawMin && am32Firmware(eeprom) < f->topFw)
+		return (uint8_t)(f->rawMax - 1);
+	return f->rawMax;
 }
 
 bool am32ValueOff(const Am32Field *f, const uint8_t *eeprom) {
@@ -250,7 +288,8 @@ bool am32ValueOff(const Am32Field *f, const uint8_t *eeprom) {
 }
 
 bool am32ProtectionOff(const Am32Field *f, const uint8_t *eeprom) {
-	if (f->offset == AM32_OFF_LOW_VOLT_CUTOFF) return eeprom[f->offset] == 0;
+	if (f->offset == AM32_OFF_LOW_VOLT_CUTOFF)
+		return eeprom[f->offset] == 0 || eeprom[f->offset] > am32FieldMax(f, eeprom);
 	return am32ValueOff(f, eeprom);
 }
 

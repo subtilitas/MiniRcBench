@@ -305,6 +305,7 @@ static uint8_t g_esc[AM32_EEPROM_SIZE] = {
 	0x80,0x80,0x80,0x32,0x01,0x50,0x00,0x00,0x0f,0x0a,0x0a,0x65,0x14,0x05,0x00,0x31};
 
 uint8_t fakeEscByte(int offset) { return g_esc[offset]; }
+void fakeEscSet(int offset, uint8_t v) { g_esc[offset] = v; }
 
 uint16_t am32Crc16(const uint8_t *d, uint16_t n) {
 	uint16_t c = 0;

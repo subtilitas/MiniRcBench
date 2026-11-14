@@ -165,7 +165,26 @@ struct Am32Field {
 	 */
 	uint8_t     onMin;
 	uint8_t     onMax;      /**< Highest raw value at which the limit acts. */
+	/**
+	 * @brief AM32 firmware, major x 100 + minor, from which @p rawMax exists:
+	 *        below it the editor stops one lower and a stored @p rawMax reads
+	 *        `? (n)`. 0: every firmware. @see am32FieldMax()
+	 */
+	uint16_t    topFw;
 };
+
+/**
+ * @brief The ESC's AM32 firmware as major x 100 + minor, from bytes 0x03 and
+ *        0x04: 2.19 is 219.
+ */
+uint16_t am32Firmware(const uint8_t *eeprom);
+
+/**
+ * @brief The highest value the editor produces for @p f on this ESC:
+ *        Am32Field::rawMax, or one lower on firmware older than
+ *        Am32Field::topFw.
+ */
+uint8_t am32FieldMax(const Am32Field *f, const uint8_t *eeprom);
 
 /** @brief The full field table. */
 extern const Am32Field AM32_FIELDS[];
@@ -220,7 +239,9 @@ bool am32ValueOff(const Am32Field *f, const uint8_t *eeprom);
 
 /**
  * @brief Whether @p f is one of the ESC's protections (LOW VOLT CUTOFF, TEMP
- *        LIMIT, CURRENT LIMIT) and its value turns it off.
+ *        LIMIT, CURRENT LIMIT) and its value turns it off. LOW VOLT CUTOFF
+ *        is off at 0 and at any value above am32FieldMax(): AM32 before 2.19
+ *        acts on 1 alone, 2.19 and later on 1 and 2.
  */
 bool am32ProtectionOff(const Am32Field *f, const uint8_t *eeprom);
 

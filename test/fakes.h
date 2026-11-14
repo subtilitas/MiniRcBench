@@ -69,6 +69,8 @@ void fakeRelease();
 
 /** @brief Read a byte of the fake ESC's settings page, as actually stored. */
 uint8_t fakeEscByte(int offset);
+/** @brief Store @p v at @p offset of the fake ESC's settings page, as another tool would. */
+void fakeEscSet(int offset, uint8_t v);
 
 /** @brief Throttle most recently commanded to the fake DShot task, 0..2000. */
 uint16_t fakeThrottle();

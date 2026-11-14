@@ -921,7 +921,7 @@ MODE, then PROTOCOL. The facts behind them are from the AM32 source
 | `3D MODE` on, byte 0x12 | `3D MODE: 50% THROTTLE IS FULL POWER,` / `ABOVE 50% THE OTHER WAY. PROP OFF.` | `bi_direction`; `setInput()` runs 48..1047 one way and 1048..2047 the other. The tester sends 47 + throttle (1..2000) |
 | `TEMP LIMIT` selected, `OFF` (141) | `PROTECTION OFF: THE ESC DOES NOT` / `CUT POWER ON THIS LIMIT.` | `loadEEpromSettings()` sets a value outside 70..140 to 255, no limit |
 | `CURRENT LIMIT` selected, `OFF` (0, 101, 102) | as TEMP LIMIT | the limit acts only for 1..100, in 2 A steps |
-| `LOW VOLT CUTOFF` selected, `OFF` | as TEMP LIMIT | 0 is off; 1 per cell, 2 absolute |
+| `LOW VOLT CUTOFF` selected, `OFF` or `? (2)` | as TEMP LIMIT | 0 is off; 1 per cell, 2 absolute from 2.19; before 2.19 only 1 cuts off |
 | `PROTOCOL` `SERVO` or `DRONECAN` | `THE TESTER SENDS DSHOT ONLY:` / `THE ESC WILL NOT RUN HERE.` | `enum inputType`, zero-based: 0 AUTO, 1 DSHOT, 2 SERVO, 3 SERIAL, 4 EDT ARM, 5 DRONECAN. SERVO detects servo pulses only; DRONECAN switches the DShot input off |
 
 ### Backup
@@ -974,12 +974,20 @@ The host test harness runs two cross-checks:
   configurator: init string, all six command encodings, CRC polynomial and
   byte order, ACK position, and all three MCU-to-address mappings.
 - The field table is decoded against that tool's default settings blob and
-  compared to the meanings in its byte comments: 14 poles, 24 kHz, 2200 KV
-  (motor velocity constant, RPM per volt), 15° advance, 3.0 V cell cutoff,
-  1502 µs servo neutral, a 40 A current limit, and others. Where the tool's
-  comments and AM32's source disagree, the source wins: the tool numbers the
-  protocol from 1, AM32's `enum inputType` from 0, and its 141 and 102 are
+  compared to the meanings in its byte comments: 14 poles, 24 kHz, 15°
+  advance, 3.0 V cell cutoff, 1502 µs servo neutral, a 40 A current limit,
+  and others. Where the tool's comments and AM32's source disagree, the
+  source wins: the tool numbers the protocol from 1, AM32's
+  `enum inputType` from 0; its "55 = 2200kv" is 2220 KV (motor velocity
+  constant, RPM per volt) in AM32, raw x 40 + 20; and its 141 and 102 are
   the values at which AM32 applies no limit, shown as `OFF`.
+- The field table is checked against AM32's `Inc/eeprom.h`, its
+  `loadEEpromSettings()` and the configurator's field definitions. LOW VOLT
+  CUTOFF, PWM TYPE and BRAKE ON STOP have three values; the third exists
+  from AM32 2.19, 2.18 and 2.19 on (`Am32Field::topFw`,
+  `am32FieldMax()`). On older firmware the editor stops one lower and a
+  stored third value reads `? (2)`; an unedited byte is written back as
+  read.
 
 ---
 

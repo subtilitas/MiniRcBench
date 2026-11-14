@@ -76,15 +76,17 @@ Manche Werte ändern, was der Tester mit dem ESC tun kann, oder schalten einen
 Schutz ab. Für diese zeigt der Streifen unter dem Titel zwei bernsteinfarbene
 Zeilen statt des ESC-Namens. Der Hinweis der ausgewählten Zeile kommt zuerst,
 dann 3D MODE, dann PROTOCOL. Was AM32 mit jedem Wert tut, stammt aus dem
-AM32-Quellcode (Zweig `main` von am32-firmware/AM32, November 2026); am
-Prüfstand gemessen ist es nicht.
+AM32-Quellcode (Zweig `main` von am32-firmware/AM32, November 2026, und die
+Versionen v2.05 bis v2.19); am Prüfstand gemessen ist es nicht.
+
+<img src="img/am32-3d.png" width="240" alt="3D MODE an: zwei bernsteinfarbene Zeilen auf dem Streifen statt des ESC-Namens">
 
 | Feld | Werte | Hinweis auf dem Streifen |
 |---|---|---|
 | `3D MODE` | `OFF`, `ON`. Die AM32-Einstellung `bi_direction`: 3D-Modus, umkehrbar. Das ist nicht bidirektionales DShot, die Telemetrie, die der Tester nutzt | Solange an, gelesen oder geändert: `3D MODE: 50% THROTTLE IS FULL POWER,` / `ABOVE 50% THE OTHER WAY. PROP OFF.` |
 | `TEMP LIMIT` | 70 bis 140 °C; `OFF` bei 141. AM32 nimmt jeden Wert außerhalb 70 bis 140 als keine Grenze | Ausgewählt und `OFF`: `PROTECTION OFF: THE ESC DOES NOT` / `CUT POWER ON THIS LIMIT.` |
 | `CURRENT LIMIT` | 2 bis 200 A in 2-A-Schritten; `OFF` bei 0 und über 200 A. AM32 begrenzt den Strom nur bei gespeicherten Werten 1 bis 100 | wie TEMP LIMIT |
-| `LOW VOLT CUTOFF` | `OFF`, `ON` | wie TEMP LIMIT, bei `OFF` |
+| `LOW VOLT CUTOFF` | `OFF`, `CELL` (je Zelle, bei CELL CUTOFF), `ABSOLUTE` (bei ABS VOLT CUT) | wie TEMP LIMIT, bei `OFF` und bei `? (2)` |
 | `PROTOCOL` | `AUTO`, `DSHOT`, `SERVO`, `SERIAL`, `EDT ARM`, `DRONECAN`: gespeichert als 0 bis 5 | Bei `SERVO` oder `DRONECAN`: `THE TESTER SENDS DSHOT ONLY:` / `THE ESC WILL NOT RUN HERE.` |
 
 Im 3D-Modus teilt AM32 den DShot-Gasbereich: Werte 48 bis 1047 drehen den
@@ -94,6 +96,25 @@ ist 50 % volle Leistung in die eine Richtung, und knapp über 50 % dreht der
 Motor mit wenig Leistung in die andere. Mit der voreingestellten Gasgrenze
 von 20 % erreicht der Tester etwa 40 % des AM32-Gasbereichs in eine
 Richtung.
+
+### Felder mit drei Werten
+
+Drei Felder haben einen dritten Wert, den es erst ab einer AM32-Version gibt.
+Die Version ist die Firmware-Version, die der ESC in seinen Einstellungen
+speichert; der Streifen zeigt sie als `FW`.
+
+| Feld | Werte | Dritter Wert ab |
+|---|---|---|
+| `LOW VOLT CUTOFF` | `OFF`, `CELL`, `ABSOLUTE` | 2.19. Davor schaltet AM32 nur bei `CELL` ab; eine gespeicherte 2 ist dort aus |
+| `PWM TYPE` | `FIXED`, `VARIABLE`, `BY RPM` | 2.18. 2.16 und älter variieren die PWM nur bei `VARIABLE` |
+| `BRAKE ON STOP` | `OFF`, `BRAKE`, `ACTIVE` | 2.19. 2.18 bremst bei jedem Wert außer 0; 2.16 und älter nur bei `BRAKE` |
+
+Auf älterer Firmware hält der Editor beim zweiten Wert an, und ein
+gespeicherter dritter Wert zeigt `? (2)`. Der Tester schreibt jedes Byte, das
+du nicht geändert hast, so zurück, wie er es gelesen hat: Ein `? (2)` bleibt
+2, bis du in dieser Zeile `-` oder `+` drückst; das stellt den zweiten Wert
+ein. Die Namen sind die des Konfigurators, gekürzt: `CELL` ist „Cell based“,
+`BRAKE` ist „Brake on stop“, `ACTIVE` ist „Active brake“.
 
 Mit `SERVO` sucht AM32 nur Servopulse, und ein DroneCAN-Build mit
 `DRONECAN` schaltet den DShot-Eingang ab. Mit `SERIAL` erkennt AM32 den

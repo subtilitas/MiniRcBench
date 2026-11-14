@@ -72,14 +72,17 @@ Some values change what the tester can do with the ESC, or turn a protection
 off. For these the strip under the title shows two amber lines in place of the
 ESC name. The selected row's note comes first, then 3D MODE, then PROTOCOL.
 What AM32 does with each value is taken from the AM32 source code (`main`
-branch of am32-firmware/AM32, November 2026); it is not measured on the bench.
+branch of am32-firmware/AM32, November 2026, and the releases v2.05 to v2.19);
+it is not measured on the bench.
+
+<img src="img/am32-3d.png" width="240" alt="3D MODE on: two amber lines on the strip in place of the ESC name">
 
 | Field | Values | Note on the strip |
 |---|---|---|
 | `3D MODE` | `OFF`, `ON`. AM32's `bi_direction` setting: 3D, reversible, mode. It is not bidirectional DShot, the telemetry the tester uses | While on, read or edited: `3D MODE: 50% THROTTLE IS FULL POWER,` / `ABOVE 50% THE OTHER WAY. PROP OFF.` |
 | `TEMP LIMIT` | 70 to 140 °C; `OFF` at 141. AM32 takes any value outside 70 to 140 as no limit | Selected and `OFF`: `PROTECTION OFF: THE ESC DOES NOT` / `CUT POWER ON THIS LIMIT.` |
 | `CURRENT LIMIT` | 2 to 200 A in 2 A steps; `OFF` at 0 and above 200 A. AM32 limits the current only for stored values 1 to 100 | as TEMP LIMIT |
-| `LOW VOLT CUTOFF` | `OFF`, `ON` | as TEMP LIMIT, when `OFF` |
+| `LOW VOLT CUTOFF` | `OFF`, `CELL` (per cell, at CELL CUTOFF), `ABSOLUTE` (at ABS VOLT CUT) | as TEMP LIMIT, when `OFF`, and when `? (2)` |
 | `PROTOCOL` | `AUTO`, `DSHOT`, `SERVO`, `SERIAL`, `EDT ARM`, `DRONECAN`: stored as 0 to 5 | At `SERVO` or `DRONECAN`: `THE TESTER SENDS DSHOT ONLY:` / `THE ESC WILL NOT RUN HERE.` |
 
 In 3D mode AM32 splits the DShot throttle range: values 48 to 1047 run the
@@ -88,6 +91,25 @@ tester sends 47 plus its throttle of 1 to 2000, so 50 % is full power one
 way, and just above 50 % the motor runs the other way at low power. With the
 default throttle ceiling of 20 % the tester reaches about 40 % of AM32's
 throttle range in one direction.
+
+### Fields with three values
+
+Three fields have a third value that exists only from an AM32 version on.
+The version is the firmware revision the ESC stores in its settings, shown on
+the strip as `FW`.
+
+| Field | Values | Third value from |
+|---|---|---|
+| `LOW VOLT CUTOFF` | `OFF`, `CELL`, `ABSOLUTE` | 2.19. Before it AM32 cuts off on `CELL` alone; a stored 2 is off there |
+| `PWM TYPE` | `FIXED`, `VARIABLE`, `BY RPM` | 2.18. 2.16 and older vary the PWM on `VARIABLE` alone |
+| `BRAKE ON STOP` | `OFF`, `BRAKE`, `ACTIVE` | 2.19. 2.18 brakes on any value but 0; 2.16 and older on `BRAKE` alone |
+
+On older firmware the editor stops at the second value, and a stored third
+value reads `? (2)`. The tester writes back every byte you did not change as
+it read it: a `? (2)` stays 2 until you press `-` or `+` on that row, which
+moves it to the second value. The names are the configurator's, shortened to
+fit: `CELL` is "Cell based", `BRAKE` is "Brake on stop", `ACTIVE` is
+"Active brake".
 
 With `SERVO` AM32 looks for servo pulses only, and a DroneCAN build with
 `DRONECAN` switches the DShot input off. With `SERIAL` AM32 detects the input
