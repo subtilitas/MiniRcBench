@@ -54,13 +54,9 @@ size_t am32BackupFormat(const uint8_t *settings, const char *escType, uint16_t a
 	put(&b, "Layout revision: %u\n", (unsigned)layout);
 	put(&b, "Firmware: %u.%u\n", (unsigned)settings[AM32_OFF_MAIN_REVISION],
 	    (unsigned)settings[AM32_OFF_SUB_REVISION]);
-	// A layout the field table is not checked against: the field lines are
-	// the list's reading, as the newest known layout, or none at all.
-	if (!am32LayoutKnown(settings)) {
-		uint8_t view = am32ViewLayout(settings);
-		if (view) put(&b, "Layout not known: fields read as layout %u, not verified\n", (unsigned)view);
-		else      put(&b, "Layout not known: fields not read\n");
-	}
+	// A layout the field table is not checked against: no field line, the
+	// byte lines alone (am32FieldShown()).
+	if (!am32LayoutKnown(settings)) put(&b, "Layout not known: fields not read, not verified\n");
 	char value[32];
 	for (uint16_t i = 0; i < AM32_FIELD_COUNT; i++) {
 		const Am32Field *f = &AM32_FIELDS[i];

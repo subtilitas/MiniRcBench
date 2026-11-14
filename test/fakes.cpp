@@ -367,7 +367,10 @@ Am32Result am32BlRead(uint16_t, uint8_t *b, uint8_t n) {
 	else memcpy(b, g_esc, n);
 	return AM32_OK;
 }
+static int g_am32Writes = 0;  /**< am32BlWrite() calls. */
+int fakeAm32Writes() { return g_am32Writes; }
 Am32Result am32BlWrite(uint16_t, const uint8_t *b, uint8_t n) {
+	g_am32Writes++;
 	if (g_am32WriteFails > 0) { g_am32WriteFails--; return AM32_ERR_NAK; }
 	memcpy(g_esc, b, n);
 	if (g_am32WriteSkews > 0) { g_am32WriteSkews--; g_esc[0x1B] ^= 0x40; }

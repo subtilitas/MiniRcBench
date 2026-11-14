@@ -1688,11 +1688,14 @@ static void holdFor(UiControlId id) {
 }
 
 /**
- * @brief The board's voltage in the red band refuses the write page's hold,
- *        a write and a restore: no file and no frame, two amber lines.
+ * @brief The BOARD voltage red refuses the write page's hold, a write and a
+ *        restore: no file and no frame, two amber lines. Amber, no cell and
+ *        the text colour write. A write that waits for its backup's flush
+ *        is refused when the voltage turns red meanwhile.
  */
 static void testBoardLow() {
 	section("KST screen: no write or restore while the BOARD voltage is red");
+	fakeCacheReset();
 	freshKst();
 	checkTrue("to the field list", toList());
 	uint16_t deadBand = simField(KST_F_DEAD_BAND);
@@ -1701,21 +1704,40 @@ static void testBoardLow() {
 	checkTrue("the write page", holdUntilGone(UI_FIX(KstCtl::Write)) && uiKstView() == KstView::Write);
 	boardVolts(3.20f);
 	checkTrue("3.20 V: red", uiBoardCellNow() == BoardCell::Critical);
+	unsigned writes = fakeKstSim()->n_writes;
 	holdFor(UI_FIX(KstCtl::WriteHold));
-	checkTrue("the hold writes nothing: no backup, the servo as it was",
+	checkTrue("the hold writes nothing: no backup, no record, the servo as it was",
 	          !fakeFatExists("BACKUP/KST001.TXT") && !fakeFatExists("KST/KST.TXT") &&
-	          simField(KST_F_DEAD_BAND) == deadBand && !job().locked);
+	          simField(KST_F_DEAD_BAND) == deadBand && fakeKstSim()->n_writes == writes);
 	checkTrue(UI_BOARD_LOW_1 ", amber, y 196", lineIs(196, UI_BOARD_LOW_1, C_AMBER));
 	checkTrue(UI_BOARD_LOW_2 ", amber, y 208", lineIs(208, UI_BOARD_LOW_2, C_AMBER));
+	int x0 = 0, x1 = 0;
+	checkTrue("both inside the panel's 8 px margins",
+	          fakeInkExtent(196, 20, C_BG, &x0, &x1) && x0 >= 8 && x1 < GFX_W - 8);
 	checkTrue("HOLD TO WRITE stays", ctlEnabled(UI_FIX(KstCtl::WriteHold)));
 	checkControlTable("KST write page, board low");
 	fakeDumpFrame("shot_kst_board_low.ppm");
-	boardVolts(3.92f);
-	checkTrue("charged: the hold writes", holdUntilGone(UI_FIX(KstCtl::WriteHold)) &&
-	          untilCtl(UI_FIX(KstCtl::WriteOk), 400) && simField(KST_F_DEAD_BAND) != deadBand);
-	checkTrue("and the lines are gone, the backup first", !lineIs(196, UI_BOARD_LOW_1, C_AMBER) &&
-	          fakeFatExists("BACKUP/KST001.TXT"));
-	tapId(UI_FIX(KstCtl::WriteOk));
+
+	// Amber, no cell to judge, the text colour: each writes.
+	const float volts[] = { 3.40f, 1.00f, 3.92f };
+	const BoardCell band[] = { BoardCell::Low, BoardCell::NoCell, BoardCell::Ok };
+	const char *what[] = { "3.40 V, amber: the hold writes", "1.00 V, no cell: the hold writes",
+	                       "3.92 V: the hold writes" };
+	for (int k = 0; k < 3; k++) {
+		boardVolts(volts[k]);
+		uint16_t was = simField(KST_F_DEAD_BAND);
+		if (k > 0) {
+			selectField(KST_F_DEAD_BAND);
+			tapId(UI_FIX(KstCtl::EditPlus));
+			holdUntilGone(UI_FIX(KstCtl::Write));
+		}
+		checkTrue(what[k], uiBoardCellNow() == band[k] && holdUntilGone(UI_FIX(KstCtl::WriteHold)) &&
+		          untilCtl(UI_FIX(KstCtl::WriteOk), 400) && simField(KST_F_DEAD_BAND) != was &&
+		          !lineIs(196, UI_BOARD_LOW_1, C_AMBER));
+		tapId(UI_FIX(KstCtl::WriteOk));
+	}
+	checkTrue("the backup went first", fakeFatExists("BACKUP/KST001.TXT"));
+
 	// RESTORE is a write: refused the same way, from FILES.
 	uint16_t written = simField(KST_F_DEAD_BAND);
 	tapId(UI_FIX(KstCtl::Files));
@@ -1727,7 +1749,39 @@ static void testBoardLow() {
 	checkTrue("and restores nothing", simField(KST_F_DEAD_BAND) == written &&
 	          lineIs(196, UI_BOARD_LOW_1, C_AMBER) && ctlPresent(UI_FIX(KstCtl::WriteHold)));
 	boardVolts(3.92f);
+	checkTrue("3.92 V: the hold restores", holdUntilGone(UI_FIX(KstCtl::WriteHold)) &&
+	          untilCtl(UI_FIX(KstCtl::WriteOk), 400) && simField(KST_F_DEAD_BAND) == deadBand);
+	tapId(UI_FIX(KstCtl::WriteOk));
 	leaveAll();
+
+	section("KST screen: the BOARD voltage turns red while the backup flushes");
+	fakeCacheReset();
+	freshKst();
+	SdLogStatus logging;
+	memset(&logging, 0, sizeof(logging));
+	logging.state = SdLogState::Logging;
+	fakeSdLogSet(&logging);
+	checkTrue("to the field list", toList());
+	deadBand = simField(KST_F_DEAD_BAND);
+	selectField(KST_F_DEAD_BAND);
+	tapId(UI_FIX(KstCtl::EditPlus));
+	holdUntilGone(UI_FIX(KstCtl::Write));
+	fakeCacheSet(CardCache::Flushing, 12);
+	writes = fakeKstSim()->n_writes;
+	checkTrue("the hold at 3.92 V queues the backup", holdUntilGone(UI_FIX(KstCtl::WriteHold)) &&
+	          lineIs(196, "SAVING THE BACKUP TO THE CARD.", C_AMBER));
+	boardVolts(3.20f);
+	fakeCacheSet(CardCache::Idle, 0);
+	kstFrames(5);
+	checkTrue("red when the flush ends: no write frame, the two lines",
+	          fakeKstSim()->n_writes == writes && simField(KST_F_DEAD_BAND) == deadBand &&
+	          lineIs(196, UI_BOARD_LOW_1, C_AMBER) && ctlEnabled(UI_FIX(KstCtl::WriteHold)));
+	boardVolts(3.92f);
+	checkTrue("3.92 V: the next hold writes", holdUntilGone(UI_FIX(KstCtl::WriteHold)) &&
+	          untilCtl(UI_FIX(KstCtl::WriteOk), 400) && simField(KST_F_DEAD_BAND) != deadBand);
+	tapId(UI_FIX(KstCtl::WriteOk));
+	leaveAll();
+	fakeCacheReset();
 	fakeAdcSet(fakeAdcDefault());
 }
 

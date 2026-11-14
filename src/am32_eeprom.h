@@ -319,18 +319,11 @@ bool am32Plausible(const uint8_t *eeprom);
 bool am32LayoutKnown(const uint8_t *eeprom);
 
 /**
- * @brief The layout revision the list and the backup read a block in: its
- *        own when am32LayoutKnown(); @ref AM32_LAYOUT_MAX_KNOWN for a higher
- *        one, whose fields are taken where the newest known layout has
- *        them, not verified; 0 for one below @ref AM32_LAYOUT_MIN_KNOWN,
- *        whose firmware does not read most bytes: no field at all.
- */
-uint8_t am32ViewLayout(const uint8_t *eeprom);
-/**
- * @brief Whether the list shows @p f for this ESC: its view layout
- *        (am32ViewLayout()) has the field (am32FieldApplies()) and its
- *        firmware reads the byte (Am32Field::readFw). False for every field
- *        of a block with view layout 0.
+ * @brief Whether the list and the backup show @p f for this ESC: the block's
+ *        layout is one the table is checked against (am32LayoutKnown()),
+ *        that layout has the field (am32FieldApplies()) and the firmware
+ *        reads the byte (Am32Field::readFw). False for every field of a
+ *        block in a layout outside 2 to 4.
  */
 bool am32FieldShown(const Am32Field *f, const uint8_t *eeprom);
 

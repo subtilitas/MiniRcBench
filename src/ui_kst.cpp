@@ -149,7 +149,7 @@ static uint8_t      s_resultPlan = 0;
 static KstRefusal   s_resultRefused = KstRefusal::None; /**< The job refused the write. */
 static KstRefusal   s_readRefused = KstRefusal::None;   /**< The job refused the read. */
 static const char  *s_cardNote = nullptr; /**< The card refused the first write's files. */
-/** @brief The last hold met the board voltage in the red band: nothing was written. */
+/** @brief The last hold, or the write after its flush, met the BOARD voltage red: nothing was written. */
 static bool s_boardLow = false;
 static bool         s_leaveQueued = false;
 static char         s_preset[KST_STORE_PRESET_MAX]; /**< The KSTnnn SAVE AS takes in KST/. */
@@ -1001,6 +1001,9 @@ static bool firstWriteFiles() {
 
 /** @brief Send the write or the restore to the job. */
 static void sendWrite() {
+	// Asked again here: the write may have waited for a flush since the hold.
+	s_boardLow = uiBoardWriteRefused();
+	if (s_boardLow) return;
 	// The card calls block core0, up to seconds on a slow card; the job
 	// takes no write while the heartbeat has lapsed.
 	escHeartbeat();
@@ -1097,8 +1100,8 @@ static void flushStep() {
 static void startWrite() {
 	s_cardNote = nullptr;
 	s_result = false;
-	// The board's own battery in the red band: no file goes to the card and
-	// no frame to the servo. A write already running is not stopped.
+	// The BOARD voltage red: no file goes to the card and no frame to the
+	// servo. A write already running is not stopped.
 	s_boardLow = uiBoardWriteRefused();
 	if (s_boardLow) return;
 	// A batch that failed off this page, after BACK during the flush or a

@@ -53,26 +53,10 @@ bool uiAm32Tick(const TouchState *t);
  *        device caption, through uiStripTwoLines(). Each line is at most 37
  *        characters, 221 px.
  *
- * A layout the table does not know comes first: the list is read-only.
- * Then the selected row's note, then 3D MODE, then PROTOCOL where the
+ * The selected row's note comes first, then 3D MODE, then PROTOCOL where the
  * firmware reads byte 0x2E, then firmware below 1.80 or unknown.
  * @{
  */
-/**
- * @brief Read-only, first line: the layout revision, one digit (a plausible
- *        block has 1 to 8). @see am32ViewLayout()
- */
-#define AM32_UI_RO_FMT "LAYOUT %u NOT KNOWN: READ-ONLY."
-/** @brief Read-only, second line, above layout 4: the fields as layout 4 has them. */
-#define AM32_UI_RO_FIELDS "VALUES UNVERIFIED."
-/** @brief Read-only, second line, below layout 2: the hex view alone. */
-#define AM32_UI_RO_HEX "SHOWN AS BYTES."
-/** @brief After either: the backup went to the card, with its five-character name. */
-#define AM32_UI_RO_SAVED " BACKUP "
-/** @brief After either: no card, or the card held by USB. */
-#define AM32_UI_RO_NO_CARD " NO CARD: NO BACKUP"
-/** @brief After either: the card did not take the backup. */
-#define AM32_UI_RO_FAILED " BACKUP FAILED"
 /** @brief 3D MODE on: AM32 splits DShot 48..2047 into two directions, and the
  *         tester sends 47 + throttle, 1 to 2000, so 50 % is 1047, the top of
  *         the lower half. */
@@ -96,18 +80,42 @@ bool uiAm32Tick(const TouchState *t);
 #define AM32_UI_OLDFW_2 "FIELDS IT MAY NOT READ ARE HIDDEN."
 /** @} */
 
+/**
+ * @defgroup am32_view The read-only view
+ * @brief A plausible block in a layout outside @ref AM32_LAYOUT_MIN_KNOWN to
+ *        @ref AM32_LAYOUT_MAX_KNOWN, 2 to 4: the bytes in hex, no field, no
+ *        control but BACK. The strip carries two amber lines, the editor
+ *        bar's place two grey ones; each at most 37 characters, 221 px.
+ * @{
+ */
+/** @brief The strip's first line: the layout revision, 1 or 5 to 8, one digit. */
+#define AM32_UI_RO_FMT "LAYOUT %u NOT KNOWN: READ-ONLY."
+/** @brief The strip's second line begins with this. */
+#define AM32_UI_RO_UNVERIFIED "NOT VERIFIED."
+/** @brief ...then this and the backup's five-character name: it is on the card. */
+#define AM32_UI_RO_SAVED " BACKUP "
+/** @brief ...or this: no card, or the card held by USB. */
+#define AM32_UI_RO_NO_CARD " NO CARD: NO BACKUP."
+/** @brief ...or this: the card did not take the backup. */
+#define AM32_UI_RO_FAILED " BACKUP FAILED."
+/** @brief Under the bytes, first line. */
+#define AM32_UI_RO_BYTES "THE BYTES AS READ. THE FIELD TABLE"
+/** @brief Under the bytes, second line. */
+#define AM32_UI_RO_TABLE "IS NOT CHECKED FOR THIS LAYOUT."
+/**
+ * @brief The write's own refusal of a block in a layout outside 2 to 4. The
+ *        read-only view has no control that leads to the write; doWrite()
+ *        refuses on the bytes as read before anything else.
+ */
+#define AM32_UI_RO_REFUSED "LAYOUT NOT KNOWN: NOT WRITTEN"
+/** @} */
+
 /** @brief The connect page's last line under a reply it could not parse. */
 #define AM32_UI_NOT_AM32 "IS THE ESC RUNNING AM32?"
 /** @brief The connect page's first line under NO VALID SETTINGS. */
 #define AM32_UI_NO_SETTINGS_1 "NOT AN AM32 ESC, OR BLANK SETTINGS."
 /** @brief The connect page's second line under NO VALID SETTINGS. */
 #define AM32_UI_NO_SETTINGS_2 "NOTHING WILL BE WRITTEN."
-/**
- * @brief The write's refusal on a read-only list. No control of the list
- *        reaches it; doWrite() checks the flag before anything else.
- */
-#define AM32_UI_RO_REFUSED "READ-ONLY: NOT WRITTEN"
-
 /**
  * @brief MENU's strip line after a session that reached the bootloader:
  *        leaving sends no command to start the ESC's firmware. 29

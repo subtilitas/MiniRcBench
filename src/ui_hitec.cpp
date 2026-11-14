@@ -175,7 +175,7 @@ static bool        s_result = false;
 static uint8_t     s_resultSes = 0;
 static HitecRefusal s_resultRefused = HitecRefusal::None;
 static const char *s_cardNote = nullptr;
-/** @brief The last hold met the board voltage in the red band: nothing was written. */
+/** @brief The last hold, or the write after its flush, met the BOARD voltage red: nothing was written. */
 static bool s_boardLow = false;
 static bool        s_leaveQueued = false;
 static char        s_preset[HITEC_FILES_NAME_MAX];
@@ -986,7 +986,11 @@ static bool writeFiles() {
 }
 
 static void sendWrite() {
+	// Asked again here: the write may have waited for a flush since the hold.
+	s_boardLow = uiBoardWriteRefused();
+	if (s_boardLow) return;
 	escHeartbeat();
+	s_wroteOnce = true;
 	s_writing = true;
 	sendOp(HitecOp::Write, &s_pageTo);
 }
@@ -1089,8 +1093,8 @@ static void filesThenWrite() {
 static void startWrite() {
 	s_cardNote = nullptr;
 	s_result = false;
-	// The board's own battery in the red band: no file goes to the card and
-	// no frame to the servo. A write already running is not stopped.
+	// The BOARD voltage red: no file goes to the card and no frame to the
+	// servo. A write already running is not stopped.
 	s_boardLow = uiBoardWriteRefused();
 	if (s_boardLow) return;
 	if (cardCacheState() == CardCache::Failed) recoverFlush();
@@ -1299,10 +1303,7 @@ static void writeTouch() {
 		}
 		return;
 	}
-	if (uiHoldUpdate(&s_hold, BTN_WIDE, s_t, holdOk(), millis())) {
-		s_wroteOnce = true;
-		startWrite();
-	}
+	if (uiHoldUpdate(&s_hold, BTN_WIDE, s_t, holdOk(), millis())) startWrite();
 }
 
 // ---------------------------------------------------------------------------

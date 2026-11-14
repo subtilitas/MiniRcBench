@@ -3891,10 +3891,23 @@ static int shownAt(uint8_t layout) {
 	return n;
 }
 
+/** @brief The read-only view's hex line @p k reads the fake ESC's bytes, at x 6. */
+static bool hexLineShown(int k) {
+	char line[64];
+	int n = snprintf(line, sizeof(line), "%02X ", k * 8);
+	for (int i = 0; i < 8 && k * 8 + i < AM32_SETTINGS_SIZE; i++)
+		n += snprintf(line + n, sizeof(line) - n, "%02X ", fakeEscByte(k * 8 + i));
+	return fakeTextIs(6, LIST_Y0 + k * HEX_ROW_H, line, C_DIM, C_BG, 1);
+}
+
+/** @brief A tap at the middle of @p r, a rectangle no control of this frame owns. */
+static void tapRect(const UiRect &r) { tap(r.x + r.w / 2, r.y + r.h / 2); }
+
 /**
- * @brief A plausible block in a layout the table does not know opens the
- *        list read-only: the note, the nearest known layout's fields or the
- *        bytes alone, the backup on the card, and no write by any path.
+ * @brief A plausible block in a layout the table does not know, 1 or 5 to 8,
+ *        opens the read-only view: the bytes in hex, NOT VERIFIED, the backup
+ *        on the card. No control leads to the write, and the write itself
+ *        refuses the bytes.
  */
 static void testAm32ReadOnly() {
 	EscTelemetry quiet;
@@ -3903,58 +3916,82 @@ static void testAm32ReadOnly() {
 	uint8_t keep[AM32_SETTINGS_SIZE];
 	for (int i = 0; i < AM32_SETTINGS_SIZE; i++) keep[i] = fakeEscByte(i);
 
-	section("AM32 read-only: layout 5, the fields as layout 4, a backup");
+	section("AM32 read-only: layout 5, the bytes, a backup, no write");
 	{
 		am32Card();
 		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 5);
 		enterAm32(6);
-		checkTrue("the list opens, read-only", s_state == S_LIST && s_readOnly && !s_hexView);
-		checkTrue("the note: " AM32_UI_RO_FMT, stripNoteIs("LAYOUT 5 NOT KNOWN: READ-ONLY.",
-		                                                   "VALUES UNVERIFIED. BACKUP AM001"));
-		checkInt("the fields layout 4 shows", s_visibleCount, shownAt(4));
-		checkTrue("ABS VOLT CUT, a layout 4 field, is listed", uiRowOf("ABS VOLT CUT") >= 0);
+		checkTrue("the read-only view opens", s_state == S_VIEW && s_hexView);
+		checkInt("no field is shown in layout 5", shownAt(5), 0);
+		checkInt("nor in 1, 6, 7 or 8", shownAt(1) + shownAt(6) + shownAt(7) + shownAt(8), 0);
+		checkTrue("layouts 2 to 4 show fields", shownAt(2) > 0 && shownAt(3) > 0 && shownAt(4) > 0);
+		checkInt("the list holds no field", s_visibleCount, 0);
+		checkTrue("the strip: LAYOUT 5 NOT KNOWN: READ-ONLY. / NOT VERIFIED. BACKUP AM001",
+		          stripNoteIs("LAYOUT 5 NOT KNOWN: READ-ONLY.", "NOT VERIFIED. BACKUP AM001"));
+		bool hex = true;
+		for (int k = 0; k < HEX_LINES; k++) hex = hex && hexLineShown(k);
+		checkTrue("the 48 bytes in hex, 8 a line", hex);
+		checkTrue(AM32_UI_RO_BYTES ", grey", fakeTextCentredIs(EDIT_Y + 12, AM32_UI_RO_BYTES, C_GRID, C_BG, 1));
+		checkTrue(AM32_UI_RO_TABLE ", grey", fakeTextCentredIs(EDIT_Y + 26, AM32_UI_RO_TABLE, C_GRID, C_BG, 1));
+		int x0 = 0, x1 = 0;
+		checkTrue("the strip stays inside the panel's 8 px margins",
+		          fakeInkExtent(UI_STRIP_LINE1_Y, 18, C_BG, &x0, &x1) && x0 >= UI_MARGIN &&
+		          x1 < GFX_W - UI_MARGIN);
 		static char want[AM32_BACKUP_MAX], got[AM32_BACKUP_MAX];
 		size_t wantLen = am32BackupFormat(s_entry, am32BlEscTypeName(), am32BlEepromAddr(),
 		                                  want, sizeof(want));
 		int32_t gotLen = fakeFatGet("BACKUP/AM001.TXT", got, sizeof(got));
-		checkTrue("the backup is on the card as the list opened",
-		          gotLen == (int32_t)wantLen && memcmp(got, want, wantLen) == 0);
-		checkTrue("and says the fields are layout 4's, not verified",
-		          strstr(want, "Layout not known: fields read as layout 4, not verified\n") != nullptr);
-		checkTrue("no WRITE, no REVERT", !ctlPresent(UI_FIX(Am32Ctl::Write)) &&
-		          !ctlPresent(UI_FIX(Am32Ctl::Revert)));
-		checkTrue("HEX acts", ctlEnabled(UI_FIX(Am32Ctl::Hex)));
-		checkTrue("a row takes no tap", ctlPresent(UI_ROW(0, Row)) && !ctlEnabled(UI_ROW(0, Row)));
+		checkTrue("the backup is on the card as the view opened",
+		          gotLen == (int32_t)wantLen && wantLen > 0 && memcmp(got, want, wantLen) == 0);
+		checkTrue("it says the fields are not read, and holds no field line",
+		          strstr(want, "Layout not known: fields not read, not verified\n") != nullptr &&
+		          strstr(want, " = ") == nullptr && strstr(want, "bytes 48\n") != nullptr);
+		UiControl tbl[UI_CONTROLS_MAX];
+		checkInt("BACK is the one control", uiControls(tbl, UI_CONTROLS_MAX), 1);
+		checkTrue("and it is BACK", ctlPresent(UI_FIX(UI_BACK)) && !ctlPresent(UI_FIX(Am32Ctl::Write)) &&
+		          !ctlPresent(UI_FIX(Am32Ctl::Revert)) && !ctlPresent(UI_FIX(Am32Ctl::Hex)));
 		checkControlTable("AM32 read-only");
 		fakeDumpFrame("shot_am32_readonly.ppm");
-		tapId(UI_ROW(0, Row), IdExpect::Disabled);
-		checkTrue("a tap on a row selects nothing: no stepper",
-		          s_selected < 0 && !ctlPresent(UI_FIX(Am32Ctl::EditPlus)));
+
+		// Every place a control of the list stands: nothing selects, steps,
+		// toggles or writes.
+		int writes = fakeAm32Writes();
 		uint8_t before[AM32_SETTINGS_SIZE];
 		memcpy(before, s_eeprom, sizeof(before));
-		const UiRect lv = listView();
-		int y = ctlRect(UI_ROW(0, Row)).y + 20;
-		swipe(lv.x + 30, lv.x + 220, y, 10);
-		checkTrue("a sideways swipe steps nothing", memcmp(before, s_eeprom, sizeof(before)) == 0 &&
-		          s_selected < 0);
-		tapId(UI_FIX(Am32Ctl::Hex));
-		checkTrue("HEX shows the bytes", s_hexView && s_state == S_LIST);
-		tapId(UI_FIX(Am32Ctl::Hex));
-		checkTrue("FIELDS shows the fields again", !s_hexView);
-		// The write path itself refuses, whatever reaches it: an edit made
-		// behind the screen's back and the write state set directly.
+		fakePress(BTN_WRITE.x + BTN_WRITE.w / 2, BTN_WRITE.y + BTN_WRITE.h / 2);
+		frames(1);
+		for (int i = 0; i < 60; i++) {
+			fakeHold(BTN_WRITE.x + BTN_WRITE.w / 2, BTN_WRITE.y + BTN_WRITE.h / 2);
+			frames(1);
+		}
+		fakeRelease();
+		frames(2);
+		tapRect(BTN_REVERT);
+		tapRect(BTN_HEX);
+		tapRect(BTN_MINUS);
+		tapRect(BTN_PLUS);
+		tap(GFX_W / 2, LIST_Y0 + 5);
+		swipe(30, 220, LIST_Y0 + 20, 10);
+		checkTrue("a hold where WRITE stands, taps on REVERT, HEX, - and +, a swipe: "
+		          "the view as it was", s_state == S_VIEW && s_hexView && s_selected < 0 &&
+		          memcmp(before, s_eeprom, sizeof(before)) == 0);
+		checkInt("no write went to the ESC", fakeAm32Writes(), writes);
+
+		// The write itself refuses the bytes, whatever reaches it: an edit
+		// made behind the screen's back and the write state set directly.
 		s_eeprom[0x1B] ^= 0x02;
 		uint8_t esc = fakeEscByte(0x1B);
 		s_state = S_WRITING;
 		snprintf(s_status, sizeof(s_status), "WRITING...");
 		frames(2);
-		checkTrue("the write refuses on the read-only flag: nothing to the ESC",
-		          fakeEscByte(0x1B) == esc && strcmp(s_status, AM32_UI_RO_REFUSED) == 0);
+		checkTrue("the write refuses a layout not known: nothing to the ESC",
+		          fakeAm32Writes() == writes && fakeEscByte(0x1B) == esc &&
+		          strcmp(s_status, AM32_UI_RO_REFUSED) == 0);
 		checkTrue(AM32_UI_RO_REFUSED " on the result page",
-		          fakeTextCentredIs(140, AM32_UI_RO_REFUSED, C_TEXT, C_BG, 1));
-		checkTrue("and no second backup", !fakeFatExists("BACKUP/AM002.TXT"));
+		          fakeTextCentredIs(RESULT_Y, AM32_UI_RO_REFUSED, C_TEXT, C_BG, 1));
+		checkTrue("no second backup", !fakeFatExists("BACKUP/AM002.TXT"));
 		tapId(UI_FIX(Am32Ctl::Ok));
-		checkTrue("OK: the list again", s_state == S_LIST);
+		checkTrue("OK: the read-only view again", s_state == S_VIEW);
 		s_eeprom[0x1B] ^= 0x02;
 		leaveAm32ToTester();
 	}
@@ -3964,53 +4001,48 @@ static void testAm32ReadOnly() {
 		am32NoCard();
 		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 8);
 		enterAm32(6);
-		checkTrue("layout 8, no card: read-only, no backup", s_readOnly &&
-		          stripNoteIs("LAYOUT 8 NOT KNOWN: READ-ONLY.", "VALUES UNVERIFIED. NO CARD: NO BACKUP"));
+		checkTrue("layout 8, no card: read-only, no backup", s_state == S_VIEW &&
+		          stripNoteIs("LAYOUT 8 NOT KNOWN: READ-ONLY.", "NOT VERIFIED. NO CARD: NO BACKUP."));
 		int x0 = 0, x1 = 0;
-		checkTrue("the note stays inside the panel's 8 px margins",
-		          fakeInkExtent(UI_STRIP_LINE1_Y, 18, C_BG, &x0, &x1) && x0 >= UI_MARGIN &&
+		checkTrue("the longest second line stays inside the panel's 8 px margins",
+		          fakeInkExtent(UI_STRIP_LINE2_Y, 8, C_BG, &x0, &x1) && x0 >= UI_MARGIN &&
 		          x1 < GFX_W - UI_MARGIN);
 		leaveAm32ToTester();
 		am32Card();
 		fakeFatWriteProtect(true);
 		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 6);
 		enterAm32(6);
-		checkTrue("a card that refuses: BACKUP FAILED",
-		          stripNoteIs("LAYOUT 6 NOT KNOWN: READ-ONLY.", "VALUES UNVERIFIED. BACKUP FAILED"));
+		checkTrue("a card that refuses: BACKUP FAILED.", s_state == S_VIEW &&
+		          stripNoteIs("LAYOUT 6 NOT KNOWN: READ-ONLY.", "NOT VERIFIED. BACKUP FAILED."));
 		fakeFatWriteProtect(false);
 		leaveAm32ToTester();
 	}
 
-	section("AM32 read-only: layout 1, the bytes alone");
+	section("AM32 read-only: layout 1");
 	{
 		am32Card();
 		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 1);
 		enterAm32(6);
-		checkTrue("the list opens on the hex view", s_state == S_LIST && s_readOnly && s_hexView);
-		checkInt("no field", s_visibleCount, 0);
-		checkTrue("the note", stripNoteIs("LAYOUT 1 NOT KNOWN: READ-ONLY.", "SHOWN AS BYTES. BACKUP AM001"));
-		checkTrue("FIELDS is drawn and does not act", ctlPresent(UI_FIX(Am32Ctl::Hex)) &&
-		          !ctlEnabled(UI_FIX(Am32Ctl::Hex)));
-		tapId(UI_FIX(Am32Ctl::Hex), IdExpect::Disabled);
-		checkTrue("a tap on it leaves the bytes", s_hexView);
+		checkTrue("layout 1 opens the read-only view", s_state == S_VIEW && s_hexView);
+		checkTrue("the note", stripNoteIs("LAYOUT 1 NOT KNOWN: READ-ONLY.", "NOT VERIFIED. BACKUP AM001"));
 		static char got[AM32_BACKUP_MAX];
-		checkTrue("the backup reads no field",
+		checkTrue("the backup holds no field line",
 		          fakeFatGet("BACKUP/AM001.TXT", got, sizeof(got)) > 0 &&
-		          strstr(got, "Layout not known: fields not read\n") != nullptr &&
+		          strstr(got, "Layout not known: fields not read, not verified\n") != nullptr &&
 		          strstr(got, " = ") == nullptr);
-		checkControlTable("AM32 read-only, bytes");
-		fakeDumpFrame("shot_am32_readonly_hex.ppm");
 		leaveAm32ToTester();
 	}
 
-	section("AM32: layouts 2 to 4 open for writing, a block that is not plausible does not open");
+	section("AM32: layouts 2 to 4 open the list, a block that is not plausible does not open");
 	{
 		for (uint8_t lay = 2; lay <= 4; lay++) {
+			am32Card();
 			fakeEscSet(AM32_OFF_LAYOUT_REVISION, lay);
 			enterAm32(6);
-			char what[48];
-			snprintf(what, sizeof(what), "layout %u: the list, not read-only", lay);
-			checkTrue(what, s_state == S_LIST && !s_readOnly);
+			char what[64];
+			snprintf(what, sizeof(what), "layout %u: the list, WRITE, no backup yet", lay);
+			checkTrue(what, s_state == S_LIST && !s_hexView && ctlPresent(UI_FIX(Am32Ctl::Write)) &&
+			          !fakeFatExists("BACKUP/AM001.TXT"));
 			leaveAm32ToTester();
 		}
 		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 9);
@@ -4036,7 +4068,7 @@ static void testAm32BoardLow() {
 	fakeSetTelemetry(&quiet);
 	am32NoCard();
 	enterAm32(6);
-	checkTrue("the list is open", s_state == S_LIST && !s_readOnly);
+	checkTrue("the list is open", s_state == S_LIST);
 	boardVolts(3.20f);
 	checkTrue("3.20 V on the AM32 screen: the band is red", uiBoardCellNow() == BoardCell::Critical);
 	const int vp = uiRowOf("POLES");
@@ -4045,10 +4077,11 @@ static void testAm32BoardLow() {
 	tapId(UI_FIX(Am32Ctl::EditMinus));
 	uint8_t want = uiByte(0x1B);
 	checkTrue("a change to write", want != fakeEscByte(0x1B));
+	int writes = fakeAm32Writes();
 	pressId(UI_FIX(Am32Ctl::Write));
 	holdId(UI_FIX(Am32Ctl::Write), 50);
 	fakeRelease(); frames(3);
-	checkTrue("held: nothing written", fakeEscByte(0x1B) != want &&
+	checkTrue("held: nothing written", fakeEscByte(0x1B) != want && fakeAm32Writes() == writes &&
 	          strcmp(s_status, UI_BOARD_LOW_1) == 0);
 	checkTrue(UI_BOARD_LOW_1 ", y 140", fakeTextCentredIs(140, UI_BOARD_LOW_1, C_TEXT, C_BG, 1));
 	checkTrue("then " UI_BOARD_LOW_2 " in amber, y 170",
@@ -4071,6 +4104,15 @@ static void testAm32BoardLow() {
 	holdId(UI_FIX(Am32Ctl::Write), 50);
 	fakeRelease(); frames(3);
 	checkTrue("NoCell writes", fakeEscByte(0x1B) == want && strcmp(s_status, "WRITE VERIFIED") == 0);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	boardVolts(3.92f);
+	checkTrue("3.92 V: the text colour", uiBoardCellNow() == BoardCell::Ok);
+	tapId(UI_FIX(Am32Ctl::EditMinus));
+	want = uiByte(0x1B);
+	pressId(UI_FIX(Am32Ctl::Write));
+	holdId(UI_FIX(Am32Ctl::Write), 50);
+	fakeRelease(); frames(3);
+	checkTrue("Ok writes", fakeEscByte(0x1B) == want && strcmp(s_status, "WRITE VERIFIED") == 0);
 	tapId(UI_FIX(Am32Ctl::Ok));
 	fakeAdcSet(fakeAdcDefault());
 	frames(80);

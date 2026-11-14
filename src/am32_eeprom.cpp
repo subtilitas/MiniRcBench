@@ -400,14 +400,9 @@ bool am32LayoutKnown(const uint8_t *eeprom) {
 	return rev >= AM32_LAYOUT_MIN_KNOWN && rev <= AM32_LAYOUT_MAX_KNOWN;
 }
 
-uint8_t am32ViewLayout(const uint8_t *eeprom) {
-	uint8_t rev = eeprom[AM32_OFF_LAYOUT_REVISION];
-	if (rev < AM32_LAYOUT_MIN_KNOWN) return 0;
-	return rev > AM32_LAYOUT_MAX_KNOWN ? (uint8_t)AM32_LAYOUT_MAX_KNOWN : rev;
-}
-
 bool am32FieldShown(const Am32Field *f, const uint8_t *eeprom) {
-	uint8_t view = am32ViewLayout(eeprom);
-	if (!view || !am32FieldApplies(f, view)) return false;
+	// A layout the table is not checked against may have moved any field.
+	if (!am32LayoutKnown(eeprom)) return false;
+	if (!am32FieldApplies(f, eeprom[AM32_OFF_LAYOUT_REVISION])) return false;
 	return !f->readFw || am32Firmware(eeprom) >= f->readFw;
 }
