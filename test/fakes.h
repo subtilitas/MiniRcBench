@@ -181,6 +181,13 @@ bool fakeTextIs(int x, int y, const char *text, uint16_t col, uint16_t bg, int s
 bool fakeTextCentredIs(int y, const char *text, uint16_t col, uint16_t bg, int scale);
 
 /**
+ * @brief Whether a write page's change `old -> now` ends at x 232 on the line
+ *        at @p y, at scale 1: `old -> ` in `C_DIM`, `now` in `C_CYAN`, as
+ *        uiChangeText() draws it.
+ */
+bool fakeChangeIs(int y, const char *old, const char *now, uint16_t bg);
+
+/**
  * @brief The leftmost and rightmost columns in rows @p y to @p y + @p h - 1
  *        that hold a pixel other than @p bg.
  * @return false when every pixel there is @p bg.

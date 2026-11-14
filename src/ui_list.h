@@ -223,7 +223,7 @@ void uiListDraw(const UiList *l, UiListDrawFn drawRow, void *ctx);
 /** @brief What a field row's value is, which sets its colour. */
 enum class UiValue : uint8_t {
 	Plain,     /**< As the device holds it: `C_TEXT`. */
-	Changed,   /**< Edited and not yet written: the caller's colour. */
+	Changed,   /**< Edited and not yet written: @ref UI_COL_CHANGED. */
 	ReadOnly,  /**< Not editable: `C_GRID`, the label too. */
 	Odd,       /**< A value the screen cannot show as a setting, or a row
 	                that needs a repair: @ref UI_COL_WARN. */
@@ -232,7 +232,7 @@ enum class UiValue : uint8_t {
 /** @brief The bar at a field row's left edge. */
 enum class UiEdge : uint8_t {
 	None,     /**< No bar. */
-	Changed,  /**< A change: a bar in the caller's colour. */
+	Changed,  /**< A change: a bar in @ref UI_COL_CHANGED. */
 	Rule,     /**< A change that breaks a soft rule: @ref UI_COL_WARN. */
 };
 
@@ -255,8 +255,8 @@ struct UiField {
  * @brief Draw one field row of an editor's list (docs/design/menu-b.md,
  *        decision 8).
  *
- * No screen uses it yet. Slice 2 of the note moves the rows of AM32 CONFIG,
- * KST SERVO, HITEC SERVO and SERVO SET onto it.
+ * The rows of AM32 CONFIG, KST SERVO, HITEC SERVO and SERVO SET draw
+ * through it.
  *
  * The row fills @p h - 1 px from @p y, `C_PANEL` while selected and `C_BG`
  * otherwise, with a `C_PANEL` rule on its last line. The group is at y + 11,
@@ -267,14 +267,11 @@ struct UiField {
  * value's colour. The edge bar is @ref UI_FIELD_EDGE_W px wide at x 0, as
  * tall as the fill.
  *
- * @param y          Top of the row, which may lie outside the viewport.
- * @param h          The row's body, px, rule included.
- * @param f          What the row shows.
- * @param changedCol The colour of @ref UiValue::Changed and
- *                   @ref UiEdge::Changed. It is a parameter while open
- *                   question 4 of the note, the "changed" colour, stands.
+ * @param y Top of the row, which may lie outside the viewport.
+ * @param h The row's body, px, rule included.
+ * @param f What the row shows.
  */
-void uiListDrawField(int y, int h, const UiField &f, uint16_t changedCol);
+void uiListDrawField(int y, int h, const UiField &f);
 
 /** @brief Width of the scroll bar, px. */
 #define UI_LIST_BAR_W 3

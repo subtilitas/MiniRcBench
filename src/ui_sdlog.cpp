@@ -196,7 +196,7 @@ static void drawUsbPanel(MscState st) {
 		if (kb >= 1024) snprintf(buf, sizeof(buf), "%lu.%lu MB READ",
 		                         (unsigned long)(kb / 1024), (unsigned long)((kb % 1024) * 10 / 1024));
 		else            snprintf(buf, sizeof(buf), "%lu kB READ", (unsigned long)kb);
-		gfxTextCenter(LOG_ROW0_Y + 104, buf, C_CYAN, 2);
+		gfxTextCenter(LOG_ROW0_Y + 104, buf, UI_COL_LIVE, 2);
 
 		gfxTextCenter(LOG_ROW0_Y + 138, "EJECT ON THE COMPUTER FIRST,", C_GRID, 1);
 		gfxTextCenter(LOG_ROW0_Y + 152, "OR PRESS EJECT BELOW", C_GRID, 1);
@@ -348,22 +348,22 @@ static void drawLogScreen() {
 	// Without a card there is nothing to start. It was drawn grey for that
 	// reason already, and pressed it anyway. @see #23
 	uiButton(BTN_LOG_TOGGLE, active ? "STOP" : "START",
-	        active ? C_RED : C_PANEL, active ? C_ONACCENT : C_LIME, 2,
+	        active ? C_RED : C_PANEL, active ? C_ONACCENT : C_TEXT, 2,
 	        pressing(BTN_LOG_TOGGLE, s_touch), usable);
 
 	// The card is only mounted once, at boot, so one inserted afterwards needs
 	// this. Without it, "insert card, nothing happens" is indistinguishable
 	// from a card the firmware cannot read.
-	uiButton(BTN_LOG_RETRY, "RETRY MOUNT", C_PANEL, C_CYAN, 1,
+	uiButton(BTN_LOG_RETRY, "RETRY MOUNT", C_PANEL, C_TEXT, 1,
 	        pressing(BTN_LOG_RETRY, s_touch));
 
 	// Hands the card to a computer over the same USB cable that powers the
-	// board. Cyan like the other navigation-ish controls; it is not
+	// board. A command button, so its label is the text colour; it is not
 	// destructive, and it is refused rather than guarded by a hold.
 	// Same again. With a card present it stays live even when it will refuse --
 	// armed, or recording -- because those refusals say something the screen
 	// does not already: "NO CARD TO SHARE" only repeats the CARD row above.
-	uiButton(BTN_LOG_USB, "USB DRIVE", C_PANEL, C_CYAN, 1,
+	uiButton(BTN_LOG_USB, "USB DRIVE", C_PANEL, C_TEXT, 1,
 	        pressing(BTN_LOG_USB, s_touch), usable);
 
 	// The note lines say why the last press was refused, how the last log

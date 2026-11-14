@@ -26,6 +26,9 @@
  * `C_AMBER`, because those are the two fills that are bright in one theme and
  * dark in the other — and `C_PAPER` flips with them.
  *
+ * The accent colours carry one role each on every screen, named in
+ * ui_widgets.h as `UI_COL_*` (docs/design/menu-b.md, decision 11).
+ *
  * @see gfx.h, which includes this and re-exports the names.
  */
 
@@ -64,15 +67,15 @@ enum ThemeColor : uint8_t {
 	TC_INK,       /**< Strongest mark against the background. */
 	TC_PAPER,     /**< Equals the background; for text on a bright fill. */
 	TC_ONACCENT,  /**< Text on a saturated fill. */
-	TC_GREEN,     /**< Muted green (SAFE badge). */
-	TC_LIME,      /**< Live values, throttle fill. */
-	TC_AMBER,     /**< Warning. */
-	TC_RED,       /**< Error / ARMED. */
+	TC_GREEN,     /**< Safe, done: SAFE, EDT ON, WRITE VERIFIED, SAVED. */
+	TC_LIME,      /**< A live reading: RPM, throttle fill, hold bars. */
+	TC_AMBER,     /**< Warning: text to read before the next action. */
+	TC_RED,       /**< Output on, or a failure: ARMED, RUNNING, REC. */
 	TC_REDDARK,   /**< Dead-telemetry digit. Reads as "off but present". */
 	TC_GHOST,     /**< Unused leading seven-segment digits. */
-	TC_BLUE,      /**< HOLD active. */
-	TC_CYAN,      /**< Informational accent. */
-	TC_MAGENTA,   /**< ESC alert state. */
+	TC_BLUE,      /**< Latched: LATCH on, a toggle on, PROG MODE, servo B. */
+	TC_CYAN,      /**< Changed: a value edited and not yet written. */
+	TC_MAGENTA,   /**< Alert: the ESC status alert, STALLED. */
 	TC_COUNT      /**< Number of entries. Not a colour. */
 };
 

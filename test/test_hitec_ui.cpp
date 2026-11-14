@@ -1157,9 +1157,8 @@ static void testWritePageHornLine() {
 	changed = hitecChangedCount(&servo, &f, HITEC_LAYOUT_D);
 	checkTrue("the ID row first, FAILSAFE second", rowLabelY("ID") == UI_BODY_Y &&
 	          rowLabelY("FAILSAFE") == UI_BODY_Y + 12);
-	checkTrue("FAILSAFE's value under its label", fakeTextIs(GFX_W - UI_MARGIN -
-	          gfxTextW("900 US (900) -> 2100 US (2100)", 1), UI_BODY_Y + 22,
-	          "900 US (900) -> 2100 US (2100)", C_LIME, C_BG, 1));
+	checkTrue("FAILSAFE's value under its label: the old value dim, the new cyan",
+	          fakeChangeIs(UI_BODY_Y + 22, "900 US (900)", "2100 US (2100)", C_BG));
 	checkTrue("AND n MORE counts the rest", andMore() == changed - rowsListed() && andMore() > 0);
 	checkTrue("the horn line, the ID note, FILE, MODEL",
 	          hy > 0 && idNoteDrawn(HITEC_UI_ID_NOTE_PAGE, 36, false) && noteLineY(FILE_LINE) > hy &&

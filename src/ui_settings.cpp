@@ -215,7 +215,7 @@ static void polesStep(int dir) {
 
 static void maxValue(char *b, size_t n, uint16_t *c) {
 	snprintf(b, n, "%u%%", (unsigned)((uint32_t)settings()->maxThrottle * 100 / 2000));
-	*c = C_AMBER;
+	*c = C_TEXT;
 }
 static void maxStep(int dir) {
 	int t = (int)settings()->maxThrottle + MAX_THROTTLE_STEP * dir;
@@ -224,7 +224,7 @@ static void maxStep(int dir) {
 	s_changed = true;
 }
 
-static void pinValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "GP%u", settings()->dshotPin); *c = C_LIME; }
+static void pinValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "GP%u", settings()->dshotPin); *c = C_TEXT; }
 static void pinStep(int dir) {
 	Settings *s = settings();
 	uint8_t p = stepPinAvoiding(s->dshotPin, dir, s->kissPin, s->kissEnable != 0);
@@ -259,7 +259,7 @@ static void kissToggle() {
 static void kissPinValue(char *b, size_t n, uint16_t *c) {
 	// With KISS off this row has nothing to set: the value reads "--" and the
 	// buttons are drawn unavailable and do not act. @see #23
-	if (settings()->kissEnable) { snprintf(b, n, "GP%u", settings()->kissPin); *c = C_CYAN; }
+	if (settings()->kissEnable) { snprintf(b, n, "GP%u", settings()->kissPin); *c = C_TEXT; }
 	else                        { snprintf(b, n, "--"); *c = C_DIM; }
 }
 static void kissPinStep(int dir) {
@@ -516,7 +516,7 @@ static void drawItem(uint8_t i) {
 	const Item &it = s_items[i];
 	int y = topOf(it);
 	if (!it.row) {
-		gfxText(UI_MARGIN, y + 8, it.sec->caption, C_CYAN, 1);
+		gfxText(UI_MARGIN, y + 8, it.sec->caption, C_TEXT, 1);
 		return;
 	}
 	const SettingsRow &r = *it.row;
@@ -636,7 +636,7 @@ static const char *noteText(uint16_t *col) {
 		return "UNSAVED - HOLD SAVE TO KEEP";
 	}
 	if (s_saveOutcome == SaveOutcome::Ok) {
-		*col = C_LIME;
+		*col = UI_COL_SAFE;
 		return "SAVED";
 	}
 	if (settingsResetByUpdate()) {
@@ -703,11 +703,10 @@ static void drawAll() {
 	// is the thing that reports.
 	bool holding = s_saveHold.holding;
 	uiHoldDrawBar(&s_saveHold, BTN_SAVE, FOOT_Y - 4, millis());
-	uiButton(BTN_SAVE, "HOLD TO SAVE", holding ? C_BLUE : C_PANEL,
+	uiButton(BTN_SAVE, "HOLD TO SAVE", holding ? UI_COL_ON : C_PANEL,
 	         holding ? C_ONACCENT : C_TEXT, 1, holding);
 	// HOLD RESET's bar sits over its own button, as SAVE's does. While held
-	// it fills C_RED with C_ONACCENT text, as every other src/ui_hold.* hold
-	// but SAVE does.
+	// it fills C_RED with C_ONACCENT text, as every src/ui_hold.* hold does.
 	bool resetting = s_resetHold.holding;
 	uiHoldDrawBar(&s_resetHold, BTN_DEFAULTS, FOOT_Y - 4, millis());
 	uiButton(BTN_DEFAULTS, RESET_LABEL, resetting ? C_RED : C_PANEL,

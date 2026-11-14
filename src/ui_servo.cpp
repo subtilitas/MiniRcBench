@@ -475,7 +475,7 @@ static void drawDial() {
 		snprintf(b, sizeof(b), "PULSES ON GP%u ARE THROTTLE TO AN ESC.", gpioOf(PIN_SIG));
 		line(76, b, C_DIM);
 	} else if (sw[0]) {
-		line(64, sw, C_CYAN);
+		line(64, sw, UI_COL_LIVE);
 	}
 	gfxArcDots(SERVO_DIAL_X, SERVO_DIAL_Y, SERVO_DIAL_ARC_R, -90, 90, 10, 3, C_GRID);
 	gfxLine(SERVO_DIAL_X, SERVO_DIAL_Y - SERVO_DIAL_ARC_R - 4, SERVO_DIAL_X,
@@ -485,9 +485,9 @@ static void drawDial() {
 	// The unselected horn first, so the selected one is drawn over it.
 	bool selA = !twoServos() || (s_mask & SERVO_MASK_A);
 	bool selB = twoServos() && (s_mask & SERVO_MASK_B);
-	if (twoServos() && s_st.outUs[1] && !selB) drawHorn(s_st.outUs[1], C_CYAN, false);
+	if (twoServos() && s_st.outUs[1] && !selB) drawHorn(s_st.outUs[1], UI_COL_LATCHED, false);
 	if (s_st.outUs[0] && !selA) drawHorn(s_st.outUs[0], C_LIME, false);
-	if (twoServos() && s_st.outUs[1] && selB) drawHorn(s_st.outUs[1], C_CYAN, true);
+	if (twoServos() && s_st.outUs[1] && selB) drawHorn(s_st.outUs[1], UI_COL_LATCHED, true);
 	if (s_st.outUs[0] && selA) drawHorn(s_st.outUs[0], C_LIME, true);
 	gfxRoundRect(SERVO_DIAL_X - SV_SHAFT_R, SERVO_DIAL_Y - SV_SHAFT_R, 2 * SV_SHAFT_R,
 	             2 * SV_SHAFT_R, SV_SHAFT_R, C_TEXT);
@@ -545,7 +545,7 @@ static void drawReadout() {
 		if (s_st.outUs[0]) snprintf(buf, sizeof(buf), "%u US", s_st.outUs[0]);
 		else               snprintf(buf, sizeof(buf), "NO PULSE");
 		gfxText(UI_MARGIN, SV_READ_Y + 5, buf, s_st.outUs[0] ? C_LIME : C_DIM, 2);
-		if (sw[0]) gfxText(GFX_W - UI_MARGIN - gfxTextW(sw, 1), SV_READ_Y + 9, sw, C_CYAN, 1);
+		if (sw[0]) gfxText(GFX_W - UI_MARGIN - gfxTextW(sw, 1), SV_READ_Y + 9, sw, UI_COL_LIVE, 1);
 		if (sensed) {
 			gfxText(GFX_W - UI_MARGIN - gfxTextW(cur, 2), SV_READ_Y + SV_CUR_DY, cur, curCol, 2);
 			gfxText(GFX_W - UI_MARGIN - gfxTextW(volt, 1), SV_READ_Y + SV_VOLT_DY, volt, C_DIM, 1);
@@ -565,9 +565,9 @@ static void drawReadout() {
 	if (s_st.outUs[1]) snprintf(b, sizeof(b), "%u", s_st.outUs[1]); else snprintf(b, sizeof(b), "--");
 	gfxText(UI_MARGIN, SV_READ_Y + 3, "A", C_LIME, 1);
 	gfxText(UI_MARGIN + 10, SV_READ_Y + 3, a, C_TEXT, 1);
-	gfxText(UI_MARGIN + 50, SV_READ_Y + 3, "B", C_CYAN, 1);
+	gfxText(UI_MARGIN + 50, SV_READ_Y + 3, "B", UI_COL_LATCHED, 1);
 	gfxText(UI_MARGIN + 60, SV_READ_Y + 3, b, C_TEXT, 1);
-	if (sw[0]) gfxText(UI_MARGIN, SV_READ_Y + 14, sw, C_CYAN, 1);
+	if (sw[0]) gfxText(UI_MARGIN, SV_READ_Y + 14, sw, UI_COL_LIVE, 1);
 	if (sensed) {
 		// Both servos are on the one supply: the current is their sum.
 		char sum[32];
@@ -576,7 +576,7 @@ static void drawReadout() {
 	}
 	uiButton(BTN_SEL_A, "A", s_mask == SERVO_MASK_A ? C_LIME : C_PANEL,
 	         s_mask == SERVO_MASK_A ? C_ONACCENT : C_TEXT, 1, k.pa);
-	uiButton(BTN_SEL_B, "B", s_mask == SERVO_MASK_B ? C_CYAN : C_PANEL,
+	uiButton(BTN_SEL_B, "B", s_mask == SERVO_MASK_B ? UI_COL_LATCHED : C_PANEL,
 	         s_mask == SERVO_MASK_B ? C_ONACCENT : C_TEXT, 1, k.pb);
 	uiButton(BTN_SEL_AB, "AB", s_mask == SERVO_MASK_AB ? C_INK : C_PANEL,
 	         s_mask == SERVO_MASK_AB ? C_PAPER : C_TEXT, 1, k.pab);
@@ -591,7 +591,7 @@ static void drawSpeed() {
 	UiRect pr = uiSliderPaintedRect(&s_speed);
 	gfxRect(0, pr.y, GFX_W, pr.h, C_BG);
 	gfxText(UI_MARGIN, SV_SPEED_Y + (SV_SPEED_H - 7) / 2, "SPEED", C_DIM, 1);
-	uiSliderDraw(&s_speed, C_CYAN);
+	uiSliderDraw(&s_speed, C_DIM);
 	char buf[8];
 	snprintf(buf, sizeof(buf), "%d%%", (int)(s_speed.value + 0.5f));
 	gfxText(GFX_W - UI_MARGIN - gfxTextW(buf, 1), SV_SPEED_Y + (SV_SPEED_H - 7) / 2, buf, C_TEXT, 1);
@@ -608,10 +608,10 @@ static void drawButtons(bool startOk, int holdPct) {
 	k.p[3] = pressing(BTN_SWEEP); k.p[4] = pressing(BTN_START); k.p[5] = pressing(BTN_SET);
 	if (!changed(4, &k, sizeof(k))) return;
 	gfxRect(0, SV_LOW_Y, GFX_W, GFX_H - SV_LOW_Y, C_BG);
-	uiButton(BTN_MIN, "MIN", C_PANEL, C_CYAN, 1, k.p[0], run);
-	uiButton(BTN_CENTRE, "CENTRE", C_PANEL, C_CYAN, 1, k.p[1], run);
-	uiButton(BTN_MAX, "MAX", C_PANEL, C_CYAN, 1, k.p[2], run);
-	uiButton(BTN_SWEEP, s_st.sweeping ? "STOP SWEEP" : "SWEEP", C_PANEL, C_CYAN, 1, k.p[3], run);
+	uiButton(BTN_MIN, "MIN", C_PANEL, C_TEXT, 1, k.p[0], run);
+	uiButton(BTN_CENTRE, "CENTRE", C_PANEL, C_TEXT, 1, k.p[1], run);
+	uiButton(BTN_MAX, "MAX", C_PANEL, C_TEXT, 1, k.p[2], run);
+	uiButton(BTN_SWEEP, s_st.sweeping ? "STOP SWEEP" : "SWEEP", C_PANEL, C_TEXT, 1, k.p[3], run);
 	if (s_st.running) {
 		uiButton(BTN_START, "STOP", C_RED, C_ONACCENT, 2, k.p[4]);
 	} else {
@@ -619,7 +619,7 @@ static void drawButtons(bool startOk, int holdPct) {
 		uiButton(BTN_START, "HOLD TO START", s_hold.holding ? C_RED : C_PANEL,
 		         s_hold.holding ? C_ONACCENT : C_TEXT, 1, s_hold.holding, startOk);
 	}
-	uiButton(BTN_SET, "SET", C_PANEL, C_CYAN, 1, k.p[5]);
+	uiButton(BTN_SET, "SET", C_PANEL, C_TEXT, 1, k.p[5]);
 }
 
 /** @brief Point the selection, or the dial, at a command. */
@@ -827,22 +827,42 @@ static void setNote(const char **l1, const char **l2, uint16_t *col) {
 }
 
 /**
+ * @brief The value state of SET row @p i (docs/design/menu-b.md, decision 8):
+ *        a PULSE row while RUNNING locks it is ReadOnly; a PULSE row whose
+ *        edit waits for HOLD TO APPLY and differs from the applied profile is
+ *        Changed; every other row is Plain, since its edit applies at once.
+ */
+static UiValue setValue(int i) {
+	const SetRow &r = ROWS[i];
+	if (!r.pulse) return UiValue::Plain;
+	if (s_st.running) return UiValue::ReadOnly;
+	if (!s_pending) return UiValue::Plain;
+	const ServoProfile &e = s_edit, &p = s_profile;
+	bool differs = false;
+	switch ((ServoField)r.field) {
+		case ServoField::Servos:   differs = e.servos != p.servos; break;
+		case ServoField::Type:     differs = e.type != p.type; break;
+		case ServoField::Rate:     differs = e.rateHz != p.rateHz; break;
+		case ServoField::Min:      differs = e.minUs != p.minUs; break;
+		case ServoField::Centre:   differs = e.centreUs != p.centreUs; break;
+		case ServoField::Max:      differs = e.maxUs != p.maxUs; break;
+		case ServoField::ReverseB: differs = e.reverseB != p.reverseB; break;
+	}
+	return differs ? UiValue::Changed : UiValue::Plain;
+}
+
+/**
  * @brief Draw SET row @p i with its top edge at @p y.
  * @param i Row of the list.
  * @param y Top of the row.
  */
 static void drawSetRow(int i, int y, void *) {
-	bool sel = i == s_sel;
-	bool locked = ROWS[i].pulse && s_st.running;
-	gfxRect(0, y, GFX_W, SET_ROW_H - 1, sel ? C_PANEL : C_BG);
-	gfxText(UI_MARGIN, y + 11, ROWS[i].group, C_GRID, 1);
-	gfxText(UI_MARGIN, y + 21, ROWS[i].name, sel ? C_TEXT : C_DIM, 1);
 	char v[24];
 	valueText(i, v, sizeof(v));
-	int sc = gfxTextW(v, 2) <= GFX_W - 80 ? 2 : 1;
-	gfxText(GFX_W - UI_MARGIN - gfxTextW(v, sc), y + (SET_ROW_H - 1 - 7 * sc + 1) / 2, v,
-	        locked ? C_GRID : (sel ? C_LIME : C_TEXT), sc);
-	gfxHLine(0, y + SET_ROW_H - 1, GFX_W, C_PANEL);
+	UiValue st = setValue(i);
+	UiField f = { ROWS[i].group, ROWS[i].name, v, st,
+	              st == UiValue::Changed ? UiEdge::Changed : UiEdge::None, i == s_sel };
+	uiListDrawField(y, SET_ROW_H, f);
 }
 
 /** @brief Header, note band, list, editor bar and footer of SET. */
@@ -861,16 +881,20 @@ static void drawSet(int holdPct) {
 		if (l2) gfxText(UI_MARGIN, UI_STRIP_Y + 12, l2, col, 1);
 	}
 
-	struct { ServoProfile p; sweep_cfg_t w; int sel, scroll; bool run; } kl;
+	// The applied profile and the wait are in the key: a row's value state,
+	// Changed or not, follows them (setValue()).
+	struct { ServoProfile p, applied; sweep_cfg_t w; int sel, scroll; bool run, pending; } kl;
 	memset(&kl, 0, sizeof(kl));
-	kl.p = s_edit; kl.w = s_sweep; kl.sel = s_sel; kl.scroll = s_list.scrollPx; kl.run = s_st.running;
+	kl.p = s_edit; kl.applied = s_profile; kl.w = s_sweep; kl.sel = s_sel; kl.scroll = s_list.scrollPx;
+	kl.run = s_st.running; kl.pending = s_pending;
 	if (changed(1, &kl, sizeof(kl))) {
 		uiListDraw(&s_list, drawSetRow, nullptr);
 	}
 
-	struct { int sel; ServoProfile p; sweep_cfg_t w; bool m, pl, cm, cp; } ke;
+	struct { int sel; ServoProfile p; sweep_cfg_t w; bool m, pl, cm, cp; UiValue st; } ke;
 	memset(&ke, 0, sizeof(ke));
 	ke.sel = s_sel; ke.p = s_edit; ke.w = s_sweep;
+	ke.st = s_sel >= 0 ? setValue(s_sel) : UiValue::Plain;
 	if (s_sel >= 0) {
 		ke.cm = canStep(s_sel, -1); ke.cp = canStep(s_sel, +1);
 		ke.m = ke.cm && pressing(BTN_MINUS); ke.pl = ke.cp && pressing(BTN_PLUS);
@@ -889,7 +913,9 @@ static void drawSet(int holdPct) {
 			char v[24];
 			valueText(s_sel, v, sizeof(v));
 			int sc = gfxTextW(v, 2) <= cw ? 2 : 1;
-			gfxText(cx + (cw - gfxTextW(v, sc)) / 2, SET_EDIT_Y + 16, v, C_LIME, sc);
+			UiValue st = setValue(s_sel);
+			gfxText(cx + (cw - gfxTextW(v, sc)) / 2, SET_EDIT_Y + 16, v,
+			        st == UiValue::Changed ? UI_COL_CHANGED : st == UiValue::ReadOnly ? C_GRID : C_TEXT, sc);
 			gfxText(cx + (cw - gfxTextW("SWIPE = COARSE", 1)) / 2, SET_EDIT_Y + 34,
 			        "SWIPE = COARSE", C_GRID, 1);
 		}

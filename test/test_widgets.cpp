@@ -624,21 +624,22 @@ static void testColourRoles() {
 	for (int th = 0; th < 2; th++) {
 		themeSet(th ? Theme::HighContrast : Theme::Dark);
 		char what[64];
-		snprintf(what, sizeof(what), "%s: safe, live, on, warn, alert, latched",
+		snprintf(what, sizeof(what), "%s: safe, live, on, warn, alert, changed, latched",
 		         th ? "high contrast" : "dark");
 		checkTrue(what, UI_COL_SAFE == g_theme[TC_GREEN] && UI_COL_LIVE == g_theme[TC_LIME] &&
 		                UI_COL_ON == g_theme[TC_RED] && UI_COL_WARN == g_theme[TC_AMBER] &&
-		                UI_COL_ALERT == g_theme[TC_MAGENTA] && UI_COL_LATCHED == g_theme[TC_BLUE]);
+		                UI_COL_ALERT == g_theme[TC_MAGENTA] && UI_COL_CHANGED == g_theme[TC_CYAN] &&
+		                UI_COL_LATCHED == g_theme[TC_BLUE]);
 	}
 	themeSet(Theme::Dark);
-	const uint16_t roles[] = { UI_COL_SAFE, UI_COL_LIVE, UI_COL_ON,
-	                           UI_COL_WARN, UI_COL_ALERT, UI_COL_LATCHED };
+	const uint16_t roles[] = { UI_COL_SAFE, UI_COL_LIVE, UI_COL_ON, UI_COL_WARN,
+	                           UI_COL_ALERT, UI_COL_CHANGED, UI_COL_LATCHED };
 	int pairs = 0, distinct = 0;
-	for (int i = 0; i < 6; i++)
-		for (int k = i + 1; k < 6; k++, pairs++)
+	for (int i = 0; i < 7; i++)
+		for (int k = i + 1; k < 7; k++, pairs++)
 			if (roles[i] != roles[k]) distinct++;
-	checkTrue("the six roles are six colours: 15 pairs, all distinct",
-	          pairs == 15 && distinct == 15);
+	checkTrue("the seven roles are seven colours: 21 pairs, all distinct",
+	          pairs == 21 && distinct == 21);
 }
 
 static void testLayoutConstants() {
@@ -673,6 +674,27 @@ static void testStripTwoLines() {
 	uiStripTwoLines("ONE", C_DIM, nullptr, C_AMBER);
 	checkTrue("a null second line draws nothing at y 52",
 	          !fakeInkExtent(50, 12, C_BG, &x0, &x1) && fakeTextIs(UI_MARGIN, 42, "ONE", C_DIM, C_BG, 1));
+	gfxFill(C_BG);
+}
+
+static void testChip() {
+	section("Widgets: uiChip() is square, 12 px tall, y 42 to y 53, ending at x 232");
+
+	gfxFill(C_RED);
+	uiStripClear();
+	uiChip("PROG MODE", C_BLUE);
+	const int w = gfxTextW("PROG MODE", 1) + 12, x = GFX_W - UI_MARGIN - w;
+	checkInt("PROG MODE: 53 px of text plus 12, 65 px", w, 65);
+	checkTrue("its corners are filled: square, no radius",
+	          px(x, 42) == C_BLUE && px(x + w - 1, 42) == C_BLUE &&
+	          px(x, 53) == C_BLUE && px(x + w - 1, 53) == C_BLUE);
+	checkTrue("x 167 to x 231, nothing at x 166 or x 232",
+	          x == 167 && px(x - 1, 47) == C_BG && px(GFX_W - UI_MARGIN, 47) == C_BG);
+	checkTrue("y 41 and y 54 are the strip's, not the chip's",
+	          px(x + 2, 41) == C_BG && px(x + 2, 54) == C_BG);
+	checkTrue("the text 6 px in at y 44, white on the fill",
+	          fakeTextIs(x + 6, 44, "PROG MODE", C_ONACCENT, C_BLUE, 1));
+	checkInt("a chip's height", UI_CHIP_H, 12);
 	gfxFill(C_BG);
 }
 
@@ -750,7 +772,7 @@ static void testListDrawField() {
 
 	UiField f = { "TUNE", "DEAD BAND", "2.2 US", UiValue::Plain, UiEdge::None, false };
 	gfxFill(C_RED);
-	uiListDrawField(FY, FH, f, C_CYAN);
+	uiListDrawField(FY, FH, f);
 	checkTrue("filled C_BG over 39 px", px(120, FY) == C_BG && px(120, FY + 38) == C_BG);
 	checkTrue("its rule on the 40th line, C_PANEL", px(120, FY + 39) == C_PANEL);
 	checkTrue("the pitch's gap untouched", px(120, FY + 40) == C_RED && px(120, FY - 1) == C_RED);
@@ -761,39 +783,40 @@ static void testListDrawField() {
 	checkTrue("no edge bar", px(1, FY + 5) == C_BG);
 
 	f.selected = true;
-	uiListDrawField(FY, FH, f, C_CYAN);
+	uiListDrawField(FY, FH, f);
 	checkTrue("selected: filled C_PANEL", px(120, FY) == C_PANEL);
 	checkTrue("the label C_TEXT", fakeTextIs(UI_MARGIN, FY + 21, "DEAD BAND", C_TEXT, C_PANEL, 1));
 	checkTrue("the value's colour unchanged", valueIs("2.2 US", C_TEXT, C_PANEL));
 
 	f.state = UiValue::Changed;
 	f.edge = UiEdge::Changed;
-	uiListDrawField(FY, FH, f, C_CYAN);
-	checkTrue("Changed: the value in the caller's colour, selected or not",
+	uiListDrawField(FY, FH, f);
+	checkTrue("Changed: the value C_CYAN, UI_COL_CHANGED, selected",
 	          valueIs("2.2 US", C_CYAN, C_PANEL));
-	checkTrue("the bar in it, 3 px at x 0, as tall as the fill",
+	checkTrue("the bar C_CYAN, 3 px at x 0, as tall as the fill",
 	          px(0, FY) == C_CYAN && px(2, FY + 38) == C_CYAN && px(3, FY + 5) == C_PANEL &&
 	          px(0, FY + 39) == C_PANEL);
 	f.selected = false;
-	uiListDrawField(FY, FH, f, C_LIME);
-	checkTrue("another colour passed: C_LIME", valueIs("2.2 US", C_LIME, C_BG) && px(1, FY + 5) == C_LIME);
+	uiListDrawField(FY, FH, f);
+	checkTrue("not selected: the value and the bar still C_CYAN",
+	          valueIs("2.2 US", C_CYAN, C_BG) && px(1, FY + 5) == C_CYAN);
 
 	f.edge = UiEdge::Rule;
-	uiListDrawField(FY, FH, f, C_CYAN);
-	checkTrue("Rule: the bar amber, the value still the caller's",
+	uiListDrawField(FY, FH, f);
+	checkTrue("Rule: the bar amber, the value still C_CYAN",
 	          px(1, FY + 5) == C_AMBER && valueIs("2.2 US", C_CYAN, C_BG));
 
 	f.state = UiValue::ReadOnly;
 	f.edge = UiEdge::None;
 	f.selected = true;
-	uiListDrawField(FY, FH, f, C_CYAN);
+	uiListDrawField(FY, FH, f);
 	checkTrue("ReadOnly: the value and the label C_GRID, selected or not",
 	          valueIs("2.2 US", C_GRID, C_PANEL) &&
 	          fakeTextIs(UI_MARGIN, FY + 21, "DEAD BAND", C_GRID, C_PANEL, 1));
 
 	f.state = UiValue::Odd;
 	f.selected = false;
-	uiListDrawField(FY, FH, f, C_CYAN);
+	uiListDrawField(FY, FH, f);
 	checkTrue("Odd: the value amber, the label as a live row's",
 	          valueIs("2.2 US", C_AMBER, C_BG) && fakeTextIs(UI_MARGIN, FY + 21, "DEAD BAND", C_DIM, C_BG, 1));
 
@@ -802,7 +825,7 @@ static void testListDrawField() {
 	f.group = nullptr;
 	f.value = "123456789";
 	gfxFill(C_RED);
-	uiListDrawField(FY, FH, f, C_CYAN);
+	uiListDrawField(FY, FH, f);
 	checkInt("9 characters at scale 2: 106 px", gfxTextW("123456789", 2), 106);
 	checkTrue("over 104 px: scale 1, at y + 16",
 	          fakeTextIs(232 - gfxTextW("123456789", 1), FY + 16, "123456789", C_TEXT, C_BG, 1));
@@ -810,7 +833,7 @@ static void testListDrawField() {
 	checkTrue("no group: nothing from y + 11 to the value's top at y + 16",
 	          !fakeInkExtent(FY + 11, 5, C_BG, &x0, &x1));
 	f.value = "12345678";
-	uiListDrawField(FY, FH, f, C_CYAN);
+	uiListDrawField(FY, FH, f);
 	checkTrue("8 characters, 94 px: scale 2", gfxTextW("12345678", 2) == 94 && valueIs("12345678", C_TEXT, C_BG) &&
 	          fakeTextIs(232 - 94, FY + 13, "12345678", C_TEXT, C_BG, 2));
 	gfxFill(C_BG);
@@ -1126,6 +1149,7 @@ void runWidgetTests() {
 	testColourRoles();
 	testLayoutConstants();
 	testStripTwoLines();
+	testChip();
 	testBackGuard();
 	testBackGuardDraw();
 	testListDrawField();

@@ -3033,9 +3033,11 @@ static void testSenseReadout() {
 	uiFrames(1);
 	char sw[24];
 	sweepText(sw, sizeof(sw));
-	checkTrue("sweeping: the count on the dial band's first line, in cyan",
-	          sw[0] && textAt((GFX_W - gfxTextW(sw, 1)) / 2, 64, sw, C_CYAN, 1));
-	checkTrue("and not on the readout row", !anyOf(UI_MARGIN, voltY, 100, 7, C_CYAN));
+	checkTrue("sweeping: the count on the dial band's first line, lime: a live reading",
+	          sw[0] && textAt((GFX_W - gfxTextW(sw, 1)) / 2, 64, sw, C_LIME, 1));
+	checkTrue("and not on the readout row",
+	          !textAt(GFX_W - UI_MARGIN - gfxTextW(sw, 1), SV_READ_Y + 9, sw, C_LIME, 1) &&
+	          !anyOf(UI_MARGIN, voltY, 100, 7, C_CYAN));
 	pressId(UI_FIX(ServoCtl::Start)); core1();
 	fakeRelease(); uiFrames(1);
 

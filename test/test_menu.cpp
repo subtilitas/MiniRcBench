@@ -439,7 +439,7 @@ static void testSettingsDiagnostics() {
 	UiRect last = ctlRect(UI_ROW(SettingsRowId::LastRestart, Row));
 	checkInt("LAST RESTART at y 140 at the end of the list", last.y, 140);
 	checkTrue("DIAGNOSTICS' caption at y 128, 8 px into it",
-	          fakeTextIs(UI_MARGIN, 128, "DIAGNOSTICS", C_CYAN, C_BG, 1));
+	          fakeTextIs(UI_MARGIN, 128, "DIAGNOSTICS", C_TEXT, C_BG, 1));
 	checkTrue("LAST RESTART's label",
 	          fakeTextIs(UI_MARGIN, 140 + 18, "LAST RESTART", C_DIM, C_BG, 1));
 	checkTrue("a brown-out reads BROWN-OUT in amber, right-aligned to x 232",
@@ -593,10 +593,10 @@ static void testBacklightFloorAndNoOpSteps() {
 	pressId(UI_FIX(SettingsCtl::Save));
 	holdId(UI_FIX(SettingsCtl::Save), 41);
 	fakeRelease(); menuFrames(1);
-	checkTrue("saved: the note reads SAVED", noteIs("SAVED", C_LIME));
+	checkTrue("saved: the note reads SAVED", noteIs("SAVED", C_GREEN));
 	tapId(UI_ROW(SettingsRowId::Backlight, Plus));
 	checkInt("+ at 255 stays at 255", settings()->backlight, 255);
-	checkTrue("and applies nothing: the note still reads SAVED", noteIs("SAVED", C_LIME));
+	checkTrue("and applies nothing: the note still reads SAVED", noteIs("SAVED", C_GREEN));
 
 	// KISS on: the two free pins are both spoken for, so ESC PIN and KISS PIN
 	// steps change nothing, and apply nothing.
@@ -605,16 +605,16 @@ static void testBacklightFloorAndNoOpSteps() {
 	pressId(UI_FIX(SettingsCtl::Save));
 	holdId(UI_FIX(SettingsCtl::Save), 41);
 	fakeRelease(); menuFrames(1);
-	checkTrue("KISS on and saved: the note reads SAVED", settings()->kissEnable && noteIs("SAVED", C_LIME));
+	checkTrue("KISS on and saved: the note reads SAVED", settings()->kissEnable && noteIs("SAVED", C_GREEN));
 	uint8_t esc = settings()->dshotPin, kiss = settings()->kissPin;
 	revealRow((int)SettingsRowId::Pin);
 	tapId(UI_ROW(SettingsRowId::Pin, Plus));
 	checkInt("ESC PIN + with both pins taken stays put", settings()->dshotPin, esc);
-	checkTrue("ESC PIN applies nothing: SAVED", noteIs("SAVED", C_LIME));
+	checkTrue("ESC PIN applies nothing: SAVED", noteIs("SAVED", C_GREEN));
 	revealRow((int)SettingsRowId::KissPin);
 	tapId(UI_ROW(SettingsRowId::KissPin, Plus));
 	checkInt("KISS PIN + with both pins taken stays put", settings()->kissPin, kiss);
-	checkTrue("KISS PIN applies nothing: SAVED", noteIs("SAVED", C_LIME));
+	checkTrue("KISS PIN applies nothing: SAVED", noteIs("SAVED", C_GREEN));
 	holdReset();
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
@@ -670,9 +670,9 @@ static void testResetNote() {
 	holdReset();
 	checkTrue("RESET again: the note", noteIs(NOTE, C_AMBER));
 	holdSave();
-	checkTrue("HOLD TO SAVE: SAVED, not the RESET note", !settingsDirty() && noteIs("SAVED", C_LIME));
+	checkTrue("HOLD TO SAVE: SAVED, not the RESET note", !settingsDirty() && noteIs("SAVED", C_GREEN));
 	menuFrames(2);
-	checkTrue("and it does not come back", noteIs("SAVED", C_LIME));
+	checkTrue("and it does not come back", noteIs("SAVED", C_GREEN));
 
 	// RESET while the defaults are what a restart loads: nothing to undo.
 	holdReset();
@@ -911,7 +911,7 @@ static void testResetByUpdate() {
 	          noteIs("SAVE FAILED - FLASH REFUSED THE WRITE", C_RED) && settingsResetByUpdate());
 	fakeFlashSetWritable(true);
 	holdSave();
-	checkTrue("HOLD TO SAVE lands: SAVED", noteIs("SAVED", C_LIME) && !settingsResetByUpdate());
+	checkTrue("HOLD TO SAVE lands: SAVED", noteIs("SAVED", C_GREEN) && !settingsResetByUpdate());
 	tapId(UI_FIX(UI_BACK));
 	menuFrames(1);
 	UI_SETTINGS.status(b, sizeof(b), &col, &fill);
@@ -1016,7 +1016,7 @@ static void testCarriedOver() {
 	fakeFlashSetWritable(true);
 	holdSave();
 	checkTrue("HOLD TO SAVE with nothing changed lands: SAVED",
-	          noteIs("SAVED", C_LIME) && !settingsCarriedOver());
+	          noteIs("SAVED", C_GREEN) && !settingsCarriedOver());
 	tapId(UI_FIX(UI_BACK));
 	menuFrames(1);
 	UI_SETTINGS.status(b, sizeof(b), &col, &fill);
@@ -1075,7 +1075,7 @@ static void testEscPinNote() {
 	holdSave();
 	checkTrue("saved: the warning and SAVED",
 	          !settingsDirty() && fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1) &&
-	          noteIs("SAVED", C_LIME));
+	          noteIs("SAVED", C_GREEN));
 	// The list ends at y 227 while the warning shows: it scrolls 632 px.
 	for (int k = 0; k < 5; k++) dragList(200, -180);
 	checkInt("dragged to the end: UPTIME at y 178, 12 px higher",

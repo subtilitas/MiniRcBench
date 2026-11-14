@@ -10,6 +10,7 @@
 #include "touch.h"
 
 #include <stdio.h>
+#include <string.h>
 
 // The BACK position is written in terms of a literal 240 in the header, because
 // it has to be usable in a static_assert there. Check it against the real panel
@@ -112,8 +113,18 @@ void uiBackGuardDraw(int pending, const char *verb) {
 void uiChip(const char *text, uint16_t fill) {
 	int w = gfxTextW(text, 1) + 12;
 	int x = GFX_W - UI_MARGIN - w;
-	gfxRoundRect(x, UI_STRIP_Y, w, UI_STRIP_H, 4, fill);
-	gfxText(x + 6, UI_STRIP_Y + (UI_STRIP_H - 7) / 2, text, C_ONACCENT, 1);
+	int y = UI_STRIP_Y + (UI_STRIP_H - UI_CHIP_H) / 2;
+	gfxRect(x, y, w, UI_CHIP_H, fill);
+	// y 44, the line of uiStripText(), so the chip reads level with the caption.
+	gfxText(x + 6, y + (UI_CHIP_H - 7) / 2, text, C_ONACCENT, 1);
+}
+
+void uiChangeText(int x, int y, const char *old, const char *now) {
+	char head[48];
+	snprintf(head, sizeof(head), "%s -> ", old);
+	gfxText(x, y, head, C_DIM, 1);
+	// Each character advances 6 px at scale 1, the trailing space's included.
+	gfxText(x + 6 * (int)strlen(head), y, now, UI_COL_CHANGED, 1);
 }
 
 void uiRow(int y, int h, const char *label, const char *value, uint16_t vcol,

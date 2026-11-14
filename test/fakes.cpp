@@ -653,6 +653,15 @@ bool fakeTextCentredIs(int y, const char *text, uint16_t col, uint16_t bg, int s
 	return fakeTextIs(x, y, text, col, bg, scale);
 }
 
+bool fakeChangeIs(int y, const char *old, const char *now, uint16_t bg) {
+	char head[64], pair[128];
+	snprintf(head, sizeof(head), "%s -> ", old);
+	snprintf(pair, sizeof(pair), "%s%s", head, now);
+	int x = GFX_W - 8 - gfxTextW(pair, 1);
+	return fakeTextIs(x, y, head, C_DIM, bg, 1) &&
+	       fakeTextIs(x + 6 * (int)strlen(head), y, now, C_CYAN, bg, 1);
+}
+
 bool fakeInkExtent(int y, int h, uint16_t bg, int *x0, int *x1) {
 	const uint16_t *fb = gfxBuffer();
 	int lo = GFX_W, hi = -1;

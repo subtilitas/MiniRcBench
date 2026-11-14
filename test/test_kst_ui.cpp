@@ -133,6 +133,21 @@ static bool lineIs(int y, const char *text, uint16_t col) {
 	return same;
 }
 
+/**
+ * @brief Amber pixels on the panel outside the main view's headline, y 70 to
+ *        y 101, which is amber as the current step: zero means no warning
+ *        line, such as an interrupted write's, shows.
+ */
+static int amberBesideHeadline() {
+	const uint16_t *fb = gfxBuffer();
+	int n = 0;
+	for (int y = 0; y < GFX_H; y++) {
+		if (y >= 70 && y <= 101) continue;
+		for (int x = 0; x < GFX_W; x++) n += fb[y * GFX_W + x] == C_AMBER;
+	}
+	return n;
+}
+
 static void card() {
 	fakeFatReset();
 	SdLogStatus st;
@@ -327,7 +342,7 @@ static void testEditAndWrite() {
 	checkTrue("the servo holds the new dead band", simField(KST_F_DEAD_BAND) != deadBand);
 	checkTrue("the record is removed after the verify", !fakeFatExists("KST/KST.TXT"));
 	checkTrue("the backup stays", fakeFatExists("BACKUP/KST001.TXT"));
-	checkTrue("the result page still lists the change", fakeCountColour(C_LIME) > 0);
+	checkTrue("the result page still lists the change, its new value cyan", fakeCountColour(C_CYAN) > 0);
 	kstFrames(1);
 	fakeDumpFrame("shot_kst_result.ppm");
 	tapId(UI_FIX(KstCtl::WriteOk));
@@ -608,8 +623,8 @@ static void testReadOnlyAndRecord() {
 	checkTrue("the servo lost: the search", untilView(KstView::Main, 400) &&
 	                                       untilCtl(UI_FIX(KstCtl::StopSearch), 200));
 	kstFrames(2);
-	checkTrue("no interrupted write named: nothing amber on the search",
-	          fakeCountColour(C_AMBER) == 0);
+	checkTrue("no interrupted write named: nothing amber on the search but the headline",
+	          amberBesideHeadline() == 0);
 	tapId(UI_FIX(UI_BACK));
 	kstFrames(4);
 	checkTrue("BACK on the search after a loss: the leave page stays",
@@ -1059,7 +1074,7 @@ static void testRefusedOps() {
 	unplugAndBack();
 	checkTrue("LEAVE from a servo in a known state removes the record",
 	          !fakeFatExists("KST/KST.TXT") && fakeFatExists("BACKUP/KST001.TXT"));
-	checkTrue("the next session names no interrupted write", fakeCountColour(C_AMBER) == 0);
+	checkTrue("the next session names no interrupted write", amberBesideHeadline() == 0);
 	leaveAll();
 }
 
@@ -1164,7 +1179,7 @@ static void testRecordKeptAtLeave() {
 	          lineIs(220, "CHECK THE CARD, HOLD AGAIN.", C_AMBER));
 	tapId(UI_FIX(KstCtl::WriteOk));
 	unplugAndBack();
-	checkTrue("the next session: no interrupted write named", fakeCountColour(C_AMBER) == 0);
+	checkTrue("the next session: no interrupted write named", amberBesideHeadline() == 0);
 	leaveAll();
 }
 

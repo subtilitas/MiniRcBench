@@ -248,7 +248,7 @@ static void testLogScreen() {
 		checkTrue("the button reads RETRY MOUNT, inside its 104 px",
 		          gfxTextW("RETRY MOUNT", 1) + 8 <= r.w &&
 		          fakeTextIs(r.x + (r.w - gfxTextW("RETRY MOUNT", 1)) / 2, r.y + (r.h - 7) / 2,
-		                     "RETRY MOUNT", C_CYAN, C_PANEL, 1));
+		                     "RETRY MOUNT", C_TEXT, C_PANEL, 1));
 	}
 	// A card that answers and fails otherwise needs another fix.
 	st.mountResult = 13;         // FR_NO_FILESYSTEM
@@ -1430,7 +1430,7 @@ static void testStatusBarBitrate() {
 
 	fakeSetEdtRequested(true);
 	frames(1);
-	checkTrue("cyan once EDT is requested", statusLabelIs("DS1200", C_CYAN));
+	checkTrue("the text colour once EDT is requested", statusLabelIs("DS1200", C_TEXT));
 
 	EscTelemetry tel;
 	memset(&tel, 0, sizeof(tel));
@@ -1443,7 +1443,7 @@ static void testStatusBarBitrate() {
 	feedLiveTelemetry();
 	escTaskConfigure(pin, DSHOT_SPEED_KBAUD, false, 0);
 	frames(1);
-	checkTrue("and the bitrate again when it clears", statusLabelIs("DS600", C_CYAN));
+	checkTrue("and the bitrate again when it clears", statusLabelIs("DS600", C_TEXT));
 }
 
 /**
@@ -1769,8 +1769,8 @@ static void testSettingsSave() {
 		checkTrue("500 ms: 75 px of the 150, from the button's left edge",
 		          fb[barX] == C_LIME && fb[barX + 74] == C_LIME &&
 		          fb[barX + 75] == C_BG && fb[barX - 1] == C_BG);
-		checkTrue("and the button is blue while held",
-		          gfxBuffer()[(save.y + save.h - 5) * GFX_W + barX + 4] == C_BLUE);
+		checkTrue("and the button is red while held, as every hold",
+		          gfxBuffer()[(save.y + save.h - 5) * GFX_W + barX + 4] == C_RED);
 	}
 	fakeRelease(); frames(2);
 	checkTrue("and it clears on release",
@@ -3789,15 +3789,22 @@ static void testScreenChangeResidue() {
 	uiInit();
 	frames(2);
 
-	// The tester screen legitimately shows some cyan of its own -- KISS source
-	// tags, the EDT chip -- so the assertion is against its *own* baseline: a
-	// round trip through SETTINGS, whose section captions are cyan, must not
-	// add any.
-	int before = fakeCountColour(C_CYAN);
+	// The marker is amber in the footer band, y 260 to y 319: SETTINGS'
+	// HOLD RESET label is amber there, and the tester's button row is not.
+	// The tester may show amber elsewhere -- NO TELEMETRY, the IDLE
+	// countdown -- so the assertion is against its *own* baseline: a round
+	// trip through SETTINGS must not add any.
+	auto footerAmber = []() {
+		int n = 0;
+		for (int y = 260; y < GFX_H; y++)
+			for (int x = 0; x < GFX_W; x++) n += gfxBuffer()[y * GFX_W + x] == C_AMBER;
+		return n;
+	};
+	int before = footerAmber();
 
 	enterSettings();
-	int onSettings = fakeCountColour(C_CYAN);
-	checkTrue("SETTINGS shows more cyan", onSettings > before);
+	int onSettings = footerAmber();
+	checkTrue("SETTINGS shows more amber in the footer band", onSettings > before);
 
 	tapId(UI_FIX(UI_BACK));                 // BACK, to MENU
 	frames(2);
@@ -3805,8 +3812,8 @@ static void testScreenChangeResidue() {
 	tapId(UI_FIX(UI_BACK));                 // BACK, to the tester screen
 	frames(3);
 	checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
-	int after = fakeCountColour(C_CYAN);
-	checkTrue("no SETTINGS cyan survives on the tester screen",
+	int after = footerAmber();
+	checkTrue("no SETTINGS amber survives on the tester screen",
 	          after <= before);
 }
 
@@ -4524,7 +4531,8 @@ static void testAm32Guidance() {
 		fakeAm32Silent(true);
 		enterAm32(4);
 		checkTrue("still connecting", s_state == S_CONNECT);
-		checkTrue("POWER-CYCLE THE ESC, y 84", fakeTextCentredIs(84, "POWER-CYCLE THE ESC", C_LIME, C_BG, 2));
+		checkTrue("POWER-CYCLE THE ESC, y 84, amber: the current step",
+		          fakeTextCentredIs(84, "POWER-CYCLE THE ESC", C_AMBER, C_BG, 2));
 		int x0 = 0, x1 = 0;
 		checkTrue("no note at y 196 to y 231", !fakeInkExtent(196, 36, C_BG, &x0, &x1) ||
 		          (x0 >= GFX_W / 2 - 42 && x1 <= GFX_W / 2 + 42));
@@ -4632,7 +4640,7 @@ static void testAm32Guidance() {
 		frames(1);
 		checkTrue("  an active limit: no protection note",
 		          !fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROT_1, UI_COL_WARN, C_BG, 1));
-		checkTrue("  the editor reads 200A", fakeTextCentredIs(EDIT_Y + 14, "200A", C_AMBER, C_BG, 2));
+		checkTrue("  the editor reads 200A, changed: cyan", fakeTextCentredIs(EDIT_Y + 14, "200A", C_CYAN, C_BG, 2));
 		// LOW VOLT CUTOFF: + from CELL is ABSOLUTE, and ABS VOLT CUT reads volts.
 		const int vl = uiRowOf("LOW VOLT CUTOFF");
 		uiRowY("LOW VOLT CUTOFF"); frames(1);
@@ -4641,7 +4649,7 @@ static void testAm32Guidance() {
 		frames(1);
 		checkTrue("2.22: + from CELL is ABSOLUTE",
 		          uiByte(AM32_OFF_LOW_VOLT_CUTOFF) == 2 &&
-		          fakeTextCentredIs(EDIT_Y + 14, "ABSOLUTE", C_AMBER, C_BG, 2));
+		          fakeTextCentredIs(EDIT_Y + 14, "ABSOLUTE", C_CYAN, C_BG, 2));
 		checkTrue("  an active cutoff: no protection note",
 		          !fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROT_1, UI_COL_WARN, C_BG, 1));
 		const int va = uiRowOf("ABS VOLT CUT");
@@ -4649,8 +4657,8 @@ static void testAm32Guidance() {
 		uiRowY("ABS VOLT CUT"); frames(1);
 		tapId(UI_ROW(va, Row));
 		frames(1);
-		checkTrue("2.22: ABS VOLT CUT reads 10.0V",
-		          fakeTextCentredIs(EDIT_Y + 14, "10.0V", C_LIME, C_BG, 2));
+		checkTrue("2.22: ABS VOLT CUT reads 10.0V, as read: the text colour",
+		          fakeTextCentredIs(EDIT_Y + 14, "10.0V", C_TEXT, C_BG, 2));
 		fakeDumpFrame("shot_am32_fw222.ppm");
 		tapId(UI_FIX(Am32Ctl::Revert));
 		leaveAm32ToTester();
@@ -4743,8 +4751,8 @@ static void testAm32Guidance() {
 		frames(1);
 		const UiRect tr = ctlRect(UI_ROW(vt, Row));
 		checkTrue("the row reads OFF",
-		          fakeTextIs(GFX_W - 8 - gfxTextW("OFF", 2), tr.y + 13, "OFF", C_AMBER, C_PANEL, 2));
-		checkTrue("the editor reads OFF", fakeTextCentredIs(EDIT_Y + 14, "OFF", C_AMBER, C_BG, 2));
+		          fakeTextIs(GFX_W - 8 - gfxTextW("OFF", 2), tr.y + 13, "OFF", C_CYAN, C_PANEL, 2));
+		checkTrue("the editor reads OFF", fakeTextCentredIs(EDIT_Y + 14, "OFF", C_CYAN, C_BG, 2));
 		checkTrue("selected and off: the protection note",
 		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROT_1, UI_COL_WARN, C_BG, 1) &&
 		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_PROT_2, UI_COL_WARN, C_BG, 1));
@@ -4840,8 +4848,8 @@ static void testAm32Guidance() {
 			frames(1);
 			const char *want = old ? "? (2)" : "ABSOLUTE";
 			checkTrue(old ? "1.35: the editor reads ? (2)" : "2.22: the editor reads ABSOLUTE",
-			          fakeTextCentredIs(EDIT_Y + 14, want, C_LIME, C_PANEL, 2) ||
-			          fakeTextCentredIs(EDIT_Y + 14, want, C_LIME, C_BG, 2));
+			          fakeTextCentredIs(EDIT_Y + 14, want, C_TEXT, C_PANEL, 2) ||
+			          fakeTextCentredIs(EDIT_Y + 14, want, C_TEXT, C_BG, 2));
 			checkTrue(old ? "1.35: AM32 does not cut off on 2: the protection note"
 			              : "2.22: no protection note",
 			          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROT_1, UI_COL_WARN, C_BG, 1) == (old == 1));
@@ -5518,8 +5526,8 @@ void runUiTests() {
 		checkInt("1000 ms commits and verifies", fakeEscByte(0x1B), want);
 		checkControlTable("AM32 write result");
 		// No card: WRITE VERIFIED fits at scale 2, and the next step is named.
-		checkTrue("no card: WRITE VERIFIED at scale 2, y 140",
-		          fakeTextCentredIs(140, "WRITE VERIFIED", C_TEXT, C_BG, 2));
+		checkTrue("no card: WRITE VERIFIED at scale 2, y 140, green",
+		          fakeTextCentredIs(140, "WRITE VERIFIED", C_GREEN, C_BG, 2));
 		checkTrue("then " AM32_UI_POWER_CYCLE ", y 170",
 		          fakeTextCentredIs(170, AM32_UI_POWER_CYCLE, C_TEXT, C_BG, 1));
 		checkInt("29 characters, 173 px", gfxTextW(AM32_UI_POWER_CYCLE, 1), 173);
@@ -5577,7 +5585,7 @@ void runUiTests() {
 		          ex0 >= UI_MARGIN && ex1 < GFX_W - UI_MARGIN);
 		checkTrue("WRITE VERIFIED. BACKUP AM001 at scale 1, y 140: 167 px",
 		          gfxTextW("WRITE VERIFIED. BACKUP AM001", 1) == 167 &&
-		          fakeTextCentredIs(140, "WRITE VERIFIED. BACKUP AM001", C_TEXT, C_BG, 1));
+		          fakeTextCentredIs(140, "WRITE VERIFIED. BACKUP AM001", C_GREEN, C_BG, 1));
 		checkTrue("then " AM32_UI_POWER_CYCLE,
 		          fakeTextCentredIs(170, AM32_UI_POWER_CYCLE, C_TEXT, C_BG, 1));
 		fakeDumpFrame("shot_am32_written_backup.ppm");
