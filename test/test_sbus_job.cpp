@@ -355,11 +355,15 @@ static bool claimEnd() {
 	return due && pinClaimState() == ClaimState::Free;
 }
 
-/** @brief Whether GP1 is UART0's input: the function, INOVER, the pull-down, no output. */
+/**
+ * @brief Whether GP1 is UART0's input: the function, INOVER, the pull-down,
+ *        nothing written to it. On the UART function the receive pin's
+ *        output is off whatever SIO's direction says.
+ */
 static bool gp1Listens() {
 	FakePin p = fakePin(SBUS_GPIO);
 	return p.function == GPIO_FUNC_UART && p.inover == GPIO_OVERRIDE_INVERT &&
-	       p.pull == FakePull::Down && !p.output && p.puts == 0;
+	       p.pull == FakePull::Down && p.puts == 0;
 }
 
 /** @brief Whether GP1 is a plain input: SIO, no inversion, the pull-down, no output. */
@@ -382,6 +386,9 @@ static void testJob() {
 	fakePwmReset();
 	fakeUartReset();
 	freshPump(0, 1);
+	// GP1 left an SIO output by some earlier owner: the release must not
+	// hand it back driving.
+	gpio_set_dir(SBUS_GPIO, GPIO_OUT);
 	FakePin gp0 = fakePin(0);
 	checkInt("the default wiring claims SIG and AUX", sbusClaimRoles(0, 1), PIN_SIG | PIN_AUX);
 	checkTrue("the claim runs the shipped job", claimToBind(PIN_SIG | PIN_AUX) == ClaimState::Running);
