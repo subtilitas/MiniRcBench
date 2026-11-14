@@ -4,7 +4,9 @@ Built, host tests only, not tested on hardware. SETTINGS ends with a
 DIAGNOSTICS section of two read-only rows: LAST RESTART, why the chip last
 restarted, and UPTIME, the time since boot. The firmware version is the
 VERSION row under BOARD and on the splash. A persistent fault log is not
-built; its open questions are at the end.
+built: the owner decided on 2026-11-14 not to build one now and to revisit
+it after the board has run on the bench ([decisions](#decisions)). The
+questions to answer then are at the end.
 
 ## What is built
 
@@ -149,10 +151,19 @@ reading LAST RESTART after it:
 - a UF2 copy, then a glitch reset: `GLITCH` if the glitch reset clears
   REASON, `UPDATE` or `REBOOT` if it does not.
 
-## Open questions for a fault log
+## Decisions
 
-A fault log would keep records across restarts. Before one is built, the
-owner decides:
+Decision of the owner, 2026-11-14:
+
+1. **No fault log now.** A persistent fault log is not built now. The
+   owner revisits it after the board has run on the bench; the questions
+   below are the list to answer then.
+
+## Questions for a fault log, after the bench
+
+A fault log would keep records across restarts. It is not built now
+(decision 1). When the owner revisits it after the board has run on the
+bench, these are the questions to answer:
 
 1. **What counts as a fault.** Candidates: a restart other than POWER-ON; the
    core1 heartbeat trip (`UI_HEARTBEAT_TIMEOUT_MS`, 250 ms); a failed settings

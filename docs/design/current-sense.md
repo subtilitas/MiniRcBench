@@ -717,8 +717,8 @@ in normal use. Bench test B8 checks it on the owner's servos.
 | Sensor lost | with CURRENT SENSE at INA219: the part offline, the bus stuck, or no reading for 250 ms | `SENSE_STALE_MS` 250 |
 
 The stall rule as designed was rcbench's automatic test's
-(`SERVO_TEST_STALL_ABORT_MS`,
-1000 ms; STALL AT's default, 2.00 A). rcbench's limit run uses 3000 mA
+(`SERVO_TEST_STALL_ABORT_MS`, 1000 ms; STALL AT's default, 2.00 A).
+rcbench's limit run uses 3000 mA
 hard and 1000 mA for 400 ms (`servo_limrun.h`), for a search that drives
 into a stop by design; the servo tester drives to MIN and MAX, where a
 servo against its mechanical stop draws stall current in normal use, so
