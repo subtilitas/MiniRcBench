@@ -282,10 +282,10 @@ The bench parts, in the order they depend on each other:
 
 A `v*` tag runs Release; a tag without a pre-release suffix then publishes
 the manual (item 7), a suffixed one does not. Release, by the owner's
-decision of 2026-11-14: v0.1.0-rc1 is tagged now as
-a pre-release, an image for testing with no manual published, and v0.1.0
-after the bench checks above. Neither tag exists yet. Menu structure B waits
-on being built, not on the bench (item 18).
+decision of 2026-11-14: v0.1.0-rc1 is to be tagged now as a pre-release,
+an image for testing with no manual published, and v0.1.0 after the bench
+checks above. Neither tag exists yet; the owner pushes them. Menu structure
+B waits on being built, not on the bench (item 18).
 
 ## Open items
 
@@ -765,9 +765,9 @@ before anything is published.
 A tag with a suffix, such as `v0.1.0-rc1`, is published as a GitHub
 pre-release. Each run is titled `Release <tag>`, which Docs reads to find
 the tag. The version is 0.1.0 and no MiniRcBench release exists yet. By the
-owner's decision of 2026-11-14, v0.1.0-rc1 is tagged now as a pre-release,
-an image for testing with no manual published, and v0.1.0 after the bench
-checks; neither tag exists yet.
+owner's decision of 2026-11-14, v0.1.0-rc1 is to be tagged now as a
+pre-release, an image for testing with no manual published, and v0.1.0
+after the bench checks; neither tag exists yet.
 
 **Docs** (`.github/workflows/docs.yml`): mirrors `wiki/` to the GitHub wiki
 after every successful Release run of a tag without a pre-release suffix,

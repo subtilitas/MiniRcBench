@@ -599,7 +599,7 @@ then `DSHOT RESTARTS ON GP0 AND READS AS` `PULSES EVERY 1000 US.` at scale 1.
 During either claim the DShot pump and the KISS receiver are down, so pio2
 is empty ([pin-claim.md](pin-claim.md#pio-and-dma-budget)).
 
-| Block or channel | ESC running | RX MONITOR claim | PPM OUTPUT claim |
+| Block or channel | ESC running | RX MONITOR claim | PPM OUTPUT claim (PPM: not built, decision 1) |
 |---|---|---|---|
 | pio0 | backlight, 6 words, 1 SM | backlight | backlight, or `ppm_tx` |
 | pio1 | SDIO, 32 of 32 words, 2 SMs | SDIO | SDIO |
@@ -619,9 +619,10 @@ To be redesigned. The owner decided on 2026-11-14 for one MENU row, RX
 SIGNALS, that opens a chooser with MONITOR and OUTPUT ([decision
 4](#decisions)). In menu structure B ([menu-b.md](menu-b.md), decision 32)
 the row comes after SERVO PROGRAMMER, and MENU has seven rows. The chooser
-is not designed. Where the row sits on MENU as built, before structure B,
-is not decided. The rest of this section is the design of 2026-11-13, with
-two rows, RX MONITOR and PPM OUTPUT.
+is not designed. By the owner's order of work of 2026-11-14 (the eight
+small decisions, then menu structure B, then the features), RX SIGNALS is
+built on structure B, not on MENU as built today. The rest of this section
+is the design of 2026-11-13, with two rows, RX MONITOR and PPM OUTPUT.
 
 Today MENU has seven rows and scrolls 36 px. The two tools sit after the servo
 tools, SERVO TESTER, KST SERVO and HITEC SERVO, which take the signal pins as
@@ -725,22 +726,23 @@ New code in `src/`:
 | `sbus_job.h`, `.cpp` | `SbusCore`, the UART bind and release, the drain, the status |
 | `sbus_view.h`, `.cpp` | the link state and the text and colour of each line, pure |
 | `ui_sbus.h`, `.cpp` | the S.BUS MONITOR screen and its unplug page |
-| `ppm_job.h`, `.cpp` | `PpmCore`, the bind, step and release on `out_ppm.h` |
-| `ui_ppm.h`, `.cpp` | the PPM OUTPUT screen and its unplug page |
-| `rx.cmake`, `ppm.cmake` | the features' firmware sources |
+| `ppm_job.h`, `.cpp` | `PpmCore`, the bind, step and release on `out_ppm.h` (PPM: not built, decision 1) |
+| `ui_ppm.h`, `.cpp` | the PPM OUTPUT screen and its unplug page (PPM: not built, decision 1) |
+| `rx.cmake`, `ppm.cmake` | the features' firmware sources (`ppm.cmake`, PPM: not built, decision 1) |
 
-Shared files each slice edits by a line or a few: `core1_job.h` (two jobs,
-`CORE1_JOB_NO_GP1`), `core1_job.cpp` (the job table), `pin_claim.h` (two
-users and rows), `ui_registry.cpp` (one line each), `CMakeLists.txt`,
-`test/Makefile`, `test/test_main.cpp`, `test/fakes.*`,
-`test/stubs/hardware/` and `.github/workflows/ci.yml`. The Config
-permutations job of `ci.yml` compiles `src/*.cpp` with two hand-kept `-I`
-lists, which need `lib/rcbench/protocols/sbus/include`, and
-`lib/rcbench/protocols/ppm/include` and `lib/rcbench/protocols/ppm/rp2350`,
-once a file in `src/` includes their headers, as Hitec step 1 added its own
-(commit 424014a). The screen slices also edit `tools/check_wiki.py`, for the
-pair of new wiki pages, and `tools/make_previews.py`, for the new preview,
-as Hitec step 5 did (commit 5e1666d).
+Shared files each slice edits by a line or a few (the second job, user and row
+were PPM's: not built, decision 1; the S.BUS output's are to be designed):
+`core1_job.h` (two jobs, `CORE1_JOB_NO_GP1`), `core1_job.cpp` (the job table),
+`pin_claim.h` (two users and rows), `ui_registry.cpp` (one line each),
+`CMakeLists.txt`, `test/Makefile`, `test/test_main.cpp`, `test/fakes.*`,
+`test/stubs/hardware/` and `.github/workflows/ci.yml`. The Config permutations
+job of `ci.yml` compiles `src/*.cpp` with two hand-kept `-I` lists, which need
+`lib/rcbench/protocols/sbus/include`, and `lib/rcbench/protocols/ppm/include`
+and `lib/rcbench/protocols/ppm/rp2350` (PPM: not built, decision 1), once a file
+in `src/` includes their headers, as Hitec step 1 added its own (commit
+424014a). The screen slices also edit `tools/check_wiki.py`, for the pair of new
+wiki pages, and `tools/make_previews.py`, for the new preview, as Hitec step 5
+did (commit 5e1666d).
 
 ## Testing
 
@@ -794,13 +796,15 @@ Checked:
   1500 µs); the clamp to 1000 µs to 2000 µs and to the ceiling; the trip at
   250 ms and not at 249 ms, latched, cleared only by START; STOP on the next
   pass; a refused write; the bind refusal; the release and the pull-down;
-- the screens through MENU by control id: both rows open their screens and
-  BACK passes the unplug page; `PINS BUSY`; the unavailable texts;
-  HOLD TO START at 1000 ms and not at 999 ms; STOP on press; sliders and
-  THR CH disabled while SAFE and RUNNING respectively; the throttle slider
-  at its ceiling; every string within its rectangle; MENU's scroll range
-  with the new row count; previews `docs/sbus-preview.png` and
-  `docs/ppm-preview.png`.
+- the S.BUS MONITOR screen through MENU and the RX SIGNALS chooser by
+  control id: it opens and BACK passes the unplug page; `PINS BUSY`; the
+  unavailable texts; every string within its rectangle; the preview
+  `docs/sbus-preview.png`;
+- the MENU row and its chooser: to be redesigned with decision 4;
+- the PPM screen, not built by decision 1: its row opening it, HOLD TO
+  START at 1000 ms and not at 999 ms, STOP on press, sliders and THR CH
+  disabled while SAFE and RUNNING respectively, the throttle slider at its
+  ceiling, the preview `docs/ppm-preview.png`.
 
 `make syntax` typechecks `sbus_job.cpp`'s device part, as it does the other
 C++ device sources. It typechecks no rcbench driver today: `out_ppm.c` is

@@ -741,7 +741,9 @@ or the Hitec job's off path. The stall rule does not apply there: a
 programmed servo is at rest. Pin-claim decision 1, which lets a running
 operation finish on a heartbeat lapse, is about the UI stopping, not about
 a fault on the supply. The owner decided on 2026-11-14 that the hard cut
-acts there too, during an operation ([decision 13](#decisions)).
+acts there too, during an operation ([decision 13](#decisions)). The
+collapse rule's place in the claims is this note's choice; the owner has
+not decided it.
 
 Detection takes up to about 60 ms from a step of current
 ([the reading on core1](#the-reading-on-core1)). The cuts protect the
@@ -1058,15 +1060,17 @@ Decisions of the owner, 2026-11-14, answering Q1 to Q5:
 12. **The servo tester switches the supply** (Q3). Always, with `SERVO
     SUPPLY` at a pin, `GP28` or `GP29`, as decision 20 of
     [servo-tester.md](servo-tester.md#decisions) reads.
-13. **Protection on the servo tester** (Q4). rcbench's limit run: readings
-    above 1.0 A for 400 ms, and a hard cut at 3.0 A or a clipped reading
-    (`SERVO_LIMRUN_STALL_MA` 1000, `SERVO_LIMRUN_STALL_MS` 400 and
-    `SERVO_LIMRUN_HARD_MA` 3000 in rcbench's `servo_limrun.h` at
-    5ef42efd). In the KST and Hitec claims the hard cut acts at once,
-    during an operation too. This is not the recommendation, which was the
-    automatic test's stall rule, 2.0 A for 1000 ms: the limit run trips on
-    many servos that reach MIN or MAX against a stop. That is a known
-    consequence, checked on the bench in B8. The
+13. **Protection on the servo tester** (Q4). rcbench's limit run: readings above
+    1.0 A for 400 ms, and a hard cut at 3.0 A (`SERVO_LIMRUN_STALL_MA` 1000,
+    `SERVO_LIMRUN_STALL_MS` 400 and `SERVO_LIMRUN_HARD_MA` 3000 in rcbench's
+    `servo_limrun.h` at 5ef42efd). The cut on a clipped reading is this note's
+    addition, as in its hard-cut row. In the KST and Hitec claims the hard cut
+    acts at once, during an operation too; the collapse rule's place there is
+    this note's choice, not decided by the owner. This is not the
+    recommendation, which was the automatic test's stall rule, 2.0 A for
+    1000 ms: the limit run trips on many servos that reach MIN or MAX
+    against a stop. That is a known consequence, checked on the bench in B8.
+    The
     [protection](#protection) section is to be redesigned for it.
 14. **Settings carried over** (Q5). The firmware carries the settings over
     from the older layouts it knows, versions 2, 3 and 4, into version 5,
