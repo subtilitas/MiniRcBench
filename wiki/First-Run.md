@@ -150,8 +150,9 @@ every tap.
 
 A finger already on the glass when the tester appears does not arm and
 does not move the throttle. Lifting it still acts as a tap where it rests
-on a button that acts on release, such as `LATCH` or `MENU`. If you touched
-the screen at power-up, lift the finger before `HOLD TO ARM`.
+on a button that acts on release, such as `LATCH` or `MENU`; on `14 POLES`
+or `MAX 20%` its lift opens SETTINGS. If you touched the screen at power-up,
+lift the finger before `HOLD TO ARM`.
 
 ---
 

@@ -365,8 +365,8 @@ its own, so a finger resting on the glass when the tester appears gives no
 press edge: it does not arm, does not move the throttle and does not start
 a hold. Lifting it still ends a tap where it rests, on a button that acts
 on release such as LATCH or MENU, because the driver keeps where the press
-began. If you touched the screen at power-up, lift the finger before HOLD
-TO ARM.
+began; on the pole count or the ceiling the lift opens SETTINGS. If you
+touched the screen at power-up, lift the finger before HOLD TO ARM.
 
 **Main screen**
 
@@ -1992,9 +1992,9 @@ In the firmware:
   controller reports, so a wet screen or something lying on the glass keeps
   the tester armed.
 - Core1 sets the throttle to zero if core0 sends no heartbeat for 250 ms.
-- Opening MENU disarms. Every tool is reachable only from there; SETTINGS
-  also opens from a tap on the tester's pole count or ceiling, only while
-  disarmed, and that tap runs the same disarm first. While a pin claim is
+- Opening MENU disarms. Every tool but SETTINGS opens only from MENU;
+  SETTINGS also opens from a tap on the tester's pole count or ceiling, only
+  while disarmed, and that tap runs the same disarm first. While a pin claim is
   not free, after RESTART DSHOT until the DShot pump runs again, MENU draws
   the tools that claim the pins and SETTINGS disabled, its strip reads
   `DSHOT RESTARTING ON SIG GP0`, and the tester's two readouts do not act.

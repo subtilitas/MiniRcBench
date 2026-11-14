@@ -3331,6 +3331,23 @@ static void testSplashTouch() {
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK to the tester", uiCurrentScreen() == UiScreenId::Tester);
 
+	// The same for a finger resting on a readout: its lift opens SETTINGS.
+	uiInit();
+	uiDrawSplash();
+	ctlCentre(UI_FIX(TesterCtl::Max), &mx, &my);
+	fakePress(mx, my);
+	fakeAdvance(UI_FRAME_MS);
+	uiSplashTick();
+	frames(4);
+	checkTrue("a finger on MAX from the splash on: the tester stays, disarmed",
+	          uiCurrentScreen() == UiScreenId::Tester && !uiArmed() && fakeThrottle() == 0);
+	fakeRelease();
+	frames(2);
+	checkTrue("its lift opens SETTINGS", uiCurrentScreen() == UiScreenId::Settings);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	checkTrue("BACK to the tester", uiCurrentScreen() == UiScreenId::Tester);
+
 	// Answering at boot: no line.
 	touchInit();
 	uiDrawSplash();

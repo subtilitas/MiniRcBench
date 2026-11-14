@@ -1,25 +1,24 @@
 # Menu structure B
 
-Status: slices 1 to 4, 7 and 8 built, host tests only; slices 5, 6, 9 and
-10 not built. Slice 2 is the colour roles of decisions 8 and 11 ([slice 2 as
-built](#slice-2-as-built)); slice 3 is the names and SETTINGS of decisions 9,
-10 and 15 b, e, f, h, j, k, with its README.md and wiki lines and images
-([slice 3 as built](#slice-3-as-built)); slice 7 is the tester of owner
-decision 4 and decisions 15 a to c and 17, with the readouts' underline
-([slice 7 as built](#slice-7-as-built)); slice 8 is decision 13's title on
-SERVO TESTER, with its README.md and wiki lines and images ([slice 8 as
-built](#slice-8-as-built)). The owner answered the note's eight
-open questions on 2026-11-14 ([decisions 23 to 30](#decisions)), and the
-question that followed from them (decision 33). Slices 5, 6, 9 and 10 wait
-on being built. By the owner's order of work of 2026-11-14 they follow the eight
-small decisions of STATUS.md items 20, 21 and 24. Three of the owner's
-decisions of 2026-11-14 change this design, and the sections they touch are
-marked "to be redesigned": each slice updates its own README.md and wiki
-lines and images (decision 27, against this note's recommendation), so the
-[slice table](#slices) is reworked and slice 10 shrinks; HITEC SERVO takes
-SIG when it opens (decision 31), which changes decision 19; and MENU gains a
-seventh row, RX SIGNALS (decision 32), so MENU scrolls 36 px, which revises
-owner decision 1's six rows that never scroll (decision 33).
+Status: slices 1 to 4, 7 and 8 built, host tests only; slices 5, 6, 9 and 10 not
+built. Slice 2 is the colour roles of decisions 8 and 11 ([slice 2 as
+built](#slice-2-as-built)); slice 3 is the names and SETTINGS of decisions 9, 10
+and 15 b, e, f, h, j, k, with its README.md and wiki lines and images ([slice 3
+as built](#slice-3-as-built)); slice 7 is the tester of owner decision 4 and
+decisions 11 (the MAX row), 15 a to c, 17, 19 and 20 ([slice 7 as
+built](#slice-7-as-built)); slice 8 is decision 13's title on SERVO TESTER, with
+its README.md and wiki lines and images ([slice 8 as built](#slice-8-as-built)).
+The owner answered the note's eight open questions on 2026-11-14 ([decisions 23
+to 30](#decisions)), and the question that followed from them (decision 33).
+Slices 5, 6, 9 and 10 wait on being built. By the owner's order of work of
+2026-11-14 they follow the eight small decisions of STATUS.md items 20, 21 and
+24. Three of the owner's decisions of 2026-11-14 change this design, and the
+sections they touch are marked "to be redesigned": each slice updates its own
+README.md and wiki lines and images (decision 27, against this note's
+recommendation), so the [slice table](#slices) is reworked and slice 10 shrinks;
+HITEC SERVO takes SIG when it opens (decision 31), which changes decision 19;
+and MENU gains a seventh row, RX SIGNALS (decision 32), so MENU scrolls 36 px,
+which revises owner decision 1's six rows that never scroll (decision 33).
 
 The owner decided on 2026-11-13 to build structure B ([decisions 1 to
 4](#decisions)). Decisions 5 to 15 are the rules this note sets for the
@@ -1313,10 +1312,11 @@ lines, it reads them as follows:
 
 ## Slice 7 as built
 
-Owner decision 4 and decisions 11 (the MAX row), 15 a to c, 17 and 20 on the
-tester, with host tests in `test/test_ui.cpp` (`testTesterReadouts()`) and
-the control-id helpers of `test/ui_ids.h`. Everything is in `src/ui.cpp` and
-`src/ui.h`.
+Owner decision 4 and decisions 11 (the MAX row), 15 a to c, 17, 19 and 20
+on the tester, with host tests in `test/test_ui.cpp` (`testTesterReadouts()`,
+`testSplashTouch()`) and the control-id helpers of `test/ui_ids.h`. The code
+is in `src/ui.cpp` and `src/ui.h`, with `uiPinsRefuse()` in `src/ui_screen.h`,
+which `src/ui_menu.cpp` shares.
 
 | Block | Where | What it does |
 |---|---|---|
@@ -1336,9 +1336,9 @@ Where the build reads the note's lines, it reads them as follows:
 | The tap | `uiTapped()`: the press lands in the target and lifts inside it; no pressed look | the note gives no pressed look; LATCH and MENU act on the same rule |
 | The 3D note | while it takes the row, the pole count and `TesterCtl::Poles` are gone; `MAX` acts | a target with nothing drawn on it would open SETTINGS from the note |
 | The MAX target | {82, 230, 60, 22}, as the note gives it: to y 251, 12 px into the grab band that starts at y 240 and 4 px into the drawn track | the note's "8 px into the grab band" and its rectangle disagree; the rectangle is the build's |
-| The control table | the pad and the track stay listed, disabled while disarmed; `checkControlTable()` lets a control that does not act lie under one that acts on the tester, and fails two that act on any screen | the readouts overlap the pad and the track by the note's rectangles |
-| The claim refusal | in the callers: MENU's `pinsBusy()` and `readoutsAct()`; `uiOpenTool()` does not repeat it | a refusal there is reached by no caller and no test can fail it |
-| The frame of the tap | the tester paints none of its regions after a tap left it, MENU's included | `uiOpenTool()` and `uiOpenMenu()` clear the frame, and a region whose key changed (LATCH turned off) was painted back over it |
+| The control table | the pad and the track stay listed, disabled while disarmed; `checkControlTable()` lets a readout lie over the pad or the track while the two do not both act, and keeps every other pair apart | the readouts overlap the pad and the track by the note's rectangles |
+| The claim refusal | `uiPinsRefuse()` in `ui_screen.h`, in the callers: MENU's `pinsBusy()` and `readoutsAct()`; `uiOpenTool()` does not repeat it | a refusal there is reached by no caller and no test can fail it |
+| The frame of the tap | the tester paints none of its regions after a tap left it, MENU's included | `uiOpenTool()` and `uiOpenMenu()` clear the frame, and a region whose key changes (LATCH turned off) would be painted back over it |
 | `HOLD_DRAG_SENSITIVITY_PCT` | keeps its name; its comment says LATCH | decision 15 a names `ui.cpp` and `ui.h` |
 | SETTINGS opened from the tester | any tool could take `Level::Tester` as its origin; only SETTINGS does | owner decision 4 names SETTINGS only |
 

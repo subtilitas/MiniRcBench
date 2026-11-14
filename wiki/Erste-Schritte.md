@@ -162,8 +162,9 @@ zählen und jedes Tippen blockieren.
 Ein Finger, der schon auf dem Glas liegt, wenn der Tester erscheint,
 schaltet nicht scharf und bewegt das Gas nicht. Wird er gehoben, wirkt das
 trotzdem als Tippen auf eine Schaltfläche, die beim Loslassen auslöst, etwa
-`LATCH` oder `MENU`, wenn er darauf liegt. Hast du beim Einschalten den
-Bildschirm berührt, hebe den Finger vor `HOLD TO ARM`.
+`LATCH` oder `MENU`, wenn er darauf liegt; auf `14 POLES` oder `MAX 20%`
+öffnet das Heben SETTINGS. Hast du beim Einschalten den Bildschirm berührt,
+hebe den Finger vor `HOLD TO ARM`.
 
 ---
 
