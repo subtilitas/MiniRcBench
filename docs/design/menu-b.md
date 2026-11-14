@@ -1125,7 +1125,7 @@ that work; they are to be redone. Slice 9 was built for decisions 31 to
 | 6. Leave page, built | decisions 5 and 21 and owner decisions 3, 25 and 30: KST, Hitec and SERVO TESTER on `ui_leave`; STAY, NEXT SERVO, BACK TO SERVO; RESTART DSHOT's wait, in LEAVE's rectangle; with its README.md and wiki lines and images (decision 27) | 1, 5 | 15 in `src/`, 7 of them comments only | +561, −342 in `src/` | +474, −114 lines in 8 test files, three helpers rewritten, five probes in `test/ui_ids.h` | built |
 | 7. Tester, built | owner decision 4, decisions 15 a to c, 17: readouts, `uiOpenTool()`, origin, LATCH, BOARD, ARM while the card is held; the readouts' underline, which slice 2 left out (decision 11's MAX row); with its README.md and wiki lines and images (decision 27) | 1, 3 | 4 in `src/`, 4 in `test/` | +190, −55 in `src/` | 31 / 200 | built |
 | 8. SERVO TESTER, built | decision 13: the title; decision 12 is on `main`; with its README.md and wiki lines and images (decision 27) | 1, 3 | 3 in `src/` | +17, −9 | 1 / 23 lines in test_servo.cpp | built |
-| 9. Chooser, built | owner decisions 1 and 2, decisions 16, 18, 19, 15 d, 23 and 31 to 35: seven MENU rows scrolling 36 px with RX SIGNALS disabled, `ui_servo_prog`, `UI_PROGRAMMERS`, Hitec family entry points and the READ wait, family view removed; with its README.md and wiki lines and images (decision 27) | 3, 6, 7 | 13 in `src/`, 2 new | +461, −249 in `src/` | +643, −223 lines in 8 test files | built |
+| 9. Chooser, built | owner decisions 1 and 2, decisions 16, 18, 19, 15 d, 23 and 31 to 35: seven MENU rows scrolling 36 px with RX SIGNALS disabled, `ui_servo_prog`, `UI_PROGRAMMERS`, Hitec family entry points and the READ wait, family view removed; with its README.md and wiki lines and images (decision 27) | 3, 6, 7 | 15 in `src/`, 2 new | +604, −248 in `src/` | +598, −214 lines in 8 test files | built |
 | 10. Documentation | what no slice owns: menu.md (the tree, MENU, revision lines on decisions 1, 12 and 18), pin-claim.md's revision line on decision 4, README "Layout", "Tests" and "The user manual", and a check that no README section, wiki page or image still shows the old structure | 1 to 9 | to be redone | to be redone | none | to be redone |
 
 Slice 1 is built ([slice 1 as built](#slice-1-as-built)), and slice 2
@@ -1576,7 +1576,24 @@ Where the build reads the note's lines, it reads them as follows:
 | Docs beyond the plan's list | wiki SD-Logging / SD-Aufzeichnung (SD LOG is the sixth row), KST-Programming and The-Screens (`SIG GP0` in the claim texts and `WAIT: DSHOT RESTARTING` where they read `GP0` and `PINS BUSY`) | decision 27: a slice updates what describes the screens it changes |
 | menu.md and the revision lines | not edited | slice 10's |
 
-MUTRESULTS
+42 mutations of `ui_menu.cpp`, `ui_registry.cpp`, `ui_servo_prog.*`,
+`ui.cpp`, `ui_hitec.*` were run against the suite: RX SIGNALS acting, its
+status dropped or amber, its row gone; a tool row acting while the claim is
+busy; SD LOG and SETTINGS swapped; PROGRAMMER without `freePins`; an entry
+acting or taken while disabled, CLASSIC always enabled; the why lines
+dropped or dim, the models dropped, the power line or the strip ignoring the
+switch, the D series line reading BEFORE, BACK staying, the title; the
+chosen tool ignored, opened with its own entry point, with the tester as
+origin, or not consumed; the Hitec job started always, never, for CLASSIC
+only or for the switch only; the claim on the first tick in place of the
+tap's frame; READ starting nothing; the READ wait gone, its colours, its
+second line, its rule ignoring a job already asked for; the Stopping text,
+the ESC lines and strip; a refused claim not asked again; NEXT SERVO
+without a new session or with the D family; the bare `GP0` line; READ's
+label; and the frame key without the job's flag. 41 fail the suite. One
+passes and is equivalent through the screen: the frame key without
+`s_jobAsked`, since READ also changes the strip, which the key hashes.
+
 
 ## Risks
 

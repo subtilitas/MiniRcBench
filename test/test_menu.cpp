@@ -510,8 +510,12 @@ static void testServoProg() {
 	          fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, UI_PROG_TITLE, C_TEXT, C_PANEL, 2));
 	checkTrue("10 characters, 118 px, ending 4 px or more before BACK",
 	          gfxTextW(UI_PROG_TITLE, 2) == 118 && UI_MARGIN + 118 + 4 <= UI_BACK_X);
-	checkTrue("the strip: SIG GP0  SERVO SUPPLY OWN, dim",
-	          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "SIG GP0  SERVO SUPPLY OWN", C_DIM, C_BG, 1));
+	{
+		char own[40];
+		snprintf(own, sizeof(own), "SIG GP%u  SERVO SUPPLY OWN", (unsigned)settings()->dshotPin);
+		checkTrue("the strip: SIG GP0  SERVO SUPPLY OWN, dim",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, own, C_DIM, C_BG, 1));
+	}
 	checkInt("three entries", UI_PROGRAMMERS_COUNT, 3);
 	const int kst = progEntryOf(uiKstEnter), d = progEntryOf(uiHitecEnterD),
 	          cl = progEntryOf(uiHitecEnterClassic);
@@ -591,7 +595,7 @@ static void testServoProg() {
 		tapId(menuRow(&UI_SERVO_PROG));
 		menuFrames(1);
 		char want[48], what[96];
-		snprintf(want, sizeof(want), "SIG GP0  SERVO SUPPLY GP%u", gp);
+		snprintf(want, sizeof(want), "SIG GP%u  SERVO SUPPLY GP%u", (unsigned)settings()->dshotPin, gp);
 		snprintf(what, sizeof(what), "GP%u: the strip %s", gp, want);
 		checkTrue(what, fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, want, C_DIM, C_BG, 1) &&
 		                gfxTextW(want, 1) <= 155);
