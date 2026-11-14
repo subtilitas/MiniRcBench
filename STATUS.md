@@ -519,18 +519,22 @@ Menu structure B waits on the owner's answers, not on the bench (item 18).
 
     Until then a controller that stops answering leaves a HOLD-latched
     motor running until the idle disarm, 30 s after the last contact.
-24. **Five owner decisions on existing screens**, none decided:
-    - **AM32 3D MODE.** After a write that sets 3D MODE on, the tester arms
-      as before; the list shows the warning. Refuse to arm, warn on the
-      tester, or leave it.
+24. **Owner decisions on existing screens.** The owner decided three on
+    2026-11-14, and they are built:
+    - **AM32 3D MODE**: the tester shows `3D MODE ESC: THROTTLE SCALE
+      DIFFERS` in amber after a list read or verified write with 3D MODE on
+      in this power-up, and arms as before (`uiAm32Esc3d()`). Not verified
+      on hardware; a swapped ESC is not detected.
+    - **Servo tester limits**: a TYPE, MIN or MAX step past the travel
+      margin, further out than the applied profile, waits for HOLD TO APPLY
+      (`servoTravelNeedsHold()`). Not checked on a servo.
+    - **SETTINGS RESET**: `HOLD RESET`, a 1 s hold on the shared hold
+      widget.
+
+    Open, none decided:
     - **HITEC SERVO and DShot.** SIG carries DShot until a family is
       tapped. Take the pin when HITEC SERVO opens, before the tap, or
       leave it; menu-b.md decision 19 has the chooser claim nothing.
-    - **Servo tester limits.** TYPE WIDE and MIN or MAX past the travel
-      margin apply at once, with a note. Ask for HOLD TO APPLY as the heli
-      types do, or leave it.
-    - **SETTINGS RESET.** One tap loads the defaults. Ask for a hold, or
-      leave it.
     - **AM32 layouts the table does not know.** The list does not open for
       a layout other than 2 to 4. Open it read-only, or keep refusing.
 

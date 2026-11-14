@@ -234,9 +234,17 @@ sind also drei auf einmal sichtbar.
   zuerst ohne Ruderhorn probieren). HELI CYCLIC zeigt ihn schon mit seinen
   eigenen 820 µs bis 2220 µs. NARROW 760 und HELI TAIL 760 werden an ihrem
   eigenen Bereich gemessen: Der Hinweis steht, wenn MIN mehr als 100 µs unter
-  dem MIN des Typs liegt oder MAX mehr als 100 µs über seinem MAX. Die
-  Änderung gilt sofort. Der Hinweis steht, solange TYPE, MIN oder MAX
-  gewählt ist, und auf anderen Zeilen, wenn dort kein anderer Hinweis steht.
+  dem MIN des Typs liegt oder MAX mehr als 100 µs über seinem MAX. Eine
+  Änderung von TYPE, MIN oder MAX, die das Profil dorthin bringt oder MIN
+  oder MAX weiter hinaus legt als im übernommenen Profil, wartet: Der Hinweis
+  ist ihre Warnung, auf jeder Zeile, und `HOLD TO APPLY` (1 s) übernimmt sie.
+  Weitere Schritte hinaus lassen sie warten; ein Schritt zurück innerhalb der
+  Grenze oder auf den übernommenen Wert gilt sofort. Ein Schritt zur Mitte
+  hin gilt sofort. Eine Heli- oder 60-Hz-Warnung steht zuerst, und bei HELI
+  CYCLIC übernimmt ein Halten beides. Mit zwei Servos gilt das Halten für
+  beide; der Wechsel auf TWO gilt sofort. Nach dem Übernehmen steht der
+  Hinweis, solange TYPE, MIN oder MAX gewählt ist, und auf anderen Zeilen,
+  wenn dort kein anderer Hinweis steht.
   Den Stellweg nennt das Datenblatt des Servos; der Prüfstand misst ihn
   nicht.
 - Die SWEEP-Zeilen lassen sich jederzeit ändern und gelten für den nächsten
@@ -245,7 +253,7 @@ sind also drei auf einmal sichtbar.
 - `DEFAULTS` gibt es nur in `SAFE`. Es stellt STANDARD PWM mit 50 Hz, ein
   Servo und einen Sinus mit 0,50 Hz ein.
 
-<img src="img/servo-set-warning.png" width="240" alt="Ein Heli-Profil wartet auf HOLD TO APPLY">
+<img src="img/servo-set-warning.png" width="240" alt="Ein Heli-Profil wartet auf HOLD TO APPLY"> <img src="img/servo-set-travel.png" width="240" alt="TYPE WIDE wartet hinter dem Endanschlag-Hinweis auf HOLD TO APPLY">
 
 Auf diesem Bildschirm wird nichts gespeichert. Jedes Mal, wenn du den
 Servobildschirm öffnest, beginnt er mit STANDARD PWM, 50 Hz und einem Servo.

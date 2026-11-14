@@ -219,7 +219,14 @@ Swipe the row sideways for big steps. Drag up or down to scroll. Rows are
   HORN-FREE.` in amber. HELI CYCLIC shows it at its own 820 µs to 2220 µs.
   NARROW 760 and HELI TAIL 760 are measured against their own ranges: the
   note shows when MIN lies more than 100 µs below the type's MIN, or MAX more
-  than 100 µs above the type's MAX. The change applies at once. The note
+  than 100 µs above the type's MAX. A TYPE, MIN or MAX change that brings the
+  profile there, or takes MIN or MAX further out than the applied profile,
+  waits: the note is its warning, on every row, and `HOLD TO APPLY` (1 s)
+  applies it. Stepping further while it waits keeps it waiting; stepping back
+  inside the margin, or back to the applied value, applies at once. A step
+  toward the centre applies at once. A heli or 60 Hz change shows its own
+  warning first, and HELI CYCLIC's one hold covers both. With TWO servos the
+  hold covers both; changing to TWO applies at once. Once applied, the note
   shows while TYPE, MIN or MAX is selected, and on other rows when no other
   note does.
   The travel of a servo is in its data sheet; the bench does not measure it.
@@ -228,7 +235,7 @@ Swipe the row sideways for big steps. Drag up or down to scroll. Rows are
 - `DEFAULTS`, offered only while `SAFE`, returns to STANDARD PWM at 50 Hz,
   one servo, and a sine at 0.50 Hz.
 
-<img src="img/servo-set-warning.png" width="240" alt="A heli profile waiting for HOLD TO APPLY">
+<img src="img/servo-set-warning.png" width="240" alt="A heli profile waiting for HOLD TO APPLY"> <img src="img/servo-set-travel.png" width="240" alt="TYPE WIDE waiting for HOLD TO APPLY behind the end-stop note">
 
 Nothing on this screen is stored. Every time you open the servo screen it
 starts at STANDARD PWM, 50 Hz, one servo.

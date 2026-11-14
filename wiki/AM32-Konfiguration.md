@@ -114,6 +114,19 @@ Motor mit wenig Leistung in die andere. Mit der voreingestellten Gasgrenze
 von 20 % erreicht der Tester etwa 40 % des AM32-Gasbereichs in eine
 Richtung.
 
+**Auf dem Tester.** Hat AM32 CONFIG die Einstellungen des ESC mit 3D MODE an
+gelesen, oder sie mit 3D MODE an geschrieben und gleich zurückgelesen
+(`WRITE VERIFIED`), zeigt der Tester unter der Drehzahl in Bernstein
+`3D MODE ESC: THROTTLE SCALE DIFFERS` (3D-ESC: die Gasskala ist eine andere),
+an Stelle der Polzahl und des Wisch-Hinweises, scharf oder nicht.
+Scharfschalten geht wie bisher. Ein Lesen oder ein bestätigtes Schreiben mit
+3D MODE aus nimmt ihn weg, ebenso ein Neustart: Er wird nicht gespeichert.
+Eine nicht geschriebene Änderung, ein nicht bestätigtes Schreiben und ein
+Lesen, das die Liste nicht öffnet, lassen ihn, wie er ist. Der Tester kann
+nicht erkennen, dass der ESC am Pin gegen einen anderen getauscht wurde: Der
+Hinweis beschreibt den letzten ESC, den AM32 CONFIG seit dem Einschalten
+gelesen oder geschrieben hat. Teste einen 3D-ESC ohne Propeller.
+
 Mit `SERVO` sucht AM32 nur Servopulse. Mit `SERIAL`, `DRONECAN` und den
 gespeicherten Werten 6 bis 9 erkennt AM32 DShot, aber sein Startcode lässt das
 Gas gesperrt (`EDT_ARMED` bei 0), sodass es jeden Gasbefehl verwirft; ein Wert

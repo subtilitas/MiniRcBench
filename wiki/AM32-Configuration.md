@@ -108,6 +108,17 @@ way, and just above 50 % the motor runs the other way at low power. With the
 default throttle ceiling of 20 % the tester reaches about 40 % of AM32's
 throttle range in one direction.
 
+**On the tester.** After AM32 CONFIG has read the ESC's settings with 3D MODE
+on, or written them with 3D MODE on and read them back equal (`WRITE
+VERIFIED`), the tester shows `3D MODE ESC: THROTTLE SCALE DIFFERS` in amber
+under the RPM readout, in place of the pole count and the swipe hint, armed
+or not. Arming works as before. A read or a verified write with 3D MODE off
+removes it, and so does a restart: it is not stored. An edit that is not
+written, a write that is not verified, and a read that does not open the list
+leave it as it was. The tester cannot tell that the ESC on the pin was
+swapped for another one: the note describes the last ESC AM32 CONFIG read or
+wrote in this power-up. Keep the propeller off while testing a 3D ESC.
+
 With `SERVO` AM32 looks for servo pulses only. With `SERIAL`, `DRONECAN` and
 the stored values 6 to 9 AM32 detects DShot, but its start-up code leaves the
 throttle locked (`EDT_ARMED` at 0), so it drops every throttle command; a

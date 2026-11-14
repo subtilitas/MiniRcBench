@@ -44,6 +44,14 @@ protocol.
 
 ### Added
 
+- The tester shows `3D MODE ESC: THROTTLE SCALE DIFFERS` in amber on the RPM
+  area's bottom row, in place of the pole count and the swipe hint, armed or
+  not, after AM32 CONFIG read an ESC whose settings have 3D MODE on (a read
+  that opens the list) or wrote 3D MODE on and verified it, in this
+  power-up. A read or verified write with 3D MODE off clears it, and so does
+  a restart. Arming is unchanged. A swapped ESC is not detected.
+  `uiAm32Esc3d()` in `src/ui_am32.*`; host test `testAm32TesterNote()`; the
+  wiki shows `tester-3d.png`.
 - The splash shows `TOUCH CONTROLLER NOT FOUND` in amber while the touch
   controller has not answered since `touchInit()`: the driver records
   whether it has answered (`touchAnswered()`), and the splash reads the
@@ -502,12 +510,22 @@ protocol.
   outside the type's own range) the note band says
   `PAST ITS TRAVEL A SERVO STALLS AND` `HEATS. TRY MIN AND MAX HORN-FREE.`
   in amber, ahead of the dim notes while TYPE, MIN or MAX is selected and
-  after them on the other rows. The change still applies at once.
+  after them on the other rows.
   `servoPastTravel()` in `src/servo_model.*`; host tests in
   `test/test_servo.cpp`.
 
 ### Changed
 
+- SERVO TESTER → SET: a TYPE, MIN or MAX step that leaves the profile past
+  its travel and changes TYPE or takes MIN or MAX further out than the
+  applied profile waits for `HOLD TO APPLY`, with the amber end-stop note as
+  its warning; the heli and 60 Hz warnings come first. A step back inside
+  the margin or to the applied value applies at once, as does a step toward
+  the centre. `servoTravelNeedsHold()` in `src/servo_model.*`; the wiki
+  shows `servo-set-travel.png`.
+- SETTINGS: RESET reads `HOLD RESET` and loads the defaults after a 1 s hold
+  on the shared hold widget (`src/ui_hold.*`), with a bar over the button; a
+  tap loads nothing and a slide off cancels. Host test `testResetHold()`.
 - SD LOG's FILE row keeps the last log's name after it ends, marked
   `(LAST)`, beside the counters that log left, until the next start or
   mount; a mount resets the name and the counters (`sdLogBegin()`). The
