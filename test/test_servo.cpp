@@ -2640,6 +2640,52 @@ static void testSetList() {
 	leaveServo();
 }
 
+/** @brief Stamp the fake ESC's eRPM now, so it keeps answering on SIG. */
+static void escAnswers(EscTelemetry *t) {
+	t->lastRpmMs = millis();
+	fakeSetTelemetry(t);
+}
+
+/**
+ * @brief From the tester, with an ESC answering so nothing is claimed: SERVO,
+ *        SET, WIDE applied with HOLD TO APPLY, then TWO pending on it.
+ */
+static void wideTwoPendingUnclaimed(EscTelemetry *t) {
+	memset(t, 0, sizeof(*t));
+	escAnswers(t);
+	openServo();
+	escAnswers(t);
+	openSet();
+	escAnswers(t);
+	selectRow(1);   // TYPE
+	escAnswers(t);
+	stepSel(+1);    // NARROW 760
+	escAnswers(t);
+	stepSel(+1);    // WIDE
+	escAnswers(t);
+	int x, y;
+	ctlCentre(UI_FIX(ServoCtl::Apply), &x, &y);
+	pressId(UI_FIX(ServoCtl::Apply));
+	for (int i = 0; i < 41; i++) { escAnswers(t); fakeHold(x, y); uiFrames(1); }
+	fakeRelease();
+	escAnswers(t);
+	uiFrames(1);
+	selectRow(ROW_SERVOS);
+	escAnswers(t);
+	stepSel(+1);
+	escAnswers(t);
+}
+
+/** @brief The ESC goes quiet with KISS live on AUX: the claim takes SIG alone. */
+static void claimSigAloneKiss(EscTelemetry *t) {
+	t->lastRpmMs = 0;
+	t->kissLastMs = millis();
+	t->haveKiss = true;
+	fakeSetTelemetry(t);
+	uiFrames(2);
+}
+
+
 /**
  * @brief Claim refusals the UI cannot reach, and TWO chosen before the claim.
  */
@@ -2824,6 +2870,58 @@ static void testClaimCorners() {
 	checkTrue("held on it all the same: still one servo, AUX not driven",
 	          s_profile.servos == 1 && !twoServos() && fakePin(0).function == GPIO_FUNC_PWM &&
 	          fakePin(1).function != GPIO_FUNC_PWM);
+	backFromSet();
+	leaveServo();
+	backFromMenu();
+	noEsc();
+
+	// A wait that holds for more than TWO outlasts the claim of SIG alone:
+	// TWO drops to one, and the other change still waits for the hold.
+	wideTwoPendingUnclaimed(&t);
+	selectRow(1);   // TYPE
+	escAnswers(&t);
+	stepSel(+1);    // HELI CYCLIC: the heli warning
+	escAnswers(&t);
+	checkTrue("WIDE applied, TWO and HELI CYCLIC pending before the claim",
+	          s_pending && s_edit.type == ServoType::HeliCyclic && s_edit.servos == 2 && !s_claimed);
+	claimSigAloneKiss(&t);
+	checkTrue("SIG alone: TWO dropped, HELI CYCLIC still waits, WIDE on one servo applied",
+	          s_claimed && s_auxRefusal == ClaimRefusal::KissLive && s_pending &&
+	          s_edit.servos == 1 && s_profile.type == ServoType::Wide && s_profile.servos == 1);
+	backFromSet();
+	leaveServo();
+	backFromMenu();
+	noEsc();
+
+	wideTwoPendingUnclaimed(&t);
+	selectRow(3);   // MIN
+	escAnswers(&t);
+	stepSel(-1);    // 790 us: further past the travel
+	escAnswers(&t);
+	checkTrue("WIDE applied, TWO and MIN 790 us pending before the claim",
+	          s_pending && s_edit.minUs == 790 && s_edit.servos == 2 && !s_claimed);
+	claimSigAloneKiss(&t);
+	checkTrue("SIG alone: TWO dropped, MIN 790 us still waits, MIN 800 us applied",
+	          s_claimed && s_pending && s_edit.servos == 1 && s_edit.minUs == 790 &&
+	          s_profile.minUs == 800 && s_profile.servos == 1);
+	backFromSet();
+	leaveServo();
+	backFromMenu();
+	noEsc();
+
+	wideTwoPendingUnclaimed(&t);
+	selectRow(2);   // RATE
+	escAnswers(&t);
+	stepSel(+1);    // 60 Hz
+	escAnswers(&t);
+	stepSel(+1);    // 100 Hz: the 60 Hz warning
+	escAnswers(&t);
+	checkTrue("WIDE applied, TWO and 100 Hz pending before the claim",
+	          s_pending && s_edit.rateHz == 100 && s_edit.servos == 2 && !s_claimed);
+	claimSigAloneKiss(&t);
+	checkTrue("SIG alone: TWO dropped, 100 Hz still waits, 50 Hz applied",
+	          s_claimed && s_pending && s_edit.servos == 1 && s_profile.rateHz == 50 &&
+	          s_profile.servos == 1);
 	backFromSet();
 	leaveServo();
 	noEsc();
