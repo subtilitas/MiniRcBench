@@ -48,10 +48,10 @@ protocol.
   controller has not answered since `touchInit()`: the driver records
   whether it has answered (`touchAnswered()`), and the splash reads the
   touch every 25 ms (`uiSplashTick()`) and clears the line at the first
-  answer. That
-  read goes into a state of its own, so a finger resting on the glass when
-  the tester appears gives no press edge: it does not arm or move the
-  throttle, and its lift still ends a tap on a button that acts on release.
+  answer. That read goes into a state of its own, so a finger resting on
+  the glass when the tester appears gives no press edge: it does not arm or
+  move the throttle, and its lift still ends a tap on a button that acts on
+  release.
   A finger on the glass at power-up is lifted before HOLD TO ARM.
   Host test `testSplashTouch()`, with a touch fake that stops answering
   (`fakeTouchAnswers()`); the wiki shows `splash-no-touch.png`.
