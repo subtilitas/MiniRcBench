@@ -3,7 +3,9 @@
 # The Screens
 
 The firmware has eight screens. The tester is the root. `MENU` opens the list of
-tools, and every tool is left with `BACK`, which returns to `MENU`.
+tools, and every tool is left with `BACK`, which returns to `MENU`. SETTINGS
+also opens from the tester's pole count and ceiling; `BACK` then returns to
+the tester.
 
 ```
 Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MENU
@@ -15,6 +17,7 @@ Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MEN
    │                    ├── SETTINGS     ──BACK──> MENU
    │                    └── SD LOG       ──BACK──> MENU
    └──── BACK on MENU ──┘
+Tester ──14 POLES or MAX 20% (disarmed)──> SETTINGS ──BACK──> Tester
 ```
 
 `BEEP THE ESC` is a row of `MENU` that acts and opens no screen.
@@ -39,7 +42,7 @@ fill, the servo pulse, a hold's progress bar. Red is output on or a failure:
 `ARMED`, `RUNNING`, `STOP`, a tool's hold button while it is held, `REC`, a
 write in doubt. Amber is a warning or the step to take now. Magenta is an alert,
 such as `STALLED`. Cyan is a value changed and not yet written or applied, with
-a cyan bar at its row's left edge. Blue is a setting that stays on: `HOLD`, a
+a cyan bar at its row's left edge. Blue is a setting that stays on: `LATCH`, a
 toggle that is on, `PROG MODE`, servo B. Labels, captions and the buttons that
 open or command something are in the text colour or grey. A chip on the strip
 under a title is square, so it does not look like a button. Not every use
@@ -87,9 +90,9 @@ example `CARD ERROR` on SD LOG and AM32's `WRITE FAILED`.
 
 **RPM.** Mechanical RPM (revolutions per minute), computed from the eRPM
 (electrical RPM) the ESC (electronic speed controller) reports and the pole
-count. The `ERPM` value and the pole count are shown below it. Green digits:
-eRPM arrived within the last 500 ms. Dark red zero: it did not, and the line
-reads `NO TELEMETRY`.
+count. The `ERPM` value and the pole count, for example `14 POLES`, are shown
+below it. Green digits: eRPM arrived within the last 500 ms. Dark red zero: it
+did not, and the line reads `NO TELEMETRY`.
 
 After AM32 CONFIG has read an ESC with 3D MODE on, or written 3D MODE on
 (accepted by the ESC, verified or not), in this power-up, the row under the
@@ -111,9 +114,20 @@ quality. See [Telemetry](Telemetry).
 **Throttle.** The gauge, the ceiling and the commanded percentage. The
 percentage is of the full DShot range (0–2000 = 0–100 %): at a 20 % ceiling, a
 full-width drag reads `20%`. The ceiling reads `MAX 20%` in the text colour
-beside `THROTTLE`. While disarmed the bar reads `ARM TO ENABLE`.
+beside `THROTTLE`; with `LATCH` on the caption reads `LATCHED`. While disarmed
+the bar reads `ARM TO ENABLE`.
 
-**Buttons.** `HOLD TO ARM` / `DISARM`, `HOLD` (latching throttle), `MENU`.
+**Pole count and ceiling open SETTINGS.** While the tester is disarmed,
+`14 POLES` and `MAX 20%` are underlined, and a tap on either opens SETTINGS.
+The tap disarms as `MENU` does, and `BACK` on SETTINGS returns to the tester.
+While armed the underline goes and a tap on them does nothing: the pole count
+lies in the throttle pad and `MAX` reaches into the bar's grab area, so the
+press drives the throttle as there. While DShot restarts after a servo tool
+the underline goes too and a tap does nothing, as `MENU` draws SETTINGS
+disabled then. While the 3D note takes the row, only `MAX` opens SETTINGS.
+
+**Buttons.** `HOLD TO ARM` / `DISARM`, `LATCH` (the throttle stays where the
+finger leaves it; blue while on), `MENU`.
 
 While a computer holds the SD card over USB, arming is refused: `HOLD TO ARM`
 is drawn as an outline, and the bar reads `EJECT THE USB DRIVE TO ARM` in
@@ -136,7 +150,7 @@ finger and block every tap.
 <img src="img/menu.png" width="240" alt="The MENU screen">
 
 Reached with the tester's `MENU` button. Opening it **disarms**, sets the
-throttle to 0 and turns `HOLD` off.
+throttle to 0 and turns `LATCH` off.
 
 Under the title, a strip names the two signal pins, SIG for the ESC and AUX
 for the KISS wire or a second servo, and the DShot rate, for example
@@ -225,7 +239,8 @@ says the same at start-up (see [First Run](First-Run#powering-up)).
 
 Motor and wiring settings, display settings, the board, diagnostics, and the
 button that writes all settings to flash. One list, in sections, scrolls under
-a finger.
+a finger. It opens from `MENU`, or from a tap on the tester's pole count or
+ceiling while disarmed; `BACK` returns to where it was opened from.
 
 | Section | Row | What it does |
 |---|---|---|

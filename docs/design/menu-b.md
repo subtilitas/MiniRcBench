@@ -1,25 +1,26 @@
 # Menu structure B
 
-Status: slices 1 to 5 and 8 built, host tests only; slices 6, 7, 9 and 10
-not built. Slice 2 is the colour roles of decisions 8 and 11 ([slice 2 as
-built](#slice-2-as-built)); slice 3 is the names and SETTINGS of decisions 9,
-10 and 15 b, e, f, h, j, k, with its README.md and wiki lines and images
-([slice 3 as built](#slice-3-as-built)); slice 5 is the write rule and the
-BACK guard of decisions 6, 7 and 13's AM32 titles ([slice 5 as
-built](#slice-5-as-built)); slice 8 is decision 13's title on
-SERVO TESTER, with its README.md and wiki lines and images ([slice 8 as
-built](#slice-8-as-built)). The owner answered the note's eight
-open questions on 2026-11-14 ([decisions 23 to 30](#decisions)), and the
-question that followed from them (decision 33). Slices 6, 7, 9 and 10 wait
-on being built. By the owner's order of work of 2026-11-14 they follow the eight
-small decisions of STATUS.md items 20, 21 and 24. Three of the owner's
-decisions of 2026-11-14 change this design, and the sections they touch are
-marked "to be redesigned": each slice updates its own README.md and wiki
-lines and images (decision 27, against this note's recommendation), so the
-[slice table](#slices) is reworked and slice 10 shrinks; HITEC SERVO takes
-SIG when it opens (decision 31), which changes decision 19; and MENU gains a
-seventh row, RX SIGNALS (decision 32), so MENU scrolls 36 px, which revises
-owner decision 1's six rows that never scroll (decision 33).
+Status: slices 1 to 5, 7 and 8 built, host tests only; slices 6, 9 and 10 not
+built. Slice 2 is the colour roles of decisions 8 and 11 ([slice 2 as
+built](#slice-2-as-built)); slice 3 is the names and SETTINGS of decisions 9, 10
+and 15 b, e, f, h, j, k, with its README.md and wiki lines and images ([slice 3
+as built](#slice-3-as-built)); slice 5 is the write rule and the BACK guard of
+decisions 6, 7 and 13's AM32 titles ([slice 5 as built](#slice-5-as-built));
+slice 7 is the tester of owner decision 4 and
+decisions 11 (the MAX row), 15 a to c, 17, 19 and 20 ([slice 7 as
+built](#slice-7-as-built)); slice 8 is decision 13's title on SERVO TESTER, with
+its README.md and wiki lines and images ([slice 8 as built](#slice-8-as-built)).
+The owner answered the note's eight open questions on 2026-11-14 ([decisions 23
+to 30](#decisions)), and the question that followed from them (decision 33).
+Slices 6, 9 and 10 wait on being built. By the owner's order of work of
+2026-11-14 they follow the eight small decisions of STATUS.md items 20, 21 and
+24. Three of the owner's decisions of 2026-11-14 change this design, and the
+sections they touch are marked "to be redesigned": each slice updates its own
+README.md and wiki lines and images (decision 27, against this note's
+recommendation), so the [slice table](#slices) is reworked and slice 10 shrinks;
+HITEC SERVO takes SIG when it opens (decision 31), which changes decision 19;
+and MENU gains a seventh row, RX SIGNALS (decision 32), so MENU scrolls 36 px,
+which revises owner decision 1's six rows that never scroll (decision 33).
 
 The owner decided on 2026-11-13 to build structure B ([decisions 1 to
 4](#decisions)). Decisions 5 to 15 are the rules this note sets for the
@@ -1088,7 +1089,7 @@ decisions 31 to 33.
 | 4. Layout table, built | decision 14 | 1 | 11 in `src/` | +146, −79 | 63 / 236 lines in 7 test files | built |
 | 5. Write rule and guard, built | decisions 6, 7, 13 (AM32 HEX and WRITE titles): `WRITE...`, `RESTORE...`, AM32 write page and result, editor old value, guard on AM32 and SERVO SET, BACK disabled while writing, the leave queue gone; with its README.md and wiki lines and images (decision 27) | 1, 2, 4 | 10 in `src/` | +476, −153 | +631, −181 lines in 4 test files | built |
 | 6. Leave page | decision 5 and owner decision 3: KST, Hitec and SERVO TESTER on `ui_leave`; STAY, NEXT SERVO, BACK TO SERVO; RESTART DSHOT's wait | 1, 5 | 6 | +180, −300 | 90 and three helpers / 80 | 2 to 3 days |
-| 7. Tester | owner decision 4, decisions 15 a to c, 17: readouts, `uiOpenTool()`, origin, LATCH, BOARD, ARM while the card is held; the readouts' underline, which slice 2 left out (decision 11's MAX row) | 1, 3 | 4 | +150 | 15 / 100 | 1.5 days |
+| 7. Tester, built | owner decision 4, decisions 15 a to c, 17: readouts, `uiOpenTool()`, origin, LATCH, BOARD, ARM while the card is held; the readouts' underline, which slice 2 left out (decision 11's MAX row); with its README.md and wiki lines and images (decision 27) | 1, 3 | 4 in `src/`, 4 in `test/` | +190, −55 in `src/` | 31 / 200 | built |
 | 8. SERVO TESTER, built | decision 13: the title; decision 12 is on `main`; with its README.md and wiki lines and images (decision 27) | 1, 3 | 3 in `src/` | +17, −9 | 1 / 23 lines in test_servo.cpp | built |
 | 9. Chooser | owner decisions 1 and 2, decisions 16, 18, 19, 15 d, 23, 31, 32 and 33: seven MENU rows scrolling 36 px, `ui_servo_prog`, `UI_PROGRAMMERS`, Hitec family entry points, family view removed | 3, 6, 7 | 9, 2 new | +350, −120 | 50 / 120 | 2 to 3 days |
 | 10. Documentation | what no slice owns: menu.md (the tree, MENU, revision lines on decisions 1, 12 and 18), pin-claim.md's revision line on decision 4, README "Layout", "Tests" and "The user manual", and a check that no README section, wiki page or image still shows the old structure | 1 to 9 | to be redone | to be redone | none | to be redone |
@@ -1099,9 +1100,10 @@ Slice 1 is built ([slice 1 as built](#slice-1-as-built)), and slice 2
 ([slice 4 as built](#slice-4-as-built)); by decision 27 its previews,
 README.md and wiki lines go with it. Slice 5 is built
 ([slice 5 as built](#slice-5-as-built)), with its README.md and wiki lines
-and images. Slice 8 is built
-([slice 8 as built](#slice-8-as-built)), with its previews, README.md and
-wiki lines.
+and images. Slice 7 is built ([slice 7 as
+built](#slice-7-as-built)), with its previews, README.md and wiki lines.
+Slice 8 is built ([slice 8 as built](#slice-8-as-built)), with its
+previews, README.md and wiki lines.
 
 Slice 3 comes before slice 9: without it the SERVO SUPPLY section leaves
 SETTINGS with KST SERVO's MENU row. Slice 6 needs slice 5 because both change
@@ -1365,6 +1367,38 @@ Readings of the decisions where the code asked for a choice:
 Not built in this slice: the leave page (slice 6), the tester (slice 7);
 SERVO TESTER's title is slice 8's. BACK on the KST and Hitec leave pages still
 returns to the list, and BACK from the list still opens the leave page.
+
+## Slice 7 as built
+
+Owner decision 4 and decisions 11 (the MAX row), 15 a to c, 17, 19 and 20
+on the tester, with host tests in `test/test_ui.cpp` (`testTesterReadouts()`,
+`testSplashTouch()`) and the control-id helpers of `test/ui_ids.h`. The code
+is in `src/ui.cpp` and `src/ui.h`, with `uiPinsRefuse()` in `src/ui_screen.h`,
+which `src/ui_menu.cpp` shares.
+
+| Block | Where | What it does |
+|---|---|---|
+| The readouts | `TesterCtl::Poles` {4, 106, 72, 22}, `TesterCtl::Max` {82, 230, 60, 22}; `readoutsAct()` | `14 POLES` (`UI_TESTER_POLES_FMT`, 8 characters at most, `28 POLES`, 47 px from x 10) and `MAX 20%` (`MAX 100%` at most, 47 px from x 88), both `C_TEXT`. While disarmed and while the pin claim is Free, each has a 1 px `C_TEXT` underline of its text's width, at y 122 and y 244, and a tap on it opens SETTINGS |
+| `uiOpenTool()` | `ui.cpp`, static | the one route to a tool, from MENU's rows and from the readouts: `testerDisarm()`, the disarm `uiOpenMenu()` runs (disarmed, throttle 0, LATCH off, the backlight dip if it was armed), then the tool opens |
+| The origin | `s_toolFrom` | `Level::Menu` or `Level::Tester`; a tool's BACK returns there and invalidates every tester region, as BACK to MENU does |
+| LATCH | `TesterCtl::Latch`, `BTN_LATCH`, `s_latch` | the button reads `LATCH`, blue while on; the track's caption reads `LATCHED` (`UI_TESTER_LATCHED_TEXT`, 41 px, `C_DIM`) in place of `THROTTLE REL` |
+| BOARD, ARM while the card is held | `drawStatusBar()`, `drawButtons()`, `drawThrottle()` | on `main` before this slice, with `testTesterBoardAndCard()`; unchanged |
+
+Where the build reads the note's lines, it reads them as follows:
+
+| Point | As built | Why |
+|---|---|---|
+| The pole count's text | `14 POLES` in `C_TEXT`, in place of `14P` in `C_DIM` | the note's drawing and text table of "The tester" |
+| The underline while the claim is not Free | not drawn, and the readouts are disabled in the control table | the interlock ignores the tap then, and `ui_screen.h` draws a control that does not act as such; the note names only the armed case |
+| Armed | the texts stay `C_TEXT` without the underline; a press on them is the pad's or the track's | decision 20 changes the underline only |
+| The tap | `uiTapped()`: the press lands in the target and lifts inside it; no pressed look | the note gives no pressed look; LATCH and MENU act on the same rule |
+| The 3D note | while it takes the row, the pole count and `TesterCtl::Poles` are gone; `MAX` acts | a target with nothing drawn on it would open SETTINGS from the note |
+| The MAX target | {82, 230, 60, 22}, as the note gives it: to y 251, 12 px into the grab band that starts at y 240 and 4 px into the drawn track | the note's "8 px into the grab band" and its rectangle disagree; the rectangle is the build's |
+| The control table | the pad and the track stay listed, disabled while disarmed; `checkControlTable()` lets a readout lie over the pad or the track while the two do not both act, and keeps every other pair apart | the readouts overlap the pad and the track by the note's rectangles |
+| The claim refusal | `uiPinsRefuse()` in `ui_screen.h`, in the callers: MENU's `pinsBusy()` and `readoutsAct()`; `uiOpenTool()` does not repeat it | a refusal there is reached by no caller and no test can fail it |
+| The frame of the tap | the tester paints none of its regions after a tap left it, MENU's included | `uiOpenTool()` and `uiOpenMenu()` clear the frame, and a region whose key changes (LATCH turned off) would be painted back over it |
+| `HOLD_DRAG_SENSITIVITY_PCT` | keeps its name; its comment says LATCH | decision 15 a names `ui.cpp` and `ui.h` |
+| SETTINGS opened from the tester | any tool could take `Level::Tester` as its origin; only SETTINGS does | owner decision 4 names SETTINGS only |
 
 ## Slice 8 as built
 

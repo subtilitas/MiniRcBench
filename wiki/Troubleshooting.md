@@ -36,7 +36,7 @@ lines.
 
 <img src="img/splash-reset-no-touch.png" width="240" alt="The splash with SETTINGS RESET BY UPDATE, CHECK MENU > SETTINGS and TOUCH CONTROLLER NOT FOUND above the name">
 
-Without touch the board cannot be operated: arming, `DISARM`, `HOLD` and
+Without touch the board cannot be operated: arming, `DISARM`, `LATCH` and
 `MENU` all need it. The idle interlock disarms 30 s after the last contact
 the controller reports. A wet screen, or something lying on the glass,
 counts as a contact and keeps an armed tester armed. To stop a motor,

@@ -359,11 +359,11 @@ a strip has no room ([menu-b.md](menu-b.md) decision 10).
 `escTaskResume()` rebuilds the driver from the wiring `esc_task.cpp` latched:
 the same SIG pin, bitrate, bidirectional mode, KISS enable and KISS pin. Pole
 count and throttle ceiling live in the settings block and are untouched. The
-pump starts disarmed with HOLD off, as after a SETTINGS change. Its first frames
-are the EDT enable, and it decodes every reply with EDT on (`escEdtBind()`,
-`ESC_EDT_DECODE`), so an ESC that kept EDT on through the session reads
-correctly from its first reply. The repeated enable starts again for the ESC
-it finds, because a rebuild clears its state. Telemetry counters in
+pump starts disarmed with LATCH off, as after a SETTINGS change. Its first
+frames are the EDT enable, and it decodes every reply with EDT on
+(`escEdtBind()`, `ESC_EDT_DECODE`), so an ESC that kept EDT on through the
+session reads correctly from its first reply. The repeated enable starts again
+for the ESC it finds, because a rebuild clears its state. Telemetry counters in
 `EscTelemetry` carry on.
 
 `out_dshot_bind()` sets the pull-up and the output inversion on SIG.

@@ -40,12 +40,12 @@ receiver channels) receiver monitor is described in
 and that is not designed yet; rcbench's S.BUS decoder is in the tree and
 tested on the host, and the firmware does not build it. A PPM
 (pulse-position modulation) output is not built, by the owner's decision.
-Menu structure B is described in `docs/design/menu-b.md`; slices 1 to 5 and
-8 of 10 are in the tree: its building blocks, its colour roles, its names and
-SETTINGS, its layout table, its write rule and BACK guard, and SERVO
-TESTER's title, the MENU row's label.
-The uses that the design note's decision 11 names take their role's colour,
-and a value changed and not yet written is cyan.
+Menu structure B is described in `docs/design/menu-b.md`; slices 1 to 5, 7
+and 8 of 10 are in the tree: its building blocks, its colour roles, its
+names and SETTINGS, its layout table, its write rule and BACK guard, the
+tester's readouts that open SETTINGS with LATCH, and SERVO TESTER's title,
+the MENU row's label. The uses that the design note's decision 11 names take
+their role's colour, and a value changed and not yet written is cyan.
 
 ![UI preview](docs/ui-preview.png)
 
@@ -364,9 +364,9 @@ above the name; the line goes at the controller's first answer
 its own, so a finger resting on the glass when the tester appears gives no
 press edge: it does not arm, does not move the throttle and does not start
 a hold. Lifting it still ends a tap where it rests, on a button that acts
-on release such as HOLD or MENU, because the driver keeps where the press
-began. If you touched the screen at power-up, lift the finger before HOLD
-TO ARM.
+on release such as LATCH or MENU, because the driver keeps where the press
+began; on the pole count or the ceiling the lift opens SETTINGS. If you
+touched the screen at power-up, lift the finger before HOLD TO ARM.
 
 **Main screen**
 
@@ -380,11 +380,11 @@ TO ARM.
   disabled look, and the throttle bar reads `EJECT THE USB DRIVE TO ARM` in
   amber.
   Once armed the button reads **DISARM** and acts on touch-down.
-- **Throttle bar**: the gesture depends on HOLD.
+- **Throttle bar**: the gesture depends on LATCH.
 
-  | | HOLD off (default) | HOLD on |
+  | | LATCH off (default) | LATCH on |
   |---|---|---|
-  | Bar label | `THROTTLE` | `THROTTLE REL` + grab handle |
+  | Bar label | `THROTTLE` | `LATCHED` + grab handle |
   | Gesture | **absolute**: finger position sets the throttle | **relative**: throttle moves by the finger's travel |
   | Touching the bar | jumps to that position | changes nothing |
   | On release | returns to zero | stays |
@@ -412,9 +412,22 @@ TO ARM.
   3D note shows ([Telemetry and logging](#telemetry-and-logging)), the note
   stands in the hint's place until a drag engages; `SWIPE ACTIVE` then
   replaces the note, and the note returns on release. The pad works the same.
-- **HOLD**: off by default. Turning it off sets the throttle to zero.
+- **LATCH**: off by default, blue while on. Turning it off sets the
+  throttle to zero.
 - **MENU**: the list of tools and settings. Opening it disarms, sets the
-  throttle to zero and turns HOLD off.
+  throttle to zero and turns LATCH off.
+- **Pole count and ceiling**: `14 POLES` at x 10, y 114, and `MAX 20%` at
+  x 88, y 236, both in the text colour. While disarmed and while the pin
+  claim is free, each is underlined in the text colour (y 122 and y 244) and
+  a tap on it opens SETTINGS (`TesterCtl::Poles` at {4, 106, 72, 22},
+  `TesterCtl::Max` at {82, 230, 60, 22}). The tap runs MENU's disarm first,
+  through `uiOpenTool()` in `src/ui.cpp`, and `BACK` on SETTINGS opened this
+  way returns to the tester. While armed they show no underline and a press
+  on them is the throttle pad's or the throttle bar's: the pole count lies in
+  the pad, `MAX` reaches into the bar's grab area. While another screen
+  holds the signal pins (DShot restarting) they show no underline and a tap
+  does nothing, as MENU's SETTINGS row is refused. While the 3D note takes
+  the row, the pole count and its target are gone; `MAX` still acts.
 
 **Touch**
 
@@ -447,7 +460,8 @@ Arming and disarming dim the backlight to a quarter for 120 ms
 
 MENU is a list of rows. Each row is 40 px tall at a 42 px pitch, with the name
 at scale 2 on the left and its state right-aligned. **BACK** returns to the
-tester. Every tool's **BACK** returns to MENU.
+tester. Every tool's **BACK** returns to MENU, except SETTINGS opened from
+the tester's pole count or ceiling, whose **BACK** returns to the tester.
 
 - **EDT ON / EDT OFF / NO ESC**: a read-only chip on the strip under the
   title, square and 12 px tall, so it does not look like a button.
@@ -539,6 +553,8 @@ tester. Every tool's **BACK** returns to MENU.
 *SETTINGS at the top, scrolled to the end, in high contrast, and the UNSAVED
 marker it puts on MENU.*
 
+SETTINGS opens from MENU, or from a tap on the tester's pole count or
+ceiling while disarmed; **BACK** returns to where it was opened from.
 SETTINGS is one list in sections. The list fills y 40 to 239 (to y 227 while
 the ESC pin's warning shows, see below) and scrolls under a drag. A row is
 44 px tall at a 50 px pitch. **MOTOR POLES** and
@@ -824,7 +840,8 @@ shows `--`. RPM shows a dark red zero, and the line under it reads
 held old values would show a plausible reading from an ESC that is no longer
 connected.
 
-The RPM area's bottom row, y 114, holds the pole count and the swipe hint. While
+The RPM area's bottom row, y 114, holds the pole count, `14 POLES`, and the
+swipe hint. While
 `uiAm32Esc3d()` is true it holds `3D MODE ESC: THROTTLE SCALE DIFFERS`
 (`AM32_UI_TESTER_3D`, 35 characters, 209 px, x 10 to x 218) in amber in their
 place, armed or not, while the pad is not engaged. While a drag is engaged,
@@ -2009,7 +2026,7 @@ In the firmware:
   Only a press that lands on the button while arming is allowed counts: the
   press that disarms, or one made while a USB host holds the card, does not
   arm however long it stays.
-- With HOLD off, the throttle returns to zero on finger lift.
+- With LATCH off, the throttle returns to zero on finger lift.
 - Throttle ceiling, default 20 %.
 - Auto-disarm after 30 s with no touch input (`IDLE_DISARM_MS`). For the last
   5 s, `IDLE ns` replaces the board's battery voltage and its `BOARD`
@@ -2017,10 +2034,12 @@ In the firmware:
   controller reports, so a wet screen or something lying on the glass keeps
   the tester armed.
 - Core1 sets the throttle to zero if core0 sends no heartbeat for 250 ms.
-- Opening MENU disarms. The wiring settings and every tool are reachable only
-  from there. While a pin claim is not free, after RESTART DSHOT until the
-  DShot pump runs again, MENU draws the tools that claim the pins and
-  SETTINGS disabled, and its strip reads `DSHOT RESTARTING ON SIG GP0`.
+- Opening MENU disarms. Every tool but SETTINGS opens only from MENU;
+  SETTINGS also opens from a tap on the tester's pole count or ceiling, only
+  while disarmed, and that tap runs the same disarm first. While a pin claim is
+  not free, after RESTART DSHOT until the DShot pump runs again, MENU draws
+  the tools that claim the pins and SETTINGS disabled, its strip reads
+  `DSHOT RESTARTING ON SIG GP0`, and the tester's two readouts do not act.
 - Before DShot gives up the signal pin, to the AM32 editor or for a pin
   change, it sends throttle zero for at least 250 ms after the last throttle
   frame.

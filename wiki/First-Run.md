@@ -150,8 +150,9 @@ every tap.
 
 A finger already on the glass when the tester appears does not arm and
 does not move the throttle. Lifting it still acts as a tap where it rests
-on a button that acts on release, such as `HOLD` or `MENU`. If you touched
-the screen at power-up, lift the finger before `HOLD TO ARM`.
+on a button that acts on release, such as `LATCH` or `MENU`; on `14 POLES`
+or `MAX 20%` its lift opens SETTINGS. If you touched the screen at power-up,
+lift the finger before `HOLD TO ARM`.
 
 ---
 
@@ -159,7 +160,7 @@ the screen at power-up, lift the finger before `HOLD TO ARM`.
 
 Two surfaces set the same throttle value.
 
-**The bar at the bottom.** With `HOLD` off, the finger position along the
+**The bar at the bottom.** With `LATCH` off, the finger position along the
 track is the throttle, and the throttle returns to zero on release. The full
 track width is the *ceiling*: at the default 20 % ceiling, the right end
 commands 20 %.
@@ -172,15 +173,18 @@ swipe moves the throttle. While the tester shows the 3D note of
 [The Screens](The-Screens) in the hint's place, `SWIPE ACTIVE` still replaces
 it while a swipe is engaged, and the note returns on release.
 
-`HOLD` makes the bar relative and latching: the throttle stays where you leave
-it. The bar shows a grab handle. Turning `HOLD` off sets the throttle to zero.
+`LATCH` makes the bar relative and latching: the throttle stays where you leave
+it. The bar shows a grab handle and its caption reads `LATCHED`. Turning
+`LATCH` off sets the throttle to zero.
 
 ---
 
 ## Raising the ceiling
 
 `MENU` on the tester opens the list of tools. Opening it always disarms. Tap
-the `SETTINGS` row.
+the `SETTINGS` row. Or, while disarmed, tap `MAX 20%` or `14 POLES` on the
+tester, underlined while a tap on them works: the tap disarms the same way
+and opens SETTINGS, and `BACK` there returns to the tester.
 
 <img src="img/settings.png" width="240" alt="SETTINGS after a change: MOTOR POLES at 16 and UNSAVED - HOLD SAVE TO KEEP">
 

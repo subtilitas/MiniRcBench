@@ -173,7 +173,7 @@ static void testMenuDisarmAndBeep() {
 	holdId(UI_FIX(TesterCtl::Arm), 60);
 	fakeRelease(); menuFrames(2);
 	checkTrue("armed on the tester", uiArmed() && fakeArmed());
-	tapId(UI_FIX(TesterCtl::Hold));
+	tapId(UI_FIX(TesterCtl::Latch));
 	openMenu();
 	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
 	checkTrue("and the tester is disarmed", !uiArmed() && !fakeArmed());
