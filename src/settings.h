@@ -22,7 +22,9 @@
  * One dedicated flash sector, at the top of the address space the build
  * declares — see settings_flash.cpp. The block is versioned and CRC'd, and
  * anything that fails to validate falls back to compiled defaults *whole*,
- * never field by field. @see settingsValidate()
+ * never field by field. A whole block of versions 2 to 4 is carried over
+ * field by field from its own layout. @see settingsValidate(),
+ * settingsLoad()
  *
  * Writing is deliberately manual. A flash erase parks core1 for tens of
  * milliseconds, which stops the DShot pump; that is a thing to do on purpose
@@ -41,17 +43,16 @@
 /**
  * @brief Layout version.
  *
- * Bump on any change to @ref Settings. A block with a different version is
- * discarded entirely rather than migrated — see @ref settingsLoad() for why
- * that is the safe direction here.
+ * Bump on any change to @ref Settings, and describe the layout it replaces
+ * in settings.cpp's table of older layouts, so settingsLoad() carries a
+ * block of it over. A block of a version the table does not hold, below 2
+ * or above this one, is discarded whole.
  *
- * Version 4 moves the signal pins to GP0 and GP1 and the switched supply's
- * enable to GP28 or GP29, so a block of an earlier version, with its ESC pin
- * on GP29 or GP28 or its supply enable on GP0, is discarded and the compiled
- * defaults load. Version 5 adds @ref Settings::currentSense in the byte that
- * was padding, so a version 4 block has the same size: its version alone
- * discards it, and the compiled defaults load, every setting included. The
- * host suite pins the layout.
+ * Version 2 is the 12-byte layout up to @ref Settings::highContrast.
+ * Version 3 adds @ref Settings::servoSupply, then 0 none or 1 an enable on
+ * GP0. Version 4 moves the signal pins to GP0 and GP1 and the supply's
+ * enable to GP28 (1) or GP29 (2). Version 5 adds @ref Settings::currentSense
+ * in the byte that was padding. The host suite pins every layout.
  */
 #define SETTINGS_VERSION 5
 
@@ -168,6 +169,16 @@ bool settingsValidate(Settings *s);
  * field by field: a partially-trusted block is how a corrupted byte becomes a
  * throttle ceiling of 100 %, and there is no version of that trade worth
  * taking. @ref settingsStored() reports which happened.
+ *
+ * A whole block of version 2, 3 or 4, its size and its CRC right for its
+ * own layout, is carried over (settingsCarriedOver()): each field it has is
+ * read from its offset in that layout, each newer field takes its default,
+ * and settingsValidate() then judges the result as it judges a version 5
+ * block. A version 3 SERVO SUPPLY of 1 named an enable on GP0, which the
+ * signal wire now uses: it loads as 0, none. A KISS pin this board does not
+ * free, with KISS off, takes the board's default. Flash is not rewritten:
+ * the old block stays until a save lands, and every boot until then carries
+ * it over again.
  */
 void settingsLoad();
 
@@ -198,17 +209,31 @@ bool settingsStored();
 
 /**
  * @brief True after settingsLoad() discarded a block of another version: a
- *        firmware with another @ref SETTINGS_VERSION wrote it, and every
- *        setting is back at its compiled default.
+ *        firmware with a @ref SETTINGS_VERSION this one cannot carry over
+ *        wrote it, and every setting is back at its compiled default.
  *
  * The block must be whole to count: @ref SETTINGS_MAGIC, a version other
  * than this one, a size of at most @ref SETTINGS_OTHER_MAX bytes of payload
  * and a CRC-32 right over its own header and payload. Blank flash and a
- * damaged block read false. The splash and MENU's SETTINGS row show it; a
+ * damaged block read false; so does a block carried over
+ * (settingsCarriedOver()). The splash and MENU's SETTINGS row show it; a
  * save that lands (settingsSave() true) ends it.
  * @return Whether the last load discarded such a block and no save has landed since.
  */
 bool settingsResetByUpdate();
+
+/**
+ * @brief True after settingsLoad() carried a version 2, 3 or 4 block over
+ *        into the live settings, until a save lands.
+ *
+ * The live settings are the carried ones and settingsDirty() compares
+ * against them, so it reads false; flash still holds the old block, and
+ * settingsSave() writes a version 5 block even with nothing changed. The
+ * splash, MENU's SETTINGS row and SETTINGS' note line show it in place of
+ * the reset by an update.
+ * @return Whether the last load carried a block over and no save has landed since.
+ */
+bool settingsCarriedOver();
 
 /**
  * @brief The ESC pin settingsLoad() put live: the pin the splash names, and
@@ -226,8 +251,10 @@ uint8_t settingsBootDshotPin();
 #define SETTINGS_OTHER_MAX 52
 
 /**
- * @brief True if the live settings differ from what is in flash.
- * @return Whether a save would change anything.
+ * @brief True if the live settings differ from what is in flash: from what
+ *        the last load or save put live. After a carry-over that is the
+ *        carried settings, not the older block flash still holds.
+ * @return Whether the pilot changed anything since.
  */
 bool settingsDirty();
 

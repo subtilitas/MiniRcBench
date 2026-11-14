@@ -1044,10 +1044,14 @@ void uiDrawSplash() {
 	char pin[40];
 	snprintf(pin, sizeof(pin), UI_SPLASH_PIN_FMT, (unsigned)settings()->dshotPin);
 	gfxTextCenter(288, pin, C_AMBER, 1);
-	// Settings a firmware of another layout version wrote: discarded whole at
-	// load, every setting at its default (settings.h). Two lines at y 40 and
-	// 52, above the name; y 64 to 96 stays free for another note.
-	if (settingsResetByUpdate()) {
+	// Settings a firmware of another layout version wrote: carried over from
+	// versions 2 to 4, else discarded whole at load, every setting at its
+	// default (settings.h). Two lines at y 40 and 52, above the name; y 64 to
+	// 96 stays free for another note.
+	if (settingsCarriedOver()) {
+		gfxTextCenter(UI_SPLASH_RESET_Y, UI_SPLASH_CARRIED_TEXT, C_AMBER, 1);
+		gfxTextCenter(UI_SPLASH_RESET_Y + 12, UI_SPLASH_CARRIED_TEXT2, C_AMBER, 1);
+	} else if (settingsResetByUpdate()) {
 		gfxTextCenter(UI_SPLASH_RESET_Y, "SETTINGS RESET BY UPDATE", C_AMBER, 1);
 		gfxTextCenter(UI_SPLASH_RESET_Y + 12, "CHECK MENU > SETTINGS", C_AMBER, 1);
 	}
