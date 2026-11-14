@@ -173,7 +173,7 @@ commands the servo." The screen keeps that interaction and its rules.
 |---|---|---|
 | Surface | track 224 × 34 px at y 248, 8 px slop above, 1 px below | annulus around the shaft, 24 px to 122 px radius, ±104° of straight up, clipped to the dial band |
 | Spring mode | absolute: finger position is throttle, back to 0 on release | none |
-| HOLD mode | relative, by distance dragged (`HOLD_DRAG_SENSITIVITY_PCT`), so a touch never jumps the motor | always absolute; the release holds |
+| LATCH on | relative, by distance dragged (`HOLD_DRAG_SENSITIVITY_PCT`), so a touch never jumps the motor | always absolute; the release holds |
 | Large pad | relative swipe with a 6 px deadzone (`PAD_DEADZONE_PX`) | none |
 | Edge | 16 px saturation at each end (`THR_EDGE_SAT`) | ±90° to ±104° saturates at MIN or MAX |
 | Jump limit | relative modes, ceiling (`maxThrottle`) | SPEED slew, pulse range |
