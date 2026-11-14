@@ -92,6 +92,10 @@ static_assert(BTN_M_X + BTN_W < BTN_P_X, "the row buttons overlap");
 static_assert(BTN_P_X + BTN_W < BAR_X && BTN_M_X + TOGGLE_W < BAR_X,
               "a row button runs into the scroll bar");
 static_assert(DEF_X + DEF_W <= GFX_W - 8, "RESET runs off the panel");
+/** @brief RESET's label: a hold, as HOLD TO SAVE says. 10 characters, 59 px. */
+#define RESET_LABEL "HOLD RESET"
+static_assert(6 * (int)(sizeof(RESET_LABEL) - 1) - 1 + 2 * 4 <= DEF_W,
+              "HOLD RESET does not fit its button with 4 px each side");
 static_assert(CAP_TEXT_DY >= CAP_LABEL_DY + 7 + 4 && CAP_TEXT_DY + 7 <= ROW_H,
               "a row's caption overlaps its label or leaves the row");
 
@@ -114,6 +118,11 @@ static bool     s_changed = false;
  *        flash erase.
  */
 static UiHold   s_saveHold;
+/**
+ * @brief HOLD RESET: the compiled defaults load after @ref UI_HOLD_MS on the
+ *        button, once per press, as HOLD TO SAVE.
+ */
+static UiHold   s_resetHold;
 
 /** @brief What the last save attempt did. Drives the note line. */
 enum class SaveOutcome : uint8_t { None, Ok, Failed, FailedArmed };
@@ -691,8 +700,11 @@ static void drawAll() {
 	uiHoldDrawBar(&s_saveHold, BTN_SAVE, FOOT_Y - 4, millis());
 	uiButton(BTN_SAVE, "HOLD TO SAVE", holding ? C_BLUE : C_PANEL,
 	         holding ? C_ONACCENT : C_TEXT, 1, holding);
-	uiButton(BTN_DEFAULTS, "RESET", C_PANEL, C_AMBER, 1,
-	         uiPressing(BTN_DEFAULTS, s_t));
+	// HOLD RESET's bar sits over its own button, as SAVE's does.
+	bool resetting = s_resetHold.holding;
+	uiHoldDrawBar(&s_resetHold, BTN_DEFAULTS, FOOT_Y - 4, millis());
+	uiButton(BTN_DEFAULTS, RESET_LABEL, resetting ? C_AMBER : C_PANEL,
+	         resetting ? C_PAPER : C_AMBER, 1, resetting);
 }
 
 /**
@@ -728,6 +740,7 @@ void uiSettingsEnter() {
 	s_redraw = true;
 	s_changed = false;
 	uiHoldReset(&s_saveHold);
+	uiHoldReset(&s_resetHold);
 	s_saveOutcome = SaveOutcome::None;
 	s_shownRate = -1;
 	s_shownErr = -1;
@@ -763,6 +776,11 @@ bool uiSettingsTick(const TouchState *t) {
 	} else if (wasHolding || s_saveHold.holding) {
 		s_redraw = true;
 	}
+	// --- hold to reset: the same rules. Not refused while armed, as the tap
+	//     before it was not: MENU disarms, so SETTINGS never opens armed ---
+	bool wasResetting = s_resetHold.holding;
+	bool reset = uiHoldUpdate(&s_resetHold, BTN_DEFAULTS, s_t, true, now);
+	if (wasResetting || s_resetHold.holding) s_redraw = true;
 
 	// --- a press on a live control belongs to the control, any other press
 	//     in the viewport to the list ---
@@ -801,7 +819,7 @@ bool uiSettingsTick(const TouchState *t) {
 	if (uiBackTapped(s_t)) {
 		s_ctlPress = false;
 		return false;
-	} else if (uiTapped(BTN_DEFAULTS, s_t)) {
+	} else if (reset) {
 		// The compiled defaults into the live settings only. Flash is untouched
 		// until SAVE. Leaving the screen keeps the defaults live: the saved
 		// values load only at boot (settingsLoad() in setup()), so a restart
@@ -824,9 +842,9 @@ bool uiSettingsTick(const TouchState *t) {
 		if (s_saveOutcome == SaveOutcome::Ok) s_saveOutcome = SaveOutcome::None;
 		s_redraw = true;
 	}
-	// RESET's note: set by the tap that loaded the defaults (BACK returned
+	// RESET's note: set by the hold that loaded the defaults (BACK returned
 	// above), ended by any change after it.
-	if (uiTapped(BTN_DEFAULTS, s_t)) {
+	if (reset) {
 		memcpy(&s_resetLive, settings(), sizeof(s_resetLive));
 		s_resetNote = true;
 	} else if (s_resetNote && memcmp(settings(), &s_resetLive, sizeof(Settings)) != 0) {

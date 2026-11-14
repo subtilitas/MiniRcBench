@@ -1371,6 +1371,13 @@ static void testSettingsKiss() {
 	tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
 }
 
+/** @brief Hold HOLD RESET until it fires, then lift. */
+static void holdReset() {
+	pressId(UI_FIX(SettingsCtl::Reset));
+	holdId(UI_FIX(SettingsCtl::Reset), 60);
+	fakeRelease(); frames(1);
+}
+
 /** @brief SERVO SUPPLY: KST's section, stepped NONE, GP28, GP29, applied at once, saved and reset. */
 static void testSettingsServoSupply() {
 	section("SETTINGS: SERVO SUPPLY");
@@ -1405,7 +1412,7 @@ static void testSettingsServoSupply() {
 	settingsLoad();
 	checkTrue("saved: a reload keeps GP29", settingsStored() && settings()->servoSupply == 2);
 
-	tapId(UI_FIX(SettingsCtl::Reset));
+	holdReset();
 	checkTrue("RESET: none, applied at once", settings()->servoSupply == 0 && !servoSupplyFitted());
 	p = fakePin(29);
 	checkTrue("GP29 left an undriven input", !p.output && p.inputOff);
@@ -1466,7 +1473,7 @@ static void testSettingsCurrentSense() {
 	frames(45);
 	checkTrue("another part at 0x40: OTHER PART", captionIs("OTHER PART"));
 
-	tapId(UI_FIX(SettingsCtl::Reset));
+	holdReset();
 	checkTrue("RESET: NONE, applied at once", settings()->currentSense == 0 && !senseDeclared());
 	uint32_t n = fakeI2cTransactionsTo(INA219_ADDR);
 	frames(80);
@@ -1630,7 +1637,7 @@ static void testSettingsSave() {
 	// RESET restores compiled defaults into the live copy without touching flash.
 	Settings def;
 	settingsDefaults(&def);
-	tapId(UI_FIX(SettingsCtl::Reset));
+	holdReset();
 	checkInt("RESET restores the compiled ESC pin", settings()->dshotPin, def.dshotPin);
 	checkTrue("RESET alone leaves flash as it was", settingsStored());
 
