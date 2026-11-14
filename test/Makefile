@@ -152,7 +152,8 @@ $(CXXTEST_BINS): $(OBJ_DIR)/%: %.cpp $(FEATURE_COBJS)
 
 # The suite, then each C test program. A program prints a line per case; its
 # summary line is shown, and the whole output when it fails.
-$(MSC_CB_BIN): test_usb_msc_cb.cpp ../src/usb_msc.cpp ../src/usb_msc.h stubs/tusb.h
+$(MSC_CB_BIN): test_usb_msc_cb.cpp ../src/usb_msc.cpp $(wildcard ../src/*.h) \
+		$(wildcard stubs/*.h stubs/*/*.h stubs/*/*/*.h)
 	@mkdir -p $(OBJ_DIR)
 	$(CXX) $(CXXFLAGS) $(WARN) -Werror $(INCLUDES) $(DEFINES) -o $@ \
 		test_usb_msc_cb.cpp ../src/usb_msc.cpp

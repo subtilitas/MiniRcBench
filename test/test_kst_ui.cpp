@@ -1160,7 +1160,7 @@ static void testRecordKeptAtLeave() {
 	          fakeFatExists("BACKUP/KST001.TXT"));
 	checkTrue("the page says why, that the servo is unchanged, and what next",
 	          lineIs(196, "THE CARD TOOK NO FILE (FULL OR", C_AMBER) &&
-	          lineIs(208, "REMOVED?). THE SERVO IS UNCHANGED.", C_AMBER) &&
+	          lineIs(208, "REMOVED?). NOTHING WENT TO THE SERVO.", C_AMBER) &&
 	          lineIs(220, "CHECK THE CARD, HOLD AGAIN.", C_AMBER));
 	tapId(UI_FIX(KstCtl::WriteOk));
 	unplugAndBack();
@@ -1229,8 +1229,8 @@ static void testFlushWait() {
 	checkTrue("and the page says why, and what next, in three lines",
 	          ctlPresent(UI_FIX(KstCtl::WriteOk)) &&
 	          lineIs(196, "THE CARD DID NOT TAKE THE BACKUP", C_AMBER) &&
-	          lineIs(208, "(REMOVED OR SWAPPED?). THE SERVO IS", C_AMBER) &&
-	          lineIs(220, "UNCHANGED. CHECK THE CARD, HOLD AGAIN.", C_AMBER));
+	          lineIs(208, "(REMOVED OR SWAPPED?). NOTHING WENT TO", C_AMBER) &&
+	          lineIs(220, "THE SERVO. CHECK THE CARD, HOLD AGAIN.", C_AMBER));
 	fakeDumpFrame("shot_kst_flush_failed.ppm");
 	tapId(UI_FIX(KstCtl::WriteOk));
 	holdUntilGone(UI_FIX(KstCtl::Write));

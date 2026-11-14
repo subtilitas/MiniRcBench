@@ -981,16 +981,16 @@ static void filesThenWrite();
  *        hold saves the backup again. Three lines of 38 characters.
  */
 static const char *const FLUSH_FAILED =
-	"THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.";
+	"THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.";
 /** @brief As FLUSH_FAILED, for a batch that held another file. */
 static const char *const FLUSH_FAILED_FILE =
-	"THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.";
+	"THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.";
 /**
  * @brief The write page's text when FatFs refused the first write's files:
  *        among the causes a full card and a card that is gone.
  */
 static const char *const CARD_TOOK_NO_FILE =
-	"THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.";
+	"THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.";
 
 /**
  * @brief The flush a write waits for has ended: with an earlier batch on the

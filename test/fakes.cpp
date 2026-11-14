@@ -694,9 +694,21 @@ static SdLogStatus g_log = {};
 
 void fakeSdLogSet(const SdLogStatus *st) { g_log = *st; }
 
+/** @brief A mount, as sd_log.cpp's sdLogBegin() does it to the status. */
+static void fakeMountForget() {
+	sdLogMountForget(&g_log.end);
+	g_log.fileNumber = 0;
+	g_log.framesLogged = 0;
+	g_log.bytesWritten = 0;
+	g_log.bytesDropped = 0;
+	g_log.dropEvents = 0;
+	g_log.peakBuffer = 0;
+	g_log.worstFlushMs = 0;
+}
+
 bool sdLogBegin() {
 	g_log.state = SdLogState::Idle;
-	g_log.end = SdLogEnd::None;
+	fakeMountForget();
 	return true;
 }
 
@@ -729,7 +741,7 @@ bool sdLogRemount() {
 	// case the button exists for -- a card inserted after boot.
 	// A mount, as sdLogBegin(), which sd_log.cpp skips while a log runs:
 	// how the last log ended is forgotten.
-	if (g_log.state != SdLogState::Logging) g_log.end = SdLogEnd::None;
+	if (g_log.state != SdLogState::Logging) fakeMountForget();
 	if (g_log.state == SdLogState::NoCard) {
 		g_log.state = SdLogState::Idle;
 		g_log.mountResult = 0;

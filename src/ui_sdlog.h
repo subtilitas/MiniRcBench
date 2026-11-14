@@ -29,11 +29,11 @@ struct SdLogStatus;
 /**
  * @brief SD LOG's note for how the last log ended, two lines, or false.
  *
- * Shown above START from the end until the next start or mount
- * (@ref SdLogEnd): a write that found the card full, a write, sync or close
- * that failed, a file that did not open, and a log a tool stopped when it
- * took the card. A refusal of USB DRIVE outranks it for its 4000 ms; the
- * mount hints never meet it, a mount clears the end.
+ * Shown above START from the end (@ref SdLogEnd): a write that found the
+ * card full, a write, sync or close that failed, a file that did not open,
+ * until the next start or mount; a log a tool stopped when it took the card,
+ * until the next start. A refusal of USB DRIVE outranks it for its 4000 ms.
+ * A tool's stop has one line: a mount hint takes the second.
  *
  * @param st The logger's status.
  * @param[out] line1 What happened.

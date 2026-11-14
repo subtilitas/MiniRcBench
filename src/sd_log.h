@@ -42,9 +42,10 @@ enum class SdLogState : uint8_t {
 /**
  * @brief Why the last log ended, when it was not STOP on SD LOG.
  *
- * Kept until the next start, and until a mount (sdLogBegin(), which
- * RETRY MOUNT and the end of USB DRIVE run): the card in the slot may be
- * another one by then. SD LOG prints it on its note lines.
+ * Kept until the next start. A mount (sdLogBegin(), which RETRY MOUNT, the
+ * end of USB DRIVE and a tool's remount run) forgets a card's fault, as the
+ * card in the slot may be another one by then, and keeps a tool's stop
+ * (sdLogMountForget()). SD LOG prints it on its note lines.
  */
 enum class SdLogEnd : uint8_t {
 	None = 0,     /**< Nothing to report: no log yet, a STOP, or a start or mount since. */
@@ -55,6 +56,21 @@ enum class SdLogEnd : uint8_t {
 	ByHitec,      /**< HITEC SERVO did. */
 	ByAm32,       /**< AM32 CONFIG did. */
 };
+
+/** @brief True for an end a tool's claim caused. Pure. */
+static inline bool sdLogEndByTool(SdLogEnd e) {
+	return e == SdLogEnd::ByKst || e == SdLogEnd::ByHitec || e == SdLogEnd::ByAm32;
+}
+
+/**
+ * @brief What a mount does to the end: a card's fault is forgotten, the card
+ *        in the slot may be another one; a tool's stop is kept until the next
+ *        start, as it stays true of the last log. Pure; host-testable.
+ * @param[in,out] e The end.
+ */
+static inline void sdLogMountForget(SdLogEnd *e) {
+	if (!sdLogEndByTool(*e)) *e = SdLogEnd::None;
+}
 
 /**
  * @brief What a failed f_write() says about the card. Pure; host-testable.
@@ -105,8 +121,8 @@ struct SdLogStatus {
 	uint32_t   worstFlushMs;  /**< Longest single card write. Sizes the buffer. */
 	/**
 	 * @brief N in LOGS/LOGnnnnn.BFL: the open log's while logging, else the
-	 *        last log's of this power-up, kept until the next start. 0
-	 *        before the first.
+	 *        last log's, kept until the next start or mount. 0 before the
+	 *        first, and after a mount; the counters reset with it.
 	 */
 	uint16_t   fileNumber;
 	SdLogEnd   end;           /**< Why the last log ended, @ref SdLogEnd. */
@@ -134,7 +150,9 @@ void sdLogStop();
  *        one: SD LOG then reads `RECORDING STOPPED BY` and the tool's name
  *        until the next start or mount. No-op when no log runs.
  * @param tool @ref SdLogEnd::ByKst, @ref SdLogEnd::ByHitec or
- *        @ref SdLogEnd::ByAm32. A stop that fails keeps WriteFailed.
+ *        @ref SdLogEnd::ByAm32. A stop that fails keeps the cause it
+ *        recorded: CardFull or WriteFailed from the last flush, WriteFailed
+ *        from the sync or close.
  */
 void sdLogStopFor(SdLogEnd tool);
 

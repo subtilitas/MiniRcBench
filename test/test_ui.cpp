@@ -347,6 +347,20 @@ static void testLogEndNotes() {
 	          sdLogWriteEnd(9, 100, 512) == SdLogEnd::WriteFailed);
 	checkTrue("an error with every byte reported: failed",
 	          sdLogWriteEnd(1, 512, 512) == SdLogEnd::WriteFailed);
+	// A mount forgets a card's fault and keeps a tool's stop.
+	{
+		static const SdLogEnd ALL[] = { SdLogEnd::None, SdLogEnd::CardFull, SdLogEnd::WriteFailed,
+		                                SdLogEnd::OpenFailed, SdLogEnd::ByKst, SdLogEnd::ByHitec,
+		                                SdLogEnd::ByAm32 };
+		bool ok = true;
+		for (SdLogEnd e : ALL) {
+			SdLogEnd m = e;
+			sdLogMountForget(&m);
+			bool tool = e == SdLogEnd::ByKst || e == SdLogEnd::ByHitec || e == SdLogEnd::ByAm32;
+			ok &= tool ? m == e : m == SdLogEnd::None;
+		}
+		checkTrue("a mount: the faults forgotten, the three tools' stops kept", ok);
+	}
 
 	SdLogStatus st;
 	memset(&st, 0, sizeof(st));
@@ -372,6 +386,24 @@ static void testLogEndNotes() {
 	              GFX_W - UI_MARGIN - gfxTextW("LOG09999.BFL (LAST)", 1));
 	checkTrue("a STOP leaves no note", !fakeInkExtent(217, 7, C_BG, &x0, &x1));
 	fakeDumpFrame("shot_log_last.ppm");
+	// A mount: the card may be another one, and the file not on it.
+	{
+		SdLogStatus cur;
+		sdLogStatus(&cur);
+		cur.framesLogged = 5000;
+		cur.bytesWritten = 72000;
+		cur.dropEvents = 2;
+		cur.peakBuffer = 900;
+		cur.worstFlushMs = 30;
+		fakeSdLogSet(&cur);
+		tapId(UI_FIX(SdLogCtl::Retry));
+		frames(2);
+		sdLogStatus(&cur);
+		checkTrue("RETRY MOUNT: FILE -- again", logFileRowIs("--"));
+		checkTrue("and the counters beside it at zero",
+		          cur.fileNumber == 0 && cur.framesLogged == 0 && cur.bytesWritten == 0 &&
+		          cur.dropEvents == 0 && cur.peakBuffer == 0 && cur.worstFlushMs == 0);
+	}
 
 	// Each end, on its two lines, amber.
 	static const struct {
@@ -393,6 +425,11 @@ static void testLogEndNotes() {
 		st.state = e.state;
 		st.end = e.end;
 		st.fileNumber = 12;
+		// About 12 minutes at 7.3 kB/s before the card filled.
+		st.framesLogged = 361500;
+		st.bytesWritten = 5242880;
+		st.peakBuffer = 3100;
+		st.worstFlushMs = 38;
 		fakeSdLogSet(&st);
 		frames(2);
 		char what[96];
@@ -448,6 +485,26 @@ static void testLogEndNotes() {
 	frames(2);
 	checkTrue("SD LOG names the tool",
 	          fakeTextCentredIs(217, "RECORDING STOPPED BY AM32 CONFIG", C_AMBER, C_BG, 1));
+	tapId(UI_FIX(SdLogCtl::Retry));
+	frames(2);
+	checkTrue("a mount keeps a tool's stop: it stays true of the last log",
+	          fakeTextCentredIs(217, "RECORDING STOPPED BY AM32 CONFIG", C_AMBER, C_BG, 1));
+	{
+		// The card gone: the mount hint takes the second line.
+		SdLogStatus gone;
+		sdLogStatus(&gone);
+		gone.state = SdLogState::NoCard;
+		gone.mountResult = 3;
+		gone.cardInit = 1;
+		gone.cardSizeMB = 0;
+		fakeSdLogSet(&gone);
+		frames(2);
+		checkTrue("no card: the tool's stop, and the insert hint under it",
+		          fakeTextCentredIs(217, "RECORDING STOPPED BY AM32 CONFIG", C_AMBER, C_BG, 1) &&
+		          fakeTextCentredIs(228, "INSERT A CARD, THEN RETRY MOUNT", C_DIM, C_BG, 1));
+		tapId(UI_FIX(SdLogCtl::Retry));            // the fake finds a card
+		frames(2);
+	}
 	tapId(UI_FIX(SdLogCtl::Toggle));                       // START
 	frames(2);
 	checkTrue("the next start clears it", !fakeInkExtent(217, 7, C_BG, &x0, &x1));
@@ -1128,8 +1185,14 @@ static void testSettingsWiring() {
 	}
 	checkTrue("every step lands on a free GPIO", allFree);
 
-	// The frame for the docs, at 0 px: the first rows and an unsaved pin.
+	// The frame for the docs, at 0 px: the first rows and an unsaved change,
+	// with the ESC pin back on the boot pin (test_menu.cpp takes the frame
+	// with the pin's warning).
+	tapId(UI_ROW(SettingsRowId::Pin, Minus));
+	tapId(UI_ROW(SettingsRowId::Poles, Plus));
 	fakeDumpFrame("shot_settings.ppm");
+	tapId(UI_ROW(SettingsRowId::Poles, Minus));
+	tapId(UI_ROW(SettingsRowId::Pin, Plus));
 
 	// Bitrate halves and doubles through the four legal values, and wraps.
 	// DSHOT KBAUD's row is cut by the viewport's bottom at 0 px, 10 px of it

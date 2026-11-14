@@ -374,7 +374,9 @@ static void drawLogScreen() {
 		gfxTextCenter(LOG_NOTE_Y, mscRefusalText(s_mscNote), C_AMBER, 1);
 	} else if (uiSdLogEndNote(&st, &end1, &end2)) {
 		gfxTextCenter(LOG_NOTE1_Y, end1, C_AMBER, 1);
-		gfxTextCenter(LOG_NOTE_Y, end2, C_AMBER, 1);
+		// A tool's stop has no second line: a mount hint takes it.
+		if (end2[0])   gfxTextCenter(LOG_NOTE_Y, end2, C_AMBER, 1);
+		else if (hint) gfxTextCenter(LOG_NOTE_Y, hint, hintCol, 1);
 	} else if (hint) {
 		gfxTextCenter(LOG_NOTE_Y, hint, hintCol, 1);
 	}

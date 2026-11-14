@@ -111,9 +111,17 @@ bool sdLogBegin() {
 	// Why an initialisation failed: nothing answered, or a card answered and
 	// could not be brought up. Both end in FR_NOT_READY with no size.
 	s_cardInit = (uint8_t)sd_sdio_init_result();
-	// A mount, whatever its outcome: the card in the slot may be another one,
-	// so how the last log ended no longer describes it.
-	s_end = SdLogEnd::None;
+	// A mount, whatever its outcome: the card in the slot may be another one.
+	// The last log's file and the counters beside it may name a file that is
+	// not on it, and a card fault describes the old card. A tool's stop stays
+	// true of the last log whatever card is in the slot: it is kept until the
+	// next start, so a remount the tool made does not hide it.
+	sdLogMountForget(&s_end);
+	s_fileNo = 0;
+	s_framesLogged = 0;
+	s_cardBytes = 0;
+	s_worstFlushMs = 0;
+	s_ring.dropped = s_ring.drops = s_ring.peakUsed = 0;
 
 	// Whatever the mount did, the driver has by now tried to talk to the card,
 	// so its type and size say whether anything answered at all. That separates

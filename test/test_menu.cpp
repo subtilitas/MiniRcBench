@@ -811,9 +811,9 @@ static void testResetByUpdate() {
 	          !settingsStored() && settingsResetByUpdate() && settings()->poles == DEFAULT_MOTOR_POLES);
 	openMenu();
 	UI_SETTINGS.status(b, sizeof(b), &col, &fill);
-	checkTrue("MENU's SETTINGS row reads RESET, amber", strcmp(b, "RESET") == 0 && col == C_AMBER);
+	checkTrue("MENU's SETTINGS row reads UPDATED, amber", strcmp(b, "UPDATED") == 0 && col == C_AMBER);
 	checkTrue("drawn on the row", settingsRowAmber() > 0);
-	fakeDumpFrame("shot_menu_reset.ppm");
+	fakeDumpFrame("shot_menu_updated.ppm");
 	tapId(menuRow(&UI_SETTINGS));
 	menuFrames(1);
 	checkTrue("SETTINGS: the note reads RESET BY UPDATE, amber", noteIs(NOTE, C_AMBER));
@@ -882,36 +882,54 @@ static void testEscPinNote() {
 	char want[40];
 	snprintf(want, sizeof(want), UI_SPLASH_PIN_FMT, (unsigned)moved);
 	checkTrue("ESC PIN stepped: DShot on the other pin", moved != boot && fakeWiring().dshotPin == moved);
-	checkTrue("the splash's warning for it, amber, not UNSAVED",
-	          settingsDirty() && noteIs(want, C_AMBER));
+	checkTrue("the splash's warning for it at y 230, amber",
+	          fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1));
+	checkTrue("and the note line still reads UNSAVED",
+	          settingsDirty() && noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
 	checkTrue("it fits the line", UI_MARGIN + gfxTextW(want, 1) <= GFX_W - UI_MARGIN);
 	fakeDumpFrame("shot_settings_pin.ppm");
-	holdSave();
-	checkTrue("saved: the warning stays, not SAVED", !settingsDirty() && noteIs(want, C_AMBER));
-	tapId(UI_FIX(UI_BACK));
-	tapId(menuRow(&UI_SETTINGS));
-	menuFrames(1);
-	checkTrue("SETTINGS again: the warning stays", noteIs(want, C_AMBER));
-	fakeFlashSetWritable(false);
 	revealRow((int)SettingsRowId::Poles);
 	tapId(UI_ROW(SettingsRowId::Poles, Plus));
+	checkTrue("another change: the warning and UNSAVED",
+	          fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1) &&
+	          noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
 	holdSave();
-	checkTrue("a failed save outranks it", noteIs("SAVE FAILED - FLASH REFUSED THE WRITE", C_RED));
-	fakeFlashSetWritable(true);
-	tapId(UI_ROW(SettingsRowId::Poles, Minus));
+	checkTrue("saved: the warning and SAVED",
+	          !settingsDirty() && fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1) &&
+	          noteIs("SAVED", C_LIME));
+	// The list ends at y 227 while the warning shows: it scrolls 632 px.
+	for (int k = 0; k < 5; k++) dragList(200, -180);
+	checkInt("dragged to the end: UPTIME at y 178, 12 px higher",
+	         ctlRect(UI_ROW(SettingsRowId::Uptime, Row)).y, 178);
+	checkTrue("and whole", ctlRect(UI_ROW(SettingsRowId::Uptime, Row)).h == 44);
+	checkTrue("the warning keeps its line",
+	          fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1));
+	for (int k = 0; k < 5; k++) dragList(60, 180);
 	tapId(UI_FIX(UI_BACK));
 	tapId(menuRow(&UI_SETTINGS));
 	menuFrames(1);
-	checkTrue("SETTINGS again: the warning back", noteIs(want, C_AMBER));
+	checkTrue("SETTINGS again: the warning stays, the saved set named",
+	          fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1) &&
+	          noteIs("SAVED SETTINGS IN USE", C_DIM));
+	fakeFlashSetWritable(false);
+	revealRow((int)SettingsRowId::Poles);
+	tapId(UI_ROW(SettingsRowId::Poles, Minus));
+	holdSave();
+	checkTrue("a failed save: SAVE FAILED, and the warning",
+	          noteIs("SAVE FAILED - FLASH REFUSED THE WRITE", C_RED) &&
+	          fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1));
+	fakeFlashSetWritable(true);
 	revealRow((int)SettingsRowId::Pin);
 	tapId(UI_ROW(SettingsRowId::Pin, Minus));
-	checkTrue("back on the boot pin: no warning, UNSAVED",
-	          settings()->dshotPin == boot && noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
+	checkTrue("back on the boot pin: no warning",
+	          settings()->dshotPin == boot && !fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1));
+	checkInt("and the list to y 239 again: MOTOR POLES at y 60",
+	         ctlRect(UI_ROW(SettingsRowId::Poles, Row)).y, 60);
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 
 	// Booted on the other pin: RESET puts DShot back on the default pin,
-	// which the splash did not name. The warning outranks RESET's note.
+	// which the splash did not name: the warning, and RESET's note under it.
 	Settings other;
 	settingsDefaults(&other);
 	other.dshotPin = moved;
@@ -922,11 +940,14 @@ static void testEscPinNote() {
 	openMenu();
 	tapId(menuRow(&UI_SETTINGS));
 	menuFrames(1);
-	checkTrue("booted on the other pin: no warning", noteIs("SAVED SETTINGS IN USE", C_DIM));
+	checkTrue("booted on the other pin: no warning",
+	          noteIs("SAVED SETTINGS IN USE", C_DIM) &&
+	          !fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1));
 	tapId(UI_FIX(SettingsCtl::Reset));
 	snprintf(want, sizeof(want), UI_SPLASH_PIN_FMT, (unsigned)boot);
-	checkTrue("RESET: the warning for the default pin, not RESET's note",
-	          settings()->dshotPin == boot && noteIs(want, C_AMBER));
+	checkTrue("RESET: the warning for the default pin, and RESET's note",
+	          settings()->dshotPin == boot && fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1) &&
+	          noteIs("DEFAULTS LOADED - RESTART TO UNDO", C_AMBER));
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 	freshTester();
