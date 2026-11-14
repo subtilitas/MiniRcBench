@@ -20,6 +20,11 @@ Enforces what actually goes wrong, and nothing else:
   8. every relative link in the running record (STATUS.md, CHANGELOG.md) and
      the design notes (docs/design/*.md) names a file that exists, and an
      anchor into a Markdown file names a heading that exists
+  9. README.md and the wiki pages, which describe the screens as built, name
+     no screen text, view or MENU path that menu structure B removed
+     (docs/design/menu-b.md), and no image of a removed screen; nor does a
+     fakeDumpFrame() call or tools/make_previews.py. CHANGELOG.md, STATUS.md
+     and the design notes keep those names as records and are not checked
 
 Deliberately narrower than Doxygen's WARN_IF_UNDOCUMENTED, which also fires on
 file-static internals. A comment on `s_scroll` saying "scroll position" is
@@ -48,6 +53,37 @@ HEADERS = sorted(glob.glob("src/*.h"))
 SOURCES = sorted(glob.glob("src/*.cpp") + glob.glob("*.ino") + HEADERS)
 LINKED_DOCS = sorted(glob.glob("STATUS.md") + glob.glob("CHANGELOG.md") +
                      glob.glob("docs/design/*.md"))
+MANUAL_DOCS = sorted(glob.glob("README.md") + glob.glob("wiki/*.md"))
+
+# Rule 9: what menu structure B removed, each with the decision of
+# docs/design/menu-b.md that removed it. Case-sensitive regular expressions,
+# matched line by line in README.md and wiki/*.md, code spans included.
+REMOVED_TEXTS = [
+    (r"PINS BUSY", "MENU's busy status (decision 15 f)"),
+    (r"HOLD RESET|`RESET`", "SETTINGS' RESET, now HOLD DEFAULTS (decision 14)"),
+    (r"\*\*HOLD\*\*", "the tester's HOLD, now LATCH (decision 15 a)"),
+    (r"`MODE`", "the MODE chip, now PROG MODE (decision 15 g)"),
+    (r"(\*\*|`)(ESC|KISS) PIN(\*\*|`)", "SIG PIN and AUX PIN (decision 10)"),
+    (r"DS600|KBIT/S|DSHOT KBAUD", "the DShot rate, now DSHOT600 (decision 15 j)"),
+    (r"COMPILED DEFAULTS IN USE", "NOTHING SAVED: DEFAULTS IN USE (decision 15 k)"),
+    (r"ALLOW UNCONT|UNCONTROLLED (POS|TIME)|`REVERSION`",
+     "the KST labels, now FAILSAFE and REVERSED (decision 15 h)"),
+    (r"BACKUP IN MEMORY", "a backup not on the card, now BACKUP IN RAM (slice 2)"),
+    (r"CHOOSE THE SERVO'S FAMILY|[Ff]amily view|Familien(ansicht|auswahl)",
+     "HITEC SERVO's family view, now PROGRAMMER's entries (decision 19)"),
+    (r"MUST BE POWERED NOW|POWER THE SERVO UP BEFORE THE TAP",
+     "the D series powered before the tap (decision 34)"),
+    (r"[Uu]nplug page|Abzieh-?[Ss]eite", "the unplug page, now the leave page (owner decision 3)"),
+    (r"LEAVING AFTER THE WRITE ENDS", "BACK's leave queue (decision 5)"),
+    (r"MENU\s*(→|>|->|&gt;)\s*(KST|HITEC) SERVO|^\|\s*\*\*(KST|HITEC) SERVO\*\*\s*\|",
+     "the KST SERVO and HITEC SERVO rows, now SERVO PROGRAMMER (owner decision 2)"),
+    (r"titled `SERVO`", "SERVO's title, now SERVO TESTER (decision 13)"),
+]
+# Rule 9: image names of removed screens, hyphenated as in wiki/img/; a name
+# that starts with one of these is refused, so kst-leave covers
+# kst-leave-pending.
+REMOVED_IMAGES = ["hitec-family", "hitec-unplug", "kst-leave", "servo-unplug",
+                  "menu-pins-busy"]
 
 
 def collect_symbols():
@@ -156,6 +192,41 @@ def check_links(path):
     return problems
 
 
+def removed_image(name):
+    """The removed image @p name starts with, hyphenated, or None."""
+    stem = name.replace("_", "-")
+    for gone in REMOVED_IMAGES:
+        if stem == gone or stem.startswith(gone + "-") or stem.startswith(gone + "."):
+            return gone
+    return None
+
+
+def check_removed():
+    """Rule 9: no removed screen text, view, MENU path or image comes back."""
+    problems = []
+    for path in MANUAL_DOCS:
+        for n, line in enumerate(open(path, encoding="utf-8"), 1):
+            for pattern, why in REMOVED_TEXTS:
+                m = re.search(pattern, line)
+                if m:
+                    problems.append(f"{path}:{n}: '{m.group(0)}' names {why}")
+            for name in re.findall(r"img/([\w.-]+)", line):
+                gone = removed_image(name)
+                if gone:
+                    problems.append(f"{path}:{n}: img/{name} shows a removed screen ({gone})")
+    shots = [(p, r'fakeDumpFrame\(\s*"shot_([\w.-]+)"') for p in sorted(glob.glob("test/*.cpp"))]
+    shots.append(("tools/make_previews.py", r'"shot_([\w-]+)"'))
+    for path, pattern in shots:
+        if not os.path.exists(path):
+            continue
+        for n, line in enumerate(open(path, encoding="utf-8"), 1):
+            for name in re.findall(pattern, line):
+                gone = removed_image(name)
+                if gone:
+                    problems.append(f"{path}:{n}: shot_{name} renders a removed screen ({gone})")
+    return problems
+
+
 def main():
     problems = []
     documented = 0
@@ -258,8 +329,12 @@ def main():
     for path in LINKED_DOCS:
         problems.extend(check_links(path))
 
+    # --- 9. removed screens stay out of the manual ---
+    problems.extend(check_removed())
+
     print(f"checked {len(SOURCES)} files, {documented} documented signatures, "
-          f"links in {len(LINKED_DOCS)} documents")
+          f"links in {len(LINKED_DOCS)} documents, removed names in "
+          f"{len(MANUAL_DOCS)} manual pages")
     if problems:
         print(f"\n{len(problems)} problem(s):")
         for p in problems:
