@@ -34,7 +34,7 @@ and voltage (see [Current sensor](#current-sensor); design note
 under DIAGNOSTICS, the reason for the last restart and the time since boot
 (design note `docs/design/diagnostics.md`).
 
-Four features are designed and not built. An S.BUS (Futaba's serial bus for
+Five features are designed and not built. An S.BUS (Futaba's serial bus for
 receiver channels) receiver monitor is described in
 `docs/design/rx-signals.md`, with an S.BUS output that the owner decided on
 and that is not designed yet; rcbench's S.BUS decoder is in the tree and
@@ -49,6 +49,11 @@ beside the log and shown on SD LOG, with the board's PCF85063 real-time
 clock dating the files on the card as an option, is planned in
 `docs/design/run-summary.md` and not built; it waits on the owner's answers
 to that note's open questions.
+An ESC COMMANDS page, sending DShot beacons, direction and 3D mode, each
+change saved in the ESC behind a 1 s hold, and an RPM-per-volt reading and
+a kV estimate on the tester, labelled `KV EST`, are designed in
+`docs/design/esc-commands.md` and not built; they wait on the owner's
+answers to that note's open questions.
 Menu structure B is described in `docs/design/menu-b.md`; its 10 slices are
 in the tree, tested on the host only: its building blocks, its colour roles,
 its names and SETTINGS, its layout table, its write rule and BACK guard, the

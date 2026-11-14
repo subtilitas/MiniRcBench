@@ -752,7 +752,7 @@ not run on hardware (item 18).
     draw radii, or drop them, is open; the chips are square by decision 11
     either way.
 26. **Run summary per log, the owner's choice of 2026-11-14,** from the
-    feature survey. Designed in
+    feature survey (item 28). Designed in
     [run-summary.md](docs/design/run-summary.md), not built: a summary
     per blackbox log, kept by the logger on core0, written as
     `LOGS/LOGnnnnn.TXT` beside the `.BFL` at a clean stop and shown on SD
@@ -764,9 +764,9 @@ not run on hardware (item 18).
     the owner's answers to the note's eight questions.
 
 27. **Angle meter on the board's IMU, designed, not built.** The owner's
-    choice of 2026-11-14 from the feature survey: incidence, decalage,
-    dihedral and control-surface throw, in degrees and mm, from the
-    QMI8658 at 0x6B on I2C1.
+    choice of 2026-11-14 from the feature survey (item 28): incidence,
+    decalage, dihedral and control-surface throw, in degrees and mm, from
+    the QMI8658 at 0x6B on I2C1.
     [angle-meter.md](docs/design/angle-meter.md) describes the driver on
     core0 after the touch and current-sensor reads, the angle from the
     accelerometer alone, ZERO, a three-pose flip calibration, the screen
@@ -776,6 +776,34 @@ not run on hardware (item 18).
     row, a TOOLS row with a chooser, TOOLS in SD LOG's row, or a SETTINGS
     row. Which QMI8658 variant is fitted, its byte order, its axes on the
     board, the board's mass and the real accuracy are not verified.
+
+28. **The owner's feature choice of 2026-11-14.** From the feature survey
+    of 2026-11-14 the owner chose six features for the build list, each to
+    get a design note first, then slices with reviews:
+    1. an ESC commands page and an RPM-per-volt and kV estimate on the
+       tester;
+    2. receiver inputs on RX SIGNALS: servo pulse width and frame rate on
+       AUX, then CRSF/ELRS, iBUS and SUMD decoders, written in rcbench
+       first;
+    3. an IMU (inertial measurement unit) angle meter on the board's
+       QMI8658: incidence, decalage, dihedral, surface throw;
+    4. a run summary per log, optionally dated with the board's RTC
+       (real-time clock);
+    5. a USB one-wire bridge for desktop ESC tools;
+    6. Bluejay and BLHeli_S settings.
+
+    Not chosen now: a PWM ESC mode with a tachometer. For (1),
+    [esc-commands.md](docs/design/esc-commands.md) designs an ESC COMMANDS
+    page, beacons 1 to 5, direction and 3D mode, each change saved in the
+    ESC behind a 1 s hold, and an RPM/V reading and a kV estimate on the
+    tester. Not built. The note waits on the owner's answers to its ten
+    open questions: where the page lives, save with each change, a hold or
+    a write page, the 3D note after 3D OFF and across a restart, commands
+    and beacons with no ESC answering, where the two figures go on the
+    tester, the estimate's minimum throttle, the ESC information reply, the
+    tester's 3D note text, and a direction note on the tester. Its firmware
+    facts are read from source and the BLHeli_32 command specification;
+    none has been checked on an ESC.
 
 ## Known limitations
 
