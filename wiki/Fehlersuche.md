@@ -32,16 +32,21 @@ Ursache in der Firmware. Melde ihn wie unter
 Auf dem Signalkabel antwortet nichts, und das Feld unter dem Titel des
 Bildschirms `MENU` zeigt `NO ESC`. Prüfe in dieser Reihenfolge:
 
-1. **Falscher Pin.** Vergleiche **MENU → SETTINGS → ESC PIN** damit, wo das Kabel
+1. **Der ESC ist seit AM32 CONFIG nicht neu gestartet.** Beim Verlassen
+   dieses Bildschirms schickt die Firmware dem Bootloader keinen Befehl, die
+   ESC-Firmware zu starten, und was der ESC dann tut, ist nicht
+   aufgezeichnet. Starte den ESC neu, bevor du ihn testest:
+   [AM32-Konfiguration](AM32-Konfiguration#verlassen).
+2. **Falscher Pin.** Vergleiche **MENU → SETTINGS → ESC PIN** damit, wo das Kabel
    steckt. Die `LINK`-Zeile auf diesem Bildschirm ist live. Eine Paketrate
    über null heißt, der Pin stimmt.
-2. **Keine gemeinsame Masse.** Die Masse des ESC und die der Platine müssen
+3. **Keine gemeinsame Masse.** Die Masse des ESC und die der Platine müssen
    verbunden sein.
-3. **Der ESC hat keinen Strom.** Er läuft an seinem eigenen Akku, nicht an der
+4. **Der ESC hat keinen Strom.** Er läuft an seinem eigenen Akku, nicht an der
    Platine.
-4. **Der ESC beherrscht kein bidirektionales DShot**, oder es ist in seinen
+5. **Der ESC beherrscht kein bidirektionales DShot**, oder es ist in seinen
    Einstellungen abgeschaltet. Unidirektionales DShot sendet nichts zurück.
-5. **Das Kabel ist zu lang oder fängt Störungen ein.** Stelle **DSHOT KBAUD**
+6. **Das Kabel ist zu lang oder fängt Störungen ein.** Stelle **DSHOT KBAUD**
    auf 300 und beobachte `LINK`.
 
 ---
@@ -116,6 +121,20 @@ Drei Sperren halten den Motor an, und jede zeigt sich auf dem Bildschirm:
 Bleibt der Motor ohne eines davon stehen, prüfe die Schutzfunktionen des ESC
 (Unterspannungsabschaltung, Temperatur, Desync) und sieh dir `ESC STATUS` und
 `ESC TEMP` an.
+
+---
+
+## `ESC STATUS` zeigt `WARN`, `ERROR` oder `ALERT`
+
+Die Kachel ist gelb (amber) bei `WARN`, rot bei `ERROR` und magenta bei
+`ALERT`. Der ESC sendet den Status über EDT; was jeder bedeutet, legt die
+ESC-Firmware fest.
+
+1. **Entschärfen.** Drücke `DISARM`.
+2. **Den ESC abkühlen lassen.**
+3. **`ESC TEMP` und `CURRENT` ablesen.** `ESC TEMP` wird ab 90 °C rot.
+4. Schlage den Status in der Dokumentation der ESC-Firmware nach, bevor du
+   wieder scharf schaltest. Siehe [Telemetrie](Telemetrie#die-kacheln).
 
 ---
 
