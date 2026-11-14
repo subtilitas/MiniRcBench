@@ -9,7 +9,8 @@ name: Docs
 # - The Release workflow completes.  The job runs only when that run
 #   succeeded, whether a tag push or a manual run started it.  The tag comes
 #   from the run's title, which release.yml sets to "Release <tag>" for both
-#   triggers, and the manual is published as committed at that tag.
+#   triggers, and the manual is published as committed at that tag.  A tag
+#   with a pre-release suffix, v0.1.0-rc1, publishes nothing.
 # - A manual run.  The optional input names an existing v* tag; without it,
 #   the newest v* tag without a pre-release suffix (such as -rc1) is used.
 #   Use this to re-publish after the first
@@ -49,9 +50,13 @@ jobs:
   wiki:
     name: Publish wiki
     runs-on: ubuntu-latest
+    # A pre-release, whose tag carries a suffix such as -rc1, publishes no
+    # manual: the run's title is "Release <tag>", and a hyphen in it is that
+    # suffix.
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
+      (github.event.workflow_run.conclusion == 'success' &&
+       !contains(github.event.workflow_run.display_title, '-'))
     steps:
       # Resolves the tag and the commit to publish.  Everything reaches the
       # script through the environment, never interpolated into it: a tag or

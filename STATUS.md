@@ -65,8 +65,8 @@ Menu structure B ([menu-b.md](docs/design/menu-b.md)), the owner's choice of
 (`src/ui_leave.*`), the BACK guard and two strip lines (`src/ui_widgets.*`),
 the field row (`src/ui_list.*`), the colour role names and the layout
 constants. No screen draws differently; no screen uses the leave page, the
-guard or the field row yet. Slices 2 to 10 wait on eight questions to the
-owner (open item 18).
+guard or the field row yet. The owner answered the note's eight questions on
+2026-11-14; slices 2 to 10 wait on being built (open item 18).
 The pin claim both features share is built (slice 1): the AM32 editor and the
 servo tester run on it. For the ESC, the board is the throttle source. It
 sends bidirectional DShot (a digital ESC protocol in which the ESC
@@ -260,9 +260,16 @@ Not in this history: the DshotDisplay repository's branches
 
 State on 2026-11-14: one pull request is open as a draft, #49, the
 touch-loss stop of item 23; all seven CI jobs pass on `main` at 22c1e4b
-(#51). Every part below waits on the bench or on the owner (items 18 to
-24); nothing is open that the host suite can settle. In the order the parts
-depend on each other:
+(#51). The owner answered the questions of items 18 to 21 and 24 on
+2026-11-14. Three of the decisions are built: the write refusal on a red
+BOARD voltage (item 21), HITEC SERVO's claim at opening and AM32 CONFIG's
+read-only view (item 24). The rest waits on building where it changes
+anything, and items 22 and 23 wait on the bench. Still open to the owner:
+the converter module's name (item 19) and the second contact once it is
+measured (item 21). The order
+of work the owner decided: the eight small decisions of items 20, 21 and 24
+first, then menu structure B.
+The bench parts, in the order they depend on each other:
 
 1. The pins of item 15: DShot on GP0, KISS on GP1, the backlight, EN on
    GP28 or GP29 with the converter fitted.
@@ -275,8 +282,12 @@ depend on each other:
    scope, then one write with read-back per family before a write is
    relied on.
 
-A first `v*` tag runs Release and then publishes the manual (item 7).
-Menu structure B waits on the owner's answers, not on the bench (item 18).
+A `v*` tag runs Release; a tag without a pre-release suffix then publishes
+the manual (item 7), a suffixed one does not. Release, by the owner's
+decision of 2026-11-14: v0.1.0-rc1 is to be tagged now as a pre-release,
+an image for testing with no manual published, and v0.1.0 after the bench
+checks above. Neither tag exists yet; the owner pushes them. Menu structure
+B waits on being built, not on the bench (item 18).
 
 ## Open items
 
@@ -452,41 +463,79 @@ Menu structure B waits on the owner's answers, not on the bench (item 18).
     HZD_SYS_RESET_REQ) clears the watchdog's REASON register; if it does
     not, that glitch reset reads `UPDATE` or `REBOOT`, not `GLITCH`, and a
     HZD_SYS_RESET_REQ reset reads them, not `DEBUGGER`. No watchdog is
-    armed. A persistent fault log is not built; its open
-    questions are in [diagnostics.md](docs/design/diagnostics.md).
+    armed. A persistent fault log is not built: the owner decided on
+    2026-11-14 not to build one now and to revisit it after the board has
+    run on the bench, with the questions listed in
+    [diagnostics.md](docs/design/diagnostics.md).
 
-18. **Menu structure B waits on the owner.** Slice 1 of
-    [menu-b.md](docs/design/menu-b.md) is built. Slices 2 to 10 each wait
-    on one or more of eight open questions in the note: the MENU order, the
-    tester's readouts while armed, BACK on the leave page, the "changed"
-    colour, when README.md and the wiki follow the screens, the KST field
-    labels, the no-switch value's name and RESTART DSHOT's wait. Slice 4,
-    the layout table, waits on the fifth: it changes what the previews,
-    README.md and the wiki show.
-19. **Questions open to the owner.** 27 questions in four design notes, each
-    listed in its note:
-    - [menu-b.md](docs/design/menu-b.md), "Open questions": 8, which hold
-      slices 2 to 10 (item 18);
-    - [rx-signals.md](docs/design/rx-signals.md), "Open questions": 7, on
-      the S.BUS monitor and the PPM (pulse-position modulation) output;
-    - [current-sense.md](docs/design/current-sense.md), "Open questions":
-      5, Q1 to Q5, on the converter, the shunt, the tester's supply, the
-      protection and a version 4 settings block;
-    - [diagnostics.md](docs/design/diagnostics.md), "Open questions for a
-      fault log": 7, before a fault log is built.
+18. **Menu structure B waits on building.** Slice 1 of
+    [menu-b.md](docs/design/menu-b.md) is built. The owner answered the
+    note's eight questions on 2026-11-14 (decisions 23 to 30): MENU by
+    device, BEEP THE ESC, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, SD
+    LOG, SETTINGS; the tester's readouts inert while armed; BACK on the
+    leave page drawn disabled; a changed, unwritten value in `C_CYAN` on
+    every screen; each slice updates its own README and wiki lines and
+    images; the KST labels FAILSAFE MOVE, FAILSAFE POSITION, FAILSAFE TIME,
+    REVERSED; OWN for SERVO SUPPLY's no-switch value; RESTART DSHOT after
+    1000 ms. Slices 2 to 10 wait on being built, after the eight small
+    decisions of items 20, 21 and 24. Three decisions change the note's
+    design, and the sections they touch are marked to be redesigned: the
+    docs go with each slice, against the note's recommendation, so the
+    slice table is reworked, slice 10 shrinks and slice 4 no longer waits;
+    HITEC SERVO takes SIG when it opens (item 24), so the chooser's Hitec
+    entries take the pin, which changes the note's decision 19; and a MENU
+    row RX SIGNALS after SERVO PROGRAMMER (item 19) gives seven rows, BEEP
+    THE ESC, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD
+    LOG, SETTINGS. The owner decided on 2026-11-14 that MENU keeps its
+    42 px rows and scrolls 36 px with seven rows, as today's seven-row MENU
+    does, SETTINGS reached with a short drag; this revises the six rows
+    that never scroll of 2026-11-13 (the note's decision 33).
+19. **The design notes' questions, answered on 2026-11-14.** The owner
+    answered the questions of four design notes; each note records the
+    answers as decisions:
+    - [menu-b.md](docs/design/menu-b.md): all eight, and the seventh MENU
+      row that followed from them (item 18). Waits on building.
+    - [rx-signals.md](docs/design/rx-signals.md): build the S.BUS (Futaba's
+      serial bus for receiver channels) monitor and an S.BUS output, no PPM
+      (pulse-position modulation) output; the monitor reads UART0 on GP1
+      with the pad's input inverted, shows µs by rcbench's `sbus_to_us()`
+      with the bar in raw units; one MENU row, RX SIGNALS, opens a chooser
+      of MONITOR and OUTPUT. The output's encoder is written and tested in
+      rcbench first, then copied; its throttle channel obeys MAX THROTTLE.
+      The monitor waits on building (slices 2 and 3); the output waits on
+      its encoder in rcbench and on its design, of which the note lists
+      the points to settle.
+    - [current-sense.md](docs/design/current-sense.md): the converter takes
+      one LiPo cell, 3.0 V to 4.2 V, into a synchronous boost with load
+      disconnect, 5.0 V, at least 3 A out; the shunt stays 0.1 Ω; the servo
+      tester always switches the supply with SERVO SUPPLY at a pin; the
+      protection is rcbench's limit run, above 1.0 A for 400 ms and a hard
+      cut at 3.0 A, the hard cut acting at once in the KST and Hitec claims,
+      during an operation too. The note recommended the stall rule and
+      warns that the limit run trips on many servos against a stop: bench
+      test B8 checks it. Settings are carried over from versions 2, 3 and
+      4 into version 5, new fields at their defaults; a block of a version
+      the firmware does not know is discarded and announced as now. That is
+      the first migration in `settingsLoad()`; until it is built, a block
+      of another version is discarded. Open to the owner: the converter
+      module, which bench tests B6 and B7 check before it is relied on.
+      Slices 2 to 6 and the migration wait on building.
+    - [diagnostics.md](docs/design/diagnostics.md): no fault log now; the
+      owner revisits it after the board has run on the bench, with the
+      note's seven questions.
 
     The design questions of item 5 are not addressed to the owner.
-20. **Card and log questions open to the owner**, from the usability audit
-    of 2026-11-14, none decided:
-    - **A KST or Hitec write with no card.** The write goes through with the
-      only copy of the servo's old values in memory, lost at LEAVE, REBOOT
-      (KST) or a power loss; the write page says so in amber. Allow it as
-      now, ask for a second hold, or refuse it as AM32 CONFIG does
-      (`NO BACKUP ON THE CARD: NOT WRITTEN`).
-    - **Log numbering.** A new log takes the lowest unused number in `LOGS/`,
-      so after a file is deleted on a computer the highest number is not the
-      newest log, and the board sets no clock for the file dates. Number new
-      logs after the highest existing file instead.
+20. **Card and log, decided on 2026-11-14,** from the usability audit of
+    2026-11-14:
+    - **A KST or Hitec write with no card** stays allowed as now: the write
+      goes through with the only copy of the servo's old values in memory,
+      lost at LEAVE, REBOOT (KST) or a power loss, and the write page says
+      so in amber. Nothing to build.
+    - **Log numbering.** New logs are numbered after the highest existing
+      file in `LOGS/`. Today a new log takes the lowest unused number, so
+      after a file is deleted on a computer the highest number is not the
+      newest log, and the board sets no clock for the file dates. Waits on
+      building.
     - Not a question, recorded here: a USB cable pulled with the board on its
       battery leaves the card with the host. TinyUSB 0.18.0's RP2040 port
       (`FORCE_VBUS_DETECT` 1 in `dcd_rp2040.c`) reports the pull as a bus
@@ -494,12 +543,18 @@ Menu structure B waits on the owner's answers, not on the bench (item 18).
       `tud_umount_cb()` for it. A suspend is not handled; EJECT on SD LOG
       takes the card back. Whether this board has a VBUS sense line that
       could tell the two apart is not verified.
-21. **One owner decision.** Whether the tester disarms on a second contact,
-    once the CST328's report with two fingers on the glass is measured. The
-    driver reads finger 1 only. Decided on 2026-11-14 and built: a KST, Hitec
-    or AM32 write is refused while the BOARD voltage is red, and amber
-    refuses nothing. The reading with USB power alone is not measured, so a
-    board on USB with no cell may refuse writes (open item 22).
+21. **Two owner decisions, one taken.**
+    - Decided on 2026-11-14 and built: a KST, Hitec or AM32 write is
+      refused while the BOARD voltage is red, the band from 2.50 V up to
+      below 3.30 V (`BOARD_CELL_IMPLAUSIBLE_MV` and `BOARD_CELL_CRIT_MV` in
+      `src/config.h`, drawn by `uiBoardCell()` with 50 mV of hysteresis;
+      `uiBoardWriteRefused()` in `src/ui.h`). Below 2.50 V the reading says
+      nothing about a cell and nothing is refused; amber refuses nothing.
+      The reading with USB power alone is not measured, so a board on USB
+      with no cell may refuse writes (open item 22).
+    - Open: whether the tester disarms on a second contact, once the
+      CST328's report with two fingers on the glass is measured. The
+      driver reads finger 1 only.
 22. **The splash's touch line, the BOARD colour and the write refusal on
     hardware.** All three run in the host suite only. Not measured: what
     the divider on GP27 reads with USB power and no cell, and the CST328's
@@ -518,18 +573,27 @@ Menu structure B waits on the owner's answers, not on the bench (item 18).
 
     Until then a controller that stops answering leaves a HOLD-latched
     motor running until the idle disarm, 30 s after the last contact.
-24. **Three owner decisions on existing screens**, none decided. Two more
-    were decided on 2026-11-14 and are built: HITEC SERVO claims SIG when it
-    opens, before the family tap; AM32 CONFIG opens a layout other than 2 to
-    4 read-only, the bytes in hex with a backup and no way to the write.
-    - **AM32 3D MODE.** After a write that sets 3D MODE on, the tester arms
-      as before; the list shows the warning. Refuse to arm, warn on the
-      tester, or leave it.
-    - **Servo tester limits.** TYPE WIDE and MIN or MAX past the travel
-      margin apply at once, with a note. Ask for HOLD TO APPLY as the heli
-      types do, or leave it.
-    - **SETTINGS RESET.** One tap loads the defaults. Ask for a hold, or
-      leave it.
+24. **Five owner decisions on existing screens, taken on 2026-11-14.**
+    Two are built; three wait on building, and those screens behave as
+    before.
+    - **AM32 3D MODE.** After a write that set 3D MODE on, the tester shows
+      a warning and still arms. Today it arms as before, and only the list
+      shows the warning.
+    - **HITEC SERVO and DShot.** Built: HITEC SERVO takes SIG when it opens,
+      before the family is tapped (`PinUserInfo::deferJob`,
+      `pinClaimStartJob()` in `src/pin_claim.h`). In menu structure B this
+      changes decision 19 of [menu-b.md](docs/design/menu-b.md): the
+      chooser's Hitec entries take the pin on their tap.
+    - **Servo tester limits.** TYPE WIDE, and MIN or MAX past the travel
+      margin, need HOLD TO APPLY, as the heli types do. Today they apply at
+      once, with a note.
+    - **SETTINGS RESET** needs a 1 s hold. Today one tap loads the
+      defaults.
+    - **AM32 layouts the table does not know.** Built: a layout other than
+      2 to 4 opens read-only, the bytes in hex, marked `NOT VERIFIED.`, with
+      a backup file; the view has no way to the write, and the write
+      refuses such settings (`S_VIEW`, `writeRefused()` in
+      `src/ui_am32.cpp`).
 
     Not a question, recorded here: an ESC set to `EDT ARM` does not run on
     the tester, which sends zero frames after its EDT enable. Sending the
@@ -704,13 +768,17 @@ still pass their check. The notices name every component whose code is in the
 image, with its pinned version and its licence text copied from the licence
 files that ship with it; a missing or empty licence section fails the run
 before anything is published.
-Each run is titled `Release <tag>`, which Docs reads to find the tag. The
-version is 0.1.0 and no MiniRcBench release exists yet; v0.1.0 is the first
-tag.
+A tag with a suffix, such as `v0.1.0-rc1`, is published as a GitHub
+pre-release. Each run is titled `Release <tag>`, which Docs reads to find
+the tag. The version is 0.1.0 and no MiniRcBench release exists yet. By the
+owner's decision of 2026-11-14, v0.1.0-rc1 is to be tagged now as a
+pre-release, an image for testing with no manual published, and v0.1.0
+after the bench checks; neither tag exists yet.
 
 **Docs** (`.github/workflows/docs.yml`): mirrors `wiki/` to the GitHub wiki
-after every successful Release run, from a tag push or started by hand, and
-can be started by hand itself. The wiki is
+after every successful Release run of a tag without a pre-release suffix,
+from a tag push or started by hand, and can be started by hand itself. A
+pre-release publishes no manual. The wiki is
 published per release on purpose, so it describes firmware that can be
 downloaded.
 

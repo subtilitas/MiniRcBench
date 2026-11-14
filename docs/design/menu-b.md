@@ -1,18 +1,27 @@
 # Menu structure B
 
-Status: slice 1 built, host tests only; slices 2 to 10 not built. Every
-slice but 1 waits on an open question: slice 2 on questions 4 and 5, slice 3
-on 5, 6 and 7, slice 4 on 5, slice 5 on 4 and 5, slice 6 on 3, 5 and 8,
-slice 7 on 2 and 5, slice 8 on 5, slice 9 on 1 and 5, slice 10 on 5
-([open questions](#open-questions)). Question 5 holds every slice that
-changes a screen: it decides whether README.md and the wiki change with the
-slice or with slice 10.
+Status: slice 1 built, host tests only; slices 2 to 10 not built. The owner
+answered the note's eight open questions on 2026-11-14 ([decisions 23 to
+30](#decisions)), and the question that followed from them (decision 33).
+Slices 2 to 10 wait on being built. By the owner's order of work of
+2026-11-14 they follow the eight small decisions of STATUS.md items 20, 21
+and 24. Three of the owner's decisions of 2026-11-14 change this design, and
+the sections they touch are marked "to be redesigned": each slice updates
+its own README.md and wiki lines and images (decision 27, against this
+note's recommendation), so the [slice table](#slices) is reworked and slice
+10 shrinks; HITEC SERVO takes SIG when it opens (decision 31), which changes
+decision 19; and MENU gains a seventh row, RX SIGNALS (decision 32), so MENU
+scrolls 36 px, which revises owner decision 1's six rows that never scroll
+(decision 33).
 
 The owner decided on 2026-11-13 to build structure B ([decisions 1 to
 4](#decisions)). Decisions 5 to 15 are the rules this note sets for the
 findings of a graphical user interface (GUI) audit and a usability audit,
 each checked against the code; decisions 16 to 22 are further choices of this
-note. Neither group is confirmed by the owner yet. The note describes `main`
+note. On 2026-11-14 the owner confirmed, in answering the open questions,
+decision 5's disabled BACK on the leave page, decision 8's colour, decision
+15 e and h, and decisions 16, 20, 21 and 22 (decisions 23 to 30); the rest
+of both groups is not confirmed by the owner. The note describes `main`
 at 9f965a3 with slice 1 added. Line numbers in `src/`, `test/`, README.md and
 the wiki, and the test counts in decisions 5 to 15, name 2940f9c and are not
 recounted.
@@ -98,9 +107,15 @@ TESTER (root, no header)                                        depth 0
      │   ├─ HITEC D SERIES  HITEC SERVO: claim, entry, read     3
      │   │   └─ as KST SERVO
      │   └─ HITEC CLASSIC   disabled while SERVO SUPPLY is OWN  3
+     ├─ RX SIGNALS          chooser: MONITOR, OUTPUT; to design 2
      ├─ SD LOG                                                  2
      └─ SETTINGS            opened from MENU                    2
 ```
+
+RX SIGNALS is the owner's row of 2026-11-14 ([decision 32](#decisions));
+its chooser and the two tools are designed in
+[rx-signals.md](rx-signals.md), not here. A tap on HITEC D SERIES or HITEC
+CLASSIC takes SIG ([decision 31](#decisions)).
 
 Depth counts taps from the tester. The KST field list moves from depth 2 to
 3; the Hitec field list stays at 3 (MENU, HITEC SERVO, family); the AM32
@@ -135,6 +150,19 @@ What header BACK does on every view:
 | HITEC SERVO, every view | as KST SERVO |
 
 ## MENU
+
+By [decision 32](#decisions) MENU has seven rows, BEEP THE ESC, AM32
+CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, SETTINGS. By
+the owner's [decision 33](#decisions) the rows keep their 40 px height and
+42 px pitch, and MENU scrolls: seven rows take 7 × 42 = 294 px of the
+258 px viewport (`MENU_VIEW_H`, y 62 to 320, in `src/ui_menu.cpp`), so
+the scroll range is 294 − 258 = 36 px (`uiListMaxScroll()` in
+`src/ui_list.cpp`), as the seven rows on `main` scroll. SETTINGS, the
+seventh row, starts at y 314 with 6 px showing at scroll 0 and is reached
+with a short drag. The drawing and the tables below are the six-row design
+of 2026-11-13 and are to be redrawn with the seven rows; RX SIGNALS, 10
+characters at scale 2, 118 px, ends at x 134 from x 16, within
+`menuRowsFit()`'s rule with no status.
 
 ```
 y   0 | MENU                            [  BACK  ]|  header 36 px; BACK 64 x 32
@@ -186,7 +214,10 @@ drawn disabled under its normal status, and the strip says why. The words
 
 The SERVO PROGRAMMER row opens the chooser. It claims nothing, so a tap on an
 entry is the first step that takes SIG. The chooser generalises Hitec's
-family view, which goes.
+family view, which goes. By the owner's decision of 2026-11-14 HITEC SERVO
+takes SIG when it opens, before the family is chosen
+([decision 31](#decisions)); here the Hitec entries open HITEC SERVO, so
+their tap takes SIG, as the KST entry's does.
 
 With SERVO SUPPLY at OWN:
 
@@ -568,7 +599,8 @@ caption (decision 10) and the title (decision 13).
 Decisions of the owner, 2026-11-13:
 
 1. **Six rows.** MENU has six rows and never scrolls. The order is this
-   note's choice, decision 16.
+   note's choice, decision 16. Revised by decision 33 of 2026-11-14: seven
+   rows, and MENU scrolls 36 px.
 2. **SERVO PROGRAMMER.** KST SERVO and HITEC SERVO fold into one row that
    opens a chooser: KST / CHASERVO, HITEC D SERIES, HITEC CLASSIC. CLASSIC is
    drawn disabled without the switched supply and names the path to enable
@@ -674,8 +706,7 @@ change.
    `ui_list` draws the row: `uiListDrawField()` with a `UiValue` state
    (Plain, Changed, ReadOnly, Odd) and a `UiEdge` (None, Changed, Rule).
    Reason: amber is the warning colour, and lime is a live reading. The
-   colour is [open question 4](#open-questions); this decision follows its
-   recommendation.
+   owner chose `C_CYAN` on every screen on 2026-11-14 (decision 26).
    - Code: `ui_list.{h,cpp}` `uiListDrawField()`, built in slice 1 with the
      "changed" colour as a parameter; `ui_am32.cpp`
      `drawRow()`, `drawList()`; `ui_kst.cpp` `drawFieldRow()`, `drawList()`,
@@ -789,7 +820,8 @@ change.
     that looks like a button gets tapped.
     - Code: `theme.h` (the role comments), `ui_widgets.{h,cpp}` `uiChip()` and
       the role names (`UI_COL_*`: six of the seven roles built in slice 1; the
-      "changed" role waits on open question 4); `ui.cpp` `drawSourceTag()`,
+      "changed" role, `C_CYAN` by decision 26, is not built); `ui.cpp`
+      `drawSourceTag()`,
       `drawStatusBar()`, `drawRpm()`, `drawThrottle()`; `ui_menu.cpp`
       `drawMenu()`; `ui_settings.cpp` `drawItem()`, `noteText()`, `drawAll()`
       and the value functions; `ui_sdlog.cpp` the button and counter draws;
@@ -902,7 +934,8 @@ Choices of this note where the decisions above leave the choice:
 16. **MENU order.** BEEP THE ESC, AM32 CONFIG, SERVO TESTER, SERVO
     PROGRAMMER, SD LOG, SETTINGS: by what sits on SIG, with the two servo
     rows together and SETTINGS last now that the tester opens it too. The
-    owner's list named another order; see [open question 1](#open-questions).
+    owner chose this order on 2026-11-14 (decision 23); decision 32 adds RX
+    SIGNALS after SERVO PROGRAMMER.
 17. **SETTINGS returns to where it was opened.** BACK from SETTINGS opened
     on the tester returns to the tester. `ui.cpp` keeps the origin with the
     open tool.
@@ -916,8 +949,12 @@ Choices of this note where the decisions above leave the choice:
     `UiScreenId::ServoProg` with `freePins` set, so its row is disabled
     while the claim is not Free. `uiHitecEnterD()` and
     `uiHitecEnterClassic()` replace the family view.
-20. **The readouts act only while disarmed.** See the interlocks and
-    [open question 2](#open-questions).
+    Changed by the owner's decision 31 of 2026-11-14: HITEC SERVO takes SIG
+    when it opens, so the chooser's Hitec entries take the pin on their
+    tap, before the family's entry runs. The chooser view itself still
+    claims nothing.
+20. **The readouts act only while disarmed.** See the interlocks. The owner
+    confirmed it on 2026-11-14 (decision 24).
 21. **RESTART DSHOT waits 1000 ms.** LEAVE and RESTART DSHOT share a
     rectangle, so a double tap on LEAVE could restart DShot into a servo
     nobody unplugged, about 100 ms after LEAVE on KST and 41 ms on SERVO
@@ -925,6 +962,43 @@ Choices of this note where the decisions above leave the choice:
     after the released phase began, and is drawn disabled until then.
 22. **OWN.** SERVO SUPPLY's first value reads OWN. The stored value, 0,
     does not change.
+
+Decisions of the owner, 2026-11-14, answering the open questions of
+2026-11-13 and two points from STATUS.md:
+
+23. **MENU order** (question 1). By device: BEEP THE ESC, AM32 CONFIG,
+    SERVO TESTER, SERVO PROGRAMMER, SD LOG, SETTINGS, as decision 16.
+    Decision 32 adds a row.
+24. **The readouts while armed** (question 2). Inert, as decision 20.
+25. **BACK on the leave page** (question 3). Drawn disabled, as decision 5.
+26. **The "changed" colour** (question 4). `C_CYAN` on every screen, as
+    decision 8.
+27. **Docs between slices** (question 5). Each slice updates its own
+    README.md and wiki lines and images, not all in slice 10. This is
+    against the note's recommendation, which was to change them in slice
+    10. The [slice table](#slices) is reworked for it: slice 10 shrinks to
+    what remains, and slice 4, the layout table, no longer waits on this
+    question.
+28. **KST field labels** (question 6). FAILSAFE MOVE, FAILSAFE POSITION,
+    FAILSAFE TIME, REVERSED, as decision 15 h.
+29. **The no-switch value** (question 7). SERVO SUPPLY's no-switch value
+    reads OWN, as decisions 15 e and 22.
+30. **RESTART DSHOT's wait** (question 8). 1000 ms, as decision 21.
+31. **HITEC SERVO takes SIG when it opens,** before the family is tapped
+    (STATUS.md item 24). In structure B the Hitec entries of the chooser
+    therefore take the pin on their tap. This changes decision 19.
+32. **RX SIGNALS.** A MENU row RX SIGNALS after SERVO PROGRAMMER opens a
+    chooser with MONITOR and OUTPUT ([rx-signals.md](rx-signals.md),
+    decision 4). With decision 23 MENU then has seven rows: BEEP THE ESC,
+    AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG,
+    SETTINGS. This follows from the two decisions; "after SERVO
+    PROGRAMMER" puts RX SIGNALS before SD LOG. Seven rows contradicted
+    decision 1, six rows that never scroll; decision 33 settles it.
+33. **Seven rows scroll** (the question decision 32 raised). With seven
+    rows MENU keeps its 40 px rows at the 42 px pitch and scrolls 36 px, as
+    the seven-row MENU on `main` does; SETTINGS is reached with a short
+    drag. This revises decision 1 of 2026-11-13, six rows that never
+    scroll.
 
 ## Interlocks
 
@@ -975,8 +1049,8 @@ deliberate actions than at 9f965a3.
 | `src/ui_settings.{h,cpp}` | SERVO SUPPLY section, SIG PIN and AUX PIN, footer, DEFAULTS, colours, return to origin | 2, 3, 4, 7 |
 | `src/settings.cpp` | `settingsValidate()`: AUX never on SIG | 3 |
 | `src/kst_view.cpp` | four labels | 3 |
-| `src/ui_menu.cpp` | strip, statuses, busy state, six rows | 2, 3, 9 |
-| `src/ui_registry.cpp` | six rows; `UI_PROGRAMMERS` and its fit check | 9 |
+| `src/ui_menu.cpp` | strip, statuses, busy state, seven rows scrolling 36 px (decisions 32 and 33) | 2, 3, 9 |
+| `src/ui_registry.cpp` | seven rows (decisions 32 and 33); `UI_PROGRAMMERS` and its fit check | 9 |
 | `src/ui_servo_prog.{h,cpp}` | new: the chooser | 9 |
 | `src/ui.cpp` | `uiOpenTool()`, the origin, readouts, LATCH, BOARD, ARM while the card is held, DSHOT600, colours | 2, 3, 7 |
 | `src/ui_am32.{h,cpp}` | write page, editor old value, guard, HEX title, colours, footer | 2, 4, 5 |
@@ -990,6 +1064,15 @@ deliberate actions than at 9f965a3.
 Each slice builds, passes the host suite and merges alone. Sizes are
 estimates, not measured.
 
+To be redesigned for the owner's decision 27 of 2026-11-14: each of slices
+2 to 9 also updates the README.md sections, the wiki pages in English and
+German and the images that the "Docs" lists of its decisions name, with
+CHANGELOG.md, STATUS.md and the design notes it touches. Slice 10 keeps
+only what no single slice owns. The sizes and estimates of slices 2 to 9
+below were made with the documentation in slice 10 and do not include
+that work; they are to be redone. Slice 9 is to be redesigned for
+decisions 31 to 33.
+
 | Slice | Changes | Needs | Files | Lines, roughly | Tests rewritten / new | Estimate |
 |---|---|---|---|---|---|---|
 | 1. Widgets, built | `UiBackGuard`, `uiStripTwoLines()`, `uiListDrawField()`, `ui_leave`, layout constants, role names; nothing drawn differently. The `uiHeader()` flag is on `main` | | 9 in `src/`, 2 new | +500, −20 | 2 / 430 lines in test_widgets.cpp and test_servo.cpp | built |
@@ -1000,33 +1083,39 @@ estimates, not measured.
 | 6. Leave page | decision 5 and owner decision 3: KST, Hitec and SERVO TESTER on `ui_leave`; STAY, NEXT SERVO, BACK TO SERVO; RESTART DSHOT's wait | 1, 5 | 6 | +180, −300 | 90 and three helpers / 80 | 2 to 3 days |
 | 7. Tester | owner decision 4, decisions 15 a to c, 17: readouts, `uiOpenTool()`, origin, LATCH, BOARD, ARM while the card is held | 1, 3 | 4 | +150 | 15 / 100 | 1.5 days |
 | 8. SERVO TESTER | decision 13: the title; decision 12 is on `main` | 1, 3 | 2 | +10 | 0 / 5 | 0.5 day |
-| 9. Chooser | owner decisions 1 and 2, decisions 16, 18, 19, 15 d: six MENU rows, `ui_servo_prog`, `UI_PROGRAMMERS`, Hitec family entry points, family view removed | 3, 6, 7 | 9, 2 new | +350, −120 | 50 / 120 | 2 to 3 days |
-| 10. Documentation | README, wiki EN and DE, design notes, STATUS.md, CHANGELOG.md, previews and wiki images | 1 to 9 | about 35 | about 1,200 changed | shot names / none | 2 to 3 days |
+| 9. Chooser | owner decisions 1 and 2, decisions 16, 18, 19, 15 d, 23, 31, 32 and 33: seven MENU rows scrolling 36 px, `ui_servo_prog`, `UI_PROGRAMMERS`, Hitec family entry points, family view removed | 3, 6, 7 | 9, 2 new | +350, −120 | 50 / 120 | 2 to 3 days |
+| 10. Documentation | what no slice owns: menu.md (the tree, MENU, revision lines on decisions 1, 12 and 18), pin-claim.md's revision line on decision 4, README "Layout", "Tests" and "The user manual", and a check that no README section, wiki page or image still shows the old structure | 1 to 9 | to be redone | to be redone | none | to be redone |
 
-Slice 1 is built ([slice 1 as built](#slice-1-as-built)). Slice 4 is not:
-it moves rectangles and renames RESET, which the previews, README.md and the
-wiki show, and open question 5 decides whether those change with it.
+Slice 1 is built ([slice 1 as built](#slice-1-as-built)). Slice 4 is not
+built; it moves rectangles and renames RESET, which the previews, README.md
+and the wiki show, and by decision 27 it changes those itself. It no longer
+waits on a question.
 
 Slice 3 comes before slice 9: without it the SERVO SUPPLY section leaves
 SETTINGS with KST SERVO's MENU row. Slice 6 needs slice 5 because both change
 BACK during a write. Slices 2, 3 and 4 merge in any order after 1; 7 and 8
-after 3. Total for slices 2 to 10: 13.5 to 17.5 days.
+after 3. The total for slices 2 to 10, 13.5 to 17.5 days, was estimated
+with the documentation in slice 10 and is to be redone.
 
 The test counts come from `grep -cE` over `test/*.cpp` at 2940f9c, per
 decision above. Screenshots: 14 shots in test_kst_ui.cpp, 12 in
 test_hitec_ui.cpp, 21 in test_ui.cpp, 12 in test_servo.cpp and 2 in
-test_menu.cpp name screens that change. Slice 10 regenerates every wiki
-image but `splash.png` and `wiring.svg`; `hitec-family*.png`,
+test_menu.cpp name screens that change. By decision 27 each slice
+regenerates the wiki images of the screens it changes, which over slices 2
+to 9 is every wiki image but `splash.png` and `wiring.svg`;
+`hitec-family*.png`,
 `kst-leave*.png`, `hitec-unplug.png`, `servo-unplug.png` and
 `menu-pins-busy.png` give way to `prog-chooser*.png`, `leave-*.png` and
 `menu-restarting.png`; `am32-write.png` and `am32-discard.png` are new.
 
-Documentation that slice 10 changes, beyond the per-decision lists:
-README "Using it", "Safety", "Layout", "Tests" and "The user manual";
-menu.md (the tree, MENU, a revision line on decisions 1, 12 and 18);
-pin-claim.md (a revision line on decision 4); kst-programming.md and
-hitec-programming.md (screens, a revision line); servo-tester.md; this
-note's status line and its row in [README.md](README.md). backups.md and
+Documentation beyond the per-decision lists, before decision 27 all in
+slice 10: README "Using it" and "Safety", kst-programming.md and
+hitec-programming.md (screens, a revision line), servo-tester.md, this
+note's status line and its row in [README.md](README.md) go with the slice
+that changes what they describe; README "Layout", "Tests" and "The user
+manual", menu.md (the tree, MENU, a revision line on decisions 1, 12 and
+18) and pin-claim.md (a revision line on decision 4) stay in slice 10.
+Which slice takes each of these is to be redone with the table. backups.md and
 sd-write-cache.md name KST SERVO and HITEC SERVO, which keep their titles,
 and do not change.
 
@@ -1046,16 +1135,18 @@ preview images stay as they are.
 | Field row | `uiListDrawField()`, `UiField`, `UiValue`, `UiEdge`, `ui_list.h` | decision 8's row: fill, group, label, value at scale 2 up to 104 px, edge bar 3 px | slice 2: AM32 CONFIG, KST SERVO, HITEC SERVO, SERVO SET |
 | Leave page | `UiLeave`, `UiLeaveText`, `uiLeaveOpen()`, `uiLeavePoll()`, `uiLeaveTouch()`, `uiLeaveDraw()`, `ui_leave.h` | the three phases, numbered steps, notes, STAY and LEAVE, then NEXT SERVO or BACK TO SERVO and RESTART DSHOT; RESTART DSHOT takes a press that lands the wait or more after the released phase began, and only such a press draws it pressed; `leaveEnabled` cleared draws LEAVE disabled and ignores its tap, for the screen's writes; LEAVE takes only a press that landed while `leaveEnabled` was set (`leavePress`), and only such a press draws it pressed | slice 6 |
 
-What slice 1 leaves to the open questions:
+What slice 1 left to the open questions, which the owner answered on
+2026-11-14; none of the answers is built:
 
 - The "changed" role has no `UI_COL_*` name, and `uiListDrawField()` takes
-  the changed colour as a parameter (question 4).
-- The leave page draws no header: BACK on it is the screen's (question 3).
-- RESTART DSHOT's wait is a parameter of `uiLeaveOpen()` (question 8). The
-  widget puts RESTART DSHOT in LEAVE's rectangle; answer (c), separate
-  rectangles, would change the widget.
-- The step texts, including the no-switch value's name, are the screen's
-  (question 7).
+  the changed colour as a parameter: `C_CYAN` by decision 26.
+- The leave page draws no header: BACK on it is the screen's, drawn
+  disabled by decision 25.
+- RESTART DSHOT's wait is a parameter of `uiLeaveOpen()`: 1000 ms by
+  decision 30. The widget puts RESTART DSHOT in LEAVE's rectangle, as that
+  answer keeps it.
+- The step texts, including the no-switch value's name, are the screen's:
+  OWN by decision 29.
 
 ## Risks
 
@@ -1063,8 +1154,9 @@ What slice 1 leaves to the open questions:
    leave page stops working.
 2. **Test rewrite.** About 400 test lines change across slices 2 to 9, most
    in test_kst_ui.cpp and test_hitec_ui.cpp.
-3. **Docs lag.** README and the wiki describe the old screens from slice 2
-   until slice 10 merges ([open question 5](#open-questions)).
+3. **Docs lag.** Settled by decision 27: each slice updates README.md and
+   the wiki for its own screens, so they lag by no slice; each slice is the
+   larger for it.
 4. **RESTART DSHOT's wait.** Every leave takes 1000 ms more.
 5. **`uiOpenTool()`.** A screen that opens another breaks menu.md's
    invariant; the cache invalidation on entry and `uiCurrentScreen()` need
@@ -1077,30 +1169,6 @@ What slice 1 leaves to the open questions:
 
 ## Open questions
 
-1. **MENU order.** (a) The owner's listing: BEEP THE ESC, SERVO TESTER, AM32
-   CONFIG, SERVO PROGRAMMER, SETTINGS, SD LOG. (b) By device: BEEP THE ESC,
-   AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, SD LOG, SETTINGS.
-   Recommendation: (b); rows 0 and 1 stay where they are. (a) keeps
-   SETTINGS before SD LOG, the order of the last two rows on `main`.
-   Waiting: slice 9.
-2. **The readouts while armed.** (a) Inert. (b) Live: a tap disarms and
-   opens SETTINGS, as MENU does. Recommendation: (a): the pole readout lies
-   in the throttle pad, and a tap there must not stop a motor. Waiting:
-   slice 7.
-3. **BACK on the leave page.** (a) Drawn disabled. (b) Acts as STAY.
-   Recommendation: (a): each way off the page has a label. Waiting: slice 6.
-4. **The "changed" colour.** (a) `C_CYAN`. (b) `C_LIME`, KST's today. (c)
-   `C_AMBER`, AM32's today. Recommendation: (a): lime is a live reading,
-   amber a warning. Waiting: slices 2 and 5.
-5. **Docs between slices.** (a) README and wiki in slice 10, no release
-   between slices 2 and 10. (b) Each slice updates its README and wiki
-   lines. Recommendation: (a), with CHANGELOG.md and the design notes kept
-   per slice. Waiting: slices 2 to 10.
-6. **KST field labels.** (a) FAILSAFE MOVE, FAILSAFE POSITION, FAILSAFE
-   TIME, REVERSED. (b) rcbench's names, as today. Recommendation: (a): the
-   screen's warnings use those words. Waiting: slice 3.
-7. **The no-switch value.** (a) OWN. (b) HAND. (c) NONE, as today.
-   Recommendation: (a). Waiting: slice 3.
-8. **RESTART DSHOT's wait.** (a) 1000 ms. (b) 500 ms. (c) None, with
-   separate rectangles as today. Recommendation: (a), the hold length the
-   bench uses everywhere. Waiting: slice 6.
+None open. The eight questions of 2026-11-13 are answered by decisions 23
+to 30, and the question of the seventh MENU row, which followed from
+decisions 23 and 32, by decision 33.

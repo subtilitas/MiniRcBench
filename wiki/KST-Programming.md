@@ -237,8 +237,7 @@ backup goes:
 `NO CARD`, `CARD ON USB` and `NO BACKUP ON THE CARD` are amber: the servo's
 values from before the first write are in memory only, until a later write
 with a card mounted saves them; LEAVE, REBOOT or a power loss loses them.
-Without a card the write still goes through. Whether it should be refused, or
-need a second hold, is open to the owner.
+Without a card the write still goes through.
 
 **A second hold of 1 s writes.** Before the first frame of the session's
 first write with a card mounted, the image read at entry goes to the card as
