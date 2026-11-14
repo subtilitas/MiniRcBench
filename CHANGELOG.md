@@ -52,7 +52,10 @@ protocol.
   `uiStripTwoLines()` in `src/ui_widgets.*`; the field row
   `uiListDrawField()` in `src/ui_list.*`, with the "changed" colour as a
   parameter; the colour role names `UI_COL_*` and the layout constants
-  `UI_EDGE`, `UI_FOOT_Y`, `UI_FOOT_H` and `UI_EDIT_BTN_W`. No screen uses the
+  `UI_EDGE`, `UI_FOOT_Y`, `UI_FOOT_H` and `UI_EDIT_BTN_W`. LEAVE takes only
+  a press that lands while the screen holds it enabled (`leaveEnabled`) and
+  is still enabled at the lift; a press that landed while LEAVE was disabled
+  draws no pressed look and does nothing on its lift. No screen uses the
   leave page, the guard or the field row yet. SERVO TESTER draws its supply
   line through `uiStripTwoLines()`; BACK and the footers of AM32 CONFIG, KST
   SERVO and HITEC SERVO take the layout constants at their values. Host
