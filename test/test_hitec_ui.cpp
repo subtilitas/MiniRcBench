@@ -25,6 +25,7 @@
 #include "hitec_files.h"
 #include "hitec_job.h"
 #include "hitec_view.h"
+#include "kst_view.h"
 #include "pin_claim.h"
 #include "sd_log.h"
 #include "settings.h"
@@ -783,17 +784,270 @@ static void testStallAndBack() {
 	supply(false);
 }
 
+/**
+ * @brief Whether the ID note's lines, wrapped at @p width, are drawn in amber:
+ *        centred in the editor bar's 136 px from x 52 at y 232, 242, 252
+ *        when @p bar, else from x 18 at the first y from 40 to 184 that
+ *        holds the first line, 12 px apart.
+ */
+static bool idNoteDrawn(const char *text, int width, bool bar) {
+	char l[3][48];
+	int n = kstWrap(text, width, l, 3);
+	if (n < 1 || strstr(l[n - 1], "...")) return false;
+	if (bar) {
+		for (int i = 0; i < n; i++)
+			if (!fakeTextIs(52 + (136 - gfxTextW(l[i], 1)) / 2, 218 + 14 + 10 * i, l[i], C_AMBER, C_BG, 1))
+				return false;
+		return true;
+	}
+	for (int y = 40; y <= 184; y++) {
+		if (!fakeTextIs(UI_MARGIN + 12, y, l[0], C_AMBER, C_BG, 1)) continue;
+		for (int i = 1; i < n; i++)
+			if (!fakeTextIs(UI_MARGIN + 12, y + 12 * i, l[i], C_AMBER, C_BG, 1)) return false;
+		return true;
+	}
+	return false;
+}
+
+/** @brief The y of an amber note line @p text at x 18 on the write page, or -1. */
+static int noteLineY(const char *text) {
+	for (int y = UI_BODY_Y; y <= 190; y++)
+		if (fakeTextIs(UI_MARGIN + 12, y, text, C_AMBER, C_BG, 1)) return y;
+	return -1;
+}
+
+/** @brief The y the horn line is drawn at on the write page, or -1. */
+static int hornLineY() {
+	for (int y = UI_BODY_Y; y <= 190; y++)
+		if (fakeTextIs(UI_MARGIN, y, "KEEP THE SERVO HORN CLEAR.", C_TEXT, C_BG, 1)) return y;
+	return -1;
+}
+
+/** @brief The y of value row @p label at x 8 on the write page, or -1. */
+static int rowLabelY(const char *label) {
+	for (int y = UI_BODY_Y; y <= 190; y++)
+		if (fakeTextIs(UI_MARGIN, y, label, C_TEXT, C_BG, 1)) return y;
+	return -1;
+}
+
+/** @brief The n of `AND n MORE` on the write page, or -1. */
+static int andMore() {
+	char b[24];
+	for (int n = 1; n <= 30; n++) {
+		snprintf(b, sizeof(b), "AND %d MORE", n);
+		for (int y = UI_BODY_Y; y <= 190; y++)
+			if (fakeTextIs(UI_MARGIN, y, b, C_DIM, C_BG, 1)) return n;
+	}
+	return -1;
+}
+
+/** @brief Whether the write page draws nothing from y 192 to the state lines at y 196. */
+static bool clearBelow192() {
+	const uint16_t *fb = gfxBuffer();
+	for (int y = 192; y < 196; y++)
+		for (int x = 0; x < GFX_W; x++)
+			if (fb[y * GFX_W + x] != C_BG) return false;
+	return true;
+}
+
+/** @brief The D series value rows the write page lists, by label, from y 62 to 190. */
+static int rowsListed() {
+	HitecRow rows[HITEC_ROWS_MAX];
+	int nr = hitecRows(HITEC_LAYOUT_D, rows), n = 0;
+	for (int i = 0; i < nr; i++)
+		if (hitecWritten(HITEC_LAYOUT_D, rows[i].param) && rowLabelY(rows[i].label) >= 0) n++;
+	return n;
+}
+
+/** @brief @p p of @p img to its smallest edit, or its largest when it holds that already. */
+static void moveParam(hitec_image_t *img, uint8_t p) {
+	const hitec_param_info_t *pi = hitec_param(HITEC_LAYOUT_D, p);
+	hitec_value_t v;
+	hitec_param_get(img, HITEC_LAYOUT_D, p, &v);
+	hitec_param_set(img, HITEC_LAYOUT_D, p, v.value == pi->min ? pi->max : pi->min);
+}
+
+/** @brief Put @p img on the card as HITEC/HT001.TXT. */
+static void putFile(const hitec_image_t *img) {
+	char text[HITEC_CARD_FILE_MAX];
+	size_t n = hitec_card_file_text(img, text, sizeof(text));
+	fakeFatMkdir("HITEC");
+	fakeFatPut("HITEC/HT001.TXT", text, n);
+}
+
+/** @brief FILES, the first file, LOAD; true on the field list. */
+static bool loadFirstFile() {
+	tapId(UI_FIX(HitecCtl::Files));
+	tapId(UI_ROW(0, Row));
+	tapId(UI_FIX(HitecCtl::Load));
+	return uiHitecView() == HitecView::List;
+}
+
+/**
+ * @brief The write page keeps, in this order of priority, the horn line, the
+ *        ID note and FILE OF ANOTHER MODEL, MODEL NOT MEASURED, then the
+ *        value rows with the ID first, then the soft rules.
+ */
+static void testWritePageHornLine() {
+	section("Hitec write page: what is never left out, and the ID first");
+	static const char *const FILE_LINE = "FILE OF ANOTHER MODEL: D485HW.";
+	// ID 0 -> 1 and DIRECTION on a D485HW.
+	freshHitec(HITEC_D, false);
+	checkTrue("the field list", toList(HITEC_D));
+	revealRow(12);
+	tapId(UI_ROW(12, Row));
+	tapId(UI_FIX(HitecCtl::EditPlus));
+	revealRow(6);
+	tapId(UI_ROW(6, Row));
+	tapId(UI_FIX(HitecCtl::EditPlus));
+	holdUntilGone(UI_FIX(HitecCtl::Write));
+	checkTrue("ID and DIRECTION: the write page", uiHitecView() == HitecView::Write);
+	int hy = hornLineY();
+	checkTrue("the ID row first, at y 62", rowLabelY("ID") == UI_BODY_Y);
+	checkTrue("the horn line under the rows", hy > rowLabelY("DIRECTION"));
+	checkTrue("then the ID note, whole", idNoteDrawn(HITEC_UI_ID_NOTE_PAGE, 36, false) &&
+	          noteLineY("THE BENCH ADDRESSES ID 0 AND MAY NOT") == hy + 12 &&
+	          noteLineY("READ OR RESTORE THIS SERVO AGAIN.") == hy + 24);
+	checkTrue("nothing below y 192", clearBelow192());
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(HitecCtl::Revert));
+	leaveAll();
+
+	// A D645MW, not measured, with a D485HW file loaded, ID 0 -> 1 and
+	// DIRECTION: FILE OF ANOTHER MODEL shows nowhere else.
+	freshHitec(HITEC_D, false);
+	hitec_image_t f;
+	d485(&f);
+	putFile(&f);
+	fakeHitecSim()->mem[0] = (uint8_t)(34645 & 0xFF);
+	fakeHitecSim()->mem[1] = (uint8_t)(34645 >> 8);
+	checkTrue("a D645MW reads", toList(HITEC_D));
+	checkTrue("not measured", !hitecModelMeasuredNow());
+	checkTrue("the D485HW file loads", loadFirstFile());
+	revealRow(12);
+	tapId(UI_ROW(12, Row));
+	tapId(UI_FIX(HitecCtl::EditPlus));
+	revealRow(6);
+	tapId(UI_ROW(6, Row));
+	tapId(UI_FIX(HitecCtl::EditPlus));
+	holdUntilGone(UI_FIX(HitecCtl::Write));
+	checkTrue("its write page", uiHitecView() == HitecView::Write);
+	hy = hornLineY();
+	checkTrue("the horn line", hy > 0);
+	checkTrue("the ID note, whole", idNoteDrawn(HITEC_UI_ID_NOTE_PAGE, 36, false));
+	checkTrue("FILE OF ANOTHER MODEL", noteLineY(FILE_LINE) > hy);
+	checkTrue("MODEL NOT MEASURED, whole", noteLineY("MODEL NOT MEASURED: WRITTEN IN THE D") > hy &&
+	          noteLineY("LAYOUT.") > hy);
+	checkTrue("the ID row first", rowLabelY("ID") == UI_BODY_Y);
+	checkTrue("nothing below y 192", clearBelow192());
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(HitecCtl::Revert));
+	leaveAll();
+
+	// A LOAD that changes ten values, the ID among them, on a D485HW.
+	static const uint8_t TEN[] = {
+		HITEC_P_D_SPEED, HITEC_P_D_DEAD_BAND, HITEC_P_D_SOFT_START, HITEC_P_D_NEUTRAL,
+		HITEC_P_D_DIRECTION, HITEC_P_D_FAILSAFE, HITEC_P_D_OVERLOAD, HITEC_P_D_SMART_SENSOR,
+		HITEC_P_D_SENSITIVITY, HITEC_P_D_ID,
+	};
+	freshHitec(HITEC_D, false);
+	hitec_image_t servo;
+	d485(&servo);
+	d485(&f);
+	for (uint8_t p : TEN) moveParam(&f, p);
+	int changed = hitecChangedCount(&servo, &f, HITEC_LAYOUT_D);
+	putFile(&f);
+	checkTrue("the field list", toList(HITEC_D));
+	checkTrue("ten or more values change", changed >= 10);
+	checkTrue("the file loads", loadFirstFile());
+	holdUntilGone(UI_FIX(HitecCtl::Write));
+	checkTrue("the write page", uiHitecView() == HitecView::Write);
+	checkTrue("the ID row first", rowLabelY("ID") == UI_BODY_Y);
+	checkTrue("AND n MORE counts the rows not listed", andMore() == changed - rowsListed());
+	checkTrue("the horn line", hornLineY() > 0);
+	checkTrue("the ID note, whole", idNoteDrawn(HITEC_UI_ID_NOTE_PAGE, 36, false));
+	checkTrue("nothing below y 192", clearBelow192());
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(HitecCtl::Revert));
+	leaveAll();
+
+	// Everything at once: a D645MW whose FAILSAFE is a position, a D485HW
+	// file moving ten values, the ID and the travel among them, and a
+	// FAILSAFE row that wraps.
+	freshHitec(HITEC_D, false);
+	d485(&servo);
+	hitec_image_put_reg(&servo, 0x00, 34645);
+	hitec_param_set(&servo, HITEC_LAYOUT_D, HITEC_P_D_FAILSAFE, 900);
+	memcpy(fakeHitecSim()->mem, servo.mem, sizeof(fakeHitecSim()->mem));
+	d485(&f);
+	for (uint8_t p : TEN) moveParam(&f, p);
+	hitec_param_set(&f, HITEC_LAYOUT_D, HITEC_P_D_FAILSAFE, 2100);
+	putFile(&f);
+	checkTrue("a D645MW reads", toList(HITEC_D) && !hitecModelMeasuredNow());
+	checkTrue("the file loads", loadFirstFile());
+	holdUntilGone(UI_FIX(HitecCtl::Write));
+	checkTrue("the write page", uiHitecView() == HitecView::Write);
+	hy = hornLineY();
+	changed = hitecChangedCount(&servo, &f, HITEC_LAYOUT_D);
+	checkTrue("the ID row first", rowLabelY("ID") == UI_BODY_Y);
+	checkTrue("AND n MORE counts the rows not listed", andMore() == changed - rowsListed());
+	checkTrue("the horn line", hy > 0);
+	checkTrue("the ID note, whole", idNoteDrawn(HITEC_UI_ID_NOTE_PAGE, 36, false));
+	checkTrue("FILE OF ANOTHER MODEL", noteLineY(FILE_LINE) > hy);
+	checkTrue("MODEL NOT MEASURED, whole", noteLineY("MODEL NOT MEASURED: WRITTEN IN THE D") > hy &&
+	          noteLineY("LAYOUT.") > hy);
+	checkTrue("nothing below y 192", clearBelow192());
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(HitecCtl::Revert));
+	leaveAll();
+
+	// The same notes over a row that wraps: ID, then FAILSAFE 900 US -> 2100
+	// US under its label, then two more.
+	freshHitec(HITEC_D, false);
+	memcpy(fakeHitecSim()->mem, servo.mem, sizeof(fakeHitecSim()->mem));
+	d485(&f);
+	moveParam(&f, HITEC_P_D_ID);
+	moveParam(&f, HITEC_P_D_OVERLOAD);
+	moveParam(&f, HITEC_P_D_SMART_SENSOR);
+	hitec_param_set(&f, HITEC_LAYOUT_D, HITEC_P_D_FAILSAFE, 2100);
+	putFile(&f);
+	checkTrue("a D645MW reads", toList(HITEC_D) && !hitecModelMeasuredNow());
+	checkTrue("the file loads", loadFirstFile());
+	holdUntilGone(UI_FIX(HitecCtl::Write));
+	checkTrue("the write page", uiHitecView() == HitecView::Write);
+	fakeDumpFrame("shot_hitec_write_full.ppm");
+	hy = hornLineY();
+	changed = hitecChangedCount(&servo, &f, HITEC_LAYOUT_D);
+	checkTrue("the ID row first, FAILSAFE second", rowLabelY("ID") == UI_BODY_Y &&
+	          rowLabelY("FAILSAFE") == UI_BODY_Y + 12);
+	checkTrue("FAILSAFE's value under its label", fakeTextIs(GFX_W - UI_MARGIN -
+	          gfxTextW("900 US (900) -> 2100 US (2100)", 1), UI_BODY_Y + 22,
+	          "900 US (900) -> 2100 US (2100)", C_LIME, C_BG, 1));
+	checkTrue("AND n MORE counts the rest", andMore() == changed - rowsListed() && andMore() > 0);
+	checkTrue("the horn line, the ID note, FILE, MODEL",
+	          hy > 0 && idNoteDrawn(HITEC_UI_ID_NOTE_PAGE, 36, false) && noteLineY(FILE_LINE) > hy &&
+	          noteLineY("LAYOUT.") > hy);
+	checkTrue("nothing below y 192", clearBelow192());
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(HitecCtl::Revert));
+	leaveAll();
+}
+
 static void testIdAndBack() {
 	section("Hitec screen: the ID note, STOP, BACK in the entry and the read, a kept edit");
 	freshHitec(HITEC_D, false);
 	checkTrue("the field list", toList(HITEC_D));
 	revealRow(12);
 	tapId(UI_ROW(12, Row));
+	checkTrue("ID 0: no ID note in the editor bar", !idNoteDrawn(HITEC_UI_ID_NOTE_BAR, 22, true));
 	tapId(UI_FIX(HitecCtl::EditPlus));
+	hitecFrame();
+	checkTrue("ID 1: the editor bar says a write may lock out read and restore",
+	          idNoteDrawn(HITEC_UI_ID_NOTE_BAR, 22, true));
 	holdUntilGone(UI_FIX(HitecCtl::Write));
 	checkTrue("an ID write: its page", uiHitecView() == HitecView::Write);
-	checkTrue("names the ID the bench addresses",
-	          fakeCountColour(C_AMBER) > 0);
+	checkTrue("the page says the bench may not read or restore the servo after it",
+	          idNoteDrawn(HITEC_UI_ID_NOTE_PAGE, 36, false));
 	fakeDumpFrame("shot_hitec_id.ppm");
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(HitecCtl::Revert));
@@ -949,6 +1203,7 @@ void runHitecUiTests() {
 	testSupplyCurrent();
 	testStallAndBack();
 	testIdAndBack();
+	testWritePageHornLine();
 	testCardSwap();
 	testStallInWrite();
 }

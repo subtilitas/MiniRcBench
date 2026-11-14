@@ -843,6 +843,7 @@ static void testInitTypes() {
 	v1.kind = SimCard::V1_SDSC;
 	b = busOf(&v1);
 	checkInt("SDSC v1 initialises", sdh_init(&b, &c, 10000000u), SDE_OK);
+	checkTrue("v1, silent to CMD8: answered through CMD55", c.answered);
 	checkTrue("not v2", !c.v2);
 	checkTrue("byte addressing", !c.block_addr);
 	checkInt("HCS left clear without CMD8", (long)(c.ocr & SDP_OCR_CCS), 0);
@@ -880,11 +881,13 @@ static void testInitFailures() {
 	checkInt("no card: no response", sdh_init(&b, &c, 10000000u), SDE_NO_RESPONSE);
 	checkTrue("not ready", !c.ready);
 	checkTrue("gave up within 20 ms", none.t < 20000u);
+	checkTrue("nothing answered", !c.answered);
 
 	SimCard volt;
 	volt.window = 0x00018000u;   // 2.7 V to 2.9 V only
 	b = busOf(&volt);
 	checkInt("voltage mismatch, card goes silent", sdh_init(&b, &c, 10000000u), SDE_VOLTAGE);
+	checkTrue("a card answered", c.answered);
 	SimCard volt2;
 	volt2.window = 0x00018000u;
 	volt2.answerThenInactive = true;
@@ -895,6 +898,7 @@ static void testInitFailures() {
 	stuck.polls = 1000000;
 	b = busOf(&stuck);
 	checkInt("never ready: timeout", sdh_init(&b, &c, 10000000u), SDE_TIMEOUT);
+	checkTrue("ACMD41 timing out: a card answered", c.answered);
 	checkTrue("after more than 1 s of ACMD41", stuck.t >= 1000000u);
 	checkTrue("and not much more", stuck.t < 1300000u);
 
@@ -902,6 +906,7 @@ static void testInitFailures() {
 	echo.badEcho = true;
 	b = busOf(&echo);
 	checkInt("CMD8 echo wrong: unusable", sdh_init(&b, &c, 10000000u), SDE_UNUSABLE);
+	checkTrue("a bad echo: a card answered", c.answered);
 
 	SimCard sduc;
 	sduc.csdVer = 2;
@@ -912,11 +917,13 @@ static void testInitFailures() {
 	crc.corruptResp = 1;
 	b = busOf(&crc);
 	checkInt("damaged CMD8 response fails init", sdh_init(&b, &c, 10000000u), SDE_CRC);
+	checkTrue("a damaged response: a card answered", c.answered);
 
 	SimCard gone;
 	gone.removeAtCmd = 6;   // after CMD0, CMD8, two ACMD41 rounds
 	b = busOf(&gone);
 	checkInt("card pulled during init", sdh_init(&b, &c, 10000000u), SDE_NO_RESPONSE);
+	checkTrue("pulled after answering: a card answered", c.answered);
 
 	for (int at = 6; at <= 16; at++) {
 		SimCard late;

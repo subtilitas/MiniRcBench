@@ -129,6 +129,32 @@ static void testProfiles() {
 	checkTrue("HELI CYCLIC at 50 Hz: the warning", servoDangerous(ServoType::HeliCyclic, 50));
 	checkTrue("HELI TAIL: the warning", servoDangerous(ServoType::HeliTail760, 560));
 	checkTrue("WIDE at 50 Hz: no warning", !servoDangerous(ServoType::Wide, 50));
+
+	ServoProfile q;
+	servoProfileDefault(&q);
+	checkTrue("STANDARD 1000-2000 us: within travel", !servoPastTravel(&q));
+	q.minUs = 900;  checkTrue("MIN 900 us: within travel", !servoPastTravel(&q));
+	q.minUs = 890;  checkTrue("MIN 890 us: past travel", servoPastTravel(&q));
+	q.minUs = 1000; q.maxUs = 2100; checkTrue("MAX 2100 us: within travel", !servoPastTravel(&q));
+	q.maxUs = 2110; checkTrue("MAX 2110 us: past travel", servoPastTravel(&q));
+	servoProfileLoadType(&q, ServoType::Wide);
+	checkTrue("WIDE: past travel", servoPastTravel(&q));
+	q.minUs = 1000; q.maxUs = 2000;
+	checkTrue("WIDE trimmed to 1000-2000 us: still the type", servoPastTravel(&q));
+	servoProfileLoadType(&q, ServoType::HeliCyclic);
+	checkTrue("HELI CYCLIC 820-2220 us: past travel", servoPastTravel(&q));
+	servoProfileLoadType(&q, ServoType::Narrow760);
+	checkTrue("NARROW 760 660-860 us: its own range, no note", !servoPastTravel(&q));
+	q.maxUs = 960;  checkTrue("NARROW 760, MAX 960 us: 100 us over, no note", !servoPastTravel(&q));
+	q.maxUs = 970;  checkTrue("NARROW 760, MAX 970 us: the note", servoPastTravel(&q));
+	q.maxUs = 2500; checkTrue("NARROW 760, MAX 2500 us: the note", servoPastTravel(&q));
+	q.maxUs = 860;
+	q.minUs = 560;  checkTrue("NARROW 760, MIN 560 us: 100 us under, no note", !servoPastTravel(&q));
+	q.minUs = 550;  checkTrue("NARROW 760, MIN 550 us: the note", servoPastTravel(&q));
+	servoProfileLoadType(&q, ServoType::HeliTail760);
+	checkTrue("HELI TAIL 760 410-1110 us: its own range, no note", !servoPastTravel(&q));
+	q.maxUs = 1210; checkTrue("HELI TAIL 760, MAX 1210 us: no note", !servoPastTravel(&q));
+	q.maxUs = 1220; checkTrue("HELI TAIL 760, MAX 1220 us: the note", servoPastTravel(&q));
 }
 
 /** @brief servoProfileValid() refuses each broken rule on its own. */
@@ -2261,6 +2287,124 @@ static void testSetScreen() {
 	leaveServo();
 }
 
+/** @brief Whether SET's note band shows @p l1 and @p l2 in @p col. */
+static bool noteIs(const char *l1, const char *l2, uint16_t col) {
+	const char *a, *b; uint16_t c;
+	setNote(&a, &b, &c);
+	auto same = [](const char *x, const char *y) {
+		return (!x && !y) || (x && y && strcmp(x, y) == 0);
+	};
+	return same(a, l1) && same(b, l2) && (!l1 || c == col);
+}
+
+/**
+ * @brief SET: the end-stop note for WIDE, MIN below 900 us, MAX above
+ *        2100 us, and its place among the other notes.
+ */
+static void testTravelNote() {
+	section("Servo SET: the end-stop note and its priority");
+	static const char *const T1 = "PAST ITS TRAVEL A SERVO STALLS AND";
+	static const char *const T2 = "HEATS. TRY MIN AND MAX HORN-FREE.";
+	checkTrue("line 1 fits the band", UI_MARGIN + gfxTextW(T1, 1) <= GFX_W - UI_MARGIN);
+	checkTrue("line 2 fits the band", UI_MARGIN + gfxTextW(T2, 1) <= GFX_W - UI_MARGIN);
+
+	freshUi();
+	openServo();
+	openSet();
+	tapId(UI_FIX(ServoCtl::Defaults));
+	selectRow(1);   // TYPE
+	checkTrue("STANDARD: no note", noteIs(nullptr, nullptr, 0));
+	stepSel(+1, 2);
+	checkTrue("WIDE at 50 Hz: applied at once, no HOLD TO APPLY",
+	          s_profile.type == ServoType::Wide && !s_pending);
+	checkTrue("TYPE selected: the end-stop note, amber", noteIs(T1, T2, C_AMBER));
+	uiFrames(1);
+	checkTrue("drawn on the band's first line",
+	          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 2, T1, C_AMBER, C_BG, 1));
+	checkTrue("and its second", fakeTextIs(UI_MARGIN, UI_STRIP_Y + 12, T2, C_AMBER, C_BG, 1));
+	selectRow(7);   // SHAPE
+	checkTrue("another row, no other note: the end-stop note", noteIs(T1, T2, C_AMBER));
+
+	// The heli warning and HOLD TO APPLY come first.
+	selectRow(1);
+	stepSel(+1);
+	checkTrue("HELI CYCLIC: pending", s_pending);
+	checkTrue("the heli note, not the end-stop note",
+	          noteIs("A HELI PROFILE CAN DESTROY", "A SERVO NOT MADE FOR IT.", C_AMBER));
+	stepSel(-1);
+	checkTrue("back to WIDE: nothing pending", !s_pending && s_edit.type == ServoType::Wide);
+
+	// A refused TWO keeps its cause on SERVOS and its pointer on the
+	// rows that do not set the ends.
+	ClaimRefusal was = s_auxRefusal;
+	s_auxRefusal = ClaimRefusal::SamePin;
+	selectRow(ROW_SERVOS);
+	checkTrue("SERVOS: the cause of the refusal",
+	          noteIs("ESC AND KISS PIN ARE THE SAME GPIO.", "MOVE THE ESC PIN IN SETTINGS.", C_AMBER));
+	selectRow(7);
+	checkTrue("SHAPE: TWO SERVOS ARE NOT OFFERED",
+	          noteIs("TWO SERVOS ARE NOT OFFERED: SEE SERVOS", nullptr, C_DIM));
+	selectRow(5);   // MAX
+	checkTrue("MAX: the end-stop note", noteIs(T1, T2, C_AMBER));
+	s_auxRefusal = was;
+
+	// SPEED LIMITS THE SWEEP keeps the SWEEP rows.
+	backFromSet();
+	UiRect speed = ctlRect(UI_FIX(ServoCtl::Speed));
+	uiTap(speed.x, speed.y + 10);
+	openSet();
+	selectRow(10);  // DWELL
+	checkTrue("DWELL at SPEED 10 %: SPEED LIMITS THE SWEEP",
+	          noteIs("SPEED LIMITS THE SWEEP", nullptr, C_DIM));
+	selectRow(3);   // MIN
+	checkTrue("MIN: the end-stop note", noteIs(T1, T2, C_AMBER));
+
+	// STANDARD with MIN or MAX moved past the limits.
+	tapId(UI_FIX(ServoCtl::Defaults));
+	selectRow(3);
+	// SPEED stays at 10 %: its dim note is what the end-stop note replaces.
+	const char *sl = "SPEED LIMITS THE SWEEP";
+	checkTrue("STANDARD again: MIN shows SPEED LIMITS", noteIs(sl, nullptr, C_DIM));
+	stepSel(-1, 10);
+	checkTrue("MIN 900 us: no end-stop note", s_profile.minUs == 900 && noteIs(sl, nullptr, C_DIM));
+	stepSel(-1);
+	checkTrue("MIN 890 us: the end-stop note", s_profile.minUs == 890 && noteIs(T1, T2, C_AMBER));
+	stepSel(+1);
+	selectRow(5);
+	stepSel(+1, 10);
+	checkTrue("MAX 2100 us: no end-stop note", s_profile.maxUs == 2100 && noteIs(sl, nullptr, C_DIM));
+	stepSel(+1);
+	checkTrue("MAX 2110 us: the end-stop note", s_profile.maxUs == 2110 && noteIs(T1, T2, C_AMBER));
+
+	// NARROW 760 against its own 660 us to 860 us.
+	tapId(UI_FIX(ServoCtl::Defaults));
+	selectRow(1);
+	stepSel(+1);
+	checkTrue("NARROW 760: no end-stop note on TYPE",
+	          s_profile.type == ServoType::Narrow760 && !noteIs(T1, T2, C_AMBER));
+	selectRow(5);
+	stepSel(+1, 10);
+	checkTrue("NARROW 760, MAX 960 us: no end-stop note",
+	          s_profile.maxUs == 960 && !noteIs(T1, T2, C_AMBER));
+	stepSel(+1);
+	checkTrue("NARROW 760, MAX 970 us: the end-stop note",
+	          s_profile.maxUs == 970 && noteIs(T1, T2, C_AMBER));
+	tapId(UI_FIX(ServoCtl::Defaults));
+
+	// While RUNNING the profile is locked and STOP TO CHANGE THE PROFILE wins.
+	backFromSet();
+	holdStart();
+	openSet();
+	selectRow(5);
+	checkTrue("RUNNING: STOP TO CHANGE THE PROFILE",
+	          noteIs("STOP TO CHANGE THE PROFILE", nullptr, C_AMBER));
+	tapId(UI_FIX(ServoCtl::Defaults));   // STOP
+	core1(); uiFrames(2);
+	tapId(UI_FIX(ServoCtl::Defaults));   // DEFAULTS
+	backFromSet();
+	leaveServo();
+}
+
 /** @brief The SET list on ui_list: its scroll range and its edges. */
 static void testSetList() {
 	section("Servo SET: the list's extents and edges, as before ui_list");
@@ -2737,6 +2881,7 @@ void runServoTests() {
 	testEscAnswering();
 	testUnplugPage();
 	testSetScreen();
+	testTravelNote();
 	testSetList();
 	testClaimCorners();
 	testBindRefused();

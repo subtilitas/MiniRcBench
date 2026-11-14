@@ -14,7 +14,8 @@ The tester records telemetry to microSD in Betaflight blackbox format, at
 
 Use a microSD card formatted FAT32 (File Allocation Table). The card is
 mounted once at boot, and the board has no card-detect pin. Insert the card
-before power-up, or press `RETRY` on the SD LOG screen after inserting it.
+before power-up, or press `RETRY MOUNT` on the SD LOG screen after inserting
+it.
 
 Files are written to the directory `LOGS` as `LOG00001.BFL`, `LOG00002.BFL`,
 and so on. Each new file takes the lowest unused number from 00001 to 09999.
@@ -69,15 +70,21 @@ The usual cause is a slow card. Try another card first.
 
 <img src="img/log-nocard.png" width="240" alt="No card">
 
-`NO CARD` with `MOUNT 3 NOT READY` means nothing answered on the bus: no card,
-or the card is not seated. `MOUNT 13 NO FILESYSTEM` with a size under `CARD`
-means the card answers and the filesystem is the problem. Format it as FAT32.
+`NO CARD` with `MOUNT 3 NOT READY` means the card did not start. When
+nothing answered on the bus, no card or one not seated, the note line above
+`START` reads `INSERT A CARD, THEN RETRY MOUNT`. When a card answered and
+still did not start, it reads `CARD NOT USABLE: RESEAT OR REPLACE` in amber:
+take the card out and in again, or try another. `MOUNT 13 NO FILESYSTEM` with
+a size under `CARD` means the card answers and the filesystem is the problem.
+Format it as FAT32; the note line stays blank, as inserting a card does not
+help.
 
 ### A card inserted after boot
 
-<img src="img/log-mounted.png" width="240" alt="A card found by RETRY">
+<img src="img/log-mounted.png" width="240" alt="A card found by RETRY MOUNT">
 
-Press `RETRY`. Without it, a card inserted after power-up is not mounted.
+Press `RETRY MOUNT`. Without it, a card inserted after power-up is not
+mounted.
 
 ---
 

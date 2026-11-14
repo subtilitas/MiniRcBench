@@ -110,6 +110,15 @@ static UiHold   s_saveHold;
 enum class SaveOutcome : uint8_t { None, Ok, Failed, FailedArmed };
 static SaveOutcome s_saveOutcome = SaveOutcome::None;
 
+/**
+ * @brief RESET loaded the defaults and nothing has changed since: the note
+ *        line says `DEFAULTS LOADED - RESTART TO UNDO` while restarting would
+ *        undo it (resetNoteShown()).
+ */
+static bool s_resetNote = false;
+/** @brief The live settings as RESET left them, after validation. */
+static Settings s_resetLive;
+
 /** @brief True when validation last had to repair something the user asked for. */
 static bool s_repaired = false;
 /** @brief True when that repair was specifically KISS being switched off. */
@@ -529,11 +538,23 @@ static void drawItem(uint8_t i) {
 }
 
 /**
+ * @brief Whether RESET's note is true now: RESET was the last change (the
+ *        tick ends s_resetNote at any other, and at every completed HOLD TO
+ *        SAVE, saved or not), and the live settings differ from what the
+ *        next boot loads (the saved settings, or the compiled defaults when
+ *        none are stored), so a restart undoes it.
+ */
+static bool resetNoteShown() {
+	return s_resetNote && settingsDirty();
+}
+
+/**
  * @brief The note line: the single most useful thing to say right now.
  *
  * Ordered by urgency: a failed save outranks everything; a setting the
  * firmware had to repair outranks the saved or unsaved state, because the
- * user asked for something and did not get it.
+ * user asked for something and did not get it. RESET's note outranks
+ * UNSAVED: it is the same state, said with what undoes it.
  *
  * @param[out] col Colour to draw it in.
  * @return The text.
@@ -551,6 +572,10 @@ static const char *noteText(uint16_t *col) {
 		*col = C_AMBER;
 		return s_repairKiss ? "KISS OFF: NEEDS A PIN OF ITS OWN"
 		                    : "ADJUSTED TO THIS BOARD'S LIMITS";
+	}
+	if (resetNoteShown()) {
+		*col = C_AMBER;
+		return "DEFAULTS LOADED - RESTART TO UNDO";
 	}
 	if (settingsDirty()) {
 		*col = C_AMBER;
@@ -677,6 +702,10 @@ bool uiSettingsTick(const TouchState *t) {
 		} else {
 			s_saveOutcome = settingsSave() ? SaveOutcome::Ok : SaveOutcome::Failed;
 		}
+		// Every completed hold ends RESET's note, whatever the outcome: a
+		// save whose read-back failed has already erased and written the
+		// sector, so what the next boot loads is no longer known.
+		s_resetNote = false;
 		s_redraw = true;
 	} else if (wasHolding || s_saveHold.holding) {
 		s_redraw = true;
@@ -740,6 +769,15 @@ bool uiSettingsTick(const TouchState *t) {
 	if (s_changed) {
 		applyLive();
 		if (s_saveOutcome == SaveOutcome::Ok) s_saveOutcome = SaveOutcome::None;
+		s_redraw = true;
+	}
+	// RESET's note: set by the tap that loaded the defaults (BACK returned
+	// above), ended by any change after it.
+	if (uiTapped(BTN_DEFAULTS, s_t)) {
+		memcpy(&s_resetLive, settings(), sizeof(s_resetLive));
+		s_resetNote = true;
+	} else if (s_resetNote && memcmp(settings(), &s_resetLive, sizeof(Settings)) != 0) {
+		s_resetNote = false;
 		s_redraw = true;
 	}
 	if (!s_t->down) s_ctlPress = false;

@@ -15,6 +15,7 @@
 #include "f_util.h"
 #include "hw_config.h"
 #include "sd_card.h"
+#include "sdio/sd_card_cache.h"
 
 #include <stdio.h>
 
@@ -38,6 +39,7 @@ static bool  s_mounted = false;
 static bool  s_released = false;
 static uint8_t  s_mountResult = 0;
 static uint8_t  s_cardType = 0;
+static uint8_t  s_cardInit = 0;
 static uint32_t s_cardSectors = 0;
 static uint32_t s_cardSizeMB = 0;
 
@@ -103,6 +105,9 @@ bool sdLogBegin() {
 	// brings no card-detect line out.
 	FRESULT fr = f_mount(&s_fs, drivePrefix(), 1);
 	s_mountResult = (uint8_t)fr;
+	// Why an initialisation failed: nothing answered, or a card answered and
+	// could not be brought up. Both end in FR_NOT_READY with no size.
+	s_cardInit = (uint8_t)sd_sdio_init_result();
 
 	// Whatever the mount did, the driver has by now tried to talk to the card,
 	// so its type and size say whether anything answered at all. That separates
@@ -394,6 +399,7 @@ void sdLogStatus(SdLogStatus *out) {
 	out->mountResult  = s_mountResult;
 	out->cardType     = s_cardType;
 	out->cardSizeMB   = s_cardSizeMB;
+	out->cardInit     = s_cardInit;
 	out->bytesWritten = s_cardBytes;
 	out->framesLogged = s_framesLogged;
 	out->bytesDropped = s_ring.dropped;

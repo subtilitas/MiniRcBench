@@ -58,7 +58,9 @@ its own supply, its signal on SIG, the two grounds joined once at the board.
 GND is the board's ground.
 
 - **One servo on the lead.** Every frame goes to ID (identifier) 0, and
-  every D series servo on the line takes a frame sent to ID 0.
+  the frame carries no other address. rcbench records two D series servos
+  on one port both taking a frame sent to ID 0. Whether a servo whose own
+  ID is not 0 answers ID 0 is not measured.
 - **No pull-up resistor** on the signal wire. The bench receives the
   servo's answer by precharge: before each sample the pin lifts the line for
   100 ns. rcbench's receive through a pull-up resistor is not offered.
@@ -249,8 +251,12 @@ Two kinds of limit apply:
 
 `ID` sets the servo's own ID, 0 to 255. The bench addresses ID 0 whatever
 the servo holds. Whether a servo with another ID still answers ID 0 is not
-measured. While `ID` holds another value than 0, the editor bar and the
-write page read `THE BENCH ADDRESSES ID 0. ANOTHER ID IS NOT TESTED.`
+measured, so one write of another ID may leave a servo the bench cannot
+read, and cannot restore from a backup. While `ID` holds another value than
+0, the editor bar reads
+`BENCH ADDRESSES ID 0. A WRITE MAY LOCK OUT READ AND RESTORE.` and the write
+page reads
+`THE BENCH ADDRESSES ID 0 AND MAY NOT READ OR RESTORE THIS SERVO AGAIN.`
 
 <img src="img/hitec-id.png" width="240" alt="The write page for ID 0 -> 1, with the amber ID note">
 
@@ -270,18 +276,28 @@ opens and writes nothing.
 
 The write page is titled `HITEC WRITE`. The strip counts the values,
 `1 VALUE` or `2 VALUES`. Each changed parameter is one line, `SPEED` and
-`100 % (4095) -> 90 % (18)`, up to six, then `AND 3 MORE`, for example.
-Amber lines starting with `*` give the soft rules that apply. Other amber
-lines:
+`100 % (4095) -> 90 % (18)`, or two when the value does not fit beside its
+name. A changed `ID` is listed first. Then `AND 3 MORE`, for example, counts
+the values not listed.
 
+Under the values, top to bottom:
+
+- `KEEP THE SERVO HORN CLEAR.` on the session's first write, and on every
+  write that changes `DIRECTION`, `NEUTRAL` or an end point.
+- `THE BENCH ADDRESSES ID 0 AND MAY NOT READ OR RESTORE THIS SERVO AGAIN.`
+  when the ID changes to another value than 0.
+- `FILE OF ANOTHER MODEL: D645MW.`, for example, after a LOAD of a file of
+  another model. This page is the only place that says so.
 - `MODEL NOT MEASURED: WRITTEN IN THE D LAYOUT.` for a model rcbench has not
   measured. The measured D series model is the D485HW.
-- `THE BENCH ADDRESSES ID 0. ANOTHER ID IS NOT TESTED.`
-- `FILE OF ANOTHER MODEL: D645MW.`, for example, after a LOAD of a file of
-  another model.
+- Lines starting with `*`: the soft rules that apply.
 
-`KEEP THE SERVO HORN CLEAR.` shows on the session's first write, and on
-every write that changes `DIRECTION`, `NEUTRAL` or an end point.
+The first four always show when they apply; the values take the room that
+is left, at most six. Each soft rule shows whole or not at all, and when not
+all fit, the last line counts the rest: `AND 2 MORE RULES: SEE EACH ROW.`
+Each row's editor bar names its rule.
+
+<img src="img/hitec-write-full.png" width="240" alt="A D645MW with a D485HW file: ID first, FAILSAFE under its name, AND 2 MORE, the horn line, the ID note, FILE OF ANOTHER MODEL, MODEL NOT MEASURED and AND 1 MORE RULE">
 
 The line at the bottom says where the backup goes:
 
@@ -537,8 +553,8 @@ board. The pictures below show them with SERVO SUPPLY at `GP28`.
 
 ## Limitations
 
-- The bench sends every frame to ID 0. A D series servo with another ID is
-  not tested.
+- The bench sends every frame to ID 0. Whether a D series servo with
+  another ID answers it is not measured.
 - The classic line's voltage is not measured, and the pin's low level
   against a classic servo is not specified.
 - With `GP28` or `GP29`, the screen's card calls keep the supply on for at most 15 s

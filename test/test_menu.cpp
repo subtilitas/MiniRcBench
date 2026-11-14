@@ -590,6 +590,103 @@ static void testBacklightFloorAndNoOpSteps() {
 	tapId(UI_FIX(UI_BACK));
 }
 
+/** @brief Save the live settings with a 1025 ms hold on HOLD TO SAVE. */
+static void holdSave() {
+	pressId(UI_FIX(SettingsCtl::Save));
+	holdId(UI_FIX(SettingsCtl::Save), 41);
+	fakeRelease(); menuFrames(1);
+}
+
+/**
+ * @brief RESET's note: shown while RESET's defaults are live and a restart
+ *        would bring the saved values back, and at no other time.
+ */
+static void testResetNote() {
+	section("SETTINGS: DEFAULTS LOADED - RESTART TO UNDO after RESET");
+	static const char *const NOTE = "DEFAULTS LOADED - RESTART TO UNDO";
+	checkTrue("the note fits the line", UI_MARGIN + gfxTextW(NOTE, 1) <= GFX_W - UI_MARGIN);
+	openSettings();
+	revealRow((int)SettingsRowId::Poles);
+	tapId(UI_ROW(SettingsRowId::Poles, Plus));
+	holdSave();
+	checkTrue("saved poles other than the default", !settingsDirty() &&
+	          settings()->poles != DEFAULT_MOTOR_POLES);
+
+	tapId(UI_FIX(SettingsCtl::Reset));
+	checkTrue("RESET: the defaults live, unsaved", settingsDirty() &&
+	          settings()->poles == DEFAULT_MOTOR_POLES);
+	checkTrue("the note reads DEFAULTS LOADED - RESTART TO UNDO", noteIs(NOTE, C_AMBER));
+	menuFrames(3);
+	checkTrue("and keeps it", noteIs(NOTE, C_AMBER));
+
+	// Leaving and coming back changes nothing: still true.
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(menuRow(&UI_SETTINGS));
+	menuFrames(2);
+	checkTrue("SETTINGS again", uiCurrentScreen() == UiScreenId::Settings);
+	checkTrue("SETTINGS again: the note still reads DEFAULTS LOADED", noteIs(NOTE, C_AMBER));
+
+	// Another change ends it, also one that steps back to the default.
+	revealRow((int)SettingsRowId::Poles);
+	tapId(UI_ROW(SettingsRowId::Poles, Minus));
+	checkTrue("a change after RESET: UNSAVED", noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
+	tapId(UI_ROW(SettingsRowId::Poles, Plus));
+	checkTrue("back at the default: still UNSAVED, not the RESET note",
+	          settings()->poles == DEFAULT_MOTOR_POLES && settingsDirty() &&
+	          noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
+
+	// A save ends it: a restart loads these values now.
+	tapId(UI_FIX(SettingsCtl::Reset));
+	checkTrue("RESET again: the note", noteIs(NOTE, C_AMBER));
+	holdSave();
+	checkTrue("HOLD TO SAVE: SAVED, not the RESET note", !settingsDirty() && noteIs("SAVED", C_LIME));
+	menuFrames(2);
+	checkTrue("and it does not come back", noteIs("SAVED", C_LIME));
+
+	// RESET while the defaults are what a restart loads: nothing to undo.
+	tapId(UI_FIX(SettingsCtl::Reset));
+	checkTrue("RESET over saved defaults: no RESET note", !settingsDirty() && !noteIs(NOTE, C_AMBER));
+
+	// A change in KST's SERVO SUPPLY row, which writes the settings itself.
+	revealRow((int)SettingsRowId::Poles);
+	tapId(UI_ROW(SettingsRowId::Poles, Plus));
+	holdSave();
+	tapId(UI_FIX(SettingsCtl::Reset));
+	checkTrue("saved other poles, RESET: the note", noteIs(NOTE, C_AMBER));
+	revealRow((int)SettingsRowId::ServoSupply);
+	tapId(UI_ROW(SettingsRowId::ServoSupply, Plus));
+	checkTrue("SERVO SUPPLY stepped: UNSAVED", settings()->servoSupply == 1 &&
+	          noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
+	tapId(UI_ROW(SettingsRowId::ServoSupply, Minus));
+	checkTrue("and back: still not the RESET note", noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
+
+	// A change made while SETTINGS is not open ends it too.
+	tapId(UI_FIX(SettingsCtl::Reset));
+	checkTrue("RESET again: the note", noteIs(NOTE, C_AMBER));
+	tapId(UI_FIX(UI_BACK));
+	settings()->backlight = (uint8_t)(settings()->backlight - 8);
+	tapId(menuRow(&UI_SETTINGS));
+	menuFrames(2);
+	checkTrue("changed elsewhere: UNSAVED on return", noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
+
+	// A failed save ends it: the sector may already be erased and written.
+	tapId(UI_FIX(SettingsCtl::Reset));
+	checkTrue("RESET: the note", noteIs(NOTE, C_AMBER));
+	fakeFlashSetWritable(false);
+	holdSave();
+	checkTrue("HOLD TO SAVE refused by the flash: SAVE FAILED",
+	          noteIs("SAVE FAILED - FLASH REFUSED THE WRITE", C_RED));
+	tapId(UI_FIX(UI_BACK));
+	tapId(menuRow(&UI_SETTINGS));
+	menuFrames(2);
+	checkTrue("SETTINGS again: UNSAVED, not the RESET note",
+	          settingsDirty() && noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
+	fakeFlashSetWritable(true);
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+}
+
 /** @brief The note and HOLD TO SAVE do not move with the list, and the hold saves at any scroll. */
 static void testSettingsSaveAnywhere() {
 	section("SETTINGS: UNSAVED and HOLD TO SAVE at every scroll");
@@ -809,6 +906,7 @@ void runMenuTests() {
 	testSettingsRows();
 	testSettingsSaveAnywhere();
 	testBacklightFloorAndNoOpSteps();
+	testResetNote();
 	testMenuUnsaved();
 	testMenuStatusWidths();
 	testSettingsValueWidths();

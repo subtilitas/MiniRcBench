@@ -754,11 +754,29 @@ static void stepRow(int row, int steps, int factor) {
 	}
 }
 
-/** @brief The note band under the header: up to two lines. */
+/** @brief Whether SET row @p row is TYPE, MIN or MAX, which set the ends. */
+static bool endRow(int row) {
+	if (row < 0 || !ROWS[row].pulse) return false;
+	ServoField f = (ServoField)ROWS[row].field;
+	return f == ServoField::Type || f == ServoField::Min || f == ServoField::Max;
+}
+
+/**
+ * @brief The note band under the header: up to two lines.
+ *
+ * First wins: the HOLD TO APPLY warning; STOP TO CHANGE THE PROFILE; the
+ * cause of a refused TWO on the SERVOS row; the end-stop note while TYPE,
+ * MIN or MAX is selected; SPEED LIMITS THE SWEEP; TWO SERVOS ARE NOT
+ * OFFERED; the end-stop note on any other row. A dim note keeps its place on
+ * the other rows, and the end-stop note shows on its own three.
+ */
 static void setNote(const char **l1, const char **l2, uint16_t *col) {
 	*l1 = *l2 = nullptr;
 	*col = C_AMBER;
 	static char a[40];
+	static const char *const TRAVEL1 = "PAST ITS TRAVEL A SERVO STALLS AND";
+	static const char *const TRAVEL2 = "HEATS. TRY MIN AND MAX HORN-FREE.";
+	bool travel = servoPastTravel(&s_edit);
 	if (s_pending) {
 		if (servoTypeInfo(s_edit.type)->heli) { *l1 = "A HELI PROFILE CAN DESTROY"; *l2 = "A SERVO NOT MADE FOR IT."; }
 		else                                   { *l1 = "ABOVE 60 HZ AN ANALOGUE"; *l2 = "SERVO OVERHEATS."; }
@@ -775,11 +793,13 @@ static void setNote(const char **l1, const char **l2, uint16_t *col) {
 		}
 		return;
 	}
+	if (travel && endRow(s_sel)) { *l1 = TRAVEL1; *l2 = TRAVEL2; return; }
 	if (sweep_slew_limited(&s_sweep, servoSlewOf((int)(s_speed.value + 0.5f)))) {
 		*l1 = "SPEED LIMITS THE SWEEP"; *col = C_DIM;
 		return;
 	}
-	if (aux) { *l1 = "TWO SERVOS ARE NOT OFFERED: SEE SERVOS"; *col = C_DIM; }
+	if (aux) { *l1 = "TWO SERVOS ARE NOT OFFERED: SEE SERVOS"; *col = C_DIM; return; }
+	if (travel) { *l1 = TRAVEL1; *l2 = TRAVEL2; }
 }
 
 /**

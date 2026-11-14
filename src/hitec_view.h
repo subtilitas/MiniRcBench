@@ -156,3 +156,60 @@ uint8_t hitecLayoutOf(const hitec_image_t *img);
 
 /** @brief Whether @p img's model is one of the three rcbench measured. */
 bool hitecModelMeasured(const hitec_image_t *img);
+
+/**
+ * @defgroup hitec_page The write page's layout
+ * @{
+ */
+/** @brief Value rows the write page lists at most before AND n MORE. */
+#define HITEC_PAGE_ROWS_MAX  6
+/** @brief Soft rules the layout takes. */
+#define HITEC_PAGE_RULES_MAX 8
+/** @} */
+
+/**
+ * @brief What the write page holds, from the top of its list (@p y0) to the
+ *        state lines (@p yEnd, exclusive), 12 px a line.
+ */
+struct HitecPageIn {
+	int     y0;                              /**< Top of the list, px. */
+	int     yEnd;                            /**< First y below it, px. */
+	bool    horn;                            /**< KEEP THE SERVO HORN CLEAR. applies. */
+	uint8_t idLines;                         /**< The ID note's lines; 0 for none. */
+	uint8_t fileLines;                       /**< FILE OF ANOTHER MODEL's lines; 0 for none. */
+	uint8_t modelLines;                      /**< MODEL NOT MEASURED's lines; 0 for none. */
+	int     values;                          /**< Changed values, in the order listed. */
+	uint8_t valueH[HITEC_PAGE_ROWS_MAX];     /**< Each listed row's height, 12 or 22 px. */
+	int     rules;                           /**< Soft rules that apply. */
+	uint8_t ruleLines[HITEC_PAGE_RULES_MAX]; /**< Each rule's lines. */
+};
+
+/** @brief Where each part of the write page goes; -1 for a part not drawn. */
+struct HitecPageOut {
+	int rows;                          /**< Value rows listed, from the first. */
+	int rowY[HITEC_PAGE_ROWS_MAX];     /**< Their tops. */
+	int moreY;                         /**< AND n MORE, n = values - rows. */
+	int hornY;                         /**< The horn line. */
+	int idY, fileY, modelY;            /**< The notes that are never left out. */
+	int ruleY[HITEC_PAGE_RULES_MAX];   /**< Each soft rule's first line. */
+	int ruleMoreY;                     /**< The count of soft rules left out. */
+	int ruleMore;                      /**< That count. */
+};
+
+/**
+ * @brief Lay out the write page.
+ *
+ * In this order of priority: the horn line; the ID note and FILE OF ANOTHER
+ * MODEL, which state something not undone or shown nowhere else; MODEL NOT
+ * MEASURED; the value rows, with AND n MORE counting the rest; the soft
+ * rules, each whole, with a line counting those left out. The lines of the
+ * first three, and one line for the soft rules when any apply, are reserved
+ * before the value rows take what is left; at most @ref HITEC_PAGE_ROWS_MAX
+ * rows show. Top to bottom: the rows, AND n MORE, the horn line, the ID
+ * note, FILE, MODEL, the rules, their count.
+ *
+ * @return False when the reserved lines and one row (or AND n MORE) do not
+ *         fit; @p out then places only what fits, and the caller's sizes are
+ *         wrong for the page.
+ */
+bool hitecPageLayout(const HitecPageIn &in, HitecPageOut *out);

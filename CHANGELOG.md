@@ -421,9 +421,43 @@ protocol.
   16, a step that changes nothing, and AM32's own wait beside another claim.
 - `docs/menu-preview.png`, and `docs/settings-preview.png` with a scrolled
   frame of SETTINGS.
+- SERVO TESTER → SET warns of a pulse past a servo's travel: with TYPE WIDE,
+  MIN below 900 µs or MAX above 2100 µs (HELI CYCLIC on its own 820 µs to
+  2220 µs; NARROW 760 and HELI TAIL 760 with MIN or MAX more than 100 µs
+  outside the type's own range) the note band says
+  `PAST ITS TRAVEL A SERVO STALLS AND` `HEATS. TRY MIN AND MAX HORN-FREE.`
+  in amber, ahead of the dim notes while TYPE, MIN or MAX is selected and
+  after them on the other rows. The change still applies at once.
+  `servoPastTravel()` in `src/servo_model.*`; host tests in
+  `test/test_servo.cpp`.
 
 ### Changed
 
+- SETTINGS' note line reads `DEFAULTS LOADED - RESTART TO UNDO` after a
+  RESET tap, while the live settings are still what RESET left and differ
+  from what the next boot loads; any other change ends it, made in SETTINGS
+  or elsewhere, and so does every completed HOLD TO SAVE, failed saves
+  included, and a RESET over settings a restart would load anyway does not
+  show it. RESET
+  keeps its name and its single tap. Host tests in `test/test_menu.cpp`.
+- HITEC SERVO's ID note states the consequence: the editor bar reads
+  `BENCH ADDRESSES ID 0. A WRITE MAY LOCK OUT READ AND RESTORE.` and the
+  write page `THE BENCH ADDRESSES ID 0 AND MAY NOT READ OR RESTORE THIS
+  SERVO AGAIN.`, in place of `THE BENCH ADDRESSES ID 0. ANOTHER ID IS
+  NOT TESTED.` The wiki pages Hitec-Programming and Hitec-Programmierung no
+  longer say that every D series servo takes a frame sent to ID 0: whether a
+  servo with another ID answers it is not measured. Host tests in
+  `test/test_hitec_ui.cpp`.
+- SD LOG's mount button reads `RETRY MOUNT`, as on the KST and Hitec FILES
+  pages. With NO CARD, mount result 3 NOT READY and no card size, the note
+  line says `INSERT A CARD, THEN RETRY MOUNT` when nothing answered the
+  card initialisation (CMD8 and the first CMD55), and
+  `CARD NOT USABLE: RESEAT OR REPLACE`, in amber, when a card answered and
+  failed it (`sdh_card_t::answered`, `sd_sdio_init_result()`,
+  `SdLogStatus::cardInit`); a card that initialises and fails otherwise
+  gets no hint. The screen also redraws when only the mount result
+  or the card size changes, so MOUNT and CARD no longer show a stale value.
+  Host tests in `test/test_ui.cpp`.
 - README and the wiki pages AM32-Configuration and AM32-Konfiguration state
   what leaving AM32 CONFIG does to the ESC: no RUN command goes to the
   bootloader, and what the ESC does after the screen is left is not
@@ -676,6 +710,18 @@ protocol.
 
 ### Fixed
 
+- HITEC SERVO's write page always draws `KEEP THE SERVO HORN CLEAR.`, the
+  ID note, `FILE OF ANOTHER MODEL` and `MODEL NOT MEASURED` when they
+  apply. Before, the horn line came after the notes and was dropped once
+  they reached y 180, for example on a D485HW write that changes ID 0 to 1
+  and reverses DIRECTION. `hitecPageLayout()` in `src/hitec_view.cpp`
+  reserves their lines, and one for the soft rules, before the changed
+  values take what is left, a changed ID listed first; each soft rule is
+  drawn whole or skipped, and the last line counts those left out,
+  `AND n MORE RULES: SEE EACH ROW.` The page's ID note is two lines:
+  `THE BENCH ADDRESSES ID 0 AND MAY NOT READ OR RESTORE THIS SERVO AGAIN.`
+  Host tests in `test/test_hitec_view.cpp` and
+  `test/test_hitec_ui.cpp`.
 - The wiki pages KST-Programming and KST-Programmierung no longer say the
   screen never switches the servo's supply: with SERVO SUPPLY at GP28 or
   GP29 it does. The English Home and Setup pages and Einrichtung say the

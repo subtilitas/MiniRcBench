@@ -47,13 +47,21 @@ struct SdLogStatus {
 	 *
 	 * Surfaced because "not detected" covers several very different faults and
 	 * collapsing them all to "no card" makes the problem unsolvable from the
-	 * bench: 3 (FR_NOT_READY) means nothing answered on the bus, 13
-	 * (FR_NO_FILESYSTEM) means the card is talking fine but has no partition
-	 * FatFs recognises, and those want opposite fixes.
+	 * bench: 3 (FR_NOT_READY) means the card did not initialise, either
+	 * because nothing answered or because a card answered and failed
+	 * (@ref cardInit tells which), 13 (FR_NO_FILESYSTEM) means the card is
+	 * talking fine but has no partition FatFs recognises, and those want
+	 * different fixes.
 	 */
 	uint8_t    mountResult;
 	uint8_t    cardType;      /**< card_type_t: 0 none, 1 v1, 2 v2, 3 v2 HC/XC. */
 	uint32_t   cardSizeMB;    /**< Capacity, 0 if the card never initialised. */
+	/**
+	 * @brief What the last card initialisation found, an SD_SDIO_INIT_ value
+	 *        of `sdio/sd_card_cache.h`: 0 initialised, 1 nothing answered
+	 *        (no card), 2 a card answered and failed, 3 the bus not claimed.
+	 */
+	uint8_t    cardInit;
 	uint32_t   bytesWritten;  /**< Bytes handed to the card this session. */
 	uint32_t   framesLogged;  /**< Frames encoded this session. */
 	uint32_t   bytesDropped;  /**< Bytes the ring refused. */

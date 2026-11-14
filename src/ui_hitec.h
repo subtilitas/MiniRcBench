@@ -64,6 +64,20 @@ HitecView uiHitecView();
 #define HITEC_UI_CLASSIC_WHY_2 "AND SETTINGS > SERVO SUPPLY GP28/29."
 /** @brief D SERIES' note with SERVO SUPPLY at NONE: the entry reads at once. */
 #define HITEC_UI_D_POWER "POWER THE SERVO UP BEFORE THE TAP."
+/**
+ * @brief The editor bar's note while the D series ID draft is not 0: three
+ *        lines of 22 characters. Whether a servo with another ID answers
+ *        frames sent to ID 0 is not measured.
+ */
+#define HITEC_UI_ID_NOTE_BAR "BENCH ADDRESSES ID 0. A WRITE MAY LOCK OUT READ AND RESTORE."
+/** @brief The write page's note for the same change: two lines of 36. */
+#define HITEC_UI_ID_NOTE_PAGE \
+	"THE BENCH ADDRESSES ID 0 AND MAY NOT READ OR RESTORE THIS SERVO AGAIN."
+/**
+ * @brief The write page's last line when soft rules are left out, which
+ *        each row's editor bar names.
+ */
+#define HITEC_UI_MORE_RULES_FMT "AND %d MORE RULE%s: SEE EACH ROW."
 /** @} */
 
 /**

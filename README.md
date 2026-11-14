@@ -458,7 +458,11 @@ tester. Every tool's **BACK** returns to MENU.
 - **WORST FLUSH**: the longest single card write, in ms. Amber above 50 ms.
 - **CARD**: card type and size. **MOUNT**: the FatFs result code and name,
   for example `0 OK`, `3 NOT READY`, `13 NO FILESYSTEM`.
-- **RETRY**: mounts again. The card is otherwise mounted only once, at boot.
+- **RETRY MOUNT**: mounts again. The card is otherwise mounted only once, at
+  boot. With `NO CARD` and `3 NOT READY` and no card size, the note line
+  above START reads `INSERT A CARD, THEN RETRY MOUNT` when nothing answered
+  the card initialisation, and `CARD NOT USABLE: RESEAT OR REPLACE` when a
+  card answered and failed.
 - **USB DRIVE**: serves the card to the USB host. See
   [Blackbox logging to microSD](#blackbox-logging-to-microsd).
 - **BACK**: returns to MENU, also while a host holds the card. The handover
@@ -571,7 +575,12 @@ settings. Flash changes only on the next save.
 Every value applies when changed. Only persistence needs the hold, so a value
 can be tried and then discarded by leaving without saving. The note line reads
 `UNSAVED - HOLD SAVE TO KEEP` after a change, and otherwise
-`SAVED SETTINGS IN USE` or `COMPILED DEFAULTS IN USE`. MENU shows `UNSAVED` on
+`SAVED SETTINGS IN USE` or `COMPILED DEFAULTS IN USE`. After RESET it reads
+`DEFAULTS LOADED - RESTART TO UNDO` while the live settings are what RESET
+left and differ from what the next boot loads (the saved settings, or the
+compiled defaults when none are stored). Any other change ends it, and so
+does every completed HOLD TO SAVE, failed saves included: a save whose
+read-back fails has already rewritten the sector. MENU shows `UNSAVED` on
 the SETTINGS row while the live settings differ from flash.
 
 **High contrast**
@@ -1284,8 +1293,10 @@ rcbench's has run on a servo. Design note:
 ### Wiring
 
 As for KST: the servo on its own supply, signal on SIG, the grounds joined
-once at the board. **One servo on the lead**: every frame goes to ID 0,
-and every D series servo on the line takes a frame sent to ID 0.
+once at the board. **One servo on the lead**: every frame goes to ID 0, and
+the frame carries no other address. rcbench records two D series servos on
+one port both taking a frame sent to ID 0. Whether a servo whose own ID is
+not 0 answers ID 0 is not measured.
 
 ```
   servo supply, 5 V
@@ -1334,13 +1345,19 @@ and every D series servo on the line takes a frame sent to ID 0.
    Hitec's programmer does.
 4. ID edits the servo's own ID. The bench addresses ID 0 whatever the
    servo holds, and whether a servo with another ID still answers ID 0 is
-   not measured: the editor bar and the write page say
-   `THE BENCH ADDRESSES ID 0. ANOTHER ID IS NOT TESTED.`
+   not measured, so one write may leave a servo the bench cannot read or
+   restore. The editor bar says
+   `BENCH ADDRESSES ID 0. A WRITE MAY LOCK OUT READ AND RESTORE.` and the
+   write page `THE BENCH ADDRESSES ID 0 AND MAY NOT READ OR RESTORE THIS
+   SERVO AGAIN.`
 5. HOLD TO WRITE (1 s) opens the write page: the changes, their soft rules
    and where the backup goes, and `KEEP THE SERVO HORN CLEAR.` on the
    session's first write and on a write that moves DIRECTION, NEUTRAL or an
-   end point. A second 1 s hold
-   writes. Before the first frame of the session's first write with a card
+   end point. The horn line, the ID note, `FILE OF ANOTHER MODEL` and
+   `MODEL NOT MEASURED` always show when they apply; the changed values, a
+   changed ID first, take the room left, and soft rules that do not fit are
+   counted on the last line, `AND n MORE RULES: SEE EACH ROW.` A second 1 s
+   hold writes. Before the first frame of the session's first write with a card
    mounted, the backup goes to the card as `BACKUP/HTnnn.TXT`; before every
    write, the servo as it is and the target go to `HITEC/HITEC.TXT` as the
    record of the write. The write sends the changed registers 20 ms apart,
@@ -1422,8 +1439,8 @@ own factory cells, and the HS-5xxx and HS-7xxx layouts.
 
 **Current limitations**
 
-- The bench sends every frame to ID 0. A D series servo with another ID is
-  not tested.
+- The bench sends every frame to ID 0. Whether a D series servo with
+  another ID answers it is not measured.
 - With `GP28` or `GP29`, the screen's card calls run in a card phase that
   keeps the supply on for at most 15 s while the screen does not redraw, as for KST.
   At the SD specification's full times the first write that keeps an old
@@ -1752,8 +1769,8 @@ runs, so a layout change is visible in the frames:
   accepted and refused, unsaved settings, PINS BUSY, seven rows;
 - four of MENU → SETTINGS: the top, scrolled to the end, high contrast, the
   CURRENT SENSE row with a sensor found;
-- six of MENU → SD LOG: ready, recording, no card, a card found by RETRY, USB
-  DRIVE refused, USB DRIVE serving;
+- six of MENU → SD LOG: ready, recording, no card, a card found by RETRY
+  MOUNT, USB DRIVE refused, USB DRIVE serving;
 - six of the AM32 editor: list, field edit, scrolled, written, written with
   a backup, hex view;
 - fourteen of the servo tester: SAFE, running, sweeping, two servos,
@@ -1772,7 +1789,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.4%**: 8,968 of 9,211 lines in 58 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.5%**: 9,096 of 9,330 lines in 58 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

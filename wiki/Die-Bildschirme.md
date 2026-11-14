@@ -185,7 +185,11 @@ Unter der Liste bleiben diese Elemente an ihrem Platz:
   Pakete an, der ESC-Pin stimmt also. Bernstein heißt, mehr als 5 % Fehler.
 - Die Hinweiszeile, die die verwendeten Werte nennt: `SAVED SETTINGS IN USE`
   oder `COMPILED DEFAULTS IN USE`. Nach einer Änderung zeigt sie
-  `UNSAVED - HOLD SAVE TO KEEP`.
+  `UNSAVED - HOLD SAVE TO KEEP`. Nach `RESET` zeigt sie
+  `DEFAULTS LOADED - RESTART TO UNDO` (Voreinstellungen geladen, ein Neustart
+  macht es rückgängig), solange ein Neustart die gespeicherten Werte
+  zurückbrächte, bis zur nächsten Änderung oder zu einem `HOLD TO SAVE`,
+  gescheitert oder nicht.
 - `HOLD TO SAVE` (150 × 48 px) und `RESET` (70 × 48 px).
 
 **Änderungen wirken sofort. Nur das Speichern braucht das Halten.** Eine neue

@@ -64,8 +64,10 @@ Platine verbunden.
 GND ist die Masse der Platine.
 
 - **Ein Servo an der Leitung.** Jeder Frame geht an die ID 0
-  (Identifikationsnummer), und jedes Servo der D-Serie an der Leitung nimmt
-  einen Frame an, der an die ID 0 geht.
+  (Identifikationsnummer), und der Frame trägt keine andere Adresse. rcbench
+  hält fest, dass zwei Servos der D-Serie an einem Anschluss beide einen
+  Frame an die ID 0 annehmen. Ob ein Servo, dessen eigene ID nicht 0 ist, auf
+  die ID 0 antwortet, ist nicht gemessen.
 - **Kein Pull-up-Widerstand** am Signalkabel. Die Platine empfängt die
   Antwort des Servos durch Vorladen: Vor jeder Abtastung hebt der Pin die
   Leitung 100 ns lang an. Den Empfang von rcbench über einen
@@ -277,9 +279,15 @@ Zwei Arten von Grenzen gelten:
 
 `ID` stellt die eigene ID des Servos ein, 0 bis 255. Die Platine spricht die
 ID 0 an, gleich welche das Servo hält. Ob ein Servo mit einer anderen ID
-weiter auf die ID 0 antwortet, ist nicht gemessen. Solange `ID` einen anderen
-Wert als 0 hält, zeigen die Editorleiste und die Schreibseite
-`THE BENCH ADDRESSES ID 0. ANOTHER ID IS NOT TESTED.`
+weiter auf die ID 0 antwortet, ist nicht gemessen. Ein einziges Schreiben
+einer anderen ID kann also ein Servo hinterlassen, das die Platine nicht
+lesen und nicht aus einer Sicherung wiederherstellen kann. Solange `ID` einen
+anderen Wert als 0 hält, zeigt die Editorleiste
+`BENCH ADDRESSES ID 0. A WRITE MAY LOCK OUT READ AND RESTORE.` und die
+Schreibseite
+`THE BENCH ADDRESSES ID 0 AND MAY NOT READ OR RESTORE THIS SERVO AGAIN.`
+(die Platine spricht die ID 0 an und kann dieses Servo danach vielleicht
+nicht mehr lesen oder wiederherstellen).
 
 <img src="img/hitec-id.png" width="240" alt="Die Schreibseite für ID 0 -> 1, mit dem bernsteinfarbenen ID-Hinweis">
 
@@ -299,18 +307,29 @@ Die Schreibseite öffnet sich und schreibt noch nichts.
 
 Die Schreibseite heißt `HITEC WRITE`. Die Leiste zählt die Werte, `1 VALUE`
 oder `2 VALUES`. Jeder geänderte Parameter ist eine Zeile, `SPEED` und
-`100 % (4095) -> 90 % (18)`, bis zu sechs, danach zum Beispiel `AND 3 MORE`.
-Bernsteinfarbene Zeilen mit einem `*` am Anfang nennen die weichen Regeln,
-die gelten. Weitere bernsteinfarbene Zeilen:
+`100 % (4095) -> 90 % (18)`, oder zwei, wenn der Wert nicht neben den Namen
+passt. Eine geänderte `ID` steht zuerst. Danach zählt zum Beispiel
+`AND 3 MORE` die Werte, die nicht aufgeführt sind.
 
+Unter den Werten, von oben nach unten:
+
+- `KEEP THE SERVO HORN CLEAR.` beim ersten Schreiben der Sitzung und bei
+  jedem Schreiben, das `DIRECTION`, `NEUTRAL` oder einen Endpunkt ändert.
+- `THE BENCH ADDRESSES ID 0 AND MAY NOT READ OR RESTORE THIS SERVO AGAIN.`,
+  wenn die ID auf einen anderen Wert als 0 wechselt.
+- Zum Beispiel `FILE OF ANOTHER MODEL: D645MW.` nach dem Laden einer Datei
+  eines anderen Modells. Nur diese Seite sagt das.
 - `MODEL NOT MEASURED: WRITTEN IN THE D LAYOUT.` für ein Modell, das rcbench
   nicht vermessen hat. Das vermessene Modell der D-Serie ist das D485HW.
-- `THE BENCH ADDRESSES ID 0. ANOTHER ID IS NOT TESTED.`
-- Zum Beispiel `FILE OF ANOTHER MODEL: D645MW.` nach dem Laden einer Datei
-  eines anderen Modells.
+- Zeilen mit einem `*` am Anfang: die weichen Regeln, die gelten.
 
-`KEEP THE SERVO HORN CLEAR.` erscheint beim ersten Schreiben der Sitzung und
-bei jedem Schreiben, das `DIRECTION`, `NEUTRAL` oder einen Endpunkt ändert.
+Die ersten vier stehen immer, wenn sie gelten; die Werte bekommen den Platz,
+der übrig bleibt, höchstens sechs. Jede weiche Regel steht ganz oder gar
+nicht, und passen nicht alle, zählt die letzte Zeile den Rest:
+`AND 2 MORE RULES: SEE EACH ROW.` Die Editorleiste jeder Zeile nennt ihre
+Regel.
+
+<img src="img/hitec-write-full.png" width="240" alt="Ein D645MW mit einer D485HW-Datei: ID zuerst, FAILSAFE unter dem Namen, AND 2 MORE, die Hornzeile, der ID-Hinweis, FILE OF ANOTHER MODEL, MODEL NOT MEASURED und AND 1 MORE RULE">
 
 Die Zeile am unteren Rand sagt, wohin die Sicherung geht:
 
@@ -584,8 +603,8 @@ sie mit SERVO SUPPLY auf `GP28`.
 
 ## Einschränkungen
 
-- Die Platine sendet jeden Frame an die ID 0. Ein Servo der D-Serie mit einer
-  anderen ID ist nicht getestet.
+- Die Platine sendet jeden Frame an die ID 0. Ob ein Servo der D-Serie mit
+  einer anderen ID darauf antwortet, ist nicht gemessen.
 - Die Spannung auf der klassischen Leitung ist nicht gemessen, und der
   Low-Pegel des Pins gegen ein klassisches Servo ist nicht spezifiziert.
 - Mit `GP28` oder `GP29` halten die Kartenzugriffe des Bildschirms die Versorgung
