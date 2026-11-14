@@ -973,7 +973,24 @@ static bool s_flushFirst = false;
 
 static void filesThenWrite();
 
-static const char *const FLUSH_FAILED = "THE CARD DID NOT TAKE THE BACKUP. NOTHING WAS WRITTEN TO THE SERVO.";
+/**
+ * @brief The write page's text for a flush the card did not take: a block
+ *        write failed or the card in the slot changed (sd_cache.h), so a
+ *        full card does not end here; it ends in CARD_TOOK_NO_FILE. The
+ *        card is mounted again and the first write forgotten, so the next
+ *        hold saves the backup again. Three lines of 38 characters.
+ */
+static const char *const FLUSH_FAILED =
+	"THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.";
+/** @brief As FLUSH_FAILED, for a batch that held another file. */
+static const char *const FLUSH_FAILED_FILE =
+	"THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.";
+/**
+ * @brief The write page's text when FatFs refused the first write's files:
+ *        among the causes a full card and a card that is gone.
+ */
+static const char *const CARD_TOOK_NO_FILE =
+	"THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.";
 
 /**
  * @brief The flush a write waits for has ended: with an earlier batch on the
@@ -990,7 +1007,7 @@ static void flushStep() {
 	if (c == CardCache::Failed) {
 		recoverFlush();
 		s_cardNote = w == FlushWait::BeforeFiles || !s_flushFirst
-		                 ? "THE CARD DID NOT TAKE A FILE. NOTHING WAS WRITTEN TO THE SERVO."
+		                 ? FLUSH_FAILED_FILE
 		                 : FLUSH_FAILED;
 		return;
 	}
@@ -1013,7 +1030,7 @@ static void filesThenWrite() {
 	if (cardSwapped()) restartOnNewCard();
 	s_flushFirst = !s_firstDone;
 	if (!writeFiles()) {
-		s_cardNote = "THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.";
+		s_cardNote = CARD_TOOK_NO_FILE;
 		return;
 	}
 	if (cardCacheState() != CardCache::Off) {
@@ -1151,14 +1168,18 @@ static void drawWrite() {
 		gfxText(UI_MARGIN + 12, out.ruleMoreY, buf, C_AMBER, 1);
 	}
 
+	// The session's backup is in memory only: the servo's values from
+	// before the first write are gone at LEAVE, unless a later write finds
+	// a card and saves them first. Amber, as the cost of writing now.
+	bool memoryOnly = !s_write.backupName[0] && (s_firstDone || !hitecFilesMounted());
 	if (s_write.backupName[0]) snprintf(buf, sizeof(buf), "BACKUP: BACKUP/%s", s_write.backupName);
-	else if (s_firstDone) snprintf(buf, sizeof(buf), "NO BACKUP ON THE CARD: IN MEMORY");
+	else if (s_firstDone) snprintf(buf, sizeof(buf), "NO BACKUP ON THE CARD: LOST AT LEAVE");
 	else if (!hitecFilesMounted())
-		snprintf(buf, sizeof(buf), "%s", cardHeldByUsb() ? "CARD IN USE BY USB: BACKUP IN MEMORY"
-		                                                : "NO CARD: BACKUP IN MEMORY");
+		snprintf(buf, sizeof(buf), "%s", cardHeldByUsb() ? "CARD ON USB: OLD VALUES LOST AT LEAVE"
+		                                                : "NO CARD: OLD VALUES LOST AT LEAVE");
 	else if (s_backupNext[0]) snprintf(buf, sizeof(buf), "BACKUP FIRST: BACKUP/%s", s_backupNext);
 	else snprintf(buf, sizeof(buf), "BACKUP FIRST: TO THE CARD");
-	gfxText(UI_MARGIN, 236, buf, C_DIM, 1);
+	gfxText(UI_MARGIN, 236, buf, memoryOnly ? C_AMBER : C_DIM, 1);
 	if (s_flushing) {
 		uint16_t left = 0;
 		cardCacheState(&left);

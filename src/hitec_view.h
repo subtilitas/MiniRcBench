@@ -125,9 +125,12 @@ enum class HitecTone : uint8_t {
 	Doubt,    /**< The servo may hold other values than shown. */
 };
 
-/** @brief How a write ended: the text and its tone. */
+/**
+ * @brief How a write ended: the text and its tone. 128 bytes hold the
+ *        longest, three write-page lines of 38 characters and a terminator.
+ */
 struct HitecResultText {
-	char      text[96];
+	char      text[128];
 	HitecTone tone;
 };
 

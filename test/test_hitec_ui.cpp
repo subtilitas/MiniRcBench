@@ -471,8 +471,18 @@ static void testFlushWait() {
 	hitecFrames(2);
 	checkTrue("a failed flush: no write frame, the card mounted again",
 	          fakeHitecSim()->writes == writes && fakeCacheCalls().recovers == recovers + 1);
-	checkTrue("and the page says why", ctlPresent(UI_FIX(HitecCtl::WriteOk)) &&
-	          lineIs(196, "THE CARD DID NOT TAKE THE BACKUP.", C_AMBER));
+	checkTrue("and the page says why, and what next, in three lines",
+	          ctlPresent(UI_FIX(HitecCtl::WriteOk)) &&
+	          lineIs(196, "THE CARD DID NOT TAKE THE BACKUP", C_AMBER) &&
+	          lineIs(208, "(REMOVED OR SWAPPED?). THE SERVO IS", C_AMBER) &&
+	          lineIs(220, "UNCHANGED. CHECK THE CARD, HOLD AGAIN.", C_AMBER));
+	tapId(UI_FIX(HitecCtl::WriteOk));
+	// Holding again retries: the backup is saved again, then the write runs.
+	holdUntilGone(UI_FIX(HitecCtl::Write));
+	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
+	checkTrue("held again: the write sent and verified",
+	          untilCtl(UI_FIX(HitecCtl::WriteOk), 800) && fakeHitecSim()->writes > writes &&
+	          job().result == HITEC_SES_OK);
 	tapId(UI_FIX(HitecCtl::WriteOk));
 	leaveAll();
 	fakeCacheReset();
@@ -586,6 +596,9 @@ static void testNoCardWrite() {
 	int32_t before = jobSpeed();
 	speedDown();
 	holdUntilGone(UI_FIX(HitecCtl::Write));
+	hitecFrames(1);
+	checkTrue("no card: the old values lost at LEAVE, amber",
+	          lineIs(236, "NO CARD: OLD VALUES LOST AT LEAVE", C_AMBER));
 	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
 	checkTrue("the write runs without a card", untilCtl(UI_FIX(HitecCtl::WriteOk), 800));
 	checkTrue("verified", job().result == HITEC_SES_OK && jobSpeed() < before);
@@ -597,6 +610,12 @@ static void testNoCardWrite() {
 	checkTrue("the field list", toList(HITEC_D));
 	tapId(UI_FIX(HitecCtl::Files));
 	checkTrue("a card held by USB: RETRY MOUNT disabled", !ctlEnabled(UI_FIX(HitecCtl::RetryMount)));
+	tapId(UI_FIX(UI_BACK));
+	speedDown();
+	holdUntilGone(UI_FIX(HitecCtl::Write));
+	hitecFrames(1);
+	checkTrue("a card held by USB: the same cost, amber",
+	          lineIs(236, "CARD ON USB: OLD VALUES LOST AT LEAVE", C_AMBER));
 	tapId(UI_FIX(UI_BACK));
 	leaveAll();
 	fakeMscSet(MscState::Idle, 0);
@@ -611,6 +630,10 @@ static void testNoCardWrite() {
 	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
 	checkTrue("a card that takes no file: a note and OK", untilCtl(UI_FIX(HitecCtl::WriteOk), 200));
 	checkTrue("nothing written to the servo", fakeHitecSim()->writes == writes0);
+	checkTrue("the note says why, that the servo is unchanged, and what next",
+	          lineIs(196, "THE CARD TOOK NO FILE (FULL OR", C_AMBER) &&
+	          lineIs(208, "REMOVED?). THE SERVO IS UNCHANGED.", C_AMBER) &&
+	          lineIs(220, "CHECK THE CARD, HOLD AGAIN.", C_AMBER));
 	fakeFatWriteProtect(false);
 	tapId(UI_FIX(HitecCtl::WriteOk));
 	leaveAll();
