@@ -538,7 +538,7 @@ Sicherung die älteste, gleich von welchem Gerät. Den Ring beschreibt die
 Lesens öffnet sie ebenfalls. `BACK` auf der Verlassenseite ist grau und
 bewirkt nichts: Jeder Weg weiter ist eine Taste.
 
-<img src="img/leave-hitec-failed.png" width="240" alt="Die Verlassenseite mit OWN: 1 LEAVE RESTARTS THE SERVO., 1 CHANGE NOT WRITTEN., A WRITE DID NOT END VERIFIED., STAY, READ AGAIN und LEAVE"> <img src="img/leave-hitec.png" width="240" alt="Die Verlassenseite mit GP28: 1 LEAVE SWITCHES THE SUPPLY OFF."> <img src="img/leave-hitec-released.png" width="240" alt="Nach LEAVE und den 2 s aus: NEXT SERVO aktiv, RESTART DSHOT noch 1 s grau">
+<img src="img/leave-hitec-failed.png" width="240" alt="Die Verlassenseite mit OWN: 1 LEAVE RESTARTS THE SERVO., 1 CHANGE NOT WRITTEN., A WRITE DID NOT END VERIFIED., STAY, READ AGAIN und LEAVE"> <img src="img/leave-hitec.png" width="240" alt="Die Verlassenseite mit GP28: 1 LEAVE SWITCHES THE SUPPLY OFF."> <img src="img/leave-hitec-released.png" width="240" alt="Nach LEAVE, den 2 s aus und 1 s mehr: NEXT SERVO und RESTART DSHOT aktiv">
 
 Die Leiste nennt das Modell, den Pin und, mit `GP28` oder `GP29`,
 `SUPPLY ON` oder `SUPPLY OFF`. Die Seite nummeriert drei Schritte; der

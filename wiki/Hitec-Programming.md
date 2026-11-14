@@ -494,7 +494,7 @@ belongs to. See [KST Programming](KST-Programming#files) for the ring.
 too. `BACK` on the leave page is grey and does nothing: each way on is a
 button.
 
-<img src="img/leave-hitec-failed.png" width="240" alt="The leave page with OWN: 1 LEAVE RESTARTS THE SERVO., 1 CHANGE NOT WRITTEN., A WRITE DID NOT END VERIFIED., STAY, READ AGAIN and LEAVE"> <img src="img/leave-hitec.png" width="240" alt="The leave page with GP28: 1 LEAVE SWITCHES THE SUPPLY OFF."> <img src="img/leave-hitec-released.png" width="240" alt="After LEAVE and the 2 s off: NEXT SERVO live, RESTART DSHOT grey for 1 s more">
+<img src="img/leave-hitec-failed.png" width="240" alt="The leave page with OWN: 1 LEAVE RESTARTS THE SERVO., 1 CHANGE NOT WRITTEN., A WRITE DID NOT END VERIFIED., STAY, READ AGAIN and LEAVE"> <img src="img/leave-hitec.png" width="240" alt="The leave page with GP28: 1 LEAVE SWITCHES THE SUPPLY OFF."> <img src="img/leave-hitec-released.png" width="240" alt="After LEAVE, the 2 s off and 1 s more: NEXT SERVO and RESTART DSHOT live">
 
 The strip names the model, the pin and, with `GP28` or `GP29`, `SUPPLY ON` or
 `SUPPLY OFF`. The page numbers three steps; the current step is amber, with
