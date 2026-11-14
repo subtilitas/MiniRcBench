@@ -215,7 +215,7 @@ the same once more: every saved setting returns to its default, and
 CURRENT SENSE is `NONE`. Set them again and save with `HOLD TO SAVE`.
 
 Such a reset is shown: the splash reads `SETTINGS RESET BY UPDATE` and
-`CHECK MENU > SETTINGS`, MENU's `SETTINGS` row reads `RESET`, and the note
+`CHECK MENU > SETTINGS`, MENU's `SETTINGS` row reads `UPDATED`, and the note
 line in SETTINGS reads `RESET BY UPDATE - CHECK AND SAVE` until a save
 lands. A block that is damaged, rather than written by another version, is
 discarded without these notes; the note line then reads

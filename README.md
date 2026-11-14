@@ -432,7 +432,7 @@ tester. Every tool's **BACK** returns to MENU.
 | **SERVO TESTER** | the signal pins, `GP0+1`; `PINS BUSY` | Opens the servo tester. See [Servo tester](#servo-tester) |
 | **KST SERVO** | the ESC pin, `GP0`; `PINS BUSY` | Opens the KST servo programmer. See [KST servo programming](#kst-servo-programming) |
 | **HITEC SERVO** | the ESC pin, `GP0`; `PINS BUSY` | Opens the Hitec servo programmer. See [Hitec servo programming](#hitec-servo-programming) |
-| **SETTINGS** | `UNSAVED` while the live settings differ from flash; else `RESET` while an update's reset is not saved over (`settingsResetByUpdate()`); else nothing; both amber. `PINS BUSY` while the pin claim is not Free, drawn disabled | Opens SETTINGS: the tester, the wiring, the servo supply and current sensor, the display, the board, diagnostics. See below |
+| **SETTINGS** | `UNSAVED` while the live settings differ from flash; else `UPDATED` while an update's reset is not saved over (`settingsResetByUpdate()`); else nothing; both amber. `PINS BUSY` while the pin claim is not Free, drawn disabled | Opens SETTINGS: the tester, the wiring, the servo supply and current sensor, the display, the board, diagnostics. See below |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a USB host holds the card | Opens the logging status. See below |
 
 - **BEEP flash**: a tap fills the row for 350 ms (`BEEP_FLASH_MS`): white
@@ -457,10 +457,13 @@ tester. Every tool's **BACK** returns to MENU.
 - **START / STOP**: starts or ends a log. Disabled with no card.
 - **FILE**, **FRAMES**, **WRITTEN**: the open file, frames logged, kB written.
   After a log ends, FILE keeps its name with `(LAST)`, for example
-  `LOG00012.BFL (LAST)`, until the next start; `--` before the first log of
-  the power-up.
-- **Note lines** (y 217 and y 228): how the last log ended, when it was not
-  STOP, in amber until the next start or mount (`SdLogEnd`):
+  `LOG00012.BFL (LAST)`, until the next start or mount; `--` before the first
+  log and after a mount (`sdLogBegin()`), which also zeroes the counters: the
+  card may be another one.
+- **Note lines** (y 217 and y 228): how the last log ended, when it ended
+  on its own or a tool took the card, in amber (`SdLogEnd`); a card's fault
+  until the next start or mount, a tool's stop until the next start
+  (`sdLogMountForget()`), with a mount hint on its second line:
   `RECORDING STOPPED: CARD FULL` / `FREE SPACE ON A COMPUTER, RETRY MOUNT`
   (FatFs wrote fewer bytes than asked with `FR_OK`),
   `RECORDING STOPPED: CARD WRITE FAILED` / `REMOVED? REINSERT, THEN RETRY MOUNT`
@@ -494,8 +497,9 @@ tester. Every tool's **BACK** returns to MENU.
 *SETTINGS at the top, scrolled to the end, in high contrast, and the UNSAVED
 marker it puts on MENU.*
 
-SETTINGS is one list in sections. The list fills y 40 to 239 and scrolls under
-a drag. A row is 44 px tall at a 50 px pitch. **MOTOR POLES** and
+SETTINGS is one list in sections. The list fills y 40 to 239 (to y 227 while
+the ESC pin's warning shows, see below) and scrolls under a drag. A row is
+44 px tall at a 50 px pitch. **MOTOR POLES** and
 **MAX THROTTLE** lead it, so they need no scroll.
 
 | Section | Row | What it does |
@@ -584,7 +588,7 @@ its ESC pin on GP29 or GP28 or its supply enable on GP0, nor DshotDisplay
 project's blocks the same way. A discarded block that is whole (the magic,
 another version, at most `SETTINGS_OTHER_MAX` bytes of payload and its own
 CRC right) sets `settingsResetByUpdate()` until a save lands: the splash's
-two lines, `RESET` on MENU's SETTINGS row, and the note line
+two lines, `UPDATED` on MENU's SETTINGS row, and the note line
 `RESET BY UPDATE - CHECK AND SAVE` while nothing else is pending.
 
 **HOLD TO SAVE** (1 s, `UI_HOLD_MS`) writes all settings to flash: every row
@@ -608,14 +612,16 @@ the SETTINGS row while the live settings differ from flash.
 
 ESC PIN moves DShot at once (`escTaskConfigure()`). While the live ESC pin
 is not the one `settingsLoad()` put live, the pin the splash named
-(`settingsBootDshotPin()`), the note line repeats the splash's warning for
-the live pin in amber, for example `UNPLUG ANY SERVO FROM GP1 NOW`. The rule
-is the boot pin rather than the saved pin, which a save would end, or the pin
-at opening, which a return to SETTINGS would end, while DShot stays on a pin
-the splash did not name. The note line's order: SAVE FAILED and NOT WHILE
-ARMED, until the next save or leaving; ADJUSTED and KISS OFF, until the next
-change; the ESC pin's warning; DEFAULTS LOADED; UNSAVED; SAVED; then the
-reset by an update, and the set in use.
+(`settingsBootDshotPin()`), a line of its own at y 230 (`PIN_Y`) repeats
+the splash's warning for the live pin in amber, for example
+`UNPLUG ANY SERVO FROM GP1 NOW`, and the list ends at y 227 (`VIEW_H_PIN`),
+so it scrolls 12 px further; its top rows do not move. The rule is the boot
+pin rather than the saved pin, which a save would end, or the pin at
+opening, which a return to SETTINGS would end, while DShot stays on a pin
+the splash did not name. The note line keeps its own order: SAVE FAILED and
+NOT WHILE ARMED, until the next save or leaving; ADJUSTED and KISS OFF,
+until the next change; DEFAULTS LOADED; UNSAVED; SAVED; the reset by an
+update; then the set in use.
 
 **High contrast**
 
@@ -1285,7 +1291,7 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
    `BLOCKS LEFT: n` until the card holds the backup and the record, and the
    servo is written only then. A flush the card does not take stops the
    write:
-   `THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
+   `THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
    A flush fails on a block write that fails or a card swapped since
    (`src/sdio/sd_cache.h`), not on a full card, which FatFs refuses before
    anything is queued. Nothing is sent to the servo; the card is mounted
@@ -1342,7 +1348,7 @@ write should be refused or need a second hold is open to the owner
 (STATUS.md, open item 20). A card that is
 mounted but takes neither the backup nor the record stops the write before
 any frame:
-`THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
+`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
 
 An image that fails rcbench's layout fingerprint is shown and not written:
 the write button reads `READ ONLY`, and with no row selected the editor bar
@@ -1524,11 +1530,11 @@ write should be refused or need a second hold is open to the owner
 (STATUS.md, open item 20). A card that is
 mounted but takes neither the backup nor the record stops the write before
 any frame:
-`THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
+`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
 With a card mounted at the screen's opening, the card's writes queue in
 memory, as for KST, and the servo is written only once the card holds the
 files. A flush that fails stops the write with
-`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`,
+`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`,
 or `A FILE` in place of `THE BACKUP` when the batch held a later write's
 files.
 
@@ -1910,7 +1916,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.8%**: 9,301 of 9,511 lines in 58 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.8%**: 9,314 of 9,523 lines in 58 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

@@ -222,7 +222,7 @@ In content coordinates, 0 px at the top of the list:
 
 | Item | Value |
 |---|---|
-| Viewport | y 40 to 239, 200 px (`VIEW_Y0`, `VIEW_H`). SETTINGS has no strip |
+| Viewport | y 40 to 239, 200 px (`VIEW_Y0`, `VIEW_H`); y 40 to 227, 188 px (`VIEW_H_PIN`) while the ESC pin's warning shows at y 230 (`PIN_Y`). SETTINGS has no strip |
 | Section caption | 20 px (`CAP_H`); its name at scale 1 in `C_CYAN` at x 8, 8 px below its top; takes no press |
 | Rows | 44 px tall (`ROW_H`) at a 50 px pitch (`ROW_PITCH`) |
 | Content | slice C: 4 captions and 9 rows, 530 px; slice 3: 5 captions and 10 rows, 600 px |

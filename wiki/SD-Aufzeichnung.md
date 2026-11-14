@@ -71,7 +71,7 @@ Computer die Karte hält.
 | Zeile | Bedeutung |
 |---|---|
 | **STATUS** | `NO CARD`, `READY`, `RECORDING` oder `CARD ERROR` |
-| **FILE** | Die geöffnete Datei. Nach dem Ende einer Aufzeichnung ihre Datei mit `(LAST)`, zum Beispiel `LOG00012.BFL (LAST)`, neben ihren Zählern, bis zum nächsten `START`. `--` vor der ersten Aufzeichnung nach dem Einschalten |
+| **FILE** | Die geöffnete Datei. Nach dem Ende einer Aufzeichnung ihre Datei mit `(LAST)`, zum Beispiel `LOG00012.BFL (LAST)`, neben ihren Zählern, bis zum nächsten `START` oder Einbinden. `--` vor der ersten Aufzeichnung nach dem Einschalten und nach einem Einbinden (`RETRY MOUNT`, das Ende von `USB DRIVE`, das neue Einbinden durch ein Werkzeug): Es kann eine andere Karte sein, daher werden Name und Zähler zurückgesetzt |
 | **FRAMES** | Bisher geschriebene Frames |
 | **WRITTEN** | Geschriebene Kilobyte |
 | **DROPPED FRAMES** | Frames, die der Puffer nicht halten konnte. **Sollte null sein.** Sonst rot |
@@ -93,9 +93,15 @@ Meist ist eine langsame Karte die Ursache. Probiere zuerst eine andere Karte.
 
 <img src="img/log-card-full.png" width="240" alt="SD LOG, nachdem ein Schreibvorgang die Karte voll fand">
 
-Endet eine Aufzeichnung ohne `STOP`, sagen zwei Zeilen in Bernstein über
-`START`, wie, und was zu tun ist. Sie bleiben bis zum nächsten `START` oder
-Einbinden (`RETRY MOUNT`, oder das Ende von `USB DRIVE`).
+Endet eine Aufzeichnung von selbst, oder nimmt ein Werkzeug die Karte, sagen
+Zeilen in Bernstein über `START`, wie, und was zu tun ist. Ein Entschärfen,
+das eine durch Scharfschalten begonnene Aufzeichnung beendet, und `STOP`
+zeigen keine. Ein Kartenfehler bleibt bis zum nächsten `START` oder Einbinden
+(`RETRY MOUNT`, das Ende von `USB DRIVE`, oder das neue Einbinden durch KST
+SERVO und HITEC SERVO nach einem fehlgeschlagenen Kartenschreiben). Das Ende
+durch ein Werkzeug hat eine Zeile und bleibt bis zum nächsten `START`, auch
+über ein Einbinden hinweg, denn es stimmt weiter für die letzte Aufzeichnung;
+ohne Karte steht der Einbinde-Hinweis in der zweiten Zeile.
 
 | Zeilen | Bedeutung | Was tun |
 |---|---|---|

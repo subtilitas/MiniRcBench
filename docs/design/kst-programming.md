@@ -462,7 +462,7 @@ refuses it (step 1):
    phase. Every other command the job takes closes it too, so the `Edit` or
    `Restore` after the first write's card calls starts outside it. When the
    card took neither file the write stops with
-   `THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
+   `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
 
 In the card phase the KST job counts the heartbeat as trusted while
 `core1UiAlive()` holds, or while `escUiAlive()` finds the stamp within 250 ms
@@ -1112,7 +1112,7 @@ a write that left nothing changed amber, a verified one green.
 - OK takes a press that lands while it shows. The finger that ends the
   hold lifts on the same rectangle and does not dismiss the result.
 - When the card takes neither the backup nor the record, the page reads
-  `THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
+  `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
   and no frame
   goes out. No card, or a card held by USB, writes with the backup in
   memory.
@@ -1290,7 +1290,7 @@ a host:
 
 | Situation | Effect |
 |---|---|
-| First write of a session, card mounted | the backup is saved first into the ring of `BACKUP/`, and `KST/KST.TXT` holds the image before the write, both in a card phase ([card calls](#card-calls-and-the-heartbeat)). A card that takes neither stops the write: `THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.` |
+| First write of a session, card mounted | the backup is saved first into the ring of `BACKUP/`, and `KST/KST.TXT` holds the image before the write, both in a card phase ([card calls](#card-calls-and-the-heartbeat)). A card that takes neither stops the write: `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.` |
 | Write verified | `KST/KST.TXT` is removed when this session wrote it, the card stayed mounted since, and the file holds the bytes written (FNV-1a, Fowler-Noll-Vo, hash `recordSum`), in a card phase |
 | Later writes of the session | no backup is saved and no record is written |
 | LEAVE, the servo in programming mode and not in doubt | `KST/KST.TXT` is removed on the same terms: no write is open |

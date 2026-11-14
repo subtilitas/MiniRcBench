@@ -86,7 +86,7 @@ default. The splash then shows two amber lines above the name:
 `SETTINGS RESET BY UPDATE` and `CHECK MENU > SETTINGS`. Check at least the
 pole count, `MAX THROTTLE`, `ESC PIN`, KISS, `SERVO SUPPLY` and
 `CURRENT SENSE`, then hold `HOLD TO SAVE`. Until a save lands, MENU's
-SETTINGS row reads `RESET`. A board that never had saved settings shows
+SETTINGS row reads `UPDATED`. A board that never had saved settings shows
 neither.
 
 <img src="img/splash-reset.png" width="240" alt="Splash screen after an update discarded the saved settings">
@@ -151,7 +151,7 @@ it. The bar shows a grab handle. Turning `HOLD` off sets the throttle to zero.
 `MENU` on the tester opens the list of tools. Opening it always disarms. Tap
 the `SETTINGS` row.
 
-<img src="img/settings.png" width="240" alt="SETTINGS after ESC PIN moved to GP1: the note line reads UNPLUG ANY SERVO FROM GP1 NOW">
+<img src="img/settings.png" width="240" alt="SETTINGS after a change: MOTOR POLES at 16 and UNSAVED - HOLD SAVE TO KEEP">
 
 - **MOTOR POLES**: converts the reported eRPM (electrical RPM) to RPM with
   `RPM = eRPM / (poles / 2)`. Range 2–28, even values only. Default 14. A
@@ -166,8 +166,11 @@ with `HOLD TO SAVE` under the list. The note line reads
 `SETTINGS` row.
 
 `ESC PIN`, further down, moves DShot to the other pin at once. While it is
-not the pin the splash named, the note line repeats the splash's warning for
-the new pin, as in the picture: `UNPLUG ANY SERVO FROM GP1 NOW`.
+not the pin the splash named, a line of its own above `LINK` repeats the
+splash's warning for the new pin in amber, `UNPLUG ANY SERVO FROM GP1 NOW`;
+the note line under it still says whether the settings are saved.
+
+<img src="img/settings-pin.png" width="240" alt="SETTINGS after ESC PIN moved to GP1: UNPLUG ANY SERVO FROM GP1 NOW above LINK, UNSAVED on the note line">
 
 ---
 

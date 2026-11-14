@@ -233,7 +233,7 @@ mit `HOLD TO SAVE`.
 
 Ein solches Zurücksetzen wird angezeigt: Der Startbildschirm zeigt
 `SETTINGS RESET BY UPDATE` und `CHECK MENU > SETTINGS`, die Zeile `SETTINGS`
-in MENU zeigt `RESET`, und die Hinweiszeile in SETTINGS zeigt
+in MENU zeigt `UPDATED`, und die Hinweiszeile in SETTINGS zeigt
 `RESET BY UPDATE - CHECK AND SAVE`, bis ein Speichern gelingt. Ein
 beschädigter Block, statt eines von einer anderen Version geschriebenen, wird
 ohne diese Hinweise verworfen; die Hinweiszeile zeigt dann

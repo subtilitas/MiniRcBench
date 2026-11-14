@@ -273,7 +273,7 @@ Sicherung und der Vermerk zuerst auf die Karte, während der Bildschirm weiter
 zeichnet. Die Seite zeigt `SAVING THE BACKUP TO THE CARD.` und zum Beispiel
 `BLOCKS LEFT: 12`, und das Servo wird erst geschrieben, wenn die Karte beides
 hält. Nimmt die Karte die Daten nicht an, hält das Schreiben an:
-`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
+`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
 Das Übertragen scheitert, wenn ein Blockschreiben fehlschlägt oder die Karte
 im Steckplatz gewechselt hat, nicht bei einer vollen Karte: Eine volle Karte
 endet in `THE CARD TOOK NO FILE`, bevor etwas eingereiht ist. Zum Servo ging
@@ -387,7 +387,7 @@ zweites Halten. Die Seite zeigt dann
 - **Eine Karte, die keine Datei annimmt.** Nimmt eine eingebundene Karte weder
   die Sicherung noch den Vermerk an, stoppt das Schreiben vor dem ersten
   Frame. Die Schreibseite zeigt
-  `THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
+  `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
 
 Die Sicherungen teilen sich einen Ring von 50 Nummern mit den Sicherungen des
 AM32-Editors und des Hitec-Programmierers, `BACKUP/KSTnnn.TXT`,
@@ -458,7 +458,7 @@ zeigt die Abziehseite unmittelbar.
 - **Der Bildschirm kehrt zur Suche zurück.** Das Servo antwortet nicht mehr.
   Schalte es erneut ein.
 - **`IN DOUBT`.** Stelle über FILES mit `HOLD TO RESTORE` wieder her.
-- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`**
+- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`**
   Prüfe die Karte, oder nimm sie aus der USB-Nutzung, und schreibe dann
   erneut.
 

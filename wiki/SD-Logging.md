@@ -66,7 +66,7 @@ card.
 | Row | Meaning |
 |---|---|
 | **STATUS** | `NO CARD`, `READY`, `RECORDING` or `CARD ERROR` |
-| **FILE** | The open file. After a log ends, its file with `(LAST)`, for example `LOG00012.BFL (LAST)`, next to its counters, until the next `START`. `--` before the first log after power-up |
+| **FILE** | The open file. After a log ends, its file with `(LAST)`, for example `LOG00012.BFL (LAST)`, next to its counters, until the next `START` or a mount. `--` before the first log after power-up and after a mount (`RETRY MOUNT`, the end of `USB DRIVE`, a tool's remount): the card may be another one, so the name and the counters reset |
 | **FRAMES** | Frames written so far |
 | **WRITTEN** | Kilobytes written |
 | **DROPPED FRAMES** | Frames the buffer could not hold. **Should be zero.** Red otherwise |
@@ -87,9 +87,13 @@ The usual cause is a slow card. Try another card first.
 
 <img src="img/log-card-full.png" width="240" alt="SD LOG after a write found the card full">
 
-When a log ends without `STOP`, two amber lines above `START` say how, and
-what to do. They stay until the next `START` or a mount (`RETRY MOUNT`, or the
-end of `USB DRIVE`).
+When a log ends on its own, or a tool takes the card, amber lines above
+`START` say how, and what to do. A disarm that ends a log arming started, and
+`STOP`, show none. A card's fault stays until the next `START` or a mount
+(`RETRY MOUNT`, the end of `USB DRIVE`, or the remount KST SERVO and HITEC
+SERVO make after a failed card write). A tool's stop has one line and stays
+until the next `START`, across mounts, as it stays true of the last log;
+without a card the mount hint takes the second line.
 
 | Lines | Meaning | What to do |
 |---|---|---|

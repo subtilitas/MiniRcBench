@@ -93,7 +93,7 @@ Einstellung beginnt mit ihrer Voreinstellung. Der Startbildschirm zeigt dann
 über dem Namen zwei Zeilen in Bernstein: `SETTINGS RESET BY UPDATE` und
 `CHECK MENU > SETTINGS`. Prüfe mindestens Polzahl, `MAX THROTTLE`, `ESC PIN`,
 KISS, `SERVO SUPPLY` und `CURRENT SENSE` und halte dann `HOLD TO SAVE`. Bis
-ein Speichern gelingt, zeigt die Zeile SETTINGS in MENU `RESET`. Eine Platine,
+ein Speichern gelingt, zeigt die Zeile SETTINGS in MENU `UPDATED`. Eine Platine,
 die nie Einstellungen gespeichert hatte, zeigt beides nicht.
 
 <img src="img/splash-reset.png" width="240" alt="Startbildschirm, nachdem ein Update die gespeicherten Einstellungen verworfen hat">
@@ -161,7 +161,7 @@ null.
 `MENU` auf dem Tester öffnet die Liste der Werkzeuge. Das Öffnen entschärft
 immer. Tippe auf die Zeile `SETTINGS`.
 
-<img src="img/settings.png" width="240" alt="SETTINGS, nachdem ESC PIN auf GP1 gewechselt hat: die Hinweiszeile zeigt UNPLUG ANY SERVO FROM GP1 NOW">
+<img src="img/settings.png" width="240" alt="SETTINGS nach einer Änderung: MOTOR POLES auf 16 und UNSAVED - HOLD SAVE TO KEEP">
 
 - **MOTOR POLES**: rechnet die gemeldete eRPM (elektrische Drehzahl) mit
   `RPM = eRPM / (Pole / 2)` in die Drehzahl um. Bereich 2–28, nur gerade
@@ -176,8 +176,12 @@ Beide Zeilen stehen oben in der Liste. Beide Werte werden erst mit
 `SETTINGS`.
 
 `ESC PIN`, weiter unten, legt DShot sofort auf den anderen Pin. Solange es
-nicht der Pin ist, den der Startbildschirm nannte, wiederholt die Hinweiszeile
-dessen Warnung für den neuen Pin, wie im Bild: `UNPLUG ANY SERVO FROM GP1 NOW`.
+nicht der Pin ist, den der Startbildschirm nannte, wiederholt eine eigene
+Zeile über `LINK` dessen Warnung für den neuen Pin in Bernstein,
+`UNPLUG ANY SERVO FROM GP1 NOW`; die Hinweiszeile darunter sagt weiter, ob die
+Einstellungen gespeichert sind.
+
+<img src="img/settings-pin.png" width="240" alt="SETTINGS, nachdem ESC PIN auf GP1 gewechselt hat: UNPLUG ANY SERVO FROM GP1 NOW über LINK, UNSAVED in der Hinweiszeile">
 
 ---
 
