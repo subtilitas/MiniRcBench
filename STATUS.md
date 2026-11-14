@@ -71,7 +71,8 @@ rcbench's decoder turns the bytes into frames, flags, a mean frame interval and
 error counts for a screen to read. Host tests only; no screen opens it yet
 (its slice 3, open item 19).
 Menu structure B ([menu-b.md](docs/design/menu-b.md)), the owner's choice of
-2026-11-13, has slices 1 to 9 of 10 built. Slice 1: the leave page
+2026-11-13, is built in its 10 slices, host tests only, not on hardware.
+Slice 1: the leave page
 widget (`src/ui_leave.*`), the BACK guard and two strip lines
 (`src/ui_widgets.*`), the field row (`src/ui_list.*`), the colour role names and
 the layout constants. Slice 2:
@@ -112,8 +113,12 @@ chooser of KST / CHASERVO, HITEC D SERIES and HITEC CLASSIC from
 `uiOpenTool()` with the entry's own entry point, the claim of SIG on that
 frame; HITEC SERVO without its family view, a D series servo on its own
 supply waiting in Held for READ (the owner's decisions 34 and 35 of
-2026-11-14). The owner answered the note's eight questions on 2026-11-14;
-slice 10 waits on being built (open item 18). The pin
+2026-11-14). Slice 10: the documentation no slice owned, menu.md's tree and
+MENU as built, revision lines in the design notes, README's Layout, Tests
+and user manual, and rule 9 of `test/check_docs.py`, which fails when
+README.md or a wiki page names a screen text, view or image structure B
+removed. The owner answered the note's eight questions on 2026-11-14 (open
+item 18). The pin
 claim both features share is built (slice 1): the AM32 editor and the servo
 tester run on it. For the ESC, the board is the throttle source. It sends
 bidirectional DShot (a digital ESC protocol in which the ESC answers each
@@ -302,7 +307,7 @@ record either way.
 | Blackbox logs in `LOGS/` (`SD_LOG_DIR_PATH`) | the next log's file over FatFs R0.15 (`make -C test lognum`); the rest of `sd_log.cpp` is typechecked only | not tested on hardware |
 | SD write cache for the backup claims (`src/sdio/sd_cache.*`, `src/card_cache.*`, the glue in `src/sdio/sd_card_glue.c`, `sdh_write_start()` and `sdh_write_poll()`); [sd-write-cache.md](docs/design/sd-write-cache.md) | the cache against a fake card (`runSdCacheTests`), the asynchronous block write against the simulated card (`runSdioTests`); the KST write waiting for the flush, a failed flush, the claim turning the cache on and off, a running log stopped, AM32's write refused after a failed flush, against a fake of `card_cache.h`; the glue and `card_cache.cpp` are built by the firmware only | not tested on hardware |
 | Pin claim (`src/pin_claim.*`) and core1 job dispatch (`src/core1_job.*`), the zero-throttle drain in `src/esc_task.*` | each refusal rule at its 500 ms boundary and their order; the handover decisions of `escTaskPoll()` (`escHandoverStep()`, `escDrainSlot()`, `escPumpFrameSent()`, `escPumpBind()`) one 1 ms slot at a time: 250 zero frames, the teardown 251 ms after the last throttle frame, the bind disarmed; the order of the two cores' steps against fake jobs, BACK and RETRY, Restoring, the unplug-page rule, the restore wiring, the start guard, the heartbeat rule across a millis() rollover; the PIO and pad calls around those decisions are compiled only | not tested on hardware; open item 8 |
-| MENU layout (`src/ui_menu.cpp`, `src/ui_registry.cpp`): BEEP THE ESC, AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO, SETTINGS and SD LOG as 40 px rows, scrolled 36 px to reach SD LOG | every registry entry opens and BACK returns to MENU; opening MENU disarms; BEEP's flash and refusal on its row; the rows drawn disabled and `DSHOT RESTARTING ON SIG GP0` while the claim restores, and a tap on a row opens nothing; six rows do not scroll and seven scroll 36 px; SETTINGS, the sixth row, is whole and takes a tap at 0 px, and SD LOG, the seventh, is cut until MENU is dragged; the UNSAVED status shows on MENU at 0 px after leaving SETTINGS; the label and status fit check at build time | not recorded |
+| MENU layout (`src/ui_menu.cpp`, `src/ui_registry.cpp`): BEEP THE ESC, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG and SETTINGS as 40 px rows, scrolled 36 px to reach SETTINGS | every registry entry opens and BACK returns to MENU; opening MENU disarms; BEEP's flash and refusal on its row; the rows drawn disabled and `DSHOT RESTARTING ON SIG GP0` while the claim restores, and a tap on a row opens nothing; over test registries, six rows do not scroll and seven scroll 36 px; SD LOG, the sixth row, is whole and takes a tap at 0 px, and SETTINGS, the seventh, is cut to 6 px until MENU is dragged 36 px; MENU opens at 0 px again when a tool returns; the UNSAVED status on MENU after leaving SETTINGS, its row revealed by a drag; the label and status fit check at build time | not recorded |
 | Servo tester: the pure model (`src/servo_model.*`), the PWM driver (`src/servo_pwm.*`), the core1 job (`src/servo_job.*`), the slider and the screens (`src/ui_slider.*`, `src/ui_servo.cpp`); rcbench's sweep and PWM fold in `lib/rcbench/` | profiles, limits at their boundaries, steppers to their stops, command, angle and pulse mappings, SPEED, the dial's hit area; the PWM driver's bind, write, release and sharing rules against a register fake; SAFE at level 0, CENTRE at START, STOP on the next pass, the slew, sweeps, REVERSE B, the trip at 250 ms across a millis() wrap, kept across a rebind, the profile rebind; no pulse cut short at a release or a rebind, against a model of the counter and the latched compare; released pins pulled down; the screens through the UI: HOLD TO START at 1000 ms, the drag rules, the SET warning and HOLD TO APPLY, a TYPE, MIN or MAX change further past the travel and SERVOS ONE to TWO past it held for HOLD TO APPLY, a step back or toward the centre and TWO to ONE applied at once (`servoTravelNeedsHold()`), a pending TWO dropped to one servo when the claim takes SIG alone, a wait that held only for TWO ended and a heli, 60 Hz or travel wait beside it kept, the end-stop note and its place among SET's notes, STOP on SET, the AUX refusals through the claim, the leave page; rcbench's own sweep and fold tests; the SDK calls are run against the fake only | not tested on hardware; open item 9 |
 | KST programming: rcbench's session, line driver and file store (`lib/rcbench/`), the search (`src/kst_seek.*`), the core1 job (`src/kst_job.*`) and its line (`src/kst_line_port.*`), the files on the card (`src/kst_files.*`), the screen (`src/ui_kst.cpp`, `src/kst_view.*`) | rcbench's seven tests, 298 cases, the line's PIO program among them in a model (`test_kst_pio.c`); the search and the job against rcbench's simulated servo, the files against an in-memory FAT (File Allocation Table) volume, the backup in `BACKUP/` and SAVE AS in `KST/` up to 50 files among them, the card phases' block counts over FatFs R0.15 itself (`make -C test kstcount`), the screen through MENU against both (`runKstTests`); the line driver and `kst_line_port.cpp` are built by the firmware and typechecked only | not recorded: no frame of the line driver has been on a pin (`kst_line.h`) |
 | SETTINGS layout (`src/ui_settings.cpp`): sections ESC TESTER, WIRING, SERVO SUPPLY, DISPLAY, BOARD and DIAGNOSTICS in one scrolling list | the scroll range, 0 px at opening and 620 px at most, 632 px while the ESC pin's warning shows; each row by id; no scroll from a press on a control; a cut control takes a press only while 40 px show; HOLD TO SAVE in place at every scroll position and saving at the end of the list; the pole count reaches the eRPM divisor, the ceiling steps by 5 %, and HOLD DEFAULTS restores both; HOLD DEFAULTS loads nothing on a tap, at 975 ms or after a slide off, loads at 1000 ms once per press, and draws its bar, its `C_RED` fill and its two-line label (`testResetHold()`); the footer at 6/150 and 162/72, y 268, 46 px, and HOLD TO SAVE's `C_RED` fill | not recorded |
@@ -323,6 +328,7 @@ record either way.
 | Menu structure B, slice 6: the leave page, decisions 5 and 21 and owner decisions 3, 25 and 30 of [menu-b.md](docs/design/menu-b.md#slice-6-as-built) (`src/ui_kst.*`, `src/ui_hitec.*`, `src/ui_servo.*`, `src/ui_leave.*`) | on KST SERVO, HITEC SERVO and SERVO TESTER: the page before LEAVE, releasing and released, each step's text, number, colour and bar, the notes in amber before LEAVE and grey after, the strip's `SIG GP0`; STAY to the list; LEAVE ending the claim, its record removal, the page releasing in place; NEXT SERVO and BACK TO SERVO keeping the claim, the cache on again, a new search or session, Hitec's READ wait for a D series servo on its own supply; RESTART DSHOT in LEAVE's rectangle, drawn disabled and reported disabled until 1000 ms after the release, live from 1000 ms to 1025 ms, then MENU and Free; a tap in the wait, a second tap of a double tap on LEAVE, and a press that landed in the wait and lifted after it restarting nothing; BACK drawn disabled and doing nothing in every phase; a page with no servo in the mode opening at `1 UNPLUG THE SERVO.`; HOLD TO REBOOT and READ AGAIN at the right rectangle at scale 1; the switched supply's countdown note and no NEXT SERVO line; the control table in each phase; Hitec's LEAVE removing the record of a write refused at red and keeping that of a failed write; BACK after a failed Hitec entry and during KST's REBOOT opening the page releasing; no REBOOT note without the switch; the supply note clamped to 2.0 s left; 46 mutations, 44 failing the suite and two equivalent, listed in the note | host only |
 | Menu structure B, slice 8: SERVO TESTER's title, decision 13 of [menu-b.md](docs/design/menu-b.md#slice-8-as-built) (`SERVO_UI_TITLE` in `src/ui_servo.h`, `src/ui_servo.cpp`, `src/ui_registry.cpp`) | `SERVO TESTER` drawn in the header on the main view and the leave page, plain panel from its end to BACK; the title MENU's row label and `UI_SERVO.title`; 13 characters or fewer, ending 4 px or more before BACK; 10 mutations, each failing the build or the suite | host only |
 | Menu structure B, slice 9: MENU's seven rows and PROGRAMMER, owner decisions 1 and 2 and decisions 15 d, 16, 18, 19, 23 and 31 to 35 of [menu-b.md](docs/design/menu-b.md#slice-9-as-built) (`src/ui_registry.*`, `src/ui_menu.*`, `src/ui_servo_prog.*`, `src/ui_screen.h`, `src/ui.cpp`, `src/ui_hitec.*`, `src/ui_kst.*`, `src/ui_am32.cpp`, `src/ui_servo.cpp`) | the seven rows in their order, the tool rows without a status, SD LOG whole at 0 px and SETTINGS whole after a 36 px drag; RX SIGNALS drawn disabled under `NOT BUILT` while the claim is Free, Stopping, Held and Restoring, a tap and a press doing nothing, the strip's caption kept while Free; SERVO PROGRAMMER drawn disabled while the claim restores; PROGRAMMER claiming nothing, DShot running on SIG while it shows, its title, strip, three entries and their lines with OWN, GP28 and GP29, HITEC CLASSIC drawn disabled and inert without the switch, a press drawn pressed and a slide-off opening nothing, BACK to MENU, the control table; each entry opening its screen and claiming SIG on the tap's frame; HITEC SERVO's `RELEASING SIG GP0 FROM DSHOT`, the READ wait with no job, no line opened and no write before READ, READ starting the job, BACK there opening the leave page releasing and NEXT SERVO returning to the wait, the ESC refusal asked again every frame with BACK to MENU, BACK while DShot drains to MENU with DShot resumed, the job starting after the claim with the switched supply and for CLASSIC, the supply off at the bind, NEXT SERVO keeping the classic family, NEXT SERVO after a D series read returning to the READ wait with no line opened and nothing written, `pinClaimKeep()` leaving HITEC's job unasked and SERVO's wanted, the note `NEXT SERVO: POWER IT AFTER THE TAP.`, READ ignoring a press that landed while DShot drained, RESTART DSHOT to MENU; the classic entry opened by hand without the switch starting its job and refused by it; 51 mutations, 49 failing the suite and two equivalent, listed in the note | host only |
+| Menu structure B, slice 10: the documentation no slice owned, [slice 10 as built](docs/design/menu-b.md#slice-10-as-built) (`docs/design/`, README.md, rule 9 of `test/check_docs.py`) | rule 9 against the tree: no removed screen text, view, MENU path or image in README.md, `wiki/*.md`, a `fakeDumpFrame()` call or `tools/make_previews.py`; each kind added to README.md, a German wiki page, `tools/make_previews.py` and `test/test_menu.cpp` fails it, 20 lines | no firmware change |
 | Control tables (`src/ui_screen.h`; slice B of [menu.md](docs/design/menu.md)) | every screen's table on each view the host suite reaches, the ids, rectangles and enabled flags, `uiCurrentScreen()` after each navigation; the UI tests tap by id | host only: the firmware does not call the tables |
 | Serial telemetry dump | none | not recorded |
 | `tools/sdtest`, SD bring-up firmware | none, not built in CI | hardware use recorded in f16a70f and e9c9d9a, the 2.8" board with the previous SDIO driver among them; nothing is recorded for the current build |
@@ -383,8 +389,8 @@ v0.1.0-rc1 exists: the tag points at a93e1c1, and its Release run of
 `SHA256SUMS.txt` and `THIRD_PARTY_NOTICES.txt`. The Docs run it started
 was skipped, as a suffixed tag's is, so no manual is published. That image
 has not run on hardware. v0.1.0 waits on the bench checks; the owner pushes
-the tag. Slice 10 of menu structure B waits on being built, not on the bench
-(item 18).
+the tag. Menu structure B is built in its 10 slices, host tests only; it has
+not run on hardware (item 18).
 
 ## Open items
 
@@ -568,7 +574,8 @@ the tag. Slice 10 of menu structure B waits on being built, not on the bench
     run on the bench, with the questions listed in
     [diagnostics.md](docs/design/diagnostics.md).
 
-18. **Menu structure B, slice 10 waits on building.** Slices 1 to 9 of
+18. **Menu structure B is built, host tests only; not on hardware.**
+    Slices 1 to 10 of
     [menu-b.md](docs/design/menu-b.md) are built: slice 2 is the colour
     roles, slice 3 the names and SETTINGS (decisions 9, 10 and 15 b, e, f, h,
     j, k), slice 4 the layout table, slice 5 the write rule and the guard
@@ -583,8 +590,10 @@ the tag. Slice 10 of menu structure B waits on being built, not on the bench
     TESTER's title, slice 9 MENU's seven rows and PROGRAMMER, the chooser
     of the servo programmers (owner decisions 1 and 2 and decisions 15 d,
     16, 18, 19, 23 and 31 to 35, with
-    [its readings](docs/design/menu-b.md#slice-9-as-built)); slices 2 to 9
-    run in the host suite only, and
+    [its readings](docs/design/menu-b.md#slice-9-as-built)), slice 10 the
+    documentation no slice owned and rule 9 of `test/check_docs.py`
+    ([slice 10 as built](docs/design/menu-b.md#slice-10-as-built)); slices
+    2 to 9 run in the host suite only, none on the panel, and
     slice 2's colours have not been looked at on the panel, in either theme.
     In the high-contrast palette several of slice 2's pairs differ in
     brightness only, black against a dark grey: the KISS and EDT tags, the
@@ -605,7 +614,7 @@ the tag. Slice 10 of menu structure B waits on being built, not on the bench
     every screen; each slice updates its own README and wiki lines and
     images; the KST labels FAILSAFE MOVE, FAILSAFE POSITION, FAILSAFE TIME,
     REVERSED; OWN for SERVO SUPPLY's no-switch value; RESTART DSHOT after
-    1000 ms. Slice 10 waits on being built. Three decisions
+    1000 ms. Three decisions
     change the note's design, and the sections they touch are marked to be
     redesigned: the docs go with each slice, against the note's
     recommendation, so the slice table is reworked and slice 10 shrinks;
@@ -626,8 +635,8 @@ the tag. Slice 10 of menu structure B waits on being built, not on the bench
     answered the questions of four design notes; each note records the
     answers as decisions:
     - [menu-b.md](docs/design/menu-b.md): all eight, and the seventh MENU
-      row that followed from them (item 18). Built up to slice 9; slice 10
-      waits on building.
+      row that followed from them (item 18). Built in its 10 slices, host
+      tests only.
     - [rx-signals.md](docs/design/rx-signals.md): build the S.BUS (Futaba's
       serial bus for receiver channels) monitor and an S.BUS output, no PPM
       (pulse-position modulation) output; the monitor reads UART0 on GP1
@@ -755,7 +764,7 @@ the tag. Slice 10 of menu structure B waits on being built, not on the bench
     draw radii, or drop them, is open; the chips are square by decision 11
     either way.
 26. **Run summary per log, the owner's choice of 2026-11-14,** from the
-    feature survey. Designed in
+    feature survey (item 28). Designed in
     [run-summary.md](docs/design/run-summary.md), not built: a summary
     per blackbox log, kept by the logger on core0, written as
     `LOGS/LOGnnnnn.TXT` beside the `.BFL` at a clean stop and shown on SD
@@ -767,9 +776,9 @@ the tag. Slice 10 of menu structure B waits on being built, not on the bench
     the owner's answers to the note's eight questions.
 
 27. **Angle meter on the board's IMU, designed, not built.** The owner's
-    choice of 2026-11-14 from the feature survey: incidence, decalage,
-    dihedral and control-surface throw, in degrees and mm, from the
-    QMI8658 at 0x6B on I2C1.
+    choice of 2026-11-14 from the feature survey (item 28): incidence,
+    decalage, dihedral and control-surface throw, in degrees and mm, from
+    the QMI8658 at 0x6B on I2C1.
     [angle-meter.md](docs/design/angle-meter.md) describes the driver on
     core0 after the touch and current-sensor reads, the angle from the
     accelerometer alone, ZERO, a three-pose flip calibration, the screen
@@ -779,6 +788,34 @@ the tag. Slice 10 of menu structure B waits on being built, not on the bench
     row, a TOOLS row with a chooser, TOOLS in SD LOG's row, or a SETTINGS
     row. Which QMI8658 variant is fitted, its byte order, its axes on the
     board, the board's mass and the real accuracy are not verified.
+
+28. **The owner's feature choice of 2026-11-14.** From the feature survey
+    of 2026-11-14 the owner chose six features for the build list, each to
+    get a design note first, then slices with reviews:
+    1. an ESC commands page and an RPM-per-volt and kV estimate on the
+       tester;
+    2. receiver inputs on RX SIGNALS: servo pulse width and frame rate on
+       AUX, then CRSF/ELRS, iBUS and SUMD decoders, written in rcbench
+       first;
+    3. an IMU (inertial measurement unit) angle meter on the board's
+       QMI8658: incidence, decalage, dihedral, surface throw;
+    4. a run summary per log, optionally dated with the board's RTC
+       (real-time clock);
+    5. a USB one-wire bridge for desktop ESC tools;
+    6. Bluejay and BLHeli_S settings.
+
+    Not chosen now: a PWM ESC mode with a tachometer. For (1),
+    [esc-commands.md](docs/design/esc-commands.md) designs an ESC COMMANDS
+    page, beacons 1 to 5, direction and 3D mode, each change saved in the
+    ESC behind a 1 s hold, and an RPM/V reading and a kV estimate on the
+    tester. Not built. The note waits on the owner's answers to its ten
+    open questions: where the page lives, save with each change, a hold or
+    a write page, the 3D note after 3D OFF and across a restart, commands
+    and beacons with no ESC answering, where the two figures go on the
+    tester, the estimate's minimum throttle, the ESC information reply, the
+    tester's 3D note text, and a direction note on the tester. Its firmware
+    facts are read from source and the BLHeli_32 command specification;
+    none has been checked on an ESC.
 
 ## Known limitations
 
@@ -937,7 +974,7 @@ requests, by hand):
 | Blackbox round-trip | builds `blackbox_decode` from source, runs `make bbcheck` |
 | Config permutations | typechecks all of `src/` with `-Werror` for 32 combinations, with the headers in `lib/rcbench/` on the include path: AM32 transmit mode × AM32 low-jump × rotation 0 or 2 × KISS on or off × SD logging on or off; checks the landscape guard fires |
 | Workflow lint | actionlint 1.7.7 and a duplicate-key check on every workflow in `.github/workflows/` |
-| Docs | `test/check_docs.py`; `tools/make_wiring.py --check` against `docs/wiring.svg`; then Doxygen with zero warnings allowed |
+| Docs | `test/check_docs.py`, its rule 9 refusing a screen text, view or image menu structure B removed in README.md and the wiki; `tools/make_wiring.py --check` against `docs/wiring.svg`; then Doxygen with zero warnings allowed |
 | Coverage | `make -C test coverage`, then `python3 tools/coverage.py --check`; fails on drift from the table below, below 93 % in total, or below 85 % in any file |
 
 **Release** (`.github/workflows/release.yml`; on `v*` tags, by hand): resolves

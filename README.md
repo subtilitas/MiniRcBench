@@ -52,13 +52,18 @@ summary per blackbox log, written beside the log and shown on SD LOG, with the
 board's PCF85063 real-time clock dating the files on the card as an option, is
 planned in `docs/design/run-summary.md` and not built; it waits on the owner's
 answers to that note's open questions.
-Menu structure B is described in `docs/design/menu-b.md`; slices 1 to 9 of
-10 are in the tree: its building blocks, its colour roles, its names and
-SETTINGS, its layout table, its write rule and BACK guard, the one leave
-page of KST SERVO, HITEC SERVO and SERVO TESTER, the tester's readouts that
-open SETTINGS with LATCH, SERVO TESTER's title, the MENU row's label, and
-MENU's seven rows by device with PROGRAMMER, the chooser of the servo
-programmers.
+An ESC COMMANDS page, sending DShot beacons, direction and 3D mode, each
+change saved in the ESC behind a 1 s hold, and an RPM-per-volt reading and
+a kV estimate on the tester, labelled `KV EST`, are designed in
+`docs/design/esc-commands.md` and not built; they wait on the owner's
+answers to that note's open questions.
+Menu structure B is described in `docs/design/menu-b.md`; its 10 slices are
+in the tree, tested on the host only: its building blocks, its colour roles,
+its names and SETTINGS, its layout table, its write rule and BACK guard, the
+one leave page of KST SERVO, HITEC SERVO and SERVO TESTER, the tester's
+readouts that open SETTINGS with LATCH, SERVO TESTER's title, the MENU row's
+label, MENU's seven rows by device with PROGRAMMER, the chooser of the servo
+programmers, and the design notes and checks no single slice owned.
 The uses that the design note's decision 11 names take their role's colour,
 and a value changed and not yet written is cyan.
 
@@ -1873,9 +1878,9 @@ not 0 answers ID 0 is not measured.
    the line closes; with `OWN` LEAVE restarts the servo from its saved
    values, and the page reads `RELEASING THE PIN`. Once the pin is let go
    NEXT SERVO starts a session for the next servo as for the first: with
-   `OWN` the D series wait for READ (`NEXT SERVO: POWER IT AFTER THE TAP.`),
-   with the switch the entry at once. RESTART DSHOT acts 1000 ms later and
-   returns to MENU.
+   `OWN` a D series servo waits for READ
+   (`NEXT SERVO: POWER IT AFTER THE TAP.`); with the switch the entry starts
+   at once. RESTART DSHOT acts 1000 ms later and returns to MENU.
    BACK on the page is drawn disabled in every phase; BACK during the entry
    opens it at `1 UNPLUG THE SERVO.`
 7. With `GP28` or `GP29` the supply is on only while the screen runs. A screen that
@@ -2198,7 +2203,7 @@ src/
   ui_hold.{h,cpp}       the hold-to-act control: 1 s timer, one firing, its bar
   ui_leave.{h,cpp}      the leave page: phases, numbered steps, RESTART DSHOT's wait
   ui_am32.{h,cpp}       AM32 config screen: connect, edit, verified write
-  ui_servo.{h,cpp}      servo tester screens: SERVO, SET, the leave page
+  ui_servo.{h,cpp}      SERVO TESTER: the main view, SERVO SET, the leave page
   ui_slider.{h,cpp}     slider with delta drag, tap-to-set and presets, from rcbench
   servo_model.{h,cpp}   servo profiles, limits, steppers and mappings (pure)
   servo_pwm.{h,cpp}     hardware PWM servo outputs, from rcbench
@@ -2299,27 +2304,49 @@ those files as C11 programs: `test/rcbench/test_servo_sweep.c` and
 `hitec_headers.cpp` built as C++11, and `test_sbus.c` (12 cases). The SDIO
 tests run the card protocol against a simulated card. Time is virtual and
 counted in microseconds — `millis()` advances only when a test says so —
-which makes hold-to-arm, hold-to-write and gesture repeat deterministic rather
-than dependent on machine speed. The fake ESC serves a real settings blob
-recovered from the reference configurator, so the UI tests operate on values a
-real ESC would report. The suite renders 47 screens to PPM (portable pixmap)
-images as it runs, so a layout change is visible in the frames:
+which makes hold-to-arm, hold-to-write and gesture repeat deterministic
+rather than dependent on machine speed. The fake ESC serves a real settings blob recovered from the
+reference configurator, so the UI tests operate on values a real ESC would
+report. The suite renders 111 screens to PPM (portable pixmap) images as it
+runs, one file per `fakeDumpFrame()` name, so a layout change is visible in
+the frames:
 
-- the splash;
-- seven of the main screen: disarmed, armed, live, stale, with KISS values,
-  high contrast, the card held by a USB host;
-- nine of MENU: on arrival, the EDT chip on, off and reading NO ESC, BEEP
-  accepted and refused, unsaved settings, DSHOT RESTARTING, seven rows;
-- four of MENU → SETTINGS: the top, scrolled to the end, high contrast, the
-  CURRENT SENSE row with a sensor found;
-- six of MENU → SD LOG: ready, recording, no card, a card found by RETRY
-  MOUNT, USB DRIVE refused, USB DRIVE serving;
-- six of the AM32 editor: list, field edit, scrolled, written, written with
-  a backup, hex view;
-- fourteen of the servo tester: SAFE, running, sweeping, two servos,
-  stalled, an ESC answering, a refused bind, SET, SET with a warning, SET
-  while running, SET with one GPIO for both pins, the leave page, the
-  switched supply's line, the current sensor's readout.
+- five of the splash: as it boots, with no answer from the touch
+  controller, after an update reset the settings, the same with no touch
+  answer, after an update carried the settings over;
+- eleven of the tester: disarmed, armed, live, stale, no ESC, an ESC
+  answering at rest, with KISS values, the 3D mode note, `SDERR` while
+  armed, the card held by a USB host, high contrast;
+- ten of MENU: on arrival, the EDT chip on, off and reading NO ESC, BEEP
+  sent and refused, SETTINGS' `UNSAVED` and `UPDATED`, DSHOT RESTARTING,
+  AM32's power-cycle cue;
+- two of MENU → SERVO PROGRAMMER: SERVO SUPPLY at `OWN` and at a pin;
+- seven of MENU → SETTINGS: the top, scrolled to the end, high contrast,
+  SERVO SUPPLY at a pin, the CURRENT SENSE row with a sensor found, the
+  warning for SIG moved off the boot pin, settings carried over by an update;
+- eight of MENU → SD LOG: ready, recording, no card, a card found by RETRY
+  MOUNT, the last log named, a full card, USB DRIVE refused, USB DRIVE
+  serving;
+- seventeen of AM32 CONFIG: the connect page, a reply it cannot parse, the
+  list, a field edit, scrolled, AM32 HEX, the read-only view, firmware 2.22,
+  an older firmware, the 3D mode note, a protection off, the BACK guard,
+  AM32 WRITE before its hold, written, written with a backup, a write not
+  verified, a write refused on a red BOARD voltage;
+- fifteen of SERVO TESTER: SAFE, running, sweeping, two servos, stalled, an
+  ESC answering, a refused bind, one GPIO for both pins, the switched
+  supply's line, the current sensor's readout, SERVO SET, SET with a
+  warning, SET while running, SET past the travel, the leave page;
+- twenty of KST SERVO: the search, the switched search, the field list, an
+  edit, KST WRITE, KST WRITE with five changes, KST WRITE without a card,
+  the result, a failed flush, a write refused on a red BOARD voltage, a
+  failed read, the servo in doubt, the stalled screen, KST FILES, the
+  restore page, and the leave page before LEAVE, with changes not written,
+  with the switched supply, counting the supply off, and released;
+- sixteen of HITEC SERVO: the wait for READ, an ESC answering, the field
+  list, an edit, HITEC WRITE, HITEC WRITE for a loaded file, the ID note, a
+  model not measured, a write error, a write refused on a red BOARD
+  voltage, HITEC FILES, the repair view, the stall, and the leave page
+  before LEAVE, after a failed write, and released.
 
 Failing tests dump their frame too.
 
@@ -2424,7 +2451,7 @@ at the next period. It also runs the init's forced `pull noblock` and
 | **Coverage** | Line coverage below 93% in total or 85% in any file, or a README or STATUS.md coverage figure that no longer matches `tools/coverage.py` |
 | **Blackbox round-trip** | Encodes a log and decodes it with Betaflight's own `blackbox_decode`, comparing every value |
 | **Config permutations** | All 32 combinations of `AM32_PUSH_PULL_TX`, `AM32_FORCE_LOW_JUMP`, `LCD_ROTATION`, `KISS_TELEM_ENABLE` and `SD_LOG_ENABLE`, warnings fatal |
-| **Docs** | Undocumented additions, through Doxygen and `test/check_docs.py`, and a `docs/wiring.svg` that differs from what `tools/make_wiring.py` draws |
+| **Docs** | Undocumented additions, through Doxygen and `test/check_docs.py`; a screen text, view or image that menu structure B removed, named again in README.md, a wiki page or a shot name (`check_docs.py`); and a `docs/wiring.svg` that differs from what `tools/make_wiring.py` draws |
 | **Workflow lint** | `actionlint`, plus a duplicate-key check that PyYAML would otherwise let through and GitHub would not |
 
 The firmware job also checks the size against ceilings of 1 MiB flash and 400,000 bytes of RAM (random-access memory), that
@@ -2537,7 +2564,12 @@ cd test && make wiki      # render wiki/img/, then check every link and image
 
 The Host tests job in `ci.yml` runs the same render and check on every push to
 `main` or `master` and on every pull request. A renamed page or a dropped
-`fakeDumpFrame()` call fails that run.
+`fakeDumpFrame()` call fails that run. The images are named after the shots,
+`shot_prog_chooser.ppm` → `img/prog-chooser.png`, and show the screens as
+the suite draws them, so the manual's pictures follow menu structure B.
+`test/check_docs.py` fails when README.md or a wiki page names a screen
+text, a view or an image that menu structure B removed; the script holds
+the list.
 
 ---
 

@@ -275,10 +275,11 @@ is alive" for the pump and every job.
 
 **Armed: the claim is refused.** `pinClaimBegin()` returns `Armed` and
 changes nothing. It does not disarm on the caller's behalf. Every entry point
-is a MENU row, and `uiOpenMenu()`, the one route from the tester to MENU,
-disarms, so through the UI the refusal is unreachable. A route added later
-that reaches a claim while armed then shows up as a refused claim in a test,
-instead of a motor stopped as a side effect of navigation.
+is a MENU row or a PROGRAMMER entry, both behind MENU. `uiOpenMenu()`, the
+one route from the tester to MENU, disarms, as does `uiOpenTool()`, which
+opens each tool, so through the UI the refusal is unreachable. A route added
+later that reaches a claim while armed then shows up as a refused claim in a
+test, instead of a motor stopped as a side effect of navigation.
 `escTaskSuspend()` keeps its own forced disarm as the backstop under that
 check.
 
@@ -393,8 +394,9 @@ servo PWM and `kst_line_close()` each leave an input with the pull-down on.
 for about 27 µs per frame at 600 kbit/s, once per `DSHOT_PERIOD_US`, 1000 µs.
 A PWM servo left on SIG measures that as a pulse of about 973 µs at 1 kHz: it
 drives towards one end of its travel, at a frame rate that overheats an
-analogue servo. So before `escTaskResume()` the SERVO, KST and HITEC screens
-show the leave page of [menu-b.md](menu-b.md#the-leave-page),
+analogue servo. So before `escTaskResume()` the SERVO TESTER, KST SERVO and
+HITEC SERVO screens show the leave page of
+[menu-b.md](menu-b.md#the-leave-page),
 `src/ui_leave.*`, whose unplug step reads, once the pin is let go:
 
 ```
@@ -428,7 +430,7 @@ state, which reads `pinClaimPoll()` until Held and then calls
 `pinClaimEnd(PinUser::Am32)`, which resumes DShot within the call. The one step
 the handover has beyond release and rebuild is the zero-frame drain of at least
 250 ms. A refused claim, which the UI cannot reach, shows `DISARM FIRST` or
-`PINS BUSY` and is asked again every frame.
+`WAIT: DSHOT RESTARTING` and is asked again every frame.
 
 ## Hardware
 
@@ -621,7 +623,10 @@ replaces whole; one source list per feature, `src/servo.cmake` and
 `test/kst.mk`, which `test/Makefile` includes; and one stub suite per feature,
 `test/test_servo.cpp` with `runServoTests()` and `test/test_kst.cpp` with
 `runKstTests()`, which `test/test_main.cpp` runs. `ui.cpp` opens a tool from
-its MENU row, and a row whose claim is refused reads `PINS BUSY`. Each slice adds one line to the job table of
+its MENU row, or from PROGRAMMER's entry for KST SERVO and HITEC SERVO, and
+MENU draws a row whose claim would be refused disabled, under the strip's
+`DSHOT RESTARTING ON SIG GP0` ([menu-b.md](menu-b.md#decisions) decision
+15 f). Each slice adds one line to the job table of
 `core1_job.cpp`. Slice 3 otherwise edits its own files, except for these
 shared files ([work breakdown](kst-programming.md#work-breakdown)): for the
 screen, step 4, `src/ui_registry.cpp`, one line; for the switched supply,
@@ -678,9 +683,19 @@ numbers stay, so the references above keep pointing at them.
 3. **ESC-answering wait.** The claim follows automatically 500 ms after the
    ESC goes quiet. On SERVO the claim sends nothing: pulses need HOLD TO
    START. On KST the search starts at once, as the AM32 search does.
+   Revised by [menu-b.md](menu-b.md#decisions) decisions 13, 31 and 34:
+   SERVO is titled SERVO TESTER; HITEC SERVO's claim, taken on PROGRAMMER's
+   tap, follows the same wait, and for a D series servo on its own supply
+   the job then waits for READ.
 4. **Unplug page.** A tap dismisses it. The page guards against forgetting,
    not against a slip of the finger, and BACK beside it undoes nothing
    dangerous.
+   Revised by [menu-b.md](menu-b.md#decisions) owner decision 3 and
+   decisions 5 and 21: the unplug page is the leave page's unplug step;
+   BACK on the page is drawn disabled in every phase, and RESTART DSHOT,
+   in LEAVE's rectangle, takes only a press that lands 1000 ms or more
+   after the pin is let go. The rule holds: the page guards against
+   forgetting, and no exit control undoes anything dangerous.
 
 Revision of 2026-10-18, after the owner's menu decisions
 ([menu.md](menu.md#decisions)): decision 2 is superseded. The MENU list of

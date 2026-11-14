@@ -578,6 +578,24 @@ protocol.
 
 ### Changed
 
+- After v0.1.0-rc1 (a93e1c1): the documentation of menu structure B that no
+  slice owned, slice 10 ([menu-b.md](docs/design/menu-b.md#slice-10-as-built));
+  menu structure B is built, host tests only. menu.md's tree and MENU
+  sections describe the seven rows, PROGRAMMER and its entries, RX SIGNALS
+  drawn disabled, the strip with SIG, AUX and `DSHOT600`, and the rows drawn
+  disabled under `DSHOT RESTARTING ON SIG GP0`. Revision lines that point to
+  menu-b.md stand on menu.md decisions 1, 12 and 18, pin-claim.md
+  decisions 3 and 4, kst-programming.md decision 18, servo-tester.md
+  decisions 7, 8 and 14 and hitec-programming.md decision 6, and where
+  menu.md named the unplug page, `PINS BUSY`, RESET and the old SETTINGS
+  rows; rx-signals.md's MENU section reads as the record of 2026-11-13.
+  README's "Tests" lists the 111 screens the suite renders, by screen, in
+  place of "47 screens"; "Layout" names SERVO TESTER's views; "The user
+  manual" says how the wiki's images are named. Rule 9 of
+  `test/check_docs.py` fails when README.md or a wiki page names a screen
+  text, view or MENU path that menu structure B removed, or an image of a
+  removed screen, and when a `fakeDumpFrame()` call or
+  `tools/make_previews.py` renders one. No firmware change.
 - After v0.1.0-rc1 (a93e1c1): MENU's seven rows and PROGRAMMER, slice 9 of
   menu structure B ([menu-b.md](docs/design/menu-b.md#slice-9-as-built),
   owner decisions 1 and 2 and decisions 15 d, 16, 18, 19, 23 and 31 to 35).
