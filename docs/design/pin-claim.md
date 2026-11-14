@@ -157,8 +157,9 @@ the exception.
    `pinClaimUnplugDue()` is true once the job is idle, RESTART DSHOT calls
    `pinClaimRestart()` 1000 ms after that at the earliest, and NEXT SERVO or
    BACK TO SERVO calls `pinClaimKeep()`, which returns the claim to Held and
-   starts the job again for SERVO and KST; HITEC asks for it again. AM32 has neither a job
-   nor the page, so its BACK restores DShot within the `pinClaimEnd()` call.
+   starts the job again for SERVO and KST; HITEC asks for it again. AM32
+   has neither a job nor the page, so its BACK restores DShot within the
+   `pinClaimEnd()` call.
 6. **Restoring.** Core0 calls `escTaskResume()`. Core1 rebuilds the driver from
    the wiring latched in `esc_task.cpp`, and the claim is `Free` from the
    first look after `escTaskSuspended()` turns false. Nothing is left for

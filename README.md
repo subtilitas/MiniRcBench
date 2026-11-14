@@ -502,10 +502,10 @@ bench. A tool row shows no state: the strip names the pins.
   claim SIG, and SETTINGS changes the wiring a claim latched. While the
   claim is not free, for example after RESTART DSHOT until the DShot pump
   runs again, these rows are drawn disabled, an outline, SETTINGS under its
-  own status and the tool rows with none, a tap opens nothing, and the strip's caption reads
-  `DSHOT RESTARTING ON SIG GP0` in amber. A tool opened some other way
-  while another claim holds reads `WAIT: DSHOT RESTARTING`; no path through
-  the screens reaches that.
+  own status and the tool rows with none, a tap opens nothing, and the
+  strip's caption reads `DSHOT RESTARTING ON SIG GP0` in amber. A tool
+  opened some other way while another claim holds reads
+  `WAIT: DSHOT RESTARTING`; no path through the screens reaches that.
 - **RX SIGNALS**: drawn disabled in every claim state, its status
   `NOT BUILT` naming why; the strip keeps its caption while the pins are
   free, so the row does not read as the DSHOT RESTARTING cue.

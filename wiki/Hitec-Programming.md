@@ -113,8 +113,9 @@ mode, the wait for `READ` included, opens the leave page at
 `1 UNPLUG THE SERVO.`, as after `LEAVE`: DShot restarts only on
 `RESTART DSHOT`. `NEXT SERVO` there starts a new session for the same
 family; for a D series servo on `OWN` it always returns to the wait for
-`READ`, so the next servo too is powered after the tap. While the driver still stops, or while the screen has not
-taken the pin, `BACK` returns to `MENU`.
+`READ`, so the next servo too is powered after the tap. While the driver
+still stops, or while the screen has not taken the pin, `BACK` returns to
+`MENU`.
 
 <img src="img/hitec-esc.png" width="240" alt="HITEC SERVO while an ESC answers on GP0: CHECKING SIG GP0 FOR AN ESC on the strip, AN ESC ANSWERS ON SIG GP0: UNPLUG IT. and DSHOT STAYS ON THE PIN UNTIL THEN. in amber">
 
