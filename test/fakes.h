@@ -23,6 +23,9 @@ struct SdLogStatus;
  * @brief Force the fake logger into a given state. @param st What to report.
  */
 void fakeSdLogSet(const SdLogStatus *st);
+/** @brief The highest `LOGnnnnn.BFL` on the fake card, 0 for none: the
+ *         next fake start takes the number after it (sdLogNextNumber()). */
+void fakeSdLogSetHighest(uint32_t n);
 
 enum class CardCache : uint8_t;
 

@@ -92,7 +92,9 @@ protocol.
   amber, MENU's SETTINGS row `UPDATED`, and SETTINGS' note line `RESET BY
   UPDATE - CHECK AND SAVE`, after the load discarded a whole settings block
   of another version, until a save lands (`settingsResetByUpdate()`). Blank
-  flash and a damaged block show none of them.
+  flash and a damaged block show none of them. After v0.1.0-rc1 only a
+  block of a version with no layout takes this path; versions 2 to 4 carry
+  over (see Changed).
 - SETTINGS repeats the splash's warning, `UNPLUG ANY SERVO FROM GP1 NOW`
   for example, in amber on a line of its own at y 230 while the live ESC pin
   is not the one the splash named (`settingsBootDshotPin()`). The list then
@@ -507,7 +509,44 @@ protocol.
 
 ### Changed
 
-- KST SERVO, HITEC SERVO and AM32 CONFIG refuse a write, and KST and Hitec a
+- After v0.1.0-rc1 (a93e1c1): stored settings of versions 2, 3 and 4 carry
+  over into version 5, by the owner's decision of 2026-11-14, in place of
+  being discarded whole as v0.1.0-rc1 does and the entries below say
+  (`settingsCarriedOver()`). DshotDisplay 2.x's version 2 block carries
+  over too. Each older layout is a table of byte offsets in
+  `src/settings.cpp`, recovered from `src/settings.h` at 8a5eebb (version
+  2), 5af4ddf (3) and 3cc8798 (4); DshotDisplay 2.0 to 2.3 write the same
+  version 2 layout. A block carries over only whole: the magic, its version,
+  that layout's payload size and its CRC-32 right. Every field it has keeps
+  its value through `settingsValidate()`; newer fields take their defaults;
+  version 3's SERVO SUPPLY of 1, an enable on GP0, loads as `NONE`. Flash
+  keeps the old block until a save lands, and HOLD TO SAVE writes a version
+  5 block even with nothing changed. Until then the splash reads `SETTINGS
+  CARRIED OVER FROM AN UPDATE` / `CHECK MENU > SETTINGS, THEN SAVE` in amber,
+  MENU's SETTINGS row `UPDATED` and SETTINGS' note line `CARRIED OVER BY
+  UPDATE - CHECK, SAVE`. A block of version 1, above 5, or of version 2, 3 or
+  4 with another layout's payload size still takes the reset path. Host
+  tests `testCarryOver()` in `test/test_settings.cpp` build each version
+  byte by byte; the wiki shows `splash-carried.png` and
+  `settings-carried.png`.
+- After v0.1.0-rc1 (a93e1c1): a new log takes the highest `LOGnnnnn.BFL`
+  in `LOGS/` plus 1, by the owner's decision of 2026-11-14, in place of the
+  lowest unused number from 00001 to 09999, so the highest number is the
+  newest log. The first start on a FatFs mount reads `LOGS/` once with
+  `f_readdir()`, about one sector per 16 short-named files, in place of one
+  `f_stat()` per number. The next number is kept with the mount's
+  `FATFS::id` and read again after a mount, after FatFs mounts the card
+  again on its own after a card fault, and after any logging error
+  (`src/sd_log_next.cpp`). A name counts in any letter case
+  (`sdLogNameNumber()`, `sdLogNextNumber()` in `src/sd_log.h`). After
+  `LOG99999.BFL` no log starts and SD LOG reads `NO LOG STARTED:
+  LOG99999.BFL EXISTS` / `MOVE LOGS TO A COMPUTER, RETRY MOUNT`
+  (`SdLogEnd::NoFreeNumber`). The file opens with `FA_CREATE_NEW`, never
+  over an existing file. Host tests `testLogNumbering()` for the rule and
+  SD LOG, and `make -C test lognum`, the scan and the kept number over
+  FatFs R0.15 on FAT32 and exFAT with a card swapped between mounts.
+- After v0.1.0-rc1 (a93e1c1): KST SERVO, HITEC SERVO and AM32 CONFIG refuse
+  a write, and KST and Hitec a
   restore, while the BOARD voltage is red (`BoardCell::Critical`,
   `uiBoardWriteRefused()` in `src/ui.h`), by the owner's decision of
   2026-11-14. KST and Hitec ask at the end of the hold, refused there with
@@ -525,7 +564,8 @@ protocol.
   `test/test_kst_ui.cpp` and `test/test_hitec_ui.cpp` and
   `testAm32BoardLow()`; the wiki shows `kst-board-low.png`,
   `hitec-board-low.png` and `am32-board-low.png`.
-- AM32 CONFIG opens settings in a layout revision outside 2 to 4, 1 or 5 to
+- After v0.1.0-rc1 (a93e1c1): AM32 CONFIG opens settings in a layout
+  revision outside 2 to 4, 1 or 5 to
   8, read-only, by the owner's decision of 2026-11-14, where the connect
   page used to show `LAYOUT n NOT KNOWN` with
   `THE TESTER KNOWS LAYOUTS 2 TO 4.`: a view of its own (`S_VIEW`) with the
@@ -539,7 +579,7 @@ protocol.
   (`am32FieldShown()` shows no field outside layouts 2 to 4). Host test
   `testAm32ReadOnly()`, with a write forced past the view; the wiki shows
   `am32-readonly.png` in place of `am32-layout.png`.
-- HITEC SERVO claims SIG when the screen opens, before the family tap, by
+- After v0.1.0-rc1 (a93e1c1): HITEC SERVO claims SIG when the screen opens, before the family tap, by
   the owner's decision of 2026-11-14: DShot drains and stops, and the pin
   stays an input with the pull-up on while the family view shows. The
   strip reads `GP0 IS THE SERVO'S: DSHOT IS OFF.` in green over
@@ -650,13 +690,13 @@ protocol.
   `-DDSHOT_PIN_LCD_2_8=1 -DKISS_PIN_LCD_2_8=0`. The settings block is
   version 4: a stored block of an earlier version is discarded whole and
   the compiled defaults load, so every saved setting returns to its default
-  once after the update. The release notes give the ESC on GP0, KISS on
-  GP1, the menu path MENU → SETTINGS, and GP28 and GP29 as supply enables
-  only.
-- The settings block is version 5: it adds CURRENT SENSE in the byte that
-  was padding. A version 4 block is discarded whole and the compiled
-  defaults load, so every saved setting returns to its default once after
-  the update.
+  once after the update (v0.1.0-rc1; carried over after it, see Changed).
+  The release notes give the ESC on GP0, KISS on GP1, the menu path
+  MENU → SETTINGS, and GP28 and GP29 as supply enables only.
+- The settings block is version 5: it adds CURRENT SENSE in the byte that was
+  padding. A version 4 block is discarded whole and the compiled defaults load,
+  so every saved setting returns to its default once after the update
+  (v0.1.0-rc1; carried over after it, see Changed).
 - With CURRENT SENSE at `INA219`, the servo tester's sweep count moves from
   the readout row to the first line of the dial, where the current takes
   its place.
@@ -676,11 +716,11 @@ protocol.
   2026-10-28 replaces the no-write decision of 2026-10-23. No write plan of
   rcbench's has run on a servo; bring-up runs one write with read-back per
   family first. Planned, not built.
-- The settings block is version 3: it adds `servoSupply`, the SERVO SUPPLY
-  row. The first boot after the update discards the stored version 2 block
-  and starts from the compiled defaults, every setting and the ESC pin
-  included. DshotDisplay, flashed back, discards a version 3 block the same
-  way.
+- The settings block is version 3: it adds `servoSupply`, the SERVO SUPPLY row.
+  The first boot after the update discards the stored version 2 block and starts
+  from the compiled defaults, every setting and the ESC pin included
+  (v0.1.0-rc1; carried over after it, see Changed). DshotDisplay, flashed back,
+  discards a version 3 block the same way.
 - Blackbox logs are written to `LOGS/LOGnnnnn.BFL` (`SD_LOG_DIR_PATH`), so the
   card's root holds a few directories. Logs an earlier firmware wrote to the
   root stay there and are not counted.
@@ -698,10 +738,11 @@ protocol.
   SCSI product revision `0.1`, from `src/version.h`; DshotDisplay reported
   1.00 and `1.0` in every release.
 - Unchanged, so that a board moves over without being set up again: the USB
-  vendor and product IDs (0x2E8A, 0x4006), and the settings block's magic
-  `DSHT` and its place, the last 4 kB sector. Its layout version is 5, so
-  settings saved by DshotDisplay 2.x (version 2) do not load: the first boot
-  returns every setting to its default once.
+  vendor and product IDs (0x2E8A, 0x4006), and the settings block's magic `DSHT`
+  and its place, the last 4 kB sector. Its layout version is 5, so settings
+  saved by DshotDisplay 2.x (version 2) do not load: the first boot returns
+  every setting to its default once (v0.1.0-rc1; carried over after it, see
+  Changed).
 - MiniRcBench supports one board, the Waveshare RP2350-Touch-LCD-2.8, and
   builds one image for it. The splash and SETTINGS → BUILT FOR name the board
   the image is built for.
@@ -881,6 +922,7 @@ protocol.
   byte AM32 did not write counts as the oldest. Settings in layout revision
   1 or above 4 do not open: the connect page shows `LAYOUT n NOT KNOWN`
   with `THE TESTER KNOWS LAYOUTS 2 TO 4.` and `NOTHING WILL BE WRITTEN.`
+  (v0.1.0-rc1; read-only after it, see Changed).
   A field whose byte the ESC's firmware does not read is not listed: 0x2A
   to 0x2D below 1.80, 0x2E below 1.94, 0x2F below 2.16 (AlkaMotors commits
   9909ea7 and aa590e8 add those reads with the version), and below 1.80 the

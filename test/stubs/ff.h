@@ -1,6 +1,6 @@
 // Host-test stub for ChaN's FatFs, as vendored by no-OS-FatFS-SD-SDIO-SPI.
 //
-// The part of the API that sd_log.cpp and kst_files.cpp call, with FatFs's own
+// The part of the API that sd_log.cpp, sd_log_next.cpp and kst_files.cpp call, with FatFs's own
 // names, values and argument order. sd_log.cpp only typechecks against it.
 // kst_files.cpp is linked into the suite against fake_fatfs.cpp, an in-memory
 // volume; what FatFs itself does on a card is exercised on hardware.
@@ -10,6 +10,7 @@
 
 typedef unsigned int UINT;
 typedef uint8_t BYTE;
+typedef uint16_t WORD;
 typedef uint32_t FSIZE_t;
 
 typedef enum {
@@ -37,8 +38,8 @@ typedef uint64_t LBA_t;
 #define FS_FAT32 3
 #define FS_EXFAT 4
 
-/** The fields of FatFs's volume object that sd_log.cpp reads. */
-typedef struct { BYTE fs_type; LBA_t volbase; } FATFS;
+/** The fields of FatFs's volume object that sd_log.cpp and sd_log_next.cpp read. */
+typedef struct { BYTE fs_type; WORD id; LBA_t volbase; } FATFS;
 typedef struct { int handle; FSIZE_t pos; bool writing; } FIL;
 typedef struct { int handle; UINT next; } DIR;
 typedef struct {

@@ -18,16 +18,27 @@ before power-up, or press `RETRY MOUNT` on the SD LOG screen after inserting
 it.
 
 Files are written to the directory `LOGS` as `LOG00001.BFL`, `LOG00002.BFL`,
-and so on. Each new file takes the lowest unused number from 00001 to 09999.
+and so on. Each new file takes the number after the highest `LOGnnnnn.BFL` in
+`LOGS`, so the highest number is the newest log: with `LOG00001.BFL` to
+`LOG00005.BFL` on the card and `LOG00002.BFL` deleted, the next log is
+`LOG00006.BFL`. An empty or new `LOGS` starts at `LOG00001.BFL`. Names count
+in any letter case (`log00007.bfl` is `LOG00007.BFL` to the card); other
+names, such as `LOG0007.BFL`, `LOG00007.TXT` or a renamed log, are ignored.
 Existing files are not overwritten. Logs an earlier firmware wrote to the
-card's root stay there and are not counted.
+card's root stay there and are not counted. The board sets no clock; what
+date the files carry is not verified.
 
-**The highest number is not always the newest log.** A number freed on a
-computer is taken again: with `LOG00001.BFL` to `LOG00005.BFL` on the card and
-`LOG00002.BFL` deleted, the next log is `LOG00002.BFL`. The board sets no
-clock, so the files' dates do not give the order either; what date the files
-carry is not verified. The SD LOG screen names the last log of the session
-(see `FILE` below).
+The board reads `LOGS` once, at the first log after the card is mounted
+(power-up, `RETRY MOUNT`, the end of `USB DRIVE`, a tool's remount) and at
+the first log after a card error, and counts on from there. With many logs
+on the card that first start reads more of the card: one 512-byte block per
+16 files with short names. The SD LOG screen names the last log of the
+session (see `FILE` below).
+
+After `LOG99999.BFL` no number is left: no log starts, and the note reads
+`NO LOG STARTED: LOG99999.BFL EXISTS`. Take the card out, move the logs off
+it on a computer (`USB DRIVE` is read-only), put it back and press
+`RETRY MOUNT`.
 
 The board reads the card over 4-bit SDIO (Secure Digital Input/Output) at
 10 MHz.
@@ -123,7 +134,8 @@ without a card the mount hint takes the second line.
 |---|---|---|
 | `RECORDING STOPPED: CARD FULL` / `FREE SPACE ON A COMPUTER, RETRY MOUNT` | A write found no free space | Delete files on a computer (`USB DRIVE` is read-only), put the card back, press `RETRY MOUNT` |
 | `RECORDING STOPPED: CARD WRITE FAILED` / `REMOVED? REINSERT, THEN RETRY MOUNT` | A write, or the final sync or close, failed: a card that was pulled out, or a card fault. The two are not told apart | Reseat the card, press `RETRY MOUNT` |
-| `NO LOG STARTED: THE FILE DID NOT OPEN` / `CHECK THE CARD, THEN RETRY MOUNT` | `START` could not make `LOGS` or open the next file | Check the card on a computer, press `RETRY MOUNT` |
+| `NO LOG STARTED: THE FILE DID NOT OPEN` / `CHECK THE CARD, THEN RETRY MOUNT` | `START` could not make or read `LOGS`, or open the next file | Check the card on a computer, press `RETRY MOUNT` |
+| `NO LOG STARTED: LOG99999.BFL EXISTS` / `MOVE LOGS TO A COMPUTER, RETRY MOUNT` | `LOGS` holds `LOG99999.BFL`, and no number follows it | Move the logs off the card on a computer (`USB DRIVE` is read-only), put the card back, press `RETRY MOUNT` |
 | `RECORDING STOPPED BY KST SERVO` (`HITEC SERVO`, `AM32 CONFIG`) | The tool took the card for its backup | `START` for a new log |
 
 A full card is told from a failed write by what the filesystem reports: a

@@ -155,9 +155,19 @@ enum class TesterCtl : uint8_t {
 
 /**
  * @brief The first of the splash's two lines after a reset by an update
- *        (settingsResetByUpdate()), y 40; the second is 12 px under it.
+ *        (settingsResetByUpdate()) or a carry-over (settingsCarriedOver()),
+ *        y 40; the second is 12 px under it.
  */
 #define UI_SPLASH_RESET_Y 40
+
+/**
+ * @brief The splash's two lines, at @ref UI_SPLASH_RESET_Y and 12 px under
+ *        it, after settingsLoad() carried an older block over
+ *        (settingsCarriedOver()), in place of the reset's.
+ */
+#define UI_SPLASH_CARRIED_TEXT  "SETTINGS CARRIED OVER FROM AN UPDATE"
+/** @brief The second of them. @see UI_SPLASH_CARRIED_TEXT */
+#define UI_SPLASH_CARRIED_TEXT2 "CHECK MENU > SETTINGS, THEN SAVE"
 
 struct UiScreen;
 

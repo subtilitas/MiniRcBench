@@ -598,7 +598,8 @@ static bool fitView() {
  * had to repair, because the user asked for something and did not get it,
  * which ends at the next change. RESET's note outranks UNSAVED:
  * it is the same state, said with what undoes it. Last, with nothing
- * pending, a reset by an update before the plain saved or default state.
+ * pending, a reset or a carry-over by an update before the plain saved or
+ * default state.
  *
  * @param[out] col Colour to draw it in.
  * @return The text.
@@ -632,6 +633,10 @@ static const char *noteText(uint16_t *col) {
 	if (settingsResetByUpdate()) {
 		*col = C_AMBER;
 		return "RESET BY UPDATE - CHECK AND SAVE";
+	}
+	if (settingsCarriedOver()) {
+		*col = C_AMBER;
+		return "CARRIED OVER BY UPDATE - CHECK, SAVE";
 	}
 	*col = C_DIM;
 	return settingsStored() ? "SAVED SETTINGS IN USE"
@@ -893,14 +898,15 @@ uint8_t uiSettingsSections(const SettingsSection **out, uint8_t max) {
 
 /**
  * @brief SETTINGS' MENU status: UNSAVED while the live settings differ from
- *        flash; else UPDATED while an update's reset is not saved over
- *        (settingsResetByUpdate()); both amber.
+ *        flash; else UPDATED while an update's reset or carry-over is not
+ *        saved over (settingsResetByUpdate(), settingsCarriedOver()); both
+ *        amber.
  */
 static void settingsMenuStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
 	if (settingsDirty()) {
 		snprintf(buf, n, "UNSAVED");
 		*col = C_AMBER;
-	} else if (settingsResetByUpdate()) {
+	} else if (settingsResetByUpdate() || settingsCarriedOver()) {
 		snprintf(buf, n, "UPDATED");
 		*col = C_AMBER;
 	} else {
