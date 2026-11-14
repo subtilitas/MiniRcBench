@@ -282,10 +282,15 @@ The bench parts, in the order they depend on each other:
 
 A `v*` tag runs Release; a tag without a pre-release suffix then publishes
 the manual (item 7), a suffixed one does not. Release, by the owner's
-decision of 2026-11-14: v0.1.0-rc1 is to be tagged now as a pre-release,
-an image for testing with no manual published, and v0.1.0 after the bench
-checks above. Neither tag exists yet; the owner pushes them. Menu structure
-B waits on being built, not on the bench (item 18).
+decision of 2026-11-14: v0.1.0-rc1 as a pre-release, an image for testing
+with no manual published, and v0.1.0 after the bench checks above.
+v0.1.0-rc1 exists: the tag points at a93e1c1, and its Release run of
+2026-11-14 published a GitHub pre-release with
+`MiniRcBench-v0.1.0-rc1-touch-lcd-2.8.uf2` (796,672 bytes),
+`SHA256SUMS.txt` and `THIRD_PARTY_NOTICES.txt`. The Docs run it started
+was skipped, as a suffixed tag's is, so no manual is published. That image
+has not run on hardware. v0.1.0 waits on the bench checks; the owner pushes
+the tag. Menu structure B waits on being built, not on the bench (item 18).
 
 ## Open items
 
@@ -340,8 +345,10 @@ B waits on being built, not on the bench (item 18).
    - 10 MHz in the firmware, and 10 MHz and 25 MHz in `tools/sdtest`.
 7. **The manual is not published.** The repository's wiki exists with one
    hand-made page, Home, dated 2026-10-29. `docs.yml` publishes `wiki/` after
-   a successful Release run or by hand; no `v*` tag exists and the workflow
-   has no run, so the wiki holds none of `wiki/`.
+   a successful Release run of a tag without a pre-release suffix, or by
+   hand. The one `v*` tag, v0.1.0-rc1, has a suffix: the Docs run its
+   Release run started on 2026-11-14 was skipped, so the wiki holds none of
+   `wiki/`.
 8. **Pin claim on hardware.** The PIO and pad calls of the drain, the
    teardown and the rebuild run only in the firmware; the host suite runs the
    decisions they act on. Bench tests needed, with an oscilloscope on the ESC
@@ -766,10 +773,10 @@ files that ship with it; a missing or empty licence section fails the run
 before anything is published.
 A tag with a suffix, such as `v0.1.0-rc1`, is published as a GitHub
 pre-release. Each run is titled `Release <tag>`, which Docs reads to find
-the tag. The version is 0.1.0 and no MiniRcBench release exists yet. By the
-owner's decision of 2026-11-14, v0.1.0-rc1 is to be tagged now as a
-pre-release, an image for testing with no manual published, and v0.1.0
-after the bench checks; neither tag exists yet.
+the tag. The version is 0.1.0. The one MiniRcBench release is the
+pre-release v0.1.0-rc1 of 2026-11-14, the tag at a93e1c1, an image for
+testing with no manual published, by the owner's decision of 2026-11-14;
+its image has not run on hardware. v0.1.0 follows the bench checks.
 
 **Docs** (`.github/workflows/docs.yml`): mirrors `wiki/` to the GitHub wiki
 after every successful Release run of a tag without a pre-release suffix,
