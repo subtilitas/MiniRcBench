@@ -16,6 +16,7 @@
 #include "hw_config.h"
 #include "sd_card.h"
 #include "sdio/sd_card_cache.h"
+#include "sd_log_next.h"
 
 #include <stdio.h>
 
@@ -45,9 +46,30 @@ static uint32_t s_cardSizeMB = 0;
 
 static SdLogState s_state = SdLogState::NoCard;
 /** @brief The open log's number, or the last one's until the next start. */
-static uint16_t   s_fileNo = 0;
+static uint32_t   s_fileNo = 0;
 /** @brief Why the last log ended. @see SdLogEnd */
 static SdLogEnd   s_end = SdLogEnd::None;
+/**
+ * @brief The number the next log takes, read from `LOGS/` once per FatFs
+ *        mount: the highest `LOGnnnnn.BFL` plus 1 (sdLogNextNumber()), 0 for
+ *        none free. @see sdLogOpenNext()
+ *
+ * Each start that opens its file sets it to the number after that file's,
+ * which stays true at its stop: the file stays, and nothing else writes
+ * `LOGS/` while the card is mounted here (USB DRIVE is read-only).
+ * sdLogOpenNext() reads the directory again when FatFs has mounted the card
+ * again since. A mount (sdLogBegin()), a release to a USB host and every
+ * error forget it: with no card-detect line, the card may have been
+ * swapped, or edited in a card reader, by the next start.
+ */
+static SdLogNextCache s_next = {};
+
+/** @brief A start or a write failed: the error state, its cause, the number forgotten. */
+static void enterError(SdLogEnd why) {
+	s_state = SdLogState::Error;
+	s_end = why;
+	sdLogNextForget(&s_next);
+}
 
 static BlackboxEncoder s_enc;
 static LogRing         s_ring;
@@ -117,6 +139,7 @@ bool sdLogBegin() {
 	// true of the last log whatever card is in the slot: it is kept until the
 	// next start, so a remount the tool made does not hide it.
 	sdLogMountForget(&s_end);
+	sdLogNextForget(&s_next);
 	s_fileNo = 0;
 	s_framesLogged = 0;
 	s_cardBytes = 0;
@@ -182,6 +205,7 @@ bool sdLogRelease() {
 	// it is the state every other entry point already refuses to work in.
 	s_state = SdLogState::NoCard;
 	s_released = true;
+	sdLogNextForget(&s_next);
 	return true;
 }
 
@@ -205,51 +229,16 @@ bool sdLogVolumeId(uint32_t *lba, uint32_t *offset) {
 	return true;
 }
 
-/**
- * @brief Find the lowest unused `LOGS/LOGnnnnn.BFL`.
- *
- * Linear probe. Slow if there are thousands of logs, but it happens once per
- * file and it keeps numbering stable across power cycles, which matters more
- * than the milliseconds — a bench session is a sequence of numbered runs.
- */
-static uint16_t nextFileNumber() {
-	char name[24];
-	for (uint16_t n = 1; n < 10000; n++) {
-		snprintf(name, sizeof(name), SD_LOG_DIR_PATH "/LOG%05u.BFL", (unsigned)n);
-		FILINFO fno;
-		if (f_stat(name, &fno) == FR_NO_FILE) return n;
-	}
-	return 0;
-}
-
 bool sdLogStart() {
 	if (s_released) return false;
 	if (s_state == SdLogState::NoCard) return false;
 	if (s_state == SdLogState::Logging) return true;
 	s_end = SdLogEnd::None;
 
-	// The logs live in their own directory, so the root holds a few
-	// directories and a lookup in it reads one block. FR_EXIST is the
-	// directory already there.
-	FRESULT md = f_mkdir(SD_LOG_DIR_PATH);
-	if (md != FR_OK && md != FR_EXIST) {
-		s_state = SdLogState::Error;
-		s_end = SdLogEnd::OpenFailed;
-		return false;
-	}
-
-	uint16_t n = nextFileNumber();
-	if (n == 0) {
-		s_state = SdLogState::Error;
-		s_end = SdLogEnd::OpenFailed;
-		return false;
-	}
-
-	char name[24];
-	snprintf(name, sizeof(name), SD_LOG_DIR_PATH "/LOG%05u.BFL", (unsigned)n);
-	if (f_open(&s_file, name, FA_WRITE | FA_CREATE_ALWAYS) != FR_OK) {
-		s_state = SdLogState::Error;
-		s_end = SdLogEnd::OpenFailed;
+	uint32_t n = 0;
+	SdLogEnd why = sdLogOpenNext(&s_next, &s_fs, SD_LOG_DIR_PATH, &s_file, &n);
+	if (why != SdLogEnd::None) {
+		enterError(why);
 		return false;
 	}
 
@@ -302,8 +291,8 @@ void sdLogStop() {
 	FRESULT sync = f_sync(&s_file);
 	FRESULT close = f_close(&s_file);
 	(void)trunc;
-	s_state = (sync == FR_OK && close == FR_OK) ? SdLogState::Idle : SdLogState::Error;
-	if (s_state == SdLogState::Error) s_end = SdLogEnd::WriteFailed;
+	if (sync != FR_OK || close != FR_OK) enterError(SdLogEnd::WriteFailed);
+	else s_state = SdLogState::Idle;
 	// The file's number stays, for SD LOG's FILE row, until the next start.
 	if (s_state == SdLogState::Idle) s_autoStarted = false;
 }
@@ -412,8 +401,7 @@ void sdLogFlush() {
 	if (took > s_worstFlushMs) s_worstFlushMs = took;
 
 	if (fr != FR_OK || wrote != n) {
-		s_state = SdLogState::Error;
-		s_end = sdLogWriteEnd((int)fr, (uint32_t)wrote, n);
+		enterError(sdLogWriteEnd((int)fr, (uint32_t)wrote, n));
 		f_close(&s_file);
 		return;
 	}

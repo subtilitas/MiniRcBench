@@ -237,21 +237,40 @@ screen does not work.
 
 ## My settings reset themselves
 
-They were not saved, or new firmware changed the settings layout. Pole
-count and throttle ceiling are edited on **MENU → SETTINGS**, and
+They were not saved, or new firmware could not read the settings layout in
+flash. Pole count and throttle ceiling are edited on **MENU → SETTINGS**, and
 `HOLD TO SAVE` there writes them to flash. The note line reads
 `UNSAVED - HOLD SAVE TO KEEP` while changes are unsaved, and `MENU` shows
 `UNSAVED` on its `SETTINGS` row.
 
-Firmware whose settings layout differs from the one in flash starts from its
-defaults. Updating from earlier firmware to firmware with settings layout
-version 4 returns every saved setting to its default once, the ESC pin
-included: the ESC pin is then GP0, KISS is off and SERVO SUPPLY is `NONE`.
-Version 5 adds CURRENT SENSE, so updating from version 4 to version 5 does
-the same once more: every saved setting returns to its default, and
-CURRENT SENSE is `NONE`. Set them again and save with `HOLD TO SAVE`.
+The firmware stores its settings in layout version 5. Settings an earlier
+firmware saved in layout version 2, 3 or 4, DshotDisplay 2.x's among them,
+are carried over: every setting the old layout has keeps its value, checked
+by the same rules as saved settings, and every newer setting starts at its
+default. So:
 
-Such a reset is shown: the splash reads `SETTINGS RESET BY UPDATE` and
+- pole count, `MAX THROTTLE`, `DSHOT KBAUD`, KISS, backlight and contrast
+  keep their values; a value out of range is adjusted, as on a save;
+- an ESC pin this board does not free, such as GP28 or GP29 from firmware
+  before version 4, returns to the default (GP0), and KISS on such a pin is
+  switched off, its pin back to the default (GP1);
+- CURRENT SENSE is `NONE`; SERVO SUPPLY is `NONE` after version 2 or 3,
+  since version 3's switch on GP0 sits on the ESC wire's pin now; after
+  version 4 it keeps `GP28` or `GP29`.
+
+A carry-over is shown: the splash reads
+`SETTINGS CARRIED OVER FROM AN UPDATE` and `CHECK MENU > SETTINGS, THEN SAVE`,
+MENU's `SETTINGS` row reads `UPDATED`, and the note line in SETTINGS reads
+`CARRIED OVER BY UPDATE - CHECK, SAVE`. Check the values and save with
+`HOLD TO SAVE`; the save writes even with nothing changed. Until then flash
+keeps the old block and every boot carries it over again.
+
+<img src="img/splash-carried.png" width="240" alt="The splash with SETTINGS CARRIED OVER FROM AN UPDATE and CHECK MENU > SETTINGS, THEN SAVE above the name">
+
+Settings of a layout the firmware does not know, version 1 or a later
+firmware's, are discarded: every setting returns to its default, the ESC pin
+included. Set them again and save with `HOLD TO SAVE`. Such a reset is
+shown: the splash reads `SETTINGS RESET BY UPDATE` and
 `CHECK MENU > SETTINGS`, MENU's `SETTINGS` row reads `UPDATED`, and the note
 line in SETTINGS reads `RESET BY UPDATE - CHECK AND SAVE` until a save
 lands. A block that is damaged, rather than written by another version, is

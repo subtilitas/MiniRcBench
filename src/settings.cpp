@@ -38,6 +38,8 @@ static Settings s_saved;
 static bool     s_stored = false;
 /** @brief The last load discarded a whole block of another version. @see settingsResetByUpdate() */
 static bool     s_resetByUpdate = false;
+/** @brief The last load carried an older block over. @see settingsCarriedOver() */
+static bool     s_carriedOver = false;
 /** @brief The ESC pin at the last load. @see settingsBootDshotPin() */
 static uint8_t  s_bootPin = 0;
 static bool     s_seeded = false;
@@ -196,6 +198,148 @@ static uint32_t crcSpan() {
 }
 
 // ---------------------------------------------------------------------------
+// older layouts
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Byte offsets of the fields in a block of version 2, 3 or 4, from
+ *        the start of the block, and their widths.
+ *
+ * Recovered from git: `struct Settings` and `struct SettingsBlock` of
+ * src/settings.h at 8a5eebb (version 2), 5af4ddf (3) and 3cc8798 (4). Every
+ * version has the same 8-byte header, magic (4 bytes), version (2) and
+ * payload size (2), and the same first twelve payload bytes; the compiler
+ * aligned the 16-bit fields to 2 bytes and the CRC to 4. Little-endian, as
+ * the RP2350 and the host suite store them.
+ *
+ * | Block byte | Width | Field                     | Versions |
+ * |-----------:|------:|---------------------------|----------|
+ * |  8         | 1     | boardId                   | 2, 3, 4  |
+ * |  9         | 1     | dshotPin                  | 2, 3, 4  |
+ * | 10         | 2     | dshotKbaud                | 2, 3, 4  |
+ * | 12         | 1     | kissEnable                | 2, 3, 4  |
+ * | 13         | 1     | kissPin                   | 2, 3, 4  |
+ * | 14         | 1     | poles                     | 2, 3, 4  |
+ * | 15         | 1     | padding                   | 2, 3, 4  |
+ * | 16         | 2     | maxThrottle               | 2, 3, 4  |
+ * | 18         | 1     | backlight                 | 2, 3, 4  |
+ * | 19         | 1     | highContrast              | 2, 3, 4  |
+ * | 20         | 1     | servoSupply               | 3, 4     |
+ * | 21         | 1     | padding                   | 3, 4     |
+ * | 20 or 24   | 4     | CRC-32 of the bytes before it | 2; 3, 4 |
+ */
+namespace old_layout {
+constexpr uint32_t HEADER        = 8;
+constexpr uint32_t BOARD_ID      = HEADER + 0;
+constexpr uint32_t DSHOT_PIN     = HEADER + 1;
+constexpr uint32_t DSHOT_KBAUD   = HEADER + 2;   // 16 bits
+constexpr uint32_t KISS_ENABLE   = HEADER + 4;
+constexpr uint32_t KISS_PIN      = HEADER + 5;
+constexpr uint32_t POLES         = HEADER + 6;
+constexpr uint32_t MAX_THROTTLE  = HEADER + 8;   // 16 bits
+constexpr uint32_t BACKLIGHT     = HEADER + 10;
+constexpr uint32_t HIGH_CONTRAST = HEADER + 11;
+constexpr uint32_t SERVO_SUPPLY  = HEADER + 12;  // versions 3 and 4
+}  // namespace old_layout
+
+/** @brief What tells one older layout from another. */
+struct OldLayout {
+	uint16_t version;      /**< SettingsBlock::version. */
+	uint16_t payload;      /**< SettingsBlock::size: the payload's bytes. */
+	uint16_t crcAt;        /**< The block byte the CRC-32 starts at. */
+	bool     servoSupply;  /**< Has servoSupply, at old_layout::SERVO_SUPPLY. */
+	/**
+	 * @brief Its servoSupply values mean what version 5's do: 1 an enable on
+	 *        GP28, 2 on GP29. Version 3's 1 named GP0.
+	 */
+	bool     supplyAsNow;
+};
+
+/** @brief The layouts settingsLoad() carries over. */
+static constexpr OldLayout OLD_LAYOUTS[] = {
+	{ 2, 12, 20, false, false },
+	{ 3, 14, 24, true,  false },
+	{ 4, 14, 24, true,  true  },
+};
+
+/** @brief The CRC sits at the first 4-byte boundary after the payload. */
+static constexpr bool crcAfterPayload(const OldLayout &l) {
+	return l.crcAt == ((old_layout::HEADER + l.payload + 3u) & ~3u);
+}
+static_assert(crcAfterPayload(OLD_LAYOUTS[0]) && OLD_LAYOUTS[0].crcAt == 20,
+              "version 2: 12 bytes of payload, the CRC at byte 20");
+static_assert(crcAfterPayload(OLD_LAYOUTS[1]) && OLD_LAYOUTS[1].crcAt == 24,
+              "version 3: 14 bytes of payload, the CRC at byte 24");
+static_assert(crcAfterPayload(OLD_LAYOUTS[2]) && OLD_LAYOUTS[2].crcAt == 24,
+              "version 4: 14 bytes of payload, the CRC at byte 24");
+static_assert(old_layout::SERVO_SUPPLY + 1 <= old_layout::HEADER + OLD_LAYOUTS[1].payload,
+              "servoSupply inside the version 3 payload");
+static_assert(old_layout::HIGH_CONTRAST + 1 == old_layout::HEADER + OLD_LAYOUTS[0].payload,
+              "highContrast the last byte of the version 2 payload");
+static_assert(OLD_LAYOUTS[sizeof(OLD_LAYOUTS) / sizeof(OLD_LAYOUTS[0]) - 1].version ==
+                  SETTINGS_VERSION - 1,
+              "a version bump describes the layout it replaces here");
+// Version 5 kept version 4's offsets and added currentSense in its padding:
+// today's struct is the check that the table matches the last of them.
+static_assert(offsetof(SettingsBlock, s) == old_layout::HEADER, "the header is 8 bytes");
+static_assert(sizeof(Settings) == 14 && offsetof(SettingsBlock, crc32) == 24,
+              "version 5 has version 4's size and CRC offset");
+static_assert(offsetof(Settings, boardId)      + old_layout::HEADER == old_layout::BOARD_ID &&
+              offsetof(Settings, dshotPin)     + old_layout::HEADER == old_layout::DSHOT_PIN &&
+              offsetof(Settings, dshotKbaud)   + old_layout::HEADER == old_layout::DSHOT_KBAUD &&
+              offsetof(Settings, kissEnable)   + old_layout::HEADER == old_layout::KISS_ENABLE &&
+              offsetof(Settings, kissPin)      + old_layout::HEADER == old_layout::KISS_PIN &&
+              offsetof(Settings, poles)        + old_layout::HEADER == old_layout::POLES &&
+              offsetof(Settings, maxThrottle)  + old_layout::HEADER == old_layout::MAX_THROTTLE &&
+              offsetof(Settings, backlight)    + old_layout::HEADER == old_layout::BACKLIGHT &&
+              offsetof(Settings, highContrast) + old_layout::HEADER == old_layout::HIGH_CONTRAST &&
+              offsetof(Settings, servoSupply)  + old_layout::HEADER == old_layout::SERVO_SUPPLY,
+              "version 5's offsets are version 4's");
+
+static uint16_t le16(const uint8_t *p) { return (uint16_t)(p[0] | (p[1] << 8)); }
+static uint32_t le32(const uint8_t *p) {
+	return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+}
+
+/**
+ * @brief Carry a whole block of an older layout over into @p out.
+ *
+ * Whole: @ref SETTINGS_MAGIC, a version in `OLD_LAYOUTS`, that layout's
+ * payload size and the CRC-32 at its offset right over every byte before
+ * it. Then @p out takes the compiled defaults and every field the layout
+ * has, unvalidated: settingsLoad() validates.
+ *
+ * @param raw The block's bytes, at least 28.
+ * @param[out] out The carried settings; untouched on false.
+ * @return False for anything but such a block.
+ */
+static bool carryOver(const uint8_t *raw, Settings *out) {
+	if (le32(raw) != SETTINGS_MAGIC) return false;
+	const uint16_t version = le16(raw + 4);
+	const OldLayout *l = nullptr;
+	for (const OldLayout &c : OLD_LAYOUTS)
+		if (c.version == version) l = &c;
+	if (!l || le16(raw + 6) != l->payload) return false;
+	if (le32(raw + l->crcAt) != settingsCrc32(raw, l->crcAt)) return false;
+
+	using namespace old_layout;
+	settingsDefaults(out);
+	out->boardId      = raw[BOARD_ID];
+	out->dshotPin     = raw[DSHOT_PIN];
+	out->dshotKbaud   = le16(raw + DSHOT_KBAUD);
+	out->kissEnable   = raw[KISS_ENABLE];
+	out->kissPin      = raw[KISS_PIN];
+	out->poles        = raw[POLES];
+	out->maxThrottle  = le16(raw + MAX_THROTTLE);
+	out->backlight    = raw[BACKLIGHT];
+	out->highContrast = raw[HIGH_CONTRAST];
+	// Version 3's 1 was an enable on GP0, the ESC's signal pin since
+	// version 4. No version 5 value names it: none, so no pin is driven.
+	if (l->servoSupply && l->supplyAsNow) out->servoSupply = raw[SERVO_SUPPLY];
+	return true;
+}
+
+// ---------------------------------------------------------------------------
 // load / save
 // ---------------------------------------------------------------------------
 
@@ -233,6 +377,7 @@ void settingsLoad() {
 	freshDefaults();
 	s_stored = false;
 	s_resetByUpdate = false;
+	s_carriedOver = false;
 
 	// The header, the largest payload a block of another version may have,
 	// and its CRC: enough to tell a discarded block from blank flash.
@@ -243,17 +388,34 @@ void settingsLoad() {
 	if (!settingsStorageRead(raw, sizeof(raw))) {
 		return;
 	}
+	static_assert(sizeof(raw) >= 28, "a version 3 or 4 block is larger than the read");
+
+	// An older layout the table knows, whole: carried over, then judged by
+	// the same validation as a block of this version. The KISS pin with
+	// KISS off is not judged there; one this board does not free, the old
+	// GP28 or GP29, takes the default, so turning KISS on finds a free pin.
+	Settings carried;
+	if (carryOver(raw, &carried)) {
+		s_live = carried;
+		settingsValidate(&s_live);
+		if (!s_live.kissEnable && !settingsPinFree(s_live.kissPin))
+			s_live.kissPin = g_board->defaultKissPin;
+		s_saved = s_live;
+		s_stored = true;
+		s_carriedOver = true;
+		s_bootPin = s_live.dshotPin;
+		return;
+	}
 	s_resetByUpdate = otherVersionBlock(raw);
 	SettingsBlock blk;
 	memcpy(&blk, raw, sizeof(blk));
 
 	// Four independent reasons to distrust the block, all fatal, none partial.
 	//
-	// Rejecting a version mismatch outright rather than migrating is the whole
-	// point: the field this file most wants to get right is the throttle
-	// ceiling, and a migration that guesses at an old layout can hand back a
-	// plausible-looking 2000 as easily as a 400. Losing a pole count is
-	// recoverable in two taps; the other direction is a motor at full throttle.
+	// A version this firmware has no layout for is rejected outright: a guess
+	// at a layout can hand back a plausible-looking 2000 as easily as a 400.
+	// The older layouts above are not guesses; each is recovered from the
+	// commit that wrote it and pinned by the host suite.
 	if (blk.magic != SETTINGS_MAGIC ||
 	    blk.version != SETTINGS_VERSION ||
 	    blk.size != (uint16_t)sizeof(Settings) ||
@@ -290,7 +452,9 @@ bool settingsSave() {
 	// success. Every real erase parks core1 and opens a torn-write window in
 	// the only copy of the block — there is no A/B sector — so the write has
 	// to buy something.
-	if (s_stored && memcmp(&s_live, &s_saved, sizeof(Settings)) == 0)
+	// After a carry-over flash holds the older block, so the first save writes
+	// even with nothing changed.
+	if (s_stored && !s_carriedOver && memcmp(&s_live, &s_saved, sizeof(Settings)) == 0)
 		return true;
 
 	SettingsBlock blk;
@@ -315,12 +479,15 @@ bool settingsSave() {
 	s_saved  = s_live;
 	s_stored = true;
 	s_resetByUpdate = false;
+	s_carriedOver = false;
 	return true;
 }
 
 bool settingsStored() { return s_stored; }
 
 bool settingsResetByUpdate() { return s_resetByUpdate; }
+
+bool settingsCarriedOver() { return s_carriedOver; }
 
 uint8_t settingsBootDshotPin() {
 	ensureSeeded();

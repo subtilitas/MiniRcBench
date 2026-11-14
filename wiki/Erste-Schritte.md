@@ -88,13 +88,21 @@ liest die Frames als Impulse und fährt an ein Ende seines Wegs.
 <img src="img/splash.png" width="240" alt="Startbildschirm">
 
 Nach einem Firmware-Update, das den Aufbau der gespeicherten Einstellungen
-geändert hat, werden die gespeicherten Einstellungen verworfen, und jede
-Einstellung beginnt mit ihrer Voreinstellung. Der Startbildschirm zeigt dann
-über dem Namen zwei Zeilen in Bernstein: `SETTINGS RESET BY UPDATE` und
-`CHECK MENU > SETTINGS`. Prüfe mindestens Polzahl, `MAX THROTTLE`, `ESC PIN`,
-KISS, `SERVO SUPPLY` und `CURRENT SENSE` und halte dann `HOLD TO SAVE`. Bis
-ein Speichern gelingt, zeigt die Zeile SETTINGS in MENU `UPDATED`. Eine Platine,
-die nie Einstellungen gespeichert hatte, zeigt beides nicht.
+von Version 2, 3 oder 4 geändert hat, werden die gespeicherten Einstellungen
+übernommen: Der Startbildschirm zeigt `SETTINGS CARRIED OVER FROM AN UPDATE`
+und `CHECK MENU > SETTINGS, THEN SAVE` in Bernstein über dem Namen. Prüfe
+sie in SETTINGS und halte `HOLD TO SAVE`
+([Fehlersuche](Fehlersuche#meine-einstellungen-setzen-sich-zurück)).
+
+Nach einem Update von einem Format, das die Firmware nicht kennt, werden die
+gespeicherten Einstellungen verworfen, und jede Einstellung beginnt mit ihrer
+Voreinstellung. Der Startbildschirm zeigt dann über dem Namen zwei Zeilen in
+Bernstein: `SETTINGS RESET BY UPDATE` und `CHECK MENU > SETTINGS`. Prüfe
+mindestens Polzahl, `MAX THROTTLE`, `ESC PIN`, KISS, `SERVO SUPPLY` und
+`CURRENT SENSE` und halte dann `HOLD TO SAVE`. Bis ein Speichern gelingt,
+zeigt die Zeile SETTINGS in MENU `UPDATED`, nach einer Übernahme wie nach
+einem Verwerfen. Eine Platine, die nie Einstellungen gespeichert hatte,
+zeigt nichts davon.
 
 <img src="img/splash-reset.png" width="240" alt="Startbildschirm, nachdem ein Update die gespeicherten Einstellungen verworfen hat">
 

@@ -64,8 +64,8 @@ static TouchState s_touch;
 
 /** @brief What the last frame drew, so an unchanged screen is not repainted. */
 static struct {
-	int      config, logState, logFile, logDrops, mscState, mscNote, logMount, logInit, logEnd;
-	uint32_t logBytes, logFrames, logPeak, logWorstMs, mscBlocks, logCardMB;
+	int      config, logState, logDrops, mscState, mscNote, logMount, logInit, logEnd;
+	uint32_t logFile, logBytes, logFrames, logPeak, logWorstMs, mscBlocks, logCardMB;
 } s_shown;
 
 /** @brief True while @p b is touched by a press that began inside it. */
@@ -145,6 +145,10 @@ bool uiSdLogEndNote(const SdLogStatus *st, const char **line1, const char **line
 		case SdLogEnd::OpenFailed:
 			*line1 = "NO LOG STARTED: THE FILE DID NOT OPEN";
 			*line2 = "CHECK THE CARD, THEN RETRY MOUNT";
+			return true;
+		case SdLogEnd::NoFreeNumber:
+			*line1 = "NO LOG STARTED: LOG99999.BFL EXISTS";
+			*line2 = "MOVE LOGS TO A COMPUTER, RETRY MOUNT";
 			return true;
 		case SdLogEnd::ByKst:   *line1 = "RECORDING STOPPED BY KST SERVO";   return true;
 		case SdLogEnd::ByHitec: *line1 = "RECORDING STOPPED BY HITEC SERVO"; return true;
