@@ -219,8 +219,8 @@ screen shows `NOT VERIFIED. TAP OK, WRITE AGAIN.` in amber; see
 
 Before the first write of a session, the settings as read at entry go to the
 SD card as `BACKUP/AMnnn.TXT`, in the ring of backups that the KST and Hitec
-programmers share ([KST Programming](KST-Programming#files)). The result then reads
-`WRITE VERIFIED. BACKUP AM018`, for example. A card that refuses the backup
+programmers share ([KST Programming](KST-Programming#files)). The result then
+reads `WRITE VERIFIED. BACKUP AM018`, for example. A card that refuses the backup
 stops the write: `NO BACKUP ON THE CARD: NOT WRITTEN`, with
 `CHECK THE CARD, THEN WRITE AGAIN.` under it. Without a card the
 write runs, and the backup stays in memory until a write with a card saves it

@@ -24,7 +24,7 @@ it as described under [Still stuck](#still-stuck).
 
 ## NO TELEMETRY
 
-<img src="img/tester-stale.png" width="240" alt="No telemetry">
+<img src="img/tester-noesc.png" width="240" alt="No telemetry">
 
 Nothing answers on the signal wire, and the chip under the title on the
 `MENU` screen reads `NO ESC`. Check in this order:

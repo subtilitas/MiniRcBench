@@ -27,7 +27,7 @@ Ursache in der Firmware. Melde ihn wie unter
 
 ## Keine Telemetrie
 
-<img src="img/tester-stale.png" width="240" alt="Keine Telemetrie">
+<img src="img/tester-noesc.png" width="240" alt="Keine Telemetrie">
 
 Auf dem Signalkabel antwortet nichts, und das Feld unter dem Titel des
 Bildschirms `MENU` zeigt `NO ESC`. Prüfe in dieser Reihenfolge:

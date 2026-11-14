@@ -84,12 +84,12 @@ one end of its travel.
 
 ## Before an ESC is connected
 
-<img src="img/tester-stale.png" width="240" alt="The tester screen with no ESC connected">
+<img src="img/tester-noesc.png" width="240" alt="The tester screen with no ESC connected">
 
 With no ESC answering, the screen shows `NO TELEMETRY` under the RPM
 (revolutions per minute) readout, `--` in the five ESC tiles, and a dark red
-zero for RPM. The large voltage at the top right, captioned `BOARD`, is the board's
-own battery, not the ESC's; the ESC's voltage is the `VOLTAGE` tile.
+zero for RPM. The large voltage at the top right, captioned `BOARD`, is the
+board's own battery, not the ESC's; the ESC's voltage is the `VOLTAGE` tile.
 
 If the ESC is powered and wired and this does not change, see
 [Troubleshooting](Troubleshooting#no-telemetry).
@@ -98,7 +98,7 @@ If the ESC is powered and wired and this does not change, see
 
 ## Your first arm
 
-<img src="img/tester-disarmed.png" width="240" alt="The tester disarmed: SAFE in green, ARM TO ENABLE in the throttle bar">
+<img src="img/tester-idle.png" width="240" alt="The tester disarmed: SAFE in green, ARM TO ENABLE in the throttle bar">
 
 Disarmed, the badge reads `SAFE` and the throttle bar reads `ARM TO ENABLE`.
 

@@ -912,8 +912,8 @@ protocol.
 - Manual corrections: the no-ESC pictures show NO TELEMETRY and `--` in the
   five ESC tiles; the backup ring is described as shared by KST, AM32 and
   Hitec; the AM32 connect failures `LAYOUT n NOT KNOWN` and `READ FAILED`
-  are listed; the Troubleshooting page has a section for restarts, and Still stuck
-  asks for LAST RESTART.
+  are listed; the Troubleshooting page has a section for restarts, and
+  Still stuck asks for LAST RESTART.
 
 ---
 

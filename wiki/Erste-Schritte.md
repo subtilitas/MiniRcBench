@@ -91,7 +91,7 @@ liest die Frames als Impulse und fährt an ein Ende seines Wegs.
 
 ## Solange kein ESC angeschlossen ist
 
-<img src="img/tester-stale.png" width="240" alt="Tester-Bildschirm ohne ESC">
+<img src="img/tester-noesc.png" width="240" alt="Tester-Bildschirm ohne ESC">
 
 Antwortet kein ESC, zeigt der Bildschirm `NO TELEMETRY` unter der Drehzahl,
 `--` in den fünf ESC-Kacheln und eine dunkelrote Null als Drehzahl. Die große
@@ -105,7 +105,7 @@ nicht der des ESC; die Spannung des ESC steht in der Kachel `VOLTAGE`.
 
 ## Das erste Scharfschalten
 
-<img src="img/tester-disarmed.png" width="240" alt="Der Tester entschärft: SAFE in Grün, ARM TO ENABLE im Gasbalken">
+<img src="img/tester-idle.png" width="240" alt="Der Tester entschärft: SAFE in Grün, ARM TO ENABLE im Gasbalken">
 
 Entschärft zeigt das Feld `SAFE`, und der Gasbalken zeigt `ARM TO ENABLE`.
 

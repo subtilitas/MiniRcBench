@@ -612,6 +612,26 @@ static void testTelemetryExpires() {
 	fakeSetTelemetry(&none);
 	frames(2);
 	uint32_t blank = tiles();
+	// A board that no ESC has ever answered: the packet rate and the error
+	// rate read 0, which is what the manual's no-ESC picture shows.
+	fakeDumpFrame("shot_tester_noesc.ppm");
+
+	// An ESC that answers with the motor at rest, for the picture before the
+	// first arm: telemetry alive, RPM 0, a small idle current.
+	EscTelemetry idle;
+	memset(&idle, 0, sizeof(idle));
+	idle.volts = 15.80f; idle.edtVoltsMs  = millis();
+	idle.amps  = 0.40f;  idle.edtAmpsMs   = millis();
+	idle.tempC = 31;     idle.edtTempMs   = millis();
+	idle.stress = 0;     idle.edtStressMs = millis();
+	idle.edtStatusMs = millis();
+	idle.lastRpmMs = millis();
+	idle.packetRate = 998;
+	fakeSetTelemetry(&idle);
+	frames(2);
+	fakeDumpFrame("shot_tester_idle.ppm");
+	fakeSetTelemetry(&none);
+	frames(2);
 
 	EscTelemetry tel;
 	memset(&tel, 0, sizeof(tel));

@@ -7,8 +7,9 @@ core1 job ([servo-tester.md](servo-tester.md)). Host tests only; nothing of
 either is tested on hardware. Slice 3, KST programming, is built through its
 step 5 ([kst-programming.md](kst-programming.md)). Slice 4, Hitec programming
 ([hitec-programming.md](hitec-programming.md)), adds the Hitec job; its
-steps 1 to 5 of 6 are built, and step 6, the bring-up on hardware, is open. Slices A to C of [menu.md](menu.md), the menu
-restructure, are built before slice 3.
+steps 1 to 5 of 6 are built, and step 6, the bring-up on hardware, is open.
+Slices A to C of [menu.md](menu.md), the menu restructure, are built before
+slice 3.
 Since slice C, the tester's third button reads MENU, the list of tools is
 MENU, and the screen for the persisted settings is SETTINGS. This document
 uses those names; its recorded decisions keep the names they were made
