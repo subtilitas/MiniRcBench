@@ -366,7 +366,8 @@ Seite zeigt `SAVING THE BACKUP TO THE CARD.` (bei einem späteren Schreiben
 wird erst geschrieben, wenn die Karte die Dateien hält. Nimmt die Karte die
 Daten nicht an, hält das Schreiben an. Beim ersten Schreiben der Sitzung
 zeigt die Seite
-`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`, bei
+`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`,
+bei
 einem späteren Schreiben
 `THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
 Zum Servo ging nichts. Die Karte wird neu eingebunden, und `OK` führt zur
@@ -533,8 +534,9 @@ und zeigt die Abziehseite.
   als 250 ms, bevor der Schreibvorgang hinausging. Schreibe erneut.
 - **Ein rotes Ergebnis.** Tippe auf `OK`, dann auf `READ AGAIN`, und prüfe
   die Werte. Zurück zum Servo, wie es war, führt `HOLD TO RESTORE` in FILES.
-- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`** Prüfe die
-  Karte, oder nimm sie aus der USB-Nutzung, und schreibe dann erneut.
+- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`**
+  Prüfe die Karte, oder nimm sie aus der USB-Nutzung, und schreibe dann
+  erneut.
 
 ---
 

@@ -1284,7 +1284,8 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
    drawing: the write page reads `SAVING THE BACKUP TO THE CARD.` and
    `BLOCKS LEFT: n` until the card holds the backup and the record, and the
    servo is written only then. A flush the card does not take stops the
-   write: `THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
+   write:
+   `THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
    A flush fails on a block write that fails or a card swapped since
    (`src/sdio/sd_cache.h`), not on a full card, which FatFs refuses before
    anything is queued. Nothing is sent to the servo; the card is mounted
@@ -1332,14 +1333,16 @@ The backups go to the ring of `BACKUP/` that every device shares: see
 Without a card, or with the card held by a USB host, the backup stays in
 memory, and reading, editing and writing still work. The write page's backup
 line then reads, in amber, `NO CARD: OLD VALUES LOST AT LEAVE` or
-`CARD ON USB: OLD VALUES LOST AT LEAVE`, and `NO BACKUP ON THE CARD: LOST AT LEAVE`
-when the card took the record and refused the backup: until a later write
-with a card mounted saves it, the session's backup is the only copy of the
+`CARD ON USB: OLD VALUES LOST AT LEAVE`, and
+`NO BACKUP ON THE CARD: LOST AT LEAVE` when the card took the record and
+refused the backup: until a later write with a card mounted saves it, the
+session's backup is the only copy of the
 servo's old values, and LEAVE, REBOOT or a power loss ends it. Whether such a
 write should be refused or need a second hold is open to the owner
 (STATUS.md, open item 20). A card that is
 mounted but takes neither the backup nor the record stops the write before
-any frame: `THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
+any frame:
+`THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
 
 An image that fails rcbench's layout fingerprint is shown and not written:
 the write button reads `READ ONLY`, and with no row selected the editor bar
@@ -1512,16 +1515,19 @@ does not. HOLD TO RESTORE writes the session's backup back.
 Without a card, or with the card held by a USB host, the backup stays in
 memory, and reading, editing and writing still work. The write page's backup
 line then reads, in amber, `NO CARD: OLD VALUES LOST AT LEAVE` or
-`CARD ON USB: OLD VALUES LOST AT LEAVE`, and `NO BACKUP ON THE CARD: LOST AT LEAVE`
-when the card took the record and refused the backup: until a later write
-with a card mounted saves it, the session's backup is the only copy of the
+`CARD ON USB: OLD VALUES LOST AT LEAVE`, and
+`NO BACKUP ON THE CARD: LOST AT LEAVE` when the card took the record and
+refused the backup: until a later write with a card mounted saves it, the
+session's backup is the only copy of the
 servo's old values, and LEAVE or a power loss ends it. Whether such a
 write should be refused or need a second hold is open to the owner
 (STATUS.md, open item 20). A card that is
 mounted but takes neither the backup nor the record stops the write before
-any frame: `THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.` With a
-card mounted at the screen's opening, the card's writes queue in memory, as
-for KST, and the servo is written only once the card holds the files. A flush that fails stops the write with
+any frame:
+`THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
+With a card mounted at the screen's opening, the card's writes queue in
+memory, as for KST, and the servo is written only once the card holds the
+files. A flush that fails stops the write with
 `THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`,
 or `A FILE` in place of `THE BACKUP` when the batch held a later write's
 files.

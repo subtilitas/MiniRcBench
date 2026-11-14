@@ -237,8 +237,8 @@ backup goes:
 `NO CARD`, `CARD ON USB` and `NO BACKUP ON THE CARD` are amber: the servo's
 values from before the first write are in memory only, until a later write
 with a card mounted saves them; LEAVE, REBOOT or a power loss loses them.
-Without a card the write still goes through. Whether it should be refused, or need a second
-hold, is open to the owner.
+Without a card the write still goes through. Whether it should be refused, or
+need a second hold, is open to the owner.
 
 **A second hold of 1 s writes.** Before the first frame of the session's
 first write with a card mounted, the image read at entry goes to the card as
@@ -360,7 +360,8 @@ a second hold. The page then reads `THE PLANNER DID NOT CHECK THIS` and
   writing work.
 - **A card that takes no file.** A card that is mounted but takes neither the
   backup nor the record stops the write before any frame. The write page
-  reads `THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
+  reads
+  `THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
 
 The backups share one ring of 50 numbers with the backups of the AM32
 editor and the Hitec programmer, `BACKUP/KSTnnn.TXT`, `BACKUP/AMnnn.TXT` and
@@ -428,8 +429,8 @@ unplug page directly.
 - **The screen returns to the search.** The servo stopped answering. Power it
   up again.
 - **`IN DOUBT`.** Restore from FILES with `HOLD TO RESTORE`.
-- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`** Check the
-  card, or take it out of USB use, then write again.
+- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`**
+  Check the card, or take it out of USB use, then write again.
 
 ---
 

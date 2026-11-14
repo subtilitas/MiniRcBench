@@ -1112,7 +1112,8 @@ a write that left nothing changed amber, a verified one green.
 - OK takes a press that lands while it shows. The finger that ends the
   hold lifts on the same rectangle and does not dismiss the result.
 - When the card takes neither the backup nor the record, the page reads
-  `THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.` and no frame
+  `THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
+  and no frame
   goes out. No card, or a card held by USB, writes with the backup in
   memory.
 

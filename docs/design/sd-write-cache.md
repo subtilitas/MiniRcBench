@@ -117,9 +117,9 @@ still to go, or `Failed`.
   only at `Idle`. At `Failed` it mounts the card again
   (`cardCacheRecover()`), forgets the first write, so the next write saves
   the backup again, and reads
-  `THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.` BACK
-  during the flush leaves the page; the write is not sent, and the flush goes
-  on.
+  `THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
+  BACK during the flush leaves the page; the write is not sent, and the flush
+  goes on.
 - **Any failed batch on KST.** `Idle` after a recovery says only that the
   queue is empty. A batch that fails off the write page, after BACK during
   the flush, in SAVE AS or in a removal of the record, may have held the

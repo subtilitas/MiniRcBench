@@ -866,7 +866,8 @@ y   0 | HITEC WRITE                      [ BACK ]|
 - The card steps run in a card phase with a switch
   ([card calls](#card-calls-and-the-heartbeat)). A mounted card that takes
   neither the backup nor the record stops the write:
-  `THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.` No card, or a
+  `THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
+  No card, or a
   card held by USB, writes with the backup and the record in memory.
 - Results, one text per `hitec_ses_t` a write can end with, from a table in
   `hitec_view.cpp` that the tests hold complete, with OK to return to the

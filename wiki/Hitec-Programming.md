@@ -330,8 +330,9 @@ card while the screen keeps drawing. The page reads
 later write) and `BLOCKS LEFT: 12`, for example. The servo is written only
 once the card holds the files. A flush the card does not take stops the
 write. On the session's first write the page reads
-`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`, on a
-later write `THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
+`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`,
+on a later write
+`THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
 Nothing went to the servo. The card is mounted again, and `OK` returns to
 the field list; the next `HOLD TO WRITE` saves the files again and then
 writes. A full card does not end here: it ends in `THE CARD TOOK NO FILE`
@@ -431,7 +432,8 @@ not load.
   editing and writing work.
 - **A card that takes no file.** A card that is mounted but takes neither
   the backup nor the record stops the write before any frame. The write page
-  reads `THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
+  reads
+  `THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
 
 The backups share one ring of 50 numbers with the KST and AM32 backups,
 `BACKUP/HTnnn.TXT`, `BACKUP/KSTnnn.TXT` and `BACKUP/AMnnn.TXT`. Once all 50
@@ -489,8 +491,8 @@ unplug page.
   than 250 ms before the write went out. Write again.
 - **A red result.** Tap `OK`, then `READ AGAIN`, and check the values. To
   go back to the servo as it was, use `HOLD TO RESTORE` in FILES.
-- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`** Check the
-  card, or take it out of USB use, then write again.
+- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`**
+  Check the card, or take it out of USB use, then write again.
 
 ---
 

@@ -255,8 +255,9 @@ unteren Rand sagt, wohin die Sicherung geht:
 `NO CARD`, `CARD ON USB` und `NO BACKUP ON THE CARD` stehen in Bernstein:
 Die Werte des Servos vor dem ersten Schreiben liegen nur im Speicher, bis ein
 späteres Schreiben mit eingebundener Karte sie sichert; LEAVE, REBOOT oder ein
-Stromausfall verliert sie. Ohne Karte geht das Schreiben trotzdem durch. Ob es abgelehnt werden oder ein zweites
-Halten brauchen soll, ist beim Eigentümer offen.
+Stromausfall verliert sie. Ohne Karte geht das Schreiben trotzdem durch. Ob
+es abgelehnt werden oder ein zweites Halten brauchen soll, ist beim Eigentümer
+offen.
 
 **Ein zweites Halten von 1 s schreibt.** Bevor der erste Frame des ersten
 Schreibens der Sitzung mit eingebundener Karte zum Servo geht, kommt das beim
@@ -457,8 +458,9 @@ zeigt die Abziehseite unmittelbar.
 - **Der Bildschirm kehrt zur Suche zurück.** Das Servo antwortet nicht mehr.
   Schalte es erneut ein.
 - **`IN DOUBT`.** Stelle über FILES mit `HOLD TO RESTORE` wieder her.
-- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`** Prüfe die
-  Karte, oder nimm sie aus der USB-Nutzung, und schreibe dann erneut.
+- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`**
+  Prüfe die Karte, oder nimm sie aus der USB-Nutzung, und schreibe dann
+  erneut.
 
 ---
 
