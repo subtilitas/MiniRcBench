@@ -575,9 +575,11 @@ static void claimPins() {
 	s_claimed = (r == ClaimRefusal::None);
 	// The card's writes queue in SRAM for the claim; a running log stops.
 	if (s_claimed) cardCacheBegin(SdLogEnd::ByAm32);
-	snprintf(s_status, sizeof(s_status), "%s",
-	         s_claimed ? "RELEASING DSHOT PIN"
-	                   : (r == ClaimRefusal::Armed ? "DISARM FIRST" : "PINS BUSY"));
+	if (s_claimed)
+		snprintf(s_status, sizeof(s_status), "RELEASING SIG GP%u", (unsigned)settings()->dshotPin);
+	else
+		snprintf(s_status, sizeof(s_status), "%s",
+		         r == ClaimRefusal::Armed ? "DISARM FIRST" : UI_WAIT_RESTART_TEXT);
 }
 
 void uiAm32Enter() {

@@ -27,6 +27,7 @@
 #include "sd_log.h"
 #include "settings.h"
 #include "theme.h"
+#include "touch.h"
 #include "ui.h"
 #include "ui_kst.h"
 #include "ui_menu.h"
@@ -635,17 +636,37 @@ static void testRefusalsAndFailures() {
 	checkTrue("an ESC answers: no claim", pinClaimHolder() == PinUser::None &&
 	                                      !ctlPresent(UI_FIX(KstCtl::StopSearch)));
 	checkTrue("its warning in amber", fakeCountColour(C_AMBER) > 0);
+	checkTrue("AN ESC ANSWERS ON SIG GP0., amber", lineIs(80, "AN ESC ANSWERS ON SIG GP0.", C_AMBER));
+	checkTrue("the strip: CHECKING SIG GP0 FOR AN ESC",
+	          lineIs(UI_STRIP_Y + 4, "CHECKING SIG GP0 FOR AN ESC", C_DIM));
 	checkControlTable("KST, an ESC answers");
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK before a claim: MENU", uiCurrentScreen() == UiScreenId::Menu);
 	tapId(UI_FIX(UI_BACK));
 	kstFrames(2);
 
+	// Another claim holds the pins: MENU refuses the row, so KST SERVO is
+	// opened by hand here.
+	freshKst(false);
+	checkTrue("another claim holds the pins", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
+	{
+		TouchState none;
+		memset(&none, 0, sizeof(none));
+		UI_KST.enter();
+		UI_KST.tick(&none);
+		checkTrue("KST refused: WAIT: DSHOT RESTARTING, amber",
+		          pinClaimHolder() == PinUser::Am32 && lineIs(80, UI_WAIT_RESTART_TEXT, C_AMBER));
+	}
+	pinClaimEnd(PinUser::Am32);
+	for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) kstFrames(1);
+
 	freshKst(false);
 	fakeKstLineRefuse(KST_LINE_ERR_DMA);
 	openKst();
 	checkTrue("a bind that fails: RETRY", untilCtl(UI_FIX(KstCtl::Retry), 80) &&
 	                                      pinClaimJobError() == CORE1_JOB_DMA);
+	checkTrue("SIG GP0 COULD NOT BE TAKEN (DMA), amber",
+	          lineIs(80, "SIG GP0 COULD NOT BE TAKEN (DMA)", C_AMBER));
 	checkControlTable("KST, a bind error");
 	fakeKstLineRefuse(0);
 	tapId(UI_FIX(KstCtl::Retry));
@@ -1423,6 +1444,28 @@ static void testFlushWait() {
 /** @brief The strip's text, as uiStripText() draws it at scale 1. */
 static bool stripIs(const char *text, uint16_t col) { return lineIs(UI_STRIP_Y + 4, text, col); }
 
+/**
+ * @brief A switched search that finds no servo in 30 s names the converter
+ *        and the setting a servo on its own supply needs: OWN.
+ */
+static void testSwitchedTimeout() {
+	section("KST screen: a switched search with no servo names SERVO SUPPLY AT OWN");
+	freshKst(false);
+	settings()->servoSupply = 1;
+	servoSupplyConfigure(1);
+	openKst();
+	checkTrue("30 s without a servo: RETRY", untilCtl(UI_FIX(KstCtl::Retry), 1300) &&
+	                                         job().seek == KstSeek::TimedOut);
+	checkTrue("the converter on GP28",
+	          lineIs(80, "CHECK THE CONVERTER ON GP28, ITS", C_TEXT));
+	checkTrue("and a servo on its own supply: SERVO SUPPLY AT OWN",
+	          lineIs(112, "A SERVO ON ITS OWN SUPPLY NEEDS", C_TEXT) &&
+	          lineIs(126, "SETTINGS > SERVO SUPPLY AT OWN.", C_TEXT));
+	leaveAll();
+	settings()->servoSupply = 0;
+	servoSupplyConfigure(0);
+}
+
 static void testSwitchedSupply() {
 	section("KST screen: the switched supply");
 	freshKst(false);
@@ -1438,7 +1481,7 @@ static void testSwitchedSupply() {
 	          lineIs(164, "AN ESC ON THIS LEAD GETS THE", C_AMBER));
 	char want[48];
 	unsigned ds = job().supplyLeftDs;
-	snprintf(want, sizeof(want), "GP0  TRY 1  SUPPLY OFF %u.%u S", ds / 10, ds % 10);
+	snprintf(want, sizeof(want), "SIG GP0  TRY 1  SUPPLY OFF %u.%u S", ds / 10, ds % 10);
 	checkTrue("the strip counts the off phase down", stripIs(want, C_DIM));
 	fakeDumpFrame("shot_kst_switched.ppm");
 	checkTrue("found on the first power-up: the field list", untilView(KstView::List, 400) &&
@@ -1486,7 +1529,7 @@ static void testSwitchedSupply() {
 	kstFrames(2);
 	checkTrue("a stall: the supply off, the stalled screen, RETRY",
 	          !enHigh() && job().stalled && uiKstView() == KstView::Main &&
-	          stripIs("GP0  SUPPLY OFF", C_DIM) && ctlEnabled(UI_FIX(KstCtl::Retry)));
+	          stripIs("SIG GP0  SUPPLY OFF", C_DIM) && ctlEnabled(UI_FIX(KstCtl::Retry)));
 	fakeDumpFrame("shot_kst_stalled.ppm");
 	tapId(UI_FIX(KstCtl::Retry));
 	checkTrue("RETRY powers it up and reads it", untilView(KstView::List, 400) && enHigh());
@@ -1517,12 +1560,12 @@ static void testSupplyCurrent() {
 	for (; i < 400 && !(job().job == KstJobState::Searching && job().supplyOn); i++) kstFrame();
 	kstFrames(1);
 	char want[48];
-	snprintf(want, sizeof(want), "GP0  TRY %u  SUPPLY ON 0.08 A", (unsigned)job().attempts);
+	snprintf(want, sizeof(want), "SIG GP0  TRY %u  SUPPLY ON 0.08 A", (unsigned)job().attempts);
 	checkTrue("the switched search, supply on: SUPPLY ON 0.08 A",
 	          job().supplyOn && uiKstView() == KstView::Main && stripIs(want, C_DIM));
 	ina->currentA = 0.12;
 	kstFrames(1);
-	snprintf(want, sizeof(want), "GP0  TRY %u  SUPPLY ON 0.12 A", (unsigned)job().attempts);
+	snprintf(want, sizeof(want), "SIG GP0  TRY %u  SUPPLY ON 0.12 A", (unsigned)job().attempts);
 	checkTrue("a new reading repaints the strip", !job().supplyOn || stripIs(want, C_DIM));
 	leaveAll();
 	g_supOn = false;
@@ -1810,6 +1853,7 @@ void runKstUiTests() {
 	testRecordKeptAtLeave();
 	testFlushWait();
 	testSwitchedSupply();
+	testSwitchedTimeout();
 	testSupplyCurrent();
 	testCardPhase();
 	testBoardLow();

@@ -106,6 +106,14 @@ struct TouchState;
 /** @} */
 
 /**
+ * @brief A tool's refusal while another claim still holds or restores the
+ *        signal pins. Unreachable through MENU, which draws the tool's row
+ *        disabled then (ui_menu.h); kept so that a refusal never leaves the
+ *        screen blank. 22 characters, 131 px at scale 1.
+ */
+#define UI_WAIT_RESTART_TEXT "WAIT: DSHOT RESTARTING"
+
+/**
  * @defgroup uiw_roles Colour roles
  * @brief One meaning per colour: the role names of the `C_*` palette entries
  *        (docs/design/menu-b.md, decision 11).

@@ -263,23 +263,47 @@ static void testPinRules() {
 }
 
 static void testKissNeedsItsOwnPin() {
-	section("Settings: KISS is switched off, never quietly moved");
+	section("Settings: AUX moves off SIG; KISS on a pin the board uses is switched off");
 
 	Settings s;
 	settingsDefaults(&s);
 	s.kissEnable = 1;
 	s.kissPin = s.dshotPin;
-	checkTrue("sharing a pin with the ESC is repaired", !settingsValidate(&s));
-	// Moving it would start listening on a pin the user never connected, and a
-	// telemetry row reading ON against the wrong pin is worse than one reading
-	// OFF.
-	checkInt("KISS switched off rather than relocated", s.kissEnable, 0);
+	checkTrue("AUX sharing SIG's pin is repaired", !settingsValidate(&s));
+	checkTrue("AUX moves to a free pin that is not SIG's",
+	          s.kissPin != s.dshotPin && settingsPinFree(s.kissPin));
+	checkInt("and KISS stays on, listening there", s.kissEnable, 1);
+
+	settingsDefaults(&s);
+	s.kissEnable = 0;
+	s.kissPin = s.dshotPin;
+	checkTrue("with KISS off too: the servo tester's servo B is on AUX", !settingsValidate(&s));
+	checkTrue("AUX moves off SIG", s.kissPin != s.dshotPin && settingsPinFree(s.kissPin));
+	checkInt("and KISS stays off", s.kissEnable, 0);
+
+	// SIG on the board's default AUX pin: AUX takes the next free pin after
+	// SIG, the default being SIG's.
+	settingsDefaults(&s);
+	s.dshotPin = g_board->defaultKissPin;
+	s.kissPin = g_board->defaultKissPin;
+	s.kissEnable = 1;
+	settingsValidate(&s);
+	checkInt("SIG on the default AUX pin: AUX the next free pin after SIG",
+	         s.kissPin, settingsNextPin(s.dshotPin, +1));
+	checkTrue("which is not SIG's", s.kissPin != s.dshotPin && s.kissEnable == 1);
 
 	settingsDefaults(&s);
 	s.kissEnable = 1;
 	s.kissPin = 18;              // the LCD's CTS/peripheral territory on both
 	settingsValidate(&s);
 	checkInt("a pin the board is using turns KISS off", s.kissEnable, 0);
+	checkInt("and AUX takes the board's default", s.kissPin, g_board->defaultKissPin);
+
+	settingsDefaults(&s);
+	s.kissEnable = 0;
+	s.kissPin = 28;
+	checkTrue("with KISS off, AUX on a pin the board uses is repaired too", !settingsValidate(&s));
+	checkInt("to the board's default", s.kissPin, g_board->defaultKissPin);
 
 	// The rule that used to sit between those two is gone: a KISS pin no longer
 	// has to be one of the eight a hardware UART can receive on. That rule is
@@ -757,8 +781,9 @@ static void testCarryOver() {
 		k.kissPin = 0;
 		putOld(k);
 		settingsLoad();
-		checkTrue("KISS on the ESC's pin GP0: KISS off, the ESC on GP0",
-		          carried() && settings()->kissEnable == 0 && settings()->dshotPin == 0);
+		checkTrue("KISS on the ESC's pin GP0: AUX moves to GP1, KISS on, the ESC on GP0",
+		          carried() && settings()->kissEnable == 1 && settings()->dshotPin == 0 &&
+		          settings()->kissPin == 1);
 	}
 
 	// --- a damaged block: discarded as before, no notice either way ---

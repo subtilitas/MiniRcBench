@@ -444,6 +444,12 @@ void uiBoardVoltText(float volts, char *buf, size_t n) {
 	snprintf(buf, n, "%u.%02uV", (unsigned)(cv / 100) % 10u, (unsigned)(cv % 100));
 }
 
+/** @brief The DShot rate's widest text, scale 1 at x 104, y 3. */
+#define STATUS_RATE_WIDEST "DSHOT1200"
+static_assert(104 + (6 * (int)(sizeof(STATUS_RATE_WIDEST) - 1) - 1) + 4 <=
+                  240 - 4 - (6 * (int)(sizeof(STATUS_VOLT_WIDEST) - 1) - 1) * 2,
+              "the DShot rate runs into the voltage");
+
 /**
  * @brief The amber chip behind `SDERR`: the text at x 104, y 14 like the
  *        other log states, 3 px of fill left of it, 2 px right, 2 px above
@@ -525,7 +531,9 @@ static void drawStatusBar() {
 	if (pumpErr) {
 		gfxText(104, 3, "DSERR", C_AMBER, 1);
 	} else {
-		snprintf(buf, sizeof(buf), "DS%d", kbaud);
+		// The rate as the protocol names it, DSHOT600; DSHOT1200 at its
+		// widest, 9 characters, x 104 to 156.
+		snprintf(buf, sizeof(buf), "DSHOT%d", kbaud);
 		gfxText(104, 3, buf, escEdtRequested() ? C_CYAN : C_DIM, 1);
 	}
 

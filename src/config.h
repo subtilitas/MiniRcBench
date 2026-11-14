@@ -8,16 +8,16 @@
  *
  * @section config_defaults Values the board stores over these defaults
  *
- * The ESC pin, the DShot bitrate, the KISS wire, the pole count, the throttle
- * ceiling and the backlight are all changeable on the board itself and stored
- * in flash — see @ref settings.h and the **MENU -> SETTINGS** screen. What is
+ * SIG (the ESC pin), the DShot bitrate, AUX (the KISS wire), the pole
+ * count, the throttle ceiling and the backlight are all changeable on the
+ * board itself and stored in flash — see @ref settings.h and the **MENU -> SETTINGS** screen. What is
  * written here is the value a board starts with when its flash is blank, or
  * when a stored block fails to validate.
  *
  * The practical consequence: editing one of those values and reflashing will
  * appear to do nothing on a board that has saved settings, because the stored
  * value wins. SETTINGS shows one note line, `SAVED SETTINGS IN USE` or
- * `COMPILED DEFAULTS IN USE`, naming which of the two is in effect.
+ * `NOTHING SAVED: DEFAULTS IN USE`, naming which of the two is in effect.
  */
 
 #pragma once

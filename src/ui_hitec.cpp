@@ -537,13 +537,13 @@ static void mainText(MainText *m) {
 	uint8_t err = pinClaimJobError();
 	if (err) {
 		static const char *const WHY[] = {"", "REFUSED", "PWM", "PIO", "DMA", "CLOCK"};
-		snprintf(a, sizeof(a), "GP%u COULD NOT BE TAKEN (%s)", sig, WHY[err < 6 ? err : 1]);
+		snprintf(a, sizeof(a), "SIG GP%u COULD NOT BE TAKEN (%s)", sig, WHY[err < 6 ? err : 1]);
 		addLine(m, a, C_AMBER);
 		m->button = "RETRY"; m->ctl = HitecCtl::Retry; m->enabled = true;
 		return;
 	}
 	if (cs != ClaimState::Running) {
-		snprintf(m->strip, sizeof(m->strip), "TAKING GP%u", sig);
+		snprintf(m->strip, sizeof(m->strip), "TAKING SIG GP%u", sig);
 		return;
 	}
 	bool classic = s_family == HITEC_CLASSIC;
@@ -551,20 +551,20 @@ static void mainText(MainText *m) {
 		case HitecJobState::Entering:
 			m->button = "STOP"; m->ctl = HitecCtl::Stop; m->enabled = true;
 			if (s_st.power == HitecPower::Off) {
-				snprintf(m->strip, sizeof(m->strip), "GP%u  SUPPLY OFF %u.%u S", sig,
+				snprintf(m->strip, sizeof(m->strip), "SIG GP%u  SUPPLY OFF %u.%u S", sig,
 				         s_st.supplyLeftDs / 10, s_st.supplyLeftDs % 10);
 				m->big = "SUPPLY OFF";
 				addLine(m, classic ? "THEN ON: THE SERVO ENTERS SERIAL" : "THEN ON: THE SERVO STARTS, AND",
 				        C_DIM);
 				addLine(m, classic ? "MODE AT ITS POWER-UP." : "THE BENCH READS ITS MODEL.", C_DIM);
 			} else if (classic) {
-				snprintf(m->strip, sizeof(m->strip), "GP%u  SUPPLY ON", sig);
+				snprintf(m->strip, sizeof(m->strip), "SIG GP%u  SUPPLY ON", sig);
 				senseAppendCurrent(m->strip, sizeof(m->strip));
 				m->big = "LISTENING";
 				addLine(m, "FOR THE SERVO'S + AFTER ITS", C_DIM);
 				addLine(m, "POWER-UP, THEN THE FIRST COMMAND.", C_DIM);
 			} else {
-				snprintf(m->strip, sizeof(m->strip), "GP%u  %s", sig, s_st.supplyFitted ? "SUPPLY ON" : "");
+				snprintf(m->strip, sizeof(m->strip), "SIG GP%u  %s", sig, s_st.supplyFitted ? "SUPPLY ON" : "");
 				if (s_st.supplyFitted) senseAppendCurrent(m->strip, sizeof(m->strip));
 				m->big = s_st.supplyFitted ? "SERVO STARTING" : "READING THE MODEL";
 				addLine(m, "THEN THE BENCH READS ITS MODEL.", C_DIM);
@@ -573,10 +573,10 @@ static void mainText(MainText *m) {
 			return;
 		case HitecJobState::EntryEnded:
 			m->button = "RETRY"; m->ctl = HitecCtl::Retry; m->enabled = true;
-			// Only the switched supply stalls a session: with NONE a lapse lets
+			// Only the switched supply stalls a session: with OWN a lapse lets
 			// the running operation end and refuses the next one (hitec_job.h).
 			if (s_st.stalled) {
-				snprintf(m->strip, sizeof(m->strip), "GP%u  SUPPLY OFF", sig);
+				snprintf(m->strip, sizeof(m->strip), "SIG GP%u  SUPPLY OFF", sig);
 				addWrapped(m, "THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF.", C_AMBER);
 				addLine(m, "RETRY POWERS IT UP AND READS IT AGAIN.", C_AMBER);
 				if (!hitecFilesMounted() && s_st.stallWrote)
@@ -598,7 +598,7 @@ static void mainText(MainText *m) {
 			return;
 		case HitecJobState::Busy:
 		case HitecJobState::InMode:
-			snprintf(m->strip, sizeof(m->strip), "GP%u  IN SERIAL MODE", sig);
+			snprintf(m->strip, sizeof(m->strip), "SIG GP%u  IN SERIAL MODE", sig);
 			if (s_readFailed && s_st.job == HitecJobState::InMode) {
 				if (s_st.result == HITEC_SES_ERR_ABORTED) {
 					addLine(m, "THE READ WAS STOPPED.", C_AMBER);
@@ -619,7 +619,7 @@ static void mainText(MainText *m) {
 			m->button = "STOP"; m->ctl = HitecCtl::Stop; m->enabled = s_st.job == HitecJobState::Busy;
 			return;
 		default:
-			snprintf(m->strip, sizeof(m->strip), "STARTING THE ENTRY ON GP%u", sig);
+			snprintf(m->strip, sizeof(m->strip), "STARTING THE ENTRY ON SIG GP%u", sig);
 			return;
 	}
 }
@@ -669,7 +669,7 @@ static void drawFamilyStrip() {
 			// Neither is reachable through the UI: MENU disarms on entry, and
 			// its row stays disabled while another claim holds or restores.
 			// Kept so that a refusal never leaves the strip blank.
-			uiStripText(s_refusal == ClaimRefusal::Armed ? "DISARM FIRST" : "PINS BUSY", C_AMBER);
+			uiStripText(s_refusal == ClaimRefusal::Armed ? "DISARM FIRST" : UI_WAIT_RESTART_TEXT, C_AMBER);
 		}
 		return;
 	}

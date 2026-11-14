@@ -4,8 +4,9 @@
  *        and the hold that saves them.
  *
  * Reached from MENU. The sections, in order: ESC TESTER (motor poles and
- * the throttle ceiling), WIRING, each tool's own section in registry order,
- * DISPLAY, BOARD and DIAGNOSTICS (the last restart's reason and the uptime,
+ * the throttle ceiling), WIRING (SIG and AUX, the DShot rate, KISS), SERVO
+ * SUPPLY (the switched supply and the current sensor), each tool's own
+ * section in registry order, DISPLAY, BOARD and DIAGNOSTICS (the last restart's reason and the uptime,
  * read-only, @ref diag.h). Every change applies at once; only writing flash needs
  * HOLD TO SAVE, 1000 ms. RESET loads the compiled defaults into the live
  * settings and writes nothing.
@@ -16,7 +17,7 @@
  * takes a press only while 40 px of it shows (@ref UI_LIST_TAP_MIN).
  *
  * LINK, the live packet rate and error share, sits under the list, so a
- * change of the ESC pin is answered on this screen.
+ * change of SIG is answered on this screen.
  *
  * @see settings.h for what is stored and how it is validated;
  *      docs/design/menu.md, "SETTINGS".
@@ -32,19 +33,19 @@ struct TouchState;
 
 /**
  * @brief The SETTINGS rows, as `UI_ROW(n, part)` numbers them: rows count
- *        from the top of the list, captions not counted. The tool sections
- *        follow WIRING in registry order; KST's SERVO SUPPLY is the one there
- *        is.
+ *        from the top of the list, captions not counted. SERVO SUPPLY is a
+ *        core section after WIRING; a tool's own section would follow it in
+ *        registry order, and no tool has one.
  */
 enum class SettingsRowId : uint8_t {
 	Poles,        /**< MOTOR POLES, - and +. */
 	MaxThrottle,  /**< MAX THROTTLE, - and +. */
-	Pin,          /**< ESC PIN, - and +. */
-	Speed,        /**< DSHOT KBAUD, - and +. */
-	Kiss,         /**< KISS TELEM, toggle. */
-	KissPin,      /**< KISS PIN, - and +, while KISS is on. */
-	ServoSupply,  /**< SERVO SUPPLY, - and +: KST's section, ui_kst.cpp. */
-	CurrentSense, /**< CURRENT SENSE, toggle, below SERVO SUPPLY in KST's section. */
+	Sig,          /**< SIG PIN, - and +, its J5 pin under the value. */
+	Speed,        /**< DSHOT, the bitrate in kbit/s, - and +. */
+	Kiss,         /**< KISS TELEM, toggle: KISS listens on AUX. */
+	Aux,          /**< AUX PIN, - and +, its J5 pin under the value; live whatever KISS is. */
+	ServoSupply,  /**< SERVO SUPPLY, - and +: OWN, GP28 or GP29, its J4 pin under the value. */
+	CurrentSense, /**< CURRENT SENSE, toggle, below SERVO SUPPLY in its section. */
 	Contrast,     /**< CONTRAST, toggle. */
 	Backlight,    /**< BACKLIGHT, - and +. */
 	BuiltFor,     /**< BUILT FOR, read-only. */
@@ -74,8 +75,8 @@ void uiSettingsEnter();
 bool uiSettingsTick(const TouchState *t);
 
 /**
- * @brief The sections SETTINGS shows, in order: ESC TESTER, WIRING, each
- *        tool's section, DISPLAY and BOARD. Valid after uiSettingsEnter();
+ * @brief The sections SETTINGS shows, in order: ESC TESTER, WIRING, SERVO
+ *        SUPPLY, each tool's section, DISPLAY, BOARD and DIAGNOSTICS. Valid after uiSettingsEnter();
  *        for the host tests.
  * @param[out] out At most @p max sections.
  * @param max      Room in @p out.

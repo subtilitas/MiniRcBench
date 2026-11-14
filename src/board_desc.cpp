@@ -46,7 +46,7 @@ const BoardDesc *const g_board = &BOARD_DESC_LCD_2_8;
  * The pin defaults are macros, so they are overridable from the build -- and an
  * override that cannot work must fail here rather than be repaired in silence
  * on the bench. settingsValidate() would quietly move an occupied ESC pin back
- * to the board default and switch a colliding KISS wire off, which is right for
+ * to the board default and move a colliding KISS wire, which is right for
  * a stored block nobody chose and wrong for a value someone typed on a command
  * line. @see cfg_pin_defaults
  *
