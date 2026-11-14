@@ -60,8 +60,7 @@ protocol.
   Below 2.50 V, implausible for a working cell and possible with USB power
   alone, it stays in the text colour, and turns red again from 2.55 V. The
   thresholds are a lithium-polymer cell's usual low range, not measured on
-  this board. Nothing is refused on them. Host test
-  `testBoardCellColour()`.
+  this board. Host test `testBoardCellColour()`.
 - The manual says the driver reads the controller's first contact slot
   only and that what the controller puts there with two contacts is not
   measured, so the throttle finger lifts before DISARM; a wet screen or a
@@ -137,8 +136,6 @@ protocol.
   ESC STATUS colours and the steps on WARN, ERROR or ALERT: disarm, let the
   ESC cool, read ESC TEMP and CURRENT. NO TELEMETRY starts with the
   power-cycle the ESC needs after AM32 CONFIG.
-- The wiki pages Hitec-Programming and Hitec-Programmierung warn that SIG
-  carries DShot on the family view until a family is tapped.
 
 - The building blocks of menu structure B, slice 1 of
   [menu-b.md](docs/design/menu-b.md), with nothing drawn differently:
@@ -508,6 +505,49 @@ protocol.
 
 ### Changed
 
+- KST SERVO, HITEC SERVO and AM32 CONFIG refuse a write, and KST and Hitec a
+  restore, while the BOARD voltage is red (`BoardCell::Critical`,
+  `uiBoardWriteRefused()` in `src/ui.h`), by the owner's decision of
+  2026-11-14. Each screen asks at the end of the hold and again just before
+  the write goes out, after a wait for the backup's flush; a write already
+  running is not stopped. No file goes to the card and no frame to the servo
+  or the ESC. The KST and Hitec write pages read
+  `BOARD VOLTAGE IS RED: NOT WRITTEN.` and
+  `CHARGE THE BOARD'S CELL, HOLD AGAIN.` in amber; AM32 CONFIG shows the two
+  lines as its write's result. Amber, the text colour and no cell (below
+  2.50 V) write as before. HITEC SERVO shows the horn line until a write
+  has gone out, not after a refused hold. Host tests `testBoardLow()` in
+  `test/test_kst_ui.cpp` and `test/test_hitec_ui.cpp` and
+  `testAm32BoardLow()`; the wiki shows `kst-board-low.png`,
+  `hitec-board-low.png` and `am32-board-low.png`.
+- AM32 CONFIG opens settings in a layout revision outside 2 to 4, 1 or 5 to
+  8, read-only, by the owner's decision of 2026-11-14, where the connect
+  page used to show `LAYOUT n NOT KNOWN` with
+  `THE TESTER KNOWS LAYOUTS 2 TO 4.`: a view of its own (`S_VIEW`) with the
+  48 bytes in hex and no field, the strip `LAYOUT 5 NOT KNOWN: READ-ONLY.`
+  over `NOT VERIFIED. BACKUP AM001` (or `NO CARD: NO BACKUP.`,
+  `BACKUP FAILED.`), and the backup saved to the card as the view opens.
+  BACK is the view's one control, and the screen has no transition from it
+  to the write; the write refuses settings read in such a layout
+  (`LAYOUT NOT KNOWN: NOT WRITTEN`). The backup of such a block has no field
+  line and reads `Layout not known: fields not read, not verified`
+  (`am32FieldShown()` shows no field outside layouts 2 to 4). Host test
+  `testAm32ReadOnly()`, with a write forced past the view; the wiki shows
+  `am32-readonly.png` in place of `am32-layout.png`.
+- HITEC SERVO claims SIG when the screen opens, before the family tap, by
+  the owner's decision of 2026-11-14: DShot drains and stops, and the pin
+  stays an input with the pull-up on while the family view shows. The
+  strip reads `GP0 IS THE SERVO'S: DSHOT IS OFF.` in green over
+  `CONNECT THE SERVO, CHOOSE ITS FAMILY`; while an ESC answers on SIG,
+  `AN ESC ANSWERS ON GP0: UNPLUG IT.` over
+  `DSHOT STAYS ON THE PIN UNTIL THEN.` in amber with both families
+  disabled. The tap starts the Hitec job for that family
+  (`pinClaimStartJob()`, `PinUserInfo::deferJob` in `src/pin_claim.h`).
+  BACK on the family view passes the unplug page and RESTART DSHOT; BACK
+  there returns to the family view. D SERIES' note under `NONE` reads
+  `POWER THE SERVO UP, THEN TAP.` Host tests `testDeferredJob()` in
+  `test/test_claim.cpp` and `testFamily()` in `test/test_hitec_ui.cpp`; the
+  wiki shows `hitec-family-esc.png`.
 - SD LOG's FILE row keeps the last log's name after it ends, marked
   `(LAST)`, beside the counters that log left, until the next start or
   mount; a mount resets the name and the counters (`sdLogBegin()`). The

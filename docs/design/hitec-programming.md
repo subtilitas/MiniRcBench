@@ -322,7 +322,7 @@ struct HitecStatus {
     uint16_t      ackSeq;
     HitecJobState job;
     HitecRefusal  refused;          // of the last command taken
-    uint8_t       family;           // hitec_family_t, set before the claim
+    uint8_t       family;           // hitec_family_t, set before the job starts
     uint8_t       lineError;        // hitec_line_err_t of the open
     uint8_t       result;           // hitec_ses_t of the last operation
     uint8_t       lastRx;           // hitec_rx_t of the last decoded step
@@ -348,12 +348,17 @@ session forget it (`hitec_image_forget()`), and `hitec_plan()` refuses with
 job's status carries as built ([kst-programming.md](kst-programming.md#work-breakdown),
 step 5).
 
-The family is chosen before the claim. `hitecJobSetFamily(family)` writes it
-under the job's critical section, on core0, only while no core1 job runs;
-the screen calls it, then begins the claim, and the bind reads it and opens
-the line for that family. RETRY after a bind error (`pinClaimRetry()`) and
-BACK on the unplug page (`pinClaimKeep()`) bind again with the family it
-holds. An open failure is a bind error, reported by `pinClaimJobError()` as
+The family is chosen before the job starts, after the claim. The screen
+claims SIG on its first frame, with no family yet: the claim's user row
+defers the job (`PinUserInfo::deferJob`), so the claim stays Held, the pad
+an input with the pull-up `esc_task.cpp` leaves on it. The family tap calls
+`hitecJobSetFamily(family)`, which writes it under the job's critical
+section, on core0, only while no core1 job runs, and then
+`pinClaimStartJob()`; the bind reads it and opens the line for that family.
+RETRY after a bind error (`pinClaimRetry()`) and BACK on the unplug page
+(`pinClaimKeep()`) bind again with the family it holds; BACK on an unplug
+page reached from the family view returns to Held with no job. An open
+failure is a bind error, reported by `pinClaimJobError()` as
 `GP0 COULD NOT BE TAKEN (PIO)`, `(DMA)` or `(CLOCK)` with RETRY, as on the
 other servo screens. Another family means leaving through the unplug page
 and choosing again.

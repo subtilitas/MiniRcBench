@@ -267,6 +267,22 @@ While the write runs, the page reads `WRITING: DO NOT UNPLUG.` and, under it,
 write is queued: the page reads `LEAVING AFTER THE WRITE ENDS.` and the leave
 page follows the result.
 
+### The BOARD voltage red
+
+While the BOARD voltage on the tester is red, below 3.30 V and until it
+rises to 3.35 V, the second hold writes nothing: no file goes to the card
+and no frame to the servo. The page reads, in amber,
+`BOARD VOLTAGE IS RED: NOT WRITTEN.` and
+`CHARGE THE BOARD'S CELL, HOLD AGAIN.`, and `HOLD TO WRITE` stays. The
+screen asks again when the write would go out after the backup's flush, so a
+voltage that turns red meanwhile stops the write too. A write already
+running is not stopped. Amber, and a value below 2.50 V (no cell to judge),
+write as before. `HOLD TO RESTORE` is refused the same way. The bands are a
+lithium-polymer cell's usual range, not measured on this board; what the
+board reads on USB power with no cell is not measured either.
+
+<img src="img/kst-board-low.png" width="240" alt="The write page with the BOARD voltage red: BOARD VOLTAGE IS RED: NOT WRITTEN. and CHARGE THE BOARD'S CELL, HOLD AGAIN. in amber">
+
 ### The result
 
 The result replaces the buttons with `OK`. `OK` returns to the field list.

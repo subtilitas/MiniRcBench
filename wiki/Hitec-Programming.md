@@ -86,12 +86,16 @@ of its own regulated supply.
 
 ## Choosing the family
 
-Open **MENU → HITEC SERVO**. The screen opens on the family view. It claims
-no pin yet.
+Open **MENU → HITEC SERVO**. The screen opens on the family view and takes
+SIG from the ESC driver at once, before a family is chosen: DShot sends zero
+throttle for at least 250 ms, stops, and leaves the pin an input held high
+by its pull-up. No DShot frame reaches a servo you connect on this view.
 
-<img src="img/hitec-family.png" width="240" alt="The family view with SERVO SUPPLY at NONE: CLASSIC disabled with NEEDS THE CONVERTER OF WIRING PART C, D SERIES with POWER THE SERVO UP BEFORE THE TAP.">
+<img src="img/hitec-family.png" width="240" alt="The family view with SERVO SUPPLY at NONE: GP0 IS THE SERVO'S: DSHOT IS OFF. in green, CLASSIC disabled with NEEDS THE CONVERTER OF WIRING PART C, D SERIES with POWER THE SERVO UP, THEN TAP.">
 
-The strip reads `CHOOSE THE SERVO'S FAMILY`. Two buttons follow:
+The strip reads `RELEASING GP0 FROM DSHOT` while the driver stops, then
+`GP0 IS THE SERVO'S: DSHOT IS OFF.` in green over
+`CONNECT THE SERVO, CHOOSE ITS FAMILY`. The two buttons act from then on:
 
 - `CLASSIC`, with `HS-5XXX, HS-7XXX` under it. It acts while SERVO SUPPLY
   is `GP28` or `GP29`. While SERVO SUPPLY is `NONE` it is drawn disabled,
@@ -100,33 +104,30 @@ The strip reads `CHOOSE THE SERVO'S FAMILY`. Two buttons follow:
   `AND SETTINGS > SERVO SUPPLY GP28/29.`
 - `D SERIES`, with `D485HW, D645MW AND THE OTHERS` under it, and
   `SUPPLY SWITCHED ON GP28` (or `GP29`, the pin set) or, under `NONE`,
-  `POWER THE SERVO UP BEFORE THE TAP.`: on its own supply the servo must be
+  `POWER THE SERVO UP, THEN TAP.`: on its own supply the servo must be
   running when the screen enters, because the entry reads its model at once.
 
-**Power the servo up, then tap `D SERIES`.** With `GP28` or `GP29` the bench
-powers it. `BACK` on this view returns to `MENU`.
+**Connect the servo, power it up, then tap `D SERIES`.** With `GP28` or
+`GP29` the converter stays off on this view, held off by its pull-down, and
+the bench powers the servo after the tap.
 
-> **Until a family is tapped, SIG carries DShot.** The family view claims no
-> pin, and the DShot driver keeps sending one frame every 1000 µs, disarmed
-> too. Bidirectional DShot holds the line high and, at the default DSHOT
-> KBAUD of 600, pulls it low for about 27 µs per frame: a PWM (pulse-width
-> modulation) servo reads that as a pulse of about 970 µs at 1000 Hz. What a
-> D series servo does with it is not measured.
-> - With SERVO SUPPLY at `NONE` the screen needs the servo powered at the
->   tap, so keep that time short: open HITEC SERVO, connect the servo with
->   its supply off, then switch the supply on and tap `D SERIES` at once.
-> - With `GP28` or `GP29` the converter stays off on the family view, held
->   off by its pull-down, and the bench powers the servo after the tap.
+`BACK` on this view goes to the unplug page, as `LEAVE` does: the pin was the
+servo's, so DShot restarts only after `UNPLUG THE SERVO.` and
+`RESTART DSHOT`. `BACK` on the unplug page returns to the family view.
 
-The screen then takes SIG from the ESC driver. While it does, the strip reads
-`RELEASING GP0`, then `TAKING GP0`. While an ESC answers on the pin it
-reads `CHECKING GP0 FOR AN ESC` instead.
+<img src="img/hitec-family-esc.png" width="240" alt="The family view while an ESC answers on GP0: AN ESC ANSWERS ON GP0: UNPLUG IT. and DSHOT STAYS ON THE PIN UNTIL THEN. in amber, both families disabled.">
 
-- If an ESC answers on the pin, the screen says `AN ESC ANSWERS ON GP0.`,
-  then `UNPLUG IT: A HITEC ENTRY SENDS` and
-  `FRAMES INTO WHAT IS ON THE WIRE.` It takes the pin when the ESC is gone.
-- While the ESC is armed, the screen says `DISARM FIRST`. While the pins are
-  still in use, it says `PINS BUSY`.
+- If an ESC answers on the pin, the strip reads, in amber,
+  `AN ESC ANSWERS ON GP0: UNPLUG IT.` and
+  `DSHOT STAYS ON THE PIN UNTIL THEN.`, and both families are drawn
+  disabled. The screen takes the pin once the ESC has been quiet for
+  500 ms.
+- While the tester is armed, the strip reads `DISARM FIRST`. While the pins
+  are still in use, it reads `PINS BUSY`.
+
+The tap starts the Hitec job for that family. While it binds, the strip on
+the next view reads `TAKING GP0`.
+
 - If the board cannot set up the line, the screen says
   `GP0 COULD NOT BE TAKEN (` followed by `REFUSED`, `PWM`, `PIO`, `DMA` or
   `CLOCK` and a closing bracket. PWM is pulse-width modulation and DMA is
@@ -139,7 +140,7 @@ reads `CHECKING GP0 FOR AN ESC` instead.
 
 ## Entering and reading
 
-When the pin is taken, the entry starts at once.
+Once the job holds the line, the entry starts at once.
 
 - **With SERVO SUPPLY at `NONE`**, the screen reads the servo on the supply
   it has. Power the servo before you tap `D SERIES`. The body reads
@@ -348,6 +349,22 @@ follows the result. The screen never stops a write.
 
 A verified write removes its record. Later writes of the session save no
 second backup.
+
+### The BOARD voltage red
+
+While the BOARD voltage on the tester is red, below 3.30 V and until it
+rises to 3.35 V, the second hold writes nothing: no file goes to the card
+and no frame to the servo. The page reads, in amber,
+`BOARD VOLTAGE IS RED: NOT WRITTEN.` and
+`CHARGE THE BOARD'S CELL, HOLD AGAIN.`, and `HOLD TO WRITE` stays. The
+screen asks again when the write would go out after the backup's flush, so a
+voltage that turns red meanwhile stops the write too. A write already
+running is not stopped. Amber, and a value below 2.50 V (no cell to judge),
+write as before. `HOLD TO RESTORE` is refused the same way. The bands are a
+lithium-polymer cell's usual range, not measured on this board; what the
+board reads on USB power with no cell is not measured either.
+
+<img src="img/hitec-board-low.png" width="240" alt="The write page with the BOARD voltage red: BOARD VOLTAGE IS RED: NOT WRITTEN. and CHARGE THE BOARD'S CELL, HOLD AGAIN. in amber">
 
 ### The result
 

@@ -227,9 +227,10 @@ screen does not work.
   cause: the ESC does not run AM32.
 - **`NO VALID SETTINGS`**: the ESC answered, and the settings block failed the
   plausibility check. Do not write anything.
-- **`LAYOUT n NOT KNOWN`**: the ESC stores a settings layout the tester does
-  not know; it shows `THE TESTER KNOWS LAYOUTS 2 TO 4.` and writes nothing.
-  Use the AM32 configurator for this ESC.
+- **`LAYOUT n NOT KNOWN: READ-ONLY.`**: the screen connected, and the ESC
+  stores a settings layout the tester does not know. The screen shows the
+  bytes, saves the backup and writes nothing. Use the AM32 configurator to
+  change this ESC.
 - **`READ FAILED (...)`**: the handshake worked and the settings read did not.
   Check the signal wire and ground.
 
@@ -266,6 +267,16 @@ The recording ended without `STOP`. **MENU → SD LOG** says how above
 `START`: a full card, a failed write, a file that did not open, or the tool
 (KST SERVO, HITEC SERVO, AM32 CONFIG) that took the card. See
 [SD Logging](SD-Logging#how-the-last-log-ended).
+
+---
+
+## A write says `BOARD VOLTAGE IS RED: NOT WRITTEN.`
+
+KST SERVO, HITEC SERVO and AM32 CONFIG write nothing, and restore nothing,
+while the BOARD voltage on the tester is red: below 3.30 V, until it rises
+to 3.35 V. Charge the board's cell, then hold again. The edits stay. With
+USB power and no cell the reading is not measured; if it reads red there,
+fit a charged cell.
 
 ---
 

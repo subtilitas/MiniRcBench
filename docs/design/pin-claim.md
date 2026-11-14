@@ -120,8 +120,13 @@ the exception.
    rest. A rebuild after a SETTINGS pin change drains the same way.
 3. **Held.** Core0 reads the GPIO numbers once: SIG from `escTaskDshotPin()`,
    AUX from `escTaskKissPin()`. `pinClaimGpio()` returns them from here on, for
-   the roles the claim asked for. For SERVO, KST and HITEC it starts the core1 job
+   the roles the claim asked for. For SERVO and KST it starts the core1 job
    with those numbers, and with AUX as 0xFF when the claim did not ask for it.
+   HITEC claims as its screen opens, before the servo's family is known, and
+   defers its job (`PinUserInfo::deferJob`): the claim stays Held, the pad an
+   input with the pull-up on, until the family tap calls
+   `pinClaimStartJob()`. BACK from there is step 5 with no job: the unplug
+   page comes at once, and its BACK returns to Held with no job.
    AM32 has no core1 job: it calls `am32BlBegin(pinClaimGpio(PIN_SIG))`, and
    its claim stays Held until BACK.
 4. **Running.** The job binds its pins and reports `Running`, or reports a bind
@@ -175,6 +180,7 @@ PinUser      pinClaimHolder();             // None while Free
 uint8_t      pinClaimGpio(uint8_t role);   // latched at Held; 0xFF before
 uint8_t      pinClaimJobError();           // why a bind failed, 0 for none
 void         pinClaimEnd(PinUser who);     // BACK; the poll finishes it
+void         pinClaimStartJob(PinUser who); // HITEC's family tap: the deferred job
 void         pinClaimRetry(PinUser who);   // RETRY after a failed bind
 bool         pinClaimUnplugDue();          // SERVO, KST, HITEC: Leaving, job idle
 void         pinClaimRestart(PinUser who); // RESTART DSHOT on the unplug page
@@ -183,9 +189,10 @@ void         pinClaimKeep(PinUser who);    // BACK on the unplug page
 
 What differs per user is a table, `PIN_USERS` in `pin_claim.h`, one row per
 `PinUser`: the core1 job (None: the screen drives the pin from core0, as AM32
-does), whether the unplug page comes before DShot restarts, and whether the
-claim is refused while an ESC answers on SIG. `pinUserInfo()` reads it. A new
-pin user is one enum value and one row.
+does), whether the unplug page comes before DShot restarts, whether the
+claim is refused while an ESC answers on SIG, and whether Held waits for
+`pinClaimStartJob()` before the job starts (HITEC alone). `pinUserInfo()`
+reads it. A new pin user is one enum value and one row.
 
 The refusal check is a pure function, `pinClaimCheck()`, beside it, so the
 host suite tests every rule without the SDK. Its order is Armed, Busy,

@@ -10,7 +10,7 @@ Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MEN
    ▲                    ├── SERVO TESTER ──BACK──> unplug page ──> MENU
    │                    ├── KST SERVO    ──BACK──> leave page ──> unplug page ──> MENU
    │                    ├── HITEC SERVO  ──BACK──> leave page ──> unplug page ──> MENU
-   │                    │   (on the family view BACK returns to MENU; during the entry, to the unplug page)
+   │                    │   (on the family view and during the entry BACK goes to the unplug page)
    │                    ├── SETTINGS     ──BACK──> MENU
    │                    └── SD LOG       ──BACK──> MENU
    └──── BACK on MENU ──┘
@@ -55,7 +55,9 @@ disabled, an outline with a grey label, and a tap on it does nothing.
   once it is 50 mV over the threshold. With USB power alone the value can be
   low and then says nothing about a cell: below 2.50 V, implausible for a
   working cell, it is drawn in the normal text colour, and red again from
-  2.55 V. No write and no arm is refused on it.
+  2.55 V. While it is red, KST SERVO, HITEC SERVO and AM32 CONFIG write
+  nothing and say `BOARD VOLTAGE IS RED: NOT WRITTEN.`; amber refuses
+  nothing, and no arm is refused on it.
   During the last 5 s before the idle interlock disarms, `IDLE ns` in amber
   replaces the voltage and `BOARD`.
 
@@ -275,7 +277,10 @@ Recording state and counters. `BACK` returns to `MENU`. See
 <img src="img/am32-list.png" width="240" alt="The AM32 settings list">
 
 Reads, edits and writes the settings of an AM32 ESC over the signal wire.
-`BACK` returns to `MENU`. See [AM32 Configuration](AM32-Configuration).
+Settings in a layout the tester does not know, other than 2 to 4, open
+read-only: the bytes in hex, `NOT VERIFIED.`, a backup on the SD card and
+no write. `BACK` returns to `MENU`. See
+[AM32 Configuration](AM32-Configuration).
 
 ---
 
@@ -319,12 +324,14 @@ supply's state, `SUPPLY ON 0.08 A`. See [KST Programming](KST-Programming).
 <img src="img/hitec-list.png" width="240" alt="The Hitec field list">
 
 Reads and writes the settings of a Hitec D series or classic servo over the
-signal wire on the ESC pin. It opens on the family view: `D SERIES` acts, and
+signal wire on the ESC pin. It takes the pin from the ESC driver as it opens,
+on the family view: the strip reads `GP0 IS THE SERVO'S: DSHOT IS OFF.` and
+`CONNECT THE SERVO, CHOOSE ITS FAMILY`. `D SERIES` acts, and
 `CLASSIC` acts with SERVO SUPPLY at `GP28` or `GP29`; under `NONE` it is drawn
 disabled with `NEEDS THE CONVERTER OF WIRING PART C` and
 `AND SETTINGS > SERVO SUPPLY GP28/29.`: the converter of
 [wiring](Wiring) part C comes first, then the setting. Under `NONE`, D SERIES
-reads `POWER THE SERVO UP BEFORE THE TAP.`. The screen enters the servo
+reads `POWER THE SERVO UP, THEN TAP.`. The screen enters the servo
 and reads it. A D series servo gives 21 registers and 20 parameters, 11 of
 them editable. One servo goes on the lead, with no pull-up resistor.
 `HOLD TO WRITE` for 1 s opens the write page, and a second hold of 1 s writes,

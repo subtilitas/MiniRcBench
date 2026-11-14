@@ -287,6 +287,23 @@ Während des Schreibens zeigt die Seite `WRITING: DO NOT UNPLUG.` und darunter
 Schreibens wird vorgemerkt: Die Seite zeigt `LEAVING AFTER THE WRITE ENDS.`,
 und die Verlassenseite folgt auf das Ergebnis.
 
+### Die BOARD-Spannung rot
+
+Solange die BOARD-Spannung auf dem Tester rot ist, unter 3,30 V und bis sie
+wieder 3,35 V erreicht, schreibt das zweite Halten nichts: Keine Datei geht
+auf die Karte und kein Frame zum Servo. Die Seite zeigt in Bernstein
+`BOARD VOLTAGE IS RED: NOT WRITTEN.` und
+`CHARGE THE BOARD'S CELL, HOLD AGAIN.`, und `HOLD TO WRITE` bleibt. Der
+Bildschirm fragt erneut, wenn das Schreiben nach dem Übertragen der Sicherung
+hinausginge, also hält auch eine Spannung, die währenddessen rot wird, das
+Schreiben an. Ein laufendes Schreiben wird nicht angehalten. Bernstein und ein
+Wert unter 2,50 V (keine Zelle zu beurteilen) schreiben wie bisher.
+`HOLD TO RESTORE` wird ebenso abgelehnt. Die Bereiche sind der übliche
+Bereich einer Lithium-Polymer-Zelle, auf dieser Platine nicht gemessen; was
+die Platine an USB-Versorgung ohne Zelle liest, ist ebenfalls nicht gemessen.
+
+<img src="img/kst-board-low.png" width="240" alt="Die Schreibseite mit roter BOARD-Spannung: BOARD VOLTAGE IS RED: NOT WRITTEN. und CHARGE THE BOARD'S CELL, HOLD AGAIN. in Bernstein">
+
 ### Das Ergebnis
 
 Das Ergebnis ersetzt die Schaltflächen durch `OK`. `OK` führt zur Feldliste

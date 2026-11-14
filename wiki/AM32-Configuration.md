@@ -52,11 +52,24 @@ The field table is checked against layout revisions 2 to 4: every
 am32-firmware/AM32 release writes one of them (2.22 writes 4), and
 AlkaMotors' firmware from 1.78 writes 2. Layout 1, AlkaMotors' firmware
 before 1.78, reads nothing above byte 0x29, and a revision above 4 is newer
-than the table. For either the screen shows `LAYOUT n NOT KNOWN` with
-`THE TESTER KNOWS LAYOUTS 2 TO 4.` and `NOTHING WILL BE WRITTEN.`, and stays
-on the connect page.
+than the table, so either may hold a field where the table expects another.
+For either the screen opens a **read-only view**: the 48 bytes in hex, eight
+to a line, and no field. The strip reads, in amber,
+`LAYOUT 5 NOT KNOWN: READ-ONLY.` (with the layout the ESC stores) and
+`NOT VERIFIED.` followed by where the backup went: `BACKUP AM001`,
+`NO CARD: NO BACKUP.` without a card or with the card on USB, or
+`BACKUP FAILED.` when the card refuses it. Under the bytes:
+`THE BYTES AS READ. THE FIELD TABLE` / `IS NOT CHECKED FOR THIS LAYOUT.`
 
-<img src="img/am32-layout.png" width="240" alt="LAYOUT 5 NOT KNOWN, with THE TESTER KNOWS LAYOUTS 2 TO 4. and NOTHING WILL BE WRITTEN.">
+<img src="img/am32-readonly.png" width="240" alt="The read-only view of a layout 5 block: LAYOUT 5 NOT KNOWN: READ-ONLY. and NOT VERIFIED. BACKUP AM001 in amber, the 48 bytes in hex">
+
+The backup goes to the card as the view opens, since nothing is written
+later. It holds the 48 bytes, no field line, and the line
+`Layout not known: fields not read, not verified`. The view has one control,
+`BACK`: no row, no `HOLD TO WRITE`, `REVERT` or `HEX`, and the screen has no
+way from this view to the write. The write itself also refuses settings read
+in such a layout: `LAYOUT NOT KNOWN: NOT WRITTEN`. To change the settings of
+such an ESC, use the AM32 configurator.
 
 The firmware does not record which firmware an ESC that does not answer
 runs.
@@ -205,6 +218,16 @@ amber. Nothing has been sent to the ESC yet.
 Hold `HOLD TO WRITE` for 1 s. A progress bar fills while you hold. With no
 changes the button reads `NO CHANGES`.
 
+While the BOARD voltage on the tester is red, below 3.30 V and until it
+rises to 3.35 V, the hold writes nothing, neither the backup nor the
+settings. The result reads `BOARD VOLTAGE IS RED: NOT WRITTEN.` with
+`CHARGE THE BOARD'S CELL, HOLD AGAIN.` in amber under it, and `OK` returns to
+the list with the edits kept. Amber, and a value below 2.50 V (no cell to
+judge), write as before. The bands are a lithium-polymer cell's usual range,
+not measured on this board.
+
+<img src="img/am32-board-low.png" width="240" alt="BOARD VOLTAGE IS RED: NOT WRITTEN. with CHARGE THE BOARD'S CELL, HOLD AGAIN. in amber">
+
 After the write the firmware waits 300 ms, **reads the settings back and
 compares them** byte by byte. It does not rely on the ESC's acknowledgement.
 A match shows `WRITE VERIFIED`, with `POWER-CYCLE THE ESC TO APPLY.` under
@@ -309,9 +332,9 @@ board restarts.
   transport does not implement.
 - **`NO VALID SETTINGS`.** The ESC answered, and the settings block failed the
   plausibility check. Do not write anything.
-- **`LAYOUT n NOT KNOWN`.** The ESC stores a settings layout the tester does
-  not know; it shows `THE TESTER KNOWS LAYOUTS 2 TO 4.` and writes nothing.
-  Use the AM32 configurator for this ESC.
+- **`LAYOUT n NOT KNOWN: READ-ONLY.`** The ESC stores a settings layout the
+  tester does not know. The screen shows the bytes, saves the backup and
+  writes nothing. Use the AM32 configurator to change this ESC.
 - **`READ FAILED (...)`.** The handshake worked and the settings read did not.
   Check the signal wire and ground.
 
