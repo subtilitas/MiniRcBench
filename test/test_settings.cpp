@@ -778,6 +778,30 @@ static void testCarryOver() {
 		settingsLoad();
 		checkTrue("version 2 with 14 bytes: not carried over, reset by an update",
 		          !settingsStored() && !settingsCarriedOver() && settingsResetByUpdate());
+		// The size field alone wrong, the CRC right where the version's own
+		// layout has it: only the size check tells these from the real ones.
+		putOld(b4);
+		fakeFlashBytes()[6] = 13;
+		const uint32_t crc3 = settingsCrc32(fakeFlashBytes(), 24);
+		memcpy(fakeFlashBytes() + 24, &crc3, 4);
+		settingsLoad();
+		checkTrue("version 4 saying 13 bytes, its CRC right at byte 24: not carried over, a reset",
+		          !settingsStored() && !settingsCarriedOver() && settingsResetByUpdate());
+		putOld(b2);
+		fakeFlashBytes()[6] = 14;
+		const uint32_t crc4 = settingsCrc32(fakeFlashBytes(), 20);
+		memcpy(fakeFlashBytes() + 20, &crc4, 4);
+		settingsLoad();
+		checkTrue("version 2 saying 14 bytes, its CRC right at byte 20: not carried over",
+		          !settingsStored() && !settingsCarriedOver());
+		// Another magic, the CRC right over it: not a settings block at all.
+		putOld(b4);
+		fakeFlashBytes()[3] = 0x45;
+		const uint32_t crc5 = settingsCrc32(fakeFlashBytes(), 24);
+		memcpy(fakeFlashBytes() + 24, &crc5, 4);
+		settingsLoad();
+		checkTrue("version 4 under another magic, its CRC right: discarded, no notice",
+		          !settingsStored() && !settingsCarriedOver() && !settingsResetByUpdate());
 	}
 
 	// --- flash is not rewritten; every boot carries the block over again ---
