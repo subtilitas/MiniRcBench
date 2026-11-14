@@ -333,6 +333,7 @@ static_assert((BOARD_FREE_GPIO_MASK & 0x3C000000u) == 0,
 static bool classicAllowed() { return servoSupplyFitted(); }
 
 static void go(HitecView v) {
+	s_boardLow = false;
 	if (v != HitecView::Write) s_flushing = false;
 	s_view = v;
 	uiHoldReset(&s_hold);
