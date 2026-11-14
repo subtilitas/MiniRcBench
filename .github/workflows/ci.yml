@@ -508,6 +508,11 @@ jobs:
       - name: Wiring diagram matches the pin sources
         run: python3 tools/make_wiring.py --check
 
+      # hardware/mechanical/models/*.step are written from the specs beside
+      # them. A dimension changed in a spec and not in its file fails here.
+      - name: STEP models match their specs
+        run: python3 hardware/mechanical/gen_models.py --check
+
       - name: Install doxygen
         run: |
           sudo apt-get update && sudo apt-get install -y doxygen graphviz
