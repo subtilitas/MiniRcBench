@@ -32,7 +32,7 @@ for `.BFL` files.
 
 ## Sources
 
-- Code at `main` d4606a6: `src/sd_log.*`, `src/sd_log_next.*`,
+- Code at `main` 33079ee: `src/sd_log.*`, `src/sd_log_next.*`,
   `src/ui_sdlog.*`, `src/esc_task.h`, `src/esc_merge.*`,
   `src/kiss_telem.h`, `src/dshot/dshot.h`, `src/ui.cpp`,
   `src/board_rp2350_touch_lcd_2_8.h`, `src/usb_dev.cpp`, `CMakeLists.txt`.
@@ -96,9 +96,10 @@ check), which lets fewer damaged frames through.
 ## The values
 
 The logger computes the summary from the same snapshot that fills each
-frame (`escSnapshot()` in `sdLogTick()`), per source, as the log keeps its
-voltage and current columns per source; the source is chosen at the stop.
-So each number can be checked against the log in logwiju. A field counts
+frame (`escSnapshot()` in `sdLogTick()`), and keeps the sources apart where
+a KISS field can hide an EDT one, as the log keeps its voltage and current
+columns per source. So each number can be checked against the log in
+logwiju. A field counts
 only while it is fresh by the firmware's existing windows: KISS for
 500 ms (`KISS_STALE_MS`), an EDT field for 1000 ms (`EDT_STALE_MS`), DShot
 eRPM for 500 ms (`ESC_LINK_STALE_MS`).
@@ -109,13 +110,17 @@ while the tester is armed, whatever question 3 decides: before arming and
 after disarming it would record the ESC powering up or browning out as
 the pack is plugged or pulled, not the sag under load.
 
-**Source at the stop.** For voltage, current and temperature the summary
-keeps a KISS figure and an EDT figure. KISS's is reported when KISS was
-fresh and its field was above 0 in at least one frame; otherwise EDT's,
-when EDT's field was fresh; otherwise the value is unknown. A KISS field
-that stays 0 for the whole log is an ESC without that sensor, and does
-not hide EDT's figure as it does on the tester. The KISS counter has the
-same rule.
+**Source per frame, and one fallback at the stop.** For voltage, current
+and temperature the summary keeps two figures. The per-frame figure takes
+KISS's field while a KISS frame is fresh and EDT's while it is not, as the
+tester's readout and the current integral do; so a KISS gap over the
+hardest part of a run leaves EDT's peak in it. It is reported tagged
+`KISS`, or `MIXED` when EDT filled a gap. The EDT-only figure counts EDT's
+field whenever it is fresh, and is reported only when KISS's field stayed
+0 in every fresh KISS frame of the log: an ESC without that sensor, whose
+zeros would otherwise hide EDT's value, as they do on the tester. Without
+a fresh value of either kind the value is unknown. Both figures keep a
+held and a raw extreme. The KISS counter has the same zero rule.
 
 **Held values.** A maximum or minimum counts a value only when it holds
 for three consecutive new values of its field: the summary keeps the last
@@ -123,18 +128,20 @@ three, and the held maximum is the highest of their lowest, the held
 minimum the lowest of their highest. A new value is one whose arrival
 time (`lastRpmMs`, `kissLastMs`, `edtVoltsMs` and the other EDT stamps of
 `EscTelemetry`) differs from the last sample's. One damaged frame then
-sets no maximum. Three values span 4 to 6 ms of DShot eRPM at the
-logger's 500 Hz, 60 ms of KISS, and an unknown time of EDT, which the ESC
-paces. The raw extreme, every value counted, is kept as well and written
-to the file beside the held one, as it is the one a viewer finds in the
-`.BFL`. The held value is the one SD LOG shows (open question 8).
+sets no maximum. From the first to the third value is 4 ms of DShot eRPM
+at the logger's 500 Hz, 40 ms of KISS at 50 Hz, and an unknown time of
+EDT, which the ESC paces. The raw extreme, every value counted, is kept as
+well and written to the file beside the held one, as it is the one a
+viewer finds in the `.BFL`; the raw minimum voltage, like the held one,
+counts only while armed. The held value is the one SD LOG shows (open
+question 8).
 
 | Value | From | Rule | Unknown when |
 |---|---|---|---|
 | Max RPM | DShot eRPM; KISS eRPM only when no DShot eRPM was fresh in the whole log | the held maximum eRPM, divided by half the MOTOR POLES value in force at the stop | neither eRPM was fresh in three consecutive new values |
-| Max current | KISS or EDT, chosen at the stop | the held maximum | no source qualifies |
-| Max temperature | KISS or EDT, chosen at the stop | the held maximum | no source qualifies |
-| Min voltage | KISS or EDT, chosen at the stop | the held minimum above 0.00 V, armed only | no source qualifies, or the tester was never armed |
+| Max current | per frame, KISS while fresh, else EDT; EDT alone when KISS's current stayed 0 | the held maximum | no current was fresh |
+| Max temperature | per frame, KISS while fresh, else EDT; EDT alone when KISS's temperature stayed 0 | the held maximum | no temperature was fresh |
+| Min voltage | per frame, KISS while fresh, else EDT; EDT alone when KISS's voltage stayed 0 | the held minimum above 0.00 V, armed only | no voltage above 0.00 V was fresh while armed, or the tester was never armed |
 | Used, ESC counter | KISS consumption | the rise of the counter over the log | no KISS frame was fresh |
 | Used, from current | KISS current while KISS is fresh, else EDT current; EDT alone when KISS's current stays 0 | the integral of current over time | no current was fresh |
 | Armed | the tester's arm state | the time armed within the log | never: 0 s is a value |
@@ -181,9 +188,11 @@ Details:
   begins, or when a write fails during the log. A failed write ends the
   log in `sdLogFlush()` (`enterError()`, then `f_close()`, verified), and
   `sdLogStop()` then returns at once, as the state is no longer
-  recording; so `enterError()` closes the summary too, with the stop time,
-  Duration and Armed up to the failure. A start that fails opens no log
-  and keeps the last log's summary, as it keeps the FILE row's number.
+  recording; so `enterError()` closes the summary when a log was running,
+  with the stop time, Duration and Armed up to the failure. `enterError()`
+  also runs on a start that fails (`sdLogStart()`, verified); that start
+  opens no log and keeps the last log's summary, as it keeps the FILE
+  row's number.
 
 ## Where the statistics are kept
 
@@ -203,13 +212,15 @@ RAM, estimated from the fields above, not measured:
 
 | Item | Bytes |
 |---|---:|
-| the running summary: per source the raw and held extremes, the last three new values and their arrival times, zero flags; the KISS counter's last value and rise; two 64-bit current sums; armed, known-current and total time in 64-bit µs; start and stop clock readings | about 300 |
+| the running summary: for voltage, current and temperature a per-frame and an EDT-only figure, each with its raw and held extreme, the last three new values and their arrival times; the eRPM figure likewise; KISS zero flags and the gap-filled flags for `MIXED`; the KISS counter's last value and rise; two 64-bit current sums; armed, known-current and total time in 64-bit µs; start and stop clock readings | about 350 |
 | the text of the file | 0: built in the logger's ring, `s_ringBuf`, 8192 bytes |
 | the clock: the reading at boot, its timer value, a flag | 16 |
 
-The ring is free when the text is built. The stop drains it (64 flushes of
-512 bytes at most, 32,768 bytes, more than the ring holds), and the text
-is written only after the `.BFL` has closed clean; `sdLogTick()` writes
+The ring is free when the text is built. The stop drains it with up to 64
+flushes; draining 8192 bytes takes at most 17, 16 whole chunks and at most
+one short flush where the ring wraps. Slice 2 checks `logRingUsed()` is 0
+before it builds the text. The text is written only after the `.BFL` has
+closed clean; `sdLogTick()` writes
 nothing while no log runs, and the next `sdLogStart()` resets the ring
 (`logRingReset()`) before its first frame. All verified in
 `src/sd_log.cpp`.
@@ -303,6 +314,7 @@ The lines in other cases:
 | EDT current | `Max current: 23 A (EDT, 1 A steps; raw 25 A)` |
 | EDT voltage | `Min voltage: 14.75 V (EDT, 0.25 V steps, while armed; raw 14.50 V)` |
 | KISS current stayed 0 | `Max current: 23 A (EDT, 1 A steps, KISS sent 0; raw 25 A)` |
+| a KISS gap filled by EDT | `Max current: 31 A (KISS and EDT, 0.01 A and 1 A steps, peak from EDT; raw 32 A)` |
 | never armed | `Min voltage: unknown (never armed)` |
 | no eRPM | `Max RPM: unknown (no eRPM from DShot or KISS)` |
 | no current | `Max current: unknown (no current from KISS or EDT)` |
@@ -350,9 +362,9 @@ After a log a card error ended, the rows show the run up to the failure,
 | 0 | `STATUS` | unchanged | |
 | 1 | `FILE` | unchanged, `LOG00012.BFL (LAST)` | |
 | 2 | `MAX RPM` | `60000000` | `KISS` when from KISS, none from DShot |
-| 3 | `MAX CURRENT` | `655.35A`, from EDT `255A` | `KISS` or `EDT` |
-| 4 | `MAX TEMP` | ``255`C`` | `KISS` or `EDT` |
-| 5 | `MIN VOLTAGE` | `655.35V` | `KISS` or `EDT` |
+| 3 | `MAX CURRENT` | `655.35A`, from EDT `255A` | `KISS`, `EDT` or `MIXED` |
+| 4 | `MAX TEMP` | ``255`C`` | `KISS`, `EDT` or `MIXED` |
+| 5 | `MIN VOLTAGE` | `655.35V` | `KISS`, `EDT` or `MIXED` |
 | 6 | `USED` or `USED FROM CURRENT` | `65535mAh`, `>99999mAh` | `KISS`, `EDT` or `MIXED` |
 | 7 | `ARMED` | `999:59:59` | |
 | 8 | `SUMMARY` | `LOG99999.TXT`, `NOT SAVED: CARD FULL`, `NOT SAVED: WRITE FAILED` | |
@@ -360,8 +372,9 @@ After a log a card error ended, the rows show the run up to the failure,
 - Values follow the tester's tiles (`drawTelemetry()`): `14.82V`,
   `23.41A`, ``51`C`` (the font draws a backtick as a degree sign), `312mAh`.
   EDT current is in whole amperes, `23A`, as in the file, where the tester
-  draws `23.00A`; voltage has two decimals from both sources. The tag says
-  which step applies. An unknown value is `--`.
+  draws `23.00A`; voltage has two decimals from both sources. A `MIXED`
+  value is drawn as the source of the sample that set it draws it. The tag
+  says which step applies. An unknown value is `--`.
 - The held values show; the raw ones are in the file only.
 - `USED` shows the KISS counter's rise when it rose; otherwise the figure
   from current, labelled `USED FROM CURRENT` (open question 4); otherwise
@@ -441,9 +454,9 @@ Further data sheet facts the driver relies on, verified:
   right for 2000 to 2099.
 - The registers are certain to reset only when VDD starts from 0 V;
   otherwise the data sheet requires the software reset, 58h written to
-  Control_1, once the supply is stable, then a STOP and START on the bus
-  (7.2, 7.2.1.3, figure 8). It sets every register to its reset value, the
-  time included.
+  Control_1, once the supply is stable (7.2, 7.2.1.3), and recommends a
+  STOP and START on the bus after it (figure 8). It sets every register to
+  its reset value, the time included.
 - One supply pin, VDD, 0.9 V to 5.5 V for the clock and 1.8 V to 5.5 V for
   the bus; no battery-switchover pin (section 2, table 3).
 
@@ -471,6 +484,9 @@ Not verified, and not known:
   is not known (pin 9 is unconnected as drawn, and pin 3, CLKOE, too), and
   D4's reverse leakage takes more; not measured. So VDD does not always
   start from 0 V;
+- whether CLKOE, pin 3, is unconnected on the board as the drawing shows;
+  if it floats, it breaks the data sheet's rule that inputs sit at VSS or
+  VDD (table 3) and may draw current from the cell;
 - the crystal's load capacitance, so whether CAP_SEL's 7 pF is right, and
   the drift: not measured.
 
@@ -610,7 +626,8 @@ the clock set:
 Host, each mutation-checked: break the code, see the test fail, restore.
 
 - `test_run_summary.cpp`: maxima, minimum and their sources; a source that
-  changes during the log; KISS current, voltage or temperature at 0 for the
+  changes during the log; a KISS gap over the current peak, the peak kept from
+  EDT and tagged `MIXED`; KISS current, voltage or temperature at 0 for the
   whole log giving EDT's figure; stale fields not counted; 0.00 V ignored; the
   minimum voltage while armed only; one and two outlying values not counted in
   a held maximum, three counted, and all of them in the raw one; a value
