@@ -2644,13 +2644,30 @@ static void testBoardCellColour() {
 	section("Tester: the BOARD voltage's colour");
 
 	checkTrue("3.50 V: text colour", uiBoardCell(3.500f, BoardCell::Ok) == BoardCell::Ok);
-	checkTrue("3.499 V: amber", uiBoardCell(3.499f, BoardCell::Ok) == BoardCell::Low);
+	checkTrue("3.49 V: amber", uiBoardCell(3.490f, BoardCell::Ok) == BoardCell::Low);
 	checkTrue("3.30 V: amber", uiBoardCell(3.300f, BoardCell::Ok) == BoardCell::Low);
-	checkTrue("3.299 V: red", uiBoardCell(3.299f, BoardCell::Ok) == BoardCell::Critical);
-	checkTrue("amber at 3.549 V stays amber", uiBoardCell(3.549f, BoardCell::Low) == BoardCell::Low);
+	checkTrue("3.29 V: red", uiBoardCell(3.290f, BoardCell::Ok) == BoardCell::Critical);
+	checkTrue("amber at 3.54 V stays amber", uiBoardCell(3.540f, BoardCell::Low) == BoardCell::Low);
 	checkTrue("amber at 3.55 V goes back", uiBoardCell(3.550f, BoardCell::Low) == BoardCell::Ok);
-	checkTrue("red at 3.349 V stays red", uiBoardCell(3.349f, BoardCell::Critical) == BoardCell::Critical);
+	checkTrue("red at 3.34 V stays red", uiBoardCell(3.340f, BoardCell::Critical) == BoardCell::Critical);
 	checkTrue("red at 3.35 V goes to amber", uiBoardCell(3.350f, BoardCell::Critical) == BoardCell::Low);
+	// The band follows the text, rounded to centivolts.
+	checkTrue("3.4951 V reads 3.50V: the text colour",
+	          uiBoardCell(3.4951f, BoardCell::Ok) == BoardCell::Ok);
+	checkTrue("3.4949 V reads 3.49V: amber",
+	          uiBoardCell(3.4949f, BoardCell::Ok) == BoardCell::Low);
+	checkTrue("3.2951 V reads 3.30V: amber, not red",
+	          uiBoardCell(3.2951f, BoardCell::Ok) == BoardCell::Low);
+	checkTrue("3.2949 V reads 3.29V: red",
+	          uiBoardCell(3.2949f, BoardCell::Ok) == BoardCell::Critical);
+	checkTrue("amber at 3.5451 V, read 3.55V, goes back",
+	          uiBoardCell(3.5451f, BoardCell::Low) == BoardCell::Ok);
+	// Below a working cell's range the value says nothing about a cell.
+	checkTrue("2.50 V: red", uiBoardCell(2.500f, BoardCell::Ok) == BoardCell::Critical);
+	checkTrue("2.49 V: the text colour", uiBoardCell(2.490f, BoardCell::Ok) == BoardCell::Ok);
+	checkTrue("2.49 V after red: the text colour",
+	          uiBoardCell(2.490f, BoardCell::Critical) == BoardCell::Ok);
+	checkTrue("0 V: the text colour", uiBoardCell(0.0f, BoardCell::Ok) == BoardCell::Ok);
 	checkTrue("red at 3.60 V goes to the text colour",
 	          uiBoardCell(3.600f, BoardCell::Critical) == BoardCell::Ok);
 	checkTrue("amber at 3.20 V goes red at once",
@@ -2665,6 +2682,8 @@ static void testBoardCellColour() {
 		{ 1427, "3.45V", C_AMBER, "3.45 V: amber" },
 		{ 1325, "3.20V", C_RED,   "3.20 V: red" },
 		{ 1460, "3.53V", C_TEXT,  "3.53 V: the text colour" },
+		{ 1029, "2.49V", C_TEXT,  "2.49 V: the text colour, no cell to judge" },
+		{ 0,    "0.00V", C_TEXT,  "0 V: the text colour" },
 	};
 	for (const auto &c : cases) {
 		fakeAdcSet(c.raw);
@@ -2725,6 +2744,24 @@ static void testSplashTouch() {
 	uiInit();
 	frames(2);
 	checkTrue("and the tester has no note", hintIs("SWIPE = THROTTLE", C_GRID));
+
+	// A finger on the glass through the end of the splash: the splash's read
+	// took its press edge, so on the tester it presses nothing until lifted.
+	uiInit();
+	uiDrawSplash();
+	int ax = 0, ay = 0;
+	ctlCentre(UI_FIX(TesterCtl::Arm), &ax, &ay);
+	fakePress(ax, ay);
+	fakeAdvance(UI_FRAME_MS);
+	uiSplashTick();
+	frames(60);
+	checkTrue("a finger on ARM from the splash on, 1.5 s: not armed", !uiArmed());
+	fakeRelease();
+	frames(2);
+	holdToArm();
+	checkTrue("lifted and pressed again: HOLD TO ARM arms", uiArmed());
+	tapId(UI_FIX(TesterCtl::Arm));
+	checkTrue("disarmed for what follows", !uiArmed());
 
 	// Answering at boot: no line.
 	touchInit();

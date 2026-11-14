@@ -414,8 +414,23 @@ static_assert(STATUS_BOARD_X + (6 * (int)(sizeof(STATUS_BOARD_TEXT) - 1) - 1) + 
                   240 - 4 - (6 * (int)(sizeof(STATUS_VOLT_WIDEST) - 1) - 1) * 2,
               "BOARD runs into the voltage beside it");
 
+/**
+ * @brief The board's voltage in centivolts, as drawn: rounded once and
+ *        clamped to 999. uiBoardVoltText() and uiBoardCell() both take it,
+ *        so the colour follows the text: `3.50V` is never amber.
+ */
+static int boardCentivolts(float volts) {
+	// Rounded once, to centivolts: rounding the fraction on its own carried
+	// 3.996 V to "3.100V", a wrong value and a sixth character over BOARD.
+	int cv = volts <= 0.0f ? 0 : (int)(volts * 100.0f + 0.5f);
+	return cv > 999 ? 999 : cv;
+}
+
 BoardCell uiBoardCell(float volts, BoardCell prev) {
-	int mv = volts <= 0.0f ? 0 : (int)(volts * 1000.0f + 0.5f);
+	int mv = boardCentivolts(volts) * 10;
+	// Below a working cell's range the reading says nothing about a cell:
+	// USB power alone, or no cell, can read there.
+	if (mv < BOARD_CELL_IMPLAUSIBLE_MV) return BoardCell::Ok;
 	BoardCell now = mv < BOARD_CELL_CRIT_MV ? BoardCell::Critical
 	              : mv < BOARD_CELL_LOW_MV  ? BoardCell::Low : BoardCell::Ok;
 	// Down at once; up only once the reading clears the threshold it rises
@@ -429,10 +444,7 @@ BoardCell uiBoardCell(float volts, BoardCell prev) {
 }
 
 void uiBoardVoltText(float volts, char *buf, size_t n) {
-	// Rounded once, to centivolts: rounding the fraction on its own carried
-	// 3.996 V to "3.100V", a wrong value and a sixth character over BOARD.
-	int cv = volts <= 0.0f ? 0 : (int)(volts * 100.0f + 0.5f);
-	if (cv > 999) cv = 999;
+	int cv = boardCentivolts(volts);
 	snprintf(buf, n, "%u.%02uV", (unsigned)(cv / 100) % 10u, (unsigned)(cv % 100));
 }
 
@@ -1032,8 +1044,7 @@ void uiDrawSplash() {
 	char pin[40];
 	snprintf(pin, sizeof(pin), UI_SPLASH_PIN_FMT, (unsigned)settings()->dshotPin);
 	gfxTextCenter(288, pin, C_AMBER, 1);
-	// Not found: no answer since touchInit(). A controller that answers and
-	// then stops is the tester's TOUCH NOT ANSWERING.
+	// Not found: no answer since touchInit().
 	uint32_t at;
 	s_splashNoTouch = !touchLastAnswer(&at);
 	if (s_splashNoTouch) gfxTextCenter(UI_SPLASH_TOUCH_Y, UI_SPLASH_TOUCH_TEXT, C_AMBER, 1);
@@ -1042,7 +1053,11 @@ void uiDrawSplash() {
 static_assert(UI_SPLASH_TOUCH_Y + 8 < 104, "the splash's touch line runs into the name");
 
 void uiSplashTick() {
-	// A read of its own: the tester's edges start from its first frame.
+	// A read of its own, into a state the tester does not see. The driver
+	// keeps the contact between reads, so a finger that rests on the glass
+	// through the end of the splash gives the tester no press edge on its
+	// first frame: that finger presses nothing until it is lifted, HOLD TO
+	// ARM included.
 	TouchState t = {};
 	touchPoll(&t);
 	uint32_t at;

@@ -78,8 +78,9 @@ struct TouchState {
  * this driver pulses its own, so the order is a convention rather than a
  * requirement.
  *
- * @return true if the controller answered an identifying read. The result
- *         is also the start of touchLastAnswer()'s record.
+ * @return true if the controller answered the presence check with the
+ *         0xCACA ID. Only that counts as an answer in touchLastAnswer()'s
+ *         record; a probe that reads another ID records none.
  */
 bool touchInit();
 
@@ -87,10 +88,11 @@ bool touchInit();
  * @brief Whether the controller has answered since touchInit(), and when it
  *        last did.
  *
- * A read that completes counts as an answer: the presence check in
- * touchInit() and every full read in touchPoll(). The time is millis() at
- * that read. The UI takes the controller as not answering once
- * @ref TOUCH_LOST_MS pass without one (uiTouchLost()).
+ * An answer is the presence check in touchInit() returning the 0xCACA ID,
+ * or a finger read in touchPoll() that completes. The time is millis() at
+ * that read. The splash reads it (uiSplashTick()); the UI takes the
+ * controller as not answering by the rule of uiTouchLost(), which also
+ * counts the failed reads in a row (touchFailedReads()).
  *
  * This is the touch controller's own record. The shared bus's record in
  * sense.h counts timeouts and held lines for the stuck decision and not a

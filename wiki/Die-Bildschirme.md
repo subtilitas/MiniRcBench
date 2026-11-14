@@ -49,9 +49,13 @@ ein Tippen darauf bewirkt nichts.
   Firmware kann USB-Versorgung nicht vom Akku unterscheiden: Kein Pin der
   Platine erfasst die USB-Versorgung. Die Spannung ist unter 3,50 V
   bernsteinfarben und unter 3,30 V rot, der übliche untere Bereich einer
-  Lithium-Polymer-Zelle, auf dieser Platine nicht gemessen. Sie erhält die
-  Farbe darüber zurück, sobald sie 50 mV über der Schwelle liegt. Kein
-  Schreiben und kein Scharfschalten wird deswegen verweigert. In den
+  Lithium-Polymer-Zelle, auf dieser Platine nicht gemessen. Die Farbe folgt
+  dem angezeigten Wert: `3.50V` ist nie bernsteinfarben, `3.30V` nie rot.
+  Sie erhält die Farbe darüber zurück, sobald sie 50 mV über der Schwelle
+  liegt. Bei reiner USB-Versorgung kann der Wert niedrig sein und sagt dann
+  nichts über eine Zelle: Unter 2,50 V, für eine arbeitende Zelle nicht
+  plausibel, steht er in der normalen Textfarbe. Kein Schreiben und kein
+  Scharfschalten wird deswegen verweigert. In den
   letzten 5 s vor dem Entschärfen durch die Leerlaufsperre ersetzt `IDLE ns`
   in Bernstein die Spannung und `BOARD`.
 
@@ -88,13 +92,20 @@ Was der Controller bei zwei Berührungen meldet, ist nicht gemessen. Ein
 nasser Bildschirm oder ein Kabel, das auf dem Glas liegt, kann als Finger
 zählen und jedes Tippen blockieren.
 
-Hat der Touch-Controller 100 ms lang nicht geantwortet, ersetzt
-`TOUCH NOT ANSWERING` in Bernstein den Wisch-Hinweis; `NO TELEMETRY` behält
-seine Zeile. Solange der Hinweis steht, lässt sich der Tester nicht scharf
-schalten, und ein scharfer Tester entschärft: Das Gas geht auf null und
-`HOLD` aus, wie beim Entschärfen durch die Leerlaufsperre. Der Hinweis
-verschwindet, wenn der Controller wieder antwortet; der Tester bleibt
-entschärft.
+Hat der Touch-Controller vier Lesungen in Folge verpasst und seit 100 ms
+oder länger nicht geantwortet, ersetzt `TOUCH NOT ANSWERING` in Bernstein
+den Wisch-Hinweis; `NO TELEMETRY` behält seine Zeile. Solange der Hinweis
+steht, lässt sich der Tester nicht scharf schalten, `HOLD TO ARM` ist als
+Umriss gezeichnet, und ein scharfer Tester entschärft: Das Gas geht auf
+null und `HOLD` aus, wie beim Entschärfen durch die Leerlaufsperre. Der
+Hinweis verschwindet, wenn der Controller wieder antwortet; der Tester
+bleibt entschärft.
+
+Nicht gemessen: ob der Touch-Controller ohne Finger auf dem Glas über
+Minuten weiter antwortet. Tut er es nicht, erschiene dieser Hinweis, und
+ein mit `HOLD` gehaltener Motor bliebe kurz nach dem Abheben des Fingers
+stehen. Die Prüfung am Prüfstand steht in STATUS.md im Repository, offener
+Punkt 21.
 
 <img src="img/tester-touch-lost.png" width="240" alt="Der Tester mit TOUCH NOT ANSWERING in Bernstein unter der Drehzahl">
 

@@ -139,9 +139,14 @@ davon ab, auf einen anderen zu reagieren. Erst den Gas-Finger heben, dann
 gemessen. Ein nasser Bildschirm oder ein Kabel, das auf dem Glas liegt, kann
 als Finger zählen und jedes Tippen blockieren.
 
+Ein Finger, der schon auf dem Glas liegt, wenn der Tester erscheint, drückt
+nichts, bis er gehoben wird. Hast du beim Einschalten den Bildschirm
+berührt, hebe den Finger vor `HOLD TO ARM`.
+
 Antwortet der Touch-Controller im scharfen Zustand nicht mehr, entschärft der
-Tester nach 100 ms ohne Antwort, setzt das Gas auf null, schaltet `HOLD` aus
-und zeigt `TOUCH NOT ANSWERING`.
+Tester, sobald vier Lesungen in Folge über 100 ms oder länger fehlgeschlagen
+sind, setzt das Gas auf null, schaltet `HOLD` aus und zeigt
+`TOUCH NOT ANSWERING`.
 
 ---
 

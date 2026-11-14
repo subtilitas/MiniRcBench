@@ -136,7 +136,7 @@ void setup() {
 	// Pulses the touch controller's own reset line. Its result starts the
 	// driver's record of answers, which the splash and the tester read:
 	// TOUCH CONTROLLER NOT FOUND on the splash, TOUCH NOT ANSWERING on the
-	// tester. @see uiTouchLost()
+	// tester. @see touchLastAnswer(), uiTouchLost()
 	touchInit();
 	senseInit();        // the current sensor, on the bus touchInit() set up
 	uiInit();

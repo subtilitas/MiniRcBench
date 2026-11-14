@@ -526,6 +526,34 @@
 /** @} */
 
 /**
+ * @defgroup cfg_board_cell The board's battery
+ * @brief Colour thresholds for the `BOARD` voltage on the tester.
+ *
+ * The values are a lithium-polymer (LiPo) cell's usual low range. They are
+ * not measured on this board: neither the cell's voltage under the board's
+ * load nor what the divider reads with USB (Universal Serial Bus) power
+ * alone. Nothing is refused on them. The band is taken from the voltage as
+ * drawn, rounded to centivolts.
+ * @{
+ */
+/**
+ * @brief Below this the voltage is implausible for a working cell and is
+ *        drawn in the text colour, mV: with USB power alone, or no cell, the
+ *        divider can read low, and the value then says nothing about a cell.
+ */
+#define BOARD_CELL_IMPLAUSIBLE_MV 2500
+/** @brief Below this the voltage is drawn in amber, mV. */
+#define BOARD_CELL_LOW_MV      3500
+/** @brief Below this the voltage is drawn in red, mV. */
+#define BOARD_CELL_CRIT_MV     3300
+/**
+ * @brief How far above a threshold the reading has to rise before the
+ *        colour goes back, mV, so that noise at a threshold does not flicker.
+ */
+#define BOARD_CELL_HYST_MV     50
+/** @} */
+
+/**
  * @defgroup cfg_display Display
  * @{
  */

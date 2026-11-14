@@ -128,9 +128,14 @@ another. Lift the throttle finger, then press `DISARM`. What the controller
 reports with two contacts on the glass is not measured. A wet screen, or a
 lead lying across the glass, can count as a finger and block every tap.
 
+A finger already on the glass when the tester appears presses nothing until
+it is lifted. If you touched the screen at power-up, lift the finger before
+`HOLD TO ARM`.
+
 If the touch controller stops answering while the tester is armed, the
-tester disarms after 100 ms without an answer, sets the throttle to zero,
-turns `HOLD` off and shows `TOUCH NOT ANSWERING`.
+tester disarms once four reads in a row have failed over 100 ms or more,
+sets the throttle to zero, turns `HOLD` off and shows
+`TOUCH NOT ANSWERING`.
 
 ---
 

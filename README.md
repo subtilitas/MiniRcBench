@@ -345,6 +345,10 @@ servo left on it reads the DShot frames as pulses and drives towards one end
 of its travel. While the touch controller has not answered once since
 `touchInit()`, the splash shows `TOUCH CONTROLLER NOT FOUND` in amber above
 the name; the line goes at the controller's first answer (`uiSplashTick()`).
+The splash reads the touch every 25 ms into a state of its own, so a finger
+resting on the glass when the tester appears gives no press edge: it
+presses nothing until it is lifted. A finger on the glass at power-up is
+lifted before HOLD TO ARM.
 
 **Main screen**
 
@@ -399,13 +403,19 @@ DISARM registers. What the controller reports with two contacts is not
 measured. A wet screen, or a lead lying across the glass, can count as a
 contact and block every tap.
 
-The driver records when the controller last completed a read
-(`touchLastAnswer()`). After 100 ms without one (`TOUCH_LOST_MS`, four UI
-frames of 25 ms) the touch counts as not answering (`uiTouchLost()`):
+The driver records when the controller last answered (`touchLastAnswer()`)
+and counts its failed finger reads in a row (`touchFailedReads()`). The
+touch counts as not answering (`uiTouchLost()`) when the controller has not
+answered since `touchInit()`, or when four or more reads in a row have
+failed and 100 ms or more (`TOUCH_LOST_MS`, four UI frames of 25 ms) have
+passed since the last answer. Both conditions together keep a core0 stall
+alone, a card write of 250 ms for instance, from counting: after a stall
+the next read is one failed read, not four. While it does not answer:
 
 - an armed tester disarms by the idle interlock's path: throttle 0, HOLD
   off, the ESC told, the backlight dipped;
-- arming is refused;
+- arming is refused, and HOLD TO ARM is drawn disabled, as while a USB host
+  holds the card;
 - `TOUCH NOT ANSWERING` replaces the swipe hint in amber, so `NO TELEMETRY`
   on the line above stays visible;
 - the servo tester stops a running servo as `STOP` does (see
@@ -416,6 +426,13 @@ this a latched throttle would run until the idle interlock, 30 s after the
 last touch. The shared bus's record in `src/sense.cpp` does not serve here:
 it counts timeouts and held lines, and a controller off the bus answers
 with a NACK (not acknowledged), which it does not count.
+
+Not measured: whether the CST328 answers its finger reads with no finger on
+the glass for minutes. Some controllers of its maker doze when idle and
+NACK until touched; this one would then disarm a HOLD-latched motor
+shortly after the finger lifts. Before this rule a NACK while idle read as
+"finger up", so earlier use on hardware does not answer it. The bench
+check is in STATUS.md, open item 21.
 
 **Button behaviour**
 
@@ -659,9 +676,13 @@ battery, read through the 200 kΩ/100 kΩ divider on GP27. It reads at most
 below 3.50 V (`BOARD_CELL_LOW_MV`) and red below 3.30 V
 (`BOARD_CELL_CRIT_MV`), a lithium-polymer cell's usual low range, not
 measured on this board, and goes back only 50 mV (`BOARD_CELL_HYST_MV`)
-above each threshold (`uiBoardCell()`). What the divider reads with USB power
-alone is not measured, and no GPIO senses USB power, so the firmware cannot
-tell USB from the cell. Nothing is refused on the reading.
+above each threshold (`uiBoardCell()`). The band is taken from the value as
+drawn, rounded to centivolts, so `3.50V` is never amber and `3.30V` never
+red. What the divider reads with USB power alone is not measured, and no
+GPIO senses USB power, so the firmware cannot tell USB from the cell. With
+USB power alone the value can be low and then says nothing about a cell;
+below 2.50 V (`BOARD_CELL_IMPLAUSIBLE_MV`), implausible for a working cell,
+it is drawn in the normal text colour. Nothing is refused on the reading.
 
 ---
 
@@ -1884,7 +1905,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.7%**: 9,274 of 9,488 lines in 58 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.7%**: 9,262 of 9,476 lines in 58 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

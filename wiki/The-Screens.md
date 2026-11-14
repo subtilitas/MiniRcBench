@@ -45,8 +45,12 @@ disabled, an outline with a grey label, and a tap on it does nothing.
   what this reads is not measured, and the firmware cannot tell USB power
   from the cell: no pin of the board senses USB power. The voltage is amber
   below 3.50 V and red below 3.30 V, a lithium-polymer cell's usual low
-  range, not measured on this board. It returns to the colour above once
-  it is 50 mV over the threshold. No write and no arm is refused on it.
+  range, not measured on this board. The colour follows the value as drawn:
+  `3.50V` is never amber, `3.30V` never red. It returns to the colour above
+  once it is 50 mV over the threshold. With USB power alone the value can be
+  low and then says nothing about a cell: below 2.50 V, implausible for a
+  working cell, it is drawn in the normal text colour. No write and no arm
+  is refused on it.
   During the last 5 s before the idle interlock disarms, `IDLE ns` in amber
   replaces the voltage and `BOARD`.
 
@@ -79,11 +83,18 @@ ignored, so lift the throttle finger before pressing `DISARM`. What the
 controller reports with two contacts is not measured. A wet screen, or a
 lead lying across the glass, can count as a finger and block every tap.
 
-When the touch controller has not answered for 100 ms, `TOUCH NOT ANSWERING`
-in amber replaces the swipe hint; `NO TELEMETRY` keeps its line. While it
-shows, the tester cannot be armed, and an armed tester disarms: the throttle
-goes to zero and `HOLD` goes off, as when the idle interlock disarms. The
-note goes when the controller answers again; the tester stays disarmed.
+When the touch controller has missed four reads in a row and has not
+answered for 100 ms or more, `TOUCH NOT ANSWERING` in amber replaces the
+swipe hint; `NO TELEMETRY` keeps its line. While it shows, the tester cannot
+be armed, `HOLD TO ARM` is drawn as an outline, and an armed tester
+disarms: the throttle goes to zero and `HOLD` goes off, as when the idle
+interlock disarms. The note goes when the controller answers again; the
+tester stays disarmed.
+
+Not measured: whether the touch controller keeps answering with no finger
+on the glass for minutes. If it does not, this note would appear and a
+motor latched with `HOLD` would stop shortly after the finger lifts. The
+bench check is listed in STATUS.md in the repository, open item 21.
 
 <img src="img/tester-touch-lost.png" width="240" alt="The tester with TOUCH NOT ANSWERING in amber under the RPM readout">
 

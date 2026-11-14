@@ -212,7 +212,8 @@ record either way.
 | --- | --- | --- |
 | DShot driver in `src/dshot/` (from rcbench 453cf334): frame, reply decode, three-state poll, RP2350 pin driver | frame and checksum, throttle map, line and group code, sampler against clock error, extended telemetry schedule against an AM32 model, three-state poll and the counters it feeds; the pin driver is compiled only | not tested on hardware in MiniRcBench. rcbench ran it at bidirectional DShot600 on one AM32 2.21 ESC (Skystars 35A); other rates and ESC firmwares are untested |
 | Bidirectional DShot throttle, eRPM and RPM readout | core1 frame decision, throttle and arming interlocks, HOLD TO ARM timing only a press that landed while arming was allowed, RPM smoothing | hardware-tested (owner report) with `pico-bidir-dshot`, the driver before `src/dshot/`; the owner has found no bug since DshotDisplay v2.3, and issue #1 is a separate, unreproduced report; the HOLD TO ARM press rule is not tested on hardware |
-| Touch loss (`touchLastAnswer()` in `src/cst328.cpp`, `uiTouchLost()`, `TOUCH_LOST_MS`) and the BOARD voltage's colour (`uiBoardCell()`) | against a touch fake that stops answering: a latched throttle disarmed at 100 ms and not at 75 ms, HOLD off, the note in the swipe hint's place with NO TELEMETRY kept, gone on an answer with the tester still disarmed, the note alone while disarmed; the servo tester stopped at 100 ms sweeping and holding a position on SET, its note, HOLD TO START disabled; the splash line at boot without an answer, cleared by one; each band edge and the 50 mV hysteresis, drawn through the ADC fake; the driver's record is compiled only | not tested on hardware; open item 21 |
+| The tester's and the servo tester's stop on a touch that does not answer (`touchFailedReads()`, `uiTouchLost()`, `TOUCH_LOST_MS`) | against a touch fake that stops answering, with the finger reported up or kept down: a latched throttle kept armed for 1, 2 and 3 failed reads and disarmed on the 4th, also after a 150 ms stall; HOLD off; HOLD TO ARM refused and drawn disabled while lost; the note in the swipe hint's place with NO TELEMETRY kept, gone on an answer with the tester still disarmed; the servo tester stopped sweeping and holding a position on SET, its note, HOLD TO START refused and disabled; the real driver against the CST328 model: the answer's time frozen at the last ACK while it NACKs, failures counted, a wrong-ID probe recording none | not tested on hardware; open item 21 |
+| The splash's `TOUCH CONTROLLER NOT FOUND` (`touchLastAnswer()` in `src/cst328.cpp`, `uiSplashTick()`) and the BOARD voltage's colour (`uiBoardCell()`) | against a touch fake that stops answering: the splash line at boot without an answer, kept while none comes, cleared by one; a finger on the glass from the splash on presses nothing on the tester until lifted; each band edge, the centivolt rounding at 3.50 V and 3.30 V, the 50 mV hysteresis, the text colour below 2.50 V and at 0 V, drawn through the ADC fake | not tested on hardware; open item 21 |
 | EDT telemetry, automatic enable, expiry | merge, expiry, enable rule, decode of each frame type; enable at pump start and decode with EDT on against a simulated ESC, with and without EDT | hardware-tested (owner report) with `pico-bidir-dshot`; the enable at pump start and the decode of every reply with EDT on are not tested on hardware |
 | KISS telemetry: request, PIO receiver, decode, merge, KISS/EDT tags | CRC, decode, resynchronisation, request payload, merge; the PIO receiver is typechecked only | hardware-tested (owner report) with `pico-bidir-dshot`; see below |
 | DShot bitrate label in the status bar, `DSERR` | label at each bitrate, colour, `DSERR` | not recorded |
@@ -482,11 +483,18 @@ Menu structure B waits on the owner's answers, not on the bench (item 18).
     - Whether the tester disarms on a second contact, once the CST328's
       report with two fingers on the glass is measured. The driver reads
       finger 1 only.
-21. **Touch loss and the BOARD colour on hardware.** The 100 ms touch-loss
-    stop and the BOARD colour run in the host suite only. Not measured: the
-    CST328's answers with a wedged bus or a loose flex cable, whether its
-    reads ever complete with stale data, and what the divider on GP27 reads
-    with USB power and no cell.
+21. **The splash's touch line, the touch-loss stop and the BOARD colour on
+    hardware.** All run in the host suite only. Not measured: what the
+    divider on GP27 reads with USB power and no cell; the CST328's answers
+    to its probe and its finger reads on a board whose controller is
+    missing or slow to start, with a wedged bus or a loose flex cable; and
+    whether the CST328 answers finger reads with no finger on the glass for
+    minutes. If it dozes and NACKs while idle, the touch-loss stop disarms
+    every HOLD-latched motor shortly after the finger lifts. The bench
+    check: power up and do not touch the screen for 5 minutes on the
+    tester; `TOUCH NOT ANSWERING` must not appear. Then arm with HOLD at a
+    low throttle, propeller off, and lift the finger: the motor must keep
+    running until DISARM or the idle disarm.
 
 ## Known limitations
 
@@ -703,7 +711,7 @@ model.
 | `src/settings.cpp` | 123 | 122 | 99.2% |
 | `src/theme.cpp` | 11 | 11 | 100.0% |
 | `src/touch.h` | 4 | 4 | 100.0% |
-| `src/ui.cpp` | 460 | 458 | 99.6% |
+| `src/ui.cpp` | 456 | 454 | 99.6% |
 | `src/ui_am32.cpp` | 378 | 373 | 98.7% |
 | `src/ui_hitec.cpp` | 1117 | 1049 | 93.9% |
 | `src/ui_hold.cpp` | 36 | 36 | 100.0% |
@@ -719,7 +727,7 @@ model.
 | `src/ui_slider.cpp` | 109 | 109 | 100.0% |
 | `src/ui_widgets.cpp` | 67 | 67 | 100.0% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **9488** | **9274** | **97.7%** |
+| **Total** | **9476** | **9262** | **97.7%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->
