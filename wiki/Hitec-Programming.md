@@ -274,8 +274,8 @@ page reads
 
 <img src="img/hitec-id.png" width="240" alt="The write page for ID 0 -> 1, with the amber ID note">
 
-Under the editor bar are three buttons, 46 px tall: `HOLD TO WRITE`
-(110 px), `REVERT` (52 px) and `FILES` (54 px). `HOLD TO WRITE` acts only
+Under the editor bar are three buttons, 46 px tall: `WRITE...`
+(110 px), `REVERT` (52 px) and `FILES` (54 px). `WRITE...` acts only
 when something is pending and the servo has been read since the last write
 that failed.
 
@@ -283,8 +283,9 @@ that failed.
 
 ## Writing
 
-**Hold `HOLD TO WRITE` for 1 s.** A bar fills while you hold. The write page
-opens and writes nothing.
+**Tap `WRITE...`.** The write page opens and writes nothing. Holding
+`WRITE...` does nothing more than a tap: the page opens when the finger
+lifts.
 
 <img src="img/hitec-write.png" width="240" alt="The write page: SPEED 100 % (4095) -> 90 % (18), KEEP THE SERVO HORN CLEAR.">
 
@@ -330,7 +331,9 @@ values from before the first write are in memory only, until a later write with
 a card mounted saves them; LEAVE or a power loss loses them. Without a card the
 write still goes through.
 
-**A second hold of 1 s writes.** The card steps come first:
+**Hold the page's `HOLD TO WRITE` for 1 s to write.** A bar fills while you
+hold; the tap that opened the page does not count. The card steps come
+first:
 
 1. Before the session's first write, with a card mounted: a record left on
    the card by an interrupted write moves into the ring of `BACKUP/`, then
@@ -338,27 +341,27 @@ write still goes through.
 2. Before every write: the servo as it is and the target go to the card as
    the record `HITEC/HITEC.TXT`.
 
-With a card mounted when the screen opened, these files first go to the
-card while the screen keeps drawing. The page reads
-`SAVING THE BACKUP TO THE CARD.` (or `SAVING THE FILES TO THE CARD.` on a
-later write) and `BLOCKS LEFT: 12`, for example. The servo is written only
-once the card holds the files. A flush the card does not take stops the
-write. On the session's first write the page reads
-`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`,
-on a later write
-`THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
-Nothing went to the servo. The card is mounted again, and `OK` returns to
-the field list; the next `HOLD TO WRITE` saves the files again and then
-writes. A full card does not end here: it ends in `THE CARD TOOK NO FILE`
-before anything is queued.
+With a card mounted when the screen opened, these files first go to the card
+while the screen keeps drawing. The page reads `SAVING THE BACKUP TO THE CARD.`
+(or `SAVING THE FILES TO THE CARD.` on a later write) and `BLOCKS LEFT: 12`, for
+example. The servo is written only once the card holds the files. A flush the
+card does not take stops the write. On the session's first write the page reads
+`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE
+SERVO. CHECK THE CARD, HOLD AGAIN.`, on a later write `THE CARD DID NOT TAKE A
+FILE (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD
+AGAIN.` Nothing went to the servo. The card is mounted again, and `OK` returns
+to the field list; the next write, `WRITE...` and its hold, saves the files
+again and then writes. A full card does not end here: it ends in `THE CARD TOOK
+NO FILE` before anything is queued.
 
 The write then sends the changed registers 20 ms apart, saves them in the
 servo, restarts the servo (1.0 s) and reads all 21 registers back. For one
 setting this takes about 1.7 s, computed from rcbench's timings and not
 measured. The page reads `WRITING: DO NOT UNPLUG.` and, under it,
-`WRITES SENT: 2 OF 4`, then `READING BACK`. `BACK` during the write is
-queued: the page reads `LEAVING AFTER THE WRITE ENDS.` and the leave page
-follows the result. The screen never stops a write.
+`WRITES SENT: 2 OF 4`, then `READING BACK`. While the write runs, and while
+it waits for the card, `BACK` is grey and does nothing: no `BACK` leaves a
+servo half written. `BACK` before the hold, or under the result, returns to
+the field list. The screen never stops a write.
 
 A verified write removes its record. Later writes of the session save no
 second backup.
@@ -366,7 +369,7 @@ second backup.
 ### The BOARD voltage red
 
 While the BOARD voltage on the tester is red, below 3.30 V and until it
-rises to 3.35 V, the second hold writes nothing: no file goes to the card
+rises to 3.35 V, the page's hold writes nothing: no file goes to the card
 and no frame to the servo. The page reads, in amber,
 `BOARD VOLTAGE IS RED: NOT WRITTEN.` and
 `CHARGE THE BOARD'S CELL, HOLD AGAIN.`, and `HOLD TO WRITE` stays. The
@@ -376,7 +379,8 @@ stops the write too: the backup and the write's record may be on the card
 by then, and no frame goes out. A write already running is not stopped:
 cut off, it would leave the servo partly written and unverified, while one
 that finishes ends with its read-back. Amber, and a value below 2.50 V (no
-cell to judge), refuse no write. `HOLD TO RESTORE` is refused the same way.
+cell to judge), refuse no write. The restore page's `HOLD TO RESTORE` is
+refused the same way.
 The bands are a lithium-polymer cell's usual range, not measured on this
 board. What the board reads on USB power with no cell is not measured
 either, so a board on USB alone may refuse writes.
@@ -385,7 +389,8 @@ either, so a board on USB alone may refuse writes.
 
 ### The result
 
-The result replaces the hold with `OK`. `OK` returns to the field list.
+The result replaces the hold with `OK`. `OK`, or `BACK`, returns to the
+field list.
 
 <img src="img/hitec-write-error.png" width="240" alt="THE SERVO DOES NOT HOLD THE VALUES: 0x54. READ AND CHECK.">
 
@@ -433,8 +438,8 @@ until a read fills them. The record stays on the card.
 | Button | What it does |
 |---|---|
 | `SAVE AS HT002` | Writes the servo as last read into `HITEC/` under the next free name, one above the highest HTnnn, and never over a file. The strip reads `SAVED AS HT002` in green. Once `HITEC/` holds 50 `.TXT` files, the record left out, the button does not act and the strip reads `HITEC/ HOLDS 50 FILES. REMOVE SOME.` |
-| `LOAD` | Puts the selected file's writable values into the field list as pending changes. The write then goes through `HOLD TO WRITE`. A record loads the servo as it was before its write |
-| `HOLD TO RESTORE` | Hold 1 s. Opens the restore page, titled `HITEC RESTORE`, which writes the session's backup back. It acts while the servo differs from the backup |
+| `LOAD` | Puts the selected file's writable values into the field list as pending changes. The write then goes through `WRITE...` and the write page. A record loads the servo as it was before its write |
+| `RESTORE...` | A tap opens the restore page, titled `HITEC RESTORE`, which writes the session's backup back when its `HOLD TO RESTORE` is held 1 s. It acts while the servo differs from the backup |
 
 The restore page's strip reads `BACK TO THE BACKUP: 3 CHANGES`, for example.
 Its hold, `HOLD TO RESTORE`, writes as `HOLD TO WRITE` does.
@@ -525,7 +530,7 @@ unplug page.
 - **`THE SCREEN STALLED. NOTHING WAS WRITTEN.`** The screen stopped for more
   than 250 ms before the write went out. Write again.
 - **A red result.** Tap `OK`, then `READ AGAIN`, and check the values. To
-  go back to the servo as it was, use `HOLD TO RESTORE` in FILES.
+  go back to the servo as it was, use `RESTORE...` in FILES.
 - **`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`**
   Check the card, or take it out of USB use, then write again.
 

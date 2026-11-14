@@ -9,7 +9,8 @@ does not update ESC firmware.
 <img src="img/am32-list.png" width="240" alt="The AM32 settings list">
 
 > **This writes to your ESC's flash.** Changes stay on the tester until you
-> hold `HOLD TO WRITE` for 1 s. After that they are in the ESC.
+> tap `WRITE...`, check the page that lists them, and hold its
+> `HOLD TO WRITE` for 1 s. After that they are in the ESC.
 
 ---
 
@@ -67,8 +68,9 @@ to a line, and no field. The strip reads, in amber,
 The backup goes to the card as the view opens, since nothing is written
 later. It holds the 48 bytes, no field line, and the line
 `Layout not known: fields not read, not verified`. The view has one control,
-`BACK`: no row, no `HOLD TO WRITE`, `REVERT` or `HEX`, and the screen has no
-way from this view to the write. The write itself also refuses settings read
+`BACK`, which goes to MENU: no row, no `WRITE...`, `REVERT` or `HEX`, and the
+screen has no way from this view to the write. The title stays
+`AM32 CONFIG`. The write itself also refuses settings read
 in such a layout: `LAYOUT NOT KNOWN: NOT WRITTEN`. To change the settings of
 such an ESC, use the AM32 configurator.
 
@@ -221,21 +223,48 @@ would pass the end of the range stops at the end. Travel past the end does not
 count, so the first coarse step back moves the value off it.
 
 **A changed value is cyan, with a cyan bar at its row's left edge.** The
-editor bar shows it in cyan too. Nothing has been sent to the ESC yet. A
-value as read is in the text colour, selected or not: selecting a row only
-lights the row and its name.
+editor bar shows it in cyan too, and above it the value as read: for example
+`PWM FREQ  24KHZ ->` over `25KHZ`. Where the name and the old value do not
+fit between `-` and `+`, the bar shows `24KHZ ->` alone. Nothing has been
+sent to the ESC yet. A value as read is in the text colour, selected or not:
+selecting a row only lights the row and its name.
 
 `REVERT`, labelled in amber, discards all unsaved changes and restores the
 values that were read. `HEX` is labelled in the text colour.
+
+**BACK with changes not written asks first.** The first `BACK` keeps the list
+and puts two amber lines on the strip: `2 CHANGES NOT WRITTEN.` and
+`BACK AGAIN DISCARDS THEM.` (`1 CHANGE NOT WRITTEN.` and
+`BACK AGAIN DISCARDS IT.` for one). A second `BACK` returns to MENU and
+drops the changes; nothing goes to the ESC. Any other touch takes the lines
+away and keeps the changes. There is no timeout. Without changes, `BACK`
+returns to MENU at once.
+
+<img src="img/am32-discard.png" width="240" alt="The strip after BACK with two changes: 2 CHANGES NOT WRITTEN. and BACK AGAIN DISCARDS THEM. in amber">
 
 ---
 
 ## Writing
 
-<img src="img/am32-written.png" width="240" alt="Write verified">
+Tap `WRITE...` under the list. It opens the page `AM32 WRITE`; nothing is
+written yet. With no changes `WRITE...` is drawn grey and does nothing.
 
-Hold `HOLD TO WRITE` for 1 s. A progress bar fills while you hold. With no
-changes the button reads `NO CHANGES`.
+<img src="img/am32-write.png" width="240" alt="AM32 WRITE with five changes: four lines of name and old -> new, AND 1 MORE, BACKUP FIRST: BACKUP/AM001.TXT and HOLD TO WRITE">
+
+The page lists every setting that changes, its name and `old -> new`, the old
+value grey and the new one cyan: four lines, then `AND n MORE`. The strip
+counts them, `5 CHANGES`. The line above the button says where the backup
+goes: `BACKUP FIRST: BACKUP/AM001.TXT` before the first write with a card in,
+`BACKUP: BACKUP/AM001.TXT` once it is on the card. Without a card it reads
+`NO CARD: OLD VALUES LOST ON LEAVING` in amber, and with the card on USB
+`USB DRIVE: OLD VALUES LOST ON LEAVING`.
+
+Hold `HOLD TO WRITE` for 1 s. A progress bar fills while you hold. The tap
+that opened the page does not count towards the hold. While the write runs
+the page reads `WRITING: DO NOT UNPLUG.` in amber and `BACK` is grey and does
+nothing. `BACK` before the hold, or under the result, returns to the list.
+
+<img src="img/am32-written.png" width="240" alt="Write verified">
 
 While the BOARD voltage on the tester is red, below 3.30 V and until it
 rises to 3.35 V, the hold writes nothing, neither the backup nor the
@@ -253,10 +282,10 @@ After the write the firmware waits 300 ms, **reads the settings back and
 compares them** byte by byte. It does not rely on the ESC's acknowledgement.
 A match shows `WRITE VERIFIED` in green, with `POWER-CYCLE THE ESC TO APPLY.`
 under it. A mismatch shows the first differing byte as
-`DIFF @xx: GOT xx WANT xx`. A result longer than 18 characters is drawn in
-the small font, so it stays on the screen. Under every result that is not a
-verified write (`WRITE FAILED: ...`, `VERIFY READ: ...`, `DIFF @..`) the
-screen shows `NOT VERIFIED. TAP OK, WRITE AGAIN.` in amber; see
+`DIFF @xx: GOT xx WANT xx`. The result is one line in the small font under
+the list of changes. A result that is not a verified write is amber, and
+under it (`WRITE FAILED: ...`, `VERIFY READ: ...`, `DIFF @..`) the screen
+shows `NOT VERIFIED. TAP OK, WRITE AGAIN.` in amber; see
 [If the write fails](#if-the-write-fails).
 
 <img src="img/am32-write-failed.png" width="240" alt="WRITE FAILED: REFUSED with NOT VERIFIED. TAP OK, WRITE AGAIN.">
@@ -300,7 +329,8 @@ a fresh tap: lifting the finger that held `HOLD TO WRITE` leaves the result
 on the screen.
 
 Only `WRITE VERIFIED` counts as written. After any other result, `OK` returns
-to the list with the edits kept, and `HOLD TO WRITE` writes them again. The
+to the list with the edits kept, and `WRITE...` and `HOLD TO WRITE` write
+them again. The
 backup is made before the first write that has a card, and again on a card
 swapped in since. It always holds the settings as read when the editor
 opened, and a repeated hold on the same card makes no second one.
@@ -308,7 +338,8 @@ opened, and a repeated hold on the same card makes no second one.
 When a result repeats:
 
 1. Check the signal and ground wires.
-2. Leave with `BACK`; the edits are lost.
+2. Leave with `BACK`, twice: the first names the edits, the second drops
+   them.
 3. Open **MENU → AM32 CONFIG** again and power-cycle the ESC while the
    screen is open, as under [Connecting](#connecting). The screen then
    reads what the ESC holds.
@@ -323,16 +354,18 @@ When a result repeats:
 
 <img src="img/am32-hex.png" width="240" alt="The raw settings bytes">
 
-`HEX` shows the raw 48 settings bytes, read-only. Use it to check a field that
-your layout revision does not offer, or to see what a change did at byte
-level. `FIELDS` returns to the list.
+`HEX` shows the raw 48 settings bytes, read-only, under the title
+`AM32 HEX`. Use it to check a field that your layout revision does not offer,
+or to see what a change did at byte level. `FIELDS` or `BACK` returns to the
+list.
 
 ---
 
 ## Leaving
 
-`BACK` hands the signal pin back to the DShot driver and returns to
-`MENU`. The tester is disarmed.
+`BACK` on the list hands the signal pin back to the DShot driver and returns
+to `MENU`; with changes not written it asks first, as under
+[Editing](#editing). The tester is disarmed.
 
 The firmware sends the bootloader no command to start the ESC firmware when
 the screen closes. What the ESC does after the screen is left is not

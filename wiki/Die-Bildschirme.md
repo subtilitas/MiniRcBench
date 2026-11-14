@@ -12,6 +12,7 @@ Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MEN
    │                    ├── KST SERVO    ──BACK──> Verlassenseite ──> Abziehseite ──> MENU
    │                    ├── HITEC SERVO  ──BACK──> Verlassenseite ──> Abziehseite ──> MENU
    │                    │   (in der Familienauswahl mit übernommenem Pin und während des Eintritts führt BACK zur Abziehseite)
+   │                    │   (AM32 HEX, AM32 WRITE, SET: BACK eine Ebene hoch)
    │                    ├── SETTINGS     ──BACK──> MENU
    │                    └── SD LOG       ──BACK──> MENU
    └──── BACK auf MENU ─┘
@@ -25,7 +26,16 @@ Tester. Der Kopfbereich ist 36 px hoch, `BACK` misst 64 × 32 px. Der Tester ist
 die Wurzel und hat keinen Kopfbereich. Auf der Abziehseite von SERVO TESTER,
 KST SERVO und HITEC SERVO wartet `BACK`, bis die Pins freigegeben sind: Bis
 dahin ist es deaktiviert gezeichnet, als Umriss mit grauer Beschriftung, und
-ein Tippen darauf bewirkt nichts.
+ein Tippen darauf bewirkt nichts. Dasselbe gilt auf `AM32 WRITE`,
+`KST WRITE` und `HITEC WRITE`, solange ein Schreiben läuft oder auf die
+SD-Karte wartet: Kein `BACK` lässt ein Gerät halb geschrieben zurück.
+
+**BACK nennt, was es verwerfen würde.** Auf der Liste von AM32 CONFIG mit
+ungeschriebenen Änderungen und auf SERVO SET mit einer Änderung, die auf
+`HOLD TO APPLY` wartet, bleibt das erste `BACK` stehen und setzt zwei
+bernsteinfarbene Zeilen auf den Streifen, zum Beispiel
+`2 CHANGES NOT WRITTEN.` und `BACK AGAIN DISCARDS THEM.`; ein zweites `BACK`
+verwirft die Änderungen, jede andere Berührung behält sie.
 
 **Die Farben folgen einer Tabelle von Rollen.** Grün heißt sicher oder
 erledigt: `SAFE`, `EDT ON`, `WRITE VERIFIED`, `SAVED`. Hellgrün ist ein
@@ -352,10 +362,14 @@ Aufzeichnungszustand und Zähler. `BACK` führt zu `MENU` zurück. Siehe
 <img src="img/am32-list.png" width="240" alt="AM32-Einstellungsliste">
 
 Liest, ändert und schreibt die Einstellungen eines AM32-ESC über das
-Signalkabel. Einstellungen in einem Layout, das der Tester nicht kennt, also
-nicht 2 bis 4, öffnen nur zum Lesen: die Bytes hexadezimal,
+Signalkabel. `WRITE...` öffnet mit einem Tippen `AM32 WRITE`: Die Seite
+listet jede Änderung, alt und neu, und ihr `HOLD TO WRITE`, 1 s, schreibt,
+zuvor mit einer Sicherung auf der SD-Karte. `HEX` zeigt die Bytes unter dem
+Titel `AM32 HEX`. Einstellungen in einem Layout, das der Tester nicht kennt,
+also nicht 2 bis 4, öffnen nur zum Lesen: die Bytes hexadezimal,
 `NOT VERIFIED.`, eine Sicherung auf der SD-Karte und kein Schreiben. `BACK`
-führt zu `MENU` zurück. Siehe [AM32-Konfiguration](AM32-Konfiguration).
+führt zu `MENU` zurück, bei ungeschriebenen Änderungen nach einer Warnung.
+Siehe [AM32-Konfiguration](AM32-Konfiguration).
 
 ---
 
@@ -372,7 +386,9 @@ Anzeigezeile `TWO SERVOS:` und `SET > SERVOS`: Dort wird das zweite Servo
 eingeschaltet. Mit SERVO SUPPLY auf `GP28` oder `GP29` zeigt die zweite Zeile
 der Leiste `GP28 SUPPLY STAYS OFF HERE.` in Bernstein: Der Servotester
 schaltet den Wandler nie ein, das Servo braucht hier also eine eigene
-Versorgung. `SET` öffnet die Einstellungen für Profil und Sweep. `BACK`
+Versorgung. `SET` öffnet die Einstellungen für Profil und Sweep; sein `BACK`
+warnt bei einer Änderung, die auf `HOLD TO APPLY` wartet, zuerst:
+`1 CHANGE NOT APPLIED.` `BACK`
 zeigt `UNPLUG THE SERVO.`, bevor der ESC-Treiber die Pins zurückbekommt;
 `RESTART DSHOT` führt danach zu `MENU`. Mit CURRENT SENSE auf `INA219`
 zeigt die Zeile unter der Skala statt des Hinweises Strom und Spannung der
@@ -387,8 +403,8 @@ Servoversorgung. Siehe [Servotester](Servotester).
 Liest und schreibt die Einstellungen eines KST- oder Chaservo-Servos über das
 Signalkabel an SIG, dem ESC-Pin. Der Bildschirm sucht das Servo, während du
 es einschaltest, liest seine 32 Register und listet 27 Felder zum Verstellen.
-`HOLD TO WRITE` 1 s lang gehalten öffnet die Schreibseite, ein zweites Halten
-von 1 s schreibt, zuvor mit einer Sicherung auf der SD-Karte. `BACK` öffnet
+Ein Tippen auf `WRITE...` öffnet die Schreibseite, und ihr `HOLD TO WRITE`,
+1 s, schreibt, zuvor mit einer Sicherung auf der SD-Karte. `BACK` öffnet
 die Verlassenseite, die dich auffordert, das Servo auszuschalten; `LEAVE`
 zeigt dann `UNPLUG THE SERVO.`, und `RESTART DSHOT` führt zu `MENU`. Mit
 CURRENT SENSE auf `INA219` zeigt der Streifen den Strom hinter dem Zustand der
@@ -413,8 +429,8 @@ der [Verdrahtung](Verdrahtung), dann die Einstellung. Unter `OWN` steht bei
 D SERIES `POWER THE SERVO UP, THEN TAP.`. Der Bildschirm tritt in das
 Servo ein und liest es. Ein Servo der D-Serie
 liefert 21 Register und 20 Parameter, davon 11 verstellbar. An der Leitung
-hängt ein Servo, ohne Pull-up-Widerstand. `HOLD TO WRITE` 1 s lang gehalten
-öffnet die Schreibseite, ein zweites Halten von 1 s schreibt, zuvor mit einer
+hängt ein Servo, ohne Pull-up-Widerstand. Ein Tippen auf `WRITE...` öffnet
+die Schreibseite, und ihr `HOLD TO WRITE`, 1 s, schreibt, zuvor mit einer
 Sicherung auf der SD-Karte. `BACK` öffnet
 die Verlassenseite; `LEAVE` zeigt dann `UNPLUG THE SERVO.`, und
 `RESTART DSHOT` führt zu `MENU`. Mit CURRENT SENSE auf `INA219` zeigt der
@@ -436,5 +452,7 @@ Streifen den Strom hinter `SUPPLY ON`. Nicht auf Hardware getestet. Siehe
   2,5 s alle 25 ms.
 - **Schreiben ins Flash braucht 1 s Halten** mit Fortschrittsbalken:
   Einstellungen auf der Platine speichern und Einstellungen in einen ESC
-  schreiben. Ein Servo starten und ein riskantes Servoprofil übernehmen
-  brauchen dasselbe Halten von 1 s.
+  oder ein Servo schreiben. Ein Gerät wird nur von seiner Schreibseite aus
+  geschrieben: Ein Tippen auf `WRITE...` oder `RESTORE...` öffnet sie, sie
+  listet die Änderungen, und nur ihr Halten schreibt. Ein Servo starten und
+  ein riskantes Servoprofil übernehmen brauchen dasselbe Halten von 1 s.

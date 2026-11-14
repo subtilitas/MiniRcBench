@@ -717,7 +717,7 @@ y   0 | HITEC SERVO                      [ BACK ]|
   146 | MOTION   SOFT START       20 % (1)       |  on ui_list
   188 | TRAVEL   NEUTRAL          8192           |  cut: 28 px, takes no press
   218 | [ - ]    SPEED 60 % -> 30 %         [ + ]|  editor bar 44 px
-  268 | [ HOLD TO WRITE ] [REVERT] [ FILES ]     |  110, 52, 54 px; 46 px tall
+  268 | [   WRITE...    ] [REVERT] [ FILES ]     |  110, 52, 54 px; 46 px tall
   320 +------------------------------------------+
 ```
 
@@ -755,7 +755,7 @@ y   0 | HITEC SERVO                      [ BACK ]|
   above the hold. The measured models are the D485HW, the HS-5645MG and the
   HS-7955TG.
 - After a failed write the write button reads `READ AGAIN`; a tap runs
-  ReadAll, and HOLD TO WRITE returns once the read has filled the image
+  ReadAll, and `WRITE...` returns once the read has filled the image
   ([write](#write)).
 
 ### Editing
@@ -817,7 +817,10 @@ through the write page. Not tested on a servo upstream.
 
 ### Write
 
-HOLD TO WRITE opens the write page rather than writing at once.
+A tap on `WRITE...` opens the write page; only the page holds
+([menu-b.md](menu-b.md), decision 6). The list's button takes a tap on
+release, and the page's hold starts fresh, so the press that opened the page
+is never timed.
 
 ```
 y   0 | HITEC WRITE                      [ BACK ]|
@@ -905,9 +908,11 @@ y   0 | HITEC WRITE                      [ BACK ]|
 - A write that ends in error after a plan step went out leaves the session
   with the addresses the servo may have changed forgotten, so the next write
   needs a read. The result's OK returns to the list with READ AGAIN in
-  place of HOLD TO WRITE ([field list](#field-list)). The record stays on the card.
-- BACK during a write is queued: the page shows
-  `LEAVING AFTER THE WRITE ENDS.` and the leave follows the result. The write
+  place of `WRITE...` ([field list](#field-list)). The record stays on the card.
+- While the write runs, or waits for the card's flush, header BACK is drawn
+  disabled and does nothing: no leave is queued, and the result stays on the
+  page ([menu-b.md](menu-b.md), decisions 5 and 6, built in its slice 5).
+  BACK before the hold, or under the result, returns to the list. The write
   is never aborted from the screen.
 
 ### Files
@@ -920,7 +925,7 @@ y   0 | HITEC FILES                      [ BACK ]|
   146 | FACTORY VALUES                (SERVO)    |  classic only
   188 | HT011                                    |  on ui_list
   234 | [          SAVE AS HT013           ]     |  228 x 40 px
-  278 | [  LOAD  ]       [ HOLD TO RESTORE ]     |  40 px tall
+  278 | [  LOAD  ]       [    RESTORE...   ]     |  40 px tall
   320 +------------------------------------------+
 ```
 
@@ -939,10 +944,11 @@ y   0 | HITEC FILES                      [ BACK ]|
   of another model of the same layout loads, and the write page names it. A
   record loads its `before` image. FACTORY VALUES loads the servo's own
   factory block through `hitec_c_factory()`: cells 0x30 to 0x53 copied to
-  0x00 to 0x23 and rebalanced. The write then goes through HOLD TO WRITE as
-  any edit.
-- HOLD TO RESTORE writes the session's backup back through the write page,
-  while the servo differs from it.
+  0x00 to 0x23 and rebalanced. The write then goes through `WRITE...` and the
+  write page as any edit.
+- A tap on `RESTORE...` opens the restore page, `HITEC RESTORE`, the write
+  page titled for the restore, while the servo differs from the backup; its
+  HOLD TO RESTORE writes the session's backup back.
 - With no card mounted, or the card held by a USB host, the page shows
   `NO CARD` or `CARD IN USE BY USB` and RETRY MOUNT (`sdLogRemount()`);
   reading, editing and writing still work.
@@ -1210,16 +1216,16 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
   step, each soft rule and its text, a text for every `hitec_ses_t` and
   `hitec_rx_t`.
 - `test_hitec_ui.cpp`, by control id ([menu.md](menu.md#tests-by-control-id)):
-  MENU opens the screen; the family choice, CLASSIC disabled under `OWN`;
-  the claim; the entry and the read; an edit
-  and REVERT; HOLD TO WRITE not at 750 ms and not on a slide off; the write
-  page, the backup and the record before the first write frame, the flush
-  barrier, the result; a write in error and READ AGAIN; FILES with SAVE AS,
-  LOAD, a refused file, FACTORY VALUES, HOLD TO RESTORE; REPAIR on a bad
-  classic checksum; a model not measured written with the amber layout
-  line; BACK in every view and during a write; LEAVE and RESTART DSHOT; a stall and RETRY; no card, a
-  card held by USB, a card that takes no file; a record found at entry;
-  `checkControlTable()` in each view; a preview, `docs/hitec-preview.png`.
+  MENU opens the screen; the family choice, CLASSIC disabled under `OWN`; the
+  claim; the entry and the read; an edit and REVERT; `WRITE...` opening nothing
+  while pressed or on a slide off; the write page, the backup and the record
+  before the first write frame, the flush barrier, the result; a write in error
+  and READ AGAIN; FILES with SAVE AS, LOAD, a refused file, FACTORY VALUES,
+  `RESTORE...` and HOLD TO RESTORE; REPAIR on a bad classic checksum; a model
+  not measured written with the amber layout line; BACK in every view and during
+  a write; LEAVE and RESTART DSHOT; a stall and RETRY; no card, a card held by
+  USB, a card that takes no file; a record found at entry; `checkControlTable()`
+  in each view; a preview, `docs/hitec-preview.png`.
 - The changed MENU tests: the row count in `test_menu.cpp` and
   `test_ui.cpp`, `openSettings()`, which scrolls MENU before it taps
   SETTINGS, and `docs/menu-preview.png`.
@@ -1366,8 +1372,9 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
      again.
    - BACK during a read, the entry's own or READ AGAIN, sends Abort; the
      leave page follows.
-   - A stall drops a leave queued by BACK during a write; the main view
-     with RETRY follows.
+   - A stall during a write ends on the main view with RETRY. BACK during
+     a write queues no leave: it is drawn disabled ([menu-b.md](menu-b.md),
+     slice 5).
    - A later write whose record the card does not take still runs on the
      backup of the first write, as `hitec_files.h` states; the write page
      does not say so.
@@ -1382,8 +1389,8 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
      the model texts, layouts and the measured models. In
      `test_hitec_ui.cpp`: MENU opens the screen; the family, CLASSIC
      disabled under `OWN`; the claim, the entry and the
-     read; an edit and REVERT; HOLD TO WRITE not at 750 ms and not on a
-     slide off; the write page, the record on the card before the first
+     read; an edit and REVERT; `WRITE...` opening nothing while pressed or
+     on a slide off; the write page, the record on the card before the first
      write frame, the backup, the result, a second write without a second
      backup; the flush barrier, a flush that fails, a later write while an
      earlier batch flushes with its record on the card before its first
@@ -1541,8 +1548,9 @@ Decisions of the owner, 2026-10-29:
    counts.
 6. **A write is never aborted from the screen.** A plan cut part way leaves
    a classic checksum unbalanced or a D series value unsaved. BACK during a
-   write is queued; a lapse lets it finish. Reads and the entry take an
-   abort.
+   write is drawn disabled and does nothing (revised by decision 5 of
+   [menu-b.md](menu-b.md), built in its slice 5); a lapse lets the write
+   finish. Reads and the entry take an abort.
 7. **Models not measured are marked, not refused.** The parameters'
    encodings are measured on the D485HW, the HS-5645MG and the HS-7955TG.
    Another model takes its series' layout and is written in it

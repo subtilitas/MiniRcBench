@@ -1,12 +1,14 @@
 # Menu structure B
 
-Status: slices 1 to 4 built, host tests only; slices 5 to 10 not built.
+Status: slices 1 to 5 built, host tests only; slices 6 to 10 not built.
 Slice 2 is the colour roles of decisions 8 and 11 ([slice 2 as
 built](#slice-2-as-built)); slice 3 is the names and SETTINGS of decisions 9,
 10 and 15 b, e, f, h, j, k, with its README.md and wiki lines and images
-([slice 3 as built](#slice-3-as-built)). The owner answered the note's eight
+([slice 3 as built](#slice-3-as-built)); slice 5 is the write rule and the
+BACK guard of decisions 6, 7 and 13's AM32 titles ([slice 5 as
+built](#slice-5-as-built)). The owner answered the note's eight
 open questions on 2026-11-14 ([decisions 23 to 30](#decisions)), and the
-question that followed from them (decision 33). Slices 5 to 10 wait on being
+question that followed from them (decision 33). Slices 6 to 10 wait on being
 built. By the owner's order of work of 2026-11-14 they follow the eight
 small decisions of STATUS.md items 20, 21 and 24. Three of the owner's
 decisions of 2026-11-14 change this design, and the sections they touch are
@@ -1082,7 +1084,7 @@ decisions 31 to 33.
 | 2. Colour roles, built | decisions 8 and 11: the role table on every screen, square chips, PROG MODE | 1 | 10 | 150 changed | 15 / 40 | built |
 | 3. Names and SETTINGS, built | decisions 9, 10, 15 b, e, f, h, j, k: SERVO SUPPLY section, SIG and AUX, connector lines, OWN, DSHOT600, MENU statuses and busy strip, KST labels; with its README.md and wiki lines and images (decision 27) | 1 | 11 | +200, −80 | 110 / 60 | built |
 | 4. Layout table, built | decision 14 | 1 | 11 in `src/` | +146, −79 | 63 / 236 lines in 7 test files | built |
-| 5. Write rule and guard | decisions 6, 7, 13 (AM32 HEX and WRITE titles): `WRITE...`, `RESTORE...`, AM32 write page and result, editor old value, guard on AM32 and SERVO SET, BACK disabled while writing, the leave queue gone | 1, 2, 4 | 7 | +300, −120 | 110 / 120 | 2 to 3 days |
+| 5. Write rule and guard, built | decisions 6, 7, 13 (AM32 HEX and WRITE titles): `WRITE...`, `RESTORE...`, AM32 write page and result, editor old value, guard on AM32 and SERVO SET, BACK disabled while writing, the leave queue gone; with its README.md and wiki lines and images (decision 27) | 1, 2, 4 | 9 in `src/` | +390, −150 | 6 test files | built |
 | 6. Leave page | decision 5 and owner decision 3: KST, Hitec and SERVO TESTER on `ui_leave`; STAY, NEXT SERVO, BACK TO SERVO; RESTART DSHOT's wait | 1, 5 | 6 | +180, −300 | 90 and three helpers / 80 | 2 to 3 days |
 | 7. Tester | owner decision 4, decisions 15 a to c, 17: readouts, `uiOpenTool()`, origin, LATCH, BOARD, ARM while the card is held; the readouts' underline, which slice 2 left out (decision 11's MAX row) | 1, 3 | 4 | +150 | 15 / 100 | 1.5 days |
 | 8. SERVO TESTER | decision 13: the title; decision 12 is on `main` | 1, 3 | 2 | +10 | 0 / 5 | 0.5 day |
@@ -1092,7 +1094,9 @@ decisions 31 to 33.
 Slice 1 is built ([slice 1 as built](#slice-1-as-built)), and slice 2
 ([slice 2 as built](#slice-2-as-built)). Slice 4 is built
 ([slice 4 as built](#slice-4-as-built)); by decision 27 its previews,
-README.md and wiki lines go with it.
+README.md and wiki lines go with it. Slice 5 is built
+([slice 5 as built](#slice-5-as-built)), with its README.md and wiki lines
+and images.
 
 Slice 3 comes before slice 9: without it the SERVO SUPPLY section leaves
 SETTINGS with KST SERVO's MENU row. Slice 6 needs slice 5 because both change
@@ -1302,6 +1306,55 @@ lines, it reads them as follows:
 | AM32's OK | the wide button; it acts and draws pressed only for a press that lands after the write ended | it lies over HOLD TO WRITE, where the hold's finger lifts |
 | Hitec's list strip | model, backup, pin, version, two spaces apart, dropped from the right; the room ends 4 px before the chip, `uiChipX()` | a classic strip with every item does not fit; the backup's state is the item the write depends on |
 | Hitec strip band | every Hitec view clears y 40 to 61 | the family view's second strip line ends at y 58, below the 16 px band `uiStripClear()` clears |
+
+## Slice 5 as built
+
+Decisions 6 and 7, and decision 13's AM32 HEX and AM32 WRITE titles, on
+AM32 CONFIG, KST SERVO, HITEC SERVO and SERVO SET, with host tests in
+`test/test_ui.cpp` (`testAm32WritePage()`, `testAm32Guard()` and the AM32
+write sections), `test/test_servo.cpp` (`testSetGuard()`, `backFromSet()`),
+`test/test_kst_ui.cpp` and `test/test_hitec_ui.cpp`. Each behaviour was
+checked by a mutation that the suite fails. The interlocks stay as they
+were: the BOARD voltage refusal, the backup before the first write, the wait
+for the card's flush, AM32's refusal of a layout it does not know and the
+write's read-back run on the page's hold as they ran on the hold that wrote
+before, and their tests run through the page.
+
+| Block | Where | What it does |
+|---|---|---|
+| `WRITE...` | `drawList()` and `listTouch()` in `ui_kst.cpp` and `ui_hitec.cpp`; `drawList()`, `handleListTouch()` and `openPage()` in `ui_am32.cpp` | a tap, on release, opens the write page; nothing on the list is held. KST's `READ ONLY` and `IN DOUBT` and Hitec's `READ AGAIN` take its place as on `main` |
+| `RESTORE...` | `drawFiles()` and `filesTouch()` in `ui_kst.cpp` and `ui_hitec.cpp` | a tap opens the restore page; its HOLD TO RESTORE restores |
+| AM32 WRITE | `S_PAGE`, `drawWritePage()`, `pageTouch()`, `backupLine()` in `ui_am32.cpp`; `Am32Ctl::WriteHold`; `am32BackupNext()` in `am32_backup.*` | the changes from `s_pageFrom` to `s_pageTo`, copies taken as the page opens, so the result still lists them; the count on the strip; state and result lines from y 196; the backup line at y 236; HOLD TO WRITE, then OK, in the wide button |
+| Editor bar | `drawList()` in `ui_am32.cpp` | a changed field's top line reads `NAME  OLD ->`, or `OLD ->` where that passes the 140 px gap |
+| Titles | `title()` in `ui_am32.cpp` | `AM32 HEX` over the dump, `AM32 WRITE` on the page, else `AM32 CONFIG` |
+| Guard | `uiBackGuard()` in `uiAm32Tick()` and `uiServoTick()`; `uiBackGuardDraw()` in `drawHeader()` and `drawSet()` | `n CHANGE(S) NOT WRITTEN.` on AM32's list, `n CHANGE(S) NOT APPLIED.` on SET, over `BACK AGAIN DISCARDS IT.` or `THEM.` |
+| BACK while writing | `backLive()` in `ui_am32.cpp`; `backActs()` in `ui_kst.cpp` and `ui_hitec.cpp` | drawn disabled, reported disabled in the control table, and the tap ignored while the write runs, and on KST and Hitec while it waits for the card's flush |
+| The leave queue | `s_leaveQueued` removed from `ui_kst.cpp` and `ui_hitec.cpp` | BACK during a write queues nothing; `LEAVING AFTER THE WRITE ENDS.` is gone |
+
+Readings of the decisions where the code asked for a choice:
+
+| Point | As built | Why |
+|---|---|---|
+| AM32's button with no change | `WRITE...` drawn disabled, not `NO CHANGES` | decision 6 gives the list's button one label; KST's and Hitec's read `WRITE...` disabled with nothing pending |
+| AM32's refusals | the BOARD voltage, a layout not known and `NO BACKUP ON THE CARD` stay results under OK, as on `main`, now on the page and in amber; OK returns to the list | the decision moves the result onto the page and changes no refusal; KST and Hitec keep the hold live under their board line, AM32 keeps its own result |
+| AM32's result lines | the status at y 196, the next step or `POWER-CYCLE THE ESC TO APPLY.` at y 208, scale 1 from x 8 | the page's drawing; every status fits one 37-character line (`static_assert`s), so the wrap at 37 characters never takes a second line |
+| AM32's backup line without a card | `NO CARD: OLD VALUES LOST ON LEAVING`, 35 characters, and with the card held by USB `USB DRIVE: OLD VALUES LOST ON LEAVING`, 37, amber; `BACKUP FIRST: TO THE CARD` when `BACKUP/` does not list | the note draws only `BACKUP FIRST: BACKUP/AM001.TXT`; KST's words, with `ON LEAVING` for `AT LEAVE` since AM32 CONFIG has no LEAVE, and `USB DRIVE`, MENU's and SD LOG's word, since `CARD ON USB: OLD VALUES LOST ON LEAVING` is 39 characters |
+| AM32's guard count | the listed fields that differ, at least 1 while any of the 48 bytes differs | each field is one byte, and the editor steps listed fields only |
+| SET's guard | for every change that waits for HOLD TO APPLY, the travel's MIN, MAX and SERVOS included, counting the rows drawn changed; a TYPE step to HELI CYCLIC counts each row it moved | decision 7 says "a pending TYPE or RATE"; BACK drops every waiting change, and the rule is to name what it drops |
+| AM32 HEX's BACK | returns to the list, and feeds no guard: it drops nothing | the BACK table and "Other views"; decision 13 makes the dump a sub-view, and no later slice touches `ui_am32.cpp` |
+| The read-only view | keeps the title `AM32 CONFIG`; BACK goes to MENU | it is the main view of a layout not known, not the dump of the list |
+| AM32's BACK while writing | disabled on the frame the hold fires and on the frame that writes; the write blocks core0 in one frame, so the page with `WRITING: DO NOT UNPLUG.` and BACK disabled stands while it runs | the AM32 transport is synchronous; BACK under the result acts again |
+| KST and Hitec BACK while flushing | disabled until the flush ends or fails; a lost servo still leaves the page through the search | the BACK table says "writing or flushing"; a flush that ended in failure ends the wait (`flushStep()`) |
+| KST's restore | the tap opens `KST RESTORE` and nothing runs until its hold; before, the FILES hold started the restore | the interlock table's "tap, hold"; Hitec's restore already waited for the page's hold |
+| LEAVE while writing | still drawn disabled while `s_writing` is set | no path reaches the leave page during a write now; kept as the backstop slice 6's `leaveEnabled` expects |
+| Restore titles | `KST RESTORE` and `HITEC RESTORE`, as on `main` | decision 13 names the write and files titles only |
+| The tap's press | never timed by the page's hold: the tap acts on release, and opening the page resets the hold | "the press that opened the page cannot start it" (interlocks) |
+| `AM32_UI_RETRY` | `NOT VERIFIED. TAP OK, WRITE AGAIN.` kept | OK, `WRITE...` and the hold is the way to write again |
+| Images | `am32-write.png`, `am32-discard.png` and `kst-restore.png` are new wiki images | the note names the first two; the third shows `RESTORE...`'s page before its hold |
+
+Not built in this slice: the leave page (slice 6), SERVO TESTER's title
+(slice 8), the tester (slice 7). BACK on the KST and Hitec leave pages still
+returns to the list, and BACK from the list still opens the leave page.
 
 ## Risks
 

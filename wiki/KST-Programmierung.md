@@ -226,8 +226,8 @@ Zwei Arten von Grenzen gelten:
   der Regel in Bernstein, zum Beispiel
   `WITHOUT SOFT START THE SERVO JUMPS AT POWER-ON.`
 
-Unter der Editorleiste liegen drei Schaltflächen, 46 px hoch: `HOLD TO WRITE`
-(110 px), `REVERT` (52 px) und `FILES` (54 px). `HOLD TO WRITE` wirkt nur,
+Unter der Editorleiste liegen drei Schaltflächen, 46 px hoch: `WRITE...`
+(110 px), `REVERT` (52 px) und `FILES` (54 px). `WRITE...` wirkt nur,
 wenn etwas vorgemerkt ist, keine harte Grenze verletzt ist und das Servo nicht
 im Zweifel ist.
 
@@ -235,8 +235,9 @@ im Zweifel ist.
 
 ## Schreiben
 
-**Halte `HOLD TO WRITE` 1 s lang.** Während du hältst, füllt sich ein Balken.
-Die Schreibseite öffnet sich und schreibt noch nichts.
+**Tippe `WRITE...` an.** Die Schreibseite öffnet sich und schreibt noch
+nichts. `WRITE...` zu halten bewirkt nicht mehr als ein Tippen: Die Seite
+öffnet sich, wenn der Finger abhebt.
 
 <img src="img/kst-write.png" width="240" alt="Die Schreibseite, 1 CHANGE"> <img src="img/kst-write-many.png" width="240" alt="Die Schreibseite, 5 CHANGES, AND 1 MORE">
 
@@ -263,7 +264,9 @@ Die Werte des Servos vor dem ersten Schreiben liegen nur im Speicher, bis ein
 späteres Schreiben mit eingebundener Karte sie sichert; LEAVE, REBOOT oder ein
 Stromausfall verliert sie. Ohne Karte geht das Schreiben trotzdem durch.
 
-**Ein zweites Halten von 1 s schreibt.** Bevor der erste Frame des ersten
+**Halte das `HOLD TO WRITE` der Seite 1 s lang, um zu schreiben.** Während
+du hältst, füllt sich ein Balken; das Tippen, das die Seite geöffnet hat,
+zählt nicht. Bevor der erste Frame des ersten
 Schreibens der Sitzung mit eingebundener Karte zum Servo geht, kommt das beim
 Eintritt gelesene Abbild als Sicherung `BACKUP/KSTnnn.TXT` auf die Karte, und das Servo,
 wie es gerade ist, als Vermerk `KST/KST.TXT`. Spätere Schreibvorgänge der
@@ -282,19 +285,21 @@ Das Übertragen scheitert, wenn ein Blockschreiben fehlschlägt oder die Karte
 im Steckplatz gewechselt hat, nicht bei einer vollen Karte: Eine volle Karte
 endet in `THE CARD TOOK NO FILE`, bevor etwas eingereiht ist. Zum Servo ging
 nichts. Die Karte wird neu eingebunden, und `OK` führt zur Feldliste zurück;
-das nächste `HOLD TO WRITE` sichert erneut und schreibt dann.
+das nächste Schreiben, `WRITE...` und sein Halten, sichert erneut und
+schreibt dann.
 
 <img src="img/kst-flush-failed.png" width="240" alt="Die Schreibseite, nachdem die Karte die Daten nicht annahm">
 
 Während des Schreibens zeigt die Seite `WRITING: DO NOT UNPLUG.` und darunter
-`PLANNING THE ORDER OF THE WRITES` oder `FRAMES SENT: 94`. `BACK` während des
-Schreibens wird vorgemerkt: Die Seite zeigt `LEAVING AFTER THE WRITE ENDS.`,
-und die Verlassenseite folgt auf das Ergebnis.
+`PLANNING THE ORDER OF THE WRITES` oder `FRAMES SENT: 94`. Während das
+Schreiben läuft, und während es auf die Karte wartet, ist `BACK` grau und tut
+nichts: Kein `BACK` lässt ein Servo halb geschrieben zurück. `BACK` vor dem
+Halten oder unter dem Ergebnis führt zur Feldliste zurück.
 
 ### Die BOARD-Spannung rot
 
 Solange die BOARD-Spannung auf dem Tester rot ist, unter 3,30 V und bis sie
-wieder 3,35 V erreicht, schreibt das zweite Halten nichts: Keine Datei geht
+wieder 3,35 V erreicht, schreibt das Halten der Seite nichts: Keine Datei geht
 auf die Karte und kein Frame zum Servo. Die Seite zeigt in Bernstein
 `BOARD VOLTAGE IS RED: NOT WRITTEN.` und
 `CHARGE THE BOARD'S CELL, HOLD AGAIN.`, und `HOLD TO WRITE` bleibt. Die
@@ -306,7 +311,8 @@ dann schon auf der Karte sein, und kein Frame geht hinaus. Ein laufendes
 Schreiben wird nicht angehalten: Abgebrochen ließe es das Servo teilweise
 geschrieben und ungeprüft zurück, während eines, das zu Ende läuft, mit dem
 Rücklesen endet. Bernstein und ein Wert unter 2,50 V (keine Zelle zu
-beurteilen) lehnen kein Schreiben ab. `HOLD TO RESTORE` wird ebenso abgelehnt.
+beurteilen) lehnen kein Schreiben ab. Das `HOLD TO RESTORE` der
+Wiederherstellungsseite wird ebenso abgelehnt.
 Die Bereiche sind der übliche Bereich einer Lithium-Polymer-Zelle, auf dieser
 Platine nicht gemessen. Was die Platine an USB-Versorgung ohne Zelle liest,
 ist ebenfalls nicht gemessen, also kann eine Platine nur an USB das Schreiben
@@ -316,8 +322,8 @@ ablehnen.
 
 ### Das Ergebnis
 
-Das Ergebnis ersetzt die Schaltflächen durch `OK`. `OK` führt zur Feldliste
-zurück.
+Das Ergebnis ersetzt die Schaltflächen durch `OK`. `OK` oder `BACK` führt
+zur Feldliste zurück.
 
 <img src="img/kst-result.png" width="240" alt="WRITE VERIFIED">
 
@@ -380,8 +386,8 @@ nimmt kein Schreiben an, bis eine Wiederherstellung gelaufen ist. Stelle
 | Schaltfläche | Was sie tut |
 |---|---|
 | `SAVE AS KST003` | Schreibt das Servo, wie es gerade ist, nach `KST/` unter dem nächsten freien Namen, eins über dem höchsten KSTnnn, und nie über eine Datei. Die Leiste zeigt `SAVED AS KST003` in Grün. Hält `KST/` 50 Dateien, wirkt die Schaltfläche nicht, und die Leiste zeigt `KST/ HOLDS 50 FILES. REMOVE SOME.` Es gibt keine Tastatur, daher keinen anderen Namen |
-| `LOAD` | Hält die gewählte Datei gegen das Servo (Typ, Zugriffsklassen, harte Grenzen) und übernimmt ihre Werte als vorgemerkte Änderungen in die Feldliste. Geschrieben wird dann über `HOLD TO WRITE` |
-| `HOLD TO RESTORE` | 1 s halten. Schreibt das beim Eintritt gelesene Abbild über die Wiederherstellungsseite ins Servo zurück |
+| `LOAD` | Hält die gewählte Datei gegen das Servo (Typ, Zugriffsklassen, harte Grenzen) und übernimmt ihre Werte als vorgemerkte Änderungen in die Feldliste. Geschrieben wird dann über `WRITE...` und die Schreibseite |
+| `RESTORE...` | Tippen öffnet die Wiederherstellungsseite; ihr `HOLD TO RESTORE`, 1 s gehalten, schreibt das beim Eintritt gelesene Abbild ins Servo zurück |
 
 Eine Ablehnung nennt ihre Zeile, zum Beispiel
 `LINE 14: NOT A VALUE OF DEAD BAND`. Weitere Hinweise in der Leiste:
@@ -395,8 +401,13 @@ Eine Ablehnung nennt ihre Zeile, zum Beispiel
   gelesen. Es kann eine andere Karte sein. Nichts wird geladen, bis eine
   Zeile neu gewählt ist.
 
-`HOLD TO RESTORE` wirkt, wenn das Servo von der Sicherung abweicht oder im
-Zweifel ist. Die Wiederherstellungsseite heißt `KST RESTORE`. Sie zeigt zum
+`RESTORE...` wirkt, wenn das Servo von der Sicherung abweicht oder im
+Zweifel ist. Die Wiederherstellungsseite heißt `KST RESTORE`, und geschrieben
+wird erst, wenn ihr `HOLD TO RESTORE` 1 s lang gehalten ist.
+
+<img src="img/kst-restore.png" width="240" alt="Die Wiederherstellungsseite vor dem Halten: BACK TO THE SESSION'S BACKUP und HOLD TO RESTORE">
+
+Sie zeigt zum
 Beispiel `BACK TO THE SESSION'S BACKUP` und
 `4 REGISTERS DIFFER FROM THE BACKUP`. Sie zählt Register, gesperrte und
 unbenannte eingeschlossen, denn die Wiederherstellung schreibt auch sie.
@@ -485,7 +496,8 @@ zeigt die Abziehseite unmittelbar.
   das Servo. Schreibe erneut.
 - **Der Bildschirm kehrt zur Suche zurück.** Das Servo antwortet nicht mehr.
   Schalte es erneut ein.
-- **`IN DOUBT`.** Stelle über FILES mit `HOLD TO RESTORE` wieder her.
+- **`IN DOUBT`.** Stelle über FILES wieder her: `RESTORE...`, dann
+  `HOLD TO RESTORE`.
 - **`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`**
   Prüfe die Karte, oder nimm sie aus der USB-Nutzung, und schreibe dann
   erneut.

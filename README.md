@@ -754,24 +754,23 @@ below 2.50 V (`BOARD_CELL_IMPLAUSIBLE_MV`), implausible for a working cell,
 it is drawn in the normal text colour, and red again from 2.55 V, the same
 50 mV band.
 
-While the value is red (`BoardCell::Critical`, `uiBoardWriteRefused()`),
-KST SERVO, HITEC SERVO and AM32 CONFIG refuse a write and a KST or Hitec
-restore. KST SERVO and HITEC SERVO ask at the end of the hold: refused
-there, no file goes to the card and no frame to the servo. They ask again
-just before their files and their write go out, after a wait for a card
-flush: refused there, the backup and the write's record may be on the card
-already, and no frame goes out. AM32 CONFIG asks once, before its backup:
-refused, no file goes to the card and no byte to the ESC. A write already
-running is not stopped: cut off, it would leave the servo partly written
-and unverified, while one that finishes ends with its read-back. The KST
-and Hitec write pages read, in amber at y 196 and y 208,
-`BOARD VOLTAGE IS RED: NOT WRITTEN.` and
-`CHARGE THE BOARD'S CELL, HOLD AGAIN.`; AM32 CONFIG shows the two lines as
-its write's result. Amber, the text colour, and a value below 2.50 V (no
-cell to judge) refuse no write. The bands are a lithium-polymer cell's
-usual range, not measured on this board; what the divider reads with USB
-power and no cell is not measured either, so a board on USB alone may
-refuse writes.
+While the value is red (`BoardCell::Critical`, `uiBoardWriteRefused()`), KST
+SERVO, HITEC SERVO and AM32 CONFIG refuse a write and a KST or Hitec restore.
+KST SERVO and HITEC SERVO ask at the end of the write page's hold: refused
+there, no file goes to the card and no frame to the servo. They ask again just
+before their files and their write go out, after a wait for a card flush:
+refused there, the backup and the write's record may be on the card already, and
+no frame goes out. AM32 CONFIG asks once, before its backup: refused, no file
+goes to the card and no byte to the ESC. A write already running is not stopped:
+cut off, it would leave the servo partly written and unverified, while one that
+finishes ends with its read-back. The KST and Hitec write pages read, in amber
+at y 196 and y 208, `BOARD VOLTAGE IS RED: NOT WRITTEN.` and `CHARGE THE BOARD'S
+CELL, HOLD AGAIN.`; AM32 CONFIG shows the two lines as its write's result on
+`AM32 WRITE`, in amber at the same place. Amber, the text colour, and a value
+below 2.50 V (no cell to judge) refuse no write. The bands are a lithium-polymer
+cell's usual range, not measured on this board; what the divider reads with USB
+power and no cell is not measured either, so a board on USB alone may refuse
+writes.
 
 ---
 
@@ -1063,7 +1062,7 @@ The screen shows which half failed:
 | `WAITING... (TRY n)` | No reply yet | Power-cycle the ESC while the screen is open |
 | `nB: xx xx xx @19200`, then `REPLY NOT UNDERSTOOD:` and `IS THE ESC RUNNING AM32?` | The ESC sent bytes that did not parse | Baud rate or framing, or firmware other than AM32. The first three bytes are shown |
 | `READ FAILED (...)` | Handshake succeeded, settings read failed | Retry; check the wire |
-| `NO VALID SETTINGS`, with `NOT AN AM32 ESC, OR BLANK SETTINGS.` and `NOTHING WILL BE WRITTEN.` | The settings block is implausible (`am32Plausible()`): among others a layout revision of 0 or above 8 | Nothing to do: the screen stays on the connect page, which has no WRITE |
+| `NO VALID SETTINGS`, with `NOT AN AM32 ESC, OR BLANK SETTINGS.` and `NOTHING WILL BE WRITTEN.` | The settings block is implausible (`am32Plausible()`): among others a layout revision of 0 or above 8 | Nothing to do: the screen stays on the connect page, which has no `WRITE...` |
 
 ### Layouts outside 2 to 4
 
@@ -1081,8 +1080,9 @@ bytes, in grey: `THE BYTES AS READ. THE FIELD TABLE` /
 `IS NOT CHECKED FOR THIS LAYOUT.`
 
 The backup goes to the card as the view opens, since no write follows. The
-view's one control is BACK: no row, no WRITE, REVERT or HEX, and the screen
-has no transition from the view to the write. The write itself checks the
+view's one control is BACK: no row, no `WRITE...`, REVERT or HEX, and the
+screen has no transition from the view to the write. The view keeps the title
+`AM32 CONFIG`, and its BACK goes to MENU. The write itself checks the
 layout of the bytes as read before anything else (`writeRefused()`), so a
 way to it would still write nothing: `LAYOUT NOT KNOWN: NOT WRITTEN`.
 
@@ -1110,31 +1110,53 @@ the end of the range stops at the end. Travel past the end is not stored, so
 the first coarse step back moves the value off it.
 
 A value that differs from the ESC as read is cyan, with a 3 px cyan bar at
-its row's left edge; the editor bar's value is cyan too. Selecting a row fills
-it and lights its label, and leaves the value's colour as it is: a value as
-read is in the text colour. **REVERT**, labelled in amber, restores the values
-that were read. **HEX** shows the raw 48 bytes for checking a field's
-decoding.
+its row's left edge; the editor bar's value is cyan too, and the bar's top
+line names the value as read: `PWM FREQ  24KHZ ->` over the new value, or
+`24KHZ ->` alone where the label and the value do not fit the 140 px between
+`-` and `+`. Selecting a row fills it and lights its label, and leaves the
+value's colour as it is: a value as read is in the text colour. **REVERT**,
+labelled in amber, restores the values that were read. **HEX** shows the raw
+48 bytes for checking a field's decoding, titled `AM32 HEX`; its BACK
+returns to the list.
 
-Writing needs a 1 s hold on `HOLD TO WRITE`. While the BOARD voltage is
-red the hold writes nothing: the result reads
-`BOARD VOLTAGE IS RED: NOT WRITTEN.` with `CHARGE THE BOARD'S CELL, HOLD
-AGAIN.` in amber under it, and OK returns to the list with the edits kept
-([Using it](#using-it), the BOARD voltage). OK is the wide button at the
-bottom, where HOLD TO WRITE was; it takes a fresh tap, and lifting the
-finger that held HOLD TO WRITE leaves the result up. After the write the
-firmware waits `AM32_WRITE_SETTLE_MS` (300 ms), reads the block back, and
-compares it byte for byte. It shows `WRITE VERIFIED`, in green, only on a full
-match, with `POWER-CYCLE THE ESC TO APPLY.` under it: the bench sends no command
-that starts the ESC's firmware, and whether the ESC runs the new settings
-without a power cycle is not tested. On a mismatch it shows the first differing
-byte: `DIFF @xx: GOT xx WANT xx`. A result of up to 18 characters is drawn at
-scale 2; a longer one at scale 1, where every result fits one 37-character line,
-so it stays on the 240 px panel. Under a result that is not a verified write,
-`WRITE FAILED: ...`, `VERIFY READ: ...` or `DIFF ...`, an amber line reads `NOT
-VERIFIED. TAP OK, WRITE AGAIN.`: OK returns to the list with the edits kept, and
-the next hold writes again. Under `NO BACKUP ON THE CARD: NOT WRITTEN` it reads
-`CHECK THE CARD, THEN WRITE AGAIN.`.
+BACK on the list with edits not written arms a guard (decision 7 of
+`docs/design/menu-b.md`): the strip reads, in amber,
+`2 CHANGES NOT WRITTEN.` over `BACK AGAIN DISCARDS THEM.`, or
+`1 CHANGE NOT WRITTEN.` over `BACK AGAIN DISCARDS IT.` A second BACK goes
+to MENU and drops the edits; a press anywhere else disarms the guard and the
+strip returns. There is no timer. Without edits BACK goes to MENU at once.
+
+**WRITE...** opens `AM32 WRITE` on a tap; nothing on the list is held. The
+page lists each field that changes, from the ESC as read to the edit: the
+label, then `old -> new`, the old value grey and the new one cyan, at most 4
+lines and then `AND n MORE`; the strip counts them, `2 CHANGES`. A line at
+the bottom names the backup: `BACKUP FIRST: BACKUP/AM001.TXT` before the
+session's first write with a card in, `BACKUP: BACKUP/AM001.TXT` once it is
+on the card, and in amber `NO CARD: OLD VALUES LOST ON LEAVING`, or
+`USB DRIVE: OLD VALUES LOST ON LEAVING` while USB holds the card: without a
+card the settings as read stay in RAM until a write with a card saves them,
+and leaving AM32 CONFIG loses them. Writing needs a 1 s hold on the page's
+`HOLD TO WRITE`, the wide button; the tap that opened the page is not timed.
+While the write runs the page reads `WRITING: DO NOT UNPLUG.` in amber and
+BACK is drawn disabled. BACK before the hold, or under the result, returns to
+the list. While the BOARD voltage is red the hold writes nothing: the result
+reads `BOARD VOLTAGE IS RED: NOT WRITTEN.` with `CHARGE THE BOARD'S CELL,
+HOLD AGAIN.` under it, both amber, and OK returns to the list with the edits
+kept ([Using it](#using-it), the BOARD voltage). OK is the wide button where
+HOLD TO WRITE was; it takes a fresh tap, and lifting the finger that held
+HOLD TO WRITE leaves the result up. After the write the firmware waits
+`AM32_WRITE_SETTLE_MS` (300 ms), reads the block back, and compares it byte
+for byte. It shows `WRITE VERIFIED`, in green, only on a full match, with
+`POWER-CYCLE THE ESC TO APPLY.` under it: the bench sends no command that
+starts the ESC's firmware, and whether the ESC runs the new settings without
+a power cycle is not tested. On a mismatch it shows the first differing
+byte: `DIFF @xx: GOT xx WANT xx`. The result is drawn at scale 1 from x 8,
+y 196, under the page's change lines; every result fits one 37-character
+line. A result that is not a verified write is amber: under `WRITE FAILED:
+...`, `VERIFY READ: ...` or `DIFF ...` a second amber line reads `NOT
+VERIFIED. TAP OK, WRITE AGAIN.`: OK returns to the list with the edits kept,
+and `WRITE...` and the hold write again. Under `NO BACKUP ON THE CARD: NOT
+WRITTEN` it reads `CHECK THE CARD, THEN WRITE AGAIN.`.
 
 Some values put two amber lines on the strip in place of the ESC name
 (`listNote()` in `src/ui_am32.cpp`): the selected row's first, then 3D
@@ -1165,13 +1187,12 @@ Arming is not refused on it.
 
 ### Backup
 
-Before the first WRITE of a session, the settings block as read at entry goes
+Before the first write of a session, the settings block as read at entry goes
 to the card as `BACKUP/AMnnn.TXT` ([Device backups](#device-backups)). The
 read-only view saves it as it opens. A block in a layout outside 2 to 4 is
 saved with no field line and the line
 `Layout not known: fields not read, not verified`. The
-result line then reads `WRITE VERIFIED. BACKUP AM018`, for example, at
-scale 1. A card
+result line then reads `WRITE VERIFIED. BACKUP AM018`, for example. A card
 that refuses the backup stops the write: `NO BACKUP ON THE CARD: NOT WRITTEN`.
 The melody and the CAN block are not saved; nothing reads the file back yet.
 
@@ -1377,8 +1398,14 @@ when the profile is past its travel, since it drives a second servo there, and
 applies at once on a profile within it. HELI CYCLIC's own 820 µs
 to 2220 µs are past the travel; its one hold covers both warnings. A value that
 waits for the hold is cyan, with a 3 px cyan bar at its row's left edge, until
-HOLD TO APPLY; while RUNNING the PULSE rows are grey. BACK from SET
-drops a waiting change, and SET opens again on the applied profile. The SWEEP
+HOLD TO APPLY; while RUNNING the PULSE rows are grey. BACK from SET with a
+change waiting arms a guard (decision 7 of `docs/design/menu-b.md`): the
+strip reads, in amber, `1 CHANGE NOT APPLIED.` over
+`BACK AGAIN DISCARDS IT.`, or `n CHANGES NOT APPLIED.` over
+`BACK AGAIN DISCARDS THEM.`, counting the rows in cyan. A second BACK
+returns to the servo screen and drops the change, and SET opens again on the
+applied profile; a press anywhere else disarms the guard. With nothing
+waiting BACK returns at once. The SWEEP
 rows (shape, 0.05 Hz to 5.00 Hz, amplitude 0 % to 100 %, dwell 0 ms to 5000 ms,
 endless or 1 to 9999 movements) change at any time and apply to the next SWEEP.
 `DEFAULTS`, offered only while SAFE, returns to STANDARD PWM 50 Hz, one servo, a
@@ -1496,10 +1523,15 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
    colour as it is. A value that breaks a soft rule is taken, with the bar
    in amber and the rule's text in the editor bar. REVERT is labelled in
    amber.
-4. HOLD TO WRITE (1 s) opens the write page: the changes, counted on the strip
+4. A tap on `WRITE...` opens the write page, `KST WRITE` (decision 6 of
+   `docs/design/menu-b.md`): the changes, counted on the strip
    (`1 CHANGE`, `2 CHANGES`) and listed 4 at most, then `AND n MORE`, each old
    value dim and each new value cyan, their soft rules, and where the backup
-   goes. A second 1 s hold writes. Before the first frame of the session's first
+   goes. Only the page holds: its HOLD TO WRITE, 1 s, writes, and the tap
+   that opened it is not timed. While the write runs, or waits for the card,
+   BACK is drawn disabled and does nothing, so no BACK leaves a servo half
+   written; BACK before the hold or under the result returns to the list.
+   Before the first frame of the session's first
    write with a card mounted, the image read at entry goes to the card as the
    backup `BACKUP/KSTnnn.TXT`, and the servo as it stands as the record
    `KST/KST.TXT`. Later writes of the session save no backup and write no
@@ -1551,7 +1583,8 @@ KSTnnn, never over a file, and refuses once `KST/` holds 50 files:
 `KST/ HOLDS 50 FILES. REMOVE SOME.` LOAD holds the file against the
 servo (type, access classes, hard limits) and puts its values into the list as
 pending changes; a refusal names its line, for example
-`LINE 14: NOT A VALUE OF DEAD BAND`. HOLD TO RESTORE writes the image read at
+`LINE 14: NOT A VALUE OF DEAD BAND`. A tap on `RESTORE...` opens the restore
+page, `KST RESTORE`, whose HOLD TO RESTORE (1 s) writes the image read at
 entry back.
 
 The backups go to the ring of `BACKUP/` that every device shares: see
@@ -1571,8 +1604,8 @@ mounted but takes neither the backup nor the record stops the write before
 any frame:
 `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
 
-While the BOARD voltage is red, HOLD TO WRITE and HOLD TO RESTORE write
-nothing, no file and no frame, and the page reads
+While the BOARD voltage is red, the write page's HOLD TO WRITE and HOLD TO
+RESTORE write nothing, no file and no frame, and the page reads
 `BOARD VOLTAGE IS RED: NOT WRITTEN.` and `CHARGE THE BOARD'S CELL, HOLD
 AGAIN.` in amber ([Using it](#using-it), the BOARD voltage).
 
@@ -1709,7 +1742,8 @@ not 0 answers ID 0 is not measured.
    `BENCH ADDRESSES ID 0. A WRITE MAY LOCK OUT READ AND RESTORE.` and the
    write page `THE BENCH ADDRESSES ID 0 AND MAY NOT READ OR RESTORE THIS
    SERVO AGAIN.`
-5. HOLD TO WRITE (1 s) opens the write page: the changes, their soft rules
+5. A tap on `WRITE...` opens the write page, `HITEC WRITE` (decision 6 of
+   `docs/design/menu-b.md`): the changes, their soft rules
    and where the backup goes, and `KEEP THE SERVO HORN CLEAR.` on the
    session's first write and on a write that moves DIRECTION, NEUTRAL or an
    end point. The horn line, the ID note, `FILE OF ANOTHER MODEL` and
@@ -1719,7 +1753,10 @@ not 0 answers ID 0 is not measured.
    not fit are counted on the last line, `AND n MORE RULES: SEE EACH ROW.`
    Each change reads `old -> new`, the old value and the arrow dim, the new
    value cyan.
-   A second 1 s hold writes. Before the first frame of the session's first
+   Only the page holds: its HOLD TO WRITE, 1 s, writes, and the tap that
+   opened it is not timed. While the write runs, or waits for the card, BACK
+   is drawn disabled and does nothing; BACK before the hold or under the
+   result returns to the list. Before the first frame of the session's first
    write with a card mounted, the backup goes to the card as
    `BACKUP/HTnnn.TXT`; before every write, the servo as it is and the
    target go to `HITEC/HITEC.TXT` as the record of the write. The write
@@ -1769,7 +1806,8 @@ other family or of another layout is refused:
 layout loads, and the write page names it. The files are rcbench's servo
 file text with a CRC-16 (cyclic redundancy check) line, so a file from
 rcbench's card loads once copied into `HITEC/`, and a file edited by hand
-does not. HOLD TO RESTORE writes the session's backup back.
+does not. A tap on `RESTORE...` opens the restore page, `HITEC RESTORE`,
+whose HOLD TO RESTORE (1 s) writes the session's backup back.
 
 Without a card, or with the card held by a USB host, the backup stays in
 memory, and reading, editing and writing still work. The write page's backup
@@ -1990,6 +2028,14 @@ In the firmware:
 - After AM32 CONFIG read 3D MODE on, or wrote it and the ESC accepted the
   write, verified or not, the tester shows
   `3D MODE ESC: THROTTLE SCALE DIFFERS`; arming is not refused on it.
+- AM32 CONFIG, KST SERVO and HITEC SERVO write a device only from their
+  write page: a tap on `WRITE...` or `RESTORE...` opens it, it names every
+  change, and its 1 s hold writes. While a write runs, or waits for the
+  card to hold the backup, BACK is drawn disabled and does nothing. While
+  the BOARD voltage is red the hold writes nothing.
+- BACK on AM32 CONFIG's list with edits not written, and on SERVO TESTER →
+  SET with a change waiting, names the changes in amber first; a second
+  BACK drops them.
 - On SERVO TESTER → SET a heli profile, a rate above 60 Hz, a profile taken
   further past its travel and a second servo on such a profile wait for
   HOLD TO APPLY (1 s).

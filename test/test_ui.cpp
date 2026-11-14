@@ -6083,6 +6083,7 @@ void runUiTests() {
 		fakeRelease(); frames(1);
 		checkTrue("its release opens AM32 WRITE, nothing written", s_state == S_PAGE &&
 		          fakeEscByte(0x1B) != want);
+		checkTrue("one change: the strip reads 1 CHANGE", am32StripIs("1 CHANGE", C_DIM));
 		checkControlTable("AM32 WRITE before the hold");
 		for (int i = 0; i < 60; i++) frames(1);
 		checkTrue("the tap that opened it starts no hold: 1500 ms on, the page", s_state == S_PAGE &&

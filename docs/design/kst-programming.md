@@ -369,7 +369,7 @@ which all 10 enter are the window, and the constant takes a value inside it.
     only in memory, so REBOOT loses it; the hold is the confirmation, and
     the leave page says so above it.
   - In a locked session REBOOT is how the servo is read as it is; the
-    restore then goes through FILES, LOAD and HOLD TO WRITE.
+    restore then goes through FILES, LOAD, `WRITE...` and HOLD TO WRITE.
   - Refused while an operation runs or plans, and while Leaving: the job
     refuses `Reboot`, and the button is drawn disabled and gated per
     `ui_widgets.h`, or hidden during LEAVE's wait.
@@ -1055,7 +1055,7 @@ y   0 | KST SERVO                        [ BACK ]|
   146 | TUNE      DEAD BAND              2.0 US  |  on ui_list
   188 | PULSE     NEUTRAL               1500.2 US|  cut: 28 px, takes no press
   218 | [ - ]     DEAD BAND 2.0 US  ->      [ + ]|  editor bar 44 px
-  268 | [ HOLD TO WRITE ] [REVERT] [ FILES ]     |  110, 52, 54 px; 46 px tall
+  268 | [   WRITE...    ] [REVERT] [ FILES ]     |  110, 52, 54 px; 46 px tall
   320 +------------------------------------------+
 ```
 
@@ -1097,7 +1097,10 @@ y   0 | KST SERVO                        [ BACK ]|
 
 ### Write
 
-HOLD TO WRITE opens the write page rather than writing at once.
+A tap on `WRITE...` opens the write page; only the page holds
+([menu-b.md](menu-b.md), decision 6). The list's button takes a tap on
+release, and the page's hold starts fresh, so the press that opened the page
+is never timed.
 
 ```
 y   0 | KST WRITE                        [ BACK ]|
@@ -1126,6 +1129,9 @@ a write that left nothing changed amber, a verified one green.
   opened, so the result still names what was written.
 - OK takes a press that lands while it shows. The finger that ends the
   hold lifts on the same rectangle and does not dismiss the result.
+- While the write runs, or waits for the card's flush, header BACK is drawn
+  disabled and does nothing: no BACK leaves the servo half written. BACK
+  before the hold, or under the result, returns to the list.
 - When the card takes neither the backup nor the record, the page reads
   `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
   and no frame
@@ -1142,7 +1148,7 @@ y   0 | KST FILES                        [ BACK ]|
   146 | KST011                                   |  on ui_list
   188 | KST010                                   |
   234 | [          SAVE AS KST013          ]     |  228 x 40 px
-  278 | [  LOAD  ]       [ HOLD TO RESTORE ]     |  40 px tall
+  278 | [  LOAD  ]       [    RESTORE...   ]     |  40 px tall
   320 +------------------------------------------+
 ```
 
@@ -1166,9 +1172,10 @@ y   0 | KST FILES                        [ BACK ]|
   servo (`kst_file_load()`: type, access classes, hard limits) and puts the
   result into the list as pending edits. A refusal names its code and line,
   for example `LINE 14: NOT A VALUE OF DEAD BAND`. The write then goes through
-  HOLD TO WRITE as any edit.
-- HOLD TO RESTORE runs `kst_session_restore()` to the first image read this
-  session, through the write page. A plan the planner marks unchecked asks
+  `WRITE...` and the write page as any edit.
+- A tap on `RESTORE...` opens the restore page, `KST RESTORE`, the write page
+  titled for the restore; its HOLD TO RESTORE runs `kst_session_restore()` to
+  the first image read this session. A plan the planner marks unchecked asks
   for a second hold there.
 - With no card mounted, or the card held by a USB host, the page shows
   `NO CARD` or `CARD IN USE BY USB` and RETRY MOUNT (`sdLogRemount()`);
@@ -1190,9 +1197,10 @@ leave page. Without a switched supply:
 LEAVE is a tap. Without a switched supply it leaves even a locked session:
 there is nothing else the screen can do, and the record file below keeps what
 the servo was. Then the unplug page from [pin-claim.md](pin-claim.md), then
-DShot. BACK during a write is queued: the page shows
-`LEAVING AFTER THE WRITE ENDS.` and the leave follows the result. BACK during
-a search, a read or a verify aborts it.
+DShot. BACK during a write is drawn disabled on the write page and does
+nothing: no leave is queued, and the result stays on the page
+([menu-b.md](menu-b.md), decision 5, built in its slice 5). BACK during a
+search or a read aborts it.
 
 With a switched supply:
 
@@ -1434,12 +1442,13 @@ so these run against the same simulated servo:
   every `kst_ses_t` and every file error, the line breaks.
 - `test_kst_ui.cpp`, built in step 4, by control id
   ([menu.md](menu.md#tests-by-control-id)): MENU opens the screen, the claim,
-  the search, STOP SEARCH and RETRY, the read, the field list, an edit,
-  REVERT, HOLD TO WRITE not at 750 ms and not on a slide off, the write
-  page, the backup and the record before the first write frame, the verify,
-  a hard-limit value written as its limit, FILES with SAVE AS, LOAD and a
-  refused file, a write left in doubt and HOLD TO RESTORE, BACK in every
-  view and during a write, LEAVE and RESTART DSHOT, a lost servo, no card,
+  the search, STOP SEARCH and RETRY, the read, the field list, an edit, REVERT,
+  `WRITE...` opening nothing while pressed or on a slide off and the write page
+  on a tap, the tap's press not timed there, the backup and the record before
+  the first write frame, the verify, a hard-limit value written as its limit,
+  FILES with SAVE AS, LOAD and a refused file, a write left in doubt and
+  `RESTORE...` with the restore page's hold, BACK in every view, disabled during
+  a write and during its flush, LEAVE and RESTART DSHOT, a lost servo, no card,
   a card held by USB, a card that takes no file, an image that fails the
   fingerprint, a record found at entry; `checkControlTable()` in each view.
   `python3 tools/make_previews.py` adds `docs/kst-preview.png`.

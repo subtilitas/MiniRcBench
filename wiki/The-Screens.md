@@ -11,6 +11,7 @@ Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MEN
    │                    ├── KST SERVO    ──BACK──> leave page ──> unplug page ──> MENU
    │                    ├── HITEC SERVO  ──BACK──> leave page ──> unplug page ──> MENU
    │                    │   (on the family view once the pin is held, and during the entry, BACK goes to the unplug page)
+   │                    │   (AM32 HEX, AM32 WRITE, SET: BACK goes one level up)
    │                    ├── SETTINGS     ──BACK──> MENU
    │                    └── SD LOG       ──BACK──> MENU
    └──── BACK on MENU ──┘
@@ -22,7 +23,15 @@ Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MEN
 tester. The header is 36 px tall and `BACK` is 64 × 32 px. The tester is the
 root and has no header. On the unplug page of SERVO TESTER, KST SERVO and
 HITEC SERVO, `BACK` waits until the pins are let go: until then it is drawn
-disabled, an outline with a grey label, and a tap on it does nothing.
+disabled, an outline with a grey label, and a tap on it does nothing. The
+same holds on `AM32 WRITE`, `KST WRITE` and `HITEC WRITE` while a write runs
+or waits for the SD card: no `BACK` leaves a device half written.
+
+**BACK names what it would drop.** On AM32 CONFIG's list with changes not
+written, and on SERVO SET with a change waiting for `HOLD TO APPLY`, the
+first `BACK` stays and puts two amber lines on the strip, for example
+`2 CHANGES NOT WRITTEN.` and `BACK AGAIN DISCARDS THEM.`; a second `BACK`
+drops the changes, and any other touch keeps them.
 
 **The colours follow a table of roles.** Green is safe or done: `SAFE`,
 `EDT ON`, `WRITE VERIFIED`, `SAVED`. Lime is a live reading: RPM, the throttle
@@ -323,9 +332,12 @@ Recording state and counters. `BACK` returns to `MENU`. See
 <img src="img/am32-list.png" width="240" alt="The AM32 settings list">
 
 Reads, edits and writes the settings of an AM32 ESC over the signal wire.
-Settings in a layout the tester does not know, other than 2 to 4, open
-read-only: the bytes in hex, `NOT VERIFIED.`, a backup on the SD card and
-no write. `BACK` returns to `MENU`. See
+`WRITE...` opens `AM32 WRITE` on a tap: it lists each change, old and new,
+and its `HOLD TO WRITE`, 1 s, writes, with a backup on the SD card first.
+`HEX` shows the bytes under the title `AM32 HEX`. Settings in a layout the
+tester does not know, other than 2 to 4, open read-only: the bytes in hex,
+`NOT VERIFIED.`, a backup on the SD card and no write. `BACK` returns to
+`MENU`, after a warning when changes are not written. See
 [AM32 Configuration](AM32-Configuration).
 
 ---
@@ -342,7 +354,9 @@ touch. While SAFE with one servo, the readout reads `TWO SERVOS:` and
 `SET > SERVOS`, where the second servo is switched on. With SERVO SUPPLY at
 `GP28` or `GP29` the strip's second line reads `GP28 SUPPLY STAYS OFF HERE.`
 in amber: the servo tester never switches the converter on, so the servo
-needs a supply of its own here. `SET` opens the profile and sweep settings.
+needs a supply of its own here. `SET` opens the profile and sweep settings;
+its `BACK` with a change waiting for `HOLD TO APPLY` warns first,
+`1 CHANGE NOT APPLIED.`
 `BACK` shows
 `UNPLUG THE SERVO.` before the ESC driver takes the pins back, and
 `RESTART DSHOT` then returns to `MENU`. With CURRENT SENSE at `INA219` the
@@ -358,9 +372,9 @@ the two-servo hint. See
 
 Reads and writes the settings of a KST or Chaservo servo over the signal wire
 on SIG, the ESC pin. It searches for the servo while you power it up, reads
-its 32 registers, and lists 27 fields to step. `HOLD TO WRITE` for 1 s opens
-the write page, and a second hold of 1 s writes, with a backup on the SD card
-first. `BACK` opens the leave page, which asks you to power the servo off;
+its 32 registers, and lists 27 fields to step. A tap on `WRITE...` opens
+the write page, and its `HOLD TO WRITE`, 1 s, writes, with a backup on the SD
+card first. `BACK` opens the leave page, which asks you to power the servo off;
 `LEAVE` then shows `UNPLUG THE SERVO.`, and `RESTART DSHOT` returns to `MENU`.
 With CURRENT SENSE at `INA219` the strip shows the current after the
 supply's state, `SUPPLY ON 0.08 A`. See [KST Programming](KST-Programming).
@@ -373,22 +387,19 @@ supply's state, `SUPPLY ON 0.08 A`. See [KST Programming](KST-Programming).
 
 Reads and writes the settings of a Hitec D series or classic servo over the
 signal wire on SIG, the ESC pin. It takes the pin from the ESC driver as it
-opens, on the family view: the strip reads
-`GP0 IS THE SERVO'S: DSHOT IS OFF.` and
-`CONNECT THE SERVO, CHOOSE ITS FAMILY`. `D SERIES` acts, and
-`CLASSIC` acts with SERVO SUPPLY at `GP28` or `GP29`; under `OWN` it is drawn
-disabled with `NEEDS THE CONVERTER OF WIRING PART C` and
-`AND SETTINGS > SERVO SUPPLY GP28/29.`: the converter of
-[wiring](Wiring) part C comes first, then the setting. Under `OWN`, D SERIES
-reads `POWER THE SERVO UP, THEN TAP.`. The screen enters the servo
-and reads it. A D series servo gives 21 registers and 20 parameters, 11 of
-them editable. One servo goes on the lead, with no pull-up resistor.
-`HOLD TO WRITE` for 1 s opens the write page, and a second hold of 1 s writes,
-with a backup on the SD card first. `BACK` opens the leave page; `LEAVE` then
-shows `UNPLUG THE SERVO.`,
-and `RESTART DSHOT` returns to `MENU`. With CURRENT SENSE at `INA219` the
-strip shows the current after `SUPPLY ON`. Not tested on hardware. See
-[Hitec Programming](Hitec-Programming).
+opens, on the family view: the strip reads `GP0 IS THE SERVO'S: DSHOT IS OFF.`
+and `CONNECT THE SERVO, CHOOSE ITS FAMILY`. `D SERIES` acts, and `CLASSIC` acts
+with SERVO SUPPLY at `GP28` or `GP29`; under `OWN` it is drawn disabled with
+`NEEDS THE CONVERTER OF WIRING PART C` and `AND SETTINGS > SERVO SUPPLY
+GP28/29.`: the converter of [wiring](Wiring) part C comes first, then the
+setting. Under `OWN`, D SERIES reads `POWER THE SERVO UP, THEN TAP.`. The screen
+enters the servo and reads it. A D series servo gives 21 registers and 20
+parameters, 11 of them editable. One servo goes on the lead, with no pull-up
+resistor. A tap on `WRITE...` opens the write page, and its `HOLD TO WRITE`, 1
+s, writes, with a backup on the SD card first. `BACK` opens the leave page;
+`LEAVE` then shows `UNPLUG THE SERVO.`, and `RESTART DSHOT` returns to `MENU`.
+With CURRENT SENSE at `INA219` the strip shows the current after `SUPPLY ON`.
+Not tested on hardware. See [Hitec Programming](Hitec-Programming).
 
 ---
 
@@ -403,5 +414,7 @@ strip shows the current after `SUPPLY ON`. Not tested on hardware. See
   400 ms a step every 120 ms; after 1.2 s every 60 ms; after 2.5 s every
   25 ms.
 - **Writing to flash needs a 1 s hold** with a progress bar: saving settings to
-  the board, and writing settings to an ESC. Starting a servo and applying a
-  risky servo profile need the same 1 s hold.
+  the board, and writing settings to an ESC or a servo. A device is written
+  only from its write page: a tap on `WRITE...` or `RESTORE...` opens it, it
+  lists the changes, and only its hold writes. Starting a servo and applying
+  a risky servo profile need the same 1 s hold.

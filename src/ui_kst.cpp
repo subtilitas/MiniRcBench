@@ -138,10 +138,8 @@ static UiList       s_list;              /**< The fields. */
 static int          s_sel = -1;          /**< Selected row of the field list. */
 static Repeat       s_repeat;            /**< The editor bar's held repeat. */
 static UiHold       s_hold;              /**< The hold of the view that is up. */
-/** @brief The write page's operation runs. */
-static bool         s_writing = false;
-/** @brief The write waits for the backup's flush to the card. */
-static bool         s_flushing = false;
+static bool         s_writing = false;   /**< The write page's operation runs. */
+static bool         s_flushing = false;  /**< The write waits for the backup's flush to the card. */
 static bool         s_restoring = false; /**< The write page is a restore. */
 static bool         s_confirm = false;   /**< An unchecked restore waits for a second hold. */
 static bool         s_okPress = false;   /**< A press landed on the write page while OK showed. */
