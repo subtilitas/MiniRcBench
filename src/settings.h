@@ -53,6 +53,12 @@
  * GP0. Version 4 moves the signal pins to GP0 and GP1 and the supply's
  * enable to GP28 (1) or GP29 (2). Version 5 adds @ref Settings::currentSense
  * in the byte that was padding. The host suite pins every layout.
+ *
+ * DshotDisplay writes the same magic at the same place, version 2 with the
+ * layout above (its `src/settings.h` at the tags v2.0 and v2.3). A block it
+ * wrote is carried over as version 2; so a DshotDisplay that moves on must
+ * not use versions 3 to 5 for another layout, nor this firmware a version
+ * DshotDisplay uses, or one firmware reads the other's block as its own.
  */
 #define SETTINGS_VERSION 5
 
