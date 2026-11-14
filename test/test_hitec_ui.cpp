@@ -483,6 +483,24 @@ static void testEntry() {
 		}
 		leaveAll();
 	}
+
+	// HITEC CLASSIC is drawn disabled without the switch; opened all the
+	// same, as only a test can, its job starts with the claim and the job's
+	// refusal of a classic entry without the supply is the backstop.
+	section("Hitec entry: CLASSIC without the switch, opened by hand");
+	freshHitec(HITEC_CLASSIC, false);
+	openChooser();
+	uiChooseTool(&UI_HITEC, uiHitecEnterClassic);
+	hitecFrames(1);
+	checkTrue("HITEC SERVO opens and claims SIG", uiCurrentScreen() == UiScreenId::Hitec &&
+	          pinClaimHolder() == PinUser::Hitec);
+	for (int i = 0; i < 40 && job().refused != HitecRefusal::State; i++) hitecFrame();
+	checkTrue("no READ: the job starts with the claim, as for any CLASSIC",
+	          !ctlPresent(UI_FIX(HitecCtl::Read)) && core1JobPhase() == Core1JobPhase::Running);
+	checkTrue("and refuses the entry: no supply switched, nothing written",
+	          job().refused == HitecRefusal::State && job().job == HitecJobState::Opening &&
+	          fakeHitecSim()->switchOns == 0 && fakeHitecSim()->writes == 0);
+	leaveAll();
 }
 
 static void testDSeriesRead() {
