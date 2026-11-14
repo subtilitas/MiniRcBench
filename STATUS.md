@@ -755,9 +755,9 @@ the tag. Slice 10 of menu structure B waits on being built, not on the bench
     the owner's answers to the note's eight questions.
 
 27. **Angle meter on the board's IMU, designed, not built.** The owner's
-    choice of 2026-11-14 from the feature survey: incidence, decalage,
-    dihedral and control-surface throw, in degrees and mm, from the
-    QMI8658 at 0x6B on I2C1.
+    choice of 2026-11-14 from the feature survey (item 28): incidence,
+    decalage, dihedral and control-surface throw, in degrees and mm, from
+    the QMI8658 at 0x6B on I2C1.
     [angle-meter.md](docs/design/angle-meter.md) describes the driver on
     core0 after the touch and current-sensor reads, the angle from the
     accelerometer alone, ZERO, a three-pose flip calibration, the screen
