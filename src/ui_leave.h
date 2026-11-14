@@ -98,7 +98,7 @@ static_assert(UI_LEAVE_BTN_Y + UI_LEAVE_BTN_H < UI_LEAVE_WIDE.y,
 
 /**
  * @defgroup ui_leave_text The steps the three screens share
- * @brief A step's text starts at @ref UI_LEAVE_TEXT_X: 35 characters at
+ * @brief A step's text starts at @ref UI_LEAVE_TEXT_X, so 35 characters at
  *        scale 1 end by x 229. A note starts at x 8: 37 characters.
  * @{
  */
