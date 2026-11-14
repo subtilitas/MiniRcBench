@@ -594,7 +594,10 @@ code needed a rule it did not give:
    While the screen waits for the pins, for example while an ESC answers, the
    claim of both returns `EscAnswering`, no AUX refusal is recorded and TWO
    can be chosen. When the ESC goes quiet with AUX refused, the screen takes
-   SIG alone and drops a TWO profile to one servo.
+   SIG alone and drops a TWO profile to one servo, applied or pending
+   (decision 22 holds a TWO past the travel as pending); the wait is then
+   decided again, so a wait that held only for TWO ends and the rest of the
+   edit applies (`claimPins()`).
 8. **Profile at entry.** Every entry to SERVO starts at STANDARD PWM, 50 Hz,
    one servo, SPEED 100 % and the default sweep, not only every boot. BACK
    leads through the unplug page, so the next entry is likely a different

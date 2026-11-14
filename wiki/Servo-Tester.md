@@ -150,7 +150,9 @@ only, and the SET screen says why. While the screen waits for the pins, for
 example while an ESC answers, it cannot know whether the KISS pin is free,
 and `TWO` can be chosen. If the screen then finds the KISS pin taken, it takes
 the ESC pin alone and goes back to one servo, and `TWO` stays off until you
-open the screen again.
+open the screen again. This holds for a `TWO` still waiting for
+`HOLD TO APPLY` too: it goes back to one servo, and a wait that held only for
+`TWO` ends.
 
 <img src="img/servo-samepin.png" width="240" alt="TWO not offered: both pins are one GPIO">
 

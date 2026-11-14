@@ -1197,7 +1197,9 @@ one servo only, with the reason on the SET screen. While the screen waits for
 the pins, for example while an ESC answers, it cannot know whether AUX is
 free, and TWO can be chosen. If the claim then finds AUX refused, the screen
 takes SIG alone and goes back to one servo, and TWO stays off until the
-screen is opened again.
+screen is opened again. A TWO still waiting for `HOLD TO APPLY` goes back to
+one servo too (`claimPins()`); the wait is decided again, so one that held
+only for TWO ends and the rest of the change applies.
 
 | Control | What it does |
 |---|---|

@@ -161,6 +161,8 @@ Solange der Bildschirm auf die Pins wartet, etwa weil ein ESC antwortet, weiß
 er nicht, ob der KISS-Pin frei ist, und `TWO` lässt sich wählen. Ist der
 KISS-Pin dann belegt, übernimmt der Bildschirm nur den ESC-Pin und schaltet
 auf ein Servo zurück; `TWO` bleibt aus, bis du den Bildschirm erneut öffnest.
+Das gilt auch für ein `TWO`, das noch auf `HOLD TO APPLY` wartet: Es geht auf
+ein Servo zurück, und ein Warten, das nur für `TWO` bestand, endet.
 
 <img src="img/servo-samepin.png" width="240" alt="TWO nicht verfügbar: beide Pins sind derselbe GPIO">
 

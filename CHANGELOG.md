@@ -527,7 +527,9 @@ protocol.
   its warning; the heli and 60 Hz warnings come first. A step back inside
   the margin or to the applied value applies at once, as does a step toward
   the centre. SERVOS ONE to TWO on a profile past its travel waits too; TWO
-  to ONE, and ONE to TWO within the travel, apply at once. By the owner's
+  to ONE, and ONE to TWO within the travel, apply at once. A claim that
+  takes SIG alone drops a pending TWO to one servo as it drops an applied
+  one, and a wait that held only for TWO ends (`claimPins()`). By the owner's
   decisions of 2026-11-14, decisions 21 and 22 of
   `docs/design/servo-tester.md`. `servoTravelNeedsHold()` in
   `src/servo_model.*`; the wiki shows `servo-set-travel.png`.
