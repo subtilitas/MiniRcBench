@@ -1729,6 +1729,21 @@ static void testSwitchedSupply() {
 	fakeDumpFrame("shot_kst_stalled.ppm");
 	tapId(UI_FIX(KstCtl::Retry));
 	checkTrue("RETRY powers it up and reads it", untilView(KstView::List, 400) && enHigh());
+
+	// BACK during REBOOT closes as LEAVE does: the leave page opens at its
+	// unplug step, with no step before LEAVE.
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("HOLD TO REBOOT fires again", holdUntilGone(UI_FIX(KstCtl::Reboot)));
+	kstFrames(2);
+	checkTrue("rebooting", job().job == KstJobState::Rebooting && uiKstView() == KstView::Main);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK during REBOOT: the leave page, releasing, the supply off",
+	          uiKstView() == KstView::Leave && !ctlPresent(UI_FIX(KstCtl::Leave)) &&
+	          !ctlPresent(UI_FIX(KstCtl::Stay)) && ctlPresent(UI_FIX(KstCtl::Restart)) &&
+	          !ctlEnabled(UI_FIX(KstCtl::Restart)) && !enHigh() &&
+	          leaveStepIs(UI_LEAVE_STEP_Y, '1', "UNPLUG THE SERVO.", true));
+	checkTrue("NEXT SERVO once the supply has been off 2 s",
+	          untilEnabled(UI_FIX(KstCtl::NextServo), 200));
 	leaveAll();
 	g_supOn = false;
 	servoSupplyConfigure(0);

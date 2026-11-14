@@ -1709,6 +1709,32 @@ static void testBoardLow() {
 	          untilCtl(UI_FIX(HitecCtl::WriteOk), 800) && jobSpeed() < before);
 	tapId(UI_FIX(HitecCtl::WriteOk));
 	leaveAll();
+
+	// A write refused at red after its record went to the card: LEAVE from
+	// the servo in the mode, with no write that failed, removes the record.
+	fakeCacheReset();
+	freshHitec(HITEC_D, false);
+	fakeSdLogSet(&logging);
+	checkTrue("the field list again", toList(HITEC_D));
+	speedDown();
+	tapUntilGone(UI_FIX(HitecCtl::Write));
+	fakeCacheSet(CardCache::Flushing, 12);
+	writes0 = fakeHitecSim()->writes;
+	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
+	boardVolts(3.20f);
+	fakeCacheSet(CardCache::Idle, 0);
+	hitecFrames(5);
+	checkTrue("red when the flush ends: the record on the card, no write",
+	          fakeFatExists("HITEC/HITEC.TXT") && fakeHitecSim()->writes == writes0);
+	boardVolts(3.92f);
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the leave page, LEAVE live", uiHitecView() == HitecView::Leave &&
+	          ctlEnabled(UI_FIX(HitecCtl::Leave)));
+	tapId(UI_FIX(HitecCtl::Leave));
+	checkTrue("LEAVE from the servo in the mode removes the session's record",
+	          !fakeFatExists("HITEC/HITEC.TXT") && ctlPresent(UI_FIX(HitecCtl::Restart)));
+	leaveAll();
 	fakeCacheReset();
 	fakeAdcSet(fakeAdcDefault());
 }
