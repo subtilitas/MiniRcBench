@@ -2604,12 +2604,13 @@ static void testTouchLoss() {
 	          hintIs(UI_TOUCH_LOST_TEXT, C_AMBER));
 	checkTrue("NO TELEMETRY keeps its line",
 	          fakeTextIs(10, 102, "NO TELEMETRY", C_AMBER, C_BG, 1));
-	fakeDumpFrame("shot_tester_touch_lost.ppm");
 	checkTrue("the note fits left of x 226 and clear of the pole count",
 	          226 - gfxTextW(UI_TOUCH_LOST_TEXT, 1) > 10 + gfxTextW("14P", 1) + 4);
 	frames(40);
 	checkTrue("a second on: still disarmed, the note still up",
 	          !uiArmed() && hintIs(UI_TOUCH_LOST_TEXT, C_AMBER));
+	// A frame on, the logger has seen the disarm.
+	fakeDumpFrame("shot_tester_touch_lost.ppm");
 
 	fakeTouchAnswers(true);
 	frames(1);
@@ -2630,10 +2631,72 @@ static void testTouchLoss() {
 	frames(4);
 	checkTrue("disarmed loss: the note", hintIs(UI_TOUCH_LOST_TEXT, C_AMBER));
 	checkTrue("nothing else changes", !uiArmed() && !fakeArmed() && fakeThrottle() == 0);
+	const UiRect arm = ctlRect(UI_FIX(TesterCtl::Arm));
+	auto armFill = [&]() { return gfxBuffer()[(arm.y + arm.h / 2) * GFX_W + arm.x + 4]; };
+	checkTrue("HOLD TO ARM drawn disabled: an outline, no fill", armFill() == C_BG);
 	fakeTouchAnswers(true);
 	frames(1);
 	checkTrue("answering: the note goes", hintIs("SWIPE = THROTTLE", C_GRID));
+	checkTrue("and HOLD TO ARM is live again", armFill() == C_PANEL);
+
+	// The refusal itself: a driver that still reports the finger while the
+	// controller counts as lost does not arm the tester.
+	fakeTouchAnswers(false, true);
+	frames(4);
+	checkTrue("lost, the finger still reported: the note", hintIs(UI_TOUCH_LOST_TEXT, C_AMBER));
+	holdToArm(IdExpect::Disabled);
+	frames(10);
+	checkTrue("HOLD TO ARM held while lost: not armed", !uiArmed() && !fakeArmed());
+	fakeTouchAnswers(true);
+	frames(2);
+	holdToArm();
+	checkTrue("answering: HOLD TO ARM arms", uiArmed());
+	tapId(UI_FIX(TesterCtl::Arm));
 	fakeSdLogSet(&logWas);
+}
+
+/**
+ * @brief A core0 stall is not a lost touch: after a stall the next read
+ *        fails once, and only TOUCH_LOST_READS failed reads in a row, with
+ *        TOUCH_LOST_MS since the last answer, disarm.
+ */
+static void testTouchLossStall() {
+	section("Safety: a stall is not a touch that does not answer");
+
+	fakeFlashClear();
+	settingsLoad();
+	uiInit();
+	frames(4);
+	holdToArm();
+	tapId(UI_FIX(TesterCtl::Hold));
+	swipe(20, 120, thrY(), 8);
+	frames(2);
+	checkTrue("armed, throttle latched by HOLD", uiArmed() && fakeThrottle() > 0);
+
+	// A card write holds core0 for 150 ms; the read after it fails.
+	fakeTouchAnswers(false);
+	frameAfter(150);
+	checkTrue("150 ms stall, 1 failed read: still armed", uiArmed() && fakeThrottle() > 0);
+	frames(1);
+	checkTrue("2 failed reads: still armed", uiArmed());
+	frames(1);
+	checkTrue("3 failed reads: still armed", uiArmed());
+	frames(1);
+	checkTrue("the 4th disarms", !uiArmed() && fakeThrottle() == 0);
+	fakeTouchAnswers(true);
+	frames(1);
+
+	// A stall with the controller answering after it: nothing at all.
+	holdToArm();
+	tapId(UI_FIX(TesterCtl::Hold));
+	swipe(20, 120, thrY(), 8);
+	frames(2);
+	frameAfter(400);
+	frames(2);
+	checkTrue("a 400 ms stall, answering after it: still armed",
+	          uiArmed() && fakeThrottle() > 0);
+	tapId(UI_FIX(TesterCtl::Arm));
+	checkTrue("disarmed for what follows", !uiArmed());
 }
 
 /**
@@ -4861,6 +4924,7 @@ void runUiTests() {
 	testArmInterlocks();
 	testIdleAutoDisarm();
 	testTouchLoss();
+	testTouchLossStall();
 	testPoleCountReachesEsc();
 	testRpmGoesDead();
 	testAutoLogOnArm();

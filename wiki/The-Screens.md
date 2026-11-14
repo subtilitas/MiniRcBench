@@ -268,8 +268,8 @@ Reads, edits and writes the settings of an AM32 ESC over the signal wire.
 
 Drives one or two servos with servo pulses on the ESC and KISS pins. It opens
 SAFE; `HOLD TO START` for 1 s starts the pulses at the centre, `STOP` acts on
-touch. When the touch controller has not answered for 100 ms, a running
-servo stops as on `STOP`, and the dial reads `TOUCH NOT ANSWERING` until it
+touch. When four reads of the touch controller in a row have failed, over
+100 ms or more, a running servo stops as on `STOP`, and the dial reads `TOUCH NOT ANSWERING` until it
 answers again. While SAFE with one servo, the readout reads `TWO SERVOS:` and
 `SET > SERVOS`, where the second servo is switched on. With SERVO SUPPLY at
 `GP28` or `GP29` the strip's second line reads `GP28 SUPPLY STAYS OFF HERE.`

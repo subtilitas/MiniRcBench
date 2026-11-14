@@ -1006,8 +1006,10 @@ uint8_t uiServoControls(UiControl *out, uint8_t max) {
 	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Centre), BTN_CENTRE, run);
 	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Max), BTN_MAX, run);
 	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Sweep), BTN_SWEEP, run);
+	// STOP stays live while running; HOLD TO START is refused, and drawn
+	// disabled, while the touch does not answer.
 	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Start), BTN_START,
-	             s_st.running || live());
+	             s_st.running || (live() && !uiTouchLost()));
 	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Set), BTN_SET, true);
 	return n;
 }

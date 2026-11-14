@@ -107,6 +107,9 @@ void fakeCst328Finger(bool down, int x, int y);
 /** @brief Reads of the CST328's first contact, D000h, answered. */
 uint32_t fakeCst328Reads();
 
+/** @brief The CST328 answers its firmware-word read, D1FCh, with 0000h in place of CACAh. */
+void fakeCst328WrongId(bool on);
+
 /** @brief Take the part at @p addr off the bus: it NACKs from now on. */
 void fakeI2cRemove(uint8_t addr);
 

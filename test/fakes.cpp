@@ -266,8 +266,11 @@ static TouchState g_touch;
 static bool     s_touchAnswers = true;   /**< Reads complete. */
 static bool     s_touchAnswered = true;  /**< A read has completed since touchInit(). */
 static uint32_t s_touchAnswerMs = 0;     /**< millis() at the last completed read. */
+static bool     s_touchKeepFinger = false; /**< Not answering, the scripted finger still reported. */
+static uint8_t  s_touchFails = 0;        /**< Failed reads in a row. */
 
 bool touchInit() {
+	s_touchFails = 0;
 	s_touchAnswered = s_touchAnswers;
 	s_touchAnswerMs = millis();
 	return s_touchAnswers;
@@ -278,13 +281,22 @@ bool touchLastAnswer(uint32_t *ms) {
 	return s_touchAnswered;
 }
 
-void fakeTouchAnswers(bool on) { s_touchAnswers = on; }
+void fakeTouchAnswers(bool on, bool keepFinger) {
+	s_touchAnswers = on;
+	s_touchKeepFinger = !on && keepFinger;
+}
+
+uint8_t touchFailedReads() { return s_touchFails; }
 
 void touchPoll(TouchState *t) {
 	if (s_touchAnswers) {
 		s_touchAnswered = true;
 		s_touchAnswerMs = millis();
-	} else if (g_touch.down) {
+		s_touchFails = 0;
+	} else if (s_touchFails < 255) {
+		s_touchFails++;
+	}
+	if (!s_touchAnswers && !s_touchKeepFinger && g_touch.down) {
 		// What the driver reports after its failed reads: the finger up.
 		g_touch.down = false;
 		g_touch.released = true;

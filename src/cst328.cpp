@@ -174,8 +174,13 @@ bool touchInit() {
 /** @brief Consecutive failed polls before a glitch counts as a release. */
 #define POLL_FAIL_LIMIT 2
 
-/** @brief How many polls in a row the controller has failed to answer. */
+/**
+ * @brief How many polls in a row the controller has failed to answer,
+ *        held at 255. touchFailedReads() reports it.
+ */
 static uint8_t s_pollFails = 0;
+
+uint8_t touchFailedReads() { return s_pollFails; }
 
 void touchPoll(TouchState *t) {
 	uint8_t b[5];
@@ -199,7 +204,7 @@ void touchPoll(TouchState *t) {
 		// resting -- under the fire-on-release rule that is a commit, not a
 		// repeat -- so a single failure holds the previous state, and only
 		// POLL_FAIL_LIMIT consecutive ones report the finger up.
-		if (s_pollFails < POLL_FAIL_LIMIT) s_pollFails++;
+		if (s_pollFails < 255) s_pollFails++;
 		if (s_pollFails < POLL_FAIL_LIMIT) down = s_prevDown;
 	}
 

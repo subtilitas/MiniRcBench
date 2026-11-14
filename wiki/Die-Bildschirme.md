@@ -287,8 +287,9 @@ Signalkabel. `BACK` führt zu `MENU` zurück. Siehe
 
 Steuert ein oder zwei Servos mit Servoimpulsen auf dem ESC- und dem KISS-Pin
 an. Er startet in SAFE; `HOLD TO START` 1 s lang gehalten startet die Impulse
-in der Mitte, `STOP` wirkt beim Berühren. Hat der Touch-Controller 100 ms
-lang nicht geantwortet, hält ein laufendes Servo an wie bei `STOP`, und die
+in der Mitte, `STOP` wirkt beim Berühren. Sind vier Lesungen des
+Touch-Controllers in Folge fehlgeschlagen, über 100 ms oder länger, hält
+ein laufendes Servo an wie bei `STOP`, und die
 Skala zeigt `TOUCH NOT ANSWERING`, bis er wieder antwortet. In SAFE mit
 einem Servo zeigt die
 Anzeigezeile `TWO SERVOS:` und `SET > SERVOS`: Dort wird das zweite Servo

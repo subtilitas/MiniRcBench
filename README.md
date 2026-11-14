@@ -1158,10 +1158,10 @@ next HOLD TO START.
 
 The servo tester has no idle stop, so a running servo, sweeping or holding a
 position, has STOP and BACK as its only stops, both by touch. When the touch
-controller has not answered for 100 ms (`uiTouchLost()`), the screen sends
-the command STOP sends, on the main view and on SET, and the dial reads
-`TOUCH NOT ANSWERING` and `THE SERVO IS STOPPED.` until it answers; HOLD TO
-START is disabled meanwhile.
+controller does not answer (`uiTouchLost()`, the rule under "Touch"), the
+screen sends the command STOP sends, on the main view and on SET, and the dial
+reads `TOUCH NOT ANSWERING` and `THE SERVO IS STOPPED.` until it answers; HOLD
+TO START is disabled meanwhile.
 
 While SAFE with one servo, the readout row reads `TWO SERVOS:` and
 `SET > SERVOS` on the right: SET's SERVOS row switches the second servo on.
@@ -1905,7 +1905,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.7%**: 9,262 of 9,476 lines in 58 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.8%**: 9,282 of 9,493 lines in 58 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

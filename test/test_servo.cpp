@@ -1939,6 +1939,26 @@ static void testTouchLossStops() {
 	fakeTouchAnswers(true);
 	uiFrames(1);
 	backFromSet();
+
+	// The start refusal itself: a driver that still reports the finger while
+	// the controller counts as lost does not start the servo.
+	fakeTouchAnswers(false, true);
+	uiFrames(4);
+	int sx, sy;
+	ctlCentre(UI_FIX(ServoCtl::Start), &sx, &sy);
+	pressId(UI_FIX(ServoCtl::Start), IdExpect::Disabled);
+	fakeHold(sx, sy); frameAt(UI_HOLD_MS);
+	fakeRelease(); uiFrames(1);
+	core1();
+	servoJobStatus(&st);
+	checkTrue("HOLD TO START held while lost: not running", !st.running);
+	fakeTouchAnswers(true);
+	uiFrames(2);
+	holdStart();
+	servoJobStatus(&st);
+	checkTrue("answering: HOLD TO START starts", st.running);
+	pressId(UI_FIX(ServoCtl::Start)); core1();
+	fakeRelease(); uiFrames(1);
 	leaveServo();
 }
 

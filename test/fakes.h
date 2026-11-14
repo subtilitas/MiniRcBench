@@ -70,10 +70,15 @@ void fakeRelease();
 /**
  * @brief Whether the fake touch controller answers. While it does not,
  *        touchPoll() reports the finger up, as the driver does after its
- *        failed reads, and touchLastAnswer() keeps the last answer's time;
- *        touchInit() returns @p on and, with false, leaves no answer on record.
+ *        failed reads, touchLastAnswer() keeps the last answer's time and
+ *        touchFailedReads() counts; touchInit() returns @p on and, with
+ *        false, leaves no answer on record.
+ * @param on         Reads complete.
+ * @param keepFinger With @p on false: the scripted finger is still reported,
+ *                   presses included, as a driver that misreads a lost
+ *                   controller would. For the refusals' own tests.
  */
-void fakeTouchAnswers(bool on);
+void fakeTouchAnswers(bool on, bool keepFinger = false);
 
 /** @brief Read a byte of the fake ESC's settings page, as actually stored. */
 uint8_t fakeEscByte(int offset);

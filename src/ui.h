@@ -53,8 +53,9 @@ void uiSplashTick();
 #define UI_TOUCH_LOST_TEXT "TOUCH NOT ANSWERING"
 
 /**
- * @brief Whether the touch controller does not answer: no completed read
- *        since touchInit(), or none for @ref TOUCH_LOST_MS. Taken once a frame
+ * @brief Whether the touch controller does not answer: no answer since
+ *        touchInit(), or @ref TOUCH_LOST_READS failed reads in a row and
+ *        @ref TOUCH_LOST_MS or more since the last answer. Taken once a frame
  *        after the touch read in uiTick(), so a tool's tick reads the value
  *        of its own frame.
  * @return true while it did not answer at the last frame.

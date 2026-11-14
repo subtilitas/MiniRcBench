@@ -107,6 +107,18 @@ bool touchInit();
 bool touchLastAnswer(uint32_t *ms);
 
 /**
+ * @brief How many finger reads in a row have failed: 0 after a read that
+ *        completes, held at 255.
+ *
+ * With touchLastAnswer() it tells a controller that stopped answering from a
+ * core0 stall: after a stall of any length the next read is one failure, not
+ * several. @see uiTouchLost()
+ *
+ * @return The failed reads in a row.
+ */
+uint8_t touchFailedReads();
+
+/**
  * @brief Poll the controller and update @p t.
  *
  * Safe to call at any rate; ~60 Hz is plenty. A single failed I2C transaction

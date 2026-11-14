@@ -260,13 +260,15 @@ static RpmFilter s_erpmFilter;
 /** @brief The touch controller does not answer: uiTouchLost(), once a frame. */
 static bool s_touchLost = false;
 /**
- * @brief Whether the touch controller does not answer now: no completed read
- *        since touchInit(), or none for @ref TOUCH_LOST_MS.
+ * @brief Whether the touch controller does not answer now: no answer since
+ *        touchInit(), or @ref TOUCH_LOST_READS failed reads in a row and
+ *        @ref TOUCH_LOST_MS since the last answer.
  */
 static bool touchLostNow() {
 	uint32_t at = 0;
 	if (!touchLastAnswer(&at)) return true;
-	return (uint32_t)(millis() - at) >= TOUCH_LOST_MS;
+	return touchFailedReads() >= TOUCH_LOST_READS &&
+	       (uint32_t)(millis() - at) >= TOUCH_LOST_MS;
 }
 /** @brief The splash shows TOUCH CONTROLLER NOT FOUND. */
 static bool s_splashNoTouch = false;
@@ -764,7 +766,8 @@ static void drawButtons() {
 	               (pressing(BTN_MENU, s_touch) ? 4 : 0);
 	// ARM is gated on the card in handleMainTouch() and in the control table;
 	// it is drawn on the same expression. @see ui_widgets.h
-	int cardFree = mscHoldsCard(mscGetState()) ? 0 : 1;
+	// Drawn disabled, too, while a touch that does not answer refuses arming.
+	int cardFree = mscHoldsCard(mscGetState()) || s_touchLost ? 0 : 1;
 	if (s_shown.holdOn == (int)s_hold && s_shown.btnArmed == (int)s_armed &&
 	    s_shown.config == 0 && s_shown.btnPress == pressKey && s_shown.btnCard == cardFree)
 		return;
@@ -919,10 +922,9 @@ static void handleMainTouch() {
 			// cannot.
 			if (s_touch.pressed) testerDisarm();
 		} else if (!s_armLive || s_touchLost) {
-			// A touch that does not answer reports no finger after two failed
-			// reads, before it counts as lost, so this refusal is not reached
-			// from the panel today. It keeps a press reported by a driver that
-			// misreads a lost controller from arming.
+			// A touch that does not answer refuses arming. The driver reports
+			// the finger up after two failed reads, before it counts as lost;
+			// this keeps a press that a driver still reports then from arming.
 			s_armPressing = false;
 		} else {
 			if (!s_armPressing) {
@@ -975,8 +977,8 @@ static void handleMainTouch() {
  */
 static uint8_t testerControls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
-	bool cardFree = !mscHoldsCard(mscGetState());
-	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Arm), BTN_ARM, cardFree);
+	bool armOk = !mscHoldsCard(mscGetState()) && !s_touchLost;
+	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Arm), BTN_ARM, armOk);
 	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Hold), BTN_HOLD, true);
 	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Menu), BTN_MENU, true);
 	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Throttle),

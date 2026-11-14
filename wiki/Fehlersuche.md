@@ -114,8 +114,9 @@ Vier Sperren halten den Motor an, und jede zeigt sich auf dem Bildschirm:
   Tester. `IDLE ns` zählt in den letzten 5 s oben rechts herunter. Beim
   Entschärfen dunkelt die Hintergrundbeleuchtung kurz ab.
 - **`MENU` öffnen.** Das Öffnen entschärft immer.
-- **Touch antwortet nicht.** 100 ms ohne Antwort des Touch-Controllers im
-  scharfen Zustand entschärfen den Tester. `TOUCH NOT ANSWERING` steht in
+- **Touch antwortet nicht.** Vier fehlgeschlagene Lesungen des
+  Touch-Controllers in Folge, über 100 ms oder länger, entschärfen den
+  scharfen Tester. `TOUCH NOT ANSWERING` steht in
   Bernstein unter der Drehzahl, bis er wieder antwortet. Ein lockeres
   Flachbandkabel der Anzeige oder ein hängender I2C-Bus
   (Inter-Integrated Circuit) kann die Ursache sein; welche, wird nicht

@@ -636,6 +636,57 @@ static void testTouchBeside() {
 }
 
 /**
+ * @brief The touch driver's record of answers against the CST328 model: the
+ *        last answer's time freezes while the controller NACKs, the failed
+ *        reads count, an answer resets them, and a probe that reads another
+ *        ID records no answer.
+ */
+static void testTouchAnswerRecord() {
+	section("Touch: the driver's record of answers");
+	senseConfigure(0);
+	fakeI2cReset();
+	fakeI2cAddCst328(CST328_I2C_ADDR);
+	checkTrue("found: the probe reads CACAh", cst::touchInit());
+	uint32_t at = 0;
+	checkTrue("the probe counts as an answer", cst::touchLastAnswer(&at) && at == millis());
+	TouchState ts;
+	memset(&ts, 0, sizeof(ts));
+	fakeAdvance(25);
+	cst::touchPoll(&ts);
+	uint32_t ack = millis();
+	checkTrue("a finger read is an answer, now",
+	          cst::touchLastAnswer(&at) && at == ack && cst::touchFailedReads() == 0);
+
+	fakeI2cRemove(CST328_I2C_ADDR);
+	for (int i = 1; i <= 5; i++) {
+		fakeAdvance(25);
+		cst::touchPoll(&ts);
+	}
+	checkTrue("NACKing: the time stays at the last ACK",
+	          cst::touchLastAnswer(&at) && at == ack);
+	checkInt("five failed reads counted", cst::touchFailedReads(), 5);
+	for (int i = 0; i < 300; i++) cst::touchPoll(&ts);
+	checkInt("held at 255", cst::touchFailedReads(), 255);
+
+	fakeI2cAddCst328(CST328_I2C_ADDR);
+	fakeAdvance(25);
+	cst::touchPoll(&ts);
+	checkTrue("back: the time moves, the count is 0",
+	          cst::touchLastAnswer(&at) && at == millis() && cst::touchFailedReads() == 0);
+
+	// Another ID: the probe fails and leaves no answer on record.
+	fakeCst328WrongId(true);
+	checkTrue("a wrong ID: touchInit() fails", !cst::touchInit());
+	checkTrue("and records no answer", !cst::touchLastAnswer(&at));
+	fakeAdvance(25);
+	cst::touchPoll(&ts);
+	checkTrue("its first finger read is the first answer",
+	          cst::touchLastAnswer(&at) && at == millis());
+	fakeCst328WrongId(false);
+	fakeI2cReset();
+}
+
+/**
  * @brief A part holding SDA, the I2C block losing arbitration: the touch
  *        driver's transfers return PICO_ERROR_GENERIC, which must count as a
  *        line held low and not as a NACK, or no recovery ever runs.
@@ -876,6 +927,7 @@ void runSenseTests() {
 	testSampleAge();
 	testReadoutText();
 	testTouchBeside();
+	testTouchAnswerRecord();
 	testArbitrationLost();
 	testFrameTime();
 	testReadAbortStop();
