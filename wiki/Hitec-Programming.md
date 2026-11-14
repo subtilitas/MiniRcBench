@@ -208,8 +208,8 @@ Rows are 40 px tall at a 42 px pitch. Drag the list up or down to scroll.
   `US` is µs: the screen font has no micro sign.
 - A stored value that no encoding takes reads `RAW` and the number in amber,
   for example `RAW 1234`. A value that does not decode reads `?`.
-- Read-only rows are drawn grey and a tap on them selects nothing:
-  `SENSITIVITY`, and every INFO row but `ID`.
+- Read-only rows are drawn grey, but for a `RAW` value in amber, and a tap on
+  them selects nothing: `SENSITIVITY`, and every INFO row but `ID`.
 - A changed value is cyan, with a 3 px cyan bar at its row's left edge; the
   name carries no mark. A value as read is in the text colour, selected or
   not: selecting a row lights the row and its name, not the value.

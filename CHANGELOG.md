@@ -523,10 +523,10 @@ protocol.
 
 ### Changed
 
-- After v0.1.0-rc1 (a93e1c1): each colour means one thing on every screen,
-  slice 2 of menu structure B (`docs/design/menu-b.md`, decisions 8, 11 and
-  26). A value edited and not yet written, applied or saved is cyan with a
-  3 px cyan bar at its row's left edge on AM32 CONFIG (amber before), KST
+- After v0.1.0-rc1 (a93e1c1): the uses that decision 11's tables name take
+  their role's colour, slice 2 of menu structure B (`docs/design/menu-b.md`,
+  decisions 8, 11 and 26). A value edited and not yet written or applied is cyan
+  with a 3 px cyan bar at its row's left edge on AM32 CONFIG (amber before), KST
   SERVO and HITEC SERVO (lime before, Hitec's `*` gone) and on SERVO SET's
   row that waits for HOLD TO APPLY; a soft rule's bar stays amber; the
   editor bars follow, and selection no longer turns a value lime. The KST and

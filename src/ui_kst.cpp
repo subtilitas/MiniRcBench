@@ -823,16 +823,6 @@ static UiValue rowValue(bool editable, bool changed) {
 	return changed ? UiValue::Changed : UiValue::Plain;
 }
 
-/** @brief The editor bar's colour for a value in state @p v, as the row draws it. */
-static uint16_t valueColour(UiValue v) {
-	switch (v) {
-		case UiValue::Changed:  return UI_COL_CHANGED;
-		case UiValue::ReadOnly: return C_GRID;
-		case UiValue::Odd:      return UI_COL_WARN;
-		default:                return C_TEXT;
-	}
-}
-
 static void drawFieldRow(int i, int y, void *) {
 	const KstRow &r = rowAt(i);
 	bool editable = kstRowEditable(i);
@@ -915,7 +905,7 @@ static void drawList() {
 			snprintf(top, sizeof(top), "%s %s", r.label, want);
 			if (gfxTextW(top, 1) > cw) snprintf(top, sizeof(top), "%s", want);
 			gfxText(cx + (cw - gfxTextW(top, 1)) / 2, KL_EDIT_Y + 2, top,
-			        valueColour(rowValue(editable, changed)), 1);
+			        uiListValueColour(rowValue(editable, changed)), 1);
 			char lines[3][48];
 			int n = kstWrap(kstRuleText(firstRule(rules)), cw / 6, lines, 3);
 			for (int i = 0; i < n; i++)
@@ -932,7 +922,7 @@ static void drawList() {
 			gfxText(cx + (cw - gfxTextW(top, 1)) / 2, KL_EDIT_Y + 2, top, C_DIM, 1);
 			int sc = gfxTextW(want, 2) <= cw ? 2 : 1;
 			gfxText(cx + (cw - gfxTextW(want, sc)) / 2, KL_EDIT_Y + 16, want,
-			        valueColour(rowValue(editable, changed)), sc);
+			        uiListValueColour(rowValue(editable, changed)), sc);
 		}
 	}
 

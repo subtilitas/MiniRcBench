@@ -722,7 +722,9 @@ static bool writeRefused() {
 /** @brief Commit the settings block. */
 static void doWrite() {
 	// Set again only by a write that reads back equal: the result's colour
-	// and the power-cycle line follow it.
+	// and the power-cycle line follow it. The hold that starts the write
+	// clears it already (handleListTouch()); this is a backstop for any
+	// other way into S_WRITING.
 	s_verified = false;
 	if (writeRefused()) return;
 	// The settings as read at entry go to the card before the first write of

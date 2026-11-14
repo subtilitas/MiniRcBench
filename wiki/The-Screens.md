@@ -24,16 +24,19 @@ root and has no header. On the unplug page of SERVO TESTER, KST SERVO and
 HITEC SERVO, `BACK` waits until the pins are let go: until then it is drawn
 disabled, an outline with a grey label, and a tap on it does nothing.
 
-**Each colour means one thing on every screen.** Green is safe or done: `SAFE`,
+**The colours follow a table of roles.** Green is safe or done: `SAFE`,
 `EDT ON`, `WRITE VERIFIED`, `SAVED`. Lime is a live reading: RPM, the throttle
 fill, the servo pulse, a hold's progress bar. Red is output on or a failure:
 `ARMED`, `RUNNING`, `STOP`, a tool's hold button while it is held, `REC`, a
 write in doubt. Amber is a warning or the step to take now. Magenta is an alert,
-such as `STALLED`. Cyan is a value changed and not yet written, applied or
-saved, with a cyan bar at its row's left edge. Blue is a setting that stays on:
-`HOLD`, a toggle that is on, `PROG MODE`, servo B. Labels, captions and the
-buttons that open or command something are in the text colour or grey. A chip on
-the strip under a title is square, so it does not look like a button.
+such as `STALLED`. Cyan is a value changed and not yet written or applied, with
+a cyan bar at its row's left edge. Blue is a setting that stays on: `HOLD`, a
+toggle that is on, `PROG MODE`, servo B. Labels, captions and the buttons that
+open or command something are in the text colour or grey. A chip on the strip
+under a title is square, so it does not look like a button. Not every use
+follows the table: lime also marks states such as SD LOG's `READY` and the
+card served over USB, and many failures are amber or in the text colour, for
+example `CARD ERROR` on SD LOG and AM32's `WRITE FAILED`.
 
 ---
 

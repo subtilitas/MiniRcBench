@@ -779,16 +779,6 @@ static UiValue rowValue(int i, bool raw, bool changed) {
 	return changed ? UiValue::Changed : UiValue::Plain;
 }
 
-/** @brief The editor bar's colour for a value in state @p v, as the row draws it. */
-static uint16_t valueColour(UiValue v) {
-	switch (v) {
-		case UiValue::Changed:  return UI_COL_CHANGED;
-		case UiValue::ReadOnly: return C_GRID;
-		case UiValue::Odd:      return UI_COL_WARN;
-		default:                return C_TEXT;
-	}
-}
-
 static void drawFieldRow(int i, int y, void *) {
 	const HitecRow &r = s_rows[i];
 	bool changed = hitecWritten(s_layout, r.param) && hitecDiffers(&s_st.image, &s_draft, s_layout, r.param);
@@ -854,7 +844,8 @@ static void drawList() {
 		}
 		char now[32], want[32], top[64];
 		hitecValueText(&s_st.image, s_layout, r.param, now, sizeof(now), nullptr);
-		hitecValueText(&s_draft, s_layout, r.param, want, sizeof(want), nullptr);
+		bool raw = false;
+		hitecValueText(&s_draft, s_layout, r.param, want, sizeof(want), &raw);
 		uint32_t rules = edit ? hitecSoftRules(&s_st.image, &s_draft, s_layout, r.param) : 0;
 		const char *note = rules ? hitecRuleText(firstRule(rules)) : nullptr;
 		hitec_value_t id;
@@ -865,7 +856,7 @@ static void drawList() {
 			snprintf(top, sizeof(top), "%s %s", r.label, want);
 			if (gfxTextW(top, 1) > cw) snprintf(top, sizeof(top), "%s", want);
 			gfxText(cx + (cw - gfxTextW(top, 1)) / 2, HL_EDIT_Y + 2, top,
-			        valueColour(rowValue(s_sel, false, strcmp(now, want) != 0)), 1);
+			        uiListValueColour(rowValue(s_sel, raw, strcmp(now, want) != 0)), 1);
 			char lines[3][48];
 			int n = kstWrap(note, cw / 6, lines, 3);
 			for (int i = 0; i < n; i++)
@@ -878,7 +869,7 @@ static void drawList() {
 			gfxText(cx + (cw - gfxTextW(top, 1)) / 2, HL_EDIT_Y + 2, top, C_DIM, 1);
 			int sc = gfxTextW(want, 2) <= cw ? 2 : 1;
 			gfxText(cx + (cw - gfxTextW(want, sc)) / 2, HL_EDIT_Y + 16, want,
-			        valueColour(rowValue(s_sel, false, changed)), sc);
+			        uiListValueColour(rowValue(s_sel, raw, changed)), sc);
 		}
 	}
 

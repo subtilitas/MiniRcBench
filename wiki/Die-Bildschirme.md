@@ -27,19 +27,23 @@ KST SERVO und HITEC SERVO wartet `BACK`, bis die Pins freigegeben sind: Bis
 dahin ist es deaktiviert gezeichnet, als Umriss mit grauer Beschriftung, und
 ein Tippen darauf bewirkt nichts.
 
-**Jede Farbe bedeutet auf jedem Bildschirm eines.** Grün heißt sicher oder
+**Die Farben folgen einer Tabelle von Rollen.** Grün heißt sicher oder
 erledigt: `SAFE`, `EDT ON`, `WRITE VERIFIED`, `SAVED`. Hellgrün ist ein
 laufender Messwert: die Drehzahl, die Gasfüllung, der Servoimpuls, der
 Fortschrittsbalken beim Halten. Rot heißt Ausgang an oder ein Fehler: `ARMED`,
 `RUNNING`, `STOP`, die Halte-Schaltfläche eines Werkzeugs, solange sie gehalten
 wird, `REC`, ein Schreiben mit unklarem Ausgang. Bernstein ist eine Warnung oder
 der Schritt, der jetzt dran ist. Magenta ist ein Alarm, etwa `STALLED`. Cyan ist
-ein geänderter Wert, der noch nicht geschrieben, übernommen oder gespeichert
-ist, mit einem cyanfarbenen Balken am linken Rand seiner Zeile. Blau ist eine
+ein geänderter Wert, der noch nicht geschrieben oder übernommen ist, mit einem
+cyanfarbenen Balken am linken Rand seiner Zeile. Blau ist eine
 Einstellung, die an bleibt: `HOLD`, ein eingeschalteter Schalter, `PROG MODE`,
 Servo B. Beschriftungen, Überschriften und die Schaltflächen, die etwas öffnen
 oder auslösen, stehen in der Textfarbe oder in Grau. Ein Feld auf der Leiste
 unter einem Titel ist eckig, damit es nicht wie eine Schaltfläche aussieht.
+Nicht jede Verwendung folgt der Tabelle: Hellgrün markiert auch Zustände wie
+`READY` auf SD LOG und die über USB bereitgestellte Karte, und viele Fehler
+stehen in Bernstein oder in der Textfarbe, zum Beispiel `CARD ERROR` auf SD LOG
+und `WRITE FAILED` bei AM32.
 
 ---
 

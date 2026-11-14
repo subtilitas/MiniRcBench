@@ -1081,7 +1081,7 @@ decisions 31 to 33.
 | 4. Layout table | decision 14 | 1 | 7 | 80 changed | 8 / 10 | 0.5 day |
 | 5. Write rule and guard | decisions 6, 7, 13 (AM32 HEX and WRITE titles): `WRITE...`, `RESTORE...`, AM32 write page and result, editor old value, guard on AM32 and SERVO SET, BACK disabled while writing, the leave queue gone | 1, 2, 4 | 7 | +300, −120 | 110 / 120 | 2 to 3 days |
 | 6. Leave page | decision 5 and owner decision 3: KST, Hitec and SERVO TESTER on `ui_leave`; STAY, NEXT SERVO, BACK TO SERVO; RESTART DSHOT's wait | 1, 5 | 6 | +180, −300 | 90 and three helpers / 80 | 2 to 3 days |
-| 7. Tester | owner decision 4, decisions 15 a to c, 17: readouts, `uiOpenTool()`, origin, LATCH, BOARD, ARM while the card is held | 1, 3 | 4 | +150 | 15 / 100 | 1.5 days |
+| 7. Tester | owner decision 4, decisions 15 a to c, 17: readouts, `uiOpenTool()`, origin, LATCH, BOARD, ARM while the card is held; the readouts' underline, which slice 2 left out (decision 11's MAX row) | 1, 3 | 4 | +150 | 15 / 100 | 1.5 days |
 | 8. SERVO TESTER | decision 13: the title; decision 12 is on `main` | 1, 3 | 2 | +10 | 0 / 5 | 0.5 day |
 | 9. Chooser | owner decisions 1 and 2, decisions 16, 18, 19, 15 d, 23, 31, 32 and 33: seven MENU rows scrolling 36 px, `ui_servo_prog`, `UI_PROGRAMMERS`, Hitec family entry points, family view removed | 3, 6, 7 | 9, 2 new | +350, −120 | 50 / 120 | 2 to 3 days |
 | 10. Documentation | what no slice owns: menu.md (the tree, MENU, revision lines on decisions 1, 12 and 18), pin-claim.md's revision line on decision 4, README "Layout", "Tests" and "The user manual", and a check that no README section, wiki page or image still shows the old structure | 1 to 9 | to be redone | to be redone | none | to be redone |
@@ -1162,9 +1162,9 @@ Decisions 8 and 11 on every screen that exists, with host tests in
 | Square chip | `uiChip()`, `UI_CHIP_H`, `ui_widgets.{h,cpp}` | 12 px tall, y 42 to 53, no radius, text plus 12 px wide, ending at x 232 |
 | PROG MODE | `UI_CHIP_PROG_MODE`, `ui_kst.cpp` and `ui_hitec.cpp` `drawList()` | `PROG MODE` on `C_BLUE`, 65 px from x 167; KST's `IN DOUBT` on `C_RED`; Hitec's strip keeps 4 px clear of the wider chip |
 | Change text | `uiChangeText()`, `ui_widgets.{h,cpp}` | a write page's `old -> new`: `old -> ` in `C_DIM`, `new` in `C_CYAN` (KST WRITE, HITEC WRITE) |
-| Field rows | `drawRow()` in `ui_am32.cpp`, `drawFieldRow()` in `ui_kst.cpp` and `ui_hitec.cpp`, `drawSetRow()` in `ui_servo.cpp` | through `uiListDrawField()`; Hitec's `*` is gone |
-| Editor bars | the same files' `drawList()` and `drawSet()` | the value by its state, as the row: `C_TEXT`, `C_CYAN`, `C_GRID` |
-| Role table | `ui.cpp`, `ui_settings.cpp`, `ui_sdlog.cpp`, `ui_servo.cpp`, `ui_am32.cpp`, `ui_kst.cpp`, `ui_hitec.cpp` | every row of decision 11's table but the MAX readout's underline |
+| Field rows | `drawRow()` in `ui_am32.cpp`, `drawFieldRow()` in `ui_kst.cpp` and `ui_hitec.cpp`, `drawSetRow()` in `ui_servo.cpp` | through `uiListDrawField()`; Hitec's rows carry no `*` |
+| Editor bars | the same files' `drawList()` and `drawSet()` | the value by its state, as the row, through `uiListValueColour()` in `ui_list.{h,cpp}`: `C_TEXT`, `C_CYAN`, `C_GRID`, `C_AMBER`; Hitec's bar takes the raw flag as its row does |
+| Role table | `ui.cpp`, `ui_settings.cpp`, `ui_sdlog.cpp`, `ui_servo.cpp`, `ui_am32.cpp`, `ui_kst.cpp`, `ui_hitec.cpp` | every row of decision 11's "becomes" table but the MAX readout's underline, and the uses its role table names; not every other use of a colour, see the points for the owner below |
 
 Readings of the decisions where the code asked for a choice:
 
@@ -1197,6 +1197,32 @@ Readings of the decisions where the code asked for a choice:
   the bar whether or not it is editable.
 - **AM32 values.** AM32 rows are Plain or Changed; `? (2)` and the other
   values the table cannot name stay Plain, as on `main`.
+
+Points for the owner, left as they are by slice 2:
+
+- **Uses neither table names.** Lime marks states, not live readings: SD
+  LOG's `READY` (`ui_sdlog.cpp`, the state row and MENU's status), `MOUNT`
+  with `0 OK`, SD LOG's `USB DRIVE` headline and MENU's `USB DRIVE` status
+  while a host holds the card, and SETTINGS' `FOUND` under CURRENT SENSE
+  (`senseCaptionText()` in `ui_kst.cpp`). Failures outside "a write in
+  doubt" are amber or `C_TEXT`, not red: AM32's `WRITE FAILED: ...`,
+  `VERIFY READ: ...` and `DIFF ...` results (`C_TEXT`), KST's and Hitec's
+  results of the amber tone, SD LOG's `CARD ERROR`, the tester's `SDERR`
+  and `DSERR` (amber).
+- **"Or saved".** The role table gives `C_CYAN` to a value "not yet
+  written, applied or saved", and the "becomes" table draws SETTINGS'
+  values, the only values that wait for a save, in `C_TEXT`. No screen
+  draws a value waiting for a save in cyan; SETTINGS names unsaved changes
+  on its amber note line (decision 7).
+- **Amber headlines with no step due.** `LISTENING`, `SERVO STARTING` and
+  `READING THE MODEL` on HITEC SERVO, and `SWITCHED SUPPLY` on KST SERVO,
+  are amber as headlines, though the user has nothing to do while they
+  show.
+- **AM32's `? (n)`.** A value AM32's table cannot name is drawn Plain, not
+  Odd, as above.
+- **High contrast.** The KISS and EDT tags, the DShot rate with and without
+  EDT, `SWIPE = THROTTLE` armed and disarmed, and SETTINGS' captions against
+  its labels differ in brightness only, black against a dark grey.
 
 `gfxRoundRect()` fills its corners: for every row its inset comes out 0, so
 a fill shows no radius: a mutation of `uiChip()` to `gfxRoundRect()` with a

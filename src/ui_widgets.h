@@ -52,7 +52,12 @@ struct TouchState;
 #define UI_HDR_H        36
 /** @brief Left margin for titles, labels and the first control in a row. */
 #define UI_MARGIN        8
-/** @brief Corner radius for every button. A chip is square: uiChip(). */
+/**
+ * @brief Corner radius passed to gfxRoundRect() and gfxRoundFrame() for every
+ *        button. Neither draws a radius: their corner solver insets every row
+ *        by 0, so a button's fill and frame are square in pixels (STATUS.md,
+ *        open items). A chip is square by design: uiChip().
+ */
 #define UI_RADIUS        5
 /**
  * @brief Smallest side of a touch target outside a list: the tester's button
@@ -115,8 +120,10 @@ struct TouchState;
  * Each name expands to its palette entry, so it follows the active theme.
  * The neutral role is three colours, `C_TEXT`, `C_DIM` and `C_GRID`, and
  * keeps their names: labels, navigation and command buttons, captions and
- * source tags. A colour carries one role on every screen; the splash's
- * `JuWi made` in `C_CYAN` is a mark, not a state.
+ * source tags. The uses decision 11's tables name take their role's colour;
+ * the splash's `JuWi made` in `C_CYAN` is a mark, not a state. Uses the
+ * tables do not name, such as lime on SD LOG's READY, are left to the owner
+ * (docs/design/menu-b.md, slice 2 as built).
  * @{
  */
 /** @brief Safe or done: the SAFE badge and chip, EDT ON, WRITE VERIFIED,

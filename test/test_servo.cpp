@@ -2094,10 +2094,31 @@ static void testColourRoles() {
 	uiFrames(2);
 	checkTrue("B at MAX, apart from A: servo B's horn blue on the dial",
 	          fakePin(1).level == 2000 && someOf(0, SERVO_DIAL_Y0, GFX_W, 120, C_BLUE));
+	tapId(UI_FIX(ServoCtl::SelA));
+	uiFrames(2);
+	checkTrue("A selected: servo B's thin horn still blue",
+	          s_mask == SERVO_MASK_A &&
+	          someOf(0, SERVO_DIAL_Y0, GFX_W, SERVO_DIAL_Y1 - SERVO_DIAL_Y0 + 1, C_BLUE));
+	checkTrue("SWEEP's label in the text colour while running",
+	          fakeTextIs(BTN_SWEEP.x + (BTN_SWEEP.w - gfxTextW("SWEEP", 1)) / 2,
+	                     BTN_SWEEP.y + (BTN_SWEEP.h - 7) / 2, "SWEEP", C_TEXT, C_PANEL, 1));
+	tapId(UI_FIX(ServoCtl::Sweep)); core1();
+	uiFrames(24); core1();
+	uiFrames(1);
+	char sw[24];
+	sweepText(sw, sizeof(sw));
+	checkTrue("two servos sweeping: the count under the letters, lime",
+	          sw[0] && textAt(UI_MARGIN, SV_READ_Y + 14, sw, C_LIME, 1));
+	tapId(UI_FIX(ServoCtl::Sweep)); core1();
 	openSet();
 	uiFrames(1);
 	checkTrue("RUNNING locks the PULSE rows: TYPE's value grey",
 	          setValueHas(1, C_GRID) && !setValueHas(1, C_TEXT));
+	selectRow(1);
+	uiFrames(1);
+	checkTrue("and TYPE selected while RUNNING: the editor bar's value grey",
+	          someOf(52, SET_EDIT_Y + 16, 136, 14, C_GRID) &&
+	          !someOf(52, SET_EDIT_Y + 16, 136, 14, C_TEXT));
 	backFromSet();
 	pressId(UI_FIX(ServoCtl::Start)); core1();
 	fakeRelease(); uiFrames(1);
@@ -2105,6 +2126,22 @@ static void testColourRoles() {
 	selectRow(ROW_SERVOS);
 	stepSel(-1);
 	backFromSet();
+	leaveServo();
+	backFromMenu();
+
+	// One servo, no sensor: the count sits right-aligned on the readout row.
+	freshUi();
+	openServo();
+	holdStart();
+	tapId(UI_FIX(ServoCtl::Sweep)); core1();
+	uiFrames(24); core1();
+	uiFrames(1);
+	sweepText(sw, sizeof(sw));
+	checkTrue("one servo sweeping: the count right on the readout row, lime",
+	          sw[0] && textAt(GFX_W - UI_MARGIN - gfxTextW(sw, 1), SV_READ_Y + 9, sw, C_LIME, 1));
+	tapId(UI_FIX(ServoCtl::Sweep)); core1();
+	pressId(UI_FIX(ServoCtl::Start)); core1();
+	fakeRelease(); uiFrames(1);
 	leaveServo();
 }
 

@@ -248,6 +248,15 @@ struct UiField {
 
 /** @brief Widest value drawn at scale 2, px; a wider one is drawn at scale 1. */
 #define UI_FIELD_VALUE_W2 104
+/**
+ * @brief The colour of a value in state @p v: `C_TEXT`, @ref UI_COL_CHANGED,
+ *        `C_GRID` or @ref UI_COL_WARN. uiListDrawField() draws the value in
+ *        it, and an editor bar draws the selected row's value in it too.
+ * @param v The value's state.
+ * @return The colour, from the active palette.
+ */
+uint16_t uiListValueColour(UiValue v);
+
 /** @brief Width of a field row's edge bar, px. */
 #define UI_FIELD_EDGE_W     3
 

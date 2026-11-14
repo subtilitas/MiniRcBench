@@ -914,8 +914,7 @@ static void drawSet(int holdPct) {
 			valueText(s_sel, v, sizeof(v));
 			int sc = gfxTextW(v, 2) <= cw ? 2 : 1;
 			UiValue st = setValue(s_sel);
-			gfxText(cx + (cw - gfxTextW(v, sc)) / 2, SET_EDIT_Y + 16, v,
-			        st == UiValue::Changed ? UI_COL_CHANGED : st == UiValue::ReadOnly ? C_GRID : C_TEXT, sc);
+			gfxText(cx + (cw - gfxTextW(v, sc)) / 2, SET_EDIT_Y + 16, v, uiListValueColour(st), sc);
 			gfxText(cx + (cw - gfxTextW("SWIPE = COARSE", 1)) / 2, SET_EDIT_Y + 34,
 			        "SWIPE = COARSE", C_GRID, 1);
 		}

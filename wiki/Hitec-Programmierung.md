@@ -229,8 +229,9 @@ oder unten, um zu verschieben.
 - Ein gespeicherter Wert, den keine Codierung annimmt, zeigt `RAW` und die
   Zahl in Bernstein, zum Beispiel `RAW 1234`. Ein Wert, der sich nicht
   decodieren lässt, zeigt `?`.
-- Nur lesbare Zeilen sind grau gezeichnet, und ein Tippen darauf wählt
-  nichts aus: `SENSITIVITY` und jede INFO-Zeile außer `ID`.
+- Nur lesbare Zeilen sind grau gezeichnet, ein `RAW`-Wert darin aber in
+  Bernstein, und ein Tippen darauf wählt nichts aus: `SENSITIVITY` und jede
+  INFO-Zeile außer `ID`.
 - Ein geänderter Wert ist cyan, mit einem 3 px breiten cyanfarbenen Balken am
   linken Rand seiner Zeile; der Name trägt kein Zeichen. Ein Wert, wie er
   gelesen wurde, steht in der Textfarbe, ausgewählt oder nicht: Die Auswahl

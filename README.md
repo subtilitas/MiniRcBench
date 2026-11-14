@@ -41,9 +41,9 @@ and that is not designed yet; rcbench's S.BUS decoder is in the tree and
 tested on the host, and the firmware does not build it. A PPM
 (pulse-position modulation) output is not built, by the owner's decision.
 Menu structure B is described in `docs/design/menu-b.md`; its building
-blocks, slice 1 of 10, and its colour roles, slice 2, are in the tree: each
-colour means one thing on every screen, and a value changed and not yet
-written is cyan.
+blocks, slice 1 of 10, and its colour roles, slice 2, are in the tree: the
+uses that the design note's decision 11 names take their role's colour, and a
+value changed and not yet written is cyan.
 
 ![UI preview](docs/ui-preview.png)
 
@@ -1654,17 +1654,17 @@ not 0 answers ID 0 is not measured.
    PROTECT and INFO. Each value shows its unit and the stored value in brackets,
    `90 % (18)`; the counts of NEUTRAL, the ends and POSITION, ID, SENSITIVITY
    and the INFO numbers show no bracket. A stored value no encoding takes reads
-   `RAW 1234` in amber. Read-only rows are grey and cannot be selected. The
-   strip's chip reads `PROG MODE` on blue. A tap selects a row; - and + step it
-   to the next value the encoding takes, and a sideways swipe steps it by an
-   eleventh of its range. LEFT END stays below NEUTRAL, below RIGHT END. A value
-   that differs from the servo as read is cyan, with a 3 px cyan bar at its
-   row's left edge; the label carries no mark. The editor bar's value is cyan
-   too, and selection fills the row and leaves the value's colour as it is. A
-   value that breaks one of rcbench's seven soft rules, for example SPEED below
-   30 %, is taken with the bar in amber and the rule's text. REVERT is labelled
-   in amber. Reversing DIRECTION mirrors NEUTRAL and both ends, as Hitec's
-   programmer does.
+   `RAW 1234` in amber. Read-only rows are grey, a `RAW` value in them amber,
+   and cannot be selected. The strip's chip reads `PROG MODE` on blue. A tap
+   selects a row; - and + step it to the next value the encoding takes, and a
+   sideways swipe steps it by an eleventh of its range. LEFT END stays below
+   NEUTRAL, below RIGHT END. A value that differs from the servo as read is
+   cyan, with a 3 px cyan bar at its row's left edge; the label carries no mark.
+   The editor bar's value is cyan too, and selection fills the row and leaves
+   the value's colour as it is. A value that breaks one of rcbench's seven soft
+   rules, for example SPEED below 30 %, is taken with the bar in amber and the
+   rule's text. REVERT is labelled in amber. Reversing DIRECTION mirrors NEUTRAL
+   and both ends, as Hitec's programmer does.
 4. ID edits the servo's own ID. The bench addresses ID 0 whatever the
    servo holds, and whether a servo with another ID still answers ID 0 is
    not measured, so one write may leave a servo the bench cannot read or

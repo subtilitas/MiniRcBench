@@ -1591,6 +1591,23 @@ static void testColourRoles() {
 	          fakeTextIs(UI_MARGIN, r.y + 21, rows[ro].label, C_GRID, C_BG, 1) &&
 	          !valueHas(r, C_TEXT) && !valueHas(r, C_LIME));
 	leaveAll();
+
+	// A SPEED the encoding does not take, 1234 at 0x54: RAW 1234, amber in
+	// the row and in the editor bar alike.
+	freshHitec(HITEC_D, false);
+	fakeHitecSim()->mem[0x54] = 0xD2;
+	fakeHitecSim()->mem[0x55] = 0x04;
+	checkTrue("a raw SPEED: the field list", toList(HITEC_D));
+	revealRow(sp);
+	tapId(UI_ROW(sp, Row));
+	hitecFrames(1);
+	r = ctlRect(UI_ROW(sp, Row));
+	checkTrue("RAW 1234 amber in the row",
+	          fakeTextIs(GFX_W - UI_MARGIN - gfxTextW("RAW 1234", 2), r.y + 13, "RAW 1234", C_AMBER,
+	                     C_PANEL, 2));
+	checkTrue("and amber in the editor bar, as the row",
+	          regionHas(52, 234, 136, 14, C_AMBER) && !regionHas(52, 234, 136, 14, C_TEXT));
+	leaveAll();
 }
 
 void runHitecUiTests() {

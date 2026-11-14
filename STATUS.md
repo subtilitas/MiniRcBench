@@ -64,12 +64,12 @@ Menu structure B ([menu-b.md](docs/design/menu-b.md)), the owner's choice of
 2026-11-13, has slices 1 and 2 of 10 built. Slice 1: the leave page widget
 (`src/ui_leave.*`), the BACK guard and two strip lines (`src/ui_widgets.*`),
 the field row (`src/ui_list.*`), the colour role names and the layout
-constants. Slice 2: one meaning per colour on every screen (`UI_COL_*`); the
-rows of AM32 CONFIG, KST SERVO, HITEC SERVO and SERVO SET drawn through the
-field row, a changed value `C_CYAN` with a 3 px bar; square 12 px chips;
-`PROG MODE` on blue. No screen uses the leave page or the guard yet. The
-owner answered the note's eight questions on 2026-11-14; slices 3 to 10 wait
-on being built (open item 18).
+constants. Slice 2: the uses that decision 11's tables name in their roles'
+colours (`UI_COL_*`); the rows of AM32 CONFIG, KST SERVO, HITEC SERVO and SERVO
+SET drawn through the field row, a changed value `C_CYAN` with a 3 px bar;
+square 12 px chips; `PROG MODE` on blue. No screen uses the leave page or the
+guard yet. The owner answered the note's eight questions on 2026-11-14; slices 3
+to 10 wait on being built (open item 18).
 The pin claim both features share is built (slice 1): the AM32 editor and the
 servo tester run on it. For the ESC, the board is the throttle source. It
 sends bidirectional DShot (a digital ESC protocol in which the ESC
@@ -486,7 +486,16 @@ the tag. Menu structure B waits on being built, not on the bench (item 18).
 18. **Menu structure B waits on building.** Slices 1 and 2 of
     [menu-b.md](docs/design/menu-b.md) are built, slice 2 in the host suite
     only: its colours have not been looked at on the panel, in either
-    theme. The owner answered the
+    theme. In the high-contrast palette several of slice 2's pairs differ
+    in brightness only, black against a dark grey: the KISS and EDT tags,
+    the DShot rate with and without EDT requested, `SWIPE = THROTTLE`
+    armed and disarmed, and SETTINGS' captions against its labels. Slice 2
+    leaves points for the owner, listed in the note's
+    [slice 2 as built](docs/design/menu-b.md#slice-2-as-built): the uses of
+    lime and the failures in amber or text that decision 11's tables do not
+    name; the "changed" role's "or saved", which no screen draws; the amber
+    headlines of steps that need nothing from the user; AM32's `? (n)`
+    values drawn plain. The owner answered the
     note's eight questions on 2026-11-14 (decisions 23 to 30): MENU by
     device, BEEP THE ESC, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, SD
     LOG, SETTINGS; the tester's readouts inert while armed; BACK on the
@@ -623,6 +632,16 @@ the tag. Menu structure B waits on being built, not on the bench (item 18).
     the tester, which sends zero frames after its EDT enable. Sending the
     enable in place of zero frames while armed at zero throttle is
     proposed and not built; it needs a check on hardware.
+
+25. **Rounded corners are not drawn.** `gfxRoundRect()` and
+    `gfxRoundFrame()` in `src/gfx.cpp` take a radius and draw none: their
+    corner solver stops at the first column it tries, so every row's inset
+    is 0, and a button's fill and frame are square in pixels. Seen by
+    reading the code, by a scratch program that finds the corner pixel of a
+    6 px radius fill and frame lit, and by the host suite, which passes with
+    `uiChip()` drawn through `gfxRoundRect()` at a 4 px radius. Whether to
+    draw radii, or drop them, is open; the chips are square by decision 11
+    either way.
 
 ## Known limitations
 
