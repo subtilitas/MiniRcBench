@@ -21,7 +21,7 @@ Digital) card first.
 > **The classic family needs the switched servo supply.** `CLASSIC`
 > (HS-5xxx, HS-7xxx) needs the DC-DC converter (direct current to direct
 > current) of [wiring](Wiring) part C, and SERVO SUPPLY at `GP28` or `GP29`.
-> Under `NONE` only the D series opens. See [Classic servos](#classic-servos).
+> Under `OWN` only the D series opens. See [Classic servos](#classic-servos).
 
 > **Unplug the servo before DShot runs.** Outside this screen the ESC pin
 > carries DShot, the digital throttle protocol. A servo on that pin reads it
@@ -68,8 +68,8 @@ GND is the board's ground.
   The board's 5 V pin is its USB (Universal Serial Bus) supply.
 - Switch the board on before the servo supply, and the servo supply off
   before the board.
-- SIG is the ESC pin, as set under **MENU → SETTINGS**. GP0 is the
-  default.
+- SIG is the ESC pin, as set under **MENU → SETTINGS → SIG PIN**, with its
+  J5 pin under the value. GP0 is the default.
 - rcbench's runs used a 5.0 V servo supply. Other supplies are not tested,
   and nothing has run on this board.
 - Unplug any ESC from the ESC pin. The screen checks for an ESC on the pin,
@@ -92,19 +92,19 @@ throttle for at least 250 ms after the last throttle frame, stops, and
 leaves the pin an input held high by its pull-up. No DShot frame reaches a
 servo you connect on this view.
 
-<img src="img/hitec-family.png" width="240" alt="The family view with SERVO SUPPLY at NONE: GP0 IS THE SERVO'S: DSHOT IS OFF. in green, CLASSIC disabled with NEEDS THE CONVERTER OF WIRING PART C, D SERIES with POWER THE SERVO UP, THEN TAP.">
+<img src="img/hitec-family.png" width="240" alt="The family view with SERVO SUPPLY at OWN: GP0 IS THE SERVO'S: DSHOT IS OFF. in green, CLASSIC disabled with NEEDS THE CONVERTER OF WIRING PART C, D SERIES with POWER THE SERVO UP, THEN TAP.">
 
 The strip reads `RELEASING GP0 FROM DSHOT` while the driver stops, then
 `GP0 IS THE SERVO'S: DSHOT IS OFF.` in green over
 `CONNECT THE SERVO, CHOOSE ITS FAMILY`. The two buttons act from then on:
 
 - `CLASSIC`, with `HS-5XXX, HS-7XXX` under it. It acts while SERVO SUPPLY
-  is `GP28` or `GP29`. While SERVO SUPPLY is `NONE` it is drawn disabled,
+  is `GP28` or `GP29`. While SERVO SUPPLY is `OWN` it is drawn disabled,
   and two lines in amber give the reason, the hardware first:
   `NEEDS THE CONVERTER OF WIRING PART C` and
   `AND SETTINGS > SERVO SUPPLY GP28/29.`
 - `D SERIES`, with `D485HW, D645MW AND THE OTHERS` under it, and
-  `SUPPLY SWITCHED ON GP28` (or `GP29`, the pin set) or, under `NONE`,
+  `SUPPLY SWITCHED ON GP28` (or `GP29`, the pin set) or, under `OWN`,
   `POWER THE SERVO UP, THEN TAP.`: on its own supply the servo must be
   running when the screen enters, because the entry reads its model at once.
 
@@ -146,12 +146,12 @@ the next view reads `TAKING GP0`.
 
 Once the job holds the line, the entry starts at once.
 
-- **With SERVO SUPPLY at `NONE`**, the screen reads the servo on the supply
+- **With SERVO SUPPLY at `OWN`**, the screen reads the servo on the supply
   it has. Power the servo before you tap `D SERIES`. The body reads
   `READING THE MODEL`.
 - **With SERVO SUPPLY at `GP28` or `GP29`**, the screen switches the supply off for
-  2.0 s and on again. The strip counts the off time, `GP0  SUPPLY OFF 1.4 S`,
-  and the body reads `SUPPLY OFF`. Then the strip reads `GP0  SUPPLY ON` and
+  2.0 s and on again. The strip counts the off time, `SIG GP0  SUPPLY OFF 1.4 S`,
+  and the body reads `SUPPLY OFF`. Then the strip reads `SIG GP0  SUPPLY ON` and
   the body `SERVO STARTING` while the servo starts, about 1 s. The screen
   shows no count for this second. Two amber lines stay under the text:
   `AN ESC ON THIS LEAD GETS THE` and `CONVERTER'S OUTPUT ON ITS BEC WIRE.`
@@ -166,7 +166,7 @@ line names the last reply, for example `REPLY: SILENT`, and the body reads
 `EARLY`, `LATE`, `NAK`, `LENGTH`, `FRAMING`, `GAP`, `NO ACK`, `HEADER`,
 `ADDRESS`, `SUM`, `CUT`, `OVERFLOW` and `ARG`; `NONE` means no reply code.
 
-Once the servo answers, the strip reads `GP0  IN SERIAL MODE` and the body
+Once the servo answers, the strip reads `SIG GP0  IN SERIAL MODE` and the body
 counts the read: `READING 21 REGISTERS`, `7 OF 21`. This first full read is
 the session's backup. A read that fails reads `READ FAILED AT 0x32`, for
 example, with the reply word under it, and offers `READ AGAIN`. A read
@@ -473,14 +473,14 @@ too.
 
 The strip names the model, the pin and, with `GP28` or `GP29`, `SUPPLY ON` or
 `SUPPLY OFF`. The page reads `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.` with
-`GP28` or `GP29`, or `LEAVE RESTARTS THE SERVO.` with `NONE`. With pending changes it
+`GP28` or `GP29`, or `LEAVE RESTARTS THE SERVO.` with `OWN`. With pending changes it
 adds `2 CHANGES NOT WRITTEN.`, and after a write that failed
 `A WRITE DID NOT END VERIFIED.` in amber.
 
 | Button | What it does |
 |---|---|
 | `READ AGAIN` | Reads the servo again and returns to the field list. Pending changes stay |
-| `LEAVE` | Ends the session: with `GP28` or `GP29` it switches the supply off, with `NONE` it restarts the servo from its saved values |
+| `LEAVE` | Ends the session: with `GP28` or `GP29` it switches the supply off, with `OWN` it restarts the servo from its saved values |
 | `BACK` | Returns to the field list |
 
 After `LEAVE` with `GP28` or `GP29`, the next page reads
@@ -505,7 +505,7 @@ unplug page.
 
 - **`AN ESC ANSWERS ON GP0.`** An ESC is on the ESC pin. Unplug it.
 - **`NO SERVO ANSWERS` with `REPLY: SILENT`.** Nothing answered. Check the
-  servo's supply, the signal wire and the ground. With `NONE`, power the
+  servo's supply, the signal wire and the ground. With `OWN`, power the
   servo before the entry.
 - **`NO SERVO ANSWERS` with another reply word.** Edges arrive, but no reply
   is valid. Check the signal wire and the ground, and that no pull-up
@@ -541,7 +541,7 @@ lead gets the converter's output on its BEC wire.**
 - **LEAVE** switches the supply off. The pin is let go 2.0 s after the
   switch-off.
 
-With `NONE` a stall does not end the session. A stall during the entry
+With `OWN` a stall does not end the session. A stall during the entry
 ends the entry: the page reads `NO SERVO ANSWERS` with RETRY. Later, a
 running read or write ends, the servo stays in programming mode, and the
 next operation is refused until the screen runs again: a write then reads
@@ -554,7 +554,7 @@ next operation is refused until the screen runs again: a write then reads
 `CLASSIC` (HS-5xxx, HS-7xxx) needs SERVO SUPPLY at `GP28` or `GP29`: a
 classic servo enters programming mode only at its power-up, and the bench
 switches its supply through the converter of [wiring](Wiring) part C. Under
-`NONE` the family view reads `NEEDS THE CONVERTER OF WIRING PART C` and
+`OWN` the family view reads `NEEDS THE CONVERTER OF WIRING PART C` and
 `AND SETTINGS > SERVO SUPPLY GP28/29.`
 
 The signal level:

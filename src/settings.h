@@ -161,9 +161,8 @@ void settingsDefaults(Settings *out);
  * the four legal values; board id @ref BOARD_ID_LCD_2_8; SIG, the ESC pin,
  * free; AUX, the KISS pin, free and not SIG's, whatever KISS is. An AUX pin
  * the board does not free takes the board's default and switches KISS off.
- * AUX on SIG's GPIO moves to the board's default AUX pin, or to the next free
- * pin after SIG where that default is SIG's, and KISS keeps its switch; only
- * with no second free pin is KISS switched off. Servo supply 0 to 2, any
+ * AUX on SIG's GPIO moves to the next free pin after SIG, and KISS keeps its
+ * switch; only with no second free pin is KISS switched off. Servo supply 0 to 2, any
  * other value 0; current sensor 0 or 1, any other value 0.
  *
  * @param[in,out] s Settings to repair in place.

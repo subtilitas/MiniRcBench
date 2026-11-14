@@ -157,16 +157,13 @@ bool settingsValidate(Settings *s) {
 		s->kissEnable = 0;
 		ok = false;
 	}
-	// AUX on SIG's GPIO moves to the board's default AUX pin, or, where that
-	// is SIG's, to the next free pin after SIG; KISS keeps its switch and
-	// listens there. Only a board that frees no second pin switches KISS
-	// off, since AUX has nowhere to go. @see docs/design/menu-b.md,
-	// decision 10
+	// AUX on SIG's GPIO moves to the next free pin after SIG, the other of
+	// this board's two; KISS keeps its switch and listens there. Only a
+	// board that frees no second pin switches KISS off, since AUX has
+	// nowhere to go. @see docs/design/menu-b.md, decision 10
 	if (s->kissPin == s->dshotPin) {
-		uint8_t aux = b->defaultKissPin;
-		if (!settingsPinFree(aux) || aux == s->dshotPin) aux = settingsNextPin(s->dshotPin, +1);
-		s->kissPin = aux;
-		if (aux == s->dshotPin) s->kissEnable = 0;
+		s->kissPin = settingsNextPin(s->dshotPin, +1);
+		if (s->kissPin == s->dshotPin) s->kissEnable = 0;
 		ok = false;
 	}
 	if (s->kissEnable != 0 && s->kissEnable != 1) { s->kissEnable = 1; ok = false; }

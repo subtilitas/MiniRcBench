@@ -85,8 +85,7 @@ An **expired status tile reads `--`, never `OK`**.
 The firmware does it, with no button.
 
 The first 10 frames the tester sends to the ESC are the enable: at power-up,
-after a change of the ESC pin, the DShot bitrate, KISS or the KISS pin under
-SETTINGS, and when the AM32 screen hands the signal wire back. They take 10 ms.
+after a change of SIG PIN, DSHOT, KISS TELEM or AUX PIN under SETTINGS, and when the AM32 screen hands the signal wire back. They take 10 ms.
 Every reply is decoded with EDT on from the first one, so an ESC that kept
 EDT on through one of those restarts shows its voltage and temperature at
 once and never a false RPM. An ESC with AM32 or Bluejay shows the correct RPM
@@ -134,12 +133,12 @@ The board only receives on this line. The receiver is a UART (universal
 asynchronous receiver-transmitter) built from a PIO (programmable I/O) state
 machine, so **either free GPIO works**. GPIO means
 general-purpose input/output pin. Turn it on under
-**MENU → SETTINGS → KISS TELEM** and set the pin in the row below. The pin
-stepper skips the ESC signal pin.
+**MENU → SETTINGS → KISS TELEM**. KISS listens on AUX, set in the row below,
+**AUX PIN**, with its J5 pin under the value. A step of AUX PIN or SIG PIN
+swaps the two, so the KISS wire never shares the ESC signal pin.
 
-**Default: off.** The board has two free pins, GP0 and GP1, and the ESC
-uses one of them. Turning KISS on moves the KISS pin
-off the ESC pin if they coincide.
+**Default: off.** The board has two free pins, GP0 and GP1: SIG, the ESC's,
+and AUX. Turning KISS on moves no pin.
 
 > **Voltage.** The KISS specification puts this line at 3.6 V. GP0 and GP1
 > tolerate 5.5 V while the board is powered and 3.63 V while it is off. The
@@ -157,5 +156,5 @@ last KISS value.
 above 5 %.
 
 A poor link usually comes from the signal wire: too long, unshielded, or routed
-near motor phase wires. Shorten it first. Otherwise set **DSHOT KBAUD** to 300
+near motor phase wires. Shorten it first. Otherwise set **DSHOT** to 300
 under **MENU → SETTINGS**. The `LINK` row on the SETTINGS screen updates live.

@@ -33,8 +33,9 @@ disabled, an outline with a grey label, and a tap on it does nothing.
 **Top row.** From left to right:
 
 - the arm badge: `SAFE` (green) or `ARMED` (red);
-- `DS` and the DShot bitrate in kbit/s, as set under SETTINGS, cyan once an EDT
-  (Extended DShot Telemetry) enable has been sent. `DSERR` in amber replaces
+- `DSHOT` and the DShot bitrate in kbit/s, for example `DSHOT600`, as set
+  under SETTINGS → DSHOT, cyan once an EDT (Extended DShot Telemetry) enable
+  has been sent. `DSERR` in amber replaces
   it when the display could not set up its DShot output; nothing is sent to
   the ESC then;
 - the recording state: `REC`, `SD`, `SDERR` or `NOSD`
@@ -113,8 +114,9 @@ finger and block every tap.
 Reached with the tester's `MENU` button. Opening it **disarms**, sets the
 throttle to 0 and turns `HOLD` off.
 
-Under the title, a strip shows the ESC pin and the DShot rate, for example
-`GP0  600 KBIT/S`, and the EDT chip. The chip is read-only:
+Under the title, a strip names the two signal pins, SIG for the ESC and AUX
+for the KISS wire or a second servo, and the DShot rate, for example
+`SIG GP0  AUX GP1  DSHOT600`, and shows the EDT chip. The chip is read-only:
 
 | Chip | When |
 |---|---|
@@ -147,21 +149,21 @@ position.
 | Row | State on the right | A tap |
 |---|---|---|
 | **BEEP THE ESC** | `DISARMED`; for 350 ms after a tap, `SENT` or `REFUSED` | Sends the DShot beacon command, so the motor beeps. Use it to identify which ESC is connected |
-| **AM32 CONFIG** | the ESC pin, `GP0`; `PINS BUSY` | Opens the AM32 editor |
-| **SERVO TESTER** | the two signal pins, `GP0+1`; `PINS BUSY` | Opens the servo tester |
-| **KST SERVO** | the ESC pin, `GP0`; `PINS BUSY` | Opens the KST programmer. See [KST Programming](KST-Programming) |
-| **HITEC SERVO** | the ESC pin, `GP0`; `PINS BUSY` | Opens the Hitec programmer. See [Hitec Programming](Hitec-Programming) |
-| **SETTINGS** | `UNSAVED` while a value differs from flash; else `UPDATED` while an update's reset or carry-over of the settings is not saved over; else nothing. All amber. `PINS BUSY` while the pins are still restoring, and it does not open | Opens SETTINGS |
+| **AM32 CONFIG** | the ESC pin, `GP0` | Opens the AM32 editor |
+| **SERVO TESTER** | the two signal pins, `GP0+1` | Opens the servo tester |
+| **KST SERVO** | the ESC pin, `GP0` | Opens the KST programmer. See [KST Programming](KST-Programming) |
+| **HITEC SERVO** | the ESC pin, `GP0` | Opens the Hitec programmer. See [Hitec Programming](Hitec-Programming) |
+| **SETTINGS** | `UNSAVED` while a value differs from flash; else `UPDATED` while an update's reset or carry-over of the settings is not saved over; else nothing. All amber | Opens SETTINGS |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a computer holds the card | Opens the logging screen |
 
-`PINS BUSY` means the signal pins are still in use, for example while DShot
-restarts after the servo tester, the KST programmer or the Hitec programmer.
-AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO and SETTINGS show it, and a
-tap on such a row opens nothing.
-The row reads its pins again once DShot runs. SD LOG claims no pin and stays
-available.
+While the signal pins are still in use, for example while DShot restarts
+after the servo tester, the KST programmer or the Hitec programmer, the strip
+reads `DSHOT RESTARTING ON SIG GP0` in amber. AM32 CONFIG, SERVO TESTER, KST
+SERVO, HITEC SERVO and SETTINGS are then drawn as an outline under their
+usual state, and a tap on such a row opens nothing. They act again once
+DShot runs. SD LOG claims no pin and stays available.
 
-<img src="img/menu-pins-busy.png" width="240" alt="MENU dragged up while the pins restore: PINS BUSY on AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO and SETTINGS">
+<img src="img/menu-restarting.png" width="240" alt="MENU dragged up while DShot restarts: DSHOT RESTARTING ON SIG GP0 on the strip, AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO and SETTINGS drawn as outlines">
 
 BEEP works only while disarmed, and opening `MENU` disarms, so it is always
 allowed from here. The command takes 6 ms (6 frames at 1 kHz). The screen
@@ -181,7 +183,7 @@ settings. Either it carried settings of an older layout over, version 2, 3
 or 4: the values the old layout has are kept, checked as on a save, and
 the newer ones, `CURRENT SENSE` among them, are at their defaults. Or it
 found a layout it does not know and discarded it: every value, the pole
-count, `MAX THROTTLE`, `ESC PIN`, KISS, `SERVO SUPPLY` and `CURRENT SENSE`
+count, `MAX THROTTLE`, `SIG PIN`, KISS, `SERVO SUPPLY` and `CURRENT SENSE`
 among them, is at its compiled default. Check them in SETTINGS and hold
 `HOLD TO SAVE`; a save that lands ends the marker, also with nothing
 changed. See
@@ -204,11 +206,11 @@ a finger.
 |---|---|---|
 | ESC TESTER | **MOTOR POLES** | 2–28, even values. The RPM readout divides the eRPM by half of it |
 | ESC TESTER | **MAX THROTTLE** | The throttle ceiling, `5%` to `100%` in steps of 5 % |
-| WIRING | **ESC PIN** | GPIO (general-purpose input/output pin) for the signal wire. Only the board's two free GPIOs are offered, GP0 and GP1. A step moves DShot to the new pin at once; see the note line below |
-| WIRING | **DSHOT KBAUD** | 150 / 300 / 600 / 1200. Lower it if the `LINK` error rate rises |
-| WIRING | **KISS TELEM** | Whether to listen on the optional third telemetry wire |
-| WIRING | **KISS PIN** | GPIO for that wire. Skips the ESC pin, so the two never coincide. Reads `--` and does not act while KISS TELEM is off |
-| SERVO SUPPLY | **SERVO SUPPLY** | `NONE`, `GP28` or `GP29`: whether a DC-DC converter (direct-current voltage converter) for a programmed servo's supply has its enable wired, and to which pin: GP28, J4 pin 11, or GP29, J4 pin 12. `NONE` by default. - and + step through the three. With `GP28` or `GP29`, KST SERVO and HITEC SERVO switch the servo's supply |
+| WIRING | **SIG PIN** | SIG, the GPIO (general-purpose input/output pin) of the ESC's signal wire, with its connector pin under it: `GP0` over `J5 PIN 2`, `GP1` over `J5 PIN 1`. Only the board's two free GPIOs are offered, GP0 and GP1, so a step swaps SIG and AUX. DShot moves to the new pin at once; see the note line below |
+| WIRING | **DSHOT** | The DShot rate in kbit/s: 150 / 300 / 600 / 1200. Lower it if the `LINK` error rate rises |
+| WIRING | **KISS TELEM** | Whether to listen on the optional third telemetry wire, on AUX |
+| WIRING | **AUX PIN** | AUX, the GPIO of the KISS wire and of the servo tester's second servo, with its J5 pin under it. Acts whether KISS TELEM is on or off. A step swaps SIG and AUX, so the two never share a pin |
+| SERVO SUPPLY | **SERVO SUPPLY** | `OWN`, `GP28` or `GP29`: `OWN` means the servo has a supply of its own and the bench switches nothing; `GP28` or `GP29` means a DC-DC converter (direct-current voltage converter) for a programmed servo's supply has its enable on that pin, shown under the value: `J4 PIN 11` for GP28, `J4 PIN 12` for GP29. `OWN` by default. - and + step through the three. With `GP28` or `GP29`, KST SERVO and HITEC SERVO switch the servo's supply |
 | SERVO SUPPLY | **CURRENT SENSE** | `NONE` or `INA219`: whether an INA219 current sensor module is on J3. `NONE` by default. A tap switches between the two. With `INA219` a caption under the name reads `FOUND`, `NOT FOUND`, or `OTHER PART` for another chip at the sensor's address. An INA219 left on another configuration by other firmware also shows `OTHER PART`: power-cycle the module. The servo tester, KST SERVO and HITEC SERVO then show the supply's current |
 | DISPLAY | **CONTRAST** | `NORMAL` or `HIGH`. High contrast is for daylight |
 | DISPLAY | **BACKLIGHT** | 16–255, in steps of 32 |
@@ -251,11 +253,12 @@ Under the list, these stay in place:
      the saved settings, until a save lands;
   7. `CARRIED OVER BY UPDATE - CHECK, SAVE` (amber) after an update carried
      settings of an older layout over, until a save lands;
-  8. `SAVED SETTINGS IN USE` or `COMPILED DEFAULTS IN USE`.
+  8. `SAVED SETTINGS IN USE`, or `NOTHING SAVED: DEFAULTS IN USE` with
+     nothing stored.
 
 <img src="img/settings-carried.png" width="240" alt="SETTINGS after an update carried the saved settings over: CARRIED OVER BY UPDATE - CHECK, SAVE on the note line">
 
-<img src="img/settings-pin.png" width="240" alt="SETTINGS after ESC PIN moved to GP1: UNPLUG ANY SERVO FROM GP1 NOW above LINK, UNSAVED on the note line">
+<img src="img/settings-pin.png" width="240" alt="SETTINGS after SIG PIN moved to GP1: UNPLUG ANY SERVO FROM GP1 NOW above LINK, UNSAVED on the note line">
 
 - `HOLD TO SAVE` (150 × 48 px) and `HOLD RESET` (70 × 48 px).
 
@@ -312,8 +315,10 @@ no write. `BACK` returns to `MENU`. See
 
 <img src="img/servo-safe.png" width="240" alt="The servo screen, SAFE">
 
-Drives one or two servos with servo pulses on the ESC and KISS pins. It opens
-SAFE; `HOLD TO START` for 1 s starts the pulses at the centre, `STOP` acts on
+Drives one or two servos with servo pulses on SIG and AUX, the ESC and KISS
+pins. The strip names them, `SIG GP0  50 HZ  1000-2000 US`, or
+`SIG+AUX  50 HZ  1000-2000 US` with two servos. It opens SAFE;
+`HOLD TO START` for 1 s starts the pulses at the centre, `STOP` acts on
 touch. While SAFE with one servo, the readout reads `TWO SERVOS:` and
 `SET > SERVOS`, where the second servo is switched on. With SERVO SUPPLY at
 `GP28` or `GP29` the strip's second line reads `GP28 SUPPLY STAYS OFF HERE.`
@@ -333,9 +338,9 @@ the two-servo hint. See
 <img src="img/kst-list.png" width="240" alt="The KST field list">
 
 Reads and writes the settings of a KST or Chaservo servo over the signal wire
-on the ESC pin. It searches for the servo while you power it up, reads its 32
-registers, and lists 27 fields to step. `HOLD TO WRITE` for 1 s opens the
-write page, and a second hold of 1 s writes, with a backup on the SD card
+on SIG, the ESC pin. It searches for the servo while you power it up, reads
+its 32 registers, and lists 27 fields to step. `HOLD TO WRITE` for 1 s opens
+the write page, and a second hold of 1 s writes, with a backup on the SD card
 first. `BACK` opens the leave page, which asks you to power the servo off;
 `LEAVE` then shows `UNPLUG THE SERVO.`, and `RESTART DSHOT` returns to `MENU`.
 With CURRENT SENSE at `INA219` the strip shows the current after the
@@ -348,13 +353,14 @@ supply's state, `SUPPLY ON 0.08 A`. See [KST Programming](KST-Programming).
 <img src="img/hitec-list.png" width="240" alt="The Hitec field list">
 
 Reads and writes the settings of a Hitec D series or classic servo over the
-signal wire on the ESC pin. It takes the pin from the ESC driver as it opens,
-on the family view: the strip reads `GP0 IS THE SERVO'S: DSHOT IS OFF.` and
+signal wire on SIG, the ESC pin. It takes the pin from the ESC driver as it
+opens, on the family view: the strip reads
+`GP0 IS THE SERVO'S: DSHOT IS OFF.` and
 `CONNECT THE SERVO, CHOOSE ITS FAMILY`. `D SERIES` acts, and
-`CLASSIC` acts with SERVO SUPPLY at `GP28` or `GP29`; under `NONE` it is drawn
+`CLASSIC` acts with SERVO SUPPLY at `GP28` or `GP29`; under `OWN` it is drawn
 disabled with `NEEDS THE CONVERTER OF WIRING PART C` and
 `AND SETTINGS > SERVO SUPPLY GP28/29.`: the converter of
-[wiring](Wiring) part C comes first, then the setting. Under `NONE`, D SERIES
+[wiring](Wiring) part C comes first, then the setting. Under `OWN`, D SERIES
 reads `POWER THE SERVO UP, THEN TAP.`. The screen enters the servo
 and reads it. A D series servo gives 21 registers and 20 parameters, 11 of
 them editable. One servo goes on the lead, with no pull-up resistor.

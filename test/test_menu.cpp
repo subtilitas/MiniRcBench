@@ -1392,6 +1392,45 @@ static void testSupplySection() {
 	freshTester();
 }
 
+/**
+ * @brief MENU repaints its strip when AUX moves or the claim changes, also
+ *        with a registry whose rows claim nothing, and the tools' refusal
+ *        reads WAIT: DSHOT RESTARTING.
+ */
+static void testMenuStripRepaints() {
+	section("MENU: the strip follows AUX and the claim");
+	checkStr("the tools' refusal", UI_WAIT_RESTART_TEXT, "WAIT: DSHOT RESTARTING");
+	static const UiMenuEntry quiet[] = {
+		{ "BEEP THE ESC", 8, &UI_BEEP }, { "SD LOG", 10, &UI_SDLOG },
+	};
+	uiMenuUseRegistry(quiet, 2);
+	freshTester();
+	openMenu();
+	menuFrames(2);
+	char want[40];
+	auto captionIs = [&](uint16_t col) {
+		return fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, want, col, C_BG, 1) ||
+		       fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, want, col, C_BG, 1);
+	};
+	const uint8_t sig = settings()->dshotPin, aux = settings()->kissPin;
+	settings()->kissPin = (uint8_t)(aux == 1 ? 28 : 1);   // drawn only, never driven
+	menuFrames(1);
+	snprintf(want, sizeof(want), "SIG GP%u  AUX GP%u  DSHOT%u", (unsigned)sig,
+	         (unsigned)settings()->kissPin, (unsigned)settings()->dshotKbaud);
+	checkTrue("AUX changes while MENU shows: the caption follows", captionIs(C_DIM));
+	settings()->kissPin = aux;
+	menuFrames(1);
+	checkTrue("a claim taken", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
+	framesNoPump(1);
+	snprintf(want, sizeof(want), "DSHOT RESTARTING ON SIG GP%u", (unsigned)sig);
+	checkTrue("no row claims: the strip still says DShot restarts", captionIs(C_AMBER));
+	pinClaimEnd(PinUser::Am32);
+	for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) menuFrames(1);
+	tapId(UI_FIX(UI_BACK));
+	uiMenuUseRegistry(nullptr, 0);
+	freshTester();
+}
+
 void runMenuTests() {
 	testSdLogBack();
 	testEveryEntry();
@@ -1416,4 +1455,5 @@ void runMenuTests() {
 	testMenuScrollResets();
 	testAm32WaitsBesideAClaim();
 	testSupplySection();
+	testMenuStripRepaints();
 }

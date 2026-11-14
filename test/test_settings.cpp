@@ -282,7 +282,7 @@ static void testKissNeedsItsOwnPin() {
 	checkInt("and KISS stays off", s.kissEnable, 0);
 
 	// SIG on the board's default AUX pin: AUX takes the next free pin after
-	// SIG, the default being SIG's.
+	// SIG.
 	settingsDefaults(&s);
 	s.dshotPin = g_board->defaultKissPin;
 	s.kissPin = g_board->defaultKissPin;

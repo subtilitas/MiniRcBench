@@ -68,7 +68,8 @@ Nothing answers on the signal wire, and the chip under the title on the
    screen sends the bootloader no command to start the ESC firmware, and
    what the ESC does then is not recorded. Power-cycle the ESC before you
    test it: [AM32 Configuration](AM32-Configuration#leaving).
-2. **Wrong pin.** Compare **MENU → SETTINGS → ESC PIN** with where the wire is.
+2. **Wrong pin.** Compare **MENU → SETTINGS → SIG PIN** with where the wire
+   is; the J5 pin is shown under the value.
    The `LINK` row on that screen is live. A packet rate above zero means the
    pin is correct.
 3. **No common ground.** The ESC ground and the board ground must be
@@ -76,7 +77,7 @@ Nothing answers on the signal wire, and the chip under the title on the
 4. **The ESC has no power.** It runs from its own battery, not from the board.
 5. **The ESC does not support bidirectional DShot**, or it is disabled in the
    ESC's settings. Unidirectional DShot sends nothing back.
-6. **The wire is too long or picks up noise.** Set **DSHOT KBAUD** to 300 and
+6. **The wire is too long or picks up noise.** Set **DSHOT** to 300 and
    watch `LINK`.
 
 ---
@@ -183,7 +184,7 @@ ESC sends the status over EDT; the ESC firmware defines what each one means.
 
 The error rate is amber above 5 %. The usual cause is the signal wire: length,
 routing, or a missing ground. Shorten it, route it away from the motor phase
-wires, then lower **DSHOT KBAUD**.
+wires, then lower **DSHOT**.
 
 Failed packets are frames the ESC did not act on, even while the RPM readout
 works.
@@ -250,12 +251,14 @@ are carried over: every setting the old layout has keeps its value, checked
 by the same rules as saved settings, and every newer setting starts at its
 default. So:
 
-- pole count, `MAX THROTTLE`, `DSHOT KBAUD`, KISS, backlight and contrast
+- pole count, `MAX THROTTLE`, `DSHOT`, KISS, backlight and contrast
   keep their values; a value out of range is adjusted, as on a save;
 - an ESC pin this board does not free, such as GP28 or GP29 from firmware
   before version 4, returns to the default (GP0), and KISS on such a pin is
   switched off, its pin back to the default (GP1);
-- CURRENT SENSE is `NONE`; SERVO SUPPLY is `NONE` after version 2 or 3,
+- a KISS pin on the ESC pin moves to the other free pin, whether KISS is on
+  or off, and KISS keeps its setting: SIG and AUX never share a pin;
+- CURRENT SENSE is `NONE`; SERVO SUPPLY is `OWN` after version 2 or 3,
   since version 3's switch on GP0 sits on the ESC wire's pin now; after
   version 4 it keeps `GP28` or `GP29`.
 
@@ -276,7 +279,7 @@ shown: the splash reads `SETTINGS RESET BY UPDATE` and
 line in SETTINGS reads `RESET BY UPDATE - CHECK AND SAVE` until a save
 lands. A block that is damaged, rather than written by another version, is
 discarded without these notes; the note line then reads
-`COMPILED DEFAULTS IN USE`.
+`NOTHING SAVED: DEFAULTS IN USE`.
 
 ---
 
@@ -307,13 +310,11 @@ The board has two free GPIOs (general-purpose input/output pins), GP0 and
 GP1, and the ESC signal starts on GP0. KISS defaults to off so that the
 spare pin is not used for a wire that may not be fitted.
 
-Turning KISS on moves the KISS pin to the other free pin if it coincides with
-the ESC pin. The pin stepper skips the ESC pin. The receiver is a PIO
-(programmable I/O) state machine and works on either pin.
-
-If KISS switches itself off with `KISS OFF: NEEDS A PIN OF ITS OWN`, the
-stored KISS pin was not free or was the ESC pin. Move the ESC signal to the
-other pin first, then turn KISS on.
+KISS listens on AUX, which is never the ESC's pin, SIG: a step of
+**SIG PIN** or **AUX PIN** swaps the two, and turning KISS on moves no pin.
+The receiver is a PIO (programmable I/O) state machine and works on either
+pin. Check that the KISS wire is on the pin **AUX PIN** names, with its J5
+pin under the value.
 
 ---
 

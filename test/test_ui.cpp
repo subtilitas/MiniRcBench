@@ -1325,6 +1325,12 @@ static bool settingsRowShows(int row, const char *label, const char *value, uint
 	UiRect r = ctlRect(UI_ROW(row, Row));
 	if (r.h != 44) return false;
 	if (!fakeTextIs(UI_MARGIN, r.y + 18, label, C_DIM, C_BG, 1)) return false;
+	// Nothing more of the label: blank for two character cells after it, on
+	// its rows under a raised value's (y+22 to y+24).
+	const uint16_t *lb = gfxBuffer();
+	for (int y = r.y + 22; y < r.y + 25; y++)
+		for (int x = UI_MARGIN + gfxTextW(label, 1); x < UI_MARGIN + gfxTextW(label, 1) + 12; x++)
+			if (lb[y * GFX_W + x] != C_BG) return false;
 	if (!fakeTextIs(132 - gfxTextW(value, 2), r.y + (subRow ? 8 : 15), value, col, C_BG, 2)) return false;
 	if (sub) return fakeTextIs(132 - gfxTextW(sub, 1), r.y + 27, sub, C_DIM, C_BG, 1);
 	const uint16_t *fb = gfxBuffer();
@@ -1550,7 +1556,10 @@ static void holdReset() {
 	fakeRelease(); frames(1);
 }
 
-/** @brief SERVO SUPPLY: KST's section, stepped NONE, GP28, GP29, applied at once, saved and reset. */
+/**
+ * @brief SERVO SUPPLY: a core section, stepped OWN, GP28, GP29 with the J4
+ *        pin under the value, applied at once, saved and reset.
+ */
 static void testSettingsServoSupply() {
 	section("SETTINGS: SERVO SUPPLY");
 
@@ -1610,9 +1619,9 @@ static bool captionIs(const char *want) {
 }
 
 /**
- * @brief CURRENT SENSE: KST's section below SERVO SUPPLY, toggled NONE and
- *        INA219, applied at once, its caption from the probe, saved and
- *        reset; nothing sent to 0x40 with NONE.
+ * @brief CURRENT SENSE: in the SERVO SUPPLY section, below SERVO SUPPLY,
+ *        toggled NONE and INA219, applied at once, its caption from the
+ *        probe, saved and reset; nothing sent to 0x40 with NONE.
  */
 static void testSettingsCurrentSense() {
 	section("SETTINGS: CURRENT SENSE");

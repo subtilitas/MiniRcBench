@@ -1,9 +1,11 @@
 # Menu structure B
 
-Status: slice 1 built, host tests only; slices 2 to 10 not built. The owner
+Status: slices 1 and 3 built, host tests only; slices 2 and 4 to 10 not
+built. Slice 3 is the names and SETTINGS of decisions 9, 10 and 15 b, e, f,
+h, j, k, with its README.md and wiki lines and images. The owner
 answered the note's eight open questions on 2026-11-14 ([decisions 23 to
 30](#decisions)), and the question that followed from them (decision 33).
-Slices 2 to 10 wait on being built. By the owner's order of work of
+Slices 2 and 4 to 10 wait on being built. By the owner's order of work of
 2026-11-14 they follow the eight small decisions of STATUS.md items 20, 21
 and 24. Three of the owner's decisions of 2026-11-14 change this design, and
 the sections they touch are marked "to be redesigned": each slice updates
@@ -1077,7 +1079,7 @@ decisions 31 to 33.
 |---|---|---|---|---|---|---|
 | 1. Widgets, built | `UiBackGuard`, `uiStripTwoLines()`, `uiListDrawField()`, `ui_leave`, layout constants, role names; nothing drawn differently. The `uiHeader()` flag is on `main` | | 9 in `src/`, 2 new | +500, −20 | 2 / 430 lines in test_widgets.cpp and test_servo.cpp | built |
 | 2. Colour roles | decisions 8 and 11: the role table on every screen, square chips, PROG MODE | 1 | 10 | 150 changed | 15 / 40 | 1 day |
-| 3. Names and SETTINGS | decisions 9, 10, 15 b, e, f, h, j, k: SERVO SUPPLY section, SIG and AUX, connector lines, OWN, DSHOT600, MENU statuses and busy strip, KST labels | 1 | 11 | +200, −80 | 110 / 60 | 2 days |
+| 3. Names and SETTINGS, built | decisions 9, 10, 15 b, e, f, h, j, k: SERVO SUPPLY section, SIG and AUX, connector lines, OWN, DSHOT600, MENU statuses and busy strip, KST labels; with its README.md and wiki lines and images (decision 27) | 1 | 11 | +200, −80 | 110 / 60 | built |
 | 4. Layout table | decision 14 | 1 | 7 | 80 changed | 8 / 10 | 0.5 day |
 | 5. Write rule and guard | decisions 6, 7, 13 (AM32 HEX and WRITE titles): `WRITE...`, `RESTORE...`, AM32 write page and result, editor old value, guard on AM32 and SERVO SET, BACK disabled while writing, the leave queue gone | 1, 2, 4 | 7 | +300, −120 | 110 / 120 | 2 to 3 days |
 | 6. Leave page | decision 5 and owner decision 3: KST, Hitec and SERVO TESTER on `ui_leave`; STAY, NEXT SERVO, BACK TO SERVO; RESTART DSHOT's wait | 1, 5 | 6 | +180, −300 | 90 and three helpers / 80 | 2 to 3 days |

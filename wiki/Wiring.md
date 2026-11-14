@@ -11,7 +11,8 @@ SIG at a time. The grounds are joined once, at the board.
 The board has JST-SH 1.0 mm connectors and no 2.54 mm headers, so every lead
 needs a pigtail with a JST-SH plug. SIG is GP0 (J5 pin 2) and AUX is GP1
 (J5 pin 1) on a board with blank flash; both can be changed under
-**MENU → SETTINGS**.
+**MENU → SETTINGS → SIG PIN** and **AUX PIN**, which show the J5 pin under
+the value. A step of either swaps SIG and AUX, so the two never share a pin.
 
 | Part | What it shows | Details |
 |---|---|---|

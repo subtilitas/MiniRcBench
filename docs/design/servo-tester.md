@@ -210,14 +210,15 @@ are channels A and B of PWM slice 0, which forces one rate anyway.
 Entry: MENU → SERVO TESTER, a row of the registry
 ([menu.md](menu.md)). The main screen is the root and gets no entry; MENU is
 its navigation. BACK through the unplug page returns to MENU. While the claim
-is not Free, the row reads `PINS BUSY` and a tap opens nothing.
+is not Free, the row is drawn disabled, MENU's strip reads
+`DSHOT RESTARTING ON SIG GP0`, and a tap opens nothing.
 
 ### SERVO
 
 ```
 y   0 +------------------------------------------+
       | SERVO                            [ BACK ]|  header, UI_HDR_H 36 px
-   40 | GP0  50 HZ  1000-2000 US           (SAFE)|  strip: caption, chip
+   40 | SIG GP0  50 HZ  1000-2000 US       (SAFE)|  strip: caption, chip
    64 | THE SERVO MOVES TO CENTRE AT START.      |  two notes while SAFE
    76 | PULSES ON GP0 ARE THROTTLE TO AN ESC.    |
       |               .   -   -   .              |
@@ -270,9 +271,9 @@ the panel first.
 While the pin is unavailable, the dial band holds the message from
 [pin-claim.md](pin-claim.md) and HOLD TO START is drawn disabled. The
 messages the screen shows there: the ESC answering on SIG, wrapped over three
-lines; `DISARM FIRST` and `PINS BUSY`, which the UI does not reach;
-`RELEASING DSHOT PIN` during the drain; `TAKING GP0` until the job binds; and
-`GP0 COULD NOT BE TAKEN (PWM)` with a RETRY button, for a first bind or a
+lines; `DISARM FIRST` and `WAIT: DSHOT RESTARTING`, which the UI does not
+reach; `RELEASING SIG GP0` during the drain; `TAKING SIG GP0` until the job
+binds; and `SIG GP0 COULD NOT BE TAKEN (PWM)` with a RETRY button, for a first bind or a
 rebind core1 refused.
 
 ### SET
@@ -528,8 +529,8 @@ on a slide off, STOP fires on press, the KissLive and SamePin refusals reach
 the SET screen through the claim, an ESC answering on SIG holds the claim off
 until 500 ms after its last frame, and the unplug page comes before DShot
 restarts. `test/test_menu.cpp` checks the MENU row: SERVO TESTER opens its screen,
-BACK through the unplug page lands on MENU, and `PINS BUSY` while the claim
-restores. `make previews` adds
+BACK through the unplug page lands on MENU, and the row drawn disabled while
+the claim restores. `make previews` adds
 `docs/servo-preview.png`.
 
 ## Work breakdown
