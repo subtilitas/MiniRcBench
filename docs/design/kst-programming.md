@@ -22,8 +22,11 @@ FAILSAFE POSITION and FAILSAFE TIME. It depends on the pin claim in
 [pin-claim.md](pin-claim.md), slice 1 there, which is built. This
 document is slice 3. It comes after slices A to C of [menu.md](menu.md), the
 menu restructure, which are built, and is written for the system they leave:
-MENU, to which slice 3 adds the KST SERVO row, the SETTINGS list, the shared
-list `ui_list`, the shared hold `ui_hold` and the 36 px header. The
+MENU, to which slice 3 added the KST SERVO row, the SETTINGS list, the shared
+list `ui_list`, the shared hold `ui_hold` and the 36 px header. In menu
+structure B, built, MENU's SERVO PROGRAMMER row opens PROGRAMMER, whose
+KST / CHASERVO entry opens KST SERVO and claims SIG on the tap, in place of
+that row ([menu-b.md](menu-b.md), owner decision 2 and decision 19). The
 rcbench code it ports has not sent a frame to a servo either: rcbench's
 `protocols/kst/README.md` says "no frame of this code has been sent to a
 servo, and the pin driver has not run on a chip".
@@ -1727,6 +1730,12 @@ open; the owner has not decided them:
     the safer: DShot never reaches a servo that may have entered programming
     mode in an on phase before it has been off as long as LEAVE keeps it.
     The cost is up to 2000 ms on the wait text before the unplug page.
+    Revised by [menu-b.md](menu-b.md#decisions) owner decision 3 and
+    decision 5: the unplug page is the leave page. BACK during REBOOT, on
+    the stalled screen and during a switched search before a servo is found
+    opens it in its releasing phase, whose note counts the wait down while
+    the supply is off, `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`; the 2000 ms off
+    before the line closes are unchanged.
 19. **A card phase around every card call.** Not only the first write's
     backup and record: SAVE AS, LOAD, the FILES listing, RETRY MOUNT and the
     record's removal after a verify each block core0 on the card too, and
@@ -1760,3 +1769,12 @@ is discarded whole, as decision 8 describes for version 2. Under decision
 10 the servo tester never drives the enable pin. Decision 4's rule, no
 level above 3.6 V on SIG, stands as decided. Decisions 4, 7, 8 and 10 keep
 the wording the owner decided; these changes stand here only.
+
+Revision of 2026-11-14, menu structure B ([menu-b.md](menu-b.md#decisions)),
+built: SERVO SUPPLY is a core section of SETTINGS after WIRING, whichever
+tools MENU lists (decision 9), and its no-switch value reads `OWN`, stored
+as 0 as before (decisions 15 e and 22); `NONE` in this note is that value.
+MENU has no KST SERVO row: PROGRAMMER's KST / CHASERVO entry opens the
+screen (owner decision 2). Decision 18's unplug page is the leave page
+(owner decision 3). Decisions 8 and 18 keep their wording; these changes
+stand here only.
