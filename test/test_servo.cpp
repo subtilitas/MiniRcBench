@@ -1946,12 +1946,16 @@ static void testTouchLossStops() {
 	uiFrames(4);
 	int sx, sy;
 	ctlCentre(UI_FIX(ServoCtl::Start), &sx, &sy);
+	// The touch-loss stop would undo a start a frame later; the pin's level
+	// writes show whether one happened at all.
+	const int writes = fakePin(0).levelWrites;
 	pressId(UI_FIX(ServoCtl::Start), IdExpect::Disabled);
 	fakeHold(sx, sy); frameAt(UI_HOLD_MS);
 	fakeRelease(); uiFrames(1);
 	core1();
 	servoJobStatus(&st);
 	checkTrue("HOLD TO START held while lost: not running", !st.running);
+	checkInt("not even for a frame: no pulse level written", fakePin(0).levelWrites, writes);
 	fakeTouchAnswers(true);
 	uiFrames(2);
 	holdStart();

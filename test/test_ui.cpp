@@ -2644,9 +2644,14 @@ static void testTouchLoss() {
 	fakeTouchAnswers(false, true);
 	frames(4);
 	checkTrue("lost, the finger still reported: the note", hintIs(UI_TOUCH_LOST_TEXT, C_AMBER));
+	// The touch-loss disarm would undo an arm in the same frame; the panel's
+	// dip shows whether one happened at all.
+	const uint8_t resting = fakeBacklight();
+	fakeBacklightResetMin();
 	holdToArm(IdExpect::Disabled);
 	frames(10);
 	checkTrue("HOLD TO ARM held while lost: not armed", !uiArmed() && !fakeArmed());
+	checkTrue("not even for a frame: no arm dip", fakeBacklightMin() == resting);
 	fakeTouchAnswers(true);
 	frames(2);
 	holdToArm();
@@ -2697,6 +2702,20 @@ static void testTouchLossStall() {
 	          uiArmed() && fakeThrottle() > 0);
 	tapId(UI_FIX(TesterCtl::Arm));
 	checkTrue("disarmed for what follows", !uiArmed());
+
+	// Four failed reads quicker than TOUCH_LOST_MS, frames 10 ms apart: not
+	// yet; the time since the last answer has to reach 100 ms too.
+	holdToArm();
+	tapId(UI_FIX(TesterCtl::Hold));
+	swipe(20, 120, thrY(), 8);
+	frames(2);
+	fakeTouchAnswers(false);
+	for (int i = 0; i < 9; i++) frameAfter(10);
+	checkTrue("9 failed reads in 90 ms: still armed", uiArmed() && fakeThrottle() > 0);
+	frameAfter(10);
+	checkTrue("100 ms: disarmed", !uiArmed());
+	fakeTouchAnswers(true);
+	frames(1);
 }
 
 /**
