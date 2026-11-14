@@ -134,11 +134,28 @@ bool     uiArmed();
 /** @brief The tester's controls. @see ui_screen.h */
 enum class TesterCtl : uint8_t {
 	Arm = 1,   /**< HOLD TO ARM, or DISARM. Acts while no USB host holds the card. */
-	Hold,      /**< HOLD. */
-	Menu,      /**< MENU: disarms, zeroes the throttle, turns HOLD off and opens MENU. */
+	Latch,     /**< LATCH: the throttle stays where the finger leaves it. */
+	Menu,      /**< MENU: disarms, zeroes the throttle, turns LATCH off and opens MENU. */
 	Throttle,  /**< The throttle gauge's track, as drawn. A press lands 8 px beyond its left, right and top edges and 1 px below it (handleMainTouch()). Acts while armed. */
 	Pad,       /**< The relative throttle pad over the readouts. Acts while armed. */
+	/**
+	 * @brief The pole count, `14 POLES`: a tap opens SETTINGS, which BACK
+	 *        leaves for the tester. Lies in the pad. Acts while disarmed and
+	 *        the pin claim is Free, and is drawn underlined then; absent
+	 *        while the 3D note takes its row.
+	 */
+	Poles,
+	/**
+	 * @brief The ceiling, `MAX 20%`: as @ref Poles. Lies over the pad's
+	 *        bottom rows and the throttle track's grab band.
+	 */
+	Max,
 };
+
+/** @brief The pole count readout's text: `14 POLES`, 8 characters at most. */
+#define UI_TESTER_POLES_FMT "%d POLES"
+/** @brief The throttle caption while LATCH is on, in place of `THROTTLE`. */
+#define UI_TESTER_LATCHED_TEXT "LATCHED"
 
 /**
  * @brief The throttle track's text while a USB host holds the card, in place

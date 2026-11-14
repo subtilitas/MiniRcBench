@@ -30,7 +30,7 @@ struct TouchState;
 
 /** @brief The screens. SERVO and its SET view are one screen. */
 enum class UiScreenId : uint8_t {
-	Tester,    /**< The root: throttle, ARM, HOLD, MENU. */
+	Tester,    /**< The root: throttle, ARM, LATCH, MENU, the two readouts. */
 	Menu,      /**< MENU, the list of tools and actions. */
 	Settings,  /**< SETTINGS, one list in sections. */
 	SdLog,     /**< SD LOG. */

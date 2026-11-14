@@ -222,7 +222,7 @@ static inline BackLook backLook() {
 /**
  * @brief The open screen's table on the current frame: ids unique, every
  *        rectangle inside the panel and not empty, no two controls
- *        overlapping, and BACK at uiBackRect() on every screen but the
+ *        overlapping (on the tester, no two that act), and BACK at uiBackRect() on every screen but the
  *        tester, drawn live where the table says it acts and disabled
  *        where it says it does not.
  * @param where Names the frame in the check's text.
@@ -242,7 +242,13 @@ static inline void checkControlTable(const char *where) {
 		for (uint8_t j = i + 1; j < n; j++) {
 			const UiRect &s = t[j].rect;
 			if (t[i].id == t[j].id) unique = false;
-			if (r.x < s.x + s.w && s.x < r.x + r.w && r.y < s.y + s.h && s.y < r.y + r.h)
+			// The tester's readouts lie in the throttle pad and the track's
+			// grab band, and act only while those do not: there, a control
+			// that does not act may lie under one that does. Two that act
+			// never overlap, on any screen.
+			bool tester = uiCurrentScreen() == UiScreenId::Tester;
+			if (r.x < s.x + s.w && s.x < r.x + r.w && r.y < s.y + s.h && s.y < r.y + r.h &&
+			    (!tester || (t[i].enabled && t[j].enabled)))
 				apart = false;
 		}
 	}
@@ -250,7 +256,7 @@ static inline void checkControlTable(const char *where) {
 	checkTrue(what, inside);
 	snprintf(what, sizeof(what), "%s: no id appears twice", where);
 	checkTrue(what, unique);
-	snprintf(what, sizeof(what), "%s: no two controls overlap", where);
+	snprintf(what, sizeof(what), "%s: no two controls overlap that may not", where);
 	checkTrue(what, apart);
 	if (uiCurrentScreen() != UiScreenId::Tester) {
 		UiControl b;
