@@ -229,26 +229,26 @@ sind also drei auf einmal sichtbar.
 - Ein Puls über den Stellweg eines Servos hinaus fährt es gegen seinen
   Endanschlag, wo es blockiert und heiß wird. Mit TYPE WIDE, MIN unter 900 µs
   oder MAX über 2100 µs zeigt der Bildschirm in Bernstein
-  `PAST ITS TRAVEL A SERVO STALLS AND HEATS. TRY MIN AND MAX HORN-FREE.`
-  (über den Stellweg hinaus blockiert ein Servo und wird heiß; MIN und MAX
-  zuerst ohne Ruderhorn probieren). HELI CYCLIC zeigt ihn schon mit seinen
-  eigenen 820 µs bis 2220 µs. NARROW 760 und HELI TAIL 760 werden an ihrem
-  eigenen Bereich gemessen: Der Hinweis steht, wenn MIN mehr als 100 µs unter
-  dem MIN des Typs liegt oder MAX mehr als 100 µs über seinem MAX. Eine
-  Änderung von TYPE, MIN oder MAX, nach der das Profil über den Stellweg
-  hinaus reicht, wartet, wenn sie TYPE wechselt oder MIN oder MAX weiter
-  hinaus legt als im übernommenen Profil: Der Hinweis
-  ist ihre Warnung, auf jeder Zeile, und `HOLD TO APPLY` (1 s) übernimmt sie.
-  Weitere Schritte hinaus lassen sie warten; ein Schritt zurück innerhalb der
-  Grenze oder auf den übernommenen Wert gilt sofort, wenn sonst nichts
-  wartet. Ein Schritt zur Mitte hin gilt sofort. `BACK` verwirft eine
-  wartende Änderung. Eine Heli- oder 60-Hz-Warnung steht zuerst, und bei HELI
-  CYCLIC übernimmt ein Halten beides. Mit zwei Servos gilt das Halten für
-  beide; der Wechsel auf TWO gilt sofort. Nach dem Übernehmen steht der
-  Hinweis, solange TYPE, MIN oder MAX gewählt ist, und auf anderen Zeilen,
-  wenn dort kein anderer Hinweis steht.
-  Den Stellweg nennt das Datenblatt des Servos; der Prüfstand misst ihn
-  nicht.
+  `PAST ITS TRAVEL A SERVO STALLS AND HEATS. TRY MIN AND MAX HORN-FREE.` (über
+  den Stellweg hinaus blockiert ein Servo und wird heiß; MIN und MAX zuerst ohne
+  Ruderhorn probieren). HELI CYCLIC zeigt ihn schon mit seinen eigenen 820 µs
+  bis 2220 µs. NARROW 760 und HELI TAIL 760 werden an ihrem eigenen Bereich
+  gemessen: Der Hinweis steht, wenn MIN mehr als 100 µs unter dem MIN des Typs
+  liegt oder MAX mehr als 100 µs über seinem MAX. Eine Änderung von TYPE, MIN
+  oder MAX, nach der das Profil über den Stellweg hinaus reicht, wartet, wenn
+  sie TYPE wechselt oder MIN oder MAX weiter hinaus legt als im übernommenen
+  Profil: Der Hinweis ist ihre Warnung, auf jeder Zeile, und `HOLD TO APPLY`
+  (1 s) übernimmt sie. Weitere Schritte hinaus lassen sie warten; ein Schritt
+  zurück innerhalb der Grenze oder auf den übernommenen Wert gilt sofort, wenn
+  sonst nichts wartet. Ein Schritt zur Mitte hin gilt sofort. `BACK` verwirft
+  eine wartende Änderung. Eine Heli- oder 60-Hz-Warnung steht zuerst, und bei
+  HELI CYCLIC übernimmt ein Halten beides. Mit zwei Servos gilt das Halten für
+  beide. Der Wechsel von SERVOS ONE auf TWO wartet bei einem Profil über den
+  Stellweg hinaus ebenfalls auf das Halten, denn er treibt dort ein zweites
+  Servo an; bei einem Profil innerhalb des Stellwegs und von TWO auf ONE gilt er
+  sofort. Nach dem Übernehmen steht der Hinweis, solange TYPE, MIN oder MAX
+  gewählt ist, und auf anderen Zeilen, wenn dort kein anderer Hinweis steht. Den
+  Stellweg nennt das Datenblatt des Servos; der Prüfstand misst ihn nicht.
 - Die SWEEP-Zeilen lassen sich jederzeit ändern und gelten für den nächsten
   `SWEEP`. Ist `SPEED` langsamer als die Kurve, zeigt der Bildschirm
   `SPEED LIMITS THE SWEEP`.

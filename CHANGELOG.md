@@ -48,11 +48,13 @@ protocol.
   area's bottom row, in place of the pole count and the swipe hint, armed or
   not, while the pad is not engaged (`SWIPE ACTIVE` takes the row while a drag
   is engaged), after AM32 CONFIG read an ESC whose settings have 3D MODE on (a
-  read that opens the list) or wrote 3D MODE on and verified it, in this
-  power-up. A read or verified write with 3D MODE off clears it, and so does a
-  restart. Arming is unchanged. A swapped ESC is not detected. By the owner's
-  decision of 2026-11-14. `uiAm32Esc3d()` in `src/ui_am32.*`; host test
-  `testAm32TesterNote()`; the wiki shows `tester-3d.png`.
+  read that opens the list) or wrote 3D MODE on and the ESC accepted the write,
+  whether its read-back verified, failed or differed, in this power-up. Only a
+  list read or a verified write with 3D MODE off clears it, and so does a
+  restart; a failed read or a refused write leaves it. Arming is unchanged. A
+  swapped ESC is not detected. By the owner's decision of 2026-11-14.
+  `uiAm32Esc3d()` in `src/ui_am32.*`; host test `testAm32TesterNote()`; the wiki
+  shows `tester-3d.png`.
 - The Release workflow publishes a tag with a suffix, such as `v0.1.0-rc1`,
   as a GitHub pre-release, and the Docs workflow publishes no manual for it.
 - The splash shows `TOUCH CONTROLLER NOT FOUND` in amber while the touch
@@ -524,7 +526,9 @@ protocol.
   applied profile waits for `HOLD TO APPLY`, with the amber end-stop note as
   its warning; the heli and 60 Hz warnings come first. A step back inside
   the margin or to the applied value applies at once, as does a step toward
-  the centre. By the owner's decision of 2026-11-14, decision 21 of
+  the centre. SERVOS ONE to TWO on a profile past its travel waits too; TWO
+  to ONE, and ONE to TWO within the travel, apply at once. By the owner's
+  decisions of 2026-11-14, decisions 21 and 22 of
   `docs/design/servo-tester.md`. `servoTravelNeedsHold()` in
   `src/servo_model.*`; the wiki shows `servo-set-travel.png`.
 - SETTINGS: RESET reads `HOLD RESET` and loads the defaults after a 1 s hold on

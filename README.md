@@ -767,12 +767,14 @@ hold, and the note returns on release. The `ERPM` /
 `NO TELEMETRY` line above it, y 102, does not change. Arming is not refused
 on it.
 The flag is set by an AM32 CONFIG read that opens the list on settings with
-3D MODE on and by a verified write with 3D MODE on; a read or verified write
+3D MODE on and by a write of settings with 3D MODE on that the ESC accepted
+(`am32BlWrite()` returned OK), whether the read-back then verifies, fails or
+differs: such an ESC may run in 3D mode. Only a list read or a verified write
 with 3D MODE off clears it, and a restart does, since it is not stored
-([AM32 ESC configuration](#editing) explains the throttle scale). A write
-that is not verified and a read that does not open the list leave it. It
-describes the last ESC AM32 CONFIG reached, not the one on the pin now: a
-swapped ESC is not detected.
+([AM32 ESC configuration](#editing) explains the throttle scale). A failed
+read, a read that does not open the list, a write the ESC refused and a write
+of 3D MODE off that is not verified leave it. It describes the last ESC
+AM32 CONFIG reached, not the one on the pin now: a swapped ESC is not detected.
 
 An expired **ESC STATUS** reads `--`, never `OK`.
 
@@ -1050,7 +1052,8 @@ firmware version is bytes 0x03 and 0x04 (`am32Firmware()`); a major outside
 | `PROTOCOL` at 2 to 9 | `THE TESTER SENDS DSHOT ONLY:` / `THE ESC WILL NOT RUN HERE.` | `enum inputType`, zero-based: 0 AUTO, 1 DSHOT, 2 SERVO, 3 SERIAL, 4 EDT ARM, 5 DRONECAN. SERVO detects servo pulses only. SERIAL, 5 and 6 to 9 leave `EDT_ARMED` at 0, and `dshot.c` takes a throttle above 47 only with it set; 10 and above are AUTO. EDT ARM sets it on the EDT enable (command 13, after 6 frames, armed and stopped) and clears it on every zero frame; the tester sends the enable only while disarmed (`escFrameAction()`) and zero frames after it, so the throttle is dropped too. The editor offers 0 to 4, as the configurator does |
 | Firmware below 1.80, or a version byte AM32 did not write | `FIRMWARE BELOW 1.80 OR UNKNOWN:` / `FIELDS IT MAY NOT READ ARE HIDDEN.` | A field the firmware does not read is not listed (`am32FieldShown()`, `Am32Field::readFw`): 0x2A..0x2D from 1.80 (`AM32_FW_READS_2A`; AlkaMotors commit 9909ea7 adds the reads and raises VERSION_MINOR 79 to 80), 0x2E from 1.94 (`AM32_FW_READS_2E`; aa590e8, 93 to 94), 0x2F from 2.16 (`AM32_FW_READS_2F`; the tags v2.05 to v2.12 do not read it). A tag may store a lower version than its code (v1.99 stores 1.95), never a higher one. At 1.80 CURRENT LIMIT acts on 2..99, from 1.81 (f917c01) on 1..99. The backup file lists the fields the firmware reads; its hex lines hold every byte |
 
-After a list read or a verified write with 3D MODE on, the tester shows
+After a list read with 3D MODE on, or a write of 3D MODE on that the ESC
+accepted, verified or not, the tester shows
 `3D MODE ESC: THROTTLE SCALE DIFFERS` (`uiAm32Esc3d()`, set and cleared in
 `tryConnect()` and `doWrite()`;
 [Telemetry and logging](#telemetry-and-logging) says where it is drawn).
@@ -1245,10 +1248,11 @@ profile's (`servoTravelNeedsHold()`). Its warning is the amber end-stop note,
 heli or 60 Hz warning comes first when both apply. Each step decides again
 against the applied profile: a step back inside the margin, or back to the
 applied MIN or MAX, ends the wait and applies when nothing else waits. A step
-toward the centre, and a SERVOS, CENTRE or REVERSE B change, or a RATE change up
-to 60 Hz on a type that is not a heli type, applies at once while nothing waits
-and joins a waiting change otherwise. So TWO under an applied past-travel
-profile drives both servos with it without a new hold. HELI CYCLIC's own 820 µs
+toward the centre, SERVOS TWO to ONE, a CENTRE or REVERSE B change, and a RATE
+change up to 60 Hz on a type that is not a heli type apply at once while nothing
+waits and join a waiting change otherwise. SERVOS ONE to TWO waits for the hold
+when the profile is past its travel, since it drives a second servo there, and
+applies at once on a profile within it. HELI CYCLIC's own 820 µs
 to 2220 µs are past the travel; its one hold covers both warnings. BACK from SET
 drops a waiting change, and SET opens again on the applied profile. The SWEEP
 rows (shape, 0.05 Hz to 5.00 Hz, amplitude 0 % to 100 %, dwell 0 ms to 5000 ms,
@@ -1812,10 +1816,12 @@ In the firmware:
   is built (STATUS.md, open item 19). Fields are never merged
   one by one, so a corrupted byte cannot raise the throttle ceiling.
 - Arming is blocked while a USB host holds the SD card.
-- After AM32 CONFIG read or verified a write of 3D MODE on, the tester shows
+- After AM32 CONFIG read 3D MODE on, or wrote it and the ESC accepted the
+  write, verified or not, the tester shows
   `3D MODE ESC: THROTTLE SCALE DIFFERS`; arming is not refused on it.
-- On SERVO TESTER → SET a heli profile, a rate above 60 Hz and a profile
-  taken further past its travel wait for HOLD TO APPLY (1 s).
+- On SERVO TESTER → SET a heli profile, a rate above 60 Hz, a profile taken
+  further past its travel and a second servo on such a profile wait for
+  HOLD TO APPLY (1 s).
 - SETTINGS loads the compiled defaults only after a 1 s hold of HOLD RESET.
 - The servo tester starts SAFE, with no pulses; HOLD TO START is a 1 s hold
   that puts every pin at CENTRE, and STOP acts on touch. A hold counts only

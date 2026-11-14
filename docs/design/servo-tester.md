@@ -336,7 +336,8 @@ y   0 | SERVO SET                        [ BACK ]|
   shows `PAST ITS TRAVEL A SERVO STALLS AND` `HEATS. TRY MIN AND MAX
   HORN-FREE.` in amber. A TYPE, MIN or MAX change whose result is such a
   profile and that changes TYPE, or takes MIN below or MAX above the applied
-  profile's, is held as pending (`servoTravelNeedsHold()`, decision 21),
+  profile's, is held as pending (`servoTravelNeedsHold()`, decision 21), and
+  so is SERVOS ONE to TWO on such a profile (decision 22),
   with this note as its warning; a heli or 60 Hz warning comes first. A
   change toward the centre applies at once. The note
   band takes the first that holds: the pending warning; `STOP TO CHANGE THE
@@ -670,3 +671,12 @@ Decision of the owner, 2026-11-14:
     that only narrows it needs none. Decision 11's rule for a MIN change
     under an applied heli profile holds when the change keeps the profile
     inside its travel or moves MIN toward the centre. Not checked on a servo.
+
+Decision of the owner, 2026-11-14, on the review of PR #55:
+
+22. **A second servo past the travel.** SERVOS ONE to TWO while the profile
+    is past its travel waits for HOLD TO APPLY, since it drives a second
+    servo against its end stops. Built in `servoTravelNeedsHold()` as one
+    more condition beside decision 21's: the edited profile drives more
+    servos than the applied one. TWO to ONE, and ONE to TWO on a profile
+    within its travel, apply at once. Not checked on a servo.

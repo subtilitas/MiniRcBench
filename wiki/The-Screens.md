@@ -65,16 +65,16 @@ count. The `ERPM` value and the pole count are shown below it. Green digits:
 eRPM arrived within the last 500 ms. Dark red zero: it did not, and the line
 reads `NO TELEMETRY`.
 
-After AM32 CONFIG has read an ESC with 3D MODE on, or written 3D MODE on and
-read it back equal (`WRITE VERIFIED`), in this power-up, the row under the
+After AM32 CONFIG has read an ESC with 3D MODE on, or written 3D MODE on
+(accepted by the ESC, verified or not), in this power-up, the row under the
 `ERPM` line reads `3D MODE ESC: THROTTLE SCALE DIFFERS` in amber, in place of
 the pole count and the swipe hint, armed or not; `NO TELEMETRY` stays on its own
 line above it. While a swipe on the pad is engaged, `SWIPE ACTIVE` in green
 takes the row, and the note returns on release. In 3D mode 50 % throttle is full
 power one way, and above 50 % the motor runs the other way. Keep the propeller
 off. Arming is not refused on it. The note does not know that the ESC on the pin
-was swapped for another one; a read or verified write with 3D MODE off, or a
-restart, removes it. See
+was swapped for another one; only a verified write or a read with 3D MODE off,
+or a restart, removes it. See
 [AM32 Configuration](AM32-Configuration#fields-with-a-note).
 
 <img src="img/tester-3d.png" width="240" alt="The tester armed, with 3D MODE ESC: THROTTLE SCALE DIFFERS in amber under the RPM readout">

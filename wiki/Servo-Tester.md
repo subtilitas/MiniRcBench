@@ -226,10 +226,12 @@ Swipe the row sideways for big steps. Drag up or down to scroll. Rows are
   inside the margin, or back to the applied value, applies at once when nothing
   else waits. A step toward the centre applies at once. `BACK` drops a waiting
   change. A heli or 60 Hz change shows its own warning first, and HELI CYCLIC's
-  one hold covers both. With TWO servos the hold covers both; changing to TWO
-  applies at once. Once applied, the note shows while TYPE, MIN or MAX is
-  selected, and on other rows when no other note does. The travel of a servo is
-  in its data sheet; the bench does not measure it.
+  one hold covers both. With TWO servos the hold covers both. Changing SERVOS
+  from ONE to TWO on a profile past its travel waits for the hold too, since it
+  drives a second servo there; on a profile within its travel, and from TWO to
+  ONE, it applies at once. Once applied, the note shows while TYPE, MIN or MAX
+  is selected, and on other rows when no other note does. The travel of a servo
+  is in its data sheet; the bench does not measure it.
 - The SWEEP rows change at any time and apply to the next `SWEEP`. When
   `SPEED` is slower than the curve, the screen says `SPEED LIMITS THE SWEEP`.
 - `DEFAULTS`, offered only while `SAFE`, returns to STANDARD PWM at 50 Hz,

@@ -71,19 +71,18 @@ darunter. Grüne Ziffern: eRPM ist in den letzten 500 ms eingetroffen.
 Dunkelrote Null: nicht, und die Zeile zeigt `NO TELEMETRY`.
 
 Hat AM32 CONFIG seit dem Einschalten einen ESC mit 3D MODE an gelesen, oder
-3D MODE an geschrieben und gleich zurückgelesen (`WRITE VERIFIED`), zeigt die
-Zeile unter der `ERPM`-Zeile in Bernstein
-`3D MODE ESC: THROTTLE SCALE DIFFERS` (3D-ESC: die Gasskala ist eine andere),
-an Stelle der Polzahl und des Wisch-Hinweises, scharf oder nicht;
-`NO TELEMETRY` bleibt auf seiner eigenen Zeile darüber. Solange ein Wischer
-auf der Gasfläche greift, steht `SWIPE ACTIVE` in Grün in der Zeile, und nach
-dem Loslassen kehrt der Hinweis zurück. Im 3D-Modus ist 50 %
-Gas volle Leistung in die eine Richtung, über 50 % dreht der Motor in die
-andere. Den Propeller abnehmen. Scharfschalten wird deswegen nicht
-verweigert. Der Hinweis
-weiß nicht, ob der ESC am Pin gegen einen anderen getauscht wurde; ein Lesen
-oder bestätigtes Schreiben mit 3D MODE aus oder ein Neustart nimmt ihn weg.
-Siehe [AM32-Konfiguration](AM32-Konfiguration#felder-mit-hinweis).
+3D MODE an geschrieben (vom ESC angenommen, bestätigt oder nicht), zeigt die
+Zeile unter der `ERPM`-Zeile in Bernstein `3D MODE ESC: THROTTLE SCALE DIFFERS`
+(3D-ESC: die Gasskala ist eine andere), an Stelle der Polzahl und des
+Wisch-Hinweises, scharf oder nicht; `NO TELEMETRY` bleibt auf seiner eigenen
+Zeile darüber. Solange ein Wischer auf der Gasfläche greift, steht
+`SWIPE ACTIVE` in Grün in der Zeile, und nach dem Loslassen kehrt der Hinweis
+zurück. Im 3D-Modus ist 50 % Gas volle Leistung in die eine Richtung, über 50 %
+dreht der Motor in die andere. Den Propeller abnehmen. Scharfschalten wird
+deswegen nicht verweigert. Der Hinweis weiß nicht, ob der ESC am Pin gegen einen
+anderen getauscht wurde; nur ein bestätigtes Schreiben oder ein Lesen mit
+3D MODE aus oder ein Neustart nimmt ihn weg. Siehe
+[AM32-Konfiguration](AM32-Konfiguration#felder-mit-hinweis).
 
 <img src="img/tester-3d.png" width="240" alt="Der Tester scharf, mit 3D MODE ESC: THROTTLE SCALE DIFFERS in Bernstein unter der Drehzahl">
 
