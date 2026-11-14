@@ -531,6 +531,42 @@ protocol.
 
 ### Changed
 
+- After v0.1.0-rc1 (a93e1c1): the leave page, slice 6 of menu structure B
+  ([menu-b.md](docs/design/menu-b.md#slice-6-as-built), decision 5 and owner
+  decisions 3, 21, 25 and 30). KST SERVO, HITEC SERVO and SERVO TESTER leave
+  through one page, `src/ui_leave.*`, in place of their leave and unplug
+  pages. It numbers its steps, the current one amber with a 3 px bar:
+  `1 POWER THE SERVO OFF, THEN LEAVE.` (KST, `OWN`),
+  `1 LEAVE SWITCHES THE SUPPLY OFF.` (switched supply) or
+  `1 LEAVE RESTARTS THE SERVO.` (Hitec, `OWN`), then `UNPLUG THE SERVO.` with
+  `DSHOT RESTARTS ON SIG GP0 AND READS` / `AS A 970 US PULSE AT 1000 HZ.`,
+  then `RESTART DSHOT.`; a page with no servo in programming mode, and SERVO
+  TESTER's, opens at `1 UNPLUG THE SERVO.` STAY returns to the tool; LEAVE
+  ends the claim as before; RESTART DSHOT takes LEAVE's rectangle, in place of
+  the 160 × 40 px button at (40, 200), and acts on a press that lands 1000 ms
+  or more after the pin is let go, so a double tap on LEAVE restarts nothing.
+  NEXT SERVO (KST, Hitec) and BACK TO SERVO keep the claim, as BACK on the
+  unplug page did. BACK on the page is drawn disabled in every phase and does
+  nothing. HOLD TO REBOOT and READ AGAIN sit right of STAY, 112 px wide at
+  scale 1, before LEAVE only. Notes: `2 CHANGES NOT WRITTEN.`,
+  `THE SERVO IS IN DOUBT: RESTORE FIRST.` (KST) and
+  `A WRITE DID NOT END VERIFIED.` (Hitec), amber, before LEAVE;
+  `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` or `RELEASING THE PIN`, grey, while the
+  pin goes (`RELEASING THE PINS` on SERVO TESTER with AUX);
+  `NEXT SERVO: POWER IT AFTER THE TAP.` (KST) and
+  `NEXT SERVO: POWER IT BEFORE THE TAP.` (Hitec), grey, once released with
+  `OWN`. The strips name `SIG GP0`. `KstView::Unplug` and
+  `HitecView::Unplug` are gone; `KstCtl::Stay`, `KstCtl::NextServo`, `HitecCtl::Stay`,
+  `HitecCtl::NextServo` and `ServoCtl::BackToServo` are new. Host tests in
+  `test/test_kst_ui.cpp` (`testLeaveAndBack()`, `leaveReleases()`),
+  `test/test_hitec_ui.cpp`, `test/test_servo.cpp` (`testLeavePage()`) and the
+  probes `leaveStepIs()`, `leaveNoteIs()` in `test/ui_ids.h`. The wiki shows
+  `leave-kst.png`, `leave-kst-pending.png`, `leave-kst-released.png`,
+  `leave-kst-switched.png`, `leave-kst-supply-off.png`, `leave-hitec.png`,
+  `leave-hitec-failed.png`, `leave-hitec-released.png` and `leave-servo.png`
+  in place of
+  `kst-leave.png`, `kst-leave-pending.png`, `kst-leave-switched.png`,
+  `hitec-unplug.png` and `servo-unplug.png`.
 - After v0.1.0-rc1 (a93e1c1): the tester of menu structure B, slice 7 of
   [menu-b.md](docs/design/menu-b.md#slice-7-as-built) (owner decision 4 and
   decisions 11 (the MAX row), 15 a to c, 17, 19 and 20). The pole count reads

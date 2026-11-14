@@ -244,8 +244,8 @@ A batch that fails:
   for the claim.
 - `cardCacheEnd()` runs when the claim ends: KST's LEAVE, BACK and the loss
   rule, AM32's BACK. It flushes, core0 blocking, recovers a failed flush, and
-  turns the cache off. BACK on KST's unplug page keeps the claim and turns
-  the cache on again.
+  turns the cache off. NEXT SERVO on KST's leave page keeps the claim and
+  turns the cache on again.
 - KST's RETRY MOUNT keeps the cache on with the serial number taken at the
   claim's start. A card swapped before it fails the next batch at the swap
   check, with nothing written, and the recovery that follows takes the new
@@ -290,9 +290,9 @@ recorded in this note.
   disabled during the flush, the write after it, and a SAVE AS whose flush
   fails, then the backup saved again; a stall during the flush wait, then a
   write that sends nothing until its own hold (also in `test_hitec_ui.cpp`); a
-  batch failed before a write, recovered; BACK on the unplug page turning the
-  cache on again; another card's serial number before a write, mounted again and
-  the backup saved to it; a batch still queued, the saving page and no write
+  batch failed before a write, recovered; NEXT SERVO on the leave page turning
+  the cache on again; another card's serial number before a write, mounted
+  again and the backup saved to it; a batch still queued, the saving page and no write
   frame until it ends, then the same card with no remount, or another card
   swapped in meanwhile and the backup saved to it; LOAD after a failed batch,
   the list read again and nothing loaded until a row is chosen.

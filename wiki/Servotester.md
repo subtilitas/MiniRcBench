@@ -286,21 +286,25 @@ Servobildschirm öffnest, beginnt er mit STANDARD PWM, 50 Hz und einem Servo.
 
 ## Verlassen
 
-`BACK` beendet die Impulse und fordert dich auf, das Servo abzuziehen. Der
-letzte Impuls läuft vorher vollständig aus; bei 50 Hz dauert das bis zu
-41 ms. Danach hält ein schwacher Pull-down SIG auf Low, bis DShot wieder
-läuft. Mit zwei Servos hält er auch AUX auf Low, bis der KISS-Empfänger ihn
-übernimmt; ist KISS aus, bleibt er auf Low.
+`BACK` beendet die Impulse und öffnet die Verlassenseite, deren erster
+Schritt dich auffordert, das Servo abzuziehen: `1 UNPLUG THE SERVO.`, mit
+`DSHOT RESTARTS ON SIG GP0 AND READS` und `AS A 970 US PULSE AT 1000 HZ.`,
+dann `2 RESTART DSHOT.` Der letzte Impuls läuft vorher vollständig aus; bei
+50 Hz dauert das bis zu 41 ms. Danach hält ein schwacher Pull-down SIG auf
+Low, bis DShot wieder läuft. Mit zwei Servos hält er auch AUX auf Low, bis
+der KISS-Empfänger ihn übernimmt; ist KISS aus, bleibt er auf Low. Die
+Leiste nennt die Pins, die der Bildschirm hält, `SIG GP0  AUX GP1`, oder
+`SIG GP0`, wenn er SIG allein hält.
 
-<img src="img/servo-unplug.png" width="240" alt="UNPLUG THE SERVO">
+<img src="img/leave-servo.png" width="240" alt="Die Verlassenseite: 1 UNPLUG THE SERVO., BACK TO SERVO und RESTART DSHOT">
 
-Zieh das Servo ab und tippe dann auf `RESTART DSHOT`. Der ESC-Treiber
-übernimmt die Pins wieder, und `MENU` erscheint. `BACK`
-auf dieser Seite führt stattdessen zurück zum Servobildschirm, in SAFE, und
-behält die Pins. Bis der letzte Impuls ausgelaufen ist, zeigt die Seite
-`RELEASING THE PINS`, und `BACK` ist deaktiviert gezeichnet, als Umriss mit
-grauer Beschriftung: Es wirkt ab dem Moment, in dem `UNPLUG THE SERVO.`
-erscheint.
+Bis der letzte Impuls ausgelaufen ist, zeigt die Seite `RELEASING THE PINS`,
+mit SIG allein `RELEASING THE PIN`, und beide Tasten sind grau. Dann wirkt
+`BACK TO SERVO`: Es führt zum Servobildschirm zurück, in SAFE, und behält
+die Pins. Zieh das Servo ab und tippe dann auf `RESTART DSHOT`: Es wirkt
+1 s, nachdem die Pins freigegeben sind, damit ein schnelles zweites Tippen
+nach `BACK` nichts neu startet. Der ESC-Treiber übernimmt die Pins wieder,
+und `MENU` erscheint. `BACK` auf der Seite ist grau und bewirkt nichts.
 
 ---
 

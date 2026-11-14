@@ -344,15 +344,16 @@ which all 10 enter are the window, and the constant takes a value inside it.
 
 - **Leave.** LEAVE switches the supply off at once; the line stays low. After
   `KST_SUPPLY_OFF_MS`, 2000 ms from the switch-off command, the job closes the
-  line and releases the enable pin, and the unplug page follows. A servo
-  without power is in no mode (rcbench `shared/outputs/include/kst_port.h`), so the leave page
-  does not ask the user to power it off. How long a KST servo needs without
-  power to leave programming mode is not measured; 2000 ms is the owner's
-  value. Before the tap the page reads
-  `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.`; during the wait,
-  `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` A locked session leaves the same way.
-  BACK during the wait does nothing: the supply is off, and the wait ends at
-  the unplug page. HOLD TO REBOOT is hidden during the wait, and the job
+  line and releases the enable pin, and the leave page's released phase
+  follows. A servo without power is in no mode (rcbench
+  `shared/outputs/include/kst_port.h`), so the leave page does not ask the
+  user to power it off. How long a KST servo needs without power to leave
+  programming mode is not measured; 2000 ms is the owner's value. Before the
+  tap the page's step 1 reads `LEAVE SWITCHES THE SUPPLY OFF.`; during the
+  wait its note reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` A locked session
+  leaves the same way. BACK on the leave page is drawn disabled and does
+  nothing, and NEXT SERVO and RESTART DSHOT are drawn disabled until the
+  wait ends. HOLD TO REBOOT is hidden from the tap on LEAVE on, and the job
   refuses `Reboot` while Leaving.
 - **REBOOT.** A 1000 ms hold on the leave page ([leave](#leave)), offered with
   `SERVO SUPPLY` at `GP28` or `GP29` only. The line stays low throughout.
@@ -374,8 +375,9 @@ which all 10 enter are the window, and the constant takes a value inside it.
     refuses `Reboot`, and the button is drawn disabled and gated per
     `ui_widgets.h`, or hidden during LEAVE's wait.
   - BACK during REBOOT switches the supply off if it is on and closes as
-    LEAVE does ([close](#close-with-the-switch)): the unplug page follows
-    2000 ms after the switch-off command.
+    LEAVE does ([close](#close-with-the-switch)): the leave page opens at
+    `1 UNPLUG THE SERVO.` and is released 2000 ms after the switch-off
+    command.
   - An entry with no answer starts the switched search, as RETRY does.
     Whether the owner's servo still enters about 1100 ms after power-on is
     unknown; if it does not, that search is what finds it.
@@ -420,9 +422,10 @@ the line and releases the enable pin only once `KST_SUPPLY_OFF_MS`,
 stalled screen and BACK during a switched search alike (decision 18). BACK
 switches the supply off first if it is on; time spent off before BACK counts.
 Until the close the page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`, BACK
-does nothing, and the unplug page follows. Without the wait, a servo that
-entered programming mode in an on phase could reach the unplug page and
-DShot after less than the 2000 ms without power that LEAVE gives it.
+does nothing, and the leave page's released phase follows. Without the wait,
+a servo that entered programming mode in an on phase could reach RESTART
+DSHOT and DShot after less than the 2000 ms without power that LEAVE gives
+it.
 
 ### Card calls and the heartbeat
 
@@ -608,10 +611,11 @@ What remains:
 | REBOOT | `SIG GP0  SUPPLY OFF 1.4 S`, then `SUPPLY ON 0.6 S` | `REBOOT: DO NOT UNPLUG THE SERVO.`, then `READING 32 REGISTERS` | BACK |
 
 The converter text names the enable pin SETTINGS chose, `GP28` or `GP29`.
-BACK on the stalled screen goes to the unplug page once the supply has been
-off for 2000 ms; the session is not in the mode. BACK during REBOOT switches
-the supply off if it is on, waits as LEAVE does, 2000 ms from the switch-off
-command, and then shows the unplug page ([close](#close-with-the-switch)).
+BACK on the stalled screen opens the leave page before LEAVE, as after any
+servo found in the claim; LEAVE there closes once the supply has been off for
+2000 ms. BACK during REBOOT switches the supply off if it is on and opens the
+leave page the same way, released 2000 ms after the switch-off command
+([close](#close-with-the-switch)).
 
 The layout of the switched search, where the lines are longer than without a
 switch:
@@ -1024,20 +1028,20 @@ and the card is only ever touched from core0, as `sd_log.cpp` already does.
 | STOPPING, 50 ms with no pulse | the claim's drain: DShot stops, then silence |
 | LOW, 100 ms at least, and the supply set | `kst_line_open()`, which drives low. With a switched supply, `servoSupplyBind()` drives the enable pin low at the job's bind, and the search switches the supply off for 2000 ms and on before each attempt |
 | PROGRAMMING, the entry holds low 100 ms more | the search |
-| LEAVE: low for 100 ms by default, then PWM | without a switched supply: low for 100 ms, `kst_line_close()` (input, pull-down on), then the unplug page and DShot. With one: supply off and the line low for 2000 ms, `kst_line_close()`, `servoSupplyRelease()`, then the unplug page and DShot |
+| LEAVE: low for 100 ms by default, then PWM | without a switched supply: low for 100 ms, `kst_line_close()` (input, pull-down on), then the leave page's RESTART DSHOT and DShot. With one: supply off and the line low for 2000 ms, `kst_line_close()`, `servoSupplyRelease()`, then the leave page's RESTART DSHOT and DShot |
 | POWER_CYCLED, REBOOT | the loss rule above. REBOOT with a switched supply only, on the leave page; not rcbench's REBOOT, which counts from its PD mini's read-back and ends in PWM: here the times count from the switch commands, and an entry and a read follow |
 
 The servo stays in programming mode until its supply is off
 (`kst_session.h`: "The mode lasts until the servo's supply is removed").
 Whether it follows PWM before that is not measured. So, without a switched
 supply, leaving tells the user to power it off; with one, the bench switches
-the supply off itself. The shared unplug page follows before DShot restarts
-on the pin.
+the supply off itself. The shared leave page's RESTART DSHOT comes before
+DShot restarts on the pin.
 
 ## Screens
 
 Entry: MENU → KST SERVO, one line in `ui_registry.cpp`
-([menu.md](menu.md#code)); BACK returns to MENU through the unplug page. The
+([menu.md](menu.md#code)); BACK returns to MENU through the leave page. The
 AM32 screen is the model: a state machine that touches nothing until the
 handover completes, a list with an editor bar, and a write that needs a
 1000 ms hold. The lists are on `ui_list` and the holds on `ui_hold`, and the
@@ -1184,56 +1188,65 @@ y   0 | KST FILES                        [ BACK ]|
 ### Leave
 
 BACK from the list, or from the search after a servo was found, opens the
-leave page. Without a switched supply:
+leave page of [menu-b.md](menu-b.md#the-leave-page), `ui_leave` filled by
+`leaveText()` in `ui_kst.cpp`. Without a switched supply, before LEAVE:
 
 ```
-  POWER THE SERVO OFF.
-  IT STAYS IN PROGRAMMING MODE UNTIL ITS SUPPLY IS OFF.
-  2 CHANGES NOT WRITTEN.                       (only with pending edits)
-  THE SERVO IS IN DOUBT: RESTORE FIRST.        (only while locked)
-  [ LEAVE ]
+y   0 | KST SERVO                       [  BACK  ]|  BACK drawn disabled
+   40 | V6  SIG GP0                               |  strip, C_DIM
+   66 |#1 POWER THE SERVO OFF, THEN LEAVE.        |  step 1, current, C_AMBER
+   78 |#  IT STAYS IN PROGRAMMING MODE UNTIL      |
+   90 |#  ITS SUPPLY IS OFF.                      |
+  104 | 2 UNPLUG THE SERVO.                       |  step 2, C_DIM
+  116 |   DSHOT RESTARTS ON SIG GP0 AND READS     |
+  128 |   AS A 970 US PULSE AT 1000 HZ.           |
+  142 | 3 RESTART DSHOT.                          |  step 3, C_DIM
+  158 | 2 CHANGES NOT WRITTEN.                    |  only with pending edits, C_AMBER
+  170 | THE SERVO IS IN DOUBT: RESTORE FIRST.     |  only while locked, C_AMBER
+  214 | [   STAY   ]                              |  6, 214, 110 x 46
+  268 | [              LEAVE               ]      |  6, 268, 228 x 46, scale 2
+  320 +-------------------------------------------+
 ```
 
-LEAVE is a tap. Without a switched supply it leaves even a locked session:
-there is nothing else the screen can do, and the record file below keeps what
-the servo was. Then the unplug page from [pin-claim.md](pin-claim.md), then
-DShot. BACK during a write is drawn disabled on the write page and does
-nothing: no leave is queued, and the result stays on the page
-([menu-b.md](menu-b.md), decision 5, built in its slice 5). BACK during a
-search or a read aborts it.
+STAY returns to the field list, or to the search after a lost servo. LEAVE is
+a tap. Without a switched supply it leaves even a locked session: there is
+nothing else the screen can do, and the record file below keeps what the
+servo was. From the tap on, step 2 is current, the note reads
+`RELEASING THE PIN` in `C_DIM`, and the left button reads NEXT SERVO and the
+wide one RESTART DSHOT, both drawn disabled until `pinClaimUnplugDue()`.
+Then NEXT SERVO keeps the claim and starts a new search, with
+`NEXT SERVO: POWER IT AFTER THE TAP.`, and RESTART DSHOT takes a press that
+lands 1000 ms or more later ([pin-claim.md](pin-claim.md#restoring-dshot)).
+BACK during a write is drawn disabled on the write page and does nothing: no
+leave is queued, and the result stays on the page ([menu-b.md](menu-b.md),
+decision 5, built in its slice 5). BACK during a search or a read aborts it.
+BACK on a search that found no servo opens the page released, at
+`1 UNPLUG THE SERVO.` and `2 RESTART DSHOT.`
 
-With a switched supply:
+With a switched supply step 1 is one line, and HOLD TO REBOOT, scale 1,
+sits right of STAY:
 
 ```
-y   0 | KST SERVO                        [ BACK ]|
-   40 | V6  GP0  SUPPLY ON                       |  strip
-   66 | LEAVE SWITCHES THE SERVO'S SUPPLY OFF.   |  scale 1, centred, 227 px
-   86 | 2 CHANGES NOT WRITTEN.                   |  only with pending edits
-  100 | THE SERVO IS IN DOUBT: RESTORE FIRST.    |  only while locked, C_AMBER
-  136 | REBOOT: SUPPLY OFF FOR 2 S, ON,          |  scale 1, C_DIM
-  150 | THEN A NEW ENTRY AND READ. THE READ      |
-  164 | BECOMES THE BACKUP.                      |
-  182 | NO CARD: REBOOT DROPS THE BACKUP IN      |  C_AMBER, no card only
-  196 | MEMORY.                                  |
-  214 | [          HOLD TO REBOOT           ]    |  228 x 46 px, 1000 ms hold
-  268 | [              LEAVE                ]    |  228 x 46 px, a tap
-  320 +------------------------------------------+
+   66 |#1 LEAVE SWITCHES THE SUPPLY OFF.          |  step 1, current
+   80 | 2 UNPLUG THE SERVO.                       |  steps 2 and 3, C_DIM
+  118 | 3 RESTART DSHOT.                          |
+  158 | NO CARD: REBOOT LOSES THE BACKUP          |  C_AMBER, no card only, after
+  170 | IN RAM.                                   |  the notes on edits and doubt
+  214 | [   STAY   ] [ HOLD TO REBOOT ]           |  6,214,110x46; 122,214,112x46
 ```
 
-- LEAVE is a tap. The supply goes off, the page's text gives way to
-  `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`, and after 2000 ms the unplug page
-  follows ([leave](#leave-reboot-loss-and-heartbeat-with-the-switch)). A
-  locked session leaves the same way. HOLD TO REBOOT is hidden during the
-  wait, and the job refuses `Reboot` while Leaving.
+- LEAVE is a tap. The supply goes off, the note reads
+  `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`, and after 2000 ms the page is
+  released ([leave](#leave-reboot-loss-and-heartbeat-with-the-switch)). A
+  locked session leaves the same way. HOLD TO REBOOT is hidden from the tap
+  on, and the job refuses `Reboot` while Leaving. Released, no line names
+  the next servo's power: the bench switches it.
 - HOLD TO REBOOT runs REBOOT after a 1000 ms hold on `ui_hold`, as HOLD TO
   WRITE does: progress across the button, and a slide off cancels. It is
   drawn disabled and takes no press while an operation runs or plans.
-- The backup line: without a card, the amber line above. With a card, after
-  the session's first write, `THE BACKUP STAYS ON THE CARD: KST005.` With a
-  card and no write, none: the servo still holds the backup's values.
-- BACK on the page returns to the field list, or to the search after a
-  lost servo. The leave page is exempt from the loss rule, so BACK from
-  the search after a loss stays on it; that BACK also stops the search.
+- STAY returns to the field list, or to the search after a lost servo. The
+  leave page is exempt from the loss rule, so BACK from the search after a
+  loss stays on it; that BACK also stops the search.
 
 REBOOT is on this page and not on the field list, whose footer is full
 (110, 52 and 54 px). The leave page carries the locked session's warning
@@ -1472,9 +1485,9 @@ so these run against the same simulated servo:
    `kstCardStamp()`, `sdh_wait_hook`), their screens and their tests
    against `test/kst_supply_sim.h`. As built, and differing from the
    sections above:
-   - The close's wait shows on the unplug page,
-     `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`, not on the leave page; BACK there
-     is disabled until the pin is let go, as without a switch.
+   - The close's wait shows on the leave page after LEAVE,
+     `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`; BACK there is disabled, as without
+     a switch.
    - REBOOT is taken from InMode only, and drops the pending changes with
      the old image.
    - BACK on the stalled screen and during a switched search goes to the
@@ -1482,8 +1495,8 @@ so these run against the same simulated servo:
    - `KstStatus` carries `supplyFitted`, `supplyOn`, `supplyUsed`,
      `supplyLeftDs` (0.1 s) and `reboot` in place of the fields named above,
      and `stallLocked` and `stallWrote` for the stalled screen.
-   - The switched leave page reads `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.`
-     and, without a card, `NO CARD: REBOOT LOSES THE BACKUP IN RAM.` above
+   - The switched leave page reads `LEAVE SWITCHES THE SUPPLY OFF.` and,
+     without a card, `NO CARD: REBOOT LOSES THE BACKUP` / `IN RAM.` above
      HOLD TO REBOOT; its strip names the servo and the pin only.
    - A heartbeat lapse with the supply on is latched: the supply goes off
      once what runs has ended, even if the heartbeat returns before. A

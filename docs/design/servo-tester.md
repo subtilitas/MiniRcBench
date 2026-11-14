@@ -209,7 +209,7 @@ are channels A and B of PWM slice 0, which forces one rate anyway.
 
 Entry: MENU → SERVO TESTER, a row of the registry
 ([menu.md](menu.md)). The main screen is the root and gets no entry; MENU is
-its navigation. BACK through the unplug page returns to MENU. While the claim
+its navigation. BACK through the leave page returns to MENU. While the claim
 is not Free, the row is drawn disabled, MENU's strip reads
 `DSHOT RESTARTING ON SIG GP0`, and a tap opens nothing.
 
@@ -368,16 +368,35 @@ The note band is two lines under the header, rows 40 to 61, where the other
 screens have a one-line strip: the warnings and the pin-claim texts do not fit
 one line of 240 px.
 
-### The unplug page
+### The leave page
 
-BACK on SERVO TESTER, once a job has held the pins, shows the page of
-[pin-claim.md](pin-claim.md#restoring-dshot): `UNPLUG THE SERVO.`, `DSHOT
-RESTARTS ON GP0 AND READS AS` `A 970 US PULSE AT 1000 HZ.`, and RESTART
-DSHOT, a tap. Until core1 has released the pins the page says
-`RELEASING THE PINS`, and BACK on it does nothing. Once they are released,
-BACK on the page returns to SERVO TESTER and keeps the claim; the job binds
-again, SAFE. BACK from a claim still draining, or with no
-claim, leaves at once: nothing was driven.
+BACK on SERVO TESTER, once a job has held the pins, shows the leave page of
+[menu-b.md](menu-b.md#the-leave-page), `ui_leave`, filled by `drawLeave()` in
+`ui_servo.cpp`. BACK is the leave, so the page has no step before LEAVE and
+opens releasing:
+
+```
+y   0 | SERVO TESTER                    [  BACK  ]|  BACK drawn disabled
+   40 | SIG GP0  AUX GP1                          |  strip, C_DIM: the pins held
+   66 |#1 UNPLUG THE SERVO.                       |  step 1, current, C_AMBER
+   78 |#  DSHOT RESTARTS ON SIG GP0 AND READS     |
+   90 |#  AS A 970 US PULSE AT 1000 HZ.           |
+  104 | 2 RESTART DSHOT.                          |  step 2, C_DIM
+  158 | RELEASING THE PINS                        |  until core1 lets go, C_DIM
+  214 | [BACK TO SERVO]                           |  6, 214, 110 x 46
+  268 | [          RESTART DSHOT           ]      |  6, 268, 228 x 46, scale 2
+  320 +-------------------------------------------+
+```
+
+Until core1 has released the pins the note reads `RELEASING THE PINS`, or
+`RELEASING THE PIN` while the screen holds SIG alone, and both buttons are
+drawn disabled. Once they are released, BACK TO SERVO returns to SERVO
+TESTER and keeps the claim; the job binds again, SAFE. RESTART DSHOT takes a
+press that lands 1000 ms or more after the release
+([pin-claim.md](pin-claim.md#restoring-dshot)): at 50 Hz the pins go 41 ms
+after BACK, so without the wait a second tap could restart DShot into the
+servo. BACK on the page is drawn disabled and does nothing. BACK from a
+claim still draining, or with no claim, leaves at once: nothing was driven.
 
 ## Where it runs
 
@@ -519,8 +538,8 @@ UI frames:
   visit to the screen;
 - the last pulse: no pulse cut short at a release from RUNNING, at a rebind
   from RUNNING then SAFE, nor at `pinClaimEnd()` while RUNNING; the claim
-  stays `Leaving` until the job is idle, and BACK on the unplug page does
-  nothing until then; the status reads SAFE during the wait; a released pin
+  stays `Leaving` until the job is idle, and BACK TO SERVO on the leave page
+  does nothing until then; the status reads SAFE during the wait; a released pin
   is an input with the pull-down on;
 - a new visit, refused while an ESC answers or before the job binds, does
   not show the last visit's trip;
@@ -530,13 +549,14 @@ UI frames:
 - two servos: the selector, `AB` with REVERSE B.
 
 The screen tests are in `test/test_servo.cpp` too, through the real UI from
-MENU: the SERVO TESTER, SET and unplug screens render, the disabled states draw
+MENU: the SERVO TESTER, SET and leave screens render, the disabled states draw
 disabled and do not act, HOLD TO START fires at 1000 ms and not at 999 ms nor
 on a slide off, STOP fires on press, the KissLive and SamePin refusals reach
 the SET screen through the claim, an ESC answering on SIG holds the claim off
-until 500 ms after its last frame, and the unplug page comes before DShot
-restarts. `test/test_menu.cpp` checks the MENU row: SERVO TESTER opens its screen,
-BACK through the unplug page lands on MENU, and the row drawn disabled while
+until 500 ms after its last frame, and the leave page comes before DShot
+restarts, its RESTART DSHOT 1000 ms after the release. `test/test_menu.cpp`
+checks the MENU row: SERVO TESTER opens its screen, BACK through the leave
+page lands on MENU, and the row drawn disabled while
 the claim restores. `make previews` adds
 `docs/servo-preview.png`.
 

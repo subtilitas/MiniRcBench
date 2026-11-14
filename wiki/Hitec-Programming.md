@@ -112,10 +112,10 @@ The strip reads `RELEASING SIG GP0 FROM DSHOT` while the driver stops, then
 `GP29` the converter stays off on this view, held off by its pull-down, and
 the bench powers the servo after the tap.
 
-Once the pin is the servo's, `BACK` on this view goes to the unplug page, as
-`LEAVE` does: DShot restarts only after `UNPLUG THE SERVO.` and
-`RESTART DSHOT`. `BACK` on the unplug page returns to the family view. While
-the driver still stops, or while the screen has not taken the pin, `BACK`
+Once the pin is the servo's, `BACK` on this view opens the leave page at
+`1 UNPLUG THE SERVO.`, as after `LEAVE`: DShot restarts only on
+`RESTART DSHOT`. `NEXT SERVO` there returns to the family view. While the
+driver still stops, or while the screen has not taken the pin, `BACK`
 returns to `MENU`.
 
 <img src="img/hitec-family-esc.png" width="240" alt="The family view while an ESC answers on GP0: AN ESC ANSWERS ON SIG GP0: UNPLUG IT. and DSHOT STAYS ON THE PIN UNTIL THEN. in amber, both families disabled.">
@@ -491,35 +491,44 @@ belongs to. See [KST Programming](KST-Programming#files) for the ring.
 ## Leaving
 
 `BACK` on the field list opens the leave page. `BACK` during a read opens it
-too.
+too. `BACK` on the leave page is grey and does nothing: each way on is a
+button.
+
+<img src="img/leave-hitec-failed.png" width="240" alt="The leave page with OWN: 1 LEAVE RESTARTS THE SERVO., 1 CHANGE NOT WRITTEN., A WRITE DID NOT END VERIFIED., STAY, READ AGAIN and LEAVE"> <img src="img/leave-hitec.png" width="240" alt="The leave page with GP28: 1 LEAVE SWITCHES THE SUPPLY OFF."> <img src="img/leave-hitec-released.png" width="240" alt="After LEAVE and the 2 s off: NEXT SERVO live, RESTART DSHOT grey for 1 s more">
 
 The strip names the model, the pin and, with `GP28` or `GP29`, `SUPPLY ON` or
-`SUPPLY OFF`. The page reads `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.` with
-`GP28` or `GP29`, or `LEAVE RESTARTS THE SERVO.` with `OWN`. With pending
-changes it adds `2 CHANGES NOT WRITTEN.`, and after a write that failed
-`A WRITE DID NOT END VERIFIED.` in amber.
+`SUPPLY OFF`. The page numbers three steps; the current step is amber, with
+a bar at the left edge, the others grey:
+
+1. `LEAVE SWITCHES THE SUPPLY OFF.` with `GP28` or `GP29`, or
+   `LEAVE RESTARTS THE SERVO.` with `OWN`.
+2. `UNPLUG THE SERVO.`, with `DSHOT RESTARTS ON SIG GP0 AND READS` and
+   `AS A 970 US PULSE AT 1000 HZ.`
+3. `RESTART DSHOT.`
+
+With pending changes the page adds `2 CHANGES NOT WRITTEN.`, and after a
+write that failed `A WRITE DID NOT END VERIFIED.`, in amber.
 
 | Button | What it does |
 |---|---|
+| `STAY` | Returns to the field list |
 | `READ AGAIN` | Reads the servo again and returns to the field list. Pending changes stay |
 | `LEAVE` | Ends the session: with `GP28` or `GP29` it switches the supply off, with `OWN` it restarts the servo from its saved values |
-| `BACK` | Returns to the field list |
 
-After `LEAVE` with `GP28` or `GP29`, the next page reads
-`SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` until the line closes. Then it reads
-`UNPLUG THE SERVO.` over `DSHOT RESTARTS ON GP0 AND READS AS` and
-`A 970 US PULSE AT 1000 HZ.`
+After `LEAVE`, step 2 is current, and `NEXT SERVO` and `RESTART DSHOT`, in
+`LEAVE`'s place, are grey while the pin is let go. With `GP28` or `GP29` the
+page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` until the line closes; with
+`OWN`, `RELEASING THE PIN`.
 
-<img src="img/hitec-unplug.png" width="240" alt="The unplug page: UNPLUG THE SERVO. and RESTART DSHOT">
+**Unplug the servo.** Once the pin is let go, `NEXT SERVO` acts: it keeps
+the pin and enters the next servo. With `OWN` the page reads
+`NEXT SERVO: POWER IT BEFORE THE TAP.` **`RESTART DSHOT`** acts 1 s after
+that: the ESC driver takes the pin back and `MENU` returns. A double tap on
+`LEAVE` lands while `RESTART DSHOT` is grey and restarts nothing, and a
+press that landed while it was grey does nothing when it lifts.
 
-**Unplug the servo, then tap `RESTART DSHOT`.** The ESC driver takes the pin
-back and `MENU` returns. `BACK` on this page keeps the pin and enters the
-servo again. While the page reads `RELEASING THE PIN` or counts the supply
-down, `BACK` is drawn disabled, an outline with a grey label: it acts from
-the moment `UNPLUG THE SERVO.` shows.
-
-`BACK` during the entry, before the servo answered, stops it and shows the
-unplug page.
+`BACK` during the entry, before the servo answered, stops it and opens the
+page at `1 UNPLUG THE SERVO.`
 
 ---
 
