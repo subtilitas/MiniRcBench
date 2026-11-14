@@ -186,7 +186,7 @@ static ConnectNote s_connectNote = CN_NONE;
 static bool     s_blReached = false;
 /** @brief When that handshake succeeded, ms. */
 static uint32_t s_blReachedMs = 0;
-/** @brief The last list read or verified write had 3D MODE on. @see uiAm32Esc3d() */
+/** @brief The ESC may run in 3D mode: see uiAm32Esc3d() for what sets and clears it. */
 static bool     s_esc3d = false;
 
 /**
@@ -675,6 +675,11 @@ static void doWrite() {
 		s_nextStep = AM32_UI_RETRY;
 		return;
 	}
+	// The ESC accepted the block. With 3D MODE on in it the tester's note is
+	// set now, before the read-back: a read-back that fails or differs may
+	// still leave the ESC in 3D mode. Only a verified write or a list read
+	// clears it. @see uiAm32Esc3d()
+	if (am32Is3d(s_eeprom)) s_esc3d = true;
 	// Read back rather than trusting the ACK: a write that reports success but
 	// lands wrong is worse than one that fails loudly.
 	//

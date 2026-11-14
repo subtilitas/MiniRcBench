@@ -130,14 +130,16 @@ bool uiAm32RunCue(uint32_t lastRpmMs);
 #define AM32_UI_TESTER_3D "3D MODE ESC: THROTTLE SCALE DIFFERS"
 
 /**
- * @brief Whether the ESC on the pin is known to run in 3D mode, for the
+ * @brief Whether the ESC on the pin may run in 3D mode, for the
  *        tester's @ref AM32_UI_TESTER_3D.
  *
  * Set by a read that opens the list on settings with 3D MODE on, and by a
- * verified write of settings with 3D MODE on. Cleared by such a read or
- * verified write with 3D MODE off, and by a restart, since it is not stored.
- * A write that is not verified leaves it as it was. Nothing tells it that
- * the ESC on the pin was swapped for another one.
+ * write of settings with 3D MODE on that the ESC accepted, whether its
+ * read-back then verifies, fails or differs. Cleared only by such a read or
+ * a verified write with 3D MODE off, and by a restart, since it is not
+ * stored. A failed read, a write the ESC refused and a write of 3D MODE off
+ * that is not verified leave it as it was. Nothing tells it that the ESC on
+ * the pin was swapped for another one.
  *
  * @return true while the note stands.
  */

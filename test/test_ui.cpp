@@ -3921,9 +3921,14 @@ static void testAm32TesterNote() {
 		am32Set3d(true);
 		fakeAm32FailWrites(1);
 		am32HoldWrite();
-		checkTrue("a write of 3D MODE on that fails: no note", !uiAm32Esc3d());
+		checkTrue("a write of 3D MODE on that the ESC refuses: no note",
+		          !s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 0 && !uiAm32Esc3d());
+		fakeAm32FailReads(3);
 		am32HoldWrite();
-		checkTrue("the write verifies with 3D MODE on: the note is set",
+		checkTrue("accepted, its read-back failed: the note is set, fail-safe",
+		          !s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 1 && uiAm32Esc3d());
+		am32HoldWrite();
+		checkTrue("the write verifies with 3D MODE on: the note stands",
 		          s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 1 && uiAm32Esc3d());
 		leaveAm32ToTester();
 		frames(2);
@@ -3972,6 +3977,28 @@ static void testAm32TesterNote() {
 		leaveAm32ToTester();
 		frames(2);
 		checkTrue("the tester: the pole count again, no note", testerPolesShown() && !tester3dShown());
+
+		// A write of 3D MODE on that the ESC accepts and that reads back
+		// different sets the note too; a verified write of it off clears it.
+		enterAm32(6);
+		am32Set3d(true);
+		fakeAm32SkewWrites(1);
+		am32HoldWrite();
+		checkTrue("3D MODE on, accepted, read back different: the note is set",
+		          !s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 1 && uiAm32Esc3d());
+		fakeAm32FailReads(1000);
+		leaveAm32ToTester();
+		enterAm32(6);
+		checkTrue("a read that fails: the note stands",
+		          s_state != S_LIST && strncmp(s_status, "READ FAILED", 11) == 0 && uiAm32Esc3d());
+		fakeAm32FailReads(0);
+		leaveAm32ToTester();
+		enterAm32(6);
+		am32Set3d(false);
+		am32HoldWrite();
+		checkTrue("written off and verified: the note goes again",
+		          s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 0 && !uiAm32Esc3d());
+		leaveAm32ToTester();
 
 		// Another ESC, or one set elsewhere: the read decides.
 		fakeEscSet(AM32_OFF_BI_DIRECTION, 1);
