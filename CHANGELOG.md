@@ -44,6 +44,12 @@ protocol.
 
 ### Added
 
+- The design note for the angle meter,
+  [angle-meter.md](docs/design/angle-meter.md), designed and not built:
+  incidence, decalage, dihedral and control-surface throw in degrees and
+  mm from the board's QMI8658 IMU (inertial measurement unit) on I2C1, with
+  ZERO, a three-pose flip calibration and rcbench's `servo_rudder.c` and
+  `imu.c`. It waits on the owner's answers to its seven open questions.
 - STEP models of two modules the bench is built with, drawn part by part with
   the print of both sides: `hardware/mechanical/models/ina219_cjmcu219.step`,
   the INA219 current sensor board, 24.2 × 21.9 mm, 225 solids, and

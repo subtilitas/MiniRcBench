@@ -754,6 +754,20 @@ the tag. Slice 10 of menu structure B waits on being built, not on the bench
     nothing starts it; not checked on a card. Waits on
     the owner's answers to the note's eight questions.
 
+27. **Angle meter on the board's IMU, designed, not built.** The owner's
+    choice of 2026-11-14 from the feature survey: incidence, decalage,
+    dihedral and control-surface throw, in degrees and mm, from the
+    QMI8658 at 0x6B on I2C1.
+    [angle-meter.md](docs/design/angle-meter.md) describes the driver on
+    core0 after the touch and current-sensor reads, the angle from the
+    accelerometer alone, ZERO, a three-pose flip calibration, the screen
+    and six slices on rcbench's `servo_rudder.c` and `imu.c`: copies,
+    driver, model, screen, docs and bring-up. It waits on the owner's
+    answers to its seven open questions, first the entry: an ANGLE METER
+    row, a TOOLS row with a chooser, TOOLS in SD LOG's row, or a SETTINGS
+    row. Which QMI8658 variant is fitted, its byte order, its axes on the
+    board, the board's mass and the real accuracy are not verified.
+
 ## Known limitations
 
 - **`tools/sdtest` is built by no CI job**, by the owner's decision of
