@@ -24,6 +24,13 @@
 struct TouchState;
 
 /**
+ * @brief The header's title on the main view and the unplug page: MENU's
+ *        row label, 12 characters, 142 px at scale 2, from x 8 to x 149,
+ *        20 px before BACK at x 170.
+ */
+#define SERVO_UI_TITLE "SERVO TESTER"
+
+/**
  * @defgroup ui_servo_hints SERVO's hint lines
  * @{
  */
