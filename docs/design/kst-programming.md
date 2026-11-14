@@ -462,7 +462,7 @@ refuses it (step 1):
    phase. Every other command the job takes closes it too, so the `Edit` or
    `Restore` after the first write's card calls starts outside it. When the
    card took neither file the write stops with
-   `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.`
+   `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
 
 In the card phase the KST job counts the heartbeat as trusted while
 `core1UiAlive()` holds, or while `escUiAlive()` finds the stamp within 250 ms
@@ -1092,7 +1092,7 @@ y   0 | KST WRITE                        [ BACK ]|
   102 | * WITHOUT SOFT START THE SERVO JUMPS     |  C_AMBER, 12 px a line,
   114 |   AT POWER-ON.                           |  6 lines, none below 192
   196 | WRITING: DO NOT UNPLUG. / the result     |  3 lines at most
-  236 | BACKUP FIRST: KST/KST005.TXT             |  or NO CARD: BACKUP IN MEMORY
+  236 | BACKUP FIRST: KST/KST005.TXT             |  or NO CARD: OLD VALUES LOST AT LEAVE
   268 | [          HOLD TO WRITE           ]     |  1000 ms, progress bar
   320 +------------------------------------------+
 ```
@@ -1112,7 +1112,8 @@ a write that left nothing changed amber, a verified one green.
 - OK takes a press that lands while it shows. The finger that ends the
   hold lifts on the same rectangle and does not dismiss the result.
 - When the card takes neither the backup nor the record, the page reads
-  `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.` and no frame
+  `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+  and no frame
   goes out. No card, or a card held by USB, writes with the backup in
   memory.
 
@@ -1289,14 +1290,14 @@ a host:
 
 | Situation | Effect |
 |---|---|
-| First write of a session, card mounted | the backup is saved first into the ring of `BACKUP/`, and `KST/KST.TXT` holds the image before the write, both in a card phase ([card calls](#card-calls-and-the-heartbeat)). A card that takes neither stops the write: `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.` |
+| First write of a session, card mounted | the backup is saved first into the ring of `BACKUP/`, and `KST/KST.TXT` holds the image before the write, both in a card phase ([card calls](#card-calls-and-the-heartbeat)). A card that takes neither stops the write: `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.` |
 | Write verified | `KST/KST.TXT` is removed when this session wrote it, the card stayed mounted since, and the file holds the bytes written (FNV-1a, Fowler-Noll-Vo, hash `recordSum`), in a card phase |
 | Later writes of the session | no backup is saved and no record is written |
 | LEAVE, the servo in programming mode and not in doubt | `KST/KST.TXT` is removed on the same terms: no write is open |
 | A card swapped during the session | the board has no card-detect line: the first card access after the swap fails, and FatFs mounts the new card at the call after it. The logger reports no unmount. Its record stays unless it holds the bytes of the session's own record; the strip, the backup line and the `(BACKUP)` tag still name the session's backup file on the first card |
 | A servo found, the first or after a loss | the session holds no record of its own: a record on the card stays until the first write renames it |
 | `KST/KST.TXT` found when the screen opens | `A WRITE WAS INTERRUPTED. KST/KST.TXT HOLDS THE SERVO AS IT WAS.` FILES lists it as RECORD and loads it like a file |
-| No card | read, edit and write work; the write page says `NO CARD: BACKUP IN MEMORY`, and the backup ends at LEAVE |
+| No card | read, edit and write work; the write page says `NO CARD: OLD VALUES LOST AT LEAVE` in amber, and the backup ends at LEAVE |
 | Card held by a USB host | as no card |
 
 `KST.TXT` is the base name `kst_store.c` keeps free for this record

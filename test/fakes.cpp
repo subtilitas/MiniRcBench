@@ -704,8 +704,21 @@ static SdLogStatus g_log = {};
 
 void fakeSdLogSet(const SdLogStatus *st) { g_log = *st; }
 
+/** @brief A mount, as sd_log.cpp's sdLogBegin() does it to the status. */
+static void fakeMountForget() {
+	sdLogMountForget(&g_log.end);
+	g_log.fileNumber = 0;
+	g_log.framesLogged = 0;
+	g_log.bytesWritten = 0;
+	g_log.bytesDropped = 0;
+	g_log.dropEvents = 0;
+	g_log.peakBuffer = 0;
+	g_log.worstFlushMs = 0;
+}
+
 bool sdLogBegin() {
 	g_log.state = SdLogState::Idle;
+	fakeMountForget();
 	return true;
 }
 
@@ -714,28 +727,41 @@ static bool g_autoStarted = false;
 bool sdLogStart() {
 	if (g_log.state == SdLogState::NoCard) return false;
 	g_log.state = SdLogState::Logging;
+	g_log.end = SdLogEnd::None;
 	g_autoStarted = false;
 	if (!g_log.fileNumber) g_log.fileNumber = 1;
 	return true;
 }
 
+// As sd_log.cpp: the number stays, for the FILE row's (LAST), until the next
+// start.
 void sdLogStop() {
 	if (g_log.state == SdLogState::Logging) g_log.state = SdLogState::Idle;
-	g_log.fileNumber = 0;
 	g_autoStarted = false;
+}
+
+void sdLogStopFor(SdLogEnd tool) {
+	if (g_log.state != SdLogState::Logging) return;
+	sdLogStop();
+	if (g_log.state == SdLogState::Idle) g_log.end = tool;
 }
 
 bool sdLogRemount() {
 	// Models a card that appears on retry: NO CARD becomes READY. That is the
 	// case the button exists for -- a card inserted after boot.
+	// A mount, as sdLogBegin(), which sd_log.cpp skips while a log runs:
+	// how the last log ended is forgotten.
+	// From any other state the card in the slot mounts, as sdLogBegin() does
+	// with a card that answers: READY, a card fault forgotten.
+	if (g_log.state == SdLogState::Logging) return true;
+	fakeMountForget();
 	if (g_log.state == SdLogState::NoCard) {
-		g_log.state = SdLogState::Idle;
 		g_log.mountResult = 0;
 		g_log.cardType = 3;          // SDHC/XC
 		g_log.cardSizeMB = 122000;   // a 128 GB card, as the card reports itself
-		return true;
 	}
-	return g_log.state != SdLogState::Error;
+	g_log.state = SdLogState::Idle;
+	return true;
 }
 
 bool sdLogActive() { return g_log.state == SdLogState::Logging; }
@@ -818,9 +844,9 @@ void fakeVolumeSet(uint32_t serial, bool answers) {
 
 FakeCacheCalls fakeCacheCalls() { return g_cacheCalls; }
 
-bool cardCacheBegin() {
+bool cardCacheBegin(SdLogEnd tool) {
 	g_cacheCalls.begins++;
-	if (sdLogActive()) sdLogStop();
+	sdLogStopFor(tool);
 	SdLogStatus st;
 	sdLogStatus(&st);
 	bool mounted = st.state == SdLogState::Idle || st.state == SdLogState::Logging;
@@ -902,8 +928,19 @@ MscRefusal mscRequest() {
 	return MscRefusal::None;
 }
 
-void mscRelease() { g_msc = MscState::Idle; }
-void mscTick() {}
+// As usb_msc.cpp with its mscTick() folded in, as mscRequest() folds the
+// handover: the release reclaims the card, and the reclaim is a mount
+// (sdLogReacquire(), sdLogBegin()) of a card that is still there.
+void mscRelease() {
+	if (g_msc == MscState::Idle) return;
+	g_msc = MscState::Idle;
+	sdLogBegin();
+}
+void mscTick() {
+	if (g_msc != MscState::Reclaim) return;
+	g_msc = MscState::Idle;
+	sdLogBegin();
+}
 
 void fakeMscSet(MscState s, uint32_t blocksRead) {
 	g_msc = s;

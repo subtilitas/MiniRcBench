@@ -45,7 +45,7 @@ void uiSplashTick();
  */
 #define UI_SPLASH_TOUCH_TEXT "TOUCH CONTROLLER NOT FOUND"
 /** @brief The splash's touch line's top row, above the name. */
-#define UI_SPLASH_TOUCH_Y 60
+#define UI_SPLASH_TOUCH_Y 64
 
 
 /**
@@ -116,6 +116,12 @@ enum class TesterCtl : uint8_t {
  *        on it moves.
  */
 #define UI_SPLASH_PIN_FMT "UNPLUG ANY SERVO FROM GP%u NOW"
+
+/**
+ * @brief The first of the splash's two lines after a reset by an update
+ *        (settingsResetByUpdate()), y 40; the second is 12 px under it.
+ */
+#define UI_SPLASH_RESET_Y 40
 
 struct UiScreen;
 

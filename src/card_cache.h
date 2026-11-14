@@ -1,7 +1,8 @@
 /**
  * @file card_cache.h
  * @brief The SD write cache (src/sdio/sd_cache.h) for the pin claims of the
- *        tools that save device backups: KST SERVO and AM32 CONFIG.
+ *        tools that save device backups: KST SERVO, HITEC SERVO and AM32
+ *        CONFIG.
  *
  * cardCacheBegin() at the claim's start stops a running blackbox log and
  * turns the cache on; card writes then return once queued, and
@@ -24,6 +25,8 @@
 
 #include <stdint.h>
 
+#include "sd_log.h"
+
 /** @brief Where the cache stands. */
 enum class CardCache : uint8_t {
 	Off,       /**< Not on: no card at the claim's start, or no claim. */
@@ -32,8 +35,13 @@ enum class CardCache : uint8_t {
 	Failed,    /**< A block failed or the card changed; cardCacheRecover() next. */
 };
 
-/** @brief Stop a running log and turn the cache on. False with the cache off. */
-bool cardCacheBegin();
+/**
+ * @brief Stop a running log, recorded as stopped by @p tool (sdLogStopFor()),
+ *        and turn the cache on. False with the cache off.
+ * @param tool @ref SdLogEnd::ByKst, @ref SdLogEnd::ByHitec or
+ *        @ref SdLogEnd::ByAm32, the tool whose claim this is.
+ */
+bool cardCacheBegin(SdLogEnd tool);
 
 /** @brief Flush, blocking, and turn the cache off; a failed flush is recovered. */
 void cardCacheEnd();

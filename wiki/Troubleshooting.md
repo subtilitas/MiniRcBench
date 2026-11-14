@@ -29,6 +29,10 @@ it as described under [Still stuck](#still-stuck).
 `TOUCH CONTROLLER NOT FOUND` in amber on the splash means the touch
 controller did not answer the firmware at power-up. The line goes as soon
 as it answers. If it is still there when the tester appears, no tap works.
+After an update that reset the settings, it shows under the two settings
+lines.
+
+<img src="img/splash-reset-no-touch.png" width="240" alt="The splash with SETTINGS RESET BY UPDATE, CHECK MENU > SETTINGS and TOUCH CONTROLLER NOT FOUND above the name">
 
 Without touch the board cannot be operated: arming, `DISARM`, `HOLD` and
 `MENU` all need it. A tester that was armed when touch stopped disarms by
@@ -123,6 +127,12 @@ The throttle bar reads `EJECT THE USB DRIVE TO ARM`: a computer holds the SD
 card over USB (**MENU → SD LOG → USB DRIVE**; drag `MENU` up 36 px to reach
 SD LOG), and arming is refused until it lets go. Eject the drive on the
 computer, or press `EJECT` on SD LOG. See [SD Logging](SD-Logging).
+
+A computer that unconfigures the drive also gives the card back. Pulling the
+cable with the board on its battery does not: the USB stack of this firmware
+sees a pulled cable as a computer that went to sleep, and a sleeping computer
+keeps the card. Press `EJECT` on SD LOG then. Neither case is tested on
+hardware.
 
 ---
 
@@ -235,6 +245,22 @@ included: the ESC pin is then GP0, KISS is off and SERVO SUPPLY is `NONE`.
 Version 5 adds CURRENT SENSE, so updating from version 4 to version 5 does
 the same once more: every saved setting returns to its default, and
 CURRENT SENSE is `NONE`. Set them again and save with `HOLD TO SAVE`.
+
+Such a reset is shown: the splash reads `SETTINGS RESET BY UPDATE` and
+`CHECK MENU > SETTINGS`, MENU's `SETTINGS` row reads `UPDATED`, and the note
+line in SETTINGS reads `RESET BY UPDATE - CHECK AND SAVE` until a save
+lands. A block that is damaged, rather than written by another version, is
+discarded without these notes; the note line then reads
+`COMPILED DEFAULTS IN USE`.
+
+---
+
+## `SDERR` on the tester, or a log that stopped
+
+The recording ended without `STOP`. **MENU → SD LOG** says how above
+`START`: a full card, a failed write, a file that did not open, or the tool
+(KST SERVO, HITEC SERVO, AM32 CONFIG) that took the card. See
+[SD Logging](SD-Logging#how-the-last-log-ended).
 
 ---
 

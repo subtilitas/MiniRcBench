@@ -382,7 +382,7 @@ static void claimPin() {
 	s_claimed = r == ClaimRefusal::None;
 	s_refusal = r;
 	// The card's writes queue in SRAM for the claim; a running log stops.
-	if (s_claimed) cardCacheBegin();
+	if (s_claimed) cardCacheBegin(SdLogEnd::ByKst);
 }
 
 static void readFiles();
@@ -1043,8 +1043,24 @@ static void restartOnNewCard() {
 
 static void startWrite();
 
-/** @brief The write page's text for a flush the card did not take. */
-static const char *const FLUSH_FAILED = "THE CARD DID NOT TAKE THE BACKUP. NOTHING WAS WRITTEN TO THE SERVO.";
+/**
+ * @brief The write page's text for a flush the card did not take: a block
+ *        write failed or the card in the slot changed (sd_cache.h), so a
+ *        full card does not end here; it ends in CARD_TOOK_NO_FILE. The
+ *        card is mounted again and the first write forgotten, so the next
+ *        hold saves the backup again. Three lines of 38 characters.
+ */
+static const char *const FLUSH_FAILED =
+	"THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.";
+/** @brief As FLUSH_FAILED, for a batch that held another file. */
+static const char *const FLUSH_FAILED_FILE =
+	"THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.";
+/**
+ * @brief The write page's text when FatFs refused the first write's files:
+ *        among the causes a full card and a card that is gone.
+ */
+static const char *const CARD_TOOK_NO_FILE =
+	"THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.";
 
 /**
  * @brief While the write waits for the flush: send it once the card has
@@ -1062,7 +1078,7 @@ static void flushStep() {
 	if (c == CardCache::Failed) {
 		recoverFlush();
 		// An earlier batch may have been a removal of the record, not a backup.
-		s_cardNote = check ? "THE CARD DID NOT TAKE A FILE. NOTHING WAS WRITTEN TO THE SERVO."
+		s_cardNote = check ? FLUSH_FAILED_FILE
 		                   : FLUSH_FAILED;
 		return;
 	}
@@ -1094,7 +1110,7 @@ static void startWrite() {
 	// in the slot is mounted again and the first write starts over on it.
 	if (cardSwapped()) restartOnNewCard();
 	if (!firstWriteFiles()) {
-		s_cardNote = "THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.";
+		s_cardNote = CARD_TOOK_NO_FILE;
 		return;
 	}
 	// The backup and the record are queued; the write waits until the card
@@ -1167,15 +1183,18 @@ static void drawWrite() {
 		}
 	}
 
+	// The session's backup is in memory only: the servo's values from
+	// before the first write are gone at LEAVE, unless a later write finds
+	// a card and saves them first. Amber, as the cost of writing now.
+	bool memoryOnly = !s_first.backupName[0] && (s_firstDone || !kstFilesMounted());
 	if (s_first.backupName[0]) snprintf(buf, sizeof(buf), "BACKUP: BACKUP/%s", s_first.backupName);
-	else if (s_firstDone)
-		snprintf(buf, sizeof(buf), "NO BACKUP ON THE CARD: IN MEMORY");
+	else if (s_firstDone) snprintf(buf, sizeof(buf), "NO BACKUP ON THE CARD: LOST AT LEAVE");
 	else if (!kstFilesMounted())
-		snprintf(buf, sizeof(buf), "%s", cardHeldByUsb() ? "CARD IN USE BY USB: BACKUP IN MEMORY"
-		                                                : "NO CARD: BACKUP IN MEMORY");
+		snprintf(buf, sizeof(buf), "%s", cardHeldByUsb() ? "CARD ON USB: OLD VALUES LOST AT LEAVE"
+		                                                : "NO CARD: OLD VALUES LOST AT LEAVE");
 	else if (s_backupNext[0]) snprintf(buf, sizeof(buf), "BACKUP FIRST: BACKUP/%s", s_backupNext);
 	else snprintf(buf, sizeof(buf), "BACKUP FIRST: TO THE CARD");
-	gfxText(UI_MARGIN, 236, buf, C_DIM, 1);
+	gfxText(UI_MARGIN, 236, buf, memoryOnly ? C_AMBER : C_DIM, 1);
 	if (s_flushing) {
 		uint16_t left = 0;
 		cardCacheState(&left);
@@ -1796,7 +1815,7 @@ bool uiKstTick(const TouchState *t) {
 			case KstView::Unplug:
 				pinClaimKeep(PinUser::Kst);
 				// endClaim() turned the cache off; the kept claim turns it on.
-				cardCacheBegin();
+				cardCacheBegin(SdLogEnd::ByKst);
 				newSession();
 				go(KstView::Main);
 				break;

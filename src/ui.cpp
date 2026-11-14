@@ -439,6 +439,19 @@ void uiBoardVoltText(float volts, char *buf, size_t n) {
 	snprintf(buf, n, "%u.%02uV", (unsigned)(cv / 100) % 10u, (unsigned)(cv % 100));
 }
 
+/**
+ * @brief The amber chip behind `SDERR`: the text at x 104, y 14 like the
+ *        other log states, 3 px of fill left of it, 2 px right, 2 px above
+ *        and below, between the arm badge (to x 95) and BOARD.
+ */
+#define STATUS_SDERR_X 101
+#define STATUS_SDERR_Y 12
+#define STATUS_SDERR_W 34
+#define STATUS_SDERR_H 11
+static_assert(STATUS_SDERR_X > 4 + 92, "the SDERR chip runs into the arm badge");
+static_assert(STATUS_SDERR_X + STATUS_SDERR_W < STATUS_BOARD_X, "the SDERR chip runs into BOARD");
+static_assert(STATUS_SDERR_Y + STATUS_SDERR_H <= Z_STATUS_Y1 + 1, "the SDERR chip leaves the status bar");
+
 /** @brief Arm badge, DShot rate, EDT indicator and the board's voltage. */
 static void drawStatusBar() {
 	int progress = 0;
@@ -522,7 +535,15 @@ static void drawStatusBar() {
 		case SdLogState::Error:   lg = "SDERR"; lgCol = C_AMBER; break;
 		default:                  lg = "NOSD";  lgCol = C_GRID;  break;
 	}
-	gfxText(104, 14, lg, lgCol, 1);
+	if (log.state == SdLogState::Error) {
+		// A recording that stopped on its own: an amber chip, not amber text,
+		// so it shows at a glance while armed. It stays in the column between
+		// the arm badge and BOARD, clear of both.
+		gfxRoundRect(STATUS_SDERR_X, STATUS_SDERR_Y, STATUS_SDERR_W, STATUS_SDERR_H, 2, C_AMBER);
+		gfxText(STATUS_SDERR_X + 3, STATUS_SDERR_Y + 2, lg, C_PAPER, 1);
+	} else {
+		gfxText(104, 14, lg, lgCol, 1);
+	}
 
 	if (idleLeft >= 0) {
 		// Displaces the board voltage rather than squeezing in beside it: for the
@@ -1020,12 +1041,21 @@ void uiDrawSplash() {
 	char pin[40];
 	snprintf(pin, sizeof(pin), UI_SPLASH_PIN_FMT, (unsigned)settings()->dshotPin);
 	gfxTextCenter(288, pin, C_AMBER, 1);
+	// Settings a firmware of another layout version wrote: discarded whole at
+	// load, every setting at its default (settings.h). Two lines at y 40 and
+	// 52, above the name; y 64 to 96 stays free for another note.
+	if (settingsResetByUpdate()) {
+		gfxTextCenter(UI_SPLASH_RESET_Y, "SETTINGS RESET BY UPDATE", C_AMBER, 1);
+		gfxTextCenter(UI_SPLASH_RESET_Y + 12, "CHECK MENU > SETTINGS", C_AMBER, 1);
+	}
 	// Not found: no answer since touchInit().
 	s_splashNoTouch = !touchAnswered();
 	if (s_splashNoTouch) gfxTextCenter(UI_SPLASH_TOUCH_Y, UI_SPLASH_TOUCH_TEXT, C_AMBER, 1);
 }
 
 static_assert(UI_SPLASH_TOUCH_Y + 8 < 104, "the splash's touch line runs into the name");
+static_assert(UI_SPLASH_TOUCH_Y >= UI_SPLASH_RESET_Y + 24,
+              "the splash's touch line runs into the settings lines");
 
 void uiSplashTick() {
 	// A read of its own, into a state the tester does not see. The driver

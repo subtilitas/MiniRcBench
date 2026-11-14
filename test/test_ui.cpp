@@ -322,6 +322,249 @@ static void testLogScreen() {
 	checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
 }
 
+/** @brief Whether SD LOG's FILE row reads @p text, right-aligned. */
+static bool logFileRowIs(const char *text) {
+	// Row 1 of 19 px rows from y 44; scale 1 text centred in it.
+	const int y = UI_HDR_H + 8 + 19 + (19 - 7) / 2;
+	return fakeTextIs(GFX_W - UI_MARGIN - gfxTextW(text, 1), y, text, C_TEXT, C_BG, 1);
+}
+
+/**
+ * @brief How the last log ended, on SD LOG's two note lines, and the FILE
+ *        row's last log.
+ */
+static void testLogEndNotes() {
+	section("SD LOG: how the last log ended; the last log's file");
+
+	// The write's own rule: FatFs ends a write that finds no cluster with
+	// FR_OK and fewer bytes; any error is a failed write.
+	checkTrue("FR_OK, 100 of 512 bytes: the card is full",
+	          sdLogWriteEnd(0, 100, 512) == SdLogEnd::CardFull);
+	checkTrue("FR_OK, 511 of 512: full", sdLogWriteEnd(0, 511, 512) == SdLogEnd::CardFull);
+	checkTrue("FR_OK, nothing written: full", sdLogWriteEnd(0, 0, 512) == SdLogEnd::CardFull);
+	checkTrue("1 DISK ERR: the write failed", sdLogWriteEnd(1, 0, 512) == SdLogEnd::WriteFailed);
+	checkTrue("9 INVALID OBJECT, part written: failed",
+	          sdLogWriteEnd(9, 100, 512) == SdLogEnd::WriteFailed);
+	checkTrue("an error with every byte reported: failed",
+	          sdLogWriteEnd(1, 512, 512) == SdLogEnd::WriteFailed);
+	// A mount forgets a card's fault and keeps a tool's stop.
+	{
+		static const SdLogEnd ALL[] = { SdLogEnd::None, SdLogEnd::CardFull, SdLogEnd::WriteFailed,
+		                                SdLogEnd::OpenFailed, SdLogEnd::ByKst, SdLogEnd::ByHitec,
+		                                SdLogEnd::ByAm32 };
+		bool ok = true;
+		for (SdLogEnd e : ALL) {
+			SdLogEnd m = e;
+			sdLogMountForget(&m);
+			bool tool = e == SdLogEnd::ByKst || e == SdLogEnd::ByHitec || e == SdLogEnd::ByAm32;
+			ok &= tool ? m == e : m == SdLogEnd::None;
+		}
+		checkTrue("a mount: the faults forgotten, the three tools' stops kept", ok);
+	}
+
+	SdLogStatus st;
+	memset(&st, 0, sizeof(st));
+	st.state = SdLogState::Idle;
+	st.cardType = 3;
+	st.cardSizeMB = 30500;
+	fakeSdLogSet(&st);
+	enterLogScreen();
+	frames(2);
+	checkTrue("before the first log: FILE --", logFileRowIs("--"));
+	int x0 = 0, x1 = 0;
+	checkTrue("and both note lines blank", !fakeInkExtent(217, 7, C_BG, &x0, &x1) &&
+	                                       !fakeInkExtent(228, 7, C_BG, &x0, &x1));
+
+	tapId(UI_FIX(SdLogCtl::Toggle));                       // START
+	frames(2);
+	checkTrue("recording: the open log's name", logFileRowIs("LOG00001.BFL"));
+	tapId(UI_FIX(SdLogCtl::Toggle));                       // STOP
+	frames(2);
+	checkTrue("stopped: the same name, marked (LAST)", logFileRowIs("LOG00001.BFL (LAST)"));
+	checkTrue("it keeps clear of the label FILE",
+	          UI_MARGIN + gfxTextW("FILE", 1) + 6 <=
+	              GFX_W - UI_MARGIN - gfxTextW("LOG09999.BFL (LAST)", 1));
+	checkTrue("a STOP leaves no note", !fakeInkExtent(217, 7, C_BG, &x0, &x1));
+	fakeDumpFrame("shot_log_last.ppm");
+	// A mount: the card may be another one, and the file not on it.
+	{
+		SdLogStatus cur;
+		sdLogStatus(&cur);
+		cur.framesLogged = 5000;
+		cur.bytesWritten = 72000;
+		cur.dropEvents = 2;
+		cur.peakBuffer = 900;
+		cur.worstFlushMs = 30;
+		fakeSdLogSet(&cur);
+		tapId(UI_FIX(SdLogCtl::Retry));
+		frames(2);
+		sdLogStatus(&cur);
+		checkTrue("RETRY MOUNT: FILE -- again", logFileRowIs("--"));
+		checkTrue("and the counters beside it at zero",
+		          cur.fileNumber == 0 && cur.framesLogged == 0 && cur.bytesWritten == 0 &&
+		          cur.dropEvents == 0 && cur.peakBuffer == 0 && cur.worstFlushMs == 0);
+	}
+
+	// Each end, on its two lines, amber.
+	static const struct {
+		SdLogState state;
+		SdLogEnd end;
+		const char *l1, *l2;
+	} ENDS[] = {
+		{ SdLogState::Error, SdLogEnd::CardFull,
+		  "RECORDING STOPPED: CARD FULL", "FREE SPACE ON A COMPUTER, RETRY MOUNT" },
+		{ SdLogState::Error, SdLogEnd::WriteFailed,
+		  "RECORDING STOPPED: CARD WRITE FAILED", "REMOVED? REINSERT, THEN RETRY MOUNT" },
+		{ SdLogState::Error, SdLogEnd::OpenFailed,
+		  "NO LOG STARTED: THE FILE DID NOT OPEN", "CHECK THE CARD, THEN RETRY MOUNT" },
+		{ SdLogState::Idle, SdLogEnd::ByKst,   "RECORDING STOPPED BY KST SERVO", "" },
+		{ SdLogState::Idle, SdLogEnd::ByHitec, "RECORDING STOPPED BY HITEC SERVO", "" },
+		{ SdLogState::Idle, SdLogEnd::ByAm32,  "RECORDING STOPPED BY AM32 CONFIG", "" },
+	};
+	for (const auto &e : ENDS) {
+		st.state = e.state;
+		st.end = e.end;
+		st.fileNumber = 12;
+		// About 12 minutes at 7.3 kB/s before the card filled.
+		st.framesLogged = 361500;
+		st.bytesWritten = 5242880;
+		st.peakBuffer = 3100;
+		st.worstFlushMs = 38;
+		fakeSdLogSet(&st);
+		frames(2);
+		char what[96];
+		snprintf(what, sizeof(what), "%s: line 1 at y 217, amber", e.l1);
+		checkTrue(what, fakeTextCentredIs(217, e.l1, C_AMBER, C_BG, 1));
+		if (e.l2[0]) {
+			snprintf(what, sizeof(what), "%s: line 2 at y 228, amber", e.l2);
+			checkTrue(what, fakeTextCentredIs(228, e.l2, C_AMBER, C_BG, 1));
+		} else {
+			checkTrue("a tool's stop: line 2 blank", !fakeInkExtent(228, 7, C_BG, &x0, &x1));
+		}
+		checkTrue("both lines inside the margins",
+		          gfxTextW(e.l1, 1) <= GFX_W - 2 * UI_MARGIN &&
+		          gfxTextW(e.l2, 1) <= GFX_W - 2 * UI_MARGIN);
+		checkTrue("the FILE row names the last log", logFileRowIs("LOG00012.BFL (LAST)"));
+		if (e.end == SdLogEnd::CardFull) fakeDumpFrame("shot_log_card_full.ppm");
+	}
+
+	// A refusal of USB DRIVE outranks the note for its 4000 ms.
+	st.state = SdLogState::Logging;
+	st.end = SdLogEnd::None;
+	fakeSdLogSet(&st);
+	tapId(UI_FIX(SdLogCtl::Usb));
+	st.state = SdLogState::Error;
+	st.end = SdLogEnd::WriteFailed;
+	fakeSdLogSet(&st);
+	frames(2);
+	checkTrue("refused, then the write failed: the refusal alone",
+	          fakeTextCentredIs(228, "STOP RECORDING FIRST", C_AMBER, C_BG, 1) &&
+	          !fakeInkExtent(217, 7, C_BG, &x0, &x1));
+	frames(170);
+	checkTrue("the refusal over: the note",
+	          fakeTextCentredIs(217, "RECORDING STOPPED: CARD WRITE FAILED", C_AMBER, C_BG, 1));
+
+	// A tool's stop through the real claim: AM32 CONFIG on a running log.
+	tapId(UI_FIX(SdLogCtl::Retry));                        // a mount: the note goes
+	frames(2);
+	checkTrue("RETRY MOUNT clears the note", !fakeInkExtent(217, 7, C_BG, &x0, &x1));
+	tapId(UI_FIX(SdLogCtl::Toggle));                       // START
+	checkTrue("a log runs", sdLogActive());
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	tapId(UI_FIX(TesterCtl::Menu));
+	frames(2);
+	tapId(menuRow(&UI_AM32));
+	frames(20);
+	checkTrue("AM32 CONFIG's claim stopped the log", !sdLogActive());
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	tapId(menuRow(&UI_SDLOG));
+	frames(2);
+	checkTrue("SD LOG names the tool",
+	          fakeTextCentredIs(217, "RECORDING STOPPED BY AM32 CONFIG", C_AMBER, C_BG, 1));
+	tapId(UI_FIX(SdLogCtl::Retry));
+	frames(2);
+	checkTrue("a mount keeps a tool's stop: it stays true of the last log",
+	          fakeTextCentredIs(217, "RECORDING STOPPED BY AM32 CONFIG", C_AMBER, C_BG, 1));
+	{
+		// The card gone: the mount hint takes the second line.
+		SdLogStatus gone;
+		sdLogStatus(&gone);
+		gone.state = SdLogState::NoCard;
+		gone.mountResult = 3;
+		gone.cardInit = 1;
+		gone.cardSizeMB = 0;
+		fakeSdLogSet(&gone);
+		frames(2);
+		checkTrue("no card: the tool's stop, and the insert hint under it",
+		          fakeTextCentredIs(217, "RECORDING STOPPED BY AM32 CONFIG", C_AMBER, C_BG, 1) &&
+		          fakeTextCentredIs(228, "INSERT A CARD, THEN RETRY MOUNT", C_DIM, C_BG, 1));
+		tapId(UI_FIX(SdLogCtl::Retry));            // the fake finds a card
+		frames(2);
+	}
+	tapId(UI_FIX(SdLogCtl::Toggle));                       // START
+	frames(2);
+	checkTrue("the next start clears it", !fakeInkExtent(217, 7, C_BG, &x0, &x1));
+	tapId(UI_FIX(SdLogCtl::Toggle));                       // STOP
+	frames(2);
+
+	memset(&st, 0, sizeof(st));
+	st.state = SdLogState::Idle;
+	fakeSdLogSet(&st);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	checkTrue("back on the tester", uiCurrentScreen() == UiScreenId::Tester);
+}
+
+/**
+ * @brief The tester's SDERR: an amber chip, armed or not, clear of the arm
+ *        badge, the RPM and the throttle.
+ */
+static void testTesterSdErr() {
+	section("Tester: SDERR is an amber chip");
+	fakeFlashClear();
+	settingsLoad();
+	uiInit();
+	frames(4);
+	SdLogStatus st;
+	memset(&st, 0, sizeof(st));
+	st.state = SdLogState::Idle;
+	fakeSdLogSet(&st);
+	frames(2);
+	checkTrue("a card idle: SD, dim text", fakeTextIs(104, 14, "SD", C_DIM, C_PANEL, 1));
+	holdToArm();
+	checkTrue("armed", uiArmed());
+	st.state = SdLogState::Error;
+	st.end = SdLogEnd::WriteFailed;
+	fakeSdLogSet(&st);
+	frames(2);
+	checkTrue("the log failed while armed: SDERR on an amber chip",
+	          fakeTextIs(104, 14, "SDERR", C_PAPER, C_AMBER, 1));
+	const uint16_t *fb = gfxBuffer();
+	checkTrue("the chip's fill from x 101 to 134, y 12 to 22",
+	          fb[12 * GFX_W + 102] == C_AMBER && fb[22 * GFX_W + 133] == C_AMBER &&
+	          fb[17 * GFX_W + 100] == C_PANEL && fb[17 * GFX_W + 135] == C_PANEL &&
+	          fb[11 * GFX_W + 110] == C_PANEL && fb[23 * GFX_W + 110] == C_PANEL);
+	checkTrue("the arm badge still reads ARMED",
+	          fakeTextIs(4 + (92 - gfxTextW("ARMED", 2)) / 2, 7, "ARMED", C_ONACCENT, C_RED, 2));
+	fakeDumpFrame("shot_tester_sderr.ppm");
+	tapId(UI_FIX(TesterCtl::Arm));                         // DISARM
+	frames(2);
+	checkTrue("disarmed", !uiArmed());
+	checkTrue("disarmed: the chip stays", fakeTextIs(104, 14, "SDERR", C_PAPER, C_AMBER, 1));
+	st.state = SdLogState::Idle;
+	st.end = SdLogEnd::None;
+	fakeSdLogSet(&st);
+	frames(2);
+	checkTrue("mounted again: SD, the chip gone",
+	          fakeTextIs(104, 14, "SD", C_DIM, C_PANEL, 1) && fb[12 * GFX_W + 102] == C_PANEL);
+}
+
 /**
  * @brief The USB drive button: what it refuses, and what the screen becomes.
  *
@@ -422,6 +665,16 @@ static void testUsbDriveScreen() {
 	checkTrue("the big button is EJECT while serving, not START",
 	          !sdLogActive());
 	checkTrue("and it gives the card back", mscGetState() == MscState::Idle);
+	{
+		// The card came back by a mount: the computer may have deleted the
+		// last log, so FILE names none and the counters start again.
+		SdLogStatus back;
+		sdLogStatus(&back);
+		frames(2);
+		checkTrue("EJECT: FILE -- and the counters at zero",
+		          logFileRowIs("--") && back.fileNumber == 0 && back.framesLogged == 0 &&
+		          back.bytesWritten == 0);
+	}
 
 	// Arming is refused while a host holds the card, from the tester screen --
 	// which is reachable, because BACK does not cancel a copy in progress.
@@ -942,8 +1195,14 @@ static void testSettingsWiring() {
 	}
 	checkTrue("every step lands on a free GPIO", allFree);
 
-	// The frame for the docs, at 0 px: the first rows and an unsaved pin.
+	// The frame for the docs, at 0 px: the first rows and an unsaved change,
+	// with the ESC pin back on the boot pin (test_menu.cpp takes the frame
+	// with the pin's warning).
+	tapId(UI_ROW(SettingsRowId::Pin, Minus));
+	tapId(UI_ROW(SettingsRowId::Poles, Plus));
 	fakeDumpFrame("shot_settings.ppm");
+	tapId(UI_ROW(SettingsRowId::Poles, Minus));
+	tapId(UI_ROW(SettingsRowId::Pin, Plus));
 
 	// Bitrate halves and doubles through the four legal values, and wraps.
 	// DSHOT KBAUD's row is cut by the viewport's bottom at 0 px, 10 px of it
@@ -2623,6 +2882,30 @@ static void testBoardCellColour() {
 	fakeAdcSet(1481);
 	frames(120);
 	checkTrue("then 3.58 V: the text colour", shows("3.58V", C_TEXT));
+	// With the SDERR chip: both in place, the chip clear of BOARD and the
+	// voltage, each in its own colour.
+	{
+		SdLogStatus was, err;
+		sdLogStatus(&was);
+		memset(&err, 0, sizeof(err));
+		err.state = SdLogState::Error;
+		fakeSdLogSet(&err);
+		const struct { uint16_t raw; const char *text; uint16_t col; } both[] = {
+			{ 1427, "3.45V", C_AMBER }, { 1325, "3.20V", C_RED },
+		};
+		for (const auto &c : both) {
+			fakeAdcSet(c.raw);
+			uiInit();
+			frames(2);
+			char what[64];
+			snprintf(what, sizeof(what), "SDERR chip and %s together", c.text);
+			checkTrue(what, fakeTextIs(104, 14, "SDERR", C_PAPER, C_AMBER, 1) &&
+			                fakeTextIs(140, 14, "BOARD", C_DIM, C_PANEL, 1) &&
+			                shows(c.text, c.col));
+		}
+		fakeSdLogSet(&was);
+	}
+
 	// IDLE's countdown replaces the voltage, amber, whatever the voltage's
 	// colour: armed at an amber reading and run into the last 5 s.
 	fakeAdcSet(1427);
@@ -2653,7 +2936,7 @@ static void testSplashTouch() {
 	fakeTouchAnswers(false);
 	checkTrue("touchInit() reports the failure", !touchInit());
 	uiDrawSplash();
-	checkTrue("the splash says so, amber, y 60",
+	checkTrue("the splash says so, amber, y 64",
 	          fakeTextCentredIs(UI_SPLASH_TOUCH_Y, UI_SPLASH_TOUCH_TEXT, C_AMBER, C_BG, 1));
 	checkTrue("it fits with 8 px to each edge",
 	          gfxTextW(UI_SPLASH_TOUCH_TEXT, 1) <= GFX_W - 2 * UI_MARGIN);
@@ -4737,7 +5020,7 @@ void runUiTests() {
 		s_backupDone = false;
 		s_backupOnCard = false;
 		fakeCacheReset();
-		cardCacheBegin();
+		cardCacheBegin(SdLogEnd::ByAm32);
 		fakeCacheFlushTo(CardCache::Failed);
 		uint8_t before3 = fakeEscByte(0x1B);
 		tapId(UI_FIX(Am32Ctl::EditMinus));
@@ -4796,6 +5079,8 @@ void runUiTests() {
 	}
 
 	testLogScreen();
+	testLogEndNotes();
+	testTesterSdErr();
 	testUsbDriveScreen();
 	testManualLogSurvivesArming();
 	testKissDisplay();

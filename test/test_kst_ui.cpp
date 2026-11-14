@@ -827,8 +827,16 @@ static void testSecondServoAndLateCard() {
 	tapId(UI_FIX(KstCtl::EditMinus));
 	holdUntilGone(UI_FIX(KstCtl::Write));
 	kstFrames(1);
-	checkTrue("still no card: the backup in memory",
-	          lineIs(236, "NO CARD: BACKUP IN MEMORY", C_DIM));
+	checkTrue("still no card: the old values lost at LEAVE, amber",
+	          lineIs(236, "NO CARD: OLD VALUES LOST AT LEAVE", C_AMBER));
+	checkTrue("it fits the line", UI_MARGIN + gfxTextW("CARD ON USB: OLD VALUES LOST AT LEAVE", 1) <=
+	                              GFX_W - UI_MARGIN);
+	fakeDumpFrame("shot_kst_write_nocard.ppm");
+	fakeMscSet(MscState::Serving, 0);
+	kstFrames(1);
+	checkTrue("a card held by USB: the same cost, amber",
+	          lineIs(236, "CARD ON USB: OLD VALUES LOST AT LEAVE", C_AMBER));
+	fakeMscSet(MscState::Idle, 0);
 	card();
 	kstFrames(1);
 	checkTrue("a card mounted on the page: it names the backup it saves",
@@ -979,7 +987,8 @@ static void testSlowCard() {
 	checkTrue("the backup refused, the record taken: the write verified",
 	          job().result == KST_SES_OK && !fakeFatExists("BACKUP/KST001.TXT"));
 	kstFrames(1);
-	checkTrue("the page names no backup file", lineIs(236, "NO BACKUP ON THE CARD: IN MEMORY", C_DIM));
+	checkTrue("the page names no backup file: lost at LEAVE, amber",
+	          lineIs(236, "NO BACKUP ON THE CARD: LOST AT LEAVE", C_AMBER));
 	tapId(UI_FIX(KstCtl::WriteOk));
 	leaveAll();
 }
@@ -1149,6 +1158,10 @@ static void testRecordKeptAtLeave() {
 	checkTrue("the card took no file, the record moved",
 	          ctlPresent(UI_FIX(KstCtl::WriteOk)) && !fakeFatExists("KST/KST.TXT") &&
 	          fakeFatExists("BACKUP/KST001.TXT"));
+	checkTrue("the page says why, that the servo is unchanged, and what next",
+	          lineIs(196, "THE CARD TOOK NO FILE (FULL OR", C_AMBER) &&
+	          lineIs(208, "REMOVED?). NOTHING WENT TO THE SERVO.", C_AMBER) &&
+	          lineIs(220, "CHECK THE CARD, HOLD AGAIN.", C_AMBER));
 	tapId(UI_FIX(KstCtl::WriteOk));
 	unplugAndBack();
 	checkTrue("the next session: no interrupted write named", fakeCountColour(C_AMBER) == 0);
@@ -1167,6 +1180,11 @@ static void testFlushWait() {
 	checkTrue("the claim turned the cache on", fakeCacheCalls().begins >= 1 &&
 	                                          cardCacheState() == CardCache::Idle);
 	checkTrue("and stopped the running log", !sdLogActive());
+	{
+		SdLogStatus ended;
+		sdLogStatus(&ended);
+		checkTrue("SD LOG learns KST SERVO stopped it", ended.end == SdLogEnd::ByKst);
+	}
 	sim_t *sim = fakeKstSim();
 	selectField(KST_F_DEAD_BAND);
 	tapId(UI_FIX(KstCtl::EditMinus));
@@ -1208,8 +1226,12 @@ static void testFlushWait() {
 	kstFrames(2);
 	checkTrue("a failed flush: no write frame, the card mounted again",
 	          sim->n_writes == writes && fakeCacheCalls().recovers == recovers + 1);
-	checkTrue("and the page says why", ctlPresent(UI_FIX(KstCtl::WriteOk)) &&
-	          lineIs(196, "THE CARD DID NOT TAKE THE BACKUP.", C_AMBER));
+	checkTrue("and the page says why, and what next, in three lines",
+	          ctlPresent(UI_FIX(KstCtl::WriteOk)) &&
+	          lineIs(196, "THE CARD DID NOT TAKE THE BACKUP", C_AMBER) &&
+	          lineIs(208, "(REMOVED OR SWAPPED?). NOTHING WENT TO", C_AMBER) &&
+	          lineIs(220, "THE SERVO. CHECK THE CARD, HOLD AGAIN.", C_AMBER));
+	fakeDumpFrame("shot_kst_flush_failed.ppm");
 	tapId(UI_FIX(KstCtl::WriteOk));
 	holdUntilGone(UI_FIX(KstCtl::Write));
 	kstFrames(1);
@@ -1219,6 +1241,14 @@ static void testFlushWait() {
 	kstFilesNextBackup(next);
 	snprintf(want, sizeof(want), "BACKUP FIRST: BACKUP/%s", next);
 	checkTrue("the next write saves the backup again", lineIs(236, want, C_DIM));
+	// Holding again retries: the backup is saved again, then the write runs.
+	char again[BACKUP_NAME_MAX + 8];
+	snprintf(again, sizeof(again), "BACKUP/%s", next);
+	holdUntilGone(UI_FIX(KstCtl::WriteHold));
+	checkTrue("held again: the backup on the card, the write sent",
+	          untilCtl(UI_FIX(KstCtl::WriteOk), 800) && fakeFatExists(again) &&
+	          sim->n_writes > writes && job().result == KST_SES_OK);
+	tapId(UI_FIX(KstCtl::WriteOk));
 	leaveAll();
 
 	// BACK during the flush, then a SAVE AS whose flush fails: the batch held
@@ -1332,6 +1362,23 @@ static void testFlushWait() {
 	          backupNumber(after, nullptr) == backupAfter(backupNumber(next, nullptr)));
 	tapId(UI_FIX(KstCtl::WriteOk));
 	fakeVolumeFailNext(0);
+
+	// An earlier batch still queued, and it fails: the page names a file, not
+	// the backup, and nothing went to the servo.
+	fakeCacheSet(CardCache::Flushing, 2);
+	writes = sim->n_writes;
+	tapId(UI_FIX(KstCtl::EditPlus));
+	holdUntilGone(UI_FIX(KstCtl::Write));
+	holdUntilGone(UI_FIX(KstCtl::WriteHold));
+	kstFrames(2);
+	fakeCacheSet(CardCache::Failed, 0);
+	kstFrames(2);
+	checkTrue("an earlier batch failed: A FILE, nothing to the servo, in three lines",
+	          ctlPresent(UI_FIX(KstCtl::WriteOk)) && sim->n_writes == writes &&
+	          lineIs(196, "THE CARD DID NOT TAKE A FILE (REMOVED", C_AMBER) &&
+	          lineIs(208, "OR SWAPPED?). NOTHING WENT TO THE", C_AMBER) &&
+	          lineIs(220, "SERVO. CHECK THE CARD, HOLD AGAIN.", C_AMBER));
+	tapId(UI_FIX(KstCtl::WriteOk));
 
 	// LOAD after a batch failed in the background: the card is mounted
 	// again, the list read again, and nothing loads until a row is chosen.

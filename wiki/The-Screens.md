@@ -38,7 +38,12 @@ disabled, an outline with a grey label, and a tap on it does nothing.
   it when the display could not set up its DShot output; nothing is sent to
   the ESC then;
 - the recording state: `REC`, `SD`, `SDERR` or `NOSD`
-  (see [SD Logging](SD-Logging));
+  (see [SD Logging](SD-Logging)). `SDERR`, a recording that stopped on its
+  own, is drawn on an amber chip, and stays clear of the arm badge, the RPM
+  and the throttle;
+
+  <img src="img/tester-sderr.png" width="240" alt="The tester armed, SDERR on an amber chip in the top row">
+
 - `BOARD` and the board's own battery voltage, read through its
   200 kΩ/100 kΩ divider; at most 9.90 V. It is not the ESC's pack: that is
   the `VOLTAGE` tile. With only USB (Universal Serial Bus) power connected,
@@ -130,7 +135,7 @@ position.
 | **SERVO TESTER** | the two signal pins, `GP0+1`; `PINS BUSY` | Opens the servo tester |
 | **KST SERVO** | the ESC pin, `GP0`; `PINS BUSY` | Opens the KST programmer. See [KST Programming](KST-Programming) |
 | **HITEC SERVO** | the ESC pin, `GP0`; `PINS BUSY` | Opens the Hitec programmer. See [Hitec Programming](Hitec-Programming) |
-| **SETTINGS** | `UNSAVED` while a value differs from flash, else nothing; `PINS BUSY` while the pins are still restoring, and it does not open | Opens SETTINGS |
+| **SETTINGS** | `UNSAVED` while a value differs from flash; else `UPDATED` while an update's reset of the settings is not saved over; else nothing. All amber. `PINS BUSY` while the pins are still restoring, and it does not open | Opens SETTINGS |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a computer holds the card | Opens the logging screen |
 
 `PINS BUSY` means the signal pins are still in use, for example while DShot
@@ -155,6 +160,15 @@ is on SETTINGS.
 
 <img src="img/menu-unsaved.png" width="240" alt="UNSAVED on the SETTINGS row, with changes not yet written to flash">
 
+`UPDATED` on the SETTINGS row means a firmware update discarded the saved
+settings: every value, the pole count, `MAX THROTTLE`, `ESC PIN`, KISS,
+`SERVO SUPPLY` and `CURRENT SENSE` among them, is at its compiled default.
+Check them in SETTINGS and hold `HOLD TO SAVE`; a save that lands ends the
+marker. The splash says the same at start-up (see
+[First Run](First-Run#powering-up)).
+
+<img src="img/menu-updated.png" width="240" alt="UPDATED on the SETTINGS row after an update discarded the saved settings">
+
 ---
 
 ## SETTINGS
@@ -169,7 +183,7 @@ a finger.
 |---|---|---|
 | ESC TESTER | **MOTOR POLES** | 2–28, even values. The RPM readout divides the eRPM by half of it |
 | ESC TESTER | **MAX THROTTLE** | The throttle ceiling, `5%` to `100%` in steps of 5 % |
-| WIRING | **ESC PIN** | GPIO (general-purpose input/output pin) for the signal wire. Only the board's two free GPIOs are offered, GP0 and GP1 |
+| WIRING | **ESC PIN** | GPIO (general-purpose input/output pin) for the signal wire. Only the board's two free GPIOs are offered, GP0 and GP1. A step moves DShot to the new pin at once; see the note line below |
 | WIRING | **DSHOT KBAUD** | 150 / 300 / 600 / 1200. Lower it if the `LINK` error rate rises |
 | WIRING | **KISS TELEM** | Whether to listen on the optional third telemetry wire |
 | WIRING | **KISS PIN** | GPIO for that wire. Skips the ESC pin, so the two never coincide. Reads `--` and does not act while KISS TELEM is off |
@@ -193,13 +207,31 @@ of it show.
 
 Under the list, these stay in place:
 
+- **The ESC pin's warning**, at y 230, only while the ESC pin is not the one
+  the splash named at start-up: the splash's warning for the new pin in
+  amber, for example `UNPLUG ANY SERVO FROM GP1 NOW`. DShot runs on that pin
+  from the step, and a servo left there, for example after the two-servo
+  tester, moves. The list then ends 12 px higher, at y 227, and scrolls
+  12 px further; its top rows stay where they are.
 - **LINK**: live packets per second and error rate. Green means packets are
   arriving, so the ESC pin is correct. Amber means more than 5 % errors.
-- The note line, which says which set is in use: `SAVED SETTINGS IN USE` or
-  `COMPILED DEFAULTS IN USE`. After a change it reads
-  `UNSAVED - HOLD SAVE TO KEEP`. After `RESET` it reads
-  `DEFAULTS LOADED - RESTART TO UNDO` while a restart would bring the saved
-  values back, until another change or a `HOLD TO SAVE`, failed or not.
+- The note line: one text, the first that applies, in this order:
+  1. `SAVE FAILED - FLASH REFUSED THE WRITE` (red) or
+     `NOT WHILE ARMED - DISARM TO SAVE` (red), until the next save or
+     leaving SETTINGS;
+  2. `ADJUSTED TO THIS BOARD'S LIMITS` or `KISS OFF: NEEDS A PIN OF ITS OWN`
+     (amber), until the next change;
+  3. `DEFAULTS LOADED - RESTART TO UNDO` (amber) after `RESET`, while a
+     restart would bring the saved values back, until another change or a
+     `HOLD TO SAVE`, failed or not;
+  4. `UNSAVED - HOLD SAVE TO KEEP` (amber) after a change;
+  5. `SAVED` (green) after a save, until the next change;
+  6. `RESET BY UPDATE - CHECK AND SAVE` (amber) after an update discarded
+     the saved settings, until a save lands;
+  7. `SAVED SETTINGS IN USE` or `COMPILED DEFAULTS IN USE`.
+
+<img src="img/settings-pin.png" width="240" alt="SETTINGS after ESC PIN moved to GP1: UNPLUG ANY SERVO FROM GP1 NOW above LINK, UNSAVED on the note line">
+
 - `HOLD TO SAVE` (150 × 48 px) and `RESET` (70 × 48 px).
 
 **Changes apply at once. Only storing them needs the hold.** A new bitrate

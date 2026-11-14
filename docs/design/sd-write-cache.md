@@ -117,9 +117,9 @@ still to go, or `Failed`.
   only at `Idle`. At `Failed` it mounts the card again
   (`cardCacheRecover()`), forgets the first write, so the next write saves
   the backup again, and reads
-  `THE CARD DID NOT TAKE THE BACKUP. NOTHING WAS WRITTEN TO THE SERVO.` BACK
-  during the flush leaves the page; the write is not sent, and the flush goes
-  on.
+  `THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+  BACK during the flush leaves the page; the write is not sent, and the flush
+  goes on.
 - **Any failed batch on KST.** `Idle` after a recovery says only that the
   queue is empty. A batch that fails off the write page, after BACK during
   the flush, in SAVE AS or in a removal of the record, may have held the
@@ -228,8 +228,11 @@ A batch that fails:
   is taken. A blackbox log that runs then stops first: during a claim the
   DShot pump stops, so the log has nothing to record, and its writes, 7.3
   kB/s or 14.3 blocks a second, would fill the queue behind the backup in
-  under 3 s at 511 ms a block (the owner's decision of 2026-10-27). Without
-  a mounted card the cache stays off for the claim.
+  under 3 s at 511 ms a block (the owner's decision of 2026-10-27). The stop
+  is recorded with the tool's name (`sdLogStopFor()`), and SD LOG reads
+  `RECORDING STOPPED BY KST SERVO`, `HITEC SERVO` or `AM32 CONFIG` until the
+  next start; a mount keeps it. Without a mounted card the cache stays off
+  for the claim.
 - `cardCacheEnd()` runs when the claim ends: KST's LEAVE, BACK and the loss
   rule, AM32's BACK. It flushes, core0 blocking, recovers a failed flush, and
   turns the cache off. BACK on KST's unplug page keeps the claim and turns

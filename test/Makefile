@@ -104,6 +104,11 @@ vpath %.cpp $(sort $(dir $(FEATURE_CXXTESTS)))
 
 BIN := dshot_tests
 
+# usb_msc.cpp itself, the one device source with a program of its own: the
+# suite links a fake of its runtime half for the screens, this links the real
+# file against stubs of the logger, the card and TinyUSB.
+MSC_CB_BIN := $(OBJ_DIR)/test_usb_msc_cb
+
 .PHONY: all build run syntax pioemu bbcheck previews wiki coverage kstcount kstcount-write clean
 
 all: syntax run pioemu bbcheck
@@ -147,8 +152,15 @@ $(CXXTEST_BINS): $(OBJ_DIR)/%: %.cpp $(FEATURE_COBJS)
 
 # The suite, then each C test program. A program prints a line per case; its
 # summary line is shown, and the whole output when it fails.
-run: $(BIN) $(CTEST_BINS) $(CXXTEST_BINS)
+$(MSC_CB_BIN): test_usb_msc_cb.cpp ../src/usb_msc.cpp $(wildcard ../src/*.h) \
+		$(wildcard stubs/*.h stubs/*/*.h stubs/*/*/*.h)
+	@mkdir -p $(OBJ_DIR)
+	$(CXX) $(CXXFLAGS) $(WARN) -Werror $(INCLUDES) $(DEFINES) -o $@ \
+		test_usb_msc_cb.cpp ../src/usb_msc.cpp
+
+run: $(BIN) $(CTEST_BINS) $(CXXTEST_BINS) $(MSC_CB_BIN)
 	./$(BIN)
+	@out=$$(./$(MSC_CB_BIN)) || { echo "$$out"; exit 1; }; echo "$$out" | tail -1
 	@for t in $(CTEST_BINS); do \
 		out=$$(./$$t) || { echo "$$out"; exit 1; }; \
 		echo "$$out" | tail -1; \

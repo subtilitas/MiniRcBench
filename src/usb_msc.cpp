@@ -170,6 +170,22 @@ bool tud_msc_start_stop_cb(uint8_t lun, uint8_t power_condition, bool start,
 	return true;
 }
 
+/**
+ * @brief The host unconfigured the device or it was unplugged: the card
+ *        comes back exactly as on an eject (@ref MscEvent::HostEject).
+ *
+ * TinyUSB 0.18.0, the Pico SDK 2.1.1's, calls this on SET_CONFIGURATION 0
+ * and on DCD_EVENT_UNPLUGGED. Its RP2040 port, which the RP2350 uses, forces
+ * VBUS detection on (`FORCE_VBUS_DETECT` 1 in dcd_rp2040.c) and never
+ * raises DCD_EVENT_UNPLUGGED: a cable pulled with the board on its battery
+ * reaches the firmware as a bus suspend, the event a sleeping host sends
+ * too. A suspend is not handled: the card stays with the host, and EJECT on
+ * SD LOG takes it back. Not tested on hardware.
+ */
+void tud_umount_cb(void) {
+	s_state = mscNext(s_state, MscEvent::HostEject);
+}
+
 int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset,
                           void *buffer, uint32_t bufsize) {
 	(void)lun;
