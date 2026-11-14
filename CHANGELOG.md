@@ -579,11 +579,12 @@ protocol.
   SCSI product revision `0.1`, from `src/version.h`; DshotDisplay reported
   1.00 and `1.0` in every release.
 - Unchanged, so that a board moves over without being set up again: the USB
-  vendor and product IDs (0x2E8A, 0x4006), and the settings block in flash
-  (magic `DSHT`, layout version 2, the last 4 kB sector). Settings saved by
-  DshotDisplay 2.x on an RP2350-Touch-LCD-2.8 load.
+  vendor and product IDs (0x2E8A, 0x4006), and the settings block's magic
+  `DSHT` and its place, the last 4 kB sector. Its layout version is 5, so
+  settings saved by DshotDisplay 2.x (version 2) do not load: the first boot
+  returns every setting to its default once.
 - MiniRcBench supports one board, the Waveshare RP2350-Touch-LCD-2.8, and
-  builds one image for it. The splash and the SETUP BOARD row name the board
+  builds one image for it. The splash and SETTINGS → BUILT FOR name the board
   the image is built for.
 - The settings block's board id is a record checked against the 2.8"'s, 28;
   validation rewrites any other value and re-judges the stored pins against
@@ -908,6 +909,11 @@ protocol.
   firmware's TinyUSB configuration requires. Its stub comment says what they
   answer: test_unit_ready not ready, a capacity of 0 blocks, and an error for
   read10, write10 and every SCSI command outside TinyUSB's built-in set.
+- Manual corrections: the no-ESC pictures show NO TELEMETRY and `--` in the
+  five ESC tiles; the backup ring is described as shared by KST, AM32 and
+  Hitec; the AM32 connect failures `LAYOUT n NOT KNOWN` and `READ FAILED`
+  are listed; the Troubleshooting page has a section for restarts, and
+  Still stuck asks for LAST RESTART.
 
 ---
 

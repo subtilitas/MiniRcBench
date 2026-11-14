@@ -349,7 +349,8 @@ a second hold. The page then reads `THE PLANNER DID NOT CHECK THIS` and
   reads `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.`
 
 The backups share one ring of 50 numbers with the backups of the AM32
-editor, `BACKUP/KSTnnn.TXT` and `BACKUP/AMnnn.TXT`. `BACKUP/LAST` holds the
+editor and the Hitec programmer, `BACKUP/KSTnnn.TXT`, `BACKUP/AMnnn.TXT` and
+`BACKUP/HTnnn.TXT`. `BACKUP/LAST` holds the
 latest number, 3 digits and a line feed; no list shows it. The next backup
 takes the number after it, 001 after 050, and once all 50 are taken it writes
 over the oldest, whatever device it belongs to. Files with any other name,

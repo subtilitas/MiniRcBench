@@ -218,9 +218,9 @@ screen shows `NOT VERIFIED. TAP OK, WRITE AGAIN.` in amber; see
 <img src="img/am32-write-failed.png" width="240" alt="WRITE FAILED: REFUSED with NOT VERIFIED. TAP OK, WRITE AGAIN.">
 
 Before the first write of a session, the settings as read at entry go to the
-SD card as `BACKUP/AMnnn.TXT`, in the ring of backups that the KST programmer
-shares ([KST programming](KST-Programming)). The result then reads
-`WRITE VERIFIED. BACKUP AM018`, for example. A card that refuses the backup
+SD card as `BACKUP/AMnnn.TXT`, in the ring of backups that the KST and Hitec
+programmers share ([KST Programming](KST-Programming#files)). The result then
+reads `WRITE VERIFIED. BACKUP AM018`, for example. A card that refuses the backup
 stops the write: `NO BACKUP ON THE CARD: NOT WRITTEN`, with
 `CHECK THE CARD, THEN WRITE AGAIN.` under it. Without a card the
 write runs, and the backup stays in memory until a write with a card saves it
@@ -309,5 +309,10 @@ board restarts.
   transport does not implement.
 - **`NO VALID SETTINGS`.** The ESC answered, and the settings block failed the
   plausibility check. Do not write anything.
+- **`LAYOUT n NOT KNOWN`.** The ESC stores a settings layout the tester does
+  not know; it shows `THE TESTER KNOWS LAYOUTS 2 TO 4.` and writes nothing.
+  Use the AM32 configurator for this ESC.
+- **`READ FAILED (...)`.** The handshake worked and the settings read did not.
+  Check the signal wire and ground.
 
 More in [Troubleshooting](Troubleshooting#am32-will-not-connect).
