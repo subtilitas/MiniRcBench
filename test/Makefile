@@ -10,6 +10,7 @@
 #   make coverage line coverage of src/ from an instrumented build in cov/
 #   make kstcount the KST card phases over FatFs, checked against the design note
 #   make kstcount-write  rewrite that table
+#   make lognum   the next blackbox log's file over FatFs R0.15 itself
 #   make clean
 #
 # Needs nothing but a C++17 compiler and the C compiler beside it: the firmware
@@ -73,7 +74,7 @@ SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
 # touchInit/touchPoll outright so that tests can drive presses.
 DEVICE_SRCS := ../src/esc_task.cpp ../src/st7789.cpp \
                ../src/usb_dev.cpp ../src/usb_msc.cpp ../src/usb_descriptors.c \
-               ../src/cst328.cpp ../src/am32_bl.cpp ../src/sd_log.cpp \
+               ../src/cst328.cpp ../src/am32_bl.cpp ../src/sd_log.cpp ../src/sd_log_next.cpp \
                ../src/pio_uart_rx.cpp \
                ../src/settings_flash.cpp ../src/main.cpp ../src/card_cache.cpp \
                $(SERVO_DEVICE_SRCS) $(KST_DEVICE_SRCS) $(HITEC_DEVICE_SRCS)
@@ -109,7 +110,7 @@ BIN := dshot_tests
 # file against stubs of the logger, the card and TinyUSB.
 MSC_CB_BIN := $(OBJ_DIR)/test_usb_msc_cb
 
-.PHONY: all build run syntax pioemu bbcheck previews wiki coverage kstcount kstcount-write clean
+.PHONY: all build run syntax pioemu bbcheck previews wiki coverage kstcount kstcount-write lognum clean
 
 all: syntax run pioemu bbcheck
 
@@ -291,6 +292,21 @@ $(OBJ_DIR)/kst_card_count: kst_card_count.cpp $(KST_COUNT_SRCS) ../src/kst_files
 	done
 	$(CXX) $(CXXFLAGS) $(WARN) -I$(FATFS_SRC) -I$(FATFS_DIR)/src/include -I../src -I. \
 		$(KST_INCLUDES) $(HITEC_INCLUDES) -o $@ kst_card_count.cpp $(KST_COUNT_SRCS) $(OBJ_DIR)/kstcount/*.o
+
+# The next blackbox log's file, src/sd_log_next.cpp, over the same FatFs on a
+# RAM disk that can be swapped for another card image: the scan, the number
+# kept between starts and FatFs mounting again. Fails on any failed check.
+$(OBJ_DIR)/log_next_fatfs: log_next_fatfs.cpp check.h ../src/sd_log_next.cpp ../src/sd_log_next.h ../src/sd_log.h $(FATFS_SRC)/ff.c
+	mkdir -p $(OBJ_DIR)/lognum
+	for f in $(FATFS_SRC)/ff.c $(FATFS_SRC)/ffunicode.c $(FATFS_SRC)/ffsystem.c; do \
+		$(CC) $(CFLAGS) -w -I$(FATFS_SRC) -I$(FATFS_DIR)/src/include \
+			-c -o $(OBJ_DIR)/lognum/$$(basename $$f .c).o $$f || exit 1; \
+	done
+	$(CXX) $(CXXFLAGS) $(WARN) -I$(FATFS_SRC) -I$(FATFS_DIR)/src/include -I../src -I. \
+		-o $@ log_next_fatfs.cpp ../src/sd_log_next.cpp $(OBJ_DIR)/lognum/*.o
+
+lognum: $(OBJ_DIR)/log_next_fatfs
+	./$(OBJ_DIR)/log_next_fatfs
 
 kstcount: $(OBJ_DIR)/kst_card_count
 	./$(OBJ_DIR)/kst_card_count --check $(KST_NOTE)

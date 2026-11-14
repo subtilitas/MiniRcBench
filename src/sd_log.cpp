@@ -16,6 +16,7 @@
 #include "hw_config.h"
 #include "sd_card.h"
 #include "sdio/sd_card_cache.h"
+#include "sd_log_next.h"
 
 #include <stdio.h>
 
@@ -49,18 +50,25 @@ static uint32_t   s_fileNo = 0;
 /** @brief Why the last log ended. @see SdLogEnd */
 static SdLogEnd   s_end = SdLogEnd::None;
 /**
- * @brief The number the next log takes, read from `LOGS/` once per mount:
- *        the highest `LOGnnnnn.BFL` plus 1 (sdLogNextNumber()), 0 for none
- *        free. @see scanNextNumber()
+ * @brief The number the next log takes, read from `LOGS/` once per FatFs
+ *        mount: the highest `LOGnnnnn.BFL` plus 1 (sdLogNextNumber()), 0 for
+ *        none free. @see sdLogOpenNext()
  *
- * Valid while s_nextKnown. Each start that opens its file sets it to the
- * number after that file's, which stays true at its stop: the file stays,
- * and nothing else writes `LOGS/` while the card is mounted here. A mount
- * (sdLogBegin()) and a release to a USB host forget it, because a computer
- * may have added or deleted files by then.
+ * Each start that opens its file sets it to the number after that file's,
+ * which stays true at its stop: the file stays, and nothing else writes
+ * `LOGS/` while the card is mounted here. sdLogOpenNext() reads the
+ * directory again when FatFs has mounted the card again since. A mount
+ * (sdLogBegin()), a release to a USB host and every error forget it: the
+ * card may have been swapped, or edited in a card reader, by the next start.
  */
-static uint32_t s_nextNo = 0;
-static bool     s_nextKnown = false;
+static SdLogNextCache s_next = {};
+
+/** @brief A start or a write failed: the error state, its cause, the number forgotten. */
+static void enterError(SdLogEnd why) {
+	s_state = SdLogState::Error;
+	s_end = why;
+	sdLogNextForget(&s_next);
+}
 
 static BlackboxEncoder s_enc;
 static LogRing         s_ring;
@@ -130,7 +138,7 @@ bool sdLogBegin() {
 	// true of the last log whatever card is in the slot: it is kept until the
 	// next start, so a remount the tool made does not hide it.
 	sdLogMountForget(&s_end);
-	s_nextKnown = false;
+	sdLogNextForget(&s_next);
 	s_fileNo = 0;
 	s_framesLogged = 0;
 	s_cardBytes = 0;
@@ -196,7 +204,7 @@ bool sdLogRelease() {
 	// it is the state every other entry point already refuses to work in.
 	s_state = SdLogState::NoCard;
 	s_released = true;
-	s_nextKnown = false;
+	sdLogNextForget(&s_next);
 	return true;
 }
 
@@ -220,83 +228,18 @@ bool sdLogVolumeId(uint32_t *lba, uint32_t *offset) {
 	return true;
 }
 
-/**
- * @brief Read `LOGS/` once for the next log's number.
- *
- * One f_opendir() and one f_readdir() per entry: every directory entry is
- * read once, 32 bytes each, 16 to a 512-byte sector, so N logs with short
- * names cost about N / 16 sector reads (a long name adds an entry per 13
- * characters). On core0, in the frame that starts the log, the one after
- * arming for an auto log; the time per sector is the card's, not measured.
- * Both of an entry's names count: the long one FatFs reports, and its
- * 8.3 alias when it has one.
- *
- * @param[out] next The number, 0 for none free. Set only on FR_OK.
- * @return The FatFs result; anything but FR_OK is a scan that failed.
- */
-static FRESULT scanNextNumber(uint32_t *next) {
-	DIR dir;
-	FRESULT fr = f_opendir(&dir, SD_LOG_DIR_PATH);
-	if (fr != FR_OK) return fr;
-	uint32_t highest = 0;
-	FILINFO fno;
-	for (;;) {
-		fr = f_readdir(&dir, &fno);
-		if (fr != FR_OK || fno.fname[0] == '\0') break;
-		sdLogNoteName(&highest, fno.fname);
-#if FF_USE_LFN
-		sdLogNoteName(&highest, fno.altname);
-#endif
-	}
-	f_closedir(&dir);
-	if (fr == FR_OK) *next = sdLogNextNumber(highest);
-	return fr;
-}
-
 bool sdLogStart() {
 	if (s_released) return false;
 	if (s_state == SdLogState::NoCard) return false;
 	if (s_state == SdLogState::Logging) return true;
 	s_end = SdLogEnd::None;
 
-	// The logs live in their own directory, so the root holds a few
-	// directories and a lookup in it reads one block. FR_EXIST is the
-	// directory already there.
-	FRESULT md = f_mkdir(SD_LOG_DIR_PATH);
-	if (md != FR_OK && md != FR_EXIST) {
-		s_state = SdLogState::Error;
-		s_end = SdLogEnd::OpenFailed;
+	uint32_t n = 0;
+	SdLogEnd why = sdLogOpenNext(&s_next, &s_fs, SD_LOG_DIR_PATH, &s_file, &n);
+	if (why != SdLogEnd::None) {
+		enterError(why);
 		return false;
 	}
-
-	// A scan that fails is a file that cannot be opened: the same cause.
-	if (!s_nextKnown) {
-		if (scanNextNumber(&s_nextNo) != FR_OK) {
-			s_state = SdLogState::Error;
-			s_end = SdLogEnd::OpenFailed;
-			return false;
-		}
-		s_nextKnown = true;
-	}
-	uint32_t n = s_nextNo;
-	if (n == 0) {
-		// After LOG99999.BFL. Never wrapped to a low number a file may hold.
-		s_state = SdLogState::Error;
-		s_end = SdLogEnd::NoFreeNumber;
-		return false;
-	}
-
-	// Created new, never over a file: one the scan did not count fails here
-	// as an open, and the next start reads the directory again.
-	char name[24];
-	snprintf(name, sizeof(name), SD_LOG_DIR_PATH "/LOG%05lu.BFL", (unsigned long)n);
-	if (f_open(&s_file, name, FA_WRITE | FA_CREATE_NEW) != FR_OK) {
-		s_nextKnown = false;
-		s_state = SdLogState::Error;
-		s_end = SdLogEnd::OpenFailed;
-		return false;
-	}
-	s_nextNo = sdLogNextNumber(n);
 
 	// Reserve a contiguous run so the FAT is not extended mid-log. An
 	// allocation landing in the middle of a run is the long unpredictable stall
@@ -347,8 +290,8 @@ void sdLogStop() {
 	FRESULT sync = f_sync(&s_file);
 	FRESULT close = f_close(&s_file);
 	(void)trunc;
-	s_state = (sync == FR_OK && close == FR_OK) ? SdLogState::Idle : SdLogState::Error;
-	if (s_state == SdLogState::Error) s_end = SdLogEnd::WriteFailed;
+	if (sync != FR_OK || close != FR_OK) enterError(SdLogEnd::WriteFailed);
+	else s_state = SdLogState::Idle;
 	// The file's number stays, for SD LOG's FILE row, until the next start.
 	if (s_state == SdLogState::Idle) s_autoStarted = false;
 }
@@ -457,8 +400,7 @@ void sdLogFlush() {
 	if (took > s_worstFlushMs) s_worstFlushMs = took;
 
 	if (fr != FR_OK || wrote != n) {
-		s_state = SdLogState::Error;
-		s_end = sdLogWriteEnd((int)fr, (uint32_t)wrote, n);
+		enterError(sdLogWriteEnd((int)fr, (uint32_t)wrote, n));
 		f_close(&s_file);
 		return;
 	}
