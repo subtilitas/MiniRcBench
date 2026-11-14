@@ -14,6 +14,8 @@
 *.sh     text eol=lf
 Makefile text eol=lf
 Doxyfile text eol=lf
+*.py     text eol=lf
+*.step   text eol=lf
 
 # Binary — never touch these.
 *.png    binary

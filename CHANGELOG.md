@@ -44,6 +44,14 @@ protocol.
 
 ### Added
 
+- A STEP model of the board for enclosure design,
+  `hardware/mechanical/models/rp2350_touch_lcd_2_8.step`: 50.54 × 73.06 ×
+  10.03 mm, 662 solids with flat and cylindrical faces. It is a facsimile
+  drawn from measurements; its sources and limits are in
+  [hardware/mechanical/README.md](hardware/mechanical/README.md).
+  `gen_models.py` writes it from `touch_lcd_2_8.py` with rcbench's
+  `step_gen.py`, copied to `lib/rcbench/hardware/kicad/tools/`; the Docs job
+  runs `gen_models.py --check`.
 - After v0.1.0-rc1 (a93e1c1): the tester shows
   `3D MODE ESC: THROTTLE SCALE DIFFERS` in amber on the RPM area's bottom row,
   in place of the pole count and the swipe hint, armed or not, while the pad is

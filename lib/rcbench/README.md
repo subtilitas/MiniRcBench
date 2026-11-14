@@ -112,5 +112,18 @@ this repository lists its sources in its own `.cmake` and `.mk` files.
 this repository has none. Here the trademark notice of
 [README.md](../../README.md#trademark-notice) covers Futaba and S.BUS.
 
+The STEP writer, at commit `fb41a46a`:
+
+| File here | rcbench path |
+| --- | --- |
+| `hardware/kicad/tools/step_gen.py` | the same path |
+
+It writes STEP (Standard for the Exchange of Product model data) files, ISO
+10303-21 with the AP214 schema, from prisms, turned profiles and solids with
+flat and curved faces, using the Python standard library only.
+[hardware/mechanical/gen_models.py](../../hardware/mechanical/gen_models.py)
+writes the model of the board with it. The file has no
+`SPDX-License-Identifier` line in rcbench, and none is added here.
+
 Files adapted rather than copied start with the line
 `Adapted from rcbench <path>, commit <commit>, MIT.`
