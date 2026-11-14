@@ -72,8 +72,8 @@
 #define HF_FAMILY_H  46               /**< Both buttons' height. */
 #define HF_WHY_1     16               /**< CLASSIC's first note line, px under the button. */
 #define HF_WHY_2     28               /**< ...and its second. */
-/** @brief Changes the write page lists before AND n MORE. */
-#define HITEC_UI_CHANGES_MAX 6
+/** @brief The write page's state lines: its list ends above them. */
+#define HW_STATE_Y 196
 /** @} */
 
 static const UiRect FIELD_VIEW  = { 0, UI_BODY_Y, GFX_W, HL_LIST_Y1 - UI_BODY_Y + 1 };
@@ -808,7 +808,7 @@ static void drawList() {
 		hitec_value_t id;
 		if (r.param == HITEC_P_D_ID && hitec_param_get(&s_draft, s_layout, HITEC_P_D_ID, &id) == HITEC_GET_OK &&
 		    id.value != 0)
-			note = "THE BENCH ADDRESSES ID 0. ANOTHER ID IS NOT TESTED.";
+			note = HITEC_UI_ID_NOTE_BAR;
 		if (note) {
 			snprintf(top, sizeof(top), "%s %s", r.label, want);
 			if (gfxTextW(top, 1) > cw) snprintf(top, sizeof(top), "%s", want);
@@ -1057,57 +1057,98 @@ static void drawWrite() {
 	uiStripClear();
 	gfxRect(0, UI_BODY_Y, GFX_W, GFX_H - UI_BODY_Y, C_BG);
 	char buf[96];
-	int y = UI_BODY_Y;
 	int changed = hitecChangedCount(&s_pageFrom, &s_pageTo, s_layout);
 	snprintf(buf, sizeof(buf), "%s%d VALUE%s", s_restoring ? "BACK TO THE BACKUP: " : "", changed,
 	         changed == 1 ? "" : "S");
 	uiStripText(buf, C_DIM);
-	int shown = 0;
+	// The page's parts and their sizes, laid out by hitecPageLayout(): the
+	// horn line, the ID note, FILE OF ANOTHER MODEL and MODEL NOT MEASURED
+	// keep their lines; the value rows, ID first, take what is left; the
+	// soft rules come last.
+	HitecPageIn in;
+	memset(&in, 0, sizeof(in));
+	in.y0 = UI_BODY_Y;
+	in.yEnd = HW_STATE_Y;
+	in.horn = !s_wroteOnce || travelMoves();
+	char wl[3][48];
+	hitec_value_t id;
+	const bool idNote = s_family == HITEC_D &&
+	                    hitecDiffers(&s_pageFrom, &s_pageTo, s_layout, HITEC_P_D_ID) &&
+	                    hitec_param_get(&s_pageTo, s_layout, HITEC_P_D_ID, &id) == HITEC_GET_OK &&
+	                    id.value != 0;
+	if (idNote) in.idLines = (uint8_t)kstWrap(HITEC_UI_ID_NOTE_PAGE, 36, wl, 3);
+	char other[48] = "";
+	if (s_otherModel[0] && !s_restoring) {
+		snprintf(other, sizeof(other), "FILE OF ANOTHER MODEL: %s.", s_otherModel);
+		in.fileLines = (uint8_t)kstWrap(other, 36, wl, 3);
+	}
+	const char *model = nullptr;
+	if (!hitecModelMeasured(&s_st.image)) {
+		model = s_family == HITEC_D ? "MODEL NOT MEASURED: WRITTEN IN THE D LAYOUT."
+		                            : "MODEL NOT MEASURED: WRITTEN IN THE CLASSIC LAYOUT.";
+		in.modelLines = (uint8_t)kstWrap(model, 36, wl, 3);
+	}
+	// The changed rows, the ID first: the change the bench may not undo.
+	int order[HITEC_ROWS_MAX];
+	int nv = 0;
 	for (int i = 0; i < s_rowCount; i++) {
 		uint8_t p = s_rows[i].param;
 		if (!hitecWritten(s_layout, p) || !hitecDiffers(&s_pageFrom, &s_pageTo, s_layout, p)) continue;
-		if (shown == HITEC_UI_CHANGES_MAX) {
-			snprintf(buf, sizeof(buf), "AND %d MORE", changed - shown);
-			gfxText(UI_MARGIN, y, buf, C_DIM, 1);
-			y += 12;
-			break;
+		if (p == HITEC_P_D_ID) {
+			memmove(order + 1, order, sizeof(order[0]) * nv);
+			order[0] = i;
+		} else {
+			order[nv] = i;
 		}
+		nv++;
+	}
+	in.values = nv;
+	char pair[HITEC_PAGE_ROWS_MAX][72];
+	for (int k = 0; k < nv && k < HITEC_PAGE_ROWS_MAX; k++) {
+		const HitecRow &r = s_rows[order[k]];
 		char a[32], b[32];
-		hitecValueText(&s_pageFrom, s_layout, p, a, sizeof(a), nullptr);
-		hitecValueText(&s_pageTo, s_layout, p, b, sizeof(b), nullptr);
-		gfxText(UI_MARGIN, y, s_rows[i].label, C_TEXT, 1);
-		snprintf(buf, sizeof(buf), "%s -> %s", a, b);
-		int vy = UI_MARGIN + gfxTextW(s_rows[i].label, 1) + 6 > GFX_W - UI_MARGIN - gfxTextW(buf, 1) ? y + 10 : y;
-		gfxText(GFX_W - UI_MARGIN - gfxTextW(buf, 1), vy, buf, C_LIME, 1);
-		y = vy + 12;
-		shown++;
+		hitecValueText(&s_pageFrom, s_layout, r.param, a, sizeof(a), nullptr);
+		hitecValueText(&s_pageTo, s_layout, r.param, b, sizeof(b), nullptr);
+		snprintf(pair[k], sizeof(pair[k]), "%s -> %s", a, b);
+		bool under = UI_MARGIN + gfxTextW(r.label, 1) + 6 > GFX_W - UI_MARGIN - gfxTextW(pair[k], 1);
+		in.valueH[k] = under ? 22 : 12;
 	}
-	// Notes above the state lines at y 196, 12 px a line.
 	uint32_t soft = hitecSoftRules(&s_pageFrom, &s_pageTo, s_layout);
-	char wl[3][48];
-	auto note = [&](const char *text, bool star) {
-		int n = kstWrap(text, 36, wl, 3);
-		for (int k = 0; k < n && y <= 180; k++, y += 12) {
-			if (star && k == 0) gfxText(UI_MARGIN, y, "*", C_AMBER, 1);
-			gfxText(UI_MARGIN + 12, y, wl[k], C_AMBER, 1);
+	const char *rule[HITEC_PAGE_RULES_MAX];
+	for (int i = 0; i < (int)HitecRule::Count && in.rules < HITEC_PAGE_RULES_MAX; i++)
+		if (soft & HITEC_RULE_BIT(i)) {
+			rule[in.rules] = hitecRuleText((HitecRule)i);
+			in.ruleLines[in.rules] = (uint8_t)kstWrap(rule[in.rules], 36, wl, 3);
+			in.rules++;
 		}
-	};
-	for (int i = 0; i < (int)HitecRule::Count; i++)
-		if (soft & HITEC_RULE_BIT(i)) note(hitecRuleText((HitecRule)i), true);
-	if (!hitecModelMeasured(&s_st.image))
-		note(s_family == HITEC_D ? "MODEL NOT MEASURED: WRITTEN IN THE D LAYOUT."
-		                         : "MODEL NOT MEASURED: WRITTEN IN THE CLASSIC LAYOUT.", false);
-	hitec_value_t id;
-	if (s_family == HITEC_D && hitecDiffers(&s_pageFrom, &s_pageTo, s_layout, HITEC_P_D_ID) &&
-	    hitec_param_get(&s_pageTo, s_layout, HITEC_P_D_ID, &id) == HITEC_GET_OK && id.value != 0)
-		note("THE BENCH ADDRESSES ID 0. ANOTHER ID IS NOT TESTED.", false);
-	if (s_otherModel[0] && !s_restoring) {
-		snprintf(buf, sizeof(buf), "FILE OF ANOTHER MODEL: %s.", s_otherModel);
-		note(buf, false);
+
+	HitecPageOut out;
+	hitecPageLayout(in, &out);
+	for (int k = 0; k < out.rows; k++) {
+		const HitecRow &r = s_rows[order[k]];
+		int y = out.rowY[k];
+		gfxText(UI_MARGIN, y, r.label, C_TEXT, 1);
+		gfxText(GFX_W - UI_MARGIN - gfxTextW(pair[k], 1), in.valueH[k] == 22 ? y + 10 : y, pair[k],
+		        C_LIME, 1);
 	}
-	if ((!s_wroteOnce || travelMoves()) && y <= 180) {
-		gfxText(UI_MARGIN, y, "KEEP THE SERVO HORN CLEAR.", C_TEXT, 1);
-		y += 12;
+	if (out.moreY >= 0) {
+		snprintf(buf, sizeof(buf), "AND %d MORE", nv - out.rows);
+		gfxText(UI_MARGIN, out.moreY, buf, C_DIM, 1);
+	}
+	if (out.hornY >= 0) gfxText(UI_MARGIN, out.hornY, "KEEP THE SERVO HORN CLEAR.", C_TEXT, 1);
+	auto note = [&](const char *text, int y, bool star) {
+		if (y < 0) return;
+		int n = kstWrap(text, 36, wl, 3);
+		if (star) gfxText(UI_MARGIN, y, "*", C_AMBER, 1);
+		for (int k = 0; k < n; k++) gfxText(UI_MARGIN + 12, y + 12 * k, wl[k], C_AMBER, 1);
+	};
+	if (idNote) note(HITEC_UI_ID_NOTE_PAGE, out.idY, false);
+	if (other[0]) note(other, out.fileY, false);
+	if (model) note(model, out.modelY, false);
+	for (int i = 0; i < in.rules; i++) note(rule[i], out.ruleY[i], true);
+	if (out.ruleMoreY >= 0) {
+		snprintf(buf, sizeof(buf), HITEC_UI_MORE_RULES_FMT, out.ruleMore, out.ruleMore == 1 ? "" : "S");
+		gfxText(UI_MARGIN + 12, out.ruleMoreY, buf, C_AMBER, 1);
 	}
 
 	if (s_write.backupName[0]) snprintf(buf, sizeof(buf), "BACKUP: BACKUP/%s", s_write.backupName);

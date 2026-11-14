@@ -104,6 +104,11 @@ extern void (*sdh_wait_hook)(void);
 typedef struct {
 	bool     ready;       /**< Initialised and in the transfer state. */
 	bool     v2;          /**< Answered CMD8: physical layer 2.00 or later. */
+	/**
+	 * A card answered CMD8 or the first CMD55, soundly or not: false after
+	 * sdh_init() means nothing on the bus answered, no card or not seated.
+	 */
+	bool     answered;
 	bool     block_addr;  /**< SDHC or SDXC: block addresses, not bytes. */
 	uint16_t rca;         /**< Relative card address. */
 	uint32_t ocr;         /**< Last OCR from ACMD41. */

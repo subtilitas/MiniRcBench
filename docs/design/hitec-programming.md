@@ -785,9 +785,13 @@ by a table value on its first edit; REVERT brings it back.
 - D series ID edits the servo's own ID, register 0x32, 0 to 255. The
   session addresses the servo with ID 0x00 whatever the register holds
   ([decision 5](#decisions-of-the-owner)); whether a servo with another ID
-  still answers ID 0x00 is not measured, so the row carries the amber text
-  `THE BENCH ADDRESSES ID 0. ANOTHER ID IS NOT TESTED.` while the draft
-  holds another value.
+  still answers ID 0x00 is not measured, so one write of another ID may
+  leave a servo the bench cannot read or restore. While the draft holds
+  another value the editor bar carries the amber text
+  `BENCH ADDRESSES ID 0. A WRITE MAY LOCK OUT READ AND RESTORE.`
+  (`HITEC_UI_ID_NOTE_BAR`, three lines of 22 characters) and the write page
+  `THE BENCH ADDRESSES ID 0 AND MAY NOT READ OR RESTORE THIS SERVO AGAIN.`
+  (`HITEC_UI_ID_NOTE_PAGE`, two lines of 36 and 33 characters).
 
 #### Classic checksum
 
@@ -807,9 +811,9 @@ y   0 | HITEC WRITE                      [ BACK ]|
    40 | 2 VALUES                                 |
    62 | SPEED            60 %  ->  30 %          |
    82 | DIRECTION          CW  ->  CCW           |
-  102 | * DIRECTION REVERSED. CHECK ALL CONTROL  |  C_AMBER, 12 px a line,
-  114 |   SURFACES BEFORE FLIGHT.                |  6 lines, none below 192
-  126 | KEEP THE SERVO HORN CLEAR.               |
+   94 | KEEP THE SERVO HORN CLEAR.               |  always its line
+  106 | * DIRECTION REVERSED. CHECK ALL CONTROL  |  C_AMBER, 12 px a line,
+  118 |   SURFACES BEFORE FLIGHT.                |  the last at y 184
   196 | WRITING: DO NOT UNPLUG. / the result     |  3 lines at most
   236 | BACKUP FIRST: BACKUP/HT005.TXT           |  or NO CARD: BACKUP IN MEMORY
   268 | [          HOLD TO WRITE           ]     |  1,000 ms, progress bar
@@ -817,12 +821,28 @@ y   0 | HITEC WRITE                      [ BACK ]|
 ```
 
 - The page lists the changed parameters from where the servo stood when the
-  page opened, in the field list's order, 6 at most and `AND n MORE`.
-  A value whose stored value changes and whose text does not carries its
-  stored value, `60 % (12) -> 60 % (13)`, as KST's `kstValuePair()`.
+  page opened, a changed ID first, then in the field list's order, 6 at most
+  and `AND n MORE`. A row is 12 px, or 22 px when its value goes under its
+  label. A value whose stored value changes and whose text does not carries
+  its stored value, `60 % (12) -> 60 % (13)`, as KST's `kstValuePair()`.
 - `KEEP THE SERVO HORN CLEAR.` shows on the session's first write and on
   every write that changes DIRECTION, NEUTRAL, CENTRE or an end point, as
   rcbench's panel does.
+- The layout is `hitecPageLayout()` in `src/hitec_view.cpp`, from y 62 to
+  the state lines at y 196, 12 px a line. In this order of priority: (1) the
+  horn line; (2) the ID note and `FILE OF ANOTHER MODEL: ...`, which state
+  something not undone or shown nowhere else; (3) `MODEL NOT MEASURED: ...`;
+  (4) the value rows with `AND n MORE`; (5) the soft rules with `*`. The
+  lines of (1) to (3), and one line for (5) when a soft rule applies, are
+  reserved first; the rows take what is left. Top to bottom: the rows,
+  `AND n MORE`, the horn line, the ID note, FILE, MODEL, the soft rules.
+  Each soft rule shows whole; one that does not fit is skipped and a later
+  one that fits still shows, and the last line counts those left out,
+  `AND n MORE RULES: SEE EACH ROW.` (`RULE` for one). With everything at
+  once (horn, ID note 2 lines, FILE 1, MODEL 2, a rule) 50 px are left for
+  the rows and, when rows are hidden, the 12 px `AND n MORE` line: four
+  rows of 12 px when exactly four values change, three rows and
+  `AND n MORE` when five or more change. A 22 px row takes 10 px more.
 - The hold confirms every soft rule shown, and, for a loaded file of another
   model, the amber line `FILE OF ANOTHER MODEL: D645MW.`
 - The write's steps, in order:

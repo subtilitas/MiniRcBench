@@ -181,7 +181,9 @@ Under the list, these stay in place:
   arriving, so the ESC pin is correct. Amber means more than 5 % errors.
 - The note line, which says which set is in use: `SAVED SETTINGS IN USE` or
   `COMPILED DEFAULTS IN USE`. After a change it reads
-  `UNSAVED - HOLD SAVE TO KEEP`.
+  `UNSAVED - HOLD SAVE TO KEEP`. After `RESET` it reads
+  `DEFAULTS LOADED - RESTART TO UNDO` while a restart would bring the saved
+  values back, until another change or a `HOLD TO SAVE`, failed or not.
 - `HOLD TO SAVE` (150 × 48 px) and `RESET` (70 × 48 px).
 
 **Changes apply at once. Only storing them needs the hold.** A new bitrate

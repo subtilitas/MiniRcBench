@@ -226,6 +226,19 @@ sind also drei auf einmal sichtbar.
   nicht dafür gebaut ist: Über 60 Hz überhitzt ein analoges Servo. Eine solche
   Änderung wartet, der Bildschirm nennt das Risiko, und `HOLD TO APPLY` (1 s)
   übernimmt sie. `BACK` verwirft sie.
+- Ein Puls über den Stellweg eines Servos hinaus fährt es gegen seinen
+  Endanschlag, wo es blockiert und heiß wird. Mit TYPE WIDE, MIN unter 900 µs
+  oder MAX über 2100 µs zeigt der Bildschirm in Bernstein
+  `PAST ITS TRAVEL A SERVO STALLS AND HEATS. TRY MIN AND MAX HORN-FREE.`
+  (über den Stellweg hinaus blockiert ein Servo und wird heiß; MIN und MAX
+  zuerst ohne Ruderhorn probieren). HELI CYCLIC zeigt ihn schon mit seinen
+  eigenen 820 µs bis 2220 µs. NARROW 760 und HELI TAIL 760 werden an ihrem
+  eigenen Bereich gemessen: Der Hinweis steht, wenn MIN mehr als 100 µs unter
+  dem MIN des Typs liegt oder MAX mehr als 100 µs über seinem MAX. Die
+  Änderung gilt sofort. Der Hinweis steht, solange TYPE, MIN oder MAX
+  gewählt ist, und auf anderen Zeilen, wenn dort kein anderer Hinweis steht.
+  Den Stellweg nennt das Datenblatt des Servos; der Prüfstand misst ihn
+  nicht.
 - Die SWEEP-Zeilen lassen sich jederzeit ändern und gelten für den nächsten
   `SWEEP`. Ist `SPEED` langsamer als die Kurve, zeigt der Bildschirm
   `SPEED LIMITS THE SWEEP`.

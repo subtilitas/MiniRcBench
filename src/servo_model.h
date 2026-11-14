@@ -56,6 +56,21 @@
 #define SERVO_SAFE_RATE_HZ    60
 /** @brief One step of the MIN, CENTRE and MAX steppers, in us. */
 #define SERVO_STEP_US         10
+/**
+ * @brief Below this MIN, in us, a profile centred near 1500 us may drive a
+ *        servo past its travel (the end-stop note of SET).
+ */
+#define SERVO_TRAVEL_MIN_US   900
+/**
+ * @brief Above this MAX, in us, a profile centred near 1500 us may drive a
+ *        servo past its travel (the end-stop note of SET).
+ */
+#define SERVO_TRAVEL_MAX_US   2100
+/**
+ * @brief How far, in us, MIN or MAX of a 760 us type may lie outside the
+ *        type's own range before the end-stop note shows.
+ */
+#define SERVO_TRAVEL_MARGIN_US 100
 /** @} */
 
 /**
@@ -254,6 +269,22 @@ uint16_t servoMaxPulseFor(ServoType t, uint16_t rateHz);
  * @return True when the change waits for HOLD TO APPLY.
  */
 bool servoDangerous(ServoType t, uint16_t rateHz);
+
+/**
+ * @brief Whether a profile may drive a servo past its travel, where it stalls
+ *        against its end stop.
+ *
+ * TYPE WIDE always. For the types centred near 1500 us (STANDARD PWM,
+ * HELI CYCLIC): MIN below @ref SERVO_TRAVEL_MIN_US or MAX above
+ * @ref SERVO_TRAVEL_MAX_US, 100 us outside STANDARD PWM's range. For the
+ * types centred at 760 us (NARROW 760, 660 us to 860 us; HELI TAIL 760,
+ * 410 us to 1110 us), whose ranges the 1500 us limits do not fit: MIN more
+ * than @ref SERVO_TRAVEL_MARGIN_US below the type's own MIN, or MAX more
+ * than that above the type's own MAX. Neither margin is a data-sheet value.
+ * @param p The profile.
+ * @return True when SET shows the end-stop note.
+ */
+bool servoPastTravel(const ServoProfile *p);
 
 /**
  * @brief Whether a profile is one the job may drive.

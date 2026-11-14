@@ -84,6 +84,11 @@ static bool claim(sd_card_t *c) {
 	return true;
 }
 
+/** @brief What the last initialisation found: SD_SDIO_INIT_OK and its kin. */
+static int s_initResult = SD_SDIO_INIT_OK;
+
+int sd_sdio_init_result(void) { return s_initResult; }
+
 /** @brief Mirror the driver's ready flag into the library's status. */
 static void syncStatus(sd_card_t *c) {
 	if (!c->sdio_if_p->state.card.ready) c->state.m_Status |= STA_NOINIT;
@@ -96,6 +101,7 @@ static DSTATUS sdioInit(sd_card_t *c) {
 		c->state.card_type = SDCARD_NONE;
 		c->state.sectors = 0;
 		uint32_t hz = c->sdio_if_p->baud_rate ? c->sdio_if_p->baud_rate : SDH_MAX_HZ;
+		s_initResult = SD_SDIO_INIT_NO_BUS;
 		if (claim(c)) {
 			sdh_bus_t b = busOf(c);
 			if (sdh_init(&b, k, hz) == SDE_OK) {
@@ -104,6 +110,9 @@ static DSTATUS sdioInit(sd_card_t *c) {
 				c->state.sectors = k->sectors;
 				c->state.card_type = k->block_addr ? SDCARD_V2HC : k->v2 ? SDCARD_V2 : SDCARD_V1;
 				c->state.m_Status &= ~STA_NOINIT;
+				s_initResult = SD_SDIO_INIT_OK;
+			} else {
+				s_initResult = k->answered ? SD_SDIO_INIT_UNUSABLE : SD_SDIO_INIT_SILENT;
 			}
 		}
 	}

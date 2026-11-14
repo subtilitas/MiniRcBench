@@ -231,12 +231,72 @@ static void testLogScreen() {
 	// With no card, START must not pretend to have started.
 	memset(&st, 0, sizeof(st));
 	st.state = SdLogState::NoCard;
-	st.mountResult = 3;          // FR_NOT_READY: nothing answered on the bus
+	st.mountResult = 3;          // FR_NOT_READY: the card did not initialise
+	st.cardInit = 1;             // SD_SDIO_INIT_SILENT
 	fakeSdLogSet(&st);
 	frames(2);
 	// The first thing anyone sees, since the card slot is empty by default.
 	fakeDumpFrame("shot_log_nocard.ppm");
 	checkControlTable("SD LOG, no card");
+	static const char *const HINT = "INSERT A CARD, THEN RETRY MOUNT";
+	const int noteY = 228;
+	checkTrue("3 NOT READY, no size: the note says to insert a card",
+	          fakeTextCentredIs(noteY, HINT, C_DIM, C_BG, 1));
+	checkTrue("the hint fits the panel", gfxTextW(HINT, 1) <= GFX_W - 2 * UI_MARGIN);
+	{
+		UiRect r = ctlRect(UI_FIX(SdLogCtl::Retry));
+		checkTrue("the button reads RETRY MOUNT, inside its 104 px",
+		          gfxTextW("RETRY MOUNT", 1) + 8 <= r.w &&
+		          fakeTextIs(r.x + (r.w - gfxTextW("RETRY MOUNT", 1)) / 2, r.y + (r.h - 7) / 2,
+		                     "RETRY MOUNT", C_CYAN, C_PANEL, 1));
+	}
+	// A card that answers and fails otherwise needs another fix.
+	st.mountResult = 13;         // FR_NO_FILESYSTEM
+	st.cardSizeMB = 30500;
+	fakeSdLogSet(&st);
+	frames(2);
+	checkTrue("13 NO FILESYSTEM: no insert hint", !fakeTextCentredIs(noteY, HINT, C_DIM, C_BG, 1));
+	st.mountResult = 3;
+	fakeSdLogSet(&st);
+	frames(2);
+	checkTrue("3 NOT READY with a size read: no insert hint",
+	          !fakeTextCentredIs(noteY, HINT, C_DIM, C_BG, 1));
+	st.mountResult = 1;          // FR_DISK_ERR
+	st.cardSizeMB = 0;
+	fakeSdLogSet(&st);
+	frames(2);
+	checkTrue("1 DISK ERR: no insert hint", !fakeTextCentredIs(noteY, HINT, C_DIM, C_BG, 1));
+	st.state = SdLogState::Error;
+	st.mountResult = 3;
+	fakeSdLogSet(&st);
+	frames(2);
+	checkTrue("CARD ERROR: no insert hint", !fakeTextCentredIs(noteY, HINT, C_DIM, C_BG, 1));
+	st.state = SdLogState::NoCard;
+	fakeSdLogSet(&st);
+	frames(2);
+	checkTrue("NO CARD and 3 NOT READY again: the hint", fakeTextCentredIs(noteY, HINT, C_DIM, C_BG, 1));
+	// A card that answered and failed its initialisation: not an empty slot.
+	static const char *const BAD = "CARD NOT USABLE: RESEAT OR REPLACE";
+	st.cardInit = 2;             // SD_SDIO_INIT_UNUSABLE
+	fakeSdLogSet(&st);
+	frames(2);
+	checkTrue("a card that answered and failed: CARD NOT USABLE, amber",
+	          fakeTextCentredIs(noteY, BAD, C_AMBER, C_BG, 1) &&
+	          !fakeTextCentredIs(noteY, HINT, C_DIM, C_BG, 1));
+	checkTrue("it fits the panel", gfxTextW(BAD, 1) <= GFX_W - 2 * UI_MARGIN);
+	st.cardInit = 3;             // SD_SDIO_INIT_NO_BUS
+	fakeSdLogSet(&st);
+	frames(2);
+	checkTrue("the bus not claimed: no hint", !fakeTextCentredIs(noteY, HINT, C_DIM, C_BG, 1) &&
+	          !fakeTextCentredIs(noteY, BAD, C_AMBER, C_BG, 1));
+	st.cardInit = 0;
+	fakeSdLogSet(&st);
+	frames(2);
+	checkTrue("initialised: no hint", !fakeTextCentredIs(noteY, HINT, C_DIM, C_BG, 1) &&
+	          !fakeTextCentredIs(noteY, BAD, C_AMBER, C_BG, 1));
+	st.cardInit = 1;
+	fakeSdLogSet(&st);
+	frames(2);
 	tapId(UI_FIX(SdLogCtl::Toggle), IdExpect::Disabled);
 	checkTrue("START does nothing without a card", !sdLogActive());
 
@@ -307,6 +367,28 @@ static void testUsbDriveScreen() {
 	frames(2);
 	checkTrue("2^31 ms after its end the note is not back",
 	          fakeRegionHash(0, 224, GFX_W, 14) == quiet);
+	// A refusal outranks the mount hint: refused while recording, then the
+	// card gone with nothing answering, the refusal stays for its 4000 ms.
+	{
+		SdLogStatus keep;
+		sdLogStatus(&keep);
+		tapId(UI_FIX(SdLogCtl::Usb));
+		SdLogStatus gone;
+		memset(&gone, 0, sizeof(gone));
+		gone.state = SdLogState::NoCard;
+		gone.mountResult = 3;
+		gone.cardInit = 1;
+		fakeSdLogSet(&gone);
+		frames(2);
+		checkTrue("refusal and no card at once: the refusal shows",
+		          fakeTextCentredIs(228, "STOP RECORDING FIRST", C_AMBER, C_BG, 1) &&
+		          !fakeTextCentredIs(228, "INSERT A CARD, THEN RETRY MOUNT", C_DIM, C_BG, 1));
+		frames(170);
+		checkTrue("the refusal over: the mount hint",
+		          fakeTextCentredIs(228, "INSERT A CARD, THEN RETRY MOUNT", C_DIM, C_BG, 1));
+		fakeSdLogSet(&keep);
+		frames(2);
+	}
 	// Nor a note that leaving the screen cut short, past 2^31 ms.
 	tapId(UI_FIX(SdLogCtl::Usb));
 	frames(2);

@@ -1,7 +1,7 @@
 /**
  * @file ui_sdlog.cpp
- * @brief The SD LOG screen: card state, counters, START and STOP, RETRY and
- *        USB DRIVE. @see ui_sdlog.h
+ * @brief The SD LOG screen: card state, counters, START and STOP, RETRY
+ *        MOUNT and USB DRIVE. @see ui_sdlog.h
  */
 
 #include "ui_sdlog.h"
@@ -55,15 +55,15 @@ static_assert(LOG_TOGGLE_H >= UI_TAP_MIN && LOG_BOT_H >= UI_TAP_MIN,
 // Against the constants rather than the structs: a UiRect is const, not
 // constexpr, so its members are not usable in a constant expression.
 static_assert(14 + 2 * LOG_BTN_W + LOG_BTN_GAP <= 226,
-              "RETRY and USB DRIVE do not fit between the margins");
+              "RETRY MOUNT and USB DRIVE do not fit between the margins");
 
 /** @brief This frame's touch. */
 static TouchState s_touch;
 
 /** @brief What the last frame drew, so an unchanged screen is not repainted. */
 static struct {
-	int      config, logState, logFile, logDrops, mscState, mscNote;
-	uint32_t logBytes, logFrames, logPeak, logWorstMs, mscBlocks;
+	int      config, logState, logFile, logDrops, mscState, mscNote, logMount, logInit;
+	uint32_t logBytes, logFrames, logPeak, logWorstMs, mscBlocks, logCardMB;
 } s_shown;
 
 /** @brief True while @p b is touched by a press that began inside it. */
@@ -93,6 +93,40 @@ static bool mscNoteActive() {
 	if (s_mscNote != MscRefusal::None && (int32_t)(millis() - s_mscNoteUntilMs) >= 0)
 		s_mscNote = MscRefusal::None;
 	return s_mscNote != MscRefusal::None;
+}
+
+/** @brief FatFs FR_NOT_READY: the card did not initialise. */
+#define LOG_FR_NOT_READY 3
+
+/** @brief SdLogStatus::cardInit: nothing answered (SD_SDIO_INIT_SILENT). */
+#define LOG_INIT_SILENT   1
+/** @brief SdLogStatus::cardInit: a card answered and failed (SD_SDIO_INIT_UNUSABLE). */
+#define LOG_INIT_UNUSABLE 2
+
+/**
+ * @brief The note line's hint for a failed mount, or null.
+ *
+ * Both hints need NO CARD, the mount ended in FR_NOT_READY (3) and no size
+ * read: the card never initialised. `INSERT A CARD, THEN RETRY MOUNT` when
+ * nothing answered CMD8 or the first CMD55; `CARD NOT USABLE: RESEAT OR
+ * REPLACE` when a card answered and its initialisation failed (a bad echo,
+ * a voltage window refused, ACMD41 timing out). Nothing for a bus the
+ * firmware could not claim, or for a card that initialised and failed
+ * otherwise (13 NO FILESYSTEM, 1 DISK ERR), which want other fixes; a card
+ * handed to a computer is not in this state's view.
+ * @param st The logger's status.
+ * @param[out] col Dim for no card, the normal case on a bench; amber for a
+ *        card that fails.
+ */
+static const char *mountHint(const SdLogStatus &st, uint16_t *col) {
+	if (st.state != SdLogState::NoCard || st.mountResult != LOG_FR_NOT_READY ||
+	    st.cardSizeMB != 0)
+		return nullptr;
+	*col = C_DIM;
+	if (st.cardInit == LOG_INIT_SILENT) return "INSERT A CARD, THEN RETRY MOUNT";
+	*col = C_AMBER;
+	if (st.cardInit == LOG_INIT_UNUSABLE) return "CARD NOT USABLE: RESEAT OR REPLACE";
+	return nullptr;
 }
 
 /**
@@ -158,6 +192,8 @@ static void drawLogScreen() {
 	    s_shown.logBytes == st.bytesWritten && s_shown.logFrames == st.framesLogged &&
 	    s_shown.logDrops == (int)st.dropEvents && s_shown.logPeak == st.peakBuffer &&
 	    s_shown.logWorstMs == st.worstFlushMs &&
+	    s_shown.logMount == st.mountResult && s_shown.logCardMB == st.cardSizeMB &&
+	    s_shown.logInit == st.cardInit &&
 	    s_shown.mscState == (int)msc && s_shown.mscNote == note &&
 	    s_shown.mscBlocks == blocks)
 		return;
@@ -173,6 +209,10 @@ static void drawLogScreen() {
 	s_shown.logDrops   = st.dropEvents;
 	s_shown.logPeak    = st.peakBuffer;
 	s_shown.logWorstMs = st.worstFlushMs;
+	// MOUNT, CARD and the mount hint follow these three.
+	s_shown.logMount   = st.mountResult;
+	s_shown.logCardMB  = st.cardSizeMB;
+	s_shown.logInit    = st.cardInit;
 
 	gfxFill(C_BG);
 	uiHeader("SD LOG", &s_touch);
@@ -248,8 +288,9 @@ static void drawLogScreen() {
 		snprintf(buf, sizeof(buf), "NONE");
 	drawLogRow(7, "CARD", buf, st.cardSizeMB ? C_TEXT : C_DIM);
 
-	// FatFs FRESULT. 0 is FR_OK, 3 FR_NOT_READY (nothing answered), 13
-	// FR_NO_FILESYSTEM (card fine, no filesystem FatFs can read).
+	// FatFs FRESULT. 0 is FR_OK, 3 FR_NOT_READY (the card did not
+	// initialise: none, or one that failed), 13 FR_NO_FILESYSTEM (card fine,
+	// no filesystem FatFs can read).
 	static const char *FR_TXT[] = {
 		"OK", "DISK ERR", "INT ERR", "NOT READY", "NO FILE", "NO PATH",
 		"BAD NAME", "DENIED", "EXIST", "BAD OBJ", "WRITE PROT",
@@ -272,7 +313,7 @@ static void drawLogScreen() {
 	// The card is only mounted once, at boot, so one inserted afterwards needs
 	// this. Without it, "insert card, nothing happens" is indistinguishable
 	// from a card the firmware cannot read.
-	uiButton(BTN_LOG_RETRY, "RETRY", C_PANEL, C_CYAN, 1,
+	uiButton(BTN_LOG_RETRY, "RETRY MOUNT", C_PANEL, C_CYAN, 1,
 	        pressing(BTN_LOG_RETRY, s_touch));
 
 	// Hands the card to a computer over the same USB cable that powers the
@@ -284,11 +325,16 @@ static void drawLogScreen() {
 	uiButton(BTN_LOG_USB, "USB DRIVE", C_PANEL, C_CYAN, 1,
 	        pressing(BTN_LOG_USB, s_touch), usable);
 
-	// The note line says why the last press was refused. Blank the row even
-	// when there is nothing to say, or a stale reason outlives its cause.
+	// The note line says why the last press was refused, or, after a mount
+	// that found no usable card, what to do. Blank the row even when there is
+	// nothing to say, or a stale reason outlives its cause.
 	gfxRect(0, LOG_NOTE_Y, GFX_W, 8, C_BG);
+	uint16_t hintCol = C_DIM;
+	const char *hint = mountHint(st, &hintCol);
 	if (mscNoteActive())
 		gfxTextCenter(LOG_NOTE_Y, mscRefusalText(s_mscNote), C_AMBER, 1);
+	else if (hint)
+		gfxTextCenter(LOG_NOTE_Y, hint, hintCol, 1);
 }
 
 /** @brief Touch handling for the logging screen. All three fire on release. */
@@ -309,9 +355,9 @@ static bool handleLogTouch() {
 	}
 
 	// The same expression the buttons are drawn with: no card, no start and no
-	// handover. RETRY is exempt and always live -- it is the control that gets
-	// you *out* of the no-card state, and disabling it would be a screen with
-	// nothing on it that does anything.
+	// handover. RETRY MOUNT is exempt and always live -- it is the control
+	// that gets you *out* of the no-card state, and disabling it would be a
+	// screen with nothing on it that does anything.
 	SdLogStatus st;
 	sdLogStatus(&st);
 	const bool usable = (st.state != SdLogState::NoCard);
