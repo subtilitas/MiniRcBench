@@ -246,9 +246,10 @@ vor dem Öffnen des Bildschirms funktioniert nicht.
   nicht. Mögliche Ursache: Der ESC läuft nicht mit AM32.
 - **`NO VALID SETTINGS`**: Der ESC hat geantwortet, und der Einstellungsblock
   hat die Plausibilitätsprüfung nicht bestanden. Schreibe nichts.
-- **`LAYOUT n NOT KNOWN`**: Der ESC speichert ein Einstellungslayout, das der
-  Tester nicht kennt; er zeigt `THE TESTER KNOWS LAYOUTS 2 TO 4.` und
-  schreibt nichts. Nimm für diesen ESC den AM32-Konfigurator.
+- **`LAYOUT n NOT KNOWN: READ-ONLY.`**: Der Bildschirm hat verbunden, und
+  der ESC speichert ein Einstellungslayout, das der Tester nicht kennt. Der
+  Bildschirm zeigt die Bytes, sichert sie und schreibt nichts. Nimm zum
+  Ändern dieses ESC den AM32-Konfigurator.
 - **`READ FAILED (...)`**: Der Verbindungsaufbau hat geklappt, das Lesen der
   Einstellungen nicht. Prüfe Signal- und Masseader.
 
@@ -309,6 +310,16 @@ wie: eine volle Karte, ein fehlgeschlagener Schreibvorgang, eine Datei, die
 sich nicht öffnen ließ, oder das Werkzeug (KST SERVO, HITEC SERVO, AM32
 CONFIG), das die Karte nahm. Siehe
 [SD-Aufzeichnung](SD-Aufzeichnung#wie-die-letzte-aufzeichnung-endete).
+
+---
+
+## Ein Schreiben meldet `BOARD VOLTAGE IS RED: NOT WRITTEN.`
+
+KST SERVO, HITEC SERVO und AM32 CONFIG schreiben nichts und stellen nichts
+wieder her, solange die BOARD-Spannung auf dem Tester rot ist: unter 3,30 V,
+bis sie wieder 3,35 V erreicht. Lade die Zelle der Platine, dann halte
+erneut. Die Änderungen bleiben. Mit USB-Versorgung ohne Zelle ist der Wert
+nicht gemessen; zeigt er dort Rot, setze eine geladene Zelle ein.
 
 ---
 

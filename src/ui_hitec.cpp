@@ -30,6 +30,7 @@
 #include "sense.h"
 #include "settings.h"
 #include "touch.h"
+#include "ui.h"
 #include "ui_hold.h"
 #include "ui_input.h"
 #include "ui_list.h"
@@ -81,6 +82,10 @@ static const UiRect FILE_VIEW   = { 0, UI_BODY_Y, GFX_W, HF_LIST_Y1 - UI_BODY_Y 
 static const UiRect BTN_CLASSIC = { 6, HF_CLASSIC_Y, 228, HF_FAMILY_H };
 static const UiRect BTN_DSERIES = { 6, HF_DSERIES_Y, 228, HF_FAMILY_H };
 // The family view's notes are scale 1 from x 8: 37 characters reach x 228.
+// The strip's lines, scale 1 from x 8, with a one-digit GP and two-digit.
+static_assert(sizeof(HITEC_UI_HELD_FMT) - 1 <= 37 && sizeof(HITEC_UI_CHOOSE) - 1 <= 37 &&
+                  sizeof(HITEC_UI_ESC_FMT) - 1 <= 37 && sizeof(HITEC_UI_ESC_2) - 1 <= 37,
+              "a family strip line runs off the panel");
 static_assert(sizeof(HITEC_UI_CLASSIC_WHY_1) - 1 <= 37 && sizeof(HITEC_UI_CLASSIC_WHY_2) - 1 <= 37 &&
                   sizeof(HITEC_UI_D_POWER) - 1 <= 37,
               "a family note runs off the panel");
@@ -120,6 +125,8 @@ static_assert(HL_STEP_W >= UI_TAP_MIN && HL_FOOT_H >= UI_TAP_MIN && HF_BTN_H >= 
 static HitecView    s_view = HitecView::Family;
 static uint8_t      s_family = HITEC_D;     /**< The family chosen. */
 static bool         s_claimed = false;      /**< pinClaimBegin() took the claim. */
+/** @brief A family was tapped in this claim: the job is wanted, BACK on the unplug page returns to Main. */
+static bool         s_familyChosen = false;
 static ClaimRefusal s_refusal = ClaimRefusal::None;
 static HitecStatus  s_st;                   /**< This frame's status from core1. */
 static const TouchState *s_t = nullptr;
@@ -168,6 +175,8 @@ static bool        s_result = false;
 static uint8_t     s_resultSes = 0;
 static HitecRefusal s_resultRefused = HitecRefusal::None;
 static const char *s_cardNote = nullptr;
+/** @brief The last hold, or the write after its flush, met the BOARD voltage red: nothing was written. */
+static bool s_boardLow = false;
 static bool        s_leaveQueued = false;
 static char        s_preset[HITEC_FILES_NAME_MAX];
 static bool        s_saveFull = false;
@@ -324,6 +333,7 @@ static_assert((BOARD_FREE_GPIO_MASK & 0x3C000000u) == 0,
 static bool classicAllowed() { return servoSupplyFitted(); }
 
 static void go(HitecView v) {
+	s_boardLow = false;
 	if (v != HitecView::Write) s_flushing = false;
 	s_view = v;
 	uiHoldReset(&s_hold);
@@ -521,24 +531,9 @@ static void mainText(MainText *m) {
 	static char a[48], b[48];
 	memset(m, 0, sizeof(*m));
 	uint8_t sig = sigGpio();
-	if (!s_claimed) {
-		switch (s_refusal) {
-			case ClaimRefusal::EscAnswering:
-				snprintf(a, sizeof(a), "AN ESC ANSWERS ON GP%u.", sig);
-				addLine(m, a, C_AMBER);
-				addLine(m, "UNPLUG IT: A HITEC ENTRY SENDS", C_AMBER);
-				addLine(m, "FRAMES INTO WHAT IS ON THE WIRE.", C_AMBER);
-				snprintf(m->strip, sizeof(m->strip), "CHECKING GP%u FOR AN ESC", sig);
-				return;
-			case ClaimRefusal::Armed: addLine(m, "DISARM FIRST", C_AMBER); return;
-			default:                  addLine(m, "PINS BUSY", C_AMBER);    return;
-		}
-	}
+	// The main view follows a family tap, which acts only while the claim is
+	// Held (familyOpen()): the claim is taken and DShot is down here.
 	ClaimState cs = pinClaimState();
-	if (cs == ClaimState::Stopping) {
-		snprintf(m->strip, sizeof(m->strip), "RELEASING GP%u", sig);
-		return;
-	}
 	uint8_t err = pinClaimJobError();
 	if (err) {
 		static const char *const WHY[] = {"", "REFUSED", "PWM", "PIO", "DMA", "CLOCK"};
@@ -654,40 +649,79 @@ static void drawMain() {
 // the family view
 // ---------------------------------------------------------------------------
 
+/**
+ * @brief The claim holds SIG and no job runs yet: the family tap starts one.
+ *        DShot is down and the pad an input with the pull-up on.
+ */
+static bool familyOpen() {
+	return s_claimed && pinClaimState() == ClaimState::Held && pinClaimJobError() == 0;
+}
+
+/** @brief The family view's strip: the claim, then what to do. */
+static void drawFamilyStrip() {
+	static char a[48];
+	unsigned sig = sigGpio();
+	if (!s_claimed) {
+		if (s_refusal == ClaimRefusal::EscAnswering) {
+			snprintf(a, sizeof(a), HITEC_UI_ESC_FMT, sig);
+			uiStripTwoLines(a, C_AMBER, HITEC_UI_ESC_2, C_AMBER);
+		} else {
+			// Neither is reachable through the UI: MENU disarms on entry, and
+			// its row stays disabled while another claim holds or restores.
+			// Kept so that a refusal never leaves the strip blank.
+			uiStripText(s_refusal == ClaimRefusal::Armed ? "DISARM FIRST" : "PINS BUSY", C_AMBER);
+		}
+		return;
+	}
+	if (!familyOpen()) {
+		snprintf(a, sizeof(a), "RELEASING GP%u FROM DSHOT", sig);
+		uiStripText(a, C_DIM);
+		return;
+	}
+	snprintf(a, sizeof(a), HITEC_UI_HELD_FMT, sig);
+	uiStripTwoLines(a, UI_COL_SAFE, HITEC_UI_CHOOSE, C_DIM);
+}
+
 static void drawFamily() {
 	uiHeader("HITEC SERVO", s_t, backActs());
-	uiStripClear();
-	uiStripText("CHOOSE THE SERVO'S FAMILY", C_DIM);
+	uiStripTwoLines(nullptr, C_BG, nullptr, C_BG);
+	drawFamilyStrip();
 	gfxRect(0, UI_BODY_Y, GFX_W, GFX_H - UI_BODY_Y, C_BG);
-	bool c = classicAllowed();
+	bool open = familyOpen();
+	bool c = classicAllowed() && open;
 	uiButton(BTN_CLASSIC, "CLASSIC", C_PANEL, C_TEXT, 2, c && pressing(BTN_CLASSIC), c);
 	gfxText(UI_MARGIN, BTN_CLASSIC.y + BTN_CLASSIC.h + 4, "HS-5XXX, HS-7XXX", C_DIM, 1);
 	// CLASSIC needs hardware, the converter of wiring part C, before the
 	// setting means anything: the two lines name both, the part first.
-	if (!c) {
+	if (!classicAllowed()) {
 		gfxText(UI_MARGIN, BTN_CLASSIC.y + BTN_CLASSIC.h + HF_WHY_1, HITEC_UI_CLASSIC_WHY_1, C_AMBER, 1);
 		gfxText(UI_MARGIN, BTN_CLASSIC.y + BTN_CLASSIC.h + HF_WHY_2, HITEC_UI_CLASSIC_WHY_2, C_AMBER, 1);
 	}
-	uiButton(BTN_DSERIES, "D SERIES", C_PANEL, C_TEXT, 2, pressing(BTN_DSERIES));
+	uiButton(BTN_DSERIES, "D SERIES", C_PANEL, C_TEXT, 2, open && pressing(BTN_DSERIES), open);
 	gfxText(UI_MARGIN, BTN_DSERIES.y + BTN_DSERIES.h + 4, "D485HW, D645MW AND THE OTHERS", C_DIM, 1);
-	// A D series servo on its own supply must be running before the tap: the
-	// entry reads its model at once, with no wait for a power-up.
+	// SIG is the servo's while this view shows: the servo may be connected
+	// and powered now. One on its own supply must be running before the tap:
+	// the entry reads its model at once, with no wait for a power-up. With
+	// the switch, the supply stays off until the entry's POWER step.
 	char sw[32];
 	snprintf(sw, sizeof(sw), "SUPPLY SWITCHED ON GP%u", (unsigned)servoSupplyPin());
 	gfxText(UI_MARGIN, BTN_DSERIES.y + BTN_DSERIES.h + 18,
 	        servoSupplyFitted() ? sw : HITEC_UI_D_POWER, C_DIM, 1);
 }
 
+/** @brief A family tap opens the line for that family: the job binds with it. */
 static void familyTouch() {
+	if (!familyOpen()) return;
 	uint8_t f = 0xFF;
 	if (classicAllowed() && tapped(BTN_CLASSIC)) f = HITEC_CLASSIC;
 	else if (tapped(BTN_DSERIES)) f = HITEC_D;
 	if (f == 0xFF) return;
 	s_family = f;
 	hitecJobSetFamily(f);
+	s_familyChosen = true;
 	newSession();
 	go(HitecView::Main);
-	claimPin();
+	pinClaimStartJob(PinUser::Hitec);
 }
 
 // ---------------------------------------------------------------------------
@@ -940,7 +974,13 @@ static bool writeFiles() {
 }
 
 static void sendWrite() {
+	// Asked again here: the write may have waited for a flush since the hold.
+	// Refused now, the backup and the record are on the card; no frame goes
+	// out.
+	s_boardLow = uiBoardWriteRefused();
+	if (s_boardLow) return;
 	escHeartbeat();
+	s_wroteOnce = true;
 	s_writing = true;
 	sendOp(HitecOp::Write, &s_pageTo);
 }
@@ -1027,6 +1067,10 @@ static void waitFlush(FlushWait w) {
  *        write: every write puts its record on the card before its first frame.
  */
 static void filesThenWrite() {
+	// Asked again here: an earlier batch's flush may have run since the hold,
+	// and this write's record goes to the card next.
+	s_boardLow = uiBoardWriteRefused();
+	if (s_boardLow) return;
 	if (cardSwapped()) restartOnNewCard();
 	s_flushFirst = !s_firstDone;
 	if (!writeFiles()) {
@@ -1043,6 +1087,13 @@ static void filesThenWrite() {
 static void startWrite() {
 	s_cardNote = nullptr;
 	s_result = false;
+	// The BOARD voltage red: no file goes to the card and no frame to the
+	// servo. A write already running is not stopped: cut off, it would leave
+	// the servo partly written and unverified. Asked here as well as in
+	// filesThenWrite(): a hold at red is refused at once, not only after an
+	// earlier batch's flush that may still run.
+	s_boardLow = uiBoardWriteRefused();
+	if (s_boardLow) return;
 	if (cardCacheState() == CardCache::Failed) recoverFlush();
 	// With the swap check armed, an earlier batch still flushing ends before
 	// this write's files go in, so the check reads the volume they land on.
@@ -1217,6 +1268,12 @@ static void drawWrite() {
 		uiButton(BTN_WIDE, "OK", C_PANEL, C_TEXT, 2, pressing(BTN_WIDE));
 		return;
 	}
+	// The page's state lines, under the layout's last line (HW_STATE_Y): the
+	// reserved lines above keep their place.
+	if (s_boardLow) {
+		gfxText(UI_MARGIN, HW_STATE_Y, UI_BOARD_LOW_1, C_AMBER, 1);
+		gfxText(UI_MARGIN, HW_STATE_Y + 12, UI_BOARD_LOW_2, C_AMBER, 1);
+	}
 	bool ok = holdOk();
 	uiHoldDrawBar(&s_hold, BTN_WIDE, HL_FOOT_Y - 4, millis());
 	uiButton(BTN_WIDE, s_restoring ? "HOLD TO RESTORE" : "HOLD TO WRITE", s_hold.holding ? C_RED : C_PANEL,
@@ -1243,10 +1300,7 @@ static void writeTouch() {
 		}
 		return;
 	}
-	if (uiHoldUpdate(&s_hold, BTN_WIDE, s_t, holdOk(), millis())) {
-		s_wroteOnce = true;
-		startWrite();
-	}
+	if (uiHoldUpdate(&s_hold, BTN_WIDE, s_t, holdOk(), millis())) startWrite();
 }
 
 // ---------------------------------------------------------------------------
@@ -1562,8 +1616,9 @@ uint8_t uiHitecControls(UiControl *out, uint8_t max) {
 	switch (s_view) {
 		case HitecView::Family:
 			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
-			uiControlAdd(out, &n, max, UI_FIX(HitecCtl::Classic), BTN_CLASSIC, classicAllowed());
-			uiControlAdd(out, &n, max, UI_FIX(HitecCtl::DSeries), BTN_DSERIES, true);
+			uiControlAdd(out, &n, max, UI_FIX(HitecCtl::Classic), BTN_CLASSIC,
+			             classicAllowed() && familyOpen());
+			uiControlAdd(out, &n, max, UI_FIX(HitecCtl::DSeries), BTN_DSERIES, familyOpen());
 			return n;
 		case HitecView::Unplug: {
 			// One read decides both: core1 can change it between two.
@@ -1623,6 +1678,7 @@ uint8_t uiHitecControls(UiControl *out, uint8_t max) {
 void uiHitecEnter() {
 	s_view = HitecView::Family;
 	s_claimed = false;
+	s_familyChosen = false;
 	s_refusal = ClaimRefusal::None;
 	uiHoldReset(&s_hold);
 	s_repeat = Repeat{};
@@ -1642,7 +1698,7 @@ static uint32_t frameKey() {
 	uint32_t h = 2166136261u;
 	h = mix(h, (uint32_t)s_view);
 	h = mixBytes(h, &s_st, sizeof(s_st));
-	h = mix(h, ((uint32_t)s_claimed << 8) | (uint32_t)s_refusal);
+	h = mix(h, ((uint32_t)s_familyChosen << 16) | ((uint32_t)s_claimed << 8) | (uint32_t)s_refusal);
 	h = mix(h, ((uint32_t)pinClaimState() << 8) | pinClaimJobError());
 	h = mix(h, pinClaimUnplugDue());
 	h = mix(h, backActs());
@@ -1659,7 +1715,7 @@ static uint32_t frameKey() {
 	           ((uint32_t)s_leaveQueued << 4) | ((uint32_t)s_recordFound << 5) |
 	           ((uint32_t)hitecFilesMounted() << 6) | ((uint32_t)cardHeldByUsb() << 7) |
 	           ((uint32_t)s_haveDraft << 8) | ((uint32_t)s_lastFailed << 9) |
-	           ((uint32_t)servoSupplyFitted() << 10));
+	           ((uint32_t)servoSupplyFitted() << 10) | ((uint32_t)s_boardLow << 11));
 	h = mix(h, s_resultSes);
 	h = mixBytes(h, s_fileNote, strlen(s_fileNote));
 	h = mixBytes(h, s_preset, strlen(s_preset));
@@ -1688,18 +1744,21 @@ bool uiHitecTick(const TouchState *t) {
 	static const TouchState none = {};
 	s_t = t ? t : &none;
 	hitecJobStatus(&s_st);
-	if (s_view != HitecView::Family) {
-		if (s_claimed) pinClaimPoll();
-		else if (s_view != HitecView::Unplug) claimPin();
-		if (s_view != HitecView::Unplug) follow();
-	}
+	// The claim from the screen's first frame, before a family is known: a
+	// servo connected on the family view never sees DShot. Refused, it is
+	// asked for again every frame.
+	if (s_claimed) pinClaimPoll();
+	else if (s_view != HitecView::Unplug) claimPin();
+	if (s_view != HitecView::Family && s_view != HitecView::Unplug) follow();
 
 	// BACK on the unplug page waits for the job to let the pin go: backActs().
 	bool back = backActs() && uiBackTapped(s_t);
 	if (back) {
 		switch (s_view) {
 			case HitecView::Family:
-				return false;
+				// The pin went to a servo: the unplug page, as LEAVE.
+				if (!endClaim()) return false;
+				break;
 			case HitecView::Main:
 				if (running() && (s_st.job == HitecJobState::InMode || s_st.job == HitecJobState::Busy)) {
 					// BACK during a read, the entry's own or READ AGAIN, stops it;
@@ -1724,8 +1783,12 @@ bool uiHitecTick(const TouchState *t) {
 			case HitecView::Unplug:
 				pinClaimKeep(PinUser::Hitec);
 				cardCacheBegin(SdLogEnd::ByHitec);
-				newSession();
-				go(HitecView::Main);
+				if (s_familyChosen) {
+					newSession();
+					go(HitecView::Main);
+				} else {
+					go(HitecView::Family);
+				}
 				break;
 		}
 		s_drawnKey = 0;

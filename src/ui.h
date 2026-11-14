@@ -90,6 +90,41 @@ enum class BoardCell : uint8_t {
  */
 BoardCell uiBoardCell(float volts, BoardCell prev);
 
+/**
+ * @brief The band of the board's voltage now. uiTick() samples the reading
+ *        and steps the band on every frame, before the tester, MENU or a
+ *        tool runs, so it is current on every screen.
+ * @return The band of the last frame; Ok before the first.
+ */
+BoardCell uiBoardCellNow();
+
+/**
+ * @brief A KST, Hitec or AM32 write, or a KST or Hitec restore, is refused:
+ *        the BOARD voltage is red, BoardCell::Critical, below
+ *        @ref BOARD_CELL_CRIT_MV until it reaches that plus
+ *        @ref BOARD_CELL_HYST_MV. Amber, Ok and NoCell (below 2.50 V, no cell
+ *        to judge) refuse nothing. KST and Hitec ask at the hold, which
+ *        then writes no file and sends no frame, and again before the write
+ *        goes out after a flush: the backup and the record are on the card
+ *        by then, and no frame goes out. AM32 asks once, before its backup.
+ *        A write already running is not stopped: cut off, it would leave the
+ *        servo or the ESC partly written and unverified.
+ * @return true while a write must not start.
+ */
+static inline bool uiBoardWriteRefused() { return uiBoardCellNow() == BoardCell::Critical; }
+
+/**
+ * @defgroup ui_board_low The refusal's two lines
+ * @brief Amber, scale 1, at most 37 characters each, on the KST and Hitec
+ *        write pages and under the AM32 write's result.
+ * @{
+ */
+/** @brief First line: why nothing was written. */
+#define UI_BOARD_LOW_1 "BOARD VOLTAGE IS RED: NOT WRITTEN."
+/** @brief Second line: what to do. */
+#define UI_BOARD_LOW_2 "CHARGE THE BOARD'S CELL, HOLD AGAIN."
+/** @} */
+
 /** @brief Current commanded throttle, 0..2000. @return Throttle value. */
 uint16_t uiThrottle();
 

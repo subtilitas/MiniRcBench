@@ -4016,6 +4016,274 @@ static bool menuRunCueShown() {
 	return fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_RUN_CUE, UI_COL_WARN, C_BG, 1);
 }
 
+/** @brief A card in the slot, idle, nothing on it. */
+static void am32Card() {
+	fakeFatReset(1u << 20);
+	SdLogStatus idle;
+	memset(&idle, 0, sizeof(idle));
+	idle.state = SdLogState::Idle;
+	fakeSdLogSet(&idle);
+	fakeMscSet(MscState::Idle, 0);
+}
+
+/** @brief No card in the slot. */
+static void am32NoCard() {
+	SdLogStatus none;
+	memset(&none, 0, sizeof(none));
+	none.state = SdLogState::NoCard;
+	fakeSdLogSet(&none);
+}
+
+/** @brief The strip's two lines read @p l1 and @p l2 in amber. */
+static bool stripNoteIs(const char *l1, const char *l2) {
+	return fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, l1, UI_COL_WARN, C_BG, 1) &&
+	       fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, l2, UI_COL_WARN, C_BG, 1);
+}
+
+/** @brief The board's voltage at @p volts, held for enough frames to settle. */
+static void boardVolts(float volts) {
+	fakeAdcSet((uint16_t)(volts / 3.0f / 3.3f * 4095.0f + 0.5f));
+	frames(80);
+}
+
+/** @brief Fields of AM32_FIELDS shown for the ESC's block with byte 0x01 at @p layout. */
+static int shownAt(uint8_t layout) {
+	uint8_t b[AM32_SETTINGS_SIZE];
+	for (int i = 0; i < AM32_SETTINGS_SIZE; i++) b[i] = fakeEscByte(i);
+	b[AM32_OFF_LAYOUT_REVISION] = layout;
+	int n = 0;
+	for (uint16_t i = 0; i < AM32_FIELD_COUNT; i++) n += am32FieldShown(&AM32_FIELDS[i], b);
+	return n;
+}
+
+/** @brief The read-only view's hex line @p k reads the fake ESC's bytes, at x 6. */
+static bool hexLineShown(int k) {
+	char line[64];
+	int n = snprintf(line, sizeof(line), "%02X ", k * 8);
+	for (int i = 0; i < 8 && k * 8 + i < AM32_SETTINGS_SIZE; i++)
+		n += snprintf(line + n, sizeof(line) - n, "%02X ", fakeEscByte(k * 8 + i));
+	return fakeTextIs(6, LIST_Y0 + k * HEX_ROW_H, line, C_DIM, C_BG, 1);
+}
+
+/** @brief A tap at the middle of @p r, a rectangle no control of this frame owns. */
+static void tapRect(const UiRect &r) { tap(r.x + r.w / 2, r.y + r.h / 2); }
+
+/**
+ * @brief A plausible block in a layout the table does not know, 1 or 5 to 8,
+ *        opens the read-only view: the bytes in hex, NOT VERIFIED, the backup
+ *        on the card. No control leads to the write, and the write itself
+ *        refuses the bytes.
+ */
+static void testAm32ReadOnly() {
+	EscTelemetry quiet;
+	memset(&quiet, 0, sizeof(quiet));
+	fakeSetTelemetry(&quiet);
+	uint8_t keep[AM32_SETTINGS_SIZE];
+	for (int i = 0; i < AM32_SETTINGS_SIZE; i++) keep[i] = fakeEscByte(i);
+
+	section("AM32 read-only: layout 5, the bytes, a backup, no write");
+	{
+		am32Card();
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 5);
+		enterAm32(6);
+		checkTrue("the read-only view opens", s_state == S_VIEW && s_hexView);
+		checkInt("no field is shown in layout 5", shownAt(5), 0);
+		checkInt("nor in 1, 6, 7 or 8", shownAt(1) + shownAt(6) + shownAt(7) + shownAt(8), 0);
+		checkTrue("layouts 2 to 4 show fields", shownAt(2) > 0 && shownAt(3) > 0 && shownAt(4) > 0);
+		checkInt("the list holds no field", s_visibleCount, 0);
+		checkTrue("the strip: LAYOUT 5 NOT KNOWN: READ-ONLY. / NOT VERIFIED. BACKUP AM001",
+		          stripNoteIs("LAYOUT 5 NOT KNOWN: READ-ONLY.", "NOT VERIFIED. BACKUP AM001"));
+		bool hex = true;
+		for (int k = 0; k < HEX_LINES; k++) hex = hex && hexLineShown(k);
+		checkTrue("the 48 bytes in hex, 8 a line", hex);
+		checkTrue(AM32_UI_RO_BYTES ", grey", fakeTextCentredIs(EDIT_Y + 12, AM32_UI_RO_BYTES, C_GRID, C_BG, 1));
+		checkTrue(AM32_UI_RO_TABLE ", grey", fakeTextCentredIs(EDIT_Y + 26, AM32_UI_RO_TABLE, C_GRID, C_BG, 1));
+		int x0 = 0, x1 = 0;
+		checkTrue("the strip stays inside the panel's 8 px margins",
+		          fakeInkExtent(UI_STRIP_LINE1_Y, 18, C_BG, &x0, &x1) && x0 >= UI_MARGIN &&
+		          x1 < GFX_W - UI_MARGIN);
+		static char want[AM32_BACKUP_MAX], got[AM32_BACKUP_MAX];
+		size_t wantLen = am32BackupFormat(s_entry, am32BlEscTypeName(), am32BlEepromAddr(),
+		                                  want, sizeof(want));
+		int32_t gotLen = fakeFatGet("BACKUP/AM001.TXT", got, sizeof(got));
+		checkTrue("the backup is on the card as the view opened",
+		          gotLen == (int32_t)wantLen && wantLen > 0 && memcmp(got, want, wantLen) == 0);
+		checkTrue("it says the fields are not read, and holds no field line",
+		          strstr(want, "Layout not known: fields not read, not verified\n") != nullptr &&
+		          strstr(want, " = ") == nullptr && strstr(want, "bytes 48\n") != nullptr);
+		UiControl tbl[UI_CONTROLS_MAX];
+		checkInt("BACK is the one control", uiControls(tbl, UI_CONTROLS_MAX), 1);
+		checkTrue("and it is BACK", ctlPresent(UI_FIX(UI_BACK)) && !ctlPresent(UI_FIX(Am32Ctl::Write)) &&
+		          !ctlPresent(UI_FIX(Am32Ctl::Revert)) && !ctlPresent(UI_FIX(Am32Ctl::Hex)));
+		checkControlTable("AM32 read-only");
+		fakeDumpFrame("shot_am32_readonly.ppm");
+
+		// Every place a control of the list stands: nothing selects, steps,
+		// toggles or writes.
+		int writes = fakeAm32Writes();
+		uint8_t before[AM32_SETTINGS_SIZE];
+		memcpy(before, s_eeprom, sizeof(before));
+		fakePress(BTN_WRITE.x + BTN_WRITE.w / 2, BTN_WRITE.y + BTN_WRITE.h / 2);
+		frames(1);
+		for (int i = 0; i < 60; i++) {
+			fakeHold(BTN_WRITE.x + BTN_WRITE.w / 2, BTN_WRITE.y + BTN_WRITE.h / 2);
+			frames(1);
+		}
+		fakeRelease();
+		frames(2);
+		tapRect(BTN_REVERT);
+		tapRect(BTN_HEX);
+		tapRect(BTN_MINUS);
+		tapRect(BTN_PLUS);
+		tap(GFX_W / 2, LIST_Y0 + 5);
+		swipe(30, 220, LIST_Y0 + 20, 10);
+		checkTrue("a hold where WRITE stands, taps on REVERT, HEX, - and +, a swipe: "
+		          "the view as it was", s_state == S_VIEW && s_hexView && s_selected < 0 &&
+		          memcmp(before, s_eeprom, sizeof(before)) == 0);
+		checkInt("no write went to the ESC", fakeAm32Writes(), writes);
+
+		// The write itself refuses the bytes, whatever reaches it: an edit
+		// made behind the screen's back and the write state set directly.
+		s_eeprom[0x1B] ^= 0x02;
+		uint8_t esc = fakeEscByte(0x1B);
+		s_state = S_WRITING;
+		snprintf(s_status, sizeof(s_status), "WRITING...");
+		frames(2);
+		checkTrue("the write refuses a layout not known: nothing to the ESC",
+		          fakeAm32Writes() == writes && fakeEscByte(0x1B) == esc &&
+		          strcmp(s_status, AM32_UI_RO_REFUSED) == 0);
+		checkTrue(AM32_UI_RO_REFUSED " on the result page",
+		          fakeTextCentredIs(RESULT_Y, AM32_UI_RO_REFUSED, C_TEXT, C_BG, 1));
+		checkTrue("no second backup", !fakeFatExists("BACKUP/AM002.TXT"));
+		tapId(UI_FIX(Am32Ctl::Ok));
+		checkTrue("OK: the read-only view again", s_state == S_VIEW);
+		s_eeprom[0x1B] ^= 0x02;
+		leaveAm32ToTester();
+	}
+
+	section("AM32 read-only: no card, a card that refuses");
+	{
+		am32NoCard();
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 8);
+		enterAm32(6);
+		checkTrue("layout 8, no card: read-only, no backup", s_state == S_VIEW &&
+		          stripNoteIs("LAYOUT 8 NOT KNOWN: READ-ONLY.", "NOT VERIFIED. NO CARD: NO BACKUP."));
+		int x0 = 0, x1 = 0;
+		checkTrue("the longest second line stays inside the panel's 8 px margins",
+		          fakeInkExtent(UI_STRIP_LINE2_Y, 8, C_BG, &x0, &x1) && x0 >= UI_MARGIN &&
+		          x1 < GFX_W - UI_MARGIN);
+		leaveAm32ToTester();
+		am32Card();
+		fakeFatWriteProtect(true);
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 6);
+		enterAm32(6);
+		checkTrue("a card that refuses: BACKUP FAILED.", s_state == S_VIEW &&
+		          stripNoteIs("LAYOUT 6 NOT KNOWN: READ-ONLY.", "NOT VERIFIED. BACKUP FAILED."));
+		fakeFatWriteProtect(false);
+		leaveAm32ToTester();
+	}
+
+	section("AM32 read-only: layout 1");
+	{
+		am32Card();
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 1);
+		enterAm32(6);
+		checkTrue("layout 1 opens the read-only view", s_state == S_VIEW && s_hexView);
+		checkTrue("the note", stripNoteIs("LAYOUT 1 NOT KNOWN: READ-ONLY.", "NOT VERIFIED. BACKUP AM001"));
+		static char got[AM32_BACKUP_MAX];
+		checkTrue("the backup holds no field line",
+		          fakeFatGet("BACKUP/AM001.TXT", got, sizeof(got)) > 0 &&
+		          strstr(got, "Layout not known: fields not read, not verified\n") != nullptr &&
+		          strstr(got, " = ") == nullptr);
+		leaveAm32ToTester();
+	}
+
+	section("AM32: layouts 2 to 4 open the list, a block that is not plausible does not open");
+	{
+		for (uint8_t lay = 2; lay <= 4; lay++) {
+			am32Card();
+			fakeEscSet(AM32_OFF_LAYOUT_REVISION, lay);
+			enterAm32(6);
+			char what[64];
+			snprintf(what, sizeof(what), "layout %u: the list, WRITE, no backup yet", lay);
+			checkTrue(what, s_state == S_LIST && !s_hexView && ctlPresent(UI_FIX(Am32Ctl::Write)) &&
+			          !fakeFatExists("BACKUP/AM001.TXT"));
+			leaveAm32ToTester();
+		}
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 9);
+		enterAm32(6);
+		checkTrue("layout 9 is not plausible: the connect page explains",
+		          s_state == S_CONNECT && strcmp(s_status, "NO VALID SETTINGS") == 0 &&
+		          fakeTextCentredIs(196, AM32_UI_NO_SETTINGS_1, C_AMBER, C_BG, 1));
+		leaveAm32ToTester();
+	}
+	am32NoCard();
+	for (int i = 0; i < AM32_SETTINGS_SIZE; i++) fakeEscSet(i, keep[i]);
+}
+
+/**
+ * @brief The board's voltage in the red band refuses an AM32 write: the
+ *        result page says why and what to do. Amber and NoCell refuse
+ *        nothing.
+ */
+static void testAm32BoardLow() {
+	section("AM32 write: refused while the BOARD voltage is red");
+	EscTelemetry quiet;
+	memset(&quiet, 0, sizeof(quiet));
+	fakeSetTelemetry(&quiet);
+	am32NoCard();
+	enterAm32(6);
+	checkTrue("the list is open", s_state == S_LIST);
+	boardVolts(3.20f);
+	checkTrue("3.20 V on the AM32 screen: the band is red", uiBoardCellNow() == BoardCell::Critical);
+	const int vp = uiRowOf("POLES");
+	uiRowY("POLES"); frames(1);
+	tapId(UI_ROW(vp, Row));
+	tapId(UI_FIX(Am32Ctl::EditMinus));
+	uint8_t want = uiByte(0x1B);
+	checkTrue("a change to write", want != fakeEscByte(0x1B));
+	int writes = fakeAm32Writes();
+	pressId(UI_FIX(Am32Ctl::Write));
+	holdId(UI_FIX(Am32Ctl::Write), 50);
+	fakeRelease(); frames(3);
+	checkTrue("held: nothing written", fakeEscByte(0x1B) != want && fakeAm32Writes() == writes &&
+	          strcmp(s_status, UI_BOARD_LOW_1) == 0);
+	checkTrue(UI_BOARD_LOW_1 ", y 140", fakeTextCentredIs(140, UI_BOARD_LOW_1, C_TEXT, C_BG, 1));
+	checkTrue("then " UI_BOARD_LOW_2 " in amber, y 170",
+	          fakeTextCentredIs(170, UI_BOARD_LOW_2, UI_COL_WARN, C_BG, 1));
+	fakeDumpFrame("shot_am32_board_low.ppm");
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("OK: the list, the change kept", s_state == S_LIST && uiByte(0x1B) == want);
+	boardVolts(3.40f);
+	checkTrue("3.40 V: amber", uiBoardCellNow() == BoardCell::Low);
+	pressId(UI_FIX(Am32Ctl::Write));
+	holdId(UI_FIX(Am32Ctl::Write), 50);
+	fakeRelease(); frames(3);
+	checkTrue("amber writes", fakeEscByte(0x1B) == want && strcmp(s_status, "WRITE VERIFIED") == 0);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	boardVolts(1.0f);
+	checkTrue("1.00 V: no cell to judge", uiBoardCellNow() == BoardCell::NoCell);
+	tapId(UI_FIX(Am32Ctl::EditPlus));
+	want = uiByte(0x1B);
+	pressId(UI_FIX(Am32Ctl::Write));
+	holdId(UI_FIX(Am32Ctl::Write), 50);
+	fakeRelease(); frames(3);
+	checkTrue("NoCell writes", fakeEscByte(0x1B) == want && strcmp(s_status, "WRITE VERIFIED") == 0);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	boardVolts(3.92f);
+	checkTrue("3.92 V: the text colour", uiBoardCellNow() == BoardCell::Ok);
+	tapId(UI_FIX(Am32Ctl::EditMinus));
+	want = uiByte(0x1B);
+	pressId(UI_FIX(Am32Ctl::Write));
+	holdId(UI_FIX(Am32Ctl::Write), 50);
+	fakeRelease(); frames(3);
+	checkTrue("Ok writes", fakeEscByte(0x1B) == want && strcmp(s_status, "WRITE VERIFIED") == 0);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	fakeAdcSet(fakeAdcDefault());
+	frames(80);
+	leaveAm32ToTester();
+}
+
 /**
  * @brief AM32 CONFIG says what a value does and what to do next: the strip
  *        notes, the next step under a write that is not verified, the
@@ -4129,33 +4397,6 @@ static void testAm32Guidance() {
 		checkTrue("and stays gone when eRPM stops again", !menuRunCueShown());
 		tapId(UI_FIX(UI_BACK));
 		checkTrue("back on the tester", uiCurrentScreen() == UiScreenId::Tester);
-	}
-
-	section("AM32 connect: a layout the table is not checked against");
-	{
-		uint8_t rev = fakeEscByte(AM32_OFF_LAYOUT_REVISION);
-		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 5);
-		enterAm32(6);
-		checkTrue("the connect page stays: LAYOUT 5 NOT KNOWN",
-		          s_state == S_CONNECT && strcmp(s_status, "LAYOUT 5 NOT KNOWN") == 0);
-		checkTrue("the text is built from the constants: LAYOUTS 2 TO 4",
-		          strcmp(AM32_UI_LAYOUT_1, "THE TESTER KNOWS LAYOUTS 2 TO 4.") == 0);
-		checkTrue(AM32_UI_LAYOUT_1 ", y 196",
-		          fakeTextCentredIs(196, AM32_UI_LAYOUT_1, C_AMBER, C_BG, 1));
-		checkTrue(AM32_UI_NO_SETTINGS_2 ", y 210",
-		          fakeTextCentredIs(210, AM32_UI_NO_SETTINGS_2, C_AMBER, C_BG, 1));
-		checkTrue("no WRITE to hold", !ctlPresent(UI_FIX(Am32Ctl::Write)));
-		fakeDumpFrame("shot_am32_layout.ppm");
-		// Layout 1 is AlkaMotors before 1.78, which reads nothing above 0x29.
-		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 1);
-		frames(2);
-		checkTrue("layout 1: LAYOUT 1 NOT KNOWN", s_state == S_CONNECT &&
-		          strcmp(s_status, "LAYOUT 1 NOT KNOWN") == 0);
-		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 4);
-		frames(2);
-		checkTrue("layout 4 opens the list", s_state == S_LIST);
-		fakeEscSet(AM32_OFF_LAYOUT_REVISION, rev);
-		leaveAm32ToTester();
 	}
 
 	section("AM32 list on firmware 2.22, layout 4: the values only it accepts");
@@ -5311,6 +5552,8 @@ void runUiTests() {
 	testSplashTouch();
 	testTextProbes();
 	testAm32Guidance();
+	testAm32ReadOnly();
+	testAm32BoardLow();
 
 	// Back to a known state for anything that runs after this.
 	fakeFlashClear();

@@ -80,28 +80,42 @@ bool uiAm32Tick(const TouchState *t);
 #define AM32_UI_OLDFW_2 "FIELDS IT MAY NOT READ ARE HIDDEN."
 /** @} */
 
+/**
+ * @defgroup am32_view The read-only view
+ * @brief A plausible block in a layout outside @ref AM32_LAYOUT_MIN_KNOWN to
+ *        @ref AM32_LAYOUT_MAX_KNOWN, 2 to 4: the bytes in hex, no field, no
+ *        control but BACK. The strip carries two amber lines, the editor
+ *        bar's place two grey ones; each at most 37 characters, 221 px.
+ * @{
+ */
+/** @brief The strip's first line: the layout revision, 1 or 5 to 8, one digit. */
+#define AM32_UI_RO_FMT "LAYOUT %u NOT KNOWN: READ-ONLY."
+/** @brief The strip's second line begins with this. */
+#define AM32_UI_RO_UNVERIFIED "NOT VERIFIED."
+/** @brief ...then this and the backup's five-character name: it is on the card. */
+#define AM32_UI_RO_SAVED " BACKUP "
+/** @brief ...or this: no card, or the card held by USB. */
+#define AM32_UI_RO_NO_CARD " NO CARD: NO BACKUP."
+/** @brief ...or this: the card did not take the backup. */
+#define AM32_UI_RO_FAILED " BACKUP FAILED."
+/** @brief Under the bytes, first line. */
+#define AM32_UI_RO_BYTES "THE BYTES AS READ. THE FIELD TABLE"
+/** @brief Under the bytes, second line. */
+#define AM32_UI_RO_TABLE "IS NOT CHECKED FOR THIS LAYOUT."
+/**
+ * @brief The write's own refusal of a block in a layout outside 2 to 4. The
+ *        read-only view has no control that leads to the write; doWrite()
+ *        refuses on the bytes as read before anything else.
+ */
+#define AM32_UI_RO_REFUSED "LAYOUT NOT KNOWN: NOT WRITTEN"
+/** @} */
+
 /** @brief The connect page's last line under a reply it could not parse. */
 #define AM32_UI_NOT_AM32 "IS THE ESC RUNNING AM32?"
 /** @brief The connect page's first line under NO VALID SETTINGS. */
 #define AM32_UI_NO_SETTINGS_1 "NOT AN AM32 ESC, OR BLANK SETTINGS."
-/**
- * @brief The connect page's second line under NO VALID SETTINGS and under
- *        `LAYOUT n NOT KNOWN`.
- */
+/** @brief The connect page's second line under NO VALID SETTINGS. */
 #define AM32_UI_NO_SETTINGS_2 "NOTHING WILL BE WRITTEN."
-/** @brief Turns a macro's value into a string literal, for the texts below. */
-#define AM32_UI_STR(x) AM32_UI_STR_(x)
-/** @brief The step under AM32_UI_STR(). */
-#define AM32_UI_STR_(x) #x
-/**
- * @brief The connect page's first line under `LAYOUT n NOT KNOWN`, a layout
- *        revision outside @ref AM32_LAYOUT_MIN_KNOWN to
- *        @ref AM32_LAYOUT_MAX_KNOWN, built from them; the second is
- *        `AM32_UI_NO_SETTINGS_2`.
- */
-#define AM32_UI_LAYOUT_1 "THE TESTER KNOWS LAYOUTS " AM32_UI_STR(AM32_LAYOUT_MIN_KNOWN) \
-                         " TO " AM32_UI_STR(AM32_LAYOUT_MAX_KNOWN) "."
-
 /**
  * @brief MENU's strip line after a session that reached the bootloader:
  *        leaving sends no command to start the ESC's firmware. 29

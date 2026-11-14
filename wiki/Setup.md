@@ -66,8 +66,8 @@ crimp contacts.
 > carries DShot from the end of the 3 s splash on. A servo reads it as a pulse
 > and drives towards one end of its travel, at a frame rate that overheats an
 > analogue servo. Plug the servo in after its screen is open. On HITEC SERVO,
-> SIG carries DShot until a family is tapped: keep the time on the family view
-> short. Power the board before the servo supply, and switch the servo supply
+> wait for `GP0 IS THE SERVO'S: DSHOT IS OFF.` on the family view. Power the
+> board before the servo supply, and switch the servo supply
 > off before the board: [Servo Tester](Servo-Tester#wiring).
 
 The wire colours of a JST-SH cable follow no standard. Find pin 1 by the

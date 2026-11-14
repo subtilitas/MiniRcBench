@@ -56,11 +56,26 @@ Die Feldtabelle ist gegen die Layout-Versionen 2 bis 4 geprüft: Jede
 Version von am32-firmware/AM32 schreibt eine davon (2.22 schreibt 4), und
 die Firmware von AlkaMotors ab 1.78 schreibt 2. Layout 1, die Firmware von
 AlkaMotors vor 1.78, liest nichts über Byte 0x29, und eine Version über 4
-ist neuer als die Tabelle. Bei beiden zeigt der Bildschirm
-`LAYOUT n NOT KNOWN` mit `THE TESTER KNOWS LAYOUTS 2 TO 4.` und
-`NOTHING WILL BE WRITTEN.` und bleibt auf der Verbindungsseite.
+ist neuer als die Tabelle, also kann bei beiden ein Feld dort liegen, wo die
+Tabelle ein anderes erwartet. Bei beiden öffnet der Bildschirm eine
+**Nur-Lese-Ansicht**: die 48 Bytes hexadezimal, acht je Zeile, und kein Feld.
+Die Leiste zeigt in Bernstein `LAYOUT 5 NOT KNOWN: READ-ONLY.` (mit dem
+Layout, das der ESC speichert) und `NOT VERIFIED.`, gefolgt davon, wohin die
+Sicherung ging: `BACKUP AM001`, `NO CARD: NO BACKUP.` ohne Karte oder mit
+der Karte am USB, oder `BACKUP FAILED.`, wenn die Karte sie abweist. Unter den
+Bytes: `THE BYTES AS READ. THE FIELD TABLE` /
+`IS NOT CHECKED FOR THIS LAYOUT.`
 
-<img src="img/am32-layout.png" width="240" alt="LAYOUT 5 NOT KNOWN, mit THE TESTER KNOWS LAYOUTS 2 TO 4. und NOTHING WILL BE WRITTEN.">
+<img src="img/am32-readonly.png" width="240" alt="Die Nur-Lese-Ansicht eines Blocks in Layout 5: LAYOUT 5 NOT KNOWN: READ-ONLY. und NOT VERIFIED. BACKUP AM001 in Bernstein, die 48 Bytes hexadezimal">
+
+Die Sicherung geht beim Öffnen der Ansicht auf die Karte, da später nichts
+geschrieben wird. Sie enthält die 48 Bytes, keine Feldzeile und die Zeile
+`Layout not known: fields not read, not verified`. Die Ansicht hat ein
+Bedienelement, `BACK`: keine Zeile, kein `HOLD TO WRITE`, `REVERT` oder
+`HEX`, und der Bildschirm hat keinen Weg von dieser Ansicht zum Schreiben.
+Das Schreiben selbst lehnt in einem solchen Layout gelesene Einstellungen
+ebenfalls ab: `LAYOUT NOT KNOWN: NOT WRITTEN`. Um die Einstellungen eines
+solchen ESC zu ändern, nimm den AM32-Konfigurator.
 
 Welche Firmware ein ESC hat, der nicht antwortet, zeichnet die Firmware nicht
 auf.
@@ -217,6 +232,19 @@ Werte wieder her.
 `HOLD TO WRITE` 1 s lang halten. Währenddessen füllt sich ein
 Fortschrittsbalken. Ohne Änderungen zeigt die Schaltfläche `NO CHANGES`.
 
+Solange die BOARD-Spannung auf dem Tester rot ist, unter 3,30 V und bis sie
+wieder 3,35 V erreicht, schreibt das Halten nichts, weder die Sicherung noch
+die Einstellungen. Das Ergebnis zeigt `BOARD VOLTAGE IS RED: NOT WRITTEN.`,
+darunter `CHARGE THE BOARD'S CELL, HOLD AGAIN.` in Bernstein, und `OK` führt
+mit den Änderungen zur Liste zurück. Der Bildschirm fragt einmal, wenn das
+Halten endet, vor der Sicherung. Bernstein und ein Wert unter 2,50 V (keine
+Zelle zu beurteilen) lehnen kein Schreiben ab. Die Bereiche sind der übliche
+Bereich einer Lithium-Polymer-Zelle, auf dieser Platine nicht gemessen. Was
+die Platine an USB-Versorgung ohne Zelle liest, ist ebenfalls nicht
+gemessen, also kann eine Platine nur an USB das Schreiben ablehnen.
+
+<img src="img/am32-board-low.png" width="240" alt="BOARD VOLTAGE IS RED: NOT WRITTEN. mit CHARGE THE BOARD'S CELL, HOLD AGAIN. in Bernstein">
+
 Nach dem Schreiben wartet die Firmware 300 ms, **liest die Einstellungen
 zurück und vergleicht sie** Byte für Byte. Sie verlässt sich nicht auf die
 Bestätigung des ESC. Bei Übereinstimmung erscheint `WRITE VERIFIED`, darunter
@@ -329,9 +357,10 @@ ESC-Firmware sendet, oder wenn die Platine neu startet.
   nutzt ein Protokoll, das dieser Transport nicht umsetzt.
 - **`NO VALID SETTINGS`.** Der ESC hat geantwortet, und der Einstellungsblock
   hat die Plausibilitätsprüfung nicht bestanden. Schreibe nichts.
-- **`LAYOUT n NOT KNOWN`.** Der ESC speichert ein Einstellungslayout, das der
-  Tester nicht kennt; er zeigt `THE TESTER KNOWS LAYOUTS 2 TO 4.` und
-  schreibt nichts. Nimm für diesen ESC den AM32-Konfigurator.
+- **`LAYOUT n NOT KNOWN: READ-ONLY.`** Der ESC speichert ein
+  Einstellungslayout, das der Tester nicht kennt. Der Bildschirm zeigt die
+  Bytes, sichert sie und schreibt nichts. Nimm zum Ändern dieses ESC den
+  AM32-Konfigurator.
 - **`READ FAILED (...)`.** Der Verbindungsaufbau hat geklappt, das Lesen der
   Einstellungen nicht. Prüfe Signal- und Masseader.
 

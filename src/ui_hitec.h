@@ -5,20 +5,22 @@
  * Hitec is a name or trademark of its owner; it is used here only to say
  * which servos this module works with.
  *
- * Entry: MENU → HITEC SERVO. The screen asks for the family, then claims SIG
- * (pin_claim.h); the Hitec job (hitec_job.h) runs rcbench's session on core1,
- * and this file sends it commands and draws its status. The card is reached
- * through hitec_files.h, on core0.
+ * Entry: MENU → HITEC SERVO. The screen claims SIG (pin_claim.h) as it
+ * opens: DShot drains and stops, and the pad is left an input with the
+ * pull-up on, high and quiet. The family view then asks for the family, and
+ * its tap starts the Hitec job (hitec_job.h), which runs rcbench's session
+ * on core1 for that family; this file sends it commands and draws its
+ * status. The card is reached through hitec_files.h, on core0.
  *
  * | View | What it shows | Leaves it |
  * |---|---|---|
- * | Family | CLASSIC and D SERIES, no pin claimed | a family: Main; BACK: MENU |
+ * | Family | the claim, CLASSIC and D SERIES, once SIG is the servo's | a family: Main; BACK: Unplug once the pin was taken, else MENU |
  * | Main | the claim, the entry, the read, a stall | the read: List; BACK: Leave in the mode, else Unplug |
  * | List | the parameters, an editor bar, HOLD TO WRITE, REVERT, FILES | HOLD TO WRITE: Write; FILES: Files; BACK: Leave |
  * | Write | the changes, their soft rules, the backup line, HOLD TO WRITE, the result | OK or BACK: List |
  * | Files | the record, the backups, FACTORY VALUES, the files, SAVE AS, LOAD, HOLD TO RESTORE | LOAD: List; BACK: List |
  * | Leave | what LEAVE does, READ AGAIN, LEAVE | LEAVE: Unplug; BACK: List, or Main |
- * | Unplug | the 2 s off wait, UNPLUG THE SERVO, RESTART DSHOT | RESTART DSHOT: MENU; BACK: Main |
+ * | Unplug | the 2 s off wait, UNPLUG THE SERVO, RESTART DSHOT | RESTART DSHOT: MENU; BACK: Main, or Family before a family was tapped |
  *
  * CLASSIC needs SERVO SUPPLY at GP28 or GP29: its entry switches the
  * servo's supply. The classic servo drives SIG to its supply, 5 V nominal;
@@ -35,7 +37,7 @@
 struct TouchState;
 
 /**
- * @brief Open the screen: the family view, no claim yet.
+ * @brief Open the screen: the family view. The first frame claims SIG.
  */
 void uiHitecEnter();
 
@@ -58,12 +60,24 @@ HitecView uiHitecView();
  * @brief Scale 1 from x 8, at most 37 characters each.
  * @{
  */
+/** @brief The strip's first line once the claim holds SIG: green. */
+#define HITEC_UI_HELD_FMT "GP%u IS THE SERVO'S: DSHOT IS OFF."
+/** @brief The strip's second line under it. */
+#define HITEC_UI_CHOOSE "CONNECT THE SERVO, CHOOSE ITS FAMILY"
+/** @brief The strip's first line while an ESC answers on SIG: amber. */
+#define HITEC_UI_ESC_FMT "AN ESC ANSWERS ON GP%u: UNPLUG IT."
+/** @brief The strip's second line under it. */
+#define HITEC_UI_ESC_2 "DSHOT STAYS ON THE PIN UNTIL THEN."
 /** @brief Why CLASSIC is drawn disabled, first line: the hardware it needs. */
 #define HITEC_UI_CLASSIC_WHY_1 "NEEDS THE CONVERTER OF WIRING PART C"
 /** @brief ...and second line: the setting that names the converter's pin. */
 #define HITEC_UI_CLASSIC_WHY_2 "AND SETTINGS > SERVO SUPPLY GP28/29."
-/** @brief D SERIES' note with SERVO SUPPLY at NONE: the entry reads at once. */
-#define HITEC_UI_D_POWER "POWER THE SERVO UP BEFORE THE TAP."
+/**
+ * @brief D SERIES' note with SERVO SUPPLY at NONE: the entry reads at once,
+ *        so the servo runs before the tap. SIG is the servo's from the
+ *        moment the family view shows it.
+ */
+#define HITEC_UI_D_POWER "POWER THE SERVO UP, THEN TAP."
 /**
  * @brief The editor bar's note while the D series ID draft is not 0: three
  *        lines of 22 characters. Whether a servo with another ID answers

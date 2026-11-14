@@ -11,7 +11,7 @@ Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MEN
    ▲                    ├── SERVO TESTER ──BACK──> Abziehseite ──> MENU
    │                    ├── KST SERVO    ──BACK──> Verlassenseite ──> Abziehseite ──> MENU
    │                    ├── HITEC SERVO  ──BACK──> Verlassenseite ──> Abziehseite ──> MENU
-   │                    │   (in der Familienauswahl führt BACK zu MENU; während des Eintritts zur Abziehseite)
+   │                    │   (in der Familienauswahl mit übernommenem Pin und während des Eintritts führt BACK zur Abziehseite)
    │                    ├── SETTINGS     ──BACK──> MENU
    │                    └── SD LOG       ──BACK──> MENU
    └──── BACK auf MENU ─┘
@@ -59,8 +59,10 @@ ein Tippen darauf bewirkt nichts.
   Sie erhält die Farbe darüber zurück, sobald sie 50 mV über der Schwelle
   liegt. Bei reiner USB-Versorgung kann der Wert niedrig sein und sagt dann
   nichts über eine Zelle: Unter 2,50 V, für eine arbeitende Zelle nicht
-  plausibel, steht er in der normalen Textfarbe, ab 2,55 V wieder rot. Kein
-  Schreiben und kein Scharfschalten wird deswegen verweigert. In den letzten
+  plausibel, steht er in der normalen Textfarbe, ab 2,55 V wieder rot.
+  Solange er rot ist, schreiben KST SERVO, HITEC SERVO und AM32 CONFIG nichts
+  und melden `BOARD VOLTAGE IS RED: NOT WRITTEN.`; Bernstein verweigert
+  nichts, und kein Scharfschalten wird deswegen verweigert. In den letzten
   5 s vor dem Entschärfen durch die Leerlaufsperre ersetzt `IDLE ns` in
   Bernstein die Spannung und `BOARD`.
 
@@ -301,8 +303,10 @@ Aufzeichnungszustand und Zähler. `BACK` führt zu `MENU` zurück. Siehe
 <img src="img/am32-list.png" width="240" alt="AM32-Einstellungsliste">
 
 Liest, ändert und schreibt die Einstellungen eines AM32-ESC über das
-Signalkabel. `BACK` führt zu `MENU` zurück. Siehe
-[AM32-Konfiguration](AM32-Konfiguration).
+Signalkabel. Einstellungen in einem Layout, das der Tester nicht kennt, also
+nicht 2 bis 4, öffnen nur zum Lesen: die Bytes hexadezimal,
+`NOT VERIFIED.`, eine Sicherung auf der SD-Karte und kein Schreiben. `BACK`
+führt zu `MENU` zurück. Siehe [AM32-Konfiguration](AM32-Konfiguration).
 
 ---
 
@@ -346,13 +350,16 @@ Versorgung, `SUPPLY ON 0.08 A`. Siehe [KST-Programmierung](KST-Programmierung).
 <img src="img/hitec-list.png" width="240" alt="Die Hitec-Feldliste">
 
 Liest und schreibt die Einstellungen eines Hitec-Servos der D-Serie oder der
-klassischen Familie über das Signalkabel am ESC-Pin. Der Bildschirm öffnet mit
-der Familienauswahl: `D SERIES` wirkt, `CLASSIC` wirkt mit SERVO SUPPLY auf
+klassischen Familie über das Signalkabel am ESC-Pin. Der Bildschirm übernimmt
+den Pin beim Öffnen vom ESC-Treiber, in der Familienauswahl: Die Leiste zeigt
+`GP0 IS THE SERVO'S: DSHOT IS OFF.` und
+`CONNECT THE SERVO, CHOOSE ITS FAMILY`. `D SERIES` wirkt, `CLASSIC` wirkt mit
+SERVO SUPPLY auf
 `GP28` oder `GP29`; unter `NONE` ist es abgeblendet, mit
 `NEEDS THE CONVERTER OF WIRING PART C` und
 `AND SETTINGS > SERVO SUPPLY GP28/29.`: Zuerst kommt der Wandler aus Teil C
 der [Verdrahtung](Verdrahtung), dann die Einstellung. Unter `NONE` steht bei
-D SERIES `POWER THE SERVO UP BEFORE THE TAP.`. Der Bildschirm tritt in das
+D SERIES `POWER THE SERVO UP, THEN TAP.`. Der Bildschirm tritt in das
 Servo ein und liest es. Ein Servo der D-Serie
 liefert 21 Register und 20 Parameter, davon 11 verstellbar. An der Leitung
 hängt ein Servo, ohne Pull-up-Widerstand. `HOLD TO WRITE` 1 s lang gehalten

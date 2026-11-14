@@ -140,6 +140,8 @@ void fakeAm32FailWrites(int n);
 void fakeAm32FailReads(int n);
 /** @brief The next @p n am32BlWrite() calls store byte 0x1B with bit 6 flipped. */
 void fakeAm32SkewWrites(int n);
+/** @brief am32BlWrite() calls since the start, failed ones among them. */
+int fakeAm32Writes();
 /**
  * @brief Handshakes fail with @p n bytes of reply, as from a device that
  *        answers but is no bootloader; @p n 0 lets them succeed again.

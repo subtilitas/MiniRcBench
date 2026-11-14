@@ -319,9 +319,11 @@ bool am32Plausible(const uint8_t *eeprom);
 bool am32LayoutKnown(const uint8_t *eeprom);
 
 /**
- * @brief Whether the list shows @p f for this ESC: its layout revision has
- *        the field (am32FieldApplies()) and its firmware reads the byte
- *        (Am32Field::readFw).
+ * @brief Whether the list and the backup show @p f for this ESC: the block's
+ *        layout is one the table is checked against (am32LayoutKnown()),
+ *        that layout has the field (am32FieldApplies()) and the firmware
+ *        reads the byte (Am32Field::readFw). False for every field of a
+ *        block in a layout outside 2 to 4.
  */
 bool am32FieldShown(const Am32Field *f, const uint8_t *eeprom);
 

@@ -917,6 +917,100 @@ static void testBackEveryState() {
 	removeJobs();
 }
 
+static FakeJob g_hitecJob;
+static uint8_t hitecBind(uint8_t sig, uint8_t aux) { return bindInto(&g_hitecJob, sig, aux); }
+static void hitecStep(uint32_t, bool alive) { g_hitecJob.steps++; g_hitecJob.uiAlive = alive; }
+static bool hitecRelease(uint32_t) { return releaseFrom(&g_hitecJob); }
+static const Core1JobOps FAKE_HITEC = { hitecBind, hitecStep, hitecRelease, nullptr };
+
+/**
+ * @brief HITEC defers its job: the claim holds SIG with no job until the
+ *        family tap, and BACK before it passes the unplug page.
+ */
+static void testDeferredJob() {
+	section("Pin claim: HITEC holds SIG before its job");
+
+	uiInit();
+	freshPump();
+	installJobs();
+	memset(&g_hitecJob, 0, sizeof(g_hitecJob));
+	s_ops[(uint8_t)Core1Job::Hitec] = &FAKE_HITEC;
+	checkTrue("only HITEC defers its job", pinUserInfo(PinUser::Hitec).deferJob &&
+	          !pinUserInfo(PinUser::Servo).deferJob && !pinUserInfo(PinUser::Kst).deferJob &&
+	          !pinUserInfo(PinUser::Am32).deferJob);
+	int resumes = fakeResumeCount();
+	checkTrue("HITEC claims", pinClaimBegin(PinUser::Hitec, PIN_SIG) == ClaimRefusal::None);
+	pump();
+	checkTrue("held", pinClaimPoll() == ClaimState::Held);
+	core1JobPoll();
+	pinClaimPoll();
+	checkTrue("no job is asked for at Held", core1JobPhase() == Core1JobPhase::Idle &&
+	          g_hitecJob.binds == 0 && pinClaimState() == ClaimState::Held &&
+	          pinClaimJobError() == CORE1_JOB_OK);
+	checkInt("the pin is latched", pinClaimGpio(PIN_SIG), SIG_GPIO);
+	pinClaimStartJob(PinUser::Servo);
+	core1JobPoll();
+	checkTrue("a start from another screen does nothing", core1JobPhase() == Core1JobPhase::Idle &&
+	          g_hitecJob.binds == 0 && pinClaimPoll() == ClaimState::Held);
+
+	// BACK before the tap: the unplug page, as after a session.
+	pinClaimEnd(PinUser::Hitec);
+	checkTrue("BACK: leaving, the unplug page at once", pinClaimState() == ClaimState::Leaving &&
+	          pinClaimUnplugDue());
+	pinClaimStartJob(PinUser::Hitec);
+	checkTrue("no start while leaving", core1JobPhase() == Core1JobPhase::Idle);
+	pinClaimKeep(PinUser::Hitec);
+	core1JobPoll();
+	checkTrue("BACK on the unplug page: held, still no job",
+	          pinClaimPoll() == ClaimState::Held && g_hitecJob.binds == 0 &&
+	          core1JobPhase() == Core1JobPhase::Idle);
+	checkInt("DShot stayed down", fakeResumeCount(), resumes);
+
+	// The tap: the job starts and binds.
+	pinClaimStartJob(PinUser::Hitec);
+	checkTrue("the tap asks for the job", core1JobPhase() == Core1JobPhase::Starting);
+	pinClaimStartJob(PinUser::Hitec);
+	core1JobPoll();
+	checkTrue("it binds once", g_hitecJob.binds == 1 && pinClaimPoll() == ClaimState::Running);
+	pinClaimEnd(PinUser::Hitec);
+	core1JobPoll();
+	pinClaimPoll();
+	pinClaimKeep(PinUser::Hitec);
+	core1JobPoll();
+	checkTrue("after the tap, BACK on the unplug page starts the job again",
+	          g_hitecJob.binds == 2 && pinClaimPoll() == ClaimState::Running);
+	checkTrue("back to free", toFree());
+
+	// The tap while the pump still drains: the job follows at Held.
+	escSetArmed(true);
+	escSetThrottle(200);
+	pump();
+	checkTrue("claims during a drain", pinClaimBegin(PinUser::Hitec, PIN_SIG) == ClaimRefusal::None);
+	pinClaimStartJob(PinUser::Hitec);
+	checkTrue("stopping, nothing started", pinClaimPoll() == ClaimState::Stopping &&
+	          core1JobPhase() == Core1JobPhase::Idle);
+	for (int i = 0; i < 4 && pinClaimState() != ClaimState::Held; i++) {
+		fakeAdvance(100);
+		pump();
+		pinClaimPoll();
+	}
+	checkTrue("held: the job starts", pinClaimState() == ClaimState::Held &&
+	          core1JobPhase() == Core1JobPhase::Starting);
+	core1JobPoll();
+	checkTrue("and binds", pinClaimPoll() == ClaimState::Running && g_hitecJob.binds == 3);
+	checkTrue("back to free", toFree());
+
+	// The next claim defers again.
+	checkTrue("claims", pinClaimBegin(PinUser::Hitec, PIN_SIG) == ClaimRefusal::None);
+	pump();
+	pinClaimPoll();
+	core1JobPoll();
+	checkTrue("a new claim waits for its tap again", pinClaimPoll() == ClaimState::Held &&
+	          g_hitecJob.binds == 3);
+	checkTrue("back to free", toFree());
+	removeJobs();
+}
+
 /** @brief The rebuild after a claim uses the wiring from before it. */
 static void testRestore() {
 	section("Pin claim: DShot comes back as it was");
@@ -1174,6 +1268,7 @@ void runClaimTests() {
 	testOrder();
 	testJobGuard();
 	testBackEveryState();
+	testDeferredJob();
 	testRestore();
 	testHeartbeat();
 	testNoSaveDuringClaim();

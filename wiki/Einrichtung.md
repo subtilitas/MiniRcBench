@@ -69,8 +69,8 @@ Lötkolben und Schrumpfschlauch oder Crimpkontakte.
 > Servobildschirme führt SIG DShot, vom Ende des 3 s langen Startbildschirms an.
 > Ein Servo liest das als Impuls und fährt in Richtung eines Endes seines Wegs,
 > mit einer Framerate, die ein analoges Servo überhitzt. Stecke das Servo erst
-> an, wenn sein Bildschirm offen ist. Bei HITEC SERVO führt SIG DShot, bis eine
-> Familie gewählt ist: Halte die Zeit in der Familienansicht kurz. Schalte die
+> an, wenn sein Bildschirm offen ist. Bei HITEC SERVO warte in der
+> Familienauswahl auf `GP0 IS THE SERVO'S: DSHOT IS OFF.`. Schalte die
 > Platine vor der Servoversorgung ein und die Servoversorgung vor der Platine
 > aus: [Servotester](Servotester#verkabelung).
 
