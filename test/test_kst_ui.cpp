@@ -1363,6 +1363,23 @@ static void testFlushWait() {
 	tapId(UI_FIX(KstCtl::WriteOk));
 	fakeVolumeFailNext(0);
 
+	// An earlier batch still queued, and it fails: the page names a file, not
+	// the backup, and nothing went to the servo.
+	fakeCacheSet(CardCache::Flushing, 2);
+	writes = sim->n_writes;
+	tapId(UI_FIX(KstCtl::EditPlus));
+	holdUntilGone(UI_FIX(KstCtl::Write));
+	holdUntilGone(UI_FIX(KstCtl::WriteHold));
+	kstFrames(2);
+	fakeCacheSet(CardCache::Failed, 0);
+	kstFrames(2);
+	checkTrue("an earlier batch failed: A FILE, nothing to the servo, in three lines",
+	          ctlPresent(UI_FIX(KstCtl::WriteOk)) && sim->n_writes == writes &&
+	          lineIs(196, "THE CARD DID NOT TAKE A FILE (REMOVED", C_AMBER) &&
+	          lineIs(208, "OR SWAPPED?). NOTHING WENT TO THE", C_AMBER) &&
+	          lineIs(220, "SERVO. CHECK THE CARD, HOLD AGAIN.", C_AMBER));
+	tapId(UI_FIX(KstCtl::WriteOk));
+
 	// LOAD after a batch failed in the background: the card is mounted
 	// again, the list read again, and nothing loads until a row is chosen.
 	tapId(UI_FIX(KstCtl::Files));

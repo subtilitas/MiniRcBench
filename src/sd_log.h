@@ -148,7 +148,8 @@ void sdLogStop();
 /**
  * @brief Stop a running log for a tool that takes the card, and record which
  *        one: SD LOG then reads `RECORDING STOPPED BY` and the tool's name
- *        until the next start or mount. No-op when no log runs.
+ *        until the next start; a mount keeps it (sdLogMountForget()).
+ *        No-op when no log runs.
  * @param tool @ref SdLogEnd::ByKst, @ref SdLogEnd::ByHitec or
  *        @ref SdLogEnd::ByAm32. A stop that fails keeps the cause it
  *        recorded: CardFull or WriteFailed from the last flush, WriteFailed

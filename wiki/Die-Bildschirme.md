@@ -226,6 +226,7 @@ Unter der Liste bleiben diese Elemente an ihrem Platz:
   7. `SAVED SETTINGS IN USE` oder `COMPILED DEFAULTS IN USE`.
 
 <img src="img/settings-pin.png" width="240" alt="SETTINGS, nachdem ESC PIN auf GP1 gewechselt hat: UNPLUG ANY SERVO FROM GP1 NOW über LINK, UNSAVED in der Hinweiszeile">
+
 - `HOLD TO SAVE` (150 × 48 px) und `RESET` (70 × 48 px).
 
 **Änderungen wirken sofort. Nur das Speichern braucht das Halten.** Eine neue

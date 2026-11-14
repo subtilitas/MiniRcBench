@@ -665,6 +665,16 @@ static void testUsbDriveScreen() {
 	checkTrue("the big button is EJECT while serving, not START",
 	          !sdLogActive());
 	checkTrue("and it gives the card back", mscGetState() == MscState::Idle);
+	{
+		// The card came back by a mount: the computer may have deleted the
+		// last log, so FILE names none and the counters start again.
+		SdLogStatus back;
+		sdLogStatus(&back);
+		frames(2);
+		checkTrue("EJECT: FILE -- and the counters at zero",
+		          logFileRowIs("--") && back.fileNumber == 0 && back.framesLogged == 0 &&
+		          back.bytesWritten == 0);
+	}
 
 	// Arming is refused while a host holds the card, from the tester screen --
 	// which is reachable, because BACK does not cancel a copy in progress.

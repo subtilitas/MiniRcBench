@@ -90,8 +90,9 @@ The usual cause is a slow card. Try another card first.
 When a log ends on its own, or a tool takes the card, amber lines above
 `START` say how, and what to do. A disarm that ends a log arming started, and
 `STOP`, show none. A card's fault stays until the next `START` or a mount
-(`RETRY MOUNT`, the end of `USB DRIVE`, or the remount KST SERVO and HITEC
-SERVO make after a failed card write). A tool's stop has one line and stays
+(`RETRY MOUNT`, the end of `USB DRIVE`, or a tool's remount: RETRY MOUNT on
+KST SERVO or HITEC SERVO, or their remount after a failed card write). A
+tool's stop has one line and stays
 until the next `START`, across mounts, as it stays true of the last log;
 without a card the mount hint takes the second line.
 

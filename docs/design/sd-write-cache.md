@@ -231,8 +231,8 @@ A batch that fails:
   under 3 s at 511 ms a block (the owner's decision of 2026-10-27). The stop
   is recorded with the tool's name (`sdLogStopFor()`), and SD LOG reads
   `RECORDING STOPPED BY KST SERVO`, `HITEC SERVO` or `AM32 CONFIG` until the
-  next start or mount. Without
-  a mounted card the cache stays off for the claim.
+  next start; a mount keeps it. Without a mounted card the cache stays off
+  for the claim.
 - `cardCacheEnd()` runs when the claim ends: KST's LEAVE, BACK and the loss
   rule, AM32's BACK. It flushes, core0 blocking, recovers a failed flush, and
   turns the cache off. BACK on KST's unplug page keeps the claim and turns

@@ -741,15 +741,17 @@ bool sdLogRemount() {
 	// case the button exists for -- a card inserted after boot.
 	// A mount, as sdLogBegin(), which sd_log.cpp skips while a log runs:
 	// how the last log ended is forgotten.
-	if (g_log.state != SdLogState::Logging) fakeMountForget();
+	// From any other state the card in the slot mounts, as sdLogBegin() does
+	// with a card that answers: READY, a card fault forgotten.
+	if (g_log.state == SdLogState::Logging) return true;
+	fakeMountForget();
 	if (g_log.state == SdLogState::NoCard) {
-		g_log.state = SdLogState::Idle;
 		g_log.mountResult = 0;
 		g_log.cardType = 3;          // SDHC/XC
 		g_log.cardSizeMB = 122000;   // a 128 GB card, as the card reports itself
-		return true;
 	}
-	return g_log.state != SdLogState::Error;
+	g_log.state = SdLogState::Idle;
+	return true;
 }
 
 bool sdLogActive() { return g_log.state == SdLogState::Logging; }
@@ -916,8 +918,19 @@ MscRefusal mscRequest() {
 	return MscRefusal::None;
 }
 
-void mscRelease() { g_msc = MscState::Idle; }
-void mscTick() {}
+// As usb_msc.cpp with its mscTick() folded in, as mscRequest() folds the
+// handover: the release reclaims the card, and the reclaim is a mount
+// (sdLogReacquire(), sdLogBegin()) of a card that is still there.
+void mscRelease() {
+	if (g_msc == MscState::Idle) return;
+	g_msc = MscState::Idle;
+	sdLogBegin();
+}
+void mscTick() {
+	if (g_msc != MscState::Reclaim) return;
+	g_msc = MscState::Idle;
+	sdLogBegin();
+}
 
 void fakeMscSet(MscState s, uint32_t blocksRead) {
 	g_msc = s;

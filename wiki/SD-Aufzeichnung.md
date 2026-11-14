@@ -97,8 +97,9 @@ Endet eine Aufzeichnung von selbst, oder nimmt ein Werkzeug die Karte, sagen
 Zeilen in Bernstein über `START`, wie, und was zu tun ist. Ein Entschärfen,
 das eine durch Scharfschalten begonnene Aufzeichnung beendet, und `STOP`
 zeigen keine. Ein Kartenfehler bleibt bis zum nächsten `START` oder Einbinden
-(`RETRY MOUNT`, das Ende von `USB DRIVE`, oder das neue Einbinden durch KST
-SERVO und HITEC SERVO nach einem fehlgeschlagenen Kartenschreiben). Das Ende
+(`RETRY MOUNT`, das Ende von `USB DRIVE`, oder das neue Einbinden durch ein
+Werkzeug: RETRY MOUNT in KST SERVO oder HITEC SERVO, oder ihr neues Einbinden
+nach einem fehlgeschlagenen Kartenschreiben). Das Ende
 durch ein Werkzeug hat eine Zeile und bleibt bis zum nächsten `START`, auch
 über ein Einbinden hinweg, denn es stimmt weiter für die letzte Aufzeichnung;
 ohne Karte steht der Einbinde-Hinweis in der zweiten Zeile.

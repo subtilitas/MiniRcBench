@@ -928,6 +928,36 @@ static void testEscPinNote() {
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 
+	// The warning gone while scrolled to the end: the list takes its 200 px
+	// back and the scroll is clamped to 620 px, with nothing blank under it.
+	// Once by RESET, once by the pin set back with SETTINGS open, as a tool's
+	// row writes the settings.
+	for (int how = 0; how < 2; how++) {
+		openSettings();
+		menuFrames(1);
+		revealRow((int)SettingsRowId::Pin);
+		tapId(UI_ROW(SettingsRowId::Pin, Plus));
+		for (int k = 0; k < 5; k++) dragList(200, -180);
+		checkInt(how ? "pin moved, at the end: UPTIME at y 178"
+		             : "pin moved, at the end, before RESET: UPTIME at y 178",
+		         ctlRect(UI_ROW(SettingsRowId::Uptime, Row)).y, 178);
+		if (how == 0) tapId(UI_FIX(SettingsCtl::Reset));
+		else          settings()->dshotPin = boot;
+		menuFrames(1);
+		UiRect up = ctlRect(UI_ROW(SettingsRowId::Uptime, Row));
+		checkTrue(how ? "pin set back: no warning" : "RESET: no warning",
+		          settings()->dshotPin == boot && !fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1));
+		checkInt("the scroll clamped to 620 px: UPTIME at y 190", up.y, 190);
+		checkTrue("and whole, its bottom at y 234", up.h == 44);
+		checkInt("LAST RESTART at y 140", ctlRect(UI_ROW(SettingsRowId::LastRestart, Row)).y, 140);
+		for (int k = 0; k < 5; k++) dragList(60, 180);
+		checkInt("dragged back: MOTOR POLES at y 60", ctlRect(UI_ROW(SettingsRowId::Poles, Row)).y, 60);
+		checkInt("the list ends at y 239 again: DSHOT KBAUD's row, y 230 to 239, shows 10 px",
+		         ctlRect(UI_ROW(SettingsRowId::Speed, Row)).h, 10);
+		tapId(UI_FIX(UI_BACK));
+		tapId(UI_FIX(UI_BACK));
+	}
+
 	// Booted on the other pin: RESET puts DShot back on the default pin,
 	// which the splash did not name: the warning, and RESET's note under it.
 	Settings other;

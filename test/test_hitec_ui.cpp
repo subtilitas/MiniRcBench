@@ -484,6 +484,21 @@ static void testFlushWait() {
 	          untilCtl(UI_FIX(HitecCtl::WriteOk), 800) && fakeHitecSim()->writes > writes &&
 	          job().result == HITEC_SES_OK);
 	tapId(UI_FIX(HitecCtl::WriteOk));
+	// A later write whose batch fails: the page names a file, not the backup.
+	writes = fakeHitecSim()->writes;
+	speedDown();
+	holdUntilGone(UI_FIX(HitecCtl::Write));
+	fakeCacheSet(CardCache::Flushing, 12);
+	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
+	hitecFrames(2);
+	fakeCacheSet(CardCache::Failed, 0);
+	hitecFrames(2);
+	checkTrue("a later write's batch failed: A FILE, nothing to the servo, in three lines",
+	          ctlPresent(UI_FIX(HitecCtl::WriteOk)) && fakeHitecSim()->writes == writes &&
+	          lineIs(196, "THE CARD DID NOT TAKE A FILE (REMOVED", C_AMBER) &&
+	          lineIs(208, "OR SWAPPED?). NOTHING WENT TO THE", C_AMBER) &&
+	          lineIs(220, "SERVO. CHECK THE CARD, HOLD AGAIN.", C_AMBER));
+	tapId(UI_FIX(HitecCtl::WriteOk));
 	leaveAll();
 	fakeCacheReset();
 }
