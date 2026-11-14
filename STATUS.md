@@ -712,11 +712,11 @@ the tag. Menu structure B waits on being built, not on the bench (item 18).
     per blackbox log, kept by the logger on core0, written as
     `LOGS/LOGnnnnn.TXT` beside the `.BFL` at a clean stop and shown on SD
     LOG; optionally the board's PCF85063 RTC dating the files on the card.
-    Found while designing it: every file and directory the firmware writes
-    today has FAT date and time 0, because the SD library's
-    `get_fattime()` returns 0 while the RP2350's always-on timer is not
-    running, and nothing starts it; not checked on a card. Waits on the
-    owner's answers to the note's seven questions.
+    Not a question, recorded here: every file and directory the firmware
+    writes after a power-on has FAT date and time 0, because the SD
+    library's `get_fattime()` returns 0 while the RP2350's always-on timer
+    is not running, and nothing starts it; not checked on a card. Waits on
+    the owner's answers to the note's eight questions.
 
 ## Known limitations
 
