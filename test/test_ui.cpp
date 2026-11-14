@@ -3939,9 +3939,12 @@ static void testAm32TesterNote() {
 		checkTrue("armed: the note stays", fakeArmed() && tester3dShown());
 		const UiRect pad = ctlRect(UI_FIX(TesterCtl::Pad));
 		const int px = pad.x + pad.w / 2, pb = pad.y + pad.h;
+		const uint16_t before = fakeThrottle();
 		fakePress(px, pb - 40); frames(1);
 		for (int y = pb - 40; y >= pb - 70; y -= 6) { fakeHold(px, y); frames(1); }
 		checkTrue("the pad engaged: the note stays", tester3dShown());
+		checkTrue("and the swipe raised the throttle, as without the note",
+		          fakeThrottle() > before);
 		fakeRelease(); frames(2);
 		fakeDumpFrame("shot_tester_3d.ppm");
 		tapId(UI_FIX(TesterCtl::Arm));                         // DISARM
