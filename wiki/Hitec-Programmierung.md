@@ -307,18 +307,25 @@ Die Schreibseite öffnet sich und schreibt noch nichts.
 Die Schreibseite heißt `HITEC WRITE`. Die Leiste zählt die Werte, `1 VALUE`
 oder `2 VALUES`. Jeder geänderte Parameter ist eine Zeile, `SPEED` und
 `100 % (4095) -> 90 % (18)`, bis zu sechs, danach zum Beispiel `AND 3 MORE`.
-Bernsteinfarbene Zeilen mit einem `*` am Anfang nennen die weichen Regeln,
-die gelten. Weitere bernsteinfarbene Zeilen:
 
-- `MODEL NOT MEASURED: WRITTEN IN THE D LAYOUT.` für ein Modell, das rcbench
-  nicht vermessen hat. Das vermessene Modell der D-Serie ist das D485HW.
+`KEEP THE SERVO HORN CLEAR.` folgt den Werten beim ersten Schreiben der
+Sitzung und bei jedem Schreiben, das `DIRECTION`, `NEUTRAL` oder einen
+Endpunkt ändert. Die Zeile hat immer ihren Platz.
+
+Danach folgen bernsteinfarbene Hinweise, in dieser Reihenfolge:
+
 - `THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR RESTORE
   THIS SERVO.`
+- `MODEL NOT MEASURED: WRITTEN IN THE D LAYOUT.` für ein Modell, das rcbench
+  nicht vermessen hat. Das vermessene Modell der D-Serie ist das D485HW.
 - Zum Beispiel `FILE OF ANOTHER MODEL: D645MW.` nach dem Laden einer Datei
   eines anderen Modells.
+- Zeilen mit einem `*` am Anfang: die weichen Regeln, die gelten.
 
-`KEEP THE SERVO HORN CLEAR.` erscheint beim ersten Schreiben der Sitzung und
-bei jedem Schreiben, das `DIRECTION`, `NEUTRAL` oder einen Endpunkt ändert.
+Ein Hinweis steht ganz oder gar nicht. Passen nicht alle, zählt die letzte
+Zeile den Rest: `AND 2 MORE RULES: SEE EACH ROW.`, wenn nur weiche Regeln
+fehlen (die Editorleiste jeder Zeile nennt ihre Regel), sonst
+`AND 3 MORE NOTES.`
 
 Die Zeile am unteren Rand sagt, wohin die Sicherung geht:
 

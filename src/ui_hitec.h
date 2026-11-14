@@ -73,6 +73,13 @@ HitecView uiHitecView();
 /** @brief The write page's note for the same change: three lines of 36. */
 #define HITEC_UI_ID_NOTE_PAGE \
 	"THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR RESTORE THIS SERVO."
+/**
+ * @brief The write page's last note line when notes are left out and all
+ *        of them are soft rules, which each row's editor bar names.
+ */
+#define HITEC_UI_MORE_RULES_FMT "AND %d MORE RULE%s: SEE EACH ROW."
+/** @brief The same line when a note other than a soft rule is left out. */
+#define HITEC_UI_MORE_NOTES_FMT "AND %d MORE NOTE%s."
 /** @} */
 
 /**

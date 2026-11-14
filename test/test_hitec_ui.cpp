@@ -787,7 +787,7 @@ static void testStallAndBack() {
 /**
  * @brief Whether the ID note's lines, wrapped at @p width, are drawn in amber:
  *        centred in the editor bar's 136 px from x 52 at y 232, 242, 252
- *        when @p bar, else from x 18 at the first y from 40 to 180 that
+ *        when @p bar, else from x 18 at the first y from 40 to 184 that
  *        holds the first line, 12 px apart.
  */
 static bool idNoteDrawn(const char *text, int width, bool bar) {
@@ -800,13 +800,93 @@ static bool idNoteDrawn(const char *text, int width, bool bar) {
 				return false;
 		return true;
 	}
-	for (int y = 40; y <= 180; y++) {
+	for (int y = 40; y <= 184; y++) {
 		if (!fakeTextIs(UI_MARGIN + 12, y, l[0], C_AMBER, C_BG, 1)) continue;
 		for (int i = 1; i < n; i++)
 			if (!fakeTextIs(UI_MARGIN + 12, y + 12 * i, l[i], C_AMBER, C_BG, 1)) return false;
 		return true;
 	}
 	return false;
+}
+
+/** @brief The y of an amber note line @p text at x 18 on the write page, or -1. */
+static int noteLineY(const char *text) {
+	for (int y = UI_BODY_Y; y <= 190; y++)
+		if (fakeTextIs(UI_MARGIN + 12, y, text, C_AMBER, C_BG, 1)) return y;
+	return -1;
+}
+
+/** @brief The y the horn line is drawn at on the write page, or -1. */
+static int hornLineY() {
+	for (int y = UI_BODY_Y; y <= 190; y++)
+		if (fakeTextIs(UI_MARGIN, y, "KEEP THE SERVO HORN CLEAR.", C_TEXT, C_BG, 1)) return y;
+	return -1;
+}
+
+/**
+ * @brief The write page keeps the horn line when the advisory notes fill it:
+ *        ID 0 -> 1 with DIRECTION reversed on a D485HW, and the same on a
+ *        D645MW (not measured) after a LOAD of a D485HW file.
+ */
+static void testWritePageHornLine() {
+	section("Hitec write page: the horn line under a full set of notes");
+	freshHitec(HITEC_D, false);
+	checkTrue("the field list", toList(HITEC_D));
+	revealRow(12);
+	tapId(UI_ROW(12, Row));
+	tapId(UI_FIX(HitecCtl::EditPlus));
+	revealRow(6);
+	tapId(UI_ROW(6, Row));
+	tapId(UI_FIX(HitecCtl::EditPlus));
+	holdUntilGone(UI_FIX(HitecCtl::Write));
+	checkTrue("ID and DIRECTION: the write page", uiHitecView() == HitecView::Write);
+	int hy = hornLineY();
+	checkTrue("the horn line is drawn, above the state lines", hy >= 0 && hy + 7 <= 196);
+	checkTrue("then the ID note, whole", idNoteDrawn(HITEC_UI_ID_NOTE_PAGE, 36, false) &&
+	          noteLineY("THE BENCH ADDRESSES ID 0. AFTER THIS") > hy);
+	checkTrue("then END POINT CHANGED, whole",
+	          noteLineY("PER STICK MOVEMENT CHANGES TOO.") > noteLineY("END POINT CHANGED. THE SERVO TRAVEL"));
+	int more = noteLineY("AND 1 MORE RULE: SEE EACH ROW.");
+	checkTrue("DIRECTION's rule left out and counted on the last line", more > hy && more + 7 <= 196);
+	checkTrue("and not drawn in part", noteLineY("DIRECTION REVERSED. CHECK ALL") < 0);
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(HitecCtl::Revert));
+	leaveAll();
+
+	// A D645MW, not measured, with a D485HW file loaded.
+	freshHitec(HITEC_D, false);
+	hitec_image_t f;
+	d485(&f);
+	char text[HITEC_CARD_FILE_MAX];
+	size_t n = hitec_card_file_text(&f, text, sizeof(text));
+	fakeFatMkdir("HITEC");
+	fakeFatPut("HITEC/HT001.TXT", text, n);
+	fakeHitecSim()->mem[0] = (uint8_t)(34645 & 0xFF);
+	fakeHitecSim()->mem[1] = (uint8_t)(34645 >> 8);
+	checkTrue("a D645MW reads", toList(HITEC_D));
+	checkTrue("not measured", !hitecModelMeasuredNow());
+	tapId(UI_FIX(HitecCtl::Files));
+	tapId(UI_ROW(0, Row));
+	tapId(UI_FIX(HitecCtl::Load));
+	checkTrue("the D485HW file loads", uiHitecView() == HitecView::List);
+	revealRow(12);
+	tapId(UI_ROW(12, Row));
+	tapId(UI_FIX(HitecCtl::EditPlus));
+	revealRow(6);
+	tapId(UI_ROW(6, Row));
+	tapId(UI_FIX(HitecCtl::EditPlus));
+	holdUntilGone(UI_FIX(HitecCtl::Write));
+	checkTrue("its write page", uiHitecView() == HitecView::Write);
+	hy = hornLineY();
+	checkTrue("the horn line is drawn, above the state lines", hy >= 0 && hy + 7 <= 196);
+	checkTrue("then the ID note, whole", idNoteDrawn(HITEC_UI_ID_NOTE_PAGE, 36, false));
+	checkTrue("then MODEL NOT MEASURED, whole", noteLineY("MODEL NOT MEASURED: WRITTEN IN THE D") > 0 &&
+	          noteLineY("LAYOUT.") > 0);
+	more = noteLineY("AND 3 MORE NOTES.");
+	checkTrue("the file's model and two rules left out: AND 3 MORE NOTES.", more > hy && more + 7 <= 196);
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(HitecCtl::Revert));
+	leaveAll();
 }
 
 static void testIdAndBack() {
@@ -979,6 +1059,7 @@ void runHitecUiTests() {
 	testSupplyCurrent();
 	testStallAndBack();
 	testIdAndBack();
+	testWritePageHornLine();
 	testCardSwap();
 	testStallInWrite();
 }

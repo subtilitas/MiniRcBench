@@ -703,6 +703,14 @@ protocol.
 
 ### Fixed
 
+- HITEC SERVO's write page always draws `KEEP THE SERVO HORN CLEAR.`: it
+  follows the values, before the amber notes, and a value row starts only
+  while the horn line keeps its place. Before, it came after the notes and
+  was dropped once they reached y 180, for example on a D485HW write that
+  changes ID 0 to 1 and reverses DIRECTION. The notes are drawn whole or not
+  at all, the ID note, the model notes and then the soft rules, and the last
+  line counts those left out: `AND n MORE RULES: SEE EACH ROW.` or
+  `AND n MORE NOTES.` Host tests in `test/test_hitec_ui.cpp`.
 - The wiki pages KST-Programming and KST-Programmierung no longer say the
   screen never switches the servo's supply: with SERVO SUPPLY at GP28 or
   GP29 it does. The English Home and Setup pages and Einrichtung say the

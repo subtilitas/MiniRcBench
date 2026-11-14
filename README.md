@@ -1348,7 +1348,9 @@ and every D series servo on the line takes a frame sent to ID 0.
 5. HOLD TO WRITE (1 s) opens the write page: the changes, their soft rules
    and where the backup goes, and `KEEP THE SERVO HORN CLEAR.` on the
    session's first write and on a write that moves DIRECTION, NEUTRAL or an
-   end point. A second 1 s hold
+   end point. The horn line always has its line; notes that do not fit are
+   counted on the last line, `AND n MORE RULES: SEE EACH ROW.` or
+   `AND n MORE NOTES.` A second 1 s hold
    writes. Before the first frame of the session's first write with a card
    mounted, the backup goes to the card as `BACKUP/HTnnn.TXT`; before every
    write, the servo as it is and the target go to `HITEC/HITEC.TXT` as the

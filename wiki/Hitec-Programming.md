@@ -277,18 +277,24 @@ opens and writes nothing.
 The write page is titled `HITEC WRITE`. The strip counts the values,
 `1 VALUE` or `2 VALUES`. Each changed parameter is one line, `SPEED` and
 `100 % (4095) -> 90 % (18)`, up to six, then `AND 3 MORE`, for example.
-Amber lines starting with `*` give the soft rules that apply. Other amber
-lines:
 
-- `MODEL NOT MEASURED: WRITTEN IN THE D LAYOUT.` for a model rcbench has not
-  measured. The measured D series model is the D485HW.
+`KEEP THE SERVO HORN CLEAR.` follows the values on the session's first
+write, and on every write that changes `DIRECTION`, `NEUTRAL` or an end
+point. It always has its line.
+
+Amber notes follow, in this order:
+
 - `THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR RESTORE
   THIS SERVO.`
+- `MODEL NOT MEASURED: WRITTEN IN THE D LAYOUT.` for a model rcbench has not
+  measured. The measured D series model is the D485HW.
 - `FILE OF ANOTHER MODEL: D645MW.`, for example, after a LOAD of a file of
   another model.
+- Lines starting with `*`: the soft rules that apply.
 
-`KEEP THE SERVO HORN CLEAR.` shows on the session's first write, and on
-every write that changes `DIRECTION`, `NEUTRAL` or an end point.
+A note is shown whole or not at all. When they do not all fit, the last line
+counts the rest: `AND 2 MORE RULES: SEE EACH ROW.` when only soft rules are
+left out (each row's editor bar names its rule), else `AND 3 MORE NOTES.`
 
 The line at the bottom says where the backup goes:
 

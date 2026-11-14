@@ -74,6 +74,8 @@
 #define HF_WHY_2     28               /**< ...and its second. */
 /** @brief Changes the write page lists before AND n MORE. */
 #define HITEC_UI_CHANGES_MAX 6
+/** @brief The last y a line of the write page's list may start at: it ends above y 196. */
+#define HW_LAST_Y 184
 /** @} */
 
 static const UiRect FIELD_VIEW  = { 0, UI_BODY_Y, GFX_W, HL_LIST_Y1 - UI_BODY_Y + 1 };
@@ -1063,10 +1065,16 @@ static void drawWrite() {
 	         changed == 1 ? "" : "S");
 	uiStripText(buf, C_DIM);
 	int shown = 0;
+	// The horn line is the safety line: it always has its line. A row takes
+	// 12 px, or 22 px when its value goes under the label; one starts only
+	// while a whole row and AND n MORE still end by HW_LAST_Y, and AND n MORE
+	// and the horn line end above the state lines at y 196.
+	const bool horn = !s_wroteOnce || travelMoves();
+	const int last = HW_LAST_Y - (horn ? 12 : 0);
 	for (int i = 0; i < s_rowCount; i++) {
 		uint8_t p = s_rows[i].param;
 		if (!hitecWritten(s_layout, p) || !hitecDiffers(&s_pageFrom, &s_pageTo, s_layout, p)) continue;
-		if (shown == HITEC_UI_CHANGES_MAX) {
+		if (shown == HITEC_UI_CHANGES_MAX || y + 22 > last) {
 			snprintf(buf, sizeof(buf), "AND %d MORE", changed - shown);
 			gfxText(UI_MARGIN, y, buf, C_DIM, 1);
 			y += 12;
@@ -1082,32 +1090,55 @@ static void drawWrite() {
 		y = vy + 12;
 		shown++;
 	}
-	// Notes above the state lines at y 196, 12 px a line.
-	uint32_t soft = hitecSoftRules(&s_pageFrom, &s_pageTo, s_layout);
-	char wl[3][48];
-	auto note = [&](const char *text, bool star) {
-		int n = kstWrap(text, 36, wl, 3);
-		for (int k = 0; k < n && y <= 180; k++, y += 12) {
-			if (star && k == 0) gfxText(UI_MARGIN, y, "*", C_AMBER, 1);
-			gfxText(UI_MARGIN + 12, y, wl[k], C_AMBER, 1);
-		}
-	};
-	for (int i = 0; i < (int)HitecRule::Count; i++)
-		if (soft & HITEC_RULE_BIT(i)) note(hitecRuleText((HitecRule)i), true);
-	if (!hitecModelMeasured(&s_st.image))
-		note(s_family == HITEC_D ? "MODEL NOT MEASURED: WRITTEN IN THE D LAYOUT."
-		                         : "MODEL NOT MEASURED: WRITTEN IN THE CLASSIC LAYOUT.", false);
+	// The horn line before the advisory notes: they stop at y 180 and may
+	// run out of room, the horn line does not.
+	if (horn) {
+		gfxText(UI_MARGIN, y, "KEEP THE SERVO HORN CLEAR.", C_TEXT, 1);
+		y += 12;
+	}
+	// Notes above the state lines at y 196, 12 px a line, the last at y 184.
+	// The ones about this servo first: its ID, its model, the file's model;
+	// then the soft rules, which each row's editor bar also names. A note is
+	// drawn whole or not at all. When they do not all fit, the last line
+	// says how many are left out, and points at the rows when all of those
+	// are soft rules.
+	struct { const char *text; bool star; } notes[(int)HitecRule::Count + 3];
+	int nn = 0;
 	hitec_value_t id;
 	if (s_family == HITEC_D && hitecDiffers(&s_pageFrom, &s_pageTo, s_layout, HITEC_P_D_ID) &&
 	    hitec_param_get(&s_pageTo, s_layout, HITEC_P_D_ID, &id) == HITEC_GET_OK && id.value != 0)
-		note(HITEC_UI_ID_NOTE_PAGE, false);
+		notes[nn++] = { HITEC_UI_ID_NOTE_PAGE, false };
+	if (!hitecModelMeasured(&s_st.image))
+		notes[nn++] = { s_family == HITEC_D ? "MODEL NOT MEASURED: WRITTEN IN THE D LAYOUT."
+		                                    : "MODEL NOT MEASURED: WRITTEN IN THE CLASSIC LAYOUT.", false };
+	char other[48];
 	if (s_otherModel[0] && !s_restoring) {
-		snprintf(buf, sizeof(buf), "FILE OF ANOTHER MODEL: %s.", s_otherModel);
-		note(buf, false);
+		snprintf(other, sizeof(other), "FILE OF ANOTHER MODEL: %s.", s_otherModel);
+		notes[nn++] = { other, false };
 	}
-	if ((!s_wroteOnce || travelMoves()) && y <= 180) {
-		gfxText(UI_MARGIN, y, "KEEP THE SERVO HORN CLEAR.", C_TEXT, 1);
-		y += 12;
+	uint32_t soft = hitecSoftRules(&s_pageFrom, &s_pageTo, s_layout);
+	for (int i = 0; i < (int)HitecRule::Count; i++)
+		if (soft & HITEC_RULE_BIT(i)) notes[nn++] = { hitecRuleText((HitecRule)i), true };
+	char wl[3][48];
+	int lines = y <= HW_LAST_Y ? (HW_LAST_Y - y) / 12 + 1 : 0, need = 0;
+	for (int i = 0; i < nn; i++) need += kstWrap(notes[i].text, 36, wl, 3);
+	int room = need <= lines ? lines : lines - 1;   // one line for AND n MORE NOTES
+	int drawn = 0;
+	for (; drawn < nn; drawn++) {
+		int n = kstWrap(notes[drawn].text, 36, wl, 3);
+		if (n > room) break;
+		for (int k = 0; k < n; k++, y += 12) {
+			if (notes[drawn].star && k == 0) gfxText(UI_MARGIN, y, "*", C_AMBER, 1);
+			gfxText(UI_MARGIN + 12, y, wl[k], C_AMBER, 1);
+		}
+		room -= n;
+	}
+	if (drawn < nn && lines > 0) {
+		bool rulesOnly = true;
+		for (int i = drawn; i < nn; i++) rulesOnly = rulesOnly && notes[i].star;
+		snprintf(buf, sizeof(buf), rulesOnly ? HITEC_UI_MORE_RULES_FMT : HITEC_UI_MORE_NOTES_FMT,
+		         nn - drawn, nn - drawn == 1 ? "" : "S");
+		gfxText(UI_MARGIN + 12, y, buf, C_AMBER, 1);
 	}
 
 	if (s_write.backupName[0]) snprintf(buf, sizeof(buf), "BACKUP: BACKUP/%s", s_write.backupName);

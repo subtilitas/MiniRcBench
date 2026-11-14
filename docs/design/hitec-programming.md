@@ -811,9 +811,9 @@ y   0 | HITEC WRITE                      [ BACK ]|
    40 | 2 VALUES                                 |
    62 | SPEED            60 %  ->  30 %          |
    82 | DIRECTION          CW  ->  CCW           |
-  102 | * DIRECTION REVERSED. CHECK ALL CONTROL  |  C_AMBER, 12 px a line,
-  114 |   SURFACES BEFORE FLIGHT.                |  6 lines, none below 192
-  126 | KEEP THE SERVO HORN CLEAR.               |
+   94 | KEEP THE SERVO HORN CLEAR.               |  always its line
+  106 | * DIRECTION REVERSED. CHECK ALL CONTROL  |  C_AMBER, 12 px a line,
+  118 |   SURFACES BEFORE FLIGHT.                |  the last at y 184
   196 | WRITING: DO NOT UNPLUG. / the result     |  3 lines at most
   236 | BACKUP FIRST: BACKUP/HT005.TXT           |  or NO CARD: BACKUP IN MEMORY
   268 | [          HOLD TO WRITE           ]     |  1,000 ms, progress bar
@@ -826,7 +826,15 @@ y   0 | HITEC WRITE                      [ BACK ]|
   stored value, `60 % (12) -> 60 % (13)`, as KST's `kstValuePair()`.
 - `KEEP THE SERVO HORN CLEAR.` shows on the session's first write and on
   every write that changes DIRECTION, NEUTRAL, CENTRE or an end point, as
-  rcbench's panel does.
+  rcbench's panel does. It follows the values and always has its line: a
+  value row starts only while it and `AND n MORE` leave room for it above
+  y 196.
+- The amber notes follow, each whole or not at all, in this order: the ID
+  note, `MODEL NOT MEASURED: ...`, `FILE OF ANOTHER MODEL: ...`, then the
+  soft rules with `*`. When they do not all fit by y 184, the last line
+  reads `AND n MORE RULES: SEE EACH ROW.` when only soft rules are left out
+  (each row's editor bar names its rule), else `AND n MORE NOTES.`; for one,
+  `RULE` and `NOTE`.
 - The hold confirms every soft rule shown, and, for a loaded file of another
   model, the amber line `FILE OF ANOTHER MODEL: D645MW.`
 - The write's steps, in order:
