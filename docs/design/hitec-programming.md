@@ -245,8 +245,9 @@ converter, the grounds joined once at the board, the board powered before
 the servo supply. The converter, its pull-down and its ground are those of
 [kst-programming.md](kst-programming.md#hardware).
 
-**After the claim.** The claim's unplug page applies as for every servo
-screen: DShot restarts only on RESTART DSHOT. A D series line closes with
+**After the claim.** The claim's leave page applies as for every servo
+screen: DShot restarts only on RESTART DSHOT, 1000 ms after the pin is let
+go. A D series line closes with
 the pad's pull-up on, not the pull-down the other jobs leave
 ([pin-claim.md](pin-claim.md#restoring-dshot)). The DShot pump puts its own
 pull-up on SIG when it binds again, so the difference lasts only until
@@ -304,7 +305,7 @@ Core1 has nothing else to do during the claim.
 ### The job
 
 `src/hitec_job.{h,cpp}`: `PinUser::Hitec`, a row of `PIN_USERS` with
-`Core1Job::Hitec`, the unplug page and the ESC check on, and a row of
+`Core1Job::Hitec`, the leave page and the ESC check on, and a row of
 `s_ops[]` in `src/core1_job.cpp`.
 
 ```c
@@ -358,12 +359,12 @@ an input with the pull-up `esc_task.cpp` leaves on it. The family tap calls
 `hitecJobSetFamily(family)`, which writes it under the job's critical
 section, on core0, only while no core1 job runs, and then
 `pinClaimStartJob()`; the bind reads it and opens the line for that family.
-RETRY after a bind error (`pinClaimRetry()`) and BACK on the unplug page
-(`pinClaimKeep()`) bind again with the family it holds; BACK on an unplug
-page reached from the family view returns to Held with no job. An open
+RETRY after a bind error (`pinClaimRetry()`) and NEXT SERVO on the leave
+page (`pinClaimKeep()`) bind again with the family it holds; NEXT SERVO on a
+leave page reached from the family view returns to Held with no job. An open
 failure is a bind error, reported by `pinClaimJobError()` as
 `SIG GP0 COULD NOT BE TAKEN (PIO)`, `(DMA)` or `(CLOCK)` with RETRY, as on the
-other servo screens. Another family means leaving through the unplug page
+other servo screens. Another family means leaving through the leave page
 and choosing again.
 
 `src/hitec_line_port.{h,cpp}` opens and closes the line on the claimed GPIO:
@@ -469,7 +470,7 @@ drops KST's.
 | OPEN: the port out of PWM, 50 ms with no pulse, the line released | the claim's drain: DShot stops, then silence; `hitec_line_open()`, a released input with the family's pull. With `GP28` or `GP29`, `servoSupplyBind()` drives the enable pin low at the bind |
 | The page holds the SUPPLY page from OPEN to CLOSE | the job owns the enable pin from the bind to the release; SETTINGS is unreachable during the claim |
 | POWER: off, wait for off up to 3,000 ms, off 0 ms to 10,000 ms, on at 4.8 V to 6.0 V, the LISTEN | off, `off_ms` from the switch-off command (no read-back), on at the converter's 5 V, the LISTEN in the same pass |
-| CLOSE | the leave and the claim end below; `hitec_line_close()`, `servoSupplyRelease()`, the unplug page |
+| CLOSE | the leave and the claim end below; `hitec_line_close()`, `servoSupplyRelease()`, the leave page's RESTART DSHOT |
 
 ## Switched servo supply
 
@@ -527,7 +528,7 @@ view shows the result and RETRY ([family and entry](#family-and-entry)).
 - **With a switch, both families.** LEAVE switches the supply off at once; the
   line stays released. After `KST_SUPPLY_OFF_MS`, 2,000 ms from the last
   switch-off command, the job closes the line and releases the enable pin, and the
-  unplug page follows, reading `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` while it
+  leave page is released; it reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` while it
   waits, as KST's close does ([kst-programming.md](kst-programming.md#close-with-the-switch),
   KST decision 18). The session's own leave does not run: for a classic
   servo it would switch the supply on again, and a D series reboot is
@@ -675,7 +676,7 @@ memory; the card call goes on to its end on core0.
 ## Screens
 
 Entry: MENU → HITEC SERVO, one line in `ui_registry.cpp`
-([menu.md](menu.md#code)); BACK returns to MENU through the unplug page.
+([menu.md](menu.md#code)); BACK returns to MENU through the leave page.
 `HITEC SERVO` is 11 characters, 130 px at scale 2, and ends at x 145, before
 `PINS BUSY` at x 169. The row follows KST SERVO
 ([decision 6](#decisions-of-the-owner)). As the fifth row it makes MENU seven
@@ -693,7 +694,7 @@ its rows, values, stepper and texts in `src/hitec_view.*`, as
 
 | View | What it shows | Controls |
 |---|---|---|
-| Family | the claim on SIG from the first frame: `RELEASING SIG GP0 FROM DSHOT`, then `GP0 IS THE SERVO'S: DSHOT IS OFF.` in green over `CONNECT THE SERVO, CHOOSE ITS FAMILY`; while an ESC answers, `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` over `DSHOT STAYS ON THE PIN UNTIL THEN.` in amber. CLASSIC (HS-5XXX, HS-7XXX) and D SERIES, with the wiring note of each, act once the claim holds. CLASSIC disabled with `NEEDS THE CONVERTER OF WIRING PART C` and `AND SETTINGS > SERVO SUPPLY GP28/29.` under `OWN`, enabled with `GP28` or `GP29` ([decision 13](#decisions-of-the-owner)); under `OWN`, D SERIES with `POWER THE SERVO UP, THEN TAP.` | CLASSIC, D SERIES, BACK: the unplug page once the claim holds, else MENU |
+| Family | the claim on SIG from the first frame: `RELEASING SIG GP0 FROM DSHOT`, then `GP0 IS THE SERVO'S: DSHOT IS OFF.` in green over `CONNECT THE SERVO, CHOOSE ITS FAMILY`; while an ESC answers, `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` over `DSHOT STAYS ON THE PIN UNTIL THEN.` in amber. CLASSIC (HS-5XXX, HS-7XXX) and D SERIES, with the wiring note of each, act once the claim holds. CLASSIC disabled with `NEEDS THE CONVERTER OF WIRING PART C` and `AND SETTINGS > SERVO SUPPLY GP28/29.` under `OWN`, enabled with `GP28` or `GP29` ([decision 13](#decisions-of-the-owner)); under `OWN`, D SERIES with `POWER THE SERVO UP, THEN TAP.` | CLASSIC, D SERIES, BACK: the leave page at `1 UNPLUG THE SERVO.` once the claim holds, else MENU |
 | Bind | after the family tap, `TAKING SIG GP0` while the job binds; a bind error, `SIG GP0 COULD NOT BE TAKEN (PIO)`, `(DMA)` or `(CLOCK)` | RETRY, BACK |
 | Entry, classic | `SUPPLY OFF 0.5 S`, then `LISTENING FOR THE SERVO` with the window's progress, then `ENTERING`; the amber ESC line below | STOP, BACK |
 | Entry, D series | with a switch, `SUPPLY OFF 0.5 S`, then `SERVO STARTING 1.0 S` and the amber ESC line; then `READING THE MODEL` | STOP, BACK |
@@ -955,24 +956,42 @@ y   0 | HITEC FILES                      [ BACK ]|
 
 ### Leave
 
-BACK from the field list opens the leave page.
+BACK from the field list, or during a read, opens the leave page of
+[menu-b.md](menu-b.md#the-leave-page), `ui_leave` filled by `leaveText()` in
+`ui_hitec.cpp`. With a switch, before LEAVE:
 
 ```
-y   0 | HITEC SERVO                      [ BACK ]|
-   40 | D485HW  GP0  SUPPLY ON                   |
-   66 | LEAVE SWITCHES THE SERVO'S SUPPLY OFF.   |  with a switch
-   86 | 2 CHANGES NOT WRITTEN.                   |  only with pending edits
-  100 | A WRITE DID NOT END VERIFIED.            |  C_AMBER, only then
-  214 | [            READ AGAIN             ]    |  228 x 46 px
-  268 | [               LEAVE               ]    |  228 x 46 px, a tap
-  320 +------------------------------------------+
+y   0 | HITEC SERVO                     [  BACK  ]|  BACK drawn disabled
+   40 | D485HW  SIG GP0  SUPPLY ON                |  strip, C_DIM
+   66 |#1 LEAVE SWITCHES THE SUPPLY OFF.          |  step 1, current, C_AMBER
+   80 | 2 UNPLUG THE SERVO.                       |  step 2, C_DIM
+   92 |   DSHOT RESTARTS ON SIG GP0 AND READS     |
+  104 |   AS A 970 US PULSE AT 1000 HZ.           |
+  118 | 3 RESTART DSHOT.                          |  step 3, C_DIM
+  158 | 2 CHANGES NOT WRITTEN.                    |  only with pending edits, C_AMBER
+  170 | A WRITE DID NOT END VERIFIED.             |  C_AMBER, only then
+  214 | [   STAY   ] [  READ AGAIN  ]             |  6,214,110x46; 122,214,112x46
+  268 | [              LEAVE               ]      |  6,268,228x46, a tap
+  320 +-------------------------------------------+
 ```
 
-- With `OWN` the first line reads `LEAVE RESTARTS THE SERVO.`
-- LEAVE is a tap and runs the leave of
-  [leave and claim end](#leave-and-claim-end); the unplug page follows.
+- With `OWN` step 1 reads `LEAVE RESTARTS THE SERVO.`
+- STAY returns to the field list, or to the main view.
 - READ AGAIN runs ReadAll and returns to the field list.
-- BACK on the page returns to the field list.
+- LEAVE is a tap and runs the leave of
+  [leave and claim end](#leave-and-claim-end). From the tap on, step 2 is
+  current, READ AGAIN is hidden, and NEXT SERVO and RESTART DSHOT are drawn
+  disabled; the note reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` with a switch
+  and `RELEASING THE PIN` without.
+- Released, NEXT SERVO keeps the claim and starts the next session in the
+  family chosen, or returns to the family view before one was chosen; with
+  `OWN` the note reads `NEXT SERVO: POWER IT BEFORE THE TAP.` RESTART DSHOT
+  takes a press that lands 1000 ms or more after the release.
+- BACK on the family view once the claim holds, BACK during the entry and
+  BACK after a failed entry open the page releasing, at
+  `1 UNPLUG THE SERVO.` and `2 RESTART DSHOT.`; it turns released once
+  `pinClaimUnplugDue()` is true.
+- BACK on the page is drawn disabled in every phase.
 
 ## Storage
 
@@ -1395,8 +1414,8 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
      backup; the flush barrier, a flush that fails, a later write while an
      earlier batch flushes with its record on the card before its first
      frame; BACK during a write; a stall during a write; the ID note;
-     STOP and BACK in the entry, BACK in the entry's read, BACK on the
-     unplug page; an edit kept through READ AGAIN with FILES opened during
+     STOP and BACK in the entry, BACK in the entry's read, NEXT SERVO on the
+     leave page; an edit kept through READ AGAIN with FILES opened during
      the read, and a DIRECTION reversal written after it with its ends
      mirrored; a sideways swipe on NEUTRAL; a write in error and READ AGAIN; FILES
      with SAVE AS, LOAD, a file of the other family refused, HOLD TO

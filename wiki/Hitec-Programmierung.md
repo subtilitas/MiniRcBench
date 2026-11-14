@@ -124,9 +124,9 @@ Schaltflächen:
 `GP28` oder `GP29` bleibt der Wandler in dieser Ansicht aus, von seinem
 Pull-down gehalten, und der Prüfstand schaltet das Servo nach dem Tippen ein.
 
-Gehört der Pin dem Servo, führt `BACK` in dieser Ansicht zur Abziehseite,
-wie `LEAVE`: DShot startet erst nach `UNPLUG THE SERVO.` und
-`RESTART DSHOT` neu. `BACK` auf der Abziehseite führt zur Familienauswahl
+Gehört der Pin dem Servo, öffnet `BACK` in dieser Ansicht die
+Verlassenseite bei `1 UNPLUG THE SERVO.`, wie nach `LEAVE`: DShot startet
+erst mit `RESTART DSHOT` neu. `NEXT SERVO` führt dort zur Familienauswahl
 zurück. Solange der Treiber noch anhält oder der Bildschirm den Pin nicht
 übernommen hat, führt `BACK` zu `MENU` zurück.
 
@@ -535,36 +535,47 @@ Sicherung die älteste, gleich von welchem Gerät. Den Ring beschreibt die
 ## Verlassen
 
 `BACK` in der Feldliste öffnet die Verlassenseite. `BACK` während eines
-Lesens öffnet sie ebenfalls.
+Lesens öffnet sie ebenfalls. `BACK` auf der Verlassenseite ist grau und
+bewirkt nichts: Jeder Weg weiter ist eine Taste.
 
-Die Leiste nennt das Modell, den Pin und, mit `GP28` oder `GP29`, `SUPPLY ON` oder
-`SUPPLY OFF`. Die Seite zeigt mit `GP28` oder `GP29` `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.`,
-mit `OWN` `LEAVE RESTARTS THE SERVO.` Mit vorgemerkten Änderungen kommt
-`2 CHANGES NOT WRITTEN.` hinzu, nach einem fehlgeschlagenen Schreiben
-`A WRITE DID NOT END VERIFIED.` in Bernstein.
+<img src="img/leave-hitec-failed.png" width="240" alt="Die Verlassenseite mit OWN: 1 LEAVE RESTARTS THE SERVO., 1 CHANGE NOT WRITTEN., A WRITE DID NOT END VERIFIED., STAY, READ AGAIN und LEAVE"> <img src="img/leave-hitec.png" width="240" alt="Die Verlassenseite mit GP28: 1 LEAVE SWITCHES THE SUPPLY OFF."> <img src="img/leave-hitec-released.png" width="240" alt="Nach LEAVE, den 2 s aus und 1 s mehr: NEXT SERVO und RESTART DSHOT aktiv">
+
+Die Leiste nennt das Modell, den Pin und, mit `GP28` oder `GP29`,
+`SUPPLY ON` oder `SUPPLY OFF`. Die Seite nummeriert drei Schritte; der
+aktuelle ist bernsteinfarben, mit einem Balken am linken Rand, die anderen
+grau:
+
+1. `LEAVE SWITCHES THE SUPPLY OFF.` mit `GP28` oder `GP29`, oder
+   `LEAVE RESTARTS THE SERVO.` mit `OWN`.
+2. `UNPLUG THE SERVO.`, mit `DSHOT RESTARTS ON SIG GP0 AND READS` und
+   `AS A 970 US PULSE AT 1000 HZ.`
+3. `RESTART DSHOT.`
+
+Mit vorgemerkten Änderungen kommt `2 CHANGES NOT WRITTEN.` hinzu, nach
+einem fehlgeschlagenen Schreiben `A WRITE DID NOT END VERIFIED.`, in
+Bernstein.
 
 | Schaltfläche | Was sie tut |
 |---|---|
+| `STAY` | Führt zur Feldliste zurück |
 | `READ AGAIN` | Liest das Servo erneut und führt zur Feldliste zurück. Vorgemerkte Änderungen bleiben |
 | `LEAVE` | Beendet die Sitzung: Mit `GP28` oder `GP29` schaltet es die Versorgung aus, mit `OWN` startet es das Servo mit seinen gespeicherten Werten neu |
-| `BACK` | Führt zur Feldliste zurück |
 
-Nach `LEAVE` mit `GP28` oder `GP29` zeigt die nächste Seite
-`SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`, bis die Leitung geschlossen ist. Dann
-zeigt sie `UNPLUG THE SERVO.` über `DSHOT RESTARTS ON GP0 AND READS AS` und
-`A 970 US PULSE AT 1000 HZ.`
+Nach `LEAVE` ist Schritt 2 aktuell, und `NEXT SERVO` und `RESTART DSHOT`,
+an der Stelle von `LEAVE`, sind grau, solange der Pin freigegeben wird. Mit
+`GP28` oder `GP29` zeigt die Seite `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`, bis
+die Leitung geschlossen ist; mit `OWN` `RELEASING THE PIN`.
 
-<img src="img/hitec-unplug.png" width="240" alt="Die Abziehseite: UNPLUG THE SERVO. und RESTART DSHOT">
-
-**Zieh das Servo ab und tippe dann auf `RESTART DSHOT`.** Der ESC-Treiber
-übernimmt den Pin wieder, und `MENU` erscheint. `BACK` auf dieser Seite
-behält den Pin und tritt erneut in das Servo ein. Solange die Seite
-`RELEASING THE PIN` zeigt oder die Versorgung herunterzählt, ist `BACK`
-deaktiviert gezeichnet, als Umriss mit grauer Beschriftung: Es wirkt ab dem
-Moment, in dem `UNPLUG THE SERVO.` erscheint.
+**Zieh das Servo ab.** Sobald der Pin freigegeben ist, wirkt `NEXT SERVO`:
+Es behält den Pin und tritt in das nächste Servo ein. Mit `OWN` zeigt die
+Seite `NEXT SERVO: POWER IT BEFORE THE TAP.` **`RESTART DSHOT`** wirkt 1 s
+danach: Der ESC-Treiber übernimmt den Pin wieder, und `MENU` erscheint. Ein
+Doppeltippen auf `LEAVE` landet, während `RESTART DSHOT` grau ist, und
+startet nichts neu; ein Druck, der begann, während es grau war, bewirkt
+beim Loslassen nichts.
 
 `BACK` während des Eintritts, bevor das Servo geantwortet hat, bricht ihn ab
-und zeigt die Abziehseite.
+und öffnet die Seite bei `1 UNPLUG THE SERVO.`
 
 ---
 

@@ -1547,12 +1547,12 @@ static void holdStart() {
 	core1();
 }
 
-/** @brief BACK, the unplug page, and RESTART DSHOT: out to MENU. */
+/** @brief BACK, the leave page, and RESTART DSHOT: out to MENU. */
 static void leaveServo() {
 	tapId(UI_FIX(UI_BACK));
 	uiFrames(1);
-	// The page offers RESTART DSHOT once the job has let go of the pin.
-	for (int i = 0; i < 200 && !ctlPresent(UI_FIX(ServoCtl::Restart)); i++) uiFrames(1);
+	// The page offers RESTART DSHOT 1000 ms after the job has let go of the pin.
+	for (int i = 0; i < 200 && !ctlEnabled(UI_FIX(ServoCtl::Restart)); i++) uiFrames(1);
 	tapId(UI_FIX(ServoCtl::Restart));
 	uiFrames(2);
 	checkTrue("RESTART DSHOT leaves SERVO for MENU", uiCurrentScreen() == UiScreenId::Menu);
@@ -2271,9 +2271,14 @@ static void testEscAnswering() {
 	leaveServo();
 }
 
-/** @brief The unplug page: BACK keeps the claim, RESTART DSHOT restarts it. */
-static void testUnplugPage() {
-	section("Servo screen: the unplug page before DShot restarts");
+/**
+ * @brief The leave page (docs/design/menu-b.md, decision 5): it opens
+ *        releasing, BACK is drawn disabled in every phase, BACK TO SERVO
+ *        keeps the claim once the job has let go, and RESTART DSHOT takes a
+ *        press that lands 1000 ms or more after that.
+ */
+static void testLeavePage() {
+	section("Servo screen: the leave page before DShot restarts");
 
 	freshUi();
 	openServo();
@@ -2282,52 +2287,87 @@ static void testUnplugPage() {
 	int cuts = fakePin(0).cutPulses;
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK while RUNNING: the page waits for the last pulse",
-	          s_view == View::Unplug && !pinClaimUnplugDue() &&
+	          s_view == View::Leave && !pinClaimUnplugDue() &&
 	          core1JobPhase() == Core1JobPhase::Stopping);
-	checkTrue("the page waits: BACK does not act, RESTART is not there",
+	checkTrue("releasing: BACK, BACK TO SERVO and RESTART DSHOT disabled",
 	          ctlPresent(UI_FIX(UI_BACK)) && !ctlEnabled(UI_FIX(UI_BACK)) &&
-	          !ctlPresent(UI_FIX(ServoCtl::Restart)));
-	checkControlTable("the unplug page, the job not yet let go");
+	          ctlPresent(UI_FIX(ServoCtl::BackToServo)) && !ctlEnabled(UI_FIX(ServoCtl::BackToServo)) &&
+	          ctlPresent(UI_FIX(ServoCtl::Restart)) && !ctlEnabled(UI_FIX(ServoCtl::Restart)));
+	checkControlTable("the leave page, the job not yet let go");
 	checkTrue("and BACK is drawn so: an outline, its label grey",
 	          backLook() == BackLook::Disabled);
+	checkTrue("no step before LEAVE: UNPLUG THE SERVO. is step 1, current",
+	          leaveStepIs(UI_LEAVE_STEP_Y, '1', "UNPLUG THE SERVO.", true) &&
+	          leaveStepIs(UI_LEAVE_STEP_Y + 12, 0, "DSHOT RESTARTS ON SIG GP0 AND READS", true) &&
+	          leaveStepIs(UI_LEAVE_STEP_Y + 24, 0, "AS A 970 US PULSE AT 1000 HZ.", true) &&
+	          leaveStepIs(UI_LEAVE_STEP_Y + 38, '2', "RESTART DSHOT.", false));
+	checkTrue("the note: RELEASING THE PINS, dim", leaveNoteIs(0, "RELEASING THE PINS", C_DIM));
+	checkTrue("the buttons drawn disabled", leaveLeftIs("BACK TO SERVO", false) &&
+	          leaveWideIs("RESTART DSHOT", false));
+	checkTrue("the strip names both pins", fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "SIG GP0  AUX GP1",
+	                                                  C_DIM, C_BG, 1));
 	core1();
 	checkTrue("core1's next pass: still stopping", core1JobPhase() == Core1JobPhase::Stopping);
 	checkTrue("level 0 written, SIG still on PWM",
 	          fakePin(0).level == 0 && fakePin(0).function == GPIO_FUNC_PWM);
 	checkInt("and no DShot", fakeResumeCount(), resumes);
-	// BACK on the page before the job has let go: pinClaimKeep() would
-	// refuse, so the page ignores it and stays.
-	// The frames are 5 ms apart here, so the press is by hand, at BACK's centre.
+	// BACK on the page does nothing in any phase. The frames are 5 ms apart
+	// here, so the press is by hand, at BACK's centre.
 	int bx, by;
 	ctlCentre(UI_FIX(UI_BACK), &bx, &by);
 	fakePress(bx, by); frameAt(5);
 	checkTrue("a press on it draws no pressed look", backLook() == BackLook::Disabled);
 	fakeRelease(); frameAt(5);
 	checkTrue("BACK while releasing: ignored, the page stays",
-	          s_view == View::Unplug && pinClaimState() == ClaimState::Leaving &&
+	          s_view == View::Leave && pinClaimState() == ClaimState::Leaving &&
 	          !pinClaimUnplugDue());
 	uiFrames(2);
-	checkTrue("BACK: the unplug page", s_view == View::Unplug && pinClaimUnplugDue());
-	checkTrue("the job let go: BACK acts and RESTART DSHOT is there",
-	          ctlEnabled(UI_FIX(UI_BACK)) && ctlEnabled(UI_FIX(ServoCtl::Restart)));
-	checkControlTable("the unplug page, the job let go");
-	checkTrue("and BACK is drawn live on that frame", backLook() == BackLook::Live);
+	checkTrue("the job let go: released", s_view == View::Leave && pinClaimUnplugDue());
+	uint32_t t0 = millis();
+	checkTrue("BACK TO SERVO live, RESTART DSHOT still waits, BACK still disabled",
+	          ctlEnabled(UI_FIX(ServoCtl::BackToServo)) && !ctlEnabled(UI_FIX(ServoCtl::Restart)) &&
+	          !ctlEnabled(UI_FIX(UI_BACK)));
+	checkControlTable("the leave page, the job let go");
+	checkTrue("BACK drawn disabled, BACK TO SERVO live, RESTART DSHOT not",
+	          backLook() == BackLook::Disabled && leaveLeftIs("BACK TO SERVO", true) &&
+	          leaveWideIs("RESTART DSHOT", false) && leaveNoteBlank(0));
+	checkTrue("step 1 stays current", leaveStepIs(UI_LEAVE_STEP_Y, '1', "UNPLUG THE SERVO.", true));
 	checkTrue("the page keeps the title SERVO TESTER",
 	          fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, "SERVO TESTER", C_TEXT, C_PANEL, 2) &&
 	          titleEndsClear());
 	checkInt("no pulse was cut short", fakePin(0).cutPulses, cuts);
 	checkTrue("the job let go: SIG an input", fakePin(0).function == GPIO_FUNC_SIO);
 	checkInt("DShot not yet restarted", fakeResumeCount(), resumes);
-	fakeDumpFrame("shot_servo_unplug.ppm");
-	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(ServoCtl::Restart), IdExpect::Disabled);
+	checkTrue("a tap in the wait restarts nothing", fakeResumeCount() == resumes &&
+	          s_view == View::Leave);
+	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
+	checkTrue("BACK once released: nothing", s_view == View::Leave &&
+	          pinClaimState() == ClaimState::Leaving);
+	for (int i = 0; i < 60 && !ctlEnabled(UI_FIX(ServoCtl::Restart)); i++) uiFrames(1);
+	checkTrue("RESTART DSHOT live 1000 ms after the release",
+	          ctlEnabled(UI_FIX(ServoCtl::Restart)) && millis() - t0 >= 1000 && millis() - t0 < 1025);
+	uiFrames(1);
+	checkTrue("and drawn live", leaveWideIs("RESTART DSHOT", true));
+	fakeDumpFrame("shot_leave_servo.ppm");
+	tapId(UI_FIX(ServoCtl::BackToServo));
 	uiFrames(2);
-	checkTrue("BACK on the page: SERVO again, the claim kept",
+	checkTrue("BACK TO SERVO: SERVO again, the claim kept",
 	          s_view == View::Main && pinClaimState() == ClaimState::Running);
 	checkTrue("SAFE again, rebound at level 0",
 	          !s_st.running && fakePin(0).function == GPIO_FUNC_PWM && fakePin(0).level == 0);
 	checkInt("still no DShot", fakeResumeCount(), resumes);
+	checkTrue("BACK live again on SERVO TESTER", ctlEnabled(UI_FIX(UI_BACK)) &&
+	          backLook() == BackLook::Live);
+
+	// SAFE: the job lets go within a frame, so a tap in the wide button
+	// right after BACK lands in the released phase, inside the wait.
 	tapId(UI_FIX(UI_BACK));
-	uiFrames(1);
+	checkTrue("BACK while SAFE: the leave page", s_view == View::Leave);
+	tapId(UI_FIX(ServoCtl::Restart), IdExpect::Disabled);
+	checkTrue("a tap on RESTART DSHOT 75 ms after BACK: nothing", s_view == View::Leave &&
+	          fakeResumeCount() == resumes && pinClaimState() == ClaimState::Leaving);
+	for (int i = 0; i < 60 && !ctlEnabled(UI_FIX(ServoCtl::Restart)); i++) uiFrames(1);
 	tapId(UI_FIX(ServoCtl::Restart));
 	checkInt("RESTART DSHOT: DShot back", fakeResumeCount(), resumes + 1);
 	uiFrames(2);
@@ -3497,7 +3537,7 @@ void runServoTests() {
 	testTwoServos();
 	testAuxRefused();
 	testEscAnswering();
-	testUnplugPage();
+	testLeavePage();
 	testSetScreen();
 	testSetGuard();
 	testTravelNote();

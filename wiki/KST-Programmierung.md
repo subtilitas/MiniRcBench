@@ -154,10 +154,10 @@ Liegt ein Vermerk auf der Karte, zeigt der Bildschirm in Bernstein
 Siehe [FILES](#files).
 
 Antwortet das Servo später nicht mehr, kehrt der Bildschirm hierher zurück
-und sucht erneut, aus jeder Ansicht außer der Verlassenseite und der
-Abziehseite. Er bemerkt es nur, während ein Lesen oder Schreiben läuft: Ein
-Servo, das unter einer ruhenden Feldliste ausgeschaltet wird, lässt die
-Liste stehen bis zum nächsten Lesen oder Schreiben. `BACK` während dieser
+und sucht erneut, aus jeder Ansicht außer der Verlassenseite. Er bemerkt es
+nur, während ein Lesen oder Schreiben läuft: Ein Servo, das unter einer
+ruhenden Feldliste ausgeschaltet wird, lässt die Liste stehen bis zum
+nächsten Lesen oder Schreiben. `BACK` während dieser
 Suche beendet sie und öffnet die Verlassenseite.
 
 ---
@@ -462,30 +462,44 @@ geschrieben. Ohne gewählte Zeile zeigt die Editorleiste
 ## Verlassen
 
 `BACK` in der Feldliste öffnet die Verlassenseite. `BACK` in der Suche öffnet
-sie ebenfalls, sobald ein Servo geantwortet hat.
+sie ebenfalls, sobald ein Servo geantwortet hat. `BACK` auf der
+Verlassenseite ist grau und bewirkt nichts: Jeder Weg weiter ist eine Taste.
 
-<img src="img/kst-leave.png" width="240" alt="Die Verlassenseite: POWER THE SERVO OFF."> <img src="img/kst-leave-pending.png" width="240" alt="Die Verlassenseite mit 5 CHANGES NOT WRITTEN.">
+<img src="img/leave-kst.png" width="240" alt="Die Verlassenseite: 1 POWER THE SERVO OFF, THEN LEAVE., STAY und LEAVE"> <img src="img/leave-kst-pending.png" width="240" alt="Die Verlassenseite mit 5 CHANGES NOT WRITTEN."> <img src="img/leave-kst-released.png" width="240" alt="Nach LEAVE: 2 UNPLUG THE SERVO. aktuell, NEXT SERVO, RESTART DSHOT grau">
 
-Die Seite zeigt `POWER THE SERVO OFF.` und
-`IT STAYS IN PROGRAMMING MODE UNTIL ITS SUPPLY IS OFF.` Mit vorgemerkten
-Änderungen kommt `2 CHANGES NOT WRITTEN.` hinzu, im Zweifel
-`THE SERVO IS IN DOUBT: RESTORE FIRST.` `BACK` führt zur Feldliste zurück,
-nach einem verlorenen Servo zur Suche.
+Die Seite nummeriert drei Schritte. Der aktuelle Schritt ist
+bernsteinfarben, mit einem Balken am linken Rand; die anderen sind grau:
+
+1. `POWER THE SERVO OFF, THEN LEAVE.`, mit
+   `IT STAYS IN PROGRAMMING MODE UNTIL` und `ITS SUPPLY IS OFF.`
+2. `UNPLUG THE SERVO.`, mit `DSHOT RESTARTS ON SIG GP0 AND READS` und
+   `AS A 970 US PULSE AT 1000 HZ.`
+3. `RESTART DSHOT.`
+
+Unter den Schritten nennt die Seite in Bernstein, was LEAVE verliert:
+`2 CHANGES NOT WRITTEN.` bei vorgemerkten Änderungen und
+`THE SERVO IS IN DOUBT: RESTORE FIRST.` nach einem Schreiben im Zweifel.
+
+**`STAY`** führt zur Feldliste zurück, nach einem verlorenen Servo zur Suche.
 
 **Schalte das Servo aus. Tippe dann auf `LEAVE`.** Der Bildschirm hält die
-Leitung 100 ms lang auf Low, lässt den Pin los und zeigt `UNPLUG THE SERVO.`
-über `DSHOT RESTARTS ON GP0 AND READS AS` und `A 970 US PULSE AT 1000 HZ.`
-`LEAVE` verlässt auch eine Sitzung, die im Zweifel ist.
+Leitung 100 ms lang auf Low und lässt den Pin los. Ab dem Tippen ist
+Schritt 2 aktuell. `LEAVE` verlässt auch eine Sitzung, die im Zweifel ist.
+Solange der Pin freigegeben wird, zeigt die Seite `RELEASING THE PIN`, und
+die beiden Tasten, `NEXT SERVO` und `RESTART DSHOT` an der Stelle von
+`LEAVE`, sind grau.
 
-**Zieh das Servo ab und tippe dann auf `RESTART DSHOT`.** Der ESC-Treiber
-übernimmt den Pin wieder, und `MENU` erscheint. `BACK` auf dieser Seite führt
-stattdessen zur Suche zurück und behält den Pin. Solange die Seite
-`RELEASING THE PIN` oder `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` zeigt, ist
-`BACK` deaktiviert gezeichnet, als Umriss mit grauer Beschriftung: Es wirkt
-ab dem Moment, in dem `UNPLUG THE SERVO.` erscheint.
+**Zieh das Servo ab.** Sobald der Pin freigegeben ist, wirkt `NEXT SERVO`:
+Es behält den Pin und startet eine neue Suche, und die Seite zeigt
+`NEXT SERVO: POWER IT AFTER THE TAP.` **`RESTART DSHOT`** wirkt 1 s danach:
+Der ESC-Treiber übernimmt den Pin wieder, und `MENU` erscheint. Die Sekunde
+macht ein Doppeltippen auf `LEAVE` harmlos: Es landet, während
+`RESTART DSHOT` grau ist. Ein Druck, der begann, während es grau war,
+bewirkt beim Loslassen nichts.
 
 `BACK` in der Suche, bevor ein Servo geantwortet hat, gibt den Pin frei und
-zeigt die Abziehseite unmittelbar.
+öffnet die Seite bei Schritt 2, mit 1 nummeriert: `1 UNPLUG THE SERVO.`,
+`2 RESTART DSHOT.`
 
 ---
 
@@ -522,19 +536,24 @@ Pull-down an Enable: 10 kΩ bis 100 kΩ für ein Enable ohne internen Pull-up.
 **Ein ESC an dieser Leitung bekommt den Ausgang des Wandlers auf seine
 BEC-Leitung.**
 
-<img src="img/kst-switched.png" width="240" alt="Die geschaltete Suche: SUPPLY OFF 1.4 S"> <img src="img/kst-leave-switched.png" width="240" alt="Die Seite zum Verlassen mit HOLD TO REBOOT"> <img src="img/kst-stalled.png" width="240" alt="Der hängende Bildschirm: SUPPLY OFF">
+<img src="img/kst-switched.png" width="240" alt="Die geschaltete Suche: SUPPLY OFF 1.4 S"> <img src="img/leave-kst-switched.png" width="240" alt="Die Verlassenseite mit HOLD TO REBOOT"> <img src="img/leave-kst-supply-off.png" width="240" alt="Nach LEAVE: SUPPLY OFF FOR 2.0 S: 1.4 S LEFT."> <img src="img/kst-stalled.png" width="240" alt="Der hängende Bildschirm: SUPPLY OFF">
 
 - **Die Suche** schaltet das Servo vor jedem Versuch 2 s aus, dann ein:
   `SIG GP0  TRY 3  SUPPLY OFF 1.4 S`. In die 30 s der Suche passen 14
   Einschaltvorgänge; danach `NO ANSWER IN 14 POWER-UPS`.
-- **Die Seite zum Verlassen** zeigt `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.`
-  Nach LEAVE zeigt die Abziehseite `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`: Der
-  Pin wird 2 s nach dem Ausschalten freigegeben, gleich was die Sitzung
-  beendet.
-- **HOLD TO REBOOT** (1 s) schaltet das Servo 2 s aus und 1 s ein, geht in
-  den Programmiermodus und liest das Servo, wie es ist. Dieses Lesen ist die
+- **Die Verlassenseite** zeigt als Schritt 1
+  `LEAVE SWITCHES THE SUPPLY OFF.` Nach LEAVE zeigt sie
+  `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`: Der Pin wird 2 s nach dem Ausschalten
+  freigegeben, gleich was die Sitzung beendet. Danach nennt keine Zeile die
+  Versorgung des nächsten Servos: Die Bank schaltet sie.
+- **HOLD TO REBOOT** (1 s), rechts neben `STAY` auf der Verlassenseite vor
+  LEAVE, schaltet das Servo 2 s aus und 1 s ein, geht in den
+  Programmiermodus und liest das Servo, wie es ist. Dieses Lesen ist die
   neue Sicherung, und die offenen Änderungen fallen weg. Ohne Karte geht die
-  Sicherung im Speicher verloren; die Seite sagt das über der Schaltfläche.
+  Sicherung im Speicher verloren; die Seite sagt das über der Schaltfläche:
+  `NO CARD: REBOOT LOSES THE BACKUP` und `IN RAM.`
+- **`BACK` während REBOOT** schaltet die Versorgung ab wie LEAVE und öffnet
+  die Verlassenseite bei `1 UNPLUG THE SERVO.`
 - **Ein Bildschirm, der 250 ms hängt,** schaltet die Versorgung ab, sobald
   eine laufende Operation geendet hat. Das Servo verlässt den
   Programmiermodus, und seine Sicherung im Speicher geht verloren. RETRY

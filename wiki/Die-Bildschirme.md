@@ -9,10 +9,10 @@ des Testers; `BACK` führt dann zum Tester zurück.
 
 ```
 Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MENU
-   ▲                    ├── SERVO TESTER ──BACK──> Abziehseite ──> MENU
-   │                    ├── KST SERVO    ──BACK──> Verlassenseite ──> Abziehseite ──> MENU
-   │                    ├── HITEC SERVO  ──BACK──> Verlassenseite ──> Abziehseite ──> MENU
-   │                    │   (in der Familienauswahl mit übernommenem Pin und während des Eintritts führt BACK zur Abziehseite)
+   ▲                    ├── SERVO TESTER ──BACK──> Verlassenseite ──RESTART DSHOT──> MENU
+   │                    ├── KST SERVO    ──BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> MENU
+   │                    ├── HITEC SERVO  ──BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> MENU
+   │                    │   (ohne Servo im Programmiermodus öffnet die Verlassenseite bei UNPLUG THE SERVO.)
    │                    │   (AM32 HEX, AM32 WRITE, SET: BACK eine Ebene hoch)
    │                    ├── SETTINGS     ──BACK──> MENU
    │                    └── SD LOG       ──BACK──> MENU
@@ -25,12 +25,26 @@ Bildschirm öffnet.
 
 **BACK sitzt oben rechts** im Kopfbereich, auf jedem Bildschirm außer dem
 Tester. Der Kopfbereich ist 36 px hoch, `BACK` misst 64 × 32 px. Der Tester ist
-die Wurzel und hat keinen Kopfbereich. Auf der Abziehseite von SERVO TESTER,
-KST SERVO und HITEC SERVO wartet `BACK`, bis die Pins freigegeben sind: Bis
-dahin ist es deaktiviert gezeichnet, als Umriss mit grauer Beschriftung, und
-ein Tippen darauf bewirkt nichts. Dasselbe gilt auf `AM32 WRITE`,
+die Wurzel und hat keinen Kopfbereich. Auf der Verlassenseite von SERVO
+TESTER, KST SERVO und HITEC SERVO ist `BACK` deaktiviert gezeichnet, als
+Umriss mit grauer Beschriftung, und ein Tippen darauf bewirkt nichts: Jeder
+Weg weiter ist eine beschriftete Taste, `STAY`, `NEXT SERVO`,
+`BACK TO SERVO` oder `RESTART DSHOT`. Dasselbe gilt auf `AM32 WRITE`,
 `KST WRITE` und `HITEC WRITE`, solange ein Schreiben läuft oder auf die
 SD-Karte wartet: Kein `BACK` lässt ein Gerät halb geschrieben zurück.
+
+**Die Verlassenseite** ist eine Seite vom letzten Schritt an einem Servo bis
+DShot wieder an SIG. Sie nummeriert ihre Schritte; der aktuelle ist
+bernsteinfarben, mit einem Balken am linken Rand. Vor `LEAVE` heißen die
+Tasten `STAY`, das zum Werkzeug zurückführt, und `LEAVE`. Nach `LEAVE` ist
+der nächste Schritt aktuell, und die breite Taste heißt an der Stelle von
+`LEAVE` `RESTART DSHOT`. Sie und die linke Taste, `NEXT SERVO` oder
+`BACK TO SERVO`, sind deaktiviert gezeichnet, bis der Pin freigegeben ist;
+`RESTART DSHOT` wartet danach noch 1 s, damit ein Doppeltippen auf `LEAVE`
+DShot nie in ein Servo startet, das noch an der Leitung hängt. Ein Druck,
+der während der Wartezeit begann, bewirkt beim Loslassen nichts.
+
+<img src="img/leave-kst.png" width="240" alt="Die KST-Verlassenseite vor LEAVE: Schritt 1 POWER THE SERVO OFF, THEN LEAVE., STAY und LEAVE"> <img src="img/leave-kst-released.png" width="240" alt="Die KST-Verlassenseite nach LEAVE: Schritt 2 aktuell, NEXT SERVO aktiv, RESTART DSHOT noch grau">
 
 **BACK nennt, was es verwerfen würde.** Auf der Liste von AM32 CONFIG mit
 ungeschriebenen Änderungen und auf SERVO SET mit einer Änderung, die auf
@@ -406,8 +420,9 @@ schaltet den Wandler nie ein, das Servo braucht hier also eine eigene
 Versorgung. `SET` öffnet die Einstellungen für Profil und Sweep; sein `BACK`
 warnt bei einer Änderung, die auf `HOLD TO APPLY` wartet, zuerst:
 `1 CHANGE NOT APPLIED.` `BACK`
-zeigt `UNPLUG THE SERVO.`, bevor der ESC-Treiber die Pins zurückbekommt;
-`RESTART DSHOT` führt danach zu `MENU`. Mit CURRENT SENSE auf `INA219`
+öffnet die Verlassenseite bei `1 UNPLUG THE SERVO.`, bevor der ESC-Treiber
+die Pins zurückbekommt; `BACK TO SERVO` führt zum Tester zurück, und
+`RESTART DSHOT` führt zu `MENU`. Mit CURRENT SENSE auf `INA219`
 zeigt die Zeile unter der Skala statt des Hinweises Strom und Spannung der
 Servoversorgung. Siehe [Servotester](Servotester).
 
@@ -422,8 +437,9 @@ Signalkabel an SIG, dem ESC-Pin. Der Bildschirm sucht das Servo, während du
 es einschaltest, liest seine 32 Register und listet 27 Felder zum Verstellen.
 Ein Tippen auf `WRITE...` öffnet die Schreibseite, und ihr `HOLD TO WRITE`,
 1 s, schreibt, zuvor mit einer Sicherung auf der SD-Karte. `BACK` öffnet
-die Verlassenseite, die dich auffordert, das Servo auszuschalten; `LEAVE`
-zeigt dann `UNPLUG THE SERVO.`, und `RESTART DSHOT` führt zu `MENU`. Mit
+die Verlassenseite, deren erster Schritt dich auffordert, das Servo
+auszuschalten; `LEAVE` macht dann `UNPLUG THE SERVO.` zum aktuellen Schritt,
+`NEXT SERVO` startet eine neue Suche, und `RESTART DSHOT` führt zu `MENU`. Mit
 CURRENT SENSE auf `INA219` zeigt der Streifen den Strom hinter dem Zustand der
 Versorgung, `SUPPLY ON 0.08 A`. Siehe [KST-Programmierung](KST-Programmierung).
 
@@ -449,8 +465,9 @@ liefert 21 Register und 20 Parameter, davon 11 verstellbar. An der Leitung
 hängt ein Servo, ohne Pull-up-Widerstand. Ein Tippen auf `WRITE...` öffnet
 die Schreibseite, und ihr `HOLD TO WRITE`, 1 s, schreibt, zuvor mit einer
 Sicherung auf der SD-Karte. `BACK` öffnet
-die Verlassenseite; `LEAVE` zeigt dann `UNPLUG THE SERVO.`, und
-`RESTART DSHOT` führt zu `MENU`. Mit CURRENT SENSE auf `INA219` zeigt der
+die Verlassenseite; `LEAVE` macht dann `UNPLUG THE SERVO.` zum aktuellen
+Schritt, `NEXT SERVO` startet eine neue Sitzung, und `RESTART DSHOT` führt
+zu `MENU`. Mit CURRENT SENSE auf `INA219` zeigt der
 Streifen den Strom hinter `SUPPLY ON`. Nicht auf Hardware getestet. Siehe
 [Hitec-Programmierung](Hitec-Programmierung).
 

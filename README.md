@@ -40,12 +40,13 @@ receiver channels) receiver monitor is described in
 and that is not designed yet; rcbench's S.BUS decoder is in the tree and
 tested on the host, and the firmware does not build it. A PPM
 (pulse-position modulation) output is not built, by the owner's decision.
-Menu structure B is described in `docs/design/menu-b.md`; slices 1 to 5, 7
-and 8 of 10 are in the tree: its building blocks, its colour roles, its
-names and SETTINGS, its layout table, its write rule and BACK guard, the
-tester's readouts that open SETTINGS with LATCH, and SERVO TESTER's title,
-the MENU row's label. The uses that the design note's decision 11 names take
-their role's colour, and a value changed and not yet written is cyan.
+Menu structure B is described in `docs/design/menu-b.md`; slices 1 to 8 of
+10 are in the tree: its building blocks, its colour roles, its names and
+SETTINGS, its layout table, its write rule and BACK guard, the one leave
+page of KST SERVO, HITEC SERVO and SERVO TESTER, the tester's readouts that
+open SETTINGS with LATCH, and SERVO TESTER's title, the MENU row's label.
+The uses that the design note's decision 11 names take their role's colour,
+and a value changed and not yet written is cyan.
 
 ![UI preview](docs/ui-preview.png)
 
@@ -1337,12 +1338,13 @@ ground only.
 > at a frame rate that overheats an analogue servo. That happens at **boot**
 > for a servo left on SIG, which the splash warns of with
 > `UNPLUG ANY SERVO FROM GP0 NOW`, and after the servo screen, which therefore
-> shows `UNPLUG THE SERVO.` and restarts DShot only on `RESTART DSHOT`.
+> opens the leave page at `1 UNPLUG THE SERVO.` and restarts DShot only on
+> `RESTART DSHOT`, 1 s after the pins are let go.
 
 ### Using it
 
 The screen is titled `SERVO TESTER`, its MENU row's label, on the main view and
-on the unplug page (`SERVO_UI_TITLE` in `src/ui_servo.h`). It claims the pins
+on the leave page (`SERVO_UI_TITLE` in `src/ui_servo.h`). It claims the pins
 (`src/pin_claim.h`). It does not claim while an ESC answers on SIG within
 500 ms, because servo pulses of 1000 µs to 2000 µs are a valid PWM throttle
 signal; it claims by itself 500 ms after the ESC goes quiet. That check misses
@@ -1437,15 +1439,23 @@ sine at 0.50 Hz. While RUNNING the footer shows `STOP` in its place, which acts
 on touch as `STOP` on the servo screen does. Nothing of the servo tester is
 stored: every entry starts at STANDARD PWM 50 Hz.
 
-**BACK.** `BACK` ends the pulses and shows `UNPLUG THE SERVO.` Core1 lets the
-pins go only after the last pulse has completed: it writes level 0 and waits
-two frames plus 1 ms, 41 ms at 50 Hz, before the pins leave PWM, so no pulse
-is cut short. A profile change waits the same way before the rebind. The
-released pins are inputs with the pull-down on until DShot takes SIG back
-and, with KISS on, the KISS receiver takes AUX. Until the pins are let go the
-page reads `RELEASING THE PINS`, and its BACK is drawn disabled, an outline,
-and does nothing; it returns to the servo screen once `UNPLUG THE SERVO.`
-shows.
+**BACK.** `BACK` ends the pulses and opens the leave page (`src/ui_leave.h`,
+the note `docs/design/menu-b.md`, "The leave page"). It has no step before
+LEAVE, so it opens releasing: `1 UNPLUG THE SERVO.` in amber with a 3 px bar,
+`DSHOT RESTARTS ON SIG GP0 AND READS` and `AS A 970 US PULSE AT 1000 HZ.`
+under it, and `2 RESTART DSHOT.` in grey; the strip names the pins the
+screen holds, `SIG GP0  AUX GP1`. Core1 lets the pins go only after the last
+pulse has completed: it writes level 0 and waits two frames plus 1 ms, 41 ms
+at 50 Hz, before the pins leave PWM, so no pulse is cut short. A profile
+change waits the same way before the rebind. The released pins are inputs
+with the pull-down on until DShot takes SIG back and, with KISS on, the KISS
+receiver takes AUX. Until the pins are let go the page reads
+`RELEASING THE PINS` (`RELEASING THE PIN` with SIG alone), and BACK TO SERVO
+and RESTART DSHOT are drawn disabled. Then BACK TO SERVO keeps the claim and
+returns to the servo screen, SAFE. RESTART DSHOT acts on a press that lands
+1000 ms or more after the pins are let go (`UI_HOLD_MS`), so a second tap
+right after BACK restarts nothing. BACK on the page is drawn disabled in
+every phase and does nothing.
 
 ## KST servo programming
 
@@ -1574,19 +1584,31 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
    anything is queued. Nothing is sent to the servo; the card is mounted again
    and the first write forgotten, so the next write, `WRITE...` and its hold,
    saves the backup again and then writes.
-5. BACK from the list opens the leave page: `POWER THE SERVO OFF.` The servo
-   stays in programming mode until its supply is off. LEAVE holds the line
-   low for 100 ms, lets the pin go, and shows `UNPLUG THE SERVO.` RESTART
-   DSHOT returns to MENU. With the switched supply the page reads
-   `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.`: LEAVE switches it off, and the
-   unplug page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` until the line
-   closes 2 s after the switch-off. Every claim end does the same once the
-   supply was on. Until the pin is let go, the unplug page's BACK is drawn
-   disabled and does nothing. **HOLD TO REBOOT** (1 s) switches the supply
+5. BACK from the list opens the leave page (`src/ui_leave.h`), three
+   numbered steps, the current one amber with a 3 px bar:
+   `1 POWER THE SERVO OFF, THEN LEAVE.` with `IT STAYS IN PROGRAMMING MODE
+   UNTIL` and `ITS SUPPLY IS OFF.`, then `2 UNPLUG THE SERVO.` with
+   `DSHOT RESTARTS ON SIG GP0 AND READS` and `AS A 970 US PULSE AT 1000 HZ.`,
+   then `3 RESTART DSHOT.` Amber notes under them name what LEAVE loses:
+   `2 CHANGES NOT WRITTEN.`, `THE SERVO IS IN DOUBT: RESTORE FIRST.` STAY
+   returns to the list, or to the search after a lost servo. LEAVE holds the
+   line low for 100 ms and lets the pin go; step 2 is current from the tap
+   on, and NEXT SERVO and RESTART DSHOT, in LEAVE's rectangle, are drawn
+   disabled until the pin is let go. Then NEXT SERVO keeps the claim and
+   starts a new search (`NEXT SERVO: POWER IT AFTER THE TAP.`), and RESTART
+   DSHOT acts on a press that lands 1000 ms or more later, so a double tap
+   on LEAVE restarts nothing; it returns to MENU. BACK on the page is drawn
+   disabled in every phase. With the switched supply step 1 reads
+   `LEAVE SWITCHES THE SUPPLY OFF.`: LEAVE switches it off, and the page
+   reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` until the line closes 2 s after
+   the switch-off. Every claim end does the same once the supply was on.
+   **HOLD TO REBOOT** (1 s), right of STAY before LEAVE, switches the supply
    off for 2 s and on for 1 s, then enters programming mode and reads the
    servo as it is: the new backup. The pending changes go; without a card
-   the backup in memory is lost, and the page says so above the button.
-   BACK during REBOOT closes as LEAVE does.
+   the backup in memory is lost, and the page says so above the button:
+   `NO CARD: REBOOT LOSES THE BACKUP` and `IN RAM.` BACK during REBOOT
+   closes as LEAVE does and opens the page at `1 UNPLUG THE SERVO.`; so does
+   BACK on a search that has found no servo.
 6. With the switched supply, the supply is on only while the screen runs. A
    screen that stalls for 250 ms switches it off once a running operation
    has ended; the servo leaves programming mode and its backup in memory goes.
@@ -1735,8 +1757,8 @@ not 0 answers ID 0 is not measured.
    `SERVO STARTING`, `READING THE MODEL` or, for a classic servo,
    `LISTENING`, is amber. The family view says so under D SERIES:
    `POWER THE SERVO UP, THEN TAP.` With the switch the supply stays off on
-   the family view. Once the pin is held, BACK on the family view passes
-   the unplug page and RESTART DSHOT, as LEAVE does, and BACK on that page
+   the family view. Once the pin is held, BACK on the family view opens the
+   leave page at `1 UNPLUG THE SERVO.`, as after LEAVE, and NEXT SERVO there
    returns to the family view; before that, BACK returns to MENU. The ESC
    check runs only before the claim holds: an ESC connected after that is
    not detected.
@@ -1793,14 +1815,19 @@ not 0 answers ID 0 is not measured.
    `BOARD VOLTAGE IS RED: NOT WRITTEN.` and `CHARGE THE BOARD'S CELL, HOLD
    AGAIN.` in amber; HOLD TO RESTORE is refused the same way
    ([Using it](#using-it), the BOARD voltage).
-6. BACK from the list opens the leave page. LEAVE with `GP28` or `GP29` switches the
-   supply off; the unplug page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`
-   until the line closes, and its BACK is drawn disabled until then. With
-   `OWN`, LEAVE restarts the servo from its saved values; the unplug page
-   reads `RELEASING THE PIN`, and its BACK is drawn disabled until
-   `UNPLUG THE SERVO.` shows. RESTART DSHOT
-   returns to MENU. READ AGAIN on the leave page reads the servo again and
-   keeps the pending changes.
+6. BACK from the list opens the leave page, as KST SERVO's: step 1 reads
+   `LEAVE SWITCHES THE SUPPLY OFF.` with `GP28` or `GP29` and
+   `LEAVE RESTARTS THE SERVO.` with `OWN`; the notes name
+   `2 CHANGES NOT WRITTEN.` and `A WRITE DID NOT END VERIFIED.` STAY returns
+   to the list, and READ AGAIN, right of STAY, reads the servo again and
+   keeps the pending changes. LEAVE with `GP28` or `GP29` switches the
+   supply off, and the page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` until
+   the line closes; with `OWN` LEAVE restarts the servo from its saved
+   values, and the page reads `RELEASING THE PIN`. Once the pin is let go
+   NEXT SERVO enters the next servo (`NEXT SERVO: POWER IT BEFORE THE TAP.`
+   with `OWN`), and RESTART DSHOT acts 1000 ms later and returns to MENU.
+   BACK on the page is drawn disabled in every phase; BACK during the entry
+   opens it at `1 UNPLUG THE SERVO.`
 7. With `GP28` or `GP29` the supply is on only while the screen runs. A screen that
    stalls for 250 ms switches it off: at once during the entry, else once
    a running read or write has ended. The page then reads
@@ -2072,8 +2099,8 @@ In the firmware:
   a press that lands on the button while it is live, so a press made while
   the button is drawn disabled starts nothing. Core1 ends the
   pulses if core0 sends no heartbeat for 250 ms. The servo screen does not
-  claim the pins while an ESC answers on them, and DShot restarts only after
-  the unplug page.
+  claim the pins while an ESC answers on them, and DShot restarts only on
+  the leave page's RESTART DSHOT, 1 s after the pins are let go.
 
 Not in the firmware:
 
@@ -2120,7 +2147,7 @@ src/
   ui_hold.{h,cpp}       the hold-to-act control: 1 s timer, one firing, its bar
   ui_leave.{h,cpp}      the leave page: phases, numbered steps, RESTART DSHOT's wait
   ui_am32.{h,cpp}       AM32 config screen: connect, edit, verified write
-  ui_servo.{h,cpp}      servo tester screens: SERVO, SET, the unplug page
+  ui_servo.{h,cpp}      servo tester screens: SERVO, SET, the leave page
   ui_slider.{h,cpp}     slider with delta drag, tap-to-set and presets, from rcbench
   servo_model.{h,cpp}   servo profiles, limits, steppers and mappings (pure)
   servo_pwm.{h,cpp}     hardware PWM servo outputs, from rcbench
@@ -2241,7 +2268,7 @@ runs, so a layout change is visible in the frames:
   a backup, hex view;
 - fourteen of the servo tester: SAFE, running, sweeping, two servos,
   stalled, an ESC answering, a refused bind, SET, SET with a warning, SET
-  while running, SET with one GPIO for both pins, the unplug page, the
+  while running, SET with one GPIO for both pins, the leave page, the
   switched supply's line, the current sensor's readout.
 
 Failing tests dump their frame too.
@@ -2255,7 +2282,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.2%**: 9,740 of 9,920 lines in 59 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.2%**: 9,805 of 9,983 lines in 59 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

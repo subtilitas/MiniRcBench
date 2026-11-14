@@ -2,7 +2,7 @@
  * @file test_hitec_ui.cpp
  * @brief HITEC SERVO through the real UI: MENU, the family, the claim, the
  *        entry and the read, the field list, the write, FILES, the leave and
- *        the unplug page.
+ *        the leave page.
  *
  * Hitec is a name or trademark of its owner; it is used here only to say
  * which servos this module works with.
@@ -231,8 +231,8 @@ static void speedDown() {
 static void leaveAll() {
 	for (int i = 0; i < 10 && uiCurrentScreen() == UiScreenId::Hitec; i++) {
 		HitecView v = uiHitecView();
-		if (v == HitecView::Unplug) {
-			if (untilCtl(UI_FIX(HitecCtl::Restart), 200)) tapId(UI_FIX(HitecCtl::Restart));
+		if (v == HitecView::Leave && ctlPresent(UI_FIX(HitecCtl::Restart))) {
+			if (untilEnabled(UI_FIX(HitecCtl::Restart), 200)) tapId(UI_FIX(HitecCtl::Restart));
 		} else if (v == HitecView::Leave) {
 			if (untilEnabled(UI_FIX(HitecCtl::Leave), 400)) tapId(UI_FIX(HitecCtl::Leave));
 		} else if (v == HitecView::Write && !ctlPresent(UI_FIX(HitecCtl::WriteHold)) &&
@@ -314,19 +314,29 @@ static void testFamily() {
 	checkTrue("nor does the strip", fakeInkExtent(UI_STRIP_LINE1_Y, 18, C_BG, &x0, &x1) &&
 	          x0 >= 8 && x1 < GFX_W - 8);
 	fakeDumpFrame("shot_hitec_family.ppm");
-	// BACK: the pin went to a servo, so the unplug page and RESTART DSHOT,
-	// as LEAVE; BACK there returns to the family, still held, with no job.
+	// BACK: the pin went to a servo, so the leave page, releasing, as after
+	// LEAVE; NEXT SERVO there returns to the family, still held, with no job.
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK: the unplug page", uiHitecView() == HitecView::Unplug &&
-	          pinClaimState() == ClaimState::Leaving);
-	checkTrue("RESTART DSHOT shows", untilCtl(UI_FIX(HitecCtl::Restart), 10));
+	checkTrue("BACK: the leave page, releasing", uiHitecView() == HitecView::Leave &&
+	          pinClaimState() == ClaimState::Leaving && ctlPresent(UI_FIX(HitecCtl::Restart)) &&
+	          !ctlPresent(UI_FIX(HitecCtl::Leave)) && !ctlPresent(UI_FIX(HitecCtl::LeaveRead)));
+	checkTrue("no servo in the mode: UNPLUG THE SERVO. is step 1, RESTART DSHOT. step 2",
+	          leaveStepIs(UI_LEAVE_STEP_Y, '1', "UNPLUG THE SERVO.", true) &&
+	          leaveStepIs(UI_LEAVE_STEP_Y + 38, '2', "RESTART DSHOT.", false));
+	checkTrue("NEXT SERVO once the pin is let go", untilEnabled(UI_FIX(HitecCtl::NextServo), 10));
+	checkTrue("RESTART DSHOT waits 1000 ms: disabled", !ctlEnabled(UI_FIX(HitecCtl::Restart)));
+	checkTrue("released, no switch: NEXT SERVO: POWER IT BEFORE THE TAP., dim",
+	          leaveNoteIs(0, HITEC_UI_NEXT_POWER, C_DIM));
 	checkTrue("DShot is still down", !fakePinReturned() && fakeResumeCount() == resumes);
-	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK on the unplug page: the family view again, held, no job",
+	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
+	checkTrue("BACK there does nothing", uiHitecView() == HitecView::Leave);
+	tapId(UI_FIX(HitecCtl::NextServo));
+	checkTrue("NEXT SERVO before a family: the family view again, held, no job",
 	          uiHitecView() == HitecView::Family && pinClaimState() == ClaimState::Held &&
 	          core1JobPhase() == Core1JobPhase::Idle && fakeHitecLineOpens() == 0);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK again: the unplug page", untilCtl(UI_FIX(HitecCtl::Restart), 10));
+	checkTrue("BACK again: the leave page", untilCtl(UI_FIX(HitecCtl::Restart), 10));
+	checkTrue("RESTART DSHOT 1000 ms after the release", untilEnabled(UI_FIX(HitecCtl::Restart), 60));
 	tapId(UI_FIX(HitecCtl::Restart));
 	checkTrue("RESTART DSHOT: MENU, DShot resumed", uiCurrentScreen() == UiScreenId::Menu &&
 	          fakePinReturned() && fakeResumeCount() == resumes + 1);
@@ -656,10 +666,37 @@ static void testWriteError() {
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK: the leave page", uiHitecView() == HitecView::Leave);
 	checkControlTable("Hitec leave");
+	checkTrue("without the switch: LEAVE RESTARTS THE SERVO. is step 1, current",
+	          leaveStepIs(66, '1', HITEC_UI_LEAVE_RESTARTS, true) &&
+	          leaveStepIs(80, '2', "UNPLUG THE SERVO.", false));
+	checkTrue("the notes: the change not written, the write not verified, amber",
+	          leaveNoteIs(0, "1 CHANGE NOT WRITTEN.", C_AMBER) &&
+	          leaveNoteIs(1, "A WRITE DID NOT END VERIFIED.", C_AMBER));
+	fakeDumpFrame("shot_leave_hitec_failed.ppm");
+	{
+		UiRect r = ctlRect(UI_FIX(HitecCtl::LeaveRead));
+		checkTrue("READ AGAIN right of STAY, at scale 1",
+		          r.x == UI_LEAVE_RIGHT.x && r.y == UI_LEAVE_RIGHT.y && r.w == UI_LEAVE_RIGHT.w &&
+		          fakeTextIs(r.x + (r.w - gfxTextW("READ AGAIN", 1)) / 2, r.y + (r.h - 7) / 2,
+		                     "READ AGAIN", C_TEXT, C_PANEL, 1));
+	}
 	tapId(UI_FIX(HitecCtl::LeaveRead));
 	checkTrue("READ AGAIN reads", untilView(HitecView::List, 400));
 	for (int i = 0; i < 800 && job().job != HitecJobState::InMode; i++) hitecFrame();
 	checkTrue("in the mode again", job().job == HitecJobState::InMode);
+	// The read may not have started yet: wait until the job has been in the
+	// mode with the image known for 40 frames.
+	for (int i = 0, calm = 0; i < 1600 && calm < 40; i++) {
+		hitecFrame();
+		calm = job().job == HitecJobState::InMode && !job().unknown ? calm + 1 : 0;
+	}
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the leave page, the servo in the mode and read, the failed write named",
+	          uiHitecView() == HitecView::Leave && job().job == HitecJobState::InMode &&
+	          !job().unknown && leaveNoteIs(1, "A WRITE DID NOT END VERIFIED.", C_AMBER));
+	tapId(UI_FIX(HitecCtl::Leave));
+	checkTrue("LEAVE after the failed write: the record stays",
+	          ctlPresent(UI_FIX(HitecCtl::Restart)) && fakeFatExists("HITEC/HITEC.TXT"));
 	leaveAll();
 	checkTrue("the record of the failed write stays after LEAVE", fakeFatExists("HITEC/HITEC.TXT"));
 }
@@ -1041,22 +1078,56 @@ static void testStallAndBack() {
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK from the write page: the field list", uiHitecView() == HitecView::List);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from the list: the leave page", uiHitecView() == HitecView::Leave);
-	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from the leave page: the field list", uiHitecView() == HitecView::List);
+	checkTrue("BACK from the list: the leave page", uiHitecView() == HitecView::Leave &&
+	          ctlEnabled(UI_FIX(HitecCtl::Stay)) && ctlEnabled(UI_FIX(HitecCtl::Leave)) &&
+	          ctlEnabled(UI_FIX(HitecCtl::LeaveRead)));
+	checkTrue("BACK there disabled, and drawn so",
+	          !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
+	checkTrue("with GP28: LEAVE SWITCHES THE SUPPLY OFF. is step 1, current",
+	          leaveStepIs(66, '1', "LEAVE SWITCHES THE SUPPLY OFF.", true) &&
+	          leaveStepIs(80, '2', "UNPLUG THE SERVO.", false) &&
+	          leaveStepIs(92, 0, "DSHOT RESTARTS ON SIG GP0 AND READS", false) &&
+	          leaveStepIs(118, '3', "RESTART DSHOT.", false));
+	checkTrue("STAY and LEAVE drawn live", leaveLeftIs("STAY", true) && leaveWideIs("LEAVE", true));
+	checkControlTable("Hitec leave, switched");
+	fakeDumpFrame("shot_leave_hitec.ppm");
+	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
+	checkTrue("BACK on the leave page does nothing", uiHitecView() == HitecView::Leave);
+	tapId(UI_FIX(HitecCtl::Stay));
+	checkTrue("STAY: the field list", uiHitecView() == HitecView::List);
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(HitecCtl::Leave));
-	checkTrue("LEAVE: the unplug page", uiHitecView() == HitecView::Unplug);
-	hitecFrame();
-	checkTrue("GP28 off on the next frame", !enHigh());
+	checkTrue("LEAVE: the page releasing, RESTART DSHOT in LEAVE's place, disabled",
+	          uiHitecView() == HitecView::Leave && ctlPresent(UI_FIX(HitecCtl::Restart)) &&
+	          ctlRect(UI_FIX(HitecCtl::Restart)).y == UI_LEAVE_WIDE.y &&
+	          !ctlEnabled(UI_FIX(HitecCtl::Restart)) && !ctlEnabled(UI_FIX(HitecCtl::NextServo)) &&
+	          !ctlPresent(UI_FIX(HitecCtl::LeaveRead)));
+	tapId(UI_FIX(HitecCtl::Restart), IdExpect::Disabled);
+	checkTrue("a double tap on LEAVE restarts nothing", uiCurrentScreen() == UiScreenId::Hitec &&
+	          pinClaimState() == ClaimState::Leaving);
+	checkTrue("GP28 off", !enHigh());
+	checkTrue("step 2 current from LEAVE on",
+	          leaveStepIs(66, '1', "LEAVE SWITCHES THE SUPPLY OFF.", false) &&
+	          leaveStepIs(80, '2', "UNPLUG THE SERVO.", true));
+	{
+		char want[48];
+		unsigned left = job().supplyLeftDs;
+		snprintf(want, sizeof(want), "SUPPLY OFF FOR 2.0 S: %u.%u S LEFT.", left / 10, left % 10);
+		checkTrue("the note counts the 2 s off down, dim", left > 0 && leaveNoteIs(0, want, C_DIM));
+	}
 	checkTrue("BACK waits for the 2 s off: disabled, and drawn so",
 	          !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
-	checkControlTable("Hitec unplug, the supply off");
-	checkTrue("RESTART DSHOT after the 2 s off", untilCtl(UI_FIX(HitecCtl::Restart), 200));
-	checkTrue("BACK acts from that frame on, and is drawn live",
-	          ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Live);
-	checkControlTable("Hitec unplug");
-	fakeDumpFrame("shot_hitec_unplug.ppm");
+	checkControlTable("Hitec leave, the supply off");
+	checkTrue("NEXT SERVO after the 2 s off", untilEnabled(UI_FIX(HitecCtl::NextServo), 200));
+	uint32_t t0 = millis();
+	checkTrue("RESTART DSHOT waits, drawn disabled", !ctlEnabled(UI_FIX(HitecCtl::Restart)) &&
+	          leaveWideIs("RESTART DSHOT", false) && leaveNoteBlank(0));
+	checkTrue("RESTART DSHOT live 1000 ms later", untilEnabled(UI_FIX(HitecCtl::Restart), 60) &&
+	          millis() - t0 >= 1000 && millis() - t0 < 1025);
+	checkTrue("BACK still disabled, and drawn so",
+	          !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
+	checkControlTable("Hitec leave, released");
+	fakeDumpFrame("shot_leave_hitec_released.ppm");
 	tapId(UI_FIX(HitecCtl::Restart));
 	hitecFrames(4);
 	checkTrue("RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
@@ -1390,11 +1461,23 @@ static void testIdAndBack() {
 	checkTrue("the supply is off", !enHigh());
 	tapId(UI_FIX(HitecCtl::Retry));
 	checkTrue("RETRY enters again", untilCtl(UI_FIX(HitecCtl::Stop), 200));
+	tapId(UI_FIX(HitecCtl::Stop));
+	checkTrue("STOP again: the entry ended", untilCtl(UI_FIX(HitecCtl::Retry), 400) &&
+	          job().job == HitecJobState::EntryEnded);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK during the entry: the unplug page", uiHitecView() == HitecView::Unplug);
-	checkTrue("RESTART DSHOT after the off time", untilCtl(UI_FIX(HitecCtl::Restart), 200));
+	checkTrue("BACK after a failed entry: the leave page, releasing, at its unplug step",
+	          uiHitecView() == HitecView::Leave && ctlPresent(UI_FIX(HitecCtl::NextServo)) &&
+	          !ctlPresent(UI_FIX(HitecCtl::Leave)) && !ctlPresent(UI_FIX(HitecCtl::Stay)) &&
+	          leaveStepIs(UI_LEAVE_STEP_Y, '1', "UNPLUG THE SERVO.", true));
+	checkTrue("NEXT SERVO after the off time", untilEnabled(UI_FIX(HitecCtl::NextServo), 200));
+	tapId(UI_FIX(HitecCtl::NextServo));
+	checkTrue("NEXT SERVO: the entry again", untilCtl(UI_FIX(HitecCtl::Stop), 200));
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK on the unplug page: a new session on the main view", uiHitecView() == HitecView::Main);
+	checkTrue("BACK during the entry: the leave page, releasing", uiHitecView() == HitecView::Leave &&
+	          ctlPresent(UI_FIX(HitecCtl::NextServo)) && !ctlPresent(UI_FIX(HitecCtl::Leave)));
+	checkTrue("NEXT SERVO after the off time", untilEnabled(UI_FIX(HitecCtl::NextServo), 200));
+	tapId(UI_FIX(HitecCtl::NextServo));
+	checkTrue("NEXT SERVO: a new session on the main view", uiHitecView() == HitecView::Main);
 	checkTrue("it reads the servo again", untilView(HitecView::List, 1200));
 	leaveAll();
 
@@ -1649,6 +1732,32 @@ static void testBoardLow() {
 	checkTrue("3.92 V: the hold writes", holdUntilGone(UI_FIX(HitecCtl::WriteHold)) &&
 	          untilCtl(UI_FIX(HitecCtl::WriteOk), 800) && jobSpeed() < before);
 	tapId(UI_FIX(HitecCtl::WriteOk));
+	leaveAll();
+
+	// A write refused at red after its record went to the card: LEAVE from
+	// the servo in the mode, with no write that failed, removes the record.
+	fakeCacheReset();
+	freshHitec(HITEC_D, false);
+	fakeSdLogSet(&logging);
+	checkTrue("the field list again", toList(HITEC_D));
+	speedDown();
+	tapUntilGone(UI_FIX(HitecCtl::Write));
+	fakeCacheSet(CardCache::Flushing, 12);
+	writes0 = fakeHitecSim()->writes;
+	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
+	boardVolts(3.20f);
+	fakeCacheSet(CardCache::Idle, 0);
+	hitecFrames(5);
+	checkTrue("red when the flush ends: the record on the card, no write",
+	          fakeFatExists("HITEC/HITEC.TXT") && fakeHitecSim()->writes == writes0);
+	boardVolts(3.92f);
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the leave page, LEAVE live", uiHitecView() == HitecView::Leave &&
+	          ctlEnabled(UI_FIX(HitecCtl::Leave)));
+	tapId(UI_FIX(HitecCtl::Leave));
+	checkTrue("LEAVE from the servo in the mode removes the session's record",
+	          !fakeFatExists("HITEC/HITEC.TXT") && ctlPresent(UI_FIX(HitecCtl::Restart)));
 	leaveAll();
 	fakeCacheReset();
 	fakeAdcSet(fakeAdcDefault());

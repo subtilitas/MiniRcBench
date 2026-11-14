@@ -144,7 +144,7 @@ first card. With a record on the card, the screen adds
 amber. See [FILES](#files).
 
 If the servo stops answering later, the screen returns here and searches
-again, from any view but the leave page and the unplug page. It notices
+again, from any view but the leave page. It notices
 only when a read or a write runs: a servo powered off under an idle field
 list leaves the list up until the next read or write. `BACK` during that
 search stops it and opens the leave page.
@@ -429,29 +429,41 @@ and does nothing.
 ## Leaving
 
 `BACK` on the field list opens the leave page. `BACK` on the search opens it
-too, once a servo has answered.
+too, once a servo has answered. `BACK` on the leave page is grey and does
+nothing: each way on is a button.
 
-<img src="img/kst-leave.png" width="240" alt="The leave page: POWER THE SERVO OFF."> <img src="img/kst-leave-pending.png" width="240" alt="The leave page with 5 CHANGES NOT WRITTEN.">
+<img src="img/leave-kst.png" width="240" alt="The leave page: 1 POWER THE SERVO OFF, THEN LEAVE., STAY and LEAVE"> <img src="img/leave-kst-pending.png" width="240" alt="The leave page with 5 CHANGES NOT WRITTEN."> <img src="img/leave-kst-released.png" width="240" alt="After LEAVE: 2 UNPLUG THE SERVO. current, NEXT SERVO, RESTART DSHOT grey">
 
-The page reads `POWER THE SERVO OFF.` and
-`IT STAYS IN PROGRAMMING MODE UNTIL ITS SUPPLY IS OFF.` With pending changes it
-adds `2 CHANGES NOT WRITTEN.`, and in doubt
-`THE SERVO IS IN DOUBT: RESTORE FIRST.` `BACK` returns to the field list,
-or, after a lost servo, to the search.
+The page numbers three steps. The current step is amber, with a bar at the
+left edge; the others are grey:
+
+1. `POWER THE SERVO OFF, THEN LEAVE.`, with
+   `IT STAYS IN PROGRAMMING MODE UNTIL` and `ITS SUPPLY IS OFF.`
+2. `UNPLUG THE SERVO.`, with `DSHOT RESTARTS ON SIG GP0 AND READS` and
+   `AS A 970 US PULSE AT 1000 HZ.`
+3. `RESTART DSHOT.`
+
+Under the steps, in amber, the page names what LEAVE loses:
+`2 CHANGES NOT WRITTEN.` with pending changes, and
+`THE SERVO IS IN DOUBT: RESTORE FIRST.` after a write in doubt.
+
+**`STAY`** returns to the field list, or, after a lost servo, to the search.
 
 **Power the servo off. Then tap `LEAVE`.** The screen holds the line low for
-100 ms, lets the pin go, and shows `UNPLUG THE SERVO.` under
-`DSHOT RESTARTS ON GP0 AND READS AS` and `A 970 US PULSE AT 1000 HZ.`
-`LEAVE` also leaves a session that is in doubt.
+100 ms and lets the pin go. Step 2 is current from the tap on. `LEAVE` also
+leaves a session that is in doubt. While the pin goes the page reads
+`RELEASING THE PIN`, and the two buttons, `NEXT SERVO` and
+`RESTART DSHOT` in `LEAVE`'s place, are grey.
 
-**Unplug the servo, then tap `RESTART DSHOT`.** The ESC driver takes the pin
-back and `MENU` returns. `BACK` on this page returns to the search instead and
-keeps the pin. While the page reads `RELEASING THE PIN` or
-`SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`, `BACK` is drawn disabled, an outline
-with a grey label: it acts from the moment `UNPLUG THE SERVO.` shows.
+**Unplug the servo.** Once the pin is let go, `NEXT SERVO` acts: it keeps
+the pin and starts a new search, and the page reads
+`NEXT SERVO: POWER IT AFTER THE TAP.` **`RESTART DSHOT`** acts 1 s after
+that: the ESC driver takes the pin back and `MENU` returns. The second makes
+a double tap on `LEAVE` harmless: it lands while `RESTART DSHOT` is grey. A
+press that landed while it was grey does nothing when it lifts.
 
-`BACK` on the search before any servo answered releases the pin and shows the
-unplug page directly.
+`BACK` on the search before any servo answered lets the pin go and opens the
+page at step 2, numbered 1: `1 UNPLUG THE SERVO.`, `2 RESTART DSHOT.`
 
 ---
 
@@ -484,18 +496,23 @@ converter gives 5 V, more than 1 A, and has an external pull-down on its
 enable: 10 kΩ to 100 kΩ for an enable with no internal pull-up. **An ESC on
 this lead gets the converter's output on its BEC wire.**
 
-<img src="img/kst-switched.png" width="240" alt="The switched search: SUPPLY OFF 1.4 S"> <img src="img/kst-leave-switched.png" width="240" alt="The leave page with HOLD TO REBOOT"> <img src="img/kst-stalled.png" width="240" alt="The stalled screen: SUPPLY OFF">
+<img src="img/kst-switched.png" width="240" alt="The switched search: SUPPLY OFF 1.4 S"> <img src="img/leave-kst-switched.png" width="240" alt="The leave page with HOLD TO REBOOT"> <img src="img/leave-kst-supply-off.png" width="240" alt="After LEAVE: SUPPLY OFF FOR 2.0 S: 1.4 S LEFT."> <img src="img/kst-stalled.png" width="240" alt="The stalled screen: SUPPLY OFF">
 
 - **The search** switches the servo off for 2 s, then on, before each try:
   `SIG GP0  TRY 3  SUPPLY OFF 1.4 S`. 14 power-ups fit in the 30 s search;
   then `NO ANSWER IN 14 POWER-UPS`.
-- **The leave page** reads `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.` After
-  LEAVE the unplug page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`: the pin is
-  let go 2 s after the switch-off, whatever ended the session.
-- **HOLD TO REBOOT** (1 s) switches the servo off for 2 s and on for 1 s,
-  enters programming mode and reads the servo as it is. That read is the
-  new backup, and the pending changes go. Without a card the backup in
-  memory is lost; the page says so above the button.
+- **The leave page**'s step 1 reads `LEAVE SWITCHES THE SUPPLY OFF.` After
+  LEAVE the page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`: the pin is let
+  go 2 s after the switch-off, whatever ended the session. Once it is let
+  go no line names the next servo's power: the bench switches it.
+- **HOLD TO REBOOT** (1 s), right of `STAY` on the leave page before
+  LEAVE, switches the servo off for 2 s and on for 1 s, enters programming
+  mode and reads the servo as it is. That read is the new backup, and the
+  pending changes go. Without a card the backup in memory is lost; the page
+  says so above the button: `NO CARD: REBOOT LOSES THE BACKUP` and
+  `IN RAM.`
+- **`BACK` during REBOOT** switches the supply off as LEAVE does and opens
+  the leave page at `1 UNPLUG THE SERVO.`
 - **A screen that stalls** for 250 ms switches the supply off once a running
   operation has ended. The servo leaves programming mode and its backup in
   memory goes. RETRY powers it up and reads it again.

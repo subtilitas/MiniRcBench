@@ -14,13 +14,12 @@
  *
  * | View | What it shows | Leaves it |
  * |---|---|---|
- * | Family | the claim, CLASSIC and D SERIES, once SIG is the servo's | a family: Main; BACK: Unplug once the pin was taken, else MENU |
- * | Main | the claim, the entry, the read, a stall | the read: List; BACK: Leave in the mode, else Unplug |
+ * | Family | the claim, CLASSIC and D SERIES, once SIG is the servo's | a family: Main; BACK: Leave releasing once the pin was taken, else MENU |
+ * | Main | the claim, the entry, the read, a stall | the read: List; BACK: Leave in the mode, else Leave releasing |
  * | List | the parameters, an editor bar, WRITE..., REVERT, FILES | WRITE...: Write; FILES: Files; BACK: Leave |
  * | Write | the changes, their soft rules, the backup line, HOLD TO WRITE or HOLD TO RESTORE, the result | OK or BACK: List; BACK is disabled while the write runs or waits for the card |
  * | Files | the record, the backups, FACTORY VALUES, the files, SAVE AS, LOAD, RESTORE... | RESTORE...: Write, a restore; LOAD: List; BACK: List |
- * | Leave | what LEAVE does, READ AGAIN, LEAVE | LEAVE: Unplug; BACK: List, or Main |
- * | Unplug | the 2 s off wait, UNPLUG THE SERVO, RESTART DSHOT | RESTART DSHOT: MENU; BACK: Main, or Family before a family was tapped |
+ * | Leave | the leave page (ui_leave.h): the steps, STAY, READ AGAIN, LEAVE; then the 2 s off wait, NEXT SERVO and RESTART DSHOT | STAY: List, or Main; READ AGAIN: the read; LEAVE: the release; NEXT SERVO: Main, or Family before a family was tapped; RESTART DSHOT: MENU; BACK is disabled |
  *
  * CLASSIC needs SERVO SUPPLY at GP28 or GP29: its entry switches the
  * servo's supply. The classic servo drives SIG to its supply, 5 V nominal;
@@ -50,7 +49,7 @@ void uiHitecEnter();
 bool uiHitecTick(const TouchState *t);
 
 /** @brief The Hitec views. @see the table in ui_hitec.h */
-enum class HitecView : uint8_t { Family, Main, List, Write, Files, Leave, Unplug };
+enum class HitecView : uint8_t { Family, Main, List, Write, Files, Leave };
 
 /** @brief The view that is up. For the host tests. */
 HitecView uiHitecView();
@@ -94,6 +93,10 @@ HitecView uiHitecView();
 #define HITEC_UI_MORE_RULES_FMT "AND %d MORE RULE%s: SEE EACH ROW."
 /** @brief The field list's chip, right of its strip: `PROG MODE`, 65 px. */
 #define HITEC_UI_CHIP UI_CHIP_PROG_MODE
+/** @brief The leave page's first step without the switch: 25 characters from x 20. */
+#define HITEC_UI_LEAVE_RESTARTS "LEAVE RESTARTS THE SERVO."
+/** @brief The leave page's note once the pin is let go, without the switch: 36 characters. */
+#define HITEC_UI_NEXT_POWER "NEXT SERVO: POWER IT BEFORE THE TAP."
 
 /** @} */
 
@@ -119,9 +122,11 @@ enum class HitecCtl : uint8_t {
 	Load,        /**< LOAD the selected row. */
 	Restore,     /**< RESTORE...: a tap opens the restore page of the session's backup. */
 	RetryMount,  /**< RETRY MOUNT with no card. */
-	LeaveRead,   /**< READ AGAIN on the leave page. */
-	Leave,       /**< LEAVE. */
-	Restart,     /**< RESTART DSHOT on the unplug page. */
+	LeaveRead,   /**< READ AGAIN on the leave page, before LEAVE. */
+	Leave,       /**< LEAVE on the leave page, before the release. */
+	Restart,     /**< RESTART DSHOT in LEAVE's place, live 1000 ms after the pin is let go. */
+	Stay,        /**< STAY on the leave page: back to the list, or to the main view. */
+	NextServo,   /**< NEXT SERVO on the leave page: the claim kept, a new session. */
 };
 
 struct UiControl;

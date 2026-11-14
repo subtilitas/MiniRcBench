@@ -1,7 +1,7 @@
 /**
  * @file test_kst_ui.cpp
  * @brief KST SERVO through the real UI: MENU, the claim, the search, the
- *        field list, the write, FILES, the leave and the unplug page.
+ *        field list, the write, FILES and the leave page.
  *
  * Every check runs the shipped code: ui_kst.cpp, the KST job from the job
  * table, the pin claim and kst_files.cpp. The servo is rcbench's simulator
@@ -92,6 +92,12 @@ static bool untilView(KstView v, int max) {
 static bool untilCtl(UiControlId id, int max) {
 	for (int i = 0; i < max && !ctlPresent(id); i++) kstFrame();
 	return ctlPresent(id);
+}
+
+/** @brief Frames until @p id is on the screen and acts, at most @p max. */
+static bool untilEnabled(UiControlId id, int max) {
+	for (int i = 0; i < max && !ctlEnabled(id); i++) kstFrame();
+	return ctlEnabled(id);
 }
 
 /** @brief The value the simulated servo holds in @p f. */
@@ -225,8 +231,8 @@ static bool tapUntilGone(UiControlId id) {
 static void leaveAll() {
 	for (int i = 0; i < 8 && uiCurrentScreen() == UiScreenId::Kst; i++) {
 		KstView v = uiKstView();
-		if (v == KstView::Unplug) {
-			if (untilCtl(UI_FIX(KstCtl::Restart), 200)) tapId(UI_FIX(KstCtl::Restart));
+		if (v == KstView::Leave && ctlPresent(UI_FIX(KstCtl::Restart))) {
+			if (untilEnabled(UI_FIX(KstCtl::Restart), 200)) tapId(UI_FIX(KstCtl::Restart));
 		} else if (v == KstView::Leave) {
 			untilCtl(UI_FIX(KstCtl::Leave), 400);
 			if (ctlEnabled(UI_FIX(KstCtl::Leave))) tapId(UI_FIX(KstCtl::Leave));
@@ -506,31 +512,91 @@ static void testLockedAndRestore() {
 	leaveAll();
 }
 
+/**
+ * @brief The leave page after LEAVE, or opened releasing: NEXT SERVO and
+ *        RESTART DSHOT drawn disabled until the pin is let go, then NEXT
+ *        SERVO live, and RESTART DSHOT live 1000 ms after that frame.
+ * @return The ms from the released phase to RESTART DSHOT live; 0 when the
+ *         page did not get there.
+ */
+static uint32_t leaveReleases(const char *where) {
+	char what[96];
+	snprintf(what, sizeof(what), "%s: NEXT SERVO and RESTART DSHOT on the page", where);
+	checkTrue(what, uiKstView() == KstView::Leave && ctlPresent(UI_FIX(KstCtl::NextServo)) &&
+	                ctlPresent(UI_FIX(KstCtl::Restart)) && !ctlPresent(UI_FIX(KstCtl::Leave)) &&
+	                !ctlPresent(UI_FIX(KstCtl::Stay)));
+	if (!untilEnabled(UI_FIX(KstCtl::NextServo), 200)) return 0;
+	uint32_t t0 = millis();
+	snprintf(what, sizeof(what), "%s: released, RESTART DSHOT waits, drawn disabled", where);
+	checkTrue(what, !ctlEnabled(UI_FIX(KstCtl::Restart)) && leaveWideIs("RESTART DSHOT", false) &&
+	                leaveLeftIs("NEXT SERVO", true));
+	if (!untilEnabled(UI_FIX(KstCtl::Restart), 60)) return 0;
+	kstFrames(1);
+	snprintf(what, sizeof(what), "%s: RESTART DSHOT drawn live", where);
+	checkTrue(what, leaveWideIs("RESTART DSHOT", true));
+	return millis() - 25 - t0;
+}
+
 static void testLeaveAndBack() {
-	section("KST screen: leave, the unplug page, BACK in every view");
+	section("KST screen: the leave page, its phases and buttons, BACK in every view");
 	freshKst(false);
 	openKst();
 	untilCtl(UI_FIX(KstCtl::StopSearch), 40);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK in a search that found nothing: the unplug page",
-	          uiKstView() == KstView::Unplug);
-	checkTrue("RESTART DSHOT once the pin is let go", untilCtl(UI_FIX(KstCtl::Restart), 200));
-	checkControlTable("KST unplug");
-	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK on the unplug page: the search again", uiKstView() == KstView::Main &&
-	                                                       untilCtl(UI_FIX(KstCtl::StopSearch), 200));
+	checkTrue("BACK in a search that found nothing: the leave page, releasing",
+	          uiKstView() == KstView::Leave && pinClaimState() == ClaimState::Leaving);
+	checkTrue("no servo in the mode: no step before LEAVE, UNPLUG THE SERVO. is step 1",
+	          leaveStepIs(UI_LEAVE_STEP_Y, '1', "UNPLUG THE SERVO.", true) &&
+	          leaveStepIs(UI_LEAVE_STEP_Y + 12, 0, "DSHOT RESTARTS ON SIG GP0 AND READS", true) &&
+	          leaveStepIs(UI_LEAVE_STEP_Y + 24, 0, "AS A 970 US PULSE AT 1000 HZ.", true) &&
+	          leaveStepIs(UI_LEAVE_STEP_Y + 38, '2', "RESTART DSHOT.", false));
+	checkTrue("BACK disabled on the page, and drawn so",
+	          !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
+	uint32_t waited = leaveReleases("KST, no servo");
+	checkTrue("RESTART DSHOT live 1000 ms after the pin is let go", waited >= 1000 && waited < 1025);
+	checkControlTable("KST leave, released");
+	checkTrue("BACK still disabled once released", !ctlEnabled(UI_FIX(UI_BACK)));
+	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
+	checkTrue("BACK there does nothing", uiKstView() == KstView::Leave &&
+	                                    pinClaimState() == ClaimState::Leaving);
+	tapId(UI_FIX(KstCtl::NextServo));
+	checkTrue("NEXT SERVO: the claim kept, the search again", uiKstView() == KstView::Main &&
+	          pinClaimHolder() == PinUser::Kst && untilCtl(UI_FIX(KstCtl::StopSearch), 200));
 	fakeKstSim()->powered = true;
 	checkTrue("found and read", untilView(KstView::List, 400));
 	tapId(UI_FIX(KstCtl::Files));
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK in FILES: the list", uiKstView() == KstView::List);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK in the list: the leave page", uiKstView() == KstView::Leave);
+	checkTrue("BACK in the list: the leave page, before LEAVE", uiKstView() == KstView::Leave &&
+	          ctlEnabled(UI_FIX(KstCtl::Stay)) && ctlEnabled(UI_FIX(KstCtl::Leave)) &&
+	          !ctlPresent(UI_FIX(KstCtl::Reboot)) && !ctlPresent(UI_FIX(KstCtl::Restart)));
 	checkControlTable("KST leave");
 	kstFrames(1);
-	fakeDumpFrame("shot_kst_leave.ppm");
-	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK on the leave page: the list", uiKstView() == KstView::List);
+	checkTrue("BACK drawn disabled before LEAVE", backLook() == BackLook::Disabled);
+	checkTrue("the strip: the type and SIG", lineIs(UI_STRIP_Y + 4, "V6  SIG GP0", C_DIM));
+	checkTrue("step 1, current: POWER THE SERVO OFF, THEN LEAVE. and why",
+	          leaveStepIs(66, '1', "POWER THE SERVO OFF, THEN LEAVE.", true) &&
+	          leaveStepIs(78, 0, "IT STAYS IN PROGRAMMING MODE UNTIL", true) &&
+	          leaveStepIs(90, 0, "ITS SUPPLY IS OFF.", true));
+	checkTrue("steps 2 and 3 dim: UNPLUG THE SERVO., RESTART DSHOT.",
+	          leaveStepIs(104, '2', "UNPLUG THE SERVO.", false) &&
+	          leaveStepIs(116, 0, "DSHOT RESTARTS ON SIG GP0 AND READS", false) &&
+	          leaveStepIs(128, 0, "AS A 970 US PULSE AT 1000 HZ.", false) &&
+	          leaveStepIs(142, '3', "RESTART DSHOT.", false));
+	checkTrue("STAY and LEAVE drawn live; no note", leaveLeftIs("STAY", true) &&
+	          leaveWideIs("LEAVE", true) && leaveNoteBlank(0));
+	fakeDumpFrame("shot_leave_kst.ppm");
+	noCard();
+	kstFrames(4);
+	checkTrue("no card with OWN: no REBOOT note, the bench does not reboot", leaveNoteBlank(0));
+	card();
+	kstFrames(4);
+	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
+	checkTrue("BACK on the leave page does nothing", uiKstView() == KstView::Leave);
+	tapId(UI_FIX(KstCtl::Stay));
+	checkTrue("STAY: the list, the claim held", uiKstView() == KstView::List &&
+	          pinClaimState() == ClaimState::Running);
 
 	// BACK during a write is drawn disabled and does nothing: no leave is
 	// queued, and the result follows on the page.
@@ -553,10 +619,42 @@ static void testLeaveAndBack() {
 	checkTrue("BACK with the result: the list", uiKstView() == KstView::List);
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK there: the leave page", uiKstView() == KstView::Leave);
+
+	// LEAVE, then a second tap in the same rectangle: RESTART DSHOT is
+	// drawn disabled while the pin is let go and takes no press.
 	tapId(UI_FIX(KstCtl::Leave));
-	checkTrue("LEAVE: the unplug page", uiKstView() == KstView::Unplug);
-	checkTrue("after 100 ms of low line the pin is let go", untilCtl(UI_FIX(KstCtl::Restart), 200) &&
+	checkTrue("LEAVE: the page releasing, RESTART DSHOT in LEAVE's place",
+	          uiKstView() == KstView::Leave && ctlPresent(UI_FIX(KstCtl::Restart)) &&
+	          ctlRect(UI_FIX(KstCtl::Restart)).y == UI_LEAVE_WIDE.y &&
+	          ctlRect(UI_FIX(KstCtl::Restart)).w == UI_LEAVE_WIDE.w &&
+	          !ctlEnabled(UI_FIX(KstCtl::Restart)) && !ctlEnabled(UI_FIX(KstCtl::NextServo)));
+	checkTrue("step 2 is current from LEAVE on, step 1 dim",
+	          leaveStepIs(66, '1', "POWER THE SERVO OFF, THEN LEAVE.", false) &&
+	          leaveStepIs(104, '2', "UNPLUG THE SERVO.", true));
+	checkTrue("the note while the pin goes: RELEASING THE PIN, dim",
+	          job().supplyUsed || leaveNoteIs(0, "RELEASING THE PIN", C_DIM));
+	checkControlTable("KST leave, releasing");
+	tapId(UI_FIX(KstCtl::Restart), IdExpect::Disabled);
+	checkTrue("a double tap on LEAVE restarts nothing", uiCurrentScreen() == UiScreenId::Kst &&
+	          pinClaimState() == ClaimState::Leaving);
+	checkTrue("after 100 ms of low line the pin is let go", untilEnabled(UI_FIX(KstCtl::NextServo), 200) &&
 	                                                        !kstLineIsOpen());
+	checkTrue("released: NEXT SERVO: POWER IT AFTER THE TAP., dim",
+	          leaveNoteIs(0, KST_UI_NEXT_POWER, C_DIM));
+	fakeDumpFrame("shot_leave_kst_released.ppm");
+	// A tap in the wait does nothing, and a press that landed in the wait
+	// does nothing when it lifts after the wait.
+	tapId(UI_FIX(KstCtl::Restart), IdExpect::Disabled);
+	checkTrue("a tap in the 1000 ms wait: nothing", uiCurrentScreen() == UiScreenId::Kst &&
+	          pinClaimState() == ClaimState::Leaving);
+	pressId(UI_FIX(KstCtl::Restart), IdExpect::Disabled);
+	holdId(UI_FIX(KstCtl::Restart), 44);
+	checkTrue("held past the wait: RESTART DSHOT live, not drawn pressed",
+	          ctlEnabled(UI_FIX(KstCtl::Restart)) && leaveWideIs("RESTART DSHOT", true));
+	fakeRelease();
+	kstFrames(2);
+	checkTrue("its lift restarts nothing", uiCurrentScreen() == UiScreenId::Kst &&
+	          pinClaimState() == ClaimState::Leaving);
 	tapId(UI_FIX(KstCtl::Restart));
 	kstFrames(8);
 	checkTrue("RESTART DSHOT: MENU, the pin back to DShot",
@@ -815,8 +913,9 @@ static void testManyChangesAndLeave() {
 	checkTrue("the leave page with five changes pending", uiKstView() == KstView::Leave &&
 	                                                     ctlEnabled(UI_FIX(KstCtl::Leave)));
 	kstFrames(1);
-	fakeDumpFrame("shot_kst_leave_pending.ppm");
-	tapId(UI_FIX(UI_BACK));
+	checkTrue("the note names them in amber", leaveNoteIs(0, "5 CHANGES NOT WRITTEN.", C_AMBER));
+	fakeDumpFrame("shot_leave_kst_pending.ppm");
+	tapId(UI_FIX(KstCtl::Stay));
 	tapId(UI_FIX(KstCtl::Revert));
 
 	// A write in doubt: the leave page says so, and LEAVE still leaves.
@@ -829,8 +928,11 @@ static void testManyChangesAndLeave() {
 	tapId(UI_FIX(KstCtl::WriteOk));
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("locked: the leave page", uiKstView() == KstView::Leave && job().locked);
+	checkTrue("the note: THE SERVO IS IN DOUBT: RESTORE FIRST., amber",
+	          leaveNoteIs(0, "THE SERVO IS IN DOUBT: RESTORE FIRST.", C_AMBER));
 	tapId(UI_FIX(KstCtl::Leave));
-	checkTrue("LEAVE leaves a locked session", uiKstView() == KstView::Unplug);
+	checkTrue("LEAVE leaves a locked session", uiKstView() == KstView::Leave &&
+	          ctlPresent(UI_FIX(KstCtl::Restart)) && pinClaimState() == ClaimState::Leaving);
 	checkTrue("the record stays on the card", fakeFatExists("KST/KST.TXT"));
 	leaveAll();
 }
@@ -949,8 +1051,8 @@ static void testAbortQueueAndLapse() {
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK during the read: the leave page", uiKstView() == KstView::Leave);
 	kstFrames(20);
-	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK there: READ AGAIN", untilCtl(UI_FIX(KstCtl::ReadAgain), 100) &&
+	tapId(UI_FIX(KstCtl::Stay));
+	checkTrue("STAY there: READ AGAIN", untilCtl(UI_FIX(KstCtl::ReadAgain), 100) &&
 	                                    ctlEnabled(UI_FIX(KstCtl::ReadAgain)));
 	tapId(UI_FIX(KstCtl::ReadAgain));
 	checkTrue("it reads", untilView(KstView::List, 400));
@@ -1073,12 +1175,12 @@ static void testSlowCard() {
 	leaveAll();
 }
 
-/** @brief From the list: BACK, LEAVE, then BACK on the unplug page, the next session's search. */
+/** @brief From the list: BACK, LEAVE, then NEXT SERVO, the next session's search. */
 static void unplugAndBack() {
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(KstCtl::Leave));
-	untilCtl(UI_FIX(KstCtl::Restart), 200);
-	tapId(UI_FIX(UI_BACK));
+	untilEnabled(UI_FIX(KstCtl::NextServo), 200);
+	tapId(UI_FIX(KstCtl::NextServo));
 	kstFrames(2);
 }
 
@@ -1101,15 +1203,15 @@ static void testRefusedOps() {
 	          lineIs(80, "THE SCREEN STALLED. READ THE SERVO", C_AMBER));
 	checkTrue("and no register of the read before", lineIs(112, "", C_AMBER));
 
-	// READ AGAIN, BACK during it, BACK on the leave page: the read stopped.
+	// READ AGAIN, BACK during it, STAY on the leave page: the read stopped.
 	tapId(UI_FIX(KstCtl::ReadAgain));
 	for (int i = 0; i < 40 && job().job != KstJobState::Busy; i++) kstFrame();
 	checkTrue("the read runs", job().job == KstJobState::Busy);
 	tapId(UI_FIX(UI_BACK));
 	kstFrames(20);
-	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(KstCtl::Stay));
 	kstFrames(2);
-	checkTrue("BACK twice: the read aborted, not the stall of the read before",
+	checkTrue("BACK, then STAY: the read aborted, not the stall of the read before",
 	          uiKstView() == KstView::Main &&
 	          lineIs(80, "ABORTED. READ THE SERVO AGAIN.", C_AMBER));
 	checkTrue("and no register of a read before", lineIs(94, "", C_AMBER) &&
@@ -1496,15 +1598,15 @@ static void testFlushWait() {
 	          cardCacheState() == CardCache::Idle);
 	tapId(UI_FIX(UI_BACK));
 
-	// BACK on the unplug page keeps the claim: the cache is on again.
+	// NEXT SERVO keeps the claim: the cache is on again.
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(KstCtl::Leave));
-	checkTrue("LEAVE: the unplug page, the cache off",
-	          uiKstView() == KstView::Unplug && cardCacheState() == CardCache::Off);
-	untilCtl(UI_FIX(KstCtl::Restart), 200);
+	checkTrue("LEAVE: the page releasing, the cache off",
+	          ctlPresent(UI_FIX(KstCtl::Restart)) && cardCacheState() == CardCache::Off);
+	untilEnabled(UI_FIX(KstCtl::NextServo), 200);
 	unsigned begins = fakeCacheCalls().begins;
-	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK on the unplug page: the cache on again",
+	tapId(UI_FIX(KstCtl::NextServo));
+	checkTrue("NEXT SERVO: the cache on again",
 	          uiKstView() == KstView::Main && fakeCacheCalls().begins == begins + 1 &&
 	          cardCacheState() == CardCache::Idle);
 	leaveAll();
@@ -1559,14 +1661,26 @@ static void testSwitchedSupply() {
 
 	// The leave page offers REBOOT; a hold reboots and reads again.
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("the leave page: the supply text, HOLD TO REBOOT",
-	          uiKstView() == KstView::Leave && lineIs(76, "LEAVE SWITCHES THE SERVO'S SUPPLY OFF.", C_AMBER) &&
-	          ctlEnabled(UI_FIX(KstCtl::Reboot)));
-	fakeDumpFrame("shot_kst_leave_switched.ppm");
+	checkTrue("the leave page: LEAVE SWITCHES THE SUPPLY OFF., HOLD TO REBOOT",
+	          uiKstView() == KstView::Leave &&
+	          leaveStepIs(66, '1', "LEAVE SWITCHES THE SUPPLY OFF.", true) &&
+	          leaveStepIs(80, '2', "UNPLUG THE SERVO.", false) &&
+	          leaveStepIs(118, '3', "RESTART DSHOT.", false) &&
+	          ctlEnabled(UI_FIX(KstCtl::Reboot)) && ctlEnabled(UI_FIX(KstCtl::Stay)));
+	{
+		UiRect r = ctlRect(UI_FIX(KstCtl::Reboot));
+		checkTrue("HOLD TO REBOOT right of STAY, at scale 1",
+		          r.x == UI_LEAVE_RIGHT.x && r.y == UI_LEAVE_RIGHT.y && r.w == UI_LEAVE_RIGHT.w &&
+		          fakeTextIs(r.x + (r.w - gfxTextW("HOLD TO REBOOT", 1)) / 2, r.y + (r.h - 7) / 2,
+		                     "HOLD TO REBOOT", C_TEXT, C_PANEL, 1));
+	}
+	checkControlTable("KST leave, switched");
+	fakeDumpFrame("shot_leave_kst_switched.ppm");
 	noCard();
 	kstFrames(4);
 	checkTrue("no card: the two notes above HOLD TO REBOOT name the backup in RAM",
-	          lineIs(186, "NO CARD: REBOOT LOSES THE BACKUP", C_AMBER) && lineIs(198, "IN RAM.", C_AMBER));
+	          leaveNoteIs(0, "NO CARD: REBOOT LOSES THE BACKUP", C_AMBER) &&
+	          leaveNoteIs(1, "IN RAM.", C_AMBER));
 	card();
 	kstFrames(4);
 	checkTrue("HOLD TO REBOOT fires", holdUntilGone(UI_FIX(KstCtl::Reboot)));
@@ -1577,20 +1691,31 @@ static void testSwitchedSupply() {
 	checkTrue("then on, an entry, a read: the field list again",
 	          untilView(KstView::List, 300) && job().hasBackup && enHigh());
 
-	// LEAVE: the unplug page counts the 2 s off down, then RESTART DSHOT.
+	// LEAVE: the page counts the 2 s off down, then RESTART DSHOT 1 s later.
 	tapId(UI_FIX(UI_BACK));
 	uint32_t t0 = time_us_32();
 	tapId(UI_FIX(KstCtl::Leave));
 	kstFrames(4);
-	checkTrue("LEAVE: the supply off, the unplug page waits",
-	          uiKstView() == KstView::Unplug && !enHigh() && !ctlPresent(UI_FIX(KstCtl::Restart)));
-	checkTrue("BACK waits with it: disabled, and drawn so",
+	checkTrue("LEAVE: the supply off, the page releasing",
+	          uiKstView() == KstView::Leave && !enHigh() && !ctlEnabled(UI_FIX(KstCtl::Restart)) &&
+	          !ctlEnabled(UI_FIX(KstCtl::NextServo)) && !ctlPresent(UI_FIX(KstCtl::Reboot)));
+	{
+		char note[48];
+		unsigned left = job().supplyLeftDs;
+		snprintf(note, sizeof(note), "SUPPLY OFF FOR 2.0 S: %u.%u S LEFT.", left / 10, left % 10);
+		checkTrue("the note counts the 2 s down, dim", left > 0 && leaveNoteIs(0, note, C_DIM));
+	}
+	fakeDumpFrame("shot_leave_kst_supply_off.ppm");
+	checkTrue("BACK disabled, and drawn so",
 	          !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
-	checkControlTable("KST unplug, the supply off");
-	checkTrue("RESTART DSHOT once the supply has been off 2 s",
-	          untilCtl(UI_FIX(KstCtl::Restart), 200) && time_us_32() - t0 >= 2000000u);
-	checkTrue("BACK acts from that frame on, and is drawn live",
-	          ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Live);
+	checkControlTable("KST leave, the supply off");
+	checkTrue("NEXT SERVO once the supply has been off 2 s",
+	          untilEnabled(UI_FIX(KstCtl::NextServo), 200) && time_us_32() - t0 >= 2000000u);
+	checkTrue("with the switch no NEXT SERVO line: the bench powers it", leaveNoteBlank(0));
+	checkTrue("RESTART DSHOT 1000 ms later", !ctlEnabled(UI_FIX(KstCtl::Restart)) &&
+	          untilEnabled(UI_FIX(KstCtl::Restart), 60) && time_us_32() - t0 >= 3000000u);
+	checkTrue("BACK stays disabled, and drawn so",
+	          !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
 	FakePin p = fakePin(servoSupplyPinOf(1));
 	checkTrue("GP28 an undriven input after the claim", !p.output && p.inputOff);
 	tapId(UI_FIX(KstCtl::Restart));
@@ -1609,6 +1734,21 @@ static void testSwitchedSupply() {
 	fakeDumpFrame("shot_kst_stalled.ppm");
 	tapId(UI_FIX(KstCtl::Retry));
 	checkTrue("RETRY powers it up and reads it", untilView(KstView::List, 400) && enHigh());
+
+	// BACK during REBOOT closes as LEAVE does: the leave page opens at its
+	// unplug step, with no step before LEAVE.
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("HOLD TO REBOOT fires again", holdUntilGone(UI_FIX(KstCtl::Reboot)));
+	kstFrames(2);
+	checkTrue("rebooting", job().job == KstJobState::Rebooting && uiKstView() == KstView::Main);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK during REBOOT: the leave page, releasing, the supply off",
+	          uiKstView() == KstView::Leave && !ctlPresent(UI_FIX(KstCtl::Leave)) &&
+	          !ctlPresent(UI_FIX(KstCtl::Stay)) && ctlPresent(UI_FIX(KstCtl::Restart)) &&
+	          !ctlEnabled(UI_FIX(KstCtl::Restart)) && !enHigh() &&
+	          leaveStepIs(UI_LEAVE_STEP_Y, '1', "UNPLUG THE SERVO.", true));
+	checkTrue("NEXT SERVO once the supply has been off 2 s",
+	          untilEnabled(UI_FIX(KstCtl::NextServo), 200));
 	leaveAll();
 	g_supOn = false;
 	servoSupplyConfigure(0);

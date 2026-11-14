@@ -20,6 +20,7 @@
 #include "ui_screen.h"
 #include "ui_menu.h"
 #include "ui.h"
+#include "ui_leave.h"
 #include "gfx.h"
 #include "theme.h"
 
@@ -285,4 +286,52 @@ static inline void checkControlTable(const char *where) {
 			checkTrue(what, backLook() == (b.enabled ? BackLook::Live : BackLook::Disabled));
 		}
 	}
+}
+
+/**
+ * @brief Whether the leave page's step line at @p y reads @p text from
+ *        @ref UI_LEAVE_TEXT_X, with the step's number @p num at x 8 (0 for a
+ *        detail line): the current step in @ref UI_COL_WARN with its bar at
+ *        x 0, any other in `C_DIM` without one.
+ */
+static inline bool leaveStepIs(int y, char num, const char *text, bool current) {
+	uint16_t col = current ? UI_COL_WARN : C_DIM;
+	bool bar = gfxBuffer()[(y + 3) * GFX_W + 1] == UI_COL_WARN;
+	bool ok = bar == current && fakeTextIs(UI_LEAVE_TEXT_X, y, text, col, C_BG, 1);
+	if (num) {
+		char n[2] = { num, '\0' };
+		ok = ok && fakeTextIs(UI_MARGIN, y, n, col, C_BG, 1);
+	}
+	return ok;
+}
+
+/** @brief Whether the leave page's note line @p k reads @p text in @p col. */
+static inline bool leaveNoteIs(int k, const char *text, uint16_t col) {
+	return fakeTextIs(UI_MARGIN, UI_LEAVE_NOTE_Y + k * UI_LEAVE_LINE_H, text, col, C_BG, 1);
+}
+
+/** @brief Whether nothing is drawn on the leave page's note line @p k. */
+static inline bool leaveNoteBlank(int k) {
+	int y = UI_LEAVE_NOTE_Y + k * UI_LEAVE_LINE_H;
+	const uint16_t *fb = gfxBuffer();
+	for (int r = y; r < y + 7; r++)
+		for (int x = 0; x < GFX_W; x++)
+			if (fb[r * GFX_W + x] != C_BG) return false;
+	return true;
+}
+
+/** @brief Whether the leave page's wide button reads @p label, live or drawn disabled. */
+static inline bool leaveWideIs(const char *label, bool live) {
+	const UiRect &r = UI_LEAVE_WIDE;
+	int x = r.x + (r.w - gfxTextW(label, 2)) / 2, y = r.y + (r.h - 14) / 2;
+	return live ? fakeTextIs(x, y, label, C_TEXT, C_PANEL, 2)
+	            : fakeTextIs(x, y, label, C_GRID, C_BG, 2);
+}
+
+/** @brief Whether the leave page's left button reads @p label, live or drawn disabled. */
+static inline bool leaveLeftIs(const char *label, bool live) {
+	const UiRect &r = UI_LEAVE_LEFT;
+	int x = r.x + (r.w - gfxTextW(label, 1)) / 2, y = r.y + (r.h - 7) / 2;
+	return live ? fakeTextIs(x, y, label, C_TEXT, C_PANEL, 1)
+	            : fakeTextIs(x, y, label, C_GRID, C_BG, 1);
 }

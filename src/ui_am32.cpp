@@ -782,7 +782,7 @@ void uiAm32Enter() {
 
 void uiAm32Exit() {
 	// The transport lets go of the pin before DShot takes it back. An AM32
-	// claim has no core1 job and no unplug page, so pinClaimEnd() resumes the
+	// claim has no core1 job and no leave page, so pinClaimEnd() resumes the
 	// pump within the call.
 	am32BlEnd();
 	cardCacheEnd();

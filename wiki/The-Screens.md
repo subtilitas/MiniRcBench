@@ -9,10 +9,10 @@ the tester.
 
 ```
 Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MENU
-   ▲                    ├── SERVO TESTER ──BACK──> unplug page ──> MENU
-   │                    ├── KST SERVO    ──BACK──> leave page ──> unplug page ──> MENU
-   │                    ├── HITEC SERVO  ──BACK──> leave page ──> unplug page ──> MENU
-   │                    │   (on the family view once the pin is held, and during the entry, BACK goes to the unplug page)
+   ▲                    ├── SERVO TESTER ──BACK──> leave page ──RESTART DSHOT──> MENU
+   │                    ├── KST SERVO    ──BACK──> leave page ──LEAVE, RESTART DSHOT──> MENU
+   │                    ├── HITEC SERVO  ──BACK──> leave page ──LEAVE, RESTART DSHOT──> MENU
+   │                    │   (with no servo in programming mode the leave page opens at UNPLUG THE SERVO.)
    │                    │   (AM32 HEX, AM32 WRITE, SET: BACK goes one level up)
    │                    ├── SETTINGS     ──BACK──> MENU
    │                    └── SD LOG       ──BACK──> MENU
@@ -24,11 +24,24 @@ Tester ──14 POLES or MAX 20% (disarmed)──> SETTINGS ──BACK──> Te
 
 **BACK is at the top right**, in the header band, on every screen except the
 tester. The header is 36 px tall and `BACK` is 64 × 32 px. The tester is the
-root and has no header. On the unplug page of SERVO TESTER, KST SERVO and
-HITEC SERVO, `BACK` waits until the pins are let go: until then it is drawn
-disabled, an outline with a grey label, and a tap on it does nothing. The
-same holds on `AM32 WRITE`, `KST WRITE` and `HITEC WRITE` while a write runs
-or waits for the SD card: no `BACK` leaves a device half written.
+root and has no header. On the leave page of SERVO TESTER, KST SERVO and
+HITEC SERVO, `BACK` is drawn disabled, an outline with a grey label, and a
+tap on it does nothing: each way on is a labelled button, `STAY`,
+`NEXT SERVO`, `BACK TO SERVO` or `RESTART DSHOT`. The same holds on
+`AM32 WRITE`, `KST WRITE` and `HITEC WRITE` while a write runs or waits for
+the SD card: no `BACK` leaves a device half written.
+
+**The leave page** is one page from the last step on a servo to DShot on
+SIG again. It numbers its steps; the current one is amber with a bar at the
+left edge. Before `LEAVE` the buttons read `STAY`, which returns to the
+tool, and `LEAVE`. After `LEAVE` the next step is current, and the wide
+button reads `RESTART DSHOT` in `LEAVE`'s place. It and the left button,
+`NEXT SERVO` or `BACK TO SERVO`, are drawn disabled until the pin is let go;
+`RESTART DSHOT` then waits 1 s more, so a double tap on `LEAVE` never
+restarts DShot into a servo still on the lead. A press that landed during
+the wait does nothing when it lifts.
+
+<img src="img/leave-kst.png" width="240" alt="The KST leave page before LEAVE: step 1 POWER THE SERVO OFF, THEN LEAVE., STAY and LEAVE"> <img src="img/leave-kst-released.png" width="240" alt="The KST leave page after LEAVE: step 2 current, NEXT SERVO live, RESTART DSHOT still grey">
 
 **BACK names what it would drop.** On AM32 CONFIG's list with changes not
 written, and on SERVO SET with a change waiting for `HOLD TO APPLY`, the
@@ -372,9 +385,9 @@ in amber: the servo tester never switches the converter on, so the servo
 needs a supply of its own here. `SET` opens the profile and sweep settings;
 its `BACK` with a change waiting for `HOLD TO APPLY` warns first,
 `1 CHANGE NOT APPLIED.`
-`BACK` shows
-`UNPLUG THE SERVO.` before the ESC driver takes the pins back, and
-`RESTART DSHOT` then returns to `MENU`. With CURRENT SENSE at `INA219` the
+`BACK` opens the leave page at `1 UNPLUG THE SERVO.` before the ESC driver
+takes the pins back; `BACK TO SERVO` returns to the tester, and
+`RESTART DSHOT` returns to `MENU`. With CURRENT SENSE at `INA219` the
 row under the dial shows the servo supply's current and voltage in place of
 the two-servo hint. See
 [Servo Tester](Servo-Tester).
@@ -389,8 +402,9 @@ Reads and writes the settings of a KST or Chaservo servo over the signal wire
 on SIG, the ESC pin. It searches for the servo while you power it up, reads
 its 32 registers, and lists 27 fields to step. A tap on `WRITE...` opens
 the write page, and its `HOLD TO WRITE`, 1 s, writes, with a backup on the SD
-card first. `BACK` opens the leave page, which asks you to power the servo off;
-`LEAVE` then shows `UNPLUG THE SERVO.`, and `RESTART DSHOT` returns to `MENU`.
+card first. `BACK` opens the leave page, whose first step asks you to power
+the servo off; `LEAVE` then makes `UNPLUG THE SERVO.` the current step,
+`NEXT SERVO` starts a new search, and `RESTART DSHOT` returns to `MENU`.
 With CURRENT SENSE at `INA219` the strip shows the current after the
 supply's state, `SUPPLY ON 0.08 A`. See [KST Programming](KST-Programming).
 
@@ -412,7 +426,8 @@ enters the servo and reads it. A D series servo gives 21 registers and 20
 parameters, 11 of them editable. One servo goes on the lead, with no pull-up
 resistor. A tap on `WRITE...` opens the write page, and its `HOLD TO WRITE`, 1
 s, writes, with a backup on the SD card first. `BACK` opens the leave page;
-`LEAVE` then shows `UNPLUG THE SERVO.`, and `RESTART DSHOT` returns to `MENU`.
+`LEAVE` then makes `UNPLUG THE SERVO.` the current step, `NEXT SERVO` starts
+a new session, and `RESTART DSHOT` returns to `MENU`.
 With CURRENT SENSE at `INA219` the strip shows the current after `SUPPLY ON`.
 Not tested on hardware. See [Hitec Programming](Hitec-Programming).
 

@@ -129,8 +129,10 @@ the exception.
    HITEC claims as its screen opens, before the servo's family is known, and
    defers its job (`PinUserInfo::deferJob`): the claim stays Held, the pad an
    input with the pull-up on, until the family tap calls
-   `pinClaimStartJob()`. BACK from there is step 5 with no job: the unplug
-   page comes at once, and its BACK returns to Held with no job.
+   `pinClaimStartJob()`. BACK from there is step 5 with no job: the leave
+   page opens releasing and turns released as soon as `pinClaimUnplugDue()`
+   is true, with no job to wait for; its NEXT SERVO returns to Held with no
+   job.
    AM32 has no core1 job: it calls `am32BlBegin(pinClaimGpio(PIN_SIG))`, and
    its claim stays Held until BACK.
 4. **Running.** The job binds its pins and reports `Running`, or reports a bind
@@ -147,10 +149,11 @@ the exception.
    input with its family's pull: the pull-down for classic, the pull-up for
    the D series. Then the job reports `Idle`. The claim stays Leaving until
    then. Before DShot restarts, SERVO, KST and HITEC show the
-   unplug page ([restore](#restoring-dshot)):
+   leave page ([restore](#restoring-dshot)):
    `pinClaimUnplugDue()` is true once the job is idle, RESTART DSHOT calls
-   `pinClaimRestart()`, and BACK on the page calls `pinClaimKeep()`, which
-   returns the claim to Held and starts the job again. AM32 has neither a job
+   `pinClaimRestart()` 1000 ms after that at the earliest, and NEXT SERVO or
+   BACK TO SERVO calls `pinClaimKeep()`, which returns the claim to Held and
+   starts the job again. AM32 has neither a job
    nor the page, so its BACK restores DShot within the `pinClaimEnd()` call.
 6. **Restoring.** Core0 calls `escTaskResume()`. Core1 rebuilds the driver from
    the wiring latched in `esc_task.cpp`, and the claim is `Free` from the
@@ -159,7 +162,7 @@ the exception.
    closed.
 
 BACK during Stopping resumes DShot at once. No job has run and nothing has
-been driven, so no unplug page is shown.
+been driven, so no leave page is shown.
 
 ### API
 
@@ -187,13 +190,13 @@ void         pinClaimEnd(PinUser who);     // BACK; the poll finishes it
 void         pinClaimStartJob(PinUser who); // HITEC's family tap: the deferred job
 void         pinClaimRetry(PinUser who);   // RETRY after a failed bind
 bool         pinClaimUnplugDue();          // SERVO, KST, HITEC: Leaving, job idle
-void         pinClaimRestart(PinUser who); // RESTART DSHOT on the unplug page
-void         pinClaimKeep(PinUser who);    // BACK on the unplug page
+void         pinClaimRestart(PinUser who); // RESTART DSHOT on the leave page
+void         pinClaimKeep(PinUser who);    // NEXT SERVO, BACK TO SERVO on the leave page
 ```
 
 What differs per user is a table, `PIN_USERS` in `pin_claim.h`, one row per
 `PinUser`: the core1 job (None: the screen drives the pin from core0, as AM32
-does), whether the unplug page comes before DShot restarts, whether the
+does), whether the leave page comes before DShot restarts, whether the
 claim is refused while an ESC answers on SIG, and whether Held waits for
 `pinClaimStartJob()` before the job starts (HITEC alone). `pinUserInfo()`
 reads it. A new pin user is one enum value and one row.
@@ -347,7 +350,7 @@ works.
 | An ESC answers on SIG | `AN ESC ANSWERS ON SIG GP0.` `UNPLUG IT: SERVO PULSES READ AS THROTTLE.` | unplug the ESC; the claim follows 500 ms later |
 | KISS frames on AUX, two servos asked | `KISS WIRE ON AUX GP1 IS LIVE.` `TWO SERVOS NEED IT UNPLUGGED.` | unplug it, or choose one servo |
 | SIG and AUX on one GPIO, two servos asked | `SIG AND AUX ARE THE SAME GPIO.` `SET SIG PIN OR AUX PIN IN SETTINGS.` | choose one servo; unreachable through SETTINGS, whose steppers swap the two |
-| The job could not bind | `SIG GP0 COULD NOT BE TAKEN (PWM)` or `(PIO)`, `(DMA)`, `(CLOCK)` | RETRY keeps the claim; BACK shows the unplug page before DShot restarts |
+| The job could not bind | `SIG GP0 COULD NOT BE TAKEN (PWM)` or `(PIO)`, `(DMA)`, `(CLOCK)` | RETRY keeps the claim; BACK shows the leave page before DShot restarts |
 | Armed, or another screen holds the pins | `DISARM FIRST` or `WAIT: DSHOT RESTARTING` | BACK; unreachable through the UI: MENU draws the tool's row disabled while the claim is not Free, and its strip reads `DSHOT RESTARTING ON SIG GP0` |
 
 The GPIO numbers in the text are the live ones from SETTINGS. Screens name a
@@ -370,23 +373,30 @@ for the ESC it finds, because a rebuild clears its state. Telemetry counters in
 `kissUartBegin()` sets the pull-up on AUX. Both override what the job left:
 servo PWM and `kst_line_close()` each leave an input with the pull-down on.
 
-**Unplug page.** Bidirectional DShot idles the line high and pulls it low for
-about 27 µs per frame at 600 kbit/s, once per `DSHOT_PERIOD_US`, 1000 µs. A
-PWM servo left on SIG measures that as a pulse of about 973 µs at 1 kHz: it
+**The leave page.** Bidirectional DShot idles the line high and pulls it low
+for about 27 µs per frame at 600 kbit/s, once per `DSHOT_PERIOD_US`, 1000 µs.
+A PWM servo left on SIG measures that as a pulse of about 973 µs at 1 kHz: it
 drives towards one end of its travel, at a frame rate that overheats an
 analogue servo. So before `escTaskResume()` the SERVO, KST and HITEC screens
-show:
+show the leave page of [menu-b.md](menu-b.md#the-leave-page),
+`src/ui_leave.*`, whose unplug step reads, once the pin is let go:
 
 ```
-  UNPLUG THE SERVO.
-  DSHOT RESTARTS ON GP0 AND READS AS
-  A 970 US PULSE AT 1000 HZ.
-  [ RESTART DSHOT ]
+  2 UNPLUG THE SERVO.
+    DSHOT RESTARTS ON SIG GP0 AND READS
+    AS A 970 US PULSE AT 1000 HZ.
+  3 RESTART DSHOT.
+  [ NEXT SERVO ]
+  [          RESTART DSHOT           ]
 ```
 
-RESTART DSHOT is a tap. BACK on that page returns to the screen and keeps the
-claim. The same hazard exists at boot for a servo left on SIG; the README
-section "Servo tester" and the wiki page Servo-Tester carry that warning.
+RESTART DSHOT is a tap in the rectangle LEAVE had, and calls
+`pinClaimRestart()`. It takes only a press that lands 1000 ms or more after
+`pinClaimUnplugDue()` turned true, so a double tap on LEAVE never reaches it.
+NEXT SERVO, BACK TO SERVO on SERVO TESTER, calls `pinClaimKeep()` and returns
+to the screen with the claim kept. BACK on the page is drawn disabled. The
+same hazard exists at boot for a servo left on SIG; the README section
+"Servo tester" and the wiki page Servo-Tester carry that warning.
 
 The page itself is drawn by the SERVO, KST and HITEC screens. The rule is in
 the claim: for those three users DShot does not restart until
@@ -548,8 +558,8 @@ of the two cores' steps:
   rebuild; none needed after a long disarm or with no throttle since the
   bind; the bind starts disarmed at throttle zero;
 - order: DShot released before any job bind; job idle before
-  `escTaskResume()`; the unplug page before restore for SERVO and KST and not
-  for AM32;
+  `escTaskResume()`; `pinClaimUnplugDue()`, the flag the leave page waits
+  for, before restore for SERVO and KST and not for AM32;
 - BACK in every state, including `Stopping`, `Restoring` and a failed bind;
   RETRY after a failed bind; Busy while `Restoring`;
 - restore: the pins, bitrate and KISS settings handed to the rebuild equal
@@ -558,10 +568,12 @@ of the two cores' steps:
 
 The AM32 tests in `test/test_ui.cpp` pass with the AM32 screen on the
 claim, and `test_claim.cpp` drives that screen through the UI as well: the
-latched GPIO reaches the transport, BACK restores DShot with no unplug page,
+latched GPIO reaches the transport, BACK restores DShot with no leave page,
 and opening AM32 100 ms after a throttle frame waits out the drain. The
-unplug page is tested as the claim's rule; the SERVO screen's page is tested
-in `test/test_servo.cpp`, with the servo job as it ships. `test_claim.cpp`
+leave page's wait is tested as the claim's rule; the SERVO, KST and HITEC
+screens' leave pages are tested in `test/test_servo.cpp`,
+`test/test_kst_ui.cpp` and `test/test_hitec_ui.cpp`, with the jobs as they
+ship. `test_claim.cpp`
 puts fake jobs in the job table, and removes them to test a job with no entry,
 as KST ships. What `escTaskPoll()` keeps is the
 I/O around those functions: the PIO calls, the KISS receiver and the shared

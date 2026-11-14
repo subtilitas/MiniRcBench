@@ -140,21 +140,22 @@ static void testEveryEntry() {
 		menuFrames(10);
 		checkControlTable(e[i].label);
 		tapId(UI_FIX(UI_BACK));
-		// SERVO and KST SERVO pass the unplug page once their job has held the pins.
-		for (int k = 0; k < 200 && ctlPresent(UI_FIX(ServoCtl::Restart)) == false &&
+		// SERVO and KST SERVO pass the leave page once their job has held the
+		// pins: RESTART DSHOT acts 1000 ms after the release.
+		for (int k = 0; k < 200 && ctlEnabled(UI_FIX(ServoCtl::Restart)) == false &&
 		                uiCurrentScreen() == UiScreenId::Servo; k++)
 			menuFrames(1);
 		if (uiCurrentScreen() == UiScreenId::Servo) tapId(UI_FIX(ServoCtl::Restart));
 		// KST SERVO asks for LEAVE first when it found the servo.
-		for (int k = 0; k < 200 && ctlPresent(UI_FIX(KstCtl::Restart)) == false &&
+		for (int k = 0; k < 200 && ctlEnabled(UI_FIX(KstCtl::Restart)) == false &&
 		                uiCurrentScreen() == UiScreenId::Kst; k++) {
 			if (ctlEnabled(UI_FIX(KstCtl::Leave))) tapId(UI_FIX(KstCtl::Leave));
 			else if (uiKstView() == KstView::List) tapId(UI_FIX(UI_BACK));
 			menuFrames(1);
 		}
 		if (uiCurrentScreen() == UiScreenId::Kst) tapId(UI_FIX(KstCtl::Restart));
-		// HITEC SERVO holds SIG from its first frame: the unplug page too.
-		for (int k = 0; k < 200 && ctlPresent(UI_FIX(HitecCtl::Restart)) == false &&
+		// HITEC SERVO holds SIG from its first frame: the leave page too.
+		for (int k = 0; k < 200 && ctlEnabled(UI_FIX(HitecCtl::Restart)) == false &&
 		                uiCurrentScreen() == UiScreenId::Hitec; k++)
 			menuFrames(1);
 		if (uiCurrentScreen() == UiScreenId::Hitec) tapId(UI_FIX(HitecCtl::Restart));
@@ -246,7 +247,7 @@ static void testPinsBusy() {
 	menuFrames(4);
 	checkTrue("its claim runs", pinClaimState() == ClaimState::Running);
 	tapId(UI_FIX(UI_BACK));
-	for (int k = 0; k < 200 && !ctlPresent(UI_FIX(ServoCtl::Restart)); k++) menuFrames(1);
+	for (int k = 0; k < 200 && !ctlEnabled(UI_FIX(ServoCtl::Restart)); k++) menuFrames(1);
 	pressId(UI_FIX(ServoCtl::Restart));
 	fakeRelease();
 	// The release frame leaves for MENU. Without the pump's pass the claim

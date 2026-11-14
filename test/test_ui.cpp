@@ -3506,7 +3506,7 @@ static void testHitBoundaries() {
  * DSHOT, and the strip says why: its control is gated on the same value,
  * and a tap opens nothing and claims nothing.
  * SERVO is built: a tap opens it and claims the pins, and leaving goes
- * through its unplug page to MENU. test_servo.cpp tests the screen itself.
+ * through its leave page to MENU. test_servo.cpp tests the screen itself.
  */
 static void testMenuDestinations() {
 	section("MENU: SERVO opens its screen, a busy claim refuses");
@@ -3614,7 +3614,9 @@ static void testMenuDestinations() {
 	tapId(UI_FIX(UI_BACK));
 	core1JobPoll();
 	frames(1);
-	checkTrue("BACK: the unplug page", pinClaimUnplugDue());
+	checkTrue("BACK: the leave page, the pins let go", pinClaimUnplugDue());
+	// RESTART DSHOT takes a press 1000 ms after the release.
+	for (int k = 0; k < 60 && !ctlEnabled(UI_FIX(ServoCtl::Restart)); k++) frames(1);
 	tapId(UI_FIX(ServoCtl::Restart));   // RESTART DSHOT
 	frames(2);
 	checkTrue("RESTART DSHOT: DShot back, MENU up",

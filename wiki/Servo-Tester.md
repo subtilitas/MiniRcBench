@@ -266,18 +266,24 @@ starts at STANDARD PWM, 50 Hz, one servo.
 
 ## Leaving
 
-`BACK` ends the pulses and asks you to unplug the servo. The last pulse
-completes first, which takes up to 41 ms at 50 Hz. A weak pull-down then
-holds SIG low until DShot runs again. With two servos it also holds AUX low
-until the KISS receiver takes it, or for good with KISS off.
+`BACK` ends the pulses and opens the leave page, whose first step asks you
+to unplug the servo: `1 UNPLUG THE SERVO.`, with
+`DSHOT RESTARTS ON SIG GP0 AND READS` and `AS A 970 US PULSE AT 1000 HZ.`,
+then `2 RESTART DSHOT.` The last pulse completes first, which takes up to
+41 ms at 50 Hz. A weak pull-down then holds SIG low until DShot runs again.
+With two servos it also holds AUX low until the KISS receiver takes it, or
+for good with KISS off. The strip names the pins the screen holds,
+`SIG GP0  AUX GP1`, or `SIG GP0` when it holds SIG alone.
 
-<img src="img/servo-unplug.png" width="240" alt="UNPLUG THE SERVO">
+<img src="img/leave-servo.png" width="240" alt="The leave page: 1 UNPLUG THE SERVO., BACK TO SERVO and RESTART DSHOT">
 
-Unplug the servo, then tap `RESTART DSHOT`. The ESC driver takes the pins back
-and `MENU` returns. `BACK` on this page returns to the servo
-screen instead, SAFE, and keeps the pins. Until the last pulse has completed
-the page reads `RELEASING THE PINS`, and `BACK` is drawn disabled, an outline
-with a grey label: it acts from the moment `UNPLUG THE SERVO.` shows.
+Until the last pulse has completed the page reads `RELEASING THE PINS`, or
+`RELEASING THE PIN` with SIG alone, and both buttons are grey. Then
+`BACK TO SERVO` acts: it returns to the servo screen, SAFE, and keeps the
+pins. Unplug the servo, then tap `RESTART DSHOT`: it acts 1 s after the
+pins are let go, so a quick second tap after `BACK` restarts nothing. The
+ESC driver takes the pins back and `MENU` returns. `BACK` on the page is
+grey and does nothing.
 
 ---
 

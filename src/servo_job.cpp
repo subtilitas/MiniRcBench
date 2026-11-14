@@ -236,8 +236,8 @@ static uint8_t servoJobBind(uint8_t sigGpio, uint8_t auxGpio) {
 	s_fresh = false;
 	critical_section_exit(&s_cs);
 
-	// A new screen session forgets an old trip; a bind after BACK on the
-	// unplug page keeps it until START.
+	// A new screen session forgets an old trip; a bind after BACK TO SERVO on
+	// the leave page keeps it until START.
 	if (fresh) s_core.tripped = false;
 	s_pin[SERVO_A] = sigGpio;
 	s_pin[SERVO_B] = auxGpio;
