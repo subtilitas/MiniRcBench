@@ -981,8 +981,9 @@ The logger drops frames rather than block. The UI never waits for the card.
 
 **Getting the files off:** **MENU → SD LOG → USB DRIVE** presents the card
 to the USB host as a read-only removable drive, using MSC (mass storage
-class) on the same USB cable as the serial port. The logger unmounts before the drive appears and touches the card
-again only after eject. The host and the firmware never share the FAT volume.
+class) on the same USB cable as the serial port. The logger unmounts before
+the drive appears and touches the card again only after eject. The host and
+the firmware never share the FAT volume.
 While the host holds the card, SD LOG counts what it has read, for example
 `3.0 MB READ`, in lime, a live reading.
 Without a card the button is drawn unavailable and does nothing. With a card,
@@ -1789,7 +1790,7 @@ not 0 answers ID 0 is not measured.
    reads `SIG GP0 IS THE SERVO'S: DSHOT IS OFF.` in green over
    `POWER THE SERVO UP, THEN TAP READ.` in amber, and READ, the wide
    button, starts the job. No frame goes to SIG between DShot's stop and
-   READ, so a servo powered after the tap on PROGRAMMER never sees DShot.
+   READ, so a servo powered once the screen asks for it never sees DShot.
    The headline of each step, `SUPPLY OFF`, `SERVO STARTING`,
    `READING THE MODEL` or, for a classic servo, `LISTENING`, is amber.
    Once the pin is held, BACK before the servo is in programming mode, the

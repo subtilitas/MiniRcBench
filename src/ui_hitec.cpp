@@ -1810,8 +1810,9 @@ bool uiHitecTick(const TouchState *t) {
 	static const TouchState none = {};
 	s_t = t ? t : &none;
 	hitecJobStatus(&s_st);
-	// The claim from the entry tap's frame: a servo connected after the tap
-	// never sees DShot. Refused, it is asked for again every frame.
+	// The claim from the entry tap's frame: DShot drains and stops before
+	// the main view asks for the servo. Refused, it is asked for again
+	// every frame.
 	if (s_claimed) pinClaimPoll();
 	else if (!claimEnded()) claimPin();
 	if (!claimEnded()) follow();

@@ -11,8 +11,9 @@ in-memory volume. `src/ui_kst.cpp` is the screen, KST / CHASERVO on
 PROGRAMMER behind MENU's SERVO PROGRAMMER row since slice 9 of
 [menu-b.md](menu-b.md), and `src/kst_view.*` the rows, values, stepper and
 texts it draws; the host suite runs the screen through MENU and PROGRAMMER
-against the simulated servo and the in-memory volume. The switched supply, step 5, is built: with `SERVO SUPPLY` at
-`GP28` or `GP29` the bench switches the servo's supply, and with `OWN`
+against the simulated servo and the in-memory volume. The switched supply,
+step 5, is built: with `SERVO SUPPLY` at `GP28` or `GP29` the bench
+switches the servo's supply, and with `OWN`
 LEAVE asks the user to power the servo off. Menu structure B's slice 3
 ([menu-b.md](menu-b.md), decisions 9, 10 and 15) is built: SERVO SUPPLY is
 a core section of SETTINGS, its no-switch value reads `OWN`, the strips name
