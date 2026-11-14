@@ -706,6 +706,17 @@ the tag. Menu structure B waits on being built, not on the bench (item 18).
     `uiChip()` drawn through `gfxRoundRect()` at a 4 px radius. Whether to
     draw radii, or drop them, is open; the chips are square by decision 11
     either way.
+26. **Run summary per log, the owner's choice of 2026-11-14,** from the
+    feature survey. Designed in
+    [run-summary.md](docs/design/run-summary.md), not built: a summary
+    per blackbox log, kept by the logger on core0, written as
+    `LOGS/LOGnnnnn.TXT` beside the `.BFL` at a clean stop and shown on SD
+    LOG; optionally the board's PCF85063 RTC dating the files on the card.
+    Found while designing it: every file and directory the firmware writes
+    today has FAT date and time 0, because the SD library's
+    `get_fattime()` returns 0 while the RP2350's always-on timer is not
+    running, and nothing starts it; not checked on a card. Waits on the
+    owner's answers to the note's seven questions.
 
 ## Known limitations
 
