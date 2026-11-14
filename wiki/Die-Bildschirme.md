@@ -41,7 +41,12 @@ ein Tippen darauf bewirkt nichts.
   in Bernstein ersetzt sie, wenn die Anzeige ihren DShot-Ausgang nicht
   einrichten konnte; dann wird nichts an den ESC gesendet;
 - der Aufzeichnungszustand: `REC`, `SD`, `SDERR` oder `NOSD`
-  (siehe [SD-Aufzeichnung](SD-Aufzeichnung));
+  (siehe [SD-Aufzeichnung](SD-Aufzeichnung)). `SDERR`, eine Aufzeichnung,
+  die von selbst endete, steht auf einem bernsteinfarbenen Feld und lässt
+  Scharf-Feld, Drehzahl und Gas frei;
+
+  <img src="img/tester-sderr.png" width="240" alt="Der Tester scharf, SDERR auf einem bernsteinfarbenen Feld in der oberen Zeile">
+
 - `BOARD` und die Spannung des platineneigenen Akkus, gemessen über den
   Teiler aus 200 kΩ und 100 kΩ; höchstens 9,90 V. Es ist nicht der Akku des
   ESC: Dessen Spannung steht in der Kachel `VOLTAGE`. Was sie bei reiner
@@ -121,7 +126,7 @@ Lage.
 | **SERVO TESTER** | die beiden Signalpins, `GP0+1`; `PINS BUSY` | Öffnet den Servotester |
 | **KST SERVO** | der ESC-Pin, `GP0`; `PINS BUSY` | Öffnet den KST-Programmierer. Siehe [KST-Programmierung](KST-Programmierung) |
 | **HITEC SERVO** | der ESC-Pin, `GP0`; `PINS BUSY` | Öffnet den Hitec-Programmierer. Siehe [Hitec-Programmierung](Hitec-Programmierung) |
-| **SETTINGS** | `UNSAVED`, solange ein Wert vom Flash abweicht, sonst nichts; `PINS BUSY`, solange die Pins noch zurückgegeben werden, und öffnet sich nicht | Öffnet SETTINGS |
+| **SETTINGS** | `UNSAVED`, solange ein Wert vom Flash abweicht; sonst `UPDATED`, solange ein Zurücksetzen durch ein Update nicht überspeichert ist; sonst nichts. Alles in Bernstein. `PINS BUSY`, solange die Pins noch zurückgegeben werden, und öffnet sich nicht | Öffnet SETTINGS |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, oder `USB DRIVE`, solange ein Computer die Karte hält | Öffnet den Aufzeichnungs-Bildschirm |
 
 `PINS BUSY` heißt, dass die Signalpins noch belegt sind, zum Beispiel während
@@ -146,6 +151,15 @@ Schaltfläche zum Speichern liegt in SETTINGS.
 
 <img src="img/menu-unsaved.png" width="240" alt="UNSAVED in der Zeile SETTINGS, Änderungen noch nicht im Flash">
 
+`UPDATED` in der Zeile SETTINGS heißt, dass ein Firmware-Update die
+gespeicherten Einstellungen verworfen hat: Jeder Wert, darunter Polzahl,
+`MAX THROTTLE`, `ESC PIN`, KISS, `SERVO SUPPLY` und `CURRENT SENSE`, steht auf
+seiner Voreinstellung. Prüfe sie in SETTINGS und halte `HOLD TO SAVE`; ein
+gelungenes Speichern beendet die Markierung. Der Startbildschirm sagt dasselbe
+beim Einschalten (siehe [Erste Schritte](Erste-Schritte#einschalten)).
+
+<img src="img/menu-updated.png" width="240" alt="UPDATED in der Zeile SETTINGS, nachdem ein Update die gespeicherten Einstellungen verworfen hat">
+
 ---
 
 ## SETTINGS
@@ -160,7 +174,7 @@ Liste in Abschnitten, die sich mit dem Finger verschieben lässt.
 |---|---|---|
 | ESC TESTER | **MOTOR POLES** | 2–28, nur gerade Werte. Die Drehzahlanzeige teilt die eRPM durch die Hälfte davon |
 | ESC TESTER | **MAX THROTTLE** | Die Gas-Obergrenze, `5%` bis `100%` in Schritten von 5 % |
-| WIRING | **ESC PIN** | GPIO (General Purpose Input/Output, frei verwendbarer Pin) für das Signalkabel. Angeboten werden nur die zwei freien GPIOs der Platine, GP0 und GP1 |
+| WIRING | **ESC PIN** | GPIO (General Purpose Input/Output, frei verwendbarer Pin) für das Signalkabel. Angeboten werden nur die zwei freien GPIOs der Platine, GP0 und GP1. Ein Schritt legt DShot sofort auf den neuen Pin; siehe die Hinweiszeile unten |
 | WIRING | **DSHOT KBAUD** | 150 / 300 / 600 / 1200. Herunterstellen, wenn die `LINK`-Fehlerrate steigt |
 | WIRING | **KISS TELEM** | Ob auf dem optionalen dritten Telemetriekabel empfangen wird |
 | WIRING | **KISS PIN** | GPIO für dieses Kabel. Überspringt den ESC-Pin, sodass beide nie zusammenfallen. Zeigt `--` und reagiert nicht, solange KISS TELEM aus ist |
@@ -186,15 +200,33 @@ von ihr sichtbar sind.
 
 Unter der Liste bleiben diese Elemente an ihrem Platz:
 
+- **Die Warnung zum ESC-Pin**, bei y 230, nur solange der ESC-Pin nicht der
+  ist, den der Startbildschirm beim Einschalten nannte: dessen Warnung für den
+  neuen Pin in Bernstein, zum Beispiel `UNPLUG ANY SERVO FROM GP1 NOW`. DShot
+  läuft ab dem Schritt auf diesem Pin, und ein dort verbliebenes Servo, etwa
+  nach dem Servotester mit zwei Servos, bewegt sich. Die Liste endet dann
+  12 px höher, bei y 227, und lässt sich 12 px weiter verschieben; ihre
+  oberen Zeilen bleiben, wo sie sind.
 - **LINK**: live, Pakete pro Sekunde und Fehlerrate. Grün heißt, es kommen
   Pakete an, der ESC-Pin stimmt also. Bernstein heißt, mehr als 5 % Fehler.
-- Die Hinweiszeile, die die verwendeten Werte nennt: `SAVED SETTINGS IN USE`
-  oder `COMPILED DEFAULTS IN USE`. Nach einer Änderung zeigt sie
-  `UNSAVED - HOLD SAVE TO KEEP`. Nach `RESET` zeigt sie
-  `DEFAULTS LOADED - RESTART TO UNDO` (Voreinstellungen geladen, ein Neustart
-  macht es rückgängig), solange ein Neustart die gespeicherten Werte
-  zurückbrächte, bis zur nächsten Änderung oder zu einem `HOLD TO SAVE`,
-  gescheitert oder nicht.
+- Die Hinweiszeile: ein Text, der erste, der zutrifft, in dieser Reihenfolge:
+  1. `SAVE FAILED - FLASH REFUSED THE WRITE` (rot) oder
+     `NOT WHILE ARMED - DISARM TO SAVE` (rot), bis zum nächsten Speichern
+     oder Verlassen von SETTINGS;
+  2. `ADJUSTED TO THIS BOARD'S LIMITS` oder `KISS OFF: NEEDS A PIN OF ITS OWN`
+     (Bernstein), bis zur nächsten Änderung;
+  3. `DEFAULTS LOADED - RESTART TO UNDO` (Voreinstellungen geladen, ein
+     Neustart macht es rückgängig; Bernstein) nach `RESET`, solange ein
+     Neustart die gespeicherten Werte zurückbrächte, bis zur nächsten
+     Änderung oder zu einem `HOLD TO SAVE`, gescheitert oder nicht;
+  4. `UNSAVED - HOLD SAVE TO KEEP` (Bernstein) nach einer Änderung;
+  5. `SAVED` (grün) nach einem Speichern, bis zur nächsten Änderung;
+  6. `RESET BY UPDATE - CHECK AND SAVE` (Bernstein), nachdem ein Update die
+     gespeicherten Einstellungen verworfen hat, bis ein Speichern gelingt;
+  7. `SAVED SETTINGS IN USE` oder `COMPILED DEFAULTS IN USE`.
+
+<img src="img/settings-pin.png" width="240" alt="SETTINGS, nachdem ESC PIN auf GP1 gewechselt hat: UNPLUG ANY SERVO FROM GP1 NOW über LINK, UNSAVED in der Hinweiszeile">
+
 - `HOLD TO SAVE` (150 × 48 px) und `RESET` (70 × 48 px).
 
 **Änderungen wirken sofort. Nur das Speichern braucht das Halten.** Eine neue

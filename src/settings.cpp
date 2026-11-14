@@ -16,6 +16,7 @@
 #include "board_desc.h"
 #include "pin_claim.h"
 
+#include <stddef.h>
 #include <string.h>
 
 /**
@@ -35,12 +36,17 @@
 static Settings s_live;
 static Settings s_saved;
 static bool     s_stored = false;
+/** @brief The last load discarded a whole block of another version. @see settingsResetByUpdate() */
+static bool     s_resetByUpdate = false;
+/** @brief The ESC pin at the last load. @see settingsBootDshotPin() */
+static uint8_t  s_bootPin = 0;
 static bool     s_seeded = false;
 
 static void ensureSeeded() {
 	if (s_seeded) return;
 	s_seeded = true;
 	settingsDefaults(&s_live);
+	s_bootPin = s_live.dshotPin;
 	s_saved = s_live;
 }
 
@@ -198,17 +204,48 @@ static void freshDefaults() {
 	s_seeded = true;
 	settingsDefaults(&s_live);
 	s_saved = s_live;
+	s_bootPin = s_live.dshotPin;
+}
+
+/**
+ * @brief Whether @p raw holds a whole block of another version: the magic, a
+ *        version other than this one, a payload of at most
+ *        @ref SETTINGS_OTHER_MAX bytes and the CRC-32 after it right. In
+ *        every version, 2 to 5, the header is 8 bytes and the CRC is the
+ *        next 4-byte-aligned word after the payload, over every byte before
+ *        it (the compiler pads `SettingsBlock` to that alignment).
+ */
+static bool otherVersionBlock(const uint8_t *raw) {
+	uint32_t magic;
+	uint16_t version, size;
+	memcpy(&magic, raw, 4);
+	memcpy(&version, raw + 4, 2);
+	memcpy(&size, raw + 6, 2);
+	if (magic != SETTINGS_MAGIC || version == SETTINGS_VERSION || size > SETTINGS_OTHER_MAX)
+		return false;
+	uint32_t at = (8u + size + 3u) & ~3u;
+	uint32_t crc;
+	memcpy(&crc, raw + at, 4);
+	return crc == settingsCrc32(raw, at);
 }
 
 void settingsLoad() {
 	freshDefaults();
 	s_stored = false;
+	s_resetByUpdate = false;
 
-	SettingsBlock blk;
-	memset(&blk, 0, sizeof(blk));
-	if (!settingsStorageRead(&blk, sizeof(blk))) {
+	// The header, the largest payload a block of another version may have,
+	// and its CRC: enough to tell a discarded block from blank flash.
+	uint8_t raw[((8 + SETTINGS_OTHER_MAX + 3) & ~3) + 4];
+	static_assert(sizeof(SettingsBlock) <= sizeof(raw), "a block is larger than the read");
+	static_assert(offsetof(SettingsBlock, crc32) == ((8 + sizeof(Settings) + 3) & ~3u),
+	              "the CRC is not where otherVersionBlock() looks for it");
+	if (!settingsStorageRead(raw, sizeof(raw))) {
 		return;
 	}
+	s_resetByUpdate = otherVersionBlock(raw);
+	SettingsBlock blk;
+	memcpy(&blk, raw, sizeof(blk));
 
 	// Four independent reasons to distrust the block, all fatal, none partial.
 	//
@@ -231,6 +268,7 @@ void settingsLoad() {
 	settingsValidate(&s_live);
 	s_saved = s_live;
 	s_stored = true;
+	s_bootPin = s_live.dshotPin;
 }
 
 Settings *settings() {
@@ -276,10 +314,18 @@ bool settingsSave() {
 
 	s_saved  = s_live;
 	s_stored = true;
+	s_resetByUpdate = false;
 	return true;
 }
 
 bool settingsStored() { return s_stored; }
+
+bool settingsResetByUpdate() { return s_resetByUpdate; }
+
+uint8_t settingsBootDshotPin() {
+	ensureSeeded();
+	return s_bootPin;
+}
 
 bool settingsDirty() {
 	ensureSeeded();

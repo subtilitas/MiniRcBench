@@ -24,6 +24,24 @@ enum class SdLogCtl : uint8_t {
 	Usb,         /**< USB DRIVE, absent while a host holds the card. */
 };
 
+struct SdLogStatus;
+
+/**
+ * @brief SD LOG's note for how the last log ended, two lines, or false.
+ *
+ * Shown above START from the end (@ref SdLogEnd): a write that found the
+ * card full, a write, sync or close that failed, a file that did not open,
+ * until the next start or mount; a log a tool stopped when it took the card,
+ * until the next start. A refusal of USB DRIVE outranks it for its 4000 ms.
+ * A tool's stop has one line: a mount hint takes the second.
+ *
+ * @param st The logger's status.
+ * @param[out] line1 What happened.
+ * @param[out] line2 The next step, or an empty string.
+ * @return False when there is nothing to say.
+ */
+bool uiSdLogEndNote(const SdLogStatus *st, const char **line1, const char **line2);
+
 /** @brief Open the screen. */
 void uiSdLogEnter();
 

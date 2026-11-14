@@ -23,6 +23,15 @@ bis 09999. Vorhandene Dateien werden nicht überschrieben. Logs, die eine
 frühere Firmware ins Wurzelverzeichnis schrieb, bleiben dort und zählen nicht
 mit.
 
+**Die höchste Nummer ist nicht immer die neueste Aufzeichnung.** Eine am
+Computer frei gewordene Nummer wird wieder vergeben: Liegen `LOG00001.BFL` bis
+`LOG00005.BFL` auf der Karte und ist `LOG00002.BFL` gelöscht, heißt die
+nächste Aufzeichnung `LOG00002.BFL`. Die Platine stellt keine Uhr, also geben
+auch die Datumsangaben der Dateien die Reihenfolge nicht an; welches Datum die
+Dateien tragen, ist nicht geprüft. Der SD-LOG-Bildschirm nennt die letzte
+Aufzeichnung der Sitzung (siehe `FILE` unten). Ob neue Aufzeichnungen nach der
+höchsten Datei nummeriert werden sollen, ist beim Eigentümer offen.
+
 Die Platine liest die Karte über 4-Bit-SDIO (Secure Digital Input/Output) mit
 10 MHz.
 
@@ -39,7 +48,14 @@ nicht beendet. `STOP` beendet sie.
 
 Der Tester-Bildschirm zeigt den Zustand in der oberen Zeile: `REC` (rot)
 während der Aufzeichnung, `SD` im Leerlauf, `SDERR` nach einem Kartenfehler,
-`NOSD` ohne Karte.
+`NOSD` ohne Karte. `SDERR` steht auf einem bernsteinfarbenen Feld zwischen der
+Scharf-Anzeige und `BOARD`, damit eine Aufzeichnung, die von selbst endete,
+auch im scharfen Zustand auffällt. SD LOG sagt, was geschah.
+
+Eine Aufzeichnung endet auch, wenn KST SERVO, HITEC SERVO oder AM32 CONFIG
+öffnet: Das Werkzeug braucht die Karte für seine Sicherung. SD LOG zeigt dann
+`RECORDING STOPPED BY KST SERVO` (oder `HITEC SERVO`, `AM32 CONFIG`). Nach dem
+Werkzeug startet `START` eine neue Aufzeichnung.
 
 ---
 
@@ -55,7 +71,7 @@ Computer die Karte hält.
 | Zeile | Bedeutung |
 |---|---|
 | **STATUS** | `NO CARD`, `READY`, `RECORDING` oder `CARD ERROR` |
-| **FILE** | Die geöffnete Datei |
+| **FILE** | Die geöffnete Datei. Nach dem Ende einer Aufzeichnung ihre Datei mit `(LAST)`, zum Beispiel `LOG00012.BFL (LAST)`, neben ihren Zählern, bis zum nächsten `START` oder Einbinden. `--` vor der ersten Aufzeichnung nach dem Einschalten und nach einem Einbinden (`RETRY MOUNT`, das Ende von `USB DRIVE`, das neue Einbinden durch ein Werkzeug): Es kann eine andere Karte sein, daher werden Name und Zähler zurückgesetzt |
 | **FRAMES** | Bisher geschriebene Frames |
 | **WRITTEN** | Geschriebene Kilobyte |
 | **DROPPED FRAMES** | Frames, die der Puffer nicht halten konnte. **Sollte null sein.** Sonst rot |
@@ -70,6 +86,37 @@ Karte für den Puffer zu langsam. `DROPPED FRAMES` über null heißt, die
 Aufzeichnung hat bereits Lücken.
 
 Meist ist eine langsame Karte die Ursache. Probiere zuerst eine andere Karte.
+
+<img src="img/log-last.png" width="240" alt="FILE zeigt LOG00001.BFL (LAST) nach STOP">
+
+### Wie die letzte Aufzeichnung endete
+
+<img src="img/log-card-full.png" width="240" alt="SD LOG, nachdem ein Schreibvorgang die Karte voll fand">
+
+Endet eine Aufzeichnung von selbst, oder nimmt ein Werkzeug die Karte, sagen
+Zeilen in Bernstein über `START`, wie, und was zu tun ist. Ein Entschärfen,
+das eine durch Scharfschalten begonnene Aufzeichnung beendet, und `STOP`
+zeigen keine. Ein Kartenfehler bleibt bis zum nächsten `START` oder Einbinden
+(`RETRY MOUNT`, das Ende von `USB DRIVE`, oder das neue Einbinden durch ein
+Werkzeug: RETRY MOUNT in KST SERVO oder HITEC SERVO, oder ihr neues Einbinden
+nach einem fehlgeschlagenen Kartenschreiben). Das Ende
+durch ein Werkzeug hat eine Zeile und bleibt bis zum nächsten `START`, auch
+über ein Einbinden hinweg, denn es stimmt weiter für die letzte Aufzeichnung;
+ohne Karte steht der Einbinde-Hinweis in der zweiten Zeile.
+
+| Zeilen | Bedeutung | Was tun |
+|---|---|---|
+| `RECORDING STOPPED: CARD FULL` / `FREE SPACE ON A COMPUTER, RETRY MOUNT` | Ein Schreibvorgang fand keinen freien Platz | Dateien am Computer löschen (`USB DRIVE` ist schreibgeschützt), Karte zurückstecken, `RETRY MOUNT` drücken |
+| `RECORDING STOPPED: CARD WRITE FAILED` / `REMOVED? REINSERT, THEN RETRY MOUNT` | Ein Schreibvorgang oder das abschließende Sichern oder Schließen schlug fehl: eine herausgezogene Karte oder ein Kartenfehler. Beides wird nicht unterschieden | Karte neu einstecken, `RETRY MOUNT` drücken |
+| `NO LOG STARTED: THE FILE DID NOT OPEN` / `CHECK THE CARD, THEN RETRY MOUNT` | `START` konnte `LOGS` nicht anlegen oder die nächste Datei nicht öffnen | Karte am Computer prüfen, `RETRY MOUNT` drücken |
+| `RECORDING STOPPED BY KST SERVO` (`HITEC SERVO`, `AM32 CONFIG`) | Das Werkzeug nahm die Karte für seine Sicherung | `START` für eine neue Aufzeichnung |
+
+Eine volle Karte unterscheidet sich von einem fehlgeschlagenen Schreibvorgang
+durch das, was das Dateisystem meldet: Ein Schreibvorgang, der keinen freien
+Cluster findet, endet mit weniger geschriebenen Bytes und ohne Fehler. Die
+ersten drei lassen `STATUS` auf `CARD ERROR` und den Tester auf `SDERR`.
+Solange eine Ablehnung von `USB DRIVE` angezeigt wird, belegt sie die untere
+Zeile und der Hinweis wartet.
 
 ### Keine Karte
 
@@ -138,6 +185,10 @@ Auswerfen nicht scharf. Neu drücken.
 
 Am Computer auswerfen oder `EJECT` auf dem Bildschirm drücken. Beides beendet
 die Übergabe.
+Ein Computer, der das Laufwerk abmeldet, beendet sie ebenfalls. Ein gezogenes
+Kabel bei einer Platine am Akku tut das nicht: Der USB-Stack dieser Firmware
+sieht es wie einen Computer, der schlafen ging, und der behält die Karte.
+Drücke dann `EJECT`. Auf der Hardware nicht geprüft.
 
 ---
 

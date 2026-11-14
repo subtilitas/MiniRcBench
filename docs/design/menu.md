@@ -222,11 +222,11 @@ In content coordinates, 0 px at the top of the list:
 
 | Item | Value |
 |---|---|
-| Viewport | y 40 to 239, 200 px (`VIEW_Y0`, `VIEW_H`). SETTINGS has no strip |
+| Viewport | y 40 to 239, 200 px (`VIEW_Y0`, `VIEW_H`); y 40 to 227, 188 px (`VIEW_H_PIN`) while the ESC pin's warning shows at y 230 (`PIN_Y`). SETTINGS has no strip |
 | Section caption | 20 px (`CAP_H`); its name at scale 1 in `C_CYAN` at x 8, 8 px below its top; takes no press |
 | Rows | 44 px tall (`ROW_H`) at a 50 px pitch (`ROW_PITCH`) |
 | Content | slice C: 4 captions and 9 rows, 530 px; slice 3: 5 captions and 10 rows, 600 px |
-| Scroll range | slice C: 0 px to 330 px; slice 3: 0 px to 400 px (`MAX_SCROLL_PX`, content minus 200 px) |
+| Scroll range | slice C: 0 px to 330 px; slice 3: 0 px to 400 px (`MAX_SCROLL_PX`, content minus 200 px); now 0 px to 620 px, and 632 px while the ESC pin's warning shows (content minus 188 px) |
 | Label | scale 1, 7 px tall, from x 8, centred in the row. The widest, `MAX THROTTLE` and `SERVO SUPPLY`, are 71 px and end at x 78 |
 | Value | scale 2, 14 px tall, right-aligned to x 132 (`VAL_R`). The widest, 4 characters (`NONE`, `1200`, `100%`), is 46 px and starts at x 86 |
 | − and + | 44 × 44 px, at x 138 and x 188 |

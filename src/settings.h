@@ -197,6 +197,35 @@ bool settingsSave();
 bool settingsStored();
 
 /**
+ * @brief True after settingsLoad() discarded a block of another version: a
+ *        firmware with another @ref SETTINGS_VERSION wrote it, and every
+ *        setting is back at its compiled default.
+ *
+ * The block must be whole to count: @ref SETTINGS_MAGIC, a version other
+ * than this one, a size of at most @ref SETTINGS_OTHER_MAX bytes of payload
+ * and a CRC-32 right over its own header and payload. Blank flash and a
+ * damaged block read false. The splash and MENU's SETTINGS row show it; a
+ * save that lands (settingsSave() true) ends it.
+ * @return Whether the last load discarded such a block and no save has landed since.
+ */
+bool settingsResetByUpdate();
+
+/**
+ * @brief The ESC pin settingsLoad() put live: the pin the splash names, and
+ *        the one DShot starts on at boot. The compiled default's before a
+ *        load. SETTINGS warns while the live pin differs from it.
+ * @return GPIO number.
+ */
+uint8_t settingsBootDshotPin();
+
+/**
+ * @brief The largest payload a block of another version may declare and
+ *        still be judged whole by settingsResetByUpdate(). Version 2 had
+ *        12 bytes, versions 3 to 5 have `sizeof(Settings)`.
+ */
+#define SETTINGS_OTHER_MAX 52
+
+/**
  * @brief True if the live settings differ from what is in flash.
  * @return Whether a save would change anything.
  */

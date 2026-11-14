@@ -48,6 +48,13 @@
  */
 #define VIEW_Y0     UI_STRIP_Y  /**< First row of the list, y 40: SETTINGS has no strip. */
 #define VIEW_H      200         /**< To y 239. */
+/**
+ * @brief The ESC pin's warning, on a line of its own above LINK while it
+ *        shows (pinNote()); the list then ends 12 px higher, at y 227
+ *        (VIEW_H_PIN), and scrolls 12 px further. Its top rows do not move.
+ */
+#define PIN_Y       230
+#define VIEW_H_PIN  188         /**< To y 227, while the ESC pin's warning shows. */
 #define CAP_H       20          /**< A section caption. */
 #define ROW_H       44          /**< A row's controls. */
 #define ROW_PITCH   50          /**< Row top to row top. */
@@ -72,6 +79,8 @@
 
 static_assert(VIEW_Y0 >= UI_HDR_H, "the list overlaps the header");
 static_assert(VIEW_Y0 + VIEW_H <= LINK_Y, "the list overlaps LINK");
+static_assert(VIEW_Y0 + VIEW_H_PIN + 2 <= PIN_Y && PIN_Y + 7 + 4 <= LINK_Y,
+              "the ESC pin's warning meets the list or LINK");
 static_assert(ROW_PITCH > ROW_H, "SETTINGS rows have no gap");
 static_assert(ROW_H >= UI_LIST_TAP_MIN && BTN_W >= UI_LIST_TAP_MIN &&
               TOGGLE_W >= UI_LIST_TAP_MIN && FOOT_H >= UI_LIST_TAP_MIN,
@@ -429,7 +438,7 @@ static int topOf(const Item &it) { return VIEW_Y0 + it.y - s_list.scrollPx; }
 static UiRect clipToView(UiRect r) {
 	int top = r.y, bot = r.y + r.h;
 	if (top < VIEW_Y0) top = VIEW_Y0;
-	if (bot > VIEW_Y0 + VIEW_H) bot = VIEW_Y0 + VIEW_H;
+	if (bot > VIEW_Y0 + s_list.view.h) bot = VIEW_Y0 + s_list.view.h;
 	if (bot < top) bot = top;
 	return UiRect{ r.x, (int16_t)top, r.w, (int16_t)(bot - top) };
 }
@@ -549,12 +558,47 @@ static bool resetNoteShown() {
 }
 
 /**
+ * @brief The splash's warning for the live ESC pin, while it is not the pin
+ *        the splash named at boot (settingsBootDshotPin()), or null. Drawn
+ *        on its own line at @ref PIN_Y, not on the note line, so the note
+ *        line still says UNSAVED or SAVED.
+ *
+ * The rule is the boot pin, not the saved pin or the pin at opening: the
+ * splash warned about the boot pin only, and DShot runs on the live pin
+ * from the step that changed it (applyLive()). Against the saved pin the
+ * note would end at a save, against the pin at opening at a return to
+ * SETTINGS, with DShot still on a pin nothing warned about.
+ */
+static const char *pinNote() {
+	static char buf[40];
+	uint8_t pin = settings()->dshotPin;
+	if (pin == settingsBootDshotPin()) return nullptr;
+	snprintf(buf, sizeof(buf), UI_SPLASH_PIN_FMT, (unsigned)pin);
+	return buf;
+}
+
+/**
+ * @brief Give the list the height the ESC pin's warning leaves it: VIEW_H,
+ *        or VIEW_H_PIN while the warning shows. The scroll is clamped to the
+ *        new range. @return True when the height changed.
+ */
+static bool fitView() {
+	int16_t h = pinNote() ? VIEW_H_PIN : VIEW_H;
+	if (s_list.view.h == h) return false;
+	s_list.view.h = h;
+	uiListScrollTo(&s_list, s_list.scrollPx);
+	return true;
+}
+
+/**
  * @brief The note line: the single most useful thing to say right now.
  *
- * Ordered by urgency: a failed save outranks everything; a setting the
- * firmware had to repair outranks the saved or unsaved state, because the
- * user asked for something and did not get it. RESET's note outranks
- * UNSAVED: it is the same state, said with what undoes it.
+ * Ordered by urgency. First what the last press did: a failed save, which
+ * ends at the next save or on leaving SETTINGS, then a setting the firmware
+ * had to repair, because the user asked for something and did not get it,
+ * which ends at the next change. RESET's note outranks UNSAVED:
+ * it is the same state, said with what undoes it. Last, with nothing
+ * pending, a reset by an update before the plain saved or default state.
  *
  * @param[out] col Colour to draw it in.
  * @return The text.
@@ -584,6 +628,10 @@ static const char *noteText(uint16_t *col) {
 	if (s_saveOutcome == SaveOutcome::Ok) {
 		*col = C_LIME;
 		return "SAVED";
+	}
+	if (settingsResetByUpdate()) {
+		*col = C_AMBER;
+		return "RESET BY UPDATE - CHECK AND SAVE";
 	}
 	*col = C_DIM;
 	return settingsStored() ? "SAVED SETTINGS IN USE"
@@ -616,15 +664,19 @@ static void drawAll() {
 	gfxFill(C_BG);
 	uiHeader("SETTINGS", s_t);
 
-	gfxSetClip(0, VIEW_Y0, GFX_W, VIEW_H);
+	gfxSetClip(0, VIEW_Y0, GFX_W, s_list.view.h);
 	for (uint8_t i = 0; i < s_itemCount; i++) {
 		int y = topOf(s_items[i]);
 		int h = s_items[i].row ? ROW_H : CAP_H;
-		if (y + h <= VIEW_Y0 || y >= VIEW_Y0 + VIEW_H) continue;
+		if (y + h <= VIEW_Y0 || y >= VIEW_Y0 + s_list.view.h) continue;
 		drawItem(i);
 	}
 	gfxClearClip();
 	uiListDrawBar(&s_list, BAR_X);
+
+	// The ESC pin's warning keeps a line of its own, so the note line below
+	// still says whether the settings are saved.
+	if (const char *pin = pinNote()) gfxText(UI_MARGIN, PIN_Y, pin, C_AMBER, 1);
 
 	drawLink(true);
 
@@ -683,6 +735,7 @@ void uiSettingsEnter() {
 	memset(s_rep, 0, sizeof(s_rep));
 	buildItems();
 	applyLive();
+	fitView();
 }
 
 bool uiSettingsTick(const TouchState *t) {
@@ -788,6 +841,7 @@ bool uiSettingsTick(const TouchState *t) {
 
 	// UPTIME is the one value that moves on its own: a repaint each second
 	// while its row shows.
+	if (fitView()) s_redraw = true;
 	uint32_t up = diagUptimeSeconds();
 	if (up != s_shownUptime && uptimeInView()) s_redraw = true;
 
@@ -837,10 +891,17 @@ uint8_t uiSettingsSections(const SettingsSection **out, uint8_t max) {
 	return n;
 }
 
-/** @brief SETTINGS' MENU status: UNSAVED while the live settings differ from flash. */
+/**
+ * @brief SETTINGS' MENU status: UNSAVED while the live settings differ from
+ *        flash; else UPDATED while an update's reset is not saved over
+ *        (settingsResetByUpdate()); both amber.
+ */
 static void settingsMenuStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
 	if (settingsDirty()) {
 		snprintf(buf, n, "UNSAVED");
+		*col = C_AMBER;
+	} else if (settingsResetByUpdate()) {
+		snprintf(buf, n, "UPDATED");
 		*col = C_AMBER;
 	} else {
 		buf[0] = '\0';

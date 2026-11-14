@@ -22,6 +22,14 @@ and so on. Each new file takes the lowest unused number from 00001 to 09999.
 Existing files are not overwritten. Logs an earlier firmware wrote to the
 card's root stay there and are not counted.
 
+**The highest number is not always the newest log.** A number freed on a
+computer is taken again: with `LOG00001.BFL` to `LOG00005.BFL` on the card and
+`LOG00002.BFL` deleted, the next log is `LOG00002.BFL`. The board sets no
+clock, so the files' dates do not give the order either; what date the files
+carry is not verified. The SD LOG screen names the last log of the session
+(see `FILE` below). Whether new logs should be numbered after the highest
+file instead is open to the owner.
+
 The board reads the card over 4-bit SDIO (Secure Digital Input/Output) at
 10 MHz.
 
@@ -35,7 +43,14 @@ The board reads the card over 4-bit SDIO (Secure Digital Input/Output) at
 started by hand is not stopped by a disarm. `STOP` ends it.
 
 The tester screen shows the state in its top row: `REC` (red) while recording,
-`SD` while idle, `SDERR` after a card error, `NOSD` with no card.
+`SD` while idle, `SDERR` after a card error, `NOSD` with no card. `SDERR` is
+drawn on an amber chip, between the arm badge and `BOARD`, so a recording that
+stopped on its own shows while armed. SD LOG says what happened.
+
+A log also ends when KST SERVO, HITEC SERVO or AM32 CONFIG opens: the tool
+needs the card for its backup. SD LOG then reads
+`RECORDING STOPPED BY KST SERVO` (or `HITEC SERVO`, `AM32 CONFIG`). Press
+`START` for a new log after the tool.
 
 ---
 
@@ -51,7 +66,7 @@ card.
 | Row | Meaning |
 |---|---|
 | **STATUS** | `NO CARD`, `READY`, `RECORDING` or `CARD ERROR` |
-| **FILE** | The open file |
+| **FILE** | The open file. After a log ends, its file with `(LAST)`, for example `LOG00012.BFL (LAST)`, next to its counters, until the next `START` or a mount. `--` before the first log after power-up and after a mount (`RETRY MOUNT`, the end of `USB DRIVE`, a tool's remount): the card may be another one, so the name and the counters reset |
 | **FRAMES** | Frames written so far |
 | **WRITTEN** | Kilobytes written |
 | **DROPPED FRAMES** | Frames the buffer could not hold. **Should be zero.** Red otherwise |
@@ -65,6 +80,34 @@ covers (8192 bytes is about 1.1 s at 7.3 kB/s), means the card is too slow for
 the buffer. `DROPPED FRAMES` above zero means the log already has gaps.
 
 The usual cause is a slow card. Try another card first.
+
+<img src="img/log-last.png" width="240" alt="FILE reads LOG00001.BFL (LAST) after STOP">
+
+### How the last log ended
+
+<img src="img/log-card-full.png" width="240" alt="SD LOG after a write found the card full">
+
+When a log ends on its own, or a tool takes the card, amber lines above
+`START` say how, and what to do. A disarm that ends a log arming started, and
+`STOP`, show none. A card's fault stays until the next `START` or a mount
+(`RETRY MOUNT`, the end of `USB DRIVE`, or a tool's remount: RETRY MOUNT on
+KST SERVO or HITEC SERVO, or their remount after a failed card write). A
+tool's stop has one line and stays
+until the next `START`, across mounts, as it stays true of the last log;
+without a card the mount hint takes the second line.
+
+| Lines | Meaning | What to do |
+|---|---|---|
+| `RECORDING STOPPED: CARD FULL` / `FREE SPACE ON A COMPUTER, RETRY MOUNT` | A write found no free space | Delete files on a computer (`USB DRIVE` is read-only), put the card back, press `RETRY MOUNT` |
+| `RECORDING STOPPED: CARD WRITE FAILED` / `REMOVED? REINSERT, THEN RETRY MOUNT` | A write, or the final sync or close, failed: a card that was pulled out, or a card fault. The two are not told apart | Reseat the card, press `RETRY MOUNT` |
+| `NO LOG STARTED: THE FILE DID NOT OPEN` / `CHECK THE CARD, THEN RETRY MOUNT` | `START` could not make `LOGS` or open the next file | Check the card on a computer, press `RETRY MOUNT` |
+| `RECORDING STOPPED BY KST SERVO` (`HITEC SERVO`, `AM32 CONFIG`) | The tool took the card for its backup | `START` for a new log |
+
+A full card is told from a failed write by what the filesystem reports: a
+write that finds no free cluster ends with fewer bytes written and no error.
+The first three leave `STATUS` at `CARD ERROR` and the tester at `SDERR`.
+While a `USB DRIVE` refusal shows, it takes the lower line and the note
+waits.
 
 ### No card
 
@@ -128,6 +171,10 @@ is drawn as an outline, and the throttle bar reads
 computer holds the card does not arm, even after the eject. Press again.
 
 Eject on the computer, or press `EJECT` on the screen. Both end the handover.
+A computer that unconfigures the drive ends it too. A cable pulled with the
+board on its battery does not: this firmware's USB stack sees it as a computer
+that went to sleep, which keeps the card. Press `EJECT` then. Not tested on
+hardware.
 
 ---
 

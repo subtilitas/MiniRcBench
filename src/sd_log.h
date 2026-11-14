@@ -39,6 +39,57 @@ enum class SdLogState : uint8_t {
 	Error,       /**< A write or open failed. Card needs re-mounting. */
 };
 
+/**
+ * @brief Why the last log ended, when it was not STOP on SD LOG.
+ *
+ * Kept until the next start. A mount (sdLogBegin(), which RETRY MOUNT, the
+ * end of USB DRIVE and a tool's remount run) forgets a card's fault, as the
+ * card in the slot may be another one by then, and keeps a tool's stop
+ * (sdLogMountForget()). SD LOG prints it on its note lines.
+ */
+enum class SdLogEnd : uint8_t {
+	None = 0,     /**< Nothing to report: no log yet, a STOP, or a start or mount since. */
+	CardFull,     /**< A write found no free cluster: FatFs wrote fewer bytes than asked. */
+	WriteFailed,  /**< A write, sync or close failed: the card removed, or a card fault. */
+	OpenFailed,   /**< START found no file to open: the directory, the number or the open failed. */
+	ByKst,        /**< KST SERVO took the card for its backup and stopped the log. */
+	ByHitec,      /**< HITEC SERVO did. */
+	ByAm32,       /**< AM32 CONFIG did. */
+};
+
+/** @brief True for an end a tool's claim caused. Pure. */
+static inline bool sdLogEndByTool(SdLogEnd e) {
+	return e == SdLogEnd::ByKst || e == SdLogEnd::ByHitec || e == SdLogEnd::ByAm32;
+}
+
+/**
+ * @brief What a mount does to the end: a card's fault is forgotten, the card
+ *        in the slot may be another one; a tool's stop is kept until the next
+ *        start, as it stays true of the last log. Pure; host-testable.
+ * @param[in,out] e The end.
+ */
+static inline void sdLogMountForget(SdLogEnd *e) {
+	if (!sdLogEndByTool(*e)) *e = SdLogEnd::None;
+}
+
+/**
+ * @brief What a failed f_write() says about the card. Pure; host-testable.
+ *
+ * FatFs ends a write that finds no free cluster with FR_OK and fewer bytes
+ * written than asked (ff.c R0.15, f_write(): "disk full"). A card that is
+ * gone or fails answers with an error: FR_DISK_ERR from the block write, or
+ * FR_INVALID_OBJECT when the drive reports itself uninitialised (validate()).
+ * A card fault and a removed card are not told apart.
+ *
+ * @param fr    The FRESULT, 0 for FR_OK.
+ * @param wrote Bytes FatFs reports written.
+ * @param asked Bytes handed to it.
+ * @return CardFull or WriteFailed.
+ */
+static inline SdLogEnd sdLogWriteEnd(int fr, uint32_t wrote, uint32_t asked) {
+	return (fr == 0 && wrote < asked) ? SdLogEnd::CardFull : SdLogEnd::WriteFailed;
+}
+
 /** @brief Counters for the UI. Copied out by sdLogStatus(). */
 struct SdLogStatus {
 	SdLogState state;
@@ -68,7 +119,13 @@ struct SdLogStatus {
 	uint32_t   dropEvents;    /**< Frames lost to a full ring. */
 	uint32_t   peakBuffer;    /**< Ring high-water mark, bytes. */
 	uint32_t   worstFlushMs;  /**< Longest single card write. Sizes the buffer. */
-	uint16_t   fileNumber;    /**< N in LOGS/LOGnnnnn.BFL, 0 when not logging. */
+	/**
+	 * @brief N in LOGS/LOGnnnnn.BFL: the open log's while logging, else the
+	 *        last log's, kept until the next start or mount. 0 before the
+	 *        first, and after a mount; the counters reset with it.
+	 */
+	uint16_t   fileNumber;
+	SdLogEnd   end;           /**< Why the last log ended, @ref SdLogEnd. */
 };
 
 /**
@@ -87,6 +144,18 @@ bool sdLogStart();
 
 /** @brief Finish the current log: end event, flush, close. No-op when idle. */
 void sdLogStop();
+
+/**
+ * @brief Stop a running log for a tool that takes the card, and record which
+ *        one: SD LOG then reads `RECORDING STOPPED BY` and the tool's name
+ *        until the next start; a mount keeps it (sdLogMountForget()).
+ *        No-op when no log runs.
+ * @param tool @ref SdLogEnd::ByKst, @ref SdLogEnd::ByHitec or
+ *        @ref SdLogEnd::ByAm32. A stop that fails keeps the cause it
+ *        recorded: CardFull or WriteFailed from the last flush, WriteFailed
+ *        from the sync or close.
+ */
+void sdLogStopFor(SdLogEnd tool);
 
 /**
  * @brief Try to mount the card again.
