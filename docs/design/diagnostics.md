@@ -191,4 +191,4 @@ bench, these are the questions to answer:
    count on the LAST RESTART row that opens a list; whether it is also sent
    over the USB serial port.
 7. **How it is cleared.** A hold on the page, as HOLD TO SAVE works, or
-   RESET on SETTINGS, or never; whether a clear is itself recorded.
+   HOLD DEFAULTS on SETTINGS, or never; whether a clear is itself recorded.

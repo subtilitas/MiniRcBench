@@ -626,10 +626,17 @@ code needed a rule it did not give:
    (decision 22 holds a TWO past the travel as pending); the wait is then
    decided again, so a wait that held only for TWO ends and the rest of the
    edit applies (`claimPins()`).
+   Revised by [menu-b.md](menu-b.md#decisions) owner decision 3 and
+   decision 5: the unplug page is the leave page, whose BACK is drawn
+   disabled; its BACK TO SERVO keeps the claim and the roles it holds.
 8. **Profile at entry.** Every entry to SERVO starts at STANDARD PWM, 50 Hz,
    one servo, SPEED 100 % and the default sweep, not only every boot. BACK
    leads through the unplug page, so the next entry is likely a different
    servo, and decision 2's reason applies to it.
+   Revised by [menu-b.md](menu-b.md#decisions) owner decision 3 and
+   decisions 5 and 13: the screen is SERVO TESTER, and BACK opens the leave
+   page. BACK TO SERVO there returns to the main view, SAFE, with the
+   profile as it was; only an entry from MENU starts at the defaults.
 9. **Gap between MIN, CENTRE and MAX.** One step, 10 µs. rcbench keeps 50 µs;
    the design states only the order. A stepper that would cross a limit does
    not move, so values stay on the 10 µs grid.
@@ -653,6 +660,8 @@ code needed a rule it did not give:
 14. **Where the screen tests live.** In `test_servo.cpp`, not
     `test_ui.cpp`, so slice 3 does not edit the same test file; `test_ui.cpp`
     checks the CFG row only.
+    Revised by [menu-b.md](menu-b.md#decisions) decisions 13 and 16: the
+    CFG row is MENU's SERVO TESTER row, which `test_menu.cpp` checks.
 15. **Core1JobOps init.** A fourth member, `init`, called by
     `core1JobInit()` on core0, initialises a job's critical section before
     core1 starts. Null for a job with nothing to initialise.
