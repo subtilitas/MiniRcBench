@@ -257,6 +257,21 @@ static EscTelemetry s_tel;
  * other, which is a thing people notice and reasonably report as a bug.
  */
 static RpmFilter s_erpmFilter;
+/** @brief The touch controller does not answer: uiTouchLost(), once a frame. */
+static bool s_touchLost = false;
+/**
+ * @brief Whether the touch controller does not answer now: no completed read
+ *        since touchInit(), or none for @ref TOUCH_LOST_MS.
+ */
+static bool touchLostNow() {
+	uint32_t at = 0;
+	if (!touchLastAnswer(&at)) return true;
+	return (uint32_t)(millis() - at) >= TOUCH_LOST_MS;
+}
+/** @brief The splash shows TOUCH CONTROLLER NOT FOUND. */
+static bool s_splashNoTouch = false;
+/** @brief The band the board's voltage is drawn in. @see uiBoardCell() */
+static BoardCell s_boardCell = BoardCell::Ok;
 /** @brief Filtered eRPM, stepped once per uiTick() and read by drawRpm(). */
 static uint32_t  s_erpmShown = 0;
 static float s_batteryV = 0.0f;
@@ -270,7 +285,7 @@ static float s_batteryV = 0.0f;
  */
 static struct {
 	int  armed, btnArmed, holdOn, armProgress;
-	int  battKey;
+	int  battKey, touchLost;
 	uint32_t rpm, erpm;
 	int  linkAlive, rpmArmed;
 	int  volts100, amps100, tempC, stress, status, rate, errPct, edt;
@@ -399,6 +414,20 @@ static_assert(STATUS_BOARD_X + (6 * (int)(sizeof(STATUS_BOARD_TEXT) - 1) - 1) + 
                   240 - 4 - (6 * (int)(sizeof(STATUS_VOLT_WIDEST) - 1) - 1) * 2,
               "BOARD runs into the voltage beside it");
 
+BoardCell uiBoardCell(float volts, BoardCell prev) {
+	int mv = volts <= 0.0f ? 0 : (int)(volts * 1000.0f + 0.5f);
+	BoardCell now = mv < BOARD_CELL_CRIT_MV ? BoardCell::Critical
+	              : mv < BOARD_CELL_LOW_MV  ? BoardCell::Low : BoardCell::Ok;
+	// Down at once; up only once the reading clears the threshold it rises
+	// past by the hysteresis.
+	if (prev == BoardCell::Critical && mv < BOARD_CELL_CRIT_MV + BOARD_CELL_HYST_MV)
+		return BoardCell::Critical;
+	if (prev != BoardCell::Ok && now == BoardCell::Ok &&
+	    mv < BOARD_CELL_LOW_MV + BOARD_CELL_HYST_MV)
+		return BoardCell::Low;
+	return now;
+}
+
 void uiBoardVoltText(float volts, char *buf, size_t n) {
 	// Rounded once, to centivolts: rounding the fraction on its own carried
 	// 3.996 V to "3.100V", a wrong value and a sixth character over BOARD.
@@ -419,7 +448,7 @@ static void drawStatusBar() {
 	uiBoardVoltText(s_batteryV, volts, sizeof(volts));
 	// Keyed on the drawn text, so a change the text does not show repaints
 	// nothing and one it shows always repaints.
-	int battKey = 0;
+	int battKey = (int)s_boardCell;
 	for (const char *c = volts; *c; c++) battKey = battKey * 31 + *c;
 
 	SdLogStatus log;
@@ -499,7 +528,9 @@ static void drawStatusBar() {
 		snprintf(buf, sizeof(buf), "IDLE %ds", idleLeft);
 		gfxText(GFX_W - 4 - gfxTextW(buf, 2), 7, buf, C_AMBER, 2);
 	} else {
-		gfxText(GFX_W - 4 - gfxTextW(volts, 2), 7, volts, C_TEXT, 2);
+		uint16_t vcol = s_boardCell == BoardCell::Critical ? C_RED
+		              : s_boardCell == BoardCell::Low      ? C_AMBER : C_TEXT;
+		gfxText(GFX_W - 4 - gfxTextW(volts, 2), 7, volts, vcol, 2);
 		// Names whose voltage it is. IDLE displaces it with the voltage.
 		gfxText(STATUS_BOARD_X, STATUS_BOARD_Y, STATUS_BOARD_TEXT, C_DIM, 1);
 	}
@@ -517,9 +548,10 @@ static void drawRpm() {
 
 	if (s_shown.rpm == rpm && s_shown.erpm == erpm &&
 	    s_shown.linkAlive == (int)alive && s_shown.rpmArmed == (int)s_armed &&
-	    s_shown.padLive == (int)s_padEngaged)
+	    s_shown.padLive == (int)s_padEngaged && s_shown.touchLost == (int)s_touchLost)
 		return;
 	s_shown.padLive = s_padEngaged;
+	s_shown.touchLost = s_touchLost;
 	s_shown.rpm = rpm;
 	s_shown.erpm = erpm;
 	s_shown.linkAlive = alive;
@@ -546,9 +578,12 @@ static void drawRpm() {
 	// between touching it and it taking effect, and the only other evidence a
 	// drag engaged is the throttle number moving -- which is exactly what you
 	// are not watching while a motor spins up.
-	const char *hint = s_padEngaged ? "SWIPE ACTIVE" : "SWIPE = THROTTLE";
+	// A touch that does not answer takes the hint's place: the hint describes
+	// a touch, and NO TELEMETRY on the line above keeps its own place.
+	const char *hint = s_touchLost  ? UI_TOUCH_LOST_TEXT
+	                 : s_padEngaged ? "SWIPE ACTIVE" : "SWIPE = THROTTLE";
 	gfxText(226 - gfxTextW(hint, 1), 114, hint,
-	        s_padEngaged ? C_LIME : s_armed ? C_CYAN : C_GRID, 1);
+	        s_touchLost ? C_AMBER : s_padEngaged ? C_LIME : s_armed ? C_CYAN : C_GRID, 1);
 }
 
 /** @brief Six EDT tiles: voltage, current, temperature, stress, status, link. */
@@ -742,6 +777,20 @@ static void drawButtons() {
 /** @} */
 
 /**
+ * @brief Disarm the tester: throttle 0, HOLD off, the ESC told, the panel
+ *        dipped. The path of DISARM, the idle interlock and a touch that
+ *        does not answer.
+ */
+static void testerDisarm() {
+	s_armed = false;
+	s_throttle = 0;
+	s_hold = false;
+	escSetArmed(false);
+	backlightDip();
+	invalidateAll();
+}
+
+/**
  * @brief The one route from the tester to MENU, and so to every tool: it
  *        disarms, zeroes the throttle and turns HOLD off.
  */
@@ -856,15 +905,12 @@ static void handleMainTouch() {
 			// does not wait for release: everything else here can afford the
 			// cancel gesture, and the button whose job is "stop the motor now"
 			// cannot.
-			if (s_touch.pressed) {
-				s_armed = false;
-				s_throttle = 0;
-				s_hold = false;
-				escSetArmed(false);
-				backlightDip();
-				invalidateAll();
-			}
-		} else if (!s_armLive) {
+			if (s_touch.pressed) testerDisarm();
+		} else if (!s_armLive || s_touchLost) {
+			// A touch that does not answer reports no finger after two failed
+			// reads, before it counts as lost, so this refusal is not reached
+			// from the panel today. It keeps a press reported by a driver that
+			// misreads a lost controller from arming.
 			s_armPressing = false;
 		} else {
 			if (!s_armPressing) {
@@ -986,7 +1032,29 @@ void uiDrawSplash() {
 	char pin[40];
 	snprintf(pin, sizeof(pin), UI_SPLASH_PIN_FMT, (unsigned)settings()->dshotPin);
 	gfxTextCenter(288, pin, C_AMBER, 1);
+	// Not found: no answer since touchInit(). A controller that answers and
+	// then stops is the tester's TOUCH NOT ANSWERING.
+	uint32_t at;
+	s_splashNoTouch = !touchLastAnswer(&at);
+	if (s_splashNoTouch) gfxTextCenter(UI_SPLASH_TOUCH_Y, UI_SPLASH_TOUCH_TEXT, C_AMBER, 1);
 }
+
+static_assert(UI_SPLASH_TOUCH_Y + 8 < 104, "the splash's touch line runs into the name");
+
+void uiSplashTick() {
+	// A read of its own: the tester's edges start from its first frame.
+	TouchState t = {};
+	touchPoll(&t);
+	uint32_t at;
+	bool lost = !touchLastAnswer(&at);
+	if (lost == s_splashNoTouch) return;
+	s_splashNoTouch = lost;
+	// 8 rows: a glyph is a row taller in high contrast (themeBold()).
+	gfxRect(0, UI_SPLASH_TOUCH_Y, GFX_W, 8, C_BG);
+	if (lost) gfxTextCenter(UI_SPLASH_TOUCH_Y, UI_SPLASH_TOUCH_TEXT, C_AMBER, 1);
+}
+
+bool uiTouchLost() { return s_touchLost; }
 
 uint16_t uiThrottle() { return s_throttle; }
 bool uiArmed() { return s_armed; }
@@ -1014,6 +1082,8 @@ void uiInit() {
 	s_blDip = false;
 	// The first frame takes the reading as it is, unsmoothed.
 	s_batteryV = 0.0f;
+	s_boardCell = BoardCell::Ok;
+	s_touchLost = false;
 	rpmFilterReset(&s_erpmFilter);
 	s_erpmShown = 0;
 
@@ -1041,6 +1111,7 @@ void uiTick() {
 	escHeartbeat();
 	escSnapshot(&s_tel);
 	touchPoll(&s_touch);
+	s_touchLost = touchLostNow();
 	// The current sensor shares the touch controller's bus, on this core:
 	// after the touch read, so the touch read is never delayed by it.
 	senseTick(millis());
@@ -1050,6 +1121,7 @@ void uiTick() {
 	int raw = (int)adc_read();
 	float v = (raw * 3.3f / 4095.0f) * g_board->batDivider;
 	s_batteryV = s_batteryV == 0.0f ? v : (s_batteryV * 0.9f + v * 0.1f);
+	s_boardCell = uiBoardCell(s_batteryV, s_boardCell);
 
 	if (s_touch.down) s_lastTouchMs = millis();
 
@@ -1119,15 +1191,12 @@ void uiTick() {
 
 		// idle auto-disarm
 #if IDLE_DISARM_MS > 0
-		if (s_armed && (uint32_t)(millis() - s_lastTouchMs) > IDLE_DISARM_MS) {
-			s_armed = false;
-			s_throttle = 0;
-			s_hold = false;
-			escSetArmed(false);
-			backlightDip();
-			invalidateAll();
-		}
+		if (s_armed && (uint32_t)(millis() - s_lastTouchMs) > IDLE_DISARM_MS)
+			testerDisarm();
 #endif
+		// A touch that does not answer cannot press DISARM: with HOLD on the
+		// throttle would stand until the idle interlock, 30 s on.
+		if (s_armed && s_touchLost) testerDisarm();
 
 		escSetThrottle(s_throttle);
 

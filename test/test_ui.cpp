@@ -2553,6 +2553,179 @@ static void testIdleAutoDisarm() {
 	checkTrue("touching keeps it armed", uiArmed());
 }
 
+/** @brief Whether the tester's swipe-hint line reads @p text in @p col. */
+static bool hintIs(const char *text, uint16_t col) {
+	return fakeTextIs(226 - gfxTextW(text, 1), 114, text, col, C_BG, 1);
+}
+
+/**
+ * @brief A touch controller that stops answering disarms a latched throttle
+ *        within TOUCH_LOST_MS, says so, and the note goes when it answers.
+ *
+ * A dead touch cannot press DISARM, and with HOLD on the throttle would
+ * otherwise stand until the idle interlock, IDLE_DISARM_MS on.
+ */
+static void testTouchLoss() {
+	section("Safety: a touch that does not answer");
+
+	EscTelemetry none;
+	memset(&none, 0, sizeof(none));
+	fakeSetTelemetry(&none);
+	fakeFlashClear();
+	settingsLoad();
+	uiInit();
+	frames(4);
+	checkTrue("answering: the swipe hint, no note", hintIs("SWIPE = THROTTLE", C_GRID));
+	checkInt("TOUCH_LOST_MS is four 25 ms frames", TOUCH_LOST_MS, 4 * UI_FRAME_MS);
+
+	holdToArm();
+	tapId(UI_FIX(TesterCtl::Hold));
+	swipe(20, 120, thrY(), 8);
+	frames(2);
+	checkTrue("armed, throttle latched by HOLD", uiArmed() && fakeThrottle() > 0);
+
+	// The last answer was on the last frame. Three frames, 75 ms, without one:
+	// a short gap does not stop the motor.
+	fakeTouchAnswers(false);
+	frames(3);
+	checkTrue("75 ms without an answer: still armed", uiArmed() && fakeThrottle() > 0);
+	frames(1);
+	checkTrue("100 ms without an answer: disarmed", !uiArmed());
+	checkTrue("the ESC is told", !fakeArmed());
+	checkInt("throttle zeroed", fakeThrottle(), 0);
+	checkTrue("TOUCH NOT ANSWERING in amber in the hint's place",
+	          hintIs(UI_TOUCH_LOST_TEXT, C_AMBER));
+	checkTrue("NO TELEMETRY keeps its line",
+	          fakeTextIs(10, 102, "NO TELEMETRY", C_AMBER, C_BG, 1));
+	checkTrue("the note fits left of x 226 and clear of the pole count",
+	          226 - gfxTextW(UI_TOUCH_LOST_TEXT, 1) > 10 + gfxTextW("14P", 1) + 4);
+	frames(40);
+	checkTrue("a second on: still disarmed, the note still up",
+	          !uiArmed() && hintIs(UI_TOUCH_LOST_TEXT, C_AMBER));
+
+	fakeTouchAnswers(true);
+	frames(1);
+	checkTrue("answering again: the note goes", hintIs("SWIPE = THROTTLE", C_GRID));
+	checkTrue("and it stays disarmed", !uiArmed() && fakeThrottle() == 0);
+	// HOLD went off with the disarm: re-armed, a swipe springs back to zero.
+	holdToArm();
+	swipe(20, 120, thrY(), 8);
+	frames(2);
+	checkTrue("HOLD is off: re-armed, the throttle springs back",
+	          uiArmed() && fakeThrottle() == 0);
+	tapId(UI_FIX(TesterCtl::Arm));
+	checkTrue("disarmed for the next case", !uiArmed());
+
+	// Disarmed: the note only.
+	frames(2);
+	fakeTouchAnswers(false);
+	frames(4);
+	checkTrue("disarmed loss: the note", hintIs(UI_TOUCH_LOST_TEXT, C_AMBER));
+	checkTrue("nothing else changes", !uiArmed() && !fakeArmed() && fakeThrottle() == 0);
+	fakeTouchAnswers(true);
+	frames(1);
+	checkTrue("answering: the note goes", hintIs("SWIPE = THROTTLE", C_GRID));
+}
+
+/**
+ * @brief The BOARD voltage's colour: amber below 3.50 V, red below 3.30 V,
+ *        back only 50 mV above each threshold.
+ */
+static void testBoardCellColour() {
+	section("Tester: the BOARD voltage's colour");
+
+	checkTrue("3.50 V: text colour", uiBoardCell(3.500f, BoardCell::Ok) == BoardCell::Ok);
+	checkTrue("3.499 V: amber", uiBoardCell(3.499f, BoardCell::Ok) == BoardCell::Low);
+	checkTrue("3.30 V: amber", uiBoardCell(3.300f, BoardCell::Ok) == BoardCell::Low);
+	checkTrue("3.299 V: red", uiBoardCell(3.299f, BoardCell::Ok) == BoardCell::Critical);
+	checkTrue("amber at 3.549 V stays amber", uiBoardCell(3.549f, BoardCell::Low) == BoardCell::Low);
+	checkTrue("amber at 3.55 V goes back", uiBoardCell(3.550f, BoardCell::Low) == BoardCell::Ok);
+	checkTrue("red at 3.349 V stays red", uiBoardCell(3.349f, BoardCell::Critical) == BoardCell::Critical);
+	checkTrue("red at 3.35 V goes to amber", uiBoardCell(3.350f, BoardCell::Critical) == BoardCell::Low);
+	checkTrue("red at 3.60 V goes to the text colour",
+	          uiBoardCell(3.600f, BoardCell::Critical) == BoardCell::Ok);
+	checkTrue("amber at 3.20 V goes red at once",
+	          uiBoardCell(3.200f, BoardCell::Low) == BoardCell::Critical);
+
+	// Drawn, through the ADC: raw * 3.3 / 4095 * 3 V. The first frame takes
+	// the reading unsmoothed; later ones move a tenth of the way a frame.
+	auto shows = [](const char *text, uint16_t col) {
+		return fakeTextIs(GFX_W - 4 - gfxTextW(text, 2), 7, text, col, C_PANEL, 2);
+	};
+	struct { uint16_t raw; const char *text; uint16_t col; const char *what; } cases[] = {
+		{ 1427, "3.45V", C_AMBER, "3.45 V: amber" },
+		{ 1325, "3.20V", C_RED,   "3.20 V: red" },
+		{ 1460, "3.53V", C_TEXT,  "3.53 V: the text colour" },
+	};
+	for (const auto &c : cases) {
+		fakeAdcSet(c.raw);
+		uiInit();
+		frames(2);
+		checkTrue(c.what, shows(c.text, c.col));
+	}
+	// Hysteresis through the smoothing: from 3.45 V, amber, to 3.53 V stays
+	// amber; to 3.58 V goes back.
+	fakeAdcSet(1427);
+	uiInit();
+	frames(2);
+	fakeAdcSet(1460);
+	frames(120);
+	checkTrue("amber, then 3.53 V: still amber", shows("3.53V", C_AMBER));
+	fakeAdcSet(1481);
+	frames(120);
+	checkTrue("then 3.58 V: the text colour", shows("3.58V", C_TEXT));
+	// IDLE's countdown replaces the voltage as before, whatever its colour.
+	fakeAdcSet(fakeAdcDefault());
+	uiInit();
+	frames(2);
+}
+
+/** @brief The splash with a touch controller that did not answer at boot. */
+static void testSplashTouch() {
+	section("Splash: TOUCH CONTROLLER NOT FOUND");
+
+	fakeFlashClear();
+	settingsLoad();
+	fakeTouchAnswers(false);
+	checkTrue("touchInit() reports the failure", !touchInit());
+	uiDrawSplash();
+	checkTrue("the splash says so, amber, y 60",
+	          fakeTextCentredIs(UI_SPLASH_TOUCH_Y, UI_SPLASH_TOUCH_TEXT, C_AMBER, C_BG, 1));
+	checkTrue("it fits with 8 px to each edge",
+	          gfxTextW(UI_SPLASH_TOUCH_TEXT, 1) <= GFX_W - 2 * UI_MARGIN);
+	fakeDumpFrame("shot_splash_no_touch.ppm");
+	for (int i = 0; i < 10; i++) { fakeAdvance(UI_FRAME_MS); uiSplashTick(); }
+	checkTrue("it stays while the controller does not answer",
+	          fakeTextCentredIs(UI_SPLASH_TOUCH_Y, UI_SPLASH_TOUCH_TEXT, C_AMBER, C_BG, 1));
+
+	// The splash ends; the tester says the same in its words.
+	uiInit();
+	frames(2);
+	checkTrue("the tester shows TOUCH NOT ANSWERING", hintIs(UI_TOUCH_LOST_TEXT, C_AMBER));
+
+	// A controller that answers later clears the splash's line.
+	fakeTouchAnswers(false);
+	touchInit();
+	uiDrawSplash();
+	fakeTouchAnswers(true);
+	fakeAdvance(UI_FRAME_MS);
+	uiSplashTick();
+	int x0 = 0, x1 = 0;
+	checkTrue("an answer clears the line",
+	          !fakeInkExtent(UI_SPLASH_TOUCH_Y, 8, C_BG, &x0, &x1));
+	uiInit();
+	frames(2);
+	checkTrue("and the tester has no note", hintIs("SWIPE = THROTTLE", C_GRID));
+
+	// Answering at boot: no line.
+	touchInit();
+	uiDrawSplash();
+	checkTrue("a controller found at boot: no line",
+	          !fakeInkExtent(UI_SPLASH_TOUCH_Y, 8, C_BG, &x0, &x1));
+	uiInit();
+	frames(2);
+}
+
 /** @brief The pole count is clamped at both ends, and reaches the ESC. */
 static void testPoleCountReachesEsc() {
 	section("Safety: pole count");
@@ -4641,6 +4814,7 @@ void runUiTests() {
 	testBoardRow();
 	testArmInterlocks();
 	testIdleAutoDisarm();
+	testTouchLoss();
 	testPoleCountReachesEsc();
 	testRpmGoesDead();
 	testAutoLogOnArm();
@@ -4677,7 +4851,9 @@ void runUiTests() {
 	testPressedLookClears();
 	testScreenChangeResidue();
 	testTesterBoardAndCard();
+	testBoardCellColour();
 	testSplash();
+	testSplashTouch();
 	testTextProbes();
 	testAm32Guidance();
 
