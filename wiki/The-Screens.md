@@ -75,9 +75,9 @@ line above it. While a swipe on the pad is engaged, `SWIPE ACTIVE` in green
 takes the row, and the note returns on release. In 3D mode 50 % throttle is full
 power one way, and above 50 % the motor runs the other way. Keep the propeller
 off. Arming is not refused on it. The note does not know that the ESC on the pin
-was swapped for another one; only a verified write or a read with 3D MODE off,
-or a restart, removes it. See
-[AM32 Configuration](AM32-Configuration#fields-with-a-note).
+was swapped for another one; only a verified write or a list read with 3D MODE
+off, or a restart, removes it. The read-only view of a layout not known leaves
+it. See [AM32 Configuration](AM32-Configuration#fields-with-a-note).
 
 <img src="img/tester-3d.png" width="240" alt="The tester armed, with 3D MODE ESC: THROTTLE SCALE DIFFERS in amber under the RPM readout">
 

@@ -82,8 +82,9 @@ Zeile darüber. Solange ein Wischer auf der Gasfläche greift, steht
 zurück. Im 3D-Modus ist 50 % Gas volle Leistung in die eine Richtung, über 50 %
 dreht der Motor in die andere. Den Propeller abnehmen. Scharfschalten wird
 deswegen nicht verweigert. Der Hinweis weiß nicht, ob der ESC am Pin gegen einen
-anderen getauscht wurde; nur ein bestätigtes Schreiben oder ein Lesen mit
-3D MODE aus oder ein Neustart nimmt ihn weg. Siehe
+anderen getauscht wurde; nur ein bestätigtes Schreiben oder ein Lesen, das die
+Liste öffnet, mit 3D MODE aus oder ein Neustart nimmt ihn weg; die
+Nur-Lese-Ansicht eines unbekannten Layouts lässt ihn. Siehe
 [AM32-Konfiguration](AM32-Konfiguration#felder-mit-hinweis).
 
 <img src="img/tester-3d.png" width="240" alt="Der Tester scharf, mit 3D MODE ESC: THROTTLE SCALE DIFFERS in Bernstein unter der Drehzahl">

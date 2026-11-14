@@ -151,8 +151,10 @@ bool uiAm32RunCue(uint32_t lastRpmMs);
  * write of settings with 3D MODE on that the ESC accepted, whether its
  * read-back then verifies, fails or differs. Cleared only by such a read or
  * a verified write with 3D MODE off, and by a restart, since it is not
- * stored. A failed read, a write the ESC refused and a write of 3D MODE off
- * that is not verified leave it as it was. Nothing tells it that the ESC on
+ * stored. A failed read, a read that opens no list (the read-only view of a
+ * layout not known among them: byte 0x12 may be another field there), a
+ * write the ESC refused and a write of 3D MODE off that is not verified leave
+ * it as it was. Nothing tells it that the ESC on
  * the pin was swapped for another one.
  *
  * @return true while the note stands.
