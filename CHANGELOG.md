@@ -44,6 +44,13 @@ protocol.
 
 ### Added
 
+- The design note for the USB bridge,
+  [usb-bridge.md](docs/design/usb-bridge.md), designed and not built: a
+  desktop ESC tool reaches the ESC's bootloader on SIG through the board's
+  USB serial port, by passthrough at 19200 baud with the wire's echo, ported
+  from DshotDisplay's `feat/usb-bridge` at 6693084, or through MSP
+  (MultiWii Serial Protocol) and the 4-way interface for ESC-Configurator.
+  It waits on the owner's answers to its nine open questions.
 - The design note for the angle meter,
   [angle-meter.md](docs/design/angle-meter.md), designed and not built:
   incidence, decalage, dihedral and control-surface throw in degrees and
