@@ -44,6 +44,12 @@ protocol.
 
 ### Added
 
+- The design note for the angle meter,
+  [angle-meter.md](docs/design/angle-meter.md), designed and not built:
+  incidence, decalage, dihedral and control-surface throw in degrees and
+  mm from the board's QMI8658 IMU (inertial measurement unit) on I2C1, with
+  ZERO, a three-pose flip calibration and rcbench's `servo_rudder.c` and
+  `imu.c`. It waits on the owner's answers to its seven open questions.
 - A STEP model of the board for enclosure design,
   `hardware/mechanical/models/rp2350_touch_lcd_2_8.step`: 50.54 × 73.06 ×
   10.03 mm, 1039 solids with flat and cylindrical faces. It is a facsimile

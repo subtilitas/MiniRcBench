@@ -34,12 +34,16 @@ and voltage (see [Current sensor](#current-sensor); design note
 under DIAGNOSTICS, the reason for the last restart and the time since boot
 (design note `docs/design/diagnostics.md`).
 
-Two features are designed and not built. An S.BUS (Futaba's serial bus for
+Three features are designed and not built. An S.BUS (Futaba's serial bus for
 receiver channels) receiver monitor is described in
 `docs/design/rx-signals.md`, with an S.BUS output that the owner decided on
 and that is not designed yet; rcbench's S.BUS decoder is in the tree and
 tested on the host, and the firmware does not build it. A PPM
 (pulse-position modulation) output is not built, by the owner's decision.
+An angle meter on the board's QMI8658 IMU (inertial measurement unit), for
+incidence, decalage, dihedral and control-surface throw, is designed in
+`docs/design/angle-meter.md` and not built; it waits on the owner's answers
+to the note's open questions.
 Menu structure B is described in `docs/design/menu-b.md`; slices 1 to 8 of
 10 are in the tree: its building blocks, its colour roles, its names and
 SETTINGS, its layout table, its write rule and BACK guard, the one leave
@@ -47,11 +51,6 @@ page of KST SERVO, HITEC SERVO and SERVO TESTER, the tester's readouts that
 open SETTINGS with LATCH, and SERVO TESTER's title, the MENU row's label.
 The uses that the design note's decision 11 names take their role's colour,
 and a value changed and not yet written is cyan.
-
-An angle meter on the board's QMI8658 IMU (inertial measurement unit), for
-incidence, decalage, dihedral and control-surface throw, is designed in
-`docs/design/angle-meter.md` and not built; it waits on the owner's answers
-to the note's open questions.
 
 ![UI preview](docs/ui-preview.png)
 

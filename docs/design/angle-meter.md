@@ -53,13 +53,21 @@ their figures at VDD = VDDIO = 1.8 V and 25 °C; the board runs the part at
 
 ## What it is for
 
-- **Incidence and decalage.** The board on the wing's chord, ZERO, then the
-  board on the stabiliser's chord: the reading is the decalage, B − A. The
-  same with the fuselage's datum as A gives each surface's incidence.
+- **Incidence and decalage.** The board on the stabiliser's chord, ZERO,
+  then the board on the wing's chord: the reading is the wing's angle less
+  the stabiliser's, the decalage. The same with the fuselage's datum as A
+  gives each surface's incidence.
 - **Dihedral.** The board on one panel near the root, ZERO, then on the
   other: the reading is the angle between the panels. With the fuselage
   level in roll and the zero taken on a level reference, each panel's
   angle to the horizontal.
+
+Both readings of a pair are taken with the same end of the board towards
+the same end or side of the model. A board turned end for end between them
+reverses the sign of the second reading: on a wing with equal dihedral each
+side, the angle between the panels would read 0. Which way is positive
+depends on which end faces forward; `SIGN` in SETUP turns it
+([which axis per use](#which-axis-per-use)).
 - **Throw.** The board on a control surface at neutral, ZERO, then the stick
   to each end: the deflection each side in degrees, its largest value each
   side, and with the surface's length entered, the trailing edge's travel
@@ -127,9 +135,11 @@ Notes on the table:
 - **Configuration writes.** The A datasheet does not support burst writes
   to the configuration registers, so each is one write of one byte, read
   back after.
-- **Gyroscope off.** With the gyroscope off the accelerometer's ODR comes
-  from the internal oscillator (A datasheet, Table 9), and 31.25 Hz is an
-  accelerometer-only rate in both tables.
+- **Gyroscope off.** With the gyroscope off the A part's accelerometer ODR
+  comes from the internal oscillator, and aODR 1000 gives 31.25 Hz; with
+  the gyroscope on it would give 28.025 Hz (A datasheet, Table 9 and CTRL2).
+  The C datasheet lists aODR 1000 as 31.25 Hz in normal mode, with no
+  separate rate for the gyroscope on.
 
 ### Accelerometer figures
 
@@ -172,24 +182,35 @@ must never wait on a bus.
 One frame's IMU reads, counted as current-sense.md counts them, 9 clocks a
 byte plus 2 for start and stop and 1 for a repeated start:
 
-| Transaction | Bytes on the wire | Clocks | 400 kHz | 100 kHz |
-|---|---|---|---|---|
-| Burst 0x30 to 0x3A: address, register, repeated start, address, 11 data | 14 | 129 | 322.5 µs | 1290 µs |
-| Time stamp again, 0x30 to 0x32 | 7 | 66 | 165 µs | 660 µs |
-| A frame | 21 | 195 | 487.5 µs | 1950 µs |
+| Transaction | Bytes on the wire | Clocks | 400 kHz |
+|---|---|---|---|
+| Burst 0x30 to 0x3A: address, register, repeated start, address, 11 data | 14 | 129 | 322.5 µs |
+| Time stamp again, 0x30 to 0x32: address, register, repeated start, address, 3 data | 6 | 57 | 142.5 µs |
+| A frame | 20 | 186 | 465 µs |
 
 With touch, 210 µs, and the sensor, 240 µs, a frame holds the bus for
-937.5 µs of 25 ms at 400 kHz, 3.75 %. The I2C block's own gaps and the
-SDK's call time are not counted.
+915 µs of 25 ms at 400 kHz, 3.66 %. The I2C block's own gaps and the
+SDK's call time are not counted. The bus runs at 400 kHz; at 100 kHz the
+burst alone would take 1290 µs, longer than the transfer timeout of
+1000 µs ([errors](#errors)).
 
 The second read guards against a sample that changes during the burst.
-Whether the output registers can change during a burst outside SyncSample
-mode is not stated in either datasheet. A burst whose time stamp differs
-from the time stamp read after it is dropped; at 31.25 Hz, a 32 ms period,
-a burst of 322.5 µs meets an update about once in 100 bursts. The time
-stamp is the datasheets' "sample time stamp"; that it changes once a
-sample is to be confirmed (bench test B2). A burst whose time stamp equals
-the last one taken is the same sample and is not counted again.
+The A datasheet's locking mechanism (section 13.1) exists so that a host
+can read the data registers "without the risk of mixing the two consecutive
+data if the new data comes and updates to the sensor data registers during
+the host read": without it, a sample can update in the middle of a read. A
+burst whose time stamp differs from the time stamp read after it is
+dropped; at 31.25 Hz, a 32 ms period, a burst of 322.5 µs meets an update
+about once in 100 bursts. The time stamp is the datasheets' "sample time
+stamp"; that it changes once a sample is to be confirmed (bench test B2).
+A burst whose time stamp equals the last one taken is the same sample and
+is not counted again.
+
+The alternative not taken is SyncSample mode with the locking mechanism
+(CTRL7 bit 7, and over I2C the CTRL9 commands that turn the internal AHB
+clock gating off, section 13.2.1): it locks the registers during a read, at
+the cost of the CTRL9 handshake in the driver and its tests. The time
+stamp check needs neither.
 
 ### Start and stop
 
@@ -197,29 +218,47 @@ On opening the meter:
 
 1. Read WHO_AM_I. No answer: `NO IMU`, a probe every 1000 ms. Another
    value: `NOT A QMI8658`, no write.
-2. Write 0xB0 to RESET. Poll WHO_AM_I once a frame until it reads 0x05,
-   for at most 2000 ms, which covers the C part's 1.75 s. The chip shows
-   `STARTING`.
+2. Write 0xB0 to RESET; the chip shows `STARTING`. 15 ms later, the A
+   part's reset time, read 0x4D: 0x80 means the reset ended, and the
+   driver goes on at once. 0x4D has to be read before the sensors are
+   enabled, which may overwrite it (A datasheet, 7.4). Any other value, or
+   none, and the driver waits until 1750 ms after the reset, the C part's
+   system turn-on, and reads WHO_AM_I for 0x05 before it writes. No second
+   reset follows sooner than 2000 ms after the first.
 3. Write CTRL1, CTRL2, CTRL5, then CTRL7, one byte each, and read each
    back. A mismatch is `NO IMU` and a new start after 1000 ms.
 4. Drop the samples of the first 100 ms, the accelerometer's turn-on of
    3 ms + 3/ODR.
 
-On BACK, CTRL7 is written 0x00, which turns the accelerometer off. The IMU
-draws its power-on default current from then on; neither figure is
-measured.
+The meter is open while its main view, SETUP or FLIP CAL shows: the two
+pages are the meter's own, and going to them and back neither stops nor
+resets the IMU. BACK on the main view writes CTRL7 0x00, which turns the
+accelerometer off. The IMU draws its power-on default current from then on;
+neither figure is measured.
 
 ### Errors
 
-The IMU's transfers use the sensor's wire functions and the same mapping
-of SDK results to `sense_err_t` ([current-sense.md](current-sense.md#errors)),
-with a timeout of 1000 µs per transfer (`SENSE_TIMEOUT_US`). Each transfer
-is noted to the bus record of `sense_bus.c`, as the touch driver's are
-through `senseNoteTouch()`, so a stuck bus is seen and recovered the same
-way whichever client finds it. Three failed transactions in a row take the
-IMU offline; it is probed every 1000 ms. A frame whose first IMU transfer
-times out holds the bus 1000 µs longer; the touch read before it is
-unchanged.
+The driver makes its own SDK calls: `sense_bus.h` has a 16-bit register
+write only, a burst the QMI8658A does not take on its configuration
+registers (section 16.1), and its wire and record are static in
+`sense.cpp`. Each transfer has a timeout of 1000 µs (`SENSE_TIMEOUT_US`),
+and its SDK result goes to `senseNoteTouch()`, which maps it to
+`sense_err_t` through `errAfter()`, the sensor's own mapping with its check
+of the lines ([current-sense.md](current-sense.md#errors)), and notes it to
+the shared bus record. Slice 2 renames it `senseNote()`, since it no longer
+serves touch alone, and has it return the mapped value to the caller. So a
+bus that fails any client is seen by all. The driver keeps its own count:
+three failed transactions in a row take the IMU offline, and it is probed
+every 1000 ms. While the record shows the bus stuck the driver sends nothing.
+
+The recovery needs one change. `senseTick()` returns at once unless
+CURRENT SENSE is `INA219` (`src/sense.cpp`), so with the sensor off no
+recovery ever runs. Slice 2 moves the check, `sense_bus_recovery_due()`,
+then the recovery and `sense_bus_recovered()`, before the mode test, so
+the bus is recovered whatever the setting, with a host test at `NONE`.
+
+A frame whose first IMU transfer times out holds the bus 1000 µs longer;
+the touch read before it is unchanged.
 
 ## The angle
 
@@ -266,10 +305,16 @@ which in-plane axis is `r`:
 
 | Use | Axis | Board | ALONG AXIS |
 |---|---|---|---|
-| Incidence, decalage | span | long edge along the chord | `SHORT` |
+| Throw, the default | hinge line | long edge along the hinge | `LONG` |
+| Throw, hinge line shorter than 73 mm | hinge line | long edge across the hinge | `SHORT` |
+| Incidence, decalage | span | long edge along the chord, on the bar | `SHORT` |
 | Dihedral | fuselage's long axis | long edge along the span | `SHORT` |
-| Throw, surface 51 mm or more from hinge to trailing edge | hinge line | long edge across the hinge | `SHORT` |
-| Throw, narrower surface | hinge line | long edge along the hinge | `LONG` |
+
+`LONG` is the default. For a throw it puts the board's 50.54 mm width
+across the surface, so its centre sits about 25 mm from the hinge line and
+it overhangs the trailing edge least; the moment under
+[holding the board](#holding-the-board) assumes it. `SHORT` serves a throw
+only where the hinge line is shorter than the board.
 
 The mapping of the chip's X, Y and Z to the board's long edge, short edge
 and normal, with their signs, is a constant of the board header
@@ -286,7 +331,9 @@ airfoils differ, so a reading on two upper surfaces is not their decalage.
 For incidence and decalage the board rests on a straight bar laid on the
 leading and trailing edges, or on a jig that holds the chord line, and the
 same bar or jig serves both surfaces. A flat-bottomed airfoil can take the
-board on its lower surface.
+board on its lower surface, which means the model upside down, or the board
+held against the surface from below; either turns the sign of the reading,
+and both readings of a pair are taken the same way.
 
 A wing with dihedral turns its span axis away from the stabiliser's by the
 dihedral angle; reading the wing near the root keeps that out of the
@@ -311,6 +358,12 @@ set it.
 
 The zero stays valid only while the model and the axis stay where they
 were. The meter cannot tell that the model moved; the wiki says so.
+
+ZERO and MAX last for one visit: SETUP and FLIP CAL keep them, BACK from
+the main view drops them, and a new visit starts unzeroed with no MAX, as
+the model may have moved in between. ALONG AXIS and SIGN stay as set for as
+long as the board runs; whether a restart keeps them is [open question
+4](#open-questions).
 
 ## Calibration
 
@@ -343,7 +396,12 @@ The flip removes the offsets of all three axes and gives the sensitivity of
    spot. On a moved, then settled board for 2 s: P2. Turning the board
    about the surface's normal reverses the in-plane part of gravity, so
    `o_x = (P1x + P2x) / 2` and `o_y = (P1y + P2y) / 2` exactly, whatever
-   the surface's slope, which is `(P1 − P2) / 2`.
+   the surface's slope, which is `(P1 − P2) / 2`. The chip's own tilt
+   against the standoffs' plane turns with the board and does not reverse,
+   so it lands in `o_x` and `o_y` with the sensor's offset. Subtracted as an
+   offset, it is right near the angle the flip was made at and less right
+   away from it, where a tilt acts as a rotation; bench test B6 measures
+   how much that is.
 3. **Screen down.** The board on its glass, then back screen up. Settled
    for 2 s with `a_z` below −0.8 g: P3. `o_z = (P1z + P3z) / 2`, and the
    sensitivity of `z` is `(P1z − P3z) / 2` divided by the cosine of the
@@ -376,15 +434,18 @@ Display resolution and accuracy are different things.
   how the samples correlate at 4.2 Hz in 31.25 Hz, which is not computed
   here.
 - **Systematic error.** Offset, sensitivity, cross-axis sensitivity and
-  temperature, in the table under [calibration](#calibration), are larger
-  than the noise by one to two orders.
+  temperature, in the table under [calibration](#calibration), are about
+  4 to 120 times the noise of a sample.
 - **The holding.** A board that rocks on a curved surface, a bar that does
   not touch both edges, a clip that deflects the surface: none of these is
   in the sensor's figures.
 
-The screen shows 0.1° and 0.1 mm, as rcbench's RUDDER does. The real
-accuracy is unknown until bench test B6 measures it against known angles;
-until then the wiki gives no accuracy figure.
+The screen shows 0.1° and 0.1 mm. rcbench's RUDDER shows the IMU's degrees
+in hundredths and every mm in tenths (`shared/ui/servo_rudder_panel.c`,
+`num_text()`); 0.1° here is a choice that waits on the accuracy, [open
+question 5](#open-questions). The real accuracy is unknown until bench test
+B6 measures it against known angles; until then the wiki gives no accuracy
+figure.
 
 ## Still and settled
 
@@ -398,7 +459,8 @@ its first frame, and reads 0 until the filtered angle has come within
 still time is 1000 ms or more (`ANGLE_SETTLED_MS`, proposed), and `MOVING`
 otherwise. No frame for `IMU_STALE_MS`, 300 ms, makes the reading stale:
 `---`. The model's filter setting, `IMU FILTER` in rcbench, is a constant
-here, 3 (proposed), a time constant of about 3 frames, 0.4 s.
+here, 3 (proposed): each frame moves the filtered angle a third of the
+rest, a time constant of about 2.5 frames, 0.32 s.
 
 The averaging matters to the settle test: `IMU_SETTLE_DEG` is compared with
 each frame, and a single sample's noise, 0.018°, is already a third of it.
@@ -422,11 +484,15 @@ stand taller than its socket, and none is measured.
 The board's mass is not measured, with or without its LiPo; Waveshare gives
 none. It loads what it sits on. On a control surface it adds a moment about
 the hinge: 60 g, an assumed figure until the board is weighed, at 25 mm
-from the hinge line is 14.7 mN·m, 0.15 kg·cm. Through the servo's gear lash
-and the surface's own give that moment moves the surface, and the meter
-reads the loaded surface. The wiki asks for the board as close to the hinge
-as the surface allows, and for the surface's neutral to be checked by eye
-with the board on it.
+from the hinge line is 14.7 mN·m, 0.15 kg·cm. Against a servo of 1.5 kg·cm,
+an example figure for a small servo and not a measured one, that is a tenth
+of its torque. Through the servo's gear lash and the surface's own give
+that moment moves the surface, and the meter reads the loaded surface. The
+wiki asks for the board as close to the hinge as the surface allows, for
+the surface's neutral to be checked by eye with the board on it, and for a
+check of the lash: the surface pressed lightly one way, then the other, and
+released each time; two settled readings that differ show the lash the
+reading carries.
 
 ### LiPo and cable
 
@@ -442,8 +508,8 @@ A spring clip on a control surface holds the board on the surface's edge;
 its mass adds to the board's. A rubber band round the surface and the board
 holds it flat on the standoffs; a band across the glass may press the
 touch panel, and whether the CST328 reports it as a touch is not known
-(bench test B8). The band goes across the board's ends, past the glass, as
-the wiki's drawing will show. The board must not reach past the hinge onto
+(bench test B8). The band goes across the board's ends, past the glass,
+as the wiki's drawing shows. The board must not reach past the hinge onto
 the fixed surface, where it would meet the wing as the surface deflects;
 on a surface narrower than the board it overhangs the trailing edge.
 
@@ -466,7 +532,8 @@ the meter cannot.
 
 Text is the 5 × 7 font: a string of n characters is (6 × n − 1) × scale px
 wide and 7 × scale px tall. The degree sign is character 0x60, the
-backtick, in `gfx.h`'s font, written here as `` ` `` in the strings and as
+backtick, in the font table of `src/gfx.cpp`, written here as `` ` `` in
+the strings and as
 ° in prose. Colour roles are those of `ui_widgets.h`; the ones decision 11
 of [menu-b.md](menu-b.md) does not name are proposals.
 
@@ -474,7 +541,7 @@ of [menu-b.md](menu-b.md) does not name are proposals.
 
 ```
 y   0 | ANGLE METER                     [  BACK  ]|  header 36 px; BACK 170..233 x 2..33
-   40 | SHORT EDGE  AXIS TILT 3`        [SETTLED] |  strip 40..55
+   40 | LONG EDGE  AXIS TILT 3`         [SETTLED] |  strip 40..55
    66 |                                  +12.4`   |  scale 5, y 66..100, right to x 231
   108 | FROM ZERO                                 |  scale 1, C_DIM
   122 |                                 +8.6 MM   |  scale 3, y 122..142, right to x 231
@@ -497,7 +564,7 @@ y   0 | ANGLE METER                     [  BACK  ]|  header 36 px; BACK 170..233
 | Travel | `-500.0 MM` | 9 | 159 px, 3 | right-aligned to x 231, from x 73 |
 | Length line | `L 500 MM, HINGE TO TRAILING EDGE` | 32 | 191 px, 1 | x 8 to 198; `SET LENGTH IN SETUP FOR MM`, 26, 155 px, while `L` is `OFF` |
 | MAX caption | `MAX` | 3 | 17 px, 1 | x 8, y 170 |
-| MAX values | `-180.0`  +180.0`` | 16 | 190 px, 2 | right-aligned to x 231, from x 41; `--` a side with none |
+| MAX values | `-180.0`  +180.0`` | 16 | 190 px, 2 | right-aligned to x 231, from x 42; `--` a side with none |
 | MAX travel | `-500.0 MM  +500.0 MM` | 20 | 119 px, 1 | right-aligned to x 231 |
 | Temperature | `IMU -40.0`C, -99.9`C SINCE ZERO` | 31 | 185 px, 1 | x 8; `UI_COL_WARN` from a change of 2 °C, 0.11° at 1 mg/°C |
 | Hint | `ZERO WHEN SETTLED: HOLD STILL` | 29 | 173 px, 1 | x 8, y 252; `NOT SETTLED IN 10 S: NO ZERO`, 28, 167 px |
@@ -517,29 +584,31 @@ every 1000 ms; or `NOT A QMI8658: ID 0X00.` (23, 137 px) with the ID read.
 ### SETUP
 
 Header `ANGLE SETUP`, 11 characters, 130 px. Rows as SETTINGS draws them
-(`src/ui_settings.cpp`): 44 px rows at a 50 px pitch, labels at scale 1
-from x 8, a stepper's value at scale 2 ending at x 132, toggles 94 px wide
-from x 138, a toggle's text at most 86 px.
+(`src/ui_settings.cpp`): 44 px rows at a 50 px pitch; toggles 94 px wide
+from x 138, a toggle's text at most 86 px; a toggle row with a caption has
+its label at y + 12 and the caption under it at y + 25, both at scale 1
+from x 8; a stepper's value at scale 2 ending at x 132, its connector line
+at y + 27 ending at x 132, at most 15 characters (`char sub[16]`).
 
 ```
 y   0 | ANGLE SETUP                     [  BACK  ]|
-   40 | ALONG AXIS             [    SHORT    ]    |  toggle: SHORT, LONG
-      |       SHORT EDGE ON AXIS                  |  y 67, scale 1, to x 132, C_DIM
-   90 | LENGTH              40  [  -  ] [  +  ]   |  OFF, 10 to 500
-      |        MM, HINGE TO EDGE                  |  y 117, scale 1, to x 132, C_DIM
+   40 | ALONG AXIS             [    LONG     ]    |  label y 52; toggle: LONG, SHORT
+      | LONG EDGE ON AXIS                         |  caption y 65, from x 8, C_DIM
+   90 | LENGTH, MM          40  [  -  ] [  +  ]   |  OFF, 10 to 500
+      |          HINGE TO EDGE                    |  y 117, scale 1, to x 132, C_DIM
   140 | SIGN                   [   NORMAL    ]    |  toggle: NORMAL, INVERT
-  190 | CALIBRATION            [    FLIP     ]    |  opens FLIP CAL
-      |           NOT CALIBRATED                  |  y 217, scale 1, to x 132, C_DIM
+  190 | CALIBRATION            [    FLIP     ]    |  label y 202; opens FLIP CAL
+      | NOT CALIBRATED                            |  caption y 215, from x 8, C_DIM
   320 +-------------------------------------------+
 ```
 
 | Text | Characters | Width, scale |
 |---|---|---|
-| `ALONG AXIS`, `CALIBRATION` | 10, 11 | 59 px, 65 px, 1 |
-| `SHORT`, `LONG` | 5, 4 | 58 px, 46 px, 2 |
-| `SHORT EDGE ON AXIS` | 18 | 107 px, 1, from x 25 |
+| `ALONG AXIS`, `CALIBRATION`, `LENGTH, MM` | 10, 11, 10 | 59 px, 65 px, 59 px, 1 |
+| `LONG`, `SHORT` | 4, 5 | 46 px, 58 px, 2 |
+| `SHORT EDGE ON AXIS` | 18 | 107 px, 1, x 8 to 114, clear of the toggle at x 138 |
 | `500`, `OFF` | 3 | 34 px, 2, from x 98 |
-| `MM, HINGE TO EDGE` | 17 | 101 px, 1, from x 31 |
+| `HINGE TO EDGE` | 13 | 77 px, 1, from x 55 |
 | `NORMAL`, `INVERT` | 6 | 70 px, 2 |
 | `FLIP` | 4 | 46 px, 2 |
 | `NOT CALIBRATED`, `CALIBRATED` | 14, 10 | 83 px, 59 px, 1 |
@@ -554,7 +623,7 @@ scale 3 for the pilot to watch it settle.
 | Step | Lines | Widest |
 |---|---|---|
 | 1 | `LAY THE BOARD ON A FLAT SURFACE,` `SCREEN UP. HOLD STILL.` | 32 characters, 191 px |
-| 2 | `TURN IT END FOR END ON THE SAME SPOT.` | 37, 221 px, to x 228 |
+| 2 | `TURN IT ROUND, SCREEN UP, SAME SPOT.` | 36, 215 px, to x 222 |
 | 3 | `TURN IT SCREEN DOWN, WAIT 3 S,` `THEN SCREEN UP AGAIN.` | 30, 179 px |
 | Result | `OFFSET X -999  Y -999  Z -999 MG` `GAIN Z 1.000` | 32, 191 px |
 
@@ -572,14 +641,19 @@ would be an eighth. This note proposes and does not decide; menu-b.md's
 rows stay as they are until the owner answers [open question
 1](#open-questions).
 
-MENU's scroll range is rows × 42 px − 258 px (`uiListMaxScroll()`).
+MENU's scroll range is rows × 42 px − 258 px (`uiListMaxScroll()`). At
+scroll 0 row n starts at y 62 + 42 × (n − 1) in a viewport that ends at
+y 320: row 6 at y 272 shows whole, row 7 at y 314 shows 6 px, and an eighth
+row at y 356 shows nothing. Decision 16 orders the rows by what sits on SIG:
+the ESC, a servo, then the bench. The meter drives no pin, so its row goes
+with the bench rows, before SD LOG.
 
-| Option | MENU rows, scroll | Taps from the tester | For | Against |
-|---|---|---|---|---|
-| a. A MENU row, `ANGLE METER` | 8, 78 px | 2 | found at once; no new widget | revises decision 33's seven rows; each later tool adds a row |
-| b. A MENU row, `TOOLS`, opening a chooser whose first entry is `ANGLE METER` | 8, 78 px | 3 | one row for later bench tools; the chooser pattern of SERVO PROGRAMMER and RX SIGNALS | one more tap; an eighth row all the same |
-| c. `TOOLS` in SD LOG's row, its entries SD LOG and ANGLE METER | 7, 36 px | 3 | keeps seven rows | SD LOG one tap deeper; changes decision 32's row list |
-| d. A row in SETTINGS, in a section of its own | 7, 36 px | 4 from MENU with a scroll; 3 from the tester's readouts | MENU untouched | a tool among settings, found by few; SETTINGS' list grows by a 20 px caption and a 50 px row; BACK returns to SETTINGS |
+| Option | Rows | Where the meter is | Taps and drags from the tester | What moves | For | Against |
+|---|---|---|---|---|---|---|
+| a. A MENU row, `ANGLE METER` | 8, scroll 78 px | row 6, y 272, whole at scroll 0 | 2 taps | SD LOG to row 7, a drag of 34 px to show it whole; SETTINGS to row 8, a drag of 76 px | found at once; no new widget | revises decision 33's seven rows; SETTINGS wholly below the fold; each later tool adds a row |
+| b. A MENU row, `TOOLS`, opening a chooser whose first entry is `ANGLE METER` | 8, scroll 78 px | chooser entry 1, under row 6 | 3 taps | as (a) | one row for later bench tools; the chooser pattern of SERVO PROGRAMMER and RX SIGNALS | one more tap; an eighth row all the same |
+| c. `TOOLS` in SD LOG's row 6, its entries SD LOG and ANGLE METER | 7, scroll 36 px | chooser entry, under row 6 | 3 taps | SD LOG a tap deeper; its MENU status, `NO CARD` or `CARD ERROR`, leaves MENU for the chooser's entry | keeps seven rows and SETTINGS where it is | changes decision 32's row list; the card's state no longer on MENU |
+| d. A row in SETTINGS, in a section after DIAGNOSTICS | 7, scroll 36 px | SETTINGS' last row; the list grows by a 20 px caption and a 50 px row, 820 px to 890 px, scrolling to 690 px | from MENU: 3 taps and 2 drags, MENU's 34 px and SETTINGS' up to 690 px; from the tester's readouts: 2 taps and 1 drag of up to 690 px | nothing on MENU | MENU untouched | a tool among settings, found by few; the longest way in; BACK returns to SETTINGS |
 
 Fits: `ANGLE METER` and `TOOLS` at scale 2 are 130 px and 58 px from x 16,
 within `menuRowsFit()`'s rule with no status. A TOOLS chooser entry reads
@@ -600,13 +674,16 @@ second entry; that is the bridge's note's question, not this one's.
 - **I2C1 on core0 only,** after touch and the current sensor, one burst and
   one time stamp read a frame, only while the meter is open. Its failures
   go to the shared bus record; a stuck bus gets the sensor's recovery.
-- **The IMU is off outside the meter.** CTRL7 is 0x00 after BACK, so no
-  sample runs and no transfer goes to 0x6B while another screen is open.
+- **The IMU is off outside the meter.** The meter is open while its main
+  view, SETUP or FLIP CAL shows. CTRL7 is 0x00 after BACK from the main
+  view, so no sample runs and no transfer goes to 0x6B while another
+  screen is open.
 - **Interrupt lines.** INT1 and INT2 stay disabled; GP8 and GP9 are not
   configured.
-- **Flash.** If the calibration or the length is kept in the settings
-  block ([open question 4](#open-questions)), HOLD TO KEEP saves through
-  the settings save, which parks core1 as every save does. The ESC is
+- **Flash.** If the calibration, LENGTH, ALONG AXIS or SIGN is kept in
+  the settings block ([open question 4](#open-questions)), HOLD TO KEEP
+  and the SETUP rows save through the settings save, which parks core1 as
+  every save does. The ESC is
   disarmed on the meter, as on SETTINGS.
 - **Touches move the board.** ZERO waits for a settled reading after the
   finger lifts; the flip page ignores touches while the board lies screen
@@ -623,7 +700,13 @@ second entry; that is the bridge's note's question, not this one's.
 | `shared/bench/imu.c`, `include/imu.h` | 352, 204 | `lib/rcbench/shared/bench/` | by [open question 2](#open-questions) |
 | `protocols/witmotion/witmotion.c`, `include/witmotion.h` | 256, 205 | `lib/rcbench/protocols/witmotion/` | only with option (a) of question 2: `imu.h` includes `witmotion.h` |
 | `test/host/test_witmotion.c` | 451, 14 cases | `test/rcbench/` | only with option (a); copied unchanged |
-| `test/host/test_imu.c`, `test_imu_filter.c`, `wit_frame.h` | 352, 485, 46 | `test/rcbench/` | not copyable unchanged: `test_imu.c` needs `imu_rig.h`, which includes rcbench's BLE (Bluetooth Low Energy) simulator, `imu_ctl.h` and `servo_rudder_auto.h`; one case of `test_imu_filter.c` needs `imu_sensor.h`. The cases on `imu.h` alone are adapted, as `test_out_pwm_map.c` was |
+| `test/host/test_imu.c`, `test_imu_filter.c`, `wit_frame.h` | 352, 485, 46 | `test/rcbench/` | not copyable unchanged. `test_imu.c` includes `imu_rig.h`, which includes `ble_sim.h`, rcbench's BLE (Bluetooth Low Energy) simulator, `imu_ctl.h` and `witmotion.h`; `test_imu.c` itself includes `servo_rudder_auto.h` and `servo_gap.h`. Two cases of `test_imu_filter.c`, `a_connect_a_reconnect_and_a_bind_seed_the_filter` and `the_limits_1_and_50_hold_and_out_of_range_values_are_clamped`, need `imu_sensor.h`. The cases on `imu.h` alone are adapted, as `test_out_pwm_map.c` was |
+
+rcbench's `servo_rudder_auto.c`, RUDDER AUTO, is not ported: it programs
+a KST or Chaservo servo's end points on the programming port until the
+measured deflection meets a target, which is a feature of its own, not
+chosen, and it needs rcbench's KST session code beyond what
+`lib/rcbench/` holds.
 
 `lib/rcbench/README.md` gains the rows and the commit. rcbench records
 `imu.c` as built and host-tested against a WitMotion BWT901CL's frames;
@@ -669,10 +752,11 @@ New code in `src/`:
   2.0 °C and not at 1.9 °C; stale at 300 ms; the frames of four samples;
   the texts' rounding, never `-0.0`.
 - **Screen**, through the chosen entry by control id: it opens, BACK turns
-  the IMU off; ZERO armed until settled, the 10 s limit; RESET MAX; SETUP's
-  rows; FLIP CAL's steps and touches ignored screen down; HOLD TO KEEP at
-  1000 ms and not at 999 ms; every string inside its rectangle; the preview
-  `docs/angle-preview.png`.
+  the IMU off; SETUP and FLIP CAL and back keep the IMU running, ZERO and
+  MAX, and BACK from the main view drops ZERO and MAX; ZERO armed until
+  settled, the 10 s limit; RESET MAX; SETUP's rows; FLIP CAL's steps and
+  touches ignored screen down; HOLD TO KEEP at 1000 ms and not at 999 ms;
+  every string inside its rectangle; the preview `docs/angle-preview.png`.
 
 Each slice's tests are mutation-checked: the code broken, the test seen to
 fail, the code restored.
@@ -709,7 +793,7 @@ Each slice builds, passes the host suite and merges alone, in this order.
 | Slice | Content | Files | Lines, rough |
 |---|---|---|---|
 | 1. Copies | `servo_rudder.*` and its test; the IMU model by question 2; `test/angle.mk`; the `test/Makefile` lists, `lib/rcbench/README.md`, README, STATUS, CHANGELOG | 3 to 8 copied, 1 new, 5 edited | 360 to 1,830 copied, with tests; 80 new or changed |
-| 2. Driver | `qmi8658.*`, `angle.cmake`, `BOARD_IMU_AXES`, the IMU tick in `uiTick()`, the register fake, `test_qmi8658.cpp`, the `-I` lists of `ci.yml` | 3 new in `src/`, 2 new in `test/`, about 8 edited | 300 in `src/`; 550 in `test/` |
+| 2. Driver | `qmi8658.*`, `angle.cmake`, `BOARD_IMU_AXES`, the IMU tick in `uiTick()`, `senseNote()` in place of `senseNoteTouch()`, the bus recovery ahead of `senseTick()`'s mode test with its test at `NONE`, the register fake, `test_qmi8658.cpp`, the `-I` lists of `ci.yml` | 3 new in `src/`, 2 new in `test/`, about 8 edited | 300 in `src/`; 550 in `test/` |
 | 3. Model | `angle_model.*`, `test_angle_model.cpp` | 2 new in `src/`, 1 new in `test/` | 300 in `src/`; 600 in `test/` |
 | 4. Screen | `ui_angle.*`, the entry by question 1, the settings fields by question 4 with their carry-over, the screen tests, `test_ids.cpp`, the preview, `tools/make_previews.py` | 2 new in `src/`, about 10 edited | 700 in `src/`; 600 in `test/` |
 | 5. Docs | the README section, the wiki pages in English and German and `tools/check_wiki.py`, CHANGELOG, STATUS, this note's status | 2 new, 5 edited | 350 of documentation |
@@ -722,10 +806,13 @@ their pages.
 ## Open questions
 
 1. **The entry.** Which entry opens the meter: (a) an eighth MENU row,
-   `ANGLE METER`; (b) an eighth MENU row, `TOOLS`, opening a chooser whose
-   first entry is `ANGLE METER`; (c) `TOOLS` in SD LOG's row, with SD LOG
-   and ANGLE METER as its entries, seven rows kept; (d) a row in SETTINGS.
-   Recommended: (b). See [entry](#entry).
+   `ANGLE METER`, as row 6 before SD LOG, 2 taps from the tester, SETTINGS
+   moving to row 8 behind a drag of 76 px; (b) an eighth MENU row, `TOOLS`,
+   in the same place, opening a chooser whose first entry is
+   `ANGLE METER`, 3 taps; (c) `TOOLS` in SD LOG's row 6, with SD LOG and
+   ANGLE METER as its entries, seven rows kept, 3 taps, SD LOG's card
+   status off MENU; (d) a row in SETTINGS after DIAGNOSTICS, 3 taps and 2
+   drags from MENU. Recommended: (b). See [entry](#entry).
 2. **rcbench's IMU model.** `imu_feed()` takes WitMotion byte frames only.
    (a) Copy `imu.c` unchanged with rcbench's WitMotion parser and hand it
    each frame as a WitMotion angle frame, at 180° / 32768, 0.0055°, a step;
@@ -738,12 +825,17 @@ their pages.
    the normal; (c) (b) and four hand-held edge poses against a square
    block for the gains of the two in-plane axes. Recommended: (b), then (c)
    if bench test B6 shows a gain error over 0.2°.
-4. **What a restart keeps.** The calibration and LENGTH in the settings
-   block, `SETTINGS_VERSION` 5 to 6 with the carry-over of current-sense.md
-   decision 14, or in RAM for the visit only. Recommended: the settings
-   block.
-5. **Display resolution.** 0.1° and 0.1 mm, as rcbench's RUDDER shows, or
-   0.01°. Recommended: 0.1° until bench test B6 gives the accuracy.
+4. **What a restart keeps.** Six values: the calibration, LENGTH, ALONG
+   AXIS, SIGN, ZERO and MAX. Each is kept in the settings block,
+   `SETTINGS_VERSION` 5 to 6 with the carry-over of current-sense.md
+   decision 14, or in RAM until a restart, or for the visit only.
+   Recommended: the calibration, LENGTH, ALONG AXIS and SIGN in the
+   settings block; ZERO and MAX for the visit only, since the model may
+   move between visits.
+5. **Display resolution.** 0.1° and 0.1 mm, or 0.01° and 0.1 mm as
+   rcbench's RUDDER shows the IMU's angle. Recommended: 0.1° until bench
+   test B6 gives the accuracy, since a hundredth would show digits the
+   meter cannot vouch for.
 6. **A holder.** A printed cradle designed from the STEP model, with a flat
    base, a slot for a band and a place for the LiPo; or none, and the wiki
    describes the standoffs, a straight bar for incidence, a clip and a band
@@ -763,6 +855,9 @@ Not verified by this project:
   by CTRL1 bit 6;
 - the system turn-on, 15 ms (A) or 1.75 s (C), and 0x4D reading 0x80 after
   a reset (A only);
+- the soft reset's value: 0xB0 in the A datasheet's RESET register
+  description (5.9, Table 27), 0x0B in its chip reset process (7.4);
+  Waveshare's C demo writes 0xB0, and so does this design;
 - that the time stamp changes once a sample, and whether the output
   registers can change during a burst;
 - the noise, offset, gain and temperature figures, all typical values at

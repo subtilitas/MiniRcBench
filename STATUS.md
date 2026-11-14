@@ -714,9 +714,11 @@ the tag. Menu structure B waits on being built, not on the bench (item 18).
     [angle-meter.md](docs/design/angle-meter.md) describes the driver on
     core0 after the touch and current-sensor reads, the angle from the
     accelerometer alone, ZERO, a three-pose flip calibration, the screen
-    and four slices on rcbench's `servo_rudder.c` and `imu.c`. It waits on
-    the owner's answers to its seven open questions, first the entry: an
-    eighth MENU row, a TOOLS chooser, or SETTINGS. Which QMI8658 variant is
+    and six slices on rcbench's `servo_rudder.c` and `imu.c`: copies,
+    driver, model, screen, docs and bring-up. It waits on the owner's
+    answers to its seven open questions, first the entry: an ANGLE METER
+    row, a TOOLS row with a chooser, TOOLS in SD LOG's row, or a SETTINGS
+    row. Which QMI8658 variant is
     fitted, its byte order, its axes on the board, the board's mass and the
     real accuracy are not verified.
 
