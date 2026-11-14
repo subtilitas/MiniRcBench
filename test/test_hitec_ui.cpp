@@ -1456,10 +1456,30 @@ static void testBoardLow() {
 	          untilCtl(UI_FIX(HitecCtl::WriteOk), 800) && jobSpeed() < before);
 	tapId(UI_FIX(HitecCtl::WriteOk));
 
-	// A later write waits for an earlier batch before its record goes in:
-	// red when that flush ends, the record stays off the card too.
+	// A hold at red while an earlier batch flushes: refused at once, not
+	// after the flush.
 	before = jobSpeed();
 	speedDown();
+	holdUntilGone(UI_FIX(HitecCtl::Write));
+	fakeCacheSet(CardCache::Flushing, 5);
+	boardVolts(3.20f);
+	writes0 = fakeHitecSim()->writes;
+	holdFor(UI_FIX(HitecCtl::WriteHold));
+	checkTrue("a hold at red during a flush: the refusal at once, no wait",
+	          lineIs(196, UI_BOARD_LOW_1, C_AMBER) && lineIs(208, UI_BOARD_LOW_2, C_AMBER) &&
+	          !lineIs(196, "SAVING THE FILES TO THE CARD.", C_AMBER) &&
+	          ctlEnabled(UI_FIX(HitecCtl::WriteHold)) && fakeHitecSim()->writes == writes0);
+	fakeCacheSet(CardCache::Idle, 0);
+	hitecFrames(3);
+	checkTrue("the flush ends: still nothing written, no record",
+	          fakeHitecSim()->writes == writes0 && !fakeFatExists("HITEC/HITEC.TXT") &&
+	          jobSpeed() == before);
+	boardVolts(3.92f);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: the field list, the change kept", uiHitecView() == HitecView::List);
+
+	// A later write waits for an earlier batch before its record goes in:
+	// red when that flush ends, the record stays off the card too.
 	holdUntilGone(UI_FIX(HitecCtl::Write));
 	fakeCacheSet(CardCache::Flushing, 5);
 	writes0 = fakeHitecSim()->writes;

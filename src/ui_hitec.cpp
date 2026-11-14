@@ -1089,7 +1089,9 @@ static void startWrite() {
 	s_result = false;
 	// The BOARD voltage red: no file goes to the card and no frame to the
 	// servo. A write already running is not stopped: cut off, it would leave
-	// the servo partly written and unverified.
+	// the servo partly written and unverified. Asked here as well as in
+	// filesThenWrite(): a hold at red is refused at once, not only after an
+	// earlier batch's flush that may still run.
 	s_boardLow = uiBoardWriteRefused();
 	if (s_boardLow) return;
 	if (cardCacheState() == CardCache::Failed) recoverFlush();
