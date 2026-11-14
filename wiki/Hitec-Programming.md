@@ -144,7 +144,8 @@ the next view reads `TAKING GP0`.
 
 ## Entering and reading
 
-Once the job holds the line, the entry starts at once.
+Once the job holds the line, the entry starts at once. The body's headline,
+the step under way, is amber.
 
 - **With SERVO SUPPLY at `OWN`**, the screen reads the servo on the supply
   it has. Power the servo before you tap `D SERIES`. The body reads
@@ -185,13 +186,13 @@ add in amber `A WRITE WAS INTERRUPTED. HITEC/` and
 ## The field list
 
 The strip shows the model, the backup and the pin, two spaces apart:
-`D485HW  BACKUP IN MEMORY  GP0` until a write has put the backup on the
-card, then `BACKUP HT001`, for example. A classic servo adds its version
-last, `V16` for example. A model that has no name in rcbench's list reads
-`D SERIES` and its number. A green chip at the right reads `MODE`. A strip
-that would run into the chip drops items from the right: the version, then
-the pin. A classic servo reads `HS-5645MG  BACKUP IN MEMORY`, then
-`HS-5645MG  BACKUP HT001  GP0`.
+`D485HW  BACKUP IN RAM  GP0` until a write has put the backup on the card,
+then `BACKUP HT001`, for example. A classic servo adds its version last,
+`V16` for example. A model that has no name in rcbench's list reads
+`D SERIES` and its number. A square chip at the right reads `PROG MODE` on
+blue. A strip that would run into the chip drops items from the right: the
+version, then the pin. A classic servo reads `HS-5645MG  BACKUP IN RAM`,
+then `HS-5645MG  BACKUP HT001`.
 
 Each row shows the group in small letters, the parameter name and the value.
 Rows are 40 px tall at a 42 px pitch. Drag the list up or down to scroll.
@@ -211,9 +212,11 @@ Rows are 40 px tall at a 42 px pitch. Drag the list up or down to scroll.
   `US` is µs: the screen font has no micro sign.
 - A stored value that no encoding takes reads `RAW` and the number in amber,
   for example `RAW 1234`. A value that does not decode reads `?`.
-- Read-only rows are drawn dim and a tap on them selects nothing:
-  `SENSITIVITY`, and every INFO row but `ID`.
-- A changed value is drawn green, and its name carries a `*`.
+- Read-only rows are drawn grey, but for a `RAW` value in amber, and a tap on
+  them selects nothing: `SENSITIVITY`, and every INFO row but `ID`.
+- A changed value is cyan, with a 3 px cyan bar at its row's left edge; the
+  name carries no mark. A value as read is in the text colour, selected or
+  not: selecting a row lights the row and its name, not the value.
 
 <img src="img/hitec-preview.png" width="240" alt="SPEED selected and stepped from 100 % (4095) to 90 % (18)">
 
@@ -221,14 +224,15 @@ Rows are 40 px tall at a 42 px pitch. Drag the list up or down to scroll.
 
 1. Tap an editable row. The editor bar under the list shows the parameter,
    its stored value and the pending value, for example
-   `SPEED  100 % (4095) ->` above `90 % (18)`. With no row selected, the bar
+   `SPEED  100 % (4095) ->` above `90 % (18)`, the pending value cyan once it
+   differs. With no row selected, the bar
    reads `TAP A ROW TO EDIT IT` and `SWIPE IT SIDEWAYS FOR COARSE`.
 2. Tap `-` or `+` (44 × 44 px) to step the value to the next value its
    encoding takes. Hold to repeat. `+` raises the value shown and `-` lowers
    it.
 3. Or swipe the row sideways: one coarse step per 16 px. A coarse step is an
    eleventh of the range, rounded up, at least one step.
-4. `REVERT` drops all pending changes.
+4. `REVERT`, labelled in amber, drops all pending changes.
 
 `FAILSAFE` steps through `LIMP`, `OFF`, then positions of 900 µs to
 2,100 µs. A `RAW` value takes the nearest legal value on its first step.
@@ -243,7 +247,7 @@ Two kinds of limit apply:
   steps are hard limits, and so is the order `LEFT END` below `NEUTRAL`
   below `RIGHT END`. When no further step is legal, the button is drawn
   disabled.
-- **A soft rule** is taken. The row gets a 3 px amber mark at its left edge
+- **A soft rule** is taken. The row's bar turns amber, the value stays cyan,
   and the editor bar shows the rule's text in amber. The rules are
   rcbench's seven, compared with the servo as last read:
 
@@ -286,9 +290,10 @@ opens and writes nothing.
 
 The write page is titled `HITEC WRITE`. The strip counts the changes,
 `1 CHANGE` or `2 CHANGES`. Each changed parameter is one line, `SPEED` and
-`100 % (4095) -> 90 % (18)`, or two when the value does not fit beside its
-name. A changed `ID` is listed first. The page lists 4 changes at most;
-then `AND 3 MORE`, for example, counts the changes not listed.
+`100 % (4095) -> 90 % (18)`, the old value and the arrow dim, the new value
+cyan, or two lines when the value does not fit beside its name. A changed
+`ID` is listed first. The page lists 4 changes at most; then `AND 3 MORE`,
+for example, counts the changes not listed.
 
 Under the values, top to bottom:
 
@@ -543,7 +548,7 @@ lead gets the converter's output on its BEC wire.**
   read or write has ended. The page then reads
   `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF.` and
   `RETRY POWERS IT UP AND READS IT AGAIN.` Without a card, after a write, it
-  adds `NO CARD: THE BACKUP IN MEMORY IS LOST.`
+  adds `NO CARD: THE BACKUP IN RAM IS LOST.`
 - **LEAVE** switches the supply off. The pin is let go 2.0 s after the
   switch-off.
 

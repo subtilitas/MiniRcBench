@@ -449,7 +449,7 @@ static void testSettingsDiagnostics() {
 	UiRect last = ctlRect(UI_ROW(SettingsRowId::LastRestart, Row));
 	checkInt("LAST RESTART at y 140 at the end of the list", last.y, 140);
 	checkTrue("DIAGNOSTICS' caption at y 128, 8 px into it",
-	          fakeTextIs(UI_MARGIN, 128, "DIAGNOSTICS", C_CYAN, C_BG, 1));
+	          fakeTextIs(UI_MARGIN, 128, "DIAGNOSTICS", C_TEXT, C_BG, 1));
 	checkTrue("LAST RESTART's label",
 	          fakeTextIs(UI_MARGIN, 140 + 18, "LAST RESTART", C_DIM, C_BG, 1));
 	checkTrue("a brown-out reads BROWN-OUT in amber, right-aligned to x 232",
@@ -611,10 +611,10 @@ static void testBacklightFloorAndNoOpSteps() {
 	pressId(UI_FIX(SettingsCtl::Save));
 	holdId(UI_FIX(SettingsCtl::Save), 41);
 	fakeRelease(); menuFrames(1);
-	checkTrue("saved: the note reads SAVED", noteIs("SAVED", C_LIME));
+	checkTrue("saved: the note reads SAVED", noteIs("SAVED", C_GREEN));
 	tapId(UI_ROW(SettingsRowId::Backlight, Plus));
 	checkInt("+ at 255 stays at 255", settings()->backlight, 255);
-	checkTrue("and applies nothing: the note still reads SAVED", noteIs("SAVED", C_LIME));
+	checkTrue("and applies nothing: the note still reads SAVED", noteIs("SAVED", C_GREEN));
 
 	// KISS on: a step of SIG PIN or AUX PIN swaps the two free pins, and a
 	// second step swaps them back to what is saved.
@@ -623,7 +623,7 @@ static void testBacklightFloorAndNoOpSteps() {
 	pressId(UI_FIX(SettingsCtl::Save));
 	holdId(UI_FIX(SettingsCtl::Save), 41);
 	fakeRelease(); menuFrames(1);
-	checkTrue("KISS on and saved: the note reads SAVED", settings()->kissEnable && noteIs("SAVED", C_LIME));
+	checkTrue("KISS on and saved: the note reads SAVED", settings()->kissEnable && noteIs("SAVED", C_GREEN));
 	uint8_t esc = settings()->dshotPin, kiss = settings()->kissPin;
 	revealRow((int)SettingsRowId::Sig);
 	tapId(UI_ROW(SettingsRowId::Sig, Plus));
@@ -691,9 +691,9 @@ static void testResetNote() {
 	holdReset();
 	checkTrue("DEFAULTS again: the note", noteIs(NOTE, C_AMBER));
 	holdSave();
-	checkTrue("HOLD TO SAVE: SAVED, not the DEFAULTS note", !settingsDirty() && noteIs("SAVED", C_LIME));
+	checkTrue("HOLD TO SAVE: SAVED, not the DEFAULTS note", !settingsDirty() && noteIs("SAVED", C_GREEN));
 	menuFrames(2);
-	checkTrue("and it does not come back", noteIs("SAVED", C_LIME));
+	checkTrue("and it does not come back", noteIs("SAVED", C_GREEN));
 
 	// DEFAULTS while the defaults are what a restart loads: nothing to undo.
 	holdReset();
@@ -940,7 +940,7 @@ static void testResetByUpdate() {
 	          noteIs("SAVE FAILED - FLASH REFUSED THE WRITE", C_RED) && settingsResetByUpdate());
 	fakeFlashSetWritable(true);
 	holdSave();
-	checkTrue("HOLD TO SAVE lands: SAVED", noteIs("SAVED", C_LIME) && !settingsResetByUpdate());
+	checkTrue("HOLD TO SAVE lands: SAVED", noteIs("SAVED", C_GREEN) && !settingsResetByUpdate());
 	tapId(UI_FIX(UI_BACK));
 	menuFrames(1);
 	UI_SETTINGS.status(b, sizeof(b), &col, &fill);
@@ -1045,7 +1045,7 @@ static void testCarriedOver() {
 	fakeFlashSetWritable(true);
 	holdSave();
 	checkTrue("HOLD TO SAVE with nothing changed lands: SAVED",
-	          noteIs("SAVED", C_LIME) && !settingsCarriedOver());
+	          noteIs("SAVED", C_GREEN) && !settingsCarriedOver());
 	tapId(UI_FIX(UI_BACK));
 	menuFrames(1);
 	UI_SETTINGS.status(b, sizeof(b), &col, &fill);
@@ -1104,7 +1104,7 @@ static void testEscPinNote() {
 	holdSave();
 	checkTrue("saved: the warning and SAVED",
 	          !settingsDirty() && fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1) &&
-	          noteIs("SAVED", C_LIME));
+	          noteIs("SAVED", C_GREEN));
 	// The list ends at y 227 while the warning shows: it scrolls 632 px.
 	for (int k = 0; k < 5; k++) dragList(200, -180);
 	checkInt("dragged to the end: UPTIME at y 178, 12 px higher",
@@ -1297,6 +1297,44 @@ static void testSettingsValueWidths() {
 	tapId(UI_FIX(UI_BACK));
 }
 
+/**
+ * @brief SETTINGS values are neutral (menu-b.md, decision 11): the MAX
+ *        THROTTLE, SIG PIN, AUX PIN and SERVO SUPPLY values in the text
+ *        colour, and no value in cyan, the "changed" colour, or in lime, a
+ *        live reading.
+ */
+static void testSettingsValueColours() {
+	section("SETTINGS: values in the text colour, no cyan or lime");
+	openSettings();
+	const SettingsSection *secs[16];
+	uint8_t ns = uiSettingsSections(secs, 16);
+	Settings keep = *settings();
+	settings()->kissEnable = 1;
+	settings()->kissPin = (uint8_t)(settings()->dshotPin == 0 ? 1 : 0);
+	int named = 0;
+	bool neutral = true;
+	char what[64];
+	for (uint8_t i = 0; i < ns; i++)
+		for (uint8_t r = 0; r < secs[i]->count; r++) {
+			const SettingsRow &row = secs[i]->rows[r];
+			char b[40];
+			uint16_t col;
+			row.value(b, sizeof(b), &col);
+			if (col == C_CYAN || col == C_LIME) neutral = false;
+			if (!strcmp(row.label, "MAX THROTTLE") || !strcmp(row.label, "SIG PIN") ||
+			    !strcmp(row.label, "AUX PIN") || !strcmp(row.label, "SERVO SUPPLY")) {
+				snprintf(what, sizeof(what), "%s: %s in the text colour", row.label, b);
+				checkTrue(what, col == C_TEXT);
+				named++;
+			}
+		}
+	checkInt("the four rows found", named, 4);
+	checkTrue("no value cyan or lime", neutral);
+	*settings() = keep;
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+}
+
 /** @brief MENU opens at 0 px again when a tool returns to it. */
 static void testMenuScrollResets() {
 	section("MENU: a tool's return opens MENU at 0 px");
@@ -1460,6 +1498,7 @@ void runMenuTests() {
 	testEscPinNote();
 	testMenuStatusWidths();
 	testSettingsValueWidths();
+	testSettingsValueColours();
 	testMenuScrollResets();
 	testAm32WaitsBesideAClaim();
 	testSupplySection();

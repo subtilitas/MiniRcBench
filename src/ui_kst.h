@@ -91,5 +91,15 @@ struct UiControl;
 uint8_t uiKstControls(UiControl *out, uint8_t max);
 
 struct UiScreen;
+/**
+ * @brief The leave page's notes with the switch and no card, above HOLD TO
+ *        REBOOT: 32 and 7 characters at scale 1.
+ */
+#define KST_UI_REBOOT_LOSES_1 "NO CARD: REBOOT LOSES THE BACKUP"
+/** @brief ...and the second line. */
+#define KST_UI_REBOOT_LOSES_2 "IN RAM."
+static_assert(sizeof(KST_UI_REBOOT_LOSES_1) - 1 <= 37 && sizeof(KST_UI_REBOOT_LOSES_2) - 1 <= 37,
+              "a REBOOT note line is wider than a scale-1 line");
+
 /** @brief KST SERVO. */
 extern const UiScreen UI_KST;

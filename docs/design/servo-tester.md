@@ -186,7 +186,7 @@ bounded by the pulse range and slowed by SPEED.
 
 ### Two servos
 
-Two horns share one dial: A in `C_LIME`, B in `C_CYAN`. A selector of three
+Two horns share one dial: A in `C_LIME`, B in `C_BLUE`. A selector of three
 buttons, `A`, `B` and `AB`, sits in the readout row; `AB` is selected when the
 screen opens. The selection decides what the drag, MIN, CENTRE, MAX and SWEEP
 drive:

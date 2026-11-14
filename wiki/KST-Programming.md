@@ -101,7 +101,8 @@ The screen repeats the entry sequence of rcbench's KST code, one attempt every
 116.6 ms to 118.8 ms, for 30 s. The strip counts the attempts and the time:
 `SIG GP0  TRY 12  1.4 S`. A spinner turns while the search runs.
 
-The body reads `POWER UP` and `THE SERVO NOW`, then
+The body reads `POWER UP` and `THE SERVO NOW` in amber, the step to take now,
+then
 `PLUG IT IN OR SWITCH ITS SUPPLY ON.` and
 `IT ANSWERS ONLY RIGHT AFTER POWER-ON.`
 
@@ -155,9 +156,10 @@ search stops it and opens the leave page.
 A finished read opens the field list.
 
 The strip shows the servo type, `V6` or `V8`, the pin, and the backup:
-`BACKUP IN MEMORY` until a write has put the backup on the card, then
-`BACKUP KST001`. A chip at the right reads `MODE` (green), or `IN DOUBT`
-(amber) after a write left the servo in an unknown state.
+`BACKUP IN RAM` until a write has put the backup on the card, then
+`BACKUP KST001`. A square chip at the right reads `PROG MODE` on blue while
+the servo is in programming mode, or `IN DOUBT` on red after a write left the
+servo in an unknown state.
 
 Each row shows the group in small letters, the field name, and the value.
 Rows are 40 px tall at a 42 px pitch. Drag the list up or down to scroll.
@@ -174,14 +176,17 @@ Rows are 40 px tall at a 42 px pitch. Drag the list up or down to scroll.
   sign. A raw value whose display is not established reads `RAW` and the number.
 - LOCKED fields are read-only. They are drawn grey and a tap on them selects
   nothing.
-- A changed value is drawn green.
+- A changed value is cyan, with a 3 px cyan bar at its row's left edge. A
+  value as read is in the text colour, selected or not: selecting a row
+  lights the row and its name, not the value.
 
 <img src="img/kst-edit.png" width="240" alt="DEAD BAND selected and stepped from 2.0 US to 2.2 US">
 
 ### Editing a field
 
 1. Tap an editable row. The editor bar under the list shows the field, its
-   stored value, and the pending value, for example `DEAD BAND  2.0 US ->`.
+   stored value, and the pending value, for example `DEAD BAND  2.0 US ->`
+   over `2.2 US`, the pending value cyan once it differs.
    With no row selected, the bar reads `TAP A ROW TO EDIT IT` and
    `SWIPE IT SIDEWAYS FOR COARSE`.
 2. Tap `-` or `+` (44 × 44 px) to step the value. Hold to repeat. `+`
@@ -189,7 +194,7 @@ Rows are 40 px tall at a 42 px pitch. Drag the list up or down to scroll.
    goes: `+` widens `DEAD BAND`.
 3. Or swipe the row sideways. One step is an eleventh of the field's range,
    rounded up, at least one raw step.
-4. `REVERT` drops all pending changes.
+4. `REVERT`, labelled in amber, drops all pending changes.
 
 One raw step does not always change the text: `MAX. DUTY` reads `96 %` at
 raw 245 and at raw 244. The editor bar and the write page then add the raw
@@ -200,7 +205,7 @@ Two kinds of limit apply:
 - **A hard limit** is never offered. The stepper skips values that break
   one, so `-` and `+` stop at the last legal value. For example, `MAX. DUTY`
   stops at 98 %. When no further step is legal, the button is drawn disabled.
-- **A soft rule** is taken. The row gets a 3 px amber mark at its left edge
+- **A soft rule** is taken. The row's bar turns amber, the value stays cyan,
   and the editor bar shows the rule's text in amber, for example
   `WITHOUT SOFT START THE SERVO JUMPS AT POWER-ON.`
 
@@ -219,7 +224,8 @@ opens and writes nothing.
 
 The write page is titled `KST WRITE`. The strip counts the changes,
 `1 CHANGE` or `2 CHANGES`. Each changed field is one line, `DEAD BAND` and
-`2.0 US -> 2.2 US`, up to four, then `AND 3 MORE`. Amber lines starting with
+`2.0 US -> 2.2 US`, the old value and the arrow dim, the new value cyan, up
+to four, then `AND 3 MORE`. Amber lines starting with
 `*` give the soft rules that apply. The line at the bottom says where the
 backup goes:
 
@@ -322,7 +328,8 @@ The red results include:
 
 <img src="img/kst-doubt.png" width="240" alt="IN DOUBT: THE SERVO DOES NOT HOLD THE VALUES">
 
-After an `IN DOUBT` result the chip on the field list reads `IN DOUBT` and the
+After an `IN DOUBT` result the chip on the field list reads `IN DOUBT` on red
+and the
 write button reads `IN DOUBT` and does nothing. The screen takes no write
 until a restore has run. Restore from [FILES](#files).
 

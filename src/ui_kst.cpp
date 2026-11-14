@@ -531,7 +531,7 @@ static void follow() {
 struct MainText {
 	char        strip[40];
 	uint16_t    stripCol;
-	const char *big[2];       /**< Scale 2, C_LIME. */
+	const char *big[2];       /**< Scale 2, UI_COL_WARN: the current step. */
 	const char *line[6];      /**< Scale 1. */
 	uint16_t    lineCol[6];
 	char        rx[48];       /**< A refused reply, C_AMBER. */
@@ -565,7 +565,7 @@ static void stallNote(MainText *m) {
 	bool wrote = s_wroteSeen || s_st.stallWrote;
 	bool locked = s_lockedSeen || s_st.stallLocked;
 	if (!kstFilesMounted()) {
-		if (wrote) addLine(m, "NO CARD: THE BACKUP IN MEMORY IS LOST.", C_AMBER);
+		if (wrote) addLine(m, UI_NO_CARD_RAM_LOST, C_AMBER);
 		return;
 	}
 	if (!locked) return;
@@ -785,7 +785,7 @@ static void drawMain() {
 	gfxRect(0, UI_BODY_Y, GFX_W, GFX_H - UI_BODY_Y, C_BG);
 	int y = 70;
 	for (int i = 0; i < 2; i++)
-		if (m.big[i]) { gfxTextCenter(y, m.big[i], C_LIME, 2); y += 18; }
+		if (m.big[i]) { gfxTextCenter(y, m.big[i], UI_COL_WARN, 2); y += 18; }
 	y = m.big[1] ? 112 : m.big[0] ? 100 : 80;
 	for (int i = 0; i < 6 && m.line[i]; i++) {
 		gfxText(UI_MARGIN, y, m.line[i], m.lineCol[i], 1);
@@ -814,24 +814,27 @@ static const KstRow &rowAt(int i) {
 	return kstRows(&n)[i];
 }
 
+/**
+ * @brief The value state of a row: read-only, changed from the servo as read,
+ *        or plain (docs/design/menu-b.md, decision 8).
+ */
+static UiValue rowValue(bool editable, bool changed) {
+	if (!editable) return UiValue::ReadOnly;
+	return changed ? UiValue::Changed : UiValue::Plain;
+}
+
 static void drawFieldRow(int i, int y, void *) {
 	const KstRow &r = rowAt(i);
 	bool editable = kstRowEditable(i);
-	bool sel = i == s_sel;
 	uint16_t now = kst_field_get(&s_st.image, r.field);
 	uint16_t want = kst_field_get(&s_target, r.field);
 	bool changed = now != want;
-	gfxRect(0, y, GFX_W, KL_ROW_H - 1, sel ? C_PANEL : C_BG);
-	gfxText(UI_MARGIN, y + 11, r.group, C_GRID, 1);
-	gfxText(UI_MARGIN, y + 21, r.label, editable ? (sel ? C_TEXT : C_DIM) : C_GRID, 1);
 	char v[24];
 	kstValueText(r.field, want, v, sizeof(v));
-	int sc = gfxTextW(v, 2) <= 104 ? 2 : 1;
-	uint16_t col = !editable ? C_GRID : (changed ? C_LIME : C_TEXT);
-	gfxText(GFX_W - UI_MARGIN - gfxTextW(v, sc), y + (KL_ROW_H - 1 - 7 * sc + 1) / 2, v, col, sc);
-	// A change that breaks a soft rule: an amber mark at the row's edge.
-	if (changed && fieldRules(r.field)) gfxRect(0, y, 3, KL_ROW_H - 1, C_AMBER);
-	gfxHLine(0, y + KL_ROW_H - 1, GFX_W, C_PANEL);
+	// A change has a cyan bar, amber when it breaks a soft rule.
+	UiEdge edge = !changed ? UiEdge::None : fieldRules(r.field) ? UiEdge::Rule : UiEdge::Changed;
+	UiField f = { r.group, r.label, v, rowValue(editable, changed), edge, i == s_sel };
+	uiListDrawField(y, KL_ROW_H, f);
 }
 
 /** @brief kstCanStep() for one direction, kept until its inputs change. */
@@ -868,10 +871,12 @@ static void drawList() {
 	if (s_first.backupName[0])
 		snprintf(strip, sizeof(strip), "%s  GP%u  BACKUP %.6s", type, sigGpio(), s_first.backupName);
 	else
-		snprintf(strip, sizeof(strip), "%s  GP%u  BACKUP IN MEMORY", type, sigGpio());
+		snprintf(strip, sizeof(strip), "%s  GP%u  " UI_BACKUP_RAM, type, sigGpio());
 	uiStripText(strip, C_DIM);
-	if (s_st.locked) uiChip("IN DOUBT", C_AMBER);
-	else             uiChip("MODE", C_GREEN);
+	// In the mode: latched until LEAVE. In doubt: a write whose outcome is
+	// not known, a failure (docs/design/menu-b.md, decision 11).
+	if (s_st.locked) uiChip("IN DOUBT", UI_COL_ON);
+	else             uiChip(UI_CHIP_PROG_MODE, UI_COL_LATCHED);
 	uiListDraw(&s_list, drawFieldRow, nullptr);
 
 	gfxRect(0, KL_LIST_Y1 + 1, GFX_W, KL_FOOT_Y - KL_LIST_Y1 - 1, C_BG);
@@ -899,7 +904,8 @@ static void drawList() {
 		if (rules) {
 			snprintf(top, sizeof(top), "%s %s", r.label, want);
 			if (gfxTextW(top, 1) > cw) snprintf(top, sizeof(top), "%s", want);
-			gfxText(cx + (cw - gfxTextW(top, 1)) / 2, KL_EDIT_Y + 2, top, C_LIME, 1);
+			gfxText(cx + (cw - gfxTextW(top, 1)) / 2, KL_EDIT_Y + 2, top,
+			        uiListValueColour(rowValue(editable, changed)), 1);
 			char lines[3][48];
 			int n = kstWrap(kstRuleText(firstRule(rules)), cw / 6, lines, 3);
 			for (int i = 0; i < n; i++)
@@ -916,7 +922,7 @@ static void drawList() {
 			gfxText(cx + (cw - gfxTextW(top, 1)) / 2, KL_EDIT_Y + 2, top, C_DIM, 1);
 			int sc = gfxTextW(want, 2) <= cw ? 2 : 1;
 			gfxText(cx + (cw - gfxTextW(want, sc)) / 2, KL_EDIT_Y + 16, want,
-			        editable ? C_LIME : C_GRID, sc);
+			        uiListValueColour(rowValue(editable, changed)), sc);
 		}
 	}
 
@@ -927,7 +933,7 @@ static void drawList() {
 	uiButton(BTN_WRITE, wl, s_hold.holding ? C_RED : C_PANEL, s_hold.holding ? C_ONACCENT : C_TEXT,
 	         1, s_hold.holding, w);
 	bool rv = pending() != 0;
-	uiButton(BTN_REVERT, "REVERT", C_PANEL, C_TEXT, 1, rv && pressing(BTN_REVERT), rv);
+	uiButton(BTN_REVERT, "REVERT", C_PANEL, UI_COL_WARN, 1, rv && pressing(BTN_REVERT), rv);
 	uiButton(BTN_FILES, "FILES", C_PANEL, C_TEXT, 1, pressing(BTN_FILES));
 }
 
@@ -1178,7 +1184,7 @@ static void drawWrite() {
 			// Values that would meet the label go to the line below it.
 			int vy = UI_MARGIN + gfxTextW(all[i].label, 1) + 6 > GFX_W - UI_MARGIN - gfxTextW(buf, 1)
 			             ? y + 10 : y;
-			gfxText(GFX_W - UI_MARGIN - gfxTextW(buf, 1), vy, buf, C_LIME, 1);
+			uiChangeText(GFX_W - UI_MARGIN - gfxTextW(buf, 1), vy, a, b);
 			y += 20;
 			shown++;
 		}
@@ -1599,10 +1605,10 @@ static void drawLeave() {
 	if (s_leaveQueued && s_writing) gfxText(UI_MARGIN, y, "LEAVING AFTER THE WRITE ENDS.", C_AMBER, 1);
 	if (s_st.supplyFitted) {
 		// REBOOT reads the servo as it is: the hold confirms the loss of a
-		// backup that exists only in memory.
+		// backup that exists only in RAM.
 		if (!kstFilesMounted()) {
-			gfxText(UI_MARGIN, 186, "NO CARD: REBOOT LOSES THE BACKUP", C_AMBER, 1);
-			gfxText(UI_MARGIN, 198, "IN MEMORY.", C_AMBER, 1);
+			gfxText(UI_MARGIN, 186, KST_UI_REBOOT_LOSES_1, C_AMBER, 1);
+			gfxText(UI_MARGIN, 198, KST_UI_REBOOT_LOSES_2, C_AMBER, 1);
 		}
 		bool rok = rebootAllowed();
 		uiHoldDrawBar(&s_hold, BTN_REBOOT, BTN_REBOOT.y - 4, millis());

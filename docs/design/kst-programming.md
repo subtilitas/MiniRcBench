@@ -604,7 +604,7 @@ What remains:
 |---|---|---|---|
 | Searching, supply switched | `SIG GP0  TRY 3  SUPPLY OFF 1.4 S`, or `SUPPLY ON`; TRY is the attempt under way, `KstStatus.attempts` + 1 in an off phase | `SWITCHED SUPPLY`, then `THE BENCH SWITCHES THE SERVO OFF FOR 2 S, THEN ON, BEFORE EACH TRY.`, the failsafe line, and in amber `AN ESC ON THIS LEAD GETS THE CONVERTER'S OUTPUT ON ITS BEC WIRE.`; a spinner | STOP SEARCH, BACK |
 | Timed out, supply switched | `NO ANSWER IN 14 POWER-UPS`, the number from `KstStatus.attempts` | `CHECK THE CONVERTER ON GP28, ITS WIRING AND THE SIGNAL. A SERVO ON ITS OWN SUPPLY NEEDS SETTINGS > SERVO SUPPLY AT OWN.` | RETRY, BACK |
-| Stalled, supply switched | `SIG GP0  SUPPLY OFF` | `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF. RETRY POWERS IT UP AND READS IT AGAIN.` Without a card, after a write, in amber, `NO CARD: THE BACKUP IN MEMORY IS LOST.` and nothing more. With a card, for a locked session, in amber, `THE LAST WRITE IS IN DOUBT. AFTER THE READ, LOAD KST005 IN FILES AND HOLD TO WRITE.` | RETRY, BACK |
+| Stalled, supply switched | `SIG GP0  SUPPLY OFF` | `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF. RETRY POWERS IT UP AND READS IT AGAIN.` Without a card, after a write, in amber, `NO CARD: THE BACKUP IN RAM IS LOST.` and nothing more. With a card, for a locked session, in amber, `THE LAST WRITE IS IN DOUBT. AFTER THE READ, LOAD KST005 IN FILES AND HOLD TO WRITE.` | RETRY, BACK |
 | REBOOT | `SIG GP0  SUPPLY OFF 1.4 S`, then `SUPPLY ON 0.6 S` | `REBOOT: DO NOT UNPLUG THE SERVO.`, then `READING 32 REGISTERS` | BACK |
 
 The converter text names the enable pin SETTINGS chose, `GP28` or `GP29`.
@@ -619,7 +619,7 @@ switch:
 ```
 y   0 | KST SERVO                        [ BACK ]|  header 36 px (menu.md)
    40 | SIG GP0  TRY 3  SUPPLY OFF 1.4 S         |
-   70 |           SWITCHED SUPPLY                |  scale 2, C_LIME, 178 px
+   70 |           SWITCHED SUPPLY                |  scale 2, C_AMBER, 178 px
   100 |   THE BENCH SWITCHES THE SERVO OFF FOR   |  scale 1, C_DIM
   114 |   2 S, THEN ON, BEFORE EACH TRY.         |
   132 |   A POWERED SERVO ON THIS PIN GETS NO    |
@@ -904,8 +904,8 @@ The layout of the searching state without a switch:
 ```
 y   0 | KST SERVO                        [ BACK ]|  header 36 px (menu.md)
    40 | SIG GP0  TRY 12  1.4 S                   |
-   70 |                POWER UP                  |  scale 2, C_LIME, 94 px
-   88 |             THE SERVO NOW                |  scale 2, C_LIME, 154 px
+   70 |                POWER UP                  |  scale 2, C_AMBER, 94 px
+   88 |             THE SERVO NOW                |  scale 2, C_AMBER, 154 px
   112 |   PLUG IT IN OR SWITCH ITS SUPPLY ON.    |  scale 1, C_DIM
   126 |   IT ANSWERS ONLY RIGHT AFTER POWER-ON.  |
   144 |   A POWERED SERVO ON THIS PIN GETS NO    |
@@ -1049,7 +1049,7 @@ decision 5.
 
 ```
 y   0 | KST SERVO                        [ BACK ]|
-   40 | V6  GP0  BACKUP KST004             (MODE)|  strip, chip C_GREEN
+   40 | V6  GP0  BACKUP KST004        [PROG MODE]|  strip, square chip C_BLUE
    62 | TUNE      MAX. DUTY                 96 % |  40 px rows, 42 px pitch,
   104 | TUNE      BOOST                300.0 US  |  viewport 62..215,
   146 | TUNE      DEAD BAND              2.0 US  |  on ui_list
@@ -1064,7 +1064,11 @@ y   0 | KST SERVO                        [ BACK ]|
   one coarse step per 16 px. A coarse step is an eleventh of the field's
   raw range, rounded up, at least 1 (`kstCoarse()`): 24 raw for MAX. DUTY.
   Three whole rows are visible. LOCKED rows are drawn in `C_GRID` and are
-  not selectable.
+  not selectable. Each row is drawn by `uiListDrawField()`
+  ([menu-b.md](menu-b.md), decision 8): a value that differs from the servo
+  as read is `C_CYAN` with a 3 px `C_CYAN` bar at the row's left edge;
+  selection fills the row `C_PANEL` and lights the label, never the value.
+  The editor bar's value follows the same colours.
 - Groups follow rcbench's pages: TUNE (MAX. DUTY, BOOST, STRETCH, SOFT START,
   SPEED LIMIT, SPEED, DEAD BAND), PULSE (PULSE LOWER, PULSE UPPER, NEUTRAL,
   REVERSED, LEFT ANGLE, RIGHT ANGLE), FAILSAFE (FAILSAFE MOVE, FAILSAFE
@@ -1077,15 +1081,16 @@ y   0 | KST SERVO                        [ BACK ]|
   goes, so + widens DEAD BAND, 0.2 µs × (65 − raw) (`kstStep()`). A value
   that breaks a hard rule (`kst_limits_edit()` against the backup) is skipped,
   so the stepper reaches legal values only. A value that breaks a soft rule is
-  taken; the row gets an amber mark and the editor bar shows the rule's text,
+  taken; the row's bar is `C_AMBER` and the editor bar shows the rule's text,
   for example `WITHOUT SOFT START THE SERVO JUMPS AT POWER-ON.`
 - An image that fails the layout fingerprint is read and shown. With no row
   selected the editor bar reads `READ ONLY: UNKNOWN LAYOUT` and
   `NOTHING IS WRITTEN TO THIS SERVO`, and the footer's write button reads
   `READ ONLY`; the session refuses its writes.
-  A locked session's write button reads `IN DOUBT`.
+  A locked session's write button reads `IN DOUBT`, and the strip's chip
+  reads `IN DOUBT` on `C_RED` in place of `PROG MODE` on `C_BLUE`.
 - The strip names the type, `V6` or `V8` (`kst_type()`), the pin and the
-  backup file once the first write has saved it, `BACKUP IN MEMORY` before.
+  backup file once the first write has saved it, `BACKUP IN RAM` before.
 - A value whose raw step does not change its text, MAX. DUTY's 245 and 244
   both reading `96 %`, carries its raw value in the editor bar and on the
   write page: `96 % (245) -> 96 % (244)` (`kstValuePair()`).
@@ -1097,7 +1102,7 @@ HOLD TO WRITE opens the write page rather than writing at once.
 ```
 y   0 | KST WRITE                        [ BACK ]|
    40 | 2 CHANGES                                |
-   62 | DEAD BAND        2.0 US  ->  3.0 US      |
+   62 | DEAD BAND        2.0 US  ->  3.0 US      |  old and arrow C_DIM, new C_CYAN
    82 | SOFT START            1  ->  0           |
   102 | * WITHOUT SOFT START THE SERVO JUMPS     |  C_AMBER, 12 px a line,
   114 |   AT POWER-ON.                           |  6 lines, none below 192
@@ -1469,7 +1474,7 @@ so these run against the same simulated servo:
      `supplyLeftDs` (0.1 s) and `reboot` in place of the fields named above,
      and `stallLocked` and `stallWrote` for the stalled screen.
    - The switched leave page reads `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.`
-     and, without a card, `NO CARD: REBOOT LOSES THE BACKUP IN MEMORY.` above
+     and, without a card, `NO CARD: REBOOT LOSES THE BACKUP IN RAM.` above
      HOLD TO REBOOT; its strip names the servo and the pin only.
    - A heartbeat lapse with the supply on is latched: the supply goes off
      once what runs has ended, even if the heartbeat returns before. A

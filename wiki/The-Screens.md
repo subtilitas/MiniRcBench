@@ -24,6 +24,20 @@ root and has no header. On the unplug page of SERVO TESTER, KST SERVO and
 HITEC SERVO, `BACK` waits until the pins are let go: until then it is drawn
 disabled, an outline with a grey label, and a tap on it does nothing.
 
+**The colours follow a table of roles.** Green is safe or done: `SAFE`,
+`EDT ON`, `WRITE VERIFIED`, `SAVED`. Lime is a live reading: RPM, the throttle
+fill, the servo pulse, a hold's progress bar. Red is output on or a failure:
+`ARMED`, `RUNNING`, `STOP`, a tool's hold button while it is held, `REC`, a
+write in doubt. Amber is a warning or the step to take now. Magenta is an alert,
+such as `STALLED`. Cyan is a value changed and not yet written or applied, with
+a cyan bar at its row's left edge. Blue is a setting that stays on: `HOLD`, a
+toggle that is on, `PROG MODE`, servo B. Labels, captions and the buttons that
+open or command something are in the text colour or grey. A chip on the strip
+under a title is square, so it does not look like a button. Not every use
+follows the table: lime also marks states such as SD LOG's `READY` and the
+card served over USB, and many failures are amber or in the text colour, for
+example `CARD ERROR` on SD LOG and AM32's `WRITE FAILED`.
+
 ---
 
 ## The tester
@@ -34,10 +48,10 @@ disabled, an outline with a grey label, and a tap on it does nothing.
 
 - the arm badge: `SAFE` (green) or `ARMED` (red);
 - `DSHOT` and the DShot bitrate in kbit/s, for example `DSHOT600`, as set
-  under SETTINGS → DSHOT, cyan once an EDT (Extended DShot Telemetry) enable
-  has been sent. `DSERR` in amber replaces
-  it when the display could not set up its DShot output; nothing is sent to
-  the ESC then;
+  under SETTINGS → DSHOT, dim, and in the text colour once an EDT (Extended
+  DShot Telemetry) enable has been sent. `DSERR` in amber replaces it when
+  the display could not set up its DShot output; nothing is sent to the ESC
+  then;
 - the recording state: `REC`, `SD`, `SDERR` or `NOSD`
   (see [SD Logging](SD-Logging)). `SDERR`, a recording that stopped on its
   own, is drawn on an amber chip, and stays clear of the arm badge, the RPM
@@ -87,7 +101,8 @@ quality. See [Telemetry](Telemetry).
 
 **Throttle.** The gauge, the ceiling and the commanded percentage. The
 percentage is of the full DShot range (0–2000 = 0–100 %): at a 20 % ceiling, a
-full-width drag reads `20%`. While disarmed the bar reads `ARM TO ENABLE`.
+full-width drag reads `20%`. The ceiling reads `MAX 20%` in the text colour
+beside `THROTTLE`. While disarmed the bar reads `ARM TO ENABLE`.
 
 **Buttons.** `HOLD TO ARM` / `DISARM`, `HOLD` (latching throttle), `MENU`.
 
@@ -116,7 +131,8 @@ throttle to 0 and turns `HOLD` off.
 
 Under the title, a strip names the two signal pins, SIG for the ESC and AUX
 for the KISS wire or a second servo, and the DShot rate, for example
-`SIG GP0  AUX GP1  DSHOT600`, and shows the EDT chip. The chip is read-only:
+`SIG GP0  AUX GP1  DSHOT600`, and shows the EDT chip. The chip is read-only,
+square and 12 px tall:
 
 | Chip | When |
 |---|---|

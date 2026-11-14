@@ -119,7 +119,7 @@ restarts until you hold `HOLD TO START` again.
 | Release | The servo stays where it is |
 | `MIN` `CENTRE` `MAX` | On release, to that end or the centre |
 | `SWEEP` | A sweep about the centre; the button becomes `STOP SWEEP` |
-| `SPEED` | How fast the servo is moved, 10 % to 100 % |
+| `SPEED` | How fast the servo is moved, 10 % to 100 %. Its fill is grey |
 
 - The dial and the buttons work only while `RUNNING`; while `SAFE` they are
   drawn as outlines and do nothing.
@@ -130,7 +130,8 @@ restarts until you hold `HOLD TO START` again.
   MIN to MAX takes 5 s.
 - A sweep starts at the centre and runs its curve on the board's second core,
   so the screen does not slow it down. While it runs, the readout shows
-  `SWEEP 3` or `SWEEP 3/10`: the ends reached, and the count you set.
+  `SWEEP 3` or `SWEEP 3/10` in lime, a live reading: the ends reached, and
+  the count you set.
   `STOP SWEEP` leaves the servo where the curve was. A drag, `MIN`, `CENTRE`,
   `MAX` and `STOP` end a sweep too.
 
@@ -146,7 +147,9 @@ share one profile and one frame rate.
 <img src="img/servo-two.png" width="240" alt="Two servos">
 
 `A`, `B` and `AB` choose what the dial and the buttons move: one servo, or
-both to the same angle. The chosen horn is drawn wide. With `REVERSE B` on, B
+both to the same angle. The chosen horn is drawn wide. Servo A's horn and
+letter are lime, servo B's blue, and `B` fills blue while it is chosen. With
+`REVERSE B` on, B
 moves the opposite way when both follow, for a pair mounted face to face.
 
 Two servos need AUX free. If KISS frames arrive on it, the screen offers one
@@ -221,6 +224,8 @@ Swipe the row sideways for big steps. Drag up or down to scroll. Rows are
 - A heli type, or a frame rate above 60 Hz, can destroy a servo not made for
   it: above 60 Hz an analogue servo overheats. Such a change waits, the screen
   names the risk, and `HOLD TO APPLY` (1 s) applies it. `BACK` drops it.
+  While it waits, the row's value is cyan with a 3 px cyan bar at its left
+  edge; a value that applied is in the text colour, selected or not.
 - A pulse past a servo's travel drives it against its end stop, where it stalls
   and heats. With TYPE WIDE, MIN below 900 µs or MAX above 2100 µs the screen
   says `PAST ITS TRAVEL A SERVO STALLS AND HEATS. TRY MIN AND MAX HORN-FREE.` in

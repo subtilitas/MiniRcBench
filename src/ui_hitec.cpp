@@ -584,7 +584,7 @@ static void mainText(MainText *m) {
 				addWrapped(m, "THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF.", C_AMBER);
 				addLine(m, "RETRY POWERS IT UP AND READS IT AGAIN.", C_AMBER);
 				if (!hitecFilesMounted() && s_st.stallWrote)
-					addLine(m, "NO CARD: THE BACKUP IN MEMORY IS LOST.", C_AMBER);
+					addLine(m, UI_NO_CARD_RAM_LOST, C_AMBER);
 				return;
 			}
 			snprintf(m->strip, sizeof(m->strip), "%s", classic ? "NO SERVO IN SERIAL MODE" : "NO SERVO ANSWERS");
@@ -643,7 +643,7 @@ static void drawMain() {
 	if (m.strip[0]) uiStripText(m.strip, C_DIM);
 	gfxRect(0, UI_BODY_Y, GFX_W, GFX_H - UI_BODY_Y, C_BG);
 	int y = 80;
-	if (m.big) { gfxTextCenter(70, m.big, C_LIME, 2); y = 100; }
+	if (m.big) { gfxTextCenter(70, m.big, UI_COL_WARN, 2); y = 100; }
 	for (int i = 0; i < 8 && m.line[i]; i++) {
 		gfxText(UI_MARGIN, y, m.line[i], m.lineCol[i], 1);
 		y += 14;
@@ -775,25 +775,33 @@ static bool stepOk(int dir) {
 	return s_memo[dir > 0];
 }
 
+/**
+ * @brief The value state of row @p i (docs/design/menu-b.md, decision 8): a
+ *        value the screen cannot show as a setting, or the checksum row that
+ *        needs a repair, is Odd; a row the bench does not write is ReadOnly;
+ *        a written row that differs from the servo as read is Changed.
+ * @param i       The row.
+ * @param raw     The value is shown raw, not as a setting.
+ * @param changed The row is written and differs from the servo.
+ */
+static UiValue rowValue(int i, bool raw, bool changed) {
+	if (raw) return UiValue::Odd;
+	if (!hitecEditable(s_layout, s_rows[i].param)) return selectable(i) ? UiValue::Odd : UiValue::ReadOnly;
+	return changed ? UiValue::Changed : UiValue::Plain;
+}
+
 static void drawFieldRow(int i, int y, void *) {
 	const HitecRow &r = s_rows[i];
-	bool edit = hitecEditable(s_layout, r.param);
-	bool sel = i == s_sel;
 	bool changed = hitecWritten(s_layout, r.param) && hitecDiffers(&s_st.image, &s_draft, s_layout, r.param);
-	gfxRect(0, y, GFX_W, HL_ROW_H - 1, sel ? C_PANEL : C_BG);
-	gfxText(UI_MARGIN, y + 11, r.group, C_GRID, 1);
-	char label[24];
-	snprintf(label, sizeof(label), "%s%s", changed ? "*" : "", r.label);
-	gfxText(UI_MARGIN, y + 21, label, edit || selectable(i) ? (sel ? C_TEXT : C_DIM) : C_GRID, 1);
 	char v[32];
 	bool raw = false;
 	hitecValueText(&s_draft, s_layout, r.param, v, sizeof(v), &raw);
-	int sc = gfxTextW(v, 2) <= 104 ? 2 : 1;
-	uint16_t col = raw ? C_AMBER : !edit ? (selectable(i) ? C_AMBER : C_GRID) : (changed ? C_LIME : C_TEXT);
-	gfxText(GFX_W - UI_MARGIN - gfxTextW(v, sc), y + (HL_ROW_H - 1 - 7 * sc + 1) / 2, v, col, sc);
-	if (changed && hitecSoftRules(&s_st.image, &s_draft, s_layout, r.param))
-		gfxRect(0, y, 3, HL_ROW_H - 1, C_AMBER);
-	gfxHLine(0, y + HL_ROW_H - 1, GFX_W, C_PANEL);
+	// A change has a cyan bar, amber when it breaks a soft rule: the bar is
+	// the shape cue, so the label carries no mark.
+	UiEdge edge = !changed ? UiEdge::None
+	            : hitecSoftRules(&s_st.image, &s_draft, s_layout, r.param) ? UiEdge::Rule : UiEdge::Changed;
+	UiField f = { r.group, r.label, v, rowValue(i, raw, changed), edge, i == s_sel };
+	uiListDrawField(y, HL_ROW_H, f);
 }
 
 /** @brief The first rule of @p rules. */
@@ -815,7 +823,7 @@ static void drawList() {
 	if (s_family == HITEC_CLASSIC) snprintf(ver, sizeof(ver), "  V%02X", s_st.image.version);
 	snprintf(gp, sizeof(gp), "  GP%u", sigGpio());
 	if (s_write.backupName[0]) snprintf(backup, sizeof(backup), "  BACKUP %.5s", s_write.backupName);
-	else                       snprintf(backup, sizeof(backup), "  BACKUP IN MEMORY");
+	else                       snprintf(backup, sizeof(backup), "  " UI_BACKUP_RAM);
 	// Items two spaces apart, as on MENU, KST and SERVO, the backup's state
 	// first after the model. A strip that does not end 4 px before the chip
 	// drops items from the right: the version, then the pin, then the backup.
@@ -826,7 +834,7 @@ static void drawList() {
 	if (gfxTextW(strip, 1) > room) snprintf(strip, sizeof(strip), "%.12s%.18s", model, backup);
 	if (gfxTextW(strip, 1) > room) snprintf(strip, sizeof(strip), "%.12s", model);
 	uiStripText(strip, C_DIM);
-	uiChip(HITEC_UI_CHIP, C_GREEN);
+	uiChip(HITEC_UI_CHIP, UI_COL_LATCHED);
 	uiListDraw(&s_list, drawFieldRow, nullptr);
 
 	gfxRect(0, HL_LIST_Y1 + 1, GFX_W, HL_FOOT_Y - HL_LIST_Y1 - 1, C_BG);
@@ -850,7 +858,8 @@ static void drawList() {
 		}
 		char now[32], want[32], top[64];
 		hitecValueText(&s_st.image, s_layout, r.param, now, sizeof(now), nullptr);
-		hitecValueText(&s_draft, s_layout, r.param, want, sizeof(want), nullptr);
+		bool raw = false;
+		hitecValueText(&s_draft, s_layout, r.param, want, sizeof(want), &raw);
 		uint32_t rules = edit ? hitecSoftRules(&s_st.image, &s_draft, s_layout, r.param) : 0;
 		const char *note = rules ? hitecRuleText(firstRule(rules)) : nullptr;
 		hitec_value_t id;
@@ -860,7 +869,8 @@ static void drawList() {
 		if (note) {
 			snprintf(top, sizeof(top), "%s %s", r.label, want);
 			if (gfxTextW(top, 1) > cw) snprintf(top, sizeof(top), "%s", want);
-			gfxText(cx + (cw - gfxTextW(top, 1)) / 2, HL_EDIT_Y + 2, top, C_LIME, 1);
+			gfxText(cx + (cw - gfxTextW(top, 1)) / 2, HL_EDIT_Y + 2, top,
+			        uiListValueColour(rowValue(s_sel, raw, strcmp(now, want) != 0)), 1);
 			char lines[3][48];
 			int n = kstWrap(note, cw / 6, lines, 3);
 			for (int i = 0; i < n; i++)
@@ -872,7 +882,8 @@ static void drawList() {
 			if (gfxTextW(top, 1) > cw) snprintf(top, sizeof(top), "%s", changed ? "->" : "");
 			gfxText(cx + (cw - gfxTextW(top, 1)) / 2, HL_EDIT_Y + 2, top, C_DIM, 1);
 			int sc = gfxTextW(want, 2) <= cw ? 2 : 1;
-			gfxText(cx + (cw - gfxTextW(want, sc)) / 2, HL_EDIT_Y + 16, want, edit ? C_LIME : C_GRID, sc);
+			gfxText(cx + (cw - gfxTextW(want, sc)) / 2, HL_EDIT_Y + 16, want,
+			        uiListValueColour(rowValue(s_sel, raw, changed)), sc);
 		}
 	}
 
@@ -887,7 +898,7 @@ static void drawList() {
 		         s_hold.holding ? C_ONACCENT : C_TEXT, 1, s_hold.holding, w);
 	}
 	bool rv = pending() > 0;
-	uiButton(BTN_REVERT, "REVERT", C_PANEL, C_TEXT, 1, rv && pressing(BTN_REVERT), rv);
+	uiButton(BTN_REVERT, "REVERT", C_PANEL, UI_COL_WARN, 1, rv && pressing(BTN_REVERT), rv);
 	uiButton(BTN_FILES, "FILES", C_PANEL, C_TEXT, 1, pressing(BTN_FILES));
 }
 
@@ -1185,13 +1196,12 @@ static void drawWrite() {
 		nv++;
 	}
 	in.values = nv;
-	char pair[HITEC_PAGE_ROWS_MAX][72];
+	char pair[HITEC_PAGE_ROWS_MAX][72], from[HITEC_PAGE_ROWS_MAX][32], to[HITEC_PAGE_ROWS_MAX][32];
 	for (int k = 0; k < nv && k < HITEC_PAGE_ROWS_MAX; k++) {
 		const HitecRow &r = s_rows[order[k]];
-		char a[32], b[32];
-		hitecValueText(&s_pageFrom, s_layout, r.param, a, sizeof(a), nullptr);
-		hitecValueText(&s_pageTo, s_layout, r.param, b, sizeof(b), nullptr);
-		snprintf(pair[k], sizeof(pair[k]), "%s -> %s", a, b);
+		hitecValueText(&s_pageFrom, s_layout, r.param, from[k], sizeof(from[k]), nullptr);
+		hitecValueText(&s_pageTo, s_layout, r.param, to[k], sizeof(to[k]), nullptr);
+		snprintf(pair[k], sizeof(pair[k]), "%.31s -> %.31s", from[k], to[k]);
 		bool under = UI_MARGIN + gfxTextW(r.label, 1) + 6 > GFX_W - UI_MARGIN - gfxTextW(pair[k], 1);
 		in.valueH[k] = under ? 22 : 12;
 	}
@@ -1210,8 +1220,8 @@ static void drawWrite() {
 		const HitecRow &r = s_rows[order[k]];
 		int y = out.rowY[k];
 		gfxText(UI_MARGIN, y, r.label, C_TEXT, 1);
-		gfxText(GFX_W - UI_MARGIN - gfxTextW(pair[k], 1), in.valueH[k] == 22 ? y + 10 : y, pair[k],
-		        C_LIME, 1);
+		uiChangeText(GFX_W - UI_MARGIN - gfxTextW(pair[k], 1), in.valueH[k] == 22 ? y + 10 : y,
+		             from[k], to[k]);
 	}
 	if (out.moreY >= 0) {
 		snprintf(buf, sizeof(buf), "AND %d MORE", nv - out.rows);

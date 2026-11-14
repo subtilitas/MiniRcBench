@@ -40,8 +40,11 @@ receiver channels) receiver monitor is described in
 and that is not designed yet; rcbench's S.BUS decoder is in the tree and
 tested on the host, and the firmware does not build it. A PPM
 (pulse-position modulation) output is not built, by the owner's decision.
-Menu structure B is described in `docs/design/menu-b.md`; its building
-blocks, slice 1 of 10, are in the tree, and no screen looks different yet.
+Menu structure B is described in `docs/design/menu-b.md`; slices 1 to 4 of
+10 are in the tree: its building blocks, its colour roles, its names and
+SETTINGS, and its layout table. The uses that the design note's decision 11
+names take their role's colour, and a value changed and not yet written is
+cyan.
 
 ![UI preview](docs/ui-preview.png)
 
@@ -402,8 +405,9 @@ TO ARM.
   (`PAD_DRAG_SENSITIVITY_PCT`).
 
   The pad ends where the gauge's grab area begins, with no overlap and no gap.
-  The hint under the RPM readout reads `SWIPE = THROTTLE`, cyan while armed,
-  and changes to `SWIPE ACTIVE` in green while a drag is engaged. While the
+  The hint under the RPM readout reads `SWIPE = THROTTLE`, grey while
+  disarmed and in the text colour while armed, and changes to `SWIPE ACTIVE`
+  in green while a drag is engaged. While the
   3D note shows ([Telemetry and logging](#telemetry-and-logging)), the note
   stands in the hint's place until a drag engages; `SWIPE ACTIVE` then
   replaces the note, and the note returns on release. The pad works the same.
@@ -445,7 +449,8 @@ at scale 2 on the left and its state right-aligned. **BACK** returns to the
 tester. Every tool's **BACK** returns to MENU.
 
 - **EDT ON / EDT OFF / NO ESC**: a read-only chip on the strip under the
-  title. `EDT ON` in green while EDT frames arrive; `EDT OFF` in red while
+  title, square and 12 px tall, so it does not look like a button.
+  `EDT ON` in green while EDT frames arrive; `EDT OFF` in red while
   eRPM frames arrive without EDT; `NO ESC` in dim grey while no eRPM frame
   has arrived for 500 ms (`ESC_LINK_STALE_MS`), the normal state with no ESC
   connected. The firmware sends the enable command itself (see
@@ -540,7 +545,8 @@ the ESC pin's warning shows, see below) and scrolls under a drag. A row is
 ESC TESTER, WIRING, SERVO SUPPLY, DISPLAY, BOARD and DIAGNOSTICS. On a row
 with a connector line, SIG PIN, AUX PIN and SERVO SUPPLY, the value sits at
 y+8 to y+21 of the row and the line, scale 1, at y+27 to y+33, both ending at
-x 132.
+x 132. Section captions and the values of the rows that change are in the text
+colour, read-only values grey, and a toggle that is on fills blue.
 
 | Section | Row | What it does |
 |---|---|---|
@@ -691,7 +697,8 @@ characters, 215 px). The note line keeps its own order: SAVE FAILED and NOT
 WHILE ARMED, until the next save or leaving; ADJUSTED and KISS OFF, until the
 next change (KISS OFF follows a KISS pin the board does not free, which no
 SETTINGS row sets: the steppers offer free pins only); DEFAULTS LOADED; UNSAVED;
-SAVED; the reset by an update; then the set in use.
+SAVED; the reset by an update; then the set in use. SAVED is green, SAVE
+FAILED and NOT WHILE ARMED red, and the other notes but the set in use amber.
 
 **High contrast**
 
@@ -720,17 +727,17 @@ status need EDT support in the ESC firmware (BLHeli_32, Bluejay, AM32). The
 the last second. At 1 kHz a clean link reads close to `1000/S` and `0% ERR`.
 A rising error rate points at signal integrity.
 
-The voltage and current tiles carry a source tag: **KISS** (cyan) or **EDT**
-(dimmed). EDT reports voltage in 0.25 V steps and KISS in 0.01 V steps. A tag
-that drops from KISS to EDT means the telemetry wire has stopped, and the
+The voltage and current tiles carry a source tag: **KISS** in the text colour
+or **EDT** dimmed. EDT reports voltage in 0.25 V steps and KISS in 0.01 V steps.
+A tag that drops from KISS to EDT means the telemetry wire has stopped, and the
 reading is 25 times coarser. Consumption in mAh appears on the temperature
 tile with KISS only. EDT does not carry it.
 
 The tester's top row shows `DSHOT` plus the bitrate the DShot driver runs
-at, for example `DSHOT600`, as set under SETTINGS → DSHOT, cyan once an EDT
-enable has been sent; `DSHOT1200`, the widest, ends at x 156. `DSERR` in amber
-replaces it when the driver could not claim its two PIO state machines;
-nothing is sent to the ESC then.
+at, for example `DSHOT600`, as set under SETTINGS → DSHOT, dim, and in the
+text colour once an EDT enable has been sent; `DSHOT1200`, the widest, ends
+at x 156. `DSERR` in amber replaces it when the driver could not claim its
+two PIO state machines; nothing is sent to the ESC then.
 
 The large voltage at the top right, captioned `BOARD`, is the board's own
 battery, read through the 200 kΩ/100 kΩ divider on GP27. It reads at most
@@ -929,6 +936,8 @@ row: drag MENU up 36 px) presents the card to the USB host as a read-only
 removable drive, using MSC (mass storage class) on the same USB cable as the
 serial port. The logger unmounts before the drive appears and touches the card
 again only after eject. The host and the firmware never share the FAT volume.
+While the host holds the card, SD LOG counts what it has read, for example
+`3.0 MB READ`, in lime, a live reading.
 Without a card the button is drawn unavailable and does nothing. With a card,
 the request is refused while armed (`DISARM FIRST`) or while recording (`STOP
 RECORDING FIRST`). Arming is blocked while the host holds the card. See
@@ -1036,7 +1045,8 @@ frame stamped after that handshake arrives or the board restarts.
 
 ### Connecting
 
-Open the screen, then power-cycle the ESC. The AM32 bootloader listens only in
+Open the screen, then power-cycle the ESC: the page says so in amber,
+`POWER-CYCLE THE ESC`, the step to take now. The AM32 bootloader listens only in
 a short window after power-up. The firmware repeats the 21-byte init string,
 waiting 30 ms (`AM32_GREET_TMO_MS`) for each reply, so that it is sending when
 the window opens. The window's length is not measured.
@@ -1099,7 +1109,10 @@ the step moves by the step from where it is. A coarse step that would pass
 the end of the range stops at the end. Travel past the end is not stored, so
 the first coarse step back moves the value off it.
 
-Changed rows are marked amber on the left edge. **REVERT** restores the values
+A value that differs from the ESC as read is cyan, with a 3 px cyan bar at
+its row's left edge; the editor bar's value is cyan too. Selecting a row fills
+it and lights its label, and leaves the value's colour as it is: a value as
+read is in the text colour. **REVERT**, labelled in amber, restores the values
 that were read. **HEX** shows the raw 48 bytes for checking a field's
 decoding.
 
@@ -1111,17 +1124,17 @@ AGAIN.` in amber under it, and OK returns to the list with the edits kept
 bottom, where HOLD TO WRITE was; it takes a fresh tap, and lifting the
 finger that held HOLD TO WRITE leaves the result up. After the write the
 firmware waits `AM32_WRITE_SETTLE_MS` (300 ms), reads the block back, and
-compares it byte for byte. It shows `WRITE VERIFIED` only on a full match,
-with `POWER-CYCLE THE ESC TO APPLY.` under it: the bench sends no command that
-starts the ESC's firmware, and whether the ESC runs the new settings without
-a power cycle is not tested. On a mismatch it shows the first differing byte:
-`DIFF @xx: GOT xx WANT xx`. A result of up to 18 characters is drawn at
-scale 2; a longer one at scale 1, where every result fits one 37-character
-line, so it stays on the 240 px panel. Under a result that is not a verified
-write, `WRITE FAILED: ...`, `VERIFY READ: ...` or `DIFF ...`, an amber line
-reads `NOT VERIFIED. TAP OK, WRITE AGAIN.`: OK returns to the list with the
-edits kept, and the next hold writes again. Under `NO BACKUP ON THE CARD: NOT
-WRITTEN` it reads `CHECK THE CARD, THEN WRITE AGAIN.`.
+compares it byte for byte. It shows `WRITE VERIFIED`, in green, only on a full
+match, with `POWER-CYCLE THE ESC TO APPLY.` under it: the bench sends no command
+that starts the ESC's firmware, and whether the ESC runs the new settings
+without a power cycle is not tested. On a mismatch it shows the first differing
+byte: `DIFF @xx: GOT xx WANT xx`. A result of up to 18 characters is drawn at
+scale 2; a longer one at scale 1, where every result fits one 37-character line,
+so it stays on the 240 px panel. Under a result that is not a verified write,
+`WRITE FAILED: ...`, `VERIFY READ: ...` or `DIFF ...`, an amber line reads `NOT
+VERIFIED. TAP OK, WRITE AGAIN.`: OK returns to the list with the edits kept, and
+the next hold writes again. Under `NO BACKUP ON THE CARD: NOT WRITTEN` it reads
+`CHECK THE CARD, THEN WRITE AGAIN.`.
 
 Some values put two amber lines on the strip in place of the ESC name
 (`listNote()` in `src/ui_am32.cpp`): the selected row's first, then 3D
@@ -1308,7 +1321,7 @@ only for TWO ends and the rest of the change applies.
 | `MIN` `CENTRE` `MAX` | Act on release, while RUNNING |
 | `SWEEP` / `STOP SWEEP` | A square, sine or triangle about the centre, run on core1; a stopped sweep leaves the servo where the curve was |
 | `SPEED` | A slew, 10 % to 100 %: at 10 % a full MIN to MAX travel takes 5 s; 100 % is no slew |
-| `A` `B` `AB` | Two servos: what the horn and the buttons drive. With `AB`, REVERSE B mirrors B |
+| `A` `B` `AB` | Two servos: what the horn and the buttons drive. With `AB`, REVERSE B mirrors B. A's horn and letter are lime, B's blue |
 | `SET` | Profile, rate, range, servo count, REVERSE B and the sweep |
 
 If the screen stalls for 250 ms (`UI_HEARTBEAT_TIMEOUT_MS`), core1 ends the
@@ -1362,7 +1375,9 @@ change up to 60 Hz on a type that is not a heli type apply at once while nothing
 waits and join a waiting change otherwise. SERVOS ONE to TWO waits for the hold
 when the profile is past its travel, since it drives a second servo there, and
 applies at once on a profile within it. HELI CYCLIC's own 820 µs
-to 2220 µs are past the travel; its one hold covers both warnings. BACK from SET
+to 2220 µs are past the travel; its one hold covers both warnings. A value that
+waits for the hold is cyan, with a 3 px cyan bar at its row's left edge, until
+HOLD TO APPLY; while RUNNING the PULSE rows are grey. BACK from SET
 drops a waiting change, and SET opens again on the applied profile. The SWEEP
 rows (shape, 0.05 Hz to 5.00 Hz, amplitude 0 % to 100 %, dwell 0 ms to 5000 ms,
 endless or 1 to 9999 movements) change at any time and apply to the next SWEEP.
@@ -1463,39 +1478,46 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
    `SETTINGS > SERVO SUPPLY AT OWN`. While an ESC answers on SIG the screen
    claims nothing and reads `AN ESC ANSWERS ON SIG GP0.`, the strip
    `CHECKING SIG GP0 FOR AN ESC`.
-2. Power the servo up during the search. The servo enters programming mode,
+2. Power the servo up during the search: the screen says `POWER UP` /
+   `THE SERVO NOW` in amber, the step to take now (`SWITCHED SUPPLY` with the
+   switched supply). The servo enters programming mode,
    and the screen reads its 32 registers, each until 3 of 5 reads agree.
    A powered servo on SIG gets no pulses while the screen is open and may go
    to its failsafe position.
 3. The field list shows 27 named fields in four groups: TUNE, PULSE,
-   FAILSAFE and LOCKED. LOCKED fields are read-only. A tap selects a field;
-   − and + step it, and a sideways swipe steps it by an eleventh of its
-   range. The stepper skips values that break a hard limit, for example MAX.
-   DUTY above 98 %. A value that breaks a soft rule is taken, with an amber
-   mark and the rule's text in the editor bar.
-4. HOLD TO WRITE (1 s) opens the write page: the changes, counted on the
-   strip (`1 CHANGE`, `2 CHANGES`) and listed 4 at most, then `AND n MORE`,
-   their soft rules, and where the backup goes. A second 1 s hold writes.
-   Before the first frame of the session's first write with a card mounted,
-   the image read at entry goes to the card as the backup
-   `BACKUP/KSTnnn.TXT`, and the servo as
-   it stands as the record `KST/KST.TXT`. Later writes of the session save no backup and
-   write no record. The write runs as single-register writes with read-back,
-   then a full verify. A verified write removes the record, and so does LEAVE
-   from a servo in programming mode that is not in doubt: only the record
-   this session wrote, while its card stays mounted and the file holds the
-   bytes the session wrote. With a card mounted at the screen's opening, the
-   card's writes queue in memory and go to the card while the screen keeps
-   drawing: the write page reads `SAVING THE BACKUP TO THE CARD.` and
-   `BLOCKS LEFT: n` until the card holds the backup and the record, and the
-   servo is written only then. A flush the card does not take stops the
-   write:
-   `THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
-   A flush fails on a block write that fails or a card swapped since
+   FAILSAFE and LOCKED. The strip's chip reads `PROG MODE` on blue while the
+   servo is in programming mode, and `IN DOUBT` on red after a write whose
+   outcome is not known. LOCKED fields are read-only and grey. A tap
+   selects a field; − and + step it, and a sideways swipe steps it by an
+   eleventh of its range. The stepper skips values that break a hard limit,
+   for example MAX. DUTY above 98 %. A value that differs from the servo as
+   read is cyan, with a 3 px cyan bar at its row's left edge, and the editor
+   bar's value is cyan too; selection fills the row and leaves the value's
+   colour as it is. A value that breaks a soft rule is taken, with the bar
+   in amber and the rule's text in the editor bar. REVERT is labelled in
+   amber.
+4. HOLD TO WRITE (1 s) opens the write page: the changes, counted on the strip
+   (`1 CHANGE`, `2 CHANGES`) and listed 4 at most, then `AND n MORE`, each old
+   value dim and each new value cyan, their soft rules, and where the backup
+   goes. A second 1 s hold writes. Before the first frame of the session's first
+   write with a card mounted, the image read at entry goes to the card as the
+   backup `BACKUP/KSTnnn.TXT`, and the servo as it stands as the record
+   `KST/KST.TXT`. Later writes of the session save no backup and write no
+   record. The write runs as single-register writes with read-back, then a full
+   verify. A verified write removes the record, and so does LEAVE from a servo
+   in programming mode that is not in doubt: only the record this session wrote,
+   while its card stays mounted and the file holds the bytes the session wrote.
+   With a card mounted at the screen's opening, the card's writes queue in
+   memory and go to the card while the screen keeps drawing: the write page
+   reads `SAVING THE BACKUP TO THE CARD.` and `BLOCKS LEFT: n` until the card
+   holds the backup and the record, and the servo is written only then. A flush
+   the card does not take stops the write: `THE CARD DID NOT TAKE THE BACKUP
+   (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD
+   AGAIN.` A flush fails on a block write that fails or a card swapped since
    (`src/sdio/sd_cache.h`), not on a full card, which FatFs refuses before
-   anything is queued. Nothing is sent to the servo; the card is mounted
-   again and the first write forgotten, so the next hold saves the backup
-   again and then writes.
+   anything is queued. Nothing is sent to the servo; the card is mounted again
+   and the first write forgotten, so the next hold saves the backup again and
+   then writes.
 5. BACK from the list opens the leave page: `POWER THE SERVO OFF.` The servo
    stays in programming mode until its supply is off. LEAVE holds the line
    low for 100 ms, lets the pin go, and shows `UNPLUG THE SERVO.` RESTART
@@ -1652,7 +1674,9 @@ not 0 answers ID 0 is not measured.
    `GP29` it switches the supply off for 2.0 s and on again, the strip
    counting `SUPPLY OFF 1.4 S`, then waits for the servo's start, about 1 s;
    with `OWN` it reads the servo at once on the supply it has, so the servo
-   must be powered before the tap. The family view says so under D SERIES:
+   must be powered before the tap. The headline of each step, `SUPPLY OFF`,
+   `SERVO STARTING`, `READING THE MODEL` or, for a classic servo,
+   `LISTENING`, is amber. The family view says so under D SERIES:
    `POWER THE SERVO UP, THEN TAP.` With the switch the supply stays off on
    the family view. Once the pin is held, BACK on the family view passes
    the unplug page and RESTART DSHOT, as LEAVE does, and BACK on that page
@@ -1663,17 +1687,21 @@ not 0 answers ID 0 is not measured.
    keeps this first full read as the session's backup. A servo that does
    not answer gives `NO SERVO ANSWERS` with the decoder's word, for example
    `REPLY: SILENT`, and RETRY.
-3. The field list shows rcbench's 20 parameters in four groups: MOTION,
-   TRAVEL, PROTECT and INFO. Each value shows its unit and the stored value
-   in brackets, `90 % (18)`; the counts of NEUTRAL, the ends and POSITION,
-   ID, SENSITIVITY and the INFO numbers show no bracket. A stored value no
-   encoding takes reads `RAW 1234` in amber. Read-only rows are dim and cannot be selected. A tap
-   selects a row; - and + step it to the next value the encoding takes, and
-   a sideways swipe steps it by an eleventh of its range. LEFT END stays
-   below NEUTRAL, below RIGHT END. A value that breaks one of rcbench's seven
-   soft rules, for example SPEED below 30 %, is taken with an amber mark and
-   the rule's text. Reversing DIRECTION mirrors NEUTRAL and both ends, as
-   Hitec's programmer does.
+3. The field list shows rcbench's 20 parameters in four groups: MOTION, TRAVEL,
+   PROTECT and INFO. Each value shows its unit and the stored value in brackets,
+   `90 % (18)`; the counts of NEUTRAL, the ends and POSITION, ID, SENSITIVITY
+   and the INFO numbers show no bracket. A stored value no encoding takes reads
+   `RAW 1234` in amber. Read-only rows are grey, a `RAW` value in them amber,
+   and cannot be selected. The strip's chip reads `PROG MODE` on blue. A tap
+   selects a row; - and + step it to the next value the encoding takes, and a
+   sideways swipe steps it by an eleventh of its range. LEFT END stays below
+   NEUTRAL, below RIGHT END. A value that differs from the servo as read is
+   cyan, with a 3 px cyan bar at its row's left edge; the label carries no mark.
+   The editor bar's value is cyan too, and selection fills the row and leaves
+   the value's colour as it is. A value that breaks one of rcbench's seven soft
+   rules, for example SPEED below 30 %, is taken with the bar in amber and the
+   rule's text. REVERT is labelled in amber. Reversing DIRECTION mirrors NEUTRAL
+   and both ends, as Hitec's programmer does.
 4. ID edits the servo's own ID. The bench addresses ID 0 whatever the
    servo holds, and whether a servo with another ID still answers ID 0 is
    not measured, so one write may leave a servo the bench cannot read or
@@ -1689,6 +1717,8 @@ not 0 answers ID 0 is not measured.
    counted on the strip (`1 CHANGE`, `2 CHANGES`), a changed ID first, take
    the room left, 4 rows at most, then `AND n MORE`, and soft rules that do
    not fit are counted on the last line, `AND n MORE RULES: SEE EACH ROW.`
+   Each change reads `old -> new`, the old value and the arrow dim, the new
+   value cyan.
    A second 1 s hold writes. Before the first frame of the session's first
    write with a card mounted, the backup goes to the card as
    `BACKUP/HTnnn.TXT`; before every write, the servo as it is and the
@@ -2153,7 +2183,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.1%**: 9,570 of 9,753 lines in 59 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.1%**: 9,588 of 9,769 lines in 59 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

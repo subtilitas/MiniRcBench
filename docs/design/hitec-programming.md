@@ -700,7 +700,7 @@ its rows, values, stepper and texts in `src/hitec_view.*`, as
 | Entry failed | `NO SERVO IN SERIAL MODE` or `NO SERVO ANSWERS`, the decoder's word (`SILENT`, `LATE`, `SUM` and the rest of rcbench's 14 codes); `THE SUPPLY IS OFF.` with a switch; with a switch and the classic family, `CHECK THE CONVERTER ON GP28, THE SIGNAL AND GROUND.`, naming the enable pin | RETRY, BACK |
 | Reading | `READING 100 CELLS` or `READING 21 REGISTERS`, `37 OF 100` | STOP, BACK |
 | Read failed | `READ FAILED AT 0x32`, the decoder's word | READ AGAIN, BACK |
-| Stalled, with a switch | `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF. RETRY POWERS IT UP AND READS IT AGAIN.` Without a card, after a write, in amber, `NO CARD: THE BACKUP IN MEMORY IS LOST.` | RETRY, BACK |
+| Stalled, with a switch | `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF. RETRY POWERS IT UP AND READS IT AGAIN.` Without a card, after a write, in amber, `NO CARD: THE BACKUP IN RAM IS LOST.` | RETRY, BACK |
 
 The amber ESC line, in every entry view with a switch:
 `AN ESC ON THIS LEAD GETS THE CONVERTER'S OUTPUT ON ITS BEC WIRE.` The
@@ -711,7 +711,7 @@ claim's ESC check misses an ESC without bidirectional DShot
 
 ```
 y   0 | HITEC SERVO                      [ BACK ]|
-   40 | D485HW  GP0  BACKUP HT004          (MODE)|  strip, chip C_GREEN
+   40 | D485HW  BACKUP HT004  GP0     [PROG MODE]|  strip, square chip C_BLUE
    62 | MOTION   SPEED            60 % (12)      |  40 px rows, 42 px pitch,
   104 | MOTION   DEAD BAND         STEP 2 (4)    |  viewport 62..215,
   146 | MOTION   SOFT START       20 % (1)       |  on ui_list
@@ -738,11 +738,15 @@ y   0 | HITEC SERVO                      [ BACK ]|
 - Read-only rows (`HITEC_RO`) are drawn in `C_GRID` and are not
   selectable, except CHECKSUM when it reads `BAD`
   ([classic checksum](#classic-checksum)).
-- A value the draft holds other than the servo's is marked `*` before the
-  name.
+- A value the draft holds other than the servo's is `C_CYAN`, with a 3 px
+  `C_CYAN` bar at the row's left edge, `C_AMBER` when it breaks a soft rule;
+  the name carries no mark. Each row is drawn by `uiListDrawField()`
+  ([menu-b.md](menu-b.md), decision 8); selection fills the row and lights
+  the label, never the value. The editor bar's value follows the same
+  colours.
 - The strip names, two spaces apart, the model (`hitec_identify()`,
   `hitec_model_name()`), the backup file once the first write has saved it,
-  `BACKUP IN MEMORY` before, and the pin. A classic strip adds the version,
+  `BACKUP IN RAM` before, and the pin. A classic strip adds the version,
   `V16`, last.
 - A model rcbench has not measured is read and written in its series'
   layout (`hitec_reg.h`), as rcbench's panel does
@@ -777,7 +781,7 @@ by a table value on its first edit; REVERT brings it back.
   RIGHT END.
 - Soft rules, rcbench's seven with its texts in upper case, compared with
   the last full read: a value
-  that breaks one is taken; the row gets an amber mark and the editor bar
+  that breaks one is taken; the row's bar is `C_AMBER` and the editor bar
   shows the rule's text. The write page lists them, and its hold confirms
   them.
 
@@ -1346,11 +1350,12 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
      page lists the parameters that go to the servo and not the cell 0x1C
      balance of other edits.
    - The strip drops items from the right, the version, then the pin, then
-     the backup, when the line would come within 4 px of the MODE chip at
-     x 197 (`uiChipX()`): a classic strip reads
-     `HS-5645MG  BACKUP IN MEMORY`, and `HS-5645MG  BACKUP HT001  GP0` once
-     the backup is on the card ([menu-b.md](menu-b.md#decisions) decision
-     14).
+     the backup, when the line would come within 4 px of the PROG MODE chip
+     at x 167 (`uiChipX()`): a D series strip reads
+     `D485HW  BACKUP IN RAM  GP0`, 155 px, a classic strip
+     `HS-5645MG  BACKUP IN RAM`, and `HS-5645MG  BACKUP HT001` once the
+     backup is on the card ([menu-b.md](menu-b.md#decisions) decisions 11
+     and 14).
    - The write page shows the ID note in amber when the write changes the
      D series ID to another value than 0, as a LOAD can.
    - A read keeps the pending edits: the writable addresses they changed

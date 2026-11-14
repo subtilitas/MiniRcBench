@@ -295,9 +295,9 @@ static void testLayoutTable() {
 	          rectIs(UI_FIX(SdLogCtl::Retry), 6, 288, 112, 30) &&
 	          rectIs(UI_FIX(SdLogCtl::Usb), 122, 288, 112, 30));
 	checkTrue("START, RETRY MOUNT and USB DRIVE inside their buttons",
-	          labelCentred(UI_FIX(SdLogCtl::Toggle), "START", C_LIME, C_PANEL, 2) &&
-	          labelCentred(UI_FIX(SdLogCtl::Retry), "RETRY MOUNT", C_CYAN, C_PANEL, 1) &&
-	          labelCentred(UI_FIX(SdLogCtl::Usb), "USB DRIVE", C_CYAN, C_PANEL, 1));
+	          labelCentred(UI_FIX(SdLogCtl::Toggle), "START", C_TEXT, C_PANEL, 2) &&
+	          labelCentred(UI_FIX(SdLogCtl::Retry), "RETRY MOUNT", C_TEXT, C_PANEL, 1) &&
+	          labelCentred(UI_FIX(SdLogCtl::Usb), "USB DRIVE", C_TEXT, C_PANEL, 1));
 	checkControlTable("SD LOG, the button edge");
 	fakeMscSet(MscState::Serving, 0); idFrames(1);
 	checkTrue("card held: EJECT keeps START's rectangle",

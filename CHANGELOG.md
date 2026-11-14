@@ -523,6 +523,35 @@ protocol.
 
 ### Changed
 
+- After v0.1.0-rc1 (a93e1c1): the uses that decision 11's tables name take
+  their role's colour, slice 2 of menu structure B (`docs/design/menu-b.md`,
+  decisions 8, 11 and 26). A value edited and not yet written or applied is cyan
+  with a 3 px cyan bar at its row's left edge on AM32 CONFIG (amber before), KST
+  SERVO and HITEC SERVO (lime before, Hitec's `*` gone) and on SERVO SET's
+  row that waits for HOLD TO APPLY; a soft rule's bar stays amber; the
+  editor bars follow, and selection no longer turns a value lime. The KST and
+  Hitec write pages show the old value dim and the new one cyan. Chips are
+  square and 12 px tall; KST and Hitec read `PROG MODE` on blue (`MODE` on
+  green before) and KST's `IN DOUBT` is red. Headlines such as `POWER UP` and
+  `POWER-CYCLE THE ESC` are amber. In the text colour now: the KISS source
+  tag, the DShot rate with EDT requested, `SWIPE = THROTTLE` while armed, the
+  tester's `MAX 20%`, AM32's HEX label, SD LOG's START, RETRY MOUNT and USB
+  DRIVE labels, SETTINGS' captions and the MAX THROTTLE, SIG PIN, AUX PIN and
+  SERVO SUPPLY values (slice 3's names for ESC PIN and KISS PIN, lime and
+  cyan before), SERVO TESTER's MIN, CENTRE, MAX, SWEEP and SET labels. Servo B's
+  horn, letter and selector are blue; SPEED's fill is grey; the sweep count
+  and SD LOG's read counter are lime; SETTINGS' `SAVED` and AM32's
+  `WRITE VERIFIED` are green; HOLD TO SAVE fills red while held, as every
+  hold. KST's and Hitec's REVERT labels are amber. KST SERVO and HITEC SERVO
+  name a backup not yet on the card `BACKUP IN RAM`, in place of
+  `BACKUP IN MEMORY`, on the strip, in `NO CARD: THE BACKUP IN RAM IS LOST.`
+  and in KST's `NO CARD: REBOOT LOSES THE BACKUP` / `IN RAM.`, so
+  `D485HW  BACKUP IN RAM  GP0` fits beside the wider chip. `UI_COL_CHANGED`,
+  `uiChip()` and `uiChangeText()` in `src/ui_widgets.*`; the rows through
+  `uiListDrawField()`. Host tests in `test/test_widgets.cpp`,
+  `test/test_ui.cpp`, `test/test_menu.cpp`, `test/test_servo.cpp`,
+  `test/test_kst_ui.cpp` and `test/test_hitec_ui.cpp`; the wiki images are
+  regenerated.
 - After v0.1.0-rc1 (a93e1c1): one layout table, decision 14 of
   [menu-b.md](docs/design/menu-b.md#decisions), slice 4 of menu structure B.
   SETTINGS' footer is HOLD TO SAVE 150 × 46 px from x 6 and HOLD DEFAULTS,
@@ -539,7 +568,7 @@ protocol.
   `1 CHANGE`, `2 CHANGES`; Hitec lists 4 changes at most before
   `AND n MORE`, as KST does; HITEC SERVO's list strip reads model, backup,
   pin and, on a classic servo, version, two spaces apart, and drops items
-  from the right, so a classic strip keeps `BACKUP IN MEMORY`; the room ends
+  from the right, so a classic strip keeps the backup's state; the room ends
   4 px before the chip (`uiChipX()` in `src/ui_widgets.*`). Every Hitec view
   clears the strip band, y 40 to 61, so the family view's second strip line
   leaves no rows under the strip. Host tests

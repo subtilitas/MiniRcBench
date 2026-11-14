@@ -27,6 +27,24 @@ KST SERVO und HITEC SERVO wartet `BACK`, bis die Pins freigegeben sind: Bis
 dahin ist es deaktiviert gezeichnet, als Umriss mit grauer Beschriftung, und
 ein Tippen darauf bewirkt nichts.
 
+**Die Farben folgen einer Tabelle von Rollen.** Grün heißt sicher oder
+erledigt: `SAFE`, `EDT ON`, `WRITE VERIFIED`, `SAVED`. Hellgrün ist ein
+laufender Messwert: die Drehzahl, die Gasfüllung, der Servoimpuls, der
+Fortschrittsbalken beim Halten. Rot heißt Ausgang an oder ein Fehler: `ARMED`,
+`RUNNING`, `STOP`, die Halte-Schaltfläche eines Werkzeugs, solange sie gehalten
+wird, `REC`, ein Schreiben mit unklarem Ausgang. Bernstein ist eine Warnung oder
+der Schritt, der jetzt dran ist. Magenta ist ein Alarm, etwa `STALLED`. Cyan ist
+ein geänderter Wert, der noch nicht geschrieben oder übernommen ist, mit einem
+cyanfarbenen Balken am linken Rand seiner Zeile. Blau ist eine
+Einstellung, die an bleibt: `HOLD`, ein eingeschalteter Schalter, `PROG MODE`,
+Servo B. Beschriftungen, Überschriften und die Schaltflächen, die etwas öffnen
+oder auslösen, stehen in der Textfarbe oder in Grau. Ein Feld auf der Leiste
+unter einem Titel ist eckig, damit es nicht wie eine Schaltfläche aussieht.
+Nicht jede Verwendung folgt der Tabelle: Hellgrün markiert auch Zustände wie
+`READY` auf SD LOG und die über USB bereitgestellte Karte, und viele Fehler
+stehen in Bernstein oder in der Textfarbe, zum Beispiel `CARD ERROR` auf SD LOG
+und `WRITE FAILED` bei AM32.
+
 ---
 
 ## Der Tester
@@ -37,8 +55,8 @@ ein Tippen darauf bewirkt nichts.
 
 - das Scharf-Feld: `SAFE` (grün) oder `ARMED` (rot);
 - `DSHOT` und die DShot-Bitrate in kbit/s, zum Beispiel `DSHOT600`, wie unter
-  SETTINGS → DSHOT eingestellt, cyan, sobald eine EDT-Freigabe (Extended
-  DShot Telemetry) gesendet wurde. `DSERR`
+  SETTINGS → DSHOT eingestellt, gedämpft, und in der Textfarbe, sobald eine
+  EDT-Freigabe (Extended DShot Telemetry) gesendet wurde. `DSERR`
   in Bernstein ersetzt sie, wenn die Anzeige ihren DShot-Ausgang nicht
   einrichten konnte; dann wird nichts an den ESC gesendet;
 - der Aufzeichnungszustand: `REC`, `SD`, `SDERR` oder `NOSD`
@@ -95,7 +113,8 @@ Verbindungsqualität. Siehe [Telemetrie](Telemetrie).
 
 **Gas.** Die Anzeige, die Obergrenze und der befohlene Prozentwert. Der
 Prozentwert bezieht sich auf den vollen DShot-Bereich (0–2000 = 0–100 %): Bei
-20 % Obergrenze zeigt ein Zug über die volle Breite `20%`. Im entschärften
+20 % Obergrenze zeigt ein Zug über die volle Breite `20%`. Die Obergrenze
+steht als `MAX 20%` in der Textfarbe neben `THROTTLE`. Im entschärften
 Zustand zeigt der Balken `ARM TO ENABLE`.
 
 **Schaltflächen.** `HOLD TO ARM` / `DISARM`, `HOLD` (haltendes Gas), `MENU`.
@@ -127,7 +146,7 @@ setzt das Gas auf 0 und schaltet `HOLD` aus.
 Unter dem Titel nennt eine Leiste die beiden Signalpins, SIG für den ESC und
 AUX für das KISS-Kabel oder ein zweites Servo, und die DShot-Rate, zum
 Beispiel `SIG GP0  AUX GP1  DSHOT600`, und zeigt das EDT-Feld. Das Feld ist
-nur eine Anzeige:
+nur eine Anzeige, eckig und 12 px hoch:
 
 | Feld | Wann |
 |---|---|

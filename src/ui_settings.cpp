@@ -250,7 +250,7 @@ static void polesStep(int dir) {
 
 static void maxValue(char *b, size_t n, uint16_t *c) {
 	snprintf(b, n, "%u%%", (unsigned)((uint32_t)settings()->maxThrottle * 100 / 2000));
-	*c = C_AMBER;
+	*c = C_TEXT;
 }
 static void maxStep(int dir) {
 	int t = (int)settings()->maxThrottle + MAX_THROTTLE_STEP * dir;
@@ -259,7 +259,7 @@ static void maxStep(int dir) {
 	s_changed = true;
 }
 
-static void sigValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "GP%u", settings()->dshotPin); *c = C_LIME; }
+static void sigValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "GP%u", settings()->dshotPin); *c = C_TEXT; }
 static void sigStep(int dir) { stepPinSwapping(&settings()->dshotPin, &settings()->kissPin, dir); }
 static void sigSub(char *b, size_t n) { j5Text(b, n, settings()->dshotPin); }
 
@@ -283,7 +283,7 @@ static void kissToggle() {
  * @brief AUX PIN's value, whatever KISS is: KISS listens on it, and the
  *        servo tester drives servo B on it.
  */
-static void auxValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "GP%u", settings()->kissPin); *c = C_CYAN; }
+static void auxValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "GP%u", settings()->kissPin); *c = C_TEXT; }
 static void auxStep(int dir) { stepPinSwapping(&settings()->kissPin, &settings()->dshotPin, dir); }
 static void auxSub(char *b, size_t n) { j5Text(b, n, settings()->kissPin); }
 
@@ -587,7 +587,7 @@ static void drawItem(uint8_t i) {
 	const Item &it = s_items[i];
 	int y = topOf(it);
 	if (!it.row) {
-		gfxText(UI_MARGIN, y + 8, it.sec->caption, C_CYAN, 1);
+		gfxText(UI_MARGIN, y + 8, it.sec->caption, C_TEXT, 1);
 		return;
 	}
 	const SettingsRow &r = *it.row;
@@ -721,7 +721,7 @@ static const char *noteText(uint16_t *col) {
 		return "UNSAVED - HOLD SAVE TO KEEP";
 	}
 	if (s_saveOutcome == SaveOutcome::Ok) {
-		*col = C_LIME;
+		*col = UI_COL_SAFE;
 		return "SAVED";
 	}
 	if (settingsResetByUpdate()) {

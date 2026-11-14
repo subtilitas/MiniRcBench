@@ -92,8 +92,9 @@ HitecView uiHitecView();
  *        each row's editor bar names.
  */
 #define HITEC_UI_MORE_RULES_FMT "AND %d MORE RULE%s: SEE EACH ROW."
-/** @brief The field list's chip, right of its strip. */
-#define HITEC_UI_CHIP "MODE"
+/** @brief The field list's chip, right of its strip: `PROG MODE`, 65 px. */
+#define HITEC_UI_CHIP UI_CHIP_PROG_MODE
+
 /** @} */
 
 /**

@@ -321,9 +321,11 @@ static void drawLabelled(int x, int y, int w, int h, const char *label,
 /**
  * @brief Right-aligned "KISS" / "EDT" tag on a tile's label row.
  *
- * Cyan for KISS, dim for EDT: the point is to make the *fine* source obvious at
- * a glance, so that a readout quietly dropping back to 0.25 V steps is visible
- * rather than something you notice later in a log.
+ * Text colour for KISS, dim for EDT: the point is to make the *fine* source
+ * obvious at a glance, so that a readout quietly dropping back to 0.25 V steps
+ * is visible rather than something you notice later in a log. A source tag is
+ * neutral (docs/design/menu-b.md, decision 11), so the two differ in
+ * brightness, not in hue.
  *
  * @param xRight Right edge of the tile.
  * @param y      Tile top.
@@ -333,7 +335,7 @@ static void drawSourceTag(int xRight, int y, EscSource src) {
 	if (src == EscSource::None) return;
 	const char *s = escSourceLabel(src);
 	gfxText(xRight - 6 - gfxTextW(s, 1), y + 4, s,
-	        src == EscSource::Kiss ? C_CYAN : C_DIM, 1);
+	        src == EscSource::Kiss ? C_TEXT : C_DIM, 1);
 }
 
 /**
@@ -548,7 +550,7 @@ static void drawStatusBar() {
 		// The rate as the protocol names it, DSHOT600; DSHOT1200 at its
 		// widest, 9 characters, x 104 to 156.
 		snprintf(buf, sizeof(buf), "DSHOT%d", kbaud);
-		gfxText(104, STATUS_RATE_Y, buf, escEdtRequested() ? C_CYAN : C_DIM, 1);
+		gfxText(104, STATUS_RATE_Y, buf, escEdtRequested() ? C_TEXT : C_DIM, 1);
 	}
 
 	// Recording state, under the DShot rate. Only worth a glance -- the detail
@@ -654,7 +656,7 @@ static void drawRpm() {
 	// are not watching while a motor spins up.
 	const char *hint = s_padEngaged ? "SWIPE ACTIVE" : "SWIPE = THROTTLE";
 	gfxText(226 - gfxTextW(hint, 1), TESTER_NOTE_Y, hint,
-	        s_padEngaged ? C_LIME : s_armed ? C_CYAN : C_GRID, 1);
+	        s_padEngaged ? C_LIME : s_armed ? C_TEXT : C_GRID, 1);
 }
 
 /** @brief Six EDT tiles: voltage, current, temperature, stress, status, link. */
@@ -769,7 +771,7 @@ static void drawThrottle() {
 	char buf[24];
 	gfxText(THR_TRACK_X, 236, s_hold ? "THROTTLE REL" : "THROTTLE", C_DIM, 1);
 	snprintf(buf, sizeof(buf), "MAX %d%%", maxPct);
-	gfxText(THR_TRACK_X + 80, 236, buf, C_AMBER, 1);
+	gfxText(THR_TRACK_X + 80, 236, buf, C_TEXT, 1);
 
 	// The full width of the track *is* the ceiling, so where you put your
 	// finger is where the bar ends. The percentage is still of the real

@@ -391,7 +391,8 @@ static void drawHeader() {
 static void drawConnect() {
 	gfxRect(0, LIST_Y0, GFX_W, GFX_H - LIST_Y0, C_BG);
 
-	gfxTextCenter(84, "POWER-CYCLE THE ESC", C_LIME, 2);
+	// The current step, in the warning colour: the one thing to do now.
+	gfxTextCenter(84, "POWER-CYCLE THE ESC", UI_COL_WARN, 2);
 	gfxTextCenter(116, "THE BOOTLOADER ONLY LISTENS", C_DIM, 1);
 	gfxTextCenter(130, "BRIEFLY AT POWER-UP. UNPLUG", C_DIM, 1);
 	gfxTextCenter(144, "AND REPLUG THE ESC BATTERY.", C_DIM, 1);
@@ -439,23 +440,14 @@ static void drawConnect() {
 static void drawRow(int index, int y, void *) {
 	uint16_t fieldIdx = s_visible[index];
 	const Am32Field *f = &AM32_FIELDS[fieldIdx];
-	bool sel = (s_selected == (int)fieldIdx);
 	bool changed = s_eeprom[f->offset] != s_original[f->offset];
-
-	gfxRect(0, y, GFX_W, ROW_H - 1, sel ? C_PANEL : C_BG);
-	if (changed) gfxRect(0, y, 3, ROW_H - 1, C_AMBER);
-
-	// The two scale-1 lines and the value, each centred in the 39 px the
-	// row paints above its rule.
-	gfxText(8, y + 11, f->group, C_GRID, 1);
-	gfxText(8, y + 21, f->name, sel ? C_TEXT : C_DIM, 1);
-
 	char val[24];
 	am32FormatValue(f, s_eeprom, val, sizeof(val));
-
-	gfxText(GFX_W - 8 - gfxTextW(val, 2), y + 13, val,
-	        changed ? C_AMBER : (sel ? C_LIME : C_TEXT), 2);
-	gfxHLine(0, y + ROW_H - 1, GFX_W, C_PANEL);
+	// A change is cyan with a cyan bar; selection fills the row and lights
+	// the label, never the value (docs/design/menu-b.md, decision 8).
+	UiField row = { f->group, f->name, val, changed ? UiValue::Changed : UiValue::Plain,
+	                changed ? UiEdge::Changed : UiEdge::None, s_selected == (int)fieldIdx };
+	uiListDrawField(y, ROW_H, row);
 }
 
 /**
@@ -501,7 +493,7 @@ static void drawList() {
 		am32FormatValue(sel, s_eeprom, val, sizeof(val));
 		bool ch = s_eeprom[sel->offset] != s_original[sel->offset];
 		gfxText(cx + (cw - gfxTextW(val, 2)) / 2, EDIT_Y + 14, val,
-		        ch ? C_AMBER : C_LIME, 2);
+		        ch ? UI_COL_CHANGED : C_TEXT, 2);
 		// Short enough to clear both buttons: the gap between them is only
 		// (BTN_PLUS_X - cx) px, and a longer caption ran under them.
 		const char *hint = "SWIPE = COARSE";
@@ -527,7 +519,7 @@ static void drawList() {
 	         writeFill, holding ? C_ONACCENT : C_TEXT, 1, holding, dirty);
 	uiButton(BTN_REVERT, "REVERT", C_PANEL, C_AMBER, 1,
 	         uiPressing(BTN_REVERT, s_frameTouch), dirty);
-	uiButton(BTN_HEX, s_hexView ? "FIELDS" : "HEX", C_PANEL, C_CYAN, 1,
+	uiButton(BTN_HEX, s_hexView ? "FIELDS" : "HEX", C_PANEL, C_TEXT, 1,
 	         uiPressing(BTN_HEX, s_frameTouch));
 }
 
@@ -550,7 +542,8 @@ static void drawView() {
  * @param s The text.
  */
 static void drawResultText(const char *s) {
-	gfxTextCenter(RESULT_Y, s, C_TEXT, gfxTextW(s, 2) <= GFX_W - 2 * UI_MARGIN ? 2 : 1);
+	gfxTextCenter(RESULT_Y, s, s_verified ? UI_COL_SAFE : C_TEXT,
+	              gfxTextW(s, 2) <= GFX_W - 2 * UI_MARGIN ? 2 : 1);
 }
 
 static void drawWriting() {
@@ -739,6 +732,11 @@ static bool writeRefused() {
 
 /** @brief Commit the settings block. */
 static void doWrite() {
+	// Set again only by a write that reads back equal: the result's colour
+	// and the power-cycle line follow it. The hold that starts the write
+	// clears it already (handleListTouch()); this is a backstop for any
+	// other way into S_WRITING.
+	s_verified = false;
 	if (writeRefused()) return;
 	// The settings as read at entry go to the card before the first write of
 	// the session. Without a card the write runs and the backup stays in

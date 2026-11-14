@@ -17,7 +17,7 @@
  *   no habit. @see UI_BACK_X
  * - **A pressed button is drawn additively** — a brighter frame and the label
  *   nudged — never a swapped fill. Buttons here pick a label colour to suit
- *   their own fill (white on red, cyan on panel, background on a flash), so a
+ *   their own fill (white on red, text on panel, background on a flash), so a
  *   pressed state that replaced the fill would have to know about all of them
  *   to stay legible. Adding to what is there cannot break any pairing.
  * - **Touch targets have a floor.** @ref UI_TAP_MIN is what a fingertip needs;
@@ -52,7 +52,12 @@ struct TouchState;
 #define UI_HDR_H        36
 /** @brief Left margin for titles, labels and the first control in a row. */
 #define UI_MARGIN        8
-/** @brief Corner radius for every button and chip. */
+/**
+ * @brief Corner radius passed to gfxRoundRect() and gfxRoundFrame() for every
+ *        button. Neither draws a radius: their corner solver insets every row
+ *        by 0, so a button's fill and frame are square in pixels (STATUS.md,
+ *        open items). A chip is square by design: uiChip().
+ */
 #define UI_RADIUS        5
 /**
  * @brief Smallest side of a touch target outside a list: the tester's button
@@ -97,6 +102,8 @@ struct TouchState;
 #define UI_STRIP_Y      (UI_HDR_H + 4)
 /** @brief Height of that strip. Sized to hold a chip. */
 #define UI_STRIP_H      16
+/** @brief Height of a chip on the strip, 12 px, centred in it. @see uiChip() */
+#define UI_CHIP_H       12
 /** @brief First row a screen's own content may use. */
 #define UI_BODY_Y       (UI_STRIP_Y + UI_STRIP_H + 6)
 /** @brief Top of the first of the strip's two lines, y 42. @see uiStripTwoLines() */
@@ -116,36 +123,40 @@ struct TouchState;
 /**
  * @defgroup uiw_roles Colour roles
  * @brief One meaning per colour: the role names of the `C_*` palette entries
- *        (docs/design/menu-b.md, decision 11).
+ *        (docs/design/menu-b.md, decisions 8, 11 and 26).
  *
  * Each name expands to its palette entry, so it follows the active theme.
- * The role "changed", a value edited and not yet written, has no name here:
- * its colour is open question 4 of the note. The neutral role is three
- * colours, `C_TEXT`, `C_DIM` and `C_GRID`, and keeps their names.
- *
- * Each role is described by its meaning. The examples after "Target:" are
- * the note's target for the screens; no screen uses the names yet, and some
- * of today's screens draw those elements in another colour. Slice 2 of the
- * note, "Colour roles", moves the screens onto the names.
+ * The neutral role is three colours, `C_TEXT`, `C_DIM` and `C_GRID`, and
+ * keeps their names: labels, navigation and command buttons, captions and
+ * source tags. The uses decision 11's tables name take their role's colour;
+ * the splash's `JuWi made` in `C_CYAN` is a mark, not a state. Uses the
+ * tables do not name, such as lime on SD LOG's READY, are left to the owner
+ * (docs/design/menu-b.md, slice 2 as built).
  * @{
  */
-/** @brief Safe or done. Target: the SAFE badge and chip, EDT ON, WRITE
- *         VERIFIED, SAVED. */
+/** @brief Safe or done: the SAFE badge and chip, EDT ON, WRITE VERIFIED,
+ *         SAVED. */
 #define UI_COL_SAFE     C_GREEN
-/** @brief A live reading. Target: RPM, the throttle fill, hold progress bars,
- *         LINK. */
+/** @brief A live reading: RPM, the throttle fill, the pulse readout, servo
+ *         A's horn, hold progress bars, spinners, LINK, the SD read counter,
+ *         the sweep count. */
 #define UI_COL_LIVE     C_LIME
-/** @brief Output on, or a failure. Target: ARMED, RUNNING, a running hold's
- *         fill. */
+/** @brief Output on, or a failure: ARMED, RUNNING, STOP, DISARM, a running
+ *         hold's fill, REC, a save that failed, a write in doubt. */
 #define UI_COL_ON       C_RED
-/** @brief A warning: text to read before the next action. Target: the
- *         current step of the leave page, soft-rule bars. */
+/** @brief A warning: text to read before the next action, the current step,
+ *         soft-rule bars, the REFUSED and EJECT fills, the REVERT and
+ *         DEFAULTS labels. */
 #define UI_COL_WARN     C_AMBER
-/** @brief An alert the device or the bench raised, which needs a look.
- *         Target: the ESC status alert, STALLED. */
+/** @brief An alert the device or the bench raised, which needs a look: the
+ *         ESC status alert, STALLED. */
 #define UI_COL_ALERT    C_MAGENTA
-/** @brief A setting that stays on until it is turned off. Target: LATCH on,
- *         a toggle that is on, servo B. */
+/** @brief A value edited and not yet written, applied or saved, and its
+ *         bar: the field rows of AM32 CONFIG, KST SERVO, HITEC SERVO and
+ *         SERVO SET, their editor bars and the write pages' new values. */
+#define UI_COL_CHANGED  C_CYAN
+/** @brief A setting that stays on until it is turned off: LATCH on, a toggle
+ *         that is on, the PROG MODE chip, servo B. */
 #define UI_COL_LATCHED  C_BLUE
 /** @} */
 
@@ -252,8 +263,8 @@ void uiStripText(const char *text, uint16_t col);
  *
  * Clears y 40 to y 61 first, the strip and the gap above the body, since the
  * second line ends at y 58, below the strip. A chip drawn after it sits on
- * the first line: uiChip() is 16 px tall, y 40 to y 55, so it covers rows
- * 52 to 55 of the second line wherever the two share x. A null line is not
+ * the first line: uiChip() is 12 px tall, y 42 to y 53, so it covers rows
+ * 52 and 53 of the second line wherever the two share x. A null line is not
  * drawn.
  *
  * @param top       First line, or null.
@@ -313,16 +324,51 @@ UiGuardEv uiBackGuard(UiBackGuard *g, const TouchState *t, int pending);
 void uiBackGuardDraw(int pending, const char *verb);
 
 /**
- * @brief Right-aligned pill badge on the strip under the header.
+ * @brief Right-aligned square chip on the strip under the header.
  *
- * For a fact worth reading at a glance and never worth tapping — EDT on or off,
- * which board this is. Deliberately not button-shaped: nothing here responds to
- * a press, and a control that looks tappable and is not gets tapped.
+ * For a fact worth reading at a glance and never worth tapping: EDT on or
+ * off, SAFE or RUNNING, PROG MODE. Square, with no corner radius, so it does
+ * not look like a button: nothing here responds to a press, and a control
+ * that looks tappable and is not gets tapped (docs/design/menu-b.md,
+ * decision 11). It is 12 px tall, y 42 to y 53, centred in the 16 px strip,
+ * and as wide as its text plus 12 px, ending at x 232.
  *
- * @param text Label, drawn at scale 1.
- * @param fill Pill colour. The label is always @ref C_ONACCENT over it.
+ * @param text Label, drawn at scale 1 from 6 px inside the chip.
+ * @param fill Chip colour. The label is always @ref C_ONACCENT over it.
  */
 void uiChip(const char *text, uint16_t fill);
+
+/**
+ * @brief The chip of KST SERVO and HITEC SERVO while a servo is in
+ *        programming mode, on @ref UI_COL_LATCHED. It is 9 characters, a
+ *        65 px chip from x 167 (docs/design/menu-b.md, decision 15 g).
+ */
+#define UI_CHIP_PROG_MODE "PROG MODE"
+
+/**
+ * @brief The KST and Hitec strips' backup item before the first write has
+ *        put the backup on the card. Hitec's `D485HW  BACKUP IN RAM  GP0` is
+ *        26 characters, 155 px, and ends 4 px before the PROG MODE chip.
+ */
+#define UI_BACKUP_RAM "BACKUP IN RAM"
+/**
+ * @brief The KST and Hitec main views' line after a stall without a card,
+ *        once a write has run: 35 characters, 209 px.
+ */
+#define UI_NO_CARD_RAM_LOST "NO CARD: THE BACKUP IN RAM IS LOST."
+static_assert(sizeof(UI_NO_CARD_RAM_LOST) - 1 <= 37, "the RAM line is wider than a scale-1 line");
+
+/**
+ * @brief One change on a write page at scale 1: `old -> new`, the old value
+ *        and the arrow in `C_DIM`, the new value in @ref UI_COL_CHANGED
+ *        (docs/design/menu-b.md, decision 8). It is as wide as the string
+ *        `old -> new`, so a caller aligns it by that string's width.
+ * @param x   Left edge.
+ * @param y   Top.
+ * @param old The value the device holds.
+ * @param now The value the write sets.
+ */
+void uiChangeText(int x, int y, const char *old, const char *now);
 
 /**
  * @brief Left edge of the chip uiChip() draws for @p text: the label's
