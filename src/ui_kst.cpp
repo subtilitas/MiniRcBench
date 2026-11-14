@@ -22,6 +22,7 @@
 #include "sense.h"
 #include "settings.h"
 #include "touch.h"
+#include "ui.h"
 #include "ui_hold.h"
 #include "ui_input.h"
 #include "ui_list.h"
@@ -148,6 +149,8 @@ static uint8_t      s_resultPlan = 0;
 static KstRefusal   s_resultRefused = KstRefusal::None; /**< The job refused the write. */
 static KstRefusal   s_readRefused = KstRefusal::None;   /**< The job refused the read. */
 static const char  *s_cardNote = nullptr; /**< The card refused the first write's files. */
+/** @brief The last hold met the board voltage in the red band: nothing was written. */
+static bool s_boardLow = false;
 static bool         s_leaveQueued = false;
 static char         s_preset[KST_STORE_PRESET_MAX]; /**< The KSTnnn SAVE AS takes in KST/. */
 static bool         s_saveFull = false;  /**< KST/ holds KST_FILES_SAVE_MAX files: SAVE AS refuses. */
@@ -323,6 +326,7 @@ static bool cardHeldByUsb() { return mscHoldsCard(mscGetState()); }
 
 /** @brief Go to @p v, with its hold and its press state fresh. */
 static void go(KstView v) {
+	s_boardLow = false;
 	// A write that waited for its backup's flush does not follow the page.
 	if (v != KstView::Write) s_flushing = false;
 	s_view = v;
@@ -1093,6 +1097,10 @@ static void flushStep() {
 static void startWrite() {
 	s_cardNote = nullptr;
 	s_result = false;
+	// The board's own battery in the red band: no file goes to the card and
+	// no frame to the servo. A write already running is not stopped.
+	s_boardLow = uiBoardWriteRefused();
+	if (s_boardLow) return;
 	// A batch that failed off this page, after BACK during the flush or a
 	// removal of the record: the first write starts over.
 	if (cardCacheState() == CardCache::Failed) recoverFlush();
@@ -1219,6 +1227,9 @@ static void drawWrite() {
 		for (int k = 0; k < n; k++) gfxText(UI_MARGIN, 196 + 12 * k, wl[k], c, 1);
 		uiButton(BTN_WIDE, "OK", C_PANEL, C_TEXT, 2, pressing(BTN_WIDE));
 		return;
+	} else if (s_boardLow) {
+		gfxText(UI_MARGIN, 196, UI_BOARD_LOW_1, C_AMBER, 1);
+		gfxText(UI_MARGIN, 208, UI_BOARD_LOW_2, C_AMBER, 1);
 	} else if (s_confirm) {
 		gfxText(UI_MARGIN, 196, "THE PLANNER DID NOT CHECK THIS", C_AMBER, 1);
 		gfxText(UI_MARGIN, 208, "RESTORE. HOLD AGAIN TO RUN IT.", C_AMBER, 1);
@@ -1743,7 +1754,8 @@ static uint32_t frameKey() {
 	h = mix(h, ((uint32_t)s_writing << 0) | ((uint32_t)s_result << 1) | ((uint32_t)s_confirm << 2) |
 	           ((uint32_t)s_readFailed << 3) | ((uint32_t)s_leaveQueued << 4) |
 	           ((uint32_t)s_recordFound << 5) | ((uint32_t)kstFilesMounted() << 6) |
-	           ((uint32_t)cardHeldByUsb() << 7) | ((uint32_t)s_haveTarget << 8));
+	           ((uint32_t)cardHeldByUsb() << 7) | ((uint32_t)s_haveTarget << 8) |
+	           ((uint32_t)s_boardLow << 9));
 	h = mix(h, ((uint32_t)s_resultSes << 8) | s_resultPlan);
 	h = mixBytes(h, s_fileNote, strlen(s_fileNote));
 	h = mixBytes(h, s_preset, strlen(s_preset));

@@ -1326,6 +1326,70 @@ static void testStallInWrite() {
 	leaveAll();
 }
 
+/** @brief The board's voltage at @p volts, held for enough frames to settle. */
+static void boardVolts(float volts) {
+	fakeAdcSet((uint16_t)(volts / 3.0f / 3.3f * 4095.0f + 0.5f));
+	hitecFrames(60);
+}
+
+/** @brief Hold @p id for 50 frames, 1250 ms, and let go. */
+static void holdFor(UiControlId id) {
+	int x, y;
+	ctlCentre(id, &x, &y);
+	fakePress(x, y);
+	hitecFrame();
+	for (int i = 0; i < 50; i++) { fakeHold(x, y); hitecFrame(); }
+	fakeRelease();
+	hitecFrames(2);
+}
+
+/**
+ * @brief The board's voltage in the red band refuses the write page's hold:
+ *        no file and no write, two amber lines in the page's state lines. A
+ *        write that runs when the band turns red ends.
+ */
+static void testBoardLow() {
+	section("Hitec screen: no write or restore while the BOARD voltage is red");
+	freshHitec(HITEC_D, false);
+	checkTrue("the field list", toList(HITEC_D));
+	int32_t before = jobSpeed();
+	speedDown();
+	checkTrue("the write page", holdUntilGone(UI_FIX(HitecCtl::Write)));
+	boardVolts(3.20f);
+	checkTrue("3.20 V: red", uiBoardCellNow() == BoardCell::Critical);
+	unsigned writes0 = fakeHitecSim()->writes;
+	holdFor(UI_FIX(HitecCtl::WriteHold));
+	checkTrue("the hold writes nothing: no backup, no record, no write",
+	          !fakeFatExists("BACKUP/HT001.TXT") && !fakeFatExists("HITEC/HITEC.TXT") &&
+	          fakeHitecSim()->writes == writes0 && jobSpeed() == before);
+	checkTrue(UI_BOARD_LOW_1 ", amber, in the state lines", lineIs(196, UI_BOARD_LOW_1, C_AMBER));
+	checkTrue(UI_BOARD_LOW_2 ", amber", lineIs(208, UI_BOARD_LOW_2, C_AMBER));
+	checkTrue("HOLD TO WRITE stays", ctlEnabled(UI_FIX(HitecCtl::WriteHold)));
+	checkControlTable("Hitec write page, board low");
+	fakeDumpFrame("shot_hitec_board_low.ppm");
+	boardVolts(3.92f);
+	checkTrue("charged: the hold starts the write", holdUntilGone(UI_FIX(HitecCtl::WriteHold)));
+	// A write already running is not stopped by the band turning red.
+	fakeAdcSet((uint16_t)(3.20f / 3.0f / 3.3f * 4095.0f + 0.5f));
+	checkTrue("the result", untilCtl(UI_FIX(HitecCtl::WriteOk), 800));
+	checkTrue("verified, with the backup first", job().result == HITEC_SES_OK &&
+	          jobSpeed() < before && fakeFatExists("BACKUP/HT001.TXT"));
+	tapId(UI_FIX(HitecCtl::WriteOk));
+	// RESTORE goes through the write page: refused the same way.
+	hitecFrames(60);
+	checkTrue("red again", uiBoardCellNow() == BoardCell::Critical);
+	int32_t written = jobSpeed();
+	tapId(UI_FIX(HitecCtl::Files));
+	checkTrue("HOLD TO RESTORE opens the restore page", holdUntilGone(UI_FIX(HitecCtl::Restore)) &&
+	          uiHitecView() == HitecView::Write);
+	holdFor(UI_FIX(HitecCtl::WriteHold));
+	checkTrue("and its hold restores nothing", jobSpeed() == written &&
+	          lineIs(196, UI_BOARD_LOW_1, C_AMBER));
+	boardVolts(3.92f);
+	leaveAll();
+	fakeAdcSet(fakeAdcDefault());
+}
+
 void runHitecUiTests() {
 	testFamily();
 	testDSeriesRead();
@@ -1343,4 +1407,5 @@ void runHitecUiTests() {
 	testWritePageHornLine();
 	testCardSwap();
 	testStallInWrite();
+	testBoardLow();
 }

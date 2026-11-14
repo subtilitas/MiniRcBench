@@ -23,7 +23,11 @@
  * ```
  *
  * The fields are those of `AM32_FIELDS` that the block's layout revision has,
- * group, name, and value with its unit, as AM32 CONFIG shows them. The byte
+ * group, name, and value with its unit, as AM32 CONFIG shows them. A layout
+ * the table is not checked against adds a line after `Firmware:`: `Layout
+ * not known: fields read as layout 4, not verified` above 4, with the field
+ * lines as layout 4 has them, or `Layout not known: fields not read` below
+ * 2, with none (am32ViewLayout()). The byte
  * lines hold all 48 bytes (`AM32_SETTINGS_SIZE`), so a byte no field covers is
  * kept too. The melody and the CAN (Controller Area Network) block, which the
  * editor neither shows nor writes, are not saved. Nothing reads the file back

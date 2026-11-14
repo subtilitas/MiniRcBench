@@ -30,6 +30,7 @@
 #include "sense.h"
 #include "settings.h"
 #include "touch.h"
+#include "ui.h"
 #include "ui_hold.h"
 #include "ui_input.h"
 #include "ui_list.h"
@@ -174,6 +175,8 @@ static bool        s_result = false;
 static uint8_t     s_resultSes = 0;
 static HitecRefusal s_resultRefused = HitecRefusal::None;
 static const char *s_cardNote = nullptr;
+/** @brief The last hold met the board voltage in the red band: nothing was written. */
+static bool s_boardLow = false;
 static bool        s_leaveQueued = false;
 static char        s_preset[HITEC_FILES_NAME_MAX];
 static bool        s_saveFull = false;
@@ -330,6 +333,7 @@ static_assert((BOARD_FREE_GPIO_MASK & 0x3C000000u) == 0,
 static bool classicAllowed() { return servoSupplyFitted(); }
 
 static void go(HitecView v) {
+	s_boardLow = false;
 	if (v != HitecView::Write) s_flushing = false;
 	s_view = v;
 	uiHoldReset(&s_hold);
@@ -1085,6 +1089,10 @@ static void filesThenWrite() {
 static void startWrite() {
 	s_cardNote = nullptr;
 	s_result = false;
+	// The board's own battery in the red band: no file goes to the card and
+	// no frame to the servo. A write already running is not stopped.
+	s_boardLow = uiBoardWriteRefused();
+	if (s_boardLow) return;
 	if (cardCacheState() == CardCache::Failed) recoverFlush();
 	// With the swap check armed, an earlier batch still flushing ends before
 	// this write's files go in, so the check reads the volume they land on.
@@ -1258,6 +1266,12 @@ static void drawWrite() {
 		for (int k = 0; k < n; k++) gfxText(UI_MARGIN, 196 + 12 * k, rl[k], c, 1);
 		uiButton(BTN_WIDE, "OK", C_PANEL, C_TEXT, 2, pressing(BTN_WIDE));
 		return;
+	}
+	// The page's state lines, under the layout's last line (HW_STATE_Y): the
+	// reserved lines above keep their place.
+	if (s_boardLow) {
+		gfxText(UI_MARGIN, HW_STATE_Y, UI_BOARD_LOW_1, C_AMBER, 1);
+		gfxText(UI_MARGIN, HW_STATE_Y + 12, UI_BOARD_LOW_2, C_AMBER, 1);
 	}
 	bool ok = holdOk();
 	uiHoldDrawBar(&s_hold, BTN_WIDE, HL_FOOT_Y - 4, millis());
@@ -1703,7 +1717,7 @@ static uint32_t frameKey() {
 	           ((uint32_t)s_leaveQueued << 4) | ((uint32_t)s_recordFound << 5) |
 	           ((uint32_t)hitecFilesMounted() << 6) | ((uint32_t)cardHeldByUsb() << 7) |
 	           ((uint32_t)s_haveDraft << 8) | ((uint32_t)s_lastFailed << 9) |
-	           ((uint32_t)servoSupplyFitted() << 10));
+	           ((uint32_t)servoSupplyFitted() << 10) | ((uint32_t)s_boardLow << 11));
 	h = mix(h, s_resultSes);
 	h = mixBytes(h, s_fileNote, strlen(s_fileNote));
 	h = mixBytes(h, s_preset, strlen(s_preset));

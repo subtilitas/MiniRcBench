@@ -53,10 +53,26 @@ bool uiAm32Tick(const TouchState *t);
  *        device caption, through uiStripTwoLines(). Each line is at most 37
  *        characters, 221 px.
  *
- * The selected row's note comes first, then 3D MODE, then PROTOCOL where the
+ * A layout the table does not know comes first: the list is read-only.
+ * Then the selected row's note, then 3D MODE, then PROTOCOL where the
  * firmware reads byte 0x2E, then firmware below 1.80 or unknown.
  * @{
  */
+/**
+ * @brief Read-only, first line: the layout revision, one digit (a plausible
+ *        block has 1 to 8). @see am32ViewLayout()
+ */
+#define AM32_UI_RO_FMT "LAYOUT %u NOT KNOWN: READ-ONLY."
+/** @brief Read-only, second line, above layout 4: the fields as layout 4 has them. */
+#define AM32_UI_RO_FIELDS "VALUES UNVERIFIED."
+/** @brief Read-only, second line, below layout 2: the hex view alone. */
+#define AM32_UI_RO_HEX "SHOWN AS BYTES."
+/** @brief After either: the backup went to the card, with its five-character name. */
+#define AM32_UI_RO_SAVED " BACKUP "
+/** @brief After either: no card, or the card held by USB. */
+#define AM32_UI_RO_NO_CARD " NO CARD: NO BACKUP"
+/** @brief After either: the card did not take the backup. */
+#define AM32_UI_RO_FAILED " BACKUP FAILED"
 /** @brief 3D MODE on: AM32 splits DShot 48..2047 into two directions, and the
  *         tester sends 47 + throttle, 1 to 2000, so 50 % is 1047, the top of
  *         the lower half. */
@@ -84,23 +100,13 @@ bool uiAm32Tick(const TouchState *t);
 #define AM32_UI_NOT_AM32 "IS THE ESC RUNNING AM32?"
 /** @brief The connect page's first line under NO VALID SETTINGS. */
 #define AM32_UI_NO_SETTINGS_1 "NOT AN AM32 ESC, OR BLANK SETTINGS."
-/**
- * @brief The connect page's second line under NO VALID SETTINGS and under
- *        `LAYOUT n NOT KNOWN`.
- */
+/** @brief The connect page's second line under NO VALID SETTINGS. */
 #define AM32_UI_NO_SETTINGS_2 "NOTHING WILL BE WRITTEN."
-/** @brief Turns a macro's value into a string literal, for the texts below. */
-#define AM32_UI_STR(x) AM32_UI_STR_(x)
-/** @brief The step under AM32_UI_STR(). */
-#define AM32_UI_STR_(x) #x
 /**
- * @brief The connect page's first line under `LAYOUT n NOT KNOWN`, a layout
- *        revision outside @ref AM32_LAYOUT_MIN_KNOWN to
- *        @ref AM32_LAYOUT_MAX_KNOWN, built from them; the second is
- *        `AM32_UI_NO_SETTINGS_2`.
+ * @brief The write's refusal on a read-only list. No control of the list
+ *        reaches it; doWrite() checks the flag before anything else.
  */
-#define AM32_UI_LAYOUT_1 "THE TESTER KNOWS LAYOUTS " AM32_UI_STR(AM32_LAYOUT_MIN_KNOWN) \
-                         " TO " AM32_UI_STR(AM32_LAYOUT_MAX_KNOWN) "."
+#define AM32_UI_RO_REFUSED "READ-ONLY: NOT WRITTEN"
 
 /**
  * @brief MENU's strip line after a session that reached the bootloader:

@@ -90,6 +90,33 @@ enum class BoardCell : uint8_t {
  */
 BoardCell uiBoardCell(float volts, BoardCell prev);
 
+/**
+ * @brief The band of the board's voltage now. uiTick() samples the reading
+ *        and steps the band on every frame, before the tester, MENU or a
+ *        tool runs, so it is current on every screen.
+ * @return The band of the last frame; Ok before the first.
+ */
+BoardCell uiBoardCellNow();
+
+/**
+ * @brief A KST, Hitec or AM32 write, or a restore, is refused: the board's
+ *        voltage is in the red band, BoardCell::Critical. NoCell, below
+ *        2.50 V, refuses nothing. A write already running is not stopped.
+ * @return true while a hold of WRITE or RESTORE must not start one.
+ */
+static inline bool uiBoardWriteRefused() { return uiBoardCellNow() == BoardCell::Critical; }
+
+/**
+ * @defgroup ui_board_low The refusal's two lines
+ * @brief Amber, scale 1, at most 37 characters each.
+ * @{
+ */
+/** @brief First line: why nothing was written. */
+#define UI_BOARD_LOW_1 "BOARD BATTERY LOW: NOT WRITTEN."
+/** @brief Second line: what to do. */
+#define UI_BOARD_LOW_2 "CHARGE IT OR POWER THE BOARD BY USB."
+/** @} */
+
 /** @brief Current commanded throttle, 0..2000. @return Throttle value. */
 uint16_t uiThrottle();
 

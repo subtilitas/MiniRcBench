@@ -1670,6 +1670,67 @@ static void testRecordWarningOnSearch() {
 	settings()->servoSupply = 0;
 }
 
+/** @brief The board's voltage at @p volts, held for enough frames to settle. */
+static void boardVolts(float volts) {
+	fakeAdcSet((uint16_t)(volts / 3.0f / 3.3f * 4095.0f + 0.5f));
+	kstFrames(60);
+}
+
+/** @brief Hold @p id for 50 frames, 1250 ms, and let go. */
+static void holdFor(UiControlId id) {
+	int x, y;
+	ctlCentre(id, &x, &y);
+	fakePress(x, y);
+	kstFrame();
+	for (int i = 0; i < 50; i++) { fakeHold(x, y); kstFrame(); }
+	fakeRelease();
+	kstFrames(2);
+}
+
+/**
+ * @brief The board's voltage in the red band refuses the write page's hold,
+ *        a write and a restore: no file and no frame, two amber lines.
+ */
+static void testBoardLow() {
+	section("KST screen: no write or restore while the BOARD voltage is red");
+	freshKst();
+	checkTrue("to the field list", toList());
+	uint16_t deadBand = simField(KST_F_DEAD_BAND);
+	selectField(KST_F_DEAD_BAND);
+	tapId(UI_FIX(KstCtl::EditPlus));
+	checkTrue("the write page", holdUntilGone(UI_FIX(KstCtl::Write)) && uiKstView() == KstView::Write);
+	boardVolts(3.20f);
+	checkTrue("3.20 V: red", uiBoardCellNow() == BoardCell::Critical);
+	holdFor(UI_FIX(KstCtl::WriteHold));
+	checkTrue("the hold writes nothing: no backup, the servo as it was",
+	          !fakeFatExists("BACKUP/KST001.TXT") && !fakeFatExists("KST/KST.TXT") &&
+	          simField(KST_F_DEAD_BAND) == deadBand && !job().locked);
+	checkTrue(UI_BOARD_LOW_1 ", amber, y 196", lineIs(196, UI_BOARD_LOW_1, C_AMBER));
+	checkTrue(UI_BOARD_LOW_2 ", amber, y 208", lineIs(208, UI_BOARD_LOW_2, C_AMBER));
+	checkTrue("HOLD TO WRITE stays", ctlEnabled(UI_FIX(KstCtl::WriteHold)));
+	checkControlTable("KST write page, board low");
+	fakeDumpFrame("shot_kst_board_low.ppm");
+	boardVolts(3.92f);
+	checkTrue("charged: the hold writes", holdUntilGone(UI_FIX(KstCtl::WriteHold)) &&
+	          untilCtl(UI_FIX(KstCtl::WriteOk), 400) && simField(KST_F_DEAD_BAND) != deadBand);
+	checkTrue("and the lines are gone, the backup first", !lineIs(196, UI_BOARD_LOW_1, C_AMBER) &&
+	          fakeFatExists("BACKUP/KST001.TXT"));
+	tapId(UI_FIX(KstCtl::WriteOk));
+	// RESTORE is a write: refused the same way, from FILES.
+	uint16_t written = simField(KST_F_DEAD_BAND);
+	tapId(UI_FIX(KstCtl::Files));
+	boardVolts(3.20f);
+	checkTrue("HOLD TO RESTORE acts", ctlEnabled(UI_FIX(KstCtl::Restore)));
+	checkTrue("the hold opens the restore page", holdUntilGone(UI_FIX(KstCtl::Restore)) &&
+	          uiKstView() == KstView::Write);
+	kstFrames(4);
+	checkTrue("and restores nothing", simField(KST_F_DEAD_BAND) == written &&
+	          lineIs(196, UI_BOARD_LOW_1, C_AMBER) && ctlPresent(UI_FIX(KstCtl::WriteHold)));
+	boardVolts(3.92f);
+	leaveAll();
+	fakeAdcSet(fakeAdcDefault());
+}
+
 void runKstUiTests() {
 	testRecordWarningOnSearch();
 	testOpenAndSearch();
@@ -1692,6 +1753,7 @@ void runKstUiTests() {
 	testSwitchedSupply();
 	testSupplyCurrent();
 	testCardPhase();
+	testBoardLow();
 	fakeKstLineReset();
 	noCard();
 	fakeFatReset();
