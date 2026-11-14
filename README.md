@@ -1349,14 +1349,15 @@ not 0 answers ID 0 is not measured.
    restore. The editor bar says
    `BENCH ADDRESSES ID 0. A WRITE MAY LOCK OUT READ AND RESTORE.` and the
    write page `THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR
-   RESTORE THIS SERVO.`
+   RESTORE IT.`
 5. HOLD TO WRITE (1 s) opens the write page: the changes, their soft rules
    and where the backup goes, and `KEEP THE SERVO HORN CLEAR.` on the
    session's first write and on a write that moves DIRECTION, NEUTRAL or an
-   end point. The horn line always has its line; notes that do not fit are
-   counted on the last line, `AND n MORE RULES: SEE EACH ROW.` or
-   `AND n MORE NOTES.` A second 1 s hold
-   writes. Before the first frame of the session's first write with a card
+   end point. The horn line, the ID note, `FILE OF ANOTHER MODEL` and
+   `MODEL NOT MEASURED` always show when they apply; the changed values, a
+   changed ID first, take the room left, and soft rules that do not fit are
+   counted on the last line, `AND n MORE RULES: SEE EACH ROW.` A second 1 s
+   hold writes. Before the first frame of the session's first write with a card
    mounted, the backup goes to the card as `BACKUP/HTnnn.TXT`; before every
    write, the servo as it is and the target go to `HITEC/HITEC.TXT` as the
    record of the write. The write sends the changed registers 20 ms apart,

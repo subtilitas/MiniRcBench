@@ -285,7 +285,7 @@ lesen und nicht aus einer Sicherung wiederherstellen kann. Solange `ID` einen
 anderen Wert als 0 hält, zeigt die Editorleiste
 `BENCH ADDRESSES ID 0. A WRITE MAY LOCK OUT READ AND RESTORE.` und die
 Schreibseite `THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR
-RESTORE THIS SERVO.` (nach diesem Schreiben kann die Platine das Servo
+RESTORE IT.` (nach diesem Schreiben kann die Platine das Servo
 vielleicht nicht mehr lesen oder wiederherstellen).
 
 <img src="img/hitec-id.png" width="240" alt="Die Schreibseite für ID 0 -> 1, mit dem bernsteinfarbenen ID-Hinweis">
@@ -306,26 +306,29 @@ Die Schreibseite öffnet sich und schreibt noch nichts.
 
 Die Schreibseite heißt `HITEC WRITE`. Die Leiste zählt die Werte, `1 VALUE`
 oder `2 VALUES`. Jeder geänderte Parameter ist eine Zeile, `SPEED` und
-`100 % (4095) -> 90 % (18)`, bis zu sechs, danach zum Beispiel `AND 3 MORE`.
+`100 % (4095) -> 90 % (18)`, oder zwei, wenn der Wert nicht neben den Namen
+passt. Eine geänderte `ID` steht zuerst. Danach zählt zum Beispiel
+`AND 3 MORE` die Werte, die nicht aufgeführt sind.
 
-`KEEP THE SERVO HORN CLEAR.` folgt den Werten beim ersten Schreiben der
-Sitzung und bei jedem Schreiben, das `DIRECTION`, `NEUTRAL` oder einen
-Endpunkt ändert. Die Zeile hat immer ihren Platz.
+Unter den Werten, von oben nach unten:
 
-Danach folgen bernsteinfarbene Hinweise, in dieser Reihenfolge:
-
-- `THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR RESTORE
-  THIS SERVO.`
+- `KEEP THE SERVO HORN CLEAR.` beim ersten Schreiben der Sitzung und bei
+  jedem Schreiben, das `DIRECTION`, `NEUTRAL` oder einen Endpunkt ändert.
+- `THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR RESTORE IT.`,
+  wenn die ID auf einen anderen Wert als 0 wechselt.
+- Zum Beispiel `FILE OF ANOTHER MODEL: D645MW.` nach dem Laden einer Datei
+  eines anderen Modells. Nur diese Seite sagt das.
 - `MODEL NOT MEASURED: WRITTEN IN THE D LAYOUT.` für ein Modell, das rcbench
   nicht vermessen hat. Das vermessene Modell der D-Serie ist das D485HW.
-- Zum Beispiel `FILE OF ANOTHER MODEL: D645MW.` nach dem Laden einer Datei
-  eines anderen Modells.
 - Zeilen mit einem `*` am Anfang: die weichen Regeln, die gelten.
 
-Ein Hinweis steht ganz oder gar nicht. Passen nicht alle, zählt die letzte
-Zeile den Rest: `AND 2 MORE RULES: SEE EACH ROW.`, wenn nur weiche Regeln
-fehlen (die Editorleiste jeder Zeile nennt ihre Regel), sonst
-`AND 3 MORE NOTES.`
+Die ersten vier stehen immer, wenn sie gelten; die Werte bekommen den Platz,
+der übrig bleibt, höchstens sechs. Jede weiche Regel steht ganz oder gar
+nicht, und passen nicht alle, zählt die letzte Zeile den Rest:
+`AND 2 MORE RULES: SEE EACH ROW.` Die Editorleiste jeder Zeile nennt ihre
+Regel.
+
+<img src="img/hitec-write-full.png" width="240" alt="Ein D645MW mit einer D485HW-Datei: ID zuerst, FAILSAFE unter dem Namen, AND 2 MORE, die Hornzeile, der ID-Hinweis, FILE OF ANOTHER MODEL, MODEL NOT MEASURED und AND 1 MORE RULE">
 
 Die Zeile am unteren Rand sagt, wohin die Sicherung geht:
 

@@ -424,10 +424,10 @@ protocol.
 - SERVO TESTER → SET warns of a pulse past a servo's travel: with TYPE WIDE,
   MIN below 900 µs or MAX above 2100 µs (HELI CYCLIC on its own 820 µs to
   2220 µs; NARROW 760 and HELI TAIL 760 with MIN or MAX more than 100 µs
-  outside the type's own range) the note band says `PAST ITS TRAVEL A SERVO STALLS AND`
-  `HEATS. TRY MIN AND MAX HORN-FREE.` in amber, ahead of the dim notes while
-  TYPE, MIN or MAX is selected and after them on the other rows. The change
-  still applies at once. `servoPastTravel()` in `src/servo_model.*`; host
+  outside the type's own range) the note band says
+  `PAST ITS TRAVEL A SERVO STALLS AND` `HEATS. TRY MIN AND MAX HORN-FREE.`
+  in amber, ahead of the dim notes while TYPE, MIN or MAX is selected and
+  after them on the other rows. The change still applies at once. `servoPastTravel()` in `src/servo_model.*`; host
   tests in `test/test_servo.cpp`.
 
 ### Changed
@@ -442,7 +442,7 @@ protocol.
 - HITEC SERVO's ID note states the consequence: the editor bar reads
   `BENCH ADDRESSES ID 0. A WRITE MAY LOCK OUT READ AND RESTORE.` and the
   write page `THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR
-  RESTORE THIS SERVO.`, in place of `THE BENCH ADDRESSES ID 0. ANOTHER ID IS
+  RESTORE IT.`, in place of `THE BENCH ADDRESSES ID 0. ANOTHER ID IS
   NOT TESTED.` The wiki pages Hitec-Programming and Hitec-Programmierung no
   longer say that every D series servo takes a frame sent to ID 0: whether a
   servo with another ID answers it is not measured. Host tests in
@@ -709,14 +709,18 @@ protocol.
 
 ### Fixed
 
-- HITEC SERVO's write page always draws `KEEP THE SERVO HORN CLEAR.`: it
-  follows the values, before the amber notes, and a value row starts only
-  while the horn line keeps its place. Before, it came after the notes and
-  was dropped once they reached y 180, for example on a D485HW write that
-  changes ID 0 to 1 and reverses DIRECTION. The notes are drawn whole or not
-  at all, the ID note, the model notes and then the soft rules, and the last
-  line counts those left out: `AND n MORE RULES: SEE EACH ROW.` or
-  `AND n MORE NOTES.` Host tests in `test/test_hitec_ui.cpp`.
+- HITEC SERVO's write page always draws `KEEP THE SERVO HORN CLEAR.`, the
+  ID note, `FILE OF ANOTHER MODEL` and `MODEL NOT MEASURED` when they
+  apply. Before, the horn line came after the notes and was dropped once
+  they reached y 180, for example on a D485HW write that changes ID 0 to 1
+  and reverses DIRECTION. `hitecPageLayout()` in `src/hitec_view.cpp`
+  reserves their lines, and one for the soft rules, before the changed
+  values take what is left, a changed ID listed first; each soft rule is
+  drawn whole or skipped, and the last line counts those left out,
+  `AND n MORE RULES: SEE EACH ROW.` The page's ID note is two lines:
+  `THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR RESTORE
+  IT.` Host tests in `test/test_hitec_view.cpp` and
+  `test/test_hitec_ui.cpp`.
 - The wiki pages KST-Programming and KST-Programmierung no longer say the
   screen never switches the servo's supply: with SERVO SUPPLY at GP28 or
   GP29 it does. The English Home and Setup pages and Einrichtung say the

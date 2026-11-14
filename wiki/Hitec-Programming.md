@@ -256,7 +256,7 @@ read, and cannot restore from a backup. While `ID` holds another value than
 0, the editor bar reads
 `BENCH ADDRESSES ID 0. A WRITE MAY LOCK OUT READ AND RESTORE.` and the write
 page reads `THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR
-RESTORE THIS SERVO.`
+RESTORE IT.`
 
 <img src="img/hitec-id.png" width="240" alt="The write page for ID 0 -> 1, with the amber ID note">
 
@@ -276,25 +276,28 @@ opens and writes nothing.
 
 The write page is titled `HITEC WRITE`. The strip counts the values,
 `1 VALUE` or `2 VALUES`. Each changed parameter is one line, `SPEED` and
-`100 % (4095) -> 90 % (18)`, up to six, then `AND 3 MORE`, for example.
+`100 % (4095) -> 90 % (18)`, or two when the value does not fit beside its
+name. A changed `ID` is listed first. Then `AND 3 MORE`, for example, counts
+the values not listed.
 
-`KEEP THE SERVO HORN CLEAR.` follows the values on the session's first
-write, and on every write that changes `DIRECTION`, `NEUTRAL` or an end
-point. It always has its line.
+Under the values, top to bottom:
 
-Amber notes follow, in this order:
-
-- `THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR RESTORE
-  THIS SERVO.`
+- `KEEP THE SERVO HORN CLEAR.` on the session's first write, and on every
+  write that changes `DIRECTION`, `NEUTRAL` or an end point.
+- `THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR RESTORE IT.`
+  when the ID changes to another value than 0.
+- `FILE OF ANOTHER MODEL: D645MW.`, for example, after a LOAD of a file of
+  another model. This page is the only place that says so.
 - `MODEL NOT MEASURED: WRITTEN IN THE D LAYOUT.` for a model rcbench has not
   measured. The measured D series model is the D485HW.
-- `FILE OF ANOTHER MODEL: D645MW.`, for example, after a LOAD of a file of
-  another model.
 - Lines starting with `*`: the soft rules that apply.
 
-A note is shown whole or not at all. When they do not all fit, the last line
-counts the rest: `AND 2 MORE RULES: SEE EACH ROW.` when only soft rules are
-left out (each row's editor bar names its rule), else `AND 3 MORE NOTES.`
+The first four always show when they apply; the values take the room that
+is left, at most six. Each soft rule shows whole or not at all, and when not
+all fit, the last line counts the rest: `AND 2 MORE RULES: SEE EACH ROW.`
+Each row's editor bar names its rule.
+
+<img src="img/hitec-write-full.png" width="240" alt="A D645MW with a D485HW file: ID first, FAILSAFE under its name, AND 2 MORE, the horn line, the ID note, FILE OF ANOTHER MODEL, MODEL NOT MEASURED and AND 1 MORE RULE">
 
 The line at the bottom says where the backup goes:
 

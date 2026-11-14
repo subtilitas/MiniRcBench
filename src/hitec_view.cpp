@@ -389,3 +389,63 @@ bool hitecModelMeasured(const hitec_image_t *img) {
 	return m.model == HITEC_MODEL_D485HW || m.model == HITEC_MODEL_HS5645MG ||
 	       m.model == HITEC_MODEL_HS7955TG;
 }
+
+bool hitecPageLayout(const HitecPageIn &in, HitecPageOut *out) {
+	out->rows = 0;
+	out->moreY = out->hornY = out->idY = out->fileY = out->modelY = out->ruleMoreY = -1;
+	out->ruleMore = 0;
+	for (int i = 0; i < HITEC_PAGE_ROWS_MAX; i++) out->rowY[i] = -1;
+	for (int i = 0; i < HITEC_PAGE_RULES_MAX; i++) out->ruleY[i] = -1;
+	int rules = in.rules < HITEC_PAGE_RULES_MAX ? in.rules : HITEC_PAGE_RULES_MAX;
+	int reserved = 12 * ((in.horn ? 1 : 0) + in.idLines + in.fileLines + in.modelLines +
+	                     (rules > 0 ? 1 : 0));
+	int rowPx = in.yEnd - in.y0 - reserved;
+	bool fits = true;
+
+	// The value rows: one starts while it, and AND n MORE when rows remain,
+	// end within rowPx.
+	int y = in.y0, used = 0;
+	for (int i = 0; i < in.values && i < HITEC_PAGE_ROWS_MAX; i++) {
+		int h = in.valueH[i] == 22 ? 22 : 12;
+		int tail = i + 1 < in.values ? 12 : 0;
+		if (used + h + tail > rowPx) break;
+		out->rowY[out->rows++] = y + used;
+		used += h;
+	}
+	if (out->rows < in.values) {
+		if (used + 12 > rowPx) fits = false;
+		out->moreY = y + used;
+		used += 12;
+	}
+	y += used;
+
+	auto place = [&](int lines, int *at) {
+		if (!lines) return;
+		if (y + 12 * lines > in.yEnd) { fits = false; return; }
+		*at = y;
+		y += 12 * lines;
+	};
+	place(in.horn ? 1 : 0, &out->hornY);
+	place(in.idLines, &out->idY);
+	place(in.fileLines, &out->fileY);
+	place(in.modelLines, &out->modelY);
+
+	// The soft rules: all when they fit, else each that fits whole with one
+	// line kept for the count of the rest.
+	int need = 0;
+	for (int i = 0; i < rules; i++) need += 12 * in.ruleLines[i];
+	int room = in.yEnd - y;
+	if (need > room) room -= 12;
+	for (int i = 0; i < rules; i++) {
+		int px = 12 * in.ruleLines[i];
+		if (px > room) { out->ruleMore++; continue; }
+		out->ruleY[i] = y;
+		y += px;
+		room -= px;
+	}
+	if (out->ruleMore) {
+		if (y + 12 > in.yEnd) fits = false;
+		else out->ruleMoreY = y;
+	}
+	return fits;
+}

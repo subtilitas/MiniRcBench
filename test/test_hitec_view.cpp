@@ -376,7 +376,81 @@ static void testModels() {
 	checkTrue("a classic one: HS-5xxx", hitecLayoutOf(&none) == HITEC_LAYOUT_HS5);
 }
 
+/** @brief A layout input with @p values rows of 12 px and nothing else. */
+static HitecPageIn pageIn(int values) {
+	HitecPageIn in;
+	memset(&in, 0, sizeof(in));
+	in.y0 = 62;
+	in.yEnd = 196;
+	in.values = values;
+	for (int i = 0; i < HITEC_PAGE_ROWS_MAX; i++) in.valueH[i] = 12;
+	return in;
+}
+
+/** @brief hitecPageLayout(): priorities, reservations, the counts, and the edges the UI cannot reach. */
+static void testPageLayout() {
+	section("Hitec view: the write page's layout");
+	HitecPageOut o;
+
+	HitecPageIn in = pageIn(3);
+	checkTrue("three rows, nothing else: fits", hitecPageLayout(in, &o));
+	checkTrue("rows at 62, 74, 86, no AND n MORE", o.rows == 3 && o.rowY[0] == 62 && o.rowY[1] == 74 &&
+	          o.rowY[2] == 86 && o.moreY < 0 && o.hornY < 0 && o.idY < 0 && o.ruleMoreY < 0);
+
+	in = pageIn(8);
+	hitecPageLayout(in, &o);
+	checkTrue("eight values: six rows, AND 2 MORE at 134", o.rows == 6 && o.moreY == 134);
+
+	// Everything at once: the horn, the ID note (2), FILE (1), MODEL (2),
+	// three rules (2, 2, 1), ten values, the second row wrapping.
+	in = pageIn(10);
+	in.horn = true; in.idLines = 2; in.fileLines = 1; in.modelLines = 2;
+	in.valueH[1] = 22;
+	in.rules = 3; in.ruleLines[0] = 2; in.ruleLines[1] = 2; in.ruleLines[2] = 1;
+	checkTrue("everything at once: fits", hitecPageLayout(in, &o));
+	checkTrue("two rows, the second wrapping, then AND 8 MORE at 96",
+	          o.rows == 2 && o.rowY[0] == 62 && o.rowY[1] == 74 && o.moreY == 96);
+	checkTrue("horn 108, ID 120, FILE 144, MODEL 156",
+	          o.hornY == 108 && o.idY == 120 && o.fileY == 144 && o.modelY == 156);
+	checkTrue("no rule fits: all three counted at 180", o.ruleMore == 3 && o.ruleMoreY == 180 &&
+	          o.ruleY[0] < 0 && o.ruleY[1] < 0 && o.ruleY[2] < 0);
+
+	// A rule that does not fit does not keep a later one out.
+	in = pageIn(2);
+	in.horn = true;
+	in.rules = 2; in.ruleLines[0] = 3; in.ruleLines[1] = 1;
+	in.yEnd = 62 + 24 + 12 + 12 + 12 + 12;   // rows, horn, two lines
+	hitecPageLayout(in, &o);
+	checkTrue("a 3-line rule left out, the 1-line rule after it drawn, then the count",
+	          o.ruleY[0] < 0 && o.ruleY[1] == 98 && o.ruleMore == 1 && o.ruleMoreY == 110);
+	in.ruleLines[0] = 1;
+	hitecPageLayout(in, &o);
+	checkTrue("both fit: no count line", o.ruleY[0] == 98 && o.ruleY[1] == 110 && o.ruleMoreY < 0);
+
+	// The reserved lines come first: rows give way to them.
+	in = pageIn(6);
+	in.horn = true; in.idLines = 2; in.fileLines = 1; in.modelLines = 2;
+	hitecPageLayout(in, &o);
+	checkTrue("six values under 6 reserved lines: four rows and AND 2 MORE",
+	          o.rows == 4 && o.moreY == 110 && o.hornY == 122 && o.modelY == 170);
+	in.values = 5;
+	hitecPageLayout(in, &o);
+	checkTrue("five: all five rows, no AND n MORE", o.rows == 5 && o.moreY < 0 && o.hornY == 122);
+
+	// Edges the screen cannot reach: reserved lines that leave no room.
+	in = pageIn(2);
+	in.horn = true; in.idLines = 3; in.fileLines = 3; in.modelLines = 3; in.rules = 1; in.ruleLines[0] = 1;
+	checkTrue("reserved lines that leave no room for AND n MORE: refused", !hitecPageLayout(in, &o));
+	checkTrue("and no row placed", o.rows == 0);
+	in = pageIn(0);
+	in.yEnd = 62 + 12;
+	in.horn = true; in.idLines = 2;
+	checkTrue("the ID note past the end: refused, not drawn", !hitecPageLayout(in, &o) && o.hornY == 62 &&
+	          o.idY < 0);
+}
+
 void runHitecViewTests() {
+	testPageLayout();
 	testRows();
 	testValues();
 	testStepper();

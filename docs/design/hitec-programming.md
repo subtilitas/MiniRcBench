@@ -790,8 +790,8 @@ by a table value on its first edit; REVERT brings it back.
   another value the editor bar carries the amber text
   `BENCH ADDRESSES ID 0. A WRITE MAY LOCK OUT READ AND RESTORE.`
   (`HITEC_UI_ID_NOTE_BAR`, three lines of 22 characters) and the write page
-  `THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR RESTORE THIS
-  SERVO.` (`HITEC_UI_ID_NOTE_PAGE`, three lines of 36).
+  `THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR RESTORE
+  IT.` (`HITEC_UI_ID_NOTE_PAGE`, two lines of 36).
 
 #### Classic checksum
 
@@ -821,20 +821,26 @@ y   0 | HITEC WRITE                      [ BACK ]|
 ```
 
 - The page lists the changed parameters from where the servo stood when the
-  page opened, in the field list's order, 6 at most and `AND n MORE`.
-  A value whose stored value changes and whose text does not carries its
-  stored value, `60 % (12) -> 60 % (13)`, as KST's `kstValuePair()`.
+  page opened, a changed ID first, then in the field list's order, 6 at most
+  and `AND n MORE`. A row is 12 px, or 22 px when its value goes under its
+  label. A value whose stored value changes and whose text does not carries
+  its stored value, `60 % (12) -> 60 % (13)`, as KST's `kstValuePair()`.
 - `KEEP THE SERVO HORN CLEAR.` shows on the session's first write and on
   every write that changes DIRECTION, NEUTRAL, CENTRE or an end point, as
-  rcbench's panel does. It follows the values and always has its line: a
-  value row starts only while it and `AND n MORE` leave room for it above
-  y 196.
-- The amber notes follow, each whole or not at all, in this order: the ID
-  note, `MODEL NOT MEASURED: ...`, `FILE OF ANOTHER MODEL: ...`, then the
-  soft rules with `*`. When they do not all fit by y 184, the last line
-  reads `AND n MORE RULES: SEE EACH ROW.` when only soft rules are left out
-  (each row's editor bar names its rule), else `AND n MORE NOTES.`; for one,
-  `RULE` and `NOTE`.
+  rcbench's panel does.
+- The layout is `hitecPageLayout()` in `src/hitec_view.cpp`, from y 62 to
+  the state lines at y 196, 12 px a line. In this order of priority: (1) the
+  horn line; (2) the ID note and `FILE OF ANOTHER MODEL: ...`, which state
+  something not undone or shown nowhere else; (3) `MODEL NOT MEASURED: ...`;
+  (4) the value rows with `AND n MORE`; (5) the soft rules with `*`. The
+  lines of (1) to (3), and one line for (5) when a soft rule applies, are
+  reserved first; the rows take what is left. Top to bottom: the rows,
+  `AND n MORE`, the horn line, the ID note, FILE, MODEL, the soft rules.
+  Each soft rule shows whole; one that does not fit is skipped and a later
+  one that fits still shows, and the last line counts those left out,
+  `AND n MORE RULES: SEE EACH ROW.` (`RULE` for one). With everything at
+  once (horn, ID note 2 lines, FILE 1, MODEL 2, a rule) three rows of 12 px
+  show, or two when one of them is 22 px.
 - The hold confirms every soft rule shown, and, for a loaded file of another
   model, the amber line `FILE OF ANOTHER MODEL: D645MW.`
 - The write's steps, in order:

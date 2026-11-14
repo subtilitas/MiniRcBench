@@ -235,10 +235,10 @@ sind also drei auf einmal sichtbar.
   eigenen 820 µs bis 2220 µs. NARROW 760 und HELI TAIL 760 werden an ihrem
   eigenen Bereich gemessen: Der Hinweis steht, wenn MIN mehr als 100 µs unter
   dem MIN des Typs liegt oder MAX mehr als 100 µs über seinem MAX. Die
-  Änderung gilt sofort. Der Hinweis
-  steht, solange TYPE, MIN oder MAX gewählt ist, und auf anderen Zeilen, wenn
-  dort kein anderer Hinweis steht. Den Stellweg nennt das Datenblatt des
-  Servos; der Prüfstand misst ihn nicht.
+  Änderung gilt sofort. Der Hinweis steht, solange TYPE, MIN oder MAX
+  gewählt ist, und auf anderen Zeilen, wenn dort kein anderer Hinweis steht.
+  Den Stellweg nennt das Datenblatt des Servos; der Prüfstand misst ihn
+  nicht.
 - Die SWEEP-Zeilen lassen sich jederzeit ändern und gelten für den nächsten
   `SWEEP`. Ist `SPEED` langsamer als die Kurve, zeigt der Bildschirm
   `SPEED LIMITS THE SWEEP`.

@@ -219,8 +219,9 @@ Swipe the row sideways for big steps. Drag up or down to scroll. Rows are
   HORN-FREE.` in amber. HELI CYCLIC shows it at its own 820 µs to 2220 µs.
   NARROW 760 and HELI TAIL 760 are measured against their own ranges: the
   note shows when MIN lies more than 100 µs below the type's MIN, or MAX more
-  than 100 µs above the type's MAX. The change applies at once. The note shows while
-  TYPE, MIN or MAX is selected, and on other rows when no other note does.
+  than 100 µs above the type's MAX. The change applies at once. The note
+  shows while TYPE, MIN or MAX is selected, and on other rows when no other
+  note does.
   The travel of a servo is in its data sheet; the bench does not measure it.
 - The SWEEP rows change at any time and apply to the next `SWEEP`. When
   `SPEED` is slower than the curve, the screen says `SPEED LIMITS THE SWEEP`.
