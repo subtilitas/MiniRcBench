@@ -71,7 +71,7 @@ REMOVED_TEXTS = [
     (r"BACKUP IN MEMORY", "a backup not on the card, now BACKUP IN RAM (slice 2)"),
     (r"CHOOSE THE SERVO'S FAMILY|[Ff]amily view|Familien(ansicht|auswahl)",
      "HITEC SERVO's family view, now PROGRAMMER's entries (decision 19)"),
-    (r"MUST BE POWERED NOW|POWER THE SERVO UP BEFORE THE TAP",
+    (r"MUST BE POWERED NOW|POWER (THE SERVO UP|IT) BEFORE THE TAP",
      "the D series powered before the tap (decision 34)"),
     (r"[Uu]nplug page|Abzieh-?[Ss]eite", "the unplug page, now the leave page (owner decision 3)"),
     (r"LEAVING AFTER THE WRITE ENDS", "BACK's leave queue (decision 5)"),

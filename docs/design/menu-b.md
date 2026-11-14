@@ -1,6 +1,6 @@
 # Menu structure B
 
-Status: slices 1 to 9 built, host tests only; slice 10 not built.
+Status: slices 1 to 10 built, host tests only; not tested on hardware.
 Slice 2 is the colour roles of decisions 8 and 11 ([slice 2 as
 built](#slice-2-as-built)); slice 3 is the names and SETTINGS of decisions 9, 10
 and 15 b, e, f, h, j, k, with its README.md and wiki lines and images ([slice 3
@@ -14,11 +14,15 @@ built](#slice-7-as-built)); slice 8 is decision 13's title on SERVO TESTER, with
 its README.md and wiki lines and images ([slice 8 as built](#slice-8-as-built));
 slice 9 is MENU's seven rows and PROGRAMMER, the chooser, of owner decisions
 1 and 2 and decisions 15 d, 16, 18, 19, 23 and 31 to 35, with its README.md
-and wiki lines and images ([slice 9 as built](#slice-9-as-built)).
+and wiki lines and images ([slice 9 as built](#slice-9-as-built)); slice 10
+is the documentation no single slice owned: menu.md, the revision lines in
+the other design notes, README "Layout", "Tests" and "The user manual", and
+a check that the manual names no removed screen ([slice 10 as
+built](#slice-10-as-built)).
 The owner answered the note's eight open questions on 2026-11-14 ([decisions 23
 to 30](#decisions)), and the question that followed from them (decision 33),
-and decided two points of slice 9 (decisions 34 and 35). Slice 10 waits on
-being built. Three of the owner's decisions of 2026-11-14 change this
+and decided two points of slice 9 (decisions 34 and 35). Three of the
+owner's decisions of 2026-11-14 change this
 design: each slice updates its own README.md and wiki lines and images
 (decision 27, against this note's recommendation), so the [slice
 table](#slices), still marked "to be redesigned", is reworked and slice 10
@@ -1128,7 +1132,7 @@ that work; they are to be redone. Slice 9 covers decisions 31 to 35.
 | 7. Tester, built | owner decision 4, decisions 15 a to c, 17: readouts, `uiOpenTool()`, origin, LATCH, BOARD, ARM while the card is held; the readouts' underline, which slice 2 left out (decision 11's MAX row); with its README.md and wiki lines and images (decision 27) | 1, 3 | 4 in `src/`, 4 in `test/` | +190, −55 in `src/` | 31 / 200 | built |
 | 8. SERVO TESTER, built | decision 13: the title; decision 12 is on `main`; with its README.md and wiki lines and images (decision 27) | 1, 3 | 3 in `src/` | +17, −9 | 1 / 23 lines in test_servo.cpp | built |
 | 9. Chooser, built | owner decisions 1 and 2, decisions 16, 18, 19, 15 d, 23 and 31 to 35: seven MENU rows scrolling 36 px with RX SIGNALS disabled, `ui_servo_prog`, `UI_PROGRAMMERS`, Hitec family entry points and the READ wait, family view removed; with its README.md and wiki lines and images (decision 27) | 3, 6, 7 | 16 in `src/`, 2 new | +641, −259 in `src/` | +658, −216 lines in 9 test files | built |
-| 10. Documentation | what no slice owns: menu.md (the tree, MENU, revision lines on decisions 1, 12 and 18), pin-claim.md's revision line on decision 4, README "Layout", "Tests" and "The user manual", and a check that no README section, wiki page or image still shows the old structure | 1 to 9 | to be redone | to be redone | none | to be redone |
+| 10. Documentation, built | what no slice owns: menu.md (the tree, MENU, revision lines on decisions 1, 12 and 18), pin-claim.md's revision line on decision 4, README "Layout", "Tests" and "The user manual", and a check that no README section, wiki page or image still shows the old structure | 1 to 9 | 10 in `docs/`, README.md, STATUS.md, CHANGELOG.md, `test/check_docs.py` | about +330, −90 | none; rule 9 of `test/check_docs.py` | built |
 
 Slice 1 is built ([slice 1 as built](#slice-1-as-built)), and slice 2
 ([slice 2 as built](#slice-2-as-built)). Slice 3 is built
@@ -1142,7 +1146,8 @@ Slice 8 is built ([slice 8 as built](#slice-8-as-built)), with its
 previews, README.md and wiki lines. Slice 6 is built ([slice 6 as
 built](#slice-6-as-built)), with its previews, README.md and wiki lines.
 Slice 9 is built ([slice 9 as built](#slice-9-as-built)), with its
-previews, README.md and wiki lines.
+previews, README.md and wiki lines. Slice 10 is built ([slice 10 as
+built](#slice-10-as-built)).
 
 Slice 3 comes before slice 9: without it the SERVO SUPPLY section leaves
 SETTINGS with KST SERVO's MENU row. Slice 6 needs slice 5 because both change
@@ -1606,6 +1611,29 @@ note reading BEFORE, READ taking or drawing pressed a press that landed
 elsewhere, and the chosen tool kept when a tool's tick leaves. 8 fail the
 suite. The last passes and is equivalent through the screen: no tool that
 names a tool also leaves on that frame.
+
+## Slice 10 as built
+
+The documentation no single slice owned. No file in `src/` changes, and no
+screen draws differently: the previews in `docs/` and the 111 images the
+suite renders for `wiki/img/` stay as slices 2 to 9 left them.
+
+| Point | As built | Why |
+|---|---|---|
+| menu.md | "The tree" and "MENU" describe the structure as built: seven rows, PROGRAMMER and its three entries, RX SIGNALS drawn disabled, the strip with SIG, AUX and `DSHOT600`, the rows drawn disabled under `DSHOT RESTARTING ON SIG GP0`, the fit of SERVO PROGRAMMER. Revision lines on decisions 1, 12 and 18, and where the note named SETTINGS' old rows and RESET, the unplug page, `PINS BUSY`, the registry sketch, `PIN_USERS`, the interlocks and slice C's tests | the slice table's row; a design note of a built feature describes the code ([README](README.md)) |
+| pin-claim.md | revision lines on decisions 3 and 4; the interlock text names PROGRAMMER's entries and `uiOpenTool()`; the AM32 refusal reads `WAIT: DSHOT RESTARTING`; the leave page names SERVO TESTER, KST SERVO and HITEC SERVO | decision 4's line is the slice table's; decision 3 named SERVO |
+| kst-programming.md, servo-tester.md, hitec-programming.md | revision lines on KST decision 18 and a revision paragraph for `OWN`, SERVO SUPPLY's section and the KST SERVO row; on servo-tester decisions 7, 8 and 14; on Hitec decision 6 | their decisions named the unplug page, SERVO, the CFG row and the MENU rows |
+| rx-signals.md | its MENU section's "today" is the record of 2026-11-13; structure B named as built, `PINS BUSY` gone; its unplug pages become the leave page's steps when slice 3 there is designed | the section described MENU before structure B as the present |
+| diagnostics.md | an open question names HOLD DEFAULTS in place of RESET | decision 14 |
+| README | "Layout" names SERVO TESTER's views; "Tests" lists the 111 shots `make -C test` renders, by screen, in place of 47; "The user manual" says how the images are named and what the new check refuses; the D series wait after NEXT SERVO; the Docs job's row | the slice table's row |
+| The check | rule 9 of `test/check_docs.py`: README.md and `wiki/*.md` name no removed screen text, view or MENU path (`PINS BUSY`, `HOLD RESET`, `**HOLD**`, `` `MODE` ``, `ESC PIN` and `KISS PIN` as labels, `DS600`, `KBIT/S`, `DSHOT KBAUD`, the old KST labels, `BACKUP IN MEMORY`, the family view, the D series powered before the tap, the unplug page, the leave queue, `MENU → KST SERVO` and `MENU → HITEC SERVO`, the two rows' MENU table entries, SERVO TESTER titled `SERVO`), and no image of a removed screen (`hitec-family*`, `hitec-unplug*`, `kst-leave*`, `servo-unplug*`, `menu-pins-busy*`) in the pages, a `fakeDumpFrame()` call or `tools/make_previews.py` | the slice table's "a check"; the Docs job runs `check_docs.py`. CHANGELOG.md, STATUS.md and the design notes keep the names as records |
+
+Rule 9 was checked by adding each kind of name to README.md, a German wiki
+page, `tools/make_previews.py` and `test/test_menu.cpp`: 20 lines failed,
+one per pattern and line, and the check passed again once they were
+removed. A pattern that also matches a current text was not added: the
+board's **RESET** button, `HOLD` over `DEFAULTS`, and KST SERVO and HITEC
+SERVO, which stay the screens' titles.
 
 
 ## Risks
