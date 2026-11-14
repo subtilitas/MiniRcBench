@@ -3,7 +3,7 @@
 Status: designed, not built; waits on the owner's answers to the ten
 [open questions](#open-questions). The feature is item (1) of the owner's
 feature choice of 2026-11-14, recorded in [STATUS.md](../../STATUS.md)
-open item 26: an ESC commands page and an RPM-per-volt and kV estimate on
+open item 27: an ESC commands page and an RPM-per-volt and kV estimate on
 the tester, a design note first, then slices with reviews. No command of
 this design has gone to an ESC from this board. The firmware
 facts below are read from the sources under [sources](#sources), with the

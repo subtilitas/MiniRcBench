@@ -112,18 +112,29 @@ this repository lists its sources in its own `.cmake` and `.mk` files.
 this repository has none. Here the trademark notice of
 [README.md](../../README.md#trademark-notice) covers Futaba and S.BUS.
 
-The STEP writer, at commit `fb41a46a`:
+The STEP writer and the specs of two modules, at commit `1b6029b8`:
 
 | File here | rcbench path |
 | --- | --- |
 | `hardware/kicad/tools/step_gen.py` | the same path |
+| `hardware/mechanical/ina219_cjmcu219.py`, `boost_5v_en.py` | the same paths |
+| `hardware/mechanical/_solid.py`, `_parts.py`, `_font.py`, `_board.py` | the same paths |
+| `hardware/kicad/modules/ina219_cjmcu219.py`, `boost_5v_en.py` | the same paths |
 
 It writes STEP (Standard for the Exchange of Product model data) files, ISO
 10303-21 with the AP214 schema, from prisms, turned profiles and solids with
 flat and curved faces, using the Python standard library only.
 [hardware/mechanical/gen_models.py](../../hardware/mechanical/gen_models.py)
-writes the model of the board with it. The file has no
+writes the model of the board with it. The files of this table have no
 `SPDX-License-Identifier` line in rcbench, and none is added here.
+
+`ina219_cjmcu219.py` and `boost_5v_en.py` in `hardware/mechanical/` draw the
+INA219 current sensor board and the 5V boost converter board part by part;
+`_solid.py`, `_parts.py`, `_font.py` and `_board.py` are the helpers they
+import, and the two files in `hardware/kicad/modules/` give each board's
+outline, pads and holes. `gen_models.py` writes both models from them. The
+directory layout is rcbench's because `_board.py` finds the module files by
+their place beside `hardware/mechanical/`.
 
 Files adapted rather than copied start with the line
 `Adapted from rcbench <path>, commit <commit>, MIT.`

@@ -1,4 +1,9 @@
-# Mechanical model of the board
+# Mechanical models
+
+The board, and two modules the bench is built with: the
+[INA219 current sensor board and the 5V boost converter board](#modules).
+
+## Board
 
 `models/rp2350_touch_lcd_2_8.step` is a STEP (Standard for the Exchange of
 Product model data) model of the Waveshare RP2350-Touch-LCD-2.8, for designing
@@ -111,6 +116,44 @@ positions from P are corrected by that. The table of positions is in
 - Not modelled: tracks, vias, parts under 1.0 long, the battery, the
   speaker.
 
+## Modules
+
+Two STEP models of modules wired to the board, drawn part by part with the
+print of both sides. Their specs are rcbench's, copied unchanged to
+[lib/rcbench/hardware/mechanical/](../../lib/rcbench/README.md), and the two
+files are the same bytes as rcbench's.
+
+| | |
+| --- | --- |
+| ![INA219 board](renders/ina219_cjmcu219_front.png) | ![INA219 board, underside](renders/ina219_cjmcu219_rear_flat.png) |
+| ![Boost board](renders/boost_5v_en_front.png) | ![Boost board, underside](renders/boost_5v_en_rear_flat.png) |
+
+| File | Content | Size | Origin |
+| --- | --- | --- | --- |
+| `models/ina219_cjmcu219.step` | INA219 current sensor board, print CJMCU: 12 plated holes, shunt R100, INA219, 5 chip parts, 4 bridge pads, print; 225 solids, 3.5 MB | 24.20 × 21.90 × 2.74 | header hole 1 (Vcc) on the underside; x along the header, y towards the terminal holes, +z up |
+| `models/boost_5v_en.step` | 5V boost converter board: 4 plated corner holes, enable pad, chip, inductor, 2 diodes, 3 capacitors, 3 resistors, print; 69 solids, 0.6 MB | 13.70 × 21.70 × 4.63 | IN+ hole on the underside; x towards IN-, y towards the outputs, +z up |
+
+The INA219 board has a 6-hole header at 2.54 pitch, Vcc Gnd Scl Sda Vin-
+Vin+, 2.0 above one long edge, and 4 mounting holes of about 2.5, 20.2 ×
+16.95 apart. The boost board has IN+ and IN- at the inductor's end and OUT+
+and OUT- at the other, with holes of about 1.3; seen from the top side with
+the inductor down, both plus pads are on the left.
+
+Sources: owner photos of both sides of each board on 5 mm squared paper,
+which are not in the repository. Limits:
+
+- Positions are within about 0.2. No dimension is verified with a caliper.
+- Not measured: the boards' thickness (drawn 1.6) and the inductor's height
+  (3.0).
+- Part sizes and heights are the packages' nominal ones. The boost board's
+  chip is not identified.
+- The boost board does not name its enable pad. The one round pad besides
+  the 4 corner pads, next to R3, is drawn as it.
+- The print is set in a stroke font at the height and width each line has
+  in the photo; it is not traced.
+- Not modelled: tracks, vias, pads under parts, solder, the print 2R2 on
+  the inductor.
+
 ## Files
 
 | File | Holds |
@@ -118,13 +161,13 @@ positions from P are corrected by that. The table of positions is in
 | `touch_lcd_2_8.py` | the board's dimensions and the position of each part |
 | `_parts.py` | the parts: chip parts, leaded and leadless packages, sockets, USB-C, button, card slot, trimmer |
 | `_solid.py` | profiles with straight sides and arcs, pushed along an axis, turned and moved |
-| `gen_models.py` | writes `models/*.step` from the specs; `--check` compares |
+| `gen_models.py` | writes `models/*.step` from the specs here and the two module specs in `lib/rcbench/hardware/mechanical/`; `--check` compares |
 | `check_models.py` | reads the files back with OpenCASCADE; `--render` draws them |
 | `check_photo.py` | draws the model's rear parts on photo P |
 | `_trace_print.py` | traces print and bare tin from photo P into `_print.py` |
 | `_print.py` | the traced outlines; written by `_trace_print.py` |
 | `models/` | the STEP files |
-| `renders/` | 4 views, 1600 × 1200 pixels |
+| `renders/` | 4 views of the board and 2 of each module, 1600 × 1200 pixels |
 
 ## Commands
 

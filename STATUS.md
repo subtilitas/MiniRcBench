@@ -241,6 +241,19 @@ means general-purpose input/output.
 The ESC and KISS pins are changeable on MENU → SETTINGS within the free set,
 and the two wires never share a pin.
 
+**Mechanical models of two modules.**
+[ina219_cjmcu219.step](hardware/mechanical/models/ina219_cjmcu219.step), the
+INA219 current sensor board, 24.2 × 21.9 mm, 225 solids, and
+[boost_5v_en.step](hardware/mechanical/models/boost_5v_en.step), the 5V boost
+converter board, 13.7 × 21.7 mm, 69 solids, are drawn part by part with the
+print of both sides. Their specs are rcbench's, copied unchanged to
+`lib/rcbench/hardware/`, and measured from owner photos on 5 mm squared paper:
+positions within about 0.2 mm, no dimension verified with a caliper, board
+thickness and the inductor's height estimated. The boost board does not name
+its enable pad; the one pad besides the 4 corner pads is drawn as it.
+`check_models.py` reads both back, outside CI: valid solids, none sharing
+volume.
+
 **Mechanical model.**
 [hardware/mechanical/models/rp2350_touch_lcd_2_8.step](hardware/mechanical/models/rp2350_touch_lcd_2_8.step)
 is a STEP (Standard for the Exchange of Product model data) facsimile of the
@@ -729,8 +742,19 @@ the tag. Slice 10 of menu structure B waits on being built, not on the bench
     `uiChip()` drawn through `gfxRoundRect()` at a 4 px radius. Whether to
     draw radii, or drop them, is open; the chips are square by decision 11
     either way.
+26. **Run summary per log, the owner's choice of 2026-11-14,** from the
+    feature survey (item 27). Designed in
+    [run-summary.md](docs/design/run-summary.md), not built: a summary
+    per blackbox log, kept by the logger on core0, written as
+    `LOGS/LOGnnnnn.TXT` beside the `.BFL` at a clean stop and shown on SD
+    LOG; optionally the board's PCF85063 RTC dating the files on the card.
+    Also: every file and directory the firmware writes after a power-on
+    has FAT date and time 0, because the SD library's `get_fattime()`
+    returns 0 while the RP2350's always-on timer is not running, and
+    nothing starts it; not checked on a card. Waits on
+    the owner's answers to the note's eight questions.
 
-26. **The owner's feature choice of 2026-11-14.** From the feature survey
+27. **The owner's feature choice of 2026-11-14.** From the feature survey
     of 2026-11-14 the owner chose six features for the build list, each to
     get a design note first, then slices with reviews:
     1. an ESC commands page and an RPM-per-volt and kV estimate on the
