@@ -342,7 +342,7 @@ tester does not know, other than 2 to 4, open read-only: the bytes in hex,
 
 ---
 
-## SERVO
+## SERVO TESTER
 
 <img src="img/servo-safe.png" width="240" alt="The servo screen, SAFE">
 

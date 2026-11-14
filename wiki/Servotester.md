@@ -61,7 +61,8 @@ und Masse.
 
 ## Öffnen
 
-**MENU → SERVO TESTER** öffnen.
+**MENU → SERVO TESTER** öffnen. Der Bildschirm trägt den Titel
+`SERVO TESTER`, wie seine Zeile in MENU.
 
 Der Bildschirm übernimmt die beiden Signalpins vom ESC-Treiber. Antwortet ein
 ESC auf SIG, wartet er und zeigt `AN ESC ANSWERS ON SIG GP0.` Zieh den

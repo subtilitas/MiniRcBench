@@ -1647,7 +1647,16 @@ static void swipeRow(int i, int dir) {
 	core1();
 }
 
-/** @brief SERVO opens from MENU, claims both pins, and starts SAFE. */
+/**
+ * @brief Whether the header from where `SERVO TESTER` ends, x 150, to BACK
+ *        at x 170 is plain panel over the title's 14 rows: no text after it.
+ */
+static bool titleEndsClear() {
+	int x = UI_MARGIN + gfxTextW("SERVO TESTER", 2);
+	return allOf(x, (UI_HDR_H - 14) / 2, UI_BACK_X - x, 14, C_PANEL);
+}
+
+/** @brief SERVO TESTER opens from MENU, claims both pins, and starts SAFE. */
 static void testScreenOpens() {
 	section("Servo screen: MENU opens it, and it starts SAFE");
 
@@ -1671,6 +1680,16 @@ static void testScreenOpens() {
 	          s_profile.type == ServoType::Standard && s_profile.rateHz == 50 &&
 	          s_profile.servos == 1 && (int)s_speed.value == 100);
 	checkTrue("the chip says SAFE", pixel(GFX_W - UI_MARGIN - 4, UI_STRIP_Y + 3) == C_GREEN);
+	// menu-b.md decision 13: the title is the MENU row's label.
+	checkTrue("the title reads SERVO TESTER",
+	          fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, "SERVO TESTER", C_TEXT, C_PANEL, 2));
+	checkTrue("and nothing after it before BACK", titleEndsClear());
+	uint8_t rows;
+	checkTrue("MENU's label and the screen's title",
+	          strcmp(uiMenuEntries(&rows)[uiMenuRowOf(&UI_SERVO)].label, SERVO_UI_TITLE) == 0 &&
+	          strcmp(UI_SERVO.title, SERVO_UI_TITLE) == 0);
+	checkTrue("13 characters or fewer: it ends 4 px or more before BACK",
+	          strlen(SERVO_UI_TITLE) <= 13 && UI_MARGIN + gfxTextW(SERVO_UI_TITLE, 2) + 4 <= UI_BACK_X);
 	checkTrue("HOLD TO START is live", fillOf(BTN_START) == C_PANEL);
 	checkControlTable("SERVO, SAFE");
 	checkTrue("MIN, CENTRE, MAX and SWEEP are outlines while SAFE",
@@ -2293,6 +2312,9 @@ static void testUnplugPage() {
 	          ctlEnabled(UI_FIX(UI_BACK)) && ctlEnabled(UI_FIX(ServoCtl::Restart)));
 	checkControlTable("the unplug page, the job let go");
 	checkTrue("and BACK is drawn live on that frame", backLook() == BackLook::Live);
+	checkTrue("the page keeps the title SERVO TESTER",
+	          fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, "SERVO TESTER", C_TEXT, C_PANEL, 2) &&
+	          titleEndsClear());
 	checkInt("no pulse was cut short", fakePin(0).cutPulses, cuts);
 	checkTrue("the job let go: SIG an input", fakePin(0).function == GPIO_FUNC_SIO);
 	checkInt("DShot not yet restarted", fakeResumeCount(), resumes);

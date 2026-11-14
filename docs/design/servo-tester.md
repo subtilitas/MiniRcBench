@@ -213,11 +213,11 @@ its navigation. BACK through the unplug page returns to MENU. While the claim
 is not Free, the row is drawn disabled, MENU's strip reads
 `DSHOT RESTARTING ON SIG GP0`, and a tap opens nothing.
 
-### SERVO
+### SERVO TESTER
 
 ```
 y   0 +------------------------------------------+
-      | SERVO                            [ BACK ]|  header, UI_HDR_H 36 px
+      | SERVO TESTER                     [ BACK ]|  header, UI_HDR_H 36 px
    40 | SIG GP0  50 HZ  1000-2000 US       (SAFE)|  strip: caption, chip
    64 | THE SERVO MOVES TO CENTRE AT START.      |  two notes while SAFE
    76 | PULSES ON GP0 ARE THROTTLE TO AN ESC.    |
@@ -359,9 +359,10 @@ y   0 | SERVO SET                        [ BACK ]|
   sine at 0.50 Hz, 100 %, 500 ms, endless. It changes the PULSE rows, so it
   is offered only while SAFE.
 - While RUNNING the right footer button is `STOP`, in `C_RED`, and acts on
-  press, as STOP on SERVO does (decision 16). The press that stops the servo
-  is not also a tap on DEFAULTS: DEFAULTS needs a new press. The SWEEP rows
-  stay adjustable while RUNNING, and so does SPEED on SERVO.
+  press, as STOP on SERVO TESTER does (decision 16). The press that stops
+  the servo is not also a tap on DEFAULTS: DEFAULTS needs a new press. The
+  SWEEP rows stay adjustable while RUNNING, and so does SPEED on SERVO
+  TESTER.
 
 The note band is two lines under the header, rows 40 to 61, where the other
 screens have a one-line strip: the warnings and the pin-claim texts do not fit
@@ -369,13 +370,13 @@ one line of 240 px.
 
 ### The unplug page
 
-BACK on SERVO, once a job has held the pins, shows the page of
+BACK on SERVO TESTER, once a job has held the pins, shows the page of
 [pin-claim.md](pin-claim.md#restoring-dshot): `UNPLUG THE SERVO.`, `DSHOT
 RESTARTS ON GP0 AND READS AS` `A 970 US PULSE AT 1000 HZ.`, and RESTART
 DSHOT, a tap. Until core1 has released the pins the page says
 `RELEASING THE PINS`, and BACK on it does nothing. Once they are released,
-BACK on the page returns to SERVO and keeps the claim; the job binds again,
-SAFE. BACK from a claim still draining, or with no
+BACK on the page returns to SERVO TESTER and keeps the claim; the job binds
+again, SAFE. BACK from a claim still draining, or with no
 claim, leaves at once: nothing was driven.
 
 ## Where it runs
@@ -529,7 +530,7 @@ UI frames:
 - two servos: the selector, `AB` with REVERSE B.
 
 The screen tests are in `test/test_servo.cpp` too, through the real UI from
-MENU: the SERVO, SET and unplug screens render, the disabled states draw
+MENU: the SERVO TESTER, SET and unplug screens render, the disabled states draw
 disabled and do not act, HOLD TO START fires at 1000 ms and not at 999 ms nor
 on a slide off, STOP fires on press, the KissLive and SamePin refusals reach
 the SET screen through the claim, an ESC answering on SIG holds the claim off

@@ -373,7 +373,7 @@ Siehe [AM32-Konfiguration](AM32-Konfiguration).
 
 ---
 
-## SERVO
+## SERVO TESTER
 
 <img src="img/servo-safe.png" width="240" alt="Der Servobildschirm in SAFE">
 

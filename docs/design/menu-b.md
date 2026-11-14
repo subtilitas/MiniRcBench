@@ -1,15 +1,17 @@
 # Menu structure B
 
-Status: slices 1 to 5 built, host tests only; slices 6 to 10 not built.
-Slice 2 is the colour roles of decisions 8 and 11 ([slice 2 as
+Status: slices 1 to 5 and 8 built, host tests only; slices 6, 7, 9 and 10
+not built. Slice 2 is the colour roles of decisions 8 and 11 ([slice 2 as
 built](#slice-2-as-built)); slice 3 is the names and SETTINGS of decisions 9,
 10 and 15 b, e, f, h, j, k, with its README.md and wiki lines and images
 ([slice 3 as built](#slice-3-as-built)); slice 5 is the write rule and the
 BACK guard of decisions 6, 7 and 13's AM32 titles ([slice 5 as
-built](#slice-5-as-built)). The owner answered the note's eight
+built](#slice-5-as-built)); slice 8 is decision 13's title on
+SERVO TESTER, with its README.md and wiki lines and images ([slice 8 as
+built](#slice-8-as-built)). The owner answered the note's eight
 open questions on 2026-11-14 ([decisions 23 to 30](#decisions)), and the
-question that followed from them (decision 33). Slices 6 to 10 wait on being
-built. By the owner's order of work of 2026-11-14 they follow the eight
+question that followed from them (decision 33). Slices 6, 7, 9 and 10 wait
+on being built. By the owner's order of work of 2026-11-14 they follow the eight
 small decisions of STATUS.md items 20, 21 and 24. Three of the owner's
 decisions of 2026-11-14 change this design, and the sections they touch are
 marked "to be redesigned": each slice updates its own README.md and wiki
@@ -1084,19 +1086,22 @@ decisions 31 to 33.
 | 2. Colour roles, built | decisions 8 and 11: the role table on every screen, square chips, PROG MODE | 1 | 10 | 150 changed | 15 / 40 | built |
 | 3. Names and SETTINGS, built | decisions 9, 10, 15 b, e, f, h, j, k: SERVO SUPPLY section, SIG and AUX, connector lines, OWN, DSHOT600, MENU statuses and busy strip, KST labels; with its README.md and wiki lines and images (decision 27) | 1 | 11 | +200, −80 | 110 / 60 | built |
 | 4. Layout table, built | decision 14 | 1 | 11 in `src/` | +146, −79 | 63 / 236 lines in 7 test files | built |
-| 5. Write rule and guard, built | decisions 6, 7, 13 (AM32 HEX and WRITE titles): `WRITE...`, `RESTORE...`, AM32 write page and result, editor old value, guard on AM32 and SERVO SET, BACK disabled while writing, the leave queue gone; with its README.md and wiki lines and images (decision 27) | 1, 2, 4 | 9 in `src/` | +390, −150 | 6 test files | built |
+| 5. Write rule and guard, built | decisions 6, 7, 13 (AM32 HEX and WRITE titles): `WRITE...`, `RESTORE...`, AM32 write page and result, editor old value, guard on AM32 and SERVO SET, BACK disabled while writing, the leave queue gone; with its README.md and wiki lines and images (decision 27) | 1, 2, 4 | 10 in `src/` | +476, −153 | +631, −181 lines in 4 test files | built |
 | 6. Leave page | decision 5 and owner decision 3: KST, Hitec and SERVO TESTER on `ui_leave`; STAY, NEXT SERVO, BACK TO SERVO; RESTART DSHOT's wait | 1, 5 | 6 | +180, −300 | 90 and three helpers / 80 | 2 to 3 days |
 | 7. Tester | owner decision 4, decisions 15 a to c, 17: readouts, `uiOpenTool()`, origin, LATCH, BOARD, ARM while the card is held; the readouts' underline, which slice 2 left out (decision 11's MAX row) | 1, 3 | 4 | +150 | 15 / 100 | 1.5 days |
-| 8. SERVO TESTER | decision 13: the title; decision 12 is on `main` | 1, 3 | 2 | +10 | 0 / 5 | 0.5 day |
+| 8. SERVO TESTER, built | decision 13: the title; decision 12 is on `main`; with its README.md and wiki lines and images (decision 27) | 1, 3 | 3 in `src/` | +17, −9 | 1 / 23 lines in test_servo.cpp | built |
 | 9. Chooser | owner decisions 1 and 2, decisions 16, 18, 19, 15 d, 23, 31, 32 and 33: seven MENU rows scrolling 36 px, `ui_servo_prog`, `UI_PROGRAMMERS`, Hitec family entry points, family view removed | 3, 6, 7 | 9, 2 new | +350, −120 | 50 / 120 | 2 to 3 days |
 | 10. Documentation | what no slice owns: menu.md (the tree, MENU, revision lines on decisions 1, 12 and 18), pin-claim.md's revision line on decision 4, README "Layout", "Tests" and "The user manual", and a check that no README section, wiki page or image still shows the old structure | 1 to 9 | to be redone | to be redone | none | to be redone |
 
 Slice 1 is built ([slice 1 as built](#slice-1-as-built)), and slice 2
-([slice 2 as built](#slice-2-as-built)). Slice 4 is built
+([slice 2 as built](#slice-2-as-built)). Slice 3 is built
+([slice 3 as built](#slice-3-as-built)). Slice 4 is built
 ([slice 4 as built](#slice-4-as-built)); by decision 27 its previews,
 README.md and wiki lines go with it. Slice 5 is built
 ([slice 5 as built](#slice-5-as-built)), with its README.md and wiki lines
-and images.
+and images. Slice 8 is built
+([slice 8 as built](#slice-8-as-built)), with its previews, README.md and
+wiki lines.
 
 Slice 3 comes before slice 9: without it the SERVO SUPPLY section leaves
 SETTINGS with KST SERVO's MENU row. Slice 6 needs slice 5 because both change
@@ -1352,9 +1357,27 @@ Readings of the decisions where the code asked for a choice:
 | `AM32_UI_RETRY` | `NOT VERIFIED. TAP OK, WRITE AGAIN.` kept | OK, `WRITE...` and the hold is the way to write again |
 | Images | `am32-write.png`, `am32-discard.png` and `kst-restore.png` are new wiki images | the note names the first two; the third shows `RESTORE...`'s page before its hold |
 
-Not built in this slice: the leave page (slice 6), SERVO TESTER's title
-(slice 8), the tester (slice 7). BACK on the KST and Hitec leave pages still
+Not built in this slice: the leave page (slice 6), the tester (slice 7);
+SERVO TESTER's title is slice 8's. BACK on the KST and Hitec leave pages still
 returns to the list, and BACK from the list still opens the leave page.
+
+## Slice 8 as built
+
+Decision 13 on SERVO TESTER, with host tests in `test/test_servo.cpp`
+(`testScreenOpens()`, `testUnplugPage()`). `SERVO_UI_TITLE` in
+`src/ui_servo.h`, `SERVO TESTER`, 12 characters, 142 px at scale 2 from
+x 8, ends 20 px before BACK at x 170. MENU's row label in
+`src/ui_registry.cpp` is the same macro, so the registry's fit check covers
+it. The suite checks the drawn title, plain panel from its end to BACK, that
+it is MENU's row label and `UI_SERVO.title`, and that it is 13 characters or
+fewer and ends 4 px or more before BACK. Where the build reads the
+decision's lines, it reads them as follows:
+
+| Point | As built | Why |
+|---|---|---|
+| The unplug page | titled `SERVO TESTER`, as the main view | the page is the screen's, and KST SERVO's and HITEC SERVO's unplug pages carry their tool's title; the decision's Code line names only `uiServoTick()` and `UI_SERVO.title`. In slice 6 the leave page draws no header and the header above it stays the screen's |
+| SERVO SET | keeps its title | the decision names it as a sub-view that adds a word |
+| servo-tester.md | the screen is named SERVO TESTER in its "Screens" and "Testing" sections; its numbered decisions are not edited | the decision's Docs line names the note's "SERVO" section |
 
 ## Risks
 

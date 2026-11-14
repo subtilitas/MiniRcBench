@@ -40,11 +40,12 @@ receiver channels) receiver monitor is described in
 and that is not designed yet; rcbench's S.BUS decoder is in the tree and
 tested on the host, and the firmware does not build it. A PPM
 (pulse-position modulation) output is not built, by the owner's decision.
-Menu structure B is described in `docs/design/menu-b.md`; slices 1 to 4 of
-10 are in the tree: its building blocks, its colour roles, its names and
-SETTINGS, and its layout table. The uses that the design note's decision 11
-names take their role's colour, and a value changed and not yet written is
-cyan.
+Menu structure B is described in `docs/design/menu-b.md`; slices 1 to 5 and
+8 of 10 are in the tree: its building blocks, its colour roles, its names and
+SETTINGS, its layout table, its write rule and BACK guard, and SERVO
+TESTER's title, the MENU row's label.
+The uses that the design note's decision 11 names take their role's colour,
+and a value changed and not yet written is cyan.
 
 ![UI preview](docs/ui-preview.png)
 
@@ -1319,19 +1320,21 @@ ground only.
 
 ### Using it
 
-The screen claims the pins (`src/pin_claim.h`). It does not claim while an ESC
-answers on SIG within 500 ms, because servo pulses of 1000 µs to 2000 µs are a
-valid PWM throttle signal; it claims by itself 500 ms after the ESC goes
-quiet. That check misses an ESC that does not answer in bidirectional DShot,
-so the screen says `PULSES ON GP0 ARE THROTTLE TO AN ESC.` Two servos also
-need AUX free: a KISS frame within 500 ms, or SIG and AUX on one GPIO, leaves
-one servo only, with the reason on the SET screen. While the screen waits for
-the pins, for example while an ESC answers, it cannot know whether AUX is
-free, and TWO can be chosen. If the claim then finds AUX refused, the screen
-takes SIG alone and goes back to one servo, and TWO stays off until the
-screen is opened again. A TWO still waiting for `HOLD TO APPLY` goes back to
-one servo too (`claimPins()`); the wait is decided again, so one that held
-only for TWO ends and the rest of the change applies.
+The screen is titled `SERVO TESTER`, its MENU row's label, on the main view and
+on the unplug page (`SERVO_UI_TITLE` in `src/ui_servo.h`). It claims the pins
+(`src/pin_claim.h`). It does not claim while an ESC answers on SIG within
+500 ms, because servo pulses of 1000 µs to 2000 µs are a valid PWM throttle
+signal; it claims by itself 500 ms after the ESC goes quiet. That check misses
+an ESC that does not answer in bidirectional DShot, so the screen says
+`PULSES ON GP0 ARE THROTTLE TO AN ESC.` Two servos also need AUX free: a KISS
+frame within 500 ms, or SIG and AUX on one GPIO, leaves one servo only, with the
+reason on the SET screen. While the screen waits for the pins, for example while
+an ESC answers, it cannot know whether AUX is free, and TWO can be chosen. If
+the claim then finds AUX refused, the screen takes SIG alone and goes back to
+one servo, and TWO stays off until the screen is opened again. A TWO still
+waiting for `HOLD TO APPLY` goes back to one servo too (`claimPins()`); the wait
+is decided again, so one that held only for TWO ends and the rest of the change
+applies.
 
 | Control | What it does |
 |---|---|
