@@ -968,6 +968,57 @@ static void testSupplyCurrent() {
 	fakeI2cReset();
 }
 
+/**
+ * @brief A write that waits for the card's flush ends with its page: a stall
+ *        while it waits takes the screen to Main, and the next write opens
+ *        on a tap and sends nothing until its own hold, whatever the card
+ *        does meanwhile.
+ */
+static void testFlushWaitEndsWithThePage() {
+	section("Hitec screen: a stall during the flush wait; the next write needs its hold");
+	fakeCacheReset();
+	freshHitec(HITEC_D, true);
+	SdLogStatus logging;
+	memset(&logging, 0, sizeof(logging));
+	logging.state = SdLogState::Logging;
+	fakeSdLogSet(&logging);
+	checkTrue("the field list on GP28", toList(HITEC_D));
+	speedDown();
+	tapUntilGone(UI_FIX(HitecCtl::Write));
+	fakeCacheSet(CardCache::Flushing, 12);
+	unsigned writes = fakeHitecSim()->writes;
+	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
+	hitecFrames(2);
+	checkTrue("the hold waits for the flush: no write frame",
+	          uiHitecView() == HitecView::Write && fakeHitecSim()->writes == writes &&
+	          lineIs(196, "SAVING THE BACKUP TO THE CARD.", C_AMBER));
+	// The UI stops for 400 ms: the heartbeat lapses and the job switches the
+	// servo off. The card still flushes.
+	for (int i = 0; i < 400; i++) core1Pass();
+	hitecFrames(4);
+	checkTrue("a stall during the wait: Main with RETRY, no write frame",
+	          untilCtl(UI_FIX(HitecCtl::Retry), 200) && uiHitecView() == HitecView::Main &&
+	          fakeHitecSim()->writes == writes);
+	tapId(UI_FIX(HitecCtl::Retry));
+	checkTrue("RETRY reads the servo again", untilView(HitecView::List, 1200));
+	speedDown();
+	writes = fakeHitecSim()->writes;
+	checkTrue("a tap on WRITE...: the write page", tapUntilGone(UI_FIX(HitecCtl::Write)) &&
+	          uiHitecView() == HitecView::Write);
+	fakeCacheSet(CardCache::Idle, 0);
+	hitecFrames(40);
+	checkTrue("the card idle: no write frame without the page's hold, HOLD TO WRITE waits",
+	          fakeHitecSim()->writes == writes && ctlEnabled(UI_FIX(HitecCtl::WriteHold)) &&
+	          !ctlPresent(UI_FIX(HitecCtl::WriteOk)));
+	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
+	checkTrue("the hold writes, and the write verifies", untilCtl(UI_FIX(HitecCtl::WriteOk), 800) &&
+	          fakeHitecSim()->writes > writes && job().result == HITEC_SES_OK);
+	tapId(UI_FIX(HitecCtl::WriteOk));
+	leaveAll();
+	fakeCacheReset();
+	card();
+}
+
 static void testStallAndBack() {
 	section("Hitec screen: a stall and RETRY, BACK in every view, RESTART DSHOT");
 	freshHitec(HITEC_D, true);
@@ -1777,6 +1828,7 @@ void runHitecUiTests() {
 	testRecordAtEntry();
 	testClassic();
 	testSupplyCurrent();
+	testFlushWaitEndsWithThePage();
 	testStallAndBack();
 	testIdAndBack();
 	testWritePageHornLine();

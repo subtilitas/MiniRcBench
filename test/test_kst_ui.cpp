@@ -1616,6 +1616,68 @@ static void testSwitchedSupply() {
 }
 
 /**
+ * @brief A write that waits for the card's flush ends with its page: a stall
+ *        while it waits takes the screen to Main, and the next write opens
+ *        on a tap and sends nothing until its own hold, whatever the card
+ *        does meanwhile.
+ */
+static void testFlushWaitEndsWithThePage() {
+	section("KST screen: a stall during the flush wait; the next write needs its hold");
+	fakeCacheReset();
+	freshKst(false);
+	settings()->servoSupply = 1;
+	servoSupplyConfigure(1);
+	supplySimInit(&g_sup, fakeKstSim(), time_us_32());
+	g_supOn = true;
+	SdLogStatus logging;
+	memset(&logging, 0, sizeof(logging));
+	logging.state = SdLogState::Logging;
+	fakeSdLogSet(&logging);
+	openKst();
+	checkTrue("the switched servo read: the field list", untilView(KstView::List, 400));
+	sim_t *sim = fakeKstSim();
+	selectField(KST_F_DEAD_BAND);
+	tapId(UI_FIX(KstCtl::EditMinus));
+	tapUntilGone(UI_FIX(KstCtl::Write));
+	fakeCacheSet(CardCache::Flushing, 12);
+	unsigned writes = sim->n_writes;
+	holdUntilGone(UI_FIX(KstCtl::WriteHold));
+	kstFrames(2);
+	checkTrue("the hold waits for the flush: no write frame",
+	          uiKstView() == KstView::Write && sim->n_writes == writes &&
+	          lineIs(196, "SAVING THE BACKUP TO THE CARD.", C_AMBER));
+	// The UI stops for 400 ms: the heartbeat lapses and the job switches the
+	// servo off. The card still flushes.
+	for (int i = 0; i < 400; i++) core1Pass();
+	kstFrames(2);
+	checkTrue("a stall during the wait: Main with RETRY, no write frame",
+	          uiKstView() == KstView::Main && ctlEnabled(UI_FIX(KstCtl::Retry)) &&
+	          sim->n_writes == writes);
+	tapId(UI_FIX(KstCtl::Retry));
+	checkTrue("RETRY reads the servo again", untilView(KstView::List, 400));
+	selectField(KST_F_DEAD_BAND);
+	tapId(UI_FIX(KstCtl::EditPlus));
+	writes = sim->n_writes;
+	checkTrue("a tap on WRITE...: the write page", tapUntilGone(UI_FIX(KstCtl::Write)) &&
+	          uiKstView() == KstView::Write);
+	fakeCacheSet(CardCache::Idle, 0);
+	kstFrames(40);
+	checkTrue("the card idle: no write frame without the page's hold, HOLD TO WRITE waits",
+	          sim->n_writes == writes && ctlEnabled(UI_FIX(KstCtl::WriteHold)) &&
+	          !ctlPresent(UI_FIX(KstCtl::WriteOk)));
+	holdUntilGone(UI_FIX(KstCtl::WriteHold));
+	checkTrue("the hold writes, and the write verifies", untilCtl(UI_FIX(KstCtl::WriteOk), 800) &&
+	          sim->n_writes > writes && job().result == KST_SES_OK);
+	tapId(UI_FIX(KstCtl::WriteOk));
+	leaveAll();
+	g_supOn = false;
+	servoSupplyConfigure(0);
+	settings()->servoSupply = 0;
+	fakeCacheReset();
+	card();
+}
+
+/**
  * @brief With CURRENT SENSE at INA219, the strip reads the current after
  *        SUPPLY ON; with NONE it does not.
  */
@@ -2035,6 +2097,7 @@ void runKstUiTests() {
 	testRefusedOps();
 	testRecordKeptAtLeave();
 	testFlushWait();
+	testFlushWaitEndsWithThePage();
 	testSwitchedSupply();
 	testSwitchedTimeout();
 	testSupplyCurrent();
