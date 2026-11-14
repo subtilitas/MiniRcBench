@@ -17,9 +17,9 @@
 <text x="152" y="184" font-size="12" fill="#1a1a1a" text-anchor="start">ESC or servo signal</text>
 <rect x="40" y="192" width="16" height="16" rx="2" fill="#5f6368" stroke="#1a1a1a" stroke-width="1.5"/>
 <text x="48" y="204" font-size="10" fill="#ffffff" text-anchor="middle" font-weight="bold">3</text>
-<text x="64" y="204" font-size="12" fill="#5f6368" text-anchor="start">3V3</text>
-<text x="116" y="204" font-size="12" fill="#5f6368" text-anchor="start"></text>
-<text x="152" y="204" font-size="12" fill="#5f6368" text-anchor="start">3.3 V out, not used</text>
+<text x="64" y="204" font-size="12" fill="#c62828" text-anchor="start">3V3</text>
+<text x="116" y="204" font-size="12" fill="#c62828" text-anchor="start"></text>
+<text x="152" y="204" font-size="12" fill="#c62828" text-anchor="start">3.3 V out: never connect</text>
 <rect x="40" y="212" width="16" height="16" rx="2" fill="#4e342e" stroke="#1a1a1a" stroke-width="1.5"/>
 <text x="48" y="224" font-size="10" fill="#ffffff" text-anchor="middle" font-weight="bold">4</text>
 <text x="64" y="224" font-size="12" fill="#1a1a1a" text-anchor="start">GND</text>
@@ -55,7 +55,7 @@
 <text x="428" y="264" font-size="10" fill="#ffffff" text-anchor="middle" font-weight="bold">6</text>
 <text x="444" y="264" font-size="12" fill="#5f6368" text-anchor="start">3V3</text>
 <text x="496" y="264" font-size="12" fill="#5f6368" text-anchor="start"></text>
-<text x="532" y="264" font-size="12" fill="#5f6368" text-anchor="start">3.3 V out, not used</text>
+<text x="532" y="264" font-size="12" fill="#5f6368" text-anchor="start">3.3 V out: never connect</text>
 <rect x="420" y="272" width="16" height="16" rx="2" fill="#616161" stroke="#1a1a1a" stroke-width="1.5"/>
 <text x="428" y="284" font-size="10" fill="#ffffff" text-anchor="middle" font-weight="bold">7</text>
 <text x="444" y="284" font-size="12" fill="#5f6368" text-anchor="start">GP7</text>
@@ -101,7 +101,7 @@
 <text x="828" y="204" font-size="10" fill="#ffffff" text-anchor="middle" font-weight="bold">3</text>
 <text x="844" y="204" font-size="12" fill="#5f6368" text-anchor="start">3V3</text>
 <text x="896" y="204" font-size="12" fill="#5f6368" text-anchor="start"></text>
-<text x="932" y="204" font-size="12" fill="#5f6368" text-anchor="start">3.3 V out, not used</text>
+<text x="932" y="204" font-size="12" fill="#5f6368" text-anchor="start">3.3 V out: never connect</text>
 <rect x="820" y="212" width="16" height="16" rx="2" fill="#4e342e" stroke="#1a1a1a" stroke-width="1.5"/>
 <text x="828" y="224" font-size="10" fill="#ffffff" text-anchor="middle" font-weight="bold">4</text>
 <text x="844" y="224" font-size="12" fill="#1a1a1a" text-anchor="start">GND</text>
@@ -145,7 +145,7 @@
 <polyline points="400,554 520,554" fill="none" stroke="#c62828" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
 <path d="M394 548l12 12m0 -12l-12 12" stroke="#c62828" stroke-width="3"/>
 <text x="390" y="558" font-size="11" fill="#c62828" text-anchor="end">cut: no pin</text>
-<text x="178" y="558" font-size="11" fill="#5f6368" text-anchor="start">n.c.</text>
+<text x="178" y="558" font-size="11" fill="#c62828" text-anchor="start">never connect</text>
 <polyline points="170,578 520,578" fill="none" stroke="#4e342e" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
 <polyline points="680,510 870,510" fill="none" stroke="#1a1a1a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
 <polyline points="680,526 866,526" fill="none" stroke="#1a1a1a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
@@ -197,7 +197,7 @@
 <polyline points="340,956 340,974" fill="none" stroke="#4e342e" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
 <circle cx="340" cy="974" r="4" fill="#4e342e"/>
 <text x="236" y="878" font-size="11" fill="#4e342e" text-anchor="start">one ground tap</text>
-<text x="178" y="840" font-size="11" fill="#5f6368" text-anchor="start">n.c.</text>
+<text x="178" y="840" font-size="11" fill="#c62828" text-anchor="start">never connect</text>
 <polyline points="170,788 200,788 200,752 1100,752 1100,782" fill="none" stroke="#1565c0" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="8 5"/>
 <rect x="1035" y="782" width="135" height="60" rx="4" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.5" stroke-dasharray="6 4"/>
 <text x="1102" y="802" font-size="13" fill="#1a1a1a" text-anchor="middle" font-weight="bold">servo B</text>

@@ -42,7 +42,15 @@ Die Platine hat JST-SH-Steckverbinder mit 1,0 mm Raster und keine
 | 2 | SIG (GP0) | die Signalader: orange oder weiß |
 | 4 | GND (Masse) | die Minusader: braun oder schwarz |
 | 1 | AUX (GP1) | optional: die Telemetrieader eines ESC mit KISS-Telemetrie, einem seriellen ESC-Telemetrieprotokoll, oder das Signal eines zweiten Servos |
-| 3 | 3,3 V | nichts. Kurz abschneiden und isolieren |
+| 3 | 3,3 V | nichts, niemals. Kurz abschneiden und isolieren |
+
+> **Warnung: Ein Servo- oder ESC-Kabel nie gerade durch an J5 anschließen.**
+> J5 Pin 2, 3 und 4 sind SIG, 3,3 V und GND: dieselbe Reihenfolge wie bei
+> einem Servostecker, Signal, Plus und Minus. Pin 3 ist die 3,3-V-Versorgung
+> der Platine. Gerade durch verbunden, bekommt er die BEC-Ausgangsspannung
+> (Battery Eliminator Circuit) des ESC, +5 V, oder die Versorgung des Servos,
+> 4,8 V bis 6,0 V oder 8,4 V für ein Hochvolt-Servo, und das kann die Platine
+> zerstören. J5 Pin 3 bleibt frei.
 
 GP0 und GP1 sind GPIO 0 und 1 der Platine (General-Purpose Input/Output,
 frei nutzbare Ein-/Ausgangspins). Zum Verbinden der Adern brauchst du einen

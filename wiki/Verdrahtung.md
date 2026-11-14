@@ -26,6 +26,14 @@ Platine mit leerem Flash; beide lassen sich unter **MENU → SETTINGS** ändern.
 > Bus) der Platine und versorgt kein Servo und keinen ESC; die 3,3-V-Pins
 > bleiben frei.
 
+> **Warnung: Ein Servo- oder ESC-Kabel nie gerade durch an J5 anschließen.**
+> J5 Pin 2, 3 und 4 sind SIG, 3,3 V und GND: dieselbe Reihenfolge wie bei
+> einem Servostecker, Signal, Plus und Minus. Pin 3 ist die 3,3-V-Versorgung
+> der Platine. Gerade durch verbunden, bekommt er die BEC-Ausgangsspannung
+> (Battery Eliminator Circuit) des ESC, +5 V, oder die Versorgung des Servos,
+> 4,8 V bis 6,0 V oder 8,4 V für ein Hochvolt-Servo, und das kann die Platine
+> zerstören. J5 Pin 3 bleibt frei.
+
 **Der Pull-down.** Er sitzt am Wandler, von EN nach GND, damit EN low bleibt,
 wenn das EN-Kabel an einem Steckverbinder abgeht.
 

@@ -57,6 +57,14 @@ gespeichert.
 > Platine eingeschaltet ist, und 3,63 V, solange sie aus ist. Der Tester
 > braucht nur Signal und Masse.
 
+> **Warnung: Ein Servo- oder ESC-Kabel nie gerade durch an J5 anschließen.**
+> J5 Pin 2, 3 und 4 sind SIG, 3,3 V und GND: dieselbe Reihenfolge wie bei
+> einem Servostecker, Signal, Plus und Minus. Pin 3 ist die 3,3-V-Versorgung
+> der Platine. Gerade durch verbunden, bekommt er die BEC-Ausgangsspannung
+> (Battery Eliminator Circuit) des ESC, +5 V, oder die Versorgung des Servos,
+> 4,8 V bis 6,0 V oder 8,4 V für ein Hochvolt-Servo, und das kann die Platine
+> zerstören. J5 Pin 3 bleibt frei.
+
 Halte das Signalkabel kurz. Die größte funktionierende Länge ist nicht
 gemessen. Steigt die Fehlerrate unter `LINK`, stelle **DSHOT KBAUD** unter
 **MENU → SETTINGS** auf 300.

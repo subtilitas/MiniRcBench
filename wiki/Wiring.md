@@ -24,6 +24,13 @@ needs a pigtail with a JST-SH plug. SIG is GP0 (J5 pin 2) and AUX is GP1
 > pin 2 is the board's USB (Universal Serial Bus) 5 V and feeds no servo or
 > ESC; the 3.3 V pins are not used.
 
+> **Warning: never connect a servo or ESC lead straight across to J5.**
+> J5 pins 2, 3 and 4 are SIG, 3.3 V and GND: the same order as a servo plug,
+> signal, plus and minus. Pin 3 is the board's 3.3 V supply. Joined straight
+> across, it gets the ESC's BEC (battery eliminator circuit) output, +5 V, or
+> the servo's supply, 4.8 V to 6.0 V or 8.4 V for a high-voltage servo, and
+> that can destroy the board. Leave J5 pin 3 unconnected.
+
 **The pull-down.** Fit it at the converter, from EN to GND, so EN stays low
 when the EN wire comes off at a connector.
 
