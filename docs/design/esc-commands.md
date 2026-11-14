@@ -55,9 +55,8 @@ that commit.
 | This repository | `main` at 51f10e0 | `src/dshot/dshot.h`, `src/esc_task.{h,cpp}`, `src/config.h`, `src/ui.cpp`, `src/ui_menu.cpp`, `src/ui_am32.{h,cpp}`, `src/am32_eeprom.cpp`, `src/kiss_telem.cpp`, [kiss-telemetry.md](kiss-telemetry.md), [menu-b.md](menu-b.md) | |
 
 Pull request (PR) #66, slice 9 of menu structure B, is on `main` since
-33079ee: the
-SERVO PROGRAMMER chooser and seven MENU rows (`src/ui_registry.cpp`
-lines 22 to 30).
+33079ee: the SERVO PROGRAMMER chooser and seven MENU rows
+(`src/ui_registry.cpp` lines 22 to 30).
 
 ## What it is for
 
@@ -541,11 +540,12 @@ All of these, else `KV EST --`:
 1. Armed, the link alive, eRPM above 0, the pole count 2 or more.
 2. A voltage fresh from KISS or EDT, above 0.5 V (rcbench's floor,
    `motor_draw.c` line 178).
-3. t at least `KV_EST_MIN_THROTTLE`, by [question 7](#open-questions): 1500, 75
-   %, by its recommendation, where the AM32 factors in the table are × 0.92 to ×
-   1.02, and × 1.08 with MIN DUTY at 25 %. Below it the field reads `KV EST
-   75%+` (11 characters, 65 px). At the default ceiling, 20 %, the estimate does
-   not show; the pilot raises `MAX` in SETTINGS for the reading, propeller off.
+3. t at least `KV_EST_MIN_THROTTLE`, by [question 7](#open-questions):
+   1500, 75 %, by its recommendation, where the AM32 factors in the table
+   are × 0.92 to × 1.02, and × 1.08 with MIN DUTY at 25 %. Below it the
+   field reads `KV EST 75%+` (11 characters, 65 px). At the default
+   ceiling, 20 %, the estimate does not show; the pilot raises `MAX` in
+   SETTINGS for the reading, propeller off.
 4. t unchanged for `KV_EST_SETTLE_MS`, 1000 ms: the display filter's
    residue is then 0.48 % of the step; the motor's spin-up time is not
    measured.
