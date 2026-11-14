@@ -60,7 +60,7 @@ enum Am32Input : uint8_t {
 	AM32_INPUT_DSHOT    = 1,
 	AM32_INPUT_SERVO    = 2, /**< Servo PWM only: DShot is not detected. */
 	AM32_INPUT_SERIAL   = 3, /**< DShot is detected, but every throttle dropped: `EDT_ARMED` stays 0. */
-	AM32_INPUT_EDT_ARM  = 4, /**< DShot; arms on the EDT enable command. */
+	AM32_INPUT_EDT_ARM  = 4, /**< DShot; arms on the EDT enable, disarms on a zero frame. */
 	AM32_INPUT_DRONECAN = 5, /**< DroneCAN builds; elsewhere as SERIAL. Not offered by the editor. */
 };
 
@@ -181,7 +181,20 @@ struct Am32Field {
 	 *        the value reads as the plain byte. 0: every firmware.
 	 */
 	uint16_t    scaleFw;
+	/**
+	 * @brief AM32 firmware from which loadEEpromSettings() reads the byte at
+	 *        all; below it the field is not shown. 0: every firmware.
+	 *        @see am32FieldShown()
+	 */
+	uint16_t    readFw;
 };
+
+/**
+ * @brief The lowest layout revision the field table is checked against: 2,
+ *        the oldest that am32-firmware/AM32 and AlkaMotors 1.78 and later
+ *        write. Layout 1 (AlkaMotors before 1.78) reads nothing above 0x29.
+ */
+#define AM32_LAYOUT_MIN_KNOWN 2
 
 /**
  * @brief The highest layout revision the field table is checked against:
@@ -268,10 +281,12 @@ bool am32ProtectionOff(const Am32Field *f, const uint8_t *eeprom);
 bool am32Is3d(const uint8_t *eeprom);
 
 /**
- * @brief The input type is one on which AM32 does not run on DShot: every
- *        value but AUTO (0), DSHOT (1), EDT ARM (4) and 10 or above. SERVO
+ * @brief The input type is one on which AM32 does not run on this tester's
+ *        DShot: every value but AUTO (0), DSHOT (1) and 10 or above. SERVO
  *        detects servo PWM only; SERIAL, DRONECAN and 6 to 9 leave AM32's
- *        `EDT_ARMED` at 0, so dshot.c drops every throttle above 47.
+ *        `EDT_ARMED` at 0, so dshot.c drops every throttle above 47. EDT ARM
+ *        sets it on the EDT enable and clears it on every zero frame, and the
+ *        tester sends zero frames after each enable and before any throttle.
  */
 bool am32InputNotDshot(const uint8_t *eeprom);
 
@@ -280,6 +295,22 @@ bool am32Plausible(const uint8_t *eeprom);
 
 /**
  * @brief True if the layout revision is one the field table is checked
- *        against: 1 to @ref AM32_LAYOUT_MAX_KNOWN.
+ *        against: @ref AM32_LAYOUT_MIN_KNOWN to @ref AM32_LAYOUT_MAX_KNOWN.
  */
 bool am32LayoutKnown(const uint8_t *eeprom);
+
+/**
+ * @brief Whether the list shows @p f for this ESC: its layout revision has
+ *        the field (am32FieldApplies()) and its firmware reads the byte
+ *        (Am32Field::readFw).
+ */
+bool am32FieldShown(const Am32Field *f, const uint8_t *eeprom);
+
+/**
+ * @brief The firmware below which bytes 0x2A to 0x2E are not shown: 2.00.
+ *        AlkaMotors' tags read 0x2A to 0x2D from v1.80 and 0x2E from v1.94,
+ *        but the version an ESC stores does not follow the tags (the v1.99
+ *        tag writes 1.95), so below 2.00 which bytes a firmware reads is not
+ *        verified.
+ */
+#define AM32_FW_VERIFIED 200

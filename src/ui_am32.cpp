@@ -95,10 +95,12 @@ static_assert(sizeof(ST_VERIFIED ST_BACKUP) - 1 + 5 <= RESULT_CHARS,
               "WRITE VERIFIED. BACKUP AMnnn runs off the panel");
 static_assert(sizeof(AM32_UI_RETRY) - 1 <= RESULT_CHARS, "the retry line runs off the panel");
 static_assert(sizeof(AM32_UI_CHECK_CARD) - 1 <= RESULT_CHARS, "the card line runs off the panel");
+static_assert(AM32_FW_VERIFIED == 200, "AM32_UI_OLDFW_1 names 2.00");
 // The strip notes and the connect page's lines: scale 1 from x 8.
 static_assert(sizeof(AM32_UI_3D_1) - 1 <= RESULT_CHARS && sizeof(AM32_UI_3D_2) - 1 <= RESULT_CHARS &&
               sizeof(AM32_UI_PROT_1) - 1 <= RESULT_CHARS && sizeof(AM32_UI_PROT_2) - 1 <= RESULT_CHARS &&
-              sizeof(AM32_UI_PROTO_1) - 1 <= RESULT_CHARS && sizeof(AM32_UI_PROTO_2) - 1 <= RESULT_CHARS,
+              sizeof(AM32_UI_PROTO_1) - 1 <= RESULT_CHARS && sizeof(AM32_UI_PROTO_2) - 1 <= RESULT_CHARS &&
+              sizeof(AM32_UI_OLDFW_1) - 1 <= RESULT_CHARS && sizeof(AM32_UI_OLDFW_2) - 1 <= RESULT_CHARS,
               "a strip note runs off the panel");
 static_assert(sizeof(AM32_UI_NO_SETTINGS_1) - 1 <= RESULT_CHARS &&
               sizeof(AM32_UI_NO_SETTINGS_2) - 1 <= RESULT_CHARS &&
@@ -203,7 +205,7 @@ static void buildVisible() {
 	s_layoutRev = s_eeprom[AM32_OFF_LAYOUT_REVISION];
 	s_visibleCount = 0;
 	for (uint16_t i = 0; i < AM32_FIELD_COUNT && s_visibleCount < 64; i++) {
-		if (am32FieldApplies(&AM32_FIELDS[i], s_layoutRev)) {
+		if (am32FieldShown(&AM32_FIELDS[i], s_eeprom)) {
 			s_visible[s_visibleCount++] = i;
 		}
 	}
@@ -284,6 +286,9 @@ static bool listNote(const char **l1, const char **l2) {
 	} else if (am32InputNotDshot(s_eeprom)) {
 		*l1 = AM32_UI_PROTO_1;
 		*l2 = AM32_UI_PROTO_2;
+	} else if (am32Firmware(s_eeprom) < AM32_FW_VERIFIED) {
+		*l1 = AM32_UI_OLDFW_1;
+		*l2 = AM32_UI_OLDFW_2;
 	} else {
 		return false;
 	}

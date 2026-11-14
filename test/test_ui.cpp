@@ -3410,16 +3410,102 @@ static void testAm32Guidance() {
 		enterAm32(6);
 		checkTrue("the connect page stays: LAYOUT 5 NOT KNOWN",
 		          s_state == S_CONNECT && strcmp(s_status, "LAYOUT 5 NOT KNOWN") == 0);
+		checkTrue("the text is built from the constants: LAYOUTS 2 TO 4",
+		          strcmp(AM32_UI_LAYOUT_1, "THE TESTER KNOWS LAYOUTS 2 TO 4.") == 0);
 		checkTrue(AM32_UI_LAYOUT_1 ", y 196",
 		          fakeTextCentredIs(196, AM32_UI_LAYOUT_1, C_AMBER, C_BG, 1));
 		checkTrue(AM32_UI_NO_SETTINGS_2 ", y 210",
 		          fakeTextCentredIs(210, AM32_UI_NO_SETTINGS_2, C_AMBER, C_BG, 1));
 		checkTrue("no WRITE to hold", !ctlPresent(UI_FIX(Am32Ctl::Write)));
+		fakeDumpFrame("shot_am32_layout.ppm");
+		// Layout 1 is AlkaMotors before 1.78, which reads nothing above 0x29.
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 1);
+		frames(2);
+		checkTrue("layout 1: LAYOUT 1 NOT KNOWN", s_state == S_CONNECT &&
+		          strcmp(s_status, "LAYOUT 1 NOT KNOWN") == 0);
 		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 4);
 		frames(2);
 		checkTrue("layout 4 opens the list", s_state == S_LIST);
 		fakeEscSet(AM32_OFF_LAYOUT_REVISION, rev);
 		leaveAm32ToTester();
+	}
+
+	section("AM32 list on firmware 2.22, layout 4: the values only it accepts");
+	{
+		uint8_t keep[AM32_SETTINGS_SIZE];
+		for (int i = 0; i < AM32_SETTINGS_SIZE; i++) keep[i] = fakeEscByte(i);
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 4);
+		fakeEscSet(AM32_OFF_MAIN_REVISION, 2);
+		fakeEscSet(AM32_OFF_SUB_REVISION, 22);
+		fakeEscSet(AM32_OFF_BI_DIRECTION, 0);
+		fakeEscSet(0x2C, 99);                       // 198 A
+		fakeEscSet(0x08, 20);                       // 10.0 V
+		enterAm32(6);
+		checkTrue("the list is open", s_state == S_LIST);
+		char v[24];
+		// PWM FREQ reaches 144 kHz.
+		const int vp = uiRowOf("PWM FREQ");
+		uiRowY("PWM FREQ"); frames(1);
+		tapId(UI_ROW(vp, Row));
+		for (int i = 0; i < 4; i++) {
+			int y = uiRowY("PWM FREQ"); frames(1);
+			const UiRect lv = listView();
+			swipe(lv.x + 30, lv.x + 220, y, 10);
+		}
+		checkInt("2.22: PWM FREQ reaches 144 kHz", uiByte(0x18), 144);
+		// CURRENT LIMIT: 198 A, + to 200 A, an active limit: no note.
+		const int vc = uiRowOf("CURRENT LIMIT");
+		uiRowY("CURRENT LIMIT"); frames(1);
+		tapId(UI_ROW(vc, Row));
+		tapId(UI_FIX(Am32Ctl::EditPlus));
+		am32FormatValue(&AM32_FIELDS[s_selected], s_eeprom, v, sizeof(v));
+		checkTrue("2.22: CURRENT LIMIT 100 reads 200A", uiByte(0x2C) == 100 && strcmp(v, "200A") == 0);
+		frames(1);
+		checkTrue("  an active limit: no protection note",
+		          !fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROT_1, UI_COL_WARN, C_BG, 1));
+		checkTrue("  the editor reads 200A", fakeTextCentredIs(EDIT_Y + 14, "200A", C_AMBER, C_BG, 2));
+		// LOW VOLT CUTOFF: + from CELL is ABSOLUTE, and ABS VOLT CUT reads volts.
+		const int vl = uiRowOf("LOW VOLT CUTOFF");
+		uiRowY("LOW VOLT CUTOFF"); frames(1);
+		tapId(UI_ROW(vl, Row));
+		tapId(UI_FIX(Am32Ctl::EditPlus));
+		frames(1);
+		checkTrue("2.22: + from CELL is ABSOLUTE",
+		          uiByte(AM32_OFF_LOW_VOLT_CUTOFF) == 2 &&
+		          fakeTextCentredIs(EDIT_Y + 14, "ABSOLUTE", C_AMBER, C_BG, 2));
+		checkTrue("  an active cutoff: no protection note",
+		          !fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROT_1, UI_COL_WARN, C_BG, 1));
+		const int va = uiRowOf("ABS VOLT CUT");
+		checkTrue("layout 4 shows ABS VOLT CUT", va >= 0);
+		uiRowY("ABS VOLT CUT"); frames(1);
+		tapId(UI_ROW(va, Row));
+		frames(1);
+		checkTrue("2.22: ABS VOLT CUT reads 10.0V",
+		          fakeTextCentredIs(EDIT_Y + 14, "10.0V", C_LIME, C_BG, 2));
+		fakeDumpFrame("shot_am32_fw222.ppm");
+		tapId(UI_FIX(Am32Ctl::Revert));
+		leaveAm32ToTester();
+		for (int i = 0; i < AM32_SETTINGS_SIZE; i++) fakeEscSet(i, keep[i]);
+	}
+
+	section("AM32 list on firmware 1.35: the old-firmware note, bytes 0x2A on hidden");
+	{
+		uint8_t keep[2] = { fakeEscByte(AM32_OFF_MAIN_REVISION), fakeEscByte(AM32_OFF_SUB_REVISION) };
+		fakeEscSet(AM32_OFF_MAIN_REVISION, 1);
+		fakeEscSet(AM32_OFF_SUB_REVISION, 35);
+		fakeEscSet(AM32_OFF_BI_DIRECTION, 0);
+		enterAm32(6);
+		checkTrue("the note on the strip",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_OLDFW_1, UI_COL_WARN, C_BG, 1) &&
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_OLDFW_2, UI_COL_WARN, C_BG, 1));
+		checkTrue("TEMP LIMIT, CURRENT LIMIT, PROTOCOL, AUTO ADVANCE not listed",
+		          uiRowOf("TEMP LIMIT") < 0 && uiRowOf("CURRENT LIMIT") < 0 &&
+		          uiRowOf("PROTOCOL") < 0 && uiRowOf("AUTO ADVANCE") < 0 &&
+		          uiRowOf("RUNNING LEVEL") < 0 && uiRowOf("SINE POWER") < 0);
+		checkTrue("CELL CUTOFF, at 0x25, is", uiRowOf("CELL CUTOFF") >= 0);
+		leaveAm32ToTester();
+		fakeEscSet(AM32_OFF_MAIN_REVISION, keep[0]);
+		fakeEscSet(AM32_OFF_SUB_REVISION, keep[1]);
 	}
 
 	section("AM32 list: the strip's notes");
@@ -3522,8 +3608,8 @@ static void testAm32Guidance() {
 		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROTO_1, UI_COL_WARN, C_BG, 1));
 		tapId(UI_FIX(Am32Ctl::EditPlus));
 		frames(1);
-		checkTrue("EDT ARM: no note",
-		          !fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROTO_1, UI_COL_WARN, C_BG, 1));
+		checkTrue("EDT ARM: the note too, a zero frame disarms it",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROTO_1, UI_COL_WARN, C_BG, 1));
 		tapId(UI_FIX(Am32Ctl::EditMinus));
 		tapId(UI_FIX(Am32Ctl::EditMinus));
 		// The selected row's note comes first: LOW VOLT CUTOFF, still off.
@@ -3658,6 +3744,51 @@ static void testAm32Guidance() {
 		fakeRelease(); frames(3);
 		tapId(UI_FIX(Am32Ctl::Ok));
 		leaveAm32ToTester();
+	}
+
+	section("AM32 write: arbitrary settings go back as read but the pressed field");
+	{
+		uint8_t keep[AM32_SETTINGS_SIZE];
+		for (int i = 0; i < AM32_SETTINGS_SIZE; i++) keep[i] = fakeEscByte(i);
+		static const uint8_t fws[][2] = {
+			{0xFF, 0xFF}, {1, 35}, {2, 16}, {2, 18}, {2, 19}, {2, 20}, {2, 21}, {2, 22}};
+		bool same = true, verified = true, opened = true;
+		uint32_t seed = 12345;
+		for (int n = 0; n < 8; n++) {
+			uint8_t block[AM32_SETTINGS_SIZE];
+			for (int i = 0; i < AM32_SETTINGS_SIZE; i++) {
+				seed = seed * 1103515245u + 12345u;
+				block[i] = (uint8_t)(seed >> 16);
+			}
+			// The header the list needs; every other byte as it fell.
+			block[AM32_OFF_BOOT_BYTE] = 1;
+			block[AM32_OFF_LAYOUT_REVISION] = (uint8_t)(2 + n % 3);
+			block[AM32_OFF_MAIN_REVISION] = fws[n][0];
+			block[AM32_OFF_SUB_REVISION] = fws[n][1];
+			block[0x1B] = 14;
+			for (int i = 0; i < AM32_SETTINGS_SIZE; i++) fakeEscSet(i, block[i]);
+			enterAm32(6);
+			if (s_state != S_LIST) { opened = false; leaveAm32ToTester(); continue; }
+			const int vPoles = uiRowOf("POLES");
+			uiRowY("POLES"); frames(1);
+			tapId(UI_ROW(vPoles, Row));
+			tapId(UI_FIX(Am32Ctl::EditPlus));
+			int wx, wy;
+			ctlCentre(UI_FIX(Am32Ctl::Write), &wx, &wy);
+			pressId(UI_FIX(Am32Ctl::Write));
+			for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
+			fakeRelease(); frames(3);
+			if (!s_verified) verified = false;
+			for (int i = 0; i < AM32_SETTINGS_SIZE; i++)
+				if (i != 0x1B && fakeEscByte(i) != block[i]) same = false;
+			if (fakeEscByte(0x1B) != 16) same = false;
+			tapId(UI_FIX(Am32Ctl::Ok));
+			leaveAm32ToTester();
+		}
+		checkTrue("eight blocks, layouts 2 to 4, eight firmware versions: each list opens", opened);
+		checkTrue("  each write verifies", verified);
+		checkTrue("  the ESC holds every byte as read, POLES as pressed", same);
+		for (int i = 0; i < AM32_SETTINGS_SIZE; i++) fakeEscSet(i, keep[i]);
 	}
 	feedLiveTelemetry();
 	frames(2);

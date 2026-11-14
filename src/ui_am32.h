@@ -13,6 +13,8 @@
 
 #include <stdint.h>
 
+#include "am32_eeprom.h"
+
 struct TouchState;
 
 /** @brief Enter config mode. Claims the signal pin, which disarms. */
@@ -51,7 +53,8 @@ bool uiAm32Tick(const TouchState *t);
  *        device caption, through uiStripTwoLines(). Each line is at most 37
  *        characters, 221 px.
  *
- * The selected row's note comes first, then 3D MODE, then PROTOCOL.
+ * The selected row's note comes first, then 3D MODE, then PROTOCOL, then
+ * firmware below 2.00.
  * @{
  */
 /** @brief 3D MODE on: AM32 splits DShot 48..2047 into two directions, and the
@@ -68,6 +71,13 @@ bool uiAm32Tick(const TouchState *t);
 #define AM32_UI_PROTO_1 "THE TESTER SENDS DSHOT ONLY:"
 /** @brief The PROTOCOL note's second line. */
 #define AM32_UI_PROTO_2 "THE ESC WILL NOT RUN HERE."
+/**
+ * @brief Firmware below @ref AM32_FW_VERIFIED, or a version byte AM32 did not
+ *        write: bytes 0x2A to 0x2F are not shown.
+ */
+#define AM32_UI_OLDFW_1 "FIRMWARE BELOW 2.00 OR UNKNOWN:"
+/** @brief The old-firmware note's second line. */
+#define AM32_UI_OLDFW_2 "FIELDS IT MAY NOT READ ARE HIDDEN."
 /** @} */
 
 /** @brief The connect page's last line under a reply it could not parse. */
@@ -79,12 +89,18 @@ bool uiAm32Tick(const TouchState *t);
  *        `LAYOUT n NOT KNOWN`.
  */
 #define AM32_UI_NO_SETTINGS_2 "NOTHING WILL BE WRITTEN."
+/** @brief Turns a macro's value into a string literal, for the texts below. */
+#define AM32_UI_STR(x) AM32_UI_STR_(x)
+/** @brief The step under AM32_UI_STR(). */
+#define AM32_UI_STR_(x) #x
 /**
  * @brief The connect page's first line under `LAYOUT n NOT KNOWN`, a layout
- *        revision above AM32_LAYOUT_MAX_KNOWN in am32_eeprom.h; the second
- *        is `AM32_UI_NO_SETTINGS_2`.
+ *        revision outside @ref AM32_LAYOUT_MIN_KNOWN to
+ *        @ref AM32_LAYOUT_MAX_KNOWN, built from them; the second is
+ *        `AM32_UI_NO_SETTINGS_2`.
  */
-#define AM32_UI_LAYOUT_1 "THE TESTER KNOWS LAYOUTS 1 TO 4."
+#define AM32_UI_LAYOUT_1 "THE TESTER KNOWS LAYOUTS " AM32_UI_STR(AM32_LAYOUT_MIN_KNOWN) \
+                         " TO " AM32_UI_STR(AM32_LAYOUT_MAX_KNOWN) "."
 
 /**
  * @brief MENU's strip line after a session that reached the bootloader:

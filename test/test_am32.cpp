@@ -61,6 +61,42 @@ static void expect(const uint8_t *ee, const char *name, const char *want) {
 }
 
 /**
+ * @brief The range one press may land in, per field and AM32 firmware
+ *        (major x 100 + minor, 0 for none), written out from AM32's source
+ *        and the configurator rather than from the field table, so a wrong
+ *        member there fails against it.
+ * @return false for a field this table does not know.
+ */
+static bool acceptedRange(const char *n, uint16_t fw, int *lo, int *hi) {
+	struct R { const char *name; int lo, hi; };
+	static const R fixed[] = {
+		{"DIRECTION", 0, 1}, {"3D MODE", 0, 1}, {"POLES", 2, 36}, {"KV", 0, 255},
+		{"HALL SENSORS", 0, 1}, {"ADVANCE", 10, 42}, {"AUTO ADVANCE", 0, 1},
+		{"COMPLEMENTARY", 0, 1}, {"POWER", 50, 150}, {"SINE STARTUP", 0, 1},
+		{"SINE RANGE", 5, 25}, {"SINE POWER", 1, 10}, {"STUCK ROTOR", 0, 1},
+		{"STALL PROTECT", 0, 1}, {"STOPPED LEVEL", 1, 10}, {"RUNNING LEVEL", 1, 10},
+		{"RC CAR REVERSE", 0, 1}, {"CELL CUTOFF", 0, 100}, {"TEMP LIMIT", 70, 141},
+		{"CURRENT LIMIT", 0, 102}, {"PROTOCOL", 0, 4}, {"30MS TELEMETRY", 0, 1},
+		{"BEEP VOLUME", 0, 11}, {"LOW THRESHOLD", 0, 255}, {"HIGH THRESHOLD", 0, 255},
+		{"NEUTRAL", 0, 255}, {"DEAD BAND", 0, 100}, {"MAX RAMP", 1, 200},
+		{"MIN DUTY", 0, 50}, {"NO STICK CAL", 0, 1}, {"ABS VOLT CUT", 1, 100},
+		{"CURRENT P", 0, 255}, {"CURRENT I", 0, 255}, {"CURRENT D", 0, 255},
+		{"ACTIVE BRAKE", 0, 5},
+	};
+	for (const R &r : fixed)
+		if (strcmp(r.name, n) == 0) { *lo = r.lo; *hi = r.hi; return true; }
+	// The firmware gates: `pwm_frequency < 49` before v2.19, `< 145` from it;
+	// variable_pwm 2 from v2.18; brake_on_stop 2 from v2.19; an absolute
+	// cutoff that trips from v2.21.
+	*lo = 0;
+	if (strcmp(n, "PWM FREQ") == 0)        { *lo = 8; *hi = fw >= 219 ? 144 : 48; return true; }
+	if (strcmp(n, "PWM TYPE") == 0)        { *hi = fw >= 218 ? 2 : 1; return true; }
+	if (strcmp(n, "BRAKE ON STOP") == 0)   { *hi = fw >= 219 ? 2 : 1; return true; }
+	if (strcmp(n, "LOW VOLT CUTOFF") == 0) { *hi = fw >= 221 ? 2 : 1; return true; }
+	return false;
+}
+
+/**
  * @brief Timing advance, which AM32 writes in two different encodings.
  *
  * Reported from the bench as "the initial value of timing is read without
@@ -300,16 +336,17 @@ void runAm32Tests() {
 			e[AM32_OFF_INPUT_TYPE] = v;
 			expect(e, "PROTOCOL", want[v]);
 		}
-		// loadEEpromSettings(): AUTO, DSHOT and EDT ARM set EDT_ARMED or arm
-		// on the EDT enable; 10 and above fall to AUTO. Every other value
-		// leaves EDT_ARMED at 0, and dshot.c drops each throttle above 47.
+		// loadEEpromSettings(): AUTO and DSHOT set EDT_ARMED; 10 and above
+		// fall to AUTO. Every other value leaves it at 0, and dshot.c drops
+		// each throttle above 47; EDT ARM sets it on the EDT enable and a
+		// zero frame clears it again.
 		bool notes = true;
 		for (int v = 0; v < 256; v++) {
 			e[AM32_OFF_INPUT_TYPE] = (uint8_t)v;
-			bool runs = v == 0 || v == 1 || v == 4 || v >= 10;
+			bool runs = v == 0 || v == 1 || v >= 10;
 			if (am32InputNotDshot(e) == runs) notes = false;
 		}
-		checkTrue("the note for 2, 3 and 5 to 9; none for 0, 1, 4 and 10 to 255", notes);
+		checkTrue("the note for 2 to 9; none for 0, 1 and 10 to 255", notes);
 		e[AM32_OFF_INPUT_TYPE] = 6;
 		expect(e, "PROTOCOL", "? (6)");
 		checkInt("the editor stops at EDT ARM, as the configurator does", field("PROTOCOL")->rawMax, 4);
@@ -459,8 +496,8 @@ void runAm32Tests() {
 		checkInt("9.99 is the newest that reads", am32Firmware(e), 999);
 		for (uint8_t rev = 0; rev < 10; rev++) {
 			e[AM32_OFF_LAYOUT_REVISION] = rev;
-			checkTrue(rev >= 1 && rev <= 4 ? "  layout known" : "  layout not known",
-			          am32LayoutKnown(e) == (rev >= 1 && rev <= 4));
+			checkTrue(rev >= 2 && rev <= 4 ? "  layout known" : "  layout not known",
+			          am32LayoutKnown(e) == (rev >= 2 && rev <= 4));
 		}
 		memcpy(e, AIR, sizeof(e));
 		e[0x1D] = 2;  expect(e, "STALL PROTECT", "? (2)");
@@ -472,49 +509,45 @@ void runAm32Tests() {
 		// fw: none (FF.FF), 1.35, 2.16, 2.18, 2.19, 2.20, 2.21, 2.22.
 		static const uint8_t fws[][2] = {
 			{0xFF, 0xFF}, {1, 35}, {2, 16}, {2, 18}, {2, 19}, {2, 20}, {2, 21}, {2, 22}};
-		bool kept = true, inRange = true, unchanged = true;
+		bool kept = true, inRange = true, known = true, snaps = true;
 		for (const auto &fw : fws) {
+			// The version as AM32 numbers it, from the bytes, by hand.
+			uint16_t ver = (fw[0] >= 1 && fw[0] <= 9 && fw[1] <= 99) ? fw[0] * 100 + fw[1] : 0;
 			for (uint16_t i = 0; i < AM32_FIELD_COUNT; i++) {
 				const Am32Field *f = &AM32_FIELDS[i];
+				int lo, hi;
+				if (!acceptedRange(f->name, ver, &lo, &hi)) { known = false; continue; }
 				for (int v = 0; v < 256; v++) {
-					uint8_t e[AM32_SETTINGS_SIZE];
-					memcpy(e, AIR, sizeof(e));
-					e[AM32_OFF_LAYOUT_REVISION] = 4;
-					e[AM32_OFF_MAIN_REVISION] = fw[0];
-					e[AM32_OFF_SUB_REVISION] = fw[1];
-					e[f->offset] = (uint8_t)v;
-					uint8_t before[AM32_SETTINGS_SIZE];
-					memcpy(before, e, sizeof(e));
-					// Reading every field changes nothing.
-					char out[24];
-					for (uint16_t k = 0; k < AM32_FIELD_COUNT; k++)
-						am32FormatValue(&AM32_FIELDS[k], e, out, sizeof(out));
-					if (memcmp(before, e, sizeof(e)) != 0) unchanged = false;
-					// A press on every other field leaves this byte as read.
-					for (uint16_t k = 0; k < AM32_FIELD_COUNT; k++) {
-						const Am32Field *g = &AM32_FIELDS[k];
-						if (g->offset == f->offset) continue;
-						am32Adjust(g, e, (k & 1) ? +1 : -1);
-						if (e[f->offset] != (uint8_t)v) kept = false;
-					}
-					// One press on this field lands inside what this
-					// firmware accepts.
 					for (int dir = -1; dir <= 1; dir += 2) {
+						uint8_t e[AM32_SETTINGS_SIZE];
+						// Every byte different, so a write to any of them shows.
+						for (int k = 0; k < AM32_SETTINGS_SIZE; k++) e[k] = (uint8_t)(k * 37 + v + 11);
+						e[AM32_OFF_LAYOUT_REVISION] = 4;
+						e[AM32_OFF_MAIN_REVISION] = fw[0];
+						e[AM32_OFF_SUB_REVISION] = fw[1];
 						e[f->offset] = (uint8_t)v;
+						uint8_t before[AM32_SETTINGS_SIZE];
+						memcpy(before, e, sizeof(e));
 						am32Adjust(f, e, dir);
-						uint8_t r = e[f->offset];
-						if (f->type == A32_ADVANCE) {
-							if (r < 10 || r > 42) inRange = false;
-						} else if (r < f->rawMin || r > am32FieldMax(f, e)) {
-							inRange = false;
-						}
+						// The whole block but the pressed byte, as it was.
+						for (int k = 0; k < AM32_SETTINGS_SIZE; k++)
+							if (k != f->offset && e[k] != before[k]) kept = false;
+						// One press lands inside the range that firmware accepts,
+						// from the literal table, not the field's own members.
+						if (e[f->offset] < lo || e[f->offset] > hi) inRange = false;
+						// From outside it, a press lands on the nearer end: the
+						// firmware's own top, not one the table made up.
+						if (f->type != A32_ADVANCE && ((v > hi && e[f->offset] != hi) ||
+						                               (v < lo && e[f->offset] != lo)))
+							snaps = false;
 					}
 				}
 			}
 		}
-		checkTrue("reading every field changes no byte", unchanged);
-		checkTrue("a press on one field never changes another's byte", kept);
+		checkTrue("every field has a row in the literal table", known);
+		checkTrue("a press changes no byte of the block but its own", kept);
 		checkTrue("one press from any byte lands in the firmware's range", inRange);
+		checkTrue("from outside the range, on the end the firmware accepts", snaps);
 	}
 
 	section("PWM frequency range");
@@ -559,7 +592,12 @@ void runAm32Tests() {
 		e[AM32_OFF_MAIN_REVISION] = 2; e[AM32_OFF_SUB_REVISION] = 18;
 		am32Adjust(pwm, e, +1);
 		checkInt("2.18: still 48", e[pwm->offset], 48);
+		e[pwm->offset] = 100;
+		expect(e, "PWM FREQ", "? (100)");                 // 2.18 ignores it
+		e[0x28] = 30;  expect(e, "SINE RANGE", "? (30)"); // outside 5..25
+		e[0x23] = 101; expect(e, "DEAD BAND", "? (101)");
 		e[AM32_OFF_SUB_REVISION] = 19;
+		expect(e, "PWM FREQ", "100KHZ");                  // 2.19 takes it
 		for (int i = 0; i < 200; i++) am32Adjust(pwm, e, +1);
 		checkInt("2.19: pwm reaches 144, `< 145`", e[pwm->offset], 144);
 	}

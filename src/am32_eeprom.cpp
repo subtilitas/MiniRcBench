@@ -29,6 +29,16 @@ static const char *const NAMES_PWM_TYPE[]  = {"FIXED", "VARIABLE", "BY RPM"};
 static const char *const NAMES_BRAKE[]     = {"OFF", "BRAKE", "ACTIVE"};
 
 /**
+ * @brief The firmware from which AM32 reads the byte at @p off: auto advance
+ *        (0x2F) from 2.16, not read by the tags v2.05 to v2.12; 0x2A to 0x2E
+ *        from @ref AM32_FW_VERIFIED; the rest from every firmware that writes
+ *        layout 2, as AlkaMotors 1.78 does.
+ */
+static constexpr uint16_t am32ReadFw(uint8_t off) {
+	return off == 0x2F ? 216 : (off >= 0x2A && off <= 0x2E) ? AM32_FW_VERIFIED : 0;
+}
+
+/**
  * @defgroup am32_tablemacros Field table shorthand
  * @brief Keeps the settings table readable; unused columns stay zero.
  *
@@ -43,34 +53,34 @@ static const char *const NAMES_BRAKE[]     = {"OFF", "BRAKE", "ACTIVE"};
 
 /** @brief Off/on field. */
 #define F_BOOL(grp, nm, off, ver)                                              \
-	{grp, nm, off, A32_BOOL, 0, 1, 1, ver, 0, 0, 0, 0, "", NAMES_OFFON, 2, 0, 0, 0, 0, 0, 0, 0}
+	{grp, nm, off, A32_BOOL, 0, 1, 1, ver, 0, 0, 0, 0, "", NAMES_OFFON, 2, 0, 0, 0, 0, 0, 0, 0, am32ReadFw(off)}
 /** @brief Plain integer over @c lo..@c hi in steps of @c st, suffixed @c unit. */
 #define F_RAW(grp, nm, off, lo, hi, st, unit, ver)                             \
-	{grp, nm, off, A32_RAW, lo, hi, st, ver, 0, 0, 0, 0, unit, nullptr, 0, 0, 0, 0, 0, 0, 0, 0}
+	{grp, nm, off, A32_RAW, lo, hi, st, ver, 0, 0, 0, 0, unit, nullptr, 0, 0, 0, 0, 0, 0, 0, 0, am32ReadFw(off)}
 /** @brief Displayed as `(raw * m + a) / d`, with one decimal when @c d > 1. */
 #define F_SCALED(grp, nm, off, lo, hi, st, m, d, a, unit, ver)                 \
-	{grp, nm, off, A32_SCALED, lo, hi, st, ver, 0, m, d, a, unit, nullptr, 0, 0, 0, 0, 0, 0, 0, 0}
+	{grp, nm, off, A32_SCALED, lo, hi, st, ver, 0, m, d, a, unit, nullptr, 0, 0, 0, 0, 0, 0, 0, 0, am32ReadFw(off)}
 /** @brief Index into the @c cnt labels of @c tbl. */
 #define F_ENUM(grp, nm, off, tbl, cnt, ver)                                    \
-	{grp, nm, off, A32_ENUM, 0, (uint8_t)((cnt) - 1), 1, ver, 0, 0, 0, 0, "", tbl, cnt, 0, 0, 0, 0, 0, 0, 0}
+	{grp, nm, off, A32_ENUM, 0, (uint8_t)((cnt) - 1), 1, ver, 0, 0, 0, 0, "", tbl, cnt, 0, 0, 0, 0, 0, 0, 0, am32ReadFw(off)}
 /**
  * @brief Index into the @c cnt labels of @c tbl, whose last label exists from
  *        AM32 firmware @c fw (major x 100 + minor) on. @see am32FieldMax()
  */
 #define F_CHOICE(grp, nm, off, tbl, cnt, fw)                                   \
-	{grp, nm, off, A32_ENUM, 0, (uint8_t)((cnt) - 1), 1, 0, 0, 0, 0, 0, "", tbl, cnt, 0, 0, fw, (uint8_t)((cnt) - 2), 0, 0, 0}
+	{grp, nm, off, A32_ENUM, 0, (uint8_t)((cnt) - 1), 1, 0, 0, 0, 0, 0, "", tbl, cnt, 0, 0, fw, (uint8_t)((cnt) - 2), 0, 0, 0, am32ReadFw(off)}
 /** @brief As F_RAW(), with values outside @c onLo..@c onHi shown as `OFF`. */
 #define F_RAW_LIMIT(grp, nm, off, lo, hi, st, unit, onLo, onHi)                \
-	{grp, nm, off, A32_RAW, lo, hi, st, 0, 0, 0, 0, 0, unit, nullptr, 0, onLo, onHi, 0, 0, 0, 0, 0}
+	{grp, nm, off, A32_RAW, lo, hi, st, 0, 0, 0, 0, 0, unit, nullptr, 0, onLo, onHi, 0, 0, 0, 0, 0, am32ReadFw(off)}
 /** @brief As F_SCALED(), with raw values outside @c onLo..@c onHi shown as `OFF`. */
 #define F_SCALED_LIMIT(grp, nm, off, lo, hi, st, m, d, a, unit, onLo, onHi)    \
-	{grp, nm, off, A32_SCALED, lo, hi, st, 0, 0, m, d, a, unit, nullptr, 0, onLo, onHi, 0, 0, 0, 0, 0}
+	{grp, nm, off, A32_SCALED, lo, hi, st, 0, 0, m, d, a, unit, nullptr, 0, onLo, onHi, 0, 0, 0, 0, 0, am32ReadFw(off)}
 /** @brief As F_RAW(), with @c hi accepted from AM32 firmware @c fw on and @c old below it. */
 #define F_RAW_FW(grp, nm, off, lo, hi, st, unit, fw, old)                     \
-	{grp, nm, off, A32_RAW, lo, hi, st, 0, 0, 0, 0, 0, unit, nullptr, 0, 0, 0, fw, old, 0, 0, 0}
+	{grp, nm, off, A32_RAW, lo, hi, st, 0, 0, 0, 0, 0, unit, nullptr, 0, 0, 0, fw, old, 0, 0, 0, am32ReadFw(off)}
 /** @brief As F_ENUM(), with @c cnt labels of which the editor offers 0..@c hi. */
 #define F_ENUM_TO(grp, nm, off, tbl, cnt, hi)                                  \
-	{grp, nm, off, A32_ENUM, 0, hi, 1, 0, 0, 0, 0, 0, "", tbl, cnt, 0, 0, 0, 0, 0, 0, 0}
+	{grp, nm, off, A32_ENUM, 0, hi, 1, 0, 0, 0, 0, 0, "", tbl, cnt, 0, 0, 0, 0, 0, 0, 0, am32ReadFw(off)}
 /** @} */
 
 const Am32Field AM32_FIELDS[] = {
@@ -91,7 +101,7 @@ const Am32Field AM32_FIELDS[] = {
 	// that with a single mul/div, so the type carries the rule.
 	// @see am32AdvanceDeciDeg()
 	{"TIMING", "ADVANCE", AM32_OFF_ADVANCE, A32_ADVANCE, 10, 42, 1, 0, 0,
-	 0, 0, 0, "DEG", nullptr, 0, 0, 0, 0, 0, 0, 0, 0},
+	 0, 0, 0, "DEG", nullptr, 0, 0, 0, 0, 0, 0, 0, 0, am32ReadFw(AM32_OFF_ADVANCE)},
 	F_BOOL  ("TIMING", "AUTO ADVANCE",    0x2F, 0),
 	// AM32 accepts 8..144 kHz from 2.19 on (`pwm_frequency < 145`), 8..48
 	// before (`< 49`, v2.05 to v2.18).
@@ -135,7 +145,7 @@ const Am32Field AM32_FIELDS[] = {
 	// above mean none. The configurator's slider ends at 202 A, which it
 	// shows as disabled; its presets read 102.
 	{"LIMITS", "CURRENT LIMIT", 0x2C, A32_SCALED, 0, 102, 1, 0, 0, 2, 1, 0, "A", nullptr, 0,
-	 1, 100, 0, 0, 221, 99, 0},
+	 1, 100, 0, 0, 221, 99, 0, am32ReadFw(0x2C)},
 
 	// ---- Input -----------------------------------------------------------
 	// The editor offers 0..4, as the configurator does; a stored DRONECAN, 5,
@@ -164,7 +174,7 @@ const Am32Field AM32_FIELDS[] = {
 	// 0.5..50 V. 2.19 and 2.20 compare the raw byte with the 10 mV figure,
 	// so below 2.21 it reads as the plain byte.
 	{"ADVANCED", "ABS VOLT CUT", 0x08, A32_SCALED, 1, 100, 1, 3, 0, 1, 2, 0, "V", nullptr, 0,
-	 0, 0, 0, 0, 0, 0, 221},
+	 0, 0, 0, 0, 0, 0, 221, am32ReadFw(0x08)},
 	F_RAW   ("ADVANCED", "CURRENT P",     0x09, 0, 255, 1, "", 3),
 	F_RAW   ("ADVANCED", "CURRENT I",     0x0A, 0, 255, 1, "", 3),
 	F_RAW   ("ADVANCED", "CURRENT D",     0x0B, 0, 255, 1, "", 3),
@@ -187,6 +197,13 @@ void am32FormatValue(const Am32Field *f, const uint8_t *eeprom, char *out, int o
 
 	if (am32ValueOff(f, eeprom)) {
 		snprintf(out, outLen, "OFF");
+		return;
+	}
+	// A number outside what the editor offers on this firmware: AM32 ignores
+	// it or puts its own default in its place, so the byte, not a reading.
+	if ((f->type == A32_RAW || f->type == A32_SCALED) &&
+	    (raw < f->rawMin || raw > am32FieldMax(f, eeprom))) {
+		snprintf(out, outLen, "? (%u)", raw);
 		return;
 	}
 
@@ -333,9 +350,11 @@ bool am32Is3d(const uint8_t *eeprom) {
 
 bool am32InputNotDshot(const uint8_t *eeprom) {
 	uint8_t v = eeprom[AM32_OFF_INPUT_TYPE];
-	// loadEEpromSettings(): 0, 1 and 4 take DShot, 10 and above are AUTO.
-	// SERIAL and 5 to 9 match no case that sets EDT_ARMED.
-	return v < 10 && v != AM32_INPUT_AUTO && v != AM32_INPUT_DSHOT && v != AM32_INPUT_EDT_ARM;
+	// loadEEpromSettings(): 0 and 1 set EDT_ARMED, 10 and above are AUTO.
+	// SERIAL and 5 to 9 match no case that sets it. EDT ARM sets it only on
+	// the EDT enable, and dshot.c clears it on every zero frame; the tester
+	// sends zero frames after each enable, so the throttle is dropped too.
+	return v < 10 && v != AM32_INPUT_AUTO && v != AM32_INPUT_DSHOT;
 }
 
 bool am32Plausible(const uint8_t *eeprom) {
@@ -349,5 +368,10 @@ bool am32Plausible(const uint8_t *eeprom) {
 
 bool am32LayoutKnown(const uint8_t *eeprom) {
 	uint8_t rev = eeprom[AM32_OFF_LAYOUT_REVISION];
-	return rev >= 1 && rev <= AM32_LAYOUT_MAX_KNOWN;
+	return rev >= AM32_LAYOUT_MIN_KNOWN && rev <= AM32_LAYOUT_MAX_KNOWN;
+}
+
+bool am32FieldShown(const Am32Field *f, const uint8_t *eeprom) {
+	if (!am32FieldApplies(f, eeprom[AM32_OFF_LAYOUT_REVISION])) return false;
+	return !f->readFw || am32Firmware(eeprom) >= f->readFw;
 }
