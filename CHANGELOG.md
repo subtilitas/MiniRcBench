@@ -546,6 +546,63 @@ protocol.
   `testLayoutTable()` in `test/test_ids.cpp`, `testAm32LayoutTable()` and
   checks in `test_menu.cpp`, `test_kst_ui.cpp`, `test_hitec_ui.cpp` and
   `test_hitec_view.cpp`.
+- After v0.1.0-rc1 (a93e1c1): names and SETTINGS of menu structure B, slice 3
+  of [menu-b.md](docs/design/menu-b.md) (decisions 9, 10 and 15 b, e, f, h,
+  j, k):
+  - SETTINGS' WIRING rows read SIG PIN, DSHOT, KISS TELEM and AUX PIN. SIG
+    PIN and AUX PIN show their J5 pin under the value (`J5 PIN 2` for GP0,
+    `J5 PIN 1` for GP1), both act whatever KISS is, and a step of either onto
+    the other's GPIO swaps SIG and AUX, in place of skipping it.
+    `settingsValidate()` moves AUX off SIG in a stored block, whatever KISS
+    is, and KISS keeps its switch; an AUX pin the board does not free still
+    switches KISS off and takes the default. The stored block is unchanged,
+    version 5.
+  - SERVO SUPPLY is a core section of SETTINGS after WIRING, no longer KST
+    SERVO's (`UI_KST.settings` is null). Its first value reads `OWN`, the
+    stored 0, and `GP28` and `GP29` show `J4 PIN 11` and `J4 PIN 12` under
+    the value. KST's switched search that finds no servo says
+    `SETTINGS > SERVO SUPPLY AT OWN`.
+  - MENU's strip reads `SIG GP0  AUX GP1  DSHOT600` in place of
+    `GP0  600 KBIT/S`. While the pin claim is not free it reads
+    `DSHOT RESTARTING ON SIG GP0` in amber, and the rows that claim the pins
+    and SETTINGS are drawn disabled under their own status in place of
+    `PINS BUSY`. A tool refused for another claim, which no path through the
+    screens reaches, reads `WAIT: DSHOT RESTARTING`.
+  - The tester's top row reads `DSHOT600` in place of `DS600`, and its
+    `IDLE ns` countdown starts at y 11 in place of y 7, under the rate:
+    `DSHOT1200` ends at x 156, right of where `IDLE 5s` starts.
+  - With KISS on, SETTINGS' line over LINK reads
+    `SWAP THE ESC'S SIGNAL AND KISS WIRES` in place of the servo warning
+    while SIG is off the boot pin: a step of SIG PIN or AUX PIN swaps the
+    two, so DShot drives the wire the ESC's KISS pad was on.
+  - SETTINGS' note line reads `NOTHING SAVED: DEFAULTS IN USE` in place of
+    `COMPILED DEFAULTS IN USE`.
+  - KST's field labels REVERSION, ALLOW UNCONT, UNCONTROLLED POS and
+    UNCONTROLLED TIME read REVERSED, FAILSAFE MOVE, FAILSAFE POSITION and
+    FAILSAFE TIME, the words of their warnings. The card files are
+    unchanged.
+  - The screens name SIG by role and number: SERVO TESTER's caption
+    `SIG GP0  50 HZ  1000-2000 US` and `SIG+AUX  50 HZ  1000-2000 US`, with
+    the role alone, `SIG  333 HZ  1000-2000 US`, or `SIG+AUX  333 HZ`, where
+    the line would reach the widest chip; `TAKING SIG GP0` and
+    `SIG GP0 COULD NOT BE TAKEN (PWM)` on SERVO TESTER, KST SERVO and HITEC
+    SERVO; `AN ESC ANSWERS ON SIG GP0.` and `RELEASING SIG GP0` on SERVO
+    TESTER and KST SERVO; HITEC SERVO's family view
+    `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` and
+    `RELEASING SIG GP0 FROM DSHOT`; the KST and Hitec strips,
+    `SIG GP0  TRY 12  1.4 S`,
+    `SIG GP0  SUPPLY ON`; AM32 CONFIG's `RELEASING SIG GP0`; SET's
+    `KISS WIRE ON AUX GP1 IS LIVE.` and
+    `SIG AND AUX ARE THE SAME GPIO.` / `SET SIG PIN OR AUX PIN IN SETTINGS.`
+  Host tests `testSettingsKiss()`, `testSettingsServoSupply()` and
+  `testAm32ClaimWords()` in test_ui.cpp, `testSupplySection()` in
+  test_menu.cpp, `testKissNeedsItsOwnPin()` in test_settings.cpp,
+  `testPinNames()` in test_servo.cpp, `testSettingsConnectorLines()` in
+  test_ui.cpp against the board header's connector table,
+  `testSwitchedTimeout()` in
+  test_kst_ui.cpp, `testBusyRefusal()` in test_hitec_ui.cpp and the label
+  checks in test_kst_view.cpp; the wiki shows `menu-restarting.png` in place
+  of `menu-pins-busy.png`.
 - After v0.1.0-rc1 (a93e1c1): SERVO TESTER → SET: a TYPE, MIN or MAX step that
   leaves the profile past its travel and changes TYPE or takes MIN or MAX
   further out than the applied profile waits for `HOLD TO APPLY`, with the amber

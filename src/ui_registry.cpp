@@ -15,11 +15,11 @@
 /** @brief One line per row, in MENU order; the number is the widest status in characters. */
 constexpr UiMenuEntry UI_MENU[] = {
 	{ "BEEP THE ESC",  8, &UI_BEEP     },   // ui_menu.cpp: DISARMED, REFUSED
-	{ "AM32 CONFIG",   9, &UI_AM32     },   // ui_am32.cpp: GP0, PINS BUSY
-	{ "SERVO TESTER",  9, &UI_SERVO    },   // ui_servo.cpp: GP0+1, PINS BUSY
-	{ "KST SERVO",     9, &UI_KST      },   // ui_kst.cpp: GP0, PINS BUSY
-	{ "HITEC SERVO",   9, &UI_HITEC    },   // ui_hitec.cpp: GP0, PINS BUSY
-	{ "SETTINGS",      9, &UI_SETTINGS },   // ui_settings.cpp: PINS BUSY, UNSAVED
+	{ "AM32 CONFIG",   4, &UI_AM32     },   // ui_am32.cpp: GP0
+	{ "SERVO TESTER",  7, &UI_SERVO    },   // ui_servo.cpp: GP0+1
+	{ "KST SERVO",     4, &UI_KST      },   // ui_kst.cpp: GP0
+	{ "HITEC SERVO",   4, &UI_HITEC    },   // ui_hitec.cpp: GP0
+	{ "SETTINGS",      7, &UI_SETTINGS },   // ui_settings.cpp: UNSAVED, UPDATED
 	{ "SD LOG",       10, &UI_SDLOG    },   // ui_sdlog.cpp: CARD ERROR
 };
 constexpr uint8_t UI_MENU_COUNT = (uint8_t)(sizeof(UI_MENU) / sizeof(UI_MENU[0]));

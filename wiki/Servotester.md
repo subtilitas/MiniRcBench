@@ -32,10 +32,10 @@ und Masse.
      -  ----------------+-----------------------------  Servo -   (braun oder schwarz)
                         |
   Platine GND  ---------+
-  Platine GP0  ----------------------------------------  Signal Servo A (orange oder weiß)
-  Platine GP1  ----------------------------------------  Signal Servo B, nur bei zwei Servos
+  Platine SIG  ----------------------------------------  Signal Servo A (orange oder weiß)
+  Platine AUX  ----------------------------------------  Signal Servo B, nur bei zwei Servos
 
-  GP0 = J4 Pin 9 oder J5 Pin 2, GP1 = J4 Pin 10 oder J5 Pin 1,
+  SIG GP0 = J4 Pin 9 oder J5 Pin 2, AUX GP1 = J4 Pin 10 oder J5 Pin 1,
   GND = J4 Pin 1 oder 5 oder J5 Pin 4
 ```
 
@@ -49,9 +49,12 @@ und Masse.
 - Schalte zuerst die Platine ein und dann die Servoversorgung, und beim
   Ausschalten zuerst die Servoversorgung.
 - Verbinde die beiden Massen einmal, an der Platine.
-- Servo A hängt am ESC-Pin, Servo B am KISS-Pin, so wie unter
-  **MENU → SETTINGS** eingestellt. Voreingestellt sind GP0 und GP1.
-- Zieh jeden ESC vom ESC-Pin ab. Der Bildschirm wartet, solange ein ESC
+- Servo A hängt an SIG, dem ESC-Pin, Servo B an AUX, dem KISS-Pin, so wie
+  unter **MENU → SETTINGS → SIG PIN** und **AUX PIN** eingestellt, die den
+  J5-Pin unter dem Wert zeigen. Voreingestellt sind GP0 und GP1. AUX PIN
+  wirkt, ob KISS an oder aus ist, und ein Schritt einer der beiden Zeilen
+  tauscht die beiden.
+- Zieh jeden ESC von SIG ab. Der Bildschirm wartet, solange ein ESC
   darauf antwortet, erkennt aber nicht jeden ESC.
 
 ---
@@ -61,7 +64,7 @@ und Masse.
 **MENU → SERVO TESTER** öffnen.
 
 Der Bildschirm übernimmt die beiden Signalpins vom ESC-Treiber. Antwortet ein
-ESC auf dem ESC-Pin, wartet er und zeigt `AN ESC ANSWERS ON GP0.` Zieh den
+ESC auf SIG, wartet er und zeigt `AN ESC ANSWERS ON SIG GP0.` Zieh den
 ESC ab; 500 ms später übernimmt der Bildschirm die Pins von selbst.
 Servoimpulse von 1000 µs bis 2000 µs sind für viele ESCs ein gültiges
 Gassignal.
@@ -74,14 +77,17 @@ Position, wird kraftlos oder fährt in seine eigene Failsafe-Stellung.
 
 <img src="img/servo-safe.png" width="240" alt="Der Servobildschirm in SAFE">
 
-Die Zeile unter dem Titel zeigt den Pin, die Framerate und den Impulsbereich,
-dazu eine Statusanzeige: `SAFE` (grün), `RUNNING` (rot) oder `STALLED`
-(magenta).
+Die Zeile unter dem Titel zeigt den Pin mit Rolle und Nummer, die Framerate
+und den Impulsbereich, `SIG GP0  50 HZ  1000-2000 US`, oder
+`SIG+AUX  50 HZ  1000-2000 US` mit zwei Servos, dazu eine Statusanzeige:
+`SAFE` (grün), `RUNNING` (rot) oder `STALLED` (magenta). Bei 333 Hz mit
+einem MIN ab 1000 µs hat die Zeile keinen Platz für die Nummer und zeigt
+`SIG  333 HZ  1000-2000 US`, oder `SIG+AUX  333 HZ` mit zwei Servos.
 
 In SAFE mit einem Servo steht rechts in der Anzeigezeile `TWO SERVOS:` und
 `SET > SERVOS`: Die Zeile SERVOS des SET-Bildschirms schaltet Servo B ein
-(siehe [Zwei Servos](#zwei-servos)). Solange der KISS-Pin verweigert ist,
-fehlt der Hinweis.
+(siehe [Zwei Servos](#zwei-servos)). Solange AUX verweigert ist, fehlt der
+Hinweis.
 
 Steht **SERVO SUPPLY** unter SETTINGS auf `GP28` oder `GP29`, zeigt eine
 zweite Zeile unter dem Titel `GP28 SUPPLY STAYS OFF HERE.` in Bernstein. Der
@@ -144,7 +150,7 @@ Statusanzeige zeigt `STALLED`, und der Bildschirm meldet
 
 ## Zwei Servos
 
-Stell auf dem SET-Bildschirm `SERVOS` auf `TWO`. Servo B hängt am KISS-Pin.
+Stell auf dem SET-Bildschirm `SERVOS` auf `TWO`. Servo B hängt an AUX.
 Beide teilen sich ein Profil und eine Framerate.
 
 <img src="img/servo-two.png" width="240" alt="Zwei Servos">
@@ -154,12 +160,13 @@ auf denselben Winkel. Das gewählte Horn ist breit gezeichnet. Mit
 `REVERSE B` läuft B gegenläufig, wenn beide folgen, für ein Paar, das
 spiegelbildlich eingebaut ist.
 
-Zwei Servos brauchen einen freien KISS-Pin. Kommen dort KISS-Telegramme an,
-oder sind ESC-Pin und KISS-Pin unter SETTINGS derselbe Pin, bietet der
-Bildschirm nur ein Servo an, und der SET-Bildschirm nennt den Grund.
+Zwei Servos brauchen ein freies AUX. Kommen dort KISS-Telegramme an, bietet
+der Bildschirm nur ein Servo an, und der SET-Bildschirm nennt den Grund:
+`KISS WIRE ON AUX GP1 IS LIVE.` SETTINGS legt SIG und AUX nie auf einen Pin;
+auf anderem Weg so gesetzte Pins zeigen `SIG AND AUX ARE THE SAME GPIO.`
 Solange der Bildschirm auf die Pins wartet, etwa weil ein ESC antwortet, weiß
-er nicht, ob der KISS-Pin frei ist, und `TWO` lässt sich wählen. Ist der
-KISS-Pin dann belegt, übernimmt der Bildschirm nur den ESC-Pin und schaltet
+er nicht, ob AUX frei ist, und `TWO` lässt sich wählen. Ist AUX dann belegt,
+übernimmt der Bildschirm nur SIG und schaltet
 auf ein Servo zurück; `TWO` bleibt aus, bis du den Bildschirm erneut öffnest.
 Das gilt auch für ein `TWO`, das noch auf `HOLD TO APPLY` wartet: Es geht auf
 ein Servo zurück, und ein Warten, das nur für `TWO` bestand, endet.
@@ -268,9 +275,9 @@ Servobildschirm öffnest, beginnt er mit STANDARD PWM, 50 Hz und einem Servo.
 
 `BACK` beendet die Impulse und fordert dich auf, das Servo abzuziehen. Der
 letzte Impuls läuft vorher vollständig aus; bei 50 Hz dauert das bis zu
-41 ms. Danach hält ein schwacher Pull-down den ESC-Pin auf Low, bis DShot
-wieder läuft. Mit zwei Servos hält er auch den KISS-Pin auf Low, bis der
-KISS-Empfänger ihn übernimmt; ist KISS aus, bleibt er auf Low.
+41 ms. Danach hält ein schwacher Pull-down SIG auf Low, bis DShot wieder
+läuft. Mit zwei Servos hält er auch AUX auf Low, bis der KISS-Empfänger ihn
+übernimmt; ist KISS aus, bleibt er auf Low.
 
 <img src="img/servo-unplug.png" width="240" alt="UNPLUG THE SERVO">
 
@@ -286,15 +293,16 @@ erscheint.
 
 ## Wenn es nicht funktioniert
 
-- **`AN ESC ANSWERS ON GP0.`** Ein ESC hängt am ESC-Pin. Zieh ihn ab.
-- **`GP0 COULD NOT BE TAKEN (PWM)`.** Die Platine konnte ihren
+- **`AN ESC ANSWERS ON SIG GP0.`** Ein ESC hängt an SIG, dem ESC-Pin. Zieh
+  ihn ab.
+- **`SIG GP0 COULD NOT BE TAKEN (PWM)`.** Die Platine konnte ihren
   Impulsausgang nicht einrichten. Tippe auf `RETRY`.
 
-  <img src="img/servo-bind.png" width="240" alt="GP0 COULD NOT BE TAKEN (PWM) mit RETRY">
+  <img src="img/servo-bind.png" width="240" alt="SIG GP0 COULD NOT BE TAKEN (PWM) mit RETRY">
 
-- **`TWO` lässt sich nicht wählen.** Das KISS-Kabel ist aktiv, oder beide
-  Pins sind unter SETTINGS derselbe Pin. Der SET-Bildschirm nennt den Grund,
-  wenn `SERVOS` ausgewählt ist.
+- **`TWO` lässt sich nicht wählen.** Das KISS-Kabel an AUX ist aktiv, oder
+  beide Pins wurden auf anderem Weg als über SETTINGS auf einen Pin gesetzt.
+  Der SET-Bildschirm nennt den Grund, wenn `SERVOS` ausgewählt ist.
 - **Das Servo bewegt sich nicht.** Prüfe, ob die Statusanzeige `RUNNING`
   zeigt, ob das Servo eine eigene Versorgung hat und ob seine Masse mit der
   der Platine verbunden ist. Ob ein Servo die 3,3-V-Impulse der Platine

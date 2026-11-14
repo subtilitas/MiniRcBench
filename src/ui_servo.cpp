@@ -349,6 +349,32 @@ static void sweepText(char *buf, size_t n) {
 /** @brief Draw @p text centred at @p y, scale 1. */
 static void line(int y, const char *text, uint16_t c) { gfxTextCenter(y, text, c, 1); }
 
+/**
+ * @brief Where the strip's widest chip, RUNNING or STALLED, starts: the
+ *        caption ends 4 px before it whatever the chip reads, so it does
+ *        not change when the servo starts.
+ */
+#define SV_CAP_END (GFX_W - UI_MARGIN - (6 * 7 - 1 + 12) - 4)
+
+/**
+ * @brief The strip's caption: the pin by role and number, the frame rate
+ *        and the travel, `SIG GP0  50 HZ  1000-2000 US`; `SIG+AUX` with two
+ *        servos. Where that runs past @ref SV_CAP_END the pin goes by its
+ *        role alone, `SIG`, and with two servos the travel goes.
+ * @param buf  At least 40 bytes.
+ * @param n    Room in @p buf.
+ * @param two  Two servos.
+ * @param sig  SIG's GPIO.
+ */
+static void servoCaption(char *buf, size_t n, bool two, unsigned sig) {
+	const ServoProfile &p = s_profile;
+	if (two) snprintf(buf, n, "SIG+AUX  %u HZ  %u-%u US", p.rateHz, p.minUs, p.maxUs);
+	else     snprintf(buf, n, "SIG GP%u  %u HZ  %u-%u US", sig, p.rateHz, p.minUs, p.maxUs);
+	if (UI_MARGIN + gfxTextW(buf, 1) <= SV_CAP_END) return;
+	if (two) snprintf(buf, n, "SIG+AUX  %u HZ", p.rateHz);
+	else     snprintf(buf, n, "SIG  %u HZ  %u-%u US", p.rateHz, p.minUs, p.maxUs);
+}
+
 // ---------------------------------------------------------------------------
 // the SERVO view
 // ---------------------------------------------------------------------------
@@ -378,12 +404,7 @@ static void drawTop(const char *title, bool caption) {
 	uiStripClear();
 	if (!caption) return;
 	char buf[40];
-	if (twoServos())
-		snprintf(buf, sizeof(buf), "GP%u+%u  %u HZ  %u-%u US", k.sig, k.aux,
-		         s_profile.rateHz, s_profile.minUs, s_profile.maxUs);
-	else
-		snprintf(buf, sizeof(buf), "GP%u  %u HZ  %u-%u US", k.sig, s_profile.rateHz,
-		         s_profile.minUs, s_profile.maxUs);
+	servoCaption(buf, sizeof(buf), twoServos(), k.sig);
 	if (k.supply) {
 		char sup[40];
 		snprintf(sup, sizeof(sup), SERVO_UI_SUPPLY_FMT, (unsigned)k.supply);
@@ -412,25 +433,29 @@ static void claimMessage(const char **l1, const char **l2, const char **l3,
 	if (!s_claimed) {
 		switch (s_refusal) {
 			case ClaimRefusal::EscAnswering:
-				snprintf(a, sizeof(a), "AN ESC ANSWERS ON GP%u.", sig);
+				snprintf(a, sizeof(a), "AN ESC ANSWERS ON SIG GP%u.", sig);
 				*l1 = a; *l2 = "UNPLUG IT: SERVO PULSES"; *l3 = "READ AS THROTTLE.";
 				return;
 			case ClaimRefusal::Armed: *l1 = "DISARM FIRST"; return;
-			default:                  *l1 = "PINS BUSY";    return;
+			default:                  *l1 = UI_WAIT_RESTART_TEXT; return;
 		}
 	}
 	ClaimState cs = pinClaimState();
-	if (cs == ClaimState::Stopping) { *l1 = "RELEASING DSHOT PIN"; *col = C_DIM; return; }
+	if (cs == ClaimState::Stopping) {
+		snprintf(a, sizeof(a), "RELEASING SIG GP%u", sig);
+		*l1 = a; *col = C_DIM;
+		return;
+	}
 	uint8_t err = pinClaimJobError() ? pinClaimJobError() : s_st.bindError;
 	if (err) {
 		static const char *const WHY[] = {"", "REFUSED", "PWM", "PIO", "DMA", "CLOCK"};
-		snprintf(b, sizeof(b), "GP%u COULD NOT BE TAKEN (%s)", sig, WHY[err < 6 ? err : 1]);
+		snprintf(b, sizeof(b), "SIG GP%u COULD NOT BE TAKEN (%s)", sig, WHY[err < 6 ? err : 1]);
 		*l1 = b;
 		*retry = true;
 		return;
 	}
 	if (cs != ClaimState::Running) {
-		snprintf(a, sizeof(a), "TAKING GP%u", sig);
+		snprintf(a, sizeof(a), "TAKING SIG GP%u", sig);
 		*l1 = a; *col = C_DIM;
 	}
 }
@@ -822,10 +847,12 @@ static void setNote(const char **l1, const char **l2, uint16_t *col) {
 	bool aux = s_auxRefusal != ClaimRefusal::None;
 	if (aux && s_sel == ROW_SERVOS) {
 		if (s_auxRefusal == ClaimRefusal::KissLive) {
-			snprintf(a, sizeof(a), "KISS WIRE ON GP%u IS LIVE.", gpioOf(PIN_AUX));
+			snprintf(a, sizeof(a), "KISS WIRE ON AUX GP%u IS LIVE.", gpioOf(PIN_AUX));
 			*l1 = a; *l2 = "TWO SERVOS NEED IT UNPLUGGED.";
 		} else {
-			*l1 = "ESC AND KISS PIN ARE THE SAME GPIO."; *l2 = "MOVE THE ESC PIN IN SETTINGS.";
+			// Unreachable through SETTINGS, whose steppers swap SIG and
+			// AUX; a backstop for pins configured some other way.
+			*l1 = SERVO_UI_SAME_PIN_1; *l2 = SERVO_UI_SAME_PIN_2;
 		}
 		return;
 	}

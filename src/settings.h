@@ -76,15 +76,20 @@ struct Settings {
 	 * offers to change it.
 	 */
 	uint8_t  boardId;
-	uint8_t  dshotPin;     /**< GPIO carrying the ESC signal wire. */
+	uint8_t  dshotPin;     /**< SIG: GPIO carrying the ESC signal wire. */
 	uint16_t dshotKbaud;   /**< DShot bitrate: 150, 300, 600 or 1200. */
 	uint8_t  kissEnable;   /**< Non-zero to claim a UART for KISS telemetry. */
-	uint8_t  kissPin;      /**< GPIO the ESC's telemetry pad connects to. Any free one. */
+	/** @brief AUX: GPIO the ESC's telemetry pad connects to, and servo B's.
+	 *         Any free one but SIG's. */
+	uint8_t  kissPin;
 	uint8_t  poles;        /**< Motor pole count, for eRPM to RPM. */
 	uint16_t maxThrottle;  /**< Throttle ceiling, out of 0..2000. */
 	uint8_t  backlight;    /**< Preferred backlight level, @ref BACKLIGHT_MIN to 255. */
 	uint8_t  highContrast; /**< Non-zero selects @ref Theme::HighContrast. */
-	uint8_t  servoSupply;  /**< The switched servo supply: 0 none, 1 an enable on GP28, 2 on GP29. @see servo_supply.h */
+	/** @brief The switched servo supply: 0 none (OWN on the screen: the
+	 *         servo has its own supply), 1 an enable on GP28, 2 on GP29.
+	 *         @see servo_supply.h */
+	uint8_t  servoSupply;
 	uint8_t  currentSense; /**< The current sensor: 0 none, 1 an INA219 on J3. @see sense.h */
 };
 
@@ -158,10 +163,12 @@ void settingsDefaults(Settings *out);
  *
  * Repairs, in order: pole count even and in range; throttle ceiling a whole
  * number of steps and within @ref MAX_THROTTLE_CEILING; DShot bitrate one of
- * the four legal values; board id @ref BOARD_ID_LCD_2_8; ESC pin free; KISS
- * pin free and not the same pin as the ESC — KISS is switched off rather than
- * moved if it is not; servo supply 0 to 2, any other value 0; current
- * sensor 0 or 1, any other value 0.
+ * the four legal values; board id @ref BOARD_ID_LCD_2_8; SIG, the ESC pin,
+ * free; AUX, the KISS pin, free and not SIG's, whatever KISS is. An AUX pin
+ * the board does not free takes the board's default and switches KISS off.
+ * AUX on SIG's GPIO moves to the next free pin after SIG, and KISS keeps its
+ * switch; only with no second free pin is KISS switched off. Servo supply
+ * 0 to 2, any other value 0; current sensor 0 or 1, any other value 0.
  *
  * @param[in,out] s Settings to repair in place.
  * @return true if nothing needed changing.
@@ -181,10 +188,10 @@ bool settingsValidate(Settings *s);
  * read from its offset in that layout, each newer field takes its default,
  * and settingsValidate() then judges the result as it judges a version 5
  * block. A version 3 SERVO SUPPLY of 1 named an enable on GP0, which the
- * signal wire now uses: it loads as 0, none. A KISS pin this board does not
- * free, with KISS off, takes the board's default. Flash is not rewritten:
- * the old block stays until a save lands, and every boot until then carries
- * it over again.
+ * signal wire now uses: it loads as 0, OWN. A KISS pin this board does not
+ * free takes the board's default, as settingsValidate() repairs it. Flash is
+ * not rewritten: the old block stays until a save lands, and every boot
+ * until then carries it over again.
  */
 void settingsLoad();
 

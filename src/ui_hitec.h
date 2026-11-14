@@ -65,7 +65,7 @@ HitecView uiHitecView();
 /** @brief The strip's second line under it. */
 #define HITEC_UI_CHOOSE "CONNECT THE SERVO, CHOOSE ITS FAMILY"
 /** @brief The strip's first line while an ESC answers on SIG: amber. */
-#define HITEC_UI_ESC_FMT "AN ESC ANSWERS ON GP%u: UNPLUG IT."
+#define HITEC_UI_ESC_FMT "AN ESC ANSWERS ON SIG GP%u: UNPLUG IT."
 /** @brief The strip's second line under it. */
 #define HITEC_UI_ESC_2 "DSHOT STAYS ON THE PIN UNTIL THEN."
 /** @brief Why CLASSIC is drawn disabled, first line: the hardware it needs. */

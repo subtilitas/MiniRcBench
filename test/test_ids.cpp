@@ -110,14 +110,13 @@ static void testMenuSettingsLog() {
 	checkTrue("SETTINGS opens", uiCurrentScreen() == UiScreenId::Settings);
 	idFrames(1);
 	checkControlTable("SETTINGS at 0 px");
-	revealRow((int)SettingsRowId::KissPin);
-	checkControlTable("SETTINGS, KISS PIN in view");
+	revealRow((int)SettingsRowId::Aux);
+	checkControlTable("SETTINGS, AUX PIN in view");
 	bool kissOn = settings()->kissEnable != 0;
-	checkTrue("KISS PIN follows KISS TELEM",
-	          ctlEnabled(UI_ROW(SettingsRowId::KissPin, Plus)) == kissOn);
+	checkTrue("AUX PIN acts", ctlEnabled(UI_ROW(SettingsRowId::Aux, Plus)));
 	tapId(UI_ROW(SettingsRowId::Kiss, Toggle));
 	checkTrue("KISS TELEM by id toggles it", (settings()->kissEnable != 0) != kissOn);
-	checkTrue("and KISS PIN follows", ctlEnabled(UI_ROW(SettingsRowId::KissPin, Plus)) != kissOn);
+	checkTrue("and AUX PIN acts either way", ctlEnabled(UI_ROW(SettingsRowId::Aux, Plus)));
 	checkControlTable("SETTINGS, KISS toggled");
 	revealRow((int)SettingsRowId::BuiltFor);
 	checkTrue("BUILT FOR shows and has no control", ctlPresent(UI_ROW(SettingsRowId::BuiltFor, Row)) &&

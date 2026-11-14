@@ -1224,9 +1224,13 @@ static void testMenuBeepRow() {
 	frameAfter(1);
 	checkTrue("eRPM 500 ms old: NO ESC", menuChipIs(UI_MENU_NO_ESC, C_GRID));
 	// The widest text the chip shows keeps clear of the strip's caption,
-	// `GP29  1200 KBIT/S` at its widest: 17 characters from x 8.
+	// `SIG GP1  AUX GP0  DSHOT1200` at its widest on this board, whose
+	// signal pins are GP0 and GP1: 27 characters from x 8.
 	checkTrue("the widest chip clears the widest caption",
-	          UI_MARGIN + gfxTextW("GP29  1200 KBIT/S", 1) + 4 <=
+	          UI_MARGIN + gfxTextW("SIG GP1  AUX GP0  DSHOT1200", 1) + 4 <=
+	              GFX_W - UI_MARGIN - gfxTextW(UI_MENU_EDT_OFF, 1) - 12);
+	checkTrue("and the caption while DShot restarts",
+	          UI_MARGIN + gfxTextW("DSHOT RESTARTING ON SIG GP1", 1) + 4 <=
 	              GFX_W - UI_MARGIN - gfxTextW(UI_MENU_EDT_OFF, 1) - 12);
 	feedLiveTelemetry();
 	frames(2);
@@ -1308,6 +1312,120 @@ static void tapRowId(UiControlId id, IdExpect want = IdExpect::Enabled) {
 }
 
 /**
+ * @brief Whether SETTINGS row @p row, scrolled whole into view, reads
+ *        @p label at y+18, its value @p value in @p col at scale 2 and, under
+ *        the value, the connector line @p sub in C_DIM at y+27, both ending at
+ *        x 132; with @p sub null, nothing under the value. The value is at
+ *        y+8 on a row that has a connector line, OWN's empty one included,
+ *        and centred, at y+15, on a row that has none (@p subRow false).
+ */
+static bool settingsRowShows(int row, const char *label, const char *value, uint16_t col,
+                             const char *sub, bool subRow = true) {
+	revealRow(row);
+	UiRect r = ctlRect(UI_ROW(row, Row));
+	if (r.h != 44) return false;
+	if (!fakeTextIs(UI_MARGIN, r.y + 18, label, C_DIM, C_BG, 1)) return false;
+	// Nothing more of the label: blank for two character cells after it, on
+	// its rows under a raised value's (y+22 to y+24).
+	const uint16_t *lb = gfxBuffer();
+	for (int y = r.y + 22; y < r.y + 25; y++)
+		for (int x = UI_MARGIN + gfxTextW(label, 1); x < UI_MARGIN + gfxTextW(label, 1) + 12; x++)
+			if (lb[y * GFX_W + x] != C_BG) return false;
+	if (!fakeTextIs(132 - gfxTextW(value, 2), r.y + (subRow ? 8 : 15), value, col, C_BG, 2)) return false;
+	if (sub) return fakeTextIs(132 - gfxTextW(sub, 1), r.y + 27, sub, C_DIM, C_BG, 1);
+	const uint16_t *fb = gfxBuffer();
+	// Under the label's rows (to y+24) and the value's (to y+21, or y+28
+	// centred), to the row's foot.
+	for (int y = r.y + (subRow ? 25 : 29); y < r.y + 44; y++)
+		for (int x = 60; x < 133; x++)
+			if (fb[y * GFX_W + x] != C_BG) return false;
+	return true;
+}
+
+/**
+ * @brief Pin @p name ("GP0") of connector @p conn ("J5") in the board header's
+ *        connector table, read as tools/make_wiring.py reads it; 0 for none.
+ *        The suite runs in test/, so the header is ../src/.
+ */
+static int boardConnectorPin(const char *conn, const char *name) {
+	FILE *f = fopen("../src/board_rp2350_touch_lcd_2_8.h", "r");
+	if (!f) return 0;
+	char line[256], cur[8] = "";
+	int found = 0;
+	while (!found && fgets(line, sizeof(line), f)) {
+		const char *p = line;
+		while (*p == ' ' || *p == '\t') p++;
+		if (*p != '*') { cur[0] = '\0'; continue; }
+		p++;
+		while (*p == ' ') p++;
+		char c[8]; int count, used = 0;
+		if (sscanf(p, "%7[J0-9] (%dP):%n", c, &count, &used) == 2 && used > 0 && c[0] == 'J') {
+			snprintf(cur, sizeof(cur), "%s", c);
+			p += used;
+		} else if (!(cur[0] && p[0] >= '0' && p[0] <= '9' && strchr(p, '='))) {
+			cur[0] = '\0';
+			continue;
+		}
+		if (strcmp(cur, conn) != 0) continue;
+		int num, n;
+		char nm[16];
+		while (sscanf(p, " %d=%15s%n", &num, nm, &n) == 2) {
+			if (strcmp(nm, name) == 0) { found = num; break; }
+			p += n;
+		}
+	}
+	fclose(f);
+	return found;
+}
+
+/**
+ * @brief SIG PIN's and AUX PIN's J5 lines and SERVO SUPPLY's J4 line agree
+ *        with the board header's connector table.
+ */
+static void testSettingsConnectorLines() {
+	section("SETTINGS: the connector lines agree with the board header");
+	fakeFlashClear();
+	settingsLoad();
+	uiInit();
+	frames(2);
+	enterSettings();
+	for (uint8_t g = 0; g < 2; g++) {
+		settings()->dshotPin = g;
+		settings()->kissPin = (uint8_t)(1 - g);
+		tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
+		tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));   // a repaint
+		char gp[8], sub[16], what[64];
+		snprintf(gp, sizeof(gp), "GP%u", (unsigned)g);
+		int j5 = boardConnectorPin("J5", gp);
+		snprintf(sub, sizeof(sub), "J5 PIN %d", j5);
+		snprintf(what, sizeof(what), "SIG on %s: %s, as the header's J5 says", gp, sub);
+		checkTrue(what, j5 > 0 && settingsRowShows((int)SettingsRowId::Sig, "SIG PIN", gp, C_LIME, sub));
+		char agp[8], asub[16];
+		snprintf(agp, sizeof(agp), "GP%u", (unsigned)(1 - g));
+		int aj5 = boardConnectorPin("J5", agp);
+		snprintf(asub, sizeof(asub), "J5 PIN %d", aj5);
+		snprintf(what, sizeof(what), "AUX on %s: %s", agp, asub);
+		checkTrue(what, aj5 > 0 && settingsRowShows((int)SettingsRowId::Aux, "AUX PIN", agp, C_CYAN, asub));
+	}
+	for (uint8_t mode = 1; mode <= SERVO_SUPPLY_MODE_MAX; mode++) {
+		settings()->servoSupply = mode;
+		tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
+		tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
+		char gp[8], sub[16], what[64];
+		snprintf(gp, sizeof(gp), "GP%u", (unsigned)servoSupplyPinOf(mode));
+		int j4 = boardConnectorPin("J4", gp);
+		snprintf(sub, sizeof(sub), "J4 PIN %d", j4);
+		snprintf(what, sizeof(what), "SERVO SUPPLY %s: %s, as the header's J4 says", gp, sub);
+		checkTrue(what, j4 > 0 &&
+		          settingsRowShows((int)SettingsRowId::ServoSupply, "SERVO SUPPLY", gp, C_TEXT, sub));
+	}
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+	fakeFlashClear();
+	settingsLoad();
+}
+
+/**
  * @brief Drag SETTINGS' list by @p dy px: a press at x 60, on a label or a
  *        caption, which is no control, so the list scrolls.
  */
@@ -1344,7 +1462,7 @@ static void testSettingsWiring() {
 
 	// One step first: the board offers exactly two free pins, so an even
 	// number of steps lands back where it started and nothing would be dirty.
-	tapId(UI_ROW(SettingsRowId::Pin, Plus));
+	tapId(UI_ROW(SettingsRowId::Sig, Plus));
 	checkTrue("one step moves the pin", settings()->dshotPin != start);
 	checkTrue("changing the pin is unsaved", settingsDirty());
 	checkTrue("the change reached the DShot pump",
@@ -1353,9 +1471,9 @@ static void testSettingsWiring() {
 	// Then step all the way round and check every stop is legal.
 	bool allFree = true;
 	for (int i = 0; i < 6; i++) {
-		tapId(UI_ROW(SettingsRowId::Pin, Plus));
+		tapId(UI_ROW(SettingsRowId::Sig, Plus));
 		if (!settingsPinFree(settings()->dshotPin)) allFree = false;
-		tapId(UI_ROW(SettingsRowId::Pin, Minus));
+		tapId(UI_ROW(SettingsRowId::Sig, Minus));
 		if (!settingsPinFree(settings()->dshotPin)) allFree = false;
 	}
 	checkTrue("every step lands on a free GPIO", allFree);
@@ -1363,14 +1481,14 @@ static void testSettingsWiring() {
 	// The frame for the docs, at 0 px: the first rows and an unsaved change,
 	// with the ESC pin back on the boot pin (test_menu.cpp takes the frame
 	// with the pin's warning).
-	tapId(UI_ROW(SettingsRowId::Pin, Minus));
+	tapId(UI_ROW(SettingsRowId::Sig, Minus));
 	tapId(UI_ROW(SettingsRowId::Poles, Plus));
 	fakeDumpFrame("shot_settings.ppm");
 	tapId(UI_ROW(SettingsRowId::Poles, Minus));
-	tapId(UI_ROW(SettingsRowId::Pin, Plus));
+	tapId(UI_ROW(SettingsRowId::Sig, Plus));
 
 	// Bitrate halves and doubles through the four legal values, and wraps.
-	// DSHOT KBAUD's row is cut by the viewport's bottom at 0 px, 10 px of it
+	// DSHOT's row is cut by the viewport's bottom at 0 px, 10 px of it
 	// showing, so it is scrolled into view first.
 	settings()->dshotKbaud = 600;
 	tapRowId(UI_ROW(SettingsRowId::Speed, Minus));
@@ -1388,10 +1506,10 @@ static void testSettingsWiring() {
  *
  * Draws the expected label over the one on screen and compares the two
  * hashes, so the check is on the rendered glyphs rather than on a string the
- * UI meant to draw. The rectangle is the widest label, `DS1200`, at scale 1.
+ * UI meant to draw. The rectangle is the widest label, `DSHOT1200`, at scale 1.
  */
 static bool statusLabelIs(const char *text, uint16_t colour) {
-	const int x = 104, y = 3, w = 36, h = 7;
+	const int x = 104, y = 3, w = 53, h = 7;
 	uint32_t shown = fakeRegionHash(x, y, w, h);
 	gfxRect(x, y, w, h, C_PANEL);
 	gfxText(x, y, text, colour, 1);
@@ -1416,21 +1534,21 @@ static void testStatusBarBitrate() {
 	uint8_t pin = escTaskDshotPin();
 	escTaskConfigure(pin, 600, false, 0);
 	frames(2);
-	checkTrue("DS600 at 600 kbit/s", statusLabelIs("DS600", C_DIM));
+	checkTrue("DSHOT600 at 600 kbit/s", statusLabelIs("DSHOT600", C_DIM));
 
 	escTaskConfigure(pin, 150, false, 0);
 	frames(1);
-	checkTrue("DS150 once the pump runs at 150", statusLabelIs("DS150", C_DIM));
+	checkTrue("DSHOT150 once the pump runs at 150", statusLabelIs("DSHOT150", C_DIM));
 	escTaskConfigure(pin, 300, false, 0);
 	frames(1);
-	checkTrue("DS300 at 300", statusLabelIs("DS300", C_DIM));
+	checkTrue("DSHOT300 at 300", statusLabelIs("DSHOT300", C_DIM));
 	escTaskConfigure(pin, 1200, false, 0);
 	frames(1);
-	checkTrue("DS1200 at 1200", statusLabelIs("DS1200", C_DIM));
+	checkTrue("DSHOT1200 at 1200", statusLabelIs("DSHOT1200", C_DIM));
 
 	fakeSetEdtRequested(true);
 	frames(1);
-	checkTrue("cyan once EDT is requested", statusLabelIs("DS1200", C_CYAN));
+	checkTrue("cyan once EDT is requested", statusLabelIs("DSHOT1200", C_CYAN));
 
 	EscTelemetry tel;
 	memset(&tel, 0, sizeof(tel));
@@ -1443,18 +1561,20 @@ static void testStatusBarBitrate() {
 	feedLiveTelemetry();
 	escTaskConfigure(pin, DSHOT_SPEED_KBAUD, false, 0);
 	frames(1);
-	checkTrue("and the bitrate again when it clears", statusLabelIs("DS600", C_CYAN));
+	checkTrue("and the bitrate again when it clears", statusLabelIs("DSHOT600", C_CYAN));
 }
 
 /**
- * @brief KISS can only be switched on against a pin that can actually receive.
+ * @brief SIG PIN and AUX PIN: both live whatever KISS is, and a step of
+ *        either swaps the two, so they never share a GPIO; KISS TELEM
+ *        switches KISS on and off on AUX without moving a pin.
  *
- * On the 2.8" board there is exactly one such pin and it is also the default
- * ESC pin, so this is the case that decides whether the screen is honest or
- * merely tidy.
+ * The 2.8" board frees two pins, so every step of either row is a swap.
+ * Each step is checked against the pins it started from, at once: a step up
+ * and one down checked only at the end pass whether or not the row acts.
  */
 static void testSettingsKiss() {
-	section("SETTINGS: KISS needs a pin of its own");
+	section("SETTINGS: SIG PIN and AUX PIN swap, live whatever KISS is");
 
 	fakeFlashClear();
 	settingsLoad();
@@ -1462,78 +1582,67 @@ static void testSettingsKiss() {
 	frames(2);
 	enterSettings();
 
-	// Force the clash the board can create, then let the screen resolve it.
 	settings()->kissEnable = 0;
-	settings()->kissPin = settings()->dshotPin;
+	settings()->dshotPin = 0;
+	settings()->kissPin = 1;
 	tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
-
-	// This used to have a second outcome -- "the 2.8" has nowhere to put it, so
-	// it stays off" -- because a KISS pin had to be one of the eight a hardware
-	// UART can receive on, and that board frees exactly one of them: the pin
-	// the ESC starts on. The receiver is a PIO state machine now, so every
-	// board with two free pins can do this. @see pio_uart_rx.h
-	checkInt("KISS comes on", settings()->kissEnable, 1);
-	checkTrue("on a pin this board offers", settingsPinFree(settings()->kissPin));
-	checkTrue("and not the ESC's", settings()->kissPin != settings()->dshotPin);
-
-	// Stepping must not land back on the ESC's pin, however few the board
-	// leaves free. On the 2.8" that is a two-pin board with both spoken for, so
-	// the step has nowhere legal to go and stays put rather than colliding --
-	// which is the one case where "only legal values can be selected" and "the
-	// button does something" cannot both hold.
-	for (int i = 0; i < 4; i++) {
-		tapRowId(UI_ROW(SettingsRowId::KissPin, Plus));
-		checkTrue("stepping KISS never lands on the ESC pin",
-		          settings()->kissPin != settings()->dshotPin);
-		checkTrue("and never leaves the board's free set",
-		          settingsPinFree(settings()->kissPin));
+	tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));   // a repaint, KISS off again
+	checkTrue("SIG PIN: GP0, J5 PIN 2 under it",
+	          settingsRowShows((int)SettingsRowId::Sig, "SIG PIN", "GP0", C_LIME, "J5 PIN 2"));
+	checkTrue("AUX PIN: GP1, J5 PIN 1 under it",
+	          settingsRowShows((int)SettingsRowId::Aux, "AUX PIN", "GP1", C_CYAN, "J5 PIN 1"));
+	checkTrue("DSHOT: the rate alone, nothing under it",
+	          settingsRowShows((int)SettingsRowId::Speed, "DSHOT", "600", C_TEXT, nullptr, false));
+	for (int i = 0; i < 2; i++) {
+		uint8_t sig = settings()->dshotPin, aux = settings()->kissPin;
+		tapRowId(UI_ROW(SettingsRowId::Aux, Plus));
+		checkTrue("KISS off: AUX PIN + acts and swaps SIG and AUX",
+		          settings()->kissPin == sig && settings()->dshotPin == aux);
+		checkTrue("and DShot follows SIG", fakeWiring().dshotPin == settings()->dshotPin);
 	}
-	for (int i = 0; i < 4; i++) {
-		tapRowId(UI_ROW(SettingsRowId::Pin, Minus));
-		checkTrue("and stepping the ESC pin avoids the KISS pin too",
-		          settings()->dshotPin != settings()->kissPin);
-		checkTrue("staying inside the free set as well",
-		          settingsPinFree(settings()->dshotPin));
+	{
+		uint8_t sig = settings()->dshotPin, aux = settings()->kissPin;
+		tapRowId(UI_ROW(SettingsRowId::Aux, Minus));
+		checkTrue("AUX PIN - swaps them too",
+		          settings()->kissPin == sig && settings()->dshotPin == aux);
 	}
+	checkTrue("SIG on GP1: J5 PIN 1 under it",
+	          settings()->dshotPin == 1 &&
+	          settingsRowShows((int)SettingsRowId::Sig, "SIG PIN", "GP1", C_LIME, "J5 PIN 1"));
+	checkTrue("AUX on GP0: J5 PIN 2 under it",
+	          settingsRowShows((int)SettingsRowId::Aux, "AUX PIN", "GP0", C_CYAN, "J5 PIN 2"));
+	checkInt("and KISS stays off", settings()->kissEnable, 0);
 
-	// Switching it off is always available.
+	uint8_t sig0 = settings()->dshotPin, aux0 = settings()->kissPin;
+	tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
+	checkInt("KISS TELEM switches KISS on", settings()->kissEnable, 1);
+	checkTrue("on AUX, moving neither pin",
+	          settings()->dshotPin == sig0 && settings()->kissPin == aux0);
+	for (int i = 0; i < 2; i++) {
+		uint8_t sig = settings()->dshotPin, aux = settings()->kissPin;
+		tapRowId(UI_ROW(SettingsRowId::Sig, Minus));
+		checkTrue("KISS on: SIG PIN - swaps SIG and AUX",
+		          settings()->kissPin == sig && settings()->dshotPin == aux);
+		checkTrue("and the wiring follows both",
+		          fakeWiring().dshotPin == settings()->dshotPin &&
+		          fakeWiring().kissPin == settings()->kissPin && fakeWiring().kissEnable);
+		// Off the boot pin with KISS on, the line over LINK names the swap
+		// of the ESC's wires, not a servo.
+		bool off = settings()->dshotPin != settingsBootDshotPin();
+		bool swapShown = fakeTextIs(UI_MARGIN, 230, "SWAP THE ESC'S SIGNAL AND KISS WIRES",
+		                            C_AMBER, C_BG, 1);
+		checkTrue(off ? "SIG off the boot pin, KISS on: SWAP THE ESC'S SIGNAL AND KISS WIRES"
+		              : "SIG back on the boot pin: no swap line",
+		          off == swapShown);
+	}
+	checkTrue("no step left a pin outside the free set",
+	          settingsPinFree(settings()->dshotPin) && settingsPinFree(settings()->kissPin));
+	sig0 = settings()->dshotPin;
+	aux0 = settings()->kissPin;
 	tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
 	checkInt("toggling again switches it off", settings()->kissEnable, 0);
-
-	// ...and with it off, the pin row stops being a control. It used to look
-	// live and step a pin that was not in use, which SAVE then wrote to flash:
-	// a reconfiguration nobody asked for, on a row already reading "--", with
-	// nothing on the screen to say it had happened. Reported as #23, and the
-	// hard part of it is that the old behaviour was invisible rather than
-	// wrong-looking. Both buttons, both directions, several times.
-	// Each direction is checked against the pin it started from, immediately.
-	// Stepping up and then down and checking once at the end passes whether or
-	// not the row is gated, because the two cancel: the first version of this
-	// test did exactly that and proved nothing.
-	int pinWhenOff = (int)settings()->kissPin;
-	tapRowId(UI_ROW(SettingsRowId::KissPin, Plus), IdExpect::Disabled);
-	checkInt("with KISS off, + does not step the pin",
-	         (int)settings()->kissPin, pinWhenOff);
-	// Re-read rather than reusing pinWhenOff: if + had stepped, - would step
-	// back onto it and the second check would pass on the strength of the
-	// first one failing.
-	int pinBeforeMinus = (int)settings()->kissPin;
-	tapRowId(UI_ROW(SettingsRowId::KissPin, Minus), IdExpect::Disabled);
-	checkInt("and neither does -", (int)settings()->kissPin, pinBeforeMinus);
-
-	// The row comes back to life with the function, rather than staying dead
-	// until something repaints it.
-	//
-	// The board frees two pins and the ESC holds one of them, so the step
-	// correctly stays put -- the same case the loop above is written around.
-	tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
-	checkInt("KISS back on", settings()->kissEnable, 1);
-
-	tapRowId(UI_ROW(SettingsRowId::KissPin, Plus));
-	checkTrue("the pin row is live again, with nowhere on this board to go",
-	          settingsPinFree(settings()->kissPin) &&
-	          settings()->kissPin != settings()->dshotPin);
-	tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
+	checkTrue("and moves neither pin",
+	          settings()->dshotPin == sig0 && settings()->kissPin == aux0);
 }
 
 /** @brief Hold HOLD DEFAULTS until it fires, then lift. */
@@ -1543,7 +1652,10 @@ static void holdReset() {
 	fakeRelease(); frames(1);
 }
 
-/** @brief SERVO SUPPLY: KST's section, stepped NONE, GP28, GP29, applied at once, saved and reset. */
+/**
+ * @brief SERVO SUPPLY: a core section, stepped OWN, GP28, GP29 with the J4
+ *        pin under the value, applied at once, saved and reset.
+ */
 static void testSettingsServoSupply() {
 	section("SETTINGS: SERVO SUPPLY");
 
@@ -1554,9 +1666,13 @@ static void testSettingsServoSupply() {
 	enterSettings();
 
 	checkInt("none by default", settings()->servoSupply, 0);
+	checkTrue("SERVO SUPPLY reads OWN, nothing under it",
+	          settingsRowShows((int)SettingsRowId::ServoSupply, "SERVO SUPPLY", "OWN", C_TEXT, nullptr));
 	tapRowId(UI_ROW(SettingsRowId::ServoSupply, Minus));
-	checkInt("- at NONE stays", settings()->servoSupply, 0);
+	checkInt("- at OWN stays", settings()->servoSupply, 0);
 	tapRowId(UI_ROW(SettingsRowId::ServoSupply, Plus));
+	checkTrue("GP28, J4 PIN 11 under it",
+	          settingsRowShows((int)SettingsRowId::ServoSupply, "SERVO SUPPLY", "GP28", C_TEXT, "J4 PIN 11"));
 	FakePin p = fakePin(28);
 	checkTrue("+: GP28, applied at once",
 	          settings()->servoSupply == 1 && servoSupplyFitted() && servoSupplyPin() == 28);
@@ -1565,6 +1681,8 @@ static void testSettingsServoSupply() {
 	tapRowId(UI_ROW(SettingsRowId::ServoSupply, Plus));
 	p = fakePin(29);
 	checkTrue("+ again: GP29", settings()->servoSupply == 2 && servoSupplyPin() == 29);
+	checkTrue("GP29, J4 PIN 12 under it",
+	          settingsRowShows((int)SettingsRowId::ServoSupply, "SERVO SUPPLY", "GP29", C_TEXT, "J4 PIN 12"));
 	checkTrue("GP29 an undriven input", p.function == GPIO_FUNC_SIO && !p.output && p.inputOff);
 	checkTrue("GP28 stays one", !fakePin(28).output && fakePin(28).inputOff);
 	tapRowId(UI_ROW(SettingsRowId::ServoSupply, Plus));
@@ -1597,9 +1715,9 @@ static bool captionIs(const char *want) {
 }
 
 /**
- * @brief CURRENT SENSE: KST's section below SERVO SUPPLY, toggled NONE and
- *        INA219, applied at once, its caption from the probe, saved and
- *        reset; nothing sent to 0x40 with NONE.
+ * @brief CURRENT SENSE: in the SERVO SUPPLY section, below SERVO SUPPLY,
+ *        toggled NONE and INA219, applied at once, its caption from the
+ *        probe, saved and reset; nothing sent to 0x40 with NONE.
  */
 static void testSettingsCurrentSense() {
 	section("SETTINGS: CURRENT SENSE");
@@ -1737,7 +1855,7 @@ static void testSettingsSave() {
 	const UiRect save = ctlRect(UI_FIX(SettingsCtl::Save));
 	const int barX = save.x, barY = save.y - 4, barW = save.w;
 
-	tapId(UI_ROW(SettingsRowId::Pin, Plus));
+	tapId(UI_ROW(SettingsRowId::Sig, Plus));
 	checkTrue("a change is pending", settingsDirty());
 
 	// A tap is not a save.
@@ -3101,9 +3219,27 @@ static void testBoardCellColour() {
 	checkTrue("armed at 3.20 V: the voltage in red", uiArmed() && shows("3.20V", C_RED));
 	fakeAdvance(IDLE_DISARM_MS - 3000);
 	frames(1);
-	checkTrue("the last 5 s: IDLE 3s, amber, in the voltage's place",
-	          fakeTextIs(GFX_W - 4 - gfxTextW("IDLE 3s", 2), 7, "IDLE 3s", C_AMBER, C_PANEL, 2));
+	checkTrue("the last 5 s: IDLE 3s, amber, in the voltage's place, from y 11",
+	          fakeTextIs(GFX_W - 4 - gfxTextW("IDLE 3s", 2), 11, "IDLE 3s", C_AMBER, C_PANEL, 2));
 	checkTrue("and no voltage", !shows("3.20V", C_RED) && !shows("3.20V", C_TEXT));
+	// At 1200 kbit/s the rate, DSHOT1200, ends at x 156, right of where
+	// IDLE 5s starts, x 154: the two share no pixel. Each reads alone in its
+	// own rectangle, which do not meet, and the row between is blank.
+	{
+		uint8_t pin = escTaskDshotPin();
+		escTaskConfigure(pin, 1200, false, 0);
+		fakeAdvance(1000);
+		frames(1);
+		const char *idle = "IDLE 2s";
+		uint16_t rateCol = escEdtRequested() ? C_CYAN : C_DIM;
+		bool alone = fakeTextIs(104, 3, "DSHOT1200", rateCol, C_PANEL, 1) &&
+		             fakeTextIs(GFX_W - 4 - gfxTextW(idle, 2), 11, idle, C_AMBER, C_PANEL, 2);
+		bool gap = true;
+		for (int x = 104; x < GFX_W - 4; x++)
+			if (gfxBuffer()[10 * GFX_W + x] != C_PANEL) gap = false;
+		checkTrue("DSHOT1200 and IDLE 2s share no pixel, y 10 blank between", alone && gap);
+		escTaskConfigure(pin, DSHOT_SPEED_KBAUD, false, 0);
+	}
 	fakeAdvance(4000);
 	frames(2);
 	checkTrue("the idle interlock disarms", !uiArmed());
@@ -3330,14 +3466,15 @@ static void testHitBoundaries() {
  * @brief MENU's rows: SERVO opens its screen, and a tool that claims the
  *        pins is refused while they are not Free.
  *
- * A tool row that claims pins reads PINS BUSY while the claim is not
- * Free, as for the time Restoring takes after RESTART DSHOT: its control is
- * gated on the same value, and a tap opens nothing and claims nothing.
+ * A tool row that claims pins is drawn disabled under its own status while
+ * the claim is not Free, as for the time Restoring takes after RESTART
+ * DSHOT, and the strip says why: its control is gated on the same value,
+ * and a tap opens nothing and claims nothing.
  * SERVO is built: a tap opens it and claims the pins, and leaving goes
  * through its unplug page to MENU. test_servo.cpp tests the screen itself.
  */
 static void testMenuDestinations() {
-	section("MENU: SERVO opens its screen, PINS BUSY refuses");
+	section("MENU: SERVO opens its screen, a busy claim refuses");
 
 	fakeFlashClear();
 	settingsLoad();
@@ -3377,15 +3514,24 @@ static void testMenuDestinations() {
 	          menuStatusIs(ctlRect(menuRow(&UI_AM32)), pins, C_DIM, C_PANEL));
 
 	// Another claim holds the pins, as Restoring does after RESTART DSHOT:
-	// both tools that claim them read PINS BUSY and do not act.
+	// both tools that claim them are drawn disabled and do not act.
 	checkTrue("another claim holds the pins",
 	          pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
 	frames(2);
-	// A refused row is drawn disabled: an outline, the background inside.
-	checkTrue("AM32 reads PINS BUSY, drawn disabled",
-	          menuStatusIs(ctlRect(menuRow(&UI_AM32)), "PINS BUSY", C_AMBER, C_BG));
-	checkTrue("SERVO reads PINS BUSY, drawn disabled",
-	          menuStatusIs(ctlRect(menuRow(&UI_SERVO)), "PINS BUSY", C_AMBER, C_BG));
+	// A refused row is drawn disabled, an outline with the background
+	// inside, under its own status: no word for the claim on the row.
+	char servoPins[16];
+	snprintf(servoPins, sizeof(servoPins), "GP%u+%u", (unsigned)settings()->dshotPin,
+	         (unsigned)settings()->kissPin);
+	checkTrue("AM32 keeps its status, drawn disabled",
+	          menuStatusIs(ctlRect(menuRow(&UI_AM32)), pins, C_DIM, C_BG));
+	checkTrue("SERVO keeps its status, drawn disabled",
+	          menuStatusIs(ctlRect(menuRow(&UI_SERVO)), servoPins, C_DIM, C_BG));
+	char restarting[40];
+	snprintf(restarting, sizeof(restarting), "DSHOT RESTARTING ON SIG GP%u",
+	         (unsigned)settings()->dshotPin);
+	checkTrue("the strip says why, in amber",
+	          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, restarting, C_AMBER, C_BG, 1));
 	checkTrue("both rows are gated",
 	          !ctlEnabled(menuRow(&UI_AM32)) && !ctlEnabled(menuRow(&UI_SERVO)));
 	checkTrue("the rows that claim nothing still act",
@@ -3413,6 +3559,13 @@ static void testMenuDestinations() {
 	frames(2);
 	checkTrue("the claim ends: the pins are Free", pinClaimState() == ClaimState::Free);
 	checkTrue("and SERVO acts again", ctlEnabled(menuRow(&UI_SERVO)));
+	{
+		char cap[40];
+		snprintf(cap, sizeof(cap), "SIG GP%u  AUX GP%u  DSHOT%u", (unsigned)settings()->dshotPin,
+		         (unsigned)settings()->kissPin, (unsigned)settings()->dshotKbaud);
+		checkTrue("the strip names both pins and the rate again, dim",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, cap, C_DIM, C_BG, 1));
+	}
 
 	uint32_t whole = fakeRegionHash(0, UI_HDR_H, GFX_W, GFX_H - UI_HDR_H);
 	tapId(menuRow(&UI_SERVO));
@@ -3610,7 +3763,7 @@ static void testBoardRow() {
 	// And no save reboots: every setting applies live. This counter staying
 	// still is what fails if a save that needs a restart is ever added.
 	int reboots = fakeRebootCount();
-	tapId(UI_ROW(SettingsRowId::Pin, Plus));
+	tapId(UI_ROW(SettingsRowId::Sig, Plus));
 	pressId(UI_FIX(SettingsCtl::Save));
 	holdId(UI_FIX(SettingsCtl::Save), 60);
 	fakeRelease(); frames(2);
@@ -3755,10 +3908,10 @@ static void testPressedLookClears() {
 	          fakeRegionHash(pm.x, pm.y, pm.w, pm.h) == idle);
 
 	// The same rule on the wiring rows, which never had pressed states at all.
-	const UiRect pin = ctlRect(UI_ROW(SettingsRowId::Pin, Minus));
+	const UiRect pin = ctlRect(UI_ROW(SettingsRowId::Sig, Minus));
 	idle = fakeRegionHash(pin.x, pin.y, pin.w, pin.h);
-	pressId(UI_ROW(SettingsRowId::Pin, Minus));
-	checkTrue("ESC PIN's stepper draws its pressed state",
+	pressId(UI_ROW(SettingsRowId::Sig, Minus));
+	checkTrue("SIG PIN's stepper draws its pressed state",
 	          fakeRegionHash(pin.x, pin.y, pin.w, pin.h) != idle);
 	fakeRelease(); frames(1);
 	checkTrue("and returns to rest on release",
@@ -3989,7 +4142,7 @@ static void testSplash() {
 	settings()->dshotPin = other;
 	uiDrawSplash();
 	snprintf(want, sizeof(want), UI_SPLASH_PIN_FMT, (unsigned)other);
-	checkTrue("ESC PIN moved: the warning names the new pin",
+	checkTrue("SIG PIN moved: the warning names the new pin",
 	          fakeTextCentredIs(288, want, C_AMBER, C_BG, 1));
 	snprintf(want, sizeof(want), UI_SPLASH_PIN_FMT, 29u);
 	checkTrue("a two-digit pin fits too: 30 characters, 179 px",
@@ -4559,6 +4712,34 @@ static void testAm32LayoutTable() {
  *        connect page's lines, and MENU's cue after a session that reached
  *        the bootloader.
  */
+/**
+ * @brief AM32 CONFIG's claim names SIG by role and number, and a refusal for
+ *        another holder, which MENU never lets through, says to wait.
+ */
+static void testAm32ClaimWords() {
+	section("AM32 CONFIG: RELEASING SIG GP0, and WAIT: DSHOT RESTARTING");
+	fakeFlashClear();
+	settingsLoad();
+	uiInit();
+	frames(2);
+	checkTrue("another claim holds the pins",
+	          pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
+	claimPins();
+	checkTrue("refused: WAIT: DSHOT RESTARTING",
+	          !s_claimed && strcmp(s_status, UI_WAIT_RESTART_TEXT) == 0);
+	pinClaimEnd(PinUser::Servo);
+	for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) frames(1);
+	claimPins();
+	char want[32];
+	snprintf(want, sizeof(want), "RELEASING SIG GP%u", (unsigned)settings()->dshotPin);
+	checkTrue("taken: RELEASING SIG GP0", s_claimed && strcmp(s_status, want) == 0);
+	cardCacheEnd();
+	pinClaimEnd(PinUser::Am32);
+	s_claimed = false;
+	for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) frames(1);
+	checkTrue("and given back", pinClaimState() == ClaimState::Free);
+}
+
 static void testAm32Guidance() {
 	// No eRPM for the rest of this test unless it stamps one.
 	EscTelemetry quiet;
@@ -4625,9 +4806,9 @@ static void testAm32Guidance() {
 		tapId(UI_FIX(UI_BACK));
 		frames(2);
 		checkTrue("MENU: " AM32_UI_RUN_CUE " in amber under the caption", menuRunCueShown());
-		char cap[32];
-		snprintf(cap, sizeof(cap), "GP%u  %u KBIT/S", (unsigned)settings()->dshotPin,
-		         (unsigned)settings()->dshotKbaud);
+		char cap[40];
+		snprintf(cap, sizeof(cap), "SIG GP%u  AUX GP%u  DSHOT%u", (unsigned)settings()->dshotPin,
+		         (unsigned)settings()->kissPin, (unsigned)settings()->dshotKbaud);
 		checkTrue("the caption stays on the first line",
 		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, cap, C_DIM, C_BG, 1));
 		int x0 = 0, x1 = 0;
@@ -5809,6 +5990,7 @@ void runUiTests() {
 	testStatusBarBitrate();
 	testSettingsKiss();
 	testSettingsServoSupply();
+	testSettingsConnectorLines();
 	testSettingsCurrentSense();
 	testSettingsDisplay();
 	testSettingsSave();
@@ -5820,6 +6002,7 @@ void runUiTests() {
 	testSplash();
 	testSplashTouch();
 	testTextProbes();
+	testAm32ClaimWords();
 	testAm32Guidance();
 	testAm32TesterNote();
 	testAm32ReadOnly();

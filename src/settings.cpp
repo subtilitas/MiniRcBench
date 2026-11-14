@@ -144,23 +144,27 @@ bool settingsValidate(Settings *s) {
 		ok = false;
 	}
 
-	// --- KISS ---
-	// Two rules left, now that the receiver is a PIO state machine and any free
-	// GPIO can take it: the pin must be free on this board, and it must not be
-	// the ESC's. The third — "and it must be one of the eight the hardware
-	// UARTs can receive on" — is gone with the hardware UART. @see pio_uart_rx.h
+	// --- AUX, the KISS pin ---
+	// AUX must be a free pin on this board and never SIG's, whatever KISS
+	// is: the servo tester drives servo B on AUX with KISS off.
 	//
-	// Switched off rather than moved, still. Moving it would silently start
-	// listening on a pin the user never connected anything to, and a telemetry
-	// wire that reads "ON" against the wrong pin is worse than one reading
-	// "OFF". SETTINGS does move it, because there the pin change is the
-	// thing being asked for. @see uiSettingsTick()
-	if (s->kissEnable) {
-		if (!settingsPinFree(s->kissPin) ||
-		    s->kissPin == s->dshotPin) {
-			s->kissEnable = 0;
-			ok = false;
-		}
+	// A pin this board does not free takes the board's default AUX pin, and
+	// KISS is switched off: no wire the user connected can be on that pin,
+	// and a telemetry row reading ON against a pin nobody wired is worse than
+	// one reading OFF.
+	if (!settingsPinFree(s->kissPin)) {
+		s->kissPin = b->defaultKissPin;
+		s->kissEnable = 0;
+		ok = false;
+	}
+	// AUX on SIG's GPIO moves to the next free pin after SIG, the other of
+	// this board's two; KISS keeps its switch and listens there. Only a
+	// board that frees no second pin switches KISS off, since AUX has
+	// nowhere to go. @see docs/design/menu-b.md, decision 10
+	if (s->kissPin == s->dshotPin) {
+		s->kissPin = settingsNextPin(s->dshotPin, +1);
+		if (s->kissPin == s->dshotPin) s->kissEnable = 0;
+		ok = false;
 	}
 	if (s->kissEnable != 0 && s->kissEnable != 1) { s->kissEnable = 1; ok = false; }
 	if (s->highContrast != 0 && s->highContrast != 1) { s->highContrast = 1; ok = false; }
@@ -391,15 +395,13 @@ void settingsLoad() {
 	static_assert(sizeof(raw) >= 28, "a version 3 or 4 block is larger than the read");
 
 	// An older layout the table knows, whole: carried over, then judged by
-	// the same validation as a block of this version. The KISS pin with
-	// KISS off is not judged there; one this board does not free, the old
-	// GP28 or GP29, takes the default, so turning KISS on finds a free pin.
+	// the same validation as a block of this version. AUX, the KISS pin, is
+	// judged whatever KISS is: one this board does not free, the old GP28 or
+	// GP29, takes the default.
 	Settings carried;
 	if (carryOver(raw, &carried)) {
 		s_live = carried;
 		settingsValidate(&s_live);
-		if (!s_live.kissEnable && !settingsPinFree(s_live.kissPin))
-			s_live.kissPin = g_board->defaultKissPin;
 		s_saved = s_live;
 		s_stored = true;
 		s_carriedOver = true;

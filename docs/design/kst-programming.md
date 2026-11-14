@@ -11,8 +11,12 @@ in-memory volume. `src/ui_kst.cpp` is the screen, MENU's KST SERVO row, and
 `src/kst_view.*` the rows, values, stepper and texts it draws; the host suite
 runs the screen through MENU against the simulated servo and the in-memory
 volume. The switched supply, step 5, is built: with `SERVO SUPPLY` at
-`GP28` or `GP29` the bench switches the servo's supply, and with `NONE`
-LEAVE asks the user to power the servo off. It depends on the pin claim in
+`GP28` or `GP29` the bench switches the servo's supply, and with `OWN`
+LEAVE asks the user to power the servo off. Menu structure B's slice 3
+([menu-b.md](menu-b.md), decisions 9, 10 and 15) is built: SERVO SUPPLY is
+a core section of SETTINGS, its no-switch value reads `OWN`, the strips name
+SIG by role and number, and four field labels read REVERSED, FAILSAFE MOVE,
+FAILSAFE POSITION and FAILSAFE TIME. It depends on the pin claim in
 [pin-claim.md](pin-claim.md), slice 1 there, which is built. This
 document is slice 3. It comes after slices A to C of [menu.md](menu.md), the
 menu restructure, which are built, and is written for the system they leave:
@@ -115,13 +119,14 @@ in while the search repeats. rcbench switches the servo's supply through its
 PD mini, a USB PD (Power Delivery) supply module that it sets and reads back.
 MiniRcBench has an on and off switch and no read-back.
 
-The switch is optional. `SERVO SUPPLY` in SETTINGS says whether one is
-fitted and where its enable is: `NONE`, the default, `GP28` or `GP29`
-(decision 8 and its [revision](#decisions)). Every rule in this section
-holds with `GP28` or `GP29` only; "the enable pin" below is the pin chosen.
-With `NONE` the bench drives neither pin, the search is
-the one in [entering programming mode](#entering-programming-mode), and
-every screen text that names the supply has its form without a switch.
+The switch is optional. `SERVO SUPPLY` in SETTINGS says whether one is fitted
+and where its enable is: `OWN`, the default, the servo on a supply of its own,
+`GP28` or `GP29` (decision 8 and its [revision](#decisions);
+[menu-b.md](menu-b.md) decisions 15 e and 22 name the first value `OWN`). Every
+rule in this section holds with `GP28` or `GP29` only; "the enable pin" below is
+the pin chosen. With `OWN` the bench drives neither pin, the search is the one
+in [entering programming mode](#entering-programming-mode), and every screen
+text that names the supply has its form without a switch.
 
 The Hitec job of [hitec-programming.md](hitec-programming.md#switched-servo-supply)
 is the second user of the same switch, through the same `servo_supply.h`,
@@ -597,10 +602,10 @@ What remains:
 
 | Step | Strip | Body | Controls |
 |---|---|---|---|
-| Searching, supply switched | `GP0  TRY 3  SUPPLY OFF 1.4 S`, or `SUPPLY ON`; TRY is the attempt under way, `KstStatus.attempts` + 1 in an off phase | `SWITCHED SUPPLY`, then `THE BENCH SWITCHES THE SERVO OFF FOR 2 S, THEN ON, BEFORE EACH TRY.`, the failsafe line, and in amber `AN ESC ON THIS LEAD GETS THE CONVERTER'S OUTPUT ON ITS BEC WIRE.`; a spinner | STOP SEARCH, BACK |
-| Timed out, supply switched | `NO ANSWER IN 14 POWER-UPS`, the number from `KstStatus.attempts` | `CHECK THE CONVERTER ON GP28, ITS WIRING AND THE SIGNAL. A SERVO ON ITS OWN SUPPLY NEEDS SETTINGS > SERVO SUPPLY AT NONE.` | RETRY, BACK |
-| Stalled, supply switched | `GP0  SUPPLY OFF` | `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF. RETRY POWERS IT UP AND READS IT AGAIN.` Without a card, after a write, in amber, `NO CARD: THE BACKUP IN MEMORY IS LOST.` and nothing more. With a card, for a locked session, in amber, `THE LAST WRITE IS IN DOUBT. AFTER THE READ, LOAD KST005 IN FILES AND HOLD TO WRITE.` | RETRY, BACK |
-| REBOOT | `GP0  SUPPLY OFF 1.4 S`, then `SUPPLY ON 0.6 S` | `REBOOT: DO NOT UNPLUG THE SERVO.`, then `READING 32 REGISTERS` | BACK |
+| Searching, supply switched | `SIG GP0  TRY 3  SUPPLY OFF 1.4 S`, or `SUPPLY ON`; TRY is the attempt under way, `KstStatus.attempts` + 1 in an off phase | `SWITCHED SUPPLY`, then `THE BENCH SWITCHES THE SERVO OFF FOR 2 S, THEN ON, BEFORE EACH TRY.`, the failsafe line, and in amber `AN ESC ON THIS LEAD GETS THE CONVERTER'S OUTPUT ON ITS BEC WIRE.`; a spinner | STOP SEARCH, BACK |
+| Timed out, supply switched | `NO ANSWER IN 14 POWER-UPS`, the number from `KstStatus.attempts` | `CHECK THE CONVERTER ON GP28, ITS WIRING AND THE SIGNAL. A SERVO ON ITS OWN SUPPLY NEEDS SETTINGS > SERVO SUPPLY AT OWN.` | RETRY, BACK |
+| Stalled, supply switched | `SIG GP0  SUPPLY OFF` | `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF. RETRY POWERS IT UP AND READS IT AGAIN.` Without a card, after a write, in amber, `NO CARD: THE BACKUP IN MEMORY IS LOST.` and nothing more. With a card, for a locked session, in amber, `THE LAST WRITE IS IN DOUBT. AFTER THE READ, LOAD KST005 IN FILES AND HOLD TO WRITE.` | RETRY, BACK |
+| REBOOT | `SIG GP0  SUPPLY OFF 1.4 S`, then `SUPPLY ON 0.6 S` | `REBOOT: DO NOT UNPLUG THE SERVO.`, then `READING 32 REGISTERS` | BACK |
 
 The converter text names the enable pin SETTINGS chose, `GP28` or `GP29`.
 BACK on the stalled screen goes to the unplug page once the supply has been
@@ -613,7 +618,7 @@ switch:
 
 ```
 y   0 | KST SERVO                        [ BACK ]|  header 36 px (menu.md)
-   40 | GP0  TRY 3  SUPPLY OFF 1.4 S             |
+   40 | SIG GP0  TRY 3  SUPPLY OFF 1.4 S         |
    70 |           SWITCHED SUPPLY                |  scale 2, C_LIME, 178 px
   100 |   THE BENCH SWITCHES THE SERVO OFF FOR   |  scale 1, C_DIM
   114 |   2 S, THEN ON, BEFORE EACH TRY.         |
@@ -629,45 +634,48 @@ y   0 | KST SERVO                        [ BACK ]|  header 36 px (menu.md)
 
 ### SETTINGS row
 
-Slice 3 adds the `SERVO SUPPLY` row to the SETTINGS list of
-[menu.md](menu.md#settings). It is a section of its own, SERVO SUPPLY,
-between WIRING and DISPLAY, contributed by KST's registry entry (menu.md
-decisions 8 and 13). The list's geometry, gestures, fixed footer and asserts
-are menu.md's, built in its slice C.
+The `SERVO SUPPLY` row is in the SETTINGS list of
+[menu.md](menu.md#settings), in a section of its own, SERVO SUPPLY, with
+CURRENT SENSE under it. It is a core section of `ui_settings.cpp`, after
+WIRING ([menu-b.md](menu-b.md) decision 9), so it stays in SETTINGS
+whichever tools MENU lists; KST's registry entry carries no section. The
+list's geometry, gestures, fixed footer and asserts are menu.md's, built in
+its slice C.
 
-- Values: `NONE`, 0, the default, for no switch fitted; `GP28`, 1, an
-  active-high enable on GP28, J4 pin 11; `GP29`, 2, one on GP29, J4 pin 12
-  (decision 8 and its [revision](#decisions)).
-- The row is a stepper, as KISS PIN is: - and + step `NONE`, `GP28`,
+- Values: `OWN`, 0, the default, for no switch fitted: the servo has a
+  supply of its own; `GP28`, 1, an active-high enable on GP28, J4 pin 11;
+  `GP29`, 2, one on GP29, J4 pin 12 (decision 8 and its
+  [revision](#decisions); menu-b.md decisions 15 e and 22). Under `GP28`
+  the row reads `J4 PIN 11`, under `GP29` `J4 PIN 12`, at scale 1 under the
+  value; under `OWN` nothing.
+- The row is a stepper, as SIG PIN is: - and + step `OWN`, `GP28`,
   `GP29` and stop at the ends. A change applies at once through
   `servoSupplyConfigure()`; no claim holds
   while SETTINGS is open, so nothing is driven. HOLD TO SAVE stores it with
-  every other row, and RESET sets it to `NONE` with the other compiled
+  every other row, and HOLD DEFAULTS sets it to `OWN` with the other compiled
   defaults.
 - Version: the row adds the `servoSupply` field to the settings block, at
   version 3. The layout is version 4, with the signal pins on GP0 and GP1
-  and the enable on GP28 or GP29. A block of another version, a version 3
-  block with its ESC pin on GP29 or GP28 or its switch on GP0 among them, is
-  discarded whole, and the compiled defaults load, every setting and the
-  ESC pin included. A block DshotDisplay saved does not load, and
-  DshotDisplay discards this project's blocks.
+  and the enable on GP28 or GP29; version 5 adds CURRENT SENSE in its
+  padding, and a block of versions 2 to 4 carries over (README.md, "Using
+  it"). `OWN` is the stored value 0, unchanged.
 - Validation: `settingsValidate()` sets any value above 2
   (`SERVO_SUPPLY_MODE_MAX`) to 0.
 - Fit: the label, 71 px at scale 1, ends at x 78; the value, at most four
-  characters at scale 2, ends at x 132, and - and + are 44 × 44 px at x 138
-  and x 188. The list grows by a 20 px caption and a 50 px row, from
-  530 px to 600 px, and its scroll range from 0 px to 330 px to 0 px to
-  400 px.
+  characters at scale 2, ends at x 132, at y+8 to y+21 of the row, and the
+  connector line, `J4 PIN 11`, 53 px, ends at x 132 at y+27 to y+33; - and
+  + are 44 × 44 px at x 138 and x 188.
 
-At 230 px:
+At 230 px of scroll:
 
 ```
-   40 | DSHOT KBAUD      600  [  -  ] [  +  ]     |  cut: 4 px, takes no press
-   50 | KISS TELEM          [    OFF     ]        |
-  100 | KISS PIN          --  [  -  ] [  +  ]     |  disabled while KISS is off
+   40 |                                           |  DSHOT, cut: 4 px, takes no press
+   50 | KISS TELEM              [    OFF     ]    |
+  100 | AUX PIN            GP1  [  -  ] [  +  ]   |
+      |               J5 PIN 1                    |
   150 | SERVO SUPPLY                              |  section caption
-  170 | SERVO SUPPLY    NONE  [  -  ] [  +  ]     |  stepper, scale 2
-  220 | DISPLAY                                   |  caption, ends at y 239
+  170 | SERVO SUPPLY       OWN  [  -  ] [  +  ]   |  stepper, scale 2
+  220 | CURRENT SENSE           [    NONE    ]    |  toggle; cut: 20 px visible
 ```
 
 ### Not in this section
@@ -869,19 +877,21 @@ sees the search like this:
 
 Not known: what a servo does with a frame outside programming mode (rcbench
 measurement 3). What is known is what it does on a lost signal: whatever its
-own failsafe says. On a KST servo that is ALLOW UNCONT, UNCONTROLLED POS and
-UNCONTROLLED TIME: with ALLOW UNCONT on, the horn moves to UNCONTROLLED POS
-after UNCONTROLLED TIME, 2.0 s on the one servo rcbench read. The search
+own failsafe says. On a KST servo that is the fields the screen labels
+FAILSAFE MOVE, FAILSAFE POSITION and FAILSAFE TIME (rcbench's ALLOW UNCONT,
+UNCONTROLLED POS and UNCONTROLLED TIME): with FAILSAFE MOVE on, the horn
+moves to FAILSAFE POSITION after FAILSAFE TIME, 2.0 s on the one servo
+rcbench read. The search
 screen says so.
 
 ### What the user sees
 
 | Step | Strip | Body | Controls |
 |---|---|---|---|
-| Checking | `KST SERVO` | `CHECKING GP0 FOR AN ESC` | BACK |
+| Checking | `KST SERVO` | `CHECKING SIG GP0 FOR AN ESC` | BACK |
 | An ESC answers | | the message from [pin-claim.md](pin-claim.md#when-the-pin-is-unavailable) | BACK |
-| Releasing | `RELEASING GP0` | | BACK |
-| Searching, no switch | `GP0  TRY 12  1.4 S` | `POWER UP` and `THE SERVO NOW` on two lines at scale 2, then `PLUG IT IN OR SWITCH ITS SUPPLY ON. IT ANSWERS ONLY RIGHT AFTER POWER-ON.` and `A POWERED SERVO ON THIS PIN GETS NO PULSES AND MAY GO TO ITS FAILSAFE.`, a spinner | STOP SEARCH, BACK |
+| Releasing | `RELEASING SIG GP0` | | BACK |
+| Searching, no switch | `SIG GP0  TRY 12  1.4 S` | `POWER UP` and `THE SERVO NOW` on two lines at scale 2, then `PLUG IT IN OR SWITCH ITS SUPPLY ON. IT ANSWERS ONLY RIGHT AFTER POWER-ON.` and `A POWERED SERVO ON THIS PIN GETS NO PULSES AND MAY GO TO ITS FAILSAFE.`, a spinner | STOP SEARCH, BACK |
 | Edges, no valid reply | | adds, in amber, `REPLY NOT VALID: LATE` (the `kst_rx_t` code as a word) | as above |
 | Searching, supply switched | see [screens with the switch](#screens-with-the-switch) | | |
 | Timed out, no switch | `NO SERVO IN 30 S` | `CHECK SIGNAL AND GROUND, THEN POWER THE SERVO UP AGAIN.` | RETRY, BACK |
@@ -893,7 +903,7 @@ The layout of the searching state without a switch:
 
 ```
 y   0 | KST SERVO                        [ BACK ]|  header 36 px (menu.md)
-   40 | GP0  TRY 12  1.4 S                       |
+   40 | SIG GP0  TRY 12  1.4 S                   |
    70 |                POWER UP                  |  scale 2, C_LIME, 94 px
    88 |             THE SERVO NOW                |  scale 2, C_LIME, 154 px
   112 |   PLUG IT IN OR SWITCH ITS SUPPLY ON.    |  scale 1, C_DIM
@@ -1057,8 +1067,8 @@ y   0 | KST SERVO                        [ BACK ]|
   not selectable.
 - Groups follow rcbench's pages: TUNE (MAX. DUTY, BOOST, STRETCH, SOFT START,
   SPEED LIMIT, SPEED, DEAD BAND), PULSE (PULSE LOWER, PULSE UPPER, NEUTRAL,
-  REVERSION, LEFT ANGLE, RIGHT ANGLE), FAILSAFE (ALLOW UNCONT, UNCONTROLLED
-  POS, UNCONTROLLED TIME), then LOCKED: every field whose access class is
+  REVERSED, LEFT ANGLE, RIGHT ANGLE), FAILSAFE (FAILSAFE MOVE, FAILSAFE
+  POSITION, FAILSAFE TIME), then LOCKED: every field whose access class is
   `KST_ACCESS_LOCKED` or `KST_ACCESS_NEVER`, read-only.
 - Values come from `kst_field_display()` with their unit. The screens write
   `US` for µs; the font has no micro sign, as in rcbench.

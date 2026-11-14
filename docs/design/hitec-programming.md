@@ -2,7 +2,10 @@
 
 Status: work breakdown steps 1 to 5 built, host tests only: the rcbench
 files and their tests, the core1 job on them, the files on the card, the
-HITEC SERVO screen on MENU, and its README section and wiki pages. Step 6,
+HITEC SERVO screen on MENU, and its README section and wiki pages. SERVO
+SUPPLY's no-switch value reads `OWN`, the stored 0, and the main view's
+strips name SIG by role and number, `SIG GP0  SUPPLY ON`, by
+[menu-b.md](menu-b.md) decisions 10 and 15 e, built in its slice 3. Step 6,
 the bring-up on hardware, is open: no classic entry, read or write has run
 on a servo on this board. The decisions of the owner of
 2026-10-23, 2026-10-28 and 2026-10-29 set its questions and its scope
@@ -359,7 +362,7 @@ RETRY after a bind error (`pinClaimRetry()`) and BACK on the unplug page
 (`pinClaimKeep()`) bind again with the family it holds; BACK on an unplug
 page reached from the family view returns to Held with no job. An open
 failure is a bind error, reported by `pinClaimJobError()` as
-`GP0 COULD NOT BE TAKEN (PIO)`, `(DMA)` or `(CLOCK)` with RETRY, as on the
+`SIG GP0 COULD NOT BE TAKEN (PIO)`, `(DMA)` or `(CLOCK)` with RETRY, as on the
 other servo screens. Another family means leaving through the unplug page
 and choosing again.
 
@@ -389,7 +392,7 @@ drives the session:
      trusted, `servoSupplyOn()` and `hitec_line_start()` with the step's
      LISTEN in the same pass; with the heartbeat lapsed, the result is
      FAILED and the supply stays off ([heartbeat](#heartbeat-and-lapses)).
-     With `SERVO SUPPLY` at `NONE` no POWER step comes
+     With `SERVO SUPPLY` at `OWN` no POWER step comes
      ([entry](#entry)); one that did would be fed FAILED.
    - **WAIT.** Nothing.
    - **DONE.** The operation has ended; its result is
@@ -474,17 +477,17 @@ The supply is the converter of
 [kst-programming.md](kst-programming.md#switched-servo-supply), its enable
 on GP28 or GP29, driven through `servo_supply.h` under the rules KST's job
 follows there. "With a switch" below means `SERVO SUPPLY` at `GP28` or
-`GP29`, and "the enable pin" the pin chosen. With `SERVO SUPPLY` at `NONE`
+`GP29`, and "the enable pin" the pin chosen. With `SERVO SUPPLY` at `OWN`
 the job touches neither pin.
 
 - **Classic needs it.** A classic servo enters serial mode at a power-up
   ([decision 2](#decisions-of-the-owner)). CLASSIC is drawn disabled, with
   `NEEDS THE CONVERTER OF WIRING PART C` and
   `AND SETTINGS > SERVO SUPPLY GP28/29.` under it, while `SERVO SUPPLY` is
-  `NONE`; D SERIES then reads `POWER THE SERVO UP, THEN TAP.`
+  `OWN`; D SERIES then reads `POWER THE SERVO UP, THEN TAP.`
 - **D series uses it when it is set.** With a switch the converter is the
   servo's only supply, so every D series entry runs a POWER step. With
-  `NONE` the entry runs on the user's supply as it is.
+  `OWN` the entry runs on the user's supply as it is.
 - **Bind.** `servoSupplyBind()` after the claim's ESC check, as for KST: the
   enable pin driven low, the supply off. The pin is not driven before the
   bind.
@@ -506,7 +509,7 @@ KST search switches the same converter off
   on, a LISTEN of 1 ms that waits for nothing, then 1,000 ms
   (`HITEC_SES_D_ENTRY_WAIT_MS`), then a read of register 0x00, the model,
   3 tries.
-- **D series with `NONE`**, `power` false: the read of 0x00 on the supply
+- **D series with `OWN`**, `power` false: the read of 0x00 on the supply
   as it is.
 
 The converter's start-up time is unknown until bring-up. The classic
@@ -529,7 +532,7 @@ view shows the result and RETRY ([family and entry](#family-and-entry)).
   KST decision 18). The session's own leave does not run: for a classic
   servo it would switch the supply on again, and a D series reboot is
   redundant once the supply goes off ([choice 4](#choices-made-in-this-design)).
-- **D series with `NONE`.** LEAVE runs `hitec_session_leave()`: the reboot,
+- **D series with `OWN`.** LEAVE runs `hitec_session_leave()`: the reboot,
   `0x46 = 1`, a write with no answer. Then the line closes and the unplug
   page follows. The servo restarts on the user's supply from its saved
   values.
@@ -560,7 +563,7 @@ job does it.
   session had written. No operation starts until the heartbeat returns.
   The view shows the stall and RETRY, which enters again and reads the servo
   again.
-- **With `NONE`** a lapse lets the running operation end and starts no new
+- **With `OWN`** a lapse lets the running operation end and starts no new
   one. The session stays in mode, and commands are taken again once the
   heartbeat returns.
 
@@ -690,8 +693,8 @@ its rows, values, stepper and texts in `src/hitec_view.*`, as
 
 | View | What it shows | Controls |
 |---|---|---|
-| Family | the claim on SIG from the first frame: `RELEASING GP0 FROM DSHOT`, then `GP0 IS THE SERVO'S: DSHOT IS OFF.` in green over `CONNECT THE SERVO, CHOOSE ITS FAMILY`; while an ESC answers, `AN ESC ANSWERS ON GP0: UNPLUG IT.` over `DSHOT STAYS ON THE PIN UNTIL THEN.` in amber. CLASSIC (HS-5XXX, HS-7XXX) and D SERIES, with the wiring note of each, act once the claim holds. CLASSIC disabled with `NEEDS THE CONVERTER OF WIRING PART C` and `AND SETTINGS > SERVO SUPPLY GP28/29.` under `NONE`, enabled with `GP28` or `GP29` ([decision 13](#decisions-of-the-owner)); under `NONE`, D SERIES with `POWER THE SERVO UP, THEN TAP.` | CLASSIC, D SERIES, BACK: the unplug page once the claim holds, else MENU |
-| Bind | after the family tap, `TAKING GP0` while the job binds; a bind error, `GP0 COULD NOT BE TAKEN (PIO)`, `(DMA)` or `(CLOCK)` | RETRY, BACK |
+| Family | the claim on SIG from the first frame: `RELEASING SIG GP0 FROM DSHOT`, then `GP0 IS THE SERVO'S: DSHOT IS OFF.` in green over `CONNECT THE SERVO, CHOOSE ITS FAMILY`; while an ESC answers, `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` over `DSHOT STAYS ON THE PIN UNTIL THEN.` in amber. CLASSIC (HS-5XXX, HS-7XXX) and D SERIES, with the wiring note of each, act once the claim holds. CLASSIC disabled with `NEEDS THE CONVERTER OF WIRING PART C` and `AND SETTINGS > SERVO SUPPLY GP28/29.` under `OWN`, enabled with `GP28` or `GP29` ([decision 13](#decisions-of-the-owner)); under `OWN`, D SERIES with `POWER THE SERVO UP, THEN TAP.` | CLASSIC, D SERIES, BACK: the unplug page once the claim holds, else MENU |
+| Bind | after the family tap, `TAKING SIG GP0` while the job binds; a bind error, `SIG GP0 COULD NOT BE TAKEN (PIO)`, `(DMA)` or `(CLOCK)` | RETRY, BACK |
 | Entry, classic | `SUPPLY OFF 0.5 S`, then `LISTENING FOR THE SERVO` with the window's progress, then `ENTERING`; the amber ESC line below | STOP, BACK |
 | Entry, D series | with a switch, `SUPPLY OFF 0.5 S`, then `SERVO STARTING 1.0 S` and the amber ESC line; then `READING THE MODEL` | STOP, BACK |
 | Entry failed | `NO SERVO IN SERIAL MODE` or `NO SERVO ANSWERS`, the decoder's word (`SILENT`, `LATE`, `SUM` and the rest of rcbench's 14 codes); `THE SUPPLY IS OFF.` with a switch; with a switch and the classic family, `CHECK THE CONVERTER ON GP28, THE SIGNAL AND GROUND.`, naming the enable pin | RETRY, BACK |
@@ -955,7 +958,7 @@ y   0 | HITEC SERVO                      [ BACK ]|
   320 +------------------------------------------+
 ```
 
-- With `NONE` the first line reads `LEAVE RESTARTS THE SERVO.`
+- With `OWN` the first line reads `LEAVE RESTARTS THE SERVO.`
 - LEAVE is a tap and runs the leave of
   [leave and claim end](#leave-and-claim-end); the unplug page follows.
 - READ AGAIN runs ReadAll and returns to the field list.
@@ -1167,9 +1170,9 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
   - the classic entry: off 2,000 ms from the switch-off command, on, the `+`
     answered with `+`, the second `+`, `67`, the version; no `+` in
     2,000 ms, then the supply off and EntryEnded; a byte other than `+`;
-  - the D series entry with a switch: off 2,000 ms, on, 1,000 ms, the model; with
-    `NONE`: no POWER, the read of 0x00 at once, the enable pin untouched through a
-    whole claim;
+  - the D series entry with a switch: off 2,000 ms, on, 1,000 ms, the model;
+    with `OWN`: no POWER, the read of 0x00 at once, the enable pin untouched
+    through a whole claim;
   - the full read after the entry, its progress, the backup set once and
     dropped at a re-entry;
   - a write of one value of each family, with read-back, the image holding
@@ -1182,15 +1185,15 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
     series wait each switching the supply off at once; a lapse during a
     write letting it finish, then the supply off, the session not in mode,
     `stallWrote` set; the supply switched on only while the heartbeat is
-    trusted; with `NONE`, a lapse leaving the session in mode;
+    trusted; with `OWN`, a lapse leaving the session in mode;
   - the leave: with a switch off at once and closed 2,000 ms after the
-    switch-off command, BACK doing nothing in the wait; with `NONE` the
+    switch-off command, BACK doing nothing in the wait; with `OWN` the
     D series reboot frame, then the close; every claim end after the supply
     was on waiting 2,000 ms off before the line closes and the enable pin is released;
   - the card phase: `CardBegin` taken and refused in each state; stamps
     for 900 ms keep the supply on and the backup; stamps stopped switch it
     off at 250 ms; stamps for 14,900 ms keep it on and for 15,100 ms switch
-    it off; with `NONE` the hook stays null.
+    it off; with `OWN` the hook stays null.
 - `test_hitec_files.cpp`: the servo file and the record over the in-memory
   volume (`test/fake_fatfs.cpp`): SAVE AS up to 50 files, the backup into
   the ring as `HTnnn.TXT`, an old record moved into the ring, a ring entry
@@ -1203,7 +1206,7 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
   step, each soft rule and its text, a text for every `hitec_ses_t` and
   `hitec_rx_t`.
 - `test_hitec_ui.cpp`, by control id ([menu.md](menu.md#tests-by-control-id)):
-  MENU opens the screen; the family choice, CLASSIC disabled under `NONE`;
+  MENU opens the screen; the family choice, CLASSIC disabled under `OWN`;
   the claim; the entry and the read; an edit
   and REVERT; HOLD TO WRITE not at 750 ms and not on a slide off; the write
   page, the backup and the record before the first write frame, the flush
@@ -1260,35 +1263,33 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
      session's WAIT step, reported as `power` None.
    - The first full read that completes before a write is the backup, also
      after a first read that failed or was aborted.
-   - With `NONE` a lapse during an entry ends it with RETRY and does not set
+   - With `OWN` a lapse during an entry ends it with RETRY and does not set
      `stalled`; the servo's supply is the user's.
    - `inMode` reads false once a leave with a switch has switched the supply
      off: the servo leaves the mode with its supply.
    - `HitecStatus` carries `lastWrite`, so the screen can tell a write's
      result from a read's.
-   - Tested in `test_hitec_job.cpp`, 93 checks, against a servo that is
-     powered a start-up time after the enable pin goes high and, for the D series,
-     answers 800 ms after power-up: the bind with each family
-     and its three refusals, a command held at the bind not taken; the
-     D series entry with `NONE` and with a switch, the classic entry with a switch
-     and refused without it, a classic entry with no `+` and RETRY; the full
-     read, the backup and READ AGAIN, the backup after an aborted first
-     read; the classic LISTEN starting at the switch-on with a 300 ms
-     converter start-up, the D series read of 0x00 1,000 ms after it; a write
-     of each family, a read-back
-     that differs, a write cut by a lost servo, `Unknown` until a read;
-     Abort in the off phase, in a LISTEN and in a read, refused in a write;
-     the heartbeat in the off phase, in a LISTEN, in the D series wait and
-     its read of 0x00, in a write of each family, in the mode, and with
-     `NONE`; a 300 ms lapse that ends before a read does, then the supply
-     off once it ends; LEAVE with a switch and with `NONE`, LEAVE in the off
-     phase, in a LISTEN, in a read with `NONE`, from Opening and from the
-     stalled view, LEAVE and the release during a write, each close
-     2,000 ms after the switch-off; the command block's held Abort; the
-     card phase in four states, 900 ms of stamps, the 15,000 ms cap. Not
-     tested: an entry answered by a byte other than `+`; a lapse during a
-     D series entry with `NONE`, which ends within about 150 ms, before the
-     250 ms timeout can pass.
+   - Tested in `test_hitec_job.cpp`, 93 checks, against a servo that is powered
+     a start-up time after the enable pin goes high and, for the D series,
+     answers 800 ms after power-up: the bind with each family and its three
+     refusals, a command held at the bind not taken; the D series entry with
+     `OWN` and with a switch, the classic entry with a switch and refused
+     without it, a classic entry with no `+` and RETRY; the full read, the
+     backup and READ AGAIN, the backup after an aborted first read; the classic
+     LISTEN starting at the switch-on with a 300 ms converter start-up, the D
+     series read of 0x00 1,000 ms after it; a write of each family, a read-back
+     that differs, a write cut by a lost servo, `Unknown` until a read; Abort in
+     the off phase, in a LISTEN and in a read, refused in a write; the heartbeat
+     in the off phase, in a LISTEN, in the D series wait and its read of 0x00,
+     in a write of each family, in the mode, and with `OWN`; a 300 ms lapse that
+     ends before a read does, then the supply off once it ends; LEAVE with a
+     switch and with `OWN`, LEAVE in the off phase, in a LISTEN, in a read with
+     `OWN`, from Opening and from the stalled view, LEAVE and the release during
+     a write, each close 2,000 ms after the switch-off; the command block's held
+     Abort; the card phase in four states, 900 ms of stamps, the 15,000 ms cap.
+     Not tested: an entry answered by a byte other than `+`; a lapse during a D
+     series entry with `OWN`, which ends within about 150 ms, before the 250 ms
+     timeout can pass.
 
 3. `src/hitec_files.*` on `card_dir` and `backup_ring`, `test_hitec_files.cpp`;
    the Hitec card phases added to `test/kst_card_count.cpp` and their table
@@ -1375,7 +1376,7 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
      filter and its text; a text for every `hitec_ses_t` and `hitec_rx_t`;
      the model texts, layouts and the measured models. In
      `test_hitec_ui.cpp`: MENU opens the screen; the family, CLASSIC
-     disabled under `NONE`; the claim, the entry and the
+     disabled under `OWN`; the claim, the entry and the
      read; an edit and REVERT; HOLD TO WRITE not at 750 ms and not on a
      slide off; the write page, the record on the card before the first
      write frame, the backup, the result, a second write without a second

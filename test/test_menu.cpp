@@ -5,8 +5,8 @@
  *
  * The cases slice C of docs/design/menu.md lists: SD LOG's BACK to MENU,
  * every registry entry opened from MENU and back, MENU's disarm, BEEP's
- * flash on its row, PINS BUSY while the claim restores, MENU's scroll over
- * registries of six and seven rows, SETTINGS whole and tappable at 0 px as the
+ * flash on its row, the rows drawn disabled while the claim restores, MENU's
+ * scroll over registries of six and seven rows, SETTINGS whole and tappable at 0 px as the
  * sixth row, SD LOG cut until dragged, and SETTINGS' list: its scroll range,
  * each row by id, no scroll from a control, the 40 px rule for a cut
  * control, HOLD TO SAVE at every scroll, and the pole and ceiling rows.
@@ -221,7 +221,7 @@ static void testMenuDisarmAndBeep() {
 
 /** @brief A pin-claiming tool is refused on MENU while the claim restores. */
 static void testPinsBusy() {
-	section("MENU: PINS BUSY while the claim restores");
+	section("MENU: tools drawn disabled while the claim restores");
 	freshTester();
 	// An earlier AM32 test can leave MENU's run cue standing; the cue stays on
 	// the device until an eRPM frame arrives after the handshake. The PINS
@@ -261,6 +261,16 @@ static void testPinsBusy() {
 		const UiControlId settingsRow = UI_ROW(uiMenuRowOf(&UI_SETTINGS), Row);
 		checkInt("SETTINGS' row is whole without a drag", ctlRect(settingsRow).h, 40);
 		checkTrue("SERVO TESTER does not act", !ctlEnabled(menuRow(&UI_SERVO)));
+		char want[40];
+		snprintf(want, sizeof(want), "DSHOT RESTARTING ON SIG GP%u", (unsigned)settings()->dshotPin);
+		checkTrue("the strip says why: DSHOT RESTARTING ON SIG GP0, amber",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, want, C_AMBER, C_BG, 1));
+		char pins[16];
+		snprintf(pins, sizeof(pins), "GP%u+%u", (unsigned)settings()->dshotPin,
+		         (unsigned)settings()->kissPin);
+		const UiRect sr = ctlRect(menuRow(&UI_SERVO));
+		checkTrue("SERVO TESTER keeps its own status under the outline",
+		          fakeTextIs(UI_MENU_STATUS_R - gfxTextW(pins, 1), sr.y + 16, pins, C_DIM, C_BG, 1));
 		checkTrue("nor AM32 CONFIG", !ctlEnabled(menuRow(&UI_AM32)));
 		checkTrue("nor SETTINGS, which changes the wiring the claim latched",
 		          !ctlEnabled(settingsRow));
@@ -270,7 +280,7 @@ static void testPinsBusy() {
 		const UiControlId logRow = UI_ROW(uiMenuRowOf(&UI_SDLOG), Row);
 		checkInt("SD LOG's row is whole after the drag", ctlRect(logRow).h, 40);
 		checkTrue("SD LOG, which claims nothing, acts", ctlEnabled(logRow));
-		fakeDumpFrame("shot_menu_pins_busy.ppm");
+		fakeDumpFrame("shot_menu_restarting.ppm");
 		UiControl c;
 		ctlFind(menuRow(&UI_SERVO), &c);
 		fakePress(c.rect.x + c.rect.w / 2, c.rect.y + c.rect.h / 2);
@@ -515,9 +525,9 @@ static void holdReset() {
 static void testSettingsCutControl() {
 	section("SETTINGS: a cut control takes a press only while 40 px show");
 	openSettings();
-	// DSHOT KBAUD's row starts at content y 190, y 230 on the panel: 10 px show.
+	// DSHOT's row starts at content y 190, y 230 on the panel: 10 px show.
 	UiControl c;
-	checkTrue("DSHOT KBAUD's + is in the table", ctlFind(UI_ROW(SettingsRowId::Speed, Plus), &c));
+	checkTrue("DSHOT's + is in the table", ctlFind(UI_ROW(SettingsRowId::Speed, Plus), &c));
 	checkInt("cut to 10 px", c.rect.h, 10);
 	checkTrue("and does not act", !c.enabled);
 	uint16_t kbaud = settings()->dshotKbaud;
@@ -526,7 +536,7 @@ static void testSettingsCutControl() {
 	checkInt("a press on the 10 px that show changes nothing", settings()->dshotKbaud, kbaud);
 	// A drag of 40 px from the label of MAX THROTTLE: the row shows whole.
 	dragList(150, -40);
-	checkTrue("scrolled 40 px: DSHOT KBAUD's + shows 44 px and acts",
+	checkTrue("scrolled 40 px: DSHOT's + shows 44 px and acts",
 	          ctlFind(UI_ROW(SettingsRowId::Speed, Plus), &c) && c.rect.h == 44 && c.enabled);
 	tapId(UI_ROW(SettingsRowId::Speed, Plus));
 	checkTrue("and a tap steps it", settings()->dshotKbaud != kbaud);
@@ -548,15 +558,23 @@ static void testSettingsRows() {
 	checkInt("MOTOR POLES - steps back", settings()->poles, before.poles);
 	tapId(UI_ROW(SettingsRowId::MaxThrottle, Plus));
 	checkInt("MAX THROTTLE + steps by 5 %", settings()->maxThrottle, before.maxThrottle + MAX_THROTTLE_STEP);
-	revealRow((int)SettingsRowId::Pin);
-	tapId(UI_ROW(SettingsRowId::Pin, Plus));
-	checkTrue("ESC PIN + moves the pin", settings()->dshotPin != before.dshotPin);
+	revealRow((int)SettingsRowId::Sig);
+	tapId(UI_ROW(SettingsRowId::Sig, Plus));
+	checkTrue("SIG PIN + moves the pin", settings()->dshotPin != before.dshotPin);
+	checkTrue("and AUX takes SIG's old pin", settings()->kissPin == before.dshotPin);
 	revealRow((int)SettingsRowId::Speed);
 	tapId(UI_ROW(SettingsRowId::Speed, Minus));
-	checkTrue("DSHOT KBAUD - changes the rate", settings()->dshotKbaud != before.dshotKbaud);
-	revealRow((int)SettingsRowId::KissPin);
-	checkTrue("KISS off: KISS PIN does not act",
-	          before.kissEnable || !ctlEnabled(UI_ROW(SettingsRowId::KissPin, Plus)));
+	checkTrue("DSHOT - changes the rate", settings()->dshotKbaud != before.dshotKbaud);
+	revealRow((int)SettingsRowId::Aux);
+	checkTrue("AUX PIN acts whatever KISS is", ctlEnabled(UI_ROW(SettingsRowId::Aux, Plus)));
+	tapId(UI_ROW(SettingsRowId::Aux, Plus));
+	checkTrue("AUX PIN + swaps the two back",
+	          settings()->dshotPin == before.dshotPin && settings()->kissPin == before.kissPin);
+	revealRow((int)SettingsRowId::ServoSupply);
+	tapId(UI_ROW(SettingsRowId::ServoSupply, Plus));
+	checkInt("SERVO SUPPLY + steps to GP28", settings()->servoSupply, 1);
+	tapId(UI_ROW(SettingsRowId::ServoSupply, Minus));
+	checkInt("SERVO SUPPLY - steps back to OWN", settings()->servoSupply, 0);
 	revealRow((int)SettingsRowId::Contrast);
 	tapId(UI_ROW(SettingsRowId::Contrast, Toggle));
 	checkTrue("CONTRAST toggles", settings()->highContrast != before.highContrast);
@@ -598,8 +616,8 @@ static void testBacklightFloorAndNoOpSteps() {
 	checkInt("+ at 255 stays at 255", settings()->backlight, 255);
 	checkTrue("and applies nothing: the note still reads SAVED", noteIs("SAVED", C_LIME));
 
-	// KISS on: the two free pins are both spoken for, so ESC PIN and KISS PIN
-	// steps change nothing, and apply nothing.
+	// KISS on: a step of SIG PIN or AUX PIN swaps the two free pins, and a
+	// second step swaps them back to what is saved.
 	revealRow((int)SettingsRowId::Kiss);
 	if (!settings()->kissEnable) tapId(UI_ROW(SettingsRowId::Kiss, Toggle));
 	pressId(UI_FIX(SettingsCtl::Save));
@@ -607,14 +625,17 @@ static void testBacklightFloorAndNoOpSteps() {
 	fakeRelease(); menuFrames(1);
 	checkTrue("KISS on and saved: the note reads SAVED", settings()->kissEnable && noteIs("SAVED", C_LIME));
 	uint8_t esc = settings()->dshotPin, kiss = settings()->kissPin;
-	revealRow((int)SettingsRowId::Pin);
-	tapId(UI_ROW(SettingsRowId::Pin, Plus));
-	checkInt("ESC PIN + with both pins taken stays put", settings()->dshotPin, esc);
-	checkTrue("ESC PIN applies nothing: SAVED", noteIs("SAVED", C_LIME));
-	revealRow((int)SettingsRowId::KissPin);
-	tapId(UI_ROW(SettingsRowId::KissPin, Plus));
-	checkInt("KISS PIN + with both pins taken stays put", settings()->kissPin, kiss);
-	checkTrue("KISS PIN applies nothing: SAVED", noteIs("SAVED", C_LIME));
+	revealRow((int)SettingsRowId::Sig);
+	tapId(UI_ROW(SettingsRowId::Sig, Plus));
+	checkTrue("SIG PIN + with KISS on swaps SIG and AUX",
+	          settings()->dshotPin == kiss && settings()->kissPin == esc);
+	checkTrue("and the note reads UNSAVED", noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
+	revealRow((int)SettingsRowId::Aux);
+	tapId(UI_ROW(SettingsRowId::Aux, Plus));
+	checkTrue("AUX PIN + swaps them back",
+	          settings()->dshotPin == esc && settings()->kissPin == kiss);
+	checkTrue("what is saved: nothing unsaved",
+	          !settingsDirty() && noteIs("SAVED SETTINGS IN USE", C_DIM));
 	holdReset();
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
@@ -879,7 +900,7 @@ static void testResetByUpdate() {
 	checkTrue("blank flash: MENU's SETTINGS row reads nothing", b[0] == '\0' && settingsRowAmber() == 0);
 	tapId(menuRow(&UI_SETTINGS));
 	menuFrames(1);
-	checkTrue("and SETTINGS reads COMPILED DEFAULTS IN USE", noteIs("COMPILED DEFAULTS IN USE", C_DIM));
+	checkTrue("and SETTINGS reads NOTHING SAVED: DEFAULTS IN USE", noteIs("NOTHING SAVED: DEFAULTS IN USE", C_DIM));
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 
@@ -1054,21 +1075,21 @@ static void testCarriedOver() {
 }
 
 /**
- * @brief ESC PIN moves DShot at once: SETTINGS repeats the splash's warning
+ * @brief SIG PIN moves DShot at once: SETTINGS repeats the splash's warning
  *        for the live pin while it is not the pin the splash named.
  */
 static void testEscPinNote() {
-	section("SETTINGS: ESC PIN off the boot pin repeats the splash's warning");
+	section("SETTINGS: SIG PIN off the boot pin repeats the splash's warning");
 	openSettings();
 	menuFrames(1);
 	const uint8_t boot = settings()->dshotPin;
-	checkTrue("at the boot pin: no warning", noteIs("COMPILED DEFAULTS IN USE", C_DIM));
-	revealRow((int)SettingsRowId::Pin);
-	tapId(UI_ROW(SettingsRowId::Pin, Plus));
+	checkTrue("at the boot pin: no warning", noteIs("NOTHING SAVED: DEFAULTS IN USE", C_DIM));
+	revealRow((int)SettingsRowId::Sig);
+	tapId(UI_ROW(SettingsRowId::Sig, Plus));
 	const uint8_t moved = settings()->dshotPin;
 	char want[40];
 	snprintf(want, sizeof(want), UI_SPLASH_PIN_FMT, (unsigned)moved);
-	checkTrue("ESC PIN stepped: DShot on the other pin", moved != boot && fakeWiring().dshotPin == moved);
+	checkTrue("SIG PIN stepped: DShot on the other pin", moved != boot && fakeWiring().dshotPin == moved);
 	checkTrue("the splash's warning for it at y 230, amber",
 	          fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1));
 	checkTrue("and the note line still reads UNSAVED",
@@ -1106,8 +1127,8 @@ static void testEscPinNote() {
 	          noteIs("SAVE FAILED - FLASH REFUSED THE WRITE", C_RED) &&
 	          fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1));
 	fakeFlashSetWritable(true);
-	revealRow((int)SettingsRowId::Pin);
-	tapId(UI_ROW(SettingsRowId::Pin, Minus));
+	revealRow((int)SettingsRowId::Sig);
+	tapId(UI_ROW(SettingsRowId::Sig, Minus));
 	checkTrue("back on the boot pin: no warning",
 	          settings()->dshotPin == boot && !fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1));
 	checkInt("and the list to y 239 again: MOTOR POLES at y 60",
@@ -1122,8 +1143,8 @@ static void testEscPinNote() {
 	for (int how = 0; how < 2; how++) {
 		openSettings();
 		menuFrames(1);
-		revealRow((int)SettingsRowId::Pin);
-		tapId(UI_ROW(SettingsRowId::Pin, Plus));
+		revealRow((int)SettingsRowId::Sig);
+		tapId(UI_ROW(SettingsRowId::Sig, Plus));
 		for (int k = 0; k < 5; k++) dragList(200, -180);
 		checkInt(how ? "pin moved, at the end: UPTIME at y 178"
 		             : "pin moved, at the end, before DEFAULTS: UPTIME at y 178",
@@ -1139,7 +1160,7 @@ static void testEscPinNote() {
 		checkInt("LAST RESTART at y 140", ctlRect(UI_ROW(SettingsRowId::LastRestart, Row)).y, 140);
 		for (int k = 0; k < 5; k++) dragList(60, 180);
 		checkInt("dragged back: MOTOR POLES at y 60", ctlRect(UI_ROW(SettingsRowId::Poles, Row)).y, 60);
-		checkInt("the list ends at y 239 again: DSHOT KBAUD's row, y 230 to 239, shows 10 px",
+		checkInt("the list ends at y 239 again: DSHOT's row, y 230 to 239, shows 10 px",
 		         ctlRect(UI_ROW(SettingsRowId::Speed, Row)).h, 10);
 		tapId(UI_FIX(UI_BACK));
 		tapId(UI_FIX(UI_BACK));
@@ -1187,14 +1208,9 @@ static void testMenuStatusWidths() {
 		         (unsigned)en.statusWidest);
 		checkTrue(what, strlen(b) <= en.statusWidest);
 	};
-	for (uint8_t i = 0; i < n; i++) {
-		check(e[i], "at rest");
-		if (e[i].screen->pinUser != PinUser::None || e[i].screen->freePins) {
-			char what[80];
-			snprintf(what, sizeof(what), "%s: %s within its widest", e[i].label, UI_MENU_BUSY_TEXT);
-			checkTrue(what, strlen(UI_MENU_BUSY_TEXT) <= e[i].statusWidest);
-		}
-	}
+	// A row refused while the claim is not Free keeps its own status: no
+	// state of the claim adds a word to a row.
+	for (uint8_t i = 0; i < n; i++) check(e[i], "at rest");
 	// BEEP's flash, sent and refused.
 	int beep = uiMenuRowOf(&UI_BEEP);
 	tapId(UI_ROW(beep, Row));
@@ -1224,11 +1240,18 @@ static void testMenuStatusWidths() {
 		fakeFlashClear();
 	}
 	settingsLoad();
-	// The two pin readouts at the widest pins the board offers.
+	// The two pin readouts at the widest pins the board offers, and at two
+	// digits, GP28 and GP29, which no board offers yet.
 	settings()->dshotPin = 0;
 	settings()->kissPin = 1;
 	check(e[uiMenuRowOf(&UI_AM32)], "GP0");
 	check(e[uiMenuRowOf(&UI_SERVO)], "GP0+1");
+	settings()->dshotPin = 29;
+	settings()->kissPin = 28;
+	check(e[uiMenuRowOf(&UI_AM32)], "GP29");
+	check(e[uiMenuRowOf(&UI_KST)], "GP29");
+	check(e[uiMenuRowOf(&UI_HITEC)], "GP29");
+	check(e[uiMenuRowOf(&UI_SERVO)], "GP29+28");
 	settingsLoad();
 	tapId(UI_FIX(UI_BACK));
 }
@@ -1304,7 +1327,7 @@ static void testMenuScrollResets() {
 /**
  * @brief AM32 CONFIG's own refusal: opened beside another claim, as MENU no
  *        longer allows, it waits, leaves that claim alone, and claims once
- *        the other one ends. The backstop under MENU's PINS BUSY.
+ *        the other one ends. The backstop under MENU's disabled rows.
  */
 static void testAm32WaitsBesideAClaim() {
 	section("AM32 CONFIG: opened beside another claim, it waits");
@@ -1338,6 +1361,84 @@ static void testAm32WaitsBesideAClaim() {
 	uiInit();
 }
 
+/**
+ * @brief SERVO SUPPLY is a core section after WIRING, with or without a
+ *        MENU row for KST SERVO: no tool carries it.
+ */
+static void testSupplySection() {
+	section("SETTINGS: SERVO SUPPLY is a core section after WIRING");
+	checkTrue("KST SERVO carries no SETTINGS section", UI_KST.settings == nullptr);
+	static const char *const WANT[] = {
+		"ESC TESTER", "WIRING", "SERVO SUPPLY", "DISPLAY", "BOARD", "DIAGNOSTICS",
+	};
+	static const UiMenuEntry noKst[] = {
+		{ "BEEP THE ESC", 8, &UI_BEEP }, { "AM32 CONFIG", 4, &UI_AM32 },
+		{ "SERVO TESTER", 7, &UI_SERVO }, { "SETTINGS", 7, &UI_SETTINGS },
+		{ "SD LOG", 10, &UI_SDLOG },
+	};
+	for (int pass = 0; pass < 2; pass++) {
+		uiMenuUseRegistry(pass ? noKst : nullptr, pass ? 5 : 0);
+		openSettings();
+		const SettingsSection *secs[16];
+		uint8_t ns = uiSettingsSections(secs, 16);
+		bool same = ns == 6;
+		for (uint8_t i = 0; same && i < ns; i++) same = strcmp(secs[i]->caption, WANT[i]) == 0;
+		checkTrue(pass ? "without KST SERVO on MENU: the same six sections"
+		               : "the registry's MENU: ESC TESTER, WIRING, SERVO SUPPLY, DISPLAY, BOARD, DIAGNOSTICS",
+		          same);
+		checkTrue("SERVO SUPPLY holds SERVO SUPPLY, then CURRENT SENSE",
+		          ns > 2 && secs[2]->count == 2 && strcmp(secs[2]->rows[0].label, "SERVO SUPPLY") == 0 &&
+		          strcmp(secs[2]->rows[1].label, "CURRENT SENSE") == 0);
+		revealRow((int)SettingsRowId::ServoSupply);
+		tapId(UI_ROW(SettingsRowId::ServoSupply, Plus));
+		checkInt("its + acts: GP28", settings()->servoSupply, 1);
+		tapId(UI_ROW(SettingsRowId::ServoSupply, Minus));
+		tapId(UI_FIX(UI_BACK));
+		tapId(UI_FIX(UI_BACK));
+	}
+	uiMenuUseRegistry(nullptr, 0);
+	freshTester();
+}
+
+/**
+ * @brief MENU repaints its strip when AUX moves or the claim changes, also
+ *        with a registry whose rows claim nothing, and the tools' refusal
+ *        reads WAIT: DSHOT RESTARTING.
+ */
+static void testMenuStripRepaints() {
+	section("MENU: the strip follows AUX and the claim");
+	checkStr("the tools' refusal", UI_WAIT_RESTART_TEXT, "WAIT: DSHOT RESTARTING");
+	static const UiMenuEntry quiet[] = {
+		{ "BEEP THE ESC", 8, &UI_BEEP }, { "SD LOG", 10, &UI_SDLOG },
+	};
+	uiMenuUseRegistry(quiet, 2);
+	freshTester();
+	openMenu();
+	menuFrames(2);
+	char want[40];
+	auto captionIs = [&](uint16_t col) {
+		return fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, want, col, C_BG, 1) ||
+		       fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, want, col, C_BG, 1);
+	};
+	const uint8_t sig = settings()->dshotPin, aux = settings()->kissPin;
+	settings()->kissPin = (uint8_t)(aux == 1 ? 28 : 1);   // drawn only, never driven
+	menuFrames(1);
+	snprintf(want, sizeof(want), "SIG GP%u  AUX GP%u  DSHOT%u", (unsigned)sig,
+	         (unsigned)settings()->kissPin, (unsigned)settings()->dshotKbaud);
+	checkTrue("AUX changes while MENU shows: the caption follows", captionIs(C_DIM));
+	settings()->kissPin = aux;
+	menuFrames(1);
+	checkTrue("a claim taken", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
+	framesNoPump(1);
+	snprintf(want, sizeof(want), "DSHOT RESTARTING ON SIG GP%u", (unsigned)sig);
+	checkTrue("no row claims: the strip still says DShot restarts", captionIs(C_AMBER));
+	pinClaimEnd(PinUser::Am32);
+	for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) menuFrames(1);
+	tapId(UI_FIX(UI_BACK));
+	uiMenuUseRegistry(nullptr, 0);
+	freshTester();
+}
+
 void runMenuTests() {
 	testSdLogBack();
 	testEveryEntry();
@@ -1361,4 +1462,6 @@ void runMenuTests() {
 	testSettingsValueWidths();
 	testMenuScrollResets();
 	testAm32WaitsBesideAClaim();
+	testSupplySection();
+	testMenuStripRepaints();
 }

@@ -587,31 +587,31 @@ static void mainBody(MainText *m) {
 	if (!s_claimed) {
 		switch (s_refusal) {
 			case ClaimRefusal::EscAnswering:
-				snprintf(a, sizeof(a), "AN ESC ANSWERS ON GP%u.", sig);
+				snprintf(a, sizeof(a), "AN ESC ANSWERS ON SIG GP%u.", sig);
 				addLine(m, a, C_AMBER);
 				addLine(m, "UNPLUG IT: KST FRAMES MAY READ", C_AMBER);
 				addLine(m, "AS THROTTLE.", C_AMBER);
-				snprintf(m->strip, sizeof(m->strip), "CHECKING GP%u FOR AN ESC", sig);
+				snprintf(m->strip, sizeof(m->strip), "CHECKING SIG GP%u FOR AN ESC", sig);
 				return;
 			case ClaimRefusal::Armed: addLine(m, "DISARM FIRST", C_AMBER); return;
-			default:                  addLine(m, "PINS BUSY", C_AMBER);    return;
+			default:                  addLine(m, UI_WAIT_RESTART_TEXT, C_AMBER); return;
 		}
 	}
 	ClaimState cs = pinClaimState();
 	if (cs == ClaimState::Stopping) {
-		snprintf(m->strip, sizeof(m->strip), "RELEASING GP%u", sig);
+		snprintf(m->strip, sizeof(m->strip), "RELEASING SIG GP%u", sig);
 		return;
 	}
 	uint8_t err = pinClaimJobError();
 	if (err) {
 		static const char *const WHY[] = {"", "REFUSED", "PWM", "PIO", "DMA", "CLOCK"};
-		snprintf(a, sizeof(a), "GP%u COULD NOT BE TAKEN (%s)", sig, WHY[err < 6 ? err : 1]);
+		snprintf(a, sizeof(a), "SIG GP%u COULD NOT BE TAKEN (%s)", sig, WHY[err < 6 ? err : 1]);
 		addLine(m, a, C_AMBER);
 		m->button = "RETRY"; m->ctl = KstCtl::Retry; m->enabled = true;
 		return;
 	}
 	if (cs != ClaimState::Running) {
-		snprintf(m->strip, sizeof(m->strip), "TAKING GP%u", sig);
+		snprintf(m->strip, sizeof(m->strip), "TAKING SIG GP%u", sig);
 		return;
 	}
 	switch (s_st.job) {
@@ -620,10 +620,10 @@ static void mainBody(MainText *m) {
 				// TRY is the attempt under way: in an off phase, the next one.
 				unsigned tri = (unsigned)s_st.attempts + (s_st.supplyOn ? 0u : 1u);
 				if (s_st.supplyOn) {
-					snprintf(m->strip, sizeof(m->strip), "GP%u  TRY %u  SUPPLY ON", sig, tri);
+					snprintf(m->strip, sizeof(m->strip), "SIG GP%u  TRY %u  SUPPLY ON", sig, tri);
 					senseAppendCurrent(m->strip, sizeof(m->strip));
 				} else
-					snprintf(m->strip, sizeof(m->strip), "GP%u  TRY %u  SUPPLY OFF %u.%u S", sig, tri,
+					snprintf(m->strip, sizeof(m->strip), "SIG GP%u  TRY %u  SUPPLY OFF %u.%u S", sig, tri,
 					         s_st.supplyLeftDs / 10, s_st.supplyLeftDs % 10);
 				m->big[0] = "SWITCHED SUPPLY";
 				addLine(m, "THE BENCH SWITCHES THE SERVO OFF FOR", C_DIM);
@@ -639,7 +639,7 @@ static void mainBody(MainText *m) {
 				return;
 			}
 			unsigned ds = s_st.searchMs / 100;
-			snprintf(m->strip, sizeof(m->strip), "GP%u  TRY %lu  %u.%u S", sig,
+			snprintf(m->strip, sizeof(m->strip), "SIG GP%u  TRY %lu  %u.%u S", sig,
 			         (unsigned long)s_st.attempts, ds / 10, ds % 10);
 			m->big[0] = "POWER UP";
 			m->big[1] = "THE SERVO NOW";
@@ -664,7 +664,7 @@ static void mainBody(MainText *m) {
 						snprintf(conv, sizeof(conv), "CHECK THE CONVERTER ON GP%u, ITS WIRING AND THE SIGNAL.",
 						         (unsigned)servoSupplyPin());
 						addWrapped(m, conv, C_TEXT);
-						addWrapped(m, "A SERVO ON ITS OWN SUPPLY NEEDS SETTINGS > SERVO SUPPLY AT NONE.",
+						addWrapped(m, "A SERVO ON ITS OWN SUPPLY NEEDS SETTINGS > SERVO SUPPLY AT OWN.",
 						           C_TEXT);
 						return;
 					}
@@ -674,7 +674,7 @@ static void mainBody(MainText *m) {
 					return;
 				case KstSeek::NoUi:
 					if (s_st.supplyFitted) {
-						snprintf(m->strip, sizeof(m->strip), "GP%u  SUPPLY OFF", sig);
+						snprintf(m->strip, sizeof(m->strip), "SIG GP%u  SUPPLY OFF", sig);
 						addWrapped(m, "THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF.",
 						           C_AMBER);
 						// 38 characters: 227 px from x 8, inside the panel.
@@ -725,24 +725,24 @@ static void mainBody(MainText *m) {
 		case KstJobState::Rebooting:
 			switch (s_st.reboot) {
 				case KstReboot::Off:
-					snprintf(m->strip, sizeof(m->strip), "GP%u  SUPPLY OFF %u.%u S", sig,
+					snprintf(m->strip, sizeof(m->strip), "SIG GP%u  SUPPLY OFF %u.%u S", sig,
 					         s_st.supplyLeftDs / 10, s_st.supplyLeftDs % 10);
 					addLine(m, "REBOOT: DO NOT UNPLUG THE SERVO.", C_AMBER);
 					return;
 				case KstReboot::On:
-					snprintf(m->strip, sizeof(m->strip), "GP%u  SUPPLY ON %u.%u S", sig,
+					snprintf(m->strip, sizeof(m->strip), "SIG GP%u  SUPPLY ON %u.%u S", sig,
 					         s_st.supplyLeftDs / 10, s_st.supplyLeftDs % 10);
 					senseAppendCurrent(m->strip, sizeof(m->strip));
 					addLine(m, "REBOOT: DO NOT UNPLUG THE SERVO.", C_AMBER);
 					return;
 				default:
-					snprintf(m->strip, sizeof(m->strip), "GP%u  SUPPLY ON", sig);
+					snprintf(m->strip, sizeof(m->strip), "SIG GP%u  SUPPLY ON", sig);
 					senseAppendCurrent(m->strip, sizeof(m->strip));
 					addLine(m, "READING 32 REGISTERS", C_TEXT);
 					return;
 			}
 		default:
-			snprintf(m->strip, sizeof(m->strip), "STARTING THE SEARCH ON GP%u", sig);
+			snprintf(m->strip, sizeof(m->strip), "STARTING THE SEARCH ON SIG GP%u", sig);
 			return;
 	}
 }
@@ -1902,50 +1902,7 @@ static void kstMenuStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
 	*col = C_DIM;
 }
 
-// ---------------------------------------------------------------------------
-// SETTINGS: the SERVO SUPPLY section
-// ---------------------------------------------------------------------------
-
-/** @brief NONE, GP28 or GP29: the switched supply's enable pin. */
-static void supplyValue(char *b, size_t n, uint16_t *c) {
-	uint8_t pin = servoSupplyPinOf(settings()->servoSupply);
-	if (pin == SERVO_SUPPLY_NO_PIN) snprintf(b, n, "NONE");
-	else                            snprintf(b, n, "GP%u", (unsigned)pin);
-	*c = C_TEXT;
-}
-/** @brief - and + step NONE, GP28, GP29, and stop at the ends. */
-static void supplyStep(int dir) {
-	int m = (int)settings()->servoSupply + (dir < 0 ? -1 : 1);
-	if (m < 0 || m > (int)SERVO_SUPPLY_MODE_MAX) return;
-	settings()->servoSupply = (uint8_t)m;
-}
-
-/** @brief NONE or INA219: the current sensor on J3. */
-static void senseValue(char *b, size_t n, uint16_t *c) {
-	snprintf(b, n, "%s", settings()->currentSense ? "INA219" : "NONE");
-	*c = C_TEXT;
-}
-static bool senseOn() { return settings()->currentSense != 0; }
-/** @brief NONE and INA219, in turn. */
-static void senseToggle() {
-	settings()->currentSense = settings()->currentSense ? (uint8_t)SenseMode::None
-	                                                    : (uint8_t)SenseMode::Ina219;
-}
-/** @brief FOUND, NOT FOUND or OTHER PART under the label; none with NONE. */
-static void senseCaptionText(char *b, size_t n, uint16_t *c) {
-	const char *cap = senseCaption();
-	snprintf(b, n, "%s", cap ? cap : "");
-	*c = cap && strcmp(cap, "FOUND") == 0 ? C_LIME : C_AMBER;
-}
-
-static constexpr SettingsRow ROWS_SUPPLY[] = {
-	{ "SERVO SUPPLY", SettingsKind::Stepper, 4, supplyValue, nullptr, supplyStep, nullptr, nullptr, nullptr },
-	{ "CURRENT SENSE", SettingsKind::Toggle, 6, senseValue, nullptr, nullptr, senseToggle, senseOn,
-	  senseCaptionText },
-};
-static constexpr SettingsSection SEC_SUPPLY = { "SERVO SUPPLY", ROWS_SUPPLY, 2 };
-
 const UiScreen UI_KST = {
 	UiScreenId::Kst, "KST SERVO", PinUser::Kst, kstMenuStatus,
-	uiKstEnter, uiKstTick, nullptr, uiKstControls, &SEC_SUPPLY, false,
+	uiKstEnter, uiKstTick, nullptr, uiKstControls, nullptr, false,
 };

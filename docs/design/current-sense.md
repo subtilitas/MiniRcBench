@@ -392,7 +392,7 @@ than the converter's wiring takes.
   ([kst-programming.md](kst-programming.md#decisions), decision 16). The
   servo tester runs every servo at 5.0 V on this supply; an HV servo moves
   slower there than at its rating. A test at 7.4 V or 8.4 V uses
-  `SERVO SUPPLY` at `NONE` and a supply of the user's.
+  `SERVO SUPPLY` at `OWN` and a supply of the user's.
 - Rated for the servo's stall current: at least 3 A continuous at the
   lowest VIN used, which matches the INA219's range at /8. Below that, a
   stall drives the converter into its current limit, VOUT collapses, and
@@ -692,7 +692,7 @@ with `SERVO SUPPLY` at `GP28` or `GP29`:
   WIRE.`, joins them.
 - The start-up time of each switch-on shows on SET, `SUPPLY UP IN 40 MS`,
   and goes into the log.
-- With `SERVO SUPPLY` at `NONE` the servo tester switches nothing, as
+- With `SERVO SUPPLY` at `OWN` the servo tester switches nothing, as
   today, and the readout works on whatever supply runs through the
   sensor.
 
@@ -730,7 +730,7 @@ values (decision 13).
 What the bench does on a cut, in the servo tester: the supply off at once,
 level 0 on the pins, the sweep ended, the chip `OVERCURRENT`, `STALL`,
 `LOW SUPPLY` or `NO SENSOR` in `C_MAGENTA`, latched as `STALLED` is, until
-the next HOLD TO START. With `SERVO SUPPLY` at `NONE` there is no supply
+the next HOLD TO START. With `SERVO SUPPLY` at `OWN` there is no supply
 to cut: the cut ends the pulses, and what the servo does without pulses is
 the servo's own.
 
@@ -877,7 +877,7 @@ rules do not depend on current.
 |---|---|---|
 | Board off, converter input connected | the pull-down holds EN low; the converter is off, its output disconnected | IN+ and IN- at 0 V; VS 0 V; SDA and SCL at 0 V |
 | Board off, a converter without a disconnect (does not qualify) | low | IN+ and IN- at VIN less a diode, up to about 4 V on one cell, with VS at 0 V. The common-mode rating, -0.3 V to 26 V, is stated without reference to VS (to confirm); bench test B3 checks the leakage |
-| Board off, a servo supply of the user's through the sensor, `SERVO SUPPLY` at `NONE` | not wired | IN+ and IN- at that supply's voltage with VS at 0 V, as above |
+| Board off, a servo supply of the user's through the sensor, `SERVO SUPPLY` at `OWN` | not wired | IN+ and IN- at that supply's voltage with VS at 0 V, as above |
 | Board on, J3 lead out | as designed | the readings stop; sensor lost |
 | Board in reset or BOOTSEL | undriven; the pull-down holds it low; BOOTSEL is bench test B6, as for kst-programming.md step 7 | not addressed |
 

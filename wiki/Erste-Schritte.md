@@ -47,7 +47,9 @@ Die Platine hat JST-SH-Stecker mit 1,0 mm Raster und keine 2,54-mm-Stiftleisten,
 das ESC-Kabel braucht also ein Adapterkabel mit JST-SH-Stecker.
 
 GP steht für GPIO (General Purpose Input/Output, frei verwendbarer Pin). Der
-ESC-Pin lässt sich später unter **MENU → SETTINGS** ändern und wird im Flash
+ESC-Pin heißt SIG; ein KISS-Telemetriekabel, falls vorhanden, kommt an AUX,
+GP1. Beide lassen sich später unter **MENU → SETTINGS → SIG PIN** und
+**AUX PIN** ändern, wo ein Schritt die beiden tauscht, und werden im Flash
 gespeichert.
 
 > **Vorher das mittlere Kabel des ESC-Steckers abzwicken oder auspinnen.**
@@ -66,7 +68,7 @@ gespeichert.
 > zerstören. J5 Pin 3 bleibt frei.
 
 Halte das Signalkabel kurz. Die größte funktionierende Länge ist nicht
-gemessen. Steigt die Fehlerrate unter `LINK`, stelle **DSHOT KBAUD** unter
+gemessen. Steigt die Fehlerrate unter `LINK`, stelle **DSHOT** unter
 **MENU → SETTINGS** auf 300.
 
 ---
@@ -98,7 +100,7 @@ Nach einem Update von einem Format, das die Firmware nicht kennt, werden die
 gespeicherten Einstellungen verworfen, und jede Einstellung beginnt mit ihrer
 Voreinstellung. Der Startbildschirm zeigt dann über dem Namen zwei Zeilen in
 Bernstein: `SETTINGS RESET BY UPDATE` und `CHECK MENU > SETTINGS`. Prüfe
-mindestens Polzahl, `MAX THROTTLE`, `ESC PIN`, KISS, `SERVO SUPPLY` und
+mindestens Polzahl, `MAX THROTTLE`, `SIG PIN`, KISS, `SERVO SUPPLY` und
 `CURRENT SENSE` und halte dann `HOLD TO SAVE`. Bis ein Speichern gelingt,
 zeigt die Zeile SETTINGS in MENU `UPDATED`, nach einer Übernahme wie nach
 einem Verwerfen. Eine Platine, die nie Einstellungen gespeichert hatte,
@@ -207,13 +209,13 @@ Beide Zeilen stehen oben in der Liste. Beide Werte werden erst mit
 `UNSAVED - HOLD SAVE TO KEEP`, und `MENU` zeigt `UNSAVED` in der Zeile
 `SETTINGS`.
 
-`ESC PIN`, weiter unten, legt DShot sofort auf den anderen Pin. Solange es
+`SIG PIN`, weiter unten, legt DShot sofort auf den anderen Pin. Solange es
 nicht der Pin ist, den der Startbildschirm nannte, wiederholt eine eigene
 Zeile über `LINK` dessen Warnung für den neuen Pin in Bernstein,
 `UNPLUG ANY SERVO FROM GP1 NOW`; die Hinweiszeile darunter sagt weiter, ob die
 Einstellungen gespeichert sind.
 
-<img src="img/settings-pin.png" width="240" alt="SETTINGS, nachdem ESC PIN auf GP1 gewechselt hat: UNPLUG ANY SERVO FROM GP1 NOW über LINK, UNSAVED in der Hinweiszeile">
+<img src="img/settings-pin.png" width="240" alt="SETTINGS, nachdem SIG PIN auf GP1 gewechselt hat: UNPLUG ANY SERVO FROM GP1 NOW über LINK, UNSAVED in der Hinweiszeile">
 
 ---
 

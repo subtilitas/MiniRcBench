@@ -110,6 +110,13 @@ struct SettingsRow {
 	 *        the row has none, and its label is centred.
 	 */
 	void (*caption)(char *buf, size_t n, uint16_t *col);
+	/**
+	 * @brief Stepper: the connector pin under the value, scale 1, right to
+	 *        the value's end, such as `J5 PIN 2`: writes it to buf, at most n
+	 *        bytes; an empty string for none. Null: the row has none, and
+	 *        its value is centred in the row.
+	 */
+	void (*sub)(char *buf, size_t n);
 };
 
 /** @brief A captioned run of SETTINGS rows. */

@@ -22,7 +22,7 @@ with a backup on the SD (Secure Digital) card first.
 > **boots** with a servo on the ESC pin, and when you leave this screen. The
 > screen asks you to unplug the servo first.
 
-With **SETTINGS → SERVO SUPPLY** at `NONE`, the default, you power the servo
+With **SETTINGS → SERVO SUPPLY** at `OWN`, the default, you power the servo
 up and down by hand, with a plug or a switch. With `GP28` or `GP29` the bench
 switches the servo's supply through a DC-DC (direct current to direct
 current) converter: see [Switched supply](#switched-supply).
@@ -33,7 +33,7 @@ current) converter: see [Switched supply](#switched-supply).
 
 The servo needs its own supply. The board supplies the signal and ground only.
 The servo answers only in the first moments after its supply comes on, so
-with SERVO SUPPLY at `NONE` the supply has to be switchable by hand: a plug,
+with SERVO SUPPLY at `OWN` the supply has to be switchable by hand: a plug,
 or a switch in its positive lead. With `GP28` or `GP29` the bench switches it:
 see [Switched supply](#switched-supply).
 
@@ -60,8 +60,8 @@ see [Switched supply](#switched-supply).
 - Switch the board on before the servo supply, and the servo supply off
   before the board.
 - Join the two grounds once, at the board.
-- SIG is the ESC pin, as set under **MENU → SETTINGS**. GP0 is the
-  default.
+- SIG is the ESC pin, as set under **MENU → SETTINGS → SIG PIN**, with its
+  J5 pin under the value. GP0 is the default.
 - Unplug any ESC from the ESC pin. The screen waits while an ESC answers on
   it, but it cannot see every ESC.
 
@@ -75,7 +75,7 @@ The screen takes SIG from the ESC driver. While it does, the strip reads
 `RELEASING GP0`, then `TAKING GP0`. While an ESC answers on the pin it
 reads `CHECKING GP0 FOR AN ESC` instead.
 
-- If an ESC answers on the pin, the screen says `AN ESC ANSWERS ON GP0.`,
+- If an ESC answers on the pin, the screen says `AN ESC ANSWERS ON SIG GP0.`,
   then `UNPLUG IT: KST FRAMES MAY READ` and `AS THROTTLE.` It takes the pin
   when the ESC is gone.
 - While the ESC is armed, the screen says `DISARM FIRST`. While the pins are
@@ -99,7 +99,7 @@ pulses.
 
 The screen repeats the entry sequence of rcbench's KST code, one attempt every
 116.6 ms to 118.8 ms, for 30 s. The strip counts the attempts and the time:
-`GP0  TRY 12  1.4 S`. A spinner turns while the search runs.
+`SIG GP0  TRY 12  1.4 S`. A spinner turns while the search runs.
 
 The body reads `POWER UP` and `THE SERVO NOW`, then
 `PLUG IT IN OR SWITCH ITS SUPPLY ON.` and
@@ -113,7 +113,7 @@ are `EARLY`, `LINE HIGH`, `LATE`, `CELL`, `LENGTH`, `RATE`, `FLAGS`,
 
 | Strip | What happened | Button |
 |---|---|---|
-| `GP0  TRY 12  1.4 S` | The search runs | `STOP SEARCH` |
+| `SIG GP0  TRY 12  1.4 S` | The search runs | `STOP SEARCH` |
 | `NO SERVO IN 30 S` | No servo answered in 30 s. The body reads `CHECK SIGNAL AND GROUND, THEN POWER THE SERVO UP AGAIN.` | `RETRY` |
 | `SEARCH STOPPED` | `STOP SEARCH` ended it, or the screen stalled and the search stopped itself | `RETRY` |
 | `SEARCH FAILED` | The session ended with a result, which the body names in amber | `RETRY` |
@@ -165,8 +165,8 @@ Rows are 40 px tall at a 42 px pitch. Drag the list up or down to scroll.
 | Group | Fields |
 |---|---|
 | TUNE | `MAX. DUTY`, `BOOST`, `STRETCH`, `SOFT START`, `SPEED LIMIT`, `SPEED`, `DEAD BAND` |
-| PULSE | `PULSE LOWER`, `PULSE UPPER`, `NEUTRAL`, `REVERSION`, `LEFT ANGLE`, `RIGHT ANGLE` |
-| FAILSAFE | `ALLOW UNCONT`, `UNCONTROLLED POS`, `UNCONTROLLED TIME` |
+| PULSE | `PULSE LOWER`, `PULSE UPPER`, `NEUTRAL`, `REVERSED`, `LEFT ANGLE`, `RIGHT ANGLE` |
+| FAILSAFE | `FAILSAFE MOVE`, `FAILSAFE POSITION`, `FAILSAFE TIME` |
 | LOCKED | `20K SEL`, `LOCK`, `PROT1 CANCLE`, `PROT1 EN`, `PROT1 TIME`, `PROT1 PWM`, `PROT POT ERR`, `POT SAM TIMES`, `PROT PWM ERR`, `NODE ADDR`, `SERVO / GYRO` |
 
 - Values carry their unit: `96 %`, `300.0 US`, `1.0 S`, `X1`, `ON`, `OFF`, or
@@ -435,7 +435,7 @@ unplug page directly.
 
 ## When it does not work
 
-- **`AN ESC ANSWERS ON GP0.`** An ESC is on the ESC pin. Unplug it.
+- **`AN ESC ANSWERS ON SIG GP0.`** An ESC is on the ESC pin. Unplug it.
 - **`NO SERVO IN 30 S`.** Check signal and ground. Power the servo up again
   while the screen searches: it answers only right after power-on.
 - **`REPLY NOT VALID: ...`.** Edges arrive, but no reply is valid.
@@ -465,7 +465,7 @@ this lead gets the converter's output on its BEC wire.**
 <img src="img/kst-switched.png" width="240" alt="The switched search: SUPPLY OFF 1.4 S"> <img src="img/kst-leave-switched.png" width="240" alt="The leave page with HOLD TO REBOOT"> <img src="img/kst-stalled.png" width="240" alt="The stalled screen: SUPPLY OFF">
 
 - **The search** switches the servo off for 2 s, then on, before each try:
-  `GP0  TRY 3  SUPPLY OFF 1.4 S`. 14 power-ups fit in the 30 s search;
+  `SIG GP0  TRY 3  SUPPLY OFF 1.4 S`. 14 power-ups fit in the 30 s search;
   then `NO ANSWER IN 14 POWER-UPS`.
 - **The leave page** reads `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.` After
   LEAVE the unplug page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`: the pin is

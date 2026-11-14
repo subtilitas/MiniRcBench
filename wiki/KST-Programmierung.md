@@ -24,7 +24,7 @@ Digital).
 > die Platine mit einem Servo am ESC-Pin **startet**, und wenn du diesen
 > Bildschirm verlässt. Der Bildschirm fordert dich vorher zum Abziehen auf.
 
-Mit **SETTINGS → SERVO SUPPLY** auf `NONE`, der Voreinstellung, schaltest du
+Mit **SETTINGS → SERVO SUPPLY** auf `OWN`, der Voreinstellung, schaltest du
 das Servo von Hand ein und aus, mit einem Stecker oder einem Schalter. Mit
 `GP28` oder `GP29` schaltet der Prüfstand die Versorgung des Servos über einen
 DC-DC-Wandler (Gleichspannungswandler): siehe
@@ -36,7 +36,7 @@ DC-DC-Wandler (Gleichspannungswandler): siehe
 
 Das Servo braucht eine eigene Stromversorgung. Die Platine liefert nur Signal
 und Masse. Das Servo antwortet nur in den ersten Momenten, nachdem seine
-Versorgung eingeschaltet wurde. Mit SERVO SUPPLY auf `NONE` muss sich die
+Versorgung eingeschaltet wurde. Mit SERVO SUPPLY auf `OWN` muss sich die
 Versorgung daher von Hand schalten lassen: mit einem Stecker oder einem
 Schalter im Plusleiter. Mit `GP28` oder `GP29` schaltet der Prüfstand sie:
 siehe [Geschaltete Versorgung](#geschaltete-versorgung).
@@ -64,8 +64,8 @@ siehe [Geschaltete Versorgung](#geschaltete-versorgung).
 - Schalte zuerst die Platine ein und dann die Servoversorgung, und beim
   Ausschalten zuerst die Servoversorgung.
 - Verbinde die beiden Massen einmal, an der Platine.
-- SIG ist der ESC-Pin, so wie unter **MENU → SETTINGS** eingestellt.
-  Voreingestellt ist GP0.
+- SIG ist der ESC-Pin, so wie unter **MENU → SETTINGS → SIG PIN**
+  eingestellt, mit seinem J5-Pin unter dem Wert. Voreingestellt ist GP0.
 - Zieh jeden ESC vom ESC-Pin ab. Der Bildschirm wartet, solange ein ESC
   darauf antwortet, erkennt aber nicht jeden ESC.
 
@@ -79,9 +79,9 @@ Der Bildschirm übernimmt SIG vom ESC-Treiber. Dabei zeigt die Leiste
 `RELEASING GP0`, dann `TAKING GP0`. Solange ein ESC auf dem Pin antwortet,
 zeigt sie stattdessen `CHECKING GP0 FOR AN ESC`.
 
-- Antwortet ein ESC auf dem Pin, zeigt der Bildschirm `AN ESC ANSWERS ON GP0.`
-  und danach `UNPLUG IT: KST FRAMES MAY READ` und `AS THROTTLE.` Er übernimmt
-  den Pin, sobald der ESC weg ist.
+- Antwortet ein ESC auf dem Pin, zeigt der Bildschirm
+  `AN ESC ANSWERS ON SIG GP0.` und danach `UNPLUG IT: KST FRAMES MAY READ` und
+  `AS THROTTLE.` Er übernimmt den Pin, sobald der ESC weg ist.
 - Solange der ESC scharf ist, zeigt der Bildschirm `DISARM FIRST`. Solange die
   Pins noch belegt sind, zeigt er `PINS BUSY`.
 - Kann die Platine die Leitung nicht einrichten, zeigt der Bildschirm
@@ -104,8 +104,8 @@ Servoimpulse.
 
 Der Bildschirm wiederholt die Eintrittsfolge des KST-Codes von rcbench, einen
 Versuch alle 116,6 ms bis 118,8 ms, 30 s lang. Die Leiste zählt Versuche und
-Zeit: `GP0  TRY 12  1.4 S`. Solange die Suche läuft, dreht sich ein Kreis aus
-Punkten.
+Zeit: `SIG GP0  TRY 12  1.4 S`. Solange die Suche läuft, dreht sich ein Kreis
+aus Punkten.
 
 Der Inhalt zeigt `POWER UP` und `THE SERVO NOW`, dann
 `PLUG IT IN OR SWITCH ITS SUPPLY ON.` und
@@ -120,7 +120,7 @@ Antwort ist gültig, nennt eine bernsteinfarbene Zeile den Fehler, zum Beispiel
 
 | Leiste | Was geschehen ist | Schaltfläche |
 |---|---|---|
-| `GP0  TRY 12  1.4 S` | Die Suche läuft | `STOP SEARCH` |
+| `SIG GP0  TRY 12  1.4 S` | Die Suche läuft | `STOP SEARCH` |
 | `NO SERVO IN 30 S` | Kein Servo hat in 30 s geantwortet. Der Inhalt zeigt `CHECK SIGNAL AND GROUND, THEN POWER THE SERVO UP AGAIN.` | `RETRY` |
 | `SEARCH STOPPED` | `STOP SEARCH` hat sie beendet, oder der Bildschirm hat gehangen und die Suche hat sich selbst gestoppt | `RETRY` |
 | `SEARCH FAILED` | Die Sitzung endete mit einem Ergebnis, das der Inhalt in Bernstein nennt | `RETRY` |
@@ -178,8 +178,8 @@ unten, um zu verschieben.
 | Gruppe | Felder |
 |---|---|
 | TUNE | `MAX. DUTY`, `BOOST`, `STRETCH`, `SOFT START`, `SPEED LIMIT`, `SPEED`, `DEAD BAND` |
-| PULSE | `PULSE LOWER`, `PULSE UPPER`, `NEUTRAL`, `REVERSION`, `LEFT ANGLE`, `RIGHT ANGLE` |
-| FAILSAFE | `ALLOW UNCONT`, `UNCONTROLLED POS`, `UNCONTROLLED TIME` |
+| PULSE | `PULSE LOWER`, `PULSE UPPER`, `NEUTRAL`, `REVERSED`, `LEFT ANGLE`, `RIGHT ANGLE` |
+| FAILSAFE | `FAILSAFE MOVE`, `FAILSAFE POSITION`, `FAILSAFE TIME` |
 | LOCKED | `20K SEL`, `LOCK`, `PROT1 CANCLE`, `PROT1 EN`, `PROT1 TIME`, `PROT1 PWM`, `PROT POT ERR`, `POT SAM TIMES`, `PROT PWM ERR`, `NODE ADDR`, `SERVO / GYRO` |
 
 - Werte tragen ihre Einheit: `96 %`, `300.0 US`, `1.0 S`, `X1`, `ON`, `OFF`
@@ -465,7 +465,7 @@ zeigt die Abziehseite unmittelbar.
 
 ## Wenn es nicht funktioniert
 
-- **`AN ESC ANSWERS ON GP0.`** Ein ESC hängt am ESC-Pin. Zieh ihn ab.
+- **`AN ESC ANSWERS ON SIG GP0.`** Ein ESC hängt am ESC-Pin. Zieh ihn ab.
 - **`NO SERVO IN 30 S`.** Prüfe Signal und Masse. Schalte das Servo erneut
   ein, während der Bildschirm sucht: Es antwortet nur direkt nach dem
   Einschalten.
@@ -498,7 +498,7 @@ BEC-Leitung.**
 <img src="img/kst-switched.png" width="240" alt="Die geschaltete Suche: SUPPLY OFF 1.4 S"> <img src="img/kst-leave-switched.png" width="240" alt="Die Seite zum Verlassen mit HOLD TO REBOOT"> <img src="img/kst-stalled.png" width="240" alt="Der hängende Bildschirm: SUPPLY OFF">
 
 - **Die Suche** schaltet das Servo vor jedem Versuch 2 s aus, dann ein:
-  `GP0  TRY 3  SUPPLY OFF 1.4 S`. In die 30 s der Suche passen 14
+  `SIG GP0  TRY 3  SUPPLY OFF 1.4 S`. In die 30 s der Suche passen 14
   Einschaltvorgänge; danach `NO ANSWER IN 14 POWER-UPS`.
 - **Die Seite zum Verlassen** zeigt `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.`
   Nach LEAVE zeigt die Abziehseite `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`: Der

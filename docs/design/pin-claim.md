@@ -65,8 +65,12 @@ SETTINGS offers GP0 and GP1 only, for either role (`BOARD_FREE_GPIO_MASK`
 0x00000003). They are UART0's pins, and the firmware does not use UART0
 (universal asynchronous receiver-transmitter). GP28 (J4 pin 11) and GP29 (J4
 pin 12) carry only the optional switched servo supply's enable; see [Signal
-level](#signal-level). With KISS off, SETTINGS lets the ESC pin take the KISS
-pin's GPIO, so SIG and AUX can name the same pin.
+level](#signal-level). The SETTINGS rows are SIG PIN and AUX PIN, each with
+its J5 pin under the value, both live whatever KISS is. A step of either
+onto the other's GPIO swaps SIG and AUX, and `settingsValidate()` moves AUX
+off SIG in a stored block, so SIG and AUX never name the same pin through
+SETTINGS ([menu-b.md](menu-b.md) decision 10). The same-pin refusal below
+stays as a backstop for pins set some other way.
 
 ## The claim
 
@@ -340,13 +344,15 @@ works.
 
 | Cause | Screen text | Way out |
 |---|---|---|
-| An ESC answers on SIG | `AN ESC ANSWERS ON GP0.` `UNPLUG IT: SERVO PULSES READ AS THROTTLE.` | unplug the ESC; the claim follows 500 ms later |
-| KISS frames on AUX, two servos asked | `KISS WIRE ON GP1 IS LIVE.` `TWO SERVOS NEED IT UNPLUGGED.` | unplug it, or choose one servo |
-| SIG and AUX on one GPIO, two servos asked | `ESC AND KISS PIN ARE THE SAME GPIO.` `MOVE THE ESC PIN IN SETTINGS.` | choose one servo, or change a pin in SETTINGS |
-| The job could not bind | `GP0 COULD NOT BE TAKEN (PWM)` or `(PIO)`, `(DMA)`, `(CLOCK)` | RETRY keeps the claim; BACK shows the unplug page before DShot restarts |
-| Armed, or another screen holds the pins | `DISARM FIRST` or `PINS BUSY` | BACK; unreachable through the UI |
+| An ESC answers on SIG | `AN ESC ANSWERS ON SIG GP0.` `UNPLUG IT: SERVO PULSES READ AS THROTTLE.` | unplug the ESC; the claim follows 500 ms later |
+| KISS frames on AUX, two servos asked | `KISS WIRE ON AUX GP1 IS LIVE.` `TWO SERVOS NEED IT UNPLUGGED.` | unplug it, or choose one servo |
+| SIG and AUX on one GPIO, two servos asked | `SIG AND AUX ARE THE SAME GPIO.` `SET SIG PIN OR AUX PIN IN SETTINGS.` | choose one servo; unreachable through SETTINGS, whose steppers swap the two |
+| The job could not bind | `SIG GP0 COULD NOT BE TAKEN (PWM)` or `(PIO)`, `(DMA)`, `(CLOCK)` | RETRY keeps the claim; BACK shows the unplug page before DShot restarts |
+| Armed, or another screen holds the pins | `DISARM FIRST` or `WAIT: DSHOT RESTARTING` | BACK; unreachable through the UI: MENU draws the tool's row disabled while the claim is not Free, and its strip reads `DSHOT RESTARTING ON SIG GP0` |
 
-The GPIO numbers in the text are the live ones from SETTINGS.
+The GPIO numbers in the text are the live ones from SETTINGS. Screens name a
+pin by its role and number together, `SIG GP0`, and by its role alone where
+a strip has no room ([menu-b.md](menu-b.md) decision 10).
 
 ### Restoring DShot
 

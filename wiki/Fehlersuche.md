@@ -76,16 +76,16 @@ Bildschirms `MENU` zeigt `NO ESC`. Prüfe in dieser Reihenfolge:
    ESC-Firmware zu starten, und was der ESC dann tut, ist nicht
    aufgezeichnet. Starte den ESC neu, bevor du ihn testest:
    [AM32-Konfiguration](AM32-Konfiguration#verlassen).
-2. **Falscher Pin.** Vergleiche **MENU → SETTINGS → ESC PIN** damit, wo das Kabel
-   steckt. Die `LINK`-Zeile auf diesem Bildschirm ist live. Eine Paketrate
-   über null heißt, der Pin stimmt.
+2. **Falscher Pin.** Vergleiche **MENU → SETTINGS → SIG PIN** damit, wo das
+   Kabel steckt; der J5-Pin steht unter dem Wert. Die `LINK`-Zeile auf diesem
+   Bildschirm ist live. Eine Paketrate über null heißt, der Pin stimmt.
 3. **Keine gemeinsame Masse.** Die Masse des ESC und die der Platine müssen
    verbunden sein.
 4. **Der ESC hat keinen Strom.** Er läuft an seinem eigenen Akku, nicht an der
    Platine.
 5. **Der ESC beherrscht kein bidirektionales DShot**, oder es ist in seinen
    Einstellungen abgeschaltet. Unidirektionales DShot sendet nichts zurück.
-6. **Das Kabel ist zu lang oder fängt Störungen ein.** Stelle **DSHOT KBAUD**
+6. **Das Kabel ist zu lang oder fängt Störungen ein.** Stelle **DSHOT**
    auf 300 und beobachte `LINK`.
 
 ---
@@ -199,7 +199,7 @@ ESC-Firmware fest.
 
 Die Fehlerrate ist oberhalb von 5 % bernsteinfarben. Die übliche Ursache ist
 das Signalkabel: Länge, Verlegung oder eine fehlende Masse. Kürzen, von den
-Motorphasen fernhalten, dann **DSHOT KBAUD** herunterstellen.
+Motorphasen fernhalten, dann **DSHOT** herunterstellen.
 
 Fehlgeschlagene Pakete sind Frames, auf die der ESC nicht reagiert hat, auch
 wenn die Drehzahlanzeige funktioniert.
@@ -270,15 +270,18 @@ das alte Format kennt, behält ihren Wert, geprüft nach denselben Regeln wie
 gespeicherte Einstellungen, und jede neuere Einstellung beginnt mit ihrer
 Voreinstellung. Also:
 
-- Polzahl, `MAX THROTTLE`, `DSHOT KBAUD`, KISS, Helligkeit und Kontrast
+- Polzahl, `MAX THROTTLE`, `DSHOT`, KISS, Helligkeit und Kontrast
   behalten ihre Werte; ein Wert außerhalb des Bereichs wird angepasst, wie
   beim Speichern;
 - ein ESC-Pin, den diese Platine nicht frei hat, etwa GP28 oder GP29 aus
   einer Firmware vor Version 4, kehrt zur Voreinstellung (GP0) zurück, und
   KISS auf einem solchen Pin wird ausgeschaltet, sein Pin wieder die
   Voreinstellung (GP1);
+- ein KISS-Pin auf dem ESC-Pin wechselt auf den anderen freien Pin, ob KISS
+  an oder aus ist, und KISS behält seine Einstellung: SIG und AUX teilen nie
+  einen Pin;
 - CURRENT SENSE steht auf `NONE`; SERVO SUPPLY steht nach Version 2 oder 3
-  auf `NONE`, denn der Schalter auf GP0 aus Version 3 liegt jetzt auf dem Pin
+  auf `OWN`, denn der Schalter auf GP0 aus Version 3 liegt jetzt auf dem Pin
   des ESC-Kabels; nach Version 4 behält es `GP28` oder `GP29`.
 
 Eine Übernahme wird angezeigt: Der Startbildschirm zeigt
@@ -299,7 +302,7 @@ die Zeile `SETTINGS` in MENU zeigt `UPDATED`, und die Hinweiszeile in
 SETTINGS zeigt `RESET BY UPDATE - CHECK AND SAVE`, bis ein Speichern gelingt.
 Ein beschädigter Block, statt eines von einer anderen Version geschriebenen,
 wird ohne diese Hinweise verworfen; die Hinweiszeile zeigt dann
-`COMPILED DEFAULTS IN USE`.
+`NOTHING SAVED: DEFAULTS IN USE`.
 
 ---
 
@@ -332,14 +335,12 @@ verwendbare Pins), GP0 und GP1, und das ESC-Signal liegt anfangs auf GP0.
 KISS ist voreingestellt aus, damit der übrige Pin nicht für ein Kabel belegt
 ist, das vielleicht nicht angeschlossen ist.
 
-Beim Einschalten von KISS wird der KISS-Pin auf den anderen freien Pin
-verschoben, falls er mit dem ESC-Pin zusammenfällt. Der Pin-Schrittschalter
-überspringt den ESC-Pin. Der Empfänger ist eine PIO-Zustandsmaschine (PIO:
-programmierbare Ein-/Ausgabe) und funktioniert auf beiden Pins.
-
-Schaltet sich KISS mit `KISS OFF: NEEDS A PIN OF ITS OWN` selbst ab, war der
-gespeicherte KISS-Pin nicht frei oder gleich dem ESC-Pin. Verschiebe zuerst
-das ESC-Signal auf den anderen Pin und schalte dann KISS ein.
+KISS empfängt auf AUX, das nie der Pin des ESC, SIG, ist: Ein Schritt von
+**SIG PIN** oder **AUX PIN** tauscht die beiden, und das Einschalten von KISS
+verschiebt keinen Pin. Der Empfänger ist eine PIO-Zustandsmaschine (PIO:
+programmierbare Ein-/Ausgabe) und funktioniert auf beiden Pins. Prüfe, ob
+das KISS-Kabel an dem Pin steckt, den **AUX PIN** nennt, mit seinem J5-Pin
+unter dem Wert.
 
 ---
 
