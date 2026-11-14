@@ -22,6 +22,11 @@ four sources, all mm:
   Taken from it: every part E does not have in that place, which is
   every chip part, the RP2350, the flash, the converter, the small
   semiconductors, the trimmer and the two flat-cable sockets.
+- Q: Waveshare's angled photo of the rear, 1600 x 1200
+  (RP2350-Touch-LCD-2.8-5.jpg). The 4 standoffs' tops, 4.03 high (E),
+  give its scale: 14.25 px/mm across and 9.6 px/mm of height. Taken
+  from it: the standoffs' body, 5.5 +- 0.3 across, and the trimmer's
+  height, 2.5 +- 0.3.
 - N: nominal package sizes, for the parts placed from P.
 
 Against the parts E and P share, positions read from P lie 0.15 to
@@ -34,14 +39,14 @@ front; board 1.60, its front 4.40 behind the glass's front; standoffs
 4.03 tall on the board's rear, so the whole is 10.03 thick.
 
 Estimated, in no source: the heights of the parts placed from P (N
-gives the package's), the trimmer's height (2.0), the walls of the
+gives the package's), the height of the standoffs' collar (0.3), the
+walls of the
 sockets and of the USB-C shell (0.6 and 0.3), the display module as a
 steel back 0.3 thick with a white frame 0.3 wide, the printed border as 0.05 thick and on the glass's
 front, the 0.3 deep counterbore of the standoffs.
 
-Differences from the board: the standoffs are 6.2 across in P and 5.5
-in E; the model follows P, and Waveshare's angled photo of the board
-(RP2350-Touch-LCD-2.8-4.jpg) shows them as plain cylinders. The flat
+The standoffs are 5.5 across in E and in Q; the 6.2 seen in P is the
+collar at their foot. Differences from the board: the flat
 cables fold round the display's lower end 0.25 from it; that distance
 is estimated. Chip parts are drawn without solder. Pads,
 print, tracks, vias, the battery and the speaker are not modelled. No
@@ -75,7 +80,8 @@ STEP_X, STEP_Y0, STEP_Y1, STEP_R = 23.58, -29.33, 24.13, 0.67
 SLOT = (-18.01, -0.73, 9.01, 2.28)      # for the two flat cables
 WINDOW = (-16.30, -26.30, -8.10, -16.90, 1.0)   # over the touch chip
 STANDOFFS = ((-20.5, -32.9), (20.5, -32.9), (-20.5, 27.1), (20.5, 27.1))
-STANDOFF_D, STANDOFF_H, NECK_D, THREAD_D, BORE_D = 6.2, 4.03, 4.3, 2.5, 3.4
+STANDOFF_D, STANDOFF_H, NECK_D, THREAD_D, BORE_D = 5.5, 4.03, 4.3, 2.5, 3.4
+COLLAR_D, COLLAR_H = 6.2, 0.3           # ring at the standoff's foot (P, Q)
 # Flat cables (E): thickness, z of the run between display and board,
 # height of the run above the board's rear.
 CABLE_T, CABLE_Z, CABLE_UP = 0.19, -3.775, 0.925
@@ -178,7 +184,7 @@ PARTS = (
     ("inductor, 2.5 x 2.0", p.block(2.5, 2.0, 1.0, p.GREY), 3.57, -21.55, 0),
     ("charger, DFN-10 3 x 3", p.qfn(3.0, 3.0, 0.75, 0, 5, 0.5),
      3.20, -24.55, 0),
-    ("volume trimmer", p.trimmer(4.95, 2.0, 2.4), 20.30, 6.3, 0),
+    ("volume trimmer", p.trimmer(4.95, 2.5, 2.4), 20.30, 6.3, 0),
     ("display cable socket",
      p.flat_cable_socket(13.2, 3.75, 2.2, 0.95, 1.25, 2.0), -0.70, 10.65, 0),
     ("touch cable socket",
@@ -250,8 +256,10 @@ def standoffs():
         thread, top = circle(x, y, THREAD_D / 2), -BOARD_REAR - STANDOFF_H
         out.append(ext(circle(x, y, NECK_D / 2), -BOARD_REAR, -BOARD_FRONT,
                        p.STEEL, holes=[thread]))
-        out.append(ext(circle(x, y, STANDOFF_D / 2), top + 0.3, -BOARD_REAR,
-                       p.STEEL, holes=[thread]))
+        out.append(ext(circle(x, y, COLLAR_D / 2), -BOARD_REAR - COLLAR_H,
+                       -BOARD_REAR, p.STEEL, holes=[thread]))
+        out.append(ext(circle(x, y, STANDOFF_D / 2), top + 0.3,
+                       -BOARD_REAR - COLLAR_H, p.STEEL, holes=[thread]))
         out.append(ext(circle(x, y, STANDOFF_D / 2), top, top + 0.3, p.STEEL,
                        holes=[circle(x, y, BORE_D / 2)]))
     return out

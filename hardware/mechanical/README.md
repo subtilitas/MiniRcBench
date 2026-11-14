@@ -9,7 +9,7 @@ dimensions are mm.
 | | |
 | --- | --- |
 | Size | 50.54 × 73.06 × 10.03 |
-| Solids | 661, each with a colour |
+| Solids | 665, each with a colour |
 | Faces | planes and cylinders; no polygon stands in for an arc |
 | Schema | AP214, ISO 10303-21 |
 | File size | 3.5 MB |
@@ -42,13 +42,13 @@ area is not centred on the glass: the glass reaches 33.53 to +y and 39.53 to
 | Step in the board's edge at the buttons | 1.37 deep, y -29.33 to 24.13 | E |
 | Slot for the two flat cables | 27.02 × 3.01, round ends | E |
 | Window over the touch controller | 8.20 × 9.40, corner radius 1.0 | E |
-| 4 standoffs, M2.5 thread | 6.2 across, 4.03 tall, at x ±20.5, y -32.9 and 27.1 | P, E, D |
+| 4 standoffs, M2.5 thread | 5.5 across, 4.03 tall, collar 6.2 across at the foot, at x ±20.5, y -32.9 and 27.1 | E, Q, P, D |
 | USB-C receptacle | 8.94 × 7.35 × 3.16, 0.88 past the board's edge | E |
 | 3 side buttons, PWR, RESET, BOOT | body 2.3 × 4.55 × 1.8, plunger 1.1 long | E |
 | microSD card slot | 11.25 × 11.35 × 1.32 | E, P |
 | 6 wire sockets: I2C, UART, 12 pins, battery, clock battery, speaker | 3.05 to 3.40 high | E |
 | 2 flat-cable sockets, the 2 flat cables | sockets 2.0 high, cables 0.19 thick | P, E |
-| Volume trimmer | 4.95 × 4.95 × 2.0 | P; height estimated |
+| Volume trimmer | 4.95 × 4.95 × 2.5 | P; height from Q |
 | RP2350A, flash, PCM5101A, APA2068, QMI8658, PCF85063, CST328, charger | package sizes | P, N; APA2068 from E |
 | 95 chip parts, 2 crystals, 2 inductors, 4 diodes, 5 SOT-23 parts | package sizes | P, N |
 
@@ -68,6 +68,11 @@ Every part on the board's rear that is 1.0 or more long is in the model.
 - **P**: Waveshare's photo of the RP2350 board's rear, 1600 × 1200 pixels,
   `RP2350-Touch-LCD-2.8-3.jpg` on the product page. It is fitted to the 4
   standoffs at 13.3 pixels per mm, with 1 pixel left over at each standoff.
+- **Q**: Waveshare's angled photo of the rear, 1600 × 1200 pixels,
+  `RP2350-Touch-LCD-2.8-5.jpg`. The tops of the 4 standoffs, 4.03 high in
+  E, give its scale: 14.25 pixels per mm across and 9.6 pixels per mm of
+  height. It gives the standoffs' body, 5.5 ± 0.3 across, and the
+  trimmer's height, 2.5 ± 0.3.
 - **N**: nominal package sizes.
 
 E gives every height, the stack and the parts both boards share. P gives the
@@ -81,10 +86,9 @@ positions from P are corrected by that. The table of positions is in
 - No dimension is verified with a caliper on a board.
 - A position from P is good to 0.3. A height from N is the package's nominal
   one.
-- The standoffs are 6.2 across in P and 5.5 in E. The model follows P;
-  Waveshare's angled photo, `RP2350-Touch-LCD-2.8-4.jpg`, shows them as
-  plain cylinders.
-- Estimated, in no source: the trimmer's height, the wall thickness of the
+- The standoffs' body is 5.5 across in E and in Q. The 6.2 seen in P is
+  the collar at their foot; its height, 0.3, is estimated.
+- Estimated, in no source: the wall thickness of the
   sockets (0.6) and of the USB-C shell (0.3), the display module as a steel
   back 0.3 thick with a white frame 0.3 wide, the depth of the standoffs' counterbore (0.3).
 - The printed border is drawn 0.05 thick on the glass's front; on the board
@@ -103,6 +107,7 @@ positions from P are corrected by that. The table of positions is in
 | `_solid.py` | profiles with straight sides and arcs, pushed along an axis, turned and moved |
 | `gen_models.py` | writes `models/*.step` from the specs; `--check` compares |
 | `check_models.py` | reads the files back with OpenCASCADE; `--render` draws them |
+| `check_photo.py` | draws the model's rear parts on photo P |
 | `models/` | the STEP files |
 | `renders/` | 4 views, 1600 × 1200 pixels |
 
@@ -114,9 +119,13 @@ python3 hardware/mechanical/gen_models.py --check    # exit 1 when a file differ
 pip install cadquery-ocp
 python3 hardware/mechanical/check_models.py          # valid solids, no shared volume, size
 xvfb-run -a python3 hardware/mechanical/check_models.py --render hardware/mechanical/renders
+python3 hardware/mechanical/check_photo.py RP2350-Touch-LCD-2.8-3.jpg overlay.png
 ```
 
 `gen_models.py` needs Python 3 only and writes the same bytes on every run.
 The Docs job of `ci.yml` runs `gen_models.py --check`. `check_models.py`
 needs OpenCASCADE and is not run in CI (continuous integration); it passes on
-the committed file: 661 valid solids, no two sharing more than 1e-6 mm³.
+the committed file: 665 valid solids, no two sharing more than 1e-6 mm³.
+`check_photo.py` needs photo P, numpy and Pillow and is not run in CI either.
+On P it reports 13.30 pixels per mm and 1.06 pixels left at the worst
+standoff, and every box it draws lies on its part.

@@ -46,7 +46,7 @@ protocol.
 
 - A STEP model of the board for enclosure design,
   `hardware/mechanical/models/rp2350_touch_lcd_2_8.step`: 50.54 × 73.06 ×
-  10.03 mm, 661 solids with flat and cylindrical faces. It is a facsimile
+  10.03 mm, 665 solids with flat and cylindrical faces. It is a facsimile
   drawn from measurements; its sources and limits are in
   [hardware/mechanical/README.md](hardware/mechanical/README.md).
   `gen_models.py` writes it from `touch_lcd_2_8.py` with rcbench's
