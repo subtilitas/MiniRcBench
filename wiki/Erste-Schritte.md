@@ -87,6 +87,17 @@ liest die Frames als Impulse und fährt an ein Ende seines Wegs.
 
 <img src="img/splash.png" width="240" alt="Startbildschirm">
 
+Nach einem Firmware-Update, das den Aufbau der gespeicherten Einstellungen
+geändert hat, werden die gespeicherten Einstellungen verworfen, und jede
+Einstellung beginnt mit ihrer Voreinstellung. Der Startbildschirm zeigt dann
+über dem Namen zwei Zeilen in Bernstein: `SETTINGS RESET BY UPDATE` und
+`CHECK MENU > SETTINGS`. Prüfe mindestens Polzahl, `MAX THROTTLE`, `ESC PIN`,
+KISS, `SERVO SUPPLY` und `CURRENT SENSE` und halte dann `HOLD TO SAVE`. Bis
+ein Speichern gelingt, zeigt die Zeile SETTINGS in MENU `RESET`. Eine Platine,
+die nie Einstellungen gespeichert hatte, zeigt beides nicht.
+
+<img src="img/splash-reset.png" width="240" alt="Startbildschirm, nachdem ein Update die gespeicherten Einstellungen verworfen hat">
+
 ---
 
 ## Solange kein ESC angeschlossen ist
@@ -150,7 +161,7 @@ null.
 `MENU` auf dem Tester öffnet die Liste der Werkzeuge. Das Öffnen entschärft
 immer. Tippe auf die Zeile `SETTINGS`.
 
-<img src="img/settings.png" width="240" alt="SETTINGS nach einer Änderung: ESC PIN auf GP1 und UNSAVED - HOLD SAVE TO KEEP">
+<img src="img/settings.png" width="240" alt="SETTINGS, nachdem ESC PIN auf GP1 gewechselt hat: die Hinweiszeile zeigt UNPLUG ANY SERVO FROM GP1 NOW">
 
 - **MOTOR POLES**: rechnet die gemeldete eRPM (elektrische Drehzahl) mit
   `RPM = eRPM / (Pole / 2)` in die Drehzahl um. Bereich 2–28, nur gerade
@@ -163,6 +174,10 @@ Beide Zeilen stehen oben in der Liste. Beide Werte werden erst mit
 `HOLD TO SAVE` unter der Liste gespeichert. Bis dahin zeigt die Hinweiszeile
 `UNSAVED - HOLD SAVE TO KEEP`, und `MENU` zeigt `UNSAVED` in der Zeile
 `SETTINGS`.
+
+`ESC PIN`, weiter unten, legt DShot sofort auf den anderen Pin. Solange es
+nicht der Pin ist, den der Startbildschirm nannte, wiederholt die Hinweiszeile
+dessen Warnung für den neuen Pin, wie im Bild: `UNPLUG ANY SERVO FROM GP1 NOW`.
 
 ---
 

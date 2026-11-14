@@ -44,6 +44,29 @@ protocol.
 
 ### Added
 
+- SD LOG says how the last log ended when it was not STOP, on two amber
+  lines above START, until the next start or mount: `RECORDING STOPPED: CARD
+  FULL` / `FREE SPACE ON A COMPUTER, RETRY MOUNT` when FatFs wrote fewer
+  bytes than asked, `RECORDING STOPPED: CARD WRITE FAILED` / `REMOVED?
+  REINSERT, THEN RETRY MOUNT` when a write, sync or close failed, `NO LOG
+  STARTED: THE FILE DID NOT OPEN` / `CHECK THE CARD, THEN RETRY MOUNT`, and
+  `RECORDING STOPPED BY KST SERVO`, `HITEC SERVO` or `AM32 CONFIG` when the
+  tool's claim stopped the log (`SdLogEnd`, `sdLogStopFor()`,
+  `sdLogWriteEnd()`; `cardCacheBegin()` takes the tool).
+- The splash reads `SETTINGS RESET BY UPDATE` and `CHECK MENU > SETTINGS` in
+  amber, MENU's SETTINGS row `RESET`, and SETTINGS' note line `RESET BY
+  UPDATE - CHECK AND SAVE`, after the load discarded a whole settings block
+  of another version, until a save lands (`settingsResetByUpdate()`). Blank
+  flash and a damaged block show none of them.
+- SETTINGS' note line repeats the splash's warning, `UNPLUG ANY SERVO FROM
+  GP1 NOW` for example, in amber while the live ESC pin is not the one the
+  splash named (`settingsBootDshotPin()`). It outranks DEFAULTS LOADED and
+  UNSAVED; SAVE FAILED and ADJUSTED outrank it.
+- A USB host that unconfigures the device gives the card back as an eject
+  does (`tud_umount_cb()`). A program of its own,
+  `test/test_usb_msc_cb.cpp`, links the real `src/usb_msc.cpp` and drives
+  its callbacks.
+
 - AM32 CONFIG says what a value does and what to do next. Two amber lines
   replace the ESC name on the strip: while 3D MODE is on, `3D MODE: 50%
   THROTTLE IS FULL POWER,` / `ABOVE 50% THE OTHER WAY. PROP OFF.`; with TEMP
@@ -450,6 +473,21 @@ protocol.
 
 ### Changed
 
+- SD LOG's FILE row keeps the last log's name after it ends, marked
+  `(LAST)`, until the next start, beside the counters that log left. The
+  rows are 19 px apart, for the two note lines.
+- The tester draws `SDERR` on an amber chip in the status bar, between the
+  arm badge and `BOARD`.
+- KST SERVO and HITEC SERVO: a refused backup names the likely cause and the
+  next step. `THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). THE
+  SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`, the same with `A FILE`,
+  and `THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED.
+  CHECK THE CARD, HOLD AGAIN.` replace the texts that ended in `NOTHING WAS
+  WRITTEN TO THE SERVO.` `HitecResultText` holds 128 bytes.
+- KST SERVO and HITEC SERVO: the write page's backup line reads `NO CARD:
+  OLD VALUES LOST AT LEAVE`, `CARD ON USB: OLD VALUES LOST AT LEAVE` and `NO
+  BACKUP ON THE CARD: LOST AT LEAVE` in amber, in place of the dim `... IN
+  MEMORY` lines. The write is still allowed.
 - The AM32 previews show an ESC with 3D MODE off, the ESC name on the
   strip; `am32-3d.png` shows the 3D note on the wiki's AM32 pages.
 - AM32 CONFIG's `BIDIRECTIONAL` row is `3D MODE`: byte 0x12 is AM32's

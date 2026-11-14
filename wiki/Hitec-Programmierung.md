@@ -337,10 +337,17 @@ Die Zeile am unteren Rand sagt, wohin die Sicherung geht:
 |---|---|
 | `BACKUP FIRST: BACKUP/HT001.TXT` | Eine Karte ist eingebunden, und die Sicherung liegt noch nicht auf ihr |
 | `BACKUP: BACKUP/HT001.TXT` | Die Sicherung liegt auf der Karte |
-| `NO CARD: BACKUP IN MEMORY` | Keine Karte ist eingebunden |
-| `CARD IN USE BY USB: BACKUP IN MEMORY` | Ein USB-Host hält die Karte |
+| `NO CARD: OLD VALUES LOST AT LEAVE` | Keine Karte ist eingebunden |
+| `CARD ON USB: OLD VALUES LOST AT LEAVE` | Ein USB-Host hält die Karte |
 | `BACKUP FIRST: TO THE CARD` | Eine Karte ist eingebunden, und die nächste Sicherungsnummer ließ sich nicht von ihr lesen |
-| `NO BACKUP ON THE CARD: IN MEMORY` | Die Karte hat den Vermerk angenommen und die Sicherung abgewiesen |
+| `NO BACKUP ON THE CARD: LOST AT LEAVE` | Die Karte hat den Vermerk angenommen und die Sicherung abgewiesen |
+
+`NO CARD`, `CARD ON USB` und `NO BACKUP ON THE CARD` stehen in Bernstein: Die
+Werte des Servos vor dem ersten Schreiben liegen nur im Speicher, bis ein
+späteres Schreiben mit eingebundener Karte sie sichert; LEAVE oder ein
+Stromausfall verliert sie. Ohne Karte geht das Schreiben trotzdem durch. Ob es
+abgelehnt werden oder ein zweites Halten brauchen soll, ist beim Eigentümer
+offen.
 
 **Ein zweites Halten von 1 s schreibt.** Zuerst kommen die Schritte auf der
 Karte:
@@ -359,9 +366,13 @@ Seite zeigt `SAVING THE BACKUP TO THE CARD.` (bei einem späteren Schreiben
 wird erst geschrieben, wenn die Karte die Dateien hält. Nimmt die Karte die
 Daten nicht an, hält das Schreiben an. Beim ersten Schreiben der Sitzung
 zeigt die Seite
-`THE CARD DID NOT TAKE THE BACKUP. NOTHING WAS WRITTEN TO THE SERVO.`, bei
+`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`, bei
 einem späteren Schreiben
-`THE CARD DID NOT TAKE A FILE. NOTHING WAS WRITTEN TO THE SERVO.`
+`THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
+Zum Servo ging nichts. Die Karte wird neu eingebunden, und `OK` führt zur
+Feldliste zurück; das nächste `HOLD TO WRITE` sichert die Dateien erneut und
+schreibt dann. Eine volle Karte endet nicht hier, sondern in
+`THE CARD TOOK NO FILE`, bevor etwas eingereiht ist.
 
 Das Schreiben sendet dann die geänderten Register im Abstand von 20 ms,
 speichert sie im Servo, startet das Servo neu (1,0 s) und liest alle 21
@@ -396,8 +407,8 @@ Zu den bernsteinfarbenen Ergebnissen gehören:
 - `NOTHING WAS WRITTEN: NO PLAN (CODE n).`, mit dem Code des Planers.
 - `NOTHING WAS WRITTEN (CODE n).`, mit dem Code der Sitzung.
 - `THE SCREEN STALLED. NOTHING WAS WRITTEN.`
-- `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.`
-- `THE CARD DID NOT TAKE A FILE. NOTHING WAS WRITTEN TO THE SERVO.`
+- `THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
+- `THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
 
 Nach einem Schreiben, das fehlschlug, nachdem Frames gesendet waren, hält
 das Abbild die berührten Register nicht mehr: Die Schreib-Schaltfläche zeigt
@@ -462,7 +473,7 @@ Eine von Hand bearbeitete Datei lädt nicht.
 - **Eine Karte, die keine Datei annimmt.** Nimmt eine eingebundene Karte weder
   die Sicherung noch den Vermerk an, stoppt das Schreiben vor dem ersten
   Frame. Die Schreibseite zeigt
-  `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.`
+  `THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
 
 Die Sicherungen teilen sich einen Ring von 50 Nummern mit den KST- und
 AM32-Sicherungen, `BACKUP/HTnnn.TXT`, `BACKUP/KSTnnn.TXT` und
@@ -522,7 +533,7 @@ und zeigt die Abziehseite.
   als 250 ms, bevor der Schreibvorgang hinausging. Schreibe erneut.
 - **Ein rotes Ergebnis.** Tippe auf `OK`, dann auf `READ AGAIN`, und prüfe
   die Werte. Zurück zum Servo, wie es war, führt `HOLD TO RESTORE` in FILES.
-- **`THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.`** Prüfe die
+- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`** Prüfe die
   Karte, oder nimm sie aus der USB-Nutzung, und schreibe dann erneut.
 
 ---

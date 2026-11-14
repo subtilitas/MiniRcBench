@@ -305,10 +305,16 @@ The line at the bottom says where the backup goes:
 |---|---|
 | `BACKUP FIRST: BACKUP/HT001.TXT` | A card is mounted and the backup is not on it yet |
 | `BACKUP: BACKUP/HT001.TXT` | The backup is on the card |
-| `NO CARD: BACKUP IN MEMORY` | No card is mounted |
-| `CARD IN USE BY USB: BACKUP IN MEMORY` | A USB host holds the card |
+| `NO CARD: OLD VALUES LOST AT LEAVE` | No card is mounted |
+| `CARD ON USB: OLD VALUES LOST AT LEAVE` | A USB host holds the card |
 | `BACKUP FIRST: TO THE CARD` | A card is mounted and the next backup number did not read from it |
-| `NO BACKUP ON THE CARD: IN MEMORY` | The card took the record and refused the backup |
+| `NO BACKUP ON THE CARD: LOST AT LEAVE` | The card took the record and refused the backup |
+
+`NO CARD`, `CARD ON USB` and `NO BACKUP ON THE CARD` are amber: the servo's
+values from before the first write are in memory only, until a later write with
+a card mounted saves them; LEAVE or a power loss loses them. Without a card the
+write still goes through. Whether it should be refused, or need a second hold,
+is open to the owner.
 
 **A second hold of 1 s writes.** The card steps come first:
 
@@ -324,8 +330,12 @@ card while the screen keeps drawing. The page reads
 later write) and `BLOCKS LEFT: 12`, for example. The servo is written only
 once the card holds the files. A flush the card does not take stops the
 write. On the session's first write the page reads
-`THE CARD DID NOT TAKE THE BACKUP. NOTHING WAS WRITTEN TO THE SERVO.`, on a
-later write `THE CARD DID NOT TAKE A FILE. NOTHING WAS WRITTEN TO THE SERVO.`
+`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`, on a
+later write `THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
+Nothing went to the servo. The card is mounted again, and `OK` returns to
+the field list; the next `HOLD TO WRITE` saves the files again and then
+writes. A full card does not end here: it ends in `THE CARD TOOK NO FILE`
+before anything is queued.
 
 The write then sends the changed registers 20 ms apart, saves them in the
 servo, restarts the servo (1.0 s) and reads all 21 registers back. For one
@@ -359,8 +369,8 @@ The amber results include:
 - `NOTHING WAS WRITTEN: NO PLAN (CODE n).`, with the planner's code.
 - `NOTHING WAS WRITTEN (CODE n).`, with the session's code.
 - `THE SCREEN STALLED. NOTHING WAS WRITTEN.`
-- `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.`
-- `THE CARD DID NOT TAKE A FILE. NOTHING WAS WRITTEN TO THE SERVO.`
+- `THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
+- `THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
 
 After a write that failed once frames had gone out, the image no longer
 holds the registers the write touched: the write button reads `READ AGAIN`
@@ -421,7 +431,7 @@ not load.
   editing and writing work.
 - **A card that takes no file.** A card that is mounted but takes neither
   the backup nor the record stops the write before any frame. The write page
-  reads `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.`
+  reads `THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
 
 The backups share one ring of 50 numbers with the KST and AM32 backups,
 `BACKUP/HTnnn.TXT`, `BACKUP/KSTnnn.TXT` and `BACKUP/AMnnn.TXT`. Once all 50
@@ -479,7 +489,7 @@ unplug page.
   than 250 ms before the write went out. Write again.
 - **A red result.** Tap `OK`, then `READ AGAIN`, and check the values. To
   go back to the servo as it was, use `HOLD TO RESTORE` in FILES.
-- **`THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.`** Check the
+- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`** Check the
   card, or take it out of USB use, then write again.
 
 ---

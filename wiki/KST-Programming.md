@@ -227,10 +227,18 @@ backup goes:
 |---|---|
 | `BACKUP FIRST: BACKUP/KST001.TXT` | A card is mounted and the backup is not on it yet |
 | `BACKUP: BACKUP/KST001.TXT` | The backup is on the card |
-| `NO CARD: BACKUP IN MEMORY` | No card is mounted |
-| `CARD IN USE BY USB: BACKUP IN MEMORY` | A USB host holds the card |
+| `NO CARD: OLD VALUES LOST AT LEAVE` | No card is mounted |
+| `CARD ON USB: OLD VALUES LOST AT LEAVE` | A USB host holds the card |
 | `BACKUP FIRST: TO THE CARD` | A card is mounted and its `BACKUP` directory did not read to its end |
-| `NO BACKUP ON THE CARD: IN MEMORY` | The card took the record and refused the backup |
+| `NO BACKUP ON THE CARD: LOST AT LEAVE` | The card took the record and refused the backup |
+
+<img src="img/kst-write-nocard.png" width="240" alt="The write page without a card: NO CARD: OLD VALUES LOST AT LEAVE in amber">
+
+`NO CARD`, `CARD ON USB` and `NO BACKUP ON THE CARD` are amber: the servo's
+values from before the first write are in memory only, until a later write
+with a card mounted saves them; LEAVE, REBOOT or a power loss loses them.
+Without a card the write still goes through. Whether it should be refused, or need a second
+hold, is open to the owner.
 
 **A second hold of 1 s writes.** Before the first frame of the session's
 first write with a card mounted, the image read at entry goes to the card as
@@ -245,8 +253,14 @@ go to the card while the screen keeps drawing. The page reads
 `SAVING THE BACKUP TO THE CARD.` and `BLOCKS LEFT: 12`, for example, and the
 servo is written only once the card holds both. A flush the card does not
 take stops the write:
-`THE CARD DID NOT TAKE THE BACKUP. NOTHING WAS WRITTEN TO THE SERVO.` The next
-write saves the backup again.
+`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
+A flush fails when a block write fails or the card in the slot changed, not
+when the card is full: a full card ends in `THE CARD TOOK NO FILE` before
+anything is queued. Nothing went to the servo. The card is mounted again, and
+`OK` returns to the field list; the next `HOLD TO WRITE` saves the backup
+again and then writes.
+
+<img src="img/kst-flush-failed.png" width="240" alt="The write page after a flush the card did not take">
 
 While the write runs, the page reads `WRITING: DO NOT UNPLUG.` and, under it,
 `PLANNING THE ORDER OF THE WRITES` or `FRAMES SENT: 94`. `BACK` during the
@@ -346,7 +360,7 @@ a second hold. The page then reads `THE PLANNER DID NOT CHECK THIS` and
   writing work.
 - **A card that takes no file.** A card that is mounted but takes neither the
   backup nor the record stops the write before any frame. The write page
-  reads `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.`
+  reads `THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`
 
 The backups share one ring of 50 numbers with the backups of the AM32
 editor and the Hitec programmer, `BACKUP/KSTnnn.TXT`, `BACKUP/AMnnn.TXT` and
@@ -414,7 +428,7 @@ unplug page directly.
 - **The screen returns to the search.** The servo stopped answering. Power it
   up again.
 - **`IN DOUBT`.** Restore from FILES with `HOLD TO RESTORE`.
-- **`THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.`** Check the
+- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). THE SERVO IS UNCHANGED. CHECK THE CARD, HOLD AGAIN.`** Check the
   card, or take it out of USB use, then write again.
 
 ---

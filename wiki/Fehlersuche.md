@@ -104,6 +104,12 @@ LOG zu erreichen), und Scharfschalten ist gesperrt, bis er sie freigibt. Wirf
 das Laufwerk am Computer aus oder drücke `EJECT` in SD LOG. Siehe
 [SD-Aufzeichnung](SD-Aufzeichnung).
 
+Ein Computer, der das Laufwerk abmeldet, gibt die Karte ebenfalls zurück. Ein
+gezogenes Kabel bei einer Platine am Akku tut das nicht: Der USB-Stack dieser
+Firmware sieht ein gezogenes Kabel wie einen Computer, der schlafen ging, und
+ein schlafender Computer behält die Karte. Drücke dann `EJECT` in SD LOG.
+Beides ist auf der Hardware nicht geprüft.
+
 ---
 
 ## Der Motor bleibt von selbst stehen
@@ -224,6 +230,24 @@ SENSE, daher geschieht dasselbe beim Wechsel von Version 4 auf Version 5
 noch einmal: Alle gespeicherten Einstellungen stehen wieder auf der
 Voreinstellung, CURRENT SENSE auf `NONE`. Stelle sie neu ein und speichere
 mit `HOLD TO SAVE`.
+
+Ein solches Zurücksetzen wird angezeigt: Der Startbildschirm zeigt
+`SETTINGS RESET BY UPDATE` und `CHECK MENU > SETTINGS`, die Zeile `SETTINGS`
+in MENU zeigt `RESET`, und die Hinweiszeile in SETTINGS zeigt
+`RESET BY UPDATE - CHECK AND SAVE`, bis ein Speichern gelingt. Ein
+beschädigter Block, statt eines von einer anderen Version geschriebenen, wird
+ohne diese Hinweise verworfen; die Hinweiszeile zeigt dann
+`COMPILED DEFAULTS IN USE`.
+
+---
+
+## `SDERR` auf dem Tester, oder eine Aufzeichnung, die anhielt
+
+Die Aufzeichnung endete ohne `STOP`. **MENU → SD LOG** sagt über `START`,
+wie: eine volle Karte, ein fehlgeschlagener Schreibvorgang, eine Datei, die
+sich nicht öffnen ließ, oder das Werkzeug (KST SERVO, HITEC SERVO, AM32
+CONFIG), das die Karte nahm. Siehe
+[SD-Aufzeichnung](SD-Aufzeichnung#wie-die-letzte-aufzeichnung-endete).
 
 ---
 

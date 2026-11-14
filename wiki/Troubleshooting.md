@@ -96,6 +96,12 @@ card over USB (**MENU → SD LOG → USB DRIVE**; drag `MENU` up 36 px to reach
 SD LOG), and arming is refused until it lets go. Eject the drive on the
 computer, or press `EJECT` on SD LOG. See [SD Logging](SD-Logging).
 
+A computer that unconfigures the drive also gives the card back. Pulling the
+cable with the board on its battery does not: the USB stack of this firmware
+sees a pulled cable as a computer that went to sleep, and a sleeping computer
+keeps the card. Press `EJECT` on SD LOG then. Neither case is tested on
+hardware.
+
 ---
 
 ## The motor stops on its own
@@ -207,6 +213,22 @@ included: the ESC pin is then GP0, KISS is off and SERVO SUPPLY is `NONE`.
 Version 5 adds CURRENT SENSE, so updating from version 4 to version 5 does
 the same once more: every saved setting returns to its default, and
 CURRENT SENSE is `NONE`. Set them again and save with `HOLD TO SAVE`.
+
+Such a reset is shown: the splash reads `SETTINGS RESET BY UPDATE` and
+`CHECK MENU > SETTINGS`, MENU's `SETTINGS` row reads `RESET`, and the note
+line in SETTINGS reads `RESET BY UPDATE - CHECK AND SAVE` until a save
+lands. A block that is damaged, rather than written by another version, is
+discarded without these notes; the note line then reads
+`COMPILED DEFAULTS IN USE`.
+
+---
+
+## `SDERR` on the tester, or a log that stopped
+
+The recording ended without `STOP`. **MENU → SD LOG** says how above
+`START`: a full card, a failed write, a file that did not open, or the tool
+(KST SERVO, HITEC SERVO, AM32 CONFIG) that took the card. See
+[SD Logging](SD-Logging#how-the-last-log-ended).
 
 ---
 

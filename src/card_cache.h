@@ -39,7 +39,7 @@ enum class CardCache : uint8_t {
  * @brief Stop a running log, recorded as stopped by @p tool (sdLogStopFor()),
  *        and turn the cache on. False with the cache off.
  * @param tool @ref SdLogEnd::ByKst, @ref SdLogEnd::ByHitec or
- *        @ref SdLogEnd::ByAm32: the tool whose claim this is.
+ *        @ref SdLogEnd::ByAm32, the tool whose claim this is.
  */
 bool cardCacheBegin(SdLogEnd tool);
 
