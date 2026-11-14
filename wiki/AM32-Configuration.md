@@ -138,9 +138,8 @@ it. A mismatch shows the first differing byte as
 `DIFF @xx: GOT xx WANT xx`. A result longer than 18 characters is drawn in
 the small font, so it stays on the screen. Under every result that is not a
 verified write (`WRITE FAILED: ...`, `VERIFY READ: ...`, `DIFF @..`) the
-screen shows `NOT VERIFIED. TAP OK, WRITE AGAIN.` in amber: `OK` returns to
-the list with the edits kept, and holding `HOLD TO WRITE` again runs the
-write again.
+screen shows `NOT VERIFIED. TAP OK, WRITE AGAIN.` in amber; see
+[If the write fails](#if-the-write-fails).
 
 Before the first write of a session, the settings as read at entry go to the
 SD card as `BACKUP/AMnnn.TXT`, in the ring of backups that the KST programmer
@@ -158,6 +157,41 @@ stops.
 
 Most AM32 settings take effect at the next ESC power-up, hence the line
 under the result. This is AM32 behaviour; the tester does not check it.
+
+### If the write fails
+
+The write sends the settings in three steps: the address, the 48 bytes and
+the command to program them. Each step waits up to 250 ms for the ESC's
+acknowledgement. Then the read-back runs, up to three times, each after a
+300 ms wait. The screen shows one of these results:
+
+| Result | What the code saw |
+|---|---|
+| `NO BACKUP ON THE CARD: NOT WRITTEN` | The card refused the backup, or its flush failed. Nothing went to the ESC |
+| `WRITE FAILED: NO REPLY` | A step got no acknowledgement within 250 ms |
+| `WRITE FAILED: REFUSED` | A step got a reply byte that is not the acknowledgement |
+| `WRITE FAILED: CRC FAIL` | Not reached by the write: its replies carry no checksum (CRC, cyclic redundancy check) |
+| `WRITE FAILED: NOT READY` | The bootloader link holds no pin. Not expected: the list opens only after a read over the pin |
+| `VERIFY READ: NO REPLY`, `REFUSED`, `CRC FAIL` or `NOT READY` | The ESC acknowledged the write, and all three read-backs failed: no reply, a reply that is not the acknowledgement, a checksum that does not match, or no pin. What the ESC holds is not known |
+| `DIFF @xx: GOT yy WANT zz` | The read-back differs. `xx` is the first differing byte's offset, `yy` the ESC's value, `zz` the value written, all in hex |
+
+Only `WRITE VERIFIED` counts as written. After any other result, `OK` returns
+to the list with the edits kept, and `HOLD TO WRITE` writes them again. The
+backup is made before the first write that has a card, and again on a card
+swapped in since. It always holds the settings as read when the editor
+opened, and a repeated hold on the same card makes no second one.
+
+When a result repeats:
+
+1. Check the signal and ground wires.
+2. Leave with `BACK`; the edits are lost.
+3. Open **MENU → AM32 CONFIG** again and power-cycle the ESC while the
+   screen is open, as under [Connecting](#connecting). The screen then
+   reads what the ESC holds.
+4. Compare it with the backup, the newest `BACKUP/AMnnn.TXT` on the card.
+   It holds the settings as read when the editor opened, before any write.
+   Its number is in `BACKUP/LAST` while no KST or Hitec backup came after
+   it. Without a card the backup was only in memory and is gone.
 
 ---
 

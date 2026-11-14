@@ -45,6 +45,11 @@ consumed mAh, which EDT does not. See
 
 Consumed **mAh** appears in the corner of the temperature tile, with KISS only.
 
+**ESC STATUS** is green for `OK`, amber for `WARN`, red for `ERROR` and
+magenta for `ALERT`. On `WARN`, `ERROR` or `ALERT`: disarm, let the ESC cool,
+and read `ESC TEMP` and `CURRENT`. The ESC firmware defines what each status
+means; its documentation, where there is one, lists the conditions.
+
 <img src="img/tester-live.png" width="240" alt="Every tile populated">
 
 ### The small `KISS` / `EDT` tag

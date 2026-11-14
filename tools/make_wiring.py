@@ -257,7 +257,7 @@ def draw():
                              % (SUPPLY_H, gp, conn, pin, BOARD_H))
     en_names = {"GP%d" % gp for gp, _, _ in supplies}
 
-    def role(name):
+    def role(name, conn=None):
         bare = name.rstrip("*")
         if bare == "GP%d" % sig:
             return "SIG", "ESC or servo signal", SIG
@@ -268,13 +268,22 @@ def draw():
         if name == "GND":
             return "", "ground", MINUS
         if name == "3V3":
+            # J5 has a servo plug's order, SIG 3V3 GND: a lead joined straight
+            # across puts its plus on the board's 3.3 V. J3's 3.3 V feeds the
+            # optional INA219 current sensor.
+            if conn == "J5":
+                return "", "3.3 V out: never connect", DIM
+            if conn == "J3":
+                return "", "3.3 V out: INA219 VCC only", DIM
             return "", "3.3 V out, not used", DIM
         if name == "VBUS":
             return "", "USB 5 V, feeds no servo or ESC", DIM
         if name in ("USB_N", "USB_P"):
             return "", "USB data, not used", DIM
         if name.endswith("*"):
-            return "", "shared I2C bus: do not use", "#616161"
+            # The bus of the touch controller, IMU and RTC; the optional
+            # INA219 current sensor, at 0x40, is the one part added to it.
+            return "", "shared I2C: INA219 0x40 only", "#616161"
         return "", "", DIM
 
     svg = Svg()
@@ -292,10 +301,12 @@ def draw():
         svg.text(x, y0 + 58, "%s, %d pins" % (conn, c["count"]), 13, INK, weight="bold")
         for i, (num, name) in enumerate(sorted(c["pins"].items())):
             py = y0 + 80 + 20 * i
-            short, what, color = role(name)
+            short, what, color = role(name, conn)
             svg.rect(x, py - 8, 16, 16, fill=color, stroke=INK, rx=2)
             svg.text(x + 8, py + 4, str(num), 10, "#ffffff", "middle", "bold")
             col = INK if short or name == "GND" else DIM
+            if conn == "J5" and name == "3V3":
+                col = PLUS
             svg.text(x + 24, py + 4, name.rstrip("*"), 12, col)
             svg.text(x + 76, py + 4, short, 12, col)
             svg.text(x + 112, py + 4, what, 12, col)
@@ -343,7 +354,7 @@ def draw():
     svg.wire([(400, ys[v3_j5]), (520, ys[v3_j5])], PLUS)
     svg.cross(400, ys[v3_j5])
     svg.text(390, ys[v3_j5] + 4, "cut: no pin", 11, PLUS, "end")
-    svg.text(p[v3_j5][0] + 8, ys[v3_j5] + 4, "n.c.", 11, DIM)
+    svg.text(p[v3_j5][0] + 8, ys[v3_j5] + 4, "never connect", 11, PLUS)
     svg.wire([p[gnd_j5], (520, ys[gnd_j5])], MINUS)
     # motor and battery
     mx, my = 900, ya + 96
@@ -385,7 +396,7 @@ def draw():
     svg.wire([sm, (sm[0], rail)], MINUS)
     svg.dot(sm[0], rail, MINUS)
     svg.text(236, ys[gnd_j5] + 18, "one ground tap", 11, MINUS)
-    svg.text(p[v3_j5][0] + 8, ys[v3_j5] + 4, "n.c.", 11, DIM)
+    svg.text(p[v3_j5][0] + 8, ys[v3_j5] + 4, "never connect", 11, PLUS)
     # servo B, the tester's second servo, reached over the top of servo A
     # whichever J5 row AUX has
     sb = yb + 70
