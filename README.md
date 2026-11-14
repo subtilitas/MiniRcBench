@@ -48,6 +48,11 @@ open SETTINGS with LATCH, and SERVO TESTER's title, the MENU row's label.
 The uses that the design note's decision 11 names take their role's colour,
 and a value changed and not yet written is cyan.
 
+An angle meter on the board's QMI8658 IMU (inertial measurement unit), for
+incidence, decalage, dihedral and control-surface throw, is designed in
+`docs/design/angle-meter.md` and not built; it waits on the owner's answers
+to the note's open questions.
+
 ![UI preview](docs/ui-preview.png)
 
 *The host test suite renders every screenshot here from the UI (user
