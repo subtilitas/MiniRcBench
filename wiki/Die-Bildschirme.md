@@ -91,6 +91,11 @@ Unter dem Titel zeigt eine Leiste den ESC-Pin und die DShot-Rate, zum Beispiel
 | `EDT OFF`, rot | eRPM-Frames treffen ein, EDT-Frames nicht |
 | `NO ESC`, gedämpftes Grau | seit 500 ms kein eRPM-Frame: kein ESC angeschlossen, oder keiner antwortet |
 
+Nach einer Sitzung in AM32 CONFIG, in der der Bootloader des ESC geantwortet
+hat, steht unter der Zeile eine zweite: `POWER-CYCLE THE ESC TO RUN IT` in
+Bernstein, bis ein eRPM-Frame eintrifft oder die Platine neu startet
+([AM32-Konfiguration](AM32-Konfiguration#verlassen)).
+
 <img src="img/menu-no-esc.png" width="240" alt="MENU ohne angeschlossenen ESC: das Feld zeigt NO ESC"> <img src="img/menu-edt-off.png" width="240" alt="MENU mit einem ESC, der eRPM und kein EDT sendet: das Feld zeigt EDT OFF in Rot">
 
 Es gibt keine Einschalt-Schaltfläche. Die Firmware schickt die Freigabe an

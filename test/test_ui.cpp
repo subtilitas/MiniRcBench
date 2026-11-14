@@ -3266,6 +3266,307 @@ static void testSplash() {
 	frames(2);
 }
 
+/** @brief Open AM32 CONFIG from the tester, and run @p n frames. */
+static void enterAm32(int n) {
+	tapId(UI_FIX(TesterCtl::Menu));
+	frames(2);
+	tapId(menuRow(&UI_AM32));
+	checkTrue("AM32 CONFIG opens", uiCurrentScreen() == UiScreenId::Am32);
+	frames(n);
+}
+
+/** @brief BACK from AM32 CONFIG to MENU, then from MENU to the tester. */
+static void leaveAm32ToTester() {
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("back on the tester", uiCurrentScreen() == UiScreenId::Tester);
+}
+
+/** @brief MENU's strip shows the run cue on its second line, in amber. */
+static bool menuRunCueShown() {
+	return fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_RUN_CUE, UI_COL_WARN, C_BG, 1);
+}
+
+/**
+ * @brief AM32 CONFIG says what a value does and what to do next: the strip
+ *        notes, the next step under a write that is not verified, the
+ *        connect page's lines, and MENU's cue after a session that reached
+ *        the bootloader.
+ */
+static void testAm32Guidance() {
+	// No eRPM for the rest of this test unless it stamps one.
+	EscTelemetry quiet;
+	memset(&quiet, 0, sizeof(quiet));
+	fakeSetTelemetry(&quiet);
+	// Forget the earlier sessions' handshake: MENU's cue starts clear.
+	s_blReached = false;
+
+	section("AM32 connect: a reply that is not a bootloader's");
+	{
+		static const uint8_t junk[3] = { 0x55, 0xAA, 0x01 };
+		fakeAm32Garble(junk, 3);
+		enterAm32(4);
+		checkTrue("still connecting", s_state == S_CONNECT);
+		checkTrue("REPLY NOT UNDERSTOOD:, y 196",
+		          fakeTextIs(10, 196, "REPLY NOT UNDERSTOOD:", C_AMBER, C_BG, 1));
+		checkTrue("then the bytes, y 210", fakeTextIs(10, 210, s_status, C_AMBER, C_BG, 1));
+		checkTrue("then " AM32_UI_NOT_AM32 ", y 224",
+		          fakeTextIs(10, 224, AM32_UI_NOT_AM32, C_AMBER, C_BG, 1));
+		checkTrue("no handshake: no cue for MENU", !s_blReached);
+		fakeDumpFrame("shot_am32_connect_garbled.ppm");
+		fakeAm32Garble(nullptr, 0);
+		leaveAm32ToTester();
+	}
+
+	section("AM32 connect: silence shows the page alone");
+	{
+		fakeAm32Silent(true);
+		enterAm32(4);
+		checkTrue("still connecting", s_state == S_CONNECT);
+		checkTrue("POWER-CYCLE THE ESC, y 84", fakeTextCentredIs(84, "POWER-CYCLE THE ESC", C_LIME, C_BG, 2));
+		int x0 = 0, x1 = 0;
+		checkTrue("no note at y 196 to y 231", !fakeInkExtent(196, 36, C_BG, &x0, &x1) ||
+		          (x0 >= GFX_W / 2 - 42 && x1 <= GFX_W / 2 + 42));
+		fakeDumpFrame("shot_am32_connect.ppm");
+		fakeAm32Silent(false);
+		leaveAm32ToTester();
+	}
+
+	section("AM32 connect: settings that are not AM32's, and nothing written");
+	{
+		uint8_t esc[AM32_SETTINGS_SIZE];
+		for (int i = 0; i < AM32_SETTINGS_SIZE; i++) esc[i] = fakeEscByte(i);
+		fakeAm32Blank(true);
+		enterAm32(6);
+		checkTrue("the connect page stays", s_state == S_CONNECT &&
+		          strcmp(s_status, "NO VALID SETTINGS") == 0);
+		checkTrue(AM32_UI_NO_SETTINGS_1 ", y 196",
+		          fakeTextCentredIs(196, AM32_UI_NO_SETTINGS_1, C_AMBER, C_BG, 1));
+		checkTrue(AM32_UI_NO_SETTINGS_2 ", y 210",
+		          fakeTextCentredIs(210, AM32_UI_NO_SETTINGS_2, C_AMBER, C_BG, 1));
+		checkTrue("and no WRITE to hold", !ctlPresent(UI_FIX(Am32Ctl::Write)));
+		bool same = true;
+		for (int i = 0; i < AM32_SETTINGS_SIZE; i++) same = same && esc[i] == fakeEscByte(i);
+		checkTrue("the ESC's settings are untouched", same);
+		checkTrue("the handshake reached the bootloader: MENU's cue stands", s_blReached);
+		fakeAm32Blank(false);
+		frames(2);
+		checkTrue("a good read opens the list", s_state == S_LIST);
+		tapId(UI_FIX(UI_BACK));
+		frames(2);
+		checkTrue("MENU: " AM32_UI_RUN_CUE " in amber under the caption", menuRunCueShown());
+		char cap[32];
+		snprintf(cap, sizeof(cap), "GP%u  %u KBIT/S", (unsigned)settings()->dshotPin,
+		         (unsigned)settings()->dshotKbaud);
+		checkTrue("the caption stays on the first line",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, cap, C_DIM, C_BG, 1));
+		int x0 = 0, x1 = 0;
+		checkTrue("the cue ends left of the NO ESC chip, x 185",
+		          fakeInkExtent(UI_STRIP_LINE2_Y + 4, 3, C_BG, &x0, &x1) && x1 < 185);
+		fakeDumpFrame("shot_menu_run_cue.ppm");
+		// An eRPM frame older than the handshake, from before the power cycle
+		// the handshake needed, leaves it.
+		EscTelemetry old;
+		memset(&old, 0, sizeof(old));
+		old.lastRpmMs = s_blReachedMs - ESC_LINK_STALE_MS;
+		fakeSetTelemetry(&old);
+		frames(2);
+		checkTrue("an older eRPM frame: the cue stays", menuRunCueShown());
+		// One after it is the firmware running: the cue goes, also when that
+		// frame is already stale and the chip stays NO ESC.
+		fakeAdvance(1000);
+		EscTelemetry after;
+		memset(&after, 0, sizeof(after));
+		after.lastRpmMs = s_blReachedMs + 1;
+		fakeSetTelemetry(&after);
+		frames(2);
+		checkTrue("a stale eRPM frame after the handshake: the cue goes, NO ESC stays",
+		          !menuRunCueShown() && !s_blReached);
+		// Armed again, as by a later handshake: that frame is older now.
+		s_blReached = true;
+		s_blReachedMs = millis();
+		frames(2);
+		checkTrue("a later handshake: the cue again", menuRunCueShown());
+		feedLiveTelemetry();
+		frames(2);
+		checkTrue("an eRPM frame after the handshake: the cue goes",
+		          !menuRunCueShown() && !s_blReached);
+		fakeSetTelemetry(&quiet);
+		frames(2);
+		checkTrue("and stays gone when eRPM stops again", !menuRunCueShown());
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("back on the tester", uiCurrentScreen() == UiScreenId::Tester);
+	}
+
+	section("AM32 list: the strip's notes");
+	{
+		enterAm32(6);
+		checkTrue("the list is open", s_state == S_LIST);
+		// The fake ESC holds the Air preset: 3D MODE on.
+		checkTrue("3D MODE on: two amber lines on the strip",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_3D_1, UI_COL_WARN, C_BG, 1) &&
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_3D_2, UI_COL_WARN, C_BG, 1));
+		checkTrue("36 and 34 characters inside the panel",
+		          UI_MARGIN + gfxTextW(AM32_UI_3D_1, 1) <= GFX_W - UI_MARGIN &&
+		          UI_MARGIN + gfxTextW(AM32_UI_3D_2, 1) <= GFX_W - UI_MARGIN);
+		// Edited off: the device caption comes back.
+		const int v3d = uiRowOf("3D MODE");
+		uiRowY("3D MODE"); frames(1);
+		tapId(UI_ROW(v3d, Row));
+		tapId(UI_FIX(Am32Ctl::EditMinus));
+		checkInt("3D MODE edited off", uiByte(AM32_OFF_BI_DIRECTION), 0);
+		frames(1);
+		char name[AM32_NAME_LEN + 1], cap[48];
+		am32DeviceName(s_eeprom, name);
+		snprintf(cap, sizeof(cap), "%s  %s  FW %u.%u", name, am32BlEscTypeName(),
+		         s_eeprom[AM32_OFF_MAIN_REVISION], s_eeprom[AM32_OFF_SUB_REVISION]);
+		checkTrue("edited off: the device caption is back",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + (UI_STRIP_H - 7) / 2, cap, C_DIM, C_BG, 1));
+		int sx0 = 0, sx1 = 0;
+		checkTrue("and the note's second line is gone: y 51 to 61 blank",
+		          !fakeInkExtent(51, 11, C_BG, &sx0, &sx1));
+		// Edited on again: the note returns.
+		tapId(UI_FIX(Am32Ctl::EditPlus));
+		frames(1);
+		checkTrue("edited on: the note returns",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_3D_1, UI_COL_WARN, C_BG, 1));
+		tapId(UI_FIX(Am32Ctl::EditMinus));
+
+		// TEMP LIMIT at the top of its range reads OFF, list and editor alike.
+		const int vt = uiRowOf("TEMP LIMIT");
+		uiRowY("TEMP LIMIT"); frames(1);
+		tapId(UI_ROW(vt, Row));
+		for (int i = 0; i < 50; i++) tapId(UI_FIX(Am32Ctl::EditPlus));
+		checkInt("TEMP LIMIT at 141", uiByte(0x2B), 141);
+		frames(1);
+		const UiRect tr = ctlRect(UI_ROW(vt, Row));
+		checkTrue("the row reads OFF",
+		          fakeTextIs(GFX_W - 8 - gfxTextW("OFF", 2), tr.y + 13, "OFF", C_AMBER, C_PANEL, 2));
+		checkTrue("the editor reads OFF", fakeTextCentredIs(EDIT_Y + 14, "OFF", C_AMBER, C_BG, 2));
+		checkTrue("selected and off: the protection note",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROT_1, UI_COL_WARN, C_BG, 1) &&
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_PROT_2, UI_COL_WARN, C_BG, 1));
+		fakeDumpFrame("shot_am32_protection_off.ppm");
+		tapId(UI_FIX(Am32Ctl::EditMinus));
+		frames(1);
+		checkTrue("140 C: no note", !fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROT_1, UI_COL_WARN, C_BG, 1));
+
+		// CURRENT LIMIT: the preset's 40 A stepped down to 0 reads OFF.
+		const int vc = uiRowOf("CURRENT LIMIT");
+		uiRowY("CURRENT LIMIT"); frames(1);
+		tapId(UI_ROW(vc, Row));
+		for (int i = 0; i < 25; i++) tapId(UI_FIX(Am32Ctl::EditMinus));
+		checkInt("CURRENT LIMIT at 0", uiByte(0x2C), 0);
+		frames(1);
+		checkTrue("0: the protection note",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROT_1, UI_COL_WARN, C_BG, 1));
+		tapId(UI_FIX(Am32Ctl::EditPlus));
+		frames(1);
+		checkTrue("2 A: no note", !fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROT_1, UI_COL_WARN, C_BG, 1));
+
+		// LOW VOLT CUTOFF: on in the preset; off is the note.
+		const int vl = uiRowOf("LOW VOLT CUTOFF");
+		uiRowY("LOW VOLT CUTOFF"); frames(1);
+		tapId(UI_ROW(vl, Row));
+		frames(1);
+		checkTrue("cutoff on: no note", !fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROT_1, UI_COL_WARN, C_BG, 1));
+		tapId(UI_FIX(Am32Ctl::EditMinus));
+		frames(1);
+		checkTrue("cutoff off: the protection note",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROT_1, UI_COL_WARN, C_BG, 1));
+
+		// PROTOCOL: SERVO is no DShot; the note stands whatever is selected.
+		const int vp = uiRowOf("PROTOCOL");
+		uiRowY("PROTOCOL"); frames(1);
+		tapId(UI_ROW(vp, Row));
+		tapId(UI_FIX(Am32Ctl::EditPlus));
+		frames(1);
+		checkTrue("DSHOT: no note", uiByte(AM32_OFF_INPUT_TYPE) == AM32_INPUT_DSHOT &&
+		          !fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROTO_1, UI_COL_WARN, C_BG, 1));
+		tapId(UI_FIX(Am32Ctl::EditPlus));
+		frames(1);
+		checkTrue("SERVO: the DShot note",
+		          uiByte(AM32_OFF_INPUT_TYPE) == AM32_INPUT_SERVO &&
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROTO_1, UI_COL_WARN, C_BG, 1) &&
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_PROTO_2, UI_COL_WARN, C_BG, 1));
+		tapId(UI_FIX(Am32Ctl::EditPlus));
+		frames(1);
+		checkTrue("SERIAL: no note, AM32 detects DShot there",
+		          !fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROTO_1, UI_COL_WARN, C_BG, 1));
+		tapId(UI_FIX(Am32Ctl::EditMinus));
+		// The selected row's note comes first: LOW VOLT CUTOFF, still off.
+		uiRowY("LOW VOLT CUTOFF"); frames(1);
+		tapId(UI_ROW(vl, Row));
+		frames(1);
+		checkTrue("the selected row's note before PROTOCOL's",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROT_1, UI_COL_WARN, C_BG, 1));
+		tapId(UI_FIX(Am32Ctl::Revert));
+		frames(1);
+		checkTrue("REVERT: the preset again, 3D MODE's note",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_3D_1, UI_COL_WARN, C_BG, 1));
+	}
+
+	section("AM32 write: a result that is not verified names the next step");
+	{
+		const int vPoles = uiRowOf("POLES");
+		uiRowY("POLES"); frames(1);
+		tapId(UI_ROW(vPoles, Row));
+		tapId(UI_FIX(Am32Ctl::EditPlus));
+		uint8_t want = uiByte(0x1B);
+		int wx, wy;
+		ctlCentre(UI_FIX(Am32Ctl::Write), &wx, &wy);
+		struct Case { const char *what; void (*arm)(); const char *prefix; };
+		static const Case cases[] = {
+			{ "WRITE FAILED", [] { fakeAm32FailWrites(1); }, "WRITE FAILED: " },
+			{ "VERIFY READ",  [] { fakeAm32FailReads(3); },  "VERIFY READ: " },
+			{ "DIFF",         [] { fakeAm32SkewWrites(1); }, "DIFF @1B: " },
+		};
+		for (const Case &c : cases) {
+			c.arm();
+			pressId(UI_FIX(Am32Ctl::Write));
+			for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
+			fakeRelease(); frames(3);
+			checkTrue(c.what, strncmp(s_status, c.prefix, strlen(c.prefix)) == 0);
+			checkTrue("  then " AM32_UI_RETRY " in amber, y 170",
+			          fakeTextCentredIs(170, AM32_UI_RETRY, UI_COL_WARN, C_BG, 1));
+			checkTrue("  and no power-cycle line",
+			          !fakeTextCentredIs(170, AM32_UI_POWER_CYCLE, C_TEXT, C_BG, 1));
+			int nx0 = 0, nx1 = 0;
+			checkTrue("  the caption alone on the strip: y 51 to 61 blank",
+			          !fakeInkExtent(51, 11, C_BG, &nx0, &nx1));
+			if (c.prefix[0] == 'W') fakeDumpFrame("shot_am32_write_failed.ppm");
+			tapId(UI_FIX(Am32Ctl::Ok));
+			checkTrue("  OK: the list, the edit kept", s_state == S_LIST && uiByte(0x1B) == want &&
+			          anyDirty() && ctlEnabled(UI_FIX(Am32Ctl::Write)));
+		}
+		// The hold again: the write runs and verifies. The frame the hold
+		// fires on draws WRITING... alone, without the last result's line.
+		pressId(UI_FIX(Am32Ctl::Write));
+		int held = 0;
+		while (s_state != S_WRITING && held++ < 60) { fakeHold(wx, wy); frames(1); }
+		checkTrue("WRITING...: the last result's next step is gone",
+		          s_state == S_WRITING && strcmp(s_status, "WRITING...") == 0 &&
+		          !fakeTextCentredIs(170, AM32_UI_RETRY, UI_COL_WARN, C_BG, 1));
+		for (int i = 0; i < 10; i++) { fakeHold(wx, wy); frames(1); }
+		fakeRelease(); frames(3);
+		checkTrue("holding again writes and verifies", fakeEscByte(0x1B) == want && s_verified &&
+		          fakeTextCentredIs(170, AM32_UI_POWER_CYCLE, C_TEXT, C_BG, 1));
+		checkInt("29 and 34 characters: 173 and 203 px",
+		         gfxTextW(AM32_UI_POWER_CYCLE, 1) * 1000 + gfxTextW(AM32_UI_RETRY, 1), 173203);
+		tapId(UI_FIX(Am32Ctl::Ok));
+		// Put the fake ESC back as it was.
+		tapId(UI_FIX(Am32Ctl::EditMinus));
+		pressId(UI_FIX(Am32Ctl::Write));
+		for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
+		fakeRelease(); frames(3);
+		tapId(UI_FIX(Am32Ctl::Ok));
+		leaveAm32ToTester();
+	}
+	feedLiveTelemetry();
+	frames(2);
+}
+
 void runUiTests() {
 	// Off zero before anything is stamped. Virtual time starts at 0, and 0 is
 	// reserved for "this frame type has never arrived" -- so telemetry stamped
@@ -3756,7 +4057,8 @@ void runUiTests() {
 		checkTrue("the refusal, at scale 1, inside the panel",
 		          fakeTextCentredIs(140, "NO BACKUP ON THE CARD: NOT WRITTEN", C_TEXT, C_BG, 1) &&
 		          fakeInkExtent(140, 40, C_BG, &rx0, &rx1) && rx0 >= UI_MARGIN && rx1 < GFX_W - UI_MARGIN);
-		checkTrue("and no power-cycle line", !fakeInkExtent(165, 20, C_BG, &rx0, &rx1));
+		checkTrue("no power-cycle line: " AM32_UI_CHECK_CARD " in amber, y 170",
+		          fakeTextCentredIs(170, AM32_UI_CHECK_CARD, UI_COL_WARN, C_BG, 1));
 		tapId(UI_FIX(Am32Ctl::Ok));
 		fakeFatWriteProtect(false);
 		pressId(UI_FIX(Am32Ctl::Write));
@@ -3945,6 +4247,7 @@ void runUiTests() {
 	testTesterBoardAndCard();
 	testSplash();
 	testTextProbes();
+	testAm32Guidance();
 
 	// Back to a known state for anything that runs after this.
 	fakeFlashClear();

@@ -122,6 +122,22 @@ uint8_t fakeAm32Pin();
 /** @brief Forget the last am32BlBegin(): fakeAm32Pin() reads 255 until the next one. */
 void fakeAm32Reset();
 
+/** @brief The next @p n am32BlWrite() calls fail with a NAK and store nothing. */
+void fakeAm32FailWrites(int n);
+/** @brief The next @p n am32BlRead() calls time out. */
+void fakeAm32FailReads(int n);
+/** @brief The next @p n am32BlWrite() calls store byte 0x1B with bit 6 flipped. */
+void fakeAm32SkewWrites(int n);
+/**
+ * @brief Handshakes fail with @p n bytes of reply, as from a device that
+ *        answers but is no bootloader; @p n 0 lets them succeed again.
+ */
+void fakeAm32Garble(const uint8_t *b, uint8_t n);
+/** @brief Reads return an erased page, all 0xFF, while @p on. */
+void fakeAm32Blank(bool on);
+/** @brief Handshakes time out with no reply while @p on: the ESC is not in its bootloader. */
+void fakeAm32Silent(bool on);
+
 /** @brief Whether a suspend was still requested at the last am32BlEnd(). */
 bool fakeAm32EndBeforeResume();
 

@@ -834,7 +834,10 @@ Leaving sends the bootloader no `RUN` command. The transport has one,
 is in its bootloader when the screen closes, and DShot frames follow on the
 signal wire. What the ESC does after the screen is left, its firmware
 started on its own, on those frames or not at all, is not recorded.
-Power-cycle the ESC after leaving, before driving a motor.
+Power-cycle the ESC after leaving, before driving a motor. After a session
+whose handshake succeeded, MENU's strip shows `POWER-CYCLE THE ESC TO RUN IT`
+in amber on a second line under its caption (`uiAm32RunCue()`), until an eRPM
+frame stamped after that handshake arrives or the board restarts.
 
 ### Connecting
 
@@ -853,9 +856,9 @@ The screen shows which half failed:
 | Message | Meaning | What to change |
 |---|---|---|
 | `WAITING... (TRY n)` | No reply yet | Power-cycle the ESC while the screen is open |
-| `REPLY NOT UNDERSTOOD:` followed by `nB: xx xx xx @19200` | The ESC sent bytes that did not parse | Baud rate or framing. The first three bytes are shown |
+| `REPLY NOT UNDERSTOOD:` followed by `nB: xx xx xx @19200` and `IS THE ESC RUNNING AM32?` | The ESC sent bytes that did not parse | Baud rate or framing, or firmware other than AM32. The first three bytes are shown |
 | `READ FAILED (...)` | Handshake succeeded, settings read failed | Retry; check the wire |
-| `NO VALID SETTINGS` | The settings block is implausible | Do not write |
+| `NO VALID SETTINGS`, with `NOT AN AM32 ESC, OR BLANK SETTINGS.` and `NOTHING WILL BE WRITTEN.` | The settings block is implausible (`am32Plausible()`) | Nothing to do: the screen stays on the connect page, which has no WRITE |
 
 ### Editing
 
@@ -892,7 +895,24 @@ starts the ESC's firmware, and whether the ESC runs the new settings without
 a power cycle is not tested. On a mismatch it shows the first differing byte:
 `DIFF @xx: GOT xx WANT xx`. A result of up to 18 characters is drawn at
 scale 2; a longer one at scale 1, where every result fits one 37-character
-line, so it stays on the 240 px panel.
+line, so it stays on the 240 px panel. Under a result that is not a verified
+write, `WRITE FAILED: ...`, `VERIFY READ: ...` or `DIFF ...`, an amber line
+reads `NOT VERIFIED. TAP OK, WRITE AGAIN.`: OK returns to the list with the
+edits kept, and the next hold writes again. Under `NO BACKUP ON THE CARD: NOT
+WRITTEN` it reads `CHECK THE CARD, THEN WRITE AGAIN.`.
+
+Some values put two amber lines on the strip in place of the ESC name
+(`listNote()` in `src/ui_am32.cpp`): the selected row's first, then 3D
+MODE, then PROTOCOL. The facts behind them are from the AM32 source
+(am32-firmware/AM32, `main` of November 2026), not from the bench.
+
+| Value | Strip | AM32 source |
+|---|---|---|
+| `3D MODE` on, byte 0x12 | `3D MODE: 50% THROTTLE IS FULL POWER,` / `ABOVE 50% THE OTHER WAY. PROP OFF.` | `bi_direction`; `setInput()` runs 48..1047 one way and 1048..2047 the other. The tester sends 47 + throttle (1..2000) |
+| `TEMP LIMIT` selected, `OFF` (141) | `PROTECTION OFF: THE ESC DOES NOT` / `CUT POWER ON THIS LIMIT.` | `loadEEpromSettings()` sets a value outside 70..140 to 255, no limit |
+| `CURRENT LIMIT` selected, `OFF` (0, 101, 102) | as TEMP LIMIT | the limit acts only for 1..100, in 2 A steps |
+| `LOW VOLT CUTOFF` selected, `OFF` | as TEMP LIMIT | 0 is off; 1 per cell, 2 absolute |
+| `PROTOCOL` `SERVO` or `DRONECAN` | `THE TESTER SENDS DSHOT ONLY:` / `THE ESC WILL NOT RUN HERE.` | `enum inputType`, zero-based: 0 AUTO, 1 DSHOT, 2 SERVO, 3 SERIAL, 4 EDT ARM, 5 DRONECAN. SERVO detects servo pulses only; DRONECAN switches the DShot input off |
 
 ### Backup
 
@@ -946,7 +966,10 @@ The host test harness runs two cross-checks:
 - The field table is decoded against that tool's default settings blob and
   compared to the meanings in its byte comments: 14 poles, 24 kHz, 2200 KV
   (motor velocity constant, RPM per volt), 15° advance, 3.0 V cell cutoff,
-  1502 µs servo neutral, 204 A current limit, and others.
+  1502 µs servo neutral, a 40 A current limit, and others. Where the tool's
+  comments and AM32's source disagree, the source wins: the tool numbers the
+  protocol from 1, AM32's `enum inputType` from 0, and its 141 and 102 are
+  the values at which AM32 applies no limit, shown as `OFF`.
 
 ---
 

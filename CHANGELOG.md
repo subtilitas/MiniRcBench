@@ -44,6 +44,23 @@ protocol.
 
 ### Added
 
+- AM32 CONFIG says what a value does and what to do next. Two amber lines
+  replace the ESC name on the strip: while 3D MODE is on,
+  `3D MODE: 50% THROTTLE IS FULL POWER,` / `ABOVE 50% THE OTHER WAY. PROP
+  OFF.`; with TEMP LIMIT, CURRENT LIMIT or LOW VOLT CUTOFF selected and off,
+  `PROTECTION OFF: THE ESC DOES NOT` / `CUT POWER ON THIS LIMIT.`; with
+  PROTOCOL at SERVO or DRONECAN, `THE TESTER SENDS DSHOT ONLY:` / `THE ESC
+  WILL NOT RUN HERE.` A write result that is not verified has
+  `NOT VERIFIED. TAP OK, WRITE AGAIN.` under it, and `NO BACKUP ON THE CARD:
+  NOT WRITTEN` has `CHECK THE CARD, THEN WRITE AGAIN.`. The connect page ends
+  a reply it cannot parse with `IS THE ESC RUNNING AM32?` and adds
+  `NOT AN AM32 ESC, OR BLANK SETTINGS.` / `NOTHING WILL BE WRITTEN.` under
+  `NO VALID SETTINGS`. After a session whose handshake succeeded, MENU's strip
+  shows `POWER-CYCLE THE ESC TO RUN IT` in amber under its caption until an
+  eRPM frame stamped after the handshake arrives or the board restarts
+  (`uiAm32RunCue()`). The AM32 facts are taken from the AM32 source, not
+  measured. Host tests in `test/test_am32.cpp` and `testAm32Guidance()` in
+  `test/test_ui.cpp`; the wiki's AM32 pages show `am32-connect.png`.
 - The building blocks of menu structure B, slice 1 of
   [menu-b.md](docs/design/menu-b.md), with nothing drawn differently:
   the leave page widget `src/ui_leave.*`, with its three phases, numbered
@@ -403,6 +420,11 @@ protocol.
 
 ### Changed
 
+- AM32 CONFIG's `BIDIRECTIONAL` row is `3D MODE`: byte 0x12 is AM32's
+  `bi_direction`, the reversible mode, not bidirectional DShot. TEMP LIMIT at
+  141 and CURRENT LIMIT at 0, 101 or 102 read `OFF`, in the list and the
+  editor: AM32 applies no limit outside 70 to 140 °C and 1 to 100
+  (2 to 200 A).
 - README and the wiki pages AM32-Configuration and AM32-Konfiguration state
   what leaving AM32 CONFIG does to the ESC: no RUN command goes to the
   bootloader, and what the ESC does after the screen is left is not
@@ -655,6 +677,14 @@ protocol.
 
 ### Fixed
 
+- AM32 CONFIG's PROTOCOL names were one off: AM32's `enum inputType` is
+  zero-based, so 0 is AUTO and 1 DSHOT, where the screen showed UNSET and
+  AUTO. The names are now `AUTO`, `DSHOT`, `SERVO`, `SERIAL`, `EDT ARM` and
+  `DRONECAN`, 0 to 5.
+- AM32 CONFIG's connect page showed `REPLY NOT UNDERSTOOD:` under
+  `NO VALID SETTINGS` and `READ FAILED (...)` too, since the bytes of a good
+  handshake stayed in the transport's buffer; it shows it now only for a
+  handshake that failed with bytes.
 - On the unplug page of SERVO TESTER, KST SERVO and HITEC SERVO, the
   drawing reads `pinClaimUnplugDue()` once and takes both the page's text
   and BACK's enabled flag from that read; the control table does the same.

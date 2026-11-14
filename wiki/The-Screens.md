@@ -85,6 +85,11 @@ Under the title, a strip shows the ESC pin and the DShot rate, for example
 | `EDT OFF`, red | eRPM frames arrive and EDT frames do not |
 | `NO ESC`, dim grey | no eRPM frame for 500 ms: no ESC connected, or none answering |
 
+After an AM32 CONFIG session in which the ESC's bootloader answered, a second
+line under the caption reads `POWER-CYCLE THE ESC TO RUN IT` in amber, until
+an eRPM frame arrives or the board restarts
+([AM32 Configuration](AM32-Configuration#leaving)).
+
 <img src="img/menu-no-esc.png" width="240" alt="MENU with no ESC connected: the chip reads NO ESC"> <img src="img/menu-edt-off.png" width="240" alt="MENU with an ESC that sends eRPM and no EDT: the chip reads EDT OFF in red">
 
 There is no enable button. The firmware sends the enable to every ESC that

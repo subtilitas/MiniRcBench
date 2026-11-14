@@ -14,10 +14,12 @@
 #include <string.h>
 
 static const char *const NAMES_DIRECTION[] = {"NORMAL", "REVERSED"};
-// One-based, per the reference tool: 1) Auto 2) Dshot 3) Servo 4) PWM
-// 5) Serial 6) Betaflight safe arming. Index 0 is an uninitialised ESC.
+// Zero-based, as AM32's `enum inputType` (Inc/common.h, the same order since
+// v2.05) and the configurator's protocol list number them: 0 Auto, 1 DShot,
+// 2 Servo, 3 Serial, 4 EDT arm; 5 is DroneCAN on DroneCAN builds.
+// @see Am32Input
 static const char *const NAMES_PROTOCOL[]  = {
-	"UNSET", "AUTO", "DSHOT", "SERVO", "PWM", "SERIAL", "BF SAFE"
+	"AUTO", "DSHOT", "SERVO", "SERIAL", "EDT ARM", "DRONECAN"
 };
 static const char *const NAMES_OFFON[]     = {"OFF", "ON"};
 
@@ -36,22 +38,31 @@ static const char *const NAMES_OFFON[]     = {"OFF", "ON"};
 
 /** @brief Off/on field. */
 #define F_BOOL(grp, nm, off, ver)                                              \
-	{grp, nm, off, A32_BOOL, 0, 1, 1, ver, 0, 0, 0, 0, "", NAMES_OFFON, 2}
+	{grp, nm, off, A32_BOOL, 0, 1, 1, ver, 0, 0, 0, 0, "", NAMES_OFFON, 2, 0, 0}
 /** @brief Plain integer over @c lo..@c hi in steps of @c st, suffixed @c unit. */
 #define F_RAW(grp, nm, off, lo, hi, st, unit, ver)                             \
-	{grp, nm, off, A32_RAW, lo, hi, st, ver, 0, 0, 0, 0, unit, nullptr, 0}
+	{grp, nm, off, A32_RAW, lo, hi, st, ver, 0, 0, 0, 0, unit, nullptr, 0, 0, 0}
 /** @brief Displayed as `(raw * m + a) / d`, with one decimal when @c d > 1. */
 #define F_SCALED(grp, nm, off, lo, hi, st, m, d, a, unit, ver)                 \
-	{grp, nm, off, A32_SCALED, lo, hi, st, ver, 0, m, d, a, unit, nullptr, 0}
+	{grp, nm, off, A32_SCALED, lo, hi, st, ver, 0, m, d, a, unit, nullptr, 0, 0, 0}
 /** @brief Index into the @c cnt labels of @c tbl. */
 #define F_ENUM(grp, nm, off, tbl, cnt, ver)                                    \
-	{grp, nm, off, A32_ENUM, 0, (uint8_t)((cnt) - 1), 1, ver, 0, 0, 0, 0, "", tbl, cnt}
+	{grp, nm, off, A32_ENUM, 0, (uint8_t)((cnt) - 1), 1, ver, 0, 0, 0, 0, "", tbl, cnt, 0, 0}
+/** @brief As F_RAW(), with values outside @c onLo..@c onHi shown as `OFF`. */
+#define F_RAW_LIMIT(grp, nm, off, lo, hi, st, unit, onLo, onHi)                \
+	{grp, nm, off, A32_RAW, lo, hi, st, 0, 0, 0, 0, 0, unit, nullptr, 0, onLo, onHi}
+/** @brief As F_SCALED(), with raw values outside @c onLo..@c onHi shown as `OFF`. */
+#define F_SCALED_LIMIT(grp, nm, off, lo, hi, st, m, d, a, unit, onLo, onHi)    \
+	{grp, nm, off, A32_SCALED, lo, hi, st, 0, 0, m, d, a, unit, nullptr, 0, onLo, onHi}
 /** @} */
 
 const Am32Field AM32_FIELDS[] = {
 	// ---- Motor -----------------------------------------------------------
 	F_ENUM  ("MOTOR", "DIRECTION",        0x11, NAMES_DIRECTION, 2, 0),
-	F_BOOL  ("MOTOR", "BIDIRECTIONAL",    0x12, 0),
+	// AM32's bi_direction: 3D (reversible) mode, not bidirectional DShot. On
+	// DShot it splits 48..2047: 48..1047 runs one way, 1048..2047 the other
+	// (setInput() in AM32's Src/main.c).
+	F_BOOL  ("MOTOR", "3D MODE",          AM32_OFF_BI_DIRECTION, 0),
 	F_RAW   ("MOTOR", "POLES",            0x1B, 2, 36, 2, "", 0),
 	// Stored as KV/40, so the editable range 1..255 spans 40..10200 KV.
 	F_SCALED("MOTOR", "KV",               0x1A, 1, 255, 1, 40, 1, 0, "KV", 0),
@@ -62,7 +73,7 @@ const Am32Field AM32_FIELDS[] = {
 	// that with a single mul/div, so the type carries the rule.
 	// @see am32AdvanceDeciDeg()
 	{"TIMING", "ADVANCE", AM32_OFF_ADVANCE, A32_ADVANCE, 10, 42, 1, 0, 0,
-	 0, 0, 0, "DEG", nullptr, 0},
+	 0, 0, 0, "DEG", nullptr, 0, 0, 0},
 	F_BOOL  ("TIMING", "AUTO ADVANCE",    0x2F, 0),
 	// AM32 accepts up to 144 kHz, not the 48 the older configurator UI capped
 	// its slider at. Worth a coarse swipe rather than 136 taps.
@@ -85,17 +96,20 @@ const Am32Field AM32_FIELDS[] = {
 	F_BOOL  ("BRAKE", "RC CAR REVERSE",   0x26, 0),
 
 	// ---- Limits ----------------------------------------------------------
-	F_BOOL  ("LIMITS", "LOW VOLT CUTOFF", 0x24, 0),
+	F_BOOL  ("LIMITS", "LOW VOLT CUTOFF", AM32_OFF_LOW_VOLT_CUTOFF, 0),
 	// Cell cutoff is stored as hundredths of a volt above 2.50 V.
 	F_SCALED("LIMITS", "CELL CUTOFF",     0x25, 0, 100, 1, 1, 100, 250, "V", 0),
-	// Above 140 the ESC treats the temperature limit as disabled.
-	F_RAW   ("LIMITS", "TEMP LIMIT",      0x2B, 70, 141, 1, "C", 0),
-	// Inferred: the tool's presets read 20 and 102, which as amps*2 give the
-	// 40 A and 204 A (effectively off) that its UI shows.
-	F_SCALED("LIMITS", "CURRENT LIMIT",   0x2C, 0, 102, 1, 2, 1, 0, "A", 0),
+	// AM32 takes 70..140 as a limit in degrees C and anything else as none:
+	// loadEEpromSettings() in AM32's Src/main.c sets it to 255. The
+	// configurator's slider ends at 141, which it shows as disabled.
+	F_RAW_LIMIT   ("LIMITS", "TEMP LIMIT",    0x2B, 70, 141, 1, "C", 70, 140),
+	// Amps / 2. AM32 limits the current only for 1..100 (1..99 up to v2.16 at
+	// least); 0 and anything above 100 mean none. The configurator's slider
+	// ends at 202 A, which it shows as disabled; its presets read 102.
+	F_SCALED_LIMIT("LIMITS", "CURRENT LIMIT", 0x2C, 0, 102, 1, 2, 1, 0, "A", 1, 100),
 
 	// ---- Input -----------------------------------------------------------
-	F_ENUM  ("INPUT", "PROTOCOL",         0x2E, NAMES_PROTOCOL, 7, 0),
+	F_ENUM  ("INPUT", "PROTOCOL",         AM32_OFF_INPUT_TYPE, NAMES_PROTOCOL, 6, 0),
 	F_BOOL  ("INPUT", "30MS TELEMETRY",   0x1F, 0),
 	F_RAW   ("INPUT", "BEEP VOLUME",      0x1E, 0, 11, 1, "", 0),
 
@@ -128,6 +142,11 @@ bool am32FieldApplies(const Am32Field *f, uint8_t layoutRev) {
 
 void am32FormatValue(const Am32Field *f, const uint8_t *eeprom, char *out, int outLen) {
 	uint8_t raw = eeprom[f->offset];
+
+	if (am32ValueOff(f, eeprom)) {
+		snprintf(out, outLen, "OFF");
+		return;
+	}
 
 	switch (f->type) {
 		case A32_BOOL:
@@ -222,6 +241,26 @@ void am32Adjust(const Am32Field *f, uint8_t *eeprom, int dir) {
 	if (v < f->rawMin) v = f->rawMin;
 	if (v > f->rawMax) v = f->rawMax;
 	eeprom[f->offset] = (uint8_t)v;
+}
+
+bool am32ValueOff(const Am32Field *f, const uint8_t *eeprom) {
+	if (!f->onMin && !f->onMax) return false;
+	uint8_t raw = eeprom[f->offset];
+	return raw < f->onMin || raw > f->onMax;
+}
+
+bool am32ProtectionOff(const Am32Field *f, const uint8_t *eeprom) {
+	if (f->offset == AM32_OFF_LOW_VOLT_CUTOFF) return eeprom[f->offset] == 0;
+	return am32ValueOff(f, eeprom);
+}
+
+bool am32Is3d(const uint8_t *eeprom) {
+	return eeprom[AM32_OFF_BI_DIRECTION] != 0;
+}
+
+bool am32InputNotDshot(const uint8_t *eeprom) {
+	uint8_t v = eeprom[AM32_OFF_INPUT_TYPE];
+	return v == AM32_INPUT_SERVO || v == AM32_INPUT_DRONECAN;
 }
 
 bool am32Plausible(const uint8_t *eeprom) {

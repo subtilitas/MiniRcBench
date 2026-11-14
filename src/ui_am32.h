@@ -34,6 +34,64 @@ bool uiAm32Tick(const TouchState *t);
  */
 #define AM32_UI_POWER_CYCLE "POWER-CYCLE THE ESC TO APPLY."
 
+/**
+ * @brief The line under a write that is not verified: the edits stay, and a
+ *        hold of WRITE runs the write again. 34 characters, 203 px.
+ */
+#define AM32_UI_RETRY "NOT VERIFIED. TAP OK, WRITE AGAIN."
+/**
+ * @brief The line under NO BACKUP ON THE CARD: the next write saves the
+ *        backup again first. 33 characters, 197 px.
+ */
+#define AM32_UI_CHECK_CARD "CHECK THE CARD, THEN WRITE AGAIN."
+
+/**
+ * @defgroup am32_notes Strip notes
+ * @brief Two amber lines on the strip of the settings list, in place of the
+ *        device caption, through uiStripTwoLines(). Each line is at most 37
+ *        characters, 221 px.
+ *
+ * The selected row's note comes first, then 3D MODE, then PROTOCOL.
+ * @{
+ */
+/** @brief 3D MODE on: AM32 splits DShot 48..2047 into two directions, and the
+ *         tester sends 47 + throttle, 1 to 2000, so 50 % is 1047, the top of
+ *         the lower half. */
+#define AM32_UI_3D_1 "3D MODE: 50% THROTTLE IS FULL POWER,"
+#define AM32_UI_3D_2 "ABOVE 50% THE OTHER WAY. PROP OFF."
+/** @brief TEMP LIMIT, CURRENT LIMIT or LOW VOLT CUTOFF selected and off. */
+#define AM32_UI_PROT_1 "PROTECTION OFF: THE ESC DOES NOT"
+#define AM32_UI_PROT_2 "CUT POWER ON THIS LIMIT."
+/** @brief PROTOCOL at SERVO or DRONECAN: AM32 does not take DShot there. */
+#define AM32_UI_PROTO_1 "THE TESTER SENDS DSHOT ONLY:"
+#define AM32_UI_PROTO_2 "THE ESC WILL NOT RUN HERE."
+/** @} */
+
+/** @brief The connect page's last line under a reply it could not parse. */
+#define AM32_UI_NOT_AM32 "IS THE ESC RUNNING AM32?"
+/** @brief The connect page's lines under NO VALID SETTINGS. */
+#define AM32_UI_NO_SETTINGS_1 "NOT AN AM32 ESC, OR BLANK SETTINGS."
+#define AM32_UI_NO_SETTINGS_2 "NOTHING WILL BE WRITTEN."
+
+/**
+ * @brief MENU's strip line after a session that reached the bootloader:
+ *        leaving sends no command to start the ESC's firmware. 29
+ *        characters, 173 px. @see uiAm32RunCue()
+ */
+#define AM32_UI_RUN_CUE "POWER-CYCLE THE ESC TO RUN IT"
+
+/**
+ * @brief Whether MENU shows @ref AM32_UI_RUN_CUE.
+ *
+ * Set when a handshake with the bootloader succeeds. Cleared by an eRPM frame
+ * that arrived after that handshake, which only the ESC's firmware sends; a
+ * restart clears it as well, since it is not stored.
+ *
+ * @param lastRpmMs EscTelemetry::lastRpmMs.
+ * @return true while the cue stands.
+ */
+bool uiAm32RunCue(uint32_t lastRpmMs);
+
 /** @brief The AM32 CONFIG controls; the list rows are `UI_ROW(n, Row)`. @see ui_screen.h */
 enum class Am32Ctl : uint8_t {
 	EditMinus = 1, EditPlus,  /**< The editor bar, while a field is selected. */

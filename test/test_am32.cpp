@@ -5,8 +5,11 @@
  * The blobs and expectations here are not invented: they are the default
  * settings the AM32 configurator ships, and the semantics documented in its own
  * byte-by-byte comments. Checking against an implementation known to work on
- * real hardware is what caught the one-based protocol enum and the x2 current
- * limit scaling, both of which looked perfectly plausible.
+ * real hardware is what caught the x2 current limit scaling, which looked
+ * perfectly plausible. The protocol values, the limits' off values and 3D
+ * mode follow AM32's own source (`Inc/common.h`, `loadEEpromSettings()` and
+ * `setInput()` in `Src/main.c`), which the reference tool's comments
+ * contradict for the protocol.
  */
 
 #include "check.h"
@@ -242,7 +245,7 @@ void runAm32Tests() {
 	expect(AIR, "POWER", "104");
 	expect(AIR, "ADVANCE", "22.5DEG");
 	expect(AIR, "DIRECTION", "NORMAL");
-	expect(AIR, "BIDIRECTIONAL", "ON");
+	expect(AIR, "3D MODE", "ON");
 	expect(AIR, "LOW VOLT CUTOFF", "ON");
 	expect(AIR, "CELL CUTOFF", "3.3V");
 	expect(AIR, "TEMP LIMIT", "101C");
@@ -255,15 +258,15 @@ void runAm32Tests() {
 	expect(AIR, "BRAKE ON STOP", "ON");
 
 	section("CRAWLER preset differences show through");
-	expect(CRAWLER, "BIDIRECTIONAL", "OFF");
+	expect(CRAWLER, "3D MODE", "OFF");
 	expect(CRAWLER, "SINE STARTUP", "OFF");
 	expect(CRAWLER, "ADVANCE", "15.0DEG");
 	expect(CRAWLER, "POWER", "100");
 	expect(CRAWLER, "KV", "2200KV");
 	expect(CRAWLER, "LOW VOLT CUTOFF", "OFF");
 	expect(CRAWLER, "CELL CUTOFF", "3.0V");
-	expect(CRAWLER, "TEMP LIMIT", "141C");
-	expect(CRAWLER, "CURRENT LIMIT", "204A");
+	expect(CRAWLER, "TEMP LIMIT", "OFF");         // 141: no limit
+	expect(CRAWLER, "CURRENT LIMIT", "OFF");      // 102: no limit
 	expect(CRAWLER, "STUCK ROTOR", "ON");
 	expect(CRAWLER, "BRAKE ON STOP", "OFF");
 
@@ -279,10 +282,76 @@ void runAm32Tests() {
 	expect(REF_PY, "NEUTRAL", "1502US");         // "128 = 1500 us"
 	expect(REF_PY, "CELL CUTOFF", "3.0V");       // "default 50 3.0volts"
 	expect(REF_PY, "SINE RANGE", "15");          // "default 15"
-	expect(REF_PY, "TEMP LIMIT", "141C");        // "default 141"
-	expect(REF_PY, "CURRENT LIMIT", "204A");     // "(value x 2) ... default 102"
+	expect(REF_PY, "TEMP LIMIT", "OFF");         // "default 141": AM32 takes it as none
+	expect(REF_PY, "CURRENT LIMIT", "OFF");      // "(value x 2) ... default 102": none
 	expect(REF_PY, "SINE POWER", "6");           // "default 6"
-	expect(REF_PY, "PROTOCOL", "AUTO");          // "1)Auto" -- one-based
+	// The tool's comment reads "1)Auto"; AM32's enum inputType has
+	// AUTO_IN = 0, DSHOT_IN = 1, and the configurator offers 0 as Auto.
+	expect(REF_PY, "PROTOCOL", "DSHOT");
+	expect(AIR, "PROTOCOL", "AUTO");
+
+	section("AM32: protocol values, zero-based as AM32's enum inputType");
+	{
+		static const char *const want[] = {"AUTO", "DSHOT", "SERVO", "SERIAL", "EDT ARM", "DRONECAN"};
+		uint8_t e[AM32_SETTINGS_SIZE];
+		memcpy(e, AIR, sizeof(e));
+		for (uint8_t v = 0; v < 6; v++) {
+			e[AM32_OFF_INPUT_TYPE] = v;
+			expect(e, "PROTOCOL", want[v]);
+			checkTrue(want[v], am32InputNotDshot(e) == (v == AM32_INPUT_SERVO || v == AM32_INPUT_DRONECAN));
+		}
+		e[AM32_OFF_INPUT_TYPE] = 6;
+		expect(e, "PROTOCOL", "? (6)");
+		checkTrue("6: no DShot note, AM32 treats it as AUTO", !am32InputNotDshot(e));
+		checkInt("the editor stops at DRONECAN", field("PROTOCOL")->rawMax, 5);
+	}
+
+	section("AM32: the limits' off values, as AM32 reads them");
+	{
+		uint8_t e[AM32_SETTINGS_SIZE];
+		memcpy(e, AIR, sizeof(e));
+		const Am32Field *temp = field("TEMP LIMIT");
+		const Am32Field *cur = field("CURRENT LIMIT");
+		const Am32Field *lvc = field("LOW VOLT CUTOFF");
+		const Am32Field *poles = field("POLES");
+		// Temperature: 70..140 limits, anything else is 255, none.
+		e[0x2B] = 69;  expect(e, "TEMP LIMIT", "OFF");
+		e[0x2B] = 70;  expect(e, "TEMP LIMIT", "70C");
+		checkTrue("70 C: on", !am32ProtectionOff(temp, e));
+		e[0x2B] = 140; expect(e, "TEMP LIMIT", "140C");
+		e[0x2B] = 141; expect(e, "TEMP LIMIT", "OFF");
+		checkTrue("141: off", am32ProtectionOff(temp, e));
+		// Current: 1..100 limits, in 2 A steps; 0 and above 100 are none.
+		e[0x2C] = 0;   expect(e, "CURRENT LIMIT", "OFF");
+		checkTrue("0: off", am32ProtectionOff(cur, e));
+		e[0x2C] = 1;   expect(e, "CURRENT LIMIT", "2A");
+		e[0x2C] = 100; expect(e, "CURRENT LIMIT", "200A");
+		checkTrue("100: on", !am32ProtectionOff(cur, e));
+		e[0x2C] = 101; expect(e, "CURRENT LIMIT", "OFF");
+		e[0x2C] = 102; expect(e, "CURRENT LIMIT", "OFF");
+		checkTrue("102: off", am32ProtectionOff(cur, e));
+		// Low voltage cutoff: 0 off; 1 per cell and 2 absolute both act.
+		e[AM32_OFF_LOW_VOLT_CUTOFF] = 0;
+		checkTrue("cutoff 0: off", am32ProtectionOff(lvc, e));
+		e[AM32_OFF_LOW_VOLT_CUTOFF] = 2;
+		checkTrue("cutoff 2: on", !am32ProtectionOff(lvc, e));
+		e[0x1B] = 0;
+		checkTrue("a field that is no protection is never off", !am32ProtectionOff(poles, e));
+		// Stepping from OFF at the top comes back into the range.
+		e[0x2B] = 141;
+		am32Adjust(temp, e, -1);
+		expect(e, "TEMP LIMIT", "140C");
+	}
+
+	section("AM32: 3D MODE is byte 0x12, bi_direction");
+	{
+		const Am32Field *f = field("3D MODE");
+		checkTrue("the field exists", f != nullptr);
+		checkInt("at 0x12", f ? f->offset : 0, 0x12);
+		checkTrue("AIR: on", am32Is3d(AIR));
+		checkTrue("CRAWLER: off", !am32Is3d(CRAWLER));
+		checkTrue("no field is called BIDIRECTIONAL", field("BIDIRECTIONAL") == nullptr);
+	}
 
 	section("PWM frequency range");
 	{

@@ -40,12 +40,28 @@ enum {
 	AM32_OFF_MAIN_REVISION   = 0x03,
 	AM32_OFF_SUB_REVISION    = 0x04,
 	AM32_OFF_NAME            = 0x05, /**< 12 bytes, layout revision < 3 only. */
+	AM32_OFF_BI_DIRECTION    = 0x12, /**< AM32's `bi_direction`: 3D (reversible) mode. */
 	AM32_OFF_ADVANCE         = 0x17, /**< Timing advance; two encodings. */
+	AM32_OFF_LOW_VOLT_CUTOFF = 0x24, /**< 0 off, 1 per cell, 2 absolute. */
+	AM32_OFF_INPUT_TYPE      = 0x2E, /**< AM32's `input_type`. @see Am32Input */
 	AM32_NAME_LEN            = 12,
 	AM32_OFF_MELODY          = 0x30,
 	AM32_MELODY_LEN          = 128,
 	AM32_OFF_CAN             = 0xB0,
 	AM32_CAN_LEN             = 16,
+};
+
+/**
+ * @brief Values of AM32's `input_type`, byte 0x2E: `enum inputType` in
+ *        AM32's `Inc/common.h`, zero-based (AUTO_IN = 0).
+ */
+enum Am32Input : uint8_t {
+	AM32_INPUT_AUTO     = 0, /**< Detects DShot or servo PWM. */
+	AM32_INPUT_DSHOT    = 1,
+	AM32_INPUT_SERVO    = 2, /**< Servo PWM only: DShot is not detected. */
+	AM32_INPUT_SERIAL   = 3,
+	AM32_INPUT_EDT_ARM  = 4, /**< DShot; arms on the EDT enable command. */
+	AM32_INPUT_DRONECAN = 5, /**< DroneCAN builds: the DShot input is switched off. */
 };
 
 /** @brief How a raw byte is turned into something a human can read. */
@@ -143,6 +159,12 @@ struct Am32Field {
 	const char *unit;       /**< Suffix, or "" for none. */
 	const char *const *names; /**< A32_ENUM labels. */
 	uint8_t     nameCount;  /**< Number of A32_ENUM labels. */
+	/**
+	 * @brief Lowest raw value at which the limit acts; with @p onMax, a raw
+	 *        value outside onMin..onMax reads `OFF`. Both 0: no such rule.
+	 */
+	uint8_t     onMin;
+	uint8_t     onMax;      /**< Highest raw value at which the limit acts. */
 };
 
 /** @brief The full field table. */
@@ -188,6 +210,29 @@ void am32DeviceName(const uint8_t *eeprom, char *out);
  * @param dir    +1 or -1.
  */
 void am32Adjust(const Am32Field *f, uint8_t *eeprom, int dir);
+
+/**
+ * @brief Whether the field's value turns its limit off: a raw value outside
+ *        Am32Field::onMin..onMax. am32FormatValue() shows such a value as
+ *        `OFF`.
+ */
+bool am32ValueOff(const Am32Field *f, const uint8_t *eeprom);
+
+/**
+ * @brief Whether @p f is one of the ESC's protections (LOW VOLT CUTOFF, TEMP
+ *        LIMIT, CURRENT LIMIT) and its value turns it off.
+ */
+bool am32ProtectionOff(const Am32Field *f, const uint8_t *eeprom);
+
+/** @brief 3D (reversible) mode is on: byte 0x12, AM32's `bi_direction`. */
+bool am32Is3d(const uint8_t *eeprom);
+
+/**
+ * @brief The input type is one on which AM32 does not take DShot: SERVO,
+ *        which detects servo PWM only, or DRONECAN, which switches the DShot
+ *        input off.
+ */
+bool am32InputNotDshot(const uint8_t *eeprom);
 
 /** @brief True if the block looks like initialised AM32 settings. */
 bool am32Plausible(const uint8_t *eeprom);

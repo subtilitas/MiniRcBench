@@ -8,6 +8,7 @@
 #include "ui_list.h"
 #include "ui_input.h"
 #include "ui_widgets.h"
+#include "ui_am32.h"
 #include "esc_task.h"
 #include "esc_merge.h"
 #include "settings.h"
@@ -165,10 +166,11 @@ enum class MenuEdt : uint8_t {
 };
 
 /** @brief Everything a frame draws, hashed: a change repaints. */
-static uint32_t frameKey(MenuEdt edt) {
+static uint32_t frameKey(MenuEdt edt, bool runCue) {
 	uint32_t h = 2166136261u;
 	h = mix(h, (uint32_t)s_list.scrollPx);
 	h = mix(h, (uint32_t)edt);
+	h = mix(h, runCue);
 	h = mix(h, settings()->dshotPin);
 	h = mix(h, settings()->dshotKbaud);
 	for (int i = 0; i < s_count; i++) {
@@ -183,14 +185,29 @@ static uint32_t frameKey(MenuEdt edt) {
 	return h | 1u;
 }
 
-static void drawMenu(MenuEdt edt) {
+/**
+ * @brief The run cue's line under the caption, x 8 to 180, ends left of the
+ *        NO ESC chip, which starts at x 185 (6 px a character at scale 1).
+ *        The chip beside the cue reads NO ESC: the cue goes with the first
+ *        eRPM frame after the AM32 handshake, and the handshake needs the ESC
+ *        powered up again, which takes longer than the 500 ms an older frame
+ *        keeps EDT ON or EDT OFF up.
+ */
+static_assert(UI_MARGIN + 6 * (int)(sizeof(AM32_UI_RUN_CUE) - 1) - 1 <
+              GFX_W - UI_MARGIN - (6 * (int)(sizeof(UI_MENU_NO_ESC) - 1) - 1 + 12),
+              "MENU's run cue runs under the NO ESC chip");
+
+static void drawMenu(MenuEdt edt, bool runCue) {
 	gfxFill(C_BG);
 	uiHeader("MENU", s_t);
 	uiStripClear();
 	char cap[32];
 	snprintf(cap, sizeof(cap), "GP%u  %u KBIT/S", (unsigned)settings()->dshotPin,
 	         (unsigned)settings()->dshotKbaud);
-	uiStripText(cap, C_DIM);
+	// After an AM32 session that reached the bootloader, a second line says
+	// what starts the ESC again: leaving sends it no command. @see uiAm32RunCue()
+	if (runCue) uiStripTwoLines(cap, C_DIM, AM32_UI_RUN_CUE, UI_COL_WARN);
+	else uiStripText(cap, C_DIM);
 	// Read-only: the firmware enables EDT for each ESC as it appears, and
 	// arriving frames are the only evidence that it is delivering. Red is for
 	// an ESC that answers without EDT; with no ESC on the pin there is nothing
@@ -244,10 +261,11 @@ UiMenuResult uiMenuTick(const TouchState *t, const UiScreen **open) {
 		MenuEdt edt = rd.edtFresh ? MenuEdt::On
 		            : escFieldFresh(tel.lastRpmMs, millis(), ESC_LINK_STALE_MS) ? MenuEdt::Off
 		                                                                        : MenuEdt::NoEsc;
-		uint32_t key = frameKey(edt);
+		bool runCue = uiAm32RunCue(tel.lastRpmMs);
+		uint32_t key = frameKey(edt, runCue);
 		if (key != s_drawnKey) {
 			s_drawnKey = key;
-			drawMenu(edt);
+			drawMenu(edt, runCue);
 		}
 	}
 	return r;
