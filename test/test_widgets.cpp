@@ -1028,6 +1028,40 @@ static void testLeaveEnabled() {
 	gfxFill(C_BG);
 }
 
+static void testLeaveLatch() {
+	section("Leave page: LEAVE takes only a press that landed while it was enabled");
+
+	UiLeave l;
+	UiLeaveText t = kstOwnText();
+	const UiRect &w = UI_LEAVE_WIDE;
+	uiLeaveOpen(&l, UiLeavePhase::Before, 1000);
+	l.leaveEnabled = false;
+	uiLeaveTouch(&l, press(w.x + 20, w.y + 20), 0);
+	l.leaveEnabled = true;
+	uiLeaveTouch(&l, move(w.x + 20, w.y + 20), 10);
+	gfxFill(C_RED);
+	uiLeaveDraw(&l, t, &s_touch, 10);
+	checkTrue("landed disabled, enabled under the finger: live, no pressed look",
+	          buttonIs(w, "LEAVE", 2, true) && px(w.x + 2, w.y + w.h / 2) != C_INK);
+	checkTrue("its lift does nothing, the page stays before LEAVE",
+	          uiLeaveTouch(&l, lift(), 20) == UiLeaveEv::None && l.phase == UiLeavePhase::Before);
+	idle();
+
+	uiLeaveTouch(&l, press(w.x + 20, w.y + 20), 30);
+	uiLeaveDraw(&l, t, &s_touch, 30);
+	checkTrue("a press that lands enabled: the inner ring", px(w.x + 2, w.y + w.h / 2) == C_INK);
+	l.leaveEnabled = false;
+	checkTrue("disabled before the lift: the lift does nothing",
+	          uiLeaveTouch(&l, lift(), 40) == UiLeaveEv::None && l.phase == UiLeavePhase::Before);
+	idle();
+
+	l.leaveEnabled = true;
+	checkTrue("the next press that lands enabled leaves",
+	          tapLeave(&l, w, 50) == UiLeaveEv::Leave && l.phase == UiLeavePhase::Releasing);
+	idle();
+	gfxFill(C_BG);
+}
+
 static void testLeaveSteps() {
 	section("Leave page: step numbers and the room above the notes");
 
@@ -1094,5 +1128,6 @@ void runWidgetTests() {
 	testLeaveRestartWait();
 	testLeaveDraw();
 	testLeaveEnabled();
+	testLeaveLatch();
 	testLeaveSteps();
 }

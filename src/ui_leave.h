@@ -11,7 +11,12 @@
  * - **Before LEAVE.** The first step is current. The left button reads STAY
  *   and the wide button LEAVE. A tap on LEAVE moves the page to Releasing.
  *   While @ref UiLeave::leaveEnabled is clear, LEAVE is drawn disabled and
- *   takes no tap: the screen clears it while it writes to the device.
+ *   takes no tap: the screen clears it while it writes to the device. LEAVE
+ *   takes only a press that lands while it is enabled
+ *   (@ref UiLeave::leavePress) and only while it is still enabled at the
+ *   lift. A press that landed while it was disabled draws no pressed look
+ *   and does nothing on its lift, even if the screen enables LEAVE again
+ *   under the finger.
  * - **Releasing.** The pin is being let go. The step after the first is
  *   current. The left button reads the screen's next label, NEXT SERVO or
  *   BACK TO SERVO, and the wide button RESTART DSHOT, both drawn disabled.
@@ -112,6 +117,7 @@ struct UiLeave {
 	bool         before;        /**< Opened before LEAVE: step 0 is the step before it. */
 	bool         leaveEnabled;  /**< LEAVE is live. uiLeaveOpen() sets it; the screen clears
 	                                 it while it writes and sets it again after. */
+	bool         leavePress;    /**< The press under way landed while LEAVE was enabled. */
 	bool         restartPress;  /**< The press under way landed while RESTART DSHOT was live. */
 	uint32_t     releasedMs;    /**< millis() when Released began. */
 	uint32_t     waitMs;        /**< RESTART DSHOT's wait after Released began, ms. */
@@ -179,7 +185,8 @@ UiLeaveEv uiLeaveTouch(UiLeave *l, const TouchState *t, uint32_t nowMs);
  * It clears the whole body, y 62 to y 319, the right button's place and its
  * hold bar included, so the screen draws its right button and hold bar after
  * it. Feed the frame's touch to uiLeaveTouch() first: the pressed look of
- * RESTART DSHOT follows @ref UiLeave::restartPress.
+ * LEAVE follows @ref UiLeave::leavePress, that of RESTART DSHOT
+ * @ref UiLeave::restartPress.
  * @param l     The page.
  * @param text  What it shows.
  * @param t     This frame's touch, for the pressed look; may be null.
