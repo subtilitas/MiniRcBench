@@ -146,7 +146,7 @@ enum class TesterCtl : uint8_t {
 	 */
 	Poles,
 	/**
-	 * @brief The ceiling, `MAX 20%`: as @ref Poles. Lies over the pad's
+	 * @brief The ceiling, `MAX 20%`: as TesterCtl::Poles. Lies over the pad's
 	 *        bottom rows and the throttle track's grab band.
 	 */
 	Max,
