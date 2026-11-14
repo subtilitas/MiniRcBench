@@ -839,8 +839,10 @@ y   0 | HITEC WRITE                      [ BACK ]|
   Each soft rule shows whole; one that does not fit is skipped and a later
   one that fits still shows, and the last line counts those left out,
   `AND n MORE RULES: SEE EACH ROW.` (`RULE` for one). With everything at
-  once (horn, ID note 2 lines, FILE 1, MODEL 2, a rule) three rows of 12 px
-  show, or two when one of them is 22 px.
+  once (horn, ID note 2 lines, FILE 1, MODEL 2, a rule) 50 px are left for
+  the rows and, when rows are hidden, the 12 px `AND n MORE` line: four
+  rows of 12 px when exactly four values change, three rows and
+  `AND n MORE` when five or more change. A 22 px row takes 10 px more.
 - The hold confirms every soft rule shown, and, for a loaded file of another
   model, the amber line `FILE OF ANOTHER MODEL: D645MW.`
 - The write's steps, in order:

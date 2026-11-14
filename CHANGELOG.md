@@ -427,8 +427,9 @@ protocol.
   outside the type's own range) the note band says
   `PAST ITS TRAVEL A SERVO STALLS AND` `HEATS. TRY MIN AND MAX HORN-FREE.`
   in amber, ahead of the dim notes while TYPE, MIN or MAX is selected and
-  after them on the other rows. The change still applies at once. `servoPastTravel()` in `src/servo_model.*`; host
-  tests in `test/test_servo.cpp`.
+  after them on the other rows. The change still applies at once.
+  `servoPastTravel()` in `src/servo_model.*`; host tests in
+  `test/test_servo.cpp`.
 
 ### Changed
 

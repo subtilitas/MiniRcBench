@@ -823,11 +823,6 @@ static int hornLineY() {
 	return -1;
 }
 
-/**
- * @brief The write page keeps the horn line when the advisory notes fill it:
- *        ID 0 -> 1 with DIRECTION reversed on a D485HW, and the same on a
- *        D645MW (not measured) after a LOAD of a D485HW file.
- */
 /** @brief The y of value row @p label at x 8 on the write page, or -1. */
 static int rowLabelY(const char *label) {
 	for (int y = UI_BODY_Y; y <= 190; y++)
