@@ -12,7 +12,7 @@ weiter.
 
 | Teil | Wofür | Hinweise |
 |---|---|---|
-| Waveshare RP2350-Touch-LCD-2.8 | alles | Die Firmware läuft nur auf dieser Platine |
+| Waveshare RP2350-Touch-LCD-2.8 | alles | Die Firmware läuft nur auf dieser Platine. Sie prüft nicht, auf welcher Platine sie läuft: Auf eine andere Platine geflasht, treibt sie Pins, die dort mit anderen Bauteilen verbunden sind |
 | USB-C-Kabel (USB: Universal Serial Bus) | Strom, Aufspielen der Firmware | Ein Kabel mit Datenadern |
 | JST-SH-Kabel, 1,0 mm, 4 Pins | Steckverbinder J5: Signal und Masse | Offene Enden auf einer Seite. Ob der Platine eines beiliegt, ist nicht geprüft |
 | Servo-Verlängerungskabel oder eine 3-polige Stiftleiste | der Stecker des ESC (Electronic Speed Controller, Motorregler) oder Servos | Siehe [Das Adapterkabel](#das-adapterkabel) |

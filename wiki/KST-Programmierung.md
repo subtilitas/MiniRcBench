@@ -24,9 +24,11 @@ Digital).
 > die Platine mit einem Servo am ESC-Pin **startet**, und wenn du diesen
 > Bildschirm verlässt. Der Bildschirm fordert dich vorher zum Abziehen auf.
 
-Der Bildschirm schaltet die Versorgung des Servos nicht. Du schaltest das
-Servo von Hand ein und aus, mit einem Stecker oder einem Schalter. Siehe
-[Einschränkungen](#einschränkungen).
+Mit **SETTINGS → SERVO SUPPLY** auf `NONE`, der Voreinstellung, schaltest du
+das Servo von Hand ein und aus, mit einem Stecker oder einem Schalter. Mit
+`GP28` oder `GP29` schaltet der Prüfstand die Versorgung des Servos über einen
+DC-DC-Wandler (Gleichspannungswandler): siehe
+[Geschaltete Versorgung](#geschaltete-versorgung).
 
 ---
 
@@ -34,8 +36,10 @@ Servo von Hand ein und aus, mit einem Stecker oder einem Schalter. Siehe
 
 Das Servo braucht eine eigene Stromversorgung. Die Platine liefert nur Signal
 und Masse. Das Servo antwortet nur in den ersten Momenten, nachdem seine
-Versorgung eingeschaltet wurde. Die Versorgung muss sich daher von Hand
-schalten lassen: mit einem Stecker oder einem Schalter im Plusleiter.
+Versorgung eingeschaltet wurde. Mit SERVO SUPPLY auf `NONE` muss sich die
+Versorgung daher von Hand schalten lassen: mit einem Stecker oder einem
+Schalter im Plusleiter. Mit `GP28` oder `GP29` schaltet der Prüfstand sie:
+siehe [Geschaltete Versorgung](#geschaltete-versorgung).
 
 ```
   Servoversorgung, 5 V
