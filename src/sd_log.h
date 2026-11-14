@@ -51,11 +51,80 @@ enum class SdLogEnd : uint8_t {
 	None = 0,     /**< Nothing to report: no log yet, a STOP, or a start or mount since. */
 	CardFull,     /**< A write found no free cluster: FatFs wrote fewer bytes than asked. */
 	WriteFailed,  /**< A write, sync or close failed: the card removed, or a card fault. */
-	OpenFailed,   /**< START found no file to open: the directory, the number or the open failed. */
+	OpenFailed,   /**< START found no file to open: the directory, its scan or the open failed. */
 	ByKst,        /**< KST SERVO took the card for its backup and stopped the log. */
 	ByHitec,      /**< HITEC SERVO did. */
 	ByAm32,       /**< AM32 CONFIG did. */
+	NoFreeNumber, /**< START found `LOG99999.BFL` in `LOGS/`: no number follows it. */
 };
+
+/** @brief The highest N in `LOGS/LOGnnnnn.BFL`: five digits. */
+#define SD_LOG_NUMBER_MAX 99999u
+
+/**
+ * @brief The number in a log's file name. Pure; host-testable.
+ *
+ * A log's name is `LOG`, five decimal digits and `.BFL`, nothing before or
+ * after: `LOG00000.BFL` to `LOG99999.BFL`. Letter case is ignored, because
+ * FAT compares names without it: `log00007.bfl` is the file `LOG00007.BFL`
+ * opens, so it counts. Four or six digits, another extension, a sign, a
+ * space or any longer name is not a log's name.
+ *
+ * @param name A directory entry's name, NUL-terminated; nullptr reads as none.
+ * @param[out] n The number, set only on a match.
+ * @return True if @p name is a log's name.
+ */
+static inline bool sdLogNameNumber(const char *name, uint32_t *n) {
+	if (!name) return false;
+	static const char HEAD[] = "LOG", TAIL[] = ".BFL";
+	for (int i = 0; i < 3; i++) {
+		char c = name[i];
+		if (c >= 'a' && c <= 'z') c = (char)(c - 'a' + 'A');
+		if (c != HEAD[i]) return false;
+	}
+	uint32_t v = 0;
+	for (int i = 3; i < 8; i++) {
+		char c = name[i];
+		if (c < '0' || c > '9') return false;
+		v = v * 10u + (uint32_t)(c - '0');
+	}
+	for (int i = 0; i < 4; i++) {
+		char c = name[8 + i];
+		if (c >= 'a' && c <= 'z') c = (char)(c - 'a' + 'A');
+		if (c != TAIL[i]) return false;
+	}
+	if (name[12] != '\0') return false;
+	*n = v;
+	return true;
+}
+
+/**
+ * @brief Fold one directory entry's name into the highest log number seen.
+ *        Pure; host-testable.
+ * @param[in,out] highest The highest number so far, 0 before any; a name
+ *        that is not a log's leaves it.
+ * @param name The entry's name.
+ */
+static inline void sdLogNoteName(uint32_t *highest, const char *name) {
+	uint32_t n;
+	if (sdLogNameNumber(name, &n) && n > *highest) *highest = n;
+}
+
+/**
+ * @brief The number a new log takes: the highest existing one plus 1.
+ *        Pure; host-testable.
+ *
+ * An empty or new `LOGS/`, or one holding only `LOG00000.BFL`, gives 1.
+ * After `LOG99999.BFL` there is none: the start is refused
+ * (@ref SdLogEnd::NoFreeNumber) rather than wrapped onto a number a file
+ * may still hold.
+ *
+ * @param highest The highest number in `LOGS/`, 0 for none.
+ * @return 1 to @ref SD_LOG_NUMBER_MAX, or 0 for no free number.
+ */
+static inline uint32_t sdLogNextNumber(uint32_t highest) {
+	return highest >= SD_LOG_NUMBER_MAX ? 0u : highest + 1u;
+}
 
 /** @brief True for an end a tool's claim caused. Pure. */
 static inline bool sdLogEndByTool(SdLogEnd e) {
@@ -124,7 +193,7 @@ struct SdLogStatus {
 	 *        last log's, kept until the next start or mount. 0 before the
 	 *        first, and after a mount; the counters reset with it.
 	 */
-	uint16_t   fileNumber;
+	uint32_t   fileNumber;
 	SdLogEnd   end;           /**< Why the last log ended, @ref SdLogEnd. */
 };
 
@@ -137,8 +206,21 @@ struct SdLogStatus {
 bool sdLogBegin();
 
 /**
- * @brief Open the next free `LOGS/LOGnnnnn.BFL` and start encoding.
- * @return True if the file opened.
+ * @brief Open `LOGS/LOGnnnnn.BFL`, N the highest number in `LOGS/` plus 1
+ *        (sdLogNextNumber()), and start encoding.
+ *
+ * The first start on a FatFs mount reads `LOGS/` once, every directory
+ * entry in turn (f_readdir()); later starts take the number after the last
+ * log's from memory (sdLogOpenNext() in sd_log_next.h). A mount (RETRY
+ * MOUNT, the end of USB DRIVE, a tool's remount), FatFs mounting again on
+ * its own after a card fault, and every error forget it: the board has no
+ * card-detect line, so the card may have been swapped, or edited in a card
+ * reader, in between. USB DRIVE itself is read-only. The file is created
+ * new, never over an existing one.
+ *
+ * @return True if the file opened. False with @ref SdLogEnd::OpenFailed for
+ *         a directory that cannot be made or read or a file that does not
+ *         open, @ref SdLogEnd::NoFreeNumber after `LOG99999.BFL`.
  */
 bool sdLogStart();
 

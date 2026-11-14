@@ -159,7 +159,7 @@ Lage.
 | **SERVO TESTER** | die beiden Signalpins, `GP0+1`; `PINS BUSY` | Öffnet den Servotester |
 | **KST SERVO** | der ESC-Pin, `GP0`; `PINS BUSY` | Öffnet den KST-Programmierer. Siehe [KST-Programmierung](KST-Programmierung) |
 | **HITEC SERVO** | der ESC-Pin, `GP0`; `PINS BUSY` | Öffnet den Hitec-Programmierer. Siehe [Hitec-Programmierung](Hitec-Programmierung) |
-| **SETTINGS** | `UNSAVED`, solange ein Wert vom Flash abweicht; sonst `UPDATED`, solange ein Zurücksetzen durch ein Update nicht überspeichert ist; sonst nichts. Alles in Bernstein. `PINS BUSY`, solange die Pins noch zurückgegeben werden, und öffnet sich nicht | Öffnet SETTINGS |
+| **SETTINGS** | `UNSAVED`, solange ein Wert vom Flash abweicht; sonst `UPDATED`, solange ein Zurücksetzen oder eine Übernahme durch ein Update nicht überspeichert ist; sonst nichts. Alles in Bernstein. `PINS BUSY`, solange die Pins noch zurückgegeben werden, und öffnet sich nicht | Öffnet SETTINGS |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, oder `USB DRIVE`, solange ein Computer die Karte hält | Öffnet den Aufzeichnungs-Bildschirm |
 
 `PINS BUSY` heißt, dass die Signalpins noch belegt sind, zum Beispiel während
@@ -185,11 +185,18 @@ Schaltfläche zum Speichern liegt in SETTINGS.
 <img src="img/menu-unsaved.png" width="240" alt="UNSAVED in der Zeile SETTINGS, Änderungen noch nicht im Flash">
 
 `UPDATED` in der Zeile SETTINGS heißt, dass ein Firmware-Update die
-gespeicherten Einstellungen verworfen hat: Jeder Wert, darunter Polzahl,
-`MAX THROTTLE`, `ESC PIN`, KISS, `SERVO SUPPLY` und `CURRENT SENSE`, steht auf
-seiner Voreinstellung. Prüfe sie in SETTINGS und halte `HOLD TO SAVE`; ein
-gelungenes Speichern beendet die Markierung. Der Startbildschirm sagt dasselbe
-beim Einschalten (siehe [Erste Schritte](Erste-Schritte#einschalten)).
+gespeicherten Einstellungen verändert hat. Entweder hat es Einstellungen
+eines älteren Formats übernommen, Version 2, 3 oder 4: Die Werte, die das
+alte Format kennt, bleiben erhalten, geprüft wie beim Speichern, und die
+neueren, darunter `CURRENT SENSE`, stehen auf ihrer Voreinstellung. Oder es
+fand ein Format, das es nicht kennt, und hat es verworfen: Jeder Wert,
+darunter Polzahl, `MAX THROTTLE`, `ESC PIN`, KISS, `SERVO SUPPLY` und
+`CURRENT SENSE`, steht auf seiner Voreinstellung. Prüfe sie in SETTINGS und
+halte `HOLD TO SAVE`; ein gelungenes Speichern beendet die Markierung, auch
+ohne Änderung. Siehe
+[Fehlersuche](Fehlersuche#meine-einstellungen-setzen-sich-zurück). Der
+Startbildschirm sagt dasselbe beim Einschalten (siehe
+[Erste Schritte](Erste-Schritte#einschalten)).
 
 <img src="img/menu-updated.png" width="240" alt="UPDATED in der Zeile SETTINGS, nachdem ein Update die gespeicherten Einstellungen verworfen hat">
 
@@ -256,7 +263,12 @@ Unter der Liste bleiben diese Elemente an ihrem Platz:
   5. `SAVED` (grün) nach einem Speichern, bis zur nächsten Änderung;
   6. `RESET BY UPDATE - CHECK AND SAVE` (Bernstein), nachdem ein Update die
      gespeicherten Einstellungen verworfen hat, bis ein Speichern gelingt;
-  7. `SAVED SETTINGS IN USE` oder `COMPILED DEFAULTS IN USE`.
+  7. `CARRIED OVER BY UPDATE - CHECK, SAVE` (Bernstein), nachdem ein Update
+     Einstellungen eines älteren Formats übernommen hat, bis ein Speichern
+     gelingt;
+  8. `SAVED SETTINGS IN USE` oder `COMPILED DEFAULTS IN USE`.
+
+<img src="img/settings-carried.png" width="240" alt="SETTINGS, nachdem ein Update die gespeicherten Einstellungen übernommen hat: CARRIED OVER BY UPDATE - CHECK, SAVE in der Hinweiszeile">
 
 <img src="img/settings-pin.png" width="240" alt="SETTINGS, nachdem ESC PIN auf GP1 gewechselt hat: UNPLUG ANY SERVO FROM GP1 NOW über LINK, UNSAVED in der Hinweiszeile">
 

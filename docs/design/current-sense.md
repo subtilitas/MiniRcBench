@@ -7,8 +7,9 @@ Q1 to Q5: one LiPo cell into a synchronous boost, the 0.1 Ω shunt as sold,
 the servo tester switching the supply always, rcbench's limit run as the
 protection, and the settings carried over from the older layouts. One point
 is open: the converter module ([Q1](#q1-the-converter-module)). Slices 2
-to 6 wait on being built and on that module; the protection section and
-the settings row's version rule are to be redesigned for the decisions.
+to 6 wait on being built and on that module; the protection section is to
+be redesigned for the decisions. The settings carry-over of decision 14 is
+built and host-tested.
 No INA219 has been on the board's bus, and no boost converter has been on
 GP28 or GP29: every figure below is from a datasheet, from rcbench's
 records or computed, and the ones that are not known are stated as unknown.
@@ -643,12 +644,12 @@ HOLD TO START on the switched supply until it answers or the row is set to
 `NONE`.
 
 The row adds a field to the settings block, `currentSense`, and
-`SETTINGS_VERSION` goes from 4 to 5. A block of another version is
-discarded whole and the compiled defaults load once, every setting
-included ([pin-claim.md](pin-claim.md#settings)), until the migration of
-[decision 14](#decisions) is built: then a block of version 2, 3 or 4
-loads into version 5 with the new fields at their defaults, and only a
-block of a version the firmware does not know is discarded. The shunt is a
+`SETTINGS_VERSION` goes from 4 to 5. By [decision 14](#decisions) a
+whole block of version 2, 3 or 4 loads into version 5 with every field it
+has, validated, and `currentSense` at 0, `NONE`, whatever the version 4
+padding byte holds (`settingsCarriedOver()`); only a block of a version
+the firmware does not know is discarded whole and the compiled defaults
+load once, every setting included. The shunt is a
 build constant, `INA219_SHUNT_MOHM`, 100; the address is `INA219_ADDR`, 0x40.
 The list grows by one 50 px row ([menu.md](menu.md#settings)).
 
@@ -930,8 +931,9 @@ boost's EN as it does to every EN on part C.
 - The sample: `seq`, its age, 250 ms stale and not at 249 ms, across a
   `millis()` wrap.
 - SETTINGS: the CURRENT SENSE row by control id, `NONE` and `INA219`,
-  saved, reset; version 5; a version 4 block discarded, until the
-  migration of decision 14 is built; nothing sent to 0x40 with `NONE`.
+  saved, reset; version 5; a version 4 block carried over with
+  `currentSense` at `NONE` (decision 14); nothing sent to 0x40 with
+  `NONE`. Built in `runSettingsTests`.
 - The servo tester on the switched supply: the enable pin low at bind,
   high at START, low at STOP, at the trip and at every cut, released after
   the quiet wait; pulses only after 4.5 V; did not come on after 500 ms;
@@ -1076,6 +1078,9 @@ Decisions of the owner, 2026-11-14, answering Q1 to Q5:
     from the older layouts it knows, versions 2, 3 and 4, into version 5,
     with the new fields at their defaults. A block of a version it does not
     know is discarded and announced as now (`settingsResetByUpdate()`).
-    This is the first migration in `settingsLoad()`, which has none today.
-    Not built; how each older layout's fields map into version 5 is to be
-    designed with it.
+    This is the first migration in `settingsLoad()`. Built: each older
+    layout is a table of byte offsets in `src/settings.cpp`, recovered from
+    `src/settings.h` at 8a5eebb (version 2), 5af4ddf (3) and 3cc8798 (4);
+    version 3's SERVO SUPPLY of 1, an enable on GP0, loads as `NONE`. Flash
+    keeps the old block until a save lands. Host-tested, not tested on
+    hardware.

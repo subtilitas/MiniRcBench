@@ -252,6 +252,7 @@ add_executable(MiniRcBench
     src/blackbox_encode.cpp
     src/log_ring.cpp
     src/sd_log.cpp
+    src/sd_log_next.cpp
     src/sd_hw_config.c
     # Bidirectional DShot: the portable core and the RP2350 pin driver, from
     # rcbench. See the header comment of each file for the commit.

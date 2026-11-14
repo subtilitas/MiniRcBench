@@ -870,16 +870,16 @@ static void testResetByUpdate() {
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 
-	// A version 4 block, as the firmware before CURRENT SENSE wrote it.
+	// A version 6 block, of a layout this firmware does not know.
 	Settings old;
 	settingsDefaults(&old);
 	old.poles = 22;
 	old.maxThrottle = 1000;
-	putBlock(SETTINGS_VERSION - 1, &old);
+	putBlock(SETTINGS_VERSION + 1, &old);
 	settingsLoad();
 	uiInit();
 	menuFrames(2);
-	checkTrue("a version 4 block: discarded, the defaults live",
+	checkTrue("a version 6 block: discarded, the defaults live",
 	          !settingsStored() && settingsResetByUpdate() && settings()->poles == DEFAULT_MOTOR_POLES);
 	openMenu();
 	UI_SETTINGS.status(b, sizeof(b), &col, &fill);
@@ -914,7 +914,7 @@ static void testResetByUpdate() {
 	tapId(UI_FIX(UI_BACK));
 
 	// The splash, on the next boot after the update and after the save.
-	putBlock(SETTINGS_VERSION - 1, &old);
+	putBlock(SETTINGS_VERSION + 1, &old);
 	settingsLoad();
 	uiDrawSplash();
 	checkTrue("splash: SETTINGS RESET BY UPDATE at y 40, amber",
@@ -960,6 +960,83 @@ static void testResetByUpdate() {
 	uiDrawSplash();
 	checkTrue("a block of this version: no reset lines",
 	          settingsStored() && !fakeInkExtent(0, 104, C_BG, &x0, &x1));
+	freshTester();
+}
+
+/**
+ * @brief Settings an update carried over from a version 4 block: the splash's
+ *        two lines, MENU's UPDATED and SETTINGS' note until a save lands.
+ */
+static void testCarriedOver() {
+	section("SETTINGS: a carry-over by an update shows until a save lands");
+	static const char *const NOTE = "CARRIED OVER BY UPDATE - CHECK, SAVE";
+	checkTrue("the note fits the line", UI_MARGIN + gfxTextW(NOTE, 1) <= GFX_W - UI_MARGIN);
+	checkTrue("the splash's lines fit",
+	          gfxTextW(UI_SPLASH_CARRIED_TEXT, 1) <= GFX_W - 2 * UI_MARGIN &&
+	          gfxTextW(UI_SPLASH_CARRIED_TEXT2, 1) <= GFX_W - 2 * UI_MARGIN);
+	char b[32];
+	uint16_t col = 0, fill = 0;
+
+	// A version 4 block, as the firmware before CURRENT SENSE wrote it: the
+	// layout of today's, the sensor's byte its padding.
+	Settings old;
+	settingsDefaults(&old);
+	old.poles = 22;
+	old.maxThrottle = 1000;
+	old.currentSense = 0;
+	putBlock(4, &old);
+	settingsLoad();
+	uiInit();
+	menuFrames(2);
+	checkTrue("a version 4 block: carried over, its settings live",
+	          settingsStored() && settingsCarriedOver() && !settingsResetByUpdate() &&
+	          settings()->poles == 22 && settings()->maxThrottle == 1000);
+	openMenu();
+	UI_SETTINGS.status(b, sizeof(b), &col, &fill);
+	checkTrue("MENU's SETTINGS row reads UPDATED, amber", strcmp(b, "UPDATED") == 0 && col == C_AMBER);
+	checkTrue("drawn on the row", settingsRowAmber() > 0);
+	tapId(menuRow(&UI_SETTINGS));
+	menuFrames(1);
+	checkTrue("SETTINGS: the note reads CARRIED OVER, amber", noteIs(NOTE, C_AMBER));
+	fakeDumpFrame("shot_settings_carried.ppm");
+	revealRow((int)SettingsRowId::Poles);
+	tapId(UI_ROW(SettingsRowId::Poles, Minus));
+	checkTrue("a change: UNSAVED outranks it", noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
+	tapId(UI_ROW(SettingsRowId::Poles, Plus));
+	checkTrue("stepped back: CARRIED OVER again", !settingsDirty() && noteIs(NOTE, C_AMBER));
+	fakeFlashSetWritable(false);
+	holdSave();
+	checkTrue("a save the flash refuses: SAVE FAILED, the carry-over kept",
+	          noteIs("SAVE FAILED - FLASH REFUSED THE WRITE", C_RED) && settingsCarriedOver());
+	fakeFlashSetWritable(true);
+	holdSave();
+	checkTrue("HOLD TO SAVE with nothing changed lands: SAVED",
+	          noteIs("SAVED", C_LIME) && !settingsCarriedOver());
+	tapId(UI_FIX(UI_BACK));
+	menuFrames(1);
+	UI_SETTINGS.status(b, sizeof(b), &col, &fill);
+	checkTrue("MENU: the row reads nothing", b[0] == '\0' && settingsRowAmber() == 0);
+	tapId(UI_FIX(UI_BACK));
+	settingsLoad();
+	checkTrue("the next boot: a version 5 block, the settings kept, no notice",
+	          settingsStored() && !settingsCarriedOver() && settings()->poles == 22);
+
+	// The splash, on the boot after the update.
+	putBlock(4, &old);
+	settingsLoad();
+	uiDrawSplash();
+	checkTrue("splash: the first line at y 40, amber",
+	          fakeTextCentredIs(40, UI_SPLASH_CARRIED_TEXT, C_AMBER, C_BG, 1));
+	checkTrue("and the second at y 52, amber",
+	          fakeTextCentredIs(52, UI_SPLASH_CARRIED_TEXT2, C_AMBER, C_BG, 1));
+	checkTrue("not the reset's", !fakeTextCentredIs(40, "SETTINGS RESET BY UPDATE", C_AMBER, C_BG, 1));
+	int x0 = 0, x1 = 0;
+	checkTrue("nothing else above MINIRC but the two lines",
+	          fakeInkExtent(40, 19, C_BG, &x0, &x1) && x0 >= UI_MARGIN && x1 < GFX_W - UI_MARGIN &&
+	          !fakeInkExtent(0, 40, C_BG, &x0, &x1) && !fakeInkExtent(59, 45, C_BG, &x0, &x1));
+	fakeDumpFrame("shot_splash_carried.ppm");
+	fakeFlashClear();
+	settingsLoad();
 	freshTester();
 }
 
@@ -1265,6 +1342,7 @@ void runMenuTests() {
 	testResetHold();
 	testMenuUnsaved();
 	testResetByUpdate();
+	testCarriedOver();
 	testEscPinNote();
 	testMenuStatusWidths();
 	testSettingsValueWidths();

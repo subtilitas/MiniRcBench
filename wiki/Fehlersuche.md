@@ -256,28 +256,48 @@ vor dem Öffnen des Bildschirms funktioniert nicht.
 
 ## Meine Einstellungen setzen sich zurück
 
-Sie wurden nicht gespeichert, oder eine neue Firmware hat das Format der
-Einstellungen geändert. Polzahl und Gasobergrenze werden unter
+Sie wurden nicht gespeichert, oder eine neue Firmware konnte das Format der
+Einstellungen im Flash nicht lesen. Polzahl und Gasobergrenze werden unter
 **MENU → SETTINGS** geändert, und `HOLD TO SAVE` dort schreibt sie ins Flash.
 Die Hinweiszeile zeigt `UNSAVED - HOLD SAVE TO KEEP`, solange Änderungen
 ungespeichert sind, und `MENU` zeigt `UNSAVED` in der Zeile `SETTINGS`.
 
-Eine Firmware, deren Einstellungsformat von dem im Flash abweicht, startet mit
-ihren Voreinstellungen. Wer von einer früheren Firmware auf eine mit
-Einstellungsformat Version 4 aktualisiert, findet alle gespeicherten
-Einstellungen einmal auf der Voreinstellung, auch den ESC-Pin: Der ESC-Pin ist dann GP0,
-KISS ist aus und SERVO SUPPLY steht auf `NONE`. Version 5 bringt CURRENT
-SENSE, daher geschieht dasselbe beim Wechsel von Version 4 auf Version 5
-noch einmal: Alle gespeicherten Einstellungen stehen wieder auf der
-Voreinstellung, CURRENT SENSE auf `NONE`. Stelle sie neu ein und speichere
-mit `HOLD TO SAVE`.
+Die Firmware speichert ihre Einstellungen im Format Version 5. Einstellungen,
+die eine frühere Firmware im Format Version 2, 3 oder 4 gespeichert hat,
+darunter die von DshotDisplay 2.x, werden übernommen: Jede Einstellung, die
+das alte Format kennt, behält ihren Wert, geprüft nach denselben Regeln wie
+gespeicherte Einstellungen, und jede neuere Einstellung beginnt mit ihrer
+Voreinstellung. Also:
 
-Ein solches Zurücksetzen wird angezeigt: Der Startbildschirm zeigt
-`SETTINGS RESET BY UPDATE` und `CHECK MENU > SETTINGS`, die Zeile `SETTINGS`
-in MENU zeigt `UPDATED`, und die Hinweiszeile in SETTINGS zeigt
-`RESET BY UPDATE - CHECK AND SAVE`, bis ein Speichern gelingt. Ein
-beschädigter Block, statt eines von einer anderen Version geschriebenen, wird
-ohne diese Hinweise verworfen; die Hinweiszeile zeigt dann
+- Polzahl, `MAX THROTTLE`, `DSHOT KBAUD`, KISS, Helligkeit und Kontrast
+  behalten ihre Werte; ein Wert außerhalb des Bereichs wird angepasst, wie
+  beim Speichern;
+- ein ESC-Pin, den diese Platine nicht frei hat, etwa GP28 oder GP29 aus
+  einer Firmware vor Version 4, kehrt zur Voreinstellung (GP0) zurück, und
+  KISS auf einem solchen Pin wird ausgeschaltet, sein Pin wieder die
+  Voreinstellung (GP1);
+- CURRENT SENSE steht auf `NONE`; SERVO SUPPLY steht nach Version 2 oder 3
+  auf `NONE`, denn der Schalter auf GP0 aus Version 3 liegt jetzt auf dem Pin
+  des ESC-Kabels; nach Version 4 behält es `GP28` oder `GP29`.
+
+Eine Übernahme wird angezeigt: Der Startbildschirm zeigt
+`SETTINGS CARRIED OVER FROM AN UPDATE` und `CHECK MENU > SETTINGS, THEN SAVE`,
+die Zeile `SETTINGS` in MENU zeigt `UPDATED`, und die Hinweiszeile in
+SETTINGS zeigt `CARRIED OVER BY UPDATE - CHECK, SAVE`. Prüfe die Werte und
+speichere mit `HOLD TO SAVE`; das Speichern schreibt auch ohne Änderung. Bis
+dahin behält das Flash den alten Block, und jeder Start übernimmt ihn erneut.
+
+<img src="img/splash-carried.png" width="240" alt="Der Startbildschirm mit SETTINGS CARRIED OVER FROM AN UPDATE und CHECK MENU > SETTINGS, THEN SAVE über dem Namen">
+
+Einstellungen eines Formats, das die Firmware nicht kennt, Version 1 oder das
+einer späteren Firmware, werden verworfen: Alle Einstellungen stehen wieder
+auf der Voreinstellung, auch der ESC-Pin. Stelle sie neu ein und speichere
+mit `HOLD TO SAVE`. Ein solches Zurücksetzen wird angezeigt: Der
+Startbildschirm zeigt `SETTINGS RESET BY UPDATE` und `CHECK MENU > SETTINGS`,
+die Zeile `SETTINGS` in MENU zeigt `UPDATED`, und die Hinweiszeile in
+SETTINGS zeigt `RESET BY UPDATE - CHECK AND SAVE`, bis ein Speichern gelingt.
+Ein beschädigter Block, statt eines von einer anderen Version geschriebenen,
+wird ohne diese Hinweise verworfen; die Hinweiszeile zeigt dann
 `COMPILED DEFAULTS IN USE`.
 
 ---

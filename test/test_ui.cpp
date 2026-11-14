@@ -330,6 +330,168 @@ static bool logFileRowIs(const char *text) {
 }
 
 /**
+ * @brief A new log's number: the highest `LOGnnnnn.BFL` plus 1, the name
+ *        rule the directory scan applies, and the refusal after
+ *        `LOG99999.BFL`.
+ *
+ * The pure rule in sd_log.h and SD LOG against the fake logger. The scan
+ * itself, the kept number and its reading again after a remount run over
+ * FatFs in test/log_next_fatfs.cpp (`make lognum`).
+ */
+static void testLogNumbering() {
+	section("SD LOG: a new log is numbered after the highest file");
+
+	struct NameCase { const char *name; bool match; uint32_t n; };
+	static const NameCase NAMES[] = {
+		{ "LOG00001.BFL", true, 1 },
+		{ "LOG00042.BFL", true, 42 },
+		{ "LOG00000.BFL", true, 0 },
+		{ "LOG99999.BFL", true, 99999 },
+		{ "LOG12345.BFL", true, 12345 },
+		// FAT compares names without case: these are the same files.
+		{ "log00007.bfl", true, 7 },
+		{ "Log00008.Bfl", true, 8 },
+		{ "LOG00009.bfl", true, 9 },
+		{ "lOG00010.BFl", true, 10 },
+		{ "LOG0001.BFL",  false, 0 },    // four digits
+		{ "LOG000001.BFL", false, 0 },   // six digits
+		{ "LOG00001.TXT", false, 0 },
+		{ "LOG00001.BF",  false, 0 },
+		{ "LOG00001.BFLX", false, 0 },
+		{ "LOG00001.BFL.bak", false, 0 },
+		{ "LOG00001",     false, 0 },
+		{ "LOG00001.",    false, 0 },
+		{ "LOG00001BFL",  false, 0 },
+		{ "LOG0000A.BFL", false, 0 },
+		{ "LOG-0001.BFL", false, 0 },
+		{ "LOG 0001.BFL", false, 0 },
+		{ "LOG:0001.BFL", false, 0 },    // ':' follows '9' in ASCII
+		{ "LOG/0001.BFL", false, 0 },    // '/' precedes '0'
+		{ " LOG00001.BFL", false, 0 },
+		{ "LOG00001.BFL ", false, 0 },
+		{ "XLOG00001.BFL", false, 0 },
+		{ "XOG00001.BFL", false, 0 },
+		{ "LAG00001.BFL", false, 0 },
+		{ "LOX00001.BFL", false, 0 },
+		{ "LOG00001XBFL", false, 0 },
+		{ "LOG00001.AFL", false, 0 },
+		{ "LOG00001.BEL", false, 0 },
+		{ "LOG00001.BFK", false, 0 },
+		{ "Flight with the new prop LOG00099.BFL", false, 0 },   // a long name
+		{ "LOG000~1.BFL", false, 0 },    // an 8.3 alias of a long name
+		{ "LOG",          false, 0 },
+		{ "",             false, 0 },
+		{ ".",            false, 0 },
+		{ "..",           false, 0 },
+		{ "LOGS",         false, 0 },
+	};
+	for (const NameCase &c : NAMES) {
+		uint32_t n = 0xDEADBEEFu;
+		bool m = sdLogNameNumber(c.name, &n);
+		char what[96];
+		snprintf(what, sizeof(what), "\"%s\": %s", c.name, c.match ? "a log's name" : "not a log's name");
+		checkTrue(what, m == c.match);
+		if (c.match) {
+			snprintf(what, sizeof(what), "\"%s\": number %lu", c.name, (unsigned long)c.n);
+			checkTrue(what, n == c.n);
+		} else {
+			checkTrue("and the number is left alone", n == 0xDEADBEEFu);
+		}
+	}
+	{
+		uint32_t n = 5;
+		checkTrue("no name: no log", !sdLogNameNumber(nullptr, &n) && n == 5);
+	}
+
+	// The scan's fold: the highest wins, whatever the order; others ignored.
+	{
+		uint32_t h = 0;
+		static const char *DIR1[] = { "LOG00003.BFL", "LOG00017.BFL", "notes.txt", "LOG00009.BFL",
+		                              "LOG000017.BFL", "LOG00200.TXT", "log00012.bfl" };
+		for (const char *nm : DIR1) sdLogNoteName(&h, nm);
+		checkInt("the highest of 3, 17, 9 and 12, the rest ignored", (long)h, 17);
+		checkInt("so the next is 18", (long)sdLogNextNumber(h), 18);
+		h = 0;
+		sdLogNoteName(&h, "LOG00000.BFL");
+		checkInt("LOG00000.BFL alone: highest 0", (long)h, 0);
+		checkInt("next 1", (long)sdLogNextNumber(h), 1);
+		h = 40;
+		sdLogNoteName(&h, "LOG00005.BFL");
+		checkInt("a lower number leaves the highest", (long)h, 40);
+		sdLogNoteName(&h, "LOG00041.BFL");
+		checkInt("a higher one takes it", (long)h, 41);
+	}
+	checkInt("an empty or new directory: 1", (long)sdLogNextNumber(0), 1);
+	checkInt("after 1: 2", (long)sdLogNextNumber(1), 2);
+	checkInt("after 99998: 99999", (long)sdLogNextNumber(99998), 99999);
+	checkInt("after 99999: none free", (long)sdLogNextNumber(99999), 0);
+	checkInt("never past it", (long)sdLogNextNumber(100000), 0);
+	checkInt("nor wrapped", (long)sdLogNextNumber(0xFFFFFFFFu), 0);
+
+	// On SD LOG, through the fake card, which uses the same rule: each start
+	// takes the number after the highest, also after a log was deleted below
+	// it, and LOG99999.BFL refuses the start with its two lines.
+	SdLogStatus st;
+	memset(&st, 0, sizeof(st));
+	st.state = SdLogState::Idle;
+	st.cardType = 3;
+	st.cardSizeMB = 30500;
+	fakeSdLogSet(&st);
+	fakeSdLogSetHighest(0);
+	enterLogScreen();
+	frames(2);
+	tapId(UI_FIX(SdLogCtl::Toggle));
+	frames(2);
+	checkTrue("an empty LOGS/: LOG00001.BFL", logFileRowIs("LOG00001.BFL"));
+	tapId(UI_FIX(SdLogCtl::Toggle));
+	frames(2);
+	tapId(UI_FIX(SdLogCtl::Toggle));
+	frames(2);
+	checkTrue("the next start: LOG00002.BFL", logFileRowIs("LOG00002.BFL"));
+	tapId(UI_FIX(SdLogCtl::Toggle));
+	frames(2);
+	// A computer left LOG00041.BFL as the highest, the ones below deleted.
+	fakeSdLogSetHighest(41);
+	tapId(UI_FIX(SdLogCtl::Retry));
+	frames(2);
+	tapId(UI_FIX(SdLogCtl::Toggle));
+	frames(2);
+	checkTrue("after LOG00041.BFL: LOG00042.BFL", logFileRowIs("LOG00042.BFL"));
+	tapId(UI_FIX(SdLogCtl::Toggle));
+	frames(2);
+	fakeSdLogSetHighest(99998);
+	tapId(UI_FIX(SdLogCtl::Toggle));
+	frames(2);
+	checkTrue("after LOG99998.BFL: LOG99999.BFL", logFileRowIs("LOG99999.BFL"));
+	tapId(UI_FIX(SdLogCtl::Toggle));
+	frames(2);
+	tapId(UI_FIX(SdLogCtl::Toggle));
+	frames(2);
+	sdLogStatus(&st);
+	checkTrue("after LOG99999.BFL: no log starts", !sdLogActive() && st.state == SdLogState::Error &&
+	                                                st.end == SdLogEnd::NoFreeNumber);
+	checkTrue("the note says which file", fakeTextCentredIs(217, "NO LOG STARTED: LOG99999.BFL EXISTS",
+	                                                        C_AMBER, C_BG, 1));
+	checkTrue("and the next step", fakeTextCentredIs(228, "MOVE LOGS TO A COMPUTER, RETRY MOUNT",
+	                                                 C_AMBER, C_BG, 1));
+	checkTrue("the FILE row keeps the last log", logFileRowIs("LOG99999.BFL (LAST)"));
+	// A mount forgets the cause; with the logs moved off, the next is 1.
+	fakeSdLogSetHighest(0);
+	tapId(UI_FIX(SdLogCtl::Retry));
+	frames(2);
+	tapId(UI_FIX(SdLogCtl::Toggle));
+	frames(2);
+	checkTrue("LOGS/ emptied on a computer: LOG00001.BFL again", logFileRowIs("LOG00001.BFL"));
+	tapId(UI_FIX(SdLogCtl::Toggle));
+	frames(2);
+	fakeSdLogSetHighest(0);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+}
+
+/**
  * @brief How the last log ended, on SD LOG's two note lines, and the FILE
  *        row's last log.
  */
@@ -351,7 +513,7 @@ static void testLogEndNotes() {
 	{
 		static const SdLogEnd ALL[] = { SdLogEnd::None, SdLogEnd::CardFull, SdLogEnd::WriteFailed,
 		                                SdLogEnd::OpenFailed, SdLogEnd::ByKst, SdLogEnd::ByHitec,
-		                                SdLogEnd::ByAm32 };
+		                                SdLogEnd::ByAm32, SdLogEnd::NoFreeNumber };
 		bool ok = true;
 		for (SdLogEnd e : ALL) {
 			SdLogEnd m = e;
@@ -368,6 +530,7 @@ static void testLogEndNotes() {
 	st.cardType = 3;
 	st.cardSizeMB = 30500;
 	fakeSdLogSet(&st);
+	fakeSdLogSetHighest(0);                                // an empty LOGS/
 	enterLogScreen();
 	frames(2);
 	checkTrue("before the first log: FILE --", logFileRowIs("--"));
@@ -417,6 +580,8 @@ static void testLogEndNotes() {
 		  "RECORDING STOPPED: CARD WRITE FAILED", "REMOVED? REINSERT, THEN RETRY MOUNT" },
 		{ SdLogState::Error, SdLogEnd::OpenFailed,
 		  "NO LOG STARTED: THE FILE DID NOT OPEN", "CHECK THE CARD, THEN RETRY MOUNT" },
+		{ SdLogState::Error, SdLogEnd::NoFreeNumber,
+		  "NO LOG STARTED: LOG99999.BFL EXISTS", "MOVE LOGS TO A COMPUTER, RETRY MOUNT" },
 		{ SdLogState::Idle, SdLogEnd::ByKst,   "RECORDING STOPPED BY KST SERVO", "" },
 		{ SdLogState::Idle, SdLogEnd::ByHitec, "RECORDING STOPPED BY HITEC SERVO", "" },
 		{ SdLogState::Idle, SdLogEnd::ByAm32,  "RECORDING STOPPED BY AM32 CONFIG", "" },
@@ -5269,6 +5434,7 @@ void runUiTests() {
 
 	testLogScreen();
 	testLogEndNotes();
+	testLogNumbering();
 	testTesterSdErr();
 	testUsbDriveScreen();
 	testManualLogSurvivesArming();

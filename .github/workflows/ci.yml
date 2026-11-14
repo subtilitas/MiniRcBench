@@ -276,6 +276,12 @@ jobs:
       - name: KST and Hitec card phases match the design notes
         working-directory: test
         run: make kstcount
+      # The next blackbox log's file over the same FatFs: the scan of LOGS/,
+      # the number kept between starts, and a card swapped or edited between
+      # mounts read again (src/sd_log_next.cpp).
+      - name: Log numbering over FatFs
+        working-directory: test
+        run: make lognum
       # The wiki is only *published* on release, but its links and its
       # screenshots break on ordinary pushes -- renaming a page, or dropping a
       # fakeDumpFrame() call a manual page happens to show. Catching that here
