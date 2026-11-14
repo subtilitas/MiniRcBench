@@ -342,10 +342,13 @@ image is built for, `RP2350-TOUCH-LCD-2.8`, and the firmware version, for
 example `VERSION 0.1.0`. DShot starts on the ESC pin when the splash ends,
 so the last line names that pin in amber: `UNPLUG ANY SERVO FROM GP0 NOW`. A
 servo left on it reads the DShot frames as pulses and drives towards one end
-of its travel. When `settingsLoad()` discarded a whole block of another
-settings version (`settingsResetByUpdate()`), two amber lines at y 40 and
-y 52 read `SETTINGS RESET BY UPDATE` and `CHECK MENU > SETTINGS`; blank flash
-and a damaged block show neither. While the touch controller has not
+of its travel. When `settingsLoad()` carried a block of settings version 2,
+3 or 4 over (`settingsCarriedOver()`), two amber lines at y 40 and y 52 read
+`SETTINGS CARRIED OVER FROM AN UPDATE` and
+`CHECK MENU > SETTINGS, THEN SAVE`; when it discarded a whole block of a
+version it has no layout for (`settingsResetByUpdate()`), they read
+`SETTINGS RESET BY UPDATE` and `CHECK MENU > SETTINGS`. Blank flash and a
+damaged block show neither. While the touch controller has not
 answered once since `touchInit()`, the splash shows
 `TOUCH CONTROLLER NOT FOUND` in amber at y 64, under those two lines and
 above the name; the line goes at the controller's first answer
@@ -451,7 +454,7 @@ tester. Every tool's **BACK** returns to MENU.
 | **SERVO TESTER** | the signal pins, `GP0+1`; `PINS BUSY` | Opens the servo tester. See [Servo tester](#servo-tester) |
 | **KST SERVO** | the ESC pin, `GP0`; `PINS BUSY` | Opens the KST servo programmer. See [KST servo programming](#kst-servo-programming) |
 | **HITEC SERVO** | the ESC pin, `GP0`; `PINS BUSY` | Opens the Hitec servo programmer. See [Hitec servo programming](#hitec-servo-programming) |
-| **SETTINGS** | `UNSAVED` while the live settings differ from flash; else `UPDATED` while an update's reset is not saved over (`settingsResetByUpdate()`); else nothing; both amber. `PINS BUSY` while the pin claim is not Free, drawn disabled | Opens SETTINGS: the tester, the wiring, the servo supply and current sensor, the display, the board, diagnostics. See below |
+| **SETTINGS** | `UNSAVED` while the live settings differ from flash; else `UPDATED` while an update's reset or carry-over is not saved over (`settingsResetByUpdate()`, `settingsCarriedOver()`); else nothing; both amber. `PINS BUSY` while the pin claim is not Free, drawn disabled | Opens SETTINGS: the tester, the wiring, the servo supply and current sensor, the display, the board, diagnostics. See below |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a USB host holds the card | Opens the logging status. See below |
 
 - **BEEP flash**: a tap fills the row for 350 ms (`BEEP_FLASH_MS`): white
@@ -600,17 +603,32 @@ A wrong ESC pin produces no error: the ESC receives no frames. **LINK** on this
 screen shows the result of each pin change. A non-zero packet rate means the
 pin is correct.
 
-The settings block is version 5 (`SETTINGS_VERSION`). A block of another
-version is discarded whole, and the compiled defaults load, every setting
-and the ESC pin included. So the first boot after an update from an earlier
-build returns every saved setting to its default once: a version 4 block,
-which has no CURRENT SENSE, does not load, nor does a version 3 block, with
-its ESC pin on GP29 or GP28 or its supply enable on GP0, nor DshotDisplay
-2.x's version 2 block. DshotDisplay discards this
-project's blocks the same way. A discarded block that is whole (the magic,
-another version, at most `SETTINGS_OTHER_MAX` bytes of payload and its own
-CRC right) sets `settingsResetByUpdate()` until a save lands: the splash's
-two lines, `UPDATED` on MENU's SETTINGS row, and the note line
+The settings block is version 5 (`SETTINGS_VERSION`). A whole block of
+version 2, 3 or 4 is carried over (`settingsCarriedOver()`): `settings.cpp`
+describes each older layout as byte offsets, recovered from the commits
+that wrote it (version 2: 12 bytes of payload, the CRC at byte 20; versions
+3 and 4: 14 bytes, the CRC at byte 24), and the host suite builds each
+block byte by byte. Every field the old layout has keeps its value, judged
+by `settingsValidate()` as a version 5 block is; every newer field takes
+its default, CURRENT SENSE `NONE`. A version 3 SERVO SUPPLY of 1 named an
+enable on GP0, the ESC wire's pin since version 4, and loads as `NONE`; an
+ESC pin on GP28 or GP29 from a block before version 4 is not free here and
+takes the default, KISS on such a pin is switched off, and a KISS pin this
+board does not free takes the default. DshotDisplay 2.x's version 2 block
+carries over the same way (DshotDisplay's `src/settings.h` at its commit
+b9e94dc, version 2, the same layout). Flash is not rewritten at the load:
+the old block stays the only copy until a save lands, so a power loss at
+boot cannot lose it, and every boot until then carries it over again. Until
+a save lands the splash shows its two lines, MENU's SETTINGS row `UPDATED`,
+and the note line `CARRIED OVER BY UPDATE - CHECK, SAVE` while nothing else
+is pending; HOLD TO SAVE writes a version 5 block even with nothing changed.
+
+A whole block of a version with no layout here, 1 or above 5, is discarded,
+and the compiled defaults load, every setting and the ESC pin included.
+DshotDisplay discards this project's blocks the same way. Such a block (the
+magic, another version, at most `SETTINGS_OTHER_MAX` bytes of payload and
+its own CRC right) sets `settingsResetByUpdate()` until a save lands: the
+splash's two lines, `UPDATED` on MENU's SETTINGS row, and the note line
 `RESET BY UPDATE - CHECK AND SAVE` while nothing else is pending.
 
 **HOLD TO SAVE** (1 s, `UI_HOLD_MS`) writes all settings to flash: every row
@@ -1765,7 +1783,9 @@ In the firmware:
   DShot pump.
 - A stored settings block that fails its CRC, version or size check is
   discarded whole and the compiled defaults are used. Fields are never merged
-  one by one, so a corrupted byte cannot raise the throttle ceiling.
+  one by one, so a corrupted byte cannot raise the throttle ceiling. A whole
+  block of an older layout, version 2 to 4, is read field by field from
+  that layout and validated as a current block.
 - Arming is blocked while a USB host holds the SD card.
 - The servo tester starts SAFE, with no pulses; HOLD TO START is a 1 s hold
   that puts every pin at CENTRE, and STOP acts on touch. A hold counts only

@@ -135,7 +135,7 @@ position.
 | **SERVO TESTER** | the two signal pins, `GP0+1`; `PINS BUSY` | Opens the servo tester |
 | **KST SERVO** | the ESC pin, `GP0`; `PINS BUSY` | Opens the KST programmer. See [KST Programming](KST-Programming) |
 | **HITEC SERVO** | the ESC pin, `GP0`; `PINS BUSY` | Opens the Hitec programmer. See [Hitec Programming](Hitec-Programming) |
-| **SETTINGS** | `UNSAVED` while a value differs from flash; else `UPDATED` while an update's reset of the settings is not saved over; else nothing. All amber. `PINS BUSY` while the pins are still restoring, and it does not open | Opens SETTINGS |
+| **SETTINGS** | `UNSAVED` while a value differs from flash; else `UPDATED` while an update's reset or carry-over of the settings is not saved over; else nothing. All amber. `PINS BUSY` while the pins are still restoring, and it does not open | Opens SETTINGS |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a computer holds the card | Opens the logging screen |
 
 `PINS BUSY` means the signal pins are still in use, for example while DShot
@@ -160,12 +160,17 @@ is on SETTINGS.
 
 <img src="img/menu-unsaved.png" width="240" alt="UNSAVED on the SETTINGS row, with changes not yet written to flash">
 
-`UPDATED` on the SETTINGS row means a firmware update discarded the saved
-settings: every value, the pole count, `MAX THROTTLE`, `ESC PIN`, KISS,
-`SERVO SUPPLY` and `CURRENT SENSE` among them, is at its compiled default.
-Check them in SETTINGS and hold `HOLD TO SAVE`; a save that lands ends the
-marker. The splash says the same at start-up (see
-[First Run](First-Run#powering-up)).
+`UPDATED` on the SETTINGS row means a firmware update changed the saved
+settings. Either it carried settings of an older layout over, version 2, 3
+or 4: the values the old layout has are kept, checked as on a save, and
+the newer ones, `CURRENT SENSE` among them, are at their defaults. Or it
+found a layout it does not know and discarded it: every value, the pole
+count, `MAX THROTTLE`, `ESC PIN`, KISS, `SERVO SUPPLY` and `CURRENT SENSE`
+among them, is at its compiled default. Check them in SETTINGS and hold
+`HOLD TO SAVE`; a save that lands ends the marker, also with nothing
+changed. See
+[Troubleshooting](Troubleshooting#my-settings-reset-themselves). The splash
+says the same at start-up (see [First Run](First-Run#powering-up)).
 
 <img src="img/menu-updated.png" width="240" alt="UPDATED on the SETTINGS row after an update discarded the saved settings">
 
@@ -228,7 +233,11 @@ Under the list, these stay in place:
   5. `SAVED` (green) after a save, until the next change;
   6. `RESET BY UPDATE - CHECK AND SAVE` (amber) after an update discarded
      the saved settings, until a save lands;
-  7. `SAVED SETTINGS IN USE` or `COMPILED DEFAULTS IN USE`.
+  7. `CARRIED OVER BY UPDATE - CHECK, SAVE` (amber) after an update carried
+     settings of an older layout over, until a save lands;
+  8. `SAVED SETTINGS IN USE` or `COMPILED DEFAULTS IN USE`.
+
+<img src="img/settings-carried.png" width="240" alt="SETTINGS after an update carried the saved settings over: CARRIED OVER BY UPDATE - CHECK, SAVE on the note line">
 
 <img src="img/settings-pin.png" width="240" alt="SETTINGS after ESC PIN moved to GP1: UNPLUG ANY SERVO FROM GP1 NOW above LINK, UNSAVED on the note line">
 

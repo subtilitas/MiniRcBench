@@ -319,7 +319,7 @@ static bool carryOver(const uint8_t *raw, Settings *out) {
 	const OldLayout *l = nullptr;
 	for (const OldLayout &c : OLD_LAYOUTS)
 		if (c.version == version) l = &c;
-	if (!l || le16(raw + 6) != l->payload) return false;
+	if (!l) return false;
 	if (le32(raw + l->crcAt) != settingsCrc32(raw, l->crcAt)) return false;
 
 	using namespace old_layout;
