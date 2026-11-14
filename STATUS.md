@@ -65,8 +65,8 @@ Menu structure B ([menu-b.md](docs/design/menu-b.md)), the owner's choice of
 (`src/ui_leave.*`), the BACK guard and two strip lines (`src/ui_widgets.*`),
 the field row (`src/ui_list.*`), the colour role names and the layout
 constants. No screen draws differently; no screen uses the leave page, the
-guard or the field row yet. Slices 2 to 10 wait on eight questions to the
-owner (open item 18).
+guard or the field row yet. The owner answered the note's eight questions on
+2026-11-14; slices 2 to 10 wait on being built (open item 18).
 The pin claim both features share is built (slice 1): the AM32 editor and the
 servo tester run on it. For the ESC, the board is the throttle source. It
 sends bidirectional DShot (a digital ESC protocol in which the ESC
@@ -229,7 +229,7 @@ record either way.
 | KST programming: rcbench's session, line driver and file store (`lib/rcbench/`), the search (`src/kst_seek.*`), the core1 job (`src/kst_job.*`) and its line (`src/kst_line_port.*`), the files on the card (`src/kst_files.*`), the screen (`src/ui_kst.cpp`, `src/kst_view.*`) | rcbench's seven tests, 298 cases, the line's PIO program among them in a model (`test_kst_pio.c`); the search and the job against rcbench's simulated servo, the files against an in-memory FAT (File Allocation Table) volume, the backup in `BACKUP/` and SAVE AS in `KST/` up to 50 files among them, the card phases' block counts over FatFs R0.15 itself (`make -C test kstcount`), the screen through MENU against both (`runKstTests`); the line driver and `kst_line_port.cpp` are built by the firmware and typechecked only | not recorded: no frame of the line driver has been on a pin (`kst_line.h`) |
 | SETTINGS layout (`src/ui_settings.cpp`): sections ESC TESTER, WIRING, SERVO SUPPLY, DISPLAY, BOARD and DIAGNOSTICS in one scrolling list | the scroll range, 0 px at opening and 620 px at most, 632 px while the ESC pin's warning shows; each row by id; no scroll from a press on a control; a cut control takes a press only while 40 px show; HOLD TO SAVE in place at every scroll position and saving at the end of the list; the pole count reaches the eRPM divisor, the ceiling steps by 5 %, and RESET restores both | not recorded |
 | Restart reason and uptime (`src/diag.*`), SETTINGS → DIAGNOSTICS: LAST RESTART and UPTIME; [diagnostics.md](docs/design/diagnostics.md) | the decoding of every CHIP_RESET flag alone and in pairs, the flags of resets that leave the power manager alone before those that reset it (POR and GLITCH read GLITCH), the watchdog before them: enable caused, REASON with a flash update boot (UPDATE) and with any other boot type or an error (REBOOT); every text within 10 characters; the capture through fakes of `powman_hw->chip_reset`, `watchdog_hw->reason`, `watchdog_enable_caused_reboot()` and `rom_get_last_boot_type()`; the uptime's text up to 1193046:28:15; the rows' place, text and each reason's colour, no control on either, UPTIME repainted once a second while it shows, not within the second and not while scrolled out; the SDK bit values held by `static_assert` in the firmware build | not tested on hardware; open item 17. No watchdog is armed, so `WATCHDOG` cannot appear |
-| Settings in flash (MENU → SETTINGS) | block validation, CRC, board id check, pin defaults on GP0 and GP1 and not GP28 or GP29, the version 5 block layout with CURRENT SENSE at byte 13, the servo supply clamp at 2, the current sensor clamp at 1; blocks of versions 2, 3 and 4 built byte by byte from the layouts in git and carried over (`settingsCarriedOver()`): each field, the newer ones at their defaults, version 3's GP0 supply as none, validation of out-of-range values, a damaged CRC, payload byte or magic discarded with no notice, a wrong size taking the reset path, flash untouched until a save, a save with nothing changed writing a version 5 block that the next boot loads with no notice; the splash's two lines, `UPDATED` on MENU and the note line for it; a reset by an update (`settingsResetByUpdate()`) for versions 1 and 6 and for a version 2 or 3 block of another layout's size, not for blank flash, a bad CRC, a wrong size of this version or a payload over `SETTINGS_OTHER_MAX`, its CRC at the next 4-byte boundary, ended by a save that lands and not by one the flash refuses; the splash's two lines, `UPDATED` on MENU and the note line; the ESC pin's warning in SETTINGS against the boot pin, on its own line at y 230 beside UNSAVED, SAVED, SAVE FAILED and DEFAULTS LOADED, the list ending at y 227 and scrolling 632 px while it shows | not recorded; 46a64a7 states no hardware coverage |
+| Settings in flash (MENU → SETTINGS) | block validation, CRC, board id check, pin defaults on GP0 and GP1 and not GP28 or GP29, the version 5 block layout with CURRENT SENSE at byte 13, the servo supply clamp at 2, the current sensor clamp at 1; blocks of versions 2, 3 and 4 built byte by byte from the layouts in git and carried over (`settingsCarriedOver()`): each field, the newer ones at their defaults, version 3's GP0 supply as none, validation of out-of-range values, a damaged CRC, payload byte or magic and another magic with its CRC right discarded with no notice, a size field of another layout taking the reset path, flash untouched until a save, a save with nothing changed writing a version 5 block that the next boot loads with no notice; the splash's two lines, `UPDATED` on MENU and the note line for it; a reset by an update (`settingsResetByUpdate()`) for versions 1 and 6 and for a version 2, 3 or 4 block of another layout's size, not for blank flash, a bad CRC, a wrong size of this version or a payload over `SETTINGS_OTHER_MAX`, its CRC at the next 4-byte boundary, ended by a save that lands and not by one the flash refuses; the splash's two lines, `UPDATED` on MENU and the note line; the ESC pin's warning in SETTINGS against the boot pin, on its own line at y 230 beside UNSAVED, SAVED, SAVE FAILED and DEFAULTS LOADED, the list ending at y 227 and scrolling 632 px while it shows | not recorded; 46a64a7 states no hardware coverage |
 | KST switched servo supply with its enable on GP28 or GP29 (`src/servo_supply.*`), the SERVO SUPPLY row, the switched search, REBOOT, the close rule, the lapse rule and the card phase (`src/kst_seek.*`, `src/kst_job.*`, `src/ui_kst.cpp`, `sdh_wait_hook` in `src/sdio/sd_host.h`) | the enable pin untouched with `NONE` from boot; with `GP28` or `GP29` an undriven input (SIO, output off, pulls off, input off) at boot and at every SETTINGS change, a change from GP28 to GP29 switching only GP29; low at bind, high and low between bind and release, an undriven input after release; the mode to pin map; the row stepped NONE, GP28, GP29, applied at once, saved and reset; against a model of the converter and a servo with a power-on window (`test/kst_supply_sim.h`): found on the first power-up, 14 power-ups and the timeout, off 2000 ms before every switch-on, the entry delay at -40 ms and +300 ms, a stop, a lapse and the timeout in a wait, REBOOT's 2000 ms off and 1000 ms on, refused while busy and without a switch, a lapse in the mode, during an operation and in REBOOT's off wait, the close 2000 ms after the switch-off, time off before a leave counted, the enable pin untouched with `NONE`; the screens: the switched search, the leave page and HOLD TO REBOOT, the unplug page's wait, the stalled screen and RETRY; the card phase: `CardBegin` and `CardEnd` in each job state, stamps holding the supply on for 900 ms and off 250 ms after the last, the 15,000 ms cap at 14,900 and 15,100 ms, closed by a command and by LEAVE, the first write's 300 ms card calls inside a phase with and without stamps, the hook null with `NONE`, the busy wait calling the hook | not tested on hardware |
 | Hitec programming: rcbench's Hitec session, register model and line driver (`lib/rcbench/`), the core1 job (`src/hitec_job.*`) and its line (`src/hitec_line_port.*`), the files on the card (`src/hitec_files.*`), the HITEC SERVO screen (`src/ui_hitec.*`, `src/hitec_view.*`) | rcbench's 115 cases; the job against a simulated servo (`runHitecTests`); the deepest stack chain of the job on the Cortex-M33 checked in CI against 1,792 bytes; the files against an in-memory volume and the card phases' block counts over FatFs R0.15 (`make -C test kstcount`); the screen through MENU by control id | not tested on hardware; CLASSIC needs SERVO SUPPLY at GP28 or GP29; the classic line voltage not measured |
 | INA219 current sensor on J3, the shared I2C1 bus (`src/sense.*`, slice 1 of [current-sense.md](docs/design/current-sense.md)): the codec, the probe, the reading on core0 after the touch read, the read-back, the recovery, the `SenseSample` published for core1, which slices 3 and 4 read (nothing on core1 reads it yet); rcbench's `sense_bus.c` (5ef42efd) in `lib/rcbench/shared/sense/`; the touch driver's transfers noted; SETTINGS → CURRENT SENSE; the readout on SERVO TESTER, KST SERVO and HITEC SERVO | against an I2C fake with an INA219 and a CST328 model (`test/fake_i2c.*`, `runSenseTests`): 19EFh written at the probe, the shunt code to µA on 0.1 Ω at ±1, ±31999, ±32000 and beyond, the bus code to mV, the clip, a negative current; 399Fh and 19EFh accepted as an INA219, 4127h, 7127h and any other value as another part read every second, nothing but the register pointer written to it over 3000 ms, an INA219 put in its place found, FFFFh as none, a refused set-up; absent and probed again 1000 ms on, not 999 ms; three NACKs to offline, two timeouts to stuck, a held SDA, a recovery at once and every 100 ms, a part freed by its clocks, touch transfers noted, a touch abort with SDA held as a line low and the recovery run, a short count through the wire; the read-back once a second, a power-on reset found within two, the reset flag; 220 clocks for the probe, 96 for a reading, 84 for touch; the worst bus time of a frame in each failure mode and with one timeout after each count of transfers that answer, with timeouts moving the clock: the sensor at most 1480 µs, the probe's last data read timing out (1335 µs with the 19EFh write timing out, 1290 µs in a frame with the read-back, 1170 µs in a reading), touch at most 2073 µs, its data read timing out; a read's abort with SDA low for the block's own STOP a NACK, not a line held low; the recovery's START and STOP; the sample's 250 ms age, not at 249 ms, across a `millis()` wrap; the readout's texts and widths; touch read every frame with the sensor present, absent and failing; the SETTINGS row by id, saved, reset, nothing sent to 0x40 with NONE; the readout on the three screens | not tested on hardware: no INA219 has been on the board's bus; open item 16 |
@@ -260,9 +260,14 @@ Not in this history: the DshotDisplay repository's branches
 
 State on 2026-11-14: one pull request is open as a draft, #49, the
 touch-loss stop of item 23; all seven CI jobs pass on `main` at 22c1e4b
-(#51). Every part below waits on the bench or on the owner (items 18 to
-24); nothing is open that the host suite can settle. In the order the parts
-depend on each other:
+(#51). The owner answered the questions of items 18 to 21 and 24 on
+2026-11-14: what they decided waits on building where it changes
+anything, and items 22 and 23 wait on the bench. Still open to the owner:
+the converter module's name (item 19) and the second contact once it is
+measured (item 21). The order
+of work the owner decided: the eight small decisions of items 20, 21 and 24
+first, then menu structure B.
+The bench parts, in the order they depend on each other:
 
 1. The pins of item 15: DShot on GP0, KISS on GP1, the backlight, EN on
    GP28 or GP29 with the converter fitted.
@@ -275,8 +280,12 @@ depend on each other:
    scope, then one write with read-back per family before a write is
    relied on.
 
-A first `v*` tag runs Release and then publishes the manual (item 7).
-Menu structure B waits on the owner's answers, not on the bench (item 18).
+A `v*` tag runs Release; a tag without a pre-release suffix then publishes
+the manual (item 7), a suffixed one does not. Release, by the owner's
+decision of 2026-11-14: v0.1.0-rc1 is to be tagged now as a pre-release,
+an image for testing with no manual published, and v0.1.0 after the bench
+checks above. Neither tag exists yet; the owner pushes them. Menu structure
+B waits on being built, not on the bench (item 18).
 
 ## Open items
 
@@ -424,7 +433,7 @@ Menu structure B waits on the owner's answers, not on the bench (item 18).
 16. **Current sensor on hardware.** Slice 1 of
     [current-sense.md](docs/design/current-sense.md) is built and runs in
     the host suite only: no INA219 has been on the board's bus, and the
-    first boot over a version 4 settings block, now carried over, is not
+    first boot over a version 4 settings block, which carries over, is not
     tested on hardware.
     The datasheet facts the design marks "to confirm" are not checked
     against SBOS448G. Bench tests needed (design note, "Bench tests"):
@@ -453,43 +462,80 @@ Menu structure B waits on the owner's answers, not on the bench (item 18).
     HZD_SYS_RESET_REQ) clears the watchdog's REASON register; if it does
     not, that glitch reset reads `UPDATE` or `REBOOT`, not `GLITCH`, and a
     HZD_SYS_RESET_REQ reset reads them, not `DEBUGGER`. No watchdog is
-    armed. A persistent fault log is not built; its open
-    questions are in [diagnostics.md](docs/design/diagnostics.md).
+    armed. A persistent fault log is not built: the owner decided on
+    2026-11-14 not to build one now and to revisit it after the board has
+    run on the bench, with the questions listed in
+    [diagnostics.md](docs/design/diagnostics.md).
 
-18. **Menu structure B waits on the owner.** Slice 1 of
-    [menu-b.md](docs/design/menu-b.md) is built. Slices 2 to 10 each wait
-    on one or more of eight open questions in the note: the MENU order, the
-    tester's readouts while armed, BACK on the leave page, the "changed"
-    colour, when README.md and the wiki follow the screens, the KST field
-    labels, the no-switch value's name and RESTART DSHOT's wait. Slice 4,
-    the layout table, waits on the fifth: it changes what the previews,
-    README.md and the wiki show.
-19. **Questions open to the owner.** 26 questions in four design notes, each
-    listed in its note:
-    - [menu-b.md](docs/design/menu-b.md), "Open questions": 8, which hold
-      slices 2 to 10 (item 18);
-    - [rx-signals.md](docs/design/rx-signals.md), "Open questions": 7, on
-      the S.BUS monitor and the PPM (pulse-position modulation) output;
-    - [current-sense.md](docs/design/current-sense.md), "Open questions":
-      4, Q1 to Q4, on the converter, the shunt, the tester's supply and the
-      protection; Q5, a version 4 settings block, is decided and built
-      (versions 2 to 4 carry over);
-    - [diagnostics.md](docs/design/diagnostics.md), "Open questions for a
-      fault log": 7, before a fault log is built.
+18. **Menu structure B waits on building.** Slice 1 of
+    [menu-b.md](docs/design/menu-b.md) is built. The owner answered the
+    note's eight questions on 2026-11-14 (decisions 23 to 30): MENU by
+    device, BEEP THE ESC, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, SD
+    LOG, SETTINGS; the tester's readouts inert while armed; BACK on the
+    leave page drawn disabled; a changed, unwritten value in `C_CYAN` on
+    every screen; each slice updates its own README and wiki lines and
+    images; the KST labels FAILSAFE MOVE, FAILSAFE POSITION, FAILSAFE TIME,
+    REVERSED; OWN for SERVO SUPPLY's no-switch value; RESTART DSHOT after
+    1000 ms. Slices 2 to 10 wait on being built, after the eight small
+    decisions of items 20, 21 and 24. Three decisions change the note's
+    design, and the sections they touch are marked to be redesigned: the
+    docs go with each slice, against the note's recommendation, so the
+    slice table is reworked, slice 10 shrinks and slice 4 no longer waits;
+    HITEC SERVO takes SIG when it opens (item 24), so the chooser's Hitec
+    entries take the pin, which changes the note's decision 19; and a MENU
+    row RX SIGNALS after SERVO PROGRAMMER (item 19) gives seven rows, BEEP
+    THE ESC, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD
+    LOG, SETTINGS. The owner decided on 2026-11-14 that MENU keeps its
+    42 px rows and scrolls 36 px with seven rows, as today's seven-row MENU
+    does, SETTINGS reached with a short drag; this revises the six rows
+    that never scroll of 2026-11-13 (the note's decision 33).
+19. **The design notes' questions, answered on 2026-11-14.** The owner
+    answered the questions of four design notes; each note records the
+    answers as decisions:
+    - [menu-b.md](docs/design/menu-b.md): all eight, and the seventh MENU
+      row that followed from them (item 18). Waits on building.
+    - [rx-signals.md](docs/design/rx-signals.md): build the S.BUS (Futaba's
+      serial bus for receiver channels) monitor and an S.BUS output, no PPM
+      (pulse-position modulation) output; the monitor reads UART0 on GP1
+      with the pad's input inverted, shows µs by rcbench's `sbus_to_us()`
+      with the bar in raw units; one MENU row, RX SIGNALS, opens a chooser
+      of MONITOR and OUTPUT. The output's encoder is written and tested in
+      rcbench first, then copied; its throttle channel obeys MAX THROTTLE.
+      The monitor waits on building (slices 2 and 3); the output waits on
+      its encoder in rcbench and on its design, of which the note lists
+      the points to settle.
+    - [current-sense.md](docs/design/current-sense.md): the converter takes
+      one LiPo cell, 3.0 V to 4.2 V, into a synchronous boost with load
+      disconnect, 5.0 V, at least 3 A out; the shunt stays 0.1 Ω; the servo
+      tester always switches the supply with SERVO SUPPLY at a pin; the
+      protection is rcbench's limit run, above 1.0 A for 400 ms and a hard
+      cut at 3.0 A, the hard cut acting at once in the KST and Hitec claims,
+      during an operation too. The note recommended the stall rule and
+      warns that the limit run trips on many servos against a stop: bench
+      test B8 checks it. Settings are carried over from versions 2, 3 and
+      4 into version 5, new fields at their defaults; a block of a version
+      the firmware does not know is discarded and announced as now. The
+      migration, the first in `settingsLoad()`, is built and host-tested
+      (`settingsCarriedOver()`, `runSettingsTests`); the first boot over an
+      older block is not tested on hardware (items 15 and 16). Open to the
+      owner: the converter module, which bench tests B6 and B7 check before
+      it is relied on. Slices 2 to 6 wait on building.
+    - [diagnostics.md](docs/design/diagnostics.md): no fault log now; the
+      owner revisits it after the board has run on the bench, with the
+      note's seven questions.
 
     The design questions of item 5 are not addressed to the owner.
-20. **Card and log questions open to the owner**, from the usability audit
-    of 2026-11-14, one decided:
-    - **A KST or Hitec write with no card.** The write goes through with the
-      only copy of the servo's old values in memory, lost at LEAVE, REBOOT
-      (KST) or a power loss; the write page says so in amber. Allow it as
-      now, ask for a second hold, or refuse it as AM32 CONFIG does
-      (`NO BACKUP ON THE CARD: NOT WRITTEN`).
-    - **Log numbering**, decided by the owner on 2026-11-14 and built: a
-      new log takes the highest `LOGnnnnn.BFL` in `LOGS/` plus 1, read in
-      one directory scan on the first start after a mount; after
-      `LOG99999.BFL` no log starts. The scan and its cache in `sd_log.cpp`
-      run on no card in a test: typechecked only, not measured.
+20. **Card and log, decided on 2026-11-14,** from the usability audit of
+    2026-11-14:
+    - **A KST or Hitec write with no card** stays allowed as now: the write
+      goes through with the only copy of the servo's old values in memory,
+      lost at LEAVE, REBOOT (KST) or a power loss, and the write page says
+      so in amber. Nothing to build.
+    - **Log numbering**, built: a new log takes the highest
+      `LOGnnnnn.BFL` in `LOGS/` plus 1, read in one directory scan on the
+      first start after a mount; after `LOG99999.BFL` no log starts. The
+      scan and its cache in `sd_log.cpp` run on no card in a test:
+      typechecked only, not measured.
     - Not a question, recorded here: a USB cable pulled with the board on its
       battery leaves the card with the host. TinyUSB 0.18.0's RP2040 port
       (`FORCE_VBUS_DETECT` 1 in `dcd_rp2040.c`) reports the pull as a bus
@@ -497,13 +543,17 @@ Menu structure B waits on the owner's answers, not on the bench (item 18).
       `tud_umount_cb()` for it. A suspend is not handled; EJECT on SD LOG
       takes the card back. Whether this board has a VBUS sense line that
       could tell the two apart is not verified.
-21. **Two owner decisions.**
-    - Whether a KST, Hitec or AM32 write is refused, or only warned about,
-      while the BOARD voltage is amber or red. Today nothing is refused on
-      it, and the reading with USB power alone is not measured.
-    - Whether the tester disarms on a second contact, once the CST328's
-      report with two fingers on the glass is measured. The driver reads
-      finger 1 only.
+21. **Two owner decisions, one taken.**
+    - Decided on 2026-11-14: a KST, Hitec or AM32 write is refused while
+      the BOARD voltage is red, the band from 2.50 V up to below 3.30 V
+      (`BOARD_CELL_IMPLAUSIBLE_MV` and `BOARD_CELL_CRIT_MV` in
+      `src/config.h`, drawn by `uiBoardCell()` with 50 mV of hysteresis).
+      Below 2.50 V the reading says nothing about a cell and nothing is
+      refused; amber refuses nothing. Waits on building. Today nothing is
+      refused on it, and the reading with USB power alone is not measured.
+    - Open: whether the tester disarms on a second contact, once the
+      CST328's report with two fingers on the glass is measured. The
+      driver reads finger 1 only.
 22. **The splash's touch line and the BOARD colour on hardware.** Both run
     in the host suite only. Not measured: what the divider on GP27 reads
     with USB power and no cell, and the CST328's answers to its probe and
@@ -522,20 +572,24 @@ Menu structure B waits on the owner's answers, not on the bench (item 18).
 
     Until then a controller that stops answering leaves a HOLD-latched
     motor running until the idle disarm, 30 s after the last contact.
-24. **Five owner decisions on existing screens**, none decided:
-    - **AM32 3D MODE.** After a write that sets 3D MODE on, the tester arms
-      as before; the list shows the warning. Refuse to arm, warn on the
-      tester, or leave it.
-    - **HITEC SERVO and DShot.** SIG carries DShot until a family is
-      tapped. Take the pin when HITEC SERVO opens, before the tap, or
-      leave it; menu-b.md decision 19 has the chooser claim nothing.
-    - **Servo tester limits.** TYPE WIDE and MIN or MAX past the travel
-      margin apply at once, with a note. Ask for HOLD TO APPLY as the heli
-      types do, or leave it.
-    - **SETTINGS RESET.** One tap loads the defaults. Ask for a hold, or
-      leave it.
-    - **AM32 layouts the table does not know.** The list does not open for
-      a layout other than 2 to 4. Open it read-only, or keep refusing.
+24. **Five owner decisions on existing screens, taken on 2026-11-14.**
+    Each waits on building; today's screens behave as before.
+    - **AM32 3D MODE.** After a write that set 3D MODE on, the tester shows
+      a warning and still arms. Today it arms as before, and only the list
+      shows the warning.
+    - **HITEC SERVO and DShot.** HITEC SERVO takes SIG when it opens,
+      before the family is tapped. Today SIG carries DShot until the tap.
+      In menu structure B this changes decision 19 of
+      [menu-b.md](docs/design/menu-b.md): the chooser's Hitec entries take
+      the pin on their tap.
+    - **Servo tester limits.** TYPE WIDE, and MIN or MAX past the travel
+      margin, need HOLD TO APPLY, as the heli types do. Today they apply at
+      once, with a note.
+    - **SETTINGS RESET** needs a 1 s hold. Today one tap loads the
+      defaults.
+    - **AM32 layouts the table does not know** open read-only, with the hex
+      view and a backup file, marked as not verified. Today the list does
+      not open for a layout other than 2 to 4.
 
     Not a question, recorded here: an ESC set to `EDT ARM` does not run on
     the tester, which sends zero frames after its EDT enable. Sending the
@@ -710,13 +764,17 @@ still pass their check. The notices name every component whose code is in the
 image, with its pinned version and its licence text copied from the licence
 files that ship with it; a missing or empty licence section fails the run
 before anything is published.
-Each run is titled `Release <tag>`, which Docs reads to find the tag. The
-version is 0.1.0 and no MiniRcBench release exists yet; v0.1.0 is the first
-tag.
+A tag with a suffix, such as `v0.1.0-rc1`, is published as a GitHub
+pre-release. Each run is titled `Release <tag>`, which Docs reads to find
+the tag. The version is 0.1.0 and no MiniRcBench release exists yet. By the
+owner's decision of 2026-11-14, v0.1.0-rc1 is to be tagged now as a
+pre-release, an image for testing with no manual published, and v0.1.0
+after the bench checks; neither tag exists yet.
 
 **Docs** (`.github/workflows/docs.yml`): mirrors `wiki/` to the GitHub wiki
-after every successful Release run, from a tag push or started by hand, and
-can be started by hand itself. The wiki is
+after every successful Release run of a tag without a pre-release suffix,
+from a tag push or started by hand, and can be started by hand itself. A
+pre-release publishes no manual. The wiki is
 published per release on purpose, so it describes firmware that can be
 downloaded.
 

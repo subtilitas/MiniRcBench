@@ -34,7 +34,8 @@ Die Platine liest `LOGS` einmal, bei der ersten Aufzeichnung nach dem
 Einbinden der Karte (Einschalten, `RETRY MOUNT`, das Ende von `USB DRIVE`,
 das neue Einbinden durch ein Werkzeug), und zählt von dort weiter. Mit vielen
 Logs auf der Karte liest dieser erste Start mehr von der Karte: einen
-512-Byte-Block je 16 Dateien mit kurzen Namen.
+512-Byte-Block je 16 Dateien mit kurzen Namen. Der SD-LOG-Bildschirm nennt
+die letzte Aufzeichnung der Sitzung (siehe `FILE` unten).
 
 Nach `LOG99999.BFL` ist keine Nummer mehr frei: Keine Aufzeichnung beginnt,
 und der Hinweis lautet `NO LOG STARTED: LOG99999.BFL EXISTS`. Verschieb die

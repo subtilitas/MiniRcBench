@@ -31,7 +31,8 @@ date the files carry is not verified.
 The board reads `LOGS` once, at the first log after the card is mounted
 (power-up, `RETRY MOUNT`, the end of `USB DRIVE`, a tool's remount), and
 counts on from there. With many logs on the card that first start reads
-more of the card: one 512-byte block per 16 files with short names.
+more of the card: one 512-byte block per 16 files with short names. The SD
+LOG screen names the last log of the session (see `FILE` below).
 
 After `LOG99999.BFL` no number is left: no log starts, and the note reads
 `NO LOG STARTED: LOG99999.BFL EXISTS`. Move the logs off the card on a

@@ -345,9 +345,7 @@ Die Zeile am unteren Rand sagt, wohin die Sicherung geht:
 `NO CARD`, `CARD ON USB` und `NO BACKUP ON THE CARD` stehen in Bernstein: Die
 Werte des Servos vor dem ersten Schreiben liegen nur im Speicher, bis ein
 späteres Schreiben mit eingebundener Karte sie sichert; LEAVE oder ein
-Stromausfall verliert sie. Ohne Karte geht das Schreiben trotzdem durch. Ob es
-abgelehnt werden oder ein zweites Halten brauchen soll, ist beim Eigentümer
-offen.
+Stromausfall verliert sie. Ohne Karte geht das Schreiben trotzdem durch.
 
 **Ein zweites Halten von 1 s schreibt.** Zuerst kommen die Schritte auf der
 Karte:

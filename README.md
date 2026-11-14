@@ -35,9 +35,11 @@ under DIAGNOSTICS, the reason for the last restart and the time since boot
 (design note `docs/design/diagnostics.md`).
 
 Two features are designed and not built. An S.BUS (Futaba's serial bus for
-receiver channels) receiver monitor and a PPM (pulse-position modulation)
-output are described in `docs/design/rx-signals.md`; rcbench's S.BUS decoder
-is in the tree and tested on the host, and the firmware does not build it.
+receiver channels) receiver monitor is described in
+`docs/design/rx-signals.md`, with an S.BUS output that the owner decided on
+and that is not designed yet; rcbench's S.BUS decoder is in the tree and
+tested on the host, and the firmware does not build it. A PPM
+(pulse-position modulation) output is not built, by the owner's decision.
 Menu structure B is described in `docs/design/menu-b.md`; its building
 blocks, slice 1 of 10, are in the tree, and no screen looks different yet.
 
@@ -603,28 +605,32 @@ A wrong ESC pin produces no error: the ESC receives no frames. **LINK** on this
 screen shows the result of each pin change. A non-zero packet rate means the
 pin is correct.
 
-The settings block is version 5 (`SETTINGS_VERSION`). A whole block of
-version 2, 3 or 4 is carried over (`settingsCarriedOver()`): `settings.cpp`
-describes each older layout as byte offsets, recovered from the commits
-that wrote it (version 2: 12 bytes of payload, the CRC at byte 20; versions
-3 and 4: 14 bytes, the CRC at byte 24), and the host suite builds each
-block byte by byte. Every field the old layout has keeps its value, judged
-by `settingsValidate()` as a version 5 block is; every newer field takes
-its default, CURRENT SENSE `NONE`. A version 3 SERVO SUPPLY of 1 named an
+The settings block is version 5 (`SETTINGS_VERSION`). By the owner's
+decision of 2026-11-14 a whole block of version 2, 3 or 4 is carried over
+(`settingsCarriedOver()`): `settings.cpp` describes each older layout as
+byte offsets, recovered from the commits that wrote it (version 2: 12 bytes
+of payload, the CRC at byte 20; versions 3 and 4: 14 bytes, the CRC at
+byte 24), and the host suite builds each block byte by byte. Whole means
+the magic, the version, that layout's payload size and its CRC-32 right.
+Every field the old layout has keeps its value, judged by
+`settingsValidate()` as a version 5 block is; every newer field takes its
+default, CURRENT SENSE `NONE`. A version 3 SERVO SUPPLY of 1 named an
 enable on GP0, the ESC wire's pin since version 4, and loads as `NONE`; an
 ESC pin on GP28 or GP29 from a block before version 4 is not free here and
 takes the default, KISS on such a pin is switched off, and a KISS pin this
-board does not free takes the default. DshotDisplay 2.x's version 2 block
-carries over the same way (DshotDisplay's `src/settings.h` at its commit
-b9e94dc, version 2, the same layout). Flash is not rewritten at the load:
-the old block stays the only copy until a save lands, so a power loss at
-boot cannot lose it, and every boot until then carries it over again. Until
-a save lands the splash shows its two lines, MENU's SETTINGS row `UPDATED`,
-and the note line `CARRIED OVER BY UPDATE - CHECK, SAVE` while nothing else
-is pending; HOLD TO SAVE writes a version 5 block even with nothing changed.
+board does not free takes the default. DshotDisplay 2.x's block carries
+over the same way: its `src/settings.h` at the tags v2.0 and v2.3 and at
+b9e94dc, the file's last change, holds version 2 with the same layout.
+Flash is not rewritten at the load: the old block stays the only copy until
+a save lands, so a power loss at boot cannot lose it, and every boot until
+then carries it over again. Until a save lands the splash shows its two lines,
+MENU's SETTINGS row `UPDATED`, and the note line
+`CARRIED OVER BY UPDATE - CHECK, SAVE` while nothing else is pending; HOLD
+TO SAVE writes a version 5 block even with nothing changed.
 
-A whole block of a version with no layout here, 1 or above 5, is discarded,
-and the compiled defaults load, every setting and the ESC pin included.
+A whole block of a version with no layout here, 1 or above 5, or of version
+2, 3 or 4 with another layout's payload size, is discarded, and the
+compiled defaults load, every setting and the ESC pin included.
 DshotDisplay discards this project's blocks the same way. Such a block (the
 magic, another version, at most `SETTINGS_OTHER_MAX` bytes of payload and
 its own CRC right) sets `settingsResetByUpdate()` until a save lands: the
@@ -1398,9 +1404,9 @@ line then reads, in amber, `NO CARD: OLD VALUES LOST AT LEAVE` or
 `NO BACKUP ON THE CARD: LOST AT LEAVE` when the card took the record and
 refused the backup: until a later write with a card mounted saves it, the
 session's backup is the only copy of the
-servo's old values, and LEAVE, REBOOT or a power loss ends it. Whether such a
-write should be refused or need a second hold is open to the owner
-(STATUS.md, open item 20). A card that is
+servo's old values, and LEAVE, REBOOT or a power loss ends it. Such a write
+stays allowed, by the owner's decision of 2026-11-14 (STATUS.md, open item
+20). A card that is
 mounted but takes neither the backup nor the record stops the write before
 any frame:
 `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
@@ -1580,9 +1586,9 @@ line then reads, in amber, `NO CARD: OLD VALUES LOST AT LEAVE` or
 `NO BACKUP ON THE CARD: LOST AT LEAVE` when the card took the record and
 refused the backup: until a later write with a card mounted saves it, the
 session's backup is the only copy of the
-servo's old values, and LEAVE or a power loss ends it. Whether such a
-write should be refused or need a second hold is open to the owner
-(STATUS.md, open item 20). A card that is
+servo's old values, and LEAVE or a power loss ends it. Such a write stays
+allowed, by the owner's decision of 2026-11-14 (STATUS.md, open item 20). A
+card that is
 mounted but takes neither the backup nor the record stops the write before
 any frame:
 `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
@@ -2073,8 +2079,10 @@ compiles by hand. `check_docs.py` enforces documentation precisely — public AP
 signatures, no dangling `@ref` — where Doxygen's `WARN_IF_UNDOCUMENTED` would
 also demand a comment on every file-static `s_scroll`.
 
-`docs.yml` publishes `wiki/` to the GitHub wiki after every successful Release run, from a
-tag push or started by hand, so the wiki describes firmware that can be downloaded. It
+`docs.yml` publishes `wiki/` to the GitHub wiki after every successful Release run of a
+tag without a pre-release suffix, from a tag push or started by hand, so the wiki
+describes firmware that can be downloaded. A pre-release such as `v0.1.0-rc1` publishes no
+manual. It
 renders the screenshots, runs `tools/check_wiki.py`, and can be run by hand for any `v*`
 tag; without one it takes the newest tag that has no pre-release suffix.
 
@@ -2105,7 +2113,8 @@ SHA256SUMS.txt
 The workflow refuses six things:
 
 - **A tag that names another version**: the tag is `v`, the version in
-  `src/version.h`, and an optional pre-release suffix.
+  `src/version.h`, and an optional pre-release suffix. A tag with a suffix
+  is published as a GitHub pre-release.
 - **Building from failing code**: host tests and documentation checks run first.
 - **Publishing an implausible image**: each `.uf2` is checked for the `UF2\n`
   magic and a size that is a multiple of 512 bytes.

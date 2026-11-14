@@ -44,6 +44,8 @@ protocol.
 
 ### Added
 
+- The Release workflow publishes a tag with a suffix, such as `v0.1.0-rc1`,
+  as a GitHub pre-release, and the Docs workflow publishes no manual for it.
 - The splash shows `TOUCH CONTROLLER NOT FOUND` in amber while the touch
   controller has not answered since `touchInit()`: the driver records
   whether it has answered (`touchAnswered()`), and the splash reads the
