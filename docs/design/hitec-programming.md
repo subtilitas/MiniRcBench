@@ -740,9 +740,10 @@ y   0 | HITEC SERVO                      [ BACK ]|
   ([classic checksum](#classic-checksum)).
 - A value the draft holds other than the servo's is marked `*` before the
   name.
-- The strip names the model (`hitec_identify()`, `hitec_model_name()`), the
-  pin, and the backup file once the first write has saved it,
-  `BACKUP IN MEMORY` before. A classic strip adds the version, `V16`.
+- The strip names, two spaces apart, the model (`hitec_identify()`,
+  `hitec_model_name()`), the backup file once the first write has saved it,
+  `BACKUP IN MEMORY` before, and the pin. A classic strip adds the version,
+  `V16`, last.
 - A model rcbench has not measured is read and written in its series'
   layout (`hitec_reg.h`), as rcbench's panel does
   ([decision 12](#decisions-of-the-owner)). The write page adds, in amber,
@@ -816,7 +817,7 @@ HOLD TO WRITE opens the write page rather than writing at once.
 
 ```
 y   0 | HITEC WRITE                      [ BACK ]|
-   40 | 2 VALUES                                 |
+   40 | 2 CHANGES                                |
    62 | SPEED            60 %  ->  30 %          |
    82 | DIRECTION          CW  ->  CCW           |
    94 | KEEP THE SERVO HORN CLEAR.               |  always its line
@@ -829,10 +830,12 @@ y   0 | HITEC WRITE                      [ BACK ]|
 ```
 
 - The page lists the changed parameters from where the servo stood when the
-  page opened, a changed ID first, then in the field list's order, 6 at most
-  and `AND n MORE`. A row is 12 px, or 22 px when its value goes under its
-  label. A value whose stored value changes and whose text does not carries
-  its stored value, `60 % (12) -> 60 % (13)`, as KST's `kstValuePair()`.
+  page opened, a changed ID first, then in the field list's order, 4 at most
+  and `AND n MORE`, as KST's page ([menu-b.md](menu-b.md#decisions) decision
+  14). The strip counts them, `1 CHANGE`, `2 CHANGES`. A row is 12 px, or
+  22 px when its value goes under its label. A value whose stored value
+  changes and whose text does not carries its stored value,
+  `60 % (12) -> 60 % (13)`, as KST's `kstValuePair()`.
 - `KEEP THE SERVO HORN CLEAR.` shows on the session's first write and on
   every write that changes DIRECTION, NEUTRAL, CENTRE or an end point, as
   rcbench's panel does.
@@ -1344,9 +1347,12 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
      (`hitecWritten()`), so a REPAIR alone opens the write page; the write
      page lists the parameters that go to the servo and not the cell 0x1C
      balance of other edits.
-   - The strip drops the pin, then the backup, when the line would reach
-     the MODE chip at x 197: a classic strip reads
-     `HS-5645MG V16 BACKUP IN MEMORY`.
+   - The strip drops items from the right, the version, then the pin, then
+     the backup, when the line would come within 4 px of the MODE chip at
+     x 197 (`uiChipX()`): a classic strip reads
+     `HS-5645MG  BACKUP IN MEMORY`, and `HS-5645MG  BACKUP HT001  GP0` once
+     the backup is on the card ([menu-b.md](menu-b.md#decisions) decision
+     14).
    - The write page shows the ID note in amber when the write changes the
      D series ID to another value than 0, as a LOAD can.
    - A read keeps the pending edits: the writable addresses they changed

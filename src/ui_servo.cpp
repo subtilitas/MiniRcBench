@@ -116,19 +116,31 @@ static_assert(SERVO_DIAL_Y - SERVO_DIAL_ARC_R - 4 > 82,
 #define SET_LIST_H   (SET_LIST_Y1 - SET_LIST_Y0 + 1)
 #define SET_EDIT_Y   218
 #define SET_EDIT_H   44
-#define SET_EDIT_W   58
-#define SET_FOOT_Y   268
-#define SET_FOOT_H   46
+#define SET_EDIT_W   UI_EDIT_BTN_W  /**< - and +, 44 px. */
+#define SET_FOOT_Y   UI_FOOT_Y      /**< HOLD TO APPLY and DEFAULTS, y 268 to 313. */
+#define SET_FOOT_H   UI_FOOT_H
 /** @} */
 
-static const UiRect BTN_MINUS    = { 6, SET_EDIT_Y, SET_EDIT_W, SET_EDIT_H };
-static const UiRect BTN_PLUS     = { GFX_W - SET_EDIT_W - 6, SET_EDIT_Y, SET_EDIT_W, SET_EDIT_H };
-static const UiRect BTN_APPLY    = { 6, SET_FOOT_Y, 140, SET_FOOT_H };
-static const UiRect BTN_DEFAULTS = { 152, SET_FOOT_Y, 82, SET_FOOT_H };
+static const UiRect BTN_MINUS    = { UI_EDGE, SET_EDIT_Y, SET_EDIT_W, SET_EDIT_H };
+static const UiRect BTN_PLUS     = { GFX_W - SET_EDIT_W - UI_EDGE, SET_EDIT_Y, SET_EDIT_W, SET_EDIT_H };
+/** @brief The two-button footer, 6/150 and 162/72, as SETTINGS and SERVO's own. */
+static const UiRect BTN_APPLY    = { UI_EDGE, SET_FOOT_Y, 150, SET_FOOT_H };
+static const UiRect BTN_DEFAULTS = { 162, SET_FOOT_Y, 72, SET_FOOT_H };
 /** @brief The SET list's viewport. */
 static const UiRect SET_VIEW     = { 0, SET_LIST_Y0, GFX_W, SET_LIST_H };
 
 static_assert(SET_LIST_Y1 < SET_EDIT_Y, "the list overlaps the editor bar");
+/** @brief SET's footer labels: HOLD TO APPLY and DEFAULTS at scale 1, STOP at scale 2. */
+#define SET_APPLY_LABEL    "HOLD TO APPLY"
+#define SET_DEFAULTS_LABEL "DEFAULTS"
+#define SET_STOP_LABEL     "STOP"
+/** @brief Width of a scale-1 literal @p s, px, as gfxTextW() measures it. */
+#define SET_LABEL_W(s)     (6 * (int)(sizeof(s) - 1) - 1)
+// Each label 4 px clear of each side of its button: 150 px and 72 px.
+static_assert(SET_LABEL_W(SET_APPLY_LABEL) + 2 * 4 <= 150 &&
+                  SET_LABEL_W(SET_DEFAULTS_LABEL) + 2 * 4 <= 72 &&
+                  2 * SET_LABEL_W(SET_STOP_LABEL) + 2 * 4 <= 72,
+              "a SET footer label does not fit its button");
 static_assert(SET_EDIT_Y + SET_EDIT_H <= SET_FOOT_Y, "the editor bar overlaps the footer");
 static_assert(SET_FOOT_Y + SET_FOOT_H <= GFX_H, "the footer runs off the panel");
 static_assert(SET_ROW_H >= UI_LIST_TAP_MIN && SET_ROW_PITCH > SET_ROW_H,
@@ -932,10 +944,10 @@ static void drawSet(int holdPct) {
 	if (changed(3, &kf, sizeof(kf))) {
 		gfxRect(0, SET_FOOT_Y - 4, GFX_W, GFX_H - SET_FOOT_Y + 4, C_BG);
 		uiHoldDrawBar(&s_hold, BTN_APPLY, SET_FOOT_Y - 4, millis());
-		uiButton(BTN_APPLY, "HOLD TO APPLY", s_hold.holding ? C_RED : C_PANEL,
+		uiButton(BTN_APPLY, SET_APPLY_LABEL, s_hold.holding ? C_RED : C_PANEL,
 		         s_hold.holding ? C_ONACCENT : C_TEXT, 1, s_hold.holding, applyOk);
-		if (s_st.running) uiButton(BTN_DEFAULTS, "STOP", C_RED, C_ONACCENT, 2, kf.dp);
-		else              uiButton(BTN_DEFAULTS, "DEFAULTS", C_PANEL, C_AMBER, 1, kf.dp);
+		if (s_st.running) uiButton(BTN_DEFAULTS, SET_STOP_LABEL, C_RED, C_ONACCENT, 2, kf.dp);
+		else              uiButton(BTN_DEFAULTS, SET_DEFAULTS_LABEL, C_PANEL, C_AMBER, 1, kf.dp);
 	}
 }
 

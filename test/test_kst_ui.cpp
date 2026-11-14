@@ -303,6 +303,9 @@ static void testEditAndWrite() {
 	                                              uiKstView() == KstView::Write);
 	checkControlTable("KST write page");
 	kstFrames(1);
+	checkTrue("the strip counts 1 CHANGE, the leave page's word",
+	          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "1 CHANGE", C_DIM, C_BG, 1) &&
+	          !fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "1 FIELD", C_DIM, C_BG, 1));
 	fakeDumpFrame("shot_kst_write.ppm");
 
 	// Core1 runs for 5 ms in every card call, as it does beside core0 on
@@ -753,6 +756,8 @@ static void testManyChangesAndLeave() {
 	checkTrue("a hold opens the write page", holdUntilGone(UI_FIX(KstCtl::Write)) &&
 	                                        uiKstView() == KstView::Write);
 	kstFrames(1);
+	checkTrue("the strip counts 5 CHANGES", fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "5 CHANGES", C_DIM, C_BG, 1));
+	checkTrue("4 rows, then AND 1 MORE at y 142", lineIs(UI_BODY_Y + 4 * 20, "AND 1 MORE", C_DIM));
 	fakeDumpFrame("shot_kst_write_many.ppm");
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));

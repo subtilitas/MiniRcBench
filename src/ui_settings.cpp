@@ -67,12 +67,12 @@
 #define BAR_X       235         /**< The scroll bar. */
 #define LINK_Y      242         /**< Live link readout. */
 #define NOTE_Y      254         /**< One line saying what state the settings are in. */
-#define FOOT_Y      268
-#define FOOT_H      48
-#define SAVE_X      8
+#define FOOT_Y      UI_FOOT_Y   /**< The two-button footer, y 268 to 313. */
+#define FOOT_H      UI_FOOT_H
+#define SAVE_X      UI_EDGE     /**< HOLD TO SAVE, x 6 to 155. */
 #define SAVE_W      150
-#define DEF_X       162
-#define DEF_W       70
+#define DEF_X       162         /**< HOLD DEFAULTS, x 162 to 233. */
+#define DEF_W       72
 #define CAP_LABEL_DY 12         /**< A captioned row's label, from the row's top. */
 #define CAP_TEXT_DY  25         /**< Its caption, from the row's top. */
 #define VAL_SUB_DY   8          /**< A value with a connector line under it, from the row's top. */
@@ -93,11 +93,19 @@ static_assert(FOOT_Y + FOOT_H <= GFX_H, "the footer runs off the panel");
 static_assert(BTN_M_X + BTN_W < BTN_P_X, "the row buttons overlap");
 static_assert(BTN_P_X + BTN_W < BAR_X && BTN_M_X + TOGGLE_W < BAR_X,
               "a row button runs into the scroll bar");
-static_assert(DEF_X + DEF_W <= GFX_W - 8, "RESET runs off the panel");
-/** @brief RESET's label: a hold, as HOLD TO SAVE says. 10 characters, 59 px. */
-#define RESET_LABEL "HOLD RESET"
-static_assert(6 * (int)(sizeof(RESET_LABEL) - 1) - 1 + 2 * 4 <= DEF_W,
-              "HOLD RESET does not fit its button with 4 px each side");
+static_assert(SAVE_X + SAVE_W + 6 == DEF_X && DEF_X + DEF_W == GFX_W - UI_EDGE,
+              "the footer is not 6/150 and 162/72");
+/**
+ * @brief DEFAULTS' label, two scale-1 lines: a hold, as HOLD TO SAVE says.
+ *        `HOLD DEFAULTS` on one line is 77 px, wider than the button.
+ */
+#define DEFAULTS_LINE1 "HOLD"
+#define DEFAULTS_LINE2 "DEFAULTS"
+/** @brief The two lines' pitch: 7 px of text and 5 px between them. */
+#define DEFAULTS_PITCH 12
+static_assert(6 * (int)(sizeof(DEFAULTS_LINE2) - 1) - 1 + 2 * 4 <= DEF_W,
+              "DEFAULTS does not fit its button with 4 px each side");
+static_assert(DEFAULTS_PITCH + 7 + 2 * 4 <= FOOT_H, "the two lines do not fit the button");
 static_assert(CAP_TEXT_DY >= CAP_LABEL_DY + 7 + 4 && CAP_TEXT_DY + 7 <= ROW_H,
               "a row's caption overlaps its label or leaves the row");
 static_assert(SUB_DY >= VAL_SUB_DY + 14 + 4 && SUB_DY + 7 <= ROW_H &&
@@ -124,8 +132,8 @@ static bool     s_changed = false;
  */
 static UiHold   s_saveHold;
 /**
- * @brief HOLD RESET: the compiled defaults load after @ref UI_HOLD_MS on the
- *        button, once per press, as HOLD TO SAVE.
+ * @brief HOLD DEFAULTS: the compiled defaults load after @ref UI_HOLD_MS on
+ *        the button, once per press, as HOLD TO SAVE.
  */
 static UiHold   s_resetHold;
 
@@ -134,12 +142,12 @@ enum class SaveOutcome : uint8_t { None, Ok, Failed, FailedArmed };
 static SaveOutcome s_saveOutcome = SaveOutcome::None;
 
 /**
- * @brief RESET loaded the defaults and nothing has changed since: the note
+ * @brief DEFAULTS loaded the defaults and nothing has changed since: the note
  *        line says `DEFAULTS LOADED - RESTART TO UNDO` while restarting would
  *        undo it (resetNoteShown()).
  */
 static bool s_resetNote = false;
-/** @brief The live settings as RESET left them, after validation. */
+/** @brief The live settings as DEFAULTS left them, after validation. */
 static Settings s_resetLive;
 
 /** @brief True when validation last had to repair something the user asked for. */
@@ -616,7 +624,7 @@ static void drawItem(uint8_t i) {
 }
 
 /**
- * @brief Whether RESET's note is true now: RESET was the last change (the
+ * @brief Whether DEFAULTS' note is true now: DEFAULTS was the last change (the
  *        tick ends s_resetNote at any other, and at every completed HOLD TO
  *        SAVE, saved or not), and the live settings differ from what the
  *        next boot loads (the saved settings, or the compiled defaults when
@@ -665,7 +673,7 @@ static bool fitView() {
  * Ordered by urgency. First what the last press did: a failed save, which
  * ends at the next save or on leaving SETTINGS, then a setting the firmware
  * had to repair, because the user asked for something and did not get it,
- * which ends at the next change. RESET's note outranks UNSAVED:
+ * which ends at the next change. DEFAULTS' note outranks UNSAVED:
  * it is the same state, said with what undoes it. Last, with nothing
  * pending, a reset or a carry-over by an update before the plain saved or
  * default state.
@@ -763,15 +771,22 @@ static void drawAll() {
 	// is the thing that reports.
 	bool holding = s_saveHold.holding;
 	uiHoldDrawBar(&s_saveHold, BTN_SAVE, FOOT_Y - 4, millis());
-	uiButton(BTN_SAVE, "HOLD TO SAVE", holding ? C_BLUE : C_PANEL,
+	// Every hold fills C_RED with C_ONACCENT text while held.
+	uiButton(BTN_SAVE, "HOLD TO SAVE", holding ? C_RED : C_PANEL,
 	         holding ? C_ONACCENT : C_TEXT, 1, holding);
-	// HOLD RESET's bar sits over its own button, as SAVE's does. While held
-	// it fills C_RED with C_ONACCENT text, as every other src/ui_hold.* hold
-	// but SAVE does.
+	// HOLD DEFAULTS' bar sits over its own button, as SAVE's does; its label
+	// takes two lines, centred, and moves 1 px down and right while held, as
+	// uiButton() moves a pressed label.
 	bool resetting = s_resetHold.holding;
 	uiHoldDrawBar(&s_resetHold, BTN_DEFAULTS, FOOT_Y - 4, millis());
-	uiButton(BTN_DEFAULTS, RESET_LABEL, resetting ? C_RED : C_PANEL,
-	         resetting ? C_ONACCENT : C_AMBER, 1, resetting);
+	uiButton(BTN_DEFAULTS, "", resetting ? C_RED : C_PANEL, C_AMBER, 1, resetting);
+	uint16_t fg = resetting ? C_ONACCENT : C_AMBER;
+	int d = resetting ? 1 : 0;
+	int y = BTN_DEFAULTS.y + d + (BTN_DEFAULTS.h - DEFAULTS_PITCH - 7) / 2;
+	gfxText(BTN_DEFAULTS.x + d + (BTN_DEFAULTS.w - gfxTextW(DEFAULTS_LINE1, 1)) / 2, y,
+	        DEFAULTS_LINE1, fg, 1);
+	gfxText(BTN_DEFAULTS.x + d + (BTN_DEFAULTS.w - gfxTextW(DEFAULTS_LINE2, 1)) / 2,
+	        y + DEFAULTS_PITCH, DEFAULTS_LINE2, fg, 1);
 }
 
 /**
@@ -788,7 +803,7 @@ static void applyLive() {
 
 	escTaskConfigure(s->dshotPin, s->dshotKbaud, s->kissEnable != 0, s->kissPin);
 	// Pure bookkeeping (the eRPM divisor), so it always follows the settings:
-	// RESET restores the pole count the RPM readout divides by.
+	// DEFAULTS restores the pole count the RPM readout divides by.
 	escSetPoles(s->poles);
 	themeSet(s->highContrast ? Theme::HighContrast : Theme::Dark);
 	st7789SetBacklight(themeBacklight(s->backlight));
@@ -835,7 +850,7 @@ bool uiSettingsTick(const TouchState *t) {
 		} else {
 			s_saveOutcome = settingsSave() ? SaveOutcome::Ok : SaveOutcome::Failed;
 		}
-		// Every completed hold ends RESET's note, whatever the outcome: a
+		// Every completed hold ends DEFAULTS' note, whatever the outcome: a
 		// save whose read-back failed has already erased and written the
 		// sector, so what the next boot loads is no longer known.
 		s_resetNote = false;
@@ -843,7 +858,7 @@ bool uiSettingsTick(const TouchState *t) {
 	} else if (wasHolding || s_saveHold.holding) {
 		s_redraw = true;
 	}
-	// --- hold to reset: the same rules. Not refused while armed, as the tap
+	// --- hold for the defaults: the same rules. Not refused while armed, as the tap
 	//     before it was not: MENU disarms, so SETTINGS never opens armed ---
 	bool wasResetting = s_resetHold.holding;
 	bool reset = uiHoldUpdate(&s_resetHold, BTN_DEFAULTS, s_t, true, now);
@@ -909,7 +924,7 @@ bool uiSettingsTick(const TouchState *t) {
 		if (s_saveOutcome == SaveOutcome::Ok) s_saveOutcome = SaveOutcome::None;
 		s_redraw = true;
 	}
-	// RESET's note: set by the hold that loaded the defaults (BACK returned
+	// DEFAULTS' note: set by the hold that loaded the defaults (BACK returned
 	// above), ended by any change after it.
 	if (reset) {
 		memcpy(&s_resetLive, settings(), sizeof(s_resetLive));
@@ -966,7 +981,7 @@ static uint8_t settingsControls(UiControl *out, uint8_t max) {
 		}
 	}
 	uiControlAdd(out, &n, max, UI_FIX(SettingsCtl::Save), BTN_SAVE, true);
-	uiControlAdd(out, &n, max, UI_FIX(SettingsCtl::Reset), BTN_DEFAULTS, true);
+	uiControlAdd(out, &n, max, UI_FIX(SettingsCtl::Defaults), BTN_DEFAULTS, true);
 	return n;
 }
 

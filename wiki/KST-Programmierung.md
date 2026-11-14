@@ -233,13 +233,13 @@ im Zweifel ist.
 **Halte `HOLD TO WRITE` 1 s lang.** Während du hältst, füllt sich ein Balken.
 Die Schreibseite öffnet sich und schreibt noch nichts.
 
-<img src="img/kst-write.png" width="240" alt="Die Schreibseite, ein Feld"> <img src="img/kst-write-many.png" width="240" alt="Die Schreibseite, fünf Felder, AND 1 MORE">
+<img src="img/kst-write.png" width="240" alt="Die Schreibseite, 1 CHANGE"> <img src="img/kst-write-many.png" width="240" alt="Die Schreibseite, 5 CHANGES, AND 1 MORE">
 
-Die Schreibseite heißt `KST WRITE`. Die Leiste zählt die Felder, `1 FIELD`
-oder `2 FIELDS`. Jedes geänderte Feld ist eine Zeile, `DEAD BAND` und
-`2.0 US -> 2.2 US`, bis zu vier, danach `AND 3 MORE`. Bernsteinfarbene Zeilen
-mit einem `*` am Anfang nennen die weichen Regeln, die gelten. Die Zeile am
-unteren Rand sagt, wohin die Sicherung geht:
+Die Schreibseite heißt `KST WRITE`. Die Leiste zählt die Änderungen,
+`1 CHANGE` oder `2 CHANGES`. Jedes geänderte Feld ist eine Zeile,
+`DEAD BAND` und `2.0 US -> 2.2 US`, bis zu vier, danach `AND 3 MORE`.
+Bernsteinfarbene Zeilen mit einem `*` am Anfang nennen die weichen Regeln,
+die gelten. Die Zeile am unteren Rand sagt, wohin die Sicherung geht:
 
 | Zeile | Wann |
 |---|---|

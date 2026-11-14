@@ -215,10 +215,10 @@ something is pending, no hard limit is broken, and the servo is not in doubt.
 **Hold `HOLD TO WRITE` for 1 s.** A bar fills while you hold. The write page
 opens and writes nothing.
 
-<img src="img/kst-write.png" width="240" alt="The write page, one field"> <img src="img/kst-write-many.png" width="240" alt="The write page, five fields, AND 1 MORE">
+<img src="img/kst-write.png" width="240" alt="The write page, 1 CHANGE"> <img src="img/kst-write-many.png" width="240" alt="The write page, 5 CHANGES, AND 1 MORE">
 
-The write page is titled `KST WRITE`. The strip counts the fields, `1 FIELD`
-or `2 FIELDS`. Each changed field is one line, `DEAD BAND` and
+The write page is titled `KST WRITE`. The strip counts the changes,
+`1 CHANGE` or `2 CHANGES`. Each changed field is one line, `DEAD BAND` and
 `2.0 US -> 2.2 US`, up to four, then `AND 3 MORE`. Amber lines starting with
 `*` give the soft rules that apply. The line at the bottom says where the
 backup goes:

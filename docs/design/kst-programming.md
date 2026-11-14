@@ -652,7 +652,7 @@ its slice C.
   `GP29` and stop at the ends. A change applies at once through
   `servoSupplyConfigure()`; no claim holds
   while SETTINGS is open, so nothing is driven. HOLD TO SAVE stores it with
-  every other row, and HOLD RESET sets it to `OWN` with the other compiled
+  every other row, and HOLD DEFAULTS sets it to `OWN` with the other compiled
   defaults.
 - Version: the row adds the `servoSupply` field to the settings block, at
   version 3. The layout is version 4, with the signal pins on GP0 and GP1
@@ -1096,7 +1096,7 @@ HOLD TO WRITE opens the write page rather than writing at once.
 
 ```
 y   0 | KST WRITE                        [ BACK ]|
-   40 | 2 FIELDS                                 |
+   40 | 2 CHANGES                                |
    62 | DEAD BAND        2.0 US  ->  3.0 US      |
    82 | SOFT START            1  ->  0           |
   102 | * WITHOUT SOFT START THE SERVO JUMPS     |  C_AMBER, 12 px a line,
@@ -1629,7 +1629,9 @@ decisions 11 and 12 come from that revision:
     rows at a 50 px pitch, − and + 44 × 44 px, toggles 94 × 44 px, values and
     toggle labels at scale 2 and labels at scale 1; four rows visible in a
     200 px viewport, a scroll range of 0 px to 200 px; the footer buttons
-    48 px tall. [menu.md](menu.md#settings) has the layout.
+    48 px tall. [menu.md](menu.md#settings) has the layout. Revised by
+    [menu-b.md](menu-b.md#decisions) decision 14: the footer buttons are
+    46 px tall, and RESET is HOLD DEFAULTS.
 
 Choices made in this design where review round 1 of PR #6 left the choice
 open; the owner has not decided them:

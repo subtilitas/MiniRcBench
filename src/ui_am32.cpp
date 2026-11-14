@@ -53,9 +53,9 @@
  */
 #define EDIT_Y       218
 #define EDIT_H       44
-#define EDIT_BTN_W   58
-#define BTN_MINUS_X  6
-#define BTN_PLUS_X   (GFX_W - EDIT_BTN_W - 6)
+#define EDIT_BTN_W   UI_EDIT_BTN_W  /**< - and +, 44 px. */
+#define BTN_MINUS_X  UI_EDGE
+#define BTN_PLUS_X   (GFX_W - EDIT_BTN_W - UI_EDGE)
 /** @} */
 
 #define FOOT_Y       UI_FOOT_Y  /**< Top of the write/revert/hex row. */
@@ -68,14 +68,14 @@ static const UiRect BTN_HEX    = { 180, FOOT_Y, 54, FOOT_H };
 /** @brief The editor bar's two steppers. */
 static const UiRect BTN_MINUS  = { BTN_MINUS_X, EDIT_Y, EDIT_BTN_W, EDIT_H };
 static const UiRect BTN_PLUS   = { BTN_PLUS_X,  EDIT_Y, EDIT_BTN_W, EDIT_H };
-/** @brief The OK button on the write-result screen. */
-static const UiRect BTN_OK     = { 70, 200, 100, 36 };
+/** @brief The OK button on the write-result screen: the wide button, as KST's and Hitec's. */
+static const UiRect BTN_OK     = { UI_EDGE, FOOT_Y, GFX_W - 2 * UI_EDGE, FOOT_H };
 /** @brief Top of the write's state or result. @see drawResultText() */
 #define RESULT_Y     140
 /** @brief Characters of a scale-1 line from x 8 to x 232. */
 #define RESULT_CHARS 37
 // The result's lines, the power-cycle line 30 px under its first, end above OK.
-static_assert(RESULT_Y + 30 + 7 < 200, "the result runs into OK");
+static_assert(RESULT_Y + 30 + 7 < FOOT_Y, "the result runs into OK");
 static_assert(sizeof(AM32_UI_POWER_CYCLE) - 1 <= RESULT_CHARS, "the power-cycle line runs off the panel");
 // The write's texts. Each status doWrite() sets fits one scale-1 line, as
 // the asserts below check, so drawResultText() never wraps.
@@ -172,6 +172,12 @@ static uint8_t    s_entry[AM32_SETTINGS_SIZE];
 static char       s_backupName[BACKUP_NAME_MAX] = "";
 /** @brief HOLD TO WRITE. */
 static UiHold     s_writeHold;
+/**
+ * @brief A press landed on the result page after the write ended. OK takes
+ *        only such a press: OK lies over HOLD TO WRITE, and the finger that
+ *        ended the hold lifts there.
+ */
+static bool       s_okPress = false;
 static uint8_t    s_layoutRev = 0;
 static bool       s_leaving = false;
 static bool       s_redraw = true;
@@ -458,14 +464,15 @@ static void drawRow(int index, int y, void *) {
  * @param y     Top of the line.
  */
 static void drawHexLine(int index, int y, void *) {
-	// 8 bytes per line keeps each row inside 240 px at scale 1.
+	// 8 bytes per line keeps each row inside 240 px at scale 1: 27
+	// characters, 161 px from x 8.
 	int base = index * 8;
 	char line[64];
 	int n = snprintf(line, sizeof(line), "%02X ", base);
 	for (int i = 0; i < 8 && base + i < AM32_SETTINGS_SIZE; i++) {
 		n += snprintf(line + n, sizeof(line) - n, "%02X ", s_eeprom[base + i]);
 	}
-	gfxText(6, y, line, C_DIM, 1);
+	gfxText(UI_MARGIN, y, line, C_DIM, 1);
 }
 
 static void drawList() {
@@ -555,7 +562,8 @@ static void drawWriting() {
 	// Not verified: the edits stay in the list, and the next hold of WRITE
 	// runs the write, and the backup if it is missing, again.
 	else if (s_nextStep) gfxTextCenter(RESULT_Y + 30, s_nextStep, UI_COL_WARN, 1);
-	uiButton(BTN_OK, "OK", C_PANEL, C_TEXT, 1, uiPressing(BTN_OK, s_frameTouch));
+	// Pressed only under a press that can act: not under the hold's finger.
+	uiButton(BTN_OK, "OK", C_PANEL, C_TEXT, 2, s_okPress && uiPressing(BTN_OK, s_frameTouch));
 }
 
 // ---------------------------------------------------------------------------
@@ -589,6 +597,7 @@ void uiAm32Enter() {
 	s_leaving = false;
 	s_redraw = true;
 	uiHoldReset(&s_writeHold);
+	s_okPress = false;
 	s_visibleCount = 0;
 	openList();
 #if AM32_FORCE_LOW_JUMP
@@ -966,11 +975,16 @@ bool uiAm32Tick(const TouchState *t) {
 
 		case S_WRITING:
 			if (strcmp(s_status, "WRITING...") == 0) {
+				s_okPress = false;
 				drawHeader();
 				drawWriting();
 				doWrite();
 				s_redraw = true;
-			} else if (uiTapped(BTN_OK, t)) {
+				break;
+			}
+			if (t && t->pressed) s_okPress = true;
+			if (s_okPress && uiTapped(BTN_OK, t)) {
+				s_okPress = false;
 				s_state = am32LayoutKnown(s_original) ? S_LIST : S_VIEW;
 				s_redraw = true;
 			}

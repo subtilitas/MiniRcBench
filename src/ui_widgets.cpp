@@ -109,9 +109,13 @@ void uiBackGuardDraw(int pending, const char *verb) {
 	                "BACK AGAIN DISCARDS THEM.", UI_COL_WARN);
 }
 
+int uiChipX(const char *text) {
+	return GFX_W - UI_MARGIN - (gfxTextW(text, 1) + 12);
+}
+
 void uiChip(const char *text, uint16_t fill) {
 	int w = gfxTextW(text, 1) + 12;
-	int x = GFX_W - UI_MARGIN - w;
+	int x = uiChipX(text);
 	gfxRoundRect(x, UI_STRIP_Y, w, UI_STRIP_H, 4, fill);
 	gfxText(x + 6, UI_STRIP_Y + (UI_STRIP_H - 7) / 2, text, C_ONACCENT, 1);
 }

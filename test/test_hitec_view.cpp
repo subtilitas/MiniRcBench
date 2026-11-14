@@ -399,7 +399,13 @@ static void testPageLayout() {
 
 	in = pageIn(8);
 	hitecPageLayout(in, &o);
-	checkTrue("eight values: six rows, AND 2 MORE at 134", o.rows == 6 && o.moreY == 134);
+	checkTrue("eight values: four rows, AND 4 MORE at 110", o.rows == 4 && o.moreY == 110);
+	in = pageIn(4);
+	hitecPageLayout(in, &o);
+	checkTrue("four values: four rows, no AND n MORE", o.rows == 4 && o.moreY < 0);
+	in = pageIn(5);
+	hitecPageLayout(in, &o);
+	checkTrue("five values: four rows, AND 1 MORE at 110", o.rows == 4 && o.moreY == 110);
 
 	// Everything at once: the horn, the ID note (2), FILE (1), MODEL (2),
 	// three rules (2, 2, 1), ten values, the second row wrapping.
@@ -433,9 +439,9 @@ static void testPageLayout() {
 	hitecPageLayout(in, &o);
 	checkTrue("six values under 6 reserved lines: four rows and AND 2 MORE",
 	          o.rows == 4 && o.moreY == 110 && o.hornY == 122 && o.modelY == 170);
-	in.values = 5;
+	in.values = 4;
 	hitecPageLayout(in, &o);
-	checkTrue("five: all five rows, no AND n MORE", o.rows == 5 && o.moreY < 0 && o.hornY == 122);
+	checkTrue("four: all four rows, no AND n MORE", o.rows == 4 && o.moreY < 0 && o.hornY == 110);
 
 	// Edges the screen cannot reach: reserved lines that leave no room.
 	in = pageIn(2);

@@ -514,10 +514,10 @@ static void testSettingsDiagnostics() {
 	tapId(UI_FIX(UI_BACK));
 }
 
-/** @brief Hold HOLD RESET until it fires, then lift. */
+/** @brief Hold HOLD DEFAULTS until it fires, then lift. */
 static void holdReset() {
-	pressId(UI_FIX(SettingsCtl::Reset));
-	holdId(UI_FIX(SettingsCtl::Reset), 41);
+	pressId(UI_FIX(SettingsCtl::Defaults));
+	holdId(UI_FIX(SettingsCtl::Defaults), 41);
 	fakeRelease(); menuFrames(1);
 }
 
@@ -587,7 +587,7 @@ static void testSettingsRows() {
 	          !ctlPresent(UI_ROW(SettingsRowId::BuiltFor, Toggle)));
 
 	holdReset();
-	checkInt("RESET restores the pole count", settings()->poles, DEFAULT_MOTOR_POLES);
+	checkInt("DEFAULTS restores the pole count", settings()->poles, DEFAULT_MOTOR_POLES);
 	checkInt("and the ceiling", settings()->maxThrottle, DEFAULT_MAX_THROTTLE);
 	checkInt("and the eRPM divisor follows", fakePoles(), DEFAULT_MOTOR_POLES);
 	tapId(UI_FIX(UI_BACK));
@@ -649,11 +649,11 @@ static void holdSave() {
 }
 
 /**
- * @brief RESET's note: shown while RESET's defaults are live and a restart
+ * @brief DEFAULTS' note: shown while the defaults DEFAULTS loaded are live and a restart
  *        would bring the saved values back, and at no other time.
  */
 static void testResetNote() {
-	section("SETTINGS: DEFAULTS LOADED - RESTART TO UNDO after RESET");
+	section("SETTINGS: DEFAULTS LOADED - RESTART TO UNDO after DEFAULTS");
 	static const char *const NOTE = "DEFAULTS LOADED - RESTART TO UNDO";
 	checkTrue("the note fits the line", UI_MARGIN + gfxTextW(NOTE, 1) <= GFX_W - UI_MARGIN);
 	openSettings();
@@ -664,7 +664,7 @@ static void testResetNote() {
 	          settings()->poles != DEFAULT_MOTOR_POLES);
 
 	holdReset();
-	checkTrue("RESET: the defaults live, unsaved", settingsDirty() &&
+	checkTrue("DEFAULTS: the defaults live, unsaved", settingsDirty() &&
 	          settings()->poles == DEFAULT_MOTOR_POLES);
 	checkTrue("the note reads DEFAULTS LOADED - RESTART TO UNDO", noteIs(NOTE, C_AMBER));
 	menuFrames(3);
@@ -681,40 +681,40 @@ static void testResetNote() {
 	// Another change ends it, also one that steps back to the default.
 	revealRow((int)SettingsRowId::Poles);
 	tapId(UI_ROW(SettingsRowId::Poles, Minus));
-	checkTrue("a change after RESET: UNSAVED", noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
+	checkTrue("a change after DEFAULTS: UNSAVED", noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
 	tapId(UI_ROW(SettingsRowId::Poles, Plus));
-	checkTrue("back at the default: still UNSAVED, not the RESET note",
+	checkTrue("back at the default: still UNSAVED, not the DEFAULTS note",
 	          settings()->poles == DEFAULT_MOTOR_POLES && settingsDirty() &&
 	          noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
 
 	// A save ends it: a restart loads these values now.
 	holdReset();
-	checkTrue("RESET again: the note", noteIs(NOTE, C_AMBER));
+	checkTrue("DEFAULTS again: the note", noteIs(NOTE, C_AMBER));
 	holdSave();
-	checkTrue("HOLD TO SAVE: SAVED, not the RESET note", !settingsDirty() && noteIs("SAVED", C_LIME));
+	checkTrue("HOLD TO SAVE: SAVED, not the DEFAULTS note", !settingsDirty() && noteIs("SAVED", C_LIME));
 	menuFrames(2);
 	checkTrue("and it does not come back", noteIs("SAVED", C_LIME));
 
-	// RESET while the defaults are what a restart loads: nothing to undo.
+	// DEFAULTS while the defaults are what a restart loads: nothing to undo.
 	holdReset();
-	checkTrue("RESET over saved defaults: no RESET note", !settingsDirty() && !noteIs(NOTE, C_AMBER));
+	checkTrue("DEFAULTS over saved defaults: no DEFAULTS note", !settingsDirty() && !noteIs(NOTE, C_AMBER));
 
 	// A change in KST's SERVO SUPPLY row, which writes the settings itself.
 	revealRow((int)SettingsRowId::Poles);
 	tapId(UI_ROW(SettingsRowId::Poles, Plus));
 	holdSave();
 	holdReset();
-	checkTrue("saved other poles, RESET: the note", noteIs(NOTE, C_AMBER));
+	checkTrue("saved other poles, DEFAULTS: the note", noteIs(NOTE, C_AMBER));
 	revealRow((int)SettingsRowId::ServoSupply);
 	tapId(UI_ROW(SettingsRowId::ServoSupply, Plus));
 	checkTrue("SERVO SUPPLY stepped: UNSAVED", settings()->servoSupply == 1 &&
 	          noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
 	tapId(UI_ROW(SettingsRowId::ServoSupply, Minus));
-	checkTrue("and back: still not the RESET note", noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
+	checkTrue("and back: still not the DEFAULTS note", noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
 
 	// A change made while SETTINGS is not open ends it too.
 	holdReset();
-	checkTrue("RESET again: the note", noteIs(NOTE, C_AMBER));
+	checkTrue("DEFAULTS again: the note", noteIs(NOTE, C_AMBER));
 	tapId(UI_FIX(UI_BACK));
 	settings()->backlight = (uint8_t)(settings()->backlight - 8);
 	tapId(menuRow(&UI_SETTINGS));
@@ -723,7 +723,7 @@ static void testResetNote() {
 
 	// A failed save ends it: the sector may already be erased and written.
 	holdReset();
-	checkTrue("RESET: the note", noteIs(NOTE, C_AMBER));
+	checkTrue("DEFAULTS: the note", noteIs(NOTE, C_AMBER));
 	fakeFlashSetWritable(false);
 	holdSave();
 	checkTrue("HOLD TO SAVE refused by the flash: SAVE FAILED",
@@ -731,7 +731,7 @@ static void testResetNote() {
 	tapId(UI_FIX(UI_BACK));
 	tapId(menuRow(&UI_SETTINGS));
 	menuFrames(2);
-	checkTrue("SETTINGS again: UNSAVED, not the RESET note",
+	checkTrue("SETTINGS again: UNSAVED, not the DEFAULTS note",
 	          settingsDirty() && noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
 	fakeFlashSetWritable(true);
 	tapId(UI_FIX(UI_BACK));
@@ -739,11 +739,11 @@ static void testResetNote() {
 }
 
 /**
- * @brief HOLD RESET: a tap loads nothing, 1000 ms on the button load the
+ * @brief HOLD DEFAULTS: a tap loads nothing, 1000 ms on the button load the
  *        defaults, a slide off cancels, and its bar and fill show the hold.
  */
 static void testResetHold() {
-	section("SETTINGS: HOLD RESET loads the defaults after a 1 s hold");
+	section("SETTINGS: HOLD DEFAULTS loads the defaults after a 1 s hold");
 	openSettings();
 	revealRow((int)SettingsRowId::Poles);
 	tapId(UI_ROW(SettingsRowId::Poles, Plus));
@@ -751,35 +751,43 @@ static void testResetHold() {
 	const uint8_t saved = settings()->poles;
 	checkTrue("saved poles other than the default", !settingsDirty() && saved != DEFAULT_MOTOR_POLES);
 
-	const UiRect r = ctlRect(UI_FIX(SettingsCtl::Reset));
-	checkTrue("the label reads HOLD RESET, amber, inside its 70 px",
-	          fakeTextIs(r.x + (r.w - gfxTextW("HOLD RESET", 1)) / 2, r.y + (r.h - 7) / 2,
-	                     "HOLD RESET", C_AMBER, C_PANEL, 1) &&
-	          gfxTextW("HOLD RESET", 1) == 59 && r.w == 70);
-	tapId(UI_FIX(SettingsCtl::Reset));
+	const UiRect r = ctlRect(UI_FIX(SettingsCtl::Defaults));
+	// Two lines, 12 px apart, centred in the 72 x 46 button: y 281 and 293.
+	checkTrue("the label reads HOLD over DEFAULTS, amber, centred",
+	          fakeTextIs(r.x + (r.w - gfxTextW("HOLD", 1)) / 2, r.y + 13, "HOLD", C_AMBER, C_PANEL, 1) &&
+	          fakeTextIs(r.x + (r.w - gfxTextW("DEFAULTS", 1)) / 2, r.y + 25, "DEFAULTS", C_AMBER,
+	                     C_PANEL, 1));
+	checkTrue("DEFAULTS, 47 px, inside the 72 px with 4 px each side",
+	          gfxTextW("DEFAULTS", 1) == 47 && r.w == 72 && 47 + 2 * 4 <= r.w);
+	checkTrue("no RESET left on the button", !fakeTextIs(r.x + (r.w - gfxTextW("HOLD RESET", 1)) / 2,
+	                                                     r.y + (r.h - 7) / 2, "HOLD RESET", C_AMBER,
+	                                                     C_PANEL, 1));
+	tapId(UI_FIX(SettingsCtl::Defaults));
 	checkTrue("a tap: nothing loaded", settings()->poles == saved && !settingsDirty());
 
 	// The press frame starts the timer; frame k is k x 25 ms after it.
-	pressId(UI_FIX(SettingsCtl::Reset));
-	holdId(UI_FIX(SettingsCtl::Reset), 20);
+	pressId(UI_FIX(SettingsCtl::Defaults));
+	holdId(UI_FIX(SettingsCtl::Defaults), 20);
 	{
 		const uint16_t *fb = gfxBuffer() + (r.y - 4) * GFX_W;
-		checkTrue("500 ms: the bar over RESET, 35 px of the 70",
-		          fb[r.x] == C_LIME && fb[r.x + 34] == C_LIME && fb[r.x + 35] == C_BG);
-		checkTrue("and the button red while held, as the other ui_hold holds but SAVE",
+		checkTrue("500 ms: the bar over DEFAULTS, 36 px of the 72",
+		          fb[r.x] == C_LIME && fb[r.x + 35] == C_LIME && fb[r.x + 36] == C_BG);
+		checkTrue("and the button red while held, as every ui_hold hold",
 		          pixel(r.x + 4, r.y + r.h - 5) == C_RED);
-		checkTrue("its label in C_ONACCENT on the red, pressed 1 px in",
-		          fakeTextIs(r.x + 1 + (r.w - gfxTextW("HOLD RESET", 1)) / 2, r.y + 1 + (r.h - 7) / 2,
-		                     "HOLD RESET", C_ONACCENT, C_RED, 1));
+		checkTrue("its two lines in C_ONACCENT on the red, pressed 1 px in",
+		          fakeTextIs(r.x + 1 + (r.w - gfxTextW("HOLD", 1)) / 2, r.y + 14, "HOLD", C_ONACCENT,
+		                     C_RED, 1) &&
+		          fakeTextIs(r.x + 1 + (r.w - gfxTextW("DEFAULTS", 1)) / 2, r.y + 26, "DEFAULTS",
+		                     C_ONACCENT, C_RED, 1));
 	}
-	holdId(UI_FIX(SettingsCtl::Reset), 19);
+	holdId(UI_FIX(SettingsCtl::Defaults), 19);
 	checkTrue("975 ms: nothing loaded", settings()->poles == saved && !settingsDirty());
-	holdId(UI_FIX(SettingsCtl::Reset), 1);
+	holdId(UI_FIX(SettingsCtl::Defaults), 1);
 	checkTrue("1000 ms: the defaults live, unsaved",
 	          settings()->poles == DEFAULT_MOTOR_POLES && settingsDirty() &&
 	          noteIs("DEFAULTS LOADED - RESTART TO UNDO", C_AMBER));
 	settings()->poles = saved;
-	holdId(UI_FIX(SettingsCtl::Reset), 60);
+	holdId(UI_FIX(SettingsCtl::Defaults), 60);
 	checkTrue("held 1.5 s more: one firing per press, the change after it kept",
 	          settings()->poles == saved);
 	settings()->poles = DEFAULT_MOTOR_POLES;
@@ -792,8 +800,8 @@ static void testResetHold() {
 	tapId(menuRow(&UI_SETTINGS));
 	menuFrames(2);
 	checkTrue("saved poles again", settings()->poles == saved && !settingsDirty());
-	pressId(UI_FIX(SettingsCtl::Reset));
-	holdId(UI_FIX(SettingsCtl::Reset), 20);
+	pressId(UI_FIX(SettingsCtl::Defaults));
+	holdId(UI_FIX(SettingsCtl::Defaults), 20);
 	holdId(UI_FIX(SettingsCtl::Save), 40);
 	fakeRelease(); menuFrames(1);
 	checkTrue("slid onto SAVE after 500 ms, held 1 s more: nothing loaded, nothing saved",
@@ -1130,7 +1138,7 @@ static void testEscPinNote() {
 
 	// The warning gone while scrolled to the end: the list takes its 200 px
 	// back and the scroll is clamped to 620 px, with nothing blank under it.
-	// Once by RESET, once by the pin set back with SETTINGS open, as a tool's
+	// Once by DEFAULTS, once by the pin set back with SETTINGS open, as a tool's
 	// row writes the settings.
 	for (int how = 0; how < 2; how++) {
 		openSettings();
@@ -1139,13 +1147,13 @@ static void testEscPinNote() {
 		tapId(UI_ROW(SettingsRowId::Sig, Plus));
 		for (int k = 0; k < 5; k++) dragList(200, -180);
 		checkInt(how ? "pin moved, at the end: UPTIME at y 178"
-		             : "pin moved, at the end, before RESET: UPTIME at y 178",
+		             : "pin moved, at the end, before DEFAULTS: UPTIME at y 178",
 		         ctlRect(UI_ROW(SettingsRowId::Uptime, Row)).y, 178);
 		if (how == 0) holdReset();
 		else          settings()->dshotPin = boot;
 		menuFrames(1);
 		UiRect up = ctlRect(UI_ROW(SettingsRowId::Uptime, Row));
-		checkTrue(how ? "pin set back: no warning" : "RESET: no warning",
+		checkTrue(how ? "pin set back: no warning" : "DEFAULTS: no warning",
 		          settings()->dshotPin == boot && !fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1));
 		checkInt("the scroll clamped to 620 px: UPTIME at y 190", up.y, 190);
 		checkTrue("and whole, its bottom at y 234", up.h == 44);
@@ -1158,8 +1166,8 @@ static void testEscPinNote() {
 		tapId(UI_FIX(UI_BACK));
 	}
 
-	// Booted on the other pin: RESET puts DShot back on the default pin,
-	// which the splash did not name: the warning, and RESET's note under it.
+	// Booted on the other pin: DEFAULTS puts DShot back on the default pin,
+	// which the splash did not name: the warning, and DEFAULTS's note under it.
 	Settings other;
 	settingsDefaults(&other);
 	other.dshotPin = moved;
@@ -1175,7 +1183,7 @@ static void testEscPinNote() {
 	          !fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1));
 	holdReset();
 	snprintf(want, sizeof(want), UI_SPLASH_PIN_FMT, (unsigned)boot);
-	checkTrue("RESET: the warning for the default pin, and RESET's note",
+	checkTrue("DEFAULTS: the warning for the default pin, and DEFAULTS's note",
 	          settings()->dshotPin == boot && fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1) &&
 	          noteIs("DEFAULTS LOADED - RESTART TO UNDO", C_AMBER));
 	tapId(UI_FIX(UI_BACK));

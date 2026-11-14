@@ -8,8 +8,8 @@
  * SUPPLY (the switched supply and the current sensor), each tool's own
  * section in registry order, DISPLAY, BOARD and DIAGNOSTICS (the last restart's reason and the uptime,
  * read-only, @ref diag.h). Every change applies at once; only writing flash needs
- * HOLD TO SAVE, 1000 ms. RESET loads the compiled defaults into the live
- * settings and writes nothing.
+ * HOLD TO SAVE, 1000 ms. HOLD DEFAULTS, 1000 ms, loads the compiled defaults
+ * into the live settings and writes nothing.
  *
  * The list scrolls under a drag that starts off a control. A press on a
  * control never scrolls; `-` and `+` step on touch-down and repeat while
@@ -57,7 +57,7 @@ enum class SettingsRowId : uint8_t {
 /** @brief The SETTINGS controls outside the list. @see ui_screen.h */
 enum class SettingsCtl : uint8_t {
 	Save = 1,  /**< HOLD TO SAVE. */
-	Reset,     /**< RESET. */
+	Defaults,  /**< HOLD DEFAULTS. */
 };
 
 /**

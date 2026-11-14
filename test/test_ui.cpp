@@ -1549,10 +1549,10 @@ static void testSettingsKiss() {
 	checkTrue("and moves no pin", settings()->kissPin != settings()->dshotPin);
 }
 
-/** @brief Hold HOLD RESET until it fires, then lift. */
+/** @brief Hold HOLD DEFAULTS until it fires, then lift. */
 static void holdReset() {
-	pressId(UI_FIX(SettingsCtl::Reset));
-	holdId(UI_FIX(SettingsCtl::Reset), 60);
+	pressId(UI_FIX(SettingsCtl::Defaults));
+	holdId(UI_FIX(SettingsCtl::Defaults), 60);
 	fakeRelease(); frames(1);
 }
 
@@ -1600,7 +1600,7 @@ static void testSettingsServoSupply() {
 	checkTrue("saved: a reload keeps GP29", settingsStored() && settings()->servoSupply == 2);
 
 	holdReset();
-	checkTrue("RESET: none, applied at once", settings()->servoSupply == 0 && !servoSupplyFitted());
+	checkTrue("DEFAULTS: none, applied at once", settings()->servoSupply == 0 && !servoSupplyFitted());
 	p = fakePin(29);
 	checkTrue("GP29 left an undriven input", !p.output && p.inputOff);
 	tapRowId(UI_ROW(SettingsRowId::ServoSupply, Plus));
@@ -1661,7 +1661,7 @@ static void testSettingsCurrentSense() {
 	checkTrue("another part at 0x40: OTHER PART", captionIs("OTHER PART"));
 
 	holdReset();
-	checkTrue("RESET: NONE, applied at once", settings()->currentSense == 0 && !senseDeclared());
+	checkTrue("DEFAULTS: NONE, applied at once", settings()->currentSense == 0 && !senseDeclared());
 	uint32_t n = fakeI2cTransactionsTo(INA219_ADDR);
 	frames(80);
 	checkInt("and nothing sent to 0x40 after", fakeI2cTransactionsTo(INA219_ADDR), n);
@@ -1776,7 +1776,7 @@ static void testSettingsSave() {
 	// Moving off the button mid-hold cancels.
 	pressId(UI_FIX(SettingsCtl::Save));
 	holdId(UI_FIX(SettingsCtl::Save), 20);
-	holdId(UI_FIX(SettingsCtl::Reset), 40);
+	holdId(UI_FIX(SettingsCtl::Defaults), 40);
 	fakeRelease(); frames(1);
 	checkTrue("sliding off cancels the hold", settingsDirty());
 
@@ -1791,8 +1791,8 @@ static void testSettingsSave() {
 		checkTrue("500 ms: 75 px of the 150, from the button's left edge",
 		          fb[barX] == C_LIME && fb[barX + 74] == C_LIME &&
 		          fb[barX + 75] == C_BG && fb[barX - 1] == C_BG);
-		checkTrue("and the button is blue while held",
-		          gfxBuffer()[(save.y + save.h - 5) * GFX_W + barX + 4] == C_BLUE);
+		checkTrue("and the button is red while held, as every hold",
+		          gfxBuffer()[(save.y + save.h - 5) * GFX_W + barX + 4] == C_RED);
 	}
 	fakeRelease(); frames(2);
 	checkTrue("and it clears on release",
@@ -1821,16 +1821,16 @@ static void testSettingsSave() {
 	settingsLoad();
 	checkInt("the pin came back after a reload", settings()->dshotPin, want);
 
-	// RESET restores compiled defaults into the live copy without touching flash.
+	// DEFAULTS restores compiled defaults into the live copy without touching flash.
 	Settings def;
 	settingsDefaults(&def);
 	holdReset();
-	checkInt("RESET restores the compiled ESC pin", settings()->dshotPin, def.dshotPin);
-	checkTrue("RESET alone leaves flash as it was", settingsStored());
+	checkInt("DEFAULTS restores the compiled ESC pin", settings()->dshotPin, def.dshotPin);
+	checkTrue("DEFAULTS alone leaves flash as it was", settingsStored());
 
 	// SETTINGS opened again under a press that is on HOLD TO SAVE: the press
 	// is not timed, as the hold waits for a press that lands.
-	checkTrue("RESET left a change pending", settingsDirty());
+	checkTrue("DEFAULTS left a change pending", settingsDirty());
 	pressId(UI_FIX(SettingsCtl::Save));
 	holdId(UI_FIX(SettingsCtl::Save), 20);
 	uiSettingsEnter();
@@ -4301,7 +4301,7 @@ static bool hexLineShown(int k) {
 	int n = snprintf(line, sizeof(line), "%02X ", k * 8);
 	for (int i = 0; i < 8 && k * 8 + i < AM32_SETTINGS_SIZE; i++)
 		n += snprintf(line + n, sizeof(line) - n, "%02X ", fakeEscByte(k * 8 + i));
-	return fakeTextIs(6, LIST_Y0 + k * HEX_ROW_H, line, C_DIM, C_BG, 1);
+	return fakeTextIs(UI_MARGIN, LIST_Y0 + k * HEX_ROW_H, line, C_DIM, C_BG, 1);
 }
 
 /** @brief A tap at the middle of @p r, a rectangle no control of this frame owns. */
@@ -4334,7 +4334,7 @@ static void testAm32ReadOnly() {
 		          stripNoteIs("LAYOUT 5 NOT KNOWN: READ-ONLY.", "NOT VERIFIED. BACKUP AM001"));
 		bool hex = true;
 		for (int k = 0; k < HEX_LINES; k++) hex = hex && hexLineShown(k);
-		checkTrue("the 48 bytes in hex, 8 a line", hex);
+		checkTrue("the 48 bytes in hex, 8 a line, from the text margin, x 8", hex);
 		checkTrue(AM32_UI_RO_BYTES ", grey", fakeTextCentredIs(EDIT_Y + 12, AM32_UI_RO_BYTES, C_GRID, C_BG, 1));
 		checkTrue(AM32_UI_RO_TABLE ", grey", fakeTextCentredIs(EDIT_Y + 26, AM32_UI_RO_TABLE, C_GRID, C_BG, 1));
 		int x0 = 0, x1 = 0;
@@ -4520,6 +4520,75 @@ static void testAm32BoardLow() {
 	tapId(UI_FIX(Am32Ctl::Ok));
 	fakeAdcSet(fakeAdcDefault());
 	frames(80);
+	leaveAm32ToTester();
+}
+
+/**
+ * @brief Decision 14 of docs/design/menu-b.md on AM32 CONFIG: the editor's
+ *        44 px - and + at the button edge, the footer at y 268, and the
+ *        result's OK as the wide button, 6/228 at y 268, which takes only a
+ *        press that lands after the write ended: the finger that ended the
+ *        hold lifts on it.
+ */
+static void testAm32LayoutTable() {
+	section("AM32 layout: the editor's - and +, the footer, OK the wide button");
+	EscTelemetry quiet;
+	memset(&quiet, 0, sizeof(quiet));
+	fakeSetTelemetry(&quiet);
+	am32NoCard();
+	enterAm32(6);
+	checkTrue("the list is open", s_state == S_LIST);
+	const int vp = uiRowOf("POLES");
+	uiRowY("POLES"); frames(1);
+	tapId(UI_ROW(vp, Row));
+	UiRect m = ctlRect(UI_FIX(Am32Ctl::EditMinus)), p = ctlRect(UI_FIX(Am32Ctl::EditPlus));
+	checkTrue("- at x 6, 44 x 44 px, y 218", m.x == 6 && m.y == 218 && m.w == 44 && m.h == 44);
+	checkTrue("+ ending at x 234, 44 x 44 px", p.x == 190 && p.y == 218 && p.w == 44 && p.h == 44);
+	checkTrue("the hint centred in the 140 px between them",
+	          fakeTextIs(50 + (140 - gfxTextW("SWIPE = COARSE", 1)) / 2, EDIT_Y + 33, "SWIPE = COARSE",
+	                     C_GRID, C_BG, 1));
+	UiRect w = ctlRect(UI_FIX(Am32Ctl::Write)), r = ctlRect(UI_FIX(Am32Ctl::Revert)),
+	       h = ctlRect(UI_FIX(Am32Ctl::Hex));
+	checkTrue("the footer 6/110, 122/52, 180/54 at y 268, 46 px",
+	          w.x == 6 && w.w == 110 && r.x == 122 && r.w == 52 && h.x == 180 && h.w == 54 &&
+	          w.y == 268 && r.y == 268 && h.y == 268 && w.h == 46 && r.h == 46 && h.h == 46);
+	checkControlTable("AM32 list, the layout table");
+
+	tapId(UI_FIX(Am32Ctl::EditMinus));
+	uint8_t want = uiByte(0x1B);
+	int wx, wy;
+	ctlCentre(UI_FIX(Am32Ctl::Write), &wx, &wy);
+	pressId(UI_FIX(Am32Ctl::Write));
+	for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
+	const int okX = 6 + (228 - gfxTextW("OK", 2)) / 2, okY = 268 + (46 - 14) / 2;
+	checkTrue("the hold's finger still down on OK: OK drawn at rest, not pressed",
+	          s_state == S_WRITING && s_verified && fakeTextIs(okX, okY, "OK", C_TEXT, C_PANEL, 2) &&
+	          !fakeTextIs(okX + 1, okY + 1, "OK", C_TEXT, C_PANEL, 2));
+	fakeRelease(); frames(3);
+	checkTrue("written and verified", fakeEscByte(0x1B) == want && s_verified);
+	UiRect ok = ctlRect(UI_FIX(Am32Ctl::Ok));
+	checkTrue("OK: the wide button, 6/228 at y 268, 46 px",
+	          ok.x == 6 && ok.y == 268 && ok.w == 228 && ok.h == 46);
+	checkTrue("over HOLD TO WRITE: the hold's lift lands on OK", wx >= ok.x && wx < ok.x + ok.w &&
+	          wy >= ok.y && wy < ok.y + ok.h);
+	checkTrue("that lift leaves the result up", s_state == S_WRITING && ctlEnabled(UI_FIX(Am32Ctl::Ok)));
+	checkTrue("OK at scale 2, centred, as KST's and Hitec's",
+	          fakeTextIs(6 + (228 - gfxTextW("OK", 2)) / 2, 268 + (46 - 14) / 2, "OK", C_TEXT, C_PANEL, 2));
+	checkTrue("the power-cycle line above it", fakeTextCentredIs(170, AM32_UI_POWER_CYCLE, C_TEXT, C_BG, 1));
+	checkControlTable("AM32 result, the layout table");
+	pressId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("a fresh press on OK draws it pressed, 1 px in",
+	          fakeTextIs(okX + 1, okY + 1, "OK", C_TEXT, C_PANEL, 2));
+	fakeRelease(); frames(1);
+	checkTrue("a tap on OK: the list", s_state == S_LIST);
+
+	// Put the fake ESC back as it was.
+	tapId(UI_FIX(Am32Ctl::EditPlus));
+	pressId(UI_FIX(Am32Ctl::Write));
+	for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
+	fakeRelease(); frames(3);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("the ESC as it was", s_state == S_LIST && !anyDirty());
 	leaveAm32ToTester();
 }
 
@@ -4890,7 +4959,7 @@ static void testAm32Guidance() {
 			for (uint8_t k = 0; f->names && k < f->nameCount; k++)
 				if (gfxTextW(f->names[k], 2) > room) fits = false;
 		}
-		checkTrue("every value name fits the editor's 112 px at scale 2", fits && room == 112);
+		checkTrue("every value name fits the editor's 140 px at scale 2", fits && room == 140);
 		const uint8_t fw[2] = { fakeEscByte(AM32_OFF_MAIN_REVISION), fakeEscByte(AM32_OFF_SUB_REVISION) };
 		int wx, wy;
 		for (int old = 0; old < 2; old++) {
@@ -5823,6 +5892,7 @@ void runUiTests() {
 	testAm32TesterNote();
 	testAm32ReadOnly();
 	testAm32BoardLow();
+	testAm32LayoutTable();
 
 	// Back to a known state for anything that runs after this.
 	fakeFlashClear();

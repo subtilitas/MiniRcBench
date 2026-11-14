@@ -264,7 +264,7 @@ Unter der Liste bleiben diese Elemente an ihrem Platz:
   2. `ADJUSTED TO THIS BOARD'S LIMITS` oder `KISS OFF: NEEDS A PIN OF ITS OWN`
      (Bernstein), bis zur nächsten Änderung;
   3. `DEFAULTS LOADED - RESTART TO UNDO` (Voreinstellungen geladen, ein
-     Neustart macht es rückgängig; Bernstein) nach `HOLD RESET`, solange ein
+     Neustart macht es rückgängig; Bernstein) nach `HOLD DEFAULTS`, solange ein
      Neustart die gespeicherten Werte zurückbrächte, bis zur nächsten
      Änderung oder zu einem `HOLD TO SAVE`, gescheitert oder nicht;
   4. `UNSAVED - HOLD SAVE TO KEEP` (Bernstein) nach einer Änderung;
@@ -281,15 +281,17 @@ Unter der Liste bleiben diese Elemente an ihrem Platz:
 
 <img src="img/settings-pin.png" width="240" alt="SETTINGS, nachdem SIG PIN auf GP1 gewechselt hat: UNPLUG ANY SERVO FROM GP1 NOW über LINK, UNSAVED in der Hinweiszeile">
 
-- `HOLD TO SAVE` (150 × 48 px) und `HOLD RESET` (70 × 48 px).
+- `HOLD TO SAVE` (150 × 46 px) und `HOLD DEFAULTS` (72 × 46 px), die
+  Beschriftung in zwei Zeilen, `HOLD` über `DEFAULTS`, in Bernstein.
 
 **Änderungen wirken sofort. Nur das Speichern braucht das Halten.** Eine neue
 Bitrate baut den DShot-Treiber vor dem nächsten Frame neu auf. `HOLD TO SAVE`
-1 s lang schreibt ins Flash. `HOLD RESET` 1 s lang ersetzt die laufenden
+1 s lang schreibt ins Flash. `HOLD DEFAULTS` 1 s lang ersetzt die laufenden
 Einstellungen durch die kompilierten Voreinstellungen, Polzahl und
 Gas-Obergrenze eingeschlossen; das Flash bleibt unverändert. Ein Tippen
 bewirkt nichts, ein Wegschieben vom Knopf bricht das Halten ab. Ein Balken
-über dem Knopf füllt sich, solange er gehalten wird. Wer den
+über dem Knopf füllt sich, solange er gehalten wird, und der Knopf wird rot,
+wie bei jedem Halten. Wer den
 Bildschirm verlässt, behält die Voreinstellungen in Gebrauch. Die
 gespeicherten Werte lädt die Platine nur beim Start, ein Neustart ohne
 `HOLD TO SAVE` kehrt also zu ihnen zurück.
