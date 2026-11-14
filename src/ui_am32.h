@@ -68,10 +68,10 @@ bool uiAm32Tick(const TouchState *t);
 /** @brief As @ref AM32_UI_NO_CARD_LOST while a USB host holds the card. 37 characters, 221 px. */
 #define AM32_UI_USB_LOST "USB DRIVE: OLD VALUES LOST ON LEAVING"
 /**
- * @brief The next step under `BOARD VOLTAGE IS RED: NOT WRITTEN.`: the
- *        result stands under OK, and `WRITE...` and the page's hold write
- *        again. 37 characters, 221 px. KST and Hitec keep their hold live
- *        under the same refusal and say UI_BOARD_LOW_2.
+ * @brief The line under UI_BOARD_LOW_1 on AM32 WRITE. The result stands
+ *        under OK, then WRITE... and the page's hold write again. 37
+ *        characters, 221 px. KST and Hitec keep their hold live under the
+ *        same refusal and say UI_BOARD_LOW_2.
  */
 #define AM32_UI_BOARD_LOW_2 "CHARGE THE CELL. TAP OK, WRITE AGAIN."
 /**
