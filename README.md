@@ -2055,8 +2055,10 @@ compiles by hand. `check_docs.py` enforces documentation precisely — public AP
 signatures, no dangling `@ref` — where Doxygen's `WARN_IF_UNDOCUMENTED` would
 also demand a comment on every file-static `s_scroll`.
 
-`docs.yml` publishes `wiki/` to the GitHub wiki after every successful Release run, from a
-tag push or started by hand, so the wiki describes firmware that can be downloaded. It
+`docs.yml` publishes `wiki/` to the GitHub wiki after every successful Release run of a
+tag without a pre-release suffix, from a tag push or started by hand, so the wiki
+describes firmware that can be downloaded. A pre-release such as `v0.1.0-rc1` publishes no
+manual. It
 renders the screenshots, runs `tools/check_wiki.py`, and can be run by hand for any `v*`
 tag; without one it takes the newest tag that has no pre-release suffix.
 
@@ -2087,7 +2089,8 @@ SHA256SUMS.txt
 The workflow refuses six things:
 
 - **A tag that names another version**: the tag is `v`, the version in
-  `src/version.h`, and an optional pre-release suffix.
+  `src/version.h`, and an optional pre-release suffix. A tag with a suffix
+  is published as a GitHub pre-release.
 - **Building from failing code**: host tests and documentation checks run first.
 - **Publishing an implausible image**: each `.uf2` is checked for the `UF2\n`
   magic and a size that is a multiple of 512 bytes.

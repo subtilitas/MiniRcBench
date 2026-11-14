@@ -280,8 +280,9 @@ The bench parts, in the order they depend on each other:
    scope, then one write with read-back per family before a write is
    relied on.
 
-A first `v*` tag runs Release and then publishes the manual (item 7).
-Release, by the owner's decision of 2026-11-14: v0.1.0-rc1 is tagged now as
+A `v*` tag runs Release; a tag without a pre-release suffix then publishes
+the manual (item 7), a suffixed one does not. Release, by the owner's
+decision of 2026-11-14: v0.1.0-rc1 is tagged now as
 a pre-release, an image for testing with no manual published, and v0.1.0
 after the bench checks above. Neither tag exists yet. Menu structure B waits
 on being built, not on the bench (item 18).
@@ -760,15 +761,17 @@ still pass their check. The notices name every component whose code is in the
 image, with its pinned version and its licence text copied from the licence
 files that ship with it; a missing or empty licence section fails the run
 before anything is published.
-Each run is titled `Release <tag>`, which Docs reads to find the tag. The
-version is 0.1.0 and no MiniRcBench release exists yet. By the owner's
-decision of 2026-11-14, v0.1.0-rc1 is tagged now as a pre-release, an image
-for testing with no manual published, and v0.1.0 after the bench checks;
-neither tag exists yet.
+A tag with a suffix, such as `v0.1.0-rc1`, is published as a GitHub
+pre-release. Each run is titled `Release <tag>`, which Docs reads to find
+the tag. The version is 0.1.0 and no MiniRcBench release exists yet. By the
+owner's decision of 2026-11-14, v0.1.0-rc1 is tagged now as a pre-release,
+an image for testing with no manual published, and v0.1.0 after the bench
+checks; neither tag exists yet.
 
 **Docs** (`.github/workflows/docs.yml`): mirrors `wiki/` to the GitHub wiki
-after every successful Release run, from a tag push or started by hand, and
-can be started by hand itself. The wiki is
+after every successful Release run of a tag without a pre-release suffix,
+from a tag push or started by hand, and can be started by hand itself. A
+pre-release publishes no manual. The wiki is
 published per release on purpose, so it describes firmware that can be
 downloaded.
 
