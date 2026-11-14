@@ -61,7 +61,7 @@ and SETTINGS, one sectioned list with pole count and throttle ceiling at its
 top (`src/ui_menu.*`, `src/ui_settings.*`, `src/ui_sdlog.*`). Every header is
 36 px tall and every tool's BACK returns to MENU.
 Menu structure B ([menu-b.md](docs/design/menu-b.md)), the owner's choice of
-2026-11-13, has slices 1 to 4 of 10 built. Slice 1: the leave page widget
+2026-11-13, has slices 1 to 4 and 8 of 10 built. Slice 1: the leave page widget
 (`src/ui_leave.*`), the BACK guard and two strip lines (`src/ui_widgets.*`),
 the field row (`src/ui_list.*`), the colour role names and the layout
 constants; no screen uses the leave page or the guard yet. Slice 2: the uses
@@ -77,8 +77,10 @@ four KST labels. Slice 4, the layout table (the note's decision 14): the
 footers of SETTINGS and SERVO SET, the `-` and `+` of SERVO SET and AM32
 CONFIG, AM32's result OK as the wide button, SD LOG's button edge, HOLD
 DEFAULTS in place of HOLD RESET, the red HOLD TO SAVE, the write pages'
-`CHANGES` and Hitec's 4 rows and strip. The owner answered the note's eight
-questions on 2026-11-14; slices 5 to 10 wait on being built (open item 18).
+`CHANGES` and Hitec's 4 rows and strip. Slice 8: SERVO TESTER titled
+`SERVO TESTER`, its MENU label, on the main view and the unplug page. The
+owner answered the note's eight questions on 2026-11-14; slices 5 to 7, 9
+and 10 wait on being built (open item 18).
 The pin claim both features share is built (slice 1): the AM32 editor and the
 servo tester run on it. For the ESC, the board is the throttle source. It
 sends bidirectional DShot (a digital ESC protocol in which the ESC
@@ -251,6 +253,7 @@ record either way.
 | Menu structure B, slice 2, colour roles (`UI_COL_CHANGED`, `uiChip()`, `uiChangeText()` in `src/ui_widgets.*`; the screens; [menu-b.md](docs/design/menu-b.md#slice-2-as-built)) | the role names, seven colours, in both themes; the chip square, 12 px tall, y 42 to 53, PROG MODE 65 px from x 167; the change text's dim old value and cyan new value; on AM32 CONFIG, KST SERVO, HITEC SERVO and SERVO SET a row's value by its state, as read, changed with a 3 px cyan bar, a soft rule's amber bar, read-only grey, selected or not, and the editor bar's value; SERVO SET's pending row cyan until HOLD TO APPLY and grey while RUNNING; Hitec's label without `*`; the KST and Hitec headlines amber, PROG MODE on blue, KST's IN DOUBT on red, REVERT amber, the write pages' old and new values; the tester's KISS and EDT tags, the DShot rate, SWIPE = THROTTLE and MAX; AM32's POWER-CYCLE THE ESC, HEX, WRITE VERIFIED green and a refused write's result not green; SETTINGS' captions, values, SAVED and the save hold's red; SD LOG's START, RETRY MOUNT and USB DRIVE labels and the read counter; servo B's horn, letter and selector, SPEED's fill, the command labels, the sweep count | host only: the colours have not been looked at on the panel |
 | Menu structure B, slice 3 (`src/ui_settings.*`, `src/settings.cpp`, `src/ui_menu.*`, `src/kst_view.cpp`, the pin words of `src/ui_servo.cpp`, `src/ui_kst.cpp`, `src/ui_hitec.cpp`, `src/ui_am32.cpp`; [menu-b.md](docs/design/menu-b.md) decisions 9, 10 and 15 b, e, f, h, j, k) | SIG PIN and AUX PIN live whatever KISS is, every step a swap, with KISS on and off, the wiring following; their J5 line and SERVO SUPPLY's J4 line under a raised value, none under OWN; `settingsValidate()` moving AUX off SIG with KISS on and off, to the next free pin after SIG, KISS kept, and a pin the board does not free switching KISS off; SERVO SUPPLY a core section with and without KST SERVO on MENU; MENU's caption, `DSHOT RESTARTING ON SIG GP0` in amber over rows drawn disabled under their own status, and the caption back once Free; `WAIT: DSHOT RESTARTING` on SERVO TESTER, KST SERVO, HITEC SERVO and AM32 CONFIG; `DSHOT600` at each rate; `NOTHING SAVED: DEFAULTS IN USE`; the four KST labels; SERVO TESTER's caption with the role alone where it would reach RUNNING; the SIG words of each claim message; the connector lines against the board header's table; KISS TELEM moving neither pin; `SWAP THE ESC'S SIGNAL AND KISS WIRES` with KISS on; `IDLE 2s` and `DSHOT1200` sharing no pixel | host only |
 | Menu structure B, slice 4: the layout table, decision 14 of [menu-b.md](docs/design/menu-b.md) (`src/ui_settings.cpp`, `src/ui_servo.cpp`, `src/ui_am32.cpp`, `src/ui_sdlog.cpp`, `src/ui_kst.cpp`, `src/ui_hitec.cpp`, `src/hitec_view.h`) | each moved rectangle by id: SETTINGS' HOLD TO SAVE 6/150 and HOLD DEFAULTS 162/72, SERVO SET's HOLD TO APPLY 6/150, DEFAULTS 162/72 and `-` and `+` 44 × 44 px, AM32's `-` and `+` 44 × 44 px and OK 6/228 at y 268, SD LOG's START 6/228, RETRY MOUNT 6/112 and USB DRIVE 122/112 (`testLayoutTable()`, `testAm32LayoutTable()`); no two controls overlapping; each label inside its button; HOLD DEFAULTS' two lines and HOLD TO SAVE's `C_RED` fill; AM32's OK keeping the result up when the hold's finger lifts on it and acting on a later tap; the hex dump from x 8; `1 CHANGE` and `5 CHANGES` on KST's write page, `1 CHANGE` and `n CHANGES` on Hitec's, Hitec's 4 rows (`hitecPageLayout()`), Hitec's strip in the order model, backup, pin, version with two spaces, a classic strip keeping `BACKUP IN RAM` and then `BACKUP HT001` beside the PROG MODE chip, the room 4 px before the chip (`uiChipX()`), y 56 to 61 blank on the main view and the list after the family view; AM32's OK drawn at rest under the hold's finger and pressed under a fresh press; 23 mutations, each failing the build or the suite | host only |
+| Menu structure B, slice 8: SERVO TESTER's title, decision 13 of [menu-b.md](docs/design/menu-b.md#slice-8-as-built) (`SERVO_UI_TITLE` in `src/ui_servo.h`, `src/ui_servo.cpp`) | `SERVO TESTER` drawn in the header on the main view and the unplug page; the title MENU's row label and `UI_SERVO.title`; 13 characters or fewer, ending 4 px or more before BACK; 6 mutations, each failing the suite | host only |
 | Control tables (`src/ui_screen.h`; slice B of [menu.md](docs/design/menu.md)) | every screen's table on each view the host suite reaches, the ids, rectangles and enabled flags, `uiCurrentScreen()` after each navigation; the UI tests tap by id | host only: the firmware does not call the tables |
 | Serial telemetry dump | none | not recorded |
 | `tools/sdtest`, SD bring-up firmware | none, not built in CI | hardware use recorded in f16a70f and e9c9d9a, the 2.8" board with the previous SDIO driver among them; nothing is recorded for the current build |
@@ -495,11 +498,12 @@ the tag. Menu structure B waits on being built, not on the bench (item 18).
     run on the bench, with the questions listed in
     [diagnostics.md](docs/design/diagnostics.md).
 
-18. **Menu structure B waits on building.** Slices 1 to 4 of
+18. **Menu structure B waits on building.** Slices 1 to 4 and 8 of
     [menu-b.md](docs/design/menu-b.md) are built: slice 2 is the colour
     roles, slice 3 the names and SETTINGS (decisions 9, 10 and 15 b, e, f, h,
-    j, k), slice 4 the layout table; slices 2 to 4 run in the host suite
-    only, and slice 2's colours have not been looked at on the
+    j, k), slice 4 the layout table, slice 8 SERVO TESTER's title; slices 2
+    to 4 and 8 run in the host suite only, and slice 2's colours have not
+    been looked at on the
     panel, in either theme. In the high-contrast palette several of slice
     2's pairs differ in brightness only, black against a dark grey: the KISS
     and EDT tags, the DShot rate with and without EDT requested,
@@ -519,7 +523,7 @@ the tag. Menu structure B waits on being built, not on the bench (item 18).
     every screen; each slice updates its own README and wiki lines and
     images; the KST labels FAILSAFE MOVE, FAILSAFE POSITION, FAILSAFE TIME,
     REVERSED; OWN for SERVO SUPPLY's no-switch value; RESTART DSHOT after
-    1000 ms. Slices 5 to 10 wait on being built. Three decisions
+    1000 ms. Slices 5 to 7, 9 and 10 wait on being built. Three decisions
     change the note's design, and the sections they touch are marked to be
     redesigned: the docs go with each slice, against the note's
     recommendation, so the slice table is reworked and slice 10 shrinks;

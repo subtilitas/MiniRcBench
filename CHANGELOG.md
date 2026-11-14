@@ -632,6 +632,12 @@ protocol.
   test_kst_ui.cpp, `testBusyRefusal()` in test_hitec_ui.cpp and the label
   checks in test_kst_view.cpp; the wiki shows `menu-restarting.png` in place
   of `menu-pins-busy.png`.
+- After v0.1.0-rc1 (a93e1c1): SERVO TESTER is titled `SERVO TESTER`, its MENU
+  row's label, in place of `SERVO`, on the main view and the unplug page
+  (decision 13 of [menu-b.md](docs/design/menu-b.md#decisions), slice 8 of
+  menu structure B). `SERVO_UI_TITLE` in `src/ui_servo.h`; host checks in
+  `testScreenOpens()` and `testUnplugPage()` in `test/test_servo.cpp`; the
+  previews and wiki images of the servo tester are regenerated.
 - After v0.1.0-rc1 (a93e1c1): SERVO TESTER → SET: a TYPE, MIN or MAX step that
   leaves the profile past its travel and changes TYPE or takes MIN or MAX
   further out than the applied profile waits for `HOLD TO APPLY`, with the amber

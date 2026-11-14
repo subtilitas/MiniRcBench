@@ -1298,7 +1298,9 @@ ground only.
 
 ### Using it
 
-The screen claims the pins (`src/pin_claim.h`). It does not claim while an ESC
+The screen is titled `SERVO TESTER`, its MENU row's label, on the main view
+and on the unplug page (`SERVO_UI_TITLE` in `src/ui_servo.h`). It claims the
+pins (`src/pin_claim.h`). It does not claim while an ESC
 answers on SIG within 500 ms, because servo pulses of 1000 µs to 2000 µs are a
 valid PWM throttle signal; it claims by itself 500 ms after the ESC goes
 quiet. That check misses an ESC that does not answer in bidirectional DShot,
