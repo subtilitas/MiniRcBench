@@ -698,6 +698,26 @@ static void testCarryOver() {
 	checkInt("contrast", settings()->highContrast, 1);
 	checkInt("servo supply: the default, none", settings()->servoSupply, def.servoSupply);
 	checkInt("current sensor: the default", settings()->currentSense, def.currentSense);
+	// Byte 20, where versions 3 and 4 keep the servo supply, is the low byte
+	// of version 2's CRC. With it 1 or 2, a legal supply, the supply still
+	// loads as none: version 2 has no such field.
+	for (uint8_t want = 1; want <= 2; want++) {
+		OldBlock o = b2;
+		bool found = false;
+		// The padding byte and the backlight vary the CRC.
+		for (int i = 0; i < 256 * 64 && !found; i++) {
+			o.pad = (uint8_t)i;
+			o.backlight = (uint8_t)(96 + i / 256);
+			putOld(o);
+			found = fakeFlashBytes()[20] == want;
+		}
+		char what[80];
+		snprintf(what, sizeof(what), "version 2, its CRC's low byte %u: found", (unsigned)want);
+		checkTrue(what, found);
+		settingsLoad();
+		snprintf(what, sizeof(what), "byte 20 = %u: carried over, servo supply none", (unsigned)want);
+		checkTrue(what, carried() && settings()->servoSupply == 0 && settings()->poles == 12);
+	}
 	{
 		// The board of version 2's two-board image, 2 for the LCD-2: the
 		// board-id rule, as for a version 5 block.
