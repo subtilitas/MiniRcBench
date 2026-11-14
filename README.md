@@ -829,9 +829,13 @@ highest number is the newest log; an empty `LOGS` starts at 00001. A name
 counts in any letter case, as FAT compares names without it; any other name
 is ignored (`sdLogNameNumber()`). The first start after a mount reads `LOGS`
 once with `f_readdir()`, every directory entry once, about one 512-byte
-sector per 16 short-named files; later starts count on from memory, and a
-mount (`RETRY MOUNT`, the end of USB DRIVE, a tool's remount) forgets the
-number. After `LOG99999.BFL` no log starts and SD LOG says so. A file is
+sector per 16 short-named files; later starts count on from memory. A
+mount (`RETRY MOUNT`, the end of USB DRIVE, a tool's remount), FatFs
+mounting the card again on its own after a card fault, and every logging
+error forget the number, since a card swapped or edited in a card reader
+looks the same to a board with no card-detect line
+(`src/sd_log_next.cpp`, tested over FatFs by `make -C test lognum`). After
+`LOG99999.BFL` no log starts and SD LOG says so. A file is
 created new, never over an existing one. Logs an earlier firmware wrote to
 the card's root stay there and are not counted. The board sets no clock.
 

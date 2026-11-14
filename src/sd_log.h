@@ -209,11 +209,14 @@ bool sdLogBegin();
  * @brief Open `LOGS/LOGnnnnn.BFL`, N the highest number in `LOGS/` plus 1
  *        (sdLogNextNumber()), and start encoding.
  *
- * The first start after a mount reads `LOGS/` once, every directory entry
- * in turn (f_readdir()); later starts take the number after the last log's
- * from memory. A mount, which RETRY MOUNT, the end of USB DRIVE and a tool's
- * remount run, forgets it: a computer may have added or removed files.
- * The file is created new, never over an existing one.
+ * The first start on a FatFs mount reads `LOGS/` once, every directory
+ * entry in turn (f_readdir()); later starts take the number after the last
+ * log's from memory (sdLogOpenNext() in sd_log_next.h). A mount (RETRY
+ * MOUNT, the end of USB DRIVE, a tool's remount), FatFs mounting again on
+ * its own after a card fault, and every error forget it: the board has no
+ * card-detect line, so the card may have been swapped, or edited in a card
+ * reader, in between. USB DRIVE itself is read-only. The file is created
+ * new, never over an existing one.
  *
  * @return True if the file opened. False with @ref SdLogEnd::OpenFailed for
  *         a directory that cannot be made or read or a file that does not

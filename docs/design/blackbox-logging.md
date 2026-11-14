@@ -238,20 +238,24 @@ In `src/sd_log.cpp` and `src/log_ring.cpp`:
   number is the newest log. A name counts when it is `LOG`, five digits and
   `.BFL` in any letter case, the way FAT compares names, both the long name
   and its 8.3 alias (`sdLogNameNumber()`); any other entry is ignored.
-  `LOG00000.BFL` alone gives 1. The first start after a mount reads the
+  `LOG00000.BFL` alone gives 1. The first start on a FatFs mount reads the
   directory once (`f_opendir()`, then `f_readdir()` to its end): every entry
   once, 32 bytes each, about N / 16 sector reads for N short-named files,
   on core0 in the frame that starts the log, the one after arming for an
-  auto log. The time per sector is the card's and not measured. The scan
-  replaces a probe that called `f_stat()` once per number from 1 upward,
-  each a walk of the directory, N² / 2 entries for N logs. The number after
-  each opened log is kept in memory; a mount (`sdLogBegin()`: boot,
-  RETRY MOUNT, the end of USB DRIVE, a tool's remount) and a release to a
-  USB host forget it, as a computer may have changed the directory. After
+  auto log. The time per sector is the card's and not measured. The number
+  after each opened log is kept in memory with the `FATFS::id` of the mount
+  it was read on (`src/sd_log_next.cpp`). The board has no card-detect
+  line, and USB DRIVE is read-only, so what changes `LOGS` meanwhile is a
+  card swapped or edited in a card reader. A mount (`sdLogBegin()`: boot,
+  RETRY MOUNT, the end of USB DRIVE, a tool's remount), a release to a USB
+  host and every error forget the number; FatFs mounting again on its own
+  after a card fault gives a new id, and the directory is read again. After
   `LOG99999.BFL` the start is refused with `SdLogEnd::NoFreeNumber`, never
-  wrapped onto a low number; a failed scan is `SdLogEnd::OpenFailed`. The
-  file opens with `FA_CREATE_NEW`, so a file the scan did not count fails
-  the open and is not overwritten. The directory keeps the root to a few
+  wrapped onto a low number; a failed `f_mkdir()` or scan is
+  `SdLogEnd::OpenFailed`. The file opens with `FA_CREATE_NEW`, so a file
+  the scan did not count fails the open and is not overwritten.
+  `make -C test lognum` runs this over FatFs R0.15 on a RAM disk with two
+  card images. The directory keeps the root to a few
   entries, so the KST files' and the device backups' lookups in it read one
   block ([backups.md](backups.md#card-layout)). Logs an earlier firmware
   wrote to the root stay there. Betaflight uses `.BFL` for single logs and

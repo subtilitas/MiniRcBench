@@ -331,8 +331,12 @@ static bool logFileRowIs(const char *text) {
 
 /**
  * @brief A new log's number: the highest `LOGnnnnn.BFL` plus 1, the name
- *        rule sd_log.cpp's directory scan applies, and the refusal after
+ *        rule the directory scan applies, and the refusal after
  *        `LOG99999.BFL`.
+ *
+ * The pure rule in sd_log.h and SD LOG against the fake logger. The scan
+ * itself, the kept number and its reading again after a remount run over
+ * FatFs in test/log_next_fatfs.cpp (`make lognum`).
  */
 static void testLogNumbering() {
 	section("SD LOG: a new log is numbered after the highest file");

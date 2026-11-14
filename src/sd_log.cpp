@@ -56,10 +56,11 @@ static SdLogEnd   s_end = SdLogEnd::None;
  *
  * Each start that opens its file sets it to the number after that file's,
  * which stays true at its stop: the file stays, and nothing else writes
- * `LOGS/` while the card is mounted here. sdLogOpenNext() reads the
- * directory again when FatFs has mounted the card again since. A mount
- * (sdLogBegin()), a release to a USB host and every error forget it: the
- * card may have been swapped, or edited in a card reader, by the next start.
+ * `LOGS/` while the card is mounted here (USB DRIVE is read-only).
+ * sdLogOpenNext() reads the directory again when FatFs has mounted the card
+ * again since. A mount (sdLogBegin()), a release to a USB host and every
+ * error forget it: with no card-detect line, the card may have been
+ * swapped, or edited in a card reader, by the next start.
  */
 static SdLogNextCache s_next = {};
 

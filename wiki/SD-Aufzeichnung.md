@@ -32,14 +32,16 @@ geprüft.
 
 Die Platine liest `LOGS` einmal, bei der ersten Aufzeichnung nach dem
 Einbinden der Karte (Einschalten, `RETRY MOUNT`, das Ende von `USB DRIVE`,
-das neue Einbinden durch ein Werkzeug), und zählt von dort weiter. Mit vielen
-Logs auf der Karte liest dieser erste Start mehr von der Karte: einen
-512-Byte-Block je 16 Dateien mit kurzen Namen. Der SD-LOG-Bildschirm nennt
-die letzte Aufzeichnung der Sitzung (siehe `FILE` unten).
+das neue Einbinden durch ein Werkzeug) und bei der ersten Aufzeichnung nach
+einem Kartenfehler, und zählt von dort weiter. Mit vielen Logs auf der
+Karte liest dieser erste Start mehr von der Karte: einen 512-Byte-Block je
+16 Dateien mit kurzen Namen. Der SD-LOG-Bildschirm nennt die letzte
+Aufzeichnung der Sitzung (siehe `FILE` unten).
 
 Nach `LOG99999.BFL` ist keine Nummer mehr frei: Keine Aufzeichnung beginnt,
-und der Hinweis lautet `NO LOG STARTED: LOG99999.BFL EXISTS`. Verschieb die
-Logs am Computer von der Karte, dann drück `RETRY MOUNT`.
+und der Hinweis lautet `NO LOG STARTED: LOG99999.BFL EXISTS`. Nimm die Karte
+heraus, verschieb die Logs am Computer von ihr (`USB DRIVE` ist
+schreibgeschützt), steck sie zurück und drück `RETRY MOUNT`.
 
 Die Platine liest die Karte über 4-Bit-SDIO (Secure Digital Input/Output) mit
 10 MHz.
@@ -145,7 +147,7 @@ ohne Karte steht der Einbinde-Hinweis in der zweiten Zeile.
 | `RECORDING STOPPED: CARD FULL` / `FREE SPACE ON A COMPUTER, RETRY MOUNT` | Ein Schreibvorgang fand keinen freien Platz | Dateien am Computer löschen (`USB DRIVE` ist schreibgeschützt), Karte zurückstecken, `RETRY MOUNT` drücken |
 | `RECORDING STOPPED: CARD WRITE FAILED` / `REMOVED? REINSERT, THEN RETRY MOUNT` | Ein Schreibvorgang oder das abschließende Sichern oder Schließen schlug fehl: eine herausgezogene Karte oder ein Kartenfehler. Beides wird nicht unterschieden | Karte neu einstecken, `RETRY MOUNT` drücken |
 | `NO LOG STARTED: THE FILE DID NOT OPEN` / `CHECK THE CARD, THEN RETRY MOUNT` | `START` konnte `LOGS` nicht anlegen oder lesen oder die nächste Datei nicht öffnen | Karte am Computer prüfen, `RETRY MOUNT` drücken |
-| `NO LOG STARTED: LOG99999.BFL EXISTS` / `MOVE LOGS TO A COMPUTER, RETRY MOUNT` | `LOGS` enthält `LOG99999.BFL`, und keine Nummer folgt darauf | Logs am Computer von der Karte verschieben, `RETRY MOUNT` drücken |
+| `NO LOG STARTED: LOG99999.BFL EXISTS` / `MOVE LOGS TO A COMPUTER, RETRY MOUNT` | `LOGS` enthält `LOG99999.BFL`, und keine Nummer folgt darauf | Logs am Computer von der Karte verschieben (`USB DRIVE` ist schreibgeschützt), Karte zurückstecken, `RETRY MOUNT` drücken |
 | `RECORDING STOPPED BY KST SERVO` (`HITEC SERVO`, `AM32 CONFIG`) | Das Werkzeug nahm die Karte für seine Sicherung | `START` für eine neue Aufzeichnung |
 
 Eine volle Karte unterscheidet sich von einem fehlgeschlagenen Schreibvorgang
