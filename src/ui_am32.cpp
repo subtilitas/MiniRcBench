@@ -210,8 +210,11 @@ static uint8_t    s_pageFrom[AM32_SETTINGS_SIZE];
 static uint8_t    s_pageTo[AM32_SETTINGS_SIZE];
 /** @brief The name the backup takes on the card, for the page's backup line; empty if not known. */
 static char       s_backupNext[BACKUP_NAME_MAX] = "";
-/** @brief A card was mounted when the page last looked: a new one names its backup. */
-static bool       s_pageCard = false;
+/**
+ * @brief The card as the page last saw it, @ref cardSeen(): a change
+ *        repaints the backup line, and a card mounted names its backup.
+ */
+static uint8_t    s_pageCard = 0;
 /**
  * @brief BACK on the list with edits not written: the first arms, the second
  *        drops them (docs/design/menu-b.md, decision 7).
@@ -977,12 +980,18 @@ static void doWrite() {
 }
 
 
+/** @brief The card for the backup line: 2 mounted, 1 held by a USB host, 0 none. */
+static uint8_t cardSeen() {
+	if (cardMounted()) return 2;
+	return mscHoldsCard(mscGetState()) ? 1 : 0;
+}
+
 /** @brief The name the backup will take on the card, for the page's backup line. */
 static void lookUpBackup() {
-	s_pageCard = cardMounted();
+	s_pageCard = cardSeen();
 	s_backupNext[0] = '\0';
 	// The AM32 transport blocks core0 anyway: the card is read on the spot.
-	if (!s_backupDone && s_pageCard && am32BackupNext(s_backupNext) != BackupResult::Ok)
+	if (!s_backupDone && s_pageCard == 2 && am32BackupNext(s_backupNext) != BackupResult::Ok)
 		s_backupNext[0] = '\0';
 }
 
@@ -1011,7 +1020,7 @@ static void openPage() {
  */
 static void pageTouch(const TouchState *t) {
 	// A card put in while the page is up: the backup line names its file.
-	if (cardMounted() != s_pageCard) {
+	if (cardSeen() != s_pageCard) {
 		lookUpBackup();
 		s_redraw = true;
 	}

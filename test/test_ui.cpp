@@ -4745,6 +4745,241 @@ static void testAm32LayoutTable() {
 	leaveAm32ToTester();
 }
 
+/** @brief Select the AM32 field @p name and step it once, + or else -; true when it changed. */
+static bool am32Step(const char *name) {
+	const int v = uiRowOf(name);
+	if (v < 0) return false;
+	uiRowY(name); frames(1);
+	tapId(UI_ROW(v, Row));
+	const Am32Field *f = &AM32_FIELDS[s_visible[v]];
+	uint8_t before = s_eeprom[f->offset];
+	tapId(UI_FIX(Am32Ctl::EditPlus));
+	if (s_eeprom[f->offset] == before) tapId(UI_FIX(Am32Ctl::EditMinus));
+	return s_eeprom[f->offset] != before;
+}
+
+/** @brief The AM32 field called @p name. */
+static const Am32Field *am32Field(const char *name) {
+	int v = uiRowOf(name);
+	return v < 0 ? nullptr : &AM32_FIELDS[s_visible[v]];
+}
+
+/** @brief The strip's one-line caption reads @p text in @p col. */
+static bool am32StripIs(const char *text, uint16_t col) {
+	return fakeTextIs(UI_MARGIN, UI_STRIP_Y + (UI_STRIP_H - 7) / 2, text, col, C_BG, 1);
+}
+
+/** @brief The header's title reads @p text. */
+static bool am32TitleIs(const char *text) {
+	return fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, text, C_TEXT, C_PANEL, 2);
+}
+
+/**
+ * @brief Decisions 6 and 13 of docs/design/menu-b.md on AM32 CONFIG: the
+ *        editor bar names the old value; `WRITE...` opens AM32 WRITE, which
+ *        lists each change as label and `old -> new`, at most 4 and then
+ *        `AND n MORE`, counts them on the strip, names the backup, and holds;
+ *        BACK leaves it for the list before the hold and with the result.
+ */
+static void testAm32WritePage() {
+	section("AM32 WRITE: the editor's old value, the page's changes, its backup line");
+	EscTelemetry quiet;
+	memset(&quiet, 0, sizeof(quiet));
+	fakeSetTelemetry(&quiet);
+	am32Card();
+	enterAm32(6);
+	checkTrue("the list, titled AM32 CONFIG", s_state == S_LIST && am32TitleIs("AM32 CONFIG"));
+
+	// The editor bar: the label alone, then label and old value once changed.
+	const int cx = BTN_MINUS_X + EDIT_BTN_W, cw = BTN_PLUS_X - cx;
+	const Am32Field *poles = am32Field("POLES");
+	const int vp = uiRowOf("POLES");
+	uiRowY("POLES"); frames(1);
+	tapId(UI_ROW(vp, Row));
+	checkTrue("unchanged: the bar's top line is the label alone, dim",
+	          fakeTextIs(cx + (cw - gfxTextW("POLES", 1)) / 2, EDIT_Y + 2, "POLES", C_DIM, C_BG, 1));
+	char old[24], top[48];
+	am32FormatValue(poles, s_original, old, sizeof(old));
+	tapId(UI_FIX(Am32Ctl::EditMinus));
+	snprintf(top, sizeof(top), "POLES  %s ->", old);
+	checkTrue("changed: `POLES  14 ->` over the new value, dim",
+	          fakeTextIs(cx + (cw - gfxTextW(top, 1)) / 2, EDIT_Y + 2, top, C_DIM, C_BG, 1));
+	char now[24];
+	am32FormatValue(poles, s_eeprom, now, sizeof(now));
+	checkTrue("  the new value under it in the changed colour",
+	          fakeTextIs(cx + (cw - gfxTextW(now, 2)) / 2, EDIT_Y + 14, now, UI_COL_CHANGED, C_BG, 2));
+	checkTrue("LOW VOLT CUTOFF steps", am32Step("LOW VOLT CUTOFF"));
+	const Am32Field *lvc = am32Field("LOW VOLT CUTOFF");
+	am32FormatValue(lvc, s_original, old, sizeof(old));
+	snprintf(top, sizeof(top), "LOW VOLT CUTOFF  %s ->", old);
+	char shortTop[32];
+	snprintf(shortTop, sizeof(shortTop), "%s ->", old);
+	checkTrue("a top line wider than the 140 px gap drops the label",
+	          gfxTextW(top, 1) > cw &&
+	          fakeTextIs(cx + (cw - gfxTextW(shortTop, 1)) / 2, EDIT_Y + 2, shortTop, C_DIM, C_BG, 1));
+	tapId(UI_FIX(Am32Ctl::Revert));
+
+	// Five changes: the page lists four and AND 1 MORE.
+	const char *names[] = { "POLES", "KV", "PWM FREQ", "BEEP VOLUME", "DEAD BAND" };
+	bool stepped = true;
+	for (const char *n : names) stepped = am32Step(n) && stepped;
+	checkTrue("five fields changed", stepped && changeCount(s_original, s_eeprom) == 5);
+	checkTrue("the list's button reads WRITE..., no hold bar on the list",
+	          fakeTextIs(6 + (110 - gfxTextW("WRITE...", 1)) / 2, 268 + (46 - 7) / 2, "WRITE...", C_TEXT,
+	                     C_PANEL, 1) &&
+	          gfxBuffer()[264 * GFX_W + 8] == C_BG);
+	int writes = fakeAm32Writes();
+	checkTrue("a tap on WRITE... opens AM32 WRITE", am32OpenPage());
+	frames(1);
+	checkTrue("titled AM32 WRITE, BACK live", am32TitleIs("AM32 WRITE") && ctlEnabled(UI_FIX(UI_BACK)) &&
+	          backLook() == BackLook::Live);
+	checkTrue("the strip counts them: 5 CHANGES, dim", am32StripIs("5 CHANGES", C_DIM));
+	bool lines = true;
+	int y = 62, listed = 0;
+	for (uint16_t i = 0; i < s_visibleCount && listed < 4; i++) {
+		const Am32Field *f = &AM32_FIELDS[s_visible[i]];
+		if (s_original[f->offset] == s_eeprom[f->offset]) continue;
+		char a[24], b[24], head[32], all[48];
+		am32FormatValue(f, s_original, a, sizeof(a));
+		am32FormatValue(f, s_eeprom, b, sizeof(b));
+		snprintf(head, sizeof(head), "%s -> ", a);
+		snprintf(all, sizeof(all), "%s -> %s", a, b);
+		int x = GFX_W - UI_MARGIN - gfxTextW(all, 1);
+		int vy = UI_MARGIN + gfxTextW(f->name, 1) + 6 > x ? y + 10 : y;
+		if (!fakeTextIs(UI_MARGIN, y, f->name, C_TEXT, C_BG, 1) ||
+		    !fakeTextIs(x, vy, head, C_DIM, C_BG, 1) ||
+		    !fakeTextIs(x + 6 * (int)strlen(head), vy, b, UI_COL_CHANGED, C_BG, 1))
+			lines = false;
+		y += 20;
+		listed++;
+	}
+	checkTrue("four lines from y 62, 20 px apart: the label, old dim, new cyan", lines && listed == 4);
+	checkTrue("then AND 1 MORE, dim, y 142", fakeTextIs(UI_MARGIN, 142, "AND 1 MORE", C_DIM, C_BG, 1));
+	checkTrue("the backup line: BACKUP FIRST: BACKUP/AM001.TXT, dim, y 236",
+	          fakeTextIs(UI_MARGIN, 236, "BACKUP FIRST: BACKUP/AM001.TXT", C_DIM, C_BG, 1));
+	checkTrue("HOLD TO WRITE in the wide button, scale 2",
+	          fakeTextIs(6 + (228 - gfxTextW("HOLD TO WRITE", 2)) / 2, 268 + (46 - 14) / 2, "HOLD TO WRITE",
+	                     C_TEXT, C_PANEL, 2));
+	UiRect hr = ctlRect(UI_FIX(Am32Ctl::WriteHold));
+	checkTrue("HOLD TO WRITE: 6/228 at y 268, 46 px", hr.x == 6 && hr.w == 228 && hr.y == 268 && hr.h == 46);
+	checkTrue("nothing written by opening the page", fakeAm32Writes() == writes);
+	fakeDumpFrame("shot_am32_write.ppm");
+
+	// The backup line follows the card.
+	am32NoCard();
+	frames(2);
+	checkTrue("no card: " AM32_UI_NO_CARD_LOST ", amber",
+	          fakeTextIs(UI_MARGIN, 236, AM32_UI_NO_CARD_LOST, UI_COL_WARN, C_BG, 1));
+	am32Card();
+	fakeMscSet(MscState::Serving, 0);
+	frames(2);
+	checkTrue("a USB host holds the card: " AM32_UI_USB_LOST ", amber",
+	          fakeTextIs(UI_MARGIN, 236, AM32_UI_USB_LOST, UI_COL_WARN, C_BG, 1));
+	fakeMscSet(MscState::Idle, 0);
+	frames(2);
+	checkTrue("the card back: BACKUP FIRST names the file again",
+	          fakeTextIs(UI_MARGIN, 236, "BACKUP FIRST: BACKUP/AM001.TXT", C_DIM, C_BG, 1));
+	checkInt("37 characters: 221 px", gfxTextW(AM32_UI_USB_LOST, 1), 221);
+
+	// BACK before the hold: the list, the edits kept.
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK before the hold: the list, five changes kept, nothing written",
+	          s_state == S_LIST && changeCount(s_original, s_eeprom) == 5 && fakeAm32Writes() == writes &&
+	          uiCurrentScreen() == UiScreenId::Am32);
+
+	// The write, its result, and BACK with the result.
+	uint8_t want[AM32_SETTINGS_SIZE];
+	memcpy(want, s_eeprom, sizeof(want));
+	am32OpenPage();
+	pressId(UI_FIX(Am32Ctl::WriteHold));
+	holdId(UI_FIX(Am32Ctl::WriteHold), 50);
+	fakeRelease(); frames(3);
+	bool same = true;
+	for (int i = 0; i < AM32_SETTINGS_SIZE; i++) same = same && fakeEscByte(i) == want[i];
+	checkTrue("the hold wrote the five and verified", same && s_verified &&
+	          strcmp(s_status, "WRITE VERIFIED. BACKUP AM001") == 0);
+	checkTrue("the result keeps the page's lines: 5 CHANGES, POLES first",
+	          am32StripIs("5 CHANGES", C_DIM) && fakeTextIs(UI_MARGIN, 62, "POLES", C_TEXT, C_BG, 1));
+	checkTrue("the backup line names the backup made: BACKUP: BACKUP/AM001.TXT",
+	          fakeTextIs(UI_MARGIN, 236, "BACKUP: BACKUP/AM001.TXT", C_DIM, C_BG, 1));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK with the result: the list, nothing left to write",
+	          s_state == S_LIST && !anyDirty() && uiCurrentScreen() == UiScreenId::Am32);
+
+	// Put the fake ESC back as it was.
+	for (int i = 0; i < AM32_SETTINGS_SIZE; i++) s_eeprom[i] = s_entry[i];
+	am32OpenPage();
+	pressId(UI_FIX(Am32Ctl::WriteHold));
+	holdId(UI_FIX(Am32Ctl::WriteHold), 50);
+	fakeRelease(); frames(3);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("the ESC as read", s_state == S_LIST && !anyDirty() &&
+	          memcmp(s_original, s_entry, AM32_SETTINGS_SIZE) == 0);
+	leaveAm32ToTester();
+	am32NoCard();
+}
+
+/**
+ * @brief Decision 7 of docs/design/menu-b.md on AM32 CONFIG, and decision
+ *        13's AM32 HEX: with edits not written the first BACK arms the guard,
+ *        whose two amber lines name the count; a press elsewhere disarms it;
+ *        the second BACK goes to MENU and drops the edits. Without edits BACK
+ *        leaves at once. AM32 HEX's BACK returns to the list.
+ */
+static void testAm32Guard() {
+	section("AM32 CONFIG: BACK on edits not written arms the guard");
+	EscTelemetry quiet;
+	memset(&quiet, 0, sizeof(quiet));
+	fakeSetTelemetry(&quiet);
+	am32NoCard();
+	enterAm32(6);
+	int writes = fakeAm32Writes();
+	uint8_t esc = fakeEscByte(0x1B);
+	checkTrue("POLES steps", am32Step("POLES"));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("one change: the first BACK stays, the guard armed",
+	          uiCurrentScreen() == UiScreenId::Am32 && s_state == S_LIST && s_guard.armed);
+	checkTrue("  1 CHANGE NOT WRITTEN. / BACK AGAIN DISCARDS IT., amber",
+	          stripNoteIs("1 CHANGE NOT WRITTEN.", "BACK AGAIN DISCARDS IT."));
+	tapId(UI_ROW(uiRowOf("POLES"), Row));
+	checkTrue("a press on a row disarms it: the caption returns", !s_guard.armed &&
+	          !fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, "1 CHANGE NOT WRITTEN.", UI_COL_WARN, C_BG, 1) &&
+	          uiCurrentScreen() == UiScreenId::Am32 && anyDirty());
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the next BACK arms it again", s_guard.armed && uiCurrentScreen() == UiScreenId::Am32);
+	tapId(UI_FIX(Am32Ctl::Hex));
+	checkTrue("a press on HEX disarms it", !s_guard.armed && s_hexView);
+	checkTrue("AM32 HEX: the title names the view", am32TitleIs("AM32 HEX"));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK on AM32 HEX: the list, titled AM32 CONFIG, the edit kept",
+	          uiCurrentScreen() == UiScreenId::Am32 && s_state == S_LIST && !s_hexView &&
+	          am32TitleIs("AM32 CONFIG") && anyDirty() && !s_guard.armed);
+	checkTrue("DEAD BAND steps", am32Step("DEAD BAND"));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("two changes: 2 CHANGES NOT WRITTEN. / BACK AGAIN DISCARDS THEM.",
+	          s_guard.armed && stripNoteIs("2 CHANGES NOT WRITTEN.", "BACK AGAIN DISCARDS THEM."));
+	checkControlTable("AM32 CONFIG, the guard armed");
+	fakeDumpFrame("shot_am32_discard.ppm");
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the second BACK: MENU, nothing written, the ESC as it was",
+	          uiCurrentScreen() == UiScreenId::Menu && fakeAm32Writes() == writes && fakeEscByte(0x1B) == esc);
+	tapId(UI_FIX(UI_BACK));
+	enterAm32(6);
+	checkTrue("back in: the list as read", s_state == S_LIST && !anyDirty() && !s_guard.armed);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("no edits: one BACK leaves", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(UI_FIX(UI_BACK));
+	enterAm32(6);
+	checkTrue("POLES steps", am32Step("POLES"));
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(Am32Ctl::Revert));
+	checkTrue("REVERT under the armed guard: disarmed, nothing pending", !s_guard.armed && !anyDirty());
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("then one BACK leaves", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("back on the tester", uiCurrentScreen() == UiScreenId::Tester);
+}
+
 /**
  * @brief AM32 CONFIG says what a value does and what to do next: the strip
  *        notes, the next step under a write that is not verified, the
@@ -6128,6 +6363,8 @@ void runUiTests() {
 	testAm32ReadOnly();
 	testAm32BoardLow();
 	testAm32LayoutTable();
+	testAm32WritePage();
+	testAm32Guard();
 
 	// Back to a known state for anything that runs after this.
 	fakeFlashClear();
