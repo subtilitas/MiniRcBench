@@ -246,6 +246,19 @@ means general-purpose input/output.
 The ESC and KISS pins are changeable on MENU → SETTINGS within the free set,
 and the two wires never share a pin.
 
+**Mechanical models of two modules.**
+[ina219_cjmcu219.step](hardware/mechanical/models/ina219_cjmcu219.step), the
+INA219 current sensor board, 24.2 × 21.9 mm, 225 solids, and
+[boost_5v_en.step](hardware/mechanical/models/boost_5v_en.step), the 5V boost
+converter board, 13.7 × 21.7 mm, 69 solids, are drawn part by part with the
+print of both sides. Their specs are rcbench's, copied unchanged to
+`lib/rcbench/hardware/`, and measured from owner photos on 5 mm squared paper:
+positions within about 0.2 mm, no dimension verified with a caliper, board
+thickness and the inductor's height estimated. The boost board does not name
+its enable pad; the one pad besides the 4 corner pads is drawn as it.
+`check_models.py` reads both back, outside CI: valid solids, none sharing
+volume.
+
 **Mechanical model.**
 [hardware/mechanical/models/rp2350_touch_lcd_2_8.step](hardware/mechanical/models/rp2350_touch_lcd_2_8.step)
 is a STEP (Standard for the Exchange of Product model data) facsimile of the
@@ -738,6 +751,31 @@ not run on hardware (item 18).
     `uiChip()` drawn through `gfxRoundRect()` at a 4 px radius. Whether to
     draw radii, or drop them, is open; the chips are square by decision 11
     either way.
+26. **Run summary per log, the owner's choice of 2026-11-14,** from the
+    feature survey. Designed in
+    [run-summary.md](docs/design/run-summary.md), not built: a summary
+    per blackbox log, kept by the logger on core0, written as
+    `LOGS/LOGnnnnn.TXT` beside the `.BFL` at a clean stop and shown on SD
+    LOG; optionally the board's PCF85063 RTC dating the files on the card.
+    Also: every file and directory the firmware writes after a power-on
+    has FAT date and time 0, because the SD library's `get_fattime()`
+    returns 0 while the RP2350's always-on timer is not running, and
+    nothing starts it; not checked on a card. Waits on
+    the owner's answers to the note's eight questions.
+
+27. **Angle meter on the board's IMU, designed, not built.** The owner's
+    choice of 2026-11-14 from the feature survey: incidence, decalage,
+    dihedral and control-surface throw, in degrees and mm, from the
+    QMI8658 at 0x6B on I2C1.
+    [angle-meter.md](docs/design/angle-meter.md) describes the driver on
+    core0 after the touch and current-sensor reads, the angle from the
+    accelerometer alone, ZERO, a three-pose flip calibration, the screen
+    and six slices on rcbench's `servo_rudder.c` and `imu.c`: copies,
+    driver, model, screen, docs and bring-up. It waits on the owner's
+    answers to its seven open questions, first the entry: an ANGLE METER
+    row, a TOOLS row with a chooser, TOOLS in SD LOG's row, or a SETTINGS
+    row. Which QMI8658 variant is fitted, its byte order, its axes on the
+    board, the board's mass and the real accuracy are not verified.
 
 ## Known limitations
 

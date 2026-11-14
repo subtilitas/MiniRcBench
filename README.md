@@ -34,13 +34,21 @@ and voltage (see [Current sensor](#current-sensor); design note
 under DIAGNOSTICS, the reason for the last restart and the time since boot
 (design note `docs/design/diagnostics.md`).
 
-Two features are designed and not built. An S.BUS (Futaba's serial bus for
+Four features are designed and not built. An S.BUS (Futaba's serial bus for
 receiver channels) receiver monitor is described in
 `docs/design/rx-signals.md`, with an S.BUS output that the owner decided on
 and that is not designed yet; rcbench's S.BUS decoder is in the tree and
 tested on the host, and the firmware does not build it. MENU's RX SIGNALS
 row stands for these tools and is drawn disabled, `NOT BUILT`. A PPM
 (pulse-position modulation) output is not built, by the owner's decision.
+An angle meter on the board's QMI8658 IMU (inertial measurement unit), for
+incidence, decalage, dihedral and control-surface throw, is designed in
+`docs/design/angle-meter.md` and not built; it waits on the owner's answers
+to the note's open questions. A run summary per blackbox log, written
+beside the log and shown on SD LOG, with the board's PCF85063 real-time
+clock dating the files on the card as an option, is planned in
+`docs/design/run-summary.md` and not built; it waits on the owner's answers
+to that note's open questions.
 Menu structure B is described in `docs/design/menu-b.md`; its 10 slices are
 in the tree, tested on the host only: its building blocks, its colour roles,
 its names and SETTINGS, its layout table, its write rule and BACK guard, the
@@ -2298,16 +2306,16 @@ the frames:
 - five of the splash: as it boots, with no answer from the touch
   controller, after an update reset the settings, the same with no touch
   answer, after an update carried the settings over;
-- eleven of the tester: disarmed, armed, live, stale, no ESC, the idle
-  countdown, with KISS values, the 3D mode note, `SDERR` while armed, the
-  card held by a USB host, high contrast;
+- eleven of the tester: disarmed, armed, live, stale, no ESC, an ESC
+  answering at rest, with KISS values, the 3D mode note, `SDERR` while
+  armed, the card held by a USB host, high contrast;
 - ten of MENU: on arrival, the EDT chip on, off and reading NO ESC, BEEP
   sent and refused, SETTINGS' `UNSAVED` and `UPDATED`, DSHOT RESTARTING,
   AM32's power-cycle cue;
 - two of MENU → SERVO PROGRAMMER: SERVO SUPPLY at `OWN` and at a pin;
 - seven of MENU → SETTINGS: the top, scrolled to the end, high contrast,
   SERVO SUPPLY at a pin, the CURRENT SENSE row with a sensor found, the
-  warning for SIG on the boot pin, settings carried over by an update;
+  warning for SIG moved off the boot pin, settings carried over by an update;
 - eight of MENU → SD LOG: ready, recording, no card, a card found by RETRY
   MOUNT, the last log named, a full card, USB DRIVE refused, USB DRIVE
   serving;
