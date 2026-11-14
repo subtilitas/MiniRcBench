@@ -27,7 +27,7 @@
  * |---|---|---|
  * | Free | DShot runs on both pins | pinClaimBegin() |
  * | Stopping | core1 drains, stops and releases the pump | Held when escTaskSuspended() |
- * | Held | both pins free; the GPIOs are latched; SERVO, KST and HITEC start their job | Running once it binds |
+ * | Held | both pins free; the GPIOs are latched; SERVO and KST start their job, HITEC once a family is tapped (pinClaimStartJob()) | Running once it binds |
  * | Running | the job holds its pins | Leaving on pinClaimEnd() |
  * | Leaving | the job releases its pins; SERVO, KST and HITEC show the unplug page | Restoring |
  * | Restoring | core1 rebuilds the pump from the latched wiring | Free |
@@ -35,6 +35,12 @@
  * AM32 has no core1 job: its bootloader transport runs on core0
  * (am32_bl.cpp) and binds the pin itself, so an AM32 claim stays in Held
  * until pinClaimEnd().
+ *
+ * HITEC claims SIG when its screen opens, before its family is known: its
+ * job binds for one family. The claim stays in Held with no job, the pad an
+ * input with the pull-up esc_task.cpp leaves on it, until the family tap
+ * calls pinClaimStartJob(). BACK from there is pinClaimEnd(): the pin went
+ * to a servo, so the unplug page comes before DShot restarts.
  *
  * @see docs/design/pin-claim.md
  */
@@ -71,15 +77,16 @@ struct PinUserInfo {
 	Core1Job job;       /**< The core1 job; None: the screen drives the pin from core0 (AM32). */
 	bool     unplug;    /**< The unplug page comes before DShot restarts. */
 	bool     escCheck;  /**< Refused while an ESC answers on SIG (@ref ClaimRefusal::EscAnswering). */
+	bool     deferJob;  /**< Held starts no job until pinClaimStartJob(). */
 };
 
 /** @brief Every pin user. A new user is one enum value and one line here. */
 static constexpr PinUserInfo PIN_USERS[] = {
-	{ PinUser::None,  Core1Job::None,  false, false },
-	{ PinUser::Am32,  Core1Job::None,  false, false },
-	{ PinUser::Servo, Core1Job::Servo, true,  true  },
-	{ PinUser::Kst,   Core1Job::Kst,   true,  true  },
-	{ PinUser::Hitec, Core1Job::Hitec, true,  true  },
+	{ PinUser::None,  Core1Job::None,  false, false, false },
+	{ PinUser::Am32,  Core1Job::None,  false, false, false },
+	{ PinUser::Servo, Core1Job::Servo, true,  true,  false },
+	{ PinUser::Kst,   Core1Job::Kst,   true,  true,  false },
+	{ PinUser::Hitec, Core1Job::Hitec, true,  true,  true  },
 };
 
 /**
@@ -108,7 +115,7 @@ static_assert(pinUsersComplete(), "a pin user has no row in PIN_USERS, or two");
 enum class ClaimState : uint8_t {
 	Free,       /**< No claim; DShot owns the pins. */
 	Stopping,   /**< The pump drains and releases. */
-	Held,       /**< Both pins free, no job bound. */
+	Held,       /**< Both pins free, no job bound; HITEC waits here for its family. */
 	Running,    /**< The job holds its pins. */
 	Leaving,    /**< The job releases; the unplug page for SERVO, KST and HITEC. */
 	Restoring,  /**< The pump rebuilds. */
@@ -239,6 +246,20 @@ uint8_t pinClaimJobError();
 void pinClaimEnd(PinUser who);
 
 /**
+ * @brief Start the job of a claim whose user defers it (PinUserInfo::deferJob):
+ *        HITEC's family tap. Core0.
+ *
+ * Acts only while @p who holds the claim, Stopping or Held. From Stopping
+ * the job starts once the claim is Held; from Held, with no job started
+ * yet, it starts now. From then on the claim keeps the job wanted:
+ * pinClaimKeep() starts it again. A user that does not defer its job has
+ * it wanted from pinClaimBegin().
+ *
+ * @param who The screen.
+ */
+void pinClaimStartJob(PinUser who);
+
+/**
  * @brief RETRY after a failed bind: start the job again. Core0.
  *
  * Acts only while @p who holds the claim, the claim is Held and
@@ -274,7 +295,8 @@ void pinClaimRestart(PinUser who);
  * @brief BACK on the unplug page: keep the claim. Core0.
  *
  * Acts only while pinClaimUnplugDue() is true and @p who holds the claim. The
- * claim returns to Held and the job starts again.
+ * claim returns to Held and the job starts again, if it was wanted: a HITEC
+ * claim left before its family tap returns to Held with no job.
  *
  * @param who The screen.
  */
