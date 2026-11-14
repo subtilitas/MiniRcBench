@@ -366,6 +366,7 @@ static void testLogNumbering() {
 		{ " LOG00001.BFL", false, 0 },
 		{ "LOG00001.BFL ", false, 0 },
 		{ "XLOG00001.BFL", false, 0 },
+		{ "XOG00001.BFL", false, 0 },
 		{ "LAG00001.BFL", false, 0 },
 		{ "LOX00001.BFL", false, 0 },
 		{ "LOG00001XBFL", false, 0 },

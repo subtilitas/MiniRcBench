@@ -18,19 +18,27 @@ Karten-Erkennungspin. Steck die Karte vor dem Einschalten ein, oder drück nach
 dem Einstecken `RETRY MOUNT` auf dem SD-LOG-Bildschirm.
 
 Die Dateien landen im Verzeichnis `LOGS` als `LOG00001.BFL`, `LOG00002.BFL`
-und so weiter. Jede neue Datei erhält die niedrigste freie Nummer von 00001
-bis 09999. Vorhandene Dateien werden nicht überschrieben. Logs, die eine
+und so weiter. Jede neue Datei erhält die Nummer nach der höchsten
+`LOGnnnnn.BFL` in `LOGS`, die höchste Nummer ist also die neueste
+Aufzeichnung: Liegen `LOG00001.BFL` bis `LOG00005.BFL` auf der Karte und ist
+`LOG00002.BFL` gelöscht, heißt die nächste Aufzeichnung `LOG00006.BFL`. Ein
+leeres oder neues `LOGS` beginnt mit `LOG00001.BFL`. Namen zählen in jeder
+Groß- und Kleinschreibung (`log00007.bfl` ist für die Karte `LOG00007.BFL`);
+andere Namen wie `LOG0007.BFL`, `LOG00007.TXT` oder ein umbenanntes Log
+zählen nicht. Vorhandene Dateien werden nicht überschrieben. Logs, die eine
 frühere Firmware ins Wurzelverzeichnis schrieb, bleiben dort und zählen nicht
-mit.
+mit. Die Platine stellt keine Uhr; welches Datum die Dateien tragen, ist nicht
+geprüft.
 
-**Die höchste Nummer ist nicht immer die neueste Aufzeichnung.** Eine am
-Computer frei gewordene Nummer wird wieder vergeben: Liegen `LOG00001.BFL` bis
-`LOG00005.BFL` auf der Karte und ist `LOG00002.BFL` gelöscht, heißt die
-nächste Aufzeichnung `LOG00002.BFL`. Die Platine stellt keine Uhr, also geben
-auch die Datumsangaben der Dateien die Reihenfolge nicht an; welches Datum die
-Dateien tragen, ist nicht geprüft. Der SD-LOG-Bildschirm nennt die letzte
-Aufzeichnung der Sitzung (siehe `FILE` unten). Ob neue Aufzeichnungen nach der
-höchsten Datei nummeriert werden sollen, ist beim Eigentümer offen.
+Die Platine liest `LOGS` einmal, bei der ersten Aufzeichnung nach dem
+Einbinden der Karte (Einschalten, `RETRY MOUNT`, das Ende von `USB DRIVE`,
+das neue Einbinden durch ein Werkzeug), und zählt von dort weiter. Mit vielen
+Logs auf der Karte liest dieser erste Start mehr von der Karte: einen
+512-Byte-Block je 16 Dateien mit kurzen Namen.
+
+Nach `LOG99999.BFL` ist keine Nummer mehr frei: Keine Aufzeichnung beginnt,
+und der Hinweis lautet `NO LOG STARTED: LOG99999.BFL EXISTS`. Verschieb die
+Logs am Computer von der Karte, dann drück `RETRY MOUNT`.
 
 Die Platine liest die Karte über 4-Bit-SDIO (Secure Digital Input/Output) mit
 10 MHz.
@@ -135,7 +143,8 @@ ohne Karte steht der Einbinde-Hinweis in der zweiten Zeile.
 |---|---|---|
 | `RECORDING STOPPED: CARD FULL` / `FREE SPACE ON A COMPUTER, RETRY MOUNT` | Ein Schreibvorgang fand keinen freien Platz | Dateien am Computer löschen (`USB DRIVE` ist schreibgeschützt), Karte zurückstecken, `RETRY MOUNT` drücken |
 | `RECORDING STOPPED: CARD WRITE FAILED` / `REMOVED? REINSERT, THEN RETRY MOUNT` | Ein Schreibvorgang oder das abschließende Sichern oder Schließen schlug fehl: eine herausgezogene Karte oder ein Kartenfehler. Beides wird nicht unterschieden | Karte neu einstecken, `RETRY MOUNT` drücken |
-| `NO LOG STARTED: THE FILE DID NOT OPEN` / `CHECK THE CARD, THEN RETRY MOUNT` | `START` konnte `LOGS` nicht anlegen oder die nächste Datei nicht öffnen | Karte am Computer prüfen, `RETRY MOUNT` drücken |
+| `NO LOG STARTED: THE FILE DID NOT OPEN` / `CHECK THE CARD, THEN RETRY MOUNT` | `START` konnte `LOGS` nicht anlegen oder lesen oder die nächste Datei nicht öffnen | Karte am Computer prüfen, `RETRY MOUNT` drücken |
+| `NO LOG STARTED: LOG99999.BFL EXISTS` / `MOVE LOGS TO A COMPUTER, RETRY MOUNT` | `LOGS` enthält `LOG99999.BFL`, und keine Nummer folgt darauf | Logs am Computer von der Karte verschieben, `RETRY MOUNT` drücken |
 | `RECORDING STOPPED BY KST SERVO` (`HITEC SERVO`, `AM32 CONFIG`) | Das Werkzeug nahm die Karte für seine Sicherung | `START` für eine neue Aufzeichnung |
 
 Eine volle Karte unterscheidet sich von einem fehlgeschlagenen Schreibvorgang

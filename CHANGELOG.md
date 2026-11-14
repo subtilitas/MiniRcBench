@@ -508,6 +508,17 @@ protocol.
 
 ### Changed
 
+- A new log takes the highest `LOGnnnnn.BFL` in `LOGS/` plus 1, by the
+  owner's decision of 2026-11-14, in place of the lowest unused number from
+  00001 to 09999, so the highest number is the newest log. The first start
+  after a mount reads `LOGS/` once with `f_readdir()`, about one sector per
+  16 short-named files, in place of one `f_stat()` per number; the next
+  number is kept until the next mount or USB DRIVE. A name counts in any
+  letter case (`sdLogNameNumber()`, `sdLogNextNumber()` in `src/sd_log.h`,
+  host tests `testLogNumbering()`). After `LOG99999.BFL` no log starts and
+  SD LOG reads `NO LOG STARTED: LOG99999.BFL EXISTS` / `MOVE LOGS TO A
+  COMPUTER, RETRY MOUNT` (`SdLogEnd::NoFreeNumber`). The file opens with
+  `FA_CREATE_NEW`, never over an existing file.
 - SD LOG's FILE row keeps the last log's name after it ends, marked
   `(LAST)`, beside the counters that log left, until the next start or
   mount; a mount resets the name and the counters (`sdLogBegin()`). The

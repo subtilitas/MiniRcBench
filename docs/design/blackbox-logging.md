@@ -233,12 +233,29 @@ In `src/sd_log.cpp` and `src/log_ring.cpp`:
   REPLACE`, in amber. A bus the firmware could not claim, and a card that
   initialised and failed otherwise (13 FR_NO_FILESYSTEM, 1 FR_DISK_ERR), get
   no hint.
-- Files are `LOGS/LOG00001.BFL` onwards, at the first free number
-  (`SD_LOG_DIR_PATH`). The directory keeps the root to a few entries, so the
-  KST files' and the device backups' lookups in it read one block
-  ([backups.md](backups.md#card-layout)). Logs an earlier firmware wrote to the root
-  stay there. Betaflight uses
-  `.BFL` for single logs and `.BBL` for concatenated ones.
+- Files are `LOGS/LOG00001.BFL` onwards (`SD_LOG_DIR_PATH`), each at the
+  highest number in `LOGS` plus 1 (`sdLogNextNumber()`), so the highest
+  number is the newest log. A name counts when it is `LOG`, five digits and
+  `.BFL` in any letter case, the way FAT compares names, both the long name
+  and its 8.3 alias (`sdLogNameNumber()`); any other entry is ignored.
+  `LOG00000.BFL` alone gives 1. The first start after a mount reads the
+  directory once (`f_opendir()`, then `f_readdir()` to its end): every entry
+  once, 32 bytes each, about N / 16 sector reads for N short-named files,
+  on core0 in the frame that starts the log, the one after arming for an
+  auto log. The time per sector is the card's and not measured. The scan
+  replaces a probe that called `f_stat()` once per number from 1 upward,
+  each a walk of the directory, N² / 2 entries for N logs. The number after
+  each opened log is kept in memory; a mount (`sdLogBegin()`: boot,
+  RETRY MOUNT, the end of USB DRIVE, a tool's remount) and a release to a
+  USB host forget it, as a computer may have changed the directory. After
+  `LOG99999.BFL` the start is refused with `SdLogEnd::NoFreeNumber`, never
+  wrapped onto a low number; a failed scan is `SdLogEnd::OpenFailed`. The
+  file opens with `FA_CREATE_NEW`, so a file the scan did not count fails
+  the open and is not overwritten. The directory keeps the root to a few
+  entries, so the KST files' and the device backups' lookups in it read one
+  block ([backups.md](backups.md#card-layout)). Logs an earlier firmware
+  wrote to the root stay there. Betaflight uses `.BFL` for single logs and
+  `.BBL` for concatenated ones.
 - Logging starts on arming and stops on disarming (`SD_LOG_AUTO_ON_ARM`).
   START and STOP on MENU → SD LOG work by hand, and a log started by hand
   survives the disarm that opening MENU performs.

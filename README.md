@@ -487,7 +487,10 @@ tester. Every tool's **BACK** returns to MENU.
   (FatFs wrote fewer bytes than asked with `FR_OK`),
   `RECORDING STOPPED: CARD WRITE FAILED` / `REMOVED? REINSERT, THEN RETRY MOUNT`
   (a write, sync or close returned an error),
-  `NO LOG STARTED: THE FILE DID NOT OPEN` / `CHECK THE CARD, THEN RETRY MOUNT`,
+  `NO LOG STARTED: THE FILE DID NOT OPEN` / `CHECK THE CARD, THEN RETRY MOUNT`
+  (`LOGS` not made or read, or the file not opened),
+  `NO LOG STARTED: LOG99999.BFL EXISTS` / `MOVE LOGS TO A COMPUTER, RETRY MOUNT`
+  (no number after the highest file),
   and `RECORDING STOPPED BY KST SERVO`, `HITEC SERVO` or `AM32 CONFIG` when
   the tool's claim stopped the log (`cardCacheBegin()`). A USB DRIVE refusal
   outranks them for its 4000 ms.
@@ -796,13 +799,17 @@ records both. The arithmetic is in `docs/design/erpm_resolution.py`.
 Logs are written in Betaflight's blackbox format. They open in
 [**logwiju**](https://subtilitas.github.io/logwiju/), the viewer written for
 them, and in Blackbox Explorer, `blackbox_decode` and PIDtoolbox. Files are
-named `LOGS/LOGnnnnn.BFL` on a card formatted with FAT (File Allocation Table). Each new file takes the lowest
-unused number from 00001 to 09999. Existing files are not overwritten. Logs an
-earlier firmware wrote to the card's root stay there and are not counted.
-The highest number is therefore not always the newest log: a number freed on
-a computer is taken again. The board sets no clock, so the file dates do not
-order the logs either. Numbering after the highest file is open to the owner
-(STATUS.md, open item 20).
+named `LOGS/LOGnnnnn.BFL` on a card formatted with FAT (File Allocation
+Table). Each new file takes the highest number in `LOGS` plus 1, so the
+highest number is the newest log; an empty `LOGS` starts at 00001. A name
+counts in any letter case, as FAT compares names without it; any other name
+is ignored (`sdLogNameNumber()`). The first start after a mount reads `LOGS`
+once with `f_readdir()`, every directory entry once, about one 512-byte
+sector per 16 short-named files; later starts count on from memory, and a
+mount (`RETRY MOUNT`, the end of USB DRIVE, a tool's remount) forgets the
+number. After `LOG99999.BFL` no log starts and SD LOG says so. A file is
+created new, never over an existing one. Logs an earlier firmware wrote to
+the card's root stay there and are not counted. The board sets no clock.
 
 ![SD log screen](docs/log-preview.png)
 
