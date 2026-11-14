@@ -539,10 +539,10 @@ static void drawItem(uint8_t i) {
 
 /**
  * @brief Whether RESET's note is true now: RESET was the last change (the
- *        tick ends s_resetNote at any other), and the live settings
- *        differ from what the next boot loads (the saved settings, or the
- *        compiled defaults when none are stored), so a restart undoes it.
- *        After a save they no longer differ.
+ *        tick ends s_resetNote at any other, and at every completed HOLD TO
+ *        SAVE, saved or not), and the live settings differ from what the
+ *        next boot loads (the saved settings, or the compiled defaults when
+ *        none are stored), so a restart undoes it.
  */
 static bool resetNoteShown() {
 	return s_resetNote && settingsDirty();
@@ -702,6 +702,10 @@ bool uiSettingsTick(const TouchState *t) {
 		} else {
 			s_saveOutcome = settingsSave() ? SaveOutcome::Ok : SaveOutcome::Failed;
 		}
+		// Every completed hold ends RESET's note, whatever the outcome: a
+		// save whose read-back failed has already erased and written the
+		// sector, so what the next boot loads is no longer known.
+		s_resetNote = false;
 		s_redraw = true;
 	} else if (wasHolding || s_saveHold.holding) {
 		s_redraw = true;

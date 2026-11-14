@@ -578,8 +578,9 @@ can be tried and then discarded by leaving without saving. The note line reads
 `SAVED SETTINGS IN USE` or `COMPILED DEFAULTS IN USE`. After RESET it reads
 `DEFAULTS LOADED - RESTART TO UNDO` while the live settings are what RESET
 left and differ from what the next boot loads (the saved settings, or the
-compiled defaults when none are stored); a save or any other change ends
-it. MENU shows `UNSAVED` on
+compiled defaults when none are stored). Any other change ends it, and so
+does every completed HOLD TO SAVE, failed saves included: a save whose
+read-back fails has already rewritten the sector. MENU shows `UNSAVED` on
 the SETTINGS row while the live settings differ from flash.
 
 **High contrast**
@@ -1292,8 +1293,10 @@ rcbench's has run on a servo. Design note:
 ### Wiring
 
 As for KST: the servo on its own supply, signal on SIG, the grounds joined
-once at the board. **One servo on the lead**: every frame goes to ID 0,
-and every D series servo on the line takes a frame sent to ID 0.
+once at the board. **One servo on the lead**: every frame goes to ID 0, and
+the frame carries no other address. rcbench records two D series servos on
+one port both taking a frame sent to ID 0. Whether a servo whose own ID is
+not 0 answers ID 0 is not measured.
 
 ```
   servo supply, 5 V
@@ -1435,8 +1438,8 @@ own factory cells, and the HS-5xxx and HS-7xxx layouts.
 
 **Current limitations**
 
-- The bench sends every frame to ID 0. A D series servo with another ID is
-  not tested.
+- The bench sends every frame to ID 0. Whether a D series servo with
+  another ID answers it is not measured.
 - With `GP28` or `GP29`, the screen's card calls run in a card phase that
   keeps the supply on for at most 15 s while the screen does not redraw, as for KST.
   At the SD specification's full times the first write that keeps an old

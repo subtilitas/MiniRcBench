@@ -647,6 +647,42 @@ static void testResetNote() {
 	// RESET while the defaults are what a restart loads: nothing to undo.
 	tapId(UI_FIX(SettingsCtl::Reset));
 	checkTrue("RESET over saved defaults: no RESET note", !settingsDirty() && !noteIs(NOTE, C_AMBER));
+
+	// A change in KST's SERVO SUPPLY row, which writes the settings itself.
+	revealRow((int)SettingsRowId::Poles);
+	tapId(UI_ROW(SettingsRowId::Poles, Plus));
+	holdSave();
+	tapId(UI_FIX(SettingsCtl::Reset));
+	checkTrue("saved other poles, RESET: the note", noteIs(NOTE, C_AMBER));
+	revealRow((int)SettingsRowId::ServoSupply);
+	tapId(UI_ROW(SettingsRowId::ServoSupply, Plus));
+	checkTrue("SERVO SUPPLY stepped: UNSAVED", settings()->servoSupply == 1 &&
+	          noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
+	tapId(UI_ROW(SettingsRowId::ServoSupply, Minus));
+	checkTrue("and back: still not the RESET note", noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
+
+	// A change made while SETTINGS is not open ends it too.
+	tapId(UI_FIX(SettingsCtl::Reset));
+	checkTrue("RESET again: the note", noteIs(NOTE, C_AMBER));
+	tapId(UI_FIX(UI_BACK));
+	settings()->backlight = (uint8_t)(settings()->backlight - 8);
+	tapId(menuRow(&UI_SETTINGS));
+	menuFrames(2);
+	checkTrue("changed elsewhere: UNSAVED on return", noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
+
+	// A failed save ends it: the sector may already be erased and written.
+	tapId(UI_FIX(SettingsCtl::Reset));
+	checkTrue("RESET: the note", noteIs(NOTE, C_AMBER));
+	fakeFlashSetWritable(false);
+	holdSave();
+	checkTrue("HOLD TO SAVE refused by the flash: SAVE FAILED",
+	          noteIs("SAVE FAILED - FLASH REFUSED THE WRITE", C_RED));
+	tapId(UI_FIX(UI_BACK));
+	tapId(menuRow(&UI_SETTINGS));
+	menuFrames(2);
+	checkTrue("SETTINGS again: UNSAVED, not the RESET note",
+	          settingsDirty() && noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
+	fakeFlashSetWritable(true);
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 }

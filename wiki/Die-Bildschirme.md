@@ -188,7 +188,8 @@ Unter der Liste bleiben diese Elemente an ihrem Platz:
   `UNSAVED - HOLD SAVE TO KEEP`. Nach `RESET` zeigt sie
   `DEFAULTS LOADED - RESTART TO UNDO` (Voreinstellungen geladen, ein Neustart
   macht es rückgängig), solange ein Neustart die gespeicherten Werte
-  zurückbrächte, bis zum Speichern oder zur nächsten Änderung.
+  zurückbrächte, bis zur nächsten Änderung oder zu einem `HOLD TO SAVE`,
+  gescheitert oder nicht.
 - `HOLD TO SAVE` (150 × 48 px) und `RESET` (70 × 48 px).
 
 **Änderungen wirken sofort. Nur das Speichern braucht das Halten.** Eine neue
