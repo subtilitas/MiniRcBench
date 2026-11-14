@@ -1314,16 +1314,16 @@ lines, it reads them as follows:
 
 ## Slice 5 as built
 
-Decisions 6 and 7, and decision 13's AM32 HEX and AM32 WRITE titles, on
-AM32 CONFIG, KST SERVO, HITEC SERVO and SERVO SET, with host tests in
+Decisions 6 and 7, and decision 13's AM32 HEX and AM32 WRITE titles, on AM32
+CONFIG, KST SERVO, HITEC SERVO and SERVO SET, with host tests in
 `test/test_ui.cpp` (`testAm32WritePage()`, `testAm32PageWritesWhatItShows()`,
-`testAm32Guard()` and the AM32 write sections), `test/test_servo.cpp` (`testSetGuard()`, `backFromSet()`),
-`test/test_kst_ui.cpp` and `test/test_hitec_ui.cpp`. For each behaviour a
-mutation of the code fails the suite. The interlocks stay as they
-were: the BOARD voltage refusal, the backup before the first write, the wait
-for the card's flush, AM32's refusal of a layout it does not know and the
-write's read-back run on the page's hold as they ran on the hold that wrote
-before, and their tests run through the page.
+`testAm32Guard()` and the AM32 write sections), `test/test_servo.cpp`
+(`testSetGuard()`, `backFromSet()`), `test/test_kst_ui.cpp` and
+`test/test_hitec_ui.cpp`. For each behaviour a mutation of the code fails the
+suite. The interlocks stay as they were: the BOARD voltage refusal, the backup
+before the first write, the wait for the card's flush, AM32's refusal of a
+layout it does not know and the write's read-back run on the page's hold as they
+ran on the hold that wrote before, and their tests run through the page.
 
 | Block | Where | What it does |
 |---|---|---|

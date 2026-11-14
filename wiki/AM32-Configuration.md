@@ -266,15 +266,15 @@ nothing. `BACK` before the hold, or under the result, returns to the list.
 
 <img src="img/am32-written.png" width="240" alt="Write verified">
 
-While the BOARD voltage on the tester is red, below 3.30 V and until it
-rises to 3.35 V, the hold writes nothing, neither the backup nor the
-settings. The result reads `BOARD VOLTAGE IS RED: NOT WRITTEN.` with
-`CHARGE THE CELL. TAP OK, WRITE AGAIN.` in amber under it, and `OK` returns
-to the list with the edits kept; `WRITE...` and the page's hold write again. The screen asks once, as the hold ends,
-before the backup. Amber, and a value below 2.50 V (no cell to judge),
+While the BOARD voltage on the tester is red, below 3.30 V and until it rises to
+3.35 V, the hold writes nothing, neither the backup nor the settings. The result
+reads `BOARD VOLTAGE IS RED: NOT WRITTEN.` with `CHARGE THE CELL. TAP OK, WRITE
+AGAIN.` in amber under it, and `OK` returns to the list with the edits kept;
+`WRITE...` and the page's hold write again. The screen asks once, as the hold
+ends, before the backup. Amber, and a value below 2.50 V (no cell to judge),
 refuse no write. The bands are a lithium-polymer cell's usual range, not
-measured on this board. What the board reads on USB power with no cell is
-not measured either, so a board on USB alone may refuse writes.
+measured on this board. What the board reads on USB power with no cell is not
+measured either, so a board on USB alone may refuse writes.
 
 <img src="img/am32-board-low.png" width="240" alt="BOARD VOLTAGE IS RED: NOT WRITTEN. with CHARGE THE CELL. TAP OK, WRITE AGAIN. in amber">
 

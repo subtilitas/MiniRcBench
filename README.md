@@ -766,13 +766,13 @@ goes to the card and no byte to the ESC. A write already running is not stopped:
 cut off, it would leave the servo partly written and unverified, while one that
 finishes ends with its read-back. The KST and Hitec write pages read, in amber
 at y 196 and y 208, `BOARD VOLTAGE IS RED: NOT WRITTEN.` and `CHARGE THE BOARD'S
-CELL, HOLD AGAIN.`, their hold still live; AM32 CONFIG shows the first line
-as its write's result on `AM32 WRITE`, in amber at the same place, over
-`CHARGE THE CELL. TAP OK, WRITE AGAIN.`, since its result stands under OK. Amber, the text colour, and a value
-below 2.50 V (no cell to judge) refuse no write. The bands are a lithium-polymer
-cell's usual range, not measured on this board; what the divider reads with USB
-power and no cell is not measured either, so a board on USB alone may refuse
-writes.
+CELL, HOLD AGAIN.`, their hold still live; AM32 CONFIG shows the first line as
+its write's result on `AM32 WRITE`, in amber at the same place, over `CHARGE THE
+CELL. TAP OK, WRITE AGAIN.`, since its result stands under OK. Amber, the text
+colour, and a value below 2.50 V (no cell to judge) refuse no write. The bands
+are a lithium-polymer cell's usual range, not measured on this board; what the
+divider reads with USB power and no cell is not measured either, so a board on
+USB alone may refuse writes.
 
 ---
 
