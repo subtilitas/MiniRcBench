@@ -24,6 +24,17 @@ root and has no header. On the unplug page of SERVO TESTER, KST SERVO and
 HITEC SERVO, `BACK` waits until the pins are let go: until then it is drawn
 disabled, an outline with a grey label, and a tap on it does nothing.
 
+**Each colour means one thing on every screen.** Green is safe or done: `SAFE`,
+`EDT ON`, `WRITE VERIFIED`, `SAVED`. Lime is a live reading: RPM, the throttle
+fill, the servo pulse, a hold's progress bar. Red is output on or a failure:
+`ARMED`, `RUNNING`, `STOP`, a tool's hold button while it is held, `REC`, a
+write in doubt. Amber is a warning or the step to take now. Magenta is an alert,
+such as `STALLED`. Cyan is a value changed and not yet written, applied or
+saved, with a cyan bar at its row's left edge. Blue is a setting that stays on:
+`HOLD`, a toggle that is on, `PROG MODE`, servo B. Labels, captions and the
+buttons that open or command something are in the text colour or grey. A chip on
+the strip under a title is square, so it does not look like a button.
+
 ---
 
 ## The tester
@@ -33,10 +44,10 @@ disabled, an outline with a grey label, and a tap on it does nothing.
 **Top row.** From left to right:
 
 - the arm badge: `SAFE` (green) or `ARMED` (red);
-- `DS` and the DShot bitrate in kbit/s, as set under SETTINGS, cyan once an EDT
-  (Extended DShot Telemetry) enable has been sent. `DSERR` in amber replaces
-  it when the display could not set up its DShot output; nothing is sent to
-  the ESC then;
+- `DS` and the DShot bitrate in kbit/s, as set under SETTINGS, dim, and in the
+  text colour once an EDT (Extended DShot Telemetry) enable has been sent.
+  `DSERR` in amber replaces it when the display could not set up its DShot
+  output; nothing is sent to the ESC then;
 - the recording state: `REC`, `SD`, `SDERR` or `NOSD`
   (see [SD Logging](SD-Logging)). `SDERR`, a recording that stopped on its
   own, is drawn on an amber chip, and stays clear of the arm badge, the RPM
@@ -86,7 +97,8 @@ quality. See [Telemetry](Telemetry).
 
 **Throttle.** The gauge, the ceiling and the commanded percentage. The
 percentage is of the full DShot range (0–2000 = 0–100 %): at a 20 % ceiling, a
-full-width drag reads `20%`. While disarmed the bar reads `ARM TO ENABLE`.
+full-width drag reads `20%`. The ceiling reads `MAX 20%` in the text colour
+beside `THROTTLE`. While disarmed the bar reads `ARM TO ENABLE`.
 
 **Buttons.** `HOLD TO ARM` / `DISARM`, `HOLD` (latching throttle), `MENU`.
 
@@ -114,7 +126,8 @@ Reached with the tester's `MENU` button. Opening it **disarms**, sets the
 throttle to 0 and turns `HOLD` off.
 
 Under the title, a strip shows the ESC pin and the DShot rate, for example
-`GP0  600 KBIT/S`, and the EDT chip. The chip is read-only:
+`GP0  600 KBIT/S`, and the EDT chip. The chip is read-only, square and 12 px
+tall:
 
 | Chip | When |
 |---|---|
@@ -264,7 +277,8 @@ rebuilds the DShot driver before the next frame. `HOLD TO SAVE` for 1 s writes
 to flash. `HOLD RESET` for 1 s replaces the live settings with the compiled
 defaults, the pole count and the throttle ceiling included; flash is
 untouched. A tap does nothing, and sliding off the button cancels the hold.
-A bar over the button fills while it is held. Leaving the screen keeps the
+A bar over the button fills while it is held, and the button fills red, as
+every hold does. Leaving the screen keeps the
 defaults in use. The saved values load only when the board starts, so
 restarting the board without `HOLD TO SAVE` returns to them.
 

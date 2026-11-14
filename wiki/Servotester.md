@@ -123,7 +123,7 @@ Statusanzeige zeigt `STALLED`, und der Bildschirm meldet
 | Loslassen | Das Servo bleibt, wo es ist |
 | `MIN` `CENTRE` `MAX` | Beim Loslassen an dieses Ende oder in die Mitte |
 | `SWEEP` | Ein Sweep um die Mitte; die Taste wird zu `STOP SWEEP` |
-| `SPEED` | Wie schnell das Servo bewegt wird, 10 % bis 100 % |
+| `SPEED` | Wie schnell das Servo bewegt wird, 10 % bis 100 %. Die Füllung ist grau |
 
 - Skala und Tasten wirken nur im Zustand `RUNNING`; in `SAFE` sind sie als
   Umriss gezeichnet und tun nichts.
@@ -134,9 +134,10 @@ Statusanzeige zeigt `STALLED`, und der Bildschirm meldet
   allmählich: Bei 10 % dauert der ganze Weg von MIN nach MAX 5 s.
 - Ein Sweep beginnt in der Mitte und läuft auf dem zweiten Kern der Platine,
   daher bremst der Bildschirm ihn nicht. Während er läuft, zeigt die Anzeige
-  `SWEEP 3` oder `SWEEP 3/10`: die erreichten Enden und die eingestellte
-  Anzahl. `STOP SWEEP` lässt das Servo dort, wo die Kurve gerade war. Auch
-  Ziehen, `MIN`, `CENTRE`, `MAX` und `STOP` beenden einen Sweep.
+  `SWEEP 3` oder `SWEEP 3/10` in Hellgrün, ein laufender Messwert: die
+  erreichten Enden und die eingestellte Anzahl. `STOP SWEEP` lässt das Servo
+  dort, wo die Kurve gerade war. Auch Ziehen, `MIN`, `CENTRE`, `MAX` und `STOP`
+  beenden einen Sweep.
 
 <img src="img/servo-sweep.png" width="240" alt="Ein laufender Sweep">
 
@@ -150,7 +151,9 @@ Beide teilen sich ein Profil und eine Framerate.
 <img src="img/servo-two.png" width="240" alt="Zwei Servos">
 
 `A`, `B` und `AB` wählen, was Skala und Tasten bewegen: ein Servo oder beide
-auf denselben Winkel. Das gewählte Horn ist breit gezeichnet. Mit
+auf denselben Winkel. Das gewählte Horn ist breit gezeichnet. Horn und
+Buchstabe von Servo A sind hellgrün, die von Servo B blau, und `B` ist blau
+gefüllt, solange es gewählt ist. Mit
 `REVERSE B` läuft B gegenläufig, wenn beide folgen, für ein Paar, das
 spiegelbildlich eingebaut ist.
 
@@ -227,7 +230,9 @@ sind also drei auf einmal sichtbar.
 - Ein Heli-Typ oder eine Framerate über 60 Hz kann ein Servo zerstören, das
   nicht dafür gebaut ist: Über 60 Hz überhitzt ein analoges Servo. Eine solche
   Änderung wartet, der Bildschirm nennt das Risiko, und `HOLD TO APPLY` (1 s)
-  übernimmt sie. `BACK` verwirft sie.
+  übernimmt sie. `BACK` verwirft sie. Solange sie wartet, ist der Wert der
+  Zeile cyan, mit einem 3 px breiten cyanfarbenen Balken am linken Rand; ein
+  übernommener Wert steht in der Textfarbe, ausgewählt oder nicht.
 - Ein Puls über den Stellweg eines Servos hinaus fährt es gegen seinen
   Endanschlag, wo es blockiert und heiß wird. Mit TYPE WIDE, MIN unter 900 µs
   oder MAX über 2100 µs zeigt der Bildschirm in Bernstein

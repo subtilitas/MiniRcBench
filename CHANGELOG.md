@@ -523,6 +523,30 @@ protocol.
 
 ### Changed
 
+- After v0.1.0-rc1 (a93e1c1): each colour means one thing on every screen,
+  slice 2 of menu structure B (`docs/design/menu-b.md`, decisions 8, 11 and
+  26). A value edited and not yet written, applied or saved is cyan with a
+  3 px cyan bar at its row's left edge on AM32 CONFIG (amber before), KST
+  SERVO and HITEC SERVO (lime before, Hitec's `*` gone) and on SERVO SET's
+  row that waits for HOLD TO APPLY; a soft rule's bar stays amber; the
+  editor bars follow, and selection no longer turns a value lime. The KST and
+  Hitec write pages show the old value dim and the new one cyan. Chips are
+  square and 12 px tall; KST and Hitec read `PROG MODE` on blue (`MODE` on
+  green before) and KST's `IN DOUBT` is red. Headlines such as `POWER UP` and
+  `POWER-CYCLE THE ESC` are amber. In the text colour now: the KISS source
+  tag, the DShot rate with EDT requested, `SWIPE = THROTTLE` while armed, the
+  tester's `MAX 20%`, AM32's HEX label, SD LOG's START, RETRY MOUNT and USB
+  DRIVE labels, SETTINGS' captions and the MAX THROTTLE, ESC PIN and KISS PIN
+  values, SERVO TESTER's MIN, CENTRE, MAX, SWEEP and SET labels. Servo B's
+  horn, letter and selector are blue; SPEED's fill is grey; the sweep count
+  and SD LOG's read counter are lime; SETTINGS' `SAVED` and AM32's
+  `WRITE VERIFIED` are green; HOLD TO SAVE fills red while held, as every
+  hold. KST's and Hitec's REVERT labels are amber. `UI_COL_CHANGED`,
+  `uiChip()` and `uiChangeText()` in `src/ui_widgets.*`; the rows through
+  `uiListDrawField()`. Host tests in `test/test_widgets.cpp`,
+  `test/test_ui.cpp`, `test/test_menu.cpp`, `test/test_servo.cpp`,
+  `test/test_kst_ui.cpp` and `test/test_hitec_ui.cpp`; the wiki images are
+  regenerated.
 - After v0.1.0-rc1 (a93e1c1): SERVO TESTER → SET: a TYPE, MIN or MAX step that
   leaves the profile past its travel and changes TYPE or takes MIN or MAX
   further out than the applied profile waits for `HOLD TO APPLY`, with the amber

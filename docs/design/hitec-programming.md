@@ -708,7 +708,7 @@ claim's ESC check misses an ESC without bidirectional DShot
 
 ```
 y   0 | HITEC SERVO                      [ BACK ]|
-   40 | D485HW  GP0  BACKUP HT004          (MODE)|  strip, chip C_GREEN
+   40 | D485HW  GP0  BACKUP HT004     [PROG MODE]|  strip, square chip C_BLUE
    62 | MOTION   SPEED            60 % (12)      |  40 px rows, 42 px pitch,
   104 | MOTION   DEAD BAND         STEP 2 (4)    |  viewport 62..215,
   146 | MOTION   SOFT START       20 % (1)       |  on ui_list
@@ -735,8 +735,12 @@ y   0 | HITEC SERVO                      [ BACK ]|
 - Read-only rows (`HITEC_RO`) are drawn in `C_GRID` and are not
   selectable, except CHECKSUM when it reads `BAD`
   ([classic checksum](#classic-checksum)).
-- A value the draft holds other than the servo's is marked `*` before the
-  name.
+- A value the draft holds other than the servo's is `C_CYAN`, with a 3 px
+  `C_CYAN` bar at the row's left edge, `C_AMBER` when it breaks a soft rule;
+  the name carries no mark. Each row is drawn by `uiListDrawField()`
+  ([menu-b.md](menu-b.md), decision 8); selection fills the row and lights
+  the label, never the value. The editor bar's value follows the same
+  colours.
 - The strip names the model (`hitec_identify()`, `hitec_model_name()`), the
   pin, and the backup file once the first write has saved it,
   `BACKUP IN MEMORY` before. A classic strip adds the version, `V16`.
@@ -773,7 +777,7 @@ by a table value on its first edit; REVERT brings it back.
   RIGHT END.
 - Soft rules, rcbench's seven with its texts in upper case, compared with
   the last full read: a value
-  that breaks one is taken; the row gets an amber mark and the editor bar
+  that breaks one is taken; the row's bar is `C_AMBER` and the editor bar
   shows the rule's text. The write page lists them, and its hold confirms
   them.
 

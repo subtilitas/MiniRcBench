@@ -107,7 +107,8 @@ Versuch alle 116,6 ms bis 118,8 ms, 30 s lang. Die Leiste zählt Versuche und
 Zeit: `GP0  TRY 12  1.4 S`. Solange die Suche läuft, dreht sich ein Kreis aus
 Punkten.
 
-Der Inhalt zeigt `POWER UP` und `THE SERVO NOW`, dann
+Der Inhalt zeigt `POWER UP` und `THE SERVO NOW` in Bernstein, den Schritt,
+der jetzt dran ist, dann
 `PLUG IT IN OR SWITCH ITS SUPPLY ON.` und
 `IT ANSWERS ONLY RIGHT AFTER POWER-ON.`
 
@@ -167,9 +168,9 @@ Ein abgeschlossenes Lesen öffnet die Feldliste.
 
 Die Leiste zeigt den Servotyp, `V6` oder `V8`, den Pin und die Sicherung:
 `BACKUP IN MEMORY`, bis ein Schreibvorgang die Sicherung auf die Karte gelegt
-hat, danach `BACKUP KST001`. Rechts steht ein Feld: `MODE` (grün), oder
-`IN DOUBT` (bernsteinfarben), wenn ein Schreibvorgang das Servo in einem
-unbekannten Zustand zurückgelassen hat.
+hat, danach `BACKUP KST001`. Rechts steht ein eckiges Feld: `PROG MODE` auf
+Blau, solange das Servo im Programmiermodus ist, oder `IN DOUBT` auf Rot, wenn
+ein Schreibvorgang das Servo in einem unbekannten Zustand zurückgelassen hat.
 
 Jede Zeile zeigt die Gruppe in kleiner Schrift, den Feldnamen und den Wert.
 Die Zeilen sind 40 px hoch mit 42 px Abstand. Ziehe die Liste nach oben oder
@@ -188,7 +189,10 @@ unten, um zu verschieben.
   `RAW` und die Zahl.
 - LOCKED-Felder sind nur lesbar. Sie sind grau gezeichnet, und ein Tippen
   darauf wählt nichts aus.
-- Ein geänderter Wert ist grün gezeichnet.
+- Ein geänderter Wert ist cyan, mit einem 3 px breiten cyanfarbenen Balken am
+  linken Rand seiner Zeile. Ein Wert, wie er gelesen wurde, steht in der
+  Textfarbe, ausgewählt oder nicht: Die Auswahl hellt die Zeile und ihren
+  Namen auf, nicht den Wert.
 
 <img src="img/kst-edit.png" width="240" alt="DEAD BAND ausgewählt und von 2.0 US auf 2.2 US gestellt">
 
@@ -196,7 +200,8 @@ unten, um zu verschieben.
 
 1. Tippe auf eine änderbare Zeile. Die Editorleiste unter der Liste zeigt das
    Feld, den gespeicherten und den vorgemerkten Wert, zum Beispiel
-   `DEAD BAND  2.0 US ->`. Ist keine Zeile gewählt, zeigt die Leiste
+   `DEAD BAND  2.0 US ->` über `2.2 US`, den vorgemerkten Wert in Cyan, sobald
+   er abweicht. Ist keine Zeile gewählt, zeigt die Leiste
    `TAP A ROW TO EDIT IT` und `SWIPE IT SIDEWAYS FOR COARSE`.
 2. Tippe auf `-` oder `+` (44 × 44 px), um den Wert zu verstellen. Gedrückt
    halten wiederholt den Schritt. `+` erhöht den angezeigten Wert und `-`
@@ -204,7 +209,7 @@ unten, um zu verschieben.
    `DEAD BAND`.
 3. Oder wische die Zeile zur Seite. Ein Schritt ist ein Elftel des
    Wertebereichs des Feldes, aufgerundet, mindestens ein Rohschritt.
-4. `REVERT` verwirft alle vorgemerkten Änderungen.
+4. `REVERT`, in Bernstein beschriftet, verwirft alle vorgemerkten Änderungen.
 
 Ein Rohschritt ändert nicht immer den Text: `MAX. DUTY` zeigt `96 %` bei
 Rohwert 245 und bei Rohwert 244. Die Editorleiste und die Schreibseite
@@ -216,9 +221,9 @@ Zwei Arten von Grenzen gelten:
   die eine verletzen, daher halten `-` und `+` beim letzten zulässigen Wert an.
   `MAX. DUTY` hält zum Beispiel bei 98 % an. Ist kein weiterer Schritt
   zulässig, ist die Schaltfläche abgeblendet gezeichnet.
-- **Eine weiche Regel** wird übernommen. Die Zeile bekommt an ihrem linken Rand
-  eine 3 px breite bernsteinfarbene Markierung, und die Editorleiste zeigt den
-  Text der Regel in Bernstein, zum Beispiel
+- **Eine weiche Regel** wird übernommen. Der Balken der Zeile wird
+  bernsteinfarben, der Wert bleibt cyan, und die Editorleiste zeigt den Text
+  der Regel in Bernstein, zum Beispiel
   `WITHOUT SOFT START THE SERVO JUMPS AT POWER-ON.`
 
 Unter der Editorleiste liegen drei Schaltflächen, 46 px hoch: `HOLD TO WRITE`
@@ -237,7 +242,8 @@ Die Schreibseite öffnet sich und schreibt noch nichts.
 
 Die Schreibseite heißt `KST WRITE`. Die Leiste zählt die Felder, `1 FIELD`
 oder `2 FIELDS`. Jedes geänderte Feld ist eine Zeile, `DEAD BAND` und
-`2.0 US -> 2.2 US`, bis zu vier, danach `AND 3 MORE`. Bernsteinfarbene Zeilen
+`2.0 US -> 2.2 US`, der alte Wert und der Pfeil gedämpft, der neue Wert cyan,
+bis zu vier, danach `AND 3 MORE`. Bernsteinfarbene Zeilen
 mit einem `*` am Anfang nennen die weichen Regeln, die gelten. Die Zeile am
 unteren Rand sagt, wohin die Sicherung geht:
 
@@ -346,7 +352,8 @@ Zu den roten Ergebnissen gehören:
 
 <img src="img/kst-doubt.png" width="240" alt="IN DOUBT: THE SERVO DOES NOT HOLD THE VALUES">
 
-Nach einem Ergebnis `IN DOUBT` zeigt das Feld der Feldliste `IN DOUBT`, und
+Nach einem Ergebnis `IN DOUBT` zeigt das Feld der Feldliste `IN DOUBT` auf
+Rot, und
 die Schreib-Schaltfläche zeigt `IN DOUBT` und tut nichts. Der Bildschirm
 nimmt kein Schreiben an, bis eine Wiederherstellung gelaufen ist. Stelle
 über [FILES](#files) wieder her.

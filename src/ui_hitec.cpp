@@ -769,6 +769,7 @@ static bool stepOk(int dir) {
  *        value the screen cannot show as a setting, or the checksum row that
  *        needs a repair, is Odd; a row the bench does not write is ReadOnly;
  *        a written row that differs from the servo as read is Changed.
+ * @param i       The row.
  * @param raw     The value is shown raw, not as a setting.
  * @param changed The row is written and differs from the servo.
  */

@@ -27,6 +27,20 @@ KST SERVO und HITEC SERVO wartet `BACK`, bis die Pins freigegeben sind: Bis
 dahin ist es deaktiviert gezeichnet, als Umriss mit grauer Beschriftung, und
 ein Tippen darauf bewirkt nichts.
 
+**Jede Farbe bedeutet auf jedem Bildschirm eines.** Grün heißt sicher oder
+erledigt: `SAFE`, `EDT ON`, `WRITE VERIFIED`, `SAVED`. Hellgrün ist ein
+laufender Messwert: die Drehzahl, die Gasfüllung, der Servoimpuls, der
+Fortschrittsbalken beim Halten. Rot heißt Ausgang an oder ein Fehler: `ARMED`,
+`RUNNING`, `STOP`, die Halte-Schaltfläche eines Werkzeugs, solange sie gehalten
+wird, `REC`, ein Schreiben mit unklarem Ausgang. Bernstein ist eine Warnung oder
+der Schritt, der jetzt dran ist. Magenta ist ein Alarm, etwa `STALLED`. Cyan ist
+ein geänderter Wert, der noch nicht geschrieben, übernommen oder gespeichert
+ist, mit einem cyanfarbenen Balken am linken Rand seiner Zeile. Blau ist eine
+Einstellung, die an bleibt: `HOLD`, ein eingeschalteter Schalter, `PROG MODE`,
+Servo B. Beschriftungen, Überschriften und die Schaltflächen, die etwas öffnen
+oder auslösen, stehen in der Textfarbe oder in Grau. Ein Feld auf der Leiste
+unter einem Titel ist eckig, damit es nicht wie eine Schaltfläche aussieht.
+
 ---
 
 ## Der Tester
@@ -36,8 +50,9 @@ ein Tippen darauf bewirkt nichts.
 **Obere Zeile.** Von links nach rechts:
 
 - das Scharf-Feld: `SAFE` (grün) oder `ARMED` (rot);
-- `DS` und die DShot-Bitrate in kbit/s, wie unter SETTINGS eingestellt, cyan,
-  sobald eine EDT-Freigabe (Extended DShot Telemetry) gesendet wurde. `DSERR`
+- `DS` und die DShot-Bitrate in kbit/s, wie unter SETTINGS eingestellt,
+  gedämpft, und in der Textfarbe, sobald eine EDT-Freigabe (Extended DShot
+  Telemetry) gesendet wurde. `DSERR`
   in Bernstein ersetzt sie, wenn die Anzeige ihren DShot-Ausgang nicht
   einrichten konnte; dann wird nichts an den ESC gesendet;
 - der Aufzeichnungszustand: `REC`, `SD`, `SDERR` oder `NOSD`
@@ -94,7 +109,8 @@ Verbindungsqualität. Siehe [Telemetrie](Telemetrie).
 
 **Gas.** Die Anzeige, die Obergrenze und der befohlene Prozentwert. Der
 Prozentwert bezieht sich auf den vollen DShot-Bereich (0–2000 = 0–100 %): Bei
-20 % Obergrenze zeigt ein Zug über die volle Breite `20%`. Im entschärften
+20 % Obergrenze zeigt ein Zug über die volle Breite `20%`. Die Obergrenze
+steht als `MAX 20%` in der Textfarbe neben `THROTTLE`. Im entschärften
 Zustand zeigt der Balken `ARM TO ENABLE`.
 
 **Schaltflächen.** `HOLD TO ARM` / `DISARM`, `HOLD` (haltendes Gas), `MENU`.
@@ -124,7 +140,8 @@ Erreichbar über die Schaltfläche `MENU` des Testers. Das Öffnen **entschärft
 setzt das Gas auf 0 und schaltet `HOLD` aus.
 
 Unter dem Titel zeigt eine Leiste den ESC-Pin und die DShot-Rate, zum Beispiel
-`GP0  600 KBIT/S`, sowie das EDT-Feld. Das Feld ist nur eine Anzeige:
+`GP0  600 KBIT/S`, sowie das EDT-Feld. Das Feld ist nur eine Anzeige, eckig
+und 12 px hoch:
 
 | Feld | Wann |
 |---|---|
@@ -283,7 +300,8 @@ Bitrate baut den DShot-Treiber vor dem nächsten Frame neu auf. `HOLD TO SAVE`
 Einstellungen durch die kompilierten Voreinstellungen, Polzahl und
 Gas-Obergrenze eingeschlossen; das Flash bleibt unverändert. Ein Tippen
 bewirkt nichts, ein Wegschieben vom Knopf bricht das Halten ab. Ein Balken
-über dem Knopf füllt sich, solange er gehalten wird. Wer den
+über dem Knopf füllt sich, solange er gehalten wird, und der Knopf wird rot,
+wie bei jedem Halten. Wer den
 Bildschirm verlässt, behält die Voreinstellungen in Gebrauch. Die
 gespeicherten Werte lädt die Platine nur beim Start, ein Neustart ohne
 `HOLD TO SAVE` kehrt also zu ihnen zurück.

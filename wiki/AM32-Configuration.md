@@ -28,8 +28,9 @@ screen is open. The firmware repeats its handshake, waiting 30 ms for each
 reply, so that it is sending when the window opens. The window's length is not
 measured.
 
-The screen shows `SEARCHING...`, then `WAITING... (TRY n)` with an attempt
-counter, and a spinner. On success the list appears, and the strip under the
+The screen shows `POWER-CYCLE THE ESC` in amber, the step to take now, and
+`SEARCHING...`, then `WAITING... (TRY n)` with an attempt counter, and a
+spinner. On success the list appears, and the strip under the
 title shows the ESC name, MCU (microcontroller) family and firmware revision.
 
 <img src="img/am32-connect.png" width="240" alt="The connect page: POWER-CYCLE THE ESC, WAITING... (TRY 3) and the spinner">
@@ -219,10 +220,13 @@ stored off the step moves by the step from where it is. A coarse step that
 would pass the end of the range stops at the end. Travel past the end does not
 count, so the first coarse step back moves the value off it.
 
-**Changed rows are marked amber on the left edge**, and their values are
-amber. Nothing has been sent to the ESC yet.
+**A changed value is cyan, with a cyan bar at its row's left edge.** The
+editor bar shows it in cyan too. Nothing has been sent to the ESC yet. A
+value as read is in the text colour, selected or not: selecting a row only
+lights the row and its name.
 
-`REVERT` discards all unsaved changes and restores the values that were read.
+`REVERT`, labelled in amber, discards all unsaved changes and restores the
+values that were read. `HEX` is labelled in the text colour.
 
 ---
 
@@ -247,8 +251,8 @@ not measured either, so a board on USB alone may refuse writes.
 
 After the write the firmware waits 300 ms, **reads the settings back and
 compares them** byte by byte. It does not rely on the ESC's acknowledgement.
-A match shows `WRITE VERIFIED`, with `POWER-CYCLE THE ESC TO APPLY.` under
-it. A mismatch shows the first differing byte as
+A match shows `WRITE VERIFIED` in green, with `POWER-CYCLE THE ESC TO APPLY.`
+under it. A mismatch shows the first differing byte as
 `DIFF @xx: GOT xx WANT xx`. A result longer than 18 characters is drawn in
 the small font, so it stays on the screen. Under every result that is not a
 verified write (`WRITE FAILED: ...`, `VERIFY READ: ...`, `DIFF @..`) the

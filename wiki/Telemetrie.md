@@ -57,11 +57,11 @@ nennt die Bedingungen.
 ### Die kleine Marke `KISS` / `EDT`
 
 Die Kacheln für Spannung und Strom tragen in ihrer Beschriftungszeile eine
-Marke: cyan `KISS` oder gedämpft `EDT`. `12,25 V` aus EDT heißt: ein Wert
-irgendwo in einem 0,25-V-Schritt. Derselbe Wert aus KISS liegt innerhalb von
-0,01 V. Wechselt eine Marke von `KISS` auf `EDT`, ist das Telemetriekabel
-verstummt und der Wert 25-mal gröber, auch wenn sich die Ziffern nicht
-sichtbar ändern.
+Marke: `KISS` in der Textfarbe oder gedämpft `EDT`. `12,25 V` aus EDT heißt: ein
+Wert irgendwo in einem 0,25-V-Schritt. Derselbe Wert aus KISS liegt innerhalb
+von 0,01 V. Wechselt eine Marke von `KISS` auf `EDT`, ist das Telemetriekabel
+verstummt und der Wert 25-mal gröber, auch wenn sich die Ziffern nicht sichtbar
+ändern.
 
 ---
 

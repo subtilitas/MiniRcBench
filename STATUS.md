@@ -61,12 +61,15 @@ and SETTINGS, one sectioned list with pole count and throttle ceiling at its
 top (`src/ui_menu.*`, `src/ui_settings.*`, `src/ui_sdlog.*`). Every header is
 36 px tall and every tool's BACK returns to MENU.
 Menu structure B ([menu-b.md](docs/design/menu-b.md)), the owner's choice of
-2026-11-13, has slice 1 of 10 built: the leave page widget
+2026-11-13, has slices 1 and 2 of 10 built. Slice 1: the leave page widget
 (`src/ui_leave.*`), the BACK guard and two strip lines (`src/ui_widgets.*`),
 the field row (`src/ui_list.*`), the colour role names and the layout
-constants. No screen draws differently; no screen uses the leave page, the
-guard or the field row yet. The owner answered the note's eight questions on
-2026-11-14; slices 2 to 10 wait on being built (open item 18).
+constants. Slice 2: one meaning per colour on every screen (`UI_COL_*`); the
+rows of AM32 CONFIG, KST SERVO, HITEC SERVO and SERVO SET drawn through the
+field row, a changed value `C_CYAN` with a 3 px bar; square 12 px chips;
+`PROG MODE` on blue. No screen uses the leave page or the guard yet. The
+owner answered the note's eight questions on 2026-11-14; slices 3 to 10 wait
+on being built (open item 18).
 The pin claim both features share is built (slice 1): the AM32 editor and the
 servo tester run on it. For the ESC, the board is the throttle source. It
 sends bidirectional DShot (a digital ESC protocol in which the ESC
@@ -236,6 +239,7 @@ record either way.
 | Touch handling, high-contrast theme, throttle gauge | tap on release, repeats, screen residue, gauge reach | hardware use recorded: the reports #22 to #24 named in the v2.3 commits; the fixes on hardware: not recorded |
 | List and hold widgets (`src/ui_list.*`, `src/ui_hold.*`; slice A of [menu.md](docs/design/menu.md)) | the list: the scroll range and its clamp, the press rule at the viewport's edges, the row rectangle, the axis lock at 6 px, a tap on release and its slide-off, the scroll from the press point, 16 px per coarse step, the factor, the stop at a rail and the anchor after it, the clipped drawing; the hold: 1000 ms and not 999 ms, the reset on a lift and a slide off, a press that slid on, one firing per press, no timing for a press that landed while the control was disabled or whose first frame it missed, the progress bar's extent; through the screens: AM32's swipe on every field of the table, KV at 16 px a step and its rail, the AM32 and SERVO SET scroll ranges and edge rows (checks that 4c91db9 also passes), DWELL's rail on SET, HOLD TO WRITE and HOLD TO SAVE at 999 ms and 1000 ms, HOLD RESET at 975 ms and 1000 ms, each hold's colour and bar, a press on a disabled HOLD TO START, HOLD TO APPLY and HOLD TO WRITE never timed, HOLD TO SAVE's refusal while armed | not tested on hardware |
 | Menu structure B, slice 1 (`src/ui_leave.*`; `UiBackGuard`, `uiStripTwoLines()`, `UI_COL_*` and the layout constants in `src/ui_widgets.*`; `uiListDrawField()` in `src/ui_list.*`; [menu-b.md](docs/design/menu-b.md)) | the leave page: its three phases, the current step, STAY, LEAVE, NEXT SERVO, RESTART DSHOT at 999 ms and 1000 ms into the released phase and across a `millis()` wrap, a press that landed during the wait or while releasing never restarting DShot, LEAVE drawn disabled and ignoring its tap while `leaveEnabled` is clear, LEAVE taking only a press that landed while it was enabled and is still enabled at the lift, the steps, bar, notes and buttons in each phase, the room above the notes; the guard: the first BACK arming, the second leaving, a press elsewhere and no change left disarming, its two lines for one and two changes; the two strip lines at y 42 and y 52 and their clear; the field row in each value state and edge, selected or not, scale 2 up to 104 px; the role names in both themes; the constants' values; SERVO TESTER's supply line drawn through `uiStripTwoLines()` | host only: no screen uses the leave page, the guard or the field row |
+| Menu structure B, slice 2, colour roles (`UI_COL_CHANGED`, `uiChip()`, `uiChangeText()` in `src/ui_widgets.*`; the screens; [menu-b.md](docs/design/menu-b.md#slice-2-as-built)) | the role names, seven colours, in both themes; the chip square, 12 px tall, y 42 to 53, PROG MODE 65 px from x 167; the change text's dim old value and cyan new value; on AM32 CONFIG, KST SERVO, HITEC SERVO and SERVO SET a row's value by its state, as read, changed with a 3 px cyan bar, a soft rule's amber bar, read-only grey, selected or not, and the editor bar's value; SERVO SET's pending row cyan until HOLD TO APPLY and grey while RUNNING; Hitec's label without `*`; the KST and Hitec headlines amber, PROG MODE on blue, KST's IN DOUBT on red, REVERT amber, the write pages' old and new values; the tester's KISS and EDT tags, the DShot rate, SWIPE = THROTTLE and MAX; AM32's POWER-CYCLE THE ESC, HEX, WRITE VERIFIED green and a refused write's result not green; SETTINGS' captions, values, SAVED and the save hold's red; SD LOG's START, RETRY MOUNT and USB DRIVE labels and the read counter; servo B's horn, letter and selector, SPEED's fill, the command labels, the sweep count | host only: the colours have not been looked at on the panel |
 | Control tables (`src/ui_screen.h`; slice B of [menu.md](docs/design/menu.md)) | every screen's table on each view the host suite reaches, the ids, rectangles and enabled flags, `uiCurrentScreen()` after each navigation; the UI tests tap by id | host only: the firmware does not call the tables |
 | Serial telemetry dump | none | not recorded |
 | `tools/sdtest`, SD bring-up firmware | none, not built in CI | hardware use recorded in f16a70f and e9c9d9a, the 2.8" board with the previous SDIO driver among them; nothing is recorded for the current build |
@@ -479,8 +483,10 @@ the tag. Menu structure B waits on being built, not on the bench (item 18).
     run on the bench, with the questions listed in
     [diagnostics.md](docs/design/diagnostics.md).
 
-18. **Menu structure B waits on building.** Slice 1 of
-    [menu-b.md](docs/design/menu-b.md) is built. The owner answered the
+18. **Menu structure B waits on building.** Slices 1 and 2 of
+    [menu-b.md](docs/design/menu-b.md) are built, slice 2 in the host suite
+    only: its colours have not been looked at on the panel, in either
+    theme. The owner answered the
     note's eight questions on 2026-11-14 (decisions 23 to 30): MENU by
     device, BEEP THE ESC, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, SD
     LOG, SETTINGS; the tester's readouts inert while armed; BACK on the
@@ -488,7 +494,7 @@ the tag. Menu structure B waits on being built, not on the bench (item 18).
     every screen; each slice updates its own README and wiki lines and
     images; the KST labels FAILSAFE MOVE, FAILSAFE POSITION, FAILSAFE TIME,
     REVERSED; OWN for SERVO SUPPLY's no-switch value; RESTART DSHOT after
-    1000 ms. Slices 2 to 10 wait on being built, after the eight small
+    1000 ms. Slices 3 to 10 wait on being built, after the eight small
     decisions of items 20, 21 and 24. Three decisions change the note's
     design, and the sections they touch are marked to be redesigned: the
     docs go with each slice, against the note's recommendation, so the

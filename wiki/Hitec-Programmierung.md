@@ -157,7 +157,8 @@ zeigt die Leiste der nächsten Ansicht `TAKING GP0`.
 
 ## Eintritt und Lesen
 
-Hält der Job die Leitung, beginnt der Eintritt sofort.
+Hält der Job die Leitung, beginnt der Eintritt sofort. Die Überschrift des
+Inhalts, der laufende Schritt, ist bernsteinfarben.
 
 - **Mit SERVO SUPPLY auf `NONE`** liest der Bildschirm das Servo an der
   Versorgung, die es hat. Schalte das Servo ein, bevor du auf `D SERIES`
@@ -205,7 +206,7 @@ Die Leiste zeigt das Modell, den Pin und die Sicherung:
 `D485HW GP0 BACKUP IN MEMORY`, bis ein Schreibvorgang die Sicherung auf die
 Karte gelegt hat, danach zum Beispiel `BACKUP HT001`. Ein Modell ohne Namen
 in der Liste von rcbench zeigt `D SERIES` und seine Nummer. Rechts steht ein
-grünes Feld `MODE`.
+eckiges Feld `PROG MODE` auf Blau.
 
 Jede Zeile zeigt die Gruppe in kleiner Schrift, den Parameternamen und den
 Wert. Die Zeilen sind 40 px hoch mit 42 px Abstand. Ziehe die Liste nach oben
@@ -228,9 +229,12 @@ oder unten, um zu verschieben.
 - Ein gespeicherter Wert, den keine Codierung annimmt, zeigt `RAW` und die
   Zahl in Bernstein, zum Beispiel `RAW 1234`. Ein Wert, der sich nicht
   decodieren lässt, zeigt `?`.
-- Nur lesbare Zeilen sind gedämpft gezeichnet, und ein Tippen darauf wählt
+- Nur lesbare Zeilen sind grau gezeichnet, und ein Tippen darauf wählt
   nichts aus: `SENSITIVITY` und jede INFO-Zeile außer `ID`.
-- Ein geänderter Wert ist grün gezeichnet, und sein Name trägt ein `*`.
+- Ein geänderter Wert ist cyan, mit einem 3 px breiten cyanfarbenen Balken am
+  linken Rand seiner Zeile; der Name trägt kein Zeichen. Ein Wert, wie er
+  gelesen wurde, steht in der Textfarbe, ausgewählt oder nicht: Die Auswahl
+  hellt die Zeile und ihren Namen auf, nicht den Wert.
 
 <img src="img/hitec-preview.png" width="240" alt="SPEED ausgewählt und von 100 % (4095) auf 90 % (18) gestellt">
 
@@ -238,7 +242,8 @@ oder unten, um zu verschieben.
 
 1. Tippe auf eine änderbare Zeile. Die Editorleiste unter der Liste zeigt den
    Parameter, den gespeicherten und den vorgemerkten Wert, zum Beispiel
-   `SPEED  100 % (4095) ->` über `90 % (18)`. Ist keine Zeile gewählt, zeigt
+   `SPEED  100 % (4095) ->` über `90 % (18)`, den vorgemerkten Wert in Cyan,
+   sobald er abweicht. Ist keine Zeile gewählt, zeigt
    die Leiste `TAP A ROW TO EDIT IT` und `SWIPE IT SIDEWAYS FOR COARSE`.
 2. Tippe auf `-` oder `+` (44 × 44 px), um den Wert auf den nächsten Wert zu
    stellen, den seine Codierung annimmt. Gedrückt halten wiederholt den
@@ -246,7 +251,7 @@ oder unten, um zu verschieben.
 3. Oder wische die Zeile zur Seite: ein grober Schritt je 16 px. Ein grober
    Schritt ist ein Elftel des Wertebereichs, aufgerundet, mindestens ein
    Schritt.
-4. `REVERT` verwirft alle vorgemerkten Änderungen.
+4. `REVERT`, in Bernstein beschriftet, verwirft alle vorgemerkten Änderungen.
 
 `FAILSAFE` geht durch `LIMP`, `OFF`, dann Stellungen von 900 µs bis
 2100 µs. Ein `RAW`-Wert nimmt beim ersten Schritt den nächsten zulässigen
@@ -262,9 +267,9 @@ Zwei Arten von Grenzen gelten:
   Bereich und Schritte der Codierung sind harte Grenzen, ebenso die
   Reihenfolge `LEFT END` unter `NEUTRAL` unter `RIGHT END`. Ist kein weiterer
   Schritt zulässig, ist die Schaltfläche abgeblendet gezeichnet.
-- **Eine weiche Regel** wird übernommen. Die Zeile bekommt an ihrem linken Rand
-  eine 3 px breite bernsteinfarbene Markierung, und die Editorleiste zeigt den
-  Text der Regel in Bernstein. Es sind die sieben Regeln von rcbench,
+- **Eine weiche Regel** wird übernommen. Der Balken der Zeile wird
+  bernsteinfarben, der Wert bleibt cyan, und die Editorleiste zeigt den Text
+  der Regel in Bernstein. Es sind die sieben Regeln von rcbench,
   verglichen mit dem zuletzt gelesenen Servo:
 
 | Regel | Text |
@@ -307,11 +312,12 @@ Die Schreibseite öffnet sich und schreibt noch nichts.
 
 <img src="img/hitec-write.png" width="240" alt="Die Schreibseite: SPEED 100 % (4095) -> 90 % (18), KEEP THE SERVO HORN CLEAR.">
 
-Die Schreibseite heißt `HITEC WRITE`. Die Leiste zählt die Werte, `1 VALUE`
-oder `2 VALUES`. Jeder geänderte Parameter ist eine Zeile, `SPEED` und
-`100 % (4095) -> 90 % (18)`, oder zwei, wenn der Wert nicht neben den Namen
-passt. Eine geänderte `ID` steht zuerst. Danach zählt zum Beispiel
-`AND 3 MORE` die Werte, die nicht aufgeführt sind.
+Die Schreibseite heißt `HITEC WRITE`. Die Leiste zählt die Werte, `1 VALUE` oder
+`2 VALUES`. Jeder geänderte Parameter ist eine Zeile, `SPEED` und `100 % (4095)
+-> 90 % (18)`, der alte Wert und der Pfeil gedämpft, der neue Wert cyan, oder
+zwei Zeilen, wenn der Wert nicht neben den Namen passt. Eine geänderte `ID`
+steht zuerst. Danach zählt zum Beispiel `AND 3 MORE` die Werte, die nicht
+aufgeführt sind.
 
 Unter den Werten, von oben nach unten:
 

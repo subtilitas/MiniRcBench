@@ -29,8 +29,10 @@ während dieser Bildschirm offen ist. Die Firmware wiederholt ihren
 Verbindungsaufbau und wartet je 30 ms auf eine Antwort, damit sie sendet, wenn
 das Fenster aufgeht. Die Länge des Fensters ist nicht gemessen.
 
-Der Bildschirm zeigt `SEARCHING...`, dann `WAITING... (TRY n)` mit einem
-Versuchszähler, und einen Ladekringel. Bei Erfolg erscheint die Liste, und der
+Der Bildschirm zeigt `POWER-CYCLE THE ESC` (den ESC aus- und wieder
+einschalten) in Bernstein, den Schritt, der jetzt dran ist, und
+`SEARCHING...`, dann `WAITING... (TRY n)` mit einem Versuchszähler, und einen
+Ladekringel. Bei Erfolg erscheint die Liste, und der
 Streifen unter dem Titel zeigt den ESC-Namen, die MCU-Familie (Microcontroller)
 und die Firmware-Version.
 
@@ -234,11 +236,15 @@ Grobschritt, der über das Ende des Bereichs hinausginge, hält am Ende an. Weg
 über das Ende hinaus zählt nicht, sodass schon der erste Grobschritt zurück
 den Wert vom Ende löst.
 
-**Geänderte Zeilen sind am linken Rand bernsteinfarben markiert**, und ihre
-Werte sind bernsteinfarben. An den ESC ist noch nichts gesendet.
+**Ein geänderter Wert ist cyan, mit einem cyanfarbenen Balken am linken Rand
+seiner Zeile.** Die Bearbeitungsleiste zeigt ihn ebenfalls in Cyan. An den
+ESC ist noch nichts gesendet. Ein Wert, wie er gelesen wurde, steht in der
+Textfarbe, ausgewählt oder nicht: Die Auswahl hellt nur die Zeile und ihren
+Namen auf.
 
-`REVERT` verwirft alle ungespeicherten Änderungen und stellt die gelesenen
-Werte wieder her.
+`REVERT`, in Bernstein beschriftet, verwirft alle ungespeicherten Änderungen
+und stellt die gelesenen Werte wieder her. `HEX` ist in der Textfarbe
+beschriftet.
 
 ---
 
@@ -262,16 +268,16 @@ gemessen, also kann eine Platine nur an USB das Schreiben ablehnen.
 
 <img src="img/am32-board-low.png" width="240" alt="BOARD VOLTAGE IS RED: NOT WRITTEN. mit CHARGE THE BOARD'S CELL, HOLD AGAIN. in Bernstein">
 
-Nach dem Schreiben wartet die Firmware 300 ms, **liest die Einstellungen
-zurück und vergleicht sie** Byte für Byte. Sie verlässt sich nicht auf die
-Bestätigung des ESC. Bei Übereinstimmung erscheint `WRITE VERIFIED`, darunter
+Nach dem Schreiben wartet die Firmware 300 ms, **liest die Einstellungen zurück
+und vergleicht sie** Byte für Byte. Sie verlässt sich nicht auf die Bestätigung
+des ESC. Bei Übereinstimmung erscheint `WRITE VERIFIED` in Grün, darunter
 `POWER-CYCLE THE ESC TO APPLY.`. Bei einer Abweichung erscheint das erste
-abweichende Byte als `DIFF @xx: GOT xx WANT xx`. Ein Ergebnis mit mehr als
-18 Zeichen steht in der kleinen Schrift, damit es auf dem Bildschirm
-bleibt. Unter jedem Ergebnis, das kein überprüftes Schreiben ist
-(`WRITE FAILED: ...`, `VERIFY READ: ...`, `DIFF @..`), zeigt der Bildschirm
-`NOT VERIFIED. TAP OK, WRITE AGAIN.` in Bernstein; siehe
-[Wenn das Schreiben scheitert](#wenn-das-schreiben-scheitert).
+abweichende Byte als `DIFF @xx: GOT xx WANT xx`. Ein Ergebnis mit mehr als 18
+Zeichen steht in der kleinen Schrift, damit es auf dem Bildschirm bleibt. Unter
+jedem Ergebnis, das kein überprüftes Schreiben ist (`WRITE FAILED: ...`, `VERIFY
+READ: ...`, `DIFF @..`), zeigt der Bildschirm `NOT VERIFIED. TAP OK, WRITE
+AGAIN.` in Bernstein; siehe [Wenn das Schreiben
+scheitert](#wenn-das-schreiben-scheitert).
 
 <img src="img/am32-write-failed.png" width="240" alt="WRITE FAILED: REFUSED mit NOT VERIFIED. TAP OK, WRITE AGAIN.">
 

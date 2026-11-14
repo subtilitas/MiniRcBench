@@ -188,7 +188,8 @@ Karte nicht eingebunden.
 `USB DRIVE` auf dem SD-LOG-Bildschirm stellt die Karte dem Computer am
 USB-Kabel (Universal Serial Bus) als Wechsellaufwerk bereit. `.BFL`-Dateien
 herüberkopieren, das Laufwerk am Computer auswerfen, und der Tester nimmt die
-Karte zurück. Der Bildschirm zeigt die bisher gelesene Datenmenge.
+Karte zurück. Der Bildschirm zeigt die bisher gelesene Datenmenge, zum Beispiel
+`3.0 MB READ`, in Hellgrün: ein laufender Messwert.
 
 Die Platine ist ohnehin ein USB-Gerät, für Strom und den seriellen Anschluss.
 Das Laufwerk ist eine zweite USB-Schnittstelle am selben Kabel.

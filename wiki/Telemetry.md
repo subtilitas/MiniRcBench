@@ -54,11 +54,11 @@ means; its documentation, where there is one, lists the conditions.
 
 ### The small `KISS` / `EDT` tag
 
-The voltage and current tiles carry a tag on their label row: cyan `KISS` or
-dim `EDT`. `12.25 V` from EDT means a value somewhere in a 0.25 V step. The
-same reading from KISS is within 0.01 V. When a tag changes from `KISS` to
-`EDT`, the telemetry wire has stopped and the reading is 25 times coarser,
-although the digits may not change visibly.
+The voltage and current tiles carry a tag on their label row: `KISS` in the text
+colour or dim `EDT`. `12.25 V` from EDT means a value somewhere in a 0.25 V
+step. The same reading from KISS is within 0.01 V. When a tag changes from
+`KISS` to `EDT`, the telemetry wire has stopped and the reading is 25 times
+coarser, although the digits may not change visibly.
 
 ---
 

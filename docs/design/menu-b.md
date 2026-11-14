@@ -1,9 +1,9 @@
 # Menu structure B
 
-Status: slice 1 built, host tests only; slices 2 to 10 not built. The owner
-answered the note's eight open questions on 2026-11-14 ([decisions 23 to
-30](#decisions)), and the question that followed from them (decision 33).
-Slices 2 to 10 wait on being built. By the owner's order of work of
+Status: slices 1 and 2 built, host tests only; slices 3 to 10 not built. The
+owner answered the note's eight open questions on 2026-11-14 ([decisions 23
+to 30](#decisions)), and the question that followed from them (decision 33).
+Slices 3 to 10 wait on being built. By the owner's order of work of
 2026-11-14 they follow the eight small decisions of STATUS.md items 20, 21
 and 24. Three of the owner's decisions of 2026-11-14 change this design, and
 the sections they touch are marked "to be redesigned": each slice updates
@@ -820,7 +820,7 @@ change.
     that looks like a button gets tapped.
     - Code: `theme.h` (the role comments), `ui_widgets.{h,cpp}` `uiChip()` and
       the role names (`UI_COL_*`: six of the seven roles built in slice 1; the
-      "changed" role, `C_CYAN` by decision 26, is not built); `ui.cpp`
+      "changed" role, `C_CYAN` by decision 26, built in slice 2); `ui.cpp`
       `drawSourceTag()`,
       `drawStatusBar()`, `drawRpm()`, `drawThrottle()`; `ui_menu.cpp`
       `drawMenu()`; `ui_settings.cpp` `drawItem()`, `noteText()`, `drawAll()`
@@ -1076,7 +1076,7 @@ decisions 31 to 33.
 | Slice | Changes | Needs | Files | Lines, roughly | Tests rewritten / new | Estimate |
 |---|---|---|---|---|---|---|
 | 1. Widgets, built | `UiBackGuard`, `uiStripTwoLines()`, `uiListDrawField()`, `ui_leave`, layout constants, role names; nothing drawn differently. The `uiHeader()` flag is on `main` | | 9 in `src/`, 2 new | +500, −20 | 2 / 430 lines in test_widgets.cpp and test_servo.cpp | built |
-| 2. Colour roles | decisions 8 and 11: the role table on every screen, square chips, PROG MODE | 1 | 10 | 150 changed | 15 / 40 | 1 day |
+| 2. Colour roles, built | decisions 8 and 11: the role table on every screen, square chips, PROG MODE | 1 | 10 | 150 changed | 15 / 40 | built |
 | 3. Names and SETTINGS | decisions 9, 10, 15 b, e, f, h, j, k: SERVO SUPPLY section, SIG and AUX, connector lines, OWN, DSHOT600, MENU statuses and busy strip, KST labels | 1 | 11 | +200, −80 | 110 / 60 | 2 days |
 | 4. Layout table | decision 14 | 1 | 7 | 80 changed | 8 / 10 | 0.5 day |
 | 5. Write rule and guard | decisions 6, 7, 13 (AM32 HEX and WRITE titles): `WRITE...`, `RESTORE...`, AM32 write page and result, editor old value, guard on AM32 and SERVO SET, BACK disabled while writing, the leave queue gone | 1, 2, 4 | 7 | +300, −120 | 110 / 120 | 2 to 3 days |
@@ -1086,10 +1086,11 @@ decisions 31 to 33.
 | 9. Chooser | owner decisions 1 and 2, decisions 16, 18, 19, 15 d, 23, 31, 32 and 33: seven MENU rows scrolling 36 px, `ui_servo_prog`, `UI_PROGRAMMERS`, Hitec family entry points, family view removed | 3, 6, 7 | 9, 2 new | +350, −120 | 50 / 120 | 2 to 3 days |
 | 10. Documentation | what no slice owns: menu.md (the tree, MENU, revision lines on decisions 1, 12 and 18), pin-claim.md's revision line on decision 4, README "Layout", "Tests" and "The user manual", and a check that no README section, wiki page or image still shows the old structure | 1 to 9 | to be redone | to be redone | none | to be redone |
 
-Slice 1 is built ([slice 1 as built](#slice-1-as-built)). Slice 4 is not
-built; it moves rectangles and renames RESET, which the previews, README.md
-and the wiki show, and by decision 27 it changes those itself. It no longer
-waits on a question.
+Slice 1 is built ([slice 1 as built](#slice-1-as-built)), and slice 2
+([slice 2 as built](#slice-2-as-built)). Slice 4 is not built; it moves
+rectangles and renames RESET, which the previews, README.md and the wiki
+show, and by decision 27 it changes those itself. It no longer waits on a
+question.
 
 Slice 3 comes before slice 9: without it the SERVO SUPPLY section leaves
 SETTINGS with KST SERVO's MENU row. Slice 6 needs slice 5 because both change
@@ -1136,10 +1137,11 @@ preview images stay as they are.
 | Leave page | `UiLeave`, `UiLeaveText`, `uiLeaveOpen()`, `uiLeavePoll()`, `uiLeaveTouch()`, `uiLeaveDraw()`, `ui_leave.h` | the three phases, numbered steps, notes, STAY and LEAVE, then NEXT SERVO or BACK TO SERVO and RESTART DSHOT; RESTART DSHOT takes a press that lands the wait or more after the released phase began, and only such a press draws it pressed; `leaveEnabled` cleared draws LEAVE disabled and ignores its tap, for the screen's writes; LEAVE takes only a press that landed while `leaveEnabled` was set (`leavePress`), and only such a press draws it pressed | slice 6 |
 
 What slice 1 left to the open questions, which the owner answered on
-2026-11-14; none of the answers is built:
+2026-11-14; slice 2 builds the first answer, the others wait on their
+slices:
 
-- The "changed" role has no `UI_COL_*` name, and `uiListDrawField()` takes
-  the changed colour as a parameter: `C_CYAN` by decision 26.
+- The "changed" role: `UI_COL_CHANGED`, `C_CYAN` by decision 26, which
+  `uiListDrawField()` draws; built in slice 2.
 - The leave page draws no header: BACK on it is the screen's, drawn
   disabled by decision 25.
 - RESTART DSHOT's wait is a parameter of `uiLeaveOpen()`: 1000 ms by
@@ -1147,6 +1149,59 @@ What slice 1 left to the open questions, which the owner answered on
   answer keeps it.
 - The step texts, including the no-switch value's name, are the screen's:
   OWN by decision 29.
+
+## Slice 2 as built
+
+Decisions 8 and 11 on every screen that exists, with host tests in
+`test/test_widgets.cpp`, `test/test_ui.cpp`, `test/test_menu.cpp`,
+`test/test_servo.cpp`, `test/test_kst_ui.cpp` and `test/test_hitec_ui.cpp`.
+
+| Block | Where | What it draws |
+|---|---|---|
+| The "changed" role | `UI_COL_CHANGED`, `ui_widgets.h` | `C_CYAN`; `uiListDrawField()` draws `UiValue::Changed` and `UiEdge::Changed` in it and takes no colour parameter |
+| Square chip | `uiChip()`, `UI_CHIP_H`, `ui_widgets.{h,cpp}` | 12 px tall, y 42 to 53, no radius, text plus 12 px wide, ending at x 232 |
+| PROG MODE | `UI_CHIP_PROG_MODE`, `ui_kst.cpp` and `ui_hitec.cpp` `drawList()` | `PROG MODE` on `C_BLUE`, 65 px from x 167; KST's `IN DOUBT` on `C_RED`; Hitec's strip keeps 4 px clear of the wider chip |
+| Change text | `uiChangeText()`, `ui_widgets.{h,cpp}` | a write page's `old -> new`: `old -> ` in `C_DIM`, `new` in `C_CYAN` (KST WRITE, HITEC WRITE) |
+| Field rows | `drawRow()` in `ui_am32.cpp`, `drawFieldRow()` in `ui_kst.cpp` and `ui_hitec.cpp`, `drawSetRow()` in `ui_servo.cpp` | through `uiListDrawField()`; Hitec's `*` is gone |
+| Editor bars | the same files' `drawList()` and `drawSet()` | the value by its state, as the row: `C_TEXT`, `C_CYAN`, `C_GRID` |
+| Role table | `ui.cpp`, `ui_settings.cpp`, `ui_sdlog.cpp`, `ui_servo.cpp`, `ui_am32.cpp`, `ui_kst.cpp`, `ui_hitec.cpp` | every row of decision 11's table but the MAX readout's underline |
+
+Readings of the decisions where the code asked for a choice:
+
+- **MAX 20% underline.** The readout is `C_TEXT` and not underlined: the
+  underline marks the tap target of decision 20, which slice 7 builds, and
+  an underline with no target would look tappable.
+- **Headlines.** Every headline of the KST and Hitec main views is
+  `C_AMBER`, not only `POWER UP`: `SWITCHED SUPPLY`, `SUPPLY OFF`,
+  `LISTENING`, `SERVO STARTING`, `READING THE MODEL`.
+- **Uses the role table names and the "becomes" table does not list.**
+  KST's `IN DOUBT` chip is `C_RED`, "a write in doubt"; the servo tester's
+  sweep count is `C_LIME`, "sweep count"; KST's and Hitec's REVERT labels are
+  `C_AMBER`, "REVERT and DEFAULTS labels"; SD LOG's START label is `C_TEXT`,
+  a command button; AM32's `WRITE VERIFIED` is `C_GREEN` on today's result
+  panel, its other results `C_TEXT` until slice 5's write page.
+- **HOLD TO SAVE.** Its fill while held is `C_RED`, as decision 11's table
+  says; decision 14 lists the same change for slice 4.
+- **Editor bar.** The top line, the label and the old value with `->`,
+  stays `C_DIM`; with a soft rule the top line names the new value and takes
+  its state's colour.
+- **SERVO SET.** A PULSE row is Changed while its edit waits for HOLD TO
+  APPLY and differs from the applied profile, with a `C_CYAN` bar: the
+  warning that made it wait is the strip's amber note, and SERVO SET has no
+  soft rules. PULSE rows are ReadOnly while RUNNING. SWEEP rows apply at
+  once and are never Changed.
+- **Row states the slice 1 contract fixes.** A value over 104 px at scale 2
+  is drawn at scale 1, so SERVO SET's `STANDARD PWM`, `HELI CYCLIC` and
+  `HELI TAIL 760` are scale 1; a Hitec value shown raw is Odd, its label lit
+  as a live row's; a KST or Hitec row that differs from the servo carries
+  the bar whether or not it is editable.
+- **AM32 values.** AM32 rows are Plain or Changed; `? (2)` and the other
+  values the table cannot name stay Plain, as on `main`.
+
+`gfxRoundRect()` fills its corners: for every row its inset comes out 0, so
+a fill shows no radius: a mutation of `uiChip()` to `gfxRoundRect()` with a
+4 px radius leaves the chip's corner pixels filled and passes
+`test/test_widgets.cpp`. Not changed in this slice.
 
 ## Risks
 

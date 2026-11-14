@@ -325,8 +325,8 @@ void uiChip(const char *text, uint16_t fill);
 
 /**
  * @brief The chip of KST SERVO and HITEC SERVO while a servo is in
- *        programming mode, on @ref UI_COL_LATCHED: 9 characters, a 65 px
- *        chip from x 167 (docs/design/menu-b.md, decision 15 g).
+ *        programming mode, on @ref UI_COL_LATCHED. It is 9 characters, a
+ *        65 px chip from x 167 (docs/design/menu-b.md, decision 15 g).
  */
 #define UI_CHIP_PROG_MODE "PROG MODE"
 
