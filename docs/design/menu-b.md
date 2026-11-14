@@ -1322,10 +1322,10 @@ CONFIG, KST SERVO, HITEC SERVO and SERVO SET, with host tests in
 `testAm32Guard()` and the AM32 write sections), `test/test_servo.cpp`
 (`testSetGuard()`, `backFromSet()`), `test/test_kst_ui.cpp` and
 `test/test_hitec_ui.cpp`. For each behaviour a mutation of the code fails the
-suite. The interlocks stay as they were: the BOARD voltage refusal, the backup
-before the first write, the wait for the card's flush, AM32's refusal of a
-layout it does not know and the write's read-back run on the page's hold as they
-ran on the hold that wrote before, and their tests run through the page.
+suite. The interlocks are those of `main`: the BOARD voltage refusal, the
+backup before the first write, the wait for the card's flush, AM32's refusal of
+a layout it does not know and the write's read-back run on the page's hold, and
+their tests run through the page.
 
 | Block | Where | What it does |
 |---|---|---|
@@ -1351,7 +1351,7 @@ Readings of the decisions where the code asked for a choice:
 | AM32 HEX's BACK | returns to the list, and feeds no guard: it drops nothing | the BACK table and "Other views"; decision 13 makes the dump a sub-view, and no later slice touches `ui_am32.cpp` |
 | The read-only view | keeps the title `AM32 CONFIG`; BACK goes to MENU | it is the main view of a layout not known, not the dump of the list |
 | AM32's BACK while writing | disabled on the frame the hold fires and on the frame that writes; the write blocks core0 in one frame, so the page with `WRITING: DO NOT UNPLUG.` and BACK disabled stands while it runs | the AM32 transport is synchronous; BACK under the result acts again |
-| KST and Hitec BACK while flushing | disabled until the flush ends or fails; a lost servo still leaves the page through the search | the BACK table says "writing or flushing"; a flush that ended in failure ends the wait (`flushStep()`) |
+| KST and Hitec BACK while flushing | disabled until the wait ends: the flush ends and the write goes out, where a servo unplugged meanwhile fails that operation, and KST searches again (the jobs notice a loss only when an operation ends); the flush fails, with its note under OK (`flushStep()`); or, with the switched supply, a stall takes the screen to Main. A block busy for 1 s ends the batch, so the wait is at most about 1 s per block for up to 32 blocks; Hitec may wait for two batches | the BACK table says "writing or flushing" |
 | KST's restore | the tap opens `KST RESTORE` and nothing runs until its hold; the FILES page holds nothing | the interlock table's "tap, hold"; Hitec's restore waits for the page's hold the same way |
 | LEAVE while writing | still drawn disabled while `s_writing` is set | no path reaches the leave page during a write now; kept as the backstop slice 6's `leaveEnabled` expects |
 | Restore titles | `KST RESTORE` and `HITEC RESTORE`, as on `main` | decision 13 names the write and files titles only |

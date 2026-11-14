@@ -1568,12 +1568,12 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
    reads `SAVING THE BACKUP TO THE CARD.` and `BLOCKS LEFT: n` until the card
    holds the backup and the record, and the servo is written only then. A flush
    the card does not take stops the write: `THE CARD DID NOT TAKE THE BACKUP
-   (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD
-   AGAIN.` A flush fails on a block write that fails or a card swapped since
+   (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. TAP OK, WRITE AGAIN.` A
+   flush fails on a block write that fails or a card swapped since
    (`src/sdio/sd_cache.h`), not on a full card, which FatFs refuses before
    anything is queued. Nothing is sent to the servo; the card is mounted again
-   and the first write forgotten, so the next hold saves the backup again and
-   then writes.
+   and the first write forgotten, so the next write, `WRITE...` and its hold,
+   saves the backup again and then writes.
 5. BACK from the list opens the leave page: `POWER THE SERVO OFF.` The servo
    stays in programming mode until its supply is off. LEAVE holds the line
    low for 100 ms, lets the pin go, and shows `UNPLUG THE SERVO.` RESTART
@@ -2255,7 +2255,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.2%**: 9,711 of 9,891 lines in 59 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.2%**: 9,740 of 9,920 lines in 59 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

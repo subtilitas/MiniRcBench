@@ -354,11 +354,12 @@ the field list; the next write, `WRITE...` and its hold, saves the files
 again and then writes. A full card does not end here: it ends in
 `THE CARD TOOK NO FILE` before anything is queued.
 
-The wait for the card ends one of two ways: the card holds the files, and
-the write goes out, or the flush fails, and the page says so as above. A
-stall of the screen, with the switched supply, also ends it: the screen
-returns to its main view with `RETRY`, nothing is written, and the next
-write opens on a tap and waits for its own hold.
+The wait for the card ends when the card holds the files, and the write goes
+out, or when the flush fails, and the page says so as above. A stall of the
+screen, with the switched supply, also ends it: the screen returns to its
+main view with `RETRY`, nothing is written, and the next write opens on a tap
+and waits for its own hold. A servo unplugged during the wait is noticed
+only when the write goes out, which then fails.
 
 The write then sends the changed registers 20 ms apart, saves them in the
 servo, restarts the servo (1.0 s) and reads all 21 registers back. For one

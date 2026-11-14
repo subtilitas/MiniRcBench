@@ -1115,10 +1115,12 @@ static void startWrite() {
 	// the servo partly written and unverified.
 	s_boardLow = uiBoardWriteRefused();
 	if (s_boardLow) return;
-	// A batch that failed off this page, after a loss of the servo during
-	// the flush or a removal of the record: the first write starts over.
+	// A batch that failed off this page, after a stall during the flush or
+	// a removal of the record: the first write starts over. A servo
+	// unplugged during the flush ends nothing: the job notices it only when
+	// an operation ends, so the write goes out after the flush and fails.
 	if (cardCacheState() == CardCache::Failed) recoverFlush();
-	// A batch still queued, the first write's after a loss during its flush
+	// A batch still queued, the first write's after a stall during its flush
 	// or a removal of the record: the page waits for it, and the swap check
 	// runs as it ends (flushStep()), so a read that fails drops no batch.
 	s_checkAfterFlush = false;

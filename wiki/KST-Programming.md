@@ -268,11 +268,12 @@ anything is queued. Nothing went to the servo. The card is mounted again, and
 `OK` returns to the field list; the next write, `WRITE...` and its hold,
 saves the backup again and then writes.
 
-The wait for the card ends one of two ways: the card holds the files, and
-the write goes out, or the flush fails, and the page says so as above. A
-stall of the screen, with the switched supply, also ends it: the screen
-returns to its main view with `RETRY`, nothing is written, and the next
-write opens on a tap and waits for its own hold.
+The wait for the card ends when the card holds the files, and the write goes
+out, or when the flush fails, and the page says so as above. A stall of the
+screen, with the switched supply, also ends it: the screen returns to its
+main view with `RETRY`, nothing is written, and the next write opens on a tap
+and waits for its own hold. A servo unplugged during the wait is noticed
+only when the write goes out, which then fails.
 
 <img src="img/kst-flush-failed.png" width="240" alt="The write page after a flush the card did not take">
 

@@ -388,12 +388,14 @@ Feldliste zurück; das nächste Schreiben, `WRITE...` und sein Halten, sichert
 die Dateien erneut und schreibt dann. Eine volle Karte endet nicht hier,
 sondern in `THE CARD TOOK NO FILE`, bevor etwas eingereiht ist.
 
-Das Warten auf die Karte endet auf eine von zwei Arten: Die Karte hält die
-Dateien, und das Schreiben geht hinaus, oder das Übertragen scheitert, und
-die Seite sagt es wie oben. Ein Hänger des Bildschirms mit der geschalteten
-Versorgung beendet es ebenfalls: Der Bildschirm kehrt zu seiner
-Hauptansicht mit `RETRY` zurück, nichts wird geschrieben, und das nächste
-Schreiben öffnet sich mit einem Tippen und wartet auf sein eigenes Halten.
+Das Warten auf die Karte endet, wenn die Karte die Dateien hält und das
+Schreiben hinausgeht, oder wenn das Übertragen scheitert und die Seite es
+wie oben sagt. Ein Hänger des Bildschirms mit der geschalteten Versorgung
+beendet es ebenfalls: Der Bildschirm kehrt zu seiner Hauptansicht mit
+`RETRY` zurück, nichts wird geschrieben, und das nächste Schreiben öffnet
+sich mit einem Tippen und wartet auf sein eigenes Halten. Ein Servo, das
+während des Wartens abgezogen wird, bemerkt der Bildschirm erst, wenn das
+Schreiben hinausgeht, das dann scheitert.
 
 Das Schreiben sendet dann die geänderten Register im Abstand von 20 ms,
 speichert sie im Servo, startet das Servo neu (1,0 s) und liest alle 21
