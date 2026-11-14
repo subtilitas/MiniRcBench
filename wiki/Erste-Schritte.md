@@ -194,7 +194,8 @@ loslässt. Der Balken zeigt einen Griff, und seine Beschriftung lautet
 ## Die Obergrenze anheben
 
 `MENU` auf dem Tester öffnet die Liste der Werkzeuge. Das Öffnen entschärft
-immer. Tippe auf die Zeile `SETTINGS`. Oder tippe entschärft auf `MAX 20%`
+immer. `SETTINGS` ist die letzte Zeile: Ziehe `MENU` um 36 px nach oben und
+tippe darauf. Oder tippe entschärft auf `MAX 20%`
 oder `14 POLES` im Tester, unterstrichen, solange ein Tippen darauf wirkt:
 Das Tippen entschärft genauso und öffnet SETTINGS, und `BACK` führt dort zum
 Tester zurück.

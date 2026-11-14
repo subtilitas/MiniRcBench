@@ -128,8 +128,8 @@ missing. The cause is unknown. No workaround is known.
 <img src="img/tester-card-held.png" width="240" alt="HOLD TO ARM drawn as an outline, the bar reading EJECT THE USB DRIVE TO ARM">
 
 The throttle bar reads `EJECT THE USB DRIVE TO ARM`: a computer holds the SD
-card over USB (**MENU → SD LOG → USB DRIVE**; drag `MENU` up 36 px to reach
-SD LOG), and arming is refused until it lets go. Eject the drive on the
+card over USB (**MENU → SD LOG → USB DRIVE**), and arming is refused until
+it lets go. Eject the drive on the
 computer, or press `EJECT` on SD LOG. See [SD Logging](SD-Logging).
 
 A computer that unconfigures the drive also gives the card back. Pulling the
@@ -243,7 +243,7 @@ They were not saved, or new firmware could not read the settings layout in
 flash. Pole count and throttle ceiling are edited on **MENU → SETTINGS**, and
 `HOLD TO SAVE` there writes them to flash. The note line reads
 `UNSAVED - HOLD SAVE TO KEEP` while changes are unsaved, and `MENU` shows
-`UNSAVED` on its `SETTINGS` row.
+`UNSAVED` on its `SETTINGS` row, the last: drag `MENU` up 36 px to see it.
 
 The firmware stores its settings in layout version 5. Settings an earlier
 firmware saved in layout version 2, 3 or 4, DshotDisplay 2.x's among them,

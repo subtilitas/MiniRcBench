@@ -984,7 +984,12 @@ static void testDeferredJob() {
 	pinClaimPoll();
 	pinClaimKeep(PinUser::Hitec);
 	core1JobPoll();
-	checkTrue("after the tap, BACK on the unplug page starts the job again",
+	checkTrue("after the tap, NEXT SERVO on the leave page returns to Held with no job",
+	          g_hitecJob.binds == 1 && pinClaimPoll() == ClaimState::Held &&
+	          core1JobPhase() == Core1JobPhase::Idle);
+	pinClaimStartJob(PinUser::Hitec);
+	core1JobPoll();
+	checkTrue("and the next tap starts it again",
 	          g_hitecJob.binds == 2 && pinClaimPoll() == ClaimState::Running);
 	checkTrue("back to free", toFree());
 

@@ -40,13 +40,15 @@ PREVIEWS = {
         "shot_tester_armed",
         "shot_tester_stale",
     ],
-    # Three states of MENU that actually differ. shot_menu is the same screen
-    # with EDT off, so pairing it with shot_menu_edt_off published the same
-    # picture twice.
+    # Three states of MENU that actually differ, and PROGRAMMER, the chooser
+    # its SERVO PROGRAMMER row opens. shot_menu is the same screen with EDT
+    # off, so pairing it with shot_menu_edt_off published the same picture
+    # twice.
     "menu-preview": [
         "shot_menu_edt_on",
         "shot_menu_edt_off",
         "shot_menu_beep_flash",
+        "shot_prog_chooser",
     ],
     "log-preview": [
         "shot_log_nocard",
@@ -97,10 +99,11 @@ PREVIEWS = {
         "shot_kst_write",
         "shot_kst_files",
     ],
-    # HITEC SERVO: the family choice, an edit in the field list, the write
-    # page before the hold, and FILES after a save.
+    # HITEC SERVO: the wait for READ of a D series servo on its own supply,
+    # an edit in the field list, the write page before the hold, and FILES
+    # after a save.
     "hitec-preview": [
-        "shot_hitec_family",
+        "shot_hitec_read_wait",
         "shot_hitec_preview",
         "shot_hitec_write",
         "shot_hitec_files",

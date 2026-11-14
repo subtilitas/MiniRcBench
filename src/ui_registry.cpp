@@ -10,19 +10,44 @@
 #include "ui_menu.h"
 #include "ui_sdlog.h"
 #include "ui_servo.h"
+#include "ui_servo_prog.h"
 #include "ui_settings.h"
+#include "servo_supply.h"
+#include "gfx.h"
 
-/** @brief One line per row, in MENU order; the number is the widest status in characters. */
+/**
+ * @brief One line per row, in MENU order; the number is the widest status
+ *        in characters, 0 for a row with none.
+ */
 constexpr UiMenuEntry UI_MENU[] = {
-	{ "BEEP THE ESC",  8, &UI_BEEP     },   // ui_menu.cpp: DISARMED, REFUSED
-	{ "AM32 CONFIG",   4, &UI_AM32     },   // ui_am32.cpp: GP0
-	{ SERVO_UI_TITLE,  7, &UI_SERVO    },   // ui_servo.cpp: GP0+1
-	{ "KST SERVO",     4, &UI_KST      },   // ui_kst.cpp: GP0
-	{ "HITEC SERVO",   4, &UI_HITEC    },   // ui_hitec.cpp: GP0
-	{ "SETTINGS",      7, &UI_SETTINGS },   // ui_settings.cpp: UNSAVED, UPDATED
-	{ "SD LOG",       10, &UI_SDLOG    },   // ui_sdlog.cpp: CARD ERROR
+	{ "BEEP THE ESC",      8, &UI_BEEP       },   // ui_menu.cpp: DISARMED, REFUSED
+	{ "AM32 CONFIG",       0, &UI_AM32       },
+	{ SERVO_UI_TITLE,      0, &UI_SERVO      },
+	{ "SERVO PROGRAMMER",  0, &UI_SERVO_PROG },   // 190 px: no room for a status
+	{ "RX SIGNALS",        9, &UI_RX_SIGNALS },   // ui_menu.cpp: NOT BUILT
+	{ "SD LOG",           10, &UI_SDLOG      },   // ui_sdlog.cpp: CARD ERROR
+	{ "SETTINGS",          7, &UI_SETTINGS   },   // ui_settings.cpp: UNSAVED, UPDATED
 };
 constexpr uint8_t UI_MENU_COUNT = (uint8_t)(sizeof(UI_MENU) / sizeof(UI_MENU[0]));
+
+/**
+ * @brief PROGRAMMER's entries, top to bottom. HITEC CLASSIC drives SIG to
+ *        the converter's 5 V and needs the switched supply: it is drawn
+ *        disabled without it, and its two lines name the hardware first,
+ *        then the setting. The job refuses a classic entry without the
+ *        supply as the backstop (hitec_job.h).
+ */
+constexpr UiProgEntry UI_PROGRAMMERS[] = {
+	{ "KST / CHASERVO", nullptr, &UI_KST, uiKstEnter, nullptr,
+	  UI_PROG_POWER_AFTER, UI_PROG_SWITCHED_FMT, { nullptr, nullptr } },
+	{ "HITEC D SERIES", "D485HW, D645MW AND THE OTHERS", &UI_HITEC, uiHitecEnterD, nullptr,
+	  UI_PROG_POWER_AFTER, UI_PROG_SWITCHED_FMT, { nullptr, nullptr } },
+	{ "HITEC CLASSIC", "HS-5XXX, HS-7XXX", &UI_HITEC, uiHitecEnterClassic, servoSupplyFitted,
+	  nullptr, UI_PROG_SWITCHED_FMT,
+	  { "NEEDS THE CONVERTER OF WIRING PART C", "AND SETTINGS > SERVO SUPPLY GP28/29." } },
+};
+constexpr uint8_t UI_PROGRAMMERS_COUNT =
+	(uint8_t)(sizeof(UI_PROGRAMMERS) / sizeof(UI_PROGRAMMERS[0]));
 
 /** @brief Characters of @p s. */
 static constexpr int textLen(const char *s) {
@@ -50,3 +75,38 @@ static constexpr bool menuRowsFit() {
 	return true;
 }
 static_assert(menuRowsFit(), "a MENU label runs into its status");
+
+/** @brief Characters of @p s, 0 for null. */
+static constexpr int textLenOrZero(const char *s) { return s ? textLen(s) : 0; }
+
+/**
+ * @brief Every PROGRAMMER entry fits: its label at scale 2 in the button,
+ *        each line at scale 1 from x 8 within @ref UI_PROG_LINE_CHARS (the
+ *        switched power line with a two-digit GPIO for its `%u`), and its
+ *        lines, the models and the power line or the lines that say why,
+ *        end 4 px or more above the next entry, the last one on the panel.
+ *        A disabled entry with no line that says why fails: the chooser
+ *        would draw it disabled without a reason.
+ */
+static constexpr bool progEntriesFit() {
+	for (int i = 0; i < UI_PROGRAMMERS_COUNT; i++) {
+		const UiProgEntry &e = UI_PROGRAMMERS[i];
+		if (textLen(e.label) > UI_PROG_LABEL_CHARS) return false;
+		if (textLenOrZero(e.models) > UI_PROG_LINE_CHARS) return false;
+		if (textLenOrZero(e.powerOwn) > UI_PROG_LINE_CHARS) return false;
+		if (!e.powerSwitchedFmt || textLen(e.powerSwitchedFmt) > UI_PROG_LINE_CHARS) return false;
+		int why = 0;
+		for (const char *w : e.why) {
+			if (textLenOrZero(w) > UI_PROG_LINE_CHARS) return false;
+			why += w != nullptr;
+		}
+		if (e.enabled && why == 0) return false;
+		int under = (e.models ? 1 : 0) + (why > 1 ? why : 1);
+		int top = UI_PROG_ENTRY_Y + i * UI_PROG_ENTRY_PITCH;
+		int end = top + UI_PROG_LINE_DY + (under - 1) * UI_PROG_LINE_H + 7;
+		int room = i + 1 < UI_PROGRAMMERS_COUNT ? top + UI_PROG_ENTRY_PITCH - 4 : GFX_H;
+		if (end > room) return false;
+	}
+	return UI_PROGRAMMERS_COUNT > 0;
+}
+static_assert(progEntriesFit(), "a PROGRAMMER line is too wide, or runs into the next entry");

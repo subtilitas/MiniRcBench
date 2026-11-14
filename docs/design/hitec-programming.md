@@ -2,7 +2,9 @@
 
 Status: work breakdown steps 1 to 5 built, host tests only: the rcbench
 files and their tests, the core1 job on them, the files on the card, the
-HITEC SERVO screen on MENU, and its README section and wiki pages. SERVO
+HITEC SERVO screen, opened from PROGRAMMER behind MENU's SERVO PROGRAMMER
+row (slice 9 of [menu-b.md](menu-b.md)), and its README section and wiki
+pages. SERVO
 SUPPLY's no-switch value reads `OWN`, the stored 0, and the main view's
 strips name SIG by role and number, `SIG GP0  SUPPLY ON`, by
 [menu-b.md](menu-b.md) decisions 10 and 15 e, built in its slice 3. Step 6,
@@ -352,16 +354,21 @@ session forget it (`hitec_image_forget()`), and `hitec_plan()` refuses with
 job's status carries as built ([kst-programming.md](kst-programming.md#work-breakdown),
 step 5).
 
-The family is chosen before the job starts, after the claim. The screen
-claims SIG on its first frame, with no family yet: the claim's user row
-defers the job (`PinUserInfo::deferJob`), so the claim stays Held, the pad
-an input with the pull-up `esc_task.cpp` leaves on it. The family tap calls
-`hitecJobSetFamily(family)`, which writes it under the job's critical
-section, on core0, only while no core1 job runs, and then
-`pinClaimStartJob()`; the bind reads it and opens the line for that family.
-RETRY after a bind error (`pinClaimRetry()`) and NEXT SERVO on the leave
-page (`pinClaimKeep()`) bind again with the family it holds; NEXT SERVO on a
-leave page reached from the family view returns to Held with no job. An open
+The family is chosen before the claim, on PROGRAMMER ([menu-b.md](menu-b.md),
+slice 9). Its entry point, `uiHitecEnterD()` or `uiHitecEnterClassic()`,
+calls `hitecJobSetFamily(family)`, which writes it under the job's critical
+section, on core0, only while no core1 job runs, and then claims SIG on the
+tap's frame. The claim's user row defers the job
+(`PinUserInfo::deferJob`), so the claim stays Held, the pad an input with
+the pull-up `esc_task.cpp` leaves on it, until the screen calls
+`pinClaimStartJob()`: at once for CLASSIC and for D SERIES with a switch,
+so the job starts at Held, and on READ for D SERIES with `OWN`, whose entry
+reads the model at once ([menu-b.md](menu-b.md), decision 34). The bind
+reads the family and opens the line for it. RETRY after a bind error
+(`pinClaimRetry()`) and NEXT SERVO on the leave page (`pinClaimKeep()`)
+bind again with the family it holds. `pinClaimKeep()` returns HITEC to
+Held with no job, so NEXT SERVO asks for the job as for the first servo:
+at once, or on READ. An open
 failure is a bind error, reported by `pinClaimJobError()` as
 `SIG GP0 COULD NOT BE TAKEN (PIO)`, `(DMA)` or `(CLOCK)` with RETRY, as on the
 other servo screens. Another family means leaving through the leave page
@@ -484,8 +491,9 @@ the job touches neither pin.
 - **Classic needs it.** A classic servo enters serial mode at a power-up
   ([decision 2](#decisions-of-the-owner)). CLASSIC is drawn disabled, with
   `NEEDS THE CONVERTER OF WIRING PART C` and
-  `AND SETTINGS > SERVO SUPPLY GP28/29.` under it, while `SERVO SUPPLY` is
-  `OWN`; D SERIES then reads `POWER THE SERVO UP, THEN TAP.`
+  `AND SETTINGS > SERVO SUPPLY GP28/29.` under it on PROGRAMMER, while
+  `SERVO SUPPLY` is `OWN`; HITEC D SERIES then reads
+  `POWER THE SERVO UP AFTER THE TAP.`, and HITEC SERVO waits for READ.
 - **D series uses it when it is set.** With a switch the converter is the
   servo's only supply, so every D series entry runs a POWER step. With
   `OWN` the entry runs on the user's supply as it is.
@@ -521,7 +529,7 @@ after its power-up is not recorded upstream; rcbench's test rig answers at
 
 An entry that fails switches the supply off: no `+`, a `+` followed by
 something else, no valid answer to `67`, no answer to the read of 0x00. The
-view shows the result and RETRY ([family and entry](#family-and-entry)).
+view shows the result and RETRY ([claim and entry](#claim-and-entry)).
 
 ### Leave and claim end
 
@@ -675,14 +683,12 @@ memory; the card call goes on to its end on core0.
 
 ## Screens
 
-Entry: MENU → HITEC SERVO, one line in `ui_registry.cpp`
-([menu.md](menu.md#code)); BACK returns to MENU through the leave page.
-`HITEC SERVO` is 11 characters, 130 px at scale 2, and ends at x 145, before
-`PINS BUSY` at x 169. The row follows KST SERVO
-([decision 6](#decisions-of-the-owner)). As the fifth row it makes MENU seven
-rows, which scroll 0 px to 36 px, as [menu.md](menu.md#menu) designs, so
-SD LOG, the last row, shows 6 px at scroll 0 and takes no tap until MENU
-is scrolled.
+Entry: MENU → SERVO PROGRAMMER → HITEC D SERIES or HITEC CLASSIC, two
+lines of `UI_PROGRAMMERS` in `ui_registry.cpp` ([menu-b.md](menu-b.md),
+"PROGRAMMER, the chooser"); the tap claims SIG on its frame. BACK returns
+to MENU through the leave page once SIG is held, else at once. PROGRAMMER's
+entries take the place of the MENU row of
+[decision 6](#decisions-of-the-owner).
 
 The KST screen is the model: lists on `ui_list` with 40 px rows at a 42 px
 pitch, holds on `ui_hold`, `UI_HOLD_MS`, 1,000 ms, and the 36 px header with
@@ -690,12 +696,19 @@ the strip at y 40 and the body from y 62. The screen is `src/ui_hitec.cpp`,
 its rows, values, stepper and texts in `src/hitec_view.*`, as
 `src/kst_view.*`.
 
-### Family and entry
+### Claim and entry
+
+PROGRAMMER's HITEC CLASSIC is drawn disabled with
+`NEEDS THE CONVERTER OF WIRING PART C` and
+`AND SETTINGS > SERVO SUPPLY GP28/29.` under `OWN`, enabled with `GP28` or
+`GP29` ([decision 13](#decisions-of-the-owner)).
 
 | View | What it shows | Controls |
 |---|---|---|
-| Family | the claim on SIG from the first frame: `RELEASING SIG GP0 FROM DSHOT`, then `GP0 IS THE SERVO'S: DSHOT IS OFF.` in green over `CONNECT THE SERVO, CHOOSE ITS FAMILY`; while an ESC answers, `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` over `DSHOT STAYS ON THE PIN UNTIL THEN.` in amber. CLASSIC (HS-5XXX, HS-7XXX) and D SERIES, with the wiring note of each, act once the claim holds. CLASSIC disabled with `NEEDS THE CONVERTER OF WIRING PART C` and `AND SETTINGS > SERVO SUPPLY GP28/29.` under `OWN`, enabled with `GP28` or `GP29` ([decision 13](#decisions-of-the-owner)); under `OWN`, D SERIES with `POWER THE SERVO UP, THEN TAP.` | CLASSIC, D SERIES, BACK: the leave page at `1 UNPLUG THE SERVO.` once the claim holds, else MENU |
-| Bind | after the family tap, `TAKING SIG GP0` while the job binds; a bind error, `SIG GP0 COULD NOT BE TAKEN (PIO)`, `(DMA)` or `(CLOCK)` | RETRY, BACK |
+| Claim refused | while an ESC answers: the strip `CHECKING SIG GP0 FOR AN ESC`, `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` over `DSHOT STAYS ON THE PIN UNTIL THEN.` in amber; asked again every frame | BACK: MENU |
+| Claim | `RELEASING SIG GP0 FROM DSHOT` while DShot drains and stops | BACK: MENU, DShot resumed |
+| READ wait, D series with `OWN` | Held with no job: `SIG GP0 IS THE SERVO'S: DSHOT IS OFF.` in green over `POWER THE SERVO UP, THEN TAP READ.` in amber; no frame goes to SIG until READ | READ, BACK: the leave page at `1 UNPLUG THE SERVO.` |
+| Bind | after the claim, or READ, `TAKING SIG GP0` while the job binds; a bind error, `SIG GP0 COULD NOT BE TAKEN (PIO)`, `(DMA)` or `(CLOCK)` | RETRY, BACK |
 | Entry, classic | `SUPPLY OFF 0.5 S`, then `LISTENING FOR THE SERVO` with the window's progress, then `ENTERING`; the amber ESC line below | STOP, BACK |
 | Entry, D series | with a switch, `SUPPLY OFF 0.5 S`, then `SERVO STARTING 1.0 S` and the amber ESC line; then `READING THE MODEL` | STOP, BACK |
 | Entry failed | `NO SERVO IN SERIAL MODE` or `NO SERVO ANSWERS`, the decoder's word (`SILENT`, `LATE`, `SUM` and the rest of rcbench's 14 codes); `THE SUPPLY IS OFF.` with a switch; with a switch and the classic family, `CHECK THE CONVERTER ON GP28, THE SIGNAL AND GROUND.`, naming the enable pin | RETRY, BACK |
@@ -984,11 +997,13 @@ y   0 | HITEC SERVO                     [  BACK  ]|  BACK drawn disabled
   disabled; the note reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` with a switch
   and `RELEASING THE PIN` without.
 - Released, NEXT SERVO keeps the claim and starts the next session in the
-  family chosen, or returns to the family view before one was chosen; with
-  `OWN` the note reads `NEXT SERVO: POWER IT BEFORE THE TAP.` RESTART DSHOT
+  family chosen, its job asked for as the first's: at once with a switch or
+  for CLASSIC, else on READ, so a D series servo on `OWN` returns to the
+  READ wait ([menu-b.md](menu-b.md), decision 34); with `OWN` the note
+  reads `NEXT SERVO: POWER IT AFTER THE TAP.` RESTART DSHOT
   takes a press that lands 1000 ms or more after the release.
-- BACK on the family view once the claim holds, BACK during the entry and
-  BACK after a failed entry open the page releasing, at
+- BACK on the READ wait, BACK during the entry and BACK after a failed
+  entry open the page releasing, at
   `1 UNPLUG THE SERVO.` and `2 RESTART DSHOT.`; it turns released once
   `pinClaimUnplugDue()` is true.
 - BACK on the page is drawn disabled in every phase.

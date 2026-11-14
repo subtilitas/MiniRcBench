@@ -69,20 +69,26 @@ see [Switched supply](#switched-supply).
 
 ## Opening it
 
-Open **MENU → KST SERVO**.
+Open **MENU → SERVO PROGRAMMER**, then tap **KST / CHASERVO** (see
+[The Screens](The-Screens#programmer)) with the servo unpowered, as the line
+under the entry says: `POWER THE SERVO UP AFTER THE TAP.`, or
+`THE BENCH SWITCHES IT ON GP28.` with the switched supply. PROGRAMMER takes
+no pin: DShot runs on SIG until the tap.
 
-The screen takes SIG from the ESC driver. While it does, the strip reads
-`RELEASING GP0`, then `TAKING GP0`. While an ESC answers on the pin it
-reads `CHECKING GP0 FOR AN ESC` instead.
+The tap opens KST SERVO, which takes SIG from the ESC driver on the same
+frame. While it does, the strip reads `RELEASING SIG GP0`, then
+`TAKING SIG GP0`. While an ESC answers on the pin it reads
+`CHECKING SIG GP0 FOR AN ESC` instead.
 
 - If an ESC answers on the pin, the screen says `AN ESC ANSWERS ON SIG GP0.`,
   then `UNPLUG IT: KST FRAMES MAY READ` and `AS THROTTLE.` It takes the pin
-  when the ESC is gone.
+  when the ESC is gone. `BACK` meanwhile returns to `MENU`.
 - While the ESC is armed, the screen says `DISARM FIRST`. While the pins are
-  still in use, it says `PINS BUSY`.
+  still in use, it says `WAIT: DSHOT RESTARTING`. Neither is reachable
+  through the screens.
 - If the board cannot set up the line, the screen says
-  `GP0 COULD NOT BE TAKEN (` followed by `REFUSED`, `PWM`, `PIO`, `DMA` or
-  `CLOCK` and a closing bracket. PWM is pulse-width modulation and DMA is
+  `SIG GP0 COULD NOT BE TAKEN (` followed by `REFUSED`, `PWM`, `PIO`, `DMA`
+  or `CLOCK` and a closing bracket. PWM is pulse-width modulation and DMA is
   direct memory access. `RETRY` tries again.
 
 When the pin is taken, the search starts at once. The screen sends no servo

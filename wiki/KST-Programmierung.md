@@ -73,19 +73,26 @@ siehe [Geschaltete Versorgung](#geschaltete-versorgung).
 
 ## Öffnen
 
-**MENU → KST SERVO** öffnen.
+Öffne **MENU → SERVO PROGRAMMER** und tippe auf **KST / CHASERVO** (siehe
+[Die Bildschirme](Die-Bildschirme#programmer)), mit stromlosem Servo, wie
+die Zeile unter dem Eintrag sagt: `POWER THE SERVO UP AFTER THE TAP.`, oder
+`THE BENCH SWITCHES IT ON GP28.` mit geschalteter Versorgung. PROGRAMMER
+belegt keinen Pin: DShot läuft bis zum Tippen auf SIG.
 
-Der Bildschirm übernimmt SIG vom ESC-Treiber. Dabei zeigt die Leiste
-`RELEASING GP0`, dann `TAKING GP0`. Solange ein ESC auf dem Pin antwortet,
-zeigt sie stattdessen `CHECKING GP0 FOR AN ESC`.
+Das Tippen öffnet KST SERVO, das SIG im selben Frame vom ESC-Treiber
+übernimmt. Dabei zeigt die Leiste `RELEASING SIG GP0`, dann
+`TAKING SIG GP0`. Solange ein ESC auf dem Pin antwortet, zeigt sie
+stattdessen `CHECKING SIG GP0 FOR AN ESC`.
 
 - Antwortet ein ESC auf dem Pin, zeigt der Bildschirm
   `AN ESC ANSWERS ON SIG GP0.` und danach `UNPLUG IT: KST FRAMES MAY READ` und
-  `AS THROTTLE.` Er übernimmt den Pin, sobald der ESC weg ist.
+  `AS THROTTLE.` Er übernimmt den Pin, sobald der ESC weg ist. `BACK` führt
+  währenddessen zu `MENU` zurück.
 - Solange der ESC scharf ist, zeigt der Bildschirm `DISARM FIRST`. Solange die
-  Pins noch belegt sind, zeigt er `PINS BUSY`.
+  Pins noch belegt sind, zeigt er `WAIT: DSHOT RESTARTING`. Beides ist über
+  die Bildschirme nicht erreichbar.
 - Kann die Platine die Leitung nicht einrichten, zeigt der Bildschirm
-  `GP0 COULD NOT BE TAKEN (`, danach `REFUSED`, `PWM`, `PIO`, `DMA` oder
+  `SIG GP0 COULD NOT BE TAKEN (`, danach `REFUSED`, `PWM`, `PIO`, `DMA` oder
   `CLOCK` und eine schließende Klammer. PWM ist Pulsweitenmodulation, DMA
   direkter Speicherzugriff (Direct Memory Access). `RETRY` versucht es
   erneut.

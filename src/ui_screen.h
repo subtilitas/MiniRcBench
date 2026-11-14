@@ -37,8 +37,10 @@ enum class UiScreenId : uint8_t {
 	Am32,      /**< AM32 CONFIG. */
 	Servo,     /**< SERVO, its SET view and its leave page. */
 	Kst,       /**< KST SERVO: the search, the field list, FILES, the write and leave pages. */
-	Hitec,     /**< HITEC SERVO: the family, the field list, FILES, the write and leave pages. */
+	Hitec,     /**< HITEC SERVO: the entry, the field list, FILES, the write and leave pages. */
 	Beep,      /**< BEEP THE ESC, an action on MENU: never open. */
+	ServoProg, /**< PROGRAMMER, the chooser behind MENU's SERVO PROGRAMMER row. */
+	RxSignals, /**< RX SIGNALS, a MENU row drawn disabled: not built, never open. */
 	Count,     /**< How many screens; not a screen. */
 };
 
@@ -148,11 +150,40 @@ struct UiScreen {
 	const SettingsSection *settings;
 	/**
 	 * @brief Opens only while the pin claim is Free, without claiming:
-	 *        SETTINGS, which changes the wiring a claim latched. A tool with
-	 *        a @ref pinUser waits for Free anyway.
+	 *        SETTINGS, which changes the wiring a claim latched, and
+	 *        PROGRAMMER, whose entries open tools that claim. A tool with a
+	 *        @ref pinUser waits for Free anyway.
 	 */
 	bool freePins;
 };
+
+/**
+ * @brief One entry of PROGRAMMER, the chooser (ui_servo_prog.h): a button
+ *        that opens a tool, with the lines under it. A new servo brand is one
+ *        line in `UI_PROGRAMMERS` (ui_registry.cpp).
+ */
+struct UiProgEntry {
+	const char     *label;     /**< Scale 2 on the button, at most 18 characters. */
+	const char     *models;    /**< Scale 1 under the button, `C_DIM`; null for none. */
+	const UiScreen *screen;    /**< The tool the tap opens. */
+	void          (*enter)();  /**< Run in place of the tool's own `enter`: it sets the family. */
+	bool          (*enabled)();  /**< Whether the entry acts; null: always. */
+	/** @brief The power line while SERVO SUPPLY is OWN, `C_DIM`; null for none. */
+	const char     *powerOwn;
+	/** @brief The power line with the switched supply, `C_DIM`, `%u` its enable GPIO. */
+	const char     *powerSwitchedFmt;
+	const char     *why[2];    /**< `C_AMBER` lines in place of the power line while disabled. */
+};
+
+/**
+ * @brief Open @p s from the open tool, as MENU opens its rows: after this
+ *        frame's tick the navigation opens @p s through uiOpenTool() in
+ *        ui.cpp, running @p enter in place of `s->enter`, and BACK or
+ *        RESTART DSHOT there return to MENU. PROGRAMMER's entries call it.
+ * @param s     The tool.
+ * @param enter Its entry point for this route; null runs `s->enter`.
+ */
+void uiChooseTool(const UiScreen *s, void (*enter)());
 
 /** @brief One MENU row. */
 struct UiMenuEntry {
@@ -163,7 +194,7 @@ struct UiMenuEntry {
 
 /**
  * @brief @p s is refused while the pin claim is not Free: it claims pins
- *        (@ref UiScreen::pinUser), or changes the wiring a claim latched
+ *        (@ref UiScreen::pinUser), or opens only while they are free
  *        (@ref UiScreen::freePins). MENU refuses its row on it, and the
  *        tester its readouts.
  * @param s The screen.
