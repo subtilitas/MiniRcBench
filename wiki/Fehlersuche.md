@@ -138,8 +138,8 @@ bei Gas null fehlt. Die Ursache ist unbekannt. Ein Behelf ist nicht bekannt.
 <img src="img/tester-card-held.png" width="240" alt="HOLD TO ARM als Umriss, der Balken zeigt EJECT THE USB DRIVE TO ARM">
 
 Der Gasbalken zeigt `EJECT THE USB DRIVE TO ARM`: Ein Computer hält die SD-Karte
-über USB (**MENU → SD LOG → USB DRIVE**; ziehe `MENU` um 36 px nach oben, um SD
-LOG zu erreichen), und Scharfschalten ist gesperrt, bis er sie freigibt. Wirf
+über USB (**MENU → SD LOG → USB DRIVE**), und Scharfschalten ist gesperrt,
+bis er sie freigibt. Wirf
 das Laufwerk am Computer aus oder drücke `EJECT` in SD LOG. Siehe
 [SD-Aufzeichnung](SD-Aufzeichnung).
 
@@ -261,7 +261,8 @@ Sie wurden nicht gespeichert, oder eine neue Firmware konnte das Format der
 Einstellungen im Flash nicht lesen. Polzahl und Gasobergrenze werden unter
 **MENU → SETTINGS** geändert, und `HOLD TO SAVE` dort schreibt sie ins Flash.
 Die Hinweiszeile zeigt `UNSAVED - HOLD SAVE TO KEEP`, solange Änderungen
-ungespeichert sind, und `MENU` zeigt `UNSAVED` in der Zeile `SETTINGS`.
+ungespeichert sind, und `MENU` zeigt `UNSAVED` in der Zeile `SETTINGS`, der
+letzten: Ziehe `MENU` um 36 px nach oben, um sie zu sehen.
 
 Die Firmware speichert ihre Einstellungen im Format Version 5. Einstellungen,
 die eine frühere Firmware im Format Version 2, 3 oder 4 gespeichert hat,

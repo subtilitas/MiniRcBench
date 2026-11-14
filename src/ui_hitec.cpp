@@ -119,7 +119,8 @@ static bool         s_claimed = false;      /**< pinClaimBegin() took the claim.
 /**
  * @brief The job starts with the claim: CLASSIC, and D SERIES with the
  *        switched supply, whose servo is unpowered until the entry's POWER
- *        step. D SERIES on OWN waits in Held for READ (owner decision A).
+ *        step. D SERIES on OWN waits in Held for READ
+ *        (docs/design/menu-b.md, decision 34).
  */
 static bool         s_startNow = false;
 /** @brief pinClaimStartJob() was called in this claim: the job is wanted, and NEXT SERVO starts it again. */
@@ -1724,7 +1725,7 @@ uint8_t uiHitecControls(UiControl *out, uint8_t max) {
 /**
  * @brief Open the screen for @p family: a new session, then the claim of
  *        SIG on this frame, the job wanted at once unless D SERIES runs on
- *        OWN (owner decision A).
+ *        OWN (docs/design/menu-b.md, decision 34).
  */
 static void enterFamily(uint8_t family) {
 	s_family = family;

@@ -99,10 +99,9 @@ Datei behandelt, ist nicht getestet.
 
 ## Den Bildschirm lesen
 
-Öffnen über **MENU → SD LOG**. SD LOG ist die siebte Zeile: Ziehe `MENU` um
-36 px nach oben, damit sie sichtbar wird. Die Zeile zeigt denselben Zustand:
-`NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, oder `USB DRIVE`, solange ein
-Computer die Karte hält.
+Öffnen über **MENU → SD LOG**, die sechste Zeile. Die Zeile zeigt denselben
+Zustand: `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, oder `USB DRIVE`,
+solange ein Computer die Karte hält.
 
 <img src="img/log-ready.png" width="240" alt="Karte eingebunden, bereit">
 

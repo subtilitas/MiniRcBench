@@ -277,8 +277,8 @@ static void watchRecord() {
 static bool mainLineIs(int k, const char *text, uint16_t col) { return lineIs(80 + 14 * k, text, col); }
 
 /**
- * @brief PROGRAMMER's HITEC D SERIES with SERVO SUPPLY at OWN (owner
- *        decision A): the tap claims SIG, DShot drains and stops, and the
+ * @brief PROGRAMMER's HITEC D SERIES with SERVO SUPPLY at OWN (decision 34
+ *        of docs/design/menu-b.md): the tap claims SIG, DShot drains and stops, and the
  *        main view waits in Held for READ, with no job and no frame on SIG
  *        until then. BACK there opens the leave page releasing.
  */

@@ -18,7 +18,7 @@ Digital) card first.
 > in this wiki are rendered from the UI (user interface) code against a
 > simulated servo.
 
-> **The classic family needs the switched servo supply.** `CLASSIC`
+> **The classic family needs the switched servo supply.** `HITEC CLASSIC`
 > (HS-5xxx, HS-7xxx) needs the DC-DC converter (direct current to direct
 > current) of [wiring](Wiring) part C, and SERVO SUPPLY at `GP28` or `GP29`.
 > Under `OWN` only the D series opens. See [Classic servos](#classic-servos).
@@ -84,57 +84,56 @@ of its own regulated supply.
 
 ---
 
-## Choosing the family
+## Opening the screen
 
-Open **MENU → HITEC SERVO**. The screen opens on the family view and takes
-SIG from the ESC driver at once, before a family is chosen: DShot sends zero
-throttle for at least 250 ms after the last throttle frame, stops, and
-leaves the pin an input held high by its pull-up. No DShot frame reaches a
-servo you connect on this view.
+Open **MENU → SERVO PROGRAMMER**, then tap **HITEC D SERIES** or
+**HITEC CLASSIC** (see [The Screens](The-Screens#programmer)). PROGRAMMER
+takes no pin: DShot runs on SIG while it shows, so the servo stays
+unpowered until the tap. The tap opens this screen for that family and takes
+SIG from the ESC driver on the same frame: DShot sends zero throttle for at
+least 250 ms after the last throttle frame, stops, and leaves the pin an
+input held high by its pull-up. The strip reads
+`RELEASING SIG GP0 FROM DSHOT` meanwhile.
 
-<img src="img/hitec-family.png" width="240" alt="The family view with SERVO SUPPLY at OWN: GP0 IS THE SERVO'S: DSHOT IS OFF. in green, CLASSIC disabled with NEEDS THE CONVERTER OF WIRING PART C, D SERIES with POWER THE SERVO UP, THEN TAP.">
+- **D series, SERVO SUPPLY at `OWN`.** The entry reads the model at once,
+  on the supply the servo has, so the screen waits for you: the strip reads
+  `SIG GP0 IS THE SERVO'S: DSHOT IS OFF.` in green over
+  `POWER THE SERVO UP, THEN TAP READ.` in amber, and the wide button reads
+  `READ`. **Connect the servo, power it up, then tap `READ`.** Nothing goes
+  to SIG between DShot's stop and `READ`.
+- **With SERVO SUPPLY at `GP28` or `GP29`, and for a classic servo**, the
+  bench powers the servo itself after the tap, so the job starts as soon as
+  DShot has stopped. The converter stays off until the entry's first step,
+  held off by its pull-down.
 
-The strip reads `RELEASING SIG GP0 FROM DSHOT` while the driver stops, then
-`GP0 IS THE SERVO'S: DSHOT IS OFF.` in green over
-`CONNECT THE SERVO, CHOOSE ITS FAMILY`. The two buttons act from then on:
+<img src="img/hitec-read-wait.png" width="240" alt="HITEC SERVO for a D series servo with SERVO SUPPLY at OWN: SIG GP0 IS THE SERVO'S: DSHOT IS OFF. in green, POWER THE SERVO UP, THEN TAP READ. in amber, and READ">
 
-- `CLASSIC`, with `HS-5XXX, HS-7XXX` under it. It acts while SERVO SUPPLY
-  is `GP28` or `GP29`. While SERVO SUPPLY is `OWN` it is drawn disabled,
-  and two lines in amber give the reason, the hardware first:
-  `NEEDS THE CONVERTER OF WIRING PART C` and
-  `AND SETTINGS > SERVO SUPPLY GP28/29.`
-- `D SERIES`, with `D485HW, D645MW AND THE OTHERS` under it, and
-  `SUPPLY SWITCHED ON GP28` (or `GP29`, the pin set) or, under `OWN`,
-  `POWER THE SERVO UP, THEN TAP.`: on its own supply the servo must be
-  running when the screen enters, because the entry reads its model at once.
-
-**Connect the servo, power it up, then tap `D SERIES`.** With `GP28` or
-`GP29` the converter stays off on this view, held off by its pull-down, and
-the bench powers the servo after the tap.
-
-Once the pin is the servo's, `BACK` on this view opens the leave page at
+Once the pin is the servo's, `BACK` before the servo is in programming
+mode, the wait for `READ` included, opens the leave page at
 `1 UNPLUG THE SERVO.`, as after `LEAVE`: DShot restarts only on
-`RESTART DSHOT`. `NEXT SERVO` there returns to the family view. While the
-driver still stops, or while the screen has not taken the pin, `BACK`
-returns to `MENU`.
+`RESTART DSHOT`. `NEXT SERVO` there starts a new session for the same
+family; for a D series servo on `OWN` that has not been read, the wait for
+`READ` again. While the driver still stops, or while the screen has not
+taken the pin, `BACK` returns to `MENU`.
 
-<img src="img/hitec-family-esc.png" width="240" alt="The family view while an ESC answers on GP0: AN ESC ANSWERS ON SIG GP0: UNPLUG IT. and DSHOT STAYS ON THE PIN UNTIL THEN. in amber, both families disabled.">
+<img src="img/hitec-esc.png" width="240" alt="HITEC SERVO while an ESC answers on GP0: CHECKING SIG GP0 FOR AN ESC on the strip, AN ESC ANSWERS ON SIG GP0: UNPLUG IT. and DSHOT STAYS ON THE PIN UNTIL THEN. in amber">
 
-- If an ESC answers on the pin, the strip reads, in amber,
+- If an ESC answers on the pin, the screen takes nothing: the strip reads
+  `CHECKING SIG GP0 FOR AN ESC`, and two amber lines read
   `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` and
-  `DSHOT STAYS ON THE PIN UNTIL THEN.`, and both families are drawn
-  disabled. The screen takes the pin once the ESC has been quiet for
-  500 ms. The check runs only before the pin is taken: an ESC connected
-  after that is not detected.
-- While the tester is armed, the strip reads `DISARM FIRST`. While the pins
-  are still in use, it reads `PINS BUSY`.
+  `DSHOT STAYS ON THE PIN UNTIL THEN.` The screen takes the pin once the
+  ESC has been quiet for 500 ms. The check runs only before the pin is
+  taken: an ESC connected after that is not detected.
+- While the tester is armed, the screen reads `DISARM FIRST`. While the
+  pins are still in use, it reads `WAIT: DSHOT RESTARTING`. Neither is
+  reachable through the screens: opening `MENU` disarms, and
+  `SERVO PROGRAMMER` opens only while the pins are free.
 
-The tap starts the Hitec job for that family. While it binds, the strip on
-the next view reads `TAKING GP0`.
+While the job binds, the strip reads `TAKING SIG GP0`.
 
 - If the board cannot set up the line, the screen says
-  `GP0 COULD NOT BE TAKEN (` followed by `REFUSED`, `PWM`, `PIO`, `DMA` or
-  `CLOCK` and a closing bracket. PWM is pulse-width modulation and DMA is
+  `SIG GP0 COULD NOT BE TAKEN (` followed by `REFUSED`, `PWM`, `PIO`, `DMA`
+  or `CLOCK` and a closing bracket. PWM is pulse-width modulation and DMA is
   direct memory access. `RETRY` tries again.
 
 > A powered servo on SIG gets no servo pulses while the screen is open. It
@@ -148,7 +147,7 @@ Once the job holds the line, the entry starts at once. The body's headline,
 the step under way, is amber.
 
 - **With SERVO SUPPLY at `OWN`**, the screen reads the servo on the supply
-  it has. Power the servo before you tap `D SERIES`. The body reads
+  it has. Power the servo before you tap `READ`. The body reads
   `READING THE MODEL`.
 - **With SERVO SUPPLY at `GP28` or `GP29`**, the screen switches the supply off
   for 2.0 s and on again. The strip counts the off time,
@@ -583,10 +582,11 @@ next operation is refused until the screen runs again: a write then reads
 
 ## Classic servos
 
-`CLASSIC` (HS-5xxx, HS-7xxx) needs SERVO SUPPLY at `GP28` or `GP29`: a
-classic servo enters programming mode only at its power-up, and the bench
+`HITEC CLASSIC` (HS-5xxx, HS-7xxx) needs SERVO SUPPLY at `GP28` or `GP29`:
+a classic servo enters programming mode only at its power-up, and the bench
 switches its supply through the converter of [wiring](Wiring) part C. Under
-`OWN` the family view reads `NEEDS THE CONVERTER OF WIRING PART C` and
+`OWN` PROGRAMMER draws the entry disabled and reads
+`NEEDS THE CONVERTER OF WIRING PART C` and
 `AND SETTINGS > SERVO SUPPLY GP28/29.`
 
 The signal level:
@@ -604,7 +604,7 @@ The classic screens are built and tested on the host only, against a
 simulated servo. No classic entry, read or write has run on a servo on this
 board. The pictures below show them with SERVO SUPPLY at `GP28`.
 
-<img src="img/hitec-family-classic.png" width="240" alt="The family view with SERVO SUPPLY at GP28: CLASSIC enabled"> <img src="img/hitec-repair.png" width="240" alt="A classic HS-5645MG: CHECKSUM BAD with REPAIR"> <img src="img/hitec-not-measured.png" width="240" alt="A classic model not measured: MODEL NOT MEASURED: WRITTEN IN THE CLASSIC LAYOUT.">
+<img src="img/prog-chooser-switched.png" width="240" alt="PROGRAMMER with SERVO SUPPLY at GP28: HITEC CLASSIC enabled"> <img src="img/hitec-repair.png" width="240" alt="A classic HS-5645MG: CHECKSUM BAD with REPAIR"> <img src="img/hitec-not-measured.png" width="240" alt="A classic model not measured: MODEL NOT MEASURED: WRITTEN IN THE CLASSIC LAYOUT.">
 
 - **CHECKSUM.** A classic servo whose checksum does not sum shows
   `CHECKSUM` `BAD` in amber. The row can be selected, and the editor bar

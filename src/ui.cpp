@@ -238,7 +238,7 @@ static Level           s_toolFrom = Level::Menu;
  *        after its tick; null for none.
  */
 static const UiScreen *s_chosen = nullptr;
-/** @brief The entry point @ref s_chosen opens with; null: its own `enter`. */
+/** @brief The entry point the chosen tool opens with; null: its own `enter`. */
 static void          (*s_chosenEnter)() = nullptr;
 static uint16_t s_throttle = 0;
 
@@ -1353,7 +1353,6 @@ void uiTick() {
 	// A tool chosen on PROGRAMMER opens after the chooser's tick, with
 	// MENU as its origin, so its BACK and RESTART DSHOT return to MENU.
 	if (s_level == Level::Tool) {
-		s_chosen = nullptr;
 		if (!s_tool->tick(&s_touch)) {
 			s_level = s_toolFrom == Level::Tester ? Level::Tester : Level::Menu;
 			s_tool = nullptr;

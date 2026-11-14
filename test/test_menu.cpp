@@ -419,7 +419,7 @@ static void testSettingsRowVisible() {
 }
 
 /**
- * @brief RX SIGNALS (owner decision B): drawn disabled with `NOT BUILT` in
+ * @brief RX SIGNALS (decision 35): drawn disabled with `NOT BUILT` in
  *        every claim state MENU shows, a tap opens nothing, and its look is
  *        not the busy cue: the strip keeps its caption while the claim is
  *        Free.
@@ -487,8 +487,8 @@ static bool lineIs(int y, const char *text, uint16_t col) {
 }
 
 /**
- * @brief PROGRAMMER, the chooser (docs/design/menu-b.md, decision 2 and owner
- *        decision A): it claims nothing, its three entries and their lines
+ * @brief PROGRAMMER, the chooser (docs/design/menu-b.md, decisions 2 and
+ *        34): it claims nothing, its three entries and their lines
  *        with SERVO SUPPLY at OWN and at GP28 and GP29, CLASSIC disabled
  *        without the switch, and BACK to MENU.
  */
@@ -533,7 +533,7 @@ static void testServoProg() {
 	checkTrue("KST: POWER THE SERVO UP AFTER THE TAP. at y 112, dim",
 	          lineIs(112, "POWER THE SERVO UP AFTER THE TAP.", C_DIM));
 	checkTrue("D SERIES: its models at y 192, dim", lineIs(192, "D485HW, D645MW AND THE OTHERS", C_DIM));
-	checkTrue("then POWER THE SERVO UP AFTER THE TAP. at y 204 (owner decision A)",
+	checkTrue("then POWER THE SERVO UP AFTER THE TAP. at y 204 (decision 34)",
 	          lineIs(204, "POWER THE SERVO UP AFTER THE TAP.", C_DIM));
 	checkTrue("CLASSIC: its models at y 272, dim", lineIs(272, "HS-5XXX, HS-7XXX", C_DIM));
 	checkTrue("then NEEDS THE CONVERTER OF WIRING PART C at y 284, amber",

@@ -21,7 +21,7 @@ SD-Karte (Secure Digital).
 > Bedienoberfläche (UI, User Interface) gegen ein simuliertes Servo.
 
 > **Die klassische Familie braucht die geschaltete Servoversorgung.**
-> `CLASSIC` (HS-5xxx, HS-7xxx) braucht den DC-DC-Wandler
+> `HITEC CLASSIC` (HS-5xxx, HS-7xxx) braucht den DC-DC-Wandler
 > (Gleichspannungswandler) aus Teil C der [Verdrahtung](Verdrahtung) und
 > SERVO SUPPLY auf `GP28` oder `GP29`. Unter `OWN` lässt sich nur die
 > D-Serie öffnen. Siehe [Klassische Servos](#klassische-servos).
@@ -94,58 +94,58 @@ Eliminator Circuit), die Leitung seiner eigenen geregelten Versorgung.
 
 ---
 
-## Die Familie wählen
+## Den Bildschirm öffnen
 
-**MENU → HITEC SERVO** öffnen. Der Bildschirm öffnet mit der
-Familienauswahl und übernimmt SIG sofort vom ESC-Treiber, bevor eine Familie
-gewählt ist: DShot sendet nach dem letzten Gas-Frame mindestens 250 ms lang
+Öffne **MENU → SERVO PROGRAMMER** und tippe auf **HITEC D SERIES** oder
+**HITEC CLASSIC** (siehe [Die Bildschirme](Die-Bildschirme#programmer)).
+PROGRAMMER belegt keinen Pin: DShot läuft auf SIG, solange er zu sehen ist,
+also bleibt das Servo bis zum Tippen stromlos. Das Tippen öffnet diesen
+Bildschirm für die Familie und übernimmt SIG im selben Frame vom
+ESC-Treiber: DShot sendet nach dem letzten Gas-Frame mindestens 250 ms lang
 Gas null, hält an und lässt den Pin als Eingang, den sein Pull-up high hält.
-Kein DShot-Frame erreicht ein Servo, das du in dieser Ansicht anschließt.
+Die Leiste zeigt währenddessen `RELEASING SIG GP0 FROM DSHOT`.
 
-<img src="img/hitec-family.png" width="240" alt="Die Familienauswahl mit SERVO SUPPLY auf OWN: GP0 IS THE SERVO'S: DSHOT IS OFF. in Grün, CLASSIC abgeblendet mit NEEDS THE CONVERTER OF WIRING PART C, D SERIES mit POWER THE SERVO UP, THEN TAP.">
+- **D-Serie, SERVO SUPPLY auf `OWN`.** Der Eintritt liest sofort das Modell,
+  an der Versorgung, die das Servo hat, deshalb wartet der Bildschirm auf
+  dich: Die Leiste zeigt `SIG GP0 IS THE SERVO'S: DSHOT IS OFF.` in Grün
+  über `POWER THE SERVO UP, THEN TAP READ.` in Bernstein, und die breite
+  Schaltfläche zeigt `READ`. **Schließe das Servo an, schalte es ein, dann
+  tippe auf `READ`.** Zwischen dem Anhalten von DShot und `READ` geht nichts
+  an SIG.
+- **Mit SERVO SUPPLY auf `GP28` oder `GP29` und für ein klassisches
+  Servo** schaltet der Prüfstand das Servo nach dem Tippen selbst ein, also
+  startet der Job, sobald DShot angehalten hat. Der Wandler bleibt bis zum
+  ersten Schritt des Eintritts aus, von seinem Pull-down gehalten.
 
-Die Leiste zeigt `RELEASING SIG GP0 FROM DSHOT`, solange der Treiber anhält,
-dann `GP0 IS THE SERVO'S: DSHOT IS OFF.` in Grün über
-`CONNECT THE SERVO, CHOOSE ITS FAMILY`. Ab dann wirken die zwei
-Schaltflächen:
+<img src="img/hitec-read-wait.png" width="240" alt="HITEC SERVO für ein Servo der D-Serie mit SERVO SUPPLY auf OWN: SIG GP0 IS THE SERVO'S: DSHOT IS OFF. in Grün, POWER THE SERVO UP, THEN TAP READ. in Bernstein, und READ">
 
-- `CLASSIC`, darunter `HS-5XXX, HS-7XXX`. Es wirkt, solange SERVO SUPPLY
-  auf `GP28` oder `GP29` steht. Steht SERVO SUPPLY auf `OWN`, ist es
-  abgeblendet gezeichnet, und zwei bernsteinfarbene Zeilen nennen den Grund,
-  zuerst die Hardware: `NEEDS THE CONVERTER OF WIRING PART C` und
-  `AND SETTINGS > SERVO SUPPLY GP28/29.`
-- `D SERIES`, darunter `D485HW, D645MW AND THE OTHERS` und
-  `SUPPLY SWITCHED ON GP28` (oder `GP29`, je nach Einstellung) oder, unter
-  `OWN`, `POWER THE SERVO UP, THEN TAP.`: An seiner eigenen
-  Versorgung muss das Servo laufen, wenn der Bildschirm eintritt, denn der
-  Eintritt liest sofort sein Modell.
-
-**Schließe das Servo an, schalte es ein, dann tippe auf `D SERIES`.** Mit
-`GP28` oder `GP29` bleibt der Wandler in dieser Ansicht aus, von seinem
-Pull-down gehalten, und der Prüfstand schaltet das Servo nach dem Tippen ein.
-
-Gehört der Pin dem Servo, öffnet `BACK` in dieser Ansicht die
+Gehört der Pin dem Servo, öffnet `BACK`, bevor das Servo im
+Programmiermodus ist, das Warten auf `READ` eingeschlossen, die
 Verlassenseite bei `1 UNPLUG THE SERVO.`, wie nach `LEAVE`: DShot startet
-erst mit `RESTART DSHOT` neu. `NEXT SERVO` führt dort zur Familienauswahl
-zurück. Solange der Treiber noch anhält oder der Bildschirm den Pin nicht
-übernommen hat, führt `BACK` zu `MENU` zurück.
+erst mit `RESTART DSHOT` neu. `NEXT SERVO` startet dort eine neue Sitzung
+derselben Familie; für ein Servo der D-Serie an `OWN`, das noch nicht
+gelesen ist, wieder das Warten auf `READ`. Solange der Treiber noch anhält
+oder der Bildschirm den Pin nicht übernommen hat, führt `BACK` zu `MENU`
+zurück.
 
-<img src="img/hitec-family-esc.png" width="240" alt="Die Familienauswahl, während ein ESC auf GP0 antwortet: AN ESC ANSWERS ON SIG GP0: UNPLUG IT. und DSHOT STAYS ON THE PIN UNTIL THEN. in Bernstein, beide Familien abgeblendet.">
+<img src="img/hitec-esc.png" width="240" alt="HITEC SERVO, während ein ESC auf GP0 antwortet: CHECKING SIG GP0 FOR AN ESC in der Leiste, AN ESC ANSWERS ON SIG GP0: UNPLUG IT. und DSHOT STAYS ON THE PIN UNTIL THEN. in Bernstein">
 
-- Antwortet ein ESC auf dem Pin, zeigt die Leiste in Bernstein
-  `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` und
-  `DSHOT STAYS ON THE PIN UNTIL THEN.`, und beide Familien sind abgeblendet
-  gezeichnet. Der Bildschirm übernimmt den Pin, sobald der ESC 500 ms lang
-  still ist. Die Prüfung läuft nur, bevor der Pin übernommen ist: Ein ESC,
-  der danach angeschlossen wird, wird nicht erkannt.
-- Solange der Tester scharf ist, zeigt die Leiste `DISARM FIRST`. Solange die
-  Pins noch belegt sind, zeigt sie `PINS BUSY`.
+- Antwortet ein ESC auf dem Pin, übernimmt der Bildschirm nichts: Die
+  Leiste zeigt `CHECKING SIG GP0 FOR AN ESC`, und zwei bernsteinfarbene
+  Zeilen zeigen `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` und
+  `DSHOT STAYS ON THE PIN UNTIL THEN.` Der Bildschirm übernimmt den Pin,
+  sobald der ESC 500 ms lang still ist. Die Prüfung läuft nur, bevor der Pin
+  übernommen ist: Ein ESC, der danach angeschlossen wird, wird nicht
+  erkannt.
+- Solange der Tester scharf ist, zeigt der Bildschirm `DISARM FIRST`.
+  Solange die Pins noch belegt sind, zeigt er `WAIT: DSHOT RESTARTING`.
+  Beides ist über die Bildschirme nicht erreichbar: Das Öffnen von `MENU`
+  entschärft, und `SERVO PROGRAMMER` öffnet nur, solange die Pins frei sind.
 
-Das Tippen startet den Hitec-Job für diese Familie. Während er sich bindet,
-zeigt die Leiste der nächsten Ansicht `TAKING GP0`.
+Während der Job sich bindet, zeigt die Leiste `TAKING SIG GP0`.
 
 - Kann die Platine die Leitung nicht einrichten, zeigt der Bildschirm
-  `GP0 COULD NOT BE TAKEN (`, danach `REFUSED`, `PWM`, `PIO`, `DMA` oder
+  `SIG GP0 COULD NOT BE TAKEN (`, danach `REFUSED`, `PWM`, `PIO`, `DMA` oder
   `CLOCK` und eine schließende Klammer. PWM ist Pulsweitenmodulation, DMA
   direkter Speicherzugriff (Direct Memory Access). `RETRY` versucht es
   erneut.
@@ -161,7 +161,7 @@ Hält der Job die Leitung, beginnt der Eintritt sofort. Die Überschrift des
 Inhalts, der laufende Schritt, ist bernsteinfarben.
 
 - **Mit SERVO SUPPLY auf `OWN`** liest der Bildschirm das Servo an der
-  Versorgung, die es hat. Schalte das Servo ein, bevor du auf `D SERIES`
+  Versorgung, die es hat. Schalte das Servo ein, bevor du auf `READ`
   tippst. Der Inhalt zeigt `READING THE MODEL`.
 - **Mit SERVO SUPPLY auf `GP28` oder `GP29`** schaltet der Bildschirm die Versorgung
   2,0 s lang aus und wieder ein. Die Leiste zählt die Aus-Zeit,
@@ -633,11 +633,11 @@ Bildschirm wieder läuft: Ein Schreiben zeigt dann
 
 ## Klassische Servos
 
-`CLASSIC` (HS-5xxx, HS-7xxx) braucht SERVO SUPPLY auf `GP28` oder `GP29`:
-Ein klassisches Servo geht nur beim Einschalten in den Programmiermodus,
-und die Platine schaltet seine Versorgung über den Wandler aus Teil C der
-[Verdrahtung](Verdrahtung). Unter `OWN` zeigt die Familienauswahl
-`NEEDS THE CONVERTER OF WIRING PART C` und
+`HITEC CLASSIC` (HS-5xxx, HS-7xxx) braucht SERVO SUPPLY auf `GP28` oder
+`GP29`: Ein klassisches Servo geht nur beim Einschalten in den
+Programmiermodus, und die Platine schaltet seine Versorgung über den Wandler
+aus Teil C der [Verdrahtung](Verdrahtung). Unter `OWN` zeichnet PROGRAMMER
+den Eintrag abgeblendet und zeigt `NEEDS THE CONVERTER OF WIRING PART C` und
 `AND SETTINGS > SERVO SUPPLY GP28/29.`
 
 Der Signalpegel:
@@ -657,7 +657,7 @@ ein simuliertes Servo. Noch kein klassischer Eintritt, kein Lesen und kein
 Schreiben lief an einem Servo auf dieser Platine. Die Bilder unten zeigen
 sie mit SERVO SUPPLY auf `GP28`.
 
-<img src="img/hitec-family-classic.png" width="240" alt="Die Familienauswahl mit SERVO SUPPLY auf GP28: CLASSIC freigegeben"> <img src="img/hitec-repair.png" width="240" alt="Ein klassisches HS-5645MG: CHECKSUM BAD mit REPAIR"> <img src="img/hitec-not-measured.png" width="240" alt="Ein nicht vermessenes klassisches Modell: MODEL NOT MEASURED: WRITTEN IN THE CLASSIC LAYOUT.">
+<img src="img/prog-chooser-switched.png" width="240" alt="PROGRAMMER mit SERVO SUPPLY auf GP28: HITEC CLASSIC freigegeben"> <img src="img/hitec-repair.png" width="240" alt="Ein klassisches HS-5645MG: CHECKSUM BAD mit REPAIR"> <img src="img/hitec-not-measured.png" width="240" alt="Ein nicht vermessenes klassisches Modell: MODEL NOT MEASURED: WRITTEN IN THE CLASSIC LAYOUT.">
 
 - **CHECKSUM.** Ein klassisches Servo, dessen Prüfsumme nicht aufgeht, zeigt
   `CHECKSUM` `BAD` in Bernstein. Die Zeile lässt sich auswählen, und die

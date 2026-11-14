@@ -17,7 +17,7 @@
  * switched supply, whose servo stays unpowered until the entry's POWER
  * step. D SERIES with SERVO SUPPLY at OWN stops in Held: the entry reads
  * the model at once, so the main view asks for the servo to be powered and
- * READ starts the job (docs/design/menu-b.md, owner decision A). The view
+ * READ starts the job (docs/design/menu-b.md, decision 34). The view
  * asks only once DShot's drain has ended, and from then on no frame goes to
  * SIG until READ.
  *

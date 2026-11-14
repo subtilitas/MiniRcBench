@@ -16,7 +16,7 @@
  *
  * RX SIGNALS is a row with no screen behind it: drawn disabled in every
  * claim state, its status `NOT BUILT` in place of the busy cue's strip, and
- * a tap opens nothing (docs/design/menu-b.md, owner decision B).
+ * a tap opens nothing (docs/design/menu-b.md, decision 35).
  *
  * @see docs/design/menu.md, "MENU"
  */

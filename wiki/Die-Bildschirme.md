@@ -2,20 +2,24 @@
 
 # Die Bildschirme
 
-Die Firmware hat acht Bildschirme. Der Tester ist die Wurzel. `MENU` öffnet
+Die Firmware hat neun Bildschirme. Der Tester ist die Wurzel. `MENU` öffnet
 die Liste der Werkzeuge, und jedes Werkzeug verlässt du mit `BACK`, das zu
-`MENU` zurückführt. SETTINGS öffnet auch über die Polzahl und die Obergrenze
-des Testers; `BACK` führt dann zum Tester zurück.
+`MENU` zurückführt. SERVO PROGRAMMER öffnet PROGRAMMER, die Wahl zwischen
+dem KST- und den Hitec-Programmierern. SETTINGS öffnet auch über die Polzahl
+und die Obergrenze des Testers; `BACK` führt dann zum Tester zurück.
 
 ```
 Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MENU
    ▲                    ├── SERVO TESTER ──BACK──> Verlassenseite ──RESTART DSHOT──> MENU
-   │                    ├── KST SERVO    ──BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> MENU
-   │                    ├── HITEC SERVO  ──BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> MENU
+   │                    ├── SERVO PROGRAMMER ──> PROGRAMMER ──BACK──> MENU
+   │                    │    ├── KST / CHASERVO ──> KST SERVO   ──BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> MENU
+   │                    │    ├── HITEC D SERIES ──> HITEC SERVO ──BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> MENU
+   │                    │    └── HITEC CLASSIC  ──> HITEC SERVO, wie D SERIES
    │                    │   (ohne Servo im Programmiermodus öffnet die Verlassenseite bei UNPLUG THE SERVO.)
    │                    │   (AM32 HEX, AM32 WRITE, SET: BACK eine Ebene hoch)
-   │                    ├── SETTINGS     ──BACK──> MENU
-   │                    └── SD LOG       ──BACK──> MENU
+   │                    ├── RX SIGNALS   (als Umriss gezeichnet: NOT BUILT)
+   │                    ├── SD LOG       ──BACK──> MENU
+   │                    └── SETTINGS     ──BACK──> MENU
    └──── BACK auf MENU ─┘
 Tester ──14 POLES oder MAX 20% (entschärft)──> SETTINGS ──BACK──> Tester
 ```
@@ -206,35 +210,39 @@ eRPM eintrifft und EDT nicht. Der ESC bestätigt die Freigabe nicht, daher zeigt
 das Feld *empfangene Frames*, nicht gesendete Befehle.
 
 Unter der Leiste steht eine Liste mit sieben Zeilen von 40 px Höhe und 42 px
-Abstand. Jede Zeile zeigt links ihren Namen und rechts ihren Zustand. `BACK`
-führt zum Tester zurück.
+Abstand, geordnet nach dem, was am Signalpin hängt: der ESC, ein Servo, dann
+der Prüfstand. Jede Zeile zeigt links ihren Namen und rechts ihren Zustand;
+die Zeile eines Werkzeugs zeigt keinen, denn die Leiste nennt die Pins.
+`BACK` führt zum Tester zurück.
 
-**Verschieben.** Sechs Zeilen passen auf den Bildschirm. SETTINGS ist die
-sechste, ganz sichtbar und ohne Ziehen antippbar, so bleibt ihr Zustand
-`UNSAVED` im Blick. Von der siebten, SD LOG, sind zuerst nur 6 px sichtbar.
-Ziehe MENU um 36 px nach oben, um SD LOG ganz zu sehen; erst dann nimmt die
+**Verschieben.** Sechs Zeilen passen auf den Bildschirm. SD LOG ist die
+sechste, ganz sichtbar und ohne Ziehen antippbar. Von der siebten,
+SETTINGS, sind zuerst nur 6 px sichtbar. Ziehe MENU um 36 px nach oben, um
+SETTINGS mit seinem Zustand `UNSAVED` ganz zu sehen; erst dann nimmt die
 Zeile ein Tippen an. Ein 3 px breiter Rollbalken am rechten Rand zeigt die
 Lage.
 
 | Zeile | Zustand rechts | Ein Tippen |
 |---|---|---|
 | **BEEP THE ESC** | `DISARMED`; 350 ms nach einem Tippen `SENT` oder `REFUSED` | Sendet den DShot-Beacon-Befehl, der Motor piept. Damit erkennst du, welcher ESC angeschlossen ist |
-| **AM32 CONFIG** | der ESC-Pin, `GP0` | Öffnet den AM32-Editor |
-| **SERVO TESTER** | die beiden Signalpins, `GP0+1` | Öffnet den Servotester |
-| **KST SERVO** | der ESC-Pin, `GP0` | Öffnet den KST-Programmierer. Siehe [KST-Programmierung](KST-Programmierung) |
-| **HITEC SERVO** | der ESC-Pin, `GP0` | Öffnet den Hitec-Programmierer. Siehe [Hitec-Programmierung](Hitec-Programmierung) |
-| **SETTINGS** | `UNSAVED`, solange ein Wert vom Flash abweicht; sonst `UPDATED`, solange ein Zurücksetzen oder eine Übernahme durch ein Update nicht überspeichert ist; sonst nichts. Alles in Bernstein | Öffnet SETTINGS |
+| **AM32 CONFIG** | nichts | Öffnet den AM32-Editor |
+| **SERVO TESTER** | nichts | Öffnet den Servotester |
+| **SERVO PROGRAMMER** | nichts | Öffnet PROGRAMMER, die Wahl des Servo-Programmierers. Siehe [PROGRAMMER](#programmer) |
+| **RX SIGNALS** | `NOT BUILT`; die Zeile ist als Umriss gezeichnet | Nichts: die Werkzeuge für Empfängersignale sind noch nicht gebaut |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, oder `USB DRIVE`, solange ein Computer die Karte hält | Öffnet den Aufzeichnungs-Bildschirm |
+| **SETTINGS** | `UNSAVED`, solange ein Wert vom Flash abweicht; sonst `UPDATED`, solange ein Zurücksetzen oder eine Übernahme durch ein Update nicht überspeichert ist; sonst nichts. Alles in Bernstein | Öffnet SETTINGS |
 
 Solange die Signalpins noch belegt sind, zum Beispiel während DShot nach dem
 Servotester, dem KST-Programmierer oder dem Hitec-Programmierer neu startet,
 zeigt die Leiste `DSHOT RESTARTING ON SIG GP0` in Bernstein. AM32 CONFIG,
-SERVO TESTER, KST SERVO, HITEC SERVO und SETTINGS sind dann als Umriss unter
+SERVO TESTER, SERVO PROGRAMMER und SETTINGS sind dann als Umriss unter
 ihrem üblichen Zustand gezeichnet, und ein Tippen auf eine solche Zeile
 öffnet nichts. Sie wirken wieder, sobald DShot läuft. SD LOG belegt keinen
-Pin und bleibt bedienbar.
+Pin und bleibt bedienbar. RX SIGNALS ist immer als Umriss gezeichnet, und
+`NOT BUILT` sagt warum; solange die Pins frei sind, behält die Leiste ihre
+übliche Zeile.
 
-<img src="img/menu-restarting.png" width="240" alt="MENU nach oben gezogen, während DShot neu startet: DSHOT RESTARTING ON SIG GP0 in der Leiste, AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO und SETTINGS als Umriss">
+<img src="img/menu-restarting.png" width="240" alt="MENU nach oben gezogen, während DShot neu startet: DSHOT RESTARTING ON SIG GP0 in der Leiste, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS und SETTINGS als Umriss">
 
 BEEP funktioniert nur im entschärften Zustand, und das Öffnen von `MENU`
 entschärft, daher ist es von hier aus immer erlaubt. Der Befehl dauert 6 ms
@@ -265,6 +273,30 @@ Startbildschirm sagt dasselbe beim Einschalten (siehe
 [Erste Schritte](Erste-Schritte#einschalten)).
 
 <img src="img/menu-updated.png" width="240" alt="UPDATED in der Zeile SETTINGS, nachdem ein Update die gespeicherten Einstellungen verworfen hat">
+
+### PROGRAMMER
+
+<img src="img/prog-chooser.png" width="240" alt="PROGRAMMER mit SERVO SUPPLY auf OWN: KST / CHASERVO und HITEC D SERIES mit POWER THE SERVO UP AFTER THE TAP., HITEC CLASSIC als Umriss mit NEEDS THE CONVERTER OF WIRING PART C und AND SETTINGS > SERVO SUPPLY GP28/29. in Bernstein"> <img src="img/prog-chooser-switched.png" width="240" alt="PROGRAMMER mit SERVO SUPPLY auf GP28: jeder Eintrag mit THE BENCH SWITCHES IT ON GP28., HITEC CLASSIC bedienbar">
+
+`MENU → SERVO PROGRAMMER` öffnet PROGRAMMER, eine Schaltfläche je
+Servo-Programmierer: **KST / CHASERVO**, **HITEC D SERIES** und
+**HITEC CLASSIC**. Die Leiste zeigt `SIG GP0  SERVO SUPPLY OWN` oder den Pin
+der geschalteten Versorgung. PROGRAMMER belegt keinen Pin: DShot läuft auf
+SIG weiter, solange er zu sehen ist. Schließe das Servo also stromlos an,
+oder lass den Prüfstand es versorgen. Das Tippen auf einen Eintrag öffnet
+den Programmierer, der SIG mit diesem Tippen belegt.
+
+Unter jeder Schaltfläche steht, wann das Servo Strom bekommt:
+`POWER THE SERVO UP AFTER THE TAP.` mit SERVO SUPPLY auf `OWN`, oder
+`THE BENCH SWITCHES IT ON GP28.` mit geschalteter Versorgung. Ein Servo,
+das schon vor dem Tippen Strom hat, nähme die DShot-Frames als Puls von
+970 µs bei 1000 Hz und liefe los. HITEC CLASSIC braucht die geschaltete
+Versorgung: unter `OWN` ist es als Umriss gezeichnet, tut nichts und sagt in
+Bernstein warum, `NEEDS THE CONVERTER OF WIRING PART C` und
+`AND SETTINGS > SERVO SUPPLY GP28/29.`
+
+`BACK` führt zu `MENU` zurück. Ebenso `RESTART DSHOT` am Ende einer
+Programmier-Sitzung und `BACK` in einem Programmierer, bevor er SIG belegt.
 
 ---
 
@@ -432,9 +464,11 @@ Servoversorgung. Siehe [Servotester](Servotester).
 
 <img src="img/kst-list.png" width="240" alt="Die KST-Feldliste">
 
-Liest und schreibt die Einstellungen eines KST- oder Chaservo-Servos über das
-Signalkabel an SIG, dem ESC-Pin. Der Bildschirm sucht das Servo, während du
-es einschaltest, liest seine 32 Register und listet 27 Felder zum Verstellen.
+Öffnet über `MENU → SERVO PROGRAMMER → KST / CHASERVO`; dieses Tippen
+belegt SIG. Liest und schreibt die Einstellungen eines KST- oder
+Chaservo-Servos über das Signalkabel an SIG, dem ESC-Pin. Der Bildschirm
+sucht das Servo, während du es einschaltest, liest seine 32 Register und
+listet 27 Felder zum Verstellen.
 Ein Tippen auf `WRITE...` öffnet die Schreibseite, und ihr `HOLD TO WRITE`,
 1 s, schreibt, zuvor mit einer Sicherung auf der SD-Karte. `BACK` öffnet
 die Verlassenseite, deren erster Schritt dich auffordert, das Servo
@@ -449,25 +483,30 @@ Versorgung, `SUPPLY ON 0.08 A`. Siehe [KST-Programmierung](KST-Programmierung).
 
 <img src="img/hitec-list.png" width="240" alt="Die Hitec-Feldliste">
 
-Liest und schreibt die Einstellungen eines Hitec-Servos der D-Serie oder der
-klassischen Familie über das Signalkabel an SIG, dem ESC-Pin. Der Bildschirm
-übernimmt den Pin beim Öffnen vom ESC-Treiber, in der Familienauswahl: Die
-Leiste zeigt `GP0 IS THE SERVO'S: DSHOT IS OFF.` und
-`CONNECT THE SERVO, CHOOSE ITS FAMILY`. `D SERIES` wirkt, `CLASSIC` wirkt mit
-SERVO SUPPLY auf
-`GP28` oder `GP29`; unter `OWN` ist es abgeblendet, mit
-`NEEDS THE CONVERTER OF WIRING PART C` und
-`AND SETTINGS > SERVO SUPPLY GP28/29.`: Zuerst kommt der Wandler aus Teil C
-der [Verdrahtung](Verdrahtung), dann die Einstellung. Unter `OWN` steht bei
-D SERIES `POWER THE SERVO UP, THEN TAP.`. Der Bildschirm tritt in das
+<img src="img/hitec-read-wait.png" width="240" alt="HITEC SERVO für ein Servo der D-Serie mit eigener Versorgung: SIG GP0 IS THE SERVO'S: DSHOT IS OFF. in Grün, POWER THE SERVO UP, THEN TAP READ. in Bernstein, und READ">
+
+Öffnet über `MENU → SERVO PROGRAMMER → HITEC D SERIES` oder
+`HITEC CLASSIC`. Liest und schreibt die Einstellungen eines Hitec-Servos der
+D-Serie oder der klassischen Familie über das Signalkabel an SIG, dem
+ESC-Pin. Das Tippen in PROGRAMMER übernimmt den Pin vom ESC-Treiber; die
+Leiste zeigt `RELEASING SIG GP0 FROM DSHOT`, bis DShot angehalten hat. Ein
+Servo der D-Serie mit eigener Versorgung (SERVO SUPPLY auf `OWN`) muss
+laufen, bevor der Bildschirm es liest, deshalb wartet der Bildschirm dann:
+Die Leiste zeigt `SIG GP0 IS THE SERVO'S: DSHOT IS OFF.` in Grün und
+`POWER THE SERVO UP, THEN TAP READ.` in Bernstein. Schalte das Servo ein
+und tippe `READ`. Mit geschalteter Versorgung und für ein klassisches Servo
+versorgt der Prüfstand das Servo selbst, und der Bildschirm macht sofort
+weiter. Solange ein ESC an SIG antwortet, belegt der Bildschirm nichts und
+zeigt `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` in Bernstein; `BACK` führt
+dann zu `MENU` zurück. Der Bildschirm tritt in das
 Servo ein und liest es. Ein Servo der D-Serie
 liefert 21 Register und 20 Parameter, davon 11 verstellbar. An der Leitung
 hängt ein Servo, ohne Pull-up-Widerstand. Ein Tippen auf `WRITE...` öffnet
 die Schreibseite, und ihr `HOLD TO WRITE`, 1 s, schreibt, zuvor mit einer
 Sicherung auf der SD-Karte. `BACK` öffnet
 die Verlassenseite; `LEAVE` macht dann `UNPLUG THE SERVO.` zum aktuellen
-Schritt, `NEXT SERVO` startet eine neue Sitzung, und `RESTART DSHOT` führt
-zu `MENU`. Mit CURRENT SENSE auf `INA219` zeigt der
+Schritt, `NEXT SERVO` startet eine neue Sitzung derselben Familie, und
+`RESTART DSHOT` führt zu `MENU`. Mit CURRENT SENSE auf `INA219` zeigt der
 Streifen den Strom hinter `SUPPLY ON`. Nicht auf Hardware getestet. Siehe
 [Hitec-Programmierung](Hitec-Programmierung).
 

@@ -36,8 +36,8 @@ struct TouchState;
 
 /**
  * @brief An entry's power line with SERVO SUPPLY at OWN: the tap takes SIG
- *        before the servo is powered (owner decision A of 2026-11-14 for
- *        HITEC D SERIES), 33 characters.
+ *        before the servo is powered (docs/design/menu-b.md, decision 34,
+ *        for HITEC D SERIES), 33 characters.
  */
 #define UI_PROG_POWER_AFTER "POWER THE SERVO UP AFTER THE TAP."
 /** @brief An entry's power line with the switched supply, `%u` its enable GPIO: 30 characters. */

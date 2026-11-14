@@ -1,6 +1,6 @@
 # Menu structure B
 
-Status: slices 1 to 8 built, host tests only; slices 9 and 10 not built.
+Status: slices 1 to 9 built, host tests only; slice 10 not built.
 Slice 2 is the colour roles of decisions 8 and 11 ([slice 2 as
 built](#slice-2-as-built)); slice 3 is the names and SETTINGS of decisions 9, 10
 and 15 b, e, f, h, j, k, with its README.md and wiki lines and images ([slice 3
@@ -11,18 +11,23 @@ and 30, with its README.md and wiki lines and images ([slice 6 as
 built](#slice-6-as-built)); slice 7 is the tester of owner decision 4 and
 decisions 11 (the MAX row), 15 a to c, 17, 19 and 20 ([slice 7 as
 built](#slice-7-as-built)); slice 8 is decision 13's title on SERVO TESTER, with
-its README.md and wiki lines and images ([slice 8 as built](#slice-8-as-built)).
+its README.md and wiki lines and images ([slice 8 as built](#slice-8-as-built));
+slice 9 is MENU's seven rows and PROGRAMMER, the chooser, of owner decisions
+1 and 2 and decisions 15 d, 16, 18, 19, 23 and 31 to 35, with its README.md
+and wiki lines and images ([slice 9 as built](#slice-9-as-built)).
 The owner answered the note's eight open questions on 2026-11-14 ([decisions 23
-to 30](#decisions)), and the question that followed from them (decision 33).
-Slices 9 and 10 wait on being built. By the owner's order of work of
-2026-11-14 they follow the eight small decisions of STATUS.md items 20, 21 and
-24. Three of the owner's decisions of 2026-11-14 change this design, and the
-sections they touch are marked "to be redesigned": each slice updates its own
-README.md and wiki lines and images (decision 27, against this note's
-recommendation), so the [slice table](#slices) is reworked and slice 10 shrinks;
-HITEC SERVO takes SIG when it opens (decision 31), which changes decision 19;
-and MENU gains a seventh row, RX SIGNALS (decision 32), so MENU scrolls 36 px,
-which revises owner decision 1's six rows that never scroll (decision 33).
+to 30](#decisions)), and the question that followed from them (decision 33),
+and decided two points of slice 9 (decisions 34 and 35). Slice 10 waits on
+being built. Three of the owner's decisions of 2026-11-14 change this
+design, and the sections they touch are marked "to be redesigned": each
+slice updates its own README.md and wiki lines and images (decision 27,
+against this note's recommendation), so the [slice table](#slices) is
+reworked and slice 10 shrinks; HITEC SERVO takes SIG when it opens
+(decision 31), which changes decision 19; and MENU gains a seventh row, RX
+SIGNALS (decision 32), so MENU scrolls 36 px, which revises owner decision
+1's six rows that never scroll (decision 33). Decision 34 changes decision
+15 d and the chooser's D series power line; decision 35 draws the RX
+SIGNALS row disabled until its tools exist.
 
 The owner decided on 2026-11-13 to build structure B ([decisions 1 to
 4](#decisions)). Decisions 5 to 15 are the rules this note sets for the
@@ -124,8 +129,11 @@ TESTER (root, no header)                                        depth 0
 
 RX SIGNALS is the owner's row of 2026-11-14 ([decision 32](#decisions));
 its chooser and the two tools are designed in
-[rx-signals.md](rx-signals.md), not here. A tap on HITEC D SERIES or HITEC
-CLASSIC takes SIG ([decision 31](#decisions)).
+[rx-signals.md](rx-signals.md), not here. Until they exist the row is drawn
+disabled and opens nothing ([decision 35](#decisions)). A tap on HITEC D
+SERIES or HITEC CLASSIC takes SIG ([decision 31](#decisions)); with SERVO
+SUPPLY at OWN, HITEC D SERIES then waits for READ ([decision
+34](#decisions)).
 
 Depth counts taps from the tester. The KST field list moves from depth 2 to
 3; the Hitec field list stays at 3 (MENU, HITEC SERVO, family); the AM32
@@ -169,10 +177,8 @@ the owner's [decision 33](#decisions) the rows keep their 40 px height and
 the scroll range is 294 − 258 = 36 px (`uiListMaxScroll()` in
 `src/ui_list.cpp`), as the seven rows on `main` scroll. SETTINGS, the
 seventh row, starts at y 314 with 6 px showing at scroll 0 and is reached
-with a short drag. The drawing and the tables below are the six-row design
-of 2026-11-13 and are to be redrawn with the seven rows; RX SIGNALS, 10
-characters at scale 2, 118 px, ends at x 134 from x 16, within
-`menuRowsFit()`'s rule with no status.
+with a short drag. RX SIGNALS is drawn disabled with the status
+`NOT BUILT` in every claim state ([decision 35](#decisions)).
 
 ```
 y   0 | MENU                            [  BACK  ]|  header 36 px; BACK 64 x 32
@@ -181,19 +187,20 @@ y   0 | MENU                            [  BACK  ]|  header 36 px; BACK 64 x 32
   104 | AM32 CONFIG                               |  row 1
   146 | SERVO TESTER                              |  row 2
   188 | SERVO PROGRAMMER                          |  row 3: no status
-  230 | SD LOG                           NO CARD  |  row 4
-  272 | SETTINGS                         UNSAVED  |  row 5: ends at y 311
+  230 | RX SIGNALS                     NOT BUILT  |  row 4: drawn disabled
+  272 | SD LOG                           NO CARD  |  row 5: ends at y 311
+  314 | SETTINGS                         UNSAVED  |  row 6: 6 px at scroll 0
   320 +-------------------------------------------+
 ```
 
-Six rows at a 42 px pitch take 252 px of the 258 px viewport: MENU never
-scrolls. The scroll code stays for test registries, as today.
+At scroll 36 px the rows start 36 px higher and SETTINGS is whole, from
+y 278 to y 317. The scroll code serves MENU and the test registries.
 
 The order groups the rows by what sits on SIG ([decision 16](#decisions)):
 the ESC (BEEP THE ESC, AM32 CONFIG), a servo (SERVO TESTER, SERVO
-PROGRAMMER), then the bench (SD LOG, SETTINGS). Rows 0, 1 and 2 keep their
-place; SETTINGS stays the sixth row, and SD LOG moves from the seventh row to
-the fifth.
+PROGRAMMER), the receiver (RX SIGNALS), then the bench (SD LOG, SETTINGS).
+Rows 0, 1 and 2 keep their place; SD LOG moves from the seventh row to the
+sixth and SETTINGS from the sixth to the seventh.
 
 | Row | Label, scale 2 from x 16 | Ends at x | Widest status, scale 1, right to x 222 | Starts at x |
 |---|---|---|---|---|
@@ -201,6 +208,7 @@ the fifth.
 | AM32 CONFIG | 11, 130 px | 146 | none | |
 | SERVO TESTER | 12, 142 px | 158 | none | |
 | SERVO PROGRAMMER | 16, 190 px | 206 | none: 8 px are left, less than one character | |
+| RX SIGNALS | 10, 118 px | 134 | `NOT BUILT`, 9, 53 px | 169 |
 | SD LOG | 6, 70 px | 86 | `CARD ERROR`, 10, 59 px | 163 |
 | SETTINGS | 8, 94 px | 110 | `UNSAVED`, 7, 41 px | 181 |
 
@@ -227,7 +235,9 @@ entry is the first step that takes SIG. The chooser generalises Hitec's
 family view, which goes. By the owner's decision of 2026-11-14 HITEC SERVO
 takes SIG when it opens, before the family is chosen
 ([decision 31](#decisions)); here the Hitec entries open HITEC SERVO, so
-their tap takes SIG, as the KST entry's does.
+their tap takes SIG, as the KST entry's does. HITEC D SERIES with SERVO
+SUPPLY at OWN is powered after the tap, as KST is: HITEC SERVO stops in
+Held and its READ starts the job ([decision 34](#decisions)).
 
 With SERVO SUPPLY at OWN:
 
@@ -238,7 +248,7 @@ y   0 | PROGRAMMER                      [  BACK  ]|
   112 | POWER THE SERVO UP AFTER THE TAP.         |  C_DIM
   142 | [         HITEC D SERIES          ]       |  6, 142, 228 x 46
   192 | D485HW, D645MW AND THE OTHERS             |  C_DIM
-  204 | POWER THE SERVO UP BEFORE THE TAP.        |  C_DIM
+  204 | POWER THE SERVO UP AFTER THE TAP.         |  C_DIM: decision 34
   222 | [          HITEC CLASSIC          ]       |  6, 222, 228 x 46: disabled
   272 | HS-5XXX, HS-7XXX                          |  C_DIM
   284 | NEEDS THE CONVERTER OF WIRING PART C      |  C_AMBER
@@ -257,7 +267,7 @@ give way to that line at y 284.
 | `KST / CHASERVO`, `HITEC D SERIES` | 14 | 166 px, 2 | centred in 228 px |
 | `HITEC CLASSIC` | 13 | 154 px, 2 | centred |
 | `POWER THE SERVO UP AFTER THE TAP.` | 33 | 197 px | 205 |
-| `POWER THE SERVO UP BEFORE THE TAP.` | 34 | 203 px | 211 |
+| `POWER THE SERVO UP BEFORE THE TAP.`, given up by decision 34 | 34 | 203 px | 211 |
 | `THE BENCH SWITCHES IT ON GP28.` | 30 | 179 px | 187 |
 | `D485HW, D645MW AND THE OTHERS` | 29 | 173 px | 181 |
 | `HS-5XXX, HS-7XXX` | 16 | 95 px | 103 |
@@ -913,7 +923,7 @@ change.
     | a | tester `HOLD` (the throttle latch) beside `HOLD TO ARM` | `LATCH`; caption `LATCHED`; `TesterCtl::Latch`. HOLD names only holds | `ui.cpp` `drawButtons()`, `drawThrottle()`; `ui.h` |
     | b | board voltage top right | `BOARD` at x 140, y 14: on `main` | `ui.cpp` `drawStatusBar()` |
     | c | HOLD TO ARM while a USB host holds the card | drawn disabled; the track reads `EJECT THE USB DRIVE TO ARM`: on `main` | `ui.cpp` `drawButtons()`, `drawThrottle()` |
-    | d | Hitec D series needs the servo powered before the tap, KST after; the family view says so for D SERIES (`HITEC_UI_D_POWER`) | the chooser's power lines; HITEC SERVO's entry adds `THE SERVO MUST BE POWERED NOW.` with OWN | `ui_servo_prog.cpp`; `ui_hitec.cpp` `mainText()` |
+    | d | Hitec D series needs the servo powered before the tap, KST after; the family view says so for D SERIES (`HITEC_UI_D_POWER`) | the chooser's power lines; HITEC SERVO's entry adds `THE SERVO MUST BE POWERED NOW.` with OWN. Changed by decision 34: the D series is powered after the tap, as KST; that line is dropped, and HITEC SERVO's READ wait says `POWER THE SERVO UP, THEN TAP READ.` | `ui_servo_prog.cpp`; `ui_hitec.cpp` `mainText()` |
     | e | SERVO SUPPLY `NONE` reads as "no power" | `OWN`: the servo has its own supply (decision 22) | `ui_settings.cpp` `supplyValue()` |
     | f | MENU `PINS BUSY` reads as a fault | rows drawn disabled, strip `DSHOT RESTARTING ON SIG GP0`; the unreachable tool refusals read `WAIT: DSHOT RESTARTING` | `ui_menu.cpp` `rowStatus()`, `drawMenu()`, `UI_MENU_BUSY_TEXT`; `ui_am32.cpp`, `ui_servo.cpp`, `ui_kst.cpp`, `ui_hitec.cpp` refusal text |
     | g | chip `MODE` | `PROG MODE` (9 characters, chip 65 px) | `ui_kst.cpp`, `ui_hitec.cpp` `drawList()` |
@@ -1010,6 +1020,28 @@ Decisions of the owner, 2026-11-14, answering the open questions of
     drag. This revises decision 1 of 2026-11-13, six rows that never
     scroll.
 
+Decisions of the owner, 2026-11-14, on slice 9, called A and B in its plan:
+
+34. **Hitec D series on OWN: claim first, then power** (A). The chooser's
+    tap claims SIG, so DShot stops; HITEC SERVO then stops in Held and
+    shows `GP0 IS THE SERVO'S: DSHOT IS OFF.`, with SIG named as slice 3
+    names it, over `POWER THE SERVO UP, THEN TAP READ.`, with READ in the
+    wide button calling `pinClaimStartJob()`. BACK there opens the leave
+    page in its releasing phase. The chooser's D series line with OWN reads
+    `POWER THE SERVO UP AFTER THE TAP.`, KST's wording. Decision 15 d's
+    `THE SERVO MUST BE POWERED NOW.` is dropped. With the switched supply,
+    and for CLASSIC, which needs it, the job starts at once after the
+    claim, as KST's does. Reason: a servo powered before the tap would take
+    DShot's frames, 970 µs at 1 kHz, and move; this keeps decision 31's
+    purpose. This changes decision 15 d and the chooser's D series power
+    line of 2026-11-13.
+35. **RX SIGNALS is shown now, drawn disabled** (B). The row stands in
+    MENU with a status that says it is not built, `NOT BUILT`, so MENU has
+    seven rows and scrolls 36 px (decision 33). The row never acts until
+    the screens of [rx-signals.md](rx-signals.md) exist. Its disabled look
+    is not the busy-pins cue: it stays disabled whatever the claim state,
+    and its status names why.
+
 ## Interlocks
 
 No write, no pulse and no supply switch becomes reachable with fewer
@@ -1055,17 +1087,17 @@ deliberate actions than at 9f965a3.
 | `src/ui_widgets.{h,cpp}` | `uiHeader()` BACK flag (on `main`); `UiBackGuard`, `uiBackGuard()`, `uiBackGuardDraw()`; `uiStripTwoLines()`; role names; `UI_EDGE`, `UI_FOOT_Y`, `UI_FOOT_H`, `UI_EDIT_BTN_W` (built); square 12 px chip | 1 (built), 2 |
 | `src/ui_list.{h,cpp}` | `uiListDrawField()`, `UiField`, `UiValue`, `UiEdge` | 1 (built) |
 | `src/ui_leave.{h,cpp}` | the leave page; the shared unplug steps | 1 (built), 6 (built) |
-| `src/ui_screen.h` | `SettingsRow::sub`; `UiProgEntry`; `UiScreenId::ServoProg` | 3, 9 |
+| `src/ui_screen.h` | `SettingsRow::sub`; `UiProgEntry`, `uiChooseTool()`, `UiScreenId::ServoProg` and `RxSignals` (built) | 3, 9 |
 | `src/ui_settings.{h,cpp}` | SERVO SUPPLY section, SIG PIN and AUX PIN, footer, DEFAULTS, colours, return to origin | 2, 3, 4, 7 |
 | `src/settings.cpp` | `settingsValidate()`: AUX never on SIG | 3 |
 | `src/kst_view.cpp` | four labels | 3 |
-| `src/ui_menu.cpp` | strip, statuses, busy state, seven rows scrolling 36 px (decisions 32 and 33) | 2, 3, 9 |
-| `src/ui_registry.cpp` | seven rows (decisions 32 and 33); `UI_PROGRAMMERS` and its fit check | 9 |
-| `src/ui_servo_prog.{h,cpp}` | new: the chooser | 9 |
-| `src/ui.cpp` | `uiOpenTool()`, the origin, readouts, LATCH, BOARD, ARM while the card is held, DSHOT600, colours | 2, 3, 7 |
+| `src/ui_menu.cpp` | strip, statuses, busy state, seven rows scrolling 36 px (decisions 32 and 33), the RX SIGNALS row (decision 35; built) | 2, 3, 9 |
+| `src/ui_registry.cpp` | seven rows (decisions 32 and 33); `UI_PROGRAMMERS` and its fit check (built) | 9 |
+| `src/ui_servo_prog.{h,cpp}` | new: the chooser (built) | 9 |
+| `src/ui.cpp` | `uiOpenTool()`, the origin, readouts, LATCH, BOARD, ARM while the card is held, DSHOT600, colours; the chosen tool's entry point (slice 9, built) | 2, 3, 7, 9 |
 | `src/ui_am32.{h,cpp}` | write page, editor old value, guard, HEX title, colours, footer | 2, 4, 5 |
 | `src/ui_kst.{h,cpp}` | leave page (built), WRITE..., RESTORE..., colours, section removed | 2, 3, 5, 6 |
-| `src/ui_hitec.{h,cpp}` | as KST, the leave page built; family view removed; family entry points | 2, 5, 6, 9 |
+| `src/ui_hitec.{h,cpp}` | as KST, the leave page built; family view removed; family entry points and the READ wait (built) | 2, 5, 6, 9 |
 | `src/ui_servo.{h,cpp}` | leave page, guard, title, supply line, footer, colours | 2, 4, 5, 6, 8 |
 | `src/ui_sdlog.cpp` | button edge, colours | 2, 4 |
 
@@ -1080,8 +1112,8 @@ German and the images that the "Docs" lists of its decisions name, with
 CHANGELOG.md, STATUS.md and the design notes it touches. Slice 10 keeps
 only what no single slice owns. The sizes and estimates of slices 2 to 9
 below were made with the documentation in slice 10 and do not include
-that work; they are to be redone. Slice 9 is to be redesigned for
-decisions 31 to 33.
+that work; they are to be redone. Slice 9 was built for decisions 31 to
+35.
 
 | Slice | Changes | Needs | Files | Lines, roughly | Tests rewritten / new | Estimate |
 |---|---|---|---|---|---|---|
@@ -1093,7 +1125,7 @@ decisions 31 to 33.
 | 6. Leave page, built | decisions 5 and 21 and owner decisions 3, 25 and 30: KST, Hitec and SERVO TESTER on `ui_leave`; STAY, NEXT SERVO, BACK TO SERVO; RESTART DSHOT's wait, in LEAVE's rectangle; with its README.md and wiki lines and images (decision 27) | 1, 5 | 15 in `src/`, 7 of them comments only | +561, −342 in `src/` | +474, −114 lines in 8 test files, three helpers rewritten, five probes in `test/ui_ids.h` | built |
 | 7. Tester, built | owner decision 4, decisions 15 a to c, 17: readouts, `uiOpenTool()`, origin, LATCH, BOARD, ARM while the card is held; the readouts' underline, which slice 2 left out (decision 11's MAX row); with its README.md and wiki lines and images (decision 27) | 1, 3 | 4 in `src/`, 4 in `test/` | +190, −55 in `src/` | 31 / 200 | built |
 | 8. SERVO TESTER, built | decision 13: the title; decision 12 is on `main`; with its README.md and wiki lines and images (decision 27) | 1, 3 | 3 in `src/` | +17, −9 | 1 / 23 lines in test_servo.cpp | built |
-| 9. Chooser | owner decisions 1 and 2, decisions 16, 18, 19, 15 d, 23, 31, 32 and 33: seven MENU rows scrolling 36 px, `ui_servo_prog`, `UI_PROGRAMMERS`, Hitec family entry points, family view removed | 3, 6, 7 | 9, 2 new | +350, −120 | 50 / 120 | 2 to 3 days |
+| 9. Chooser, built | owner decisions 1 and 2, decisions 16, 18, 19, 15 d, 23 and 31 to 35: seven MENU rows scrolling 36 px with RX SIGNALS disabled, `ui_servo_prog`, `UI_PROGRAMMERS`, Hitec family entry points and the READ wait, family view removed; with its README.md and wiki lines and images (decision 27) | 3, 6, 7 | 13 in `src/`, 2 new | +461, −249 in `src/` | +643, −223 lines in 8 test files | built |
 | 10. Documentation | what no slice owns: menu.md (the tree, MENU, revision lines on decisions 1, 12 and 18), pin-claim.md's revision line on decision 4, README "Layout", "Tests" and "The user manual", and a check that no README section, wiki page or image still shows the old structure | 1 to 9 | to be redone | to be redone | none | to be redone |
 
 Slice 1 is built ([slice 1 as built](#slice-1-as-built)), and slice 2
@@ -1107,6 +1139,8 @@ built](#slice-7-as-built)), with its previews, README.md and wiki lines.
 Slice 8 is built ([slice 8 as built](#slice-8-as-built)), with its
 previews, README.md and wiki lines. Slice 6 is built ([slice 6 as
 built](#slice-6-as-built)), with its previews, README.md and wiki lines.
+Slice 9 is built ([slice 9 as built](#slice-9-as-built)), with its
+previews, README.md and wiki lines.
 
 Slice 3 comes before slice 9: without it the SERVO SUPPLY section leaves
 SETTINGS with KST SERVO's MENU row. Slice 6 needs slice 5 because both change
@@ -1493,6 +1527,56 @@ decision's lines, it reads them as follows:
 | The unplug page | titled `SERVO TESTER`, as the main view; since slice 6 the leave page, under the same header | the page is the screen's, and KST SERVO's and HITEC SERVO's unplug pages carry their tool's title; the decision's Code line names only `uiServoTick()` and `UI_SERVO.title`. In slice 6 the leave page draws no header and the header above it stays the screen's |
 | SERVO SET | keeps its title | the decision names it as a sub-view that adds a word |
 | servo-tester.md | the screen is named SERVO TESTER in its "Screens" and "Testing" sections; its numbered decisions are not edited | the decision's Docs line names the note's "SERVO" section |
+
+## Slice 9 as built
+
+Owner decisions 1 and 2 and decisions 15 d, 16, 18, 19, 23 and 31 to 35 on
+MENU, PROGRAMMER and HITEC SERVO, with host tests in `test/test_menu.cpp`
+(`testSettingsRowVisible()`, `testRxSignalsRow()`, `testServoProg()`,
+`testPinsBusy()`, `testEveryEntry()`), `test/test_hitec_ui.cpp`
+(`testEntry()`), `test/test_kst_ui.cpp` (`testOpenAndSearch()`),
+`test/test_ui.cpp` (`testMenuDestinations()`, `testHitBoundaries()`) and
+`test/test_ids.cpp`, through the helpers `openChooser()`,
+`openProgrammer()` and `progEntryOf()` in `test/ui_ids.h`. The pin claim,
+its drain, Held and the order of the core1 jobs are those of `main`: no
+function of `src/pin_claim.cpp` changed.
+
+| Block | Where | What it does |
+|---|---|---|
+| MENU's rows | `UI_MENU` in `ui_registry.cpp` | BEEP THE ESC, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, SETTINGS; the tool rows' statuses are null and their widest 0 (decision 18); `menuRowsFit()` passes SERVO PROGRAMMER, 190 px from x 16, with no status |
+| RX SIGNALS | `UI_RX_SIGNALS`, `rxStatus()`, `UI_MENU_NOT_BUILT` in `ui_menu.{h,cpp}`; `UiScreenId::RxSignals` | a screen with a status and no entry point: `rowActs()` takes a row only with an action, or with `enter` and `tick` and free pins, so the row is drawn disabled, reported disabled and ignored in every claim state, under `NOT BUILT` in `C_DIM` |
+| PROGRAMMER | `ui_servo_prog.{h,cpp}`, `UI_SERVO_PROG`, `UiScreenId::ServoProg` | `PinUser::None` and `freePins`: MENU draws the row disabled while the claim is not Free, as SETTINGS'. Title `PROGRAMMER`; strip `SIG GP0  SERVO SUPPLY OWN`, or `GP28`, `GP29`, `C_DIM`; entries 228 × 46 px at (6, 62), (6, 142), (6, 222), `PROG_ENTRY(i)`, each drawn and reported as its `enabled` says; lines from 4 px under the button at a 12 px pitch: the models, then the power line, or the lines that say why while the entry is disabled. BACK returns to MENU |
+| The entries | `UiProgEntry` in `ui_screen.h`; `UI_PROGRAMMERS` and `progEntriesFit()` in `ui_registry.cpp` | KST / CHASERVO (`uiKstEnter`), HITEC D SERIES (`uiHitecEnterD`), HITEC CLASSIC (`uiHitecEnterClassic`, enabled by `servoSupplyFitted()`). The build fails on a label over 18 characters, a line over 37, a disabled entry with no line that says why, or lines that end less than 4 px above the next entry or past the panel |
+| The route | `uiChooseTool()` in `ui.cpp` | a chooser's tap names the tool and its entry point; after the chooser's tick `uiTick()` opens it through `uiOpenTool(s, Level::Menu, enter)`, which disarms and runs the entry point in place of `s->enter`. The tool's origin is MENU, so its BACK while refused or Stopping and its RESTART DSHOT return to MENU |
+| Hitec's entry points | `uiHitecEnterD()`, `uiHitecEnterClassic()`, `enterFamily()` in `ui_hitec.cpp` | set the family, `hitecJobSetFamily()`, a new session, then `claimPin()` on the tap's frame; `s_startNow`, CLASSIC or the switched supply, calls `pinClaimStartJob()` with the claim, so the job starts once Held; a refused claim is asked for again every frame and takes the same path. `UI_HITEC.enter` is `uiHitecEnterD` |
+| The READ wait | `readWait()`, `mainText()`, `HitecCtl::Read` in `ui_hitec.{h,cpp}` | D SERIES on OWN: the claim Held with no job asked for. The strip's two lines, `SIG GP0 IS THE SERVO'S: DSHOT IS OFF.` in `UI_COL_SAFE` and `POWER THE SERVO UP, THEN TAP READ.` in `UI_COL_WARN`, and READ in the wide button, which calls `pinClaimStartJob()`. No line is opened and nothing is written before READ |
+| The claim's views | `mainText()` | refused: the strip `CHECKING SIG GP0 FOR AN ESC`, `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` and `DSHOT STAYS ON THE PIN UNTIL THEN.` in amber at y 80 and y 94; `DISARM FIRST` and `WAIT: DSHOT RESTARTING` as backstops; Stopping: `RELEASING SIG GP0 FROM DSHOT` |
+| Removed | `ui_hitec.{h,cpp}`, `ui_kst.cpp`, `ui_am32.cpp`, `ui_servo.cpp` | the family view (`HitecView::Family`, `HitecCtl::Classic`, `DSeries`, `BTN_CLASSIC`, `BTN_DSERIES`, `drawFamily()`, `familyTouch()`, `drawFamilyStrip()`, `familyOpen()`, `classicAllowed()`, `s_familyChosen`, `HITEC_UI_CHOOSE`, `HITEC_UI_D_POWER`, `HITEC_UI_CLASSIC_WHY_*`), `uiHitecEnter()`, and `am32MenuStatus()`, `servoMenuStatus()`, `kstMenuStatus()`, `hitecMenuStatus()` |
+
+The BACK table holds as drawn: PROGRAMMER to MENU; KST SERVO and HITEC
+SERVO to MENU while the claim is refused or Stopping, DShot resumed at once
+from Stopping; HITEC SERVO's READ wait to the leave page releasing, as any
+view with no servo in the mode; RESTART DSHOT to MENU.
+
+Where the build reads the note's lines, it reads them as follows:
+
+| Point | As built | Why |
+|---|---|---|
+| The READ wait's first line | `SIG GP0 IS THE SERVO'S: DSHOT IS OFF.`, 37 characters, 221 px | decision 34 asks for SIG named as slice 3 names it, by role and number (decision 10); slice 3 kept the bare `GP0` here for slice 9 |
+| The READ wait's second line | amber, `UI_COL_WARN` | the step to take before READ, decision 11's "text to read before the next action"; the family view drew its second line in `C_DIM` |
+| The power line | two strings per entry, `powerOwn` and `powerSwitchedFmt` with the enable GPIO for `%u`, in place of the sketch's `power()` function | the build-time fit check can read a string and not a function's output |
+| Stopping on HITEC SERVO | `RELEASING SIG GP0 FROM DSHOT` | the family view's text; KST's main view reads `RELEASING SIG GP0` |
+| The ESC refusal on HITEC SERVO | the family view's two amber lines, at y 80 and y 94 of the main view, under KST's strip `CHECKING SIG GP0 FOR AN ESC` | KST's main view is the model the plan names; Hitec keeps its own words |
+| NEXT SERVO | a new session in the family chosen on PROGRAMMER. Before READ, the READ wait again with no job; after READ, `pinClaimKeep()` starts the job at once, as the leave page's note `NEXT SERVO: POWER IT BEFORE THE TAP.` says | `pinClaimKeep()` starts the job it was asked for, and the claim's order is not changed in this slice |
+| The chooser's entries and the claim | not gated on the claim's state | the chooser opens only while the claim is Free and claims nothing, so no other claim can start while it shows; a tool refused all the same shows its own refusal |
+| The RX SIGNALS row's look | `uiButton()`'s disabled look, the label `C_DIM`, `NOT BUILT` `C_DIM`; the strip keeps its caption while the claim is Free | decision 35: it does not read as the busy cue, whose sign is the strip's amber caption |
+| `UI_HITEC.enter` | `uiHitecEnterD` | no MENU row opens HITEC SERVO; a `UiScreen` with a tick has an entry point, and the D series entry needs no switch |
+| MENU's busy rows | AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER and SETTINGS drawn disabled while the claim is not Free, with no status under the outline but SETTINGS' | decision 18 leaves the tools no status |
+| Images | `prog-chooser.png` and `prog-chooser-switched.png` from `shot_prog_chooser*`, `hitec-read-wait.png` and `hitec-esc.png` in place of `hitec-family.png`, `hitec-family-esc.png` and `hitec-family-classic.png`; `menu-preview.png` gains the chooser, and `hitec-preview.png` starts with the READ wait | the slice table's `prog-chooser*.png`, and the Hitec main view's waits |
+| Docs beyond the plan's list | wiki SD-Logging / SD-Aufzeichnung (SD LOG is the sixth row), KST-Programming and The-Screens (`SIG GP0` in the claim texts and `WAIT: DSHOT RESTARTING` where they read `GP0` and `PINS BUSY`) | decision 27: a slice updates what describes the screens it changes |
+| menu.md and the revision lines | not edited | slice 10's |
+
+MUTRESULTS
 
 ## Risks
 

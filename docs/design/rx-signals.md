@@ -13,7 +13,9 @@ and tested in rcbench first. The PPM sections stay as the record of a
 design that is not built, by decision 1. Both tools sit on the pin claim of
 [pin-claim.md](pin-claim.md) under one MENU row, RX SIGNALS, which opens a
 chooser with MONITOR and OUTPUT (decision 4); the MENU section is to be
-redesigned for it. The decoder is rcbench's, host-tested there and nowhere
+redesigned for it. The row exists since slice 9 of
+[menu-b.md](menu-b.md), drawn disabled with `NOT BUILT` until these tools
+exist. The decoder is rcbench's, host-tested there and nowhere
 measured on a pin.
 
 ## Terms
@@ -618,8 +620,12 @@ resources: the claim exists for the pin.
 To be redesigned. The owner decided on 2026-11-14 for one MENU row, RX
 SIGNALS, that opens a chooser with MONITOR and OUTPUT ([decision
 4](#decisions)). In menu structure B ([menu-b.md](menu-b.md), decision 32)
-the row comes after SERVO PROGRAMMER, and MENU has seven rows. The chooser
-is not designed. By the owner's order of work of 2026-11-14 (the eight
+the row comes after SERVO PROGRAMMER, and MENU has seven rows. The row is
+built, by slice 9 of menu-b.md and the owner's decision 35 there: RX
+SIGNALS, row 4, drawn disabled with the status `NOT BUILT` in every claim
+state, and a tap opens nothing (`UI_RX_SIGNALS` in `src/ui_menu.cpp`, a
+screen with no entry point). It acts once a screen behind it exists. The
+chooser is not designed. By the owner's order of work of 2026-11-14 (the eight
 small decisions, then menu structure B, then the features), RX SIGNALS is
 built on structure B, not on MENU as built today. The rest of this section
 is the design of 2026-11-13, with two rows, RX MONITOR and PPM OUTPUT.
