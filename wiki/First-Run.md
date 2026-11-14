@@ -93,8 +93,8 @@ The splash then shows two amber lines above the name:
 `SETTINGS RESET BY UPDATE` and `CHECK MENU > SETTINGS`. Check at least the
 pole count, `MAX THROTTLE`, `ESC PIN`, KISS, `SERVO SUPPLY` and
 `CURRENT SENSE`, then hold `HOLD TO SAVE`. Until a save lands, MENU's
-SETTINGS row reads `UPDATED`. A board that never had saved settings shows
-neither.
+SETTINGS row reads `UPDATED`, after a carry-over as after a reset. A board
+that never had saved settings shows none of this.
 
 <img src="img/splash-reset.png" width="240" alt="Splash screen after an update discarded the saved settings">
 

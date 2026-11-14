@@ -97,10 +97,12 @@ sie in SETTINGS und halte `HOLD TO SAVE`
 Nach einem Update von einem Format, das die Firmware nicht kennt, werden die
 gespeicherten Einstellungen verworfen, und jede Einstellung beginnt mit ihrer
 Voreinstellung. Der Startbildschirm zeigt dann über dem Namen zwei Zeilen in
-Bernstein: `SETTINGS RESET BY UPDATE` und `CHECK MENU > SETTINGS`. Prüfe mindestens Polzahl, `MAX THROTTLE`, `ESC PIN`,
-KISS, `SERVO SUPPLY` und `CURRENT SENSE` und halte dann `HOLD TO SAVE`. Bis
-ein Speichern gelingt, zeigt die Zeile SETTINGS in MENU `UPDATED`. Eine Platine,
-die nie Einstellungen gespeichert hatte, zeigt beides nicht.
+Bernstein: `SETTINGS RESET BY UPDATE` und `CHECK MENU > SETTINGS`. Prüfe
+mindestens Polzahl, `MAX THROTTLE`, `ESC PIN`, KISS, `SERVO SUPPLY` und
+`CURRENT SENSE` und halte dann `HOLD TO SAVE`. Bis ein Speichern gelingt,
+zeigt die Zeile SETTINGS in MENU `UPDATED`, nach einer Übernahme wie nach
+einem Verwerfen. Eine Platine, die nie Einstellungen gespeichert hatte,
+zeigt nichts davon.
 
 <img src="img/splash-reset.png" width="240" alt="Startbildschirm, nachdem ein Update die gespeicherten Einstellungen verworfen hat">
 

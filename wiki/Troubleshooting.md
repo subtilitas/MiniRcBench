@@ -238,8 +238,7 @@ screen does not work.
 ## My settings reset themselves
 
 They were not saved, or new firmware could not read the settings layout in
-flash. Pole
-count and throttle ceiling are edited on **MENU → SETTINGS**, and
+flash. Pole count and throttle ceiling are edited on **MENU → SETTINGS**, and
 `HOLD TO SAVE` there writes them to flash. The note line reads
 `UNSAVED - HOLD SAVE TO KEEP` while changes are unsaved, and `MENU` shows
 `UNSAVED` on its `SETTINGS` row.

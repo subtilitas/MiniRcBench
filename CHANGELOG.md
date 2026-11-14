@@ -92,8 +92,9 @@ protocol.
 - The splash reads `SETTINGS RESET BY UPDATE` and `CHECK MENU > SETTINGS` in
   amber, MENU's SETTINGS row `UPDATED`, and SETTINGS' note line `RESET BY
   UPDATE - CHECK AND SAVE`, after the load discarded a whole settings block
-  of another version, until a save lands (`settingsResetByUpdate()`). Blank
-  flash and a damaged block show none of them.
+  of a version it has no layout for, until a save lands
+  (`settingsResetByUpdate()`). Blank flash and a damaged block show none of
+  them.
 - SETTINGS repeats the splash's warning, `UNPLUG ANY SERVO FROM GP1 NOW`
   for example, in amber on a line of its own at y 230 while the live ESC pin
   is not the one the splash named (`settingsBootDshotPin()`). The list then
@@ -510,6 +511,24 @@ protocol.
 
 ### Changed
 
+- Stored settings of versions 2, 3 and 4 carry over into version 5, by the
+  owner's decision of 2026-11-14, in place of being discarded whole
+  (`settingsCarriedOver()`). Each older layout is a table of byte offsets in
+  `src/settings.cpp`, recovered from `src/settings.h` at 8a5eebb (version
+  2), 5af4ddf (3) and 3cc8798 (4); DshotDisplay 2.0 to 2.3 write the same
+  version 2 layout. A block carries over only whole: the magic, its version,
+  that layout's payload size and its CRC-32 right. Every field it has keeps
+  its value through `settingsValidate()`; newer fields take their defaults;
+  version 3's SERVO SUPPLY of 1, an enable on GP0, loads as `NONE`. Flash
+  keeps the old block until a save lands, and HOLD TO SAVE writes a version
+  5 block even with nothing changed. Until then the splash reads `SETTINGS
+  CARRIED OVER FROM AN UPDATE` / `CHECK MENU > SETTINGS, THEN SAVE` in amber,
+  MENU's SETTINGS row `UPDATED` and SETTINGS' note line `CARRIED OVER BY
+  UPDATE - CHECK, SAVE`. A block of version 1, above 5, or of version 2, 3 or
+  4 with another layout's payload size still takes the reset path. Host
+  tests `testCarryOver()` in `test/test_settings.cpp` build each version
+  byte by byte; the wiki shows `splash-carried.png` and
+  `settings-carried.png`.
 - A new log takes the highest `LOGnnnnn.BFL` in `LOGS/` plus 1, by the
   owner's decision of 2026-11-14, in place of the lowest unused number from
   00001 to 09999, so the highest number is the newest log. The first start
@@ -616,15 +635,12 @@ protocol.
   stepper, `NONE`, `GP28` (J4 pin 11) or `GP29` (J4 pin 12). The override
   pair in the examples and in CI is
   `-DDSHOT_PIN_LCD_2_8=1 -DKISS_PIN_LCD_2_8=0`. The settings block is
-  version 4: a stored block of an earlier version is discarded whole and
-  the compiled defaults load, so every saved setting returns to its default
-  once after the update. The release notes give the ESC on GP0, KISS on
+  version 4; a block of version 2 or 3 carries over (see the carry-over
+  entry under Changed). The release notes give the ESC on GP0, KISS on
   GP1, the menu path MENU → SETTINGS, and GP28 and GP29 as supply enables
   only.
 - The settings block is version 5: it adds CURRENT SENSE in the byte that
-  was padding. A version 4 block is discarded whole and the compiled
-  defaults load, so every saved setting returns to its default once after
-  the update.
+  was padding. A version 4 block carries over with CURRENT SENSE `NONE`.
 - With CURRENT SENSE at `INA219`, the servo tester's sweep count moves from
   the readout row to the first line of the dial, where the current takes
   its place.
@@ -645,10 +661,8 @@ protocol.
   rcbench's has run on a servo; bring-up runs one write with read-back per
   family first. Planned, not built.
 - The settings block is version 3: it adds `servoSupply`, the SERVO SUPPLY
-  row. The first boot after the update discards the stored version 2 block
-  and starts from the compiled defaults, every setting and the ESC pin
-  included. DshotDisplay, flashed back, discards a version 3 block the same
-  way.
+  row. A version 2 block carries over with SERVO SUPPLY `NONE`.
+  DshotDisplay, flashed back, discards a version 3 block whole.
 - Blackbox logs are written to `LOGS/LOGnnnnn.BFL` (`SD_LOG_DIR_PATH`), so the
   card's root holds a few directories. Logs an earlier firmware wrote to the
   root stay there and are not counted.
@@ -667,9 +681,8 @@ protocol.
   1.00 and `1.0` in every release.
 - Unchanged, so that a board moves over without being set up again: the USB
   vendor and product IDs (0x2E8A, 0x4006), and the settings block's magic
-  `DSHT` and its place, the last 4 kB sector. Its layout version is 5, so
-  settings saved by DshotDisplay 2.x (version 2) do not load: the first boot
-  returns every setting to its default once.
+  `DSHT` and its place, the last 4 kB sector. Its layout version is 5;
+  settings saved by DshotDisplay 2.x, version 2, carry over.
 - MiniRcBench supports one board, the Waveshare RP2350-Touch-LCD-2.8, and
   builds one image for it. The splash and SETTINGS → BUILT FOR name the board
   the image is built for.
