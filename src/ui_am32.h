@@ -62,7 +62,7 @@ bool uiAm32Tick(const TouchState *t);
 /** @brief TEMP LIMIT, CURRENT LIMIT or LOW VOLT CUTOFF selected and off. */
 #define AM32_UI_PROT_1 "PROTECTION OFF: THE ESC DOES NOT"
 #define AM32_UI_PROT_2 "CUT POWER ON THIS LIMIT."
-/** @brief PROTOCOL at SERVO or DRONECAN: AM32 does not take DShot there. */
+/** @brief PROTOCOL at a value AM32 does not run on DShot with. @see am32InputNotDshot() */
 #define AM32_UI_PROTO_1 "THE TESTER SENDS DSHOT ONLY:"
 #define AM32_UI_PROTO_2 "THE ESC WILL NOT RUN HERE."
 /** @} */
@@ -72,6 +72,12 @@ bool uiAm32Tick(const TouchState *t);
 /** @brief The connect page's lines under NO VALID SETTINGS. */
 #define AM32_UI_NO_SETTINGS_1 "NOT AN AM32 ESC, OR BLANK SETTINGS."
 #define AM32_UI_NO_SETTINGS_2 "NOTHING WILL BE WRITTEN."
+/**
+ * @brief The connect page's first line under `LAYOUT n NOT KNOWN`, a layout
+ *        revision above @ref AM32_LAYOUT_MAX_KNOWN; the second is
+ *        @ref AM32_UI_NO_SETTINGS_2.
+ */
+#define AM32_UI_LAYOUT_1 "THE TESTER KNOWS LAYOUTS 1 TO 4."
 
 /**
  * @brief MENU's strip line after a session that reached the bootloader:

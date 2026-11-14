@@ -869,6 +869,7 @@ The screen shows which half failed:
 | `REPLY NOT UNDERSTOOD:` followed by `nB: xx xx xx @19200` and `IS THE ESC RUNNING AM32?` | The ESC sent bytes that did not parse | Baud rate or framing, or firmware other than AM32. The first three bytes are shown |
 | `READ FAILED (...)` | Handshake succeeded, settings read failed | Retry; check the wire |
 | `NO VALID SETTINGS`, with `NOT AN AM32 ESC, OR BLANK SETTINGS.` and `NOTHING WILL BE WRITTEN.` | The settings block is implausible (`am32Plausible()`) | Nothing to do: the screen stays on the connect page, which has no WRITE |
+| `LAYOUT n NOT KNOWN`, with `THE TESTER KNOWS LAYOUTS 1 TO 4.` and `NOTHING WILL BE WRITTEN.` | A layout revision above `AM32_LAYOUT_MAX_KNOWN`, 4, the newest AM32 v2.22 writes | Nothing on this tester: the field table is not checked against that layout |
 
 ### Editing
 
@@ -913,16 +914,19 @@ WRITTEN` it reads `CHECK THE CARD, THEN WRITE AGAIN.`.
 
 Some values put two amber lines on the strip in place of the ESC name
 (`listNote()` in `src/ui_am32.cpp`): the selected row's first, then 3D
-MODE, then PROTOCOL. The facts behind them are from the AM32 source
-(am32-firmware/AM32, `main` of November 2026), not from the bench.
+MODE, then PROTOCOL. The facts behind them are from the AM32 source, not
+from the bench: am32-firmware/AM32 at the tags v2.05, v2.16 and v2.18 to
+v2.22 and `main` at 077b6a4, and the AM32 configurator at 06955fe. The
+firmware version is bytes 0x03 and 0x04 (`am32Firmware()`); a major outside
+1 to 9 or a minor above 99 counts as 0, the oldest.
 
 | Value | Strip | AM32 source |
 |---|---|---|
 | `3D MODE` on, byte 0x12 | `3D MODE: 50% THROTTLE IS FULL POWER,` / `ABOVE 50% THE OTHER WAY. PROP OFF.` | `bi_direction`; `setInput()` runs 48..1047 one way and 1048..2047 the other. The tester sends 47 + throttle (1..2000) |
 | `TEMP LIMIT` selected, `OFF` (141) | `PROTECTION OFF: THE ESC DOES NOT` / `CUT POWER ON THIS LIMIT.` | `loadEEpromSettings()` sets a value outside 70..140 to 255, no limit |
-| `CURRENT LIMIT` selected, `OFF` (0, 101, 102) | as TEMP LIMIT | the limit acts only for 1..100, in 2 A steps |
-| `LOW VOLT CUTOFF` selected, `OFF` or `? (2)` | as TEMP LIMIT | 0 is off; 1 per cell, 2 absolute from 2.19; before 2.19 only 1 cuts off |
-| `PROTOCOL` `SERVO` or `DRONECAN` | `THE TESTER SENDS DSHOT ONLY:` / `THE ESC WILL NOT RUN HERE.` | `enum inputType`, zero-based: 0 AUTO, 1 DSHOT, 2 SERVO, 3 SERIAL, 4 EDT ARM, 5 DRONECAN. SERVO detects servo pulses only; DRONECAN switches the DShot input off |
+| `CURRENT LIMIT` selected, `OFF` (0, 101, 102; 100 below 2.21) | as TEMP LIMIT | the limit acts for 1..100 from v2.21 (`<= 100`), for 1..99 in v2.05 to v2.20 (`< 100`), in 2 A steps |
+| `LOW VOLT CUTOFF` selected, `OFF` or `? (2)` | as TEMP LIMIT | 0 is off; 1 per cell; 2 absolute, which trips from v2.21 (`absolute_voltage_cutoff * 50`). v2.19 and v2.20 compare the raw byte with the voltage in 10 mV, so it never trips; v2.18 and older act on 1 alone |
+| `PROTOCOL` at 2, 3 or 5 to 9 | `THE TESTER SENDS DSHOT ONLY:` / `THE ESC WILL NOT RUN HERE.` | `enum inputType`, zero-based: 0 AUTO, 1 DSHOT, 2 SERVO, 3 SERIAL, 4 EDT ARM, 5 DRONECAN. SERVO detects servo pulses only. SERIAL, 5 and 6 to 9 leave `EDT_ARMED` at 0, and `dshot.c` takes a throttle above 47 only with it set; 10 and above are AUTO. The editor offers 0 to 4, as the configurator does |
 
 ### Backup
 
@@ -982,12 +986,17 @@ The host test harness runs two cross-checks:
   constant, RPM per volt) in AM32, raw x 40 + 20; and its 141 and 102 are
   the values at which AM32 applies no limit, shown as `OFF`.
 - The field table is checked against AM32's `Inc/eeprom.h`, its
-  `loadEEpromSettings()` and the configurator's field definitions. LOW VOLT
-  CUTOFF, PWM TYPE and BRAKE ON STOP have three values; the third exists
-  from AM32 2.19, 2.18 and 2.19 on (`Am32Field::topFw`,
-  `am32FieldMax()`). On older firmware the editor stops one lower and a
-  stored third value reads `? (2)`; an unedited byte is written back as
-  read.
+  `loadEEpromSettings()` and the configurator's field definitions, at the
+  versions named above. Where the accepted range depends on the firmware,
+  the field says from which version (`Am32Field::topFw`, `onFw`, `scaleFw`;
+  `am32FieldMax()`): ABSOLUTE low-voltage cutoff from 2.21, BY RPM PWM from
+  2.18, ACTIVE brake from 2.19, PWM FREQ above 48 kHz from 2.19, a 200 A
+  current limit from 2.21, ABS VOLT CUT in volts from 2.21. On older
+  firmware the editor stops at that firmware's top and a stored value above
+  it reads `? (n)`, as does an on/off byte of 2 or more. A host test runs
+  every field over all 256 byte values on eight firmware versions: reading
+  changes no byte, a press on one field leaves every other byte as read, and
+  one press lands inside the range that firmware accepts.
 
 ---
 

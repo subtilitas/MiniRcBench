@@ -102,7 +102,8 @@ static_assert(sizeof(AM32_UI_3D_1) - 1 <= RESULT_CHARS && sizeof(AM32_UI_3D_2) -
               "a strip note runs off the panel");
 static_assert(sizeof(AM32_UI_NO_SETTINGS_1) - 1 <= RESULT_CHARS &&
               sizeof(AM32_UI_NO_SETTINGS_2) - 1 <= RESULT_CHARS &&
-              sizeof(AM32_UI_NOT_AM32) - 1 <= RESULT_CHARS,
+              sizeof(AM32_UI_NOT_AM32) - 1 <= RESULT_CHARS &&
+              sizeof(AM32_UI_LAYOUT_1) - 1 <= RESULT_CHARS,
               "a connect line runs off the panel");
 /** @brief The list's viewport. */
 static const UiRect LIST_VIEW  = { 0, LIST_Y0, GFX_W, LIST_H };
@@ -175,6 +176,7 @@ enum ConnectNote : uint8_t {
 	CN_NONE,         /**< Silence or a read that failed: the status alone. */
 	CN_GARBLED,      /**< Bytes came back that are not a bootloader's reply. */
 	CN_NO_SETTINGS,  /**< The bootloader answered; its settings are not AM32's. */
+	CN_LAYOUT,       /**< AM32's settings, in a layout the table is not checked against. */
 };
 static ConnectNote s_connectNote = CN_NONE;
 
@@ -332,12 +334,16 @@ static void drawConnect() {
 	// settings that are not AM32's. Silence is the normal state here -- it
 	// just means the power-up window has not come round yet -- so saying
 	// anything about it would be noise.
+	// The status above, at y 176, names the bytes or the layout; these
+	// lines say what it means.
 	if (s_connectNote == CN_GARBLED) {
-		gfxText(10, 196, "REPLY NOT UNDERSTOOD:", C_AMBER, 1);
-		gfxText(10, 210, s_status, C_AMBER, 1);
-		gfxText(10, 224, AM32_UI_NOT_AM32, C_AMBER, 1);
+		gfxTextCenter(196, "REPLY NOT UNDERSTOOD:", C_AMBER, 1);
+		gfxTextCenter(210, AM32_UI_NOT_AM32, C_AMBER, 1);
 	} else if (s_connectNote == CN_NO_SETTINGS) {
 		gfxTextCenter(196, AM32_UI_NO_SETTINGS_1, C_AMBER, 1);
+		gfxTextCenter(210, AM32_UI_NO_SETTINGS_2, C_AMBER, 1);
+	} else if (s_connectNote == CN_LAYOUT) {
+		gfxTextCenter(196, AM32_UI_LAYOUT_1, C_AMBER, 1);
 		gfxTextCenter(210, AM32_UI_NO_SETTINGS_2, C_AMBER, 1);
 	}
 
@@ -590,6 +596,13 @@ static void tryConnect() {
 		// list is never opened on these bytes.
 		snprintf(s_status, sizeof(s_status), "NO VALID SETTINGS");
 		s_connectNote = CN_NO_SETTINGS;
+		return;
+	}
+	if (!am32LayoutKnown(s_eeprom)) {
+		// A newer layout may have moved a field: the list does not open.
+		snprintf(s_status, sizeof(s_status), "LAYOUT %u NOT KNOWN",
+		         s_eeprom[AM32_OFF_LAYOUT_REVISION]);
+		s_connectNote = CN_LAYOUT;
 		return;
 	}
 

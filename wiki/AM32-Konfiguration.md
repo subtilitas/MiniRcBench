@@ -36,9 +36,9 @@ und die Firmware-Version.
 
 <img src="img/am32-connect.png" width="240" alt="Die Verbindungsseite: POWER-CYCLE THE ESC, WAITING... (TRY 3) und der Ladekringel">
 
-Kommen Bytes an, die sich nicht deuten lassen, zeigt der Bildschirm
-`REPLY NOT UNDERSTOOD:`, die Byteanzahl, die ersten drei Bytes und die
-Baudrate sowie `IS THE ESC RUNNING AM32?`. Das Kabel funktioniert; die
+Kommen Bytes an, die sich nicht deuten lassen, zeigt der Bildschirm die
+Byteanzahl, die ersten drei Bytes und die Baudrate, darunter
+`REPLY NOT UNDERSTOOD:` und `IS THE ESC RUNNING AM32?`. Das Kabel funktioniert; die
 Antwort ist nicht die des AM32-Bootloaders. Der ESC läuft vielleicht mit
 anderer Firmware, oder sein Bootloader nutzt ein Protokoll, das dieser
 Transport nicht umsetzt.
@@ -49,6 +49,12 @@ oder über 8, oder 0 Motorpole), zeigt der Bildschirm `NO VALID SETTINGS` mit
 `NOT AN AM32 ESC, OR BLANK SETTINGS.` und `NOTHING WILL BE WRITTEN.` Der
 Bildschirm bleibt auf dieser Seite, die keine Schreib-Schaltfläche hat, und
 liest weiter.
+
+Einstellungen mit einer Layout-Version über 4 sind neuer als die
+Feldtabelle, die gegen die Layouts 1 bis 4 geprüft ist (AM32 2.22 schreibt
+4). Der Bildschirm zeigt `LAYOUT n NOT KNOWN` mit
+`THE TESTER KNOWS LAYOUTS 1 TO 4.` und `NOTHING WILL BE WRITTEN.` und bleibt
+auf der Verbindungsseite.
 
 Welche Firmware ein ESC hat, der nicht antwortet, zeichnet die Firmware nicht
 auf.
@@ -76,8 +82,11 @@ Manche Werte ändern, was der Tester mit dem ESC tun kann, oder schalten einen
 Schutz ab. Für diese zeigt der Streifen unter dem Titel zwei bernsteinfarbene
 Zeilen statt des ESC-Namens. Der Hinweis der ausgewählten Zeile kommt zuerst,
 dann 3D MODE, dann PROTOCOL. Was AM32 mit jedem Wert tut, stammt aus dem
-AM32-Quellcode (Zweig `main` von am32-firmware/AM32, November 2026, und die
-Versionen v2.05 bis v2.19); am Prüfstand gemessen ist es nicht.
+AM32-Quellcode: den Versionen v2.05, v2.16 und v2.18 bis v2.22 und dem Zweig
+`main` bei 077b6a4 (November 2026), mit dem AM32-Konfigurator bei 06955fe.
+Am Prüfstand gemessen ist es nicht. Die Firmware-Version ist die, die der
+ESC in seinen Einstellungen speichert; der Streifen zeigt sie als `FW`. Ein
+Versionsbyte, das AM32 nicht geschrieben hat, zählt als die älteste.
 
 <img src="img/am32-3d.png" width="240" alt="3D MODE an: zwei bernsteinfarbene Zeilen auf dem Streifen statt des ESC-Namens">
 
@@ -85,9 +94,9 @@ Versionen v2.05 bis v2.19); am Prüfstand gemessen ist es nicht.
 |---|---|---|
 | `3D MODE` | `OFF`, `ON`. Die AM32-Einstellung `bi_direction`: 3D-Modus, umkehrbar. Das ist nicht bidirektionales DShot, die Telemetrie, die der Tester nutzt | Solange an, gelesen oder geändert: `3D MODE: 50% THROTTLE IS FULL POWER,` / `ABOVE 50% THE OTHER WAY. PROP OFF.` |
 | `TEMP LIMIT` | 70 bis 140 °C; `OFF` bei 141. AM32 nimmt jeden Wert außerhalb 70 bis 140 als keine Grenze | Ausgewählt und `OFF`: `PROTECTION OFF: THE ESC DOES NOT` / `CUT POWER ON THIS LIMIT.` |
-| `CURRENT LIMIT` | 2 bis 200 A in 2-A-Schritten; `OFF` bei 0 und über 200 A. AM32 begrenzt den Strom nur bei gespeicherten Werten 1 bis 100 | wie TEMP LIMIT |
-| `LOW VOLT CUTOFF` | `OFF`, `CELL` (je Zelle, bei CELL CUTOFF), `ABSOLUTE` (bei ABS VOLT CUT) | wie TEMP LIMIT, bei `OFF` und bei `? (2)` |
-| `PROTOCOL` | `AUTO`, `DSHOT`, `SERVO`, `SERIAL`, `EDT ARM`, `DRONECAN`: gespeichert als 0 bis 5 | Bei `SERVO` oder `DRONECAN`: `THE TESTER SENDS DSHOT ONLY:` / `THE ESC WILL NOT RUN HERE.` |
+| `CURRENT LIMIT` | 2 bis 200 A in 2-A-Schritten; `OFF` bei 0 und darüber. AM32 ab 2.21 begrenzt den Strom bei gespeicherten Werten 1 bis 100, ältere AM32 bei 1 bis 99; dort zeigt 200 A `OFF` | wie TEMP LIMIT |
+| `LOW VOLT CUTOFF` | `OFF`, `CELL` (je Zelle, bei CELL CUTOFF), `ABSOLUTE` (bei ABS VOLT CUT, ab 2.21) | wie TEMP LIMIT, bei `OFF` und bei `? (2)` |
+| `PROTOCOL` | `AUTO`, `DSHOT`, `SERVO`, `SERIAL`, `EDT ARM`, gespeichert als 0 bis 4; eine gespeicherte 5 zeigt `DRONECAN` | Bei jedem Wert außer `AUTO`, `DSHOT`, `EDT ARM` und 10 oder mehr: `THE TESTER SENDS DSHOT ONLY:` / `THE ESC WILL NOT RUN HERE.` |
 
 Im 3D-Modus teilt AM32 den DShot-Gasbereich: Werte 48 bis 1047 drehen den
 Motor in die eine Richtung, 1048 bis 2047 in die andere, jeweils von wenig
@@ -97,30 +106,35 @@ Motor mit wenig Leistung in die andere. Mit der voreingestellten Gasgrenze
 von 20 % erreicht der Tester etwa 40 % des AM32-Gasbereichs in eine
 Richtung.
 
-### Felder mit drei Werten
-
-Drei Felder haben einen dritten Wert, den es erst ab einer AM32-Version gibt.
-Die Version ist die Firmware-Version, die der ESC in seinen Einstellungen
-speichert; der Streifen zeigt sie als `FW`.
-
-| Feld | Werte | Dritter Wert ab |
-|---|---|---|
-| `LOW VOLT CUTOFF` | `OFF`, `CELL`, `ABSOLUTE` | 2.19. Davor schaltet AM32 nur bei `CELL` ab; eine gespeicherte 2 ist dort aus |
-| `PWM TYPE` | `FIXED`, `VARIABLE`, `BY RPM` | 2.18. 2.16 und älter variieren die PWM nur bei `VARIABLE` |
-| `BRAKE ON STOP` | `OFF`, `BRAKE`, `ACTIVE` | 2.19. 2.18 bremst bei jedem Wert außer 0; 2.16 und älter nur bei `BRAKE` |
-
-Auf älterer Firmware hält der Editor beim zweiten Wert an, und ein
-gespeicherter dritter Wert zeigt `? (2)`. Der Tester schreibt jedes Byte, das
-du nicht geändert hast, so zurück, wie er es gelesen hat: Ein `? (2)` bleibt
-2, bis du in dieser Zeile `-` oder `+` drückst; das stellt den zweiten Wert
-ein. Die Namen sind die des Konfigurators, gekürzt: `CELL` ist „Cell based“,
-`BRAKE` ist „Brake on stop“, `ACTIVE` ist „Active brake“.
-
-Mit `SERVO` sucht AM32 nur Servopulse, und ein DroneCAN-Build mit
-`DRONECAN` schaltet den DShot-Eingang ab. Mit `SERIAL` erkennt AM32 den
-Eingang wie mit `AUTO`. `EDT ARM` nimmt DShot und schärft, sobald der ESC den
+Mit `SERVO` sucht AM32 nur Servopulse. Mit `SERIAL`, `DRONECAN` und den
+gespeicherten Werten 6 bis 9 erkennt AM32 DShot, aber sein Startcode lässt
+das Gas gesperrt (`EDT_ARMED` bei 0), sodass es jeden Gasbefehl verwirft;
+ein Wert ab 10 wirkt wie `AUTO`. Der Editor bietet 0 bis 4 an, wie der
+Konfigurator: `DRONECAN` ist für DroneCAN-Builds, und eine gespeicherte 5
+behält ihren Namen. `EDT ARM` nimmt DShot und schärft, sobald der ESC den
 EDT-Einschaltbefehl (Extended DShot Telemetry) empfängt, den der Tester
 sendet; ob ein solcher ESC am Tester läuft, ist nicht getestet.
+
+### Werte, die von der Firmware abhängen
+
+| Feld | Werte | Auf älterer Firmware |
+|---|---|---|
+| `LOW VOLT CUTOFF` | `OFF`, `CELL`, `ABSOLUTE` | `ABSOLUTE` ab 2.21. Der AM32-Konfigurator bietet es ab 2.19 an, aber 2.19 und 2.20 vergleichen die Akkuspannung in 10 mV mit dem gespeicherten Byte, sodass die Abschaltung nie auslöst. Eine gespeicherte 2 unter 2.21 zeigt `? (2)` mit dem Hinweis PROTECTION OFF |
+| `PWM TYPE` | `FIXED`, `VARIABLE`, `BY RPM` | `BY RPM` ab 2.18. 2.16 und älter variieren die PWM nur bei `VARIABLE` |
+| `BRAKE ON STOP` | `OFF`, `BRAKE`, `ACTIVE` | `ACTIVE` ab 2.19. 2.18 bremst bei jedem Wert außer 0; 2.16 und älter nur bei `BRAKE` |
+| `PWM FREQ` | 8 bis 144 kHz | 8 bis 48 kHz vor 2.19 |
+| `ABS VOLT CUT` | 0,5 bis 50,0 V in 0,5-V-Schritten | Vor 2.21 das gespeicherte Byte ohne Einheit: 2.19 und 2.20 lesen es nicht als Volt |
+| `ACTIVE BRAKE` | 0,0 bis 2,5 % der PWM-Periode in 0,5-%-Schritten | Der Konfigurator zeigt die gespeicherten 0 bis 5 als Prozent; AM32 nutzt 0,5 % je Schritt |
+
+Auf älterer Firmware hält der Editor beim letzten Wert an, den diese Firmware
+annimmt, und ein gespeicherter Wert darüber zeigt `? (n)`. Ein An/Aus-Feld,
+das 2 oder mehr hält, zeigt ebenfalls `? (n)`: Der Konfigurator schreibt nur
+0 und 1, und AM32 vor 2.18 wirkt bei mehreren dieser Bytes nur bei 1. Der
+Tester schreibt jedes Byte, das du nicht geändert hast, so zurück, wie er es
+gelesen hat: Ein `? (n)` bleibt, bis du in dieser Zeile `-` oder `+`
+drückst; das holt den Wert in den Bereich. Die Namen sind die des
+Konfigurators, gekürzt: `CELL` ist „Cell based“, `BRAKE` ist „Brake on
+stop“, `ACTIVE` ist „Active brake“.
 
 ---
 

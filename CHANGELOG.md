@@ -49,7 +49,7 @@ protocol.
   `3D MODE: 50% THROTTLE IS FULL POWER,` / `ABOVE 50% THE OTHER WAY. PROP
   OFF.`; with TEMP LIMIT, CURRENT LIMIT or LOW VOLT CUTOFF selected and off,
   `PROTECTION OFF: THE ESC DOES NOT` / `CUT POWER ON THIS LIMIT.`; with
-  PROTOCOL at SERVO or DRONECAN, `THE TESTER SENDS DSHOT ONLY:` / `THE ESC
+  PROTOCOL at SERVO, SERIAL, DRONECAN or 6 to 9, `THE TESTER SENDS DSHOT ONLY:` / `THE ESC
   WILL NOT RUN HERE.` A write result that is not verified has
   `NOT VERIFIED. TAP OK, WRITE AGAIN.` under it, and `NO BACKUP ON THE CARD:
   NOT WRITTEN` has `CHECK THE CARD, THEN WRITE AGAIN.`. The connect page ends
@@ -446,8 +446,8 @@ protocol.
 - AM32 CONFIG's `BIDIRECTIONAL` row is `3D MODE`: byte 0x12 is AM32's
   `bi_direction`, the reversible mode, not bidirectional DShot. TEMP LIMIT at
   141 and CURRENT LIMIT at 0, 101 or 102 read `OFF`, in the list and the
-  editor: AM32 applies no limit outside 70 to 140 °C and 1 to 100
-  (2 to 200 A).
+  editor: AM32 applies no limit outside 70 to 140 °C and outside 1 to 100
+  (2 to 200 A) from 2.21, 1 to 99 before, where 100 reads `OFF` too.
 - README and the wiki pages AM32-Configuration and AM32-Konfiguration state
   what leaving AM32 CONFIG does to the ESC: no RUN command goes to the
   bootloader, and what the ESC does after the screen is left is not
@@ -710,6 +710,20 @@ protocol.
   the editor stops at the second value and a stored third reads `? (2)`.
   LOW VOLT CUTOFF's PROTECTION OFF note covers `? (2)`, which older AM32
   does not cut off on. An unedited byte is written back as read.
+- AM32 CONFIG offered values the ESC's firmware does not act on. ABSOLUTE
+  low-voltage cutoff is offered from AM32 2.21, not 2.19: 2.19 and 2.20
+  compare the battery voltage in 10 mV with the raw byte, so it never trips;
+  a stored 2 there reads `? (2)` with the PROTECTION OFF note, and ABS VOLT
+  CUT reads the plain byte, not volts, below 2.21. CURRENT LIMIT at 100
+  (200 A) reads `OFF` below 2.21. PWM FREQ stops at 48 kHz below 2.19. The
+  PROTOCOL note also covers SERIAL, DRONECAN and stored values 6 to 9, on
+  which AM32 drops every DShot throttle, and the editor offers 0 to 4 as the
+  configurator does. ACTIVE BRAKE reads 0.5 % a step, as AM32 uses it. An
+  on/off byte of 2 or more reads `? (n)`. A firmware version byte AM32 did
+  not write counts as the oldest. Settings in a layout revision above 4 do
+  not open: the connect page shows `LAYOUT n NOT KNOWN` with
+  `THE TESTER KNOWS LAYOUTS 1 TO 4.` and `NOTHING WILL BE WRITTEN.` The
+  garbled-reply page names the bytes once.
 - AM32 CONFIG's KV read 20 KV low: AM32 takes raw x 40 + 20. MAX RAMP,
   MIN DUTY, ABS VOLT CUT and ACTIVE BRAKE showed raw bytes over 0 to 255;
   they read 0.1 %/ms, 0.5 %, 0.5 V and % steps over the configurator's

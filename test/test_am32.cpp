@@ -299,12 +299,23 @@ void runAm32Tests() {
 		for (uint8_t v = 0; v < 6; v++) {
 			e[AM32_OFF_INPUT_TYPE] = v;
 			expect(e, "PROTOCOL", want[v]);
-			checkTrue(want[v], am32InputNotDshot(e) == (v == AM32_INPUT_SERVO || v == AM32_INPUT_DRONECAN));
 		}
+		// loadEEpromSettings(): AUTO, DSHOT and EDT ARM set EDT_ARMED or arm
+		// on the EDT enable; 10 and above fall to AUTO. Every other value
+		// leaves EDT_ARMED at 0, and dshot.c drops each throttle above 47.
+		bool notes = true;
+		for (int v = 0; v < 256; v++) {
+			e[AM32_OFF_INPUT_TYPE] = (uint8_t)v;
+			bool runs = v == 0 || v == 1 || v == 4 || v >= 10;
+			if (am32InputNotDshot(e) == runs) notes = false;
+		}
+		checkTrue("the note for 2, 3 and 5 to 9; none for 0, 1, 4 and 10 to 255", notes);
 		e[AM32_OFF_INPUT_TYPE] = 6;
 		expect(e, "PROTOCOL", "? (6)");
-		checkTrue("6: no DShot note, AM32 treats it as AUTO", !am32InputNotDshot(e));
-		checkInt("the editor stops at DRONECAN", field("PROTOCOL")->rawMax, 5);
+		checkInt("the editor stops at EDT ARM, as the configurator does", field("PROTOCOL")->rawMax, 4);
+		e[AM32_OFF_INPUT_TYPE] = 5;
+		am32Adjust(field("PROTOCOL"), e, +1);
+		checkInt("a press on DRONECAN lands on EDT ARM", e[AM32_OFF_INPUT_TYPE], 4);
 	}
 
 	section("AM32: the limits' off values, as AM32 reads them");
@@ -322,12 +333,21 @@ void runAm32Tests() {
 		e[0x2B] = 140; expect(e, "TEMP LIMIT", "140C");
 		e[0x2B] = 141; expect(e, "TEMP LIMIT", "OFF");
 		checkTrue("141: off", am32ProtectionOff(temp, e));
-		// Current: 1..100 limits, in 2 A steps; 0 and above 100 are none.
+		// Current: 1..100 limits from 2.21, 1..99 before, in 2 A steps; 0 and
+		// above are none.
 		e[0x2C] = 0;   expect(e, "CURRENT LIMIT", "OFF");
 		checkTrue("0: off", am32ProtectionOff(cur, e));
 		e[0x2C] = 1;   expect(e, "CURRENT LIMIT", "2A");
-		e[0x2C] = 100; expect(e, "CURRENT LIMIT", "200A");
-		checkTrue("100: on", !am32ProtectionOff(cur, e));
+		e[0x2C] = 99;  expect(e, "CURRENT LIMIT", "198A");
+		e[0x2C] = 100; expect(e, "CURRENT LIMIT", "OFF");
+		checkTrue("100 on firmware 1.35: off", am32ProtectionOff(cur, e));
+		e[AM32_OFF_MAIN_REVISION] = 2; e[AM32_OFF_SUB_REVISION] = 20;
+		checkTrue("100 on firmware 2.20: off, `< 100`", am32ProtectionOff(cur, e));
+		e[AM32_OFF_SUB_REVISION] = 21;
+		expect(e, "CURRENT LIMIT", "200A");
+		checkTrue("100 on firmware 2.21: on, `<= 100`", !am32ProtectionOff(cur, e));
+		e[AM32_OFF_MAIN_REVISION] = AIR[AM32_OFF_MAIN_REVISION];
+		e[AM32_OFF_SUB_REVISION] = AIR[AM32_OFF_SUB_REVISION];
 		e[0x2C] = 101; expect(e, "CURRENT LIMIT", "OFF");
 		e[0x2C] = 102; expect(e, "CURRENT LIMIT", "OFF");
 		checkTrue("102: off", am32ProtectionOff(cur, e));
@@ -337,7 +357,11 @@ void runAm32Tests() {
 		e[AM32_OFF_LOW_VOLT_CUTOFF] = 2;
 		checkTrue("cutoff 2 on firmware 1.35: off, AM32 acts on 1 alone", am32ProtectionOff(lvc, e));
 		e[AM32_OFF_MAIN_REVISION] = 2; e[AM32_OFF_SUB_REVISION] = 19;
-		checkTrue("cutoff 2 on firmware 2.19: on", !am32ProtectionOff(lvc, e));
+		checkTrue("cutoff 2 on firmware 2.19: off, the raw byte against 10 mV", am32ProtectionOff(lvc, e));
+		e[AM32_OFF_SUB_REVISION] = 20;
+		checkTrue("cutoff 2 on firmware 2.20: off", am32ProtectionOff(lvc, e));
+		e[AM32_OFF_SUB_REVISION] = 21;
+		checkTrue("cutoff 2 on firmware 2.21: on, x 50", !am32ProtectionOff(lvc, e));
 		e[AM32_OFF_MAIN_REVISION] = AIR[AM32_OFF_MAIN_REVISION];
 		e[AM32_OFF_SUB_REVISION] = AIR[AM32_OFF_SUB_REVISION];
 		e[0x1B] = 0;
@@ -352,7 +376,7 @@ void runAm32Tests() {
 	{
 		struct C { const char *name; uint8_t off; uint16_t fw; const char *n[3]; };
 		static const C cs[] = {
-			{ "LOW VOLT CUTOFF", 0x24, 219, { "OFF", "CELL", "ABSOLUTE" } },
+			{ "LOW VOLT CUTOFF", 0x24, 221, { "OFF", "CELL", "ABSOLUTE" } },
 			{ "PWM TYPE",        0x15, 218, { "FIXED", "VARIABLE", "BY RPM" } },
 			{ "BRAKE ON STOP",   0x1C, 219, { "OFF", "BRAKE", "ACTIVE" } },
 		};
@@ -397,9 +421,14 @@ void runAm32Tests() {
 		e[0x05] = 1;   expect(e, "MAX RAMP", "0.1%/MS");
 		e[0x05] = 200; expect(e, "MAX RAMP", "20.0%/MS");
 		e[0x06] = 50;  expect(e, "MIN DUTY", "25.0%");
+		e[0x08] = 10;  expect(e, "ABS VOLT CUT", "10");   // 1.35: no volts
+		e[AM32_OFF_MAIN_REVISION] = 2; e[AM32_OFF_SUB_REVISION] = 20;
+		expect(e, "ABS VOLT CUT", "10");                   // 2.20: the raw byte
+		e[AM32_OFF_SUB_REVISION] = 21;
 		e[0x08] = 1;   expect(e, "ABS VOLT CUT", "0.5V");
 		e[0x08] = 100; expect(e, "ABS VOLT CUT", "50.0V");
-		e[0x0C] = 5;   expect(e, "ACTIVE BRAKE", "5%");
+		e[0x0C] = 5;   expect(e, "ACTIVE BRAKE", "2.5%");  // 0.5 % a unit
+		e[0x0C] = 1;   expect(e, "ACTIVE BRAKE", "0.5%");
 		checkInt("ACTIVE BRAKE stops at 5 %", field("ACTIVE BRAKE")->rawMax, 5);
 		checkInt("ABS VOLT CUT stops at 100", field("ABS VOLT CUT")->rawMax, 100);
 	}
@@ -412,6 +441,80 @@ void runAm32Tests() {
 		checkTrue("AIR: on", am32Is3d(AIR));
 		checkTrue("CRAWLER: off", !am32Is3d(CRAWLER));
 		checkTrue("no field is called BIDIRECTIONAL", field("BIDIRECTIONAL") == nullptr);
+	}
+
+	section("AM32: firmware version, layout, and booleans above 1");
+	{
+		uint8_t e[AM32_SETTINGS_SIZE];
+		memcpy(e, AIR, sizeof(e));
+		e[AM32_OFF_MAIN_REVISION] = 0xFF; e[AM32_OFF_SUB_REVISION] = 0xFF;
+		checkInt("FF.FF is no version: 0, the oldest", am32Firmware(e), 0);
+		e[AM32_OFF_LOW_VOLT_CUTOFF] = 2;
+		expect(e, "LOW VOLT CUTOFF", "? (2)");
+		e[AM32_OFF_MAIN_REVISION] = 2; e[AM32_OFF_SUB_REVISION] = 100;
+		checkInt("minor 100 is no version", am32Firmware(e), 0);
+		e[AM32_OFF_MAIN_REVISION] = 0; e[AM32_OFF_SUB_REVISION] = 22;
+		checkInt("major 0 is no version", am32Firmware(e), 0);
+		e[AM32_OFF_MAIN_REVISION] = 9; e[AM32_OFF_SUB_REVISION] = 99;
+		checkInt("9.99 is the newest that reads", am32Firmware(e), 999);
+		for (uint8_t rev = 0; rev < 10; rev++) {
+			e[AM32_OFF_LAYOUT_REVISION] = rev;
+			checkTrue(rev >= 1 && rev <= 4 ? "  layout known" : "  layout not known",
+			          am32LayoutKnown(e) == (rev >= 1 && rev <= 4));
+		}
+		memcpy(e, AIR, sizeof(e));
+		e[0x1D] = 2;  expect(e, "STALL PROTECT", "? (2)");
+		e[0x1D] = 1;  expect(e, "STALL PROTECT", "ON");
+	}
+
+	section("AM32: every field, every byte, eight firmware versions");
+	{
+		// fw: none (FF.FF), 1.35, 2.16, 2.18, 2.19, 2.20, 2.21, 2.22.
+		static const uint8_t fws[][2] = {
+			{0xFF, 0xFF}, {1, 35}, {2, 16}, {2, 18}, {2, 19}, {2, 20}, {2, 21}, {2, 22}};
+		bool kept = true, inRange = true, unchanged = true;
+		for (const auto &fw : fws) {
+			for (uint16_t i = 0; i < AM32_FIELD_COUNT; i++) {
+				const Am32Field *f = &AM32_FIELDS[i];
+				for (int v = 0; v < 256; v++) {
+					uint8_t e[AM32_SETTINGS_SIZE];
+					memcpy(e, AIR, sizeof(e));
+					e[AM32_OFF_LAYOUT_REVISION] = 4;
+					e[AM32_OFF_MAIN_REVISION] = fw[0];
+					e[AM32_OFF_SUB_REVISION] = fw[1];
+					e[f->offset] = (uint8_t)v;
+					uint8_t before[AM32_SETTINGS_SIZE];
+					memcpy(before, e, sizeof(e));
+					// Reading every field changes nothing.
+					char out[24];
+					for (uint16_t k = 0; k < AM32_FIELD_COUNT; k++)
+						am32FormatValue(&AM32_FIELDS[k], e, out, sizeof(out));
+					if (memcmp(before, e, sizeof(e)) != 0) unchanged = false;
+					// A press on every other field leaves this byte as read.
+					for (uint16_t k = 0; k < AM32_FIELD_COUNT; k++) {
+						const Am32Field *g = &AM32_FIELDS[k];
+						if (g->offset == f->offset) continue;
+						am32Adjust(g, e, (k & 1) ? +1 : -1);
+						if (e[f->offset] != (uint8_t)v) kept = false;
+					}
+					// One press on this field lands inside what this
+					// firmware accepts.
+					for (int dir = -1; dir <= 1; dir += 2) {
+						e[f->offset] = (uint8_t)v;
+						am32Adjust(f, e, dir);
+						uint8_t r = e[f->offset];
+						if (f->type == A32_ADVANCE) {
+							if (r < 10 || r > 42) inRange = false;
+						} else if (r < f->rawMin || r > am32FieldMax(f, e)) {
+							inRange = false;
+						}
+					}
+				}
+			}
+		}
+		checkTrue("reading every field changes no byte", unchanged);
+		checkTrue("a press on one field never changes another's byte", kept);
+		checkTrue("one press from any byte lands in the firmware's range", inRange);
 	}
 
 	section("PWM frequency range");
@@ -452,6 +555,12 @@ void runAm32Tests() {
 
 		const Am32Field *pwm = field("PWM FREQ");
 		for (int i = 0; i < 200; i++) am32Adjust(pwm, e, +1);
-		checkInt("pwm reaches 144", e[pwm->offset], 144);
+		checkInt("firmware 1.35: pwm stops at 48, `< 49`", e[pwm->offset], 48);
+		e[AM32_OFF_MAIN_REVISION] = 2; e[AM32_OFF_SUB_REVISION] = 18;
+		am32Adjust(pwm, e, +1);
+		checkInt("2.18: still 48", e[pwm->offset], 48);
+		e[AM32_OFF_SUB_REVISION] = 19;
+		for (int i = 0; i < 200; i++) am32Adjust(pwm, e, +1);
+		checkInt("2.19: pwm reaches 144, `< 145`", e[pwm->offset], 144);
 	}
 }

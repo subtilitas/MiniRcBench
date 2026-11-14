@@ -59,9 +59,9 @@ enum Am32Input : uint8_t {
 	AM32_INPUT_AUTO     = 0, /**< Detects DShot or servo PWM. */
 	AM32_INPUT_DSHOT    = 1,
 	AM32_INPUT_SERVO    = 2, /**< Servo PWM only: DShot is not detected. */
-	AM32_INPUT_SERIAL   = 3,
+	AM32_INPUT_SERIAL   = 3, /**< DShot is detected, but every throttle dropped: `EDT_ARMED` stays 0. */
 	AM32_INPUT_EDT_ARM  = 4, /**< DShot; arms on the EDT enable command. */
-	AM32_INPUT_DRONECAN = 5, /**< DroneCAN builds: the DShot input is switched off. */
+	AM32_INPUT_DRONECAN = 5, /**< DroneCAN builds; elsewhere as SERIAL. Not offered by the editor. */
 };
 
 /** @brief How a raw byte is turned into something a human can read. */
@@ -166,22 +166,40 @@ struct Am32Field {
 	uint8_t     onMin;
 	uint8_t     onMax;      /**< Highest raw value at which the limit acts. */
 	/**
-	 * @brief AM32 firmware, major x 100 + minor, from which @p rawMax exists:
-	 *        below it the editor stops one lower and a stored @p rawMax reads
-	 *        "? (n)". 0: every firmware. @see am32FieldMax()
+	 * @brief AM32 firmware, major x 100 + minor, from which @p rawMax is
+	 *        accepted: below it the editor stops at @p oldMax, and a stored
+	 *        value above that reads "? (n)" on a field with names. 0: every
+	 *        firmware. @see am32FieldMax()
 	 */
 	uint16_t    topFw;
+	uint8_t     oldMax;     /**< The editor's top below @p topFw. */
+	/** @brief AM32 firmware from which @p onMax acts; below it @p oldOnMax. 0: every firmware. */
+	uint16_t    onFw;
+	uint8_t     oldOnMax;   /**< Highest raw value at which the limit acts below @p onFw. */
+	/**
+	 * @brief AM32 firmware from which the A32_SCALED scale applies; below it
+	 *        the value reads as the plain byte. 0: every firmware.
+	 */
+	uint16_t    scaleFw;
 };
 
 /**
+ * @brief The highest layout revision the field table is checked against:
+ *        AM32's `EEPROM_VERSION` 4, from v2.21 to v2.22.
+ */
+#define AM32_LAYOUT_MAX_KNOWN 4
+
+/**
  * @brief The ESC's AM32 firmware as major x 100 + minor, from bytes 0x03 and
- *        0x04: 2.19 is 219.
+ *        0x04: 2.19 is 219. A major outside 1 to 9 or a minor above 99 is
+ *        not a version AM32 wrote, and reads as 0, the oldest: every gated
+ *        value stays locked.
  */
 uint16_t am32Firmware(const uint8_t *eeprom);
 
 /**
  * @brief The highest value the editor produces for @p f on this ESC:
- *        Am32Field::rawMax, or one lower on firmware older than
+ *        Am32Field::rawMax, or Am32Field::oldMax on firmware older than
  *        Am32Field::topFw.
  */
 uint8_t am32FieldMax(const Am32Field *f, const uint8_t *eeprom);
@@ -241,7 +259,8 @@ bool am32ValueOff(const Am32Field *f, const uint8_t *eeprom);
  * @brief Whether @p f is one of the ESC's protections (LOW VOLT CUTOFF, TEMP
  *        LIMIT, CURRENT LIMIT) and its value turns it off. LOW VOLT CUTOFF
  *        is off at 0 and at any value above am32FieldMax(): AM32 before 2.19
- *        acts on 1 alone, 2.19 and later on 1 and 2.
+ *        acts on 1 alone, and 2.19 and 2.20 never trip on 2; 2.21 and later
+ *        act on 1 and 2.
  */
 bool am32ProtectionOff(const Am32Field *f, const uint8_t *eeprom);
 
@@ -249,11 +268,18 @@ bool am32ProtectionOff(const Am32Field *f, const uint8_t *eeprom);
 bool am32Is3d(const uint8_t *eeprom);
 
 /**
- * @brief The input type is one on which AM32 does not take DShot: SERVO,
- *        which detects servo PWM only, or DRONECAN, which switches the DShot
- *        input off.
+ * @brief The input type is one on which AM32 does not run on DShot: every
+ *        value but AUTO (0), DSHOT (1), EDT ARM (4) and 10 or above. SERVO
+ *        detects servo PWM only; SERIAL, DRONECAN and 6 to 9 leave AM32's
+ *        `EDT_ARMED` at 0, so dshot.c drops every throttle above 47.
  */
 bool am32InputNotDshot(const uint8_t *eeprom);
 
 /** @brief True if the block looks like initialised AM32 settings. */
 bool am32Plausible(const uint8_t *eeprom);
+
+/**
+ * @brief True if the layout revision is one the field table is checked
+ *        against: 1 to @ref AM32_LAYOUT_MAX_KNOWN.
+ */
+bool am32LayoutKnown(const uint8_t *eeprom);

@@ -3308,11 +3308,15 @@ static void testAm32Guidance() {
 		fakeAm32Garble(junk, 3);
 		enterAm32(4);
 		checkTrue("still connecting", s_state == S_CONNECT);
+		checkTrue("the bytes once in the page, y 176",
+		          fakeTextCentredIs(176, s_status, C_AMBER, C_BG, 1));
 		checkTrue("REPLY NOT UNDERSTOOD:, y 196",
-		          fakeTextIs(10, 196, "REPLY NOT UNDERSTOOD:", C_AMBER, C_BG, 1));
-		checkTrue("then the bytes, y 210", fakeTextIs(10, 210, s_status, C_AMBER, C_BG, 1));
-		checkTrue("then " AM32_UI_NOT_AM32 ", y 224",
-		          fakeTextIs(10, 224, AM32_UI_NOT_AM32, C_AMBER, C_BG, 1));
+		          fakeTextCentredIs(196, "REPLY NOT UNDERSTOOD:", C_AMBER, C_BG, 1));
+		checkTrue("then " AM32_UI_NOT_AM32 ", y 210",
+		          fakeTextCentredIs(210, AM32_UI_NOT_AM32, C_AMBER, C_BG, 1));
+		int gx0 = 0, gx1 = 0;
+		checkTrue("and nothing at y 224", !fakeInkExtent(224, 8, C_BG, &gx0, &gx1) ||
+		          (gx0 >= GFX_W / 2 - 18 && gx1 <= GFX_W / 2 + 18));
 		checkTrue("no handshake: no cue for MENU", !s_blReached);
 		fakeDumpFrame("shot_am32_connect_garbled.ppm");
 		fakeAm32Garble(nullptr, 0);
@@ -3397,6 +3401,25 @@ static void testAm32Guidance() {
 		checkTrue("and stays gone when eRPM stops again", !menuRunCueShown());
 		tapId(UI_FIX(UI_BACK));
 		checkTrue("back on the tester", uiCurrentScreen() == UiScreenId::Tester);
+	}
+
+	section("AM32 connect: a layout the table is not checked against");
+	{
+		uint8_t rev = fakeEscByte(AM32_OFF_LAYOUT_REVISION);
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 5);
+		enterAm32(6);
+		checkTrue("the connect page stays: LAYOUT 5 NOT KNOWN",
+		          s_state == S_CONNECT && strcmp(s_status, "LAYOUT 5 NOT KNOWN") == 0);
+		checkTrue(AM32_UI_LAYOUT_1 ", y 196",
+		          fakeTextCentredIs(196, AM32_UI_LAYOUT_1, C_AMBER, C_BG, 1));
+		checkTrue(AM32_UI_NO_SETTINGS_2 ", y 210",
+		          fakeTextCentredIs(210, AM32_UI_NO_SETTINGS_2, C_AMBER, C_BG, 1));
+		checkTrue("no WRITE to hold", !ctlPresent(UI_FIX(Am32Ctl::Write)));
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 4);
+		frames(2);
+		checkTrue("layout 4 opens the list", s_state == S_LIST);
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, rev);
+		leaveAm32ToTester();
 	}
 
 	section("AM32 list: the strip's notes");
@@ -3495,8 +3518,13 @@ static void testAm32Guidance() {
 		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_PROTO_2, UI_COL_WARN, C_BG, 1));
 		tapId(UI_FIX(Am32Ctl::EditPlus));
 		frames(1);
-		checkTrue("SERIAL: no note, AM32 detects DShot there",
+		checkTrue("SERIAL: the note too, AM32 drops its throttle there",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROTO_1, UI_COL_WARN, C_BG, 1));
+		tapId(UI_FIX(Am32Ctl::EditPlus));
+		frames(1);
+		checkTrue("EDT ARM: no note",
 		          !fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROTO_1, UI_COL_WARN, C_BG, 1));
+		tapId(UI_FIX(Am32Ctl::EditMinus));
 		tapId(UI_FIX(Am32Ctl::EditMinus));
 		// The selected row's note comes first: LOW VOLT CUTOFF, still off.
 		uiRowY("LOW VOLT CUTOFF"); frames(1);
@@ -3764,9 +3792,10 @@ void runUiTests() {
 		checkInt("- button steps back", uiByte(0x18), 24);
 
 		// Pressed at x 30, locked at x 40 after 10 px, then 180 px: 11 coarse
-		// steps of 13 kHz pass the rail, and the swipe stops on it.
+		// steps of 13 kHz pass the rail, and the swipe stops on it: 48 kHz,
+		// the top AM32 before 2.19 accepts, on this ESC's firmware 1.35.
 		swipe(lv.x + 30, lv.x + 220, yPwm, 10);
-		checkInt("swipe right is coarse, and stops at 144", uiByte(0x18), 144);
+		checkInt("swipe right is coarse, and stops at 48, firmware 1.35's top", uiByte(0x18), 48);
 		swipe(lv.x + 220, lv.x + 30, yPwm, -10);
 		checkInt("swipe left stops at 8", uiByte(0x18), 8);
 
