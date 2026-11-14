@@ -114,19 +114,29 @@ struct TouchState;
  * The role "changed", a value edited and not yet written, has no name here:
  * its colour is open question 4 of the note. The neutral role is three
  * colours, `C_TEXT`, `C_DIM` and `C_GRID`, and keeps their names.
+ *
+ * Each role is described by its meaning. The examples after "Target:" are
+ * the note's target for the screens; no screen uses the names yet, and some
+ * of today's screens draw those elements in another colour.
  * @{
  */
-/** @brief Safe, done: the SAFE badge and chip, EDT ON, WRITE VERIFIED, SAVED. */
+/** @brief Safe or done. Target: the SAFE badge and chip, EDT ON, WRITE
+ *         VERIFIED, SAVED. */
 #define UI_COL_SAFE     C_GREEN
-/** @brief A live reading: RPM, the throttle fill, hold progress bars, LINK. */
+/** @brief A live reading. Target: RPM, the throttle fill, hold progress bars,
+ *         LINK. */
 #define UI_COL_LIVE     C_LIME
-/** @brief Output on, or a failure: ARMED, RUNNING, a running hold's fill. */
+/** @brief Output on, or a failure. Target: ARMED, RUNNING, a running hold's
+ *         fill. */
 #define UI_COL_ON       C_RED
-/** @brief Warning: text to read before the next action, the current step. */
+/** @brief A warning: text to read before the next action. Target: the
+ *         current step of the leave page, soft-rule bars. */
 #define UI_COL_WARN     C_AMBER
-/** @brief Alert: the ESC status alert, STALLED. */
+/** @brief An alert the device or the bench raised, which needs a look.
+ *         Target: the ESC status alert, STALLED. */
 #define UI_COL_ALERT    C_MAGENTA
-/** @brief Latched: LATCH on, a toggle that is on, servo B. */
+/** @brief A setting that stays on until it is turned off. Target: LATCH on,
+ *         a toggle that is on, servo B. */
 #define UI_COL_LATCHED  C_BLUE
 /** @} */
 
@@ -233,7 +243,9 @@ void uiStripText(const char *text, uint16_t col);
  *
  * Clears y 40 to y 61 first, the strip and the gap above the body, since the
  * second line ends at y 58, below the strip. A chip drawn after it sits on
- * the first line. A null line is not drawn.
+ * the first line: uiChip() is 16 px tall, y 40 to y 55, so it covers rows
+ * 52 to 55 of the second line wherever the two share x. A null line is not
+ * drawn.
  *
  * @param top       First line, or null.
  * @param topCol    Its colour.
@@ -266,8 +278,9 @@ enum class UiGuardEv : uint8_t {
 /**
  * @brief Feed one frame of touch to the guard.
  *
- * A BACK tap with no change pending is @ref UiGuardEv::Back at once. The
- * caller feeds the guard only while BACK is live.
+ * A BACK tap with no change pending is @ref UiGuardEv::Back at once, also
+ * on the frame an armed guard finds no change left. The caller feeds the
+ * guard only while BACK is live.
  *
  * @param[in,out] g The guard.
  * @param t         This frame's touch; null is treated as no touch.

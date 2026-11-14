@@ -10,6 +10,7 @@
 void uiLeaveOpen(UiLeave *l, UiLeavePhase phase, uint32_t waitMs) {
 	l->before = phase == UiLeavePhase::Before;
 	l->phase = l->before ? UiLeavePhase::Before : UiLeavePhase::Releasing;
+	l->leaveEnabled = true;
 	l->restartPress = false;
 	l->releasedMs = 0;
 	l->waitMs = waitMs;
@@ -37,7 +38,7 @@ UiLeaveEv uiLeaveTouch(UiLeave *l, const TouchState *t, uint32_t nowMs) {
 	if (t->pressed) l->restartPress = uiLeaveRestartLive(l, nowMs);
 	if (l->phase == UiLeavePhase::Before) {
 		if (uiTapped(UI_LEAVE_LEFT, t)) return UiLeaveEv::Stay;
-		if (!uiTapped(UI_LEAVE_WIDE, t)) return UiLeaveEv::None;
+		if (!l->leaveEnabled || !uiTapped(UI_LEAVE_WIDE, t)) return UiLeaveEv::None;
 		l->phase = UiLeavePhase::Releasing;
 		return UiLeaveEv::Leave;
 	}
@@ -83,7 +84,10 @@ void uiLeaveDraw(const UiLeave *l, const UiLeaveText &text, const TouchState *t,
 	if (left)
 		uiButton(UI_LEAVE_LEFT, left, C_PANEL, C_TEXT, 1,
 		         leftLive && uiPressing(UI_LEAVE_LEFT, t), leftLive);
-	bool wideLive = before || uiLeaveRestartLive(l, nowMs);
+	bool wideLive = before ? l->leaveEnabled : uiLeaveRestartLive(l, nowMs);
+	// RESTART DSHOT looks pressed only under a press that counts: one that
+	// landed during the wait does nothing on its lift.
+	bool counts = before || l->restartPress;
 	uiButton(UI_LEAVE_WIDE, before ? "LEAVE" : "RESTART DSHOT", C_PANEL, C_TEXT, 2,
-	         wideLive && uiPressing(UI_LEAVE_WIDE, t), wideLive);
+	         wideLive && counts && uiPressing(UI_LEAVE_WIDE, t), wideLive);
 }

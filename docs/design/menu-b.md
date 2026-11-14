@@ -9,24 +9,25 @@ changes a screen: it decides whether README.md and the wiki change with the
 slice or with slice 10.
 
 The owner decided on 2026-11-13 to build structure B ([decisions 1 to
-4](#decisions)). Decisions 5 to 15 are the rules this note sets for the findings
-of a GUI audit and a usability audit, each checked against the code; decisions
-16 to 22 are further choices of this note. Neither group is confirmed by the
-owner yet. The note describes `main` at 3794d55 with slice 1 added. Line numbers
-in `src/`, `test/`, README.md and the wiki, and the test counts in decisions 5
-to 15, name 2940f9c and are not recounted.
+4](#decisions)). Decisions 5 to 15 are the rules this note sets for the
+findings of a graphical user interface (GUI) audit and a usability audit,
+each checked against the code; decisions 16 to 22 are further choices of this
+note. Neither group is confirmed by the owner yet. The note describes `main`
+at 9f965a3 with slice 1 added. Line numbers in `src/`, `test/`, README.md and
+the wiki, and the test counts in decisions 5 to 15, name 2940f9c and are not
+recounted.
 
-Terms: UI is user interface, GUI graphical user interface, ESC electronic speed
-controller, DShot the digital ESC protocol the tester drives, EDT Extended DShot
-Telemetry, eRPM electrical revolutions per minute, KISS the telemetry protocol
-of the KISS ESC line on its own wire, AM32 an open ESC firmware with a serial
-bootloader, KST and Chaservo two servo brands that share one programming
-protocol, Hitec a servo brand with its own protocol, SD Secure Digital, USB
-Universal Serial Bus, GPIO general-purpose input/output, PWM pulse-width
-modulation, BEC battery eliminator circuit. SIG and AUX are the two signal pins
-as [pin-claim.md](pin-claim.md#the-two-pins) defines them. Header, strip and
-body are the bands of [menu.md](menu.md): the header is y 0 to 35, the strip
-starts at y 40 (`UI_STRIP_Y`), the body at y 62 (`UI_BODY_Y`).
+Terms: UI is user interface, ESC electronic speed controller, DShot the digital
+ESC protocol the tester drives, EDT Extended DShot Telemetry, eRPM electrical
+revolutions per minute, KISS the telemetry protocol of the KISS ESC line on its
+own wire, AM32 an open ESC firmware with a serial bootloader, KST and Chaservo
+two servo brands that share one programming protocol, Hitec a servo brand with
+its own protocol, SD Secure Digital, USB Universal Serial Bus, GPIO
+general-purpose input/output, PWM pulse-width modulation, BEC battery eliminator
+circuit. SIG and AUX are the two signal pins as
+[pin-claim.md](pin-claim.md#the-two-pins) defines them. Header, strip and body
+are the bands of [menu.md](menu.md): the header is y 0 to 35, the strip starts
+at y 40 (`UI_STRIP_Y`), the body at y 62 (`UI_BODY_Y`).
 
 Text widths follow `gfxTextW()`: (6 × characters − 1) × scale. At scale 1 a
 line from x 8 (`UI_MARGIN`) to x 232 holds 37 characters (221 px); at scale
@@ -35,7 +36,7 @@ before BACK at x 170, so it holds 13 characters (154 px).
 
 ## Why
 
-The tree as built at 3794d55, from the tester:
+The tree as built at 9f965a3, from the tester:
 
 ```
 TESTER (root, no header)
@@ -262,14 +263,14 @@ structure B. A tap opens the entry's screen through `uiOpenTool()` in
 as today.
 
 ## The leave page
- One page replaces the leave page and the unplug page of KST SERVO and HITEC
-SERVO, and the unplug page of SERVO TESTER. It is a widget, `ui_leave`, that the
-three screens fill. Slice 1 builds the widget ([slice 1 as
+
+One page replaces the leave page and the unplug page of KST SERVO and HITEC
+SERVO, and the unplug page of SERVO TESTER. It is a widget, `ui_leave`, that
+the three screens fill. Slice 1 builds the widget ([slice 1 as
 built](#slice-1-as-built)); no screen draws it before slice 6. It has three
 phases: before LEAVE, releasing, and released. Its instructions are numbered
-steps in one style: scale 1 from x 8, the current step in `C_AMBER` with a 3 px
-`C_AMBER` bar at x 0 (drawn
-`#` below), the other steps in `C_DIM`.
+steps in one style: scale 1 from x 8, the current step in `C_AMBER` with a
+3 px `C_AMBER` bar at x 0 (drawn `#` below), the other steps in `C_DIM`.
 
 KST SERVO, servo on its own supply, two changes not written, before LEAVE:
 
@@ -922,7 +923,7 @@ Choices of this note where the decisions above leave the choice:
 ## Interlocks
 
 No write, no pulse and no supply switch becomes reachable with fewer
-deliberate actions than at 3794d55.
+deliberate actions than at 9f965a3.
 
 | Path | Today | Structure B | Holds because |
 |---|---|---|---|
@@ -1035,9 +1036,9 @@ preview images stay as they are.
 | Layout constants | `UI_EDGE` 6, `UI_FOOT_Y` 268, `UI_FOOT_H` 46, `UI_EDIT_BTN_W` 44, `UI_STRIP_LINE1_Y` 42, `UI_STRIP_LINE2_Y` 52, `ui_widgets.h` | the values of decision 14 | BACK's x; the footers of AM32 CONFIG, KST SERVO and HITEC SERVO; the - and + of KST SERVO and HITEC SERVO; slice 4 |
 | Colour roles | `UI_COL_SAFE`, `UI_COL_LIVE`, `UI_COL_ON`, `UI_COL_WARN`, `UI_COL_ALERT`, `UI_COL_LATCHED`, `ui_widgets.h` | each expands to its `C_*` entry, so it follows the theme | the widgets below; slice 2 |
 | Two strip lines | `uiStripTwoLines()`, `ui_widgets.h` | clears y 40 to 61, draws scale 1 at x 8, y 42 and y 52; a null line is not drawn | SERVO TESTER's supply line; the guard |
-| BACK guard | `UiBackGuard`, `uiBackGuard()`, `uiBackGuardDraw()`, `ui_widgets.h` | with changes pending, the first BACK arms and the second returns Back; a press that lands elsewhere disarms, as does no change left; no timer; the two amber lines name the count and the verb | slice 5: AM32 CONFIG and SERVO SET |
+| BACK guard | `UiBackGuard`, `uiBackGuard()`, `uiBackGuardDraw()`, `ui_widgets.h` | with changes pending, the first BACK arms and the second returns Back; a press that lands elsewhere disarms, as does no change left, but a BACK tap on that frame leaves; no timer; the two amber lines name the count and the verb | slice 5: AM32 CONFIG and SERVO SET |
 | Field row | `uiListDrawField()`, `UiField`, `UiValue`, `UiEdge`, `ui_list.h` | decision 8's row: fill, group, label, value at scale 2 up to 104 px, edge bar 3 px | slice 2: AM32 CONFIG, KST SERVO, HITEC SERVO, SERVO SET |
-| Leave page | `UiLeave`, `UiLeaveText`, `uiLeaveOpen()`, `uiLeavePoll()`, `uiLeaveTouch()`, `uiLeaveDraw()`, `ui_leave.h` | the three phases, numbered steps, notes, STAY and LEAVE, then NEXT SERVO or BACK TO SERVO and RESTART DSHOT; RESTART DSHOT takes a press that lands the wait or more after the released phase began | slice 6 |
+| Leave page | `UiLeave`, `UiLeaveText`, `uiLeaveOpen()`, `uiLeavePoll()`, `uiLeaveTouch()`, `uiLeaveDraw()`, `ui_leave.h` | the three phases, numbered steps, notes, STAY and LEAVE, then NEXT SERVO or BACK TO SERVO and RESTART DSHOT; RESTART DSHOT takes a press that lands the wait or more after the released phase began, and only such a press draws it pressed; `leaveEnabled` cleared draws LEAVE disabled and ignores its tap, for the screen's writes | slice 6 |
 
 What slice 1 leaves to the open questions:
 

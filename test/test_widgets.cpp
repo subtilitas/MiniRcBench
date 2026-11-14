@@ -631,9 +631,14 @@ static void testColourRoles() {
 		                UI_COL_ALERT == g_theme[TC_MAGENTA] && UI_COL_LATCHED == g_theme[TC_BLUE]);
 	}
 	themeSet(Theme::Dark);
-	checkTrue("the six roles are six colours",
-	          UI_COL_SAFE != UI_COL_LIVE && UI_COL_ON != UI_COL_WARN &&
-	          UI_COL_ALERT != UI_COL_LATCHED && UI_COL_WARN != UI_COL_ALERT);
+	const uint16_t roles[] = { UI_COL_SAFE, UI_COL_LIVE, UI_COL_ON,
+	                           UI_COL_WARN, UI_COL_ALERT, UI_COL_LATCHED };
+	int pairs = 0, distinct = 0;
+	for (int i = 0; i < 6; i++)
+		for (int k = i + 1; k < 6; k++, pairs++)
+			if (roles[i] != roles[k]) distinct++;
+	checkTrue("the six roles are six colours: 15 pairs, all distinct",
+	          pairs == 15 && distinct == 15);
 }
 
 static void testLayoutConstants() {
@@ -703,6 +708,10 @@ static void testBackGuard() {
 	          uiBackGuard(&g, nullptr, 1) == UiGuardEv::None && g.armed);
 	checkTrue("armed with no change left: disarmed, with or without a touch",
 	          uiBackGuard(&g, nullptr, 0) == UiGuardEv::Disarmed && !g.armed);
+	tapBack(&g, 1);
+	uiBackGuard(&g, press(b.x + b.w / 2, b.y + b.h / 2), 1);
+	checkTrue("armed, a BACK tap on the frame the last change goes: Back",
+	          uiBackGuard(&g, lift(), 0) == UiGuardEv::Back && !g.armed);
 	checkTrue("a press elsewhere while disarmed is nothing",
 	          uiBackGuard(&g, press(120, 200), 3) == UiGuardEv::None);
 	uiBackGuard(&g, lift(), 3);
@@ -974,14 +983,48 @@ static void testLeaveDraw() {
 	          buttonIs(UI_LEAVE_LEFT, "NEXT SERVO", 1, true) && buttonIs(UI_LEAVE_WIDE, "RESTART DSHOT", 2, false));
 	uiLeaveDraw(&l, t, idle(), 2000);
 	checkTrue("1000 ms in: RESTART DSHOT live", buttonIs(UI_LEAVE_WIDE, "RESTART DSHOT", 2, true));
-	uiLeaveDraw(&l, t, press(w.x + 20, w.y + 20), 2000);
+	uiLeaveTouch(&l, press(w.x + 20, w.y + 20), 1999);
+	uiLeaveTouch(&l, move(w.x + 20, w.y + 20), 2100);
+	uiLeaveDraw(&l, t, &s_touch, 2100);
+	checkTrue("a press that landed during the wait, held past it: no pressed look",
+	          buttonIs(UI_LEAVE_WIDE, "RESTART DSHOT", 2, true) && px(w.x + 2, w.y + w.h / 2) != C_INK);
+	uiLeaveTouch(&l, lift(), 2200);
+	uiLeaveTouch(&l, press(w.x + 20, w.y + 20), 2000);
+	uiLeaveDraw(&l, t, &s_touch, 2000);
 	checkTrue("pressed: the inner ring", px(w.x + 2, w.y + w.h / 2) == C_INK);
+	uiLeaveTouch(&l, lift(), 2000);
 	idle();
 
 	t.next = nullptr;
 	gfxFill(C_RED);
 	uiLeaveDraw(&l, t, idle(), 2000);
 	checkTrue("no next label: no left button", px(UI_LEAVE_LEFT.x + 4, UI_LEAVE_LEFT.y + 20) == C_BG);
+	gfxFill(C_BG);
+}
+
+static void testLeaveEnabled() {
+	section("Leave page: LEAVE drawn disabled and not tappable while the screen writes");
+
+	UiLeave l;
+	UiLeaveText t = kstOwnText();
+	uiLeaveOpen(&l, UiLeavePhase::Before, 1000);
+	checkTrue("opened: LEAVE live", l.leaveEnabled);
+	l.leaveEnabled = false;
+	const UiRect &w = UI_LEAVE_WIDE;
+	gfxFill(C_RED);
+	uiLeaveDraw(&l, t, idle(), 0);
+	checkTrue("cleared: LEAVE drawn disabled, STAY live",
+	          buttonIs(UI_LEAVE_WIDE, "LEAVE", 2, false) && buttonIs(UI_LEAVE_LEFT, "STAY", 1, true));
+	uiLeaveTouch(&l, press(w.x + 20, w.y + 20), 0);
+	uiLeaveDraw(&l, t, &s_touch, 0);
+	checkTrue("a finger on it draws no pressed look", px(w.x + 2, w.y + w.h / 2) == C_BG);
+	checkTrue("its tap does nothing, the page stays before LEAVE",
+	          uiLeaveTouch(&l, lift(), 0) == UiLeaveEv::None && l.phase == UiLeavePhase::Before);
+	checkTrue("STAY still acts", tapLeave(&l, UI_LEAVE_LEFT, 0) == UiLeaveEv::Stay);
+	l.leaveEnabled = true;
+	checkTrue("set again: LEAVE leaves",
+	          tapLeave(&l, w, 0) == UiLeaveEv::Leave && l.phase == UiLeavePhase::Releasing);
+	idle();
 	gfxFill(C_BG);
 }
 
@@ -1050,5 +1093,6 @@ void runWidgetTests() {
 	testLeavePhases();
 	testLeaveRestartWait();
 	testLeaveDraw();
+	testLeaveEnabled();
 	testLeaveSteps();
 }

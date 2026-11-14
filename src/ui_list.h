@@ -252,9 +252,11 @@ struct UiField {
 #define UI_FIELD_EDGE_W     3
 
 /**
- * @brief Draw one field row of an editor's list: AM32 CONFIG, KST SERVO,
- *        HITEC SERVO and SERVO SET draw their rows this way
- *        (docs/design/menu-b.md, decision 8).
+ * @brief Draw one field row of an editor's list (docs/design/menu-b.md,
+ *        decision 8).
+ *
+ * No screen uses it yet. Slice 2 of the note moves the rows of AM32 CONFIG,
+ * KST SERVO, HITEC SERVO and SERVO SET onto it.
  *
  * The row fills @p h - 1 px from @p y, `C_PANEL` while selected and `C_BG`
  * otherwise, with a `C_PANEL` rule on its last line. The group is at y + 11,

@@ -83,8 +83,10 @@ void uiStripTwoLines(const char *top, uint16_t topCol, const char *bottom, uint1
 
 UiGuardEv uiBackGuard(UiBackGuard *g, const TouchState *t, int pending) {
 	if (g->armed && pending <= 0) {
+		// Nothing is left to drop, so a BACK tap on this frame leaves as it
+		// does with nothing pending.
 		g->armed = false;
-		return UiGuardEv::Disarmed;
+		return uiBackTapped(t) ? UiGuardEv::Back : UiGuardEv::Disarmed;
 	}
 	if (!t) return UiGuardEv::None;
 	if (g->armed && t->pressed && !uiPressing(uiBackRect(), t)) {

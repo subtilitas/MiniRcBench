@@ -4,18 +4,21 @@
  *        pins, from the last step on the device to DShot running again
  *        (docs/design/menu-b.md, "The leave page").
  *
- * KST SERVO, HITEC SERVO and SERVO TESTER fill it; it replaces their leave
- * and unplug pages. The page has three phases:
+ * No screen uses it yet. Slice 6 of the note moves KST SERVO, HITEC SERVO
+ * and SERVO TESTER onto it in place of their leave and unplug pages. The page
+ * has three phases:
  *
  * - **Before LEAVE.** The first step is current. The left button reads STAY
  *   and the wide button LEAVE. A tap on LEAVE moves the page to Releasing.
+ *   While @ref UiLeave::leaveEnabled is clear, LEAVE is drawn disabled and
+ *   takes no tap: the screen clears it while it writes to the device.
  * - **Releasing.** The pin is being let go. The step after the first is
  *   current. The left button reads the screen's next label, NEXT SERVO or
  *   BACK TO SERVO, and the wide button RESTART DSHOT, both drawn disabled.
  * - **Released**, from the frame the screen reports pinClaimUnplugDue(). The
  *   left button is live. RESTART DSHOT takes only a press that lands
  *   @ref UiLeave::waitMs or more after this phase began, and is drawn
- *   disabled until then.
+ *   disabled until then. A press that landed earlier draws no pressed look.
  *
  * A page opened in Releasing has no step before LEAVE, so its first step is
  * current from the start.
@@ -107,6 +110,8 @@ enum class UiLeaveEv : uint8_t {
 struct UiLeave {
 	UiLeavePhase phase;         /**< The phase. */
 	bool         before;        /**< Opened before LEAVE: step 0 is the step before it. */
+	bool         leaveEnabled;  /**< LEAVE is live. uiLeaveOpen() sets it; the screen clears
+	                                 it while it writes and sets it again after. */
 	bool         restartPress;  /**< The press under way landed while RESTART DSHOT was live. */
 	uint32_t     releasedMs;    /**< millis() when Released began. */
 	uint32_t     waitMs;        /**< RESTART DSHOT's wait after Released began, ms. */
@@ -170,6 +175,11 @@ UiLeaveEv uiLeaveTouch(UiLeave *l, const TouchState *t, uint32_t nowMs);
 /**
  * @brief Draw the page from @ref UI_BODY_Y down: the steps, the notes, the
  *        left button and the wide button, over a cleared body.
+ *
+ * It clears the whole body, y 62 to y 319, the right button's place and its
+ * hold bar included, so the screen draws its right button and hold bar after
+ * it. Feed the frame's touch to uiLeaveTouch() first: the pressed look of
+ * RESTART DSHOT follows @ref UiLeave::restartPress.
  * @param l     The page.
  * @param text  What it shows.
  * @param t     This frame's touch, for the pressed look; may be null.
