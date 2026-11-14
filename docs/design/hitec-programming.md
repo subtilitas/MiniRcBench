@@ -481,7 +481,7 @@ the job touches neither pin.
   ([decision 2](#decisions-of-the-owner)). CLASSIC is drawn disabled, with
   `NEEDS THE CONVERTER OF WIRING PART C` and
   `AND SETTINGS > SERVO SUPPLY GP28/29.` under it, while `SERVO SUPPLY` is
-  `NONE`; D SERIES then reads `POWER THE SERVO UP BEFORE THE TAP.`
+  `NONE`; D SERIES then reads `POWER THE SERVO UP, THEN TAP.`
 - **D series uses it when it is set.** With a switch the converter is the
   servo's only supply, so every D series entry runs a POWER step. With
   `NONE` the entry runs on the user's supply as it is.
@@ -690,8 +690,8 @@ its rows, values, stepper and texts in `src/hitec_view.*`, as
 
 | View | What it shows | Controls |
 |---|---|---|
-| Family | CLASSIC (HS-5XXX, HS-7XXX) and D SERIES, with the wiring note of each; no pin is claimed yet. CLASSIC disabled with `NEEDS THE CONVERTER OF WIRING PART C` and `AND SETTINGS > SERVO SUPPLY GP28/29.` under `NONE`, enabled with `GP28` or `GP29` ([decision 13](#decisions-of-the-owner)); under `NONE`, D SERIES with `POWER THE SERVO UP BEFORE THE TAP.` | CLASSIC, D SERIES, BACK |
-| Claim | the KST screen's: `CHECKING GP0 FOR AN ESC`, `RELEASING GP0`, the refusals and bind errors | BACK |
+| Family | the claim on SIG from the first frame: `RELEASING GP0 FROM DSHOT`, then `GP0 IS THE SERVO'S: DSHOT IS OFF.` in green over `CONNECT THE SERVO, CHOOSE ITS FAMILY`; while an ESC answers, `AN ESC ANSWERS ON GP0: UNPLUG IT.` over `DSHOT STAYS ON THE PIN UNTIL THEN.` in amber. CLASSIC (HS-5XXX, HS-7XXX) and D SERIES, with the wiring note of each, act once the claim holds. CLASSIC disabled with `NEEDS THE CONVERTER OF WIRING PART C` and `AND SETTINGS > SERVO SUPPLY GP28/29.` under `NONE`, enabled with `GP28` or `GP29` ([decision 13](#decisions-of-the-owner)); under `NONE`, D SERIES with `POWER THE SERVO UP, THEN TAP.` | CLASSIC, D SERIES, BACK: the unplug page once the claim holds, else MENU |
+| Bind | after the family tap, `TAKING GP0` while the job binds; a bind error, `GP0 COULD NOT BE TAKEN (PIO)`, `(DMA)` or `(CLOCK)` | RETRY, BACK |
 | Entry, classic | `SUPPLY OFF 0.5 S`, then `LISTENING FOR THE SERVO` with the window's progress, then `ENTERING`; the amber ESC line below | STOP, BACK |
 | Entry, D series | with a switch, `SUPPLY OFF 0.5 S`, then `SERVO STARTING 1.0 S` and the amber ESC line; then `READING THE MODEL` | STOP, BACK |
 | Entry failed | `NO SERVO IN SERIAL MODE` or `NO SERVO ANSWERS`, the decoder's word (`SILENT`, `LATE`, `SUM` and the rest of rcbench's 14 codes); `THE SUPPLY IS OFF.` with a switch; with a switch and the classic family, `CHECK THE CONVERTER ON GP28, THE SIGNAL AND GROUND.`, naming the enable pin | RETRY, BACK |

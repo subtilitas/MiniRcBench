@@ -98,9 +98,9 @@ Eliminator Circuit), die Leitung seiner eigenen geregelten Versorgung.
 
 **MENU → HITEC SERVO** öffnen. Der Bildschirm öffnet mit der
 Familienauswahl und übernimmt SIG sofort vom ESC-Treiber, bevor eine Familie
-gewählt ist: DShot sendet mindestens 250 ms lang Gas null, hält an und lässt
-den Pin als Eingang, den sein Pull-up high hält. Kein DShot-Frame erreicht ein
-Servo, das du in dieser Ansicht anschließt.
+gewählt ist: DShot sendet nach dem letzten Gas-Frame mindestens 250 ms lang
+Gas null, hält an und lässt den Pin als Eingang, den sein Pull-up high hält.
+Kein DShot-Frame erreicht ein Servo, das du in dieser Ansicht anschließt.
 
 <img src="img/hitec-family.png" width="240" alt="Die Familienauswahl mit SERVO SUPPLY auf NONE: GP0 IS THE SERVO'S: DSHOT IS OFF. in Grün, CLASSIC abgeblendet mit NEEDS THE CONVERTER OF WIRING PART C, D SERIES mit POWER THE SERVO UP, THEN TAP.">
 
@@ -124,10 +124,11 @@ Schaltflächen:
 `GP28` oder `GP29` bleibt der Wandler in dieser Ansicht aus, von seinem
 Pull-down gehalten, und der Prüfstand schaltet das Servo nach dem Tippen ein.
 
-`BACK` in dieser Ansicht führt zur Abziehseite, wie `LEAVE`: Der Pin gehörte
-dem Servo, also startet DShot erst nach `UNPLUG THE SERVO.` und
+Gehört der Pin dem Servo, führt `BACK` in dieser Ansicht zur Abziehseite,
+wie `LEAVE`: DShot startet erst nach `UNPLUG THE SERVO.` und
 `RESTART DSHOT` neu. `BACK` auf der Abziehseite führt zur Familienauswahl
-zurück.
+zurück. Solange der Treiber noch anhält oder der Bildschirm den Pin nicht
+übernommen hat, führt `BACK` zu `MENU` zurück.
 
 <img src="img/hitec-family-esc.png" width="240" alt="Die Familienauswahl, während ein ESC auf GP0 antwortet: AN ESC ANSWERS ON GP0: UNPLUG IT. und DSHOT STAYS ON THE PIN UNTIL THEN. in Bernstein, beide Familien abgeblendet.">
 
@@ -135,7 +136,8 @@ zurück.
   `AN ESC ANSWERS ON GP0: UNPLUG IT.` und
   `DSHOT STAYS ON THE PIN UNTIL THEN.`, und beide Familien sind abgeblendet
   gezeichnet. Der Bildschirm übernimmt den Pin, sobald der ESC 500 ms lang
-  still ist.
+  still ist. Die Prüfung läuft nur, bevor der Pin übernommen ist: Ein ESC,
+  der danach angeschlossen wird, wird nicht erkannt.
 - Solange der Tester scharf ist, zeigt die Leiste `DISARM FIRST`. Solange die
   Pins noch belegt sind, zeigt sie `PINS BUSY`.
 
@@ -392,13 +394,19 @@ wieder 3,35 V erreicht, schreibt das zweite Halten nichts: Keine Datei geht
 auf die Karte und kein Frame zum Servo. Die Seite zeigt in Bernstein
 `BOARD VOLTAGE IS RED: NOT WRITTEN.` und
 `CHARGE THE BOARD'S CELL, HOLD AGAIN.`, und `HOLD TO WRITE` bleibt. Der
-Bildschirm fragt erneut, wenn das Schreiben nach dem Übertragen der Sicherung
-hinausginge, also hält auch eine Spannung, die währenddessen rot wird, das
-Schreiben an. Ein laufendes Schreiben wird nicht angehalten. Bernstein und ein
-Wert unter 2,50 V (keine Zelle zu beurteilen) schreiben wie bisher.
-`HOLD TO RESTORE` wird ebenso abgelehnt. Die Bereiche sind der übliche
-Bereich einer Lithium-Polymer-Zelle, auf dieser Platine nicht gemessen; was
-die Platine an USB-Versorgung ohne Zelle liest, ist ebenfalls nicht gemessen.
+Bildschirm fragt erneut, kurz bevor die Dateien des Schreibens und sein
+erster Frame hinausgehen, nach dem Warten auf das Übertragen zur Karte. Eine
+Spannung, die währenddessen rot wird, hält das Schreiben ebenfalls an: Die
+Sicherung und der Vermerk des Schreibens können dann schon auf der Karte
+sein, und kein Frame geht hinaus. Ein laufendes Schreiben wird nicht
+angehalten: Abgebrochen ließe es das Servo teilweise geschrieben und
+ungeprüft zurück, während eines, das zu Ende läuft, mit dem Rücklesen
+endet. Bernstein und ein Wert unter 2,50 V (keine Zelle zu beurteilen)
+lehnen kein Schreiben ab. `HOLD TO RESTORE` wird ebenso abgelehnt. Die
+Bereiche sind der übliche Bereich einer Lithium-Polymer-Zelle, auf dieser
+Platine nicht gemessen. Was die Platine an USB-Versorgung ohne Zelle liest,
+ist ebenfalls nicht gemessen, also kann eine Platine nur an USB das
+Schreiben ablehnen.
 
 <img src="img/hitec-board-low.png" width="240" alt="Die Schreibseite mit roter BOARD-Spannung: BOARD VOLTAGE IS RED: NOT WRITTEN. und CHARGE THE BOARD'S CELL, HOLD AGAIN. in Bernstein">
 

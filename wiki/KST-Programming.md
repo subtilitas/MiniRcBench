@@ -273,12 +273,16 @@ rises to 3.35 V, the second hold writes nothing: no file goes to the card
 and no frame to the servo. The page reads, in amber,
 `BOARD VOLTAGE IS RED: NOT WRITTEN.` and
 `CHARGE THE BOARD'S CELL, HOLD AGAIN.`, and `HOLD TO WRITE` stays. The
-screen asks again when the write would go out after the backup's flush, so a
-voltage that turns red meanwhile stops the write too. A write already
-running is not stopped. Amber, and a value below 2.50 V (no cell to judge),
-write as before. `HOLD TO RESTORE` is refused the same way. The bands are a
-lithium-polymer cell's usual range, not measured on this board; what the
-board reads on USB power with no cell is not measured either.
+screen asks again just before the write's files and its first frame go out,
+after a wait for a card flush. A voltage that turns red during that wait
+stops the write too: the backup and the write's record may be on the card
+by then, and no frame goes out. A write already running is not stopped:
+cut off, it would leave the servo partly written and unverified, while one
+that finishes ends with its read-back. Amber, and a value below 2.50 V (no
+cell to judge), refuse no write. `HOLD TO RESTORE` is refused the same way.
+The bands are a lithium-polymer cell's usual range, not measured on this
+board. What the board reads on USB power with no cell is not measured
+either, so a board on USB alone may refuse writes.
 
 <img src="img/kst-board-low.png" width="240" alt="The write page with the BOARD voltage red: BOARD VOLTAGE IS RED: NOT WRITTEN. and CHARGE THE BOARD'S CELL, HOLD AGAIN. in amber">
 

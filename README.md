@@ -703,16 +703,22 @@ it is drawn in the normal text colour, and red again from 2.55 V, the same
 
 While the value is red (`BoardCell::Critical`, `uiBoardWriteRefused()`),
 KST SERVO, HITEC SERVO and AM32 CONFIG refuse a write and a KST or Hitec
-restore. Each screen asks at the end of the hold and again just before the
-write goes out, after a wait for the backup's flush; a write already
-running is not stopped. The KST and Hitec write pages then read, in amber at
-y 196 and y 208, `BOARD VOLTAGE IS RED: NOT WRITTEN.` and
+restore. KST SERVO and HITEC SERVO ask at the end of the hold: refused
+there, no file goes to the card and no frame to the servo. They ask again
+just before their files and their write go out, after a wait for a card
+flush: refused there, the backup and the write's record may be on the card
+already, and no frame goes out. AM32 CONFIG asks once, before its backup:
+refused, no file goes to the card and no byte to the ESC. A write already
+running is not stopped: cut off, it would leave the servo partly written
+and unverified, while one that finishes ends with its read-back. The KST
+and Hitec write pages read, in amber at y 196 and y 208,
+`BOARD VOLTAGE IS RED: NOT WRITTEN.` and
 `CHARGE THE BOARD'S CELL, HOLD AGAIN.`; AM32 CONFIG shows the two lines as
-its write's result. No file goes to the card and no frame to the servo or
-the ESC. Amber, the text colour, and a value below 2.50 V (no cell to
-judge) write as before. The bands are a lithium-polymer cell's usual range,
-not measured on this board; what the divider reads with USB power and no
-cell is not measured either, so a board on USB alone may refuse writes.
+its write's result. Amber, the text colour, and a value below 2.50 V (no
+cell to judge) refuse no write. The bands are a lithium-polymer cell's
+usual range, not measured on this board; what the divider reads with USB
+power and no cell is not measured either, so a board on USB alone may
+refuse writes.
 
 ---
 
@@ -1532,9 +1538,11 @@ not 0 answers ID 0 is not measured.
    with `NONE` it reads the servo at once on the supply it has, so the servo
    must be powered before the tap. The family view says so under D SERIES:
    `POWER THE SERVO UP, THEN TAP.` With the switch the supply stays off on
-   the family view. BACK on the family view passes the unplug page and
-   RESTART DSHOT, as LEAVE does; BACK on that page returns to the family
-   view.
+   the family view. Once the pin is held, BACK on the family view passes
+   the unplug page and RESTART DSHOT, as LEAVE does, and BACK on that page
+   returns to the family view; before that, BACK returns to MENU. The ESC
+   check runs only before the claim holds: an ESC connected after that is
+   not detected.
 2. The screen reads the 21 registers, `READING 21 REGISTERS`, `7 OF 21`, and
    keeps this first full read as the session's backup. A servo that does
    not answer gives `NO SERVO ANSWERS` with the decoder's word, for example

@@ -292,13 +292,19 @@ wieder 3,35 V erreicht, schreibt das zweite Halten nichts: Keine Datei geht
 auf die Karte und kein Frame zum Servo. Die Seite zeigt in Bernstein
 `BOARD VOLTAGE IS RED: NOT WRITTEN.` und
 `CHARGE THE BOARD'S CELL, HOLD AGAIN.`, und `HOLD TO WRITE` bleibt. Der
-Bildschirm fragt erneut, wenn das Schreiben nach dem Übertragen der Sicherung
-hinausginge, also hält auch eine Spannung, die währenddessen rot wird, das
-Schreiben an. Ein laufendes Schreiben wird nicht angehalten. Bernstein und ein
-Wert unter 2,50 V (keine Zelle zu beurteilen) schreiben wie bisher.
-`HOLD TO RESTORE` wird ebenso abgelehnt. Die Bereiche sind der übliche
-Bereich einer Lithium-Polymer-Zelle, auf dieser Platine nicht gemessen; was
-die Platine an USB-Versorgung ohne Zelle liest, ist ebenfalls nicht gemessen.
+Bildschirm fragt erneut, kurz bevor die Dateien des Schreibens und sein
+erster Frame hinausgehen, nach dem Warten auf das Übertragen zur Karte. Eine
+Spannung, die währenddessen rot wird, hält das Schreiben ebenfalls an: Die
+Sicherung und der Vermerk des Schreibens können dann schon auf der Karte
+sein, und kein Frame geht hinaus. Ein laufendes Schreiben wird nicht
+angehalten: Abgebrochen ließe es das Servo teilweise geschrieben und
+ungeprüft zurück, während eines, das zu Ende läuft, mit dem Rücklesen
+endet. Bernstein und ein Wert unter 2,50 V (keine Zelle zu beurteilen)
+lehnen kein Schreiben ab. `HOLD TO RESTORE` wird ebenso abgelehnt. Die
+Bereiche sind der übliche Bereich einer Lithium-Polymer-Zelle, auf dieser
+Platine nicht gemessen. Was die Platine an USB-Versorgung ohne Zelle liest,
+ist ebenfalls nicht gemessen, also kann eine Platine nur an USB das
+Schreiben ablehnen.
 
 <img src="img/kst-board-low.png" width="240" alt="Die Schreibseite mit roter BOARD-Spannung: BOARD VOLTAGE IS RED: NOT WRITTEN. und CHARGE THE BOARD'S CELL, HOLD AGAIN. in Bernstein">
 

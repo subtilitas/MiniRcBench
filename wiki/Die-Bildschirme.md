@@ -11,7 +11,7 @@ Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MEN
    ▲                    ├── SERVO TESTER ──BACK──> Abziehseite ──> MENU
    │                    ├── KST SERVO    ──BACK──> Verlassenseite ──> Abziehseite ──> MENU
    │                    ├── HITEC SERVO  ──BACK──> Verlassenseite ──> Abziehseite ──> MENU
-   │                    │   (in der Familienauswahl und während des Eintritts führt BACK zur Abziehseite)
+   │                    │   (in der Familienauswahl mit übernommenem Pin und während des Eintritts führt BACK zur Abziehseite)
    │                    ├── SETTINGS     ──BACK──> MENU
    │                    └── SD LOG       ──BACK──> MENU
    └──── BACK auf MENU ─┘

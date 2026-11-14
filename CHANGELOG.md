@@ -510,14 +510,17 @@ protocol.
 - KST SERVO, HITEC SERVO and AM32 CONFIG refuse a write, and KST and Hitec a
   restore, while the BOARD voltage is red (`BoardCell::Critical`,
   `uiBoardWriteRefused()` in `src/ui.h`), by the owner's decision of
-  2026-11-14. Each screen asks at the end of the hold and again just before
-  the write goes out, after a wait for the backup's flush; a write already
-  running is not stopped. No file goes to the card and no frame to the servo
-  or the ESC. The KST and Hitec write pages read
+  2026-11-14. KST and Hitec ask at the end of the hold, refused there with
+  no file on the card and no frame to the servo, and again just before
+  their files and their write go out after a card flush, refused there with
+  the backup and the record possibly on the card and no frame out. AM32
+  CONFIG asks once, before its backup. A write already running is not
+  stopped: cut off, it would leave the servo partly written and unverified.
+  The KST and Hitec write pages read
   `BOARD VOLTAGE IS RED: NOT WRITTEN.` and
   `CHARGE THE BOARD'S CELL, HOLD AGAIN.` in amber; AM32 CONFIG shows the two
   lines as its write's result. Amber, the text colour and no cell (below
-  2.50 V) write as before. HITEC SERVO shows the horn line until a write
+  2.50 V) refuse no write. HITEC SERVO shows the horn line until a write
   has gone out, not after a refused hold. Host tests `testBoardLow()` in
   `test/test_kst_ui.cpp` and `test/test_hitec_ui.cpp` and
   `testAm32BoardLow()`; the wiki shows `kst-board-low.png`,

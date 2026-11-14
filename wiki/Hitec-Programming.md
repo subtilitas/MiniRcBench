@@ -88,8 +88,9 @@ of its own regulated supply.
 
 Open **MENU → HITEC SERVO**. The screen opens on the family view and takes
 SIG from the ESC driver at once, before a family is chosen: DShot sends zero
-throttle for at least 250 ms, stops, and leaves the pin an input held high
-by its pull-up. No DShot frame reaches a servo you connect on this view.
+throttle for at least 250 ms after the last throttle frame, stops, and
+leaves the pin an input held high by its pull-up. No DShot frame reaches a
+servo you connect on this view.
 
 <img src="img/hitec-family.png" width="240" alt="The family view with SERVO SUPPLY at NONE: GP0 IS THE SERVO'S: DSHOT IS OFF. in green, CLASSIC disabled with NEEDS THE CONVERTER OF WIRING PART C, D SERIES with POWER THE SERVO UP, THEN TAP.">
 
@@ -111,9 +112,11 @@ The strip reads `RELEASING GP0 FROM DSHOT` while the driver stops, then
 `GP29` the converter stays off on this view, held off by its pull-down, and
 the bench powers the servo after the tap.
 
-`BACK` on this view goes to the unplug page, as `LEAVE` does: the pin was the
-servo's, so DShot restarts only after `UNPLUG THE SERVO.` and
-`RESTART DSHOT`. `BACK` on the unplug page returns to the family view.
+Once the pin is the servo's, `BACK` on this view goes to the unplug page, as
+`LEAVE` does: DShot restarts only after `UNPLUG THE SERVO.` and
+`RESTART DSHOT`. `BACK` on the unplug page returns to the family view. While
+the driver still stops, or while the screen has not taken the pin, `BACK`
+returns to `MENU`.
 
 <img src="img/hitec-family-esc.png" width="240" alt="The family view while an ESC answers on GP0: AN ESC ANSWERS ON GP0: UNPLUG IT. and DSHOT STAYS ON THE PIN UNTIL THEN. in amber, both families disabled.">
 
@@ -121,7 +124,8 @@ servo's, so DShot restarts only after `UNPLUG THE SERVO.` and
   `AN ESC ANSWERS ON GP0: UNPLUG IT.` and
   `DSHOT STAYS ON THE PIN UNTIL THEN.`, and both families are drawn
   disabled. The screen takes the pin once the ESC has been quiet for
-  500 ms.
+  500 ms. The check runs only before the pin is taken: an ESC connected
+  after that is not detected.
 - While the tester is armed, the strip reads `DISARM FIRST`. While the pins
   are still in use, it reads `PINS BUSY`.
 
@@ -356,12 +360,16 @@ rises to 3.35 V, the second hold writes nothing: no file goes to the card
 and no frame to the servo. The page reads, in amber,
 `BOARD VOLTAGE IS RED: NOT WRITTEN.` and
 `CHARGE THE BOARD'S CELL, HOLD AGAIN.`, and `HOLD TO WRITE` stays. The
-screen asks again when the write would go out after the backup's flush, so a
-voltage that turns red meanwhile stops the write too. A write already
-running is not stopped. Amber, and a value below 2.50 V (no cell to judge),
-write as before. `HOLD TO RESTORE` is refused the same way. The bands are a
-lithium-polymer cell's usual range, not measured on this board; what the
-board reads on USB power with no cell is not measured either.
+screen asks again just before the write's files and its first frame go out,
+after a wait for a card flush. A voltage that turns red during that wait
+stops the write too: the backup and the write's record may be on the card
+by then, and no frame goes out. A write already running is not stopped:
+cut off, it would leave the servo partly written and unverified, while one
+that finishes ends with its read-back. Amber, and a value below 2.50 V (no
+cell to judge), refuse no write. `HOLD TO RESTORE` is refused the same way.
+The bands are a lithium-polymer cell's usual range, not measured on this
+board. What the board reads on USB power with no cell is not measured
+either, so a board on USB alone may refuse writes.
 
 <img src="img/hitec-board-low.png" width="240" alt="The write page with the BOARD voltage red: BOARD VOLTAGE IS RED: NOT WRITTEN. and CHARGE THE BOARD'S CELL, HOLD AGAIN. in amber">
 

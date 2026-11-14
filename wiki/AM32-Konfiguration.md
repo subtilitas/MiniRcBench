@@ -236,10 +236,12 @@ Solange die BOARD-Spannung auf dem Tester rot ist, unter 3,30 V und bis sie
 wieder 3,35 V erreicht, schreibt das Halten nichts, weder die Sicherung noch
 die Einstellungen. Das Ergebnis zeigt `BOARD VOLTAGE IS RED: NOT WRITTEN.`,
 darunter `CHARGE THE BOARD'S CELL, HOLD AGAIN.` in Bernstein, und `OK` führt
-mit den Änderungen zur Liste zurück. Bernstein und ein Wert unter 2,50 V
-(keine Zelle zu beurteilen) schreiben wie bisher. Die Bereiche sind der
-übliche Bereich einer Lithium-Polymer-Zelle, auf dieser Platine nicht
-gemessen.
+mit den Änderungen zur Liste zurück. Der Bildschirm fragt einmal, wenn das
+Halten endet, vor der Sicherung. Bernstein und ein Wert unter 2,50 V (keine
+Zelle zu beurteilen) lehnen kein Schreiben ab. Die Bereiche sind der übliche
+Bereich einer Lithium-Polymer-Zelle, auf dieser Platine nicht gemessen. Was
+die Platine an USB-Versorgung ohne Zelle liest, ist ebenfalls nicht
+gemessen, also kann eine Platine nur an USB das Schreiben ablehnen.
 
 <img src="img/am32-board-low.png" width="240" alt="BOARD VOLTAGE IS RED: NOT WRITTEN. mit CHARGE THE BOARD'S CELL, HOLD AGAIN. in Bernstein">
 

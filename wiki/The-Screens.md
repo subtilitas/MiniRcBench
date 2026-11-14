@@ -10,7 +10,7 @@ Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MEN
    ▲                    ├── SERVO TESTER ──BACK──> unplug page ──> MENU
    │                    ├── KST SERVO    ──BACK──> leave page ──> unplug page ──> MENU
    │                    ├── HITEC SERVO  ──BACK──> leave page ──> unplug page ──> MENU
-   │                    │   (on the family view and during the entry BACK goes to the unplug page)
+   │                    │   (on the family view once the pin is held, and during the entry, BACK goes to the unplug page)
    │                    ├── SETTINGS     ──BACK──> MENU
    │                    └── SD LOG       ──BACK──> MENU
    └──── BACK on MENU ──┘
