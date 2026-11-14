@@ -117,13 +117,22 @@ still to go, or `Failed`.
   only at `Idle`. At `Failed` it mounts the card again
   (`cardCacheRecover()`), forgets the first write, so the next write saves
   the backup again, and reads
-  `THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
-  BACK during the flush leaves the page; the write is not sent, and the flush
-  goes on.
+  `THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. TAP OK, WRITE AGAIN.`
+  BACK is drawn disabled while the page waits for the flush
+  ([menu-b.md](menu-b.md), decision 5). The wait ends when the flush ends:
+  the write goes out, and a servo unplugged meanwhile fails that operation,
+  after which KST searches again; the jobs notice a lost servo only when an
+  operation ends. It ends when the flush fails, with the note above under
+  OK. With the switched supply a stall of the screen also ends it: the
+  screen goes to Main, the write is not sent, the flush goes on, and the
+  next write opens on a tap and waits for its own hold. A block busy for
+  1 s (`SDH_BUSY_TIMEOUT_US`) ends the batch, so the wait lasts at most
+  about 1 s per block for up to 32 blocks (`SDC_QUEUE_BLOCKS`); Hitec may
+  wait for two batches, an earlier one and its own.
 - **Any failed batch on KST.** `Idle` after a recovery says only that the
-  queue is empty. A batch that fails off the write page, after BACK during
-  the flush, in SAVE AS or in a removal of the record, may have held the
-  backup, so every recovery forgets the first write. A write, a SAVE AS, a
+  queue is empty. A batch that fails off the write page, after a stall
+  during the flush, in SAVE AS or in a removal of the record, may have held
+  the backup, so every recovery forgets the first write. A write, a SAVE AS, a
   LOAD or the FILES page that finds the cache at `Failed` recovers first.
   The card mounted again may be another one, so LOAD then reads the list
   again, loads nothing and reads `CARD MOUNTED AGAIN: CHOOSE AGAIN`.
@@ -188,10 +197,10 @@ backup, mounts the card in the slot again (`cardCacheRecover()`):
   write runs under the no-card rule, the backup in memory
   ([backups.md](backups.md#am32-backup)).
 
-With a batch still queued, the first write's after BACK during its flush or
-a removal of the record, KST's write page waits for it as it waits for the
-backup, `SAVING THE BACKUP TO THE CARD.`, and runs the check as the flush
-ends, so a read that fails on the right card drops no half-written batch.
+With a batch still queued, the first write's after a stall during its
+flush, or a removal of the record, KST's write page waits for it as it waits
+for the backup, `SAVING THE BACKUP TO THE CARD.`, and runs the check as the
+flush ends, so a read that fails on the right card drops no half-written batch.
 The check after a flush runs only for such an earlier batch, not after the
 write's own backup, whose card was read as it was saved. The check costs one
 block read per write, plus the end of the block in flight (`sdc_settle()`),
@@ -274,18 +283,19 @@ recorded in this note.
   miss whose wait ends the batch; `sdc_settle()` ending the block in flight;
   a write error token; a changed serial number and a check that does not
   read; refusals with the cache off.
-- `test_kst_ui.cpp`: the claim turns the cache on and stops a running log;
-  no write frame while the flush runs; the page's count; the write after the
-  flush; a failed flush with no write frame and the card mounted again; the
-  next write saving the backup again; the claim's end turning the cache off;
-  BACK during the flush and a SAVE AS whose flush fails, then the backup
-  saved again; a batch failed before a write, recovered; BACK on the unplug
-  page turning the cache on again; another card's serial number before a
-  write, mounted again and the backup saved to it; a batch still queued,
-  the saving page and no write frame until it ends, then the same card with
-  no remount, or another card swapped in meanwhile and the backup saved to
-  it; LOAD after a failed batch, the list read again and nothing loaded
-  until a row is chosen.
+- `test_kst_ui.cpp`: the claim turns the cache on and stops a running log; no
+  write frame while the flush runs; the page's count; the write after the flush;
+  a failed flush with no write frame and the card mounted again; the next write
+  saving the backup again; the claim's end turning the cache off; BACK drawn
+  disabled during the flush, the write after it, and a SAVE AS whose flush
+  fails, then the backup saved again; a stall during the flush wait, then a
+  write that sends nothing until its own hold (also in `test_hitec_ui.cpp`); a
+  batch failed before a write, recovered; BACK on the unplug page turning the
+  cache on again; another card's serial number before a write, mounted again and
+  the backup saved to it; a batch still queued, the saving page and no write
+  frame until it ends, then the same card with no remount, or another card
+  swapped in meanwhile and the backup saved to it; LOAD after a failed batch,
+  the list read again and nothing loaded until a row is chosen.
 - `test_ui.cpp`: the AM32 write refused after a failed flush; another card,
   and a card that does not answer its serial read, before a later write: the
   backup saved again; a serial number unread after the backup, then the

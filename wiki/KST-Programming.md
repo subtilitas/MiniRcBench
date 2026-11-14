@@ -209,16 +209,17 @@ Two kinds of limit apply:
   and the editor bar shows the rule's text in amber, for example
   `WITHOUT SOFT START THE SERVO JUMPS AT POWER-ON.`
 
-Under the editor bar are three buttons, 46 px tall: `HOLD TO WRITE`
-(110 px), `REVERT` (52 px) and `FILES` (54 px). `HOLD TO WRITE` acts only when
+Under the editor bar are three buttons, 46 px tall: `WRITE...`
+(110 px), `REVERT` (52 px) and `FILES` (54 px). `WRITE...` acts only when
 something is pending, no hard limit is broken, and the servo is not in doubt.
 
 ---
 
 ## Writing
 
-**Hold `HOLD TO WRITE` for 1 s.** A bar fills while you hold. The write page
-opens and writes nothing.
+**Tap `WRITE...`.** The write page opens and writes nothing. Holding
+`WRITE...` does nothing more than a tap: the page opens when the finger
+lifts.
 
 <img src="img/kst-write.png" width="240" alt="The write page, 1 CHANGE"> <img src="img/kst-write-many.png" width="240" alt="The write page, 5 CHANGES, AND 1 MORE">
 
@@ -245,7 +246,9 @@ values from before the first write are in memory only, until a later write
 with a card mounted saves them; LEAVE, REBOOT or a power loss loses them.
 Without a card the write still goes through.
 
-**A second hold of 1 s writes.** Before the first frame of the session's
+**Hold the page's `HOLD TO WRITE` for 1 s to write.** A bar fills while you
+hold; the tap that opened the page does not count. Before the first frame of
+the session's
 first write with a card mounted, the image read at entry goes to the card as
 the backup `BACKUP/KSTnnn.TXT`, and the servo as it stands goes to the card as the record
 `KST/KST.TXT`. Later writes of the session save no backup and write no
@@ -258,43 +261,51 @@ go to the card while the screen keeps drawing. The page reads
 `SAVING THE BACKUP TO THE CARD.` and `BLOCKS LEFT: 12`, for example, and the
 servo is written only once the card holds both. A flush the card does not
 take stops the write:
-`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. TAP OK, WRITE AGAIN.`
 A flush fails when a block write fails or the card in the slot changed, not
 when the card is full: a full card ends in `THE CARD TOOK NO FILE` before
 anything is queued. Nothing went to the servo. The card is mounted again, and
-`OK` returns to the field list; the next `HOLD TO WRITE` saves the backup
-again and then writes.
+`OK` returns to the field list; the next write, `WRITE...` and its hold,
+saves the backup again and then writes.
+
+The wait for the card ends when the card holds the files, and the write goes
+out, or when the flush fails, and the page says so as above. A stall of the
+screen, with the switched supply, also ends it: the screen returns to its
+main view with `RETRY`, nothing is written, and the next write opens on a tap
+and waits for its own hold. A servo unplugged during the wait is noticed
+only when the write goes out, which then fails.
 
 <img src="img/kst-flush-failed.png" width="240" alt="The write page after a flush the card did not take">
 
 While the write runs, the page reads `WRITING: DO NOT UNPLUG.` and, under it,
-`PLANNING THE ORDER OF THE WRITES` or `FRAMES SENT: 94`. `BACK` during the
-write is queued: the page reads `LEAVING AFTER THE WRITE ENDS.` and the leave
-page follows the result.
+`PLANNING THE ORDER OF THE WRITES` or `FRAMES SENT: 94`. While the write runs,
+and while it waits for the card, `BACK` is grey and does nothing: no `BACK`
+leaves a servo half written. `BACK` before the hold, or under the result,
+returns to the field list.
 
 ### The BOARD voltage red
 
-While the BOARD voltage on the tester is red, below 3.30 V and until it rises
-to 3.35 V, the second hold writes nothing: no file goes to the card and no
-frame to the servo. The page reads, in amber,
-`BOARD VOLTAGE IS RED: NOT WRITTEN.` and
+While the BOARD voltage on the tester is red, below 3.30 V and until it rises to
+3.35 V, the page's hold writes nothing: no file goes to the card and no frame to
+the servo. The page reads, in amber, `BOARD VOLTAGE IS RED: NOT WRITTEN.` and
 `CHARGE THE BOARD'S CELL, HOLD AGAIN.`, and `HOLD TO WRITE` stays. The backup
 and the record are queued right after that check; the screen asks again just
-before its first frame goes out, after the card flush. A voltage that turns
-red during the flush stops the write too: the backup and the write's record
-may be on the card by then, and no frame goes out. A write already running is
-not stopped: cut off, it would leave the servo partly written and unverified,
-while one that finishes ends with its read-back. Amber, and a value below 2.50
-V (no cell to judge), refuse no write. `HOLD TO RESTORE` is refused the same
-way. The bands are a lithium-polymer cell's usual range, not measured on this
-board. What the board reads on USB power with no cell is not measured either,
-so a board on USB alone may refuse writes.
+before its first frame goes out, after the card flush. A voltage that turns red
+during the flush stops the write too: the backup and the write's record may be
+on the card by then, and no frame goes out. A write already running is not
+stopped: cut off, it would leave the servo partly written and unverified, while
+one that finishes ends with its read-back. Amber, and a value below 2.50 V (no
+cell to judge), refuse no write. The restore page's `HOLD TO RESTORE` is refused
+the same way. The bands are a lithium-polymer cell's usual range, not measured
+on this board. What the board reads on USB power with no cell is not measured
+either, so a board on USB alone may refuse writes.
 
 <img src="img/kst-board-low.png" width="240" alt="The write page with the BOARD voltage red: BOARD VOLTAGE IS RED: NOT WRITTEN. and CHARGE THE BOARD'S CELL, HOLD AGAIN. in amber">
 
 ### The result
 
-The result replaces the buttons with `OK`. `OK` returns to the field list.
+The result replaces the buttons with `OK`. `OK`, or `BACK`, returns to the
+field list.
 
 <img src="img/kst-result.png" width="240" alt="WRITE VERIFIED">
 
@@ -354,8 +365,8 @@ until a restore has run. Restore from [FILES](#files).
 | Button | What it does |
 |---|---|
 | `SAVE AS KST003` | Writes the servo as it stands into `KST/` under the next free name, one above the highest KSTnnn, and never over a file. The strip reads `SAVED AS KST003` in green. Once `KST/` holds 50 files the button does not act and the strip reads `KST/ HOLDS 50 FILES. REMOVE SOME.` There is no keyboard, so there is no other name |
-| `LOAD` | Holds the selected file against the servo (type, access classes, hard limits) and puts its values into the field list as pending changes. The write then goes through `HOLD TO WRITE` |
-| `HOLD TO RESTORE` | Hold 1 s. Writes the image read at entry back to the servo, through the restore page |
+| `LOAD` | Holds the selected file against the servo (type, access classes, hard limits) and puts its values into the field list as pending changes. The write then goes through `WRITE...` and the write page |
+| `RESTORE...` | A tap opens the restore page; its `HOLD TO RESTORE`, held 1 s, writes the image read at entry back to the servo |
 
 A refusal names its line, for example `LINE 14: NOT A VALUE OF DEAD BAND`.
 Other notes on the strip:
@@ -368,13 +379,17 @@ Other notes on the strip:
   LOAD mounted the card again and read the list again. The card may be
   another one. Nothing loads until a row is chosen again.
 
-`HOLD TO RESTORE` acts when the servo differs from the backup or is in doubt.
-The restore page is titled `KST RESTORE`. It reads
-`BACK TO THE SESSION'S BACKUP` and `4 REGISTERS DIFFER FROM THE BACKUP`,
-for example. It counts registers, LOCKED and unnamed ones included, because
-the restore writes them too. A restore that the planner did not check needs
-a second hold. The page then reads `THE PLANNER DID NOT CHECK THIS` and
-`RESTORE. HOLD AGAIN TO RUN IT.`
+`RESTORE...` acts when the servo differs from the backup or is in doubt.
+The restore page is titled `KST RESTORE`, and nothing is written until its
+`HOLD TO RESTORE` has been held for 1 s.
+
+<img src="img/kst-restore.png" width="240" alt="The restore page before the hold: BACK TO THE SESSION'S BACKUP and HOLD TO RESTORE">
+
+The page reads `BACK TO THE SESSION'S BACKUP` and
+`4 REGISTERS DIFFER FROM THE BACKUP`, for example. It counts registers,
+LOCKED and unnamed ones included, because the restore writes them too. A
+restore that the planner did not check needs a second hold. The page then
+reads `THE PLANNER DID NOT CHECK THIS` and `RESTORE. HOLD AGAIN TO RUN IT.`
 
 ### No card, a card held by USB, a card that takes no file
 
@@ -387,7 +402,7 @@ a second hold. The page then reads `THE PLANNER DID NOT CHECK THIS` and
 - **A card that takes no file.** A card that is mounted but takes neither the
   backup nor the record stops the write before any frame. The write page
   reads
-  `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+  `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.`
 
 The backups share one ring of 50 numbers with the backups of the AM32
 editor and the Hitec programmer, `BACKUP/KSTnnn.TXT`, `BACKUP/AMnnn.TXT` and
@@ -454,8 +469,8 @@ unplug page directly.
   Write again.
 - **The screen returns to the search.** The servo stopped answering. Power it
   up again.
-- **`IN DOUBT`.** Restore from FILES with `HOLD TO RESTORE`.
-- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`**
+- **`IN DOUBT`.** Restore from FILES: `RESTORE...`, then `HOLD TO RESTORE`.
+- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.`**
   Check the card, or take it out of USB use, then write again.
 
 ---

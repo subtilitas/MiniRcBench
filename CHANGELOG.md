@@ -603,6 +603,49 @@ protocol.
   `testLayoutTable()` in `test/test_ids.cpp`, `testAm32LayoutTable()` and
   checks in `test_menu.cpp`, `test_kst_ui.cpp`, `test_hitec_ui.cpp` and
   `test_hitec_view.cpp`.
+- After v0.1.0-rc1 (a93e1c1): the write rule and the BACK guard, slice 5 of
+  menu structure B ([menu-b.md](docs/design/menu-b.md#slice-5-as-built),
+  decisions 6, 7 and 13's AM32 titles):
+  - AM32 CONFIG, KST SERVO and HITEC SERVO write a device only from their
+    write page. The list's button reads `WRITE...` and opens the page on a
+    tap, in place of `HOLD TO WRITE` (and AM32's `NO CHANGES`); only the
+    page's HOLD TO WRITE, 1 s, writes. FILES' `HOLD TO RESTORE` is
+    `RESTORE...`, a tap that opens the restore page, whose HOLD TO RESTORE
+    restores; KST's restore no longer starts on the FILES hold itself.
+  - AM32 CONFIG gains `AM32 WRITE`: each change as label and `old -> new`,
+    at most 4 and then `AND n MORE`, the count on the strip, a backup line
+    (`BACKUP FIRST: BACKUP/AM001.TXT`, `BACKUP: BACKUP/AM001.TXT`, or in
+    amber `NO CARD: OLD VALUES LOST ON LEAVING` and
+    `USB DRIVE: OLD VALUES LOST ON LEAVING`), `WRITING: DO NOT UNPLUG.` and
+    the result from y 196, a result that is not verified in amber. The
+    editor bar names the value as read, `PWM FREQ  24KHZ ->`. The hex view
+    is titled `AM32 HEX` and its BACK returns to the list.
+  - BACK on AM32 CONFIG's list with edits not written, and on SERVO SET
+    with a change waiting for HOLD TO APPLY, arms a guard: two amber lines,
+    `2 CHANGES NOT WRITTEN.` / `BACK AGAIN DISCARDS THEM.` or
+    `1 CHANGE NOT APPLIED.` / `BACK AGAIN DISCARDS IT.`; a second BACK
+    drops the changes, any other press disarms it.
+  - BACK on the KST, Hitec and AM32 write pages is drawn disabled and does
+    nothing while the write runs or waits for the card's flush; the leave
+    queued by BACK during a KST or Hitec write, and its
+    `LEAVING AFTER THE WRITE ENDS.`, are gone.
+  - AM32 WRITE writes what it shows: settings changed under the page are
+    refused, `CHANGED SINCE THE PAGE: NOT WRITTEN`, and a page that lists no
+    change draws HOLD TO WRITE disabled; no path through the screen reaches
+    either.
+  - The next steps under OK name the current steps: AM32's red BOARD
+    voltage reads `CHARGE THE CELL. TAP OK, WRITE AGAIN.` in place of
+    `CHARGE THE BOARD'S CELL, HOLD AGAIN.`; KST's and Hitec's failed
+    flushes end `TAP OK, WRITE AGAIN.` and a card that took no file
+    `CHECK THE CARD, TAP OK, WRITE AGAIN.`, in place of
+    `CHECK THE CARD, HOLD AGAIN.`; KST's stalled screen in doubt reads
+    `... LOAD KST003 IN FILES, TAP WRITE... AND HOLD.`
+  `Am32Ctl::WriteHold`, `am32BackupNext()`; host tests
+  `testAm32WritePage()`, `testAm32PageWritesWhatItShows()`,
+  `testAm32Guard()` in `test/test_ui.cpp`, `testSetGuard()` in
+  `test/test_servo.cpp`, `testFlushWaitEndsWithThePage()` and checks in
+  `test/test_kst_ui.cpp` and `test/test_hitec_ui.cpp`; the wiki shows
+  `am32-write.png`, `am32-discard.png` and `kst-restore.png`.
 - After v0.1.0-rc1 (a93e1c1): names and SETTINGS of menu structure B, slice 3
   of [menu-b.md](docs/design/menu-b.md) (decisions 9, 10 and 15 b, e, f, h,
   j, k):

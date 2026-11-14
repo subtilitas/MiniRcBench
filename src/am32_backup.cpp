@@ -5,6 +5,7 @@
 
 #include "am32_backup.h"
 #include "am32_eeprom.h"
+#include "card_dir.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -85,4 +86,15 @@ BackupResult am32BackupSave(const uint8_t *settings, const char *escType, uint16
 	size_t n = am32BackupFormat(settings, escType, address, text, sizeof(text));
 	if (n == 0) return BackupResult::WriteError;
 	return backupSave(BackupDevice::Am32, text, n, name);
+}
+
+BackupResult am32BackupNext(char *name) {
+	name[0] = '\0';
+	if (!cardMounted()) return BackupResult::NoCard;
+	CardDirScope in(BACKUP_DIR);
+	BackupNames k;
+	BackupResult r = backupNames(&k);
+	if (r != BackupResult::Ok) return r;
+	backupName(BackupDevice::Am32, backupNext(&k), name);
+	return BackupResult::Ok;
 }

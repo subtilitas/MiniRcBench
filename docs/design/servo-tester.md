@@ -322,7 +322,13 @@ y   0 | SERVO SET                        [ BACK ]|
   So is a TYPE, MIN or MAX change that takes the profile further past its
   travel (below, decision 21). Every other change applies at once while
   nothing is pending, and joins a pending change otherwise. BACK drops a
-  pending change (decision 11).
+  pending change (decision 11) through the BACK guard of
+  [menu-b.md](menu-b.md) decision 7: the first BACK keeps SET and draws
+  `1 CHANGE NOT APPLIED.` / `BACK AGAIN DISCARDS IT.` in `C_AMBER` on the
+  note band, counting the rows in `C_CYAN` (`2 CHANGES NOT APPLIED.` /
+  `BACK AGAIN DISCARDS THEM.`); the second returns to SERVO and drops it; a
+  press elsewhere disarms the guard. With nothing pending BACK returns at
+  once.
 - SERVOS TWO is drawn disabled when the claim refuses AUX: KISS live or SIG
   and AUX on one GPIO. With the SERVOS row selected, the note band shows the
   screen texts of the pin-claim design
@@ -612,7 +618,9 @@ code needed a rule it did not give:
     finger.
 11. **The warning.** Only a TYPE or RATE change whose result needs it waits
     for HOLD TO APPLY; a MIN change under an applied heli profile applies at
-    once. BACK from SET drops a pending change. DEFAULTS is offered only
+    once. BACK from SET drops a pending change, the second BACK after the
+    guard's warning (revised by decision 7 of [menu-b.md](menu-b.md), built
+    in its slice 5). DEFAULTS is offered only
     while SAFE; decision 16 puts STOP in its place while RUNNING.
 12. **SWEEP steps.** RATE 0.05 Hz, AMPLITUDE 5 %, DWELL 100 ms, MOVES 1; a
     swipe step is 10 of them.

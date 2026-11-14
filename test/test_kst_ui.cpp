@@ -215,6 +215,12 @@ static bool holdUntilGone(UiControlId id) {
 	return gone;
 }
 
+/** @brief Tap @p id; true when it left the screen. */
+static bool tapUntilGone(UiControlId id) {
+	tapId(id);
+	return !ctlPresent(id);
+}
+
 /** @brief From any view: leave, restart DShot, back to the tester. */
 static void leaveAll() {
 	for (int i = 0; i < 8 && uiCurrentScreen() == UiScreenId::Kst; i++) {
@@ -303,19 +309,27 @@ static void testEditAndWrite() {
 	kstFrames(1);
 	fakeDumpFrame("shot_kst_edit.ppm");
 
-	// HOLD TO WRITE: not after 30 frames, 750 ms; not on a slide off.
+	// WRITE...: a tap on release opens the write page; a press held 1500 ms
+	// does nothing until it lifts, and a slide off opens nothing.
 	int x, y;
 	ctlCentre(UI_FIX(KstCtl::Write), &x, &y);
+	checkTrue("the list's button reads WRITE...",
+	          fakeTextIs(6 + (110 - gfxTextW("WRITE...", 1)) / 2, 268 + (46 - 7) / 2, "WRITE...", C_TEXT,
+	                     C_PANEL, 1));
 	fakePress(x, y);
 	kstFrame();
-	for (int i = 0; i < 30; i++) { fakeHold(x, y); kstFrame(); }
-	checkTrue("750 ms of hold: still the list", uiKstView() == KstView::List);
+	for (int i = 0; i < 60; i++) { fakeHold(x, y); kstFrame(); }
+	checkTrue("1500 ms of press: still the list", uiKstView() == KstView::List);
 	for (int i = 0; i < 20; i++) { fakeHold(x, y - 60); kstFrame(); }
 	fakeRelease();
 	kstFrame();
 	checkTrue("a slide off: no write page", uiKstView() == KstView::List);
-	checkTrue("a hold of 1000 ms: the write page", holdUntilGone(UI_FIX(KstCtl::Write)) &&
-	                                              uiKstView() == KstView::Write);
+	checkTrue("a tap: the write page", tapUntilGone(UI_FIX(KstCtl::Write)) &&
+	                                    uiKstView() == KstView::Write);
+	kstFrames(60);
+	checkTrue("the tap's press is not timed: 1500 ms on, HOLD TO WRITE still waits",
+	          uiKstView() == KstView::Write && ctlEnabled(UI_FIX(KstCtl::WriteHold)) &&
+	          simField(KST_F_DEAD_BAND) == deadBand);
 	checkControlTable("KST write page");
 	kstFrames(1);
 	checkTrue("the strip counts 1 CHANGE, the leave page's word",
@@ -360,7 +374,7 @@ static void testEditAndWrite() {
 	selectField(KST_F_DEAD_BAND);
 	checkTrue("another field, same changes: its + acts", ctlEnabled(UI_FIX(KstCtl::EditPlus)));
 	selectField(KST_F_DUTY);
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	untilCtl(UI_FIX(KstCtl::WriteOk), 400);
 	checkInt("the servo holds 98 %, raw 250, and no more", simField(KST_F_DUTY), KST_DUTY_RAW_MAX);
@@ -454,7 +468,7 @@ static void testLockedAndRestore() {
 	sim_add_fault(sim, SIM_WRITE, 0x03, 0, 1, SIM_F_WRITE_ALSO, 0x13);
 	selectField(KST_F_BOOST);
 	tapId(UI_FIX(KstCtl::EditMinus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	checkTrue("the result comes", untilCtl(UI_FIX(KstCtl::WriteOk), 400));
 	checkTrue("in doubt: locked", job().locked && job().result == KST_SES_ERR_VERIFY);
@@ -468,9 +482,19 @@ static void testLockedAndRestore() {
 	                                                         !ctlEnabled(UI_FIX(KstCtl::Write)));
 	tapId(UI_FIX(KstCtl::Revert));
 	tapId(UI_FIX(KstCtl::Files));
-	checkTrue("HOLD TO RESTORE acts", ctlEnabled(UI_FIX(KstCtl::Restore)));
-	checkTrue("the hold runs the restore", holdUntilGone(UI_FIX(KstCtl::Restore)) &&
-	                                      uiKstView() == KstView::Write);
+	checkTrue("RESTORE... acts", ctlEnabled(UI_FIX(KstCtl::Restore)));
+	checkTrue("the restore button reads RESTORE...",
+	          fakeTextIs(122 + (112 - gfxTextW("RESTORE...", 1)) / 2, ctlRect(UI_FIX(KstCtl::Restore)).y +
+	                     (ctlRect(UI_FIX(KstCtl::Restore)).h - 7) / 2, "RESTORE...", C_TEXT, C_PANEL, 1));
+	checkTrue("a tap opens the restore page", tapUntilGone(UI_FIX(KstCtl::Restore)) &&
+	                                         uiKstView() == KstView::Write);
+	kstFrames(60);
+	checkTrue("it restores nothing until its hold: HOLD TO RESTORE waits",
+	          ctlEnabled(UI_FIX(KstCtl::WriteHold)) && job().locked &&
+	          lineIs(UI_STRIP_Y + 4, "BACK TO THE SESSION'S BACKUP", C_DIM));
+	kstFrames(1);
+	fakeDumpFrame("shot_kst_restore.ppm");
+	checkTrue("the hold runs the restore", holdUntilGone(UI_FIX(KstCtl::WriteHold)));
 	for (int i = 0; i < 400 && !ctlPresent(UI_FIX(KstCtl::WriteOk)) &&
 	                !ctlPresent(UI_FIX(KstCtl::WriteHold)); i++)
 		kstFrame();
@@ -508,15 +532,27 @@ static void testLeaveAndBack() {
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK on the leave page: the list", uiKstView() == KstView::List);
 
-	// BACK during a write is queued: the leave page follows the result.
+	// BACK during a write is drawn disabled and does nothing: no leave is
+	// queued, and the result follows on the page.
 	selectField(KST_F_DEAD_BAND);
 	tapId(UI_FIX(KstCtl::EditPlus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
+	checkTrue("BACK live on the write page before the hold",
+	          ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Live);
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
-	tapId(UI_FIX(UI_BACK));
+	checkTrue("the write runs: BACK disabled, and drawn so", uiKstView() == KstView::Write &&
+	          !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
+	checkControlTable("KST write page, writing");
+	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
 	checkTrue("BACK during the write: the page stays", uiKstView() == KstView::Write);
-	checkTrue("the leave page after the result", untilView(KstView::Leave, 400));
+	checkTrue("the result follows on the page, no leave page",
+	          untilCtl(UI_FIX(KstCtl::WriteOk), 400) && uiKstView() == KstView::Write);
 	checkTrue("the write ended verified", job().result == KST_SES_OK);
+	checkTrue("BACK live again under the result", ctlEnabled(UI_FIX(UI_BACK)));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK with the result: the list", uiKstView() == KstView::List);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK there: the leave page", uiKstView() == KstView::Leave);
 	tapId(UI_FIX(KstCtl::Leave));
 	checkTrue("LEAVE: the unplug page", uiKstView() == KstView::Unplug);
 	checkTrue("after 100 ms of low line the pin is let go", untilCtl(UI_FIX(KstCtl::Restart), 200) &&
@@ -538,7 +574,7 @@ static void testLossAndCard() {
 	sim->in_mode = false;
 	selectField(KST_F_DEAD_BAND);
 	tapId(UI_FIX(KstCtl::EditPlus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	checkTrue("the servo gone: the search again", untilView(KstView::Main, 400) &&
 	                                              untilCtl(UI_FIX(KstCtl::StopSearch), 200));
@@ -552,7 +588,7 @@ static void testLossAndCard() {
 	unsigned writes = fakeKstSim()->n_writes;
 	selectField(KST_F_DEAD_BAND);
 	tapId(UI_FIX(KstCtl::EditPlus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	checkTrue("no card: the write runs", untilCtl(UI_FIX(KstCtl::WriteOk), 400) &&
 	                                     job().result == KST_SES_OK &&
@@ -576,7 +612,7 @@ static void testLossAndCard() {
 	writes = fakeKstSim()->n_writes;
 	selectField(KST_F_DEAD_BAND);
 	tapId(UI_FIX(KstCtl::EditPlus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	checkTrue("the card took no file: OK, no write", ctlPresent(UI_FIX(KstCtl::WriteOk)) &&
 	                                                 fakeKstSim()->n_writes == writes);
@@ -622,7 +658,7 @@ static void testReadOnlyAndRecord() {
 	fakeKstSim()->in_mode = false;
 	selectField(KST_F_BOOST);
 	tapId(UI_FIX(KstCtl::EditMinus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	checkTrue("the servo lost: the search", untilView(KstView::Main, 400) &&
 	                                       untilCtl(UI_FIX(KstCtl::StopSearch), 200));
@@ -768,7 +804,7 @@ static void testManyChangesAndLeave() {
 		selectField(x);
 		tapId(UI_FIX(ctlEnabled(UI_FIX(KstCtl::EditMinus)) ? KstCtl::EditMinus : KstCtl::EditPlus));
 	}
-	checkTrue("a hold opens the write page", holdUntilGone(UI_FIX(KstCtl::Write)) &&
+	checkTrue("a hold opens the write page", tapUntilGone(UI_FIX(KstCtl::Write)) &&
 	                                        uiKstView() == KstView::Write);
 	kstFrames(1);
 	checkTrue("the strip counts 5 CHANGES", fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "5 CHANGES", C_DIM, C_BG, 1));
@@ -787,7 +823,7 @@ static void testManyChangesAndLeave() {
 	sim_add_fault(fakeKstSim(), SIM_WRITE, 0x03, 0, 1, SIM_F_WRITE_ALSO, 0x13);
 	selectField(KST_F_BOOST);
 	tapId(UI_FIX(KstCtl::EditMinus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	untilCtl(UI_FIX(KstCtl::WriteOk), 400);
 	tapId(UI_FIX(KstCtl::WriteOk));
@@ -803,7 +839,7 @@ static void testManyChangesAndLeave() {
 static void writeDeadBand() {
 	selectField(KST_F_DEAD_BAND);
 	tapId(UI_FIX(KstCtl::EditPlus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	untilCtl(UI_FIX(KstCtl::WriteOk), 400);
 }
@@ -817,7 +853,7 @@ static void testSecondServoAndLateCard() {
 	sim_add_fault(sim, SIM_WRITE, 0x03, 0, 1, SIM_F_WRITE_ALSO, 0x13);
 	selectField(KST_F_BOOST);
 	tapId(UI_FIX(KstCtl::EditMinus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	untilCtl(UI_FIX(KstCtl::WriteOk), 400);
 	checkTrue("the first servo in doubt", job().locked && fakeFatExists("BACKUP/KST001.TXT") &&
@@ -830,7 +866,8 @@ static void testSecondServoAndLateCard() {
 	sim->in_mode = false;
 	sim->n_faults = 0;
 	tapId(UI_FIX(KstCtl::Files));
-	holdUntilGone(UI_FIX(KstCtl::Restore));
+	tapUntilGone(UI_FIX(KstCtl::Restore));
+	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	checkTrue("the first servo lost during the restore: the search", untilView(KstView::Main, 400));
 	checkTrue("the interrupted write is named", fakeCountColour(C_AMBER) > 0);
 	kst_image_t second = sim_bench_image();
@@ -866,7 +903,7 @@ static void testSecondServoAndLateCard() {
 	tapId(UI_FIX(KstCtl::WriteOk));
 	selectField(KST_F_BOOST);
 	tapId(UI_FIX(KstCtl::EditMinus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	kstFrames(1);
 	checkTrue("still no card: the old values lost at LEAVE, amber",
 	          lineIs(236, "NO CARD: OLD VALUES LOST AT LEAVE", C_AMBER));
@@ -902,7 +939,7 @@ static void testSecondServoAndLateCard() {
 }
 
 static void testAbortQueueAndLapse() {
-	section("KST screen: BACK during the read, a queued leave once, a loss with the heartbeat lapsed");
+	section("KST screen: BACK during the read, BACK during a write, a loss with the heartbeat lapsed");
 	freshKst(false);
 	openKst();
 	untilCtl(UI_FIX(KstCtl::StopSearch), 40);
@@ -918,14 +955,16 @@ static void testAbortQueueAndLapse() {
 	tapId(UI_FIX(KstCtl::ReadAgain));
 	checkTrue("it reads", untilView(KstView::List, 400));
 
-	// A leave queued during one write does not follow the next.
+	// BACK during a write queues nothing: the result stays up, and the
+	// next write shows its own.
 	selectField(KST_F_DEAD_BAND);
 	tapId(UI_FIX(KstCtl::EditPlus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
-	tapId(UI_FIX(UI_BACK));
-	checkTrue("the queued leave follows the result", untilView(KstView::Leave, 400));
-	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
+	checkTrue("BACK during the write: the result on the page, no leave page",
+	          untilCtl(UI_FIX(KstCtl::WriteOk), 400) && uiKstView() == KstView::Write);
+	tapId(UI_FIX(KstCtl::WriteOk));
 	writeDeadBand();
 	checkTrue("the next write shows its result", uiKstView() == KstView::Write &&
 	                                            ctlPresent(UI_FIX(KstCtl::WriteOk)));
@@ -935,7 +974,7 @@ static void testAbortQueueAndLapse() {
 	sim_t *sim = fakeKstSim();
 	selectField(KST_F_DEAD_BAND);
 	tapId(UI_FIX(KstCtl::EditPlus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	sim->powered = false;
 	sim->in_mode = false;
@@ -1006,7 +1045,7 @@ static void testSlowCard() {
 	sim->in_mode = false;
 	selectField(KST_F_DEAD_BAND);
 	tapId(UI_FIX(KstCtl::EditPlus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	checkTrue("the first servo lost", untilView(KstView::Main, 400));
 	kst_image_t second = sim_bench_image();
@@ -1081,7 +1120,7 @@ static void testRefusedOps() {
 	// The write's hold fires, then core0 stalls 300 ms before core1 takes it.
 	selectField(KST_F_DEAD_BAND);
 	tapId(UI_FIX(KstCtl::EditPlus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	unsigned writes = fakeKstSim()->n_writes;
 	int x, y;
 	ctlCentre(UI_FIX(KstCtl::WriteHold), &x, &y);
@@ -1123,7 +1162,7 @@ static void testRecordKeptAtLeave() {
 	sim_t *sim = fakeKstSim();
 	selectField(KST_F_DEAD_BAND);
 	tapId(UI_FIX(KstCtl::EditPlus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	sim->powered = false;
 	sim->in_mode = false;
@@ -1162,7 +1201,7 @@ static void testRecordKeptAtLeave() {
 	fakeFatFail(FakeFatCall::Write, FR_DISK_ERR, 1);
 	selectField(KST_F_DEAD_BAND);
 	tapId(UI_FIX(KstCtl::EditPlus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	checkTrue("the card took no file", ctlPresent(UI_FIX(KstCtl::WriteOk)) &&
 	                                   !fakeFatExists("BACKUP/KST001.TXT"));
@@ -1194,7 +1233,7 @@ static void testRecordKeptAtLeave() {
 	checkTrue("a full card: to the field list", toList());
 	selectField(KST_F_DEAD_BAND);
 	tapId(UI_FIX(KstCtl::EditPlus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	checkTrue("the card took no file, the record moved",
 	          ctlPresent(UI_FIX(KstCtl::WriteOk)) && !fakeFatExists("KST/KST.TXT") &&
@@ -1202,7 +1241,7 @@ static void testRecordKeptAtLeave() {
 	checkTrue("the page says why, that the servo is unchanged, and what next",
 	          lineIs(196, "THE CARD TOOK NO FILE (FULL OR", C_AMBER) &&
 	          lineIs(208, "REMOVED?). NOTHING WENT TO THE SERVO.", C_AMBER) &&
-	          lineIs(220, "CHECK THE CARD, HOLD AGAIN.", C_AMBER));
+	          lineIs(220, "CHECK THE CARD, TAP OK, WRITE AGAIN.", C_AMBER));
 	tapId(UI_FIX(KstCtl::WriteOk));
 	unplugAndBack();
 	checkTrue("the next session: no interrupted write named", amberBesideHeadline() == 0);
@@ -1229,7 +1268,7 @@ static void testFlushWait() {
 	sim_t *sim = fakeKstSim();
 	selectField(KST_F_DEAD_BAND);
 	tapId(UI_FIX(KstCtl::EditMinus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	fakeCacheSet(CardCache::Flushing, 12);
 	unsigned writes = sim->n_writes;
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
@@ -1257,7 +1296,7 @@ static void testFlushWait() {
 	checkTrue("again to the field list", toList());
 	selectField(KST_F_DEAD_BAND);
 	tapId(UI_FIX(KstCtl::EditMinus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	fakeCacheSet(CardCache::Flushing, 12);
 	writes = sim->n_writes;
 	unsigned recovers = fakeCacheCalls().recovers;
@@ -1271,10 +1310,10 @@ static void testFlushWait() {
 	          ctlPresent(UI_FIX(KstCtl::WriteOk)) &&
 	          lineIs(196, "THE CARD DID NOT TAKE THE BACKUP", C_AMBER) &&
 	          lineIs(208, "(REMOVED OR SWAPPED?). NOTHING WENT TO", C_AMBER) &&
-	          lineIs(220, "THE SERVO. CHECK THE CARD, HOLD AGAIN.", C_AMBER));
+	          lineIs(220, "THE SERVO. TAP OK, WRITE AGAIN.", C_AMBER));
 	fakeDumpFrame("shot_kst_flush_failed.ppm");
 	tapId(UI_FIX(KstCtl::WriteOk));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	kstFrames(1);
 	// The fake card kept the files the fake cache failed to flush: the
 	// next number comes from them.
@@ -1292,20 +1331,30 @@ static void testFlushWait() {
 	tapId(UI_FIX(KstCtl::WriteOk));
 	leaveAll();
 
-	// BACK during the flush, then a SAVE AS whose flush fails: the batch held
-	// the backup too, so the first write starts over.
+	// BACK during the flush is drawn disabled and does nothing: the page
+	// waits for the card, then writes. Then a SAVE AS whose flush fails: the
+	// card is mounted again, and the first write starts over.
 	freshKst();
 	checkTrue("a third time to the field list", toList());
 	selectField(KST_F_DEAD_BAND);
 	tapId(UI_FIX(KstCtl::EditMinus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	fakeCacheSet(CardCache::Flushing, 12);
 	writes = sim->n_writes;
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	kstFrames(2);
-	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK during the flush: the list, no write frame",
-	          uiKstView() == KstView::List && sim->n_writes == writes);
+	checkTrue("BACK during the flush: disabled, and drawn so", uiKstView() == KstView::Write &&
+	          !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
+	checkControlTable("KST write page, waiting for the flush");
+	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
+	checkTrue("a tap on it: the page waits, no write frame", uiKstView() == KstView::Write &&
+	          sim->n_writes == writes && lineIs(196, "SAVING THE BACKUP TO THE CARD.", C_AMBER));
+	fakeCacheSet(CardCache::Idle, 0);
+	checkTrue("the flush ends: the write runs and verifies", untilCtl(UI_FIX(KstCtl::WriteOk), 800) &&
+	          sim->n_writes > writes && job().result == KST_SES_OK);
+	tapId(UI_FIX(KstCtl::WriteOk));
+	selectField(KST_F_DEAD_BAND);
+	tapId(UI_FIX(KstCtl::EditPlus));
 	tapId(UI_FIX(KstCtl::Files));
 	fakeCacheFlushTo(CardCache::Failed);
 	recovers = fakeCacheCalls().recovers;
@@ -1315,7 +1364,7 @@ static void testFlushWait() {
 	          fakeCacheCalls().recovers == recovers + 1 && cardCacheState() == CardCache::Idle);
 	fakeCacheFlushTo(CardCache::Idle);
 	tapId(UI_FIX(UI_BACK));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	kstFrames(1);
 	kstFilesNextBackup(next);
 	snprintf(want, sizeof(want), "BACKUP FIRST: BACKUP/%s", next);
@@ -1327,7 +1376,7 @@ static void testFlushWait() {
 	fakeCacheSet(CardCache::Failed, 0);
 	recovers = fakeCacheCalls().recovers;
 	writes = sim->n_writes;
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	checkTrue("a failed batch before the write: recovered, the write runs",
 	          untilCtl(UI_FIX(KstCtl::WriteOk), 400) && fakeCacheCalls().recovers == recovers + 1 &&
@@ -1341,7 +1390,7 @@ static void testFlushWait() {
 	kstFilesNextBackup(next);
 	writes = sim->n_writes;
 	tapId(UI_FIX(KstCtl::EditPlus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	char path[CARD_PATH_MAX];
 	snprintf(path, sizeof(path), "BACKUP/%s", next);
@@ -1356,7 +1405,7 @@ static void testFlushWait() {
 	kstFilesNextBackup(next);
 	writes = sim->n_writes;
 	tapId(UI_FIX(KstCtl::EditMinus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	kstFrames(3);
 	checkTrue("a batch still queued: the saving page, no write frame",
@@ -1374,7 +1423,7 @@ static void testFlushWait() {
 	recovers = fakeCacheCalls().recovers;
 	kstFilesNextBackup(next);
 	tapId(UI_FIX(KstCtl::EditPlus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	kstFrames(2);
 	fakeVolumeSet(3);
@@ -1392,7 +1441,7 @@ static void testFlushWait() {
 	kstFilesNextBackup(next);
 	writes = sim->n_writes;
 	tapId(UI_FIX(KstCtl::EditMinus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	checkTrue("a serial that never reads: one remount, one backup, the write",
 	          untilCtl(UI_FIX(KstCtl::WriteOk), 400) && fakeCacheCalls().recovers == recovers + 1 &&
@@ -1409,7 +1458,7 @@ static void testFlushWait() {
 	fakeCacheSet(CardCache::Flushing, 2);
 	writes = sim->n_writes;
 	tapId(UI_FIX(KstCtl::EditPlus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	kstFrames(2);
 	fakeCacheSet(CardCache::Failed, 0);
@@ -1418,7 +1467,7 @@ static void testFlushWait() {
 	          ctlPresent(UI_FIX(KstCtl::WriteOk)) && sim->n_writes == writes &&
 	          lineIs(196, "THE CARD DID NOT TAKE A FILE (REMOVED", C_AMBER) &&
 	          lineIs(208, "OR SWAPPED?). NOTHING WENT TO THE", C_AMBER) &&
-	          lineIs(220, "SERVO. CHECK THE CARD, HOLD AGAIN.", C_AMBER));
+	          lineIs(220, "SERVO. TAP OK, WRITE AGAIN.", C_AMBER));
 	tapId(UI_FIX(KstCtl::WriteOk));
 
 	// LOAD after a batch failed in the background: the card is mounted
@@ -1434,7 +1483,8 @@ static void testFlushWait() {
 	tapId(UI_ROW(0, Row));
 	tapId(UI_FIX(KstCtl::Load));
 	checkTrue("the row chosen again: it loads", uiKstView() == KstView::List);
-	tapId(UI_FIX(KstCtl::Revert));
+	// The file may equal the servo as it stands: then nothing is pending.
+	tapId(UI_FIX(KstCtl::Revert), IdExpect::Any);
 
 	// FILES after a batch failed in the background: mounted again first,
 	// since the failed cache refuses every read.
@@ -1566,6 +1616,89 @@ static void testSwitchedSupply() {
 }
 
 /**
+ * @brief A write that waits for the card's flush ends with its page: a stall
+ *        while it waits takes the screen to Main, and the next write opens
+ *        on a tap and sends nothing until its own hold, whatever the card
+ *        does meanwhile.
+ */
+static bool anyLine(const char *text, uint16_t col);
+
+static void testFlushWaitEndsWithThePage() {
+	section("KST screen: a stall during the flush wait; the next write needs its hold");
+	fakeCacheReset();
+	freshKst(false);
+	settings()->servoSupply = 1;
+	servoSupplyConfigure(1);
+	supplySimInit(&g_sup, fakeKstSim(), time_us_32());
+	g_supOn = true;
+	SdLogStatus logging;
+	memset(&logging, 0, sizeof(logging));
+	logging.state = SdLogState::Logging;
+	fakeSdLogSet(&logging);
+	openKst();
+	checkTrue("the switched servo read: the field list", untilView(KstView::List, 400));
+	sim_t *sim = fakeKstSim();
+	selectField(KST_F_DEAD_BAND);
+	tapId(UI_FIX(KstCtl::EditMinus));
+	tapUntilGone(UI_FIX(KstCtl::Write));
+	fakeCacheSet(CardCache::Flushing, 12);
+	unsigned writes = sim->n_writes;
+	holdUntilGone(UI_FIX(KstCtl::WriteHold));
+	kstFrames(2);
+	checkTrue("the hold waits for the flush: no write frame",
+	          uiKstView() == KstView::Write && sim->n_writes == writes &&
+	          lineIs(196, "SAVING THE BACKUP TO THE CARD.", C_AMBER));
+	// The UI stops for 400 ms: the heartbeat lapses and the job switches the
+	// servo off. The card still flushes.
+	for (int i = 0; i < 400; i++) core1Pass();
+	kstFrames(2);
+	checkTrue("a stall during the wait: Main with RETRY, no write frame",
+	          uiKstView() == KstView::Main && ctlEnabled(UI_FIX(KstCtl::Retry)) &&
+	          sim->n_writes == writes);
+	tapId(UI_FIX(KstCtl::Retry));
+	checkTrue("RETRY reads the servo again", untilView(KstView::List, 400));
+	selectField(KST_F_DEAD_BAND);
+	tapId(UI_FIX(KstCtl::EditPlus));
+	writes = sim->n_writes;
+	checkTrue("a tap on WRITE...: the write page", tapUntilGone(UI_FIX(KstCtl::Write)) &&
+	          uiKstView() == KstView::Write);
+	fakeCacheSet(CardCache::Idle, 0);
+	kstFrames(40);
+	checkTrue("the card idle: no write frame without the page's hold, HOLD TO WRITE waits",
+	          sim->n_writes == writes && ctlEnabled(UI_FIX(KstCtl::WriteHold)) &&
+	          !ctlPresent(UI_FIX(KstCtl::WriteOk)));
+	holdUntilGone(UI_FIX(KstCtl::WriteHold));
+	checkTrue("the hold writes, and the write verifies", untilCtl(UI_FIX(KstCtl::WriteOk), 800) &&
+	          sim->n_writes > writes && job().result == KST_SES_OK);
+	tapId(UI_FIX(KstCtl::WriteOk));
+
+	// A write left in doubt, then a stall: the stalled screen names the
+	// steps that restore the servo, the backup by name. The session after
+	// RETRY saved its backup as KST003, after the record that took KST002.
+	sim_add_fault(sim, SIM_WRITE, 0x03, 0, 1, SIM_F_WRITE_ALSO, 0x13);
+	selectField(KST_F_BOOST);
+	tapId(UI_FIX(KstCtl::EditMinus));
+	tapUntilGone(UI_FIX(KstCtl::Write));
+	holdUntilGone(UI_FIX(KstCtl::WriteHold));
+	checkTrue("the write ends in doubt", untilCtl(UI_FIX(KstCtl::WriteOk), 800) && job().locked);
+	tapId(UI_FIX(KstCtl::WriteOk));
+	for (int i = 0; i < 400; i++) core1Pass();
+	kstFrames(2);
+	checkTrue("a stall in doubt: LOAD the backup in FILES, then WRITE... and the hold",
+	          uiKstView() == KstView::Main &&
+	          anyLine("THE LAST WRITE IS IN DOUBT. AFTER THE", C_AMBER) &&
+	          anyLine("READ, LOAD KST003 IN FILES, TAP", C_AMBER) &&
+	          anyLine("WRITE... AND HOLD.", C_AMBER));
+	sim->n_faults = 0;
+	leaveAll();
+	g_supOn = false;
+	servoSupplyConfigure(0);
+	settings()->servoSupply = 0;
+	fakeCacheReset();
+	card();
+}
+
+/**
  * @brief With CURRENT SENSE at INA219, the strip reads the current after
  *        SUPPLY ON; with NONE it does not.
  */
@@ -1672,7 +1805,7 @@ static void testCardPhase() {
 	fakeFatOnCall(unstampedSlowCall);
 	selectField(KST_F_DEAD_BAND);
 	tapId(UI_FIX(KstCtl::EditPlus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	fakeFatOnCall(nullptr);
 	kstFrames(10);
 	checkTrue("300 ms card calls that do not stamp: the supply switched off",
@@ -1770,7 +1903,7 @@ static void testBoardLow() {
 	uint16_t deadBand = simField(KST_F_DEAD_BAND);
 	selectField(KST_F_DEAD_BAND);
 	tapId(UI_FIX(KstCtl::EditPlus));
-	checkTrue("the write page", holdUntilGone(UI_FIX(KstCtl::Write)) && uiKstView() == KstView::Write);
+	checkTrue("the write page", tapUntilGone(UI_FIX(KstCtl::Write)) && uiKstView() == KstView::Write);
 	boardVolts(3.20f);
 	checkTrue("3.20 V: red", uiBoardCellNow() == BoardCell::Critical);
 	unsigned writes = fakeKstSim()->n_writes;
@@ -1789,7 +1922,7 @@ static void testBoardLow() {
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK: the field list", uiKstView() == KstView::List);
 	checkTrue("the write page again: no refusal lines before a hold",
-	          holdUntilGone(UI_FIX(KstCtl::Write)) && uiKstView() == KstView::Write &&
+	          tapUntilGone(UI_FIX(KstCtl::Write)) && uiKstView() == KstView::Write &&
 	          !lineIs(196, UI_BOARD_LOW_1, C_AMBER) && !lineIs(208, UI_BOARD_LOW_2, C_AMBER));
 
 	// Amber, no cell to judge, the text colour: each writes.
@@ -1803,7 +1936,7 @@ static void testBoardLow() {
 		if (k > 0) {
 			selectField(KST_F_DEAD_BAND);
 			tapId(UI_FIX(KstCtl::EditPlus));
-			holdUntilGone(UI_FIX(KstCtl::Write));
+			tapUntilGone(UI_FIX(KstCtl::Write));
 		}
 		checkTrue(what[k], uiBoardCellNow() == band[k] && holdUntilGone(UI_FIX(KstCtl::WriteHold)) &&
 		          untilCtl(UI_FIX(KstCtl::WriteOk), 400) && simField(KST_F_DEAD_BAND) != was &&
@@ -1816,11 +1949,12 @@ static void testBoardLow() {
 	uint16_t written = simField(KST_F_DEAD_BAND);
 	tapId(UI_FIX(KstCtl::Files));
 	boardVolts(3.20f);
-	checkTrue("HOLD TO RESTORE acts", ctlEnabled(UI_FIX(KstCtl::Restore)));
-	checkTrue("the hold opens the restore page", holdUntilGone(UI_FIX(KstCtl::Restore)) &&
+	checkTrue("RESTORE... acts", ctlEnabled(UI_FIX(KstCtl::Restore)));
+	checkTrue("a tap opens the restore page", tapUntilGone(UI_FIX(KstCtl::Restore)) &&
 	          uiKstView() == KstView::Write);
+	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	kstFrames(4);
-	checkTrue("and restores nothing", simField(KST_F_DEAD_BAND) == written &&
+	checkTrue("its hold at 3.20 V restores nothing", simField(KST_F_DEAD_BAND) == written &&
 	          lineIs(196, UI_BOARD_LOW_1, C_AMBER) && ctlPresent(UI_FIX(KstCtl::WriteHold)));
 	boardVolts(3.92f);
 	checkTrue("3.92 V: the hold restores", holdUntilGone(UI_FIX(KstCtl::WriteHold)) &&
@@ -1839,7 +1973,7 @@ static void testBoardLow() {
 	deadBand = simField(KST_F_DEAD_BAND);
 	selectField(KST_F_DEAD_BAND);
 	tapId(UI_FIX(KstCtl::EditPlus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	fakeCacheSet(CardCache::Flushing, 12);
 	writes = fakeKstSim()->n_writes;
 	checkTrue("the hold at 3.92 V queues the backup", holdUntilGone(UI_FIX(KstCtl::WriteHold)) &&
@@ -1940,7 +2074,7 @@ static void testColourRoles() {
 	tapId(UI_FIX(KstCtl::Revert));
 	selectField(KST_F_DEAD_BAND);
 	tapId(UI_FIX(KstCtl::EditPlus));
-	checkTrue("the write page", holdUntilGone(UI_FIX(KstCtl::Write)) && uiKstView() == KstView::Write);
+	checkTrue("the write page", tapUntilGone(UI_FIX(KstCtl::Write)) && uiKstView() == KstView::Write);
 	kstFrames(1);
 	checkTrue("the change at y 62: the old value and the arrow dim, the new value cyan",
 	          regionHas(120, UI_BODY_Y, 112, 7, C_DIM) && regionHas(120, UI_BODY_Y, 112, 7, C_CYAN) &&
@@ -1953,7 +2087,7 @@ static void testColourRoles() {
 	sim_add_fault(fakeKstSim(), SIM_WRITE, 0x03, 0, 1, SIM_F_WRITE_ALSO, 0x13);
 	selectField(KST_F_BOOST);
 	tapId(UI_FIX(KstCtl::EditMinus));
-	holdUntilGone(UI_FIX(KstCtl::Write));
+	tapUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));
 	checkTrue("in doubt", untilCtl(UI_FIX(KstCtl::WriteOk), 400) && job().locked);
 	tapId(UI_FIX(KstCtl::WriteOk));
@@ -1984,6 +2118,7 @@ void runKstUiTests() {
 	testRefusedOps();
 	testRecordKeptAtLeave();
 	testFlushWait();
+	testFlushWaitEndsWithThePage();
 	testSwitchedSupply();
 	testSwitchedTimeout();
 	testSupplyCurrent();

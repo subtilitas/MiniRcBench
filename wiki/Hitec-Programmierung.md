@@ -303,8 +303,8 @@ nicht mehr lesen oder wiederherstellen).
 
 <img src="img/hitec-id.png" width="240" alt="Die Schreibseite für ID 0 -> 1, mit dem bernsteinfarbenen ID-Hinweis">
 
-Unter der Editorleiste liegen drei Schaltflächen, 46 px hoch: `HOLD TO WRITE`
-(110 px), `REVERT` (52 px) und `FILES` (54 px). `HOLD TO WRITE` wirkt nur,
+Unter der Editorleiste liegen drei Schaltflächen, 46 px hoch: `WRITE...`
+(110 px), `REVERT` (52 px) und `FILES` (54 px). `WRITE...` wirkt nur,
 wenn etwas vorgemerkt ist und das Servo seit dem letzten fehlgeschlagenen
 Schreiben gelesen wurde.
 
@@ -312,8 +312,9 @@ Schreiben gelesen wurde.
 
 ## Schreiben
 
-**Halte `HOLD TO WRITE` 1 s lang.** Während du hältst, füllt sich ein Balken.
-Die Schreibseite öffnet sich und schreibt noch nichts.
+**Tippe `WRITE...` an.** Die Schreibseite öffnet sich und schreibt noch
+nichts. `WRITE...` zu halten bewirkt nicht mehr als ein Tippen: Die Seite
+öffnet sich, wenn der Finger abhebt.
 
 <img src="img/hitec-write.png" width="240" alt="Die Schreibseite: SPEED 100 % (4095) -> 90 % (18), KEEP THE SERVO HORN CLEAR.">
 
@@ -361,7 +362,9 @@ Werte des Servos vor dem ersten Schreiben liegen nur im Speicher, bis ein
 späteres Schreiben mit eingebundener Karte sie sichert; LEAVE oder ein
 Stromausfall verliert sie. Ohne Karte geht das Schreiben trotzdem durch.
 
-**Ein zweites Halten von 1 s schreibt.** Zuerst kommen die Schritte auf der
+**Halte das `HOLD TO WRITE` der Seite 1 s lang, um zu schreiben.** Während
+du hältst, füllt sich ein Balken; das Tippen, das die Seite geöffnet hat,
+zählt nicht. Zuerst kommen die Schritte auf der
 Karte:
 
 1. Vor dem ersten Schreiben der Sitzung, mit eingebundener Karte: Ein
@@ -372,29 +375,37 @@ Karte:
    Vermerk `HITEC/HITEC.TXT` auf die Karte.
 
 Mit einer Karte, die beim Öffnen des Bildschirms eingebunden war, gehen diese
-Dateien zuerst auf die Karte, während der Bildschirm weiter zeichnet. Die
-Seite zeigt `SAVING THE BACKUP TO THE CARD.` (bei einem späteren Schreiben
-`SAVING THE FILES TO THE CARD.`) und zum Beispiel `BLOCKS LEFT: 12`. Das Servo
-wird erst geschrieben, wenn die Karte die Dateien hält. Nimmt die Karte die
-Daten nicht an, hält das Schreiben an. Beim ersten Schreiben der Sitzung
-zeigt die Seite
-`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`,
-bei
-einem späteren Schreiben
-`THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+Dateien zuerst auf die Karte, während der Bildschirm weiter zeichnet. Die Seite
+zeigt `SAVING THE BACKUP TO THE CARD.` (bei einem späteren Schreiben `SAVING THE
+FILES TO THE CARD.`) und zum Beispiel `BLOCKS LEFT: 12`. Das Servo wird erst
+geschrieben, wenn die Karte die Dateien hält. Nimmt die Karte die Daten nicht
+an, hält das Schreiben an. Beim ersten Schreiben der Sitzung zeigt die Seite
+`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. TAP OK, WRITE AGAIN.`,
+bei einem späteren Schreiben
+`THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. TAP OK, WRITE AGAIN.`
 Zum Servo ging nichts. Die Karte wird neu eingebunden, und `OK` führt zur
-Feldliste zurück; das nächste `HOLD TO WRITE` sichert die Dateien erneut und
-schreibt dann. Eine volle Karte endet nicht hier, sondern in
-`THE CARD TOOK NO FILE`, bevor etwas eingereiht ist.
+Feldliste zurück; das nächste Schreiben, `WRITE...` und sein Halten, sichert
+die Dateien erneut und schreibt dann. Eine volle Karte endet nicht hier,
+sondern in `THE CARD TOOK NO FILE`, bevor etwas eingereiht ist.
+
+Das Warten auf die Karte endet, wenn die Karte die Dateien hält und das
+Schreiben hinausgeht, oder wenn das Übertragen scheitert und die Seite es
+wie oben sagt. Ein Hänger des Bildschirms mit der geschalteten Versorgung
+beendet es ebenfalls: Der Bildschirm kehrt zu seiner Hauptansicht mit
+`RETRY` zurück, nichts wird geschrieben, und das nächste Schreiben öffnet
+sich mit einem Tippen und wartet auf sein eigenes Halten. Ein Servo, das
+während des Wartens abgezogen wird, bemerkt der Bildschirm erst, wenn das
+Schreiben hinausgeht, das dann scheitert.
 
 Das Schreiben sendet dann die geänderten Register im Abstand von 20 ms,
 speichert sie im Servo, startet das Servo neu (1,0 s) und liest alle 21
 Register zurück. Für eine Einstellung dauert das etwa 1,7 s, berechnet aus
 den Zeiten von rcbench und nicht gemessen. Die Seite zeigt
 `WRITING: DO NOT UNPLUG.` und darunter `WRITES SENT: 2 OF 4`, dann
-`READING BACK`. `BACK` während des Schreibens wird vorgemerkt: Die Seite
-zeigt `LEAVING AFTER THE WRITE ENDS.`, und die Verlassenseite folgt auf das
-Ergebnis. Der Bildschirm bricht ein Schreiben nie ab.
+`READING BACK`. Während das Schreiben läuft, und während es auf die Karte
+wartet, ist `BACK` grau und tut nichts: Kein `BACK` lässt ein Servo halb
+geschrieben zurück. `BACK` vor dem Halten oder unter dem Ergebnis führt zur
+Feldliste zurück. Der Bildschirm bricht ein Schreiben nie ab.
 
 Ein geprüftes Schreiben entfernt seinen Vermerk. Spätere Schreibvorgänge der
 Sitzung sichern kein zweites Mal.
@@ -402,7 +413,7 @@ Sitzung sichern kein zweites Mal.
 ### Die BOARD-Spannung rot
 
 Solange die BOARD-Spannung auf dem Tester rot ist, unter 3,30 V und bis sie
-wieder 3,35 V erreicht, schreibt das zweite Halten nichts: Keine Datei geht
+wieder 3,35 V erreicht, schreibt das Halten der Seite nichts: Keine Datei geht
 auf die Karte und kein Frame zum Servo. Die Seite zeigt in Bernstein
 `BOARD VOLTAGE IS RED: NOT WRITTEN.` und
 `CHARGE THE BOARD'S CELL, HOLD AGAIN.`, und `HOLD TO WRITE` bleibt. Der
@@ -414,7 +425,8 @@ sein, und kein Frame geht hinaus. Ein laufendes Schreiben wird nicht
 angehalten: Abgebrochen ließe es das Servo teilweise geschrieben und
 ungeprüft zurück, während eines, das zu Ende läuft, mit dem Rücklesen
 endet. Bernstein und ein Wert unter 2,50 V (keine Zelle zu beurteilen)
-lehnen kein Schreiben ab. `HOLD TO RESTORE` wird ebenso abgelehnt. Die
+lehnen kein Schreiben ab. Das `HOLD TO RESTORE` der Wiederherstellungsseite
+wird ebenso abgelehnt. Die
 Bereiche sind der übliche Bereich einer Lithium-Polymer-Zelle, auf dieser
 Platine nicht gemessen. Was die Platine an USB-Versorgung ohne Zelle liest,
 ist ebenfalls nicht gemessen, also kann eine Platine nur an USB das
@@ -424,7 +436,8 @@ Schreiben ablehnen.
 
 ### Das Ergebnis
 
-Das Ergebnis ersetzt das Halten durch `OK`. `OK` führt zur Feldliste zurück.
+Das Ergebnis ersetzt das Halten durch `OK`. `OK` oder `BACK` führt zur
+Feldliste zurück.
 
 <img src="img/hitec-write-error.png" width="240" alt="THE SERVO DOES NOT HOLD THE VALUES: 0x54. READ AND CHECK.">
 
@@ -443,8 +456,8 @@ Zu den bernsteinfarbenen Ergebnissen gehören:
 - `NOTHING WAS WRITTEN: NO PLAN (CODE n).`, mit dem Code des Planers.
 - `NOTHING WAS WRITTEN (CODE n).`, mit dem Code der Sitzung.
 - `THE SCREEN STALLED. NOTHING WAS WRITTEN.`
-- `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
-- `THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+- `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.`
+- `THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. TAP OK, WRITE AGAIN.`
 
 Nach einem Schreiben, das fehlschlug, nachdem Frames gesendet waren, hält
 das Abbild die berührten Register nicht mehr: Die Schreib-Schaltfläche zeigt
@@ -473,8 +486,8 @@ das Abbild die berührten Register nicht mehr: Die Schreib-Schaltfläche zeigt
 | Schaltfläche | Was sie tut |
 |---|---|
 | `SAVE AS HT002` | Schreibt das Servo, wie es zuletzt gelesen wurde, nach `HITEC/` unter dem nächsten freien Namen, eins über dem höchsten HTnnn, und nie über eine Datei. Die Leiste zeigt `SAVED AS HT002` in Grün. Hält `HITEC/` 50 `.TXT`-Dateien, den Vermerk nicht gezählt, wirkt die Schaltfläche nicht, und die Leiste zeigt `HITEC/ HOLDS 50 FILES. REMOVE SOME.` |
-| `LOAD` | Übernimmt die änderbaren Werte der gewählten Datei als vorgemerkte Änderungen in die Feldliste. Geschrieben wird dann über `HOLD TO WRITE`. Ein Vermerk lädt das Servo, wie es vor seinem Schreiben war |
-| `HOLD TO RESTORE` | 1 s halten. Öffnet die Wiederherstellungsseite `HITEC RESTORE`, die die Sicherung der Sitzung zurückschreibt. Wirkt, solange das Servo von der Sicherung abweicht |
+| `LOAD` | Übernimmt die änderbaren Werte der gewählten Datei als vorgemerkte Änderungen in die Feldliste. Geschrieben wird dann über `WRITE...` und die Schreibseite. Ein Vermerk lädt das Servo, wie es vor seinem Schreiben war |
+| `RESTORE...` | Tippen öffnet die Wiederherstellungsseite `HITEC RESTORE`, die die Sicherung der Sitzung zurückschreibt, wenn ihr `HOLD TO RESTORE` 1 s gehalten ist. Wirkt, solange das Servo von der Sicherung abweicht |
 
 Die Leiste der Wiederherstellungsseite zeigt zum Beispiel
 `BACK TO THE BACKUP: 3 CHANGES`. Ihr Halten, `HOLD TO RESTORE`, schreibt wie
@@ -509,7 +522,7 @@ Eine von Hand bearbeitete Datei lädt nicht.
 - **Eine Karte, die keine Datei annimmt.** Nimmt eine eingebundene Karte weder
   die Sicherung noch den Vermerk an, stoppt das Schreiben vor dem ersten
   Frame. Die Schreibseite zeigt
-  `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+  `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.`
 
 Die Sicherungen teilen sich einen Ring von 50 Nummern mit den KST- und
 AM32-Sicherungen, `BACKUP/HTnnn.TXT`, `BACKUP/KSTnnn.TXT` und
@@ -569,8 +582,8 @@ und zeigt die Abziehseite.
 - **`THE SCREEN STALLED. NOTHING WAS WRITTEN.`** Der Bildschirm hing länger
   als 250 ms, bevor der Schreibvorgang hinausging. Schreibe erneut.
 - **Ein rotes Ergebnis.** Tippe auf `OK`, dann auf `READ AGAIN`, und prüfe
-  die Werte. Zurück zum Servo, wie es war, führt `HOLD TO RESTORE` in FILES.
-- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`**
+  die Werte. Zurück zum Servo, wie es war, führt `RESTORE...` in FILES.
+- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.`**
   Prüfe die Karte, oder nimm sie aus der USB-Nutzung, und schreibe dann
   erneut.
 

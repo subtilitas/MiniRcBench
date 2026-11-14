@@ -283,8 +283,8 @@ void uiStripTwoLines(const char *top, uint16_t topCol, const char *bottom, uint1
  * them. A press that lands anywhere but BACK disarms it. There is no timer.
  * Zero-initialised it is disarmed.
  *
- * No screen uses it yet. Slice 5 of the note, "Write rule and guard", puts
- * it on AM32 CONFIG and SERVO SET.
+ * AM32 CONFIG's list and SERVO SET use it (slice 5 of the note, "Write rule
+ * and guard"), with the verbs `WRITTEN` and `APPLIED`.
  */
 struct UiBackGuard {
 	bool armed;  /**< The first BACK landed; the next one leaves. */

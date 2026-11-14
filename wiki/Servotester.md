@@ -238,25 +238,32 @@ sind also drei auf einmal sichtbar.
 - Ein Heli-Typ oder eine Framerate über 60 Hz kann ein Servo zerstören, das
   nicht dafür gebaut ist: Über 60 Hz überhitzt ein analoges Servo. Eine solche
   Änderung wartet, der Bildschirm nennt das Risiko, und `HOLD TO APPLY` (1 s)
-  übernimmt sie. `BACK` verwirft sie. Solange sie wartet, ist der Wert der
+  übernimmt sie. `BACK` verwirft sie, nach einer Warnung: Das erste `BACK`
+  bleibt auf SET und setzt `1 CHANGE NOT APPLIED.` und
+  `BACK AGAIN DISCARDS IT.` in Bernstein auf den Streifen, oder
+  `n CHANGES NOT APPLIED.` und `BACK AGAIN DISCARDS THEM.`, mit der Zahl der
+  cyanfarbenen Zeilen; das zweite `BACK` kehrt zum Servobildschirm zurück und
+  verwirft die Änderung. Jede andere Berührung nimmt die Warnung weg, und die
+  Änderung wartet weiter. Wartet nichts, kehrt `BACK` sofort zurück.
+  Solange sie wartet, ist der Wert der
   Zeile cyan, mit einem 3 px breiten cyanfarbenen Balken am linken Rand; ein
   übernommener Wert steht in der Textfarbe, ausgewählt oder nicht.
 - Ein Puls über den Stellweg eines Servos hinaus fährt es gegen seinen
   Endanschlag, wo es blockiert und heiß wird. Mit TYPE WIDE, MIN unter 900 µs
-  oder MAX über 2100 µs zeigt der Bildschirm in Bernstein
-  `PAST ITS TRAVEL A SERVO STALLS AND HEATS. TRY MIN AND MAX HORN-FREE.` (über
-  den Stellweg hinaus blockiert ein Servo und wird heiß; MIN und MAX zuerst ohne
-  Ruderhorn probieren). HELI CYCLIC zeigt ihn schon mit seinen eigenen 820 µs
-  bis 2220 µs. NARROW 760 und HELI TAIL 760 werden an ihrem eigenen Bereich
-  gemessen: Der Hinweis steht, wenn MIN mehr als 100 µs unter dem MIN des Typs
-  liegt oder MAX mehr als 100 µs über seinem MAX. Eine Änderung von TYPE, MIN
-  oder MAX, nach der das Profil über den Stellweg hinaus reicht, wartet, wenn
-  sie TYPE wechselt oder MIN oder MAX weiter hinaus legt als im übernommenen
-  Profil: Der Hinweis ist ihre Warnung, auf jeder Zeile, und `HOLD TO APPLY`
-  (1 s) übernimmt sie. Weitere Schritte hinaus lassen sie warten; ein Schritt
-  zurück innerhalb der Grenze oder auf den übernommenen Wert gilt sofort, wenn
-  sonst nichts wartet. Ein Schritt zur Mitte hin gilt sofort. `BACK` verwirft
-  eine wartende Änderung. Eine Heli- oder 60-Hz-Warnung steht zuerst, und bei
+  oder MAX über 2100 µs zeigt der Bildschirm in Bernstein `PAST ITS TRAVEL A
+  SERVO STALLS AND HEATS. TRY MIN AND MAX HORN-FREE.` (über den Stellweg hinaus
+  blockiert ein Servo und wird heiß; MIN und MAX zuerst ohne Ruderhorn
+  probieren). HELI CYCLIC zeigt ihn schon mit seinen eigenen 820 µs bis 2220 µs.
+  NARROW 760 und HELI TAIL 760 werden an ihrem eigenen Bereich gemessen: Der
+  Hinweis steht, wenn MIN mehr als 100 µs unter dem MIN des Typs liegt oder MAX
+  mehr als 100 µs über seinem MAX. Eine Änderung von TYPE, MIN oder MAX, nach
+  der das Profil über den Stellweg hinaus reicht, wartet, wenn sie TYPE wechselt
+  oder MIN oder MAX weiter hinaus legt als im übernommenen Profil: Der Hinweis
+  ist ihre Warnung, auf jeder Zeile, und `HOLD TO APPLY` (1 s) übernimmt sie.
+  Weitere Schritte hinaus lassen sie warten; ein Schritt zurück innerhalb der
+  Grenze oder auf den übernommenen Wert gilt sofort, wenn sonst nichts wartet.
+  Ein Schritt zur Mitte hin gilt sofort. `BACK` verwirft eine wartende Änderung,
+  nach derselben Warnung. Eine Heli- oder 60-Hz-Warnung steht zuerst, und bei
   HELI CYCLIC übernimmt ein Halten beides. Mit zwei Servos gilt das Halten für
   beide. Der Wechsel von SERVOS ONE auf TWO wartet bei einem Profil über den
   Stellweg hinaus ebenfalls auf das Halten, denn er treibt dort ein zweites

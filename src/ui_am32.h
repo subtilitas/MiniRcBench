@@ -37,8 +37,9 @@ bool uiAm32Tick(const TouchState *t);
 #define AM32_UI_POWER_CYCLE "POWER-CYCLE THE ESC TO APPLY."
 
 /**
- * @brief The line under a write that is not verified: the edits stay, and a
- *        hold of WRITE runs the write again. 34 characters, 203 px.
+ * @brief The line under a write that is not verified: the edits stay, and
+ *        OK, `WRITE...` and the page's HOLD TO WRITE run the write again.
+ *        34 characters, 203 px.
  */
 #define AM32_UI_RETRY "NOT VERIFIED. TAP OK, WRITE AGAIN."
 /**
@@ -46,6 +47,42 @@ bool uiAm32Tick(const TouchState *t);
  *        backup again first. 33 characters, 197 px.
  */
 #define AM32_UI_CHECK_CARD "CHECK THE CARD, THEN WRITE AGAIN."
+
+/**
+ * @defgroup am32_write AM32 WRITE
+ * @brief The write page: `WRITE...` on the list opens it, its HOLD TO WRITE
+ *        writes. It lists each field that changes, label and
+ *        `old -> new`, at most 4 and then `AND n MORE`; the state lines from
+ *        y 196; the backup line at y 236. Each line is at most 37
+ *        characters, 221 px, at scale 1 from x 8.
+ * @{
+ */
+/** @brief The state line while the write runs, amber. 23 characters, 137 px. */
+#define AM32_UI_WRITING "WRITING: DO NOT UNPLUG."
+/**
+ * @brief The backup line with no card and no backup on a card yet: the
+ *        settings as read stay in RAM, and leaving AM32 CONFIG loses them.
+ *        Amber. 35 characters, 209 px.
+ */
+#define AM32_UI_NO_CARD_LOST "NO CARD: OLD VALUES LOST ON LEAVING"
+/** @brief As @ref AM32_UI_NO_CARD_LOST while a USB host holds the card. 37 characters, 221 px. */
+#define AM32_UI_USB_LOST "USB DRIVE: OLD VALUES LOST ON LEAVING"
+/**
+ * @brief The line under UI_BOARD_LOW_1 on AM32 WRITE. The result stands
+ *        under OK, then WRITE... and the page's hold write again. 37
+ *        characters, 221 px. KST and Hitec keep their hold live under the
+ *        same refusal and say UI_BOARD_LOW_2.
+ */
+#define AM32_UI_BOARD_LOW_2 "CHARGE THE CELL. TAP OK, WRITE AGAIN."
+/**
+ * @brief The write's refusal of settings that differ from what the page
+ *        showed when its hold began: the page writes what it shows or
+ *        nothing. No path through the screen reaches it. 35 characters.
+ */
+#define AM32_UI_PAGE_STALE "CHANGED SINCE THE PAGE: NOT WRITTEN"
+/** @brief The line under @ref AM32_UI_PAGE_STALE. 20 characters. */
+#define AM32_UI_PAGE_STALE_2 "TAP OK, WRITE AGAIN."
+/** @} */
 
 /**
  * @defgroup am32_notes Strip notes
@@ -164,10 +201,11 @@ bool uiAm32Esc3d();
 /** @brief The AM32 CONFIG controls; the list rows are `UI_ROW(n, Row)`. @see ui_screen.h */
 enum class Am32Ctl : uint8_t {
 	EditMinus = 1, EditPlus,  /**< The editor bar, while a field is selected. */
-	Write,                    /**< HOLD TO WRITE. */
+	Write,                    /**< `WRITE...`: a tap opens AM32 WRITE. */
 	Revert,                   /**< REVERT. */
 	Hex,                      /**< HEX or FIELDS. */
 	Ok,                       /**< OK under the write; acts once the write has finished. */
+	WriteHold,                /**< AM32 WRITE's HOLD TO WRITE, 1000 ms: the write. */
 };
 
 struct UiControl;

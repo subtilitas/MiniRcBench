@@ -9,7 +9,8 @@ keinen Laptop und keinen Konfigurator. Er aktualisiert keine ESC-Firmware.
 <img src="img/am32-list.png" width="240" alt="AM32-Einstellungsliste">
 
 > **Das schreibt in den Flash deines ESC.** Änderungen bleiben im Tester, bis
-> du `HOLD TO WRITE` 1 s lang hältst. Danach stehen sie im ESC.
+> du `WRITE...` antippst, die Seite mit der Liste der Änderungen prüfst und
+> ihr `HOLD TO WRITE` 1 s lang hältst. Danach stehen sie im ESC.
 
 ---
 
@@ -73,8 +74,9 @@ Bytes: `THE BYTES AS READ. THE FIELD TABLE` /
 Die Sicherung geht beim Öffnen der Ansicht auf die Karte, da später nichts
 geschrieben wird. Sie enthält die 48 Bytes, keine Feldzeile und die Zeile
 `Layout not known: fields not read, not verified`. Die Ansicht hat ein
-Bedienelement, `BACK`: keine Zeile, kein `HOLD TO WRITE`, `REVERT` oder
-`HEX`, und der Bildschirm hat keinen Weg von dieser Ansicht zum Schreiben.
+Bedienelement, `BACK`, das zum MENU führt: keine Zeile, kein `WRITE...`,
+`REVERT` oder `HEX`, und der Bildschirm hat keinen Weg von dieser Ansicht zum
+Schreiben. Der Titel bleibt `AM32 CONFIG`.
 Das Schreiben selbst lehnt in einem solchen Layout gelesene Einstellungen
 ebenfalls ab: `LAYOUT NOT KNOWN: NOT WRITTEN`. Um die Einstellungen eines
 solchen ESC zu ändern, nimm den AM32-Konfigurator.
@@ -237,46 +239,78 @@ Grobschritt, der über das Ende des Bereichs hinausginge, hält am Ende an. Weg
 den Wert vom Ende löst.
 
 **Ein geänderter Wert ist cyan, mit einem cyanfarbenen Balken am linken Rand
-seiner Zeile.** Die Bearbeitungsleiste zeigt ihn ebenfalls in Cyan. An den
-ESC ist noch nichts gesendet. Ein Wert, wie er gelesen wurde, steht in der
-Textfarbe, ausgewählt oder nicht: Die Auswahl hellt nur die Zeile und ihren
-Namen auf.
+seiner Zeile.** Die Bearbeitungsleiste zeigt ihn ebenfalls in Cyan, und
+darüber den gelesenen Wert: zum Beispiel `PWM FREQ  24KHZ ->` über `25KHZ`.
+Passen Name und alter Wert nicht zwischen `-` und `+`, zeigt die Leiste nur
+`24KHZ ->`. An den ESC ist noch nichts gesendet. Ein Wert, wie er gelesen
+wurde, steht in der Textfarbe, ausgewählt oder nicht: Die Auswahl hellt nur
+die Zeile und ihren Namen auf.
 
 `REVERT`, in Bernstein beschriftet, verwirft alle ungespeicherten Änderungen
 und stellt die gelesenen Werte wieder her. `HEX` ist in der Textfarbe
 beschriftet.
 
+**BACK mit ungeschriebenen Änderungen fragt zuerst.** Das erste `BACK` lässt
+die Liste stehen und setzt zwei bernsteinfarbene Zeilen auf den Streifen:
+`2 CHANGES NOT WRITTEN.` und `BACK AGAIN DISCARDS THEM.`
+(`1 CHANGE NOT WRITTEN.` und `BACK AGAIN DISCARDS IT.` bei einer). Ein
+zweites `BACK` kehrt zum MENU zurück und verwirft die Änderungen; nichts geht
+an den ESC. Jede andere Berührung nimmt die Zeilen weg und behält die
+Änderungen. Es gibt keine Zeitgrenze. Ohne Änderungen kehrt `BACK` sofort
+zum MENU zurück.
+
+<img src="img/am32-discard.png" width="240" alt="Der Streifen nach BACK mit zwei Änderungen: 2 CHANGES NOT WRITTEN. und BACK AGAIN DISCARDS THEM. in Bernstein">
+
 ---
 
 ## Schreiben
 
-<img src="img/am32-written.png" width="240" alt="Schreiben überprüft">
+Tippe `WRITE...` unter der Liste an. Es öffnet die Seite `AM32 WRITE`;
+geschrieben ist noch nichts. Ohne Änderungen ist `WRITE...` grau und tut
+nichts.
+
+<img src="img/am32-write.png" width="240" alt="AM32 WRITE mit fünf Änderungen: vier Zeilen mit Name und alt -> neu, AND 1 MORE, BACKUP FIRST: BACKUP/AM001.TXT und HOLD TO WRITE">
+
+Die Seite listet jede Einstellung, die sich ändert, mit Namen und
+`alt -> neu`, den alten Wert grau und den neuen cyan: vier Zeilen, dann
+`AND n MORE`. Der Streifen zählt sie, `5 CHANGES`. Die Zeile über der
+Schaltfläche sagt, wohin die Sicherung geht: `BACKUP FIRST: BACKUP/AM001.TXT`
+vor dem ersten Schreiben mit eingesteckter Karte,
+`BACKUP: BACKUP/AM001.TXT`, sobald sie auf der Karte liegt. Ohne Karte zeigt
+sie `NO CARD: OLD VALUES LOST ON LEAVING` in Bernstein, mit der Karte an USB
+`USB DRIVE: OLD VALUES LOST ON LEAVING`.
 
 `HOLD TO WRITE` 1 s lang halten. Währenddessen füllt sich ein
-Fortschrittsbalken. Ohne Änderungen zeigt die Schaltfläche `NO CHANGES`.
+Fortschrittsbalken. Das Tippen, das die Seite geöffnet hat, zählt nicht zum
+Halten. Während das Schreiben läuft, zeigt die Seite
+`WRITING: DO NOT UNPLUG.` in Bernstein, und `BACK` ist grau und tut nichts.
+`BACK` vor dem Halten oder unter dem Ergebnis kehrt zur Liste zurück.
+
+<img src="img/am32-written.png" width="240" alt="Schreiben überprüft">
 
 Solange die BOARD-Spannung auf dem Tester rot ist, unter 3,30 V und bis sie
 wieder 3,35 V erreicht, schreibt das Halten nichts, weder die Sicherung noch
 die Einstellungen. Das Ergebnis zeigt `BOARD VOLTAGE IS RED: NOT WRITTEN.`,
-darunter `CHARGE THE BOARD'S CELL, HOLD AGAIN.` in Bernstein, und `OK` führt
-mit den Änderungen zur Liste zurück. Der Bildschirm fragt einmal, wenn das
+darunter `CHARGE THE CELL. TAP OK, WRITE AGAIN.` in Bernstein, und `OK` führt
+mit den Änderungen zur Liste zurück; `WRITE...` und das Halten der Seite
+schreiben erneut. Der Bildschirm fragt einmal, wenn das
 Halten endet, vor der Sicherung. Bernstein und ein Wert unter 2,50 V (keine
 Zelle zu beurteilen) lehnen kein Schreiben ab. Die Bereiche sind der übliche
 Bereich einer Lithium-Polymer-Zelle, auf dieser Platine nicht gemessen. Was
 die Platine an USB-Versorgung ohne Zelle liest, ist ebenfalls nicht
 gemessen, also kann eine Platine nur an USB das Schreiben ablehnen.
 
-<img src="img/am32-board-low.png" width="240" alt="BOARD VOLTAGE IS RED: NOT WRITTEN. mit CHARGE THE BOARD'S CELL, HOLD AGAIN. in Bernstein">
+<img src="img/am32-board-low.png" width="240" alt="BOARD VOLTAGE IS RED: NOT WRITTEN. mit CHARGE THE CELL. TAP OK, WRITE AGAIN. in Bernstein">
 
 Nach dem Schreiben wartet die Firmware 300 ms, **liest die Einstellungen zurück
 und vergleicht sie** Byte für Byte. Sie verlässt sich nicht auf die Bestätigung
 des ESC. Bei Übereinstimmung erscheint `WRITE VERIFIED` in Grün, darunter
 `POWER-CYCLE THE ESC TO APPLY.`. Bei einer Abweichung erscheint das erste
-abweichende Byte als `DIFF @xx: GOT xx WANT xx`. Ein Ergebnis mit mehr als 18
-Zeichen steht in der kleinen Schrift, damit es auf dem Bildschirm bleibt. Unter
-jedem Ergebnis, das kein überprüftes Schreiben ist (`WRITE FAILED: ...`, `VERIFY
-READ: ...`, `DIFF @..`), zeigt der Bildschirm `NOT VERIFIED. TAP OK, WRITE
-AGAIN.` in Bernstein; siehe [Wenn das Schreiben
+abweichende Byte als `DIFF @xx: GOT xx WANT xx`. Das Ergebnis steht in einer
+Zeile in der kleinen Schrift unter der Liste der Änderungen. Ein Ergebnis,
+das kein überprüftes Schreiben ist, steht in Bernstein, und darunter
+(`WRITE FAILED: ...`, `VERIFY READ: ...`, `DIFF @..`) zeigt der Bildschirm
+`NOT VERIFIED. TAP OK, WRITE AGAIN.` in Bernstein; siehe [Wenn das Schreiben
 scheitert](#wenn-das-schreiben-scheitert).
 
 <img src="img/am32-write-failed.png" width="240" alt="WRITE FAILED: REFUSED mit NOT VERIFIED. TAP OK, WRITE AGAIN.">
@@ -319,21 +353,22 @@ Ergebnisse:
 | `VERIFY READ: NO REPLY`, `REFUSED`, `CRC FAIL` oder `NOT READY` | Der ESC hat das Schreiben bestätigt, und alle drei Zurücklesungen scheiterten: keine Antwort, eine Antwort, die keine Bestätigung ist, eine Prüfsumme, die nicht passt, oder kein Pin. Was im ESC steht, ist nicht bekannt |
 | `DIFF @xx: GOT yy WANT zz` | Das Zurückgelesene weicht ab. `xx` ist die Stelle des ersten abweichenden Bytes, `yy` der Wert im ESC, `zz` der geschriebene Wert, alle in Hex |
 
-`OK` ist die breite Schaltfläche am unteren Rand, wo `HOLD TO WRITE` war. Sie
-nimmt nur ein neues Tippen an: Das Abheben des Fingers, der `HOLD TO WRITE`
-gehalten hat, lässt das Ergebnis stehen.
+`OK` tritt in der breiten Schaltfläche am unteren Rand an die Stelle von `HOLD
+TO WRITE`. Sie nimmt nur ein neues Tippen an: Das Abheben des Fingers, der `HOLD
+TO WRITE` gehalten hat, lässt das Ergebnis stehen.
 
 Nur `WRITE VERIFIED` gilt als geschrieben. Nach jedem anderen Ergebnis führt
-`OK` zur Liste zurück, die Änderungen bleiben erhalten, und `HOLD TO WRITE`
-schreibt sie erneut. Die Sicherung entsteht vor dem ersten Schreiben mit
-Karte, und erneut auf einer seitdem gewechselten Karte. Sie hält immer die
-Einstellungen, wie sie beim Öffnen des Editors gelesen wurden, und ein
-erneutes Halten auf derselben Karte legt keine zweite an.
+`OK` zur Liste zurück, die Änderungen bleiben erhalten, und `WRITE...` und `HOLD
+TO WRITE` schreiben sie erneut. Die Sicherung entsteht vor dem ersten Schreiben
+mit Karte, und erneut auf einer seitdem gewechselten Karte. Sie hält immer die
+Einstellungen, wie sie beim Öffnen des Editors gelesen wurden, und ein erneutes
+Halten auf derselben Karte legt keine zweite an.
 
 Wenn sich ein Ergebnis wiederholt:
 
 1. Prüfe Signal- und Masseader.
-2. Verlasse den Bildschirm mit `BACK`; die Änderungen gehen verloren.
+2. Verlasse den Bildschirm mit zweimal `BACK`: Das erste nennt die
+   Änderungen, das zweite verwirft sie.
 3. Öffne **MENU → AM32 CONFIG** erneut und starte den ESC neu, während der
    Bildschirm offen ist, wie unter [Verbinden](#verbinden). Der Bildschirm
    liest dann, was im ESC steht.
@@ -349,16 +384,18 @@ Wenn sich ein Ergebnis wiederholt:
 
 <img src="img/am32-hex.png" width="240" alt="Die rohen Einstellungsbytes">
 
-`HEX` zeigt die 48 rohen Einstellungsbytes, nur lesbar. Damit prüfst du ein
-Feld, das deine Layout-Version nicht anbietet, oder siehst, was eine Änderung
-auf Byte-Ebene bewirkt hat. `FIELDS` kehrt zur Liste zurück.
+`HEX` zeigt die 48 rohen Einstellungsbytes, nur lesbar, unter dem Titel
+`AM32 HEX`. Damit prüfst du ein Feld, das deine Layout-Version nicht
+anbietet, oder siehst, was eine Änderung auf Byte-Ebene bewirkt hat.
+`FIELDS` oder `BACK` kehrt zur Liste zurück.
 
 ---
 
 ## Verlassen
 
-`BACK` gibt den Signalpin an den DShot-Treiber zurück und kehrt zu
-`MENU` zurück. Der Tester ist entschärft.
+`BACK` auf der Liste gibt den Signalpin an den DShot-Treiber zurück und
+kehrt zu `MENU` zurück; mit ungeschriebenen Änderungen fragt es zuerst, wie
+unter [Ändern](#ändern). Der Tester ist entschärft.
 
 Beim Verlassen schickt die Firmware dem Bootloader keinen Befehl, die
 ESC-Firmware zu starten. Was der ESC nach dem Verlassen des Bildschirms

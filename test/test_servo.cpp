@@ -1514,9 +1514,19 @@ static void openSet() {
 	checkTrue("SET opens: HOLD TO APPLY is there", ctlPresent(UI_FIX(ServoCtl::Apply)));
 }
 
-/** @brief BACK from SET: SERVO's main view again. */
+/**
+ * @brief BACK from SET: SERVO's main view again. With a change waiting for
+ *        HOLD TO APPLY the first BACK arms the guard and SET stays; the
+ *        second returns.
+ */
 static void backFromSet() {
+	bool pending = s_pending;
 	tapId(UI_FIX(UI_BACK));
+	if (pending) {
+		checkTrue("a change waits: the first BACK arms the guard, SET stays",
+		          s_guard.armed && s_view == View::Set && ctlPresent(UI_FIX(ServoCtl::Apply)));
+		tapId(UI_FIX(UI_BACK));
+	}
 	checkTrue("BACK from SET reaches SERVO's main view",
 	          uiCurrentScreen() == UiScreenId::Servo && ctlPresent(UI_FIX(ServoCtl::Start)));
 }
@@ -2324,6 +2334,66 @@ static void testUnplugPage() {
 	checkTrue("free, and MENU up", pinClaimState() == ClaimState::Free &&
 	                                   uiCurrentScreen() == UiScreenId::Menu &&
 	                                   fillOf(ctlRect(menuRow(&UI_SERVO))) == C_PANEL);
+	backFromMenu();
+}
+
+/**
+ * @brief Decision 7 of docs/design/menu-b.md on SERVO SET: with a change
+ *        waiting for HOLD TO APPLY the first BACK arms the guard, whose two
+ *        amber lines name the count; a press elsewhere disarms it; the second
+ *        BACK returns and drops the change; with nothing waiting BACK
+ *        returns at once.
+ */
+static void testSetGuard() {
+	section("Servo SET: BACK on a change not applied arms the guard");
+	freshUi();
+	openServo();
+	openSet();
+	selectRow(2);   // RATE
+	stepSel(+1);
+	checkTrue("60 Hz: applied at once", !s_pending && s_profile.rateHz == 60);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("nothing waits: one BACK returns", s_view == View::Main && !s_guard.armed);
+	openSet();
+	selectRow(2);
+	stepSel(+1);
+	checkTrue("100 Hz waits for HOLD TO APPLY", s_pending && s_edit.rateHz == 100 && s_profile.rateHz == 60);
+	uint16_t top = fakeSlice(0).top;
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the first BACK: SET stays, the guard armed", s_view == View::Set && s_guard.armed);
+	checkTrue("  1 CHANGE NOT APPLIED. / BACK AGAIN DISCARDS IT., amber",
+	          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, "1 CHANGE NOT APPLIED.", UI_COL_WARN, C_BG, 1) &&
+	          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, "BACK AGAIN DISCARDS IT.", UI_COL_WARN, C_BG, 1));
+	checkInt("21 characters, 125 px", gfxTextW("1 CHANGE NOT APPLIED.", 1), 125);
+	checkControlTable("SET, the guard armed");
+	tapId(UI_ROW(2, Row));
+	checkTrue("a press on a row disarms it: the warning returns", !s_guard.armed &&
+	          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 2, "ABOVE 60 HZ AN ANALOGUE", C_AMBER, C_BG, 1) &&
+	          s_pending && s_view == View::Set);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK arms it again", s_guard.armed && s_view == View::Set);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the second BACK: SERVO, the change dropped, the pins as applied",
+	          s_view == View::Main && !s_pending && s_edit.rateHz == 60 && s_profile.rateHz == 60 &&
+	          fakeSlice(0).top == top);
+
+	openSet();
+	selectRow(1);   // TYPE
+	stepSel(+1, 3);
+	int n = setPending();
+	checkTrue("HELI CYCLIC waits, more than one row changed", s_pending && n >= 2);
+	tapId(UI_FIX(UI_BACK));
+	char l1[40];
+	snprintf(l1, sizeof(l1), "%d CHANGES NOT APPLIED.", n);
+	checkTrue("several: n CHANGES NOT APPLIED. / BACK AGAIN DISCARDS THEM.",
+	          s_guard.armed && fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, l1, UI_COL_WARN, C_BG, 1) &&
+	          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, "BACK AGAIN DISCARDS THEM.", UI_COL_WARN, C_BG, 1));
+	holdApply();
+	checkTrue("HOLD TO APPLY disarms it and applies", !s_guard.armed && !s_pending &&
+	          s_profile.type == ServoType::HeliCyclic);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("nothing waits: one BACK returns", s_view == View::Main);
+	leaveServo();
 	backFromMenu();
 }
 
@@ -3429,6 +3499,7 @@ void runServoTests() {
 	testEscAnswering();
 	testUnplugPage();
 	testSetScreen();
+	testSetGuard();
 	testTravelNote();
 	testSetList();
 	testClaimCorners();
