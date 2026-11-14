@@ -707,19 +707,33 @@ the tag. Menu structure B waits on being built, not on the bench (item 18).
     draw radii, or drop them, is open; the chips are square by decision 11
     either way.
 
-26. **ESC commands and the kV estimate, chosen on 2026-11-14.** The
-    owner's feature choice of 2026-11-14 puts six features on the build
-    list, each with a design note first; this is the first.
+26. **The owner's feature choice of 2026-11-14.** From the feature survey
+    of 2026-11-14 the owner chose six features for the build list, each to
+    get a design note first, then slices with reviews:
+    1. an ESC commands page and an RPM-per-volt and kV estimate on the
+       tester;
+    2. receiver inputs on RX SIGNALS: servo pulse width and frame rate on
+       AUX, then CRSF/ELRS, iBUS and SUMD decoders, written in rcbench
+       first;
+    3. an IMU (inertial measurement unit) angle meter on the board's
+       QMI8658: incidence, decalage, dihedral, surface throw;
+    4. a run summary per log, optionally dated with the board's RTC
+       (real-time clock);
+    5. a USB one-wire bridge for desktop ESC tools;
+    6. Bluejay and BLHeli_S settings.
+
+    Not chosen now: a PWM ESC mode with a tachometer. For (1),
     [esc-commands.md](docs/design/esc-commands.md) designs an ESC COMMANDS
     page, beacons 1 to 5, direction and 3D mode, each change saved in the
     ESC behind a 1 s hold, and an RPM/V reading and a kV estimate on the
-    tester. Not built. The note waits on the owner's answers to its eight
+    tester. Not built. The note waits on the owner's answers to its ten
     open questions: where the page lives, save with each change, a hold or
-    a write page, the 3D note after 3D OFF, commands with no ESC answering,
-    where the two figures go on the tester, the estimate's minimum throttle,
-    and the ESC information reply. Its firmware facts are read from source
-    and the BLHeli_32 command specification; none has been checked on an
-    ESC.
+    a write page, the 3D note after 3D OFF and across a restart, commands
+    and beacons with no ESC answering, where the two figures go on the
+    tester, the estimate's minimum throttle, the ESC information reply, the
+    tester's 3D note text, and a direction note on the tester. Its firmware
+    facts are read from source and the BLHeli_32 command specification;
+    none has been checked on an ESC.
 
 ## Known limitations
 
