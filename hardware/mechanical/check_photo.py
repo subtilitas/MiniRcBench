@@ -78,7 +78,7 @@ def main(argv):
     big = photo.resize((photo.width * ZOOM, photo.height * ZOOM),
                        Image.BICUBIC)
     draw = ImageDraw.Draw(big)
-    for outer, _holes, d0, d1, _rgb, (o, u, v, w) in (spec.rear()
+    for outer, _holes, d0, d1, _rgb, (o, u, v, w) in (spec.rear_parts()
                                                     + spec.cables()):
         corners = np.array([[o[k] + q[0] * u[k] + q[1] * v[k] + d * w[k]
                              for k in range(3)]
