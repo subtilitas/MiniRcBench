@@ -258,9 +258,10 @@ Not in this history: the DshotDisplay repository's branches
 
 ## Next steps
 
-State on 2026-11-14: no other pull request is open; all seven CI jobs pass
-on `main` at c0d2952 (#43). Every part below waits on the bench;
-nothing is open that the host suite can settle. In the order the parts
+State on 2026-11-14: one pull request is open as a draft, #49, the
+touch-loss stop of item 23; all seven CI jobs pass on `main` at 22c1e4b
+(#51). Every part below waits on the bench or on the owner (items 18 to
+24); nothing is open that the host suite can settle. In the order the parts
 depend on each other:
 
 1. The pins of item 15: DShot on GP0, KISS on GP1, the backlight, EN on
@@ -505,6 +506,38 @@ Menu structure B waits on the owner's answers, not on the bench (item 18).
     with USB power and no cell, and the CST328's answers to its probe and
     its finger reads on a board whose controller is missing or slow to
     start.
+23. **The touch-loss stop waits for a bench check.** Pull request #49
+    disarms the tester and stops the servo tester when the touch controller
+    does not answer for 4 reads in a row and 100 ms. It is not merged. Not
+    known: whether the CST328 answers reads while no finger is on the glass
+    for minutes. If it does not, the change disarms a HOLD-latched motor
+    after the finger lifts. The check, with that branch's firmware:
+    - power up and leave the tester untouched for 5 minutes:
+      `TOUCH NOT ANSWERING` does not appear;
+    - propeller off, arm with HOLD at a low throttle and lift the finger:
+      the motor runs until DISARM or the 30 s idle disarm.
+
+    Until then a controller that stops answering leaves a HOLD-latched
+    motor running until the idle disarm, 30 s after the last contact.
+24. **Five owner decisions on existing screens**, none decided:
+    - **AM32 3D MODE.** After a write that sets 3D MODE on, the tester arms
+      as before; the list shows the warning. Refuse to arm, warn on the
+      tester, or leave it.
+    - **HITEC SERVO and DShot.** SIG carries DShot until a family is
+      tapped. Take the pin when HITEC SERVO opens, before the tap, or
+      leave it; menu-b.md decision 19 has the chooser claim nothing.
+    - **Servo tester limits.** TYPE WIDE and MIN or MAX past the travel
+      margin apply at once, with a note. Ask for HOLD TO APPLY as the heli
+      types do, or leave it.
+    - **SETTINGS RESET.** One tap loads the defaults. Ask for a hold, or
+      leave it.
+    - **AM32 layouts the table does not know.** The list does not open for
+      a layout other than 2 to 4. Open it read-only, or keep refusing.
+
+    Not a question, recorded here: an ESC set to `EDT ARM` does not run on
+    the tester, which sends zero frames after its EDT enable. Sending the
+    enable in place of zero frames while armed at zero throttle is
+    proposed and not built; it needs a check on hardware.
 
 ## Known limitations
 
