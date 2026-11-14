@@ -1320,9 +1320,9 @@ decision's lines, it reads them as follows:
 
 | Point | As built | Why |
 |---|---|---|
-| The unplug page | titled `SERVO TESTER`, as the main view | the page is the screen's, and KST SERVO's and HITEC SERVO's unplug pages carry their tool's title; the decision's Code line names only `uiServoTick()` and `UI_SERVO.title`. Slice 6 replaces the page with the leave page, which draws no header |
+| The unplug page | titled `SERVO TESTER`, as the main view | the page is the screen's, and KST SERVO's and HITEC SERVO's unplug pages carry their tool's title; the decision's Code line names only `uiServoTick()` and `UI_SERVO.title`. In slice 6 the leave page draws no header and the header above it stays the screen's |
 | SERVO SET | keeps its title | the decision names it as a sub-view that adds a word |
-| servo-tester.md | the screen is named SERVO TESTER in its "Screens" and "Testing" sections; its numbered decisions keep the name they were taken under | the decision's Docs line names the note's "SERVO" section |
+| servo-tester.md | the screen is named SERVO TESTER in its "Screens" and "Testing" sections; its numbered decisions are not edited | the decision's Docs line names the note's "SERVO" section |
 
 ## Risks
 
