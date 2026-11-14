@@ -801,16 +801,18 @@ static void drawList() {
 	char model[24], strip[48], backup[24], gp[8];
 	hitecModelText(&s_st.image, model, sizeof(model));
 	char ver[8] = "";
-	if (s_family == HITEC_CLASSIC) snprintf(ver, sizeof(ver), " V%02X", s_st.image.version);
-	snprintf(gp, sizeof(gp), " GP%u", sigGpio());
-	if (s_write.backupName[0]) snprintf(backup, sizeof(backup), " BACKUP %.5s", s_write.backupName);
-	else                       snprintf(backup, sizeof(backup), " BACKUP IN MEMORY");
-	// The longest of these that ends before the MODE chip, 4 px clear of it.
+	if (s_family == HITEC_CLASSIC) snprintf(ver, sizeof(ver), "  V%02X", s_st.image.version);
+	snprintf(gp, sizeof(gp), "  GP%u", sigGpio());
+	if (s_write.backupName[0]) snprintf(backup, sizeof(backup), "  BACKUP %.5s", s_write.backupName);
+	else                       snprintf(backup, sizeof(backup), "  BACKUP IN MEMORY");
+	// Items two spaces apart, as on MENU, KST and SERVO. A strip that does
+	// not end before the MODE chip, 4 px clear of it, drops items from the
+	// right: the backup, then the pin.
 	const int room = GFX_W - UI_MARGIN - (gfxTextW("MODE", 1) + 12) - 4 - UI_MARGIN;
-	// Precisions as the buffers above: 12 + 7 + 7 + 17 characters at most.
-	snprintf(strip, sizeof(strip), "%.12s%.7s%.7s%.17s", model, ver, gp, backup);
-	if (gfxTextW(strip, 1) > room) snprintf(strip, sizeof(strip), "%.12s%.7s%.17s", model, ver, backup);
-	if (gfxTextW(strip, 1) > room) snprintf(strip, sizeof(strip), "%.12s%.7s%.7s", model, ver, gp);
+	// Precisions as the buffers above: 12 + 8 + 8 + 18 characters at most.
+	snprintf(strip, sizeof(strip), "%.12s%.8s%.8s%.18s", model, ver, gp, backup);
+	if (gfxTextW(strip, 1) > room) snprintf(strip, sizeof(strip), "%.12s%.8s%.8s", model, ver, gp);
+	if (gfxTextW(strip, 1) > room) snprintf(strip, sizeof(strip), "%.12s%.8s", model, ver);
 	uiStripText(strip, C_DIM);
 	uiChip("MODE", C_GREEN);
 	uiListDraw(&s_list, drawFieldRow, nullptr);
@@ -1126,7 +1128,7 @@ static void drawWrite() {
 	gfxRect(0, UI_BODY_Y, GFX_W, GFX_H - UI_BODY_Y, C_BG);
 	char buf[96];
 	int changed = hitecChangedCount(&s_pageFrom, &s_pageTo, s_layout);
-	snprintf(buf, sizeof(buf), "%s%d VALUE%s", s_restoring ? "BACK TO THE BACKUP: " : "", changed,
+	snprintf(buf, sizeof(buf), "%s%d CHANGE%s", s_restoring ? "BACK TO THE BACKUP: " : "", changed,
 	         changed == 1 ? "" : "S");
 	uiStripText(buf, C_DIM);
 	// The page's parts and their sizes, laid out by hitecPageLayout(): the

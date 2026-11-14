@@ -116,15 +116,16 @@ static_assert(SERVO_DIAL_Y - SERVO_DIAL_ARC_R - 4 > 82,
 #define SET_LIST_H   (SET_LIST_Y1 - SET_LIST_Y0 + 1)
 #define SET_EDIT_Y   218
 #define SET_EDIT_H   44
-#define SET_EDIT_W   58
-#define SET_FOOT_Y   268
-#define SET_FOOT_H   46
+#define SET_EDIT_W   UI_EDIT_BTN_W  /**< - and +, 44 px. */
+#define SET_FOOT_Y   UI_FOOT_Y      /**< HOLD TO APPLY and DEFAULTS, y 268 to 313. */
+#define SET_FOOT_H   UI_FOOT_H
 /** @} */
 
-static const UiRect BTN_MINUS    = { 6, SET_EDIT_Y, SET_EDIT_W, SET_EDIT_H };
-static const UiRect BTN_PLUS     = { GFX_W - SET_EDIT_W - 6, SET_EDIT_Y, SET_EDIT_W, SET_EDIT_H };
-static const UiRect BTN_APPLY    = { 6, SET_FOOT_Y, 140, SET_FOOT_H };
-static const UiRect BTN_DEFAULTS = { 152, SET_FOOT_Y, 82, SET_FOOT_H };
+static const UiRect BTN_MINUS    = { UI_EDGE, SET_EDIT_Y, SET_EDIT_W, SET_EDIT_H };
+static const UiRect BTN_PLUS     = { GFX_W - SET_EDIT_W - UI_EDGE, SET_EDIT_Y, SET_EDIT_W, SET_EDIT_H };
+/** @brief The two-button footer, 6/150 and 162/72, as SETTINGS and SERVO's own. */
+static const UiRect BTN_APPLY    = { UI_EDGE, SET_FOOT_Y, 150, SET_FOOT_H };
+static const UiRect BTN_DEFAULTS = { 162, SET_FOOT_Y, 72, SET_FOOT_H };
 /** @brief The SET list's viewport. */
 static const UiRect SET_VIEW     = { 0, SET_LIST_Y0, GFX_W, SET_LIST_H };
 
