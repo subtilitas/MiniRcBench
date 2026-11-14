@@ -86,6 +86,8 @@
 
 /** @brief UI frame interval in milliseconds (~40 fps). */
 #define UI_PERIOD_MS 25
+static_assert(TOUCH_LOST_MS == 4 * UI_PERIOD_MS,
+              "TOUCH_LOST_MS is documented as four UI frames");
 
 static uint32_t s_nextUiMs = 0;   /**< Deadline for the next UI frame. */
 #if SERIAL_TELEMETRY
@@ -132,8 +134,9 @@ void setup() {
 	gfxInit();
 	st7789Init();
 	// Pulses the touch controller's own reset line. Its result starts the
-	// driver's record of answers, which the splash reads: TOUCH CONTROLLER
-	// NOT FOUND until the controller answers. @see touchAnswered()
+	// driver's record of answers, which the splash and the tester read:
+	// TOUCH CONTROLLER NOT FOUND on the splash, TOUCH NOT ANSWERING on the
+	// tester. @see touchAnswered(), uiTouchLost()
 	touchInit();
 	senseInit();        // the current sensor, on the bus touchInit() set up
 	uiInit();

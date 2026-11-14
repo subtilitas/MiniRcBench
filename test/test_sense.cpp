@@ -665,6 +665,45 @@ static void testTouchAnswerRecord() {
 }
 
 /**
+ * @brief The time of the touch driver's last answer and its failed reads in
+ *        a row against the CST328 model: the time freezes while the
+ *        controller NACKs, the failures count and are held at 255, an answer
+ *        moves the time and clears the count.
+ */
+static void testTouchAnswerTime() {
+	section("Touch: the last answer's time and the failed reads");
+	senseConfigure(0);
+	fakeI2cReset();
+	fakeI2cAddCst328(CST328_I2C_ADDR);
+	checkTrue("found", cst::touchInit());
+	checkTrue("the probe's time", cst::touchLastAnswerMs() == millis());
+	TouchState ts;
+	memset(&ts, 0, sizeof(ts));
+	fakeAdvance(25);
+	cst::touchPoll(&ts);
+	uint32_t ack = millis();
+	checkTrue("a finger read: now, no failures",
+	          cst::touchLastAnswerMs() == ack && cst::touchFailedReads() == 0);
+
+	fakeI2cRemove(CST328_I2C_ADDR);
+	for (int i = 1; i <= 5; i++) {
+		fakeAdvance(25);
+		cst::touchPoll(&ts);
+	}
+	checkTrue("NACKing: the time stays at the last ACK", cst::touchLastAnswerMs() == ack);
+	checkInt("five failed reads counted", cst::touchFailedReads(), 5);
+	for (int i = 0; i < 300; i++) cst::touchPoll(&ts);
+	checkInt("held at 255", cst::touchFailedReads(), 255);
+
+	fakeI2cAddCst328(CST328_I2C_ADDR);
+	fakeAdvance(25);
+	cst::touchPoll(&ts);
+	checkTrue("back: the time moves, the count is 0",
+	          cst::touchLastAnswerMs() == millis() && cst::touchFailedReads() == 0);
+	fakeI2cReset();
+}
+
+/**
  * @brief A part holding SDA, the I2C block losing arbitration: the touch
  *        driver's transfers return PICO_ERROR_GENERIC, which must count as a
  *        line held low and not as a NACK, or no recovery ever runs.
@@ -906,6 +945,7 @@ void runSenseTests() {
 	testReadoutText();
 	testTouchBeside();
 	testTouchAnswerRecord();
+	testTouchAnswerTime();
 	testArbitrationLost();
 	testFrameTime();
 	testReadAbortStop();

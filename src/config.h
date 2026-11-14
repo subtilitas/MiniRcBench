@@ -487,6 +487,57 @@
 /** @brief Auto-disarm after this long with no touch input at all. 0 disables. */
 #define IDLE_DISARM_MS         30000
 
+/**
+ * @brief The touch controller counts as not answering once this many finger
+ *        reads in a row have failed and @ref TOUCH_LOST_MS has passed since
+ *        its last answer, or while it has not answered since touchInit().
+ *
+ * Both together: a count alone would read four quick retries as a loss, and
+ * a time alone would read a core0 stall as one, a card write of 250 ms for
+ * instance, after which the next read is a single failure. The touch driver
+ * reports a finger up after two failed reads; a single failed read, or two,
+ * or three, never stops a motor.
+ *
+ * While it does not answer, the tester disarms by the idle interlock's path
+ * and refuses to arm, and the servo tester stops by its STOP's path. A
+ * touch that does not answer cannot press DISARM or STOP, and the idle
+ * interlock alone would leave a latched throttle running for up to
+ * @ref IDLE_DISARM_MS.
+ *
+ * Not measured: whether the CST328 answers with no finger on the glass for
+ * minutes (STATUS.md, open item 22).
+ */
+#define TOUCH_LOST_READS       4
+
+/**
+ * @brief The least time since the touch controller's last answer for it to
+ *        count as not answering: 100 ms, four UI frames of 25 ms
+ *        (`UI_PERIOD_MS` in main.cpp, which asserts the relation).
+ *        @see TOUCH_LOST_READS
+ */
+#define TOUCH_LOST_MS          100
+
+/** @} */
+
+/**
+ * @defgroup cfg_board_cell The board's battery
+ * @brief Colour thresholds for the `BOARD` voltage on the tester.
+ *
+ * The values are a lithium-polymer (LiPo) cell's usual low range. They are
+ * not measured on this board: neither the cell's voltage under the board's
+ * load nor what the divider reads with USB (Universal Serial Bus) power
+ * alone. Nothing is refused on them.
+ * @{
+ */
+/** @brief Below this the voltage is drawn in amber, mV. */
+#define BOARD_CELL_LOW_MV      3500
+/** @brief Below this the voltage is drawn in red, mV. */
+#define BOARD_CELL_CRIT_MV     3300
+/**
+ * @brief How far above a threshold the reading has to rise before the
+ *        colour goes back, mV, so that noise at a threshold does not flicker.
+ */
+#define BOARD_CELL_HYST_MV     50
 /** @} */
 
 /**

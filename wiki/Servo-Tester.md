@@ -104,6 +104,13 @@ restarts until you hold `HOLD TO START` again.
 
 <img src="img/servo-stalled.png" width="240" alt="Stopped after a stall">
 
+If four reads of the touch controller in a row have failed, over 100 ms or
+more, a running servo stops as on `STOP`, sweeping or holding a position, on the main screen and on SET.
+A touch that does not answer cannot reach `STOP`, and the servo tester has
+no idle stop. The dial reads `TOUCH NOT ANSWERING` in amber and
+`THE SERVO IS STOPPED.` until the controller answers; `HOLD TO START` is
+drawn disabled meanwhile.
+
 ---
 
 ## Moving the servo

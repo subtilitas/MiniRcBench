@@ -68,7 +68,9 @@ ein Tippen darauf bewirkt nichts.
 aus der vom ESC (Electronic Speed Controller, Motorregler) gemeldeten eRPM
 (elektrische Drehzahl) und der Polzahl. Der `ERPM`-Wert und die Polzahl stehen
 darunter. Grüne Ziffern: eRPM ist in den letzten 500 ms eingetroffen.
-Dunkelrote Null: nicht, und die Zeile zeigt `NO TELEMETRY`.
+Dunkelrote Null: nicht, und die Zeile zeigt `NO TELEMETRY`. Die Zeile
+darunter, rechts, ist der Wisch-Hinweis: `SWIPE = THROTTLE`, oder
+`SWIPE ACTIVE`, solange ein Wischer das Gas bewegt.
 
 **Sechs Kacheln.** Spannung, Strom, ESC-Temperatur, Stress, ESC-Status und
 Verbindungsqualität. Siehe [Telemetrie](Telemetrie).
@@ -94,6 +96,23 @@ zwei Finger auf dem Glas liegen, ist nicht gemessen; ein Druck, während der
 Gas-Finger aufliegt, kommt also womöglich nicht an. Erst den Gas-Finger
 heben, dann `DISARM` drücken. Ein nasser Bildschirm oder ein Kabel, das auf
 dem Glas liegt, kann als Finger zählen und jedes Tippen blockieren.
+
+Hat der Touch-Controller vier Lesungen in Folge verpasst und seit 100 ms
+oder länger nicht geantwortet, ersetzt `TOUCH NOT ANSWERING` in Bernstein
+den Wisch-Hinweis; `NO TELEMETRY` behält seine Zeile. Solange der Hinweis
+steht, lässt sich der Tester nicht scharf schalten, `HOLD TO ARM` ist als
+Umriss gezeichnet, und ein scharfer Tester entschärft: Das Gas geht auf
+null und `HOLD` aus, wie beim Entschärfen durch die Leerlaufsperre. Der
+Hinweis verschwindet, wenn der Controller wieder antwortet; der Tester
+bleibt entschärft.
+
+Nicht gemessen: ob der Touch-Controller ohne Finger auf dem Glas über
+Minuten weiter antwortet. Tut er es nicht, erschiene dieser Hinweis, und
+ein mit `HOLD` gehaltener Motor bliebe kurz nach dem Abheben des Fingers
+stehen. Die Prüfung am Prüfstand steht in STATUS.md im Repository, offener
+Punkt 22.
+
+<img src="img/tester-touch-lost.png" width="240" alt="Der Tester mit TOUCH NOT ANSWERING in Bernstein unter der Drehzahl">
 
 ---
 
@@ -300,7 +319,11 @@ Signalkabel. `BACK` führt zu `MENU` zurück. Siehe
 
 Steuert ein oder zwei Servos mit Servoimpulsen auf dem ESC- und dem KISS-Pin
 an. Er startet in SAFE; `HOLD TO START` 1 s lang gehalten startet die Impulse
-in der Mitte, `STOP` wirkt beim Berühren. In SAFE mit einem Servo zeigt die
+in der Mitte, `STOP` wirkt beim Berühren. Sind vier Lesungen des
+Touch-Controllers in Folge fehlgeschlagen, über 100 ms oder länger, hält
+ein laufendes Servo an wie bei `STOP`, und die
+Skala zeigt `TOUCH NOT ANSWERING`, bis er wieder antwortet. In SAFE mit
+einem Servo zeigt die
 Anzeigezeile `TWO SERVOS:` und `SET > SERVOS`: Dort wird das zweite Servo
 eingeschaltet. Mit SERVO SUPPLY auf `GP28` oder `GP29` zeigt die zweite Zeile
 der Leiste `GP28 SUPPLY STAYS OFF HERE.` in Bernstein: Der Servotester

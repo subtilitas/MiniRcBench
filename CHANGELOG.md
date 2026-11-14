@@ -44,6 +44,22 @@ protocol.
 
 ### Added
 
+- A touch controller that stops answering stops the outputs. The touch
+  driver records its last answer (`touchLastAnswerMs()`) and counts its
+  failed finger reads in a row (`touchFailedReads()`). With four or more
+  failed reads in a row and 100 ms or more since the last answer
+  (`TOUCH_LOST_MS`, four UI frames), or no answer since `touchInit()`, the
+  touch counts as not answering (`uiTouchLost()`): an armed tester disarms
+  by the idle interlock's path, arming is refused and HOLD TO ARM is drawn
+  disabled, and `TOUCH NOT ANSWERING` replaces the swipe hint in amber; the
+  servo tester stops a running servo as STOP does and shows the same note
+  on its dial. A core0 stall alone, such as a card write, does not count:
+  it is one failed read at most. Before, a latched throttle ran until the
+  idle interlock, 30 s after the last touch. Whether the controller answers
+  with no finger on the glass for minutes is not measured (STATUS open
+  item 22). Host tests `testTouchLoss()`, `testTouchLossStall()`,
+  `testTouchLossStops()` and the driver against the CST328 model; the wiki
+  shows `tester-touch-lost.png`.
 - The splash shows `TOUCH CONTROLLER NOT FOUND` in amber while the touch
   controller has not answered since `touchInit()`: the driver records
   whether it has answered (`touchAnswered()`), and the splash reads the

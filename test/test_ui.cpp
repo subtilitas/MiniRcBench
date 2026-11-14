@@ -2812,6 +2812,171 @@ static void testIdleAutoDisarm() {
 	checkTrue("touching keeps it armed", uiArmed());
 }
 
+/** @brief Whether the tester's swipe-hint line reads @p text in @p col. */
+static bool hintIs(const char *text, uint16_t col) {
+	return fakeTextIs(226 - gfxTextW(text, 1), 114, text, col, C_BG, 1);
+}
+
+/**
+ * @brief A touch controller that stops answering disarms a latched throttle
+ *        within TOUCH_LOST_MS, says so, and the note goes when it answers.
+ *
+ * A dead touch cannot press DISARM, and with HOLD on the throttle would
+ * otherwise stand until the idle interlock, IDLE_DISARM_MS on.
+ */
+static void testTouchLoss() {
+	section("Safety: a touch that does not answer");
+
+	EscTelemetry none;
+	memset(&none, 0, sizeof(none));
+	fakeSetTelemetry(&none);
+	// A card, idle, for the screenshot; the logger's state is put back at
+	// the end.
+	SdLogStatus logWas, card;
+	sdLogStatus(&logWas);
+	memset(&card, 0, sizeof(card));
+	card.state = SdLogState::Idle;
+	fakeSdLogSet(&card);
+	fakeFlashClear();
+	settingsLoad();
+	uiInit();
+	frames(4);
+	checkTrue("answering: the swipe hint, no note", hintIs("SWIPE = THROTTLE", C_GRID));
+	checkInt("TOUCH_LOST_MS is four 25 ms frames", TOUCH_LOST_MS, 4 * UI_FRAME_MS);
+
+	holdToArm();
+	tapId(UI_FIX(TesterCtl::Hold));
+	swipe(20, 120, thrY(), 8);
+	frames(2);
+	checkTrue("armed, throttle latched by HOLD", uiArmed() && fakeThrottle() > 0);
+
+	// The last answer was on the last frame. Three frames, 75 ms, without one:
+	// a short gap does not stop the motor.
+	fakeTouchAnswers(false);
+	frames(3);
+	checkTrue("75 ms without an answer: still armed", uiArmed() && fakeThrottle() > 0);
+	frames(1);
+	checkTrue("100 ms without an answer: disarmed", !uiArmed());
+	checkTrue("the ESC is told", !fakeArmed());
+	checkInt("throttle zeroed", fakeThrottle(), 0);
+	checkTrue("TOUCH NOT ANSWERING in amber in the hint's place",
+	          hintIs(UI_TOUCH_LOST_TEXT, C_AMBER));
+	checkTrue("NO TELEMETRY keeps its line",
+	          fakeTextIs(10, 102, "NO TELEMETRY", C_AMBER, C_BG, 1));
+	checkTrue("the note fits left of x 226 and clear of the pole count",
+	          226 - gfxTextW(UI_TOUCH_LOST_TEXT, 1) > 10 + gfxTextW("14P", 1) + 4);
+	frames(40);
+	checkTrue("a second on: still disarmed, the note still up",
+	          !uiArmed() && hintIs(UI_TOUCH_LOST_TEXT, C_AMBER));
+	// A frame on, the logger has seen the disarm.
+	fakeDumpFrame("shot_tester_touch_lost.ppm");
+
+	fakeTouchAnswers(true);
+	frames(1);
+	checkTrue("answering again: the note goes", hintIs("SWIPE = THROTTLE", C_GRID));
+	checkTrue("and it stays disarmed", !uiArmed() && fakeThrottle() == 0);
+	// HOLD went off with the disarm: re-armed, a swipe springs back to zero.
+	holdToArm();
+	swipe(20, 120, thrY(), 8);
+	frames(2);
+	checkTrue("HOLD is off: re-armed, the throttle springs back",
+	          uiArmed() && fakeThrottle() == 0);
+	tapId(UI_FIX(TesterCtl::Arm));
+	checkTrue("disarmed for the next case", !uiArmed());
+
+	// Disarmed: the note only.
+	frames(2);
+	fakeTouchAnswers(false);
+	frames(4);
+	checkTrue("disarmed loss: the note", hintIs(UI_TOUCH_LOST_TEXT, C_AMBER));
+	checkTrue("nothing else changes", !uiArmed() && !fakeArmed() && fakeThrottle() == 0);
+	const UiRect arm = ctlRect(UI_FIX(TesterCtl::Arm));
+	auto armFill = [&]() { return gfxBuffer()[(arm.y + arm.h / 2) * GFX_W + arm.x + 4]; };
+	checkTrue("HOLD TO ARM drawn disabled: an outline, no fill", armFill() == C_BG);
+	fakeTouchAnswers(true);
+	frames(1);
+	checkTrue("answering: the note goes", hintIs("SWIPE = THROTTLE", C_GRID));
+	checkTrue("and HOLD TO ARM is live again", armFill() == C_PANEL);
+
+	// The refusal itself: a driver that still reports the finger while the
+	// controller counts as lost does not arm the tester.
+	fakeTouchAnswers(false);
+	frames(4);
+	checkTrue("lost, the finger still reported: the note", hintIs(UI_TOUCH_LOST_TEXT, C_AMBER));
+	// The touch-loss disarm would undo an arm in the same frame; the panel's
+	// dip shows whether one happened at all.
+	const uint8_t resting = fakeBacklight();
+	fakeBacklightResetMin();
+	holdToArm(IdExpect::Disabled);
+	frames(10);
+	checkTrue("HOLD TO ARM held while lost: not armed", !uiArmed() && !fakeArmed());
+	checkTrue("not even for a frame: no arm dip", fakeBacklightMin() == resting);
+	fakeTouchAnswers(true);
+	frames(2);
+	holdToArm();
+	checkTrue("answering: HOLD TO ARM arms", uiArmed());
+	tapId(UI_FIX(TesterCtl::Arm));
+	fakeSdLogSet(&logWas);
+}
+
+/**
+ * @brief A core0 stall is not a lost touch: after a stall the next read
+ *        fails once, and only TOUCH_LOST_READS failed reads in a row, with
+ *        TOUCH_LOST_MS since the last answer, disarm.
+ */
+static void testTouchLossStall() {
+	section("Safety: a stall is not a touch that does not answer");
+
+	fakeFlashClear();
+	settingsLoad();
+	uiInit();
+	frames(4);
+	holdToArm();
+	tapId(UI_FIX(TesterCtl::Hold));
+	swipe(20, 120, thrY(), 8);
+	frames(2);
+	checkTrue("armed, throttle latched by HOLD", uiArmed() && fakeThrottle() > 0);
+
+	// A card write holds core0 for 150 ms; the read after it fails.
+	fakeTouchAnswers(false);
+	frameAfter(150);
+	checkTrue("150 ms stall, 1 failed read: still armed", uiArmed() && fakeThrottle() > 0);
+	frames(1);
+	checkTrue("2 failed reads: still armed", uiArmed());
+	frames(1);
+	checkTrue("3 failed reads: still armed", uiArmed());
+	frames(1);
+	checkTrue("the 4th disarms", !uiArmed() && fakeThrottle() == 0);
+	fakeTouchAnswers(true);
+	frames(1);
+
+	// A stall with the controller answering after it: nothing at all.
+	holdToArm();
+	tapId(UI_FIX(TesterCtl::Hold));
+	swipe(20, 120, thrY(), 8);
+	frames(2);
+	frameAfter(400);
+	frames(2);
+	checkTrue("a 400 ms stall, answering after it: still armed",
+	          uiArmed() && fakeThrottle() > 0);
+	tapId(UI_FIX(TesterCtl::Arm));
+	checkTrue("disarmed for what follows", !uiArmed());
+
+	// Four failed reads quicker than TOUCH_LOST_MS, frames 10 ms apart: not
+	// yet; the time since the last answer has to reach 100 ms too.
+	holdToArm();
+	tapId(UI_FIX(TesterCtl::Hold));
+	swipe(20, 120, thrY(), 8);
+	frames(2);
+	fakeTouchAnswers(false);
+	for (int i = 0; i < 9; i++) frameAfter(10);
+	checkTrue("9 failed reads in 90 ms: still armed", uiArmed() && fakeThrottle() > 0);
+	frameAfter(10);
+	checkTrue("100 ms: disarmed", !uiArmed());
+	fakeTouchAnswers(true);
+	frames(1);
+}
+
 /**
  * @brief The BOARD voltage's colour: amber below 3.50 V, red below 3.30 V,
  *        back only 50 mV above each threshold.
@@ -2959,6 +3124,11 @@ static void testSplashTouch() {
 	checkTrue("it stays while the controller does not answer",
 	          fakeTextCentredIs(UI_SPLASH_TOUCH_Y, UI_SPLASH_TOUCH_TEXT, C_AMBER, C_BG, 1));
 
+	// The splash ends; the tester says the same in its words.
+	uiInit();
+	frames(2);
+	checkTrue("the tester shows TOUCH NOT ANSWERING", hintIs(UI_TOUCH_LOST_TEXT, C_AMBER));
+
 	// A controller that answers later clears the splash's line.
 	fakeTouchAnswers(false);
 	touchInit();
@@ -2969,6 +3139,9 @@ static void testSplashTouch() {
 	int x0 = 0, x1 = 0;
 	checkTrue("an answer clears the line",
 	          !fakeInkExtent(UI_SPLASH_TOUCH_Y, 8, C_BG, &x0, &x1));
+	uiInit();
+	frames(2);
+	checkTrue("and the tester has no note", hintIs("SWIPE = THROTTLE", C_GRID));
 
 	// A finger on the glass through the end of the splash: the splash's read
 	// took its press edge, so on the tester it presses nothing until lifted.
@@ -5104,6 +5277,8 @@ void runUiTests() {
 	testBoardRow();
 	testArmInterlocks();
 	testIdleAutoDisarm();
+	testTouchLoss();
+	testTouchLossStall();
 	testPoleCountReachesEsc();
 	testRpmGoesDead();
 	testAutoLogOnArm();

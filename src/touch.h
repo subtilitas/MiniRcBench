@@ -89,7 +89,8 @@ bool touchInit();
  *
  * An answer is the presence check in touchInit() returning the 0xCACA ID,
  * or a finger read in touchPoll() that completes. The splash reads it
- * (uiSplashTick()).
+ * (uiSplashTick()); the tester and the servo tester read it, with
+ * touchLastAnswerMs() and touchFailedReads(), through uiTouchLost().
  *
  * This is the touch controller's own record. The shared bus's record in
  * sense.h counts timeouts and held lines for the stuck decision and not a
@@ -101,6 +102,25 @@ bool touchInit();
  *         touchInit().
  */
 bool touchAnswered();
+
+/**
+ * @brief millis() at the controller's last answer. Meaningful only while
+ *        touchAnswered() is true.
+ * @return The time of the last answer.
+ */
+uint32_t touchLastAnswerMs();
+
+/**
+ * @brief How many finger reads in a row have failed: 0 after a read that
+ *        completes, held at 255.
+ *
+ * With touchLastAnswerMs() it tells a controller that stopped answering from a
+ * core0 stall: after a stall of any length the next read is one failure, not
+ * several. @see uiTouchLost()
+ *
+ * @return The failed reads in a row.
+ */
+uint8_t touchFailedReads();
 
 /**
  * @brief Poll the controller and update @p t.

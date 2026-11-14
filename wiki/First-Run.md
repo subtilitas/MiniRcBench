@@ -144,6 +144,11 @@ does not move the throttle. Lifting it still acts as a tap where it rests
 on a button that acts on release, such as `HOLD` or `MENU`. If you touched
 the screen at power-up, lift the finger before `HOLD TO ARM`.
 
+If the touch controller stops answering while the tester is armed, the
+tester disarms once four reads in a row have failed over 100 ms or more,
+sets the throttle to zero, turns `HOLD` off and shows
+`TOUCH NOT ANSWERING`.
+
 ---
 
 ## Giving it throttle

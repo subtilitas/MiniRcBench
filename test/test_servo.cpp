@@ -1891,6 +1891,81 @@ static void testButtonsAndSweep() {
 	leaveServo();
 }
 
+/**
+ * @brief A touch that does not answer stops a running servo as STOP does,
+ *        sweeping or at a position, on either view; HOLD TO START waits for
+ *        an answer.
+ */
+static void testTouchLossStops() {
+	section("Servo screen: a touch that does not answer stops the servo");
+
+	freshUi();
+	openServo();
+	holdStart();
+	tapId(UI_FIX(ServoCtl::Sweep)); core1();
+	ServoStatus st;
+	servoJobStatus(&st);
+	checkTrue("sweeping", st.running && st.sweeping);
+
+	fakeTouchAnswers(false);
+	uiFrames(3);
+	servoJobStatus(&st);
+	checkTrue("75 ms without an answer: still sweeping", st.running && st.sweeping);
+	uiFrames(1); core1();
+	servoJobStatus(&st);
+	checkTrue("100 ms: stopped, as STOP stops it", !st.running && !st.sweeping);
+	uiFrames(2);
+	checkInt("no pulses", fakePin(0).level, 0);
+	checkTrue("TOUCH NOT ANSWERING in amber on the dial band",
+	          fakeTextCentredIs(64, UI_TOUCH_LOST_TEXT, C_AMBER, C_BG, 1));
+	checkTrue("HOLD TO START is drawn disabled", fillOf(ctlRect(UI_FIX(ServoCtl::Start))) == C_BG);
+
+	fakeTouchAnswers(true);
+	uiFrames(2);
+	servoJobStatus(&st);
+	checkTrue("answering again: the note goes, still stopped",
+	          !fakeTextCentredIs(64, UI_TOUCH_LOST_TEXT, C_AMBER, C_BG, 1) && !st.running);
+
+	// Holding a position, on SET.
+	holdStart();
+	tapId(UI_FIX(ServoCtl::Max)); core1();
+	openSet();
+	servoJobStatus(&st);
+	checkTrue("at MAX, SET open", st.running && fakePin(0).level == 2000);
+	fakeTouchAnswers(false);
+	uiFrames(4); core1();
+	servoJobStatus(&st);
+	checkTrue("a position on SET: stopped too", !st.running);
+	fakeTouchAnswers(true);
+	uiFrames(1);
+	backFromSet();
+
+	// The start refusal itself: a driver that still reports the finger while
+	// the controller counts as lost does not start the servo.
+	fakeTouchAnswers(false);
+	uiFrames(4);
+	int sx, sy;
+	ctlCentre(UI_FIX(ServoCtl::Start), &sx, &sy);
+	// The touch-loss stop would undo a start a frame later; the pin's level
+	// writes show whether one happened at all.
+	const int writes = fakePin(0).levelWrites;
+	pressId(UI_FIX(ServoCtl::Start), IdExpect::Disabled);
+	fakeHold(sx, sy); frameAt(UI_HOLD_MS);
+	fakeRelease(); uiFrames(1);
+	core1();
+	servoJobStatus(&st);
+	checkTrue("HOLD TO START held while lost: not running", !st.running);
+	checkInt("not even for a frame: no pulse level written", fakePin(0).levelWrites, writes);
+	fakeTouchAnswers(true);
+	uiFrames(2);
+	holdStart();
+	servoJobStatus(&st);
+	checkTrue("answering: HOLD TO START starts", st.running);
+	pressId(UI_FIX(ServoCtl::Start)); core1();
+	fakeRelease(); uiFrames(1);
+	leaveServo();
+}
+
 /** @brief Two servos: SERVOS TWO on SET, the selector, REVERSE B. */
 static void testTwoServos() {
 	section("Servo screen: two servos, the selector and REVERSE B");
@@ -2876,6 +2951,7 @@ void runServoTests() {
 	testStartNeedsLivePress();
 	testHorn();
 	testButtonsAndSweep();
+	testTouchLossStops();
 	testTwoServos();
 	testAuxRefused();
 	testEscAnswering();

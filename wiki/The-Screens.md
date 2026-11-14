@@ -63,7 +63,8 @@ disabled, an outline with a grey label, and a tap on it does nothing.
 (electrical RPM) the ESC (electronic speed controller) reports and the pole
 count. The `ERPM` value and the pole count are shown below it. Green digits:
 eRPM arrived within the last 500 ms. Dark red zero: it did not, and the line
-reads `NO TELEMETRY`.
+reads `NO TELEMETRY`. The line under it, right, is the swipe hint:
+`SWIPE = THROTTLE`, or `SWIPE ACTIVE` while a swipe moves the throttle.
 
 **Six tiles.** Voltage, current, ESC temperature, stress, ESC status and link
 quality. See [Telemetry](Telemetry).
@@ -87,6 +88,21 @@ glass is not measured, so a press made while the throttle finger rests on
 the glass may not register. Lift the throttle finger before pressing
 `DISARM`. A wet screen, or a lead lying across the glass, can count as a
 finger and block every tap.
+
+When the touch controller has missed four reads in a row and has not
+answered for 100 ms or more, `TOUCH NOT ANSWERING` in amber replaces the
+swipe hint; `NO TELEMETRY` keeps its line. While it shows, the tester cannot
+be armed, `HOLD TO ARM` is drawn as an outline, and an armed tester
+disarms: the throttle goes to zero and `HOLD` goes off, as when the idle
+interlock disarms. The note goes when the controller answers again; the
+tester stays disarmed.
+
+Not measured: whether the touch controller keeps answering with no finger
+on the glass for minutes. If it does not, this note would appear and a
+motor latched with `HOLD` would stop shortly after the finger lifts. The
+bench check is listed in STATUS.md in the repository, open item 22.
+
+<img src="img/tester-touch-lost.png" width="240" alt="The tester with TOUCH NOT ANSWERING in amber under the RPM readout">
 
 ---
 
@@ -285,7 +301,9 @@ Reads, edits and writes the settings of an AM32 ESC over the signal wire.
 
 Drives one or two servos with servo pulses on the ESC and KISS pins. It opens
 SAFE; `HOLD TO START` for 1 s starts the pulses at the centre, `STOP` acts on
-touch. While SAFE with one servo, the readout reads `TWO SERVOS:` and
+touch. When four reads of the touch controller in a row have failed, over
+100 ms or more, a running servo stops as on `STOP`, and the dial reads `TOUCH NOT ANSWERING` until it
+answers again. While SAFE with one servo, the readout reads `TWO SERVOS:` and
 `SET > SERVOS`, where the second servo is switched on. With SERVO SUPPLY at
 `GP28` or `GP29` the strip's second line reads `GP28 SUPPLY STAYS OFF HERE.`
 in amber: the servo tester never switches the converter on, so the servo

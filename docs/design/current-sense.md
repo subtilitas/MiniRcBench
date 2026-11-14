@@ -837,7 +837,7 @@ What switches the supply off, with `SERVO SUPPLY` at `GP28` or `GP29`:
 | A cut: hard, stall, collapse | core1, `supply_guard` | off, latched |
 | Sensor lost while CURRENT SENSE is INA219, in the servo tester | core1, from `SenseSample.state` and age | off, `NO SENSOR` |
 | Bus stuck, in the servo tester | core0 sets it in the sample's state; core1 acts | off: touch cannot reach STOP |
-| Touch controller silent for 250 ms (10 polls), in the servo tester | core0 sets a flag beside the heartbeat; core1 acts | off: touch cannot reach STOP |
+| Touch controller not answering, in the servo tester: 4 failed reads in a row (`TOUCH_LOST_READS`) and 100 ms since its last answer (`TOUCH_LOST_MS`), the rule of `uiTouchLost()` | core0 sends STOP's command (`ui_servo.cpp`), which switches the supply off by the SAFE path; core1 acts on that command | off: touch cannot reach STOP |
 | Board reset, power-off, core1 hang | outside the firmware | EN undriven; the pull-down holds the converter off. A core1 hang with the supply on leaves it on until a reset (kst-programming.md, "A core1 hang") |
 
 **The sensor fails mid-run.** The servo tester switches the supply off:

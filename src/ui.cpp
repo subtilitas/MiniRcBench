@@ -257,6 +257,18 @@ static EscTelemetry s_tel;
  * other, which is a thing people notice and reasonably report as a bug.
  */
 static RpmFilter s_erpmFilter;
+/** @brief The touch controller does not answer: uiTouchLost(), once a frame. */
+static bool s_touchLost = false;
+/**
+ * @brief Whether the touch controller does not answer now: no answer since
+ *        touchInit(), or @ref TOUCH_LOST_READS failed reads in a row and
+ *        @ref TOUCH_LOST_MS since the last answer.
+ */
+static bool touchLostNow() {
+	if (!touchAnswered()) return true;
+	return touchFailedReads() >= TOUCH_LOST_READS &&
+	       (uint32_t)(millis() - touchLastAnswerMs()) >= TOUCH_LOST_MS;
+}
 /** @brief The splash shows TOUCH CONTROLLER NOT FOUND. */
 static bool s_splashNoTouch = false;
 /** @brief The band the board's voltage is drawn in. @see uiBoardCell() */
@@ -274,7 +286,7 @@ static float s_batteryV = 0.0f;
  */
 static struct {
 	int  armed, btnArmed, holdOn, armProgress;
-	int  battKey;
+	int  battKey, touchLost;
 	uint32_t rpm, erpm;
 	int  linkAlive, rpmArmed;
 	int  volts100, amps100, tempC, stress, status, rate, errPct, edt;
@@ -575,9 +587,10 @@ static void drawRpm() {
 
 	if (s_shown.rpm == rpm && s_shown.erpm == erpm &&
 	    s_shown.linkAlive == (int)alive && s_shown.rpmArmed == (int)s_armed &&
-	    s_shown.padLive == (int)s_padEngaged)
+	    s_shown.padLive == (int)s_padEngaged && s_shown.touchLost == (int)s_touchLost)
 		return;
 	s_shown.padLive = s_padEngaged;
+	s_shown.touchLost = s_touchLost;
 	s_shown.rpm = rpm;
 	s_shown.erpm = erpm;
 	s_shown.linkAlive = alive;
@@ -604,9 +617,12 @@ static void drawRpm() {
 	// between touching it and it taking effect, and the only other evidence a
 	// drag engaged is the throttle number moving -- which is exactly what you
 	// are not watching while a motor spins up.
-	const char *hint = s_padEngaged ? "SWIPE ACTIVE" : "SWIPE = THROTTLE";
+	// A touch that does not answer takes the hint's place: the hint describes
+	// a touch, and NO TELEMETRY on the line above keeps its own place.
+	const char *hint = s_touchLost  ? UI_TOUCH_LOST_TEXT
+	                 : s_padEngaged ? "SWIPE ACTIVE" : "SWIPE = THROTTLE";
 	gfxText(226 - gfxTextW(hint, 1), 114, hint,
-	        s_padEngaged ? C_LIME : s_armed ? C_CYAN : C_GRID, 1);
+	        s_touchLost ? C_AMBER : s_padEngaged ? C_LIME : s_armed ? C_CYAN : C_GRID, 1);
 }
 
 /** @brief Six EDT tiles: voltage, current, temperature, stress, status, link. */
@@ -775,7 +791,8 @@ static void drawButtons() {
 	               (pressing(BTN_MENU, s_touch) ? 4 : 0);
 	// ARM is gated on the card in handleMainTouch() and in the control table;
 	// it is drawn on the same expression. @see ui_widgets.h
-	int cardFree = mscHoldsCard(mscGetState()) ? 0 : 1;
+	// Drawn disabled, too, while a touch that does not answer refuses arming.
+	int cardFree = mscHoldsCard(mscGetState()) || s_touchLost ? 0 : 1;
 	if (s_shown.holdOn == (int)s_hold && s_shown.btnArmed == (int)s_armed &&
 	    s_shown.config == 0 && s_shown.btnPress == pressKey && s_shown.btnCard == cardFree)
 		return;
@@ -798,6 +815,20 @@ static void drawButtons() {
 }
 
 /** @} */
+
+/**
+ * @brief Disarm the tester: throttle 0, HOLD off, the ESC told, the panel
+ *        dipped. The path of DISARM, the idle interlock and a touch that
+ *        does not answer.
+ */
+static void testerDisarm() {
+	s_armed = false;
+	s_throttle = 0;
+	s_hold = false;
+	escSetArmed(false);
+	backlightDip();
+	invalidateAll();
+}
 
 /**
  * @brief The one route from the tester to MENU, and so to every tool: it
@@ -914,15 +945,11 @@ static void handleMainTouch() {
 			// does not wait for release: everything else here can afford the
 			// cancel gesture, and the button whose job is "stop the motor now"
 			// cannot.
-			if (s_touch.pressed) {
-				s_armed = false;
-				s_throttle = 0;
-				s_hold = false;
-				escSetArmed(false);
-				backlightDip();
-				invalidateAll();
-			}
-		} else if (!s_armLive) {
+			if (s_touch.pressed) testerDisarm();
+		} else if (!s_armLive || s_touchLost) {
+			// A touch that does not answer refuses arming. The driver reports
+			// the finger up after two failed reads, before it counts as lost;
+			// this keeps a press that a driver still reports then from arming.
 			s_armPressing = false;
 		} else {
 			if (!s_armPressing) {
@@ -975,8 +1002,8 @@ static void handleMainTouch() {
  */
 static uint8_t testerControls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
-	bool cardFree = !mscHoldsCard(mscGetState());
-	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Arm), BTN_ARM, cardFree);
+	bool armOk = !mscHoldsCard(mscGetState()) && !s_touchLost;
+	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Arm), BTN_ARM, armOk);
 	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Hold), BTN_HOLD, true);
 	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Menu), BTN_MENU, true);
 	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Throttle),
@@ -1077,6 +1104,8 @@ void uiSplashTick() {
 	if (lost) gfxTextCenter(UI_SPLASH_TOUCH_Y, UI_SPLASH_TOUCH_TEXT, C_AMBER, 1);
 }
 
+bool uiTouchLost() { return s_touchLost; }
+
 uint16_t uiThrottle() { return s_throttle; }
 bool uiArmed() { return s_armed; }
 
@@ -1104,6 +1133,7 @@ void uiInit() {
 	// The first frame takes the reading as it is, unsmoothed.
 	s_batteryV = 0.0f;
 	s_boardCell = BoardCell::Ok;
+	s_touchLost = false;
 	rpmFilterReset(&s_erpmFilter);
 	s_erpmShown = 0;
 
@@ -1131,6 +1161,7 @@ void uiTick() {
 	escHeartbeat();
 	escSnapshot(&s_tel);
 	touchPoll(&s_touch);
+	s_touchLost = touchLostNow();
 	// The current sensor shares the touch controller's bus, on this core:
 	// after the touch read, so the touch read is never delayed by it.
 	senseTick(millis());
@@ -1210,15 +1241,12 @@ void uiTick() {
 
 		// idle auto-disarm
 #if IDLE_DISARM_MS > 0
-		if (s_armed && (uint32_t)(millis() - s_lastTouchMs) > IDLE_DISARM_MS) {
-			s_armed = false;
-			s_throttle = 0;
-			s_hold = false;
-			escSetArmed(false);
-			backlightDip();
-			invalidateAll();
-		}
+		if (s_armed && (uint32_t)(millis() - s_lastTouchMs) > IDLE_DISARM_MS)
+			testerDisarm();
 #endif
+		// A touch that does not answer cannot press DISARM: with HOLD on the
+		// throttle would stand until the idle interlock, 30 s on.
+		if (s_armed && s_touchLost) testerDisarm();
 
 		escSetThrottle(s_throttle);
 

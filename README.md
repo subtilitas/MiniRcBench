@@ -410,6 +410,38 @@ throttle finger rests on the glass may not register: lift the throttle
 finger before DISARM. A wet screen, or a lead lying across the glass, can
 count as a contact and block every tap.
 
+The driver records whether and when the controller last answered
+(`touchAnswered()`, `touchLastAnswerMs()`) and counts its failed finger
+reads in a row (`touchFailedReads()`). The
+touch counts as not answering (`uiTouchLost()`) when the controller has not
+answered since `touchInit()`, or when four or more reads in a row have
+failed and 100 ms or more (`TOUCH_LOST_MS`, four UI frames of 25 ms) have
+passed since the last answer. Both conditions together keep a core0 stall
+alone, a card write of 250 ms for instance, from counting: after a stall
+the next read is one failed read, not four. While it does not answer:
+
+- an armed tester disarms by the idle interlock's path: throttle 0, HOLD
+  off, the ESC told, the backlight dipped;
+- arming is refused, and HOLD TO ARM is drawn disabled, as while a USB host
+  holds the card;
+- `TOUCH NOT ANSWERING` replaces the swipe hint in amber, so `NO TELEMETRY`
+  on the line above stays visible;
+- the servo tester stops a running servo as `STOP` does (see
+  [Servo tester](#servo-tester)).
+
+The driver reports a finger up after two failed reads, 50 ms, so without
+this a latched throttle would run until the idle interlock, 30 s after the
+last touch. The shared bus's record in `src/sense.cpp` does not serve here:
+it counts timeouts and held lines, and a controller off the bus answers
+with a NACK (not acknowledged), which it does not count.
+
+Not measured: whether the CST328 answers its finger reads with no finger on
+the glass for minutes. Some controllers of its maker doze when idle and
+NACK until touched; this one would then disarm a HOLD-latched motor
+shortly after the finger lifts. Before this rule a NACK while idle read as
+"finger up", so earlier use on hardware does not answer it. The bench
+check is in STATUS.md, open item 22.
+
 **Button behaviour**
 
 Every button except DISARM acts on release and shows a pressed outline while
@@ -1175,6 +1207,13 @@ screen is opened again.
 If the screen stalls for 250 ms (`UI_HEARTBEAT_TIMEOUT_MS`), core1 ends the
 pulses and the sweep, the chip reads `STALLED`, and nothing restarts until the
 next HOLD TO START.
+
+The servo tester has no idle stop, so a running servo, sweeping or holding a
+position, has STOP and BACK as its only stops, both by touch. When the touch
+controller does not answer (`uiTouchLost()`, the rule under "Touch"), the
+screen sends the command STOP sends, on the main view and on SET, and the dial
+reads `TOUCH NOT ANSWERING` and `THE SERVO IS STOPPED.` until it answers; HOLD
+TO START is disabled meanwhile.
 
 While SAFE with one servo, the readout row reads `TWO SERVOS:` and
 `SET > SERVOS` on the right: SET's SERVOS row switches the second servo on.
@@ -1948,7 +1987,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.8%**: 9,348 of 9,555 lines in 58 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.8%**: 9,370 of 9,577 lines in 58 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

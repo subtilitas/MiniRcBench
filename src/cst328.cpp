@@ -76,8 +76,16 @@
 
 static bool s_prevDown = false;        /**< Contact state at the previous poll. */
 static bool s_answered = false;        /**< A read completed since touchInit(). */
+static uint32_t s_answerMs = 0;        /**< millis() at the last answer. */
+
+/** @brief Record an answer: for touchAnswered() and touchLastAnswerMs(). */
+static void noteAnswer() {
+	s_answered = true;
+	s_answerMs = millis();
+}
 
 bool touchAnswered() { return s_answered; }
+uint32_t touchLastAnswerMs() { return s_answerMs; }
 static int16_t s_downX = 0, s_downY = 0; /**< Where the current press started. */
 
 /**
@@ -156,15 +164,21 @@ bool touchInit() {
 	// refusing to poll would turn a cosmetic problem into a dead panel.
 	wrCmd(REG_MODE_NORMAL);
 
-	s_answered = ok;
+	s_answered = false;
+	if (ok) noteAnswer();
 	return ok;
 }
 
 /** @brief Consecutive failed polls before a glitch counts as a release. */
 #define POLL_FAIL_LIMIT 2
 
-/** @brief How many polls in a row the controller has failed to answer. */
+/**
+ * @brief How many polls in a row the controller has failed to answer,
+ *        held at 255. touchFailedReads() reports it.
+ */
 static uint8_t s_pollFails = 0;
+
+uint8_t touchFailedReads() { return s_pollFails; }
 
 void touchPoll(TouchState *t) {
 	uint8_t b[5];
@@ -173,7 +187,7 @@ void touchPoll(TouchState *t) {
 
 	if (rdRegs(REG_FINGER_1, b, 5)) {
 		s_pollFails = 0;
-		s_answered = true;
+		noteAnswer();
 		if ((b[0] & 0x0F) == FINGER_STATE_DOWN) {
 			int16_t nx = (int16_t)(((uint16_t)b[1] << 4) | (b[3] >> 4));
 			int16_t ny = (int16_t)(((uint16_t)b[2] << 4) | (b[3] & 0x0F));
@@ -188,7 +202,7 @@ void touchPoll(TouchState *t) {
 		// resting -- under the fire-on-release rule that is a commit, not a
 		// repeat -- so a single failure holds the previous state, and only
 		// POLL_FAIL_LIMIT consecutive ones report the finger up.
-		if (s_pollFails < POLL_FAIL_LIMIT) s_pollFails++;
+		if (s_pollFails < 255) s_pollFails++;
 		if (s_pollFails < POLL_FAIL_LIMIT) down = s_prevDown;
 	}
 

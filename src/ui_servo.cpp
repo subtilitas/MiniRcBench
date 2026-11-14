@@ -23,6 +23,7 @@
 #include "sense.h"
 #include "servo_supply.h"
 #include "touch.h"
+#include "ui.h"
 #include "ui_hold.h"
 #include "ui_input.h"
 #include "ui_list.h"
@@ -438,7 +439,7 @@ static void drawDial() {
 	char sw[24] = "";
 	if (senseDeclared()) sweepText(sw, sizeof(sw));
 	struct { uint32_t l1, l2, l3, sw; bool retry, rp; uint16_t us[2]; uint8_t mask, servos;
-	         bool running, tripped; } k;
+	         bool running, tripped, touchLost; } k;
 	memset(&k, 0, sizeof(k));
 	k.sw = textKey(sw[0] ? sw : nullptr);
 	k.l1 = textKey(l1); k.l2 = textKey(l2); k.l3 = textKey(l3);
@@ -446,6 +447,7 @@ static void drawDial() {
 	k.us[0] = s_st.outUs[0]; k.us[1] = s_st.outUs[1];
 	k.mask = s_mask; k.servos = s_profile.servos;
 	k.running = s_st.running; k.tripped = s_st.tripped;
+	k.touchLost = uiTouchLost();
 	if (!changed(1, &k, sizeof(k))) return;
 
 	gfxRect(0, SERVO_DIAL_Y0, GFX_W, SERVO_DIAL_Y1 - SERVO_DIAL_Y0 + 1, C_BG);
@@ -456,7 +458,11 @@ static void drawDial() {
 		if (retry) uiButton(BTN_RETRY, "RETRY", C_PANEL, C_TEXT, 1, k.rp);
 		return;
 	}
-	if (s_st.tripped && !s_st.running) {
+	if (k.touchLost && !s_st.running) {
+		// The tester's note, and why the servo stopped or does not start.
+		line(64, UI_TOUCH_LOST_TEXT, C_AMBER);
+		line(76, "THE SERVO IS STOPPED.", C_DIM);
+	} else if (s_st.tripped && !s_st.running) {
 		line(64, "STOPPED: SCREEN STALLED", C_MAGENTA);
 		line(76, "HOLD TO START AGAIN.", C_DIM);
 	} else if (!s_st.running) {
@@ -1000,8 +1006,10 @@ uint8_t uiServoControls(UiControl *out, uint8_t max) {
 	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Centre), BTN_CENTRE, run);
 	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Max), BTN_MAX, run);
 	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Sweep), BTN_SWEEP, run);
+	// STOP stays live while running; HOLD TO START is refused, and drawn
+	// disabled, while the touch does not answer.
 	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Start), BTN_START,
-	             s_st.running || live());
+	             s_st.running || (live() && !uiTouchLost()));
 	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Set), BTN_SET, true);
 	return n;
 }
@@ -1037,6 +1045,15 @@ bool uiServoTick(const TouchState *t) {
 	static const TouchState none = {};
 	s_t = t ? t : &none;
 	servoJobStatus(&s_st);
+	// A touch that does not answer cannot press STOP, and a running servo,
+	// sweeping or at a position, has no other stop on this screen: stop it
+	// as STOP does, on either view. Sent every frame until the job reports it
+	// stopped.
+	if (s_st.running && uiTouchLost()) {
+		send(ServoCmdKind::Safe);
+		s_dragging = false;
+		s_needLift = true;
+	}
 	if (s_owed) applyProfile();
 	if (s_claimed) pinClaimPoll();
 	else if (s_view != View::Unplug) claimPins();
@@ -1077,7 +1094,7 @@ bool uiServoTick(const TouchState *t) {
 		return true;
 	}
 
-	bool startOk = live() && !s_st.running;
+	bool startOk = live() && !s_st.running && !uiTouchLost();
 	if (s_view == View::Main) {
 		const char *l1, *l2, *l3;
 		uint16_t col;
@@ -1097,7 +1114,7 @@ bool uiServoTick(const TouchState *t) {
 	// starts from a clear panel.
 	if (s_full) gfxRect(0, 0, GFX_W, GFX_H, C_BG);
 	if (s_view == View::Main) {
-		startOk = live() && !s_st.running;
+		startOk = live() && !s_st.running && !uiTouchLost();
 		drawTop("SERVO", true);
 		drawDial();
 		drawReadout();

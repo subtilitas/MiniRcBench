@@ -68,9 +68,13 @@ void fakeHold(int x, int y);
 void fakeRelease();
 
 /**
- * @brief Whether the fake touch controller answers: touchInit() returns
- *        @p on and, with false, leaves no answer on record; a touchPoll()
- *        while it answers records one (touchAnswered()).
+ * @brief Whether the fake touch controller answers. While it does not,
+ *        touchLastAnswerMs() keeps the last answer's time and
+ *        touchFailedReads() counts; touchInit() returns @p on and, with
+ *        false, leaves no answer on record (touchAnswered()). The scripted
+ *        finger is still reported, presses included, so the refusals of a
+ *        lost touch are tested against a press that reaches them.
+ * @param on Reads complete.
  */
 void fakeTouchAnswers(bool on);
 
