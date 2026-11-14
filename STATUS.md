@@ -217,9 +217,9 @@ and the two wires never share a pin.
 **Mechanical model.**
 [hardware/mechanical/models/rp2350_touch_lcd_2_8.step](hardware/mechanical/models/rp2350_touch_lcd_2_8.step)
 is a STEP (Standard for the Exchange of Product model data) facsimile of the
-board, 50.54 × 73.06 × 10.03 mm, 822 solids: glass, display stack, board with
+board, 50.54 × 73.06 × 10.03 mm, 1039 solids: glass, display stack, board with
 its cut-outs, 4 standoffs, the two flat cables, every rear part 1.0 mm or
-more long and 25 printed legends. Waveshare publishes no 3D file of this board. The stack, the
+more long, and the print and bare tin of the rear traced from a photo. Waveshare publishes no 3D file of this board. The stack, the
 outline and the connectors are measured in Waveshare's STEP file of the
 ESP32-S3-Touch-LCD-2.8, which shares them; the other parts are placed from
 Waveshare's rear photo, good to 0.3 mm. No dimension is verified with a
@@ -227,7 +227,7 @@ caliper on a board. Sources, limits and commands are in
 [hardware/mechanical/README.md](hardware/mechanical/README.md).
 `hardware/mechanical/gen_models.py` writes the file from
 `touch_lcd_2_8.py`, and its `--check` runs in the Docs job. Read back with
-OpenCASCADE (cadquery-ocp 8.0.1.1.0) by `check_models.py`, outside CI: 822 valid solids, none
+OpenCASCADE (cadquery-ocp 8.0.1.1.0) by `check_models.py`, outside CI: 1039 valid solids, none
 sharing volume.
 
 ## What exists and how far it is verified

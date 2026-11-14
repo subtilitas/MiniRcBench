@@ -9,10 +9,10 @@ dimensions are mm.
 | | |
 | --- | --- |
 | Size | 50.54 × 73.06 × 10.03 |
-| Solids | 822, each with a colour |
+| Solids | 1039, each with a colour |
 | Faces | planes and cylinders; no polygon stands in for an arc |
 | Schema | AP214, ISO 10303-21 |
-| File size | 6.0 MB |
+| File size | 8.1 MB |
 
 ![Rear](renders/rp2350_touch_lcd_2_8_rear.png)
 
@@ -52,11 +52,15 @@ area is not centred on the glass: the glass reaches 33.53 to +y and 39.53 to
 | RP2350A, flash, PCM5101A, APA2068, QMI8658, PCF85063, CST328, charger | package sizes | P, N; APA2068 from E |
 | 95 chip parts, 2 crystals, 2 inductors, 4 diodes, 5 SOT-23 parts | package sizes | P, N |
 
-| 25 printed legends on the rear, 157 shapes | drawn 0.02 thick | P |
+| Print and bare tin on the rear, 374 shapes | drawn 0.02 thick | P |
 
 Every part on the board's rear that is 1.0 or more long is in the model. The
-legends are the board's name, the pin names of the 12-pin socket and the
-names at each socket, button, lamp and axis, traced from P.
+print is traced from P: 25 legends, among them the board's name, the pin
+names of the 12-pin socket and the names at each socket, button, lamp and
+axis; the outlines printed round parts; and the maker's logo and name. 189
+of the 374 shapes are bare tin, pads and solder beside parts. The Waveshare
+name and logo are Waveshare's trademarks; the model has them because the
+board does.
 
 ## Sources
 
@@ -99,11 +103,13 @@ positions from P are corrected by that. The table of positions is in
   it is on the glass's rear.
 - The flat cables fold round the display's lower end 0.25 from it. That
   distance is estimated.
-- Of the print, the maker's logo and name, the outlines round parts and the
-  marks on the flat cables are left out. A legend's edge follows the photo
-  to 0.1.
-- Not modelled: solder, pads, tracks, vias, parts under 1.0 long, the
-  battery, the speaker.
+- A traced edge follows the photo to 0.1. Print and tin are told apart by
+  brightness only, so a shape can carry the wrong one of the two colours.
+- Nothing is traced within 0.6 of a part more than 1.2 high, of the board's
+  edge, a cut-out or a standoff, nor on the flat cables: the print there,
+  the pads under parts and the marks on the cables are left out.
+- Not modelled: tracks, vias, parts under 1.0 long, the battery, the
+  speaker.
 
 ## Files
 
@@ -115,8 +121,8 @@ positions from P are corrected by that. The table of positions is in
 | `gen_models.py` | writes `models/*.step` from the specs; `--check` compares |
 | `check_models.py` | reads the files back with OpenCASCADE; `--render` draws them |
 | `check_photo.py` | draws the model's rear parts on photo P |
-| `_trace_print.py` | traces the printed legends from photo P into `_print.py` |
-| `_print.py` | the legends' outlines; written by `_trace_print.py` |
+| `_trace_print.py` | traces print and bare tin from photo P into `_print.py` |
+| `_print.py` | the traced outlines; written by `_trace_print.py` |
 | `models/` | the STEP files |
 | `renders/` | 4 views, 1600 × 1200 pixels |
 
@@ -136,7 +142,7 @@ python3 hardware/mechanical/_trace_print.py RP2350-Touch-LCD-2.8-3.jpg   # rewri
 `gen_models.py` needs Python 3 only and writes the same bytes on every run.
 The Docs job of `ci.yml` runs `gen_models.py --check`. `check_models.py`
 needs OpenCASCADE and is not run in CI (continuous integration); it passes on
-the committed file: 822 valid solids, no two sharing more than 1e-6 mm³.
+the committed file: 1039 valid solids, no two sharing more than 1e-6 mm³.
 `check_photo.py` needs photo P, numpy and Pillow and is not run in CI either.
 On P it reports 13.30 pixels per mm and 1.06 pixels left at the worst
 standoff, and every box it draws lies on its part.

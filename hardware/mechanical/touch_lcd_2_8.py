@@ -29,10 +29,10 @@ four sources, all mm:
   height, 2.5 +- 0.3.
 - N: nominal package sizes, for the parts placed from P.
 
-The printed legends on the rear are traced from P by _trace_print.py
-into _print.py: 25 legends, among them the board's name, the pin names
-of the 12-pin socket and the names at each socket and button. They are
-drawn 0.02 thick.
+The print and the bare tin on the rear are traced from P by
+_trace_print.py into _print.py: 25 legends, the outlines printed round
+parts, the maker's logo and name, and pads and solder beside parts.
+They are drawn 0.02 thick.
 
 Against the parts E and P share, positions read from P lie 0.15 to
 the right of E on average seen from the rear; every position from P is
@@ -53,10 +53,10 @@ front, the 0.3 deep counterbore of the standoffs.
 The standoffs are 5.5 across in E and in Q; the 6.2 seen in P is the
 collar at their foot. Differences from the board: the flat
 cables fold round the display's lower end 0.25 from it; that distance
-is estimated. Chip parts are drawn without solder. Of the
-print, the maker's logo and name, the outlines round parts and the
-marks on the flat cables are left out. Pads, tracks, vias, the battery
-and the speaker are not modelled. No
+is estimated. Chip parts are drawn without solder. Print
+and tin within 0.6 of a part more than 1.2 high, the pads under parts
+and the marks on the flat cables are left out. Tracks, vias, the
+battery and the speaker are not modelled. No
 dimension is verified with a caliper on a board.
 
 Model frame: the origin is the centre of the display area on the
@@ -94,7 +94,7 @@ COLLAR_D, COLLAR_H = 6.2, 0.3           # ring at the standoff's foot (P, Q)
 # height of the run above the board's rear.
 CABLE_T, CABLE_Z, CABLE_UP = 0.19, -3.775, 0.925
 
-PRINT_T = 0.02          # thickness the printed legends are drawn with
+PRINT_T = 0.02          # thickness print and tin are drawn with
 
 R, C = "r0402", "c0402"
 # Chip parts on the rear (P): kind, xr, y, turn in degrees; at turn 0
@@ -314,9 +314,11 @@ def rear_parts():
 
 
 def legends():
-    """The printed legends on the board's rear, in the model frame."""
-    return place([ext(outline, 0.0, PRINT_T, p.WHITE, holes=holes)
-                  for outline, holes in PRINT], z=-BOARD_REAR, flip=True)
+    """Print and bare tin on the board's rear, in the model frame."""
+    return place([ext(outline, 0.0, PRINT_T, p.TIN if tin else p.WHITE,
+                      holes=holes)
+                  for outline, holes, tin in PRINT], z=-BOARD_REAR,
+                 flip=True)
 
 
 def board(_colors=None):
