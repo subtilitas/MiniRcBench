@@ -701,7 +701,8 @@ static void drawAll() {
 	uiButton(BTN_SAVE, "HOLD TO SAVE", holding ? C_BLUE : C_PANEL,
 	         holding ? C_ONACCENT : C_TEXT, 1, holding);
 	// HOLD RESET's bar sits over its own button, as SAVE's does. While held
-	// it fills C_RED with C_ONACCENT text, as every hold but SAVE does.
+	// it fills C_RED with C_ONACCENT text, as every other src/ui_hold.* hold
+	// but SAVE does.
 	bool resetting = s_resetHold.holding;
 	uiHoldDrawBar(&s_resetHold, BTN_DEFAULTS, FOOT_Y - 4, millis());
 	uiButton(BTN_DEFAULTS, RESET_LABEL, resetting ? C_RED : C_PANEL,
@@ -741,7 +742,7 @@ void uiSettingsEnter() {
 	s_redraw = true;
 	s_changed = false;
 	uiHoldReset(&s_saveHold);
-	uiHoldReset(&s_resetHold);
+	uiHoldReset(&s_resetHold);   // mirrors SAVE's: no hold carries into a visit
 	s_saveOutcome = SaveOutcome::None;
 	s_shownRate = -1;
 	s_shownErr = -1;
@@ -781,7 +782,7 @@ bool uiSettingsTick(const TouchState *t) {
 	//     before it was not: MENU disarms, so SETTINGS never opens armed ---
 	bool wasResetting = s_resetHold.holding;
 	bool reset = uiHoldUpdate(&s_resetHold, BTN_DEFAULTS, s_t, true, now);
-	if (wasResetting || s_resetHold.holding) s_redraw = true;
+	if (wasResetting || s_resetHold.holding) s_redraw = true;   // mirrors SAVE's redraw
 
 	// --- a press on a live control belongs to the control, any other press
 	//     in the viewport to the list ---
