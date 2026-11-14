@@ -73,3 +73,11 @@ size_t am32BackupFormat(const uint8_t *settings, const char *escType, uint16_t a
  */
 BackupResult am32BackupSave(const uint8_t *settings, const char *escType, uint16_t address,
                             char *name);
+
+/**
+ * @brief The name the next backup takes in the ring, for the write page's
+ *        backup line: the number backupSave() would claim now.
+ * @param[out] name `BACKUP_NAME_MAX` bytes, `AMnnn.TXT`; empty unless Ok.
+ * @return NoCard without a mounted card; a listing failure as backupNames().
+ */
+BackupResult am32BackupNext(char *name);

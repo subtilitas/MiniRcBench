@@ -4,8 +4,9 @@
  *
  * The screen is a state machine. Nothing touches the ESC until the pin claim
  * holds the signal pin (pin_claim.h), and nothing writes until the user has
- * held the WRITE button down for a full second — a stray tap must never
- * reprogram a motor controller.
+ * tapped `WRITE...`, read the page that names every change, and held its
+ * HOLD TO WRITE down for a full second: a stray tap must never reprogram a
+ * motor controller (docs/design/menu-b.md, decision 6).
  */
 
 #include "ui_am32.h"
@@ -17,6 +18,7 @@
 #include "am32_eeprom.h"
 #include "pin_claim.h"
 #include "touch.h"
+#include "usb_msc.h"
 #include "ui.h"
 #include "ui_hold.h"
 #include "ui_input.h"
@@ -68,17 +70,40 @@ static const UiRect BTN_HEX    = { 180, FOOT_Y, 54, FOOT_H };
 /** @brief The editor bar's two steppers. */
 static const UiRect BTN_MINUS  = { BTN_MINUS_X, EDIT_Y, EDIT_BTN_W, EDIT_H };
 static const UiRect BTN_PLUS   = { BTN_PLUS_X,  EDIT_Y, EDIT_BTN_W, EDIT_H };
-/** @brief The OK button on the write-result screen: the wide button, as KST's and Hitec's. */
+/**
+ * @brief The write page's wide button, as KST's and Hitec's: HOLD TO WRITE
+ *        before the write, OK under the result.
+ */
 static const UiRect BTN_OK     = { UI_EDGE, FOOT_Y, GFX_W - 2 * UI_EDGE, FOOT_H };
-/** @brief Top of the write's state or result. @see drawResultText() */
-#define RESULT_Y     140
+/**
+ * @defgroup am32_page The write page's lines
+ * @{
+ */
+#define WP_LINE_Y    UI_BODY_Y  /**< The first change's line, y 62. */
+#define WP_PITCH     20         /**< Change line to change line. */
+#define WP_LINES     4          /**< Changes listed before `AND n MORE`. */
+#define WP_STATE_Y   196        /**< The first state or result line. */
+#define WP_STATE_PITCH 12       /**< State line to state line. */
+#define WP_BACKUP_Y  236        /**< The backup line. */
+/** @} */
 /** @brief Characters of a scale-1 line from x 8 to x 232. */
 #define RESULT_CHARS 37
-// The result's lines, the power-cycle line 30 px under its first, end above OK.
-static_assert(RESULT_Y + 30 + 7 < FOOT_Y, "the result runs into OK");
+// The change lines, a value moved under its label and AND n MORE end above
+// the state lines; the two state lines above the backup line; the backup
+// line above the hold's bar.
+static_assert(WP_LINE_Y + WP_LINES * WP_PITCH + 7 < WP_STATE_Y &&
+              WP_LINE_Y + (WP_LINES - 1) * WP_PITCH + 10 + 7 < WP_LINE_Y + WP_LINES * WP_PITCH,
+              "the change lines run into the state lines");
+static_assert(WP_STATE_Y + WP_STATE_PITCH + 7 < WP_BACKUP_Y, "the result runs into the backup line");
+static_assert(WP_BACKUP_Y + 7 < FOOT_Y - UI_HOLD_BAR_H - 1, "the backup line runs into the hold's bar");
 static_assert(sizeof(AM32_UI_POWER_CYCLE) - 1 <= RESULT_CHARS, "the power-cycle line runs off the panel");
+static_assert(sizeof(AM32_UI_WRITING) - 1 <= RESULT_CHARS &&
+              sizeof(AM32_UI_NO_CARD_LOST) - 1 <= RESULT_CHARS &&
+              sizeof(AM32_UI_USB_LOST) - 1 <= RESULT_CHARS &&
+              sizeof("BACKUP FIRST: BACKUP/AM001.TXT") - 1 <= RESULT_CHARS,
+              "a write page line runs off the panel");
 // The write's texts. Each status doWrite() sets fits one scale-1 line, as
-// the asserts below check, so drawResultText() never wraps.
+// the asserts below check, so drawWritePage() never wraps one.
 #define ST_NO_BACKUP    "NO BACKUP ON THE CARD: NOT WRITTEN" /**< A card refused the backup. */
 #define ST_WRITE_FAILED "WRITE FAILED: "  /**< Before am32ResultText(). */
 #define ST_VERIFY_READ  "VERIFY READ: "   /**< Before am32ResultText(). */
@@ -138,8 +163,9 @@ static_assert(EDIT_H >= UI_TAP_MIN && FOOT_H >= UI_TAP_MIN,
 enum Am32Screen : uint8_t {
 	S_HANDOVER,  /**< Waiting for the pin claim to hold the signal pin. */
 	S_CONNECT,   /**< Prompting for ESC power, retrying the handshake. */
-	S_LIST,      /**< Browsing and editing settings. */
-	S_WRITING,   /**< Write in progress or just finished. */
+	S_LIST,      /**< Browsing and editing settings; with s_hexView, AM32 HEX. */
+	S_PAGE,      /**< AM32 WRITE before the hold: the changes and HOLD TO WRITE. */
+	S_WRITING,   /**< AM32 WRITE: the write in progress, then its result. */
 	/**
 	 * A layout the table is not checked against: the bytes, BACK alone.
 	 * No state leads from here to S_WRITING.
@@ -170,7 +196,7 @@ static bool       s_backupVolumeRead = false; /**< s_backupVolume was read; fals
 /** @brief The settings as read at entry: the session's backup. */
 static uint8_t    s_entry[AM32_SETTINGS_SIZE];
 static char       s_backupName[BACKUP_NAME_MAX] = "";
-/** @brief HOLD TO WRITE. */
+/** @brief The write page's HOLD TO WRITE. */
 static UiHold     s_writeHold;
 /**
  * @brief A press landed on the result page after the write ended. OK takes
@@ -178,6 +204,19 @@ static UiHold     s_writeHold;
  *        ended the hold lifts there.
  */
 static bool       s_okPress = false;
+/** @brief The settings as read when the write page opened: the page's old values. */
+static uint8_t    s_pageFrom[AM32_SETTINGS_SIZE];
+/** @brief What the write page writes: the edits when it opened. */
+static uint8_t    s_pageTo[AM32_SETTINGS_SIZE];
+/** @brief The name the backup takes on the card, for the page's backup line; empty if not known. */
+static char       s_backupNext[BACKUP_NAME_MAX] = "";
+/** @brief A card was mounted when the page last looked: a new one names its backup. */
+static bool       s_pageCard = false;
+/**
+ * @brief BACK on the list with edits not written: the first arms, the second
+ *        drops them (docs/design/menu-b.md, decision 7).
+ */
+static UiBackGuard s_guard;
 static uint8_t    s_layoutRev = 0;
 static bool       s_leaving = false;
 static bool       s_redraw = true;
@@ -242,6 +281,35 @@ static void buildVisible() {
 /** @brief True if any settings byte differs from what we read. */
 static bool anyDirty() {
 	return memcmp(s_eeprom, s_original, AM32_SETTINGS_SIZE) != 0;
+}
+
+/**
+ * @brief The listed fields that differ between @p from and @p to: the count
+ *        the BACK guard and the write page name. Each field is one byte, and
+ *        the editor steps listed fields only.
+ */
+static int changeCount(const uint8_t *from, const uint8_t *to) {
+	int n = 0;
+	for (uint16_t i = 0; i < s_visibleCount; i++) {
+		uint8_t off = AM32_FIELDS[s_visible[i]].offset;
+		if (from[off] != to[off]) n++;
+	}
+	return n;
+}
+
+/** @brief The write runs: AM32 WRITE shows WRITING and BACK is drawn disabled. */
+static bool writing() { return s_state == S_WRITING && strcmp(s_status, "WRITING...") == 0; }
+
+/** @brief Header BACK acts: in every state but while the write runs. */
+static bool backLive() { return !writing(); }
+
+/**
+ * @brief The changes BACK on the list would drop, for the guard: the listed
+ *        fields that differ, and at least 1 while any byte differs.
+ */
+static int pendingChanges() {
+	int n = changeCount(s_original, s_eeprom);
+	return n ? n : (anyDirty() ? 1 : 0);
 }
 
 // hit(), button() and pressingBtn() used to live here. They were a third copy
@@ -352,8 +420,19 @@ static bool listNote(const char **l1, const char **l2) {
 	return true;
 }
 
+/**
+ * @brief The title: AM32 HEX over the hex dump of the list, AM32 WRITE on the
+ *        write page, else AM32 CONFIG (docs/design/menu-b.md, decision 13).
+ *        The read-only view is the main view: its title stays AM32 CONFIG.
+ */
+static const char *title() {
+	if (s_state == S_LIST && s_hexView) return "AM32 HEX";
+	if (s_state == S_PAGE || s_state == S_WRITING) return "AM32 WRITE";
+	return "AM32 CONFIG";
+}
+
 static void drawHeader() {
-	uiHeader("AM32 CONFIG", s_frameTouch);
+	uiHeader(title(), s_frameTouch, backLive());
 
 	// The device name qualifies the title rather than being part of it, so it
 	// goes on the shared strip -- the same row MENU puts its EDT chip on.
@@ -363,7 +442,7 @@ static void drawHeader() {
 	// which the caption alone leaves standing. @see listNote()
 	uiStripTwoLines(nullptr, C_BG, nullptr, C_BG);
 	char name[AM32_NAME_LEN + 1];
-	if (s_state == S_LIST || s_state == S_WRITING || s_state == S_VIEW) {
+	if (s_state == S_LIST || s_state == S_PAGE || s_state == S_WRITING || s_state == S_VIEW) {
 		am32DeviceName(s_eeprom, name);
 		char buf[48];
 		if (name[0]) {
@@ -375,9 +454,17 @@ static void drawHeader() {
 			         s_layoutRev);
 		}
 		const char *l1, *l2;
-		if (s_state == S_VIEW) {
+		if (s_state == S_PAGE || s_state == S_WRITING) {
+			// The write page's count, from the settings it opened on.
+			int n = changeCount(s_pageFrom, s_pageTo);
+			snprintf(buf, sizeof(buf), "%d CHANGE%s", n, n == 1 ? "" : "S");
+			uiStripText(buf, C_DIM);
+		} else if (s_state == S_VIEW) {
 			readOnlyNote(&l1, &l2);
 			uiStripTwoLines(l1, UI_COL_WARN, l2, UI_COL_WARN);
+		} else if (s_state == S_LIST && s_guard.armed) {
+			// The armed guard names what a second BACK drops.
+			uiBackGuardDraw(pendingChanges(), "WRITTEN");
 		} else if (s_state == S_LIST && listNote(&l1, &l2)) {
 			uiStripTwoLines(l1, UI_COL_WARN, l2, UI_COL_WARN);
 		} else {
@@ -488,10 +575,20 @@ static void drawList() {
 		// act on, so the bar has to say what it is editing.
 		int cx = BTN_MINUS_X + EDIT_BTN_W;
 		int cw = BTN_PLUS_X - cx;
-		gfxText(cx + (cw - gfxTextW(sel->name, 1)) / 2, EDIT_Y + 2, sel->name, C_DIM, 1);
-		char val[24];
+		char val[24], old[24], top[48];
 		am32FormatValue(sel, s_eeprom, val, sizeof(val));
 		bool ch = s_eeprom[sel->offset] != s_original[sel->offset];
+		// A changed field names its value as read, as KST's bar does:
+		// `PWM FREQ  24KHZ ->` over the new value; a line wider than the
+		// gap keeps `24KHZ ->` (docs/design/menu-b.md, decision 6).
+		if (ch) {
+			am32FormatValue(sel, s_original, old, sizeof(old));
+			snprintf(top, sizeof(top), "%s  %s ->", sel->name, old);
+			if (gfxTextW(top, 1) > cw) snprintf(top, sizeof(top), "%s ->", old);
+		} else {
+			snprintf(top, sizeof(top), "%s", sel->name);
+		}
+		gfxText(cx + (cw - gfxTextW(top, 1)) / 2, EDIT_Y + 2, top, C_DIM, 1);
 		gfxText(cx + (cw - gfxTextW(val, 2)) / 2, EDIT_Y + 14, val,
 		        ch ? UI_COL_CHANGED : C_TEXT, 2);
 		// Short enough to clear both buttons: the gap between them is only
@@ -505,18 +602,12 @@ static void drawList() {
 
 	// ---- footer ----
 	bool dirty = anyDirty();
-	// C_RED while holding rather than C_REDDARK: that colour's other job is the
-	// dead-telemetry digit, which has to read as "off" and therefore inverts
-	// direction between the two palettes. A fill that carries white text needs
-	// to be dark in both, and C_RED is.
-	bool holding = s_writeHold.holding;
-	uint16_t writeFill = holding ? C_RED : C_PANEL;
-	uiHoldDrawBar(&s_writeHold, BTN_WRITE, FOOT_Y - 4, millis());
-	// Both are gated on the same `dirty` their hit tests are. WRITE already
-	// was; REVERT was drawn grey and ran regardless, which was harmless only
-	// because reverting nothing to nothing is a no-op. @see #23
-	uiButton(BTN_WRITE, dirty ? "HOLD TO WRITE" : "NO CHANGES",
-	         writeFill, holding ? C_ONACCENT : C_TEXT, 1, holding, dirty);
+	// Both are gated on the same `dirty` their hit tests are. WRITE... opens
+	// the write page on a tap; only that page holds (docs/design/menu-b.md,
+	// decision 6). REVERT was drawn grey and ran regardless once, which was
+	// harmless only because reverting nothing to nothing is a no-op. @see #23
+	uiButton(BTN_WRITE, "WRITE...", C_PANEL, C_TEXT, 1,
+	         dirty && uiPressing(BTN_WRITE, s_frameTouch), dirty);
 	uiButton(BTN_REVERT, "REVERT", C_PANEL, C_AMBER, 1,
 	         uiPressing(BTN_REVERT, s_frameTouch), dirty);
 	uiButton(BTN_HEX, s_hexView ? "FIELDS" : "HEX", C_PANEL, C_TEXT, 1,
@@ -535,28 +626,96 @@ static void drawView() {
 }
 
 /**
- * @brief The write's state or result, centred at y @ref RESULT_Y, at scale 2
- *        when it fits the panel, else at scale 1. `WRITE VERIFIED. BACKUP
- *        AM001` is 334 px at scale 2 and ran off both edges. Every status of
- *        the write fits one scale-1 line: the asserts at @ref RESULT_CHARS.
- * @param s The text.
+ * @brief The backup line of the write page: where the settings as read go
+ *        before the first write, or went. Amber where they stay in RAM only.
+ * @param[out] col The line's colour.
+ * @return The line.
  */
-static void drawResultText(const char *s) {
-	gfxTextCenter(RESULT_Y, s, s_verified ? UI_COL_SAFE : C_TEXT,
-	              gfxTextW(s, 2) <= GFX_W - 2 * UI_MARGIN ? 2 : 1);
+static const char *backupLine(uint16_t *col) {
+	static char b[48];
+	*col = C_DIM;
+	if (s_backupDone) {
+		snprintf(b, sizeof(b), "BACKUP: BACKUP/%s", s_backupName);
+	} else if (!cardMounted()) {
+		*col = UI_COL_WARN;
+		snprintf(b, sizeof(b), "%s", mscHoldsCard(mscGetState()) ? AM32_UI_USB_LOST : AM32_UI_NO_CARD_LOST);
+	} else if (s_backupNext[0]) {
+		snprintf(b, sizeof(b), "BACKUP FIRST: BACKUP/%s", s_backupNext);
+	} else {
+		snprintf(b, sizeof(b), "BACKUP FIRST: TO THE CARD");
+	}
+	return b;
 }
 
-static void drawWriting() {
+/**
+ * @brief AM32 WRITE: the changes from the ESC as read when the page opened to
+ *        the edits, field by field, label in `C_TEXT` and `old -> new`
+ *        (uiChangeText()); at most @ref WP_LINES, then `AND n MORE`. Under
+ *        them the state: nothing before the hold, @ref AM32_UI_WRITING while
+ *        the write runs, then the result. The backup line, then HOLD TO
+ *        WRITE or OK in the wide button.
+ */
+static void drawWritePage() {
 	gfxRect(0, LIST_Y0, GFX_W, GFX_H - LIST_Y0, C_BG);
-	drawResultText(s_status);
-	// The ESC reads its settings at boot: whether it runs the new ones
-	// without a power cycle is not known, and the line is right either way.
-	if (s_verified) gfxTextCenter(RESULT_Y + 30, AM32_UI_POWER_CYCLE, C_TEXT, 1);
-	// Not verified: the edits stay in the list, and the next hold of WRITE
-	// runs the write, and the backup if it is missing, again.
-	else if (s_nextStep) gfxTextCenter(RESULT_Y + 30, s_nextStep, UI_COL_WARN, 1);
-	// Pressed only under a press that can act: not under the hold's finger.
-	uiButton(BTN_OK, "OK", C_PANEL, C_TEXT, 2, s_okPress && uiPressing(BTN_OK, s_frameTouch));
+	char buf[48];
+	int y = WP_LINE_Y, shown = 0;
+	int total = changeCount(s_pageFrom, s_pageTo);
+	for (uint16_t i = 0; i < s_visibleCount; i++) {
+		const Am32Field *f = &AM32_FIELDS[s_visible[i]];
+		if (s_pageFrom[f->offset] == s_pageTo[f->offset]) continue;
+		if (shown == WP_LINES) {
+			snprintf(buf, sizeof(buf), "AND %d MORE", total - WP_LINES);
+			gfxText(UI_MARGIN, y, buf, C_DIM, 1);
+			break;
+		}
+		char a[24], b[24];
+		am32FormatValue(f, s_pageFrom, a, sizeof(a));
+		am32FormatValue(f, s_pageTo, b, sizeof(b));
+		gfxText(UI_MARGIN, y, f->name, C_TEXT, 1);
+		snprintf(buf, sizeof(buf), "%s -> %s", a, b);
+		// Values that would meet the label go to the line below it.
+		int x = GFX_W - UI_MARGIN - gfxTextW(buf, 1);
+		int vy = UI_MARGIN + gfxTextW(f->name, 1) + 6 > x ? y + 10 : y;
+		uiChangeText(x, vy, a, b);
+		y += WP_PITCH;
+		shown++;
+	}
+
+	if (writing()) {
+		gfxText(UI_MARGIN, WP_STATE_Y, AM32_UI_WRITING, UI_COL_WARN, 1);
+	} else if (s_state == S_WRITING) {
+		// The result. Every status of the write fits one scale-1 line: the
+		// asserts at RESULT_CHARS. Verified: green, and the ESC reads its
+		// settings at boot, so whether it runs the new ones without a power
+		// cycle is not known; the line is right either way. Not verified or
+		// refused: amber, and the next step under it.
+		gfxText(UI_MARGIN, WP_STATE_Y, s_status, s_verified ? UI_COL_SAFE : UI_COL_WARN, 1);
+		if (s_verified)
+			gfxText(UI_MARGIN, WP_STATE_Y + WP_STATE_PITCH, AM32_UI_POWER_CYCLE, C_TEXT, 1);
+		else if (s_nextStep)
+			gfxText(UI_MARGIN, WP_STATE_Y + WP_STATE_PITCH, s_nextStep, UI_COL_WARN, 1);
+	}
+	uint16_t bc;
+	const char *bl = backupLine(&bc);
+	gfxText(UI_MARGIN, WP_BACKUP_Y, bl, bc, 1);
+
+	if (s_state == S_PAGE) {
+		// C_RED while holding rather than C_REDDARK: that colour's other job
+		// is the dead-telemetry digit, which has to read as "off" and
+		// therefore inverts direction between the two palettes. A fill that
+		// carries white text needs to be dark in both, and C_RED is.
+		bool ok = anyDirty();
+		bool holding = s_writeHold.holding;
+		uiHoldDrawBar(&s_writeHold, BTN_OK, FOOT_Y - 4, millis());
+		uiButton(BTN_OK, "HOLD TO WRITE", holding ? C_RED : C_PANEL, holding ? C_ONACCENT : C_TEXT, 2,
+		         holding, ok);
+	} else {
+		// Pressed only under a press that can act: not under the hold's
+		// finger. Drawn disabled while the write runs.
+		bool done = !writing();
+		uiButton(BTN_OK, "OK", C_PANEL, C_TEXT, 2, done && s_okPress && uiPressing(BTN_OK, s_frameTouch),
+		         done);
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -591,6 +750,8 @@ void uiAm32Enter() {
 	s_redraw = true;
 	uiHoldReset(&s_writeHold);
 	s_okPress = false;
+	s_guard = UiBackGuard{};
+	s_backupNext[0] = '\0';
 	s_visibleCount = 0;
 	openList();
 #if AM32_FORCE_LOW_JUMP
@@ -734,7 +895,7 @@ static bool writeRefused() {
 static void doWrite() {
 	// Set again only by a write that reads back equal: the result's colour
 	// and the power-cycle line follow it. The hold that starts the write
-	// clears it already (handleListTouch()); this is a backstop for any
+	// clears it already (pageTouch()); this is a backstop for any
 	// other way into S_WRITING.
 	s_verified = false;
 	if (writeRefused()) return;
@@ -816,14 +977,46 @@ static void doWrite() {
 }
 
 
-static void handleListTouch(const TouchState *t) {
-	// --- write button: needs every frame, including finger-off, to time the
-	//     hold and to cancel it the moment the finger moves away. Only a press
-	//     that began on the button counts (ui_hold.h), so a drag that strays
-	//     in from the list cannot start a hold ---
-	bool dirty = anyDirty();
+/** @brief The name the backup will take on the card, for the page's backup line. */
+static void lookUpBackup() {
+	s_pageCard = cardMounted();
+	s_backupNext[0] = '\0';
+	// The AM32 transport blocks core0 anyway: the card is read on the spot.
+	if (!s_backupDone && s_pageCard && am32BackupNext(s_backupNext) != BackupResult::Ok)
+		s_backupNext[0] = '\0';
+}
+
+/**
+ * @brief `WRITE...` tapped: AM32 WRITE, on the settings as they are now. The
+ *        hold starts fresh, so the tap's own press is never timed.
+ */
+static void openPage() {
+	memcpy(s_pageFrom, s_original, sizeof(s_pageFrom));
+	memcpy(s_pageTo, s_eeprom, sizeof(s_pageTo));
+	uiHoldReset(&s_writeHold);
+	s_okPress = false;
+	s_verified = false;
+	s_nextStep = nullptr;
+	s_status[0] = '\0';
+	lookUpBackup();
+	s_state = S_PAGE;
+	s_redraw = true;
+}
+
+/**
+ * @brief The write page before the hold: HOLD TO WRITE, 1000 ms on ui_hold,
+ *        starts the write. It needs every frame, finger-off included, to time
+ *        the hold and to cancel it the moment the finger moves away; only a
+ *        press that began on the button counts (ui_hold.h).
+ */
+static void pageTouch(const TouchState *t) {
+	// A card put in while the page is up: the backup line names its file.
+	if (cardMounted() != s_pageCard) {
+		lookUpBackup();
+		s_redraw = true;
+	}
 	bool wasHolding = s_writeHold.holding;
-	if (uiHoldUpdate(&s_writeHold, BTN_WRITE, t, dirty, millis())) {
+	if (uiHoldUpdate(&s_writeHold, BTN_OK, t, anyDirty(), millis())) {
 		s_state = S_WRITING;
 		s_verified = false;
 		s_nextStep = nullptr;
@@ -832,6 +1025,16 @@ static void handleListTouch(const TouchState *t) {
 		return;
 	}
 	if (wasHolding || s_writeHold.holding) s_redraw = true;
+}
+
+static void handleListTouch(const TouchState *t) {
+	// --- WRITE...: a tap, on release, opens the write page; only that page
+	//     holds (docs/design/menu-b.md, decision 6) ---
+	bool dirty = anyDirty();
+	if (dirty && uiTapped(BTN_WRITE, t)) {
+		openPage();
+		return;
+	}
 
 	// --- editor bar: also needs every frame, to drive hold-to-repeat.
 	//     Same press-origin rule: a swipe on the bottom list row that slid
@@ -901,12 +1104,16 @@ static void handleListGesture(const TouchState *t) {
 
 uint8_t uiAm32Controls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
-	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
+	// BACK is drawn disabled while the write runs (backLive()).
+	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backLive());
+	if (s_state == S_PAGE) {
+		uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::WriteHold), BTN_OK, anyDirty());
+		return n;
+	}
 	if (s_state == S_WRITING) {
-		// drawWriting() draws OK from the first frame; it acts once the
+		// drawWritePage() draws OK from the first frame; it acts once the
 		// write has finished.
-		uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Ok), BTN_OK,
-		             strcmp(s_status, "WRITING...") != 0);
+		uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Ok), BTN_OK, !writing());
 		return n;
 	}
 	// The read-only view's one control is BACK.
@@ -935,11 +1142,37 @@ bool uiAm32Tick(const TouchState *t) {
 	// BACK is drawn by drawHeader() in every state, so it has to be handled in
 	// every state. Doing it here rather than per-state stops it being a button
 	// that is visible but inert on whichever screen forgot to check for it.
-	// On release, like every navigation tap.
-	if (uiBackTapped(t)) {
-		s_leaving = true;
-		uiAm32Exit();
-		return false;
+	// On release, like every navigation tap. It goes one level up: AM32 HEX
+	// and AM32 WRITE to the list, the list through its guard to MENU. While
+	// the write runs it is drawn disabled and does nothing (backLive()).
+	if (backLive()) {
+		bool back = false;
+		if (s_state == S_LIST && !s_hexView) {
+			// Edits not written: the first BACK arms the guard, the second
+			// leaves and drops them; a press elsewhere disarms it
+			// (docs/design/menu-b.md, decision 7).
+			UiGuardEv e = uiBackGuard(&s_guard, t, pendingChanges());
+			if (e != UiGuardEv::None) s_redraw = true;
+			back = e == UiGuardEv::Back;
+		} else if (uiBackTapped(t)) {
+			if (s_state == S_LIST) {
+				s_hexView = false;
+				openList();
+				s_redraw = true;
+			} else if (s_state == S_PAGE || s_state == S_WRITING) {
+				s_okPress = false;
+				uiHoldReset(&s_writeHold);
+				s_state = am32LayoutKnown(s_original) ? S_LIST : S_VIEW;
+				s_redraw = true;
+			} else {
+				back = true;
+			}
+		}
+		if (back) {
+			s_leaving = true;
+			uiAm32Exit();
+			return false;
+		}
 	}
 
 	switch (s_state) {
@@ -971,11 +1204,17 @@ bool uiAm32Tick(const TouchState *t) {
 			handleListGesture(t);
 			break;
 
+		case S_PAGE:
+			pageTouch(t);
+			break;
+
 		case S_WRITING:
-			if (strcmp(s_status, "WRITING...") == 0) {
+			if (writing()) {
+				// The page as it stands while the write blocks core0:
+				// WRITING: DO NOT UNPLUG. and BACK drawn disabled.
 				s_okPress = false;
 				drawHeader();
-				drawWriting();
+				drawWritePage();
 				doWrite();
 				s_redraw = true;
 				break;
@@ -1001,7 +1240,8 @@ bool uiAm32Tick(const TouchState *t) {
 			case S_HANDOVER:
 			case S_CONNECT:  drawConnect(); break;
 			case S_LIST:     drawList();    break;
-			case S_WRITING:  drawWriting(); break;
+			case S_PAGE:
+			case S_WRITING:  drawWritePage(); break;
 			case S_VIEW:     drawView();    break;
 		}
 	}
