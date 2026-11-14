@@ -1348,8 +1348,8 @@ not 0 answers ID 0 is not measured.
    not measured, so one write may leave a servo the bench cannot read or
    restore. The editor bar says
    `BENCH ADDRESSES ID 0. A WRITE MAY LOCK OUT READ AND RESTORE.` and the
-   write page `THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR
-   RESTORE IT.`
+   write page `THE BENCH ADDRESSES ID 0 AND MAY NOT READ OR RESTORE THIS
+   SERVO AGAIN.`
 5. HOLD TO WRITE (1 s) opens the write page: the changes, their soft rules
    and where the backup goes, and `KEEP THE SERVO HORN CLEAR.` on the
    session's first write and on a write that moves DIRECTION, NEUTRAL or an

@@ -72,7 +72,7 @@ HitecView uiHitecView();
 #define HITEC_UI_ID_NOTE_BAR "BENCH ADDRESSES ID 0. A WRITE MAY LOCK OUT READ AND RESTORE."
 /** @brief The write page's note for the same change: two lines of 36. */
 #define HITEC_UI_ID_NOTE_PAGE \
-	"THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR RESTORE IT."
+	"THE BENCH ADDRESSES ID 0 AND MAY NOT READ OR RESTORE THIS SERVO AGAIN."
 /**
  * @brief The write page's last line when soft rules are left out, which
  *        each row's editor bar names.

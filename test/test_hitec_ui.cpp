@@ -911,7 +911,8 @@ static void testWritePageHornLine() {
 	checkTrue("the ID row first, at y 62", rowLabelY("ID") == UI_BODY_Y);
 	checkTrue("the horn line under the rows", hy > rowLabelY("DIRECTION"));
 	checkTrue("then the ID note, whole", idNoteDrawn(HITEC_UI_ID_NOTE_PAGE, 36, false) &&
-	          noteLineY("THE BENCH ADDRESSES ID 0. AFTER THIS") == hy + 12);
+	          noteLineY("THE BENCH ADDRESSES ID 0 AND MAY NOT") == hy + 12 &&
+	          noteLineY("READ OR RESTORE THIS SERVO AGAIN.") == hy + 24);
 	checkTrue("nothing below y 192", clearBelow192());
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(HitecCtl::Revert));

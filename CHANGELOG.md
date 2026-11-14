@@ -441,8 +441,8 @@ protocol.
   keeps its name and its single tap. Host tests in `test/test_menu.cpp`.
 - HITEC SERVO's ID note states the consequence: the editor bar reads
   `BENCH ADDRESSES ID 0. A WRITE MAY LOCK OUT READ AND RESTORE.` and the
-  write page `THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR
-  RESTORE IT.`, in place of `THE BENCH ADDRESSES ID 0. ANOTHER ID IS
+  write page `THE BENCH ADDRESSES ID 0 AND MAY NOT READ OR RESTORE THIS
+  SERVO AGAIN.`, in place of `THE BENCH ADDRESSES ID 0. ANOTHER ID IS
   NOT TESTED.` The wiki pages Hitec-Programming and Hitec-Programmierung no
   longer say that every D series servo takes a frame sent to ID 0: whether a
   servo with another ID answers it is not measured. Host tests in
@@ -718,8 +718,8 @@ protocol.
   values take what is left, a changed ID listed first; each soft rule is
   drawn whole or skipped, and the last line counts those left out,
   `AND n MORE RULES: SEE EACH ROW.` The page's ID note is two lines:
-  `THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR RESTORE
-  IT.` Host tests in `test/test_hitec_view.cpp` and
+  `THE BENCH ADDRESSES ID 0 AND MAY NOT READ OR RESTORE THIS SERVO AGAIN.`
+  Host tests in `test/test_hitec_view.cpp` and
   `test/test_hitec_ui.cpp`.
 - The wiki pages KST-Programming and KST-Programmierung no longer say the
   screen never switches the servo's supply: with SERVO SUPPLY at GP28 or

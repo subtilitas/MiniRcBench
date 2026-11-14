@@ -284,9 +284,10 @@ einer anderen ID kann also ein Servo hinterlassen, das die Platine nicht
 lesen und nicht aus einer Sicherung wiederherstellen kann. Solange `ID` einen
 anderen Wert als 0 hält, zeigt die Editorleiste
 `BENCH ADDRESSES ID 0. A WRITE MAY LOCK OUT READ AND RESTORE.` und die
-Schreibseite `THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR
-RESTORE IT.` (nach diesem Schreiben kann die Platine das Servo
-vielleicht nicht mehr lesen oder wiederherstellen).
+Schreibseite
+`THE BENCH ADDRESSES ID 0 AND MAY NOT READ OR RESTORE THIS SERVO AGAIN.`
+(die Platine spricht die ID 0 an und kann dieses Servo danach vielleicht
+nicht mehr lesen oder wiederherstellen).
 
 <img src="img/hitec-id.png" width="240" alt="Die Schreibseite für ID 0 -> 1, mit dem bernsteinfarbenen ID-Hinweis">
 
@@ -314,7 +315,7 @@ Unter den Werten, von oben nach unten:
 
 - `KEEP THE SERVO HORN CLEAR.` beim ersten Schreiben der Sitzung und bei
   jedem Schreiben, das `DIRECTION`, `NEUTRAL` oder einen Endpunkt ändert.
-- `THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR RESTORE IT.`,
+- `THE BENCH ADDRESSES ID 0 AND MAY NOT READ OR RESTORE THIS SERVO AGAIN.`,
   wenn die ID auf einen anderen Wert als 0 wechselt.
 - Zum Beispiel `FILE OF ANOTHER MODEL: D645MW.` nach dem Laden einer Datei
   eines anderen Modells. Nur diese Seite sagt das.

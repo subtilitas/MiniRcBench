@@ -255,8 +255,8 @@ measured, so one write of another ID may leave a servo the bench cannot
 read, and cannot restore from a backup. While `ID` holds another value than
 0, the editor bar reads
 `BENCH ADDRESSES ID 0. A WRITE MAY LOCK OUT READ AND RESTORE.` and the write
-page reads `THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR
-RESTORE IT.`
+page reads
+`THE BENCH ADDRESSES ID 0 AND MAY NOT READ OR RESTORE THIS SERVO AGAIN.`
 
 <img src="img/hitec-id.png" width="240" alt="The write page for ID 0 -> 1, with the amber ID note">
 
@@ -284,7 +284,7 @@ Under the values, top to bottom:
 
 - `KEEP THE SERVO HORN CLEAR.` on the session's first write, and on every
   write that changes `DIRECTION`, `NEUTRAL` or an end point.
-- `THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR RESTORE IT.`
+- `THE BENCH ADDRESSES ID 0 AND MAY NOT READ OR RESTORE THIS SERVO AGAIN.`
   when the ID changes to another value than 0.
 - `FILE OF ANOTHER MODEL: D645MW.`, for example, after a LOAD of a file of
   another model. This page is the only place that says so.

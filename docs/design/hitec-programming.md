@@ -790,8 +790,8 @@ by a table value on its first edit; REVERT brings it back.
   another value the editor bar carries the amber text
   `BENCH ADDRESSES ID 0. A WRITE MAY LOCK OUT READ AND RESTORE.`
   (`HITEC_UI_ID_NOTE_BAR`, three lines of 22 characters) and the write page
-  `THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR RESTORE
-  IT.` (`HITEC_UI_ID_NOTE_PAGE`, two lines of 36).
+  `THE BENCH ADDRESSES ID 0 AND MAY NOT READ OR RESTORE THIS SERVO AGAIN.`
+  (`HITEC_UI_ID_NOTE_PAGE`, two lines of 36 and 33 characters).
 
 #### Classic checksum
 
