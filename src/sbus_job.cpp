@@ -22,9 +22,10 @@ static_assert(SBUS_INTERVALS <= 255u, "the ring's count is a byte");
 // the pure core
 // ---------------------------------------------------------------------------
 
-void sbusCoreReset(SbusCore *c) {
+void sbusCoreReset(SbusCore *c, uint32_t nowUs) {
 	memset(c, 0, sizeof(*c));
 	sbus_decoder_reset(&c->dec);
+	c->wordPassUs = nowUs;
 }
 
 /** @brief Add one interval between frames, or start the mean again after a lost link. */
@@ -45,6 +46,13 @@ static void addInterval(SbusCore *c, uint32_t us) {
 }
 
 void sbusCoreFeed(SbusCore *c, uint16_t dr, uint32_t nowUs) {
+	c->passWord = true;
+	// Before a quiet line the word may be the tail of a frame, or a
+	// character the UART caught in the middle or at 8N1: not counted.
+	if (!c->synced) {
+		if (c->quietUs < SBUS_GAP_US) return;
+		c->synced = true;
+	}
 	c->changed = true;
 	if (dr & SBUS_DR_OE) c->st.overrun++;
 	if (dr & SBUS_DR_BE) { c->st.breakErr++; return; }
@@ -72,7 +80,14 @@ void sbusCoreFeed(SbusCore *c, uint16_t dr, uint32_t nowUs) {
 	if (f.failsafe) c->st.failsafeFrames++;
 }
 
-bool sbusCoreStep(SbusCore *c, uint32_t nowMs) {
+bool sbusCoreStep(SbusCore *c, uint32_t nowUs, uint32_t nowMs) {
+	if (c->passWord) {
+		c->wordPassUs = nowUs;
+		c->quietUs = 0;
+	} else {
+		c->quietUs = nowUs - c->wordPassUs;
+	}
+	c->passWord = false;
 	if (c->fedByte) c->st.lastByteMs = nowMs;
 	if (c->fedFrame) c->st.lastFrameMs = nowMs;
 	bool changed = c->changed;
@@ -117,6 +132,12 @@ static void padRelease() {
 	gpio_pull_down(SBUS_GPIO);
 }
 
+/** @brief Read and discard every word in the receive FIFO. */
+static void drain() {
+	uart_hw_t *hw = uart_get_hw(uart0);
+	while (!(hw->fr & UART_UARTFR_RXFE_BITS)) (void)(uint32_t)hw->dr;
+}
+
 static void sbusJobInit() {
 	critical_section_init(&s_cs);
 }
@@ -136,8 +157,11 @@ static uint8_t sbusJobBind(uint8_t sigGpio, uint8_t auxGpio) {
 		return CORE1_JOB_CLOCK;
 	}
 	uart_set_format(uart0, 8, 2, UART_PARITY_EVEN);
+	// Whatever arrived before the format took effect was read at 8N1, or
+	// from the middle of a character: away with it.
+	drain();
 
-	sbusCoreReset(&s_core);
+	sbusCoreReset(&s_core, micros());
 	publish();
 	return CORE1_JOB_OK;
 }
@@ -149,13 +173,16 @@ static void sbusJobStep(uint32_t nowMs, bool) {
 	uart_hw_t *hw = uart_get_hw(uart0);
 	while (!(hw->fr & UART_UARTFR_RXFE_BITS))
 		sbusCoreFeed(&s_core, (uint16_t)hw->dr, nowUs);
-	if (sbusCoreStep(&s_core, nowMs)) publish();
+	if (sbusCoreStep(&s_core, nowUs, nowMs)) publish();
 }
 
 static bool sbusJobRelease(uint32_t) {
 	// Nothing is driven, so nothing needs time: let go at once.
 	uart_deinit(uart0);
 	padRelease();
+	// No frame outlives the claim: a status read after it reads empty.
+	sbusCoreReset(&s_core, micros());
+	publish();
 	return true;
 }
 

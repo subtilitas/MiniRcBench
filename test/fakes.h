@@ -360,6 +360,8 @@ struct FakeUart {
 	unsigned dropped;   /**< Words due while the receiver did not hear the line. */
 	unsigned lost;      /**< Words due while the FIFO was full. */
 	unsigned drReads;   /**< UARTDR reads. */
+	unsigned caughtMid; /**< Words caught in the middle of their character. */
+	uint32_t formatWaitUs; /**< The wait of the last uart_set_format() on a running UART, us. */
 };
 
 /**
@@ -376,6 +378,13 @@ void fakeUartReset();
  * @param word  The word; OE is the fake's, set by a full FIFO.
  */
 void fakeUartLine(uint64_t dueUs, uint16_t word);
+
+/**
+ * @brief uart_init() leaves the receiver on at 8N1 for @p us before it
+ *        returns, as a slow core between it and uart_set_format() would.
+ *        fakeUartReset() sets 0.
+ */
+void fakeUartInitTakes(uint32_t us);
 
 /** @brief The UART0 fake's record, after moving every due word. */
 FakeUart fakeUart();

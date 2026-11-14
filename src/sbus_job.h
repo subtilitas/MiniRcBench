@@ -104,16 +104,34 @@ struct SbusCore {
 	uint8_t        ivCount;              /**< Intervals in the ring. */
 	bool           fedByte;              /**< A clean byte since the last step. */
 	bool           fedFrame;             /**< A frame since the last step. */
-	bool           changed;              /**< A word since the last step. */
+	bool           changed;              /**< A counted word since the last step. */
+	bool           synced;               /**< A quiet line of @ref SBUS_GAP_US was seen since the reset. */
+	bool           passWord;             /**< A word arrived since the last step. */
+	uint32_t       wordPassUs;           /**< Pass time of the last pass with a word, or of the reset. */
+	uint32_t       quietUs;              /**< Line seen quiet since then, us: from that pass to the last pass with none. */
 };
 
-/** @brief Clear @p c: the decoder, the status and every count. @param[out] c The state. */
-void sbusCoreReset(SbusCore *c);
+/**
+ * @brief Clear @p c: the decoder, the status and every count, and wait for
+ *        a quiet line. Pure.
+ *
+ * A bind can land in the middle of a frame, and on the chip uart_init()
+ * receives at 8N1 until uart_set_format() takes 8E2. So nothing is counted
+ * or fed until the line has been seen quiet for @ref SBUS_GAP_US, 2000 us:
+ * the time from the last pass with a word, or from the reset, to a pass with
+ * none. The first word after that starts a frame. A line that is never
+ * quiet for 2000 us is never counted.
+ *
+ * @param[out] c The state.
+ * @param nowUs  micros() at the reset.
+ */
+void sbusCoreReset(SbusCore *c, uint32_t nowUs);
 
 /**
  * @brief Take one UARTDR word. Pure.
  *
- * Counts its flags as the table in this file's description says; feeds a
+ * Before the line has been seen quiet (sbusCoreReset()), the word is neither
+ * counted nor fed. After that it counts its flags as the table in this file's description says; feeds a
  * clean byte, and one with OE alone, to sbus_decode_byte() at @p nowUs; on a
  * frame, stores its channels and flags, counts the frame-lost and failsafe
  * bits and adds the interval since the last frame. An interval of
@@ -130,14 +148,17 @@ void sbusCoreFeed(SbusCore *c, uint16_t dr, uint32_t nowUs);
  * @brief End a pass. Pure.
  *
  * Stamps SbusStatus::lastByteMs and SbusStatus::lastFrameMs with @p nowMs
- * when the pass fed a clean byte or a frame.
+ * when the pass fed a clean byte or a frame. Until the line has been seen
+ * quiet, records how long it has been: a pass with no word extends the quiet
+ * time to @p nowUs, a pass with one starts it again.
  *
  * @param[in,out] c The state.
+ * @param nowUs     micros() of the pass, as given to sbusCoreFeed().
  * @param nowMs     millis() of the pass.
- * @return True when a word arrived since the last step: the status changed
- *         and is to be published.
+ * @return True when a counted word arrived since the last step: the status
+ *         changed and is to be published.
  */
-bool sbusCoreStep(SbusCore *c, uint32_t nowMs);
+bool sbusCoreStep(SbusCore *c, uint32_t nowUs, uint32_t nowMs);
 
 /**
  * @brief Whether a rate uart_init() returned is within @ref SBUS_BAUD_TOL_PCT

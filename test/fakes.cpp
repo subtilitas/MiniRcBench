@@ -245,12 +245,20 @@ spi_inst_t *spi0 = nullptr;
 spi_inst_t *spi1 = nullptr;
 
 // --- UART0: a PL011 receiver as the S.BUS job sees it. The line is a queue
-//     of UARTDR words, each due at a time; a word due while the UART is on,
-//     GP1 is on the UART function with its input inverted and the format is
-//     8 data bits with even parity enters the 32-entry receive FIFO, and is
-//     dropped otherwise. A word due while the FIFO is full is lost, and the
-//     next word that enters carries OE. Not modelled: the bits on the wire,
-//     what a line that is not inverted would read, the transmitter ---
+//     of UARTDR words as an 8E2 receiver would load them, each due when its
+//     character, 11 bit times from its start bit, is in. A word due while
+//     the UART is on and GP1 is on the UART function with its input inverted
+//     enters the 32-entry receive FIFO, and is dropped otherwise. A word due
+//     while the FIFO is full is lost, and the next word that enters carries
+//     OE. The receiver reads the word in its own format: at 8N1 the parity
+//     bit is taken as the stop bit, so a parity bit of 0 is FE; at odd parity
+//     PE is the other way round. A character whose start bit came before the
+//     receiver was on is caught in its middle: it loads as FE with its data
+//     shifted. uart_set_format() on a running UART takes the SDK's 15 bit
+//     times with the receiver off, as uart_disable_before_lcr_write() waits,
+//     and only the character in progress at its start completes, in the old
+//     format. Not modelled: the bits on the wire, what a line that is not
+//     inverted would read, the transmitter ---
 
 /** @brief The two UART instances; only their addresses are used. */
 struct uart_inst { int id; };
@@ -264,34 +272,58 @@ static std::deque<FakeLineWord> g_line;
 static uint16_t g_rxFifo[FAKE_UART_FIFO];
 static unsigned g_rxHead, g_rxCount;
 static bool     g_rxOverrunPending;
+static uint64_t g_rxOnUs;         /**< When the receiver last came on. */
+static uint32_t g_initTakesUs;    /**< Time uart_init() leaves the receiver on before it returns. */
 static FakeUart g_uart;
 static uart_hw_t g_uartHw;
 
-/** @brief The receiver hears the line: UART on, GP1 set up, 8 bits, even parity. */
-static bool uartHears() {
-	return g_uart.enabled && g_pins[1].function == GPIO_FUNC_UART &&
-	       g_pins[1].inover == GPIO_OVERRIDE_INVERT && g_uart.dataBits == 8 &&
-	       g_uart.parity == UART_PARITY_EVEN;
+/** @brief One character's time, us, from its start bit to its load: 11 bits. */
+static uint64_t uartCharUs() { return g_uart.baud ? 11000000u / g_uart.baud : 0; }
+
+/** @brief The even parity bit of @p b. */
+static uint16_t uartEvenParity(uint8_t b) {
+	uint16_t p = 0;
+	for (; b; b &= (uint8_t)(b - 1u)) p ^= 1u;
+	return p;
+}
+
+/** @brief Load one word from the line, if the receiver hears it, as its format reads it. */
+static void uartTake(const FakeLineWord &lw) {
+	uint16_t w = lw.word;
+	if (!g_uart.enabled || g_pins[1].function != GPIO_FUNC_UART ||
+	    g_pins[1].inover != GPIO_OVERRIDE_INVERT || g_uart.dataBits != 8) {
+		g_uart.dropped++;
+		return;
+	}
+	if (lw.dueUs < g_rxOnUs + uartCharUs()) {
+		// Started before the receiver was on: a 0 bit inside it is taken
+		// for the start bit.
+		w = (uint16_t)(((w & 0xFFu) >> 1) | UART_UARTDR_FE_BITS);
+		g_uart.caughtMid++;
+	} else if (!(w & UART_UARTDR_BE_BITS)) {
+		uint16_t pbit = uartEvenParity((uint8_t)w) ^ ((w & UART_UARTDR_PE_BITS) ? 1u : 0u);
+		if (g_uart.parity == UART_PARITY_NONE)
+			w = (uint16_t)((w & 0xFFu) | (pbit ? 0u : UART_UARTDR_FE_BITS));
+		else if (g_uart.parity == UART_PARITY_ODD)
+			w ^= UART_UARTDR_PE_BITS;
+	}
+	if (g_rxCount == FAKE_UART_FIFO) {
+		g_rxOverrunPending = true;
+		g_uart.lost++;
+		return;
+	}
+	if (g_rxOverrunPending) w |= UART_UARTDR_OE_BITS;
+	g_rxOverrunPending = false;
+	g_rxFifo[(g_rxHead + g_rxCount++) % FAKE_UART_FIFO] = w;
 }
 
 /** @brief Move every word due by now off the line, into the FIFO or away. */
 static void uartLine() {
 	uint64_t now = time_us_64();
 	while (!g_line.empty() && g_line.front().dueUs <= now) {
-		uint16_t w = g_line.front().word;
+		FakeLineWord lw = g_line.front();
 		g_line.pop_front();
-		if (!uartHears()) {
-			g_uart.dropped++;
-			continue;
-		}
-		if (g_rxCount == FAKE_UART_FIFO) {
-			g_rxOverrunPending = true;
-			g_uart.lost++;
-			continue;
-		}
-		if (g_rxOverrunPending) w |= UART_UARTDR_OE_BITS;
-		g_rxOverrunPending = false;
-		g_rxFifo[(g_rxHead + g_rxCount++) % FAKE_UART_FIFO] = w;
+		uartTake(lw);
 	}
 }
 
@@ -306,9 +338,11 @@ void fakeUartReset() {
 	g_line.clear();
 	g_uart = FakeUart{};
 	uartClear();
+	g_initTakesUs = 0;
 	g_clockHz[1] = 150000000u;
 }
 void fakeUartLine(uint64_t dueUs, uint16_t word) { g_line.push_back(FakeLineWord{dueUs, word}); }
+void fakeUartInitTakes(uint32_t us) { g_initTakesUs = us; }
 FakeUart fakeUart() {
 	uartLine();
 	FakeUart u = g_uart;
@@ -353,6 +387,9 @@ unsigned uart_init(uart_inst_t *, unsigned baud) {
 	g_uart.stopBits = 1;
 	g_uart.parity = UART_PARITY_NONE;
 	g_uart.enabled = true;
+	g_rxOnUs = time_us_64();
+	// The receiver runs at 8N1 until the caller's next call.
+	g_us += g_initTakesUs;
 	return g_uart.baud;
 }
 void uart_deinit(uart_inst_t *) {
@@ -364,6 +401,22 @@ bool uart_is_readable(uart_inst_t *) { return !(g_uartHw.fr & UART_UARTFR_RXFE_B
 uint8_t uart_getc(uart_inst_t *) { return (uint8_t)g_uartHw.dr; }
 void uart_set_format(uart_inst_t *, unsigned bits, unsigned stop, enum uart_parity_t p) {
 	uartLine();
+	if (g_uart.enabled) {
+		// uart_disable_before_lcr_write(), SDK 2.1.1: UARTEN off, then a
+		// wait of about 15 bit times. The character under way completes.
+		uint64_t now = time_us_64();
+		uint32_t scaled = g_clockHz[1] / 3662u;
+		uint64_t wait = scaled ? (((uint64_t)64u * g_uart.ibrd + g_uart.fbrd) << 10) / scaled : 0;
+		while (!g_line.empty() && g_line.front().dueUs <= now + wait) {
+			FakeLineWord lw = g_line.front();
+			g_line.pop_front();
+			if (lw.dueUs < now + uartCharUs()) uartTake(lw);
+			else g_uart.dropped++;
+		}
+		g_us = now + wait;
+		g_uart.formatWaitUs = (uint32_t)wait;
+		g_rxOnUs = g_us;
+	}
 	g_uart.dataBits = bits;
 	g_uart.stopBits = stop;
 	g_uart.parity = (int)p;

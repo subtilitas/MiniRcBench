@@ -51,6 +51,15 @@ static uint32_t feedStream(SbusCore *c, const SbusLineFrame &f, uint32_t startUs
 	return startUs + (uint32_t)n * periodUs;
 }
 
+/**
+ * @brief A reset core that has seen the line quiet: reset 3000 us before
+ *        @p firstUs, a pass with no word 1000 us before it.
+ */
+static void ready(SbusCore *c, uint32_t firstUs) {
+	sbusCoreReset(c, firstUs - 3000u);
+	sbusCoreStep(c, firstUs - 1000u, 0);
+}
+
 /** @brief The channels of the status equal those of @p f. */
 static bool channelsAre(const SbusStatus &st, const SbusLineFrame &f) {
 	return memcmp(st.channel, f.ch, sizeof(st.channel)) == 0;
@@ -87,12 +96,12 @@ static void testCoreFrames() {
 	section("S.BUS core: clean streams at 14 ms and 7 ms");
 
 	SbusCore c;
-	sbusCoreReset(&c);
-	checkTrue("a step with no word: nothing to publish", !sbusCoreStep(&c, 5));
+	ready(&c, 0);
+	checkTrue("a step with no word: nothing to publish", !sbusCoreStep(&c, 0, 5));
 	SbusLineFrame f = sbusLineFrame(992);
 	feedFrame(&c, f, 1000);
-	checkTrue("a word: publish", sbusCoreStep(&c, 7));
-	checkTrue("the next step with none: nothing", !sbusCoreStep(&c, 8));
+	checkTrue("a word: publish", sbusCoreStep(&c, 0, 7));
+	checkTrue("the next step with none: nothing", !sbusCoreStep(&c, 0, 8));
 	checkInt("one frame", c.st.frames, 1);
 	checkTrue("its channels", channelsAre(c.st, f));
 	checkInt("interval 0 before two frames", c.st.intervalUs, 0);
@@ -102,7 +111,7 @@ static void testCoreFrames() {
 	SbusLineFrame part = f;
 	part.bytes = 10;
 	feedFrame(&c, part, 1000 + SBUS_LINE_14MS);
-	sbusCoreStep(&c, 21);
+	sbusCoreStep(&c, 0, 21);
 	checkTrue("a pass of bytes and no frame: lastByteMs moves, lastFrameMs not",
 	          c.st.lastByteMs == 21 && c.st.lastFrameMs == 7);
 
@@ -114,7 +123,7 @@ static void testCoreFrames() {
 	checkInt("no bad footer", c.st.badFooter, 0);
 	checkInt("510 clean bytes", c.st.bytes, 510);
 
-	sbusCoreReset(&c);
+	ready(&c, 0);
 	checkTrue("a reset clears every count", c.st.frames == 0 && c.st.bytes == 0 &&
 	                                        c.st.intervalUs == 0);
 	feedStream(&c, f, 0, SBUS_LINE_7MS, 20);
@@ -137,7 +146,7 @@ static void testCoreLostLink() {
 	section("S.BUS core: the mean starts again after 100 ms without a frame");
 
 	SbusCore c;
-	sbusCoreReset(&c);
+	ready(&c, 0);
 	SbusLineFrame f = sbusLineFrame(500);
 	uint32_t t = feedStream(&c, f, 0, SBUS_LINE_14MS, 3);
 	checkInt("14 ms", c.st.intervalUs, 14000);
@@ -151,11 +160,61 @@ static void testCoreLostLink() {
 	checkInt("the next frame: 14 ms", c.st.intervalUs, 14000);
 
 	// Across the micros() wrap.
-	sbusCoreReset(&c);
+	ready(&c, 0xFFFFFFFFu - 20000u);
 	feedStream(&c, f, 0xFFFFFFFFu - 20000u, SBUS_LINE_14MS, 4);
 	checkInt("across the micros() wrap: 4 frames", c.st.frames, 4);
 	checkInt("and 14 ms", c.st.intervalUs, 14000);
 	checkInt("no resync across the wrap", c.st.resyncs, 0);
+
+	// After a lost link the ring starts at its first slot again.
+	ready(&c, 0);
+	uint32_t u = feedStream(&c, f, 0, SBUS_LINE_14MS, 5);
+	checkInt("five frames at 14 ms", c.st.intervalUs, 14000);
+	u += 200000;
+	feedStream(&c, f, u, SBUS_LINE_7MS, 2);
+	checkInt("200 ms later, two frames 7 ms apart: 7,000 us", c.st.intervalUs, 7000);
+}
+
+/** @brief Nothing is counted or fed until the line has been seen quiet for 2000 us. */
+static void testCoreSync() {
+	section("S.BUS core: a bind into a live line counts nothing until 2000 us of quiet");
+
+	SbusCore c;
+	SbusLineFrame f = sbusLineFrame(600);
+	uint8_t b[SBUS_FRAME_BYTES];
+	sbusLinePack(f, b);
+
+	// The tail of a frame and an 8N1 character with FE, one pass each.
+	sbusCoreReset(&c, 0);
+	sbusCoreFeed(&c, 0x55 | SBUS_DR_FE, 1000);
+	for (unsigned i = 10; i < SBUS_FRAME_BYTES; i++) sbusCoreFeed(&c, b[i], 1000);
+	checkTrue("a pass of words before the quiet: nothing to publish", !sbusCoreStep(&c, 1000, 1));
+	sbusCoreFeed(&c, 0x0F | SBUS_DR_PE, 2500);
+	sbusCoreStep(&c, 2500, 2);
+	checkTrue("no count, no byte", c.st.framingErr == 0 && c.st.parityErr == 0 &&
+	                               c.st.bytes == 0 && c.st.resyncs == 0 && c.st.lastByteMs == 0);
+	sbusCoreStep(&c, 4499, 4);
+	feedFrame(&c, f, 4500);
+	sbusCoreStep(&c, 7500, 7);
+	checkTrue("quiet 1,999 us: the frame is not taken", c.st.frames == 0 && c.st.bytes == 0);
+	sbusCoreStep(&c, 9500, 9);
+	feedFrame(&c, f, 9500);
+	sbusCoreStep(&c, 12500, 12);
+	checkInt("quiet 2,000 us: the next frame decodes", c.st.frames, 1);
+	checkTrue("whole, and nothing else counted", channelsAre(c.st, f) && c.st.bytes == 25 &&
+	          c.st.resyncs == 0 && c.st.framingErr + c.st.parityErr == 0);
+	sbusCoreFeed(&c, 0x0F | SBUS_DR_PE, 12600);
+	checkInt("once in step, a bad word counts", c.st.parityErr, 1);
+
+	// Quiet from the reset itself: no word for 2000 us after it.
+	sbusCoreReset(&c, 0);
+	sbusCoreStep(&c, 1999, 1);
+	feedFrame(&c, f, 2000);
+	checkInt("1,999 us after the reset: not taken", c.st.frames, 0);
+	sbusCoreReset(&c, 0);
+	sbusCoreStep(&c, 2000, 2);
+	feedFrame(&c, f, 2000);
+	checkInt("2,000 us after the reset: taken", c.st.frames, 1);
 }
 
 /** @brief The flag byte: channels 17 and 18, frame lost, failsafe. */
@@ -163,7 +222,7 @@ static void testCoreFlags() {
 	section("S.BUS core: the flag byte and its counts");
 
 	SbusCore c;
-	sbusCoreReset(&c);
+	ready(&c, 0);
 	SbusLineFrame f = sbusLineFrame(1000);
 	f.flags = SBUS_FLAG_CH17;
 	feedFrame(&c, f, 0);
@@ -200,7 +259,7 @@ static void testCoreErrors() {
 	};
 	for (const auto &k : kinds) {
 		SbusCore c;
-		sbusCoreReset(&c);
+		ready(&c, 0);
 		SbusLineFrame f = sbusLineFrame(300);
 		feedFrame(&c, f, 0);
 		SbusLineFrame bad = f;
@@ -212,7 +271,7 @@ static void testCoreErrors() {
 		snprintf(what, sizeof(what), "%s in byte 5: that frame is lost", k.name);
 		checkInt(what, c.st.frames, 1);
 		checkTrue("no value of it reaches the status", c.st.channel[0] == 300);
-		checkTrue("a step after a bad word still publishes", sbusCoreStep(&c, 20));
+		checkTrue("a step after a bad word still publishes", sbusCoreStep(&c, 0, 20));
 		checkInt("24 clean bytes of it fed", c.st.bytes, 25 + 24);
 		feedFrame(&c, f, 28000);
 		checkInt("the next frame decodes", c.st.frames, 2);
@@ -225,16 +284,16 @@ static void testCoreErrors() {
 
 	// One count per bad word: break outranks framing, framing parity.
 	SbusCore c;
-	sbusCoreReset(&c);
+	ready(&c, 0);
 	sbusCoreFeed(&c, SBUS_DR_BE | SBUS_DR_FE | SBUS_DR_PE, 0);
 	sbusCoreFeed(&c, 0x0F | SBUS_DR_FE | SBUS_DR_PE, 120);
 	checkTrue("BE, FE and PE: break only", c.st.breakErr == 1);
 	checkTrue("FE and PE: framing only", c.st.framingErr == 1 && c.st.parityErr == 0);
 	checkInt("none fed", c.st.bytes, 0);
-	checkTrue("a pass of bad words stamps no byte", sbusCoreStep(&c, 9) && c.st.lastByteMs == 0);
+	checkTrue("a pass of bad words stamps no byte", sbusCoreStep(&c, 0, 9) && c.st.lastByteMs == 0);
 
 	// Overrun: counted, and its byte fed unless another flag is set.
-	sbusCoreReset(&c);
+	ready(&c, 0);
 	SbusLineFrame f = sbusLineFrame(700);
 	uint8_t b[SBUS_FRAME_BYTES];
 	sbusLinePack(f, b);
@@ -253,7 +312,7 @@ static void testCoreFraming() {
 	section("S.BUS core: footers, a cut frame, the gap");
 
 	SbusCore c;
-	sbusCoreReset(&c);
+	ready(&c, 0);
 	SbusLineFrame f = sbusLineFrame(1200);
 	f.footer = 0x01;
 	feedFrame(&c, f, 0);
@@ -263,7 +322,7 @@ static void testCoreFraming() {
 	feedFrame(&c, f, 14000);
 	checkInt("footer 0x14: decoded, as rcbench's decoder takes it", c.st.frames, 1);
 
-	sbusCoreReset(&c);
+	ready(&c, 0);
 	f = sbusLineFrame(1200);
 	SbusLineFrame cut = f;
 	cut.bytes = 20;
@@ -274,7 +333,7 @@ static void testCoreFraming() {
 	checkInt("no bad footer", c.st.badFooter, 0);
 
 	// Bytes before any header are thrown away one by one.
-	sbusCoreReset(&c);
+	ready(&c, 0);
 	sbusCoreFeed(&c, 0x55, 0);
 	sbusCoreFeed(&c, 0xAA, 120);
 	checkInt("two stray bytes: two resyncs", c.st.resyncs, 2);
@@ -282,7 +341,7 @@ static void testCoreFraming() {
 	checkInt("then a frame", c.st.frames, 1);
 
 	// A frame split by a gap of 2000 us is lost; 1999 us holds it together.
-	sbusCoreReset(&c);
+	ready(&c, 0);
 	uint8_t b[SBUS_FRAME_BYTES];
 	sbusLinePack(f, b);
 	for (unsigned i = 0; i < SBUS_FRAME_BYTES; i++) sbusCoreFeed(&c, b[i], i < 12 ? 0 : 1999);
@@ -379,10 +438,18 @@ static bool gp1Plain() {
 	       p.pull == FakePull::Down && !p.output && p.puts == 0;
 }
 
+/** @brief Two records of a pin are equal, field by field. */
+static bool samePin(const FakePin &a, const FakePin &b) {
+	return a.function == b.function && a.level == b.level && a.levelWrites == b.levelWrites &&
+	       a.output == b.output && a.pull == b.pull && a.high == b.high &&
+	       a.inputOff == b.inputOff && a.puts == b.puts && a.highEnables == b.highEnables &&
+	       a.cutPulses == b.cutPulses && a.cutAtUs == b.cutAtUs && a.inover == b.inover &&
+	       a.inoverWrites == b.inoverWrites;
+}
+
 /** @brief GP0's record is what it was: the job never touched it. */
 static bool gp0Untouched(const FakePin &before) {
-	FakePin p = fakePin(0);
-	return memcmp(&p, &before, sizeof(p)) == 0;
+	return samePin(fakePin(0), before);
 }
 
 /** @brief The default wiring: bind, a stream, the heartbeat, BACK. */
@@ -413,10 +480,12 @@ static void testJob() {
 	                                             st.lastFrameMs == 0 && st.intervalUs == 0);
 
 	// 30 frames at 14 ms, a pass every 1000 us: each byte drained up to
-	// 1000 us late, no frame split.
+	// 1000 us late, no frame split. The line is quiet for 3 ms after the
+	// bind, so the first frame is taken.
 	SbusLineFrame f = sbusLineFrame(172);
 	f.ch[3] = 1811;
-	uint64_t t0 = time_us_64() + 337;
+	uint64_t grid = time_us_64();
+	uint64_t t0 = grid + 3337;
 	uint64_t end = sbusLineStream(t0, SBUS_LINE_14MS, 30, f);
 	escHeartbeat();
 	runTo(end, 1000);
@@ -427,11 +496,12 @@ static void testJob() {
 	checkInt("no resync", st.resyncs, 0);
 	checkInt("750 bytes", st.bytes, 750);
 	checkTrue("no error", st.parityErr + st.framingErr + st.breakErr + st.overrun == 0);
-	// The pass that drains the last byte: the first on the 1000 us grid at
-	// or after the byte is in.
+	// The pass that drains the last byte: the first on the 1000 us grid
+	// from the bind at or after the byte is in.
 	uint64_t lastIn = end - SBUS_LINE_14MS + 24 * SBUS_LINE_BYTE_US + SBUS_LINE_LOAD_US;
+	uint64_t lastPass = grid + (lastIn - grid + 999) / 1000 * 1000;
 	checkInt("lastFrameMs: the pass of the last frame", st.lastFrameMs,
-	         (uint32_t)((lastIn + 999) / 1000));
+	         (uint32_t)(lastPass / 1000));
 	checkTrue("the heartbeat lapsed long ago", !core1UiAlive());
 	checkTrue("and the job decodes on: it sends nothing", st.frames == 30);
 	checkTrue("GP1 still only listens", gp1Listens() && gp0Untouched(gp0));
@@ -459,6 +529,7 @@ static void testJob() {
 	          st.parityErr == 1 && st.frames == 42 && st.resyncs == 1);
 
 	// BACK: the job lets go in one pass, then the unplug page.
+	checkInt("42 frames held before BACK", st.frames, 42);
 	int deinits = fakeUart().deinits;
 	pinClaimEnd(PinUser::Sbus);
 	core1JobPoll();
@@ -471,14 +542,14 @@ static void testJob() {
 	checkTrue("the unplug page is due", pinClaimUnplugDue());
 	checkTrue("DShot waits for RESTART DSHOT", pinClaimState() == ClaimState::Leaving &&
 	                                           escTaskSuspended());
-	SbusStatus before;
-	sbusJobStatus(&before);
 	unsigned dropped = fakeUart().dropped;
 	uint64_t after = sbusLineStream(time_us_64(), SBUS_LINE_14MS, 2, sbusLineFrame(900));
 	runTo(after, 1000);
 	checkInt("frames after the release are not heard", fakeUart().dropped, dropped + 50);
 	sbusJobStatus(&st);
-	checkTrue("the status keeps the last frame", memcmp(&st, &before, sizeof(st)) == 0);
+	checkTrue("the status after the release reads empty",
+	          st.frames == 0 && st.bytes == 0 && st.parityErr == 0 && st.lostFrames == 0 &&
+	          st.failsafeFrames == 0 && !st.failsafe && st.channel[0] == 0 && st.lastFrameMs == 0);
 	pinClaimRestart(PinUser::Sbus);
 	fakePumpPoll();
 	checkTrue("RESTART DSHOT: free", pinClaimState() == ClaimState::Free);
@@ -491,7 +562,7 @@ static void testJob() {
 	checkTrue("its counts start at 0", st.frames == 0 && st.bytes == 0 && st.parityErr == 0 &&
 	                                   st.resyncs == 0 && st.failsafeFrames == 0 &&
 	                                   st.lastFrameMs == 0 && !st.failsafe);
-	end = sbusLineStream(time_us_64() + 50, SBUS_LINE_14MS, 2, sbusLineFrame(400));
+	end = sbusLineStream(time_us_64() + 3050, SBUS_LINE_14MS, 2, sbusLineFrame(400));
 	runTo(end, 1000);
 	sbusJobStatus(&st);
 	checkTrue("and it decodes", st.frames == 2 && st.channel[0] == 400);
@@ -508,12 +579,18 @@ static void testJobLateDrain() {
 	freshPump(0, 1);
 	checkTrue("running", claimToBind(PIN_SIG | PIN_AUX) == ClaimState::Running);
 	SbusLineFrame f = sbusLineFrame(1000);
-	uint64_t end = sbusLineStream(time_us_64() + 500, SBUS_LINE_7MS, 20, f);
+	uint64_t end = sbusLineStream(time_us_64() + 3500, SBUS_LINE_7MS, 20, f);
 	runTo(end, 1000);
 	SbusStatus st;
 	sbusJobStatus(&st);
 	checkTrue("7 ms, a pass every 1000 us: every frame, no resync",
 	          st.frames == 20 && st.resyncs == 0 && st.intervalUs == 7000);
+	// Passes 1500 us apart: within a frame the bytes are still stamped less
+	// than 2000 us apart, so the stamps must be micros(), not millis().
+	end = sbusLineStream(end + SBUS_LINE_7MS, SBUS_LINE_7MS, 20, f);
+	runTo(end, 1500);
+	sbusJobStatus(&st);
+	checkTrue("a pass every 1500 us: 20 more, no resync", st.frames == 40 && st.resyncs == 0);
 
 	// No pass from 1500 us into a frame until 2000 us later: the bytes after
 	// the hole are stamped 2000 us after those before it, and the gap rule
@@ -525,13 +602,13 @@ static void testJobLateDrain() {
 	core1JobPoll();
 	runTo(t + 5000, 500);
 	sbusJobStatus(&st);
-	checkTrue("a pass 2000 us late mid-frame splits it: no frame", st.frames == 20);
+	checkTrue("a pass 2000 us late mid-frame splits it: no frame", st.frames == 40);
 	checkTrue("its first part is a resync", st.resyncs >= 1);
 	uint32_t resyncs = st.resyncs;
 	end = sbusLineStream(t + SBUS_LINE_7MS, SBUS_LINE_7MS, 2, f);
 	runTo(end, 1000);
 	sbusJobStatus(&st);
-	checkTrue("the frames after it decode", st.frames == 22 && st.resyncs >= resyncs);
+	checkTrue("the frames after it decode", st.frames == 42 && st.resyncs >= resyncs);
 
 	// No pass for 11 ms over a 7 ms stream: 32 bytes fill the FIFO, the
 	// rest of the second frame is lost, and the first byte that enters
@@ -545,8 +622,58 @@ static void testJobLateDrain() {
 	runTo(t + 3 * SBUS_LINE_7MS + 5000, 1000);
 	sbusJobStatus(&st);
 	checkInt("one overrun", st.overrun, 1);
-	checkInt("the first frame and the third decode", st.frames, 24);
+	checkInt("the first frame and the third decode", st.frames, 44);
 	checkTrue("no byte flagged otherwise", st.parityErr + st.framingErr + st.breakErr == 0);
+	checkTrue("back to free", claimEnd());
+}
+
+/**
+ * @brief A bind into a receiver already sending: the character under way, the
+ *        8N1 window and the tail of the frame count nothing.
+ */
+static void testJobBindLive() {
+	section("S.BUS job: a bind 1 ms into a frame of a live 7 ms stream");
+
+	SbusLineFrame f = sbusLineFrame(1500);
+	for (int slow = 0; slow < 2; slow++) {
+		fakePwmReset();
+		fakeUartReset();
+		freshPump(0, 1);
+		// slow: 300 us at 8N1 between uart_init() and uart_set_format().
+		fakeUartInitTakes(slow ? 300 : 0);
+		uint64_t t0 = time_us_64() - 1000;
+		uint64_t end = sbusLineStream(t0, SBUS_LINE_7MS, 12, f);
+		checkTrue(slow ? "slow bind: running" : "running",
+		          claimToBind(PIN_SIG | PIN_AUX) == ClaimState::Running);
+		FakeUart u = fakeUart();
+		checkTrue("the character under way was caught in its middle", u.caughtMid >= 1);
+		checkInt("uart_set_format() waits 15 bit times: 149 us", u.formatWaitUs, 149);
+		checkInt("the bind leaves the receive FIFO empty", u.fifo, 0);
+		runTo(end + 1000, 1000);
+		SbusStatus st;
+		sbusJobStatus(&st);
+		checkInt("the 11 whole frames after the bind decode", st.frames, 11);
+		checkTrue("whole: their channels", channelsAre(st, f));
+		checkInt("275 bytes, none of the cut frame", st.bytes, 275);
+		checkTrue("no resync, no footer, no error, no overrun",
+		          st.resyncs + st.badFooter + st.parityErr + st.framingErr + st.breakErr +
+		          st.overrun == 0);
+		checkInt("interval 7,000 us", st.intervalUs, 7000);
+		checkTrue("back to free", claimEnd());
+	}
+	fakeUartInitTakes(0);
+
+	// A quiet line counts from the bind: a frame that starts 1500 us after
+	// it may be the tail of one under way and is not taken; the next is.
+	fakePwmReset();
+	fakeUartReset();
+	freshPump(0, 1);
+	checkTrue("running", claimToBind(PIN_SIG | PIN_AUX) == ClaimState::Running);
+	uint64_t end = sbusLineStream(time_us_64() + 1500, SBUS_LINE_14MS, 3, f);
+	runTo(end, 1000);
+	SbusStatus st;
+	sbusJobStatus(&st);
+	checkInt("a frame 1500 us after the bind: not taken, the next two are", st.frames, 2);
 	checkTrue("back to free", claimEnd());
 }
 
@@ -565,7 +692,7 @@ static void testJobWirings() {
 	checkTrue("SIG GP1, AUX GP0: runs with SIG", claimToBind(sbusClaimRoles(1, 0)) == ClaimState::Running);
 	checkTrue("it binds GP1", gp1Listens());
 	checkTrue("GP0, AUX here, untouched", gp0Untouched(gp0));
-	uint64_t end = sbusLineStream(time_us_64() + 10, SBUS_LINE_14MS, 3, f);
+	uint64_t end = sbusLineStream(time_us_64() + 3010, SBUS_LINE_14MS, 3, f);
 	runTo(end, 1000);
 	sbusJobStatus(&st);
 	checkInt("and decodes", st.frames, 3);
@@ -580,6 +707,22 @@ static void testJobWirings() {
 	checkTrue("it binds GP1", gp1Listens());
 	checkTrue("back to free", claimEnd());
 
+	// The default wiring with a claim of SIG alone: AUX, GP1, is not the
+	// job's, and SIG is GP0.
+	fakePwmReset();
+	fakeUartReset();
+	freshPump(0, 1);
+	FakePin gp1Before = fakePin(1);
+	checkTrue("SIG GP0, AUX GP1, SIG claimed alone: held", claimToBind(PIN_SIG) == ClaimState::Held);
+	checkInt("NO GP1: AUX was not asked for", pinClaimJobError(), CORE1_JOB_NO_GP1);
+	checkTrue("GP1 untouched, UART0 never started",
+	          samePin(fakePin(1), gp1Before) && fakeUart().inits == 0);
+	pinClaimEnd(PinUser::Sbus);
+	pinClaimPoll();
+	pinClaimRestart(PinUser::Sbus);
+	fakePumpPoll();
+	checkTrue("BACK: free", pinClaimState() == ClaimState::Free);
+
 	// ESC GP0, KISS GP0, KISS off: no role on GP1. The screen asks no
 	// claim; a claim made anyway is refused by the bind and takes nothing.
 	fakePwmReset();
@@ -592,7 +735,7 @@ static void testJobWirings() {
 	checkInt("the bind's reason: NO GP1", pinClaimJobError(), CORE1_JOB_NO_GP1);
 	checkTrue("UART0 never started", fakeUart().inits == 0);
 	FakePin p1 = fakePin(1);
-	checkTrue("neither pin touched", gp0Untouched(gp0) && memcmp(&p1, &gp1, sizeof(p1)) == 0);
+	checkTrue("neither pin touched", gp0Untouched(gp0) && samePin(p1, gp1));
 	pinClaimEnd(PinUser::Sbus);
 	pinClaimPoll();
 	pinClaimRestart(PinUser::Sbus);
@@ -684,12 +827,14 @@ void runSbusJobTests() {
 	testLineModel();
 	testCoreFrames();
 	testCoreLostLink();
+	testCoreSync();
 	testCoreFlags();
 	testCoreErrors();
 	testCoreFraming();
 	testHelpers();
 	testJob();
 	testJobLateDrain();
+	testJobBindLive();
 	testJobWirings();
 	testJobInterlocks();
 	fakeUartReset();
