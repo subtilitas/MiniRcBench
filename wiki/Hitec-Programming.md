@@ -183,10 +183,13 @@ add in amber `A WRITE WAS INTERRUPTED. HITEC/` and
 
 ## The field list
 
-The strip shows the model, the pin and the backup:
-`D485HW GP0 BACKUP IN MEMORY` until a write has put the backup on the card,
-then `BACKUP HT001`, for example. A model that has no name in rcbench's list
-reads `D SERIES` and its number. A green chip at the right reads `MODE`.
+The strip shows the model, the pin and the backup, two spaces apart:
+`D485HW  GP0  BACKUP IN MEMORY` until a write has put the backup on the
+card, then `BACKUP HT001`, for example. A classic servo adds its version
+after the model, `V01` for example. A model that has no name in rcbench's
+list reads `D SERIES` and its number. A green chip at the right reads
+`MODE`. A strip that would run into the chip drops items from the right:
+the backup first, then the pin.
 
 Each row shows the group in small letters, the parameter name and the value.
 Rows are 40 px tall at a 42 px pitch. Drag the list up or down to scroll.
@@ -279,11 +282,11 @@ opens and writes nothing.
 
 <img src="img/hitec-write.png" width="240" alt="The write page: SPEED 100 % (4095) -> 90 % (18), KEEP THE SERVO HORN CLEAR.">
 
-The write page is titled `HITEC WRITE`. The strip counts the values,
-`1 VALUE` or `2 VALUES`. Each changed parameter is one line, `SPEED` and
+The write page is titled `HITEC WRITE`. The strip counts the changes,
+`1 CHANGE` or `2 CHANGES`. Each changed parameter is one line, `SPEED` and
 `100 % (4095) -> 90 % (18)`, or two when the value does not fit beside its
-name. A changed `ID` is listed first. Then `AND 3 MORE`, for example, counts
-the values not listed.
+name. A changed `ID` is listed first. The page lists 4 changes at most;
+then `AND 3 MORE`, for example, counts the changes not listed.
 
 Under the values, top to bottom:
 
@@ -298,7 +301,7 @@ Under the values, top to bottom:
 - Lines starting with `*`: the soft rules that apply.
 
 The first four always show when they apply; the values take the room that
-is left, at most six. Each soft rule shows whole or not at all, and when not
+is left, at most four. Each soft rule shows whole or not at all, and when not
 all fit, the last line counts the rest: `AND 2 MORE RULES: SEE EACH ROW.`
 Each row's editor bar names its rule.
 
@@ -426,7 +429,7 @@ until a read fills them. The record stays on the card.
 | `LOAD` | Puts the selected file's writable values into the field list as pending changes. The write then goes through `HOLD TO WRITE`. A record loads the servo as it was before its write |
 | `HOLD TO RESTORE` | Hold 1 s. Opens the restore page, titled `HITEC RESTORE`, which writes the session's backup back. It acts while the servo differs from the backup |
 
-The restore page's strip reads `BACK TO THE BACKUP: 3 VALUES`, for example.
+The restore page's strip reads `BACK TO THE BACKUP: 3 CHANGES`, for example.
 Its hold, `HOLD TO RESTORE`, writes as `HOLD TO WRITE` does.
 
 A file of the other family or of another layout is refused:

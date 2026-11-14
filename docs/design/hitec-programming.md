@@ -813,7 +813,7 @@ HOLD TO WRITE opens the write page rather than writing at once.
 
 ```
 y   0 | HITEC WRITE                      [ BACK ]|
-   40 | 2 VALUES                                 |
+   40 | 2 CHANGES                                |
    62 | SPEED            60 %  ->  30 %          |
    82 | DIRECTION          CW  ->  CCW           |
    94 | KEEP THE SERVO HORN CLEAR.               |  always its line
@@ -826,10 +826,12 @@ y   0 | HITEC WRITE                      [ BACK ]|
 ```
 
 - The page lists the changed parameters from where the servo stood when the
-  page opened, a changed ID first, then in the field list's order, 6 at most
-  and `AND n MORE`. A row is 12 px, or 22 px when its value goes under its
-  label. A value whose stored value changes and whose text does not carries
-  its stored value, `60 % (12) -> 60 % (13)`, as KST's `kstValuePair()`.
+  page opened, a changed ID first, then in the field list's order, 4 at most
+  and `AND n MORE`, as KST's page ([menu-b.md](menu-b.md#decisions) decision
+  14). The strip counts them, `1 CHANGE`, `2 CHANGES`. A row is 12 px, or
+  22 px when its value goes under its label. A value whose stored value
+  changes and whose text does not carries its stored value,
+  `60 % (12) -> 60 % (13)`, as KST's `kstValuePair()`.
 - `KEEP THE SERVO HORN CLEAR.` shows on the session's first write and on
   every write that changes DIRECTION, NEUTRAL, CENTRE or an end point, as
   rcbench's panel does.

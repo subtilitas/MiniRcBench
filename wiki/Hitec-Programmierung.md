@@ -201,11 +201,14 @@ Ansichten für Eintritt und Lesen in Bernstein zusätzlich
 
 ## Die Feldliste
 
-Die Leiste zeigt das Modell, den Pin und die Sicherung:
-`D485HW GP0 BACKUP IN MEMORY`, bis ein Schreibvorgang die Sicherung auf die
-Karte gelegt hat, danach zum Beispiel `BACKUP HT001`. Ein Modell ohne Namen
-in der Liste von rcbench zeigt `D SERIES` und seine Nummer. Rechts steht ein
-grünes Feld `MODE`.
+Die Leiste zeigt das Modell, den Pin und die Sicherung, mit zwei
+Leerzeichen dazwischen: `D485HW  GP0  BACKUP IN MEMORY`, bis ein
+Schreibvorgang die Sicherung auf die Karte gelegt hat, danach zum Beispiel
+`BACKUP HT001`. Ein klassisches Servo zeigt nach dem Modell seine Version,
+zum Beispiel `V01`. Ein Modell ohne Namen in der Liste von rcbench zeigt
+`D SERIES` und seine Nummer. Rechts steht ein grünes Feld `MODE`. Eine
+Leiste, die bis an das Feld reichen würde, lässt Angaben von rechts weg:
+zuerst die Sicherung, dann den Pin.
 
 Jede Zeile zeigt die Gruppe in kleiner Schrift, den Parameternamen und den
 Wert. Die Zeilen sind 40 px hoch mit 42 px Abstand. Ziehe die Liste nach oben
@@ -307,11 +310,12 @@ Die Schreibseite öffnet sich und schreibt noch nichts.
 
 <img src="img/hitec-write.png" width="240" alt="Die Schreibseite: SPEED 100 % (4095) -> 90 % (18), KEEP THE SERVO HORN CLEAR.">
 
-Die Schreibseite heißt `HITEC WRITE`. Die Leiste zählt die Werte, `1 VALUE`
-oder `2 VALUES`. Jeder geänderte Parameter ist eine Zeile, `SPEED` und
-`100 % (4095) -> 90 % (18)`, oder zwei, wenn der Wert nicht neben den Namen
-passt. Eine geänderte `ID` steht zuerst. Danach zählt zum Beispiel
-`AND 3 MORE` die Werte, die nicht aufgeführt sind.
+Die Schreibseite heißt `HITEC WRITE`. Die Leiste zählt die Änderungen,
+`1 CHANGE` oder `2 CHANGES`. Jeder geänderte Parameter ist eine Zeile,
+`SPEED` und `100 % (4095) -> 90 % (18)`, oder zwei, wenn der Wert nicht
+neben den Namen passt. Eine geänderte `ID` steht zuerst. Die Seite führt
+höchstens 4 Änderungen auf; danach zählt zum Beispiel `AND 3 MORE` die
+Änderungen, die nicht aufgeführt sind.
 
 Unter den Werten, von oben nach unten:
 
@@ -326,7 +330,7 @@ Unter den Werten, von oben nach unten:
 - Zeilen mit einem `*` am Anfang: die weichen Regeln, die gelten.
 
 Die ersten vier stehen immer, wenn sie gelten; die Werte bekommen den Platz,
-der übrig bleibt, höchstens sechs. Jede weiche Regel steht ganz oder gar
+der übrig bleibt, höchstens vier. Jede weiche Regel steht ganz oder gar
 nicht, und passen nicht alle, zählt die letzte Zeile den Rest:
 `AND 2 MORE RULES: SEE EACH ROW.` Die Editorleiste jeder Zeile nennt ihre
 Regel.
@@ -465,7 +469,7 @@ das Abbild die berührten Register nicht mehr: Die Schreib-Schaltfläche zeigt
 | `HOLD TO RESTORE` | 1 s halten. Öffnet die Wiederherstellungsseite `HITEC RESTORE`, die die Sicherung der Sitzung zurückschreibt. Wirkt, solange das Servo von der Sicherung abweicht |
 
 Die Leiste der Wiederherstellungsseite zeigt zum Beispiel
-`BACK TO THE BACKUP: 3 VALUES`. Ihr Halten, `HOLD TO RESTORE`, schreibt wie
+`BACK TO THE BACKUP: 3 CHANGES`. Ihr Halten, `HOLD TO RESTORE`, schreibt wie
 `HOLD TO WRITE`.
 
 Eine Datei der anderen Familie oder eines anderen Layouts wird abgelehnt:

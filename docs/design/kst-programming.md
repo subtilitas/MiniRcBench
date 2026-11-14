@@ -1086,7 +1086,7 @@ HOLD TO WRITE opens the write page rather than writing at once.
 
 ```
 y   0 | KST WRITE                        [ BACK ]|
-   40 | 2 FIELDS                                 |
+   40 | 2 CHANGES                                |
    62 | DEAD BAND        2.0 US  ->  3.0 US      |
    82 | SOFT START            1  ->  0           |
   102 | * WITHOUT SOFT START THE SERVO JUMPS     |  C_AMBER, 12 px a line,

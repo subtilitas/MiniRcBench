@@ -1,9 +1,9 @@
 # Menu structure B
 
-Status: slice 1 built, host tests only; slices 2 to 10 not built. The owner
-answered the note's eight open questions on 2026-11-14 ([decisions 23 to
-30](#decisions)), and the question that followed from them (decision 33).
-Slices 2 to 10 wait on being built. By the owner's order of work of
+Status: slices 1 and 4 built, host tests only; slices 2, 3 and 5 to 10 not
+built. The owner answered the note's eight open questions on 2026-11-14
+([decisions 23 to 30](#decisions)), and the question that followed from them
+(decision 33). Slices 2, 3 and 5 to 10 wait on being built. By the owner's order of work of
 2026-11-14 they follow the eight small decisions of STATUS.md items 20, 21
 and 24. Three of the owner's decisions of 2026-11-14 change this design, and
 the sections they touch are marked "to be redesigned": each slice updates
@@ -1078,7 +1078,7 @@ decisions 31 to 33.
 | 1. Widgets, built | `UiBackGuard`, `uiStripTwoLines()`, `uiListDrawField()`, `ui_leave`, layout constants, role names; nothing drawn differently. The `uiHeader()` flag is on `main` | | 9 in `src/`, 2 new | +500, −20 | 2 / 430 lines in test_widgets.cpp and test_servo.cpp | built |
 | 2. Colour roles | decisions 8 and 11: the role table on every screen, square chips, PROG MODE | 1 | 10 | 150 changed | 15 / 40 | 1 day |
 | 3. Names and SETTINGS | decisions 9, 10, 15 b, e, f, h, j, k: SERVO SUPPLY section, SIG and AUX, connector lines, OWN, DSHOT600, MENU statuses and busy strip, KST labels | 1 | 11 | +200, −80 | 110 / 60 | 2 days |
-| 4. Layout table | decision 14 | 1 | 7 | 80 changed | 8 / 10 | 0.5 day |
+| 4. Layout table, built | decision 14 | 1 | 8 in `src/` | +105, −68 | 63 / 195 lines in 6 test files | built |
 | 5. Write rule and guard | decisions 6, 7, 13 (AM32 HEX and WRITE titles): `WRITE...`, `RESTORE...`, AM32 write page and result, editor old value, guard on AM32 and SERVO SET, BACK disabled while writing, the leave queue gone | 1, 2, 4 | 7 | +300, −120 | 110 / 120 | 2 to 3 days |
 | 6. Leave page | decision 5 and owner decision 3: KST, Hitec and SERVO TESTER on `ui_leave`; STAY, NEXT SERVO, BACK TO SERVO; RESTART DSHOT's wait | 1, 5 | 6 | +180, −300 | 90 and three helpers / 80 | 2 to 3 days |
 | 7. Tester | owner decision 4, decisions 15 a to c, 17: readouts, `uiOpenTool()`, origin, LATCH, BOARD, ARM while the card is held | 1, 3 | 4 | +150 | 15 / 100 | 1.5 days |
@@ -1086,10 +1086,11 @@ decisions 31 to 33.
 | 9. Chooser | owner decisions 1 and 2, decisions 16, 18, 19, 15 d, 23, 31, 32 and 33: seven MENU rows scrolling 36 px, `ui_servo_prog`, `UI_PROGRAMMERS`, Hitec family entry points, family view removed | 3, 6, 7 | 9, 2 new | +350, −120 | 50 / 120 | 2 to 3 days |
 | 10. Documentation | what no slice owns: menu.md (the tree, MENU, revision lines on decisions 1, 12 and 18), pin-claim.md's revision line on decision 4, README "Layout", "Tests" and "The user manual", and a check that no README section, wiki page or image still shows the old structure | 1 to 9 | to be redone | to be redone | none | to be redone |
 
-Slice 1 is built ([slice 1 as built](#slice-1-as-built)). Slice 4 is not
-built; it moves rectangles and renames RESET, which the previews, README.md
-and the wiki show, and by decision 27 it changes those itself. It no longer
-waits on a question.
+Slice 1 is built ([slice 1 as built](#slice-1-as-built)). Slice 4 is
+built: it moves the rectangles of decision 14 and renames RESET to HOLD
+DEFAULTS, still a 1 s hold, and by decision 27 it changed the previews,
+README.md and the wiki itself. RESTART DSHOT keeps its
+rectangle until slice 6 puts it in LEAVE's with decision 21's wait.
 
 Slice 3 comes before slice 9: without it the SERVO SUPPLY section leaves
 SETTINGS with KST SERVO's MENU row. Slice 6 needs slice 5 because both change
