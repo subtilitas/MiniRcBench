@@ -56,6 +56,16 @@
 #define SERVO_SAFE_RATE_HZ    60
 /** @brief One step of the MIN, CENTRE and MAX steppers, in us. */
 #define SERVO_STEP_US         10
+/**
+ * @brief Below this MIN, in us, a profile centred near 1500 us may drive a
+ *        servo past its travel (the end-stop note of SET).
+ */
+#define SERVO_TRAVEL_MIN_US   900
+/**
+ * @brief Above this MAX, in us, a profile centred near 1500 us may drive a
+ *        servo past its travel (the end-stop note of SET).
+ */
+#define SERVO_TRAVEL_MAX_US   2100
 /** @} */
 
 /**
@@ -254,6 +264,19 @@ uint16_t servoMaxPulseFor(ServoType t, uint16_t rateHz);
  * @return True when the change waits for HOLD TO APPLY.
  */
 bool servoDangerous(ServoType t, uint16_t rateHz);
+
+/**
+ * @brief Whether a profile may drive a servo past its travel, where it stalls
+ *        against its end stop: TYPE WIDE, or MIN below
+ *        @ref SERVO_TRAVEL_MIN_US, or MAX above @ref SERVO_TRAVEL_MAX_US.
+ *
+ * The two limits are for the types centred near 1500 us. NARROW 760 and
+ * HELI TAIL 760 are centred at 760 us, and their own ranges lie below
+ * 900 us, so for them only the type counts, and neither is WIDE.
+ * @param p The profile.
+ * @return True when SET shows the end-stop note.
+ */
+bool servoPastTravel(const ServoProfile *p);
 
 /**
  * @brief Whether a profile is one the job may drive.

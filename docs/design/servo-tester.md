@@ -325,6 +325,19 @@ y   0 | SERVO SET                        [ BACK ]|
   screen texts of the pin-claim design
   ([pin-claim.md](pin-claim.md#when-the-pin-is-unavailable)); with another row
   selected it says `TWO SERVOS ARE NOT OFFERED: SEE SERVOS`.
+- A profile that may drive a servo past its travel, where it stalls against
+  its end stop and heats (`servoPastTravel()`: TYPE WIDE, or MIN below
+  `SERVO_TRAVEL_MIN_US` 900 µs, or MAX above `SERVO_TRAVEL_MAX_US` 2100 µs;
+  for NARROW 760 and HELI TAIL 760, centred at 760 µs, only the type counts)
+  shows `PAST ITS TRAVEL A SERVO STALLS AND` `HEATS. TRY MIN AND MAX
+  HORN-FREE.` in amber. It applies at once, with no HOLD TO APPLY. The note
+  band takes the first that holds: the pending warning; `STOP TO CHANGE THE
+  PROFILE`; the cause of a refused TWO on the SERVOS row; the end-stop note
+  with TYPE, MIN or MAX selected; `SPEED LIMITS THE SWEEP`; `TWO SERVOS ARE
+  NOT OFFERED: SEE SERVOS`; the end-stop note on any other row. Each note
+  shows on some row. The bench does not measure a servo's travel; the two
+  limits lie 100 µs outside STANDARD PWM's 1000 µs to 2000 µs and are not
+  taken from a data sheet.
 - DEFAULTS returns to STANDARD PWM at 50 Hz, one servo, REVERSE B off, and a
   sine at 0.50 Hz, 100 %, 500 ms, endless. It changes the PULSE rows, so it
   is offered only while SAFE.

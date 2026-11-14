@@ -75,6 +75,12 @@ bool servoDangerous(ServoType t, uint16_t rateHz) {
 	return servoTypeInfo(t)->heli || rateHz > SERVO_SAFE_RATE_HZ;
 }
 
+bool servoPastTravel(const ServoProfile *p) {
+	if (p->type == ServoType::Wide) return true;
+	if (servoTypeInfo(p->type)->centreUs < SERVO_TRAVEL_MIN_US) return false;
+	return p->minUs < SERVO_TRAVEL_MIN_US || p->maxUs > SERVO_TRAVEL_MAX_US;
+}
+
 /** @brief Whether the type offers @p hz. */
 static bool offered(const ServoTypeInfo *ti, uint16_t hz) {
 	for (uint8_t i = 0; i < ti->rateCount; i++)

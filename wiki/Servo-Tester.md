@@ -209,6 +209,13 @@ Swipe the row sideways for big steps. Drag up or down to scroll. Rows are
 - A heli type, or a frame rate above 60 Hz, can destroy a servo not made for
   it: above 60 Hz an analogue servo overheats. Such a change waits, the screen
   names the risk, and `HOLD TO APPLY` (1 s) applies it. `BACK` drops it.
+- A pulse past a servo's travel drives it against its end stop, where it
+  stalls and heats. With TYPE WIDE, MIN below 900 µs or MAX above 2100 µs
+  the screen says `PAST ITS TRAVEL A SERVO STALLS AND HEATS. TRY MIN AND MAX
+  HORN-FREE.` in amber; NARROW 760 and HELI TAIL 760 have their own ranges
+  and count only by type. The change applies at once. The note shows while
+  TYPE, MIN or MAX is selected, and on other rows when no other note does.
+  The travel of a servo is in its data sheet; the bench does not measure it.
 - The SWEEP rows change at any time and apply to the next `SWEEP`. When
   `SPEED` is slower than the curve, the screen says `SPEED LIMITS THE SWEEP`.
 - `DEFAULTS`, offered only while `SAFE`, returns to STANDARD PWM at 50 Hz,
