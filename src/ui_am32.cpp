@@ -95,7 +95,7 @@ static_assert(sizeof(ST_VERIFIED ST_BACKUP) - 1 + 5 <= RESULT_CHARS,
               "WRITE VERIFIED. BACKUP AMnnn runs off the panel");
 static_assert(sizeof(AM32_UI_RETRY) - 1 <= RESULT_CHARS, "the retry line runs off the panel");
 static_assert(sizeof(AM32_UI_CHECK_CARD) - 1 <= RESULT_CHARS, "the card line runs off the panel");
-static_assert(AM32_FW_VERIFIED == 200, "AM32_UI_OLDFW_1 names 2.00");
+static_assert(AM32_FW_READS_2A == 180, "AM32_UI_OLDFW_1 names 1.80");
 // The strip notes and the connect page's lines: scale 1 from x 8.
 static_assert(sizeof(AM32_UI_3D_1) - 1 <= RESULT_CHARS && sizeof(AM32_UI_3D_2) - 1 <= RESULT_CHARS &&
               sizeof(AM32_UI_PROT_1) - 1 <= RESULT_CHARS && sizeof(AM32_UI_PROT_2) - 1 <= RESULT_CHARS &&
@@ -266,6 +266,14 @@ static bool swipeStep(void *ctx, int dir) {
 // ---------------------------------------------------------------------------
 // drawing
 // ---------------------------------------------------------------------------
+/** @brief The ESC's firmware reads PROTOCOL, byte 0x2E: the list shows it. */
+static bool protocolShown() {
+	for (uint16_t i = 0; i < AM32_FIELD_COUNT; i++)
+		if (AM32_FIELDS[i].offset == AM32_OFF_INPUT_TYPE)
+			return am32FieldShown(&AM32_FIELDS[i], s_eeprom);
+	return false;
+}
+
 /**
  * @brief The strip's note for the settings list, if one applies: the
  *        selected row's first (a protection turned off), then 3D MODE on,
@@ -283,10 +291,10 @@ static bool listNote(const char **l1, const char **l2) {
 	} else if (am32Is3d(s_eeprom)) {
 		*l1 = AM32_UI_3D_1;
 		*l2 = AM32_UI_3D_2;
-	} else if (am32InputNotDshot(s_eeprom)) {
+	} else if (am32InputNotDshot(s_eeprom) && protocolShown()) {
 		*l1 = AM32_UI_PROTO_1;
 		*l2 = AM32_UI_PROTO_2;
-	} else if (am32Firmware(s_eeprom) < AM32_FW_VERIFIED) {
+	} else if (am32Firmware(s_eeprom) < AM32_FW_READS_2A) {
 		*l1 = AM32_UI_OLDFW_1;
 		*l2 = AM32_UI_OLDFW_2;
 	} else {

@@ -71,7 +71,7 @@ static bool acceptedRange(const char *n, uint16_t fw, int *lo, int *hi) {
 	struct R { const char *name; int lo, hi; };
 	static const R fixed[] = {
 		{"DIRECTION", 0, 1}, {"3D MODE", 0, 1}, {"POLES", 2, 36}, {"KV", 0, 255},
-		{"HALL SENSORS", 0, 1}, {"ADVANCE", 10, 42}, {"AUTO ADVANCE", 0, 1},
+		{"HALL SENSORS", 0, 1}, {"AUTO ADVANCE", 0, 1},
 		{"COMPLEMENTARY", 0, 1}, {"POWER", 50, 150}, {"SINE STARTUP", 0, 1},
 		{"SINE RANGE", 5, 25}, {"SINE POWER", 1, 10}, {"STUCK ROTOR", 0, 1},
 		{"STALL PROTECT", 0, 1}, {"STOPPED LEVEL", 1, 10}, {"RUNNING LEVEL", 1, 10},
@@ -89,6 +89,9 @@ static bool acceptedRange(const char *n, uint16_t fw, int *lo, int *hi) {
 	// variable_pwm 2 from v2.18; brake_on_stop 2 from v2.19; an absolute
 	// cutoff that trips from v2.21.
 	*lo = 0;
+	// advance_level: 0..3 alone before v2.19 (`< 4`, else 2); from v2.19 both
+	// encodings, and a press writes the 10..42 one.
+	if (strcmp(n, "ADVANCE") == 0)         { *lo = fw >= 219 ? 10 : 0; *hi = fw >= 219 ? 42 : 3; return true; }
 	if (strcmp(n, "PWM FREQ") == 0)        { *lo = 8; *hi = fw >= 219 ? 144 : 48; return true; }
 	if (strcmp(n, "PWM TYPE") == 0)        { *hi = fw >= 218 ? 2 : 1; return true; }
 	if (strcmp(n, "BRAKE ON STOP") == 0)   { *hi = fw >= 219 ? 2 : 1; return true; }
@@ -115,6 +118,9 @@ static void testAdvanceEncodings() {
 
 	uint8_t ee[AM32_SETTINGS_SIZE];
 	memcpy(ee, REF_PY, sizeof(ee));
+	// Firmware 2.22: both encodings are read from 2.19 on.
+	ee[AM32_OFF_MAIN_REVISION] = 2;
+	ee[AM32_OFF_SUB_REVISION] = 22;
 
 	// --- modern encoding, which is what the bug report was about ---
 	ee[AM32_OFF_ADVANCE] = 26;              // AM32's own default
@@ -180,6 +186,31 @@ static void testAdvanceEncodings() {
 	am32Adjust(f, ee, +1);
 	checkTrue("an unreadable byte edits from AM32's default, not from zero",
 	          ee[AM32_OFF_ADVANCE] >= 25 && ee[AM32_OFF_ADVANCE] <= 28);
+
+	// --- before 2.19: the old encoding alone (v2.05 main.c:629-633,
+	//     v2.18 main.c:591: any other byte is taken as 2) ---
+	for (int sub = 18; sub <= 19; sub++) {
+		ee[AM32_OFF_SUB_REVISION] = (uint8_t)sub;
+		ee[AM32_OFF_ADVANCE] = 26;
+		expect(ee, "ADVANCE", sub == 18 ? "? (26)" : "15.0DEG");
+	}
+	ee[AM32_OFF_SUB_REVISION] = 18;
+	ee[AM32_OFF_ADVANCE] = 3;  expect(ee, "ADVANCE", "22.5DEG");
+	ee[AM32_OFF_ADVANCE] = 2;
+	am32Adjust(f, ee, +1);
+	checkInt("2.18: a step up from 15 degrees is 3, 22.5 degrees", ee[AM32_OFF_ADVANCE], 3);
+	am32Adjust(f, ee, +1);
+	checkInt("2.18: and stops there", ee[AM32_OFF_ADVANCE], 3);
+	ee[AM32_OFF_ADVANCE] = 0;
+	am32Adjust(f, ee, -1);
+	checkInt("2.18: nor below 0", ee[AM32_OFF_ADVANCE], 0);
+	ee[AM32_OFF_ADVANCE] = 26;
+	am32Adjust(f, ee, -1);
+	checkInt("2.18: a modern byte lands on 3, the nearer end", ee[AM32_OFF_ADVANCE], 3);
+	ee[AM32_OFF_MAIN_REVISION] = 0xFF; ee[AM32_OFF_SUB_REVISION] = 0xFF;
+	ee[AM32_OFF_ADVANCE] = 1;
+	am32Adjust(f, ee, +1);
+	checkInt("unknown firmware: the old encoding too", ee[AM32_OFF_ADVANCE], 2);
 }
 
 /** @brief The backup's text: header, a line per field, the bytes, the checksum. */
@@ -214,6 +245,18 @@ static void testBackupText() {
 	         (unsigned long)am32BackupCrc32(out, (size_t)(sum - out) + 1));
 	checkTrue("the checksum covers every line before it", sum && strcmp(sum, want) == 0);
 	checkInt("a buffer too small: nothing", (long)am32BackupFormat(blk, "F051", 0x7C00, out, 64), 0);
+	// Firmware 1.79 reads nothing at 0x2A to 0x2F: no line for those six
+	// fields, their bytes in the hex lines.
+	blk[AM32_OFF_MAIN_REVISION] = 1;
+	blk[AM32_OFF_SUB_REVISION] = 79;
+	n = am32BackupFormat(blk, "F051", 0x7C00, out, sizeof(out));
+	out[n] = '\0';
+	int lines79 = 0;
+	for (size_t i = 0; i < n; i++) lines79 += out[i] == '\n';
+	checkTrue("1.79: no TEMP LIMIT or PROTOCOL line, still POLES",
+	          strstr(out, "TEMP LIMIT") == nullptr && strstr(out, "PROTOCOL") == nullptr &&
+	          strstr(out, "\nMOTOR POLES = 14\n") != nullptr);
+	checkInt("1.79: six field lines fewer", lines79, lines - 6);
 }
 
 void runAm32Tests() {
@@ -374,6 +417,11 @@ void runAm32Tests() {
 		// above are none.
 		e[0x2C] = 0;   expect(e, "CURRENT LIMIT", "OFF");
 		checkTrue("0: off", am32ProtectionOff(cur, e));
+		// 1.80 (AlkaMotors 9909ea7) acts on 2..99, 1.81 (f917c01) on 1..99.
+		e[AM32_OFF_MAIN_REVISION] = 1; e[AM32_OFF_SUB_REVISION] = 80;
+		e[0x2C] = 1;   expect(e, "CURRENT LIMIT", "OFF");
+		e[0x2C] = 2;   expect(e, "CURRENT LIMIT", "4A");
+		e[AM32_OFF_SUB_REVISION] = 81;
 		e[0x2C] = 1;   expect(e, "CURRENT LIMIT", "2A");
 		e[0x2C] = 99;  expect(e, "CURRENT LIMIT", "198A");
 		e[0x2C] = 100; expect(e, "CURRENT LIMIT", "OFF");
@@ -537,7 +585,10 @@ void runAm32Tests() {
 						if (e[f->offset] < lo || e[f->offset] > hi) inRange = false;
 						// From outside it, a press lands on the nearer end: the
 						// firmware's own top, not one the table made up.
-						if (f->type != A32_ADVANCE && ((v > hi && e[f->offset] != hi) ||
+						// (From 2.19 a byte AM32 does not read edits from its
+						// default, 15 degrees, instead.)
+						if ((f->type != A32_ADVANCE || ver < 219) &&
+						    ((v > hi && e[f->offset] != hi) ||
 						                               (v < lo && e[f->offset] != lo)))
 							snaps = false;
 					}

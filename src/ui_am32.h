@@ -72,10 +72,10 @@ bool uiAm32Tick(const TouchState *t);
 /** @brief The PROTOCOL note's second line. */
 #define AM32_UI_PROTO_2 "THE ESC WILL NOT RUN HERE."
 /**
- * @brief Firmware below @ref AM32_FW_VERIFIED, or a version byte AM32 did not
- *        write: bytes 0x2A to 0x2F are not shown.
+ * @brief Firmware below @ref AM32_FW_READS_2A, or a version byte AM32 did
+ *        not write: bytes 0x2A to 0x2F are not shown.
  */
-#define AM32_UI_OLDFW_1 "FIRMWARE BELOW 2.00 OR UNKNOWN:"
+#define AM32_UI_OLDFW_1 "FIRMWARE BELOW 1.80 OR UNKNOWN:"
 /** @brief The old-firmware note's second line. */
 #define AM32_UI_OLDFW_2 "FIELDS IT MAY NOT READ ARE HIDDEN."
 /** @} */

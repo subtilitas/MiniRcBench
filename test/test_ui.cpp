@@ -3570,7 +3570,7 @@ static void testAm32Guidance() {
 		for (int i = 0; i < AM32_SETTINGS_SIZE; i++) fakeEscSet(i, keep[i]);
 	}
 
-	section("AM32 list on firmware 1.35: the old-firmware note, bytes 0x2A on hidden");
+	section("AM32 list on firmware 1.35, 1.80, 1.94: the bytes each reads");
 	{
 		uint8_t keep[2] = { fakeEscByte(AM32_OFF_MAIN_REVISION), fakeEscByte(AM32_OFF_SUB_REVISION) };
 		fakeEscSet(AM32_OFF_MAIN_REVISION, 1);
@@ -3585,7 +3585,27 @@ static void testAm32Guidance() {
 		          uiRowOf("PROTOCOL") < 0 && uiRowOf("AUTO ADVANCE") < 0 &&
 		          uiRowOf("RUNNING LEVEL") < 0 && uiRowOf("SINE POWER") < 0);
 		checkTrue("CELL CUTOFF, at 0x25, is", uiRowOf("CELL CUTOFF") >= 0);
+		fakeDumpFrame("shot_am32_oldfw.ppm");
 		leaveAm32ToTester();
+		// 1.80 reads 0x2A to 0x2D, not PROTOCOL at 0x2E: a stored SERVO there
+		// is no note, and the old-firmware note is gone.
+		uint8_t input = fakeEscByte(AM32_OFF_INPUT_TYPE);
+		fakeEscSet(AM32_OFF_SUB_REVISION, 80);
+		fakeEscSet(AM32_OFF_INPUT_TYPE, AM32_INPUT_SERVO);
+		enterAm32(6);
+		checkTrue("1.80: TEMP LIMIT listed, PROTOCOL not",
+		          uiRowOf("TEMP LIMIT") >= 0 && uiRowOf("PROTOCOL") < 0);
+		checkTrue("1.80: no PROTOCOL note for a byte it does not read, no old-firmware note",
+		          !fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROTO_1, UI_COL_WARN, C_BG, 1) &&
+		          !fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_OLDFW_1, UI_COL_WARN, C_BG, 1));
+		leaveAm32ToTester();
+		fakeEscSet(AM32_OFF_SUB_REVISION, 94);
+		enterAm32(6);
+		checkTrue("1.94: PROTOCOL listed, and SERVO's note",
+		          uiRowOf("PROTOCOL") >= 0 &&
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROTO_1, UI_COL_WARN, C_BG, 1));
+		leaveAm32ToTester();
+		fakeEscSet(AM32_OFF_INPUT_TYPE, input);
 		fakeEscSet(AM32_OFF_MAIN_REVISION, keep[0]);
 		fakeEscSet(AM32_OFF_SUB_REVISION, keep[1]);
 	}
@@ -3872,6 +3892,74 @@ static void testAm32Guidance() {
 		checkTrue("  the ESC holds every byte as read, POLES as pressed", same);
 		for (int i = 0; i < AM32_SETTINGS_SIZE; i++) fakeEscSet(i, keep[i]);
 	}
+
+	// From the review of this screen: every visible row, tapped and pressed,
+	// changes its own byte and no other, and the list holds the rows the
+	// firmware reads, from a table written by hand.
+	section("AM32 list: each visible row edits its own byte, per firmware and layout");
+	{
+		uint8_t keep[AM32_SETTINGS_SIZE];
+		for (int i = 0; i < AM32_SETTINGS_SIZE; i++) keep[i] = fakeEscByte(i);
+		// Firmware bytes and the rows layout 2 shows: 31 with every byte read,
+		// less 0x2A to 0x2F below 1.80, 0x2E and 0x2F below 1.94, 0x2F below
+		// 2.16. Layouts 3 and 4 add the eight at 0x05 to 0x0C.
+		struct Fw { uint8_t major, minor; int rows2; };
+		static const Fw fws[] = {
+			{0xFF, 0xFF, 25}, {0, 0, 25}, {1, 35, 25}, {1, 79, 25}, {1, 80, 29},
+			{1, 93, 29}, {1, 94, 30}, {1, 99, 30}, {2, 0, 30}, {2, 15, 30},
+			{2, 16, 31}, {2, 18, 31}, {2, 19, 31}, {2, 22, 31}};
+		bool ok = true, countOk = true;
+		for (int lay = 2; lay <= 4; lay++) for (const Fw &fw : fws) {
+			for (int i = 0; i < AM32_SETTINGS_SIZE; i++) fakeEscSet(i, keep[i]);
+			fakeEscSet(AM32_OFF_LAYOUT_REVISION, (uint8_t)lay);
+			fakeEscSet(AM32_OFF_MAIN_REVISION, fw.major);
+			fakeEscSet(AM32_OFF_SUB_REVISION, fw.minor);
+			fakeEscSet(AM32_OFF_BI_DIRECTION, 0);
+			int ver = (fw.major >= 1 && fw.major <= 9 && fw.minor <= 99) ? fw.major * 100 + fw.minor : 0;
+			// The offsets expected in list order, from the gates by hand.
+			int exp[64], ne = 0;
+			for (uint16_t k = 0; k < AM32_FIELD_COUNT; k++) {
+				uint8_t off = AM32_FIELDS[k].offset;
+				if (off >= 0x05 && off <= 0x0C && lay < 3) continue;
+				if (off == 0x2F && ver < 216) continue;
+				if (off == 0x2E && ver < 194) continue;
+				if (off >= 0x2A && off <= 0x2D && ver < 180) continue;
+				exp[ne++] = off;
+			}
+			int rows = fw.rows2 + (lay >= 3 ? 8 : 0);
+			if (ne != rows) countOk = false;
+			enterAm32(6);
+			if (s_state != S_LIST) { ok = false; leaveAm32ToTester(); continue; }
+			if (uiVisibleCount() != rows) {
+				countOk = false;
+				printf("  layout %d, firmware %u.%u: %d rows, want %d\n", lay, fw.major, fw.minor,
+				       uiVisibleCount(), rows);
+			}
+			for (int v = 0; v < uiVisibleCount() && v < ne; v++) {
+				uiListScrollTo(&s_list, v * ROW_PITCH); frames(1);
+				tapId(UI_ROW(v, Row));
+				uint8_t before[AM32_SETTINGS_SIZE];
+				memcpy(before, s_eeprom, sizeof(before));
+				tapId(UI_FIX(Am32Ctl::EditPlus));
+				int changed = -1, nch = 0;
+				for (int k = 0; k < AM32_SETTINGS_SIZE; k++) if (s_eeprom[k] != before[k]) { changed = k; nch++; }
+				if (nch == 0) {
+					tapId(UI_FIX(Am32Ctl::EditMinus));
+					for (int k = 0; k < AM32_SETTINGS_SIZE; k++) if (s_eeprom[k] != before[k]) { changed = k; nch++; }
+				}
+				if (nch != 1 || changed != exp[v]) {
+					ok = false;
+					printf("  layout %d, firmware %u.%u, row %d: byte %d changed (%d bytes), want 0x%02X\n",
+					       lay, fw.major, fw.minor, v, changed, nch, exp[v]);
+				}
+			}
+			tapId(UI_FIX(Am32Ctl::Revert));
+			leaveAm32ToTester();
+		}
+		checkTrue("layouts 2 to 4, 14 firmware versions: the rows the table expects", countOk);
+		checkTrue("  each row edits its own byte and no other", ok);
+		for (int i = 0; i < AM32_SETTINGS_SIZE; i++) fakeEscSet(i, keep[i]);
+	}
 	feedLiveTelemetry();
 	frames(2);
 }
@@ -4125,12 +4213,12 @@ void runUiTests() {
 			uint8_t keep = s_eeprom[f->offset];
 			int step = f->step ? f->step : 1;
 			if ((f->rawMax - f->rawMin) % step) onStep = false;
-			s_eeprom[f->offset] = f->rawMin;
+			s_eeprom[f->offset] = am32FieldMin(f, s_eeprom);
 			uiSwipeApply(SWIPE_SPAN_STEPS, coarseFactor(f), swipeStep, (void *)f);
 			if (s_eeprom[f->offset] != am32FieldMax(f, s_eeprom)) reach = false;
 			if (uiSwipeApply(1, coarseFactor(f), swipeStep, (void *)f) != 0) stops = false;
 			uiSwipeApply(-SWIPE_SPAN_STEPS, coarseFactor(f), swipeStep, (void *)f);
-			if (s_eeprom[f->offset] != f->rawMin) reach = false;
+			if (s_eeprom[f->offset] != am32FieldMin(f, s_eeprom)) reach = false;
 			if (uiSwipeApply(-1, coarseFactor(f), swipeStep, (void *)f) != 0) stops = false;
 			s_eeprom[f->offset] = keep;
 		}
@@ -4159,13 +4247,24 @@ void runUiTests() {
 		for (uint16_t i = 0; i < AM32_FIELD_COUNT; i++)
 			if (!strcmp(AM32_FIELDS[i].name, "BEEP VOLUME")) beep = &AM32_FIELDS[i];
 		checkInt("BEEP VOLUME, 0 to 11, a range of exactly 11 steps: 1", coarseFactor(beep), 1);
-		// ADVANCE in the pre-1.90 encoding: raw 2 is 15 degrees, step 16 of
-		// the modern 0.9375 degree steps. A coarse step is three of - and +'s
-		// steps, which convert it, so the angle is kept: step 19, raw 29.
+		// ADVANCE in the old encoding on firmware 2.19 or later: raw 2 is 15
+		// degrees, step 16 of the modern 0.9375 degree steps. A coarse step is
+		// three of - and +'s steps, which convert it, so the angle is kept:
+		// step 19, raw 29.
 		uint8_t advKeep = s_eeprom[adv->offset];
+		uint8_t fwKeep[2] = { s_eeprom[AM32_OFF_MAIN_REVISION], s_eeprom[AM32_OFF_SUB_REVISION] };
+		s_eeprom[AM32_OFF_MAIN_REVISION] = 2;
+		s_eeprom[AM32_OFF_SUB_REVISION] = 22;
 		s_eeprom[adv->offset] = 2;
 		uiSwipeApply(1, coarseFactor(adv), swipeStep, (void *)adv);
-		checkInt("ADVANCE raw 2, old encoding, +1 coarse: raw 29", s_eeprom[adv->offset], 29);
+		checkInt("2.22: ADVANCE raw 2, old encoding, +1 coarse: raw 29", s_eeprom[adv->offset], 29);
+		// The ESC's own firmware, 2.16, reads the old encoding alone: a coarse
+		// step from 15 degrees stops at 22.5, raw 3.
+		s_eeprom[AM32_OFF_MAIN_REVISION] = fwKeep[0];
+		s_eeprom[AM32_OFF_SUB_REVISION] = fwKeep[1];
+		s_eeprom[adv->offset] = 2;
+		uiSwipeApply(1, coarseFactor(adv), swipeStep, (void *)adv);
+		checkInt("2.16: ADVANCE raw 2, +1 coarse: raw 3, 22.5 degrees", s_eeprom[adv->offset], 3);
 		s_eeprom[adv->offset] = advKeep;
 
 		// Through the screen, on KV from 100. The x values are along the row.

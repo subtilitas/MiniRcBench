@@ -57,7 +57,9 @@ size_t am32BackupFormat(const uint8_t *settings, const char *escType, uint16_t a
 	char value[32];
 	for (uint16_t i = 0; i < AM32_FIELD_COUNT; i++) {
 		const Am32Field *f = &AM32_FIELDS[i];
-		if (!am32FieldApplies(f, layout)) continue;
+		// A field the ESC's firmware does not read is left out; the hex
+		// lines below hold its byte.
+		if (!am32FieldShown(f, settings)) continue;
 		am32FormatValue(f, settings, value, (int)sizeof(value));
 		put(&b, "%s %s = %s\n", f->group, f->name, value);
 	}

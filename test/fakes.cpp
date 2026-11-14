@@ -299,7 +299,7 @@ void fakeRelease() {
 // Seeded with the Air preset recovered from the reference configurator, so the
 // UI tests operate on values a real ESC would actually report. The preset's
 // firmware bytes read 1.35; these read 2.16, a release that writes layout 2,
-// so the list shows every layout-2 field. @see AM32_FW_VERIFIED
+// so the list shows every layout-2 field. @see AM32_FW_READS_2F
 // ---------------------------------------------------------------------------
 static uint8_t g_esc[AM32_EEPROM_SIZE] = {
 	0x01,0x02,0x01,0x02,0x10,0x4e,0x45,0x4f,0x45,0x53,0x43,0x20,0x66,0x30,0x35,0x31,
