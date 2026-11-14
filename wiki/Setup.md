@@ -65,10 +65,12 @@ crimp contacts.
 > **No servo on SIG while the board starts.** Outside the servo screens SIG
 > carries DShot from the end of the 3 s splash on. A servo reads it as a pulse
 > and drives towards one end of its travel, at a frame rate that overheats an
-> analogue servo. Plug the servo in after its screen is open. On HITEC SERVO,
-> wait for `GP0 IS THE SERVO'S: DSHOT IS OFF.` on the family view. Power the
-> board before the servo supply, and switch the servo supply
-> off before the board: [Servo Tester](Servo-Tester#wiring).
+> analogue servo. Plug the servo in after its screen is open; for the KST
+> and Hitec programmers, after the tap on the PROGRAMMER entry. On HITEC
+> SERVO with a servo on its own supply, wait for
+> `SIG GP0 IS THE SERVO'S: DSHOT IS OFF.`, then power the servo and tap
+> `READ`. Power the board before the servo supply, and switch the servo
+> supply off before the board: [Servo Tester](Servo-Tester#wiring).
 
 The wire colours of a JST-SH cable follow no standard. Find pin 1 by the
 connector, not by colour: [Wiring](Wiring) lists every pin. Where pin 1 sits

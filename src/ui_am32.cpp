@@ -1289,13 +1289,7 @@ bool uiAm32RunCue(uint32_t lastRpmMs) {
 
 bool uiAm32Esc3d() { return s_esc3d; }
 
-/** @brief AM32 CONFIG's MENU status: the signal pin it claims, from the settings. */
-static void am32MenuStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
-	snprintf(buf, n, "GP%u", (unsigned)settings()->dshotPin);
-	*col = C_DIM;
-}
-
 const UiScreen UI_AM32 = {
-	UiScreenId::Am32, "AM32 CONFIG", PinUser::Am32, am32MenuStatus,
+	UiScreenId::Am32, "AM32 CONFIG", PinUser::Am32, nullptr,
 	uiAm32Enter, uiAm32Tick, nullptr, uiAm32Controls, nullptr, false,
 };

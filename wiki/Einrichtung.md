@@ -69,10 +69,12 @@ Lötkolben und Schrumpfschlauch oder Crimpkontakte.
 > Servobildschirme führt SIG DShot, vom Ende des 3 s langen Startbildschirms an.
 > Ein Servo liest das als Impuls und fährt in Richtung eines Endes seines Wegs,
 > mit einer Framerate, die ein analoges Servo überhitzt. Stecke das Servo erst
-> an, wenn sein Bildschirm offen ist. Bei HITEC SERVO warte in der
-> Familienauswahl auf `GP0 IS THE SERVO'S: DSHOT IS OFF.`. Schalte die
-> Platine vor der Servoversorgung ein und die Servoversorgung vor der Platine
-> aus: [Servotester](Servotester#verkabelung).
+> an, wenn sein Bildschirm offen ist; bei den KST- und Hitec-Programmierern
+> nach dem Tippen auf den Eintrag in PROGRAMMER. Bei HITEC SERVO mit einem
+> Servo an eigener Versorgung warte auf
+> `SIG GP0 IS THE SERVO'S: DSHOT IS OFF.`, schalte dann das Servo ein und
+> tippe `READ`. Schalte die Platine vor der Servoversorgung ein und die
+> Servoversorgung vor der Platine aus: [Servotester](Servotester#verkabelung).
 
 Die Aderfarben eines JST-SH-Kabels folgen keiner Norm. Finde Pin 1 am
 Steckverbinder, nicht an der Farbe: [Verdrahtung](Verdrahtung) nennt jeden

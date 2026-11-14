@@ -181,8 +181,9 @@ it. The bar shows a grab handle and its caption reads `LATCHED`. Turning
 
 ## Raising the ceiling
 
-`MENU` on the tester opens the list of tools. Opening it always disarms. Tap
-the `SETTINGS` row. Or, while disarmed, tap `MAX 20%` or `14 POLES` on the
+`MENU` on the tester opens the list of tools. Opening it always disarms.
+`SETTINGS` is the last row: drag `MENU` up 36 px and tap it. Or, while
+disarmed, tap `MAX 20%` or `14 POLES` on the
 tester, underlined while a tap on them works: the tap disarms the same way
 and opens SETTINGS, and `BACK` there returns to the tester.
 

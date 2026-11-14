@@ -90,10 +90,9 @@ not measured on a card. How a viewer handles such a file is not tested.
 
 ## Reading the screen
 
-Open it with **MENU → SD LOG**. SD LOG is the seventh row: drag `MENU` up
-36 px to bring it into view. The row shows the same state: `NO CARD`,
-`READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a computer holds the
-card.
+Open it with **MENU → SD LOG**, the sixth row. The row shows the same
+state: `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a
+computer holds the card.
 
 <img src="img/log-ready.png" width="240" alt="Card mounted, ready to record">
 

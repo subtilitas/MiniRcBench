@@ -23,7 +23,7 @@
 
 /**
  * @defgroup menu_layout MENU layout
- * @brief Six 40 px rows fit under the strip; a seventh scrolls 36 px.
+ * @brief Six 40 px rows fit under the strip; the seventh scrolls 36 px.
  * @{
  */
 #define MENU_VIEW_Y0   UI_BODY_Y              /**< First row of the list, y 62. */
@@ -96,6 +96,21 @@ const UiScreen UI_BEEP = {
 };
 
 // ---------------------------------------------------------------------------
+// RX SIGNALS
+// ---------------------------------------------------------------------------
+
+/** @brief Why the row is drawn disabled, whatever the claim does. */
+static void rxStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
+	snprintf(buf, n, UI_MENU_NOT_BUILT);
+	*col = C_DIM;
+}
+
+const UiScreen UI_RX_SIGNALS = {
+	UiScreenId::RxSignals, "RX SIGNALS", PinUser::None, rxStatus,
+	nullptr, nullptr, nullptr, nullptr, nullptr, false,
+};
+
+// ---------------------------------------------------------------------------
 // the list
 // ---------------------------------------------------------------------------
 
@@ -129,10 +144,15 @@ static UiRect rowRect(int y) {
 	return UiRect{ MENU_ROW_X, (int16_t)y, MENU_ROW_W, MENU_ROW_H };
 }
 
-/** @brief Whether a tap on row @p i acts: an action, or a tool whose pins are free. */
+/**
+ * @brief Whether a tap on row @p i acts: an action, or a tool whose pins are
+ *        free. A row with neither an action nor a screen, RX SIGNALS, never
+ *        acts.
+ */
 static bool rowActs(int i) {
 	const UiScreen *s = s_entries[i].screen;
-	return s->action || !pinsBusy(s);
+	if (s->action) return true;
+	return s->enter && s->tick && !pinsBusy(s);
 }
 
 /** @brief Whether the press on row @p i still counts as a tap of it. */
@@ -270,7 +290,7 @@ UiMenuResult uiMenuTick(const TouchState *t, const UiScreen **open) {
 		const UiScreen *s = s_entries[e.row].screen;
 		if (s->action) {
 			s->action();
-		} else if (!pinsBusy(s) && s->enter && s->tick) {
+		} else if (rowActs(e.row)) {
 			*open = s;
 			r = UiMenuResult::Open;
 		}
