@@ -33,7 +33,9 @@ void uiDrawSplash();
  *
  * The read goes into a state of its own. The driver keeps the contact
  * between reads, so a finger resting on the glass at the splash's end gives
- * the tester no press edge: it presses nothing until it is lifted.
+ * the tester no press edge: it does not arm or start a drag. The driver also
+ * keeps where that press began, so lifting it completes a tap on a button
+ * that acts on release.
  */
 void uiSplashTick();
 
@@ -67,18 +69,20 @@ void uiBoardVoltText(float volts, char *buf, size_t n);
 
 /** @brief The colour band of the board's battery voltage. */
 enum class BoardCell : uint8_t {
-	Ok,        /**< @ref BOARD_CELL_LOW_MV or more, or below
-	                @ref BOARD_CELL_IMPLAUSIBLE_MV, the text colour. */
+	Ok,        /**< @ref BOARD_CELL_LOW_MV or more: the text colour. */
 	Low,       /**< Below @ref BOARD_CELL_LOW_MV, amber. */
 	Critical,  /**< Below @ref BOARD_CELL_CRIT_MV, red. */
+	NoCell,    /**< Below @ref BOARD_CELL_IMPLAUSIBLE_MV, no working cell to
+	                judge: the text colour. */
 };
 
 /**
  * @brief The band of @p volts, given the band it was in: a reading falls into
  *        a lower band at its threshold, and leaves it only at the threshold
  *        plus @ref BOARD_CELL_HYST_MV. Taken from the voltage rounded to
- *        centivolts as uiBoardVoltText() draws it; below
- *        @ref BOARD_CELL_IMPLAUSIBLE_MV it is Ok.
+ *        centivolts as uiBoardVoltText() draws it. Below
+ *        @ref BOARD_CELL_IMPLAUSIBLE_MV it is NoCell, which it leaves at that
+ *        threshold plus the hysteresis too.
  * @param volts The board's battery voltage, smoothed.
  * @param prev  The band of the last frame.
  * @return The band now.

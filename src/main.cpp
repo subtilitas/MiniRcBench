@@ -133,7 +133,7 @@ void setup() {
 	st7789Init();
 	// Pulses the touch controller's own reset line. Its result starts the
 	// driver's record of answers, which the splash reads: TOUCH CONTROLLER
-	// NOT FOUND until the controller answers. @see touchLastAnswer()
+	// NOT FOUND until the controller answers. @see touchAnswered()
 	touchInit();
 	senseInit();        // the current sensor, on the bus touchInit() set up
 	uiInit();

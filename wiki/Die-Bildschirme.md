@@ -54,10 +54,10 @@ ein Tippen darauf bewirkt nichts.
   Sie erhält die Farbe darüber zurück, sobald sie 50 mV über der Schwelle
   liegt. Bei reiner USB-Versorgung kann der Wert niedrig sein und sagt dann
   nichts über eine Zelle: Unter 2,50 V, für eine arbeitende Zelle nicht
-  plausibel, steht er in der normalen Textfarbe. Kein Schreiben und kein
-  Scharfschalten wird deswegen verweigert. In den
-  letzten 5 s vor dem Entschärfen durch die Leerlaufsperre ersetzt `IDLE ns`
-  in Bernstein die Spannung und `BOARD`.
+  plausibel, steht er in der normalen Textfarbe, ab 2,55 V wieder rot. Kein
+  Schreiben und kein Scharfschalten wird deswegen verweigert. In den letzten
+  5 s vor dem Entschärfen durch die Leerlaufsperre ersetzt `IDLE ns` in
+  Bernstein die Spannung und `BOARD`.
 
 **Drehzahl.** Mechanische Drehzahl (RPM, Umdrehungen pro Minute), berechnet
 aus der vom ESC (Electronic Speed Controller, Motorregler) gemeldeten eRPM
@@ -83,12 +83,12 @@ oder drücke `EJECT` in SD LOG, dann ist die Schaltfläche wieder bedienbar
 
 <img src="img/tester-card-held.png" width="240" alt="Der Tester, während ein Computer die Karte hält: HOLD TO ARM als Umriss, der Balken zeigt EJECT THE USB DRIVE TO ARM">
 
-**Berührung.** Der Bildschirm liest einen Finger: die erste Berührung, die
-der Touch-Controller meldet. Solange ein Finger auf dem Glas liegt, wird ein
-zweiter nicht beachtet. Erst den Gas-Finger heben, dann `DISARM` drücken.
-Was der Controller bei zwei Berührungen meldet, ist nicht gemessen. Ein
-nasser Bildschirm oder ein Kabel, das auf dem Glas liegt, kann als Finger
-zählen und jedes Tippen blockieren.
+**Berührung.** Die Firmware liest nur den ersten Berührungsplatz des
+Touch-Controllers. Welche Berührung der Controller dort meldet, während
+zwei Finger auf dem Glas liegen, ist nicht gemessen; ein Druck, während der
+Gas-Finger aufliegt, kommt also womöglich nicht an. Erst den Gas-Finger
+heben, dann `DISARM` drücken. Ein nasser Bildschirm oder ein Kabel, das auf
+dem Glas liegt, kann als Finger zählen und jedes Tippen blockieren.
 
 ---
 

@@ -346,9 +346,11 @@ of its travel. While the touch controller has not answered once since
 `touchInit()`, the splash shows `TOUCH CONTROLLER NOT FOUND` in amber above
 the name; the line goes at the controller's first answer (`uiSplashTick()`).
 The splash reads the touch every 25 ms into a state of its own, so a finger
-resting on the glass when the tester appears gives no press edge: it
-presses nothing until it is lifted. A finger on the glass at power-up is
-lifted before HOLD TO ARM.
+resting on the glass when the tester appears gives no press edge: it does
+not arm, does not move the throttle and does not start a hold. Lifting it
+still ends a tap where it rests, on a button that acts on release such as
+HOLD or MENU, because the driver keeps where the press began. A finger on
+the glass at power-up is lifted before HOLD TO ARM.
 
 **Main screen**
 
@@ -396,12 +398,12 @@ lifted before HOLD TO ARM.
 
 **Touch**
 
-The CST328 driver (`src/cst328.cpp`) reads only the first contact the
-controller reports, a 5-byte read of finger 1. While one finger rests on
-the glass a second is ignored, so the throttle finger has to lift before
-DISARM registers. What the controller reports with two contacts is not
-measured. A wet screen, or a lead lying across the glass, can count as a
-contact and block every tap.
+The CST328 driver (`src/cst328.cpp`) reads only the controller's first
+contact slot, a 5-byte read of finger 1. Which contact the controller puts
+there while two touch the glass is not measured, so a press made while the
+throttle finger rests on the glass may not register: lift the throttle
+finger before DISARM. A wet screen, or a lead lying across the glass, can
+count as a contact and block every tap.
 
 **Button behaviour**
 
@@ -651,7 +653,8 @@ red. What the divider reads with USB power alone is not measured, and no
 GPIO senses USB power, so the firmware cannot tell USB from the cell. With
 USB power alone the value can be low and then says nothing about a cell;
 below 2.50 V (`BOARD_CELL_IMPLAUSIBLE_MV`), implausible for a working cell,
-it is drawn in the normal text colour. Nothing is refused on the reading.
+it is drawn in the normal text colour, and red again from 2.55 V, the same
+50 mV band. Nothing is refused on the reading.
 
 ---
 
@@ -822,7 +825,7 @@ nothing for those six. The SETTINGS note line says which set is in use.
 | `SD_LOG_BUFFER_BYTES` | `8192` | Ring buffer. Size it from BUF PEAK and WORST FLUSH |
 | `SD_LOG_CHUNK_BYTES` | `512` | Flush size. Keep it a multiple of 512 to avoid read-modify-write in the card |
 | `SD_LOG_PREALLOC_BYTES` | `16 MiB` | Contiguous space reserved per file, so the FAT is not rewritten mid-log. About 38 min at 7.3 kB/s. Unused space is released at close |
-| `SD_LOG_SYNC_MS` | `2000` | Interval for committing the file's directory entry. A power cut loses at most the data since the last commit |
+| `SD_LOG_SYNC_MS` | `2000` | Interval for committing the file's directory entry, the first 2000 ms after the start. A log cut before the first commit reads 0 bytes. After it, with the 16 MiB reservation, the entry says 16 MiB and data written since the last commit is readable; without it, or past 16 MiB, the size is the one at the last commit |
 | `SD_LOG_AUTO_ON_ARM` | `1` | Start and stop logging with ARM, in addition to the manual button |
 
 ### Reading the logs
@@ -1867,7 +1870,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.7%**: 9,262 of 9,476 lines in 58 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.8%**: 9,260 of 9,471 lines in 58 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

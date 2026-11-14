@@ -68,10 +68,9 @@ void fakeHold(int x, int y);
 void fakeRelease();
 
 /**
- * @brief Whether the fake touch controller answers. While it does not,
- *        touchPoll() reports the finger up, as the driver does after its
- *        failed reads, and touchLastAnswer() keeps the last answer's time;
- *        touchInit() returns @p on and, with false, leaves no answer on record.
+ * @brief Whether the fake touch controller answers: touchInit() returns
+ *        @p on and, with false, leaves no answer on record; a touchPoll()
+ *        while it answers records one (touchAnswered()).
  */
 void fakeTouchAnswers(bool on);
 

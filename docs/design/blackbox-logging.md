@@ -322,16 +322,28 @@ should size `SD_LOG_BUFFER_BYTES`. 8192 bytes is unmeasured.
   is what Betaflight itself writes, and the parser recognises only that and
   "Betaflight".
 - What does a log cut by a power loss look like after its last sync? The
-  code answers the first half. `f_expand()` with option 1 allocates the
-  16 MiB run and sets the file's size to it when the log opens (FatFs R0.15,
-  `ff.c`); every sync, `SD_LOG_SYNC_MS` (2000 ms) apart, writes that size
-  into the directory entry; only `sdLogStop()` gives the unused run back with
-  `f_truncate()`. So a log cut by a power loss or a pulled card is 16 MiB
-  long, holds the log up to its last sync, and after the written data holds
-  whatever the clusters held before: `f_expand()` does not clear them. The
-  manual tells the user to stop a recording first (wiki SD Logging,
-  Recording). Still open: a check on hardware, and whether each viewer
-  stops cleanly at the end of the written data.
+  code answers the first half (`src/sd_log.cpp`, FatFs R0.15 `ff.c`):
+  - `f_open()` with `FA_CREATE_ALWAYS` writes the directory entry with
+    size 0; it reaches the card when `f_expand()` reads the FAT.
+  - `f_expand()` with option 1 allocates a contiguous 16 MiB run and sets
+    the size to it in RAM only. Its result is ignored: without a free run
+    the log grows cluster by cluster.
+  - The first `f_sync()` comes `SD_LOG_SYNC_MS` (2000 ms) after the start
+    (`syncIfDue()`), and writes the size into the entry: 16 MiB with the
+    run.
+  - Each 512-byte chunk is a direct sector write (`f_write()` writes whole
+    sectors with `disk_write()`) inside a file whose entry already says
+    16 MiB, so data written after the last sync is readable. Lost is what
+    was still in the ring, up to `SD_LOG_BUFFER_BYTES` (8192).
+  - Only `sdLogStop()` gives the unused run back with `f_truncate()`;
+    `f_expand()` does not clear it.
+
+  So a log cut after its first sync is 16 MiB long, holds what reached the
+  card, lagging by up to 8192 bytes, then old card data; cut within its
+  first 2 s it reads 0 bytes; without the run, or past 16 MiB, its size is
+  the one at the last sync. The manual tells the user to stop a recording
+  first (wiki SD Logging, Recording). Still open: a check on hardware, and
+  whether each viewer stops cleanly at the end of the written data.
 
 ## Sources
 

@@ -2581,10 +2581,14 @@ static void testBoardCellColour() {
 	          uiBoardCell(3.5451f, BoardCell::Low) == BoardCell::Ok);
 	// Below a working cell's range the value says nothing about a cell.
 	checkTrue("2.50 V: red", uiBoardCell(2.500f, BoardCell::Ok) == BoardCell::Critical);
-	checkTrue("2.49 V: the text colour", uiBoardCell(2.490f, BoardCell::Ok) == BoardCell::Ok);
-	checkTrue("2.49 V after red: the text colour",
-	          uiBoardCell(2.490f, BoardCell::Critical) == BoardCell::Ok);
-	checkTrue("0 V: the text colour", uiBoardCell(0.0f, BoardCell::Ok) == BoardCell::Ok);
+	checkTrue("2.49 V: no cell, the text colour",
+	          uiBoardCell(2.490f, BoardCell::Ok) == BoardCell::NoCell);
+	checkTrue("2.49 V after red: no cell",
+	          uiBoardCell(2.490f, BoardCell::Critical) == BoardCell::NoCell);
+	checkTrue("0 V: no cell", uiBoardCell(0.0f, BoardCell::Ok) == BoardCell::NoCell);
+	checkTrue("no cell at 2.54 V stays", uiBoardCell(2.540f, BoardCell::NoCell) == BoardCell::NoCell);
+	checkTrue("no cell at 2.55 V goes red",
+	          uiBoardCell(2.550f, BoardCell::NoCell) == BoardCell::Critical);
 	checkTrue("red at 3.60 V goes to the text colour",
 	          uiBoardCell(3.600f, BoardCell::Critical) == BoardCell::Ok);
 	checkTrue("amber at 3.20 V goes red at once",
@@ -2619,7 +2623,22 @@ static void testBoardCellColour() {
 	fakeAdcSet(1481);
 	frames(120);
 	checkTrue("then 3.58 V: the text colour", shows("3.58V", C_TEXT));
-	// IDLE's countdown replaces the voltage as before, whatever its colour.
+	// IDLE's countdown replaces the voltage, amber, whatever the voltage's
+	// colour: armed at an amber reading and run into the last 5 s.
+	fakeAdcSet(1427);
+	uiInit();
+	frames(4);
+	holdToArm();
+	checkTrue("armed at 3.45 V: the voltage in amber", uiArmed() && shows("3.45V", C_AMBER));
+	fakeAdvance(IDLE_DISARM_MS - 3000);
+	frames(1);
+	checkTrue("the last 5 s: IDLE 3s, amber, in the voltage's place",
+	          fakeTextIs(GFX_W - 4 - gfxTextW("IDLE 3s", 2), 7, "IDLE 3s", C_AMBER, C_PANEL, 2));
+	checkTrue("and no voltage", !shows("3.45V", C_AMBER) && !shows("3.45V", C_TEXT));
+	fakeAdvance(4000);
+	frames(2);
+	checkTrue("the idle interlock disarms", !uiArmed());
+	checkTrue("the voltage is back, amber", shows("3.45V", C_AMBER));
 	fakeAdcSet(fakeAdcDefault());
 	uiInit();
 	frames(2);
@@ -2671,6 +2690,23 @@ static void testSplashTouch() {
 	checkTrue("lifted and pressed again: HOLD TO ARM arms", uiArmed());
 	tapId(UI_FIX(TesterCtl::Arm));
 	checkTrue("disarmed for what follows", !uiArmed());
+
+	// Its lift still completes a tap on a button that acts on release: the
+	// press began on MENU.
+	uiInit();
+	uiDrawSplash();
+	int mx = 0, my = 0;
+	ctlCentre(UI_FIX(TesterCtl::Menu), &mx, &my);
+	fakePress(mx, my);
+	fakeAdvance(UI_FRAME_MS);
+	uiSplashTick();
+	frames(4);
+	checkTrue("a finger on MENU from the splash on: the tester stays", uiCurrentScreen() == UiScreenId::Tester);
+	fakeRelease();
+	frames(2);
+	checkTrue("its lift opens MENU", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK to the tester", uiCurrentScreen() == UiScreenId::Tester);
 
 	// Answering at boot: no line.
 	touchInit();

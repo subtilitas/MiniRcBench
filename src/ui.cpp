@@ -419,7 +419,9 @@ BoardCell uiBoardCell(float volts, BoardCell prev) {
 	int mv = boardCentivolts(volts) * 10;
 	// Below a working cell's range the reading says nothing about a cell:
 	// USB power alone, or no cell, can read there.
-	if (mv < BOARD_CELL_IMPLAUSIBLE_MV) return BoardCell::Ok;
+	if (mv < BOARD_CELL_IMPLAUSIBLE_MV) return BoardCell::NoCell;
+	if (prev == BoardCell::NoCell && mv < BOARD_CELL_IMPLAUSIBLE_MV + BOARD_CELL_HYST_MV)
+		return BoardCell::NoCell;
 	BoardCell now = mv < BOARD_CELL_CRIT_MV ? BoardCell::Critical
 	              : mv < BOARD_CELL_LOW_MV  ? BoardCell::Low : BoardCell::Ok;
 	// Down at once; up only once the reading clears the threshold it rises
@@ -1019,8 +1021,7 @@ void uiDrawSplash() {
 	snprintf(pin, sizeof(pin), UI_SPLASH_PIN_FMT, (unsigned)settings()->dshotPin);
 	gfxTextCenter(288, pin, C_AMBER, 1);
 	// Not found: no answer since touchInit().
-	uint32_t at;
-	s_splashNoTouch = !touchLastAnswer(&at);
+	s_splashNoTouch = !touchAnswered();
 	if (s_splashNoTouch) gfxTextCenter(UI_SPLASH_TOUCH_Y, UI_SPLASH_TOUCH_TEXT, C_AMBER, 1);
 }
 
@@ -1030,12 +1031,12 @@ void uiSplashTick() {
 	// A read of its own, into a state the tester does not see. The driver
 	// keeps the contact between reads, so a finger that rests on the glass
 	// through the end of the splash gives the tester no press edge on its
-	// first frame: that finger presses nothing until it is lifted, HOLD TO
-	// ARM included.
+	// first frame: it does not arm or start a drag. Its lift still completes
+	// a tap on a button that acts on release: the driver kept where the
+	// press began.
 	TouchState t = {};
 	touchPoll(&t);
-	uint32_t at;
-	bool lost = !touchLastAnswer(&at);
+	bool lost = !touchAnswered();
 	if (lost == s_splashNoTouch) return;
 	s_splashNoTouch = lost;
 	// 8 rows: a glyph is a row taller in high contrast (themeBold()).

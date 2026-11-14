@@ -40,16 +40,23 @@ The tester screen shows the state in its top row: `REC` (red) while recording,
 **Stop the recording before cutting the board's power or pulling the card:**
 disarm, or press `STOP` on SD LOG, and wait until the top row reads `SD`.
 A stop writes the end of the log, gives back the unused space and closes the
-file. A log cut by a power loss or a pulled card is not closed:
+file. A log cut by a power loss or a pulled card is not closed. What it
+holds depends on when it was cut:
 
-- It keeps the size reserved when it opened, 16 MiB, whatever was recorded.
-- It is valid up to its last sync. The firmware syncs the file every 2 s
-  while recording, so up to about the last 2 s are missing.
-- What follows the recorded data, up to 16 MiB, is whatever the card held in
-  that space before: old data, not part of the log.
+- **Within its first 2 s:** it reads 0 bytes. The file's size on the card
+  is written every 2 s while recording, the first time 2 s after the start.
+- **Later:** it is 16 MiB long, the space reserved when it opened. It holds
+  the data that reached the card, which is everything recorded except up
+  to the last 8192 bytes, the firmware's write buffer. After that comes
+  whatever the card held in that space before: old data, not part of the
+  log.
+- **Without the reservation, or past 16 MiB:** when the card had no free
+  run of 16 MiB at the start, or the log grew past it, the file has the
+  size written at the last of those 2 s steps; what came after it is not
+  in the file.
 
-These are facts of the firmware's code. How a viewer handles such a file is
-not tested.
+These are facts of the firmware's code and of the FatFs library it uses,
+not measured on a card. How a viewer handles such a file is not tested.
 
 ---
 

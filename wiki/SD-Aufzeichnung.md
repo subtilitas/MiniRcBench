@@ -46,19 +46,25 @@ die Karte ziehst:** entschärfen oder `STOP` auf SD LOG drücken und warten,
 bis die obere Zeile `SD` zeigt. Das Beenden schreibt das Ende der
 Aufzeichnung, gibt den ungenutzten Platz zurück und schließt die Datei. Eine
 Aufzeichnung, die ein Stromausfall oder eine gezogene Karte abschneidet, wird
-nicht geschlossen:
+nicht geschlossen. Was sie enthält, hängt davon ab, wann sie abgeschnitten
+wurde:
 
-- Sie behält die beim Öffnen reservierte Größe von 16 MiB, egal wie viel
-  aufgezeichnet wurde.
-- Sie ist bis zu ihrer letzten Synchronisierung gültig. Die Firmware
-  synchronisiert die Datei während der Aufzeichnung alle 2 s, es fehlen also
-  bis zu etwa die letzten 2 s.
-- Was nach den aufgezeichneten Daten bis 16 MiB folgt, ist das, was vorher
-  auf der Karte an dieser Stelle stand: alte Daten, nicht Teil der
-  Aufzeichnung.
+- **In ihren ersten 2 s:** Sie liest sich als 0 Byte. Die Dateigröße auf
+  der Karte wird während der Aufzeichnung alle 2 s geschrieben, das erste
+  Mal 2 s nach dem Start.
+- **Später:** Sie ist 16 MiB lang, der beim Öffnen reservierte Platz. Sie
+  enthält die Daten, die die Karte erreicht haben: alles Aufgezeichnete bis
+  auf höchstens die letzten 8192 Byte, den Schreibpuffer der Firmware.
+  Danach folgt, was vorher auf der Karte an dieser Stelle stand: alte
+  Daten, nicht Teil der Aufzeichnung.
+- **Ohne die Reservierung oder über 16 MiB hinaus:** Hatte die Karte beim
+  Start keinen freien Block von 16 MiB, oder wuchs die Aufzeichnung darüber
+  hinaus, hat die Datei die Größe, die beim letzten dieser 2-s-Schritte
+  geschrieben wurde; was danach kam, steht nicht in der Datei.
 
-Das sind Fakten aus dem Code der Firmware. Wie ein Viewer eine solche Datei
-behandelt, ist nicht getestet.
+Das sind Fakten aus dem Code der Firmware und der von ihr genutzten
+FatFs-Bibliothek, nicht an einer Karte gemessen. Wie ein Viewer eine solche
+Datei behandelt, ist nicht getestet.
 
 ---
 

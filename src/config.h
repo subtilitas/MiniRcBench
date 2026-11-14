@@ -513,6 +513,8 @@
 /**
  * @brief How far above a threshold the reading has to rise before the
  *        colour goes back, mV, so that noise at a threshold does not flicker.
+ *        Also above @ref BOARD_CELL_IMPLAUSIBLE_MV, before a reading leaves
+ *        the text colour for red.
  */
 #define BOARD_CELL_HYST_MV     50
 /** @} */

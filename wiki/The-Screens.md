@@ -49,8 +49,8 @@ disabled, an outline with a grey label, and a tap on it does nothing.
   `3.50V` is never amber, `3.30V` never red. It returns to the colour above
   once it is 50 mV over the threshold. With USB power alone the value can be
   low and then says nothing about a cell: below 2.50 V, implausible for a
-  working cell, it is drawn in the normal text colour. No write and no arm
-  is refused on it.
+  working cell, it is drawn in the normal text colour, and red again from
+  2.55 V. No write and no arm is refused on it.
   During the last 5 s before the idle interlock disarms, `IDLE ns` in amber
   replaces the voltage and `BOARD`.
 
@@ -76,11 +76,12 @@ button is live again (see [SD Logging](SD-Logging)).
 
 <img src="img/tester-card-held.png" width="240" alt="The tester while a computer holds the card: HOLD TO ARM drawn as an outline, the bar reading EJECT THE USB DRIVE TO ARM">
 
-**Touch.** The screen reads one finger: the first contact the touch
-controller reports. While one finger rests on the glass, a second is
-ignored, so lift the throttle finger before pressing `DISARM`. What the
-controller reports with two contacts is not measured. A wet screen, or a
-lead lying across the glass, can count as a finger and block every tap.
+**Touch.** The firmware reads only the touch controller's first contact
+slot. Which contact the controller puts there while two fingers touch the
+glass is not measured, so a press made while the throttle finger rests on
+the glass may not register. Lift the throttle finger before pressing
+`DISARM`. A wet screen, or a lead lying across the glass, can count as a
+finger and block every tap.
 
 ---
 
