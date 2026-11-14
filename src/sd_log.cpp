@@ -44,7 +44,10 @@ static uint32_t s_cardSectors = 0;
 static uint32_t s_cardSizeMB = 0;
 
 static SdLogState s_state = SdLogState::NoCard;
+/** @brief The open log's number, or the last one's until the next start. */
 static uint16_t   s_fileNo = 0;
+/** @brief Why the last log ended. @see SdLogEnd */
+static SdLogEnd   s_end = SdLogEnd::None;
 
 static BlackboxEncoder s_enc;
 static LogRing         s_ring;
@@ -108,6 +111,9 @@ bool sdLogBegin() {
 	// Why an initialisation failed: nothing answered, or a card answered and
 	// could not be brought up. Both end in FR_NOT_READY with no size.
 	s_cardInit = (uint8_t)sd_sdio_init_result();
+	// A mount, whatever its outcome: the card in the slot may be another one,
+	// so how the last log ended no longer describes it.
+	s_end = SdLogEnd::None;
 
 	// Whatever the mount did, the driver has by now tried to talk to the card,
 	// so its type and size say whether anything answered at all. That separates
@@ -212,20 +218,30 @@ bool sdLogStart() {
 	if (s_released) return false;
 	if (s_state == SdLogState::NoCard) return false;
 	if (s_state == SdLogState::Logging) return true;
+	s_end = SdLogEnd::None;
 
 	// The logs live in their own directory, so the root holds a few
 	// directories and a lookup in it reads one block. FR_EXIST is the
 	// directory already there.
 	FRESULT md = f_mkdir(SD_LOG_DIR_PATH);
-	if (md != FR_OK && md != FR_EXIST) { s_state = SdLogState::Error; return false; }
+	if (md != FR_OK && md != FR_EXIST) {
+		s_state = SdLogState::Error;
+		s_end = SdLogEnd::OpenFailed;
+		return false;
+	}
 
 	uint16_t n = nextFileNumber();
-	if (n == 0) { s_state = SdLogState::Error; return false; }
+	if (n == 0) {
+		s_state = SdLogState::Error;
+		s_end = SdLogEnd::OpenFailed;
+		return false;
+	}
 
 	char name[24];
 	snprintf(name, sizeof(name), SD_LOG_DIR_PATH "/LOG%05u.BFL", (unsigned)n);
 	if (f_open(&s_file, name, FA_WRITE | FA_CREATE_ALWAYS) != FR_OK) {
 		s_state = SdLogState::Error;
+		s_end = SdLogEnd::OpenFailed;
 		return false;
 	}
 
@@ -279,11 +295,15 @@ void sdLogStop() {
 	FRESULT close = f_close(&s_file);
 	(void)trunc;
 	s_state = (sync == FR_OK && close == FR_OK) ? SdLogState::Idle : SdLogState::Error;
-	// An error keeps the file's number for the screen, as a failed flush does.
-	if (s_state == SdLogState::Idle) {
-		s_fileNo = 0;
-		s_autoStarted = false;
-	}
+	if (s_state == SdLogState::Error) s_end = SdLogEnd::WriteFailed;
+	// The file's number stays, for SD LOG's FILE row, until the next start.
+	if (s_state == SdLogState::Idle) s_autoStarted = false;
+}
+
+void sdLogStopFor(SdLogEnd tool) {
+	if (s_state != SdLogState::Logging) return;
+	sdLogStop();
+	if (s_state == SdLogState::Idle) s_end = tool;
 }
 
 bool sdLogActive() { return s_state == SdLogState::Logging; }
@@ -385,6 +405,7 @@ void sdLogFlush() {
 
 	if (fr != FR_OK || wrote != n) {
 		s_state = SdLogState::Error;
+		s_end = sdLogWriteEnd((int)fr, (uint32_t)wrote, n);
 		f_close(&s_file);
 		return;
 	}
@@ -407,6 +428,7 @@ void sdLogStatus(SdLogStatus *out) {
 	out->peakBuffer   = s_ring.peakUsed;
 	out->worstFlushMs = s_worstFlushMs;
 	out->fileNumber   = s_fileNo;
+	out->end          = s_end;
 }
 
 void sdLogSetArmed(bool armed) {
@@ -427,6 +449,7 @@ void sdLogSetArmed(bool armed) {
 bool sdLogBegin() { return false; }
 bool sdLogStart() { return false; }
 void sdLogStop() {}
+void sdLogStopFor(SdLogEnd) {}
 bool sdLogRemount() { return false; }
 bool sdLogVolumeId(uint32_t *, uint32_t *) { return false; }
 bool sdLogRelease() { return false; }

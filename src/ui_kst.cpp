@@ -382,7 +382,7 @@ static void claimPin() {
 	s_claimed = r == ClaimRefusal::None;
 	s_refusal = r;
 	// The card's writes queue in SRAM for the claim; a running log stops.
-	if (s_claimed) cardCacheBegin();
+	if (s_claimed) cardCacheBegin(SdLogEnd::ByKst);
 }
 
 static void readFiles();
@@ -1796,7 +1796,7 @@ bool uiKstTick(const TouchState *t) {
 			case KstView::Unplug:
 				pinClaimKeep(PinUser::Kst);
 				// endClaim() turned the cache off; the kept claim turns it on.
-				cardCacheBegin();
+				cardCacheBegin(SdLogEnd::ByKst);
 				newSession();
 				go(KstView::Main);
 				break;

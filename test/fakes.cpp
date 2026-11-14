@@ -696,6 +696,7 @@ void fakeSdLogSet(const SdLogStatus *st) { g_log = *st; }
 
 bool sdLogBegin() {
 	g_log.state = SdLogState::Idle;
+	g_log.end = SdLogEnd::None;
 	return true;
 }
 
@@ -704,20 +705,31 @@ static bool g_autoStarted = false;
 bool sdLogStart() {
 	if (g_log.state == SdLogState::NoCard) return false;
 	g_log.state = SdLogState::Logging;
+	g_log.end = SdLogEnd::None;
 	g_autoStarted = false;
 	if (!g_log.fileNumber) g_log.fileNumber = 1;
 	return true;
 }
 
+// As sd_log.cpp: the number stays, for the FILE row's (LAST), until the next
+// start.
 void sdLogStop() {
 	if (g_log.state == SdLogState::Logging) g_log.state = SdLogState::Idle;
-	g_log.fileNumber = 0;
 	g_autoStarted = false;
+}
+
+void sdLogStopFor(SdLogEnd tool) {
+	if (g_log.state != SdLogState::Logging) return;
+	sdLogStop();
+	if (g_log.state == SdLogState::Idle) g_log.end = tool;
 }
 
 bool sdLogRemount() {
 	// Models a card that appears on retry: NO CARD becomes READY. That is the
 	// case the button exists for -- a card inserted after boot.
+	// A mount, as sdLogBegin(), which sd_log.cpp skips while a log runs:
+	// how the last log ended is forgotten.
+	if (g_log.state != SdLogState::Logging) g_log.end = SdLogEnd::None;
 	if (g_log.state == SdLogState::NoCard) {
 		g_log.state = SdLogState::Idle;
 		g_log.mountResult = 0;
@@ -808,9 +820,9 @@ void fakeVolumeSet(uint32_t serial, bool answers) {
 
 FakeCacheCalls fakeCacheCalls() { return g_cacheCalls; }
 
-bool cardCacheBegin() {
+bool cardCacheBegin(SdLogEnd tool) {
 	g_cacheCalls.begins++;
-	if (sdLogActive()) sdLogStop();
+	sdLogStopFor(tool);
 	SdLogStatus st;
 	sdLogStatus(&st);
 	bool mounted = st.state == SdLogState::Idle || st.state == SdLogState::Logging;

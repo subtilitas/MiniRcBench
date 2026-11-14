@@ -36,6 +36,7 @@
 #include "touch.h"
 #include "diag.h"
 
+#include <stddef.h>
 #include <stdio.h>
 
 #include <string.h>
@@ -749,6 +750,188 @@ static void testMenuUnsaved() {
 	tapId(UI_FIX(UI_BACK));
 }
 
+/** @brief A whole block of @p version in the fake flash, with @p s as its payload. */
+static void putBlock(uint16_t version, const Settings *s) {
+	SettingsBlock b;
+	memset(&b, 0, sizeof(b));
+	b.magic = SETTINGS_MAGIC;
+	b.version = version;
+	b.size = sizeof(Settings);
+	b.s = *s;
+	b.crc32 = settingsCrc32(&b, offsetof(SettingsBlock, crc32));
+	fakeFlashClear();
+	memcpy(fakeFlashBytes(), &b, sizeof(b));
+}
+
+/** @brief A block of this version holding @p s, as a save writes it. */
+static void storeValid(const Settings *s) { putBlock(SETTINGS_VERSION, s); }
+
+/** @brief The amber pixels on MENU's SETTINGS row. */
+static int settingsRowAmber() {
+	UiRect row = ctlRect(menuRow(&UI_SETTINGS));
+	int amber = 0;
+	for (int y = row.y; y < row.y + row.h; y++)
+		for (int x = row.x; x < row.x + row.w; x++) amber += pixel(x, y) == C_AMBER;
+	return amber;
+}
+
+/**
+ * @brief Settings an update discarded: MENU's SETTINGS row reads RESET and
+ *        SETTINGS' note says so until a save lands; never on a board that
+ *        never had settings.
+ */
+static void testResetByUpdate() {
+	section("SETTINGS: a reset by an update shows until a save lands");
+	static const char *const NOTE = "RESET BY UPDATE - CHECK AND SAVE";
+	checkTrue("the note fits the line", UI_MARGIN + gfxTextW(NOTE, 1) <= GFX_W - UI_MARGIN);
+	char b[32];
+	uint16_t col = 0, fill = 0;
+
+	// A board that never had settings.
+	freshTester();
+	openMenu();
+	UI_SETTINGS.status(b, sizeof(b), &col, &fill);
+	checkTrue("blank flash: MENU's SETTINGS row reads nothing", b[0] == '\0' && settingsRowAmber() == 0);
+	tapId(menuRow(&UI_SETTINGS));
+	menuFrames(1);
+	checkTrue("and SETTINGS reads COMPILED DEFAULTS IN USE", noteIs("COMPILED DEFAULTS IN USE", C_DIM));
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+
+	// A version 4 block, as the firmware before CURRENT SENSE wrote it.
+	Settings old;
+	settingsDefaults(&old);
+	old.poles = 22;
+	old.maxThrottle = 1000;
+	putBlock(SETTINGS_VERSION - 1, &old);
+	settingsLoad();
+	uiInit();
+	menuFrames(2);
+	checkTrue("a version 4 block: discarded, the defaults live",
+	          !settingsStored() && settingsResetByUpdate() && settings()->poles == DEFAULT_MOTOR_POLES);
+	openMenu();
+	UI_SETTINGS.status(b, sizeof(b), &col, &fill);
+	checkTrue("MENU's SETTINGS row reads RESET, amber", strcmp(b, "RESET") == 0 && col == C_AMBER);
+	checkTrue("drawn on the row", settingsRowAmber() > 0);
+	fakeDumpFrame("shot_menu_reset.ppm");
+	tapId(menuRow(&UI_SETTINGS));
+	menuFrames(1);
+	checkTrue("SETTINGS: the note reads RESET BY UPDATE, amber", noteIs(NOTE, C_AMBER));
+	revealRow((int)SettingsRowId::Poles);
+	tapId(UI_ROW(SettingsRowId::Poles, Plus));
+	checkTrue("a change: UNSAVED outranks it", noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
+	tapId(UI_FIX(UI_BACK));
+	menuFrames(1);
+	UI_SETTINGS.status(b, sizeof(b), &col, &fill);
+	checkTrue("and MENU reads UNSAVED", strcmp(b, "UNSAVED") == 0);
+	tapId(menuRow(&UI_SETTINGS));
+	menuFrames(1);
+	tapId(UI_ROW(SettingsRowId::Poles, Minus));
+	checkTrue("stepped back: RESET BY UPDATE again", !settingsDirty() && noteIs(NOTE, C_AMBER));
+	fakeFlashSetWritable(false);
+	holdSave();
+	checkTrue("a save the flash refuses: SAVE FAILED, the reset kept",
+	          noteIs("SAVE FAILED - FLASH REFUSED THE WRITE", C_RED) && settingsResetByUpdate());
+	fakeFlashSetWritable(true);
+	holdSave();
+	checkTrue("HOLD TO SAVE lands: SAVED", noteIs("SAVED", C_LIME) && !settingsResetByUpdate());
+	tapId(UI_FIX(UI_BACK));
+	menuFrames(1);
+	UI_SETTINGS.status(b, sizeof(b), &col, &fill);
+	checkTrue("MENU: the row reads nothing", b[0] == '\0' && settingsRowAmber() == 0);
+	tapId(UI_FIX(UI_BACK));
+
+	// The splash, on the next boot after the update and after the save.
+	putBlock(SETTINGS_VERSION - 1, &old);
+	settingsLoad();
+	uiDrawSplash();
+	checkTrue("splash: SETTINGS RESET BY UPDATE at y 40, amber",
+	          fakeTextCentredIs(40, "SETTINGS RESET BY UPDATE", C_AMBER, C_BG, 1));
+	checkTrue("and CHECK MENU > SETTINGS at y 52, amber",
+	          fakeTextCentredIs(52, "CHECK MENU > SETTINGS", C_AMBER, C_BG, 1));
+	int x0 = 0, x1 = 0;
+	checkTrue("nothing else above MINIRC but the two lines",
+	          fakeInkExtent(40, 19, C_BG, &x0, &x1) && x0 >= UI_MARGIN && x1 < GFX_W - UI_MARGIN &&
+	          !fakeInkExtent(0, 40, C_BG, &x0, &x1) && !fakeInkExtent(59, 45, C_BG, &x0, &x1));
+	fakeDumpFrame("shot_splash_reset.ppm");
+	fakeFlashClear();
+	settingsLoad();
+	uiDrawSplash();
+	checkTrue("blank flash: no reset lines", !fakeInkExtent(0, 104, C_BG, &x0, &x1));
+	storeValid(&old);
+	settingsLoad();
+	uiDrawSplash();
+	checkTrue("a block of this version: no reset lines",
+	          settingsStored() && !fakeInkExtent(0, 104, C_BG, &x0, &x1));
+	freshTester();
+}
+
+/**
+ * @brief ESC PIN moves DShot at once: SETTINGS repeats the splash's warning
+ *        for the live pin while it is not the pin the splash named.
+ */
+static void testEscPinNote() {
+	section("SETTINGS: ESC PIN off the boot pin repeats the splash's warning");
+	openSettings();
+	menuFrames(1);
+	const uint8_t boot = settings()->dshotPin;
+	checkTrue("at the boot pin: no warning", noteIs("COMPILED DEFAULTS IN USE", C_DIM));
+	revealRow((int)SettingsRowId::Pin);
+	tapId(UI_ROW(SettingsRowId::Pin, Plus));
+	const uint8_t moved = settings()->dshotPin;
+	char want[40];
+	snprintf(want, sizeof(want), UI_SPLASH_PIN_FMT, (unsigned)moved);
+	checkTrue("ESC PIN stepped: DShot on the other pin", moved != boot && fakeWiring().dshotPin == moved);
+	checkTrue("the splash's warning for it, amber, not UNSAVED",
+	          settingsDirty() && noteIs(want, C_AMBER));
+	checkTrue("it fits the line", UI_MARGIN + gfxTextW(want, 1) <= GFX_W - UI_MARGIN);
+	fakeDumpFrame("shot_settings_pin.ppm");
+	holdSave();
+	checkTrue("saved: the warning stays, not SAVED", !settingsDirty() && noteIs(want, C_AMBER));
+	tapId(UI_FIX(UI_BACK));
+	tapId(menuRow(&UI_SETTINGS));
+	menuFrames(1);
+	checkTrue("SETTINGS again: the warning stays", noteIs(want, C_AMBER));
+	fakeFlashSetWritable(false);
+	revealRow((int)SettingsRowId::Poles);
+	tapId(UI_ROW(SettingsRowId::Poles, Plus));
+	holdSave();
+	checkTrue("a failed save outranks it", noteIs("SAVE FAILED - FLASH REFUSED THE WRITE", C_RED));
+	fakeFlashSetWritable(true);
+	tapId(UI_ROW(SettingsRowId::Poles, Minus));
+	tapId(UI_FIX(UI_BACK));
+	tapId(menuRow(&UI_SETTINGS));
+	menuFrames(1);
+	checkTrue("SETTINGS again: the warning back", noteIs(want, C_AMBER));
+	revealRow((int)SettingsRowId::Pin);
+	tapId(UI_ROW(SettingsRowId::Pin, Minus));
+	checkTrue("back on the boot pin: no warning, UNSAVED",
+	          settings()->dshotPin == boot && noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+
+	// Booted on the other pin: RESET puts DShot back on the default pin,
+	// which the splash did not name. The warning outranks RESET's note.
+	Settings other;
+	settingsDefaults(&other);
+	other.dshotPin = moved;
+	storeValid(&other);
+	settingsLoad();
+	uiInit();
+	menuFrames(2);
+	openMenu();
+	tapId(menuRow(&UI_SETTINGS));
+	menuFrames(1);
+	checkTrue("booted on the other pin: no warning", noteIs("SAVED SETTINGS IN USE", C_DIM));
+	tapId(UI_FIX(SettingsCtl::Reset));
+	snprintf(want, sizeof(want), UI_SPLASH_PIN_FMT, (unsigned)boot);
+	checkTrue("RESET: the warning for the default pin, not RESET's note",
+	          settings()->dshotPin == boot && noteIs(want, C_AMBER));
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+	freshTester();
+}
+
 /** @brief Every MENU status, in each state it has, fits the registry's widest. */
 static void testMenuStatusWidths() {
 	section("MENU: every status fits its row's widest");
@@ -791,9 +974,17 @@ static void testMenuStatusWidths() {
 	for (SdLogState s : states) { st.state = s; fakeSdLogSet(&st); check(e[log], "a card state"); }
 	fakeMscSet(MscState::Serving, 0); check(e[log], "a host holds the card");
 	fakeMscSet(MscState::Idle, 0);
-	// SETTINGS, unsaved.
+	// SETTINGS, unsaved, and reset by an update.
 	settings()->poles = (uint8_t)(settings()->poles + 2);
 	check(e[uiMenuRowOf(&UI_SETTINGS)], "unsaved");
+	{
+		Settings d;
+		settingsDefaults(&d);
+		putBlock(SETTINGS_VERSION + 1, &d);
+		settingsLoad();
+		check(e[uiMenuRowOf(&UI_SETTINGS)], "reset by an update");
+		fakeFlashClear();
+	}
 	settingsLoad();
 	// The two pin readouts at the widest pins the board offers.
 	settings()->dshotPin = 0;
@@ -924,6 +1115,8 @@ void runMenuTests() {
 	testBacklightFloorAndNoOpSteps();
 	testResetNote();
 	testMenuUnsaved();
+	testResetByUpdate();
+	testEscPinNote();
 	testMenuStatusWidths();
 	testSettingsValueWidths();
 	testMenuScrollResets();

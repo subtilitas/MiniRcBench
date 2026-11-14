@@ -423,9 +423,19 @@ static void testFlushWait() {
 	section("Hitec screen: the write waits for the backup's flush to the card");
 	fakeCacheReset();
 	freshHitec(HITEC_D, false);
+	SdLogStatus logging;
+	memset(&logging, 0, sizeof(logging));
+	logging.state = SdLogState::Logging;
+	fakeSdLogSet(&logging);
 	checkTrue("the field list", toList(HITEC_D));
 	checkTrue("the claim turned the cache on", fakeCacheCalls().begins >= 1 &&
 	                                          cardCacheState() == CardCache::Idle);
+	{
+		SdLogStatus ended;
+		sdLogStatus(&ended);
+		checkTrue("the claim stopped the running log, recorded as HITEC SERVO's",
+		          ended.state == SdLogState::Idle && ended.end == SdLogEnd::ByHitec);
+	}
 	speedDown();
 	holdUntilGone(UI_FIX(HitecCtl::Write));
 	fakeCacheSet(CardCache::Flushing, 12);

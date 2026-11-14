@@ -22,9 +22,10 @@
  * @{
  */
 #define LOG_ROW0_Y     (UI_HDR_H + 8)   /**< First status row. */
-#define LOG_ROW_H      20
+#define LOG_ROW_H      19
 #define LOG_ROWS        9   /**< Through MOUNT; CARD and MOUNT are diagnostics. */
-#define LOG_NOTE_Y    228   /**< One line: why a button just refused. */
+#define LOG_NOTE1_Y   217   /**< A two-line note's first line: how the last log ended. */
+#define LOG_NOTE_Y    228   /**< One line: why a button just refused, or a note's second line. */
 #define LOG_TOGGLE_Y  240   /**< START / STOP, or EJECT while a host has the card. */
 #define LOG_TOGGLE_H   44
 #define LOG_BOT_Y     288   /**< RETRY MOUNT and USB DRIVE, side by side. */
@@ -42,8 +43,9 @@ static const UiRect BTN_LOG_USB    = { 14 + LOG_BTN_W + LOG_BTN_GAP, LOG_BOT_Y,
                                        LOG_BTN_W, LOG_BOT_H };
 
 static_assert(LOG_ROW0_Y >= UI_HDR_H, "logging rows overlap the header");
-static_assert(LOG_ROW0_Y + LOG_ROWS * LOG_ROW_H <= LOG_NOTE_Y,
-              "logging rows overlap the note line");
+static_assert(LOG_ROW0_Y + LOG_ROWS * LOG_ROW_H <= LOG_NOTE1_Y,
+              "logging rows overlap the note lines");
+static_assert(LOG_NOTE1_Y + 7 < LOG_NOTE_Y, "the two note lines overlap");
 static_assert(LOG_NOTE_Y + 7 <= LOG_TOGGLE_Y,
               "the note line overlaps the START/STOP button");
 static_assert(LOG_TOGGLE_Y + LOG_TOGGLE_H <= LOG_BOT_Y,
@@ -62,7 +64,7 @@ static TouchState s_touch;
 
 /** @brief What the last frame drew, so an unchanged screen is not repainted. */
 static struct {
-	int      config, logState, logFile, logDrops, mscState, mscNote, logMount, logInit;
+	int      config, logState, logFile, logDrops, mscState, mscNote, logMount, logInit, logEnd;
 	uint32_t logBytes, logFrames, logPeak, logWorstMs, mscBlocks, logCardMB;
 } s_shown;
 
@@ -129,6 +131,41 @@ static const char *mountHint(const SdLogStatus &st, uint16_t *col) {
 	return nullptr;
 }
 
+bool uiSdLogEndNote(const SdLogStatus *st, const char **line1, const char **line2) {
+	*line2 = "";
+	switch (st->end) {
+		case SdLogEnd::CardFull:
+			*line1 = "RECORDING STOPPED: CARD FULL";
+			*line2 = "FREE SPACE ON A COMPUTER, RETRY MOUNT";
+			return true;
+		case SdLogEnd::WriteFailed:
+			*line1 = "RECORDING STOPPED: CARD WRITE FAILED";
+			*line2 = "REMOVED? REINSERT, THEN RETRY MOUNT";
+			return true;
+		case SdLogEnd::OpenFailed:
+			*line1 = "NO LOG STARTED: THE FILE DID NOT OPEN";
+			*line2 = "CHECK THE CARD, THEN RETRY MOUNT";
+			return true;
+		case SdLogEnd::ByKst:   *line1 = "RECORDING STOPPED BY KST SERVO";   return true;
+		case SdLogEnd::ByHitec: *line1 = "RECORDING STOPPED BY HITEC SERVO"; return true;
+		case SdLogEnd::ByAm32:  *line1 = "RECORDING STOPPED BY AM32 CONFIG"; return true;
+		case SdLogEnd::None:    break;
+	}
+	*line1 = "";
+	return false;
+}
+
+/**
+ * @brief The FILE row's value: the open log, or the last one marked
+ *        `(LAST)` beside the counters it left; `--` before the first.
+ */
+static void fileText(const SdLogStatus &st, char *buf, size_t n) {
+	if (!st.fileNumber) snprintf(buf, n, "--");
+	else if (st.state == SdLogState::Logging)
+		snprintf(buf, n, "LOG%05u.BFL", (unsigned)st.fileNumber);
+	else snprintf(buf, n, "LOG%05u.BFL (LAST)", (unsigned)st.fileNumber);
+}
+
 /**
  * @brief The body of the logging screen while a host owns the card.
  *
@@ -193,7 +230,7 @@ static void drawLogScreen() {
 	    s_shown.logDrops == (int)st.dropEvents && s_shown.logPeak == st.peakBuffer &&
 	    s_shown.logWorstMs == st.worstFlushMs &&
 	    s_shown.logMount == st.mountResult && s_shown.logCardMB == st.cardSizeMB &&
-	    s_shown.logInit == st.cardInit &&
+	    s_shown.logInit == st.cardInit && s_shown.logEnd == (int)st.end &&
 	    s_shown.mscState == (int)msc && s_shown.mscNote == note &&
 	    s_shown.mscBlocks == blocks)
 		return;
@@ -213,6 +250,7 @@ static void drawLogScreen() {
 	s_shown.logMount   = st.mountResult;
 	s_shown.logCardMB  = st.cardSizeMB;
 	s_shown.logInit    = st.cardInit;
+	s_shown.logEnd     = (int)st.end;
 
 	gfxFill(C_BG);
 	uiHeader("SD LOG", &s_touch);
@@ -240,8 +278,7 @@ static void drawLogScreen() {
 	}
 	drawLogRow(0, "STATUS", stateTxt, stateCol);
 
-	if (st.fileNumber) snprintf(buf, sizeof(buf), "LOG%05u.BFL", (unsigned)st.fileNumber);
-	else               snprintf(buf, sizeof(buf), "--");
+	fileText(st, buf, sizeof(buf));
 	drawLogRow(1, "FILE", buf, C_TEXT);
 
 	snprintf(buf, sizeof(buf), "%lu", (unsigned long)st.framesLogged);
@@ -325,16 +362,22 @@ static void drawLogScreen() {
 	uiButton(BTN_LOG_USB, "USB DRIVE", C_PANEL, C_CYAN, 1,
 	        pressing(BTN_LOG_USB, s_touch), usable);
 
-	// The note line says why the last press was refused, or, after a mount
-	// that found no usable card, what to do. Blank the row even when there is
-	// nothing to say, or a stale reason outlives its cause.
-	gfxRect(0, LOG_NOTE_Y, GFX_W, 8, C_BG);
+	// The note lines say why the last press was refused, how the last log
+	// ended, or, after a mount that found no usable card, what to do. Blank
+	// them even when there is nothing to say, or a stale reason outlives its
+	// cause.
+	gfxRect(0, LOG_NOTE1_Y, GFX_W, LOG_NOTE_Y + 8 - LOG_NOTE1_Y, C_BG);
 	uint16_t hintCol = C_DIM;
 	const char *hint = mountHint(st, &hintCol);
-	if (mscNoteActive())
+	const char *end1, *end2;
+	if (mscNoteActive()) {
 		gfxTextCenter(LOG_NOTE_Y, mscRefusalText(s_mscNote), C_AMBER, 1);
-	else if (hint)
+	} else if (uiSdLogEndNote(&st, &end1, &end2)) {
+		gfxTextCenter(LOG_NOTE1_Y, end1, C_AMBER, 1);
+		gfxTextCenter(LOG_NOTE_Y, end2, C_AMBER, 1);
+	} else if (hint) {
 		gfxTextCenter(LOG_NOTE_Y, hint, hintCol, 1);
+	}
 }
 
 /** @brief Touch handling for the logging screen. All three fire on release. */

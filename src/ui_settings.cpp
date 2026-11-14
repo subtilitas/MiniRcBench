@@ -549,12 +549,34 @@ static bool resetNoteShown() {
 }
 
 /**
+ * @brief The splash's warning for the live ESC pin, while it is not the pin
+ *        the splash named at boot (settingsBootDshotPin()), or null.
+ *
+ * The rule is the boot pin, not the saved pin or the pin at opening: the
+ * splash warned about the boot pin only, and DShot runs on the live pin
+ * from the step that changed it (applyLive()). Against the saved pin the
+ * note would end at a save, against the pin at opening at a return to
+ * SETTINGS, with DShot still on a pin nothing warned about.
+ */
+static const char *pinNote() {
+	static char buf[40];
+	uint8_t pin = settings()->dshotPin;
+	if (pin == settingsBootDshotPin()) return nullptr;
+	snprintf(buf, sizeof(buf), UI_SPLASH_PIN_FMT, (unsigned)pin);
+	return buf;
+}
+
+/**
  * @brief The note line: the single most useful thing to say right now.
  *
- * Ordered by urgency: a failed save outranks everything; a setting the
- * firmware had to repair outranks the saved or unsaved state, because the
- * user asked for something and did not get it. RESET's note outranks
- * UNSAVED: it is the same state, said with what undoes it.
+ * Ordered by urgency. First what the last press did: a failed save, which
+ * ends at the next save or on leaving SETTINGS, then a setting the firmware
+ * had to repair, because the user asked for something and did not get it,
+ * which ends at the next change. Then the ESC pin's
+ * warning while DShot is on a pin the splash did not name: a safety note,
+ * so it outranks RESET's note and UNSAVED. RESET's note outranks UNSAVED:
+ * it is the same state, said with what undoes it. Last, with nothing
+ * pending, a reset by an update before the plain saved or default state.
  *
  * @param[out] col Colour to draw it in.
  * @return The text.
@@ -573,6 +595,10 @@ static const char *noteText(uint16_t *col) {
 		return s_repairKiss ? "KISS OFF: NEEDS A PIN OF ITS OWN"
 		                    : "ADJUSTED TO THIS BOARD'S LIMITS";
 	}
+	if (const char *pin = pinNote()) {
+		*col = C_AMBER;
+		return pin;
+	}
 	if (resetNoteShown()) {
 		*col = C_AMBER;
 		return "DEFAULTS LOADED - RESTART TO UNDO";
@@ -584,6 +610,10 @@ static const char *noteText(uint16_t *col) {
 	if (s_saveOutcome == SaveOutcome::Ok) {
 		*col = C_LIME;
 		return "SAVED";
+	}
+	if (settingsResetByUpdate()) {
+		*col = C_AMBER;
+		return "RESET BY UPDATE - CHECK AND SAVE";
 	}
 	*col = C_DIM;
 	return settingsStored() ? "SAVED SETTINGS IN USE"
@@ -837,10 +867,17 @@ uint8_t uiSettingsSections(const SettingsSection **out, uint8_t max) {
 	return n;
 }
 
-/** @brief SETTINGS' MENU status: UNSAVED while the live settings differ from flash. */
+/**
+ * @brief SETTINGS' MENU status: UNSAVED while the live settings differ from
+ *        flash; else RESET while an update's reset is not saved over
+ *        (settingsResetByUpdate()); both amber.
+ */
 static void settingsMenuStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
 	if (settingsDirty()) {
 		snprintf(buf, n, "UNSAVED");
+		*col = C_AMBER;
+	} else if (settingsResetByUpdate()) {
+		snprintf(buf, n, "RESET");
 		*col = C_AMBER;
 	} else {
 		buf[0] = '\0';

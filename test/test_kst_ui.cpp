@@ -1167,6 +1167,11 @@ static void testFlushWait() {
 	checkTrue("the claim turned the cache on", fakeCacheCalls().begins >= 1 &&
 	                                          cardCacheState() == CardCache::Idle);
 	checkTrue("and stopped the running log", !sdLogActive());
+	{
+		SdLogStatus ended;
+		sdLogStatus(&ended);
+		checkTrue("SD LOG learns KST SERVO stopped it", ended.end == SdLogEnd::ByKst);
+	}
 	sim_t *sim = fakeKstSim();
 	selectField(KST_F_DEAD_BAND);
 	tapId(UI_FIX(KstCtl::EditMinus));

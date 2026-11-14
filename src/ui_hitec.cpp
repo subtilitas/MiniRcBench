@@ -381,7 +381,7 @@ static void claimPin() {
 	ClaimRefusal r = pinClaimBegin(PinUser::Hitec, PIN_SIG);
 	s_claimed = r == ClaimRefusal::None;
 	s_refusal = r;
-	if (s_claimed) cardCacheBegin();
+	if (s_claimed) cardCacheBegin(SdLogEnd::ByHitec);
 }
 
 static void readFiles();
@@ -1702,7 +1702,7 @@ bool uiHitecTick(const TouchState *t) {
 			case HitecView::Leave: go(s_haveDraft ? HitecView::List : HitecView::Main); break;
 			case HitecView::Unplug:
 				pinClaimKeep(PinUser::Hitec);
-				cardCacheBegin();
+				cardCacheBegin(SdLogEnd::ByHitec);
 				newSession();
 				go(HitecView::Main);
 				break;
