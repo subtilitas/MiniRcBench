@@ -707,13 +707,16 @@ still pass their check. The notices name every component whose code is in the
 image, with its pinned version and its licence text copied from the licence
 files that ship with it; a missing or empty licence section fails the run
 before anything is published.
-Each run is titled `Release <tag>`, which Docs reads to find the tag. The
+A tag with a suffix, such as `v0.1.0-rc1`, is published as a GitHub
+pre-release. Each run is titled `Release <tag>`, which Docs reads to find
+the tag. The
 version is 0.1.0 and no MiniRcBench release exists yet; v0.1.0 is the first
 tag.
 
 **Docs** (`.github/workflows/docs.yml`): mirrors `wiki/` to the GitHub wiki
-after every successful Release run, from a tag push or started by hand, and
-can be started by hand itself. The wiki is
+after every successful Release run of a tag without a pre-release suffix,
+from a tag push or started by hand, and can be started by hand itself. A
+pre-release publishes no manual. The wiki is
 published per release on purpose, so it describes firmware that can be
 downloaded.
 
