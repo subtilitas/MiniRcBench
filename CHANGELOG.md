@@ -44,6 +44,27 @@ protocol.
 
 ### Added
 
+- Warnings that J5 pins 2, 3 and 4, SIG, 3V3 and GND, are in the order of a
+  servo plug: a servo or ESC lead joined straight across puts the ESC's
+  BEC output or the servo supply on the board's 3.3 V. In the README and
+  the wiki pages Setup, Wiring and First-Run and their German pairs, with
+  a pointer in the wiring sections of Servo-Tester, KST-Programming and
+  Hitec-Programming and their German pairs;
+  `docs/wiring.svg` labels J5 pin 3 never connect, in red, and J3 pin 3
+  INA219 VCC only. The drawing, the README pin sketch and the wiki pages
+  Wiring and Verdrahtung name the optional INA219, at 0x40, as the only part
+  to connect to the I2C bus the touch controller, IMU and RTC share, in
+  place of "do not use".
+- The wiki pages AM32-Configuration and AM32-Konfiguration list every result
+  of a write, what the code saw, that OK keeps the edits for another hold,
+  and what to do when a result repeats.
+- The wiki pages Telemetry, Troubleshooting and their German pairs give the
+  ESC STATUS colours and the steps on WARN, ERROR or ALERT: disarm, let the
+  ESC cool, read ESC TEMP and CURRENT. NO TELEMETRY starts with the
+  power-cycle the ESC needs after AM32 CONFIG.
+- The wiki pages Hitec-Programming and Hitec-Programmierung warn that SIG
+  carries DShot on the family view until a family is tapped.
+
 - The building blocks of menu structure B, slice 1 of
   [menu-b.md](docs/design/menu-b.md), with nothing drawn differently:
   the leave page widget `src/ui_leave.*`, with its three phases, numbered
@@ -654,6 +675,13 @@ protocol.
   and SETTINGS replace them.
 
 ### Fixed
+
+- The wiki pages KST-Programming and KST-Programmierung no longer say the
+  screen never switches the servo's supply: with SERVO SUPPLY at GP28 or
+  GP29 it does. The English Home and Setup pages and Einrichtung say the
+  image does not check which board it runs on. The Screens pages say that
+  SETTINGS RESET stays in use after leaving the screen, until a restart
+  without HOLD TO SAVE loads the saved values.
 
 - On the unplug page of SERVO TESTER, KST SERVO and HITEC SERVO, the
   drawing reads `pinClaimUnplugDue()` once and takes both the page's text

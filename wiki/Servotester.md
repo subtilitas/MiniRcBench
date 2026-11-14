@@ -39,6 +39,10 @@ und Masse.
   GND = J4 Pin 1 oder 5 oder J5 Pin 4
 ```
 
+> **Ein Servokabel nie 1:1 an J5 anschließen.** J5 Pin 3 ist die
+> 3,3-V-Versorgung der Platine, an der Stelle des Plus eines Servosteckers:
+> siehe [Einrichtung](Einrichtung#das-adapterkabel).
+
 - Das mittlere Kabel des Servos geht an seine Versorgung, nie an einen Pin
   der Platine. Der 5-V-Pin der Platine ist ihre USB-Versorgung, und ein Servo
   kann mehr als 1 A ziehen.

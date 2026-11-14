@@ -57,6 +57,10 @@ Platine verbunden.
   SIG GP0 = J4 Pin 9 oder J5 Pin 2, GND = J4 Pin 1 oder 5 oder J5 Pin 4
 ```
 
+> **Ein Servokabel nie 1:1 an J5 anschließen.** J5 Pin 3 ist die
+> 3,3-V-Versorgung der Platine, an der Stelle des Plus eines Servosteckers:
+> siehe [Einrichtung](Einrichtung#das-adapterkabel).
+
 GND ist die Masse der Platine.
 
 - **Ein Servo an der Leitung.** Jeder Frame geht an die ID 0
@@ -111,6 +115,20 @@ Schaltflächen:
 
 **Schalte das Servo ein, dann tippe auf `D SERIES`.** Mit `GP28` oder `GP29`
 schaltet die Platine es ein. `BACK` in dieser Ansicht führt zu `MENU` zurück.
+
+> **Bis eine Familie gewählt ist, führt SIG DShot.** Die Familienansicht belegt
+> keinen Pin, und der DShot-Treiber sendet weiter alle 1000 µs einen Frame,
+> auch unscharf. Bidirektionales DShot hält die Leitung high und zieht sie bei
+> der voreingestellten DSHOT KBAUD von 600 je Frame etwa 27 µs lang low: Ein
+> PWM-Servo (Pulsweitenmodulation) liest das als Impuls von etwa 970 µs mit
+> 1000 Hz. Was ein Servo der D-Serie damit macht, ist nicht gemessen.
+> - Mit SERVO SUPPLY auf `NONE` braucht der Bildschirm das Servo beim Tippen
+>   eingeschaltet, also halte diese Zeit kurz: Öffne HITEC SERVO, schließe das
+>   Servo mit ausgeschalteter Versorgung an, schalte dann die Versorgung ein
+>   und tippe sofort auf `D SERIES`.
+> - Mit `GP28` oder `GP29` bleibt der Wandler in der Familienansicht aus,
+>   von seinem Pull-down gehalten, und der Prüfstand schaltet das Servo nach
+>   dem Tippen ein.
 
 Der Bildschirm übernimmt dann SIG vom ESC-Treiber. Dabei zeigt die Leiste
 `RELEASING GP0`, dann `TAKING GP0`. Solange ein ESC auf dem Pin antwortet,

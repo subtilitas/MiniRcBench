@@ -122,6 +122,44 @@ Die meisten AM32-Einstellungen wirken ab dem nächsten Einschalten des ESC,
 daher die Zeile unter dem Ergebnis. Das ist Verhalten von AM32; der Tester
 prüft es nicht.
 
+### Wenn das Schreiben scheitert
+
+Das Schreiben schickt die Einstellungen in drei Schritten: die Adresse, die
+48 Bytes und den Befehl, sie zu programmieren. Jeder Schritt wartet bis zu
+250 ms auf die Bestätigung des ESC. Danach läuft das Zurücklesen, bis zu
+dreimal, jedes nach 300 ms Wartezeit. Der Bildschirm zeigt eines dieser
+Ergebnisse:
+
+| Ergebnis | Was der Code gesehen hat |
+|---|---|
+| `NO BACKUP ON THE CARD: NOT WRITTEN` | Die Karte hat die Sicherung verweigert, oder das Zurückschreiben auf die Karte scheiterte. Nichts ging an den ESC |
+| `WRITE FAILED: NO REPLY` | Ein Schritt bekam binnen 250 ms keine Bestätigung |
+| `WRITE FAILED: REFUSED` | Ein Schritt bekam ein Antwortbyte, das keine Bestätigung ist |
+| `WRITE FAILED: CRC FAIL` | Beim Schreiben nicht erreicht: Seine Antworten tragen keine Prüfsumme (CRC, Cyclic Redundancy Check) |
+| `WRITE FAILED: NOT READY` | Die Bootloader-Verbindung hat keinen Pin. Nicht zu erwarten: Die Liste öffnet erst nach einem Lesen über den Pin |
+| `VERIFY READ: NO REPLY`, `REFUSED`, `CRC FAIL` oder `NOT READY` | Der ESC hat das Schreiben bestätigt, und alle drei Zurücklesungen scheiterten: keine Antwort, eine Antwort, die keine Bestätigung ist, eine Prüfsumme, die nicht passt, oder kein Pin. Was im ESC steht, ist nicht bekannt |
+| `DIFF @xx: GOT yy WANT zz` | Das Zurückgelesene weicht ab. `xx` ist die Stelle des ersten abweichenden Bytes, `yy` der Wert im ESC, `zz` der geschriebene Wert, alle in Hex |
+
+Nur `WRITE VERIFIED` gilt als geschrieben. Nach jedem anderen Ergebnis führt
+`OK` zur Liste zurück, die Änderungen bleiben erhalten, und `HOLD TO WRITE`
+schreibt sie erneut. Die Sicherung entsteht vor dem ersten Schreiben mit
+Karte, und erneut auf einer seitdem gewechselten Karte. Sie hält immer die
+Einstellungen, wie sie beim Öffnen des Editors gelesen wurden, und ein
+erneutes Halten auf derselben Karte legt keine zweite an.
+
+Wenn sich ein Ergebnis wiederholt:
+
+1. Prüfe Signal- und Masseader.
+2. Verlasse den Bildschirm mit `BACK`; die Änderungen gehen verloren.
+3. Öffne **MENU → AM32 CONFIG** erneut und starte den ESC neu, während der
+   Bildschirm offen ist, wie unter [Verbinden](#verbinden). Der Bildschirm
+   liest dann, was im ESC steht.
+4. Vergleiche es mit der Sicherung, der neuesten `BACKUP/AMnnn.TXT` auf der
+   Karte. Sie hält die Einstellungen, wie sie beim Öffnen des Editors gelesen
+   wurden, vor jedem Schreiben. Ihre Nummer steht in `BACKUP/LAST`, solange
+   keine KST- oder Hitec-Sicherung danach kam. Ohne Karte lag die Sicherung
+   nur im Speicher und ist weg.
+
 ---
 
 ## Die Hex-Ansicht

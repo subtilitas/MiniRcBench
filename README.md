@@ -169,7 +169,9 @@ J4 (12P): 1=GND  2=VBUS 3=USB_N 4=USB_P 5=GND   6=3V3
           7=GP7* 8=GP6* 9=GP0   10=GP1  11=GP28 12=GP29
 J3  (4P): 1=GP7* 2=GP6* 3=3V3   4=GND
 J5  (4P): 1=GP1  2=GP0  3=3V3   4=GND
-                                (* = on the shared I2C bus, do not reuse)
+                                (* = on the shared I2C bus: only the optional
+                                     INA219, at 0x40, joins it)
+                                (J5 pin 3: never connect)
 
 ESC signal (SIG)     GP0   J4 pin 9  or J5 pin 2
 KISS telemetry (AUX) GP1   J4 pin 10 or J5 pin 1
@@ -182,6 +184,14 @@ servo supply EN      GP28  J4 pin 11, or GP29  J4 pin 12 (optional)
 > pin. GP0 and GP1 tolerate 5.5 V on the signal while the board is powered
 > (IOVDD at 3.3 V) and 3.63 V while it is off. The tester needs signal and
 > ground only.
+
+> **Warning: J5 pins 2, 3 and 4 are in the order of a servo plug.** They are
+> SIG (GP0), 3V3 and GND: signal, plus and minus, as on a servo or ESC lead.
+> **Never connect a servo or ESC lead straight across to J5.** Pin 3 is the
+> board's 3.3 V supply. Joined straight across, it gets the ESC's BEC output,
+> +5 V, or the servo's supply, 4.8 V to 6.0 V or 8.4 V for an HV
+> (high-voltage) servo, and that can destroy the board. Leave J5 pin 3
+> unconnected.
 
 The ESC pin is set on the board under **MENU → SETTINGS** and stored in flash.
 `DSHOT_PIN_LCD_2_8` in `config.h` is the pin a board with blank flash starts

@@ -721,7 +721,9 @@ bool uiSettingsTick(const TouchState *t) {
 		return false;
 	} else if (uiTapped(BTN_DEFAULTS, s_t)) {
 		// The compiled defaults into the live settings only. Flash is untouched
-		// until SAVE, so this is undoable by walking away.
+		// until SAVE. Leaving the screen keeps the defaults live: the saved
+		// values load only at boot (settingsLoad() in setup()), so a restart
+		// without SAVE brings them back.
 		settingsDefaults(settings());
 		s_saveOutcome = SaveOutcome::None;
 		s_changed = true;

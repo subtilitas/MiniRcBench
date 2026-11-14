@@ -190,9 +190,12 @@ Unter der Liste bleiben diese Elemente an ihrem Platz:
 
 **Änderungen wirken sofort. Nur das Speichern braucht das Halten.** Eine neue
 Bitrate baut den DShot-Treiber vor dem nächsten Frame neu auf. `HOLD TO SAVE`
-1 s lang schreibt ins Flash. `RESET` lädt die kompilierten Voreinstellungen,
-Polzahl und Gas-Obergrenze eingeschlossen, nur in die laufenden Einstellungen.
-Wer ohne Speichern weggeht, lässt das Flash unverändert.
+1 s lang schreibt ins Flash. Ein Tippen auf `RESET` ersetzt die laufenden
+Einstellungen durch die kompilierten Voreinstellungen, Polzahl und
+Gas-Obergrenze eingeschlossen; das Flash bleibt unverändert. Wer den
+Bildschirm verlässt, behält die Voreinstellungen in Gebrauch. Die
+gespeicherten Werte lädt die Platine nur beim Start, ein Neustart ohne
+`HOLD TO SAVE` kehrt also zu ihnen zurück.
 
 **LAST RESTART.** Die Firmware liest den Grund einmal beim Start. Startet die
 Platine bei drehendem Motor von selbst neu und zeigt danach `BROWN-OUT`, liegt
