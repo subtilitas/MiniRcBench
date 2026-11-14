@@ -9,7 +9,7 @@ dimensions are mm.
 | | |
 | --- | --- |
 | Size | 50.54 × 73.06 × 10.03 |
-| Solids | 662, each with a colour |
+| Solids | 661, each with a colour |
 | Faces | planes and cylinders; no polygon stands in for an arc |
 | Schema | AP214, ISO 10303-21 |
 | File size | 3.5 MB |
@@ -81,14 +81,16 @@ positions from P are corrected by that. The table of positions is in
 - No dimension is verified with a caliper on a board.
 - A position from P is good to 0.3. A height from N is the package's nominal
   one.
-- The standoffs are 6.2 across in P and 5.5 in E. The model follows P.
+- The standoffs are 6.2 across in P and 5.5 in E. The model follows P;
+  Waveshare's angled photo, `RP2350-Touch-LCD-2.8-4.jpg`, shows them as
+  plain cylinders.
 - Estimated, in no source: the trimmer's height, the wall thickness of the
-  sockets (0.6) and of the USB-C shell (0.3), the display module as a tray
-  0.3 thick, the depth of the standoffs' counterbore (0.3).
+  sockets (0.6) and of the USB-C shell (0.3), the display module as a steel
+  back 0.3 thick with a white frame 0.3 wide, the depth of the standoffs' counterbore (0.3).
 - The printed border is drawn 0.05 thick on the glass's front; on the board
   it is on the glass's rear.
-- The flat cables' folds round the display's lower end are left out. Each
-  cable starts 0.4 from that end.
+- The flat cables fold round the display's lower end 0.25 from it. That
+  distance is estimated.
 - Not modelled: solder, pads, print, tracks, vias, parts under 1.0 long, the
   battery, the speaker.
 
@@ -117,4 +119,4 @@ xvfb-run -a python3 hardware/mechanical/check_models.py --render hardware/mechan
 `gen_models.py` needs Python 3 only and writes the same bytes on every run.
 The Docs job of `ci.yml` runs `gen_models.py --check`. `check_models.py`
 needs OpenCASCADE and is not run in CI (continuous integration); it passes on
-the committed file: 662 valid solids, no two sharing more than 1e-6 mm³.
+the committed file: 661 valid solids, no two sharing more than 1e-6 mm³.

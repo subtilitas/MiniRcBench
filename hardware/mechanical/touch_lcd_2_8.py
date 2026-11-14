@@ -36,12 +36,14 @@ front; board 1.60, its front 4.40 behind the glass's front; standoffs
 Estimated, in no source: the heights of the parts placed from P (N
 gives the package's), the trimmer's height (2.0), the walls of the
 sockets and of the USB-C shell (0.6 and 0.3), the display module as a
-tray 0.3 thick, the printed border as 0.05 thick and on the glass's
+steel back 0.3 thick with a white frame 0.3 wide, the printed border as 0.05 thick and on the glass's
 front, the 0.3 deep counterbore of the standoffs.
 
 Differences from the board: the standoffs are 6.2 across in P and 5.5
-in E; the model follows P. The flat cables' folds round the display's
-lower end are left out. Chip parts are drawn without solder. Pads,
+in E; the model follows P, and Waveshare's angled photo of the board
+(RP2350-Touch-LCD-2.8-4.jpg) shows them as plain cylinders. The flat
+cables fold round the display's lower end 0.25 from it; that distance
+is estimated. Chip parts are drawn without solder. Pads,
 print, tracks, vias, the battery and the speaker are not modelled. No
 dimension is verified with a caliper on a board.
 
@@ -187,6 +189,9 @@ PARTS = (
 # enters its socket, colour.
 DISPLAY_CABLE = (-5.45, 4.05, 10.65, FLEX)
 TOUCH_CABLE = (10.38, 13.88, 7.25, p.BLACK)
+# Both cables fold round the display's lower end: distance of the fold's
+# centre from that end (estimated), z of the touch cable under the glass (E).
+FOLD_GAP, TAIL_Z = 0.25, -0.875
 STIFFENER_Y = 7.15                      # display cable, black from here on
 # The touch cable's wide part behind the board's window (E, P), and the
 # parts on it (P): the CST328 touch controller, 5 x 5, and 5 small parts.
@@ -230,7 +235,7 @@ def front():
             -GLASS_T, FILM),
         box(-lx, LCD_Y0, lx, LCD_Y1, -LCD_REAR, -LCD_REAR + rim, p.STEEL),
         ext(rect(-lx, LCD_Y0, lx, LCD_Y1), -LCD_REAR + rim, -LCD_FRONT,
-            p.STEEL, holes=[rect(-lx + rim, LCD_Y0 + rim, lx - rim,
+            p.WHITE, holes=[rect(-lx + rim, LCD_Y0 + rim, lx - rim,
                                  LCD_Y1 - rim)]),
         box(-lx + rim, LCD_Y0 + rim, lx - rim, LCD_Y1 - rim, -LCD_REAR + rim,
             -LCD_FRONT, p.BLACK),
@@ -256,17 +261,22 @@ def cables():
     """The two flat cables from the display's lower end to their sockets."""
     rear, t = -BOARD_REAR - CABLE_UP, CABLE_T
     out = []
-    for xr0, xr1, y_end, rgb in (DISPLAY_CABLE, TOUCH_CABLE):
-        path = [(LCD_Y0 + 0.4, CABLE_Z), (0.0, CABLE_Z), (1.6, rear),
+    fold = LCD_Y0 - FOLD_GAP
+    starts = (
+        # The display cable leaves the display module's lower end.
+        [(LCD_Y0, -LCD_FRONT - 0.9), (fold, -LCD_FRONT - 0.9)],
+        # The touch cable leaves the touch film between glass and display.
+        [(FILM_Y0, TAIL_Z), (fold, TAIL_Z)],
+    )
+    for (xr0, xr1, y_end, rgb), start in zip((DISPLAY_CABLE, TOUCH_CABLE),
+                                             starts, strict=True):
+        path = [*start, (fold, CABLE_Z), (0.0, CABLE_Z), (1.6, rear),
                 (y_end, rear)]
         out.append(ext(strip(path, t), -xr1, -xr0, rgb, frame=X))
     xr0, xr1, y_end, _rgb = DISPLAY_CABLE
     out.append(box(-xr1, STIFFENER_Y, -xr0, y_end, rear - t / 2 - 0.2,
                    rear - t / 2, p.BLACK))
-    # The touch cable's tail under the glass, and its wide part.
-    xr0, xr1 = TOUCH_CABLE[:2]
-    out.append(box(-xr1, -37.05, -xr0, FILM_Y0, -GLASS_T - 0.25,
-                   -GLASS_T - 0.10, p.BLACK))
+    # The touch cable's wide part.
     x0, y0, x1, y1 = TOUCH_PAD
     pad_rear = CABLE_Z - t / 2 - t
     out.append(box(-x1, y0, -x0, y1, pad_rear, CABLE_Z - t / 2, FLEX))

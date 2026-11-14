@@ -217,7 +217,7 @@ and the two wires never share a pin.
 **Mechanical model.**
 [hardware/mechanical/models/rp2350_touch_lcd_2_8.step](hardware/mechanical/models/rp2350_touch_lcd_2_8.step)
 is a STEP (Standard for the Exchange of Product model data) facsimile of the
-board, 50.54 × 73.06 × 10.03 mm, 662 solids: glass, display stack, board with
+board, 50.54 × 73.06 × 10.03 mm, 661 solids: glass, display stack, board with
 its cut-outs, 4 standoffs, the two flat cables and every rear part 1.0 mm or
 more long. Waveshare publishes no 3D file of this board. The stack, the
 outline and the connectors are measured in Waveshare's STEP file of the
@@ -227,7 +227,7 @@ caliper on a board. Sources, limits and commands are in
 [hardware/mechanical/README.md](hardware/mechanical/README.md).
 `hardware/mechanical/gen_models.py` writes the file from
 `touch_lcd_2_8.py`, and its `--check` runs in the Docs job. Read back with
-OpenCASCADE (cadquery-ocp 8.0.1.1.0) by `check_models.py`, outside CI: 662 valid solids, none
+OpenCASCADE (cadquery-ocp 8.0.1.1.0) by `check_models.py`, outside CI: 661 valid solids, none
 sharing volume.
 
 ## What exists and how far it is verified
