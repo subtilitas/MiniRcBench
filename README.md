@@ -40,10 +40,11 @@ receiver channels) receiver monitor is described in
 and that is not designed yet; rcbench's S.BUS decoder is in the tree and
 tested on the host, and the firmware does not build it. A PPM
 (pulse-position modulation) output is not built, by the owner's decision.
-Menu structure B is described in `docs/design/menu-b.md`; its building
-blocks, slice 1 of 10, and its colour roles, slice 2, are in the tree: the
-uses that the design note's decision 11 names take their role's colour, and a
-value changed and not yet written is cyan.
+Menu structure B is described in `docs/design/menu-b.md`; slices 1 to 4 of
+10 are in the tree: its building blocks, its colour roles, its names and
+SETTINGS, and its layout table. The uses that the design note's decision 11
+names take their role's colour, and a value changed and not yet written is
+cyan.
 
 ![UI preview](docs/ui-preview.png)
 
@@ -126,8 +127,8 @@ The pin map is `src/board_rp2350_touch_lcd_2_8.h`.
 | Battery sense | 27 | ADC (analog-to-digital converter) input 1, 200k/100k divider → `VBAT = Vadc × 3` |
 | I2S audio BCK / LRCK / DIN | 2 / 3 / 4 | PCM5101A codec, not used by the firmware. I2S is Inter-IC Sound; BCK is bit clock, LRCK left-right clock, DIN data in |
 | RTC INT, IMU INT1 / INT2 | 5, 8 / 9 | Not used by the firmware |
-| ESC signal (SIG) | 0 | J4 pin 9, J5 pin 2, free. The TX (transmit) pin of UART0 (universal asynchronous receiver-transmitter 0), which the firmware does not use |
-| KISS telemetry RX (receive; KISS is a serial ESC telemetry protocol), AUX | 1 | J4 pin 10, J5 pin 1, free. The RX pin of UART0. Optional third wire |
+| ESC signal (SIG) | 0 | J4 pin 9, J5 pin 2, free. The TX (transmit) pin of UART0 (universal asynchronous receiver-transmitter 0), which the firmware does not use. Set under SETTINGS → SIG PIN |
+| KISS telemetry RX (receive; KISS is a serial ESC telemetry protocol), AUX | 1 | J4 pin 10, J5 pin 1, free. The RX pin of UART0. Optional third wire; also the servo tester's second servo. Set under SETTINGS → AUX PIN |
 | Switched servo supply enable (EN) | 28 or 29 | J4 pin 11 or J4 pin 12. Optional, under SETTINGS → SERVO SUPPLY. An output at 3.3 V |
 
 Only GP0 and GP1 are free (`BOARD_FREE_GPIO_MASK` = `0x00000003`). Both are
@@ -198,12 +199,14 @@ servo supply EN      GP28  J4 pin 11, or GP29  J4 pin 12 (optional)
 > (high-voltage) servo, and that can destroy the board. Leave J5 pin 3
 > unconnected.
 
-The ESC pin is set on the board under **MENU → SETTINGS** and stored in flash.
-`DSHOT_PIN_LCD_2_8` in `config.h` is the pin a board with blank flash starts
-on, **GP0**, J4 pin 9 or J5 pin 2. The KISS telemetry wire starts on **GP1**.
-To swap them at build time, build with
-`-DDSHOT_PIN_LCD_2_8=1 -DKISS_PIN_LCD_2_8=0`. The two must move together. A
-build that puts both on one pin fails a `static_assert`.
+SIG, the ESC pin, and AUX, the KISS telemetry pin, are set on the board
+under **MENU → SETTINGS → SIG PIN** and **AUX PIN** and stored in flash. A
+step of either row swaps SIG and AUX, so the two never share a GPIO; the
+J5 pin of each shows under its value. `DSHOT_PIN_LCD_2_8` in `config.h` is
+the pin a board with blank flash starts on, **GP0**, J4 pin 9 or J5 pin 2.
+The KISS telemetry wire starts on **GP1**. To swap them at build time,
+build with `-DDSHOT_PIN_LCD_2_8=1 -DKISS_PIN_LCD_2_8=0`. The two must move
+together. A build that puts both on one pin fails a `static_assert`.
 
 An ESC on the wrong one of the two pins produces no error. **LINK** stays at
 `0/S`.
@@ -211,7 +214,7 @@ An ESC on the wrong one of the two pins produces no error. **LINK** stays at
 **Power the ESC from its own battery.** Do not power a motor from the board's
 5 V pin. Connect the ESC ground to the board ground, and keep the signal wire
 short. The maximum working lead length is not measured. If the **LINK** error
-rate rises, set **DSHOT KBAUD** to 300 under **MENU → SETTINGS**.
+rate rises, set **DSHOT** to 300 under **MENU → SETTINGS**.
 
 The board has a power-button latch on GP26 (`PIN_BAT_EN`). The firmware drives
 it high as the first action at boot. Without it, the board loses power when
@@ -453,17 +456,17 @@ tester. Every tool's **BACK** returns to MENU.
   connected. The firmware sends the enable command itself (see
   [Telemetry and logging](#telemetry-and-logging)). The ESC does not
   acknowledge the command, so the chip shows received frames, not sent
-  commands. The strip's caption reads the ESC pin and the DShot rate, for
-  example `GP0  600 KBIT/S`.
+  commands. The strip's caption names both signal pins by role and number
+  and the DShot rate, for example `SIG GP0  AUX GP1  DSHOT600`.
 
 | Row | State on the right | A tap |
 |---|---|---|
 | **BEEP THE ESC** | `DISARMED`; for 350 ms after a tap, `SENT` or `REFUSED` | Sends `DSHOT_CMD_BEACON1` for 6 frames (`BEEP_REPEATS`), 6 ms at 1 kHz. Use it to identify which ESC is connected |
-| **AM32 CONFIG** | the ESC pin, `GP0`; `PINS BUSY` | Opens the ESC settings editor. See [AM32 ESC configuration](#am32-esc-configuration) |
-| **SERVO TESTER** | the signal pins, `GP0+1`; `PINS BUSY` | Opens the servo tester. See [Servo tester](#servo-tester) |
-| **KST SERVO** | the ESC pin, `GP0`; `PINS BUSY` | Opens the KST servo programmer. See [KST servo programming](#kst-servo-programming) |
-| **HITEC SERVO** | the ESC pin, `GP0`; `PINS BUSY` | Opens the Hitec servo programmer. See [Hitec servo programming](#hitec-servo-programming) |
-| **SETTINGS** | `UNSAVED` while the live settings differ from flash; else `UPDATED` while an update's reset or carry-over is not saved over (`settingsResetByUpdate()`, `settingsCarriedOver()`); else nothing; both amber. `PINS BUSY` while the pin claim is not Free, drawn disabled | Opens SETTINGS: the tester, the wiring, the servo supply and current sensor, the display, the board, diagnostics. See below |
+| **AM32 CONFIG** | the ESC pin, `GP0` | Opens the ESC settings editor. See [AM32 ESC configuration](#am32-esc-configuration) |
+| **SERVO TESTER** | the signal pins, `GP0+1` | Opens the servo tester. See [Servo tester](#servo-tester) |
+| **KST SERVO** | the ESC pin, `GP0` | Opens the KST servo programmer. See [KST servo programming](#kst-servo-programming) |
+| **HITEC SERVO** | the ESC pin, `GP0` | Opens the Hitec servo programmer. See [Hitec servo programming](#hitec-servo-programming) |
+| **SETTINGS** | `UNSAVED` while the live settings differ from flash; else `UPDATED` while an update's reset or carry-over is not saved over (`settingsResetByUpdate()`, `settingsCarriedOver()`); else nothing; both amber | Opens SETTINGS: the tester, the wiring, the servo supply and current sensor, the display, the board, diagnostics. See below |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a USB host holds the card | Opens the logging status. See below |
 
 - **BEEP flash**: a tap fills the row for 350 ms (`BEEP_FLASH_MS`): white
@@ -471,10 +474,14 @@ tester. Every tool's **BACK** returns to MENU.
   against a 25 ms repaint. BEEP is refused while armed. Opening MENU disarms,
   so the refusal is not reachable through the UI; the flash stays as a
   backstop.
-- **PINS BUSY**: AM32 CONFIG, SERVO TESTER, KST SERVO and HITEC SERVO claim
-  the signal pins, and SETTINGS changes the wiring a claim latched. While the
-  claim is not free, for example after RESTART DSHOT until the DShot pump runs
-  again, these rows read `PINS BUSY` in amber and a tap opens nothing.
+- **DSHOT RESTARTING**: AM32 CONFIG, SERVO TESTER, KST SERVO and HITEC
+  SERVO claim the signal pins, and SETTINGS changes the wiring a claim
+  latched. While the claim is not free, for example after RESTART DSHOT
+  until the DShot pump runs again, these rows are drawn disabled, an outline
+  under their own status, a tap opens nothing, and the strip's caption reads
+  `DSHOT RESTARTING ON SIG GP0` in amber. A tool opened some other way
+  while another claim holds reads `WAIT: DSHOT RESTARTING`; no path through
+  the screens reaches that.
 - **Rows**: six rows fit the screen without scrolling. MENU holds seven, so
   it scrolls by 36 px, with a 3 px scroll bar at x 235. SETTINGS is the sixth
   row, whole and tappable without a drag, so its `UNSAVED` status stays in
@@ -534,19 +541,22 @@ marker it puts on MENU.*
 SETTINGS is one list in sections. The list fills y 40 to 239 (to y 227 while
 the ESC pin's warning shows, see below) and scrolls under a drag. A row is
 44 px tall at a 50 px pitch. **MOTOR POLES** and
-**MAX THROTTLE** lead it, so they need no scroll. Section captions and the
-values of the rows that change are in the text colour, read-only values grey,
-and a toggle that is on fills blue.
+**MAX THROTTLE** lead it, so they need no scroll. The sections, in order:
+ESC TESTER, WIRING, SERVO SUPPLY, DISPLAY, BOARD and DIAGNOSTICS. On a row
+with a connector line, SIG PIN, AUX PIN and SERVO SUPPLY, the value sits at
+y+8 to y+21 of the row and the line, scale 1, at y+27 to y+33, both ending at
+x 132. Section captions and the values of the rows that change are in the text
+colour, read-only values grey, and a toggle that is on fills blue.
 
 | Section | Row | What it does |
 |---|---|---|
 | ESC TESTER | **MOTOR POLES** | eRPM to RPM is `RPM = eRPM / (poles / 2)`. Range 2–28, even values only. Default 14 |
 | ESC TESTER | **MAX THROTTLE** | The throttle ceiling. Default 20 % (400 of 2000). Steps of 5 %, range 5–100 % |
-| WIRING | **ESC PIN** | GPIO for the DShot signal. Steps through the board's two free GPIOs only, skipping the KISS pin while KISS is on |
-| WIRING | **DSHOT KBAUD** | 150 / 300 / 600 / 1200, wrapping at the ends. Applies at once: the driver is rebuilt on the new pin and rate before the next frame |
-| WIRING | **KISS TELEM** | Whether to listen for the telemetry wire. Turning it on moves the KISS pin off the ESC pin if they coincide |
-| WIRING | **KISS PIN** | Steps through the same free GPIOs, skipping the ESC pin. The receiver is a PIO state machine, so any free GPIO works. Reads `--` and does not act while KISS is off |
-| SERVO SUPPLY | **SERVO SUPPLY** | `NONE`, the default, `GP28` or `GP29`: whether the enable input of a DC-DC converter for the programmed servo's supply is wired, and to which pin: GP28, J4 pin 11, or GP29, J4 pin 12 (design note `docs/design/kst-programming.md`, "Switched servo supply"). A stepper: - and + step NONE, GP28, GP29 and stop at the ends; it applies at once. With a pin chosen, that pin is an input with both pulls off and its input disabled outside a KST or Hitec claim, so the converter's external pull-down holds it off; during a claim the bench switches the servo's supply (KST servo programming, Hitec servo programming) |
+| WIRING | **SIG PIN** | SIG, the GPIO of the DShot signal, with its connector pin under the value: `GP0` over `J5 PIN 2`, `GP1` over `J5 PIN 1`. Steps through the board's two free GPIOs; a step onto AUX's GPIO swaps SIG and AUX, so on this board every step is a swap |
+| WIRING | **DSHOT** | The DShot bitrate in kbit/s, 150 / 300 / 600 / 1200, wrapping at the ends. Applies at once: the driver is rebuilt on the new pin and rate before the next frame |
+| WIRING | **KISS TELEM** | Whether to listen for the telemetry wire, on AUX. A toggle; it moves no pin |
+| WIRING | **AUX PIN** | AUX, the GPIO of the KISS telemetry wire and of the servo tester's second servo, with its J5 pin under the value. Acts whatever KISS is, and swaps with SIG as SIG PIN does. The receiver is a PIO state machine, so any free GPIO works |
+| SERVO SUPPLY | **SERVO SUPPLY** | `OWN`, the default, `GP28` or `GP29`: whether the enable input of a DC-DC converter for the programmed servo's supply is wired, and to which pin. `OWN`: the servo has a supply of its own and the bench switches nothing. With `GP28` the value has `J4 PIN 11` under it, with `GP29` `J4 PIN 12` (design note `docs/design/kst-programming.md`, "Switched servo supply"). A core section after WIRING, whichever tools MENU lists. A stepper: - and + step OWN, GP28, GP29 and stop at the ends; it applies at once. With a pin chosen, that pin is an input with both pulls off and its input disabled outside a KST or Hitec claim, so the converter's external pull-down holds it off; during a claim the bench switches the servo's supply (KST servo programming, Hitec servo programming) |
 | SERVO SUPPLY | **CURRENT SENSE** | `NONE`, the default, or `INA219`: whether an INA219 current sensor is on the I2C bus at 0x40 ([Current sensor](#current-sensor)). A toggle; it applies at once. With `NONE` nothing is sent to 0x40. With `INA219` the bench probes the part at once and every 1000 ms while it is not found, and a caption under the label reads `FOUND`, `NOT FOUND` or `OTHER PART`. `OTHER PART` is another chip at 0x40, or an INA219 left on another configuration, which a power-cycle of the module clears |
 | DISPLAY | **CONTRAST** | `NORMAL` or `HIGH`. See below |
 | DISPLAY | **BACKLIGHT** | 16–255 in steps of 32. High contrast forces 255 while on |
@@ -626,7 +636,7 @@ the magic, the version, that layout's payload size and its CRC-32 right.
 Every field the old layout has keeps its value, judged by
 `settingsValidate()` as a version 5 block is; every newer field takes its
 default, CURRENT SENSE `NONE`. A version 3 SERVO SUPPLY of 1 named an
-enable on GP0, the ESC wire's pin since version 4, and loads as `NONE`; an
+enable on GP0, the ESC wire's pin since version 4, and loads as 0, `OWN`; an
 ESC pin on GP28 or GP29 from a block before version 4 is not free here and
 takes the default, KISS on such a pin is switched off, and a KISS pin this
 board does not free takes the default. DshotDisplay 2.x's block carries
@@ -663,7 +673,8 @@ disarms. Flash changes only on the next save.
 Every value applies when changed. Only persistence needs the hold, so a value
 can be tried and then discarded by leaving without saving. The note line reads
 `UNSAVED - HOLD SAVE TO KEEP` after a change, and otherwise
-`SAVED SETTINGS IN USE` or `COMPILED DEFAULTS IN USE`. After HOLD DEFAULTS it
+`SAVED SETTINGS IN USE` or, with nothing stored,
+`NOTHING SAVED: DEFAULTS IN USE`. After HOLD DEFAULTS it
 reads `DEFAULTS LOADED - RESTART TO UNDO` while the live settings are what it
 left and differ from what the next boot loads (the saved settings, or the
 compiled defaults when none are stored). Any other change ends it, and so
@@ -671,19 +682,23 @@ does every completed HOLD TO SAVE, failed saves included: a save whose
 read-back fails has already rewritten the sector. MENU shows `UNSAVED` on
 the SETTINGS row while the live settings differ from flash.
 
-ESC PIN moves DShot at once (`escTaskConfigure()`). While the live ESC pin
-is not the one `settingsLoad()` put live, the pin the splash named
-(`settingsBootDshotPin()`), a line of its own at y 230 (`PIN_Y`) repeats
-the splash's warning for the live pin in amber, for example
-`UNPLUG ANY SERVO FROM GP1 NOW`, and the list ends at y 227 (`VIEW_H_PIN`),
-so it scrolls 12 px further; its top rows do not move. The rule is the boot
-pin rather than the saved pin, which a save would end, or the pin at
-opening, which a return to SETTINGS would end, while DShot stays on a pin
-the splash did not name. The note line keeps its own order: SAVE FAILED and
-NOT WHILE ARMED, until the next save or leaving; ADJUSTED and KISS OFF,
-until the next change; DEFAULTS LOADED; UNSAVED; SAVED; the reset by an
-update; then the set in use. SAVED is green, SAVE FAILED and NOT WHILE ARMED
-red, and the other notes but the set in use amber.
+SIG PIN moves DShot at once (`escTaskConfigure()`). While the live ESC pin is
+not the one `settingsLoad()` put live, the pin the splash named
+(`settingsBootDshotPin()`), a line of its own at y 230 (`PIN_Y`) repeats the
+splash's warning for the live pin in amber, for example
+`UNPLUG ANY SERVO FROM GP1 NOW`, and the list ends at y 227 (`VIEW_H_PIN`), so
+it scrolls 12 px further; its top rows do not move. The rule is the boot pin
+rather than the saved pin, which a save would end, or the pin at opening, which
+a return to SETTINGS would end, while DShot stays on a pin the splash did not
+name. With KISS on, a step of SIG PIN or AUX PIN swaps the two, so DShot runs on
+the wire the ESC's KISS pad was on until the wires are swapped as well: the line
+then reads `SWAP THE ESC'S SIGNAL AND KISS WIRES` (`SETTINGS_SWAP_NOTE`, 36
+characters, 215 px). The note line keeps its own order: SAVE FAILED and NOT
+WHILE ARMED, until the next save or leaving; ADJUSTED and KISS OFF, until the
+next change (KISS OFF follows a KISS pin the board does not free, which no
+SETTINGS row sets: the steppers offer free pins only); DEFAULTS LOADED; UNSAVED;
+SAVED; the reset by an update; then the set in use. SAVED is green, SAVE
+FAILED and NOT WHILE ARMED red, and the other notes but the set in use amber.
 
 **High contrast**
 
@@ -718,11 +733,11 @@ A tag that drops from KISS to EDT means the telemetry wire has stopped, and the
 reading is 25 times coarser. Consumption in mAh appears on the temperature
 tile with KISS only. EDT does not carry it.
 
-The tester's top row shows `DS` plus the bitrate the DShot driver runs at,
-as set under SETTINGS, dim, and in the text colour once an EDT enable has been
-sent. `DSERR` in amber
-replaces it when the driver could not claim its two PIO state machines;
-nothing is sent to the ESC then.
+The tester's top row shows `DSHOT` plus the bitrate the DShot driver runs
+at, for example `DSHOT600`, as set under SETTINGS → DSHOT, dim, and in the
+text colour once an EDT enable has been sent; `DSHOT1200`, the widest, ends
+at x 156. `DSERR` in amber replaces it when the driver could not claim its
+two PIO state machines; nothing is sent to the ESC then.
 
 The large voltage at the top right, captioned `BOARD`, is the board's own
 battery, read through the 200 kΩ/100 kΩ divider on GP27. It reads at most
@@ -1015,8 +1030,8 @@ does not flash ESC firmware. The transport is `src/am32_bl.h`.
 
 Entering the screen claims the signal pin (`src/pin_claim.h`): it disarms,
 sends throttle zero for at least 250 ms after the last throttle frame,
-stops the DShot driver and hands the pin to the bootloader transport. Leaving
-hands it back.
+stops the DShot driver and hands the pin to the bootloader transport; the
+strip reads `RELEASING SIG GP0` meanwhile. Leaving hands it back.
 
 Leaving sends the bootloader no `RUN` command. The transport has one,
 `am32BlRun()` in `src/am32_bl.h`, and nothing calls it. An ESC that answered
@@ -1231,10 +1246,10 @@ The host test harness runs two cross-checks:
 
 ## Servo tester
 
-**MENU → SERVO TESTER** drives one servo on the ESC pin, or two servos on the ESC and
-KISS pins, with servo pulses from the RP2350's hardware PWM. It does not
-measure the servo: there is no position feedback, so the horn on the screen
-is drawn where the pulse puts it. Not tested on hardware. Design note:
+**MENU → SERVO TESTER** drives one servo on SIG, the ESC pin, or two servos on
+SIG and AUX, the KISS pin, with servo pulses from the RP2350's hardware PWM. It
+does not measure the servo: there is no position feedback, so the horn on the
+screen is drawn where the pulse puts it. Not tested on hardware. Design note:
 `docs/design/servo-tester.md`; the rules are pure functions in
 `src/servo_model.h`, and core1 makes the pulses (`src/servo_job.h`).
 
@@ -1265,8 +1280,12 @@ ground only.
   before the board. A servo fed while the board is off can drive its signal
   wire into an unpowered pin, rated 3.63 V.
 - The two grounds are joined once, at the board.
-- SIG and AUX are the pins set under MENU → SETTINGS. With KISS off, SETTINGS
-  can put both on one GPIO; the screen then offers one servo only.
+- SIG and AUX are the pins set under MENU → SETTINGS → SIG PIN and AUX PIN,
+  both whatever KISS is. A step of either swaps the two, so SETTINGS never
+  puts both on one GPIO, and `settingsValidate()` moves AUX off SIG in a
+  stored block. Pins on one GPIO set some other way leave one servo only,
+  with `SIG AND AUX ARE THE SAME GPIO.` and
+  `SET SIG PIN OR AUX PIN IN SETTINGS.` on the SET screen.
 
 > **Unplug the servo before DShot runs.** Outside the servo screen the ESC pin
 > carries bidirectional DShot, which idles high and pulls low for about 27 µs
@@ -1308,6 +1327,15 @@ only for TWO ends and the rest of the change applies.
 If the screen stalls for 250 ms (`UI_HEARTBEAT_TIMEOUT_MS`), core1 ends the
 pulses and the sweep, the chip reads `STALLED`, and nothing restarts until the
 next HOLD TO START.
+
+The strip's caption names the pin by role and number, the frame rate and
+the travel, `SIG GP0  50 HZ  1000-2000 US`, and `SIG+AUX  50 HZ  1000-2000 US`
+with two servos. Where that would run within 4 px of the widest chip,
+`RUNNING` at x 179, at a three-digit rate with a four-digit MIN, the pin goes
+by its role alone, `SIG  333 HZ  1000-2000 US`, and with two servos the
+travel goes, `SIG+AUX  333 HZ`. While the screen takes the pins the dial band
+reads `RELEASING SIG GP0`, then `TAKING SIG GP0`; a refused bind reads, for
+example, `SIG GP0 COULD NOT BE TAKEN (PWM)`.
 
 While SAFE with one servo, the readout row reads `TWO SERVOS:` and
 `SET > SERVOS` on the right: SET's SERVOS row switches the second servo on.
@@ -1442,10 +1470,14 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
 
 1. Open KST SERVO. The screen claims SIG and searches: it repeats rcbench's
    entry sequence, one attempt every 116.6 ms to 118.8 ms, for 30 s. The
-   strip reads `GP0  TRY 12  1.4 S`. With the switched supply, each attempt
-   is the supply off for 2 s, then on and the entry at once: 14 power-ups in
-   30 s, the strip `GP0  TRY 3  SUPPLY OFF 1.4 S` or `SUPPLY ON`. A timed-out
-   switched search reads `NO ANSWER IN 14 POWER-UPS`.
+   strip reads `SIG GP0  TRY 12  1.4 S`. With the switched supply, each
+   attempt is the supply off for 2 s, then on and the entry at once: 14
+   power-ups in 30 s, the strip `SIG GP0  TRY 3  SUPPLY OFF 1.4 S` or
+   `SUPPLY ON`. A timed-out switched search reads `NO ANSWER IN 14 POWER-UPS`
+   and names the converter, and that a servo on its own supply needs
+   `SETTINGS > SERVO SUPPLY AT OWN`. While an ESC answers on SIG the screen
+   claims nothing and reads `AN ESC ANSWERS ON SIG GP0.`, the strip
+   `CHECKING SIG GP0 FOR AN ESC`.
 2. Power the servo up during the search: the screen says `POWER UP` /
    `THE SERVO NOW` in amber, the step to take now (`SWITCHED SUPPLY` with the
    switched supply). The servo enters programming mode,
@@ -1633,15 +1665,15 @@ not 0 answers ID 0 is not measured.
    family is chosen: DShot sends zero frames for at least 250 ms after the
    last throttle frame, stops and leaves the pin an input with the pull-up
    on, so no DShot frame reaches a servo connected on the family view. The
-   strip reads `RELEASING GP0 FROM DSHOT`, then `GP0 IS THE SERVO'S: DSHOT
+   strip reads `RELEASING SIG GP0 FROM DSHOT`, then `GP0 IS THE SERVO'S: DSHOT
    IS OFF.` in green over `CONNECT THE SERVO, CHOOSE ITS FAMILY`. While an
-   ESC answers on SIG it reads `AN ESC ANSWERS ON GP0: UNPLUG IT.` over
+   ESC answers on SIG it reads `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` over
    `DSHOT STAYS ON THE PIN UNTIL THEN.` in amber, both families are drawn
    disabled, and the claim follows once the ESC has been quiet for 500 ms.
    The tap on D SERIES starts the Hitec job and the entry: with `GP28` or
    `GP29` it switches the supply off for 2.0 s and on again, the strip
    counting `SUPPLY OFF 1.4 S`, then waits for the servo's start, about 1 s;
-   with `NONE` it reads the servo at once on the supply it has, so the servo
+   with `OWN` it reads the servo at once on the supply it has, so the servo
    must be powered before the tap. The headline of each step, `SUPPLY OFF`,
    `SERVO STARTING`, `READING THE MODEL` or, for a classic servo,
    `LISTENING`, is amber. The family view says so under D SERIES:
@@ -1703,7 +1735,7 @@ not 0 answers ID 0 is not measured.
 6. BACK from the list opens the leave page. LEAVE with `GP28` or `GP29` switches the
    supply off; the unplug page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`
    until the line closes, and its BACK is drawn disabled until then. With
-   `NONE`, LEAVE restarts the servo from its saved values; the unplug page
+   `OWN`, LEAVE restarts the servo from its saved values; the unplug page
    reads `RELEASING THE PIN`, and its BACK is drawn disabled until
    `UNPLUG THE SERVO.` shows. RESTART DSHOT
    returns to MENU. READ AGAIN on the leave page reads the servo again and
@@ -1773,7 +1805,7 @@ is the D485HW.
 
 HITEC SERVO offers CLASSIC (HS-5xxx, HS-7xxx) with SERVO SUPPLY at `GP28`
 or `GP29`, since a classic servo enters programming mode only at its
-power-up. Under `NONE` it is drawn disabled, with
+power-up. Under `OWN` it is drawn disabled, with
 `NEEDS THE CONVERTER OF WIRING PART C` and
 `AND SETTINGS > SERVO SUPPLY GP28/29.`: the switched supply is the DC-DC
 converter of part C of the [wiring diagram](#wiring-diagram), and the
@@ -1941,7 +1973,9 @@ In the firmware:
   the tester armed.
 - Core1 sets the throttle to zero if core0 sends no heartbeat for 250 ms.
 - Opening MENU disarms. The wiring settings and every tool are reachable only
-  from there.
+  from there. While a pin claim is not free, after RESTART DSHOT until the
+  DShot pump runs again, MENU draws the tools that claim the pins and
+  SETTINGS disabled, and its strip reads `DSHOT RESTARTING ON SIG GP0`.
 - Before DShot gives up the signal pin, to the AM32 editor or for a pin
   change, it sends throttle zero for at least 250 ms after the last throttle
   frame.
@@ -2126,7 +2160,7 @@ runs, so a layout change is visible in the frames:
 - seven of the main screen: disarmed, armed, live, stale, with KISS values,
   high contrast, the card held by a USB host;
 - nine of MENU: on arrival, the EDT chip on, off and reading NO ESC, BEEP
-  accepted and refused, unsaved settings, PINS BUSY, seven rows;
+  accepted and refused, unsaved settings, DSHOT RESTARTING, seven rows;
 - four of MENU → SETTINGS: the top, scrolled to the end, high contrast, the
   CURRENT SENSE row with a sensor found;
 - six of MENU → SD LOG: ready, recording, no card, a card found by RETRY
@@ -2149,7 +2183,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.0%**: 9,560 of 9,753 lines in 59 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.1%**: 9,588 of 9,769 lines in 59 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

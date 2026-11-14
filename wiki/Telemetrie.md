@@ -89,8 +89,8 @@ Eine **verfallene Statuskachel zeigt `--`, nie `OK`**.
 Das macht die Firmware, ohne Schaltfläche.
 
 Die ersten 10 Frames, die der Tester an den ESC sendet, sind die Freigabe:
-nach dem Einschalten, nach einer Änderung des ESC-Pins, der DShot-Bitrate,
-von KISS oder des KISS-Pins unter SETTINGS und wenn der AM32-Bildschirm das
+nach dem Einschalten, nach einer Änderung von SIG PIN, DSHOT, KISS TELEM
+oder AUX PIN unter SETTINGS und wenn der AM32-Bildschirm das
 Signalkabel zurückgibt. Sie dauern 10 ms. Jede Antwort wird von der ersten an
 mit EDT-Decodierung gelesen. Ein ESC, der EDT über einen dieser Neustarts
 hinweg eingeschaltet behalten hat, zeigt Spannung und Temperatur sofort und
@@ -142,13 +142,13 @@ Die Platine empfängt auf dieser Leitung nur. Der Empfänger ist ein UART
 (Universal Asynchronous Receiver-Transmitter) aus einer PIO-Zustandsmaschine
 (PIO: programmierbare Ein-/Ausgabe), daher **funktionieren beide freien
 GPIOs**. GPIO steht für General Purpose Input/Output, frei
-verwendbarer Pin. Einschalten unter **MENU → SETTINGS → KISS TELEM**, den Pin in
-der Zeile darunter setzen. Der Pin-Schrittschalter überspringt den Pin des
-ESC-Signals.
+verwendbarer Pin. Einschalten unter **MENU → SETTINGS → KISS TELEM**. KISS
+empfängt auf AUX, gesetzt in der Zeile darunter, **AUX PIN**, mit seinem
+J5-Pin unter dem Wert. Ein Schritt von AUX PIN oder SIG PIN tauscht die
+beiden, sodass das KISS-Kabel nie den Pin des ESC-Signals teilt.
 
-**Voreinstellung: aus.** Die Platine hat zwei freie Pins, GP0 und GP1, und
-der ESC belegt einen davon. Beim Einschalten von KISS
-wird der KISS-Pin vom ESC-Pin weg verschoben, falls beide zusammenfallen.
+**Voreinstellung: aus.** Die Platine hat zwei freie Pins, GP0 und GP1: SIG,
+den des ESC, und AUX. Das Einschalten von KISS verschiebt keinen Pin.
 
 > **Spannung.** Die KISS-Spezifikation legt diese Leitung auf 3,6 V. GP0 und
 > GP1 vertragen 5,5 V, solange die Platine eingeschaltet ist, und 3,63 V,
@@ -167,6 +167,6 @@ letzten KISS-Wert nicht.
 oberhalb von 5 % bernsteinfarben.
 
 Eine schlechte Verbindung kommt meist vom Signalkabel: zu lang, ungeschirmt
-oder nahe an den Motorphasen verlegt. Zuerst kürzen. Sonst **DSHOT KBAUD** unter
+oder nahe an den Motorphasen verlegt. Zuerst kürzen. Sonst **DSHOT** unter
 **MENU → SETTINGS** auf 300 stellen. Die `LINK`-Zeile auf dem Bildschirm
 SETTINGS ist live.

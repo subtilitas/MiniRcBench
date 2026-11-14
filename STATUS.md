@@ -61,20 +61,24 @@ and SETTINGS, one sectioned list with pole count and throttle ceiling at its
 top (`src/ui_menu.*`, `src/ui_settings.*`, `src/ui_sdlog.*`). Every header is
 36 px tall and every tool's BACK returns to MENU.
 Menu structure B ([menu-b.md](docs/design/menu-b.md)), the owner's choice of
-2026-11-13, has slices 1, 2 and 4 of 10 built. Slice 1: the leave page widget
+2026-11-13, has slices 1 to 4 of 10 built. Slice 1: the leave page widget
 (`src/ui_leave.*`), the BACK guard and two strip lines (`src/ui_widgets.*`),
 the field row (`src/ui_list.*`), the colour role names and the layout
 constants; no screen uses the leave page or the guard yet. Slice 2: the uses
 that decision 11's tables name in their roles' colours (`UI_COL_*`); the rows
 of AM32 CONFIG, KST SERVO, HITEC SERVO and SERVO SET drawn through the field
 row, a changed value `C_CYAN` with a 3 px bar; square 12 px chips;
-`PROG MODE` on blue. Slice 4, the layout table (the note's decision 14): the
+`PROG MODE` on blue. Slice 3, names and SETTINGS: SIG PIN and AUX PIN with
+their J5 pin, a step of either swapping the two; SERVO SUPPLY a core section
+of SETTINGS, its first value `OWN`; MENU's strip `SIG GP0  AUX GP1  DSHOT600`
+and, while the claim is not Free, `DSHOT RESTARTING ON SIG GP0` over rows
+drawn disabled; `DSHOT600` on the tester; `NOTHING SAVED: DEFAULTS IN USE`;
+four KST labels. Slice 4, the layout table (the note's decision 14): the
 footers of SETTINGS and SERVO SET, the `-` and `+` of SERVO SET and AM32
 CONFIG, AM32's result OK as the wide button, SD LOG's button edge, HOLD
 DEFAULTS in place of HOLD RESET, the red HOLD TO SAVE, the write pages'
 `CHANGES` and Hitec's 4 rows and strip. The owner answered the note's eight
-questions on 2026-11-14; slices 3 and 5 to 10 wait on being built (open item
-18).
+questions on 2026-11-14; slices 5 to 10 wait on being built (open item 18).
 The pin claim both features share is built (slice 1): the AM32 editor and the
 servo tester run on it. For the ESC, the board is the throttle source. It
 sends bidirectional DShot (a digital ESC protocol in which the ESC
@@ -223,7 +227,7 @@ record either way.
 | The splash's `TOUCH CONTROLLER NOT FOUND` (`touchAnswered()` in `src/cst328.cpp`, `uiSplashTick()`) and the BOARD voltage's colour (`uiBoardCell()`) | against a touch fake that stops answering: the splash line at boot without an answer, kept while none comes, cleared by one; a finger on the glass from the splash on does not arm, and its lift completes a tap on MENU; the real driver against the CST328 model: a probe with another ID records no answer, a finger read that completes records one, `touchInit()` starts the record again; each band edge, the centivolt rounding at 3.50 V and 3.30 V, the 50 mV hysteresis, the text colour below 2.50 V and at 0 V and red again from 2.55 V, drawn through the ADC fake; IDLE's countdown in amber in place of an amber voltage; the KST, Hitec and AM32 write and the KST and Hitec restore refused while red, at the hold and after a flush that ended red, with no file and no frame, and written while amber, below 2.50 V and in the text colour (`testBoardLow()`, `testAm32BoardLow()`) | not tested on hardware; open item 22 |
 | EDT telemetry, automatic enable, expiry | merge, expiry, enable rule, decode of each frame type; enable at pump start and decode with EDT on against a simulated ESC, with and without EDT | hardware-tested (owner report) with `pico-bidir-dshot`; the enable at pump start and the decode of every reply with EDT on are not tested on hardware |
 | KISS telemetry: request, PIO receiver, decode, merge, KISS/EDT tags | CRC, decode, resynchronisation, request payload, merge; the PIO receiver is typechecked only | hardware-tested (owner report) with `pico-bidir-dshot`; see below |
-| DShot bitrate label in the status bar, `DSERR` | label at each bitrate, colour, `DSERR` | not recorded |
+| DShot bitrate label in the status bar, `DSHOT600`, `DSERR` | label at each bitrate, colour, `DSERR` | not recorded |
 | SDIO card driver in `src/sdio/`: protocol, PIO and DMA bus, library callbacks | CRC7 and CRC16 against the specification's examples, command framing, response parsing, CSD (card-specific data register), four-bit packing, CRC status token; initialisation, reads and writes against a simulated card (standard capacity SDSC v1 and v2, high capacity SDHC, no card, voltage mismatch, timeouts, removal); the two PIO programs run in a cycle-level model against a card model (`test/pio_sdio_emu.py`: CMD0, R1, R2, single and multiple block reads, CMD12, a write and its CRC status token, at 400 kHz, 10 MHz and 25 MHz), a model and not proof of hardware timing; the bus code in `sd_pio.c` is compiled only, and the model's host side follows it by hand | not tested on hardware; open item 6 lists the bench tests |
 | Blackbox logging to SD, MENU → SD LOG screen | encoder, ring buffer, round trip through `blackbox_decode`, screen states; how a log ended (`sdLogWriteEnd()`: a short write with `FR_OK` is a full card, any error a failed write), each end's two note lines and their colour, a USB DRIVE refusal ahead of them, START clearing them, a mount clearing a card fault and keeping a tool's stop (`sdLogMountForget()`), a mount hint under a tool's stop, a mount resetting FILE and the counters beside it, AM32 CONFIG's, KST SERVO's and HITEC SERVO's claims recording the stop, the FILE row's `(LAST)`, `SDERR` on an amber chip while armed, a new log's number (`sdLogNameNumber()`, `sdLogNoteName()`, `sdLogNextNumber()`: the name rule in any letter case, four and six digits, other extensions and long names ignored, `LOG00000.BFL`, `LOG99999.BFL` refusing the start with its note), against the fake logger; the directory, the scan, the kept number and the open (`src/sd_log_next.cpp`) over FatFs R0.15 on a RAM disk, FAT32 and exFAT, with a card swapped or emptied after a fault and a write-protected card (`make -C test lognum`): the clearing, the recording and the forgetting on each error in `sd_log.cpp` are typechecked only | hardware use recorded with the previous SDIO driver on the 2.8" board; see below |
 | USB card reader (read-only mass storage) | handover state machine, screen; `src/usb_msc.cpp` itself in `test/test_usb_msc_cb.cpp`: `tud_umount_cb()` while serving reclaims the card as an eject does, nothing while idle | not recorded. On the TinyUSB 0.18.0 port a pulled cable reaches the firmware as a suspend, which is not handled (open item 20) |
@@ -232,7 +236,7 @@ record either way.
 | Blackbox logs in `LOGS/` (`SD_LOG_DIR_PATH`) | the next log's file over FatFs R0.15 (`make -C test lognum`); the rest of `sd_log.cpp` is typechecked only | not tested on hardware |
 | SD write cache for the backup claims (`src/sdio/sd_cache.*`, `src/card_cache.*`, the glue in `src/sdio/sd_card_glue.c`, `sdh_write_start()` and `sdh_write_poll()`); [sd-write-cache.md](docs/design/sd-write-cache.md) | the cache against a fake card (`runSdCacheTests`), the asynchronous block write against the simulated card (`runSdioTests`); the KST write waiting for the flush, a failed flush, the claim turning the cache on and off, a running log stopped, AM32's write refused after a failed flush, against a fake of `card_cache.h`; the glue and `card_cache.cpp` are built by the firmware only | not tested on hardware |
 | Pin claim (`src/pin_claim.*`) and core1 job dispatch (`src/core1_job.*`), the zero-throttle drain in `src/esc_task.*` | each refusal rule at its 500 ms boundary and their order; the handover decisions of `escTaskPoll()` (`escHandoverStep()`, `escDrainSlot()`, `escPumpFrameSent()`, `escPumpBind()`) one 1 ms slot at a time: 250 zero frames, the teardown 251 ms after the last throttle frame, the bind disarmed; the order of the two cores' steps against fake jobs, BACK and RETRY, Restoring, the unplug-page rule, the restore wiring, the start guard, the heartbeat rule across a millis() rollover; the PIO and pad calls around those decisions are compiled only | not tested on hardware; open item 8 |
-| MENU layout (`src/ui_menu.cpp`, `src/ui_registry.cpp`): BEEP THE ESC, AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO, SETTINGS and SD LOG as 40 px rows, scrolled 36 px to reach SD LOG | every registry entry opens and BACK returns to MENU; opening MENU disarms; BEEP's flash and refusal on its row; `PINS BUSY` while the claim restores and a tap on it opens nothing; six rows do not scroll and seven scroll 36 px; SETTINGS, the sixth row, is whole and takes a tap at 0 px, and SD LOG, the seventh, is cut until MENU is dragged; the UNSAVED status shows on MENU at 0 px after leaving SETTINGS; the label and status fit check at build time | not recorded |
+| MENU layout (`src/ui_menu.cpp`, `src/ui_registry.cpp`): BEEP THE ESC, AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO, SETTINGS and SD LOG as 40 px rows, scrolled 36 px to reach SD LOG | every registry entry opens and BACK returns to MENU; opening MENU disarms; BEEP's flash and refusal on its row; the rows drawn disabled and `DSHOT RESTARTING ON SIG GP0` while the claim restores, and a tap on a row opens nothing; six rows do not scroll and seven scroll 36 px; SETTINGS, the sixth row, is whole and takes a tap at 0 px, and SD LOG, the seventh, is cut until MENU is dragged; the UNSAVED status shows on MENU at 0 px after leaving SETTINGS; the label and status fit check at build time | not recorded |
 | Servo tester: the pure model (`src/servo_model.*`), the PWM driver (`src/servo_pwm.*`), the core1 job (`src/servo_job.*`), the slider and the screens (`src/ui_slider.*`, `src/ui_servo.cpp`); rcbench's sweep and PWM fold in `lib/rcbench/` | profiles, limits at their boundaries, steppers to their stops, command, angle and pulse mappings, SPEED, the dial's hit area; the PWM driver's bind, write, release and sharing rules against a register fake; SAFE at level 0, CENTRE at START, STOP on the next pass, the slew, sweeps, REVERSE B, the trip at 250 ms across a millis() wrap, kept across a rebind, the profile rebind; no pulse cut short at a release or a rebind, against a model of the counter and the latched compare; released pins pulled down; the screens through the UI: HOLD TO START at 1000 ms, the drag rules, the SET warning and HOLD TO APPLY, a TYPE, MIN or MAX change further past the travel and SERVOS ONE to TWO past it held for HOLD TO APPLY, a step back or toward the centre and TWO to ONE applied at once (`servoTravelNeedsHold()`), a pending TWO dropped to one servo when the claim takes SIG alone, a wait that held only for TWO ended and a heli, 60 Hz or travel wait beside it kept, the end-stop note and its place among SET's notes, STOP on SET, the AUX refusals through the claim, the unplug page; rcbench's own sweep and fold tests; the SDK calls are run against the fake only | not tested on hardware; open item 9 |
 | KST programming: rcbench's session, line driver and file store (`lib/rcbench/`), the search (`src/kst_seek.*`), the core1 job (`src/kst_job.*`) and its line (`src/kst_line_port.*`), the files on the card (`src/kst_files.*`), the screen (`src/ui_kst.cpp`, `src/kst_view.*`) | rcbench's seven tests, 298 cases, the line's PIO program among them in a model (`test_kst_pio.c`); the search and the job against rcbench's simulated servo, the files against an in-memory FAT (File Allocation Table) volume, the backup in `BACKUP/` and SAVE AS in `KST/` up to 50 files among them, the card phases' block counts over FatFs R0.15 itself (`make -C test kstcount`), the screen through MENU against both (`runKstTests`); the line driver and `kst_line_port.cpp` are built by the firmware and typechecked only | not recorded: no frame of the line driver has been on a pin (`kst_line.h`) |
 | SETTINGS layout (`src/ui_settings.cpp`): sections ESC TESTER, WIRING, SERVO SUPPLY, DISPLAY, BOARD and DIAGNOSTICS in one scrolling list | the scroll range, 0 px at opening and 620 px at most, 632 px while the ESC pin's warning shows; each row by id; no scroll from a press on a control; a cut control takes a press only while 40 px show; HOLD TO SAVE in place at every scroll position and saving at the end of the list; the pole count reaches the eRPM divisor, the ceiling steps by 5 %, and HOLD DEFAULTS restores both; HOLD DEFAULTS loads nothing on a tap, at 975 ms or after a slide off, loads at 1000 ms once per press, and draws its bar, its `C_RED` fill and its two-line label (`testResetHold()`); the footer at 6/150 and 162/72, y 268, 46 px, and HOLD TO SAVE's `C_RED` fill | not recorded |
@@ -245,6 +249,7 @@ record either way.
 | List and hold widgets (`src/ui_list.*`, `src/ui_hold.*`; slice A of [menu.md](docs/design/menu.md)) | the list: the scroll range and its clamp, the press rule at the viewport's edges, the row rectangle, the axis lock at 6 px, a tap on release and its slide-off, the scroll from the press point, 16 px per coarse step, the factor, the stop at a rail and the anchor after it, the clipped drawing; the hold: 1000 ms and not 999 ms, the reset on a lift and a slide off, a press that slid on, one firing per press, no timing for a press that landed while the control was disabled or whose first frame it missed, the progress bar's extent; through the screens: AM32's swipe on every field of the table, KV at 16 px a step and its rail, the AM32 and SERVO SET scroll ranges and edge rows (checks that 4c91db9 also passes), DWELL's rail on SET, HOLD TO WRITE and HOLD TO SAVE at 999 ms and 1000 ms, HOLD DEFAULTS at 975 ms and 1000 ms, each hold's colour and bar, a press on a disabled HOLD TO START, HOLD TO APPLY and HOLD TO WRITE never timed, HOLD TO SAVE's refusal while armed | not tested on hardware |
 | Menu structure B, slice 1 (`src/ui_leave.*`; `UiBackGuard`, `uiStripTwoLines()`, `UI_COL_*` and the layout constants in `src/ui_widgets.*`; `uiListDrawField()` in `src/ui_list.*`; [menu-b.md](docs/design/menu-b.md)) | the leave page: its three phases, the current step, STAY, LEAVE, NEXT SERVO, RESTART DSHOT at 999 ms and 1000 ms into the released phase and across a `millis()` wrap, a press that landed during the wait or while releasing never restarting DShot, LEAVE drawn disabled and ignoring its tap while `leaveEnabled` is clear, LEAVE taking only a press that landed while it was enabled and is still enabled at the lift, the steps, bar, notes and buttons in each phase, the room above the notes; the guard: the first BACK arming, the second leaving, a press elsewhere and no change left disarming, its two lines for one and two changes; the two strip lines at y 42 and y 52 and their clear; the field row in each value state and edge, selected or not, scale 2 up to 104 px; the role names in both themes; the constants' values; SERVO TESTER's supply line drawn through `uiStripTwoLines()` | host only: no screen uses the leave page, the guard or the field row |
 | Menu structure B, slice 2, colour roles (`UI_COL_CHANGED`, `uiChip()`, `uiChangeText()` in `src/ui_widgets.*`; the screens; [menu-b.md](docs/design/menu-b.md#slice-2-as-built)) | the role names, seven colours, in both themes; the chip square, 12 px tall, y 42 to 53, PROG MODE 65 px from x 167; the change text's dim old value and cyan new value; on AM32 CONFIG, KST SERVO, HITEC SERVO and SERVO SET a row's value by its state, as read, changed with a 3 px cyan bar, a soft rule's amber bar, read-only grey, selected or not, and the editor bar's value; SERVO SET's pending row cyan until HOLD TO APPLY and grey while RUNNING; Hitec's label without `*`; the KST and Hitec headlines amber, PROG MODE on blue, KST's IN DOUBT on red, REVERT amber, the write pages' old and new values; the tester's KISS and EDT tags, the DShot rate, SWIPE = THROTTLE and MAX; AM32's POWER-CYCLE THE ESC, HEX, WRITE VERIFIED green and a refused write's result not green; SETTINGS' captions, values, SAVED and the save hold's red; SD LOG's START, RETRY MOUNT and USB DRIVE labels and the read counter; servo B's horn, letter and selector, SPEED's fill, the command labels, the sweep count | host only: the colours have not been looked at on the panel |
+| Menu structure B, slice 3 (`src/ui_settings.*`, `src/settings.cpp`, `src/ui_menu.*`, `src/kst_view.cpp`, the pin words of `src/ui_servo.cpp`, `src/ui_kst.cpp`, `src/ui_hitec.cpp`, `src/ui_am32.cpp`; [menu-b.md](docs/design/menu-b.md) decisions 9, 10 and 15 b, e, f, h, j, k) | SIG PIN and AUX PIN live whatever KISS is, every step a swap, with KISS on and off, the wiring following; their J5 line and SERVO SUPPLY's J4 line under a raised value, none under OWN; `settingsValidate()` moving AUX off SIG with KISS on and off, to the next free pin after SIG, KISS kept, and a pin the board does not free switching KISS off; SERVO SUPPLY a core section with and without KST SERVO on MENU; MENU's caption, `DSHOT RESTARTING ON SIG GP0` in amber over rows drawn disabled under their own status, and the caption back once Free; `WAIT: DSHOT RESTARTING` on SERVO TESTER, KST SERVO, HITEC SERVO and AM32 CONFIG; `DSHOT600` at each rate; `NOTHING SAVED: DEFAULTS IN USE`; the four KST labels; SERVO TESTER's caption with the role alone where it would reach RUNNING; the SIG words of each claim message; the connector lines against the board header's table; KISS TELEM moving neither pin; `SWAP THE ESC'S SIGNAL AND KISS WIRES` with KISS on; `IDLE 2s` and `DSHOT1200` sharing no pixel | host only |
 | Menu structure B, slice 4: the layout table, decision 14 of [menu-b.md](docs/design/menu-b.md) (`src/ui_settings.cpp`, `src/ui_servo.cpp`, `src/ui_am32.cpp`, `src/ui_sdlog.cpp`, `src/ui_kst.cpp`, `src/ui_hitec.cpp`, `src/hitec_view.h`) | each moved rectangle by id: SETTINGS' HOLD TO SAVE 6/150 and HOLD DEFAULTS 162/72, SERVO SET's HOLD TO APPLY 6/150, DEFAULTS 162/72 and `-` and `+` 44 × 44 px, AM32's `-` and `+` 44 × 44 px and OK 6/228 at y 268, SD LOG's START 6/228, RETRY MOUNT 6/112 and USB DRIVE 122/112 (`testLayoutTable()`, `testAm32LayoutTable()`); no two controls overlapping; each label inside its button; HOLD DEFAULTS' two lines and HOLD TO SAVE's `C_RED` fill; AM32's OK keeping the result up when the hold's finger lifts on it and acting on a later tap; the hex dump from x 8; `1 CHANGE` and `5 CHANGES` on KST's write page, `1 CHANGE` and `n CHANGES` on Hitec's, Hitec's 4 rows (`hitecPageLayout()`), Hitec's strip in the order model, backup, pin, version with two spaces, a classic strip keeping `BACKUP IN RAM` and then `BACKUP HT001` beside the PROG MODE chip, the room 4 px before the chip (`uiChipX()`), y 56 to 61 blank on the main view and the list after the family view; AM32's OK drawn at rest under the hold's finger and pressed under a fresh press; 23 mutations, each failing the build or the suite | host only |
 | Control tables (`src/ui_screen.h`; slice B of [menu.md](docs/design/menu.md)) | every screen's table on each view the host suite reaches, the ids, rectangles and enabled flags, `uiCurrentScreen()` after each navigation; the UI tests tap by id | host only: the firmware does not call the tables |
 | Serial telemetry dump | none | not recorded |
@@ -490,9 +495,11 @@ the tag. Menu structure B waits on being built, not on the bench (item 18).
     run on the bench, with the questions listed in
     [diagnostics.md](docs/design/diagnostics.md).
 
-18. **Menu structure B waits on building.** Slices 1, 2 and 4 of
-    [menu-b.md](docs/design/menu-b.md) are built; slices 2 and 4 run in the
-    host suite only, and slice 2's colours have not been looked at on the
+18. **Menu structure B waits on building.** Slices 1 to 4 of
+    [menu-b.md](docs/design/menu-b.md) are built: slice 2 is the colour
+    roles, slice 3 the names and SETTINGS (decisions 9, 10 and 15 b, e, f, h,
+    j, k), slice 4 the layout table; slices 2 to 4 run in the host suite
+    only, and slice 2's colours have not been looked at on the
     panel, in either theme. In the high-contrast palette several of slice
     2's pairs differ in brightness only, black against a dark grey: the KISS
     and EDT tags, the DShot rate with and without EDT requested,
@@ -512,7 +519,7 @@ the tag. Menu structure B waits on being built, not on the bench (item 18).
     every screen; each slice updates its own README and wiki lines and
     images; the KST labels FAILSAFE MOVE, FAILSAFE POSITION, FAILSAFE TIME,
     REVERSED; OWN for SERVO SUPPLY's no-switch value; RESTART DSHOT after
-    1000 ms. Slices 3 and 5 to 10 wait on being built. Three decisions
+    1000 ms. Slices 5 to 10 wait on being built. Three decisions
     change the note's design, and the sections they touch are marked to be
     redesigned: the docs go with each slice, against the note's
     recommendation, so the slice table is reworked and slice 10 shrinks;
@@ -672,17 +679,17 @@ the tag. Menu structure B waits on being built, not on the bench (item 18).
   lost `BACKUP/LAST` guesses 050 as its latest and writes over 001 next,
   which need not be the oldest ([backups.md](docs/design/backups.md)).
 
-- **Two free pins.** The board frees two GPIOs, GP0 and GP1. The ESC takes
-  one and KISS the other, so there is no third choice and the SETTINGS
-  steppers stay put. KISS is off by default and one tap on MENU → SETTINGS
-  turns it on. A build-time pin override outside the free set, or both wires
-  on one pin, fails the build.
+- **Two free pins.** The board frees two GPIOs, GP0 and GP1. SIG, the ESC's,
+  takes one and AUX, KISS's and servo B's, the other, so there is no third
+  choice: a step of SIG PIN or AUX PIN swaps the two. KISS is off by default and
+  one tap on MENU → SETTINGS turns it on. A build-time pin override outside
+  the free set, or both wires on one pin, fails the build.
 - **Bidirectional DShot only.** An ESC that does not accept the inverted
   bidirectional signal is not driven.
 - **Saved settings outrank `config.h`.** On a board with saved settings, a
   changed default in `config.h` has no effect after reflashing. SETTINGS
   marks the whole block, not each row: while no change is pending, its note
-  line reads `SAVED SETTINGS IN USE` or `COMPILED DEFAULTS IN USE`.
+  line reads `SAVED SETTINGS IN USE` or `NOTHING SAVED: DEFAULTS IN USE`.
 - **Power loss during a log.** The size reaches the directory entry at
   each sync, every 2000 ms (`SD_LOG_SYNC_MS`), the first 2000 ms after the
   start. A log cut within its first 2 s reads 0 bytes, and the chain
@@ -750,7 +757,7 @@ binary, `dshot_tests`. `test/test_main.cpp` runs twenty-four suites:
 | `runBackupTests` | `test_backup_ring.cpp` | the ring of `BACKUP/`: its rules, saves of two devices and a rename under another device's number, a rename FatFs reports failed that took effect, two files under one number, the list of one device from the latest, a gap, no marker and an unreadable one, a directory under a ring name, names outside the ring, a marker or a read-only oldest file the card refuses, a change of directory that fails, load, no card and a USB-held card with no FatFs call |
 | `runSdCacheTests` | `test_sd_cache.cpp` | the SD write cache over a fake card: the queue's order, a read of a queued sector, one swap check per batch, no command while busy, read cache hits and the oldest pushed out, a miss that waits for the block in flight, a full queue, retries, a failed block, a changed serial number, refusals with the cache off |
 | `runDiagTests` | `test_diag.cpp` | the restart reason's decoding from CHIP_RESET, the watchdog's REASON, the enable query and the boot type, its order, its texts' widths, the capture through the fakes, the uptime's text |
-| `runMenuTests` | `test_menu.cpp` | MENU, SETTINGS and the navigation through the real UI: SD LOG's BACK to MENU, every registry entry opened and left, MENU's disarm, BEEP's flash, `PINS BUSY` on AM32, SERVO and SETTINGS, MENU's scroll over registries of six and seven rows and its return at 0 px, SETTINGS whole at 0 px and SD LOG cut until dragged, every MENU status and SETTINGS value within its widest, the SETTINGS scroll range, each row by id, DIAGNOSTICS' LAST RESTART and UPTIME, a cut control under 40 px, HOLD TO SAVE and the UNSAVED note at every scroll position, HOLD DEFAULTS' 1 s hold, its `DEFAULTS LOADED - RESTART TO UNDO` note and what ends it, AM32's own wait beside another claim |
+| `runMenuTests` | `test_menu.cpp` | MENU, SETTINGS and the navigation through the real UI: SD LOG's BACK to MENU, every registry entry opened and left, MENU's disarm, BEEP's flash, AM32, SERVO and SETTINGS drawn disabled while the claim restores, MENU's scroll over registries of six and seven rows and its return at 0 px, SETTINGS whole at 0 px and SD LOG cut until dragged, every MENU status and SETTINGS value within its widest, the SETTINGS scroll range, each row by id, DIAGNOSTICS' LAST RESTART and UPTIME, a cut control under 40 px, HOLD TO SAVE and the UNSAVED note at every scroll position, HOLD DEFAULTS' 1 s hold, its `DEFAULTS LOADED - RESTART TO UNDO` note and what ends it, AM32's own wait beside another claim, SERVO SUPPLY as a core section, the strip following AUX and the claim |
 
 `make run` also builds and runs `test/test_usb_msc_cb.cpp`, a program of
 its own that links the real `src/usb_msc.cpp` against stubs of the logger,
@@ -881,27 +888,27 @@ model.
 | `src/servo_model.cpp` | 198 | 198 | 100.0% |
 | `src/servo_pwm.cpp` | 55 | 55 | 100.0% |
 | `src/servo_supply.cpp` | 40 | 40 | 100.0% |
-| `src/settings.cpp` | 178 | 177 | 99.4% |
+| `src/settings.cpp` | 179 | 178 | 99.4% |
 | `src/theme.cpp` | 11 | 11 | 100.0% |
 | `src/touch.h` | 4 | 4 | 100.0% |
 | `src/ui.cpp` | 474 | 473 | 99.8% |
 | `src/ui.h` | 1 | 1 | 100.0% |
-| `src/ui_am32.cpp` | 420 | 417 | 99.3% |
-| `src/ui_hitec.cpp` | 1135 | 1078 | 95.0% |
+| `src/ui_am32.cpp` | 421 | 418 | 99.3% |
+| `src/ui_hitec.cpp` | 1135 | 1079 | 95.1% |
 | `src/ui_hold.cpp` | 36 | 36 | 100.0% |
 | `src/ui_input.cpp` | 27 | 27 | 100.0% |
-| `src/ui_kst.cpp` | 1176 | 1126 | 95.7% |
+| `src/ui_kst.cpp` | 1153 | 1112 | 96.4% |
 | `src/ui_leave.cpp` | 64 | 64 | 100.0% |
 | `src/ui_list.cpp` | 141 | 141 | 100.0% |
-| `src/ui_menu.cpp` | 130 | 129 | 99.2% |
+| `src/ui_menu.cpp` | 134 | 133 | 99.3% |
 | `src/ui_screen.h` | 5 | 5 | 100.0% |
 | `src/ui_sdlog.cpp` | 220 | 216 | 98.2% |
-| `src/ui_servo.cpp` | 584 | 583 | 99.8% |
-| `src/ui_settings.cpp` | 396 | 390 | 98.5% |
+| `src/ui_servo.cpp` | 590 | 590 | 100.0% |
+| `src/ui_settings.cpp` | 423 | 418 | 98.8% |
 | `src/ui_slider.cpp` | 109 | 109 | 100.0% |
 | `src/ui_widgets.cpp` | 75 | 75 | 100.0% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **9753** | **9560** | **98.0%** |
+| **Total** | **9769** | **9588** | **98.1%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->

@@ -100,26 +100,29 @@ const UiScreen UI_BEEP = {
 // ---------------------------------------------------------------------------
 
 /**
+ * @brief Whether the claim is not Free: the strip says DShot restarts, and
+ *        every row that claims or changes the wiring is drawn disabled.
+ */
+static bool claimBusy() { return pinClaimState() != ClaimState::Free; }
+
+/**
  * @brief A tool that claims pins, or changes the wiring a claim latched, is
  *        refused while the claim is not Free: Restoring outlasts RESTART
  *        DSHOT's return to MENU.
  */
 static bool pinsBusy(const UiScreen *s) {
-	return (s->pinUser != PinUser::None || s->freePins) &&
-	       pinClaimState() != ClaimState::Free;
+	return (s->pinUser != PinUser::None || s->freePins) && claimBusy();
 }
 
-/** @brief A row's status, its colours and whether a tap opens nothing. */
+/**
+ * @brief A row's status and its colours: the screen's own, whether or not
+ *        the row is refused (rowActs()).
+ */
 static void rowStatus(int i, char *buf, size_t n, uint16_t *col, uint16_t *fill) {
 	const UiScreen *s = s_entries[i].screen;
 	buf[0] = '\0';
 	*col = C_DIM;
 	*fill = C_PANEL;
-	if (pinsBusy(s)) {
-		snprintf(buf, n, "%s", UI_MENU_BUSY_TEXT);
-		*col = C_AMBER;
-		return;
-	}
 	if (s->status) s->status(buf, n, col, fill);
 }
 
@@ -172,7 +175,9 @@ static uint32_t frameKey(MenuEdt edt, bool runCue) {
 	h = mix(h, (uint32_t)edt);
 	h = mix(h, runCue);
 	h = mix(h, settings()->dshotPin);
+	h = mix(h, settings()->kissPin);
 	h = mix(h, settings()->dshotKbaud);
+	h = mix(h, claimBusy());
 	for (int i = 0; i < s_count; i++) {
 		char st[24];
 		uint16_t col, fill;
@@ -180,6 +185,7 @@ static uint32_t frameKey(MenuEdt edt, bool runCue) {
 		for (const char *c = st; *c; c++) h = mix(h, (uint8_t)*c);
 		h = mix(h, ((uint32_t)col << 16) | fill);
 		h = mix(h, rowPressed(i));
+		h = mix(h, rowActs(i));
 	}
 	h = mix(h, uiPressing(uiBackRect(), s_t));
 	return h | 1u;
@@ -197,17 +203,35 @@ static_assert(UI_MARGIN + 6 * (int)(sizeof(AM32_UI_RUN_CUE) - 1) - 1 <
               GFX_W - UI_MARGIN - (6 * (int)(sizeof(UI_MENU_NO_ESC) - 1) - 1 + 12),
               "MENU's run cue runs under the NO ESC chip");
 
+/**
+ * @brief The caption at its widest on this board, whose signal pins are GP0
+ *        and GP1, and the restarting caption, each end 4 px before the
+ *        widest chip, EDT OFF, which starts at x 179.
+ */
+static_assert(UI_MARGIN + 6 * (int)(sizeof("SIG GP1  AUX GP0  DSHOT1200") - 1) - 1 + 4 <=
+                  GFX_W - UI_MARGIN - (6 * (int)(sizeof(UI_MENU_EDT_OFF) - 1) - 1 + 12) &&
+              UI_MARGIN + 6 * (int)(sizeof("DSHOT RESTARTING ON SIG GP1") - 1) - 1 + 4 <=
+                  GFX_W - UI_MARGIN - (6 * (int)(sizeof(UI_MENU_EDT_OFF) - 1) - 1 + 12),
+              "MENU's caption runs under the EDT chip");
+
 static void drawMenu(MenuEdt edt, bool runCue) {
 	gfxFill(C_BG);
 	uiHeader("MENU", s_t);
 	uiStripClear();
-	char cap[32];
-	snprintf(cap, sizeof(cap), "GP%u  %u KBIT/S", (unsigned)settings()->dshotPin,
-	         (unsigned)settings()->dshotKbaud);
+	char cap[40];
+	uint16_t capCol = C_DIM;
+	if (claimBusy()) {
+		// Why the rows that claim or change the wiring are drawn disabled.
+		snprintf(cap, sizeof(cap), UI_MENU_RESTARTING_FMT, (unsigned)settings()->dshotPin);
+		capCol = UI_COL_WARN;
+	} else {
+		snprintf(cap, sizeof(cap), UI_MENU_CAPTION_FMT, (unsigned)settings()->dshotPin,
+		         (unsigned)settings()->kissPin, (unsigned)settings()->dshotKbaud);
+	}
 	// After an AM32 session that reached the bootloader, a second line says
 	// what starts the ESC again: leaving sends it no command. @see uiAm32RunCue()
-	if (runCue) uiStripTwoLines(cap, C_DIM, AM32_UI_RUN_CUE, UI_COL_WARN);
-	else uiStripText(cap, C_DIM);
+	if (runCue) uiStripTwoLines(cap, capCol, AM32_UI_RUN_CUE, UI_COL_WARN);
+	else uiStripText(cap, capCol);
 	// Read-only: the firmware enables EDT for each ESC as it appears, and
 	// arriving frames are the only evidence that it is delivering. Red is for
 	// an ESC that answers without EDT; with no ESC on the pin there is nothing

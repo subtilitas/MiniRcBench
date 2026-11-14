@@ -30,6 +30,7 @@
 #include "sd_log.h"
 #include "settings.h"
 #include "theme.h"
+#include "touch.h"
 #include "ui.h"
 #include "ui_hitec.h"
 #include "ui_menu.h"
@@ -264,6 +265,13 @@ static void testFamily() {
 	hitecFrames(1);
 	checkTrue("the claim on SIG begins on the first frame", pinClaimHolder() == PinUser::Hitec &&
 	          pinClaimState() != ClaimState::Free && !fakePinReturned());
+	{
+		char rel[40];
+		snprintf(rel, sizeof(rel), "RELEASING SIG GP%u FROM DSHOT", (unsigned)escTaskDshotPin());
+		checkTrue("while DShot drains: RELEASING SIG GP0 FROM DSHOT, dim",
+		          pinClaimState() == ClaimState::Stopping &&
+		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, rel, C_DIM, C_BG, 1));
+	}
 	hitecFrames(1);
 	char held[40];
 	snprintf(held, sizeof(held), HITEC_UI_HELD_FMT, (unsigned)escTaskDshotPin());
@@ -316,7 +324,7 @@ static void testFamily() {
 	tapId(UI_FIX(HitecCtl::Restart));
 	checkTrue("RESTART DSHOT: MENU, DShot resumed", uiCurrentScreen() == UiScreenId::Menu &&
 	          fakePinReturned() && fakeResumeCount() == resumes + 1);
-	checkTrue("MENU reads PINS BUSY while the pump rebuilds", pinClaimState() == ClaimState::Restoring &&
+	checkTrue("MENU draws HITEC SERVO disabled while the pump rebuilds", pinClaimState() == ClaimState::Restoring &&
 	          !ctlEnabled(menuRow(&UI_HITEC)));
 	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) hitecFrame();
 	checkTrue("then the claim is free", pinClaimState() == ClaimState::Free &&
@@ -338,6 +346,11 @@ static void testFamily() {
 		hitecFrames(2);
 		char esc[40];
 		snprintf(esc, sizeof(esc), HITEC_UI_ESC_FMT, (unsigned)escTaskDshotPin());
+		char want[40];
+		snprintf(want, sizeof(want), "AN ESC ANSWERS ON SIG GP%u: UNPLUG IT.",
+		         (unsigned)escTaskDshotPin());
+		checkStr("the ESC line names SIG", esc, want);
+		checkInt("37 characters, 221 px, to x 228", gfxTextW(esc, 1), 221);
 		checkTrue("refused: no claim, DShot runs", pinClaimState() == ClaimState::Free &&
 		          fakePinReturned());
 		checkTrue("the strip: " HITEC_UI_ESC_FMT,
@@ -902,8 +915,8 @@ static void testSupplyCurrent() {
 	for (int i = 0; i < 400 && !(job().job == HitecJobState::Entering && job().power == HitecPower::Listen);
 	     i++)
 		hitecFrame();
-	checkTrue("listening, the supply on: GP0  SUPPLY ON 0.08 A",
-	          job().power == HitecPower::Listen && lineIs(UI_STRIP_Y + 4, "GP0  SUPPLY ON 0.08 A", C_DIM));
+	checkTrue("listening, the supply on: SIG GP0  SUPPLY ON 0.08 A",
+	          job().power == HitecPower::Listen && lineIs(UI_STRIP_Y + 4, "SIG GP0  SUPPLY ON 0.08 A", C_DIM));
 	leaveAll();
 
 	// STOP during a D series entry: RETRY, the supply off, no current on the
@@ -1704,6 +1717,25 @@ static void testStripRoom() {
 	checkInt("D SERIES 420  BACKUP IN RAM: 161 px", gfxTextW("D SERIES 420  BACKUP IN RAM", 1), 161);
 }
 
+/**
+ * @brief Another claim holds the pins: HITEC SERVO, opened by hand since
+ *        MENU refuses its row, says to wait for DShot's restart.
+ */
+static void testBusyRefusal() {
+	section("HITEC screen: another claim holds the pins");
+	freshHitec(HITEC_D, false);
+	checkTrue("another claim holds the pins", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
+	TouchState none;
+	memset(&none, 0, sizeof(none));
+	UI_HITEC.enter();
+	UI_HITEC.tick(&none);
+	checkTrue("HITEC refused: WAIT: DSHOT RESTARTING, amber",
+	          pinClaimHolder() == PinUser::Am32 && lineIs(UI_STRIP_Y + 4, UI_WAIT_RESTART_TEXT, C_AMBER));
+	pinClaimEnd(PinUser::Am32);
+	for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) hitecFrames(1);
+	freshHitec(HITEC_D, false);
+}
+
 void runHitecUiTests() {
 	testFamily();
 	testDSeriesRead();
@@ -1724,4 +1756,5 @@ void runHitecUiTests() {
 	testBoardLow();
 	testColourRoles();
 	testStripRoom();
+	testBusyRefusal();
 }

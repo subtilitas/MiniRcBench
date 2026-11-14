@@ -6,9 +6,9 @@
  * The rules that matter more than the widgets:
  *
  * - **Only legal values can be selected.** The `-`/`+` buttons step through
- *   the board's free-GPIO mask and past whichever pin the other wire is on,
- *   so there is no invalid pin to reject and no error state to design.
- *   @see stepPinAvoiding()
+ *   the board's free-GPIO mask, and a step onto the other signal pin's GPIO
+ *   swaps SIG and AUX, so there is no invalid pin to reject and no error
+ *   state to design. @see stepPinSwapping()
  * - **Changes apply live; only persistence needs the hold.** The one-second
  *   hold is about writing flash, which parks core1, not about the value.
  * - **A press on a control never scrolls the list.** A drag scrolls only
@@ -54,6 +54,14 @@
  *        (VIEW_H_PIN), and scrolls 12 px further. Its top rows do not move.
  */
 #define PIN_Y       230
+/**
+ * @brief The line at @ref PIN_Y while SIG is off the boot pin with KISS on:
+ *        SIG and AUX swapped, so the ESC's signal and KISS wires swap too.
+ *        36 characters, 215 px.
+ */
+#define SETTINGS_SWAP_NOTE "SWAP THE ESC'S SIGNAL AND KISS WIRES"
+static_assert(UI_MARGIN + 6 * (int)(sizeof(SETTINGS_SWAP_NOTE) - 1) - 1 <= 232,
+              "the swap note runs past x 232");
 #define VIEW_H_PIN  188         /**< To y 227, while the ESC pin's warning shows. */
 #define CAP_H       20          /**< A section caption. */
 #define ROW_H       44          /**< A row's controls. */
@@ -75,6 +83,8 @@
 #define DEF_W       72
 #define CAP_LABEL_DY 12         /**< A captioned row's label, from the row's top. */
 #define CAP_TEXT_DY  25         /**< Its caption, from the row's top. */
+#define VAL_SUB_DY   8          /**< A value over a connector line, from the row's top. */
+#define SUB_DY       27         /**< The connector line, from the row's top. */
 /** @} */
 
 static_assert(VIEW_Y0 >= UI_HDR_H, "the list overlaps the header");
@@ -106,6 +116,9 @@ static_assert(6 * (int)(sizeof(DEFAULTS_LINE2) - 1) - 1 + 2 * 4 <= DEF_W,
 static_assert(DEFAULTS_PITCH + 7 + 2 * 4 <= FOOT_H, "the two lines do not fit the button");
 static_assert(CAP_TEXT_DY >= CAP_LABEL_DY + 7 + 4 && CAP_TEXT_DY + 7 <= ROW_H,
               "a row's caption overlaps its label or leaves the row");
+static_assert(SUB_DY >= VAL_SUB_DY + 14 + 4 && SUB_DY + 7 <= ROW_H &&
+              SUB_DY >= (ROW_H - 7) / 2 + 7 + 2,
+              "a connector line overlaps its value or the label's rows, or leaves the row");
 
 /** @brief Backlight adjustment step. 8 levels across the usable range. */
 #define BACKLIGHT_STEP 32
@@ -172,7 +185,8 @@ struct Item {
 	uint8_t                index; /**< The row's number for UI_ROW(); 0 for a caption. */
 };
 
-#define MAX_SECTIONS 12  /**< 2 core sections, up to 7 tool sections, DISPLAY, BOARD and DIAGNOSTICS. */
+/** @brief 3 core sections, up to 6 tools', DISPLAY, BOARD and DIAGNOSTICS. */
+#define MAX_SECTIONS 12
 #define MAX_ITEMS 40     /**< Captions and rows; items past it are not shown. */
 #define MAX_ROWS  24     /**< Rows; rows past it are not shown. */
 static Item    s_items[MAX_ITEMS];
@@ -191,26 +205,39 @@ static uint8_t s_pressRow = 0;
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Step a pin, stepping past the one the other wire is on.
+ * @brief Step one signal pin; a step onto the other's GPIO swaps the two.
  *
- * The ESC and the telemetry wire cannot share a GPIO. On the 2.8" board
- * exactly two pins are free, so whichever one you are not on is the other
- * wire's. The validator's answer to a collision is to switch KISS off, which
- * is right for a stored block nobody chose and wrong for a stepper.
+ * SIG and AUX never share a GPIO (settingsValidate()). On the 2.8" board
+ * exactly two pins are free, so every step of either row swaps SIG and AUX.
+ * Both rows act whatever KISS is: the servo tester drives servo B on AUX
+ * with KISS off.
  *
- * @param from   Current pin.
- * @param dir    +1 or -1.
- * @param avoid  The other wire's pin.
- * @param active Whether the other wire is in use.
- * @return The next legal pin, or @p from when the board offers no other.
+ * @param mine  The stepped pin.
+ * @param other The other signal pin.
+ * @param dir   +1 or -1.
  */
-static uint8_t stepPinAvoiding(uint8_t from, int dir, uint8_t avoid, bool active) {
-	uint8_t p = settingsNextPin(from, dir);
-	if (active && p == avoid) p = settingsNextPin(p, dir);
-	// Two free pins and both spoken for: stay put rather than landing on the
-	// pin this function exists to avoid.
-	if (active && p == avoid) return from;
-	return p;
+static void stepPinSwapping(uint8_t *mine, uint8_t *other, int dir) {
+	uint8_t p = settingsNextPin(*mine, dir);
+	if (p == *mine) return;   // the board offers no other pin
+	if (p == *other) *other = *mine;
+	*mine = p;
+	s_changed = true;
+}
+
+/**
+ * @brief The J5 pin a signal GPIO is brought out on, from the pin map in
+ *        board_rp2350_touch_lcd_2_8.h: J5 pin 1 is GP1, pin 2 is GP0. 0 for
+ *        a GPIO J5 does not carry.
+ */
+static unsigned j5PinOf(uint8_t gpio) {
+	return gpio == 0 ? 2u : gpio == 1 ? 1u : 0u;
+}
+
+/** @brief `J5 PIN n` for @p gpio, or an empty string. */
+static void j5Text(char *b, size_t n, uint8_t gpio) {
+	unsigned j = j5PinOf(gpio);
+	if (j) snprintf(b, n, "J5 PIN %u", j);
+	else   b[0] = '\0';
 }
 
 static void polesValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "%u", settings()->poles); *c = C_TEXT; }
@@ -232,14 +259,9 @@ static void maxStep(int dir) {
 	s_changed = true;
 }
 
-static void pinValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "GP%u", settings()->dshotPin); *c = C_TEXT; }
-static void pinStep(int dir) {
-	Settings *s = settings();
-	uint8_t p = stepPinAvoiding(s->dshotPin, dir, s->kissPin, s->kissEnable != 0);
-	if (p == s->dshotPin) return;
-	s->dshotPin = p;
-	s_changed = true;
-}
+static void sigValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "GP%u", settings()->dshotPin); *c = C_TEXT; }
+static void sigStep(int dir) { stepPinSwapping(&settings()->dshotPin, &settings()->kissPin, dir); }
+static void sigSub(char *b, size_t n) { j5Text(b, n, settings()->dshotPin); }
 
 static void speedValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "%u", settings()->dshotKbaud); *c = C_TEXT; }
 static void speedStep(int dir) {
@@ -252,30 +274,62 @@ static void speedStep(int dir) {
 static void kissValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "%s", settings()->kissEnable ? "ON" : "OFF"); *c = C_TEXT; }
 static bool kissOn() { return settings()->kissEnable != 0; }
 static void kissToggle() {
-	// Turning KISS on moves it off the ESC's pin rather than enabling it
-	// against a collision and letting validation switch it straight back off.
-	Settings *s = settings();
-	if (s->kissEnable) {
-		s->kissEnable = 0;
-	} else {
-		s->kissEnable = 1;
-		if (s->kissPin == s->dshotPin) s->kissPin = settingsNextPin(s->kissPin, +1);
-	}
+	// KISS listens on AUX, which is never SIG's GPIO (settingsValidate()).
+	settings()->kissEnable = settings()->kissEnable ? 0 : 1;
 	s_changed = true;
 }
 
-static void kissPinValue(char *b, size_t n, uint16_t *c) {
-	// With KISS off this row has nothing to set: the value reads "--" and the
-	// buttons are drawn unavailable and do not act. @see #23
-	if (settings()->kissEnable) { snprintf(b, n, "GP%u", settings()->kissPin); *c = C_TEXT; }
-	else                        { snprintf(b, n, "--"); *c = C_DIM; }
+/**
+ * @brief AUX PIN's value, whatever KISS is: KISS listens on it, and the
+ *        servo tester drives servo B on it.
+ */
+static void auxValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "GP%u", settings()->kissPin); *c = C_TEXT; }
+static void auxStep(int dir) { stepPinSwapping(&settings()->kissPin, &settings()->dshotPin, dir); }
+static void auxSub(char *b, size_t n) { j5Text(b, n, settings()->kissPin); }
+
+/**
+ * @brief OWN, GP28 or GP29: the switched supply's enable pin. OWN: the servo
+ *        has its own supply.
+ */
+static void supplyValue(char *b, size_t n, uint16_t *c) {
+	uint8_t pin = servoSupplyPinOf(settings()->servoSupply);
+	if (pin == SERVO_SUPPLY_NO_PIN) snprintf(b, n, "OWN");
+	else                            snprintf(b, n, "GP%u", (unsigned)pin);
+	*c = C_TEXT;
 }
-static void kissPinStep(int dir) {
-	Settings *s = settings();
-	uint8_t p = stepPinAvoiding(s->kissPin, dir, s->dshotPin, true);
-	if (p == s->kissPin) return;
-	s->kissPin = p;
-	s_changed = true;
+/** @brief - and + step OWN, GP28, GP29, and stop at the ends. */
+static void supplyStep(int dir) {
+	int m = (int)settings()->servoSupply + (dir < 0 ? -1 : 1);
+	if (m < 0 || m > (int)SERVO_SUPPLY_MODE_MAX) return;
+	settings()->servoSupply = (uint8_t)m;
+}
+/**
+ * @brief The J4 pin of the enable, from the pin map in
+ *        board_rp2350_touch_lcd_2_8.h: `J4 PIN 11` for GP28, `J4 PIN 12` for
+ *        GP29; none with OWN.
+ */
+static void supplySub(char *b, size_t n) {
+	uint8_t pin = servoSupplyPinOf(settings()->servoSupply);
+	if (pin == 28 || pin == 29) snprintf(b, n, "J4 PIN %u", (unsigned)(pin == 28 ? 11 : 12));
+	else                        b[0] = '\0';
+}
+
+/** @brief NONE or INA219: the current sensor on J3. */
+static void senseValue(char *b, size_t n, uint16_t *c) {
+	snprintf(b, n, "%s", settings()->currentSense ? "INA219" : "NONE");
+	*c = C_TEXT;
+}
+static bool senseOn() { return settings()->currentSense != 0; }
+/** @brief NONE and INA219, in turn. */
+static void senseToggle() {
+	settings()->currentSense = settings()->currentSense ? (uint8_t)SenseMode::None
+	                                                    : (uint8_t)SenseMode::Ina219;
+}
+/** @brief FOUND, NOT FOUND or OTHER PART under the label; none with NONE. */
+static void senseCaptionText(char *b, size_t n, uint16_t *c) {
+	const char *cap = senseCaption();
+	snprintf(b, n, "%s", cap ? cap : "");
+	*c = cap && strcmp(cap, "FOUND") == 0 ? C_LIME : C_AMBER;
 }
 
 static void contrastValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "%s", settings()->highContrast ? "HIGH" : "NORMAL"); *c = C_TEXT; }
@@ -308,18 +362,23 @@ static void boardValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "%s", g_
 static void versionValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "%s", FW_VERSION_STRING); *c = C_GRID; }
 
 static constexpr SettingsRow ROWS_TESTER[] = {
-	{ "MOTOR POLES",  SettingsKind::Stepper, 2, polesValue, nullptr, polesStep, nullptr, nullptr, nullptr },
-	{ "MAX THROTTLE", SettingsKind::Stepper, 4, maxValue,   nullptr, maxStep,   nullptr, nullptr, nullptr },
+	{ "MOTOR POLES",  SettingsKind::Stepper, 2, polesValue, nullptr, polesStep, nullptr, nullptr, nullptr, nullptr },
+	{ "MAX THROTTLE", SettingsKind::Stepper, 4, maxValue,   nullptr, maxStep,   nullptr, nullptr, nullptr, nullptr },
 };
 static constexpr SettingsRow ROWS_WIRING[] = {
-	{ "ESC PIN",      SettingsKind::Stepper, 4, pinValue,     nullptr, pinStep,     nullptr,    nullptr, nullptr },
-	{ "DSHOT KBAUD",  SettingsKind::Stepper, 4, speedValue,   nullptr, speedStep,   nullptr,    nullptr, nullptr },
-	{ "KISS TELEM",   SettingsKind::Toggle,  3, kissValue,    nullptr, nullptr,     kissToggle, kissOn, nullptr },
-	{ "KISS PIN",     SettingsKind::Stepper, 4, kissPinValue, kissOn,  kissPinStep, nullptr,    nullptr, nullptr },
+	{ "SIG PIN",      SettingsKind::Stepper, 4, sigValue,     nullptr, sigStep,     nullptr,    nullptr, nullptr, sigSub },
+	{ "DSHOT",        SettingsKind::Stepper, 4, speedValue,   nullptr, speedStep,   nullptr,    nullptr, nullptr, nullptr },
+	{ "KISS TELEM",   SettingsKind::Toggle,  3, kissValue,    nullptr, nullptr,     kissToggle, kissOn,  nullptr, nullptr },
+	{ "AUX PIN",      SettingsKind::Stepper, 4, auxValue,     nullptr, auxStep,     nullptr,    nullptr, nullptr, auxSub },
+};
+/** @brief SERVO SUPPLY, a core section after WIRING: KST and Hitec use it. */
+static constexpr SettingsRow ROWS_SUPPLY[] = {
+	{ "SERVO SUPPLY",  SettingsKind::Stepper, 4, supplyValue, nullptr, supplyStep, nullptr,     nullptr, nullptr, supplySub },
+	{ "CURRENT SENSE", SettingsKind::Toggle,  6, senseValue,  nullptr, nullptr,    senseToggle, senseOn, senseCaptionText, nullptr },
 };
 static constexpr SettingsRow ROWS_DISPLAY[] = {
-	{ "CONTRAST",     SettingsKind::Toggle,  6, contrastValue,  nullptr, nullptr,       contrastToggle, contrastOn, nullptr },
-	{ "BACKLIGHT",    SettingsKind::Stepper, 3, backlightValue, nullptr, backlightStep, nullptr,        nullptr, nullptr },
+	{ "CONTRAST",     SettingsKind::Toggle,  6, contrastValue,  nullptr, nullptr,       contrastToggle, contrastOn, nullptr, nullptr },
+	{ "BACKLIGHT",    SettingsKind::Stepper, 3, backlightValue, nullptr, backlightStep, nullptr,        nullptr, nullptr, nullptr },
 };
 /** @brief BUILT FOR's widest value: the board's label, characters. */
 #define BUILT_FOR_WIDEST 20
@@ -330,8 +389,8 @@ static_assert(sizeof(BOARD_LABEL) - 1 <= BUILT_FOR_WIDEST,
 static_assert(sizeof(FW_VERSION_STRING) - 1 <= VERSION_WIDEST,
               "the version is wider than VERSION's value column");
 static constexpr SettingsRow ROWS_BOARD[] = {
-	{ "BUILT FOR", SettingsKind::ReadOnly, BUILT_FOR_WIDEST, boardValue,   nullptr, nullptr, nullptr, nullptr, nullptr },
-	{ "VERSION",   SettingsKind::ReadOnly, VERSION_WIDEST,   versionValue, nullptr, nullptr, nullptr, nullptr, nullptr },
+	{ "BUILT FOR", SettingsKind::ReadOnly, BUILT_FOR_WIDEST, boardValue,   nullptr, nullptr, nullptr, nullptr, nullptr, nullptr },
+	{ "VERSION",   SettingsKind::ReadOnly, VERSION_WIDEST,   versionValue, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr },
 };
 
 /**
@@ -350,13 +409,14 @@ static void uptimeValue(char *b, size_t n, uint16_t *c) {
 	*c = C_GRID;
 }
 static constexpr SettingsRow ROWS_DIAG[] = {
-	{ "LAST RESTART", SettingsKind::ReadOnly, DIAG_RESTART_TEXT_WIDEST, restartValue, nullptr, nullptr, nullptr, nullptr, nullptr },
-	{ "UPTIME",       SettingsKind::ReadOnly, DIAG_UPTIME_TEXT_WIDEST,  uptimeValue,  nullptr, nullptr, nullptr, nullptr, nullptr },
+	{ "LAST RESTART", SettingsKind::ReadOnly, DIAG_RESTART_TEXT_WIDEST, restartValue, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr },
+	{ "UPTIME",       SettingsKind::ReadOnly, DIAG_UPTIME_TEXT_WIDEST,  uptimeValue,  nullptr, nullptr, nullptr, nullptr, nullptr, nullptr },
 };
 
 #define COUNT(a) ((uint8_t)(sizeof(a) / sizeof((a)[0])))
 static constexpr SettingsSection SEC_TESTER  = { "ESC TESTER", ROWS_TESTER,  COUNT(ROWS_TESTER) };
 static constexpr SettingsSection SEC_WIRING  = { "WIRING",     ROWS_WIRING,  COUNT(ROWS_WIRING) };
+static constexpr SettingsSection SEC_SUPPLY  = { "SERVO SUPPLY", ROWS_SUPPLY, COUNT(ROWS_SUPPLY) };
 static constexpr SettingsSection SEC_DISPLAY = { "DISPLAY",    ROWS_DISPLAY, COUNT(ROWS_DISPLAY) };
 static constexpr SettingsSection SEC_BOARD   = { "BOARD",      ROWS_BOARD,   COUNT(ROWS_BOARD) };
 static constexpr SettingsSection SEC_DIAG    = { "DIAGNOSTICS", ROWS_DIAG,  COUNT(ROWS_DIAG) };
@@ -391,6 +451,7 @@ static constexpr bool settingsSectionFits(const SettingsSection &s) {
 }
 static_assert(settingsSectionFits(SEC_TESTER), "an ESC TESTER label runs into its value");
 static_assert(settingsSectionFits(SEC_WIRING), "a WIRING label runs into its value");
+static_assert(settingsSectionFits(SEC_SUPPLY), "a SERVO SUPPLY label runs into its value");
 static_assert(settingsSectionFits(SEC_DISPLAY), "a DISPLAY label runs into its value");
 static_assert(settingsSectionFits(SEC_BOARD), "a BOARD label runs into its value");
 static_assert(settingsSectionFits(SEC_DIAG), "a DIAGNOSTICS label runs into its value");
@@ -400,14 +461,16 @@ static_assert(settingsSectionFits(SEC_DIAG), "a DIAGNOSTICS label runs into its 
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Lay the sections out: the core ones, each tool's in registry order,
- *        then DISPLAY, BOARD and DIAGNOSTICS.
+ * @brief Lay the sections out: the core ones, ESC TESTER, WIRING and SERVO
+ *        SUPPLY, each tool's in registry order, then DISPLAY, BOARD and
+ *        DIAGNOSTICS.
  */
 static void buildItems() {
 	const SettingsSection *secs[MAX_SECTIONS];
 	int ns = 0;
 	secs[ns++] = &SEC_TESTER;
 	secs[ns++] = &SEC_WIRING;
+	secs[ns++] = &SEC_SUPPLY;
 	uint8_t n;
 	const UiMenuEntry *e = uiMenuEntries(&n);
 	for (uint8_t i = 0; i < n && ns < MAX_SECTIONS - 3; i++)
@@ -544,7 +607,16 @@ static void drawItem(uint8_t i) {
 	bool en = rowEnabled(r);
 	switch (r.kind) {
 		case SettingsKind::Stepper: {
-			gfxText(VAL_R - gfxTextW(v, 2), y + (ROW_H - 14) / 2, v, col, 2);
+			// With a connector line the value moves up, y+8 to y+21, and the
+			// line sits under it, y+27 to y+33, both ending at VAL_R.
+			if (r.sub) {
+				gfxText(VAL_R - gfxTextW(v, 2), y + VAL_SUB_DY, v, col, 2);
+				char sub[16];
+				r.sub(sub, sizeof(sub));
+				if (sub[0]) gfxText(VAL_R - gfxTextW(sub, 1), y + SUB_DY, sub, C_DIM, 1);
+			} else {
+				gfxText(VAL_R - gfxTextW(v, 2), y + (ROW_H - 14) / 2, v, col, 2);
+			}
 			UiRect m = partRect(it, UiPart::Minus), p = partRect(it, UiPart::Plus);
 			uiButton(m, "-", C_PANEL, C_TEXT, 2, controlPressed(i, clipToView(m)), en);
 			uiButton(p, "+", C_PANEL, C_TEXT, 2, controlPressed(i, clipToView(p)), en);
@@ -585,11 +657,16 @@ static bool resetNoteShown() {
  * from the step that changed it (applyLive()). Against the saved pin the
  * note would end at a save, against the pin at opening at a return to
  * SETTINGS, with DShot still on a pin nothing warned about.
+ *
+ * With KISS on, a step of SIG PIN or AUX PIN swaps the two, so DShot runs on
+ * the wire the ESC's KISS pad was on until the wires are swapped too: the
+ * line says that instead, @ref SETTINGS_SWAP_NOTE.
  */
 static const char *pinNote() {
 	static char buf[40];
 	uint8_t pin = settings()->dshotPin;
 	if (pin == settingsBootDshotPin()) return nullptr;
+	if (settings()->kissEnable) return SETTINGS_SWAP_NOTE;
 	snprintf(buf, sizeof(buf), UI_SPLASH_PIN_FMT, (unsigned)pin);
 	return buf;
 }
@@ -657,7 +734,7 @@ static const char *noteText(uint16_t *col) {
 	}
 	*col = C_DIM;
 	return settingsStored() ? "SAVED SETTINGS IN USE"
-	                        : "COMPILED DEFAULTS IN USE";
+	                        : "NOTHING SAVED: DEFAULTS IN USE";
 }
 
 /** @brief Repaint the live LINK row if its numbers moved. */

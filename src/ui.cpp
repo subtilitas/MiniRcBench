@@ -446,6 +446,26 @@ void uiBoardVoltText(float volts, char *buf, size_t n) {
 	snprintf(buf, n, "%u.%02uV", (unsigned)(cv / 100) % 10u, (unsigned)(cv % 100));
 }
 
+/** @brief The DShot rate's widest text, scale 1 at x 104, y 3. */
+#define STATUS_RATE_WIDEST "DSHOT1200"
+#define STATUS_RATE_Y      3
+static_assert(104 + (6 * (int)(sizeof(STATUS_RATE_WIDEST) - 1) - 1) + 4 <=
+                  240 - 4 - (6 * (int)(sizeof(STATUS_VOLT_WIDEST) - 1) - 1) * 2,
+              "the DShot rate runs into the voltage");
+/**
+ * @brief The top of `IDLE ns`, scale 2, right-aligned to x 236. `IDLE 5s`
+ *        starts at x 154, left of where `DSHOT1200` ends, x 156, so it sits
+ *        below the rate. The rate's rows are y 3 to 9, and y 10 in high
+ *        contrast, whose glyphs are one row taller: IDLE starts at y 11, the
+ *        first row below the rate in either theme, so the two share no
+ *        pixel, and ends inside the status bar, at y 25 in high contrast.
+ */
+#define STATUS_IDLE_Y      11
+static_assert(STATUS_IDLE_Y >= STATUS_RATE_Y + 7 + 1,
+              "IDLE starts on a row of the DShot rate");
+static_assert(STATUS_IDLE_Y + 7 * 2 + 1 <= Z_STATUS_Y1 + 1,
+              "IDLE leaves the status bar");
+
 /**
  * @brief The amber chip behind `SDERR`: the text at x 104, y 14 like the
  *        other log states, 3 px of fill left of it, 2 px right, 2 px above
@@ -525,10 +545,12 @@ static void drawStatusBar() {
 	// nothing is on the wire at any rate. @see EscTelemetry::initError
 	char buf[24];
 	if (pumpErr) {
-		gfxText(104, 3, "DSERR", C_AMBER, 1);
+		gfxText(104, STATUS_RATE_Y, "DSERR", C_AMBER, 1);
 	} else {
-		snprintf(buf, sizeof(buf), "DS%d", kbaud);
-		gfxText(104, 3, buf, escEdtRequested() ? C_TEXT : C_DIM, 1);
+		// The rate as the protocol names it, DSHOT600; DSHOT1200 at its
+		// widest, 9 characters, x 104 to 156.
+		snprintf(buf, sizeof(buf), "DSHOT%d", kbaud);
+		gfxText(104, STATUS_RATE_Y, buf, escEdtRequested() ? C_TEXT : C_DIM, 1);
 	}
 
 	// Recording state, under the DShot rate. Only worth a glance -- the detail
@@ -557,7 +579,7 @@ static void drawStatusBar() {
 		// five seconds this is up it is the more urgent of the two, and there is
 		// not room for both at a legible size.
 		snprintf(buf, sizeof(buf), "IDLE %ds", idleLeft);
-		gfxText(GFX_W - 4 - gfxTextW(buf, 2), 7, buf, C_AMBER, 2);
+		gfxText(GFX_W - 4 - gfxTextW(buf, 2), STATUS_IDLE_Y, buf, C_AMBER, 2);
 	} else {
 		uint16_t vcol = s_boardCell == BoardCell::Critical ? C_RED
 		              : s_boardCell == BoardCell::Low      ? C_AMBER : C_TEXT;

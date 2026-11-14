@@ -27,6 +27,7 @@
 #include "servo_supply.h"
 #include "ui_servo.h"
 #include "ui_kst.h"
+#include "ui_menu.h"
 #include "ui_slider.h"
 #include "ui.h"
 #include "gfx.h"
@@ -1471,13 +1472,19 @@ static bool twoHintShown() {
 static bool twoHintBlank() { return allOf(140, SV_READ_Y + 3, GFX_W - 140, 18, C_BG); }
 
 
-/** @brief Whether MENU row @p id shows a status in C_AMBER: PINS BUSY. */
+/**
+ * @brief Whether MENU row @p id is drawn refused: an outline with the
+ *        background inside, where a live row has the panel fill, and the
+ *        strip reads DSHOT RESTARTING ON SIG GPn in amber.
+ */
 static bool busyShown(UiControlId id) {
 	UiRect r = ctlRect(id);
-	for (int y = r.y; y < r.y + r.h; y++)
-		for (int x = r.x; x < r.x + r.w; x++)
-			if (pixel(x, y) == C_AMBER) return true;
-	return false;
+	char want[40];
+	snprintf(want, sizeof(want), UI_MENU_RESTARTING_FMT, (unsigned)settings()->dshotPin);
+	// On the first line of two while MENU's AM32 run cue stands under it.
+	return pixel(r.x + 5, r.y + 8) == C_BG &&
+	       (fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, want, C_AMBER, C_BG, 1) ||
+	        fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, want, C_AMBER, C_BG, 1));
 }
 
 /** @brief Fresh board: default settings, no ESC, the main screen up. */
@@ -2152,7 +2159,7 @@ static void testAuxRefused() {
 	section("Servo screen: TWO is refused when the claim refuses AUX");
 
 	freshUi();
-	escTaskConfigure(1, 600, false, 1);   // SETTINGS put the ESC pin on the KISS GPIO
+	escTaskConfigure(1, 600, false, 1);   // SIG and AUX on one GPIO, which SETTINGS no longer allows
 	uiFrames(2);
 	openServo();
 	checkTrue("one GPIO for both: the screen claims SIG alone",
@@ -2165,7 +2172,8 @@ static void testAuxRefused() {
 	checkTrue("and does not act", s_profile.servos == 1 && s_edit.servos == 1);
 	const char *l1, *l2; uint16_t col;
 	setNote(&l1, &l2, &col);
-	checkTrue("the note names the cause", l1 && strcmp(l1, "ESC AND KISS PIN ARE THE SAME GPIO.") == 0);
+	checkTrue("the note names the cause", l1 && strcmp(l1, "SIG AND AUX ARE THE SAME GPIO.") == 0);
+	checkTrue("and the rows that set them", l2 && strcmp(l2, "SET SIG PIN OR AUX PIN IN SETTINGS.") == 0);
 	fakeDumpFrame("shot_servo_samepin.ppm");
 	selectRow(3);
 	setNote(&l1, &l2, &col);
@@ -2188,7 +2196,7 @@ static void testAuxRefused() {
 	openSet();
 	selectRow(ROW_SERVOS);
 	setNote(&l1, &l2, &col);
-	checkTrue("the note names the KISS wire", l1 && strcmp(l1, "KISS WIRE ON GP1 IS LIVE.") == 0 &&
+	checkTrue("the note names the KISS wire", l1 && strcmp(l1, "KISS WIRE ON AUX GP1 IS LIVE.") == 0 &&
 	                                          l2 && strcmp(l2, "TWO SERVOS NEED IT UNPLUGGED.") == 0);
 	stepSel(+1, 1, IdExpect::Disabled);
 	checkTrue("SERVOS stays ONE", s_profile.servos == 1);
@@ -2587,7 +2595,7 @@ static void testTravelNote() {
 	s_auxRefusal = ClaimRefusal::SamePin;
 	selectRow(ROW_SERVOS);
 	checkTrue("SERVOS: the cause of the refusal",
-	          noteIs("ESC AND KISS PIN ARE THE SAME GPIO.", "MOVE THE ESC PIN IN SETTINGS.", C_AMBER));
+	          noteIs("SIG AND AUX ARE THE SAME GPIO.", "SET SIG PIN OR AUX PIN IN SETTINGS.", C_AMBER));
 	selectRow(7);
 	checkTrue("SHAPE: TWO SERVOS ARE NOT OFFERED",
 	          noteIs("TWO SERVOS ARE NOT OFFERED: SEE SERVOS", nullptr, C_DIM));
@@ -2828,7 +2836,7 @@ static void testClaimCorners() {
 	section("Servo screen: refusals the UI cannot reach, and TWO before the claim");
 
 	// Another screen holds the pins. MENU refuses SERVO while the claim is
-	// not Free: the row reads PINS BUSY, does not act, and a tap opens
+	// not Free: the row is drawn disabled, does not act, and a tap opens
 	// nothing. Once the claim is Free, the row opens SERVO, which claims at
 	// once.
 	freshUi();
@@ -2836,7 +2844,7 @@ static void testClaimCorners() {
 	tapId(UI_FIX(TesterCtl::Menu));
 	uiFrames(1);
 	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
-	checkTrue("MENU: SERVO reads PINS BUSY", busyShown(menuRow(&UI_SERVO)));
+	checkTrue("MENU: SERVO drawn disabled, the strip DSHOT RESTARTING", busyShown(menuRow(&UI_SERVO)));
 	checkTrue("and its row does not act", !ctlEnabled(menuRow(&UI_SERVO)));
 	tapId(menuRow(&UI_SERVO), IdExpect::Disabled);
 	checkTrue("a tap opens nothing, and SERVO claims nothing",
@@ -3225,13 +3233,14 @@ static void testSupplyLineAndHint() {
 	uiTick();   // SERVO's first frame, at once: the pump is still draining
 	checkTrue("the first frame: the claim is not Running yet",
 	          uiCurrentScreen() == UiScreenId::Servo && pinClaimState() != ClaimState::Running);
-	checkTrue("RELEASING or TAKING GP0: no two-servo hint", twoHintBlank());
+	checkTrue("RELEASING or TAKING SIG GP0: no two-servo hint", twoHintBlank());
 	uiFrames(3);
 	checkTrue("then running on the claim", pinClaimState() == ClaimState::Running);
 	char cap[40];
-	snprintf(cap, sizeof(cap), "GP%u  %u HZ  %u-%u US", 0u, (unsigned)s_profile.rateHz,
+	snprintf(cap, sizeof(cap), "SIG GP%u  %u HZ  %u-%u US", 0u, (unsigned)s_profile.rateHz,
 	         (unsigned)s_profile.minUs, (unsigned)s_profile.maxUs);
-	checkTrue("NONE: the caption alone, centred in the strip at y 44",
+	checkStr("the caption names SIG by role and number", cap, "SIG GP0  50 HZ  1000-2000 US");
+	checkTrue("OWN: the caption alone, centred in the strip at y 44",
 	          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, cap, C_DIM, C_BG, 1));
 	checkTrue("and no second line", allOf(0, UI_STRIP_Y + 11, 190, UI_BODY_Y - UI_STRIP_Y - 11, C_BG));
 	checkTrue("SAFE, one servo: the readout names TWO SERVOS: SET > SERVOS", twoHintShown());
@@ -3295,6 +3304,79 @@ static void testSupplyLineAndHint() {
 	freshUi();
 }
 
+/**
+ * @brief SERVO names SIG by role and number: the caption, the claim's
+ *        messages, and the refusal no UI path reaches.
+ */
+static void testPinNames() {
+	section("Servo screen: SIG by role and number, the role alone where the strip is full");
+
+	freshUi();
+	// The caption, with the strip's widest chip, RUNNING, at x 179.
+	char cap[40];
+	ServoProfile keep = s_profile;
+	s_profile.rateHz = 50; s_profile.minUs = 1000; s_profile.maxUs = 2000;
+	servoCaption(cap, sizeof(cap), false, 0);
+	checkStr("one servo: SIG GP0", cap, "SIG GP0  50 HZ  1000-2000 US");
+	servoCaption(cap, sizeof(cap), true, 0);
+	checkStr("two servos: SIG+AUX", cap, "SIG+AUX  50 HZ  1000-2000 US");
+	s_profile.rateHz = 333;
+	servoCaption(cap, sizeof(cap), false, 0);
+	checkStr("333 HZ, one servo: SIG alone, the number has no room", cap, "SIG  333 HZ  1000-2000 US");
+	servoCaption(cap, sizeof(cap), true, 0);
+	checkStr("333 HZ, two servos: the travel goes", cap, "SIG+AUX  333 HZ");
+	s_profile.minUs = 820; s_profile.maxUs = 2220;
+	servoCaption(cap, sizeof(cap), false, 1);
+	checkStr("820-2220 at 333 HZ on GP1: 28 characters fit", cap, "SIG GP1  333 HZ  820-2220 US");
+	checkTrue("and end 4 px before RUNNING",
+	          UI_MARGIN + gfxTextW(cap, 1) + 4 <= GFX_W - UI_MARGIN - gfxTextW("RUNNING", 1) - 12);
+	s_profile = keep;
+
+	// An ESC answers on SIG: the claim waits, and the dial band says where.
+	EscTelemetry esc;
+	memset(&esc, 0, sizeof(esc));
+	esc.lastRpmMs = millis();
+	fakeSetTelemetry(&esc);
+	openServo();
+	const char *l1, *l2, *l3; uint16_t col; bool retry;
+	claimMessage(&l1, &l2, &l3, &col, &retry);
+	checkTrue("AN ESC ANSWERS ON SIG GP0.", l1 && strcmp(l1, "AN ESC ANSWERS ON SIG GP0.") == 0);
+	// A claim refused for another holder: unreachable through MENU.
+	s_refusal = ClaimRefusal::Busy;
+	claimMessage(&l1, &l2, &l3, &col, &retry);
+	checkTrue("another claim holds: WAIT: DSHOT RESTARTING, amber",
+	          l1 && strcmp(l1, UI_WAIT_RESTART_TEXT) == 0 && col == C_AMBER);
+	tapId(UI_FIX(UI_BACK));
+	noEsc();
+	uiFrames(2);
+	backFromMenu();
+
+	// The first frame of a claim: the pump still drains.
+	freshUi();
+	tapId(UI_FIX(TesterCtl::Menu));
+	uiFrames(1);
+	tapId(menuRow(&UI_SERVO));
+	uiTick();
+	claimMessage(&l1, &l2, &l3, &col, &retry);
+	checkTrue("RELEASING SIG GP0 while the pump drains",
+	          pinClaimState() == ClaimState::Stopping && l1 && strcmp(l1, "RELEASING SIG GP0") == 0);
+	uiFrames(3);
+	leaveServo();
+	backFromMenu();
+
+	// A bind the PWM refuses.
+	freshUi();
+	fakePwmBreakSliceMap(true);
+	openServo();
+	claimMessage(&l1, &l2, &l3, &col, &retry);
+	checkTrue("SIG GP0 COULD NOT BE TAKEN (PWM)",
+	          l1 && strcmp(l1, "SIG GP0 COULD NOT BE TAKEN (PWM)") == 0 && retry);
+	fakePwmBreakSliceMap(false);
+	leaveServo();
+	backFromMenu();
+	freshUi();
+}
+
 void runServoTests() {
 	testProfiles();
 	testValidity();
@@ -3332,5 +3414,6 @@ void runServoTests() {
 	testSenseReadout();
 	testSupplyLineAndHint();
 	testColourRoles();
+	testPinNames();
 	freshUi();
 }

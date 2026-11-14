@@ -12,7 +12,9 @@ Platine.
 Die Platine hat JST-SH-Steckverbinder mit 1,0 mm Raster und keine
 2,54-mm-Stiftleisten, daher braucht jedes Kabel einen Adapter mit
 JST-SH-Stecker. SIG ist GP0 (J5 Pin 2) und AUX ist GP1 (J5 Pin 1) auf einer
-Platine mit leerem Flash; beide lassen sich unter **MENU → SETTINGS** ändern.
+Platine mit leerem Flash; beide lassen sich unter **MENU → SETTINGS → SIG
+PIN** und **AUX PIN** ändern, die den J5-Pin unter dem Wert zeigen. Ein Schritt
+einer der beiden tauscht SIG und AUX, sodass beide nie einen Pin teilen.
 
 | Teil | Was er zeigt | Details |
 |---|---|---|

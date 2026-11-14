@@ -54,9 +54,9 @@ und `WRITE FAILED` bei AM32.
 **Obere Zeile.** Von links nach rechts:
 
 - das Scharf-Feld: `SAFE` (grün) oder `ARMED` (rot);
-- `DS` und die DShot-Bitrate in kbit/s, wie unter SETTINGS eingestellt,
-  gedämpft, und in der Textfarbe, sobald eine EDT-Freigabe (Extended DShot
-  Telemetry) gesendet wurde. `DSERR`
+- `DSHOT` und die DShot-Bitrate in kbit/s, zum Beispiel `DSHOT600`, wie unter
+  SETTINGS → DSHOT eingestellt, gedämpft, und in der Textfarbe, sobald eine
+  EDT-Freigabe (Extended DShot Telemetry) gesendet wurde. `DSERR`
   in Bernstein ersetzt sie, wenn die Anzeige ihren DShot-Ausgang nicht
   einrichten konnte; dann wird nichts an den ESC gesendet;
 - der Aufzeichnungszustand: `REC`, `SD`, `SDERR` oder `NOSD`
@@ -143,9 +143,10 @@ dem Glas liegt, kann als Finger zählen und jedes Tippen blockieren.
 Erreichbar über die Schaltfläche `MENU` des Testers. Das Öffnen **entschärft**,
 setzt das Gas auf 0 und schaltet `HOLD` aus.
 
-Unter dem Titel zeigt eine Leiste den ESC-Pin und die DShot-Rate, zum Beispiel
-`GP0  600 KBIT/S`, sowie das EDT-Feld. Das Feld ist nur eine Anzeige, eckig
-und 12 px hoch:
+Unter dem Titel nennt eine Leiste die beiden Signalpins, SIG für den ESC und
+AUX für das KISS-Kabel oder ein zweites Servo, und die DShot-Rate, zum
+Beispiel `SIG GP0  AUX GP1  DSHOT600`, und zeigt das EDT-Feld. Das Feld ist
+nur eine Anzeige, eckig und 12 px hoch:
 
 | Feld | Wann |
 |---|---|
@@ -179,20 +180,22 @@ Lage.
 | Zeile | Zustand rechts | Ein Tippen |
 |---|---|---|
 | **BEEP THE ESC** | `DISARMED`; 350 ms nach einem Tippen `SENT` oder `REFUSED` | Sendet den DShot-Beacon-Befehl, der Motor piept. Damit erkennst du, welcher ESC angeschlossen ist |
-| **AM32 CONFIG** | der ESC-Pin, `GP0`; `PINS BUSY` | Öffnet den AM32-Editor |
-| **SERVO TESTER** | die beiden Signalpins, `GP0+1`; `PINS BUSY` | Öffnet den Servotester |
-| **KST SERVO** | der ESC-Pin, `GP0`; `PINS BUSY` | Öffnet den KST-Programmierer. Siehe [KST-Programmierung](KST-Programmierung) |
-| **HITEC SERVO** | der ESC-Pin, `GP0`; `PINS BUSY` | Öffnet den Hitec-Programmierer. Siehe [Hitec-Programmierung](Hitec-Programmierung) |
-| **SETTINGS** | `UNSAVED`, solange ein Wert vom Flash abweicht; sonst `UPDATED`, solange ein Zurücksetzen oder eine Übernahme durch ein Update nicht überspeichert ist; sonst nichts. Alles in Bernstein. `PINS BUSY`, solange die Pins noch zurückgegeben werden, und öffnet sich nicht | Öffnet SETTINGS |
+| **AM32 CONFIG** | der ESC-Pin, `GP0` | Öffnet den AM32-Editor |
+| **SERVO TESTER** | die beiden Signalpins, `GP0+1` | Öffnet den Servotester |
+| **KST SERVO** | der ESC-Pin, `GP0` | Öffnet den KST-Programmierer. Siehe [KST-Programmierung](KST-Programmierung) |
+| **HITEC SERVO** | der ESC-Pin, `GP0` | Öffnet den Hitec-Programmierer. Siehe [Hitec-Programmierung](Hitec-Programmierung) |
+| **SETTINGS** | `UNSAVED`, solange ein Wert vom Flash abweicht; sonst `UPDATED`, solange ein Zurücksetzen oder eine Übernahme durch ein Update nicht überspeichert ist; sonst nichts. Alles in Bernstein | Öffnet SETTINGS |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, oder `USB DRIVE`, solange ein Computer die Karte hält | Öffnet den Aufzeichnungs-Bildschirm |
 
-`PINS BUSY` heißt, dass die Signalpins noch belegt sind, zum Beispiel während
-DShot nach dem Servotester, dem KST-Programmierer oder dem Hitec-Programmierer
-neu startet. AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO und SETTINGS
-zeigen es, und ein Tippen auf eine solche Zeile öffnet nichts. Die Zeile zeigt ihre Pins wieder, sobald DShot läuft.
-SD LOG belegt keinen Pin und bleibt bedienbar.
+Solange die Signalpins noch belegt sind, zum Beispiel während DShot nach dem
+Servotester, dem KST-Programmierer oder dem Hitec-Programmierer neu startet,
+zeigt die Leiste `DSHOT RESTARTING ON SIG GP0` in Bernstein. AM32 CONFIG,
+SERVO TESTER, KST SERVO, HITEC SERVO und SETTINGS sind dann als Umriss unter
+ihrem üblichen Zustand gezeichnet, und ein Tippen auf eine solche Zeile
+öffnet nichts. Sie wirken wieder, sobald DShot läuft. SD LOG belegt keinen
+Pin und bleibt bedienbar.
 
-<img src="img/menu-pins-busy.png" width="240" alt="MENU nach oben gezogen, während die Pins zurückgegeben werden: PINS BUSY bei AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO und SETTINGS">
+<img src="img/menu-restarting.png" width="240" alt="MENU nach oben gezogen, während DShot neu startet: DSHOT RESTARTING ON SIG GP0 in der Leiste, AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO und SETTINGS als Umriss">
 
 BEEP funktioniert nur im entschärften Zustand, und das Öffnen von `MENU`
 entschärft, daher ist es von hier aus immer erlaubt. Der Befehl dauert 6 ms
@@ -214,7 +217,7 @@ eines älteren Formats übernommen, Version 2, 3 oder 4: Die Werte, die das
 alte Format kennt, bleiben erhalten, geprüft wie beim Speichern, und die
 neueren, darunter `CURRENT SENSE`, stehen auf ihrer Voreinstellung. Oder es
 fand ein Format, das es nicht kennt, und hat es verworfen: Jeder Wert,
-darunter Polzahl, `MAX THROTTLE`, `ESC PIN`, KISS, `SERVO SUPPLY` und
+darunter Polzahl, `MAX THROTTLE`, `SIG PIN`, KISS, `SERVO SUPPLY` und
 `CURRENT SENSE`, steht auf seiner Voreinstellung. Prüfe sie in SETTINGS und
 halte `HOLD TO SAVE`; ein gelungenes Speichern beendet die Markierung, auch
 ohne Änderung. Siehe
@@ -238,11 +241,11 @@ Liste in Abschnitten, die sich mit dem Finger verschieben lässt.
 |---|---|---|
 | ESC TESTER | **MOTOR POLES** | 2–28, nur gerade Werte. Die Drehzahlanzeige teilt die eRPM durch die Hälfte davon |
 | ESC TESTER | **MAX THROTTLE** | Die Gas-Obergrenze, `5%` bis `100%` in Schritten von 5 % |
-| WIRING | **ESC PIN** | GPIO (General Purpose Input/Output, frei verwendbarer Pin) für das Signalkabel. Angeboten werden nur die zwei freien GPIOs der Platine, GP0 und GP1. Ein Schritt legt DShot sofort auf den neuen Pin; siehe die Hinweiszeile unten |
-| WIRING | **DSHOT KBAUD** | 150 / 300 / 600 / 1200. Herunterstellen, wenn die `LINK`-Fehlerrate steigt |
-| WIRING | **KISS TELEM** | Ob auf dem optionalen dritten Telemetriekabel empfangen wird |
-| WIRING | **KISS PIN** | GPIO für dieses Kabel. Überspringt den ESC-Pin, sodass beide nie zusammenfallen. Zeigt `--` und reagiert nicht, solange KISS TELEM aus ist |
-| SERVO SUPPLY | **SERVO SUPPLY** | `NONE`, `GP28` oder `GP29`: ob ein DC-DC-Wandler (Gleichspannungswandler) für die Versorgung eines zu programmierenden Servos einen Enable-Eingang hat und an welchem Pin: GP28, J4 Pin 11, oder GP29, J4 Pin 12. Standard ist `NONE`. - und + schalten durch die drei Werte. Mit `GP28` oder `GP29` schalten KST SERVO und HITEC SERVO die Versorgung des Servos |
+| WIRING | **SIG PIN** | SIG, der GPIO (General Purpose Input/Output, frei verwendbarer Pin) des Signalkabels zum ESC, mit seinem Steckerpin darunter: `GP0` über `J5 PIN 2`, `GP1` über `J5 PIN 1`. Angeboten werden nur die zwei freien GPIOs der Platine, GP0 und GP1, daher tauscht ein Schritt SIG und AUX. DShot wechselt sofort auf den neuen Pin; siehe die Hinweiszeile unten |
+| WIRING | **DSHOT** | Die DShot-Rate in kbit/s: 150 / 300 / 600 / 1200. Herunterstellen, wenn die `LINK`-Fehlerrate steigt |
+| WIRING | **KISS TELEM** | Ob auf dem optionalen dritten Telemetriekabel empfangen wird, an AUX |
+| WIRING | **AUX PIN** | AUX, der GPIO des KISS-Kabels und des zweiten Servos im Servotester, mit seinem J5-Pin darunter. Wirkt, ob KISS TELEM an oder aus ist. Ein Schritt tauscht SIG und AUX, sodass beide nie auf einem Pin liegen |
+| SERVO SUPPLY | **SERVO SUPPLY** | `OWN`, `GP28` oder `GP29`: `OWN` heißt, das Servo hat eine eigene Versorgung und der Prüfstand schaltet nichts; `GP28` oder `GP29` heißt, ein DC-DC-Wandler (Gleichspannungswandler) für die Versorgung eines zu programmierenden Servos hat seinen Enable-Eingang an diesem Pin, unter dem Wert genannt: `J4 PIN 11` für GP28, `J4 PIN 12` für GP29. Standard ist `OWN`. - und + schalten durch die drei Werte. Mit `GP28` oder `GP29` schalten KST SERVO und HITEC SERVO die Versorgung des Servos |
 | SERVO SUPPLY | **CURRENT SENSE** | `NONE` oder `INA219`: ob ein INA219-Strommessmodul an J3 hängt. Standard ist `NONE`. Ein Tippen wechselt zwischen beiden. Mit `INA219` steht unter dem Namen `FOUND`, `NOT FOUND` oder, für einen anderen Chip an der Adresse des Sensors, `OTHER PART`. Ein INA219, den eine andere Firmware anders konfiguriert hat, zeigt ebenfalls `OTHER PART`: das Modul kurz stromlos machen. Servotester, KST SERVO und HITEC SERVO zeigen dann den Strom der Versorgung |
 | DISPLAY | **CONTRAST** | `NORMAL` oder `HIGH`. Hoher Kontrast ist für Tageslicht |
 | DISPLAY | **BACKLIGHT** | 16–255, in Schritten von 32 |
@@ -270,15 +273,18 @@ Unter der Liste bleiben diese Elemente an ihrem Platz:
   läuft ab dem Schritt auf diesem Pin, und ein dort verbliebenes Servo, etwa
   nach dem Servotester mit zwei Servos, bewegt sich. Die Liste endet dann
   12 px höher, bei y 227, und lässt sich 12 px weiter verschieben; ihre
-  oberen Zeilen bleiben, wo sie sind.
+  oberen Zeilen bleiben, wo sie sind. Mit KISS TELEM an hat der Schritt SIG
+  und AUX getauscht, DShot läuft also auf dem Kabel, an dem das KISS-Pad des
+  ESC hing: Die Zeile zeigt stattdessen
+  `SWAP THE ESC'S SIGNAL AND KISS WIRES`.
 - **LINK**: live, Pakete pro Sekunde und Fehlerrate. Grün heißt, es kommen
   Pakete an, der ESC-Pin stimmt also. Bernstein heißt, mehr als 5 % Fehler.
 - Die Hinweiszeile: ein Text, der erste, der zutrifft, in dieser Reihenfolge:
   1. `SAVE FAILED - FLASH REFUSED THE WRITE` (rot) oder
      `NOT WHILE ARMED - DISARM TO SAVE` (rot), bis zum nächsten Speichern
      oder Verlassen von SETTINGS;
-  2. `ADJUSTED TO THIS BOARD'S LIMITS` oder `KISS OFF: NEEDS A PIN OF ITS OWN`
-     (Bernstein), bis zur nächsten Änderung;
+  2. `ADJUSTED TO THIS BOARD'S LIMITS` (Bernstein), bis zur nächsten
+     Änderung;
   3. `DEFAULTS LOADED - RESTART TO UNDO` (Voreinstellungen geladen, ein
      Neustart macht es rückgängig; Bernstein) nach `HOLD DEFAULTS`, solange ein
      Neustart die gespeicherten Werte zurückbrächte, bis zur nächsten
@@ -290,11 +296,12 @@ Unter der Liste bleiben diese Elemente an ihrem Platz:
   7. `CARRIED OVER BY UPDATE - CHECK, SAVE` (Bernstein), nachdem ein Update
      Einstellungen eines älteren Formats übernommen hat, bis ein Speichern
      gelingt;
-  8. `SAVED SETTINGS IN USE` oder `COMPILED DEFAULTS IN USE`.
+  8. `SAVED SETTINGS IN USE`, oder `NOTHING SAVED: DEFAULTS IN USE`, wenn
+     nichts gespeichert ist.
 
 <img src="img/settings-carried.png" width="240" alt="SETTINGS, nachdem ein Update die gespeicherten Einstellungen übernommen hat: CARRIED OVER BY UPDATE - CHECK, SAVE in der Hinweiszeile">
 
-<img src="img/settings-pin.png" width="240" alt="SETTINGS, nachdem ESC PIN auf GP1 gewechselt hat: UNPLUG ANY SERVO FROM GP1 NOW über LINK, UNSAVED in der Hinweiszeile">
+<img src="img/settings-pin.png" width="240" alt="SETTINGS, nachdem SIG PIN auf GP1 gewechselt hat: UNPLUG ANY SERVO FROM GP1 NOW über LINK, UNSAVED in der Hinweiszeile">
 
 - `HOLD TO SAVE` (150 × 46 px) und `HOLD DEFAULTS` (72 × 46 px), die
   Beschriftung in zwei Zeilen, `HOLD` über `DEFAULTS`, in Bernstein.
@@ -356,9 +363,11 @@ führt zu `MENU` zurück. Siehe [AM32-Konfiguration](AM32-Konfiguration).
 
 <img src="img/servo-safe.png" width="240" alt="Der Servobildschirm in SAFE">
 
-Steuert ein oder zwei Servos mit Servoimpulsen auf dem ESC- und dem KISS-Pin
-an. Er startet in SAFE; `HOLD TO START` 1 s lang gehalten startet die Impulse
-in der Mitte, `STOP` wirkt beim Berühren. In SAFE mit einem Servo zeigt die
+Steuert ein oder zwei Servos mit Servoimpulsen auf SIG und AUX an, dem ESC-
+und dem KISS-Pin. Die Leiste nennt sie, `SIG GP0  50 HZ  1000-2000 US`, oder
+`SIG+AUX  50 HZ  1000-2000 US` mit zwei Servos. Er startet in SAFE;
+`HOLD TO START` 1 s lang gehalten startet die Impulse in der Mitte, `STOP`
+wirkt beim Berühren. In SAFE mit einem Servo zeigt die
 Anzeigezeile `TWO SERVOS:` und `SET > SERVOS`: Dort wird das zweite Servo
 eingeschaltet. Mit SERVO SUPPLY auf `GP28` oder `GP29` zeigt die zweite Zeile
 der Leiste `GP28 SUPPLY STAYS OFF HERE.` in Bernstein: Der Servotester
@@ -376,8 +385,8 @@ Servoversorgung. Siehe [Servotester](Servotester).
 <img src="img/kst-list.png" width="240" alt="Die KST-Feldliste">
 
 Liest und schreibt die Einstellungen eines KST- oder Chaservo-Servos über das
-Signalkabel am ESC-Pin. Der Bildschirm sucht das Servo, während du es
-einschaltest, liest seine 32 Register und listet 27 Felder zum Verstellen.
+Signalkabel an SIG, dem ESC-Pin. Der Bildschirm sucht das Servo, während du
+es einschaltest, liest seine 32 Register und listet 27 Felder zum Verstellen.
 `HOLD TO WRITE` 1 s lang gehalten öffnet die Schreibseite, ein zweites Halten
 von 1 s schreibt, zuvor mit einer Sicherung auf der SD-Karte. `BACK` öffnet
 die Verlassenseite, die dich auffordert, das Servo auszuschalten; `LEAVE`
@@ -392,15 +401,15 @@ Versorgung, `SUPPLY ON 0.08 A`. Siehe [KST-Programmierung](KST-Programmierung).
 <img src="img/hitec-list.png" width="240" alt="Die Hitec-Feldliste">
 
 Liest und schreibt die Einstellungen eines Hitec-Servos der D-Serie oder der
-klassischen Familie über das Signalkabel am ESC-Pin. Der Bildschirm übernimmt
-den Pin beim Öffnen vom ESC-Treiber, in der Familienauswahl: Die Leiste zeigt
-`GP0 IS THE SERVO'S: DSHOT IS OFF.` und
+klassischen Familie über das Signalkabel an SIG, dem ESC-Pin. Der Bildschirm
+übernimmt den Pin beim Öffnen vom ESC-Treiber, in der Familienauswahl: Die
+Leiste zeigt `GP0 IS THE SERVO'S: DSHOT IS OFF.` und
 `CONNECT THE SERVO, CHOOSE ITS FAMILY`. `D SERIES` wirkt, `CLASSIC` wirkt mit
 SERVO SUPPLY auf
-`GP28` oder `GP29`; unter `NONE` ist es abgeblendet, mit
+`GP28` oder `GP29`; unter `OWN` ist es abgeblendet, mit
 `NEEDS THE CONVERTER OF WIRING PART C` und
 `AND SETTINGS > SERVO SUPPLY GP28/29.`: Zuerst kommt der Wandler aus Teil C
-der [Verdrahtung](Verdrahtung), dann die Einstellung. Unter `NONE` steht bei
+der [Verdrahtung](Verdrahtung), dann die Einstellung. Unter `OWN` steht bei
 D SERIES `POWER THE SERVO UP, THEN TAP.`. Der Bildschirm tritt in das
 Servo ein und liest es. Ein Servo der D-Serie
 liefert 21 Register und 20 Parameter, davon 11 verstellbar. An der Leitung

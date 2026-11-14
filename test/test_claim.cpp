@@ -27,6 +27,7 @@
 #include "ui.h"
 #include "ui_widgets.h"
 #include "ui_am32.h"
+#include "ui_menu.h"
 #include "plat.h"
 
 #include "../src/core1_job.cpp"   // NOLINT -- see the note above
@@ -169,13 +170,19 @@ static void frames(int n) {
 #define UI_IDS_FRAMES(n) frames(n)
 #include "ui_ids.h"
 
-/** @brief Whether MENU row @p id shows a status in C_AMBER: PINS BUSY. */
+/**
+ * @brief Whether MENU row @p id is drawn refused: an outline with the
+ *        background inside, where a live row has the panel fill, and the
+ *        strip reads DSHOT RESTARTING ON SIG GPn in amber.
+ */
 static bool busyShown(UiControlId id) {
 	UiRect r = ctlRect(id);
-	for (int y = r.y; y < r.y + r.h; y++)
-		for (int x = r.x; x < r.x + r.w; x++)
-			if (gfxBuffer()[y * GFX_W + x] == C_AMBER) return true;
-	return false;
+	char want[40];
+	snprintf(want, sizeof(want), UI_MENU_RESTARTING_FMT, (unsigned)settings()->dshotPin);
+	// On the first line of two while MENU's AM32 run cue stands under it.
+	return gfxBuffer()[(r.y + 8) * GFX_W + r.x + 5] == C_BG &&
+	       (fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, want, C_AMBER, C_BG, 1) ||
+	        fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, want, C_AMBER, C_BG, 1));
 }
 
 // ---------------------------------------------------------------------------
@@ -1218,13 +1225,13 @@ static void testAm32Screen() {
 	checkTrue("free", pinClaimState() == ClaimState::Free);
 
 	// Another claim holds. MENU refuses AM32 while the claim is not Free:
-	// the row reads PINS BUSY, does not act, and a tap opens nothing. Once
+	// the row is drawn disabled, does not act, and a tap opens nothing. Once
 	// the claim is Free, the row opens AM32, which claims at once.
 	checkTrue("a SERVO claim holds",
 	          pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
 	frames(1);
 	checkControlTable("MENU, the pins busy");
-	checkTrue("MENU: AM32 reads PINS BUSY", busyShown(menuRow(&UI_AM32)));
+	checkTrue("MENU: AM32 drawn disabled, the strip DSHOT RESTARTING", busyShown(menuRow(&UI_AM32)));
 	checkTrue("and its row does not act", !ctlEnabled(menuRow(&UI_AM32)));
 	tapId(menuRow(&UI_AM32), IdExpect::Disabled);
 	checkTrue("a tap on it opens nothing", uiCurrentScreen() == UiScreenId::Menu);

@@ -1,18 +1,21 @@
 # Menu structure B
 
-Status: slices 1, 2 and 4 built, host tests only; slices 3 and 5 to 10 not
-built. The owner answered the note's eight open questions on 2026-11-14
-([decisions 23 to 30](#decisions)), and the question that followed from them
-(decision 33). Slices 3 and 5 to 10 wait on being built. By the owner's
-order of work of 2026-11-14 they follow the eight small decisions of
-STATUS.md items 20, 21 and 24. Three of the owner's decisions of 2026-11-14
-change this design, and the sections they touch are marked "to be
-redesigned": each slice updates its own README.md and wiki lines and images
-(decision 27, against this note's recommendation), so the [slice
-table](#slices) is reworked and slice 10 shrinks; HITEC SERVO takes SIG when
-it opens (decision 31), which changes decision 19; and MENU gains a seventh
-row, RX SIGNALS (decision 32), so MENU scrolls 36 px, which revises owner
-decision 1's six rows that never scroll (decision 33).
+Status: slices 1 to 4 built, host tests only; slices 5 to 10 not built.
+Slice 2 is the colour roles of decisions 8 and 11 ([slice 2 as
+built](#slice-2-as-built)); slice 3 is the names and SETTINGS of decisions 9,
+10 and 15 b, e, f, h, j, k, with its README.md and wiki lines and images
+([slice 3 as built](#slice-3-as-built)). The owner answered the note's eight
+open questions on 2026-11-14 ([decisions 23 to 30](#decisions)), and the
+question that followed from them (decision 33). Slices 5 to 10 wait on being
+built. By the owner's order of work of 2026-11-14 they follow the eight
+small decisions of STATUS.md items 20, 21 and 24. Three of the owner's
+decisions of 2026-11-14 change this design, and the sections they touch are
+marked "to be redesigned": each slice updates its own README.md and wiki
+lines and images (decision 27, against this note's recommendation), so the
+[slice table](#slices) is reworked and slice 10 shrinks; HITEC SERVO takes
+SIG when it opens (decision 31), which changes decision 19; and MENU gains a
+seventh row, RX SIGNALS (decision 32), so MENU scrolls 36 px, which revises
+owner decision 1's six rows that never scroll (decision 33).
 
 The owner decided on 2026-11-13 to build structure B ([decisions 1 to
 4](#decisions)). Decisions 5 to 15 are the rules this note sets for the
@@ -1077,7 +1080,7 @@ decisions 31 to 33.
 |---|---|---|---|---|---|---|
 | 1. Widgets, built | `UiBackGuard`, `uiStripTwoLines()`, `uiListDrawField()`, `ui_leave`, layout constants, role names; nothing drawn differently. The `uiHeader()` flag is on `main` | | 9 in `src/`, 2 new | +500, −20 | 2 / 430 lines in test_widgets.cpp and test_servo.cpp | built |
 | 2. Colour roles, built | decisions 8 and 11: the role table on every screen, square chips, PROG MODE | 1 | 10 | 150 changed | 15 / 40 | built |
-| 3. Names and SETTINGS | decisions 9, 10, 15 b, e, f, h, j, k: SERVO SUPPLY section, SIG and AUX, connector lines, OWN, DSHOT600, MENU statuses and busy strip, KST labels | 1 | 11 | +200, −80 | 110 / 60 | 2 days |
+| 3. Names and SETTINGS, built | decisions 9, 10, 15 b, e, f, h, j, k: SERVO SUPPLY section, SIG and AUX, connector lines, OWN, DSHOT600, MENU statuses and busy strip, KST labels; with its README.md and wiki lines and images (decision 27) | 1 | 11 | +200, −80 | 110 / 60 | built |
 | 4. Layout table, built | decision 14 | 1 | 11 in `src/` | +146, −79 | 63 / 236 lines in 7 test files | built |
 | 5. Write rule and guard | decisions 6, 7, 13 (AM32 HEX and WRITE titles): `WRITE...`, `RESTORE...`, AM32 write page and result, editor old value, guard on AM32 and SERVO SET, BACK disabled while writing, the leave queue gone | 1, 2, 4 | 7 | +300, −120 | 110 / 120 | 2 to 3 days |
 | 6. Leave page | decision 5 and owner decision 3: KST, Hitec and SERVO TESTER on `ui_leave`; STAY, NEXT SERVO, BACK TO SERVO; RESTART DSHOT's wait | 1, 5 | 6 | +180, −300 | 90 and three helpers / 80 | 2 to 3 days |
@@ -1199,6 +1202,13 @@ Readings of the decisions where the code asked for a choice:
   as for the value below it. A note shows only for a value that decodes:
   the rules compare decoded values and the ID note needs one, so the flag
   is false there and the line is never amber.
+- **Slice 3's rows and texts.** Merged after slice 3, the roles cover its
+  names: SIG PIN, AUX PIN and SERVO SUPPLY values in `C_TEXT`, as the ESC
+  PIN and KISS PIN values they replace; their J5 and J4 lines `C_DIM`
+  captions; the tester's `DSHOT600` dim and `C_TEXT` once EDT is requested,
+  as `DS600` was; MENU's `DSHOT RESTARTING ON SIG GP0`, `WAIT: DSHOT
+  RESTARTING` and SETTINGS' `SWAP THE ESC'S SIGNAL AND KISS WIRES` amber,
+  text to read before the next action.
 - **AM32 values.** AM32 rows are Plain or Changed; `? (2)` and the other
   values the table cannot name stay Plain, as on `main`.
 - **Hitec's strip beside PROG MODE.** Slice 4's strip, model, backup, pin
@@ -1227,11 +1237,11 @@ Points for the owner, left as they are by slice 2:
   LOG's `READY` (`ui_sdlog.cpp`, the state row and MENU's status), `MOUNT`
   with `0 OK`, SD LOG's `USB DRIVE` headline and MENU's `USB DRIVE` status
   while a host holds the card, and SETTINGS' `FOUND` under CURRENT SENSE
-  (`senseCaptionText()` in `ui_kst.cpp`). Failures outside "a write in
-  doubt" are amber or `C_TEXT`, not red: AM32's `WRITE FAILED: ...`,
-  `VERIFY READ: ...` and `DIFF ...` results (`C_TEXT`), KST's and Hitec's
-  results of the amber tone, SD LOG's `CARD ERROR`, the tester's `SDERR`
-  and `DSERR` (amber).
+  (`senseCaptionText()`, in `ui_settings.cpp` since slice 3). Failures
+  outside "a write in doubt" are amber or `C_TEXT`, not red: AM32's
+  `WRITE FAILED: ...`, `VERIFY READ: ...` and `DIFF ...` results
+  (`C_TEXT`), KST's and Hitec's results of the amber tone, SD LOG's
+  `CARD ERROR`, the tester's `SDERR` and `DSERR` (amber).
 - **"Or saved".** The role table gives `C_CYAN` to a value "not yet
   written, applied or saved", and the "becomes" table draws SETTINGS'
   values, the only values that wait for a save, in `C_TEXT`. No screen
@@ -1254,6 +1264,26 @@ Points for the owner, left as they are by slice 2:
 a fill shows no radius: a mutation of `uiChip()` to `gfxRoundRect()` with a
 4 px radius leaves the chip's corner pixels filled and passes
 `test/test_widgets.cpp`. Not changed in this slice.
+
+## Slice 3 as built
+
+Decisions 9, 10 and 15 b, e, f, h, j, k on the screens, with host tests in
+`test/test_ui.cpp`, `test/test_menu.cpp`, `test/test_settings.cpp`,
+`test/test_servo.cpp`, `test/test_kst_ui.cpp`, `test/test_hitec_ui.cpp` and
+`test/test_kst_view.cpp`. The stored block is unchanged. Where the build
+reads the decisions' lines, it reads them as follows:
+
+| Point | As built | Why |
+|---|---|---|
+| MENU's tool rows | keep their pin status, `GP0`, `GP0+1`, drawn disabled under it while the claim is not Free | decision 18, which drops them, is slice 9's; decision 10 names only `drawMenu()` for MENU |
+| The restarting caption | `DSHOT RESTARTING ON SIG GP0` in amber, `UI_COL_WARN`, for every state but Free | the note gives no colour; the busy status it replaces was amber |
+| SERVO SUPPLY at OWN | the value at y+8, as under GP28 and GP29, with no line under it | the value does not jump while the row steps |
+| `settingsValidate()` | AUX on SIG's GPIO moves to the next free pin after SIG, KISS kept; an AUX pin the board does not free takes the default and switches KISS off, as before | decision 10 governs the collision only |
+| SIG by role and number | in the functions decision 10's Code line names, SERVO TESTER's caption (this note's SERVO TESTER section), AM32's handover status (`RELEASING SIG GP0`, the text `drawConnect()` shows) and HITEC SERVO's family view, `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` and `RELEASING SIG GP0 FROM DSHOT` | the decision's rule; the rest keeps a bare `GP0` until its slice: the KST and Hitec list strips, `GP0 IS THE SERVO'S: DSHOT IS OFF.`, the unplug pages' `DSHOT RESTARTS ON GP0`, `PULSES ON GP0 ARE THROTTLE TO AN ESC.` (41 characters with SIG) and the splash's `UNPLUG ANY SERVO FROM GP0 NOW`, for slices 6 and 9 |
+| SERVO TESTER's caption | the role alone, `SIG  333 HZ  1000-2000 US`, where `SIG GP0` would end within 4 px of the widest chip, RUNNING at x 179; with two servos the travel goes, `SIG+AUX  333 HZ` | the decision's "role alone where a strip has no room", then decision 14's rule for a strip too long |
+| The same-pin refusal's second line | `SET SIG PIN OR AUX PIN IN SETTINGS.` | the decision gives the first line only |
+| The tester's `IDLE ns` | from y 11, not y 7 | `IDLE 5s` starts at x 154, left of where `DSHOT1200` ends, x 156; at y 7 the two shared pixels. y 11 is the first row under the rate in both themes |
+| SETTINGS' line over LINK with KISS on | `SWAP THE ESC'S SIGNAL AND KISS WIRES` while SIG is off the boot pin, in place of the servo warning | a step of either pin row swaps SIG and AUX, so DShot drives the wire the ESC's KISS pad was on until the wires are swapped |
 
 ## Slice 4 as built
 

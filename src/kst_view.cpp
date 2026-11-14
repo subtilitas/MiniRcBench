@@ -13,7 +13,12 @@
 // rows
 // ---------------------------------------------------------------------------
 
-/** @brief rcbench's pages, then the read-only fields. */
+/**
+ * @brief rcbench's pages, then the read-only fields. Four labels use the
+ *        words of the warnings below, FAILSAFE and REVERSED, where the field
+ *        names do not: REVERSED, FAILSAFE MOVE, FAILSAFE POSITION and
+ *        FAILSAFE TIME, at most 17 characters, 101 px.
+ */
 static const KstRow ROWS[] = {
 	{ "TUNE",     "MAX. DUTY",          KST_F_DUTY },
 	{ "TUNE",     "BOOST",              KST_F_BOOST },
@@ -25,12 +30,12 @@ static const KstRow ROWS[] = {
 	{ "PULSE",    "PULSE LOWER",        KST_F_PULSE_LOWER },
 	{ "PULSE",    "PULSE UPPER",        KST_F_PULSE_UPPER },
 	{ "PULSE",    "NEUTRAL",            KST_F_NEUTRAL },
-	{ "PULSE",    "REVERSION",          KST_F_REVERSION },
+	{ "PULSE",    "REVERSED",           KST_F_REVERSION },
 	{ "PULSE",    "LEFT ANGLE",         KST_F_LEFT_ANGLE },
 	{ "PULSE",    "RIGHT ANGLE",        KST_F_RIGHT_ANGLE },
-	{ "FAILSAFE", "ALLOW UNCONT",       KST_F_ALLOW_UNCONT },
-	{ "FAILSAFE", "UNCONTROLLED POS",   KST_F_UNCONT_POS },
-	{ "FAILSAFE", "UNCONTROLLED TIME",  KST_F_UNCONT_TIME },
+	{ "FAILSAFE", "FAILSAFE MOVE",      KST_F_ALLOW_UNCONT },
+	{ "FAILSAFE", "FAILSAFE POSITION",  KST_F_UNCONT_POS },
+	{ "FAILSAFE", "FAILSAFE TIME",      KST_F_UNCONT_TIME },
 	{ "LOCKED",   "20K SEL",            KST_F_20K_SEL },
 	{ "LOCKED",   "LOCK",               KST_F_LOCK },
 	{ "LOCKED",   "PROT1 CANCLE",       KST_F_PROT1_CANCLE },

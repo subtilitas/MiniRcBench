@@ -30,10 +30,10 @@ The servo needs its own supply. The board supplies the signal and ground only.
      -  ----------------+-----------------------------  servo -   (brown or black)
                         |
   board GND  -----------+
-  board GP0  ------------------------------------------  servo A signal (orange or white)
-  board GP1  ------------------------------------------  servo B signal, two servos only
+  board SIG  ------------------------------------------  servo A signal (orange or white)
+  board AUX  ------------------------------------------  servo B signal, two servos only
 
-  GP0 = J4 pin 9 or J5 pin 2, GP1 = J4 pin 10 or J5 pin 1,
+  SIG GP0 = J4 pin 9 or J5 pin 2, AUX GP1 = J4 pin 10 or J5 pin 1,
   GND = J4 pin 1 or 5, or J5 pin 4
 ```
 
@@ -46,9 +46,11 @@ The servo needs its own supply. The board supplies the signal and ground only.
 - Switch the board on before the servo supply, and the servo supply off
   before the board.
 - Join the two grounds once, at the board.
-- Servo A is on the ESC pin and servo B on the KISS pin, as set under
-  **MENU → SETTINGS**. GP0 and GP1 are the defaults.
-- Unplug any ESC from the ESC pin. The screen waits while an ESC answers on
+- Servo A is on SIG, the ESC pin, and servo B on AUX, the KISS pin, as set
+  under **MENU → SETTINGS → SIG PIN** and **AUX PIN**, which show the J5 pin
+  under the value. GP0 and GP1 are the defaults. AUX PIN acts whether KISS is
+  on or off, and a step of either row swaps the two.
+- Unplug any ESC from SIG. The screen waits while an ESC answers on
   it, but it cannot see every ESC.
 
 ---
@@ -58,7 +60,7 @@ The servo needs its own supply. The board supplies the signal and ground only.
 Open **MENU → SERVO TESTER**.
 
 The screen takes the two signal pins from the ESC driver. If an ESC answers on
-the ESC pin, it waits and says `AN ESC ANSWERS ON GP0.` Unplug the ESC; the
+SIG, it waits and says `AN ESC ANSWERS ON SIG GP0.` Unplug the ESC; the
 screen takes the pins by itself 500 ms later. Servo pulses of 1000 µs to
 2000 µs are a valid throttle signal for many ESCs.
 
@@ -70,13 +72,16 @@ its own failsafe position.
 
 <img src="img/servo-safe.png" width="240" alt="The servo screen, SAFE">
 
-The line under the title shows the pin, the frame rate and the pulse range,
-and a chip: `SAFE` (green), `RUNNING` (red) or `STALLED` (magenta).
+The line under the title shows the pin by role and number, the frame rate
+and the pulse range, `SIG GP0  50 HZ  1000-2000 US`, or
+`SIG+AUX  50 HZ  1000-2000 US` with two servos, and a chip: `SAFE` (green),
+`RUNNING` (red) or `STALLED` (magenta). At 333 Hz with a MIN of 1000 µs or
+more the line has no room for the number and reads
+`SIG  333 HZ  1000-2000 US`, or `SIG+AUX  333 HZ` with two servos.
 
 While SAFE with one servo, the right of the readout row reads `TWO SERVOS:`
 and `SET > SERVOS`: the SERVOS row of the SET screen switches servo B on (see
-[Two servos](#two-servos)). The hint is not shown while the KISS pin is
-refused.
+[Two servos](#two-servos)). The hint is not shown while AUX is refused.
 
 With **SERVO SUPPLY** at `GP28` or `GP29` under SETTINGS, a second line under
 the title reads `GP28 SUPPLY STAYS OFF HERE.` in amber. The servo tester never
@@ -136,7 +141,7 @@ restarts until you hold `HOLD TO START` again.
 
 ## Two servos
 
-Set `SERVOS` to `TWO` on the SET screen. Servo B is on the KISS pin. Both
+Set `SERVOS` to `TWO` on the SET screen. Servo B is on AUX. Both
 share one profile and one frame rate.
 
 <img src="img/servo-two.png" width="240" alt="Two servos">
@@ -147,12 +152,13 @@ letter are lime, servo B's blue, and `B` fills blue while it is chosen. With
 `REVERSE B` on, B
 moves the opposite way when both follow, for a pair mounted face to face.
 
-Two servos need the KISS pin free. If KISS frames arrive on it, or the ESC pin
-and the KISS pin are the same pin under SETTINGS, the screen offers one servo
-only, and the SET screen says why. While the screen waits for the pins, for
-example while an ESC answers, it cannot know whether the KISS pin is free,
-and `TWO` can be chosen. If the screen then finds the KISS pin taken, it takes
-the ESC pin alone and goes back to one servo, and `TWO` stays off until you
+Two servos need AUX free. If KISS frames arrive on it, the screen offers one
+servo only, and the SET screen says why: `KISS WIRE ON AUX GP1 IS LIVE.`
+SETTINGS never puts SIG and AUX on one pin; pins set that way some other
+route read `SIG AND AUX ARE THE SAME GPIO.` While the screen waits for the
+pins, for example while an ESC answers, it cannot know whether AUX is free,
+and `TWO` can be chosen. If the screen then finds AUX taken, it takes SIG
+alone and goes back to one servo, and `TWO` stays off until you
 open the screen again. This holds for a `TWO` still waiting for
 `HOLD TO APPLY` too: it goes back to one servo, and a wait that held only for
 `TWO` ends.
@@ -255,8 +261,8 @@ starts at STANDARD PWM, 50 Hz, one servo.
 
 `BACK` ends the pulses and asks you to unplug the servo. The last pulse
 completes first, which takes up to 41 ms at 50 Hz. A weak pull-down then
-holds the ESC pin low until DShot runs again. With two servos it also holds
-the KISS pin low until the KISS receiver takes it, or for good with KISS off.
+holds SIG low until DShot runs again. With two servos it also holds AUX low
+until the KISS receiver takes it, or for good with KISS off.
 
 <img src="img/servo-unplug.png" width="240" alt="UNPLUG THE SERVO">
 
@@ -270,14 +276,15 @@ with a grey label: it acts from the moment `UNPLUG THE SERVO.` shows.
 
 ## When it does not work
 
-- **`AN ESC ANSWERS ON GP0.`** An ESC is on the ESC pin. Unplug it.
-- **`GP0 COULD NOT BE TAKEN (PWM)`.** The board could not set up its pulse
-  output. Tap `RETRY`.
+- **`AN ESC ANSWERS ON SIG GP0.`** An ESC is on SIG, the ESC pin. Unplug it.
+- **`SIG GP0 COULD NOT BE TAKEN (PWM)`.** The board could not set up its
+  pulse output. Tap `RETRY`.
 
-  <img src="img/servo-bind.png" width="240" alt="GP0 COULD NOT BE TAKEN (PWM), with RETRY">
+  <img src="img/servo-bind.png" width="240" alt="SIG GP0 COULD NOT BE TAKEN (PWM), with RETRY">
 
-- **`TWO` cannot be chosen.** The KISS wire is live, or both pins are the same
-  pin under SETTINGS. The SET screen names the cause when `SERVOS` is selected.
+- **`TWO` cannot be chosen.** The KISS wire on AUX is live, or both pins were
+  set to one pin some other way than SETTINGS. The SET screen names the cause
+  when `SERVOS` is selected.
 - **The servo does not move.** Check that the chip reads `RUNNING`, that the
   servo has its own supply, and that its ground is joined to the board's.
   With `GP28 SUPPLY STAYS OFF HERE.` under the title, the switched converter

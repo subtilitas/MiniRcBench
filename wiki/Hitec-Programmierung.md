@@ -23,7 +23,7 @@ SD-Karte (Secure Digital).
 > **Die klassische Familie braucht die geschaltete Servoversorgung.**
 > `CLASSIC` (HS-5xxx, HS-7xxx) braucht den DC-DC-Wandler
 > (Gleichspannungswandler) aus Teil C der [Verdrahtung](Verdrahtung) und
-> SERVO SUPPLY auf `GP28` oder `GP29`. Unter `NONE` lässt sich nur die
+> SERVO SUPPLY auf `GP28` oder `GP29`. Unter `OWN` lässt sich nur die
 > D-Serie öffnen. Siehe [Klassische Servos](#klassische-servos).
 
 > **Zieh das Servo ab, bevor DShot läuft.** Außerhalb dieses Bildschirms liegt
@@ -77,8 +77,8 @@ GND ist die Masse der Platine.
   Serial Bus).
 - Schalte zuerst die Platine ein und dann die Servoversorgung, und beim
   Ausschalten zuerst die Servoversorgung.
-- SIG ist der ESC-Pin, so wie unter **MENU → SETTINGS** eingestellt.
-  Voreingestellt ist GP0.
+- SIG ist der ESC-Pin, so wie unter **MENU → SETTINGS → SIG PIN**
+  eingestellt, mit seinem J5-Pin unter dem Wert. Voreingestellt ist GP0.
 - Die Läufe von rcbench nutzten eine Servoversorgung von 5,0 V. Andere
   Versorgungen sind nicht getestet, und auf dieser Platine ist nichts
   gelaufen.
@@ -102,21 +102,21 @@ gewählt ist: DShot sendet nach dem letzten Gas-Frame mindestens 250 ms lang
 Gas null, hält an und lässt den Pin als Eingang, den sein Pull-up high hält.
 Kein DShot-Frame erreicht ein Servo, das du in dieser Ansicht anschließt.
 
-<img src="img/hitec-family.png" width="240" alt="Die Familienauswahl mit SERVO SUPPLY auf NONE: GP0 IS THE SERVO'S: DSHOT IS OFF. in Grün, CLASSIC abgeblendet mit NEEDS THE CONVERTER OF WIRING PART C, D SERIES mit POWER THE SERVO UP, THEN TAP.">
+<img src="img/hitec-family.png" width="240" alt="Die Familienauswahl mit SERVO SUPPLY auf OWN: GP0 IS THE SERVO'S: DSHOT IS OFF. in Grün, CLASSIC abgeblendet mit NEEDS THE CONVERTER OF WIRING PART C, D SERIES mit POWER THE SERVO UP, THEN TAP.">
 
-Die Leiste zeigt `RELEASING GP0 FROM DSHOT`, solange der Treiber anhält,
+Die Leiste zeigt `RELEASING SIG GP0 FROM DSHOT`, solange der Treiber anhält,
 dann `GP0 IS THE SERVO'S: DSHOT IS OFF.` in Grün über
 `CONNECT THE SERVO, CHOOSE ITS FAMILY`. Ab dann wirken die zwei
 Schaltflächen:
 
 - `CLASSIC`, darunter `HS-5XXX, HS-7XXX`. Es wirkt, solange SERVO SUPPLY
-  auf `GP28` oder `GP29` steht. Steht SERVO SUPPLY auf `NONE`, ist es
+  auf `GP28` oder `GP29` steht. Steht SERVO SUPPLY auf `OWN`, ist es
   abgeblendet gezeichnet, und zwei bernsteinfarbene Zeilen nennen den Grund,
   zuerst die Hardware: `NEEDS THE CONVERTER OF WIRING PART C` und
   `AND SETTINGS > SERVO SUPPLY GP28/29.`
 - `D SERIES`, darunter `D485HW, D645MW AND THE OTHERS` und
   `SUPPLY SWITCHED ON GP28` (oder `GP29`, je nach Einstellung) oder, unter
-  `NONE`, `POWER THE SERVO UP, THEN TAP.`: An seiner eigenen
+  `OWN`, `POWER THE SERVO UP, THEN TAP.`: An seiner eigenen
   Versorgung muss das Servo laufen, wenn der Bildschirm eintritt, denn der
   Eintritt liest sofort sein Modell.
 
@@ -130,10 +130,10 @@ wie `LEAVE`: DShot startet erst nach `UNPLUG THE SERVO.` und
 zurück. Solange der Treiber noch anhält oder der Bildschirm den Pin nicht
 übernommen hat, führt `BACK` zu `MENU` zurück.
 
-<img src="img/hitec-family-esc.png" width="240" alt="Die Familienauswahl, während ein ESC auf GP0 antwortet: AN ESC ANSWERS ON GP0: UNPLUG IT. und DSHOT STAYS ON THE PIN UNTIL THEN. in Bernstein, beide Familien abgeblendet.">
+<img src="img/hitec-family-esc.png" width="240" alt="Die Familienauswahl, während ein ESC auf GP0 antwortet: AN ESC ANSWERS ON SIG GP0: UNPLUG IT. und DSHOT STAYS ON THE PIN UNTIL THEN. in Bernstein, beide Familien abgeblendet.">
 
 - Antwortet ein ESC auf dem Pin, zeigt die Leiste in Bernstein
-  `AN ESC ANSWERS ON GP0: UNPLUG IT.` und
+  `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` und
   `DSHOT STAYS ON THE PIN UNTIL THEN.`, und beide Familien sind abgeblendet
   gezeichnet. Der Bildschirm übernimmt den Pin, sobald der ESC 500 ms lang
   still ist. Die Prüfung läuft nur, bevor der Pin übernommen ist: Ein ESC,
@@ -160,13 +160,13 @@ zeigt die Leiste der nächsten Ansicht `TAKING GP0`.
 Hält der Job die Leitung, beginnt der Eintritt sofort. Die Überschrift des
 Inhalts, der laufende Schritt, ist bernsteinfarben.
 
-- **Mit SERVO SUPPLY auf `NONE`** liest der Bildschirm das Servo an der
+- **Mit SERVO SUPPLY auf `OWN`** liest der Bildschirm das Servo an der
   Versorgung, die es hat. Schalte das Servo ein, bevor du auf `D SERIES`
   tippst. Der Inhalt zeigt `READING THE MODEL`.
 - **Mit SERVO SUPPLY auf `GP28` oder `GP29`** schaltet der Bildschirm die Versorgung
   2,0 s lang aus und wieder ein. Die Leiste zählt die Aus-Zeit,
-  `GP0  SUPPLY OFF 1.4 S`, und der Inhalt zeigt `SUPPLY OFF`. Dann zeigt
-  die Leiste `GP0  SUPPLY ON` und der Inhalt `SERVO STARTING`, während das
+  `SIG GP0  SUPPLY OFF 1.4 S`, und der Inhalt zeigt `SUPPLY OFF`. Dann zeigt
+  die Leiste `SIG GP0  SUPPLY ON` und der Inhalt `SERVO STARTING`, während das
   Servo startet, etwa 1 s. Für diese Sekunde zeigt der Bildschirm keinen
   Zähler. Unter dem Text stehen zwei bernsteinfarbene Zeilen:
   `AN ESC ON THIS LEAD GETS THE` und `CONVERTER'S OUTPUT ON ITS BEC WIRE.`
@@ -183,7 +183,7 @@ bernsteinfarbene Zeile nennt die letzte Antwort, zum Beispiel
 `HEADER`, `ADDRESS`, `SUM`, `CUT`, `OVERFLOW` und `ARG`; `NONE` heißt: kein
 Antwortcode.
 
-Antwortet das Servo, zeigt die Leiste `GP0  IN SERIAL MODE`, und der Inhalt
+Antwortet das Servo, zeigt die Leiste `SIG GP0  IN SERIAL MODE`, und der Inhalt
 zählt das Lesen: `READING 21 REGISTERS`, `7 OF 21`. Dieses erste vollständige
 Lesen ist die Sicherung der Sitzung. Ein fehlgeschlagenes Lesen zeigt zum
 Beispiel `READ FAILED AT 0x32` mit dem Antwortwort darunter und bietet
@@ -526,14 +526,14 @@ Lesens öffnet sie ebenfalls.
 
 Die Leiste nennt das Modell, den Pin und, mit `GP28` oder `GP29`, `SUPPLY ON` oder
 `SUPPLY OFF`. Die Seite zeigt mit `GP28` oder `GP29` `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.`,
-mit `NONE` `LEAVE RESTARTS THE SERVO.` Mit vorgemerkten Änderungen kommt
+mit `OWN` `LEAVE RESTARTS THE SERVO.` Mit vorgemerkten Änderungen kommt
 `2 CHANGES NOT WRITTEN.` hinzu, nach einem fehlgeschlagenen Schreiben
 `A WRITE DID NOT END VERIFIED.` in Bernstein.
 
 | Schaltfläche | Was sie tut |
 |---|---|
 | `READ AGAIN` | Liest das Servo erneut und führt zur Feldliste zurück. Vorgemerkte Änderungen bleiben |
-| `LEAVE` | Beendet die Sitzung: Mit `GP28` oder `GP29` schaltet es die Versorgung aus, mit `NONE` startet es das Servo mit seinen gespeicherten Werten neu |
+| `LEAVE` | Beendet die Sitzung: Mit `GP28` oder `GP29` schaltet es die Versorgung aus, mit `OWN` startet es das Servo mit seinen gespeicherten Werten neu |
 | `BACK` | Führt zur Feldliste zurück |
 
 Nach `LEAVE` mit `GP28` oder `GP29` zeigt die nächste Seite
@@ -557,9 +557,10 @@ und zeigt die Abziehseite.
 
 ## Wenn es nicht funktioniert
 
-- **`AN ESC ANSWERS ON GP0.`** Ein ESC hängt am ESC-Pin. Zieh ihn ab.
+- **`AN ESC ANSWERS ON SIG GP0: UNPLUG IT.`** Ein ESC hängt an SIG, dem
+  ESC-Pin. Zieh ihn ab.
 - **`NO SERVO ANSWERS` mit `REPLY: SILENT`.** Nichts hat geantwortet. Prüfe
-  die Versorgung des Servos, das Signalkabel und die Masse. Mit `NONE`
+  die Versorgung des Servos, das Signalkabel und die Masse. Mit `OWN`
   schalte das Servo vor dem Eintritt ein.
 - **`NO SERVO ANSWERS` mit einem anderen Antwortwort.** Flanken kommen an,
   aber keine Antwort ist gültig. Prüfe Signalkabel und Masse, und dass kein
@@ -597,7 +598,7 @@ dieser Leitung bekommt den Ausgang des Wandlers auf seine BEC-Leitung.**
 - **LEAVE** schaltet die Versorgung ab. Der Pin wird 2,0 s nach dem
   Ausschalten freigegeben.
 
-Mit `NONE` beendet ein Hängen die Sitzung nicht. Ein Hängen während des
+Mit `OWN` beendet ein Hängen die Sitzung nicht. Ein Hängen während des
 Eintritts beendet den Eintritt: Die Seite zeigt `NO SERVO ANSWERS` mit
 RETRY. Später endet ein laufendes Lesen oder Schreiben, das Servo bleibt im
 Programmiermodus, und der nächste Vorgang wird abgewiesen, bis der
@@ -611,7 +612,7 @@ Bildschirm wieder läuft: Ein Schreiben zeigt dann
 `CLASSIC` (HS-5xxx, HS-7xxx) braucht SERVO SUPPLY auf `GP28` oder `GP29`:
 Ein klassisches Servo geht nur beim Einschalten in den Programmiermodus,
 und die Platine schaltet seine Versorgung über den Wandler aus Teil C der
-[Verdrahtung](Verdrahtung). Unter `NONE` zeigt die Familienauswahl
+[Verdrahtung](Verdrahtung). Unter `OWN` zeigt die Familienauswahl
 `NEEDS THE CONVERTER OF WIRING PART C` und
 `AND SETTINGS > SERVO SUPPLY GP28/29.`
 
