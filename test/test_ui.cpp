@@ -4819,6 +4819,14 @@ static void testAm32WritePage() {
 	          fakeTextIs(cx + (cw - gfxTextW(shortTop, 1)) / 2, EDIT_Y + 2, shortTop, C_DIM, C_BG, 1));
 	tapId(UI_FIX(Am32Ctl::Revert));
 
+	// One change: the strip's word in the singular.
+	checkTrue("POLES steps", am32Step("POLES"));
+	checkTrue("a tap on WRITE... opens AM32 WRITE", am32OpenPage());
+	checkTrue("one change: the strip reads 1 CHANGE, no S", am32StripIs("1 CHANGE ", C_DIM));
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(Am32Ctl::Revert));
+	checkTrue("BACK and REVERT: the list as read", s_state == S_LIST && !anyDirty());
+
 	// Five changes: the page lists four and AND 1 MORE.
 	const char *names[] = { "POLES", "KV", "PWM FREQ", "BEEP VOLUME", "DEAD BAND" };
 	bool stepped = true;
@@ -6083,7 +6091,14 @@ void runUiTests() {
 		fakeRelease(); frames(1);
 		checkTrue("its release opens AM32 WRITE, nothing written", s_state == S_PAGE &&
 		          fakeEscByte(0x1B) != want);
-		checkTrue("one change: the strip reads 1 CHANGE", am32StripIs("1 CHANGE", C_DIM));
+		{
+			// Earlier sections may leave other fields changed: the strip
+			// counts what the page lists.
+			char cnt[24];
+			int n = changeCount(s_pageFrom, s_pageTo);
+			snprintf(cnt, sizeof(cnt), "%d CHANGE%s", n, n == 1 ? "" : "S");
+			checkTrue("the strip counts the page's changes", n >= 1 && am32StripIs(cnt, C_DIM));
+		}
 		checkControlTable("AM32 WRITE before the hold");
 		for (int i = 0; i < 60; i++) frames(1);
 		checkTrue("the tap that opened it starts no hold: 1500 ms on, the page", s_state == S_PAGE &&
