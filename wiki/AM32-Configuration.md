@@ -295,6 +295,10 @@ acknowledgement. Then the read-back runs, up to three times, each after a
 | `VERIFY READ: NO REPLY`, `REFUSED`, `CRC FAIL` or `NOT READY` | The ESC acknowledged the write, and all three read-backs failed: no reply, a reply that is not the acknowledgement, a checksum that does not match, or no pin. What the ESC holds is not known |
 | `DIFF @xx: GOT yy WANT zz` | The read-back differs. `xx` is the first differing byte's offset, `yy` the ESC's value, `zz` the value written, all in hex |
 
+`OK` is the wide button at the bottom, where `HOLD TO WRITE` was. It takes
+a fresh tap: lifting the finger that held `HOLD TO WRITE` leaves the result
+on the screen.
+
 Only `WRITE VERIFIED` counts as written. After any other result, `OK` returns
 to the list with the edits kept, and `HOLD TO WRITE` writes them again. The
 backup is made before the first write that has a card, and again on a card

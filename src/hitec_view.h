@@ -164,8 +164,8 @@ bool hitecModelMeasured(const hitec_image_t *img);
  * @defgroup hitec_page The write page's layout
  * @{
  */
-/** @brief Value rows the write page lists at most before AND n MORE. */
-#define HITEC_PAGE_ROWS_MAX  6
+/** @brief Value rows the write page lists at most before AND n MORE, as KST's. */
+#define HITEC_PAGE_ROWS_MAX  4
 /** @brief Soft rules the layout takes. */
 #define HITEC_PAGE_RULES_MAX 8
 /** @} */

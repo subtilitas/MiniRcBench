@@ -110,9 +110,13 @@ void uiBackGuardDraw(int pending, const char *verb) {
 	                "BACK AGAIN DISCARDS THEM.", UI_COL_WARN);
 }
 
+int uiChipX(const char *text) {
+	return GFX_W - UI_MARGIN - (gfxTextW(text, 1) + 12);
+}
+
 void uiChip(const char *text, uint16_t fill) {
 	int w = gfxTextW(text, 1) + 12;
-	int x = GFX_W - UI_MARGIN - w;
+	int x = uiChipX(text);
 	int y = UI_STRIP_Y + (UI_STRIP_H - UI_CHIP_H) / 2;
 	gfxRect(x, y, w, UI_CHIP_H, fill);
 	// y 44, the line of uiStripText(), so the chip reads level with the caption.

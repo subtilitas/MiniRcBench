@@ -1164,7 +1164,7 @@ static void drawWrite() {
 		// The page lists what it writes from where the servo stood when it
 		// opened, so the result still names the fields.
 		kst_field_set_t ch = kstChanged(&s_pageFrom, &s_pageTo);
-		snprintf(buf, sizeof(buf), "%d FIELD%s", bits(ch), bits(ch) == 1 ? "" : "S");
+		snprintf(buf, sizeof(buf), "%d CHANGE%s", bits(ch), bits(ch) == 1 ? "" : "S");
 		uiStripText(buf, C_DIM);
 		int shown = 0, rows;
 		const KstRow *all = kstRows(&rows);

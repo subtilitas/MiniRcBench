@@ -248,10 +248,94 @@ static void testAm32() {
 	checkTrue("BACK from AM32 reaches SETTINGS", uiCurrentScreen() == UiScreenId::Menu);
 }
 
+/** @brief Whether @p id's rectangle on the current frame is x, y, w, h. */
+static bool rectIs(UiControlId id, int x, int y, int w, int h) {
+	UiRect r = ctlRect(id);
+	return r.x == x && r.y == y && r.w == w && r.h == h;
+}
+
+/** @brief Whether @p label, scale @p sc in @p col on @p bg, is centred in @p id's rectangle. */
+static bool labelCentred(UiControlId id, const char *label, uint16_t col, uint16_t bg, int sc) {
+	UiRect r = ctlRect(id);
+	int w = gfxTextW(label, sc);
+	return w + 2 * 4 <= r.w &&
+	       fakeTextIs(r.x + (r.w - w) / 2, r.y + (r.h - 7 * sc) / 2, label, col, bg, sc);
+}
+
+/**
+ * @brief Decision 14 of docs/design/menu-b.md, the layout table, on SETTINGS,
+ *        SD LOG and SERVO SET: the button edge x 6 to x 234, the two-button
+ *        footer 6/150 and 162/72 at y 268, 46 px tall, the editor's 44 px
+ *        - and +, each label inside its button with 4 px each side.
+ */
+static void testLayoutTable() {
+	section("Control ids: the layout table on SETTINGS, SD LOG and SERVO SET");
+	fakeFlashClear(); settingsLoad(); uiInit(); idFrames(4);
+	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(menuRow(&UI_SETTINGS));
+	idFrames(1);
+	checkTrue("SETTINGS: HOLD TO SAVE at 6/150, y 268, 46 px",
+	          rectIs(UI_FIX(SettingsCtl::Save), 6, 268, 150, 46));
+	checkTrue("HOLD DEFAULTS at 162/72, ending at the button edge, x 234",
+	          rectIs(UI_FIX(SettingsCtl::Defaults), 162, 268, 72, 46) &&
+	          162 + 72 == GFX_W - UI_EDGE);
+	checkTrue("HOLD TO SAVE's label inside its button",
+	          labelCentred(UI_FIX(SettingsCtl::Save), "HOLD TO SAVE", C_TEXT, C_PANEL, 1));
+	checkControlTable("SETTINGS, the footer");
+	tapId(UI_FIX(UI_BACK));
+
+	SdLogStatus st;
+	memset(&st, 0, sizeof(st));
+	st.state = SdLogState::Idle;
+	fakeSdLogSet(&st);
+	tapId(menuRow(&UI_SDLOG));
+	idFrames(1);
+	checkTrue("SD LOG: START from x 6 to x 234, y 240, 44 px",
+	          rectIs(UI_FIX(SdLogCtl::Toggle), 6, 240, 228, 44));
+	checkTrue("RETRY MOUNT 6/112 and USB DRIVE 122/112, y 288, 30 px",
+	          rectIs(UI_FIX(SdLogCtl::Retry), 6, 288, 112, 30) &&
+	          rectIs(UI_FIX(SdLogCtl::Usb), 122, 288, 112, 30));
+	checkTrue("START, RETRY MOUNT and USB DRIVE inside their buttons",
+	          labelCentred(UI_FIX(SdLogCtl::Toggle), "START", C_TEXT, C_PANEL, 2) &&
+	          labelCentred(UI_FIX(SdLogCtl::Retry), "RETRY MOUNT", C_TEXT, C_PANEL, 1) &&
+	          labelCentred(UI_FIX(SdLogCtl::Usb), "USB DRIVE", C_TEXT, C_PANEL, 1));
+	checkControlTable("SD LOG, the button edge");
+	fakeMscSet(MscState::Serving, 0); idFrames(1);
+	checkTrue("card held: EJECT keeps START's rectangle",
+	          rectIs(UI_FIX(SdLogCtl::Toggle), 6, 240, 228, 44));
+	fakeMscSet(MscState::Idle, 0); idFrames(1);
+	tapId(UI_FIX(UI_BACK));
+
+	tapId(menuRow(&UI_SERVO));
+	idFrames(20);
+	tapId(UI_FIX(ServoCtl::Set));
+	idFrames(1);
+	checkTrue("SERVO SET: HOLD TO APPLY at 6/150, y 268, 46 px",
+	          rectIs(UI_FIX(ServoCtl::Apply), 6, 268, 150, 46));
+	checkTrue("DEFAULTS at 162/72", rectIs(UI_FIX(ServoCtl::Defaults), 162, 268, 72, 46));
+	checkTrue("DEFAULTS' label inside its button",
+	          labelCentred(UI_FIX(ServoCtl::Defaults), "DEFAULTS", C_AMBER, C_PANEL, 1));
+	tapId(UI_ROW(2, Row));
+	checkTrue("the editor's - at x 6 and + ending at x 234, 44 x 44 px",
+	          rectIs(UI_FIX(ServoCtl::EditMinus), 6, 218, 44, 44) &&
+	          rectIs(UI_FIX(ServoCtl::EditPlus), 190, 218, 44, 44));
+	checkTrue("the hint centred between them, 140 px",
+	          fakeTextIs(50 + (140 - gfxTextW("SWIPE = COARSE", 1)) / 2, 218 + 34, "SWIPE = COARSE",
+	                     C_GRID, C_BG, 1));
+	checkControlTable("SERVO SET, the layout table");
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+	for (int i = 0; i < 200 && !ctlPresent(UI_FIX(ServoCtl::Restart)); i++) idFrames(1);
+	tapId(UI_FIX(ServoCtl::Restart));
+	checkTrue("back at MENU", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(UI_FIX(UI_BACK));
+}
+
 void runIdTests() {
 	testHelpersFail();
 	testHelpersReport();
 	testAm32();
 	testMenuSettingsLog();
 	testServo();
+	testLayoutTable();
 }

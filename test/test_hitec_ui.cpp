@@ -376,6 +376,11 @@ static void testDSeriesRead() {
 	openHitec();
 	tapId(UI_FIX(HitecCtl::DSeries));
 	checkTrue("D SERIES: the main view", uiHitecView() == HitecView::Main);
+	{
+		int x0 = 0, x1 = 0;
+		checkTrue("the main view clears the strip band: y 56 to 61 blank",
+		          !fakeInkExtent(56, 6, C_BG, &x0, &x1));
+	}
 	checkTrue("it claims SIG", pinClaimHolder() == PinUser::Hitec);
 	hitecFrames(4);
 	checkControlTable("Hitec main");
@@ -385,6 +390,24 @@ static void testDSeriesRead() {
 	          st.job == HitecJobState::InMode && st.hasImage && st.hasBackup);
 	checkTrue("GP28 untouched", !enHigh());
 	checkControlTable("Hitec list");
+	{
+		char model[24], want[48];
+		hitecModelText(&st.image, model, sizeof(model));
+		snprintf(want, sizeof(want), "%s  BACKUP IN RAM  GP0", model);
+		checkTrue("the strip: model, backup and pin, two spaces apart, 155 px beside PROG MODE",
+		          gfxTextW(want, 1) == 155 && fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, want, C_DIM, C_BG, 1));
+		int x0 = 0, x1 = 0;
+		checkTrue("the family view's second strip line is gone: y 56 to 61 blank",
+		          !fakeInkExtent(56, 6, C_BG, &x0, &x1));
+		// Ink put into y 56 to 61 by hand; the list's next drawing clears
+		// it, as its strip clear covers y 40 to 61.
+		gfxRect(UI_MARGIN, 56, 100, 6, C_TEXT);
+		revealRow(1);
+		tapId(UI_ROW(1, Row));
+		hitecFrames(1);
+		checkTrue("the list redrawn: y 56 to 61 blank again", uiHitecView() == HitecView::List &&
+		          !fakeInkExtent(56, 6, C_BG, &x0, &x1));
+	}
 	checkTrue("HOLD TO WRITE waits for an edit", !ctlEnabled(UI_FIX(HitecCtl::Write)));
 	checkTrue("REVERT too", !ctlEnabled(UI_FIX(HitecCtl::Revert)));
 	checkTrue("MODEL's row cannot be selected", !ctlEnabled(UI_ROW(11, Row)));
@@ -433,6 +456,8 @@ static void testWrite() {
 	checkTrue("a full hold opens the write page", holdUntilGone(UI_FIX(HitecCtl::Write)));
 	checkTrue("the write page", uiHitecView() == HitecView::Write);
 	checkControlTable("Hitec write page");
+	checkTrue("the strip counts 1 CHANGE", fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "1 CHANGE", C_DIM, C_BG, 1) &&
+	          !fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "1 VALUE", C_DIM, C_BG, 1));
 	fakeDumpFrame("shot_hitec_write.ppm");
 	s_writesAtRecord = -1;
 	fakeFatOnCall(watchRecord);
@@ -782,6 +807,23 @@ static void testClassic() {
 	fakeHitecSim()->mem[0x1C] ^= 0x01;
 	checkTrue("the field list", toList(HITEC_CLASSIC));
 	checkTrue("GP28 on", enHigh());
+	{
+		// MODEL  BACKUP IN RAM  GP0  Vnn runs into the PROG MODE chip: the
+		// version and the pin, the items furthest right, go; the backup's
+		// state and the spaces stay.
+		char model[24], full[64], pin[64], want[48];
+		HitecStatus cs = job();
+		hitecModelText(&cs.image, model, sizeof(model));
+		snprintf(want, sizeof(want), "%s  BACKUP IN RAM", model);
+		snprintf(pin, sizeof(pin), "%s  GP0", want);
+		snprintf(full, sizeof(full), "%s  V%02X", pin, cs.image.version);
+		const int room = uiChipX(HITEC_UI_CHIP) - 4 - UI_MARGIN;
+		checkTrue("the room ends 4 px before the chip, at x 163", room == 155);
+		checkTrue("with the pin, or the pin and the version, it would not fit",
+		          gfxTextW(full, 1) > room && gfxTextW(pin, 1) > room);
+		checkTrue("the strip keeps the backup: model and backup, two spaces apart",
+		          gfxTextW(want, 1) <= room && fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, want, C_DIM, C_BG, 1));
+	}
 	int sumRow = -1;
 	HitecRow rows[HITEC_ROWS_MAX];
 	int nr = hitecRows(HITEC_LAYOUT_HS5, rows);
@@ -805,6 +847,17 @@ static void testClassic() {
 	          hitec_param_get(&st.image, HITEC_LAYOUT_HS5, HITEC_P_C_CHECKSUM, &v) == HITEC_GET_OK &&
 	          v.value == HITEC_SUM_OK);
 	tapId(UI_FIX(HitecCtl::WriteOk));
+	{
+		// After the first write the backup has a name: beside PROG MODE the
+		// version and the pin still go.
+		char model[24], want[48], pin[64];
+		hitecModelText(&st.image, model, sizeof(model));
+		snprintf(want, sizeof(want), "%s  BACKUP HT001", model);
+		snprintf(pin, sizeof(pin), "%s  GP0", want);
+		checkTrue("the written backup on the strip: model and backup HT001",
+		          uiHitecView() == HitecView::List && gfxTextW(pin, 1) > uiChipX(HITEC_UI_CHIP) - 4 - UI_MARGIN &&
+		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, want, C_DIM, C_BG, 1));
+	}
 
 	tapId(UI_FIX(HitecCtl::Files));
 	tapId(UI_ROW(1, Row));
@@ -1101,6 +1154,13 @@ static void testWritePageHornLine() {
 	checkTrue("the write page", uiHitecView() == HitecView::Write);
 	checkTrue("the ID row first", rowLabelY("ID") == UI_BODY_Y);
 	checkTrue("AND n MORE counts the rows not listed", andMore() == changed - rowsListed());
+	checkTrue("4 rows at most, as KST's page", rowsListed() == HITEC_PAGE_ROWS_MAX && rowsListed() == 4);
+	{
+		char want[24];
+		snprintf(want, sizeof(want), "%d CHANGES", changed);
+		checkTrue("the strip counts CHANGES, the leave page's word",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, want, C_DIM, C_BG, 1));
+	}
 	checkTrue("the horn line", hornLineY() > 0);
 	checkTrue("the ID note, whole", idNoteDrawn(HITEC_UI_ID_NOTE_PAGE, 36, false));
 	checkTrue("nothing below y 192", clearBelow192());
@@ -1610,6 +1670,40 @@ static void testColourRoles() {
 	leaveAll();
 }
 
+/**
+ * @brief The strip's room at its edge beside PROG MODE: a D series model
+ *        rcbench does not name reads `D SERIES` and its number, so the
+ *        number's digits set the strip's width in 6 px steps. With 2 digits
+ *        `D SERIES 42  BACKUP IN RAM` is 155 px and keeps the backup, ending
+ *        4 px before the chip; with 3, 161 px, it does not fit, and the model
+ *        stays alone. Widths at scale 1 are 6 n - 1 px, so no strip ends
+ *        1 to 3 px before the chip: the room's 4 px term and a room of 159 px
+ *        draw the same strips.
+ */
+static void testStripRoom() {
+	section("Hitec screen: the strip's room beside PROG MODE, 155 px");
+	const struct { uint16_t number; const char *want; } cases[] = {
+		{ 42, "D SERIES 42  BACKUP IN RAM" },
+		{ 420, "D SERIES 420" },
+	};
+	for (const auto &c : cases) {
+		freshHitec(HITEC_D, false);
+		fakeHitecSim()->mem[0x00] = (uint8_t)(c.number & 0xFF);
+		fakeHitecSim()->mem[0x01] = (uint8_t)(c.number >> 8);
+		char what[96];
+		snprintf(what, sizeof(what), "model number %u: the field list", c.number);
+		checkTrue(what, toList(HITEC_D));
+		hitecFrames(1);
+		snprintf(what, sizeof(what), "the strip reads %s, %d px, and nothing after it", c.want, gfxTextW(c.want, 1));
+		const int end = UI_MARGIN + gfxTextW(c.want, 1);
+		checkTrue(what, fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, c.want, C_DIM, C_BG, 1) &&
+		          !regionHas(end, UI_STRIP_Y, uiChipX(HITEC_UI_CHIP) - end, UI_STRIP_H, C_DIM));
+		leaveAll();
+	}
+	checkInt("D SERIES 42  BACKUP IN RAM: 155 px, to x 162", gfxTextW("D SERIES 42  BACKUP IN RAM", 1), 155);
+	checkInt("D SERIES 420  BACKUP IN RAM: 161 px", gfxTextW("D SERIES 420  BACKUP IN RAM", 1), 161);
+}
+
 void runHitecUiTests() {
 	testFamily();
 	testDSeriesRead();
@@ -1629,4 +1723,5 @@ void runHitecUiTests() {
 	testStallInWrite();
 	testBoardLow();
 	testColourRoles();
+	testStripRoom();
 }

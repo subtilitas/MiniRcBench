@@ -258,7 +258,7 @@ Under the list, these stay in place:
      leaving SETTINGS;
   2. `ADJUSTED TO THIS BOARD'S LIMITS` or `KISS OFF: NEEDS A PIN OF ITS OWN`
      (amber), until the next change;
-  3. `DEFAULTS LOADED - RESTART TO UNDO` (amber) after `HOLD RESET`, while a
+  3. `DEFAULTS LOADED - RESTART TO UNDO` (amber) after `HOLD DEFAULTS`, while a
      restart would bring the saved values back, until another change or a
      `HOLD TO SAVE`, failed or not;
   4. `UNSAVED - HOLD SAVE TO KEEP` (amber) after a change;
@@ -273,15 +273,16 @@ Under the list, these stay in place:
 
 <img src="img/settings-pin.png" width="240" alt="SETTINGS after ESC PIN moved to GP1: UNPLUG ANY SERVO FROM GP1 NOW above LINK, UNSAVED on the note line">
 
-- `HOLD TO SAVE` (150 × 48 px) and `HOLD RESET` (70 × 48 px).
+- `HOLD TO SAVE` (150 × 46 px) and `HOLD DEFAULTS` (72 × 46 px), its label
+  on two lines, `HOLD` over `DEFAULTS`, in amber.
 
 **Changes apply at once. Only storing them needs the hold.** A new bitrate
 rebuilds the DShot driver before the next frame. `HOLD TO SAVE` for 1 s writes
-to flash. `HOLD RESET` for 1 s replaces the live settings with the compiled
-defaults, the pole count and the throttle ceiling included; flash is
-untouched. A tap does nothing, and sliding off the button cancels the hold.
-A bar over the button fills while it is held, and the button fills red, as
-every hold does. Leaving the screen keeps the
+to flash. `HOLD DEFAULTS` for 1 s replaces the live settings with the
+compiled defaults, the pole count and the throttle ceiling included; flash
+is untouched. A tap does nothing, and sliding off the button cancels the
+hold. A bar over the button fills while it is held, and the button turns
+red, as every hold does. Leaving the screen keeps the
 defaults in use. The saved values load only when the board starts, so
 restarting the board without `HOLD TO SAVE` returns to them.
 

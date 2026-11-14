@@ -238,6 +238,10 @@ In content coordinates, 0 px at the top of the list:
 | Save progress | y 264, 3 px, across HOLD TO SAVE |
 | Footer | y 268, 48 px tall: HOLD TO SAVE at x 8, RESET at x 162 |
 
+Revised by [menu-b.md](menu-b.md#decisions) decision 14: the footer is
+46 px tall, HOLD TO SAVE 150 px from x 6 and HOLD DEFAULTS, the RESET of
+this note, 72 px from x 162.
+
 A label at scale 2 is 12 px a character: `MAX THROTTLE` would be 142 px and
 leave 82 px for the value and both controls. So labels stay at scale 1, and
 values and toggle labels are at scale 2. `THROTTLE CEILING`, 95 px at scale
@@ -277,6 +281,9 @@ Touch targets:
 | HOLD TO SAVE | 150 × 40 px | 150 × 48 px |
 | RESET | 70 × 40 px | 70 × 48 px |
 | BACK | 50 × 22 px | 64 × 32 px, shared by every screen |
+
+Revised by [menu-b.md](menu-b.md#decisions) decision 14: HOLD TO SAVE is
+150 × 46 px and RESET is HOLD DEFAULTS, 72 × 46 px.
 
 Gestures, on `ui_list` ([gestures](#gestures)):
 
@@ -375,7 +382,9 @@ Two floors, in `ui_widgets.h`:
   and SET 32 px tall, RETRY 100 × 30 px). Two buttons that are neither list
   rows nor row controls stay as they are and go with that change: SD LOG's
   RETRY and USB DRIVE, 104 × 30 px, and AM32's OK on the write result,
-  100 × 36 px.
+  100 × 36 px. Revised by [menu-b.md](menu-b.md#decisions) decision 14:
+  RETRY and USB DRIVE are 112 × 30 px from x 6, and AM32's OK is the wide
+  footer button, 228 × 46 px at y 268.
 
 AM32 and SERVO SET use one list idiom, so they move together (decision 16).
 Slice A puts both on `ui_list` with their 26 px rows and their press rule,

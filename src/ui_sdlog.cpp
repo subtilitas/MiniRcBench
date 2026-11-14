@@ -32,14 +32,16 @@
 #define LOG_BOT_H      30
 /** @} */
 
-static const UiRect BTN_LOG_TOGGLE = { 14, LOG_TOGGLE_Y, 212, LOG_TOGGLE_H };
-// The bottom row splits rather than the screen growing: 2 x 104 with a 4 px gap
-// is the 212 px between the margins. Both halves clear UI_TAP_MIN, which is the point of splitting rather
+/** @brief The buttons' width: x 6 to 233, the button edge (@ref UI_EDGE). */
+#define LOG_ROW_W    (GFX_W - 2 * UI_EDGE)
+static const UiRect BTN_LOG_TOGGLE = { UI_EDGE, LOG_TOGGLE_Y, LOG_ROW_W, LOG_TOGGLE_H };
+// The bottom row splits rather than the screen growing: 2 x 112 with a 4 px gap
+// is the 228 px between the button edges. Both halves clear UI_TAP_MIN, which is the point of splitting rather
 // than stacking.
-#define LOG_BTN_W    104
+#define LOG_BTN_W    112
 #define LOG_BTN_GAP    4
-static const UiRect BTN_LOG_RETRY  = { 14, LOG_BOT_Y, LOG_BTN_W, LOG_BOT_H };
-static const UiRect BTN_LOG_USB    = { 14 + LOG_BTN_W + LOG_BTN_GAP, LOG_BOT_Y,
+static const UiRect BTN_LOG_RETRY  = { UI_EDGE, LOG_BOT_Y, LOG_BTN_W, LOG_BOT_H };
+static const UiRect BTN_LOG_USB    = { UI_EDGE + LOG_BTN_W + LOG_BTN_GAP, LOG_BOT_Y,
                                        LOG_BTN_W, LOG_BOT_H };
 
 static_assert(LOG_ROW0_Y >= UI_HDR_H, "logging rows overlap the header");
@@ -56,8 +58,8 @@ static_assert(LOG_TOGGLE_H >= UI_TAP_MIN && LOG_BOT_H >= UI_TAP_MIN,
               "a logging button is smaller than a fingertip");
 // Against the constants rather than the structs: a UiRect is const, not
 // constexpr, so its members are not usable in a constant expression.
-static_assert(14 + 2 * LOG_BTN_W + LOG_BTN_GAP <= 226,
-              "RETRY MOUNT and USB DRIVE do not fit between the margins");
+static_assert(2 * LOG_BTN_W + LOG_BTN_GAP == LOG_ROW_W,
+              "RETRY MOUNT and USB DRIVE do not span the button edges");
 
 /** @brief This frame's touch. */
 static TouchState s_touch;
