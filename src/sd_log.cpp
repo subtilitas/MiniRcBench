@@ -45,9 +45,22 @@ static uint32_t s_cardSizeMB = 0;
 
 static SdLogState s_state = SdLogState::NoCard;
 /** @brief The open log's number, or the last one's until the next start. */
-static uint16_t   s_fileNo = 0;
+static uint32_t   s_fileNo = 0;
 /** @brief Why the last log ended. @see SdLogEnd */
 static SdLogEnd   s_end = SdLogEnd::None;
+/**
+ * @brief The number the next log takes, read from `LOGS/` once per mount:
+ *        the highest `LOGnnnnn.BFL` plus 1 (sdLogNextNumber()), 0 for none
+ *        free. @see scanNextNumber()
+ *
+ * Valid while s_nextKnown. Each start that opens its file sets it to the
+ * number after that file's, which stays true at its stop: the file stays,
+ * and nothing else writes `LOGS/` while the card is mounted here. A mount
+ * (sdLogBegin()) and a release to a USB host forget it, because a computer
+ * may have added or deleted files by then.
+ */
+static uint32_t s_nextNo = 0;
+static bool     s_nextKnown = false;
 
 static BlackboxEncoder s_enc;
 static LogRing         s_ring;
@@ -117,6 +130,7 @@ bool sdLogBegin() {
 	// true of the last log whatever card is in the slot: it is kept until the
 	// next start, so a remount the tool made does not hide it.
 	sdLogMountForget(&s_end);
+	s_nextKnown = false;
 	s_fileNo = 0;
 	s_framesLogged = 0;
 	s_cardBytes = 0;
@@ -182,6 +196,7 @@ bool sdLogRelease() {
 	// it is the state every other entry point already refuses to work in.
 	s_state = SdLogState::NoCard;
 	s_released = true;
+	s_nextKnown = false;
 	return true;
 }
 
@@ -206,20 +221,36 @@ bool sdLogVolumeId(uint32_t *lba, uint32_t *offset) {
 }
 
 /**
- * @brief Find the lowest unused `LOGS/LOGnnnnn.BFL`.
+ * @brief Read `LOGS/` once for the next log's number.
  *
- * Linear probe. Slow if there are thousands of logs, but it happens once per
- * file and it keeps numbering stable across power cycles, which matters more
- * than the milliseconds — a bench session is a sequence of numbered runs.
+ * One f_opendir() and one f_readdir() per entry: every directory entry is
+ * read once, 32 bytes each, 16 to a 512-byte sector, so N logs with short
+ * names cost about N / 16 sector reads (a long name adds an entry per 13
+ * characters). On core0, in the frame that starts the log, the one after
+ * arming for an auto log; the time per sector is the card's, not measured.
+ * Both of an entry's names count: the long one FatFs reports, and its
+ * 8.3 alias when it has one.
+ *
+ * @param[out] next The number, 0 for none free. Set only on FR_OK.
+ * @return The FatFs result; anything but FR_OK is a scan that failed.
  */
-static uint16_t nextFileNumber() {
-	char name[24];
-	for (uint16_t n = 1; n < 10000; n++) {
-		snprintf(name, sizeof(name), SD_LOG_DIR_PATH "/LOG%05u.BFL", (unsigned)n);
-		FILINFO fno;
-		if (f_stat(name, &fno) == FR_NO_FILE) return n;
+static FRESULT scanNextNumber(uint32_t *next) {
+	DIR dir;
+	FRESULT fr = f_opendir(&dir, SD_LOG_DIR_PATH);
+	if (fr != FR_OK) return fr;
+	uint32_t highest = 0;
+	FILINFO fno;
+	for (;;) {
+		fr = f_readdir(&dir, &fno);
+		if (fr != FR_OK || fno.fname[0] == '\0') break;
+		sdLogNoteName(&highest, fno.fname);
+#if FF_USE_LFN
+		sdLogNoteName(&highest, fno.altname);
+#endif
 	}
-	return 0;
+	f_closedir(&dir);
+	if (fr == FR_OK) *next = sdLogNextNumber(highest);
+	return fr;
 }
 
 bool sdLogStart() {
@@ -238,20 +269,34 @@ bool sdLogStart() {
 		return false;
 	}
 
-	uint16_t n = nextFileNumber();
+	// A scan that fails is a file that cannot be opened: the same cause.
+	if (!s_nextKnown) {
+		if (scanNextNumber(&s_nextNo) != FR_OK) {
+			s_state = SdLogState::Error;
+			s_end = SdLogEnd::OpenFailed;
+			return false;
+		}
+		s_nextKnown = true;
+	}
+	uint32_t n = s_nextNo;
 	if (n == 0) {
+		// After LOG99999.BFL. Never wrapped to a low number a file may hold.
 		s_state = SdLogState::Error;
-		s_end = SdLogEnd::OpenFailed;
+		s_end = SdLogEnd::NoFreeNumber;
 		return false;
 	}
 
+	// Created new, never over a file: one the scan did not count fails here
+	// as an open, and the next start reads the directory again.
 	char name[24];
-	snprintf(name, sizeof(name), SD_LOG_DIR_PATH "/LOG%05u.BFL", (unsigned)n);
-	if (f_open(&s_file, name, FA_WRITE | FA_CREATE_ALWAYS) != FR_OK) {
+	snprintf(name, sizeof(name), SD_LOG_DIR_PATH "/LOG%05lu.BFL", (unsigned long)n);
+	if (f_open(&s_file, name, FA_WRITE | FA_CREATE_NEW) != FR_OK) {
+		s_nextKnown = false;
 		s_state = SdLogState::Error;
 		s_end = SdLogEnd::OpenFailed;
 		return false;
 	}
+	s_nextNo = sdLogNextNumber(n);
 
 	// Reserve a contiguous run so the FAT is not extended mid-log. An
 	// allocation landing in the middle of a run is the long unpredictable stall

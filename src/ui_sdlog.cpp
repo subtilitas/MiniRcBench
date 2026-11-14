@@ -146,6 +146,10 @@ bool uiSdLogEndNote(const SdLogStatus *st, const char **line1, const char **line
 			*line1 = "NO LOG STARTED: THE FILE DID NOT OPEN";
 			*line2 = "CHECK THE CARD, THEN RETRY MOUNT";
 			return true;
+		case SdLogEnd::NoFreeNumber:
+			*line1 = "NO LOG STARTED: LOG99999.BFL EXISTS";
+			*line2 = "MOVE LOGS TO A COMPUTER, RETRY MOUNT";
+			return true;
 		case SdLogEnd::ByKst:   *line1 = "RECORDING STOPPED BY KST SERVO";   return true;
 		case SdLogEnd::ByHitec: *line1 = "RECORDING STOPPED BY HITEC SERVO"; return true;
 		case SdLogEnd::ByAm32:  *line1 = "RECORDING STOPPED BY AM32 CONFIG"; return true;

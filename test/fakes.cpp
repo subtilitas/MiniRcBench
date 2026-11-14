@@ -723,13 +723,27 @@ bool sdLogBegin() {
 }
 
 static bool g_autoStarted = false;
+/** @brief The highest `LOGnnnnn.BFL` on the fake card, 0 for none. */
+static uint32_t g_logHighest = 0;
 
+void fakeSdLogSetHighest(uint32_t n) { g_logHighest = n; }
+
+// As sd_log.cpp: the highest number on the card plus 1, through the shipped
+// rule; after LOG99999.BFL the start is refused with its cause.
 bool sdLogStart() {
 	if (g_log.state == SdLogState::NoCard) return false;
-	g_log.state = SdLogState::Logging;
+	if (g_log.state == SdLogState::Logging) return true;
 	g_log.end = SdLogEnd::None;
+	uint32_t n = sdLogNextNumber(g_logHighest);
+	if (n == 0) {
+		g_log.state = SdLogState::Error;
+		g_log.end = SdLogEnd::NoFreeNumber;
+		return false;
+	}
+	g_log.state = SdLogState::Logging;
 	g_autoStarted = false;
-	if (!g_log.fileNumber) g_log.fileNumber = 1;
+	g_log.fileNumber = n;
+	g_logHighest = n;
 	return true;
 }
 
