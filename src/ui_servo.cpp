@@ -1252,13 +1252,7 @@ bool uiServoTick(const TouchState *t) {
 	return true;
 }
 
-/** @brief SERVO TESTER's MENU status: the signal pins it claims, SIG and AUX, from the settings. */
-static void servoMenuStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
-	snprintf(buf, n, "GP%u+%u", (unsigned)settings()->dshotPin, (unsigned)settings()->kissPin);
-	*col = C_DIM;
-}
-
 const UiScreen UI_SERVO = {
-	UiScreenId::Servo, SERVO_UI_TITLE, PinUser::Servo, servoMenuStatus,
+	UiScreenId::Servo, SERVO_UI_TITLE, PinUser::Servo, nullptr,
 	uiServoEnter, uiServoTick, nullptr, uiServoControls, nullptr, false,
 };

@@ -14,6 +14,7 @@
 #include "ui_hitec.h"
 #include "ui_kst.h"
 #include "ui_servo.h"
+#include "ui_servo_prog.h"
 #include "ui_menu.h"
 #include "ui_sdlog.h"
 #include "ui_settings.h"
@@ -232,6 +233,13 @@ static const UiScreen *s_tool = nullptr;  /**< The open tool at Level::Tool. */
  *        (docs/design/menu-b.md, decision 17).
  */
 static Level           s_toolFrom = Level::Menu;
+/**
+ * @brief A tool the open tool chose on this frame (uiChooseTool()), opened
+ *        after its tick; null for none.
+ */
+static const UiScreen *s_chosen = nullptr;
+/** @brief The entry point @ref s_chosen opens with; null: its own `enter`. */
+static void          (*s_chosenEnter)() = nullptr;
 static uint16_t s_throttle = 0;
 
 // Pole count and throttle ceiling live in the persisted settings rather than in
@@ -946,20 +954,30 @@ static void uiOpenMenu() {
 
 /**
  * @brief The one route from a screen to a tool (docs/design/menu-b.md,
- *        decision 19): from MENU's rows and from the tester's readouts. It
- *        runs uiOpenMenu()'s disarm, then opens the tool, whose BACK returns
- *        to @p from. The caller refuses a tool the pin claim refuses first:
- *        MENU for its rows, readoutsAct() for the readouts.
- * @param s    The tool.
- * @param from Level::Menu or Level::Tester.
+ *        decision 19): from MENU's rows, from the tester's readouts and from
+ *        PROGRAMMER's entries. It runs uiOpenMenu()'s disarm, then opens the
+ *        tool, whose BACK returns to @p from. The caller refuses a tool the
+ *        pin claim refuses first: MENU for its rows, readoutsAct() for the
+ *        readouts; PROGRAMMER opens only while the claim is Free, and claims
+ *        nothing.
+ * @param s     The tool.
+ * @param from  Level::Menu or Level::Tester.
+ * @param enter The entry point to run in place of `s->enter`, for
+ *              PROGRAMMER's Hitec entries, which set the family; null runs
+ *              `s->enter`.
  */
-static void uiOpenTool(const UiScreen *s, Level from) {
+static void uiOpenTool(const UiScreen *s, Level from, void (*enter)() = nullptr) {
 	testerDisarm();
 	s_level = Level::Tool;
 	s_tool = s;
 	s_toolFrom = from;
 	gfxFill(C_BG);
-	s->enter();
+	(enter ? enter : s->enter)();
+}
+
+void uiChooseTool(const UiScreen *s, void (*enter)()) {
+	s_chosen = s;
+	s_chosenEnter = enter;
 }
 
 /**
@@ -1159,6 +1177,8 @@ static constexpr struct { UiScreenId id; const UiScreen *screen; } SCREENS[] = {
 	{ UiScreenId::Kst,      &UI_KST },
 	{ UiScreenId::Hitec,    &UI_HITEC },
 	{ UiScreenId::Beep,     &UI_BEEP },
+	{ UiScreenId::ServoProg, &UI_SERVO_PROG },
+	{ UiScreenId::RxSignals, &UI_RX_SIGNALS },
 };
 /** @brief Each @ref UiScreenId has exactly one entry in `SCREENS`. */
 static constexpr bool screensComplete() {
@@ -1253,6 +1273,8 @@ void uiInit() {
 	s_level = Level::Tester;
 	s_tool = nullptr;
 	s_toolFrom = Level::Menu;
+	s_chosen = nullptr;
+	s_chosenEnter = nullptr;
 	s_armed = false;
 	s_latch = false;
 	s_throttle = 0;
@@ -1328,13 +1350,20 @@ void uiTick() {
 	// theme swap is invisible to caches that only remember values. A tool
 	// returns false once it has left, and BACK takes it to where it was
 	// opened from: MENU, or the tester for SETTINGS opened from a readout.
+	// A tool chosen on PROGRAMMER opens after the chooser's tick, with
+	// MENU as its origin, so its BACK and RESTART DSHOT return to MENU.
 	if (s_level == Level::Tool) {
+		s_chosen = nullptr;
 		if (!s_tool->tick(&s_touch)) {
 			s_level = s_toolFrom == Level::Tester ? Level::Tester : Level::Menu;
 			s_tool = nullptr;
 			if (s_level == Level::Menu) uiMenuEnter();
 			invalidateAll();
 			gfxFill(C_BG);
+		} else if (s_chosen) {
+			const UiScreen *c = s_chosen;
+			s_chosen = nullptr;
+			uiOpenTool(c, Level::Menu, s_chosenEnter);
 		}
 		st7789FlushDirty();
 		return;

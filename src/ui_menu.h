@@ -5,14 +5,18 @@
  * Reached from the tester's MENU button, which disarms. Each row is a
  * registry entry (ui_registry.h): a tool opens its screen, an action row,
  * BEEP THE ESC, acts on the row. A row fires on release, a press that
- * slides off cancels, and a vertical drag scrolls once the rows do not fit.
- * BACK returns to the tester.
+ * slides off cancels, and a vertical drag scrolls once the rows do not fit:
+ * seven rows at a 42 px pitch scroll 36 px. BACK returns to the tester.
  *
- * A tool that claims the signal pins, or SETTINGS, which changes the wiring
- * a claim latched, is refused while the pin claim is not Free: its row is
- * drawn disabled under its own status, a tap opens nothing, and the strip
- * reads `DSHOT RESTARTING ON SIG GP0`. That state is reachable for the time
- * Restoring takes after RESTART DSHOT.
+ * A tool that claims the signal pins, or one that opens only while they are
+ * free (SETTINGS, PROGRAMMER), is refused while the pin claim is not Free:
+ * its row is drawn disabled under its own status, a tap opens nothing, and
+ * the strip reads `DSHOT RESTARTING ON SIG GP0`. That state is reachable for
+ * the time Restoring takes after RESTART DSHOT.
+ *
+ * RX SIGNALS is a row with no screen behind it: drawn disabled in every
+ * claim state, its status `NOT BUILT` in place of the busy cue's strip, and
+ * a tap opens nothing (docs/design/menu-b.md, owner decision B).
  *
  * @see docs/design/menu.md, "MENU"
  */
@@ -100,3 +104,11 @@ void uiMenuUseRegistry(const UiMenuEntry *e, uint8_t n);
 extern const UiScreen UI_MENU_SCREEN;
 /** @brief BEEP THE ESC: the DShot beacon, an action row on MENU. */
 extern const UiScreen UI_BEEP;
+
+/** @brief RX SIGNALS' status, `C_DIM`: 9 characters. */
+#define UI_MENU_NOT_BUILT "NOT BUILT"
+/**
+ * @brief RX SIGNALS: a MENU row drawn disabled, with no screen, until the
+ *        tools of docs/design/rx-signals.md exist.
+ */
+extern const UiScreen UI_RX_SIGNALS;
