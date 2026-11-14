@@ -563,7 +563,11 @@ settings. Flash changes only on the next save.
 Every value applies when changed. Only persistence needs the hold, so a value
 can be tried and then discarded by leaving without saving. The note line reads
 `UNSAVED - HOLD SAVE TO KEEP` after a change, and otherwise
-`SAVED SETTINGS IN USE` or `COMPILED DEFAULTS IN USE`. MENU shows `UNSAVED` on
+`SAVED SETTINGS IN USE` or `COMPILED DEFAULTS IN USE`. After RESET it reads
+`DEFAULTS LOADED - RESTART TO UNDO` while the live settings are what RESET
+left and differ from what the next boot loads (the saved settings, or the
+compiled defaults when none are stored); a save or any other change ends
+it. MENU shows `UNSAVED` on
 the SETTINGS row while the live settings differ from flash.
 
 **High contrast**

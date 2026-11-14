@@ -410,6 +410,11 @@ protocol.
 
 ### Changed
 
+- SETTINGS' note line reads `DEFAULTS LOADED - RESTART TO UNDO` after a
+  RESET tap, while the live settings are still what RESET left and differ
+  from what the next boot loads; a save or any other change ends it, and a
+  RESET over settings a restart would load anyway does not show it. RESET
+  keeps its name and its single tap. Host tests in `test/test_menu.cpp`.
 - HITEC SERVO's ID note states the consequence: the editor bar reads
   `BENCH ADDRESSES ID 0. A WRITE MAY LOCK OUT READ AND RESTORE.` and the
   write page `THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR
