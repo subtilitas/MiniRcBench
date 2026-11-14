@@ -202,6 +202,11 @@ static ClaimRefusal s_auxRefusal = ClaimRefusal::None;  /**< Why AUX was refused
 static ServoProfile s_profile;             /**< The profile handed to the job. */
 static ServoProfile s_edit;                /**< What SET shows; s_profile but for a pending change. */
 static bool         s_pending = false;     /**< s_edit waits for HOLD TO APPLY. */
+/**
+ * @brief BACK on SET with a change waiting for HOLD TO APPLY: the first arms,
+ *        the second returns and drops it (docs/design/menu-b.md, decision 7).
+ */
+static UiBackGuard  s_guard;
 static bool         s_owed = false;        /**< s_profile is not yet accepted by the job. */
 static sweep_cfg_t  s_sweep;               /**< The curve the next SWEEP runs. */
 static UiSlider     s_speed;               /**< SPEED, percent. */
@@ -718,6 +723,7 @@ static void mainTouch(bool startOk) {
 		s_view = View::Set;
 		s_edit = s_profile;
 		s_pending = false;
+		s_guard = UiBackGuard{};
 		s_sel = -1;
 		uiListInit(&s_list, SET_VIEW, SET_ROW_PITCH, SET_ROWS);
 		uiListSetBody(&s_list, SET_ROW_H, UI_LIST_TAP_MIN);
@@ -891,6 +897,18 @@ static UiValue setValue(int i) {
 }
 
 /**
+ * @brief The changes a BACK on SET would drop, for the guard: the PULSE rows
+ *        that wait for HOLD TO APPLY and differ from the applied profile,
+ *        and at least 1 while a change waits.
+ */
+static int setPending() {
+	if (!s_pending) return 0;
+	int n = 0;
+	for (int i = 0; i < SET_ROWS; i++) n += setValue(i) == UiValue::Changed;
+	return n ? n : 1;
+}
+
+/**
  * @brief Draw SET row @p i with its top edge at @p y.
  * @param i Row of the list.
  * @param y Top of the row.
@@ -909,15 +927,22 @@ static void drawSet(int holdPct) {
 	const char *l1, *l2;
 	uint16_t col;
 	setNote(&l1, &l2, &col);
-	struct { bool back, backOk; uint32_t l1, l2; } kt;
+	struct { bool back, backOk; uint32_t l1, l2; int guard; } kt;
 	memset(&kt, 0, sizeof(kt));
 	kt.back = uiPressing(uiBackRect(), s_t); kt.l1 = textKey(l1); kt.l2 = textKey(l2);
 	kt.backOk = backActs();
+	kt.guard = s_guard.armed ? setPending() : 0;
 	if (changed(0, &kt, sizeof(kt))) {
 		uiHeader("SERVO SET", s_t, kt.backOk);
 		gfxRect(0, UI_STRIP_Y, GFX_W, SET_LIST_Y0 - UI_STRIP_Y, C_BG);
-		if (l1) gfxText(UI_MARGIN, UI_STRIP_Y + 2, l1, col, 1);
-		if (l2) gfxText(UI_MARGIN, UI_STRIP_Y + 12, l2, col, 1);
+		// The armed guard's two lines take the note band's place: what a
+		// second BACK drops.
+		if (kt.guard) {
+			uiBackGuardDraw(kt.guard, "APPLIED");
+		} else {
+			if (l1) gfxText(UI_MARGIN, UI_STRIP_Y + 2, l1, col, 1);
+			if (l2) gfxText(UI_MARGIN, UI_STRIP_Y + 12, l2, col, 1);
+		}
 	}
 
 	// The wait is in the key: a row's value state, Changed or not, follows
@@ -1129,12 +1154,15 @@ bool uiServoTick(const TouchState *t) {
 	if (s_claimed) pinClaimPoll();
 	else if (s_view != View::Unplug) claimPins();
 
-	// BACK: from SET to SERVO, dropping a pending change; from the unplug
-	// page back to SERVO, keeping the claim, once the job has let go (until
-	// then pinClaimKeep() refuses, and BACK there is drawn disabled and does
-	// nothing: backActs()); from SERVO out, through the unplug page once a job
-	// has held the pins.
-	bool back = backActs() && uiBackTapped(s_t);
+	// BACK: from SET to SERVO, through the guard while a change waits for
+	// HOLD TO APPLY, the second BACK dropping it (docs/design/menu-b.md,
+	// decision 7); from the unplug page back to SERVO, keeping the claim,
+	// once the job has let go (until then pinClaimKeep() refuses, and BACK
+	// there is drawn disabled and does nothing: backActs()); from SERVO out,
+	// through the unplug page once a job has held the pins.
+	bool back;
+	if (s_view == View::Set) back = uiBackGuard(&s_guard, s_t, setPending()) == UiGuardEv::Back;
+	else back = backActs() && uiBackTapped(s_t);
 	if (back) {
 		s_full = true;
 		if (s_view == View::Set) {
