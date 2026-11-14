@@ -237,6 +237,43 @@ static void testLogScreen() {
 	// The first thing anyone sees, since the card slot is empty by default.
 	fakeDumpFrame("shot_log_nocard.ppm");
 	checkControlTable("SD LOG, no card");
+	static const char *const HINT = "INSERT A CARD, THEN RETRY MOUNT";
+	const int noteY = 228;
+	checkTrue("3 NOT READY, no size: the note says to insert a card",
+	          fakeTextCentredIs(noteY, HINT, C_DIM, C_BG, 1));
+	checkTrue("the hint fits the panel", gfxTextW(HINT, 1) <= GFX_W - 2 * UI_MARGIN);
+	{
+		UiRect r = ctlRect(UI_FIX(SdLogCtl::Retry));
+		checkTrue("the button reads RETRY MOUNT, inside its 104 px",
+		          gfxTextW("RETRY MOUNT", 1) + 8 <= r.w &&
+		          fakeTextIs(r.x + (r.w - gfxTextW("RETRY MOUNT", 1)) / 2, r.y + (r.h - 7) / 2,
+		                     "RETRY MOUNT", C_CYAN, C_PANEL, 1));
+	}
+	// A card that answers and fails otherwise needs another fix.
+	st.mountResult = 13;         // FR_NO_FILESYSTEM
+	st.cardSizeMB = 30500;
+	fakeSdLogSet(&st);
+	frames(2);
+	checkTrue("13 NO FILESYSTEM: no insert hint", !fakeTextCentredIs(noteY, HINT, C_DIM, C_BG, 1));
+	st.mountResult = 3;
+	fakeSdLogSet(&st);
+	frames(2);
+	checkTrue("3 NOT READY with a size read: no insert hint",
+	          !fakeTextCentredIs(noteY, HINT, C_DIM, C_BG, 1));
+	st.mountResult = 1;          // FR_DISK_ERR
+	st.cardSizeMB = 0;
+	fakeSdLogSet(&st);
+	frames(2);
+	checkTrue("1 DISK ERR: no insert hint", !fakeTextCentredIs(noteY, HINT, C_DIM, C_BG, 1));
+	st.state = SdLogState::Error;
+	st.mountResult = 3;
+	fakeSdLogSet(&st);
+	frames(2);
+	checkTrue("CARD ERROR: no insert hint", !fakeTextCentredIs(noteY, HINT, C_DIM, C_BG, 1));
+	st.state = SdLogState::NoCard;
+	fakeSdLogSet(&st);
+	frames(2);
+	checkTrue("NO CARD and 3 NOT READY again: the hint", fakeTextCentredIs(noteY, HINT, C_DIM, C_BG, 1));
 	tapId(UI_FIX(SdLogCtl::Toggle), IdExpect::Disabled);
 	checkTrue("START does nothing without a card", !sdLogActive());
 

@@ -1,7 +1,7 @@
 /**
  * @file ui_sdlog.cpp
- * @brief The SD LOG screen: card state, counters, START and STOP, RETRY and
- *        USB DRIVE. @see ui_sdlog.h
+ * @brief The SD LOG screen: card state, counters, START and STOP, RETRY
+ *        MOUNT and USB DRIVE. @see ui_sdlog.h
  */
 
 #include "ui_sdlog.h"
@@ -55,15 +55,15 @@ static_assert(LOG_TOGGLE_H >= UI_TAP_MIN && LOG_BOT_H >= UI_TAP_MIN,
 // Against the constants rather than the structs: a UiRect is const, not
 // constexpr, so its members are not usable in a constant expression.
 static_assert(14 + 2 * LOG_BTN_W + LOG_BTN_GAP <= 226,
-              "RETRY and USB DRIVE do not fit between the margins");
+              "RETRY MOUNT and USB DRIVE do not fit between the margins");
 
 /** @brief This frame's touch. */
 static TouchState s_touch;
 
 /** @brief What the last frame drew, so an unchanged screen is not repainted. */
 static struct {
-	int      config, logState, logFile, logDrops, mscState, mscNote;
-	uint32_t logBytes, logFrames, logPeak, logWorstMs, mscBlocks;
+	int      config, logState, logFile, logDrops, mscState, mscNote, logMount;
+	uint32_t logBytes, logFrames, logPeak, logWorstMs, mscBlocks, logCardMB;
 } s_shown;
 
 /** @brief True while @p b is touched by a press that began inside it. */
@@ -93,6 +93,23 @@ static bool mscNoteActive() {
 	if (s_mscNote != MscRefusal::None && (int32_t)(millis() - s_mscNoteUntilMs) >= 0)
 		s_mscNote = MscRefusal::None;
 	return s_mscNote != MscRefusal::None;
+}
+
+/** @brief FatFs FR_NOT_READY: the mount found nothing on the bus. */
+#define LOG_FR_NOT_READY 3
+
+/**
+ * @brief Whether the note line says `INSERT A CARD, THEN RETRY MOUNT`.
+ *
+ * Only when inserting a card is the remedy: NO CARD, the mount ended in
+ * FR_NOT_READY (3), and the driver read no size, so nothing answered. A card
+ * that answered and failed otherwise (13 NO FILESYSTEM, 1 DISK ERR) needs
+ * another fix, and a card handed to a computer is not in this state's view.
+ * @param st The logger's status.
+ */
+static bool insertCardHint(const SdLogStatus &st) {
+	return st.state == SdLogState::NoCard && st.mountResult == LOG_FR_NOT_READY &&
+	       st.cardSizeMB == 0;
 }
 
 /**
@@ -158,6 +175,7 @@ static void drawLogScreen() {
 	    s_shown.logBytes == st.bytesWritten && s_shown.logFrames == st.framesLogged &&
 	    s_shown.logDrops == (int)st.dropEvents && s_shown.logPeak == st.peakBuffer &&
 	    s_shown.logWorstMs == st.worstFlushMs &&
+	    s_shown.logMount == st.mountResult && s_shown.logCardMB == st.cardSizeMB &&
 	    s_shown.mscState == (int)msc && s_shown.mscNote == note &&
 	    s_shown.mscBlocks == blocks)
 		return;
@@ -173,6 +191,9 @@ static void drawLogScreen() {
 	s_shown.logDrops   = st.dropEvents;
 	s_shown.logPeak    = st.peakBuffer;
 	s_shown.logWorstMs = st.worstFlushMs;
+	// MOUNT, CARD and the insert hint follow these two.
+	s_shown.logMount   = st.mountResult;
+	s_shown.logCardMB  = st.cardSizeMB;
 
 	gfxFill(C_BG);
 	uiHeader("SD LOG", &s_touch);
@@ -272,7 +293,7 @@ static void drawLogScreen() {
 	// The card is only mounted once, at boot, so one inserted afterwards needs
 	// this. Without it, "insert card, nothing happens" is indistinguishable
 	// from a card the firmware cannot read.
-	uiButton(BTN_LOG_RETRY, "RETRY", C_PANEL, C_CYAN, 1,
+	uiButton(BTN_LOG_RETRY, "RETRY MOUNT", C_PANEL, C_CYAN, 1,
 	        pressing(BTN_LOG_RETRY, s_touch));
 
 	// Hands the card to a computer over the same USB cable that powers the
@@ -284,11 +305,14 @@ static void drawLogScreen() {
 	uiButton(BTN_LOG_USB, "USB DRIVE", C_PANEL, C_CYAN, 1,
 	        pressing(BTN_LOG_USB, s_touch), usable);
 
-	// The note line says why the last press was refused. Blank the row even
-	// when there is nothing to say, or a stale reason outlives its cause.
+	// The note line says why the last press was refused, or, with no card on
+	// the bus, what to do. Blank the row even when there is nothing to say, or
+	// a stale reason outlives its cause.
 	gfxRect(0, LOG_NOTE_Y, GFX_W, 8, C_BG);
 	if (mscNoteActive())
 		gfxTextCenter(LOG_NOTE_Y, mscRefusalText(s_mscNote), C_AMBER, 1);
+	else if (insertCardHint(st))
+		gfxTextCenter(LOG_NOTE_Y, "INSERT A CARD, THEN RETRY MOUNT", C_DIM, 1);
 }
 
 /** @brief Touch handling for the logging screen. All three fire on release. */
@@ -309,9 +333,9 @@ static bool handleLogTouch() {
 	}
 
 	// The same expression the buttons are drawn with: no card, no start and no
-	// handover. RETRY is exempt and always live -- it is the control that gets
-	// you *out* of the no-card state, and disabling it would be a screen with
-	// nothing on it that does anything.
+	// handover. RETRY MOUNT is exempt and always live -- it is the control
+	// that gets you *out* of the no-card state, and disabling it would be a
+	// screen with nothing on it that does anything.
 	SdLogStatus st;
 	sdLogStatus(&st);
 	const bool usable = (st.state != SdLogState::NoCard);

@@ -130,8 +130,8 @@ Check the `MOUNT` row on the SD LOG screen.
 - **`3 NOT READY`**: nothing answered on the bus. No card, or not seated.
 - **`13 NO FILESYSTEM`** with a size under `CARD`: the card answers and the
   filesystem is the problem. Format it as FAT32.
-- **Card inserted after boot**: press `RETRY`. The card is mounted only once,
-  at boot, and the board has no card-detect pin.
+- **Card inserted after boot**: press `RETRY MOUNT`. The card is mounted only
+  once, at boot, and the board has no card-detect pin.
 
 ---
 

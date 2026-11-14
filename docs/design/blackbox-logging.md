@@ -222,8 +222,11 @@ In `src/sd_log.cpp` and `src/log_ring.cpp`:
 ## Lifecycle
 
 - The card is mounted at boot. An absent card is not an error: logging is
-  unavailable and the screen says so. RETRY mounts a card inserted
-  later. A failed mount shows the FatFs result and the card type.
+  unavailable and the screen says so. RETRY MOUNT mounts a card inserted
+  later. A failed mount shows the FatFs result and the card type. With NO
+  CARD, FR_NOT_READY (3) and no card size, nothing answered on the bus, and
+  the note line says `INSERT A CARD, THEN RETRY MOUNT`; a card that answered
+  and failed otherwise (13 FR_NO_FILESYSTEM, 1 FR_DISK_ERR) gets no hint.
 - Files are `LOGS/LOG00001.BFL` onwards, at the first free number
   (`SD_LOG_DIR_PATH`). The directory keeps the root to a few entries, so the
   KST files' and the device backups' lookups in it read one block

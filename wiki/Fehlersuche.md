@@ -140,8 +140,8 @@ Sieh auf die `MOUNT`-Zeile des SD-LOG-Bildschirms.
   sitzt nicht richtig.
 - **`13 NO FILESYSTEM`** mit einer Größe unter `CARD`: Die Karte antwortet,
   das Dateisystem ist das Problem. Als FAT32 formatieren.
-- **Karte nach dem Start eingesteckt**: `RETRY` drücken. Die Karte wird nur
-  einmal beim Start eingebunden, und die Platine hat keinen
+- **Karte nach dem Start eingesteckt**: `RETRY MOUNT` drücken. Die Karte wird
+  nur einmal beim Start eingebunden, und die Platine hat keinen
   Karten-Erkennungspin.
 
 ---

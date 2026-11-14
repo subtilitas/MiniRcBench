@@ -448,7 +448,9 @@ tester. Every tool's **BACK** returns to MENU.
 - **WORST FLUSH**: the longest single card write, in ms. Amber above 50 ms.
 - **CARD**: card type and size. **MOUNT**: the FatFs result code and name,
   for example `0 OK`, `3 NOT READY`, `13 NO FILESYSTEM`.
-- **RETRY**: mounts again. The card is otherwise mounted only once, at boot.
+- **RETRY MOUNT**: mounts again. The card is otherwise mounted only once, at
+  boot. With `NO CARD` and `3 NOT READY` and no card size, the note line
+  above START reads `INSERT A CARD, THEN RETRY MOUNT`.
 - **USB DRIVE**: serves the card to the USB host. See
   [Blackbox logging to microSD](#blackbox-logging-to-microsd).
 - **BACK**: returns to MENU, also while a host holds the card. The handover
@@ -1742,8 +1744,8 @@ runs, so a layout change is visible in the frames:
   accepted and refused, unsaved settings, PINS BUSY, seven rows;
 - four of MENU → SETTINGS: the top, scrolled to the end, high contrast, the
   CURRENT SENSE row with a sensor found;
-- six of MENU → SD LOG: ready, recording, no card, a card found by RETRY, USB
-  DRIVE refused, USB DRIVE serving;
+- six of MENU → SD LOG: ready, recording, no card, a card found by RETRY
+  MOUNT, USB DRIVE refused, USB DRIVE serving;
 - six of the AM32 editor: list, field edit, scrolled, written, written with
   a backup, hex view;
 - fourteen of the servo tester: SAFE, running, sweeping, two servos,

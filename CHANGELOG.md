@@ -410,6 +410,12 @@ protocol.
 
 ### Changed
 
+- SD LOG's mount button reads `RETRY MOUNT`, as on the KST and Hitec FILES
+  pages. With NO CARD, mount result 3 NOT READY and no card size, the note
+  line says `INSERT A CARD, THEN RETRY MOUNT`; a card that answers and fails
+  otherwise gets no hint. The screen also redraws when only the mount result
+  or the card size changes, so MOUNT and CARD no longer show a stale value.
+  Host tests in `test/test_ui.cpp`.
 - README and the wiki pages AM32-Configuration and AM32-Konfiguration state
   what leaving AM32 CONFIG does to the ESC: no RUN command goes to the
   bootloader, and what the ESC does after the screen is left is not
