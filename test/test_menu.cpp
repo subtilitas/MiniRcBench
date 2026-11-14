@@ -6,10 +6,12 @@
  * The cases slice C of docs/design/menu.md lists: SD LOG's BACK to MENU,
  * every registry entry opened from MENU and back, MENU's disarm, BEEP's
  * flash on its row, the rows drawn disabled while the claim restores, MENU's
- * scroll over registries of six and seven rows, SETTINGS whole and tappable at 0 px as the
- * sixth row, SD LOG cut until dragged, and SETTINGS' list: its scroll range,
- * each row by id, no scroll from a control, the 40 px rule for a cut
- * control, HOLD TO SAVE at every scroll, and the pole and ceiling rows.
+ * scroll over registries of six and seven rows, and SETTINGS' list: its
+ * scroll range, each row by id, no scroll from a control, the 40 px rule
+ * for a cut control, HOLD TO SAVE at every scroll, and the pole and ceiling
+ * rows. Slice 9 of docs/design/menu-b.md: the seven rows by device, SD LOG
+ * whole at 0 px and SETTINGS cut until dragged, RX SIGNALS drawn disabled
+ * in every claim state, and PROGRAMMER, the chooser.
  */
 
 #include "check.h"
@@ -21,6 +23,8 @@
 #include "ui_registry.h"
 #include "ui_sdlog.h"
 #include "ui_servo.h"
+#include "ui_servo_prog.h"
+#include "servo_supply.h"
 #include "ui_hitec.h"
 #include "ui_kst.h"
 #include "ui_settings.h"
@@ -51,6 +55,14 @@ static void menuFrames(int n) {
 
 /** @brief A pixel of the frame. */
 static uint16_t pixel(int x, int y) { return gfxBuffer()[y * GFX_W + x]; }
+
+/** @brief Whether every pixel of the rectangle is @p c. */
+static bool allOf(int x, int y, int w, int h, uint16_t c) {
+	for (int j = y; j < y + h; j++)
+		for (int i = x; i < x + w; i++)
+			if (pixel(i, j) != c) return false;
+	return true;
+}
 
 /**
  * @brief Whether SETTINGS' note line, y 254, reads @p text in @p col: the line
@@ -129,6 +141,15 @@ static void testEveryEntry() {
 	for (uint8_t i = 0; i < n; i++) {
 		const UiScreen *s = e[i].screen;
 		char what[64];
+		if (!s->action && !s->enter) {
+			// RX SIGNALS: no screen behind the row.
+			snprintf(what, sizeof(what), "%s is drawn disabled", e[i].label);
+			checkTrue(what, !ctlEnabled(menuRow(s)));
+			tapId(menuRow(s), IdExpect::Disabled);
+			snprintf(what, sizeof(what), "%s opens nothing", e[i].label);
+			checkTrue(what, uiCurrentScreen() == UiScreenId::Menu);
+			continue;
+		}
 		tapId(menuRow(s));
 		if (s->action) {
 			snprintf(what, sizeof(what), "%s acts and MENU stays", e[i].label);
@@ -140,25 +161,12 @@ static void testEveryEntry() {
 		menuFrames(10);
 		checkControlTable(e[i].label);
 		tapId(UI_FIX(UI_BACK));
-		// SERVO and KST SERVO pass the leave page once their job has held the
+		// SERVO TESTER passes the leave page once its job has held the
 		// pins: RESTART DSHOT acts 1000 ms after the release.
 		for (int k = 0; k < 200 && ctlEnabled(UI_FIX(ServoCtl::Restart)) == false &&
 		                uiCurrentScreen() == UiScreenId::Servo; k++)
 			menuFrames(1);
 		if (uiCurrentScreen() == UiScreenId::Servo) tapId(UI_FIX(ServoCtl::Restart));
-		// KST SERVO asks for LEAVE first when it found the servo.
-		for (int k = 0; k < 200 && ctlEnabled(UI_FIX(KstCtl::Restart)) == false &&
-		                uiCurrentScreen() == UiScreenId::Kst; k++) {
-			if (ctlEnabled(UI_FIX(KstCtl::Leave))) tapId(UI_FIX(KstCtl::Leave));
-			else if (uiKstView() == KstView::List) tapId(UI_FIX(UI_BACK));
-			menuFrames(1);
-		}
-		if (uiCurrentScreen() == UiScreenId::Kst) tapId(UI_FIX(KstCtl::Restart));
-		// HITEC SERVO holds SIG from its first frame: the leave page too.
-		for (int k = 0; k < 200 && ctlEnabled(UI_FIX(HitecCtl::Restart)) == false &&
-		                uiCurrentScreen() == UiScreenId::Hitec; k++)
-			menuFrames(1);
-		if (uiCurrentScreen() == UiScreenId::Hitec) tapId(UI_FIX(HitecCtl::Restart));
 		for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) menuFrames(1);
 		snprintf(what, sizeof(what), "BACK from %s lands on MENU", e[i].label);
 		checkTrue(what, uiCurrentScreen() == UiScreenId::Menu);
@@ -166,7 +174,7 @@ static void testEveryEntry() {
 	tapId(UI_FIX(UI_BACK));
 }
 
-/** @brief MENU disarms on open, BEEP flashes on its row, and KST SERVO has its row. */
+/** @brief MENU disarms on open, BEEP flashes on its row, and SERVO PROGRAMMER has its row. */
 static void testMenuDisarmAndBeep() {
 	section("MENU: opening it disarms; BEEP's flash is on its row");
 	freshTester();
@@ -179,7 +187,7 @@ static void testMenuDisarmAndBeep() {
 	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
 	checkTrue("and the tester is disarmed", !uiArmed() && !fakeArmed());
 	checkInt("with the throttle at 0", uiThrottle(), 0);
-	checkInt("KST SERVO is the fourth row", uiMenuRowOf(&UI_KST), 3);
+	checkInt("SERVO PROGRAMMER is the fourth row", uiMenuRowOf(&UI_SERVO_PROG), 3);
 	checkControlTable("MENU");
 
 	UiRect beep = ctlRect(menuRow(&UI_BEEP));
@@ -256,31 +264,35 @@ static void testPinsBusy() {
 	bool busySeen = uiCurrentScreen() == UiScreenId::Menu && pinClaimState() != ClaimState::Free;
 	checkTrue("RESTART DSHOT returns to MENU while the claim restores", busySeen);
 	if (busySeen) {
-		// SETTINGS is MENU's sixth row, whole at scroll 0. SD LOG is the
+		// SD LOG is MENU's sixth row, whole at scroll 0. SETTINGS is the
 		// seventh: a drag brings it whole, with no pump pass, so the claim
 		// stays Restoring.
-		const UiControlId settingsRow = UI_ROW(uiMenuRowOf(&UI_SETTINGS), Row);
-		checkInt("SETTINGS' row is whole without a drag", ctlRect(settingsRow).h, 40);
+		const UiControlId logRow = UI_ROW(uiMenuRowOf(&UI_SDLOG), Row);
+		checkInt("SD LOG's row is whole without a drag", ctlRect(logRow).h, 40);
+		checkTrue("SD LOG, which claims nothing, acts", ctlEnabled(logRow));
 		checkTrue("SERVO TESTER does not act", !ctlEnabled(menuRow(&UI_SERVO)));
 		char want[40];
 		snprintf(want, sizeof(want), "DSHOT RESTARTING ON SIG GP%u", (unsigned)settings()->dshotPin);
 		checkTrue("the strip says why: DSHOT RESTARTING ON SIG GP0, amber",
 		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, want, C_AMBER, C_BG, 1));
-		char pins[16];
-		snprintf(pins, sizeof(pins), "GP%u+%u", (unsigned)settings()->dshotPin,
-		         (unsigned)settings()->kissPin);
 		const UiRect sr = ctlRect(menuRow(&UI_SERVO));
-		checkTrue("SERVO TESTER keeps its own status under the outline",
-		          fakeTextIs(UI_MENU_STATUS_R - gfxTextW(pins, 1), sr.y + 16, pins, C_DIM, C_BG, 1));
+		checkTrue("SERVO TESTER is an outline with no status: the strip names the pins",
+		          pixel(sr.x + 4, sr.y + sr.h / 2) == C_BG &&
+		          allOf(sr.x + 160, sr.y + 4, sr.w - 164, sr.h - 8, C_BG));
 		checkTrue("nor AM32 CONFIG", !ctlEnabled(menuRow(&UI_AM32)));
-		checkTrue("nor SETTINGS, which changes the wiring the claim latched",
-		          !ctlEnabled(settingsRow));
+		checkTrue("nor SERVO PROGRAMMER, whose entries claim", !ctlEnabled(menuRow(&UI_SERVO_PROG)));
+		const UiRect rx = ctlRect(menuRow(&UI_RX_SIGNALS));
+		checkTrue("RX SIGNALS stays disabled under NOT BUILT",
+		          !ctlEnabled(menuRow(&UI_RX_SIGNALS)) &&
+		          fakeTextIs(UI_MENU_STATUS_R - gfxTextW(UI_MENU_NOT_BUILT, 1), rx.y + 16,
+		                     UI_MENU_NOT_BUILT, C_DIM, C_BG, 1));
 		fakePress(120, 250); framesNoPump(1);
 		for (int k = 1; k <= 12; k++) { fakeHold(120, 250 - 6 * k); framesNoPump(1); }
 		fakeRelease(); framesNoPump(1);
-		const UiControlId logRow = UI_ROW(uiMenuRowOf(&UI_SDLOG), Row);
-		checkInt("SD LOG's row is whole after the drag", ctlRect(logRow).h, 40);
-		checkTrue("SD LOG, which claims nothing, acts", ctlEnabled(logRow));
+		const UiControlId settingsRow = UI_ROW(uiMenuRowOf(&UI_SETTINGS), Row);
+		checkInt("SETTINGS' row is whole after the drag", ctlRect(settingsRow).h, 40);
+		checkTrue("nor SETTINGS, which changes the wiring the claim latched",
+		          !ctlEnabled(settingsRow));
 		fakeDumpFrame("shot_menu_restarting.ppm");
 		UiControl c;
 		ctlFind(menuRow(&UI_SERVO), &c);
@@ -313,8 +325,8 @@ static void testMenuScroll() {
 	};
 	static const UiMenuEntry seven[] = {
 		{ "BEEP THE ESC", 8, &UI_BEEP }, { "AM32 CONFIG", 9, &UI_AM32 },
-		{ "SERVO TESTER", 9, &UI_SERVO }, { "KST SERVO", 9, &UI_KST },
-		{ "HITEC SERVO", 9, &UI_HITEC }, { "SETTINGS", 9, &UI_SETTINGS },
+		{ "SERVO TESTER", 9, &UI_SERVO }, { "SERVO PROGRAMMER", 0, &UI_SERVO_PROG },
+		{ "RX SIGNALS", 9, &UI_RX_SIGNALS }, { "SETTINGS", 9, &UI_SETTINGS },
 		{ "SD LOG", 10, &UI_SDLOG },
 	};
 	freshTester();
@@ -347,29 +359,255 @@ static void testMenuScroll() {
 	uiMenuUseRegistry(nullptr, 0);
 }
 
-/** @brief The built registry: SETTINGS is the sixth row, whole and tappable at 0 px. */
+/**
+ * @brief The built registry, by device (docs/design/menu-b.md, decisions 23,
+ *        32 and 33): seven rows scroll 36 px, SD LOG whole at 0 px as the
+ *        sixth row, SETTINGS the seventh, reached with a short drag.
+ */
 static void testSettingsRowVisible() {
-	section("MENU: SETTINGS is the sixth row, whole without a drag");
+	section("MENU: seven rows by device, SETTINGS reached with a short drag");
 	freshTester();
 	uiMenuUseRegistry(nullptr, 0);
 	openMenu();
-	checkInt("SETTINGS is the sixth row", uiMenuRowOf(&UI_SETTINGS), 5);
-	checkInt("SD LOG is the seventh row", uiMenuRowOf(&UI_SDLOG), 6);
-	const UiControlId settingsRow = UI_ROW(5, Row);
-	checkInt("SETTINGS is whole at 0 px", ctlRect(settingsRow).h, 40);
-	checkInt("and ends at y 311", ctlRect(settingsRow).y + ctlRect(settingsRow).h, 312);
-	checkTrue("SD LOG, the seventh, is cut at 0 px", !ctlEnabled(UI_ROW(6, Row)));
-	checkTrue("SETTINGS acts at 0 px", ctlEnabled(settingsRow));
-	tapId(settingsRow);
-	checkTrue("a tap with no drag opens SETTINGS", uiCurrentScreen() == UiScreenId::Settings);
+	uint8_t n;
+	const UiMenuEntry *e = uiMenuEntries(&n);
+	static const char *const ORDER[] = {
+		"BEEP THE ESC", "AM32 CONFIG", "SERVO TESTER", "SERVO PROGRAMMER",
+		"RX SIGNALS", "SD LOG", "SETTINGS",
+	};
+	bool order = n == 7;
+	for (uint8_t i = 0; order && i < n; i++) order = strcmp(e[i].label, ORDER[i]) == 0;
+	checkTrue("BEEP THE ESC, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, "
+	          "SETTINGS, in that order", order);
+	checkTrue("the rows' screens", uiMenuRowOf(&UI_SERVO_PROG) == 3 && uiMenuRowOf(&UI_RX_SIGNALS) == 4 &&
+	          uiMenuRowOf(&UI_SDLOG) == 5 && uiMenuRowOf(&UI_SETTINGS) == 6);
+	checkTrue("no row for KST SERVO or HITEC SERVO: PROGRAMMER opens them",
+	          uiMenuRowOf(&UI_KST) < 0 && uiMenuRowOf(&UI_HITEC) < 0);
+	checkTrue("the tool rows have no status (decision 18)",
+	          !UI_AM32.status && !UI_SERVO.status && !UI_SERVO_PROG.status && !UI_KST.status &&
+	          !UI_HITEC.status && e[1].statusWidest == 0 && e[2].statusWidest == 0 &&
+	          e[3].statusWidest == 0);
+	{
+		const int w = gfxTextW("SERVO PROGRAMMER", 2);
+		checkTrue("SERVO PROGRAMMER, 190 px at scale 2 from x 16, ends at x 206",
+		          w == 190 && UI_MENU_LABEL_X + w == 206);
+		const UiRect r = ctlRect(UI_ROW(3, Row));
+		checkTrue("drawn at x 16, its row's end blank",
+		          fakeTextIs(UI_MENU_LABEL_X, r.y + 13, "SERVO PROGRAMMER", C_TEXT, C_PANEL, 2) &&
+		          allOf(UI_MENU_LABEL_X + w + 1, r.y + 2, 228 - (UI_MENU_LABEL_X + w + 1), r.h - 4,
+		                C_PANEL));
+	}
+	const UiControlId logRow = UI_ROW(5, Row);
+	checkInt("SD LOG is whole at 0 px", ctlRect(logRow).h, 40);
+	checkInt("and ends at y 311", ctlRect(logRow).y + ctlRect(logRow).h, 312);
+	checkInt("SETTINGS, the seventh, is cut to 6 px at y 314", ctlRect(UI_ROW(6, Row)).y, 314);
+	checkTrue("and does not act there", !ctlEnabled(UI_ROW(6, Row)));
+	tapId(logRow);
+	checkTrue("a tap with no drag opens SD LOG", uiCurrentScreen() == UiScreenId::SdLog);
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK lands on MENU", uiCurrentScreen() == UiScreenId::Menu);
-	checkTrue("SD LOG is cut again at 0 px", !ctlEnabled(UI_ROW(6, Row)));
-	checkTrue("a drag brings SD LOG whole and acts",
-	          ctlEnabled(menuRow(&UI_SDLOG)) && ctlRect(UI_ROW(6, Row)).h == 40);
-	tapId(menuRow(&UI_SDLOG));
-	checkTrue("and a tap opens SD LOG", uiCurrentScreen() == UiScreenId::SdLog);
+	checkTrue("SETTINGS is cut again at 0 px", !ctlEnabled(UI_ROW(6, Row)));
+	fakePress(120, 250); menuFrames(1);
+	for (int k = 1; k <= 12; k++) { fakeHold(120, 250 - 6 * k); menuFrames(1); }
+	fakeRelease(); menuFrames(1);
+	checkInt("a drag scrolls 36 px: SETTINGS whole at y 278", ctlRect(UI_ROW(6, Row)).y, 278);
+	checkTrue("and acts", ctlEnabled(UI_ROW(6, Row)) && ctlRect(UI_ROW(6, Row)).h == 40);
+	tapId(UI_ROW(6, Row));
+	checkTrue("and a tap opens SETTINGS", uiCurrentScreen() == UiScreenId::Settings);
 	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+}
+
+/**
+ * @brief RX SIGNALS (owner decision B): drawn disabled with `NOT BUILT` in
+ *        every claim state MENU shows, a tap opens nothing, and its look is
+ *        not the busy cue: the strip keeps its caption while the claim is
+ *        Free.
+ */
+static void testRxSignalsRow() {
+	section("MENU: RX SIGNALS, drawn disabled, NOT BUILT");
+	freshTester();
+	openMenu();
+	const UiControlId row = menuRow(&UI_RX_SIGNALS);
+	const UiRect r = ctlRect(row);
+	auto rxDisabled = [&]() {
+		return !ctlEnabled(row) && pixel(r.x + 4, r.y + r.h / 2) == C_BG &&
+		       fakeTextIs(UI_MENU_LABEL_X, r.y + 13, "RX SIGNALS", C_DIM, C_BG, 2) &&
+		       fakeTextIs(UI_MENU_STATUS_R - gfxTextW(UI_MENU_NOT_BUILT, 1), r.y + 16, UI_MENU_NOT_BUILT,
+		                  C_DIM, C_BG, 1);
+	};
+	checkTrue("claim Free: an outline, the label dim, NOT BUILT dim", pinClaimState() == ClaimState::Free &&
+	          rxDisabled());
+	char cap[40];
+	snprintf(cap, sizeof(cap), UI_MENU_CAPTION_FMT, (unsigned)settings()->dshotPin,
+	         (unsigned)settings()->kissPin, (unsigned)settings()->dshotKbaud);
+	checkTrue("the strip keeps its caption: not the busy cue",
+	          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, cap, C_DIM, C_BG, 1));
+	checkTrue("its neighbours act", ctlEnabled(menuRow(&UI_SERVO_PROG)) && ctlEnabled(menuRow(&UI_SDLOG)));
+	checkTrue("RX SIGNALS, 118 px from x 16, ends 8 px or more before NOT BUILT",
+	          UI_MENU_LABEL_X + gfxTextW("RX SIGNALS", 2) + UI_MENU_LABEL_GAP <=
+	              UI_MENU_STATUS_R - gfxTextW(UI_MENU_NOT_BUILT, 1));
+	tapId(row, IdExpect::Disabled);
+	checkTrue("a tap opens nothing", uiCurrentScreen() == UiScreenId::Menu);
+	fakePress(r.x + r.w / 2, r.y + r.h / 2);
+	menuFrames(1);
+	checkTrue("a press draws no pressed look", rxDisabled());
+	fakeRelease();
+	menuFrames(1);
+	// A claim taken under MENU, as only a test can: Stopping, then Held.
+	checkTrue("a claim taken", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
+	for (int k = 0; k < 3; k++) {
+		menuFrames(1);
+		pinClaimPoll();
+		char what[64];
+		snprintf(what, sizeof(what), "claim state %d: RX SIGNALS disabled, NOT BUILT",
+		         (int)pinClaimState());
+		checkTrue(what, pinClaimState() != ClaimState::Free && rxDisabled());
+	}
+	tapId(row, IdExpect::Disabled);
+	checkTrue("a tap opens nothing", uiCurrentScreen() == UiScreenId::Menu);
+	pinClaimEnd(PinUser::Am32);
+	for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) menuFrames(1);
+	menuFrames(1);
+	checkTrue("claim Free again: still disabled", rxDisabled());
+	tapId(UI_FIX(UI_BACK));
+}
+
+/** @brief Whether the 8 px line at @p y reads @p text from x 8 in @p col, alone on its rows. */
+static bool lineIs(int y, const char *text, uint16_t col) {
+	uint16_t *fb = gfxBuffer();
+	static uint16_t keep[8][GFX_W];
+	memcpy(keep, fb + y * GFX_W, sizeof(keep));
+	uint32_t shown = fakeRegionHash(0, y, GFX_W, 8);
+	gfxRect(0, y, GFX_W, 8, C_BG);
+	gfxText(UI_MARGIN, y, text, col, 1);
+	bool same = fakeRegionHash(0, y, GFX_W, 8) == shown;
+	memcpy(fb + y * GFX_W, keep, sizeof(keep));
+	return same;
+}
+
+/**
+ * @brief PROGRAMMER, the chooser (docs/design/menu-b.md, decision 2 and owner
+ *        decision A): it claims nothing, its three entries and their lines
+ *        with SERVO SUPPLY at OWN and at GP28 and GP29, CLASSIC disabled
+ *        without the switch, and BACK to MENU.
+ */
+static void testServoProg() {
+	section("PROGRAMMER: the chooser");
+	freshTester();
+	settings()->servoSupply = 0;
+	servoSupplyConfigure(0);
+	openMenu();
+	tapId(menuRow(&UI_SERVO_PROG));
+	menuFrames(1);
+	checkTrue("SERVO PROGRAMMER opens PROGRAMMER", uiCurrentScreen() == UiScreenId::ServoProg);
+	checkTrue("it claims nothing: DShot runs on SIG", pinClaimState() == ClaimState::Free &&
+	          !escTaskSuspended() && fakePinReturned());
+	menuFrames(20);
+	checkTrue("half a second on, still nothing claimed", pinClaimState() == ClaimState::Free &&
+	          !escTaskSuspended());
+	checkTrue("the title reads PROGRAMMER",
+	          fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, UI_PROG_TITLE, C_TEXT, C_PANEL, 2));
+	checkTrue("10 characters, 118 px, ending 4 px or more before BACK",
+	          gfxTextW(UI_PROG_TITLE, 2) == 118 && UI_MARGIN + 118 + 4 <= UI_BACK_X);
+	checkTrue("the strip: SIG GP0  SERVO SUPPLY OWN, dim",
+	          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "SIG GP0  SERVO SUPPLY OWN", C_DIM, C_BG, 1));
+	checkInt("three entries", UI_PROGRAMMERS_COUNT, 3);
+	const int kst = progEntryOf(uiKstEnter), d = progEntryOf(uiHitecEnterD),
+	          cl = progEntryOf(uiHitecEnterClassic);
+	checkTrue("KST / CHASERVO, HITEC D SERIES, HITEC CLASSIC, top to bottom", kst == 0 && d == 1 && cl == 2);
+	static const char *const LABEL[] = { "KST / CHASERVO", "HITEC D SERIES", "HITEC CLASSIC" };
+	for (int i = 0; i < 3; i++) {
+		const UiRect r = ctlRect(PROG_ENTRY(i));
+		char what[80];
+		snprintf(what, sizeof(what), "%s: 228 x 46 px at (6, %d)", LABEL[i], 62 + 80 * i);
+		checkTrue(what, r.x == 6 && r.y == 62 + 80 * i && r.w == 228 && r.h == 46);
+		snprintf(what, sizeof(what), "%s: its label centred at scale 2", LABEL[i]);
+		const bool live = i != cl;
+		checkTrue(what, strcmp(UI_PROGRAMMERS[i].label, LABEL[i]) == 0 &&
+		                fakeTextIs(r.x + (r.w - gfxTextW(LABEL[i], 2)) / 2, r.y + (r.h - 14) / 2, LABEL[i],
+		                           live ? C_TEXT : C_GRID, live ? C_PANEL : C_BG, 2));
+		snprintf(what, sizeof(what), "%s %s", LABEL[i], live ? "acts" : "is drawn disabled with OWN");
+		checkTrue(what, ctlEnabled(PROG_ENTRY(i)) == live);
+	}
+	checkTrue("KST: POWER THE SERVO UP AFTER THE TAP. at y 112, dim",
+	          lineIs(112, "POWER THE SERVO UP AFTER THE TAP.", C_DIM));
+	checkTrue("D SERIES: its models at y 192, dim", lineIs(192, "D485HW, D645MW AND THE OTHERS", C_DIM));
+	checkTrue("then POWER THE SERVO UP AFTER THE TAP. at y 204 (owner decision A)",
+	          lineIs(204, "POWER THE SERVO UP AFTER THE TAP.", C_DIM));
+	checkTrue("CLASSIC: its models at y 272, dim", lineIs(272, "HS-5XXX, HS-7XXX", C_DIM));
+	checkTrue("then NEEDS THE CONVERTER OF WIRING PART C at y 284, amber",
+	          lineIs(284, "NEEDS THE CONVERTER OF WIRING PART C", C_AMBER));
+	checkTrue("and AND SETTINGS > SERVO SUPPLY GP28/29. at y 296, amber",
+	          lineIs(296, "AND SETTINGS > SERVO SUPPLY GP28/29.", C_AMBER));
+	checkTrue("33, 29, 16, 36 and 36 characters: the widest 215 px, to x 223",
+	          gfxTextW("POWER THE SERVO UP AFTER THE TAP.", 1) == 197 &&
+	          gfxTextW("NEEDS THE CONVERTER OF WIRING PART C", 1) == 215 &&
+	          gfxTextW("AND SETTINGS > SERVO SUPPLY GP28/29.", 1) == 215);
+	{
+		int x0 = 0, x1 = 0;
+		checkTrue("nothing under the strip reaches past the buttons' 6 px edges",
+		          fakeInkExtent(UI_BODY_Y, GFX_H - UI_BODY_Y, C_BG, &x0, &x1) && x0 >= 6 && x1 < GFX_W - 6);
+		checkTrue("the last line ends at y 302, above the panel's end",
+		          !fakeInkExtent(304, GFX_H - 304, C_BG, &x0, &x1));
+	}
+	checkControlTable("PROGRAMMER, OWN");
+	fakeDumpFrame("shot_prog_chooser.ppm");
+	tapId(PROG_ENTRY(cl), IdExpect::Disabled);
+	checkTrue("a tap on CLASSIC opens nothing and claims nothing",
+	          uiCurrentScreen() == UiScreenId::ServoProg && pinClaimState() == ClaimState::Free);
+	{
+		const UiRect r = ctlRect(PROG_ENTRY(cl));
+		fakePress(r.x + r.w / 2, r.y + r.h / 2);
+		menuFrames(1);
+		checkTrue("a press on CLASSIC draws no pressed look",
+		          fakeTextIs(r.x + (r.w - gfxTextW("HITEC CLASSIC", 2)) / 2, r.y + 16, "HITEC CLASSIC",
+		                     C_GRID, C_BG, 2));
+		fakeRelease();
+		menuFrames(1);
+	}
+	{
+		const UiRect r = ctlRect(PROG_ENTRY(kst));
+		const uint32_t rest = fakeRegionHash(r.x, r.y, r.w, r.h);
+		fakePress(r.x + r.w / 2, r.y + r.h / 2);
+		menuFrames(1);
+		checkTrue("a press on KST / CHASERVO draws it pressed, and opens nothing yet",
+		          fakeRegionHash(r.x, r.y, r.w, r.h) != rest && uiCurrentScreen() == UiScreenId::ServoProg &&
+		          pinClaimState() == ClaimState::Free);
+		fakeHold(r.x + r.w / 2, 30);
+		menuFrames(1);
+		fakeRelease();
+		menuFrames(1);
+		checkTrue("slid off before the lift: nothing opens, nothing claimed",
+		          uiCurrentScreen() == UiScreenId::ServoProg && pinClaimState() == ClaimState::Free);
+	}
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu && pinClaimState() == ClaimState::Free);
+
+	for (uint8_t mode = 1; mode <= 2; mode++) {
+		settings()->servoSupply = mode;
+		servoSupplyConfigure(mode);
+		const unsigned gp = servoSupplyPinOf(mode);
+		tapId(menuRow(&UI_SERVO_PROG));
+		menuFrames(1);
+		char want[48], what[96];
+		snprintf(want, sizeof(want), "SIG GP0  SERVO SUPPLY GP%u", gp);
+		snprintf(what, sizeof(what), "GP%u: the strip %s", gp, want);
+		checkTrue(what, fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, want, C_DIM, C_BG, 1) &&
+		                gfxTextW(want, 1) <= 155);
+		snprintf(want, sizeof(want), "THE BENCH SWITCHES IT ON GP%u.", gp);
+		snprintf(what, sizeof(what), "GP%u: %s at y 112, 204 and 284, dim", gp, want);
+		checkTrue(what, lineIs(112, want, C_DIM) && lineIs(204, want, C_DIM) && lineIs(284, want, C_DIM));
+		snprintf(what, sizeof(what), "GP%u: CLASSIC acts, its amber lines gone", gp);
+		checkTrue(what, ctlEnabled(PROG_ENTRY(cl)) && lineIs(296, "", C_AMBER) &&
+		                fakeCountColour(C_AMBER) == 0);
+		snprintf(what, sizeof(what), "PROGRAMMER, GP%u", gp);
+		checkControlTable(what);
+		if (mode == 1) fakeDumpFrame("shot_prog_chooser_switched.ppm");
+		tapId(UI_FIX(UI_BACK));
+	}
+	settings()->servoSupply = 0;
+	servoSupplyConfigure(0);
 	tapId(UI_FIX(UI_BACK));
 }
 
@@ -1241,19 +1479,8 @@ static void testMenuStatusWidths() {
 		fakeFlashClear();
 	}
 	settingsLoad();
-	// The two pin readouts at the widest pins the board offers, and at two
-	// digits, GP28 and GP29, which no board offers yet.
-	settings()->dshotPin = 0;
-	settings()->kissPin = 1;
-	check(e[uiMenuRowOf(&UI_AM32)], "GP0");
-	check(e[uiMenuRowOf(&UI_SERVO)], "GP0+1");
-	settings()->dshotPin = 29;
-	settings()->kissPin = 28;
-	check(e[uiMenuRowOf(&UI_AM32)], "GP29");
-	check(e[uiMenuRowOf(&UI_KST)], "GP29");
-	check(e[uiMenuRowOf(&UI_HITEC)], "GP29");
-	check(e[uiMenuRowOf(&UI_SERVO)], "GP29+28");
-	settingsLoad();
+	// RX SIGNALS' one status.
+	check(e[uiMenuRowOf(&UI_RX_SIGNALS)], "not built");
 	tapId(UI_FIX(UI_BACK));
 }
 
@@ -1341,8 +1568,8 @@ static void testMenuScrollResets() {
 	section("MENU: a tool's return opens MENU at 0 px");
 	static const UiMenuEntry seven[] = {
 		{ "BEEP THE ESC", 8, &UI_BEEP }, { "AM32 CONFIG", 9, &UI_AM32 },
-		{ "SERVO TESTER", 9, &UI_SERVO }, { "KST SERVO", 9, &UI_KST },
-		{ "HITEC SERVO", 9, &UI_HITEC }, { "SETTINGS", 9, &UI_SETTINGS },
+		{ "SERVO TESTER", 9, &UI_SERVO }, { "SERVO PROGRAMMER", 0, &UI_SERVO_PROG },
+		{ "RX SIGNALS", 9, &UI_RX_SIGNALS }, { "SETTINGS", 9, &UI_SETTINGS },
 		{ "SD LOG", 10, &UI_SDLOG },
 	};
 	freshTester();
@@ -1401,8 +1628,9 @@ static void testAm32WaitsBesideAClaim() {
 }
 
 /**
- * @brief SERVO SUPPLY is a core section after WIRING, with or without a
- *        MENU row for KST SERVO: no tool carries it.
+ * @brief SERVO SUPPLY is a core section after WIRING, with the built
+ *        registry and with a shorter one: no tool carries it, and KST
+ *        SERVO, which no MENU row opens, has none.
  */
 static void testSupplySection() {
 	section("SETTINGS: SERVO SUPPLY is a core section after WIRING");
@@ -1485,6 +1713,8 @@ void runMenuTests() {
 	testPinsBusy();
 	testMenuScroll();
 	testSettingsRowVisible();
+	testRxSignalsRow();
+	testServoProg();
 	testSettingsScroll();
 	testSettingsDiagnostics();
 	testSettingsCutControl();
