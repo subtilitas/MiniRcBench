@@ -2466,6 +2466,20 @@ static void testTravelNote() {
 	stepSel(-1);
 	checkTrue("MIN 890 us: pending, the end-stop note", s_pending && s_profile.minUs == 900 &&
 	          s_edit.minUs == 890 && noteIs(T1, T2, C_AMBER));
+	{
+		// BACK drops a wait for the travel as it drops a heli or 60 Hz one.
+		const FakeSlice sl0 = fakeSlice(0);
+		backFromSet();
+		const FakeSlice sl1 = fakeSlice(0);
+		checkTrue("BACK with MIN 890 us pending: MIN stays 900 us, the slice untouched",
+		          s_profile.minUs == 900 && sl1.top == sl0.top && sl1.div16 == sl0.div16 &&
+		          sl1.inits == sl0.inits && sl1.enabled == sl0.enabled);
+		openSet();
+		checkTrue("SET again: nothing pending, MIN 900 us", !s_pending && s_edit.minUs == 900);
+		selectRow(3);
+		stepSel(-1);
+		checkTrue("MIN 890 us again: pending", s_pending && s_edit.minUs == 890);
+	}
 	stepSel(-1);
 	checkTrue("880 us: still pending", s_pending && s_edit.minUs == 880 && s_profile.minUs == 900);
 	stepSel(+1, 2);
