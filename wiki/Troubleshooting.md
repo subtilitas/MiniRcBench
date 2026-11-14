@@ -24,7 +24,7 @@ it as described under [Still stuck](#still-stuck).
 
 ## NO TELEMETRY
 
-<img src="img/tester-disarmed.png" width="240" alt="No telemetry">
+<img src="img/tester-stale.png" width="240" alt="No telemetry">
 
 Nothing answers on the signal wire, and the chip under the title on the
 `MENU` screen reads `NO ESC`. Check in this order:
@@ -114,6 +114,15 @@ voltage cutoff, temperature, desync), and look at `ESC STATUS` and `ESC TEMP`.
 
 ---
 
+## The board restarts on its own
+
+Open **MENU → SETTINGS** and scroll to DIAGNOSTICS. `LAST RESTART` names why
+the board last started. `BROWN-OUT` or `GLITCH` in amber after a restart while
+a motor ran points at the board's supply: power the ESC from its own battery
+and the board from USB. See [The Screens](The-Screens#settings).
+
+---
+
 ## `ESC STATUS` reads `WARN`, `ERROR` or `ALERT`
 
 The tile is amber for `WARN`, red for `ERROR` and magenta for `ALERT`. The
@@ -175,6 +184,11 @@ screen does not work.
   cause: the ESC does not run AM32.
 - **`NO VALID SETTINGS`**: the ESC answered, and the settings block failed the
   plausibility check. Do not write anything.
+- **`LAYOUT n NOT KNOWN`**: the ESC stores a settings layout the tester does
+  not know; it shows `THE TESTER KNOWS LAYOUTS 2 TO 4.` and writes nothing.
+  Use the AM32 configurator for this ESC.
+- **`READ FAILED (...)`**: the handshake worked and the settings read did not.
+  Check the signal wire and ground.
 
 ---
 
@@ -218,5 +232,5 @@ other pin first, then turn KISS on.
 
 Open an issue at
 [github.com/subtilitas/MiniRcBench/issues](https://github.com/subtilitas/MiniRcBench/issues).
-Include: the firmware version, what the `LINK` row shows, and which ESC and
-ESC firmware.
+Include: the firmware version (SETTINGS → VERSION), LAST RESTART, what the
+`LINK` row shows, and which ESC and ESC firmware.

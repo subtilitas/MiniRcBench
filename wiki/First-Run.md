@@ -84,11 +84,11 @@ one end of its travel.
 
 ## Before an ESC is connected
 
-<img src="img/tester-disarmed.png" width="240" alt="The tester screen with no ESC connected">
+<img src="img/tester-stale.png" width="240" alt="The tester screen with no ESC connected">
 
 With no ESC answering, the screen shows `NO TELEMETRY` under the RPM
-(revolutions per minute) readout, `--` in every tile, and a dark red zero for
-RPM. The large voltage at the top right, captioned `BOARD`, is the board's
+(revolutions per minute) readout, `--` in the five ESC tiles, and a dark red
+zero for RPM. The large voltage at the top right, captioned `BOARD`, is the board's
 own battery, not the ESC's; the ESC's voltage is the `VOLTAGE` tile.
 
 If the ESC is powered and wired and this does not change, see
@@ -97,6 +97,10 @@ If the ESC is powered and wired and this does not change, see
 ---
 
 ## Your first arm
+
+<img src="img/tester-disarmed.png" width="240" alt="The tester disarmed: SAFE in green, ARM TO ENABLE in the throttle bar">
+
+Disarmed, the badge reads `SAFE` and the throttle bar reads `ARM TO ENABLE`.
 
 1. Check that the propeller is off.
 2. Press and **hold** `HOLD TO ARM` for 1 s. A green bar fills along the bottom of
@@ -136,7 +140,7 @@ it. The bar shows a grab handle. Turning `HOLD` off sets the throttle to zero.
 `MENU` on the tester opens the list of tools. Opening it always disarms. Tap
 the `SETTINGS` row.
 
-<img src="img/settings.png" width="240" alt="The SETTINGS screen">
+<img src="img/settings.png" width="240" alt="SETTINGS after a change: ESC PIN at GP1 and UNSAVED - HOLD SAVE TO KEEP">
 
 - **MOTOR POLES**: converts the reported eRPM (electrical RPM) to RPM with
   `RPM = eRPM / (poles / 2)`. Range 2–28, even values only. Default 14. A

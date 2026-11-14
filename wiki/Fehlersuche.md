@@ -27,7 +27,7 @@ Ursache in der Firmware. Melde ihn wie unter
 
 ## Keine Telemetrie
 
-<img src="img/tester-disarmed.png" width="240" alt="Keine Telemetrie">
+<img src="img/tester-stale.png" width="240" alt="Keine Telemetrie">
 
 Auf dem Signalkabel antwortet nichts, und das Feld unter dem Titel des
 Bildschirms `MENU` zeigt `NO ESC`. Prüfe in dieser Reihenfolge:
@@ -124,6 +124,16 @@ Bleibt der Motor ohne eines davon stehen, prüfe die Schutzfunktionen des ESC
 
 ---
 
+## Die Platine startet von selbst neu
+
+Öffne **MENU → SETTINGS** und verschiebe bis DIAGNOSTICS. `LAST RESTART`
+nennt, warum die Platine zuletzt gestartet ist. `BROWN-OUT` oder `GLITCH` in
+Bernstein nach einem Neustart bei laufendem Motor weist auf die Versorgung
+der Platine: Betreibe den ESC an seinem eigenen Akku und die Platine über
+USB. Siehe [Die Bildschirme](Die-Bildschirme#settings).
+
+---
+
 ## `ESC STATUS` zeigt `WARN`, `ERROR` oder `ALERT`
 
 Die Kachel ist bernsteinfarben bei `WARN`, rot bei `ERROR` und magenta bei
@@ -189,6 +199,11 @@ vor dem Öffnen des Bildschirms funktioniert nicht.
   nicht. Mögliche Ursache: Der ESC läuft nicht mit AM32.
 - **`NO VALID SETTINGS`**: Der ESC hat geantwortet, und der Einstellungsblock
   hat die Plausibilitätsprüfung nicht bestanden. Schreibe nichts.
+- **`LAYOUT n NOT KNOWN`**: Der ESC speichert ein Einstellungslayout, das der
+  Tester nicht kennt; er zeigt `THE TESTER KNOWS LAYOUTS 2 TO 4.` und
+  schreibt nichts. Nimm für diesen ESC den AM32-Konfigurator.
+- **`READ FAILED (...)`**: Der Verbindungsaufbau hat geklappt, das Lesen der
+  Einstellungen nicht. Prüfe Signal- und Masseader.
 
 ---
 
@@ -236,5 +251,5 @@ das ESC-Signal auf den anderen Pin und schalte dann KISS ein.
 
 Öffne ein Issue unter
 [github.com/subtilitas/MiniRcBench/issues](https://github.com/subtilitas/MiniRcBench/issues).
-Nützlich sind: die Firmware-Version, was die `LINK`-Zeile zeigt, und welcher
-ESC mit welcher ESC-Firmware.
+Nützlich sind: die Firmware-Version (SETTINGS → VERSION), LAST RESTART, was
+die `LINK`-Zeile zeigt, und welcher ESC mit welcher ESC-Firmware.

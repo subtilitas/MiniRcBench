@@ -91,10 +91,10 @@ liest die Frames als Impulse und fährt an ein Ende seines Wegs.
 
 ## Solange kein ESC angeschlossen ist
 
-<img src="img/tester-disarmed.png" width="240" alt="Tester-Bildschirm ohne ESC">
+<img src="img/tester-stale.png" width="240" alt="Tester-Bildschirm ohne ESC">
 
 Antwortet kein ESC, zeigt der Bildschirm `NO TELEMETRY` unter der Drehzahl,
-`--` in jeder Kachel und eine dunkelrote Null als Drehzahl. Die große
+`--` in den fünf ESC-Kacheln und eine dunkelrote Null als Drehzahl. Die große
 Spannung oben rechts, beschriftet mit `BOARD`, ist der platineneigene Akku,
 nicht der des ESC; die Spannung des ESC steht in der Kachel `VOLTAGE`.
 
@@ -104,6 +104,10 @@ nicht der des ESC; die Spannung des ESC steht in der Kachel `VOLTAGE`.
 ---
 
 ## Das erste Scharfschalten
+
+<img src="img/tester-disarmed.png" width="240" alt="Der Tester entschärft: SAFE in Grün, ARM TO ENABLE im Gasbalken">
+
+Entschärft zeigt das Feld `SAFE`, und der Gasbalken zeigt `ARM TO ENABLE`.
 
 1. Prüfe, dass der Propeller ab ist.
 2. `HOLD TO ARM` drücken und 1 s **halten**. Währenddessen füllt sich ein
@@ -146,7 +150,7 @@ null.
 `MENU` auf dem Tester öffnet die Liste der Werkzeuge. Das Öffnen entschärft
 immer. Tippe auf die Zeile `SETTINGS`.
 
-<img src="img/settings.png" width="240" alt="Der SETTINGS-Bildschirm">
+<img src="img/settings.png" width="240" alt="SETTINGS nach einer Änderung: ESC PIN auf GP1 und UNSAVED - HOLD SAVE TO KEEP">
 
 - **MOTOR POLES**: rechnet die gemeldete eRPM (elektrische Drehzahl) mit
   `RPM = eRPM / (Pole / 2)` in die Drehzahl um. Bereich 2–28, nur gerade

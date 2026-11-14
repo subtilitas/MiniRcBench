@@ -199,7 +199,9 @@ unten, um zu verschieben.
    `DEAD BAND  2.0 US ->`. Ist keine Zeile gewählt, zeigt die Leiste
    `TAP A ROW TO EDIT IT` und `SWIPE IT SIDEWAYS FOR COARSE`.
 2. Tippe auf `-` oder `+` (44 × 44 px), um den Wert zu verstellen. Gedrückt
-   halten wiederholt den Schritt.
+   halten wiederholt den Schritt. `+` erhöht den angezeigten Wert und `-`
+   senkt ihn, gleich in welche Richtung der Rohwert läuft: `+` verbreitert
+   `DEAD BAND`.
 3. Oder wische die Zeile zur Seite. Ein Schritt ist ein Elftel des
    Wertebereichs des Feldes, aufgerundet, mindestens ein Rohschritt.
 4. `REVERT` verwirft alle vorgemerkten Änderungen.
@@ -373,7 +375,8 @@ zweites Halten. Die Seite zeigt dann
   `THE CARD TOOK NO FILE. NOTHING WAS WRITTEN TO THE SERVO.`
 
 Die Sicherungen teilen sich einen Ring von 50 Nummern mit den Sicherungen des
-AM32-Editors, `BACKUP/KSTnnn.TXT` und `BACKUP/AMnnn.TXT`. `BACKUP/LAST` hält
+AM32-Editors und des Hitec-Programmierers, `BACKUP/KSTnnn.TXT`,
+`BACKUP/AMnnn.TXT` und `BACKUP/HTnnn.TXT`. `BACKUP/LAST` hält
 die jüngste Nummer, 3 Ziffern und einen Zeilenvorschub; keine Liste zeigt die
 Datei. Die nächste Sicherung nimmt die Nummer danach, 001 nach 050, und sind
 alle 50 vergeben, überschreibt sie die älteste, gleich von welchem Gerät.

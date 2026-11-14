@@ -216,6 +216,23 @@ static void testMenuDisarmAndBeep() {
 static void testPinsBusy() {
 	section("MENU: PINS BUSY while the claim restores");
 	freshTester();
+	// An earlier AM32 test can leave MENU's run cue standing; the cue stays on
+	// the device until an eRPM frame arrives after the handshake. The PINS
+	// BUSY picture is about the rows, so feed one such frame, let MENU clear
+	// the cue, and take the telemetry away again.
+	{
+		EscTelemetry t;
+		memset(&t, 0, sizeof(t));
+		t.lastRpmMs = millis();
+		fakeSetTelemetry(&t);
+		fakeAdvance(1);
+		openMenu();
+		menuFrames(2);
+		memset(&t, 0, sizeof(t));
+		fakeSetTelemetry(&t);
+		tapId(UI_FIX(UI_BACK));
+		menuFrames(2);
+	}
 	openMenu();
 	tapId(menuRow(&UI_SERVO));
 	checkTrue("SERVO opens", uiCurrentScreen() == UiScreenId::Servo);
@@ -300,7 +317,6 @@ static void testMenuScroll() {
 	openMenu();
 	checkTrue("seven rows: the seventh is cut", !ctlEnabled(UI_ROW(6, Row)));
 	checkTrue("and the scroll bar is drawn", pixel(236, 70) == C_GRID);
-	fakeDumpFrame("shot_menu_seven.ppm");
 	fakePress(120, 250); menuFrames(1);
 	for (int k = 1; k <= 12; k++) { fakeHold(120, 250 - 6 * k); menuFrames(1); }
 	fakeRelease(); menuFrames(1);

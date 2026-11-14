@@ -232,8 +232,8 @@ bleibt. Unter jedem Ergebnis, das kein überprüftes Schreiben ist
 
 Vor dem ersten Schreiben einer Sitzung gehen die beim Eintritt gelesenen
 Einstellungen als `BACKUP/AMnnn.TXT` auf die SD-Karte, in den Ring der
-Sicherungen, den der KST-Programmierer teilt
-([KST-Programmierung](KST-Programmierung)). Das Ergebnis zeigt dann zum
+Sicherungen, den der KST- und der Hitec-Programmierer teilen
+([KST-Programmierung](KST-Programmierung#files)). Das Ergebnis zeigt dann zum
 Beispiel `WRITE VERIFIED. BACKUP AM018`. Eine Karte, die die Sicherung
 verweigert, hält das Schreiben auf: `NO BACKUP ON THE CARD: NOT WRITTEN`,
 darunter `CHECK THE CARD, THEN WRITE AGAIN.`. Ohne
@@ -329,5 +329,10 @@ ESC-Firmware sendet, oder wenn die Platine neu startet.
   nutzt ein Protokoll, das dieser Transport nicht umsetzt.
 - **`NO VALID SETTINGS`.** Der ESC hat geantwortet, und der Einstellungsblock
   hat die Plausibilitätsprüfung nicht bestanden. Schreibe nichts.
+- **`LAYOUT n NOT KNOWN`.** Der ESC speichert ein Einstellungslayout, das der
+  Tester nicht kennt; er zeigt `THE TESTER KNOWS LAYOUTS 2 TO 4.` und
+  schreibt nichts. Nimm für diesen ESC den AM32-Konfigurator.
+- **`READ FAILED (...)`.** Der Verbindungsaufbau hat geklappt, das Lesen der
+  Einstellungen nicht. Prüfe Signal- und Masseader.
 
 Mehr unter [Fehlersuche](Fehlersuche#am32-verbindet-nicht).

@@ -53,8 +53,8 @@ interface) code.
 > **[Deutsch](https://github.com/subtilitas/MiniRcBench/wiki/Einrichtung)**
 >
 > Setup, wiring, first run, every screen, telemetry, logging, AM32
-> configuration, the servo tester and KST and Hitec programming, for someone
-> using the board. This README describes the firmware and the build.
+> configuration, the servo tester, KST and Hitec programming, and
+> troubleshooting, for someone using the board. This README describes the firmware and the build.
 
 Project state and open items: [STATUS.md](https://github.com/subtilitas/MiniRcBench/blob/main/STATUS.md). Changes by release: [CHANGELOG.md](https://github.com/subtilitas/MiniRcBench/blob/main/CHANGELOG.md).
 
@@ -215,8 +215,10 @@ effect.
 
 ### Other boards
 
-The image is for the RP2350-Touch-LCD-2.8 only. DshotDisplay supports the
-RP2350-Touch-LCD-2.
+The image is for the RP2350-Touch-LCD-2.8 only. It does not check which board
+it runs on: flashed onto another board, it can drive pins that are wired to
+other parts there. The splash and SETTINGS → BUILT FOR name the board the
+image is built for. DshotDisplay supports the RP2350-Touch-LCD-2.
 
 ---
 
@@ -426,7 +428,7 @@ tester. Every tool's **BACK** returns to MENU.
 | **SERVO TESTER** | the signal pins, `GP0+1`; `PINS BUSY` | Opens the servo tester. See [Servo tester](#servo-tester) |
 | **KST SERVO** | the ESC pin, `GP0`; `PINS BUSY` | Opens the KST servo programmer. See [KST servo programming](#kst-servo-programming) |
 | **HITEC SERVO** | the ESC pin, `GP0`; `PINS BUSY` | Opens the Hitec servo programmer. See [Hitec servo programming](#hitec-servo-programming) |
-| **SETTINGS** | `UNSAVED` while the live settings differ from flash, else nothing; `PINS BUSY` while the pin claim is not Free, drawn disabled | Opens SETTINGS: the tester, the wiring, the KST servo supply, the display, the board, diagnostics. See below |
+| **SETTINGS** | `UNSAVED` while the live settings differ from flash, else nothing; `PINS BUSY` while the pin claim is not Free, drawn disabled | Opens SETTINGS: the tester, the wiring, the servo supply and current sensor, the display, the board, diagnostics. See below |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a USB host holds the card | Opens the logging status. See below |
 
 - **BEEP flash**: a tap fills the row for 350 ms (`BEEP_FLASH_MS`): white
@@ -434,10 +436,10 @@ tester. Every tool's **BACK** returns to MENU.
   against a 25 ms repaint. BEEP is refused while armed. Opening MENU disarms,
   so the refusal is not reachable through the UI; the flash stays as a
   backstop.
-- **PINS BUSY**: AM32 CONFIG, SERVO TESTER, KST SERVO and HITEC SERVO claim the signal
-  pins. While the claim is not free, for example after RESTART DSHOT until
-  the DShot pump runs again, the row reads `PINS BUSY` in amber and a tap
-  opens nothing.
+- **PINS BUSY**: AM32 CONFIG, SERVO TESTER, KST SERVO and HITEC SERVO claim
+  the signal pins, and SETTINGS changes the wiring a claim latched. While the
+  claim is not free, for example after RESTART DSHOT until the DShot pump runs
+  again, these rows read `PINS BUSY` in amber and a tap opens nothing.
 - **Rows**: six rows fit the screen without scrolling. MENU holds seven, so
   it scrolls by 36 px, with a 3 px scroll bar at x 235. SETTINGS is the sixth
   row, whole and tappable without a drag, so its `UNSAVED` status stays in
