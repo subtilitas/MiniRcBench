@@ -58,24 +58,31 @@ bool uiAm32Tick(const TouchState *t);
  *         tester sends 47 + throttle, 1 to 2000, so 50 % is 1047, the top of
  *         the lower half. */
 #define AM32_UI_3D_1 "3D MODE: 50% THROTTLE IS FULL POWER,"
+/** @brief The 3D note's second line. */
 #define AM32_UI_3D_2 "ABOVE 50% THE OTHER WAY. PROP OFF."
 /** @brief TEMP LIMIT, CURRENT LIMIT or LOW VOLT CUTOFF selected and off. */
 #define AM32_UI_PROT_1 "PROTECTION OFF: THE ESC DOES NOT"
+/** @brief The protection note's second line. */
 #define AM32_UI_PROT_2 "CUT POWER ON THIS LIMIT."
 /** @brief PROTOCOL at a value AM32 does not run on DShot with. @see am32InputNotDshot() */
 #define AM32_UI_PROTO_1 "THE TESTER SENDS DSHOT ONLY:"
+/** @brief The PROTOCOL note's second line. */
 #define AM32_UI_PROTO_2 "THE ESC WILL NOT RUN HERE."
 /** @} */
 
 /** @brief The connect page's last line under a reply it could not parse. */
 #define AM32_UI_NOT_AM32 "IS THE ESC RUNNING AM32?"
-/** @brief The connect page's lines under NO VALID SETTINGS. */
+/** @brief The connect page's first line under NO VALID SETTINGS. */
 #define AM32_UI_NO_SETTINGS_1 "NOT AN AM32 ESC, OR BLANK SETTINGS."
+/**
+ * @brief The connect page's second line under NO VALID SETTINGS and under
+ *        `LAYOUT n NOT KNOWN`.
+ */
 #define AM32_UI_NO_SETTINGS_2 "NOTHING WILL BE WRITTEN."
 /**
  * @brief The connect page's first line under `LAYOUT n NOT KNOWN`, a layout
- *        revision above @ref AM32_LAYOUT_MAX_KNOWN; the second is
- *        @ref AM32_UI_NO_SETTINGS_2.
+ *        revision above AM32_LAYOUT_MAX_KNOWN in am32_eeprom.h; the second
+ *        is `AM32_UI_NO_SETTINGS_2`.
  */
 #define AM32_UI_LAYOUT_1 "THE TESTER KNOWS LAYOUTS 1 TO 4."
 
