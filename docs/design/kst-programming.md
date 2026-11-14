@@ -1220,8 +1220,9 @@ lands 1000 ms or more later ([pin-claim.md](pin-claim.md#restoring-dshot)).
 BACK during a write is drawn disabled on the write page and does nothing: no
 leave is queued, and the result stays on the page ([menu-b.md](menu-b.md),
 decision 5, built in its slice 5). BACK during a search or a read aborts it.
-BACK on a search that found no servo opens the page released, at
-`1 UNPLUG THE SERVO.` and `2 RESTART DSHOT.`
+BACK on a search that found no servo opens the page releasing, at
+`1 UNPLUG THE SERVO.` and `2 RESTART DSHOT.`; it turns released once
+`pinClaimUnplugDue()` is true.
 
 With a switched supply step 1 is one line, and HOLD TO REBOOT, scale 1,
 sits right of STAY:

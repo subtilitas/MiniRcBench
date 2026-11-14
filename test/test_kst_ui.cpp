@@ -587,6 +587,11 @@ static void testLeaveAndBack() {
 	checkTrue("STAY and LEAVE drawn live; no note", leaveLeftIs("STAY", true) &&
 	          leaveWideIs("LEAVE", true) && leaveNoteBlank(0));
 	fakeDumpFrame("shot_leave_kst.ppm");
+	noCard();
+	kstFrames(4);
+	checkTrue("no card with OWN: no REBOOT note, the bench does not reboot", leaveNoteBlank(0));
+	card();
+	kstFrames(4);
 	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
 	checkTrue("BACK on the leave page does nothing", uiKstView() == KstView::Leave);
 	tapId(UI_FIX(KstCtl::Stay));
@@ -1695,10 +1700,10 @@ static void testSwitchedSupply() {
 	          uiKstView() == KstView::Leave && !enHigh() && !ctlEnabled(UI_FIX(KstCtl::Restart)) &&
 	          !ctlEnabled(UI_FIX(KstCtl::NextServo)) && !ctlPresent(UI_FIX(KstCtl::Reboot)));
 	{
-		char want[48];
+		char note[48];
 		unsigned left = job().supplyLeftDs;
-		snprintf(want, sizeof(want), "SUPPLY OFF FOR 2.0 S: %u.%u S LEFT.", left / 10, left % 10);
-		checkTrue("the note counts the 2 s down, dim", left > 0 && leaveNoteIs(0, want, C_DIM));
+		snprintf(note, sizeof(note), "SUPPLY OFF FOR 2.0 S: %u.%u S LEFT.", left / 10, left % 10);
+		checkTrue("the note counts the 2 s down, dim", left > 0 && leaveNoteIs(0, note, C_DIM));
 	}
 	fakeDumpFrame("shot_leave_kst_supply_off.ppm");
 	checkTrue("BACK disabled, and drawn so",

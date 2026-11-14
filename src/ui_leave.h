@@ -231,6 +231,18 @@ UiLeaveEv uiLeaveTouch(UiLeave *l, const TouchState *t, uint32_t nowMs);
 void uiLeaveUnplugSteps(UiLeaveText *text, int first, unsigned sig, char *buf, size_t n);
 
 /**
+ * @brief The note while a switched supply stays off before the pin goes:
+ *        `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`
+ * @param[out] buf Room for the note, 40 bytes or more.
+ * @param n        Size of @p buf.
+ * @param offMs    The time the supply stays off, ms: KST_SUPPLY_OFF_MS.
+ * @param leftDs   The time left, 0.1 s, rounded up by the job; clamped to
+ *                 @p offMs, so the note never reads more left than the
+ *                 whole wait.
+ */
+void uiLeaveSupplyNote(char *buf, size_t n, uint32_t offMs, unsigned leftDs);
+
+/**
  * @brief Draw the page from @ref UI_BODY_Y down: the steps, the notes, the
  *        left button and the wide button, over a cleared body.
  *

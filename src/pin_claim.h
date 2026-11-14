@@ -29,7 +29,7 @@
  * | Stopping | core1 drains, stops and releases the pump | Held when escTaskSuspended() |
  * | Held | both pins free; the GPIOs are latched; SERVO and KST start their job, HITEC once a family is tapped (pinClaimStartJob()) | Running once it binds |
  * | Running | the job holds its pins | Leaving on pinClaimEnd() |
- * | Leaving | the job releases its pins; SERVO, KST and HITEC show the unplug page | Restoring |
+ * | Leaving | the job releases its pins; SERVO, KST and HITEC show the leave page (ui_leave.h) | Restoring |
  * | Restoring | core1 rebuilds the pump from the latched wiring | Free |
  *
  * AM32 has no core1 job: its bootloader transport runs on core0
@@ -40,7 +40,7 @@
  * job binds for one family. The claim stays in Held with no job, the pad an
  * input with the pull-up esc_task.cpp leaves on it, until the family tap
  * calls pinClaimStartJob(). BACK from there is pinClaimEnd(): the pin went
- * to a servo, so the unplug page comes before DShot restarts.
+ * to a servo, so the leave page comes before DShot restarts.
  *
  * @see docs/design/pin-claim.md
  */
@@ -75,7 +75,7 @@ enum class PinUser : uint8_t {
 struct PinUserInfo {
 	PinUser  who;
 	Core1Job job;       /**< The core1 job; None: the screen drives the pin from core0 (AM32). */
-	bool     unplug;    /**< The unplug page comes before DShot restarts. */
+	bool     unplug;    /**< The leave page comes before DShot restarts. */
 	bool     escCheck;  /**< Refused while an ESC answers on SIG (@ref ClaimRefusal::EscAnswering). */
 	bool     deferJob;  /**< Held starts no job until pinClaimStartJob(). */
 };
@@ -117,7 +117,7 @@ enum class ClaimState : uint8_t {
 	Stopping,   /**< The pump drains and releases. */
 	Held,       /**< Both pins free, no job bound; HITEC waits here for its family. */
 	Running,    /**< The job holds its pins. */
-	Leaving,    /**< The job releases; the unplug page for SERVO, KST and HITEC. */
+	Leaving,    /**< The job releases; the leave page for SERVO, KST and HITEC. */
 	Restoring,  /**< The pump rebuilds. */
 };
 
@@ -238,7 +238,7 @@ uint8_t pinClaimJobError();
  *
  * From Stopping, DShot is resumed at once. From Held and Running the job is
  * asked to stop and the claim is Leaving. AM32, which has no job and no
- * unplug page, resumes DShot within this call. A call from a screen that does
+ * leave page, resumes DShot within this call. A call from a screen that does
  * not hold the claim does nothing.
  *
  * @param who The screen leaving.
@@ -265,14 +265,15 @@ void pinClaimStartJob(PinUser who);
  * Acts only while @p who holds the claim, the claim is Held and
  * pinClaimJobError() names a failure, which also means no start is pending.
  * The claim and its pins are kept; DShot stays down. BACK instead is
- * pinClaimEnd(), which shows the unplug page before DShot restarts.
+ * pinClaimEnd(), which shows the leave page before DShot restarts.
  *
  * @param who The screen.
  */
 void pinClaimRetry(PinUser who);
 
 /**
- * @brief True while SERVO, KST or HITEC must show the unplug page.
+ * @brief True while the job has let the pins go and SERVO, KST or HITEC
+ *        waits on its leave page for RESTART DSHOT or NEXT SERVO.
  *
  * Leaving, with the job idle and DShot not yet restarted. DShot idles the
  * line high and pulls it low for about 27 us per 1000 us frame, which a PWM
@@ -283,16 +284,18 @@ void pinClaimRetry(PinUser who);
 bool pinClaimUnplugDue();
 
 /**
- * @brief RESTART DSHOT on the unplug page: resume DShot. Core0.
+ * @brief RESTART DSHOT on the leave page: resume DShot. Core0.
  *
- * Acts only while pinClaimUnplugDue() is true and @p who holds the claim.
+ * Acts only while pinClaimUnplugDue() is true and @p who holds the claim. The
+ * leave page takes the tap only 1000 ms or more after that turned true.
  *
  * @param who The screen.
  */
 void pinClaimRestart(PinUser who);
 
 /**
- * @brief BACK on the unplug page: keep the claim. Core0.
+ * @brief NEXT SERVO, or BACK TO SERVO, on the leave page: keep the claim.
+ *        Core0. BACK on the leave page is disabled.
  *
  * Acts only while pinClaimUnplugDue() is true and @p who holds the claim. The
  * claim returns to Held and the job starts again, if it was wanted: a HITEC

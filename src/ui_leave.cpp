@@ -70,6 +70,12 @@ void uiLeaveUnplugSteps(UiLeaveText *text, int first, unsigned sig, char *buf, s
 	text->step[first + 1][2] = nullptr;
 }
 
+void uiLeaveSupplyNote(char *buf, size_t n, uint32_t offMs, unsigned leftDs) {
+	unsigned offDs = (unsigned)(offMs / 100u);
+	if (leftDs > offDs) leftDs = offDs;
+	snprintf(buf, n, UI_LEAVE_SUPPLY_FMT, offDs / 10u, offDs % 10u, leftDs / 10u, leftDs % 10u);
+}
+
 /** @brief Draw step @p i from @p y. @return The next step's top. */
 static int drawStep(const UiLeaveText &text, int i, int y, bool current) {
 	uint16_t col = current ? UI_COL_WARN : C_DIM;

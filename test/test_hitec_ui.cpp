@@ -684,6 +684,19 @@ static void testWriteError() {
 	checkTrue("READ AGAIN reads", untilView(HitecView::List, 400));
 	for (int i = 0; i < 800 && job().job != HitecJobState::InMode; i++) hitecFrame();
 	checkTrue("in the mode again", job().job == HitecJobState::InMode);
+	// The read may not have started yet: wait until the job has been in the
+	// mode with the image known for 40 frames.
+	for (int i = 0, calm = 0; i < 1600 && calm < 40; i++) {
+		hitecFrame();
+		calm = job().job == HitecJobState::InMode && !job().unknown ? calm + 1 : 0;
+	}
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the leave page, the servo in the mode and read, the failed write named",
+	          uiHitecView() == HitecView::Leave && job().job == HitecJobState::InMode &&
+	          !job().unknown && leaveNoteIs(1, "A WRITE DID NOT END VERIFIED.", C_AMBER));
+	tapId(UI_FIX(HitecCtl::Leave));
+	checkTrue("LEAVE after the failed write: the record stays",
+	          ctlPresent(UI_FIX(HitecCtl::Restart)) && fakeFatExists("HITEC/HITEC.TXT"));
 	leaveAll();
 	checkTrue("the record of the failed write stays after LEAVE", fakeFatExists("HITEC/HITEC.TXT"));
 }
@@ -1448,6 +1461,17 @@ static void testIdAndBack() {
 	checkTrue("the supply is off", !enHigh());
 	tapId(UI_FIX(HitecCtl::Retry));
 	checkTrue("RETRY enters again", untilCtl(UI_FIX(HitecCtl::Stop), 200));
+	tapId(UI_FIX(HitecCtl::Stop));
+	checkTrue("STOP again: the entry ended", untilCtl(UI_FIX(HitecCtl::Retry), 400) &&
+	          job().job == HitecJobState::EntryEnded);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK after a failed entry: the leave page, releasing, at its unplug step",
+	          uiHitecView() == HitecView::Leave && ctlPresent(UI_FIX(HitecCtl::NextServo)) &&
+	          !ctlPresent(UI_FIX(HitecCtl::Leave)) && !ctlPresent(UI_FIX(HitecCtl::Stay)) &&
+	          leaveStepIs(UI_LEAVE_STEP_Y, '1', "UNPLUG THE SERVO.", true));
+	checkTrue("NEXT SERVO after the off time", untilEnabled(UI_FIX(HitecCtl::NextServo), 200));
+	tapId(UI_FIX(HitecCtl::NextServo));
+	checkTrue("NEXT SERVO: the entry again", untilCtl(UI_FIX(HitecCtl::Stop), 200));
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK during the entry: the leave page, releasing", uiHitecView() == HitecView::Leave &&
 	          ctlPresent(UI_FIX(HitecCtl::NextServo)) && !ctlPresent(UI_FIX(HitecCtl::Leave)));

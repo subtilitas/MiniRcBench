@@ -6,8 +6,8 @@ built](#slice-2-as-built)); slice 3 is the names and SETTINGS of decisions 9, 10
 and 15 b, e, f, h, j, k, with its README.md and wiki lines and images ([slice 3
 as built](#slice-3-as-built)); slice 5 is the write rule and the BACK guard of
 decisions 6, 7 and 13's AM32 titles ([slice 5 as built](#slice-5-as-built));
-slice 6 is the leave page of decision 5 and owner decisions 3, 21, 25 and 30,
-with its README.md and wiki lines and images ([slice 6 as
+slice 6 is the leave page of decisions 5 and 21 and owner decisions 3, 25
+and 30, with its README.md and wiki lines and images ([slice 6 as
 built](#slice-6-as-built)); slice 7 is the tester of owner decision 4 and
 decisions 11 (the MAX row), 15 a to c, 17, 19 and 20 ([slice 7 as
 built](#slice-7-as-built)); slice 8 is decision 13's title on SERVO TESTER, with
@@ -1090,7 +1090,7 @@ decisions 31 to 33.
 | 3. Names and SETTINGS, built | decisions 9, 10, 15 b, e, f, h, j, k: SERVO SUPPLY section, SIG and AUX, connector lines, OWN, DSHOT600, MENU statuses and busy strip, KST labels; with its README.md and wiki lines and images (decision 27) | 1 | 11 | +200, −80 | 110 / 60 | built |
 | 4. Layout table, built | decision 14 | 1 | 11 in `src/` | +146, −79 | 63 / 236 lines in 7 test files | built |
 | 5. Write rule and guard, built | decisions 6, 7, 13 (AM32 HEX and WRITE titles): `WRITE...`, `RESTORE...`, AM32 write page and result, editor old value, guard on AM32 and SERVO SET, BACK disabled while writing, the leave queue gone; with its README.md and wiki lines and images (decision 27) | 1, 2, 4 | 10 in `src/` | +476, −153 | +631, −181 lines in 4 test files | built |
-| 6. Leave page, built | decision 5 and owner decision 3: KST, Hitec and SERVO TESTER on `ui_leave`; STAY, NEXT SERVO, BACK TO SERVO; RESTART DSHOT's wait, in LEAVE's rectangle; with its README.md and wiki lines and images (decision 27) | 1, 5 | 8 in `src/` | +521, −321 in `src/` | +429, −115 lines in 7 test files, three helpers rewritten, five probes in `test/ui_ids.h` | built |
+| 6. Leave page, built | decisions 5 and 21 and owner decisions 3, 25 and 30: KST, Hitec and SERVO TESTER on `ui_leave`; STAY, NEXT SERVO, BACK TO SERVO; RESTART DSHOT's wait, in LEAVE's rectangle; with its README.md and wiki lines and images (decision 27) | 1, 5 | 8 in `src/` | +521, −321 in `src/` | +429, −115 lines in 7 test files, three helpers rewritten, five probes in `test/ui_ids.h` | built |
 | 7. Tester, built | owner decision 4, decisions 15 a to c, 17: readouts, `uiOpenTool()`, origin, LATCH, BOARD, ARM while the card is held; the readouts' underline, which slice 2 left out (decision 11's MAX row); with its README.md and wiki lines and images (decision 27) | 1, 3 | 4 in `src/`, 4 in `test/` | +190, −55 in `src/` | 31 / 200 | built |
 | 8. SERVO TESTER, built | decision 13: the title; decision 12 is on `main`; with its README.md and wiki lines and images (decision 27) | 1, 3 | 3 in `src/` | +17, −9 | 1 / 23 lines in test_servo.cpp | built |
 | 9. Chooser | owner decisions 1 and 2, decisions 16, 18, 19, 15 d, 23, 31, 32 and 33: seven MENU rows scrolling 36 px, `ui_servo_prog`, `UI_PROGRAMMERS`, Hitec family entry points, family view removed | 3, 6, 7 | 9, 2 new | +350, −120 | 50 / 120 | 2 to 3 days |
@@ -1373,8 +1373,8 @@ leave pages by STAY.
 
 ## Slice 6 as built
 
-Decision 5 and owner decisions 3, 21, 25 and 30 on KST SERVO, HITEC SERVO
-and SERVO TESTER, with host tests in `test/test_kst_ui.cpp`
+Decisions 5 and 21 and owner decisions 3, 25 and 30 on KST SERVO, HITEC
+SERVO and SERVO TESTER, with host tests in `test/test_kst_ui.cpp`
 (`testLeaveAndBack()`, `leaveReleases()` and the leave checks of the other
 sections), `test/test_hitec_ui.cpp`, `test/test_servo.cpp`
 (`testLeavePage()`), `test/test_ids.cpp`, `test/test_menu.cpp` and
@@ -1389,7 +1389,7 @@ only while `pinClaimUnplugDue()`.
 | Block | Where | What it does |
 |---|---|---|
 | The page | `s_leave`, `openLeave()`, `leaveText()`, `drawLeave()`, `leaveTouch()` in `ui_kst.cpp` and `ui_hitec.cpp`; `s_leave`, `drawLeave()` and the `View::Leave` branch of `uiServoTick()` in `ui_servo.cpp` | the widget of slice 1 in place of the leave and unplug pages; `KstView::Unplug` and `HitecView::Unplug` are gone, `View::Unplug` is `View::Leave` |
-| The shared steps | `uiLeaveUnplugSteps()`, `UI_LEAVE_UNPLUG`, `UI_LEAVE_DSHOT_FMT`, `UI_LEAVE_PULSE`, `UI_LEAVE_RESTART`, `UI_LEAVE_SWITCHED`, `UI_LEAVE_RELEASING`, `UI_LEAVE_SUPPLY_FMT` in `ui_leave.h` | `UNPLUG THE SERVO.` / `DSHOT RESTARTS ON SIG GP0 AND READS` / `AS A 970 US PULSE AT 1000 HZ.`, then `RESTART DSHOT.`; fit checks of 35 characters from x 20 and 37 from x 8, and a one-digit SIG GPIO (`BOARD_FREE_GPIO_MASK`) |
+| The shared steps | `uiLeaveUnplugSteps()`, `uiLeaveSupplyNote()`, `UI_LEAVE_UNPLUG`, `UI_LEAVE_DSHOT_FMT`, `UI_LEAVE_PULSE`, `UI_LEAVE_RESTART`, `UI_LEAVE_SWITCHED`, `UI_LEAVE_RELEASING`, `UI_LEAVE_SUPPLY_FMT` in `ui_leave.h` | `UNPLUG THE SERVO.` / `DSHOT RESTARTS ON SIG GP0 AND READS` / `AS A 970 US PULSE AT 1000 HZ.`, then `RESTART DSHOT.`; fit checks of 35 characters from x 20 and 37 from x 8, and a one-digit SIG GPIO (`BOARD_FREE_GPIO_MASK`) |
 | BACK | `backActs()` in the three screens | drawn disabled, reported disabled and ignored on the page in every phase |
 | STAY | `KstCtl::Stay`, `HitecCtl::Stay` at `UI_LEAVE_LEFT` | the field list, or the main view (the search) without one |
 | LEAVE | `KstCtl::Leave`, `HitecCtl::Leave` at `UI_LEAVE_WIDE` | KST removes the session's record when the servo is in the mode and not in doubt, Hitec after a verified write; then `endClaim()`; the page turns releasing in place. `leaveEnabled` is `!s_writing && !s_flushing` |
@@ -1417,7 +1417,7 @@ Readings of the decisions where the code asked for a choice:
 | A servo in the mode, KST | the page opens before LEAVE once the claim has found a servo (`s_everFound`), in the mode or busy, as `main`'s leave page did; it opens releasing for a search that found none and for BACK during REBOOT | the BACK table's "a servo in the mode" read as `main`'s rule: after a loss the servo may still be in programming mode, so step 1 asks for it to be powered off |
 | A servo in the mode, Hitec | before LEAVE in the mode or busy; releasing during the entry, after a failed entry and from the family view once SIG is held | as `main`'s rule |
 | Notes after LEAVE | the notes before LEAVE give way to the release's note | the drawings show only the release line at y 158 after LEAVE; the widget draws notes after LEAVE in `C_DIM`, so the countdown, amber on the unplug page, is grey |
-| The countdown | `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` on KST and Hitec from `KST_SUPPLY_OFF_MS` | KST wrote `2.0` as a literal; one format for both |
+| The countdown | `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` on KST and Hitec from `KST_SUPPLY_OFF_MS`, through `uiLeaveSupplyNote()`, which clamps the time left to the whole wait | KST wrote `2.0` as a literal; one format for both. The jobs round the time left up to 0.1 s, and the note never reads more left than the wait |
 | The NEXT SERVO line | follows the `SERVO SUPPLY` setting (`servoSupplyFitted()`), not the job's status | no job runs once the pin is let go, and none has run on a page reached from Hitec's family view |
 | NEXT SERVO before a family | Hitec returns to the family view, as BACK on the unplug page did | the chooser of slice 9 replaces the family view |
 | The result line | the KST leave page's write result is not drawn | no path reaches the leave page with a result up: BACK from the write page and OK clear it, and BACK is disabled while a write runs |
@@ -1430,18 +1430,19 @@ Readings of the decisions where the code asked for a choice:
 | Docs beyond the Docs line | README "Layout" (`ui_servo`) and "Tests" (the screenshot list) and two lines of sd-write-cache.md named the unplug page and now name the leave page; the numbered decisions of kst-programming.md, servo-tester.md and pin-claim.md, menu.md and rx-signals.md are not edited | decision 27: a slice updates what describes the screens it changes; the decision records and menu.md are slice 10's |
 | Images | `leave-kst.png`, `leave-kst-pending.png`, `leave-kst-released.png`, `leave-kst-switched.png`, `leave-kst-supply-off.png`, `leave-hitec.png`, `leave-hitec-failed.png`, `leave-hitec-released.png` and `leave-servo.png`, from the shots `shot_leave_*` | the slice table's `leave-*.png` in place of `kst-leave*.png`, `hitec-unplug.png` and `servo-unplug.png` |
 
-42 mutations of `ui_kst.cpp`, `ui_hitec.cpp`, `ui_servo.cpp` and
-`ui_leave.cpp` were run against the suite: BACK acting on the page, no
-restart wait, a page opened before LEAVE where it opens releasing (three
-paths), STAY, NEXT SERVO and BACK TO SERVO without their effect, RESTART
-DSHOT without `pinClaimRestart()`, every note and step text dropped or
-swapped, the strip without SIG or AUX, HOLD TO REBOOT and READ AGAIN gone or
-on the wrong rectangle, LEAVE keeping the record, the control table
-reporting NEXT SERVO or BACK TO SERVO live while releasing. 40 fail the
-suite. Two pass, and are equivalent through the screen: `leaveEnabled` set
-while writing (the row "LEAVE while writing" above), and `follow()` run after
-LEAVE, which returns at once because `running()` is false while the claim is
-Leaving.
+46 mutations of `ui_kst.cpp`, `ui_hitec.cpp`, `ui_servo.cpp` and `ui_leave.cpp`
+were run against the suite: BACK acting on the page, no restart wait, a page
+opened before LEAVE where it opens releasing (four paths, a failed Hitec entry
+among them), STAY, NEXT SERVO and BACK TO SERVO without their effect, RESTART
+DSHOT without `pinClaimRestart()`, every note and step text dropped or swapped,
+the no-card REBOOT note without the switch, the supply note unclamped, the strip
+without SIG or AUX, HOLD TO REBOOT and READ AGAIN gone or on the wrong
+rectangle, LEAVE keeping the record or removing it after a failed Hitec write,
+the control table reporting NEXT SERVO or BACK TO SERVO live while releasing.
+44 fail the suite. Two pass, and are equivalent through the screen:
+`leaveEnabled` set while writing (the row "LEAVE while writing" above), and
+`follow()` run after LEAVE, which returns at once because `running()` is
+false while the claim is Leaving.
 
 ## Slice 7 as built
 

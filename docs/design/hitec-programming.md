@@ -987,8 +987,10 @@ y   0 | HITEC SERVO                     [  BACK  ]|  BACK drawn disabled
   family chosen, or returns to the family view before one was chosen; with
   `OWN` the note reads `NEXT SERVO: POWER IT BEFORE THE TAP.` RESTART DSHOT
   takes a press that lands 1000 ms or more after the release.
-- BACK on the family view once the claim holds, and BACK during the entry,
-  open the page released, at `1 UNPLUG THE SERVO.` and `2 RESTART DSHOT.`
+- BACK on the family view once the claim holds, BACK during the entry and
+  BACK after a failed entry open the page releasing, at
+  `1 UNPLUG THE SERVO.` and `2 RESTART DSHOT.`; it turns released once
+  `pinClaimUnplugDue()` is true.
 - BACK on the page is drawn disabled in every phase.
 
 ## Storage

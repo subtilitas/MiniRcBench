@@ -44,8 +44,9 @@ Menu structure B is described in `docs/design/menu-b.md`; slices 1 to 8 of
 10 are in the tree: its building blocks, its colour roles, its names and
 SETTINGS, its layout table, its write rule and BACK guard, the one leave
 page of KST SERVO, HITEC SERVO and SERVO TESTER, the tester's readouts that
-open SETTINGS with LATCH, and SERVO TESTER's title, the MENU row's label. The uses that the design note's decision 11 names take
-their role's colour, and a value changed and not yet written is cyan.
+open SETTINGS with LATCH, and SERVO TESTER's title, the MENU row's label.
+The uses that the design note's decision 11 names take their role's colour,
+and a value changed and not yet written is cyan.
 
 ![UI preview](docs/ui-preview.png)
 

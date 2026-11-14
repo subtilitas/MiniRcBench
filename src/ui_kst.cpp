@@ -1632,8 +1632,7 @@ static void leaveText(UiLeaveText *tx) {
 	} else if (s_leave.phase == UiLeavePhase::Releasing) {
 		// The close rule: a servo the bench powered is off for 2 s first.
 		if (s_st.supplyUsed && s_st.supplyLeftDs) {
-			snprintf(supply, sizeof(supply), UI_LEAVE_SUPPLY_FMT, KST_SUPPLY_OFF_MS / 1000u,
-			         KST_SUPPLY_OFF_MS / 100u % 10u, s_st.supplyLeftDs / 10u, s_st.supplyLeftDs % 10u);
+			uiLeaveSupplyNote(supply, sizeof(supply), KST_SUPPLY_OFF_MS, s_st.supplyLeftDs);
 			tx->note[k++] = supply;
 		} else {
 			tx->note[k++] = UI_LEAVE_RELEASING;

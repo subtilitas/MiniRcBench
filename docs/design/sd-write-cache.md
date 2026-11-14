@@ -291,8 +291,8 @@ recorded in this note.
   fails, then the backup saved again; a stall during the flush wait, then a
   write that sends nothing until its own hold (also in `test_hitec_ui.cpp`); a
   batch failed before a write, recovered; NEXT SERVO on the leave page turning
-  the cache on again; another card's serial number before a write, mounted
-  again and the backup saved to it; a batch still queued, the saving page and no write
+  the cache on again; another card's serial number before a write, mounted again
+  and the backup saved to it; a batch still queued, the saving page and no write
   frame until it ends, then the same card with no remount, or another card
   swapped in meanwhile and the backup saved to it; LOAD after a failed batch,
   the list read again and nothing loaded until a row is chosen.

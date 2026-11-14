@@ -225,9 +225,9 @@ void uiButton(const UiRect &r, const char *label, uint16_t fill, uint16_t fg,
  *                    disabled control: an outline, a grey label and no pressed
  *                    look. Pass the expression the screen's control table
  *                    reports for `UI_FIX(UI_BACK)` and gates the tap on, and
- *                    key the repaint on it: the unplug pages of SERVO, KST
- *                    SERVO and HITEC SERVO, whose BACK waits for
- *                    pinClaimUnplugDue().
+ *                    key the repaint on it: the write pages of AM32 CONFIG,
+ *                    KST SERVO and HITEC SERVO while a write runs, and the
+ *                    leave page in every phase.
  */
 void uiHeader(const char *title, const TouchState *t, bool backEnabled = true);
 

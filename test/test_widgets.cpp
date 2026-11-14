@@ -916,6 +916,22 @@ static void testLeavePhases() {
 	idle();
 }
 
+/** @brief The supply note: the time left never reads more than the whole wait. */
+static void testLeaveSupplyNote() {
+	section("Leave page: the supply note's time left is clamped to the wait");
+	char b[48];
+	uiLeaveSupplyNote(b, sizeof(b), 2000, 14);
+	checkStr("1.4 s left", b, "SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.");
+	uiLeaveSupplyNote(b, sizeof(b), 2000, 20);
+	checkStr("the whole wait", b, "SUPPLY OFF FOR 2.0 S: 2.0 S LEFT.");
+	uiLeaveSupplyNote(b, sizeof(b), 2000, 25);
+	checkStr("more than the wait reads the wait", b, "SUPPLY OFF FOR 2.0 S: 2.0 S LEFT.");
+	uiLeaveSupplyNote(b, sizeof(b), 2000, 1);
+	checkStr("0.1 s left", b, "SUPPLY OFF FOR 2.0 S: 0.1 S LEFT.");
+	checkInt("33 characters, within a note line", (int)strlen("SUPPLY OFF FOR 2.0 S: 2.0 S LEFT."),
+	         33);
+}
+
 static void testLeaveRestartWait() {
 	section("Leave page: RESTART DSHOT takes a press 1000 ms into the released phase");
 
@@ -1184,6 +1200,7 @@ void runWidgetTests() {
 	testListDrawField();
 	testLeavePhases();
 	testLeaveRestartWait();
+	testLeaveSupplyNote();
 	testLeaveDraw();
 	testLeaveEnabled();
 	testLeaveLatch();

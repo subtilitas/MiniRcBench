@@ -130,7 +130,8 @@ the exception.
    defers its job (`PinUserInfo::deferJob`): the claim stays Held, the pad an
    input with the pull-up on, until the family tap calls
    `pinClaimStartJob()`. BACK from there is step 5 with no job: the leave
-   page comes at once, released, and its NEXT SERVO returns to Held with no
+   page opens releasing and turns released as soon as `pinClaimUnplugDue()`
+   is true, with no job to wait for; its NEXT SERVO returns to Held with no
    job.
    AM32 has no core1 job: it calls `am32BlBegin(pinClaimGpio(PIN_SIG))`, and
    its claim stays Held until BACK.
@@ -557,8 +558,8 @@ of the two cores' steps:
   rebuild; none needed after a long disarm or with no throttle since the
   bind; the bind starts disarmed at throttle zero;
 - order: DShot released before any job bind; job idle before
-  `escTaskResume()`; the leave page's wait (`pinClaimUnplugDue()`) before
-  restore for SERVO and KST and not for AM32;
+  `escTaskResume()`; `pinClaimUnplugDue()`, the flag the leave page waits
+  for, before restore for SERVO and KST and not for AM32;
 - BACK in every state, including `Stopping`, `Restoring` and a failed bind;
   RETRY after a failed bind; Busy while `Restoring`;
 - restore: the pins, bitrate and KISS settings handed to the rebuild equal
