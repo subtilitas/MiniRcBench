@@ -1343,6 +1343,89 @@ static bool settingsRowShows(int row, const char *label, const char *value, uint
 }
 
 /**
+ * @brief Pin @p name ("GP0") of connector @p conn ("J5") in the board header's
+ *        connector table, read as tools/make_wiring.py reads it; 0 for none.
+ *        The suite runs in test/, so the header is ../src/.
+ */
+static int boardConnectorPin(const char *conn, const char *name) {
+	FILE *f = fopen("../src/board_rp2350_touch_lcd_2_8.h", "r");
+	if (!f) return 0;
+	char line[256], cur[8] = "";
+	int found = 0;
+	while (!found && fgets(line, sizeof(line), f)) {
+		const char *p = line;
+		while (*p == ' ' || *p == '\t') p++;
+		if (*p != '*') { cur[0] = '\0'; continue; }
+		p++;
+		while (*p == ' ') p++;
+		char c[8]; int count, used = 0;
+		if (sscanf(p, "%7[J0-9] (%dP):%n", c, &count, &used) == 2 && used > 0 && c[0] == 'J') {
+			snprintf(cur, sizeof(cur), "%s", c);
+			p += used;
+		} else if (!(cur[0] && p[0] >= '0' && p[0] <= '9' && strchr(p, '='))) {
+			cur[0] = '\0';
+			continue;
+		}
+		if (strcmp(cur, conn) != 0) continue;
+		int num, n;
+		char nm[16];
+		while (sscanf(p, " %d=%15s%n", &num, nm, &n) == 2) {
+			if (strcmp(nm, name) == 0) { found = num; break; }
+			p += n;
+		}
+	}
+	fclose(f);
+	return found;
+}
+
+/**
+ * @brief SIG PIN's and AUX PIN's J5 lines and SERVO SUPPLY's J4 line agree
+ *        with the board header's connector table.
+ */
+static void testSettingsConnectorLines() {
+	section("SETTINGS: the connector lines agree with the board header");
+	fakeFlashClear();
+	settingsLoad();
+	uiInit();
+	frames(2);
+	enterSettings();
+	for (uint8_t g = 0; g < 2; g++) {
+		settings()->dshotPin = g;
+		settings()->kissPin = (uint8_t)(1 - g);
+		tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
+		tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));   // a repaint
+		char gp[8], sub[16], what[64];
+		snprintf(gp, sizeof(gp), "GP%u", (unsigned)g);
+		int j5 = boardConnectorPin("J5", gp);
+		snprintf(sub, sizeof(sub), "J5 PIN %d", j5);
+		snprintf(what, sizeof(what), "SIG on %s: %s, as the header's J5 says", gp, sub);
+		checkTrue(what, j5 > 0 && settingsRowShows((int)SettingsRowId::Sig, "SIG PIN", gp, C_LIME, sub));
+		char agp[8], asub[16];
+		snprintf(agp, sizeof(agp), "GP%u", (unsigned)(1 - g));
+		int aj5 = boardConnectorPin("J5", agp);
+		snprintf(asub, sizeof(asub), "J5 PIN %d", aj5);
+		snprintf(what, sizeof(what), "AUX on %s: %s", agp, asub);
+		checkTrue(what, aj5 > 0 && settingsRowShows((int)SettingsRowId::Aux, "AUX PIN", agp, C_CYAN, asub));
+	}
+	for (uint8_t mode = 1; mode <= SERVO_SUPPLY_MODE_MAX; mode++) {
+		settings()->servoSupply = mode;
+		tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
+		tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
+		char gp[8], sub[16], what[64];
+		snprintf(gp, sizeof(gp), "GP%u", (unsigned)servoSupplyPinOf(mode));
+		int j4 = boardConnectorPin("J4", gp);
+		snprintf(sub, sizeof(sub), "J4 PIN %d", j4);
+		snprintf(what, sizeof(what), "SERVO SUPPLY %s: %s, as the header's J4 says", gp, sub);
+		checkTrue(what, j4 > 0 &&
+		          settingsRowShows((int)SettingsRowId::ServoSupply, "SERVO SUPPLY", gp, C_TEXT, sub));
+	}
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+	fakeFlashClear();
+	settingsLoad();
+}
+
+/**
  * @brief Drag SETTINGS' list by @p dy px: a press at x 60, on a label or a
  *        caption, which is no control, so the list scrolls.
  */
@@ -1530,9 +1613,11 @@ static void testSettingsKiss() {
 	          settingsRowShows((int)SettingsRowId::Aux, "AUX PIN", "GP0", C_CYAN, "J5 PIN 2"));
 	checkInt("and KISS stays off", settings()->kissEnable, 0);
 
+	uint8_t sig0 = settings()->dshotPin, aux0 = settings()->kissPin;
 	tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
 	checkInt("KISS TELEM switches KISS on", settings()->kissEnable, 1);
-	checkTrue("on AUX, which is not SIG", settings()->kissPin != settings()->dshotPin);
+	checkTrue("on AUX, moving neither pin",
+	          settings()->dshotPin == sig0 && settings()->kissPin == aux0);
 	for (int i = 0; i < 2; i++) {
 		uint8_t sig = settings()->dshotPin, aux = settings()->kissPin;
 		tapRowId(UI_ROW(SettingsRowId::Sig, Minus));
@@ -1541,12 +1626,23 @@ static void testSettingsKiss() {
 		checkTrue("and the wiring follows both",
 		          fakeWiring().dshotPin == settings()->dshotPin &&
 		          fakeWiring().kissPin == settings()->kissPin && fakeWiring().kissEnable);
+		// Off the boot pin with KISS on, the line over LINK names the swap
+		// of the ESC's wires, not a servo.
+		bool off = settings()->dshotPin != settingsBootDshotPin();
+		bool swapShown = fakeTextIs(UI_MARGIN, 230, "SWAP THE ESC'S SIGNAL AND KISS WIRES",
+		                            C_AMBER, C_BG, 1);
+		checkTrue(off ? "SIG off the boot pin, KISS on: SWAP THE ESC'S SIGNAL AND KISS WIRES"
+		              : "SIG back on the boot pin: no swap line",
+		          off == swapShown);
 	}
 	checkTrue("no step left a pin outside the free set",
 	          settingsPinFree(settings()->dshotPin) && settingsPinFree(settings()->kissPin));
+	sig0 = settings()->dshotPin;
+	aux0 = settings()->kissPin;
 	tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
 	checkInt("toggling again switches it off", settings()->kissEnable, 0);
-	checkTrue("and moves no pin", settings()->kissPin != settings()->dshotPin);
+	checkTrue("and moves neither pin",
+	          settings()->dshotPin == sig0 && settings()->kissPin == aux0);
 }
 
 /** @brief Hold HOLD DEFAULTS until it fires, then lift. */
@@ -3123,9 +3219,27 @@ static void testBoardCellColour() {
 	checkTrue("armed at 3.20 V: the voltage in red", uiArmed() && shows("3.20V", C_RED));
 	fakeAdvance(IDLE_DISARM_MS - 3000);
 	frames(1);
-	checkTrue("the last 5 s: IDLE 3s, amber, in the voltage's place",
-	          fakeTextIs(GFX_W - 4 - gfxTextW("IDLE 3s", 2), 7, "IDLE 3s", C_AMBER, C_PANEL, 2));
+	checkTrue("the last 5 s: IDLE 3s, amber, in the voltage's place, from y 11",
+	          fakeTextIs(GFX_W - 4 - gfxTextW("IDLE 3s", 2), 11, "IDLE 3s", C_AMBER, C_PANEL, 2));
 	checkTrue("and no voltage", !shows("3.20V", C_RED) && !shows("3.20V", C_TEXT));
+	// At 1200 kbit/s the rate, DSHOT1200, ends at x 156, right of where
+	// IDLE 5s starts, x 154: the two share no pixel. Each reads alone in its
+	// own rectangle, which do not meet, and the row between is blank.
+	{
+		uint8_t pin = escTaskDshotPin();
+		escTaskConfigure(pin, 1200, false, 0);
+		fakeAdvance(1000);
+		frames(1);
+		const char *idle = "IDLE 2s";
+		uint16_t rateCol = escEdtRequested() ? C_CYAN : C_DIM;
+		bool alone = fakeTextIs(104, 3, "DSHOT1200", rateCol, C_PANEL, 1) &&
+		             fakeTextIs(GFX_W - 4 - gfxTextW(idle, 2), 11, idle, C_AMBER, C_PANEL, 2);
+		bool gap = true;
+		for (int x = 104; x < GFX_W - 4; x++)
+			if (gfxBuffer()[10 * GFX_W + x] != C_PANEL) gap = false;
+		checkTrue("DSHOT1200 and IDLE 2s share no pixel, y 10 blank between", alone && gap);
+		escTaskConfigure(pin, DSHOT_SPEED_KBAUD, false, 0);
+	}
 	fakeAdvance(4000);
 	frames(2);
 	checkTrue("the idle interlock disarms", !uiArmed());
@@ -5876,6 +5990,7 @@ void runUiTests() {
 	testStatusBarBitrate();
 	testSettingsKiss();
 	testSettingsServoSupply();
+	testSettingsConnectorLines();
 	testSettingsCurrentSense();
 	testSettingsDisplay();
 	testSettingsSave();

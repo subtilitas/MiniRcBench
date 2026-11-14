@@ -254,15 +254,18 @@ Unter der Liste bleiben diese Elemente an ihrem Platz:
   läuft ab dem Schritt auf diesem Pin, und ein dort verbliebenes Servo, etwa
   nach dem Servotester mit zwei Servos, bewegt sich. Die Liste endet dann
   12 px höher, bei y 227, und lässt sich 12 px weiter verschieben; ihre
-  oberen Zeilen bleiben, wo sie sind.
+  oberen Zeilen bleiben, wo sie sind. Mit KISS TELEM an hat der Schritt SIG
+  und AUX getauscht, DShot läuft also auf dem Kabel, an dem das KISS-Pad des
+  ESC hing: Die Zeile zeigt stattdessen
+  `SWAP THE ESC'S SIGNAL AND KISS WIRES`.
 - **LINK**: live, Pakete pro Sekunde und Fehlerrate. Grün heißt, es kommen
   Pakete an, der ESC-Pin stimmt also. Bernstein heißt, mehr als 5 % Fehler.
 - Die Hinweiszeile: ein Text, der erste, der zutrifft, in dieser Reihenfolge:
   1. `SAVE FAILED - FLASH REFUSED THE WRITE` (rot) oder
      `NOT WHILE ARMED - DISARM TO SAVE` (rot), bis zum nächsten Speichern
      oder Verlassen von SETTINGS;
-  2. `ADJUSTED TO THIS BOARD'S LIMITS` oder `KISS OFF: NEEDS A PIN OF ITS OWN`
-     (Bernstein), bis zur nächsten Änderung;
+  2. `ADJUSTED TO THIS BOARD'S LIMITS` (Bernstein), bis zur nächsten
+     Änderung;
   3. `DEFAULTS LOADED - RESTART TO UNDO` (Voreinstellungen geladen, ein
      Neustart macht es rückgängig; Bernstein) nach `HOLD DEFAULTS`, solange ein
      Neustart die gespeicherten Werte zurückbrächte, bis zur nächsten

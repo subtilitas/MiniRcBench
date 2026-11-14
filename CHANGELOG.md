@@ -568,7 +568,13 @@ protocol.
     and SETTINGS are drawn disabled under their own status in place of
     `PINS BUSY`. A tool refused for another claim, which no path through the
     screens reaches, reads `WAIT: DSHOT RESTARTING`.
-  - The tester's top row reads `DSHOT600` in place of `DS600`.
+  - The tester's top row reads `DSHOT600` in place of `DS600`, and its
+    `IDLE ns` countdown starts at y 11 in place of y 7, under the rate:
+    `DSHOT1200` ends at x 156, right of where `IDLE 5s` starts.
+  - With KISS on, SETTINGS' line over LINK reads
+    `SWAP THE ESC'S SIGNAL AND KISS WIRES` in place of the servo warning
+    while SIG is off the boot pin: a step of SIG PIN or AUX PIN swaps the
+    two, so DShot drives the wire the ESC's KISS pad was on.
   - SETTINGS' note line reads `NOTHING SAVED: DEFAULTS IN USE` in place of
     `COMPILED DEFAULTS IN USE`.
   - KST's field labels REVERSION, ALLOW UNCONT, UNCONTROLLED POS and
@@ -578,17 +584,22 @@ protocol.
   - The screens name SIG by role and number: SERVO TESTER's caption
     `SIG GP0  50 HZ  1000-2000 US` and `SIG+AUX  50 HZ  1000-2000 US`, with
     the role alone, `SIG  333 HZ  1000-2000 US`, or `SIG+AUX  333 HZ`, where
-    the line would reach the widest chip; `AN ESC ANSWERS ON SIG GP0.`,
-    `RELEASING SIG GP0`, `TAKING SIG GP0` and
+    the line would reach the widest chip; `TAKING SIG GP0` and
     `SIG GP0 COULD NOT BE TAKEN (PWM)` on SERVO TESTER, KST SERVO and HITEC
-    SERVO; the KST and Hitec strips, `SIG GP0  TRY 12  1.4 S`,
+    SERVO; `AN ESC ANSWERS ON SIG GP0.` and `RELEASING SIG GP0` on SERVO
+    TESTER and KST SERVO; HITEC SERVO's family view
+    `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` and
+    `RELEASING SIG GP0 FROM DSHOT`; the KST and Hitec strips,
+    `SIG GP0  TRY 12  1.4 S`,
     `SIG GP0  SUPPLY ON`; AM32 CONFIG's `RELEASING SIG GP0`; SET's
     `KISS WIRE ON AUX GP1 IS LIVE.` and
     `SIG AND AUX ARE THE SAME GPIO.` / `SET SIG PIN OR AUX PIN IN SETTINGS.`
   Host tests `testSettingsKiss()`, `testSettingsServoSupply()` and
   `testAm32ClaimWords()` in test_ui.cpp, `testSupplySection()` in
   test_menu.cpp, `testKissNeedsItsOwnPin()` in test_settings.cpp,
-  `testPinNames()` in test_servo.cpp, `testSwitchedTimeout()` in
+  `testPinNames()` in test_servo.cpp, `testSettingsConnectorLines()` in
+  test_ui.cpp against the board header's connector table,
+  `testSwitchedTimeout()` in
   test_kst_ui.cpp, `testBusyRefusal()` in test_hitec_ui.cpp and the label
   checks in test_kst_view.cpp; the wiki shows `menu-restarting.png` in place
   of `menu-pins-busy.png`.

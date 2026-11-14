@@ -277,8 +277,9 @@ with a grey label: it acts from the moment `UNPLUG THE SERVO.` shows.
 
   <img src="img/servo-bind.png" width="240" alt="SIG GP0 COULD NOT BE TAKEN (PWM), with RETRY">
 
-- **`TWO` cannot be chosen.** The KISS wire on AUX is live, or both pins
-  were set to one pin some other way than SETTINGS. The SET screen names the cause when `SERVOS` is selected.
+- **`TWO` cannot be chosen.** The KISS wire on AUX is live, or both pins were
+  set to one pin some other way than SETTINGS. The SET screen names the cause
+  when `SERVOS` is selected.
 - **The servo does not move.** Check that the chip reads `RUNNING`, that the
   servo has its own supply, and that its ground is joined to the board's.
   With `GP28 SUPPLY STAYS OFF HERE.` under the title, the switched converter

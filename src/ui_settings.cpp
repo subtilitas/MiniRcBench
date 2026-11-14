@@ -54,6 +54,14 @@
  *        (VIEW_H_PIN), and scrolls 12 px further. Its top rows do not move.
  */
 #define PIN_Y       230
+/**
+ * @brief The line at @ref PIN_Y while SIG is off the boot pin with KISS on:
+ *        SIG and AUX swapped, so the ESC's signal and KISS wires swap too.
+ *        36 characters, 215 px.
+ */
+#define SETTINGS_SWAP_NOTE "SWAP THE ESC'S SIGNAL AND KISS WIRES"
+static_assert(UI_MARGIN + 6 * (int)(sizeof(SETTINGS_SWAP_NOTE) - 1) - 1 <= 232,
+              "the swap note runs past x 232");
 #define VIEW_H_PIN  188         /**< To y 227, while the ESC pin's warning shows. */
 #define CAP_H       20          /**< A section caption. */
 #define ROW_H       44          /**< A row's controls. */
@@ -75,7 +83,7 @@
 #define DEF_W       72
 #define CAP_LABEL_DY 12         /**< A captioned row's label, from the row's top. */
 #define CAP_TEXT_DY  25         /**< Its caption, from the row's top. */
-#define VAL_SUB_DY   8          /**< A value with a connector line under it, from the row's top. */
+#define VAL_SUB_DY   8          /**< A value over a connector line, from the row's top. */
 #define SUB_DY       27         /**< The connector line, from the row's top. */
 /** @} */
 
@@ -177,7 +185,8 @@ struct Item {
 	uint8_t                index; /**< The row's number for UI_ROW(); 0 for a caption. */
 };
 
-#define MAX_SECTIONS 12  /**< 3 core sections, up to 6 tool sections, DISPLAY, BOARD and DIAGNOSTICS. */
+/** @brief 3 core sections, up to 6 tools', DISPLAY, BOARD and DIAGNOSTICS. */
+#define MAX_SECTIONS 12
 #define MAX_ITEMS 40     /**< Captions and rows; items past it are not shown. */
 #define MAX_ROWS  24     /**< Rows; rows past it are not shown. */
 static Item    s_items[MAX_ITEMS];
@@ -278,7 +287,10 @@ static void auxValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "GP%u", se
 static void auxStep(int dir) { stepPinSwapping(&settings()->kissPin, &settings()->dshotPin, dir); }
 static void auxSub(char *b, size_t n) { j5Text(b, n, settings()->kissPin); }
 
-/** @brief OWN, GP28 or GP29: the switched supply's enable pin. OWN: the servo has its own supply. */
+/**
+ * @brief OWN, GP28 or GP29: the switched supply's enable pin. OWN: the servo
+ *        has its own supply.
+ */
 static void supplyValue(char *b, size_t n, uint16_t *c) {
 	uint8_t pin = servoSupplyPinOf(settings()->servoSupply);
 	if (pin == SERVO_SUPPLY_NO_PIN) snprintf(b, n, "OWN");
@@ -359,7 +371,7 @@ static constexpr SettingsRow ROWS_WIRING[] = {
 	{ "KISS TELEM",   SettingsKind::Toggle,  3, kissValue,    nullptr, nullptr,     kissToggle, kissOn,  nullptr, nullptr },
 	{ "AUX PIN",      SettingsKind::Stepper, 4, auxValue,     nullptr, auxStep,     nullptr,    nullptr, nullptr, auxSub },
 };
-/** @brief SERVO SUPPLY, a core section after WIRING: KST and Hitec both depend on it. */
+/** @brief SERVO SUPPLY, a core section after WIRING: KST and Hitec use it. */
 static constexpr SettingsRow ROWS_SUPPLY[] = {
 	{ "SERVO SUPPLY",  SettingsKind::Stepper, 4, supplyValue, nullptr, supplyStep, nullptr,     nullptr, nullptr, supplySub },
 	{ "CURRENT SENSE", SettingsKind::Toggle,  6, senseValue,  nullptr, nullptr,    senseToggle, senseOn, senseCaptionText, nullptr },
@@ -645,11 +657,16 @@ static bool resetNoteShown() {
  * from the step that changed it (applyLive()). Against the saved pin the
  * note would end at a save, against the pin at opening at a return to
  * SETTINGS, with DShot still on a pin nothing warned about.
+ *
+ * With KISS on, a step of SIG PIN or AUX PIN swaps the two, so DShot runs on
+ * the wire the ESC's KISS pad was on until the wires are swapped too: the
+ * line says that instead, @ref SETTINGS_SWAP_NOTE.
  */
 static const char *pinNote() {
 	static char buf[40];
 	uint8_t pin = settings()->dshotPin;
 	if (pin == settingsBootDshotPin()) return nullptr;
+	if (settings()->kissEnable) return SETTINGS_SWAP_NOTE;
 	snprintf(buf, sizeof(buf), UI_SPLASH_PIN_FMT, (unsigned)pin);
 	return buf;
 }

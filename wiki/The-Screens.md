@@ -235,15 +235,16 @@ Under the list, these stay in place:
   amber, for example `UNPLUG ANY SERVO FROM GP1 NOW`. DShot runs on that pin
   from the step, and a servo left there, for example after the two-servo
   tester, moves. The list then ends 12 px higher, at y 227, and scrolls
-  12 px further; its top rows stay where they are.
+  12 px further; its top rows stay where they are. With KISS TELEM on, the
+  step swapped SIG and AUX, so DShot now runs on the wire the ESC's KISS pad
+  was on: the line reads `SWAP THE ESC'S SIGNAL AND KISS WIRES` instead.
 - **LINK**: live packets per second and error rate. Green means packets are
   arriving, so the ESC pin is correct. Amber means more than 5 % errors.
 - The note line: one text, the first that applies, in this order:
   1. `SAVE FAILED - FLASH REFUSED THE WRITE` (red) or
      `NOT WHILE ARMED - DISARM TO SAVE` (red), until the next save or
      leaving SETTINGS;
-  2. `ADJUSTED TO THIS BOARD'S LIMITS` or `KISS OFF: NEEDS A PIN OF ITS OWN`
-     (amber), until the next change;
+  2. `ADJUSTED TO THIS BOARD'S LIMITS` (amber), until the next change;
   3. `DEFAULTS LOADED - RESTART TO UNDO` (amber) after `HOLD DEFAULTS`, while a
      restart would bring the saved values back, until another change or a
      `HOLD TO SAVE`, failed or not;

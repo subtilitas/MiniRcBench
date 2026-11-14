@@ -104,7 +104,7 @@ Kein DShot-Frame erreicht ein Servo, das du in dieser Ansicht anschließt.
 
 <img src="img/hitec-family.png" width="240" alt="Die Familienauswahl mit SERVO SUPPLY auf OWN: GP0 IS THE SERVO'S: DSHOT IS OFF. in Grün, CLASSIC abgeblendet mit NEEDS THE CONVERTER OF WIRING PART C, D SERIES mit POWER THE SERVO UP, THEN TAP.">
 
-Die Leiste zeigt `RELEASING GP0 FROM DSHOT`, solange der Treiber anhält,
+Die Leiste zeigt `RELEASING SIG GP0 FROM DSHOT`, solange der Treiber anhält,
 dann `GP0 IS THE SERVO'S: DSHOT IS OFF.` in Grün über
 `CONNECT THE SERVO, CHOOSE ITS FAMILY`. Ab dann wirken die zwei
 Schaltflächen:
@@ -130,10 +130,10 @@ wie `LEAVE`: DShot startet erst nach `UNPLUG THE SERVO.` und
 zurück. Solange der Treiber noch anhält oder der Bildschirm den Pin nicht
 übernommen hat, führt `BACK` zu `MENU` zurück.
 
-<img src="img/hitec-family-esc.png" width="240" alt="Die Familienauswahl, während ein ESC auf GP0 antwortet: AN ESC ANSWERS ON GP0: UNPLUG IT. und DSHOT STAYS ON THE PIN UNTIL THEN. in Bernstein, beide Familien abgeblendet.">
+<img src="img/hitec-family-esc.png" width="240" alt="Die Familienauswahl, während ein ESC auf GP0 antwortet: AN ESC ANSWERS ON SIG GP0: UNPLUG IT. und DSHOT STAYS ON THE PIN UNTIL THEN. in Bernstein, beide Familien abgeblendet.">
 
 - Antwortet ein ESC auf dem Pin, zeigt die Leiste in Bernstein
-  `AN ESC ANSWERS ON GP0: UNPLUG IT.` und
+  `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` und
   `DSHOT STAYS ON THE PIN UNTIL THEN.`, und beide Familien sind abgeblendet
   gezeichnet. Der Bildschirm übernimmt den Pin, sobald der ESC 500 ms lang
   still ist. Die Prüfung läuft nur, bevor der Pin übernommen ist: Ein ESC,
@@ -550,7 +550,8 @@ und zeigt die Abziehseite.
 
 ## Wenn es nicht funktioniert
 
-- **`AN ESC ANSWERS ON GP0.`** Ein ESC hängt am ESC-Pin. Zieh ihn ab.
+- **`AN ESC ANSWERS ON SIG GP0: UNPLUG IT.`** Ein ESC hängt an SIG, dem
+  ESC-Pin. Zieh ihn ab.
 - **`NO SERVO ANSWERS` mit `REPLY: SILENT`.** Nichts hat geantwortet. Prüfe
   die Versorgung des Servos, das Signalkabel und die Masse. Mit `OWN`
   schalte das Servo vor dem Eintritt ein.

@@ -10,9 +10,10 @@
  *
  * SIG (the ESC pin), the DShot bitrate, AUX (the KISS wire), the pole
  * count, the throttle ceiling and the backlight are all changeable on the
- * board itself and stored in flash — see @ref settings.h and the **MENU -> SETTINGS** screen. What is
- * written here is the value a board starts with when its flash is blank, or
- * when a stored block fails to validate.
+ * board itself and stored in flash — see @ref settings.h and the
+ * **MENU -> SETTINGS** screen. What is written here is the value a board
+ * starts with when its flash is blank, or when a stored block fails to
+ * validate.
  *
  * The practical consequence: editing one of those values and reflashing will
  * appear to do nothing on a board that has saved settings, because the stored

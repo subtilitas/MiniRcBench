@@ -1149,6 +1149,26 @@ What slice 1 left to the open questions, which the owner answered on
 - The step texts, including the no-switch value's name, are the screen's:
   OWN by decision 29.
 
+## Slice 3 as built
+
+Decisions 9, 10 and 15 b, e, f, h, j, k on the screens, with host tests in
+`test/test_ui.cpp`, `test/test_menu.cpp`, `test/test_settings.cpp`,
+`test/test_servo.cpp`, `test/test_kst_ui.cpp`, `test/test_hitec_ui.cpp` and
+`test/test_kst_view.cpp`. The stored block is unchanged. Where the build
+reads the decisions' lines, it reads them as follows:
+
+| Point | As built | Why |
+|---|---|---|
+| MENU's tool rows | keep their pin status, `GP0`, `GP0+1`, drawn disabled under it while the claim is not Free | decision 18, which drops them, is slice 9's; decision 10 names only `drawMenu()` for MENU |
+| The restarting caption | `DSHOT RESTARTING ON SIG GP0` in amber, `UI_COL_WARN`, for every state but Free | the note gives no colour; the busy status it replaces was amber |
+| SERVO SUPPLY at OWN | the value at y+8, as under GP28 and GP29, with no line under it | the value does not jump while the row steps |
+| `settingsValidate()` | AUX on SIG's GPIO moves to the next free pin after SIG, KISS kept; an AUX pin the board does not free takes the default and switches KISS off, as before | decision 10 governs the collision only |
+| SIG by role and number | in the functions decision 10's Code line names, SERVO TESTER's caption (this note's SERVO TESTER section), AM32's handover status (`RELEASING SIG GP0`, the text `drawConnect()` shows) and HITEC SERVO's family view, `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` and `RELEASING SIG GP0 FROM DSHOT` | the decision's rule; the rest keeps a bare `GP0` until its slice: the KST and Hitec list strips, `GP0 IS THE SERVO'S: DSHOT IS OFF.`, the unplug pages' `DSHOT RESTARTS ON GP0`, `PULSES ON GP0 ARE THROTTLE TO AN ESC.` (41 characters with SIG) and the splash's `UNPLUG ANY SERVO FROM GP0 NOW`, for slices 6 and 9 |
+| SERVO TESTER's caption | the role alone, `SIG  333 HZ  1000-2000 US`, where `SIG GP0` would end within 4 px of the widest chip, RUNNING at x 179; with two servos the travel goes, `SIG+AUX  333 HZ` | the decision's "role alone where a strip has no room", then decision 14's rule for a strip too long |
+| The same-pin refusal's second line | `SET SIG PIN OR AUX PIN IN SETTINGS.` | the decision gives the first line only |
+| The tester's `IDLE ns` | from y 11, not y 7 | `IDLE 5s` starts at x 154, left of where `DSHOT1200` ends, x 156; at y 7 the two shared pixels. y 11 is the first row under the rate in both themes |
+| SETTINGS' line over LINK with KISS on | `SWAP THE ESC'S SIGNAL AND KISS WIRES` while SIG is off the boot pin, in place of the servo warning | a step of either pin row swaps SIG and AUX, so DShot drives the wire the ESC's KISS pad was on until the wires are swapped |
+
 ## Slice 4 as built
 
 Decision 14's table on the screens, with host tests in `test/test_ids.cpp`

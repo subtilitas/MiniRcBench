@@ -676,18 +676,22 @@ does every completed HOLD TO SAVE, failed saves included: a save whose
 read-back fails has already rewritten the sector. MENU shows `UNSAVED` on
 the SETTINGS row while the live settings differ from flash.
 
-SIG PIN moves DShot at once (`escTaskConfigure()`). While the live ESC pin
-is not the one `settingsLoad()` put live, the pin the splash named
-(`settingsBootDshotPin()`), a line of its own at y 230 (`PIN_Y`) repeats
-the splash's warning for the live pin in amber, for example
-`UNPLUG ANY SERVO FROM GP1 NOW`, and the list ends at y 227 (`VIEW_H_PIN`),
-so it scrolls 12 px further; its top rows do not move. The rule is the boot
-pin rather than the saved pin, which a save would end, or the pin at
-opening, which a return to SETTINGS would end, while DShot stays on a pin
-the splash did not name. The note line keeps its own order: SAVE FAILED and
-NOT WHILE ARMED, until the next save or leaving; ADJUSTED and KISS OFF,
-until the next change; DEFAULTS LOADED; UNSAVED; SAVED; the reset by an
-update; then the set in use.
+SIG PIN moves DShot at once (`escTaskConfigure()`). While the live ESC pin is
+not the one `settingsLoad()` put live, the pin the splash named
+(`settingsBootDshotPin()`), a line of its own at y 230 (`PIN_Y`) repeats the
+splash's warning for the live pin in amber, for example
+`UNPLUG ANY SERVO FROM GP1 NOW`, and the list ends at y 227 (`VIEW_H_PIN`), so
+it scrolls 12 px further; its top rows do not move. The rule is the boot pin
+rather than the saved pin, which a save would end, or the pin at opening, which
+a return to SETTINGS would end, while DShot stays on a pin the splash did not
+name. With KISS on, a step of SIG PIN or AUX PIN swaps the two, so DShot runs on
+the wire the ESC's KISS pad was on until the wires are swapped as well: the line
+then reads `SWAP THE ESC'S SIGNAL AND KISS WIRES` (`SETTINGS_SWAP_NOTE`, 36
+characters, 215 px). The note line keeps its own order: SAVE FAILED and NOT
+WHILE ARMED, until the next save or leaving; ADJUSTED and KISS OFF, until the
+next change (KISS OFF follows a KISS pin the board does not free, which no
+SETTINGS row sets: the steppers offer free pins only); DEFAULTS LOADED; UNSAVED;
+SAVED; the reset by an update; then the set in use.
 
 **High contrast**
 
@@ -1230,9 +1234,9 @@ The host test harness runs two cross-checks:
 ## Servo tester
 
 **MENU → SERVO TESTER** drives one servo on SIG, the ESC pin, or two servos on
-SIG and AUX, the KISS pin, with servo pulses from the RP2350's hardware PWM.
-It does not measure the servo: there is no position feedback, so the horn on the screen
-is drawn where the pulse puts it. Not tested on hardware. Design note:
+SIG and AUX, the KISS pin, with servo pulses from the RP2350's hardware PWM. It
+does not measure the servo: there is no position feedback, so the horn on the
+screen is drawn where the pulse puts it. Not tested on hardware. Design note:
 `docs/design/servo-tester.md`; the rules are pure functions in
 `src/servo_model.h`, and core1 makes the pulses (`src/servo_job.h`).
 
@@ -1639,9 +1643,9 @@ not 0 answers ID 0 is not measured.
    family is chosen: DShot sends zero frames for at least 250 ms after the
    last throttle frame, stops and leaves the pin an input with the pull-up
    on, so no DShot frame reaches a servo connected on the family view. The
-   strip reads `RELEASING GP0 FROM DSHOT`, then `GP0 IS THE SERVO'S: DSHOT
+   strip reads `RELEASING SIG GP0 FROM DSHOT`, then `GP0 IS THE SERVO'S: DSHOT
    IS OFF.` in green over `CONNECT THE SERVO, CHOOSE ITS FAMILY`. While an
-   ESC answers on SIG it reads `AN ESC ANSWERS ON GP0: UNPLUG IT.` over
+   ESC answers on SIG it reads `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` over
    `DSHOT STAYS ON THE PIN UNTIL THEN.` in amber, both families are drawn
    disabled, and the claim follows once the ESC has been quiet for 500 ms.
    The tap on D SERIES starts the Hitec job and the entry: with `GP28` or
@@ -2149,7 +2153,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.1%**: 9,556 of 9,739 lines in 59 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.1%**: 9,570 of 9,753 lines in 59 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

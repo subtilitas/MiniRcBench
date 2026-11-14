@@ -79,12 +79,17 @@ struct Settings {
 	uint8_t  dshotPin;     /**< SIG: GPIO carrying the ESC signal wire. */
 	uint16_t dshotKbaud;   /**< DShot bitrate: 150, 300, 600 or 1200. */
 	uint8_t  kissEnable;   /**< Non-zero to claim a UART for KISS telemetry. */
-	uint8_t  kissPin;      /**< AUX: GPIO the ESC's telemetry pad connects to, and servo B's. Any free one but SIG's. */
+	/** @brief AUX: GPIO the ESC's telemetry pad connects to, and servo B's.
+	 *         Any free one but SIG's. */
+	uint8_t  kissPin;
 	uint8_t  poles;        /**< Motor pole count, for eRPM to RPM. */
 	uint16_t maxThrottle;  /**< Throttle ceiling, out of 0..2000. */
 	uint8_t  backlight;    /**< Preferred backlight level, @ref BACKLIGHT_MIN to 255. */
 	uint8_t  highContrast; /**< Non-zero selects @ref Theme::HighContrast. */
-	uint8_t  servoSupply;  /**< The switched servo supply: 0 none (OWN on the screen: the servo has its own supply), 1 an enable on GP28, 2 on GP29. @see servo_supply.h */
+	/** @brief The switched servo supply: 0 none (OWN on the screen: the
+	 *         servo has its own supply), 1 an enable on GP28, 2 on GP29.
+	 *         @see servo_supply.h */
+	uint8_t  servoSupply;
 	uint8_t  currentSense; /**< The current sensor: 0 none, 1 an INA219 on J3. @see sense.h */
 };
 
@@ -162,8 +167,8 @@ void settingsDefaults(Settings *out);
  * free; AUX, the KISS pin, free and not SIG's, whatever KISS is. An AUX pin
  * the board does not free takes the board's default and switches KISS off.
  * AUX on SIG's GPIO moves to the next free pin after SIG, and KISS keeps its
- * switch; only with no second free pin is KISS switched off. Servo supply 0 to 2, any
- * other value 0; current sensor 0 or 1, any other value 0.
+ * switch; only with no second free pin is KISS switched off. Servo supply
+ * 0 to 2, any other value 0; current sensor 0 or 1, any other value 0.
  *
  * @param[in,out] s Settings to repair in place.
  * @return true if nothing needed changing.

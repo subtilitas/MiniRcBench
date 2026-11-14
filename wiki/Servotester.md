@@ -301,8 +301,8 @@ erscheint.
   <img src="img/servo-bind.png" width="240" alt="SIG GP0 COULD NOT BE TAKEN (PWM) mit RETRY">
 
 - **`TWO` lässt sich nicht wählen.** Das KISS-Kabel an AUX ist aktiv, oder
-  beide Pins wurden auf anderem Weg als über SETTINGS auf einen Pin gesetzt. Der SET-Bildschirm nennt den Grund,
-  wenn `SERVOS` ausgewählt ist.
+  beide Pins wurden auf anderem Weg als über SETTINGS auf einen Pin gesetzt.
+  Der SET-Bildschirm nennt den Grund, wenn `SERVOS` ausgewählt ist.
 - **Das Servo bewegt sich nicht.** Prüfe, ob die Statusanzeige `RUNNING`
   zeigt, ob das Servo eine eigene Versorgung hat und ob seine Masse mit der
   der Platine verbunden ist. Ob ein Servo die 3,3-V-Impulse der Platine

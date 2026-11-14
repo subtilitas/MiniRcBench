@@ -94,7 +94,7 @@ servo you connect on this view.
 
 <img src="img/hitec-family.png" width="240" alt="The family view with SERVO SUPPLY at OWN: GP0 IS THE SERVO'S: DSHOT IS OFF. in green, CLASSIC disabled with NEEDS THE CONVERTER OF WIRING PART C, D SERIES with POWER THE SERVO UP, THEN TAP.">
 
-The strip reads `RELEASING GP0 FROM DSHOT` while the driver stops, then
+The strip reads `RELEASING SIG GP0 FROM DSHOT` while the driver stops, then
 `GP0 IS THE SERVO'S: DSHOT IS OFF.` in green over
 `CONNECT THE SERVO, CHOOSE ITS FAMILY`. The two buttons act from then on:
 
@@ -118,10 +118,10 @@ Once the pin is the servo's, `BACK` on this view goes to the unplug page, as
 the driver still stops, or while the screen has not taken the pin, `BACK`
 returns to `MENU`.
 
-<img src="img/hitec-family-esc.png" width="240" alt="The family view while an ESC answers on GP0: AN ESC ANSWERS ON GP0: UNPLUG IT. and DSHOT STAYS ON THE PIN UNTIL THEN. in amber, both families disabled.">
+<img src="img/hitec-family-esc.png" width="240" alt="The family view while an ESC answers on GP0: AN ESC ANSWERS ON SIG GP0: UNPLUG IT. and DSHOT STAYS ON THE PIN UNTIL THEN. in amber, both families disabled.">
 
 - If an ESC answers on the pin, the strip reads, in amber,
-  `AN ESC ANSWERS ON GP0: UNPLUG IT.` and
+  `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` and
   `DSHOT STAYS ON THE PIN UNTIL THEN.`, and both families are drawn
   disabled. The screen takes the pin once the ESC has been quiet for
   500 ms. The check runs only before the pin is taken: an ESC connected
@@ -149,12 +149,13 @@ Once the job holds the line, the entry starts at once.
 - **With SERVO SUPPLY at `OWN`**, the screen reads the servo on the supply
   it has. Power the servo before you tap `D SERIES`. The body reads
   `READING THE MODEL`.
-- **With SERVO SUPPLY at `GP28` or `GP29`**, the screen switches the supply off for
-  2.0 s and on again. The strip counts the off time, `SIG GP0  SUPPLY OFF 1.4 S`,
-  and the body reads `SUPPLY OFF`. Then the strip reads `SIG GP0  SUPPLY ON` and
-  the body `SERVO STARTING` while the servo starts, about 1 s. The screen
-  shows no count for this second. Two amber lines stay under the text:
-  `AN ESC ON THIS LEAD GETS THE` and `CONVERTER'S OUTPUT ON ITS BEC WIRE.`
+- **With SERVO SUPPLY at `GP28` or `GP29`**, the screen switches the supply off
+  for 2.0 s and on again. The strip counts the off time,
+  `SIG GP0  SUPPLY OFF 1.4 S`, and the body reads `SUPPLY OFF`. Then the strip
+  reads `SIG GP0  SUPPLY ON` and the body `SERVO STARTING` while the servo
+  starts, about 1 s. The screen shows no count for this second. Two amber lines
+  stay under the text: `AN ESC ON THIS LEAD GETS THE` and
+  `CONVERTER'S OUTPUT ON ITS BEC WIRE.`
 
 `STOP` ends the entry. The screen then reads `THE ENTRY WAS STOPPED.` with
 `RETRY`.
@@ -477,8 +478,8 @@ too.
 
 The strip names the model, the pin and, with `GP28` or `GP29`, `SUPPLY ON` or
 `SUPPLY OFF`. The page reads `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.` with
-`GP28` or `GP29`, or `LEAVE RESTARTS THE SERVO.` with `OWN`. With pending changes it
-adds `2 CHANGES NOT WRITTEN.`, and after a write that failed
+`GP28` or `GP29`, or `LEAVE RESTARTS THE SERVO.` with `OWN`. With pending
+changes it adds `2 CHANGES NOT WRITTEN.`, and after a write that failed
 `A WRITE DID NOT END VERIFIED.` in amber.
 
 | Button | What it does |
@@ -507,7 +508,8 @@ unplug page.
 
 ## When it does not work
 
-- **`AN ESC ANSWERS ON GP0.`** An ESC is on the ESC pin. Unplug it.
+- **`AN ESC ANSWERS ON SIG GP0: UNPLUG IT.`** An ESC is on SIG, the ESC
+  pin. Unplug it.
 - **`NO SERVO ANSWERS` with `REPLY: SILENT`.** Nothing answered. Check the
   servo's supply, the signal wire and the ground. With `OWN`, power the
   servo before the entry.

@@ -84,8 +84,12 @@ static const UiRect BTN_DSERIES = { 6, HF_DSERIES_Y, 228, HF_FAMILY_H };
 // The family view's notes are scale 1 from x 8: 37 characters reach x 228.
 // The strip's lines, scale 1 from x 8, with a one-digit GP and two-digit.
 static_assert(sizeof(HITEC_UI_HELD_FMT) - 1 <= 37 && sizeof(HITEC_UI_CHOOSE) - 1 <= 37 &&
-                  sizeof(HITEC_UI_ESC_FMT) - 1 <= 37 && sizeof(HITEC_UI_ESC_2) - 1 <= 37,
+                  sizeof(HITEC_UI_ESC_2) - 1 <= 37,
               "a family strip line runs off the panel");
+// The ESC line names SIG by role and number, 37 characters with a one-digit
+// GP, 221 px: SIG is GP0 or GP1, the board's only free GPIOs.
+static_assert(BOARD_FREE_GPIO_MASK <= 0x3FFu && sizeof(HITEC_UI_ESC_FMT) - 1 - 1 <= 37,
+              "the family view's ESC line runs off the panel");
 static_assert(sizeof(HITEC_UI_CLASSIC_WHY_1) - 1 <= 37 && sizeof(HITEC_UI_CLASSIC_WHY_2) - 1 <= 37 &&
                   sizeof(HITEC_UI_D_POWER) - 1 <= 37,
               "a family note runs off the panel");
@@ -681,7 +685,7 @@ static void drawFamilyStrip() {
 		return;
 	}
 	if (!familyOpen()) {
-		snprintf(a, sizeof(a), "RELEASING GP%u FROM DSHOT", sig);
+		snprintf(a, sizeof(a), "RELEASING SIG GP%u FROM DSHOT", sig);
 		uiStripText(a, C_DIM);
 		return;
 	}

@@ -79,9 +79,9 @@ Der Bildschirm übernimmt SIG vom ESC-Treiber. Dabei zeigt die Leiste
 `RELEASING GP0`, dann `TAKING GP0`. Solange ein ESC auf dem Pin antwortet,
 zeigt sie stattdessen `CHECKING GP0 FOR AN ESC`.
 
-- Antwortet ein ESC auf dem Pin, zeigt der Bildschirm `AN ESC ANSWERS ON SIG GP0.`
-  und danach `UNPLUG IT: KST FRAMES MAY READ` und `AS THROTTLE.` Er übernimmt
-  den Pin, sobald der ESC weg ist.
+- Antwortet ein ESC auf dem Pin, zeigt der Bildschirm
+  `AN ESC ANSWERS ON SIG GP0.` und danach `UNPLUG IT: KST FRAMES MAY READ` und
+  `AS THROTTLE.` Er übernimmt den Pin, sobald der ESC weg ist.
 - Solange der ESC scharf ist, zeigt der Bildschirm `DISARM FIRST`. Solange die
   Pins noch belegt sind, zeigt er `PINS BUSY`.
 - Kann die Platine die Leitung nicht einrichten, zeigt der Bildschirm
@@ -104,8 +104,8 @@ Servoimpulse.
 
 Der Bildschirm wiederholt die Eintrittsfolge des KST-Codes von rcbench, einen
 Versuch alle 116,6 ms bis 118,8 ms, 30 s lang. Die Leiste zählt Versuche und
-Zeit: `SIG GP0  TRY 12  1.4 S`. Solange die Suche läuft, dreht sich ein Kreis aus
-Punkten.
+Zeit: `SIG GP0  TRY 12  1.4 S`. Solange die Suche läuft, dreht sich ein Kreis
+aus Punkten.
 
 Der Inhalt zeigt `POWER UP` und `THE SERVO NOW`, dann
 `PLUG IT IN OR SWITCH ITS SUPPLY ON.` und

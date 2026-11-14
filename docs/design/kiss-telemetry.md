@@ -207,8 +207,8 @@ moves AUX off SIG in a stored block ([menu-b.md](menu-b.md) decision 10).
 The board descriptor fails the build if a pin override leaves the free set
 or puts both wires on one pin.
 
-The firmware enables the internal pull-up on the KISS pin, AUX, so an unconnected
-wire reads idle instead of decoding noise.
+The firmware enables the internal pull-up on the KISS pin, AUX, so an
+unconnected wire reads idle instead of decoding noise.
 
 > **Voltage.** The KISS specification says the line idles at 3.6 V. GP0 and
 > GP1 are "Digital IO (FT)" pins, fault tolerant (RP2350 datasheet,

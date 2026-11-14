@@ -246,7 +246,7 @@ record either way.
 | Touch handling, high-contrast theme, throttle gauge | tap on release, repeats, screen residue, gauge reach | hardware use recorded: the reports #22 to #24 named in the v2.3 commits; the fixes on hardware: not recorded |
 | List and hold widgets (`src/ui_list.*`, `src/ui_hold.*`; slice A of [menu.md](docs/design/menu.md)) | the list: the scroll range and its clamp, the press rule at the viewport's edges, the row rectangle, the axis lock at 6 px, a tap on release and its slide-off, the scroll from the press point, 16 px per coarse step, the factor, the stop at a rail and the anchor after it, the clipped drawing; the hold: 1000 ms and not 999 ms, the reset on a lift and a slide off, a press that slid on, one firing per press, no timing for a press that landed while the control was disabled or whose first frame it missed, the progress bar's extent; through the screens: AM32's swipe on every field of the table, KV at 16 px a step and its rail, the AM32 and SERVO SET scroll ranges and edge rows (checks that 4c91db9 also passes), DWELL's rail on SET, HOLD TO WRITE and HOLD TO SAVE at 999 ms and 1000 ms, HOLD DEFAULTS at 975 ms and 1000 ms, each hold's colour and bar, a press on a disabled HOLD TO START, HOLD TO APPLY and HOLD TO WRITE never timed, HOLD TO SAVE's refusal while armed | not tested on hardware |
 | Menu structure B, slice 1 (`src/ui_leave.*`; `UiBackGuard`, `uiStripTwoLines()`, `UI_COL_*` and the layout constants in `src/ui_widgets.*`; `uiListDrawField()` in `src/ui_list.*`; [menu-b.md](docs/design/menu-b.md)) | the leave page: its three phases, the current step, STAY, LEAVE, NEXT SERVO, RESTART DSHOT at 999 ms and 1000 ms into the released phase and across a `millis()` wrap, a press that landed during the wait or while releasing never restarting DShot, LEAVE drawn disabled and ignoring its tap while `leaveEnabled` is clear, LEAVE taking only a press that landed while it was enabled and is still enabled at the lift, the steps, bar, notes and buttons in each phase, the room above the notes; the guard: the first BACK arming, the second leaving, a press elsewhere and no change left disarming, its two lines for one and two changes; the two strip lines at y 42 and y 52 and their clear; the field row in each value state and edge, selected or not, scale 2 up to 104 px; the role names in both themes; the constants' values; SERVO TESTER's supply line drawn through `uiStripTwoLines()` | host only: no screen uses the leave page, the guard or the field row |
-| Menu structure B, slice 3 (`src/ui_settings.*`, `src/settings.cpp`, `src/ui_menu.*`, `src/kst_view.cpp`, the pin words of `src/ui_servo.cpp`, `src/ui_kst.cpp`, `src/ui_hitec.cpp`, `src/ui_am32.cpp`; [menu-b.md](docs/design/menu-b.md) decisions 9, 10 and 15 b, e, f, h, j, k) | SIG PIN and AUX PIN live whatever KISS is, every step a swap, with KISS on and off, the wiring following; their J5 line and SERVO SUPPLY's J4 line under a raised value, none under OWN; `settingsValidate()` moving AUX off SIG with KISS on and off, to the next free pin after SIG, KISS kept, and a pin the board does not free switching KISS off; SERVO SUPPLY a core section with and without KST SERVO on MENU; MENU's caption, `DSHOT RESTARTING ON SIG GP0` in amber over rows drawn disabled under their own status, and the caption back once Free; `WAIT: DSHOT RESTARTING` on SERVO TESTER, KST SERVO, HITEC SERVO and AM32 CONFIG; `DSHOT600` at each rate; `NOTHING SAVED: DEFAULTS IN USE`; the four KST labels; SERVO TESTER's caption with the role alone where it would reach RUNNING; the SIG words of each claim message | host only |
+| Menu structure B, slice 3 (`src/ui_settings.*`, `src/settings.cpp`, `src/ui_menu.*`, `src/kst_view.cpp`, the pin words of `src/ui_servo.cpp`, `src/ui_kst.cpp`, `src/ui_hitec.cpp`, `src/ui_am32.cpp`; [menu-b.md](docs/design/menu-b.md) decisions 9, 10 and 15 b, e, f, h, j, k) | SIG PIN and AUX PIN live whatever KISS is, every step a swap, with KISS on and off, the wiring following; their J5 line and SERVO SUPPLY's J4 line under a raised value, none under OWN; `settingsValidate()` moving AUX off SIG with KISS on and off, to the next free pin after SIG, KISS kept, and a pin the board does not free switching KISS off; SERVO SUPPLY a core section with and without KST SERVO on MENU; MENU's caption, `DSHOT RESTARTING ON SIG GP0` in amber over rows drawn disabled under their own status, and the caption back once Free; `WAIT: DSHOT RESTARTING` on SERVO TESTER, KST SERVO, HITEC SERVO and AM32 CONFIG; `DSHOT600` at each rate; `NOTHING SAVED: DEFAULTS IN USE`; the four KST labels; SERVO TESTER's caption with the role alone where it would reach RUNNING; the SIG words of each claim message; the connector lines against the board header's table; KISS TELEM moving neither pin; `SWAP THE ESC'S SIGNAL AND KISS WIRES` with KISS on; `IDLE 2s` and `DSHOT1200` sharing no pixel | host only |
 | Menu structure B, slice 4: the layout table, decision 14 of [menu-b.md](docs/design/menu-b.md) (`src/ui_settings.cpp`, `src/ui_servo.cpp`, `src/ui_am32.cpp`, `src/ui_sdlog.cpp`, `src/ui_kst.cpp`, `src/ui_hitec.cpp`, `src/hitec_view.h`) | each moved rectangle by id: SETTINGS' HOLD TO SAVE 6/150 and HOLD DEFAULTS 162/72, SERVO SET's HOLD TO APPLY 6/150, DEFAULTS 162/72 and `-` and `+` 44 × 44 px, AM32's `-` and `+` 44 × 44 px and OK 6/228 at y 268, SD LOG's START 6/228, RETRY MOUNT 6/112 and USB DRIVE 122/112 (`testLayoutTable()`, `testAm32LayoutTable()`); no two controls overlapping; each label inside its button; HOLD DEFAULTS' two lines and HOLD TO SAVE's `C_RED` fill; AM32's OK keeping the result up when the hold's finger lifts on it and acting on a later tap; the hex dump from x 8; `1 CHANGE` and `5 CHANGES` on KST's write page, `1 CHANGE` and `n CHANGES` on Hitec's, Hitec's 4 rows (`hitecPageLayout()`), Hitec's strip in the order model, backup, pin, version with two spaces, a classic strip keeping `BACKUP IN MEMORY` and then `BACKUP HT001  GP0`, the room 4 px before the chip (`uiChipX()`), y 56 to 61 blank on the main view and the list after the family view; AM32's OK drawn at rest under the hold's finger and pressed under a fresh press; 23 mutations, each failing the build or the suite | host only |
 | Control tables (`src/ui_screen.h`; slice B of [menu.md](docs/design/menu.md)) | every screen's table on each view the host suite reaches, the ids, rectangles and enabled flags, `uiCurrentScreen()` after each navigation; the UI tests tap by id | host only: the firmware does not call the tables |
 | Serial telemetry dump | none | not recorded |
@@ -653,11 +653,11 @@ the tag. Menu structure B waits on being built, not on the bench (item 18).
   lost `BACKUP/LAST` guesses 050 as its latest and writes over 001 next,
   which need not be the oldest ([backups.md](docs/design/backups.md)).
 
-- **Two free pins.** The board frees two GPIOs, GP0 and GP1. SIG, the
-  ESC's, takes one and AUX, KISS's and servo B's, the other, so there is no
-  third choice: a step of SIG PIN or AUX PIN swaps the two. KISS is off by default and one tap on MENU → SETTINGS
-  turns it on. A build-time pin override outside the free set, or both wires
-  on one pin, fails the build.
+- **Two free pins.** The board frees two GPIOs, GP0 and GP1. SIG, the ESC's,
+  takes one and AUX, KISS's and servo B's, the other, so there is no third
+  choice: a step of SIG PIN or AUX PIN swaps the two. KISS is off by default and
+  one tap on MENU → SETTINGS turns it on. A build-time pin override outside
+  the free set, or both wires on one pin, fails the build.
 - **Bidirectional DShot only.** An ESC that does not accept the inverted
   bidirectional signal is not driven.
 - **Saved settings outrank `config.h`.** On a board with saved settings, a
@@ -867,8 +867,8 @@ model.
 | `src/touch.h` | 4 | 4 | 100.0% |
 | `src/ui.cpp` | 474 | 473 | 99.8% |
 | `src/ui.h` | 1 | 1 | 100.0% |
-| `src/ui_am32.cpp` | 419 | 416 | 99.3% |
-| `src/ui_hitec.cpp` | 1134 | 1078 | 95.1% |
+| `src/ui_am32.cpp` | 424 | 421 | 99.3% |
+| `src/ui_hitec.cpp` | 1136 | 1080 | 95.1% |
 | `src/ui_hold.cpp` | 36 | 36 | 100.0% |
 | `src/ui_input.cpp` | 27 | 27 | 100.0% |
 | `src/ui_kst.cpp` | 1155 | 1112 | 96.3% |
@@ -878,11 +878,11 @@ model.
 | `src/ui_screen.h` | 5 | 5 | 100.0% |
 | `src/ui_sdlog.cpp` | 220 | 216 | 98.2% |
 | `src/ui_servo.cpp` | 576 | 576 | 100.0% |
-| `src/ui_settings.cpp` | 418 | 413 | 98.8% |
+| `src/ui_settings.cpp` | 423 | 418 | 98.8% |
 | `src/ui_slider.cpp` | 109 | 109 | 100.0% |
 | `src/ui_widgets.cpp` | 69 | 69 | 100.0% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **9739** | **9556** | **98.1%** |
+| **Total** | **9753** | **9570** | **98.1%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->

@@ -77,8 +77,8 @@ Bildschirms `MENU` zeigt `NO ESC`. Prüfe in dieser Reihenfolge:
    aufgezeichnet. Starte den ESC neu, bevor du ihn testest:
    [AM32-Konfiguration](AM32-Konfiguration#verlassen).
 2. **Falscher Pin.** Vergleiche **MENU → SETTINGS → SIG PIN** damit, wo das
-   Kabel steckt; der J5-Pin steht unter dem Wert. Die `LINK`-Zeile auf diesem Bildschirm ist live. Eine Paketrate
-   über null heißt, der Pin stimmt.
+   Kabel steckt; der J5-Pin steht unter dem Wert. Die `LINK`-Zeile auf diesem
+   Bildschirm ist live. Eine Paketrate über null heißt, der Pin stimmt.
 3. **Keine gemeinsame Masse.** Die Masse des ESC und die der Platine müssen
    verbunden sein.
 4. **Der ESC hat keinen Strom.** Er läuft an seinem eigenen Akku, nicht an der

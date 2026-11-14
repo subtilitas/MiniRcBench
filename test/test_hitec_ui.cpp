@@ -265,6 +265,13 @@ static void testFamily() {
 	hitecFrames(1);
 	checkTrue("the claim on SIG begins on the first frame", pinClaimHolder() == PinUser::Hitec &&
 	          pinClaimState() != ClaimState::Free && !fakePinReturned());
+	{
+		char rel[40];
+		snprintf(rel, sizeof(rel), "RELEASING SIG GP%u FROM DSHOT", (unsigned)escTaskDshotPin());
+		checkTrue("while DShot drains: RELEASING SIG GP0 FROM DSHOT, dim",
+		          pinClaimState() == ClaimState::Stopping &&
+		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, rel, C_DIM, C_BG, 1));
+	}
 	hitecFrames(1);
 	char held[40];
 	snprintf(held, sizeof(held), HITEC_UI_HELD_FMT, (unsigned)escTaskDshotPin());
@@ -339,6 +346,11 @@ static void testFamily() {
 		hitecFrames(2);
 		char esc[40];
 		snprintf(esc, sizeof(esc), HITEC_UI_ESC_FMT, (unsigned)escTaskDshotPin());
+		char want[40];
+		snprintf(want, sizeof(want), "AN ESC ANSWERS ON SIG GP%u: UNPLUG IT.",
+		         (unsigned)escTaskDshotPin());
+		checkStr("the ESC line names SIG", esc, want);
+		checkInt("37 characters, 221 px, to x 228", gfxTextW(esc, 1), 221);
 		checkTrue("refused: no claim, DShot runs", pinClaimState() == ClaimState::Free &&
 		          fakePinReturned());
 		checkTrue("the strip: " HITEC_UI_ESC_FMT,

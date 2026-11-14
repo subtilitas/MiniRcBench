@@ -6,10 +6,11 @@
  * Reached from MENU. The sections, in order: ESC TESTER (motor poles and
  * the throttle ceiling), WIRING (SIG and AUX, the DShot rate, KISS), SERVO
  * SUPPLY (the switched supply and the current sensor), each tool's own
- * section in registry order, DISPLAY, BOARD and DIAGNOSTICS (the last restart's reason and the uptime,
- * read-only, @ref diag.h). Every change applies at once; only writing flash needs
- * HOLD TO SAVE, 1000 ms. HOLD DEFAULTS, 1000 ms, loads the compiled defaults
- * into the live settings and writes nothing.
+ * section in registry order, DISPLAY, BOARD and DIAGNOSTICS (the last
+ * restart's reason and the uptime, read-only, @ref diag.h). Every change
+ * applies at once; only writing flash needs HOLD TO SAVE, 1000 ms. HOLD
+ * DEFAULTS, 1000 ms, loads the compiled defaults into the live settings and
+ * writes nothing.
  *
  * The list scrolls under a drag that starts off a control. A press on a
  * control never scrolls; `-` and `+` step on touch-down and repeat while
@@ -43,9 +44,9 @@ enum class SettingsRowId : uint8_t {
 	Sig,          /**< SIG PIN, - and +, its J5 pin under the value. */
 	Speed,        /**< DSHOT, the bitrate in kbit/s, - and +. */
 	Kiss,         /**< KISS TELEM, toggle: KISS listens on AUX. */
-	Aux,          /**< AUX PIN, - and +, its J5 pin under the value; live whatever KISS is. */
-	ServoSupply,  /**< SERVO SUPPLY, - and +: OWN, GP28 or GP29, its J4 pin under the value. */
-	CurrentSense, /**< CURRENT SENSE, toggle, below SERVO SUPPLY in its section. */
+	Aux,          /**< AUX PIN, - and +, J5 pin under it; acts with KISS off. */
+	ServoSupply,  /**< SERVO SUPPLY, - and +: OWN, GP28, GP29; J4 pin under. */
+	CurrentSense, /**< CURRENT SENSE, toggle, below SERVO SUPPLY. */
 	Contrast,     /**< CONTRAST, toggle. */
 	Backlight,    /**< BACKLIGHT, - and +. */
 	BuiltFor,     /**< BUILT FOR, read-only. */
@@ -76,8 +77,8 @@ bool uiSettingsTick(const TouchState *t);
 
 /**
  * @brief The sections SETTINGS shows, in order: ESC TESTER, WIRING, SERVO
- *        SUPPLY, each tool's section, DISPLAY, BOARD and DIAGNOSTICS. Valid after uiSettingsEnter();
- *        for the host tests.
+ *        SUPPLY, each tool's section, DISPLAY, BOARD and DIAGNOSTICS.
+ *        Valid after uiSettingsEnter(); for the host tests.
  * @param[out] out At most @p max sections.
  * @param max      Room in @p out.
  * @return The number written.

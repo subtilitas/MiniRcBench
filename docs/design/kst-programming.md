@@ -119,14 +119,14 @@ in while the search repeats. rcbench switches the servo's supply through its
 PD mini, a USB PD (Power Delivery) supply module that it sets and reads back.
 MiniRcBench has an on and off switch and no read-back.
 
-The switch is optional. `SERVO SUPPLY` in SETTINGS says whether one is
-fitted and where its enable is: `OWN`, the default, the servo on a supply
-of its own, `GP28` or `GP29` (decision 8 and its [revision](#decisions);
-[menu-b.md](menu-b.md) decisions 15 e and 22 name the first value `OWN`).
-Every rule in this section holds with `GP28` or `GP29` only; "the enable
-pin" below is the pin chosen. With `OWN` the bench drives neither pin, the search is
-the one in [entering programming mode](#entering-programming-mode), and
-every screen text that names the supply has its form without a switch.
+The switch is optional. `SERVO SUPPLY` in SETTINGS says whether one is fitted
+and where its enable is: `OWN`, the default, the servo on a supply of its own,
+`GP28` or `GP29` (decision 8 and its [revision](#decisions);
+[menu-b.md](menu-b.md) decisions 15 e and 22 name the first value `OWN`). Every
+rule in this section holds with `GP28` or `GP29` only; "the enable pin" below is
+the pin chosen. With `OWN` the bench drives neither pin, the search is the one
+in [entering programming mode](#entering-programming-mode), and every screen
+text that names the supply has its form without a switch.
 
 The Hitec job of [hitec-programming.md](hitec-programming.md#switched-servo-supply)
 is the second user of the same switch, through the same `servo_supply.h`,

@@ -269,11 +269,11 @@ repaints only when the values it shows change, and a change of view clears
 the panel first.
 
 While the pin is unavailable, the dial band holds the message from
-[pin-claim.md](pin-claim.md) and HOLD TO START is drawn disabled. The
-messages the screen shows there: the ESC answering on SIG, wrapped over three
-lines; `DISARM FIRST` and `WAIT: DSHOT RESTARTING`, which the UI does not
-reach; `RELEASING SIG GP0` during the drain; `TAKING SIG GP0` until the job
-binds; and `SIG GP0 COULD NOT BE TAKEN (PWM)` with a RETRY button, for a first bind or a
+[pin-claim.md](pin-claim.md) and HOLD TO START is drawn disabled. The messages
+the screen shows there: the ESC answering on SIG, wrapped over three lines;
+`DISARM FIRST` and `WAIT: DSHOT RESTARTING`, which the UI does not reach;
+`RELEASING SIG GP0` during the drain; `TAKING SIG GP0` until the job binds; and
+`SIG GP0 COULD NOT BE TAKEN (PWM)` with a RETRY button, for a first bind or a
 rebind core1 refused.
 
 ### SET
