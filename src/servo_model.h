@@ -291,9 +291,9 @@ bool servoPastTravel(const ServoProfile *p);
  *        its travel.
  *
  * True when @p edit is past travel (servoPastTravel()) and its TYPE differs
- * from @p applied's, or its MIN is below @p applied's, or its MAX above. A
- * change that moves MIN or MAX back toward the centre, or one of another
- * row, applies at once.
+ * from @p applied's, or its MIN is below @p applied's, or its MAX above, or
+ * it drives more servos (ONE to TWO). A change that moves MIN or MAX back
+ * toward the centre, TWO to ONE, or one of another row, applies at once.
  * @param edit    The profile as SET shows it.
  * @param applied The profile the job drives.
  * @return True when the change waits.

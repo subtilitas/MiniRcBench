@@ -178,8 +178,20 @@ static void testProfiles() {
 	checkTrue("WIDE, MAX 2210 us from 2200 us: waits", servoTravelNeedsHold(&e, &a));
 	e.maxUs = 2190;
 	checkTrue("WIDE, MAX 2190 us: at once", !servoTravelNeedsHold(&e, &a));
-	e = a; e.servos = 2; e.rateHz = 60; e.centreUs = 1510;
-	checkTrue("SERVOS, RATE or CENTRE on WIDE as applied: at once", !servoTravelNeedsHold(&e, &a));
+	e = a; e.rateHz = 60; e.centreUs = 1510;
+	checkTrue("RATE or CENTRE on WIDE as applied: at once", !servoTravelNeedsHold(&e, &a));
+	e = a; e.servos = 2;
+	checkTrue("SERVOS ONE to TWO on WIDE as applied: waits", servoTravelNeedsHold(&e, &a));
+	a.servos = 2; e.servos = 1;
+	checkTrue("SERVOS TWO to ONE on WIDE: at once", !servoTravelNeedsHold(&e, &a));
+	a.servos = 1;
+	{
+		ServoProfile s1, s2;
+		servoProfileDefault(&s1);
+		s2 = s1; s2.servos = 2;
+		checkTrue("SERVOS ONE to TWO on STANDARD, inside the travel: at once",
+		          !servoTravelNeedsHold(&s2, &s1));
+	}
 	servoProfileLoadType(&a, ServoType::HeliCyclic);
 	servoProfileLoadType(&e, ServoType::Wide);
 	checkTrue("WIDE from HELI CYCLIC: another TYPE, waits", servoTravelNeedsHold(&e, &a));
@@ -2412,7 +2424,10 @@ static void testTravelNote() {
 	          !s_pending && s_profile.type == ServoType::Wide && noteIs(T1, T2, C_AMBER));
 	selectRow(ROW_SERVOS);
 	stepSel(+1);
-	checkTrue("TWO under an applied WIDE: at once", !s_pending && s_profile.servos == 2);
+	checkTrue("TWO under an applied WIDE: pending, one servo still driven",
+	          s_pending && s_edit.servos == 2 && s_profile.servos == 1 && noteIs(T1, T2, C_AMBER));
+	holdApply();
+	checkTrue("held: TWO on WIDE", !s_pending && s_profile.servos == 2);
 	selectRow(5);   // MAX
 	stepSel(+1);
 	checkTrue("TWO servos, MAX 2210 us: pending for both", s_pending && s_profile.servos == 2 &&
@@ -2426,6 +2441,7 @@ static void testTravelNote() {
 	checkTrue("MAX 2210 us, back toward the centre: at once", !s_pending && s_profile.maxUs == 2210);
 	selectRow(ROW_SERVOS);
 	stepSel(-1);
+	checkTrue("TWO to ONE on WIDE: at once", !s_pending && s_profile.servos == 1);
 	selectRow(5);
 	stepSel(-1);
 	checkTrue("ONE, MAX 2200 us", s_profile.servos == 1 && s_profile.maxUs == 2200);
