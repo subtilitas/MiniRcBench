@@ -54,7 +54,9 @@ its own supply, its signal on SIG, the two grounds joined once at the board.
 GND is the board's ground.
 
 - **One servo on the lead.** Every frame goes to ID (identifier) 0, and
-  every D series servo on the line takes a frame sent to ID 0.
+  the frame carries no other address. rcbench records two D series servos
+  on one port both taking a frame sent to ID 0. Whether a servo whose own
+  ID is not 0 answers ID 0 is not measured.
 - **No pull-up resistor** on the signal wire. The bench receives the
   servo's answer by precharge: before each sample the pin lifts the line for
   100 ns. rcbench's receive through a pull-up resistor is not offered.
@@ -233,8 +235,12 @@ Two kinds of limit apply:
 
 `ID` sets the servo's own ID, 0 to 255. The bench addresses ID 0 whatever
 the servo holds. Whether a servo with another ID still answers ID 0 is not
-measured. While `ID` holds another value than 0, the editor bar and the
-write page read `THE BENCH ADDRESSES ID 0. ANOTHER ID IS NOT TESTED.`
+measured, so one write of another ID may leave a servo the bench cannot
+read, and cannot restore from a backup. While `ID` holds another value than
+0, the editor bar reads
+`BENCH ADDRESSES ID 0. A WRITE MAY LOCK OUT READ AND RESTORE.` and the write
+page reads `THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR
+RESTORE THIS SERVO.`
 
 <img src="img/hitec-id.png" width="240" alt="The write page for ID 0 -> 1, with the amber ID note">
 
@@ -260,7 +266,8 @@ lines:
 
 - `MODEL NOT MEASURED: WRITTEN IN THE D LAYOUT.` for a model rcbench has not
   measured. The measured D series model is the D485HW.
-- `THE BENCH ADDRESSES ID 0. ANOTHER ID IS NOT TESTED.`
+- `THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR RESTORE
+  THIS SERVO.`
 - `FILE OF ANOTHER MODEL: D645MW.`, for example, after a LOAD of a file of
   another model.
 
@@ -521,8 +528,8 @@ board. The pictures below show them with SERVO SUPPLY at `GP28`.
 
 ## Limitations
 
-- The bench sends every frame to ID 0. A D series servo with another ID is
-  not tested.
+- The bench sends every frame to ID 0. Whether a D series servo with
+  another ID answers it is not measured.
 - The classic line's voltage is not measured, and the pin's low level
   against a classic servo is not specified.
 - With `GP28` or `GP29`, the screen's card calls keep the supply on for at most 15 s

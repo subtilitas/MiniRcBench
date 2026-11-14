@@ -785,9 +785,13 @@ by a table value on its first edit; REVERT brings it back.
 - D series ID edits the servo's own ID, register 0x32, 0 to 255. The
   session addresses the servo with ID 0x00 whatever the register holds
   ([decision 5](#decisions-of-the-owner)); whether a servo with another ID
-  still answers ID 0x00 is not measured, so the row carries the amber text
-  `THE BENCH ADDRESSES ID 0. ANOTHER ID IS NOT TESTED.` while the draft
-  holds another value.
+  still answers ID 0x00 is not measured, so one write of another ID may
+  leave a servo the bench cannot read or restore. While the draft holds
+  another value the editor bar carries the amber text
+  `BENCH ADDRESSES ID 0. A WRITE MAY LOCK OUT READ AND RESTORE.`
+  (`HITEC_UI_ID_NOTE_BAR`, three lines of 22 characters) and the write page
+  `THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR RESTORE THIS
+  SERVO.` (`HITEC_UI_ID_NOTE_PAGE`, three lines of 36).
 
 #### Classic checksum
 

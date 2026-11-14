@@ -25,6 +25,7 @@
 #include "hitec_files.h"
 #include "hitec_job.h"
 #include "hitec_view.h"
+#include "kst_view.h"
 #include "pin_claim.h"
 #include "sd_log.h"
 #include "settings.h"
@@ -783,17 +784,46 @@ static void testStallAndBack() {
 	supply(false);
 }
 
+/**
+ * @brief Whether the ID note's lines, wrapped at @p width, are drawn in amber:
+ *        centred in the editor bar's 136 px from x 52 at y 232, 242, 252
+ *        when @p bar, else from x 18 at the first y from 40 to 180 that
+ *        holds the first line, 12 px apart.
+ */
+static bool idNoteDrawn(const char *text, int width, bool bar) {
+	char l[3][48];
+	int n = kstWrap(text, width, l, 3);
+	if (n != 3 || strstr(l[2], "...")) return false;
+	if (bar) {
+		for (int i = 0; i < n; i++)
+			if (!fakeTextIs(52 + (136 - gfxTextW(l[i], 1)) / 2, 218 + 14 + 10 * i, l[i], C_AMBER, C_BG, 1))
+				return false;
+		return true;
+	}
+	for (int y = 40; y <= 180; y++) {
+		if (!fakeTextIs(UI_MARGIN + 12, y, l[0], C_AMBER, C_BG, 1)) continue;
+		for (int i = 1; i < n; i++)
+			if (!fakeTextIs(UI_MARGIN + 12, y + 12 * i, l[i], C_AMBER, C_BG, 1)) return false;
+		return true;
+	}
+	return false;
+}
+
 static void testIdAndBack() {
 	section("Hitec screen: the ID note, STOP, BACK in the entry and the read, a kept edit");
 	freshHitec(HITEC_D, false);
 	checkTrue("the field list", toList(HITEC_D));
 	revealRow(12);
 	tapId(UI_ROW(12, Row));
+	checkTrue("ID 0: no ID note in the editor bar", !idNoteDrawn(HITEC_UI_ID_NOTE_BAR, 22, true));
 	tapId(UI_FIX(HitecCtl::EditPlus));
+	hitecFrame();
+	checkTrue("ID 1: the editor bar says a write may lock out read and restore",
+	          idNoteDrawn(HITEC_UI_ID_NOTE_BAR, 22, true));
 	holdUntilGone(UI_FIX(HitecCtl::Write));
 	checkTrue("an ID write: its page", uiHitecView() == HitecView::Write);
-	checkTrue("names the ID the bench addresses",
-	          fakeCountColour(C_AMBER) > 0);
+	checkTrue("the page says the bench may not read or restore the servo after it",
+	          idNoteDrawn(HITEC_UI_ID_NOTE_PAGE, 36, false));
 	fakeDumpFrame("shot_hitec_id.ppm");
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(HitecCtl::Revert));

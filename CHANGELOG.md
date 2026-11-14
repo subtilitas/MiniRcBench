@@ -410,6 +410,14 @@ protocol.
 
 ### Changed
 
+- HITEC SERVO's ID note states the consequence: the editor bar reads
+  `BENCH ADDRESSES ID 0. A WRITE MAY LOCK OUT READ AND RESTORE.` and the
+  write page `THE BENCH ADDRESSES ID 0. AFTER THIS WRITE IT MAY NOT READ OR
+  RESTORE THIS SERVO.`, in place of `THE BENCH ADDRESSES ID 0. ANOTHER ID IS
+  NOT TESTED.` The wiki pages Hitec-Programming and Hitec-Programmierung no
+  longer say that every D series servo takes a frame sent to ID 0: whether a
+  servo with another ID answers it is not measured. Host tests in
+  `test/test_hitec_ui.cpp`.
 - SD LOG's mount button reads `RETRY MOUNT`, as on the KST and Hitec FILES
   pages. With NO CARD, mount result 3 NOT READY and no card size, the note
   line says `INSERT A CARD, THEN RETRY MOUNT`; a card that answers and fails

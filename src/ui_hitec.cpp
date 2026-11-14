@@ -808,7 +808,7 @@ static void drawList() {
 		hitec_value_t id;
 		if (r.param == HITEC_P_D_ID && hitec_param_get(&s_draft, s_layout, HITEC_P_D_ID, &id) == HITEC_GET_OK &&
 		    id.value != 0)
-			note = "THE BENCH ADDRESSES ID 0. ANOTHER ID IS NOT TESTED.";
+			note = HITEC_UI_ID_NOTE_BAR;
 		if (note) {
 			snprintf(top, sizeof(top), "%s %s", r.label, want);
 			if (gfxTextW(top, 1) > cw) snprintf(top, sizeof(top), "%s", want);
@@ -1100,7 +1100,7 @@ static void drawWrite() {
 	hitec_value_t id;
 	if (s_family == HITEC_D && hitecDiffers(&s_pageFrom, &s_pageTo, s_layout, HITEC_P_D_ID) &&
 	    hitec_param_get(&s_pageTo, s_layout, HITEC_P_D_ID, &id) == HITEC_GET_OK && id.value != 0)
-		note("THE BENCH ADDRESSES ID 0. ANOTHER ID IS NOT TESTED.", false);
+		note(HITEC_UI_ID_NOTE_PAGE, false);
 	if (s_otherModel[0] && !s_restoring) {
 		snprintf(buf, sizeof(buf), "FILE OF ANOTHER MODEL: %s.", s_otherModel);
 		note(buf, false);
