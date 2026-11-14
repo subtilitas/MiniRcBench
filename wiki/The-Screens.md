@@ -2,20 +2,24 @@
 
 # The Screens
 
-The firmware has eight screens. The tester is the root. `MENU` opens the list of
-tools, and every tool is left with `BACK`, which returns to `MENU`. SETTINGS
-also opens from the tester's pole count and ceiling; `BACK` then returns to
-the tester.
+The firmware has nine screens. The tester is the root. `MENU` opens the list
+of tools, and every tool is left with `BACK`, which returns to `MENU`.
+SERVO PROGRAMMER opens PROGRAMMER, the choice of the KST and Hitec
+programmers. SETTINGS also opens from the tester's pole count and ceiling;
+`BACK` then returns to the tester.
 
 ```
 Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MENU
    ▲                    ├── SERVO TESTER ──BACK──> leave page ──RESTART DSHOT──> MENU
-   │                    ├── KST SERVO    ──BACK──> leave page ──LEAVE, RESTART DSHOT──> MENU
-   │                    ├── HITEC SERVO  ──BACK──> leave page ──LEAVE, RESTART DSHOT──> MENU
+   │                    ├── SERVO PROGRAMMER ──> PROGRAMMER ──BACK──> MENU
+   │                    │    ├── KST / CHASERVO ──> KST SERVO   ──BACK──> leave page ──LEAVE, RESTART DSHOT──> MENU
+   │                    │    ├── HITEC D SERIES ──> HITEC SERVO ──BACK──> leave page ──LEAVE, RESTART DSHOT──> MENU
+   │                    │    └── HITEC CLASSIC  ──> HITEC SERVO, as D SERIES
    │                    │   (with no servo in programming mode the leave page opens at UNPLUG THE SERVO.)
    │                    │   (AM32 HEX, AM32 WRITE, SET: BACK goes one level up)
-   │                    ├── SETTINGS     ──BACK──> MENU
-   │                    └── SD LOG       ──BACK──> MENU
+   │                    ├── RX SIGNALS   (drawn disabled: NOT BUILT)
+   │                    ├── SD LOG       ──BACK──> MENU
+   │                    └── SETTINGS     ──BACK──> MENU
    └──── BACK on MENU ──┘
 Tester ──14 POLES or MAX 20% (disarmed)──> SETTINGS ──BACK──> Tester
 ```
@@ -188,34 +192,37 @@ starts answering, and repeats it every 1 s while eRPM arrives and EDT does not.
 The ESC does not acknowledge the enable, so the chip shows *received frames*,
 not sent commands.
 
-Below the strip is a list of seven rows, 40 px tall at a 42 px pitch. Each
-row has a name on the left and its state on the right. `BACK` returns to the
-tester.
+Below the strip is a list of seven rows, 40 px tall at a 42 px pitch, by
+what sits on the signal pin: the ESC, a servo, then the bench. Each row has
+a name on the left and its state on the right; a tool's row shows no state,
+since the strip names the pins. `BACK` returns to the tester.
 
-**Scrolling.** Six rows fit the screen. SETTINGS is the sixth, whole and
-tappable without a drag, so its `UNSAVED` status stays in view. The seventh,
-SD LOG, shows only 6 px at first. Drag MENU up 36 px to bring SD LOG into
-view; it takes a tap only then. A 3 px scroll bar at the right edge shows the
+**Scrolling.** Six rows fit the screen. SD LOG is the sixth, whole and
+tappable without a drag. The seventh, SETTINGS, shows only 6 px at first.
+Drag MENU up 36 px to bring SETTINGS and its `UNSAVED` status into view; it
+takes a tap only then. A 3 px scroll bar at the right edge shows the
 position.
 
 | Row | State on the right | A tap |
 |---|---|---|
 | **BEEP THE ESC** | `DISARMED`; for 350 ms after a tap, `SENT` or `REFUSED` | Sends the DShot beacon command, so the motor beeps. Use it to identify which ESC is connected |
-| **AM32 CONFIG** | the ESC pin, `GP0` | Opens the AM32 editor |
-| **SERVO TESTER** | the two signal pins, `GP0+1` | Opens the servo tester |
-| **KST SERVO** | the ESC pin, `GP0` | Opens the KST programmer. See [KST Programming](KST-Programming) |
-| **HITEC SERVO** | the ESC pin, `GP0` | Opens the Hitec programmer. See [Hitec Programming](Hitec-Programming) |
-| **SETTINGS** | `UNSAVED` while a value differs from flash; else `UPDATED` while an update's reset or carry-over of the settings is not saved over; else nothing. All amber | Opens SETTINGS |
+| **AM32 CONFIG** | nothing | Opens the AM32 editor |
+| **SERVO TESTER** | nothing | Opens the servo tester |
+| **SERVO PROGRAMMER** | nothing | Opens PROGRAMMER, the choice of servo programmer. See [PROGRAMMER](#programmer) |
+| **RX SIGNALS** | `NOT BUILT`; the row is drawn as an outline | Nothing: the receiver signal tools are not built yet |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a computer holds the card | Opens the logging screen |
+| **SETTINGS** | `UNSAVED` while a value differs from flash; else `UPDATED` while an update's reset or carry-over of the settings is not saved over; else nothing. All amber | Opens SETTINGS |
 
 While the signal pins are still in use, for example while DShot restarts
 after the servo tester, the KST programmer or the Hitec programmer, the strip
-reads `DSHOT RESTARTING ON SIG GP0` in amber. AM32 CONFIG, SERVO TESTER, KST
-SERVO, HITEC SERVO and SETTINGS are then drawn as an outline under their
+reads `DSHOT RESTARTING ON SIG GP0` in amber. AM32 CONFIG, SERVO TESTER,
+SERVO PROGRAMMER and SETTINGS are then drawn as an outline under their
 usual state, and a tap on such a row opens nothing. They act again once
-DShot runs. SD LOG claims no pin and stays available.
+DShot runs. SD LOG claims no pin and stays available. RX SIGNALS is drawn
+as an outline at all times, with `NOT BUILT` saying why; while the pins
+are free the strip keeps its usual caption.
 
-<img src="img/menu-restarting.png" width="240" alt="MENU dragged up while DShot restarts: DSHOT RESTARTING ON SIG GP0 on the strip, AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO and SETTINGS drawn as outlines">
+<img src="img/menu-restarting.png" width="240" alt="MENU dragged up while DShot restarts: DSHOT RESTARTING ON SIG GP0 on the strip, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS and SETTINGS drawn as outlines">
 
 BEEP works only while disarmed, and opening `MENU` disarms, so it is always
 allowed from here. The command takes 6 ms (6 frames at 1 kHz). The screen
@@ -243,6 +250,29 @@ changed. See
 says the same at start-up (see [First Run](First-Run#powering-up)).
 
 <img src="img/menu-updated.png" width="240" alt="UPDATED on the SETTINGS row after an update discarded the saved settings">
+
+### PROGRAMMER
+
+<img src="img/prog-chooser.png" width="240" alt="PROGRAMMER with SERVO SUPPLY at OWN: KST / CHASERVO and HITEC D SERIES with POWER THE SERVO UP AFTER THE TAP., HITEC CLASSIC as an outline with NEEDS THE CONVERTER OF WIRING PART C and AND SETTINGS > SERVO SUPPLY GP28/29. in amber"> <img src="img/prog-chooser-switched.png" width="240" alt="PROGRAMMER with SERVO SUPPLY at GP28: every entry with THE BENCH SWITCHES IT ON GP28., HITEC CLASSIC live">
+
+`MENU → SERVO PROGRAMMER` opens PROGRAMMER, one button per servo
+programmer: **KST / CHASERVO**, **HITEC D SERIES** and **HITEC CLASSIC**.
+The strip reads `SIG GP0  SERVO SUPPLY OWN`, or the pin of the switched
+supply. PROGRAMMER takes no pin: DShot keeps running on SIG while it shows,
+so connect the servo unpowered, or let the bench power it. The tap on an
+entry opens the programmer, which takes SIG on that tap.
+
+Under each button a line says when the servo is powered:
+`POWER THE SERVO UP AFTER THE TAP.` with SERVO SUPPLY at `OWN`, or
+`THE BENCH SWITCHES IT ON GP28.` with the switched supply. A servo powered
+before the tap would take DShot's frames as a 970 µs pulse at 1000 Hz and
+move. HITEC CLASSIC needs the switched supply: under `OWN` it is drawn as an
+outline, does nothing, and says why in amber,
+`NEEDS THE CONVERTER OF WIRING PART C` and
+`AND SETTINGS > SERVO SUPPLY GP28/29.`
+
+`BACK` returns to `MENU`. So does `RESTART DSHOT` at the end of a
+programming session, and `BACK` in a programmer before it holds SIG.
 
 ---
 
@@ -398,6 +428,7 @@ the two-servo hint. See
 
 <img src="img/kst-list.png" width="240" alt="The KST field list">
 
+Opens from `MENU → SERVO PROGRAMMER → KST / CHASERVO`, whose tap takes SIG.
 Reads and writes the settings of a KST or Chaservo servo over the signal wire
 on SIG, the ESC pin. It searches for the servo while you power it up, reads
 its 32 registers, and lists 27 fields to step. A tap on `WRITE...` opens
@@ -414,20 +445,26 @@ supply's state, `SUPPLY ON 0.08 A`. See [KST Programming](KST-Programming).
 
 <img src="img/hitec-list.png" width="240" alt="The Hitec field list">
 
+<img src="img/hitec-read-wait.png" width="240" alt="HITEC SERVO for a D series servo on its own supply: SIG GP0 IS THE SERVO'S: DSHOT IS OFF. in green, POWER THE SERVO UP, THEN TAP READ. in amber, and READ">
+
+Opens from `MENU → SERVO PROGRAMMER → HITEC D SERIES` or `HITEC CLASSIC`.
 Reads and writes the settings of a Hitec D series or classic servo over the
-signal wire on SIG, the ESC pin. It takes the pin from the ESC driver as it
-opens, on the family view: the strip reads `GP0 IS THE SERVO'S: DSHOT IS OFF.`
-and `CONNECT THE SERVO, CHOOSE ITS FAMILY`. `D SERIES` acts, and `CLASSIC` acts
-with SERVO SUPPLY at `GP28` or `GP29`; under `OWN` it is drawn disabled with
-`NEEDS THE CONVERTER OF WIRING PART C` and `AND SETTINGS > SERVO SUPPLY
-GP28/29.`: the converter of [wiring](Wiring) part C comes first, then the
-setting. Under `OWN`, D SERIES reads `POWER THE SERVO UP, THEN TAP.`. The screen
+signal wire on SIG, the ESC pin. The tap on PROGRAMMER takes the pin from
+the ESC driver; the strip reads `RELEASING SIG GP0 FROM DSHOT` until DShot
+has stopped. A D series servo on its own supply (SERVO SUPPLY at `OWN`)
+must run before the screen reads it, so the screen then waits: the strip
+reads `SIG GP0 IS THE SERVO'S: DSHOT IS OFF.` in green and
+`POWER THE SERVO UP, THEN TAP READ.` in amber. Power the servo up and tap
+`READ`. With the switched supply, and for a classic servo, the bench powers
+the servo itself and the screen goes on at once. While an ESC answers on
+SIG the screen takes nothing and reads `AN ESC ANSWERS ON SIG GP0: UNPLUG
+IT.` in amber; `BACK` then returns to `MENU`. The screen
 enters the servo and reads it. A D series servo gives 21 registers and 20
 parameters, 11 of them editable. One servo goes on the lead, with no pull-up
 resistor. A tap on `WRITE...` opens the write page, and its `HOLD TO WRITE`, 1
 s, writes, with a backup on the SD card first. `BACK` opens the leave page;
 `LEAVE` then makes `UNPLUG THE SERVO.` the current step, `NEXT SERVO` starts
-a new session, and `RESTART DSHOT` returns to `MENU`.
+a new session for the same family, and `RESTART DSHOT` returns to `MENU`.
 With CURRENT SENSE at `INA219` the strip shows the current after `SUPPLY ON`.
 Not tested on hardware. See [Hitec Programming](Hitec-Programming).
 

@@ -131,13 +131,17 @@ the exception.
    AUX from `escTaskKissPin()`. `pinClaimGpio()` returns them from here on, for
    the roles the claim asked for. For SERVO and KST it starts the core1 job
    with those numbers, and with AUX as 0xFF when the claim did not ask for it.
-   HITEC claims as its screen opens, before the servo's family is known, and
-   defers its job (`PinUserInfo::deferJob`): the claim stays Held, the pad an
-   input with the pull-up on, until the family tap calls
-   `pinClaimStartJob()`. BACK from there is step 5 with no job: the leave
-   page opens releasing and turns released as soon as `pinClaimUnplugDue()`
-   is true, with no job to wait for; its NEXT SERVO returns to Held with no
-   job.
+   HITEC claims on the tap of its PROGRAMMER entry, which sets the family
+   (menu-b.md, slice 9), and defers its job (`PinUserInfo::deferJob`): the
+   screen calls `pinClaimStartJob()` at once for CLASSIC and for D SERIES
+   with the switched supply, so the job starts at Held, and on READ for
+   D SERIES with SERVO SUPPLY at OWN (menu-b.md, decision 34). Until then
+   the claim stays Held, the pad an input with the pull-up on. BACK from
+   there is step 5 with no job: the leave page opens releasing and turns
+   released as soon as `pinClaimUnplugDue()` is true, with no job to wait
+   for; its NEXT SERVO returns to Held with no job. So does NEXT SERVO after
+   a session: `pinClaimKeep()` wants the job again only for a user that
+   does not defer it, and HITEC asks for it as for its first servo.
    AM32 has no core1 job: it calls `am32BlBegin(pinClaimGpio(PIN_SIG))`, and
    its claim stays Held until BACK.
 4. **Running.** The job binds its pins and reports `Running`, or reports a bind
@@ -160,8 +164,9 @@ the exception.
    ([rx-signals.md](rx-signals.md), slice 3, not built): `pinClaimUnplugDue()`
    is true once the job is idle, RESTART DSHOT calls `pinClaimRestart()`
    1000 ms after that at the earliest, and NEXT SERVO or BACK TO SERVO calls
-   `pinClaimKeep()`, which returns the claim to Held and starts the job again.
-   AM32 has neither a job nor the page, so its BACK restores DShot within the
+   `pinClaimKeep()`, which returns the claim to Held and starts the job again
+   for SERVO and KST; HITEC asks for it again. AM32 has neither a job nor the
+   page, so its BACK restores DShot within the
    `pinClaimEnd()` call.
 6. **Restoring.** Core0 calls `escTaskResume()`. Core1 rebuilds the driver from
    the wiring latched in `esc_task.cpp`, and the claim is `Free` from the
@@ -195,7 +200,7 @@ PinUser      pinClaimHolder();             // None while Free
 uint8_t      pinClaimGpio(uint8_t role);   // latched at Held; 0xFF before
 uint8_t      pinClaimJobError();           // why a bind failed, 0 for none
 void         pinClaimEnd(PinUser who);     // BACK; the poll finishes it
-void         pinClaimStartJob(PinUser who); // HITEC's family tap: the deferred job
+void         pinClaimStartJob(PinUser who); // HITEC's entry or READ: the deferred job
 void         pinClaimRetry(PinUser who);   // RETRY after a failed bind
 bool         pinClaimUnplugDue();          // SERVO, KST, HITEC: Leaving, job idle
 void         pinClaimRestart(PinUser who); // RESTART DSHOT on the leave page

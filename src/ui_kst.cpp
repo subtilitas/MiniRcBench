@@ -1954,13 +1954,7 @@ bool uiKstTick(const TouchState *t) {
 	return true;
 }
 
-/** @brief KST SERVO's MENU status: the signal pin it claims, from the settings. */
-static void kstMenuStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
-	snprintf(buf, n, "GP%u", (unsigned)settings()->dshotPin);
-	*col = C_DIM;
-}
-
 const UiScreen UI_KST = {
-	UiScreenId::Kst, "KST SERVO", PinUser::Kst, kstMenuStatus,
+	UiScreenId::Kst, "KST SERVO", PinUser::Kst, nullptr,
 	uiKstEnter, uiKstTick, nullptr, uiKstControls, nullptr, false,
 };

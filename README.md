@@ -40,15 +40,25 @@ the host: during its pin claim it receives on GP1 through UART0 (universal
 asynchronous receiver-transmitter 0) with the pad's input inverted, decodes the
 frames with rcbench's decoder and keeps the channels, flags, frame rate and
 error counts for a screen to read. It has not run on hardware, and the
-inversion on the pin is not measured. No screen opens it yet; the S.BUS MONITOR
-screen and its MENU row are slice 3 of the design note. An S.BUS output is
-decided on by the owner and not designed yet. A PPM (pulse-position modulation)
-output is not built, by the owner's decision.
-Menu structure B is described in `docs/design/menu-b.md`; slices 1 to 8 of
+inversion on the pin is not measured. No screen opens it yet: the S.BUS MONITOR
+screen is slice 3 of the design note, and MENU's RX SIGNALS row, which stands
+for the S.BUS tools, is drawn disabled, `NOT BUILT`. An S.BUS output is decided
+on by the owner and not designed yet. A PPM (pulse-position modulation) output
+is not built, by the owner's decision. An angle meter on the board's QMI8658
+IMU (inertial measurement unit), for incidence, decalage, dihedral and
+control-surface throw, is designed in `docs/design/angle-meter.md` and not
+built; it waits on the owner's answers to the note's open questions. A run
+summary per blackbox log, written beside the log and shown on SD LOG, with the
+board's PCF85063 real-time clock dating the files on the card as an option, is
+planned in `docs/design/run-summary.md` and not built; it waits on the owner's
+answers to that note's open questions.
+Menu structure B is described in `docs/design/menu-b.md`; slices 1 to 9 of
 10 are in the tree: its building blocks, its colour roles, its names and
 SETTINGS, its layout table, its write rule and BACK guard, the one leave
 page of KST SERVO, HITEC SERVO and SERVO TESTER, the tester's readouts that
-open SETTINGS with LATCH, and SERVO TESTER's title, the MENU row's label.
+open SETTINGS with LATCH, SERVO TESTER's title, the MENU row's label, and
+MENU's seven rows by device with PROGRAMMER, the chooser of the servo
+programmers.
 The uses that the design note's decision 11 names take their role's colour,
 and a value changed and not yet written is cyan.
 
@@ -462,7 +472,8 @@ Arming and disarming dim the backlight to a quarter for 120 ms
 
 ![MENU](docs/menu-preview.png)
 
-*EDT live, EDT silent, and BEEP acknowledging a press.*
+*EDT live, EDT silent, BEEP acknowledging a press, and PROGRAMMER, the
+servo programmers' chooser.*
 
 MENU is a list of rows. Each row is 40 px tall at a 42 px pitch, with the name
 at scale 2 on the left and its state right-aligned. **BACK** returns to the
@@ -483,31 +494,57 @@ the tester's pole count or ceiling, whose **BACK** returns to the tester.
 | Row | State on the right | A tap |
 |---|---|---|
 | **BEEP THE ESC** | `DISARMED`; for 350 ms after a tap, `SENT` or `REFUSED` | Sends `DSHOT_CMD_BEACON1` for 6 frames (`BEEP_REPEATS`), 6 ms at 1 kHz. Use it to identify which ESC is connected |
-| **AM32 CONFIG** | the ESC pin, `GP0` | Opens the ESC settings editor. See [AM32 ESC configuration](#am32-esc-configuration) |
-| **SERVO TESTER** | the signal pins, `GP0+1` | Opens the servo tester. See [Servo tester](#servo-tester) |
-| **KST SERVO** | the ESC pin, `GP0` | Opens the KST servo programmer. See [KST servo programming](#kst-servo-programming) |
-| **HITEC SERVO** | the ESC pin, `GP0` | Opens the Hitec servo programmer. See [Hitec servo programming](#hitec-servo-programming) |
-| **SETTINGS** | `UNSAVED` while the live settings differ from flash; else `UPDATED` while an update's reset or carry-over is not saved over (`settingsResetByUpdate()`, `settingsCarriedOver()`); else nothing; both amber | Opens SETTINGS: the tester, the wiring, the servo supply and current sensor, the display, the board, diagnostics. See below |
+| **AM32 CONFIG** | nothing | Opens the ESC settings editor. See [AM32 ESC configuration](#am32-esc-configuration) |
+| **SERVO TESTER** | nothing | Opens the servo tester. See [Servo tester](#servo-tester) |
+| **SERVO PROGRAMMER** | nothing | Opens PROGRAMMER, the chooser of the servo programmers: KST / CHASERVO, HITEC D SERIES, HITEC CLASSIC. See below |
+| **RX SIGNALS** | `NOT BUILT`, dim; the row is drawn disabled | Nothing: the receiver signal tools of `docs/design/rx-signals.md` are not built |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a USB host holds the card | Opens the logging status. See below |
+| **SETTINGS** | `UNSAVED` while the live settings differ from flash; else `UPDATED` while an update's reset or carry-over is not saved over (`settingsResetByUpdate()`, `settingsCarriedOver()`); else nothing; both amber | Opens SETTINGS: the tester, the wiring, the servo supply and current sensor, the display, the board, diagnostics. See below |
+
+The rows go by what sits on the signal pin: the ESC, a servo, then the
+bench. A tool row shows no state: the strip names the pins.
 
 - **BEEP flash**: a tap fills the row for 350 ms (`BEEP_FLASH_MS`): white
   with `SENT`, amber with `REFUSED`. Without it a 6 ms command is not visible
   against a 25 ms repaint. BEEP is refused while armed. Opening MENU disarms,
   so the refusal is not reachable through the UI; the flash stays as a
   backstop.
-- **DSHOT RESTARTING**: AM32 CONFIG, SERVO TESTER, KST SERVO and HITEC
-  SERVO claim the signal pins, and SETTINGS changes the wiring a claim
-  latched. While the claim is not free, for example after RESTART DSHOT
-  until the DShot pump runs again, these rows are drawn disabled, an outline
-  under their own status, a tap opens nothing, and the strip's caption reads
-  `DSHOT RESTARTING ON SIG GP0` in amber. A tool opened some other way
-  while another claim holds reads `WAIT: DSHOT RESTARTING`; no path through
-  the screens reaches that.
+- **DSHOT RESTARTING**: AM32 CONFIG and SERVO TESTER claim the signal
+  pins, SERVO PROGRAMMER's entries open the KST and Hitec programmers, which
+  claim SIG, and SETTINGS changes the wiring a claim latched. While the
+  claim is not free, for example after RESTART DSHOT until the DShot pump
+  runs again, these rows are drawn disabled, an outline, SETTINGS under its
+  own status and the tool rows with none, a tap opens nothing, and the
+  strip's caption reads `DSHOT RESTARTING ON SIG GP0` in amber. A tool
+  opened some other way while another claim holds reads
+  `WAIT: DSHOT RESTARTING`; no path through the screens reaches that.
+- **RX SIGNALS**: drawn disabled in every claim state, its status
+  `NOT BUILT` naming why; the strip keeps its caption while the pins are
+  free, so the row does not read as the DSHOT RESTARTING cue.
 - **Rows**: six rows fit the screen without scrolling. MENU holds seven, so
-  it scrolls by 36 px, with a 3 px scroll bar at x 235. SETTINGS is the sixth
-  row, whole and tappable without a drag, so its `UNSAVED` status stays in
-  view. SD LOG, the seventh, shows 6 px until MENU is dragged up, and takes
-  a tap only then.
+  it scrolls by 36 px, with a 3 px scroll bar at x 235. SD LOG is the sixth
+  row, whole and tappable without a drag. SETTINGS, the seventh, shows 6 px
+  until MENU is dragged up, and takes a tap only then.
+
+**PROGRAMMER**
+
+The SERVO PROGRAMMER row opens PROGRAMMER (`src/ui_servo_prog.cpp`), a
+chooser of three entries, 228 x 46 px at y 62, 142 and 222, from
+`UI_PROGRAMMERS` in `src/ui_registry.cpp`. The chooser claims nothing:
+DShot runs on SIG while it shows. A tap on an entry opens its tool through
+`uiOpenTool()`, and the tool claims SIG on that frame. **BACK** returns to
+MENU, and so do the tools' RESTART DSHOT and their BACK before a claim
+holds. The strip reads `SIG GP0  SERVO SUPPLY OWN`, or the supply's pin.
+
+| Entry | Lines under it with SERVO SUPPLY at OWN | With GP28 or GP29 |
+|---|---|---|
+| **KST / CHASERVO** | `POWER THE SERVO UP AFTER THE TAP.` | `THE BENCH SWITCHES IT ON GP28.` |
+| **HITEC D SERIES** | `D485HW, D645MW AND THE OTHERS`, `POWER THE SERVO UP AFTER THE TAP.` | the models, `THE BENCH SWITCHES IT ON GP28.` |
+| **HITEC CLASSIC** | drawn disabled: `HS-5XXX, HS-7XXX`, then in amber `NEEDS THE CONVERTER OF WIRING PART C` and `AND SETTINGS > SERVO SUPPLY GP28/29.` | live: the models, `THE BENCH SWITCHES IT ON GP28.` |
+
+A servo powered before the tap would take DShot's frames, about a 970 us
+pulse at 1000 Hz, and move: so the tap comes first, and the servo is
+powered after it, or by the bench.
 
 **SD LOG screen**
 
@@ -939,10 +976,9 @@ driver in `src/sdio/`, which is not tested on hardware. The board cannot use
 hardware SPI for the card: its SD clock is on GP19, which is SPI0 TX in the
 pin mux.
 
-Open the screen with **MENU → SD LOG**, the seventh row: drag MENU up 36 px
-first. By default arming starts a log and disarming stops it
-(`SD_LOG_AUTO_ON_ARM`). Auto-stop ends only a log that auto-start began.
-**START/STOP** is always available.
+Open the screen with **MENU → SD LOG**, the sixth row. By default arming
+starts a log and disarming stops it (`SD_LOG_AUTO_ON_ARM`). Auto-stop ends
+only a log that auto-start began. **START/STOP** is always available.
 
 At the default 500 Hz (`SD_LOG_RATE_HZ`) a frame averages 14.5 bytes
 (measured). That is 7.3 kB/s, or 26 MB per hour.
@@ -955,11 +991,11 @@ means it was too small.
 
 The logger drops frames rather than block. The UI never waits for the card.
 
-**Getting the files off:** **MENU → SD LOG → USB DRIVE** (SD LOG is the seventh
-row: drag MENU up 36 px) presents the card to the USB host as a read-only
-removable drive, using MSC (mass storage class) on the same USB cable as the
-serial port. The logger unmounts before the drive appears and touches the card
-again only after eject. The host and the firmware never share the FAT volume.
+**Getting the files off:** **MENU → SD LOG → USB DRIVE** presents the card
+to the USB host as a read-only removable drive, using MSC (mass storage
+class) on the same USB cable as the serial port. The logger unmounts before
+the drive appears and touches the card again only after eject. The host and
+the firmware never share the FAT volume.
 While the host holds the card, SD LOG counts what it has read, for example
 `3.0 MB READ`, in lime, a live reading.
 Without a card the button is drawn unavailable and does nothing. With a card,
@@ -1464,7 +1500,8 @@ every phase and does nothing.
 
 ## KST servo programming
 
-**MENU → KST SERVO** reads and writes the settings of a KST or Chaservo servo
+**MENU → SERVO PROGRAMMER → KST / CHASERVO** opens KST SERVO, which reads
+and writes the settings of a KST or Chaservo servo
 over its signal wire, on SIG (GP0 or GP1). Both brands share one programming
 protocol and one set of 32 registers. The protocol code is rcbench's
 (`lib/rcbench/protocols/kst/`): Manchester-coded frames, half duplex, from
@@ -1534,7 +1571,9 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
 
 ### Using it
 
-1. Open KST SERVO. The screen claims SIG and searches: it repeats rcbench's
+1. Tap KST / CHASERVO on PROGRAMMER, with the servo unpowered. The tap
+   opens KST SERVO, which claims SIG on that frame and, once DShot has
+   drained and stopped, searches: it repeats rcbench's
    entry sequence, one attempt every 116.6 ms to 118.8 ms, for 30 s. The
    strip reads `SIG GP0  TRY 12  1.4 S`. With the switched supply, each
    attempt is the supply off for 2 s, then on and the entry at once: 14
@@ -1699,7 +1738,8 @@ reads `READ ONLY: UNKNOWN LAYOUT`.
 
 ## Hitec servo programming
 
-**MENU → HITEC SERVO** reads and writes the settings of a Hitec D series or
+**MENU → SERVO PROGRAMMER → HITEC D SERIES** or **HITEC CLASSIC** opens
+HITEC SERVO, which reads and writes the settings of a Hitec D series or
 classic servo over its signal wire, on SIG (GP0 or GP1). A classic servo needs
 SERVO SUPPLY at `GP28` or `GP29`. The protocol code is rcbench's
 (`lib/rcbench/protocols/hitec/`): its session, register model, wire and PIO
@@ -1745,28 +1785,31 @@ not 0 answers ID 0 is not measured.
 
 ### Using it
 
-1. Open HITEC SERVO. The screen claims SIG on its first frame, before a
-   family is chosen: DShot sends zero frames for at least 250 ms after the
-   last throttle frame, stops and leaves the pin an input with the pull-up
-   on, so no DShot frame reaches a servo connected on the family view. The
-   strip reads `RELEASING SIG GP0 FROM DSHOT`, then `GP0 IS THE SERVO'S: DSHOT
-   IS OFF.` in green over `CONNECT THE SERVO, CHOOSE ITS FAMILY`. While an
-   ESC answers on SIG it reads `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` over
-   `DSHOT STAYS ON THE PIN UNTIL THEN.` in amber, both families are drawn
-   disabled, and the claim follows once the ESC has been quiet for 500 ms.
-   The tap on D SERIES starts the Hitec job and the entry: with `GP28` or
-   `GP29` it switches the supply off for 2.0 s and on again, the strip
-   counting `SUPPLY OFF 1.4 S`, then waits for the servo's start, about 1 s;
-   with `OWN` it reads the servo at once on the supply it has, so the servo
-   must be powered before the tap. The headline of each step, `SUPPLY OFF`,
-   `SERVO STARTING`, `READING THE MODEL` or, for a classic servo,
-   `LISTENING`, is amber. The family view says so under D SERIES:
-   `POWER THE SERVO UP, THEN TAP.` With the switch the supply stays off on
-   the family view. Once the pin is held, BACK on the family view opens the
-   leave page at `1 UNPLUG THE SERVO.`, as after LEAVE, and NEXT SERVO there
-   returns to the family view; before that, BACK returns to MENU. The ESC
-   check runs only before the claim holds: an ESC connected after that is
-   not detected.
+1. Tap HITEC D SERIES or HITEC CLASSIC on PROGRAMMER. The tap opens HITEC
+   SERVO for that family, which claims SIG on that frame: DShot sends zero
+   frames for at least 250 ms after the last throttle frame, stops and
+   leaves the pin an input with the pull-up on. The strip reads
+   `RELEASING SIG GP0 FROM DSHOT` meanwhile. While an ESC answers on SIG
+   the screen claims nothing and reads `AN ESC ANSWERS ON SIG GP0: UNPLUG
+   IT.` over `DSHOT STAYS ON THE PIN UNTIL THEN.` in amber, the strip
+   `CHECKING SIG GP0 FOR AN ESC`; the claim follows once the ESC has been
+   quiet for 500 ms, and BACK meanwhile returns to MENU, as it does while
+   DShot drains. With `GP28` or `GP29`, and for CLASSIC, the Hitec job and
+   the entry start once DShot has stopped: the entry switches the supply
+   off for 2.0 s and on again, the strip counting `SUPPLY OFF 1.4 S`, then
+   waits for the servo's start, about 1 s. With `OWN`, D SERIES reads the
+   servo at once on the supply it has, so the screen stops first: the strip
+   reads `SIG GP0 IS THE SERVO'S: DSHOT IS OFF.` in green over
+   `POWER THE SERVO UP, THEN TAP READ.` in amber, and READ, the wide
+   button, starts the job. No frame goes to SIG between DShot's stop and
+   READ, so a servo powered once the screen asks for it never sees DShot.
+   The headline of each step, `SUPPLY OFF`, `SERVO STARTING`,
+   `READING THE MODEL` or, for a classic servo, `LISTENING`, is amber.
+   Once the pin is held, BACK before the servo is in programming mode, the
+   wait for READ included, opens the leave page at `1 UNPLUG THE SERVO.`,
+   as after LEAVE, and NEXT SERVO there starts a new session in the same
+   family. The ESC check runs only before the claim holds: an ESC connected
+   after that is not detected.
 2. The screen reads the 21 registers, `READING 21 REGISTERS`, `7 OF 21`, and
    keeps this first full read as the session's backup. A servo that does
    not answer gives `NO SERVO ANSWERS` with the decoder's word, for example
@@ -1829,8 +1872,10 @@ not 0 answers ID 0 is not measured.
    supply off, and the page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` until
    the line closes; with `OWN` LEAVE restarts the servo from its saved
    values, and the page reads `RELEASING THE PIN`. Once the pin is let go
-   NEXT SERVO enters the next servo (`NEXT SERVO: POWER IT BEFORE THE TAP.`
-   with `OWN`), and RESTART DSHOT acts 1000 ms later and returns to MENU.
+   NEXT SERVO starts a session for the next servo as for the first: with
+   `OWN` the D series wait for READ (`NEXT SERVO: POWER IT AFTER THE TAP.`),
+   with the switch the entry at once. RESTART DSHOT acts 1000 ms later and
+   returns to MENU.
    BACK on the page is drawn disabled in every phase; BACK during the entry
    opens it at `1 UNPLUG THE SERVO.`
 7. With `GP28` or `GP29` the supply is on only while the screen runs. A screen that
@@ -1897,8 +1942,8 @@ is the D485HW.
 
 ### Classic servos
 
-HITEC SERVO offers CLASSIC (HS-5xxx, HS-7xxx) with SERVO SUPPLY at `GP28`
-or `GP29`, since a classic servo enters programming mode only at its
+PROGRAMMER offers HITEC CLASSIC (HS-5xxx, HS-7xxx) with SERVO SUPPLY at
+`GP28` or `GP29`, since a classic servo enters programming mode only at its
 power-up. Under `OWN` it is drawn disabled, with
 `NEEDS THE CONVERTER OF WIRING PART C` and
 `AND SETTINGS > SERVO SUPPLY GP28/29.`: the switched supply is the DC-DC
@@ -2141,9 +2186,10 @@ src/
     dshot.h, dshot_{frame,telem,edt}.c  frame, reply decode, EDT schedule (pure C)
     out_dshot.{h,c}, dshot.pio          RP2350 pin driver: 2 state machines, 16 instructions
   ui.{h,cpp}            the tester (arm/throttle state machine, touch handling) and the navigation
-  ui_screen.h           UiScreen, SettingsRow, SettingsSection, UiMenuEntry and the control ids
-  ui_registry.{h,cpp}   one line per MENU row, and the check that each row's text fits
-  ui_menu.{h,cpp}       MENU and the BEEP action with its flash
+  ui_screen.h           UiScreen, SettingsRow, SettingsSection, UiMenuEntry, UiProgEntry and the control ids
+  ui_registry.{h,cpp}   one line per MENU row and per PROGRAMMER entry, and the checks that their texts fit
+  ui_menu.{h,cpp}       MENU, the BEEP action with its flash, and the RX SIGNALS row
+  ui_servo_prog.{h,cpp} PROGRAMMER: the chooser of the servo programmers
   ui_settings.{h,cpp}   SETTINGS: sections, pins, bitrate, contrast, hold-to-save
   diag.{h,cpp}          the restart reason, decoded from the reset registers, and the uptime
   ui_sdlog.{h,cpp}      SD LOG screen
@@ -2163,7 +2209,7 @@ src/
   kst_job.{h,cpp}       the KST programmer's core1 job: search, read, write, leave
   kst_line_port.{h,cpp} the job's KST line, rcbench's RP2350 line driver
   kst_files.{h,cpp}     KST's SAVE AS files, its record of a write and its backups
-  ui_hitec.{h,cpp}      HITEC SERVO: the family, the entry, the field list, the write, FILES
+  ui_hitec.{h,cpp}      HITEC SERVO: the claim, READ, the entry, the field list, the write, FILES
   hitec_view.{h,cpp}    what HITEC SERVO shows: rows, values with units, the stepper, the texts
   hitec_job.{h,cpp}     the Hitec programmer's core1 job: rcbench's session, entry, read, write
   hitec_line_port.{h,cpp} the job's Hitec line, rcbench's RP2350 line driver
@@ -2286,7 +2332,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.2%**: 9,904 of 10,082 lines in 61 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.2%**: 9,857 of 10,035 lines in 60 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

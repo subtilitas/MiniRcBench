@@ -214,5 +214,8 @@ void pinClaimKeep(PinUser who) {
 	s_state = ClaimState::Held;
 	s_jobError = CORE1_JOB_OK;
 	s_jobPending = false;
+	// A user that defers its job asks for it again: the next servo may need
+	// powering first, as its first did (menu-b.md, decision 34).
+	s_jobWanted = !pinUserInfo(s_who).deferJob;
 	if (s_jobWanted) startJob();
 }

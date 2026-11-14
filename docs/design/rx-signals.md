@@ -1,23 +1,24 @@
 # Receiver signals: S.BUS monitor and S.BUS output
 
 Status: slices 1a and 2 built, the rest planned. Slice 1a copied rcbench's
-S.BUS decoder and its test into `lib/rcbench/` and `test/rcbench/`. Slice 2
-is the S.BUS monitor's core1 job, `src/sbus_job.*`, with its pin user and its
-host tests ([slice 2 as built](#slice-2-as-built)); no screen opens it yet.
-Both are tested on the host only ([work breakdown](#work-breakdown)). The
-owner answered the
-note's open questions on 2026-11-14 ([decisions](#decisions)): build the
+S.BUS decoder and its test into `lib/rcbench/` and `test/rcbench/`. Slice 2 is
+the S.BUS monitor's core1 job, `src/sbus_job.*`, with its pin user and its host
+tests ([slice 2 as built](#slice-2-as-built)); no screen opens it yet. Both are
+tested on the host only ([work breakdown](#work-breakdown)). The owner answered
+the note's open questions on 2026-11-14 ([decisions](#decisions)): build the
 S.BUS monitor and an S.BUS output, no PPM output. The S.BUS monitor, which
-reads a receiver's S.BUS output on GP1 through UART0, is designed below;
-its screen waits on being built (slice 3). The S.BUS output, inverted 8E2
-at 100,000 baud on GP0 through UART0's TX, is not designed: its open points
-are listed under [S.BUS output](#sbus-output), and its encoder is written
-and tested in rcbench first. The PPM sections stay as the record of a
-design that is not built, by decision 1. Both tools sit on the pin claim of
+reads a receiver's S.BUS output on GP1 through UART0, is designed below; its
+screen waits on being built (slice 3). The S.BUS output, inverted 8E2 at
+100,000 baud on GP0 through UART0's TX, is not designed: its open points are
+listed under [S.BUS output](#sbus-output), and its encoder is written and
+tested in rcbench first. The PPM sections stay as the record of a design that
+is not built, by decision 1. Both tools sit on the pin claim of
 [pin-claim.md](pin-claim.md) under one MENU row, RX SIGNALS, which opens a
 chooser with MONITOR and OUTPUT (decision 4); the MENU section is to be
-redesigned for it. The decoder is rcbench's, host-tested there and nowhere
-measured on a pin.
+redesigned for it. The row stands in MENU, built by slice 9 of
+[menu-b.md](menu-b.md), drawn disabled with `NOT BUILT` until these tools
+exist. The decoder is rcbench's, host-tested there and nowhere measured on a
+pin.
 
 ## Terms
 
@@ -625,8 +626,12 @@ resources: the claim exists for the pin.
 To be redesigned. The owner decided on 2026-11-14 for one MENU row, RX
 SIGNALS, that opens a chooser with MONITOR and OUTPUT ([decision
 4](#decisions)). In menu structure B ([menu-b.md](menu-b.md), decision 32)
-the row comes after SERVO PROGRAMMER, and MENU has seven rows. The chooser
-is not designed. By the owner's order of work of 2026-11-14 (the eight
+the row comes after SERVO PROGRAMMER, and MENU has seven rows. The row is
+built, by slice 9 of menu-b.md and the owner's decision 35 there: RX
+SIGNALS, row 4, drawn disabled with the status `NOT BUILT` in every claim
+state, and a tap opens nothing (`UI_RX_SIGNALS` in `src/ui_menu.cpp`, a
+screen with no entry point). It acts once a screen behind it exists. The
+chooser is not designed. By the owner's order of work of 2026-11-14 (the eight
 small decisions, then menu structure B, then the features), RX SIGNALS is
 built on structure B, not on MENU as built today. The rest of this section
 is the design of 2026-11-13, with two rows, RX MONITOR and PPM OUTPUT.

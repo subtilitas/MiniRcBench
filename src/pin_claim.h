@@ -9,7 +9,7 @@
  *
  * | Role | Pin | Claimed by |
  * |---|---|---|
- * | @ref PIN_SIG | the ESC signal wire, `settings()->dshotPin` | AM32 config, servo A, KST and Hitec programming; the S.BUS monitor when SIG is GP1 |
+ * | @ref PIN_SIG | the ESC signal wire, `settings()->dshotPin` | AM32 config, servo A, KST and Hitec programming; the S.BUS monitor |
  * | @ref PIN_AUX | the KISS wire, `settings()->kissPin` | servo B, two-servo mode; the S.BUS monitor when AUX is GP1 |
  *
  * Every claim is escTaskSuspend(): with the signal pin gone the ESC hears no
@@ -27,7 +27,7 @@
  * |---|---|---|
  * | Free | DShot runs on both pins | pinClaimBegin() |
  * | Stopping | core1 drains, stops and releases the pump | Held when escTaskSuspended() |
- * | Held | both pins free; the GPIOs are latched; SERVO, KST and the S.BUS monitor start their job, HITEC once a family is tapped (pinClaimStartJob()) | Running once it binds |
+ * | Held | both pins free; the GPIOs are latched; SERVO, KST and the S.BUS monitor start their job; HITEC as its entry asks (pinClaimStartJob()) | Running once it binds |
  * | Running | the job holds its pins | Leaving on pinClaimEnd() |
  * | Leaving | the job releases its pins; SERVO, KST and HITEC show the leave page (ui_leave.h), the S.BUS monitor its unplug page | Restoring |
  * | Restoring | core1 rebuilds the pump from the latched wiring | Free |
@@ -36,10 +36,12 @@
  * (am32_bl.cpp) and binds the pin itself, so an AM32 claim stays in Held
  * until pinClaimEnd().
  *
- * HITEC claims SIG when its screen opens, before its family is known: its
- * job binds for one family. The claim stays in Held with no job, the pad an
- * input with the pull-up esc_task.cpp leaves on it, until the family tap
- * calls pinClaimStartJob(). BACK from there is pinClaimEnd(): the pin went
+ * HITEC defers its job: the entry tap on PROGRAMMER claims SIG, and the
+ * screen calls pinClaimStartJob() at once for CLASSIC and for D SERIES with
+ * the switched supply, and on READ for D SERIES on OWN, for each servo:
+ * pinClaimKeep() leaves it unasked again. Until then the
+ * claim stays in Held with no job, the pad an input with the pull-up
+ * esc_task.cpp leaves on it. BACK from there is pinClaimEnd(): the pin went
  * to a servo, so the leave page comes before DShot restarts.
  *
  * @see docs/design/pin-claim.md
@@ -119,7 +121,7 @@ static_assert(pinUsersComplete(), "a pin user has no row in PIN_USERS, or two");
 enum class ClaimState : uint8_t {
 	Free,       /**< No claim; DShot owns the pins. */
 	Stopping,   /**< The pump drains and releases. */
-	Held,       /**< Both pins free, no job bound; HITEC waits here for its family. */
+	Held,       /**< Both pins free, no job bound; HITEC on OWN waits here for READ. */
 	Running,    /**< The job holds its pins. */
 	Leaving,    /**< The job releases; the leave page for SERVO, KST and HITEC, the unplug page for the S.BUS monitor. */
 	Restoring,  /**< The pump rebuilds. */
@@ -253,13 +255,14 @@ void pinClaimEnd(PinUser who);
 
 /**
  * @brief Start the job of a claim whose user defers it (PinUserInfo::deferJob):
- *        HITEC's family tap. Core0.
+ *        HITEC's entry, or its READ. Core0.
  *
  * Acts only while @p who holds the claim, Stopping or Held. From Stopping
  * the job starts once the claim is Held; from Held, with no job started
- * yet, it starts now. From then on the claim keeps the job wanted:
- * pinClaimKeep() starts it again. A user that does not defer its job has
- * it wanted from pinClaimBegin().
+ * yet, it starts now. The job stays wanted until pinClaimKeep(), which
+ * returns a deferring user to Held with no job, to ask again. A user that
+ * does not defer its job has it wanted from pinClaimBegin() and from
+ * pinClaimKeep().
  *
  * @param who The screen.
  */
@@ -305,8 +308,9 @@ void pinClaimRestart(PinUser who);
  *        Core0. BACK on the leave page is disabled.
  *
  * Acts only while pinClaimUnplugDue() is true and @p who holds the claim. The
- * claim returns to Held and the job starts again, if it was wanted: a HITEC
- * claim left before its family tap returns to Held with no job.
+ * claim returns to Held. SERVO and KST start their job again; HITEC, which
+ * defers its job, returns to Held with no job and asks for it again with
+ * pinClaimStartJob(), at once or on READ, as for its first servo.
  *
  * @param who The screen.
  */
