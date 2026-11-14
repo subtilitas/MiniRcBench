@@ -11,6 +11,7 @@ void uiLeaveOpen(UiLeave *l, UiLeavePhase phase, uint32_t waitMs) {
 	l->before = phase == UiLeavePhase::Before;
 	l->phase = l->before ? UiLeavePhase::Before : UiLeavePhase::Releasing;
 	l->leaveEnabled = true;
+	l->leavePress = false;
 	l->restartPress = false;
 	l->releasedMs = 0;
 	l->waitMs = waitMs;
@@ -32,13 +33,18 @@ bool uiLeaveRestartLive(const UiLeave *l, uint32_t nowMs) {
 
 UiLeaveEv uiLeaveTouch(UiLeave *l, const TouchState *t, uint32_t nowMs) {
 	if (!t) return UiLeaveEv::None;
-	// RESTART DSHOT counts a press by when it landed: one that landed while
-	// the button waited, or on LEAVE, never restarts DShot. uiTapped()
+	// LEAVE and RESTART DSHOT count a press by when it landed. A press that
+	// landed while LEAVE was disabled never leaves; one that landed while
+	// RESTART DSHOT waited, or on LEAVE, never restarts DShot. uiTapped()
 	// below holds the press to the button it landed on.
-	if (t->pressed) l->restartPress = uiLeaveRestartLive(l, nowMs);
+	if (t->pressed) {
+		l->leavePress = l->phase == UiLeavePhase::Before && l->leaveEnabled;
+		l->restartPress = uiLeaveRestartLive(l, nowMs);
+	}
 	if (l->phase == UiLeavePhase::Before) {
 		if (uiTapped(UI_LEAVE_LEFT, t)) return UiLeaveEv::Stay;
-		if (!l->leaveEnabled || !uiTapped(UI_LEAVE_WIDE, t)) return UiLeaveEv::None;
+		bool counts = l->leavePress && l->leaveEnabled;
+		if (!counts || !uiTapped(UI_LEAVE_WIDE, t)) return UiLeaveEv::None;
 		l->phase = UiLeavePhase::Releasing;
 		return UiLeaveEv::Leave;
 	}
@@ -85,9 +91,10 @@ void uiLeaveDraw(const UiLeave *l, const UiLeaveText &text, const TouchState *t,
 		uiButton(UI_LEAVE_LEFT, left, C_PANEL, C_TEXT, 1,
 		         leftLive && uiPressing(UI_LEAVE_LEFT, t), leftLive);
 	bool wideLive = before ? l->leaveEnabled : uiLeaveRestartLive(l, nowMs);
-	// RESTART DSHOT looks pressed only under a press that counts: one that
-	// landed during the wait does nothing on its lift.
-	bool counts = before || l->restartPress;
+	// The wide button looks pressed only under a press that counts: one that
+	// landed while LEAVE was disabled, or during RESTART DSHOT's wait, does
+	// nothing on its lift.
+	bool counts = before ? l->leavePress : l->restartPress;
 	uiButton(UI_LEAVE_WIDE, before ? "LEAVE" : "RESTART DSHOT", C_PANEL, C_TEXT, 2,
 	         wideLive && counts && uiPressing(UI_LEAVE_WIDE, t), wideLive);
 }

@@ -7,10 +7,11 @@ link here and in [CHANGELOG.md](CHANGELOG.md) is checked by
 integration) is written and checked by `tools/coverage.py`. Nothing else is
 checked: the architecture figures, pin numbers, suite and job lists and
 verification states are written by hand, against the code and the issue tracker
-as of 2026-10-30. The KST and Hitec card-phase tables in
+as of 2026-11-14. The KST and Hitec card-phase tables in
 [kst-programming.md](docs/design/kst-programming.md) and
 [hitec-programming.md](docs/design/hitec-programming.md) are written and
-checked by `make -C test kstcount`. Read them as a dated record, not as an inventory.
+checked by `make -C test kstcount`. Read the rest as a dated record, not as an
+inventory.
 
 MiniRcBench continues the DshotDisplay firmware, which remains a separate
 project at
@@ -30,9 +31,10 @@ for servos. The servo tester (slice 2 of
 [pin-claim.md](docs/design/pin-claim.md),
 [servo-tester.md](docs/design/servo-tester.md)) drives one servo on the ESC
 pin, or two on the ESC and KISS pins, with PWM (pulse-width modulation)
-pulses. KST and Chaservo servo programming, on the same pins, is slice 3, with
-an optional bench-switched servo supply whose enable is on GP28 or GP29. Its
-steps 1 to 5 are built:
+pulses. KST and Chaservo servo programming, on the same pins, is slice 3 of
+[pin-claim.md](docs/design/pin-claim.md), with an optional bench-switched
+servo supply whose enable is on GP28 or GP29. Steps 1 to 5 of
+[kst-programming.md](docs/design/kst-programming.md) are built:
 rcbench's KST core, line driver and file store are copied into `lib/rcbench/`,
 with rcbench's tests of them, 298 cases; the search (`src/kst_seek.h`) and the
 core1 job (`src/kst_job.h`) run the session on the line, tested against
@@ -44,6 +46,10 @@ ring of `BACKUP/` that the AM32 editor shares (`src/backup_ring.h`,
 The switched supply (step 5, `src/servo_supply.h`) powers the servo from a
 converter whose enable is on GP28 or GP29, with `SERVO SUPPLY` at `GP28` or
 `GP29`; with `NONE` the servo is powered up and down by hand.
+Hitec programming, on the same pins, is slice 4 of
+[pin-claim.md](docs/design/pin-claim.md): steps 1 to 5 of 6 of
+[hitec-programming.md](docs/design/hitec-programming.md) are built; the
+bring-up is open (open item 14).
 Slice 3 builds on the menu restructure
 ([menu.md](docs/design/menu.md), slices A to C). Slice A is built: one
 scrolling list, `src/ui_list.*`, under the AM32 and SERVO SET lists, and one
@@ -74,7 +80,7 @@ The two cores of the RP2350 split the work by deadline:
 
 | | core0 | core1 |
 | --- | --- | --- |
-| Work | USB (Universal Serial Bus) device task, touch, UI (user interface) rendering, SD (Secure Digital) card logging, settings, serial telemetry dump, the pin claim's state machine | DShot frame pump, eRPM and EDT decode, KISS request and receive; while a pin claim holds, the claiming screen's job instead: the servo job for SERVO, the KST job for KST, none for AM32 |
+| Work | USB (Universal Serial Bus) device task, touch, the INA219 current sensor read after touch, UI (user interface) rendering, SD (Secure Digital) card logging, settings, serial telemetry dump, the pin claim's state machine | DShot frame pump, eRPM and EDT decode, KISS request and receive; while a pin claim holds, the claiming screen's job instead: the servo job for SERVO, the KST job for KST, the Hitec job for HITEC, none for AM32 |
 | Rate | one UI frame every 25 ms (40 Hz); USB task, log encode and card flush on every loop pass | one DShot frame every 1000 µs (1 kHz); KISS receive FIFO (first-in, first-out buffer) drained on every loop pass |
 | May block | yes: display DMA (direct memory access) bursts of several ms, card writes of tens of ms | never |
 
@@ -91,11 +97,12 @@ throttle frame, then stops the pump, releases the pin, which turns its pulls
 off, puts the pull-up back on it and ends the KISS receiver. A rebuild after a
 SETTINGS pin change drains the same way. `loop1()` runs `escTaskPoll()` and then
 `core1JobPoll()`, which binds, steps and releases the claiming screen's job
-(`src/core1_job.h`): the servo job (`src/servo_job.h`) for SERVO and the KST
-job (`src/kst_job.h`) for KST; the AM32 transport runs on core0.
-Leaving rebuilds the pump from the wiring it had, disarmed. For SERVO and KST
-the claim restarts DShot only after a page that tells the user to unplug the
-servo.
+(`src/core1_job.h`): the servo job (`src/servo_job.h`) for SERVO, the KST
+job (`src/kst_job.h`) for KST and the Hitec job (`src/hitec_job.h`) for
+HITEC; the AM32 transport runs on core0.
+Leaving rebuilds the pump from the wiring it had, disarmed. For SERVO, KST and
+HITEC the claim restarts DShot only after a page that tells the user to unplug
+the servo.
 
 Rates and defaults, from `src/config.h` and `src/main.cpp`:
 
@@ -130,9 +137,9 @@ PIO (programmable input/output) blocks: three, each with 4 state machines and
 
 | Block | Use |
 | --- | --- |
-| pio0 | backlight on GP16, 20 kHz (`src/backlight.pio`): 1 state machine, 6 of 32 instructions |
+| pio0 | backlight on GP16, 20 kHz (`src/backlight.pio`): 1 state machine, 6 of 32 instructions. While a Hitec D series line is open with PRECHARGE receive, its sampler takes 1 more state machine, up to 12 instructions (7 at 150 MHz), built at run time |
 | pio1 | SDIO (Secure Digital input/output) card driver in `src/sdio/`: 2 state machines, 32 of 32 instructions, plus 2 DMA channels and no interrupt (`src/sd_hw_config.c`) |
-| pio2 | DShot transmitter and receiver on adjacent state machines, 16 instructions; KISS receiver when KISS is on, 1 state machine, 9 instructions |
+| pio2 | DShot transmitter and receiver on adjacent state machines, 16 instructions; KISS receiver when KISS is on, 1 state machine, 9 instructions. While a KST or Hitec claim holds, DShot and KISS are released and the line program takes 1 state machine: the KST line, 24 instructions, or the Hitec line, 30 instructions |
 
 DShot and KISS claim from whichever block has room, and the Pico SDK
 (software development kit) searches pio2 first. DShot binds first after every
@@ -158,13 +165,15 @@ tree, from rcbench `protocols/dshot` at commit 453cf334 (MIT, same copyright
 holder). The servo sweep curve, the GPIO-to-PWM fold, the KST programming
 core, its line driver and the KST file store are rcbench files at the same
 commit, and the Hitec programming core, its line driver, the Hitec servo file
-text and its CRC are rcbench files at commit 3e29dc1b, and the S.BUS decoder
-and the current sensor's bus record, `sense_bus.c`, are rcbench files at
-commit 5ef42efd, all copied unchanged into `lib/rcbench/`
-([lib/rcbench/README.md](lib/rcbench/README.md)). The SDIO driver in
-`src/sdio/` is part of the tree, MIT, written from
-the SD Association's Physical Layer Simplified Specification v9.10 and the
-RP2350 datasheet ([design note](docs/design/sdio-driver.md)). A release carries one UF2
+text and its CRC are rcbench files at commit 3e29dc1b, and the S.BUS
+(Futaba's serial bus for receiver channels) decoder and the current sensor's
+bus record, `sense_bus.c`, are rcbench files at commit 5ef42efd, all copied
+unchanged into `lib/rcbench/`
+([lib/rcbench/README.md](lib/rcbench/README.md)). The firmware does not build
+the S.BUS decoder yet. The SDIO driver in `src/sdio/` is part of the tree,
+MIT, written from the SD Association's Physical Layer Simplified
+Specification v9.10 and the RP2350 datasheet
+([design note](docs/design/sdio-driver.md)). A release carries one UF2
 (USB Flashing Format) image, `MiniRcBench-<tag>-touch-lcd-2.8.uf2`.
 
 ## Board
@@ -177,6 +186,7 @@ means general-purpose input/output.
 | --- | --- |
 | Panel bus | SPI1: GP10 clock, GP11 data out |
 | Touch | CST328 on I2C1 (Inter-Integrated Circuit), GP6 and GP7 |
+| Current sensor | optional INA219 at 0x40 on J3, on the same I2C1 bus; SETTINGS → CURRENT SENSE, `NONE` by default |
 | SD card | PIO SDIO on pio1, 4 bits, 10 MHz, GP19 to GP24 |
 | GPIOs free for the two wires | 2: GP0, GP1 (`BOARD_FREE_GPIO_MASK` `0x00000003`), the pins of UART0 (universal asynchronous receiver-transmitter 0), which is unused |
 | ESC signal default | GP0, J4 pin 9 and J5 pin 2 |
@@ -187,8 +197,8 @@ means general-purpose input/output.
 | Power latch | GP26, asserted first thing in `setup()` |
 | Other devices | PCF85063 RTC (real-time clock), I2S (Inter-IC Sound) audio codec, neither used |
 
-The ESC and KISS pins are changeable on MENU → SETTINGS within the free set, and
-the two wires never share a pin.
+The ESC and KISS pins are changeable on MENU → SETTINGS within the free set,
+and the two wires never share a pin.
 
 ## What exists and how far it is verified
 
@@ -224,7 +234,7 @@ record either way.
 | INA219 current sensor on J3, the shared I2C1 bus (`src/sense.*`, slice 1 of [current-sense.md](docs/design/current-sense.md)): the codec, the probe, the reading on core0 after the touch read, the read-back, the recovery, the `SenseSample` published for core1, which slices 3 and 4 read (nothing on core1 reads it yet); rcbench's `sense_bus.c` (5ef42efd) in `lib/rcbench/shared/sense/`; the touch driver's transfers noted; SETTINGS → CURRENT SENSE; the readout on SERVO TESTER, KST SERVO and HITEC SERVO | against an I2C fake with an INA219 and a CST328 model (`test/fake_i2c.*`, `runSenseTests`): 19EFh written at the probe, the shunt code to µA on 0.1 Ω at ±1, ±31999, ±32000 and beyond, the bus code to mV, the clip, a negative current; 399Fh and 19EFh accepted as an INA219, 4127h, 7127h and any other value as another part read every second, nothing but the register pointer written to it over 3000 ms, an INA219 put in its place found, FFFFh as none, a refused set-up; absent and probed again 1000 ms on, not 999 ms; three NACKs to offline, two timeouts to stuck, a held SDA, a recovery at once and every 100 ms, a part freed by its clocks, touch transfers noted, a touch abort with SDA held as a line low and the recovery run, a short count through the wire; the read-back once a second, a power-on reset found within two, the reset flag; 220 clocks for the probe, 96 for a reading, 84 for touch; the worst bus time of a frame in each failure mode and with one timeout after each count of transfers that answer, with timeouts moving the clock: the sensor at most 1480 µs, the probe's last data read timing out (1335 µs with the 19EFh write timing out, 1290 µs in a frame with the read-back, 1170 µs in a reading), touch at most 2073 µs, its data read timing out; a read's abort with SDA low for the block's own STOP a NACK, not a line held low; the recovery's START and STOP; the sample's 250 ms age, not at 249 ms, across a `millis()` wrap; the readout's texts and widths; touch read every frame with the sensor present, absent and failing; the SETTINGS row by id, saved, reset, nothing sent to 0x40 with NONE; the readout on the three screens | not tested on hardware: no INA219 has been on the board's bus; open item 16 |
 | Touch handling, high-contrast theme, throttle gauge | tap on release, repeats, screen residue, gauge reach | hardware use recorded: the reports #22 to #24 named in the v2.3 commits; the fixes on hardware: not recorded |
 | List and hold widgets (`src/ui_list.*`, `src/ui_hold.*`; slice A of [menu.md](docs/design/menu.md)) | the list: the scroll range and its clamp, the press rule at the viewport's edges, the row rectangle, the axis lock at 6 px, a tap on release and its slide-off, the scroll from the press point, 16 px per coarse step, the factor, the stop at a rail and the anchor after it, the clipped drawing; the hold: 1000 ms and not 999 ms, the reset on a lift and a slide off, a press that slid on, one firing per press, no timing for a press that landed while the control was disabled or whose first frame it missed, the progress bar's extent; through the screens: AM32's swipe on every field of the table, KV at 16 px a step and its rail, the AM32 and SERVO SET scroll ranges and edge rows (checks that 4c91db9 also passes), DWELL's rail on SET, HOLD TO WRITE and HOLD TO SAVE at 999 ms and 1000 ms, each hold's colour and bar, a press on a disabled HOLD TO START, HOLD TO APPLY and HOLD TO WRITE never timed, HOLD TO SAVE's refusal while armed | not tested on hardware |
-| Menu structure B, slice 1 (`src/ui_leave.*`; `UiBackGuard`, `uiStripTwoLines()`, `UI_COL_*` and the layout constants in `src/ui_widgets.*`; `uiListDrawField()` in `src/ui_list.*`; [menu-b.md](docs/design/menu-b.md)) | the leave page: its three phases, the current step, STAY, LEAVE, NEXT SERVO, RESTART DSHOT at 999 ms and 1000 ms into the released phase and across a `millis()` wrap, a press that landed during the wait or while releasing never restarting DShot, the steps, bar, notes and buttons in each phase, the room above the notes; the guard: the first BACK arming, the second leaving, a press elsewhere and no change left disarming, its two lines for one and two changes; the two strip lines at y 42 and y 52 and their clear; the field row in each value state and edge, selected or not, scale 2 up to 104 px; the role names in both themes; the constants' values; SERVO TESTER's supply line drawn through `uiStripTwoLines()` | host only: no screen uses the leave page, the guard or the field row |
+| Menu structure B, slice 1 (`src/ui_leave.*`; `UiBackGuard`, `uiStripTwoLines()`, `UI_COL_*` and the layout constants in `src/ui_widgets.*`; `uiListDrawField()` in `src/ui_list.*`; [menu-b.md](docs/design/menu-b.md)) | the leave page: its three phases, the current step, STAY, LEAVE, NEXT SERVO, RESTART DSHOT at 999 ms and 1000 ms into the released phase and across a `millis()` wrap, a press that landed during the wait or while releasing never restarting DShot, LEAVE drawn disabled and ignoring its tap while `leaveEnabled` is clear, LEAVE taking only a press that landed while it was enabled and is still enabled at the lift, the steps, bar, notes and buttons in each phase, the room above the notes; the guard: the first BACK arming, the second leaving, a press elsewhere and no change left disarming, its two lines for one and two changes; the two strip lines at y 42 and y 52 and their clear; the field row in each value state and edge, selected or not, scale 2 up to 104 px; the role names in both themes; the constants' values; SERVO TESTER's supply line drawn through `uiStripTwoLines()` | host only: no screen uses the leave page, the guard or the field row |
 | Control tables (`src/ui_screen.h`; slice B of [menu.md](docs/design/menu.md)) | every screen's table on each view the host suite reaches, the ids, rectangles and enabled flags, `uiCurrentScreen()` after each navigation; the UI tests tap by id | host only: the firmware does not call the tables |
 | Serial telemetry dump | none | not recorded |
 | `tools/sdtest`, SD bring-up firmware | none, not built in CI | hardware use recorded in f16a70f and e9c9d9a, the 2.8" board with the previous SDIO driver among them; nothing is recorded for the current build |
@@ -247,8 +257,8 @@ Not in this history: the DshotDisplay repository's branches
 
 ## Next steps
 
-State on 2026-10-30, after #31 (bff4215): no other pull request is open,
-and all seven CI jobs pass on `main`. Every part below waits on the bench;
+State on 2026-11-14: no other pull request is open; all seven CI jobs pass
+on `main` at c0d2952 (#43). Every part below waits on the bench;
 nothing is open that the host suite can settle. In the order the parts
 depend on each other:
 
@@ -270,8 +280,10 @@ Menu structure B waits on the owner's answers, not on the bench (item 18).
 
 1. **[Issue #1](https://github.com/subtilitas/DshotDisplay/issues/1),
    "Initialisation fails on some BL_Heli32 ESC".** Opened
-   2026-09-11 by DerGeheimdienst. Open, no comments, not reproduced by the
-   owner. This is an external report, not a confirmed defect. Conditions as
+   2026-09-11 by DerGeheimdienst. Open, not reproduced by the owner. One
+   comment, the owner's of 2026-10-16, asks the reporter to arm and then plug
+   the ESC in while armed; the reporter has not answered. This
+   is an external report, not a confirmed defect. Conditions as
    reported:
    - ESCs: RAZOR32 and EXUAV 70A, both running BLHeli_32 32.6.
    - Signal wire on the display: the ESC does not initialise, and its start-up
@@ -299,8 +311,9 @@ Menu structure B waits on the owner's answers, not on the bench (item 18).
    while it is off. The level an ESC drives is not measured. The firmware
    enables the internal pull-up on the KISS pin.
 4. **Settings flash and the USB card reader on hardware.** Not recorded.
-5. **Design questions left open** in [kiss-telemetry.md](docs/design/kiss-telemetry.md)
-   and [blackbox-logging.md](docs/design/blackbox-logging.md): which eRPM source
+5. **Design questions left open** in
+   [kiss-telemetry.md](docs/design/kiss-telemetry.md) and
+   [blackbox-logging.md](docs/design/blackbox-logging.md): which eRPM source
    the main readout uses above the crossover (about 5,500 RPM on a 14-pole
    motor), whether consumption is shown from ESC power-on or from arming,
    whether a slow frame type is worth adding.
@@ -448,6 +461,19 @@ Menu structure B waits on the owner's answers, not on the bench (item 18).
     labels, the no-switch value's name and RESTART DSHOT's wait. Slice 4,
     the layout table, waits on the fifth: it changes what the previews,
     README.md and the wiki show.
+19. **Questions open to the owner.** 27 questions in four design notes, each
+    listed in its note:
+    - [menu-b.md](docs/design/menu-b.md), "Open questions": 8, which hold
+      slices 2 to 10 (item 18);
+    - [rx-signals.md](docs/design/rx-signals.md), "Open questions": 7, on
+      the S.BUS monitor and the PPM (pulse-position modulation) output;
+    - [current-sense.md](docs/design/current-sense.md), "Open questions":
+      5, Q1 to Q5, on the converter, the shunt, the tester's supply, the
+      protection and a version 4 settings block;
+    - [diagnostics.md](docs/design/diagnostics.md), "Open questions for a
+      fault log": 7, before a fault log is built.
+
+    The design questions of item 5 are not addressed to the owner.
 
 ## Known limitations
 
@@ -471,16 +497,16 @@ Menu structure B waits on the owner's answers, not on the bench (item 18).
   which need not be the oldest ([backups.md](docs/design/backups.md)).
 
 - **Two free pins.** The board frees two GPIOs, GP0 and GP1. The ESC takes
-  one and KISS the other, so there is no third choice and the SETTINGS steppers
-  stay put. KISS is off by default and one tap on MENU → SETTINGS turns it on. A
-  build-time pin override outside the free set, or both wires on one pin,
-  fails the build.
+  one and KISS the other, so there is no third choice and the SETTINGS
+  steppers stay put. KISS is off by default and one tap on MENU → SETTINGS
+  turns it on. A build-time pin override outside the free set, or both wires
+  on one pin, fails the build.
 - **Bidirectional DShot only.** An ESC that does not accept the inverted
   bidirectional signal is not driven.
 - **Saved settings outrank `config.h`.** On a board with saved settings, a
-  changed default in `config.h` has no effect after reflashing. SETTINGS marks the
-  whole block, not each row: while no change is pending, its note line reads
-  `SAVED SETTINGS IN USE` or `COMPILED DEFAULTS IN USE`.
+  changed default in `config.h` has no effect after reflashing. SETTINGS
+  marks the whole block, not each row: while no change is pending, its note
+  line reads `SAVED SETTINGS IN USE` or `COMPILED DEFAULTS IN USE`.
 - **Power loss during a log.** A log is readable up to its last directory
   sync, so pulling power loses up to 2000 ms (`SD_LOG_SYNC_MS`).
 - **Logs past the pre-allocation.** 16 MiB lasts about 38 minutes at
@@ -551,25 +577,27 @@ tests, copied unchanged: `test_hitec_wire.c` (11 cases), `test_hitec_pre.c`
 `test_hitec_reg_plan.c` (9), `test_hitec_session.c` (15),
 `test_hitec_session_write.c` (13) and `test_hitec_card.c` (12), and
 `hitec_headers.cpp`, the core's headers compiled as C++11, and rcbench's
-S.BUS (Futaba's serial bus for receiver channels) decoder test, copied
-unchanged: `test_sbus.c` (12 cases). CI holds the KST
-and Hitec line fixtures to pioasm's words.
+S.BUS decoder test, copied unchanged: `test_sbus.c` (12 cases). CI holds
+the KST and Hitec line fixtures to pioasm's words.
 
 Other targets in `test/Makefile`: `syntax` typechecks the device-only sources
 with `-Werror`; `pioemu` runs `test/pio_sdio_emu.py`, the SDIO PIO programs
 assembled from `src/sdio/sd_pio.pio` and run one system clock at a time
 against a card model, 18 runs over three clock rates, three card output
 delays and two card latencies, and `test/pio_backlight_emu.py`, the backlight
-PIO program at every level from 0 to 255 and on 20 writes mid-period, and `make` runs both; `bbcheck` encodes 2000 frames and decodes them with
-Betaflight's `blackbox_decode`; `kstcount` runs `src/kst_files.cpp` over
-FatFs R0.15 from the SD library's pinned commit, fetched into `test/obj/`, on
-a RAM disk that counts blocks, and checks the table in
-[kst-programming.md](docs/design/kst-programming.md), which `kstcount-write`
-rewrites; `previews` and `wiki` rebuild screenshots;
+PIO program at every level from 0 to 255 and on 20 writes mid-period, and
+`make` runs both; `bbcheck` encodes 2000 frames and decodes them with
+Betaflight's `blackbox_decode`; `kstcount` runs `src/kst_files.cpp` and
+`src/hitec_files.cpp` over FatFs R0.15 from the SD library's pinned commit,
+fetched into `test/obj/`, on a RAM disk that counts blocks, and checks the
+tables in [kst-programming.md](docs/design/kst-programming.md) and
+[hitec-programming.md](docs/design/hitec-programming.md), which
+`kstcount-write` rewrites; `previews` and `wiki` rebuild screenshots;
 `coverage` builds an instrumented suite. Scripts: `test/check_docs.py`,
 `test/check_uf2.sh`, `test/check_uf2_selftest.sh`, `test/check_blackbox.py`,
-`test/pio_sdio_emu.py`, `test/pio_backlight_emu.py`, `test/kst_card_count.cpp`, `tools/check_wiki.py`,
-`tools/coverage.py`, `tools/make_wiring.py`, `tools/notices.py`,
+`test/pio_sdio_emu.py`, `test/pio_backlight_emu.py`,
+`test/kst_card_count.cpp`, `tools/check_wiki.py`, `tools/coverage.py`,
+`tools/make_previews.py`, `tools/make_wiring.py`, `tools/notices.py`,
 `tools/stack_depth.py`.
 
 **CI** (`.github/workflows/ci.yml`; on push to `main` or `master`, on pull
@@ -578,7 +606,7 @@ requests, by hand):
 | Job | What it does |
 | --- | --- |
 | Firmware (`touch-lcd-2.8`) | builds with arm-none-eabi-gcc 13.3 and `STRICT=ON`; flash under 1 MiB and RAM (random-access memory) under 400,000 bytes; checks from the DWARF compile units that no file of the SD library's SDIO, ZuluSCSI-firmware or SdFat directories is in the image; writes `THIRD_PARTY_NOTICES.txt` with `tools/notices.py` and checks it against the image; compares the PIO model's assembler with the SDK's `pioasm`; holds the KST and Hitec line fixtures to `pioasm`'s words; checks the Hitec job's deepest stack chain against 1,792 bytes (`tools/stack_depth.py`); checks the two pin overrides reach CMake and that `-DDSHOT_PIN`, `-DKISS_PIN`, `-DDSHOT_PIN_LCD_2`, and `-DKISS_PIN_LCD_2` are refused; validates the UF2 |
-| Host tests | `make`, which runs the SDIO PIO model too; the suite again with both pin macros overridden; `make kstcount` against the design note's card-phase table; wiki screenshots and `check_wiki.py` |
+| Host tests | `make`, which runs the SDIO and backlight PIO models too; the suite again with both pin macros overridden; `make kstcount` against the KST and Hitec design notes' card-phase tables; wiki screenshots and `check_wiki.py` |
 | Blackbox round-trip | builds `blackbox_decode` from source, runs `make bbcheck` |
 | Config permutations | typechecks all of `src/` with `-Werror` for 32 combinations, with the headers in `lib/rcbench/` on the include path: AM32 transmit mode × AM32 low-jump × rotation 0 or 2 × KISS on or off × SD logging on or off; checks the landscape guard fires |
 | Workflow lint | actionlint 1.7.7 and a duplicate-key check on every workflow in `.github/workflows/` |
@@ -661,7 +689,7 @@ model.
 | `src/ui_hold.cpp` | 36 | 36 | 100.0% |
 | `src/ui_input.cpp` | 27 | 27 | 100.0% |
 | `src/ui_kst.cpp` | 1170 | 1117 | 95.5% |
-| `src/ui_leave.cpp` | 60 | 60 | 100.0% |
+| `src/ui_leave.cpp` | 64 | 64 | 100.0% |
 | `src/ui_list.cpp` | 139 | 139 | 100.0% |
 | `src/ui_menu.cpp` | 127 | 126 | 99.2% |
 | `src/ui_screen.h` | 5 | 5 | 100.0% |
@@ -671,7 +699,7 @@ model.
 | `src/ui_slider.cpp` | 109 | 109 | 100.0% |
 | `src/ui_widgets.cpp` | 67 | 67 | 100.0% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **9207** | **8964** | **97.4%** |
+| **Total** | **9211** | **8968** | **97.4%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->

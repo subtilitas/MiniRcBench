@@ -30,7 +30,16 @@ the two servo programmers take the pins through the pin claim of
 `docs/design/pin-claim.md`. An optional INA219 current sensor on the
 board's I2C (Inter-Integrated Circuit) bus reads the servo supply's current
 and voltage (see [Current sensor](#current-sensor); design note
-`docs/design/current-sense.md`).
+`docs/design/current-sense.md`). SETTINGS shows the firmware version and,
+under DIAGNOSTICS, the reason for the last restart and the time since boot
+(design note `docs/design/diagnostics.md`).
+
+Two features are designed and not built. An S.BUS (Futaba's serial bus for
+receiver channels) receiver monitor and a PPM (pulse-position modulation)
+output are described in `docs/design/rx-signals.md`; rcbench's S.BUS decoder
+is in the tree and tested on the host, and the firmware does not build it.
+Menu structure B is described in `docs/design/menu-b.md`; its building
+blocks, slice 1 of 10, are in the tree, and no screen looks different yet.
 
 ![UI preview](docs/ui-preview.png)
 
@@ -43,9 +52,9 @@ interface) code.
 > **[English](https://github.com/subtilitas/MiniRcBench/wiki/Setup)** ·
 > **[Deutsch](https://github.com/subtilitas/MiniRcBench/wiki/Einrichtung)**
 >
-> Wiring, first run, every screen, telemetry, logging, AM32 configuration and
-> the servo tester, for someone using the board. This README describes the
-> firmware and the build.
+> Setup, wiring, first run, every screen, telemetry, logging, AM32
+> configuration, the servo tester and KST and Hitec programming, for someone
+> using the board. This README describes the firmware and the build.
 
 Project state and open items: [STATUS.md](https://github.com/subtilitas/MiniRcBench/blob/main/STATUS.md). Changes by release: [CHANGELOG.md](https://github.com/subtilitas/MiniRcBench/blob/main/CHANGELOG.md).
 
@@ -1753,7 +1762,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.4%**: 8,964 of 9,207 lines in 58 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.4%**: 8,968 of 9,211 lines in 58 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

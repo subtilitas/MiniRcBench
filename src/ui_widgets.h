@@ -117,7 +117,8 @@ struct TouchState;
  *
  * Each role is described by its meaning. The examples after "Target:" are
  * the note's target for the screens; no screen uses the names yet, and some
- * of today's screens draw those elements in another colour.
+ * of today's screens draw those elements in another colour. Slice 2 of the
+ * note, "Colour roles", moves the screens onto the names.
  * @{
  */
 /** @brief Safe or done. Target: the SAFE badge and chip, EDT ON, WRITE
@@ -262,6 +263,9 @@ void uiStripTwoLines(const char *top, uint16_t topCol, const char *bottom, uint1
  * uiBackGuardDraw() in place of its strip; a second BACK leaves and drops
  * them. A press that lands anywhere but BACK disarms it. There is no timer.
  * Zero-initialised it is disarmed.
+ *
+ * No screen uses it yet. Slice 5 of the note, "Write rule and guard", puts
+ * it on AM32 CONFIG and SERVO SET.
  */
 struct UiBackGuard {
 	bool armed;  /**< The first BACK landed; the next one leaves. */

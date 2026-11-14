@@ -345,7 +345,13 @@ The buttons:
 - **LEAVE** is a tap and runs today's leave: KST removes the session's record
   when the servo is in the mode and not in doubt, then `endClaim()`. The
   release order of [pin-claim.md](pin-claim.md#sequence) step 5 is
-  unchanged. The button then reads RESTART DSHOT, drawn disabled.
+  unchanged. The button then reads RESTART DSHOT, drawn disabled. LEAVE is
+  drawn disabled while the screen writes to the device: the screen clears
+  `leaveEnabled` then, as today's KST and Hitec leave pages draw LEAVE
+  disabled while `s_writing` is set (`ui_kst.cpp` and `ui_hitec.cpp`
+  `drawLeave()`). LEAVE takes only a press that lands while it is enabled
+  and is still enabled at the lift; a press that landed while it was
+  disabled draws no pressed look and does nothing on its lift.
 - **NEXT SERVO** and **BACK TO SERVO** call `pinClaimKeep()`, live once
   `pinClaimUnplugDue()` is true: today's BACK on the unplug page. KST and
   Hitec start a new session; Hitec keeps the family chosen on the chooser.
@@ -1038,7 +1044,7 @@ preview images stay as they are.
 | Two strip lines | `uiStripTwoLines()`, `ui_widgets.h` | clears y 40 to 61, draws scale 1 at x 8, y 42 and y 52; a null line is not drawn | SERVO TESTER's supply line; the guard |
 | BACK guard | `UiBackGuard`, `uiBackGuard()`, `uiBackGuardDraw()`, `ui_widgets.h` | with changes pending, the first BACK arms and the second returns Back; a press that lands elsewhere disarms, as does no change left, but a BACK tap on that frame leaves; no timer; the two amber lines name the count and the verb | slice 5: AM32 CONFIG and SERVO SET |
 | Field row | `uiListDrawField()`, `UiField`, `UiValue`, `UiEdge`, `ui_list.h` | decision 8's row: fill, group, label, value at scale 2 up to 104 px, edge bar 3 px | slice 2: AM32 CONFIG, KST SERVO, HITEC SERVO, SERVO SET |
-| Leave page | `UiLeave`, `UiLeaveText`, `uiLeaveOpen()`, `uiLeavePoll()`, `uiLeaveTouch()`, `uiLeaveDraw()`, `ui_leave.h` | the three phases, numbered steps, notes, STAY and LEAVE, then NEXT SERVO or BACK TO SERVO and RESTART DSHOT; RESTART DSHOT takes a press that lands the wait or more after the released phase began, and only such a press draws it pressed; `leaveEnabled` cleared draws LEAVE disabled and ignores its tap, for the screen's writes | slice 6 |
+| Leave page | `UiLeave`, `UiLeaveText`, `uiLeaveOpen()`, `uiLeavePoll()`, `uiLeaveTouch()`, `uiLeaveDraw()`, `ui_leave.h` | the three phases, numbered steps, notes, STAY and LEAVE, then NEXT SERVO or BACK TO SERVO and RESTART DSHOT; RESTART DSHOT takes a press that lands the wait or more after the released phase began, and only such a press draws it pressed; `leaveEnabled` cleared draws LEAVE disabled and ignores its tap, for the screen's writes; LEAVE takes only a press that landed while `leaveEnabled` was set (`leavePress`), and only such a press draws it pressed | slice 6 |
 
 What slice 1 leaves to the open questions:
 
