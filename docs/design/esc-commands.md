@@ -46,13 +46,13 @@ that commit.
 
 | Source | Commit | Files | Licence, access |
 |---|---|---|---|
-| AM32 (`am32-firmware/AM32`), version 2.22 (`Inc/version.h`) | 2a695a8 | `Src/dshot.c` lines 104 to 232; `Src/main.c` lines 662 to 721, 1231 to 1303, 1322 to 1384, 1530 to 1533, 2272 to 2283 | GPL-3.0; read, nothing copied |
+| AM32 (`am32-firmware/AM32`), version 2.22 (`Inc/version.h`) | 2a695a8 | `Src/dshot.c` lines 36 to 42, 104 to 232, 242 to 269; `Src/main.c` lines 662 to 721, 1231 to 1303, 1322 to 1384, 1530 to 1533, 2081 to 2085, 2272 to 2283; `Inc/eeprom.h` line 55 | GPL-3.0; read, nothing copied |
 | Bluejay (`bird-sanctuary/bluejay`), revision 0.21 (`src/Bluejay.asm` line 331) | 0368d11 | `src/Modules/DShot.asm` lines 60 to 215; `src/Modules/Isrs.asm` lines 200 to 256; `src/Modules/Enums.asm` lines 53 to 63; `src/Bluejay.asm` line 683 | GPL-3.0; read, nothing copied |
 | BLHeli_S (`bitdump/BLHeli`), revision 16.7 (`BLHeli_S.asm` lines 534, 535) | a5bcf99 | `BLHeli_S SiLabs/BLHeli_S.asm` lines 759 to 835, 3934, 4010 to 4250 | GPL-3.0; read, nothing copied |
 | BLHeli_32 (same repository) | a5bcf99 | `BLHeli_32 ARM/BLHeli_32 Firmware specs/Digital_Cmd_Spec.txt` | a text file of 46 lines; BLHeli_32 itself is closed source |
 | Betaflight (`betaflight/betaflight`) | 134ce0f | `src/main/drivers/dshot_command.h` lines 35 to 62; `dshot_command.c` lines 38 to 41, 186 to 275; `src/main/cli/cli.c` lines 4561 to 4744; `src/main/sensors/esc_sensor.c` lines 113, 138 | GPL-3.0; read as the FC side's reference |
 | rcbench (`subtilitas/rcbench`) | b88593d3 | `docs/DShot.md`, `docs/BLHeli32.md`, `shared/ui/motor_draw.c` lines 140 to 212 | MIT, same holder |
-| This repository | `main` at 33079ee | `src/dshot/dshot.h`, `src/esc_task.{h,cpp}`, `src/config.h`, `src/ui.cpp`, `src/ui_menu.cpp`, `src/ui_am32.{h,cpp}`, `src/am32_eeprom.cpp`, `src/kiss_telem.cpp`, [kiss-telemetry.md](kiss-telemetry.md), [menu-b.md](menu-b.md) | |
+| This repository | `main` at bbf04e3 | `src/dshot/dshot.h`, `src/esc_task.{h,cpp}`, `src/config.h`, `src/ui.cpp`, `src/ui_menu.cpp`, `src/ui_am32.{h,cpp}`, `src/am32_eeprom.cpp`, `src/kiss_telem.cpp`, [kiss-telemetry.md](kiss-telemetry.md), [menu-b.md](menu-b.md) | |
 
 PR #66, slice 9 of menu structure B, is on `main` since 33079ee: the
 SERVO PROGRAMMER chooser and seven MENU rows (`src/ui_registry.cpp`
@@ -136,9 +136,10 @@ What follows for this bench:
 
 The three open firmwares split the DShot range the same way in 3D. Values
 48 to 1047 run the motor the reverse of its set direction, at twice the
-step: AM32 `(value − 48) × 2 + 47` with `forward` set to the reverse of
-`dir_reversed` (`main.c` 1286 to 1299). Values 1048 to 2047 run it in the
-set direction from low: `(value − 1048) × 2 + 47` (`main.c` 1271 to 1285).
+step: AM32 `(value − 48) × 2 + 47` with `forward = dir_reversed`, which
+is the reverse of the set direction (`main.c` 1286 to 1299). Values 1048
+to 2047 run it in the set direction from low: `(value − 1048) × 2 + 47`
+(`main.c` 1271 to 1285).
 AM32 changes direction only once the motor is slow (`commutation_interval`
 above its threshold and duty below 200 of 2000), and sends 0 until then.
 Bluejay subtracts 2000 in its doubled units, sets the reverse direction
@@ -173,7 +174,7 @@ last such frame. On this bench the KISS receiver assembles 10-byte frames
 
 ## The command path today
 
-As built on `main` at 33079ee:
+As built on `main` at bbf04e3:
 
 - **Frames.** Core1 sends one frame every 1000 µs whatever the arm state;
   disarmed, the throttle is 0 (`escFrameAction()`, `src/esc_task.h` line
@@ -220,18 +221,18 @@ command, its repeats, and an optional save after it.
 | Motor | eRPM 0 in the last reply | the enable's own rule (`ready`, `src/esc_task.h` line 637) |
 | Order | the EDT enable first, then the sequence | as the beacon today: a broken enable reaches no count. `ready` stays false from the sequence's first frame to the end of its last gap, so a scheduled enable cannot land between 8 and 12 |
 | Arm | drops the sequence | the rule of `escFrameAction()`; unreachable from the page, which cannot arm |
-| Answers within a block | a good reply, by `lastRpmMs`, to each of frames 1 to 6 of every block of 7 to 10 and 12, read before the next frame | no ESC acts before frame 6 (AM32) or 7 (Bluejay, BLHeli_S); the 500 ms link rule is too slow for a 620 ms sequence |
-| A missing answer | the block stops at once; 0 frames follow; the sequence ends | see the outcomes below |
-| Answers after frame 6 | not read | Bluejay may act from frame 7 on and writes flash with interrupts off, enabling them again only after the write (`DShot.asm` 203 to 209): a gap in the answers then is expected, not measured |
+| Replies within a block | the result `out_dshot_poll()` returns for the previous frame (`src/esc_task.cpp` line 429), passed into the pure slot: `DSHOT_REPLY_GOOD`, eRPM or EDT alike, is that frame's reply. Frames 1 to 6 of every block of 7 to 10 and 12 need one each, read before the next frame; one reply to frames 1 to 5 may be missing or bad, frame 6's may not | no ESC acts before frame 6 (AM32) or 7 (Bluejay, BLHeli_S). The 500 ms link rule is too slow for a 620 ms sequence, and `lastRpmMs` cannot serve: only eRPM replies stamp it (`escFoldReply()`, `src/esc_task.h` line 851), in whole ms, and with EDT on AM32 answers about one frame in 29 with an EDT frame (current every 40 counts, voltage and temperature every 200, `dshot.c` lines 40 to 42, 246 to 268), so about a third of the 12 checked frames of a hold would fail |
+| A missing reply beyond that | the block stops at once; 0 frames follow; the sequence ends | see the outcomes below |
+| Replies after frame 6 | not read | Bluejay may act from frame 7 on and writes flash with interrupts off, enabling them again only after the write (`DShot.asm` 203 to 209): a gap in the answers then is expected, not measured |
 | A request that cannot start | expires after `ESC_CMD_WAIT_MS`, 2000 ms; `escCancelCommand()` ends it at once | a request left waiting would fire later, on another screen |
 | Core0 hangs | the sequence finishes | command frames leave before the heartbeat check (above); a sequence carries no throttle and lasts at most 620 ms, or 1020 ms for beacon 5 |
 
 Outcomes, as `escCommandState()` reports them:
 
-| Where the answer went missing | State | Page |
+| Where the reply went missing | State | Page |
 |---|---|---|
-| frames 1 to 5 of the first block | `NotSent` | `NOT SENT: THE ESC STOPPED ANSWERING.`: no ESC acted |
-| frame 6 of the first block, or later before the save block's frame 6 | `SaveLost` | `SAVE NOT SENT: POWER-CYCLE THE ESC.`: the change may sit in the ESC's RAM; a power cycle drops it. A missing answer to the save block's frame 6 can follow an AM32 save, which acts on frame 6; the power cycle then keeps the change, and the direction check below says which |
+| frames 1 to 5 of the first block, the second miss there | `NotSent` | `NOT SENT: THE ESC STOPPED ANSWERING.`: no ESC acted |
+| frame 6 of the first block, or later before the save block's frame 6 | `SaveLost` | `SAVE NOT SENT: POWER-CYCLE THE ESC.`: the change may sit in the ESC's RAM; a power cycle drops it. A missing reply to the save block's frame 6 can follow an AM32 save, which acts on frame 6; the power cycle then keeps the change, and the direction check below says which |
 | none | `Sent` | the sent lines |
 | the request never started | `Expired` | `NOT SENT: THE ESC WAS NOT READY.` |
 
@@ -280,7 +281,7 @@ it opens only while the claim is Free. It opens through `uiOpenTool()`
 (`src/ui.cpp` line 969), which runs the tester's disarm first
 (`testerDisarm()`, line 938). It has no arm control. Core0 sends its
 heartbeat on every frame of every screen (`uiTick()`, line 1315), so the
-250 ms heartbeat rule holds here as on the tester.
+250 ms heartbeat rule holds here for the throttle, as on the tester.
 
 - **BEEP 1 to 5:** a tap each; the screen shows `SENT 3 (BEEP 3).`, and
   every control is drawn disabled for the beep's gap.
@@ -306,7 +307,7 @@ written for lists of changes; here one button is one change and names it:
 | Disarmed only | `escFrameAction()`; `escRequestCommand()` refuses while armed; `uiOpenTool()` disarms on the way in; the page has no arm control | a command frame in place of a throttle; an ESC ignores commands while it turns |
 | eRPM 0 | the slot's `ready`; `Turning` | a prop still coasting after the disarm |
 | 1500 ms of answers | the slot; `Settling` | AM32's own arming, about 1 s |
-| An answer to frames 1 to 6 of each block | the slot | a save reported as sent to an ESC that restarted or went |
+| A reply to frames 1 to 6 of each block, one miss allowed in 1 to 5 | the slot, from `out_dshot_poll()`'s result | a save reported as sent to an ESC that restarted or went |
 | A 1000 ms hold for each write | `ui_hold` | a brush of the glass writing the ESC |
 | Save in the same hold | the slot's sequence | a direction that reverts on the next power cycle, unseen ([question 2](#open-questions)) |
 | BACK disabled while waiting or sending | the page; the wait expires after 2000 ms | leaving mid-sequence, as during a write, and a request that fires later on another screen |
@@ -428,7 +429,7 @@ Message lines, each with its width; every one is at most 37 characters:
 | Sending a direction | `SENDING 8 (REVERSED), THEN 12 (SAVE).` (221 px) | `C_TEXT` |
 | Sent a direction | `SENT 8 (REVERSED), THEN 12 (SAVE).` (203 px) or `SENT 7 (NORMAL), THEN 12 (SAVE).` (191 px); `NOTHING CONFIRMS THE ESC TOOK THEM.` (209 px); `CHECK IT ON THE TESTER WITH 3D OFF.` (209 px) | `C_TEXT` |
 | Sending 3D | `SENDING 10 (3D ON), THEN 12 (SAVE).` (209 px) or `SENDING 9 (3D OFF), THEN 12 (SAVE).` (209 px) | `C_TEXT` |
-| Sent 3D ON | `SENT 10 (3D ON), THEN 12 (SAVE).` (191 px); `THE TESTER SHOWS THE 3D NOTE NOW.` (197 px); `IN 3D, 0 TO 50% RUNS REVERSED AT 2X;` (215 px); `ABOVE 50% FORWARD, FROM LOW.` (167 px); `THE NOTE ENDS AT A RESTART.` (161 px), unless question 4 chooses (c) | `C_TEXT`, the last three `C_AMBER` |
+| Sent 3D ON | `SENT 10 (3D ON), THEN 12 (SAVE).` (191 px); `THE TESTER SHOWS THE 3D NOTE NOW.` (197 px); `IN 3D, 0 TO 50% RUNS REVERSED AT 2X;` (215 px); `ABOVE 50% THE SET WAY, FROM LOW.` (191 px); `THE NOTE ENDS AT A RESTART.` (161 px), unless question 4 chooses (c) | `C_TEXT`, the last three `C_AMBER` |
 | Sent 3D OFF | `SENT 9 (3D OFF), THEN 12 (SAVE).` (191 px); `THE 3D NOTE STAYS UNTIL A RESTART.` (203 px), by question 4's recommendation | `C_TEXT` |
 | A beacon | `SENDING 3 (BEEP 3).` (113 px), then `SENT 3 (BEEP 3).` (95 px) | `C_TEXT` |
 | No answer | `NO ESC ANSWERS ON SIG GP0.` (155 px) | `C_AMBER` |
@@ -460,8 +461,15 @@ duty, `duty_cycle_setpoint`, runs to 2000 at full:
 - **Without sine start:** duty = `map(input, 47, 2047, minimum_duty_cycle,
   2000)` with input the DShot value (`main.c` lines 1363, 1384).
   `minimum_duty_cycle` is the MIN DUTY setting × 10, 0 to 500, that is 0 %
-  to 25 % (`main.c` lines 662 to 666), plus `dead_time_override` when the
-  driving brake strength is below 10 (lines 715 to 721).
+  to 25 % (`main.c` lines 662 to 666). Two more terms add to it: with the
+  driving brake strength below 10, `dead_time_override` =
+  `DEAD_TIME + (150 − 10 × strength)` (lines 711 to 721), where `DEAD_TIME`
+  is a constant of each target that the bench cannot read; and on targets
+  built with `USE_STARTUP_BOOST`, 50 + PWM frequency × 50 / 24 (lines 2081
+  to 2085). Which targets set it is unknown here. AM32 CONFIG reads the
+  strength as BRAKE RUNNING LEVEL at 0x2A (`src/am32_eeprom.cpp` line 129),
+  AM32's `driving_brake_strength`, byte 42 (`Inc/eeprom.h` line 55); 0 and
+  values above 9 count as 10.
 - **With sine start:** below the changeover, SINE RANGE × 20, 5 % to 25 %
   (`main.c` line 704), the value is remapped onto 47 to 160 for the sine
   start; from the changeover it is remapped onto 160 to 2047 (lines 1322 to
@@ -518,7 +526,8 @@ at about 14,000 RPM in the ideal case; RPM/V reads 875 and the estimate
 1,750. The eRPM step there is 0.33 %, ±0.17 % about the true value; with
 EDT voltage, ±0.78 %, the estimate's quantisation is about ±0.95 %, with
 KISS about ±0.2 %. The motor's own losses lower both, by an amount not
-known here.
+known here. With MIN DUTY at its 25 % maximum and no sine start, AM32's map
+puts the estimate at × 1.08 at 75 %, outside the table's columns.
 
 ### When it is shown
 
@@ -598,8 +607,11 @@ to 19), from which both figures follow.
   every command frame with the telemetry bit; the EDT enable first and the
   sequence whole after it; refused while armed; held while eRPM is not 0;
   held until the link has answered 1500 ms and not at 1499 ms; dropped by
-  an arm; a missing answer to each of frames 1 to 6 of each block in turn,
-  with the outcome of the table (`NotSent` up to frame 5 of the first
+  an arm; the reply results fed in per frame: an EDT reply in each of
+  frames 1 to 6 counted as a reply, one missing or bad reply in frames 1 to
+  5 passed, a second, and a missing reply to frame 6, ending the block,
+  each frame of each block in turn, with the outcome of the table
+  (`NotSent` up to frame 5 of the first
   block, `SaveLost` after it) and no answer read after frame 6; no
   scheduled EDT enable between the two blocks; a request at `Busy` that
   expires at 2000 ms and not at 1999 ms, and one cancelled; a sequence
@@ -715,10 +727,13 @@ in either order.
 7. **The estimate's minimum throttle, and after the disarm.** (a) 30 %: on
    AM32 with sine start it reads × 0.41, with MIN DUTY 5 % × 1.12. (b) 75 %:
    × 0.92 and × 1.02 (recommended). (c) Shown on AM32 only after an AM32
-   CONFIG read in this power-up shows SINE STARTUP off and MIN DUTY 0, at
-   any throttle; elsewhere as (b). (d) After such a read, the estimate
-   divides by AM32's own duty map from the read SINE STARTUP, SINE RANGE
-   and MIN DUTY; elsewhere as (b). And whether the estimate keeps its last
+   CONFIG read in this power-up shows SINE STARTUP off, MIN DUTY 0 and
+   BRAKE RUNNING LEVEL 10, at any throttle; elsewhere as (b). (d) After
+   such a read, the estimate divides by AM32's own duty map from the read
+   SINE STARTUP, SINE RANGE and MIN DUTY; exact only with RUNNING LEVEL
+   10, since below it `DEAD_TIME` enters; elsewhere as (b). For (c) and
+   (d), a target built with `USE_STARTUP_BOOST` adds to the minimum duty,
+   and which targets do is unknown. And whether the estimate keeps its last
    value after the disarm (not recommended: a held figure reads as a live
    one).
 8. **ESC information, command 6.** Build a slice that reads its reply on
