@@ -22,6 +22,8 @@ static uint8_t    s_aux   = PIN_CLAIM_NO_GPIO;  /**< AUX GPIO, latched at Held. 
 static uint8_t    s_jobError = CORE1_JOB_OK;    /**< Why the job did not bind. */
 /** @brief A start went to core1 and has not been answered. */
 static bool       s_jobPending = false;
+/** @brief Held starts the job: from pinClaimBegin(), or pinClaimStartJob() for a deferring user. */
+static bool       s_jobWanted = false;
 /** @} */
 
 /** @brief The core1 job a screen runs; None for AM32. @see PIN_USERS */
@@ -69,6 +71,7 @@ static void settle() {
 	s_who   = PinUser::None;
 	s_roles = 0;
 	s_sig = s_aux = PIN_CLAIM_NO_GPIO;
+	s_jobWanted = false;
 }
 
 ClaimRefusal pinClaimBegin(PinUser who, uint8_t roles) {
@@ -91,6 +94,7 @@ ClaimRefusal pinClaimBegin(PinUser who, uint8_t roles) {
 	s_sig = s_aux = PIN_CLAIM_NO_GPIO;
 	s_jobError = CORE1_JOB_OK;
 	s_jobPending = false;
+	s_jobWanted = !pinUserInfo(who).deferJob;
 	s_state = ClaimState::Stopping;
 	// Disarms again, as the backstop under the Armed rule.
 	escTaskSuspend();
@@ -107,7 +111,7 @@ ClaimState pinClaimPoll() {
 				s_sig = escTaskDshotPin();
 				s_aux = escTaskKissPin();
 				s_state = ClaimState::Held;
-				startJob();
+				if (s_jobWanted) startJob();
 			}
 			break;
 
@@ -188,6 +192,15 @@ void pinClaimRestart(PinUser who) {
 	restore();
 }
 
+void pinClaimStartJob(PinUser who) {
+	settle();
+	if (who != s_who || (s_state != ClaimState::Stopping && s_state != ClaimState::Held)) return;
+	bool first = !s_jobWanted;
+	s_jobWanted = true;
+	// Held with no job yet: the tap starts it. Stopping starts it at Held.
+	if (first && s_state == ClaimState::Held) startJob();
+}
+
 void pinClaimRetry(PinUser who) {
 	// A start that is pending has no error, so this also refuses a RETRY
 	// while one is under way.
@@ -199,5 +212,7 @@ void pinClaimRetry(PinUser who) {
 void pinClaimKeep(PinUser who) {
 	if (who != s_who || !pinClaimUnplugDue()) return;
 	s_state = ClaimState::Held;
-	startJob();
+	s_jobError = CORE1_JOB_OK;
+	s_jobPending = false;
+	if (s_jobWanted) startJob();
 }

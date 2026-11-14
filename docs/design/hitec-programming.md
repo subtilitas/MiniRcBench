@@ -322,7 +322,7 @@ struct HitecStatus {
     uint16_t      ackSeq;
     HitecJobState job;
     HitecRefusal  refused;          // of the last command taken
-    uint8_t       family;           // hitec_family_t, set before the claim
+    uint8_t       family;           // hitec_family_t, set before the job starts
     uint8_t       lineError;        // hitec_line_err_t of the open
     uint8_t       result;           // hitec_ses_t of the last operation
     uint8_t       lastRx;           // hitec_rx_t of the last decoded step
@@ -348,12 +348,17 @@ session forget it (`hitec_image_forget()`), and `hitec_plan()` refuses with
 job's status carries as built ([kst-programming.md](kst-programming.md#work-breakdown),
 step 5).
 
-The family is chosen before the claim. `hitecJobSetFamily(family)` writes it
-under the job's critical section, on core0, only while no core1 job runs;
-the screen calls it, then begins the claim, and the bind reads it and opens
-the line for that family. RETRY after a bind error (`pinClaimRetry()`) and
-BACK on the unplug page (`pinClaimKeep()`) bind again with the family it
-holds. An open failure is a bind error, reported by `pinClaimJobError()` as
+The family is chosen before the job starts, after the claim. The screen
+claims SIG on its first frame, with no family yet: the claim's user row
+defers the job (`PinUserInfo::deferJob`), so the claim stays Held, the pad
+an input with the pull-up `esc_task.cpp` leaves on it. The family tap calls
+`hitecJobSetFamily(family)`, which writes it under the job's critical
+section, on core0, only while no core1 job runs, and then
+`pinClaimStartJob()`; the bind reads it and opens the line for that family.
+RETRY after a bind error (`pinClaimRetry()`) and BACK on the unplug page
+(`pinClaimKeep()`) bind again with the family it holds; BACK on an unplug
+page reached from the family view returns to Held with no job. An open
+failure is a bind error, reported by `pinClaimJobError()` as
 `GP0 COULD NOT BE TAKEN (PIO)`, `(DMA)` or `(CLOCK)` with RETRY, as on the
 other servo screens. Another family means leaving through the unplug page
 and choosing again.
@@ -476,7 +481,7 @@ the job touches neither pin.
   ([decision 2](#decisions-of-the-owner)). CLASSIC is drawn disabled, with
   `NEEDS THE CONVERTER OF WIRING PART C` and
   `AND SETTINGS > SERVO SUPPLY GP28/29.` under it, while `SERVO SUPPLY` is
-  `NONE`; D SERIES then reads `POWER THE SERVO UP BEFORE THE TAP.`
+  `NONE`; D SERIES then reads `POWER THE SERVO UP, THEN TAP.`
 - **D series uses it when it is set.** With a switch the converter is the
   servo's only supply, so every D series entry runs a POWER step. With
   `NONE` the entry runs on the user's supply as it is.
@@ -685,8 +690,8 @@ its rows, values, stepper and texts in `src/hitec_view.*`, as
 
 | View | What it shows | Controls |
 |---|---|---|
-| Family | CLASSIC (HS-5XXX, HS-7XXX) and D SERIES, with the wiring note of each; no pin is claimed yet. CLASSIC disabled with `NEEDS THE CONVERTER OF WIRING PART C` and `AND SETTINGS > SERVO SUPPLY GP28/29.` under `NONE`, enabled with `GP28` or `GP29` ([decision 13](#decisions-of-the-owner)); under `NONE`, D SERIES with `POWER THE SERVO UP BEFORE THE TAP.` | CLASSIC, D SERIES, BACK |
-| Claim | the KST screen's: `CHECKING GP0 FOR AN ESC`, `RELEASING GP0`, the refusals and bind errors | BACK |
+| Family | the claim on SIG from the first frame: `RELEASING GP0 FROM DSHOT`, then `GP0 IS THE SERVO'S: DSHOT IS OFF.` in green over `CONNECT THE SERVO, CHOOSE ITS FAMILY`; while an ESC answers, `AN ESC ANSWERS ON GP0: UNPLUG IT.` over `DSHOT STAYS ON THE PIN UNTIL THEN.` in amber. CLASSIC (HS-5XXX, HS-7XXX) and D SERIES, with the wiring note of each, act once the claim holds. CLASSIC disabled with `NEEDS THE CONVERTER OF WIRING PART C` and `AND SETTINGS > SERVO SUPPLY GP28/29.` under `NONE`, enabled with `GP28` or `GP29` ([decision 13](#decisions-of-the-owner)); under `NONE`, D SERIES with `POWER THE SERVO UP, THEN TAP.` | CLASSIC, D SERIES, BACK: the unplug page once the claim holds, else MENU |
+| Bind | after the family tap, `TAKING GP0` while the job binds; a bind error, `GP0 COULD NOT BE TAKEN (PIO)`, `(DMA)` or `(CLOCK)` | RETRY, BACK |
 | Entry, classic | `SUPPLY OFF 0.5 S`, then `LISTENING FOR THE SERVO` with the window's progress, then `ENTERING`; the amber ESC line below | STOP, BACK |
 | Entry, D series | with a switch, `SUPPLY OFF 0.5 S`, then `SERVO STARTING 1.0 S` and the amber ESC line; then `READING THE MODEL` | STOP, BACK |
 | Entry failed | `NO SERVO IN SERIAL MODE` or `NO SERVO ANSWERS`, the decoder's word (`SILENT`, `LATE`, `SUM` and the rest of rcbench's 14 codes); `THE SUPPLY IS OFF.` with a switch; with a switch and the classic family, `CHECK THE CONVERTER ON GP28, THE SIGNAL AND GROUND.`, naming the enable pin | RETRY, BACK |

@@ -727,7 +727,26 @@ GPIO senses USB power, so the firmware cannot tell USB from the cell. With
 USB power alone the value can be low and then says nothing about a cell;
 below 2.50 V (`BOARD_CELL_IMPLAUSIBLE_MV`), implausible for a working cell,
 it is drawn in the normal text colour, and red again from 2.55 V, the same
-50 mV band. Nothing is refused on the reading.
+50 mV band.
+
+While the value is red (`BoardCell::Critical`, `uiBoardWriteRefused()`),
+KST SERVO, HITEC SERVO and AM32 CONFIG refuse a write and a KST or Hitec
+restore. KST SERVO and HITEC SERVO ask at the end of the hold: refused
+there, no file goes to the card and no frame to the servo. They ask again
+just before their files and their write go out, after a wait for a card
+flush: refused there, the backup and the write's record may be on the card
+already, and no frame goes out. AM32 CONFIG asks once, before its backup:
+refused, no file goes to the card and no byte to the ESC. A write already
+running is not stopped: cut off, it would leave the servo partly written
+and unverified, while one that finishes ends with its read-back. The KST
+and Hitec write pages read, in amber at y 196 and y 208,
+`BOARD VOLTAGE IS RED: NOT WRITTEN.` and
+`CHARGE THE BOARD'S CELL, HOLD AGAIN.`; AM32 CONFIG shows the two lines as
+its write's result. Amber, the text colour, and a value below 2.50 V (no
+cell to judge) refuse no write. The bands are a lithium-polymer cell's
+usual range, not measured on this board; what the divider reads with USB
+power and no cell is not measured either, so a board on USB alone may
+refuse writes.
 
 ---
 
@@ -779,23 +798,23 @@ shows `--`. RPM shows a dark red zero, and the line under it reads
 held old values would show a plausible reading from an ESC that is no longer
 connected.
 
-The RPM area's bottom row, y 114, holds the pole count and the swipe hint.
-While `uiAm32Esc3d()` is true it holds `3D MODE ESC: THROTTLE SCALE DIFFERS`
+The RPM area's bottom row, y 114, holds the pole count and the swipe hint. While
+`uiAm32Esc3d()` is true it holds `3D MODE ESC: THROTTLE SCALE DIFFERS`
 (`AM32_UI_TESTER_3D`, 35 characters, 209 px, x 10 to x 218) in amber in their
 place, armed or not, while the pad is not engaged. While a drag is engaged,
 `SWIPE ACTIVE` in green takes the row alone, as the only sign the drag took
-hold, and the note returns on release. The `ERPM` /
-`NO TELEMETRY` line above it, y 102, does not change. Arming is not refused
-on it.
-The flag is set by an AM32 CONFIG read that opens the list on settings with
-3D MODE on and by a write of settings with 3D MODE on that the ESC accepted
-(`am32BlWrite()` returned OK), whether the read-back then verifies, fails or
-differs: such an ESC may run in 3D mode. Only a list read or a verified write
-with 3D MODE off clears it, and a restart does, since it is not stored
-([AM32 ESC configuration](#editing) explains the throttle scale). A failed
-read, a read that does not open the list, a write the ESC refused and a write
-of 3D MODE off that is not verified leave it. It describes the last ESC
-AM32 CONFIG reached, not the one on the pin now: a swapped ESC is not detected.
+hold, and the note returns on release. The `ERPM` / `NO TELEMETRY` line above
+it, y 102, does not change. Arming is not refused on it. The flag is set by an
+AM32 CONFIG read that opens the list on settings with 3D MODE on and by a write
+of settings with 3D MODE on that the ESC accepted (`am32BlWrite()` returned OK),
+whether the read-back then verifies, fails or differs: such an ESC may run in 3D
+mode. Only a list read or a verified write with 3D MODE off clears it, and a
+restart does, since it is not stored ([AM32 ESC configuration](#editing)
+explains the throttle scale). A failed read, a read that does not open the list
+(the read-only view of a layout not known among them: byte 0x12 may be another
+field there), a write the ESC refused and a write of 3D MODE off that is not
+verified leave it. It describes the last ESC AM32 CONFIG reached, not the one on
+the pin now: a swapped ESC is not detected.
 
 An expired **ESC STATUS** reads `--`, never `OK`.
 
@@ -1016,8 +1035,28 @@ The screen shows which half failed:
 | `WAITING... (TRY n)` | No reply yet | Power-cycle the ESC while the screen is open |
 | `nB: xx xx xx @19200`, then `REPLY NOT UNDERSTOOD:` and `IS THE ESC RUNNING AM32?` | The ESC sent bytes that did not parse | Baud rate or framing, or firmware other than AM32. The first three bytes are shown |
 | `READ FAILED (...)` | Handshake succeeded, settings read failed | Retry; check the wire |
-| `NO VALID SETTINGS`, with `NOT AN AM32 ESC, OR BLANK SETTINGS.` and `NOTHING WILL BE WRITTEN.` | The settings block is implausible (`am32Plausible()`) | Nothing to do: the screen stays on the connect page, which has no WRITE |
-| `LAYOUT n NOT KNOWN`, with `THE TESTER KNOWS LAYOUTS 2 TO 4.` and `NOTHING WILL BE WRITTEN.` | A layout revision outside `AM32_LAYOUT_MIN_KNOWN` to `AM32_LAYOUT_MAX_KNOWN`, 2 to 4: layout 1 is AlkaMotors' firmware before 1.78, which reads nothing above byte 0x29, and 4 is the newest AM32 v2.22 writes. The text is built from the two constants | Nothing on this tester: the field table is not checked against that layout |
+| `NO VALID SETTINGS`, with `NOT AN AM32 ESC, OR BLANK SETTINGS.` and `NOTHING WILL BE WRITTEN.` | The settings block is implausible (`am32Plausible()`): among others a layout revision of 0 or above 8 | Nothing to do: the screen stays on the connect page, which has no WRITE |
+
+### Layouts outside 2 to 4
+
+The field table is checked against layout revisions 2 to 4
+(`AM32_LAYOUT_MIN_KNOWN`, `AM32_LAYOUT_MAX_KNOWN`): layout 1 is AlkaMotors'
+firmware before 1.78, which reads nothing above byte 0x29, and 4 is the
+newest AM32 v2.22 writes. A plausible block in layout 1 or 5 to 8 opens a
+read-only view (`S_VIEW` in `src/ui_am32.cpp`): the 48 bytes in hex, 8 to a
+line, and no field, since a layout the table does not know may have moved
+any of them (`am32FieldShown()`). The strip reads, in amber,
+`LAYOUT 5 NOT KNOWN: READ-ONLY.` over `NOT VERIFIED. BACKUP AM001`, or
+`NOT VERIFIED. NO CARD: NO BACKUP.` without a card or with the card held by
+USB, or `NOT VERIFIED. BACKUP FAILED.` when the card refuses it. Under the
+bytes, in grey: `THE BYTES AS READ. THE FIELD TABLE` /
+`IS NOT CHECKED FOR THIS LAYOUT.`
+
+The backup goes to the card as the view opens, since no write follows. The
+view's one control is BACK: no row, no WRITE, REVERT or HEX, and the screen
+has no transition from the view to the write. The write itself checks the
+layout of the bytes as read before anything else (`writeRefused()`), so a
+way to it would still write nothing: `LAYOUT NOT KNOWN: NOT WRITTEN`.
 
 ### Editing
 
@@ -1046,7 +1085,11 @@ Changed rows are marked amber on the left edge. **REVERT** restores the values
 that were read. **HEX** shows the raw 48 bytes for checking a field's
 decoding.
 
-Writing needs a 1 s hold on `HOLD TO WRITE`. After the write the firmware
+Writing needs a 1 s hold on `HOLD TO WRITE`. While the BOARD voltage is
+red the hold writes nothing: the result reads
+`BOARD VOLTAGE IS RED: NOT WRITTEN.` with `CHARGE THE BOARD'S CELL, HOLD
+AGAIN.` in amber under it, and OK returns to the list with the edits kept
+([Using it](#using-it), the BOARD voltage). After the write the firmware
 waits `AM32_WRITE_SETTLE_MS` (300 ms), reads the block back, and compares it
 byte for byte. It shows `WRITE VERIFIED` only on a full match, with
 `POWER-CYCLE THE ESC TO APPLY.` under it: the bench sends no command that
@@ -1091,6 +1134,9 @@ Arming is not refused on it.
 
 Before the first WRITE of a session, the settings block as read at entry goes
 to the card as `BACKUP/AMnnn.TXT` ([Device backups](#device-backups)). The
+read-only view saves it as it opens. A block in a layout outside 2 to 4 is
+saved with no field line and the line
+`Layout not known: fields not read, not verified`. The
 result line then reads `WRITE VERIFIED. BACKUP AM018`, for example, at
 scale 1. A card
 that refuses the backup stops the write: `NO BACKUP ON THE CARD: NOT WRITTEN`.
@@ -1464,6 +1510,11 @@ mounted but takes neither the backup nor the record stops the write before
 any frame:
 `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
 
+While the BOARD voltage is red, HOLD TO WRITE and HOLD TO RESTORE write
+nothing, no file and no frame, and the page reads
+`BOARD VOLTAGE IS RED: NOT WRITTEN.` and `CHARGE THE BOARD'S CELL, HOLD
+AGAIN.` in amber ([Using it](#using-it), the BOARD voltage).
+
 An image that fails rcbench's layout fingerprint is shown and not written:
 the write button reads `READ ONLY`, and with no row selected the editor bar
 reads `READ ONLY: UNKNOWN LAYOUT`.
@@ -1549,13 +1600,26 @@ not 0 answers ID 0 is not measured.
 
 ### Using it
 
-1. Open HITEC SERVO and tap D SERIES. Nothing is claimed before the
-   choice. The screen claims SIG and enters: with `GP28` or `GP29` it switches the
-   supply off for 2.0 s and on again, the strip counting `SUPPLY OFF 1.4 S`,
-   then waits for the servo's start, about 1 s; with `NONE` it reads the
-   servo at once on the supply it has, so the servo must be powered before
-   the tap. The family view says so under D SERIES:
-   `POWER THE SERVO UP BEFORE THE TAP.`
+1. Open HITEC SERVO. The screen claims SIG on its first frame, before a
+   family is chosen: DShot sends zero frames for at least 250 ms after the
+   last throttle frame, stops and leaves the pin an input with the pull-up
+   on, so no DShot frame reaches a servo connected on the family view. The
+   strip reads `RELEASING GP0 FROM DSHOT`, then `GP0 IS THE SERVO'S: DSHOT
+   IS OFF.` in green over `CONNECT THE SERVO, CHOOSE ITS FAMILY`. While an
+   ESC answers on SIG it reads `AN ESC ANSWERS ON GP0: UNPLUG IT.` over
+   `DSHOT STAYS ON THE PIN UNTIL THEN.` in amber, both families are drawn
+   disabled, and the claim follows once the ESC has been quiet for 500 ms.
+   The tap on D SERIES starts the Hitec job and the entry: with `GP28` or
+   `GP29` it switches the supply off for 2.0 s and on again, the strip
+   counting `SUPPLY OFF 1.4 S`, then waits for the servo's start, about 1 s;
+   with `NONE` it reads the servo at once on the supply it has, so the servo
+   must be powered before the tap. The family view says so under D SERIES:
+   `POWER THE SERVO UP, THEN TAP.` With the switch the supply stays off on
+   the family view. Once the pin is held, BACK on the family view passes
+   the unplug page and RESTART DSHOT, as LEAVE does, and BACK on that page
+   returns to the family view; before that, BACK returns to MENU. The ESC
+   check runs only before the claim holds: an ESC connected after that is
+   not detected.
 2. The screen reads the 21 registers, `READING 21 REGISTERS`, `7 OF 21`, and
    keeps this first full read as the session's backup. A servo that does
    not answer gives `NO SERVO ANSWERS` with the decoder's word, for example
@@ -1592,7 +1656,11 @@ not 0 answers ID 0 is not measured.
    saves, reboots the servo (1.0 s) and reads all 21 registers back: about
    1.7 s for one setting, computed from rcbench's timings and not measured.
    The page reads `WRITES SENT: 2 OF 4`, then `READING BACK`. A verified
-   write removes its record.
+   write removes its record. While the BOARD voltage is red the hold writes
+   nothing, no file and no frame, and the page reads
+   `BOARD VOLTAGE IS RED: NOT WRITTEN.` and `CHARGE THE BOARD'S CELL, HOLD
+   AGAIN.` in amber; HOLD TO RESTORE is refused the same way
+   ([Using it](#using-it), the BOARD voltage).
 6. BACK from the list opens the leave page. LEAVE with `GP28` or `GP29` switches the
    supply off; the unplug page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`
    until the line closes, and its BACK is drawn disabled until then. With
@@ -2041,7 +2109,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.9%**: 9,444 of 9,649 lines in 58 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.0%**: 9,502 of 9,699 lines in 59 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

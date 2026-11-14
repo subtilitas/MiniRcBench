@@ -153,6 +153,11 @@ static void testEveryEntry() {
 			menuFrames(1);
 		}
 		if (uiCurrentScreen() == UiScreenId::Kst) tapId(UI_FIX(KstCtl::Restart));
+		// HITEC SERVO holds SIG from its first frame: the unplug page too.
+		for (int k = 0; k < 200 && ctlPresent(UI_FIX(HitecCtl::Restart)) == false &&
+		                uiCurrentScreen() == UiScreenId::Hitec; k++)
+			menuFrames(1);
+		if (uiCurrentScreen() == UiScreenId::Hitec) tapId(UI_FIX(HitecCtl::Restart));
 		for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) menuFrames(1);
 		snprintf(what, sizeof(what), "BACK from %s lands on MENU", e[i].label);
 		checkTrue(what, uiCurrentScreen() == UiScreenId::Menu);

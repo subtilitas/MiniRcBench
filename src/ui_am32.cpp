@@ -17,6 +17,7 @@
 #include "am32_eeprom.h"
 #include "pin_claim.h"
 #include "touch.h"
+#include "ui.h"
 #include "ui_hold.h"
 #include "ui_input.h"
 #include "ui_list.h"
@@ -104,9 +105,20 @@ static_assert(sizeof(AM32_UI_3D_1) - 1 <= RESULT_CHARS && sizeof(AM32_UI_3D_2) -
               "a strip note runs off the panel");
 static_assert(sizeof(AM32_UI_NO_SETTINGS_1) - 1 <= RESULT_CHARS &&
               sizeof(AM32_UI_NO_SETTINGS_2) - 1 <= RESULT_CHARS &&
-              sizeof(AM32_UI_NOT_AM32) - 1 <= RESULT_CHARS &&
-              sizeof(AM32_UI_LAYOUT_1) - 1 <= RESULT_CHARS,
+              sizeof(AM32_UI_NOT_AM32) - 1 <= RESULT_CHARS,
               "a connect line runs off the panel");
+// The read-only view's lines: the layout is one digit (am32Plausible() takes
+// 1 to 8), "%u" two characters; the backup's name five characters.
+static_assert(sizeof(AM32_UI_RO_FMT) - 1 - 1 <= RESULT_CHARS, "the read-only line runs off the panel");
+static_assert(sizeof(AM32_UI_RO_UNVERIFIED AM32_UI_RO_NO_CARD) - 1 <= RESULT_CHARS &&
+              sizeof(AM32_UI_RO_UNVERIFIED AM32_UI_RO_FAILED) - 1 <= RESULT_CHARS &&
+              sizeof(AM32_UI_RO_UNVERIFIED AM32_UI_RO_SAVED) - 1 + 5 <= RESULT_CHARS &&
+              sizeof(AM32_UI_RO_BYTES) - 1 <= RESULT_CHARS && sizeof(AM32_UI_RO_TABLE) - 1 <= RESULT_CHARS,
+              "a read-only line runs off the panel");
+// The refusals of a write, on the result page: one scale-1 line each.
+static_assert(sizeof(UI_BOARD_LOW_1) - 1 <= RESULT_CHARS && sizeof(UI_BOARD_LOW_2) - 1 <= RESULT_CHARS &&
+              sizeof(AM32_UI_RO_REFUSED) - 1 <= RESULT_CHARS,
+              "a refusal runs off the panel");
 /** @brief The list's viewport. */
 static const UiRect LIST_VIEW  = { 0, LIST_Y0, GFX_W, LIST_H };
 
@@ -128,6 +140,11 @@ enum Am32Screen : uint8_t {
 	S_CONNECT,   /**< Prompting for ESC power, retrying the handshake. */
 	S_LIST,      /**< Browsing and editing settings. */
 	S_WRITING,   /**< Write in progress or just finished. */
+	/**
+	 * A layout the table is not checked against: the bytes, BACK alone.
+	 * No state leads from here to S_WRITING.
+	 */
+	S_VIEW,
 };
 
 static Am32Screen s_state = S_HANDOVER;
@@ -160,6 +177,9 @@ static bool       s_leaving = false;
 static bool       s_redraw = true;
 /** @brief pinClaimBegin() accepted this screen's claim. */
 static bool       s_claimed = false;
+/** @brief What became of the read-only view's backup, saved as it opened. */
+enum class RoBackup : uint8_t { NoCard, Saved, Failed };
+static RoBackup   s_roBackup = RoBackup::NoCard;
 
 /** @brief Indices into AM32_FIELDS that apply to this EEPROM's layout. */
 static uint16_t s_visible[64];
@@ -178,7 +198,6 @@ enum ConnectNote : uint8_t {
 	CN_NONE,         /**< Silence or a read that failed: the status alone. */
 	CN_GARBLED,      /**< Bytes came back that are not a bootloader's reply. */
 	CN_NO_SETTINGS,  /**< The bootloader answered; its settings are not AM32's. */
-	CN_LAYOUT,       /**< AM32's settings, in a layout the table is not checked against. */
 };
 static ConnectNote s_connectNote = CN_NONE;
 
@@ -278,6 +297,25 @@ static bool protocolShown() {
 }
 
 /**
+ * @brief The read-only view's strip: the layout, then NOT VERIFIED and
+ *        whether the backup is on the card. @see am32_view
+ * @param[out] l1 First line.
+ * @param[out] l2 Second line.
+ */
+static void readOnlyNote(const char **l1, const char **l2) {
+	static char a[40], b[40];
+	snprintf(a, sizeof(a), AM32_UI_RO_FMT, (unsigned)s_eeprom[AM32_OFF_LAYOUT_REVISION]);
+	if (s_roBackup == RoBackup::Saved)
+		snprintf(b, sizeof(b), AM32_UI_RO_UNVERIFIED AM32_UI_RO_SAVED "%.5s", s_backupName);
+	else
+		snprintf(b, sizeof(b), "%s", s_roBackup == RoBackup::Failed
+		                                 ? AM32_UI_RO_UNVERIFIED AM32_UI_RO_FAILED
+		                                 : AM32_UI_RO_UNVERIFIED AM32_UI_RO_NO_CARD);
+	*l1 = a;
+	*l2 = b;
+}
+
+/**
  * @brief The strip's note for the settings list, if one applies: the
  *        selected row's first (a protection turned off), then 3D MODE on,
  *        then a PROTOCOL on which AM32 takes no DShot, shown only where the
@@ -319,7 +357,7 @@ static void drawHeader() {
 	// which the caption alone leaves standing. @see listNote()
 	uiStripTwoLines(nullptr, C_BG, nullptr, C_BG);
 	char name[AM32_NAME_LEN + 1];
-	if (s_state == S_LIST || s_state == S_WRITING) {
+	if (s_state == S_LIST || s_state == S_WRITING || s_state == S_VIEW) {
 		am32DeviceName(s_eeprom, name);
 		char buf[48];
 		if (name[0]) {
@@ -331,8 +369,14 @@ static void drawHeader() {
 			         s_layoutRev);
 		}
 		const char *l1, *l2;
-		if (s_state == S_LIST && listNote(&l1, &l2)) uiStripTwoLines(l1, UI_COL_WARN, l2, UI_COL_WARN);
-		else uiStripText(buf, C_DIM);
+		if (s_state == S_VIEW) {
+			readOnlyNote(&l1, &l2);
+			uiStripTwoLines(l1, UI_COL_WARN, l2, UI_COL_WARN);
+		} else if (s_state == S_LIST && listNote(&l1, &l2)) {
+			uiStripTwoLines(l1, UI_COL_WARN, l2, UI_COL_WARN);
+		} else {
+			uiStripText(buf, C_DIM);
+		}
 	} else if (s_status[0]) {
 		uiStripText(s_status, C_DIM);
 	}
@@ -359,9 +403,6 @@ static void drawConnect() {
 		gfxTextCenter(210, AM32_UI_NOT_AM32, C_AMBER, 1);
 	} else if (s_connectNote == CN_NO_SETTINGS) {
 		gfxTextCenter(196, AM32_UI_NO_SETTINGS_1, C_AMBER, 1);
-		gfxTextCenter(210, AM32_UI_NO_SETTINGS_2, C_AMBER, 1);
-	} else if (s_connectNote == CN_LAYOUT) {
-		gfxTextCenter(196, AM32_UI_LAYOUT_1, C_AMBER, 1);
 		gfxTextCenter(210, AM32_UI_NO_SETTINGS_2, C_AMBER, 1);
 	}
 
@@ -484,6 +525,17 @@ static void drawList() {
 }
 
 /**
+ * @brief The read-only view: the bytes in hex, and under them why nothing
+ *        else is shown. No button: BACK in the header is its one control.
+ */
+static void drawView() {
+	uiListDraw(&s_list, drawHexLine, nullptr);
+	gfxRect(0, LIST_Y1 + 1, GFX_W, GFX_H - LIST_Y1 - 1, C_BG);
+	gfxTextCenter(EDIT_Y + 12, AM32_UI_RO_BYTES, C_GRID, 1);
+	gfxTextCenter(EDIT_Y + 26, AM32_UI_RO_TABLE, C_GRID, 1);
+}
+
+/**
  * @brief The write's state or result, centred at y @ref RESULT_Y, at scale 2
  *        when it fits the panel, else at scale 1. `WRITE VERIFIED. BACKUP
  *        AM001` is 334 px at scale 2 and ran off both edges. Every status of
@@ -549,6 +601,7 @@ void uiAm32Enter() {
 	s_backupDone = false;
 	s_backupOnCard = false;
 	s_backupName[0] = '\0';
+	s_roBackup = RoBackup::NoCard;
 	claimPins();
 }
 
@@ -560,6 +613,22 @@ void uiAm32Exit() {
 	cardCacheEnd();
 	pinClaimEnd(PinUser::Am32);
 	s_state = S_HANDOVER;
+}
+
+/**
+ * @brief The read-only view's backup, as a session's before its first
+ *        write: to the card as the view opens, with a card in, since no
+ *        write follows. The AM32 transport blocks core0 anyway, so the flush
+ *        runs on the spot.
+ */
+static void saveReadOnlyBackup() {
+	s_roBackup = RoBackup::NoCard;
+	if (!cardMounted()) return;
+	BackupResult b = am32BackupSave(s_entry, am32BlEscTypeName(), am32BlEepromAddr(), s_backupName);
+	if (b == BackupResult::Ok && cardCacheFlush() == CardCache::Failed) b = BackupResult::WriteError;
+	if (cardCacheState() == CardCache::Failed) cardCacheRecover();
+	s_roBackup = b == BackupResult::Ok ? RoBackup::Saved : RoBackup::Failed;
+	s_backupDone = b == BackupResult::Ok;
 }
 
 /** @brief Attempt one handshake plus settings read. */
@@ -616,27 +685,50 @@ static void tryConnect() {
 		s_connectNote = CN_NO_SETTINGS;
 		return;
 	}
-	if (!am32LayoutKnown(s_eeprom)) {
-		// A newer layout may have moved a field: the list does not open.
-		snprintf(s_status, sizeof(s_status), "LAYOUT %u NOT KNOWN",
-		         s_eeprom[AM32_OFF_LAYOUT_REVISION]);
-		s_connectNote = CN_LAYOUT;
-		return;
-	}
-
 	memcpy(s_original, s_eeprom, sizeof(s_eeprom));
 	memcpy(s_entry, s_eeprom, sizeof(s_entry));
+	s_selected = -1;
+	// A layout the table is not checked against may have moved any field:
+	// the read-only view, the bytes alone, and the backup. Its state has no
+	// way to S_WRITING (uiAm32Tick()).
+	bool known = am32LayoutKnown(s_eeprom);
+	s_hexView = !known;
 	buildVisible();
 	openList();
-	s_selected = -1;
-	s_state = S_LIST;
+	if (!known) saveReadOnlyBackup();
+	s_state = known ? S_LIST : S_VIEW;
 	s_redraw = true;
 	snprintf(s_status, sizeof(s_status), "READ OK");
-	s_esc3d = am32Is3d(s_eeprom);
+	// Only the list reads byte 0x12 as 3D MODE: in a layout not known it
+	// may hold another field, so the read-only view leaves the note.
+	if (known) s_esc3d = am32Is3d(s_eeprom);
+}
+
+/**
+ * @brief Whether the write may not start, and why, on the result page: a
+ *        block read in a layout the table is not checked against, or the
+ *        board's voltage in the red band. Nothing goes to the card or the
+ *        ESC. The layout is taken from the bytes as read, not from the
+ *        screen's state, so a way into S_WRITING from the read-only view,
+ *        were there one, still writes nothing.
+ */
+static bool writeRefused() {
+	if (!am32LayoutKnown(s_original) || !am32LayoutKnown(s_eeprom)) {
+		snprintf(s_status, sizeof(s_status), AM32_UI_RO_REFUSED);
+		s_nextStep = nullptr;
+		return true;
+	}
+	if (uiBoardWriteRefused()) {
+		snprintf(s_status, sizeof(s_status), UI_BOARD_LOW_1);
+		s_nextStep = UI_BOARD_LOW_2;
+		return true;
+	}
+	return false;
 }
 
 /** @brief Commit the settings block. */
 static void doWrite() {
+	if (writeRefused()) return;
 	// The settings as read at entry go to the card before the first write of
 	// the session. Without a card the write runs and the backup stays in
 	// memory, s_entry, until a write with a card saves it; a card that
@@ -808,6 +900,7 @@ uint8_t uiAm32Controls(UiControl *out, uint8_t max) {
 		             strcmp(s_status, "WRITING...") != 0);
 		return n;
 	}
+	// The read-only view's one control is BACK.
 	if (s_state != S_LIST) return n;
 	// The hex dump takes no tap, so its lines are not controls.
 	if (!s_hexView) uiListAddRows(&s_list, out, &n, max, true);
@@ -876,9 +969,14 @@ bool uiAm32Tick(const TouchState *t) {
 				doWrite();
 				s_redraw = true;
 			} else if (uiTapped(BTN_OK, t)) {
-				s_state = S_LIST;
+				s_state = am32LayoutKnown(s_original) ? S_LIST : S_VIEW;
 				s_redraw = true;
 			}
+			break;
+
+		case S_VIEW:
+			// BACK, above, is the one control: nothing here selects, steps
+			// or writes.
 			break;
 	}
 
@@ -890,6 +988,7 @@ bool uiAm32Tick(const TouchState *t) {
 			case S_CONNECT:  drawConnect(); break;
 			case S_LIST:     drawList();    break;
 			case S_WRITING:  drawWriting(); break;
+			case S_VIEW:     drawView();    break;
 		}
 	}
 

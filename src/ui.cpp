@@ -437,6 +437,8 @@ BoardCell uiBoardCell(float volts, BoardCell prev) {
 	return now;
 }
 
+BoardCell uiBoardCellNow() { return s_boardCell; }
+
 void uiBoardVoltText(float volts, char *buf, size_t n) {
 	int cv = boardCentivolts(volts);
 	snprintf(buf, n, "%u.%02uV", (unsigned)(cv / 100) % 10u, (unsigned)(cv % 100));

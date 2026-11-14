@@ -97,11 +97,16 @@ Eliminator Circuit), die Leitung seiner eigenen geregelten Versorgung.
 ## Die Familie wählen
 
 **MENU → HITEC SERVO** öffnen. Der Bildschirm öffnet mit der
-Familienauswahl. Er belegt noch keinen Pin.
+Familienauswahl und übernimmt SIG sofort vom ESC-Treiber, bevor eine Familie
+gewählt ist: DShot sendet nach dem letzten Gas-Frame mindestens 250 ms lang
+Gas null, hält an und lässt den Pin als Eingang, den sein Pull-up high hält.
+Kein DShot-Frame erreicht ein Servo, das du in dieser Ansicht anschließt.
 
-<img src="img/hitec-family.png" width="240" alt="Die Familienauswahl mit SERVO SUPPLY auf NONE: CLASSIC abgeblendet mit NEEDS THE CONVERTER OF WIRING PART C, D SERIES mit POWER THE SERVO UP BEFORE THE TAP.">
+<img src="img/hitec-family.png" width="240" alt="Die Familienauswahl mit SERVO SUPPLY auf NONE: GP0 IS THE SERVO'S: DSHOT IS OFF. in Grün, CLASSIC abgeblendet mit NEEDS THE CONVERTER OF WIRING PART C, D SERIES mit POWER THE SERVO UP, THEN TAP.">
 
-Die Leiste zeigt `CHOOSE THE SERVO'S FAMILY`. Darunter liegen zwei
+Die Leiste zeigt `RELEASING GP0 FROM DSHOT`, solange der Treiber anhält,
+dann `GP0 IS THE SERVO'S: DSHOT IS OFF.` in Grün über
+`CONNECT THE SERVO, CHOOSE ITS FAMILY`. Ab dann wirken die zwei
 Schaltflächen:
 
 - `CLASSIC`, darunter `HS-5XXX, HS-7XXX`. Es wirkt, solange SERVO SUPPLY
@@ -111,37 +116,34 @@ Schaltflächen:
   `AND SETTINGS > SERVO SUPPLY GP28/29.`
 - `D SERIES`, darunter `D485HW, D645MW AND THE OTHERS` und
   `SUPPLY SWITCHED ON GP28` (oder `GP29`, je nach Einstellung) oder, unter
-  `NONE`, `POWER THE SERVO UP BEFORE THE TAP.`: An seiner eigenen
+  `NONE`, `POWER THE SERVO UP, THEN TAP.`: An seiner eigenen
   Versorgung muss das Servo laufen, wenn der Bildschirm eintritt, denn der
   Eintritt liest sofort sein Modell.
 
-**Schalte das Servo ein, dann tippe auf `D SERIES`.** Mit `GP28` oder `GP29`
-schaltet die Platine es ein. `BACK` in dieser Ansicht führt zu `MENU` zurück.
+**Schließe das Servo an, schalte es ein, dann tippe auf `D SERIES`.** Mit
+`GP28` oder `GP29` bleibt der Wandler in dieser Ansicht aus, von seinem
+Pull-down gehalten, und der Prüfstand schaltet das Servo nach dem Tippen ein.
 
-> **Bis eine Familie gewählt ist, führt SIG DShot.** Die Familienansicht belegt
-> keinen Pin, und der DShot-Treiber sendet weiter alle 1000 µs einen Frame,
-> auch unscharf. Bidirektionales DShot hält die Leitung high und zieht sie bei
-> der voreingestellten DSHOT KBAUD von 600 je Frame etwa 27 µs lang low: Ein
-> PWM-Servo (Pulsweitenmodulation) liest das als Impuls von etwa 970 µs mit
-> 1000 Hz. Was ein Servo der D-Serie damit macht, ist nicht gemessen.
-> - Mit SERVO SUPPLY auf `NONE` braucht der Bildschirm das Servo beim Tippen
->   eingeschaltet, also halte diese Zeit kurz: Öffne HITEC SERVO, schließe das
->   Servo mit ausgeschalteter Versorgung an, schalte dann die Versorgung ein
->   und tippe sofort auf `D SERIES`.
-> - Mit `GP28` oder `GP29` bleibt der Wandler in der Familienansicht aus,
->   von seinem Pull-down gehalten, und der Prüfstand schaltet das Servo nach
->   dem Tippen ein.
+Gehört der Pin dem Servo, führt `BACK` in dieser Ansicht zur Abziehseite,
+wie `LEAVE`: DShot startet erst nach `UNPLUG THE SERVO.` und
+`RESTART DSHOT` neu. `BACK` auf der Abziehseite führt zur Familienauswahl
+zurück. Solange der Treiber noch anhält oder der Bildschirm den Pin nicht
+übernommen hat, führt `BACK` zu `MENU` zurück.
 
-Der Bildschirm übernimmt dann SIG vom ESC-Treiber. Dabei zeigt die Leiste
-`RELEASING GP0`, dann `TAKING GP0`. Solange ein ESC auf dem Pin antwortet,
-zeigt sie stattdessen `CHECKING GP0 FOR AN ESC`.
+<img src="img/hitec-family-esc.png" width="240" alt="Die Familienauswahl, während ein ESC auf GP0 antwortet: AN ESC ANSWERS ON GP0: UNPLUG IT. und DSHOT STAYS ON THE PIN UNTIL THEN. in Bernstein, beide Familien abgeblendet.">
 
-- Antwortet ein ESC auf dem Pin, zeigt der Bildschirm `AN ESC ANSWERS ON GP0.`
-  und danach `UNPLUG IT: A HITEC ENTRY SENDS` und
-  `FRAMES INTO WHAT IS ON THE WIRE.` Er übernimmt den Pin, sobald der ESC weg
-  ist.
-- Solange der ESC scharf ist, zeigt der Bildschirm `DISARM FIRST`. Solange die
-  Pins noch belegt sind, zeigt er `PINS BUSY`.
+- Antwortet ein ESC auf dem Pin, zeigt die Leiste in Bernstein
+  `AN ESC ANSWERS ON GP0: UNPLUG IT.` und
+  `DSHOT STAYS ON THE PIN UNTIL THEN.`, und beide Familien sind abgeblendet
+  gezeichnet. Der Bildschirm übernimmt den Pin, sobald der ESC 500 ms lang
+  still ist. Die Prüfung läuft nur, bevor der Pin übernommen ist: Ein ESC,
+  der danach angeschlossen wird, wird nicht erkannt.
+- Solange der Tester scharf ist, zeigt die Leiste `DISARM FIRST`. Solange die
+  Pins noch belegt sind, zeigt sie `PINS BUSY`.
+
+Das Tippen startet den Hitec-Job für diese Familie. Während er sich bindet,
+zeigt die Leiste der nächsten Ansicht `TAKING GP0`.
+
 - Kann die Platine die Leitung nicht einrichten, zeigt der Bildschirm
   `GP0 COULD NOT BE TAKEN (`, danach `REFUSED`, `PWM`, `PIO`, `DMA` oder
   `CLOCK` und eine schließende Klammer. PWM ist Pulsweitenmodulation, DMA
@@ -155,7 +157,7 @@ zeigt sie stattdessen `CHECKING GP0 FOR AN ESC`.
 
 ## Eintritt und Lesen
 
-Ist der Pin übernommen, beginnt der Eintritt sofort.
+Hält der Job die Leitung, beginnt der Eintritt sofort.
 
 - **Mit SERVO SUPPLY auf `NONE`** liest der Bildschirm das Servo an der
   Versorgung, die es hat. Schalte das Servo ein, bevor du auf `D SERIES`
@@ -384,6 +386,29 @@ Ergebnis. Der Bildschirm bricht ein Schreiben nie ab.
 
 Ein geprüftes Schreiben entfernt seinen Vermerk. Spätere Schreibvorgänge der
 Sitzung sichern kein zweites Mal.
+
+### Die BOARD-Spannung rot
+
+Solange die BOARD-Spannung auf dem Tester rot ist, unter 3,30 V und bis sie
+wieder 3,35 V erreicht, schreibt das zweite Halten nichts: Keine Datei geht
+auf die Karte und kein Frame zum Servo. Die Seite zeigt in Bernstein
+`BOARD VOLTAGE IS RED: NOT WRITTEN.` und
+`CHARGE THE BOARD'S CELL, HOLD AGAIN.`, und `HOLD TO WRITE` bleibt. Der
+Bildschirm fragt erneut, kurz bevor die Dateien des Schreibens und sein
+erster Frame hinausgehen, nach dem Warten auf das Übertragen zur Karte. Eine
+Spannung, die währenddessen rot wird, hält das Schreiben ebenfalls an: Die
+Sicherung und der Vermerk des Schreibens können dann schon auf der Karte
+sein, und kein Frame geht hinaus. Ein laufendes Schreiben wird nicht
+angehalten: Abgebrochen ließe es das Servo teilweise geschrieben und
+ungeprüft zurück, während eines, das zu Ende läuft, mit dem Rücklesen
+endet. Bernstein und ein Wert unter 2,50 V (keine Zelle zu beurteilen)
+lehnen kein Schreiben ab. `HOLD TO RESTORE` wird ebenso abgelehnt. Die
+Bereiche sind der übliche Bereich einer Lithium-Polymer-Zelle, auf dieser
+Platine nicht gemessen. Was die Platine an USB-Versorgung ohne Zelle liest,
+ist ebenfalls nicht gemessen, also kann eine Platine nur an USB das
+Schreiben ablehnen.
+
+<img src="img/hitec-board-low.png" width="240" alt="Die Schreibseite mit roter BOARD-Spannung: BOARD VOLTAGE IS RED: NOT WRITTEN. und CHARGE THE BOARD'S CELL, HOLD AGAIN. in Bernstein">
 
 ### Das Ergebnis
 
