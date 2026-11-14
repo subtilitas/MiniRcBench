@@ -398,8 +398,9 @@ TO ARM.
 
   The pad ends where the gauge's grab area begins, with no overlap and no gap.
   The hint under the RPM readout reads `SWIPE = THROTTLE`, cyan while armed,
-  and changes to `SWIPE ACTIVE` in green while a drag is engaged. The 3D note
-  below takes its place.
+  and changes to `SWIPE ACTIVE` in green while a drag is engaged. While the
+  3D note shows ([Telemetry and logging](#telemetry-and-logging)), it takes
+  the hint's place and the pad works the same.
 - **HOLD**: off by default. Turning it off sets the throttle to zero.
 - **MENU**: the list of tools and settings. Opening it disarms, sets the
   throttle to zero and turns HOLD off.
@@ -625,7 +626,8 @@ SAVE`); opening MENU disarms, so the refusal is a backstop. **HOLD RESET**
 (1 s, `UI_HOLD_MS`, the same hold widget, `src/ui_hold.*`) loads the compiled
 defaults, pole count and throttle ceiling included, into the live settings. A
 tap loads nothing, a slide off the button cancels the hold, and a bar over
-the button and an amber fill show it running. It has no armed check: SETTINGS
+the button and a `C_RED` fill, as on every hold but HOLD TO SAVE, show it
+running. It has no armed check: SETTINGS
 opens only through MENU, which disarms. Flash changes only on the next save.
 
 Every value applies when changed. Only persistence needs the hold, so a value
@@ -759,7 +761,8 @@ The RPM area's bottom row, y 114, holds the pole count and the swipe hint.
 While `uiAm32Esc3d()` is true it holds `3D MODE ESC: THROTTLE SCALE DIFFERS`
 (`AM32_UI_TESTER_3D`, 35 characters, 209 px, x 10 to x 218) in amber in their
 place, armed or not and with the pad engaged or not. The `ERPM` /
-`NO TELEMETRY` line above it, y 102, does not change. Arming does not change.
+`NO TELEMETRY` line above it, y 102, does not change. Arming is not refused
+on it.
 The flag is set by an AM32 CONFIG read that opens the list on settings with
 3D MODE on and by a verified write with 3D MODE on; a read or verified write
 with 3D MODE off clears it, and a restart does, since it is not stored
@@ -1237,12 +1240,14 @@ their own range) and either changes TYPE or takes MIN below or MAX above the
 applied profile's (`servoTravelNeedsHold()`). Its warning is the amber
 end-stop note, `PAST ITS TRAVEL A SERVO STALLS AND` / `HEATS. TRY MIN AND MAX
 HORN-FREE.`; a heli or 60 Hz warning comes first when both apply. Each step
-decides again: a step back inside the margin, or back to the applied MIN or
-MAX, ends the wait and applies. A step toward the centre, and a SERVOS, RATE
-(up to 60 Hz), CENTRE or REVERSE B change, applies at once, so TWO under an
-applied past-travel profile drives both servos with it without a new hold.
-HELI CYCLIC's own 820 µs to 2220 µs are past the travel; its one hold covers
-both warnings. A SET opened again shows the applied profile, nothing pending.
+decides again against the applied profile: a step back inside the margin, or
+back to the applied MIN or MAX, ends the wait and applies when nothing else
+waits. A step toward the centre, and a SERVOS, RATE (up to 60 Hz), CENTRE or
+REVERSE B change, applies at once while nothing waits and joins a waiting
+change otherwise. So TWO under an applied past-travel profile drives both
+servos with it without a new hold. HELI CYCLIC's own 820 µs to 2220 µs are
+past the travel; its one hold covers both warnings. BACK from SET drops a
+waiting change, and SET opens again on the applied profile.
 The SWEEP rows (shape, 0.05 Hz to
 5.00 Hz, amplitude 0 % to 100 %, dwell 0 ms to 5000 ms, endless or 1 to 9999
 movements) change at any time and apply to the next SWEEP. `DEFAULTS`,
@@ -1805,6 +1810,11 @@ In the firmware:
   is built (STATUS.md, open item 19). Fields are never merged
   one by one, so a corrupted byte cannot raise the throttle ceiling.
 - Arming is blocked while a USB host holds the SD card.
+- After AM32 CONFIG read or verified a write of 3D MODE on, the tester shows
+  `3D MODE ESC: THROTTLE SCALE DIFFERS`; arming is not refused on it.
+- On SERVO TESTER → SET a heli profile, a rate above 60 Hz and a profile
+  taken further past its travel wait for HOLD TO APPLY (1 s).
+- SETTINGS loads the compiled defaults only after a 1 s hold of HOLD RESET.
 - The servo tester starts SAFE, with no pulses; HOLD TO START is a 1 s hold
   that puts every pin at CENTRE, and STOP acts on touch. A hold counts only
   a press that lands on the button while it is live, so a press made while

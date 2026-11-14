@@ -318,8 +318,10 @@ y   0 | SERVO SET                        [ BACK ]|
   above 60 Hz) is held as pending. The note band names the risk on two lines,
   `ABOVE 60 HZ AN ANALOGUE` `SERVO OVERHEATS.` or `A HELI PROFILE CAN
   DESTROY` `A SERVO NOT MADE FOR IT.`, and HOLD TO APPLY (1000 ms) applies it.
-  Every other change applies at once. BACK drops a pending change
-  (decision 11).
+  So is a TYPE, MIN or MAX change that takes the profile further past its
+  travel (below, decision 21). Every other change applies at once while
+  nothing is pending, and joins a pending change otherwise. BACK drops a
+  pending change (decision 11).
 - SERVOS TWO is drawn disabled when the claim refuses AUX: KISS live or SIG
   and AUX on one GPIO. With the SERVOS row selected, the note band shows the
   screen texts of the pin-claim design
@@ -332,7 +334,11 @@ y   0 | SERVO SET                        [ BACK ]|
   TAIL 760, centred at 760 µs, MIN more than `SERVO_TRAVEL_MARGIN_US` 100 µs
   below the type's MIN or MAX more than 100 µs above the type's MAX)
   shows `PAST ITS TRAVEL A SERVO STALLS AND` `HEATS. TRY MIN AND MAX
-  HORN-FREE.` in amber. It applies at once, with no HOLD TO APPLY. The note
+  HORN-FREE.` in amber. A TYPE, MIN or MAX change whose result is such a
+  profile and that changes TYPE, or takes MIN below or MAX above the applied
+  profile's, is held as pending (`servoTravelNeedsHold()`, decision 21),
+  with this note as its warning; a heli or 60 Hz warning comes first. A
+  change toward the centre applies at once. The note
   band takes the first that holds: the pending warning; `STOP TO CHANGE THE
   PROFILE`; the cause of a refused TWO on the SERVOS row; the end-stop note
   with TYPE, MIN or MAX selected; `SPEED LIMITS THE SWEEP`; `TWO SERVOS ARE
@@ -651,3 +657,16 @@ Decision of the owner, 2026-10-18, on the switched servo supply that
     fitted the converter stays off here, and the servo is unpowered unless
     it has a supply of its own.
     kst-programming.md records the same as its decision 10.
+
+Decision of the owner, 2026-11-14:
+
+21. **Limits past the travel.** TYPE WIDE, and MIN or MAX past the travel
+    margin, need HOLD TO APPLY, as the heli types do. Built as
+    `servoTravelNeedsHold()`: a change waits while the edited profile is
+    past its travel and its TYPE differs from the applied profile's, or its
+    MIN is below or its MAX above the applied profile's. A step back inside
+    the margin or to the applied value ends the wait, and a step toward the
+    centre applies at once, so one hold covers a profile once and a change
+    that only narrows it needs none. Decision 11's rule for a MIN change
+    under an applied heli profile holds when the change keeps the profile
+    inside its travel or moves MIN toward the centre. Not checked on a servo.

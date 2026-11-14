@@ -223,9 +223,10 @@ Swipe the row sideways for big steps. Drag up or down to scroll. Rows are
   profile there, or takes MIN or MAX further out than the applied profile,
   waits: the note is its warning, on every row, and `HOLD TO APPLY` (1 s)
   applies it. Stepping further while it waits keeps it waiting; stepping back
-  inside the margin, or back to the applied value, applies at once. A step
-  toward the centre applies at once. A heli or 60 Hz change shows its own
-  warning first, and HELI CYCLIC's one hold covers both. With TWO servos the
+  inside the margin, or back to the applied value, applies at once when
+  nothing else waits. A step toward the centre applies at once. `BACK` drops
+  a waiting change. A heli or 60 Hz change shows its own warning first, and
+  HELI CYCLIC's one hold covers both. With TWO servos the
   hold covers both; changing to TWO applies at once. Once applied, the note
   shows while TYPE, MIN or MAX is selected, and on other rows when no other
   note does.

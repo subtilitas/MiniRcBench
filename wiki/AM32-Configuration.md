@@ -112,7 +112,7 @@ throttle range in one direction.
 on, or written them with 3D MODE on and read them back equal (`WRITE
 VERIFIED`), the tester shows `3D MODE ESC: THROTTLE SCALE DIFFERS` in amber
 under the RPM readout, in place of the pole count and the swipe hint, armed
-or not. Arming works as before. A read or a verified write with 3D MODE off
+or not. Arming is not refused on it. A read or a verified write with 3D MODE off
 removes it, and so does a restart: it is not stored. An edit that is not
 written, a write that is not verified, and a read that does not open the list
 leave it as it was. The tester cannot tell that the ESC on the pin was

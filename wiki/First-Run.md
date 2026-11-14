@@ -159,7 +159,9 @@ commands 20 %.
 more, **down** for less. A tap does nothing, and swipes add up, so the
 throttle can be raised over several short swipes without looking. After 6 px
 of travel the hint under the RPM readout changes to `SWIPE ACTIVE` and the
-swipe moves the throttle.
+swipe moves the throttle. While the tester shows the 3D note of
+[The Screens](The-Screens) in its place, no hint shows, and the pad works
+the same.
 
 `HOLD` makes the bar relative and latching: the throttle stays where you leave
 it. The bar shows a grab handle. Turning `HOLD` off sets the throttle to zero.

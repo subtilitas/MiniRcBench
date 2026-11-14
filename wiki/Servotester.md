@@ -239,8 +239,9 @@ sind also drei auf einmal sichtbar.
   oder MAX weiter hinaus legt als im übernommenen Profil, wartet: Der Hinweis
   ist ihre Warnung, auf jeder Zeile, und `HOLD TO APPLY` (1 s) übernimmt sie.
   Weitere Schritte hinaus lassen sie warten; ein Schritt zurück innerhalb der
-  Grenze oder auf den übernommenen Wert gilt sofort. Ein Schritt zur Mitte
-  hin gilt sofort. Eine Heli- oder 60-Hz-Warnung steht zuerst, und bei HELI
+  Grenze oder auf den übernommenen Wert gilt sofort, wenn sonst nichts
+  wartet. Ein Schritt zur Mitte hin gilt sofort. `BACK` verwirft eine
+  wartende Änderung. Eine Heli- oder 60-Hz-Warnung steht zuerst, und bei HELI
   CYCLIC übernimmt ein Halten beides. Mit zwei Servos gilt das Halten für
   beide; der Wechsel auf TWO gilt sofort. Nach dem Übernehmen steht der
   Hinweis, solange TYPE, MIN oder MAX gewählt ist, und auf anderen Zeilen,

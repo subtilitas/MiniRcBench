@@ -49,9 +49,9 @@ protocol.
   not, after AM32 CONFIG read an ESC whose settings have 3D MODE on (a read
   that opens the list) or wrote 3D MODE on and verified it, in this
   power-up. A read or verified write with 3D MODE off clears it, and so does
-  a restart. Arming is unchanged. A swapped ESC is not detected.
-  `uiAm32Esc3d()` in `src/ui_am32.*`; host test `testAm32TesterNote()`; the
-  wiki shows `tester-3d.png`.
+  a restart. Arming is unchanged. A swapped ESC is not detected. By the
+  owner's decision of 2026-11-14. `uiAm32Esc3d()` in `src/ui_am32.*`; host
+  test `testAm32TesterNote()`; the wiki shows `tester-3d.png`.
 - The Release workflow publishes a tag with a suffix, such as `v0.1.0-rc1`,
   as a GitHub pre-release, and the Docs workflow publishes no manual for it.
 - The splash shows `TOUCH CONTROLLER NOT FOUND` in amber while the touch
@@ -523,11 +523,14 @@ protocol.
   applied profile waits for `HOLD TO APPLY`, with the amber end-stop note as
   its warning; the heli and 60 Hz warnings come first. A step back inside
   the margin or to the applied value applies at once, as does a step toward
-  the centre. `servoTravelNeedsHold()` in `src/servo_model.*`; the wiki
-  shows `servo-set-travel.png`.
+  the centre. By the owner's decision of 2026-11-14, decision 21 of
+  `docs/design/servo-tester.md`. `servoTravelNeedsHold()` in
+  `src/servo_model.*`; the wiki shows `servo-set-travel.png`.
 - SETTINGS: RESET reads `HOLD RESET` and loads the defaults after a 1 s hold
-  on the shared hold widget (`src/ui_hold.*`), with a bar over the button; a
-  tap loads nothing and a slide off cancels. Host test `testResetHold()`.
+  on the shared hold widget (`src/ui_hold.*`), with a bar over the button and
+  a `C_RED` fill while held, as on every hold but HOLD TO SAVE; a tap loads
+  nothing and a slide off cancels. By the owner's decision of 2026-11-14.
+  Host test `testResetHold()`.
 - SD LOG's FILE row keeps the last log's name after it ends, marked
   `(LAST)`, beside the counters that log left, until the next start or
   mount; a mount resets the name and the counters (`sdLogBegin()`). The

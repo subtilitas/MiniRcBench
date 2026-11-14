@@ -119,8 +119,9 @@ gelesen, oder sie mit 3D MODE an geschrieben und gleich zurückgelesen
 (`WRITE VERIFIED`), zeigt der Tester unter der Drehzahl in Bernstein
 `3D MODE ESC: THROTTLE SCALE DIFFERS` (3D-ESC: die Gasskala ist eine andere),
 an Stelle der Polzahl und des Wisch-Hinweises, scharf oder nicht.
-Scharfschalten geht wie bisher. Ein Lesen oder ein bestätigtes Schreiben mit
-3D MODE aus nimmt ihn weg, ebenso ein Neustart: Er wird nicht gespeichert.
+Scharfschalten wird deswegen nicht verweigert. Ein Lesen oder ein
+bestätigtes Schreiben mit 3D MODE aus nimmt ihn weg, ebenso ein Neustart: Er
+wird nicht gespeichert.
 Eine nicht geschriebene Änderung, ein nicht bestätigtes Schreiben und ein
 Lesen, das die Liste nicht öffnet, lassen ihn, wie er ist. Der Tester kann
 nicht erkennen, dass der ESC am Pin gegen einen anderen getauscht wurde: Der

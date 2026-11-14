@@ -70,13 +70,15 @@ aus der vom ESC (Electronic Speed Controller, Motorregler) gemeldeten eRPM
 darunter. Grüne Ziffern: eRPM ist in den letzten 500 ms eingetroffen.
 Dunkelrote Null: nicht, und die Zeile zeigt `NO TELEMETRY`.
 
-Hat AM32 CONFIG seit dem Einschalten einen ESC mit 3D MODE an gelesen oder
-geschrieben, zeigt die Zeile darunter in Bernstein
+Hat AM32 CONFIG seit dem Einschalten einen ESC mit 3D MODE an gelesen, oder
+3D MODE an geschrieben und gleich zurückgelesen (`WRITE VERIFIED`), zeigt die
+Zeile unter der `ERPM`-Zeile in Bernstein
 `3D MODE ESC: THROTTLE SCALE DIFFERS` (3D-ESC: die Gasskala ist eine andere),
 an Stelle der Polzahl und des Wisch-Hinweises, scharf oder nicht;
 `NO TELEMETRY` bleibt auf seiner eigenen Zeile darüber. Im 3D-Modus ist 50 %
 Gas volle Leistung in die eine Richtung, über 50 % dreht der Motor in die
-andere. Den Propeller abnehmen. Scharfschalten geht wie bisher. Der Hinweis
+andere. Den Propeller abnehmen. Scharfschalten wird deswegen nicht
+verweigert. Der Hinweis
 weiß nicht, ob der ESC am Pin gegen einen anderen getauscht wurde; ein Lesen
 oder bestätigtes Schreiben mit 3D MODE aus oder ein Neustart nimmt ihn weg.
 Siehe [AM32-Konfiguration](AM32-Konfiguration#felder-mit-hinweis).
