@@ -35,9 +35,11 @@ under DIAGNOSTICS, the reason for the last restart and the time since boot
 (design note `docs/design/diagnostics.md`).
 
 Two features are designed and not built. An S.BUS (Futaba's serial bus for
-receiver channels) receiver monitor and a PPM (pulse-position modulation)
-output are described in `docs/design/rx-signals.md`; rcbench's S.BUS decoder
-is in the tree and tested on the host, and the firmware does not build it.
+receiver channels) receiver monitor is described in
+`docs/design/rx-signals.md`, with an S.BUS output that the owner decided on
+and that is not designed yet; rcbench's S.BUS decoder is in the tree and
+tested on the host, and the firmware does not build it. A PPM
+(pulse-position modulation) output is not built, by the owner's decision.
 Menu structure B is described in `docs/design/menu-b.md`; its building
 blocks, slice 1 of 10, are in the tree, and no screen looks different yet.
 
@@ -599,7 +601,11 @@ pin is correct.
 
 The settings block is version 5 (`SETTINGS_VERSION`). A block of another
 version is discarded whole, and the compiled defaults load, every setting
-and the ESC pin included. So the first boot after an update from an earlier
+and the ESC pin included, until the migration is built: by the owner's
+decision of 2026-11-14 the firmware is to carry settings over from versions
+2, 3 and 4 into version 5, new fields at their defaults, and to discard
+only a block of a version it does not know, announced as now (STATUS.md,
+open item 19). So the first boot after an update from an earlier
 build returns every saved setting to its default once: a version 4 block,
 which has no CURRENT SENSE, does not load, nor does a version 3 block, with
 its ESC pin on GP29 or GP28 or its supply enable on GP0, nor DshotDisplay
@@ -801,7 +807,8 @@ unused number from 00001 to 09999. Existing files are not overwritten. Logs an
 earlier firmware wrote to the card's root stay there and are not counted.
 The highest number is therefore not always the newest log: a number freed on
 a computer is taken again. The board sets no clock, so the file dates do not
-order the logs either. Numbering after the highest file is open to the owner
+order the logs either. The owner decided on 2026-11-14 that new logs are
+numbered after the highest existing file instead; that is not built
 (STATUS.md, open item 20).
 
 ![SD log screen](docs/log-preview.png)
@@ -1373,9 +1380,9 @@ line then reads, in amber, `NO CARD: OLD VALUES LOST AT LEAVE` or
 `NO BACKUP ON THE CARD: LOST AT LEAVE` when the card took the record and
 refused the backup: until a later write with a card mounted saves it, the
 session's backup is the only copy of the
-servo's old values, and LEAVE, REBOOT or a power loss ends it. Whether such a
-write should be refused or need a second hold is open to the owner
-(STATUS.md, open item 20). A card that is
+servo's old values, and LEAVE, REBOOT or a power loss ends it. Such a write
+stays allowed, by the owner's decision of 2026-11-14 (STATUS.md, open item
+20). A card that is
 mounted but takes neither the backup nor the record stops the write before
 any frame:
 `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
@@ -1555,9 +1562,9 @@ line then reads, in amber, `NO CARD: OLD VALUES LOST AT LEAVE` or
 `NO BACKUP ON THE CARD: LOST AT LEAVE` when the card took the record and
 refused the backup: until a later write with a card mounted saves it, the
 session's backup is the only copy of the
-servo's old values, and LEAVE or a power loss ends it. Whether such a
-write should be refused or need a second hold is open to the owner
-(STATUS.md, open item 20). A card that is
+servo's old values, and LEAVE or a power loss ends it. Such a write stays
+allowed, by the owner's decision of 2026-11-14 (STATUS.md, open item 20). A
+card that is
 mounted but takes neither the backup nor the record stops the write before
 any frame:
 `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
@@ -1757,7 +1764,9 @@ In the firmware:
 - A settings save is refused while armed, because erasing flash stops the
   DShot pump.
 - A stored settings block that fails its CRC, version or size check is
-  discarded whole and the compiled defaults are used. Fields are never merged
+  discarded whole and the compiled defaults are used; for a block of
+  version 2, 3 or 4, until the migration the owner decided on 2026-11-14
+  is built (STATUS.md, open item 19). Fields are never merged
   one by one, so a corrupted byte cannot raise the throttle ceiling.
 - Arming is blocked while a USB host holds the SD card.
 - The servo tester starts SAFE, with no pulses; HOLD TO START is a 1 s hold

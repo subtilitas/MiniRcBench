@@ -29,8 +29,7 @@ Computer frei gewordene Nummer wird wieder vergeben: Liegen `LOG00001.BFL` bis
 nächste Aufzeichnung `LOG00002.BFL`. Die Platine stellt keine Uhr, also geben
 auch die Datumsangaben der Dateien die Reihenfolge nicht an; welches Datum die
 Dateien tragen, ist nicht geprüft. Der SD-LOG-Bildschirm nennt die letzte
-Aufzeichnung der Sitzung (siehe `FILE` unten). Ob neue Aufzeichnungen nach der
-höchsten Datei nummeriert werden sollen, ist beim Eigentümer offen.
+Aufzeichnung der Sitzung (siehe `FILE` unten).
 
 Die Platine liest die Karte über 4-Bit-SDIO (Secure Digital Input/Output) mit
 10 MHz.

@@ -27,8 +27,7 @@ computer is taken again: with `LOG00001.BFL` to `LOG00005.BFL` on the card and
 `LOG00002.BFL` deleted, the next log is `LOG00002.BFL`. The board sets no
 clock, so the files' dates do not give the order either; what date the files
 carry is not verified. The SD LOG screen names the last log of the session
-(see `FILE` below). Whether new logs should be numbered after the highest
-file instead is open to the owner.
+(see `FILE` below).
 
 The board reads the card over 4-bit SDIO (Secure Digital Input/Output) at
 10 MHz.
