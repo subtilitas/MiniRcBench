@@ -100,6 +100,18 @@ The strip reads `CHOOSE THE SERVO'S FAMILY`. Two buttons follow:
 **Power the servo up, then tap `D SERIES`.** With `GP28` or `GP29` the bench
 powers it. `BACK` on this view returns to `MENU`.
 
+> **Until a family is tapped, SIG carries DShot.** The family view claims no
+> pin, and the DShot driver keeps sending one frame every 1000 µs, disarmed
+> too. Bidirectional DShot holds the line high and, at the default DSHOT
+> KBAUD of 600, pulls it low for about 27 µs per frame: a PWM (pulse-width
+> modulation) servo reads that as a pulse of about 970 µs at 1000 Hz. What a
+> D series servo does with it is not measured.
+> - With SERVO SUPPLY at `NONE` the screen needs the servo powered at the
+>   tap, so keep that time short: open HITEC SERVO, connect the servo with
+>   its supply off, then switch the supply on and tap `D SERIES` at once.
+> - With `GP28` or `GP29` the converter stays off on the family view, held
+>   off by its pull-down, and the bench powers the servo after the tap.
+
 The screen then takes SIG from the ESC driver. While it does, the strip reads
 `RELEASING GP0`, then `TAKING GP0`. While an ESC answers on the pin it
 reads `CHECKING GP0 FOR AN ESC` instead.

@@ -112,6 +112,20 @@ Schaltflächen:
 **Schalte das Servo ein, dann tippe auf `D SERIES`.** Mit `GP28` oder `GP29`
 schaltet die Platine es ein. `BACK` in dieser Ansicht führt zu `MENU` zurück.
 
+> **Bis eine Familie gewählt ist, führt SIG DShot.** Die Familienansicht belegt
+> keinen Pin, und der DShot-Treiber sendet weiter alle 1000 µs einen Frame,
+> auch unscharf. Bidirektionales DShot hält die Leitung high und zieht sie bei
+> der voreingestellten DSHOT KBAUD von 600 je Frame etwa 27 µs lang low: Ein
+> PWM-Servo (Pulsweitenmodulation) liest das als Impuls von etwa 970 µs mit
+> 1000 Hz. Was ein Servo der D-Serie damit macht, ist nicht gemessen.
+> - Mit SERVO SUPPLY auf `NONE` braucht der Bildschirm das Servo beim Tippen
+>   eingeschaltet, also halte diese Zeit kurz: Öffne HITEC SERVO, schließe das
+>   Servo mit ausgeschalteter Versorgung an, schalte dann die Versorgung ein
+>   und tippe sofort auf `D SERIES`.
+> - Mit `GP28` oder `GP29` bleibt der Wandler in der Familienansicht aus,
+>   von seinem Pull-down gehalten, und der Prüfstand schaltet das Servo nach
+>   dem Tippen ein.
+
 Der Bildschirm übernimmt dann SIG vom ESC-Treiber. Dabei zeigt die Leiste
 `RELEASING GP0`, dann `TAKING GP0`. Solange ein ESC auf dem Pin antwortet,
 zeigt sie stattdessen `CHECKING GP0 FOR AN ESC`.
