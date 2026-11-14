@@ -298,7 +298,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.version.outputs.tag }}
         run: |
-          gh release create "$TAG" \
+          # A tag with a suffix, v0.1.0-rc1, is a pre-release: GitHub does not
+          # offer it as the latest release.
+          flags=()
+          case "$TAG" in *-*) flags+=(--prerelease) ;; esac
+          gh release create "$TAG" "${flags[@]}" \
             --title "$TAG" \
             --notes "$(cat notes.md)" \
             --generate-notes \
