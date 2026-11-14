@@ -130,6 +130,10 @@ static const UiRect BTN_DEFAULTS = { 162, SET_FOOT_Y, 72, SET_FOOT_H };
 static const UiRect SET_VIEW     = { 0, SET_LIST_Y0, GFX_W, SET_LIST_H };
 
 static_assert(SET_LIST_Y1 < SET_EDIT_Y, "the list overlaps the editor bar");
+// The footer's labels, 4 px clear of each side: HOLD TO APPLY at scale 1 in
+// 150 px, DEFAULTS at scale 1 and STOP at scale 2 in 72 px.
+static_assert(6 * 13 - 1 + 2 * 4 <= 150 && 6 * 8 - 1 + 2 * 4 <= 72 && (6 * 4 - 1) * 2 + 2 * 4 <= 72,
+              "a SET footer label does not fit its button");
 static_assert(SET_EDIT_Y + SET_EDIT_H <= SET_FOOT_Y, "the editor bar overlaps the footer");
 static_assert(SET_FOOT_Y + SET_FOOT_H <= GFX_H, "the footer runs off the panel");
 static_assert(SET_ROW_H >= UI_LIST_TAP_MIN && SET_ROW_PITCH > SET_ROW_H,

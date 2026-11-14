@@ -4485,6 +4485,68 @@ static void testAm32BoardLow() {
 }
 
 /**
+ * @brief Decision 14 of docs/design/menu-b.md on AM32 CONFIG: the editor's
+ *        44 px - and + at the button edge, the footer at y 268, and the
+ *        result's OK as the wide button, 6/228 at y 268, which takes only a
+ *        press that lands after the write ended: the finger that ended the
+ *        hold lifts on it.
+ */
+static void testAm32LayoutTable() {
+	section("AM32 layout: the editor's - and +, the footer, OK the wide button");
+	EscTelemetry quiet;
+	memset(&quiet, 0, sizeof(quiet));
+	fakeSetTelemetry(&quiet);
+	am32NoCard();
+	enterAm32(6);
+	checkTrue("the list is open", s_state == S_LIST);
+	const int vp = uiRowOf("POLES");
+	uiRowY("POLES"); frames(1);
+	tapId(UI_ROW(vp, Row));
+	UiRect m = ctlRect(UI_FIX(Am32Ctl::EditMinus)), p = ctlRect(UI_FIX(Am32Ctl::EditPlus));
+	checkTrue("- at x 6, 44 x 44 px, y 218", m.x == 6 && m.y == 218 && m.w == 44 && m.h == 44);
+	checkTrue("+ ending at x 234, 44 x 44 px", p.x == 190 && p.y == 218 && p.w == 44 && p.h == 44);
+	checkTrue("the hint centred in the 140 px between them",
+	          fakeTextIs(50 + (140 - gfxTextW("SWIPE = COARSE", 1)) / 2, EDIT_Y + 33, "SWIPE = COARSE",
+	                     C_GRID, C_BG, 1));
+	UiRect w = ctlRect(UI_FIX(Am32Ctl::Write)), r = ctlRect(UI_FIX(Am32Ctl::Revert)),
+	       h = ctlRect(UI_FIX(Am32Ctl::Hex));
+	checkTrue("the footer 6/110, 122/52, 180/54 at y 268, 46 px",
+	          w.x == 6 && w.w == 110 && r.x == 122 && r.w == 52 && h.x == 180 && h.w == 54 &&
+	          w.y == 268 && r.y == 268 && h.y == 268 && w.h == 46 && r.h == 46 && h.h == 46);
+	checkControlTable("AM32 list, the layout table");
+
+	tapId(UI_FIX(Am32Ctl::EditMinus));
+	uint8_t want = uiByte(0x1B);
+	int wx, wy;
+	ctlCentre(UI_FIX(Am32Ctl::Write), &wx, &wy);
+	pressId(UI_FIX(Am32Ctl::Write));
+	for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
+	fakeRelease(); frames(3);
+	checkTrue("written and verified", fakeEscByte(0x1B) == want && s_verified);
+	UiRect ok = ctlRect(UI_FIX(Am32Ctl::Ok));
+	checkTrue("OK: the wide button, 6/228 at y 268, 46 px",
+	          ok.x == 6 && ok.y == 268 && ok.w == 228 && ok.h == 46);
+	checkTrue("over HOLD TO WRITE: the hold's lift lands on OK", wx >= ok.x && wx < ok.x + ok.w &&
+	          wy >= ok.y && wy < ok.y + ok.h);
+	checkTrue("that lift leaves the result up", s_state == S_WRITING && ctlEnabled(UI_FIX(Am32Ctl::Ok)));
+	checkTrue("OK at scale 2, centred, as KST's and Hitec's",
+	          fakeTextIs(6 + (228 - gfxTextW("OK", 2)) / 2, 268 + (46 - 14) / 2, "OK", C_TEXT, C_PANEL, 2));
+	checkTrue("the power-cycle line above it", fakeTextCentredIs(170, AM32_UI_POWER_CYCLE, C_TEXT, C_BG, 1));
+	checkControlTable("AM32 result, the layout table");
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("a tap on OK: the list", s_state == S_LIST);
+
+	// Put the fake ESC back as it was.
+	tapId(UI_FIX(Am32Ctl::EditPlus));
+	pressId(UI_FIX(Am32Ctl::Write));
+	for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
+	fakeRelease(); frames(3);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("the ESC as it was", s_state == S_LIST && !anyDirty());
+	leaveAm32ToTester();
+}
+
+/**
  * @brief AM32 CONFIG says what a value does and what to do next: the strip
  *        notes, the next step under a write that is not verified, the
  *        connect page's lines, and MENU's cue after a session that reached
@@ -5755,6 +5817,7 @@ void runUiTests() {
 	testAm32TesterNote();
 	testAm32ReadOnly();
 	testAm32BoardLow();
+	testAm32LayoutTable();
 
 	// Back to a known state for anything that runs after this.
 	fakeFlashClear();
