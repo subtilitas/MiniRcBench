@@ -62,16 +62,17 @@ their figures at VDD = VDDIO = 1.8 V and 25 °C; the board runs the part at
   level in roll and the zero taken on a level reference, each panel's
   angle to the horizontal.
 
+- **Throw.** The board on a control surface at neutral, ZERO, then the stick
+  to each end: the deflection each side in degrees, its largest value each
+  side, and with the surface's length entered, the trailing edge's travel
+  in mm.
+
 Both readings of a pair are taken with the same end of the board towards
 the same end or side of the model. A board turned end for end between them
 reverses the sign of the second reading: on a wing with equal dihedral each
 side, the angle between the panels would read 0. Which way is positive
 depends on which end faces forward; `SIGN` in SETUP turns it
 ([which axis per use](#which-axis-per-use)).
-- **Throw.** The board on a control surface at neutral, ZERO, then the stick
-  to each end: the deflection each side in degrees, its largest value each
-  side, and with the surface's length entered, the trailing edge's travel
-  in mm.
 
 It measures angles from gravity while the board is still. It does not
 measure a moving surface's speed, a servo's centring, or anything about a
@@ -190,9 +191,10 @@ byte plus 2 for start and stop and 1 for a repeated start:
 
 With touch, 210 µs, and the sensor, 240 µs, a frame holds the bus for
 915 µs of 25 ms at 400 kHz, 3.66 %. The I2C block's own gaps and the
-SDK's call time are not counted. The bus runs at 400 kHz; at 100 kHz the
-burst alone would take 1290 µs, longer than the transfer timeout of
-1000 µs ([errors](#errors)).
+SDK's call time are not counted. The bus runs at 400 kHz. At 100 kHz the
+burst's read call alone, the address and 11 data bytes, about 110 clocks,
+would take about 1100 µs, longer than the timeout of 1000 µs a transfer
+([errors](#errors)).
 
 The second read guards against a sample that changes during the burst.
 The A datasheet's locking mechanism (section 13.1) exists so that a host
@@ -249,7 +251,9 @@ the shared bus record. Slice 2 renames it `senseNote()`, since it no longer
 serves touch alone, and has it return the mapped value to the caller. So a
 bus that fails any client is seen by all. The driver keeps its own count:
 three failed transactions in a row take the IMU offline, and it is probed
-every 1000 ms. While the record shows the bus stuck the driver sends nothing.
+every 1000 ms. While the record shows the bus stuck the driver sends
+nothing; after a recovery the touch read, sent every frame, is the trial
+transfer that clears the stuck mark.
 
 The recovery needs one change. `senseTick()` returns at once unless
 CURRENT SENSE is `INA219` (`src/sense.cpp`), so with the sensor off no
@@ -359,9 +363,10 @@ set it.
 The zero stays valid only while the model and the axis stay where they
 were. The meter cannot tell that the model moved; the wiki says so.
 
-ZERO and MAX last for one visit: SETUP and FLIP CAL keep them, BACK from
-the main view drops them, and a new visit starts unzeroed with no MAX, as
-the model may have moved in between. ALONG AXIS and SIGN stay as set for as
+ZERO and MAX last for one visit, as [question 4](#open-questions)
+recommends: SETUP and FLIP CAL keep them, BACK from the main view drops
+them, and a new visit starts unzeroed with no MAX, as the model may have
+moved in between. ALONG AXIS and SIGN stay as set for as
 long as the board runs; whether a restart keeps them is [open question
 4](#open-questions).
 
@@ -533,9 +538,9 @@ the meter cannot.
 Text is the 5 × 7 font: a string of n characters is (6 × n − 1) × scale px
 wide and 7 × scale px tall. The degree sign is character 0x60, the
 backtick, in the font table of `src/gfx.cpp`, written here as `` ` `` in
-the strings and as
-° in prose. Colour roles are those of `ui_widgets.h`; the ones decision 11
-of [menu-b.md](menu-b.md) does not name are proposals.
+the strings and as ° in prose. Colour roles are those of `ui_widgets.h`;
+the ones decision 11 of [menu-b.md](menu-b.md) does not name are
+proposals.
 
 ### Main view
 
@@ -653,7 +658,7 @@ with the bench rows, before SD LOG.
 | a. A MENU row, `ANGLE METER` | 8, scroll 78 px | row 6, y 272, whole at scroll 0 | 2 taps | SD LOG to row 7, a drag of 34 px to show it whole; SETTINGS to row 8, a drag of 76 px | found at once; no new widget | revises decision 33's seven rows; SETTINGS wholly below the fold; each later tool adds a row |
 | b. A MENU row, `TOOLS`, opening a chooser whose first entry is `ANGLE METER` | 8, scroll 78 px | chooser entry 1, under row 6 | 3 taps | as (a) | one row for later bench tools; the chooser pattern of SERVO PROGRAMMER and RX SIGNALS | one more tap; an eighth row all the same |
 | c. `TOOLS` in SD LOG's row 6, its entries SD LOG and ANGLE METER | 7, scroll 36 px | chooser entry, under row 6 | 3 taps | SD LOG a tap deeper; its MENU status, `NO CARD` or `CARD ERROR`, leaves MENU for the chooser's entry | keeps seven rows and SETTINGS where it is | changes decision 32's row list; the card's state no longer on MENU |
-| d. A row in SETTINGS, in a section after DIAGNOSTICS | 7, scroll 36 px | SETTINGS' last row; the list grows by a 20 px caption and a 50 px row, 820 px to 890 px, scrolling to 690 px | from MENU: 3 taps and 2 drags, MENU's 34 px and SETTINGS' up to 690 px; from the tester's readouts: 2 taps and 1 drag of up to 690 px | nothing on MENU | MENU untouched | a tool among settings, found by few; the longest way in; BACK returns to SETTINGS |
+| d. A row in SETTINGS, in a section after DIAGNOSTICS | 7, scroll 36 px | SETTINGS' last row; the list grows by a 20 px caption and a 50 px row, 820 px to 890 px, scrolling to 690 px | from the tester by way of MENU: 3 taps and 2 drags, MENU's 34 px and SETTINGS' up to 690 px, of which 2 taps and the 2 drags from MENU; from the tester's readouts: 2 taps and 1 drag of up to 690 px | nothing on MENU | MENU untouched | a tool among settings, found by few; the longest way in; BACK returns to SETTINGS |
 
 Fits: `ANGLE METER` and `TOOLS` at scale 2 are 130 px and 58 px from x 16,
 within `menuRowsFit()`'s rule with no status. A TOOLS chooser entry reads
@@ -681,10 +686,13 @@ second entry; that is the bridge's note's question, not this one's.
 - **Interrupt lines.** INT1 and INT2 stay disabled; GP8 and GP9 are not
   configured.
 - **Flash.** If the calibration, LENGTH, ALONG AXIS or SIGN is kept in
-  the settings block ([open question 4](#open-questions)), HOLD TO KEEP
-  and the SETUP rows save through the settings save, which parks core1 as
-  every save does. The ESC is
-  disarmed on the meter, as on SETTINGS.
+  the settings block ([open question 4](#open-questions)), a flash save
+  parks core1 and erases a sector, so no tap saves. SETUP's rows apply at
+  once in RAM and are saved once, when BACK leaves SETUP and a value
+  changed; LENGTH's hold-to-repeat writes nothing. FLIP CAL saves on its
+  1 s HOLD TO KEEP. Both go through the settings save, and neither saves
+  while the ESC is armed. The ESC is disarmed on the meter, as on
+  SETTINGS.
 - **Touches move the board.** ZERO waits for a settled reading after the
   finger lifts; the flip page ignores touches while the board lies screen
   down.
@@ -703,10 +711,10 @@ second entry; that is the bridge's note's question, not this one's.
 | `test/host/test_imu.c`, `test_imu_filter.c`, `wit_frame.h` | 352, 485, 46 | `test/rcbench/` | not copyable unchanged. `test_imu.c` includes `imu_rig.h`, which includes `ble_sim.h`, rcbench's BLE (Bluetooth Low Energy) simulator, `imu_ctl.h` and `witmotion.h`; `test_imu.c` itself includes `servo_rudder_auto.h` and `servo_gap.h`. Two cases of `test_imu_filter.c`, `a_connect_a_reconnect_and_a_bind_seed_the_filter` and `the_limits_1_and_50_hold_and_out_of_range_values_are_clamped`, need `imu_sensor.h`. The cases on `imu.h` alone are adapted, as `test_out_pwm_map.c` was |
 
 rcbench's `servo_rudder_auto.c`, RUDDER AUTO, is not ported: it programs
-a KST or Chaservo servo's end points on the programming port until the
-measured deflection meets a target, which is a feature of its own, not
-chosen, and it needs rcbench's KST session code beyond what
-`lib/rcbench/` holds.
+the end points of a KST, Chaservo or Hitec D series servo until the
+measured deflection meets a target, a feature of its own that the owner
+has not chosen, and it depends on `servo_angle.h`, `servo_limrun.h`,
+`servo_test.h` and `servo_gap.h`, none of which `lib/rcbench/` holds.
 
 `lib/rcbench/README.md` gains the rows and the commit. rcbench records
 `imu.c` as built and host-tested against a WitMotion BWT901CL's frames;
@@ -732,12 +740,15 @@ New code in `src/`:
 - **rcbench's tests.** `test_servo_rudder.c` unchanged; the IMU model's by
   question 2.
 - **Driver**, `test/test_qmi8658.cpp`, against a register-level fake of the
-  part on the I2C stub of `test/fakes.*`: the probe's three outcomes; the
-  reset and the WHO_AM_I poll with the 2000 ms limit; each configuration
-  write single and read back, a mismatch restarting; the burst decoded
-  little-endian into signed counts; a repeated time stamp not counted
-  twice; a time stamp that changes between burst and re-read dropping the
-  burst; NACK, timeout and a held line mapped as `sense.cpp` maps them,
+  part on the I2C stub of `test/fakes.*`: the probe's three outcomes;
+  after the reset, 0x4D at 0x80 at 15 ms going on to the configuration,
+  and any other value or no answer waiting to 1750 ms, then reading
+  WHO_AM_I; 0x4D read before CTRL7 is written; no second reset sooner than
+  2000 ms after the first, after a read-back mismatch too; each
+  configuration write single and read back, a mismatch restarting; the
+  burst decoded little-endian into signed counts; a repeated time stamp
+  not counted twice; a time stamp that changes between burst and re-read
+  dropping the burst; NACK, timeout and a held line mapped as `sense.cpp` maps them,
   noted to the bus record, offline after three; CTRL7 0x00 on BACK; no
   transfer to 0x6B while the meter is closed; the frame's bus time at
   400 kHz, as `testFrameTime` measures the sensor's.
@@ -811,8 +822,9 @@ their pages.
    in the same place, opening a chooser whose first entry is
    `ANGLE METER`, 3 taps; (c) `TOOLS` in SD LOG's row 6, with SD LOG and
    ANGLE METER as its entries, seven rows kept, 3 taps, SD LOG's card
-   status off MENU; (d) a row in SETTINGS after DIAGNOSTICS, 3 taps and 2
-   drags from MENU. Recommended: (b). See [entry](#entry).
+   status off MENU; (d) a row in SETTINGS after DIAGNOSTICS, 2 taps and
+   2 drags from MENU, 3 taps and 2 drags from the tester by way of MENU.
+   Recommended: (b). See [entry](#entry).
 2. **rcbench's IMU model.** `imu_feed()` takes WitMotion byte frames only.
    (a) Copy `imu.c` unchanged with rcbench's WitMotion parser and hand it
    each frame as a WitMotion angle frame, at 180° / 32768, 0.0055°, a step;

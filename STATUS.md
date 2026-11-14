@@ -718,9 +718,8 @@ the tag. Menu structure B waits on being built, not on the bench (item 18).
     driver, model, screen, docs and bring-up. It waits on the owner's
     answers to its seven open questions, first the entry: an ANGLE METER
     row, a TOOLS row with a chooser, TOOLS in SD LOG's row, or a SETTINGS
-    row. Which QMI8658 variant is
-    fitted, its byte order, its axes on the board, the board's mass and the
-    real accuracy are not verified.
+    row. Which QMI8658 variant is fitted, its byte order, its axes on the
+    board, the board's mass and the real accuracy are not verified.
 
 ## Known limitations
 
