@@ -1087,7 +1087,7 @@ decisions 31 to 33.
 | 5. Write rule and guard | decisions 6, 7, 13 (AM32 HEX and WRITE titles): `WRITE...`, `RESTORE...`, AM32 write page and result, editor old value, guard on AM32 and SERVO SET, BACK disabled while writing, the leave queue gone | 1, 2, 4 | 7 | +300, −120 | 110 / 120 | 2 to 3 days |
 | 6. Leave page | decision 5 and owner decision 3: KST, Hitec and SERVO TESTER on `ui_leave`; STAY, NEXT SERVO, BACK TO SERVO; RESTART DSHOT's wait | 1, 5 | 6 | +180, −300 | 90 and three helpers / 80 | 2 to 3 days |
 | 7. Tester | owner decision 4, decisions 15 a to c, 17: readouts, `uiOpenTool()`, origin, LATCH, BOARD, ARM while the card is held; the readouts' underline, which slice 2 left out (decision 11's MAX row) | 1, 3 | 4 | +150 | 15 / 100 | 1.5 days |
-| 8. SERVO TESTER, built | decision 13: the title; decision 12 is on `main`; with its README.md and wiki lines and images (decision 27) | 1, 3 | 2 in `src/` | +10, −3 | 0 / 11 lines in test_servo.cpp | built |
+| 8. SERVO TESTER, built | decision 13: the title; decision 12 is on `main`; with its README.md and wiki lines and images (decision 27) | 1, 3 | 3 in `src/` | +17, −9 | 1 / 23 lines in test_servo.cpp | built |
 | 9. Chooser | owner decisions 1 and 2, decisions 16, 18, 19, 15 d, 23, 31, 32 and 33: seven MENU rows scrolling 36 px, `ui_servo_prog`, `UI_PROGRAMMERS`, Hitec family entry points, family view removed | 3, 6, 7 | 9, 2 new | +350, −120 | 50 / 120 | 2 to 3 days |
 | 10. Documentation | what no slice owns: menu.md (the tree, MENU, revision lines on decisions 1, 12 and 18), pin-claim.md's revision line on decision 4, README "Layout", "Tests" and "The user manual", and a check that no README section, wiki page or image still shows the old structure | 1 to 9 | to be redone | to be redone | none | to be redone |
 
@@ -1313,7 +1313,9 @@ lines, it reads them as follows:
 Decision 13 on SERVO TESTER, with host tests in `test/test_servo.cpp`
 (`testScreenOpens()`, `testUnplugPage()`). `SERVO_UI_TITLE` in
 `src/ui_servo.h`, `SERVO TESTER`, 12 characters, 142 px at scale 2 from
-x 8, ends 20 px before BACK at x 170. The suite checks the drawn title, that
+x 8, ends 20 px before BACK at x 170. MENU's row label in
+`src/ui_registry.cpp` is the same macro, so the registry's fit check covers
+it. The suite checks the drawn title, plain panel from its end to BACK, that
 it is MENU's row label and `UI_SERVO.title`, and that it is 13 characters or
 fewer and ends 4 px or more before BACK. Where the build reads the
 decision's lines, it reads them as follows:
