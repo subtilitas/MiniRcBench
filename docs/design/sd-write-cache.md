@@ -283,20 +283,19 @@ recorded in this note.
   miss whose wait ends the batch; `sdc_settle()` ending the block in flight;
   a write error token; a changed serial number and a check that does not
   read; refusals with the cache off.
-- `test_kst_ui.cpp`: the claim turns the cache on and stops a running log;
-  no write frame while the flush runs; the page's count; the write after the
-  flush; a failed flush with no write frame and the card mounted again; the
-  next write saving the backup again; the claim's end turning the cache off;
-  BACK drawn disabled during the flush, the write after it, and a SAVE AS
-  whose flush fails, then the backup saved again; a stall during the flush
-  wait, then a write that sends nothing until its own hold (also in
-  `test_hitec_ui.cpp`); a batch failed before a write, recovered; BACK on
-  the unplug page turning the cache on again; another card's serial number before a
-  write, mounted again and the backup saved to it; a batch still queued,
-  the saving page and no write frame until it ends, then the same card with
-  no remount, or another card swapped in meanwhile and the backup saved to
-  it; LOAD after a failed batch, the list read again and nothing loaded
-  until a row is chosen.
+- `test_kst_ui.cpp`: the claim turns the cache on and stops a running log; no
+  write frame while the flush runs; the page's count; the write after the flush;
+  a failed flush with no write frame and the card mounted again; the next write
+  saving the backup again; the claim's end turning the cache off; BACK drawn
+  disabled during the flush, the write after it, and a SAVE AS whose flush
+  fails, then the backup saved again; a stall during the flush wait, then a
+  write that sends nothing until its own hold (also in `test_hitec_ui.cpp`); a
+  batch failed before a write, recovered; BACK on the unplug page turning the
+  cache on again; another card's serial number before a write, mounted again and
+  the backup saved to it; a batch still queued, the saving page and no write
+  frame until it ends, then the same card with no remount, or another card
+  swapped in meanwhile and the backup saved to it; LOAD after a failed batch,
+  the list read again and nothing loaded until a row is chosen.
 - `test_ui.cpp`: the AM32 write refused after a failed flush; another card,
   and a card that does not answer its serial read, before a later write: the
   backup saved again; a serial number unread after the backup, then the
