@@ -1,7 +1,7 @@
 /**
  * @file test_kst_ui.cpp
- * @brief KST SERVO through the real UI: MENU, the claim, the search, the
- *        field list, the write, FILES and the leave page.
+ * @brief KST SERVO through the real UI: MENU, PROGRAMMER, the claim, the
+ *        search, the field list, the write, FILES and the leave page.
  *
  * Every check runs the shipped code: ui_kst.cpp, the KST job from the job
  * table, the pin claim and kst_files.cpp. The servo is rcbench's simulator
@@ -186,11 +186,9 @@ static void freshKst(bool powered = true) {
 	kstFrames(2);
 }
 
-/** @brief The tester to KST SERVO, through MENU. */
+/** @brief The tester to KST SERVO, through MENU and PROGRAMMER. */
 static void openKst() {
-	tapId(UI_FIX(TesterCtl::Menu));
-	kstFrames(1);
-	tapId(menuRow(&UI_KST));
+	openProgrammer(uiKstEnter);
 	kstFrames(2);
 }
 
@@ -251,11 +249,17 @@ static void leaveAll() {
 }
 
 static void testOpenAndSearch() {
-	section("KST screen: MENU opens it, the claim, the search");
+	section("KST screen: PROGRAMMER opens it, the claim, the search");
 	freshKst(false);
-	openKst();
-	checkTrue("KST SERVO opens from MENU", uiCurrentScreen() == UiScreenId::Kst);
-	checkTrue("it claims SIG", pinClaimHolder() == PinUser::Kst);
+	openChooser();
+	checkTrue("PROGRAMMER claims nothing: DShot runs on SIG",
+	          uiCurrentScreen() == UiScreenId::ServoProg && pinClaimState() == ClaimState::Free &&
+	          !escTaskSuspended());
+	tapId(PROG_ENTRY(progEntryOf(uiKstEnter)));
+	checkTrue("KST / CHASERVO opens KST SERVO", uiCurrentScreen() == UiScreenId::Kst);
+	checkTrue("it claims SIG on the tap's frame", pinClaimHolder() == PinUser::Kst &&
+	          pinClaimState() == ClaimState::Stopping);
+	kstFrames(2);
 	checkTrue("the search starts", untilCtl(UI_FIX(KstCtl::StopSearch), 40));
 	checkTrue("the job searches", job().job == KstJobState::Searching);
 	checkTrue("on SIG", fakeKstLinePin() == 0);

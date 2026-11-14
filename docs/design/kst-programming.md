@@ -7,11 +7,13 @@ tests of them run in `make` and CI. The search (`src/kst_seek.*`) and the
 core1 job (`src/kst_job.*`) run the session on the line, and the host suite
 runs both against rcbench's simulated servo. `src/kst_files.*` puts the file
 store and the record of a write on the card through FatFs, tested against an
-in-memory volume. `src/ui_kst.cpp` is the screen, MENU's KST SERVO row, and
-`src/kst_view.*` the rows, values, stepper and texts it draws; the host suite
-runs the screen through MENU against the simulated servo and the in-memory
-volume. The switched supply, step 5, is built: with `SERVO SUPPLY` at
-`GP28` or `GP29` the bench switches the servo's supply, and with `OWN`
+in-memory volume. `src/ui_kst.cpp` is the screen, KST / CHASERVO on
+PROGRAMMER behind MENU's SERVO PROGRAMMER row (slice 9 of
+[menu-b.md](menu-b.md)), and `src/kst_view.*` the rows, values, stepper and
+texts it draws; the host suite runs the screen through MENU and PROGRAMMER
+against the simulated servo and the in-memory volume. The switched supply,
+step 5, is built: with `SERVO SUPPLY` at `GP28` or `GP29` the bench
+switches the servo's supply, and with `OWN`
 LEAVE asks the user to power the servo off. Menu structure B's slice 3
 ([menu-b.md](menu-b.md), decisions 9, 10 and 15) is built: SERVO SUPPLY is
 a core section of SETTINGS, its no-switch value reads `OWN`, the strips name
@@ -1040,8 +1042,13 @@ DShot restarts on the pin.
 
 ## Screens
 
-Entry: MENU → KST SERVO, one line in `ui_registry.cpp`
-([menu.md](menu.md#code)); BACK returns to MENU through the leave page. The
+Entry: MENU → SERVO PROGRAMMER → KST / CHASERVO, one line of
+`UI_PROGRAMMERS` in `ui_registry.cpp` ([menu-b.md](menu-b.md), "PROGRAMMER,
+the chooser"); the tap claims SIG on its frame, `uiKstEnter()`. The line
+under the entry reads `POWER THE SERVO UP AFTER THE TAP.` with OWN and
+`THE BENCH SWITCHES IT ON GP28.` with the switch. BACK returns to MENU
+through the leave page, or at once while the claim is refused or DShot
+drains. The
 AM32 screen is the model: a state machine that touches nothing until the
 handover completes, a list with an editor bar, and a write that needs a
 1000 ms hold. The lists are on `ui_list` and the holds on `ui_hold`, and the

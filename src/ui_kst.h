@@ -2,7 +2,8 @@
  * @file ui_kst.h
  * @brief KST SERVO: KST and Chaservo servo programming on the ESC pin.
  *
- * Entry: MENU → KST SERVO. The screen claims SIG (pin_claim.h); the KST job
+ * Entry: MENU → SERVO PROGRAMMER → KST / CHASERVO (ui_servo_prog.h). The
+ * screen claims SIG (pin_claim.h) on the tap's frame; the KST job
  * (kst_job.h) runs rcbench's session on core1, and this file sends it
  * commands and draws its status. The card is reached through kst_files.h, on
  * core0.

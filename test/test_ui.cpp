@@ -1956,10 +1956,10 @@ static void testSettingsSave() {
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
 	checkTrue("BACK from SETTINGS reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
-	// MENU opens at 0 px: the SETTINGS row, the sixth, is whole and its
-	// status shows with no drag.
-	checkInt("MENU's SETTINGS row is whole at 0 px, no drag",
-	         ctlRect(UI_ROW(uiMenuRowOf(&UI_SETTINGS), Row)).h, 40);
+	// MENU opens at 0 px: the SETTINGS row, the seventh, shows 6 px and is
+	// whole after a short drag, its status with it.
+	checkInt("MENU's SETTINGS row is cut to 6 px at 0 px",
+	         ctlRect(UI_ROW(uiMenuRowOf(&UI_SETTINGS), Row)).h, 6);
 	checkTrue("MENU's SETTINGS row reads UNSAVED in amber",
 	          menuStatusIs(ctlRect(menuRow(&UI_SETTINGS)), "UNSAVED", C_AMBER, C_PANEL));
 	fakeDumpFrame("shot_menu_unsaved.ppm");
@@ -3460,11 +3460,11 @@ static void testHitBoundaries() {
 	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 
 	// MENU's rows are 40 px tall at a 42 px pitch: BEEP ends where the gap
-	// above AM32 CONFIG starts, and SETTINGS where the gap above SD LOG
+	// above AM32 CONFIG starts, and SD LOG where the gap above SETTINGS
 	// starts. A tap in either gap must hit neither neighbour -- an inclusive
 	// far edge would make adjacent rows overlap.
 	const UiRect beep  = ctlRect(menuRow(&UI_BEEP));
-	const UiRect settingsRow = ctlRect(menuRow(&UI_SETTINGS));
+	const UiRect logRow = ctlRect(menuRow(&UI_SDLOG));
 	int beeps = fakeBeepRequests();
 	tap(beep.x + beep.w / 2, beep.y + beep.h);
 	frames(2);
@@ -3472,9 +3472,9 @@ static void testHitBoundaries() {
 	checkTrue("and opens nothing", uiCurrentScreen() == UiScreenId::Menu);
 	tap(beep.x + beep.w, beep.y + beep.h / 2);
 	checkInt("one past BEEP's right edge sends nothing", fakeBeepRequests(), beeps);
-	tap(settingsRow.x + settingsRow.w / 2, settingsRow.y + settingsRow.h);
+	tap(logRow.x + logRow.w / 2, logRow.y + logRow.h);
 	frames(2);
-	checkTrue("a tap in the gap below SETTINGS left MENU up",
+	checkTrue("a tap in the gap below SD LOG left MENU up",
 	          uiCurrentScreen() == UiScreenId::Menu);
 	tap(beep.x + beep.w / 2, beep.y + beep.h - 1);
 	checkInt("BEEP's last pixel row is BEEP", fakeBeepRequests(), beeps + 1);
@@ -3527,11 +3527,12 @@ static void testMenuDestinations() {
 	uint8_t rows = 0;
 	uiMenuEntries(&rows);
 	checkInt("MENU has seven rows", rows, 7);
-	checkTrue("BEEP, AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO, SETTINGS, SD LOG, in that order",
+	checkTrue("BEEP, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, SETTINGS, "
+	          "in that order",
 	          uiMenuRowOf(&UI_BEEP) == 0 && uiMenuRowOf(&UI_AM32) == 1 &&
-	          uiMenuRowOf(&UI_SERVO) == 2 && uiMenuRowOf(&UI_KST) == 3 &&
-	          uiMenuRowOf(&UI_HITEC) == 4 && uiMenuRowOf(&UI_SETTINGS) == 5 &&
-	          uiMenuRowOf(&UI_SDLOG) == 6);
+	          uiMenuRowOf(&UI_SERVO) == 2 && uiMenuRowOf(&UI_SERVO_PROG) == 3 &&
+	          uiMenuRowOf(&UI_RX_SIGNALS) == 4 && uiMenuRowOf(&UI_SDLOG) == 5 &&
+	          uiMenuRowOf(&UI_SETTINGS) == 6);
 
 	// A pixel inside each row, clear of its label: the panel fill of a row.
 	// It is 5 px in from the left edge and 8 px down from the top.
@@ -3541,12 +3542,19 @@ static void testMenuDestinations() {
 		return fb[(r.y + 8) * GFX_W + (r.x + 5)];
 	};
 	checkTrue("AM32 is filled", pixelIn(&UI_AM32) == C_PANEL);
-	checkTrue("SETTINGS is filled", pixelIn(&UI_SETTINGS) == C_PANEL);
+	checkTrue("SERVO PROGRAMMER is filled", pixelIn(&UI_SERVO_PROG) == C_PANEL);
 	checkTrue("SERVO is filled", pixelIn(&UI_SERVO) == C_PANEL);
-	char pins[16];
-	snprintf(pins, sizeof(pins), "GP%u", (unsigned)escTaskDshotPin());
-	checkTrue("AM32's row names the SIG pin",
-	          menuStatusIs(ctlRect(menuRow(&UI_AM32)), pins, C_DIM, C_PANEL));
+	// A tool row reports no status (menu-b.md decision 18): the strip names
+	// the pins. Its right end, where a status would stand, is the fill.
+	auto statusBlank = [&](const UiScreen *s, uint16_t fill) {
+		UiRect r = ctlRect(menuRow(s));
+		for (int y = r.y + 14; y < r.y + 26; y++)
+			for (int x = 210; x < 228; x++)
+				if (fb[y * GFX_W + x] != fill) return false;
+		return true;
+	};
+	checkTrue("AM32's row has no status", statusBlank(&UI_AM32, C_PANEL));
+	checkTrue("nor SERVO TESTER's", statusBlank(&UI_SERVO, C_PANEL));
 
 	// Another claim holds the pins, as Restoring does after RESTART DSHOT:
 	// both tools that claim them are drawn disabled and do not act.
@@ -3554,14 +3562,10 @@ static void testMenuDestinations() {
 	          pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
 	frames(2);
 	// A refused row is drawn disabled, an outline with the background
-	// inside, under its own status: no word for the claim on the row.
-	char servoPins[16];
-	snprintf(servoPins, sizeof(servoPins), "GP%u+%u", (unsigned)settings()->dshotPin,
-	         (unsigned)settings()->kissPin);
-	checkTrue("AM32 keeps its status, drawn disabled",
-	          menuStatusIs(ctlRect(menuRow(&UI_AM32)), pins, C_DIM, C_BG));
-	checkTrue("SERVO keeps its status, drawn disabled",
-	          menuStatusIs(ctlRect(menuRow(&UI_SERVO)), servoPins, C_DIM, C_BG));
+	// inside, under its own status, none for a tool: no word for the claim
+	// on the row.
+	checkTrue("AM32 drawn disabled, no status", pixelIn(&UI_AM32) == C_BG && statusBlank(&UI_AM32, C_BG));
+	checkTrue("SERVO drawn disabled, no status", pixelIn(&UI_SERVO) == C_BG && statusBlank(&UI_SERVO, C_BG));
 	char restarting[40];
 	snprintf(restarting, sizeof(restarting), "DSHOT RESTARTING ON SIG GP%u",
 	         (unsigned)settings()->dshotPin);
@@ -3569,6 +3573,8 @@ static void testMenuDestinations() {
 	          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, restarting, C_AMBER, C_BG, 1));
 	checkTrue("both rows are gated",
 	          !ctlEnabled(menuRow(&UI_AM32)) && !ctlEnabled(menuRow(&UI_SERVO)));
+	checkTrue("SERVO PROGRAMMER, whose entries claim, drawn disabled and gated",
+	          pixelIn(&UI_SERVO_PROG) == C_BG && !ctlEnabled(menuRow(&UI_SERVO_PROG)));
 	checkTrue("the rows that claim nothing still act",
 	          ctlEnabled(menuRow(&UI_BEEP)) && ctlEnabled(menuRow(&UI_SDLOG)));
 	checkTrue("SETTINGS, which changes the wiring a claim latched, does not",

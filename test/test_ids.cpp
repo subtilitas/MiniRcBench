@@ -104,7 +104,19 @@ static void testMenuSettingsLog() {
 	idFrames(1);
 	checkControlTable("MENU");
 	checkTrue("SERVO TESTER acts", ctlEnabled(menuRow(&UI_SERVO)));
-	checkTrue("KST SERVO acts", ctlEnabled(menuRow(&UI_KST)));
+	checkTrue("SERVO PROGRAMMER acts", ctlEnabled(menuRow(&UI_SERVO_PROG)));
+	checkTrue("RX SIGNALS does not", !ctlEnabled(menuRow(&UI_RX_SIGNALS)));
+
+	tapId(menuRow(&UI_SERVO_PROG));
+	checkTrue("PROGRAMMER opens", uiCurrentScreen() == UiScreenId::ServoProg);
+	idFrames(1);
+	checkControlTable("PROGRAMMER");
+	checkTrue("its entries by id: KST / CHASERVO and HITEC D SERIES act, HITEC CLASSIC without the switch does not",
+	          ctlEnabled(PROG_ENTRY(0)) && ctlEnabled(PROG_ENTRY(1)) && ctlPresent(PROG_ENTRY(2)) &&
+	          !ctlEnabled(PROG_ENTRY(2)) && !ctlPresent(PROG_ENTRY(3)));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	idFrames(1);
 
 	tapId(menuRow(&UI_SETTINGS));
 	checkTrue("SETTINGS opens", uiCurrentScreen() == UiScreenId::Settings);
