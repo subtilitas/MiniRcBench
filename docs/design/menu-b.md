@@ -1626,12 +1626,14 @@ suite renders for `wiki/img/` stay as slices 2 to 9 left them.
 | rx-signals.md | its MENU section's "today" is the record of 2026-11-13; structure B named as built, `PINS BUSY` gone; its unplug pages become the leave page's steps when slice 3 there is designed | the section described MENU before structure B as the present |
 | diagnostics.md | an open question names HOLD DEFAULTS in place of RESET | decision 14 |
 | README | "Layout" names SERVO TESTER's views; "Tests" lists the 111 shots `make -C test` renders, by screen, in place of 47; "The user manual" says how the images are named and what the new check refuses; the D series wait after NEXT SERVO; the Docs job's row | the slice table's row |
-| The check | rule 9 of `test/check_docs.py`: README.md and `wiki/*.md` name no removed screen text, view or MENU path (`PINS BUSY`, `HOLD RESET`, `**HOLD**`, `` `MODE` ``, `ESC PIN` and `KISS PIN` as labels, `DS600`, `KBIT/S`, `DSHOT KBAUD`, the old KST labels, `BACKUP IN MEMORY`, the family view, the D series powered before the tap, the unplug page, the leave queue, `MENU → KST SERVO` and `MENU → HITEC SERVO`, the two rows' MENU table entries, SERVO TESTER titled `SERVO`), and no image of a removed screen (`hitec-family*`, `hitec-unplug*`, `kst-leave*`, `servo-unplug*`, `menu-pins-busy*`) in the pages, a `fakeDumpFrame()` call or `tools/make_previews.py` | the slice table's "a check"; the Docs job runs `check_docs.py`. CHANGELOG.md, STATUS.md and the design notes keep the names as records |
+| The check | rule 9 of `test/check_docs.py`: README.md and `wiki/*.md` name no removed screen text, view or MENU path (`PINS BUSY`, `HOLD RESET`, `**HOLD**`, `` `MODE` ``, `ESC PIN` and `KISS PIN` as labels, `DS600`, `KBIT/S`, `DSHOT KBAUD`, the old KST labels, `BACKUP IN MEMORY`, the family view, the D series powered before the tap, the unplug page, the leave queue, `MENU → KST SERVO` and `MENU → HITEC SERVO`, the two rows' MENU table entries, SERVO TESTER titled `SERVO`, SERVO SUPPLY at `NONE`, `THROTTLE REL`, pin names without SIG such as `RELEASING GP0` and `ESC AND KISS PIN`, the unplug page's texts, the family view's `SUPPLY SWITCHED ON GP`), and no image of a removed screen (`hitec-family*`, `hitec-unplug*`, `kst-leave*`, `servo-unplug*`, `menu-pins-busy*`) in the pages, a `fakeDumpFrame()` call or `tools/make_previews.py` | the slice table's "a check"; the Docs job runs `check_docs.py`. CHANGELOG.md, STATUS.md and the design notes keep the names as records |
 
 Rule 9 was checked by adding each kind of name to README.md, a German wiki
 page, `tools/make_previews.py` and `test/test_menu.cpp`: 20 lines failed,
 one per pattern and line, and the check passed again once they were
-removed. A pattern that also matches a current text was not added: the
+removed. The five patterns for SERVO SUPPLY's `NONE`, `THROTTLE REL`,
+pin names without SIG, the unplug page's texts and the family view's
+supply line were checked the same way in README.md: 8 lines failed. A pattern that also matches a current text was not added: the
 board's **RESET** button, `HOLD` over `DEFAULTS`, and KST SERVO and HITEC
 SERVO, which stay the screens' titles.
 

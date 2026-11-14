@@ -405,7 +405,8 @@ The servo dial band fits with 1 px between the second note and the arc. If
 a later change needs more, the notes move into the strip, which the servo
 screen fills with one caption and a chip.
 
-Revised by [menu-b.md](menu-b.md#decisions) decisions 3, 5 and 13: SERVO
+Revised by [menu-b.md](menu-b.md#decisions) owner decision 3 and
+decisions 5 and 13: SERVO
 is titled SERVO TESTER, 142 px at scale 2, the widest title, ending at x 150,
 20 px before BACK; its unplug page, and KST SERVO's and HITEC SERVO's, is
 the leave page (`src/ui_leave.*`) under the screen's header, whose BACK is
@@ -647,7 +648,8 @@ static const PinUserInfo PIN_USERS[] = {
 `pinUserInfo(who)`, in place of the user. A new pin user is one enum value
 and one line here. Slice C adds no user.
 
-Revised by [menu-b.md](menu-b.md#decisions) decisions 3 and 34: `unplug`
+Revised by [menu-b.md](menu-b.md#decisions) owner decision 3 and decision
+34: `unplug`
 marks the users whose screen shows the leave page before DShot restarts;
 `PIN_USERS` in `pin_claim.h` has rows for `None` and `Hitec` too, and a
 fifth member, `deferJob`, with which HITEC SERVO's claim starts no job until
@@ -707,7 +709,8 @@ of [MENU](#menu), SD LOG the sixth and SETTINGS the seventh, reached with a
 36 px drag (decisions 32 and 33); a row refused while the claim is not Free
 is drawn disabled under its own status, and `PINS BUSY` is gone (decision
 15 f); `SettingsCtl::Reset` is `Defaults` (decision 14); `UiScreenId` adds
-`Hitec`, `ServoProg` and `RxSignals`; SERVO SUPPLY is a core section, so
+`ServoProg` and `RxSignals` (decisions 19 and 35), and `Hitec` came with
+HITEC SERVO; SERVO SUPPLY is a core section, so
 SETTINGS still shows no tool section (decision 9).
 
 ## Interlocks
@@ -788,7 +791,7 @@ Tests slice C adds:
   line; the SERVO notes and the dial's hit area at 122 px.
 
 Revised by [menu-b.md](menu-b.md#decisions): the registry walk passes the
-leave page, not the unplug page (decision 3); the refused rows are drawn
+leave page, not the unplug page (owner decision 3); the refused rows are drawn
 disabled under the restarting caption in place of `PINS BUSY` (decision
 15 f); RESET is HOLD DEFAULTS (decision 14). The built registry has seven
 rows; the scroll test keeps its test-only registries of six and seven.
@@ -946,7 +949,8 @@ is accepted.
     SETTINGS keep their names; a tool's main view carries its MENU label or
     the chooser's tool title, SERVO TESTER, AM32 CONFIG, KST SERVO, HITEC
     SERVO; a sub-view adds a word, SERVO SET, AM32 HEX, AM32 WRITE, KST
-    WRITE, KST FILES, HITEC WRITE, HITEC FILES; the chooser reads
+    WRITE, KST RESTORE, KST FILES, HITEC WRITE, HITEC RESTORE, HITEC FILES;
+    the chooser reads
     PROGRAMMER.
 13. **One SETTINGS list.** One list in sections, ESC TESTER, WIRING, SERVO
     SUPPLY (from slice 3), DISPLAY and BOARD, and no hub of sections, until

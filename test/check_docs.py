@@ -78,6 +78,15 @@ REMOVED_TEXTS = [
     (r"MENU\s*(→|>|->|&gt;)\s*(KST|HITEC) SERVO|^\|\s*\*\*(KST|HITEC) SERVO\*\*\s*\|",
      "the KST SERVO and HITEC SERVO rows, now SERVO PROGRAMMER (owner decision 2)"),
     (r"titled `SERVO`", "SERVO's title, now SERVO TESTER (decision 13)"),
+    (r"`NONE`, (the default, )?`GP2[89]`|SERVO SUPPLY[^|`]{0,12}`NONE`",
+     "SERVO SUPPLY's NONE, now OWN (decisions 15 e and 22)"),
+    (r"THROTTLE REL\b", "the latch's caption, now LATCHED (decision 15 a)"),
+    (r"RELEASING DSHOT PIN|\b(RELEASING|TAKING|CHECKING) GP\d|"
+     r"ESC AND KISS PIN|MOVE THE ESC PIN",
+     "pin names without SIG (decision 10)"),
+    (r"DSHOT RESTARTS ON GP\d+ AND READS AS|POWER THE SERVO OFF\.",
+     "the unplug page's texts (owner decision 3)"),
+    (r"SUPPLY SWITCHED ON GP", "the family view's supply line (decision 34)"),
 ]
 # Rule 9: image names of removed screens, hyphenated as in wiki/img/; a name
 # that starts with one of these is refused, so kst-leave covers
