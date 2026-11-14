@@ -9,8 +9,8 @@
  *
  * | Role | Pin | Claimed by |
  * |---|---|---|
- * | @ref PIN_SIG | the ESC signal wire, `settings()->dshotPin` | AM32 config, servo A, KST programming |
- * | @ref PIN_AUX | the KISS wire, `settings()->kissPin` | servo B, two-servo mode |
+ * | @ref PIN_SIG | the ESC signal wire, `settings()->dshotPin` | AM32 config, servo A, KST and Hitec programming; the S.BUS monitor when SIG is GP1 |
+ * | @ref PIN_AUX | the KISS wire, `settings()->kissPin` | servo B, two-servo mode; the S.BUS monitor when AUX is GP1 |
  *
  * Every claim is escTaskSuspend(): with the signal pin gone the ESC hears no
  * frames and disarms, and with no frames there is no KISS request, so both
@@ -27,9 +27,9 @@
  * |---|---|---|
  * | Free | DShot runs on both pins | pinClaimBegin() |
  * | Stopping | core1 drains, stops and releases the pump | Held when escTaskSuspended() |
- * | Held | both pins free; the GPIOs are latched; SERVO and KST start their job, HITEC once a family is tapped (pinClaimStartJob()) | Running once it binds |
+ * | Held | both pins free; the GPIOs are latched; SERVO, KST and the S.BUS monitor start their job, HITEC once a family is tapped (pinClaimStartJob()) | Running once it binds |
  * | Running | the job holds its pins | Leaving on pinClaimEnd() |
- * | Leaving | the job releases its pins; SERVO, KST and HITEC show the leave page (ui_leave.h) | Restoring |
+ * | Leaving | the job releases its pins; SERVO, KST and HITEC show the leave page (ui_leave.h), the S.BUS monitor its unplug page | Restoring |
  * | Restoring | core1 rebuilds the pump from the latched wiring | Free |
  *
  * AM32 has no core1 job: its bootloader transport runs on core0
@@ -68,6 +68,7 @@ enum class PinUser : uint8_t {
 	Servo,  /**< SERVO: SIG, and AUX for two servos. */
 	Kst,    /**< KST SERVO: SIG. */
 	Hitec,  /**< HITEC SERVO: SIG. */
+	Sbus,   /**< The S.BUS monitor: the role on GP1, AUX with SIG or SIG alone (sbus_job.h). */
 	Count,  /**< How many pin users; not a user. */
 };
 
@@ -87,6 +88,9 @@ static constexpr PinUserInfo PIN_USERS[] = {
 	{ PinUser::Servo, Core1Job::Servo, true,  true,  false },
 	{ PinUser::Kst,   Core1Job::Kst,   true,  true,  false },
 	{ PinUser::Hitec, Core1Job::Hitec, true,  true,  true  },
+	// The monitor drives nothing; an ESC on SIG only loses its frames. When
+	// GP1 is SIG the screen makes its own ESC check (rx-signals.md).
+	{ PinUser::Sbus,  Core1Job::Sbus,  true,  false, false },
 };
 
 /**
@@ -117,7 +121,7 @@ enum class ClaimState : uint8_t {
 	Stopping,   /**< The pump drains and releases. */
 	Held,       /**< Both pins free, no job bound; HITEC waits here for its family. */
 	Running,    /**< The job holds its pins. */
-	Leaving,    /**< The job releases; the leave page for SERVO, KST and HITEC. */
+	Leaving,    /**< The job releases; the leave page for SERVO, KST and HITEC, the unplug page for the S.BUS monitor. */
 	Restoring,  /**< The pump rebuilds. */
 };
 
@@ -126,7 +130,7 @@ enum class ClaimRefusal : uint8_t {
 	None,          /**< Not refused; the claim is Stopping. */
 	Armed,         /**< The tester is armed. */
 	Busy,          /**< A claim holds, or is still restoring. */
-	EscAnswering,  /**< An eRPM frame within @ref ESC_LINK_STALE_MS (500 ms). SERVO, KST and HITEC; AM32 is exempt. */
+	EscAnswering,  /**< An eRPM frame within @ref ESC_LINK_STALE_MS (500 ms). SERVO, KST and HITEC; AM32 and the S.BUS monitor are exempt. */
 	KissLive,      /**< A KISS frame within @ref KISS_STALE_MS (500 ms), AUX asked for. */
 	SamePin,       /**< AUX asked for, and SIG and AUX are the same GPIO. */
 };
@@ -158,9 +162,11 @@ struct ClaimFacts {
  *   are a valid PWM throttle signal, and a KST or Hitec entry sends frames
  *   into whatever is on the wire. The screen keeps asking; the claim follows by
  *   itself 500 ms after the ESC goes quiet. AM32 is exempt: it needs the ESC
- *   on the pin.
+ *   on the pin. The S.BUS monitor is exempt: it drives nothing, and when GP1
+ *   is SIG its screen makes the check itself (docs/design/rx-signals.md).
  * - **KissLive**, AUX asked for. An ESC telemetry output drives AUX, and servo
- *   PWM would drive against it.
+ *   PWM would drive against it; for the S.BUS monitor the telemetry wire is
+ *   where the receiver goes.
  * - **SamePin**, AUX asked for. With KISS off, SETTINGS can put the ESC pin on
  *   the KISS pin's GPIO, and two servos on one pin are one compare register
  *   driven twice.
@@ -273,7 +279,8 @@ void pinClaimRetry(PinUser who);
 
 /**
  * @brief True while the job has let the pins go and SERVO, KST or HITEC
- *        waits on its leave page for RESTART DSHOT or NEXT SERVO.
+ *        waits on its leave page for RESTART DSHOT or NEXT SERVO, or the
+ *        S.BUS monitor on its unplug page.
  *
  * Leaving, with the job idle and DShot not yet restarted. DShot idles the
  * line high and pulls it low for about 27 us per 1000 us frame, which a PWM

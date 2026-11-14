@@ -6,6 +6,7 @@
 #pragma once
 
 #include "usb_msc.h"
+#include "hardware/clocks.h"
 
 #include <stdint.h>
 
@@ -16,6 +17,13 @@ int fakeLastFlushBands();
 
 /** @brief Advance the virtual clock. Time only moves when a test says so. */
 void fakeAdvance(uint32_t ms);
+
+/**
+ * @brief Advance the virtual clock by microseconds. millis() is the
+ *        microsecond count divided by 1000, so it moves once 1000 us have
+ *        added up.
+ */
+void fakeAdvanceUs(uint32_t us);
 
 struct SdLogStatus;
 
@@ -284,6 +292,8 @@ struct FakePin {
 	int      highEnables;  /**< gpio_set_dir() made it an output while gpio_put() held it high. */
 	int      cutPulses;    /**< Pulses cut short or left high by a stop or a mux change. */
 	uint32_t cutAtUs;      /**< How far into the pulse the last cut came, us. */
+	uint8_t  inover;       /**< Input override, `GPIO_OVERRIDE_*`; gpio_set_function() zeroes it, as the SDK does. */
+	int      inoverWrites; /**< gpio_set_inover() calls. */
 };
 
 /** @brief What the fake recorded for one PWM slice. */
@@ -327,3 +337,45 @@ FakeSlice fakeSlice(unsigned slice);
 
 /** @brief Put the fake USB card reader into a state. @see usb_msc.h */
 void fakeMscSet(MscState s, uint32_t blocksRead);
+
+/** @brief Set what clock_get_hz() reads for clk_sys or clk_peri; both start at 150 MHz. */
+void fakeClockSet(enum clock_index i, uint32_t hz);
+
+/** @brief Entries of the PL011 receive FIFO. */
+#define FAKE_UART_FIFO 32u
+
+/** @brief What the UART0 fake recorded. */
+struct FakeUart {
+	bool     enabled;   /**< Between uart_init() and uart_deinit(). */
+	unsigned baud;      /**< What the last uart_init() returned. */
+	uint32_t ibrd;      /**< Integer baud divisor of the last uart_init(). */
+	uint32_t fbrd;      /**< Fractional baud divisor of the last uart_init(). */
+	unsigned dataBits;  /**< Format: data bits. */
+	unsigned stopBits;  /**< Format: stop bits. */
+	int      parity;    /**< Format: `UART_PARITY_*`. */
+	int      inits;     /**< uart_init() calls. */
+	int      deinits;   /**< uart_deinit() calls. */
+	unsigned fifo;      /**< Words in the receive FIFO. */
+	unsigned queued;    /**< Words on the line, not yet due. */
+	unsigned dropped;   /**< Words due while the receiver did not hear the line. */
+	unsigned lost;      /**< Words due while the FIFO was full. */
+	unsigned drReads;   /**< UARTDR reads. */
+};
+
+/**
+ * @brief UART0 off and reset, nothing on the line, clk_peri at 150 MHz,
+ *        every count 0.
+ */
+void fakeUartReset();
+
+/**
+ * @brief Put one UARTDR word on the line: the byte in bits 0 to 7 and FE,
+ *        PE or BE as the receiver would flag it. It reaches the FIFO once
+ *        the clock passes @p dueUs, at the next register read.
+ * @param dueUs time_us_64() at which the word's last bit is in.
+ * @param word  The word; OE is the fake's, set by a full FIFO.
+ */
+void fakeUartLine(uint64_t dueUs, uint16_t word);
+
+/** @brief The UART0 fake's record, after moving every due word. */
+FakeUart fakeUart();
