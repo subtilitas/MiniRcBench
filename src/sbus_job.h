@@ -14,8 +14,11 @@
  * Every pass of `loop1()` the job reads micros() once, drains the receive
  * FIFO (first-in, first-out buffer) while UARTFR.RXFE is clear, hands each
  * UARTDR word to sbusCoreFeed() with that time, and publishes the status
- * under its critical section when a word arrived. A byte's time is the time
- * of the pass that drains it. The decoder, rcbench's sbus_decode_byte()
+ * under its critical section when a counted word arrived. A byte's time is
+ * the time of the pass that drains it. A bind can land in the middle of a
+ * frame: the bind empties the FIFO after uart_set_format(), and nothing is
+ * counted or fed until the line has been seen quiet for 2000 us
+ * (sbusCoreReset()). The decoder, rcbench's sbus_decode_byte()
  * (lib/rcbench/protocols/sbus/), frames on a gap of 2000 us (SBUS_GAP_US).
  *
  * | UARTDR flag | Count | The byte |
@@ -33,8 +36,8 @@
  * short, which the gap rule discards the same way.
  *
  * The heartbeat stops nothing: the job sends nothing. The release turns
- * UART0 off and leaves GP1 an input with no inversion and the pull-down on,
- * at once.
+ * UART0 off, leaves GP1 an input with no inversion and the pull-down on, and
+ * publishes a cleared status, at once.
  *
  * @see docs/design/rx-signals.md
  */
@@ -69,7 +72,11 @@
 #define SBUS_DR_BE 0x400u  /**< Break. */
 #define SBUS_DR_OE 0x800u  /**< Overrun: the FIFO was full and a byte was lost before this one. */
 
-/** @brief What the job publishes for core0. Every count starts at 0 at each bind. */
+/**
+ * @brief What the job publishes for core0. Every count starts at 0 at each
+ *        bind and counts from the first quiet line after it; the release
+ *        clears it all.
+ */
 struct SbusStatus {
 	uint16_t channel[SBUS_CHANNELS];  /**< Raw 0 to 2047, from the last frame. */
 	bool     ch17;            /**< The last frame's digital channel 17. */

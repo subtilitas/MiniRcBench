@@ -229,14 +229,28 @@ servo job. Its decisions are pure functions on a plain struct, `SbusCore`,
 which the host suite drives without the SDK:
 
 ```c
-void sbusCoreReset(SbusCore *c);
-void sbusCoreFeed(SbusCore *c, uint16_t dr, uint32_t nowUs);  // one UARTDR word
-bool sbusCoreStep(SbusCore *c, uint32_t nowMs);               // once per pass
+void sbusCoreReset(SbusCore *c, uint32_t nowUs);                 // at the bind
+void sbusCoreFeed(SbusCore *c, uint16_t dr, uint32_t nowUs);     // one UARTDR word
+bool sbusCoreStep(SbusCore *c, uint32_t nowUs, uint32_t nowMs);  // once per pass
 ```
 
-`sbusCoreStep()` takes `millis()`, not `micros()`: it stamps
-`lastFrameMs` and `lastByteMs` for what the pass fed, and returns whether a
-word arrived, which is when the job publishes.
+`sbusCoreStep()` stamps `lastFrameMs` and `lastByteMs` with `millis()` for
+what the pass fed, tracks how long the line has been quiet, and returns
+whether a counted word arrived, which is when the job publishes.
+
+**A bind into a live line.** The bind can land in the middle of a frame,
+and in the middle of a character. On the chip `uart_init()` receives at
+8N1 until `uart_set_format()` takes 8E2, and `uart_set_format()` turns the
+UART off for about 15 bit times, 149 µs at 100,000 baud, while the
+character under way completes in the old format (SDK 2.1.1,
+`uart_disable_before_lcr_write()`). So the bind reads and discards the
+receive FIFO after `uart_set_format()`, and the core counts and feeds
+nothing until it has seen the line quiet for 2000 µs (`SBUS_GAP_US`): from
+the last pass with a word, or from the bind, to a pass with none. The first
+word after that starts a frame, and every count starts from it. A frame
+that begins less than 2000 µs after the bind is not taken, since it may be
+the tail of one under way; a line that is never quiet for 2000 µs is never
+counted.
 
 Every pass of `loop1()`, the job:
 
@@ -278,10 +292,10 @@ nothing.
 | `parityErr`, `framingErr`, `breakErr`, `overrun` | from `UARTDR` |
 | `resyncs`, `badFooter` | the decoder's own counters |
 
-All counts start at 0 at each bind, so each visit to the screen starts
-clean. Frame rate is 1,000,000 / `intervalUs`: 71.4 Hz at 14 ms, 142.9 Hz at
-7 ms. The interval carries the drain jitter of one pass.
-
+All counts start at 0 at each bind and count from the first quiet line after
+it, so each visit to the screen starts clean. The release sets the status back
+to 0 as well. Frame rate is 1,000,000 / `intervalUs`: 71.4 Hz at 14 ms,
+142.9 Hz at 7 ms. The interval carries the drain jitter of one pass.
 **Link state**, a pure function of the status and `millis()` on core0,
 `SBUS_LOST_MS` 100 ms, seven frames at 14 ms:
 
@@ -765,15 +779,16 @@ did (commit 5e1666d).
 
 New fakes and models:
 
-- **A microsecond clock.** `test/fakes.cpp` counts milliseconds today, and
-  `time_us_32()` is `g_ms × 1000`. The fake gains a microsecond counter
-  under `millis()`, with `fakeAdvanceUs()`, so bytes 120 µs apart can be
-  stamped.
-- **A UART0 register fake.** The stub of `hardware/uart.h` today is never
-  readable. It gains a receive queue of `UARTDR` words, each due at a time,
-  the RXFE flag, a 32-entry FIFO with overrun, and the baud computation of
-  SDK 2.1.1 from a settable `clk_peri`; `gpio_set_inover()` is recorded per
-  pin.
+- **A microsecond clock.** `test/fakes.cpp` counts microseconds, and
+  `millis()` is that count divided by 1000; `fakeAdvanceUs()` moves it, so
+  bytes 120 µs apart can be stamped. `sleep_us()` still moves only whole
+  milliseconds.
+- **A UART0 register fake.** The stub of `hardware/uart.h` reads UARTFR
+  and UARTDR from a receive queue of `UARTDR` words, each due at a time:
+  the RXFE flag, a 32-entry FIFO with overrun, the baud computation of SDK
+  2.1.1 from a settable `clk_peri`, the 8N1 format of `uart_init()`, the
+  wait of `uart_set_format()` and a character caught in its middle;
+  `gpio_set_inover()` is recorded per pin.
 - **An S.BUS line model**, `test/sbus_line.h`: frames from 16 values and
   flags, bytes 120 µs apart, periods of 7 ms and 14 ms, even parity
   computed; injected parity, framing, break and overrun errors, a cut
@@ -818,12 +833,11 @@ Checked:
   disabled while SAFE and RUNNING respectively, the throttle slider at its
   ceiling, the preview `docs/ppm-preview.png`.
 
-`sbus_job.cpp` has no device part left for `make syntax`: the suite links
-all of it, the UART calls against the UART0 fake. `make syntax` typechecks
-no rcbench driver today: `out_ppm.c` is
-built by the firmware only, as the KST and Hitec line drivers are, and
-checking it on the host would need a C rule and stubs of its own,
-`ppm.pio.h` among them. The coverage table of STATUS.md is
+`make syntax` does not typecheck `sbus_job.cpp`: the suite links all of it,
+the UART calls against the UART0 fake. `make syntax` typechecks no rcbench
+driver: `out_ppm.c` is built by the firmware only, as the KST and Hitec line
+drivers are, and checking it on the host would need a C rule and stubs of
+its own, `ppm.pio.h` among them. The coverage table of STATUS.md is
 regenerated by `tools/coverage.py` in each slice that adds a file to
 `src/`.
 
@@ -893,15 +907,26 @@ and `test/test_sbus_job.cpp`. Choices the note left open:
 - **A clock refusal binds nothing.** The pad is set before `uart_init()`, as
   the note orders; when the rate is refused, the bind turns UART0 off and
   leaves GP1 as the release does.
-- **The status after the release** keeps the last frame and the counts until
-  the next bind, which sets every count to 0.
+- **A bind into a live line counts nothing** until the line has been seen
+  quiet for 2000 µs, and the bind empties the FIFO after `uart_set_format()`
+  ([the job](#the-job)). A frame that starts within 2000 µs of the bind is
+  given up.
+- **The release clears the status**, so a read after the claim finds no
+  frame and every count at 0.
 
-The UART0 fake hears the line only while UART0 is on, GP1 is on the UART
-function with INOVER inverted and the format is 8 data bits with even
-parity; it models the 32-entry FIFO, a word lost to a full FIFO and OE on
-the next word that enters, and the divisors of SDK 2.1.1's
+The UART0 fake hears the line only while UART0 is on and GP1 is on the
+UART function with INOVER inverted. It reads each word in the format set: at
+8N1 the parity bit is taken as the stop bit, so a parity bit of 0 is a
+framing error. A character whose start bit came before the receiver was on
+loads as a framing error. `uart_set_format()` on a running UART takes the
+SDK's wait, 149 µs at 100,000 baud from 150 MHz, with the receiver off,
+and only the character under way completes. `fakeUartInitTakes()` keeps
+the receiver at 8N1 for a while before `uart_set_format()`, as a slow core
+would. The fake models the 32-entry FIFO, a word lost to a full FIFO and OE
+on the next word that enters, and the divisors of SDK 2.1.1's
 `uart_set_baudrate()`. It does not model the bits on the wire or what a line
-that is not inverted reads. The inversion on the pin, the receiver's level
+that is not inverted reads; what a PL011 loads for a character caught in its
+middle is the fake's guess. The inversion on the pin, the receiver's level
 and the PL011's flags on a real line are not measured (bench, below).
 
 ## Decisions

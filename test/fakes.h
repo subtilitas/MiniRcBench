@@ -25,6 +25,12 @@ void fakeAdvance(uint32_t ms);
  */
 void fakeAdvanceUs(uint32_t us);
 
+/*
+ * Deviation from the SDK: sleep_us() moves the clock by whole milliseconds
+ * only, and drops the rest, so delayMicroseconds() of a few microseconds
+ * moves no time. sleep_ms() and fakeAdvanceUs() are exact.
+ */
+
 struct SdLogStatus;
 
 /**
@@ -372,9 +378,11 @@ void fakeUartReset();
 
 /**
  * @brief Put one UARTDR word on the line: the byte in bits 0 to 7 and FE,
- *        PE or BE as the receiver would flag it. It reaches the FIFO once
- *        the clock passes @p dueUs, at the next register read.
- * @param dueUs time_us_64() at which the word's last bit is in.
+ *        PE or BE as a receiver at 8E2 would flag it. It reaches the FIFO
+ *        once the clock passes @p dueUs, at the next register read, read in
+ *        the format the UART is set to (fakes.cpp).
+ * @param dueUs time_us_64() at which the character is in: 11 bit times
+ *              after its start bit.
  * @param word  The word; OE is the fake's, set by a full FIFO.
  */
 void fakeUartLine(uint64_t dueUs, uint16_t word);

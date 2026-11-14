@@ -67,14 +67,13 @@ SETTINGS offers GP0 and GP1 only, for either role (`BOARD_FREE_GPIO_MASK`
 0x00000003). They are UART0's pins (universal asynchronous
 receiver-transmitter). The firmware uses UART0 only in the S.BUS job, which
 receives on GP1 during its claim; UART0's transmit pin, GP0, keeps its
-function. GP28 (J4 pin 11) and GP29 (J4
-pin 12) carry only the optional switched servo supply's enable; see [Signal
-level](#signal-level). The SETTINGS rows are SIG PIN and AUX PIN, each with
-its J5 pin under the value, both live whatever KISS is. A step of either
-onto the other's GPIO swaps SIG and AUX, and `settingsValidate()` moves AUX
-off SIG in a stored block, so SIG and AUX never name the same pin through
-SETTINGS ([menu-b.md](menu-b.md) decision 10). The same-pin refusal below
-stays as a backstop for pins set some other way.
+function. GP28 (J4 pin 11) and GP29 (J4 pin 12) carry only the optional
+switched servo supply's enable; see [Signal level](#signal-level). The SETTINGS
+rows are SIG PIN and AUX PIN, each with its J5 pin under the value, both live
+whatever KISS is. A step of either onto the other's GPIO swaps SIG and AUX, and
+`settingsValidate()` moves AUX off SIG in a stored block, so SIG and AUX never
+name the same pin through SETTINGS ([menu-b.md](menu-b.md) decision 10). The
+same-pin refusal below stays as a backstop for pins set some other way.
 
 ## The claim
 

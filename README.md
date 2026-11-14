@@ -2351,8 +2351,9 @@ level, pull and input override and each slice's wrap, divider and enable.
 The S.BUS job runs against a UART0 fake there: a line of UARTDR words each
 due at a time, the 32-entry receive FIFO with its overrun, the divisors of
 SDK 2.1.1 from a settable `clk_peri`, and a receiver that hears the line only
-with GP1 on the UART function, its input inverted, at 8 data bits and even
-parity. `test/sbus_line.h` puts a receiver's frames on that line, 120 µs a
+with GP1 on the UART function and its input inverted, reads each character
+in the format set, 8N1 after `uart_init()`, and loads a character caught in
+its middle as a framing error. `test/sbus_line.h` puts a receiver's frames on that line, 120 µs a
 byte, with parity, framing and break faults, cut frames and any footer.
 
 The I2C1 bus is `test/fake_i2c.cpp`: the parts on it by address, the clocks of

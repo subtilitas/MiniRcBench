@@ -61,8 +61,8 @@ void fakeAdvanceUs(uint32_t us) { g_us += us; }
 uint64_t time_us_64() { return g_us; }
 uint32_t time_us_32() { return (uint32_t)g_us; }
 void sleep_ms(uint32_t d) { g_us += (uint64_t)d * 1000u; }
-// Whole milliseconds only, as before the clock counted microseconds: the
-// sensor's recovery waits of a few microseconds move no millisecond.
+// Whole milliseconds only: the sensor's recovery waits of a few
+// microseconds move no time, so the tests' millisecond steps stay exact.
 void sleep_us(uint64_t us) { g_us += us / 1000u * 1000u; }
 
 // --- ADC: a steady ~3.92 V pack through the board's 200k/100k divider ---
