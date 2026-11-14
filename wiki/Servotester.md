@@ -231,8 +231,11 @@ sind also drei auf einmal sichtbar.
   oder MAX über 2100 µs zeigt der Bildschirm in Bernstein
   `PAST ITS TRAVEL A SERVO STALLS AND HEATS. TRY MIN AND MAX HORN-FREE.`
   (über den Stellweg hinaus blockiert ein Servo und wird heiß; MIN und MAX
-  zuerst ohne Ruderhorn probieren). NARROW 760 und HELI TAIL 760 haben eigene
-  Bereiche und zählen nur über den Typ. Die Änderung gilt sofort. Der Hinweis
+  zuerst ohne Ruderhorn probieren). HELI CYCLIC zeigt ihn schon mit seinen
+  eigenen 820 µs bis 2220 µs. NARROW 760 und HELI TAIL 760 werden an ihrem
+  eigenen Bereich gemessen: Der Hinweis steht, wenn MIN mehr als 100 µs unter
+  dem MIN des Typs liegt oder MAX mehr als 100 µs über seinem MAX. Die
+  Änderung gilt sofort. Der Hinweis
   steht, solange TYPE, MIN oder MAX gewählt ist, und auf anderen Zeilen, wenn
   dort kein anderer Hinweis steht. Den Stellweg nennt das Datenblatt des
   Servos; der Prüfstand misst ihn nicht.

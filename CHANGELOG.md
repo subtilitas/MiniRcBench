@@ -422,8 +422,9 @@ protocol.
 - `docs/menu-preview.png`, and `docs/settings-preview.png` with a scrolled
   frame of SETTINGS.
 - SERVO TESTER → SET warns of a pulse past a servo's travel: with TYPE WIDE,
-  MIN below 900 µs or MAX above 2100 µs (NARROW 760 and HELI TAIL 760 by
-  type only) the note band says `PAST ITS TRAVEL A SERVO STALLS AND`
+  MIN below 900 µs or MAX above 2100 µs (HELI CYCLIC on its own 820 µs to
+  2220 µs; NARROW 760 and HELI TAIL 760 with MIN or MAX more than 100 µs
+  outside the type's own range) the note band says `PAST ITS TRAVEL A SERVO STALLS AND`
   `HEATS. TRY MIN AND MAX HORN-FREE.` in amber, ahead of the dim notes while
   TYPE, MIN or MAX is selected and after them on the other rows. The change
   still applies at once. `servoPastTravel()` in `src/servo_model.*`; host

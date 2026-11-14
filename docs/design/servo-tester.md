@@ -328,16 +328,19 @@ y   0 | SERVO SET                        [ BACK ]|
 - A profile that may drive a servo past its travel, where it stalls against
   its end stop and heats (`servoPastTravel()`: TYPE WIDE, or MIN below
   `SERVO_TRAVEL_MIN_US` 900 µs, or MAX above `SERVO_TRAVEL_MAX_US` 2100 µs;
-  for NARROW 760 and HELI TAIL 760, centred at 760 µs, only the type counts)
+  HELI CYCLIC's own 820 µs to 2220 µs among them; for NARROW 760 and HELI
+  TAIL 760, centred at 760 µs, MIN more than `SERVO_TRAVEL_MARGIN_US` 100 µs
+  below the type's MIN or MAX more than 100 µs above the type's MAX)
   shows `PAST ITS TRAVEL A SERVO STALLS AND` `HEATS. TRY MIN AND MAX
   HORN-FREE.` in amber. It applies at once, with no HOLD TO APPLY. The note
   band takes the first that holds: the pending warning; `STOP TO CHANGE THE
   PROFILE`; the cause of a refused TWO on the SERVOS row; the end-stop note
   with TYPE, MIN or MAX selected; `SPEED LIMITS THE SWEEP`; `TWO SERVOS ARE
   NOT OFFERED: SEE SERVOS`; the end-stop note on any other row. Each note
-  shows on some row. The bench does not measure a servo's travel; the two
-  limits lie 100 µs outside STANDARD PWM's 1000 µs to 2000 µs and are not
-  taken from a data sheet.
+  shows on some row. The bench does not measure a servo's travel; the 900 µs
+  and 2100 µs limits lie 100 µs outside STANDARD PWM's 1000 µs to 2000 µs,
+  the 760 µs types take the same 100 µs margin around their own ranges, and
+  none of these is taken from a data sheet.
 - DEFAULTS returns to STANDARD PWM at 50 Hz, one servo, REVERSE B off, and a
   sine at 0.50 Hz, 100 %, 500 ms, endless. It changes the PULSE rows, so it
   is offered only while SAFE.

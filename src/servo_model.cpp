@@ -77,7 +77,10 @@ bool servoDangerous(ServoType t, uint16_t rateHz) {
 
 bool servoPastTravel(const ServoProfile *p) {
 	if (p->type == ServoType::Wide) return true;
-	if (servoTypeInfo(p->type)->centreUs < SERVO_TRAVEL_MIN_US) return false;
+	const ServoTypeInfo *ti = servoTypeInfo(p->type);
+	if (ti->centreUs < SERVO_TRAVEL_MIN_US)
+		return p->minUs + SERVO_TRAVEL_MARGIN_US < ti->minUs ||
+		       p->maxUs > ti->maxUs + SERVO_TRAVEL_MARGIN_US;
 	return p->minUs < SERVO_TRAVEL_MIN_US || p->maxUs > SERVO_TRAVEL_MAX_US;
 }
 

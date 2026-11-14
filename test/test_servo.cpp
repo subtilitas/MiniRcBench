@@ -145,8 +145,16 @@ static void testProfiles() {
 	checkTrue("HELI CYCLIC 820-2220 us: past travel", servoPastTravel(&q));
 	servoProfileLoadType(&q, ServoType::Narrow760);
 	checkTrue("NARROW 760 660-860 us: its own range, no note", !servoPastTravel(&q));
+	q.maxUs = 960;  checkTrue("NARROW 760, MAX 960 us: 100 us over, no note", !servoPastTravel(&q));
+	q.maxUs = 970;  checkTrue("NARROW 760, MAX 970 us: the note", servoPastTravel(&q));
+	q.maxUs = 2500; checkTrue("NARROW 760, MAX 2500 us: the note", servoPastTravel(&q));
+	q.maxUs = 860;
+	q.minUs = 560;  checkTrue("NARROW 760, MIN 560 us: 100 us under, no note", !servoPastTravel(&q));
+	q.minUs = 550;  checkTrue("NARROW 760, MIN 550 us: the note", servoPastTravel(&q));
 	servoProfileLoadType(&q, ServoType::HeliTail760);
 	checkTrue("HELI TAIL 760 410-1110 us: its own range, no note", !servoPastTravel(&q));
+	q.maxUs = 1210; checkTrue("HELI TAIL 760, MAX 1210 us: no note", !servoPastTravel(&q));
+	q.maxUs = 1220; checkTrue("HELI TAIL 760, MAX 1220 us: the note", servoPastTravel(&q));
 }
 
 /** @brief servoProfileValid() refuses each broken rule on its own. */
@@ -2367,6 +2375,21 @@ static void testTravelNote() {
 	checkTrue("MAX 2100 us: no end-stop note", s_profile.maxUs == 2100 && noteIs(sl, nullptr, C_DIM));
 	stepSel(+1);
 	checkTrue("MAX 2110 us: the end-stop note", s_profile.maxUs == 2110 && noteIs(T1, T2, C_AMBER));
+
+	// NARROW 760 against its own 660 us to 860 us.
+	tapId(UI_FIX(ServoCtl::Defaults));
+	selectRow(1);
+	stepSel(+1);
+	checkTrue("NARROW 760: no end-stop note on TYPE",
+	          s_profile.type == ServoType::Narrow760 && !noteIs(T1, T2, C_AMBER));
+	selectRow(5);
+	stepSel(+1, 10);
+	checkTrue("NARROW 760, MAX 960 us: no end-stop note",
+	          s_profile.maxUs == 960 && !noteIs(T1, T2, C_AMBER));
+	stepSel(+1);
+	checkTrue("NARROW 760, MAX 970 us: the end-stop note",
+	          s_profile.maxUs == 970 && noteIs(T1, T2, C_AMBER));
+	tapId(UI_FIX(ServoCtl::Defaults));
 
 	// While RUNNING the profile is locked and STOP TO CHANGE THE PROFILE wins.
 	backFromSet();
