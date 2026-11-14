@@ -507,8 +507,8 @@ the tag. Menu structure B waits on being built, not on the bench (item 18).
     underline, the return to the tester and LATCH (owner decision 4,
     decisions 15 a to c and 17, with
     [its readings](docs/design/menu-b.md#slice-7-as-built)); slices 2 to 4
-    and 7 run in the host suite only, and slice 2's colours have not been looked at on the
-    panel, in either theme. In the high-contrast palette several of slice
+    and 7 run in the host suite only, and slice 2's colours have not been
+    looked at on the panel, in either theme. In the high-contrast palette several of slice
     2's pairs differ in brightness only, black against a dark grey: the KISS
     and EDT tags, the DShot rate with and without EDT requested,
     `SWIPE = THROTTLE` armed and disarmed, and SETTINGS' captions against
