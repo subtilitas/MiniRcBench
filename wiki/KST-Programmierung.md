@@ -407,13 +407,12 @@ wird erst, wenn ihr `HOLD TO RESTORE` 1 s lang gehalten ist.
 
 <img src="img/kst-restore.png" width="240" alt="Die Wiederherstellungsseite vor dem Halten: BACK TO THE SESSION'S BACKUP und HOLD TO RESTORE">
 
-Sie zeigt zum
-Beispiel `BACK TO THE SESSION'S BACKUP` und
+Die Seite zeigt zum Beispiel `BACK TO THE SESSION'S BACKUP` und
 `4 REGISTERS DIFFER FROM THE BACKUP`. Sie zählt Register, gesperrte und
-unbenannte eingeschlossen, denn die Wiederherstellung schreibt auch sie.
-Eine Wiederherstellung, die der Planer nicht geprüft hat, braucht ein
-zweites Halten. Die Seite zeigt dann
-`THE PLANNER DID NOT CHECK THIS` und `RESTORE. HOLD AGAIN TO RUN IT.`
+unbenannte eingeschlossen, denn die Wiederherstellung schreibt auch sie. Eine
+Wiederherstellung, die der Planer nicht geprüft hat, braucht ein zweites
+Halten. Die Seite zeigt dann `THE PLANNER DID NOT CHECK THIS` und
+`RESTORE. HOLD AGAIN TO RUN IT.`
 
 ### Keine Karte, eine von USB gehaltene Karte, eine Karte ohne Datei
 

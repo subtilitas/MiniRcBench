@@ -377,12 +377,12 @@ The restore page is titled `KST RESTORE`, and nothing is written until its
 `HOLD TO RESTORE` has been held for 1 s.
 
 <img src="img/kst-restore.png" width="240" alt="The restore page before the hold: BACK TO THE SESSION'S BACKUP and HOLD TO RESTORE">
- It reads
-`BACK TO THE SESSION'S BACKUP` and `4 REGISTERS DIFFER FROM THE BACKUP`,
-for example. It counts registers, LOCKED and unnamed ones included, because
-the restore writes them too. A restore that the planner did not check needs
-a second hold. The page then reads `THE PLANNER DID NOT CHECK THIS` and
-`RESTORE. HOLD AGAIN TO RUN IT.`
+
+The page reads `BACK TO THE SESSION'S BACKUP` and
+`4 REGISTERS DIFFER FROM THE BACKUP`, for example. It counts registers,
+LOCKED and unnamed ones included, because the restore writes them too. A
+restore that the planner did not check needs a second hold. The page then
+reads `THE PLANNER DID NOT CHECK THIS` and `RESTORE. HOLD AGAIN TO RUN IT.`
 
 ### No card, a card held by USB, a card that takes no file
 

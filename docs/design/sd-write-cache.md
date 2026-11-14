@@ -118,11 +118,15 @@ still to go, or `Failed`.
   (`cardCacheRecover()`), forgets the first write, so the next write saves
   the backup again, and reads
   `THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
-  BACK during the flush leaves the page; the write is not sent, and the flush
-  goes on.
+  BACK is drawn disabled while the page waits for the flush
+  ([menu-b.md](menu-b.md), decision 5), so the wait ends only with the
+  flush or with the page: a lost servo or a stall takes the screen to Main,
+  the write is not sent, the flush goes on, and the next write opens on a
+  tap and waits for its own hold.
 - **Any failed batch on KST.** `Idle` after a recovery says only that the
-  queue is empty. A batch that fails off the write page, after BACK during
-  the flush, in SAVE AS or in a removal of the record, may have held the
+  queue is empty. A batch that fails off the write page, after a lost servo
+  or a stall during the flush, in SAVE AS or in a removal of the record, may
+  have held the
   backup, so every recovery forgets the first write. A write, a SAVE AS, a
   LOAD or the FILES page that finds the cache at `Failed` recovers first.
   The card mounted again may be another one, so LOAD then reads the list
@@ -188,8 +192,8 @@ backup, mounts the card in the slot again (`cardCacheRecover()`):
   write runs under the no-card rule, the backup in memory
   ([backups.md](backups.md#am32-backup)).
 
-With a batch still queued, the first write's after BACK during its flush or
-a removal of the record, KST's write page waits for it as it waits for the
+With a batch still queued, the first write's after a lost servo or a stall
+during its flush, or a removal of the record, KST's write page waits for it as it waits for the
 backup, `SAVING THE BACKUP TO THE CARD.`, and runs the check as the flush
 ends, so a read that fails on the right card drops no half-written batch.
 The check after a flush runs only for such an earlier batch, not after the
@@ -278,8 +282,10 @@ recorded in this note.
   no write frame while the flush runs; the page's count; the write after the
   flush; a failed flush with no write frame and the card mounted again; the
   next write saving the backup again; the claim's end turning the cache off;
-  BACK during the flush and a SAVE AS whose flush fails, then the backup
-  saved again; a batch failed before a write, recovered; BACK on the unplug
+  BACK drawn disabled during the flush, the write after it, and a SAVE AS
+  whose flush fails, then the backup saved again; a stall during the flush
+  wait, then a write that sends nothing until its own hold (also in
+  `test_hitec_ui.cpp`); a batch failed before a write, recovered; BACK on the unplug
   page turning the cache on again; another card's serial number before a
   write, mounted again and the backup saved to it; a batch still queued,
   the saving page and no write frame until it ends, then the same card with
