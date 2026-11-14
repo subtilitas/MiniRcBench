@@ -740,8 +740,11 @@ static void testResetHold() {
 		const uint16_t *fb = gfxBuffer() + (r.y - 4) * GFX_W;
 		checkTrue("500 ms: the bar over RESET, 35 px of the 70",
 		          fb[r.x] == C_LIME && fb[r.x + 34] == C_LIME && fb[r.x + 35] == C_BG);
-		checkTrue("and the button amber while held",
-		          pixel(r.x + 4, r.y + r.h - 5) == C_AMBER);
+		checkTrue("and the button red while held, as every hold but SAVE",
+		          pixel(r.x + 4, r.y + r.h - 5) == C_RED);
+		checkTrue("its label in C_ONACCENT on the red, pressed 1 px in",
+		          fakeTextIs(r.x + 1 + (r.w - gfxTextW("HOLD RESET", 1)) / 2, r.y + 1 + (r.h - 7) / 2,
+		                     "HOLD RESET", C_ONACCENT, C_RED, 1));
 	}
 	holdId(UI_FIX(SettingsCtl::Reset), 19);
 	checkTrue("975 ms: nothing loaded", settings()->poles == saved && !settingsDirty());
@@ -749,6 +752,11 @@ static void testResetHold() {
 	checkTrue("1000 ms: the defaults live, unsaved",
 	          settings()->poles == DEFAULT_MOTOR_POLES && settingsDirty() &&
 	          noteIs("DEFAULTS LOADED - RESTART TO UNDO", C_AMBER));
+	settings()->poles = saved;
+	holdId(UI_FIX(SettingsCtl::Reset), 60);
+	checkTrue("held 1.5 s more: one firing per press, the change after it kept",
+	          settings()->poles == saved);
+	settings()->poles = DEFAULT_MOTOR_POLES;
 	fakeRelease(); menuFrames(1);
 	checkTrue("lifted: the button back to its panel fill", pixel(r.x + 4, r.y + r.h - 5) == C_PANEL);
 

@@ -700,11 +700,12 @@ static void drawAll() {
 	uiHoldDrawBar(&s_saveHold, BTN_SAVE, FOOT_Y - 4, millis());
 	uiButton(BTN_SAVE, "HOLD TO SAVE", holding ? C_BLUE : C_PANEL,
 	         holding ? C_ONACCENT : C_TEXT, 1, holding);
-	// HOLD RESET's bar sits over its own button, as SAVE's does.
+	// HOLD RESET's bar sits over its own button, as SAVE's does. While held
+	// it fills C_RED with C_ONACCENT text, as every hold but SAVE does.
 	bool resetting = s_resetHold.holding;
 	uiHoldDrawBar(&s_resetHold, BTN_DEFAULTS, FOOT_Y - 4, millis());
-	uiButton(BTN_DEFAULTS, RESET_LABEL, resetting ? C_AMBER : C_PANEL,
-	         resetting ? C_PAPER : C_AMBER, 1, resetting);
+	uiButton(BTN_DEFAULTS, RESET_LABEL, resetting ? C_RED : C_PANEL,
+	         resetting ? C_ONACCENT : C_AMBER, 1, resetting);
 }
 
 /**
