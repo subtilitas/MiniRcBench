@@ -280,13 +280,20 @@ Sicherung und der Vermerk zuerst auf die Karte, während der Bildschirm weiter
 zeichnet. Die Seite zeigt `SAVING THE BACKUP TO THE CARD.` und zum Beispiel
 `BLOCKS LEFT: 12`, und das Servo wird erst geschrieben, wenn die Karte beides
 hält. Nimmt die Karte die Daten nicht an, hält das Schreiben an:
-`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. TAP OK, WRITE AGAIN.`
 Das Übertragen scheitert, wenn ein Blockschreiben fehlschlägt oder die Karte
 im Steckplatz gewechselt hat, nicht bei einer vollen Karte: Eine volle Karte
 endet in `THE CARD TOOK NO FILE`, bevor etwas eingereiht ist. Zum Servo ging
 nichts. Die Karte wird neu eingebunden, und `OK` führt zur Feldliste zurück;
 das nächste Schreiben, `WRITE...` und sein Halten, sichert erneut und
 schreibt dann.
+
+Das Warten auf die Karte endet auf eine von zwei Arten: Die Karte hält die
+Dateien, und das Schreiben geht hinaus, oder das Übertragen scheitert, und
+die Seite sagt es wie oben. Ein Hänger des Bildschirms mit der geschalteten
+Versorgung beendet es ebenfalls: Der Bildschirm kehrt zu seiner
+Hauptansicht mit `RETRY` zurück, nichts wird geschrieben, und das nächste
+Schreiben öffnet sich mit einem Tippen und wartet auf sein eigenes Halten.
 
 <img src="img/kst-flush-failed.png" width="240" alt="Die Schreibseite, nachdem die Karte die Daten nicht annahm">
 
@@ -425,7 +432,7 @@ Halten. Die Seite zeigt dann `THE PLANNER DID NOT CHECK THIS` und
 - **Eine Karte, die keine Datei annimmt.** Nimmt eine eingebundene Karte weder
   die Sicherung noch den Vermerk an, stoppt das Schreiben vor dem ersten
   Frame. Die Schreibseite zeigt
-  `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+  `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.`
 
 Die Sicherungen teilen sich einen Ring von 50 Nummern mit den Sicherungen des
 AM32-Editors und des Hitec-Programmierers, `BACKUP/KSTnnn.TXT`,
@@ -497,7 +504,7 @@ zeigt die Abziehseite unmittelbar.
   Schalte es erneut ein.
 - **`IN DOUBT`.** Stelle über FILES wieder her: `RESTORE...`, dann
   `HOLD TO RESTORE`.
-- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`**
+- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.`**
   Prüfe die Karte, oder nimm sie aus der USB-Nutzung, und schreibe dann
   erneut.
 

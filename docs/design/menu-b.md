@@ -1316,10 +1316,10 @@ lines, it reads them as follows:
 
 Decisions 6 and 7, and decision 13's AM32 HEX and AM32 WRITE titles, on
 AM32 CONFIG, KST SERVO, HITEC SERVO and SERVO SET, with host tests in
-`test/test_ui.cpp` (`testAm32WritePage()`, `testAm32Guard()` and the AM32
-write sections), `test/test_servo.cpp` (`testSetGuard()`, `backFromSet()`),
-`test/test_kst_ui.cpp` and `test/test_hitec_ui.cpp`. Each behaviour was
-checked by a mutation that the suite fails. The interlocks stay as they
+`test/test_ui.cpp` (`testAm32WritePage()`, `testAm32PageWritesWhatItShows()`,
+`testAm32Guard()` and the AM32 write sections), `test/test_servo.cpp` (`testSetGuard()`, `backFromSet()`),
+`test/test_kst_ui.cpp` and `test/test_hitec_ui.cpp`. For each behaviour a
+mutation of the code fails the suite. The interlocks stay as they
 were: the BOARD voltage refusal, the backup before the first write, the wait
 for the card's flush, AM32's refusal of a layout it does not know and the
 write's read-back run on the page's hold as they ran on the hold that wrote
@@ -1350,11 +1350,16 @@ Readings of the decisions where the code asked for a choice:
 | The read-only view | keeps the title `AM32 CONFIG`; BACK goes to MENU | it is the main view of a layout not known, not the dump of the list |
 | AM32's BACK while writing | disabled on the frame the hold fires and on the frame that writes; the write blocks core0 in one frame, so the page with `WRITING: DO NOT UNPLUG.` and BACK disabled stands while it runs | the AM32 transport is synchronous; BACK under the result acts again |
 | KST and Hitec BACK while flushing | disabled until the flush ends or fails; a lost servo still leaves the page through the search | the BACK table says "writing or flushing"; a flush that ended in failure ends the wait (`flushStep()`) |
-| KST's restore | the tap opens `KST RESTORE` and nothing runs until its hold; before, the FILES hold started the restore | the interlock table's "tap, hold"; Hitec's restore already waited for the page's hold |
+| KST's restore | the tap opens `KST RESTORE` and nothing runs until its hold; the FILES page holds nothing | the interlock table's "tap, hold"; Hitec's restore waits for the page's hold the same way |
 | LEAVE while writing | still drawn disabled while `s_writing` is set | no path reaches the leave page during a write now; kept as the backstop slice 6's `leaveEnabled` expects |
 | Restore titles | `KST RESTORE` and `HITEC RESTORE`, as on `main` | decision 13 names the write and files titles only |
 | The tap's press | never timed by the page's hold: the tap acts on release, and opening the page resets the hold | "the press that opened the page cannot start it" (interlocks) |
 | `AM32_UI_RETRY` | `NOT VERIFIED. TAP OK, WRITE AGAIN.` kept | OK, `WRITE...` and the hold is the way to write again |
+| The page writes what it shows | `writeRefused()` in `ui_am32.cpp` refuses settings that differ from those the page opened on, the settings as read or the edits: `CHANGED SINCE THE PAGE: NOT WRITTEN` over `TAP OK, WRITE AGAIN.`; no path through the screen reaches it | the page names every change it writes, and nothing edits under it |
+| A page that lists nothing | HOLD TO WRITE drawn disabled while no listed field differs (`pageWritable()`), the strip `0 CHANGES`, though a byte no listed field covers differs; no path through the screen reaches it | the page cannot name such a change |
+| Next steps under OK | AM32's red BOARD voltage reads `CHARGE THE CELL. TAP OK, WRITE AGAIN.` (`AM32_UI_BOARD_LOW_2`, 37 characters); KST's and Hitec's failed flushes end `... TAP OK, WRITE AGAIN.`, a card that took no file `CHECK THE CARD, TAP OK, WRITE AGAIN.`; KST's stalled screen in doubt reads `AFTER THE READ, LOAD KST003 IN FILES, TAP WRITE... AND HOLD.` | these stand under OK, and the hold they named is the page's now; KST and Hitec keep `CHARGE THE BOARD'S CELL, HOLD AGAIN.`, since their hold stays live under it; the flush texts drop `CHECK THE CARD` to stay within three lines of 38 characters, and `(REMOVED OR SWAPPED?)` names what to check |
+| The flush wait's end | `go()` ends the wait when the view leaves the write page: a stall during the wait returns to Main, nothing is written, and the next write sends nothing until its own hold (`testFlushWaitEndsWithThePage()` in `test_kst_ui.cpp` and `test_hitec_ui.cpp`) | BACK cannot leave the page during the wait, so this is the path that ends it without the card |
+| `settings-preview.png` | regenerated with the slice; it differs only in the scrolled frame's UPTIME value | the fake clock moves with the tests that run before the shot; nothing of SETTINGS changes |
 | Images | `am32-write.png`, `am32-discard.png` and `kst-restore.png` are new wiki images | the note names the first two; the third shows `RESTORE...`'s page before its hold |
 
 Not built in this slice: the leave page (slice 6), the tester (slice 7);

@@ -117,7 +117,7 @@ still to go, or `Failed`.
   only at `Idle`. At `Failed` it mounts the card again
   (`cardCacheRecover()`), forgets the first write, so the next write saves
   the backup again, and reads
-  `THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+  `THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. TAP OK, WRITE AGAIN.`
   BACK is drawn disabled while the page waits for the flush
   ([menu-b.md](menu-b.md), decision 5), so the wait ends only with the
   flush or with the page: a lost servo or a stall takes the screen to Main,

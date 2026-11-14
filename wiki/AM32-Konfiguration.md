@@ -291,15 +291,16 @@ Halten. Während das Schreiben läuft, zeigt die Seite
 Solange die BOARD-Spannung auf dem Tester rot ist, unter 3,30 V und bis sie
 wieder 3,35 V erreicht, schreibt das Halten nichts, weder die Sicherung noch
 die Einstellungen. Das Ergebnis zeigt `BOARD VOLTAGE IS RED: NOT WRITTEN.`,
-darunter `CHARGE THE BOARD'S CELL, HOLD AGAIN.` in Bernstein, und `OK` führt
-mit den Änderungen zur Liste zurück. Der Bildschirm fragt einmal, wenn das
+darunter `CHARGE THE CELL. TAP OK, WRITE AGAIN.` in Bernstein, und `OK` führt
+mit den Änderungen zur Liste zurück; `WRITE...` und das Halten der Seite
+schreiben erneut. Der Bildschirm fragt einmal, wenn das
 Halten endet, vor der Sicherung. Bernstein und ein Wert unter 2,50 V (keine
 Zelle zu beurteilen) lehnen kein Schreiben ab. Die Bereiche sind der übliche
 Bereich einer Lithium-Polymer-Zelle, auf dieser Platine nicht gemessen. Was
 die Platine an USB-Versorgung ohne Zelle liest, ist ebenfalls nicht
 gemessen, also kann eine Platine nur an USB das Schreiben ablehnen.
 
-<img src="img/am32-board-low.png" width="240" alt="BOARD VOLTAGE IS RED: NOT WRITTEN. mit CHARGE THE BOARD'S CELL, HOLD AGAIN. in Bernstein">
+<img src="img/am32-board-low.png" width="240" alt="BOARD VOLTAGE IS RED: NOT WRITTEN. mit CHARGE THE CELL. TAP OK, WRITE AGAIN. in Bernstein">
 
 Nach dem Schreiben wartet die Firmware 300 ms, **liest die Einstellungen zurück
 und vergleicht sie** Byte für Byte. Sie verlässt sich nicht auf die Bestätigung
@@ -352,9 +353,9 @@ Ergebnisse:
 | `VERIFY READ: NO REPLY`, `REFUSED`, `CRC FAIL` oder `NOT READY` | Der ESC hat das Schreiben bestätigt, und alle drei Zurücklesungen scheiterten: keine Antwort, eine Antwort, die keine Bestätigung ist, eine Prüfsumme, die nicht passt, oder kein Pin. Was im ESC steht, ist nicht bekannt |
 | `DIFF @xx: GOT yy WANT zz` | Das Zurückgelesene weicht ab. `xx` ist die Stelle des ersten abweichenden Bytes, `yy` der Wert im ESC, `zz` der geschriebene Wert, alle in Hex |
 
-`OK` ist die breite Schaltfläche am unteren Rand, wo `HOLD TO WRITE` war. Sie
-nimmt nur ein neues Tippen an: Das Abheben des Fingers, der `HOLD TO WRITE`
-gehalten hat, lässt das Ergebnis stehen.
+`OK` tritt in der breiten Schaltfläche am unteren Rand an die Stelle von `HOLD
+TO WRITE`. Sie nimmt nur ein neues Tippen an: Das Abheben des Fingers, der `HOLD
+TO WRITE` gehalten hat, lässt das Ergebnis stehen.
 
 Nur `WRITE VERIFIED` gilt als geschrieben. Nach jedem anderen Ergebnis führt
 `OK` zur Liste zurück, die Änderungen bleiben erhalten, und `WRITE...` und `HOLD

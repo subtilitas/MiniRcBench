@@ -766,8 +766,9 @@ goes to the card and no byte to the ESC. A write already running is not stopped:
 cut off, it would leave the servo partly written and unverified, while one that
 finishes ends with its read-back. The KST and Hitec write pages read, in amber
 at y 196 and y 208, `BOARD VOLTAGE IS RED: NOT WRITTEN.` and `CHARGE THE BOARD'S
-CELL, HOLD AGAIN.`; AM32 CONFIG shows the two lines as its write's result on
-`AM32 WRITE`, in amber at the same place. Amber, the text colour, and a value
+CELL, HOLD AGAIN.`, their hold still live; AM32 CONFIG shows the first line
+as its write's result on `AM32 WRITE`, in amber at the same place, over
+`CHARGE THE CELL. TAP OK, WRITE AGAIN.`, since its result stands under OK. Amber, the text colour, and a value
 below 2.50 V (no cell to judge) refuse no write. The bands are a lithium-polymer
 cell's usual range, not measured on this board; what the divider reads with USB
 power and no cell is not measured either, so a board on USB alone may refuse
@@ -1141,11 +1142,11 @@ and leaving AM32 CONFIG loses them. Writing needs a 1 s hold on the page's
 While the write runs the page reads `WRITING: DO NOT UNPLUG.` in amber and
 BACK is drawn disabled. BACK before the hold, or under the result, returns to
 the list. While the BOARD voltage is red the hold writes nothing: the result
-reads `BOARD VOLTAGE IS RED: NOT WRITTEN.` with `CHARGE THE BOARD'S CELL,
-HOLD AGAIN.` under it, both amber, and OK returns to the list with the edits
-kept ([Using it](#using-it), the BOARD voltage). OK is the wide button where
-HOLD TO WRITE was; it takes a fresh tap, and lifting the finger that held
-HOLD TO WRITE leaves the result up. After the write the firmware waits
+reads `BOARD VOLTAGE IS RED: NOT WRITTEN.` with `CHARGE THE CELL. TAP OK,
+WRITE AGAIN.` under it, both amber, and OK returns to the list with the edits
+kept ([Using it](#using-it), the BOARD voltage). OK takes HOLD TO WRITE's
+place in the wide button; it takes a fresh tap, and lifting the finger that
+held HOLD TO WRITE leaves the result up. After the write the firmware waits
 `AM32_WRITE_SETTLE_MS` (300 ms), reads the block back, and compares it byte
 for byte. It shows `WRITE VERIFIED`, in green, only on a full match, with
 `POWER-CYCLE THE ESC TO APPLY.` under it: the bench sends no command that
@@ -1157,7 +1158,10 @@ line. A result that is not a verified write is amber: under `WRITE FAILED:
 ...`, `VERIFY READ: ...` or `DIFF ...` a second amber line reads `NOT
 VERIFIED. TAP OK, WRITE AGAIN.`: OK returns to the list with the edits kept,
 and `WRITE...` and the hold write again. Under `NO BACKUP ON THE CARD: NOT
-WRITTEN` it reads `CHECK THE CARD, THEN WRITE AGAIN.`.
+WRITTEN` it reads `CHECK THE CARD, THEN WRITE AGAIN.`. The page writes what
+it shows: settings that differ from those it opened on are refused,
+`CHANGED SINCE THE PAGE: NOT WRITTEN`, and a page that lists no change draws
+HOLD TO WRITE disabled; no path through the screen reaches either.
 
 Some values put two amber lines on the strip in place of the ESC name
 (`listNote()` in `src/ui_am32.cpp`): the selected row's first, then 3D
@@ -1605,7 +1609,7 @@ stays allowed, by the owner's decision of 2026-11-14 (STATUS.md, open item
 20). A card that is
 mounted but takes neither the backup nor the record stops the write before
 any frame:
-`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.`
 
 While the BOARD voltage is red, the write page's HOLD TO WRITE and HOLD TO
 RESTORE write nothing, no file and no frame, and the page reads
@@ -1824,11 +1828,11 @@ allowed, by the owner's decision of 2026-11-14 (STATUS.md, open item 20). A
 card that is
 mounted but takes neither the backup nor the record stops the write before
 any frame:
-`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.`
 With a card mounted at the screen's opening, the card's writes queue in
 memory, as for KST, and the servo is written only once the card holds the
 files. A flush that fails stops the write with
-`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`,
+`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. TAP OK, WRITE AGAIN.`,
 or `A FILE` in place of `THE BACKUP` when the batch held a later write's
 files.
 

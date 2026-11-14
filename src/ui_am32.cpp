@@ -615,8 +615,7 @@ static void drawList() {
 	bool dirty = anyDirty();
 	// Both are gated on the same `dirty` their hit tests are. WRITE... opens
 	// the write page on a tap; only that page holds (docs/design/menu-b.md,
-	// decision 6). REVERT was drawn grey and ran regardless once, which was
-	// harmless only because reverting nothing to nothing is a no-op. @see #23
+	// decision 6). REVERT acts only while it is drawn live. @see #23
 	uiButton(BTN_WRITE, "WRITE...", C_PANEL, C_TEXT, 1,
 	         dirty && uiPressing(BTN_WRITE, s_frameTouch), dirty);
 	uiButton(BTN_REVERT, "REVERT", C_PANEL, C_AMBER, 1,

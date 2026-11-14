@@ -269,14 +269,14 @@ nothing. `BACK` before the hold, or under the result, returns to the list.
 While the BOARD voltage on the tester is red, below 3.30 V and until it
 rises to 3.35 V, the hold writes nothing, neither the backup nor the
 settings. The result reads `BOARD VOLTAGE IS RED: NOT WRITTEN.` with
-`CHARGE THE BOARD'S CELL, HOLD AGAIN.` in amber under it, and `OK` returns to
-the list with the edits kept. The screen asks once, as the hold ends,
+`CHARGE THE CELL. TAP OK, WRITE AGAIN.` in amber under it, and `OK` returns
+to the list with the edits kept; `WRITE...` and the page's hold write again. The screen asks once, as the hold ends,
 before the backup. Amber, and a value below 2.50 V (no cell to judge),
 refuse no write. The bands are a lithium-polymer cell's usual range, not
 measured on this board. What the board reads on USB power with no cell is
 not measured either, so a board on USB alone may refuse writes.
 
-<img src="img/am32-board-low.png" width="240" alt="BOARD VOLTAGE IS RED: NOT WRITTEN. with CHARGE THE BOARD'S CELL, HOLD AGAIN. in amber">
+<img src="img/am32-board-low.png" width="240" alt="BOARD VOLTAGE IS RED: NOT WRITTEN. with CHARGE THE CELL. TAP OK, WRITE AGAIN. in amber">
 
 After the write the firmware waits 300 ms, **reads the settings back and
 compares them** byte by byte. It does not rely on the ESC's acknowledgement.
@@ -324,9 +324,9 @@ acknowledgement. Then the read-back runs, up to three times, each after a
 | `VERIFY READ: NO REPLY`, `REFUSED`, `CRC FAIL` or `NOT READY` | The ESC acknowledged the write, and all three read-backs failed: no reply, a reply that is not the acknowledgement, a checksum that does not match, or no pin. What the ESC holds is not known |
 | `DIFF @xx: GOT yy WANT zz` | The read-back differs. `xx` is the first differing byte's offset, `yy` the ESC's value, `zz` the value written, all in hex |
 
-`OK` is the wide button at the bottom, where `HOLD TO WRITE` was. It takes
-a fresh tap: lifting the finger that held `HOLD TO WRITE` leaves the result
-on the screen.
+`OK` takes the place of `HOLD TO WRITE` in the wide button at the bottom. It
+takes a fresh tap: lifting the finger that held `HOLD TO WRITE` leaves the
+result on the screen.
 
 Only `WRITE VERIFIED` counts as written. After any other result, `OK` returns
 to the list with the edits kept, and `WRITE...` and `HOLD TO WRITE` write

@@ -609,9 +609,21 @@ protocol.
     nothing while the write runs or waits for the card's flush; the leave
     queued by BACK during a KST or Hitec write, and its
     `LEAVING AFTER THE WRITE ENDS.`, are gone.
+  - AM32 WRITE writes what it shows: settings changed under the page are
+    refused, `CHANGED SINCE THE PAGE: NOT WRITTEN`, and a page that lists no
+    change draws HOLD TO WRITE disabled; no path through the screen reaches
+    either.
+  - The next steps under OK name the current steps: AM32's red BOARD
+    voltage reads `CHARGE THE CELL. TAP OK, WRITE AGAIN.` in place of
+    `CHARGE THE BOARD'S CELL, HOLD AGAIN.`; KST's and Hitec's failed
+    flushes end `TAP OK, WRITE AGAIN.` and a card that took no file
+    `CHECK THE CARD, TAP OK, WRITE AGAIN.`, in place of
+    `CHECK THE CARD, HOLD AGAIN.`; KST's stalled screen in doubt reads
+    `... LOAD KST003 IN FILES, TAP WRITE... AND HOLD.`
   `Am32Ctl::WriteHold`, `am32BackupNext()`; host tests
-  `testAm32WritePage()`, `testAm32Guard()` in `test/test_ui.cpp`,
-  `testSetGuard()` in `test/test_servo.cpp`, and checks in
+  `testAm32WritePage()`, `testAm32PageWritesWhatItShows()`,
+  `testAm32Guard()` in `test/test_ui.cpp`, `testSetGuard()` in
+  `test/test_servo.cpp`, `testFlushWaitEndsWithThePage()` and checks in
   `test/test_kst_ui.cpp` and `test/test_hitec_ui.cpp`; the wiki shows
   `am32-write.png`, `am32-discard.png` and `kst-restore.png`.
 - After v0.1.0-rc1 (a93e1c1): names and SETTINGS of menu structure B, slice 3

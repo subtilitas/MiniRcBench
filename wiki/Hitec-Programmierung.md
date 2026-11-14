@@ -380,13 +380,20 @@ zeigt `SAVING THE BACKUP TO THE CARD.` (bei einem späteren Schreiben `SAVING TH
 FILES TO THE CARD.`) und zum Beispiel `BLOCKS LEFT: 12`. Das Servo wird erst
 geschrieben, wenn die Karte die Dateien hält. Nimmt die Karte die Daten nicht
 an, hält das Schreiben an. Beim ersten Schreiben der Sitzung zeigt die Seite
-`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE
-SERVO. CHECK THE CARD, HOLD AGAIN.`, bei einem späteren Schreiben `THE CARD DID
-NOT TAKE A FILE (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE
-CARD, HOLD AGAIN.` Zum Servo ging nichts. Die Karte wird neu eingebunden, und
-`OK` führt zur Feldliste zurück; das nächste Schreiben, `WRITE...` und sein
-Halten, sichert die Dateien erneut und schreibt dann. Eine volle Karte endet
-nicht hier, sondern in `THE CARD TOOK NO FILE`, bevor etwas eingereiht ist.
+`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. TAP OK, WRITE AGAIN.`,
+bei einem späteren Schreiben
+`THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. TAP OK, WRITE AGAIN.`
+Zum Servo ging nichts. Die Karte wird neu eingebunden, und `OK` führt zur
+Feldliste zurück; das nächste Schreiben, `WRITE...` und sein Halten, sichert
+die Dateien erneut und schreibt dann. Eine volle Karte endet nicht hier,
+sondern in `THE CARD TOOK NO FILE`, bevor etwas eingereiht ist.
+
+Das Warten auf die Karte endet auf eine von zwei Arten: Die Karte hält die
+Dateien, und das Schreiben geht hinaus, oder das Übertragen scheitert, und
+die Seite sagt es wie oben. Ein Hänger des Bildschirms mit der geschalteten
+Versorgung beendet es ebenfalls: Der Bildschirm kehrt zu seiner
+Hauptansicht mit `RETRY` zurück, nichts wird geschrieben, und das nächste
+Schreiben öffnet sich mit einem Tippen und wartet auf sein eigenes Halten.
 
 Das Schreiben sendet dann die geänderten Register im Abstand von 20 ms,
 speichert sie im Servo, startet das Servo neu (1,0 s) und liest alle 21
@@ -447,8 +454,8 @@ Zu den bernsteinfarbenen Ergebnissen gehören:
 - `NOTHING WAS WRITTEN: NO PLAN (CODE n).`, mit dem Code des Planers.
 - `NOTHING WAS WRITTEN (CODE n).`, mit dem Code der Sitzung.
 - `THE SCREEN STALLED. NOTHING WAS WRITTEN.`
-- `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
-- `THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+- `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.`
+- `THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. TAP OK, WRITE AGAIN.`
 
 Nach einem Schreiben, das fehlschlug, nachdem Frames gesendet waren, hält
 das Abbild die berührten Register nicht mehr: Die Schreib-Schaltfläche zeigt
@@ -513,7 +520,7 @@ Eine von Hand bearbeitete Datei lädt nicht.
 - **Eine Karte, die keine Datei annimmt.** Nimmt eine eingebundene Karte weder
   die Sicherung noch den Vermerk an, stoppt das Schreiben vor dem ersten
   Frame. Die Schreibseite zeigt
-  `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+  `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.`
 
 Die Sicherungen teilen sich einen Ring von 50 Nummern mit den KST- und
 AM32-Sicherungen, `BACKUP/HTnnn.TXT`, `BACKUP/KSTnnn.TXT` und
@@ -574,7 +581,7 @@ und zeigt die Abziehseite.
   als 250 ms, bevor der Schreibvorgang hinausging. Schreibe erneut.
 - **Ein rotes Ergebnis.** Tippe auf `OK`, dann auf `READ AGAIN`, und prüfe
   die Werte. Zurück zum Servo, wie es war, führt `RESTORE...` in FILES.
-- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`**
+- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.`**
   Prüfe die Karte, oder nimm sie aus der USB-Nutzung, und schreibe dann
   erneut.
 

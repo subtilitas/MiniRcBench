@@ -261,12 +261,18 @@ go to the card while the screen keeps drawing. The page reads
 `SAVING THE BACKUP TO THE CARD.` and `BLOCKS LEFT: 12`, for example, and the
 servo is written only once the card holds both. A flush the card does not
 take stops the write:
-`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. TAP OK, WRITE AGAIN.`
 A flush fails when a block write fails or the card in the slot changed, not
 when the card is full: a full card ends in `THE CARD TOOK NO FILE` before
 anything is queued. Nothing went to the servo. The card is mounted again, and
 `OK` returns to the field list; the next write, `WRITE...` and its hold,
 saves the backup again and then writes.
+
+The wait for the card ends one of two ways: the card holds the files, and
+the write goes out, or the flush fails, and the page says so as above. A
+stall of the screen, with the switched supply, also ends it: the screen
+returns to its main view with `RETRY`, nothing is written, and the next
+write opens on a tap and waits for its own hold.
 
 <img src="img/kst-flush-failed.png" width="240" alt="The write page after a flush the card did not take">
 
@@ -395,7 +401,7 @@ reads `THE PLANNER DID NOT CHECK THIS` and `RESTORE. HOLD AGAIN TO RUN IT.`
 - **A card that takes no file.** A card that is mounted but takes neither the
   backup nor the record stops the write before any frame. The write page
   reads
-  `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+  `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.`
 
 The backups share one ring of 50 numbers with the backups of the AM32
 editor and the Hitec programmer, `BACKUP/KSTnnn.TXT`, `BACKUP/AMnnn.TXT` and
@@ -463,7 +469,7 @@ unplug page directly.
 - **The screen returns to the search.** The servo stopped answering. Power it
   up again.
 - **`IN DOUBT`.** Restore from FILES: `RESTORE...`, then `HOLD TO RESTORE`.
-- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`**
+- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.`**
   Check the card, or take it out of USB use, then write again.
 
 ---
