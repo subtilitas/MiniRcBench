@@ -711,7 +711,9 @@ static void testCarryOver() {
 
 	// --- validation, as for a version 5 block ---
 	{
-		OldBlock v = { 4, 99, 18, 999, 1, 1, 13, 60000, 3, 5, 7, 0 };
+		// KISS on the board's KISS pin, free and never the ESC's default
+		// (the build refuses both on one pin), whatever the pin macros say.
+		OldBlock v = { 4, 99, 18, 999, 1, def.kissPin, 13, 60000, 3, 5, 7, 0 };
 		putOld(v);
 		settingsLoad();
 		checkTrue("out of range: carried over", carried());
@@ -723,7 +725,7 @@ static void testCarryOver() {
 		checkInt("servo supply 7: none", settings()->servoSupply, 0);
 		checkInt("board 99: this board", settings()->boardId, BOARD_ID_LCD_2_8);
 		checkInt("ESC pin 18, the panel's: the default", settings()->dshotPin, def.dshotPin);
-		checkInt("KISS on GP1, free and not the ESC's: on", settings()->kissEnable, 1);
+		checkInt("KISS on its default pin, free and not the ESC's: on", settings()->kissEnable, 1);
 		v.maxThrottle = 455;
 		v.poles = 0;
 		putOld(v);

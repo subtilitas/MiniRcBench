@@ -304,7 +304,7 @@ static uint32_t le32(const uint8_t *p) {
 /**
  * @brief Carry a whole block of an older layout over into @p out.
  *
- * Whole: @ref SETTINGS_MAGIC, a version in @ref OLD_LAYOUTS, that layout's
+ * Whole: @ref SETTINGS_MAGIC, a version in `OLD_LAYOUTS`, that layout's
  * payload size and the CRC-32 at its offset right over every byte before
  * it. Then @p out takes the compiled defaults and every field the layout
  * has, unvalidated: settingsLoad() validates.
