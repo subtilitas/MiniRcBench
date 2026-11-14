@@ -201,14 +201,15 @@ Ansichten für Eintritt und Lesen in Bernstein zusätzlich
 
 ## Die Feldliste
 
-Die Leiste zeigt das Modell, den Pin und die Sicherung, mit zwei
-Leerzeichen dazwischen: `D485HW  GP0  BACKUP IN MEMORY`, bis ein
+Die Leiste zeigt das Modell, die Sicherung und den Pin, mit zwei
+Leerzeichen dazwischen: `D485HW  BACKUP IN MEMORY  GP0`, bis ein
 Schreibvorgang die Sicherung auf die Karte gelegt hat, danach zum Beispiel
-`BACKUP HT001`. Ein klassisches Servo zeigt nach dem Modell seine Version,
-zum Beispiel `V01`. Ein Modell ohne Namen in der Liste von rcbench zeigt
+`BACKUP HT001`. Ein klassisches Servo zeigt zuletzt seine Version, zum
+Beispiel `V16`. Ein Modell ohne Namen in der Liste von rcbench zeigt
 `D SERIES` und seine Nummer. Rechts steht ein grünes Feld `MODE`. Eine
 Leiste, die bis an das Feld reichen würde, lässt Angaben von rechts weg:
-zuerst die Sicherung, dann den Pin.
+zuerst die Version, dann den Pin. Ein klassisches Servo zeigt
+`HS-5645MG  BACKUP IN MEMORY`, danach `HS-5645MG  BACKUP HT001  GP0`.
 
 Jede Zeile zeigt die Gruppe in kleiner Schrift, den Parameternamen und den
 Wert. Die Zeilen sind 40 px hoch mit 42 px Abstand. Ziehe die Liste nach oben

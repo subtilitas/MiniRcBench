@@ -183,13 +183,14 @@ add in amber `A WRITE WAS INTERRUPTED. HITEC/` and
 
 ## The field list
 
-The strip shows the model, the pin and the backup, two spaces apart:
-`D485HW  GP0  BACKUP IN MEMORY` until a write has put the backup on the
+The strip shows the model, the backup and the pin, two spaces apart:
+`D485HW  BACKUP IN MEMORY  GP0` until a write has put the backup on the
 card, then `BACKUP HT001`, for example. A classic servo adds its version
-after the model, `V01` for example. A model that has no name in rcbench's
-list reads `D SERIES` and its number. A green chip at the right reads
-`MODE`. A strip that would run into the chip drops items from the right:
-the backup first, then the pin.
+last, `V16` for example. A model that has no name in rcbench's list reads
+`D SERIES` and its number. A green chip at the right reads `MODE`. A strip
+that would run into the chip drops items from the right: the version, then
+the pin. A classic servo reads `HS-5645MG  BACKUP IN MEMORY`, then
+`HS-5645MG  BACKUP HT001  GP0`.
 
 Each row shows the group in small letters, the parameter name and the value.
 Rows are 40 px tall at a 42 px pitch. Drag the list up or down to scroll.

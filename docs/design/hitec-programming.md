@@ -737,9 +737,10 @@ y   0 | HITEC SERVO                      [ BACK ]|
   ([classic checksum](#classic-checksum)).
 - A value the draft holds other than the servo's is marked `*` before the
   name.
-- The strip names the model (`hitec_identify()`, `hitec_model_name()`), the
-  pin, and the backup file once the first write has saved it,
-  `BACKUP IN MEMORY` before. A classic strip adds the version, `V16`.
+- The strip names, two spaces apart, the model (`hitec_identify()`,
+  `hitec_model_name()`), the backup file once the first write has saved it,
+  `BACKUP IN MEMORY` before, and the pin. A classic strip adds the version,
+  `V16`, last.
 - A model rcbench has not measured is read and written in its series'
   layout (`hitec_reg.h`), as rcbench's panel does
   ([decision 12](#decisions-of-the-owner)). The write page adds, in amber,
@@ -1343,9 +1344,12 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
      (`hitecWritten()`), so a REPAIR alone opens the write page; the write
      page lists the parameters that go to the servo and not the cell 0x1C
      balance of other edits.
-   - The strip drops the pin, then the backup, when the line would reach
-     the MODE chip at x 197: a classic strip reads
-     `HS-5645MG V16 BACKUP IN MEMORY`.
+   - The strip drops items from the right, the version, then the pin, then
+     the backup, when the line would come within 4 px of the MODE chip at
+     x 197 (`uiChipX()`): a classic strip reads
+     `HS-5645MG  BACKUP IN MEMORY`, and `HS-5645MG  BACKUP HT001  GP0` once
+     the backup is on the card ([menu-b.md](menu-b.md#decisions) decision
+     14).
    - The write page shows the ID note in amber when the write changes the
      D series ID to another value than 0, as a LOAD can.
    - A read keeps the pending edits: the writable addresses they changed

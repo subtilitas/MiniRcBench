@@ -602,9 +602,9 @@ Below the list, fixed and not scrolled:
 - **LINK**: live packets per second and checksum error rate. Green when
   packets arrive, amber above 5 % errors.
 - The note line.
-- **HOLD TO SAVE** (150 × 46 px, from x 6) and **HOLD DEFAULTS** (72 × 46
-  px, to x 233), at y 268. HOLD DEFAULTS' label takes two lines, `HOLD` over
-  `DEFAULTS`, in amber.
+- **HOLD TO SAVE** (150 × 46 px, from x 6) and **HOLD DEFAULTS**
+  (72 × 46 px, to x 233), at y 268. HOLD DEFAULTS' label takes two lines,
+  `HOLD` over `DEFAULTS`, in amber.
 
 A wrong ESC pin produces no error: the ESC receives no frames. **LINK** on this
 screen shows the result of each pin change. A non-zero packet rate means the
@@ -1091,10 +1091,12 @@ Writing needs a 1 s hold on `HOLD TO WRITE`. While the BOARD voltage is
 red the hold writes nothing: the result reads
 `BOARD VOLTAGE IS RED: NOT WRITTEN.` with `CHARGE THE BOARD'S CELL, HOLD
 AGAIN.` in amber under it, and OK returns to the list with the edits kept
-([Using it](#using-it), the BOARD voltage). After the write the firmware
-waits `AM32_WRITE_SETTLE_MS` (300 ms), reads the block back, and compares it
-byte for byte. It shows `WRITE VERIFIED` only on a full match, with
-`POWER-CYCLE THE ESC TO APPLY.` under it: the bench sends no command that
+([Using it](#using-it), the BOARD voltage). OK is the wide button at the
+bottom, where HOLD TO WRITE was; it takes a fresh tap, and lifting the
+finger that held HOLD TO WRITE leaves the result up. After the write the
+firmware waits `AM32_WRITE_SETTLE_MS` (300 ms), reads the block back, and
+compares it byte for byte. It shows `WRITE VERIFIED` only on a full match,
+with `POWER-CYCLE THE ESC TO APPLY.` under it: the bench sends no command that
 starts the ESC's firmware, and whether the ESC runs the new settings without
 a power cycle is not tested. On a mismatch it shows the first differing byte:
 `DIFF @xx: GOT xx WANT xx`. A result of up to 18 characters is drawn at
