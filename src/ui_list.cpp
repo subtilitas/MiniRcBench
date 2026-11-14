@@ -168,3 +168,23 @@ void uiListDrawBar(const UiList *l, int x) {
 	gfxRect(x, v.y, UI_LIST_BAR_W, v.h, C_BG);
 	gfxRect(x, top, UI_LIST_BAR_W, len, C_GRID);
 }
+
+void uiListDrawField(int y, int h, const UiField &f, uint16_t changedCol) {
+	int fillH = h - 1;
+	gfxRect(0, y, GFX_W, fillH, f.selected ? C_PANEL : C_BG);
+	bool ro = f.state == UiValue::ReadOnly;
+	if (f.group) gfxText(UI_MARGIN, y + 11, f.group, C_GRID, 1);
+	gfxText(UI_MARGIN, y + 21, f.label, ro ? C_GRID : (f.selected ? C_TEXT : C_DIM), 1);
+	uint16_t col = C_TEXT;
+	switch (f.state) {
+		case UiValue::Plain:    col = C_TEXT;      break;
+		case UiValue::Changed:  col = changedCol;  break;
+		case UiValue::ReadOnly: col = C_GRID;      break;
+		case UiValue::Odd:      col = UI_COL_WARN; break;
+	}
+	int sc = gfxTextW(f.value, 2) <= UI_FIELD_VALUE_W2 ? 2 : 1;
+	gfxText(GFX_W - UI_MARGIN - gfxTextW(f.value, sc), y + (fillH - 7 * sc + 1) / 2, f.value, col, sc);
+	if (f.edge != UiEdge::None)
+		gfxRect(0, y, UI_FIELD_EDGE_W, fillH, f.edge == UiEdge::Rule ? UI_COL_WARN : changedCol);
+	gfxHLine(0, y + fillH, GFX_W, C_PANEL);
+}

@@ -1,7 +1,8 @@
 /**
  * @file test_widgets.cpp
- * @brief The shared list and hold widgets, driven directly with touch
- *        snapshots: src/ui_list.cpp and src/ui_hold.cpp as shipped.
+ * @brief The shared widgets, driven directly with touch snapshots:
+ *        src/ui_list.cpp, src/ui_hold.cpp, src/ui_leave.cpp and
+ *        src/ui_widgets.cpp as shipped.
  *
  * The screens that use them, AM32 CONFIG, SERVO, SERVO SET and SETUP, are
  * tested through the UI in test_ui.cpp and test_servo.cpp. This file holds
@@ -10,13 +11,16 @@
 
 #include "check.h"
 #include "config.h"
+#include "fakes.h"
 #include "gfx.h"
 #include "touch.h"
 #include "ui_hold.h"
 #include "ui_input.h"
+#include "ui_leave.h"
 #include "ui_list.h"
 #include "ui_widgets.h"
 
+#include <stdio.h>
 #include <string.h>
 
 // ---------------------------------------------------------------------------
@@ -610,6 +614,461 @@ static void testHeaderBackDisabled() {
 	gfxFill(C_BG);
 }
 
+// ---------------------------------------------------------------------------
+// slice 1 of menu-b.md: roles, constants, the strip, the guard, field rows
+// ---------------------------------------------------------------------------
+
+static void testColourRoles() {
+	section("Widgets: each colour role names its palette entry, in both themes");
+
+	for (int th = 0; th < 2; th++) {
+		themeSet(th ? Theme::HighContrast : Theme::Dark);
+		char what[64];
+		snprintf(what, sizeof(what), "%s: safe, live, on, warn, alert, latched",
+		         th ? "high contrast" : "dark");
+		checkTrue(what, UI_COL_SAFE == g_theme[TC_GREEN] && UI_COL_LIVE == g_theme[TC_LIME] &&
+		                UI_COL_ON == g_theme[TC_RED] && UI_COL_WARN == g_theme[TC_AMBER] &&
+		                UI_COL_ALERT == g_theme[TC_MAGENTA] && UI_COL_LATCHED == g_theme[TC_BLUE]);
+	}
+	themeSet(Theme::Dark);
+	const uint16_t roles[] = { UI_COL_SAFE, UI_COL_LIVE, UI_COL_ON,
+	                           UI_COL_WARN, UI_COL_ALERT, UI_COL_LATCHED };
+	int pairs = 0, distinct = 0;
+	for (int i = 0; i < 6; i++)
+		for (int k = i + 1; k < 6; k++, pairs++)
+			if (roles[i] != roles[k]) distinct++;
+	checkTrue("the six roles are six colours: 15 pairs, all distinct",
+	          pairs == 15 && distinct == 15);
+}
+
+static void testLayoutConstants() {
+	section("Widgets: the layout constants");
+
+	checkInt("button edge: x 6", UI_EDGE, 6);
+	checkInt("BACK ends at the button edge, x 234", UI_BACK_X + UI_BACK_W, GFX_W - UI_EDGE);
+	checkInt("footer: y 268", UI_FOOT_Y, 268);
+	checkInt("46 px tall, to y 313", UI_FOOT_Y + UI_FOOT_H - 1, 313);
+	checkInt("editor - and +: 44 px", UI_EDIT_BTN_W, 44);
+	checkTrue("strip lines at y 42 and y 52", UI_STRIP_LINE1_Y == 42 && UI_STRIP_LINE2_Y == 52);
+	checkTrue("the second ends at y 58, above the body at y 62",
+	          UI_STRIP_LINE2_Y + 6 == 58 && UI_BODY_Y == 62);
+}
+
+static void testStripTwoLines() {
+	section("Widgets: uiStripTwoLines() at y 42 and y 52");
+
+	gfxFill(C_RED);
+	uiStripTwoLines("GP0  50 HZ  1000-2000 US", C_DIM, "GP28 SUPPLY STAYS OFF HERE.", C_AMBER);
+	checkTrue("the first line at x 8, y 42",
+	          fakeTextIs(UI_MARGIN, 42, "GP0  50 HZ  1000-2000 US", C_DIM, C_BG, 1));
+	checkTrue("the second at x 8, y 52, in its colour",
+	          fakeTextIs(UI_MARGIN, 52, "GP28 SUPPLY STAYS OFF HERE.", C_AMBER, C_BG, 1));
+	checkTrue("y 40 and y 61 cleared", px(200, 40) == C_BG && px(200, 61) == C_BG);
+	checkTrue("y 39 and y 62 untouched", px(200, 39) == C_RED && px(200, 62) == C_RED);
+	gfxFill(C_RED);
+	uiStripTwoLines(nullptr, C_DIM, "ONE", C_AMBER);
+	int x0, x1;
+	checkTrue("a null first line draws nothing at y 42",
+	          !fakeInkExtent(40, 12, C_BG, &x0, &x1) && fakeTextIs(UI_MARGIN, 52, "ONE", C_AMBER, C_BG, 1));
+	uiStripTwoLines("ONE", C_DIM, nullptr, C_AMBER);
+	checkTrue("a null second line draws nothing at y 52",
+	          !fakeInkExtent(50, 12, C_BG, &x0, &x1) && fakeTextIs(UI_MARGIN, 42, "ONE", C_DIM, C_BG, 1));
+	gfxFill(C_BG);
+}
+
+/** @brief A tap on BACK's centre: the press frame, then the lift. */
+static UiGuardEv tapBack(UiBackGuard *g, int pending) {
+	UiRect b = uiBackRect();
+	UiGuardEv e = uiBackGuard(g, press(b.x + b.w / 2, b.y + b.h / 2), pending);
+	if (e != UiGuardEv::None) return e;
+	return uiBackGuard(g, lift(), pending);
+}
+
+static void testBackGuard() {
+	section("Widgets: the BACK guard arms on the first BACK, leaves on the second");
+
+	UiBackGuard g = {};
+	checkTrue("no change: the first BACK leaves", tapBack(&g, 0) == UiGuardEv::Back && !g.armed);
+	checkTrue("two changes: the first BACK arms", tapBack(&g, 2) == UiGuardEv::Armed && g.armed);
+	checkTrue("the second leaves and disarms", tapBack(&g, 2) == UiGuardEv::Back && !g.armed);
+
+	tapBack(&g, 1);
+	checkTrue("armed: a press elsewhere disarms on the frame it lands",
+	          uiBackGuard(&g, press(120, 200), 1) == UiGuardEv::Disarmed && !g.armed);
+	checkTrue("its lift does nothing", uiBackGuard(&g, lift(), 1) == UiGuardEv::None);
+	checkTrue("so the next BACK arms again", tapBack(&g, 1) == UiGuardEv::Armed);
+
+	UiRect b = uiBackRect();
+	checkTrue("armed: a press on BACK keeps it armed",
+	          uiBackGuard(&g, press(b.x + 2, b.y + 2), 1) == UiGuardEv::None && g.armed);
+	move(120, 200);
+	checkTrue("slid off BACK and lifted: no tap, still armed",
+	          uiBackGuard(&g, lift(), 1) == UiGuardEv::None && g.armed);
+	checkTrue("a frame with no touch keeps it armed",
+	          uiBackGuard(&g, nullptr, 1) == UiGuardEv::None && g.armed);
+	checkTrue("armed with no change left: disarmed, with or without a touch",
+	          uiBackGuard(&g, nullptr, 0) == UiGuardEv::Disarmed && !g.armed);
+	tapBack(&g, 1);
+	uiBackGuard(&g, press(b.x + b.w / 2, b.y + b.h / 2), 1);
+	checkTrue("armed, a BACK tap on the frame the last change goes: Back",
+	          uiBackGuard(&g, lift(), 0) == UiGuardEv::Back && !g.armed);
+	checkTrue("a press elsewhere while disarmed is nothing",
+	          uiBackGuard(&g, press(120, 200), 3) == UiGuardEv::None);
+	uiBackGuard(&g, lift(), 3);
+	idle();
+}
+
+static void testBackGuardDraw() {
+	section("Widgets: the guard's two amber lines");
+
+	gfxFill(C_RED);
+	uiBackGuardDraw(2, "WRITTEN");
+	checkTrue("2 CHANGES NOT WRITTEN. at y 42",
+	          fakeTextIs(UI_MARGIN, 42, "2 CHANGES NOT WRITTEN.", C_AMBER, C_BG, 1));
+	checkTrue("BACK AGAIN DISCARDS THEM. at y 52",
+	          fakeTextIs(UI_MARGIN, 52, "BACK AGAIN DISCARDS THEM.", C_AMBER, C_BG, 1));
+	checkInt("131 px wide", gfxTextW("2 CHANGES NOT WRITTEN.", 1), 131);
+	uiBackGuardDraw(1, "APPLIED");
+	checkTrue("1 CHANGE NOT APPLIED. at y 42",
+	          fakeTextIs(UI_MARGIN, 42, "1 CHANGE NOT APPLIED.", C_AMBER, C_BG, 1));
+	checkTrue("BACK AGAIN DISCARDS IT. at y 52",
+	          fakeTextIs(UI_MARGIN, 52, "BACK AGAIN DISCARDS IT.", C_AMBER, C_BG, 1));
+	gfxFill(C_BG);
+}
+
+/** @brief Top of the field row under test, and its body: a 40 px row. */
+static const int FY = 100, FH = 40;
+
+/** @brief Whether the row's value @p v shows right-aligned to x 231 in @p col over @p bg. */
+static bool valueIs(const char *v, uint16_t col, uint16_t bg) {
+	int sc = gfxTextW(v, 2) <= UI_FIELD_VALUE_W2 ? 2 : 1;
+	return fakeTextIs(GFX_W - UI_MARGIN - gfxTextW(v, sc), FY + (FH - 1 - 7 * sc + 1) / 2, v, col, bg, sc);
+}
+
+static void testListDrawField() {
+	section("List: uiListDrawField() draws one field row");
+
+	UiField f = { "TUNE", "DEAD BAND", "2.2 US", UiValue::Plain, UiEdge::None, false };
+	gfxFill(C_RED);
+	uiListDrawField(FY, FH, f, C_CYAN);
+	checkTrue("filled C_BG over 39 px", px(120, FY) == C_BG && px(120, FY + 38) == C_BG);
+	checkTrue("its rule on the 40th line, C_PANEL", px(120, FY + 39) == C_PANEL);
+	checkTrue("the pitch's gap untouched", px(120, FY + 40) == C_RED && px(120, FY - 1) == C_RED);
+	checkTrue("the group at y + 11, C_GRID", fakeTextIs(UI_MARGIN, FY + 11, "TUNE", C_GRID, C_BG, 1));
+	checkTrue("the label at y + 21, C_DIM", fakeTextIs(UI_MARGIN, FY + 21, "DEAD BAND", C_DIM, C_BG, 1));
+	checkTrue("Plain: the value C_TEXT at scale 2, y + 13", valueIs("2.2 US", C_TEXT, C_BG) &&
+	          fakeTextIs(232 - gfxTextW("2.2 US", 2), FY + 13, "2.2 US", C_TEXT, C_BG, 2));
+	checkTrue("no edge bar", px(1, FY + 5) == C_BG);
+
+	f.selected = true;
+	uiListDrawField(FY, FH, f, C_CYAN);
+	checkTrue("selected: filled C_PANEL", px(120, FY) == C_PANEL);
+	checkTrue("the label C_TEXT", fakeTextIs(UI_MARGIN, FY + 21, "DEAD BAND", C_TEXT, C_PANEL, 1));
+	checkTrue("the value's colour unchanged", valueIs("2.2 US", C_TEXT, C_PANEL));
+
+	f.state = UiValue::Changed;
+	f.edge = UiEdge::Changed;
+	uiListDrawField(FY, FH, f, C_CYAN);
+	checkTrue("Changed: the value in the caller's colour, selected or not",
+	          valueIs("2.2 US", C_CYAN, C_PANEL));
+	checkTrue("the bar in it, 3 px at x 0, as tall as the fill",
+	          px(0, FY) == C_CYAN && px(2, FY + 38) == C_CYAN && px(3, FY + 5) == C_PANEL &&
+	          px(0, FY + 39) == C_PANEL);
+	f.selected = false;
+	uiListDrawField(FY, FH, f, C_LIME);
+	checkTrue("another colour passed: C_LIME", valueIs("2.2 US", C_LIME, C_BG) && px(1, FY + 5) == C_LIME);
+
+	f.edge = UiEdge::Rule;
+	uiListDrawField(FY, FH, f, C_CYAN);
+	checkTrue("Rule: the bar amber, the value still the caller's",
+	          px(1, FY + 5) == C_AMBER && valueIs("2.2 US", C_CYAN, C_BG));
+
+	f.state = UiValue::ReadOnly;
+	f.edge = UiEdge::None;
+	f.selected = true;
+	uiListDrawField(FY, FH, f, C_CYAN);
+	checkTrue("ReadOnly: the value and the label C_GRID, selected or not",
+	          valueIs("2.2 US", C_GRID, C_PANEL) &&
+	          fakeTextIs(UI_MARGIN, FY + 21, "DEAD BAND", C_GRID, C_PANEL, 1));
+
+	f.state = UiValue::Odd;
+	f.selected = false;
+	uiListDrawField(FY, FH, f, C_CYAN);
+	checkTrue("Odd: the value amber, the label as a live row's",
+	          valueIs("2.2 US", C_AMBER, C_BG) && fakeTextIs(UI_MARGIN, FY + 21, "DEAD BAND", C_DIM, C_BG, 1));
+
+	// 104 px at scale 2 is 9 characters less one column: "8 CHARS." is 94 px.
+	f.state = UiValue::Plain;
+	f.group = nullptr;
+	f.value = "123456789";
+	gfxFill(C_RED);
+	uiListDrawField(FY, FH, f, C_CYAN);
+	checkInt("9 characters at scale 2: 106 px", gfxTextW("123456789", 2), 106);
+	checkTrue("over 104 px: scale 1, at y + 16",
+	          fakeTextIs(232 - gfxTextW("123456789", 1), FY + 16, "123456789", C_TEXT, C_BG, 1));
+	int x0, x1;
+	checkTrue("no group: nothing from y + 11 to the value's top at y + 16",
+	          !fakeInkExtent(FY + 11, 5, C_BG, &x0, &x1));
+	f.value = "12345678";
+	uiListDrawField(FY, FH, f, C_CYAN);
+	checkTrue("8 characters, 94 px: scale 2", gfxTextW("12345678", 2) == 94 && valueIs("12345678", C_TEXT, C_BG) &&
+	          fakeTextIs(232 - 94, FY + 13, "12345678", C_TEXT, C_BG, 2));
+	gfxFill(C_BG);
+}
+
+// ---------------------------------------------------------------------------
+// the leave page
+// ---------------------------------------------------------------------------
+
+/** @brief A tap at the centre of @p r, fed to the page at @p now; the event of the lift. */
+static UiLeaveEv tapLeave(UiLeave *l, const UiRect &r, uint32_t now) {
+	UiLeaveEv e = uiLeaveTouch(l, press(r.x + r.w / 2, r.y + r.h / 2), now);
+	if (e != UiLeaveEv::None) return e;
+	return uiLeaveTouch(l, lift(), now);
+}
+
+static void testLeavePhases() {
+	section("Leave page: before LEAVE, releasing, released");
+
+	UiLeave l;
+	uiLeaveOpen(&l, UiLeavePhase::Before, 1000);
+	checkTrue("opened before LEAVE: step 0 current",
+	          l.phase == UiLeavePhase::Before && uiLeaveCurrent(&l) == 0);
+	checkTrue("STAY: Stay, the page unchanged",
+	          tapLeave(&l, UI_LEAVE_LEFT, 0) == UiLeaveEv::Stay && l.phase == UiLeavePhase::Before);
+	checkTrue("a tap on the right button is the screen's: nothing",
+	          tapLeave(&l, UI_LEAVE_RIGHT, 0) == UiLeaveEv::None);
+	checkTrue("LEAVE: Leave, and the page is releasing",
+	          tapLeave(&l, UI_LEAVE_WIDE, 0) == UiLeaveEv::Leave && l.phase == UiLeavePhase::Releasing);
+	checkInt("the step after the first is current", uiLeaveCurrent(&l), 1);
+	checkTrue("releasing: the left and wide buttons do nothing",
+	          tapLeave(&l, UI_LEAVE_LEFT, 0) == UiLeaveEv::None &&
+	          tapLeave(&l, UI_LEAVE_WIDE, 0) == UiLeaveEv::None);
+	uiLeavePoll(&l, false, 4000);
+	checkTrue("not due: still releasing", l.phase == UiLeavePhase::Releasing);
+	uiLeavePoll(&l, true, 5000);
+	checkTrue("due: released from that frame",
+	          l.phase == UiLeavePhase::Released && l.releasedMs == 5000 && uiLeaveCurrent(&l) == 1);
+	uiLeavePoll(&l, true, 7000);
+	checkInt("a later poll keeps the phase's start", (int)l.releasedMs, 5000);
+	checkTrue("released: the left button is Next", tapLeave(&l, UI_LEAVE_LEFT, 7000) == UiLeaveEv::Next);
+	checkTrue("no touch: nothing", uiLeaveTouch(&l, nullptr, 7000) == UiLeaveEv::None);
+
+	uiLeaveOpen(&l, UiLeavePhase::Releasing, 1000);
+	checkTrue("opened releasing: step 0 current, no step before LEAVE",
+	          l.phase == UiLeavePhase::Releasing && !l.before && uiLeaveCurrent(&l) == 0);
+	uiLeavePoll(&l, true, 10);
+	checkInt("and still step 0 once released", uiLeaveCurrent(&l), 0);
+	uiLeaveOpen(&l, UiLeavePhase::Released, 1000);
+	checkTrue("opened released: releasing until the poll",
+	          l.phase == UiLeavePhase::Releasing && !uiLeaveRestartLive(&l, 5000));
+	idle();
+}
+
+static void testLeaveRestartWait() {
+	section("Leave page: RESTART DSHOT takes a press 1000 ms into the released phase");
+
+	UiLeave l;
+	uiLeaveOpen(&l, UiLeavePhase::Releasing, 1000);
+	uiLeavePoll(&l, true, 5000);
+	checkTrue("999 ms in: not live", !uiLeaveRestartLive(&l, 5999));
+	checkTrue("1000 ms in: live", uiLeaveRestartLive(&l, 6000));
+	const UiRect &w = UI_LEAVE_WIDE;
+	uiLeaveTouch(&l, press(w.x + 20, w.y + 20), 5999);
+	checkTrue("a press that landed at 999 ms and lifts at 1100 ms: nothing",
+	          uiLeaveTouch(&l, lift(), 6100) == UiLeaveEv::None);
+	checkTrue("a press that lands at 1000 ms: Restart", tapLeave(&l, w, 6000) == UiLeaveEv::Restart);
+	uiLeaveTouch(&l, press(w.x + 20, w.y + 20), 6000);
+	move(w.x + 20, w.y - 40);
+	checkTrue("slid off before the lift: nothing", uiLeaveTouch(&l, lift(), 6100) == UiLeaveEv::None);
+	uiLeaveTouch(&l, press(UI_LEAVE_LEFT.x + 5, UI_LEAVE_LEFT.y + 5), 6000);
+	move(w.x + 20, w.y + 20);
+	checkTrue("a press that landed on the left button and lifts on it: nothing",
+	          uiLeaveTouch(&l, lift(), 6100) == UiLeaveEv::None);
+
+	uiLeaveOpen(&l, UiLeavePhase::Releasing, 1000);
+	uiLeavePoll(&l, true, 0xFFFFFF00u);
+	checkTrue("16 ms in, before the wrap: not live", !uiLeaveRestartLive(&l, 0xFFFFFF10u));
+	checkTrue("across a millis() wrap: 999 ms not live, 1000 ms live",
+	          !uiLeaveRestartLive(&l, 0xFFFFFF00u + 999u) && uiLeaveRestartLive(&l, 0xFFFFFF00u + 1000u));
+
+	uiLeaveOpen(&l, UiLeavePhase::Before, 0);
+	uiLeaveTouch(&l, press(w.x + 20, w.y + 20), 100);
+	checkTrue("no wait: LEAVE's tap leaves", uiLeaveTouch(&l, lift(), 150) == UiLeaveEv::Leave);
+	uiLeaveTouch(&l, press(w.x + 20, w.y + 20), 200);
+	uiLeavePoll(&l, true, 250);
+	checkTrue("live with the released phase", uiLeaveRestartLive(&l, 250));
+	checkTrue("but a second press that landed while releasing restarts nothing",
+	          uiLeaveTouch(&l, lift(), 300) == UiLeaveEv::None);
+	checkTrue("the next press does", tapLeave(&l, w, 400) == UiLeaveEv::Restart);
+	idle();
+}
+
+/** @brief KST SERVO, servo on its own supply, as the note draws it. */
+static UiLeaveText kstOwnText() {
+	UiLeaveText t = {};
+	t.step[0][0] = "POWER THE SERVO OFF, THEN LEAVE.";
+	t.step[0][1] = "IT STAYS IN PROGRAMMING MODE UNTIL";
+	t.step[0][2] = "ITS SUPPLY IS OFF.";
+	t.step[1][0] = "UNPLUG THE SERVO.";
+	t.step[1][1] = "DSHOT RESTARTS ON SIG GP0 AND READS";
+	t.step[1][2] = "AS A 970 US PULSE AT 1000 HZ.";
+	t.step[2][0] = "RESTART DSHOT.";
+	t.note[0] = "2 CHANGES NOT WRITTEN.";
+	t.note[1] = "THE SERVO IS IN DOUBT: RESTORE FIRST.";
+	t.next = "NEXT SERVO";
+	return t;
+}
+
+/** @brief Whether button @p r shows @p label, live or drawn disabled. */
+static bool buttonIs(const UiRect &r, const char *label, int scale, bool live) {
+	int x = r.x + (r.w - gfxTextW(label, scale)) / 2, y = r.y + (r.h - 7 * scale) / 2;
+	uint16_t fill = live ? C_PANEL : C_BG;
+	return px(r.x + 4, r.y + r.h / 2) == fill && fakeTextIs(x, y, label, live ? C_TEXT : C_GRID, fill, scale);
+}
+
+static void testLeaveDraw() {
+	section("Leave page: steps, notes and buttons in each phase");
+
+	UiLeave l;
+	UiLeaveText t = kstOwnText();
+	uiLeaveOpen(&l, UiLeavePhase::Before, 1000);
+	gfxFill(C_RED);
+	uiLeaveDraw(&l, t, idle(), 0);
+	checkTrue("y 61 untouched, y 62 cleared", px(120, 61) == C_RED && px(120, 62) == C_BG);
+	checkTrue("step 1 numbered at x 8, y 66, amber", fakeTextIs(UI_MARGIN, 66, "1", C_AMBER, C_BG, 1));
+	checkTrue("its text at x 20", fakeTextIs(20, 66, "POWER THE SERVO OFF, THEN LEAVE.", C_AMBER, C_BG, 1));
+	checkTrue("its detail lines at y 78 and y 90",
+	          fakeTextIs(20, 78, "IT STAYS IN PROGRAMMING MODE UNTIL", C_AMBER, C_BG, 1) &&
+	          fakeTextIs(20, 90, "ITS SUPPLY IS OFF.", C_AMBER, C_BG, 1));
+	checkTrue("the bar: 3 px at x 0 from y 66 to y 96",
+	          px(0, 66) == C_AMBER && px(2, 96) == C_AMBER && px(3, 80) == C_BG &&
+	          px(1, 65) == C_BG && px(1, 97) == C_BG);
+	checkTrue("step 2 at y 104, C_DIM, no bar",
+	          fakeTextIs(UI_MARGIN, 104, "2", C_DIM, C_BG, 1) &&
+	          fakeTextIs(20, 104, "UNPLUG THE SERVO.", C_DIM, C_BG, 1) && px(1, 104) == C_BG);
+	checkTrue("its longest line, 35 characters from x 20, ends at x 228",
+	          fakeTextIs(20, 116, "DSHOT RESTARTS ON SIG GP0 AND READS", C_DIM, C_BG, 1) &&
+	          20 + gfxTextW("DSHOT RESTARTS ON SIG GP0 AND READS", 1) - 1 == 228);
+	checkTrue("step 3 at y 142", fakeTextIs(UI_MARGIN, 142, "3", C_DIM, C_BG, 1) &&
+	          fakeTextIs(20, 142, "RESTART DSHOT.", C_DIM, C_BG, 1));
+	checkTrue("the notes at y 158 and y 170, amber",
+	          fakeTextIs(UI_MARGIN, 158, "2 CHANGES NOT WRITTEN.", C_AMBER, C_BG, 1) &&
+	          fakeTextIs(UI_MARGIN, 170, "THE SERVO IS IN DOUBT: RESTORE FIRST.", C_AMBER, C_BG, 1));
+	checkTrue("STAY live at 6, 214", buttonIs(UI_LEAVE_LEFT, "STAY", 1, true));
+	checkTrue("LEAVE live, scale 2, at 6, 268", buttonIs(UI_LEAVE_WIDE, "LEAVE", 2, true));
+	checkTrue("the right button's place left clear", px(UI_LEAVE_RIGHT.x + 4, UI_LEAVE_RIGHT.y + 20) == C_BG);
+
+	tapLeave(&l, UI_LEAVE_WIDE, 0);
+	t.note[0] = "RELEASING THE PIN";
+	t.note[1] = nullptr;
+	uiLeaveDraw(&l, t, idle(), 0);
+	checkTrue("releasing: step 1 C_DIM, no bar",
+	          fakeTextIs(20, 66, "POWER THE SERVO OFF, THEN LEAVE.", C_DIM, C_BG, 1) && px(1, 66) == C_BG);
+	checkTrue("step 2 current: amber, its bar from y 104 to y 134",
+	          fakeTextIs(20, 104, "UNPLUG THE SERVO.", C_AMBER, C_BG, 1) &&
+	          px(1, 104) == C_AMBER && px(1, 134) == C_AMBER && px(1, 135) == C_BG);
+	checkTrue("the notes C_DIM, one line",
+	          fakeTextIs(UI_MARGIN, 158, "RELEASING THE PIN", C_DIM, C_BG, 1) && px(UI_MARGIN, 172) == C_BG);
+	checkTrue("NEXT SERVO drawn disabled", buttonIs(UI_LEAVE_LEFT, "NEXT SERVO", 1, false));
+	checkTrue("RESTART DSHOT drawn disabled", buttonIs(UI_LEAVE_WIDE, "RESTART DSHOT", 2, false));
+	const UiRect &w = UI_LEAVE_WIDE;
+	uiLeaveDraw(&l, t, press(w.x + 20, w.y + 20), 0);
+	checkTrue("a finger on it draws no pressed look", px(w.x + 2, w.y + w.h / 2) == C_BG);
+
+	uiLeavePoll(&l, true, 1000);
+	idle();
+	uiLeaveDraw(&l, t, idle(), 1999);
+	checkTrue("released, 999 ms in: NEXT SERVO live, RESTART DSHOT still disabled",
+	          buttonIs(UI_LEAVE_LEFT, "NEXT SERVO", 1, true) && buttonIs(UI_LEAVE_WIDE, "RESTART DSHOT", 2, false));
+	uiLeaveDraw(&l, t, idle(), 2000);
+	checkTrue("1000 ms in: RESTART DSHOT live", buttonIs(UI_LEAVE_WIDE, "RESTART DSHOT", 2, true));
+	uiLeaveTouch(&l, press(w.x + 20, w.y + 20), 1999);
+	uiLeaveTouch(&l, move(w.x + 20, w.y + 20), 2100);
+	uiLeaveDraw(&l, t, &s_touch, 2100);
+	checkTrue("a press that landed during the wait, held past it: no pressed look",
+	          buttonIs(UI_LEAVE_WIDE, "RESTART DSHOT", 2, true) && px(w.x + 2, w.y + w.h / 2) != C_INK);
+	uiLeaveTouch(&l, lift(), 2200);
+	uiLeaveTouch(&l, press(w.x + 20, w.y + 20), 2000);
+	uiLeaveDraw(&l, t, &s_touch, 2000);
+	checkTrue("pressed: the inner ring", px(w.x + 2, w.y + w.h / 2) == C_INK);
+	uiLeaveTouch(&l, lift(), 2000);
+	idle();
+
+	t.next = nullptr;
+	gfxFill(C_RED);
+	uiLeaveDraw(&l, t, idle(), 2000);
+	checkTrue("no next label: no left button", px(UI_LEAVE_LEFT.x + 4, UI_LEAVE_LEFT.y + 20) == C_BG);
+	gfxFill(C_BG);
+}
+
+static void testLeaveEnabled() {
+	section("Leave page: LEAVE drawn disabled and not tappable while the screen writes");
+
+	UiLeave l;
+	UiLeaveText t = kstOwnText();
+	uiLeaveOpen(&l, UiLeavePhase::Before, 1000);
+	checkTrue("opened: LEAVE live", l.leaveEnabled);
+	l.leaveEnabled = false;
+	const UiRect &w = UI_LEAVE_WIDE;
+	gfxFill(C_RED);
+	uiLeaveDraw(&l, t, idle(), 0);
+	checkTrue("cleared: LEAVE drawn disabled, STAY live",
+	          buttonIs(UI_LEAVE_WIDE, "LEAVE", 2, false) && buttonIs(UI_LEAVE_LEFT, "STAY", 1, true));
+	uiLeaveTouch(&l, press(w.x + 20, w.y + 20), 0);
+	uiLeaveDraw(&l, t, &s_touch, 0);
+	checkTrue("a finger on it draws no pressed look", px(w.x + 2, w.y + w.h / 2) == C_BG);
+	checkTrue("its tap does nothing, the page stays before LEAVE",
+	          uiLeaveTouch(&l, lift(), 0) == UiLeaveEv::None && l.phase == UiLeavePhase::Before);
+	checkTrue("STAY still acts", tapLeave(&l, UI_LEAVE_LEFT, 0) == UiLeaveEv::Stay);
+	l.leaveEnabled = true;
+	checkTrue("set again: LEAVE leaves",
+	          tapLeave(&l, w, 0) == UiLeaveEv::Leave && l.phase == UiLeavePhase::Releasing);
+	idle();
+	gfxFill(C_BG);
+}
+
+static void testLeaveSteps() {
+	section("Leave page: step numbers and the room above the notes");
+
+	UiLeave l;
+	UiLeaveText t = {};
+	t.step[0][0] = "UNPLUG THE SERVO.";
+	t.step[1][0] = "RESTART DSHOT.";
+	uiLeaveOpen(&l, UiLeavePhase::Releasing, 1000);
+	gfxFill(C_RED);
+	uiLeaveDraw(&l, t, idle(), 0);
+	checkTrue("a page opened releasing numbers its steps from 1",
+	          fakeTextIs(UI_MARGIN, 66, "1", C_AMBER, C_BG, 1) &&
+	          fakeTextIs(20, 66, "UNPLUG THE SERVO.", C_AMBER, C_BG, 1));
+	checkTrue("the next step 14 px on, at y 80, numbered 2",
+	          fakeTextIs(UI_MARGIN, 80, "2", C_DIM, C_BG, 1) && fakeTextIs(20, 80, "RESTART DSHOT.", C_DIM, C_BG, 1));
+	checkTrue("a one-line step's bar: y 66 to y 72", px(1, 72) == C_AMBER && px(1, 73) == C_BG);
+
+	// Three steps of three lines: the third step's second line would start
+	// at y 154 and end at y 160, past the notes' top at y 158.
+	for (int i = 0; i < UI_LEAVE_STEPS; i++)
+		for (int k = 0; k < UI_LEAVE_STEP_LINES; k++) t.step[i][k] = "LINE";
+	uiLeaveDraw(&l, t, idle(), 0);
+	checkTrue("the third step's first line at y 142",
+	          fakeTextIs(20, 142, "LINE", C_DIM, C_BG, 1));
+	int x0, x1;
+	checkTrue("a line that would reach y 158 is not drawn", !fakeInkExtent(149, 9, C_BG, &x0, &x1));
+
+	t.step[0][1] = t.step[0][2] = nullptr;
+	t.step[1][1] = t.step[1][2] = nullptr;
+	t.step[2][0] = "THIRD";
+	t.step[2][1] = nullptr;
+	t.step[2][2] = "NOT AFTER A NULL";
+	uiLeaveDraw(&l, t, idle(), 0);
+	checkTrue("a null line ends its step",
+	          fakeTextIs(20, 94, "THIRD", C_DIM, C_BG, 1) && !fakeInkExtent(101, 56, C_BG, &x0, &x1));
+	t.step[1][0] = nullptr;
+	uiLeaveDraw(&l, t, idle(), 0);
+	checkTrue("a step with no first line ends the steps", !fakeInkExtent(74, 83, C_BG, &x0, &x1));
+	gfxFill(C_BG);
+}
+
 void runWidgetTests() {
 	testListGeometry();
 	testListPressRule();
@@ -625,4 +1084,15 @@ void runWidgetTests() {
 	testHoldBar();
 	testNullTouch();
 	testHeaderBackDisabled();
+	testColourRoles();
+	testLayoutConstants();
+	testStripTwoLines();
+	testBackGuard();
+	testBackGuardDraw();
+	testListDrawField();
+	testLeavePhases();
+	testLeaveRestartWait();
+	testLeaveDraw();
+	testLeaveEnabled();
+	testLeaveSteps();
 }

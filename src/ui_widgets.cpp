@@ -7,11 +7,14 @@
 #include "ui_input.h"
 #include "gfx.h"
 #include "theme.h"
+#include "touch.h"
+
+#include <stdio.h>
 
 // The BACK position is written in terms of a literal 240 in the header, because
 // it has to be usable in a static_assert there. Check it against the real panel
 // width here, where gfx.h is in scope.
-static_assert(UI_BACK_X == GFX_W - UI_BACK_W - 6,
+static_assert(UI_BACK_X == GFX_W - UI_BACK_W - UI_EDGE,
               "UI_BACK_X was written against a different panel width");
 static_assert(UI_BACK_X + UI_BACK_W < GFX_W, "BACK runs off the panel");
 
@@ -70,6 +73,40 @@ void uiStripText(const char *text, uint16_t col) {
 	// Scale 1 is 7 px tall; centring it in the strip lines it up with a chip
 	// sitting at the other end of the same row.
 	gfxText(UI_MARGIN, UI_STRIP_Y + (UI_STRIP_H - 7) / 2, text, col, 1);
+}
+
+void uiStripTwoLines(const char *top, uint16_t topCol, const char *bottom, uint16_t bottomCol) {
+	gfxRect(0, UI_STRIP_Y, GFX_W, UI_BODY_Y - UI_STRIP_Y, C_BG);
+	if (top) gfxText(UI_MARGIN, UI_STRIP_LINE1_Y, top, topCol, 1);
+	if (bottom) gfxText(UI_MARGIN, UI_STRIP_LINE2_Y, bottom, bottomCol, 1);
+}
+
+UiGuardEv uiBackGuard(UiBackGuard *g, const TouchState *t, int pending) {
+	if (g->armed && pending <= 0) {
+		// Nothing is left to drop, so a BACK tap on this frame leaves as it
+		// does with nothing pending.
+		g->armed = false;
+		return uiBackTapped(t) ? UiGuardEv::Back : UiGuardEv::Disarmed;
+	}
+	if (!t) return UiGuardEv::None;
+	if (g->armed && t->pressed && !uiPressing(uiBackRect(), t)) {
+		g->armed = false;
+		return UiGuardEv::Disarmed;
+	}
+	if (!uiBackTapped(t)) return UiGuardEv::None;
+	if (pending > 0 && !g->armed) {
+		g->armed = true;
+		return UiGuardEv::Armed;
+	}
+	g->armed = false;
+	return UiGuardEv::Back;
+}
+
+void uiBackGuardDraw(int pending, const char *verb) {
+	char top[40];
+	snprintf(top, sizeof(top), "%d CHANGE%s NOT %s.", pending, pending == 1 ? "" : "S", verb);
+	uiStripTwoLines(top, UI_COL_WARN, pending == 1 ? "BACK AGAIN DISCARDS IT." :
+	                "BACK AGAIN DISCARDS THEM.", UI_COL_WARN);
 }
 
 void uiChip(const char *text, uint16_t fill) {

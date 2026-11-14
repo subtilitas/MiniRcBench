@@ -1616,6 +1616,7 @@ src/
   ui_widgets.{h,cpp}    shared header, buttons, rows and chips
   ui_list.{h,cpp}       the scrolling list: pixel scroll, axis lock, tap, swipe
   ui_hold.{h,cpp}       the hold-to-act control: 1 s timer, one firing, its bar
+  ui_leave.{h,cpp}      the leave page: phases, numbered steps, RESTART DSHOT's wait
   ui_am32.{h,cpp}       AM32 config screen: connect, edit, verified write
   ui_servo.{h,cpp}      servo tester screens: SERVO, SET, the unplug page
   ui_slider.{h,cpp}     slider with delta drag, tap-to-set and presets, from rcbench
@@ -1752,7 +1753,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.3%**: 8,863 of 9,106 lines in 57 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.4%**: 8,964 of 9,207 lines in 58 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

@@ -355,8 +355,6 @@ static void drawTop(const char *title, bool caption) {
 	uiHeader(title, s_t, k.backOk);
 	uiStripClear();
 	if (!caption) return;
-	// The second line ends at y 58, under the strip: the rows to the body.
-	gfxRect(0, UI_STRIP_Y, GFX_W, UI_BODY_Y - UI_STRIP_Y, C_BG);
 	char buf[40];
 	if (twoServos())
 		snprintf(buf, sizeof(buf), "GP%u+%u  %u HZ  %u-%u US", k.sig, k.aux,
@@ -365,10 +363,13 @@ static void drawTop(const char *title, bool caption) {
 		snprintf(buf, sizeof(buf), "GP%u  %u HZ  %u-%u US", k.sig, s_profile.rateHz,
 		         s_profile.minUs, s_profile.maxUs);
 	if (k.supply) {
-		gfxText(UI_MARGIN, SERVO_UI_STRIP_Y1, buf, C_DIM, 1);
-		snprintf(buf, sizeof(buf), SERVO_UI_SUPPLY_FMT, (unsigned)k.supply);
-		gfxText(UI_MARGIN, SERVO_UI_STRIP_Y2, buf, C_AMBER, 1);
+		char sup[40];
+		snprintf(sup, sizeof(sup), SERVO_UI_SUPPLY_FMT, (unsigned)k.supply);
+		uiStripTwoLines(buf, C_DIM, sup, C_AMBER);
 	} else {
+		// As uiStripTwoLines() clears: a second line drawn before ends at
+		// y 58, under the strip.
+		gfxRect(0, UI_STRIP_Y, GFX_W, UI_BODY_Y - UI_STRIP_Y, C_BG);
 		uiStripText(buf, C_DIM);
 	}
 	if (s_st.running)      uiChip("RUNNING", C_RED);
