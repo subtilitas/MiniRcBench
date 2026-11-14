@@ -61,36 +61,36 @@ and SETTINGS, one sectioned list with pole count and throttle ceiling at its
 top (`src/ui_menu.*`, `src/ui_settings.*`, `src/ui_sdlog.*`). Every header is
 36 px tall and every tool's BACK returns to MENU.
 Menu structure B ([menu-b.md](docs/design/menu-b.md)), the owner's choice of
-2026-11-13, has slices 1 to 4 and 7 of 10 built. Slice 1: the leave page widget
-(`src/ui_leave.*`), the BACK guard and two strip lines (`src/ui_widgets.*`),
-the field row (`src/ui_list.*`), the colour role names and the layout
-constants; no screen uses the leave page or the guard yet. Slice 2: the uses
-that decision 11's tables name in their roles' colours (`UI_COL_*`); the rows
-of AM32 CONFIG, KST SERVO, HITEC SERVO and SERVO SET drawn through the field
-row, a changed value `C_CYAN` with a 3 px bar; square 12 px chips;
-`PROG MODE` on blue. Slice 3, names and SETTINGS: SIG PIN and AUX PIN with
-their J5 pin, a step of either swapping the two; SERVO SUPPLY a core section
-of SETTINGS, its first value `OWN`; MENU's strip `SIG GP0  AUX GP1  DSHOT600`
-and, while the claim is not Free, `DSHOT RESTARTING ON SIG GP0` over rows
-drawn disabled; `DSHOT600` on the tester; `NOTHING SAVED: DEFAULTS IN USE`;
-four KST labels. Slice 4, the layout table (the note's decision 14): the
-footers of SETTINGS and SERVO SET, the `-` and `+` of SERVO SET and AM32
-CONFIG, AM32's result OK as the wide button, SD LOG's button edge, HOLD
-DEFAULTS in place of HOLD RESET, the red HOLD TO SAVE, the write pages'
-`CHANGES` and Hitec's 4 rows and strip. Slice 7, the tester: a tap on
-`14 POLES` or `MAX 20%`, underlined while disarmed and while the claim is
-Free, opens SETTINGS through `uiOpenTool()` in `src/ui.cpp`, which runs
-MENU's disarm, and BACK there returns to the tester; the latch reads LATCH.
-The owner answered the note's eight questions on 2026-11-14; slices 5, 6 and
-8 to 10 wait on being built (open item 18).
-The pin claim both features share is built (slice 1): the AM32 editor and the
-servo tester run on it. For the ESC, the board is the throttle source. It
-sends bidirectional DShot (a digital ESC protocol in which the ESC
-answers each frame on the same wire) and decodes the eRPM (electrical
-revolutions per minute) and EDT (Extended DShot Telemetry) frames that come
-back; RPM (revolutions per minute) is eRPM divided by half the motor's pole
-count. An optional third wire carries KISS telemetry, a serial protocol from
-the KISS ESC line with finer voltage and current.
+2026-11-13, has slices 1 to 4, 7 and 8 of 10 built. Slice 1: the leave page
+widget (`src/ui_leave.*`), the BACK guard and two strip lines
+(`src/ui_widgets.*`), the field row (`src/ui_list.*`), the colour role names and
+the layout constants; no screen uses the leave page or the guard yet. Slice 2:
+the uses that decision 11's tables name in their roles' colours (`UI_COL_*`);
+the rows of AM32 CONFIG, KST SERVO, HITEC SERVO and SERVO SET drawn through the
+field row, a changed value `C_CYAN` with a 3 px bar; square 12 px chips;
+`PROG MODE` on blue. Slice 3, names and SETTINGS: SIG PIN and AUX PIN with their
+J5 pin, a step of either swapping the two; SERVO SUPPLY a core section of
+SETTINGS, its first value `OWN`; MENU's strip `SIG GP0  AUX GP1  DSHOT600` and,
+while the claim is not Free, `DSHOT RESTARTING ON SIG GP0` over rows drawn
+disabled; `DSHOT600` on the tester; `NOTHING SAVED: DEFAULTS IN USE`; four KST
+labels. Slice 4, the layout table (the note's decision 14): the footers of
+SETTINGS and SERVO SET, the `-` and `+` of SERVO SET and AM32 CONFIG, AM32's
+result OK as the wide button, SD LOG's button edge, HOLD DEFAULTS in place of
+HOLD RESET, the red HOLD TO SAVE, the write pages' `CHANGES` and Hitec's 4 rows
+and strip. Slice 7, the tester: a tap on `14 POLES` or `MAX 20%`, underlined
+while disarmed and while the claim is Free, opens SETTINGS through
+`uiOpenTool()` in `src/ui.cpp`, which runs MENU's disarm, and BACK there returns
+to the tester; the latch reads LATCH. Slice 8: SERVO TESTER titled
+`SERVO TESTER`, its MENU label, on the main view and the unplug page. The owner
+answered the note's eight questions on 2026-11-14; slices 5, 6, 9 and 10 wait on
+being built (open item 18). The pin claim both features share is built (slice
+1): the AM32 editor and the servo tester run on it. For the ESC, the board is
+the throttle source. It sends bidirectional DShot (a digital ESC protocol in
+which the ESC answers each frame on the same wire) and decodes the eRPM
+(electrical revolutions per minute) and EDT (Extended DShot Telemetry) frames
+that come back; RPM (revolutions per minute) is eRPM divided by half the motor's
+pole count. An optional third wire carries KISS telemetry, a serial protocol
+from the KISS ESC line with finer voltage and current.
 
 The two cores of the RP2350 split the work by deadline:
 
@@ -256,6 +256,7 @@ record either way.
 | Menu structure B, slice 3 (`src/ui_settings.*`, `src/settings.cpp`, `src/ui_menu.*`, `src/kst_view.cpp`, the pin words of `src/ui_servo.cpp`, `src/ui_kst.cpp`, `src/ui_hitec.cpp`, `src/ui_am32.cpp`; [menu-b.md](docs/design/menu-b.md) decisions 9, 10 and 15 b, e, f, h, j, k) | SIG PIN and AUX PIN live whatever KISS is, every step a swap, with KISS on and off, the wiring following; their J5 line and SERVO SUPPLY's J4 line under a raised value, none under OWN; `settingsValidate()` moving AUX off SIG with KISS on and off, to the next free pin after SIG, KISS kept, and a pin the board does not free switching KISS off; SERVO SUPPLY a core section with and without KST SERVO on MENU; MENU's caption, `DSHOT RESTARTING ON SIG GP0` in amber over rows drawn disabled under their own status, and the caption back once Free; `WAIT: DSHOT RESTARTING` on SERVO TESTER, KST SERVO, HITEC SERVO and AM32 CONFIG; `DSHOT600` at each rate; `NOTHING SAVED: DEFAULTS IN USE`; the four KST labels; SERVO TESTER's caption with the role alone where it would reach RUNNING; the SIG words of each claim message; the connector lines against the board header's table; KISS TELEM moving neither pin; `SWAP THE ESC'S SIGNAL AND KISS WIRES` with KISS on; `IDLE 2s` and `DSHOT1200` sharing no pixel | host only |
 | Menu structure B, slice 4: the layout table, decision 14 of [menu-b.md](docs/design/menu-b.md) (`src/ui_settings.cpp`, `src/ui_servo.cpp`, `src/ui_am32.cpp`, `src/ui_sdlog.cpp`, `src/ui_kst.cpp`, `src/ui_hitec.cpp`, `src/hitec_view.h`) | each moved rectangle by id: SETTINGS' HOLD TO SAVE 6/150 and HOLD DEFAULTS 162/72, SERVO SET's HOLD TO APPLY 6/150, DEFAULTS 162/72 and `-` and `+` 44 × 44 px, AM32's `-` and `+` 44 × 44 px and OK 6/228 at y 268, SD LOG's START 6/228, RETRY MOUNT 6/112 and USB DRIVE 122/112 (`testLayoutTable()`, `testAm32LayoutTable()`); no two controls overlapping; each label inside its button; HOLD DEFAULTS' two lines and HOLD TO SAVE's `C_RED` fill; AM32's OK keeping the result up when the hold's finger lifts on it and acting on a later tap; the hex dump from x 8; `1 CHANGE` and `5 CHANGES` on KST's write page, `1 CHANGE` and `n CHANGES` on Hitec's, Hitec's 4 rows (`hitecPageLayout()`), Hitec's strip in the order model, backup, pin, version with two spaces, a classic strip keeping `BACKUP IN RAM` and then `BACKUP HT001` beside the PROG MODE chip, the room 4 px before the chip (`uiChipX()`), y 56 to 61 blank on the main view and the list after the family view; AM32's OK drawn at rest under the hold's finger and pressed under a fresh press; 23 mutations, each failing the build or the suite | host only |
 | Menu structure B, slice 7: the tester, owner decision 4 and decisions 15 a to c and 17 of [menu-b.md](docs/design/menu-b.md#slice-7-as-built) (`src/ui.cpp`, `src/ui.h`) | `14 POLES` and `MAX 20%` in the text colour, each underlined at y 122 and y 244 while disarmed and while the claim is Free; `TesterCtl::Poles` and `TesterCtl::Max` at their rectangles, acting then and only then; a tap on either opening SETTINGS, BACK there returning to the tester, drawn whole, and SETTINGS from MENU still returning to MENU; a press that slides off opening nothing; the tap turning LATCH off, leaving the motor disarmed and the throttle at 0, and the tester painting nothing over the cleared frame; armed: no underline, a tap opening nothing and keeping the arm; a claim not Free: no underline, a tap opening nothing; the 3D note taking the pole count and its target, MAX still acting; `LATCH` and `LATCHED`; 20 mutations, each failing the suite, and one equivalent | host only |
+| Menu structure B, slice 8: SERVO TESTER's title, decision 13 of [menu-b.md](docs/design/menu-b.md#slice-8-as-built) (`SERVO_UI_TITLE` in `src/ui_servo.h`, `src/ui_servo.cpp`, `src/ui_registry.cpp`) | `SERVO TESTER` drawn in the header on the main view and the unplug page, plain panel from its end to BACK; the title MENU's row label and `UI_SERVO.title`; 13 characters or fewer, ending 4 px or more before BACK; 10 mutations, each failing the build or the suite | host only |
 | Control tables (`src/ui_screen.h`; slice B of [menu.md](docs/design/menu.md)) | every screen's table on each view the host suite reaches, the ids, rectangles and enabled flags, `uiCurrentScreen()` after each navigation; the UI tests tap by id | host only: the firmware does not call the tables |
 | Serial telemetry dump | none | not recorded |
 | `tools/sdtest`, SD bring-up firmware | none, not built in CI | hardware use recorded in f16a70f and e9c9d9a, the 2.8" board with the previous SDIO driver among them; nothing is recorded for the current build |
@@ -500,17 +501,18 @@ the tag. Menu structure B waits on being built, not on the bench (item 18).
     run on the bench, with the questions listed in
     [diagnostics.md](docs/design/diagnostics.md).
 
-18. **Menu structure B waits on building.** Slices 1 to 4 and 7 of
+18. **Menu structure B waits on building.** Slices 1 to 4, 7 and 8 of
     [menu-b.md](docs/design/menu-b.md) are built: slice 2 is the colour
     roles, slice 3 the names and SETTINGS (decisions 9, 10 and 15 b, e, f, h,
     j, k), slice 4 the layout table, slice 7 the tester's readouts, their
     underline, the return to the tester and LATCH (owner decision 4,
     decisions 15 a to c and 17, with
-    [its readings](docs/design/menu-b.md#slice-7-as-built)); slices 2 to 4
-    and 7 run in the host suite only, and slice 2's colours have not been
-    looked at on the panel, in either theme. In the high-contrast palette
-    several of slice 2's pairs differ in brightness only, black against a
-    dark grey: the KISS and EDT tags, the DShot rate with and without EDT requested,
+    [its readings](docs/design/menu-b.md#slice-7-as-built)), slice 8 SERVO
+    TESTER's title; slices 2 to 4, 7 and 8 run in the host suite only, and
+    slice 2's colours have not been looked at on the panel, in either theme.
+    In the high-contrast palette several of slice 2's pairs differ in
+    brightness only, black against a dark grey: the KISS and EDT tags, the
+    DShot rate with and without EDT requested,
     `SWIPE = THROTTLE` armed and disarmed, and SETTINGS' captions against
     its labels. Slice 2 leaves points for the owner, listed in the note's
     [slice 2 as built](docs/design/menu-b.md#slice-2-as-built): the uses of
@@ -527,7 +529,7 @@ the tag. Menu structure B waits on being built, not on the bench (item 18).
     every screen; each slice updates its own README and wiki lines and
     images; the KST labels FAILSAFE MOVE, FAILSAFE POSITION, FAILSAFE TIME,
     REVERSED; OWN for SERVO SUPPLY's no-switch value; RESTART DSHOT after
-    1000 ms. Slices 5, 6 and 8 to 10 wait on being built. Three decisions
+    1000 ms. Slices 5, 6, 9 and 10 wait on being built. Three decisions
     change the note's design, and the sections they touch are marked to be
     redesigned: the docs go with each slice, against the note's
     recommendation, so the slice table is reworked and slice 10 shrinks;

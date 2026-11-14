@@ -1032,7 +1032,7 @@ static void drawUnplug() {
 	k.backOk = due;
 	k.back = k.backOk && uiPressing(uiBackRect(), s_t); k.due = due; k.p = due && pressing(BTN_RESTART);
 	if (!changed(0, &k, sizeof(k))) return;
-	uiHeader("SERVO", s_t, k.backOk);
+	uiHeader(SERVO_UI_TITLE, s_t, k.backOk);
 	gfxRect(0, UI_STRIP_Y, GFX_W, GFX_H - UI_STRIP_Y, C_BG);
 	if (!due) { line(120, "RELEASING THE PINS", C_DIM); return; }
 	gfxTextCenter(100, "UNPLUG THE SERVO.", C_AMBER, 2);
@@ -1186,7 +1186,7 @@ bool uiServoTick(const TouchState *t) {
 	if (s_full) gfxRect(0, 0, GFX_W, GFX_H, C_BG);
 	if (s_view == View::Main) {
 		startOk = live() && !s_st.running;
-		drawTop("SERVO", true);
+		drawTop(SERVO_UI_TITLE, true);
 		drawDial();
 		drawReadout();
 		drawSpeed();
@@ -1205,6 +1205,6 @@ static void servoMenuStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
 }
 
 const UiScreen UI_SERVO = {
-	UiScreenId::Servo, "SERVO", PinUser::Servo, servoMenuStatus,
+	UiScreenId::Servo, SERVO_UI_TITLE, PinUser::Servo, servoMenuStatus,
 	uiServoEnter, uiServoTick, nullptr, uiServoControls, nullptr, false,
 };

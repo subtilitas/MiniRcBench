@@ -1,7 +1,7 @@
 /**
  * @file ui_servo.h
- * @brief The servo tester screens: SERVO, its SET screen, and the unplug
- *        page before DShot restarts.
+ * @brief The servo tester screens: SERVO TESTER, its SET screen, and the
+ *        unplug page before DShot restarts.
  *
  * Servo PWM (pulse-width modulation) on the ESC pin, and on the KISS pin for
  * two servos. Entry: MENU → SERVO TESTER. The screen claims the pins
@@ -24,7 +24,14 @@
 struct TouchState;
 
 /**
- * @defgroup ui_servo_hints SERVO's hint lines
+ * @brief The header's title on the main view and the unplug page: MENU's
+ *        row label, 12 characters, 142 px at scale 2, from x 8 to x 149,
+ *        20 px before BACK at x 170.
+ */
+#define SERVO_UI_TITLE "SERVO TESTER"
+
+/**
+ * @defgroup ui_servo_hints SERVO TESTER's hint lines
  * @{
  */
 /**
@@ -58,7 +65,7 @@ void uiServoEnter();
 bool uiServoTick(const TouchState *t);
 
 /**
- * @brief The SERVO controls, of all three views; the SET rows are
+ * @brief The SERVO TESTER controls, of all three views; the SET rows are
  *        `UI_ROW(n, Row)`. @see ui_screen.h
  */
 enum class ServoCtl : uint8_t {
@@ -78,7 +85,8 @@ enum class ServoCtl : uint8_t {
 struct UiControl;
 
 /**
- * @brief The SERVO view that is up controls on the current frame. @see ui_screen.h
+ * @brief The SERVO TESTER view that is up controls on the current frame.
+ *        @see ui_screen.h
  * @param out At most @p max controls.
  * @param max Room in @p out.
  * @return The number written.

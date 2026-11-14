@@ -57,7 +57,8 @@ The servo needs its own supply. The board supplies the signal and ground only.
 
 ## Opening it
 
-Open **MENU → SERVO TESTER**.
+Open **MENU → SERVO TESTER**. The screen is titled `SERVO TESTER`, as its
+MENU row.
 
 The screen takes the two signal pins from the ESC driver. If an ESC answers on
 SIG, it waits and says `AN ESC ANSWERS ON SIG GP0.` Unplug the ESC; the
