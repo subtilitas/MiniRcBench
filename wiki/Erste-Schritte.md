@@ -170,8 +170,9 @@ wischen für mehr, nach **unten** für weniger. Ein Tippen bewirkt nichts, und
 Wischer summieren sich. So lässt sich das Gas über mehrere kurze Wischer
 erhöhen, ohne hinzusehen. Nach 6 px Bewegung wechselt der Hinweis unter der
 Drehzahl auf `SWIPE ACTIVE`, und der Wischer bewegt das Gas. Steht an seiner
-Stelle der 3D-Hinweis aus [Die Bildschirme](Die-Bildschirme), fehlt der
-Hinweis, und die Fläche wirkt genauso.
+Stelle der 3D-Hinweis aus [Die Bildschirme](Die-Bildschirme), ersetzt
+`SWIPE ACTIVE` ihn trotzdem, solange ein Wischer greift, und nach dem
+Loslassen kehrt der 3D-Hinweis zurück.
 
 `HOLD` macht den Balken relativ und haltend: Das Gas bleibt, wo du es
 loslässt. Der Balken zeigt einen Griff. `HOLD` auszuschalten setzt das Gas auf

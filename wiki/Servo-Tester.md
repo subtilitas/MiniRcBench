@@ -213,24 +213,23 @@ Swipe the row sideways for big steps. Drag up or down to scroll. Rows are
 - A heli type, or a frame rate above 60 Hz, can destroy a servo not made for
   it: above 60 Hz an analogue servo overheats. Such a change waits, the screen
   names the risk, and `HOLD TO APPLY` (1 s) applies it. `BACK` drops it.
-- A pulse past a servo's travel drives it against its end stop, where it
-  stalls and heats. With TYPE WIDE, MIN below 900 µs or MAX above 2100 µs
-  the screen says `PAST ITS TRAVEL A SERVO STALLS AND HEATS. TRY MIN AND MAX
-  HORN-FREE.` in amber. HELI CYCLIC shows it at its own 820 µs to 2220 µs.
-  NARROW 760 and HELI TAIL 760 are measured against their own ranges: the
-  note shows when MIN lies more than 100 µs below the type's MIN, or MAX more
-  than 100 µs above the type's MAX. A TYPE, MIN or MAX change that brings the
-  profile there, or takes MIN or MAX further out than the applied profile,
-  waits: the note is its warning, on every row, and `HOLD TO APPLY` (1 s)
+- A pulse past a servo's travel drives it against its end stop, where it stalls
+  and heats. With TYPE WIDE, MIN below 900 µs or MAX above 2100 µs the screen
+  says `PAST ITS TRAVEL A SERVO STALLS AND HEATS. TRY MIN AND MAX HORN-FREE.` in
+  amber. HELI CYCLIC shows it at its own 820 µs to 2220 µs. NARROW 760 and HELI
+  TAIL 760 are measured against their own ranges: the note shows when MIN lies
+  more than 100 µs below the type's MIN, or MAX more than 100 µs above the
+  type's MAX. A TYPE, MIN or MAX change that leaves the profile past its travel
+  waits when it changes TYPE or takes MIN or MAX further out than the applied
+  profile: the note is its warning, on every row, and `HOLD TO APPLY` (1 s)
   applies it. Stepping further while it waits keeps it waiting; stepping back
-  inside the margin, or back to the applied value, applies at once when
-  nothing else waits. A step toward the centre applies at once. `BACK` drops
-  a waiting change. A heli or 60 Hz change shows its own warning first, and
-  HELI CYCLIC's one hold covers both. With TWO servos the
-  hold covers both; changing to TWO applies at once. Once applied, the note
-  shows while TYPE, MIN or MAX is selected, and on other rows when no other
-  note does.
-  The travel of a servo is in its data sheet; the bench does not measure it.
+  inside the margin, or back to the applied value, applies at once when nothing
+  else waits. A step toward the centre applies at once. `BACK` drops a waiting
+  change. A heli or 60 Hz change shows its own warning first, and HELI CYCLIC's
+  one hold covers both. With TWO servos the hold covers both; changing to TWO
+  applies at once. Once applied, the note shows while TYPE, MIN or MAX is
+  selected, and on other rows when no other note does. The travel of a servo is
+  in its data sheet; the bench does not measure it.
 - The SWEEP rows change at any time and apply to the next `SWEEP`. When
   `SPEED` is slower than the curve, the screen says `SPEED LIMITS THE SWEEP`.
 - `DEFAULTS`, offered only while `SAFE`, returns to STANDARD PWM at 50 Hz,

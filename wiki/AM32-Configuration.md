@@ -109,13 +109,14 @@ default throttle ceiling of 20 % the tester reaches about 40 % of AM32's
 throttle range in one direction.
 
 **On the tester.** After AM32 CONFIG has read the ESC's settings with 3D MODE
-on, or written them with 3D MODE on and read them back equal (`WRITE
-VERIFIED`), the tester shows `3D MODE ESC: THROTTLE SCALE DIFFERS` in amber
-under the RPM readout, in place of the pole count and the swipe hint, armed
-or not. Arming is not refused on it. A read or a verified write with 3D MODE off
-removes it, and so does a restart: it is not stored. An edit that is not
-written, a write that is not verified, and a read that does not open the list
-leave it as it was. The tester cannot tell that the ESC on the pin was
+on, or written them with 3D MODE on and read them back equal (`WRITE VERIFIED`),
+the tester shows `3D MODE ESC: THROTTLE SCALE DIFFERS` in amber under the RPM
+readout, in place of the pole count and the swipe hint, armed or not. While a
+swipe on the pad is engaged, `SWIPE ACTIVE` shows in its place, and the note
+returns on release. Arming is not refused on it. A read or a verified write with
+3D MODE off removes it, and so does a restart: it is not stored. An edit that is
+not written, a write that is not verified, and a read that does not open the
+list leave it as it was. The tester cannot tell that the ESC on the pin was
 swapped for another one: the note describes the last ESC AM32 CONFIG read or
 wrote in this power-up. Keep the propeller off while testing a 3D ESC.
 

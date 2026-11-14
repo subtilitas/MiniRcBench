@@ -75,7 +75,9 @@ Hat AM32 CONFIG seit dem Einschalten einen ESC mit 3D MODE an gelesen, oder
 Zeile unter der `ERPM`-Zeile in Bernstein
 `3D MODE ESC: THROTTLE SCALE DIFFERS` (3D-ESC: die Gasskala ist eine andere),
 an Stelle der Polzahl und des Wisch-Hinweises, scharf oder nicht;
-`NO TELEMETRY` bleibt auf seiner eigenen Zeile darüber. Im 3D-Modus ist 50 %
+`NO TELEMETRY` bleibt auf seiner eigenen Zeile darüber. Solange ein Wischer
+auf der Gasfläche greift, steht `SWIPE ACTIVE` in Grün in der Zeile, und nach
+dem Loslassen kehrt der Hinweis zurück. Im 3D-Modus ist 50 %
 Gas volle Leistung in die eine Richtung, über 50 % dreht der Motor in die
 andere. Den Propeller abnehmen. Scharfschalten wird deswegen nicht
 verweigert. Der Hinweis

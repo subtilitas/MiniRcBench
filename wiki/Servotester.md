@@ -235,8 +235,9 @@ sind also drei auf einmal sichtbar.
   eigenen 820 µs bis 2220 µs. NARROW 760 und HELI TAIL 760 werden an ihrem
   eigenen Bereich gemessen: Der Hinweis steht, wenn MIN mehr als 100 µs unter
   dem MIN des Typs liegt oder MAX mehr als 100 µs über seinem MAX. Eine
-  Änderung von TYPE, MIN oder MAX, die das Profil dorthin bringt oder MIN
-  oder MAX weiter hinaus legt als im übernommenen Profil, wartet: Der Hinweis
+  Änderung von TYPE, MIN oder MAX, nach der das Profil über den Stellweg
+  hinaus reicht, wartet, wenn sie TYPE wechselt oder MIN oder MAX weiter
+  hinaus legt als im übernommenen Profil: Der Hinweis
   ist ihre Warnung, auf jeder Zeile, und `HOLD TO APPLY` (1 s) übernimmt sie.
   Weitere Schritte hinaus lassen sie warten; ein Schritt zurück innerhalb der
   Grenze oder auf den übernommenen Wert gilt sofort, wenn sonst nichts

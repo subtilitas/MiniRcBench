@@ -399,8 +399,9 @@ TO ARM.
   The pad ends where the gauge's grab area begins, with no overlap and no gap.
   The hint under the RPM readout reads `SWIPE = THROTTLE`, cyan while armed,
   and changes to `SWIPE ACTIVE` in green while a drag is engaged. While the
-  3D note shows ([Telemetry and logging](#telemetry-and-logging)), it takes
-  the hint's place and the pad works the same.
+  3D note shows ([Telemetry and logging](#telemetry-and-logging)), the note
+  stands in the hint's place until a drag engages; `SWIPE ACTIVE` then
+  replaces the note, and the note returns on release. The pad works the same.
 - **HOLD**: off by default. Turning it off sets the throttle to zero.
 - **MENU**: the list of tools and settings. Opening it disarms, sets the
   throttle to zero and turns HOLD off.
@@ -626,9 +627,9 @@ SAVE`); opening MENU disarms, so the refusal is a backstop. **HOLD RESET**
 (1 s, `UI_HOLD_MS`, the same hold widget, `src/ui_hold.*`) loads the compiled
 defaults, pole count and throttle ceiling included, into the live settings. A
 tap loads nothing, a slide off the button cancels the hold, and a bar over
-the button and a `C_RED` fill, as on every hold but HOLD TO SAVE, show it
-running. It has no armed check: SETTINGS
-opens only through MENU, which disarms. Flash changes only on the next save.
+the button and a `C_RED` fill, as on every other hold of `src/ui_hold.*` but
+HOLD TO SAVE, show it running. It has no armed check: SETTINGS opens only
+through MENU, which disarms. Flash changes only on the next save.
 
 Every value applies when changed. Only persistence needs the hold, so a value
 can be tried and then discarded by leaving without saving. The note line reads
@@ -760,7 +761,9 @@ connected.
 The RPM area's bottom row, y 114, holds the pole count and the swipe hint.
 While `uiAm32Esc3d()` is true it holds `3D MODE ESC: THROTTLE SCALE DIFFERS`
 (`AM32_UI_TESTER_3D`, 35 characters, 209 px, x 10 to x 218) in amber in their
-place, armed or not and with the pad engaged or not. The `ERPM` /
+place, armed or not, while the pad is not engaged. While a drag is engaged,
+`SWIPE ACTIVE` in green takes the row alone, as the only sign the drag took
+hold, and the note returns on release. The `ERPM` /
 `NO TELEMETRY` line above it, y 102, does not change. Arming is not refused
 on it.
 The flag is set by an AM32 CONFIG read that opens the list on settings with
@@ -1230,30 +1233,29 @@ profiles:
 | HELI TAIL 760 | 410 µs | 760 µs | 1110 µs | 200, 333, 560 Hz | 560 Hz |
 
 MIN, CENTRE and MAX move in 10 µs steps between 400 µs and 2500 µs and keep a
-pause of 1000 µs after the longest pulse (500 µs for the heli profiles), so
-the rates offered depend on MAX: 333 Hz at most for 2000 µs. A heli profile,
-or a rate above 60 Hz, at which an analogue servo overheats, is held behind a
-warning until `HOLD TO APPLY` (1 s). So is a TYPE, MIN or MAX step that leaves
-the profile past its travel (`servoPastTravel()`: TYPE WIDE, MIN below 900 µs
-or MAX above 2100 µs, NARROW 760 and HELI TAIL 760 more than 100 µs outside
-their own range) and either changes TYPE or takes MIN below or MAX above the
-applied profile's (`servoTravelNeedsHold()`). Its warning is the amber
-end-stop note, `PAST ITS TRAVEL A SERVO STALLS AND` / `HEATS. TRY MIN AND MAX
-HORN-FREE.`; a heli or 60 Hz warning comes first when both apply. Each step
-decides again against the applied profile: a step back inside the margin, or
-back to the applied MIN or MAX, ends the wait and applies when nothing else
-waits. A step toward the centre, and a SERVOS, RATE (up to 60 Hz), CENTRE or
-REVERSE B change, applies at once while nothing waits and joins a waiting
-change otherwise. So TWO under an applied past-travel profile drives both
-servos with it without a new hold. HELI CYCLIC's own 820 µs to 2220 µs are
-past the travel; its one hold covers both warnings. BACK from SET drops a
-waiting change, and SET opens again on the applied profile.
-The SWEEP rows (shape, 0.05 Hz to
-5.00 Hz, amplitude 0 % to 100 %, dwell 0 ms to 5000 ms, endless or 1 to 9999
-movements) change at any time and apply to the next SWEEP. `DEFAULTS`,
-offered only while SAFE, returns to STANDARD PWM 50 Hz, one servo, a sine at
-0.50 Hz. While RUNNING the footer shows `STOP` in its place, which acts on
-touch as `STOP` on the servo screen does. Nothing of the servo tester is
+pause of 1000 µs after the longest pulse (500 µs for the heli profiles), so the
+rates offered depend on MAX: 333 Hz at most for 2000 µs. A heli profile, or a
+rate above 60 Hz, at which an analogue servo overheats, is held behind a warning
+until `HOLD TO APPLY` (1 s). So is a TYPE, MIN or MAX step that leaves the
+profile past its travel (`servoPastTravel()`: TYPE WIDE, MIN below 900 µs or MAX
+above 2100 µs, NARROW 760 and HELI TAIL 760 more than 100 µs outside their own
+range) and either changes TYPE or takes MIN below or MAX above the applied
+profile's (`servoTravelNeedsHold()`). Its warning is the amber end-stop note,
+`PAST ITS TRAVEL A SERVO STALLS AND` / `HEATS. TRY MIN AND MAX HORN-FREE.`; a
+heli or 60 Hz warning comes first when both apply. Each step decides again
+against the applied profile: a step back inside the margin, or back to the
+applied MIN or MAX, ends the wait and applies when nothing else waits. A step
+toward the centre, and a SERVOS, CENTRE or REVERSE B change, or a RATE change up
+to 60 Hz on a type that is not a heli type, applies at once while nothing waits
+and joins a waiting change otherwise. So TWO under an applied past-travel
+profile drives both servos with it without a new hold. HELI CYCLIC's own 820 µs
+to 2220 µs are past the travel; its one hold covers both warnings. BACK from SET
+drops a waiting change, and SET opens again on the applied profile. The SWEEP
+rows (shape, 0.05 Hz to 5.00 Hz, amplitude 0 % to 100 %, dwell 0 ms to 5000 ms,
+endless or 1 to 9999 movements) change at any time and apply to the next SWEEP.
+`DEFAULTS`, offered only while SAFE, returns to STANDARD PWM 50 Hz, one servo, a
+sine at 0.50 Hz. While RUNNING the footer shows `STOP` in its place, which acts
+on touch as `STOP` on the servo screen does. Nothing of the servo tester is
 stored: every entry starts at STANDARD PWM 50 Hz.
 
 **BACK.** `BACK` ends the pulses and shows `UNPLUG THE SERVO.` Core1 lets the
