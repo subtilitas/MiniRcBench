@@ -35,6 +35,7 @@
 #include "plat.h"
 #include "touch.h"
 #include "diag.h"
+#include "version.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -854,6 +855,31 @@ static void testResetByUpdate() {
 	          fakeInkExtent(40, 19, C_BG, &x0, &x1) && x0 >= UI_MARGIN && x1 < GFX_W - UI_MARGIN &&
 	          !fakeInkExtent(0, 40, C_BG, &x0, &x1) && !fakeInkExtent(59, 45, C_BG, &x0, &x1));
 	fakeDumpFrame("shot_splash_reset.ppm");
+
+	// With TOUCH CONTROLLER NOT FOUND too: three lines, none on another, the
+	// name, the version and the warning where they were.
+	fakeTouchAnswers(false);
+	touchInit();
+	uiDrawSplash();
+	checkTrue("both: SETTINGS RESET BY UPDATE at y 40",
+	          fakeTextCentredIs(40, "SETTINGS RESET BY UPDATE", C_AMBER, C_BG, 1));
+	checkTrue("CHECK MENU > SETTINGS at y 52",
+	          fakeTextCentredIs(52, "CHECK MENU > SETTINGS", C_AMBER, C_BG, 1));
+	checkTrue("TOUCH CONTROLLER NOT FOUND at y 64",
+	          fakeTextCentredIs(64, UI_SPLASH_TOUCH_TEXT, C_AMBER, C_BG, 1));
+	checkTrue("a clear row under each line, 8 rows for high contrast",
+	          !fakeInkExtent(48, 4, C_BG, &x0, &x1) && !fakeInkExtent(60, 4, C_BG, &x0, &x1));
+	checkTrue("clear from the touch line to the name at y 104",
+	          !fakeInkExtent(72, 32, C_BG, &x0, &x1));
+	char pinLine[48];
+	snprintf(pinLine, sizeof(pinLine), UI_SPLASH_PIN_FMT, (unsigned)settings()->dshotPin);
+	checkTrue("the name, the version and the warning in place",
+	          fakeTextCentredIs(104, "MINIRC", C_LIME, C_BG, 4) &&
+	          fakeTextCentredIs(260, "VERSION " FW_VERSION_STRING, C_GRID, C_BG, 1) &&
+	          fakeTextCentredIs(288, pinLine, C_AMBER, C_BG, 1));
+	fakeDumpFrame("shot_splash_reset_no_touch.ppm");
+	fakeTouchAnswers(true);
+	touchInit();
 	fakeFlashClear();
 	settingsLoad();
 	uiDrawSplash();

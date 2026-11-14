@@ -636,6 +636,35 @@ static void testTouchBeside() {
 }
 
 /**
+ * @brief The touch driver's answer record against the CST328 model: a probe
+ *        that reads another ID records none, a finger read that completes
+ *        records one, a NACKing controller records none, and touchInit()
+ *        starts the record again.
+ */
+static void testTouchAnswerRecord() {
+	section("Touch: the driver's answer record");
+	senseConfigure(0);
+	fakeI2cReset();
+	fakeI2cAddCst328(CST328_I2C_ADDR);
+	fakeCst328WrongId(true);
+	checkTrue("another ID: touchInit() fails", !cst::touchInit());
+	checkTrue("and records no answer", !cst::touchAnswered());
+	TouchState ts;
+	memset(&ts, 0, sizeof(ts));
+	cst::touchPoll(&ts);
+	checkTrue("a finger read that completes records one", cst::touchAnswered());
+	fakeCst328WrongId(false);
+	checkTrue("found: the probe reads CACAh", cst::touchInit());
+	checkTrue("the probe records an answer", cst::touchAnswered());
+	fakeI2cRemove(CST328_I2C_ADDR);
+	checkTrue("no part: touchInit() fails", !cst::touchInit());
+	checkTrue("and starts the record again: no answer", !cst::touchAnswered());
+	cst::touchPoll(&ts);
+	checkTrue("a NACKed read records none", !cst::touchAnswered());
+	fakeI2cReset();
+}
+
+/**
  * @brief A part holding SDA, the I2C block losing arbitration: the touch
  *        driver's transfers return PICO_ERROR_GENERIC, which must count as a
  *        line held low and not as a NACK, or no recovery ever runs.
@@ -876,6 +905,7 @@ void runSenseTests() {
 	testSampleAge();
 	testReadoutText();
 	testTouchBeside();
+	testTouchAnswerRecord();
 	testArbitrationLost();
 	testFrameTime();
 	testReadAbortStop();

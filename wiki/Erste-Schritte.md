@@ -98,6 +98,14 @@ die nie Einstellungen gespeichert hatte, zeigt beides nicht.
 
 <img src="img/splash-reset.png" width="240" alt="Startbildschirm, nachdem ein Update die gespeicherten Einstellungen verworfen hat">
 
+Hat der Touch-Controller beim Einschalten nicht geantwortet, zeigt der
+Startbildschirm über dem Namen in Bernstein `TOUCH CONTROLLER NOT FOUND`. Die
+Zeile verschwindet, sobald der Controller antwortet. Steht sie noch, wenn der
+Tester erscheint, funktioniert die Berührung nicht; siehe
+[Fehlersuche](Fehlersuche#der-bildschirm-reagiert-nicht-auf-berührung).
+
+<img src="img/splash-no-touch.png" width="240" alt="Der Startbildschirm mit TOUCH CONTROLLER NOT FOUND in Bernstein über dem Namen">
+
 ---
 
 ## Solange kein ESC angeschlossen ist
@@ -133,6 +141,19 @@ Zum Stoppen `DISARM` drücken. Es wirkt beim Berühren. Der Druck, der
 entschärft, schaltet nicht wieder scharf, auch wenn der Finger liegen bleibt.
 Zum Scharfschalten braucht es einen neuen Druck, der auf der Schaltfläche
 beginnt.
+
+**Den Gas-Finger vor `DISARM` heben.** Die Firmware liest nur den ersten
+Berührungsplatz des Touch-Controllers. Welche Berührung der Controller dort
+meldet, während zwei Finger auf dem Glas liegen, ist nicht gemessen; ein
+Druck, während der Gas-Finger aufliegt, kommt also womöglich nicht an. Ein
+nasser Bildschirm oder ein Kabel, das auf dem Glas liegt, kann als Finger
+zählen und jedes Tippen blockieren.
+
+Ein Finger, der schon auf dem Glas liegt, wenn der Tester erscheint,
+schaltet nicht scharf und bewegt das Gas nicht. Wird er gehoben, wirkt das
+trotzdem als Tippen auf eine Schaltfläche, die beim Loslassen auslöst, etwa
+`HOLD` oder `MENU`, wenn er darauf liegt. Hast du beim Einschalten den
+Bildschirm berührt, hebe den Finger vor `HOLD TO ARM`.
 
 ---
 

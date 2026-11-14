@@ -25,6 +25,45 @@ Ursache in der Firmware. Melde ihn wie unter
 
 ---
 
+## Der Bildschirm reagiert nicht auf Berührung
+
+<img src="img/splash-no-touch.png" width="240" alt="Der Startbildschirm mit TOUCH CONTROLLER NOT FOUND in Bernstein über dem Namen">
+
+`TOUCH CONTROLLER NOT FOUND` in Bernstein auf dem Startbildschirm bedeutet,
+dass der Touch-Controller der Firmware beim Einschalten nicht geantwortet
+hat. Die Zeile verschwindet, sobald er antwortet. Steht sie noch, wenn der
+Tester erscheint, hat die Berührung während des Startbildschirms nicht
+geantwortet; der Tester liest sie weiter, und ein Controller, der später
+antwortet, funktioniert. Bewirkt Tippen weiter nichts, helfen die Schritte
+unten. Nach einem Update, das die
+Einstellungen zurückgesetzt hat, steht sie unter den beiden Zeilen zu den
+Einstellungen.
+
+<img src="img/splash-reset-no-touch.png" width="240" alt="Der Startbildschirm mit SETTINGS RESET BY UPDATE, CHECK MENU > SETTINGS und TOUCH CONTROLLER NOT FOUND über dem Namen">
+
+Ohne Berührung lässt sich die Platine nicht bedienen: Scharfschalten,
+`DISARM`, `HOLD` und `MENU` brauchen sie alle. Die Leerlaufsperre
+entschärft 30 s nach der letzten Berührung, die der Controller meldet. Ein
+nasser Bildschirm oder etwas, das auf dem Glas liegt, zählt als Berührung
+und hält einen scharfen Tester scharf. Um einen Motor anzuhalten, trenne
+den Akku des ESC.
+
+Versuche der Reihe nach:
+
+1. Den Bildschirm trocknen und alles vom Glas nehmen, ein Kabel oder ein
+   Werkzeug: Es kann als Finger zählen und jedes Tippen blockieren.
+2. Die Platine aus- und einschalten: USB abziehen. Mit eingesetzter Zelle
+   läuft die Platine von der Zelle weiter, also auch die Zelle abstecken.
+
+Nicht bekannt: warum ein Controller nicht antwortet. Ein Controller, der
+nicht startet, sein Flachbandkabel in der Anzeige und ein hängender I2C-Bus
+(Inter-Integrated Circuit) werden nicht unterschieden. Das Flachbandkabel
+gehört zur Platine und ist nichts zum Öffnen; kein Reparaturschritt ist hier
+geprüft. Bleibt die Zeile nach einem Neustart, melde es wie unter
+[Immer noch nicht weiter](#immer-noch-nicht-weiter) beschrieben.
+
+---
+
 ## Keine Telemetrie
 
 <img src="img/tester-noesc.png" width="240" alt="Keine Telemetrie">
@@ -116,8 +155,10 @@ Beides ist auf der Hardware nicht geprüft.
 
 Drei Sperren halten den Motor an, und jede zeigt sich auf dem Bildschirm:
 
-- **Leerlaufsperre.** 30 s ohne Berührung im scharfen Zustand entschärfen den
-  Tester. `IDLE ns` zählt in den letzten 5 s oben rechts herunter. Beim
+- **Leerlaufsperre.** 30 s ohne vom Touch-Controller gemeldete Berührung
+  im scharfen Zustand entschärfen den Tester. Ein nasser Bildschirm oder
+  etwas auf dem Glas zählt als Berührung. `IDLE ns` zählt in den letzten
+  5 s oben rechts herunter. Beim
   Entschärfen dunkelt die Hintergrundbeleuchtung kurz ab.
 - **`MENU` öffnen.** Das Öffnen entschärft immer.
 - **Herzschlag-Sicherung.** Hält die Anzeige-Firmware an, setzt der zweite

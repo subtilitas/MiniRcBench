@@ -345,7 +345,17 @@ servo left on it reads the DShot frames as pulses and drives towards one end
 of its travel. When `settingsLoad()` discarded a whole block of another
 settings version (`settingsResetByUpdate()`), two amber lines at y 40 and
 y 52 read `SETTINGS RESET BY UPDATE` and `CHECK MENU > SETTINGS`; blank flash
-and a damaged block show neither.
+and a damaged block show neither. While the touch controller has not
+answered once since `touchInit()`, the splash shows
+`TOUCH CONTROLLER NOT FOUND` in amber at y 64, under those two lines and
+above the name; the line goes at the controller's first answer
+(`uiSplashTick()`). The splash reads the touch every 25 ms into a state of
+its own, so a finger resting on the glass when the tester appears gives no
+press edge: it does not arm, does not move the throttle and does not start
+a hold. Lifting it still ends a tap where it rests, on a button that acts
+on release such as HOLD or MENU, because the driver keeps where the press
+began. If you touched the screen at power-up, lift the finger before HOLD
+TO ARM.
 
 **Main screen**
 
@@ -390,6 +400,15 @@ and a damaged block show neither.
 - **HOLD**: off by default. Turning it off sets the throttle to zero.
 - **MENU**: the list of tools and settings. Opening it disarms, sets the
   throttle to zero and turns HOLD off.
+
+**Touch**
+
+The CST328 driver (`src/cst328.cpp`) reads only the controller's first
+contact slot, a 5-byte read of finger 1. Which contact the controller puts
+there while two touch the glass is not measured, so a press made while the
+throttle finger rests on the glass may not register: lift the throttle
+finger before DISARM. A wet screen, or a lead lying across the glass, can
+count as a contact and block every tap.
 
 **Button behaviour**
 
@@ -663,7 +682,18 @@ nothing is sent to the ESC then.
 
 The large voltage at the top right, captioned `BOARD`, is the board's own
 battery, read through the 200 kΩ/100 kΩ divider on GP27. It reads at most
-9.90 V. The ESC's pack voltage is the **VOLTAGE** tile.
+9.90 V. The ESC's pack voltage is the **VOLTAGE** tile. It is drawn amber
+below 3.50 V (`BOARD_CELL_LOW_MV`) and red below 3.30 V
+(`BOARD_CELL_CRIT_MV`), a lithium-polymer cell's usual low range, not
+measured on this board, and goes back only 50 mV (`BOARD_CELL_HYST_MV`)
+above each threshold (`uiBoardCell()`). The band is taken from the value as
+drawn, rounded to centivolts, so `3.50V` is never amber and `3.30V` never
+red. What the divider reads with USB power alone is not measured, and no
+GPIO senses USB power, so the firmware cannot tell USB from the cell. With
+USB power alone the value can be low and then says nothing about a cell;
+below 2.50 V (`BOARD_CELL_IMPLAUSIBLE_MV`), implausible for a working cell,
+it is drawn in the normal text colour, and red again from 2.55 V, the same
+50 mV band. Nothing is refused on the reading.
 
 ---
 
@@ -843,7 +873,7 @@ nothing for those six. The SETTINGS note line says which set is in use.
 | `SD_LOG_BUFFER_BYTES` | `8192` | Ring buffer. Size it from BUF PEAK and WORST FLUSH |
 | `SD_LOG_CHUNK_BYTES` | `512` | Flush size. Keep it a multiple of 512 to avoid read-modify-write in the card |
 | `SD_LOG_PREALLOC_BYTES` | `16 MiB` | Contiguous space reserved per file, so the FAT is not rewritten mid-log. About 38 min at 7.3 kB/s. Unused space is released at close |
-| `SD_LOG_SYNC_MS` | `2000` | Interval for committing the file's directory entry. A power cut loses at most the data since the last commit |
+| `SD_LOG_SYNC_MS` | `2000` | Interval for committing the file's directory entry, the first 2000 ms after the start. A log cut before the first commit reads 0 bytes. After it, with the 16 MiB reservation, the entry says 16 MiB and data written since the last commit is readable; without it, or past 16 MiB, the size is the one at the last commit |
 | `SD_LOG_AUTO_ON_ARM` | `1` | Start and stop logging with ARM, in addition to the manual button |
 
 ### Reading the logs
@@ -1715,7 +1745,9 @@ In the firmware:
 - Throttle ceiling, default 20 %.
 - Auto-disarm after 30 s with no touch input (`IDLE_DISARM_MS`). For the last
   5 s, `IDLE ns` replaces the board's battery voltage and its `BOARD`
-  caption in the top row.
+  caption in the top row. The time counts from the last contact the touch
+  controller reports, so a wet screen or something lying on the glass keeps
+  the tester armed.
 - Core1 sets the throttle to zero if core0 sends no heartbeat for 250 ms.
 - Opening MENU disarms. The wiring settings and every tool are reachable only
   from there.
@@ -1916,7 +1948,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.8%**: 9,316 of 9,523 lines in 58 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.8%**: 9,348 of 9,555 lines in 58 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

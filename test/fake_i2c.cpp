@@ -45,6 +45,7 @@ int          g_sdaReleaseAfter = 0;
 bool         g_finger = false;
 int          g_fx = 0, g_fy = 0;
 uint32_t     g_cstReads = 0;
+bool         g_cstWrongId = false;  /**< The CST328 answers its ID read with 0000h. */
 uint32_t     g_toAddr[128];         /**< Transactions to each address, a part on it or not. */
 
 Part *find(uint8_t addr) {
@@ -141,8 +142,8 @@ void cstWrite(Part *p, const uint8_t *src, size_t len) {
 void cstRead(Part *p, uint8_t *dst, size_t len) {
 	memset(dst, 0, len);
 	if (p->ptr16 == 0xD1FC && len >= 4) {
-		dst[2] = 0xCA;
-		dst[3] = 0xCA;
+		dst[2] = g_cstWrongId ? 0x00 : 0xCA;
+		dst[3] = g_cstWrongId ? 0x00 : 0xCA;
 	} else if (p->ptr16 == 0xD000 && len >= 5) {
 		g_cstReads++;
 		if (g_finger) {
@@ -292,6 +293,7 @@ void fakeI2cReset() {
 	g_sdaReleaseAfter = 0;
 	g_finger = false;
 	g_cstReads = 0;
+	g_cstWrongId = false;
 }
 
 FakeIna219 *fakeI2cAddIna219(uint8_t addr, uint16_t porConfig) {
@@ -337,6 +339,8 @@ void fakeCst328Finger(bool down, int x, int y) {
 }
 
 uint32_t fakeCst328Reads() { return g_cstReads; }
+
+void fakeCst328WrongId(bool on) { g_cstWrongId = on; }
 
 void fakeI2cRemove(uint8_t addr) {
 	Part *p = find(addr);

@@ -257,6 +257,10 @@ static EscTelemetry s_tel;
  * other, which is a thing people notice and reasonably report as a bug.
  */
 static RpmFilter s_erpmFilter;
+/** @brief The splash shows TOUCH CONTROLLER NOT FOUND. */
+static bool s_splashNoTouch = false;
+/** @brief The band the board's voltage is drawn in. @see uiBoardCell() */
+static BoardCell s_boardCell = BoardCell::Ok;
 /** @brief Filtered eRPM, stepped once per uiTick() and read by drawRpm(). */
 static uint32_t  s_erpmShown = 0;
 static float s_batteryV = 0.0f;
@@ -399,11 +403,42 @@ static_assert(STATUS_BOARD_X + (6 * (int)(sizeof(STATUS_BOARD_TEXT) - 1) - 1) + 
                   240 - 4 - (6 * (int)(sizeof(STATUS_VOLT_WIDEST) - 1) - 1) * 2,
               "BOARD runs into the voltage beside it");
 
-void uiBoardVoltText(float volts, char *buf, size_t n) {
+/**
+ * @brief The board's voltage in centivolts, as drawn: rounded once and
+ *        clamped to 999. uiBoardVoltText() and uiBoardCell() both take it,
+ *        so the colour follows the text: `3.50V` is never amber.
+ */
+static int boardCentivolts(float volts) {
 	// Rounded once, to centivolts: rounding the fraction on its own carried
 	// 3.996 V to "3.100V", a wrong value and a sixth character over BOARD.
 	int cv = volts <= 0.0f ? 0 : (int)(volts * 100.0f + 0.5f);
-	if (cv > 999) cv = 999;
+	return cv > 999 ? 999 : cv;
+}
+
+BoardCell uiBoardCell(float volts, BoardCell prev) {
+	int mv = boardCentivolts(volts) * 10;
+	// Below a working cell's range the reading says nothing about a cell:
+	// USB power alone, or no cell, can read there.
+	if (mv < BOARD_CELL_IMPLAUSIBLE_MV) return BoardCell::NoCell;
+	if (prev == BoardCell::NoCell && mv < BOARD_CELL_IMPLAUSIBLE_MV + BOARD_CELL_HYST_MV)
+		return BoardCell::NoCell;
+	BoardCell now = mv < BOARD_CELL_CRIT_MV ? BoardCell::Critical
+	              : mv < BOARD_CELL_LOW_MV  ? BoardCell::Low : BoardCell::Ok;
+	// Leaving NoCell, the reading is classed as at start-up, from Ok: a cell
+	// plugged in shows the band a boot with that cell would show.
+	if (prev == BoardCell::NoCell) return now;
+	// Down at once; up only once the reading clears the threshold it rises
+	// past by the hysteresis.
+	if (prev == BoardCell::Critical && mv < BOARD_CELL_CRIT_MV + BOARD_CELL_HYST_MV)
+		return BoardCell::Critical;
+	if (prev != BoardCell::Ok && now == BoardCell::Ok &&
+	    mv < BOARD_CELL_LOW_MV + BOARD_CELL_HYST_MV)
+		return BoardCell::Low;
+	return now;
+}
+
+void uiBoardVoltText(float volts, char *buf, size_t n) {
+	int cv = boardCentivolts(volts);
 	snprintf(buf, n, "%u.%02uV", (unsigned)(cv / 100) % 10u, (unsigned)(cv % 100));
 }
 
@@ -432,7 +467,7 @@ static void drawStatusBar() {
 	uiBoardVoltText(s_batteryV, volts, sizeof(volts));
 	// Keyed on the drawn text, so a change the text does not show repaints
 	// nothing and one it shows always repaints.
-	int battKey = 0;
+	int battKey = (int)s_boardCell;
 	for (const char *c = volts; *c; c++) battKey = battKey * 31 + *c;
 
 	SdLogStatus log;
@@ -520,7 +555,9 @@ static void drawStatusBar() {
 		snprintf(buf, sizeof(buf), "IDLE %ds", idleLeft);
 		gfxText(GFX_W - 4 - gfxTextW(buf, 2), 7, buf, C_AMBER, 2);
 	} else {
-		gfxText(GFX_W - 4 - gfxTextW(volts, 2), 7, volts, C_TEXT, 2);
+		uint16_t vcol = s_boardCell == BoardCell::Critical ? C_RED
+		              : s_boardCell == BoardCell::Low      ? C_AMBER : C_TEXT;
+		gfxText(GFX_W - 4 - gfxTextW(volts, 2), 7, volts, vcol, 2);
 		// Names whose voltage it is. IDLE displaces it with the voltage.
 		gfxText(STATUS_BOARD_X, STATUS_BOARD_Y, STATUS_BOARD_TEXT, C_DIM, 1);
 	}
@@ -1014,6 +1051,30 @@ void uiDrawSplash() {
 		gfxTextCenter(UI_SPLASH_RESET_Y, "SETTINGS RESET BY UPDATE", C_AMBER, 1);
 		gfxTextCenter(UI_SPLASH_RESET_Y + 12, "CHECK MENU > SETTINGS", C_AMBER, 1);
 	}
+	// Not found: no answer since touchInit().
+	s_splashNoTouch = !touchAnswered();
+	if (s_splashNoTouch) gfxTextCenter(UI_SPLASH_TOUCH_Y, UI_SPLASH_TOUCH_TEXT, C_AMBER, 1);
+}
+
+static_assert(UI_SPLASH_TOUCH_Y + 8 < 104, "the splash's touch line runs into the name");
+static_assert(UI_SPLASH_TOUCH_Y >= UI_SPLASH_RESET_Y + 24,
+              "the splash's touch line runs into the settings lines");
+
+void uiSplashTick() {
+	// A read of its own, into a state the tester does not see. The driver
+	// keeps the contact between reads, so a finger that rests on the glass
+	// through the end of the splash gives the tester no press edge on its
+	// first frame: it does not arm or start a drag. Its lift still completes
+	// a tap on a button that acts on release: the driver kept where the
+	// press began.
+	TouchState t = {};
+	touchPoll(&t);
+	bool lost = !touchAnswered();
+	if (lost == s_splashNoTouch) return;
+	s_splashNoTouch = lost;
+	// 8 rows: a glyph is a row taller in high contrast (themeBold()).
+	gfxRect(0, UI_SPLASH_TOUCH_Y, GFX_W, 8, C_BG);
+	if (lost) gfxTextCenter(UI_SPLASH_TOUCH_Y, UI_SPLASH_TOUCH_TEXT, C_AMBER, 1);
 }
 
 uint16_t uiThrottle() { return s_throttle; }
@@ -1042,6 +1103,7 @@ void uiInit() {
 	s_blDip = false;
 	// The first frame takes the reading as it is, unsmoothed.
 	s_batteryV = 0.0f;
+	s_boardCell = BoardCell::Ok;
 	rpmFilterReset(&s_erpmFilter);
 	s_erpmShown = 0;
 
@@ -1078,6 +1140,7 @@ void uiTick() {
 	int raw = (int)adc_read();
 	float v = (raw * 3.3f / 4095.0f) * g_board->batDivider;
 	s_batteryV = s_batteryV == 0.0f ? v : (s_batteryV * 0.9f + v * 0.1f);
+	s_boardCell = uiBoardCell(s_batteryV, s_boardCell);
 
 	if (s_touch.down) s_lastTouchMs = millis();
 

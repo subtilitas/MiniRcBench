@@ -263,10 +263,20 @@ void st7789SetBacklight(uint8_t level) {
 // scripted touch
 // ---------------------------------------------------------------------------
 static TouchState g_touch;
+static bool     s_touchAnswers = true;   /**< Reads complete. */
+static bool     s_touchAnswered = true;  /**< A read has completed since touchInit(). */
 
-bool touchInit() { return true; }
+bool touchInit() {
+	s_touchAnswered = s_touchAnswers;
+	return s_touchAnswers;
+}
+
+bool touchAnswered() { return s_touchAnswered; }
+
+void fakeTouchAnswers(bool on) { s_touchAnswers = on; }
 
 void touchPoll(TouchState *t) {
+	if (s_touchAnswers) s_touchAnswered = true;
 	*t = g_touch;
 	// Edge flags last exactly one poll, as the real driver guarantees.
 	g_touch.pressed = false;

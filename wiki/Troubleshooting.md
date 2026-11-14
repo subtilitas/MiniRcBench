@@ -22,6 +22,41 @@ it as described under [Still stuck](#still-stuck).
 
 ---
 
+## The screen does not react to touch
+
+<img src="img/splash-no-touch.png" width="240" alt="The splash with TOUCH CONTROLLER NOT FOUND in amber above the name">
+
+`TOUCH CONTROLLER NOT FOUND` in amber on the splash means the touch
+controller did not answer the firmware at power-up. The line goes as soon
+as it answers. If it is still there when the tester appears, touch did not
+answer during the splash; the tester keeps reading it, and a controller
+that answers later works. If taps still do nothing, try the steps below.
+After an update that reset the settings, it shows under the two settings
+lines.
+
+<img src="img/splash-reset-no-touch.png" width="240" alt="The splash with SETTINGS RESET BY UPDATE, CHECK MENU > SETTINGS and TOUCH CONTROLLER NOT FOUND above the name">
+
+Without touch the board cannot be operated: arming, `DISARM`, `HOLD` and
+`MENU` all need it. The idle interlock disarms 30 s after the last contact
+the controller reports. A wet screen, or something lying on the glass,
+counts as a contact and keeps an armed tester armed. To stop a motor,
+disconnect the ESC's battery.
+
+Try, in this order:
+
+1. Dry the screen, and take away anything lying on the glass, a lead or a
+   tool: it can count as a finger and block every tap.
+2. Switch the board off and on: unplug USB. With a cell fitted the board
+   keeps running from the cell, so disconnect the cell too.
+
+Not known: why a controller does not answer. A controller that does not
+start, its flex cable inside the display and a stuck I2C (Inter-Integrated
+Circuit) bus are not told apart. The flex cable is part of the board and
+not something to open; no repair step is verified here. If the line stays
+after a restart, report it as described under [Still stuck](#still-stuck).
+
+---
+
 ## NO TELEMETRY
 
 <img src="img/tester-noesc.png" width="240" alt="No telemetry">
@@ -108,7 +143,9 @@ hardware.
 
 Three interlocks stop the motor, and each one shows on screen:
 
-- **Idle interlock.** 30 s without a touch while armed disarms the tester.
+- **Idle interlock.** 30 s without a contact reported by the touch
+  controller while armed disarms the tester. A wet screen or something
+  lying on the glass counts as a contact.
   `IDLE ns` counts down in the top right during the last 5 s. The backlight
   dims briefly when it disarms.
 - **Opening `MENU`.** Opening it always disarms.

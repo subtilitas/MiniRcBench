@@ -47,8 +47,17 @@ disabled, an outline with a grey label, and a tap on it does nothing.
 - `BOARD` and the board's own battery voltage, read through its
   200 kΩ/100 kΩ divider; at most 9.90 V. It is not the ESC's pack: that is
   the `VOLTAGE` tile. With only USB (Universal Serial Bus) power connected,
-  what this reads is not measured. During the last 5 s before the idle
-  interlock disarms, `IDLE ns` in amber replaces the voltage and `BOARD`.
+  what this reads is not measured, and the firmware cannot tell USB power
+  from the cell: no pin of the board senses USB power. The voltage is amber
+  below 3.50 V and red below 3.30 V, a lithium-polymer cell's usual low
+  range, not measured on this board. The colour follows the value as drawn:
+  `3.50V` is never amber, `3.30V` never red. It returns to the colour above
+  once it is 50 mV over the threshold. With USB power alone the value can be
+  low and then says nothing about a cell: below 2.50 V, implausible for a
+  working cell, it is drawn in the normal text colour, and red again from
+  2.55 V. No write and no arm is refused on it.
+  During the last 5 s before the idle interlock disarms, `IDLE ns` in amber
+  replaces the voltage and `BOARD`.
 
 **RPM.** Mechanical RPM (revolutions per minute), computed from the eRPM
 (electrical RPM) the ESC (electronic speed controller) reports and the pole
@@ -71,6 +80,13 @@ amber. Eject the drive on the computer, or press `EJECT` on SD LOG, and the
 button is live again (see [SD Logging](SD-Logging)).
 
 <img src="img/tester-card-held.png" width="240" alt="The tester while a computer holds the card: HOLD TO ARM drawn as an outline, the bar reading EJECT THE USB DRIVE TO ARM">
+
+**Touch.** The firmware reads only the touch controller's first contact
+slot. Which contact the controller puts there while two fingers touch the
+glass is not measured, so a press made while the throttle finger rests on
+the glass may not register. Lift the throttle finger before pressing
+`DISARM`. A wet screen, or a lead lying across the glass, can count as a
+finger and block every tap.
 
 ---
 

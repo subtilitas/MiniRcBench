@@ -67,6 +67,13 @@ void fakeHold(int x, int y);
 /** @brief End the current touch; sets the one-poll `released` edge. */
 void fakeRelease();
 
+/**
+ * @brief Whether the fake touch controller answers: touchInit() returns
+ *        @p on and, with false, leaves no answer on record; a touchPoll()
+ *        while it answers records one (touchAnswered()).
+ */
+void fakeTouchAnswers(bool on);
+
 /** @brief Read a byte of the fake ESC's settings page, as actually stored. */
 uint8_t fakeEscByte(int offset);
 /** @brief Store @p v at @p offset of the fake ESC's settings page, as another tool would. */
