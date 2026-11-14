@@ -112,16 +112,19 @@ Firmware: 2.21                       main and sub revision, bytes 0x03 and 0x04
 MOTOR POLES = 14
 MOTOR KV = 2000 KV
 TIMING ADVANCE = 15.0 DEG
-...                                  one line per field the layout has
+...                                  one line per field the ESC reads
 bytes 48
 00: 01 03 01 02 15 ...               16 bytes a line, 3 lines
 checksum 1A2B3C4D
 ```
 
-- One line per field of `AM32_FIELDS` that the block's layout revision has:
-  group, name, and value with its unit, as the screen shows them.
+- One line per field of `AM32_FIELDS` that the screen lists for the block
+  (`am32FieldShown()`: its layout revision has the field and its firmware
+  reads the byte): group, name, and value with its unit, as the screen shows
+  them.
 - The byte lines hold all 48 bytes, so a byte no field covers (the device
-  name before layout revision 3, reserved bytes) is kept too.
+  name before layout revision 3, reserved bytes, a byte the firmware does not
+  read) is kept too.
 - The checksum line is a CRC-32 (cyclic redundancy check) of IEEE 802.3 over
   every line before it, as in rcbench's KST files.
 - `doWrite()` (`src/ui_am32.cpp`) writes only after the card took the

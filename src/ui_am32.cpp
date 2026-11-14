@@ -93,6 +93,20 @@ static_assert((int)sizeof(ST_VERIFY_READ) - 1 + am32ResultTextMax() <= RESULT_CH
 static_assert(sizeof(ST_DIFF_WIDEST) - 1 <= RESULT_CHARS, "DIFF runs off the panel");
 static_assert(sizeof(ST_VERIFIED ST_BACKUP) - 1 + 5 <= RESULT_CHARS,
               "WRITE VERIFIED. BACKUP AMnnn runs off the panel");
+static_assert(sizeof(AM32_UI_RETRY) - 1 <= RESULT_CHARS, "the retry line runs off the panel");
+static_assert(sizeof(AM32_UI_CHECK_CARD) - 1 <= RESULT_CHARS, "the card line runs off the panel");
+static_assert(AM32_FW_READS_2A == 180, "AM32_UI_OLDFW_1 names 1.80");
+// The strip notes and the connect page's lines: scale 1 from x 8.
+static_assert(sizeof(AM32_UI_3D_1) - 1 <= RESULT_CHARS && sizeof(AM32_UI_3D_2) - 1 <= RESULT_CHARS &&
+              sizeof(AM32_UI_PROT_1) - 1 <= RESULT_CHARS && sizeof(AM32_UI_PROT_2) - 1 <= RESULT_CHARS &&
+              sizeof(AM32_UI_PROTO_1) - 1 <= RESULT_CHARS && sizeof(AM32_UI_PROTO_2) - 1 <= RESULT_CHARS &&
+              sizeof(AM32_UI_OLDFW_1) - 1 <= RESULT_CHARS && sizeof(AM32_UI_OLDFW_2) - 1 <= RESULT_CHARS,
+              "a strip note runs off the panel");
+static_assert(sizeof(AM32_UI_NO_SETTINGS_1) - 1 <= RESULT_CHARS &&
+              sizeof(AM32_UI_NO_SETTINGS_2) - 1 <= RESULT_CHARS &&
+              sizeof(AM32_UI_NOT_AM32) - 1 <= RESULT_CHARS &&
+              sizeof(AM32_UI_LAYOUT_1) - 1 <= RESULT_CHARS,
+              "a connect line runs off the panel");
 /** @brief The list's viewport. */
 static const UiRect LIST_VIEW  = { 0, LIST_Y0, GFX_W, LIST_H };
 
@@ -129,6 +143,8 @@ static int        s_selected = -1;
 static char       s_status[40] = "";
 /** @brief The last write verified: the result names the power cycle. */
 static bool       s_verified = false;
+/** @brief The next step under a result that is not verified, or null. */
+static const char *s_nextStep = nullptr;
 /** @brief The session's backup is on the card; BACKUP/ holds it as s_backupName. */
 static bool       s_backupDone = false;
 static uint32_t   s_backupVolume = 0;     /**< The serial number of the volume the backup went to. */
@@ -157,6 +173,20 @@ static bool     s_jumped = false;  /**< Optional low-hold jump already tried. */
 #endif
 static int      s_attempt = 0;     /**< Init strings sent since entering. */
 
+/** @brief What the connect page says under its status. */
+enum ConnectNote : uint8_t {
+	CN_NONE,         /**< Silence or a read that failed: the status alone. */
+	CN_GARBLED,      /**< Bytes came back that are not a bootloader's reply. */
+	CN_NO_SETTINGS,  /**< The bootloader answered; its settings are not AM32's. */
+	CN_LAYOUT,       /**< AM32's settings, in a layout the table is not checked against. */
+};
+static ConnectNote s_connectNote = CN_NONE;
+
+/** @brief A handshake succeeded since the restart: MENU's cue stands. */
+static bool     s_blReached = false;
+/** @brief When that handshake succeeded, ms. */
+static uint32_t s_blReachedMs = 0;
+
 /**
  * @brief Held-button repeat state for the editor bar.
  *
@@ -170,12 +200,13 @@ static Repeat s_editRepeat;
 // helpers
 // ---------------------------------------------------------------------------
 
-/** @brief Rebuild the visible-field list for the layout revision just read. */
+/** @brief Rebuild the visible-field list for the layout revision and the
+ *         firmware version just read. */
 static void buildVisible() {
 	s_layoutRev = s_eeprom[AM32_OFF_LAYOUT_REVISION];
 	s_visibleCount = 0;
 	for (uint16_t i = 0; i < AM32_FIELD_COUNT && s_visibleCount < 64; i++) {
-		if (am32FieldApplies(&AM32_FIELDS[i], s_layoutRev)) {
+		if (am32FieldShown(&AM32_FIELDS[i], s_eeprom)) {
 			s_visible[s_visibleCount++] = i;
 		}
 	}
@@ -236,6 +267,45 @@ static bool swipeStep(void *ctx, int dir) {
 // ---------------------------------------------------------------------------
 // drawing
 // ---------------------------------------------------------------------------
+/** @brief The ESC's firmware reads PROTOCOL, byte 0x2E: the list shows it. */
+static bool protocolShown() {
+	for (uint16_t i = 0; i < AM32_FIELD_COUNT; i++)
+		if (AM32_FIELDS[i].offset == AM32_OFF_INPUT_TYPE)
+			return am32FieldShown(&AM32_FIELDS[i], s_eeprom);
+	return false;
+}
+
+/**
+ * @brief The strip's note for the settings list, if one applies: the
+ *        selected row's first (a protection turned off), then 3D MODE on,
+ *        then a PROTOCOL on which AM32 takes no DShot, shown only where the
+ *        PROTOCOL row is listed, then firmware that does not read every
+ *        byte. @see am32_notes
+ * @param[out] l1 First line.
+ * @param[out] l2 Second line.
+ * @return false when none applies: the strip keeps the device caption.
+ */
+static bool listNote(const char **l1, const char **l2) {
+	const Am32Field *sel = (!s_hexView && s_selected >= 0 && s_selected < (int)AM32_FIELD_COUNT)
+	                           ? &AM32_FIELDS[s_selected] : nullptr;
+	if (sel && am32ProtectionOff(sel, s_eeprom)) {
+		*l1 = AM32_UI_PROT_1;
+		*l2 = AM32_UI_PROT_2;
+	} else if (am32Is3d(s_eeprom)) {
+		*l1 = AM32_UI_3D_1;
+		*l2 = AM32_UI_3D_2;
+	} else if (am32InputNotDshot(s_eeprom) && protocolShown()) {
+		*l1 = AM32_UI_PROTO_1;
+		*l2 = AM32_UI_PROTO_2;
+	} else if (am32Firmware(s_eeprom) < AM32_FW_READS_2A) {
+		*l1 = AM32_UI_OLDFW_1;
+		*l2 = AM32_UI_OLDFW_2;
+	} else {
+		return false;
+	}
+	return true;
+}
+
 static void drawHeader() {
 	uiHeader("AM32 CONFIG", s_frameTouch);
 
@@ -243,7 +313,9 @@ static void drawHeader() {
 	// goes on the shared strip -- the same row MENU puts its EDT chip on.
 	// It used to be a second line inside a 50 px header this screen had to
 	// itself, which is why BACK ended up 8 px lower here than on SETTINGS.
-	uiStripClear();
+	// The clear covers the band of a note's second line too, y 40 to 61,
+	// which the caption alone leaves standing. @see listNote()
+	uiStripTwoLines(nullptr, C_BG, nullptr, C_BG);
 	char name[AM32_NAME_LEN + 1];
 	if (s_state == S_LIST || s_state == S_WRITING) {
 		am32DeviceName(s_eeprom, name);
@@ -256,7 +328,9 @@ static void drawHeader() {
 			         s_eeprom[AM32_OFF_MAIN_REVISION], s_eeprom[AM32_OFF_SUB_REVISION],
 			         s_layoutRev);
 		}
-		uiStripText(buf, C_DIM);
+		const char *l1, *l2;
+		if (s_state == S_LIST && listNote(&l1, &l2)) uiStripTwoLines(l1, UI_COL_WARN, l2, UI_COL_WARN);
+		else uiStripText(buf, C_DIM);
 	} else if (s_status[0]) {
 		uiStripText(s_status, C_DIM);
 	}
@@ -272,24 +346,34 @@ static void drawConnect() {
 
 	gfxTextCenter(176, s_status[0] ? s_status : "SEARCHING...", C_AMBER, 1);
 
-	// Only if the ESC answered with something we could not parse. Silence is
-	// the normal state here -- it just means the power-up window has not come
-	// round yet -- so saying anything about it would be noise.
-	const uint8_t *rx;
-	if (am32BlLastRx(&rx) > 0) {
-		gfxText(10, 210, "REPLY NOT UNDERSTOOD:", C_AMBER, 1);
-		gfxText(10, 224, s_status, C_AMBER, 1);
-		gfxText(10, 244, "LINK WORKS BUT FRAMING IS OFF.", C_GRID, 1);
+	// Only if the ESC answered with something we could not parse, or with
+	// settings that are not AM32's. Silence is the normal state here -- it
+	// just means the power-up window has not come round yet -- so saying
+	// anything about it would be noise.
+	// The status above, at y 176, names the bytes or the layout; these
+	// lines say what it means.
+	if (s_connectNote == CN_GARBLED) {
+		gfxTextCenter(196, "REPLY NOT UNDERSTOOD:", C_AMBER, 1);
+		gfxTextCenter(210, AM32_UI_NOT_AM32, C_AMBER, 1);
+	} else if (s_connectNote == CN_NO_SETTINGS) {
+		gfxTextCenter(196, AM32_UI_NO_SETTINGS_1, C_AMBER, 1);
+		gfxTextCenter(210, AM32_UI_NO_SETTINGS_2, C_AMBER, 1);
+	} else if (s_connectNote == CN_LAYOUT) {
+		gfxTextCenter(196, AM32_UI_LAYOUT_1, C_AMBER, 1);
+		gfxTextCenter(210, AM32_UI_NO_SETTINGS_2, C_AMBER, 1);
 	}
 
-	// A spinner beats a static screen: it shows we are still retrying.
+	// A spinner beats a static screen: it shows we are still retrying. Under
+	// a note it shrinks and moves down, clear of the note's lines.
+	int r = s_connectNote == CN_NONE ? 40 : 16;
+	int cy = s_connectNote == CN_NONE ? 240 : 266;
 	int phase = (int)((millis() / 150) % 12);
 	for (int i = 0; i < 12; i++) {
 		int ang = i * 30;
-		int dx = (int)(40 * cosf(ang * 3.14159f / 180.0f));
-		int dy = (int)(40 * sinf(ang * 3.14159f / 180.0f));
+		int dx = (int)(r * cosf(ang * 3.14159f / 180.0f));
+		int dy = (int)(r * sinf(ang * 3.14159f / 180.0f));
 		uint16_t c = (i == phase) ? C_LIME : C_PANEL;
-		gfxRect(GFX_W / 2 + dx - 2, 240 + dy - 2, 5, 5, c);
+		gfxRect(GFX_W / 2 + dx - 2, cy + dy - 2, 5, 5, c);
 	}
 }
 
@@ -414,6 +498,9 @@ static void drawWriting() {
 	// The ESC reads its settings at boot: whether it runs the new ones
 	// without a power cycle is not known, and the line is right either way.
 	if (s_verified) gfxTextCenter(RESULT_Y + 30, AM32_UI_POWER_CYCLE, C_TEXT, 1);
+	// Not verified: the edits stay in the list, and the next hold of WRITE
+	// runs the write, and the backup if it is missing, again.
+	else if (s_nextStep) gfxTextCenter(RESULT_Y + 30, s_nextStep, UI_COL_WARN, 1);
 	uiButton(BTN_OK, "OK", C_PANEL, C_TEXT, 1, uiPressing(BTN_OK, s_frameTouch));
 }
 
@@ -452,6 +539,7 @@ void uiAm32Enter() {
 	s_jumped = false;
 #endif
 	s_attempt = 0;
+	s_connectNote = CN_NONE;
 	s_editRepeat = Repeat{};
 	am32BlSetBaud(AM32_LINK_BAUD);
 	memset(s_eeprom, 0, sizeof(s_eeprom));
@@ -499,12 +587,19 @@ static void tryConnect() {
 			snprintf(s_status, sizeof(s_status), "%luB: %02X %02X %02X @%lu",
 			         (unsigned long)n, rx[0], n > 1 ? rx[1] : 0, n > 2 ? rx[2] : 0,
 			         (unsigned long)am32BlBaud());
+			s_connectNote = CN_GARBLED;
 			return;
 		}
 
 		snprintf(s_status, sizeof(s_status), "WAITING... (TRY %d)", s_attempt);
+		s_connectNote = CN_NONE;
 		return;
 	}
+	// The ESC sits in its bootloader now, and leaving sends no command that
+	// starts its firmware: MENU says so until an eRPM frame arrives.
+	s_blReached = true;
+	s_blReachedMs = millis();
+	s_connectNote = CN_NONE;
 
 	r = am32BlRead(am32BlEepromAddr(), s_eeprom, AM32_SETTINGS_SIZE);
 	if (r != AM32_OK) {
@@ -513,7 +608,17 @@ static void tryConnect() {
 	}
 
 	if (!am32Plausible(s_eeprom)) {
+		// The screen stays on the connect page, which has no WRITE: the
+		// list is never opened on these bytes.
 		snprintf(s_status, sizeof(s_status), "NO VALID SETTINGS");
+		s_connectNote = CN_NO_SETTINGS;
+		return;
+	}
+	if (!am32LayoutKnown(s_eeprom)) {
+		// A newer layout may have moved a field: the list does not open.
+		snprintf(s_status, sizeof(s_status), "LAYOUT %u NOT KNOWN",
+		         s_eeprom[AM32_OFF_LAYOUT_REVISION]);
+		s_connectNote = CN_LAYOUT;
 		return;
 	}
 
@@ -552,6 +657,7 @@ static void doWrite() {
 		if (cardCacheState() == CardCache::Failed) cardCacheRecover();
 		if (b != BackupResult::Ok) {
 			snprintf(s_status, sizeof(s_status), ST_NO_BACKUP);
+			s_nextStep = AM32_UI_CHECK_CARD;
 			return;
 		}
 		s_backupDone = true;
@@ -563,6 +669,7 @@ static void doWrite() {
 	Am32Result r = am32BlWrite(am32BlEepromAddr(), s_eeprom, AM32_SETTINGS_SIZE);
 	if (r != AM32_OK) {
 		snprintf(s_status, sizeof(s_status), ST_WRITE_FAILED "%s", am32ResultText(r));
+		s_nextStep = AM32_UI_RETRY;
 		return;
 	}
 	// Read back rather than trusting the ACK: a write that reports success but
@@ -579,6 +686,7 @@ static void doWrite() {
 	}
 	if (r != AM32_OK) {
 		snprintf(s_status, sizeof(s_status), ST_VERIFY_READ "%s", am32ResultText(r));
+		s_nextStep = AM32_UI_RETRY;
 		return;
 	}
 	if (memcmp(check, s_eeprom, AM32_SETTINGS_SIZE) != 0) {
@@ -588,6 +696,7 @@ static void doWrite() {
 		while (i < AM32_SETTINGS_SIZE && check[i] == s_eeprom[i]) i++;
 		snprintf(s_status, sizeof(s_status), "DIFF @%02X: GOT %02X WANT %02X",
 		         i, check[i], s_eeprom[i]);
+		s_nextStep = AM32_UI_RETRY;
 		return;
 	}
 	memcpy(s_original, s_eeprom, AM32_SETTINGS_SIZE);
@@ -607,6 +716,7 @@ static void handleListTouch(const TouchState *t) {
 	if (uiHoldUpdate(&s_writeHold, BTN_WRITE, t, dirty, millis())) {
 		s_state = S_WRITING;
 		s_verified = false;
+		s_nextStep = nullptr;
 		snprintf(s_status, sizeof(s_status), "WRITING...");
 		s_redraw = true;
 		return;
@@ -779,6 +889,13 @@ bool uiAm32Tick(const TouchState *t) {
 		return false;
 	}
 	return true;
+}
+
+bool uiAm32RunCue(uint32_t lastRpmMs) {
+	// An eRPM frame stamped after the handshake: the firmware runs again.
+	if (s_blReached && lastRpmMs != 0 && (int32_t)(lastRpmMs - s_blReachedMs) > 0)
+		s_blReached = false;
+	return s_blReached;
 }
 
 /** @brief AM32 CONFIG's MENU status: the signal pin it claims, from the settings. */

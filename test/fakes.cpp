@@ -297,14 +297,17 @@ void fakeRelease() {
 // fake AM32 ESC
 //
 // Seeded with the Air preset recovered from the reference configurator, so the
-// UI tests operate on values a real ESC would actually report.
+// UI tests operate on values a real ESC would actually report. The preset's
+// firmware bytes read 1.35; these read 2.16, a release that writes layout 2,
+// so the list shows every layout-2 field. @see AM32_FW_READS_2F
 // ---------------------------------------------------------------------------
 static uint8_t g_esc[AM32_EEPROM_SIZE] = {
-	0x01,0x02,0x01,0x01,0x23,0x4e,0x45,0x4f,0x45,0x53,0x43,0x20,0x66,0x30,0x35,0x31,
+	0x01,0x02,0x01,0x02,0x10,0x4e,0x45,0x4f,0x45,0x53,0x43,0x20,0x66,0x30,0x35,0x31,
 	0x20,0x00,0x01,0x01,0x01,0x01,0x00,0x03,0x18,0x68,0x30,0x0e,0x01,0x01,0x05,0x00,
 	0x80,0x80,0x80,0x32,0x01,0x50,0x00,0x00,0x0f,0x0a,0x0a,0x65,0x14,0x05,0x00,0x31};
 
 uint8_t fakeEscByte(int offset) { return g_esc[offset]; }
+void fakeEscSet(int offset, uint8_t v) { g_esc[offset] = v; }
 
 uint16_t am32Crc16(const uint8_t *d, uint16_t n) {
 	uint16_t c = 0;
@@ -327,10 +330,40 @@ void am32BlBegin(uint8_t pin) { g_am32Pin = pin; }
 void am32BlJumpToBootloader() {}
 void am32BlSetBaud(uint32_t) {}
 uint32_t am32BlBaud() { return 19200; }
-Am32Result am32BlHandshake(uint8_t *) { return AM32_OK; }
-Am32Result am32BlRead(uint16_t, uint8_t *b, uint8_t n) { memcpy(b, g_esc, n); return AM32_OK; }
-Am32Result am32BlWrite(uint16_t, const uint8_t *b, uint8_t n) { memcpy(g_esc, b, n); return AM32_OK; }
-uint8_t am32BlLastRx(const uint8_t **b) { static uint8_t none[1] = {0}; *b = none; return 0; }
+// Failures the tests ask for: each counts down, one per call.
+static int     g_am32WriteFails = 0;   /**< am32BlWrite() calls that fail, storing nothing. */
+static int     g_am32ReadFails = 0;    /**< am32BlRead() calls that fail. */
+static int     g_am32WriteSkews = 0;   /**< am32BlWrite() calls that store byte 0x1B wrong. */
+static uint8_t g_am32Garble[3];        /**< A handshake reply that is not one. */
+static uint8_t g_am32GarbleLen = 0;    /**< Its length; 0: the handshake succeeds. */
+static bool    g_am32Blank = false;    /**< Reads return an erased page. */
+static bool    g_am32Silent = false;   /**< Handshakes time out with no reply. */
+void fakeAm32FailWrites(int n) { g_am32WriteFails = n; }
+void fakeAm32FailReads(int n) { g_am32ReadFails = n; }
+void fakeAm32SkewWrites(int n) { g_am32WriteSkews = n; }
+void fakeAm32Garble(const uint8_t *b, uint8_t n) {
+	g_am32GarbleLen = n > sizeof(g_am32Garble) ? (uint8_t)sizeof(g_am32Garble) : n;
+	if (n) memcpy(g_am32Garble, b, g_am32GarbleLen);
+}
+void fakeAm32Blank(bool on) { g_am32Blank = on; }
+void fakeAm32Silent(bool on) { g_am32Silent = on; }
+Am32Result am32BlHandshake(uint8_t *) {
+	if (g_am32Silent) return AM32_ERR_TIMEOUT;
+	return g_am32GarbleLen ? AM32_ERR_NAK : AM32_OK;
+}
+Am32Result am32BlRead(uint16_t, uint8_t *b, uint8_t n) {
+	if (g_am32ReadFails > 0) { g_am32ReadFails--; return AM32_ERR_TIMEOUT; }
+	if (g_am32Blank) memset(b, 0xFF, n);
+	else memcpy(b, g_esc, n);
+	return AM32_OK;
+}
+Am32Result am32BlWrite(uint16_t, const uint8_t *b, uint8_t n) {
+	if (g_am32WriteFails > 0) { g_am32WriteFails--; return AM32_ERR_NAK; }
+	memcpy(g_esc, b, n);
+	if (g_am32WriteSkews > 0) { g_am32WriteSkews--; g_esc[0x1B] ^= 0x40; }
+	return AM32_OK;
+}
+uint8_t am32BlLastRx(const uint8_t **b) { *b = g_am32Garble; return g_am32Silent ? 0 : g_am32GarbleLen; }
 uint16_t am32BlEepromAddr() { return 0x7C00; }
 const char *am32BlEscTypeName() { return "F051"; }
 

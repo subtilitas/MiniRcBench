@@ -44,6 +44,23 @@ protocol.
 
 ### Added
 
+- AM32 CONFIG says what a value does and what to do next. Two amber lines
+  replace the ESC name on the strip: while 3D MODE is on, `3D MODE: 50%
+  THROTTLE IS FULL POWER,` / `ABOVE 50% THE OTHER WAY. PROP OFF.`; with TEMP
+  LIMIT, CURRENT LIMIT or LOW VOLT CUTOFF selected and off, `PROTECTION OFF:
+  THE ESC DOES NOT` / `CUT POWER ON THIS LIMIT.`; with PROTOCOL at any value
+  but AUTO, DSHOT or 10 and above, `THE TESTER SENDS DSHOT ONLY:` / `THE ESC
+  WILL NOT RUN HERE.` A write result that is not verified has `NOT VERIFIED.
+  TAP OK, WRITE AGAIN.` under it, and `NO BACKUP ON THE CARD: NOT WRITTEN` has
+  `CHECK THE CARD, THEN WRITE AGAIN.`. The connect page ends a reply it cannot
+  parse with `IS THE ESC RUNNING AM32?` and adds `NOT AN AM32 ESC, OR BLANK
+  SETTINGS.` / `NOTHING WILL BE WRITTEN.` under `NO VALID SETTINGS`. After a
+  session whose handshake succeeded, MENU's strip shows `POWER-CYCLE THE ESC
+  TO RUN IT` in amber under its caption until an eRPM frame stamped after the
+  handshake arrives or the board restarts (`uiAm32RunCue()`). The AM32 facts
+  are taken from the AM32 source, not measured. Host tests in
+  `test/test_am32.cpp` and `testAm32Guidance()` in `test/test_ui.cpp`; the
+  wiki's AM32 pages show `am32-connect.png`.
 - Warnings that J5 pins 2, 3 and 4, SIG, 3V3 and GND, are in the order of a
   servo plug: a servo or ESC lead joined straight across puts the ESC's
   BEC output or the servo supply on the board's 3.3 V. In the README and
@@ -433,6 +450,13 @@ protocol.
 
 ### Changed
 
+- The AM32 previews show an ESC with 3D MODE off, the ESC name on the
+  strip; `am32-3d.png` shows the 3D note on the wiki's AM32 pages.
+- AM32 CONFIG's `BIDIRECTIONAL` row is `3D MODE`: byte 0x12 is AM32's
+  `bi_direction`, the reversible mode, not bidirectional DShot. TEMP LIMIT at
+  141 and CURRENT LIMIT at 0, 101 or 102 read `OFF`, in the list and the
+  editor: AM32 applies no limit outside 70 to 140 °C and outside 1 to 100
+  (2 to 200 A) from 2.21, 1 to 99 before, where 100 reads `OFF` too.
 - SETTINGS' note line reads `DEFAULTS LOADED - RESTART TO UNDO` after a
   RESET tap, while the live settings are still what RESET left and differ
   from what the next boot loads; any other change ends it, made in SETTINGS
@@ -710,6 +734,55 @@ protocol.
 
 ### Fixed
 
+- AM32 CONFIG showed LOW VOLT CUTOFF, VARIABLE PWM and BRAKE ON STOP as off
+  and on, and AM32 stores three values in each: a stored 2 read ON, and a
+  press of - or + made it 1, changing the mode. They are three-value
+  choices now, with the configurator's names shortened to fit: LOW VOLT
+  CUTOFF `OFF`, `CELL`, `ABSOLUTE`; PWM TYPE `FIXED`, `VARIABLE`, `BY RPM`;
+  BRAKE ON STOP `OFF`, `BRAKE`, `ACTIVE`. The third value is offered from
+  AM32 2.21, 2.18 and 2.19 on (see the next item for 2.21); on older
+  firmware, read from bytes 0x03 and 0x04, the editor stops at the second
+  value and a stored third reads `? (2)`.
+  LOW VOLT CUTOFF's PROTECTION OFF note covers `? (2)`, which older AM32
+  does not cut off on. An unedited byte is written back as read.
+- AM32 CONFIG offered values the ESC's firmware does not act on. ABSOLUTE
+  low-voltage cutoff is offered from AM32 2.21, not 2.19: 2.19 and 2.20
+  compare the battery voltage in 10 mV with the raw byte, so it never trips;
+  a stored 2 there reads `? (2)` with the PROTECTION OFF note, and ABS VOLT
+  CUT reads the plain byte, not volts, below 2.21. CURRENT LIMIT at 100
+  (200 A) reads `OFF` below 2.21. PWM FREQ stops at 48 kHz below 2.19. The
+  PROTOCOL note also covers SERIAL, EDT ARM, DRONECAN and stored values 6
+  to 9, on which AM32 drops every throttle from this tester: SERIAL and 5 to
+  9 never unlock it, and EDT ARM locks it again on the zero frames the
+  tester sends after the EDT enable. The editor offers 0 to 4 as the
+  configurator does. ACTIVE BRAKE reads 0.5 % a step, as AM32 uses it. A
+  stored number outside the range the tester offers on the ESC's firmware
+  reads `? (n)`, as does an on/off byte of 2 or more. A firmware version
+  byte AM32 did not write counts as the oldest. Settings in layout revision
+  1 or above 4 do not open: the connect page shows `LAYOUT n NOT KNOWN`
+  with `THE TESTER KNOWS LAYOUTS 2 TO 4.` and `NOTHING WILL BE WRITTEN.`
+  A field whose byte the ESC's firmware does not read is not listed: 0x2A
+  to 0x2D below 1.80, 0x2E below 1.94, 0x2F below 2.16 (AlkaMotors commits
+  9909ea7 and aa590e8 add those reads with the version), and below 1.80 the
+  strip says `FIRMWARE BELOW 1.80 OR UNKNOWN:` /
+  `FIELDS IT MAY NOT READ ARE HIDDEN.`; the backup file lists only the
+  fields the firmware reads. CURRENT LIMIT acts from 2 at 1.80. ADVANCE
+  steps in the old 0..3 encoding below 2.19, which reads nothing else, and a
+  stored 10 to 42 reads `? (n)` there; edits wrote the 10..42 encoding on
+  every firmware before. The garbled-reply page
+  names the bytes once in its body; the strip shows the status too.
+- AM32 CONFIG's KV read 20 KV low: AM32 takes raw x 40 + 20. MAX RAMP,
+  MIN DUTY, ABS VOLT CUT and ACTIVE BRAKE showed raw bytes over 0 to 255;
+  they read 0.1 %/ms, 0.5 %, 0.5 V and % steps over the configurator's
+  ranges. DEAD BAND loses its `US`: AM32 counts it in input units.
+- AM32 CONFIG's PROTOCOL names were one off: AM32's `enum inputType` is
+  zero-based, so 0 is AUTO and 1 DSHOT, where the screen showed UNSET and
+  AUTO. The names are now `AUTO`, `DSHOT`, `SERVO`, `SERIAL`, `EDT ARM` and,
+  for a stored 5, `DRONECAN`; the editor offers 0 to 4.
+- AM32 CONFIG's connect page showed `REPLY NOT UNDERSTOOD:` under
+  `NO VALID SETTINGS` and `READ FAILED (...)` too, since the bytes of a good
+  handshake stayed in the transport's buffer; it shows it now only for a
+  handshake that failed with bytes.
 - HITEC SERVO's write page always draws `KEEP THE SERVO HORN CLEAR.`, the
   ID note, `FILE OF ANOTHER MODEL` and `MODEL NOT MEASURED` when they
   apply. Before, the horn line came after the notes and was dropped once
