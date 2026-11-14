@@ -13,7 +13,7 @@ and tested in rcbench first. The PPM sections stay as the record of a
 design that is not built, by decision 1. Both tools sit on the pin claim of
 [pin-claim.md](pin-claim.md) under one MENU row, RX SIGNALS, which opens a
 chooser with MONITOR and OUTPUT (decision 4); the MENU section is to be
-redesigned for it. The row exists since slice 9 of
+redesigned for it. The row stands in MENU, built by slice 9 of
 [menu-b.md](menu-b.md), drawn disabled with `NOT BUILT` until these tools
 exist. The decoder is rcbench's, host-tested there and nowhere
 measured on a pin.

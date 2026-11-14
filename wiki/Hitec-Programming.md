@@ -112,8 +112,8 @@ Once the pin is the servo's, `BACK` before the servo is in programming
 mode, the wait for `READ` included, opens the leave page at
 `1 UNPLUG THE SERVO.`, as after `LEAVE`: DShot restarts only on
 `RESTART DSHOT`. `NEXT SERVO` there starts a new session for the same
-family; for a D series servo on `OWN` that has not been read, the wait for
-`READ` again. While the driver still stops, or while the screen has not
+family; for a D series servo on `OWN` it always returns to the wait for
+`READ`, so the next servo too is powered after the tap. While the driver still stops, or while the screen has not
 taken the pin, `BACK` returns to `MENU`.
 
 <img src="img/hitec-esc.png" width="240" alt="HITEC SERVO while an ESC answers on GP0: CHECKING SIG GP0 FOR AN ESC on the strip, AN ESC ANSWERS ON SIG GP0: UNPLUG IT. and DSHOT STAYS ON THE PIN UNTIL THEN. in amber">
@@ -520,8 +520,10 @@ page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` until the line closes; with
 `OWN`, `RELEASING THE PIN`.
 
 **Unplug the servo.** Once the pin is let go, `NEXT SERVO` acts: it keeps
-the pin and enters the next servo. With `OWN` the page reads
-`NEXT SERVO: POWER IT BEFORE THE TAP.` **`RESTART DSHOT`** acts 1 s after
+the pin and starts a session for the next servo. With `OWN` the page reads
+`NEXT SERVO: POWER IT AFTER THE TAP.`: the screen returns to the wait for
+`READ`. With the switched supply the entry starts at once.
+**`RESTART DSHOT`** acts 1 s after
 that: the ESC driver takes the pin back and `MENU` returns. A double tap on
 `LEAVE` lands while `RESTART DSHOT` is grey and restarts nothing, and a
 press that landed while it was grey does nothing when it lifts.

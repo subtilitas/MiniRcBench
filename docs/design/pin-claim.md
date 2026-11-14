@@ -134,7 +134,9 @@ the exception.
    the claim stays Held, the pad an input with the pull-up on. BACK from
    there is step 5 with no job: the leave page opens releasing and turns
    released as soon as `pinClaimUnplugDue()` is true, with no job to wait
-   for; its NEXT SERVO returns to Held with no job.
+   for; its NEXT SERVO returns to Held with no job. So does NEXT SERVO after
+   a session: `pinClaimKeep()` wants the job again only for a user that
+   does not defer it, and HITEC asks for it as for its first servo.
    AM32 has no core1 job: it calls `am32BlBegin(pinClaimGpio(PIN_SIG))`, and
    its claim stays Held until BACK.
 4. **Running.** The job binds its pins and reports `Running`, or reports a bind
@@ -155,7 +157,7 @@ the exception.
    `pinClaimUnplugDue()` is true once the job is idle, RESTART DSHOT calls
    `pinClaimRestart()` 1000 ms after that at the earliest, and NEXT SERVO or
    BACK TO SERVO calls `pinClaimKeep()`, which returns the claim to Held and
-   starts the job again. AM32 has neither a job
+   starts the job again for SERVO and KST; HITEC asks for it again. AM32 has neither a job
    nor the page, so its BACK restores DShot within the `pinClaimEnd()` call.
 6. **Restoring.** Core0 calls `escTaskResume()`. Core1 rebuilds the driver from
    the wiring latched in `esc_task.cpp`, and the claim is `Free` from the

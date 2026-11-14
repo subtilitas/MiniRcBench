@@ -555,10 +555,16 @@ protocol.
   the job; with the switched supply, and for a classic servo, the job starts
   as soon as DShot has stopped. While an ESC answers, HITEC SERVO reads
   `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` on its main view, as KST SERVO
-  does. Host tests in `test/test_menu.cpp` (`testSettingsRowVisible()`,
-  `testRxSignalsRow()`, `testServoProg()`), `test/test_hitec_ui.cpp`
-  (`testEntry()`), `test/test_kst_ui.cpp`, `test/test_ui.cpp`,
-  `test/test_ids.cpp` and the helpers `openChooser()`, `openProgrammer()`
+  does. NEXT SERVO on the leave page asks for the job as for the first
+  servo: `pinClaimKeep()` returns a user that defers its job, HITEC, to
+  Held with no job, so a D series servo on its own supply returns to the
+  READ wait, and the page's note reads `NEXT SERVO: POWER IT AFTER THE
+  TAP.` in place of `NEXT SERVO: POWER IT BEFORE THE TAP.` READ takes only
+  a press that landed while it acted. Host tests in `test/test_menu.cpp`
+  (`testSettingsRowVisible()`, `testRxSignalsRow()`, `testServoProg()`),
+  `test/test_hitec_ui.cpp` (`testEntry()`), `test/test_kst_ui.cpp`,
+  `test/test_ui.cpp`, `test/test_ids.cpp`, `test/test_claim.cpp`
+  (`testDeferredJob()`) and the helpers `openChooser()`, `openProgrammer()`
   and `progEntryOf()` in `test/ui_ids.h`. The wiki shows `prog-chooser.png`,
   `prog-chooser-switched.png`, `hitec-read-wait.png` and `hitec-esc.png` in
   place of `hitec-family.png`, `hitec-family-esc.png` and

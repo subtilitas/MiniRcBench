@@ -123,8 +123,9 @@ Gehört der Pin dem Servo, öffnet `BACK`, bevor das Servo im
 Programmiermodus ist, das Warten auf `READ` eingeschlossen, die
 Verlassenseite bei `1 UNPLUG THE SERVO.`, wie nach `LEAVE`: DShot startet
 erst mit `RESTART DSHOT` neu. `NEXT SERVO` startet dort eine neue Sitzung
-derselben Familie; für ein Servo der D-Serie an `OWN`, das noch nicht
-gelesen ist, wieder das Warten auf `READ`. Solange der Treiber noch anhält
+derselben Familie; für ein Servo der D-Serie an `OWN` führt es immer
+wieder zum Warten auf `READ`, damit auch das nächste Servo erst nach dem
+Tippen Strom bekommt. Solange der Treiber noch anhält
 oder der Bildschirm den Pin nicht übernommen hat, führt `BACK` zu `MENU`
 zurück.
 
@@ -567,8 +568,10 @@ an der Stelle von `LEAVE`, sind grau, solange der Pin freigegeben wird. Mit
 die Leitung geschlossen ist; mit `OWN` `RELEASING THE PIN`.
 
 **Zieh das Servo ab.** Sobald der Pin freigegeben ist, wirkt `NEXT SERVO`:
-Es behält den Pin und tritt in das nächste Servo ein. Mit `OWN` zeigt die
-Seite `NEXT SERVO: POWER IT BEFORE THE TAP.` **`RESTART DSHOT`** wirkt 1 s
+Es behält den Pin und startet eine Sitzung für das nächste Servo. Mit `OWN`
+zeigt die Seite `NEXT SERVO: POWER IT AFTER THE TAP.`: Der Bildschirm kehrt
+zum Warten auf `READ` zurück. Mit geschalteter Versorgung beginnt der
+Eintritt sofort. **`RESTART DSHOT`** wirkt 1 s
 danach: Der ESC-Treiber übernimmt den Pin wieder, und `MENU` erscheint. Ein
 Doppeltippen auf `LEAVE` landet, während `RESTART DSHOT` grau ist, und
 startet nichts neu; ein Druck, der begann, während es grau war, bewirkt

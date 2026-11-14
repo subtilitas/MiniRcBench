@@ -3,8 +3,8 @@
 Status: work breakdown steps 1 to 5 built, host tests only: the rcbench
 files and their tests, the core1 job on them, the files on the card, the
 HITEC SERVO screen, opened from PROGRAMMER behind MENU's SERVO PROGRAMMER
-row since slice 9 of [menu-b.md](menu-b.md), and its README section and
-wiki pages. SERVO
+row (slice 9 of [menu-b.md](menu-b.md)), and its README section and wiki
+pages. SERVO
 SUPPLY's no-switch value reads `OWN`, the stored 0, and the main view's
 strips name SIG by role and number, `SIG GP0  SUPPLY ON`, by
 [menu-b.md](menu-b.md) decisions 10 and 15 e, built in its slice 3. Step 6,
@@ -366,8 +366,9 @@ so the job starts at Held, and on READ for D SERIES with `OWN`, whose entry
 reads the model at once ([menu-b.md](menu-b.md), decision 34). The bind
 reads the family and opens the line for it. RETRY after a bind error
 (`pinClaimRetry()`) and NEXT SERVO on the leave page (`pinClaimKeep()`)
-bind again with the family it holds; NEXT SERVO on a leave page reached
-before READ returns to Held with no job. An open
+bind again with the family it holds. `pinClaimKeep()` returns HITEC to
+Held with no job, so NEXT SERVO asks for the job as for the first servo:
+at once, or on READ. An open
 failure is a bind error, reported by `pinClaimJobError()` as
 `SIG GP0 COULD NOT BE TAKEN (PIO)`, `(DMA)` or `(CLOCK)` with RETRY, as on the
 other servo screens. Another family means leaving through the leave page
@@ -685,9 +686,9 @@ memory; the card call goes on to its end on core0.
 Entry: MENU → SERVO PROGRAMMER → HITEC D SERIES or HITEC CLASSIC, two
 lines of `UI_PROGRAMMERS` in `ui_registry.cpp` ([menu-b.md](menu-b.md),
 "PROGRAMMER, the chooser"); the tap claims SIG on its frame. BACK returns
-to MENU through the leave page once SIG is held, else at once. The MENU row
-of [decision 6](#decisions-of-the-owner) gave way to PROGRAMMER's entries
-in slice 9 of menu-b.md.
+to MENU through the leave page once SIG is held, else at once. PROGRAMMER's
+entries take the place of the MENU row of
+[decision 6](#decisions-of-the-owner).
 
 The KST screen is the model: lists on `ui_list` with 40 px rows at a 42 px
 pitch, holds on `ui_hold`, `UI_HOLD_MS`, 1,000 ms, and the 36 px header with
@@ -996,8 +997,10 @@ y   0 | HITEC SERVO                     [  BACK  ]|  BACK drawn disabled
   disabled; the note reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` with a switch
   and `RELEASING THE PIN` without.
 - Released, NEXT SERVO keeps the claim and starts the next session in the
-  family chosen, or returns to the READ wait before READ was tapped; with
-  `OWN` the note reads `NEXT SERVO: POWER IT BEFORE THE TAP.` RESTART DSHOT
+  family chosen, its job asked for as the first's: at once with a switch or
+  for CLASSIC, else on READ, so a D series servo on `OWN` returns to the
+  READ wait ([menu-b.md](menu-b.md), decision 34); with `OWN` the note
+  reads `NEXT SERVO: POWER IT AFTER THE TAP.` RESTART DSHOT
   takes a press that lands 1000 ms or more after the release.
 - BACK on the READ wait, BACK during the entry and BACK after a failed
   entry open the page releasing, at

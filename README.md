@@ -501,8 +501,8 @@ bench. A tool row shows no state: the strip names the pins.
   pins, SERVO PROGRAMMER's entries open the KST and Hitec programmers, which
   claim SIG, and SETTINGS changes the wiring a claim latched. While the
   claim is not free, for example after RESTART DSHOT until the DShot pump
-  runs again, these rows are drawn disabled, an outline under their own
-  status, a tap opens nothing, and the strip's caption reads
+  runs again, these rows are drawn disabled, an outline, SETTINGS under its
+  own status and the tool rows with none, a tap opens nothing, and the strip's caption reads
   `DSHOT RESTARTING ON SIG GP0` in amber. A tool opened some other way
   while another claim holds reads `WAIT: DSHOT RESTARTING`; no path through
   the screens reaches that.
@@ -1860,8 +1860,10 @@ not 0 answers ID 0 is not measured.
    supply off, and the page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` until
    the line closes; with `OWN` LEAVE restarts the servo from its saved
    values, and the page reads `RELEASING THE PIN`. Once the pin is let go
-   NEXT SERVO enters the next servo (`NEXT SERVO: POWER IT BEFORE THE TAP.`
-   with `OWN`), and RESTART DSHOT acts 1000 ms later and returns to MENU.
+   NEXT SERVO starts a session for the next servo as for the first: with
+   `OWN` the D series wait for READ (`NEXT SERVO: POWER IT AFTER THE TAP.`),
+   with the switch the entry at once. RESTART DSHOT acts 1000 ms later and
+   returns to MENU.
    BACK on the page is drawn disabled in every phase; BACK during the entry
    opens it at `1 UNPLUG THE SERVO.`
 7. With `GP28` or `GP29` the supply is on only while the screen runs. A screen that
