@@ -322,9 +322,16 @@ should size `SD_LOG_BUFFER_BYTES`. 8192 bytes is unmeasured.
   is what Betaflight itself writes, and the parser recognises only that and
   "Betaflight".
 - What does a log cut by a power loss look like after its last sync? The
-  pre-allocation is released only by `sdLogStop()`, so the file's recorded
-  size after a power loss, and whether every viewer stops cleanly at the end of
-  the written data, are not tested.
+  code answers the first half. `f_expand()` with option 1 allocates the
+  16 MiB run and sets the file's size to it when the log opens (FatFs R0.15,
+  `ff.c`); every sync, `SD_LOG_SYNC_MS` (2000 ms) apart, writes that size
+  into the directory entry; only `sdLogStop()` gives the unused run back with
+  `f_truncate()`. So a log cut by a power loss or a pulled card is 16 MiB
+  long, holds the log up to its last sync, and after the written data holds
+  whatever the clusters held before: `f_expand()` does not clear them. The
+  manual tells the user to stop a recording first (wiki SD Logging,
+  Recording). Still open: a check on hardware, and whether each viewer
+  stops cleanly at the end of the written data.
 
 ## Sources
 

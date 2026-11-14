@@ -41,6 +41,25 @@ Der Tester-Bildschirm zeigt den Zustand in der oberen Zeile: `REC` (rot)
 während der Aufzeichnung, `SD` im Leerlauf, `SDERR` nach einem Kartenfehler,
 `NOSD` ohne Karte.
 
+**Beende die Aufzeichnung, bevor du die Versorgung der Platine trennst oder
+die Karte ziehst:** entschärfen oder `STOP` auf SD LOG drücken und warten,
+bis die obere Zeile `SD` zeigt. Das Beenden schreibt das Ende der
+Aufzeichnung, gibt den ungenutzten Platz zurück und schließt die Datei. Eine
+Aufzeichnung, die ein Stromausfall oder eine gezogene Karte abschneidet, wird
+nicht geschlossen:
+
+- Sie behält die beim Öffnen reservierte Größe von 16 MiB, egal wie viel
+  aufgezeichnet wurde.
+- Sie ist bis zu ihrer letzten Synchronisierung gültig. Die Firmware
+  synchronisiert die Datei während der Aufzeichnung alle 2 s, es fehlen also
+  bis zu etwa die letzten 2 s.
+- Was nach den aufgezeichneten Daten bis 16 MiB folgt, ist das, was vorher
+  auf der Karte an dieser Stelle stand: alte Daten, nicht Teil der
+  Aufzeichnung.
+
+Das sind Fakten aus dem Code der Firmware. Wie ein Viewer eine solche Datei
+behandelt, ist nicht getestet.
+
 ---
 
 ## Den Bildschirm lesen

@@ -75,6 +75,19 @@
 #define FINGER_STATE_DOWN 0x06
 
 static bool s_prevDown = false;        /**< Contact state at the previous poll. */
+static bool s_answered = false;        /**< A read completed since touchInit(). */
+static uint32_t s_answerMs = 0;        /**< millis() at the last completed read. */
+
+/** @brief Record a completed read for touchLastAnswer(). */
+static void noteAnswer() {
+	s_answered = true;
+	s_answerMs = millis();
+}
+
+bool touchLastAnswer(uint32_t *ms) {
+	if (s_answered) *ms = s_answerMs;
+	return s_answered;
+}
 static int16_t s_downX = 0, s_downY = 0; /**< Where the current press started. */
 
 /**
@@ -153,6 +166,8 @@ bool touchInit() {
 	// refusing to poll would turn a cosmetic problem into a dead panel.
 	wrCmd(REG_MODE_NORMAL);
 
+	s_answered = false;
+	if (ok) noteAnswer();
 	return ok;
 }
 
@@ -169,6 +184,7 @@ void touchPoll(TouchState *t) {
 
 	if (rdRegs(REG_FINGER_1, b, 5)) {
 		s_pollFails = 0;
+		noteAnswer();
 		if ((b[0] & 0x0F) == FINGER_STATE_DOWN) {
 			int16_t nx = (int16_t)(((uint16_t)b[1] << 4) | (b[3] >> 4));
 			int16_t ny = (int16_t)(((uint16_t)b[2] << 4) | (b[3] & 0x0F));

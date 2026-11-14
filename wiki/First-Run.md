@@ -80,6 +80,13 @@ one end of its travel.
 
 <img src="img/splash.png" width="240" alt="Splash screen">
 
+If the touch controller did not answer at power-up, the splash shows
+`TOUCH CONTROLLER NOT FOUND` in amber above the name. The line goes as soon
+as the controller answers. If it is still there when the tester appears,
+touch does not work; see [Troubleshooting](Troubleshooting).
+
+<img src="img/splash-no-touch.png" width="240" alt="The splash with TOUCH CONTROLLER NOT FOUND in amber above the name">
+
 ---
 
 ## Before an ESC is connected
@@ -112,6 +119,17 @@ Disarmed, the badge reads `SAFE` and the throttle bar reads `ARM TO ENABLE`.
 
 To stop, press `DISARM`. It acts on touch. The press that disarms, kept down,
 does not arm again: arming needs a new press that starts on the button.
+
+**The screen reads one finger.** The firmware reads only the first contact
+the touch controller reports. While one finger rests on the glass, a second
+one is ignored: a finger on the throttle keeps `DISARM` from reacting to
+another. Lift the throttle finger, then press `DISARM`. What the controller
+reports with two contacts on the glass is not measured. A wet screen, or a
+lead lying across the glass, can count as a finger and block every tap.
+
+A finger already on the glass when the tester appears presses nothing until
+it is lifted. If you touched the screen at power-up, lift the finger before
+`HOLD TO ARM`.
 
 ---
 

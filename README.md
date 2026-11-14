@@ -342,7 +342,13 @@ image is built for, `RP2350-TOUCH-LCD-2.8`, and the firmware version, for
 example `VERSION 0.1.0`. DShot starts on the ESC pin when the splash ends,
 so the last line names that pin in amber: `UNPLUG ANY SERVO FROM GP0 NOW`. A
 servo left on it reads the DShot frames as pulses and drives towards one end
-of its travel.
+of its travel. While the touch controller has not answered once since
+`touchInit()`, the splash shows `TOUCH CONTROLLER NOT FOUND` in amber above
+the name; the line goes at the controller's first answer (`uiSplashTick()`).
+The splash reads the touch every 25 ms into a state of its own, so a finger
+resting on the glass when the tester appears gives no press edge: it
+presses nothing until it is lifted. A finger on the glass at power-up is
+lifted before HOLD TO ARM.
 
 **Main screen**
 
@@ -387,6 +393,15 @@ of its travel.
 - **HOLD**: off by default. Turning it off sets the throttle to zero.
 - **MENU**: the list of tools and settings. Opening it disarms, sets the
   throttle to zero and turns HOLD off.
+
+**Touch**
+
+The CST328 driver (`src/cst328.cpp`) reads only the first contact the
+controller reports, a 5-byte read of finger 1. While one finger rests on
+the glass a second is ignored, so the throttle finger has to lift before
+DISARM registers. What the controller reports with two contacts is not
+measured. A wet screen, or a lead lying across the glass, can count as a
+contact and block every tap.
 
 **Button behaviour**
 
@@ -626,7 +641,17 @@ nothing is sent to the ESC then.
 
 The large voltage at the top right, captioned `BOARD`, is the board's own
 battery, read through the 200 kΩ/100 kΩ divider on GP27. It reads at most
-9.90 V. The ESC's pack voltage is the **VOLTAGE** tile.
+9.90 V. The ESC's pack voltage is the **VOLTAGE** tile. It is drawn amber
+below 3.50 V (`BOARD_CELL_LOW_MV`) and red below 3.30 V
+(`BOARD_CELL_CRIT_MV`), a lithium-polymer cell's usual low range, not
+measured on this board, and goes back only 50 mV (`BOARD_CELL_HYST_MV`)
+above each threshold (`uiBoardCell()`). The band is taken from the value as
+drawn, rounded to centivolts, so `3.50V` is never amber and `3.30V` never
+red. What the divider reads with USB power alone is not measured, and no
+GPIO senses USB power, so the firmware cannot tell USB from the cell. With
+USB power alone the value can be low and then says nothing about a cell;
+below 2.50 V (`BOARD_CELL_IMPLAUSIBLE_MV`), implausible for a working cell,
+it is drawn in the normal text colour. Nothing is refused on the reading.
 
 ---
 
@@ -1842,7 +1867,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **97.8%**: 9,229 of 9,440 lines in 58 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **97.7%**: 9,262 of 9,476 lines in 58 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

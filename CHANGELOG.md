@@ -44,6 +44,31 @@ protocol.
 
 ### Added
 
+- The splash shows `TOUCH CONTROLLER NOT FOUND` in amber while the touch
+  controller has not answered since `touchInit()`: the driver records its
+  last answer (`touchLastAnswer()`), and the splash reads the touch every
+  25 ms (`uiSplashTick()`) and clears the line at the first answer. That
+  read goes into a state of its own, so a finger resting on the glass when
+  the tester appears gives no press edge and presses nothing until it is
+  lifted: a finger on the glass at power-up is lifted before HOLD TO ARM.
+  Host test `testSplashTouch()`, with a touch fake that stops answering
+  (`fakeTouchAnswers()`); the wiki shows `splash-no-touch.png`.
+- The tester's BOARD voltage is amber below 3.50 V and red below 3.30 V,
+  with 50 mV of hysteresis (`uiBoardCell()`, `BOARD_CELL_*` in
+  `src/config.h`), taken from the value as drawn, rounded to centivolts.
+  Below 2.50 V, implausible for a working cell and possible with USB power
+  alone, it stays in the text colour. The thresholds are a lithium-polymer
+  cell's usual low range, not measured on this board. Nothing is refused on
+  them. Host test `testBoardCellColour()`.
+- The manual says the screen reads one finger: a second is ignored while
+  the first rests on the glass, so the throttle finger lifts before
+  DISARM; a wet screen or a lead on the glass can block every tap (README,
+  wiki First-Run, The-Screens and their German pairs).
+- The wiki pages SD-Logging and SD-Aufzeichnung say to stop a recording
+  before cutting the board's power or pulling the card, and what a log cut
+  by a power loss holds: its reserved 16 MiB, valid up to its last sync,
+  2 s apart, then old card data. `docs/design/blackbox-logging.md` answers
+  its open question from the code; the hardware check stays open.
 - AM32 CONFIG says what a value does and what to do next. Two amber lines
   replace the ESC name on the strip: while 3D MODE is on, `3D MODE: 50%
   THROTTLE IS FULL POWER,` / `ABOVE 50% THE OTHER WAY. PROP OFF.`; with TEMP

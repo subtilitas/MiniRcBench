@@ -131,16 +131,25 @@ void setup() {
 
 	gfxInit();
 	st7789Init();
-	touchInit();        // pulses the touch controller's own reset line
+	// Pulses the touch controller's own reset line. Its result starts the
+	// driver's record of answers, which the splash reads: TOUCH CONTROLLER
+	// NOT FOUND until the controller answers. @see touchLastAnswer()
+	touchInit();
 	senseInit();        // the current sensor, on the bus touchInit() set up
 	uiInit();
 
 	// The splash, while the ESC finishes booting. Core1 is not running yet:
 	// main() launches it after setup() returns, so DShot starts on the ESC
 	// pin once the splash has ended and the card is mounted.
+	// The touch line follows the controller while the splash is up: a
+	// controller that answers late clears it.
 	uiDrawSplash();
 	st7789FlushDirty();
-	delay(SPLASH_MS);
+	for (uint32_t t0 = millis(); (uint32_t)(millis() - t0) < SPLASH_MS;) {
+		delay(UI_PERIOD_MS);
+		uiSplashTick();
+		st7789FlushDirty();
+	}
 	gfxFill(C_BG);
 	st7789FlushDirty();
 

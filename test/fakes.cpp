@@ -263,10 +263,32 @@ void st7789SetBacklight(uint8_t level) {
 // scripted touch
 // ---------------------------------------------------------------------------
 static TouchState g_touch;
+static bool     s_touchAnswers = true;   /**< Reads complete. */
+static bool     s_touchAnswered = true;  /**< A read has completed since touchInit(). */
+static uint32_t s_touchAnswerMs = 0;     /**< millis() at the last completed read. */
 
-bool touchInit() { return true; }
+bool touchInit() {
+	s_touchAnswered = s_touchAnswers;
+	s_touchAnswerMs = millis();
+	return s_touchAnswers;
+}
+
+bool touchLastAnswer(uint32_t *ms) {
+	if (s_touchAnswered) *ms = s_touchAnswerMs;
+	return s_touchAnswered;
+}
+
+void fakeTouchAnswers(bool on) { s_touchAnswers = on; }
 
 void touchPoll(TouchState *t) {
+	if (s_touchAnswers) {
+		s_touchAnswered = true;
+		s_touchAnswerMs = millis();
+	} else if (g_touch.down) {
+		// What the driver reports after its failed reads: the finger up.
+		g_touch.down = false;
+		g_touch.released = true;
+	}
 	*t = g_touch;
 	// Edge flags last exactly one poll, as the real driver guarantees.
 	g_touch.pressed = false;
