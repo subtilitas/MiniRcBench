@@ -53,12 +53,12 @@
 #define KL_EDIT_Y    218              /**< The editor bar. */
 #define KL_EDIT_H    44
 #define KL_STEP_W    UI_EDIT_BTN_W    /**< - and +, 44 px. */
-#define KL_FOOT_Y    UI_FOOT_Y        /**< HOLD TO WRITE, REVERT, FILES; the wide button. */
+#define KL_FOOT_Y    UI_FOOT_Y        /**< WRITE..., REVERT, FILES; the wide button. */
 #define KL_FOOT_H    UI_FOOT_H
 #define KF_LIST_Y1   229              /**< Last row of the file list. */
 #define KF_SAVE_Y    234              /**< SAVE AS, or RETRY MOUNT. */
 #define KF_BTN_H     40
-#define KF_LOAD_Y    278              /**< LOAD and HOLD TO RESTORE. */
+#define KF_LOAD_Y    278              /**< LOAD and `RESTORE...`. */
 #define KS_SPIN_Y    236              /**< The search's spinner, its centre. */
 #define KS_SPIN_R    20
 /** @brief Files the FILES page lists at most; the strip names the rest. */
@@ -138,8 +138,10 @@ static UiList       s_list;              /**< The fields. */
 static int          s_sel = -1;          /**< Selected row of the field list. */
 static Repeat       s_repeat;            /**< The editor bar's held repeat. */
 static UiHold       s_hold;              /**< The hold of the view that is up. */
-static bool         s_writing = false;   /**< The write page's operation runs. */
-static bool         s_flushing = false;  /**< The write waits for the backup's flush to the card. */
+/** @brief The write page's operation runs. */
+static bool         s_writing = false;
+/** @brief The write waits for the backup's flush to the card. */
+static bool         s_flushing = false;
 static bool         s_restoring = false; /**< The write page is a restore. */
 static bool         s_confirm = false;   /**< An unchecked restore waits for a second hold. */
 static bool         s_okPress = false;   /**< A press landed on the write page while OK showed. */
@@ -151,7 +153,6 @@ static KstRefusal   s_readRefused = KstRefusal::None;   /**< The job refused the
 static const char  *s_cardNote = nullptr; /**< The card refused the first write's files. */
 /** @brief The last hold, or the write after its flush, met the BOARD voltage red: nothing was written. */
 static bool s_boardLow = false;
-static bool         s_leaveQueued = false;
 static char         s_preset[KST_STORE_PRESET_MAX]; /**< The KSTnnn SAVE AS takes in KST/. */
 static bool         s_saveFull = false;  /**< KST/ holds KST_FILES_SAVE_MAX files: SAVE AS refuses. */
 static char         s_backupNext[BACKUP_NAME_MAX]; /**< The backup's name in BACKUP/, for the backup line. */
@@ -191,12 +192,18 @@ static bool running() {
 /**
  * @brief Whether BACK acts on this frame: everywhere but on the unplug page
  *        before the job has let the pin go (pinClaimUnplugDue()), where
- *        pinClaimKeep() would refuse. The control table reports it, the tap
- *        is gated on it, the frame key holds it and the header draws it.
- *        The unplug page draws its header and reports its table from its own
- *        one read of pinClaimUnplugDue(), which this equals on that page.
+ *        pinClaimKeep() would refuse, and on the write page while the write
+ *        runs or waits for the card's flush (docs/design/menu-b.md, decision
+ *        5): BACK never leaves a servo half written. The control table
+ *        reports it, the tap is gated on it, the frame key holds it and the
+ *        header draws it. The unplug page draws its header and reports its
+ *        table from its own one read of pinClaimUnplugDue(), which this
+ *        equals on that page.
  */
-static bool backActs() { return s_view != KstView::Unplug || pinClaimUnplugDue(); }
+static bool backActs() {
+	if (s_view == KstView::Write && (s_writing || s_flushing)) return false;
+	return s_view != KstView::Unplug || pinClaimUnplugDue();
+}
 
 /** @brief The seq of the last command sent, an operation or a card phase's. */
 static uint16_t s_sentSeq = 0;
@@ -365,7 +372,6 @@ static void newSession() {
 	forgetFirst();
 	s_lockedSeen = false;
 	s_wroteSeen = false;
-	s_leaveQueued = false;
 	s_cardNote = nullptr;
 	s_prevJob = KstJobState::Closed;
 	forgetServo();
@@ -440,10 +446,6 @@ static void opEnd() {
 		s_recordFound = kstFilesMounted() && kstFilesRecordPresent();
 		s_target = s_st.image;
 	}
-	if (s_leaveQueued) {
-		s_leaveQueued = false;
-		go(KstView::Leave);
-	}
 }
 
 /** @brief The job's state, read each frame, moves the views. */
@@ -512,7 +514,6 @@ static void follow() {
 	    s_view != KstView::Leave) {
 		forgetServo();
 		s_opOpen = false;
-		s_leaveQueued = false;
 		go(KstView::Main);
 	}
 	if (opEnded()) opEnd();
@@ -927,11 +928,11 @@ static void drawList() {
 	}
 
 	gfxRect(0, KL_FOOT_Y - 4, GFX_W, GFX_H - KL_FOOT_Y + 4, C_BG);
+	// WRITE... opens the write page on a tap; only that page holds
+	// (docs/design/menu-b.md, decision 6).
 	bool w = writeAllowed();
-	uiHoldDrawBar(&s_hold, BTN_WRITE, KL_FOOT_Y - 4, millis());
-	const char *wl = !s_st.fingerprintOk ? "READ ONLY" : (s_st.locked ? "IN DOUBT" : "HOLD TO WRITE");
-	uiButton(BTN_WRITE, wl, s_hold.holding ? C_RED : C_PANEL, s_hold.holding ? C_ONACCENT : C_TEXT,
-	         1, s_hold.holding, w);
+	const char *wl = !s_st.fingerprintOk ? "READ ONLY" : (s_st.locked ? "IN DOUBT" : "WRITE...");
+	uiButton(BTN_WRITE, wl, C_PANEL, C_TEXT, 1, w && pressing(BTN_WRITE), w);
 	bool rv = pending() != 0;
 	uiButton(BTN_REVERT, "REVERT", C_PANEL, UI_COL_WARN, 1, rv && pressing(BTN_REVERT), rv);
 	uiButton(BTN_FILES, "FILES", C_PANEL, C_TEXT, 1, pressing(BTN_FILES));
@@ -944,7 +945,9 @@ static void stepSel(int steps, int factor) {
 }
 
 static void listTouch() {
-	if (uiHoldUpdate(&s_hold, BTN_WRITE, s_t, writeAllowed(), millis())) {
+	// WRITE...: a tap, on release, opens the write page. Its hold starts
+	// fresh there (go()), so the tap's press is never timed.
+	if (writeAllowed() && tapped(BTN_WRITE)) {
 		s_result = false;
 		s_confirm = false;
 		s_restoring = false;
@@ -1113,11 +1116,11 @@ static void startWrite() {
 	// the servo partly written and unverified.
 	s_boardLow = uiBoardWriteRefused();
 	if (s_boardLow) return;
-	// A batch that failed off this page, after BACK during the flush or a
-	// removal of the record: the first write starts over.
+	// A batch that failed off this page, after a loss of the servo during
+	// the flush or a removal of the record: the first write starts over.
 	if (cardCacheState() == CardCache::Failed) recoverFlush();
-	// A batch still queued, the first write's after BACK during its flush or
-	// a removal of the record: the page waits for it, and the swap check
+	// A batch still queued, the first write's after a loss during its flush
+	// or a removal of the record: the page waits for it, and the swap check
 	// runs as it ends (flushStep()), so a read that fails drops no batch.
 	s_checkAfterFlush = false;
 	if (s_firstOnCard && cardCacheState() == CardCache::Flushing) {
@@ -1228,7 +1231,6 @@ static void drawWrite() {
 		if (s_st.planning) snprintf(buf, sizeof(buf), "PLANNING THE ORDER OF THE WRITES");
 		else               snprintf(buf, sizeof(buf), "FRAMES SENT: %lu", (unsigned long)s_st.frames);
 		gfxText(UI_MARGIN, 210, buf, C_TEXT, 1);
-		if (s_leaveQueued) gfxText(UI_MARGIN, 252, "LEAVING AFTER THE WRITE ENDS.", C_AMBER, 1);
 		return;
 	}
 	if (s_result || s_cardNote) {
@@ -1386,10 +1388,9 @@ static void drawFiles() {
 	}
 	bool l = loadOk();
 	uiButton(BTN_LOAD, "LOAD", C_PANEL, C_TEXT, 1, l && pressing(BTN_LOAD), l);
+	// RESTORE... opens the restore page on a tap; that page holds.
 	bool r = restoreAllowed();
-	uiHoldDrawBar(&s_hold, BTN_RESTORE, KF_LOAD_Y - 4, millis());
-	uiButton(BTN_RESTORE, "HOLD TO RESTORE", s_hold.holding ? C_RED : C_PANEL,
-	         s_hold.holding ? C_ONACCENT : C_TEXT, 1, s_hold.holding, r);
+	uiButton(BTN_RESTORE, "RESTORE...", C_PANEL, C_TEXT, 1, r && pressing(BTN_RESTORE), r);
 }
 
 /** @brief Characters of the strip, x 8 to 232. */
@@ -1520,7 +1521,9 @@ static void saveAs() {
 }
 
 static void filesTouch() {
-	if (uiHoldUpdate(&s_hold, BTN_RESTORE, s_t, restoreAllowed(), millis())) {
+	// RESTORE...: a tap, on release, opens the restore page, whose HOLD TO
+	// RESTORE runs it (docs/design/menu-b.md, decision 6).
+	if (restoreAllowed() && tapped(BTN_RESTORE)) {
 		s_restoring = true;
 		s_result = false;
 		s_confirm = false;
@@ -1534,7 +1537,6 @@ static void filesTouch() {
 		s_pageFrom = s_st.image;
 		s_pageTo = s_st.backup;
 		go(KstView::Write);
-		startWrite();
 		return;
 	}
 	if (!kstFilesMounted()) {
@@ -1602,7 +1604,6 @@ static void drawLeave() {
 		int k = kstWrap(r.text, 38, wl, 2);
 		for (int i = 0; i < k; i++, y += 12) gfxText(UI_MARGIN, y, wl[i], C_DIM, 1);
 	}
-	if (s_leaveQueued && s_writing) gfxText(UI_MARGIN, y, "LEAVING AFTER THE WRITE ENDS.", C_AMBER, 1);
 	if (s_st.supplyFitted) {
 		// REBOOT reads the servo as it is: the hold confirms the loss of a
 		// backup that exists only in RAM.
@@ -1764,7 +1765,7 @@ static uint32_t frameKey() {
 		h = mix(h, ((uint32_t)s_flushing << 24) | ((uint32_t)cc << 16) | left);
 	}
 	h = mix(h, ((uint32_t)s_writing << 0) | ((uint32_t)s_result << 1) | ((uint32_t)s_confirm << 2) |
-	           ((uint32_t)s_readFailed << 3) | ((uint32_t)s_leaveQueued << 4) |
+	           ((uint32_t)s_readFailed << 3) |
 	           ((uint32_t)s_recordFound << 5) | ((uint32_t)kstFilesMounted() << 6) |
 	           ((uint32_t)cardHeldByUsb() << 7) | ((uint32_t)s_haveTarget << 8) |
 	           ((uint32_t)s_boardLow << 9));
@@ -1832,8 +1833,10 @@ bool uiKstTick(const TouchState *t) {
 			case KstView::List:  go(KstView::Leave); break;
 			case KstView::Files: go(KstView::List); break;
 			case KstView::Write:
-				if (s_writing) s_leaveQueued = true;
-				else { s_result = false; s_cardNote = nullptr; go(KstView::List); }
+				// Not while the write runs or waits for its flush: backActs().
+				s_result = false;
+				s_cardNote = nullptr;
+				go(KstView::List);
 				break;
 			case KstView::Leave: go(s_haveTarget ? KstView::List : KstView::Main); break;
 			case KstView::Unplug:

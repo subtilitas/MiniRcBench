@@ -16,9 +16,9 @@
  * |---|---|---|
  * | Family | the claim, CLASSIC and D SERIES, once SIG is the servo's | a family: Main; BACK: Unplug once the pin was taken, else MENU |
  * | Main | the claim, the entry, the read, a stall | the read: List; BACK: Leave in the mode, else Unplug |
- * | List | the parameters, an editor bar, HOLD TO WRITE, REVERT, FILES | HOLD TO WRITE: Write; FILES: Files; BACK: Leave |
- * | Write | the changes, their soft rules, the backup line, HOLD TO WRITE, the result | OK or BACK: List |
- * | Files | the record, the backups, FACTORY VALUES, the files, SAVE AS, LOAD, HOLD TO RESTORE | LOAD: List; BACK: List |
+ * | List | the parameters, an editor bar, WRITE..., REVERT, FILES | WRITE...: Write; FILES: Files; BACK: Leave |
+ * | Write | the changes, their soft rules, the backup line, HOLD TO WRITE or HOLD TO RESTORE, the result | OK or BACK: List; BACK is disabled while the write runs or waits for the card |
+ * | Files | the record, the backups, FACTORY VALUES, the files, SAVE AS, LOAD, RESTORE... | RESTORE...: Write, a restore; LOAD: List; BACK: List |
  * | Leave | what LEAVE does, READ AGAIN, LEAVE | LEAVE: Unplug; BACK: List, or Main |
  * | Unplug | the 2 s off wait, UNPLUG THE SERVO, RESTART DSHOT | RESTART DSHOT: MENU; BACK: Main, or Family before a family was tapped |
  *
@@ -106,18 +106,18 @@ enum class HitecCtl : uint8_t {
 	DSeries,     /**< D SERIES on the family view. */
 	Retry,       /**< RETRY: after a bind failure, a failed entry or a stall. */
 	Stop,        /**< STOP during the entry or a read. */
-	ReadAgain,   /**< READ AGAIN after a failed read, or in place of HOLD TO WRITE. */
-	Write,       /**< The list's HOLD TO WRITE: opens the write page. */
+	ReadAgain,   /**< READ AGAIN after a failed read, or in place of `WRITE...`. */
+	Write,       /**< The list's WRITE...: a tap opens the write page. */
 	Revert,      /**< REVERT: drop the pending changes. */
 	Files,       /**< FILES. */
 	EditMinus,   /**< The editor bar's -, while an editable row is selected. */
 	EditPlus,    /**< The editor bar's +. */
 	Repair,      /**< REPAIR a classic checksum, in place of - and +. */
-	WriteHold,   /**< The write page's HOLD TO WRITE. */
+	WriteHold,   /**< The write page's HOLD TO WRITE, or HOLD TO RESTORE: the write. */
 	WriteOk,     /**< OK under a result. */
 	SaveAs,      /**< SAVE AS HTnnn. */
 	Load,        /**< LOAD the selected row. */
-	Restore,     /**< HOLD TO RESTORE the session's backup. */
+	Restore,     /**< RESTORE...: a tap opens the restore page of the session's backup. */
 	RetryMount,  /**< RETRY MOUNT with no card. */
 	LeaveRead,   /**< READ AGAIN on the leave page. */
 	Leave,       /**< LEAVE. */

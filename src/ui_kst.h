@@ -10,9 +10,9 @@
  * | View | What it shows | Leaves it |
  * |---|---|---|
  * | Main | the claim, the search, the read | the read: List; BACK: Leave after a servo was found, else Unplug |
- * | List | the 27 fields, an editor bar, HOLD TO WRITE, REVERT, FILES | HOLD TO WRITE: Write; FILES: Files; BACK: Leave |
- * | Write | the changes, their soft rules, the backup line, HOLD TO WRITE, the result | OK or BACK: List |
- * | Files | the card's files, SAVE AS, LOAD, HOLD TO RESTORE | LOAD: List; BACK: List |
+ * | List | the 27 fields, an editor bar, WRITE..., REVERT, FILES | WRITE...: Write; FILES: Files; BACK: Leave |
+ * | Write | the changes, their soft rules, the backup line, HOLD TO WRITE or HOLD TO RESTORE, the result | OK or BACK: List; BACK is disabled while the write runs or waits for the card |
+ * | Files | the card's files, SAVE AS, LOAD, RESTORE... | RESTORE...: Write, a restore; LOAD: List; BACK: List |
  * | Leave | POWER THE SERVO OFF, LEAVE | LEAVE: Unplug; BACK: List, or Main after a loss |
  * | Unplug | UNPLUG THE SERVO, RESTART DSHOT | RESTART DSHOT: MENU; BACK: Main |
  *
@@ -64,16 +64,16 @@ enum class KstCtl : uint8_t {
 	Retry = 1,   /**< RETRY: after a bind failure, or a search that ended without a servo. */
 	StopSearch,  /**< STOP SEARCH. */
 	ReadAgain,   /**< READ AGAIN after a failed read. */
-	Write,       /**< The list's HOLD TO WRITE: opens the write page. */
+	Write,       /**< The list's WRITE...: a tap opens the write page. */
 	Revert,      /**< REVERT: drop the pending changes. */
 	Files,       /**< FILES. */
 	EditMinus,   /**< The editor bar's -, while an editable row is selected. */
 	EditPlus,    /**< The editor bar's +. */
-	WriteHold,   /**< The write page's HOLD TO WRITE. */
+	WriteHold,   /**< The write page's HOLD TO WRITE, or HOLD TO RESTORE: the write. */
 	WriteOk,     /**< OK under a result. */
 	SaveAs,      /**< SAVE AS KSTnnn. */
 	Load,        /**< LOAD the selected file. */
-	Restore,     /**< HOLD TO RESTORE the session's backup. */
+	Restore,     /**< RESTORE...: a tap opens the restore page of the session's backup. */
 	RetryMount,  /**< RETRY MOUNT with no card. */
 	Leave,       /**< LEAVE. */
 	Restart,     /**< RESTART DSHOT on the unplug page. */

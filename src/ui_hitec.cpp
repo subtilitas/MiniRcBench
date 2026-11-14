@@ -60,12 +60,12 @@
 #define HL_EDIT_Y    218              /**< The editor bar. */
 #define HL_EDIT_H    44
 #define HL_STEP_W    UI_EDIT_BTN_W    /**< - and +, 44 px. */
-#define HL_FOOT_Y    UI_FOOT_Y        /**< HOLD TO WRITE, REVERT, FILES; the wide button. */
+#define HL_FOOT_Y    UI_FOOT_Y        /**< WRITE..., REVERT, FILES; the wide button. */
 #define HL_FOOT_H    UI_FOOT_H
 #define HF_LIST_Y1   229              /**< Last row of the file list. */
 #define HF_SAVE_Y    234              /**< SAVE AS, or RETRY MOUNT. */
 #define HF_BTN_H     40
-#define HF_LOAD_Y    278              /**< LOAD and HOLD TO RESTORE. */
+#define HF_LOAD_Y    278              /**< LOAD and `RESTORE...`. */
 /** @brief Files the FILES page lists at most. */
 #define HITEC_UI_FILES_MAX 64
 #define HF_CLASSIC_Y 80               /**< The family view: CLASSIC's top. */
@@ -181,7 +181,6 @@ static HitecRefusal s_resultRefused = HitecRefusal::None;
 static const char *s_cardNote = nullptr;
 /** @brief The last hold, or the write after its flush, met the BOARD voltage red: nothing was written. */
 static bool s_boardLow = false;
-static bool        s_leaveQueued = false;
 static char        s_preset[HITEC_FILES_NAME_MAX];
 static bool        s_saveFull = false;
 static char        s_backupNext[BACKUP_NAME_MAX];
@@ -219,12 +218,18 @@ static bool running() {
 /**
  * @brief Whether BACK acts on this frame: everywhere but on the unplug page
  *        before the job has let the pin go (pinClaimUnplugDue()), where
- *        pinClaimKeep() would refuse. The control table reports it, the tap
- *        is gated on it, the frame key holds it and the header draws it.
- *        The unplug page draws its header and reports its table from its own
- *        one read of pinClaimUnplugDue(), which this equals on that page.
+ *        pinClaimKeep() would refuse, and on the write page while the write
+ *        runs or waits for the card's flush (docs/design/menu-b.md, decision
+ *        5): BACK never leaves a servo half written. The control table
+ *        reports it, the tap is gated on it, the frame key holds it and the
+ *        header draws it. The unplug page draws its header and reports its
+ *        table from its own one read of pinClaimUnplugDue(), which this
+ *        equals on that page.
  */
-static bool backActs() { return s_view != HitecView::Unplug || pinClaimUnplugDue(); }
+static bool backActs() {
+	if (s_view == HitecView::Write && (s_writing || s_flushing)) return false;
+	return s_view != HitecView::Unplug || pinClaimUnplugDue();
+}
 
 /** @brief The seq of the last command sent, an operation or a card phase's. */
 static uint16_t s_sentSeq = 0;
@@ -373,7 +378,6 @@ static void newSession() {
 	s_enterSent = false;
 	forgetFirst();
 	forgetServo();
-	s_leaveQueued = false;
 	s_cardNote = nullptr;
 	s_recordFound = hitecFilesRecordPresent();
 	escHeartbeat();
@@ -465,10 +469,6 @@ static void opEnd() {
 		s_base = s_st.image;
 		s_otherModel[0] = '\0';
 	}
-	if (s_leaveQueued) {
-		s_leaveQueued = false;
-		go(HitecView::Leave);
-	}
 }
 
 static void follow() {
@@ -489,7 +489,6 @@ static void follow() {
 		forgetServo();
 		forgetFirst();
 		s_opOpen = false;
-		s_leaveQueued = false;
 		if (s_view != HitecView::Leave && s_view != HitecView::Unplug) go(HitecView::Main);
 	}
 	if (opEnded()) opEnd();
@@ -892,10 +891,10 @@ static void drawList() {
 		bool ok = idleMode();
 		uiButton(BTN_WRITE, "READ AGAIN", C_PANEL, C_TEXT, 1, ok && pressing(BTN_WRITE), ok);
 	} else {
+		// WRITE... opens the write page on a tap; only that page holds
+		// (docs/design/menu-b.md, decision 6).
 		bool w = writeAllowed();
-		uiHoldDrawBar(&s_hold, BTN_WRITE, HL_FOOT_Y - 4, millis());
-		uiButton(BTN_WRITE, "HOLD TO WRITE", s_hold.holding ? C_RED : C_PANEL,
-		         s_hold.holding ? C_ONACCENT : C_TEXT, 1, s_hold.holding, w);
+		uiButton(BTN_WRITE, "WRITE...", C_PANEL, C_TEXT, 1, w && pressing(BTN_WRITE), w);
 	}
 	bool rv = pending() > 0;
 	uiButton(BTN_REVERT, "REVERT", C_PANEL, UI_COL_WARN, 1, rv && pressing(BTN_REVERT), rv);
@@ -924,7 +923,9 @@ static void listTouch() {
 			s_readFailed = false;
 			sendOp(HitecOp::ReadAll);
 		}
-	} else if (uiHoldUpdate(&s_hold, BTN_WRITE, s_t, writeAllowed(), millis())) {
+	} else if (writeAllowed() && tapped(BTN_WRITE)) {
+		// A tap, on release: the write page's hold starts fresh there
+		// (go()), so the tap's press is never timed.
 		openWrite(&s_draft, false);
 		return;
 	}
@@ -1270,7 +1271,6 @@ static void drawWrite() {
 		if (s_st.planSteps && s_st.stepIndex >= s_st.planSteps) snprintf(buf, sizeof(buf), "READING BACK");
 		else snprintf(buf, sizeof(buf), "WRITES SENT: %u OF %u", (unsigned)s_st.stepIndex, (unsigned)s_st.planSteps);
 		gfxText(UI_MARGIN, 210, buf, C_TEXT, 1);
-		if (s_leaveQueued) gfxText(UI_MARGIN, 252, "LEAVING AFTER THE WRITE ENDS.", C_AMBER, 1);
 		return;
 	}
 	if (s_result || s_cardNote) {
@@ -1438,10 +1438,9 @@ static void drawFiles() {
 	}
 	bool l = loadOk();
 	uiButton(BTN_LOAD, "LOAD", C_PANEL, C_TEXT, 1, l && pressing(BTN_LOAD), l);
+	// RESTORE... opens the restore page on a tap; that page holds.
 	bool r = restoreAllowed();
-	uiHoldDrawBar(&s_hold, BTN_RESTORE, HF_LOAD_Y - 4, millis());
-	uiButton(BTN_RESTORE, "HOLD TO RESTORE", s_hold.holding ? C_RED : C_PANEL,
-	         s_hold.holding ? C_ONACCENT : C_TEXT, 1, s_hold.holding, r);
+	uiButton(BTN_RESTORE, "RESTORE...", C_PANEL, C_TEXT, 1, r && pressing(BTN_RESTORE), r);
 }
 
 static void fileNote(uint16_t col, const char *text) {
@@ -1533,7 +1532,9 @@ static void saveAs() {
 }
 
 static void filesTouch() {
-	if (uiHoldUpdate(&s_hold, BTN_RESTORE, s_t, restoreAllowed(), millis())) {
+	// RESTORE...: a tap, on release, opens the restore page, whose HOLD TO
+	// RESTORE runs it (docs/design/menu-b.md, decision 6).
+	if (restoreAllowed() && tapped(BTN_RESTORE)) {
 		openWrite(&s_st.backup, true);
 		return;
 	}
@@ -1587,7 +1588,6 @@ static void drawLeave() {
 		gfxText(UI_MARGIN, y, "A WRITE DID NOT END VERIFIED.", C_AMBER, 1);
 		y += 14;
 	}
-	if (s_leaveQueued && s_writing) gfxText(UI_MARGIN, y, "LEAVING AFTER THE WRITE ENDS.", C_AMBER, 1);
 	bool rd = idleMode();
 	uiButton(BTN_LREAD, "READ AGAIN", C_PANEL, C_TEXT, 2, rd && pressing(BTN_LREAD), rd);
 	bool ok = !s_writing;
@@ -1736,7 +1736,7 @@ static uint32_t frameKey() {
 		h = mix(h, ((uint32_t)s_flushing << 24) | ((uint32_t)cc << 16) | left);
 	}
 	h = mix(h, ((uint32_t)s_writing << 0) | ((uint32_t)s_result << 1) | ((uint32_t)s_readFailed << 3) |
-	           ((uint32_t)s_leaveQueued << 4) | ((uint32_t)s_recordFound << 5) |
+	           ((uint32_t)s_recordFound << 5) |
 	           ((uint32_t)hitecFilesMounted() << 6) | ((uint32_t)cardHeldByUsb() << 7) |
 	           ((uint32_t)s_haveDraft << 8) | ((uint32_t)s_lastFailed << 9) |
 	           ((uint32_t)servoSupplyFitted() << 10) | ((uint32_t)s_boardLow << 11));
@@ -1800,8 +1800,10 @@ bool uiHitecTick(const TouchState *t) {
 			case HitecView::List:  go(HitecView::Leave); break;
 			case HitecView::Files: go(HitecView::List); break;
 			case HitecView::Write:
-				if (s_writing) s_leaveQueued = true;
-				else { s_result = false; s_cardNote = nullptr; go(HitecView::List); }
+				// Not while the write runs or waits for its flush: backActs().
+				s_result = false;
+				s_cardNote = nullptr;
+				go(HitecView::List);
 				break;
 			case HitecView::Leave: go(s_haveDraft ? HitecView::List : HitecView::Main); break;
 			case HitecView::Unplug:
