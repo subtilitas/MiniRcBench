@@ -34,7 +34,7 @@ and voltage (see [Current sensor](#current-sensor); design note
 under DIAGNOSTICS, the reason for the last restart and the time since boot
 (design note `docs/design/diagnostics.md`).
 
-Three features are designed and not built. An S.BUS (Futaba's serial bus for
+Four features are designed and not built. An S.BUS (Futaba's serial bus for
 receiver channels) receiver monitor is described in
 `docs/design/rx-signals.md`, with an S.BUS output that the owner decided on
 and that is not designed yet; rcbench's S.BUS decoder is in the tree and
@@ -44,7 +44,11 @@ row stands for these tools and is drawn disabled, `NOT BUILT`. A PPM
 An angle meter on the board's QMI8658 IMU (inertial measurement unit), for
 incidence, decalage, dihedral and control-surface throw, is designed in
 `docs/design/angle-meter.md` and not built; it waits on the owner's answers
-to the note's open questions.
+to the note's open questions. A run summary per blackbox log, written
+beside the log and shown on SD LOG, with the board's PCF85063 real-time
+clock dating the files on the card as an option, is planned in
+`docs/design/run-summary.md` and not built; it waits on the owner's answers
+to that note's open questions.
 Menu structure B is described in `docs/design/menu-b.md`; slices 1 to 9 of
 10 are in the tree: its building blocks, its colour roles, its names and
 SETTINGS, its layout table, its write rule and BACK guard, the one leave

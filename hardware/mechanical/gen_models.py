@@ -3,10 +3,12 @@
 
 Write the STEP models of the mechanical parts from their specs.
 
-The specs are hardware/mechanical/*.py other than this file; each defines
-``parts(colors)``, a dict of file stem to solids as
-lib/rcbench/hardware/kicad/tools/step_gen.py's ``write`` takes them. The
-models go to hardware/mechanical/models/<stem>.step.
+The specs are hardware/mechanical/*.py other than this file, and the
+specs LIB_SPECS names in lib/rcbench/hardware/mechanical/, which are
+rcbench's files unchanged; each defines ``parts(colors)``, a dict of
+file stem to solids as lib/rcbench/hardware/kicad/tools/step_gen.py's
+``write`` takes them. The models go to
+hardware/mechanical/models/<stem>.step.
 
 Usage:
     python3 hardware/mechanical/gen_models.py           write the files
@@ -25,23 +27,53 @@ sys.path.insert(0, str(HERE.parent.parent / "lib" / "rcbench" / "hardware"
                        / "kicad" / "tools"))
 import step_gen  # noqa: E402
 
+LIB = HERE.parent.parent / "lib" / "rcbench" / "hardware" / "mechanical"
+# rcbench's specs of the modules this bench is built with.
+LIB_SPECS = ("ina219_cjmcu219", "boost_5v_en")
+# The helpers a spec imports. Both directories have modules of these
+# names, so each directory's specs load with only its own in sys.modules.
+HELPERS = ("_solid", "_parts", "_font", "_board", "_print")
 
-def load_specs():
-    """Load every spec module in hardware/mechanical/.
+
+def _load(directory, names):
+    """Load specs of one directory with that directory's helpers.
+
+    Args:
+        directory: The directory of the specs and their helpers.
+        names: The specs' file names without ".py".
 
     Returns:
-        The modules, sorted by file name.
+        The modules, in the order of ``names``.
     """
-    specs = []
-    for path in sorted(HERE.glob("*.py")):
-        if path.name == Path(__file__).name or path.name.startswith(
-                ("_", "check_")):
-            continue
-        spec = importlib.util.spec_from_file_location(path.stem, path)
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        specs.append(mod)
+    for helper in HELPERS:
+        sys.modules.pop(helper, None)
+    sys.path.insert(0, str(directory))
+    try:
+        specs = []
+        for name in names:
+            spec = importlib.util.spec_from_file_location(
+                name, directory / f"{name}.py")
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            specs.append(mod)
+    finally:
+        sys.path.remove(str(directory))
+        for helper in HELPERS:
+            sys.modules.pop(helper, None)
     return specs
+
+
+def load_specs():
+    """Load every spec of hardware/mechanical/ and the LIB_SPECS.
+
+    Returns:
+        The modules: this directory's sorted by file name, then
+        rcbench's.
+    """
+    own = sorted(path.stem for path in HERE.glob("*.py")
+                 if path.name != Path(__file__).name
+                 and not path.name.startswith(("_", "check_")))
+    return _load(HERE, own) + _load(LIB, LIB_SPECS)
 
 
 def outputs():

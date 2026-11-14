@@ -50,6 +50,14 @@ protocol.
   mm from the board's QMI8658 IMU (inertial measurement unit) on I2C1, with
   ZERO, a three-pose flip calibration and rcbench's `servo_rudder.c` and
   `imu.c`. It waits on the owner's answers to its seven open questions.
+- STEP models of two modules the bench is built with, drawn part by part with
+  the print of both sides: `hardware/mechanical/models/ina219_cjmcu219.step`,
+  the INA219 current sensor board, 24.2 × 21.9 mm, 225 solids, and
+  `boost_5v_en.step`, the 5V boost converter board, 13.7 × 21.7 mm, 69
+  solids. `gen_models.py` writes them from rcbench's specs, copied unchanged
+  to `lib/rcbench/hardware/` at rcbench commit 1b6029b8 together with that
+  commit's `step_gen.py`; sources and limits are in
+  [hardware/mechanical/README.md](hardware/mechanical/README.md#modules).
 - A STEP model of the board for enclosure design,
   `hardware/mechanical/models/rp2350_touch_lcd_2_8.step`: 50.54 × 73.06 ×
   10.03 mm, 1039 solids with flat and cylindrical faces. It is a facsimile
