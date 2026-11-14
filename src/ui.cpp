@@ -436,6 +436,9 @@ BoardCell uiBoardCell(float volts, BoardCell prev) {
 		return BoardCell::NoCell;
 	BoardCell now = mv < BOARD_CELL_CRIT_MV ? BoardCell::Critical
 	              : mv < BOARD_CELL_LOW_MV  ? BoardCell::Low : BoardCell::Ok;
+	// Leaving NoCell, the reading is classed as at start-up, from Ok: a cell
+	// plugged in shows the band a boot with that cell would show.
+	if (prev == BoardCell::NoCell) return now;
 	// Down at once; up only once the reading clears the threshold it rises
 	// past by the hysteresis.
 	if (prev == BoardCell::Critical && mv < BOARD_CELL_CRIT_MV + BOARD_CELL_HYST_MV)

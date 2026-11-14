@@ -3013,6 +3013,19 @@ static void testBoardCellColour() {
 	checkTrue("no cell at 2.54 V stays", uiBoardCell(2.540f, BoardCell::NoCell) == BoardCell::NoCell);
 	checkTrue("no cell at 2.55 V goes red",
 	          uiBoardCell(2.550f, BoardCell::NoCell) == BoardCell::Critical);
+	// Leaving no cell: the band a start-up gives at the same reading. The
+	// first frame classes from Ok (uiInit() sets it).
+	static const float JUMPS[] = { 3.20f, 3.32f, 3.52f, 3.55f };
+	for (float v : JUMPS) {
+		char what[64];
+		snprintf(what, sizeof(what), "no cell to %.2f V: as at start-up", (double)v);
+		checkTrue(what, uiBoardCell(v, BoardCell::NoCell) == uiBoardCell(v, BoardCell::Ok));
+	}
+	checkTrue("no cell to 3.32 V: amber", uiBoardCell(3.32f, BoardCell::NoCell) == BoardCell::Low);
+	checkTrue("no cell to 3.52 V: the text colour",
+	          uiBoardCell(3.52f, BoardCell::NoCell) == BoardCell::Ok);
+	checkTrue("no cell to 3.20 V: red",
+	          uiBoardCell(3.20f, BoardCell::NoCell) == BoardCell::Critical);
 	checkTrue("red at 3.60 V goes to the text colour",
 	          uiBoardCell(3.600f, BoardCell::Critical) == BoardCell::Ok);
 	checkTrue("amber at 3.20 V goes red at once",
@@ -3071,22 +3084,23 @@ static void testBoardCellColour() {
 		fakeSdLogSet(&was);
 	}
 
-	// IDLE's countdown replaces the voltage, amber, whatever the voltage's
-	// colour: armed at an amber reading and run into the last 5 s.
-	fakeAdcSet(1427);
+	// IDLE's countdown replaces the voltage in amber, whatever the voltage's
+	// colour: armed at a red reading, so the two colours differ, and run into
+	// the last 5 s.
+	fakeAdcSet(1325);
 	uiInit();
 	frames(4);
 	holdToArm();
-	checkTrue("armed at 3.45 V: the voltage in amber", uiArmed() && shows("3.45V", C_AMBER));
+	checkTrue("armed at 3.20 V: the voltage in red", uiArmed() && shows("3.20V", C_RED));
 	fakeAdvance(IDLE_DISARM_MS - 3000);
 	frames(1);
 	checkTrue("the last 5 s: IDLE 3s, amber, in the voltage's place",
 	          fakeTextIs(GFX_W - 4 - gfxTextW("IDLE 3s", 2), 7, "IDLE 3s", C_AMBER, C_PANEL, 2));
-	checkTrue("and no voltage", !shows("3.45V", C_AMBER) && !shows("3.45V", C_TEXT));
+	checkTrue("and no voltage", !shows("3.20V", C_RED) && !shows("3.20V", C_TEXT));
 	fakeAdvance(4000);
 	frames(2);
 	checkTrue("the idle interlock disarms", !uiArmed());
-	checkTrue("the voltage is back, amber", shows("3.45V", C_AMBER));
+	checkTrue("the voltage is back, red", shows("3.20V", C_RED));
 	fakeAdcSet(fakeAdcDefault());
 	uiInit();
 	frames(2);
@@ -3102,7 +3116,7 @@ static void testSplashTouch() {
 	checkTrue("touchInit() reports the failure", !touchInit());
 	uiDrawSplash();
 	checkTrue("the splash says so, amber, y 64",
-	          fakeTextCentredIs(UI_SPLASH_TOUCH_Y, UI_SPLASH_TOUCH_TEXT, C_AMBER, C_BG, 1));
+	          fakeTextCentredIs(64, UI_SPLASH_TOUCH_TEXT, C_AMBER, C_BG, 1));
 	checkTrue("it fits with 8 px to each edge",
 	          gfxTextW(UI_SPLASH_TOUCH_TEXT, 1) <= GFX_W - 2 * UI_MARGIN);
 	fakeDumpFrame("shot_splash_no_touch.ppm");

@@ -32,17 +32,21 @@ Ursache in der Firmware. Melde ihn wie unter
 `TOUCH CONTROLLER NOT FOUND` in Bernstein auf dem Startbildschirm bedeutet,
 dass der Touch-Controller der Firmware beim Einschalten nicht geantwortet
 hat. Die Zeile verschwindet, sobald er antwortet. Steht sie noch, wenn der
-Tester erscheint, wirkt kein Tippen. Nach einem Update, das die
+Tester erscheint, hat die Berührung während des Startbildschirms nicht
+geantwortet; der Tester liest sie weiter, und ein Controller, der später
+antwortet, funktioniert. Bewirkt Tippen weiter nichts, helfen die Schritte
+unten. Nach einem Update, das die
 Einstellungen zurückgesetzt hat, steht sie unter den beiden Zeilen zu den
 Einstellungen.
 
 <img src="img/splash-reset-no-touch.png" width="240" alt="Der Startbildschirm mit SETTINGS RESET BY UPDATE, CHECK MENU > SETTINGS und TOUCH CONTROLLER NOT FOUND über dem Namen">
 
 Ohne Berührung lässt sich die Platine nicht bedienen: Scharfschalten,
-`DISARM`, `HOLD` und `MENU` brauchen sie alle. Ein Tester, der scharf war,
-als die Berührung ausfiel, entschärft durch die Leerlaufsperre 30 s nach
-der letzten Berührung. Um einen Motor sofort anzuhalten, trenne den Akku
-des ESC.
+`DISARM`, `HOLD` und `MENU` brauchen sie alle. Die Leerlaufsperre
+entschärft 30 s nach der letzten Berührung, die der Controller meldet. Ein
+nasser Bildschirm oder etwas, das auf dem Glas liegt, zählt als Berührung
+und hält einen scharfen Tester scharf. Um einen Motor anzuhalten, trenne
+den Akku des ESC.
 
 Versuche der Reihe nach:
 
@@ -151,8 +155,10 @@ Beides ist auf der Hardware nicht geprüft.
 
 Vier Sperren halten den Motor an, und jede zeigt sich auf dem Bildschirm:
 
-- **Leerlaufsperre.** 30 s ohne Berührung im scharfen Zustand entschärfen den
-  Tester. `IDLE ns` zählt in den letzten 5 s oben rechts herunter. Beim
+- **Leerlaufsperre.** 30 s ohne vom Touch-Controller gemeldete Berührung
+  im scharfen Zustand entschärfen den Tester. Ein nasser Bildschirm oder
+  etwas auf dem Glas zählt als Berührung. `IDLE ns` zählt in den letzten
+  5 s oben rechts herunter. Beim
   Entschärfen dunkelt die Hintergrundbeleuchtung kurz ab.
 - **`MENU` öffnen.** Das Öffnen entschärft immer.
 - **Touch antwortet nicht.** Vier fehlgeschlagene Lesungen des

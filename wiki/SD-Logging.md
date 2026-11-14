@@ -60,6 +60,9 @@ holds depends on when it was cut:
 
 - **Within its first 2 s:** it reads 0 bytes. The file's size on the card
   is written every 2 s while recording, the first time 2 s after the start.
+  The space reserved for it, up to 16 MiB, stays marked as used on the card
+  with no file pointing to it, until a file system check on a computer
+  frees it.
 - **Later:** it is 16 MiB long, the space reserved when it opened. It holds
   the data that reached the card, which is everything recorded except up
   to the last 8192 bytes, the firmware's write buffer. After that comes

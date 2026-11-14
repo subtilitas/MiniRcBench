@@ -340,8 +340,11 @@ should size `SD_LOG_BUFFER_BYTES`. 8192 bytes is unmeasured.
 
   So a log cut after its first sync is 16 MiB long, holds what reached the
   card, lagging by up to 8192 bytes, then old card data; cut within its
-  first 2 s it reads 0 bytes; without the run, or past 16 MiB, its size is
-  the one at the last sync. The manual tells the user to stop a recording
+  first 2 s it reads 0 bytes, and the run stays allocated in the FAT with
+  no entry pointing to it: `f_expand()` builds the chain with `put_fat()`,
+  and `move_window()` writes each FAT sector to the card as it moves past
+  it, so up to 16 MiB of the card stays lost until a file system check.
+  Without the run, or past 16 MiB, its size is the one at the last sync. The manual tells the user to stop a recording
   first (wiki SD Logging, Recording). Still open: a check on hardware, and
   whether each viewer stops cleanly at the end of the written data.
 

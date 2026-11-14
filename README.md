@@ -345,16 +345,17 @@ servo left on it reads the DShot frames as pulses and drives towards one end
 of its travel. When `settingsLoad()` discarded a whole block of another
 settings version (`settingsResetByUpdate()`), two amber lines at y 40 and
 y 52 read `SETTINGS RESET BY UPDATE` and `CHECK MENU > SETTINGS`; blank flash
-and a damaged block show neither.
-of its travel. While the touch controller has not answered once since
-`touchInit()`, the splash shows `TOUCH CONTROLLER NOT FOUND` in amber above
-the name; the line goes at the controller's first answer (`uiSplashTick()`).
-The splash reads the touch every 25 ms into a state of its own, so a finger
-resting on the glass when the tester appears gives no press edge: it does
-not arm, does not move the throttle and does not start a hold. Lifting it
-still ends a tap where it rests, on a button that acts on release such as
-HOLD or MENU, because the driver keeps where the press began. A finger on
-the glass at power-up is lifted before HOLD TO ARM.
+and a damaged block show neither. While the touch controller has not
+answered once since `touchInit()`, the splash shows
+`TOUCH CONTROLLER NOT FOUND` in amber at y 64, under those two lines and
+above the name; the line goes at the controller's first answer
+(`uiSplashTick()`). The splash reads the touch every 25 ms into a state of
+its own, so a finger resting on the glass when the tester appears gives no
+press edge: it does not arm, does not move the throttle and does not start
+a hold. Lifting it still ends a tap where it rests, on a button that acts
+on release such as HOLD or MENU, because the driver keeps where the press
+began. If you touched the screen at power-up, lift the finger before HOLD
+TO ARM.
 
 **Main screen**
 
@@ -1783,7 +1784,9 @@ In the firmware:
 - Throttle ceiling, default 20 %.
 - Auto-disarm after 30 s with no touch input (`IDLE_DISARM_MS`). For the last
   5 s, `IDLE ns` replaces the board's battery voltage and its `BOARD`
-  caption in the top row.
+  caption in the top row. The time counts from the last contact the touch
+  controller reports, so a wet screen or something lying on the glass keeps
+  the tester armed.
 - Core1 sets the throttle to zero if core0 sends no heartbeat for 250 ms.
 - Opening MENU disarms. The wiring settings and every tool are reachable only
   from there.

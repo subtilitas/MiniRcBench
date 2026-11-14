@@ -67,7 +67,9 @@ wurde:
 
 - **In ihren ersten 2 s:** Sie liest sich als 0 Byte. Die Dateigröße auf
   der Karte wird während der Aufzeichnung alle 2 s geschrieben, das erste
-  Mal 2 s nach dem Start.
+  Mal 2 s nach dem Start. Der für sie reservierte Platz, bis zu 16 MiB,
+  bleibt auf der Karte als belegt markiert, ohne dass eine Datei darauf
+  zeigt, bis eine Dateisystemprüfung am Computer ihn freigibt.
 - **Später:** Sie ist 16 MiB lang, der beim Öffnen reservierte Platz. Sie
   enthält die Daten, die die Karte erreicht haben: alles Aufgezeichnete bis
   auf höchstens die letzten 8192 Byte, den Schreibpuffer der Firmware.

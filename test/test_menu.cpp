@@ -866,7 +866,7 @@ static void testResetByUpdate() {
 	checkTrue("CHECK MENU > SETTINGS at y 52",
 	          fakeTextCentredIs(52, "CHECK MENU > SETTINGS", C_AMBER, C_BG, 1));
 	checkTrue("TOUCH CONTROLLER NOT FOUND at y 64",
-	          fakeTextCentredIs(UI_SPLASH_TOUCH_Y, UI_SPLASH_TOUCH_TEXT, C_AMBER, C_BG, 1));
+	          fakeTextCentredIs(64, UI_SPLASH_TOUCH_TEXT, C_AMBER, C_BG, 1));
 	checkTrue("a clear row under each line, 8 rows for high contrast",
 	          !fakeInkExtent(48, 4, C_BG, &x0, &x1) && !fakeInkExtent(60, 4, C_BG, &x0, &x1));
 	checkTrue("clear from the touch line to the name at y 104",
