@@ -602,7 +602,9 @@ Below the list, fixed and not scrolled:
 - **LINK**: live packets per second and checksum error rate. Green when
   packets arrive, amber above 5 % errors.
 - The note line.
-- **HOLD TO SAVE** (150 × 48 px) and **HOLD RESET** (70 × 48 px).
+- **HOLD TO SAVE** (150 × 46 px, from x 6) and **HOLD DEFAULTS**
+  (72 × 46 px, to x 233), at y 268. HOLD DEFAULTS' label takes two lines,
+  `HOLD` over `DEFAULTS`, in amber.
 
 A wrong ESC pin produces no error: the ESC receives no frames. **LINK** on this
 screen shows the result of each pin change. A non-zero packet rate means the
@@ -644,18 +646,18 @@ splash's two lines, `UPDATED` on MENU's SETTINGS row, and the note line
 above, pole count and throttle ceiling included. Erasing the flash sector stops
 core1, and with it the DShot pump, for the length of the erase. That duration
 is not measured. Saving is refused while armed (`NOT WHILE ARMED - DISARM TO
-SAVE`); opening MENU disarms, so the refusal is a backstop. **HOLD RESET**
+SAVE`); opening MENU disarms, so the refusal is a backstop. **HOLD DEFAULTS**
 (1 s, `UI_HOLD_MS`, the same hold widget, `src/ui_hold.*`) loads the compiled
 defaults, pole count and throttle ceiling included, into the live settings. A
 tap loads nothing, a slide off the button cancels the hold, and a bar over
-the button and a `C_RED` fill, as on every other hold of `src/ui_hold.*` but
-HOLD TO SAVE, show it running. It has no armed check: SETTINGS opens only
-through MENU, which disarms. Flash changes only on the next save.
+the button and a `C_RED` fill, as on every hold of `src/ui_hold.*`, show it
+running. It has no armed check: SETTINGS opens only through MENU, which
+disarms. Flash changes only on the next save.
 
 Every value applies when changed. Only persistence needs the hold, so a value
 can be tried and then discarded by leaving without saving. The note line reads
 `UNSAVED - HOLD SAVE TO KEEP` after a change, and otherwise
-`SAVED SETTINGS IN USE` or `COMPILED DEFAULTS IN USE`. After HOLD RESET it
+`SAVED SETTINGS IN USE` or `COMPILED DEFAULTS IN USE`. After HOLD DEFAULTS it
 reads `DEFAULTS LOADED - RESTART TO UNDO` while the live settings are what it
 left and differ from what the next boot loads (the saved settings, or the
 compiled defaults when none are stored). Any other change ends it, and so
@@ -1089,10 +1091,12 @@ Writing needs a 1 s hold on `HOLD TO WRITE`. While the BOARD voltage is
 red the hold writes nothing: the result reads
 `BOARD VOLTAGE IS RED: NOT WRITTEN.` with `CHARGE THE BOARD'S CELL, HOLD
 AGAIN.` in amber under it, and OK returns to the list with the edits kept
-([Using it](#using-it), the BOARD voltage). After the write the firmware
-waits `AM32_WRITE_SETTLE_MS` (300 ms), reads the block back, and compares it
-byte for byte. It shows `WRITE VERIFIED` only on a full match, with
-`POWER-CYCLE THE ESC TO APPLY.` under it: the bench sends no command that
+([Using it](#using-it), the BOARD voltage). OK is the wide button at the
+bottom, where HOLD TO WRITE was; it takes a fresh tap, and lifting the
+finger that held HOLD TO WRITE leaves the result up. After the write the
+firmware waits `AM32_WRITE_SETTLE_MS` (300 ms), reads the block back, and
+compares it byte for byte. It shows `WRITE VERIFIED` only on a full match,
+with `POWER-CYCLE THE ESC TO APPLY.` under it: the bench sends no command that
 starts the ESC's firmware, and whether the ESC runs the new settings without
 a power cycle is not tested. On a mismatch it shows the first differing byte:
 `DIFF @xx: GOT xx WANT xx`. A result of up to 18 characters is drawn at
@@ -1436,10 +1440,12 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
    range. The stepper skips values that break a hard limit, for example MAX.
    DUTY above 98 %. A value that breaks a soft rule is taken, with an amber
    mark and the rule's text in the editor bar.
-4. HOLD TO WRITE (1 s) opens the write page: the changes, their soft rules,
-   and where the backup goes. A second 1 s hold writes. Before the first
-   frame of the session's first write with a card mounted, the image read at
-   entry goes to the card as the backup `BACKUP/KSTnnn.TXT`, and the servo as
+4. HOLD TO WRITE (1 s) opens the write page: the changes, counted on the
+   strip (`1 CHANGE`, `2 CHANGES`) and listed 4 at most, then `AND n MORE`,
+   their soft rules, and where the backup goes. A second 1 s hold writes.
+   Before the first frame of the session's first write with a card mounted,
+   the image read at entry goes to the card as the backup
+   `BACKUP/KSTnnn.TXT`, and the servo as
    it stands as the record `KST/KST.TXT`. Later writes of the session save no backup and
    write no record. The write runs as single-register writes with read-back,
    then a full verify. A verified write removes the record, and so does LEAVE
@@ -1646,14 +1652,16 @@ not 0 answers ID 0 is not measured.
    and where the backup goes, and `KEEP THE SERVO HORN CLEAR.` on the
    session's first write and on a write that moves DIRECTION, NEUTRAL or an
    end point. The horn line, the ID note, `FILE OF ANOTHER MODEL` and
-   `MODEL NOT MEASURED` always show when they apply; the changed values, a
-   changed ID first, take the room left, and soft rules that do not fit are
-   counted on the last line, `AND n MORE RULES: SEE EACH ROW.` A second 1 s
-   hold writes. Before the first frame of the session's first write with a card
-   mounted, the backup goes to the card as `BACKUP/HTnnn.TXT`; before every
-   write, the servo as it is and the target go to `HITEC/HITEC.TXT` as the
-   record of the write. The write sends the changed registers 20 ms apart,
-   saves, reboots the servo (1.0 s) and reads all 21 registers back: about
+   `MODEL NOT MEASURED` always show when they apply; the changed values,
+   counted on the strip (`1 CHANGE`, `2 CHANGES`), a changed ID first, take
+   the room left, 4 rows at most, then `AND n MORE`, and soft rules that do
+   not fit are counted on the last line, `AND n MORE RULES: SEE EACH ROW.`
+   A second 1 s hold writes. Before the first frame of the session's first
+   write with a card mounted, the backup goes to the card as
+   `BACKUP/HTnnn.TXT`; before every write, the servo as it is and the
+   target go to `HITEC/HITEC.TXT` as the record of the write. The write
+   sends the changed registers 20 ms apart, saves, reboots the servo
+   (1.0 s) and reads all 21 registers back: about
    1.7 s for one setting, computed from rcbench's timings and not measured.
    The page reads `WRITES SENT: 2 OF 4`, then `READING BACK`. A verified
    write removes its record. While the BOARD voltage is red the hold writes
@@ -1920,7 +1928,8 @@ In the firmware:
 - On SERVO TESTER → SET a heli profile, a rate above 60 Hz, a profile taken
   further past its travel and a second servo on such a profile wait for
   HOLD TO APPLY (1 s).
-- SETTINGS loads the compiled defaults only after a 1 s hold of HOLD RESET.
+- SETTINGS loads the compiled defaults only after a 1 s hold of HOLD
+  DEFAULTS.
 - The servo tester starts SAFE, with no pulses; HOLD TO START is a 1 s hold
   that puts every pin at CENTRE, and STOP acts on touch. A hold counts only
   a press that lands on the button while it is live, so a press made while
@@ -2109,7 +2118,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.0%**: 9,529 of 9,724 lines in 59 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.0%**: 9,542 of 9,737 lines in 59 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

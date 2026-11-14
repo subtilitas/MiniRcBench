@@ -376,6 +376,11 @@ static void testDSeriesRead() {
 	openHitec();
 	tapId(UI_FIX(HitecCtl::DSeries));
 	checkTrue("D SERIES: the main view", uiHitecView() == HitecView::Main);
+	{
+		int x0 = 0, x1 = 0;
+		checkTrue("the main view clears the strip band: y 56 to 61 blank",
+		          !fakeInkExtent(56, 6, C_BG, &x0, &x1));
+	}
 	checkTrue("it claims SIG", pinClaimHolder() == PinUser::Hitec);
 	hitecFrames(4);
 	checkControlTable("Hitec main");
@@ -385,6 +390,16 @@ static void testDSeriesRead() {
 	          st.job == HitecJobState::InMode && st.hasImage && st.hasBackup);
 	checkTrue("GP28 untouched", !enHigh());
 	checkControlTable("Hitec list");
+	{
+		char model[24], want[48];
+		hitecModelText(&st.image, model, sizeof(model));
+		snprintf(want, sizeof(want), "%s  BACKUP IN MEMORY  GP0", model);
+		checkTrue("the strip: model, backup and pin, two spaces apart",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, want, C_DIM, C_BG, 1));
+		int x0 = 0, x1 = 0;
+		checkTrue("the family view's second strip line is gone: y 56 to 61 blank",
+		          !fakeInkExtent(56, 6, C_BG, &x0, &x1));
+	}
 	checkTrue("HOLD TO WRITE waits for an edit", !ctlEnabled(UI_FIX(HitecCtl::Write)));
 	checkTrue("REVERT too", !ctlEnabled(UI_FIX(HitecCtl::Revert)));
 	checkTrue("MODEL's row cannot be selected", !ctlEnabled(UI_ROW(11, Row)));
@@ -433,6 +448,8 @@ static void testWrite() {
 	checkTrue("a full hold opens the write page", holdUntilGone(UI_FIX(HitecCtl::Write)));
 	checkTrue("the write page", uiHitecView() == HitecView::Write);
 	checkControlTable("Hitec write page");
+	checkTrue("the strip counts 1 CHANGE", fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "1 CHANGE", C_DIM, C_BG, 1) &&
+	          !fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "1 VALUE", C_DIM, C_BG, 1));
 	fakeDumpFrame("shot_hitec_write.ppm");
 	s_writesAtRecord = -1;
 	fakeFatOnCall(watchRecord);
@@ -782,6 +799,23 @@ static void testClassic() {
 	fakeHitecSim()->mem[0x1C] ^= 0x01;
 	checkTrue("the field list", toList(HITEC_CLASSIC));
 	checkTrue("GP28 on", enHigh());
+	{
+		// MODEL  BACKUP IN MEMORY  GP0  Vnn runs into the MODE chip: the
+		// version and the pin, the items furthest right, go; the backup's
+		// state and the spaces stay.
+		char model[24], full[64], pin[64], want[48];
+		HitecStatus cs = job();
+		hitecModelText(&cs.image, model, sizeof(model));
+		snprintf(want, sizeof(want), "%s  BACKUP IN MEMORY", model);
+		snprintf(pin, sizeof(pin), "%s  GP0", want);
+		snprintf(full, sizeof(full), "%s  V%02X", pin, cs.image.version);
+		const int room = uiChipX(HITEC_UI_CHIP) - 4 - UI_MARGIN;
+		checkTrue("the room ends 4 px before the chip, at x 193", room == 185);
+		checkTrue("with the pin, or the pin and the version, it would not fit",
+		          gfxTextW(full, 1) > room && gfxTextW(pin, 1) > room);
+		checkTrue("the strip keeps the backup: model and backup, two spaces apart",
+		          gfxTextW(want, 1) <= room && fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, want, C_DIM, C_BG, 1));
+	}
 	int sumRow = -1;
 	HitecRow rows[HITEC_ROWS_MAX];
 	int nr = hitecRows(HITEC_LAYOUT_HS5, rows);
@@ -805,6 +839,17 @@ static void testClassic() {
 	          hitec_param_get(&st.image, HITEC_LAYOUT_HS5, HITEC_P_C_CHECKSUM, &v) == HITEC_GET_OK &&
 	          v.value == HITEC_SUM_OK);
 	tapId(UI_FIX(HitecCtl::WriteOk));
+	{
+		// After the first write the backup has a name: the version goes, the
+		// pin fits.
+		char model[24], want[48], full[64];
+		hitecModelText(&st.image, model, sizeof(model));
+		snprintf(want, sizeof(want), "%s  BACKUP HT001  GP0", model);
+		snprintf(full, sizeof(full), "%s  V%02X", want, st.image.version);
+		checkTrue("the written backup on the strip: model, backup HT001 and pin",
+		          uiHitecView() == HitecView::List && gfxTextW(full, 1) > uiChipX(HITEC_UI_CHIP) - 4 - UI_MARGIN &&
+		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, want, C_DIM, C_BG, 1));
+	}
 
 	tapId(UI_FIX(HitecCtl::Files));
 	tapId(UI_ROW(1, Row));
@@ -1101,6 +1146,13 @@ static void testWritePageHornLine() {
 	checkTrue("the write page", uiHitecView() == HitecView::Write);
 	checkTrue("the ID row first", rowLabelY("ID") == UI_BODY_Y);
 	checkTrue("AND n MORE counts the rows not listed", andMore() == changed - rowsListed());
+	checkTrue("4 rows at most, as KST's page", rowsListed() == HITEC_PAGE_ROWS_MAX && rowsListed() == 4);
+	{
+		char want[24];
+		snprintf(want, sizeof(want), "%d CHANGES", changed);
+		checkTrue("the strip counts CHANGES, the leave page's word",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, want, C_DIM, C_BG, 1));
+	}
 	checkTrue("the horn line", hornLineY() > 0);
 	checkTrue("the ID note, whole", idNoteDrawn(HITEC_UI_ID_NOTE_PAGE, 36, false));
 	checkTrue("nothing below y 192", clearBelow192());

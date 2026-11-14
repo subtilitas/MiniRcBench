@@ -317,6 +317,14 @@ void uiBackGuardDraw(int pending, const char *verb);
 void uiChip(const char *text, uint16_t fill);
 
 /**
+ * @brief Left edge of the chip uiChip() draws for @p text: the label's
+ *        width plus 6 px each side, ending at the right margin.
+ * @param text The chip's label, scale 1.
+ * @return Its x, px.
+ */
+int uiChipX(const char *text);
+
+/**
  * @brief One label / value row: caption left, value right-aligned.
  *
  * @param y     Row top.

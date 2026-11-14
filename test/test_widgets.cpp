@@ -652,6 +652,17 @@ static void testLayoutConstants() {
 	checkTrue("strip lines at y 42 and y 52", UI_STRIP_LINE1_Y == 42 && UI_STRIP_LINE2_Y == 52);
 	checkTrue("the second ends at y 58, above the body at y 62",
 	          UI_STRIP_LINE2_Y + 6 == 58 && UI_BODY_Y == 62);
+
+	// uiChipX() is where uiChip() draws: MODE, 23 px and 6 px each side,
+	// from x 197 to the right margin.
+	gfxFill(C_BG);
+	uiChip("MODE", C_GREEN);
+	const int cy = UI_STRIP_Y + UI_STRIP_H / 2;
+	checkInt("uiChipX(\"MODE\"): x 197", uiChipX("MODE"), 197);
+	checkTrue("the chip drawn from x 197 to x 231", gfxBuffer()[cy * GFX_W + 196] == C_BG &&
+	          gfxBuffer()[cy * GFX_W + 198] == C_GREEN && gfxBuffer()[cy * GFX_W + 231] == C_GREEN &&
+	          gfxBuffer()[cy * GFX_W + 232] == C_BG);
+	checkInt("PROG MODE, 53 px: x 167", uiChipX("PROG MODE"), 167);
 }
 
 static void testStripTwoLines() {

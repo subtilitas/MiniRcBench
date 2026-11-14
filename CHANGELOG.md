@@ -523,6 +523,29 @@ protocol.
 
 ### Changed
 
+- After v0.1.0-rc1 (a93e1c1): one layout table, decision 14 of
+  [menu-b.md](docs/design/menu-b.md#decisions), slice 4 of menu structure B.
+  SETTINGS' footer is HOLD TO SAVE 150 × 46 px from x 6 and HOLD DEFAULTS,
+  formerly HOLD RESET, 72 × 46 px from x 162, its label `HOLD` over
+  `DEFAULTS` in amber; HOLD TO SAVE fills `C_RED` while held, as every hold
+  (`SettingsCtl::Reset` is `SettingsCtl::Defaults`). SERVO TESTER → SET's
+  footer is HOLD TO APPLY 6/150 and DEFAULTS 162/72, and its `-` and `+`
+  are 44 × 44 px, as on AM32 CONFIG, whose result OK is the wide footer
+  button, 228 × 46 px at y 268, `OK` at scale 2; it takes, and draws
+  pressed, only a press that lands after the write ended, since the hold's
+  finger lifts on it. SD LOG's
+  START and its row of RETRY MOUNT and USB DRIVE (112 px each) span x 6 to
+  233. AM32's hex dump starts at x 8. The KST and Hitec write pages count
+  `1 CHANGE`, `2 CHANGES`; Hitec lists 4 changes at most before
+  `AND n MORE`, as KST does; HITEC SERVO's list strip reads model, backup,
+  pin and, on a classic servo, version, two spaces apart, and drops items
+  from the right, so a classic strip keeps `BACKUP IN MEMORY`; the room ends
+  4 px before the chip (`uiChipX()` in `src/ui_widgets.*`). Every Hitec view
+  clears the strip band, y 40 to 61, so the family view's second strip line
+  leaves no rows under the strip. Host tests
+  `testLayoutTable()` in `test/test_ids.cpp`, `testAm32LayoutTable()` and
+  checks in `test_menu.cpp`, `test_kst_ui.cpp`, `test_hitec_ui.cpp` and
+  `test_hitec_view.cpp`.
 - After v0.1.0-rc1 (a93e1c1): SERVO TESTER → SET: a TYPE, MIN or MAX step that
   leaves the profile past its travel and changes TYPE or takes MIN or MAX
   further out than the applied profile waits for `HOLD TO APPLY`, with the amber

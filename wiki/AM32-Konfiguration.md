@@ -313,6 +313,10 @@ Ergebnisse:
 | `VERIFY READ: NO REPLY`, `REFUSED`, `CRC FAIL` oder `NOT READY` | Der ESC hat das Schreiben bestätigt, und alle drei Zurücklesungen scheiterten: keine Antwort, eine Antwort, die keine Bestätigung ist, eine Prüfsumme, die nicht passt, oder kein Pin. Was im ESC steht, ist nicht bekannt |
 | `DIFF @xx: GOT yy WANT zz` | Das Zurückgelesene weicht ab. `xx` ist die Stelle des ersten abweichenden Bytes, `yy` der Wert im ESC, `zz` der geschriebene Wert, alle in Hex |
 
+`OK` ist die breite Schaltfläche am unteren Rand, wo `HOLD TO WRITE` war. Sie
+nimmt nur ein neues Tippen an: Das Abheben des Fingers, der `HOLD TO WRITE`
+gehalten hat, lässt das Ergebnis stehen.
+
 Nur `WRITE VERIFIED` gilt als geschrieben. Nach jedem anderen Ergebnis führt
 `OK` zur Liste zurück, die Änderungen bleiben erhalten, und `HOLD TO WRITE`
 schreibt sie erneut. Die Sicherung entsteht vor dem ersten Schreiben mit

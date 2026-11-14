@@ -1,18 +1,18 @@
 # Menu structure B
 
-Status: slice 1 built, host tests only; slices 2 to 10 not built. The owner
-answered the note's eight open questions on 2026-11-14 ([decisions 23 to
-30](#decisions)), and the question that followed from them (decision 33).
-Slices 2 to 10 wait on being built. By the owner's order of work of
-2026-11-14 they follow the eight small decisions of STATUS.md items 20, 21
-and 24. Three of the owner's decisions of 2026-11-14 change this design, and
-the sections they touch are marked "to be redesigned": each slice updates
-its own README.md and wiki lines and images (decision 27, against this
-note's recommendation), so the [slice table](#slices) is reworked and slice
-10 shrinks; HITEC SERVO takes SIG when it opens (decision 31), which changes
-decision 19; and MENU gains a seventh row, RX SIGNALS (decision 32), so MENU
-scrolls 36 px, which revises owner decision 1's six rows that never scroll
-(decision 33).
+Status: slices 1 and 4 built, host tests only; slices 2, 3 and 5 to 10 not
+built. The owner answered the note's eight open questions on 2026-11-14
+([decisions 23 to 30](#decisions)), and the question that followed from them
+(decision 33). Slices 2, 3 and 5 to 10 wait on being built. By the owner's
+order of work of 2026-11-14 they follow the eight small decisions of
+STATUS.md items 20, 21 and 24. Three of the owner's decisions of 2026-11-14
+change this design, and the sections they touch are marked "to be
+redesigned": each slice updates its own README.md and wiki lines and images
+(decision 27, against this note's recommendation), so the [slice
+table](#slices) is reworked and slice 10 shrinks; HITEC SERVO takes SIG when
+it opens (decision 31), which changes decision 19; and MENU gains a seventh
+row, RX SIGNALS (decision 32), so MENU scrolls 36 px, which revises owner
+decision 1's six rows that never scroll (decision 33).
 
 The owner decided on 2026-11-13 to build structure B ([decisions 1 to
 4](#decisions)). Decisions 5 to 15 are the rules this note sets for the
@@ -1078,7 +1078,7 @@ decisions 31 to 33.
 | 1. Widgets, built | `UiBackGuard`, `uiStripTwoLines()`, `uiListDrawField()`, `ui_leave`, layout constants, role names; nothing drawn differently. The `uiHeader()` flag is on `main` | | 9 in `src/`, 2 new | +500, −20 | 2 / 430 lines in test_widgets.cpp and test_servo.cpp | built |
 | 2. Colour roles | decisions 8 and 11: the role table on every screen, square chips, PROG MODE | 1 | 10 | 150 changed | 15 / 40 | 1 day |
 | 3. Names and SETTINGS | decisions 9, 10, 15 b, e, f, h, j, k: SERVO SUPPLY section, SIG and AUX, connector lines, OWN, DSHOT600, MENU statuses and busy strip, KST labels | 1 | 11 | +200, −80 | 110 / 60 | 2 days |
-| 4. Layout table | decision 14 | 1 | 7 | 80 changed | 8 / 10 | 0.5 day |
+| 4. Layout table, built | decision 14 | 1 | 11 in `src/` | +146, −79 | 63 / 236 lines in 7 test files | built |
 | 5. Write rule and guard | decisions 6, 7, 13 (AM32 HEX and WRITE titles): `WRITE...`, `RESTORE...`, AM32 write page and result, editor old value, guard on AM32 and SERVO SET, BACK disabled while writing, the leave queue gone | 1, 2, 4 | 7 | +300, −120 | 110 / 120 | 2 to 3 days |
 | 6. Leave page | decision 5 and owner decision 3: KST, Hitec and SERVO TESTER on `ui_leave`; STAY, NEXT SERVO, BACK TO SERVO; RESTART DSHOT's wait | 1, 5 | 6 | +180, −300 | 90 and three helpers / 80 | 2 to 3 days |
 | 7. Tester | owner decision 4, decisions 15 a to c, 17: readouts, `uiOpenTool()`, origin, LATCH, BOARD, ARM while the card is held | 1, 3 | 4 | +150 | 15 / 100 | 1.5 days |
@@ -1086,10 +1086,9 @@ decisions 31 to 33.
 | 9. Chooser | owner decisions 1 and 2, decisions 16, 18, 19, 15 d, 23, 31, 32 and 33: seven MENU rows scrolling 36 px, `ui_servo_prog`, `UI_PROGRAMMERS`, Hitec family entry points, family view removed | 3, 6, 7 | 9, 2 new | +350, −120 | 50 / 120 | 2 to 3 days |
 | 10. Documentation | what no slice owns: menu.md (the tree, MENU, revision lines on decisions 1, 12 and 18), pin-claim.md's revision line on decision 4, README "Layout", "Tests" and "The user manual", and a check that no README section, wiki page or image still shows the old structure | 1 to 9 | to be redone | to be redone | none | to be redone |
 
-Slice 1 is built ([slice 1 as built](#slice-1-as-built)). Slice 4 is not
-built; it moves rectangles and renames RESET, which the previews, README.md
-and the wiki show, and by decision 27 it changes those itself. It no longer
-waits on a question.
+Slice 1 is built ([slice 1 as built](#slice-1-as-built)). Slice 4 is
+built ([slice 4 as built](#slice-4-as-built)); by decision 27 its previews,
+README.md and wiki lines go with it.
 
 Slice 3 comes before slice 9: without it the SERVO SUPPLY section leaves
 SETTINGS with KST SERVO's MENU row. Slice 6 needs slice 5 because both change
@@ -1147,6 +1146,24 @@ What slice 1 left to the open questions, which the owner answered on
   answer keeps it.
 - The step texts, including the no-switch value's name, are the screen's:
   OWN by decision 29.
+
+## Slice 4 as built
+
+Decision 14's table on the screens, with host tests in `test/test_ids.cpp`
+(`testLayoutTable()`), `test/test_ui.cpp` (`testAm32LayoutTable()`) and the
+KST, Hitec and SETTINGS suites. Where the build reads the decision's
+lines, it reads them as follows:
+
+| Point | As built | Why |
+|---|---|---|
+| Load defaults | SETTINGS' button reads `HOLD DEFAULTS`, `HOLD` over `DEFAULTS` on two lines, amber; `SettingsCtl::Defaults` | the rule's word is DEFAULTS; the owner's 1 s hold of 2026-11-14 stays, and every hold's label starts with HOLD. One line is 77 px, wider than the 72 px button |
+| Write-page lines | `HITEC_PAGE_ROWS_MAX` 4 in `src/hitec_view.h` | the constant the line names, `HITEC_UI_CHANGES_MAX`, is this one on `main` |
+| RESTART DSHOT | 160 × 40 px at (40, 200), as on `main` | in LEAVE's rectangle without decision 21's 1000 ms wait, a double tap on LEAVE restarts DShot into the servo; slice 6 brings the rectangle and the wait together |
+| SERVO TESTER's MIN | x 8 | the tester's controls are under "Not changed", and the Code line does not name it |
+| HOLD TO REBOOT (KST) and READ AGAIN (Hitec) on the leave page | 228 × 46 px at y 214 | wide buttons above the footer's own wide button on the same view; the Code line does not name them |
+| AM32's OK | the wide button; it acts and draws pressed only for a press that lands after the write ended | it lies over HOLD TO WRITE, where the hold's finger lifts |
+| Hitec's list strip | model, backup, pin, version, two spaces apart, dropped from the right; the room ends 4 px before the chip, `uiChipX()` | a classic strip with every item does not fit; the backup's state is the item the write depends on |
+| Hitec strip band | every Hitec view clears y 40 to 61 | the family view's second strip line ends at y 58, below the 16 px band `uiStripClear()` clears |
 
 ## Risks
 
