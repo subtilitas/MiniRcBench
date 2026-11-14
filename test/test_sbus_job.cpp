@@ -99,14 +99,20 @@ static void testCoreFrames() {
 	checkInt("lastFrameMs: the step's millis()", c.st.lastFrameMs, 7);
 	checkInt("lastByteMs: the step's millis()", c.st.lastByteMs, 7);
 	checkInt("25 clean bytes", c.st.bytes, 25);
+	SbusLineFrame part = f;
+	part.bytes = 10;
+	feedFrame(&c, part, 1000 + SBUS_LINE_14MS);
+	sbusCoreStep(&c, 21);
+	checkTrue("a pass of bytes and no frame: lastByteMs moves, lastFrameMs not",
+	          c.st.lastByteMs == 21 && c.st.lastFrameMs == 7);
 
-	feedStream(&c, f, 1000 + SBUS_LINE_14MS, SBUS_LINE_14MS, 19);
+	feedStream(&c, f, 1000 + 2 * SBUS_LINE_14MS, SBUS_LINE_14MS, 19);
 	checkInt("20 frames at 14 ms", c.st.frames, 20);
 	checkInt("interval 14,000 us", c.st.intervalUs, 14000);
 	checkInt("71.4 Hz", sbusRateDeciHz(c.st.intervalUs), 714);
-	checkInt("no resync", c.st.resyncs, 0);
+	checkInt("the cut frame: one resync", c.st.resyncs, 1);
 	checkInt("no bad footer", c.st.badFooter, 0);
-	checkInt("500 clean bytes", c.st.bytes, 500);
+	checkInt("510 clean bytes", c.st.bytes, 510);
 
 	sbusCoreReset(&c);
 	checkTrue("a reset clears every count", c.st.frames == 0 && c.st.bytes == 0 &&
