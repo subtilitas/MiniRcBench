@@ -57,6 +57,10 @@ Platine verbunden.
   SIG GP0 = J4 Pin 9 oder J5 Pin 2, GND = J4 Pin 1 oder 5 oder J5 Pin 4
 ```
 
+> **Ein Servokabel nie 1:1 an J5 anschließen.** J5 Pin 3 ist die
+> 3,3-V-Versorgung der Platine, an der Stelle des Plus eines Servosteckers:
+> siehe [Einrichtung](Einrichtung#das-adapterkabel).
+
 GND ist die Masse der Platine.
 
 - **Ein Servo an der Leitung.** Jeder Frame geht an die ID 0

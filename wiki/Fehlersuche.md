@@ -126,7 +126,7 @@ Bleibt der Motor ohne eines davon stehen, prüfe die Schutzfunktionen des ESC
 
 ## `ESC STATUS` zeigt `WARN`, `ERROR` oder `ALERT`
 
-Die Kachel ist gelb (amber) bei `WARN`, rot bei `ERROR` und magenta bei
+Die Kachel ist bernsteinfarben bei `WARN`, rot bei `ERROR` und magenta bei
 `ALERT`. Der ESC sendet den Status über EDT; was jeder bedeutet, legt die
 ESC-Firmware fest.
 

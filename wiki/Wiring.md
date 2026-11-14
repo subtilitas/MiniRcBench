@@ -22,7 +22,9 @@ needs a pigtail with a JST-SH plug. SIG is GP0 (J5 pin 2) and AUX is GP1
 
 > **Never connect a servo's or an ESC's middle wire to a connector pin.** J4
 > pin 2 is the board's USB (Universal Serial Bus) 5 V and feeds no servo or
-> ESC; the 3.3 V pins are not used.
+> ESC. J3's 3.3 V powers the optional INA219 current sensor
+> ([Servo Tester](Servo-Tester#current)); the other 3.3 V pins
+> are not used.
 
 > **Warning: never connect a servo or ESC lead straight across to J5.**
 > J5 pins 2, 3 and 4 are SIG, 3.3 V and GND: the same order as a servo plug,

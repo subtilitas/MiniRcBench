@@ -47,8 +47,11 @@ protocol.
 - Warnings that J5 pins 2, 3 and 4, SIG, 3V3 and GND, are in the order of a
   servo plug: a servo or ESC lead joined straight across puts the ESC's
   BEC output or the servo supply on the board's 3.3 V. In the README and
-  the wiki pages Setup, Wiring and First-Run and their German pairs;
-  `docs/wiring.svg` labels the 3V3 pins never connect, J5's in red.
+  the wiki pages Setup, Wiring and First-Run and their German pairs, with
+  a pointer in the wiring sections of Servo-Tester, KST-Programming and
+  Hitec-Programming and their German pairs;
+  `docs/wiring.svg` labels J5 pin 3 never connect, in red, and J3 pin 3
+  INA219 VCC only.
 - The wiki pages AM32-Configuration and AM32-Konfiguration list every result
   of a write, what the code saw, that OK keeps the edits for another hold,
   and what to do when a result repeats.

@@ -12,7 +12,7 @@ weiter.
 
 | Teil | Wofür | Hinweise |
 |---|---|---|
-| Waveshare RP2350-Touch-LCD-2.8 | alles | Die Firmware läuft nur auf dieser Platine. Sie prüft nicht, auf welcher Platine sie läuft: Auf eine andere Platine geflasht, treibt sie Pins, die dort mit anderen Bauteilen verbunden sind |
+| Waveshare RP2350-Touch-LCD-2.8 | alles | Die Firmware läuft nur auf dieser Platine. Sie prüft nicht, auf welcher Platine sie läuft: Auf eine andere Platine geflasht, kann sie Pins treiben, die dort mit anderen Bauteilen verbunden sind |
 | USB-C-Kabel (USB: Universal Serial Bus) | Strom, Aufspielen der Firmware | Ein Kabel mit Datenadern |
 | JST-SH-Kabel, 1,0 mm, 4 Pins | Steckverbinder J5: Signal und Masse | Offene Enden auf einer Seite. Ob der Platine eines beiliegt, ist nicht geprüft |
 | Servo-Verlängerungskabel oder eine 3-polige Stiftleiste | der Stecker des ESC (Electronic Speed Controller, Motorregler) oder Servos | Siehe [Das Adapterkabel](#das-adapterkabel) |
@@ -44,10 +44,10 @@ Die Platine hat JST-SH-Steckverbinder mit 1,0 mm Raster und keine
 | 1 | AUX (GP1) | optional: die Telemetrieader eines ESC mit KISS-Telemetrie, einem seriellen ESC-Telemetrieprotokoll, oder das Signal eines zweiten Servos |
 | 3 | 3,3 V | nichts, niemals. Kurz abschneiden und isolieren |
 
-> **Warnung: Ein Servo- oder ESC-Kabel nie gerade durch an J5 anschließen.**
+> **Warnung: Ein Servo- oder ESC-Kabel nie 1:1 an J5 anschließen.**
 > J5 Pin 2, 3 und 4 sind SIG, 3,3 V und GND: dieselbe Reihenfolge wie bei
 > einem Servostecker, Signal, Plus und Minus. Pin 3 ist die 3,3-V-Versorgung
-> der Platine. Gerade durch verbunden, bekommt er die BEC-Ausgangsspannung
+> der Platine. 1:1 verbunden, bekommt er die BEC-Ausgangsspannung
 > (Battery Eliminator Circuit) des ESC, +5 V, oder die Versorgung des Servos,
 > 4,8 V bis 6,0 V oder 8,4 V für ein Hochvolt-Servo, und das kann die Platine
 > zerstören. J5 Pin 3 bleibt frei.

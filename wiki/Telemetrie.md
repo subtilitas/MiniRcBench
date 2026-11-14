@@ -46,10 +46,11 @@ und sie liefert die verbrauchten mAh, die EDT nicht überträgt. Siehe
 
 Verbrauchte **mAh** erscheinen in der Ecke der Temperaturkachel, nur mit KISS.
 
-**ESC STATUS** ist grün bei `OK`, gelb (amber) bei `WARN`, rot bei `ERROR`
+**ESC STATUS** ist grün bei `OK`, bernsteinfarben bei `WARN`, rot bei `ERROR`
 und magenta bei `ALERT`. Bei `WARN`, `ERROR` oder `ALERT`: entschärfen, den
 ESC abkühlen lassen und `ESC TEMP` und `CURRENT` ablesen. Was jeder Status
-bedeutet, legt die ESC-Firmware fest; ihre Dokumentation nennt die Ursache.
+bedeutet, legt die ESC-Firmware fest; ihre Dokumentation, wo es eine gibt,
+nennt die Bedingungen.
 
 <img src="img/tester-live.png" width="240" alt="Alle Kacheln gefüllt">
 

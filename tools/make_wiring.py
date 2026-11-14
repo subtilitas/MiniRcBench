@@ -257,7 +257,7 @@ def draw():
                              % (SUPPLY_H, gp, conn, pin, BOARD_H))
     en_names = {"GP%d" % gp for gp, _, _ in supplies}
 
-    def role(name):
+    def role(name, conn=None):
         bare = name.rstrip("*")
         if bare == "GP%d" % sig:
             return "SIG", "ESC or servo signal", SIG
@@ -268,7 +268,14 @@ def draw():
         if name == "GND":
             return "", "ground", MINUS
         if name == "3V3":
-            return "", "3.3 V out: never connect", DIM
+            # J5 has a servo plug's order, SIG 3V3 GND: a lead joined straight
+            # across puts its plus on the board's 3.3 V. J3's 3.3 V feeds the
+            # optional INA219 current sensor.
+            if conn == "J5":
+                return "", "3.3 V out: never connect", DIM
+            if conn == "J3":
+                return "", "3.3 V out: INA219 VCC only", DIM
+            return "", "3.3 V out, not used", DIM
         if name == "VBUS":
             return "", "USB 5 V, feeds no servo or ESC", DIM
         if name in ("USB_N", "USB_P"):
@@ -292,12 +299,10 @@ def draw():
         svg.text(x, y0 + 58, "%s, %d pins" % (conn, c["count"]), 13, INK, weight="bold")
         for i, (num, name) in enumerate(sorted(c["pins"].items())):
             py = y0 + 80 + 20 * i
-            short, what, color = role(name)
+            short, what, color = role(name, conn)
             svg.rect(x, py - 8, 16, 16, fill=color, stroke=INK, rx=2)
             svg.text(x + 8, py + 4, str(num), 10, "#ffffff", "middle", "bold")
             col = INK if short or name == "GND" else DIM
-            # J5 has a servo plug's order, SIG 3V3 GND: a lead joined straight
-            # across puts its plus on the board's 3.3 V.
             if conn == "J5" and name == "3V3":
                 col = PLUS
             svg.text(x + 24, py + 4, name.rstrip("*"), 12, col)

@@ -11,7 +11,7 @@ and installing the firmware. [First Run](First-Run) continues from there.
 
 | Part | For | Notes |
 |---|---|---|
-| Waveshare RP2350-Touch-LCD-2.8 | everything | The firmware runs on this board only. It does not check which board it runs on: flashed onto another board, it drives pins that are wired to other parts there |
+| Waveshare RP2350-Touch-LCD-2.8 | everything | The firmware runs on this board only. It does not check which board it runs on: flashed onto another board, it can drive pins that are wired to other parts there |
 | USB-C cable (USB: Universal Serial Bus) | power, installing the firmware | A cable with data wires |
 | JST-SH 1.0 mm cable, 4 pins | connector J5: signal and ground | Open wire ends on one side. Whether the board's box holds one is not checked |
 | Servo extension lead, or a 3-pin header | the plug of the ESC (electronic speed controller) or servo | See [The adapter cable](#the-adapter-cable) |

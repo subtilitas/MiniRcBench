@@ -132,14 +132,17 @@ acknowledgement. Then the read-back runs, up to three times, each after a
 
 Only `WRITE VERIFIED` counts as written. After any other result, `OK` returns
 to the list with the edits kept, and `HOLD TO WRITE` writes them again. The
-backup is made once per session, before the first write, so a repeated hold
-does not make a second one.
+backup is made before the first write that has a card, and again on a card
+swapped in since. It always holds the settings as read when the editor
+opened, and a repeated hold on the same card makes no second one.
 
 When a result repeats:
 
 1. Check the signal and ground wires.
-2. Leave with `BACK`; the edits are lost. Power-cycle the ESC.
-3. Open **MENU → AM32 CONFIG** again. It reads what the ESC now holds.
+2. Leave with `BACK`; the edits are lost.
+3. Open **MENU → AM32 CONFIG** again and power-cycle the ESC while the
+   screen is open, as under [Connecting](#connecting). The screen then
+   reads what the ESC holds.
 4. Compare it with the backup, the newest `BACKUP/AMnnn.TXT` on the card.
    It holds the settings as read when the editor opened, before any write.
    Its number is in `BACKUP/LAST` while no KST or Hitec backup came after

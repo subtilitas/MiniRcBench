@@ -188,7 +188,7 @@ servo supply EN      GP28  J4 pin 11, or GP29  J4 pin 12 (optional)
 > SIG (GP0), 3V3 and GND: signal, plus and minus, as on a servo or ESC lead.
 > **Never connect a servo or ESC lead straight across to J5.** Pin 3 is the
 > board's 3.3 V supply. Joined straight across, it gets the ESC's BEC output,
-> +5 V, or the servo's supply, 4.8 V to 6.0 V and 8.4 V for an HV
+> +5 V, or the servo's supply, 4.8 V to 6.0 V or 8.4 V for an HV
 > (high-voltage) servo, and that can destroy the board. Leave J5 pin 3
 > unconnected.
 

@@ -48,6 +48,10 @@ see [Switched supply](#switched-supply).
   SIG GP0 = J4 pin 9 or J5 pin 2, GND = J4 pin 1 or 5, or J5 pin 4
 ```
 
+> **Never connect a servo lead straight across to J5.** J5 pin 3 is the
+> board's 3.3 V supply, in the place of a servo plug's plus: see
+> [Setup](Setup#the-adapter-cable).
+
 - The owner programs every KST servo, HV (high-voltage) servos included, at
   5 V. Other voltages are not tested.
 - The servo's middle wire goes to its supply, never to a pin of the board.
