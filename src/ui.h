@@ -82,7 +82,8 @@ enum class BoardCell : uint8_t {
  *        plus @ref BOARD_CELL_HYST_MV. Taken from the voltage rounded to
  *        centivolts as uiBoardVoltText() draws it. Below
  *        @ref BOARD_CELL_IMPLAUSIBLE_MV it is NoCell, which it leaves at that
- *        threshold plus the hysteresis too.
+ *        threshold plus the hysteresis too, into the band a start-up at that
+ *        reading gives: below 3.30 V red, below 3.50 V amber, else Ok.
  * @param volts The board's battery voltage, smoothed.
  * @param prev  The band of the last frame.
  * @return The band now.

@@ -540,7 +540,9 @@ Menu structure B waits on the owner's answers, not on the bench (item 18).
   line reads `SAVED SETTINGS IN USE` or `COMPILED DEFAULTS IN USE`.
 - **Power loss during a log.** The size reaches the directory entry at
   each sync, every 2000 ms (`SD_LOG_SYNC_MS`), the first 2000 ms after the
-  start. A log cut within its first 2 s reads 0 bytes. Cut later, with the
+  start. A log cut within its first 2 s reads 0 bytes, and the chain
+  `f_expand()` wrote to the FAT, up to 16 MiB, stays allocated with no
+  entry pointing to it until a file system check. Cut later, with the
   16 MiB run `f_expand()` reserved, it is 16 MiB long, holds what reached
   the card, lagging by up to the 8192-byte ring, then old card data; only a
   stop truncates it. Without the run, or past 16 MiB, its size is the one

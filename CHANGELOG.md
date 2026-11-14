@@ -52,7 +52,6 @@ protocol.
   the glass when the tester appears gives no press edge: it does not arm or
   move the throttle, and its lift still ends a tap on a button that acts on
   release.
-  A finger on the glass at power-up is lifted before HOLD TO ARM.
   Host test `testSplashTouch()`, with a touch fake that stops answering
   (`fakeTouchAnswers()`); the wiki shows `splash-no-touch.png`.
 - The tester's BOARD voltage is amber below 3.50 V and red below 3.30 V,
@@ -71,7 +70,8 @@ protocol.
   a section for a screen that does not react to touch.
 - The wiki pages SD-Logging and SD-Aufzeichnung say to stop a recording
   before cutting the board's power or pulling the card, and what a log cut
-  by a power loss holds: 0 bytes within its first 2 s; later its reserved
+  by a power loss holds: 0 bytes within its first 2 s, with its reserved
+  space left allocated until a file system check; later its reserved
   16 MiB, holding what reached the card, lagging by up to the 8192-byte
   buffer, then old card data; without the reservation, or past 16 MiB, the
   size at the last sync. `docs/design/blackbox-logging.md` answers its open
@@ -101,6 +101,7 @@ protocol.
   does (`tud_umount_cb()`). A program of its own,
   `test/test_usb_msc_cb.cpp`, links the real `src/usb_msc.cpp` and drives
   its callbacks.
+
 - AM32 CONFIG says what a value does and what to do next. Two amber lines
   replace the ESC name on the strip: while 3D MODE is on, `3D MODE: 50%
   THROTTLE IS FULL POWER,` / `ABOVE 50% THE OTHER WAY. PROP OFF.`; with TEMP
