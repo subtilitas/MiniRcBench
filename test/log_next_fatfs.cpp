@@ -243,7 +243,7 @@ static void testFailures(const char *vol) {
 	s_noInit = true;
 	SdLogEnd why = SdLogEnd::None;
 	checkInt("LOGS/ not made: no start", (long)start(&c, &why), 0);
-	checkTrue("the open failed, the number forgotten", why == SdLogEnd::OpenFailed && !c.known);
+	checkTrue("f_mkdir() failed, the number forgotten", why == SdLogEnd::OpenFailed && !c.known);
 	s_protect = false;
 	s_noInit = true;
 	f_mkdir(DIR_PATH);
@@ -252,8 +252,8 @@ static void testFailures(const char *vol) {
 	c.fsId = s_fs.id;
 	c.next = 2;
 	s_protect = true;
-	checkInt("LOGS/ there, the card write-protected: no start", (long)start(&c, &why), 0);
-	checkTrue("the open failed, the number forgotten", why == SdLogEnd::OpenFailed && !c.known);
+	checkInt("LOGS/ there, write-protected: f_mkdir() refused, no start", (long)start(&c, &why), 0);
+	checkTrue("f_mkdir() failed, the number forgotten", why == SdLogEnd::OpenFailed && !c.known);
 	s_protect = false;
 	checkInt("writable again, the same mount: LOGS/ read again, 101", (long)start(&c), 101);
 	// LOGS/ a file, not a directory: f_mkdir() says it exists, the scan fails.
@@ -266,7 +266,7 @@ static void testFailures(const char *vol) {
 	c.next = 5;
 	s_noInit = true;         // mounted again: the kept number is not used
 	checkInt("LOGS a file: the scan fails, no start", (long)start(&c, &why), 0);
-	checkTrue("the open failed, the number forgotten", why == SdLogEnd::OpenFailed && !c.known);
+	checkTrue("the scan failed, the number forgotten", why == SdLogEnd::OpenFailed && !c.known);
 	f_unlink(DIR_PATH);
 }
 

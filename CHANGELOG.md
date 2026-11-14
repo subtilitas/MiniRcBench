@@ -93,7 +93,9 @@ protocol.
   amber, MENU's SETTINGS row `UPDATED`, and SETTINGS' note line `RESET BY
   UPDATE - CHECK AND SAVE`, after the load discarded a whole settings block
   of another version, until a save lands (`settingsResetByUpdate()`). Blank
-  flash and a damaged block show none of them.
+  flash and a damaged block show none of them. After v0.1.0-rc1 only a
+  block of a version with no layout takes this path; versions 2 to 4 carry
+  over (see Changed).
 - SETTINGS repeats the splash's warning, `UNPLUG ANY SERVO FROM GP1 NOW`
   for example, in amber on a line of its own at y 230 while the live ESC pin
   is not the one the splash named (`settingsBootDshotPin()`). The list then
@@ -512,7 +514,7 @@ protocol.
 
 - After v0.1.0-rc1 (a93e1c1): stored settings of versions 2, 3 and 4 carry
   over into version 5, by the owner's decision of 2026-11-14, in place of
-  being discarded whole as the entries above and v0.1.0-rc1 do
+  being discarded whole as v0.1.0-rc1 does and the entries below say
   (`settingsCarriedOver()`). DshotDisplay 2.x's version 2 block carries
   over too. Each older layout is a table of byte offsets in
   `src/settings.cpp`, recovered from `src/settings.h` at 8a5eebb (version
@@ -643,13 +645,13 @@ protocol.
   `-DDSHOT_PIN_LCD_2_8=1 -DKISS_PIN_LCD_2_8=0`. The settings block is
   version 4: a stored block of an earlier version is discarded whole and
   the compiled defaults load, so every saved setting returns to its default
-  once after the update. The release notes give the ESC on GP0, KISS on
-  GP1, the menu path MENU → SETTINGS, and GP28 and GP29 as supply enables
-  only.
-- The settings block is version 5: it adds CURRENT SENSE in the byte that
-  was padding. A version 4 block is discarded whole and the compiled
-  defaults load, so every saved setting returns to its default once after
-  the update.
+  once after the update (v0.1.0-rc1; carried over after it, see Changed).
+  The release notes give the ESC on GP0, KISS on GP1, the menu path
+  MENU → SETTINGS, and GP28 and GP29 as supply enables only.
+- The settings block is version 5: it adds CURRENT SENSE in the byte that was
+  padding. A version 4 block is discarded whole and the compiled defaults load,
+  so every saved setting returns to its default once after the update
+  (v0.1.0-rc1; carried over after it, see Changed).
 - With CURRENT SENSE at `INA219`, the servo tester's sweep count moves from
   the readout row to the first line of the dial, where the current takes
   its place.
@@ -669,11 +671,11 @@ protocol.
   2026-10-28 replaces the no-write decision of 2026-10-23. No write plan of
   rcbench's has run on a servo; bring-up runs one write with read-back per
   family first. Planned, not built.
-- The settings block is version 3: it adds `servoSupply`, the SERVO SUPPLY
-  row. The first boot after the update discards the stored version 2 block
-  and starts from the compiled defaults, every setting and the ESC pin
-  included. DshotDisplay, flashed back, discards a version 3 block the same
-  way.
+- The settings block is version 3: it adds `servoSupply`, the SERVO SUPPLY row.
+  The first boot after the update discards the stored version 2 block and starts
+  from the compiled defaults, every setting and the ESC pin included
+  (v0.1.0-rc1; carried over after it, see Changed). DshotDisplay, flashed back,
+  discards a version 3 block the same way.
 - Blackbox logs are written to `LOGS/LOGnnnnn.BFL` (`SD_LOG_DIR_PATH`), so the
   card's root holds a few directories. Logs an earlier firmware wrote to the
   root stay there and are not counted.
@@ -691,10 +693,11 @@ protocol.
   SCSI product revision `0.1`, from `src/version.h`; DshotDisplay reported
   1.00 and `1.0` in every release.
 - Unchanged, so that a board moves over without being set up again: the USB
-  vendor and product IDs (0x2E8A, 0x4006), and the settings block's magic
-  `DSHT` and its place, the last 4 kB sector. Its layout version is 5, so
-  settings saved by DshotDisplay 2.x (version 2) do not load: the first boot
-  returns every setting to its default once.
+  vendor and product IDs (0x2E8A, 0x4006), and the settings block's magic `DSHT`
+  and its place, the last 4 kB sector. Its layout version is 5, so settings
+  saved by DshotDisplay 2.x (version 2) do not load: the first boot returns
+  every setting to its default once (v0.1.0-rc1; carried over after it, see
+  Changed).
 - MiniRcBench supports one board, the Waveshare RP2350-Touch-LCD-2.8, and
   builds one image for it. The splash and SETTINGS → BUILT FOR name the board
   the image is built for.
