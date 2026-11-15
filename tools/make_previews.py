@@ -82,6 +82,14 @@ PREVIEWS = {
         "shot_am32_hex",
         "shot_am32_written",
     ],
+    # ESC CONFIG, the chooser, then ESC SETTINGS after a Bluejay or
+    # BLHeli_S bootloader answered: the connect page naming it, and the
+    # leave page BACK opens.
+    "esc-preview": [
+        "shot_esc_chooser",
+        "shot_am32_efm8",
+        "shot_am32_leave",
+    ],
     # The servo tester: SAFE before START, one servo driven by the horn, two
     # servos with REVERSE B, and SET holding a heli profile behind its
     # warning.

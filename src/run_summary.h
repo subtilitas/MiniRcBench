@@ -49,7 +49,7 @@ enum class RunSumEnd : uint8_t {
 	Disarm,       /**< The disarm that stops a log arming started. */
 	ByKst,        /**< KST SERVO took the card. */
 	ByHitec,      /**< HITEC SERVO took the card. */
-	ByAm32,       /**< AM32 CONFIG took the card. */
+	ByAm32,       /**< ESC SETTINGS took the card. */
 	CardFull,     /**< A write during the log found the card full. */
 	WriteFailed,  /**< A write during the log failed. */
 };
