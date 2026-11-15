@@ -2,6 +2,8 @@
 #
 #   make          syntax-check, build and run
 #   make build    build only
+#   make run      run the suite, the C test programs and test_set_clock.py,
+#                 the host tests of tools/set_clock.py
 #   make syntax   typecheck the device-only sources
 #   make pioemu   run the SDIO, backlight and USB bridge PIO programs in
 #                 cycle-level models
@@ -69,7 +71,7 @@ SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
         ../src/ui_input.cpp ../src/ui_widgets.cpp ../src/ui_list.cpp \
         ../src/ui_hold.cpp ../src/ui_leave.cpp ../src/board_desc.cpp \
         ../src/settings.cpp ../src/diag.cpp ../src/servo_supply.cpp ../src/am32_eeprom.cpp ../src/bl_answer.cpp ../src/greet_cycle.cpp ../src/card_dir.cpp ../src/backup_ring.cpp ../src/am32_backup.cpp \
-        ../src/kiss_telem.cpp ../src/esc_merge.cpp ../src/blackbox_encode.cpp ../src/run_summary.cpp ../src/clock.cpp \
+        ../src/kiss_telem.cpp ../src/esc_merge.cpp ../src/blackbox_encode.cpp ../src/run_summary.cpp ../src/clock.cpp ../src/clock_line.cpp \
         ../src/log_ring.cpp ../src/pin_claim.cpp \
         $(SERVO_TESTS) $(SERVO_SRCS) $(KST_TESTS) $(KST_SRCS) \
         $(HITEC_TESTS) $(HITEC_SRCS) $(RX_TESTS) $(RX_SRCS) \
@@ -184,6 +186,8 @@ run: $(BIN) $(CTEST_BINS) $(CXXTEST_BINS) $(MSC_CB_BIN)
 		./$$t || { echo "FAIL $$t"; exit 1; }; \
 		echo "$$(basename $$t): passed"; \
 	done
+	@out=$$(python3 test_set_clock.py 2>&1) || { echo "$$out"; exit 1; }; \
+		echo "test_set_clock.py: $$(echo "$$out" | grep '^Ran ')"
 
 # Every device source, plus both settings of the two feature switches so the
 # disabled paths cannot rot unnoticed.
