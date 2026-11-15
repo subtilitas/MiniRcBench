@@ -1,7 +1,7 @@
 /**
  * @file ui_am32.h
- * @brief ESC SETTINGS, the ESC settings screen: AM32 read and written,
- *        Bluejay and BLHeli_S read.
+ * @brief ESC SETTINGS, the ESC settings screen: AM32, Bluejay and
+ *        BLHeli_S read and written.
  *
  * A separate mode from the throttle tester, opened from the ESC CONFIG
  * chooser (ui_esc_config.h): entering it claims the signal pin
@@ -15,14 +15,19 @@
  * An EFM8 answer gives the claim the leave page (pinClaimWantLeavePage()),
  * sets MENU's run cue, ends the AM32 transport and starts the claim's core1
  * job, rcbench's escwire session (escwire_job.h), which makes its own first
- * contact and reads the page (docs/design/bluejay-blheli-s.md, slice 3).
- * The page opens as a list, read-only in this build, or the connect page
- * names why it is not taken. BACK from the list sends LEAVE, `00 01`, which
- * starts the ESC's firmware, and gives SIG back to DShot; the cue stays until
- * an eRPM frame. Every other BACK after an EFM8 answer, or after a reply that
- * holds a piece of one, opens the leave page of decision 8 of that note,
- * whose RESTART DSHOT gives SIG back to DShot and clears the cue. Nothing
- * here writes a Bluejay or BLHeli_S ESC.
+ * contact and reads the page (docs/design/bluejay-blheli-s.md, slices 3
+ * and 4). A page of a written layout, Bluejay 208 or BLHeli_S 33, opens as
+ * an editable list; an older layout, lost tags or a wrong marker as a
+ * read-only list whose backup is saved as it opens; a page not taken stays
+ * on the connect page, named. `WRITE...` opens ESC WRITE, whose HOLD TO
+ * WRITE saves the backup of the page as first read (`BJnnn.TXT`,
+ * `BHnnn.TXT`) and then has the job write the draft, verified by reading
+ * back. BACK from the list sends LEAVE, `00 01`, which starts the ESC's
+ * firmware, and gives SIG back to DShot; the cue stays until an eRPM frame.
+ * BACK on a half-written page is guarded: the second aborts the session
+ * with no LEAVE. Every other BACK after an EFM8 answer, or after a reply
+ * that holds a piece of one, opens the leave page of decision 8 of that
+ * note, whose RESTART DSHOT gives SIG back to DShot and clears the cue.
  *
  * @see am32_bl.h for the transport, am32_eeprom.h for the settings layout.
  */
@@ -215,9 +220,7 @@ bool uiAm32Tick(const TouchState *t);
 #define AM32_UI_EW_STOPPED_1 "THE ESC ANSWERED, THEN STOPPED."
 /** @brief Its second line: the connect cycle greets again. */
 #define AM32_UI_EW_STOPPED_2 "SEARCHING AGAIN."
-/** @brief The list's bar, first line: 33 characters, 197 px, grey. */
-#define AM32_UI_EW_BAR_1 "SHOWN ONLY: WRITING IS NOT BUILT."
-/** @brief The list's bar, second line: 33 characters, 197 px, grey. */
+/** @brief The list's bar, second line, under EFM8_UI_BAR_EDIT or EFM8_UI_BAR_SHOWN: 33 characters, 197 px, grey. */
 #define AM32_UI_EW_BAR_2 "BACK SENDS LEAVE: THE ESC STARTS."
 /** @brief The page while LEAVE goes out: its heading. */
 #define AM32_UI_EXIT_HEAD "LEAVING"
@@ -290,6 +293,7 @@ enum class Am32Ctl : uint8_t {
 	Stay,                     /**< STAY on the leave page, before LEAVE: back to the screen. */
 	Leave,                    /**< LEAVE on the leave page: the transport lets go of SIG. */
 	Restart,                  /**< RESTART DSHOT in LEAVE's place, live 1000 ms after SIG is let go. */
+	ReadAgain,                /**< READ AGAIN in WRITE...'s place on the EFM8 list, after a write that needs a read. */
 };
 
 struct UiControl;

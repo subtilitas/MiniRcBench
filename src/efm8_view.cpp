@@ -5,6 +5,7 @@
 
 #include "efm8_view.h"
 #include "ui_am32.h"
+#include "ew_session.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -87,14 +88,21 @@ void efm8Caption(const ew_ident_t *id, const uint8_t *page, uint16_t sig, char *
 	         (unsigned)page[1], (unsigned)page[2], (unsigned)sig);
 }
 
-bool efm8ReadOnlyLines(const ew_ident_t *id, const uint8_t *page, char *l1, const char **l2) {
+bool efm8ReadOnlyLines(const ew_ident_t *id, const uint8_t *page, Efm8Backup b, const char *name, char *l1,
+                       char *l2) {
 	if (efm8ViewOf(id) != Efm8View::ReadOnly) return false;
-	if (id->why == EW_WHY_RESET_PAGE) {
+	const bool tags = id->why == EW_WHY_RESET_PAGE;
+	const char *head = tags ? EFM8_UI_REFLASH : EFM8_UI_SHOWN_ONLY;
+	if (b == Efm8Backup::Saved)
+		snprintf(l2, EFM8_LINE_CHARS + 1, "%s" EFM8_UI_RO_SAVED "%.5s", head, name);
+	else if (b == Efm8Backup::Failed)
+		snprintf(l2, EFM8_LINE_CHARS + 1, "%s" EFM8_UI_RO_FAILED, head);
+	else
+		snprintf(l2, EFM8_LINE_CHARS + 1, "%s%s", head, tags ? EFM8_UI_RO_NO_CARD_TAGS : EFM8_UI_RO_NO_CARD);
+	if (tags) {
 		snprintf(l1, EFM8_LINE_CHARS + 1, "%s", EFM8_UI_LOST_TAGS);
-		*l2 = EFM8_UI_REFLASH;
 	} else if (id->why == EW_WHY_MARKER) {
 		snprintf(l1, EFM8_LINE_CHARS + 1, "%s", EFM8_UI_MARKER);
-		*l2 = EFM8_UI_SHOWN_ONLY;
 	} else {
 		// An older layout: `BLUEJAY 0.19, LAYOUT 206: READ-ONLY.`; a version
 		// too long for the line is left out.
@@ -103,9 +111,91 @@ bool efm8ReadOnlyLines(const ew_ident_t *id, const uint8_t *page, char *l1, cons
 		if (n > EFM8_LINE_CHARS)
 			snprintf(l1, EFM8_LINE_CHARS + 1, "%s LAYOUT %u: READ-ONLY.", efm8FwName(id->fw),
 			         (unsigned)page[2]);
-		*l2 = EFM8_UI_SHOWN_ONLY;
 	}
 	return true;
+}
+
+bool efm8RowEditable(const ew_ident_t *id, const ew_field_t *f) {
+	return f && id->writable && f->access == EW_ACC_EDIT;
+}
+
+bool efm8Step(const ew_field_t *f, uint8_t *raw, int dir) {
+	// The nearest value of the field past the byte in that direction.
+	int v = *raw;
+	for (int k = v + dir; k >= 0 && k <= 255; k += dir) {
+		if (ew_field_ok(f, (uint8_t)k)) {
+			*raw = (uint8_t)k;
+			return true;
+		}
+	}
+	return false;
+}
+
+int efm8CoarseFactor(const ew_field_t *f) {
+	const int span = 11;
+	int range = (int)f->hi - (int)f->lo;
+	return range <= 0 ? 1 : (range + span - 1) / span;
+}
+
+int efm8Changes(const Efm8Row *rows, int n, const uint8_t *from, const uint8_t *to) {
+	int c = 0;
+	for (int i = 0; i < n; i++)
+		if (from[rows[i].f->off] != to[rows[i].f->off]) c++;
+	return c;
+}
+
+Efm8Result efm8WriteResult(uint8_t result, bool dirty, bool inMode) {
+	Efm8Result r = { nullptr, nullptr, false, false };
+	switch (result) {
+		case EW_SES_OK:
+			r.verified = true;
+			r.l2 = EFM8_UI_LEAVING_2;
+			break;
+		case EW_SES_ERR_READ:
+			r.l1 = EFM8_UI_READ_1;
+			r.l2 = EFM8_UI_AGAIN_2;
+			break;
+		case EW_SES_ERR_CHANGED:
+			r.l1 = EFM8_UI_CHANGED_1;
+			r.l2 = EFM8_UI_READ_AGAIN_2;
+			r.mustRead = true;
+			break;
+		case EW_SES_ERR_WRITE_FAILED:
+			r.l1 = EFM8_UI_FAILED_1;
+			r.l2 = EFM8_UI_AGAIN_2;
+			break;
+		case EW_SES_ERR_TORN:
+			r.l1 = EFM8_UI_TORN_1;
+			r.l2 = EFM8_UI_TORN_2;
+			break;
+		case EW_SES_ERR_LOST:
+			r.l1 = EFM8_UI_LOST_1;
+			r.l2 = EFM8_UI_LOST_2;
+			r.mustRead = true;
+			break;
+		case EW_SES_ERR_MUST_READ:
+			r.l1 = dirty ? EFM8_UI_TORN_1 : EFM8_UI_REFUSED_W;
+			r.l2 = EFM8_UI_LOST_2;
+			r.mustRead = true;
+			break;
+		case EW_SES_ERR_STOPPED:
+			r.l1 = dirty ? EFM8_UI_TORN_1 : EFM8_UI_STOPPED_1;
+			break;
+		case EW_SES_ERR_DRIVER:
+			r.l1 = dirty ? EFM8_UI_LOST_1 : EFM8_UI_DRIVER_1;
+			break;
+		default:
+			// The session's refusals before any frame, and a frame the
+			// guard refused, which can follow the erase.
+			r.l1 = dirty ? EFM8_UI_TORN_1 : EFM8_UI_REFUSED_W;
+			break;
+	}
+	if (!inMode) {
+		// Nothing more goes on this session: OK greets the ESC again.
+		r.l2 = EFM8_UI_ENDED_2;
+		r.mustRead = false;
+	}
+	return r;
 }
 
 bool efm8PageEmpty(const uint8_t *page) {

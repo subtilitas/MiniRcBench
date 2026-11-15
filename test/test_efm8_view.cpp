@@ -15,6 +15,7 @@
 #include "fake_fatfs.h"
 #include "card_dir.h"
 #include "ew_file.h"
+#include "ew_session.h"
 #include "sd_log.h"
 #include "usb_msc.h"
 #include "gfx.h"
@@ -165,7 +166,7 @@ static void testStrip() {
 	ew_contact_t c;
 	ew_ident_t id;
 	char l1[EFM8_LINE_CHARS + 1];
-	const char *l2 = nullptr;
+	char l2[EFM8_LINE_CHARS + 1];
 
 	sim_bj_page(page);
 	ident(0xB2, page, &c, &id);
@@ -173,7 +174,7 @@ static void testStrip() {
 	checkStr("Bluejay 0.21", l1, "BLUEJAY 0.21  LAYOUT 208  E8B2");
 	checkTrue("30 characters, 179 px", strlen(l1) == 30 && w1(l1) == 179);
 	checkTrue("a list", efm8ViewOf(&id) == Efm8View::List);
-	checkTrue("not read-only", !efm8ReadOnlyLines(&id, page, l1, &l2));
+	checkTrue("not read-only", !efm8ReadOnlyLines(&id, page, Efm8Backup::NoCard, "", l1, l2));
 	checkTrue("DIRECTION 1: no 3D", !efm8Is3d(page));
 	page[0x0B] = 3;
 	checkTrue("DIRECTION 3: 3D", efm8Is3d(page));
@@ -199,39 +200,51 @@ static void testStrip() {
 	page[2] = 206;
 	ident(0xB2, page, &c, &id);
 	checkTrue("Bluejay 206: read-only", efm8ViewOf(&id) == Efm8View::ReadOnly &&
-	          efm8ReadOnlyLines(&id, page, l1, &l2));
+	          efm8ReadOnlyLines(&id, page, Efm8Backup::NoCard, "", l1, l2));
 	checkStr("its first line", l1, "BLUEJAY 0.19, LAYOUT 206: READ-ONLY.");
 	checkTrue("36 characters, 215 px", strlen(l1) == 36 && w1(l1) == 215);
-	checkStr("its second line", l2, EFM8_UI_SHOWN_ONLY);
-	checkTrue("28 characters, 167 px", w1(l2) == 167);
+	checkStr("its second line, no card", l2, "SHOWN ONLY. NO CARD: NO BACKUP.");
+	checkTrue("31 characters, 185 px", w1(l2) == 185);
+	efm8ReadOnlyLines(&id, page, Efm8Backup::Saved, "BJ018.TXT", l1, l2);
+	checkStr("the backup on the card", l2, "SHOWN ONLY. BACKUP BJ018");
+	checkTrue("24 characters, 143 px", w1(l2) == 143);
+	efm8ReadOnlyLines(&id, page, Efm8Backup::Failed, "", l1, l2);
+	checkStr("the card refused it", l2, "SHOWN ONLY. BACKUP FAILED.");
+	checkTrue("26 characters, 155 px", w1(l2) == 155);
 	page[0] = 255;
 	page[1] = 255;
-	efm8ReadOnlyLines(&id, page, l1, &l2);
+	efm8ReadOnlyLines(&id, page, Efm8Backup::NoCard, "", l1, l2);
 	checkStr("main and sub 255: the version left out", l1, "BLUEJAY LAYOUT 206: READ-ONLY.");
 	// BLHeli_S 16.2, layout 32.
 	sim_s_page(page);
 	page[1] = 2;
 	page[2] = 32;
 	ident(0xB2, page, &c, &id);
-	efm8ReadOnlyLines(&id, page, l1, &l2);
+	efm8ReadOnlyLines(&id, page, Efm8Backup::NoCard, "", l1, l2);
 	checkStr("BLHeli_S 32", l1, "BLHELI_S 16.2, LAYOUT 32: READ-ONLY.");
 	// Lost tags: BLHeli_S 33 with its tags 0xFF.
 	sim_s_page(page);
 	memset(page + 0x40, 0xFF, 48);
 	ident(0xB2, page, &c, &id);
 	checkTrue("tags 0xFF: read-only", efm8ViewOf(&id) == Efm8View::ReadOnly &&
-	          id.why == EW_WHY_RESET_PAGE && efm8ReadOnlyLines(&id, page, l1, &l2));
+	          id.why == EW_WHY_RESET_PAGE && efm8ReadOnlyLines(&id, page, Efm8Backup::NoCard, "", l1, l2));
 	checkStr("its first line", l1, EFM8_UI_LOST_TAGS);
-	checkStr("its second line", l2, EFM8_UI_REFLASH);
-	checkTrue("29 and 33 characters, 173 and 197 px", w1(l1) == 173 && w1(l2) == 197);
+	checkStr("its second line, no card", l2, "REFLASH ON A COMPUTER. NO CARD.");
+	checkTrue("29 and 31 characters, 173 and 185 px", w1(l1) == 173 && w1(l2) == 185);
+	efm8ReadOnlyLines(&id, page, Efm8Backup::Saved, "BH018.TXT", l1, l2);
+	checkStr("the backup on the card", l2, "REFLASH ON A COMPUTER. BACKUP BH018");
+	checkTrue("35 characters, 209 px", w1(l2) == 209);
+	efm8ReadOnlyLines(&id, page, Efm8Backup::Failed, "", l1, l2);
+	checkStr("the card refused it", l2, "REFLASH ON A COMPUTER. BACKUP FAILED.");
+	checkTrue("37 characters, 221 px", w1(l2) == 221);
 	// The marker.
 	sim_bj_page(page);
 	page[0x0E] = 0x00;
 	ident(0xB2, page, &c, &id);
 	checkTrue("the marker wrong: read-only", efm8ViewOf(&id) == Efm8View::ReadOnly &&
-	          id.why == EW_WHY_MARKER && efm8ReadOnlyLines(&id, page, l1, &l2));
+	          id.why == EW_WHY_MARKER && efm8ReadOnlyLines(&id, page, Efm8Backup::NoCard, "", l1, l2));
 	checkStr("its first line", l1, EFM8_UI_MARKER);
-	checkStr("its second line", l2, EFM8_UI_SHOWN_ONLY);
+	checkStr("its second line", l2, "SHOWN ONLY. NO CARD: NO BACKUP.");
 	checkTrue("33 characters, 197 px", w1(l1) == 197);
 	checkStr("the names", efm8FwName(EW_FW_AM), "EFM8");
 }
@@ -330,6 +343,160 @@ static bool hasLine(const char *text, size_t n, const char *line) {
 	return false;
 }
 
+/** @brief The row of @p name among @p fw's rows of @p layout. */
+static const ew_field_t *fieldOf(uint8_t fw, uint8_t layout, const char *name) {
+	Efm8Row r[EFM8_ROWS_MAX];
+	int n = efm8Rows(fw, layout, r, EFM8_ROWS_MAX);
+	for (int i = 0; i < n; i++)
+		if (strcmp(r[i].f->name, name) == 0) return r[i].f;
+	return nullptr;
+}
+
+/** @brief The editable rows' labels of a page, joined by `|`. */
+static const char *editable(uint8_t sig, bool bluejay) {
+	static char out[512];
+	uint8_t page[256];
+	ew_contact_t c;
+	ew_ident_t id;
+	if (bluejay) sim_bj_page(page);
+	else sim_s_page(page);
+	ident(sig, page, &c, &id);
+	Efm8Row r[EFM8_ROWS_MAX];
+	int n = efm8Rows(id.fw, id.layout, r, EFM8_ROWS_MAX);
+	out[0] = '\0';
+	for (int i = 0; i < n; i++) {
+		if (!efm8RowEditable(&id, r[i].f)) continue;
+		if (out[0]) strcat(out, "|");
+		strcat(out, r[i].f->name);
+	}
+	return out;
+}
+
+static void testEdit() {
+	section("EFM8 list: the rows a write may change");
+	checkStr("BLHeli_S 33: 12 rows", editable(0xB1, false),
+	         "STARTUP POWER|DIRECTION|TIMING|DEMAG|BRAKE ON STOP|TEMPERATURE|LOW-SPEED PROTECTION|"
+	         "BEEP STRENGTH|BEACON STRENGTH|BEACON DELAY|STICK PROGRAMMING|LED");
+	checkStr("Bluejay 208: 15 rows", editable(0xB2, true),
+	         "DIRECTION|TIMING|DEMAG|MIN STARTUP POWER|STARTUP SOUND|MAX STARTUP POWER|POWER SLOPE|"
+	         "BRAKING|BRAKE ON STOP|TEMPERATURE|POWER RATING|BEEP STRENGTH|BEACON STRENGTH|BEACON DELAY|LED");
+	uint8_t page[256];
+	ew_contact_t c;
+	ew_ident_t id;
+	sim_bj_page(page);
+	page[0x01] = 19;
+	page[0x02] = 206;
+	ident(0xB2, page, &c, &id);
+	checkTrue("Bluejay 206: none", !efm8RowEditable(&id, fieldOf(EW_FW_BJ, 206, "DIRECTION")));
+	checkTrue("no field: none", !efm8RowEditable(&id, nullptr));
+
+	section("EFM8 list: the editor's steps");
+	const ew_field_t *dir = fieldOf(EW_FW_BJ, 208, "DIRECTION");
+	uint8_t v = 1;
+	checkTrue("DIRECTION 1 down: the rail", !efm8Step(dir, &v, -1) && v == 1);
+	checkTrue("up: 2", efm8Step(dir, &v, +1) && v == 2);
+	v = 4;
+	checkTrue("4 up: the rail", !efm8Step(dir, &v, +1) && v == 4);
+	v = 9;
+	checkTrue("9, none of its values, down: 4", efm8Step(dir, &v, -1) && v == 4);
+	v = 0;
+	checkTrue("0 up: 1", efm8Step(dir, &v, +1) && v == 1);
+	const ew_field_t *beep = fieldOf(EW_FW_BJ, 208, "BEEP STRENGTH");
+	v = 255;
+	checkTrue("BEEP STRENGTH 255 up: the rail", !efm8Step(beep, &v, +1));
+	v = 0;
+	checkTrue("BEEP STRENGTH 0 down: the rail, 0 its lowest", !efm8Step(beep, &v, -1) && v == 0);
+	const ew_field_t *sbeep = fieldOf(EW_FW_S, 33, "BEEP STRENGTH");
+	v = 1;
+	checkTrue("BLHeli_S' BEEP STRENGTH 1 down: the rail", !efm8Step(sbeep, &v, -1) && v == 1);
+	const ew_field_t *temp = fieldOf(EW_FW_BJ, 208, "TEMPERATURE");
+	v = 7;
+	checkTrue("TEMPERATURE 7 up: the rail", !efm8Step(temp, &v, +1) && v == 7);
+	checkInt("a field of 0 to 255: 24 a coarse step", efm8CoarseFactor(beep), 24);
+	checkInt("1 to 255: 24", efm8CoarseFactor(sbeep), 24);
+	checkInt("DIRECTION: 1", efm8CoarseFactor(dir), 1);
+	checkInt("POWER SLOPE, 0 to 13: 2", efm8CoarseFactor(fieldOf(EW_FW_BJ, 208, "POWER SLOPE")), 2);
+	ew_field_t one = *dir;
+	one.hi = one.lo;
+	checkInt("a field of one value: 1", efm8CoarseFactor(&one), 1);
+	Efm8Row r[EFM8_ROWS_MAX];
+	int n = efm8Rows(EW_FW_BJ, 208, r, EFM8_ROWS_MAX);
+	uint8_t to[256];
+	sim_bj_page(page);
+	memcpy(to, page, sizeof(to));
+	checkInt("no change", efm8Changes(r, n, page, to), 0);
+	to[0x0B] = 2;
+	to[0x15] = 1;
+	to[0x45] = 0;  // a tag: no row
+	checkInt("two rows changed, a tag not counted", efm8Changes(r, n, page, to), 2);
+}
+
+static void testResults() {
+	section("ESC WRITE: the results' lines");
+	struct Want {
+		uint8_t r;
+		bool dirty, inMode;
+		const char *l1, *l2;
+		bool verified, mustRead;
+	};
+	static const Want W[] = {
+		{ EW_SES_OK, false, true, nullptr, EFM8_UI_LEAVING_2, true, false },
+		{ EW_SES_ERR_READ, false, true, EFM8_UI_READ_1, EFM8_UI_AGAIN_2, false, false },
+		{ EW_SES_ERR_CHANGED, false, true, EFM8_UI_CHANGED_1, EFM8_UI_READ_AGAIN_2, false, true },
+		{ EW_SES_ERR_WRITE_FAILED, false, true, EFM8_UI_FAILED_1, EFM8_UI_AGAIN_2, false, false },
+		{ EW_SES_ERR_TORN, true, true, EFM8_UI_TORN_1, EFM8_UI_TORN_2, false, false },
+		{ EW_SES_ERR_LOST, true, true, EFM8_UI_LOST_1, EFM8_UI_LOST_2, false, true },
+		{ EW_SES_ERR_MUST_READ, true, true, EFM8_UI_TORN_1, EFM8_UI_LOST_2, false, true },
+		{ EW_SES_ERR_MUST_READ, false, true, EFM8_UI_REFUSED_W, EFM8_UI_LOST_2, false, true },
+		{ EW_SES_ERR_STOPPED, false, false, EFM8_UI_STOPPED_1, EFM8_UI_ENDED_2, false, false },
+		{ EW_SES_ERR_STOPPED, true, false, EFM8_UI_TORN_1, EFM8_UI_ENDED_2, false, false },
+		{ EW_SES_ERR_DRIVER, false, false, EFM8_UI_DRIVER_1, EFM8_UI_ENDED_2, false, false },
+		{ EW_SES_ERR_DRIVER, true, false, EFM8_UI_LOST_1, EFM8_UI_ENDED_2, false, false },
+		{ EW_SES_ERR_REFUSED, false, true, EFM8_UI_REFUSED_W, nullptr, false, false },
+		{ EW_SES_ERR_REFUSED, true, false, EFM8_UI_TORN_1, EFM8_UI_ENDED_2, false, false },
+		{ EW_SES_ERR_NOT_WRITABLE, false, true, EFM8_UI_REFUSED_W, nullptr, false, false },
+		{ EW_SES_OK, false, false, nullptr, EFM8_UI_ENDED_2, true, false },
+		{ EW_SES_ERR_TORN, true, false, EFM8_UI_TORN_1, EFM8_UI_ENDED_2, false, false },
+		{ EW_SES_ERR_LOST, true, false, EFM8_UI_LOST_1, EFM8_UI_ENDED_2, false, false },
+	};
+	for (const Want &w : W) {
+		Efm8Result r = efm8WriteResult(w.r, w.dirty, w.inMode);
+		char what[96];
+		snprintf(what, sizeof(what), "result %u%s%s", (unsigned)w.r, w.dirty ? ", half written" : "",
+		         w.inMode ? "" : ", the session ended");
+		bool ok = r.verified == w.verified && r.mustRead == w.mustRead &&
+		          ((!r.l1 && !w.l1) || (r.l1 && w.l1 && strcmp(r.l1, w.l1) == 0)) &&
+		          ((!r.l2 && !w.l2) || (r.l2 && w.l2 && strcmp(r.l2, w.l2) == 0));
+		checkTrue(what, ok);
+	}
+	// The texts the note names, and their widths at scale 1.
+	struct Fit {
+		const char *s;
+		int px;
+	};
+	static const Fit F[] = {
+		{ EFM8_UI_LEAVING_2, 197 }, { EFM8_UI_READ_1, 167 }, { EFM8_UI_AGAIN_2, 119 },
+		{ EFM8_UI_CHANGED_1, 179 }, { EFM8_UI_READ_AGAIN_2, 113 }, { EFM8_UI_FAILED_1, 161 },
+		{ EFM8_UI_TORN_1, 209 }, { EFM8_UI_TORN_2, 143 }, { EFM8_UI_LOST_1, 209 }, { EFM8_UI_LOST_2, 143 },
+		{ EFM8_UI_GUARD_1, 209 }, { EFM8_UI_GUARD_2, 203 }, { EFM8_UI_AS_READ, 191 },
+		{ "WRITE VERIFIED. BACKUP BJ018", 167 }, { "BACKUP FIRST: BACKUP/BJ001.TXT", 179 },
+	};
+	for (const Fit &f : F) {
+		char what[80];
+		snprintf(what, sizeof(what), "%s: %d px", f.s, f.px);
+		checkTrue(what, w1(f.s) == f.px);
+	}
+	static const char *const MINE[] = {
+		EFM8_UI_STOPPED_1, EFM8_UI_DRIVER_1, EFM8_UI_REFUSED_W, EFM8_UI_ENDED_2, EFM8_UI_DIRTY_READ,
+		EFM8_UI_DIRTY_WRITE, EFM8_UI_BAR_EDIT, EFM8_UI_BAR_SHOWN,
+	};
+	for (const char *m : MINE) {
+		char what[80];
+		snprintf(what, sizeof(what), "%s: within 37 characters", m);
+		checkTrue(what, strlen(m) <= EFM8_LINE_CHARS);
+	}
+}
+
 static void testBackup() {
 	section("EFM8 backup: rcbench's text of a Bluejay page");
 	static char text[EW_FILE_MAX];
@@ -426,5 +593,7 @@ void runEfm8ViewTests() {
 	testStrip();
 	testRefusals();
 	testNotes();
+	testEdit();
+	testResults();
 	testBackup();
 }

@@ -5947,16 +5947,16 @@ static void testAm32Efm8() {
 		checkTrue("the strip: BLUEJAY 0.21  LAYOUT 208  E8B2, dim",
 		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "BLUEJAY 0.21  LAYOUT 208  E8B2", C_DIM, C_BG, 1));
 		UiRect r0 = ctlRect(UI_ROW(0, Row));
-		checkTrue("row 0: MOTOR, DIRECTION NORMAL, read-only grey",
+		checkTrue("row 0: MOTOR, DIRECTION NORMAL, editable: label dim, value in the text colour",
 		          fakeTextIs(UI_MARGIN, r0.y + 11, "MOTOR", C_GRID, C_BG, 1) &&
-		          fakeTextIs(UI_MARGIN, r0.y + 21, "DIRECTION", C_GRID, C_BG, 1) &&
-		          fakeTextIs(GFX_W - UI_MARGIN - gfxTextW("NORMAL", 2), r0.y + 13, "NORMAL", C_GRID, C_BG, 2));
-		checkTrue("WRITE... and REVERT drawn disabled, HEX live",
+		          fakeTextIs(UI_MARGIN, r0.y + 21, "DIRECTION", C_DIM, C_BG, 1) &&
+		          fakeTextIs(GFX_W - UI_MARGIN - gfxTextW("NORMAL", 2), r0.y + 13, "NORMAL", C_TEXT, C_BG, 2));
+		checkTrue("no edit: WRITE... and REVERT drawn disabled, HEX live",
 		          !ctlEnabled(UI_FIX(Am32Ctl::Write)) && !ctlEnabled(UI_FIX(Am32Ctl::Revert)) &&
 		          ctlEnabled(UI_FIX(Am32Ctl::Hex)));
-		checkTrue("the bar's lines", fakeTextCentredIs(EDIT_Y + 12, AM32_UI_EW_BAR_1, C_GRID, C_BG, 1) &&
+		checkTrue("the bar's lines", fakeTextCentredIs(EDIT_Y + 12, EFM8_UI_BAR_EDIT, C_GRID, C_BG, 1) &&
 		          fakeTextCentredIs(EDIT_Y + 26, AM32_UI_EW_BAR_2, C_GRID, C_BG, 1));
-		checkTrue("33 characters each, 197 px", gfxTextW(AM32_UI_EW_BAR_1, 1) == 197 &&
+		checkTrue("21 and 33 characters, 125 and 197 px", gfxTextW(EFM8_UI_BAR_EDIT, 1) == 125 &&
 		          gfxTextW(AM32_UI_EW_BAR_2, 1) == 197);
 		fakeDumpFrame("shot_efm8_list.ppm");
 		tapId(UI_FIX(Am32Ctl::Write), IdExpect::Disabled);
@@ -5968,18 +5968,22 @@ static void testAm32Efm8() {
 		checkTrue("at OFF: PROTECTION OFF", fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROT_1, UI_COL_WARN, C_BG, 1) &&
 		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_PROT_2, UI_COL_WARN, C_BG, 1));
 		checkTrue("selected: the row's fill", fakeTextIs(UI_MARGIN, ctlRect(UI_ROW(s_ewSel, Row)).y + 21,
-		                                                 "TEMPERATURE", C_GRID, C_PANEL, 1));
+		                                                 "TEMPERATURE", C_TEXT, C_PANEL, 1));
 		checkTrue("POWER RATING selected", ewTapRow("POWER RATING"));
 		checkTrue("its note", fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, EFM8_UI_RATING_1, UI_COL_WARN, C_BG, 1) &&
 		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, EFM8_UI_RATING_2, UI_COL_WARN, C_BG, 1));
 		fakeDumpFrame("shot_efm8_note.ppm");
 		checkTrue("LED selected: the caption again", ewTapRow("LED") &&
 		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "BLUEJAY 0.21  LAYOUT 208  E8B2", C_DIM, C_BG, 1));
+		checkTrue("LED edits: - and +", ctlEnabled(UI_FIX(Am32Ctl::EditMinus)) &&
+		          ctlEnabled(UI_FIX(Am32Ctl::EditPlus)));
+		checkTrue("PWM INDICATOR selected: shown only, its label grey", ewTapRow("PWM INDICATOR") &&
+		          fakeTextIs(UI_MARGIN, ctlRect(UI_ROW(s_ewSel, Row)).y + 21, "PWM INDICATOR", C_GRID, C_PANEL, 1));
 		checkTrue("no -, no +", !ctlPresent(UI_FIX(Am32Ctl::EditMinus)) && !ctlPresent(UI_FIX(Am32Ctl::EditPlus)));
-		uint8_t led = s_ewPage[0x28];
+		uint8_t pwm = s_ewDraft[0x0A];
 		UiRect rl = ctlRect(UI_ROW(s_ewSel, Row));
 		swipe(rl.x + 40, rl.x + 200, rl.y + rl.h / 2, 8);
-		checkTrue("a swipe on it changes nothing", s_ewPage[0x28] == led && e->programs == 0);
+		checkTrue("a swipe on it changes nothing", s_ewDraft[0x0A] == pwm && !ewEdited() && e->programs == 0);
 
 		section("ESC SETTINGS: ESC HEX of a Bluejay page");
 		uiListScrollTo(&s_list, 0);
@@ -6059,7 +6063,7 @@ static void testAm32Efm8() {
 		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_3D_2, UI_COL_WARN, C_BG, 1));
 		UiRect r1 = ctlRect(UI_ROW(1, Row));
 		checkTrue("DIRECTION, row 1: 3D", strcmp(s_ewRows[1].f->name, "DIRECTION") == 0 &&
-		          fakeTextIs(GFX_W - UI_MARGIN - gfxTextW("3D", 2), r1.y + 13, "3D", C_GRID, C_BG, 2));
+		          fakeTextIs(GFX_W - UI_MARGIN - gfxTextW("3D", 2), r1.y + 13, "3D", C_TEXT, C_BG, 2));
 		checkTrue("the tester's 3D note is set", esc3dNote());
 		fakeDumpFrame("shot_efm8_3d.ppm");
 		tapId(UI_FIX(Am32Ctl::Hex));
