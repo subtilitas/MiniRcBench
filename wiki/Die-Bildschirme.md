@@ -11,8 +11,9 @@ Werkzeuge für Empfängersignale. SETTINGS öffnet auch über die Polzahl
 und die Obergrenze des Testers; `BACK` führt dann zum Tester zurück.
 
 ```
-Tester ──MENU──> MENU ──┬── ESC CONFIG ──> ESC CONFIG ──BACK──> MENU
-   ▲                    │    ├── ESC SETTINGS ──> ESC SETTINGS ──BACK──> MENU
+Tester ──MENU──> MENU ──┬── ESC COMMANDS ──BACK──> MENU
+   ▲                    ├── ESC CONFIG ──> ESC CONFIG ──BACK──> MENU
+   │                    │    ├── ESC SETTINGS ──> ESC SETTINGS ──BACK──> MENU
    │                    │    │   (nach einer Antwort von Bluejay oder BLHeli_S: BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> MENU)
    │                    │    └── USB BRIDGE   (als Umriss gezeichnet: NOT BUILT)
    │                    ├── SERVO TESTER ──BACK──> Verlassenseite ──RESTART DSHOT──> MENU
@@ -30,9 +31,6 @@ Tester ──MENU──> MENU ──┬── ESC CONFIG ──> ESC CONFIG ─�
    └──── BACK auf MENU ─┘
 Tester ──14 POLES oder MAX 20% (entschärft)──> SETTINGS ──BACK──> Tester
 ```
-
-`BEEP THE ESC` ist eine Zeile von `MENU`, die etwas auslöst und keinen
-Bildschirm öffnet.
 
 **BACK sitzt oben rechts** im Kopfbereich, auf jedem Bildschirm außer dem
 Tester. Der Kopfbereich ist 36 px hoch, `BACK` misst 64 × 32 px. Der Tester ist
@@ -132,21 +130,24 @@ Beispiel `14 POLES`, stehen darunter. Grüne Ziffern: eRPM ist in den letzten
 Dunkelrote Null: nicht, und die Zeile zeigt `NO TELEMETRY`.
 
 Hat ESC SETTINGS seit dem Einschalten einen ESC mit 3D MODE an gelesen, oder
-3D MODE an geschrieben (vom ESC angenommen, bestätigt oder nicht), zeigt die
-Zeile unter der `ERPM`-Zeile in Bernstein `3D MODE ESC: THROTTLE SCALE DIFFERS`
-(3D-ESC: die Gasskala ist eine andere), an Stelle der Polzahl und des
+3D MODE an geschrieben (vom ESC angenommen, bestätigt oder nicht), oder kam
+`3D ON` auf [ESC COMMANDS](#esc-commands), zeigt die Zeile unter der
+`ERPM`-Zeile in Bernstein `3D MODE ESC: 0-50% REVERSED AT 2X` (3D-ESC: 0 bis
+50 % rückwärts mit doppeltem Gas), an Stelle der Polzahl und des
 Wisch-Hinweises, scharf oder nicht; `NO TELEMETRY` bleibt auf seiner eigenen
 Zeile darüber. Solange ein Wischer auf der Gasfläche greift, steht
 `SWIPE ACTIVE` in Grün in der Zeile, und nach dem Loslassen kehrt der Hinweis
-zurück. Im 3D-Modus ist 50 % Gas volle Leistung in die eine Richtung, über 50 %
-dreht der Motor in die andere. Den Propeller abnehmen. Scharfschalten wird
-deswegen nicht verweigert. Der Hinweis weiß nicht, ob der ESC am Pin gegen einen
-anderen getauscht wurde; nur ein bestätigtes Schreiben oder ein Lesen, das die
-Liste öffnet, mit 3D MODE aus oder ein Neustart nimmt ihn weg; die
-Nur-Lese-Ansicht eines unbekannten Layouts lässt ihn. Siehe
-[AM32-Konfiguration](AM32-Konfiguration#felder-mit-hinweis).
+zurück. Im 3D-Modus dreht 0 bis 50 % Gas des Testers den Motor entgegen
+seiner eingestellten Richtung mit doppeltem Gas, 50 % ist also volle Leistung
+rückwärts; über 50 % dreht er in der eingestellten Richtung, von unten
+beginnend. Den Propeller abnehmen. Scharfschalten wird deswegen nicht
+verweigert. Der Hinweis weiß nicht, ob der ESC am Pin gegen einen anderen
+getauscht wurde; nur ein bestätigtes Schreiben oder ein Lesen, das die Liste
+öffnet, mit 3D MODE aus oder ein Neustart nimmt ihn weg; `3D OFF` auf ESC
+COMMANDS und die Nur-Lese-Ansicht eines unbekannten Layouts lassen ihn.
+Siehe [AM32-Konfiguration](AM32-Konfiguration#felder-mit-hinweis).
 
-<img src="img/tester-3d.png" width="240" alt="Der Tester scharf, mit 3D MODE ESC: THROTTLE SCALE DIFFERS in Bernstein unter der Drehzahl">
+<img src="img/tester-3d.png" width="240" alt="Der Tester scharf, mit 3D MODE ESC: 0-50% REVERSED AT 2X in Bernstein unter der Drehzahl">
 
 **Sechs Kacheln.** Spannung, Strom, ESC-Temperatur, Stress, ESC-Status und
 Verbindungsqualität. Siehe [Telemetrie](Telemetrie).
@@ -234,7 +235,7 @@ Lage.
 
 | Zeile | Zustand rechts | Ein Tippen |
 |---|---|---|
-| **BEEP THE ESC** | `DISARMED`; 350 ms nach einem Tippen `SENT` oder `REFUSED` | Sendet den DShot-Beacon-Befehl, der Motor piept. Damit erkennst du, welcher ESC angeschlossen ist. Braucht einen ESC, der antwortet, einen stehenden Motor und 1,5 s, seit der ESC antwortet |
+| **ESC COMMANDS** | nichts | Öffnet ESC COMMANDS: die DShot-Beacons, die Drehrichtung und den 3D-Modus. Siehe [ESC COMMANDS](#esc-commands) |
 | **ESC CONFIG** | nichts | Öffnet ESC CONFIG, die Wahl der ESC-Werkzeuge. Siehe [ESC CONFIG](#esc-config) |
 | **SERVO TESTER** | nichts | Öffnet den Servotester |
 | **SERVO PROGRAMMER** | nichts | Öffnet PROGRAMMER, die Wahl des Servo-Programmierers. Siehe [PROGRAMMER](#programmer) |
@@ -244,26 +245,14 @@ Lage.
 
 Solange die Signalpins noch belegt sind, zum Beispiel während DShot nach dem
 Servotester, dem KST-Programmierer oder dem Hitec-Programmierer neu startet,
-zeigt die Leiste `DSHOT RESTARTING ON SIG GP0` in Bernstein. ESC CONFIG,
-SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS und SETTINGS sind dann als
+zeigt die Leiste `DSHOT RESTARTING ON SIG GP0` in Bernstein. ESC COMMANDS,
+ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS und SETTINGS sind
+dann als
 Umriss unter ihrem üblichen Zustand gezeichnet, und ein Tippen auf eine
 solche Zeile öffnet nichts. Sie wirken wieder, sobald DShot läuft. SD LOG
 belegt keinen Pin und bleibt bedienbar.
 
-<img src="img/menu-restarting.png" width="240" alt="MENU nach oben gezogen, während DShot neu startet: DSHOT RESTARTING ON SIG GP0 in der Leiste, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS und SETTINGS als Umriss">
-
-BEEP funktioniert nur im entschärften Zustand, und das Öffnen von `MENU`
-entschärft. Es braucht außerdem einen ESC, der antwortet: `REFUSED`, solange
-seit 500 ms keine eRPM-Antwort kam, solange der Motor dreht und 1,5 s lang,
-nachdem der ESC zu antworten beginnt. AM32 nimmt einen Befehl erst nach einer
-Sekunde Nullgas an. Der Befehl dauert 6 ms (6 Frames bei 1 kHz), danach
-folgen 260 ms Nullgas vor dem nächsten Befehl. Der Bildschirm wird alle 25 ms
-neu gezeichnet, daher ist die Zeile nach jeder Betätigung 350 ms lang
-gefüllt: weiß mit `SENT`, oder bernsteinfarben mit `REFUSED`. `SENT` heißt,
-der Beacon steht an: ein zweites Tippen während des ersten wartet auf ihn,
-höchstens 2 s.
-
-<img src="img/menu-beep-flash.png" width="240" alt="BEEP angenommen"> <img src="img/menu-beep-refused.png" width="240" alt="BEEP abgelehnt, weil der ESC scharf ist">
+<img src="img/menu-restarting.png" width="240" alt="MENU nach oben gezogen, während DShot neu startet: DSHOT RESTARTING ON SIG GP0 in der Leiste, ESC COMMANDS, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS und SETTINGS als Umriss">
 
 `UNSAVED` in der Zeile SETTINGS heißt, dass ein Wert vom Flash abweicht. Die
 Schaltfläche zum Speichern liegt in SETTINGS.
@@ -285,6 +274,56 @@ Startbildschirm sagt dasselbe beim Einschalten (siehe
 [Erste Schritte](Erste-Schritte#einschalten)).
 
 <img src="img/menu-updated.png" width="240" alt="UPDATED in der Zeile SETTINGS, nachdem ein Update die gespeicherten Einstellungen verworfen hat">
+
+### ESC COMMANDS
+
+<img src="img/esccmd.png" width="240" alt="ESC COMMANDS in Ruhe: BEEP 1 bis 5, NORMAL und REVERSED, 3D OFF und 3D ON und die sechs gedimmten Zeilen"> <img src="img/esccmd-3d-on.png" width="240" alt="ESC COMMANDS nach 3D ON: SENT 10 (3D ON), THEN 12 (SAVE). und drei bernsteinfarbene Zeilen">
+
+`MENU → ESC COMMANDS` sendet DShot-Befehle an den ESC an SIG. Die Seite
+belegt keinen Pin: DShot läuft weiter, solange sie offen ist. Die Leiste
+zeigt `SIG GP0  DSHOT600` und den EDT-Chip von MENU.
+
+- **BEEP 1 bis 5**, je ein Tippen: Der ESC spielt seinen Beacon-Ton 1 bis 5.
+  Damit hörst du, welcher ESC angeschlossen ist und dass er Befehle annimmt.
+- **NORMAL** und **REVERSED** unter DIRECTION, je 1 s halten: die
+  Drehrichtung, Befehl 7 oder 8, danach 12, der sie im ESC speichert.
+- **3D OFF** und **3D ON** unter 3D MODE, je 1 s halten: Befehl 9 oder 10,
+  danach 12.
+
+Eine Halte-Taste füllt sich beim Halten rot, und ein Balken darunter füllt
+sich über die Sekunde; nach 1 s wirkt sie. Eine Richtungs- oder 3D-Änderung
+dauert auf der Leitung 620 ms. Die Tasten wirken, solange der ESC bereit
+ist; sonst sind sie als Umriss gezeichnet, und eine bernsteinfarbene Zeile
+sagt warum: `NO ESC ANSWERS ON SIG GP0.`,
+`MOTOR TURNING: WAIT UNTIL IT STOPS.` oder `ESC STARTING: WAIT 1.5 S.` (AM32
+nimmt einen Befehl erst nach einer Sekunde Nullgas an). Ein Druck,
+während das Board noch etwas anderes sendet, etwa die Pause von 260 ms bis
+1020 ms nach einem Beacon, wartet: Er geht hinaus, sobald die Leitung frei
+ist, oder verfällt nach 2 s, und die Zeilen zeigen dann
+`NOT SENT: THE ESC WAS NOT READY.`. Solange ein Befehl der Seite wartet oder
+gesendet wird, sind die Tasten und `BACK` grau, und ein Druck, der dann auf
+ihnen beginnt, bewirkt beim Loslassen nichts.
+
+Die Zeilen unter den Tasten sagen, was gesendet wurde, zum Beispiel
+`SENT 8 (REVERSED), THEN 12 (SAVE).`, oder warum nicht:
+`NOT SENT: THE ESC STOPPED ANSWERING.`, bevor der ESC gehandelt haben kann,
+`SAVE NOT SENT: POWER-CYCLE THE ESC.`, wenn die Änderung ungespeichert im
+ESC stehen kann, und `NOT SENT: THE ESC WAS NOT READY.`, wenn nichts
+gestartet ist. Nach 3D ON sagen die Zeilen, dass der Tester seinen
+3D-Hinweis zeigt und dass ein Neustart des Boards ihn löscht, oder ESC
+SETTINGS, wenn es 3D MODE aus liest.
+
+Der ESC antwortet auf keinen Befehl, der Prüfstand sieht die Drehrichtung
+also nicht. Prüfe sie auf dem Tester mit 3D aus: Propeller ab, ein
+Klebestreifen auf der Glocke, scharf schalten, eine Sekunde 5 %, entschärfen.
+Bei AM32 spielt das Speichern den Ton von Beacon 1 für normal und von
+Beacon 2 für umgekehrt. Hält die Richtung nach einem Aus- und Einschalten des
+ESC, war sie gespeichert. Nach `3D ON` zeigt der Tester seinen 3D-Hinweis
+([Der Tester](#der-tester)); `3D OFF` lässt den Hinweis stehen, bis das Board
+neu startet oder ESC SETTINGS 3D MODE aus liest. Keiner dieser Befehle wurde
+bisher von diesem Board an einen ESC gesendet.
+
+<img src="img/esccmd-sending.png" width="240" alt="ESC COMMANDS, während Beacon 3 gesendet wird: alle Tasten und BACK grau"> <img src="img/esccmd-no-esc.png" width="240" alt="ESC COMMANDS ohne antwortenden ESC: NO ESC ANSWERS ON SIG GP0. in Bernstein, alle Tasten grau">
 
 ### PROGRAMMER
 
@@ -450,7 +489,8 @@ Hintergrundbeleuchtung auf 255, solange er an ist.*
 
 <img src="img/log-ready.png" width="240" alt="SD-LOG-Bildschirm, Karte bereit">
 
-Aufzeichnungszustand und Zähler. `BACK` führt zu `MENU` zurück. Siehe
+Aufzeichnungszustand und Zähler, nach dem Beenden der Lauf der letzten
+Aufzeichnung. `BACK` führt zu `MENU` zurück. Siehe
 [SD-Aufzeichnung](SD-Aufzeichnung).
 
 ---

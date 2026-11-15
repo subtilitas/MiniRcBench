@@ -59,18 +59,19 @@ and neither has run on a board. A run
 summary per blackbox log, written beside the log and shown on SD LOG, with the
 board's PCF85063 real-time clock dating the files on the card as an option, is
 designed in `docs/design/run-summary.md`; the owner answered its questions
-on 2026-11-15. Its slices 1 and 2 are built and host-tested: the summary
-computed from the telemetry, and the logger writing it as
+on 2026-11-15. Its slices 1 to 3 are built and host-tested: the summary
+computed from the telemetry, the logger writing it as
 `LOGS/LOGnnnnn.TXT` beside each log
-([Blackbox logging to microSD](#blackbox-logging-to-microsd)); SD LOG does
-not show it yet, and the clock is not built. The owner's board has no cell
+([Blackbox logging to microSD](#blackbox-logging-to-microsd)), and SD LOG
+showing it after a stop; the clock is not built. The owner's board has no cell
 in the RTC socket J2, so its clock is set again after each power-up, and
 files written before the set have FAT date 0.
-An ESC COMMANDS page, sending DShot beacons, direction and 3D mode, each
-change saved in the ESC behind a 1 s hold, and an RPM-per-volt reading and
-a kV estimate on the tester, labelled `KV EST`, are designed in
-`docs/design/esc-commands.md` and not built; the owner answered its
-questions on 2026-11-15.
+An ESC COMMANDS page, MENU's first row, sends DShot beacons, direction and
+3D mode, each change saved in the ESC behind a 1 s hold (slices 1 and 2 of
+`docs/design/esc-commands.md`, host tests only, no command of it sent to an
+ESC from this board yet). An RPM-per-volt reading and a kV estimate on the
+tester, labelled `KV EST`, are designed in the same note and not built;
+the owner answered its questions on 2026-11-15.
 A USB bridge, through which an ESC tool on a desktop computer reaches the
 ESC's bootloader on SIG over the board's USB serial port, by passthrough at
 19200 baud or through MSP (the MultiWii Serial Protocol) and the 4-way
@@ -512,8 +513,8 @@ Arming and disarming dim the backlight to a quarter for 120 ms
 
 ![MENU](docs/menu-preview.png)
 
-*EDT live, EDT silent, BEEP acknowledging a press, and PROGRAMMER, the
-servo programmers' chooser.*
+*EDT live, EDT silent, no ESC answering, and PROGRAMMER, the servo
+programmers' chooser.*
 
 MENU is a list of rows. Each row is 40 px tall at a 42 px pitch, with the name
 at scale 2 on the left and its state right-aligned. **BACK** returns to the
@@ -533,7 +534,7 @@ the tester's pole count or ceiling, whose **BACK** returns to the tester.
 
 | Row | State on the right | A tap |
 |---|---|---|
-| **BEEP THE ESC** | `DISARMED`; for 350 ms after a tap, `SENT` or `REFUSED` | Sends beacon 1, `DSHOT_CMD_BEEP1`, for 6 frames (`BEEP_REPEATS`), 6 ms at 1 kHz, then 260 ms of zero throttle (`ESC_CMD_BEEP_GAP_MS`). Refused while no ESC answers, while the motor turns, and for 1500 ms after an ESC starts answering (`ESC_CMD_SETTLE_MS`). Use it to identify which ESC is connected |
+| **ESC COMMANDS** | nothing | Opens ESC COMMANDS: BEEP 1 to 5, the direction and 3D mode, each change saved in the ESC. See [ESC commands](#esc-commands) |
 | **ESC CONFIG** | nothing | Opens ESC CONFIG, the chooser of the ESC tools: ESC SETTINGS, and USB BRIDGE drawn disabled, `NOT BUILT`. See [AM32 ESC configuration](#am32-esc-configuration) |
 | **SERVO TESTER** | nothing | Opens the servo tester. See [Servo tester](#servo-tester) |
 | **SERVO PROGRAMMER** | nothing | Opens PROGRAMMER, the chooser of the servo programmers: KST / CHASERVO, HITEC D SERIES, HITEC CLASSIC. See below |
@@ -544,20 +545,11 @@ the tester's pole count or ceiling, whose **BACK** returns to the tester.
 The rows go by what sits on the signal pin: the ESC, a servo, then the
 bench. A tool row shows no state: the strip names the pins.
 
-- **BEEP flash**: a tap fills the row for 350 ms (`BEEP_FLASH_MS`): white
-  with `SENT`, amber with `REFUSED`. Without it a 6 ms command is not visible
-  against a 25 ms repaint. BEEP goes through the DShot pump's command slot
-  (see [Telemetry and logging](#telemetry-and-logging)) and is refused while
-  no eRPM answer has arrived for 500 ms (`ESC_LINK_STALE_MS`), while the last
-  eRPM answer is not 0, and for 1500 ms after the ESC starts answering.
-  It is also refused while armed; opening MENU disarms, so that refusal is a
-  backstop. `SENT` means the slot took the request: while an EDT enable or
-  an earlier beacon and its gap go out, the beacon waits, at most 2000 ms
-  (`ESC_CMD_WAIT_MS`), and is dropped if it cannot start by then.
 - **DSHOT RESTARTING**: SERVO TESTER claims the signal pins, ESC CONFIG's
   ESC SETTINGS claims SIG, SERVO PROGRAMMER's entries open the KST and Hitec
-  programmers, which claim SIG, RX SIGNALS' MONITOR claims GP1, and SETTINGS
-  changes the wiring a claim latched. While the
+  programmers, which claim SIG, RX SIGNALS' MONITOR claims GP1, ESC COMMANDS
+  needs DShot running on SIG, and SETTINGS changes the wiring a claim
+  latched. While the
   claim is not free, for example after RESTART DSHOT until the DShot pump
   runs again, these rows are drawn disabled, an outline, SETTINGS under its
   own status and the tool rows with none, a tap opens nothing, and the
@@ -599,6 +591,19 @@ powered after it, or by the bench.
   `LOG00012.BFL (LAST)`, until the next start or mount; `--` before the first
   log and after a mount (`sdLogBegin()`), which also zeroes the counters: the
   card may be another one.
+- **The last run**, rows 2 to 8 once a log has stopped and while the logger
+  holds its run summary (`SdLogStatus::summary`): `MAX RPM`, `MAX CURRENT`,
+  `MAX TEMP`, `MIN VOLTAGE`, `USED` (the KISS counter's rise) or
+  `USED FROM CURRENT`, `ARMED` and `SUMMARY`, the `.TXT`'s name or
+  `NOT SAVED: CARD FULL` / `NOT SAVED: WRITE FAILED`. Each extreme is the
+  held value, `--` when unknown; RPM uses MOTOR POLES at the stop. A source
+  tag beside a value reads `KISS`, `EDT` or `MIXED` (KISS with EDT in its
+  gaps); a value from DShot eRPM has none. Red: `MAX TEMP` at 90 °C and
+  above, and `NOT SAVED`. FRAMES to WORST FLUSH are then in the `.TXT`, and
+  CARD and MOUNT are hidden until the next START that opens a log, or a
+  mount. While a log runs, and after a mount or USB DRIVE, the rows show
+  the counters, CARD and MOUNT. A failed START keeps the last run, as it keeps FILE. The
+  tester shows nothing of the run.
 - **Note lines** (y 217 and y 228): how the last log ended, when it ended
   on its own or a tool took the card, in amber (`SdLogEnd`); a card's fault
   until the next start or mount, a tool's stop until the next start
@@ -900,12 +905,12 @@ decoded with EDT on, from the first one:
 
 At the 1 kHz frame rate the enable at pump start takes 10 ms. Arming
 during it sends the throttle on the next frame and drops the rest of the
-enable. A BEEP and the first KISS telemetry request wait for its end.
+enable. A command and the first KISS telemetry request wait for its end.
 
 The enable shares the wire with one command slot on core1, which sends
 DShot commands 1 to 5 (beacons), 12 (save settings), and 7 to 10
 (direction, 3D mode) with 12 after them. The slot is slice 1 of the design
-note `docs/design/esc-commands.md`; MENU's BEEP is its only user.
+note `docs/design/esc-commands.md`; ESC COMMANDS is its only user.
 A command starts only while all of these hold: disarmed, an eRPM answer
 younger than 500 ms, the last eRPM answer 0, the ESC answering for 1500 ms
 (`ESC_CMD_SETTLE_MS`; AM32 takes commands only after more than 1 s of zero
@@ -918,8 +923,10 @@ on the seventh. Every command frame carries the telemetry bit, without which
 Bluejay and BLHeli_S drop it. For 7 to 10 and 12, frames 1 to 6 of each
 block of 10 need an answer, eRPM or EDT; one of frames 1 to 5 may go
 unanswered, and a second, or none to frame 6, stops the block. An arm drops
-the command. No scheduled enable goes out between a command and its save,
-and no KISS request goes out during a command's frames.
+the command, and a teardown of the pump, for a pin claim or a wiring change,
+stops a command and expires a request that still waits. No scheduled enable
+goes out between a command and its save, and no KISS request goes out
+during a command's frames.
 
 An ESC that is not yet ready for commands ignores that enable, and it does
 not count as an attempt. While an ESC answers with eRPM and no EDT frame has
@@ -937,8 +944,8 @@ sent only when all of these hold:
 - the tester is disarmed and eRPM is zero. DShot commands execute only with
   the motor stopped, and a motor coasts for seconds after a disarm;
 - no other command is on the wire, its gap of zero throttle included. An ESC
-  executes a command only after a run of identical frames, so a BEEP inside
-  an enable would break both.
+  executes a command only after a run of identical frames, so a beacon
+  inside an enable would break both.
 
 Every reading expires. An EDT field not refreshed for `EDT_STALE_MS` (1 s)
 shows `--`. RPM shows a dark red zero, and the line under it reads
@@ -947,23 +954,26 @@ held old values would show a plausible reading from an ESC that is no longer
 connected.
 
 The RPM area's bottom row, y 114, holds the pole count, `14 POLES`, and the
-swipe hint. While
-`uiAm32Esc3d()` is true it holds `3D MODE ESC: THROTTLE SCALE DIFFERS`
-(`AM32_UI_TESTER_3D`, 35 characters, 209 px, x 10 to x 218) in amber in their
-place, armed or not, while the pad is not engaged. While a drag is engaged,
-`SWIPE ACTIVE` in green takes the row alone, as the only sign the drag took
-hold, and the note returns on release. The `ERPM` / `NO TELEMETRY` line above
-it, y 102, does not change. Arming is not refused on it. The flag is set by an
-ESC SETTINGS read that opens the list on settings with 3D MODE on and by a write
+swipe hint. While `esc3dNote()` (`src/esc_3d.h`) is true it holds `3D MODE ESC:
+0-50% REVERSED AT 2X` (`ESC_3D_TESTER_NOTE`, 33 characters, 197 px, x 10 to x
+206) in amber in their place, armed or not, while the pad is not engaged. While
+a drag is engaged, `SWIPE ACTIVE` in green takes the row alone, as the only sign
+the drag took hold, and the note returns on release. The `ERPM` / `NO TELEMETRY`
+line above it, y 102, does not change. Arming is not refused on it. In 3D mode
+the ESC runs the tester's 0 to 50 % the reverse of its set direction at twice
+the throttle, and above 50 % in the set direction from low. The flag is set by
+an ESC SETTINGS read that opens the list on settings with 3D MODE on, by a write
 of settings with 3D MODE on that the ESC accepted (`am32BlWrite()` returned OK),
-whether the read-back then verifies, fails or differs: such an ESC may run in 3D
-mode. Only a list read or a verified write with 3D MODE off clears it, and a
-restart does, since it is not stored ([AM32 ESC configuration](#editing)
-explains the throttle scale). A failed read, a read that does not open the list
-(the read-only view of a layout not known among them: byte 0x12 may be another
-field there), a write the ESC refused and a write of 3D MODE off that is not
-verified leave it. It describes the last ESC that ESC SETTINGS reached, not the
-one on the pin now: a swapped ESC is not detected.
+whether the read-back then verifies, fails or differs, and by ESC COMMANDS' 3D
+ON once sent, or once stopped after the ESC may have acted on it: such an ESC
+may run in 3D mode. Only a list read or a verified write with 3D MODE off clears
+it, and a restart does, since it is not stored ([AM32 ESC
+configuration](#editing) explains the throttle scale). ESC COMMANDS' 3D OFF, a
+failed read, a read that does not open the list (the read-only view of a layout
+not known among them: byte 0x12 may be another field there), a write the ESC
+refused and a write of 3D MODE off that is not verified leave it. It describes
+the last ESC those two tools reached, not the one on the pin now: a swapped ESC
+is not detected.
 
 An expired **ESC STATUS** reads `--`, never `OK`.
 
@@ -1041,9 +1051,13 @@ is not built), how the log ended (`STOP`, `DISARM`, `KST SERVO`,
 `HITEC SERVO` or `ESC SETTINGS`), its duration and armed time, the maximum
 RPM, current and temperature, the minimum voltage while armed, the charge
 used by the KISS counter and from the current, and the logger's counters
-that SD LOG shows (frames, dropped frames, kilobytes written, buffer peak,
-worst flush). Each extreme is the value held over three consecutive new
-readings, with its source and the raw extreme beside it.
+that SD LOG shows while a log runs (frames, dropped frames, kilobytes
+written, buffer peak, worst flush). Each extreme is the value held over
+three consecutive new readings, with its source and the raw extreme beside
+it. After the stop SD LOG shows the held values, the charge and the armed
+time in its rows 2 to 8, and whether the `.TXT` was saved (see SD LOG
+screen above); a log a card error ended shows its run up to the failure,
+`NOT SAVED`.
 
 `sdLogTick()` hands every frame's telemetry and arm state to the summary,
 a constant-time update on core0 (`runSumAdd()`): at most about 1,000
@@ -1122,7 +1136,7 @@ nothing for those six. The SETTINGS note line says which set is in use.
 | `ESC_LINK_STALE_MS` | `500` | Time without eRPM before the ESC counts as gone. Resets the automatic EDT enable |
 | `EDT_RETRY_MS` | `1000` | Interval between EDT enables while eRPM arrives and EDT does not |
 | `EDT_SETTLE_MS` | `300` | Time the link must be up before the first repeated EDT enable. The enable at pump start does not wait |
-| `ESC_CMD_SETTLE_MS` | `1500` | Time the link must be up before a DShot command (BEEP) starts |
+| `ESC_CMD_SETTLE_MS` | `1500` | Time the link must be up before a DShot command starts |
 | `ESC_CMD_GAP_MS` | `300` | Zero-throttle frames after each block of 10 frames of commands 7 to 10 and 12 |
 | `ESC_CMD_BEEP_GAP_MS` | `260, 260, 280, 280, 1020` | Zero-throttle frames after beacons 1 to 5 |
 | `ESC_CMD_WAIT_MS` | `2000` | A command request that cannot start within this time is dropped |
@@ -1176,6 +1190,74 @@ Both eRPM sources are logged: `eRPM[0]` (bidirectional DShot, 1 kHz) and
 `vbatLatest` / `amperageLatest` carry KISS where it was live, `vbatEdt` /
 `amperageEdt` always carry EDT. This allows the KISS decoder to be checked
 against EDT from the log itself.
+
+## ESC commands
+
+**MENU → ESC COMMANDS** sends DShot commands to the ESC on SIG: beacons 1 to
+5, the spin direction and 3D mode. A change is saved in the ESC in the same
+sequence. The design is `docs/design/esc-commands.md`. Every command goes
+through the command slot on core1 (see
+[Telemetry and logging](#telemetry-and-logging)). No command of this page has
+been sent to an ESC from this board: what an ESC does with them is read from
+the AM32, Bluejay and BLHeli_S sources and the BLHeli_32 specification text,
+not measured.
+
+![ESC commands](docs/esccmd-preview.png)
+
+*At rest, a beacon going out, 3D ON sent, and no ESC answering.*
+
+The page claims no pin: DShot runs on SIG while it shows, and MENU draws its
+row disabled while a pin claim is not free. Opening it disarms the tester. It
+has no arm control.
+
+| Control | Kind | Sends |
+|---|---|---|
+| **1** to **5** under BEEP, 40 x 40 px | tap | beacon 1 to 5, 6 frames (`BEEP_REPEATS`), then 260, 260, 280, 280 or 1020 ms of zero throttle |
+| **NORMAL**, **REVERSED** under DIRECTION, 111 x 44 px | 1 s hold | 7 or 8, 10 frames, 300 ms of zero throttle, then 12 (save), 10 frames, 300 ms: 620 ms |
+| **3D OFF**, **3D ON** under 3D MODE | 1 s hold | 9 or 10, then 12, as above |
+
+A control is live while core1 reads an eRPM answer younger than 500 ms, eRPM
+0 and the ESC answering for 1500 ms. A request made while an EDT enable,
+command or gap is on the wire waits in the slot, at most 2000 ms, so an EDT
+retry does not end a hold. Otherwise the controls are drawn disabled and the
+lines under them say why, in amber: `NO ESC ANSWERS ON SIG GP0.`, `MOTOR
+TURNING: WAIT UNTIL IT STOPS.` or `ESC STARTING: WAIT 1.5 S.`. While the page's
+request waits or its sequence goes out, BACK is drawn disabled too; a request
+that cannot start within 2000 ms expires. Leaving the page drops a request that
+still waits (`escCancelCommand()`). A hold's fill turns red while held, and a
+lime bar under it fills over the 1000 ms (`UI_HOLD_MS`).
+
+The six lines at y 244 to 310, at most 37 characters each:
+
+| State | Lines |
+|---|---|
+| At rest | `HOLD 1 S: SETS IT, THEN SAVES IT.`, `THE ESC SENDS NO ANSWER TO A COMMAND:`, `CHECK IT ON THE TESTER WITH 3D OFF.`, a blank line, `AM32 BEEPS AS BEEP 1 ON SAVE (NORMAL)`, `OR AS BEEP 2 (REVERSED).` |
+| Going out | `SENDING 8 (REVERSED), THEN 12 (SAVE).`, `SENDING 3 (BEEP 3).` |
+| A direction sent | `SENT 8 (REVERSED), THEN 12 (SAVE).`, `NOTHING CONFIRMS THE ESC TOOK THEM.`, `CHECK IT ON THE TESTER WITH 3D OFF.` |
+| 3D ON sent | `SENT 10 (3D ON), THEN 12 (SAVE).`, `THE TESTER SHOWS THE 3D NOTE NOW.`, `A RESTART OR 3D OFF READ CLEARS IT.`, then in amber `IN 3D, 0 TO 50% RUNS REVERSED AT 2X;`, `ABOVE 50% THE SET WAY, FROM LOW.` |
+| 3D OFF sent | `SENT 9 (3D OFF), THEN 12 (SAVE).`, and while the tester's 3D note stands `THE 3D NOTE STAYS ON THE TESTER.` |
+| A beacon sent | `SENT 3 (BEEP 3).` |
+| Stopped before frame 6 of the first block | `NOT SENT: THE ESC STOPPED ANSWERING.`, amber |
+| Stopped after it | `SAVE NOT SENT: POWER-CYCLE THE ESC.`, then for a direction `CHECK IT ON THE TESTER WITH 3D OFF.`, for 3D ON `THE TESTER SHOWS THE 3D NOTE NOW.`, for 3D OFF `AFTER A POWER CYCLE IT MAY RUN IN 3D.`; amber |
+| Never started | `NOT SENT: THE ESC WAS NOT READY.`, amber |
+
+With an outcome shown, a readiness that refuses a command takes the sixth
+line. The page shows only the outcome of its own last request: opened again,
+it is at rest.
+
+The ESC sends no answer to a command, so the bench cannot see the direction.
+To check it: 3D off (in 3D the tester's 0 to 50 % runs the motor reversed),
+propeller off, a strip of tape on the bell, then on the tester arm, run at
+5 % for a second and disarm. On AM32 the save plays beacon 1's tone for
+normal and beacon 2's for reversed, and ESC SETTINGS reads `DIRECTION` and
+`3D MODE` back. After a power cycle of the ESC, a direction that holds was
+saved.
+
+After 3D ON is sent, or stops after the ESC may have acted on it, the tester
+shows `3D MODE ESC: 0-50% REVERSED AT 2X` in amber in place of the pole
+count. 3D OFF leaves the note, since nothing reads the ESC back; a restart
+of the bench or an ESC SETTINGS read with 3D MODE off clears it. The note is
+not stored. The tester shows no note for the direction.
 
 ## AM32 ESC configuration
 
@@ -1398,7 +1480,7 @@ firmware version is bytes 0x03 and 0x04 (`am32Firmware()`); a major outside
 
 After a list read with 3D MODE on, or a write of 3D MODE on that the ESC
 accepted, verified or not, the tester shows
-`3D MODE ESC: THROTTLE SCALE DIFFERS` (`uiAm32Esc3d()`, set and cleared in
+`3D MODE ESC: 0-50% REVERSED AT 2X` (`esc3dNote()`, set and cleared from
 `tryConnect()` and `doWrite()`;
 [Telemetry and logging](#telemetry-and-logging) says where it is drawn).
 Arming is not refused on it.
@@ -2427,8 +2509,13 @@ In the firmware:
   that layout and validated as a current block.
 - Arming is blocked while a USB host holds the SD card.
 - After ESC SETTINGS read 3D MODE on, or wrote it and the ESC accepted the
-  write, verified or not, the tester shows
-  `3D MODE ESC: THROTTLE SCALE DIFFERS`; arming is not refused on it.
+  write, verified or not, and after ESC COMMANDS' 3D ON, the tester shows
+  `3D MODE ESC: 0-50% REVERSED AT 2X`; arming is not refused on it.
+- ESC COMMANDS sends a command only disarmed, with the motor stopped and
+  an ESC that has answered for 1500 ms; a direction or 3D change
+  needs a 1 s hold and is saved in the ESC with command 12 in the same
+  sequence. BACK is drawn disabled while a request waits or a sequence goes
+  out.
 - ESC SETTINGS, KST SERVO and HITEC SERVO write a device only from their
   write page: a tap on `WRITE...` or `RESTORE...` opens it, it names every
   change, and its 1 s hold writes. While a write runs, or waits for the
@@ -2486,7 +2573,9 @@ src/
   ui.{h,cpp}            the tester (arm/throttle state machine, touch handling) and the navigation
   ui_screen.h           UiScreen, SettingsRow, SettingsSection, UiMenuEntry, UiProgEntry and the control ids
   ui_registry.{h,cpp}   one line per MENU row and per PROGRAMMER, RX SIGNALS and ESC CONFIG entry, and the checks that their texts fit
-  ui_menu.{h,cpp}       MENU and the BEEP action with its flash
+  ui_menu.{h,cpp}       MENU
+  ui_esc_cmd.{h,cpp}    ESC COMMANDS: BEEP 1 to 5, direction and 3D mode, through the command slot
+  esc_3d.{h,cpp}        the tester's 3D note, which ESC SETTINGS and ESC COMMANDS set
   ui_servo_prog.{h,cpp} PROGRAMMER: the chooser of the servo programmers
   ui_rx_signals.{h,cpp} RX SIGNALS: the chooser of MONITOR and OUTPUT
   ui_esc_config.{h,cpp} ESC CONFIG: the chooser of ESC SETTINGS and USB BRIDGE
@@ -2622,7 +2711,7 @@ virtual and counted in microseconds — `millis()` advances only when a test
 says so — which makes hold-to-arm, hold-to-write and gesture repeat
 deterministic rather than dependent on machine speed. The fake ESC serves a
 real settings blob recovered from the reference configurator, so the UI tests
-operate on values a real ESC would report. The suite renders 123 screens to
+operate on values a real ESC would report. The suite renders 125 screens to
 PPM (portable pixmap) images as it runs, one file per `fakeDumpFrame()` name,
 so a layout change is visible in the frames:
 
@@ -2632,9 +2721,11 @@ so a layout change is visible in the frames:
 - eleven of the tester: disarmed, armed, live, stale, no ESC, an ESC
   answering at rest, with KISS values, the 3D mode note, `SDERR` while
   armed, the card held by a USB host, high contrast;
-- ten of MENU: on arrival, the EDT chip on, off and reading NO ESC, BEEP
-  sent and refused, SETTINGS' `UNSAVED` and `UPDATED`, DSHOT RESTARTING,
-  AM32's power-cycle cue;
+- eight of MENU: on arrival, the EDT chip on, off and reading NO ESC,
+  SETTINGS' `UNSAVED` and `UPDATED`, DSHOT RESTARTING, AM32's power-cycle
+  cue;
+- four of MENU → ESC COMMANDS: at rest, a beacon going out, 3D ON sent, and
+  no ESC answering;
 - two of MENU → SERVO PROGRAMMER: SERVO SUPPLY at `OWN` and at a pin;
 - one of MENU → RX SIGNALS, the chooser;
 - one of MENU → ESC CONFIG, the chooser;
@@ -2645,8 +2736,8 @@ so a layout change is visible in the frames:
   SERVO SUPPLY at a pin, the CURRENT SENSE row with a sensor found, the
   warning for SIG moved off the boot pin, settings carried over by an update;
 - eight of MENU → SD LOG: ready, recording, no card, a card found by RETRY
-  MOUNT, the last log named, a full card, USB DRIVE refused, USB DRIVE
-  serving;
+  MOUNT, the last log's run after STOP, a full card with its run not saved,
+  USB DRIVE refused, USB DRIVE serving;
 - nineteen of ESC SETTINGS: the connect page, a reply it cannot parse, a
   Bluejay or BLHeli_S bootloader's answer, the leave page after it, the
   list, a field edit, scrolled, ESC HEX, the read-only view, firmware 2.22,
@@ -2680,7 +2771,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 11,082 of 11,265 lines in 71 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 11,293 of 11,482 lines in 73 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver
@@ -2708,6 +2799,15 @@ as a framing error. `test/sbus_line.h` puts a receiver's frames on that line,
 120 µs a byte, with parity, framing and break faults, cut frames and any
 footer. `test_sbus_ui.cpp` runs S.BUS MONITOR on it through MENU and RX
 SIGNALS, with core1's job passes every 500 µs between UI frames.
+
+`esc_task.cpp` cannot be linked either, so core0's side of the command slot is
+a copy in `fakes.cpp` on the shipped `escCmdAccept()`. A test sets the
+readiness core1 would publish and the state of the last sequence; a request
+the copy takes reads `Waiting` until then. `test_esc_cmd_ui.cpp` runs ESC
+COMMANDS on it through MENU: every control at each readiness, the holds at
+999 and 1000 ms, each outcome's lines and the 3D note. `test_esc_cmd.cpp`
+runs the slot's own rules, pure in `src/esc_task.h`, against model AM32,
+Bluejay and BLHeli_S ESCs.
 
 The I2C1 bus is `test/fake_i2c.cpp`: the parts on it by address, the clocks of
 each transaction (9 per byte, 2 for a start and a stop, 1 for a repeated

@@ -621,8 +621,7 @@ void escHeartbeat() { g_heartbeatMs = millis(); }
 uint32_t escHeartbeatMs() { return g_heartbeatMs; }
 // Core0's side of the command slot. esc_task.cpp cannot be linked here (PIO,
 // UART), so the request side is a copy -- but its rule is the shipped
-// escCmdAccept(), and escRequestBeep() is the header's own inline. The
-// readiness core1 would publish is set by the test (fakeSetCmdReady()); the
+// escCmdAccept(). The readiness core1 would publish is set by the test (fakeSetCmdReady()); the
 // default, Ready, is an ESC that has answered for 1500 ms with the motor
 // stopped. The counter increments only when the request is taken, as
 // production queues it only then. Counting refused requests too meant a test
@@ -633,6 +632,11 @@ static uint8_t     g_lastCmd = 0;
 static bool        g_lastSave = false;
 static int         g_cmdCancels = 0;
 static EscCmdReady g_cmdReady = EscCmdReady::Ready;
+// The state as production reports it: Waiting while a taken request is not
+// yet read, else what core1 published, which the test sets.
+static bool        g_cmdWaiting = false;
+static EscCmdState g_cmdState = EscCmdState::Idle;
+static uint8_t     g_cmdStateCmd = 0;
 int  fakeBeepRequests() { return g_beepRequests; }
 uint8_t fakeLastCommand(bool *save) {
 	if (save) *save = g_lastSave;
@@ -645,13 +649,22 @@ bool escRequestCommand(uint8_t cmd, bool save) {
 	g_beepRequests++;
 	g_lastCmd = cmd;
 	g_lastSave = save;
+	g_cmdWaiting = true;
 	return true;
 }
-void escCancelCommand() { g_cmdCancels++; }
+void fakeSetCmdState(EscCmdState st, uint8_t cmd) {
+	g_cmdWaiting = false;
+	g_cmdState = st;
+	g_cmdStateCmd = cmd;
+}
+void escCancelCommand() {
+	g_cmdCancels++;
+	g_cmdWaiting = false;
+}
 EscCmdReady escCommandReady() { return g_cmdReady; }
 EscCmdState escCommandState(uint8_t *cmd) {
-	if (cmd) *cmd = g_lastCmd;
-	return EscCmdState::Idle;
+	if (cmd) *cmd = g_cmdWaiting ? g_lastCmd : g_cmdStateCmd;
+	return g_cmdWaiting ? EscCmdState::Waiting : g_cmdState;
 }
 // Settable, because production only reports true once an ESC has answered and
 // been sent an enable -- so a hardcoded true made the DS600 chip's two states
@@ -947,12 +960,21 @@ void fakeDumpFrame(const char *name) {
 // renders it.
 
 static SdLogStatus g_log = {};
+/** @brief The summary a start begins and its stop leaves, and the poles kept at the stop. */
+static const RunSum *g_logSum = nullptr;
+static uint8_t g_logSumPoles = 0;
 
 void fakeSdLogSet(const SdLogStatus *st) { g_log = *st; }
+
+void fakeSdLogSetSummary(const RunSum *s, uint8_t poles) {
+	g_logSum = s;
+	g_logSumPoles = poles;
+}
 
 /** @brief A mount, as sd_log.cpp's sdLogBegin() does it to the status. */
 static void fakeMountForget() {
 	sdLogMountForget(&g_log.end);
+	g_log.summary = nullptr;
 	g_log.fileNumber = 0;
 	g_log.framesLogged = 0;
 	g_log.bytesWritten = 0;
@@ -988,6 +1010,10 @@ bool sdLogStart() {
 	}
 	g_log.state = SdLogState::Logging;
 	g_autoStarted = false;
+	// As sd_log.cpp: a start that opens its log begins the summary, which
+	// the status shows only once no log runs; a failed start keeps the last.
+	g_log.summary = g_logSum;
+	g_log.summaryPoles = g_logSumPoles;
 	g_log.fileNumber = n;
 	g_logHighest = n;
 	return true;
@@ -1040,7 +1066,11 @@ void sdLogSetArmed(bool armed) {
 		case SdLogArmAction::None:                                break;
 	}
 }
-void sdLogStatus(SdLogStatus *out) { *out = g_log; }
+void sdLogStatus(SdLogStatus *out) {
+	*out = g_log;
+	// As sd_log.cpp: no summary while a log runs.
+	if (out->state == SdLogState::Logging) out->summary = nullptr;
+}
 
 // ---------------------------------------------------------------------------
 // the SD write cache (card_cache.h)
@@ -1185,6 +1215,8 @@ MscRefusal mscRequest() {
 	// mscTick() to get here; the tests that care about that ordering assert it
 	// on mscNext() itself, where there is no card to unmount.
 	g_msc = MscState::Serving;
+	// As sdLogRelease(): the card handed over, no summary shows.
+	g_log.summary = nullptr;
 	return MscRefusal::None;
 }
 

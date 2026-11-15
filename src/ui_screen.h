@@ -38,7 +38,7 @@ enum class UiScreenId : uint8_t {
 	Servo,     /**< SERVO, its SET view and its leave page. */
 	Kst,       /**< KST SERVO: the search, the field list, FILES, the write and leave pages. */
 	Hitec,     /**< HITEC SERVO: the entry, the field list, FILES, the write and leave pages. */
-	Beep,      /**< BEEP THE ESC, an action on MENU: never open. */
+	EscCmd,    /**< ESC COMMANDS, MENU's first row: BEEP 1 to 5, direction and 3D mode. */
 	ServoProg, /**< PROGRAMMER, the chooser behind MENU's SERVO PROGRAMMER row. */
 	RxSignals, /**< RX SIGNALS, the chooser behind MENU's RX SIGNALS row: MONITOR and OUTPUT. */
 	Sbus,      /**< S.BUS MONITOR and its leave page, opened from RX SIGNALS. */

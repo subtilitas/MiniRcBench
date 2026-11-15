@@ -1,13 +1,15 @@
 # ESC commands and the kV estimate
 
 Status: designed; the owner answered its questions on 2026-11-15, see
-[decisions](#decisions). Slice 1, the command slot on core1, is built and
-tested on the host only ([slice 1 as built](#slice-1-as-built)); slices 2
-and 3 wait on being built. The feature is item (1) of the owner's
-feature choice of 2026-11-14, recorded in [STATUS.md](../../STATUS.md)
-open item 28: an ESC commands page and an RPM-per-volt and kV estimate on
-the tester, a design note first, then slices with reviews. No command of
-this design has gone to an ESC from this board. The firmware
+[decisions](#decisions). Slice 1, the command slot on core1, and slice 2,
+the ESC COMMANDS page, are built and tested on the host only
+([slice 1 as built](#slice-1-as-built),
+[slice 2 as built](#slice-2-as-built)); slice 3 waits on being built. The
+feature is item (1) of the owner's feature choice of 2026-11-14, recorded
+in [STATUS.md](../../STATUS.md) open item 28: an ESC commands page and an
+RPM-per-volt and kV estimate on the tester, a design note first, then
+slices with reviews. No command of this design has gone to an ESC from
+this board. The firmware
 facts below are read from the sources under [sources](#sources), with the
 file and line; the ones no readable source settles are marked "not
 verified" and listed again under [not verified](#not-verified).
@@ -264,7 +266,9 @@ inputs the slot decides on, in this order: `NoAnswer` while no eRPM answer
 is younger than `ESC_LINK_STALE_MS`, 500 ms; `Turning` while eRPM is not 0;
 `Settling` until 1500 ms after `linkUpSinceMs`; `Busy` while an EDT enable,
 a sequence or its gap goes out; `Ready` otherwise. The page draws its
-controls live only at `Ready`, and its amber line from the other values.
+controls live at `Ready` and `Busy`, and its amber line from `NoAnswer`,
+`Turning` and `Settling` (revised in [slice 2 as
+built](#slice-2-as-built): first live only at `Ready`).
 `escRequestCommand()` refuses while armed and at `NoAnswer`, `Turning` and
 `Settling`; at `Busy` the request waits, at most 2000 ms. The rules stay
 pure in `src/esc_task.h`, as `escPumpSlot()` is, so the host suite drives
@@ -286,8 +290,8 @@ it opens only while the claim is Free. It opens through `uiOpenTool()`
 heartbeat on every frame of every screen (`uiTick()`, line 1315), so the
 250 ms heartbeat rule holds here for the throttle, as on the tester.
 
-- **BEEP 1 to 5:** a tap each; the screen shows `SENT 3 (BEEP 3).`, and
-  every control is drawn disabled for the beep's gap.
+- **BEEP 1 to 5:** a tap each; the screen shows `SENT 3 (BEEP 3).`. A tap
+  in the beep's gap is taken and waits in the slot.
 - **DIRECTION NORMAL, REVERSED:** a 1000 ms hold each (`ui_hold`,
   `UI_HOLD_MS`); the hold sends 7 or 8, then 12.
 - **3D OFF, 3D ON:** a 1000 ms hold each; 9 or 10, then 12.
@@ -295,8 +299,12 @@ heartbeat on every frame of every screen (`uiTick()`, line 1315), so the
   are drawn disabled, as BACK is during a write
   ([menu-b.md](menu-b.md#decisions), decision 5). A wait ends within
   2000 ms; leaving the page by any path calls `escCancelCommand()`.
-- A control is live only while `escCommandReady()` reads `Ready`.
-  Otherwise the message lines say why, in `C_AMBER`.
+- A control is live while `escCommandReady()` reads `Ready` or `Busy` and
+  the page has no request of its own waiting or going out; at `Busy` the
+  request waits in the slot, at most 2000 ms. At `NoAnswer`, `Turning` and
+  `Settling` the controls are drawn disabled and the message lines say why,
+  in `C_AMBER`. Revised in [slice 2 as built](#slice-2-as-built): the rule
+  was "live only at `Ready`".
 
 The holds write the ESC. Menu structure B puts writes on a write page that
 a tap opens ([menu-b.md](menu-b.md#decisions), decision 6). That rule is
@@ -436,14 +444,14 @@ Message lines, each with its width; every one is at most 37 characters:
 | Sending a direction | `SENDING 8 (REVERSED), THEN 12 (SAVE).` (221 px) | `C_TEXT` |
 | Sent a direction | `SENT 8 (REVERSED), THEN 12 (SAVE).` (203 px) or `SENT 7 (NORMAL), THEN 12 (SAVE).` (191 px); `NOTHING CONFIRMS THE ESC TOOK THEM.` (209 px); `CHECK IT ON THE TESTER WITH 3D OFF.` (209 px) | `C_TEXT` |
 | Sending 3D | `SENDING 10 (3D ON), THEN 12 (SAVE).` (209 px) or `SENDING 9 (3D OFF), THEN 12 (SAVE).` (209 px) | `C_TEXT` |
-| Sent 3D ON | `SENT 10 (3D ON), THEN 12 (SAVE).` (191 px); `THE TESTER SHOWS THE 3D NOTE NOW.` (197 px); `IN 3D, 0 TO 50% RUNS REVERSED AT 2X;` (215 px); `ABOVE 50% THE SET WAY, FROM LOW.` (191 px); `THE NOTE ENDS AT A RESTART.` (161 px), as the flag is not stored (decision 4) | `C_TEXT`, the last three `C_AMBER` |
-| Sent 3D OFF | `SENT 9 (3D OFF), THEN 12 (SAVE).` (191 px); `THE 3D NOTE STAYS UNTIL A RESTART.` (203 px), by decision 4 | `C_TEXT` |
+| Sent 3D ON | `SENT 10 (3D ON), THEN 12 (SAVE).` (191 px); `THE TESTER SHOWS THE 3D NOTE NOW.` (197 px); `A RESTART OR 3D OFF READ CLEARS IT.` (209 px), as the flag is not stored (decision 4); `IN 3D, 0 TO 50% RUNS REVERSED AT 2X;` (215 px); `ABOVE 50% THE SET WAY, FROM LOW.` (191 px). Revised in the review of slice 2: first `THE NOTE ENDS AT A RESTART.` last | `C_TEXT`, the last two `C_AMBER` |
+| Sent 3D OFF | `SENT 9 (3D OFF), THEN 12 (SAVE).` (191 px); while the note stands, `THE 3D NOTE STAYS ON THE TESTER.` (191 px), by decision 4. Revised in the review of slice 2: first `THE 3D NOTE STAYS UNTIL A RESTART.` always | `C_TEXT` |
 | A beacon | `SENDING 3 (BEEP 3).` (113 px), then `SENT 3 (BEEP 3).` (95 px) | `C_TEXT` |
 | No answer | `NO ESC ANSWERS ON SIG GP0.` (155 px) | `C_AMBER` |
 | Motor turning | `MOTOR TURNING: WAIT UNTIL IT STOPS.` (209 px) | `C_AMBER` |
 | Settling | `ESC STARTING: WAIT 1.5 S.` (149 px) | `C_AMBER` |
 | Not sent | `NOT SENT: THE ESC STOPPED ANSWERING.` (215 px), only while frame 6 of the first block has not gone out | `C_AMBER` |
-| Save lost | `SAVE NOT SENT: POWER-CYCLE THE ESC.` (209 px); `CHECK IT ON THE TESTER WITH 3D OFF.` (209 px) | `C_AMBER` |
+| Save lost | `SAVE NOT SENT: POWER-CYCLE THE ESC.` (209 px); for 7 and 8 `CHECK IT ON THE TESTER WITH 3D OFF.` (209 px), for 10 `THE TESTER SHOWS THE 3D NOTE NOW.` (197 px), for 9 `AFTER A POWER CYCLE IT MAY RUN IN 3D.` (221 px), revised in the review of slice 2 | `C_AMBER` |
 | Expired | `NOT SENT: THE ESC WAS NOT READY.` (191 px) | `C_AMBER` |
 
 The pin in the texts is SIG's, GP0 or GP1. Layout constants get
@@ -810,6 +818,109 @@ every 2^32 ms, about 49.7 days, read the link as down. It now stamps 1 in
 place of 0, as the other stamps do. The settle check compares signed, so a
 link-up stamped 1 ms after the slot's clock reads as Settling.
 
+### Slice 2 as built
+
+`src/ui_esc_cmd.{h,cpp}` is the page, `UI_ESC_CMD`, screen id `EscCmd` in
+the place of `Beep`, with `PinUser::None` and `freePins` true: MENU draws
+its row disabled while the claim is not Free, and `uiOpenTool()` disarms on
+the way in. `UI_MENU`'s first line is `ESC COMMANDS` with no status; the
+second is ESC CONFIG, the chooser of ESC SETTINGS and USB BRIDGE (slice 2
+of bluejay-blheli-s.md), and the other five are as slice 9 of menu-b.md
+built them. `UI_BEEP`, its flash
+(`BEEP_FLASH_MS`) and `escRequestBeep()` are gone: the page calls
+`escRequestCommand()` itself, and MENU has no action row left. Its layout,
+texts and colours are the [screen](#screen) tables' to the pixel, every
+width under a `static_assert`; the strip's chip is MENU's, computed the
+same way. Controls by id: `EscCmdCtl::Beep1` to `Beep5`, `Normal`,
+`Reversed`, `Off3d`, `On3d`. The holds are `ui_hold`, `C_RED` while held,
+the bar under each button.
+
+`src/esc_3d.{h,cpp}` owns the tester's 3D note: `esc3dNote()`,
+`esc3dSetNote()` and `ESC_3D_TESTER_NOTE`,
+`3D MODE ESC: 0-50% REVERSED AT 2X` (decision 9). `ui_am32.cpp` sets and
+clears it where it set `s_esc3d`, and the tester reads it in `drawRpm()`
+and `polesShown()`. `AM32_UI_TESTER_3D` and `uiAm32Esc3d()` are gone.
+
+`escPumpTeardown()` in `src/esc_task.h`, pure, runs `escPumpRelease()` and
+drops a request that still waits, which reads `Expired` about its command
+when no sequence was running; `escTaskPoll()` clears it under the lock with
+the generation it read. A waiting request does not survive a teardown to
+start on the next bind's ESC.
+
+Choices the note left open:
+
+- **Which outcome the page shows.** Only that of its own last request, taken
+  by `escRequestCommand()`; opened again, the page is at rest whatever
+  `escCommandState()` reads. A request the slot refuses shows nothing of its
+  own; the readiness line says why.
+- **The readiness line beside an outcome.** No outcome uses the sixth line,
+  so `NO ESC ANSWERS ON SIG GP0.`, `MOTOR TURNING: WAIT UNTIL IT STOPS.` or
+  `ESC STARTING: WAIT 1.5 S.` takes it while an outcome stands. With no
+  outcome it replaces the idle lines, alone on the first line, as the
+  [screen](#screen) table's states are one each.
+- **When 3D ON sets the note.** At `Sent`, and at `SaveLost`: then the ESC
+  may hold 3D in its RAM until a power cycle, which `esc_3d.h` calls "may
+  run in 3D mode", as an AM32 write accepted and not verified does. Not at
+  `NotSent` or `Expired`, where no ESC acted. The page sets it where it
+  builds the view, on the frame it reads the outcome and before it reads
+  BACK or any control, so a press on BACK lifted on that frame cannot leave
+  first.
+- **Taps count only for a press that landed live.** BACK and BEEP 1 to 5
+  act on a release only when the press landed while the control was live
+  and it stayed live on every frame since, as `ui_hold` keeps a hold
+  (`gatedTap()`). A press begun on BACK while a sequence went out, or on a
+  BEEP drawn disabled, does nothing when it lifts.
+- **A lost save names what may sit in the ESC.** For 7 and 8 the tester
+  check of the direction; for 10 that the tester's note is set; for 9 that
+  the ESC may run in 3D after a power cycle.
+- **A teardown keeps a cut sequence's outcome.** `escPumpTeardown()` drops
+  the waiting request either way; it reads `Expired` only when no sequence
+  was running, and a sequence the teardown cut keeps `NotSent` or
+  `SaveLost`.
+- **The teardown's wiring is not under test.** `escTaskPoll()` in
+  `src/esc_task.cpp` reads the request and its generation under the lock and
+  publishes `escPumpTeardown()`'s result; the host suite does not link
+  `esc_task.cpp`, so a mutant that publishes the dropped request as not
+  taken survives it. The pure rule is tested in `test/test_esc_cmd.cpp`.
+- **What disables BACK.** The page's own request at `Waiting` or `Sending`.
+  A beacon reads `Sent` from its first frame, so BACK and the controls are
+  live during its gap; a tap there waits in the slot.
+- **The pin in the texts** is `escTaskDshotPin()`, the one the pump drives;
+  the strip's rate is `escTaskDshotKbaud()`.
+- **The controls are live at `Busy`**, revising the rule of
+  [the page](#the-page), which drew them live only at `Ready`; decided on
+  2026-11-15 before the pull request. With an ESC that answers eRPM and no
+  EDT, the enable is retried every 1000 ms (`EDT_RETRY_MS`) and the
+  readiness reads `Busy` for its 10 frames and one more. A UI frame lands in
+  those 11 ms in about 11 of every 25 ms of such a window, and `ui_hold` ends
+  a press on any frame its control is not live, so about 4 holds in 10 on
+  such an ESC ended unfired. A request taken at `Busy` already waits in the
+  slot, at most 2000 ms, so the controls stay live there; they are drawn
+  disabled only at `NoAnswer`, `Turning` and `Settling` and while the page's
+  own request is `Waiting` or `Sending`. The 4 in 10 is worked out from the
+  code, not measured.
+
+The host suite: `test/test_esc_cmd_ui.cpp` runs the page through MENU against
+the command slot of `fakes.cpp`, whose readiness and sequence state the test
+sets: the row and its refusal while a claim holds, the disarm, the layout and
+every text's width, every control at each readiness, BEEP 1 to 5 with their
+lines and the beep's gap, a tap at `Busy` taken and waiting, the four holds at
+999 and 1000 ms with their commands and the save, a hold across a `Busy` frame
+that still fires at 1000 ms, a hold slid off and one the readiness broke, each
+outcome's lines and colours, the readiness line beside an outcome, the 3D note
+set by 3D ON at `Sent` and `SaveLost`, not at `NotSent` and `Expired`, kept by
+3D OFF, on the tester with its new text, BACK disabled and drawn as an outline
+while a request waits, a press on BACK begun while 3D ON goes out and lifted
+at `Sent` or `SaveLost` that leaves the page up with the note set, a press on
+a BEEP begun while it was disabled that sends nothing, and
+`escCancelCommand()` on leaving. `test/test_esc_cmd.cpp` adds the teardown:
+a request waiting behind a cut sequence dropped with the sequence's
+`NotSent` or `SaveLost` kept, one waiting alone expired, and none.
+`test_ids.cpp` walks the controls by id at `Ready` and at `NoAnswer`. The
+previews are `docs/esccmd-preview.png` and the wiki's `esccmd*.png`;
+`docs/menu-preview.png` shows `NO ESC` in place of the BEEP flash. Nothing of it
+has run on an ESC.
+
 ## Decisions
 
 Decisions of the owner, 2026-11-15, answering the open questions of
@@ -863,9 +974,6 @@ None open. Questions 1 to 10 are answered by decisions 1 to 10.
 - That BLHeli_32 takes a command right after the 10 frames of the EDT
   enable (13) with no 0 frames between them; AM32, Bluejay and BLHeli_S
   reset their count on a new value.
-- A waiting request survives a teardown and could start on the next bind's
-  ESC if it settles within the 2000 ms wait; no path in slice 1 reaches
-  it, and slice 2 expires it.
 - A motor's spin-up time after a throttle step, and the size of the
   no-load losses and the timing effect on the estimate.
 - Everything on hardware: no command of this design, no direction change

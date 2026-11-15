@@ -17,6 +17,7 @@
 #include "card_cache.h"
 #include "card_dir.h"
 #include "am32_eeprom.h"
+#include "esc_3d.h"
 #include "pin_claim.h"
 #include "touch.h"
 #include "usb_msc.h"
@@ -283,8 +284,6 @@ static uint16_t   s_efm8Sig = 0;
 static bool     s_blReached = false;
 /** @brief When that handshake succeeded, ms. */
 static uint32_t s_blReachedMs = 0;
-/** @brief The ESC may run in 3D mode: see uiAm32Esc3d() for what sets and clears it. */
-static bool     s_esc3d = false;
 
 /**
  * @brief Held-button repeat state for the editor bar.
@@ -1012,7 +1011,7 @@ static void tryConnect() {
 	snprintf(s_status, sizeof(s_status), "READ OK");
 	// Only the list reads byte 0x12 as 3D MODE: in a layout not known it
 	// may hold another field, so the read-only view leaves the note.
-	if (known) s_esc3d = am32Is3d(s_eeprom);
+	if (known) esc3dSetNote(am32Is3d(s_eeprom));
 }
 
 /**
@@ -1097,8 +1096,8 @@ static void doWrite() {
 	// The ESC accepted the block. With 3D MODE on in it the tester's note is
 	// set now, before the read-back: a read-back that fails or differs may
 	// still leave the ESC in 3D mode. Only a verified write or a list read
-	// clears it. @see uiAm32Esc3d()
-	if (am32Is3d(s_eeprom)) s_esc3d = true;
+	// clears it. @see esc3dNote()
+	if (am32Is3d(s_eeprom)) esc3dSetNote(true);
 	// Read back rather than trusting the ACK: a write that reports success but
 	// lands wrong is worse than one that fails loudly.
 	//
@@ -1128,7 +1127,7 @@ static void doWrite() {
 	}
 	memcpy(s_original, s_eeprom, AM32_SETTINGS_SIZE);
 	s_verified = true;
-	s_esc3d = am32Is3d(s_eeprom);
+	esc3dSetNote(am32Is3d(s_eeprom));
 	if (s_backupDone) snprintf(s_status, sizeof(s_status), ST_VERIFIED ST_BACKUP "%.5s", s_backupName);
 	else snprintf(s_status, sizeof(s_status), ST_VERIFIED);
 }
@@ -1441,8 +1440,6 @@ bool uiAm32RunCue(uint32_t lastRpmMs) {
 		s_blReached = false;
 	return s_blReached;
 }
-
-bool uiAm32Esc3d() { return s_esc3d; }
 
 const UiScreen UI_AM32 = {
 	UiScreenId::Am32, AM32_UI_TITLE, PinUser::Am32, nullptr,

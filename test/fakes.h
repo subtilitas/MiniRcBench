@@ -50,6 +50,15 @@ struct SdLogStatus;
  * @brief Force the fake logger into a given state. @param st What to report.
  */
 void fakeSdLogSet(const SdLogStatus *st);
+struct RunSum;
+/**
+ * @brief The run summary the fake logger's next starts begin, and their
+ *        stops leave in @ref SdLogStatus::summary, with MOTOR POLES at the
+ *        stop. As sd_log.cpp: none while a log runs, a failed start keeps
+ *        the last, a mount and USB DRIVE's handover forget it. nullptr, the
+ *        default, gives none.
+ */
+void fakeSdLogSetSummary(const RunSum *s, uint8_t poles);
 /** @brief The highest `LOGnnnnn.BFL` on the fake card, 0 for none: the
  *         next fake start takes the number after it (sdLogNextNumber()). */
 void fakeSdLogSetHighest(uint32_t n);
@@ -254,6 +263,16 @@ int fakeCommandCancels();
  *        EscCmdReady::Ready by default.
  */
 void fakeSetCmdReady(EscCmdReady r);
+
+/**
+ * @brief Set what escCommandState() reports for the last sequence, as core1
+ *        publishes it, and end a request that waits: the request was read.
+ *        A request escRequestCommand() takes reads EscCmdState::Waiting until
+ *        this or escCancelCommand(). EscCmdState::Idle by default.
+ * @param st  The sequence's state.
+ * @param cmd Its command.
+ */
+void fakeSetCmdState(EscCmdState st, uint8_t cmd);
 
 /**
  * @brief Count framebuffer pixels of an exact colour.
