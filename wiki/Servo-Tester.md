@@ -104,7 +104,8 @@ wiring sheet. Not tested on hardware.
 - **Supply up:** with the current sensor (SETTINGS > CURRENT SENSE `INA219`)
   at the first reading of 4.5 V or more, without it after 500 ms. The servo
   goes to CENTRE and the line reads `GP28 SUPPLY ON`. The SET screen shows
-  how long it took, `SUPPLY UP IN 25 MS`.
+  how long it took, `SUPPLY UP IN 25 MS`, until the first timed move
+  ([Move timing](#move-timing)) takes its place.
 - **Off again:** at `STOP`, when the screen stalls for 250 ms, when the touch
   panel does not answer for 250 ms (`STOPPED: TOUCH DID NOT ANSWER`), when
   the I2C bus is stuck (`STOPPED: TOUCH BUS STUCK`), at a cut of the
@@ -252,6 +253,53 @@ Not tested on hardware: no INA219 and no converter has been on the board.
   one servo `SIG  333 HZ`.
 
 <img src="img/servo-overcurrent.png" width="240" alt="OVERCURRENT in magenta, STOPPED: CURRENT 3.0 A OR MORE on the dial"> <img src="img/servo-no-sensor-cut.png" width="240" alt="NO SENSOR in magenta, CURRENT SENSOR LOST: SUPPLY OFF. over START WAITS FOR THE CURRENT SENSOR.">
+
+### Move timing
+
+With the current sensor the servo tester times how long the servo takes to
+reach the position you tap, from its current: a moving servo draws more than
+a resting one. The SET screen shows the last move on the second line under
+its title, in grey:
+
+`MOVE 0.42 S  PEAK 1.21 A  HOLD 0.12 A`
+
+| Figure | Meaning |
+|---|---|
+| `MOVE 0.42 S` | from the tap to the first reading that shows the servo back at rest |
+| `MOVE LATE` | the servo moved, but its current did not settle within 3 s |
+| `MOVE UNSEEN` | the current did not change within 3 s: the servo did not move, or it moved too lightly to see |
+| `PEAK 1.21 A` | the highest reading from the tap to the arrival |
+| `HOLD 0.12 A` | the mean current in the half second after the arrival |
+| `--` | that figure is not known: see below |
+
+How to get a timed move:
+
+1. Start the servo with the sensor (SETTINGS > CURRENT SENSE `INA219`).
+2. Set `SPEED` to 100 %.
+3. Wait 4 s after `HOLD TO START`, after a drag, a sweep or a move at a lower
+   `SPEED`; after a timed move, half a second is enough.
+4. Tap `MIN`, `CENTRE` or `MAX`, wait for the servo, then open `SET`.
+
+- A tap too soon, a tap at a lower `SPEED`, or a move ended by `STOP`, a
+  cut, another tap or drag, or a lost sensor shows
+  `MOVE -- S  PEAK -- A  HOLD -- A`. `HOLD` shows `--` for the first half
+  second after the arrival.
+- The first time the servo goes to an end where it pushes against its stop,
+  it reads `LATE`: the bench does not yet know how much it draws there. The
+  next move to that end is timed.
+- The time is an upper bound on when the current shows the arrival. The
+  sensor shows it up to 61 ms late (computed: one reading and two of the
+  sensor's averaging periods), and the pulse leaves up to 20 ms after the
+  tap at 50 Hz. A servo that eases off near the target can fall to its
+  holding current while the horn still creeps, so the current can show the
+  arrival before the horn stops. How close the time comes to the horn's
+  real arrival is not measured.
+- With CURRENT SENSE at `NONE` nothing is timed, and the line stays as it
+  is.
+- The line goes at the next `HOLD TO START`, and it does not show while the
+  screen has a two-line warning there.
+
+<img src="img/servo-set-move.png" width="240" alt="SERVO SET with a timed move, MOVE, PEAK and HOLD, under STOP TO CHANGE THE PROFILE">
 
 ---
 

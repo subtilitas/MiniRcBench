@@ -44,6 +44,10 @@
  * collapse cut and the sensor-lost cut too. A cut ends the pulses, switches
  * the supply off in the same pass, and latches the trip with its cause.
  *
+ * With a sensor online, the job times each step (MIN, CENTRE or MAX at
+ * SPEED 100 %) from the readings, after every rule above has decided the
+ * pulses (move_timer.h); the timing changes no pulse and no cut.
+ *
  * | Supply | Enable pin | Pulses |
  * |---|---|---|
  * | Off | low | level 0 |
@@ -59,6 +63,7 @@
 #include <stdint.h>
 
 #include "core1_job.h"
+#include "move_timer.h"
 #include "sense.h"
 #include "servo_model.h"
 #include "servo_sweep.h"
@@ -113,6 +118,7 @@ struct ServoCmd {
 	uint16_t     command;   /**< Position, 0 to @ref SERVO_SPAN. */
 	uint16_t     slewPerS;  /**< Command units a second; 0 for none. */
 	sweep_cfg_t  sweep;     /**< The curve, for ServoCmdKind::Sweep. */
+	bool         step;      /**< A Position from MIN, CENTRE or MAX: the move timer times it with slewPerS 0 (move_timer.h). */
 };
 
 /** @brief Where the switched supply is. */
@@ -168,6 +174,7 @@ struct ServoStatus {
 	ServoOffCheck   offCheck;    /**< The read-back after the last switch-off. */
 	ServoStartBlock startBlock;  /**< Why START is refused now. */
 	uint16_t upMs;        /**< The last switch-on's start-up time, ms; @ref SUPPLY_UP_NONE for none. */
+	MoveResult move;      /**< The last step's move timing (move_timer.h). */
 };
 
 /**
@@ -244,6 +251,15 @@ bool servoCoreTake(ServoCore *c, const ServoCmd *cmd, uint32_t nowMs,
  * @param uiAlive   core1UiAlive().
  */
 void servoCoreStep(ServoCore *c, uint32_t nowMs, bool uiAlive);
+
+/**
+ * @brief Whether @p cmd is a step for the move timer: a Position from MIN,
+ *        CENTRE or MAX (ServoCmd::step). The timer times it at SPEED 100 %,
+ *        slewPerS 0, only. Pure.
+ * @param cmd The command.
+ * @return True for such a step.
+ */
+bool servoStepCmd(const ServoCmd *cmd);
 
 /**
  * @brief Core1's state for the switched supply. Plain data, so the host

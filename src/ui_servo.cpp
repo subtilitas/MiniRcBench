@@ -142,6 +142,8 @@ static_assert(SET_LABEL_W(SET_APPLY_LABEL) + 2 * 4 <= 150 &&
                   2 * SET_LABEL_W(SET_STOP_LABEL) + 2 * 4 <= 72,
               "a SET footer label does not fit its button");
 static_assert(SET_EDIT_Y + SET_EDIT_H <= SET_FOOT_Y, "the editor bar overlaps the footer");
+static_assert(UI_MARGIN + 6 * MOVE_TEXT_MAX - 1 <= GFX_W - UI_MARGIN,
+              "the move timing's line does not fit the note band at scale 1");
 static_assert(SET_FOOT_Y + SET_FOOT_H <= GFX_H, "the footer runs off the panel");
 static_assert(SET_ROW_H >= UI_LIST_TAP_MIN && SET_ROW_PITCH > SET_ROW_H,
               "a SET row is lower than the list floor, or has no gap");
@@ -319,13 +321,17 @@ static void supplyLine(char *buf, size_t n, unsigned pin) {
 	snprintf(buf, n, fmt, pin);
 }
 
-/** @brief Send a command with this frame's SPEED and sweep. */
-static void send(ServoCmdKind kind, uint16_t command = SERVO_CMD_CENTRE) {
+/**
+ * @brief Send a command with this frame's SPEED and sweep; @p step marks
+ *        MIN, CENTRE and MAX for the move timing.
+ */
+static void send(ServoCmdKind kind, uint16_t command = SERVO_CMD_CENTRE, bool step = false) {
 	ServoCmd c;
 	memset(&c, 0, sizeof(c));
 	c.kind = kind;
 	c.mask = twoServos() ? s_mask : SERVO_MASK_A;
 	c.command = command;
+	c.step = step;
 	c.slewPerS = servoSlewOf((int)(s_speed.value + 0.5f));
 	c.sweep = s_sweep;
 	servoJobCommand(&c);
@@ -791,7 +797,8 @@ static void drawButtons(bool startOk, int holdPct) {
 }
 
 /** @brief Point the selection, or the dial, at a command. */
-static void position(uint16_t cmd) { send(ServoCmdKind::Position, cmd); }
+/** @brief Drive the selected servos to @p cmd; @p step for MIN, CENTRE and MAX. */
+static void position(uint16_t cmd, bool step = false) { send(ServoCmdKind::Position, cmd, step); }
 
 /** @brief Every touch of the SERVO view. */
 static void mainTouch(bool startOk) {
@@ -838,9 +845,9 @@ static void mainTouch(bool startOk) {
 	if (uiSliderEvent(&s_speed, s_t) && s_st.running) send(ServoCmdKind::Slew);
 
 	// --- taps, on release ---
-	if (run && tapped(BTN_MIN))         position(0);
-	else if (run && tapped(BTN_CENTRE)) position(SERVO_CMD_CENTRE);
-	else if (run && tapped(BTN_MAX))    position(SERVO_SPAN);
+	if (run && tapped(BTN_MIN))         position(0, true);
+	else if (run && tapped(BTN_CENTRE)) position(SERVO_CMD_CENTRE, true);
+	else if (run && tapped(BTN_MAX))    position(SERVO_SPAN, true);
 	else if (run && tapped(BTN_SWEEP))  send(s_st.sweeping ? ServoCmdKind::SweepStop : ServoCmdKind::Sweep);
 	else if (twoServos() && tapped(BTN_SEL_A))  s_mask = SERVO_MASK_A;
 	else if (twoServos() && tapped(BTN_SEL_B))  s_mask = SERVO_MASK_B;
@@ -961,7 +968,8 @@ static bool endRow(int row) {
  * MIN or MAX is selected; SPEED LIMITS THE SWEEP; TWO SERVOS ARE NOT
  * OFFERED; the end-stop note on any other row. A dim note keeps its place on
  * the other rows, and the end-stop note shows on its own three. A second
- * line left free carries the switched supply's start-up time (upNote()).
+ * line left free carries the last step's move timing (moveNote()), or
+ * while there is none the switched supply's start-up time (upNote()).
  */
 static void setNote(const char **l1, const char **l2, uint16_t *col) {
 	*l1 = *l2 = nullptr;
@@ -1007,6 +1015,16 @@ static const char *upNote() {
 	if (!s_st.switched || s_st.upMs == SUPPLY_UP_NONE) return nullptr;
 	snprintf(b, sizeof(b), SERVO_UI_UP_FMT, (unsigned)s_st.upMs);
 	return b;
+}
+
+/**
+ * @brief SET's line for the last step's move timing,
+ *        `MOVE 0.42 S  PEAK 1.21 A  HOLD 0.12 A` (moveTimerText()), or null
+ *        while no step was taken since the pulses started.
+ */
+static const char *moveNote() {
+	static char b[MOVE_TEXT_MAX + 1];
+	return moveTimerText(&s_st.move, b, sizeof(b)) ? b : nullptr;
 }
 
 /**
@@ -1065,7 +1083,10 @@ static void drawSet(int holdPct) {
 	const char *l1, *l2;
 	uint16_t col;
 	setNote(&l1, &l2, &col);
-	const char *up = l2 ? nullptr : upNote();
+	// The second line, when free: the last step's timing, else the
+	// start-up time.
+	const char *up = l2 ? nullptr : moveNote();
+	if (!l2 && !up) up = upNote();
 	struct { bool back, backOk; uint32_t l1, l2, up; int guard; } kt;
 	memset(&kt, 0, sizeof(kt));
 	kt.back = uiPressing(uiBackRect(), s_t); kt.l1 = textKey(l1); kt.l2 = textKey(l2);
