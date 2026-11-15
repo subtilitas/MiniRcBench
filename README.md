@@ -2425,7 +2425,7 @@ src/
   tusb_config.h         TinyUSB configuration
 lib/rcbench/            rcbench files copied unchanged: servo sweep, GPIO-to-PWM fold,
                         KST core and line driver, KST file store, Hitec core,
-                        S.BUS decoder, sensor bus
+                        S.BUS decoder, sensor bus, escwire core and line driver
 tools/
   sdtest/               standalone SD bring-up test, 2.8" only; built locally, never released
   make_previews.py      restitches docs/*.png and wiki/img/ from the test suite's frames
@@ -2445,8 +2445,10 @@ files copied unchanged into `lib/rcbench/` with rcbench's own layout
 (`lib/rcbench/README.md`): the sweep curve, the GPIO-to-PWM map, the KST
 programming core with its RP2350 line driver, the KST file store, and the
 Hitec programming core with its RP2350 line driver, servo file text and CRC,
-the S.BUS (Futaba's serial bus for receiver channels) decoder, and the
-current sensor's bus record (`sense_bus.c`). Files include each other as plain
+the S.BUS (Futaba's serial bus for receiver channels) decoder, the
+current sensor's bus record (`sense_bus.c`), and the escwire core for ESC
+settings over the signal wire with its RP2350 line driver, which nothing
+calls yet. Files include each other as plain
 siblings, except two drivers with folders of their own: the DShot
 driver in `src/dshot/`, so that it can be compared with its rcbench original,
 and the SDIO card driver in `src/sdio/`, whose `compat/` headers have to keep
@@ -2475,7 +2477,12 @@ those files as C11 programs: `test/rcbench/test_servo_sweep.c` and
 `test_hitec_wire.c`, `test_hitec_pre.c`, `test_hitec_pio.c`,
 `test_hitec_reg.c`, `test_hitec_reg_plan.c`, `test_hitec_session.c`,
 `test_hitec_session_write.c` and `test_hitec_card.c`, with
-`hitec_headers.cpp` built as C++11, and `test_sbus.c` (12 cases). The SDIO
+`hitec_headers.cpp` built as C++11, `test_sbus.c` (12 cases), and the
+twelve escwire tests `test_ew_a.c`, `test_ew_id.c`, `test_ew_map.c`,
+`test_ew_guard.c`, `test_ew_session.c`, `test_ew_session_write.c`,
+`test_ew_file.c`, `test_ew_file_load.c`, `test_ew_pio.c`, `test_ew_text.c`,
+`test_ew_session_text.c` and `test_ew_file_e32.c` (210 cases), with
+`escwire_headers.cpp` built as C++11. The SDIO
 tests run the card protocol against a simulated card. Time is virtual and
 counted in microseconds — `millis()` advances only when a test says so — which
 makes hold-to-arm, hold-to-write and gesture repeat deterministic rather than
@@ -2774,6 +2781,9 @@ the list.
   by the same copyright holder under the same MIT licence.
 - The S.BUS decoder in `lib/rcbench/` comes from rcbench at commit 5ef42efd,
   by the same copyright holder under the same MIT licence.
+- The escwire core, its RP2350 line driver and the servo file store in
+  `lib/rcbench/` come from rcbench at commit 2b4f934a, by the same copyright
+  holder under the same MIT licence.
 - [logwiju](https://subtilitas.github.io/logwiju/): the browser-based blackbox viewer
   for these logs.
 - [DShot — the missing handbook](https://brushlesswhoop.com/dshot-and-bidirectional-dshot/)
