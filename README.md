@@ -80,8 +80,10 @@ ESC's bootloader on SIG over the board's USB serial port, by passthrough at
 interface of flight controllers, is designed in `docs/design/usb-bridge.md`;
 the owner answered its questions on 2026-11-15. It
 is entered from MENU's `ESC CONFIG` chooser, beside `ESC SETTINGS`. Its
-slice 1 is built, tested on the host only, and nothing opens it yet: its
-pin user, its core1 job and its line, two PIO state machines on SIG.
+slices 1 and 2 are built, tested on the host only: its pin user, its core1
+job and its line, two PIO state machines on SIG, and passthrough with the
+screen `USB BRIDGE`, see [USB bridge](#usb-bridge). MSP and the 4-way
+interface are its slice 3, not built.
 Reading and editing Bluejay and BLHeli_S ESC settings over the signal
 wire, from the connect page of `ESC SETTINGS`, with rcbench's escwire
 module, is designed in `docs/design/bluejay-blheli-s.md`; the owner
@@ -541,7 +543,7 @@ the tester's pole count or ceiling, whose **BACK** returns to the tester.
 | Row | State on the right | A tap |
 |---|---|---|
 | **ESC COMMANDS** | nothing | Opens ESC COMMANDS: BEEP 1 to 5, the direction and 3D mode, each change saved in the ESC. See [ESC commands](#esc-commands) |
-| **ESC CONFIG** | nothing | Opens ESC CONFIG, the chooser of the ESC tools: ESC SETTINGS, and USB BRIDGE drawn disabled, `NOT BUILT`. See [AM32 ESC configuration](#am32-esc-configuration) |
+| **ESC CONFIG** | nothing | Opens ESC CONFIG, the chooser of the ESC tools: ESC SETTINGS and USB BRIDGE. See [AM32 ESC configuration](#am32-esc-configuration) and [USB bridge](#usb-bridge) |
 | **SERVO TESTER** | nothing | Opens the servo tester. See [Servo tester](#servo-tester) |
 | **SERVO PROGRAMMER** | nothing | Opens PROGRAMMER, the chooser of the servo programmers: KST / CHASERVO, HITEC D SERIES, HITEC CLASSIC. See below |
 | **RX SIGNALS** | nothing | Opens RX SIGNALS, the chooser of the receiver signal tools: MONITOR, and OUTPUT drawn disabled, `NOT BUILT`. See [S.BUS monitor](#sbus-monitor) |
@@ -1295,10 +1297,10 @@ escwire session on core1 for Bluejay and BLHeli_S (`src/escwire_job.h`).
 MENU's second row, **ESC CONFIG**, opens a chooser
 (`src/ui_esc_config.h`), PROGRAMMER's pattern: `ESC SETTINGS` (142 px at
 scale 2) with the lines `AM32 SETTINGS, READ AND WRITTEN.` and
-`BLUEJAY, BLHELI_S: READ, NOT WRITTEN.`, and `USB BRIDGE` drawn disabled with
-`A DESKTOP ESC TOOL OVER USB.` and `NOT BUILT` under it
-(`docs/design/usb-bridge.md`). The strip reads `SIG GP0`. The chooser claims
-nothing; the tap on ESC SETTINGS claims SIG. Its BACK, and ESC SETTINGS'
+`BLUEJAY, BLHELI_S: READ, NOT WRITTEN.`, and `USB BRIDGE` (118 px) with
+`A DESKTOP ESC TOOL OVER USB.` and `PASSTHROUGH: AM32 DIRECT MODE.` under
+it ([USB bridge](#usb-bridge)). The strip reads `SIG GP0`. The chooser
+claims nothing; the tap on an entry claims SIG. Its BACK, and the tools'
 BACK and RESTART DSHOT, return to MENU. The row is drawn disabled while
 the pin claim is not free. ESC SETTINGS writes AM32 only: writing a Bluejay
 or BLHeli_S ESC is slice 4 of `docs/design/bluejay-blheli-s.md`, not built.
@@ -2533,6 +2535,96 @@ Not verified:
 
 ---
 
+## USB bridge
+
+**MENU → ESC CONFIG → USB BRIDGE** lets a desktop ESC tool on the board's
+USB serial port reach the ESC's bootloader on SIG at 19200 baud 8N1
+(eight data bits, no parity, one stop bit). The board is then a USB-serial
+adapter whose TX and RX are joined on the ESC's signal wire: every byte
+the PC sends goes to the wire, and every byte on the wire, the echo of the
+PC's own included, goes back to the PC. It ports DshotDisplay's bridge.
+Slice 2 of `docs/design/usb-bridge.md`; host tests only. No byte of it has
+gone to an ESC from this board, and no desktop tool has been run against
+it.
+
+![USB bridge](docs/bridge-preview.png)
+
+**Which tools.** Passthrough serves a tool that speaks the bootloader's
+frames itself and expects the echo: the AM32 configurator with Direct
+ticked, and the Python AM32 configurator DshotDisplay's bridge was written
+for. ESC-Configurator and the AM32 configurator's default speak MSP (the
+MultiWii Serial Protocol) and the 4-way interface of flight controllers;
+they need slice 3, not built. Slice 2 passes their bytes to the wire too,
+as a USB-serial adapter would, and they get their own bytes back and no
+answer. Which of BLHeliSuite's interfaces work is not verified.
+
+**Wiring.** As for DShot: the ESC on SIG and GND, on its own battery. Then
+the board's USB cable to the PC. The PC sees the board's one serial port,
+the one the console uses, and the card reader beside it; the bridge adds
+no USB interface.
+
+**What happens.**
+
+- The tap on USB BRIDGE disarms and claims SIG for `PinUser::Bridge`: DShot
+  drains, stops and lets the pin go, the strip reading `RELEASING SIG GP0`.
+  The claim has no check for an ESC: the bridge needs it on the pin. While
+  USB DRIVE holds the card there is no claim, and the screen reads
+  `EJECT THE USB DRIVE FIRST.`.
+- Once the line is bound (`src/bridge_wire.h`), `src/usb_bridge.h` opens:
+  it takes the serial port from the console (`usbDevConsole()` in
+  `src/usb_dev.h`), so neither the telemetry line nor any other `printf()`
+  reaches the port, and drops what the PC queued before, the 64 bytes
+  TinyUSB holds at most. The mode reads `WAITING` until the PC's first
+  byte, then `PASSTHROUGH`. 2000 ms with no byte either way, or the port
+  closed by the PC (DTR, data terminal ready, falling after it was set),
+  return it to `WAITING`; the bridge forwards whether DTR is set or not.
+- Each PC frame is gathered until 2 ms pass with no byte, or 320 bytes are
+  in, and goes to the wire back to back; the bridge never waits for the
+  ESC before the next. The ring from the wire, 1024 bytes, absorbs a
+  repaint of core0. Bytes the ring could not take count as `LOST`.
+- Each frame's first byte is named, for the screen only: `SET ADDRESS`,
+  `SET BUFFER`, `READ`, `PROGRAM`, `ERASE`, `RUN`, `KEEP ALIVE`, `INIT` for
+  the greeting, `PAYLOAD` for the frame after a SET BUFFER, `FRAME` for any
+  other. The frame is forwarded unchanged.
+- An echo that differs from the byte sent counts as a collision: the ESC
+  drove the line while the bench did, as when the PC sends its next frame
+  before the ESC has answered the last. The bytes reach the PC as the wire
+  read them, and the session goes on.
+
+**The screen.** The strip reads `SIG GP0  19200 8N1` and a chip,
+`PORT OPEN` on lime while DTR is set, `PORT CLOSED` on grey otherwise.
+Under it: the mode; the bytes `PC > ESC` and `ESC > PC`, the echo
+included; `FRAMES` and `LOST`, `LOST` amber above 0; the last command,
+such as `LAST SET ADDRESS 7E00`; and six lines: `OPEN THIS PORT IN A
+DESKTOP ESC TOOL.`, `THE ESC RUNS ON ITS OWN BATTERY.`, `PROPELLER OFF.
+DSHOT IS OFF.`, `POWER-CYCLE THE ESC IF THE TOOL` `FINDS NO ESC, AND AFTER
+A FLASH.`. The counts repaint at most every 250 ms. `THE PC CLOSED THE
+PORT.` replaces the first line after a close, and `BYTES LOST: THE BRIDGE
+FELL BEHIND.`, amber, the second once a byte is lost. A failed bind reads
+`SIG GP0 COULD NOT BE TAKEN (PIO)` with RETRY under it.
+
+**Writes and BACK.** PROGRAM, ERASE and a SET BUFFER payload are
+write-class.
+
+| When | BACK |
+|---|---|
+| a write-class frame waits for its answer, at most 3000 ms | drawn disabled; the first line reads `WRITING: DO NOT UNPLUG ESC OR USB.`, amber |
+| no write since the bridge opened, or a RUN after the last | returns to MENU; DShot comes back once the job has let the line go |
+| a write with no RUN behind it | the leave page: `POWER THE ESC OFF.`, `RESTART DSHOT.`, the note `FLASH THE ESC AGAIN BEFORE USE.`; `BRIDGE` returns to the bridge, RESTART DSHOT, live 1000 ms after the line is let go, to MENU |
+
+BACK sends nothing, no RUN. From BACK on, the bridge reads nothing more
+from the PC and drops a frame it was gathering; a frame already on the
+wire is finished. The console gets the serial port back once the claim is
+free, so a tool still connected then reads the telemetry lines. A pulled
+USB cable leaves the claim as it is: SIG stays at the pad's pull-up and
+nothing is sent.
+
+**The log.** `USB_BRIDGE_LOG` in `src/config.h`, 0 by default, is
+DshotDisplay's traffic log as a build option: at 1 every frame and every
+run of bytes to the PC is kept with its time in a 4 KB RAM ring and printed
+on the serial port as a hex dump after BACK, before the console has the
+port again. `src/bridge_log.h` describes the dump.
+
 ## Current sensor
 
 An optional INA219, Texas Instruments' current and power monitor, measures
@@ -2791,6 +2883,9 @@ src/
   bridge_wire.{h,cpp}   the USB bridge's core1 job: the frame slot, the ring, the echo, the counts
   bridge_line_port.{h,cpp} the bridge's line: two PIO state machines on SIG
   bridge_line.pio       ...its transmitter, seven instructions; the receiver is pio_uart_rx.pio
+  usb_bridge.{h,cpp}    the bridge's USB side: the port to the frame slot and the ring back
+  bridge_log.{h,cpp}    the bridge's traffic log, a build option off by default
+  ui_bridge.{h,cpp}     USB BRIDGE: the claim, the counts, BACK's rules, the leave page
   backup_ring.{h,cpp}   the ring of device backups in BACKUP/
   card_dir.{h,cpp}      the card's mount rule, directory scope and file calls
   sense.{h,cpp}         the INA219 current sensor on the shared I2C bus: codec, probe, readings, recovery
@@ -3101,6 +3196,12 @@ never driven by both. A control run with bits 3 % shorter has to lose
 bytes. The Firmware job holds its words to `pioasm`. `test/test_bridge.cpp`
 runs the bridge's job on `test/fake_bridge_line.h`, a wire on the virtual
 clock with those cycle counts and a model ESC, and through the pin claim.
+`test/test_usb_bridge.cpp` runs the USB side on `test/fake_cdc.h`, the
+serial port with 64-byte packets and TinyUSB's buffers: DshotDisplay's
+bridge tests ported, models of the Python tool's 25 ms reads and of the
+AM32 configurator's Direct rule, the gather, the modes, the write rules
+and the console. `test/test_bridge_ui.cpp` runs USB BRIDGE through the UI.
+`test/test_bridge_log.cpp` is a program of its own, built with the log on.
 
 ### Continuous integration
 

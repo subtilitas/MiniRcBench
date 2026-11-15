@@ -19,12 +19,12 @@ keinen Konfigurator. Er aktualisiert keine ESC-Firmware.
 
 **MENU → ESC CONFIG** öffnen, dann **ESC SETTINGS** antippen.
 
-<img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC SETTINGS und, grau, USB BRIDGE mit NOT BUILT">
+<img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC SETTINGS und USB BRIDGE">
 
 `ESC CONFIG` ist eine Auswahl. Sie nimmt dem Signalpin nichts weg: DShot
-läuft weiter, bis du `ESC SETTINGS` antippst. `USB BRIDGE` ist grau
-gezeichnet, darunter `NOT BUILT` (nicht gebaut), und tut nichts. `BACK`
-führt zu MENU zurück. Der Bildschirm heißt für jede ESC-Firmware
+läuft weiter, bis du `ESC SETTINGS` antippst. Über `USB BRIDGE` erreicht
+ein ESC-Programm auf dem Computer den ESC durch die Platine: siehe
+[USB-Brücke](USB-Bruecke). `BACK` führt zu MENU zurück. Der Bildschirm heißt für jede ESC-Firmware
 `ESC SETTINGS`; er liest und schreibt AM32 und liest Bluejay und
 BLHeli_S, ohne sie zu schreiben: siehe [EFM8-ESCs](#efm8-escs).
 

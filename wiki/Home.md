@@ -29,6 +29,7 @@ run.
 | [KST Programming](KST-Programming) | Reading and writing the settings of a KST or Chaservo servo, with backup and restore |
 | [Hitec Programming](Hitec-Programming) | Reading and writing the settings of a Hitec D series or classic servo, with backup and restore. Not tested on hardware |
 | [RX Signals](RX-Signals) | Reading a receiver's S.BUS output: channels, failsafe, frame rate, errors. Not tested on hardware |
+| [USB Bridge](USB-Bridge) | A desktop ESC tool reaching the ESC's bootloader through the board's USB port. Not tested on hardware |
 | [Troubleshooting](Troubleshooting) | Symptom first, cause second |
 
 > **Before you power anything on:** a motor on a bench can injure. Read
@@ -55,6 +56,7 @@ Strom und der erste Motorlauf.
 | [KST-Programmierung](KST-Programmierung) | Einstellungen eines KST- oder Chaservo-Servos lesen und schreiben, mit Sicherung und Wiederherstellung |
 | [Hitec-Programmierung](Hitec-Programmierung) | Einstellungen eines Hitec-Servos der D-Serie oder der klassischen Familie lesen und schreiben, mit Sicherung und Wiederherstellung. Nicht auf Hardware getestet |
 | [RX-Signale](RX-Signale) | Den S.BUS-Ausgang eines Empfängers lesen: Kanäle, Failsafe, Framerate, Fehler. Nicht auf Hardware getestet |
+| [USB-Brücke](USB-Bruecke) | Ein ESC-Programm auf dem Computer erreicht den Bootloader des ESC über den USB-Anschluss der Platine. Nicht auf Hardware getestet |
 | [Fehlersuche](Fehlersuche) | Erst das Symptom, dann die Ursache |
 
 > **Vor dem Einschalten:** Ein Motor auf der Werkbank kann verletzen. Lies

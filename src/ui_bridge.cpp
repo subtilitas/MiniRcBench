@@ -154,7 +154,7 @@ static void claimPin() {
  * @param[out] c     Their colours.
  * @param[out] retry RETRY is offered.
  */
-static void messages(const char *l[BRIDGE_UI_MSG_LINES], uint16_t c[BRIDGE_UI_MSG_LINES], bool *retry) {
+static void messages(const char **l, uint16_t *c, bool *retry) {
 	static char a[48];
 	for (int i = 0; i < BRIDGE_UI_MSG_LINES; i++) {
 		l[i] = nullptr;
@@ -279,7 +279,7 @@ static void drawBody() {
 }
 
 /** @brief The six message lines. */
-static void drawMessages(const char *l[BRIDGE_UI_MSG_LINES], const uint16_t c[BRIDGE_UI_MSG_LINES]) {
+static void drawMessages(const char *const *l, const uint16_t *c) {
 	uint32_t k[2 * BRIDGE_UI_MSG_LINES];
 	for (int i = 0; i < BRIDGE_UI_MSG_LINES; i++) {
 		k[2 * i] = textKey(l[i]);

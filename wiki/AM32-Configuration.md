@@ -19,11 +19,12 @@ update ESC firmware.
 
 Open **MENU → ESC CONFIG**, then tap **ESC SETTINGS**.
 
-<img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC SETTINGS and, drawn grey, USB BRIDGE with NOT BUILT">
+<img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC SETTINGS and USB BRIDGE">
 
 `ESC CONFIG` is a chooser. It takes nothing from the signal pin: DShot keeps
-running until you tap `ESC SETTINGS`. `USB BRIDGE` is drawn grey with
-`NOT BUILT` under it and does nothing. `BACK` returns to MENU. The screen is
+running until you tap `ESC SETTINGS`. `USB BRIDGE` lets a desktop ESC
+tool reach the ESC through the board: see [USB Bridge](USB-Bridge). `BACK`
+returns to MENU. The screen is
 titled `ESC SETTINGS` for every ESC firmware; it reads and writes AM32, and
 reads Bluejay and BLHeli_S without writing them: see
 [EFM8 ESCs](#efm8-escs).
