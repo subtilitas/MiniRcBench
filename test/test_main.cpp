@@ -29,6 +29,7 @@ void runClaimTests();
 void runServoTests();
 void runKstTests();
 void runHitecTests();
+void runSbusJobTests();
 void runWidgetTests();
 void runIdTests();
 void runMenuTests();
@@ -59,6 +60,7 @@ int main() {
 	runServoTests();
 	runKstTests();
 	runHitecTests();
+	runSbusJobTests();
 	runWidgetTests();
 	runIdTests();
 	runBackupTests();
