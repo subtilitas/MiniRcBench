@@ -1616,8 +1616,8 @@ pin at once.
 The job (`src/escwire_job.h`) stops a running entry, read or write with
 `ew_session_stop()` when core0's heartbeat lapses for 250 ms, and lets a
 running LEAVE finish: a write that has sent its erase runs to its read-back,
-starts no other procedure, and then parks the line. A board restart while an EFM8 bootloader waits sends
-DShot into it: the bench cannot know.
+starts no other procedure, and then parks the line. A board restart while an
+EFM8 bootloader waits sends DShot into it: the bench cannot know.
 
 ### Layouts outside 2 to 4
 

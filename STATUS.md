@@ -98,11 +98,11 @@ first read to the card as `BJnnn.TXT` or `BHnnn.TXT`
 (`src/efm8_backup.h`), then the job writes the draft with rcbench's write:
 re-read, erase, program and read-back, on the settings page only. A
 half-written page is guarded: no edit, no LEAVE, and BACK's second tap
-aborts the session and opens the leave page. BACK from the list sends LEAVE, `00 01`, and DShot returns;
-the cue stays until an eRPM frame, as LEAVE has no answer. Every other BACK
-after an EFM8 answer, or after a reply holding a piece of one, opens the
-leave page of that note's decision 8, whose RESTART DSHOT alone restarts
-DShot and clears the cue.
+aborts the session and opens the leave page. BACK from the list sends LEAVE,
+`00 01`, and DShot returns; the cue stays until an eRPM frame, as LEAVE has no
+answer. Every other BACK after an EFM8 answer, or after a reply holding a
+piece of one, opens the leave page of that note's decision 8, whose RESTART
+DSHOT alone restarts DShot and clears the cue.
 
 Slice 1 of
 [usb-bridge.md](docs/design/usb-bridge.md#slice-1-as-built) is built, host
