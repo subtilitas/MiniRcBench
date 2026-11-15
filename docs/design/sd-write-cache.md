@@ -220,6 +220,17 @@ sets `Failed`; the recovery's mount initialises the card again. A miss of
 since the card takes no other command while it sends. A card swapped for a
 byte-for-byte copy with the same serial number is not detected.
 
+A batch is checked once, before its first block, and stays checked until the
+queue empties. `sdc_recheck()` (`cardCacheRecheck()`) clears that mark with
+blocks queued, after ending a block in flight, so the next block waits for a
+fresh check. The servo log's run end after an open given up calls it before
+its flush (`endGiveUp()` in `src/servo_log.cpp`); nothing calls it during a
+run. A card swapped between a batch's first block and its last therefore
+takes that batch's remaining blocks: a current limitation of every claim
+that queues blocks, the servo log's drain, KST, HITEC and AM32 among them. On
+the board a newly inserted card is uninitialised and most likely refuses
+the writes; that is not verified.
+
 Every loop in which core0 waits on the card calls the driver's wait hook
 (`sdh_wait_hook`), as the driver's own waits do: `sdc_flush()`,
 `sdc_settle()`, a write that waits for room in the queue, and the

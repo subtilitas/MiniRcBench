@@ -1403,8 +1403,7 @@ exact, the developer's:
   refused frame, note 1 gives the reason in its colour until the next
   START, and note 2 keeps `NEVER TO AN ESC. PROPS OFF.` in `UI_COL_WARN`:
   HOLD TO START is live then and no probe runs before it, so an ESC plugged
-  in since the probe is the case the warning is for. The note's
-  `HOLD TO START AGAIN.` is not drawn; the live button says it. The screen's
+  in since the probe is the case the warning is for. The screen's
   own idle stop is `SbusOutStop::Idle`, cleared by START. SET's footer
   carries the same warning in every state but RUNNING.
 - **The sliders** take presses on the row's 22 px over the track's x span,
@@ -1446,10 +1445,14 @@ exact, the developer's:
   call and its one Start. Then in `ui_sbus_out.cpp` the Start is sent only
   in `startFrames()`, whose name appears twice, at its definition and in
   the hold's call on the line gated by `startAllowed()`, whose one return is
-  a chain of `&&` with no `|` and no `?` that ends in
+  a chain of `&&` with no `|`, no `?`, none of the 11 alternative tokens
+  `or`, `and`, `not`, `bitor`, `bitand`, `compl`, `xor`, `or_eq`, `and_eq`,
+  `xor_eq` and `not_eq`, and no assignment (an `=` that is not part of `==`,
+  `!=`, `<=` or `>=`; `<<=` and `>>=` count) that ends in
   `sbusOutProbePassed()`. The numeric-cast checks stay and also catch a
   cast to `SbusOutCmdKind`, so `send((SbusOutCmdKind)1)`, a pointer to
-  `startFrames` and a ternary in the gate each fail it.
+  `startFrames`, a ternary, each alternative token and each assignment
+  operator in the gate each fail it.
   `sbusOutClaimRoles()` left the list: the screen calls it, and it is pure.
   The test is a lint of the sources, not a proof: a value made without a
   cast or a name, through `memcpy()`, a union or a macro, is not caught.
@@ -1512,6 +1515,13 @@ reach:
 - The fake's count without its `startUs > now` test: from the first
   character that may still wait, every later one starts later, unless a
   stuck transmitter put one at `UINT64_MAX`, which no test un-sticks.
+
+After the gate's second review, 13 mutants of the source test, all failing
+the suite: the assignment check left out, the alternative-token check left
+out, and each of the 11 tokens dropped from the check in turn, each caught
+by the sample that holds that token alone. With the assignment check left
+out, the samples `=`, `^=`, `&=`, `+=`, `-=`, `*=`, `/=`, `%=`, `<<=` and
+`>>=` pass the lint; `|=` fails it on its `|`.
 
 The script is not kept.
 

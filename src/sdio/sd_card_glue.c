@@ -284,6 +284,14 @@ int sd_sdio_cache_state(uint16_t *left) {
 	return (int)sdc_state(left);
 }
 
+void sd_sdio_cache_recheck(sd_card_t *c) {
+	if (!sdc_on()) return;
+	sd_lock(c);
+	sdc_recheck();
+	syncStatus(c);
+	sd_unlock(c);
+}
+
 int sd_sdio_cache_flush(sd_card_t *c) {
 	if (!sdc_on()) return SD_SDIO_CACHE_OFF;
 	sd_lock(c);

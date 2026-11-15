@@ -1463,6 +1463,8 @@ CardCache cardCacheState(uint16_t *left) {
 	return g_cacheOn ? g_cacheState : CardCache::Off;
 }
 
+void cardCacheRecheck() {}
+
 CardCache cardCacheFlush() {
 	g_cacheCalls.flushes++;
 	if (!g_cacheOn) return CardCache::Off;

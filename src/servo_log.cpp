@@ -170,23 +170,34 @@ static bool late(uint32_t t0) { return servoLogOpenLate(t0, millis()); }
 /**
  * @brief The run's end after an open given up, core0 blocking, the supply
  *        off: the file closed and removed, the cache's last blocks flushed
- *        and the cache off. A cache that failed meanwhile is recovered
+ *        and the cache off. The queued blocks are flushed first, before the
+ *        volume's serial number is read, so a serial number that does not
+ *        read once does not cost them. The swap check runs once a batch and
+ *        stays passed until the queue empties, so cardCacheRecheck() comes
+ *        first: the next block waits for a fresh check, and a card swapped
+ *        since the last one fails the flush instead of taking the blocks.
+ *        A cache that failed, in the run or in this flush, is recovered
  *        first, which leaves FatFs's file object behind: only the removal
  *        is tried then. The removal needs the card of the open, by its
- *        serial number: on another card, or one whose number does not
- *        read, the file of that number is that card's own. Then the card is
- *        mounted again, nothing is removed, and the open's file stays on
- *        its own card, as after a power loss.
+ *        serial number: on another card, the file of that number is that
+ *        card's own. Then the card is mounted again, nothing is removed,
+ *        and the open's file stays on its own card, as after a power loss.
+ *        A serial number that does not read, the flush done, mounts nothing
+ *        and removes nothing: the file is closed and stays, as long as the
+ *        read error left the card ready. A file closed so holds the entry
+ *        the open synced, the reserve's size, not a log.
  */
 static void endGiveUp() {
 	bool recovered = false;
-	if (cardCacheState() == CardCache::Failed) {
+	cardCacheRecheck();
+	if (cardCacheFlush() == CardCache::Failed) {
 		cardCacheRecover();
 		recovered = true;
 	}
 	uint32_t serial = 0;
-	bool same = cardVolumeSerial(&serial) && serial == s_serial;
-	if (!same && !recovered) {
+	bool read = cardVolumeSerial(&serial);
+	bool same = read && serial == s_serial;
+	if (read && !same && !recovered) {
 		cardCacheRecover();
 		recovered = true;
 	}

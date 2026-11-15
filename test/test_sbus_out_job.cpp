@@ -1683,11 +1683,33 @@ static int countOf(const std::string &text, const std::string &what) {
 }
 
 /**
+ * @brief Whether @p code has an assignment: an `=` that is not part of `==`,
+ *        `!=`, `<=` or `>=`; `<<=` and `>>=` are assignments.
+ */
+static bool hasAssignment(const std::string &code) {
+	for (size_t i = 0; i < code.size(); i++) {
+		if (code[i] != '=') continue;
+		if (i + 1 < code.size() && code[i + 1] == '=') {
+			i++;   // ==
+			continue;
+		}
+		const char p1 = i >= 1 ? code[i - 1] : ' ';
+		const char p2 = i >= 2 ? code[i - 2] : ' ';
+		if (p1 == '!') continue;                         // !=
+		if ((p1 == '<' || p1 == '>') && p2 != p1) continue;   // <= and >=; <<= and >>= are assignments
+		return true;
+	}
+	return false;
+}
+
+/**
  * @brief Whether @p ui, ui_sbus_out.cpp with its comments blanked, has one
  *        path to START: the Start only in startFrames(), whose name appears
  *        twice, at its definition and in HOLD TO START's hold on the line
  *        gated by startAllowed(); and startAllowed()'s one return a chain of
- *        `&&` with no `|` and no `?` that ends in sbusOutProbePassed().
+ *        `&&` with no `|`, no `?` and no alternative token (`or`, `and`,
+ *        `not`, `bitor`, `bitand`, `compl`, `xor`, `and_eq`, `or_eq`, `xor_eq`,
+ *        `not_eq`) and no assignment, that ends in sbusOutProbePassed().
  */
 static bool onePathToStart(const std::string &ui) {
 	const std::string start = bodyOf(ui, "static void startFrames() {");
@@ -1700,8 +1722,9 @@ static bool onePathToStart(const std::string &ui) {
 	    countOf(ui, "if (uiHoldUpdate(&s_hold, BTN_START, s_t, startAllowed(), now)) startFrames();") != 1)
 		return false;
 	const std::string gate = bodyOf(ui, "static bool startAllowed() {");
-	return countOf(gate, "return ") == 1 && countOf(gate, "sbusOutProbePassed()") == 1 &&
-	       countOf(gate, "|") == 0 && countOf(gate, "?") == 0 &&
+	static const std::regex ALT("\\b(or|and|not|bitor|bitand|compl|xor|or_eq|and_eq|xor_eq|not_eq)\\b");
+	return countOf(gate, "return ") == 1 && !std::regex_search(gate, ALT) && !hasAssignment(gate) &&
+	       countOf(gate, "sbusOutProbePassed()") == 1 && countOf(gate, "|") == 0 && countOf(gate, "?") == 0 &&
 	       countOf(gate, "&& sbusOutProbePassed();") == 1;
 }
 
@@ -1721,11 +1744,16 @@ static bool onePathToStart(const std::string &ui) {
  * command kind, fails. Then, in ui_sbus_out.cpp: the START is sent only from
  * startFrames(), whose name appears twice, at its definition and in HOLD TO
  * START's hold, on a line gated by startAllowed(), whose one return is a
- * chain of `&&` with no `|` and no `?` that ends in sbusOutProbePassed().
- * A pointer to startFrames, a cast to a command kind and a ternary in the
- * gate each fail it. It is a lint of the sources, not a proof: a value made
- * without a cast or a name, through memcpy() or a macro, is not caught; the
- * UI tests (test_sbus_out_ui.cpp) hold the behaviour.
+ * chain of `&&` with no `|`, no `?`, none of the 11 alternative tokens (`or`,
+ * `and`, `not`, `bitor`, `bitand`, `compl`, `xor`, `or_eq`, `and_eq`,
+ * `xor_eq`, `not_eq`) and no assignment, an `=` that is not part of `==`,
+ * `!=`, `<=` or `>=`, that ends in sbusOutProbePassed(). A pointer to
+ * startFrames, a cast to a command kind, a ternary, an alternative token and
+ * each assignment operator (`=`, `^=`, `&=`, `+=`, `-=`, `*=`, `/=`, `%=`,
+ * `<<=`, `>>=`; `|=` holds a `|`) in the gate each fail it. It is a lint of
+ * the sources, not a proof: a value made without a cast or a name, through
+ * memcpy() or a macro, is not caught; the UI tests (test_sbus_out_ui.cpp)
+ * hold the behaviour.
  */
 static void testOnlyPath() {
 	section("S.BUS output: only S.BUS OUTPUT claims and commands it; its START needs the probe's gate");
@@ -1829,14 +1857,45 @@ static void testOnlyPath() {
 		"\treturn true ? true : !s_st.running && sbusOutProbePassed();",
 		"\treturn !s_st.running || true && sbusOutProbePassed();",
 		"\treturn !s_st.running | 1 && sbusOutProbePassed();",
+		"\treturn !s_st.running or 1 && sbusOutProbePassed();",
+		"\treturn !s_st.running and 1 && sbusOutProbePassed();",
+		"\treturn not s_st.running && sbusOutProbePassed();",
+		"\treturn !s_st.running bitor 1 && sbusOutProbePassed();",
+		"\treturn !s_st.running bitand 1 && sbusOutProbePassed();",
+		"\treturn compl s_st.running && sbusOutProbePassed();",
+		"\treturn !s_st.running xor 1 && sbusOutProbePassed();",
+		"\treturn s_ok or_eq 1 && sbusOutProbePassed();",
+		"\treturn s_ok and_eq 1 && sbusOutProbePassed();",
+		"\treturn s_ok xor_eq 1 && sbusOutProbePassed();",
+		"\treturn s_ok not_eq 1 && sbusOutProbePassed();",
+		"\treturn s_ok = 1 && sbusOutProbePassed();",
+		"\treturn s_ok ^= 1 && sbusOutProbePassed();",
+		"\treturn s_ok |= 1 && sbusOutProbePassed();",
+		"\treturn s_ok &= 1 && sbusOutProbePassed();",
+		"\treturn s_ok += 1 && sbusOutProbePassed();",
+		"\treturn s_ok -= 1 && sbusOutProbePassed();",
+		"\treturn s_ok *= 1 && sbusOutProbePassed();",
+		"\treturn s_ok /= 1 && sbusOutProbePassed();",
+		"\treturn s_ok %= 1 && sbusOutProbePassed();",
+		"\treturn s_ok <<= 1 && sbusOutProbePassed();",
+		"\treturn s_ok >>= 1 && sbusOutProbePassed();",
 		"\treturn !s_st.running && !sbusOutProbePassed();",
 		"\tif (s_st.running) return true;\n\treturn !s_st.running && sbusOutProbePassed();",
 	};
 	caught = true;
-	for (const char *g : GATES)
-		caught &= !onePathToStart(std::string("static bool startAllowed() {\n") + g + "\n}\n"
-		                          "static void startFrames() {\n\tsend(SbusOutCmdKind::Start);\n}\n" + hold);
-	checkTrue("a ternary, an || or a |, a negation and a second return in the gate each fail it", caught);
+	for (const char *g : GATES) {
+		bool failed = !onePathToStart(std::string("static bool startAllowed() {\n") + g + "\n}\n"
+		                              "static void startFrames() {\n\tsend(SbusOutCmdKind::Start);\n}\n" + hold);
+		if (!failed) printf("   passes the lint: %s\n", g);
+		caught &= failed;
+	}
+	checkTrue("a ternary, an || or a |, each of the 11 alternative tokens, each assignment, a negation "
+	          "and a second return in the gate each fail it", caught);
+	// Comparisons are not assignments.
+	checkTrue("a gate with ==, !=, <= and >= passes it",
+	          onePathToStart(std::string("static bool startAllowed() {\n\treturn s_st.n >= 1 && s_st.n <= 5 && "
+	                                     "s_st.n != 3 && s_st.n == 2 && sbusOutProbePassed();\n}\n"
+	                                     "static void startFrames() {\n\tsend(SbusOutCmdKind::Start);\n}\n") + hold));
 	checkTrue("a call in a comment is blanked, one in code is not",
 	          stripComments("x(); // pinClaimBegin(PinUser::SbusOut)\n/* a */ y(\"//\");")
 	              == "x(); \n y(\"//\");");

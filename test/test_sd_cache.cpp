@@ -547,6 +547,88 @@ static void testWaitHook() {
 	sdc_end();
 }
 
+static void testRecheck() {
+	section("SD cache: sdc_recheck() makes the next block wait for a fresh swap check");
+	uint8_t b[SDP_BLOCK_BYTES];
+	block(b, 0x21);
+	// Cache off: nothing.
+	freshCard();
+	sdc_recheck();
+	checkTrue("the cache off: no read, no state", !sdc_on() && g_card.readStarts == 0);
+	// Queue empty: no check read.
+	sdc_begin(&DEV, 0, 67);
+	sdc_recheck();
+	checkTrue("the queue empty: no check read started", g_card.readStarts == 0 && sdc_state(nullptr) == SDC_IDLE);
+	sdc_write(10, 1, b);
+	checkInt("a block queued after it: flushed, one check", sdc_flush(), SDC_IDLE);
+	checkInt("one check read for the batch", (int)g_card.readStarts, 1);
+	sdc_end();
+	// A batch checked, a block still queued: the check runs again first.
+	for (int swapped = 0; swapped < 2; swapped++) {
+		freshCard();
+		sdc_begin(&DEV, 0, 67);
+		sdc_write(10, 1, b);
+		sdc_write(11, 1, b);
+		while (g_card.written.empty()) sdc_poll();
+		uint16_t left = 0;
+		sdc_state(&left);
+		checkTrue("the first block on the card, the second queued, the batch checked",
+		          left == 1 && g_card.readStarts == 1);
+		if (swapped) g_card.sector(0)[67] = 0x00;   // another card
+		sdc_recheck();
+		sdc_poll();
+		checkTrue("the next poll starts a new check, no block", g_card.readStarts == 2 && !g_card.inFlight);
+		if (swapped) {
+			checkInt("another serial number: failed", sdc_flush(), SDC_FAILED);
+			checkTrue("the second block not written", g_card.written.size() == 1);
+			sdc_drop();
+		} else {
+			checkInt("the same serial number: idle", sdc_flush(), SDC_IDLE);
+			checkTrue("both blocks written", g_card.written.size() == 2);
+		}
+		sdc_end();
+	}
+	// A block in flight ends first.
+	freshCard();
+	sdc_begin(&DEV, 0, 67);
+	sdc_write(10, 1, b);
+	sdc_write(11, 1, b);
+	while (!g_card.inFlight) sdc_poll();
+	sdc_recheck();
+	checkTrue("a block in flight: it ended, the next waits for a check",
+	          !g_card.inFlight && g_card.written.size() == 1 && g_card.readStarts == 1);
+	sdc_poll();
+	checkTrue("then a new check", g_card.readStarts == 2);
+	sdc_flush();
+	sdc_end();
+	// A failed cache stays failed.
+	freshCard();
+	sdc_begin(&DEV, 0, 67);
+	g_card.failWrites = 1;
+	g_card.failWith = SDE_WRITE;
+	sdc_write(10, 1, b);
+	sdc_write(11, 1, b);
+	checkInt("a write error: failed", sdc_flush(), SDC_FAILED);
+	unsigned starts = g_card.readStarts;
+	sdc_recheck();
+	sdc_poll();
+	checkTrue("failed: no check started, still failed", g_card.readStarts == starts && sdc_state(nullptr) == SDC_FAILED);
+	sdc_drop();
+	sdc_end();
+	// A check that is retrying keeps its count: 3 reads in all, as without the call.
+	freshCard();
+	sdc_begin(&DEV, 0, 67);
+	g_card.readEndsWith = SDE_CRC;
+	sdc_write(10, 1, b);
+	sdc_poll();
+	sdc_poll();   // the first read ended with a CRC error: tried again
+	sdc_recheck();
+	checkInt("a check retrying: failed after the tries it had", sdc_flush(), SDC_FAILED);
+	checkInt("3 check reads in all, not more", (int)g_card.readStarts, 3);
+	sdc_drop();
+	sdc_end();
+}
+
 void runSdCacheTests() {
 	testQueue();
 	testReadCache();
@@ -554,4 +636,5 @@ void runSdCacheTests() {
 	testErrors();
 	testCheckAsync();
 	testWaitHook();
+	testRecheck();
 }

@@ -213,6 +213,12 @@ void sdc_settle(void) {
 	while (s_on && (s_inFlight || s_checking)) waitStep();
 }
 
+void sdc_recheck(void) {
+	sdc_settle();
+	if (!s_on || s_state == SDC_FAILED || s_count == 0) return;
+	s_batchChecked = false;
+}
+
 sdc_state_t sdc_flush(void) {
 	while (s_on && s_state == SDC_FLUSHING) waitStep();
 	return s_state;
