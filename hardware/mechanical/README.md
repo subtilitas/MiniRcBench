@@ -189,3 +189,35 @@ the committed file: 1039 valid solids, no two sharing more than 1e-6 mm³.
 `check_photo.py` needs photo P, numpy and Pillow and is not run in CI either.
 On P it reports 13.30 pixels per mm and 1.06 pixels left at the worst
 standoff, and every box it draws lies on its part.
+
+## Licence
+
+The models, renders and Python scripts in this directory, and everything in
+`hardware/cad/`, are licensed under
+[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+(Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International):
+the STEP models, the renders and the scripts that generate or trace them or
+check the models, `_print.py` included. You may share and adapt them for
+non-commercial purposes, with credit, and must distribute adaptations under
+the same licence. The legal code is in
+[hardware/LICENSE-CAD.txt](../LICENSE-CAD.txt).
+
+This README is documentation and is MIT, as is `check_photo.py`, which
+overlays the model on Waveshare's photo to verify it and generates nothing.
+The rest of the repository, the software, is MIT.
+
+| File type | Where the licence is stated |
+| --- | --- |
+| `*.py` | the line `# SPDX-License-Identifier: CC-BY-NC-SA-4.0` at the top, except `check_photo.py`, which reads MIT |
+| `models/*.step`, `models/*.stp`, `renders/*.png`, `hardware/cad/` | no line in the file; `hardware/LICENSE-CAD.txt` covers them |
+
+The Waveshare name and logo on the board's model are Waveshare's trademarks;
+the licence gives no right to them.
+
+`lib/rcbench/hardware/` holds copies of rcbench's model generators. They are
+under CC BY-NC-SA 4.0 as model generators. The copies carry no
+`SPDX-License-Identifier` line at the rcbench commits they were taken from.
+rcbench's licence change (pull request 860) puts the CC line at the end of
+each module docstring, and the copies take it when they are copied again.
+`test/check_docs.py` allows either state there, checks every other file under
+`hardware/` for the CC line only, and every file elsewhere for MIT.

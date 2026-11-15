@@ -27,6 +27,16 @@ Enforces what actually goes wrong, and nothing else:
      no image of a removed screen; nor does a fakeDumpFrame() call or
      tools/make_previews.py. CHANGELOG.md, STATUS.md and the design notes
      keep those names as records and are not checked
+  10. the hardware models, CAD files and drawings are CC BY-NC-SA 4.0 and
+     the software is MIT. Every tracked file under hardware/ except
+     hardware/LICENSE-CAD.txt, the README.md files and
+     hardware/mechanical/check_photo.py has only CC-BY-NC-SA-4.0 in its SPDX
+     lines, and so have docs/wiring.svg, tools/make_wiring.py and the wiki's
+     copy of the drawing; each of these .py files and drawings has one.
+     Under lib/rcbench/hardware/ a file has no SPDX line or only the CC one.
+     Every other SPDX line names MIT. All lines of a file are read, each to
+     its end. hardware/LICENSE-CAD.txt holds the legal code unchanged
+     (SHA-256), names the covered paths and the trademark paragraph
 
 Deliberately narrower than Doxygen's WARN_IF_UNDOCUMENTED, which also fires on
 file-static internals. A comment on `s_scroll` saying "scroll position" is
@@ -43,9 +53,11 @@ from.
 """
 
 import glob
+import hashlib
 import functools
 import os
 import re
+import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -56,6 +68,33 @@ SOURCES = sorted(glob.glob("src/*.cpp") + glob.glob("*.ino") + HEADERS)
 LINKED_DOCS = sorted(glob.glob("STATUS.md") + glob.glob("CHANGELOG.md") +
                      glob.glob("docs/design/*.md"))
 MANUAL_DOCS = sorted(glob.glob("README.md") + glob.glob("wiki/*.md"))
+
+# Rule 10: the licence of the hardware models, CAD files and drawings.
+CC_ID = "CC-BY-NC-SA-4.0"
+CC_FILE = "hardware/LICENSE-CAD.txt"
+CC_ROOT = "hardware/"
+# In hardware/ but software, not a model or a generator: it overlays a
+# photo to verify the model. It stays MIT.
+CC_MIT_FILES = ("hardware/mechanical/check_photo.py",)
+# The drawing and the script that draws it. The wiki's copy of the drawing is
+# made by tools/make_previews.py and is not committed.
+CC_DRAWINGS = ("docs/wiring.svg", "tools/make_wiring.py")
+CC_WIKI_COPY = "wiki/img/wiring.svg"
+# Unchanged copies of rcbench's model generators.
+CC_COPIES = "lib/rcbench/hardware/"
+CC_MARK = "Legal code\n----------\n\n"
+# SHA-256 of the legal code as creativecommons.org publishes it
+# (legalcode.txt of by-nc-sa 4.0).
+CC_SHA256 = "e66c269d4819aaab34b49ef5220c4ddab6756f21bb5180761a4eb8561f2b7bbd"
+# What the header of CC_FILE names.
+CC_NAMED = ("hardware/cad/", "hardware/mechanical/", "docs/wiring.svg",
+            "tools/make_wiring.py", "lib/rcbench/hardware/", "trademarks")
+# A tag opens its line after a comment marker, or sits bare in a docstring;
+# its expression runs to the end of the line.
+SPDX_RE = re.compile(
+    r"^[\s#/*;<!-]*SPDX-License-Identifier:[ \t]*(.*?)[ \t]*"
+    r"(?:\*/|-->|\"\"\"|\'\'\')?[ \t]*$",
+    re.M)
 
 # Rule 9: what menu structure B and the decisions that revise it removed,
 # each with the decision that removed it, of docs/design/menu-b.md unless
@@ -249,6 +288,90 @@ def check_removed():
     return problems
 
 
+def spdx_ids(path):
+    """The SPDX expressions, one per tag, in all of the file @p path."""
+    with open(path, "rb") as f:
+        text = f.read().decode("utf-8", "replace")
+    return SPDX_RE.findall(text)
+
+
+# Outside git, the walk skips what .gitignore keeps out of the tree: build
+# output carries the SDK's and the libraries' own SPDX lines.
+WALK_SKIP = {".git", "build", ".pio", "wiki"}
+
+
+def tracked_files():
+    """The repository's tracked files, or every file outside git.
+
+    The wiki's copy of the drawing is checked on its own (rule 10)."""
+    try:
+        out = subprocess.run(["git", "ls-files", "-z"], check=True,
+                             capture_output=True).stdout.decode()
+        return sorted(x for x in out.split("\0") if x and os.path.isfile(x))
+    except (OSError, subprocess.CalledProcessError):
+        print("check_docs: git ls-files failed; walking the tree",
+              file=sys.stderr)
+        found = []
+        for root, dirs, files in os.walk("."):
+            top = root == "."
+            dirs[:] = [d for d in dirs if d != ".git"
+                       and not (top and d in WALK_SKIP)
+                       and not (top and d.startswith("build"))
+                       and os.path.join(root, d) not in
+                       ("./docs/html", "./docs/latex")]
+            found += [os.path.relpath(os.path.join(root, f), ".")
+                      .replace(os.sep, "/") for f in files]
+        return sorted(found)
+
+
+def check_licences():
+    """Rule 10: CC BY-NC-SA 4.0 on the models, CAD and drawings, MIT elsewhere."""
+    problems = []
+    try:
+        text = open(CC_FILE, encoding="utf-8").read()
+    except OSError:
+        return [f"{CC_FILE}: missing"]
+    if spdx_ids(CC_FILE) != [CC_ID]:
+        problems.append(f"{CC_FILE}: no SPDX-License-Identifier: {CC_ID}")
+    head, mark, legal = text.partition(CC_MARK)
+    if not mark or hashlib.sha256(legal.encode()).hexdigest() != CC_SHA256:
+        problems.append(f"{CC_FILE}: the legal code differs from CC BY-NC-SA 4.0")
+    for name in CC_NAMED:
+        if name not in head:
+            problems.append(f"{CC_FILE}: the header does not name {name}")
+    seen = set()
+    files = tracked_files()
+    if os.path.exists(CC_WIKI_COPY) and CC_WIKI_COPY not in files:
+        files.append(CC_WIKI_COPY)
+    for path in files:
+        if path == CC_FILE:
+            continue
+        ids = spdx_ids(path)
+        if path.startswith(CC_ROOT):
+            if path.endswith("README.md") or path in CC_MIT_FILES:
+                want, need = "MIT", False
+            else:
+                want, need = CC_ID, path.endswith(".py")
+        elif path in CC_DRAWINGS or path == CC_WIKI_COPY:
+            want, need = CC_ID, True
+        elif path.startswith(CC_COPIES):
+            want, need = CC_ID, False
+        else:
+            want, need = "MIT", False
+        seen.add(path)
+        if need and not ids:
+            problems.append(f"{path}: SPDX-License-Identifier missing, "
+                            f"expected {want}")
+        for found in ids:
+            if found != want:
+                problems.append(f"{path}: SPDX-License-Identifier '{found}', "
+                                f"expected {want}")
+    for path in CC_DRAWINGS + CC_MIT_FILES:
+        if path not in seen:
+            problems.append(f"{path}: missing")
+    return problems
+
+
 def main():
     problems = []
     documented = 0
@@ -353,6 +476,9 @@ def main():
 
     # --- 9. removed screens stay out of the manual ---
     problems.extend(check_removed())
+
+    # --- 10. licences of the hardware files ---
+    problems.extend(check_licences())
 
     print(f"checked {len(SOURCES)} files, {documented} documented signatures, "
           f"links in {len(LINKED_DOCS)} documents, removed names in "

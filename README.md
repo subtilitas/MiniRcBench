@@ -385,7 +385,9 @@ wiring, not firmware, and builds for the RP2350-Touch-LCD-2.8 only. A plain
 tree contains no third-party source. The DShot driver in `src/dshot/` is part
 of the tree: it comes from [rcbench](https://github.com/subtilitas/rcbench),
 which has the same copyright holder and the same MIT licence, and each of its
-files names the rcbench commit it was taken from.
+files names the rcbench commit it was taken from. The copies in
+`lib/rcbench/hardware/` are model generators and are CC BY-NC-SA 4.0 (see
+[License](#license)).
 
 | Dependency | Version | Pinned by |
 |---|---|---|
@@ -3474,6 +3476,7 @@ src/
   usb_descriptors.c     USB descriptors
   usb_msc.{h,cpp}       the SD card as a read-only USB drive
   tusb_config.h         TinyUSB configuration
+hardware/               models and CAD files, CC BY-NC-SA 4.0: cad/ (Alibre), mechanical/ (STEP, renders, generators), LICENSE-CAD.txt
 lib/rcbench/            rcbench files copied unchanged: servo sweep, GPIO-to-PWM fold,
                         KST core and line driver, KST file store, Hitec core,
                         S.BUS decoder and encoder, sensor bus, escwire core and line driver,
@@ -3481,7 +3484,7 @@ lib/rcbench/            rcbench files copied unchanged: servo sweep, GPIO-to-PWM
 tools/
   sdtest/               standalone SD bring-up test, 2.8" only; built locally, never released
   make_previews.py      restitches docs/*.png and wiki/img/ from the test suite's frames
-  make_wiring.py        draws docs/wiring.svg from the pin sources; --check fails on drift
+  make_wiring.py        draws docs/wiring.svg from the pin sources; --check fails on drift; CC BY-NC-SA 4.0
   check_wiki.py         wiki link, anchor and image checks
   coverage.py           host-suite line coverage: writes and checks the README and STATUS.md figures
   set_clock.py          sets the board's clock to the computer's local time over USB serial
@@ -4018,8 +4021,27 @@ The licence terms are in [LICENSE](LICENSE).
 
 ## License
 
-This repository's code is MIT throughout (see `LICENSE`), the DShot driver in
-`src/dshot/` and the SDIO card driver in `src/sdio/` included.
+This repository is MIT (see `LICENSE`), the DShot driver in `src/dshot/` and
+the SDIO card driver in `src/sdio/` included, except the models, CAD files and
+drawings. Those are licensed under
+[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+(Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International):
+you may use and adapt them for non-commercial purposes only, you must give
+credit, and you must share adaptations under the same licence. They are:
+
+- everything under `hardware/cad/`: the Alibre Design assemblies and parts;
+- in `hardware/mechanical/`: the STEP models, the renders and the Python
+  scripts that generate or trace them or check the models; its README and
+  `check_photo.py` are MIT;
+- the wiring drawing `docs/wiring.svg`, its copy `wiki/img/wiring.svg` and
+  `tools/make_wiring.py`, which draws it;
+- the copies of rcbench's model generators in `lib/rcbench/hardware/`.
+
+The legal code is in [hardware/LICENSE-CAD.txt](hardware/LICENSE-CAD.txt), which
+also names the Waveshare name and logo in the board model as Waveshare's
+trademarks. The MIT licence in `LICENSE` covers the software: firmware, tests,
+other tools and documentation. The firmware image holds no hardware file, and
+`THIRD_PARTY_NOTICES.txt` lists none.
 
 A firmware image also contains the libraries it links, each under its own
 licence:
