@@ -531,7 +531,9 @@ Unter der Liste bleiben diese Elemente an ihrem Platz:
 Bitrate baut den DShot-Treiber vor dem nächsten Frame neu auf. `HOLD TO SAVE`
 1 s lang schreibt ins Flash. `HOLD DEFAULTS` 1 s lang ersetzt die laufenden
 Einstellungen durch die kompilierten Voreinstellungen, Polzahl und
-Gas-Obergrenze eingeschlossen; das Flash bleibt unverändert. Ein Tippen
+Gas-Obergrenze eingeschlossen; Einrichtung und Kalibrierung des
+Winkelmessers, die SETTINGS nicht zeigt, behalten ihre Werte, und das Flash
+bleibt unverändert. Ein Tippen
 bewirkt nichts, ein Wegschieben vom Knopf bricht das Halten ab. Ein Balken
 über dem Knopf füllt sich, solange er gehalten wird, und der Knopf wird rot,
 wie bei jedem Halten. Wer den

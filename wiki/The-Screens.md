@@ -489,8 +489,9 @@ Under the list, these stay in place:
 **Changes apply at once. Only storing them needs the hold.** A new bitrate
 rebuilds the DShot driver before the next frame. `HOLD TO SAVE` for 1 s writes
 to flash. `HOLD DEFAULTS` for 1 s replaces the live settings with the
-compiled defaults, the pole count and the throttle ceiling included; flash
-is untouched. A tap does nothing, and sliding off the button cancels the
+compiled defaults, the pole count and the throttle ceiling included; the
+angle meter's setup and calibration, which SETTINGS does not show, keep their
+values, and flash is untouched. A tap does nothing, and sliding off the button cancels the
 hold. A bar over the button fills while it is held, and the button turns
 red, as every hold does. Leaving the screen keeps the
 defaults in use. The saved values load only when the board starts, so
