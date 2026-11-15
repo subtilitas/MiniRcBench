@@ -817,8 +817,9 @@ not run on hardware (item 18).
     ([slice 2 as built](docs/design/run-summary.md#slice-2-as-built)): the
     logger feeds the summary every frame, ends it at the stop or at a failed
     write, and after a clean stop writes `LOGS/LOGnnnnn.TXT` beside the
-    `.BFL`; `SdLogStatus` carries the last summary. Slice 3 is built, host
-    tests only ([slice 3 as built](docs/design/run-summary.md#slice-3-as-built)):
+    `.BFL`; `SdLogStatus` carries the last summary. Slice 3 is built,
+    host tests only
+    ([slice 3 as built](docs/design/run-summary.md#slice-3-as-built)):
     SD LOG's rows 2 to 8 show the last run after a stop, MAX RPM to
     SUMMARY with their source tags, MAX TEMP at 90 °C and above and
     `NOT SAVED` in red, and the counters, CARD and MOUNT while a log runs

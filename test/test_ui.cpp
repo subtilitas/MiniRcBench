@@ -477,7 +477,8 @@ static void testLogRun() {
 	                                      logTagIs(5, "KISS", C_TEXT));
 	checkTrue("USED 312mAh, KISS", logValueIs(6, "312mAh", C_TEXT, 197) &&
 	                               logTagIs(6, "KISS", C_TEXT));
-	checkTrue("ARMED 0:01:42, untagged", logValueIs(7, "0:01:42", C_TEXT, 232) && logNoTag(7, "0:01:42"));
+	checkTrue("ARMED 0:01:42, untagged",
+	          logValueIs(7, "0:01:42", C_TEXT, 232) && logNoTag(7, "0:01:42"));
 	checkTrue("SUMMARY LOG00001.TXT, untagged, the text colour",
 	          logValueIs(8, "LOG00001.TXT", C_TEXT, 232) && logNoTag(8, "LOG00001.TXT"));
 	{

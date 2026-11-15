@@ -116,9 +116,8 @@ static void drawRunRow(int row, const RunSumRowText &t) {
 		drawLogRow(row, t.label, t.value, vcol);
 		return;
 	}
-	int y = LOG_ROW0_Y + row * LOG_ROW_H;
-	int ty = y + (LOG_ROW_H - 7) / 2;
-	gfxRect(0, y, GFX_W, LOG_ROW_H, C_BG);
+	// The row's background is the screen's: drawLogScreen() fills it first.
+	int ty = LOG_ROW0_Y + row * LOG_ROW_H + (LOG_ROW_H - 7) / 2;
 	gfxText(UI_MARGIN, ty, t.label, C_DIM, 1);
 	gfxText(LOG_TAGGED_R - gfxTextW(t.value, 1), ty, t.value, vcol, 1);
 	gfxText(LOG_TAG_X, ty, t.tag, strcmp(t.tag, "KISS") == 0 ? C_TEXT : C_DIM, 1);
