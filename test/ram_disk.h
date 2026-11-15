@@ -29,8 +29,10 @@ struct RamDisk {
 	bool     noInit;
 	bool     protect;    /**< Write-protected: writes fail with RES_WRPRT. */
 	/** @brief A write fails with RES_ERROR, writing nothing, when one of its
-	 *         sectors begins with these bytes; nullptr for none. */
-	const char *failPrefix;
+	 *         sectors begins with the @ref failLen bytes here; nullptr for
+	 *         none. */
+	const void *failPrefix;
+	size_t   failLen;    /**< Bytes of @ref failPrefix compared. */
 	bool     failWrites; /**< Every write fails with RES_ERROR. */
 };
 

@@ -52,11 +52,13 @@ eighth MENU row, `TOOLS`, with a chooser. A run
 summary per blackbox log, written beside the log and shown on SD LOG, with the
 board's PCF85063 real-time clock dating the files on the card as an option, is
 designed in `docs/design/run-summary.md`; the owner answered its questions
-on 2026-11-15. Its slice 1, the summary computed from the telemetry and the
-text of its file, is built and host-tested; the logger does not call it, so
-no summary file is written yet. The owner's board has no cell in the RTC
-socket J2, so its clock is set again after each power-up, and files
-written before the set have FAT date 0.
+on 2026-11-15. Its slices 1 and 2 are built and host-tested: the summary
+computed from the telemetry, and the logger writing it as
+`LOGS/LOGnnnnn.TXT` beside each log
+([Blackbox logging to microSD](#blackbox-logging-to-microsd)); SD LOG does
+not show it yet, and the clock is not built. The owner's board has no cell
+in the RTC socket J2, so its clock is set again after each power-up, and
+files written before the set have FAT date 0.
 An ESC COMMANDS page, sending DShot beacons, direction and 3D mode, each
 change saved in the ESC behind a 1 s hold, and an RPM-per-volt reading and
 a kV estimate on the tester, labelled `KV EST`, are designed in
@@ -988,6 +990,34 @@ looks the same to a board with no card-detect line
 created new, never over an existing one. Logs an earlier firmware wrote to
 the card's root stay there and are not counted. The board sets no clock.
 
+Each log that stops clean gets a run summary beside it, `LOGS/LOGnnnnn.TXT`
+with the log's number (`src/run_summary.*`, `src/sd_log_summary.*`,
+`docs/design/run-summary.md`). It is plain ASCII (American Standard Code for
+Information Interchange) text, one value a line: the log's name, the
+firmware version, the clock at the start and the stop (`not set`: the clock
+is not built), how the log ended (`STOP`, `DISARM`, `KST SERVO`,
+`HITEC SERVO` or `AM32 CONFIG`), its duration and armed time, the maximum
+RPM, current and temperature, the minimum voltage while armed, the charge
+used by the KISS counter and from the current, and the logger's counters
+that SD LOG shows (frames, dropped frames, kilobytes written, buffer peak,
+worst flush). Each extreme is the value held over three consecutive new
+readings, with its source and the raw extreme beside it.
+
+`sdLogTick()` hands every frame's telemetry and arm state to the summary,
+a constant-time update on core0 (`runSumAdd()`): at most about 1,000
+instructions a frame, about 10 µs at 150 MHz or 0.5 % of core0 at 500 frames
+a second, estimated from the compiled code, not measured. The stop writes the
+file only after the `.BFL` has closed clean, with `FA_CREATE_ALWAYS` over
+any `.TXT` of that number, the text built in the drained write buffer. A
+`.TXT` does not count as a log's name, so it does not move the next log's
+number. A summary that cannot be saved (card full, a failed write) leaves
+the `.BFL` as it is and the logger `READY`: a short or failed file is
+removed when the card still allows it; after a close that fails, an empty
+`.TXT` can stay. A log a card error ended gets no
+`.TXT`. The `.TXT`, the `.BFL` beside it and every failure path are tested
+over FatFs R0.15 on a RAM disk by `make -C test lognum`
+(`test/sd_log_fatfs.cpp`).
+
 ![SD log screen](docs/log-preview.png)
 
 The card runs over 4-bit PIO SDIO at 10 MHz (`SD_LOG_SDIO_HZ`), with the
@@ -1063,7 +1093,8 @@ nothing for those six. The SETTINGS note line says which set is in use.
 
 ### Reading the logs
 
-Files are written to the directory `LOGS` as `LOGnnnnn.BFL`.
+Files are written to the directory `LOGS` as `LOGnnnnn.BFL`, each with its
+run summary `LOGnnnnn.TXT`, a text file any editor opens.
 
 <div align="center">
 
@@ -2236,8 +2267,8 @@ CONFIG and HITEC SERVO do. All backups share one directory and one ring of
   read again: a card swapped since the backup is mounted again and gets the
   backup before the device is written.
 
-Blackbox logs go to `LOGS/`, KST's SAVE AS files and its record to `KST/`,
-Hitec's to `HITEC/`.
+Blackbox logs and their run summaries go to `LOGS/`, KST's SAVE AS files and
+its record to `KST/`, Hitec's to `HITEC/`.
 
 ---
 
@@ -2386,8 +2417,9 @@ src/
   esc_merge.{h,cpp}     per-field preference between KISS and EDT (pure)
   blackbox_encode.{h,cpp} Betaflight blackbox log writer (pure)
   log_ring.{h,cpp}      ring buffer between encoder and card (pure)
-  run_summary.{h,cpp}   a log's run summary: extremes, charge, file text (pure; not called yet)
+  run_summary.{h,cpp}   a log's run summary: extremes, charge, file text (pure)
   sd_log.{h,cpp}        FatFs writer, lifecycle, drop accounting
+  sd_log_summary.{h,cpp} the run summary's .TXT beside its log, over FatFs
   sd_hw_config.c        SD wiring for the FatFs driver
   sdio/                 SDIO card driver, MIT, written from the SD specification
     sd_proto.{h,c}, sd_host.{h,c}  wire formats and card protocol (pure C)

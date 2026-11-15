@@ -91,9 +91,14 @@ static SdLogStatus status() {
 	return st;
 }
 
+/** @brief The throttle sequence's state, for frames(). */
+static uint32_t g_frame = 0;
+
 /**
  * @brief Log @p frames frames, 2 ms apart, flushing after each. DShot eRPM
- *        7000 in every frame; EDT 16.00 V, 12 A, 40 °C every 50th frame.
+ *        7000 in every frame; EDT 16.00 V, 12 A, 40 °C every 50th frame; a
+ *        throttle that differs from frame to frame, so no two blocks of a
+ *        log begin alike.
  */
 static void frames(int n) {
 	for (int i = 0; i < n; i++) {
@@ -107,7 +112,8 @@ static void frames(int n) {
 			g_tel.tempC = 40;
 			g_tel.edtVoltsMs = g_tel.edtAmpsMs = g_tel.edtTempMs = ms;
 		}
-		sdLogTick(time_us_32(), 1000);
+		g_frame = g_frame * 1103515245u + 12345u;   // a linear congruential sequence
+		sdLogTick(time_us_32(), (uint16_t)((g_frame >> 16) % 2001u));
 		sdLogFlush();
 	}
 }
@@ -205,6 +211,7 @@ static void testStop(const char *vol) {
 	checkTrue("still logging after the disarm", sdLogActive());
 	frames(100);
 	g_settings.poles = 12;        // MOTOR POLES changed during the log
+	g_us += 700;                  // the stop 0.7 ms after the last frame
 	uint64_t stop = g_us;
 	sdLogStop();
 
@@ -341,6 +348,7 @@ static const int kRunFrames = 1500;
 static void fixedRun() {
 	g_us = kRunStartUs;
 	g_tel = EscTelemetry();
+	g_frame = 0;
 	sdLogStart();
 	frames(kRunFrames);
 	sdLogStop();
@@ -399,7 +407,9 @@ static void testTxtNotSaved() {
 	// The text's first block write fails, in f_write(): the text is longer
 	// than a sector.
 	format(FM_FAT32, sectors, 4096);
-	g_disk.failPrefix = "MiniRcBench run summary";
+	static const char head[] = "MiniRcBench run summary";
+	g_disk.failPrefix = head;
+	g_disk.failLen = sizeof(head) - 1;
 	fixedRun();
 	g_disk.failPrefix = nullptr;
 	st = status();
@@ -414,11 +424,32 @@ static void testTxtNotSaved() {
 	checkTrue("and saves its summary", status().summary &&
 	          status().summary->file == RunSumFile::Saved && exists("/LOGS/LOG00002.TXT"));
 
+	// The log's last block, written by the stop's sync, fails: CARD ERROR,
+	// and no .TXT is tried, though the card would take it.
+	static std::string last;
+	size_t lastAt = (want.size() - 1) / 512u * 512u;
+	last = want.substr(lastAt, 64);
+	bool unique = true;
+	for (size_t at = 0; at < lastAt; at += 512u) unique = unique && want.compare(at, 64, last) != 0;
+	checkTrue("the log's last block begins unlike the others", unique);
+	format(FM_FAT32, sectors, 4096);
+	g_disk.failPrefix = last.data();
+	g_disk.failLen = last.size();
+	fixedRun();
+	g_disk.failPrefix = nullptr;
+	st = status();
+	checkTrue("the stop's sync fails: WRITE FAILED",
+	          st.state == SdLogState::Error && st.end == SdLogEnd::WriteFailed);
+	checkTrue("the summary up to the stop, not saved", st.summary &&
+	          st.summary->end == RunSumEnd::Stop && st.summary->file == RunSumFile::WriteFailed);
+	checkTrue("no LOG00001.TXT", !exists("/LOGS/LOG00001.TXT"));
+
 	// The text's last block, written by the close, fails: the close fails.
 	static std::string tail;
-	tail = wantTxt.substr(512, 24);
+	tail = wantTxt.substr(512, 64);
 	format(FM_FAT32, sectors, 4096);
-	g_disk.failPrefix = tail.c_str();
+	g_disk.failPrefix = tail.data();
+	g_disk.failLen = tail.size();
 	fixedRun();
 	g_disk.failPrefix = nullptr;
 	st = status();

@@ -33,9 +33,8 @@ DRESULT disk_write(BYTE, const BYTE *buf, LBA_t sector, UINT count) {
 	if (g_disk.protect) return RES_WRPRT;
 	if (g_disk.failWrites) return RES_ERROR;
 	if (g_disk.failPrefix) {
-		size_t n = strlen(g_disk.failPrefix);
 		for (UINT i = 0; i < count; i++)
-			if (memcmp(buf + i * 512u, g_disk.failPrefix, n) == 0) return RES_ERROR;
+			if (memcmp(buf + i * 512u, g_disk.failPrefix, g_disk.failLen) == 0) return RES_ERROR;
 	}
 	RamImage &d = g_disk.images[g_disk.card];
 	for (UINT i = 0; i < count; i++) {
@@ -64,6 +63,7 @@ void ramDiskFormat(FATFS *fs, BYTE fmt, LBA_t sectors, DWORD au) {
 	g_disk.sectors = sectors;
 	g_disk.noInit = g_disk.protect = g_disk.failWrites = false;
 	g_disk.failPrefix = nullptr;
+	g_disk.failLen = 0;
 	static BYTE work[FF_MAX_SS * 8];
 	MKFS_PARM opt = { fmt, 2, 0, 0, au };
 	for (int c = 1; c >= 0; c--) {
