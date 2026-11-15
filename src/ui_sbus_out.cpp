@@ -102,11 +102,14 @@ static_assert(SBOUT_UI_MSG_Y + 2 * SBOUT_UI_MSG_H + 7 < SBOUT_UI_BAR_Y, "a messa
 // The ESC line with a one-digit GPIO in place of %u.
 static_assert(UI_MARGIN + SO_W1((int)sizeof(SBOUT_UI_ESC_FMT) - 1 - 2 + 1) <= GFX_W - UI_MARGIN &&
               SO_FITS(SBOUT_UI_ESC_2) && SO_FITS(SBOUT_UI_ESC_3) && SO_FITS(SBOUT_UI_KISS_1) &&
-              SO_FITS(SBOUT_UI_KISS_2) && SO_FITS(SBOUT_UI_KISS_3) && SO_FITS(SBOUT_UI_CHECKING) &&
-              SO_FITS(SBOUT_UI_BL_1) && SO_FITS(SBOUT_UI_BL_2) && SO_FITS(SBOUT_UI_BL_3) &&
+              SO_FITS(SBOUT_UI_KISS_2) && SO_FITS(SBOUT_UI_KISS_3) && SO_FITS(SBOUT_UI_BL_2) && SO_FITS(SBOUT_UI_BL_3) &&
               SO_FITS(SBOUT_UI_NO_GP0_1) && SO_FITS(SBOUT_UI_NO_GP0_2) && SO_FITS(SBOUT_UI_SET_STOP) &&
               SO_FITS(SBOUT_UI_SET_START),
               "a message line runs past the margin");
+// The probe's two lines with a three-letter role in place of %s.
+static_assert(UI_MARGIN + SO_W1((int)sizeof(SBOUT_UI_CHECKING_FMT) - 1 - 2 + 3) <= GFX_W - UI_MARGIN &&
+              UI_MARGIN + SO_W1((int)sizeof(SBOUT_UI_BL_1_FMT) - 1 - 2 + 3) <= GFX_W - UI_MARGIN,
+              "a probe line runs past the margin");
 // `SIG GP0 COULD NOT BE TAKEN (CLOCK)`, 34 characters.
 static_assert(UI_MARGIN + SO_W1(34) <= GFX_W - UI_MARGIN, "the bind failure runs past the margin");
 static_assert(sizeof(SBOUT_UI_UNPLUG) - 1 <= UI_LEAVE_STEP_CHARS &&
@@ -397,11 +400,13 @@ static void message(const char **l1, const char **l2, const char **l3, uint16_t 
 		return;
 	}
 	if (s_probe == SbusOutProbeState::Checking) {
-		*l1 = SBOUT_UI_CHECKING; *col = C_DIM;
+		snprintf(a, sizeof(a), SBOUT_UI_CHECKING_FMT, gp0Role());
+		*l1 = a; *col = C_DIM;
 		return;
 	}
 	if (s_probe == SbusOutProbeState::Answered) {
-		*l1 = SBOUT_UI_BL_1; *l2 = SBOUT_UI_BL_2; *l3 = SBOUT_UI_BL_3;
+		snprintf(a, sizeof(a), SBOUT_UI_BL_1_FMT, gp0Role());
+		*l1 = a; *l2 = SBOUT_UI_BL_2; *l3 = SBOUT_UI_BL_3;
 	}
 }
 

@@ -16,7 +16,7 @@
  * live only while the claim runs the job, the job reports no bind error, the
  * frames are off, and sbusOutProbePassed() holds: a probe cycle with no
  * answer has passed in this bind, which is this visit. While the probe runs
- * the rows' area reads `CHECKING GP0 FOR AN ESC.`; while a bootloader
+ * the rows' area reads `CHECKING SIG GP0 FOR AN ESC.`; while a bootloader
  * answers it asks for the ESC's battery and lead to come off. Core1 takes no
  * command before the probe passes either (sbus_out_job.h).
  *
@@ -111,10 +111,10 @@ struct UiScreen;
 #define SBOUT_UI_KISS_2   "UNPLUG IT. PLUG THE FLIGHT"
 /** @brief ...line 3, when to plug the FC in: 30 characters, 179 px. */
 #define SBOUT_UI_KISS_3   "CONTROLLER IN ONCE SAFE SHOWS."
-/** @brief The bootloader probe runs, dim: 24 characters, 143 px. */
-#define SBOUT_UI_CHECKING "CHECKING GP0 FOR AN ESC."
-/** @brief A bootloader answered the probe, amber: 33 characters, 197 px. */
-#define SBOUT_UI_BL_1     "AN ESC BOOTLOADER ANSWERS ON GP0."
+/** @brief The bootloader probe runs, GP0's role for `%s`, dim: 28 characters, 167 px. */
+#define SBOUT_UI_CHECKING_FMT "CHECKING %s GP0 FOR AN ESC."
+/** @brief A bootloader answered the probe, GP0's role for `%s`, amber: 37 characters, 221 px. */
+#define SBOUT_UI_BL_1_FMT "AN ESC BOOTLOADER ANSWERS ON %s GP0."
 /** @brief ...line 2: 32 characters, 191 px. */
 #define SBOUT_UI_BL_2     "UNPLUG THE ESC BATTERY AND LEAD."
 /** @brief ...line 3: 31 characters, 185 px. */

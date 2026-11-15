@@ -63,9 +63,9 @@
 
 /** @brief The strip's chip. */
 enum class SbusOutChip : uint8_t {
-	Safe,     /**< `SAFE` on @ref UI_COL_SAFE: no frames, no trip. */
+	Safe,     /**< `SAFE` on @ref UI_COL_SAFE; no frames, no trip. */
 	Running,  /**< `RUNNING` on @ref UI_COL_ON. */
-	Stalled,  /**< `STALLED` on @ref UI_COL_ALERT: a heartbeat lapse stopped the frames. */
+	Stalled,  /**< `STALLED` on @ref UI_COL_ALERT; a heartbeat lapse stopped the frames. */
 };
 
 /** @brief A stop the screen made itself, which the job's status does not carry. */

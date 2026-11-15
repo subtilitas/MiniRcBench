@@ -41,13 +41,13 @@ channels, the link state, the frame rate and the error counts (see
 During its pin claim it receives on GP1 through UART0 (universal asynchronous
 receiver-transmitter 0) with the pad's input inverted and decodes the frames
 with rcbench's decoder. It is tested on the host only; the inversion on the
-pin is not measured. An S.BUS output to a flight controller, OUTPUT on the same
-chooser, sending a frame every 14 ms on GP0 through UART0 with the pad's output
-inverted, the throttle channel under MAX THROTTLE, is designed in
-`docs/design/sbus-output.md`. Its core1 job (`src/sbus_out_job.h`) is built and
-tested on the host only, with the check for an ESC bootloader on GP0 that runs
-at each of its binds before the UART takes the pin; nothing opens it until its
-screen is built. The chooser draws OUTPUT disabled, `NOT BUILT`. A PPM
+pin is not measured. An S.BUS output to a flight controller (FC), MENU → RX
+SIGNALS → OUTPUT, sends a frame every 14 ms on GP0 through UART0 with the
+pad's output inverted: 16 channels on sliders, CH17, CH18 and the two flags,
+the throttle channel under MAX THROTTLE (see [S.BUS output](#sbus-output);
+design note `docs/design/sbus-output.md`). Before START it checks GP0 for an
+ESC's bootloader, and offers START only once no bootloader answered. It is
+built and tested on the host only; nothing of it has driven a pin. A PPM
 (pulse-position modulation) output is not built, by the owner's decision. An
 angle meter on the board's QMI8658 IMU (inertial measurement unit), MENU →
 TOOLS → ANGLE METER, reads incidence, decalage, dihedral and control-surface
@@ -190,7 +190,7 @@ The pin map is `src/board_rp2350_touch_lcd_2_8.h`.
 | Battery sense | 27 | ADC (analog-to-digital converter) input 1, 200k/100k divider → `VBAT = Vadc × 3` |
 | I2S audio BCK / LRCK / DIN | 2 / 3 / 4 | PCM5101A codec, not used by the firmware. I2S is Inter-IC Sound; BCK is bit clock, LRCK left-right clock, DIN data in |
 | RTC INT, IMU INT1 / INT2 | 5, 8 / 9 | Not used by the firmware |
-| ESC signal (SIG) | 0 | J4 pin 9, J5 pin 2, free. The TX (transmit) pin of UART0 (universal asynchronous receiver-transmitter 0). The S.BUS monitor's job uses UART0's receiver only; the S.BUS output's job (`src/sbus_out_job.h`) first greets on GP0 for an ESC's bootloader with the ESC settings' line driver, then sends on GP0 with the pad's output inverted, and nothing opens it yet. The USB bridge's 19200 baud line is two PIO state machines on SIG. Set under SETTINGS → SIG PIN |
+| ESC signal (SIG) | 0 | J4 pin 9, J5 pin 2, free. The TX (transmit) pin of UART0 (universal asynchronous receiver-transmitter 0). The S.BUS monitor's job uses UART0's receiver only; the S.BUS output's job (`src/sbus_out_job.h`) first greets on GP0 for an ESC's bootloader with the ESC settings' line driver, then sends on GP0 with the pad's output inverted, for S.BUS OUTPUT. The USB bridge's 19200 baud line is two PIO state machines on SIG. Set under SETTINGS → SIG PIN |
 | KISS telemetry RX (receive; KISS is a serial ESC telemetry protocol), AUX | 1 | J4 pin 10, J5 pin 1, free. The RX pin of UART0. Optional third wire; also the servo tester's second servo, and the S.BUS job's input, through UART0 with the pad's input inverted. Set under SETTINGS → AUX PIN |
 | Switched servo supply enable (EN) | 28 or 29 | J4 pin 11 or J4 pin 12. Optional, under SETTINGS → SERVO SUPPLY. An output at 3.3 V |
 
@@ -554,7 +554,7 @@ the tester's pole count or ceiling, whose **BACK** returns to the tester.
 | **ESC CONFIG** | nothing | Opens ESC CONFIG, the chooser of the ESC tools: ESC SETTINGS and USB BRIDGE. See [AM32 ESC configuration](#am32-esc-configuration) and [USB bridge](#usb-bridge) |
 | **SERVO TESTER** | nothing | Opens the servo tester. See [Servo tester](#servo-tester) |
 | **SERVO PROGRAMMER** | nothing | Opens PROGRAMMER, the chooser of the servo programmers: KST / CHASERVO, HITEC D SERIES, HITEC CLASSIC. See below |
-| **RX SIGNALS** | nothing | Opens RX SIGNALS, the chooser of the receiver signal tools: MONITOR, and OUTPUT drawn disabled, `NOT BUILT`. See [S.BUS monitor](#sbus-monitor) |
+| **RX SIGNALS** | nothing | Opens RX SIGNALS, the chooser of the receiver signal tools: MONITOR and OUTPUT. See [S.BUS monitor](#sbus-monitor) and [S.BUS output](#sbus-output) |
 | **TOOLS** | nothing | Opens TOOLS, the chooser of the bench tools that use no signal pin: ANGLE METER. See [Angle meter](#angle-meter) |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a USB host holds the card | Opens the logging status. See below |
 | **SETTINGS** | `UNSAVED` while the live settings differ from flash; else `UPDATED` while an update's reset or carry-over is not saved over (`settingsResetByUpdate()`, `settingsCarriedOver()`); else nothing; both amber | Opens SETTINGS: the tester, the wiring, the servo supply and current sensor, the display, the board, diagnostics. See below |
@@ -2773,11 +2773,9 @@ not measured. Design note: `docs/design/rx-signals.md`; the screen is
 The RX SIGNALS row opens RX SIGNALS (`src/ui_rx_signals.cpp`), a chooser
 with two entries, 228 x 46 px at y 62 and 142, as PROGRAMMER's. It claims
 nothing. Its strip names both pins, `SIG GP0  AUX GP1`. **MONITOR** opens
-S.BUS MONITOR. **OUTPUT**, an S.BUS output to a flight controller, is drawn
-disabled with `NOT BUILT` under it and opens nothing: it is designed in
-`docs/design/sbus-output.md`, and its core1 job, with the check for an ESC
-bootloader on GP0 that comes before any START, is built without a screen.
-The row is drawn disabled while the pin claim is not free, as the other rows
+S.BUS MONITOR. **OUTPUT** opens S.BUS OUTPUT ([S.BUS output](#sbus-output));
+its lines carry the output's warning, `S.BUS TO A FLIGHT CONTROLLER.`
+`ON GP0, NEVER TO AN ESC.` The row is drawn disabled while the pin claim is not free, as the other rows
 that lead to a claim.
 
 S.BUS MONITOR claims the role that is GP1 (`src/pin_claim.h`): SIG and AUX
@@ -2847,6 +2845,146 @@ Not verified:
   a frame whole.
 - GP1's level after a receiver is unplugged (RP2350-E9): a latched pad reads
   as `NO SIGNAL` with the break count one higher.
+
+---
+
+## S.BUS output
+
+**MENU → RX SIGNALS → OUTPUT** opens S.BUS OUTPUT, which sends S.BUS frames
+on GP0 to a flight controller's (FC's) S.BUS input: 16 channels from raw 172
+to 1811 (1000 µs to 2000 µs), the digital channels CH17 and CH18, and the
+failsafe and frame-lost bits, one frame every 14 ms. The line is UART0's
+transmitter on GP0 with the pad's output inverted, 100,000 baud, 8E2; the
+encoder is rcbench's (`lib/rcbench/protocols/sbus/`). Uses: an FC's channel
+map, endpoints and mode switches without a receiver or a transmitter, its
+reaction to the failsafe and frame-lost bits and to frames that stop. Not
+tested on hardware: nothing of it has driven a pin, the inversion and the
+levels on GP0 are not measured, and no FC has read its frames. Design note:
+`docs/design/sbus-output.md`; the screen is `src/ui_sbus_out.h`, what it
+shows `src/sbus_out_view.h`, the core1 job `src/sbus_out_job.h`.
+
+![S.BUS output](docs/sbus-out-preview.png)
+
+**Warning.** GP0 goes to a flight controller only, never to an ESC
+(electronic speed controller); propellers off. The output is a throttle to
+whatever listens: an armed FC passes the throttle channel to its motors, and
+an arm switch is one of the channels. A BLHeli_S ESC on GP0 is found only
+while it is powered and in its bootloader during the check below; by its
+source, read and not run on an ESC, a BLHeli_S ESC can take the S.BUS line as
+Multishot, calibrate its throttle range, arm and start its motor with no
+input from the user. An ESC unpowered during the check, or plugged in after
+it, is not found. The screen and the chooser carry the warning:
+`GP0 GOES TO A FLIGHT CONTROLLER.` `NEVER TO AN ESC. PROPS OFF.` on the main
+view while SAFE, the second line in SET's footer, and
+`S.BUS TO A FLIGHT CONTROLLER.` `ON GP0, NEVER TO AN ESC.` under OUTPUT.
+
+### Wiring
+
+```
+  board GP0  --------------------------------------  FC S.BUS input
+  board GND  --------------------------------------  FC ground
+
+  GP0 = J5 pin 2 or J4 pin 9, GND = J5 pin 4 or J4 pin 1 or 5
+```
+
+- GP0 is SIG, the ESC pin, in the default wiring: the FC lead goes where
+  the ESC was. With SETTINGS → SIG PIN at GP1, GP0 is AUX and the output
+  claims both pins.
+- The board sends signal and ground only; the FC takes power from its own
+  USB port or supply. With the FC on its battery its ESCs and motors are
+  live.
+- Power the board before the FC, and the FC off before the board. What an
+  FC's S.BUS input puts on GP0 while the board is unpowered is not verified;
+  GP0 is rated 3.63 V then. Whether a given FC reads a 3.3 V high is not
+  verified.
+
+### Using it
+
+S.BUS OUTPUT claims the role that is GP0 (`src/pin_claim.h`, the user
+`SbusOut`), with the claim's ESC check: while an ESC answers bidirectional
+DShot on SIG within 500 ms the screen does not claim, and asks again every
+frame. Then the job checks GP0 for an ESC's bootloader, on every bind of the
+claim: ESC SETTINGS' connect cycle, 1000 ms on the pull-up and 3 greetings,
+about 1.1 s, repeated until one cycle passes with no answer. Only then does
+UART0 take GP0, idle low, and only then is HOLD TO START offered; core1
+takes no command before it either.
+
+What the rows' area shows in place of the channels:
+
+| Text | Why |
+|---|---|
+| `AN ESC ANSWERS ON SIG GP0.` `UNPLUG IT: NO ESC STAYS ON` `THE BENCH WHILE S.BUS RUNS.` | an ESC answers DShot on SIG; with GP0 as AUX the line names SIG's pin, GP1 |
+| `KISS WIRE ON AUX GP0 IS LIVE.` `UNPLUG IT. PLUG THE FLIGHT` `CONTROLLER IN ONCE SAFE SHOWS.` | GP0 is AUX and KISS frames arrive on it |
+| `RELEASING SIG GP0`, then `TAKING SIG GP0` | the claim drains DShot, then the job binds |
+| `CHECKING SIG GP0 FOR AN ESC.` | the bootloader check runs |
+| `AN ESC BOOTLOADER ANSWERS ON SIG GP0.` `UNPLUG THE ESC BATTERY AND LEAD.` `START WAITS UNTIL NONE ANSWERS.` | a Bluejay, BLHeli_S or AM32 bootloader answered; the check repeats, and MENU's strip reads `POWER-CYCLE THE ESC TO RUN IT` |
+| `S.BUS NEEDS GP0.` `SET A PIN TO GP0 IN SETTINGS.` | neither SIG nor AUX is GP0; SETTINGS swaps the two, so this does not happen through the screens |
+| `SIG GP0 COULD NOT BE TAKEN (CLOCK)` and **RETRY** | UART0 could not reach 100,000 baud |
+
+`SIG GP0` reads `AUX GP0` when GP0 is AUX.
+
+**The main view.**
+
+| Part | What it shows |
+|---|---|
+| Strip | `SIG GP0  100 KBAUD  8E2`, or `AUX GP0`; the chip `SAFE` (green), `RUNNING` (red) or `STALLED` (magenta), once the check has passed. The period, 14 ms, is fixed and not shown |
+| Notes | SAFE: the two warnings, amber. RUNNING: `THROTTLE CH3: 1000 TO 1200 US (20%).` and `CH17 OFF  CH18 OFF  FS OFF  LOST OFF`, amber while a flag is on. After a stop: its reason and `HOLD TO START AGAIN.` |
+| 8 rows | `CH1` to `CH8`, or `CH9` to `CH16`; a slider from 1000 µs to 2000 µs; the value in µs of the frame last sent, lime while RUNNING. The throttle channel reads `CH3 THR` in amber, with an amber mark at its ceiling and the track past it a dim line |
+| Bottom | **HOLD TO START** (1000 ms), or **STOP** while RUNNING; **CH 9-16** or **CH 1-8**; **SET** |
+
+- **START** sends core1's START frame, whatever the sliders showed, and
+  resets them to it: the throttle channel at raw 172, the other sticks of
+  channels 1 to 4 at raw 992 (1500 µs), channels 5 to 16 at raw 172, CH17,
+  CH18 and both flags off.
+- **The sliders** move only while RUNNING, by dragging, in 5 µs steps; a
+  press alone moves nothing. Each change goes out with the next frame.
+- **The throttle channel** stops at raw 172 + 1639 × MAX THROTTLE / 2000,
+  rounded down: raw 499, 1200 µs, at the default 400 of 2000. The screen
+  never sends more, and core1 clamps it again. The ceiling bounds the
+  throttle channel, not an armed FC's motor outputs.
+- **STOP** acts on the press, on the main view and on SET: no frame after
+  the one on the wire. An FC with no frames goes to its own failsafe.
+- **The screen stalls** for 250 ms: frames stop, the chip reads `STALLED`,
+  the note `STOPPED: SCREEN STALLED`. A new HOLD TO START is needed.
+- **No touch for more than 30 s** while the throttle is above its stop, or
+  any of channels 5 to 16, CH17 or CH18 is off its START value: frames stop
+  with `STOPPED: NO TOUCH FOR 30 S.`. An FC armed through a switch channel
+  idles its motors with the throttle at its stop. On the START frame the
+  frames go on.
+
+**SET** (`OUTPUT SET`) holds the rows that are not dragged, changed with the
+editor's `-` and `+`, each at once:
+
+| Row | Values | Changes |
+|---|---|---|
+| THROTTLE CHANNEL | `CH1` to `CH4`, `CH3` by default (Betaflight's map AETR1234) | while SAFE; `STOP TO CHANGE THE CHANNEL.` while RUNNING |
+| DIGITAL CH17, CH18 | `OFF`, `ON` | while RUNNING; `START TO SET THE FLAGS.` while SAFE |
+| FLAGS FAILSAFE BIT, FRAME LOST BIT | `OFF`, `ON` | as CH17 |
+
+While RUNNING the footer's right button is STOP; while SAFE the footer reads
+`NEVER TO AN ESC. PROPS OFF.` BACK returns to the main view.
+
+**BACK** on the main view opens the leave page, as on SERVO TESTER: the job
+lets GP0 go after the frame on the wire, low. Step 1 reads
+`UNPLUG THE FLIGHT CONTROLLER.` with `DSHOT RESTARTS ON SIG GP0.` (the ESC's
+pin, GP1 when SIG is GP1). **BACK TO OUTPUT** keeps the claim: a new visit,
+with a new bootloader check before START. **RESTART DSHOT** acts 1 s after
+GP0 is let go and returns to MENU. After a Bluejay or BLHeli_S bootloader
+answered, BACK stops the frames and opens the page with ESC SETTINGS' first
+step, `UNPLUG THE ESC BATTERY, THEN LEAVE.`, STAY and LEAVE, and a last step
+`THEN PLUG THE ESC BACK IN.`: the bootloader waits for commands and may read
+DShot as one. **BACK** before the claim holds returns to MENU with DShot
+running.
+
+Not verified:
+
+- Everything on a pin: the inversion, the idle level, the edges at the bind,
+  the switch and the release, the 14 ms period on a scope.
+- That an FC reads the frames, the flags, STOP and the idle stop as the
+  design note reads Betaflight's source; other FC firmwares are not read.
+- That an ESC's bootloader answers the check from this board; what
+  Bluejay, BLHeli_S and AM32 do with S.BUS on their signal pin, read from
+  their sources only.
 
 ---
 
@@ -3349,7 +3487,9 @@ src/
   sbus_job.{h,cpp}      the S.BUS monitor's core1 job: UART0 on GP1 inverted, rcbench's decoder, the status
   ui_sbus.{h,cpp}       S.BUS MONITOR: the claim of GP1, the channels and counts, the leave page
   sbus_view.{h,cpp}     what S.BUS MONITOR shows: the link state, the bars' ink, the texts (pure)
-  sbus_out_job.{h,cpp}  the S.BUS output's core1 job: the bootloader probe on GP0, then UART0's TX on GP0 inverted, a frame every 14 ms; nothing opens it
+  sbus_out_job.{h,cpp}  the S.BUS output's core1 job: the bootloader probe on GP0, then UART0's TX on GP0 inverted, a frame every 14 ms
+  ui_sbus_out.{h,cpp}   S.BUS OUTPUT: the claim of GP0, the probe's gate, 16 sliders, SET, the leave pages
+  sbus_out_view.{h,cpp} what S.BUS OUTPUT shows: the chip, the notes, the rows' texts, the steps, the idle rule (pure)
   bridge_wire.{h,cpp}   the USB bridge's core1 job: the frame slot, the ring, the echo, the counts
   bridge_line_port.{h,cpp} the bridge's line: two PIO state machines on SIG
   bridge_line.pio       ...its transmitter, seven instructions; the receiver is pio_uart_rx.pio
@@ -3582,9 +3722,14 @@ times, to rcbench's decoder. It runs the job's bootloader probe on rcbench's
 EFM8 and AM32 models behind `fake_escwire_port.cpp`, which writes the line
 driver's pulls, input buffer and function to the GPIO fake. It also reads
 every source under `src/` and fails if a code line other than the job's
-declarations, its job-table line, the claim's row and the probe's request for
-the leave page names the output, or if a line reaches a pin user or a core1
-job by a cast or walks the user rows or the job table.
+declarations, its job-table line, the claim's row, the probe's request for
+the leave page and S.BUS OUTPUT's claim, command and START lines names the
+output or a START, if the START is sent other than from HOLD TO START gated
+by `sbusOutProbePassed()`, or if a line reaches a pin user or a core1 job by
+a cast or walks the user rows or the job table. `test_sbus_out_ui.cpp` runs
+S.BUS OUTPUT on the job, the probe and the transmitter through MENU and RX
+SIGNALS, reading each command the screen sent from the job's command block
+(`sbusOutJobHeld()`).
 
 `esc_task.cpp` cannot be linked either, so core0's side of the command slot is
 a copy in `fakes.cpp` on the shipped `escCmdAccept()`. A test sets the

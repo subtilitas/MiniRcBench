@@ -432,9 +432,10 @@ static void testEntryProbeStart() {
 	soFrames(12);
 	checkTrue("the claim asked for SIG alone: SIG is GP0",
 	          pinClaimGpio(PIN_SIG) == 0 && pinClaimGpio(PIN_AUX) == PIN_CLAIM_NO_GPIO);
-	checkTrue("the probe: CHECKING GP0 FOR AN ESC., dim, 143 px, no chip",
+	checkTrue("the probe: CHECKING SIG GP0 FOR AN ESC., dim, 167 px, no chip",
 	          sbusOutProbePoll() == SbusOutProbeState::Checking &&
-	          messageIs(SBOUT_UI_CHECKING, nullptr, nullptr, C_DIM) && gfxTextW(SBOUT_UI_CHECKING, 1) == 143 &&
+	          messageIs("CHECKING SIG GP0 FOR AN ESC.", nullptr, nullptr, C_DIM) &&
+	          gfxTextW("CHECKING SIG GP0 FOR AN ESC.", 1) == 167 &&
 	          noChip());
 	checkTrue("no rows and no notes: the notes' lines blank",
 	          allOf(0, SBOUT_UI_NOTE1_Y, GFX_W, SBOUT_UI_ROW_Y - SBOUT_UI_NOTE1_Y, C_BG) &&
@@ -943,7 +944,7 @@ static void testLeave() {
 	checkTrue("BACK TO OUTPUT: the claim kept, a new visit: a new probe, the gate shut",
 	          pinClaimHolder() == PinUser::SbusOut && sbusOutProbePoll() == SbusOutProbeState::Checking &&
 	          fakeEwOpens() == opens + 1 && !sbusOutProbePassed() &&
-	          messageIs(SBOUT_UI_CHECKING, nullptr, nullptr, C_DIM) && !ctlEnabled(UI_FIX(SbusOutCtl::Start)));
+	          messageIs("CHECKING SIG GP0 FOR AN ESC.", nullptr, nullptr, C_DIM) && !ctlEnabled(UI_FIX(SbusOutCtl::Start)));
 	checkTrue("SAFE after it, the trip forgotten", toSafe() && chipIs("SAFE", UI_COL_SAFE) &&
 	          leftIs(SBOUT_UI_NOTE1_Y, "GP0 GOES TO A FLIGHT CONTROLLER.", UI_COL_WARN));
 	checkTrue("page 1 again, the throttle's knob at 1000 us",
@@ -991,8 +992,8 @@ static void testBootloader() {
 	checkTrue("an EFM8 bootloader answers", sbusOutProbePoll() == SbusOutProbeState::Answered &&
 	          sbusOutProbeEfm8());
 	checkTrue("the rows' area asks for the ESC's battery and lead to come off, amber",
-	          messageIs(SBOUT_UI_BL_1, SBOUT_UI_BL_2, SBOUT_UI_BL_3, UI_COL_WARN) && noChip());
-	checkTrue("197, 191 and 185 px", gfxTextW(SBOUT_UI_BL_1, 1) == 197 && gfxTextW(SBOUT_UI_BL_2, 1) == 191 &&
+	          messageIs("AN ESC BOOTLOADER ANSWERS ON SIG GP0.", SBOUT_UI_BL_2, SBOUT_UI_BL_3, UI_COL_WARN) && noChip());
+	checkTrue("221, 191 and 185 px", gfxTextW("AN ESC BOOTLOADER ANSWERS ON SIG GP0.", 1) == 221 && gfxTextW(SBOUT_UI_BL_2, 1) == 191 &&
 	          gfxTextW(SBOUT_UI_BL_3, 1) == 185);
 	checkControlTable("S.BUS OUTPUT, a bootloader answers");
 	fakeDumpFrame("shot_sbus_out_bootloader.ppm");
@@ -1006,7 +1007,7 @@ static void testBootloader() {
 	soFrames(1);
 	checkTrue("2.5 s on START while it answers: no command, the gate shut, START disabled",
 	          held().seq == seq0 && !sbusOutProbePassed() && !ctlEnabled(UI_FIX(SbusOutCtl::Start)) &&
-	          messageIs(SBOUT_UI_BL_1, SBOUT_UI_BL_2, SBOUT_UI_BL_3, UI_COL_WARN));
+	          messageIs("AN ESC BOOTLOADER ANSWERS ON SIG GP0.", SBOUT_UI_BL_2, SBOUT_UI_BL_3, UI_COL_WARN));
 
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK: decision 8's page before LEAVE, the claim kept",
@@ -1063,7 +1064,7 @@ static void testBootloader() {
 	for (int k = 0; k < 80 && sbusOutProbePoll() != SbusOutProbeState::Answered; k++) soFrames(1);
 	soFrames(1);
 	checkTrue("an AM32 bootloader answers: the same lines, no EFM8 mark",
-	          messageIs(SBOUT_UI_BL_1, SBOUT_UI_BL_2, SBOUT_UI_BL_3, UI_COL_WARN) && !sbusOutProbeEfm8() &&
+	          messageIs("AN ESC BOOTLOADER ANSWERS ON SIG GP0.", SBOUT_UI_BL_2, SBOUT_UI_BL_3, UI_COL_WARN) && !sbusOutProbeEfm8() &&
 	          !ctlEnabled(UI_FIX(SbusOutCtl::Start)));
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK: the plain leave page, opened releasing",
