@@ -1682,34 +1682,34 @@ static bool byNumber(const std::string &line, const std::string &file) {
 static void testUnreachable() {
 	section("S.BUS output: nothing outside the job, its table line and the claim's row names it");
 
-	struct Allowed { const char *file; const char *line; int times; };
+	struct Allowed { const char *file; const char *line; };
 	static const Allowed ALLOWED[] = {
-		{ "../src/pin_claim.h", "{ PinUser::SbusOut, Core1Job::SbusOut, true, true, false },", 1 },
-		{ "../src/pin_claim.h", "static constexpr PinUserInfo PIN_USERS[] = {", 1 },
+		{ "../src/pin_claim.h", "{ PinUser::SbusOut, Core1Job::SbusOut, true, true, false }," },
+		{ "../src/pin_claim.h", "static constexpr PinUserInfo PIN_USERS[] = {" },
 		// pinUserInfo() and pinUsersComplete(): each row by its user.
-		{ "../src/pin_claim.h", "for (const PinUserInfo &u : PIN_USERS)", 1 },
-		{ "../src/pin_claim.h", "return PIN_USERS[0];", 1 },
-		{ "../src/pin_claim.h", "for (const PinUserInfo &u : PIN_USERS) n += (int)u.who == w;", 1 },
+		{ "../src/pin_claim.h", "for (const PinUserInfo &u : PIN_USERS)" },
+		{ "../src/pin_claim.h", "return PIN_USERS[0];" },
+		{ "../src/pin_claim.h", "for (const PinUserInfo &u : PIN_USERS) n += (int)u.who == w;" },
 		{ "../src/pin_claim.h",
-		  "static_assert(pinUsersComplete(), \"a pin user has no row in PIN_USERS, or two\");", 1 },
-		{ "../src/core1_job.cpp", "static const Core1JobOps *s_ops[] = {", 1 },
-		{ "../src/core1_job.cpp", "&SBUS_OUT_JOB_OPS,", 1 },
+		  "static_assert(pinUsersComplete(), \"a pin user has no row in PIN_USERS, or two\");" },
+		{ "../src/core1_job.cpp", "static const Core1JobOps *s_ops[] = {" },
+		{ "../src/core1_job.cpp", "&SBUS_OUT_JOB_OPS," },
 		{ "../src/core1_job.cpp",
-		  "static_assert(sizeof(s_ops) / sizeof(s_ops[0]) == (unsigned)Core1Job::SbusOut + 1,", 1 },
+		  "static_assert(sizeof(s_ops) / sizeof(s_ops[0]) == (unsigned)Core1Job::SbusOut + 1," },
 		// core1JobInit(): each job's init, no bind.
-		{ "../src/core1_job.cpp", "for (const Core1JobOps *ops : s_ops)", 1 },
-		{ "../src/core1_job.cpp", "if (s_ops[(uint8_t)job] == nullptr) return false;", 1 },
-		{ "../src/core1_job.cpp", "const Core1JobOps *ops = s_ops[(uint8_t)s_job];", 1 },
-		{ "../src/sbus_out_job.h", "uint8_t sbusOutClaimRoles(uint8_t sigGpio, uint8_t auxGpio);", 1 },
-		{ "../src/sbus_out_job.h", "uint16_t sbusOutJobCommand(const SbusOutCmd *c);", 1 },
-		{ "../src/sbus_out_job.h", "extern const Core1JobOps SBUS_OUT_JOB_OPS;", 1 },
-		{ "../src/sbus_out_job.cpp", "uint8_t sbusOutClaimRoles(uint8_t sigGpio, uint8_t auxGpio) {", 1 },
-		{ "../src/sbus_out_job.cpp", "const Core1JobOps SBUS_OUT_JOB_OPS = {", 1 },
-		{ "../src/sbus_out_job.cpp", "uint16_t sbusOutJobCommand(const SbusOutCmd *c) {", 1 },
+		{ "../src/core1_job.cpp", "for (const Core1JobOps *ops : s_ops)" },
+		{ "../src/core1_job.cpp", "if (s_ops[(uint8_t)job] == nullptr) return false;" },
+		{ "../src/core1_job.cpp", "const Core1JobOps *ops = s_ops[(uint8_t)s_job];" },
+		{ "../src/sbus_out_job.h", "uint8_t sbusOutClaimRoles(uint8_t sigGpio, uint8_t auxGpio);" },
+		{ "../src/sbus_out_job.h", "uint16_t sbusOutJobCommand(const SbusOutCmd *c);" },
+		{ "../src/sbus_out_job.h", "extern const Core1JobOps SBUS_OUT_JOB_OPS;" },
+		{ "../src/sbus_out_job.cpp", "uint8_t sbusOutClaimRoles(uint8_t sigGpio, uint8_t auxGpio) {" },
+		{ "../src/sbus_out_job.cpp", "const Core1JobOps SBUS_OUT_JOB_OPS = {" },
+		{ "../src/sbus_out_job.cpp", "uint16_t sbusOutJobCommand(const SbusOutCmd *c) {" },
 		// An EFM8 answer to the probe asks for the leave page: it lets go of
 		// nothing and starts nothing.
 		{ "../src/sbus_out_job.cpp",
-		  "if (st.efm8Seq != s_efm8Mark) pinClaimWantLeavePage(PinUser::SbusOut);", 1 },
+		  "if (st.efm8Seq != s_efm8Mark) pinClaimWantLeavePage(PinUser::SbusOut);" },
 	};
 
 	static const char *const NAMES[] = {
@@ -1746,8 +1746,7 @@ static void testUnreachable() {
 	checkTrue("no other line names it or reaches it by a number", hits.empty());
 	if (!hits.empty()) printf("   %s\n", hits.c_str());
 	bool each = true;
-	for (size_t a = 0; a < sizeof(ALLOWED) / sizeof(ALLOWED[0]); a++)
-		each &= used[a] == ALLOWED[a].times;
+	for (int u : used) each &= u == 1;
 	checkTrue("each allowed line found once: the list is current", each);
 	checkTrue("a call in a comment is blanked, one in code is not",
 	          stripComments("x(); // pinClaimBegin(PinUser::SbusOut)\n/* a */ y(\"//\");")
