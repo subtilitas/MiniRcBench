@@ -276,6 +276,8 @@ include(src/hitec.cmake)
 include(src/rx.cmake)
 include(src/sense.cmake)
 include(src/escwire.cmake)
+# The USB bridge, the same way.
+include(src/bridge.cmake)
 
 # The KISS receiver is a PIO program (see pio_uart_rx.h for why it is not one
 # of the two hardware UARTs). pioasm assembles it into the build tree, and this

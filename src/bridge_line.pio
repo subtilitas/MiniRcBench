@@ -1,0 +1,40 @@
+;
+; bridge_line.pio -- the USB bridge's transmitter on the ESC signal wire:
+; 19200 baud 8N1 in seven PIO instructions (docs/design/usb-bridge.md,
+; "The wire").
+;
+; The pad is the state machine's OUT and SET pin, and its side-set pin, which
+; writes the pad's direction. One bit is eight state machine cycles, as in
+; pio_uart_rx.pio, whose program receives on the same pad in a second state
+; machine of the same block at the same clock divider. That receiver hears
+; every byte this program sends: the line's own echo.
+;
+; A FIFO word holds a byte in bits 0 to 7, sent least significant bit first,
+; and in bit 8 what the pad does after the byte's stop bit: 1 keeps it driven
+; high, for a byte with more of its frame behind it; 0 lets it go, for the
+; last byte of a frame. Between frames the machine stalls on `pull` with the
+; pad an input, held high by its pull-up. Within a frame, if core1 is late
+; with the next byte, it stalls there with the pad driven high.
+;
+; Start bit: driven low, 8 cycles. Data bits: 8 cycles each. Stop bit:
+; driven high, 8 cycles; then `out pindirs` takes bit 8 and `pull` the next
+; byte, a cycle each, so the bytes of a frame are 82 cycles, 10.25 bit
+; times, apart, and the last byte's pad is let go 80 cycles after its start
+; bit began.
+;
+; test/pio_bridge_emu.py assembles this file and pio_uart_rx.pio and runs
+; both state machines on one pad, one cycle at a time.
+
+.program bridge_tx
+.side_set 1 opt pindirs
+
+.wrap_target
+    pull                        ; stall for a byte; the pad as the last byte left it
+    set pins, 0      side 1 [6] ; start bit: driven low
+    set x, 7                    ; eight data bits
+bitloop:
+    out pins, 1                 ; one data bit, least significant first
+    jmp x-- bitloop         [6] ; eight cycles a bit
+    set pins, 1             [7] ; stop bit: driven high, 8 cycles
+    out pindirs, 1              ; bit 8: 1 keeps the pad driven, 0 lets it go
+.wrap
