@@ -126,6 +126,10 @@ void servoCoreStep(ServoCore *c, uint32_t nowMs, bool uiAlive) {
 	}
 }
 
+bool servoStepCmd(const ServoCmd *cmd) {
+	return cmd->kind == ServoCmdKind::Position && cmd->step && cmd->slewPerS == 0;
+}
+
 // ---------------------------------------------------------------------------
 // the switched supply, pure
 // ---------------------------------------------------------------------------
@@ -316,6 +320,7 @@ static bool      s_pulsed;
 static uint32_t  s_zeroMs;                 /**< millis() of the last level-0 write. */
 static ServoPower s_power;                 /**< The switched supply's state. */
 static ServoStartBlock s_startBlock;       /**< Why START is refused, as of the last pass. */
+static MoveTimer s_move;                   /**< The move timing of the steps. */
 /** @} */
 
 /** @brief Release whatever is bound. */
@@ -385,6 +390,7 @@ static void output(uint32_t nowMs) {
 	st.offCheck   = s_power.offCheck;
 	st.startBlock = s_startBlock;
 	st.upMs       = s_power.upMs;
+	st.move       = s_move.res;
 	critical_section_enter_blocking(&s_cs);
 	s_status = st;
 	critical_section_exit(&s_cs);
@@ -437,6 +443,7 @@ static uint8_t servoJobBind(uint8_t sigGpio, uint8_t auxGpio) {
 	// The supply comes up off: its enable pin driven low until the release.
 	// A refused bind is never released, so it leaves the pin undriven.
 	servoPowerReset(&s_power, err == CORE1_JOB_OK && servoSupplyFitted(), fresh);
+	moveTimerReset(&s_move, fresh);
 	if (s_power.switched) servoSupplyBind();
 	uint32_t now = millis();
 	ServoPowerIn in = powerIn(now);
@@ -467,9 +474,16 @@ static void servoJobStep(uint32_t nowMs, bool uiAlive) {
 	}
 	ServoPowerIn in = powerIn(nowMs);
 	s_startBlock = servoPowerStartBlock(&s_power, &in);
-	servoCoreTake(&s_core, &cmd, nowMs, uiAlive && s_startBlock == ServoStartBlock::None);
+	bool taken = servoCoreTake(&s_core, &cmd, nowMs, uiAlive && s_startBlock == ServoStartBlock::None);
 	servoCoreStep(&s_core, nowMs, uiAlive);
 	servoPowerStep(&s_power, &s_core, &in, nowMs);
+	// The move timing reads what the rules above decided, and changes none of it.
+	MoveIn mi;
+	mi.sample = in.sample;
+	mi.out[0] = s_core.outUs[0];
+	mi.out[1] = s_core.outUs[1];
+	mi.step = taken && servoStepCmd(&cmd);
+	moveTimerStep(&s_move, &mi, nowMs);
 	// The enable pin first: at a switch-off it goes low before level 0 on
 	// the pins, at a switch-on the pins stay at level 0 until the supply is up.
 	drivePower();
@@ -484,6 +498,9 @@ static bool servoJobRelease(uint32_t nowMs) {
 	s_core.outUs[0] = s_core.outUs[1] = 0;
 	servoPowerOff(&s_power, false, nowMs);
 	drivePower();
+	MoveIn none;
+	memset(&none, 0, sizeof(none));
+	moveTimerStep(&s_move, &none, nowMs);
 	if (!quiet(nowMs)) {
 		output(nowMs);
 		return false;
@@ -515,6 +532,7 @@ void servoJobNewSession() {
 	s_status.tripped = false;
 	s_status.powerFault = ServoPowerFault::None;
 	s_status.upMs = SUPPLY_UP_NONE;
+	memset(&s_status.move, 0, sizeof(s_status.move));
 	critical_section_exit(&s_cs);
 }
 

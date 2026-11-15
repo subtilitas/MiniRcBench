@@ -24,6 +24,7 @@ void runSettingsTests();
 void runServoSupplyTests();
 void runSenseTests();
 void runSupplyGuardTests();
+void runMoveTimerTests();
 void runQmi8658Tests();
 void runAngleModelTests();
 void runUsbMscTests();
@@ -66,6 +67,7 @@ int main() {
 	runServoSupplyTests();
 	runSenseTests();
 	runSupplyGuardTests();
+	runMoveTimerTests();
 	runQmi8658Tests();
 	runAngleModelTests();
 	runUiTests();

@@ -2,8 +2,8 @@
 
 The files under this directory are copied from
 [rcbench](https://github.com/subtilitas/rcbench) with their text unchanged:
-the Hitec files at commit `3e29dc1b`, the S.BUS files and the sensor bus at
-commit `5ef42efd`, the escwire files and the servo file store at commit
+the Hitec files at commit `3e29dc1b`, the S.BUS files, the sensor bus and
+the move timing's files at commit `5ef42efd`, the escwire files and the servo file store at commit
 `2b4f934a`, the angle meter's files at commit `e98345aa`, every other file at
 commit `453cf334`. rcbench is MIT
 licensed by the same copyright holder as MiniRcBench, subtilitas, so the
@@ -43,6 +43,16 @@ The S.BUS files and the sensor bus, at commit `5ef42efd`:
 | `protocols/sbus/include/sbus.h` | `protocols/sbus/include/sbus.h` |
 | `shared/sense/sense_bus.c` | `shared/sense/sense_bus.c` |
 | `shared/sense/include/sense_bus.h` | `shared/sense/include/sense_bus.h` |
+
+The move timing's files, at commit `5ef42efd`
+(`5ef42efdc9eb092ae7b3b37f24779663e6b9d67d`):
+
+| File here | rcbench path |
+| --- | --- |
+| `shared/servo/servo_move.c` | `shared/servo/servo_move.c` |
+| `shared/servo/include/servo_move.h` | `shared/servo/include/servo_move.h` |
+| `shared/servo/servo_sim.c` | `shared/servo/servo_sim.c` |
+| `shared/servo/include/servo_sim.h` | `shared/servo/include/servo_sim.h` |
 
 The escwire files and the servo file store, at commit `2b4f934a`
 (`2b4f934ad6b6d67f20b46d5ba80001c091e14b89`):
@@ -135,6 +145,18 @@ Its rcbench test, copied unchanged from rcbench `test/host/test_sbus.c` into
 `test/rcbench/`, is `test_sbus.c`, 12 cases.
 rcbench's `README.md` and `CMakeLists.txt` of the module are not copied:
 this repository lists its sources in its own `.cmake` and `.mk` files.
+
+The move judged from the current (`shared/servo/servo_move.*`) is for the
+move timing of [current-sense.md](../../docs/design/current-sense.md), slice
+5: `src/move_timer.cpp` feeds it the INA219's readings in the servo tester's
+core1 job and keeps what it measured for the SET screen. It is built as C11, in
+the firmware by `src/servo.cmake` and in the host suite by `test/servo.mk`.
+The servo model (`shared/servo/servo_sim.*`) is built by the host suite only:
+`test/test_servo.cpp` and rcbench's test of the move draw the current of a
+modelled servo from it. Their rcbench test, copied unchanged from rcbench
+`test/host/test_servo_move.c` into `test/rcbench/`, is `test_servo_move.c`,
+18 cases. `servo_sim.h` has no `extern "C"` of its own, so the C++ suite
+includes it inside one.
 
 The control-surface arithmetic (`shared/servo/servo_rudder.*`), the IMU
 (inertial measurement unit) model (`shared/bench/imu.*`) and the WitMotion
