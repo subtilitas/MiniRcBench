@@ -349,8 +349,8 @@ static void testBeeps() {
 	// Refused although drawn live: armed, unreachable here, forced.
 	escSetArmed(true);
 	tapId(UI_FIX(EscCmdCtl::Beep4));
-	checkTrue("a refused tap shows no outcome of its own",
-	          fakeBeepRequests() == before && lineIs(0, "SENT 5 (BEEP 5).", C_TEXT) == false);
+	checkTrue("a refused tap sends nothing and shows the idle lines, no outcome",
+	          fakeBeepRequests() == before && idleShown());
 	escSetArmed(false);
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
