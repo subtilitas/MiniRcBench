@@ -355,11 +355,12 @@ checks it byte for byte.
 
 ## On the device
 
-SD LOG shows the run. Today its nine rows are STATUS, FILE, FRAMES,
-WRITTEN, DROPPED FRAMES, BUF PEAK, WORST FLUSH, CARD and MOUNT, 19 px
-each from y 44 (`LOG_ROW0_Y`), the label from x 8, the value to a right
-edge at x 232, both scale 1 (`drawLogRow()`, verified). After a stop the
-FILE row reads `LOG00012.BFL (LAST)`.
+SD LOG shows the run. Its nine rows are 19 px each from y 44
+(`LOG_ROW0_Y`), the label from x 8, the value to a right edge at x 232,
+both scale 1 (`drawLogRow()`, verified): STATUS and FILE, then, while no
+run shows, the counters FRAMES, WRITTEN, DROPPED FRAMES, BUF PEAK and
+WORST FLUSH, and CARD and MOUNT. After a stop the FILE row reads
+`LOG00012.BFL (LAST)`.
 
 The design: while no log runs and the last log has a summary, rows 2 to 8
 show the run; while a log runs, and whenever there is no summary (after a

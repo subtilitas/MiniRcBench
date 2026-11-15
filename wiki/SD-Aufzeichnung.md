@@ -215,7 +215,7 @@ Zusammenfassung, dieselben Werte wie ihre `.TXT`:
 | **MIN VOLTAGE** | Die niedrigste Spannung im scharfen Zustand |
 | **USED** | Um wie viel der KISS-Zähler stieg, in mAh |
 | **USED FROM CURRENT** | Statt `USED`, wenn der KISS-Zähler nicht stieg: der Strom über die Zeit aufsummiert |
-| **ARMED** | Die Zeit, die die Aufzeichnung davon scharf war, `H:MM:SS` |
+| **ARMED** | Die Zeit innerhalb der Aufzeichnung, in der der Tester scharf war, `H:MM:SS` |
 | **SUMMARY** | Der Name der `.TXT`, zum Beispiel `LOG00012.TXT`; in Rot `NOT SAVED: CARD FULL` oder `NOT SAVED: WRITE FAILED`, wenn sie nicht geschrieben wurde |
 
 Ein Maximum oder Minimum ist der Wert, der über drei neue Messwerte in
@@ -224,8 +224,9 @@ gibt. Das Wort neben einem Wert nennt seine Quelle: `KISS`, `EDT`, oder
 `MIXED`, wenn EDT Lücken in KISS füllte. Eine Drehzahl aus DShot hat keins.
 Eine Ladung über 99999 mAh lautet `>99999mAh`; die `.TXT` nennt den Wert.
 `FRAMES` bis `WORST FLUSH` stehen dann in der `.TXT`. `CARD` und `MOUNT`
-bleiben bis zum nächsten `START` oder Einbinden ausgeblendet: Sie zählen,
-wenn keine Karte eingebunden wird, und dann erscheint kein Lauf.
+bleiben bis zum nächsten `START`, der eine Aufzeichnung öffnet, oder bis
+zum nächsten Einbinden ausgeblendet: Sie zählen, wenn keine Karte
+eingebunden wird, und dann erscheint kein Lauf.
 
 Nach einer Aufzeichnung, die ein Kartenfehler beendete, zeigen die Zeilen
 ihren Lauf bis zum Fehler, `SUMMARY` lautet `NOT SAVED`, und die Zeilen über

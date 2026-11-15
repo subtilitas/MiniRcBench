@@ -208,8 +208,8 @@ the figure the `.TXT` gives first; `--` when there is none. The word beside
 a value names its source: `KISS`, `EDT`, or `MIXED` when EDT filled gaps in
 KISS. RPM from DShot has none. A charge above 99999 mAh reads `>99999mAh`;
 the `.TXT` has the figure. `FRAMES` to `WORST FLUSH` are in the `.TXT`
-then. `CARD` and `MOUNT` stay hidden until the next `START` or a mount:
-they matter when no card mounts, and then no run shows.
+then. `CARD` and `MOUNT` stay hidden until the next `START` that opens a
+log, or a mount: they matter when no card mounts, and then no run shows.
 
 After a log a card error ended, the rows show its run up to the failure,
 `SUMMARY` reads `NOT SAVED`, and the lines above `START` say how it ended. A

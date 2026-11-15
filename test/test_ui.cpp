@@ -605,8 +605,10 @@ static void testLogRun() {
 	st.summaryPoles = 2;
 	fakeSdLogSet(&st);
 	logRunExample(&sum);
-	sum.erpm = logRunHeld(60000000, false);
-	sum.erpm.anyKiss = true;                       // a tag, for the widest row
+	// KISS eRPM, so MAX RPM's widest value stands beside a tag; DShot eRPM
+	// is never tagged.
+	sum.erpm = RunSumExtreme{};
+	sum.kissErpm = logRunHeld(60000000, true);
 	sum.amps = logRunHeld(65535, true);
 	sum.amps.anyLine = true;
 	sum.volts = sum.amps;
@@ -619,7 +621,7 @@ static void testLogRun() {
 	sum.file = RunSumFile::WriteFailed;
 	frames(1);
 	checkTrue("the widest values in place",
-	          logValueIs(2, "60000000", C_TEXT, 197) && logTagIs(2, "MIXED", C_DIM) &&
+	          logValueIs(2, "60000000", C_TEXT, 197) && logTagIs(2, "KISS", C_TEXT) &&
 	          logValueIs(3, "655.35A", C_TEXT, 197) && logValueIs(4, "255`C", C_RED, 197) &&
 	          logValueIs(5, "655.35V", C_TEXT, 197) &&
 	          logLabelIs(6, "USED FROM CURRENT") && logValueIs(6, ">99999mAh", C_TEXT, 197) &&
@@ -701,7 +703,23 @@ static void testTesterNoRun() {
 	sdLogStatus(&st);
 	checkTrue("disarmed: the log stopped, its summary kept",
 	          !uiArmed() && !sdLogActive() && st.summary == &sum);
+	// Right after the disarm, before the tester is left: the frame of an
+	// auto log with a summary against the same arm and disarm without one.
+	uint32_t atStop = fakeRegionHash(0, 0, GFX_W, GFX_H);
+	fakeSdLogSetSummary(nullptr, 0);
+	holdToArm();
+	checkTrue("armed again: an auto log runs", uiArmed() && sdLogActive());
+	tapId(UI_FIX(TesterCtl::Arm));                         // DISARM
+	frames(4);
+	sdLogStatus(&st);
+	checkTrue("disarmed: the log stopped, no summary",
+	          !uiArmed() && !sdLogActive() && st.summary == nullptr);
+	checkTrue("right after the disarm: the same frame as with the summary",
+	          fakeRegionHash(0, 0, GFX_W, GFX_H) == atStop);
 	// The same tester, drawn whole, with and without the summary.
+	st.summary = &sum;
+	st.summaryPoles = 14;
+	fakeSdLogSet(&st);
 	tapId(UI_FIX(TesterCtl::Menu));
 	frames(2);
 	tapId(UI_FIX(UI_BACK));

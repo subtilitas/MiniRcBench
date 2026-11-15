@@ -607,9 +607,9 @@ powered after it, or by the bench.
   tag beside a value reads `KISS`, `EDT` or `MIXED` (KISS with EDT in its
   gaps); a value from DShot eRPM has none. Red: `MAX TEMP` at 90 °C and
   above, and `NOT SAVED`. FRAMES to WORST FLUSH are then in the `.TXT`, and
-  CARD and MOUNT are hidden until the next START or mount. While a log
-  runs, and after a mount or USB DRIVE, the rows show the counters, CARD
-  and MOUNT. A failed START keeps the last run, as it keeps FILE. The
+  CARD and MOUNT are hidden until the next START that opens a log, or a
+  mount. While a log runs, and after a mount or USB DRIVE, the rows show
+  the counters, CARD and MOUNT. A failed START keeps the last run, as it keeps FILE. The
   tester shows nothing of the run.
 - **Note lines** (y 217 and y 228): how the last log ended, when it ended
   on its own or a tool took the card, in amber (`SdLogEnd`); a card's fault
