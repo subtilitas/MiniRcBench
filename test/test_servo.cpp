@@ -2236,6 +2236,25 @@ static void testJobMoveTiming() {
 	servoJobNewSession();
 	servoJobStatus(&st);
 	checkTrue("a new screen session drops it", st.move.state == MoveState::None);
+
+	// Two servos, in a new session: a step of AUX alone is a step.
+	ServoProfile two = prof;
+	two.servos = 2;
+	checkTrue("two servos accepted", servoJobProfile(&two));
+	checkTrue("the claim again, SIG and AUX", claimRunning(PIN_SIG | PIN_AUX));
+	servoJobStatus(&st);
+	checkTrue("the new session's bind: nothing timed", st.move.state == MoveState::None);
+	send(cmdOf(0, ServoCmdKind::Start));
+	for (int i = 0; i < 144; i++) simPass(ina, &sim, EN, 25);
+	ServoCmd b = stepOf(SERVO_SPAN);
+	b.mask = SERVO_MASK_B;
+	send(b);
+	servoJobStatus(&st);
+	checkTrue("MAX on AUX alone: timed", fakePin(AUX).level == 2000 && fakePin(SIG).level == 1500 &&
+	          st.move.state == MoveState::Measuring);
+	checkTrue("released", claimEnd() && enUndriven(EN));
+	servoJobProfile(&prof);
+	servoJobNewSession();
 	settings()->currentSense = 0;
 	senseConfigure(0);
 	fakeI2cReset();
@@ -5125,6 +5144,16 @@ static void testMoveScreen() {
 	uiSimFrames(ina, &sim, 45);
 	checkTrue("arrived, and the hold in", s_st.move.state == MoveState::Arrived && s_st.move.holdOk &&
 	          s_st.move.peakOk);
+	tapId(UI_FIX(ServoCtl::Centre));
+	uiSimFrames(ina, &sim, 1);
+	checkTrue("CENTRE, half a second on: timed", s_st.move.state == MoveState::Measuring &&
+	          fakePin(SIG).level == 1500);
+	uiSimFrames(ina, &sim, 45);
+	tapId(UI_FIX(ServoCtl::Max));
+	uiSimFrames(ina, &sim, 1);
+	checkTrue("MAX again: timed", s_st.move.state == MoveState::Measuring);
+	uiSimFrames(ina, &sim, 45);
+	checkTrue("arrived, the hold in", s_st.move.state == MoveState::Arrived && s_st.move.holdOk);
 	checkTrue("within one read and one cycle of the model's 417 ms",
 	          s_st.move.ms >= 417 && s_st.move.ms <= 417 + MOVE_LAG_MS);
 	char line[MOVE_TEXT_MAX + 1];

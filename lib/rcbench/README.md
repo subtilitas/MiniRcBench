@@ -3,9 +3,9 @@
 The files under this directory are copied from
 [rcbench](https://github.com/subtilitas/rcbench) with their text unchanged:
 the Hitec files at commit `3e29dc1b`, the S.BUS files, the sensor bus and
-the move timing's files at commit `5ef42efd`, the escwire files and the servo file store at commit
-`2b4f934a`, the angle meter's files at commit `e98345aa`, every other file at
-commit `453cf334`. rcbench is MIT
+the move timing's files at commit `5ef42efd`, the escwire files and the
+servo file store at commit `2b4f934a`, the angle meter's files at commit
+`e98345aa`, every other file at commit `453cf334`. rcbench is MIT
 licensed by the same copyright holder as MiniRcBench, subtilitas, so the
 copies carry the licence of this repository, [LICENSE](../../LICENSE). Each
 file keeps its `SPDX-License-Identifier: MIT` line. The directory layout is

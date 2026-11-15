@@ -366,7 +366,10 @@ y   0 | SERVO SET                        [ BACK ]|
 
 The note band is two lines under the header, rows 40 to 61, where the other
 screens have a one-line strip: the warnings and the pin-claim texts do not fit
-one line of 240 px.
+one line of 240 px. Its second line, when no note takes it, shows in `C_DIM`
+the last step's move timing, `MOVE 0.42 S  PEAK 1.21 A  HOLD 0.12 A`, or
+before the first step the switched supply's start-up time,
+`SUPPLY UP IN 25 MS` ([current-sense.md](current-sense.md), slices 3 and 5).
 
 ### The leave page
 

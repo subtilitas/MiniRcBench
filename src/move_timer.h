@@ -137,7 +137,7 @@ struct MoveTimer {
 	uint32_t    holdFromMs;        /**< The reading that ended the move. */
 	float       holdSum;           /**< The hold's readings, A. */
 	uint32_t    holdN;             /**< How many. */
-	uint32_t    refMs;             /**< The command, or the reading that ended the move: the stale rule counts from it. */
+	uint32_t    refMs;             /**< The command: the stale rule counts from it, or from the sample's newest reading. */
 	MoveHold    holds[MOVE_HOLDS]; /**< Holding levels of this run. */
 	uint16_t    startOut[2];       /**< The pulses the run started with, CENTRE, us. */
 	float       idleA;             /**< The idle level: the holding level at startOut, A. */

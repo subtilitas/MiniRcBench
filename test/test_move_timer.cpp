@@ -158,6 +158,37 @@ static void testWhenTimed() {
 	stepTo(&r, 1000, 0.10f, 42);
 	checkTrue("then 3542 ms on: not at rest", stateIs(r, MoveState::Void, MoveVoid::NotAtRest));
 
+	// A slewed step during a move ends it; one that moves nothing still
+	// starts the wait for rest.
+	rigInit(&r);
+	startAt(&r, 0.10f);
+	stepTo(&r, 2000, 0.10f);
+	memset(&in, 0, sizeof(in));
+	r.now += 25;
+	in.sample = r.last;
+	in.out[0] = 2000;
+	in.step = true;
+	in.slewed = true;
+	moveTimerStep(&r.t, &in, r.now);
+	r.out[0] = 1990;
+	tick(&r, 25, 0.9f);
+	checkTrue("a slewed step during a move: void as a slew, the move over",
+	          stateIs(r, MoveState::Void, MoveVoid::Slewed) && !r.t.timing);
+	rigInit(&r);
+	startAt(&r, 0.10f);
+	hold(&r, 1000, 0.10f);
+	memset(&in, 0, sizeof(in));
+	r.now += 25;
+	in.sample = r.last;
+	in.out[0] = 1500;
+	in.step = true;
+	in.slewed = true;
+	moveTimerStep(&r.t, &in, r.now);
+	hold(&r, 3500, 0.10f);
+	stepTo(&r, 2000, 0.10f, 42);
+	checkTrue("a slewed step that moves nothing: 3542 ms on, not at rest",
+	          stateIs(r, MoveState::Void, MoveVoid::NotAtRest));
+
 	// Readings: 10 in the 500 ms before, 9.
 	rigInit(&r);
 	settle(&r);
@@ -212,6 +243,67 @@ static void testWhenTimed() {
 	r.out[1] = 2000;
 	tick(&r, 25, 0.10f, true);
 	checkTrue("a step of AUX alone: timed", stateIs(r, MoveState::Measuring));
+	tick(&r, 25, 0.90f);
+	tick(&r, 25, 0.10f);
+	hold(&r, 500, 0.30f);       // B pushing at 2000
+	stepTo(&r, 1000, 0.30f);    // A to 1000: leaves (1500, 2000), not CENTRE
+	checkTrue("leaving SIG's CENTRE with AUX away: the idle level stays CENTRE's, 0.10 A",
+	          stateIs(r, MoveState::Measuring) && fabsf(r.t.mv.cfg.ref_a - 0.10f) < 1e-6f);
+
+	rigInit(&r);
+	r.out[1] = 1500;
+	startAt(&r, 0.10f);
+	stepTo(&r, 1000, 0.10f);    // to (1000, 1500)
+	tick(&r, 25, 0.90f);
+	tick(&r, 25, 0.10f);
+	hold(&r, 500, 0.40f);
+	r.out[1] = 2000;
+	tick(&r, 25, 0.40f, true);  // to (1000, 2000), never held
+	checkTrue("(1000, 2000) is not (1000, 1500): the idle level, not 0.40 A",
+	          stateIs(r, MoveState::Measuring) && fabsf(r.t.mv.cfg.ref_a - 0.10f) < 1e-6f);
+
+	// Readings while the sensor is not online, and a reading seen twice.
+	rigInit(&r);
+	settle(&r);
+	r.state = SenseState::Absent;
+	hold(&r, 475, 0.10f);
+	r.state = SenseState::Online;
+	stepTo(&r, 2000, 0.10f);
+	checkTrue("20 readings while not online: none counts", stateIs(r, MoveState::Void, MoveVoid::Few));
+	rigInit(&r);
+	settle(&r);
+	for (int i = 0; i < 9; i++) {
+		tick(&r, 25, 0.10f);
+		tick(&r, 25, 0.10f, false, false);
+	}
+	stepTo(&r, 2000, 0.10f, 50);
+	checkTrue("9 readings, each seen twice: 9", stateIs(r, MoveState::Void, MoveVoid::Few));
+	rigInit(&r);
+	settle(&r);
+	for (int i = 0; i < 20; i++) {   // each new, taken 250 ms before its pass
+		r.now += 25;
+		r.last.seq = ++r.seq;
+		r.last.takenMs = r.now - 250;
+		r.last.currentUa = 100000;
+		r.last.state = (uint8_t)SenseState::Online;
+		MoveIn in;
+		memset(&in, 0, sizeof(in));
+		in.sample = r.last;
+		in.out[0] = r.out[0];
+		moveTimerStep(&r.t, &in, r.now);
+	}
+	stepTo(&r, 2000, 0.10f);
+	checkTrue("readings 250 ms old at their pass: stale, none counts",
+	          stateIs(r, MoveState::Void, MoveVoid::Few));
+
+	// A clipped reading has no value: not in the level before.
+	rigInit(&r);
+	settle(&r);
+	tick(&r, 0, 3.2f, false, true, SENSE_FLAG_CLIPPED);
+	hold(&r, 475, 0.10f);
+	stepTo(&r, 2000, 0.10f);
+	checkTrue("19 readings and a clipped one: the level of the 19",
+	          stateIs(r, MoveState::Measuring) && fabsf(r.t.mv.cfg.rise_a - 0.10f) < 1e-6f);
 }
 
 /** @brief One move from 0.10 A at rest, 0.90 A moving, back at 0.10 A at @p arriveDt after the step. */
@@ -260,6 +352,20 @@ static void testArrivalAndHold() {
 	hold(&r, 500, 0.12f);
 	checkTrue("a clipped reading: no hold", r.t.res.state == MoveState::Arrived && !r.t.res.holdOk);
 
+	// A hold cut short leaves nothing in the next one.
+	rigInit(&r);
+	moveOnce(&r);
+	hold(&r, 100, 0.50f);       // 4 readings of the hold
+	r.out[0] = 1500;
+	tick(&r, 25, 0.50f);        // a drag ends it
+	hold(&r, SETTLE + 500, 0.10f);
+	stepTo(&r, 2000, 0.10f);
+	tick(&r, 25, 0.90f);
+	tick(&r, 25, 0.10f);
+	hold(&r, 500, 0.12f);
+	checkTrue("the next hold: its own readings, 120 mA", stateIs(r, MoveState::Arrived) &&
+	          r.t.res.holdOk && r.t.res.holdMa == 120);
+
 	// A negative hold or peak is not shown.
 	rigInit(&r);
 	moveOnce(&r);
@@ -297,12 +403,37 @@ static void testArrivalAndHold() {
 	checkTrue("two in a row: settled, at the first", stateIs(r, MoveState::Arrived) &&
 	          r.t.res.settled && r.t.res.ms == 75 && r.now - cmd == 100);
 	checkTrue("the peak of the move: 500 mA", r.t.res.peakOk && r.t.res.peakMa == 500);
+	// The hold counts from the reading that ended the move, the run's second.
+	tick(&r, 25, 0.50f);
+	hold(&r, 450, 0.50f, 50);   // 75 to 475 ms after it: with 25 ms, 10 readings
+	tick(&r, 50, 0.50f);        // 525 ms closes
+	checkTrue("settled: the hold from the run's second reading, 10 readings, 500 mA",
+	          r.t.res.holdOk && r.t.res.holdMa == 500);
 
 	// A position never left this run: the idle level.
 	hold(&r, 500, 0.50f);
 	stepTo(&r, 1000, 0.50f);
 	checkTrue("to 1000, never left: the idle level",
 	          stateIs(r, MoveState::Measuring) && fabsf(r.t.mv.cfg.ref_a - 0.10f) < 1e-6f);
+
+	// A position left twice: its newest level.
+	rigInit(&r);
+	startAt(&r, 0.10f);
+	stepTo(&r, 2000, 0.10f);    // CENTRE's level 0.10 A
+	tick(&r, 25, 0.90f);
+	tick(&r, 25, 0.10f);
+	hold(&r, 500, 0.10f);
+	stepTo(&r, 1500, 0.10f);
+	tick(&r, 25, 0.90f);
+	tick(&r, 25, 0.10f);
+	hold(&r, 500, 0.20f);
+	stepTo(&r, 2000, 0.20f);    // CENTRE's level now 0.20 A
+	tick(&r, 25, 0.90f);
+	tick(&r, 25, 0.10f);
+	hold(&r, 500, 0.10f);
+	stepTo(&r, 1500, 0.10f);
+	checkTrue("back to CENTRE: its newest level, 0.20 A, in its own slot",
+	          fabsf(r.t.mv.cfg.ref_a - 0.20f) < 1e-6f);
 
 	// The idle level is the run's: with the run started away from the level
 	// before, and none known, the level before.
@@ -330,6 +461,16 @@ static void testArrivalAndHold() {
 	stepTo(&r, 2000, 0.20f);
 	checkTrue("after STOP and START: 2000's 0.30 A forgotten, the new idle level",
 	          fabsf(r.t.mv.cfg.ref_a - 0.20f) < 1e-6f);
+	r.out[0] = 0;
+	tick(&r, 25, 0.0f);
+	r.out[0] = 1500;
+	startAt(&r, 0.20f);
+	r.out[0] = 1600;
+	tick(&r, 25, 0.25f);   // a drag first: CENTRE is left untimed
+	hold(&r, SETTLE + 500, 0.25f);
+	stepTo(&r, 2000, 0.25f);
+	checkTrue("and the idle level: none this run, the level before",
+	          !r.t.idleOk && fabsf(r.t.mv.cfg.ref_a - 0.25f) < 1e-6f);
 
 	// More positions than slots: the oldest goes. Position 1000 + 10 i holds
 	// at 0.10 + 0.005 (i + 1) A; each move is unseen before the next step.

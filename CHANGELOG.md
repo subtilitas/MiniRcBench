@@ -44,6 +44,23 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1: move timing from the current sensor, slice 5 of
+  [current-sense.md](docs/design/current-sense.md#slice-5-as-built)
+  (`src/move_timer.*`), with CURRENT SENSE at INA219. The servo tester's
+  core1 job times each step of `MIN`, `CENTRE` or `MAX` at SPEED 100 % with
+  rcbench's `servo_move.c`, copied unchanged at `5ef42efd` with
+  `servo_sim.c` and its test `test_servo_move.c`, 18 cases. SERVO SET shows
+  the last step on its note band's second line when free, dim:
+  `MOVE 0.42 S  PEAK 1.21 A  HOLD 0.12 A`, `LATE` or `UNSEEN` in the time's
+  place, `--` for a figure whose conditions do not hold; before the first
+  step after START, the supply's start-up time as before. A step is timed
+  500 ms after the servo came to rest: the last timed move's arrival, or
+  3043 ms after any other change of the pulse. The time is an upper bound,
+  by up to 43 ms of the sensor's lag and a PWM frame. The timing changes no
+  pulse and no cut. Host tests in `test/test_move_timer.cpp` and
+  `test/test_servo.cpp`, against rcbench's servo model too, mutation-checked;
+  README and the wiki pages Servo-Tester and Servotester describe it. Not
+  tested on hardware.
 - After v0.1.0-rc1: the angle meter's screen and its documentation, slices 4
   and 5 of [angle-meter.md](docs/design/angle-meter.md#slice-4-as-built),
   tested on the host only. ANGLE METER (`src/ui_angle.*`) opens from MENU →

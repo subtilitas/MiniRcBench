@@ -1953,7 +1953,8 @@ the [wiring diagram](#wiring-diagram) (decision 20 of
   The 500 ms is a value of the design note until bench test B6 measures a
   converter's start-up time. SET shows the time of the last switch-on to
   that reading, `SUPPLY UP IN 25 MS`, an upper bound by one read and one
-  conversion cycle.
+  conversion cycle, until the first timed step takes the line (Move timing,
+  below).
 - While the supply comes up the pulses wait at level 0 and MIN, CENTRE,
   MAX, SWEEP and the dial are drawn disabled; STOP acts.
 - The touch controller is the only way to STOP. A touch controller that has
@@ -2004,6 +2005,47 @@ seen, or one 250 ms old or older, never counts. Not tested on hardware.
 - Beside a chip wider than RUNNING, `OVERCURRENT`, `LOW SUPPLY` or
   `NO SENSOR`, the caption reads by role alone, `SIG  50 HZ  1000-2000 US`,
   and at 333 Hz with one servo `SIG  333 HZ`.
+
+**Move timing.** With CURRENT SENSE at `INA219` the servo job times each
+step from the sensor's readings (slice 5 of `docs/design/current-sense.md`,
+`src/move_timer.*`, rcbench's `servo_move.c`). A step is `MIN`, `CENTRE` or
+`MAX` that changes the pulse. The timing only reads: it changes no pulse
+and no cut. Not tested on hardware.
+
+- SET's note band shows the last step on its second line when that line is
+  free, in `C_DIM`: `MOVE 0.42 S  PEAK 1.21 A  HOLD 0.12 A`, at most 37
+  characters. MOVE is the time from the command to the reading that shows
+  the arrival, to 10 ms; PEAK the highest reading from the command to the
+  arrival; HOLD the mean of the readings of the 500 ms after the arrival
+  (`MOVE_HOLD_MS`), at least 10 of them (`MOVE_MIN_READINGS`). `LATE` in
+  MOVE's place is movement and no arrival within 3043 ms; `UNSEEN` no
+  movement in that time. A figure whose conditions do not hold reads `--`:
+  a step not timed, a move under way, a move ended by STOP, a cut, another
+  command or the sensor lost, a hold not yet 500 ms long or with a clipped
+  reading in it, a peak or hold below 0. Before the first step after START
+  the line shows the supply's start-up time, as before; a two-line note
+  takes the line.
+- A step is timed when the servo has been at rest for 500 ms
+  (`MOVE_REST_MS`): from the reading that showed the last timed move's
+  arrival, or 3043 ms after any other change of the pulse, START, a drag, a
+  sweep, a step at SPEED below 100 % or one not timed. A step at SPEED below
+  100 % is never timed: its pulse slews. The level before is the mean of
+  the readings of the 500 ms before the command, at least 10 of them, and
+  not below -20 mA, which is a reversed sensor; the threshold is the larger
+  of 20 mA and 3 times their standard deviation, rcbench's rule.
+- rcbench's rules, one reading at a time: movement is the first reading
+  more than the threshold from the level before; the arrival is the first
+  reading back within 50 mA of the destination's holding level after one
+  above it by the threshold, or at an end held harder than the servo moves,
+  two readings in a row within 50 mA of that level and of each other. The
+  destination's holding level is its level before the last timed step that
+  left it this run, else CENTRE's, else the level before. A first visit to an
+  end where the servo pushes on a stop therefore reads `LATE`; the next one
+  is timed.
+- The time is an upper bound: the reading that shows the arrival comes up
+  to one read and one conversion cycle after it, 43 ms (`MOVE_LAG_MS`), and
+  the pulse leaves at the next PWM frame, up to 20 ms at 50 Hz. How far it
+  lies from the horn's arrival is not measured (bench test B10).
 
 **SET.** The PULSE rows change only while SAFE. TYPE loads one of rcbench's
 profiles:
@@ -2759,6 +2801,9 @@ sent to 0x40.
   amber. The sweep's count moves to the first line of the dial.
 - KST SERVO and HITEC SERVO: on the strip, after the supply's state,
   `SUPPLY ON 0.08 A`.
+- SERVO SET: the last step's move timing,
+  `MOVE 0.42 S  PEAK 1.21 A  HOLD 0.12 A`
+  ([Servo tester](#servo-tester), "Move timing").
 - A reading 250 ms old or older, or none, reads `-- A`.
 
 **How it is read.** Core0 reads the shunt and bus registers once per UI
@@ -2781,8 +2826,9 @@ at 0x40 is read once a second, and nothing but the register pointer is
 written to it. Each reading is published as a `SenseSample`
 (`src/sense.h`), under a lock of its own, for core1, where the servo
 tester's job reads the bus voltage back after each switch-on and switch-off
-([Servo tester](#servo-tester)), and the servo, KST and Hitec jobs cut the
-supply on its readings (`src/supply_guard.*`).
+([Servo tester](#servo-tester)) and times the servo's steps from it
+(`src/move_timer.*`), and the servo, KST and Hitec jobs cut the supply on its
+readings (`src/supply_guard.*`).
 
 ## Angle meter
 
@@ -3040,6 +3086,7 @@ src/
   servo_model.{h,cpp}   servo profiles, limits, steppers and mappings (pure)
   servo_pwm.{h,cpp}     hardware PWM servo outputs, from rcbench
   servo_job.{h,cpp}     the servo tester's core1 job: pulses, trip, supply
+  move_timer.{h,cpp}    the servo tester's move timing from the current: rcbench's servo_move fed per reading (pure)
   ui_kst.{h,cpp}        KST SERVO: the search, the field list, the write, FILES, the leave
   kst_view.{h,cpp}      what KST SERVO shows: rows, values with units, the stepper, the texts
   kst_seek.{h,cpp}      the KST search: the entry sequence repeated until a servo answers
@@ -3159,16 +3206,17 @@ and `test_hitec_card.c`, with `hitec_headers.cpp` built as C++11, `test_sbus.c`
 `test_ew_map.c`, `test_ew_guard.c`, `test_ew_session.c`,
 `test_ew_session_write.c`, `test_ew_file.c`, `test_ew_file_load.c`,
 `test_ew_pio.c`, `test_ew_text.c`, `test_ew_session_text.c` and
-`test_ew_file_e32.c` (210 cases), with `escwire_headers.cpp` built as C++11, and
-the angle meter's `test_servo_rudder.c`, `test_imu_angles.c` and
-`test_witmotion.c` (25 cases), copied unchanged, and `test_imu.c` (9 cases) and
+`test_ew_file_e32.c` (210 cases), with `escwire_headers.cpp` built as C++11,
+the move timing's `test_servo_move.c` (18 cases), and the angle meter's
+`test_servo_rudder.c`, `test_imu_angles.c` and `test_witmotion.c`
+(25 cases), copied unchanged, and `test_imu.c` (9 cases) and
 `test_imu_filter.c` (10), adapted from rcbench's to the cases that need `imu.h`
 alone. The SDIO tests run the card protocol against a simulated card. Time is
 virtual and counted in microseconds — `millis()` advances only when a test says
 so — which makes hold-to-arm, hold-to-write and gesture repeat deterministic
 rather than dependent on machine speed. The fake ESC serves a real settings blob
 recovered from the reference configurator, so the UI tests operate on values a
-real ESC would report. The suite renders 139 screens to PPM (portable pixmap)
+real ESC would report. The suite renders 151 screens to PPM (portable pixmap)
 images as it runs, one file per `fakeDumpFrame()` name, so a layout change is
 visible in the frames:
 
@@ -3201,11 +3249,12 @@ visible in the frames:
   an older firmware, the 3D mode note, a protection off, the BACK guard,
   ESC WRITE before its hold, written, written with a backup, a write not
   verified, a write refused on a red BOARD voltage;
-- eighteen of SERVO TESTER: SAFE, running, sweeping, two servos, stalled, an
-  ESC answering, a refused bind, one GPIO for both pins, the switched
+- twenty-one of SERVO TESTER: SAFE, running, sweeping, two servos, stalled,
+  an ESC answering, a refused bind, one GPIO for both pins, the switched
   supply's line, the current sensor's readout, a declared sensor not found,
-  SERVO SET, SET with a warning, SET while running, SET with the supply's
-  start-up time, SET past the travel, the supply not off, the leave page;
+  the overcurrent and the sensor-lost cut, SERVO SET, SET with a warning, SET
+  while running, SET with the supply's start-up time, SET with a move timed,
+  SET past the travel, the supply not off, the leave page;
 - twenty of KST SERVO: the search, the switched search, the field list, an
   edit, KST WRITE, KST WRITE with five changes, KST WRITE without a card,
   the result, a failed flush, a write refused on a red BOARD voltage, a
@@ -3294,6 +3343,9 @@ use. rcbench has no test of `sense_bus.c` of its own; its tests reach it
 through drivers that are not copied. `test_supply_guard.cpp` holds the cuts'
 rules at each threshold, pure; `test_servo.cpp`, `test_kst_job.cpp`,
 `test_hitec_job.cpp` and the screens' suites run them on the INA219 model.
+`test_move_timer.cpp` holds the move timing's rules at each boundary, pure;
+`test_servo.cpp` runs it through the job and SET with rcbench's servo model,
+`servo_sim.c`, drawing the current behind the INA219 model.
 
 The I2C fake also holds a QMI8658 model: a register file with the power-on
 values, WHO_AM_I and REVISION_ID, the pointer, address auto-increment and the

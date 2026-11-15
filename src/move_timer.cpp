@@ -46,11 +46,15 @@ static uint32_t settleMs() { return servo_move_window_ms(MOVE_LAG_MS); }
 /** @brief @p a A in whole mA, rounded. */
 static int32_t milliamps(float a) { return (int32_t)lroundf(a * 1000.0f); }
 
-/** @brief The stored holding level at the pulses @p out, or null. */
+/**
+ * @brief The stored holding level at the pulses @p out, or null. An empty
+ *        slot holds SIG's pulse 0, which @p out never has: SIG carries a
+ *        pulse whenever the pulses run.
+ */
 static const MoveHold *holdAt(const MoveTimer *t, const uint16_t out[2]) {
 	for (unsigned i = 0; i < MOVE_HOLDS; i++) {
 		const MoveHold &h = t->holds[i];
-		if (h.stamp && h.out[0] == out[0] && h.out[1] == out[1]) return &h;
+		if (h.out[0] == out[0] && h.out[1] == out[1]) return &h;
 	}
 	return nullptr;
 }
@@ -60,7 +64,7 @@ static void storeHold(MoveTimer *t, const uint16_t out[2], float a) {
 	MoveHold *slot = &t->holds[0];
 	for (unsigned i = 0; i < MOVE_HOLDS; i++) {
 		MoveHold &h = t->holds[i];
-		if (h.stamp && h.out[0] == out[0] && h.out[1] == out[1]) { slot = &h; break; }
+		if (h.out[0] == out[0] && h.out[1] == out[1]) { slot = &h; break; }
 		if (h.stamp < slot->stamp) slot = &h;
 	}
 	slot->out[0] = out[0];
@@ -75,7 +79,9 @@ static void storeHold(MoveTimer *t, const uint16_t out[2], float a) {
  *        the pulses before it.
  */
 static void begin(MoveTimer *t, const MoveIn *in, uint32_t nowMs) {
-	bool rest = !t->timing && (int32_t)(nowMs - t->restMs) >= (int32_t)MOVE_REST_MS;
+	// A move under way keeps restMs, set at its command, ahead of it: the
+	// window, or the stale rule, ends it before the servo counts as at rest.
+	bool rest = (int32_t)(nowMs - t->restMs) >= (int32_t)MOVE_REST_MS;
 	t->timing = false;
 	t->holding = false;
 	// The servo moves now; at rest again at the arrival, if one is seen.
@@ -149,7 +155,7 @@ static void finish(MoveTimer *t, uint32_t atMs) {
 			t->holdFromMs = atMs;
 			t->holdSum = 0.0f;
 			t->holdN = 0;
-			t->refMs = atMs;
+			// The stale rule counts from this reading, the sample's newest.
 			break;
 		case SERVO_MOVE_LATE:
 			r.state = MoveState::Late;
@@ -158,7 +164,9 @@ static void finish(MoveTimer *t, uint32_t atMs) {
 			r.state = MoveState::Unseen;
 			break;
 	}
-	if (r.state != MoveState::Unseen && m->n > 0 && !m->clipped) {
+	// Movement needs a reading: one with a value, or a clipped one, which
+	// marks the move clipped.
+	if (r.state != MoveState::Unseen && !m->clipped) {
 		r.peakMa = milliamps(m->peak);
 		r.peakOk = r.peakMa >= 0;
 	}
@@ -209,7 +217,8 @@ static void reading(MoveTimer *t, const SenseSample *s, uint32_t nowMs) {
 }
 
 void moveTimerStep(MoveTimer *t, const MoveIn *in, uint32_t nowMs) {
-	bool on = in->out[0] != 0 || in->out[1] != 0;
+	// SIG carries a pulse whenever AUX does: START needs it bound.
+	bool on = in->out[0] != 0;
 	if (!on) {
 		stop(t, MoveVoid::Ended);
 		t->on = false;
@@ -251,7 +260,8 @@ void moveTimerStep(MoveTimer *t, const MoveIn *in, uint32_t nowMs) {
 	if (t->timing || t->holding) {
 		const SenseSample *s = &in->sample;
 		uint32_t ref = t->refMs;
-		if (s->seq != 0 && (int32_t)(s->takenMs - ref) > 0) ref = s->takenMs;
+		// A move or a hold has had readings: the sample holds one.
+		if ((int32_t)(s->takenMs - ref) > 0) ref = s->takenMs;
 		if (s->state != (uint8_t)SenseState::Online ||
 		    (int32_t)(nowMs - ref) >= (int32_t)SENSE_STALE_MS)
 			stop(t, MoveVoid::Lost);
