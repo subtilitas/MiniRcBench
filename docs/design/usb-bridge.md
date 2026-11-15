@@ -1,10 +1,12 @@
 # USB bridge to the ESC's signal wire
 
 Status: designed; the owner answered its questions on 2026-11-15, see
-[decisions](#decisions). Slice 1 is built, host tests only
-([slice 1 as built](#slice-1-as-built)): the pin user, the core1 job, the
-PIO line, the frame slot and the ring, which nothing opens yet; slices 2 to
-4 wait on being built. The
+[decisions](#decisions). Slices 1 and 2 are built, host tests only
+([slice 1 as built](#slice-1-as-built), [slice 2 as
+built](#slice-2-as-built)): the pin user, the core1 job, the PIO line, the
+frame slot and the ring; passthrough, the console switch, the traffic log
+as a build option and the screen USB BRIDGE, opened from ESC CONFIG.
+Slices 3 and 4 wait on being built. The
 feature is item (5) of the owner's
 feature choice of 2026-11-14 in [STATUS.md](../../STATUS.md) open item 28,
 "a USB one-wire bridge for desktop ESC tools"; open item 29 tracks this
@@ -513,7 +515,8 @@ copied it, and not its guard or session.
 | No MSP motor command | `MSP_SET_MOTOR` answers `$M!`; the 4-way interface has no motor command | ESC-Configurator's motor tab |
 | Write-class frame: BACK disabled | the bridge, until the frame's answer or 3000 ms | leaving in the middle of an erase or a page write (decision 7) |
 | No RUN on leaving | the bridge sends nothing at BACK | starting a firmware half written (decision 6) |
-| A leave page after an unfinished write | BACK after a write-class frame with no later RUN or `cmd_DeviceReset` | DShot resuming unannounced on an ESC whose flash may be cut; the ESC still starts what it holds at its next power-up with DShot on SIG (decision 10) |
+| A leave page at every BACK of a running bridge | BACK once the line is bound, whatever the tool sent; the note `FLASH THE ESC AGAIN BEFORE USE.` after a write-class frame with no later RUN or `cmd_DeviceReset` | DShot resuming unannounced on an ESC waiting in its bootloader, where a garbled frame can pass as a command, or whose flash may be cut; the ESC still starts what it holds at its next power-up with DShot on SIG (decision 10 as revised) |
+| MENU's run cue | from the bridge's open until RESTART DSHOT or an eRPM frame | an ESC left in its bootloader taken for a dead one |
 | No bridge while USB DRIVE holds the card | the entry, by decision 11 | the card served to a host and a desktop tool on one cable at once (decision 11) |
 | `PROPELLER OFF.` on the screen | the screen | below |
 
@@ -544,9 +547,11 @@ the RP2350 uses, reports a pulled cable as a bus suspend, not an unplug
 (`usb_msc.cpp` lines 173 to 184); `tud_cdc_connected()` then reads false,
 since TinyUSB counts a suspended device as not ready (`cdc_device.c`
 lines 132 to 135, `usbd.h` lines 97 to 99). The screen shows
-`THE PC CLOSED THE PORT.` On its battery the board keeps the claim, holds
-SIG at the pad's pull-up and sends nothing; the ESC's bootloader waits.
-On USB power alone the board stops with the cable. What an unpowered pad
+`THE PC CLOSED THE PORT.` On its own cell the board keeps the claim,
+holds SIG at the pad's pull-up and sends nothing; the ESC's bootloader
+waits. On USB power alone the board stops with the cable, and plugging the
+cable in again restarts it with DShot on SIG, into the cut ESC: the ESC is
+to be powered off before the cable goes back in. What an unpowered pad
 does to SIG is not verified; the AM32 bootloader starts the firmware,
 a half-written one included, after about 20 ms of low line
 (`main.c` 841 to 852). The write line says `DO NOT UNPLUG ESC OR USB.`
@@ -689,7 +694,8 @@ slices land, and STATUS.md says so. Slice 2 of bluejay-blheli-s.md merged
 first and built the chooser
 ([slice 2 as built](bluejay-blheli-s.md#slice-2-as-built)): `USB BRIDGE`
 is the second line of `UI_ESC_CFG_ENTRIES` in `src/ui_registry.cpp`, with
-no screen, so this note's slice 2 gives it its screen there.
+no screen, so this note's slice 2 gives it its screen there, as it does
+([slice 2 as built](#slice-2-as-built)).
 
 With [esc-commands.md](esc-commands.md#menu-entry)'s
 option (a), MENU's first two rows read `ESC COMMANDS` and `ESC CONFIG`.
@@ -842,23 +848,23 @@ job, the frame slot, the ring, the counts), `src/bridge.cmake`;
 `PinUser::Bridge` and its row in `PIN_USERS` (`src/pin_claim.h`),
 `Core1Job::Bridge` and its line in the job table (`src/core1_job.*`).
 
-**The claim.** The row is `{ PinUser::Bridge, Core1Job::Bridge, false,
-false, false }`: no leave page from the row, no ESC check, the job started
-at Held, as [the pin](#the-pin) has it. The leave page per claim is the
-mechanism ESC SETTINGS brought ([bluejay-blheli-s.md, slice 2 as
-built](bluejay-blheli-s.md#slice-2-as-built)): `pinClaimWantLeavePage()`
-gives a claim that began without the page the page for its rest, and
-`pinClaimLeavePage()` reports it. Slice 1 adds no call of it; slice 3,
-which knows a write-class frame, makes it. One rule of the claim changes:
-a claim without the leave page restores DShot only once its job is idle
-(`leaveStep()` in `src/pin_claim.cpp`). Before, such a claim restored within
-`pinClaimEnd()`, which was right only for AM32, the one user without a
+**The claim.** The row is `{ PinUser::Bridge, Core1Job::Bridge, false, false,
+false }`: no leave page from the row, no ESC check, the job started at Held,
+as [the pin](#the-pin) has it. The leave page per claim is the mechanism ESC
+SETTINGS brought ([bluejay-blheli-s.md, slice 2 as
+built](bluejay-blheli-s.md#slice-2-as-built)): `pinClaimWantLeavePage()` gives
+a claim that began without the page the page for its rest, and
+`pinClaimLeavePage()` reports it. Slice 1 adds no call of it; slice 2, whose
+passthrough names the write-class frames, makes it. One rule of the claim
+changes: a claim without the leave page restores DShot only once its job is
+idle (`leaveStep()` in `src/pin_claim.cpp`). Before, such a claim restored
+within `pinClaimEnd()`, which was right only for AM32, the one user without a
 page, which has no job; the bridge has a job, and DShot rebuilt while its
-state machines still drive SIG would put DShot frames and bootloader bytes
-on one pad. AM32 still restores within the call. `settle()`, which every
-call into the claim runs, `pinClaimState()` included, takes Leaving on, so
-the claim reaches Free once the job is idle even when the screen that
-ended it has closed and only MENU looks at the claim.
+state machines still drive SIG would put DShot frames and bootloader bytes on
+one pad. AM32 still restores within the call. `settle()`, which every call
+into the claim runs, `pinClaimState()` included, takes Leaving on, so the
+claim reaches Free once the job is idle even when the screen that ended it has
+closed and only MENU looks at the claim.
 
 **The line.** `bridge_tx`, 7 words: `pull`, the start bit with the pad's
 direction set by side-set, eight data bits by `out pins`, the stop bit,
@@ -945,6 +951,174 @@ the slot, and the line is removed. Three survive, equivalent on the host:
   8 echoes are owed; on the host no time passes there;
 - the bind setting the owed echoes to 0: every release already does.
 
+### Slice 2 as built
+
+Host tests only; nothing of it has run on the chip, against an ESC or
+against a desktop tool.
+
+**Files.** `src/usb_bridge.*`, the USB side on core0;
+`src/bridge_log.*`, the traffic log of decision 8; `src/ui_bridge.*`, the
+screen; `usbDevConsole()` and `usbDevConsoleOn()` in `src/usb_dev.*`, the
+console switch; `usbBridgeTask()` in core0's `loop()` right after
+`usbDevTask()`; `UiScreenId::Bridge`; the second line of
+`UI_ESC_CFG_ENTRIES` in `src/ui_registry.cpp`, now with its screen and the
+lines `A DESKTOP ESC TOOL OVER USB.` and `PASSTHROUGH: AM32 DIRECT MODE.`;
+`USB_BRIDGE_LOG` 0 and `USB_BRIDGE_LOG_BYTES` 4096 in `src/config.h`. Tests:
+`test/fake_cdc.*`, the serial port with a PC behind it;
+`test/test_usb_bridge.cpp`; `test/test_bridge_ui.cpp`;
+`test/test_bridge_log.cpp`, a program of its own built with the log on;
+USB BRIDGE in `test/test_ids.cpp` and ESC CONFIG's live entry in
+`test/test_menu.cpp`; the preview `docs/bridge-preview.png`.
+
+**The console switch.** `usbDevConsole(false)` disables the stdio driver,
+`usbDevConsole(true)` enables it again; a call that changes nothing does
+nothing. The suite links the real `usb_dev.cpp` against the CDC fake, whose
+`stdio_set_driver_enabled()` records the switch.
+
+**When the bridge is open.** `usbBridgeTask()` opens the USB side while the
+claim is Running for `PinUser::Bridge` and the line is open
+(`bridgeWireOpen()`), and closes it on any other state, so the screen's BACK
+closes it on the next pass through `pinClaimEnd()`'s Leaving, and a screen
+that has closed leaves nothing open. Only while open does it read the port
+or hand a frame to the slot. The open takes the console off, drops what
+TinyUSB holds, sets the echo kept, zeroes its counts and waits. The close
+drops a frame being gathered and begins the log's dump. The console comes
+back on the first pass after the dump at which the claim is no longer the
+bridge's: Free. A claim whose bind failed never opens, and the console
+stays on.
+
+**The developer's calls of this slice**, under the note's decisions:
+
+1. **Passthrough only.** Every first byte starts passthrough, `$` and `/`
+   included; slice 3 gives those two MSP and the 4-way interface. Until
+   then an MSP tool's bytes reach the ESC as through a USB-serial adapter,
+   and the tool gets its own bytes back.
+2. **What the open drops** is what TinyUSB holds, 64 bytes at most. A PC
+   that queued more before the open, held off by flow control, has the
+   rest forwarded as its first frame.
+3. **The gather's clock is `micros()`**: a frame goes to the slot at the
+   first pass 2000 µs or more after its last byte, not at 1999 µs, read
+   before the clock is looked at. A write longer than the slot goes as 320
+   bytes and the rest.
+4. **A write-class frame's answer** is a byte the wire receives beyond the
+   frame's echo: more than the wire's received count at the handover plus
+   the frame's length. An echo of the frame before still owed at the
+   handover makes that count reach its mark early, and BACK live before
+   the answer; the tools wait for an answer before the next frame, and the
+   leave page does not depend on it.
+5. **BACK and the unfinished write** (decision 10 as revised twice). Every BACK
+   of a running bridge gives the leave page, as the servo tools' BACK does,
+   whatever the tool sent: an ESC powered up while SIG is held high enters its
+   bootloader, AM32 2.22 enters it after about 2 s without a signal, a tool may
+   send MSP rather than the greeting, and BACK may come between a greeting's
+   handover and its answer. BACK before the bind, while Stopping or after a
+   failed bind, returns to MENU. A write-class frame sets the unfinished write,
+   and a RUN clears it: a frame of 4 bytes starting with 0x00 whose last two are
+   the CRC-16/ARC of the first two, as the bootloaders' frames carry it. Any
+   other frame starting with 0x00 is no RUN: a payload whose tail reaches the
+   bridge after a USB gap of 2 ms or more goes as two frames, and the tail may
+   start with 0x00. The greeting, twelve 0x00 bytes first, is no RUN either: a
+   frame whose last 9 bytes are 0x0D, `BLHeli` and two more is `INIT`. The
+   unfinished write decides the note `FLASH THE ESC AGAIN BEFORE USE.` only, and
+   BACK's 3000 ms wait follows the write-class frame.
+6. **The closed line**, `THE PC CLOSED THE PORT.`, shows after DTR falls
+   with a byte forwarded either way since the open, and goes with the PC's
+   next byte.
+7. **Colours the note does not name.** `PORT OPEN` on `UI_COL_LIVE`, a live
+   link; `PORT CLOSED` on `C_GRID`, as MENU's `NO ESC` chip. The frames
+   line in `C_TEXT`, `LOST` amber above 0, as the note says.
+8. **Before the open** the screen draws no mode and no counts: the strip
+   and the six lines while the claim stops and binds; line 0 alone after a
+   refusal, with USB DRIVE holding the card, or after a failed bind, which
+   adds RETRY.
+9. **The last command's line.** `LAST SET ADDRESS 7E00` with the address,
+   `LAST PAYLOAD 258 B` with the length, `LAST FRAME 42` with the first
+   byte for one with no name, the name alone otherwise.
+10. **Collisions** are counted in `UsbBridgeStats` from the wire's count and
+    recorded in the log; the screen shows none, as the note's frames line
+    has none. A frame the PC sends while the bench still sends the last
+    waits whole in the gather and goes right behind it; when the ESC's
+    answer to the first meets it on the wire, that is a collision, and the
+    bytes reach the PC as the wire read them.
+11. **USB DRIVE** refuses the entry while it is serving or handing over the
+    card (`mscHoldsCard()`). The screen asks again every frame, as it does
+    after a refused claim.
+12. **The log's dump** is a state advanced once a pass: as much as the port
+    takes, then a flush, the last line's too. A dump that writes nothing for
+    400 ms is abandoned, where DshotDisplay gave up on a line after 400 ms.
+    `CFG_TUD_CDC_RX_BUFSIZE` stays 64.
+13. **MENU's run cue**, `POWER-CYCLE THE ESC TO RUN IT`, is set at every open of
+    the bridge and cleared only by RESTART DSHOT on the leave page, whose steps
+    power the ESC off, and by an eRPM frame stamped after the open
+    (`usbBridgeRunCue()`, ORed with ESC SETTINGS' cue in `ui_menu.cpp`). A RUN
+    does not clear it, since a garbled frame could read as one. Since every BACK
+    of a running bridge brings the leave page and its RESTART DSHOT clears the
+    cue, MENU does not show the bridge's cue through the screen as built; it
+    covers a claim that ends another way, as a test ends one.
+14. **Console text at the open.** The open calls `tud_cdc_write_clear()`,
+    so what the console left in TinyUSB's transmit buffer never reaches the
+    tool ahead of the first echo.
+15. **The clock's serial line** (slice 5 of `run-summary.md`): the bridge
+    turns it off with `usbDevClockLineEnable(false)` where it takes the
+    console off, and on where it gives the console back, so a `CLOCK` line
+    the PC sends while the bridge holds the port goes to the ESC as data and
+    sets nothing; turning it on drops a line begun before. The suite links
+    the real `usb_dev.cpp` against the CDC fake for this.
+
+**Tests.** `runUsbBridgeTests`, 170 checks in 21 sections, on the CDC fake, the
+line fake and the claim: the naming; DshotDisplay's sections, a frame reaching
+the wire whole, the reply's offsets from the end, an unacknowledged SET BUFFER
+that does not stall, a late reply during a repaint, a whole late reply in the
+ring, the Python tool's 25 ms reads and `len > 1` rule on a 258-byte write, and
+the counts, the input dropped at the open and the console; the AM32
+configurator's Direct rule on a model bootloader, SET ADDRESS, a read of 64
+bytes, SET BUFFER with no reply, a 256-byte write and PROGRAM; the gather, a
+258-byte frame across a 30 ms pass, writes 3 ms and 1 ms apart, 1999 µs and 2000
+µs, 400 bytes as 320 at once and 80; the modes, `$`, `/`, 0x00 and others first,
+1999 ms and 2000 ms idle, an ESC answer and a frame waiting for the slot keeping
+the session, a later `$`, DTR falling only after it was set, a tool that never
+sets it; a port close while gathering; the write rules, 2999 ms and 3000 ms, the
+answer, ERASE, the payload, RUN, the greeting, a port close after a write; BACK
+with the PC still connected, nothing read and nothing new sent; the console
+through the leave page and BRIDGE; a refused bind and another screen's claim; a
+collision; LOST; a payload split by a USB gap, a RUN with a wrong CRC; a the run
+cue from the open, kept through a RUN and the close, cleared by an eRPM frame at
+the millisecond and by RESTART DSHOT; console text held at the open; a `CLOCK`
+line through the real `usbDevTask()`, setting the clock with the console on the
+port and going to the wire as data, setting nothing, with the bridge on it. No
+frame is handed to the wire while the claim is not Running for the bridge, and
+DShot is never up with the line open, checked on every pass of every section.
+`runBridgeUiTests`, 136 checks in 6 sections: the entry, the screen's every line
+and width at rest, Stopping, PORT OPEN and CLOSED, the counts and their 250 ms,
+the closed line, a write with BACK disabled, the leave page and its steps,
+BRIDGE and RESTART DSHOT, BACK while Stopping, after a failed bind and with no
+claim, RETRY, USB DRIVE, another claim, LOST, SIG on GP1, the leave page at BACK
+with no traffic at all, between an INIT's handover and its answer, after MSP
+alone, after a RUN and after a read-only session on AM32 and on EFM8, each with
+no FLASH note, MENU showing the bridge's cue until an eRPM frame.
+`test_bridge_log`, 25 checks: DshotDisplay's dump test, every one of 14 and of
+146 records reaching the PC, the text, a slow PC, a transfer of more than 255
+bytes, a PC that stops reading, and the dump before the console in
+`usb_bridge.cpp`, the dump's last line flushed with it.
+
+**Mutations.** 70 of the new code, each applied alone: 44 in
+`usb_bridge.cpp`, 17 in `ui_bridge.cpp`, 7 in `bridge_log.cpp`, one in
+`ui_menu.cpp` and one in `usb_dev.cpp`. 66 fail the suite or
+`test_bridge_log`; each that survived a run and showed a test missing has
+its test, and the close's reset of the gathered frame, which the next open
+repeats, is removed. Four survive:
+
+- `claimRunning()` without its holder test, and without its test of the
+  open line: Running with the line open happens for the bridge's claim
+  only, so each of the three tests implies the others as the claim runs;
+  the state test is the one a pass between BACK and core1's release
+  needs, and fails without it.
+- the counters without their clamp at 9999999: no test sends 10 MB.
+- RESTART DSHOT without the screen's own `pinClaimUnplugDue()` test:
+  `uiLeaveTouch()` returns Restart only once the page is released and
+  live, which needs the same state; `pinClaimRestart()` checks it too.
+
+
 ## Decisions
 
 Decisions of the owner, 2026-11-15, answering the open questions of
@@ -974,7 +1148,24 @@ Decisions of the owner, 2026-11-15, answering the open questions of
    recommendation.
 10. **BACK after an unfinished write.** Option (a): the leave page with
     `POWER THE ESC OFF.`, `RESTART DSHOT.` and `FLASH THE ESC AGAIN BEFORE
-    USE.`. This is the recommendation.
+    USE.`. This is the recommendation. Revised by the developer on
+    2026-11-15, in the review of slice 2: the page comes once a bootloader
+    is reached, an INIT answered or a write-class frame sent, until a RUN.
+    A session that only reads leaves the ESC waiting in its bootloader as
+    one that writes does, and DShot frames then reach it; an EFM8
+    bootloader checks only the CRC's low byte, so about 1 garbled frame in
+    256 passes as an erase or a program
+    ([bluejay-blheli-s.md](bluejay-blheli-s.md#safety), decision 8 there).
+    The note `FLASH THE ESC AGAIN BEFORE USE.` stays for a write.
+    Revised again by the developer on 2026-11-15, in the re-review: a
+    running bridge claim gives the leave page at every BACK, as the servo
+    tools do. An ESC can wait in its bootloader with no greeting of the
+    PC's answered: one powered up while SIG is held high enters it, which
+    the screen asks for; AM32 2.22 enters it after about 2 s without a
+    signal; a tool may send MSP rather than the greeting; BACK may come
+    between a greeting's handover and its answer. The run cue is set at
+    the open and cleared only by an eRPM frame or RESTART DSHOT; a RUN no
+    longer clears it, since a garbled frame could read as one.
 11. **The card served while bridging.** Option (a): the entry is refused
     while USB DRIVE holds the card, with `EJECT THE USB DRIVE FIRST.`. This
     is the recommendation.

@@ -665,6 +665,33 @@
 /** @} */
 
 /**
+ * @defgroup cfg_bridge_log USB bridge traffic log
+ * @brief DshotDisplay's bridge log, a build option, off by default
+ *        (docs/design/usb-bridge.md, decision 8). @see bridge_log.h
+ * @{
+ */
+
+/**
+ * @brief Set to 1 to record the USB bridge's traffic and print it on the
+ *        serial port after BACK.
+ *
+ * At 0 the log costs nothing: every entry point of bridge_log.h is an empty
+ * inline and the ring is not built. At 1 every frame from the PC and every
+ * run of bytes to it is kept, with its time, in a RAM ring of
+ * @ref USB_BRIDGE_LOG_BYTES, and printed as a hex dump on the same port once
+ * the bridge has let it go and before the console has it again, so no
+ * telemetry line lands inside the dump.
+ */
+#ifndef USB_BRIDGE_LOG
+#define USB_BRIDGE_LOG         0
+#endif
+
+/** @brief The log's ring, bytes: each record is 7 bytes and at most 64 of data. */
+#define USB_BRIDGE_LOG_BYTES   4096
+
+/** @} */
+
+/**
  * @defgroup cfg_am32 AM32 configuration mode
  * @brief Timings for reaching an ESC's bootloader. Tune these first if the
  *        config screen never connects.

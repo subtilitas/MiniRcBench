@@ -220,7 +220,9 @@ slice. Built by slice 2 of
 `ESC CONFIG` and opens its chooser, with `ESC SETTINGS`, and `USB BRIDGE`
 drawn disabled under `NOT BUILT`, and the titles read `ESC SETTINGS`,
 `ESC HEX` and `ESC WRITE`; MENU keeps its seven rows until ESC COMMANDS
-and TOOLS are built.
+and TOOLS are built. `USB BRIDGE` is live from slice 2 of
+[usb-bridge.md](usb-bridge.md#slice-2-as-built), which gives it its
+screen.
 
 Row 1 is built by slice 2 of
 [esc-commands.md](esc-commands.md#slice-2-as-built): `ESC COMMANDS` in BEEP

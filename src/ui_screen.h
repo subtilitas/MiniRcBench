@@ -43,6 +43,7 @@ enum class UiScreenId : uint8_t {
 	RxSignals, /**< RX SIGNALS, the chooser behind MENU's RX SIGNALS row: MONITOR and OUTPUT. */
 	Sbus,      /**< S.BUS MONITOR and its leave page, opened from RX SIGNALS. */
 	EscConfig, /**< ESC CONFIG, the chooser behind MENU's ESC CONFIG row: ESC SETTINGS and USB BRIDGE. */
+	Bridge,    /**< USB BRIDGE and its leave page, opened from ESC CONFIG. */
 	Tools,     /**< TOOLS, the chooser behind MENU's TOOLS row: ANGLE METER. */
 	Angle,     /**< ANGLE METER, its SETUP and its FLIP CAL, opened from TOOLS. */
 	Count,     /**< How many screens; not a screen. */
