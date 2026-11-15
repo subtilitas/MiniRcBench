@@ -87,5 +87,13 @@ void fakeBridgeLineWire(int i, uint8_t *b, uint64_t *startCy, bool *keep);
 /** @brief Times the pad was let go after a frame since the reset. */
 int fakeBridgeLineReleases();
 
+/**
+ * @brief While the responder runs: the idle line, µs, between the let-go of
+ *        the frame before and the first start bit of the frame it answers;
+ *        UINT32_MAX for the first frame since the reset. A model bootloader
+ *        that ends a message on 260 µs of idle joins frames closer than that.
+ */
+uint32_t fakeBridgeLineGapUs();
+
 /** @brief The cycle count now, as the fake counts it. */
 uint64_t fakeBridgeLineCycle();

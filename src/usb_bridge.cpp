@@ -49,6 +49,8 @@ static uint16_t         s_outLen = 0;
 static uint16_t         s_outPos = 0;            /**< Its bytes written so far. */
 static bool             s_exitAfterOut = false;  /**< Leave the 4-way interface once it is out. */
 static uint32_t         s_protoByteUs = 0;       /**< micros() of the last byte of a frame being read. */
+/** @brief Waiting after MSP or the 4-way interface: what the wire brings belongs to them and is dropped. */
+static bool             s_dropRx = false;
 /** @} */
 
 /** @defgroup usb_bridge_tap Passthrough's 3D note (decision 12) @{ */
@@ -139,6 +141,7 @@ static bool claimRunning() {
  *        dropped; an answer not yet out is dropped; echoes go to the PC again.
  */
 static void endSession() {
+	s_dropRx = s_mode == BridgeMode::Msp || s_mode == BridgeMode::FourWay;
 	s_mode = BridgeMode::Waiting;
 	s_afterSetBuffer = false;
 	bridge4wayAbort();
@@ -147,7 +150,6 @@ static void endSession() {
 	bridge4wayReaderReset(&s_4w);
 	s_outLen = s_outPos = 0;
 	s_exitAfterOut = false;
-	bridgeWireKeepEcho(true);
 }
 
 /** @brief The open: the port from the console, what the PC queued dropped, every count at 0. */
@@ -172,6 +174,8 @@ static void openBridge() {
 	s_capWant = 0;
 	s_dtr = tud_cdc_connected();
 	endSession();
+	s_dropRx = false;
+	bridgeWireKeepEcho(true);
 	usbDevConsole(false);
 	usbDevClockLineEnable(false);
 	s_console = true;
@@ -456,9 +460,10 @@ static void forward() {
 		if (tud_cdc_read(&b, 1) == 1) {
 			s_stats.lastMs = now;
 			s_portClosed = false;
+			s_dropRx = false;
+			bridgeWireKeepEcho(b != '$' && b != B4W_PC_START);
 			if (b == '$' || b == B4W_PC_START) {
 				s_mode = b == '$' ? BridgeMode::Msp : BridgeMode::FourWay;
-				bridgeWireKeepEcho(false);
 				bridgeLogNote(b == '$' ? "MSP" : "4-way interface");
 				protoByte(b, now);
 			} else {
@@ -495,6 +500,13 @@ static void forward() {
 	if (s_ready && bridgeWireSend(s_buf, s_len)) handedOver(now);
 
 	// The ring to the PC: what the port takes; the rest waits in the ring.
+	// After MSP or the 4-way interface, until the next session, late answers
+	// to their commands are dropped.
+	if (s_dropRx) {
+		uint8_t junk[64];
+		while (bridgeWireRecv(junk, sizeof(junk))) {}
+		return;
+	}
 	uint32_t room = tud_cdc_write_available();
 	if (room > sizeof(s_rx)) room = sizeof(s_rx);
 	uint16_t r = room ? bridgeWireRecv(s_rx, (uint16_t)room) : 0;
