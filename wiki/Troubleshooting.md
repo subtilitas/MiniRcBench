@@ -227,10 +227,25 @@ screen does not work.
 - **`REPLY NOT UNDERSTOOD`**: the link works and the framing does not. Possible
   cause: the ESC does not run AM32.
 - **`EFM8 E8B2 ANSWERED: READING.`**: a Bluejay or BLHeli_S ESC answered,
-  and the screen reads its settings, shown and not written. `BACK` from its
+  and the screen reads its settings; Bluejay 0.21 and BLHeli_S 16.3 to 16.7
+  can be written. `BACK` from its
   list sends LEAVE, which starts the ESC; `BACK` before the list opens a
   leave page: unplug the ESC battery, `LEAVE`, `RESTART DSHOT`, then plug
   it in ([AM32 Configuration](AM32-Configuration#efm8-escs)).
+- **`HALF WRITTEN: KEEP THE ESC POWERED.`** or
+  **`NO ANSWER IN THE WRITE: KEEP POWER.`**: a Bluejay or BLHeli_S write was
+  cut after the ESC's page was erased. Do not unplug the ESC battery: fix
+  the signal wire, `READ AGAIN`, then write, or `REVERT` and write the page
+  as read. A power cycle first loses the ESC's tags
+  ([AM32 Configuration](AM32-Configuration#efm8-escs)). With
+  `SESSION ENDED: RESTORE ON A COMPUTER.` under it the session ended (the
+  line driver, the heartbeat) and no later session writes the page: keep
+  the ESC powered and restore it on a computer. The old page is in the
+  backup on the card and, until you leave ESC SETTINGS, under `OLD PAGE` on
+  the connect page.
+- **`ESC LOST ITS TAGS: READ-ONLY.`**: the ESC's page was erased and the ESC
+  restarted; it runs on its defaults. Only a firmware flash for that ESC on a
+  computer brings the tags back; the backup on the card names them.
 - **`THE ESC ANSWERED, THEN STOPPED.`**: the ESC answered and then stopped
   answering before its page was read; the search runs again. Check the
   signal wire and keep the ESC powered.

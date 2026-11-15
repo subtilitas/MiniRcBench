@@ -17,7 +17,8 @@ Tester ──MENU──> MENU ──┬── ESC COMMANDS ──BACK──> MEN
    │                    │    ├── ESC SETTINGS ──> ESC SETTINGS ──BACK──> MENU
    │                    │    │   (eine Bluejay- oder BLHeli_S-Liste: BACK──> LEAVE gesendet──> MENU)
    │                    │    │   (sonst nach einer Antwort von Bluejay oder BLHeli_S: BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> MENU)
-   │                    │    └── USB BRIDGE   (als Umriss gezeichnet: NOT BUILT)
+   │                    │    └── USB BRIDGE ──> USB BRIDGE ──BACK──> MENU
+   │                    │        (nach einem Schreiben ohne RUN: BACK──> Verlassenseite ──RESTART DSHOT──> MENU)
    │                    ├── SERVO TESTER ──BACK──> Verlassenseite ──RESTART DSHOT──> MENU
    │                    ├── SERVO PROGRAMMER ──> PROGRAMMER ──BACK──> MENU
    │                    │    ├── KST / CHASERVO ──> KST SERVO   ──BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> MENU
@@ -187,7 +188,8 @@ Keiner der beiden Werte ist an einem Motor mit diesem Board gemessen.
 
 Hat ESC SETTINGS seit dem Einschalten einen ESC mit 3D MODE an gelesen, oder
 einen Bluejay- oder BLHeli_S-ESC mit DIRECTION auf 3D oder 3D REVERSED, oder
-3D MODE an geschrieben (vom ESC angenommen, bestätigt oder nicht), oder kam
+3D MODE an geschrieben (vom ESC angenommen, bestätigt oder nicht) oder
+DIRECTION auf 3D (bestätigt oder halb geschrieben), oder kam
 `3D ON` auf [ESC COMMANDS](#esc-commands), zeigt die Zeile unter der
 `ERPM`-Zeile in Bernstein `3D MODE ESC: 0-50% REVERSED AT 2X` (3D-ESC: 0 bis
 50 % rückwärts mit doppeltem Gas), an Stelle der Polzahl und des
@@ -413,16 +415,18 @@ Programmier-Sitzung und `BACK` in einem Programmierer, bevor er SIG belegt.
 
 ### ESC CONFIG
 
-<img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC SETTINGS mit seinen zwei Zeilen, USB BRIDGE als Umriss mit A DESKTOP ESC TOOL OVER USB. und NOT BUILT">
+<img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC SETTINGS und USB BRIDGE, jedes mit seinen zwei Zeilen">
 
 `MENU → ESC CONFIG` öffnet eine Wahl aus zwei, wie PROGRAMMER:
-**ESC SETTINGS**, das den Bildschirm für ESC-Einstellungen öffnet, AM32
-gelesen und geschrieben, Bluejay und BLHeli_S gelesen, und **USB BRIDGE**,
-als Umriss gezeichnet mit `NOT BUILT`
-darunter: Es tut nichts. Die Leiste nennt den Signalpin, `SIG GP0`.
-ESC CONFIG belegt keinen Pin; das Tippen auf ESC SETTINGS belegt SIG.
-`BACK` führt zu `MENU` zurück, ebenso `BACK` auf ESC SETTINGS. Siehe
-[AM32-Konfiguration](AM32-Konfiguration).
+**ESC SETTINGS**, das den Bildschirm für ESC-Einstellungen öffnet, AM32,
+Bluejay und BLHeli_S gelesen und geschrieben, und **USB BRIDGE**,
+das die Bytes eines ESC-Programms auf dem Computer an den ESC weitergibt,
+darunter `A DESKTOP ESC TOOL OVER USB.` und
+`PASSTHROUGH: AM32 DIRECT MODE.`. Die Leiste nennt den Signalpin,
+`SIG GP0`. ESC CONFIG belegt keinen Pin; das Tippen auf einen Eintrag
+belegt SIG. `BACK` führt zu `MENU` zurück, ebenso `BACK` auf beiden
+Werkzeugen. Siehe [AM32-Konfiguration](AM32-Konfiguration) und
+[USB-Brücke](USB-Bruecke).
 
 ### RX SIGNALS
 

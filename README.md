@@ -84,8 +84,10 @@ ESC's bootloader on SIG over the board's USB serial port, by passthrough at
 interface of flight controllers, is designed in `docs/design/usb-bridge.md`;
 the owner answered its questions on 2026-11-15. It
 is entered from MENU's `ESC CONFIG` chooser, beside `ESC SETTINGS`. Its
-slice 1 is built, tested on the host only, and nothing opens it yet: its
-pin user, its core1 job and its line, two PIO state machines on SIG.
+slices 1 and 2 are built, tested on the host only: its pin user, its core1
+job and its line, two PIO state machines on SIG, and passthrough with the
+screen `USB BRIDGE`, see [USB bridge](#usb-bridge). MSP and the 4-way
+interface are its slice 3, not built.
 Reading and editing Bluejay and BLHeli_S ESC settings over the signal
 wire, from the connect page of `ESC SETTINGS`, with rcbench's escwire
 module, is designed in `docs/design/bluejay-blheli-s.md`; the owner
@@ -549,7 +551,7 @@ the tester's pole count or ceiling, whose **BACK** returns to the tester.
 | Row | State on the right | A tap |
 |---|---|---|
 | **ESC COMMANDS** | nothing | Opens ESC COMMANDS: BEEP 1 to 5, the direction and 3D mode, each change saved in the ESC. See [ESC commands](#esc-commands) |
-| **ESC CONFIG** | nothing | Opens ESC CONFIG, the chooser of the ESC tools: ESC SETTINGS, and USB BRIDGE drawn disabled, `NOT BUILT`. See [AM32 ESC configuration](#am32-esc-configuration) |
+| **ESC CONFIG** | nothing | Opens ESC CONFIG, the chooser of the ESC tools: ESC SETTINGS and USB BRIDGE. See [AM32 ESC configuration](#am32-esc-configuration) and [USB bridge](#usb-bridge) |
 | **SERVO TESTER** | nothing | Opens the servo tester. See [Servo tester](#servo-tester) |
 | **SERVO PROGRAMMER** | nothing | Opens PROGRAMMER, the chooser of the servo programmers: KST / CHASERVO, HITEC D SERIES, HITEC CLASSIC. See below |
 | **RX SIGNALS** | nothing | Opens RX SIGNALS, the chooser of the receiver signal tools: MONITOR, and OUTPUT drawn disabled, `NOT BUILT`. See [S.BUS monitor](#sbus-monitor) |
@@ -1413,23 +1415,21 @@ not stored. The tester shows no note for the direction.
 
 ## AM32 ESC configuration
 
-**MENU → ESC CONFIG → ESC SETTINGS** reads and edits an AM32 ESC's
-settings and reads a Bluejay or BLHeli_S ESC's over the signal wire. It does
-not flash ESC firmware and does not write a Bluejay or BLHeli_S ESC. The
+**MENU → ESC CONFIG → ESC SETTINGS** reads, edits and writes the settings
+of an AM32, Bluejay or BLHeli_S ESC over the signal wire. It does not flash
+ESC firmware and never changes a Bluejay or BLHeli_S ESC's tags. The
 transports are `src/am32_bl.h` for the greeting and AM32, and rcbench's
 escwire session on core1 for Bluejay and BLHeli_S (`src/escwire_job.h`).
 
 MENU's second row, **ESC CONFIG**, opens a chooser
 (`src/ui_esc_config.h`), PROGRAMMER's pattern: `ESC SETTINGS` (142 px at
 scale 2) with the lines `AM32 SETTINGS, READ AND WRITTEN.` and
-`BLUEJAY, BLHELI_S: READ, NOT WRITTEN.`, and `USB BRIDGE` drawn disabled with
-`A DESKTOP ESC TOOL OVER USB.` and `NOT BUILT` under it
-(`docs/design/usb-bridge.md`). The strip reads `SIG GP0`. The chooser claims
-nothing; the tap on ESC SETTINGS claims SIG. Its BACK, and ESC SETTINGS'
+`BLUEJAY, BLHELI_S: READ AND WRITTEN.`, and `USB BRIDGE` (118 px) with
+`A DESKTOP ESC TOOL OVER USB.` and `PASSTHROUGH: AM32 DIRECT MODE.` under
+it ([USB bridge](#usb-bridge)). The strip reads `SIG GP0`. The chooser
+claims nothing; the tap on an entry claims SIG. Its BACK, and the tools'
 BACK and RESTART DSHOT, return to MENU. The row is drawn disabled while
-the pin claim is not free. ESC SETTINGS writes AM32 only: writing a Bluejay
-or BLHeli_S ESC is slice 4 of `docs/design/bluejay-blheli-s.md`, not built.
-Its titles
+the pin claim is not free. Its titles
 are one set for every firmware, `ESC SETTINGS`, `ESC HEX` and `ESC WRITE`,
 and the list's strip names the firmware, for example
 `NEOESC f051  F051  AM32 2.16`.
@@ -1437,6 +1437,8 @@ and the list's strip names the firmware, for example
 ![ESC CONFIG and a Bluejay ESC](docs/esc-preview.png)
 
 ![A Bluejay or BLHeli_S page](docs/efm8-preview.png)
+
+![Writing a Bluejay page](docs/efm8-write-preview.png)
 
 ![AM32 config](docs/am32-preview.png)
 
@@ -1538,7 +1540,7 @@ The job opens rcbench's line driver, `ew_line` on one PIO state machine of
 holds it high 500 ms more, makes its own first contact, 3 tries of 100 ms,
 and identifies the page from its first 112 bytes at 0x1A00, or 0x3000 on
 EFM8BB51; then it reads the whole page, 112 bytes for BLHeli_S and 255 for
-Bluejay. Nothing is erased or programmed. The connect page reads
+Bluejay. The read erases and programs nothing. The connect page reads
 `EFM8 E8B2 ANSWERED: READING.` (28 characters, 167 px) meanwhile, and in
 place of `POWER-CYCLE THE ESC` and its three lines, which do not apply to a
 bootloader that waits, `EFM8 BOOTLOADER` over `THE ESC WAITS IN ITS
@@ -1552,25 +1554,40 @@ The page decides what opens, by rcbench's `ew_id_efm8()`
 | Page | Screen | Strip |
 |---|---|---|
 | Bluejay layout 208, BLHeli_S layout 33, marker 0x55 0xAA | the list | `BLUEJAY 0.21  LAYOUT 208  E8B2` (30 characters, 179 px), grey |
-| Bluejay layouts 33 to 207, BLHeli_S layout 32 | the list | `BLUEJAY 0.19, LAYOUT 206: READ-ONLY.` over `SHOWN ONLY. NO BACKUP SAVED.`, amber |
-| Name tag 0xFF with BLHeli_S layout 33 or Bluejay layout 208: the ESC lost its tags | the list | `ESC LOST ITS TAGS: READ-ONLY.` over `REFLASH ON A COMPUTER. NO BACKUP.` |
-| Settings marker not 0x55 0xAA | the list | `SETTINGS MARKER WRONG: READ-ONLY.` over `SHOWN ONLY. NO BACKUP SAVED.` |
+| Bluejay layouts 33 to 207, BLHeli_S layout 32 | the list, read-only | `BLUEJAY 0.19, LAYOUT 206: READ-ONLY.` over `SHOWN ONLY. BACKUP BJ018`, amber |
+| Name tag 0xFF with BLHeli_S layout 33 or Bluejay layout 208: the ESC lost its tags | the list, read-only | `ESC LOST ITS TAGS: READ-ONLY.` over `REFLASH ON A COMPUTER. BACKUP BH018` |
+| Settings marker not 0x55 0xAA | the list, read-only | `SETTINGS MARKER WRONG: READ-ONLY.` over `SHOWN ONLY. BACKUP BJ018` |
 | The first 112 bytes 0xFF | the connect page | status `EFM8 E8B2: SETTINGS PAGE EMPTY`; `PAGE EMPTY, AS AFTER A CUT WRITE.` / `KEEP THE ESC POWERED: SEE MANUAL.` |
 | Any other page rcbench does not take | the connect page | status `EFM8 E8B2: PAGE NOT KNOWN`, `BLUEJAY ON EFM8BB1: NOT TAKEN`, `BLUEJAY LAYOUT 205: NOT TAKEN`, `BLHELI_S 16.9: NOT TAKEN` or `EFM8 E8B3: PART NOT KNOWN`; `NOT BLUEJAY OR BLHELI_S AS KNOWN:` / `NOTHING IS WRITTEN.` |
 
+A read-only list saves its backup as it opens, as AM32's read-only view
+does, since no write follows: the second strip line names it,
+`BACKUP BJ018`, or reads `SHOWN ONLY. NO CARD: NO BACKUP.`,
+`SHOWN ONLY. USB DRIVE: NO BACKUP.` while a USB host holds the card, or
+`SHOWN ONLY. BACKUP FAILED.`; for lost tags `REFLASH ON A COMPUTER.
+NO CARD.`, `REFLASH ON A COMPUTER. USB DRIVE.` or `REFLASH ON A COMPUTER.
+BACKUP FAILED.` A list opened again on a page whose text is the ring's
+latest backup saves no second copy and names that one.
+
 The list shows rcbench's fields for the page's firmware and layout
-(`ew_map_s.c`, `ew_map_bj.c`), every row read-only in grey: its group above
-its label, MOTOR, STARTUP, BRAKE, LIMITS, SOUND, INPUT and OTHER, and the
-value as rcbench writes it, in capitals; DIRECTION's 3 and 4 read `3D` and
-`3D REVERSED`, and a value none of the field's reads `RAW 17` in amber. The
-revision bytes 0x00 to 0x02 are on the strip. A tap selects a row, for its
-note; nothing edits. `WRITE...` and `REVERT` are drawn disabled, and the
-bar under the list reads, in grey, `SHOWN ONLY: WRITING IS NOT BUILT.` /
+(`ew_map_s.c`, `ew_map_bj.c`): its group above its label, MOTOR, STARTUP,
+BRAKE, LIMITS, SOUND, INPUT and OTHER, and the value as rcbench writes it,
+in capitals; DIRECTION's 3 and 4 read `3D` and `3D REVERSED`, and a value
+none of the field's reads `RAW 17` in amber. The revision bytes 0x00 to
+0x02 are on the strip. On Bluejay 208 and BLHeli_S 33 the fields rcbench's
+map lets a write change are edited as on AM32, below: 15 on Bluejay, 12 on
+BLHeli_S. The rest, BLHeli_S' three throttle bytes, Bluejay's PWM INDICATOR
+and SAFETY ARM, are grey and shown only. On a read-only list every row is
+grey, a tap selects a row for its note, and `WRITE...` and `REVERT` are
+drawn disabled. The bar under the list reads, in grey,
+`TAP A SETTING TO EDIT`, or on a read-only list
+`SHOWN ONLY: NOTHING IS WRITTEN.`, over
 `BACK SENDS LEAVE: THE ESC STARTS.` HEX opens `ESC HEX`: the 112 or 255
 bytes, 8 to a line, in a list that scrolls; its BACK returns to the list.
 
-The strip's two amber lines, in this order: the selected row's note, why a
-list is read-only, then the 3D note, else the caption.
+The strip's two amber lines, in this order: the BACK guard's, the selected
+row's note, why a list is read-only, a half-written page's, then the 3D
+note, else the caption.
 
 | When | Lines |
 |---|---|
@@ -1583,6 +1600,78 @@ A read that opens a list with DIRECTION at 3D or 3D REVERSED sets the
 tester's 3D note, `3D MODE ESC: 0-50% REVERSED AT 2X`, and one at NORMAL
 or REVERSED clears it; a page whose marker is wrong leaves it, since its
 firmware loads its defaults at its next start.
+
+#### Writing a Bluejay or BLHeli_S page
+
+`WRITE...` opens `ESC WRITE`, as on AM32: the strip counts the changes,
+each change is its label and `old -> new` (`MEDIUM HIGH -> MEDIUM LOW` is the
+widest, 25 characters), and the backup line reads
+`BACKUP FIRST: BACKUP/BJ001.TXT`, `BACKUP: BACKUP/BJ001.TXT` once saved,
+or `NO CARD: OLD VALUES LOST ON LEAVING` in amber. Only HOLD TO WRITE,
+1000 ms, writes. First the page as first read in the session goes to the
+card, `BACKUP/BJnnn.TXT` for Bluejay or `BACKUP/BHnnn.TXT` for BLHeli_S, in
+the ring every device shares (`src/backup_ring.h`), as rcbench's ESC
+settings text (`src/efm8_backup.h`): `ESC settings backup, format 1`,
+`Firmware:`, `Layout:`, `Processor: EFM8`, `Signature: E8B2`, one line per
+field, the whole page's bytes, the tags at 0x40 to 0x6F among them, and a
+CRC-32 line. A card that refuses it stops the write,
+`NO BACKUP ON THE CARD: NOT WRITTEN`; with no card the write runs and the
+backup stays in memory, as on AM32. The BOARD voltage in its red band
+refuses the write as on AM32. Then the job runs rcbench's write: the guard
+lets only editable fields change, each to one of its values, the page is
+read again and compared with the first read, then erased, sent, programmed
+and read back; a failed step or a read-back that differs runs it again from
+the erase, 3 times at most. The guard refuses an erase or program anywhere
+but the settings page, the bootloader's area and the firmware among it.
+`WRITING: DO NOT UNPLUG.` stands meanwhile, BACK drawn disabled. The result,
+at y 196 and 208:
+
+| Result | First line | Second line |
+|---|---|---|
+| verified | `WRITE VERIFIED. BACKUP BJ018`, green | `LEAVING STARTS THE ESC WITH THEM.` |
+| the re-read failed | `READ FAILED: NOTHING ERASED.` | `TAP OK, WRITE AGAIN.` |
+| the page changed since the read | `ESC PAGE CHANGED: NOT WRITTEN.` | `TAP OK, READ AGAIN.` |
+| 3 procedures, the page read back as read | `WRITE FAILED: PAGE AS READ.` | `TAP OK, WRITE AGAIN.` |
+| the page read back as neither | `HALF WRITTEN: KEEP THE ESC POWERED.` | `TAP OK, WRITE AGAIN NOW.` |
+| no answer after the erase | `NO ANSWER IN THE WRITE: KEEP POWER.` | `TAP OK, THEN READ AGAIN.` |
+
+After a changed page or a lost answer `READ AGAIN` takes `WRITE...`'s place
+until a read succeeds; a read of a page not half written takes it as the
+page as read and keeps the edits, and a page that differs from the one
+backed up gets a backup of its own before the next write. While a page is half written the list
+edits nothing, LEAVE is refused, and the strip reads
+`HALF WRITTEN: KEEP THE ESC POWERED.` over `READ AGAIN, THEN WRITE.` or,
+once read, `WRITE AGAIN NOW. REVERT: AS READ.`: `WRITE...` writes the draft
+again, or after REVERT the page as first read, its tags included, on a page
+that reads `THE PAGE AS READ, TAGS INCLUDED.` with its hold live. BACK on a
+half-written page shows `HALF WRITTEN. BACK AGAIN LEAVES IT;` over
+`A POWER CYCLE THEN LOSES ITS TAGS.`; the second BACK aborts the session
+with no LEAVE and opens the leave page. Edits not written arm the same
+guard as on AM32. A write that ended the session, a heartbeat stop or a
+driver failure, says `THE SESSION ENDED. TAP OK TO SEARCH.`: OK greets the
+ESC again and BACK opens the leave page. A verified write with DIRECTION at
+3D or 3D REVERSED sets the tester's 3D note, one at NORMAL or REVERSED
+clears it, and a half-written page with 3D in its draft sets it.
+
+A session that ends with the page half written, by a driver failure, a
+heartbeat stop, a frame the guard refuses after the erase, a READ AGAIN cut
+that way, or the guard's second BACK, leaves a page the next session reads as
+it is: most likely empty or with lost tags, which it does not write, or, with
+marker and tags intact, as a writable page that is not the old one. The
+result's second line then reads `SESSION ENDED: RESTORE ON A COMPUTER.`, and
+with no backup on a card the backup line reads `NO BACKUP: OLD PAGE ON THIS
+SCREEN.` in amber. The session's first read is kept for the rest of the visit,
+the first such page only: `OLD PAGE` (`Am32Ctl::OldPage`) on the connect page
+opens its bytes as ESC HEX, in amber under `OLD PAGE, BEFORE THE CUT WRITE:`
+over `ON THIS SCREEN ONLY: COPY IT.` or `ALSO ON THE CARD: BACKUP BJ018`, and
+an EFM8 list's ESC HEX shows them under the page's own.
+
+Why a cut write loses the tags, and the way back, are in
+`docs/design/bluejay-blheli-s.md`: a power cut between the erase and the
+end of the program leaves the firmware to store its defaults with the tags
+0xFF at its next start; the next session reads `ESC LOST ITS TAGS:
+READ-ONLY.`, and the tags return with a firmware flash on a computer.
+Keep the ESC powered after a cut write. None of this is verified on an ESC.
 
 **BACK from the list sends LEAVE** (that note's decision 3): the frame
 `00 01`, which starts the ESC's firmware, 500 µs of idle line, 300 ms of low
@@ -1619,10 +1708,11 @@ and returns to MENU. There is no left button after LEAVE. An AM32 session in
 which no EFM8 bootloader answered has no leave page: BACK gives DShot the
 pin at once.
 
-The job (`src/escwire_job.h`) stops a running entry or read with
+The job (`src/escwire_job.h`) stops a running entry, read or write with
 `ew_session_stop()` when core0's heartbeat lapses for 250 ms, and lets a
-running LEAVE finish. A board restart while an EFM8 bootloader waits sends
-DShot into it: the bench cannot know.
+running LEAVE finish: a write that has sent its erase runs to its read-back,
+starts no other procedure, and then parks the line. A board restart while an
+EFM8 bootloader waits sends DShot into it: the bench cannot know.
 
 ### Layouts outside 2 to 4
 
@@ -2704,6 +2794,111 @@ Not verified:
 
 ---
 
+## USB bridge
+
+**MENU → ESC CONFIG → USB BRIDGE** lets a desktop ESC tool on the board's
+USB serial port reach the ESC's bootloader on SIG at 19200 baud 8N1
+(eight data bits, no parity, one stop bit). The board is then a USB-serial
+adapter whose TX and RX are joined on the ESC's signal wire: every byte
+the PC sends goes to the wire, and every byte on the wire, the echo of the
+PC's own included, goes back to the PC. It ports DshotDisplay's bridge.
+Slice 2 of `docs/design/usb-bridge.md`; host tests only. No byte of it has
+gone to an ESC from this board, and no desktop tool has been run against
+it.
+
+![USB bridge](docs/bridge-preview.png)
+
+**Which tools.** Passthrough serves a tool that speaks the bootloader's
+frames itself and expects the echo: the AM32 configurator with Direct
+ticked, and the Python AM32 configurator DshotDisplay's bridge was written
+for. ESC-Configurator and the AM32 configurator's default speak MSP (the
+MultiWii Serial Protocol) and the 4-way interface of flight controllers;
+they need slice 3, not built. Slice 2 passes their bytes to the wire too,
+as a USB-serial adapter would, and they get their own bytes back and no
+answer. Which of BLHeliSuite's interfaces work is not verified.
+
+**Wiring.** As for DShot: the ESC on SIG and GND, on its own battery. Then
+the board's USB cable to the PC. The PC sees the board's one serial port,
+the one the console uses, and the card reader beside it; the bridge adds
+no USB interface.
+
+**What happens.**
+
+- The tap on USB BRIDGE disarms and claims SIG for `PinUser::Bridge`: DShot
+  drains, stops and lets the pin go, the strip reading `RELEASING SIG GP0`.
+  The claim has no check for an ESC: the bridge needs it on the pin. While
+  USB DRIVE holds the card there is no claim, and the screen reads
+  `EJECT THE USB DRIVE FIRST.`.
+- Once the line is bound (`src/bridge_wire.h`), `src/usb_bridge.h` opens:
+  it takes the serial port from the console (`usbDevConsole()` in
+  `src/usb_dev.h`), so neither the telemetry line nor any other `printf()`
+  reaches the port, and drops what the PC queued before, the 64 bytes
+  TinyUSB holds at most. The mode reads `WAITING` until the PC's first
+  byte, then `PASSTHROUGH`. 2000 ms with no byte either way, or the port
+  closed by the PC (DTR, data terminal ready, falling after it was set),
+  return it to `WAITING`; the bridge forwards whether DTR is set or not.
+- Each PC frame is gathered until 2 ms pass with no byte, or 320 bytes are
+  in, and goes to the wire back to back; the bridge never waits for the
+  ESC before the next. The ring from the wire, 1024 bytes, absorbs a
+  repaint of core0. Bytes the ring could not take count as `LOST`.
+- Each frame's first byte is named, for the screen only: `SET ADDRESS`,
+  `SET BUFFER`, `READ`, `PROGRAM`, `ERASE`, `RUN`, `KEEP ALIVE`, `INIT` for
+  the greeting, `PAYLOAD` for the frame after a SET BUFFER, `FRAME` for any
+  other. The frame is forwarded unchanged.
+- An echo that differs from the byte sent counts as a collision: the ESC
+  drove the line while the bench did, as when the PC sends its next frame
+  before the ESC has answered the last. The bytes reach the PC as the wire
+  read them, and the session goes on.
+
+**The screen.** The strip reads `SIG GP0  19200 8N1` and a chip,
+`PORT OPEN` on lime while DTR is set, `PORT CLOSED` on grey otherwise.
+Under it: the mode; the bytes `PC > ESC` and `ESC > PC`, the echo
+included; `FRAMES` and `LOST`, `LOST` amber above 0; the last command,
+such as `LAST SET ADDRESS 7E00`; and six lines: `OPEN THIS PORT IN A
+DESKTOP ESC TOOL.`, `THE ESC RUNS ON ITS OWN BATTERY.`, `PROPELLER OFF.
+DSHOT IS OFF.`, `POWER-CYCLE THE ESC IF THE TOOL` `FINDS NO ESC, AND AFTER
+A FLASH.`. The counts repaint at most every 250 ms. `THE PC CLOSED THE
+PORT.` replaces the first line after a close, and `BYTES LOST: THE BRIDGE
+FELL BEHIND.`, amber, the second once a byte is lost. A failed bind reads
+`SIG GP0 COULD NOT BE TAKEN (PIO)` with RETRY under it.
+
+**Writes and BACK.** PROGRAM, ERASE and a SET BUFFER payload are
+write-class.
+
+| When | BACK |
+|---|---|
+| a write-class frame waits for its answer, at most 3000 ms | drawn disabled; the first line reads `WRITING: DO NOT UNPLUG ESC OR USB.`, amber |
+| before the line is bound: Stopping, or a failed bind | returns to MENU; DShot comes back at once, or once the job has let the line go |
+| the bridge running, whatever was sent | the leave page: `POWER THE ESC OFF.`, `RESTART DSHOT.`, after a write with no RUN behind it also the note `FLASH THE ESC AGAIN BEFORE USE.`; `BRIDGE` returns to the bridge, RESTART DSHOT, live 1000 ms after the line is let go, to MENU |
+
+Once the line is bound the ESC may wait in its bootloader whatever the
+tool sent: one powered up while SIG is held high enters it, AM32 2.22
+enters it after about 2 s without a signal, a tool may send MSP rather
+than the greeting, and BACK may come before a greeting's answer. DShot
+frames could then pass as its commands. So every BACK of a running bridge
+gives the leave page, as the servo tools' BACK does. A RUN counts only as
+4 bytes whose last two are the CRC of the first two, and only for the
+note. MENU shows `POWER-CYCLE THE ESC TO RUN IT` from the bridge's open
+until RESTART DSHOT or an eRPM frame; a RUN does not clear it, since a
+garbled frame could read as one.
+
+BACK sends nothing, no RUN. From BACK on, the bridge reads nothing more
+from the PC and drops a frame it was gathering; a frame already on the
+wire is finished. The console gets the serial port back once the claim is
+free, so a tool still connected then reads the telemetry lines; the
+clock's `CLOCK` line is read again from then on, and while the bridge holds
+the port a `CLOCK` line goes to the ESC as data. A USB cable pulled from a
+board on its own cell leaves the claim as it is: SIG stays at the pad's
+pull-up and nothing is sent. On USB power alone the board stops with the
+cable, and plugging it in again restarts it with DShot on SIG: power the
+ESC off before the cable goes back in.
+
+**The log.** `USB_BRIDGE_LOG` in `src/config.h`, 0 by default, is
+DshotDisplay's traffic log as a build option: at 1 every frame and every
+run of bytes to the PC is kept with its time in a 4 KB RAM ring and printed
+on the serial port as a hex dump after BACK, before the console has the
+port again. `src/bridge_log.h` describes the dump.
+
 ## Current sensor
 
 An optional INA219, Texas Instruments' current and power monitor, measures
@@ -3058,6 +3253,9 @@ src/
   bridge_wire.{h,cpp}   the USB bridge's core1 job: the frame slot, the ring, the echo, the counts
   bridge_line_port.{h,cpp} the bridge's line: two PIO state machines on SIG
   bridge_line.pio       ...its transmitter, seven instructions; the receiver is pio_uart_rx.pio
+  usb_bridge.{h,cpp}    the bridge's USB side: the port to the frame slot and the ring back
+  bridge_log.{h,cpp}    the bridge's traffic log, a build option off by default
+  ui_bridge.{h,cpp}     USB BRIDGE: the claim, the counts, BACK's rules, the leave page
   backup_ring.{h,cpp}   the ring of device backups in BACKUP/
   card_dir.{h,cpp}      the card's mount rule, directory scope and file calls
   sense.{h,cpp}         the INA219 current sensor on the shared I2C bus: codec, probe, readings, recovery
@@ -3239,7 +3437,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.5%**: 13,255 of 13,459 lines in 85 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 14,143 of 14,371 lines in 90 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver
@@ -3398,6 +3596,12 @@ never driven by both. A control run with bits 3 % shorter has to lose
 bytes. The Firmware job holds its words to `pioasm`. `test/test_bridge.cpp`
 runs the bridge's job on `test/fake_bridge_line.h`, a wire on the virtual
 clock with those cycle counts and a model ESC, and through the pin claim.
+`test/test_usb_bridge.cpp` runs the USB side on `test/fake_cdc.h`, the
+serial port with 64-byte packets and TinyUSB's buffers: DshotDisplay's
+bridge tests ported, models of the Python tool's 25 ms reads and of the
+AM32 configurator's Direct rule, the gather, the modes, the write rules
+and the console. `test/test_bridge_ui.cpp` runs USB BRIDGE through the UI.
+`test/test_bridge_log.cpp` is a program of its own, built with the log on.
 
 ### Continuous integration
 

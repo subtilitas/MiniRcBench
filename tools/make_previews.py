@@ -109,6 +109,15 @@ PREVIEWS = {
         "shot_efm8_readonly",
         "shot_efm8_empty",
     ],
+    # Writing a Bluejay page: an edit in the editor bar, ESC WRITE before the
+    # hold with its backup line, the verified result, and the answer lost
+    # after the erase.
+    "efm8-write-preview": [
+        "shot_efm8_edit",
+        "shot_efm8_write",
+        "shot_efm8_verified",
+        "shot_efm8_lost",
+    ],
     # The servo tester: SAFE before START, one servo driven by the horn, two
     # servos with REVERSE B, and SET holding a heli profile behind its
     # warning.
@@ -134,6 +143,15 @@ PREVIEWS = {
         "shot_hitec_preview",
         "shot_hitec_write",
         "shot_hitec_files",
+    ],
+    # USB BRIDGE: waiting for the PC with the port closed, passthrough after
+    # a frame, a write waiting for its answer with BACK drawn disabled, and
+    # the leave page after a write with no RUN behind it.
+    "bridge-preview": [
+        "shot_bridge_waiting",
+        "shot_bridge_passthrough",
+        "shot_bridge_writing",
+        "shot_bridge_leave",
     ],
     # ANGLE METER: TOOLS, the chooser, the main view after a zero with
     # LENGTH set and SIGN at INVERT, SETUP, and FLIP CAL with its result.

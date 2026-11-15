@@ -87,6 +87,12 @@ static void testRules() {
 	checkTrue("am018.txt: 18, AM32, in any case",
 	          backupNumber("am018.txt", &d) == 18 && d == BackupDevice::Am32);
 	checkInt("HT050.TXT: 50", backupNumber("HT050.TXT", nullptr), 50);
+	checkTrue("BJ018.TXT: 18, Bluejay", backupNumber("BJ018.TXT", &d) == 18 && d == BackupDevice::Bluejay);
+	checkTrue("bh001.txt: 1, BLHeli_S, in any case",
+	          backupNumber("bh001.txt", &d) == 1 && d == BackupDevice::BlheliS);
+	checkInt("BJ0018.TXT: 4 digits", backupNumber("BJ0018.TXT", nullptr), 0);
+	checkTrue("the prefixes BJ and BH", strcmp(backupPrefix(BackupDevice::Bluejay), "BJ") == 0 &&
+	          strcmp(backupPrefix(BackupDevice::BlheliS), "BH") == 0);
 	checkInt("KST051.TXT is outside the ring", backupNumber("KST051.TXT", nullptr), 0);
 	checkInt("KST000.TXT is outside the ring", backupNumber("KST000.TXT", nullptr), 0);
 	checkInt("XY017.TXT: no device", backupNumber("XY017.TXT", nullptr), 0);
@@ -95,6 +101,8 @@ static void testRules() {
 	char name[BACKUP_NAME_MAX];
 	backupName(BackupDevice::Am32, 7, name);
 	checkTrue("the name of AM32's 7: AM007.TXT", strcmp(name, "AM007.TXT") == 0);
+	backupName(BackupDevice::BlheliS, 50, name);
+	checkTrue("BLHeli_S' 50: BH050.TXT", strcmp(name, "BH050.TXT") == 0);
 	BackupNames k;
 	memset(&k, 0, sizeof(k));
 	k.latest = 4;
@@ -246,11 +254,35 @@ static void testNoCard() {
 	card();
 }
 
+/** @brief Bluejay's and BLHeli_S' backups share the ring with the others. */
+static void testEscPrefixes() {
+	section("Backups: Bluejay and BLHeli_S in the one ring");
+	card();
+	checkInt("a KST backup first: 1", save(BackupDevice::Kst, 'k'), 1);
+	checkInt("a Bluejay backup: 2", save(BackupDevice::Bluejay, 'j'), 2);
+	checkTrue("as BJ002.TXT", firstByte(BackupDevice::Bluejay, 2) == 'j');
+	checkInt("a BLHeli_S backup: 3", save(BackupDevice::BlheliS, 'h'), 3);
+	checkTrue("as BH003.TXT", firstByte(BackupDevice::BlheliS, 3) == 'h');
+	BackupNames k;
+	backupNames(&k);
+	BackupFileName names[4];
+	checkTrue("Bluejay's list: BJ002.TXT alone",
+	          backupList(&k, BackupDevice::Bluejay, names, 4) == 1 && strcmp(names[0], "BJ002.TXT") == 0);
+	for (int i = 0; i < 47; i++) save(BackupDevice::Am32, 'a');
+	checkInt("the ring turned: a Bluejay backup over KST's 1", save(BackupDevice::Bluejay, 'J'), 1);
+	checkTrue("renamed BJ001.TXT and written over", firstByte(BackupDevice::Bluejay, 1) == 'J' &&
+	          firstByte(BackupDevice::Kst, 1) == '\0');
+	checkInt("a BLHeli_S backup over Bluejay's 2", save(BackupDevice::BlheliS, 'H'), 2);
+	checkTrue("renamed BH002.TXT", firstByte(BackupDevice::BlheliS, 2) == 'H' &&
+	          firstByte(BackupDevice::Bluejay, 2) == '\0');
+}
+
 void runBackupTests() {
 	testRules();
 	testRing();
 	testLateRename();
 	testNoCard();
+	testEscPrefixes();
 	card();
 	SdLogStatus st;
 	memset(&st, 0, sizeof(st));

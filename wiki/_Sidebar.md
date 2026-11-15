@@ -15,6 +15,7 @@
 - [KST Programming](KST-Programming)
 - [Hitec Programming](Hitec-Programming)
 - [RX Signals](RX-Signals)
+- [USB Bridge](USB-Bridge)
 - [Angle Meter](Angle-Meter)
 - [Troubleshooting](Troubleshooting)
 
@@ -33,6 +34,7 @@
 - [KST-Programmierung](KST-Programmierung)
 - [Hitec-Programmierung](Hitec-Programmierung)
 - [RX-Signale](RX-Signale)
+- [USB-Brücke](USB-Bruecke)
 - [Winkelmesser](Winkelmesser)
 - [Fehlersuche](Fehlersuche)
 
