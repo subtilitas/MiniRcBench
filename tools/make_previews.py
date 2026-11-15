@@ -143,6 +143,7 @@ PREVIEWS = {
         "shot_bridge_passthrough",
         "shot_bridge_writing",
         "shot_bridge_leave",
+    ],
     # ANGLE METER: TOOLS, the chooser, the main view after a zero with
     # LENGTH set and SIGN at INVERT, SETUP, and FLIP CAL with its result.
     "angle-preview": [
