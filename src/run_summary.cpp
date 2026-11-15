@@ -105,8 +105,13 @@ void runSumAdd(RunSum *s, const RunSumSample *x) {
 	const EscReading *r = x->reading;
 	uint32_t now = x->nowMs;
 
-	addInterval(s, x->nowUs > s->lastUs ? x->nowUs - s->lastUs : 0);
-	s->lastUs = x->nowUs;
+	// The timer runs forward; a sample stamped before the last adds nothing.
+	uint64_t dt = 0;
+	if (x->nowUs > s->lastUs) {
+		dt = x->nowUs - s->lastUs;
+		s->lastUs = x->nowUs;
+	}
+	addInterval(s, dt);
 	s->prevArmed = x->armed;
 	if (x->armed) s->everArmed = true;
 
@@ -503,7 +508,7 @@ void runSumRowText(const RunSum *s, RunSumRow row, uint8_t poles,
 		}
 		case RunSumRow::MinVoltage:
 			o->label = "MIN VOLTAGE";
-			if (s->everArmed) rowQty(o, Qty::Volts, runSumMinVolts(s));
+			rowQty(o, Qty::Volts, runSumMinVolts(s));
 			break;
 		case RunSumRow::Used: {
 			o->label = "USED";

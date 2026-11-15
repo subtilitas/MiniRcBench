@@ -265,6 +265,15 @@ static void testMixed() {
 	          "Max current: 12.34 A (KISS and EDT, 0.01 A and 1 A steps, peak from KISS; raw 12.34 A)");
 	checkRow("KISS peak row", &n.s, RunSumRow::MaxCurrent, "12.34A", "MIXED");
 
+	// The held value's source is that of the value it holds, not the newest.
+	Sim h;
+	simBegin(&h, true);
+	for (int i = 0; i < 2; i++) { simStep(&h, 10); edtAmps(&h, 30); simFeed(&h); }
+	simStep(&h, 20); kissFrame(&h, 15.0f, 40.0f, 40, 0); simFeed(&h);
+	end(&h);
+	checkLine("held from the older EDT value", &h.s, "Max current:",
+	          "Max current: 30 A (KISS and EDT, 0.01 A and 1 A steps, peak from EDT; raw 40.00 A)");
+
 	// Temperature: one step for both sources.
 	Sim t;
 	simBegin(&t, true);
@@ -325,6 +334,20 @@ static void testKissZero() {
 	for (int i = 0; i < 3; i++) { simStep(&e, 20); edtAmps(&e, 7); simFeed(&e); }
 	end(&e);
 	checkLine("EDT only", &e.s, "Max current:", "Max current: 7 A (EDT, 1 A steps; raw 7 A)");
+
+	// KISS at 0 A and no EDT current: KISS's own zeros are the figure.
+	Sim k;
+	simBegin(&k, true);
+	for (int i = 0; i < 3; i++) { simStep(&k, 20); kissFrame(&k, 15.0f, 0.0f, 0, 0); simFeed(&k); }
+	// An EDT temperature of 99 C, 1000 ms old by the next sample.
+	simStep(&k, 20); edtTemp(&k, 99);
+	simStep(&k, 1000); simFeed(&k);
+	end(&k);
+	checkLine("KISS 0 A, no EDT", &k.s, "Max current:",
+	          "Max current: 0.00 A (KISS, 0.01 A steps; raw 0.00 A)");
+	checkLine("KISS 0 A, no EDT: charge", &k.s, "Used, from current:",
+	          "Used, from current: 0 mAh (KISS, current known for 0.5 s of 1.1 s)");
+	checkTrue("a stale EDT temperature not counted", !k.s.tempEdt.rawOk);
 }
 
 /** @brief The minimum voltage counts only while armed; 0.00 V is no reading. */
@@ -375,6 +398,34 @@ static void testVoltsArmed() {
 	checkTrue("two, disarm, one: no held minimum", !runSumMinVolts(&w.s).heldOk);
 	checkLine("text", &w.s, "Min voltage:",
 	          "Min voltage: unknown (EDT, 0.25 V steps, fewer than 3 new values in a row, while armed; raw 14.00 V)");
+	checkRow("its row", &w.s, RunSumRow::MinVoltage, "--", nullptr);
+
+	// EDT at 0.00 V is no reading, per frame and in the EDT-only figure.
+	Sim e;
+	simBegin(&e, true);
+	for (int i = 0; i < 3; i++) { simStep(&e, 20); edtVolts(&e, 0.0f); simFeed(&e); }
+	end(&e);
+	checkTrue("EDT 0.00 V: no per-frame value", !e.s.volts.rawOk);
+	checkTrue("EDT 0.00 V: no EDT-only value", !e.s.voltsEdt.rawOk);
+
+	// The EDT-only figure: a stale EDT voltage does not count, and a disarm
+	// starts its three values again.
+	Sim k;
+	simBegin(&k, true);
+	for (int i = 0; i < 2; i++) {
+		simStep(&k, 20); kissFrame(&k, 0.0f, 0.0f, 0, 0); edtVolts(&k, 14.5f); simFeed(&k);
+	}
+	k.armed = false;
+	simStep(&k, 20); kissFrame(&k, 0.0f, 0.0f, 0, 0); simFeed(&k);
+	k.armed = true;
+	simStep(&k, 20); kissFrame(&k, 0.0f, 0.0f, 0, 0); edtVolts(&k, 14.5f); simFeed(&k);
+	// An EDT voltage of 10.00 V, 1000 ms old by the next sample.
+	simStep(&k, 20); edtVolts(&k, 10.0f);
+	simStep(&k, 1000); kissFrame(&k, 0.0f, 0.0f, 0, 0); simFeed(&k);
+	end(&k);
+	RunSumValue v2 = runSumMinVolts(&k.s);
+	checkTrue("EDT-only: two, disarm, one: no held minimum", v2.kissSentZero && !v2.heldOk);
+	checkInt("EDT-only: a stale 10.00 V not counted", v2.raw, 1450);
 }
 
 /** @brief Decision 3: the maxima cover the whole log, armed or not. */
@@ -469,6 +520,17 @@ static void testCounter() {
 	checkLine("no current", &n.s, "Used, from current:", "Used, from current: unknown (no current from KISS or EDT)");
 	checkRow("no charge row", &n.s, RunSumRow::Used, "--", nullptr);
 
+	// A KISS frame from before the log, stale at its first sample, is no
+	// starting value: the rise counts from the first fresh one.
+	Sim b;
+	simBegin(&b, true);
+	kissFrame(&b, 15.0f, 5.0f, 30, 100);
+	simTick(&b, 600);
+	simStep(&b, 20); kissFrame(&b, 15.0f, 5.0f, 30, 150); simFeed(&b);
+	simStep(&b, 20); kissFrame(&b, 15.0f, 5.0f, 30, 160); simFeed(&b);
+	end(&b);
+	checkInt("a stale frame before the log: not counted", runSumUsedCounter(&b.s).mah, 10);
+
 	// A counter that does not rise: 0 mAh, and SD LOG shows the current's.
 	Sim f;
 	simBegin(&f, true);
@@ -550,6 +612,49 @@ static void testIntegral() {
 	checkLine("EDT text", &z.s, "Used, from current:",
 	          "Used, from current: 49 mAh (EDT, KISS sent 0, current known for 1.0 s of 1.0 s)");
 	checkRow("EDT row", &z.s, RunSumRow::Used, "49mAh", "EDT");
+
+	// Current that stops: once no source is fresh, frames add no current.
+	// KISS at 36.00 A for 100 ms, then 1 s of frames with nothing fresh.
+	Sim g;
+	simBegin(&g, true, 1000);
+	for (int i = 0; i < 50; i++) {
+		simStep(&g);
+		if (i % 10 == 0) kissFrame(&g, 15.0f, 36.0f, 30, 0);
+		simFeed(&g);
+	}
+	for (int i = 0; i < 500; i++) simTick(&g);
+	end(&g);
+	// 49 intervals of 2 ms, then the frames from 100 ms until the last
+	// frame (at 82 ms) is 500 ms old, at 582 ms: 482 ms more.
+	checkTrue("KISS stops: known time", g.s.ampKnownUs == 98000u + 482000u);
+	checkTrue("KISS stops: the sum", g.s.ampUs == 3600ull * (98000u + 482000u));
+
+	// The EDT-only sum: a 1200 ms stall counts 1000 ms, and EDT going
+	// stale stops it.
+	Sim q;
+	simBegin(&q, true, 1000);
+	for (int i = 0; i < 3; i++) {
+		simStep(&q, 20); kissFrame(&q, 15.0f, 0.0f, 30, 0); edtAmps(&q, 10); simFeed(&q);
+	}
+	simStep(&q, 1200); kissFrame(&q, 15.0f, 0.0f, 30, 0); edtAmps(&q, 10); simFeed(&q);
+	for (int i = 0; i < 30; i++) { simStep(&q, 100); kissFrame(&q, 15.0f, 0.0f, 30, 0); simFeed(&q); }
+	end(&q);
+	// 2 × 20 ms, 1000 ms of the stall, then 1000 ms until EDT's last frame
+	// goes stale.
+	checkTrue("EDT-only: known time", q.s.ampEdtKnownUs == 40000u + 1000000u + 1000000u);
+	checkTrue("EDT-only: the sum", q.s.ampEdtUs == 1000ull * 2040000u);
+
+	// A source that held no time is not in the tag; a sample whose time is
+	// before the last adds nothing.
+	Sim w;
+	simBegin(&w, true, 1000);
+	for (int i = 0; i < 3; i++) { simStep(&w, 20); edtAmps(&w, 10); simFeed(&w); }
+	kissFrame(&w, 15.0f, 20.0f, 30, 0);
+	w.us -= 5000u;
+	simFeed(&w);
+	runSumEnd(&w.s, w.s.lastUs, RunSumEnd::Stop);
+	checkTrue("KISS for no time: tag EDT", runSumUsedCurrent(&w.s).from == RunSumFrom::Edt);
+	checkTrue("a sample back in time: 40 ms known", w.s.ampKnownUs == 40000u);
 
 	// EDT alone: no "KISS sent 0".
 	Sim e;
@@ -641,8 +746,10 @@ static void testEnds() {
 	Sim s;
 	simBegin(&s, true);
 	checkRow("running: no file yet", &s.s, RunSumRow::Summary, "--", nullptr);
+	simStep(&s, 100);
 	runSumEnd(&s.s, s.us, RunSumEnd::Running);
 	checkTrue("Running is no end", s.s.end == RunSumEnd::Running);
+	checkTrue("Running: no interval counted", s.s.armedUs == 0 && s.s.lastUs == s.s.startUs);
 	end(&s, RunSumEnd::Stop);
 	checkTrue("STOP leaves the file to the logger", s.s.file == RunSumFile::NotWritten);
 	runSumFileResult(&s.s, RunSumFile::Saved);
@@ -848,6 +955,9 @@ static void testFits() {
 		snprintf(w, sizeof(w), "%s: gap px", o.label);
 		checkInt(w, valueFirst - labelLast - 1, r.gap);
 	}
+	// 99,999 mAh is written in full.
+	m.s.ampUs = 99999ull * 360000000u;
+	checkRow("99,999 mAh", &m.s, RunSumRow::Used, "99999mAh", "KISS");
 	// EDT's widest current.
 	Sim e;
 	simBegin(&e, true);

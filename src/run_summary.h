@@ -95,7 +95,7 @@ struct RunSumExtreme {
 
 /**
  * @brief The running summary of one log. Zeroed and started by
- *        runSumBegin(); about 350 bytes.
+ *        runSumBegin(); 464 bytes on the RP2350.
  *
  * Values are integers: voltage and current in 0.01 V and 0.01 A, temperature
  * in degrees Celsius, eRPM as the ESC sends it.
