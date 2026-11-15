@@ -763,16 +763,14 @@ static void testWriteRules() {
 	checkTrue("a payload split by a 4 ms gap: two frames, the tail named FRAME",
 	          bstats().frames == f0 + 2 && usbBridgeLast().cmd == BridgeCmd::Other &&
 	          usbBridgeLast().len == 58);
-	checkTrue("its 0x00 0x00 no RUN: still unfinished", usbBridgeWriteUnfinished() &&
-	          usbBridgeBootloaderReached());
+	checkTrue("its 0x00 0x00 no RUN: still unfinished", usbBridgeWriteUnfinished());
 	const uint8_t runBad[] = {0x00, 0x00, 0x11, 0x22};
 	fakeCdcHostWrite(runBad, sizeof(runBad));
 	run(10);
 	checkTrue("00 00 with a wrong CRC: no RUN", usbBridgeWriteUnfinished());
 	fakeCdcHostWrite(RUN, sizeof(RUN));
 	run(10);
-	checkTrue("RUN: the write is finished", usbBridgeLast().cmd == BridgeCmd::Run && !usbBridgeWriteUnfinished() &&
-	          !usbBridgeBootloaderReached());
+	checkTrue("RUN: the write is finished", usbBridgeLast().cmd == BridgeCmd::Run && !usbBridgeWriteUnfinished());
 	fakeCdcHostWrite(INIT21, sizeof(INIT21));
 	run(20);
 	checkTrue("the greeting is no RUN and no write", !usbBridgeWriteUnfinished() && !usbBridgeWriteWaiting());
@@ -895,97 +893,45 @@ static int escGreeting(const uint8_t *f, int n, uint8_t *r, uint32_t *d) {
 }
 
 /**
- * @brief A session that only greets and reads leaves the bootloader
- *        waiting: the flag of the leave page, and MENU's run cue, until a
- *        RUN, an eRPM frame or usbBridgeRunCueClear().
+ * @brief MENU's run cue: set at every open, whatever the tool sends; kept
+ *        through a RUN and the close; cleared by an eRPM frame after the
+ *        open and by usbBridgeRunCueClear() only.
  */
-static void testBootloaderReached() {
-	section("USB bridge: a bootloader reached by a read-only session");
-	for (int e = 0; e < 2; e++) {
-		g_efm8 = e == 1;
-		fresh(escGreeting);
-		openBridge();
-		usbBridgeRunCueClear();
-		fakeBridgeLineResponder(nullptr);
-		fakeCdcHostWrite(INIT21, sizeof(INIT21));
-		run(30);
-		checkTrue(g_efm8 ? "EFM8: a greeting nobody answers reaches nothing" :
-		                   "AM32: a greeting nobody answers reaches nothing",
-		          !usbBridgeBootloaderReached() && !usbBridgeRunCue(0));
-		fakeBridgeLineResponder(escGreeting);
-		fakeCdcHostWrite(INIT21, sizeof(INIT21));
-		run(30);
-		checkTrue(g_efm8 ? "EFM8: its answer reaches the bootloader, the cue set" :
-		                   "AM32: its answer reaches the bootloader, the cue set",
-		          usbBridgeBootloaderReached() && usbBridgeRunCue(0) && !usbBridgeWriteUnfinished());
-		const uint8_t rd[] = {0x03, 0x10, 0x00, 0x00};
-		fakeCdcHostWrite(rd, sizeof(rd));
-		run(30);
-		fakeCdcDtr(false);
-		run(10);
-		checkTrue("a read, the port closed: still reached, the cue kept",
-		          usbBridgeBootloaderReached() && usbBridgeRunCue(0));
-		endBridge();
-		checkTrue("kept after the close", usbBridgeBootloaderReached() && usbBridgeRunCue(0));
-	}
-	// The cue against eRPM frames, from the pass the answer was seen in.
+static void testRunCue() {
+	section("USB bridge: MENU's run cue from the open");
 	fresh(escGreeting);
-	openBridge();
 	usbBridgeRunCueClear();
-	fakeCdcHostWrite(INIT21, sizeof(INIT21));
-	uint32_t seen = 0;
-	for (int k = 0; k < 400 && !usbBridgeRunCue(0); k++) {
+	pinClaimBegin(PinUser::Bridge, PIN_SIG);
+	pass();
+	checkTrue("Stopping: no cue before the open", !usbBridgeRunCue(0) &&
+	          usbBridgeMode() == BridgeMode::Closed);
+	uint32_t opened = 0;
+	for (int k = 0; k < 40 && usbBridgeMode() == BridgeMode::Closed; k++) {
 		pass();
-		seen = millis();
+		pinClaimPoll();
+		opened = millis();
 	}
-	checkTrue("an eRPM frame from before the answer: the cue stays", usbBridgeRunCue(seen - 1));
-	checkTrue("one in the same millisecond: it stays", usbBridgeRunCue(seen));
-	checkTrue("one a millisecond after it: the cue goes", !usbBridgeRunCue(seen + 1) && !usbBridgeRunCue(0));
-	endBridge();
-
-	// The tool sends its next frame before the greeting's answer came: the
-	// echo of that frame is no answer, the answer still counts.
-	fresh(escGreeting);
-	g_greetUs = 30000;
-	openBridge();
-	fakeCdcHostWrite(INIT21, sizeof(INIT21));
-	run(16);
-	fakeCdcHostWrite(SET_BUF, sizeof(SET_BUF));
-	run(10);
-	checkTrue("a frame after the greeting, before its answer: nothing reached yet",
-	          !usbBridgeBootloaderReached());
-	run(40);
-	checkTrue("the answer, 30 ms late: reached", usbBridgeBootloaderReached());
-	g_greetUs = 300;
-	endBridge();
-
-	// A RUN ends the wait: an answer to a later frame reaches nothing.
-	fresh(nullptr);
-	openBridge();
-	fakeCdcHostWrite(INIT21, sizeof(INIT21));
-	run(20);
-	fakeCdcHostWrite(RUN, sizeof(RUN));
-	run(10);
-	fakeBridgeLineResponder(escAck);
-	fakeCdcHostWrite(SET_ADDR, sizeof(SET_ADDR));
-	run(10);
-	checkTrue("INIT unanswered, RUN, then an ACK to SET ADDRESS: nothing reached",
-	          bstats().toHost == 21 + 4 + 7 && !usbBridgeBootloaderReached());
-	endBridge();
-
-	fresh(escGreeting);
-	openBridge();
+	checkTrue("the open sets it, no byte sent", usbBridgeMode() == BridgeMode::Waiting && usbBridgeRunCue(0));
+	checkTrue("an eRPM frame from before the open: it stays", usbBridgeRunCue(opened - 1));
+	checkTrue("one in the same millisecond: it stays", usbBridgeRunCue(opened));
 	fakeCdcHostWrite(INIT21, sizeof(INIT21));
 	run(30);
 	fakeCdcHostWrite(RUN, sizeof(RUN));
 	run(10);
-	checkTrue("RUN: nothing reached, no cue", !usbBridgeBootloaderReached() && !usbBridgeRunCue(0));
-	fakeCdcHostWrite(INIT21, sizeof(INIT21));
-	run(30);
+	checkTrue("a RUN keeps it: a garbled frame could read as one",
+	          usbBridgeLast().cmd == BridgeCmd::Run && usbBridgeRunCue(0));
+	const uint8_t msp[] = {'$', 'M', '<', 0, 1, 1};
+	fakeCdcHostWrite(msp, sizeof(msp));
+	run(10);
+	endBridge();
+	checkTrue("kept after the close", usbBridgeRunCue(0) && pinClaimState() == ClaimState::Free);
+	checkTrue("an eRPM frame a millisecond after the open: it goes",
+	          !usbBridgeRunCue(opened + 1) && !usbBridgeRunCue(0));
+	openBridge();
+	checkTrue("the next open sets it again", usbBridgeRunCue(0));
 	usbBridgeRunCueClear();
-	checkTrue("RESTART DSHOT's clear: no cue, the flag kept", !usbBridgeRunCue(0) && usbBridgeBootloaderReached());
+	checkTrue("RESTART DSHOT's clear: gone", !usbBridgeRunCue(0));
 	endBridge();
-	g_efm8 = false;
 }
 
 /** @brief Console text TinyUSB still holds at the open never reaches the tool. */
@@ -1200,7 +1146,7 @@ void runUsbBridgeTests() {
 	testBackWithHost();
 	testLeavePageConsole();
 	testRefusedBind();
-	testBootloaderReached();
+	testRunCue();
 	testStaleConsole();
 	testClockLine();
 	testCollision();

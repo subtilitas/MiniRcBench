@@ -368,10 +368,11 @@ void uiBridgeEnter() {
  */
 static bool back() {
 	if (!s_claimed) return false;
-	// Once a bootloader answered, or a write went, with no RUN behind it, the
-	// ESC may wait in its bootloader and its flash may be cut: DShot waits
-	// for RESTART DSHOT on the leave page (decision 10 as revised).
-	if (usbBridgeBootloaderReached() && pinClaimState() == ClaimState::Running)
+	// Once the line was bound the ESC may wait in its bootloader, entered at
+	// a power-up with SIG high, after AM32's 2 s without a signal, or by the
+	// tool, answered or not, and its flash may be cut: DShot waits for
+	// RESTART DSHOT on the leave page (decision 10 as revised).
+	if (pinClaimState() == ClaimState::Running)
 		pinClaimWantLeavePage(PinUser::Bridge);
 	pinClaimEnd(PinUser::Bridge);
 	if (!pinClaimLeavePage()) return false;

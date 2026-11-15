@@ -188,6 +188,22 @@ static bool untilOpen(int n = 20) {
 	return usbBridgeMode() != BridgeMode::Closed;
 }
 
+/** @brief From the leave page: RESTART DSHOT once live, then frames until Free. */
+static void restartFromPage() {
+	brFrames(44);
+	tapId(UI_FIX(BridgeCtl::Restart));
+	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
+	brFrames(1);
+}
+
+/** @brief BACK, then through the leave page if it opened, until Free. */
+static void leaveBridge() {
+	tapId(UI_FIX(UI_BACK));
+	brFrames(1);
+	if (uiCurrentScreen() == UiScreenId::Bridge && ctlPresent(UI_FIX(BridgeCtl::Restart))) restartFromPage();
+	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
+}
+
 // ---------------------------------------------------------------------------
 // tests
 // ---------------------------------------------------------------------------
@@ -244,11 +260,13 @@ static void testLayout() {
 	brFrames(1);
 	checkTrue("DTR set: PORT OPEN on lime", chipIs(BRIDGE_UI_PORT_OPEN, UI_COL_LIVE, C_ONACCENT));
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK with no write: MENU", uiCurrentScreen() == UiScreenId::Menu);
-	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
 	brFrames(1);
-	checkTrue("Free once the job let go, the console back", pinClaimState() == ClaimState::Free &&
-	          fakeConsoleOn() && !escTaskSuspended());
+	checkTrue("BACK with nothing sent: the leave page, the console still off",
+	          uiCurrentScreen() == UiScreenId::Bridge && ctlPresent(UI_FIX(BridgeCtl::Restart)) &&
+	          !fakeConsoleOn());
+	restartFromPage();
+	checkTrue("RESTART DSHOT: MENU, Free, the console back", uiCurrentScreen() == UiScreenId::Menu &&
+	          pinClaimState() == ClaimState::Free && fakeConsoleOn() && !escTaskSuspended());
 	tapId(UI_FIX(UI_BACK));
 }
 
@@ -303,8 +321,10 @@ static void testTraffic() {
 	brFrames(12);
 	checkTrue("a first byte with no name: LAST FRAME 42", leftIs(148, "LAST FRAME 42", C_DIM));
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK after a RUN and no write: MENU", uiCurrentScreen() == UiScreenId::Menu);
-	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
+	brFrames(1);
+	checkTrue("BACK after a RUN: the leave page all the same, no FLASH note",
+	          ctlPresent(UI_FIX(BridgeCtl::Restart)) && allOf(0, UI_LEAVE_NOTE_Y, GFX_W, 8, C_BG));
+	restartFromPage();
 	tapId(UI_FIX(UI_BACK));
 }
 
@@ -378,7 +398,7 @@ static void testWriteAndLeave() {
 	checkTrue("Free, DShot up, the console back", pinClaimState() == ClaimState::Free &&
 	          !escTaskSuspended() && fakeConsoleOn());
 
-	// A write finished by RUN: BACK goes to MENU.
+	// A write finished by RUN: the page without the FLASH note.
 	freshUi();
 	openBridgeScreen();
 	untilOpen();
@@ -387,9 +407,11 @@ static void testWriteAndLeave() {
 	fakeCdcHostWrite(RUN, sizeof(RUN));
 	brFrames(4);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("PROGRAM, then RUN: BACK goes to MENU", uiCurrentScreen() == UiScreenId::Menu &&
-	          !pinClaimLeavePage());
-	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
+	brFrames(1);
+	checkTrue("PROGRAM, then RUN: the leave page without the FLASH note",
+	          ctlPresent(UI_FIX(BridgeCtl::Restart)) && pinClaimLeavePage() &&
+	          allOf(0, UI_LEAVE_NOTE_Y, GFX_W, 8, C_BG) && usbBridgeRunCue(0));
+	restartFromPage();
 	checkTrue("Free", pinClaimState() == ClaimState::Free);
 	tapId(UI_FIX(UI_BACK));
 }
@@ -443,8 +465,7 @@ static void testBackStates() {
 	brFrames(1);
 	checkTrue("the lines and the mode", defaultLines() && leftIs(72, "WAITING", C_TEXT, 2) &&
 	          allOf(0, UI_FOOT_Y, GFX_W, GFX_H - UI_FOOT_Y, C_BG));
-	tapId(UI_FIX(UI_BACK));
-	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
+	leaveBridge();
 	fakeBridgeLineRefuse(CORE1_JOB_CLOCK);
 	tapId(menuRow(&UI_ESC_CONFIG));
 	brFrames(1);
@@ -482,8 +503,7 @@ static void testBackStates() {
 	brFrames(1);
 	checkTrue("ejected: the claim begins", pinClaimHolder() == PinUser::Bridge);
 	checkTrue("and the bridge opens", untilOpen());
-	tapId(UI_FIX(UI_BACK));
-	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
+	leaveBridge();
 	fakeMscSet(MscState::Serving, 0);
 	tapId(menuRow(&UI_ESC_CONFIG));
 	brFrames(1);
@@ -509,8 +529,7 @@ static void testBackStates() {
 	pinClaimEnd(PinUser::Am32);
 	brFrames(3);
 	checkTrue("asked again each frame: the bridge's claim once Free", pinClaimHolder() == PinUser::Bridge);
-	tapId(UI_FIX(UI_BACK));
-	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
+	leaveBridge();
 	tapId(UI_FIX(UI_BACK));
 }
 
@@ -535,8 +554,7 @@ static void testLostAndGp1() {
 	          fakeTextIs(UI_MARGIN + 60, 134, line, C_AMBER, C_BG, 1));
 	fakeDumpFrame("shot_bridge_lost.ppm");
 	fakeCdcHostStall(false);
-	tapId(UI_FIX(UI_BACK));
-	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
+	leaveBridge();
 	tapId(UI_FIX(UI_BACK));
 
 	freshUi();
@@ -549,8 +567,7 @@ static void testLostAndGp1() {
 	brFrames(1);
 	checkTrue("SIG on GP1: the strip, and the line on GP1",
 	          leftIs(UI_STRIP_Y + 4, "SIG GP1  19200 8N1", C_DIM) && fakeBridgeLinePin() == 1);
-	tapId(UI_FIX(UI_BACK));
-	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
+	leaveBridge();
 	tapId(UI_FIX(UI_BACK));
 	settings()->dshotPin = 0;
 	settings()->kissPin = 1;
@@ -591,7 +608,7 @@ static void testReadOnly() {
 		fakeCdcDtr(false);
 		brFrames(2);
 		checkTrue(g_efm8 ? "EFM8: greeted and read, no write, no RUN" : "AM32: greeted and read, no write, no RUN",
-		          usbBridgeBootloaderReached() && !usbBridgeWriteUnfinished() && usbBridgeRunCue(0));
+		          !usbBridgeWriteUnfinished() && usbBridgeRunCue(0));
 		tapId(UI_FIX(UI_BACK));
 		brFrames(1);
 		checkTrue("BACK: the leave page, DShot down", uiCurrentScreen() == UiScreenId::Bridge &&
@@ -640,16 +657,52 @@ static void testReadOnly() {
 	fakeSetTelemetry(&t);
 	tapId(UI_FIX(UI_BACK));
 
-	// A greeting nobody answers reaches nothing: BACK to MENU.
-	freshUi(nullptr);
-	openBridgeScreen();
-	untilOpen();
-	fakeCdcHostWrite(INIT21, sizeof(INIT21));
-	brFrames(4);
-	tapId(UI_FIX(UI_BACK));
-	checkTrue("a greeting with no answer: BACK to MENU", uiCurrentScreen() == UiScreenId::Menu);
-	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
-	tapId(UI_FIX(UI_BACK));
+	// Every BACK on a Running bridge gives the page: no traffic at all, an
+	// INIT handed over and not yet answered, MSP alone.
+	const uint8_t msp[] = {'$', 'M', '<', 0, 1, 1};
+	for (int c = 0; c < 3; c++) {
+		freshUi(c == 1 ? escGreets : nullptr);
+		openBridgeScreen();
+		untilOpen();
+		if (c == 1) {
+			fakeCdcHostWrite(INIT21, sizeof(INIT21));
+			for (int k = 0; k < 40 && usbBridgeLast().cmd != BridgeCmd::Init; k++) {
+				fakeAdvanceUs(250);
+				core1JobPoll();
+				tud_task();
+				usbBridgeTask();
+			}
+			UsbBridgeStats st;
+			usbBridgeStats(&st);
+			checkTrue("an INIT handed over, its answer not in", usbBridgeLast().cmd == BridgeCmd::Init &&
+			          st.toHost == 0);
+			const UiRect back = uiBackRect();
+			fakePress(back.x + 10, back.y + 10);
+			uiTick();
+			fakeRelease();
+			uiTick();
+		} else {
+			if (c == 2) {
+				fakeCdcHostWrite(msp, sizeof(msp));
+				brFrames(4);
+			}
+			tapId(UI_FIX(UI_BACK));
+		}
+		brFrames(1);
+		static const char *const WHAT[] = {
+			"no traffic at all: BACK gives the leave page",
+			"BACK between the INIT's handover and its answer: the leave page",
+			"MSP alone, nothing answered: the leave page",
+		};
+		checkTrue(WHAT[c], uiCurrentScreen() == UiScreenId::Bridge && ctlPresent(UI_FIX(BridgeCtl::Restart)) &&
+		          escTaskSuspended() && allOf(0, UI_LEAVE_NOTE_Y, GFX_W, 8, C_BG));
+		brFrames(44);
+		tapId(UI_FIX(BridgeCtl::Restart));
+		for (int k = 0; k < 4 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
+		checkTrue("RESTART DSHOT: MENU, Free", uiCurrentScreen() == UiScreenId::Menu &&
+		          pinClaimState() == ClaimState::Free);
+		tapId(UI_FIX(UI_BACK));
+	}
 }
 
 void runBridgeUiTests() {

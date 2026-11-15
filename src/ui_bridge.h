@@ -22,8 +22,8 @@
  * | no claim: refused, USB DRIVE | to MENU |
  * | Stopping, or Held after a failed bind | pinClaimEnd(): DShot resumes at once; to MENU |
  * | a write-class frame waits for its answer, at most 3000 ms | drawn disabled (decision 7) |
- * | Running, no bootloader reached, or a RUN after it | pinClaimEnd(), to MENU: DShot resumes once the job is idle, by the claim's rule, whether or not a screen polls it |
- * | Running, a bootloader reached (usbBridgeBootloaderReached()) with no RUN behind it | pinClaimWantLeavePage(), then pinClaimEnd(): the leave page (decision 10 as revised) |
+ * | Held, the line binding | pinClaimEnd(), to MENU: DShot resumes once the job is idle, by the claim's rule, whether or not a screen polls it |
+ * | Running | pinClaimWantLeavePage(), then pinClaimEnd(): the leave page, as the servo tools give it (decision 10 as revised): the ESC may wait in its bootloader whatever the tool sent |
  *
  * Nothing is sent at BACK, no RUN among it (decision 6). The leave page is
  * ui_leave.h's, opened releasing, as the job lets go of the line at once:

@@ -28,9 +28,6 @@ static uint8_t        s_rx[256];                 /**< Bytes from the ring on the
 static bool           s_dtr = false;             /**< DTR at the last pass. */
 static bool           s_portClosed = false;
 static bool           s_unfinished = false;      /**< A write-class frame and no RUN since the open. */
-static bool           s_reached = false;         /**< A bootloader answered, or a write went, and no RUN since. */
-static bool           s_initWait = false;        /**< An INIT went; a byte beyond the echoes is its answer. */
-static uint32_t       s_initMark = 0;            /**< Bytes received once its echo, and those of the frames after it, are in. */
 static bool           s_cue = false;             /**< MENU's run cue (usbBridgeRunCue()). */
 static uint32_t       s_cueMs = 0;               /**< millis() when it was set. */
 static bool           s_writeWait = false;
@@ -120,8 +117,10 @@ static void openBridge() {
 	s_ready = false;
 	s_portClosed = false;
 	s_unfinished = false;
-	s_reached = false;
-	s_initWait = false;
+	// The ESC may wait in its bootloader from now on, whatever the tool
+	// sends: MENU's cue until an eRPM frame or RESTART DSHOT.
+	s_cue = true;
+	s_cueMs = millis();
 	s_writeWait = false;
 	s_dtr = tud_cdc_connected();
 	endSession();
@@ -152,21 +151,6 @@ static void closeBridge() {
 	bridgeLogDumpBegin();
 }
 
-/**
- * @brief An INIT's answer: a byte the wire received beyond its echo. A
- *        bootloader is reached: BACK gives the leave page, MENU the run cue.
- */
-static void initAnswerCheck() {
-	if (!s_initWait) return;
-	BridgeWireStats w;
-	bridgeWireStats(&w);
-	if ((int32_t)(w.received - s_initMark) <= 0) return;
-	s_initWait = false;
-	s_reached = true;
-	s_cue = true;
-	s_cueMs = millis();
-}
-
 /** @brief The gathered frame went to the slot: name it, count it, log it. */
 static void handedOver(uint32_t now) {
 	BridgeCmd c = usbBridgeCmdOf(s_buf, s_len, s_afterSetBuffer);
@@ -179,26 +163,11 @@ static void handedOver(uint32_t now) {
 		BridgeWireStats w;
 		bridgeWireStats(&w);
 		s_unfinished = true;
-		s_reached = true;
 		s_writeWait = true;
 		s_writeAtMs = now;
 		s_writeMark = w.received + s_len;
 	} else if (c == BridgeCmd::Run) {
 		s_unfinished = false;
-		s_reached = false;
-		s_cue = false;
-	}
-	if (c == BridgeCmd::Init) {
-		BridgeWireStats w;
-		bridgeWireStats(&w);
-		s_initWait = true;
-		s_initMark = w.received + s_len;
-	} else if (s_initWait && c != BridgeCmd::Run) {
-		// A frame sent before the greeting's answer came: its echo is no
-		// answer either.
-		s_initMark += s_len;
-	} else {
-		s_initWait = false;
 	}
 	bridgeLogAdd(BLOG_HOST_TO_ESC, s_buf, s_len);
 	s_stats.toEsc += s_len;
@@ -242,7 +211,6 @@ static void forward() {
 			s_ready = true;
 	}
 	if (s_ready && bridgeWireSend(s_buf, s_len)) handedOver(now);
-	initAnswerCheck();
 
 	// The ring to the PC: what the port takes; the rest waits in the ring.
 	uint32_t room = tud_cdc_write_available();
@@ -300,8 +268,6 @@ bool usbBridgeWriteWaiting() {
 }
 
 bool usbBridgeWriteUnfinished() { return s_unfinished; }
-
-bool usbBridgeBootloaderReached() { return s_reached; }
 
 bool usbBridgeRunCue(uint32_t lastRpmMs) {
 	// An eRPM frame stamped after the answer: the firmware runs again.

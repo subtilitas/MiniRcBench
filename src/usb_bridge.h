@@ -51,10 +51,10 @@
  * frame's answer, a byte received beyond its echo, or
  * @ref BRIDGE_WRITE_WAIT_MS, BACK is drawn disabled (decision 7); and from
  * then until a RUN, the leave page carries `FLASH THE ESC AGAIN BEFORE USE.`.
- * An answered INIT, or a write, reaches a bootloader: from then until a
- * RUN, BACK opens the leave page (decision 10 as revised), and MENU shows
- * the run cue until a RUN, RESTART DSHOT or an eRPM frame. The frames
- * themselves are forwarded unchanged.
+ * BACK on a Running bridge always opens the leave page (decision 10 as
+ * revised, ui_bridge.h): an ESC can sit in its bootloader with no frame of
+ * the PC's answered. MENU shows the run cue from the open until RESTART
+ * DSHOT or an eRPM frame. The frames themselves are forwarded unchanged.
  *
  * Core0 only.
  *
@@ -181,31 +181,21 @@ bool usbBridgeWriteWaiting();
 
 /**
  * @brief A write-class frame went to the wire since the open, and no RUN
- *        after it: BACK asks for the leave page (decision 10). Kept after
- *        the close until the next open.
+ *        after it: the leave page carries `FLASH THE ESC AGAIN BEFORE USE.`.
+ *        Kept after the close until the next open.
  * @return True after such a frame.
  */
 bool usbBridgeWriteUnfinished();
 
 /**
- * @brief A bootloader may be waiting on SIG: BACK gives the leave page
- *        (decision 10 as revised, docs/design/usb-bridge.md "Safety").
- *
- * Set when an INIT's answer comes, a byte the wire receives beyond the
- * INIT's echo, and by a write-class frame; cleared by a RUN only, and by
- * the next open. A session that only greeted and read leaves the ESC in its
- * bootloader as much as one that wrote.
- * @return True from then until a RUN.
- */
-bool usbBridgeBootloaderReached();
-
-/**
  * @brief MENU's run cue, `POWER-CYCLE THE ESC TO RUN IT`, ORed with ESC
  *        SETTINGS' (ui_menu.cpp).
  *
- * Set when an INIT's answer comes; cleared by a RUN, by
- * usbBridgeRunCueClear() at RESTART DSHOT, and by an eRPM frame stamped
- * after the answer: the firmware runs again. Kept across the close.
+ * Set at every open: from then on the ESC may wait in its bootloader,
+ * whatever the tool sends, or nothing. Cleared only by
+ * usbBridgeRunCueClear() at RESTART DSHOT and by an eRPM frame stamped
+ * after the open: the firmware runs again. A RUN does not clear it, as a
+ * garbled frame could read as one. Kept across the close.
  * @param lastRpmMs EscTelemetry::lastRpmMs.
  * @return True while the cue shows.
  */

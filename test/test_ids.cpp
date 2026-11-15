@@ -180,7 +180,14 @@ static void testMenuSettingsLog() {
 	          !ctlPresent(UI_FIX(BridgeCtl::Retry)) && !ctlPresent(UI_FIX(BridgeCtl::Bridge)) &&
 	          !ctlPresent(UI_FIX(BridgeCtl::Restart)));
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	idFrames(1);
+	checkControlTable("USB BRIDGE, leave page");
+	checkTrue("BACK: the leave page, BRIDGE acting, RESTART DSHOT not yet",
+	          !ctlEnabled(UI_FIX(UI_BACK)) && ctlEnabled(UI_FIX(BridgeCtl::Bridge)) &&
+	          ctlPresent(UI_FIX(BridgeCtl::Restart)) && !ctlEnabled(UI_FIX(BridgeCtl::Restart)));
+	idFrames(44);
+	tapId(UI_FIX(BridgeCtl::Restart));
+	checkTrue("RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
 	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) idFrames(1);
 	idFrames(1);
 	checkTrue("Free, the console back", pinClaimState() == ClaimState::Free && fakeConsoleOn());

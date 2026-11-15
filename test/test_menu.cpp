@@ -20,6 +20,7 @@
 #include "settings.h"
 #include "ui.h"
 #include "ui_am32.h"
+#include "ui_bridge.h"
 #include "ui_menu.h"
 #include "ui_esc_cmd.h"
 #include "ui_registry.h"
@@ -700,7 +701,13 @@ static void testEscConfig() {
 	checkTrue("its lift opens USB BRIDGE", uiCurrentScreen() == UiScreenId::Bridge);
 	checkTrue("which claims SIG on the tap's frame", pinClaimHolder() == PinUser::Bridge);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("USB BRIDGE's BACK returns to MENU, not the chooser", uiCurrentScreen() == UiScreenId::Menu);
+	if (uiCurrentScreen() == UiScreenId::Bridge) {
+		// The bridge ran: its leave page; RESTART DSHOT once live.
+		menuFrames(44);
+		tapId(UI_FIX(BridgeCtl::Restart));
+	}
+	checkTrue("USB BRIDGE's BACK, or its RESTART DSHOT, returns to MENU, not the chooser",
+	          uiCurrentScreen() == UiScreenId::Menu);
 	for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) menuFrames(1);
 	checkTrue("DShot runs again", pinClaimState() == ClaimState::Free);
 	tapId(menuRow(&UI_ESC_CONFIG));
