@@ -64,6 +64,36 @@ protocol.
   (decision 4); no direction note (decision 10). Host tests in
   `test/test_esc_cmd_ui.cpp` and `test/test_ids.cpp`;
   `docs/esccmd-preview.png`. Not tested on hardware.
+- After v0.1.0-rc1: each blackbox log that stops clean gets its run
+  summary beside it, `LOGS/LOGnnnnn.TXT`, slice 2 of
+  [run-summary.md](docs/design/run-summary.md#slice-2-as-built).
+  `sdLogTick()` hands every frame's snapshot, merged reading and arm state
+  to `runSumAdd()`; the stop ends the summary as `STOP`, `DISARM`,
+  `KST SERVO`, `HITEC SERVO` or `AM32 CONFIG`, and once the `.BFL` has
+  closed clean writes the text, built in the drained write buffer, with
+  `FA_CREATE_ALWAYS` (`src/sd_log_summary.*`). A failed write during the
+  log ends the summary there, not saved, and no `.TXT` is tried. A `.TXT`
+  that cannot be saved, on a full card or after a failed write, leaves the
+  `.BFL` as it was and the logger `READY`, and is removed when the card
+  still allows it. `.TXT` files do not move the next log's number.
+  `SdLogStatus` carries the last summary for SD LOG, which does not show it
+  yet; a mount and USB DRIVE forget it. `make -C test lognum` runs
+  `src/sd_log.cpp` over FatFs R0.15 on a RAM disk (`test/sd_log_fatfs.cpp`,
+  `test/ram_disk.*`). README and the wiki pages SD-Logging and
+  SD-Aufzeichnung describe the file. Not tested on hardware.
+- After v0.1.0-rc1: the run summary's core, slice 1 of
+  [run-summary.md](docs/design/run-summary.md#slice-1-as-built), in
+  `src/run_summary.*`. From each logged frame's telemetry it keeps the
+  maximum eRPM, current and temperature over the whole log and the minimum
+  voltage while armed, each as a raw extreme and as a held one, counted
+  only when three consecutive new values reach it; the source per frame,
+  KISS while fresh and EDT in its gaps, tagged `MIXED` when both counted,
+  and EDT's own figure when every fresh KISS frame carried 0; the KISS
+  counter's rise and the charge from current; the armed time. It builds the
+  `LOGnnnnn.TXT` text, both clock lines `not set`, and SD LOG's row texts.
+  Host tests in `test/test_run_summary.cpp`. The logger does not call it
+  yet: no `.TXT` is written and SD LOG does not change. Not tested on
+  hardware.
 - After v0.1.0-rc1: the design note for the S.BUS output,
   [sbus-output.md](docs/design/sbus-output.md), designed and not built:
   S.BUS OUTPUT behind OUTPUT on RX SIGNALS sends a frame every 14 ms on GP0
@@ -97,19 +127,6 @@ protocol.
   `test/test_esc_cmd.cpp` run the slot against AM32, Bluejay and BLHeli_S
   models read from their sources. No page sends commands yet; MENU's BEEP
   THE ESC is the only caller. Not tested on hardware.
-- After v0.1.0-rc1: the run summary's core, slice 1 of
-  [run-summary.md](docs/design/run-summary.md#slice-1-as-built), in
-  `src/run_summary.*`. From each logged frame's telemetry it keeps the
-  maximum eRPM, current and temperature over the whole log and the minimum
-  voltage while armed, each as a raw extreme and as a held one, counted
-  only when three consecutive new values reach it; the source per frame,
-  KISS while fresh and EDT in its gaps, tagged `MIXED` when both counted,
-  and EDT's own figure when every fresh KISS frame carried 0; the KISS
-  counter's rise and the charge from current; the armed time. It builds the
-  `LOGnnnnn.TXT` text, both clock lines `not set`, and SD LOG's row texts.
-  Host tests in `test/test_run_summary.cpp`. The logger does not call it
-  yet: no `.TXT` is written and SD LOG does not change. Not tested on
-  hardware.
 - After v0.1.0-rc1 (a93e1c1): S.BUS MONITOR, slice 3 of
   [rx-signals.md](docs/design/rx-signals.md#slice-3-as-built), opened from
   MENU → RX SIGNALS → MONITOR (`src/ui_sbus.*`). It claims the role that is
