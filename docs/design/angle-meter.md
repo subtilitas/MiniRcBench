@@ -1188,8 +1188,8 @@ its own. `--- MM` written for the travel without a reading is equivalent:
 `angleTenthsText()` gives `---` for the NaN the model then reports. For
 HOLD DEFAULTS keeping the four fields and SETUP's BACK saving while they
 differ from flash, 19 mutants of that code in `src/ui_angle.cpp`,
-`src/settings.cpp` and `src/ui_settings.cpp` were run again, 9 of the earlier ones gone with the code they changed. 17
-fail the suite; the armed check survives as before, and leaving out the
+`src/settings.cpp` and `src/ui_settings.cpp` were run again, 9 of the
+earlier ones gone with the code they changed. 17 fail the suite; the armed check survives as before, and leaving out the
 spare byte in `settingsCopyAngle()` is equivalent, since validation keeps
 that byte at 0.
 
