@@ -36,6 +36,17 @@ run.
 > **Before you power anything on:** a motor on a bench can injure. Read
 > [First Run](First-Run#safety-first) before the first arm.
 
+**Licence.** The software, meaning firmware, tests, other tools and
+documentation, is MIT. The hardware design files are
+[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/):
+non-commercial use, credit, and the same licence for what you share. They are
+the models and CAD files in `hardware/cad/` and `hardware/mechanical/` (the
+board's 3D model among them), and the drawings: the wiring drawing
+`wiring.svg` on the Wiring page and `tools/make_wiring.py`, the script that
+draws it. The legal code is
+[hardware/LICENSE-CAD.txt](https://github.com/subtilitas/MiniRcBench/blob/main/hardware/LICENSE-CAD.txt).
+The Waveshare name and logo are Waveshare's trademarks.
+
 ---
 
 ## Deutsch
@@ -64,6 +75,17 @@ Strom und der erste Motorlauf.
 > **Vor dem Einschalten:** Ein Motor auf der Werkbank kann verletzen. Lies
 > [Erste Schritte](Erste-Schritte#sicherheit-zuerst) vor dem ersten
 > Scharfschalten.
+
+**Lizenz.** Die Software, also Firmware, Tests, übrige Werkzeuge und
+Dokumentation, steht unter MIT. Die Hardware-Entwurfsdateien stehen unter
+[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.de):
+nur nicht kommerzielle Nutzung, Namensnennung, und was du weitergibst, unter
+derselben Lizenz. Es sind die Modelle und CAD-Dateien in `hardware/cad/` und
+`hardware/mechanical/` (darunter das 3D-Modell der Platine) und die Zeichnungen:
+der Verdrahtungsplan `wiring.svg` auf der Seite Verdrahtung und
+`tools/make_wiring.py`, das Skript, das ihn zeichnet. Der Lizenztext ist
+[hardware/LICENSE-CAD.txt](https://github.com/subtilitas/MiniRcBench/blob/main/hardware/LICENSE-CAD.txt).
+Name und Logo von Waveshare sind Marken von Waveshare.
 
 ---
 
