@@ -3,8 +3,9 @@
 # AM32-Konfiguration
 
 Dieser Bildschirm liest, ändert und schreibt die Einstellungen eines AM32-ESC
-(Electronic Speed Controller, Motorregler) über das Signalkabel. Er braucht
-keinen Laptop und keinen Konfigurator. Er aktualisiert keine ESC-Firmware.
+(Electronic Speed Controller, Motorregler) über das Signalkabel, und er liest
+und zeigt die eines Bluejay- oder BLHeli_S-ESC. Er braucht keinen Laptop und
+keinen Konfigurator. Er aktualisiert keine ESC-Firmware.
 
 <img src="img/am32-list.png" width="240" alt="AM32-Einstellungsliste">
 
@@ -24,9 +25,8 @@ keinen Laptop und keinen Konfigurator. Er aktualisiert keine ESC-Firmware.
 läuft weiter, bis du `ESC SETTINGS` antippst. `USB BRIDGE` ist grau
 gezeichnet, darunter `NOT BUILT` (nicht gebaut), und tut nichts. `BACK`
 führt zu MENU zurück. Der Bildschirm heißt für jede ESC-Firmware
-`ESC SETTINGS`; heute liest und schreibt er nur AM32. Bluejay- und
-BLHeli_S-ESCs werden erkannt, nicht gelesen: siehe
-[EFM8-ESCs](#efm8-escs).
+`ESC SETTINGS`; er liest und schreibt AM32 und liest Bluejay und
+BLHeli_S, ohne sie zu schreiben: siehe [EFM8-ESCs](#efm8-escs).
 
 Der Bildschirm übergibt den Signalpin vom DShot-Treiber an die
 Bootloader-Verbindung (19200 Baud, ein Draht, halbduplex) und beginnt dann zu
@@ -40,14 +40,21 @@ entscheidet der Bootloader etwa 46 ms nach dem Einschalten und wartet dann,
 solange die Leitung hoch liegt; fallen Bytes des Verbindungsaufbaus in diese
 46 ms, startet stattdessen die ESC-Firmware, und die startet sich ohne DShot
 nach 2 s selbst neu, sodass der Bootloader eine neue Gelegenheit bekommt; dann
-startet nur ein Low in seinen letzten 5 ms die Firmware. Nicht gemessen. Die
-Firmware wiederholt ihren Verbindungsaufbau und wartet je 30 ms auf eine
-Antwort.
+startet nur ein Low in seinen letzten 5 ms die Firmware. Nicht gemessen.
+
+Der Bildschirm sucht in einem Zyklus: Eine Sekunde lang sendet er nichts und
+die Leitung liegt hoch, `LINE HIGH, NOTHING SENT` (Leitung hoch, nichts
+gesendet); dann sendet er seinen Verbindungsaufbau 3 Mal und wartet je 30 ms
+auf eine Antwort, `WAITING... (TRY n)` mit einem Versuchszähler; dann wieder
+Ruhe. Die ruhige Sekunde lässt einen Bluejay- oder BLHeli_S-ESC, der lief,
+von selbst in seinen Bootloader wechseln und hält einen AM32, der
+währenddessen eingeschaltet wird, in seinem Bootloader. Nicht gemessen.
+
+<img src="img/am32-quiet.png" width="240" alt="Die Verbindungsseite in ihrer ruhigen Sekunde: LINE HIGH, NOTHING SENT">
 
 Der Bildschirm zeigt `POWER-CYCLE THE ESC` (den ESC aus- und wieder
-einschalten) in Bernstein, den Schritt, der jetzt dran ist, und
-`SEARCHING...`, dann `WAITING... (TRY n)` mit einem Versuchszähler, und einen
-Ladekringel. Bei Erfolg erscheint die Liste, und der
+einschalten) in Bernstein, den Schritt, der jetzt dran ist, den Stand der
+Suche und einen Ladekringel. Bei Erfolg erscheint die Liste, und der
 Streifen unter dem Titel zeigt den ESC-Namen, die MCU-Familie (Microcontroller)
 und die Firmware mit ihrer Version, zum Beispiel
 `NEOESC f051  F051  AM32 2.16`.
@@ -103,15 +110,103 @@ auf.
 
 Der Verbindungsaufbau ist auch für den Bootloader von Bluejay- und
 BLHeli_S-ESCs ein gültiger Gruß, also kann ein solcher ESC antworten. Der
-Bildschirm unterscheidet die Antwort an ihrer Signatur von einer AM32-Antwort
-und zeigt `EFM8 E8B2 ANSWERED: NOT READ YET.` (geantwortet, noch nicht
-gelesen) in Bernstein (`E8B1`, `E8B2` oder `E8B5`, der EFM8-Chip des ESC).
-Nichts wird gelesen oder geschrieben. Laut dem Quelltext der Bootloader; an
-keinem ESC gesehen.
+Bildschirm unterscheidet die Antwort von einer AM32-Antwort: `471` mit 0xE8
+vier Bytes danach nennt den EFM8-Chip eines Bluejay- oder BLHeli_S-ESC
+(`E8B1`, `E8B2` oder `E8B5`). Der Tester liest dann die Einstellungen dieses
+ESC und zeigt sie; er ändert sie nicht. Laut dem Quelltext der Bootloader;
+an keinem ESC gesehen.
 
-<img src="img/am32-efm8.png" width="240" alt="Die Verbindungsseite nach einer Antwort von Bluejay oder BLHeli_S: EFM8 E8B2 ANSWERED: NOT READ YET.">
+Die Seite zeigt `EFM8 E8B2 ANSWERED: READING.` (geantwortet, wird gelesen)
+und statt `POWER-CYCLE THE ESC` die Zeile `EFM8 BOOTLOADER`: Der ESC wartet
+in seinem Bootloader auf Befehle, und seine Firmware läuft nicht, bis er ihn
+verlässt. Der Tester hält die Signalleitung eine halbe Sekunde hoch, grüßt
+den Bootloader erneut und liest seine Einstellungsseite, 112 Bytes bei
+BLHeli_S und 255 bei Bluejay. Nichts wird gelöscht oder geschrieben. Mit
+rcbenchs simuliertem ESC dauert das unter einer Sekunde; an keinem ESC
+gemessen.
 
-Der Bootloader dieses ESC wartet jetzt auf Befehle, ohne Zeitlimit, und
+<img src="img/am32-efm8.png" width="240" alt="Die Verbindungsseite, während ein Bluejay-ESC gelesen wird: EFM8 BOOTLOADER, EFM8 E8B2 ANSWERED: READING.">
+
+Dann öffnet sich die Liste. Der Streifen nennt die Firmware, ihre Version,
+das Einstellungslayout und den Chip, zum Beispiel
+`BLUEJAY 0.21  LAYOUT 208  E8B2`. Jede Zeile ist grau: angezeigt, nicht
+änderbar. Namen und Werte sind die aus rcbenchs Tabellen, in Großbuchstaben;
+die bidirektionalen Einstellungen von DIRECTION heißen `3D` und
+`3D REVERSED`. Ein Wert, der keiner der Einstellung ist, steht zum Beispiel
+als `RAW 17` in Bernstein. `WRITE...` und `REVERT` sind grau, und unter der
+Liste steht `SHOWN ONLY: WRITING IS NOT BUILT.` (nur angezeigt, Schreiben
+ist nicht gebaut) / `BACK SENDS LEAVE: THE ESC STARTS.` (BACK sendet LEAVE,
+der ESC startet).
+
+<img src="img/efm8-list.png" width="240" alt="Die Einstellungen eines Bluejay-0.21-ESC, jede Zeile grau, WRITE... und REVERT grau">
+
+Tipp eine Zeile an, um sie zu wählen. Manche Zeilen haben einen Hinweis,
+zwei Zeilen in Bernstein im Streifen:
+
+| Zeile | Hinweis |
+|---|---|
+| DIRECTION auf `3D` oder `3D REVERSED` | `3D MODE: 50% THROTTLE IS FULL POWER,` / `ABOVE 50% THE OTHER WAY. PROP OFF.` |
+| TEMPERATURE oder LOW-SPEED PROTECTION auf `OFF` | `PROTECTION OFF: THE ESC DOES NOT` / `CUT POWER ON THIS LIMIT.` |
+| POWER RATING | `SETS HOW THE ESC READS ITS TEMP:` / `A WRONG VALUE MISREADS THE LIMIT.` |
+
+<img src="img/efm8-note.png" width="240" alt="POWER RATING gewählt: SETS HOW THE ESC READS ITS TEMP: in Bernstein im Streifen">
+
+DIRECTION auf `3D` oder `3D REVERSED` zeigt den 3D-Hinweis auch ohne
+gewählte Zeile im Streifen und setzt im Tester
+`3D MODE ESC: 0-50% REVERSED AT 2X`. `HEX` zeigt die Bytes wie gelesen,
+8 pro Zeile; zieh, um durch die 255 Bytes einer Bluejay-Seite zu blättern.
+
+<img src="img/efm8-3d.png" width="240" alt="Ein BLHeli_S-ESC mit DIRECTION auf 3D: der 3D-Hinweis in Bernstein im Streifen, die Zeile zeigt 3D">
+
+<img src="img/efm8-hex.png" width="240" alt="ESC HEX: die Bytes der Bluejay-Seite, 8 pro Zeile">
+
+Eine ältere Version und eine Seite, die die Firmware neu geschrieben hat,
+erscheinen genauso, mit zwei Zeilen in Bernstein im Streifen:
+
+| Seite | Streifen |
+|---|---|
+| Bluejay vor 0.21, BLHeli_S vor 16.3 | `BLUEJAY 0.19, LAYOUT 206: READ-ONLY.` / `SHOWN ONLY. NO BACKUP SAVED.` |
+| Der ESC hat seine Tags verloren, die 48 Bytes, die seine Hardware nennen | `ESC LOST ITS TAGS: READ-ONLY.` / `REFLASH ON A COMPUTER. NO BACKUP.` |
+| Die Einstellungsmarke ist falsch | `SETTINGS MARKER WRONG: READ-ONLY.` / `SHOWN ONLY. NO BACKUP SAVED.` |
+
+<img src="img/efm8-readonly.png" width="240" alt="Bluejay 0.19: BLUEJAY 0.19, LAYOUT 206: READ-ONLY. in Bernstein">
+
+Eine Seite, die der Tester nicht annimmt, bleibt auf der Verbindungsseite,
+mit dem, was sie ist: `EFM8 E8B2: SETTINGS PAGE EMPTY` mit
+`PAGE EMPTY, AS AFTER A CUT WRITE.` / `KEEP THE ESC POWERED: SEE MANUAL.`
+(Seite leer wie nach einem abgebrochenen Schreiben; ESC eingeschaltet
+lassen), oder `EFM8 E8B2: PAGE NOT KNOWN`, `BLUEJAY ON EFM8BB1: NOT TAKEN`
+und ähnliche mit `NOT BLUEJAY OR BLHELI_S AS KNOWN:` /
+`NOTHING IS WRITTEN.` Eine leere Seite hat ihre Tags schon verloren;
+eingeschaltet bleibt der ESC in seinem Bootloader.
+
+<img src="img/efm8-empty.png" width="240" alt="Eine leere Einstellungsseite: EFM8 E8B2: SETTINGS PAGE EMPTY und ihre zwei Zeilen"> <img src="img/efm8-refused.png" width="240" alt="Eine unbekannte Seite: EFM8 E8B5: PAGE NOT KNOWN, NOT BLUEJAY OR BLHELI_S AS KNOWN: und NOTHING IS WRITTEN.">
+
+Eine Antwort, die der Tester nicht versteht, die aber ein Stück einer
+solchen Antwort enthält, zum Beispiel die Antwort mit einem verlorenen
+Byte, bekommt von `BACK` dieselbe Verlassenseite: Der Bootloader dieses ESC
+kann ebenfalls warten. Ihr Streifen zeigt `EFM8  SIG GP0`. Eine Antwort
+ohne ein solches Stück nicht.
+
+**Die Liste verlassen.** `BACK` aus der Liste sendet dem Bootloader LEAVE,
+das die ESC-Firmware startet: Die Seite zeigt `LEAVING` und in Bernstein
+`KEEP THE PROPELLER OFF.` (Propeller ab lassen). Etwa eine Drittelsekunde
+später kehrt DShot auf den Signalpin zurück und der Bildschirm zu MENU.
+LEAVE hat keine Antwort: Ob der ESC gestartet ist, sieht der Tester nicht;
+an keinem ESC geprüft. MENUs `POWER-CYCLE THE ESC TO RUN IT` bleibt, bis der
+ESC eRPM sendet.
+
+<img src="img/efm8-leaving.png" width="240" alt="LEAVING: THE ESC STARTS ITS FIRMWARE ON LEAVE, THEN DSHOT RETURNS. KEEP THE PROPELLER OFF.">
+
+Antwortet der ESC nicht mehr, bevor seine Seite gelesen ist, zeigt die
+Seite `THE ESC ANSWERED, THEN STOPPED.` / `SEARCHING AGAIN.` (geantwortet,
+dann verstummt; sucht erneut) und grüßt erneut.
+
+<img src="img/efm8-stopped.png" width="240" alt="THE ESC ANSWERED, THEN STOPPED. und SEARCHING AGAIN. unter dem ruhigen Status der Verbindungsseite">
+
+Überall sonst nach einer solchen Antwort, auf der Verbindungsseite während
+des Lesens, nach einer Seite, die nicht angenommen wird, oder nachdem die
+Suche neu begonnen hat, kann der Bootloader noch auf Befehle warten, und
 DShot-Frames könnten als einer durchgehen. Darum öffnet `BACK` eine
 Verlassenseite, statt sofort zu MENU zurückzukehren:
 
@@ -121,14 +216,17 @@ Verlassenseite, statt sofort zu MENU zurückzukehren:
 
 <img src="img/am32-leave.png" width="240" alt="Die Verlassenseite: Schritt 1 UNPLUG THE ESC BATTERY, THEN LEAVE., STAY und LEAVE">
 
-`STAY` kehrt zum Bildschirm zurück. Zieh den ESC-Akku ab, dann tippe
-`LEAVE`. `RESTART DSHOT` tritt an die Stelle von LEAVE und wirkt 1 s später;
-es startet DShot auf dem Signalpin und kehrt zu MENU zurück. Steck den Akku
-danach wieder an. `BACK` ist auf dieser Seite grau. MENUs
-`POWER-CYCLE THE ESC TO RUN IT` verschwindet mit RESTART DSHOT, da die
-Schritte den ESC neu gestartet haben. Den Akku sieht der Tester nicht:
-RESTART DSHOT bei noch eingestecktem ESC, oder ein Neustart des Testers,
-während der ESC wartet, schickt DShot in seinen Bootloader.
+`STAY` kehrt zum Bildschirm zurück. Solange die Verlassenseite offen ist,
+laufen der Gruß des Testers und sein erster Blick auf die Seite weiter, und
+das Lesen der ganzen Seite wartet auf `STAY`. Zieh den ESC-Akku ab, dann
+tippe `LEAVE`. `RESTART DSHOT` tritt an die Stelle von LEAVE und wirkt 1 s
+später; es startet DShot auf dem Signalpin und kehrt zu MENU zurück. Steck
+den Akku danach wieder an. `BACK` ist auf dieser Seite grau. RESTART DSHOT
+nimmt MENUs `POWER-CYCLE THE ESC TO RUN IT` weg, da die Schritte den ESC
+neu gestartet haben.
+Den Akku sieht der Tester nicht: RESTART DSHOT bei noch eingestecktem ESC,
+oder ein Neustart des Testers, während der ESC wartet, schickt DShot in
+seinen Bootloader.
 
 ---
 
@@ -447,18 +545,19 @@ anbietet, oder siehst, was eine Änderung auf Byte-Ebene bewirkt hat.
 kehrt zu `MENU` zurück; mit ungeschriebenen Änderungen fragt es zuerst, wie
 unter [Ändern](#ändern). Der Tester ist entschärft.
 
-Beim Verlassen schickt die Firmware dem Bootloader keinen Befehl, die
+Beim Verlassen schickt die Firmware einem AM32-Bootloader keinen Befehl, die
 ESC-Firmware zu starten. Was der ESC nach dem Verlassen des Bildschirms
 tut, ist nicht aufgezeichnet. **Starte den ESC nach dem Verlassen neu**,
 bevor du einen Motor ansteuerst. Nach einer Antwort von Bluejay oder
-BLHeli_S öffnet `BACK` stattdessen die Verlassenseite
-([EFM8-ESCs](#efm8-escs)).
+BLHeli_S sendet `BACK` aus deren Liste LEAVE, und `BACK` von überall sonst
+öffnet stattdessen die Verlassenseite ([EFM8-ESCs](#efm8-escs)).
 
 Nach einer Sitzung, in der der Bootloader geantwortet hat, zeigt MENU
 `POWER-CYCLE THE ESC TO RUN IT` in Bernstein unter der Zeile des Streifens.
 Der Hinweis verschwindet, sobald ein eRPM-Frame eintrifft, den nur die
 ESC-Firmware sendet, mit RESTART DSHOT der Verlassenseite, oder wenn die
-Platine neu startet.
+Platine neu startet. LEAVE aus einer Bluejay- oder BLHeli_S-Liste lässt ihn
+stehen, da LEAVE keine Antwort hat.
 
 <img src="img/menu-run-cue.png" width="240" alt="MENU mit POWER-CYCLE THE ESC TO RUN IT in Bernstein unter der Zeile des Streifens">
 
@@ -466,17 +565,20 @@ Platine neu startet.
 
 ## Wenn keine Verbindung zustande kommt
 
-- **Endlos `SEARCHING...` oder `WAITING...`.** Zieh den ESC-Akku ab und steck
-  ihn wieder an, *während der Bildschirm offen ist*. Ob ein ESC, der schon
-  vor dem Öffnen des Bildschirms lief, ohne Neustart erreicht wird, ist nicht
-  gemessen.
+- **Endlos `LINE HIGH, NOTHING SENT` und `WAITING...`.** Zieh den ESC-Akku
+  ab und steck ihn wieder an, *während der Bildschirm offen ist*. Ob ein
+  ESC, der schon vor dem Öffnen des Bildschirms lief, ohne Neustart erreicht
+  wird, ist nicht gemessen.
 - **`REPLY NOT UNDERSTOOD`.** Die Verbindung funktioniert, die Rahmenbildung
   nicht. Mögliche Ursachen: Der ESC läuft nicht mit AM32, oder sein Bootloader
   nutzt ein Protokoll, das dieser Transport nicht umsetzt.
-- **`EFM8 E8B2 ANSWERED: NOT READ YET.`** Ein Bluejay- oder BLHeli_S-ESC
-  hat geantwortet. Dieser Bildschirm liest seine Einstellungen noch nicht.
-  Verlass ihn über die Verlassenseite, wie unter
-  [EFM8-ESCs](#efm8-escs).
+- **`EFM8 E8B2 ANSWERED: READING.`, das stehen bleibt.** Ein Bluejay- oder
+  BLHeli_S-ESC hat geantwortet, und seine Seite wird gelesen; das dauert
+  etwa eine Sekunde. Siehe [EFM8-ESCs](#efm8-escs).
+- **`THE ESC ANSWERED, THEN STOPPED.`** Der ESC hat auf den
+  Verbindungsaufbau geantwortet, dann aber nicht auf den eigenen Gruß oder
+  das Lesen des Testers. Die Suche läuft erneut. Prüfe das Signalkabel und
+  lass den ESC eingeschaltet.
 - **`NO VALID SETTINGS`.** Der ESC hat geantwortet, und der Einstellungsblock
   hat die Plausibilitätsprüfung nicht bestanden. Schreibe nichts.
 - **`LAYOUT n NOT KNOWN: READ-ONLY.`** Der ESC speichert ein

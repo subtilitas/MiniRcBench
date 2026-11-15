@@ -31,7 +31,7 @@ static bool       s_jobWanted = false;
 static bool       s_unplug = false;
 /** @} */
 
-/** @brief The core1 job a screen runs; None for AM32. @see PIN_USERS */
+/** @brief The core1 job a screen runs. @see PIN_USERS */
 static Core1Job jobFor(PinUser who) { return pinUserInfo(who).job; }
 
 /**
@@ -42,7 +42,7 @@ static Core1Job jobFor(PinUser who) { return pinUserInfo(who).job; }
  */
 static bool needsUnplug() { return s_unplug; }
 
-/** @brief Hand the job its pins. AM32 has no job and starts nothing. */
+/** @brief Hand the job its pins. A user with no job starts nothing. */
 static void startJob() {
 	s_jobError = CORE1_JOB_OK;
 	s_jobPending = false;
@@ -67,9 +67,10 @@ static void restore() {
  *
  * SERVO, KST, HITEC and the S.BUS monitor wait for RESTART DSHOT, which
  * pinClaimUnplugDue() offers only once their job is idle; so does an AM32
- * claim after an EFM8 bootloader answered (pinClaimWantLeavePage()). Any
- * other AM32 claim has neither a job nor the page, so it restores within the
- * call that ended it. The USB bridge has a job and no page: it restores on
+ * claim after an EFM8 bootloader answered (pinClaimWantLeavePage()), which
+ * ESC SETTINGS asks for before it starts its job. Any other AM32 claim has
+ * neither a job nor the page, so it restores within the call that ended it.
+ * The USB bridge has a job and no page: it restores on
  * the first look at the claim that finds its job idle, settle()'s included,
  * so DShot is never rebuilt on a pin the job's state machines still drive,
  * and comes back after a screen that ended the claim and closed.

@@ -226,10 +226,14 @@ screen does not work.
 
 - **`REPLY NOT UNDERSTOOD`**: the link works and the framing does not. Possible
   cause: the ESC does not run AM32.
-- **`EFM8 E8B2 ANSWERED: NOT READ YET.`**: a Bluejay or BLHeli_S ESC
-  answered. The screen does not read its settings. `BACK` opens a leave
-  page: unplug the ESC battery, `LEAVE`, `RESTART DSHOT`, then plug it in
-  ([AM32 Configuration](AM32-Configuration#efm8-escs)).
+- **`EFM8 E8B2 ANSWERED: READING.`**: a Bluejay or BLHeli_S ESC answered,
+  and the screen reads its settings, shown and not written. `BACK` from its
+  list sends LEAVE, which starts the ESC; `BACK` before the list opens a
+  leave page: unplug the ESC battery, `LEAVE`, `RESTART DSHOT`, then plug
+  it in ([AM32 Configuration](AM32-Configuration#efm8-escs)).
+- **`THE ESC ANSWERED, THEN STOPPED.`**: the ESC answered and then stopped
+  answering before its page was read; the search runs again. Check the
+  signal wire and keep the ESC powered.
 - **`NO VALID SETTINGS`**: the ESC answered, and the settings block failed the
   plausibility check. Do not write anything.
 - **`LAYOUT n NOT KNOWN: READ-ONLY.`**: the screen connected, and the ESC

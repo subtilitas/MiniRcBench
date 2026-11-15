@@ -65,6 +65,12 @@ static ClockTime ct(int y, int mo, int d, int h, int mi, int s) {
 	return t;
 }
 
+/** @brief Whether two times are the same, field by field: the struct's padding is not compared. */
+static bool sameTime(const ClockTime &a, const ClockTime &b) {
+	return a.year == b.year && a.month == b.month && a.day == b.day && a.hour == b.hour &&
+	       a.minute == b.minute && a.second == b.second;
+}
+
 // ---------------------------------------------------------------------------
 // pure
 // ---------------------------------------------------------------------------
@@ -120,7 +126,7 @@ static void testCalendar() {
 		ClockTime back;
 		if (clockToSecs(&d) != expect) bad++;
 		clockFromSecs(expect, &back);
-		if (memcmp(&back, &d, sizeof(d)) != 0) bad++;
+		if (!sameTime(back, d)) bad++;
 		clockFromSecs(expect + 1, &back);
 		if (back.hour != 0 || back.minute != 0 || back.second != 0) bad++;
 		if (++d.day > clockDaysIn(d.year, d.month)) {

@@ -65,6 +65,32 @@ protocol.
   and `test/test_set_clock.py`, which `make -C test run` runs. README and
   the wiki pages SD-Logging, SD-Aufzeichnung, The-Screens and
   Die-Bildschirme describe the set. Not tested on hardware.
+- After v0.1.0-rc1: a Bluejay or BLHeli_S ESC's settings are read, slice 3
+  of [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#slice-3-as-built).
+  ESC SETTINGS' connect page greets in bursts of 3 between seconds of quiet
+  line, `LINE HIGH, NOTHING SENT` (`src/greet_cycle.*`). An EFM8 answer, now
+  `471` with 0xE8 four bytes on anywhere in the reply, ends the AM32
+  transport and starts the claim's core1 job, `Core1Job::EscWire`
+  (`src/escwire_job.*`, `src/escwire_port.*`), which runs rcbench's escwire
+  session on `ew_line`: its own first contact, the identification and the
+  read of the page, `EFM8 E8B2 ANSWERED: READING.` meanwhile. A Bluejay or
+  BLHeli_S page opens as a list, every row read-only, with its group, its
+  value in capitals and DIRECTION's `3D` and `3D REVERSED`
+  (`src/efm8_view.*`), WRITE... and REVERT drawn disabled, ESC HEX of 112 or
+  255 bytes, the strip's caption, read-only lines and row notes, and the
+  tester's 3D note. A page rcbench does not take is named on the connect
+  page, `EFM8 E8B2: SETTINGS PAGE EMPTY` or `EFM8 E8B2: PAGE NOT KNOWN` and
+  the like. BACK from the list sends LEAVE, `00 01`, and gives SIG back to
+  DShot; MENU's run cue stays until an eRPM frame, as LEAVE has no answer.
+  Every other BACK after an EFM8 answer opens the leave page, as before, and
+  so does BACK after a reply that holds a piece of an EFM8 answer, `471`,
+  `71` and 0xE8 two bytes on, or 0xE8 with 0xB1, 0xB2 or 0xB5. A refused
+  bind puts the pull-up back on SIG. A session that ends without the page greets
+  again. The job stops an entry or read on a heartbeat lapse and lets a
+  LEAVE finish. Nothing writes a Bluejay or BLHeli_S ESC. Host tests in
+  `test/test_escwire_job.cpp`, `test/test_efm8_view.cpp`,
+  `test/test_am32.cpp` and `test/test_ui.cpp` against rcbench's simulated
+  ESC; CI checks the job's stack on core1. Not tested on hardware.
 - After v0.1.0-rc1: the angle meter's model, slice 3 of
   [angle-meter.md](docs/design/angle-meter.md#slice-3-as-built)
   (`src/angle_model.*`), pure. It averages the samples of the QMI8658 IMU

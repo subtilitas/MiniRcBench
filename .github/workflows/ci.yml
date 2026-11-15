@@ -124,6 +124,24 @@ jobs:
           python3 tools/stack_depth.py --limit 1792 \
             --root hitecJobStep --root hitecJobRelease --root hitecJobBind "${ci[@]}"
 
+      # The ESC settings job runs on core1 too. src/escwire.cmake builds the
+      # job, its line port, the escwire core and its line driver with
+      # -fcallgraph-info=su; the same limit holds for the job's three entry
+      # points. The session calls its line driver through the function
+      # pointers of ew_driver_t, which the call graph has no edge for: the
+      # deepest of the five driver functions is added to each chain. SDK
+      # calls count 0 bytes, as in the Hitec step.
+      - name: ESC settings job stack on core1
+        run: |
+          mapfile -t ci < <(find build -name 'ew_*.ci' -o -name 'escwire_*.ci')
+          printf '%s\n' "${ci[@]}"
+          [ "${#ci[@]}" -eq 16 ] || {
+            echo "::error::expected 16 call-graph files, found ${#ci[@]}"; exit 1; }
+          python3 tools/stack_depth.py --limit 1792 \
+            --root escwireJobStep --root escwireJobRelease --root escwireJobBind \
+            --indirect ew_line_start --indirect ew_line_poll --indirect ew_line_abort \
+            --indirect ew_line_level --indirect ew_line_now_us "${ci[@]}"
+
       # A ceiling, not a printout. The framebuffer alone is 150 kB of the
       # RP2350's 520 kB, and a regression that doubles a buffer otherwise passes
       # CI and fails on the bench. Generous enough not to be a nuisance; tighten

@@ -252,6 +252,7 @@ add_executable(MiniRcBench
     src/core1_job.cpp
     src/am32_bl.cpp
     src/bl_answer.cpp
+    src/greet_cycle.cpp
     src/am32_eeprom.cpp
     src/kiss_telem.cpp
     src/pio_uart_rx.cpp
