@@ -280,7 +280,8 @@ enum class RunSumRow : uint8_t {
 /** @brief What one of SD LOG's run rows shows. */
 struct RunSumRowText {
 	const char *label;  /**< The row's label. */
-	char value[24];     /**< The value, or `--` when unknown. */
+	char value[24];     /**< The value, or `--` when unknown; holds the longest,
+	                         `NOT SAVED: WRITE FAILED`, and its NUL. */
 	const char *tag;    /**< `KISS`, `EDT` or `MIXED`, or nullptr for none. */
 	bool unknown;       /**< The value is `--`. */
 	bool alert;         /**< MAX TEMP at 90 °C or above, or SUMMARY not saved. */

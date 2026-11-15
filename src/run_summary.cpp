@@ -546,6 +546,8 @@ void runSumRowText(const RunSum *s, RunSumRow row, uint8_t poles,
 					o->alert = true;
 					break;
 				case RunSumFile::WriteFailed:
+					static_assert(sizeof("NOT SAVED: WRITE FAILED") <= sizeof(o->value),
+					              "the row value holds the longest text");
 					snprintf(o->value, sizeof(o->value), "NOT SAVED: WRITE FAILED");
 					o->unknown = false;
 					o->alert = true;

@@ -656,6 +656,19 @@ static void testIntegral() {
 	checkTrue("KISS for no time: tag EDT", runSumUsedCurrent(&w.s).from == RunSumFrom::Edt);
 	checkTrue("a sample back in time: 40 ms known", w.s.ampKnownUs == 40000u);
 
+	// The next sample counts from the last forward one, and a stop stamped
+	// before the last sample ends at that sample.
+	Sim bk;
+	simBegin(&bk, true, 1000);
+	for (int i = 0; i < 3; i++) { simStep(&bk, 20); edtAmps(&bk, 10); simFeed(&bk); }
+	uint64_t last = bk.us;
+	bk.us = last - 5000u;  simFeed(&bk);
+	bk.us = last + 20000u; simFeed(&bk);
+	checkTrue("after a sample back in time: 60 ms known", bk.s.ampKnownUs == 60000u);
+	runSumEnd(&bk.s, last, RunSumEnd::Stop);
+	checkTrue("a stop before the last sample ends at it", bk.s.stopUs == last + 20000u);
+	checkTrue("armed to the last sample: 80 ms", bk.s.armedUs == 80000u);
+
 	// EDT alone: no "KISS sent 0".
 	Sim e;
 	simBegin(&e, true, 1000);
@@ -690,6 +703,19 @@ static void testArmed() {
 	checkTrue("auto log: armed equals duration", a.s.armedUs == a.s.stopUs - a.s.startUs);
 	checkLine("ended by", &a.s, "Ended by:", "Ended by: DISARM");
 	checkRow("ARMED row", &a.s, RunSumRow::Armed, "0:00:00", nullptr);
+
+	// Each interval counts by the sample before it: the 50 ms before the
+	// arming frame are not armed, the 100 ms before the disarming frame are.
+	Sim ed;
+	simBegin(&ed, false);
+	simTick(&ed, 50);
+	ed.armed = true;
+	simTick(&ed, 50);
+	simTick(&ed, 2);
+	ed.armed = false;
+	simTick(&ed, 100);
+	end(&ed);
+	checkTrue("edges of unequal intervals: 102 ms armed", ed.s.armedUs == 102000u);
 }
 
 /** @brief Sums and times past the 32-bit micros() wrap, 71.6 minutes. */
