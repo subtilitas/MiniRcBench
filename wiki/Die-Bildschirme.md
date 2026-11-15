@@ -456,7 +456,8 @@ Hintergrundbeleuchtung auf 255, solange er an ist.*
 
 <img src="img/log-ready.png" width="240" alt="SD-LOG-Bildschirm, Karte bereit">
 
-Aufzeichnungszustand und Zähler. `BACK` führt zu `MENU` zurück. Siehe
+Aufzeichnungszustand und Zähler, nach dem Beenden der Lauf der letzten
+Aufzeichnung. `BACK` führt zu `MENU` zurück. Siehe
 [SD-Aufzeichnung](SD-Aufzeichnung).
 
 ---

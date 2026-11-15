@@ -19,8 +19,9 @@
  * decisions: three failed transactions take an online part offline, two
  * timeouts in a row or a line held low mark the bus stuck, a recovery runs at
  * once and every 100 ms while it is stuck. This file supplies its wire over
- * the SDK (software development kit), runs the recovery, and reports the touch
- * driver's transfers to the same record (senseNoteTouch()).
+ * the SDK (software development kit), runs the recovery, and takes the
+ * transfers of the bus's other clients, the touch driver and the IMU
+ * (inertial measurement unit) driver, into the same record (senseNote()).
  *
  * Each reading is published as a @ref SenseSample under a critical section
  * of this module's own; senseSample() copies it on either core. A reading
@@ -276,22 +277,26 @@ void senseInit();
 void senseConfigure(uint8_t mode);
 
 /**
- * @brief Every UI frame, directly after touchPoll(): a recovery when one is
- *        due, a probe when one is due, else a read-back of the configuration
- *        once a second and a reading of the shunt and bus registers.
- *        Nothing with @ref SenseMode::None.
+ * @brief Every UI frame, directly after touchPoll(): a recovery of the bus
+ *        when one is due, whatever the mode; then, with
+ *        @ref SenseMode::Ina219 only, a probe when one is due, else a
+ *        read-back of the configuration once a second and a reading of the
+ *        shunt and bus registers.
  * @param nowMs millis() now.
  */
 void senseTick(uint32_t nowMs);
 
 /**
- * @brief The touch driver's transfer on the shared bus, for the stuck
- *        decision: a timeout counts, a NACK (not acknowledged) shows the bus
- *        working.
+ * @brief A transfer of another client of the shared bus, the touch driver or
+ *        the IMU driver, mapped as the sensor's own transfers are and noted
+ *        to the bus record for the stuck decision: a timeout counts, a line
+ *        held low marks the bus stuck, a NACK (not acknowledged) shows the
+ *        bus working.
  * @param result The SDK's return.
  * @param want   The byte count asked.
+ * @return SENSE_OK, SENSE_NACK, SENSE_TIMEOUT or SENSE_BUS_LOW.
  */
-void senseNoteTouch(int result, size_t want);
+sense_err_t senseNote(int result, size_t want);
 
 /** @brief Whether CURRENT SENSE declares a sensor. @return Mode not None. */
 bool senseDeclared();
