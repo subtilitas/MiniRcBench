@@ -57,6 +57,12 @@ change saved in the ESC behind a 1 s hold, and an RPM-per-volt reading and
 a kV estimate on the tester, labelled `KV EST`, are designed in
 `docs/design/esc-commands.md` and not built; they wait on the owner's
 answers to that note's open questions.
+A USB bridge, through which an ESC tool on a desktop computer reaches the
+ESC's bootloader on SIG over the board's USB serial port, by passthrough at
+19200 baud or through MSP (the MultiWii Serial Protocol) and the 4-way
+interface of flight controllers, is designed in `docs/design/usb-bridge.md`
+and not built; it waits on the owner's answers to that note's open
+questions.
 Reading and editing Bluejay and BLHeli_S ESC settings over the signal
 wire, from the connect page AM32 CONFIG has, with rcbench's escwire module,
 is designed in `docs/design/bluejay-blheli-s.md` and not built; it waits

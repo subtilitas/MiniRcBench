@@ -769,7 +769,7 @@ own README and wiki lines (the owner's decision 27 of
    BLHeli_S ESC under that name. (c) A chooser in the row, as PROGRAMMER:
    AM32 and BLUEJAY / BLHELI_S, each with its own connect; one more tap, no
    connect cycle needed. (d) An eighth MENU row; MENU scrolls 78 px. (e)
-   With question 1 (c) of `docs/design/usb-bridge.md` (pull request #73),
+   With question 1 (c) of [usb-bridge.md](usb-bridge.md#open-questions),
    the row is a chooser; this screen is its first line for every firmware,
    titled `ESC SETTINGS` (12 characters, 142 px at scale 2), beside USB
    BRIDGE, and option (c) here becomes one more chooser line. The owner
