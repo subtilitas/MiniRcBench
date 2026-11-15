@@ -1,4 +1,4 @@
-MiniRcBench hardware models and CAD files: licence
+MiniRcBench hardware design files (models, CAD and drawings): licence
 
 Copyright (c) 2026 subtilitas
 
@@ -15,6 +15,8 @@ https://creativecommons.org/licenses/by-nc-sa/4.0/
 Files covered
 -------------
 
+- docs/wiring.svg, the wiring drawing, and its copy wiki/img/wiring.svg, and
+  tools/make_wiring.py, the script that draws it.
 - hardware/cad/: the Alibre Design assemblies and parts (.AD_ASM, .AD_PRT).
 - hardware/mechanical/: the STEP models (.step, .stp), the renders (.png)
   and the Python scripts that generate, check or trace the models, with the
@@ -24,7 +26,7 @@ Files covered
   of rcbench's files and are re-copied once rcbench changes their licence.
   Until then the copies carry no licence line of their own.
 
-Everything else in the repository, the firmware, tests, tools and
+Everything else in the repository, the firmware, tests, other tools and
 documentation included, is under the MIT licence of the file LICENSE in the
 repository root.
 

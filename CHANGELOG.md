@@ -1080,17 +1080,22 @@ protocol.
 
 ### Changed
 
-- After v0.1.0-rc1: the models and CAD files move from MIT to CC BY-NC-SA 4.0
-  (Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International):
-  everything under `hardware/cad/` and `hardware/mechanical/`, and the copies
+- After v0.1.0-rc1: the models, CAD files and drawings move from MIT to
+  CC BY-NC-SA 4.0 (Creative Commons Attribution-NonCommercial-ShareAlike 4.0
+  International): everything under `hardware/cad/` and `hardware/mechanical/`,
+  the wiring drawing `docs/wiring.svg` (and its copy `wiki/img/wiring.svg`,
+  made by `tools/make_previews.py`) with `tools/make_wiring.py`, which writes
+  its identifier into the SVG's first line, and the copies
   of rcbench's model generators in `lib/rcbench/hardware/`, which stay
   unchanged until rcbench's licence change is merged and they are copied
   again. The legal code is [hardware/LICENSE-CAD.txt](hardware/LICENSE-CAD.txt).
-  Firmware, tests, tools and documentation stay MIT. The `.py` files in
+  `LICENSE` opens with a line that limits its MIT text to the software.
+  Firmware, tests, other tools and documentation stay MIT. The `.py` files in
   `hardware/mechanical/` gain `SPDX-License-Identifier: CC-BY-NC-SA-4.0`;
   `gen_models.py` writes it into the `FILE_DESCRIPTION` of the three STEP
   models it generates, and the fourth, `lipo_102540_1000mah.step`, carries
-  it by hand. The generated models differ from rcbench's in that field.
+  it by hand. The generated models differ from rcbench's in that field
+  until rcbench's generator writes it too.
   `test/check_docs.py` checks the identifiers, the legal code by SHA-256
   (Secure Hash Algorithm 256-bit) and that no file outside those directories
   carries the new licence.

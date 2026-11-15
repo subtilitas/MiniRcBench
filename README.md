@@ -3407,7 +3407,7 @@ lib/rcbench/            rcbench files copied unchanged: servo sweep, GPIO-to-PWM
 tools/
   sdtest/               standalone SD bring-up test, 2.8" only; built locally, never released
   make_previews.py      restitches docs/*.png and wiki/img/ from the test suite's frames
-  make_wiring.py        draws docs/wiring.svg from the pin sources; --check fails on drift
+  make_wiring.py        draws docs/wiring.svg from the pin sources; --check fails on drift; CC BY-NC-SA 4.0
   check_wiki.py         wiki link, anchor and image checks
   coverage.py           host-suite line coverage: writes and checks the README and STATUS.md figures
   set_clock.py          sets the board's clock to the computer's local time over USB serial
@@ -3948,12 +3948,14 @@ credit, and you must share adaptations under the same licence. They are:
 - everything under `hardware/cad/`: the Alibre Design assemblies and parts;
 - everything under `hardware/mechanical/`: the STEP models, the renders and
   the Python scripts that generate, check or trace them;
+- the wiring drawing `docs/wiring.svg`, its copy `wiki/img/wiring.svg` and
+  `tools/make_wiring.py`, which draws it;
 - the copies of rcbench's model generators in `lib/rcbench/hardware/`.
 
 The legal code is in [hardware/LICENSE-CAD.txt](hardware/LICENSE-CAD.txt), which
 also names the Waveshare name and logo in the board model as Waveshare's
-trademarks. Firmware, tests, tools and documentation stay MIT, the generated
-`docs/wiring.svg` included. The firmware image holds no hardware file, and
+trademarks. The MIT licence covers the software: firmware, tests, other tools
+and documentation. The firmware image holds no hardware file, and
 `THIRD_PARTY_NOTICES.txt` lists none.
 
 A firmware image also contains the libraries it links, each under its own

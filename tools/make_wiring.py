@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: CC-BY-NC-SA-4.0
 """Draw the bench wiring as docs/wiring.svg.
 
 The connector map and the pin roles come from the firmware's own sources, so
@@ -16,6 +17,9 @@ the drawing follows the code:
   src/servo_supply.cpp, the mapping the firmware runs;
 - INA219_ADDR and INA219_SHUNT_MOHM in src/sense.h, the sensor's address
   and shunt.
+
+The drawing and this script are CC-BY-NC-SA-4.0 (hardware/LICENSE-CAD.txt);
+the SVG carries the identifier in its first line.
 
 Usage:
     python3 tools/make_wiring.py           # write docs/wiring.svg
@@ -302,7 +306,8 @@ class Svg:
         return (x + 40, y), (x + 40, y + 60)
 
     def render(self, height):
-        head = ('<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" '
+        head = ('<!-- SPDX-License-Identifier: CC-BY-NC-SA-4.0 -->\n'
+                '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" '
                 'viewBox="0 0 %d %d" font-family="%s">\n'
                 '<rect width="100%%" height="100%%" fill="#ffffff"/>\n'
                 % (W, height, W, height, FONT))

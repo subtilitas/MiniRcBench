@@ -369,20 +369,24 @@ sharing volume.
 **Licence of the models and CAD files.** CC BY-NC-SA 4.0
 (Attribution-NonCommercial-ShareAlike 4.0 International) covers
 `hardware/cad/` and `hardware/mechanical/`, the models, renders and generator
-scripts, and the copies of rcbench's model generators in
+scripts, the wiring drawing `docs/wiring.svg` (and the wiki's copy) with
+`tools/make_wiring.py`, and the copies of rcbench's model generators in
 `lib/rcbench/hardware/`; the rest of the repository is MIT.
 [hardware/LICENSE-CAD.txt](hardware/LICENSE-CAD.txt) holds the legal code, as
 copied from creativecommons.org, and the Waveshare name and logo as
-Waveshare's trademarks. The `.py` files and the four `.step` files carry the
+Waveshare's trademarks. The `.py` files, the four `.step` files and the SVG carry the
 identifier; the Alibre files, the `.stp` files and the renders carry none,
 and the directory's licence covers them. `test/check_docs.py` checks this,
 mutation-checked. Open: the `lib/rcbench/hardware/` copies are unchanged and
 have no licence line, as in rcbench, until rcbench's licence change is merged
-and they are copied again; after that the two modules' STEP header written
-by `gen_models.py` may need to follow rcbench's. Not verified: whether Waveshare's STEP file of
+and they are copied again; the two modules' STEP models differ from rcbench's
+in the licence in `FILE_DESCRIPTION` until then. rcbench's generator is being
+changed to write that text, so the copies match again after the re-copy. Not verified: whether Waveshare's STEP file of
 the ESP32-S3 board, which the board model's measurements came from, allows
-the licence on the files drawn from it. Not decided: `LICENSE` itself still
-reads MIT with no exception.
+the licence on the files drawn from it. `LICENSE` opens with a line that limits its
+MIT text to the software and points to `hardware/LICENSE-CAD.txt`. The only
+drawing in the tree is `docs/wiring.svg`; the other images are screen
+previews and renders.
 
 ## What exists and how far it is verified
 
