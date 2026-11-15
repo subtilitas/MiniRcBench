@@ -4,9 +4,10 @@
  *
  * Built by `make -C test lognum`, against FatFs from the SD library at the
  * commit `CMakeLists.txt` pins, with the library's `ffconf.h` (long names,
- * exFAT), as `make kstcount` builds it. The card is a RAM disk; the test can
- * swap it for another card image, report it uninitialised as the SDIO glue
- * does after a card fault, or report it write-protected.
+ * exFAT), as `make kstcount` builds it. The card is the RAM disk of
+ * ram_disk.h; the test can swap it for another card image, report it
+ * uninitialised as the SDIO glue does after a card fault, or report it
+ * write-protected.
  *
  * Covers the scan (gaps, the full range, foreign names, letter case, long
  * names), the number kept between starts, a file the scan did not count,
@@ -18,69 +19,14 @@
 #include "sd_log_next.h"
 #include "check.h"
 
-#include "diskio.h"
 #include "ff.h"
+#include "ram_disk.h"
 
-#include <map>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <vector>
 
 int g_failures = 0;
-
-// ---------------------------------------------------------------------------
-// the card: sparse sectors; two images to swap between
-// ---------------------------------------------------------------------------
-
-typedef std::map<LBA_t, std::vector<BYTE>> Image;
-
-static Image  s_cards[2];
-static int    s_card = 0;
-static LBA_t  s_sectors;
-/** @brief Reported by disk_status() until the next disk_initialize(). */
-static bool   s_noInit = false;
-static bool   s_protect = false;
-
-DSTATUS disk_initialize(BYTE) { s_noInit = false; return s_protect ? STA_PROTECT : 0; }
-DSTATUS disk_status(BYTE) {
-	return (DSTATUS)((s_noInit ? STA_NOINIT : 0) | (s_protect ? STA_PROTECT : 0));
-}
-
-DRESULT disk_read(BYTE, BYTE *buf, LBA_t sector, UINT count) {
-	Image &d = s_cards[s_card];
-	for (UINT i = 0; i < count; i++) {
-		auto it = d.find(sector + i);
-		if (it == d.end()) memset(buf + i * 512u, 0, 512);
-		else memcpy(buf + i * 512u, it->second.data(), 512);
-	}
-	return RES_OK;
-}
-
-DRESULT disk_write(BYTE, const BYTE *buf, LBA_t sector, UINT count) {
-	if (s_protect) return RES_WRPRT;
-	Image &d = s_cards[s_card];
-	for (UINT i = 0; i < count; i++) {
-		const BYTE *p = buf + i * 512u;
-		bool zero = true;
-		for (int j = 0; j < 512 && zero; j++) zero = p[j] == 0;
-		if (zero) d.erase(sector + i);
-		else d[sector + i].assign(p, p + 512);
-	}
-	return RES_OK;
-}
-
-DRESULT disk_ioctl(BYTE, BYTE cmd, void *buf) {
-	switch (cmd) {
-		case CTRL_SYNC:        return RES_OK;
-		case GET_SECTOR_COUNT: *(LBA_t *)buf = s_sectors; return RES_OK;
-		case GET_SECTOR_SIZE:  *(WORD *)buf = 512; return RES_OK;
-		case GET_BLOCK_SIZE:   *(DWORD *)buf = 1; return RES_OK;
-		default:               return RES_PARERR;
-	}
-}
-
-DWORD get_fattime() { return ((DWORD)(2026 - 1980) << 25) | (1u << 21) | (1u << 16); }
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -90,18 +36,7 @@ static FATFS s_fs;
 static const char *const DIR_PATH = "/LOGS";
 
 /** @brief Format both card images with @p fmt and mount card 0. */
-static void format(BYTE fmt, LBA_t sectors, DWORD au) {
-	s_sectors = sectors;
-	s_noInit = s_protect = false;
-	static BYTE work[FF_MAX_SS * 8];
-	MKFS_PARM opt = { fmt, 2, 0, 0, au };
-	for (int c = 1; c >= 0; c--) {
-		s_card = c;
-		s_cards[c].clear();
-		if (f_mkfs("", &opt, work, sizeof(work)) != FR_OK) { fprintf(stderr, "mkfs failed\n"); exit(2); }
-	}
-	if (f_mount(&s_fs, "", 1) != FR_OK) { fprintf(stderr, "mount failed\n"); exit(2); }
-}
+static void format(BYTE fmt, LBA_t sectors, DWORD au) { ramDiskFormat(&s_fs, fmt, sectors, au); }
 
 /** @brief Put an empty file at @p path, as a computer would. */
 static void put(const char *path) {
@@ -207,8 +142,8 @@ static void testMounts(const char *vol) {
 	// reports the card uninitialised after the fault the swap caused, so
 	// FatFs mounts again on its next call, without f_mount().
 	WORD idA = s_fs.id;
-	s_card = 1;
-	s_noInit = true;
+	g_disk.card = 1;
+	g_disk.noInit = true;
 	checkInt("card B, an empty card, after a fault: LOG00001.BFL", (long)start(&c), 1);
 	checkTrue("FatFs mounted again", s_fs.id != idA);
 	checkTrue("card B holds LOG00001.BFL and no LOG00044.BFL",
@@ -216,7 +151,7 @@ static void testMounts(const char *vol) {
 	checkInt("card B's next: 2", (long)start(&c), 2);
 
 	// Card A back by f_mount(), as sdLogBegin() mounts.
-	s_card = 0;
+	g_disk.card = 0;
 	f_mount(&s_fs, "", 1);
 	checkInt("card A again, by f_mount(): 44", (long)start(&c), 44);
 
@@ -224,7 +159,7 @@ static void testMounts(const char *vol) {
 	f_unlink("/LOGS/LOG00042.BFL");
 	f_unlink("/LOGS/LOG00043.BFL");
 	f_unlink("/LOGS/LOG00044.BFL");
-	s_noInit = true;
+	g_disk.noInit = true;
 	checkInt("card A emptied, after a fault: 1", (long)start(&c), 1);
 }
 
@@ -239,22 +174,22 @@ static void testFailures(const char *vol) {
 	// forgotten, so a card changed meanwhile is read again.
 	f_unlink("/LOGS/LOG00001.BFL");
 	f_unlink(DIR_PATH);
-	s_protect = true;
-	s_noInit = true;
+	g_disk.protect = true;
+	g_disk.noInit = true;
 	SdLogEnd why = SdLogEnd::None;
 	checkInt("LOGS/ not made: no start", (long)start(&c, &why), 0);
 	checkTrue("f_mkdir() failed, the number forgotten", why == SdLogEnd::OpenFailed && !c.known);
-	s_protect = false;
-	s_noInit = true;
+	g_disk.protect = false;
+	g_disk.noInit = true;
 	f_mkdir(DIR_PATH);
 	put("/LOGS/LOG00100.BFL");
 	c.known = true;          // as if kept from before, on this very mount
 	c.fsId = s_fs.id;
 	c.next = 2;
-	s_protect = true;
+	g_disk.protect = true;
 	checkInt("LOGS/ there, write-protected: f_mkdir() refused, no start", (long)start(&c, &why), 0);
 	checkTrue("f_mkdir() failed, the number forgotten", why == SdLogEnd::OpenFailed && !c.known);
-	s_protect = false;
+	g_disk.protect = false;
 	checkInt("writable again, the same mount: LOGS/ read again, 101", (long)start(&c), 101);
 	// LOGS/ a file, not a directory: f_mkdir() says it exists, the scan fails.
 	f_unlink("/LOGS/LOG00100.BFL");
@@ -264,7 +199,7 @@ static void testFailures(const char *vol) {
 	c.known = true;
 	c.fsId = s_fs.id;
 	c.next = 5;
-	s_noInit = true;         // mounted again: the kept number is not used
+	g_disk.noInit = true;         // mounted again: the kept number is not used
 	checkInt("LOGS a file: the scan fails, no start", (long)start(&c, &why), 0);
 	checkTrue("the scan failed, the number forgotten", why == SdLogEnd::OpenFailed && !c.known);
 	f_unlink(DIR_PATH);

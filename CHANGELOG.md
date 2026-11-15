@@ -44,23 +44,77 @@ protocol.
 
 ### Added
 
-- After v0.1.0-rc1: the QMI8658 IMU (inertial measurement unit) driver,
-  slice 2 of
-  [angle-meter.md](docs/design/angle-meter.md#slice-2-as-built)
-  (`src/qmi8658.*`, `src/angle.cmake`). While the angle meter is open it
-  reads WHO_AM_I at 0x6B on I2C1, writes a soft reset, waits for dQY_L 80h
-  after 15 ms or for 1750 ms, writes CTRL1 40h, CTRL2 08h, CTRL5 07h and
-  CTRL7 01h one byte each and reads each back, and from 100 ms later reads
-  one 11-byte burst and the time stamp again every UI frame, after touch and
-  the current sensor; the first whole burst is a baseline, so the first
-  sample taken was latched after the 100 ms; a burst whose time stamp
-  changed is dropped, a repeated time stamp is not counted. Its transfers go to the shared bus
-  record; three failed frames take it offline, probed again every 1000 ms,
-  and no reset follows another within 2000 ms. Closing it writes CTRL7 00h.
-  No screen opens it yet, so nothing is sent to 0x6B. The board header gains
-  `BOARD_IMU_AXES`, a placeholder until bench test B3. Host tests in
-  `test/test_qmi8658.cpp` against a register model of the part in
-  `test/fake_i2c.*`; `test/angle.mk` lists them. Not tested on hardware.
+- After v0.1.0-rc1: the QMI8658 IMU (inertial measurement unit) driver, slice 2
+  of [angle-meter.md](docs/design/angle-meter.md#slice-2-as-built)
+  (`src/qmi8658.*`, `src/angle.cmake`). While the angle meter is open it reads
+  WHO_AM_I at 0x6B on I2C1, writes a soft reset, waits for dQY_L 80h after 15 ms
+  or for 1750 ms, writes CTRL1 40h, CTRL2 08h, CTRL5 07h and CTRL7 01h one byte
+  each and reads each back, and from 100 ms later reads one 11-byte burst and
+  the time stamp again every UI frame, after touch and the current sensor; the
+  first whole burst is a baseline, so the first sample taken was latched after
+  the 100 ms; a burst whose time stamp changed is dropped, a repeated time stamp
+  is not counted. Its transfers go to the shared bus record; three failed frames
+  take it offline, probed again every 1000 ms, and no reset follows another
+  within 2000 ms. Closing it writes CTRL7 00h. No screen opens it yet, so
+  nothing is sent to 0x6B. The board header gains `BOARD_IMU_AXES`, a
+  placeholder until bench test B3. Host tests in `test/test_qmi8658.cpp` against
+  a register model of the part in `test/fake_i2c.*`; `test/angle.mk` lists them.
+  Not tested on hardware.
+- After v0.1.0-rc1: rcbench's files for the angle meter, slice 1 of
+  [angle-meter.md](docs/design/angle-meter.md#slice-1-as-built), copied
+  unchanged from rcbench e98345aa into `lib/rcbench/`: `servo_rudder.*`, the
+  deflection from a zero, its travel in mm and the largest deflection each
+  side; `imu.*`, the IMU (inertial measurement unit) model with
+  `imu_feed_angles()`, which takes three angles and a time; and
+  `witmotion.*`, the WitMotion decoder `imu.h` includes. Their tests,
+  `test_servo_rudder.c`, `test_imu_angles.c` with `wit_frame.h` and
+  `test_witmotion.c`, 25 cases, are in `test/rcbench/`, run by `make -C test
+  run` through `test/angle.mk`. Nothing in `src/` calls them yet, and the
+  firmware does not build them. The cases of rcbench's `test_imu.c` and
+  `test_imu_filter.c` that need `imu.h` alone are not adapted; open for
+  slice 3.
+- After v0.1.0-rc1: each blackbox log that stops clean gets its run
+  summary beside it, `LOGS/LOGnnnnn.TXT`, slice 2 of
+  [run-summary.md](docs/design/run-summary.md#slice-2-as-built).
+  `sdLogTick()` hands every frame's snapshot, merged reading and arm state
+  to `runSumAdd()`; the stop ends the summary as `STOP`, `DISARM`,
+  `KST SERVO`, `HITEC SERVO` or `AM32 CONFIG`, and once the `.BFL` has
+  closed clean writes the text, built in the drained write buffer, with
+  `FA_CREATE_ALWAYS` (`src/sd_log_summary.*`). A failed write during the
+  log ends the summary there, not saved, and no `.TXT` is tried. A `.TXT`
+  that cannot be saved, on a full card or after a failed write, leaves the
+  `.BFL` as it was and the logger `READY`, and is removed when the card
+  still allows it. `.TXT` files do not move the next log's number.
+  `SdLogStatus` carries the last summary for SD LOG, which does not show it
+  yet; a mount and USB DRIVE forget it. `make -C test lognum` runs
+  `src/sd_log.cpp` over FatFs R0.15 on a RAM disk (`test/sd_log_fatfs.cpp`,
+  `test/ram_disk.*`). README and the wiki pages SD-Logging and
+  SD-Aufzeichnung describe the file. Not tested on hardware.
+- After v0.1.0-rc1: the run summary's core, slice 1 of
+  [run-summary.md](docs/design/run-summary.md#slice-1-as-built), in
+  `src/run_summary.*`. From each logged frame's telemetry it keeps the
+  maximum eRPM, current and temperature over the whole log and the minimum
+  voltage while armed, each as a raw extreme and as a held one, counted
+  only when three consecutive new values reach it; the source per frame,
+  KISS while fresh and EDT in its gaps, tagged `MIXED` when both counted,
+  and EDT's own figure when every fresh KISS frame carried 0; the KISS
+  counter's rise and the charge from current; the armed time. It builds the
+  `LOGnnnnn.TXT` text, both clock lines `not set`, and SD LOG's row texts.
+  Host tests in `test/test_run_summary.cpp`. The logger does not call it
+  yet: no `.TXT` is written and SD LOG does not change. Not tested on
+  hardware.
+- After v0.1.0-rc1: the design note for the S.BUS output,
+  [sbus-output.md](docs/design/sbus-output.md), designed and not built:
+  S.BUS OUTPUT behind OUTPUT on RX SIGNALS sends a frame every 14 ms on GP0
+  through UART0 with the pad's output inverted, with rcbench's encoder to be
+  copied unchanged from b88593d3, 16 channels on sliders, the throttle
+  channel starting at its stop and held under MAX THROTTLE, CH17, CH18 and
+  the failsafe and frame-lost bits, HOLD TO START and the frame stops of the
+  servo tester. It records, read from source, that AM32 and Bluejay take no
+  throttle from an S.BUS line and that BLHeli_S may take it as Multishot,
+  calibrate, arm and start its motor. By the owner's decision of 2026-11-15
+  it is built only with a bootloader probe on GP0 before START, after the
+  ESC SETTINGS read slices for Bluejay and BLHeli_S. Documentation only.
 - After v0.1.0-rc1 (a93e1c1): the DShot command slot on core1, slice 1 of
   [esc-commands.md](docs/design/esc-commands.md#slice-1-as-built). The
   beacon's slot in `EscPump` becomes one sequence: beacons 1 to 5 as 6
@@ -82,19 +136,6 @@ protocol.
   `test/test_esc_cmd.cpp` run the slot against AM32, Bluejay and BLHeli_S
   models read from their sources. No page sends commands yet; MENU's BEEP
   THE ESC is the only caller. Not tested on hardware.
-- After v0.1.0-rc1: the run summary's core, slice 1 of
-  [run-summary.md](docs/design/run-summary.md#slice-1-as-built), in
-  `src/run_summary.*`. From each logged frame's telemetry it keeps the
-  maximum eRPM, current and temperature over the whole log and the minimum
-  voltage while armed, each as a raw extreme and as a held one, counted
-  only when three consecutive new values reach it; the source per frame,
-  KISS while fresh and EDT in its gaps, tagged `MIXED` when both counted,
-  and EDT's own figure when every fresh KISS frame carried 0; the KISS
-  counter's rise and the charge from current; the armed time. It builds the
-  `LOGnnnnn.TXT` text, both clock lines `not set`, and SD LOG's row texts.
-  Host tests in `test/test_run_summary.cpp`. The logger does not call it
-  yet: no `.TXT` is written and SD LOG does not change. Not tested on
-  hardware.
 - After v0.1.0-rc1 (a93e1c1): S.BUS MONITOR, slice 3 of
   [rx-signals.md](docs/design/rx-signals.md#slice-3-as-built), opened from
   MENU → RX SIGNALS → MONITOR (`src/ui_sbus.*`). It claims the role that is
