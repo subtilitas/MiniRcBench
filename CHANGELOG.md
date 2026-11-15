@@ -70,6 +70,14 @@ protocol.
   `test/test_escwire_job.cpp`, `test/test_efm8_view.cpp`,
   `test/test_am32.cpp` and `test/test_ui.cpp` against rcbench's simulated
   ESC; CI checks the job's stack on core1. Not tested on hardware.
+- After v0.1.0-rc1: the host suite sets the fake clock before each screenshot
+  that draws from the clock: `fakeClockAlign()` before the KST search
+  spinner and the ESC SETTINGS connect spinner (`shot_kst_search`,
+  `shot_kst_switched`, `shot_am32_connect`, `shot_am32_connect_garbled`,
+  `shot_am32_efm8`) and
+  `fakeClockSetMs()` before SETTINGS' UPTIME (`shot_settings_scrolled`). The
+  previews no longer change when a test is added or removed. No firmware
+  change.
 - After v0.1.0-rc1: the USB bridge's line and claim, slice 1 of
   [usb-bridge.md](docs/design/usb-bridge.md#slice-1-as-built), tested on the
   host only; nothing opens it yet. `PinUser::Bridge` claims SIG with no ESC

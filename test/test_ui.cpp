@@ -4213,6 +4213,8 @@ static void testBoardRow() {
 	          !ctlPresent(UI_ROW(SettingsRowId::Version, Toggle)) &&
 	          !ctlEnabled(UI_ROW(SettingsRowId::Version, Row)));
 	checkControlTable("SETTINGS, at the end");
+	checkTrue("the clock is set to the shot's uptime", fakeClockSetMs(FAKE_SHOT_UPTIME_MS));
+	frames(2);
 	fakeDumpFrame("shot_settings_scrolled.ppm");
 	// 120 px back: BUILT FOR's row, content y 600, at y 40 + 600 - 500 = 140.
 	settingsDrag(120);
@@ -5870,6 +5872,7 @@ static void testAm32Efm8() {
 	section("ESC SETTINGS: the connect cycle, 1000 ms quiet, then 3 greetings");
 	{
 		fakeAm32Silent(true);
+		fakeClockAlign(FAKE_SPINNER_TURN_MS);
 		tapId(UI_FIX(TesterCtl::Menu));
 		frames(2);
 		openEscSettings();
@@ -5908,6 +5911,7 @@ static void testAm32Efm8() {
 		am32NoCard();
 		efm8Esc(0xB2, true);
 		int ends = fakeAm32Ends();
+		fakeClockAlign(FAKE_SPINNER_TURN_MS);
 		enterAm32(1);
 		fakeAm32Garble(nullptr, 0);
 		checkTrue("the answer: the session page", s_state == S_EW);
@@ -6126,6 +6130,7 @@ static void testAm32Efm8() {
 	{
 		efm8Esc(0xB2, true);
 		memset(efm8Page(), 0xFF, 256);
+		fakeClockAlign(FAKE_SPINNER_TURN_MS);
 		enterAm32(1);
 		fakeAm32Garble(nullptr, 0);
 		for (int i = 0; i < 80 && s_connectNote != CN_EW_REFUSED; i++) frames(1);
@@ -6221,6 +6226,7 @@ static void testAm32Efm8() {
 	{
 		efm8Esc(0xB5, false);
 		memcpy(efm8Page() + 0x60, "SOMETHING ELSE..", 16);
+		fakeClockAlign(FAKE_SPINNER_TURN_MS);
 		enterAm32(1);
 		fakeAm32Garble(nullptr, 0);
 		for (int i = 0; i < 80 && s_connectNote != CN_EW_REFUSED; i++) frames(1);
@@ -6283,6 +6289,7 @@ static void testAm32Efm8() {
 		efm8Esc(0xB2, true);
 		fakeEwSim()->dead = true;
 		fakeAm32Silent(false);
+		fakeClockAlign(FAKE_SPINNER_TURN_MS);
 		enterAm32(1);
 		fakeAm32Silent(true);
 		fakeAm32Garble(nullptr, 0);
@@ -6573,6 +6580,7 @@ static void testAm32Guidance() {
 	{
 		static const uint8_t junk[3] = { 0x55, 0xAA, 0x01 };
 		fakeAm32Garble(junk, 3);
+		fakeClockAlign(FAKE_SPINNER_TURN_MS);
 		enterAm32(4);
 		checkTrue("still connecting", s_state == S_CONNECT);
 		checkTrue("no piece of an EFM8 answer: no leave page", !pinClaimLeavePage() && !s_efm8Seen);
@@ -6594,6 +6602,7 @@ static void testAm32Guidance() {
 	section("AM32 connect: silence shows the page alone");
 	{
 		fakeAm32Silent(true);
+		fakeClockAlign(FAKE_SPINNER_TURN_MS);
 		enterAm32(4);
 		checkTrue("still connecting", s_state == S_CONNECT);
 		checkTrue("POWER-CYCLE THE ESC, y 84, amber: the current step",

@@ -2945,6 +2945,15 @@ so a layout change is visible in the frames:
 
 Failing tests dump their frame too.
 
+The fake clock in `test/fakes.cpp` advances only when a test says so, and
+it is not reset between tests, so a test added or removed earlier in the
+run shifts it. A screen that draws from the clock is therefore captured
+after the test sets the clock: `fakeClockAlign()` moves it to a whole spinner
+turn (1800 ms) before the KST search spinner and the ESC SETTINGS connect
+spinner, and `fakeClockSetMs()` sets the time since boot to 10000 h before
+SETTINGS' UPTIME. The images in `docs/` and `wiki/img/` do not change when a
+test is added or removed.
+
 `make previews` restitches the images in `docs/` from those frames. It is a separate
 target so a test run does not leave the working tree dirty.
 
