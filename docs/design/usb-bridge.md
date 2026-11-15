@@ -911,26 +911,25 @@ with release and acquire on each index and flag, and these differences:
   (`BRIDGE_RELEASE_MAX_MS`), where DshotDisplay's `bridgeWireEnd()` waited
   with `delay(1)`. A full slot, 320 bytes, takes 171 ms.
 
-**Tests.** `test/pio_bridge_emu.py`, run by `make pioemu` and held to
-pioasm's words in CI: 42 runs of the two programs on one pad, frames of
-1, 2, 21 and 64 bytes, late bytes, an ESC's reply 0.3 ms after the release
-at 8 phases with bits as long as the line's, 2 % and 3 % longer and 2 %
-shorter, a collision and a full receive FIFO. A control run with the ESC's
-bits 3 % shorter loses bytes at every phase: `pio_uart_rx` samples the stop
-bit 9.6 bit times after the start edge and looks for the next start bit
-only then, so a sender that fast, back to back, gets ahead of it. Whether
-an ESC's bootloader sends that fast is not verified; bench item B11.
-`test/test_bridge.cpp`, 162 checks in 8 sections, against `test/fake_bridge_line.h`, a wire on the
-virtual clock with the model's cycle counts and a model ESC: the divider;
-the slot's refusals and handover; the frame on the wire whole, with a pass
-every 1 ms and every 5 ms; the echo kept and dropped, differing and lost;
-the receive FIFO and the ring full, the ring's wrap; the release; the pin
-user's row and the claim's rules for it; the claim through the job table
-from Stopping to Free, DShot never bound while the line is open and asked
-back only once the job is idle, also with nothing but `pinClaimState()`
-called after BACK; BACK while Stopping; SIG on GP1; the leave
-page given and kept; RETRY. `bridge_line_port.cpp` is built by the firmware
-and typechecked by `make syntax` only.
+**Tests.** `test/pio_bridge_emu.py`, run by `make pioemu` and held to pioasm's
+words in CI: 42 runs of the two programs on one pad, frames of 1, 2, 21 and 64
+bytes, late bytes, an ESC's reply 0.3 ms after the release at 8 phases with bits
+as long as the line's, 2 % and 3 % longer and 2 % shorter, a collision and a
+full receive FIFO. A control run with the ESC's bits 3 % shorter loses bytes at
+every phase: `pio_uart_rx` samples the stop bit 9.6 bit times after the start
+edge and looks for the next start bit only then, so a sender that fast, back to
+back, gets ahead of it. Whether an ESC's bootloader sends that fast is not
+verified; bench item B11. `test/test_bridge.cpp`, 162 checks in 8 sections,
+against `test/fake_bridge_line.h`, a wire on the virtual clock with the model's
+cycle counts and a model ESC: the divider; the slot's refusals and handover; the
+frame on the wire whole, with a pass every 1 ms and every 5 ms; the echo kept
+and dropped, differing and lost; the receive FIFO and the ring full, the ring's
+wrap; the release; the pin user's row and the claim's rules for it; the claim
+through the job table from Stopping to Free, DShot never bound while the line is
+open and asked back only once the job is idle, also with nothing but
+`pinClaimState()` called after BACK; BACK while Stopping; SIG on GP1; the leave
+page given and kept; RETRY. `bridge_line_port.cpp` is built by the firmware and
+typechecked by `make syntax` only.
 
 **Mutations.** 36 of the C++ code and 6 of the PIO program, each applied
 alone. All 6 of the program fail the model. Of the 36, 32 fail the suite;
