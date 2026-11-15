@@ -15,6 +15,7 @@
 #include "esc_3d.h"
 #include "ui_esc_cmd.h"
 #include "ui_esc_config.h"
+#include "ui_bridge.h"
 #include "ui_hitec.h"
 #include "ui_kst.h"
 #include "ui_servo.h"
@@ -1187,6 +1188,7 @@ static constexpr struct { UiScreenId id; const UiScreen *screen; } SCREENS[] = {
 	{ UiScreenId::RxSignals, &UI_RX_SIGNALS },
 	{ UiScreenId::Sbus,      &UI_SBUS },
 	{ UiScreenId::EscConfig, &UI_ESC_CONFIG },
+	{ UiScreenId::Bridge,    &UI_BRIDGE },
 };
 /** @brief Each @ref UiScreenId has exactly one entry in `SCREENS`. */
 static constexpr bool screensComplete() {

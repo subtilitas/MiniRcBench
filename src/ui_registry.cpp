@@ -7,6 +7,7 @@
 #include "ui_am32.h"
 #include "ui_esc_cmd.h"
 #include "ui_esc_config.h"
+#include "ui_bridge.h"
 #include "ui_hitec.h"
 #include "ui_kst.h"
 #include "ui_menu.h"
@@ -154,12 +155,12 @@ static_assert(rxEntriesFit(), "an RX SIGNALS line is too wide, or runs into the 
  * @brief ESC CONFIG's entries, top to bottom (docs/design/bluejay-blheli-s.md
  *        decision 1 and the developer's call B; docs/design/usb-bridge.md
  *        decision 1). ESC SETTINGS serves AM32 until the Bluejay slices land;
- *        USB BRIDGE is designed and not built: no screen, so the chooser
- *        draws it disabled under `NOT BUILT`.
+ *        USB BRIDGE passes bytes through, slice 2 of usb-bridge.md, MSP and
+ *        the 4-way interface being its slice 3.
  */
 constexpr UiEscCfgEntry UI_ESC_CFG_ENTRIES[] = {
 	{ AM32_UI_TITLE, { "AM32 SETTINGS, READ AND WRITTEN.", "BLUEJAY, BLHELI_S: NAMED, NOT READ." }, &UI_AM32 },
-	{ "USB BRIDGE", { "A DESKTOP ESC TOOL OVER USB.", UI_ESC_CFG_NOT_BUILT }, nullptr },
+	{ BRIDGE_UI_TITLE, { "A DESKTOP ESC TOOL OVER USB.", "PASSTHROUGH: AM32 DIRECT MODE." }, &UI_BRIDGE },
 };
 constexpr uint8_t UI_ESC_CFG_ENTRIES_COUNT =
 	(uint8_t)(sizeof(UI_ESC_CFG_ENTRIES) / sizeof(UI_ESC_CFG_ENTRIES[0]));

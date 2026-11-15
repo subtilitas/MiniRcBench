@@ -8,12 +8,13 @@
  * SIGNALS does (ui_rx_signals.h): one 228 x 46 px button per entry at an
  * 80 px pitch, with its lines under it. It claims nothing: DShot runs on
  * SIG while it shows. A tap on ESC SETTINGS opens the settings screen
- * (ui_am32.h) through uiChooseTool(), whose own entry point asks for the
- * pin claim on that frame. USB BRIDGE is designed and not built: it is
- * drawn disabled, reported disabled and opens nothing, with `NOT BUILT`
- * under it, as RX SIGNALS' OUTPUT is (the developer's call B of
- * 2026-11-15). BACK returns to MENU, and so do ESC SETTINGS' BACK and its
- * RESTART DSHOT.
+ * (ui_am32.h), a tap on USB BRIDGE the bridge (ui_bridge.h), each through
+ * uiChooseTool(), whose own entry point asks for the pin claim on that
+ * frame. An entry with no screen is drawn disabled, reported disabled and
+ * opens nothing, with `NOT BUILT` under it, as RX SIGNALS' OUTPUT is (the
+ * developer's call B of 2026-11-15); USB BRIDGE was such an entry until
+ * slice 2 of docs/design/usb-bridge.md. BACK returns to MENU, and so do the
+ * tools' BACK and their RESTART DSHOT.
  *
  * The screen opens only while the pin claim is Free (`freePins`): MENU draws
  * the row disabled under `DSHOT RESTARTING ON SIG GP0` meanwhile, as it does
@@ -32,7 +33,7 @@ struct TouchState;
 #define UI_ESC_CFG_TITLE "ESC CONFIG"
 /** @brief The strip, `C_DIM`, with SIG's GPIO: `SIG GP0`, 7 characters. */
 #define UI_ESC_CFG_STRIP_FMT "SIG GP%u"
-/** @brief The status of an entry that is not built, `C_DIM`, under its button: 9 characters. */
+/** @brief The status of an entry with no screen, `C_DIM`, under its button: 9 characters. */
 #define UI_ESC_CFG_NOT_BUILT "NOT BUILT"
 
 /** @brief Lines under an entry. */
@@ -48,7 +49,7 @@ struct UiEscCfgEntry {
 /** @brief ESC CONFIG's controls besides BACK. */
 enum class EscCfgCtl : uint8_t {
 	Settings = 1,  /**< ESC SETTINGS: opens the settings screen. */
-	Bridge,        /**< USB BRIDGE: drawn disabled, `NOT BUILT`. */
+	Bridge,        /**< USB BRIDGE: opens the bridge. */
 };
 
 /** @brief The entries, top to bottom: ESC SETTINGS, USB BRIDGE. */
@@ -68,7 +69,7 @@ bool uiEscConfigTick(const TouchState *t);
 
 /**
  * @brief The chooser's controls on the current frame: BACK, ESC SETTINGS
- *        and USB BRIDGE, the last disabled.
+ *        and USB BRIDGE; an entry with no screen disabled.
  * @param out At most @p max controls.
  * @param max Room in @p out.
  * @return The number written.

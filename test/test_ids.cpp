@@ -18,6 +18,11 @@
 #include "ui_menu.h"
 #include "ui_esc_cmd.h"
 #include "ui_sdlog.h"
+#include "ui_bridge.h"
+#include "usb_bridge.h"
+#include "fake_cdc.h"
+#include "fake_bridge_line.h"
+#include "tusb.h"
 #include "ui_screen.h"
 #include "sd_log.h"
 #include "usb_msc.h"
@@ -26,9 +31,19 @@
 
 #include <string.h>
 
-/** @brief @p n UI frames of 25 ms, with core1's passes before each. */
+/**
+ * @brief @p n UI frames of 25 ms, with core1's passes before each, and the
+ *        USB bridge's pass as core0's loop runs it.
+ */
 static void idFrames(int n) {
-	for (int i = 0; i < n; i++) { fakeAdvance(25); fakePumpPoll(); core1JobPoll(); uiTick(); }
+	for (int i = 0; i < n; i++) {
+		fakeAdvance(25);
+		fakePumpPoll();
+		core1JobPoll();
+		tud_task();
+		usbBridgeTask();
+		uiTick();
+	}
 }
 #define UI_IDS_FRAMES(n) idFrames(n)
 #include "ui_ids.h"
@@ -149,12 +164,25 @@ static void testMenuSettingsLog() {
 	checkTrue("ESC CONFIG opens", uiCurrentScreen() == UiScreenId::EscConfig);
 	idFrames(1);
 	checkControlTable("ESC CONFIG");
-	checkTrue("its entries by id: ESC SETTINGS acts, USB BRIDGE does not",
-	          ctlEnabled(UI_FIX(EscCfgCtl::Settings)) && ctlPresent(UI_FIX(EscCfgCtl::Bridge)) &&
-	          !ctlEnabled(UI_FIX(EscCfgCtl::Bridge)) && !ctlPresent(UI_FIX(3)));
+	checkTrue("its entries by id: ESC SETTINGS and USB BRIDGE act",
+	          ctlEnabled(UI_FIX(EscCfgCtl::Settings)) && ctlEnabled(UI_FIX(EscCfgCtl::Bridge)) &&
+	          !ctlPresent(UI_FIX(3)));
+	fakeBridgeLineReset();
+	fakeCdcReset();
+	tapId(UI_FIX(EscCfgCtl::Bridge));
+	checkTrue("USB BRIDGE opens by id and claims SIG", uiCurrentScreen() == UiScreenId::Bridge &&
+	          pinClaimHolder() == PinUser::Bridge);
+	for (int k = 0; k < 20 && usbBridgeMode() == BridgeMode::Closed; k++) idFrames(1);
+	idFrames(1);
+	checkControlTable("USB BRIDGE");
+	checkTrue("its table: BACK acts, nothing else", ctlEnabled(UI_FIX(UI_BACK)) &&
+	          !ctlPresent(UI_FIX(BridgeCtl::Retry)) && !ctlPresent(UI_FIX(BridgeCtl::Bridge)) &&
+	          !ctlPresent(UI_FIX(BridgeCtl::Restart)));
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) idFrames(1);
 	idFrames(1);
+	checkTrue("Free, the console back", pinClaimState() == ClaimState::Free && fakeConsoleOn());
 
 	tapId(menuRow(&UI_SERVO_PROG));
 	checkTrue("PROGRAMMER opens", uiCurrentScreen() == UiScreenId::ServoProg);

@@ -124,6 +124,15 @@ PREVIEWS = {
         "shot_hitec_write",
         "shot_hitec_files",
     ],
+    # USB BRIDGE: waiting for the PC with the port closed, passthrough after
+    # a frame, a write waiting for its answer with BACK drawn disabled, and
+    # the leave page after a write with no RUN behind it.
+    "bridge-preview": [
+        "shot_bridge_waiting",
+        "shot_bridge_passthrough",
+        "shot_bridge_writing",
+        "shot_bridge_leave",
+    ],
     # S.BUS MONITOR: RX SIGNALS, the chooser, then the monitor with frames,
     # in failsafe, and after the receiver stopped, the last frame dim.
     "sbus-preview": [

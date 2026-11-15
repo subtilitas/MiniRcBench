@@ -73,8 +73,8 @@ bool uiEscConfigTick(const TouchState *t) {
 	s_t = t ? t : &none;
 	if (uiBackTapped(s_t)) return false;
 	for (int i = 0; i < UI_ESC_CFG_ENTRIES_COUNT; i++) {
-		// USB BRIDGE opens nothing; ESC SETTINGS' own entry point asks for
-		// the claim on this frame, after this tick.
+		// An entry with no screen opens nothing; a tool's own entry point
+		// asks for the claim on this frame, after this tick.
 		if (entryActs(i) && uiTapped(entryRect(i), s_t)) {
 			uiChooseTool(UI_ESC_CFG_ENTRIES[i].screen, nullptr);
 			return true;
