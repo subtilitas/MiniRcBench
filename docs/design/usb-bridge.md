@@ -1,11 +1,12 @@
 # USB bridge to the ESC's signal wire
 
-Status: designed, not built; waits on the owner's answers to the nine
+Status: designed, not built; waits on the owner's answers to the twelve
 [open questions](#open-questions). The feature is item (5) of the owner's
-feature choice of 2026-11-14, recorded in [STATUS.md](../../STATUS.md)
-open item 28: "port DshotDisplay feat/usb-bridge 6693084", a design note
-first, then slices with reviews; open item 29 tracks this note. No byte
-of this design has gone to an ESC from this board. The facts below are read from the sources under
+feature choice of 2026-11-14 in [STATUS.md](../../STATUS.md) open item 28,
+"a USB one-wire bridge for desktop ESC tools"; open item 29 tracks this
+note. It ports DshotDisplay's `feat/usb-bridge` at 6693084. A design note
+comes first, then slices with reviews. No byte of this design has gone to
+an ESC from this board. The facts below are read from the sources under
 [sources](#sources), with the file and line; the ones no readable source
 settles are marked "not verified" and listed again under
 [not verified](#not-verified).
@@ -19,7 +20,12 @@ mass storage class (the card reader), DTR the data terminal ready signal a
 host sets when it opens a port, PID product identifier, VID vendor
 identifier. PIO is the RP2350's programmable input/output block, SM one PIO
 state machine, DMA direct memory access, FIFO first in, first out, UART
-universal asynchronous receiver-transmitter, CRC cyclic redundancy check.
+universal asynchronous receiver-transmitter, CRC cyclic redundancy check,
+ACK acknowledgement, API application programming interface, CLI command
+line interface, XOR exclusive or, EEPROM the ESC's settings store (named
+after electrically erasable programmable read-only memory), RAM
+random-access memory, UI user interface, eRPM electrical revolutions per
+minute, COM port a serial port as Windows names it.
 8N1 is eight data bits, no parity, one stop bit. DShot is the digital ESC
 protocol the tester sends on SIG. SIG and AUX are the claim's two pins
 ([pin-claim.md](pin-claim.md#the-two-pins)).
@@ -48,15 +54,16 @@ that commit.
 | Source | Commit | Files | Licence, access |
 |---|---|---|---|
 | DshotDisplay (`subtilitas/dshotdisplay`), branch `feat/usb-bridge` | 6693084 | `src/bridge_wire.h` (140 lines), `src/bridge_wire.cpp` (176), `src/usb_bridge.h` (83), `src/usb_bridge.cpp` (126), `src/bridge_log.h` (61), `src/bridge_log.cpp` (191), `src/am32_bl.cpp` lines 408 to 440, `src/am32_bl.h` lines 179 to 243, `src/config.h` lines 195 to 299, `src/ui_am32.cpp` lines 60 to 120, 172 to 270, 389 to 395, 507 to 518, 710 to 765, `DshotDisplay.ino` lines 110 to 149, `README.md` lines 291 to 359, `test/test_bridge.cpp` (421), `test/test_dump.cpp` (61), `test/Makefile` | MIT, same holder; built and run here: all 129 checks pass, 28 of them in the eight bridge sections |
-| Betaflight (`betaflight/betaflight`) | 134ce0f | `src/main/io/serial_4way.c` lines 71 to 91, 137 to 182, 191 to 295, 344 to 394, 445 to 497, 597 to 625; `src/main/io/serial_4way_avrootloader.c` lines 49 to 74, 76 to 194, 196 to 229, 315 to 333; `src/main/msp/msp.c` lines 293 to 350; `src/main/msp/msp_protocol.h` lines 59 to 62, 94 to 272; `src/main/drivers/serial_escserial.c` lines 52, 920 to 1003; `src/main/cli/cli.c` lines 4834 to 4867, 8776 | GPL-3.0; read as the flight-controller side's reference, nothing copied |
-| ESC-Configurator (`stylesuxx/esc-configurator`), v0.32.1 | 21b407a | `src/utils/Serial.js` lines 27, 140 to 144; `src/Containers/App/index.jsx` lines 172, 206 to 300, 439 to 470; `src/utils/Msp.js` lines 13 to 35, 130 to 138, 404 to 425, 428 to 443, 789; `src/utils/FourWay.js` lines 125 to 135, 1395 to 1500; `src/utils/FourWayConstants.js` lines 12 to 26; `src/utils/helpers/Flash.js` lines 154 to 160 | AGPL-3.0; read, nothing copied |
-| AM32 configurator (`am32-firmware/am32-configurator`) | e11c42e | `components/SerialDevice.vue` lines 415 to 417, 505 to 540, 612 to 660, 674 to 702; `src/communication/direct.ts` lines 6 to 19, 103 to 120, 236 to 266; `src/communication/msp.ts` lines 118 to 126 | no licence file at that commit; read, nothing copied |
+| Betaflight (`betaflight/betaflight`) | 134ce0f | `src/main/io/serial_4way.c` lines 71 to 91, 137 to 182, 191 to 295, 344 to 394, 445 to 497, 597 to 625; `src/main/io/serial_4way_avrootloader.c` lines 49 to 74, 76 to 194, 196 to 229, 231 to 345; `src/main/io/serial_4way.c` lines 641 to 661; `src/main/target/common_pre.h` lines 258, 310, 324; `src/main/msp/msp.c` lines 293 to 350; `src/main/msp/msp_protocol.h` lines 59 to 62, 94 to 272; `src/main/drivers/serial_escserial.c` lines 52, 920 to 1003; `src/main/cli/cli.c` lines 4834 to 4867, 8776 | GPL-3.0; read as the flight-controller side's reference, nothing copied |
+| ESC-Configurator (`stylesuxx/esc-configurator`), v0.32.1 | 21b407a | `src/utils/Serial.js` lines 27, 140 to 144; `src/Containers/App/serialSlice.js` line 4; `src/Containers/App/index.jsx` lines 172, 206 to 312, 439 to 470; `src/utils/Msp.js` lines 13 to 35, 130 to 138, 404 to 557, 789; `src/utils/FourWay.js` lines 125 to 135, 1395 to 1500; `src/utils/FourWayConstants.js` lines 12 to 26; `src/utils/helpers/Flash.js` lines 154 to 160 | AGPL-3.0; read, nothing copied |
+| AM32 configurator (`am32-firmware/am32-configurator`) | e11c42e | `components/SerialDevice.vue` lines 415 to 417, 505 to 540, 612 to 660, 674 to 702; `src/communication/direct.ts` lines 6 to 19, 103 to 120, 236 to 266; `src/communication/msp.ts` lines 118 to 126; `src/communication/four_way.ts` lines 87, 623 to 625; `src/communication/commands.queue.ts` lines 48 to 118 | no licence file at that commit; read, nothing copied |
 | AM32 bootloader (`am32-firmware/AM32-bootloader`) | 578ff29 | `bootloader/main.c` lines 45, 52, 396 to 398, 423 to 466, 546 to 565, 576 to 579, 815 to 816, 835 to 860, 1097 to 1157, 1217 to 1281 | GPL-3.0; read, nothing copied |
 | AM32 firmware 2.22 | 2a695a8 | `Src/main.c` lines 2137 to 2163 | GPL-3.0; read, as in [esc-commands.md](esc-commands.md#sources) |
 | BLHeli_S (`bitdump/BLHeli`), revision 16.7 | a5bcf99 | `BLHeli_S SiLabs/BLHeliBootLoad.inc` lines 5 to 11, 48 to 91, 176 to 180, 205 to 215; `BLHeli_S SiLabs/BLHeli_S.asm` lines 3585 to 3605 | GPL-3.0; read, nothing copied |
 | Bluejay (`bird-sanctuary/bluejay`), revision 0.21 | 0368d11 | `README.md` lines 37 to 40; `src/BLHeliBootLoad.inc` line 238 | GPL-3.0; read, nothing copied |
 | rcbench (`subtilitas/rcbench`) | b88593d3 | `protocols/escwire/README.md` lines 1 to 60, 232 to 256; `protocols/escwire/rp2350/ew_line.h` lines 1 to 60 | MIT, same holder |
-| This repository | `main` at 8c7ace3 | `src/usb_dev.{h,cpp}`, `src/usb_descriptors.c`, `src/tusb_config.h`, `src/usb_msc.h`, `src/main.cpp`, `CMakeLists.txt` lines 315 to 329, `src/config.h` lines 577 to 640, `src/am32_bl.{h,cpp}`, `src/pin_claim.h`, `src/core1_job.h`, `src/pio_uart_rx.h`, `src/ui_am32.cpp`, `src/ui_registry.cpp`, `test/stubs/tusb.h`, [pin-claim.md](pin-claim.md), [menu-b.md](menu-b.md) | |
+| Pico SDK 2.1.1, with its TinyUSB | | `src/rp2350/hardware_regs/include/hardware/regs/io_bank0.h` lines 141, 277, 423, 561; `lib/tinyusb/src/class/cdc/cdc_device.c` lines 132 to 135; `lib/tinyusb/src/device/usbd.h` lines 97 to 99 | BSD-3-Clause, MIT |
+| This repository | `main` at 8c7ace3 | `src/usb_dev.{h,cpp}`, `src/usb_descriptors.c`, `src/tusb_config.h`, `src/usb_msc.{h,cpp}`, `src/ui_sdlog.cpp` lines 391 to 406, `src/ui_am32.h` lines 175 to 197, `src/am32_eeprom.h` line 43, `src/ui_kst.cpp` lines 610 to 628, `src/main.cpp`, `CMakeLists.txt` lines 315 to 329, `src/config.h` lines 577 to 640, `src/am32_bl.{h,cpp}`, `src/pin_claim.h`, `src/core1_job.h`, `src/pio_uart_rx.h`, `src/ui_am32.cpp`, `src/ui_registry.cpp`, `test/stubs/tusb.h`, [pin-claim.md](pin-claim.md), [menu-b.md](menu-b.md) | |
 
 BLHeliSuite and BLHeliSuite32 are closed source. Every statement below
 about them is marked not verified.
@@ -75,8 +82,11 @@ about them is marked not verified.
   reaches it through the board's USB port, the one that already carries the
   serial console and the card reader.
 
-It does not let the PC drive a motor: no throttle reaches the ESC while the
-bridge runs ([safety](#safety)).
+While the bridge runs, no throttle from the bench reaches the ESC: DShot is
+stopped. The PC is not held to bootloader commands: in passthrough every
+byte it sends reaches the wire, a bootloader RUN frame included, and in the
+4-way interface `cmd_DeviceReset` sends one; once the ESC's firmware runs,
+it reads whatever the PC sends next ([safety](#safety)).
 
 ## What the desktop tools speak
 
@@ -84,7 +94,7 @@ bridge runs ([safety](#safety)).
 |---|---|---|---|---|---|
 | AM32 configurator, "Direct" ticked | Web Serial at 19200 | the AM32 bootloader frames, raw | the VID is in its direct list (0x1A86, 0x0403, 0x4348, 0x26BA, 0x10C4), or the user ticks Direct | yes: it strips exactly the length it sent from the front of each reply | `SerialDevice.vue` 416, 517 to 536; `direct.ts` 103 to 120, 248 to 265 |
 | AM32 configurator, default | Web Serial, 115200 by default | MSP, then the 4-way interface | the VID is in its flight-controller list, which holds 0x2E8A, this board's VID | no | `SerialDevice.vue` 415, 505, 612 to 660 |
-| ESC-Configurator (Bluejay, BLHeli_S, AM32) | Web Serial at 115200 | MSP, then the 4-way interface | always | no | `Serial.js` 27, 140; `index.jsx` 206 to 300, 439 to 470 |
+| ESC-Configurator (Bluejay, BLHeli_S, AM32) | Web Serial, the rate the user's choice, 115200 by default (`serialSlice.js` 4) | MSP, then the 4-way interface | always | no | `Serial.js` 27, 140; `index.jsx` 206 to 300, 439 to 470 |
 | The Python AM32 configurator DshotDisplay's bridge was written against | 19200 8N1 | the AM32 bootloader frames, raw | not named in the branch | yes, and paced: its ACK check needs more than one byte in a 25 ms read | `usb_bridge.h` 11 to 27; `am32_bl.h` 199 to 231 |
 | Betaflight's own passthrough, `escprog bl <n>` | the flight controller's port | raw bytes at 19200 to the ESC | the CLI command | yes: the flight controller echoes each byte back ("blheli loopback") | `serial_escserial.c` 52, 984 to 989; `cli.c` 4836, 4867, 8776 |
 | BLHeliSuite, BLHeliSuite32 | a COM port | the 4-way interface through a flight controller's MSP, or raw one-wire through a USB-serial adapter, by the interface the user picks | the interface menu | not verified | not verified: closed source |
@@ -122,7 +132,19 @@ version.
 The AM32 configurator's MSP sequence: `MSP_API_VERSION`, `MSP_FC_VARIANT`,
 `MSP_BATTERY_STATE` (130), then `MSP_MOTOR_CONFIG` (131), or `MSP_MOTOR`
 for the variants it calls `inav` and `emuf`, then `MSP_SET_PASSTHROUGH`
-and 2000 ms (`SerialDevice.vue` 618 to 657; `msp.ts` 118 to 126).
+and a pause of 2000 ms before its first 4-way frame (`SerialDevice.vue`
+618 to 657; `msp.ts` 118 to 126). It keeps the variant only if it reads
+exactly `BTFL`, `KISS`, `INAV`, `ARDU` or `EMUF`, and logs any other as
+the error `Unknown fc type` (`commands.queue.ts` 64 to 83). It defines
+`cmd_InterfaceTestAlive` and a `testAlive()` that nothing calls
+(`four_way.ts` 87, 623 to 625): it sends no keep-alive.
+
+Both tools send 4-way frames with no MSP before them when MSP does not
+answer, to recover a flight controller left in the 4-way interface: the
+AM32 configurator sends `cmd_InterfaceExit` when `MSP_API_VERSION` fails
+(`SerialDevice.vue` 618 to 621), ESC-Configurator `cmd_DeviceInitFlash`
+and `cmd_DeviceReset` for each ESC, then `cmd_InterfaceExit`, when
+`MSP_API_VERSION` times out (`index.jsx` 232 to 260).
 
 The 4-way interface, as Betaflight implements it (protocol version 108,
 `serial_4way.c` 71 to 77): a PC frame is 0x2F, command, address high,
@@ -131,13 +153,19 @@ CRC-16/XMODEM, high byte first; the answer is 0x2E, the same header, the
 parameters, an ACK byte and the CRC (`serial_4way.c` 191 to 196, 445 to 497,
 917 to 932). The commands are 0x30 to 0x40 (`serial_4way.c` 196 to 279);
 the ACK codes 0x00, 0x02, 0x03, 0x04, 0x08, 0x09, 0x0F (284 to 295).
-`cmd_DeviceInitFlash` sends the bootloader's 17-byte init string, reads the
-8-byte answer starting `471` and decides the interface mode from the
+`cmd_DeviceInitFlash` (`serial_4way.c` 641 to 661) sends the bootloader's
+init string, 21 bytes in builds for targets with 1024 KB of flash or more,
+which define `USE_SERIAL_4WAY_SK_BOOTLOADER` (`common_pre.h` lines 258,
+310, 324), 17 bytes otherwise (`serial_4way_avrootloader.c` 206 to 212),
+reads the 8-byte answer starting `471` and decides the interface mode from the
 signature: SiLabs (BLHeli_S, Bluejay) for 0xE801 to 0xF8FF, ARM (AM32,
 BLHeli_32) for a high byte 0x01 to 0x8F with the low byte 0x06
 (`serial_4way.c` 344 to 394; `serial_4way_avrootloader.c` 196 to 229).
 Erase and the settings write wait up to 3000 ms for the bootloader's ACK, a
-flash write 500 ms (`serial_4way_avrootloader.c` 315 to 333).
+flash write 500 ms (`serial_4way_avrootloader.c` 315 to 333). A write sends
+`SET_BUFFER`'s 4 bytes and CRC, waits up to two 2 ms start-bit timeouts,
+about 4 ms, for no answer, then sends the data and its CRC as a second
+message (`BL_SendCMDSetBuffer()`, lines 267 to 278).
 
 ## The board's USB today
 
@@ -172,22 +200,40 @@ work is reading it.
 
 ### Two modes on one port
 
-The bridge has two modes, chosen from the first bytes the PC sends after
-the bridge opens, or after 2000 ms without traffic in either direction
-([question 3](#open-questions)):
+The bridge has two modes, chosen from the first byte the PC sends while
+the bridge waits ([question 3](#open-questions)):
 
 | First byte | Mode | Screen |
 |---|---|---|
 | 0x24, `$`, an MSP frame | MSP, then the 4-way interface after `MSP_SET_PASSTHROUGH` | `4-WAY INTERFACE` |
-| 0x2F, a 4-way frame | the 4-way interface at once, for a tool that speaks it without MSP (not verified that any does) | `4-WAY INTERFACE` |
+| 0x2F, a 4-way frame | the 4-way interface at once: both tools send 4-way frames with no MSP before them to recover (above) | `4-WAY INTERFACE` |
 | any other | passthrough | `PASSTHROUGH` |
+
+How each ends:
+
+| State | Ends on | Then |
+|---|---|---|
+| Waiting for the first byte | nothing; it is the state the others return to | |
+| Passthrough | 2000 ms with no byte in either direction, the port closed (DTR cleared), BACK | waiting |
+| MSP, before `MSP_SET_PASSTHROUGH` | 2000 ms with no byte, the port closed, BACK | waiting |
+| 4-way | `cmd_InterfaceExit`, the port closed, BACK; not on a pause | waiting; the connected device and its interface mode are kept across pauses and dropped here |
+
+The 4-way state outlasts pauses because the AM32 configurator waits exactly
+2000 ms after `MSP_SET_PASSTHROUGH` and sends no keep-alive
+(`SerialDevice.vue` 657, `four_way.ts` 623 to 625), and a user may leave a
+connected tool idle for minutes. In the 4-way state an MSP frame is
+answered as in the MSP state, where Betaflight ignores every byte but 0x2F
+(`serial_4way.c` 472 to 477); the tools' recovery works either way.
 
 An AM32 configurator in Direct mode starts with twelve 0x00 bytes
 (`direct.ts` lines 104 to 106); the Python tool the same 21-byte string
 (`am32_bl.cpp` lines 302 to 307 in this repository); neither starts with
 0x24 or 0x2F. A raw bootloader session can contain 0x24 and 0x2F later, in
-data; the mode is fixed until the 2000 ms idle, so later bytes do not switch
-it. Which mode a BLHeliSuite interface ends in is not verified.
+data; the mode holds until it ends as above, so later bytes do not switch
+it. A passthrough tool that starts while the bridge is still in the 4-way
+state, without the port closed in between, gets no answer until BACK or a
+port close; the screen shows `4-WAY INTERFACE` meanwhile. Which mode a
+BLHeliSuite interface ends in is not verified.
 
 ### USB side
 
@@ -254,15 +300,19 @@ The flow, all of it existing claim machinery:
 | Item | Value | Source |
 |---|---|---|
 | Rate | 19200 baud 8N1, 52.08 µs a bit, 520.8 µs a byte | AM32 bootloader `main.c` 396 to 398; BLHeli_S `BLHeliBootLoad.inc` line 11; `serial_4way_avrootloader.c` 71 |
-| Gap within one PC frame on the wire | none: the bytes go back to back | the AM32 bootloader ends a message after 5 bit times, 260 µs, of idle line (`main.c` 860) |
+| Gap within one bootloader message | none: the bytes go back to back | the AM32 bootloader ends a message after 5 bit times, 260 µs, of idle line (`main.c` 860) |
+| Gap between `SET_BUFFER` and its data | at least 520 µs, 10 bit times; the 4-way handler waits 4 ms, as Betaflight | they are two messages: data closer than 260 µs behind the header become part of it and get no answer. Betaflight waits about 4 ms (`serial_4way_avrootloader.c` 267 to 278), rcbench's escwire 520 µs (`escwire/README.md` 53, 59 to 61) |
 | Turnaround | the line is let go at the end of the last stop bit | Betaflight releases the line straight after its last byte (`serial_4way_avrootloader.c` 178 to 194); AM32 answers about 0.3 to 0.35 ms after the host's last byte by rcbench's specification (`escwire/README.md`), not measured |
 | Idle | input with the pad's pull-up, as the claim leaves it in Held | `pin_claim.h` lines 42 to 44; `am32_bl.cpp` lines 74 to 78 |
 | Drive while sending | push-pull, both levels | `AM32_PUSH_PULL_TX` 1 (`config.h` line 628); rcbench `ew_line.h` "a transaction's bytes: driven, both levels" |
 | Receive | sampled always, while sending too | below |
 
-**PIO, not a UART and not bit-banging.** A hardware UART receives only on
-GPIOs with n % 4 = 1, so on GP0 it could send but not receive
-(`pio_uart_rx.h` lines 6 to 10), and SETTINGS can move SIG to GP1. The
+**PIO, not a UART and not bit-banging.** GP0's only UART function is
+UART0's transmit and GP1's only UART function UART0's receive, both
+function 2; the RP2350's second UART function, 11, puts UART0's transmit
+and receive on GP2 and GP3 (`io_bank0.h` lines 141, 277, 423, 561;
+`pio_uart_rx.h` lines 6 to 10). Neither pin carries a half-duplex line,
+and SETTINGS can move SIG between them. The
 AM32 transport bit-bangs on core0 with interrupts masked per byte
 (`am32_bl.cpp` lines 5 to 13, 110 to 125); DshotDisplay moved that bit-bang
 to core1 because core0's repaints made it miss replies
@@ -315,19 +365,41 @@ Single producer, single consumer, release and acquire on each index, as
 entries holds 4.2 ms of bytes; core1's pass is the claim's job dispatch,
 whose length is not measured, and a full FIFO counts as `LOST`.
 
-**Passthrough gather.** A PC frame arrives in 64-byte USB packets; the
-bridge collects bytes until 2 ms pass with none (`BRIDGE_GATHER_MS`,
-`usb_bridge.cpp` line 26) or the slot is full, then hands the frame over.
+**Passthrough gather.** A PC frame arrives in 64-byte USB packets, and
+TinyUSB's receive buffer holds one of them (`CFG_TUD_CDC_RX_BUFSIZE` 64,
+`tusb_config.h` line 62): a 258-byte payload with its CRC comes in over
+five packets and as many core0 passes. The bridge collects bytes until 2 ms
+pass with none (`BRIDGE_GATHER_MS`, `usb_bridge.cpp` line 26) or the slot
+is full, then hands the frame over. Each pass reads what TinyUSB holds
+before it looks at the 2 ms timer, so a long core0 pass, a repaint of 30 ms
+in the middle of a frame, ends with the next packet read and the timer
+started again, not with half a frame sent. The host is held off by USB
+flow control meanwhile; nothing is lost. A receive buffer of 512 bytes
+(`CFG_TUD_CDC_RX_BUFSIZE` 512, 448 bytes more RAM) would take a whole
+payload in one pass; it is an option for slice 2, not needed for
+correctness.
+
+The latency budget is the tools': the Python tool reads 25 ms after it
+writes and needs the echo's tail and the ACK in one read; the AM32
+configurator waits up to 2000 ms for the expected length
+(`direct.ts` 259 to 265); the 4-way tools wait for a whole 4-way answer.
+A core0 pass adds its length to each answer; the length of core0's longest
+pass during the bridge is not measured.
 The tools wait for an answer before they send again: the AM32 configurator
 waits for the expected length (`direct.ts` lines 259 to 265), the Python
 tool 25 ms. DshotDisplay's gather spins on `delay(1)`, and its handover
 waits with `delay(1)` until core1 takes the frame, up to 167 ms
 (`usb_bridge.cpp` lines 80 to 97); here both are states advanced once per
-pass, so core0 keeps drawing and serving USB.
+pass, so core0 keeps drawing and serving USB. `SET_BUFFER` and its data
+reach the bridge as two PC frames, since both passthrough tools wait
+between them: the AM32 configurator for the header's echo, the Python tool
+25 ms. The gather does not join two PC writes more than 2 ms apart, and
+the gap between them on the wire is then at least that.
 
 **4-way.** Frames have their length in the header; the handler turns each
-into bootloader frames, sends them through the slot, waits for the answer
-in the ring with Betaflight's limits (3000 ms for erase and the settings
+into bootloader frames, sends them through the slot, with a write's
+`SET_BUFFER` header and its data as two messages 4 ms apart, waits for the
+answer in the ring with Betaflight's limits (3000 ms for erase and the settings
 write, 500 ms for a flash write, `serial_4way_avrootloader.c` 315 to 333),
 and answers the PC.
 
@@ -362,20 +434,25 @@ GPL code is not copied.
 payload, XOR checksum; the answer `$M>`, or `$M!` with no payload for a
 command the board does not answer.
 
-| Command | The board answers |
-|---|---|
-| `MSP_API_VERSION` (1) | protocol 0, API 1.49, Betaflight 134ce0f's (`msp_protocol.h` 59 to 62) |
-| `MSP_FC_VARIANT` (2) | `MRCB` ([question 5](#open-questions)) |
-| `MSP_FC_VERSION` (3) | the firmware version, `version.h` |
-| `MSP_BOARD_INFO` (4), `MSP_BUILD_INFO` (5) | the board's name and the build's date, in the fields the tools parse |
-| `MSP_STATUS` (101) | arming disabled, flag bit 2, RX_FAILSAFE, set: no receiver and no arming, which is true |
-| `MSP_MOTOR` (104) | one motor, 1000 |
-| `MSP_MOTOR_CONFIG` (131) | one motor, the tester's DShot, min 1000, max 2000 |
-| `MSP_FEATURE_CONFIG` (36) | 0 |
-| `MSP_BATTERY_STATE` (130) | no battery: 0 cells, 0 V |
-| `MSP_UID` (160) | the chip's unique ID, as the USB serial number |
-| `MSP_SET_PASSTHROUGH` (245) | 1, one ESC, and the 4-way interface from the next byte; with no payload or with mode 0xFF, as Betaflight (`msp.c` 293 to 330); any other mode answers 0 |
-| `MSP_SET_MOTOR` (214), and every other command | `$M!`; a `MSP_SET_MOTOR` also shows `MOTOR COMMAND FROM THE PC REFUSED.` |
+Each payload is at least as long as the tools read: both parse replies
+with a JavaScript `DataView`, which throws on a read past the end, and
+ESC-Configurator then closes the port (`index.jsx` 309 to 312).
+
+| Command | The board answers | Bytes | What the tools read |
+|---|---|---|---|
+| `MSP_API_VERSION` (1) | protocol 0, API 1.49, Betaflight 134ce0f's (`msp_protocol.h` 59 to 62) | 3 | bytes 0 to 2 (`Msp.js` 455 to 464; `commands.queue.ts` 57 to 62) |
+| `MSP_FC_VARIANT` (2) | `MRCB` ([question 5](#open-questions)) | 4, exactly | ESC-Configurator bytes 0 to 3; the AM32 configurator decodes the whole payload (`commands.queue.ts` 53, 63 to 83) |
+| `MSP_FC_VERSION` (3) | the firmware version, `version.h` | 3 | bytes 0 to 2 (`Msp.js` 477 to 484) |
+| `MSP_BUILD_INFO` (5) | the build's date, 11 bytes, and time, 8 bytes, as text | 19 | bytes 0 to 18 (`Msp.js` 486 to 507) |
+| `MSP_BOARD_INFO` (4) | a 4-letter board name and version 0 | 6 | bytes 0 to 5 (`Msp.js` 509 to 524) |
+| `MSP_STATUS` (101) | byte 15, the count of mode bytes, 0; the arming-disable flags at bytes 17 to 20 with bit 2, RX_FAILSAFE, set: no receiver and no arming, which is true | 22 | bytes 0 to 21 with that count (`Msp.js` 404 to 425) |
+| `MSP_MOTOR` (104) | one motor, 1000 | 2 | pairs of bytes (`Msp.js` 428 to 438) |
+| `MSP_MOTOR_CONFIG` (131) | min 1000, max 2000, min command 1000, then the motor count, 1, at byte 6 | 7 | byte 6 (`commands.queue.ts` 114 to 117) |
+| `MSP_FEATURE_CONFIG` (36) | 0 | 4 | bytes 0 to 3 (`Msp.js` 526 to 538) |
+| `MSP_BATTERY_STATE` (130) | no battery: 0 cells, 0 V, state 0, voltage 0 | 11 | the AM32 configurator bytes 0 to 7 (`commands.queue.ts` 89 to 96); ESC-Configurator byte 8 too from API 1.41, and bytes 9 and 10 when present (`Msp.js` 540 to 557) |
+| `MSP_UID` (160) | the chip's 8-byte unique ID, as the USB serial number, then 4 bytes of 0 | 12 | three 32-bit words (`Msp.js` 446 to 453); 8 bytes would make ESC-Configurator close the port |
+| `MSP_SET_PASSTHROUGH` (245) | 1, one ESC, and the 4-way interface from the next byte; with no payload or with mode 0xFF, as Betaflight (`msp.c` 293 to 330); any other mode, 0xFD and the ESC serial modes 0 to 4 included, answers 0 | 1 | byte 0 |
+| `MSP_SET_MOTOR` (214), and every other command | `$M!`; a `MSP_SET_MOTOR` also shows `MOTOR COMMAND FROM THE PC REFUSED.` | 0 | |
 
 **4-way commands.** One ESC, index 0; any other index answers
 `ACK_I_INVALID_CHANNEL`.
@@ -385,11 +462,11 @@ command the board does not answer.
 | 0x30 TestAlive | sends the bootloader's keep-alive, 0xFD 0x00, while a device is connected |
 | 0x31 ProtocolGetVersion, 0x32 GetName, 0x33 GetVersion | 108, `MRCB4W`, the firmware version |
 | 0x34 Exit | leaves 4-way, back to MSP |
-| 0x35 DeviceReset | sends the bootloader's run command, 0x00 0x00 and its CRC |
+| 0x35 DeviceReset | sends the bootloader's run command, 0x00 0x00 and its CRC. Address low byte 1, after which Betaflight also holds the line low for 300 ms (`serial_4way.c` 598 to 627), is not offered: the line is not pulled low, and the answer is the same |
 | 0x37 DeviceInitFlash | the init string, the 8-byte answer, the mode from the signature as above |
 | 0x39 PageErase, 0x3A Read, 0x3B Write, 0x3D ReadEEprom, 0x3E WriteEEprom, 0x40 Verify | the bootloader frames of the interface mode, as `serial_4way_avrootloader.c` 258 to 345 lists them |
 | 0x38 EraseAll, 0x3C C2CK_LOW | `ACK_I_INVALID_CMD`: Atmel and C2 interfaces are not offered |
-| 0x3F SetMode | SiLabs and ARM accepted; Atmel and SimonK answer `ACK_I_INVALID_PARAM` |
+| 0x3F SetMode | SiLabs (1) and ARM (4) accepted; C2 (0), Atmel (2) and SimonK (3) answer `ACK_I_INVALID_PARAM` |
 
 Atmel bootloaders and SimonK are left out: no ESC on the owner's list uses
 them.
@@ -407,10 +484,16 @@ copied it, and not its guard or session.
 |---|---|---|
 | No DShot while bridged | the claim: DShot is drained, stopped and released before the line binds | a throttle frame between bootloader bytes |
 | Disarmed to enter | `uiOpenTool()` disarms; `pinClaimCheck()` refuses while armed (`pin_claim.h` 179) | a running motor when DShot stops |
-| No motor command from the PC | `MSP_SET_MOTOR` answers `$M!`; the 4-way interface has no motor command | ESC-Configurator's motor tab |
+| No MSP motor command | `MSP_SET_MOTOR` answers `$M!`; the 4-way interface has no motor command | ESC-Configurator's motor tab |
 | Write-class frame: BACK disabled | the bridge, until the frame's answer or 3000 ms | leaving in the middle of an erase or a page write ([question 7](#open-questions)) |
 | No RUN on leaving | the bridge sends nothing at BACK | starting a firmware half written ([question 6](#open-questions)) |
+| A leave page after an unfinished write | BACK after a write-class frame with no later RUN, `cmd_DeviceReset` or `cmd_InterfaceExit` | DShot making a bootloader start a half-written firmware ([question 10](#open-questions)) |
+| No bridge while USB DRIVE holds the card | the entry, by question 11 | the card served to a host and a desktop tool on one cable at once ([question 11](#open-questions)) |
 | `PROPELLER OFF.` on the screen | the screen | below |
+
+With DShot off, a touch controller that stops answering only leaves the
+bridge open: there is no motor to stop. The touch-loss stop of pull request
+#49 is not merged (STATUS.md item 23).
 
 **Bytes on SIG are not a throttle, but not nothing either.** In
 passthrough the PC decides every byte. 19200 baud 8N1 holds the line low
@@ -430,11 +513,23 @@ The screen says `PROPELLER OFF.`
 | Bluejay 0.21 | the same check (`src/BLHeliBootLoad.inc` 238) | as BLHeli_S; not verified |
 | BLHeli_32 | not verified | not verified |
 
+**The USB cable pulled during a flash.** TinyUSB's RP2040 port, which
+the RP2350 uses, reports a pulled cable as a bus suspend, not an unplug
+(`usb_msc.cpp` lines 173 to 184); `tud_cdc_connected()` then reads false,
+since TinyUSB counts a suspended device as not ready (`cdc_device.c`
+lines 132 to 135, `usbd.h` lines 97 to 99). The screen shows
+`THE PC CLOSED THE PORT.` On its battery the board keeps the claim, holds
+SIG at the pad's pull-up and sends nothing; the ESC's bootloader waits.
+On USB power alone the board stops with the cable. What an unpowered pad
+does to SIG is not verified; the AM32 bootloader starts the firmware,
+a half-written one included, after about 20 ms of low line
+(`main.c` 841 to 852). The write line says `DO NOT UNPLUG ESC OR USB.`
+
 **Into the bootloader without a power cycle, on AM32.** AM32 2.22 resets
 itself after a time without a signal, by its comments 2 s while disarmed
 and 0.5 s while armed (`Src/main.c` 2137 to 2163). After a software reset
-the AM32 bootloader stays in the bootloader while the line reads high and
-never low under its own pull-up (`main.c` 1097 to 1138). So once the claim
+the AM32 bootloader stays in the bootloader while the line reads high under
+its own pull-up and with no pull (`main.c` 1125 to 1157). So once the claim
 has stopped DShot and the pad's pull-up holds SIG high, an AM32 2.22 should
 sit in its bootloader within about 2 s, with no power cycle. AM32 CONFIG
 asks for a power cycle today (`ui_am32.cpp` lines 493 to 496). Neither
@@ -447,9 +542,14 @@ that pull-down is not measured.
 **After BACK.** DShot starts again on SIG. An AM32 still in its bootloader
 reads DShot frames as bad 19200 baud frames; each bad command or CRC adds
 one to a count (`main.c` 546 to 565, 815 to 816), and above 100 the
-bootloader tries to start the firmware (`main.c` 1276 to 1281). So AM32
-should start its firmware about 100 frames, 100 ms, after DShot resumes,
-if the firmware is whole. This is inferred, not measured. For BLHeli_S and
+bootloader calls `jump()` (`main.c` 1276 to 1281). `jump()` checks only
+the settings page's first byte and the firmware's first two words
+(`main.c` 423 to 466), so about 100 ms after DShot resumes AM32 starts the
+firmware in flash, a half-written one included when a flash was cut after
+its first page. This is inferred, not measured. After a write-class frame
+with no later RUN, `cmd_DeviceReset` or `cmd_InterfaceExit`, BACK
+therefore shows a leave page before DShot resumes, by
+[question 10](#open-questions)'s recommendation. For BLHeli_S and
 Bluejay what their bootloader does with DShot frames is not verified. The
 screen's last lines say to power-cycle the ESC after a flash and whenever
 the tool finds no ESC.
@@ -481,7 +581,7 @@ y   0 | USB BRIDGE                      [  BACK  ]|  header 36 px
 | Element | Place | Text | Width |
 |---|---|---|---|
 | Strip caption | x 8, y 44 | `SIG GP0  19200 8N1`; `SIG GP1  19200 8N1` | 107 px, to x 114 |
-| Strip chip | `uiChip()`, right edge x 232 | `PORT OPEN`, `PORT CLOSED` | 53 + 12 = 65 px, 65 + 12 = 77 px: from x 156 at the widest, 41 px clear of the caption |
+| Strip chip | `uiChip()`, right edge x 232 | `PORT OPEN`, `PORT CLOSED` | 53 + 12 = 65 px, 65 + 12 = 77 px: from x 155 at the widest (240 − 8 − 77), 40 px clear of the caption |
 | MODE caption | x 8, y 62 | `MODE` | 23 px |
 | Mode | x 8, y 72, scale 2 | `WAITING`, `PASSTHROUGH`, `4-WAY INTERFACE` | 82, 130, 178 px; to x 185 at the widest |
 | Counter captions | x 8 and x 122, y 98 | `PC > ESC`, `ESC > PC` | 47 px each |
@@ -494,18 +594,25 @@ Message lines, each with its width:
 
 | State | Lines | Colour |
 |---|---|---|
-| Stopping | `STOPPING DSHOT...` (101 px) | `C_DIM` |
+| Stopping | the strip reads `RELEASING SIG GP0` (101 px), as KST SERVO's and AM32 CONFIG's do (`ui_kst.cpp` line 616) | `C_DIM` |
+| The line did not bind | line 0: `SIG GP0 COULD NOT BE TAKEN (PIO)` (191 px; `(CLOCK)`, the widest, 203 px), and RETRY in the footer, x 6, y 268, 228 × 46, as KST SERVO (`ui_kst.cpp` lines 620 to 625) | `C_AMBER` |
 | Waiting and running | `OPEN THIS PORT IN A DESKTOP ESC TOOL.` (221 px); `THE ESC RUNS ON ITS OWN BATTERY.` (191 px); `PROPELLER OFF. DSHOT IS OFF.` (167 px); blank; `POWER-CYCLE THE ESC IF THE TOOL` (185 px); `FINDS NO ESC, AND AFTER A FLASH.` (191 px) | `C_DIM` |
-| A write-class frame out | line 0: `WRITING: DO NOT UNPLUG THE ESC.` (185 px); BACK drawn disabled | `C_AMBER` |
+| A write-class frame out | line 0: `WRITING: DO NOT UNPLUG ESC OR USB.` (203 px); BACK drawn disabled | `C_AMBER` |
 | Bytes lost | line 1: `BYTES LOST: THE BRIDGE FELL BEHIND.` (209 px) | `C_AMBER` |
 | A motor command refused | line 2: `MOTOR COMMAND FROM THE PC REFUSED.` (203 px), for 5 s | `C_AMBER` |
 | The port closed after traffic | line 0: `THE PC CLOSED THE PORT.` (137 px) | `C_DIM` |
 | The claim refused | the claim's refusal, as AM32 CONFIG shows it | `C_AMBER` |
+| USB DRIVE holds the card, by question 11 (a) | line 0: `EJECT THE USB DRIVE FIRST` (149 px); the claim is not begun | `C_AMBER` |
 
 The pin in the strip is SIG's, GP0 or GP1. The screen repaints its
 counters at most every 250 ms. Layout constants get `static_assert`s for
 every width and gap, as the other screens have. Nothing on the screen
-except BACK takes a tap.
+but BACK, and RETRY after a failed bind, takes a tap.
+
+The leave page of question 10 (a) is menu structure B's one leave page
+(`src/ui_leave.h`), with two steps: `POWER THE ESC OFF.` (107 px from
+x 20) and `RESTART DSHOT.` (83 px), RESTART DSHOT live 1000 ms after the
+line is let go, as for the servo tools.
 
 ## Entry
 
@@ -519,16 +626,21 @@ bridge needs a way in, and each way changes something menu-b.md decides:
 |---|---|---|---|
 | (a) a `USB BRIDGE` button on AM32 CONFIG's connect page, DshotDisplay's place (`ui_am32.cpp` at 6693084 lines 212 to 215) | 7 rows | 2 | AM32 CONFIG's page; the bridge then sits inside an AM32 claim, which has no core1 job, and is found under a firmware it also serves BLHeli_S and Bluejay for |
 | (b) an eighth row `USB BRIDGE`, 118 px at scale 2 | 8 rows: 8 × 42 − 258 = 78 px of scroll | 2 | decision 33's seven rows |
-| (c) AM32 CONFIG's row becomes an ESC chooser, as PROGRAMMER is ([menu-b.md](menu-b.md#programmer-the-chooser)), with AM32 CONFIG and USB BRIDGE, and item (6)'s entry once built | 7 rows | 3; AM32 CONFIG one tap deeper | decision 16's row and its label; the chooser claims nothing, an entry's tap claims SIG |
+| (c) AM32 CONFIG's row becomes a chooser, `ESC CONFIG`, as PROGRAMMER is ([menu-b.md](menu-b.md#programmer-the-chooser)), with AM32 CONFIG (which, by `docs/design/bluejay-blheli-s.md` question 1 (a), also serves Bluejay and BLHeli_S; `ESC SETTINGS`, 12 characters, 142 px at scale 2, by its option (e)) and USB BRIDGE | 7 rows | 3; the settings screen one tap deeper | decision 16's row and its label; the chooser claims nothing, an entry's tap claims SIG |
 | (d) a SETTINGS row | 7 rows | 3 | SETTINGS holds settings, not tools |
 | (e) SD LOG's row becomes a USB chooser, with SD LOG and USB BRIDGE | 7 rows | 3 | decision 16's row; USB DRIVE stays on SD LOG |
 
-This note recommends (c): AM32 CONFIG, the bridge and item (6)'s Bluejay
-and BLHeli_S settings are all ESC configuration over SIG, and a chooser
+This note recommends (c): the settings screen for AM32, Bluejay and
+BLHeli_S and the bridge are both ESC configuration over SIG, and a chooser
 takes a new entry as a table line. The row's label is the owner's; `ESC
-CONFIG`, 10 characters, 118 px at scale 2, is one choice. With
-[esc-commands.md](esc-commands.md#menu-entry)'s option (a), MENU stays at
-seven rows. [Question 1](#open-questions).
+CONFIG`, 10 characters, 118 px at scale 2, is one choice. Item (6)'s note,
+`docs/design/bluejay-blheli-s.md` (pull request #74, not on `main`), asks
+in its question 1 how AM32 CONFIG's row grows: its option (a) renames the
+row and screen `ESC CONFIG`, and its option (e), with this note's (c),
+makes the row a chooser whose first entry is that one settings screen,
+titled `ESC SETTINGS`, beside USB BRIDGE. The owner answers both questions
+together. With [esc-commands.md](esc-commands.md#menu-entry)'s option (a),
+MENU stays at seven rows. [Question 1](#open-questions).
 
 ## What ports from DshotDisplay
 
@@ -539,7 +651,7 @@ DshotDisplay at 6693084 is the Arduino-era firmware: `Arduino.h`,
 |---|---|---|
 | `bridge_wire.h`, `bridge_wire.cpp` | 140, 176 | the frame slot, the ring, the overrun count and the memory ordering port as they are; `bridgeWirePoll()` becomes the core1 job's step; `am32BlBegin()` and `am32BlEnd()` give way to the job's bind and release; the bit-banged `am32WriteRawEchoed()` and `am32ReadRaw()` give way to the PIO line; the teardown wait of `bridgeWireEnd()`, `delay(1)` up to 250 ms (lines 89 to 98), becomes the job's Stopping phase |
 | `usb_bridge.h`, `usb_bridge.cpp` | 83, 126 | the counters and the transparent rule port; `Serial.available()`, `read()`, `write()` and `flush()` become `tud_cdc_*`; the two `delay(1)` loops (lines 80 to 97) become states; the stdio driver goes off instead of the `loop()` check |
-| `bridge_log.h`, `bridge_log.cpp` | 61, 191 | a build option, off by default, as `AM32_BRIDGE_LOG` 0 is there (`config.h` 286 to 297): records in a 4 KB RAM ring, dumped over CDC after BACK ([question 8](#open-questions)); `Arduino.h` and `millis()` from `plat.h` |
+| `bridge_log.h`, `bridge_log.cpp` | 61, 191 | a build option, off by default, as `AM32_BRIDGE_LOG` 0 is there (`config.h` 286 to 297): records in a 4 KB RAM ring, dumped over CDC after BACK ([question 8](#open-questions)), written with `tud_cdc_write()` before the stdio driver comes back, so no telemetry line lands inside the dump, the order DshotDisplay keeps for the same reason (`usb_bridge.cpp` lines 49 to 55); `Arduino.h` and `millis()` from `plat.h` |
 | `am32_bl.cpp`, `am32_bl.h` additions | 31, 66 | not ported: the PIO line replaces the raw bit-bang |
 | `ui_am32.cpp` changes | 122 | not ported: the screen above replaces `drawBridge()`, written to menu structure B's layout |
 | `config.h` changes | | `SERIAL_TELEMETRY` 0 there; here it stays 1 ([question 9](#open-questions)) |
@@ -573,10 +685,21 @@ reply, that the code at the same commit has replaced (`usb_bridge.h` lines
   from the front (`direct.ts` lines 259 to 265); a read of 64 bytes, a
   `SET_BUFFER` with no reply, a 256-byte write.
 - **Mode detection:** `$`, `/`, 0x00 and others as first bytes; the
-  2000 ms idle and not at 1999 ms; a later `$` inside a passthrough session
-  that does not switch.
+  2000 ms idle ending passthrough and MSP, and not at 1999 ms; a later `$`
+  inside a passthrough session that does not switch; the AM32
+  configurator's sequence replayed with its 2000 ms pause after
+  `MSP_SET_PASSTHROUGH` and a 10 s pause later, the 4-way state and its
+  device kept through both; `cmd_InterfaceExit`, a port close and BACK
+  ending it; the tools' recovery frames, `cmd_InterfaceExit` and
+  `cmd_DeviceInitFlash` with no MSP before them, answered.
+- **The gather:** a 258-byte frame in five 64-byte packets with a core0
+  pass of 30 ms between the third and the fourth goes to the wire as one
+  frame; two writes 3 ms apart go as two.
 - **MSP:** each command of the table, its checksum, a bad checksum ignored,
   `$M!` for `MSP_SET_MOTOR` and an unknown command, `MSP_STATUS`'s bit 2;
+  each payload at least the length of the table, read by a model of each
+  tool's parser that fails past the end, so a reply cut by one byte fails;
+  `MSP_SET_PASSTHROUGH` with mode 0xFD and with mode 1 answering 0;
   ESC-Configurator's connect sequence and the AM32 configurator's, replayed
   from the lines cited.
 - **4-way:** each command, the CRC-16/XMODEM, a bad CRC answering
@@ -587,13 +710,19 @@ reply, that the code at the same commit has replaced (`usb_bridge.h` lines
   byte, ends a message after 260 µs of idle, keep-alive answered 0xC1) and
   BLHeli_S. If item (6) copies escwire's simulated ESC, the 4-way tests use
   it.
-- **The wire rules:** no gap within a frame; the echo dropped in 4-way and
-  kept in passthrough; a differing echo counted as a collision; overruns
-  counted.
+- **The wire rules:** no gap within a frame; a 4-way write's `SET_BUFFER`
+  header and data as two messages at least 520 µs apart, against a model
+  AM32 that ends a message on 260 µs of idle and drops data joined to the
+  header, so a handler that sends them with no gap fails; the echo dropped
+  in 4-way and kept in passthrough; a differing echo counted as a
+  collision; overruns counted.
 - **The claim:** `PinUser::Bridge` begins Free only, Stopping, Held,
   Running, BACK through Leaving and Restoring to Free; BACK disabled during
-  a write-class frame and live again at its answer or at 3000 ms; the stdio
-  driver off from Running to Free.
+  a write-class frame and live again at its answer or at 3000 ms, not at
+  2999 ms; the leave page after an unfinished write and not after a RUN,
+  `cmd_DeviceReset` or `cmd_InterfaceExit`; entry refused while USB DRIVE
+  holds the card; the stdio driver off from Running to Free; a port close
+  during a write keeping the claim and sending nothing.
 - **The screen,** by control id: every string within its rectangle, the
   states' lines, the preview `docs/bridge-preview.png`.
 - Every new rule mutation-checked: break it, see a test fail, restore.
@@ -620,6 +749,9 @@ Only an ESC and a PC settle these:
   the bridge.
 - B9. BACK after a session: does the ESC start its firmware once DShot
   resumes, and after how long; the tester's eRPM.
+- B10. The USB cable pulled during a page write, the board on its battery
+  and on USB power alone: the screen, SIG's level on the analyser, the
+  ESC's state.
 
 ## Work breakdown
 
@@ -631,7 +763,7 @@ and changed lines, rough.
 | 1. Line and claim | `PinUser::Bridge`, `Core1Job::Bridge`, the PIO line (`src/bridge_line.pio`), the slot and the ring from `bridge_wire.*`, the PIO budget table in [pin-claim.md](pin-claim.md) | about 300 | about 300 | STATUS, CHANGELOG | |
 | 2. Passthrough and the screen | `src/usb_bridge.*`, the stdio switch in `usb_dev.cpp`, the screen `src/ui_bridge.*`, the entry by question 1, `test_ids.cpp`, the preview, DshotDisplay's tests, the log by question 8; README section, wiki pages in English and German | about 450 | about 500 | about 200 | 1 |
 | 3. MSP and the 4-way interface | `src/bridge_msp.*`, `src/bridge_4way.*`, the bootloader frames (escwire's if item (6) copied them), mode detection | about 600 | about 700 | about 80 | 2 |
-| 4. Bring-up | B1 to B9 | none | none | the record in STATUS | 1 to 3 |
+| 4. Bring-up | B1 to B10 | none | none | the record in STATUS | 1 to 3 |
 
 Slice 2 alone serves the AM32 configurator in Direct mode and the Python
 tool; ESC-Configurator needs slice 3.
@@ -640,18 +772,22 @@ tool; ESC-Configurator needs slice 3.
 
 1. **Where is the bridge entered?** (a) A `USB BRIDGE` button on AM32
    CONFIG's connect page, as DshotDisplay. (b) An eighth MENU row; MENU
-   scrolls 78 px. (c) AM32 CONFIG's row becomes an ESC chooser with AM32
-   CONFIG, USB BRIDGE and, later, item (6)'s entry; the row's label is
-   the owner's, `ESC CONFIG` one choice (recommended). (d) A SETTINGS row.
-   (e) SD LOG's row becomes a USB chooser with SD LOG and USB BRIDGE.
+   scrolls 78 px. (c) AM32 CONFIG's row becomes a chooser, `ESC CONFIG`,
+   with AM32 CONFIG (which, by `docs/design/bluejay-blheli-s.md` question
+   1 (a), also serves Bluejay and BLHeli_S; `ESC SETTINGS` by its option
+   (e)) and USB BRIDGE; the labels are the owner's (recommended). (d) A
+   SETTINGS row. (e) SD LOG's row becomes a USB chooser with SD LOG and
+   USB BRIDGE. The owner answers this question and that note's question 1
+   together.
 2. **Which modes?** (a) Both, passthrough first as slice 2, MSP and the
    4-way interface as slice 3 (recommended: ESC-Configurator, named in the
    feature, has no direct mode). (b) Passthrough only, DshotDisplay's
    scope: AM32 configurator in Direct mode and the Python tool. (c) MSP
    and 4-way only.
 3. **How is the mode chosen?** (a) From the PC's first byte: `$` MSP, `/`
-   4-way, anything else passthrough, fixed until 2000 ms without traffic
-   (recommended). (b) From the rate the PC sets: 19200 passthrough, any
+   4-way at once, anything else passthrough; passthrough and MSP end after
+   2000 ms without traffic, 4-way only on `cmd_InterfaceExit`, a port close
+   or BACK (recommended). (b) From the rate the PC sets: 19200 passthrough, any
    other MSP; this reads a setting the tools set for their own reasons. (c)
    Two buttons on the screen.
 4. **One serial port or two?** (a) The existing port, with the console off
@@ -662,7 +798,9 @@ tool; ESC-Configurator needs slice 3.
 5. **What does the board call itself in MSP?** (a) `MRCB`, for
    MiniRcBench, as the flight controller variant and `MRCB4W` as the 4-way
    name (recommended: the two tools read the variant only to log it or to
-   pick the motor command, `index.jsx` 268 to 273, `msp.ts` 118 to 126).
+   pick the motor command, `index.jsx` 268 to 273, `msp.ts` 118 to 126;
+   the cost: the AM32 configurator logs `Unknown fc type 'MRCB'` as an
+   error on every connect, `commands.queue.ts` 64 to 83, and goes on).
    (b) `BTFL`, Betaflight's identifier, which says the board is a
    Betaflight flight controller.
 6. **Send RUN when the bridge is left?** (a) Nothing (recommended: the
@@ -674,20 +812,46 @@ tool; ESC-Configurator needs slice 3.
    waits for its answer, at most 3000 ms; otherwise live (recommended).
    (b) Disabled while any traffic flowed in the last 2 s; a tool's
    keep-alive every 900 ms would hold it disabled for as long as the tool
-   is connected. (c) A 1 s hold to leave while the port is open.
+   is connected. (c) A 1 s hold to leave while the port is open. (d)
+   Disabled from a write-class frame until 2 s pass with no write-class
+   frame, keep-alives not counting: it covers the gaps between the pages of
+   a flash, and a stalled tool holds BACK for 2 s at most.
 8. **The traffic log.** (a) DshotDisplay's log as a build option, off by
    default, dumped over CDC after BACK (recommended). (b) Left out. (c)
    Written to the card as `LOGS/BRIDGEnn.TXT`.
 9. **`SERIAL_TELEMETRY`.** (a) Stays 1; the bridge turns the console off
    while it runs (recommended). (b) 0, as DshotDisplay set it, so the port
    is quiet unless a debug build asks.
+10. **BACK after an unfinished write.** After a write-class frame with no
+    later RUN, `cmd_DeviceReset` or `cmd_InterfaceExit`, the ESC may hold a
+    half-written firmware that AM32's bootloader starts once DShot's frames
+    count as 100 bad commands ([safety](#safety)). (a) BACK shows the leave
+    page with `POWER THE ESC OFF.` and `RESTART DSHOT.` before DShot
+    resumes (recommended). (b) DShot resumes at once, as after AM32 CONFIG.
+    (c) SIG stays high, DShot off, until the ESC is power-cycled, which the
+    bench cannot see.
+11. **The card served while bridging.** SD LOG's BACK leaves the card with
+    the host while USB DRIVE serves it (`ui_sdlog.cpp` lines 395 to 405),
+    so the drive and the bridge can share the cable. (a) The bridge's entry
+    is refused while USB DRIVE holds the card, with `EJECT THE USB DRIVE
+    FIRST` (25 characters, 149 px) (recommended). (b) Both run; how much a
+    copy from the card delays the bridge's answers is not measured.
+12. **The 3D note after a bridge write.** A desktop tool can change AM32's
+    3D MODE, byte 0x12 of the settings (`am32_eeprom.h` line 43), but
+    `uiAm32Esc3d()` changes only on AM32 CONFIG's reads and writes
+    (`ui_am32.h` lines 183 to 197; STATUS.md item 24). (a) The bridge reads
+    byte 0x12 of each AM32 settings page it forwards, a read the ESC
+    answered or a write the ESC acknowledged, and sets or clears the note
+    by item 24's rule (recommended; slice 3 designs how the bridge knows the
+    settings page's address in passthrough and 4-way). (b) Any settings
+    write through the bridge sets the note until AM32 CONFIG reads the ESC.
+    (c) Unchanged: the note does not follow the bridge.
 
 ## Not verified
 
 - BLHeliSuite's and BLHeliSuite32's interfaces: which speak MSP and the
   4-way interface, which raw one-wire, whether they expect an echo, and at
   what rate. The Bluejay configurator's.
-- That any tool sends a 4-way frame without MSP first.
 - Whether each tool sets DTR on opening the port.
 - That the RP2350's receive SM reads the pad while the transmit SM drives
   it, on this board, and the echo's timing.
@@ -704,6 +868,10 @@ tool; ESC-Configurator needs slice 3.
   after BACK, and whether AM32 starts its firmware about 100 ms after DShot
   resumes.
 - Whether any ESC firmware arms on 19200 baud traffic on its signal wire.
+- What an unpowered RP2350 pad does to SIG when the cable of a board on
+  USB power alone is pulled; how a pulled cable shows on the board's
+  battery, which `usb_msc.cpp` reads as a suspend from TinyUSB's source.
+- How much core0's longest pass delays an answer during the bridge.
 - AM32 bootloaders older than 578ff29, and AM32 firmware other than 2.22.
 - Everything on hardware: no byte of this design has gone to an ESC from
   this board, and DshotDisplay's bridge has no hardware record either.
