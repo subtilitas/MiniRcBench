@@ -63,7 +63,7 @@ static critical_section_t s_cs;
  * tail of it and the ESC counted neither to completion. Nothing reported
  * anything; EDT simply stayed off, sometimes.
  *
- * So the beacon is a request core0 raises and core1 latches, the EDT burst is
+ * So a command is a request core0 raises and core1 latches, the EDT burst is
  * core1's alone, and EDT takes the wire first. @see escTaskPoll()
  * @{
  */
@@ -71,8 +71,11 @@ static volatile uint16_t s_throttle    = 0;   /**< Commanded throttle, 0..2000. 
 static volatile bool     s_armed       = false; /**< Arm state. */
 static volatile uint8_t  s_poles       = DEFAULT_MOTOR_POLES; /**< Pole count. */
 static volatile uint32_t s_heartbeatMs = 0;   /**< millis() of the last heartbeat. */
-static volatile uint8_t  s_beepReq     = 0;   /**< Beacon 1..5 core0 wants; 0 none. Under s_cs. */
-static volatile uint8_t  s_beepGen     = 0;   /**< Counts the requests, so core1 clears only the one it took. Under s_cs. */
+static EscCmdRequest     s_cmdReq      = {};  /**< The command core0 wants; cmd 0 none. Under s_cs. */
+static uint8_t           s_cmdGen      = 0;   /**< Counts the requests, so core1 clears only the one it took. Under s_cs. */
+static EscCmdState       s_cmdState    = EscCmdState::Idle; /**< Core1's EscCmdSeq::state. Under s_cs. */
+static uint8_t           s_cmdStateCmd = 0;   /**< Core1's EscCmdSeq::stateCmd. Under s_cs. */
+static volatile EscCmdReady s_cmdReady = EscCmdReady::NoAnswer; /**< Core1's EscPump::ready. */
 static volatile bool     s_edtRequested = false; /**< Mirror of EscEdtState::sent. */
 /** @} */
 
@@ -229,18 +232,52 @@ void escHeartbeat() {
 
 uint32_t escHeartbeatMs() { return s_heartbeatMs; }
 
-bool escRequestBeep(uint8_t n) {
-	if (s_armed) return false;
-	if (n < 1) n = 1;
-	if (n > 5) n = 5;
-	// A request, not a queue write. Core1 latches it into its own repeat
-	// counter when the wire is free, so a press cannot land in the middle of an
+bool escRequestCommand(uint8_t cmd, bool save) {
+	if (!escCmdAccept(cmd, save, s_armed, s_cmdReady)) return false;
+	// A request, not a queue write. Core1 starts it when the wire is free and
+	// its own readiness reads Ready, so a press cannot land in the middle of an
 	// EDT enable and truncate it. An arm drops it. @see esc_cmd
+	uint32_t now = millis();
 	critical_section_enter_blocking(&s_cs);
-	s_beepReq = n;
-	s_beepGen = (uint8_t)(s_beepGen + 1);
+	s_cmdReq.cmd  = cmd;
+	s_cmdReq.save = save;
+	s_cmdReq.atMs = now;
+	s_cmdGen = (uint8_t)(s_cmdGen + 1);
 	critical_section_exit(&s_cs);
 	return true;
+}
+
+void escCancelCommand() {
+	critical_section_enter_blocking(&s_cs);
+	s_cmdReq.cmd = 0;
+	s_cmdGen = (uint8_t)(s_cmdGen + 1);
+	critical_section_exit(&s_cs);
+}
+
+EscCmdReady escCommandReady() { return s_cmdReady; }
+
+EscCmdState escCommandState(uint8_t *cmd) {
+	critical_section_enter_blocking(&s_cs);
+	bool waiting = s_cmdReq.cmd != 0;
+	EscCmdState st = waiting ? EscCmdState::Waiting : s_cmdState;
+	uint8_t c = waiting ? s_cmdReq.cmd : s_cmdStateCmd;
+	critical_section_exit(&s_cs);
+	if (cmd) *cmd = c;
+	return st;
+}
+
+/**
+ * @brief Publish the pump's command state to core0. Core1 only.
+ * @param taken   The request core1 read was started, expired or dropped.
+ * @param readGen s_cmdGen when core1 read it: only that request is cleared.
+ */
+static void publishCommand(bool taken, uint8_t readGen) {
+	critical_section_enter_blocking(&s_cs);
+	if (taken && s_cmdGen == readGen) s_cmdReq.cmd = 0;
+	s_cmdState    = s_pump.seq.state;
+	s_cmdStateCmd = s_pump.seq.stateCmd;
+	critical_section_exit(&s_cs);
+	s_cmdReady = s_pump.ready;
 }
 
 bool escEdtRequested() { return s_edtRequested; }
@@ -362,6 +399,11 @@ void escTaskPoll() {
 			out_dshot_release(s_pumpPin);
 			gpio_pull_up(s_pumpPin);
 			s_pumpUp = false;
+			// A sequence going out stops here, and core0 reads NoAnswer
+			// until the next bind has an ESC answering, rather than the
+			// last readiness for as long as the pin is away.
+			escPumpRelease(&s_pump);
+			publishCommand(false, 0);
 		}
 #if KISS_TELEM_ENABLE
 		// Whoever owns the pin next, it is not us. A receiver left running
@@ -424,16 +466,24 @@ void escTaskPoll() {
 	// With EDT decoding on for every reply, the replies to the enable frames
 	// included: an ESC already in EDT mode answers them with EDT frames, and
 	// AM32 answers the enable itself with a status frame. @see ESC_EDT_DECODE
+	// The result is also the command sequence's check of that frame.
+	// @see escCmdCheckReply()
 	dshot_telem_t t;
 	memset(&t, 0, sizeof(t));
-	applyTelemetry(out_dshot_poll(s_pumpPin, escPumpDecodeEdt(&s_pump), &t), &t);
+	dshot_reply_t reply = out_dshot_poll(s_pumpPin, escPumpDecodeEdt(&s_pump), &t);
+	applyTelemetry(reply, &t);
 
 	// 2. Decide what to send. The decision is escPumpSlot(), which is pure and
 	// lives in the header so the host suite can reach it. This function only
 	// does the I/O. During the drain the slot is escDrainSlot(): a plain
 	// zero, with no command and no KISS request.
-	// The heartbeat stamp before the clock, so the clock is never older than
-	// it; escUiAlive() also accepts a stamp less than 250 ms newer.
+	// The request and the heartbeat stamp before the clock, so the clock is
+	// never older than either; escUiAlive() also accepts a stamp less than
+	// 250 ms newer, and escPumpSlot() reads a request's wait signed.
+	critical_section_enter_blocking(&s_cs);
+	EscCmdRequest req = s_cmdReq;
+	uint8_t reqGen = s_cmdGen;
+	critical_section_exit(&s_cs);
 	uint32_t hb = s_heartbeatMs;
 	uint32_t ms = millis();
 	bool uiAlive = escUiAlive(ms, hb);
@@ -442,26 +492,16 @@ void escTaskPoll() {
 #else
 	bool kissRx = false;
 #endif
-	critical_section_enter_blocking(&s_cs);
-	uint8_t beepReq = s_beepReq;
-	uint8_t beepGen = s_beepGen;
-	critical_section_exit(&s_cs);
 	EscSlot slot = handover == EscHandover::Drain
 	             ? escDrainSlot()
 	             : escPumpSlot(&s_pump, &s_tel, s_armed, uiAlive, s_throttle,
-	                           beepReq, kissRx, ms);
+	                           &req, reply, kissRx, ms);
 	if (slot.forgetEdt) {
 		critical_section_enter_blocking(&s_cs);
 		escEdtForget(&s_tel);
 		critical_section_exit(&s_cs);
 	}
 	s_edtRequested = s_pump.edt.sent;
-	// Only the request this pass read: one core0 made since stays.
-	if (slot.beepTaken) {
-		critical_section_enter_blocking(&s_cs);
-		if (s_beepGen == beepGen) s_beepReq = 0;
-		critical_section_exit(&s_cs);
-	}
 
 	const EscFrame &f = slot.frame;
 	if (f.sendCommand) {
@@ -479,6 +519,8 @@ void escTaskPoll() {
 	// A scheduled attempt is stamped by its last frame, and a throttle frame
 	// stamps the drain's start. @see escEdtFrameSent(), escThrottleStamp()
 	escPumpFrameSent(&s_pump, &f, millis());
+	// Only the request this pass read is cleared: one core0 made since stays.
+	publishCommand(slot.cmdTaken, reqGen);
 
 #if KISS_TELEM_ENABLE
 	if (f.requestKiss) {
