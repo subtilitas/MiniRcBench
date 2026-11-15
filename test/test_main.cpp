@@ -54,6 +54,7 @@ void runClockTests();
 void runBridgeTests();
 void runUsbBridgeTests();
 void runBridgeUiTests();
+void runBridgeProtoTests();
 void core1JobInit();
 
 int main() {
@@ -105,6 +106,7 @@ int main() {
 	runBridgeTests();
 	runUsbBridgeTests();
 	runBridgeUiTests();
+	runBridgeProtoTests();
 
 	section("Critical sections");
 	checkInt("uses before critical_section_init()", fakeCriticalSectionMisuse(), 0);

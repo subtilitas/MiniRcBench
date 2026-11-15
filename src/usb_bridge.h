@@ -1,7 +1,8 @@
 /**
  * @file usb_bridge.h
  * @brief The USB half of the USB bridge: the board's serial port to the
- *        frame slot and back, on core0 (docs/design/usb-bridge.md, slice 2).
+ *        frame slot and back, on core0 (docs/design/usb-bridge.md, slices 2
+ *        and 3).
  *
  * A desktop ESC tool on the board's USB serial port reaches the ESC's
  * bootloader on SIG at 19200 baud 8N1. Core1's job owns the pin
@@ -22,13 +23,25 @@
  * gets the port back once the claim is Free, after the log's dump when
  * @ref USB_BRIDGE_LOG is 1.
  *
- * **Modes.** Waiting until the PC's first byte, then passthrough. Slice 2
- * builds passthrough only: every first byte starts it, `$` and `/`
- * included, which slice 3 gives MSP and the 4-way interface. Passthrough
- * ends, back to Waiting, after @ref BRIDGE_IDLE_MS with no byte in either
- * direction, or when the port closes: DTR (`tud_cdc_connected()`) falling
- * after it was set. A tool that never sets DTR keeps its mode until the idle
- * time. The bridge forwards whether DTR is set or not.
+ * **Modes** (decision 3). Waiting until the PC's first byte, which chooses:
+ *
+ * | First byte | Mode | Ends on |
+ * |---|---|---|
+ * | `$`, an MSP frame | Msp: the board answers MSP (bridge_msp.h) | @ref BRIDGE_IDLE_MS with no byte either way, the port closed |
+ * | 0x2F, a 4-way frame | FourWay at once: the tools' recovery sends 4-way frames with no MSP before them | `cmd_InterfaceExit` once answered, the port closed; not a pause |
+ * | any other | Passthrough | @ref BRIDGE_IDLE_MS with no byte either way, the port closed |
+ *
+ * Msp becomes FourWay at `MSP_SET_PASSTHROUGH` answered 1, or at a whole
+ * 4-way frame. In both, an MSP frame is answered and a 4-way frame run
+ * (bridge_4way.h); a byte between frames other than `$` and 0x2F is dropped,
+ * and a frame with no byte for @ref BRIDGE_PROTO_GAP_US is dropped unsent.
+ * The PC's next frame is read only once the last is answered: the PC is held
+ * off by USB flow control meanwhile. The 4-way device is kept across pauses
+ * and dropped when the mode ends. Later bytes never switch a mode: a raw
+ * bootloader session holds 0x24 and 0x2F in its data. The port closes when
+ * DTR (`tud_cdc_connected()`) falls after it was set; a tool that never sets
+ * DTR keeps its mode until the idle time, `cmd_InterfaceExit` or BACK. The
+ * bridge forwards whether DTR is set or not.
  *
  * **The gather.** A PC frame arrives in 64-byte USB packets, one per core0
  * pass at most (`CFG_TUD_CDC_RX_BUFSIZE` 64). Each pass first reads what
@@ -55,10 +68,27 @@
  * revised, ui_bridge.h): an ESC can sit in its bootloader with no frame of
  * the PC's answered. MENU shows the run cue from the open until RESTART
  * DSHOT or an eRPM frame. The frames themselves are forwarded unchanged.
+ * In the 4-way interface the same rules hold for its write-class bootloader
+ * frames, the data after SET BUFFER, PROGRAM and ERASE: BACK disabled from
+ * the handover until the 4-way command's answer, at most
+ * @ref BRIDGE_WRITE_WAIT_MS after the last of them, and the note until
+ * `cmd_DeviceReset`'s RUN. `cmd_InterfaceExit` does not end an unfinished
+ * write.
+ *
+ * **The 3D note** (decision 12). Passthrough reads byte 0x12 of each AM32
+ * settings page it forwards: the greeting's answer names the AM32 family,
+ * and with it the page's address (blAnswerAm32Settings()); SET ADDRESS gives
+ * the address of what follows. A READ answered with a good CRC and the ACK,
+ * from that address, of 0x30 bytes or more of plausible settings, sets or
+ * clears the tester's note; a payload to that address with 3D on, whose
+ * PROGRAM is answered 0x30, sets it (bridgeAm32Page3d(), esc_3d.h). The
+ * answers are read past each frame's echo. The 4-way interface does the
+ * same from its device's signature (bridge_4way.h).
  *
  * Core0 only.
  *
- * @see docs/design/usb-bridge.md, "USB side", "Passthrough", "Safety"
+ * @see docs/design/usb-bridge.md, "USB side", "Passthrough", "MSP and the
+ *      4-way interface", "Safety"
  */
 
 #pragma once
@@ -74,11 +104,19 @@
 /** @brief BACK stays disabled after a write-class frame this long at most, ms (decision 7). */
 #define BRIDGE_WRITE_WAIT_MS 3000u
 
+/** @brief A frame from the PC in MSP or the 4-way interface is dropped after this long with no byte, µs. */
+#define BRIDGE_PROTO_GAP_US 50000u
+
+/** @brief The screen says a motor command was refused for this long, ms. */
+#define BRIDGE_MOTOR_NOTE_MS 5000u
+
 /** @brief The bridge's mode. */
 enum class BridgeMode : uint8_t {
 	Closed,       /**< Not open: the claim is not Running for the bridge. */
 	Waiting,      /**< Open, waiting for the PC's first byte. */
 	Passthrough,  /**< Bytes copied both ways. */
+	Msp,          /**< MSP answered, before `MSP_SET_PASSTHROUGH`. */
+	FourWay,      /**< The 4-way interface. */
 };
 
 /** @brief A PC frame named as a bootloader command, by its first byte. */
@@ -94,6 +132,8 @@ enum class BridgeCmd : uint8_t {
 	Run,         /**< 0x00, not the greeting. */
 	KeepAlive,   /**< 0xFD. */
 	Other,       /**< Any other first byte. */
+	Msp,         /**< An MSP frame: BridgeLast::first is its command. */
+	FourWay,     /**< A 4-way frame: BridgeLast::first is its command, BridgeLast::addr its address. */
 };
 
 /** @brief The bridge's counts since its open. */
@@ -109,8 +149,8 @@ struct UsbBridgeStats {
 /** @brief The last PC frame, named. */
 struct BridgeLast {
 	BridgeCmd cmd;    /**< Its command. */
-	uint8_t   first;  /**< Its first byte. */
-	uint16_t  addr;   /**< SET ADDRESS: bytes 2 and 3, high first. */
+	uint8_t   first;  /**< Its first byte; for Msp and FourWay the MSP or 4-way command. */
+	uint16_t  addr;   /**< SET ADDRESS and FourWay: bytes 2 and 3, high first. */
 	uint16_t  len;    /**< Its length, bytes. */
 };
 
@@ -148,7 +188,8 @@ bool usbBridgeCmdWrites(BridgeCmd c);
 /**
  * @brief The screen's name of a command: `SET ADDRESS`, `PAYLOAD`, `INIT`.
  * @param c A command.
- * @return Its name; `""` for None, `FRAME` for Other.
+ * @return Its name; `""` for None, `FRAME` for Other, `MSP` and `4-WAY`
+ *         for those.
  */
 const char *usbBridgeCmdName(BridgeCmd c);
 
@@ -186,6 +227,13 @@ bool usbBridgeWriteWaiting();
  * @return True after such a frame.
  */
 bool usbBridgeWriteUnfinished();
+
+/**
+ * @brief An `MSP_SET_MOTOR` from the PC was refused in the last
+ *        @ref BRIDGE_MOTOR_NOTE_MS: the screen says so. Until the next open.
+ * @return True for those 5 s.
+ */
+bool usbBridgeMotorRefused();
 
 /**
  * @brief MENU's run cue, `POWER-CYCLE THE ESC TO RUN IT`, ORed with ESC

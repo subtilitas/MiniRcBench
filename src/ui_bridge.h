@@ -2,7 +2,7 @@
  * @file ui_bridge.h
  * @brief USB BRIDGE: a desktop ESC tool on the board's USB serial port
  *        reaches the ESC's bootloader on SIG (docs/design/usb-bridge.md,
- *        "Screen", slice 2).
+ *        "Screen", slices 2 and 3).
  *
  * Entry: MENU → ESC CONFIG → USB BRIDGE (ui_esc_config.h, decision 1). The
  * screen claims SIG for PinUser::Bridge on its first frame. The claim has no
@@ -13,7 +13,13 @@
  *
  * Once the claim is Running, usb_bridge.h copies bytes between the port and
  * the wire; this screen draws what it reports and never touches the port.
- * Counters repaint at most every @ref BRIDGE_UI_COUNT_MS.
+ * Counters repaint at most every @ref BRIDGE_UI_COUNT_MS. The mode reads
+ * `WAITING`, `PASSTHROUGH` or, in MSP and the 4-way interface,
+ * `4-WAY INTERFACE`. The last line names the PC's last frame: a bootloader
+ * command in passthrough, `LAST MSP SET PASSTHROUGH` for MSP,
+ * `LAST READ 7C00` for a 4-way command with its address. In the 4-way
+ * interface the counters count the bytes sent on SIG and the bytes of the
+ * answers written to the PC, and FRAMES the bootloader frames sent.
  *
  * **BACK.**
  *
@@ -87,6 +93,8 @@ struct UiScreen;
 #define BRIDGE_UI_WAITING       "WAITING"
 /** @brief The mode once it has sent one: 11 characters, 130 px at scale 2. */
 #define BRIDGE_UI_PASSTHROUGH   "PASSTHROUGH"
+/** @brief The mode in MSP and the 4-way interface: 15 characters, 178 px at scale 2, to x 185. */
+#define BRIDGE_UI_4WAY          "4-WAY INTERFACE"
 /** @brief The left counter's caption: bytes from the PC to the ESC. */
 #define BRIDGE_UI_TO_ESC        "PC > ESC"
 /** @brief The right counter's caption: bytes from the ESC to the PC, the echo included. */
@@ -109,6 +117,8 @@ struct UiScreen;
 #define BRIDGE_UI_WRITING       "WRITING: DO NOT UNPLUG ESC OR USB."
 /** @brief Line 1, amber, once a byte was lost. */
 #define BRIDGE_UI_LOST          "BYTES LOST: THE BRIDGE FELL BEHIND."
+/** @brief Line 2, amber, for @ref BRIDGE_MOTOR_NOTE_MS after an `MSP_SET_MOTOR`: 34 characters, 203 px. */
+#define BRIDGE_UI_MOTOR         "MOTOR COMMAND FROM THE PC REFUSED."
 /** @brief Line 0, dim, after the PC closed the port. */
 #define BRIDGE_UI_CLOSED        "THE PC CLOSED THE PORT."
 /** @brief Line 0, amber, while USB DRIVE holds the card (decision 11). */

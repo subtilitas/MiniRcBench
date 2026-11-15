@@ -5,6 +5,8 @@
 
 #include "ui_bridge.h"
 #include "usb_bridge.h"
+#include "bridge_msp.h"
+#include "bridge_4way.h"
 #include "usb_msc.h"
 #include "ui_screen.h"
 #include "ui_input.h"
@@ -198,6 +200,47 @@ static void messages(const char **l, uint16_t *c, bool *retry) {
 		l[1] = BRIDGE_UI_LOST;
 		c[1] = UI_COL_WARN;
 	}
+	if (usbBridgeMotorRefused()) {
+		l[2] = BRIDGE_UI_MOTOR;
+		c[2] = UI_COL_WARN;
+	}
+}
+
+/** @brief The mode's text. */
+static const char *modeText(BridgeMode m) {
+	if (m == BridgeMode::Passthrough) return BRIDGE_UI_PASSTHROUGH;
+	if (m == BridgeMode::Msp || m == BridgeMode::FourWay) return BRIDGE_UI_4WAY;
+	return BRIDGE_UI_WAITING;
+}
+
+/** @brief The last command's line: `LAST SET ADDRESS 7E00`, `LAST MSP UID`, `LAST READ 7C00`. */
+static void lastText(char *b, size_t n, const BridgeLast &last) {
+	const char *name = nullptr;
+	switch (last.cmd) {
+		case BridgeCmd::SetAddress:
+			snprintf(b, n, "LAST %s %04X", usbBridgeCmdName(last.cmd), (unsigned)last.addr);
+			return;
+		case BridgeCmd::Payload:
+			snprintf(b, n, "LAST %s %u B", usbBridgeCmdName(last.cmd), (unsigned)last.len);
+			return;
+		case BridgeCmd::Other:
+			snprintf(b, n, "LAST %s %02X", usbBridgeCmdName(last.cmd), (unsigned)last.first);
+			return;
+		case BridgeCmd::Msp:
+			name = bridgeMspName(last.first);
+			if (name) snprintf(b, n, "LAST MSP %s", name);
+			else snprintf(b, n, "LAST MSP %u", (unsigned)last.first);
+			return;
+		case BridgeCmd::FourWay:
+			name = bridge4wayName(last.first);
+			if (!name) snprintf(b, n, "LAST 4-WAY %02X", (unsigned)last.first);
+			else if (bridge4wayNameHasAddress(last.first)) snprintf(b, n, "LAST %s %04X", name, (unsigned)last.addr);
+			else snprintf(b, n, "LAST %s", name);
+			return;
+		default:
+			snprintf(b, n, "LAST %s", usbBridgeCmdName(last.cmd));
+			return;
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -234,8 +277,7 @@ static void drawBody() {
 	if (changed(K_MODE, &m, sizeof(m))) {
 		gfxRect(0, BRIDGE_UI_MODE_CAP_Y, GFX_W, BRIDGE_UI_MODE_Y + 14 - BRIDGE_UI_MODE_CAP_Y, C_BG);
 		gfxText(UI_MARGIN, BRIDGE_UI_MODE_CAP_Y, BRIDGE_UI_MODE, C_DIM, 1);
-		gfxText(UI_MARGIN, BRIDGE_UI_MODE_Y,
-		        m == BridgeMode::Passthrough ? BRIDGE_UI_PASSTHROUGH : BRIDGE_UI_WAITING, C_TEXT, 2);
+		gfxText(UI_MARGIN, BRIDGE_UI_MODE_Y, modeText(m), C_TEXT, 2);
 	}
 	const uint32_t now = millis();
 	if (!s_full && now - s_countsMs < BRIDGE_UI_COUNT_MS) return;
@@ -266,14 +308,7 @@ static void drawBody() {
 	         (unsigned long)(st.lost > BRIDGE_UI_COUNT_MAX ? BRIDGE_UI_COUNT_MAX : st.lost));
 	gfxText(x, BRIDGE_UI_FRAMES_Y, b, st.lost ? UI_COL_WARN : C_TEXT, 1);
 	if (last.cmd != BridgeCmd::None) {
-		if (last.cmd == BridgeCmd::SetAddress)
-			snprintf(b, sizeof(b), "LAST %s %04X", usbBridgeCmdName(last.cmd), (unsigned)last.addr);
-		else if (last.cmd == BridgeCmd::Payload)
-			snprintf(b, sizeof(b), "LAST %s %u B", usbBridgeCmdName(last.cmd), (unsigned)last.len);
-		else if (last.cmd == BridgeCmd::Other)
-			snprintf(b, sizeof(b), "LAST %s %02X", usbBridgeCmdName(last.cmd), (unsigned)last.first);
-		else
-			snprintf(b, sizeof(b), "LAST %s", usbBridgeCmdName(last.cmd));
+		lastText(b, sizeof(b), last);
 		gfxText(UI_MARGIN, BRIDGE_UI_LAST_Y, b, C_DIM, 1);
 	}
 }
