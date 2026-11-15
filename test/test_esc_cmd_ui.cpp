@@ -116,6 +116,13 @@ static bool allControls(bool live) {
 	return true;
 }
 
+/** @brief `NO ESC ANSWERS ON SIG GPn.` for the pin the pump drives. */
+static const char *noAnswerLine() {
+	static char b[40];
+	snprintf(b, sizeof(b), UI_ESC_CMD_NO_ANSWER_FMT, (unsigned)escTaskDshotPin());
+	return b;
+}
+
 /** @brief A pixel of the frame. */
 static uint16_t px(int x, int y) { return gfxBuffer()[y * GFX_W + x]; }
 
@@ -166,9 +173,13 @@ static void testLayout() {
 	          fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, UI_ESC_CMD_TITLE, C_TEXT, C_PANEL, 2) &&
 	          gfxTextW(UI_ESC_CMD_TITLE, 2) == 142 && UI_MARGIN + 142 + 20 <= UI_BACK_X);
 	char cap[32];
-	snprintf(cap, sizeof(cap), UI_ESC_CMD_STRIP_FMT, (unsigned)settings()->dshotPin,
-	         (unsigned)settings()->dshotKbaud);
-	checkStr("the strip's caption", cap, "SIG GP0  DSHOT600");
+	snprintf(cap, sizeof(cap), UI_ESC_CMD_STRIP_FMT, (unsigned)escTaskDshotPin(),
+	         (unsigned)escTaskDshotKbaud());
+	{
+		char want[32];
+		snprintf(want, sizeof(want), "SIG GP%u  DSHOT600", (unsigned)settings()->dshotPin);
+		checkStr("the strip's caption: SIG's pin and the rate", cap, want);
+	}
 	checkTrue("dim at x 8, y 44, 101 px", fakeTextIs(UI_MARGIN, 44, cap, C_DIM, C_BG, 1) &&
 	          gfxTextW(cap, 1) == 101);
 	checkTrue("its widest, SIG GP1  DSHOT1200, 107 px, ends 64 px before EDT OFF at x 179",
@@ -253,7 +264,7 @@ static void testReadiness() {
 	          drawnLive(EscCmdCtl::Beep1, true) && drawnLive(EscCmdCtl::On3d, true));
 	struct R { EscCmdReady r; const char *line; const char *what; };
 	const R refused[] = {
-		{ EscCmdReady::NoAnswer, "NO ESC ANSWERS ON SIG GP0.", "no ESC answering" },
+		{ EscCmdReady::NoAnswer, noAnswerLine(), "no ESC answering" },
 		{ EscCmdReady::Turning, UI_ESC_CMD_TURNING, "the motor turning" },
 		{ EscCmdReady::Settling, UI_ESC_CMD_SETTLING, "the ESC settling" },
 	};
@@ -282,14 +293,19 @@ static void testReadiness() {
 			fakeDumpFrame("shot_esccmd_no_esc.ppm");
 		}
 	}
-	// The pin in the line is SIG's.
+	// The pin in the line is SIG's: swap SIG and AUX.
 	const FakeWiring w = fakeWiring();
-	escTaskConfigure(1, w.dshotKbaud, w.kissEnable, 0);
+	const uint8_t other = w.dshotPin == 1 ? 0 : 1;
+	escTaskConfigure(other, w.dshotKbaud, w.kissEnable, w.dshotPin);
 	fakeSetCmdReady(EscCmdReady::NoAnswer);
 	ecFrames(1);
-	checkTrue("SIG on GP1: NO ESC ANSWERS ON SIG GP1., and the strip SIG GP1",
-	          lineIs(0, "NO ESC ANSWERS ON SIG GP1.", C_AMBER) &&
-	          fakeTextIs(UI_MARGIN, 44, "SIG GP1  DSHOT600", C_DIM, C_BG, 1));
+	{
+		char line[40], strip[32];
+		snprintf(line, sizeof(line), "NO ESC ANSWERS ON SIG GP%u.", (unsigned)other);
+		snprintf(strip, sizeof(strip), "SIG GP%u  DSHOT600", (unsigned)other);
+		checkTrue("SIG swapped: the line and the strip name the other pin",
+		          lineIs(0, line, C_AMBER) && fakeTextIs(UI_MARGIN, 44, strip, C_DIM, C_BG, 1));
+	}
 	escTaskConfigure(w.dshotPin, w.dshotKbaud, w.kissEnable, w.kissPin);
 	ecFrames(2);
 	fakeSetCmdReady(EscCmdReady::Busy);
@@ -489,7 +505,7 @@ static void testOutcomes() {
 	checkTrue("the ESC gone after it: the outcome stays, the reason on the sixth line",
 	          lineIs(0, "SENT 10 (3D ON), THEN 12 (SAVE).", C_TEXT) &&
 	          lineIs(4, UI_ESC_CMD_3D_RESTART, C_AMBER) &&
-	          lineIs(5, "NO ESC ANSWERS ON SIG GP0.", C_AMBER) && allControls(false));
+	          lineIs(5, noAnswerLine(), C_AMBER) && allControls(false));
 	fakeSetCmdReady(EscCmdReady::Ready);
 	ecFrames(1);
 	sequence(EscCmdCtl::Off3d, EscCmdState::Sent, DSHOT_CMD_3D_MODE_OFF);
