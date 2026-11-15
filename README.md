@@ -2195,11 +2195,13 @@ ms,pulse_a_us,pulse_b_us,current_ma,bus_mv,flags
   removed at the run's end, only from the card it was opened on, by its volume
   serial number: a card swapped in meanwhile keeps its own file of that number,
   and the begun file stays on the first card. Its queued blocks go out during
-  the run without a wait. A running blackbox log's stop comes before the open
-  and is not counted. One search of the FAT is not cut short: the limit is
-  checked before it and between the 4 MiB and the 64 KiB try, and a whole search
-  of a fragmented card of 32 GB reads about 8,000 blocks, some 8 s at 1 ms a
-  block.
+  the run without a wait, and the rest is flushed at the run's end before the
+  serial number is read; a serial number that does not read then leaves the
+  file closed on the card, with no remount. A running blackbox log's stop
+  comes before the open and is not counted. One search of the FAT is not cut
+  short: the limit is checked before it and between the 4 MiB and the 64 KiB
+  try, and a whole search of a fragmented card of 32 GB reads about 8,000
+  blocks, some 8 s at 1 ms a block.
 - The file closes when the run ends: STOP, BACK, a cut, a trip, or a supply that
   did not come up. Its last line says how (`end=STOP`, `BACK`, `OVERCURRENT`,
   `STALL`, `LOW_SUPPLY`, `NO_SENSOR`, `STALLED`, `TOUCH_SILENT`, `BUS_STUCK`,
@@ -3830,10 +3832,12 @@ every source under `src/` and fails if a code line other than the job's
 declarations, its job-table line, the claim's row, the probe's request for
 the leave page and S.BUS OUTPUT's claim, command and START lines names the
 output or a START, if the START is sent other than from HOLD TO START gated
-by `sbusOutProbePassed()`, or if a line reaches a pin user, a core1 job or a
-command kind by a cast or walks the user rows or the job table. It is a lint
-of the sources, backed by the UI tests: a value made through `memcpy()` or a
-macro is not caught. `test_sbus_out_ui.cpp` runs
+by `sbusOutProbePassed()` (the gate has no `|`, no `?` and no alternative
+token such as `or` or `bitor`), or if a line reaches a pin user, a core1 job
+or a command kind by a cast or walks the user rows or the job table. It is a
+lint of the sources, backed by the UI tests: a value made through `memcpy()`
+or a macro is not caught, nor are the alternative tokens `xor`, `and_eq`,
+`or_eq`, `xor_eq` and `not_eq` in the gate. `test_sbus_out_ui.cpp` runs
 S.BUS OUTPUT on the job, the probe and the transmitter through MENU and RX
 SIGNALS, reading each command the screen sent from the job's command block
 (`sbusOutJobHeld()`).

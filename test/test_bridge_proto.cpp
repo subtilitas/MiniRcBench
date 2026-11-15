@@ -980,6 +980,14 @@ static void testBlheliS() {
 	checkTrue("Write 0x1A00", r.ok && r.ack == 0);
 	r = fwOne(B4W_READ, 0x70, 0x1A00);
 	checkTrue("read back", r.ok && r.n == 0x70 && memcmp(r.par, s, 0x70) == 0);
+	// The EFM8 bootloader keeps its address after a READ: a Read at 0xFFFF
+	// sends no SET ADDRESS and returns the bytes at 0x1A00, where the last
+	// READ left it (AM32 refuses the same Read: testCommands()).
+	w = fakeBridgeLineWireCount();
+	r = fwOne(B4W_READ, 4, 0xFFFF);
+	checkTrue("Read at 0xFFFF: no SET ADDRESS, READ 04, the 4 bytes at the address kept",
+	          r.ok && r.ack == 0 && r.n == 4 && memcmp(r.par, s, 4) == 0 &&
+	          wireAt(w) == 0x03 && wireAt(w + 1) == 0x04);
 	r = fw(B4W_VERIFY, 0x1A00, s, 4);
 	checkTrue("Verify on SiLabs: 0x02", r.ok && r.ack == B4W_ACK_I_INVALID_CMD);
 	checkTrue("no 3D note from an EFM8", !esc3dNote());

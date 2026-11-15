@@ -1401,8 +1401,8 @@ exact, the developer's:
   refused frame, note 1 gives the reason in its colour until the next
   START, and note 2 keeps `NEVER TO AN ESC. PROPS OFF.` in `UI_COL_WARN`:
   HOLD TO START is live then and no probe runs before it, so an ESC plugged
-  in since the probe is the case the warning is for. The note's
-  `HOLD TO START AGAIN.` is not drawn; the live button says it. The screen's
+  in since the probe is the case the warning is for. Note 2 draws that
+  warning alone, and HOLD TO START is drawn live. The screen's
   own idle stop is `SbusOutStop::Idle`, cleared by START. SET's footer
   carries the same warning in every state but RUNNING.
 - **The sliders** take presses on the row's 22 px over the track's x span,
@@ -1444,13 +1444,17 @@ exact, the developer's:
   call and its one Start. Then in `ui_sbus_out.cpp` the Start is sent only
   in `startFrames()`, whose name appears twice, at its definition and in
   the hold's call on the line gated by `startAllowed()`, whose one return is
-  a chain of `&&` with no `|` and no `?` that ends in
+  a chain of `&&` with no `|`, no `?` and none of the alternative tokens
+  `or`, `and`, `not`, `bitor`, `bitand` and `compl` that ends in
   `sbusOutProbePassed()`. The numeric-cast checks stay and also catch a
   cast to `SbusOutCmdKind`, so `send((SbusOutCmdKind)1)`, a pointer to
-  `startFrames` and a ternary in the gate each fail it.
+  `startFrames`, a ternary and each alternative token in the gate each fail
+  it.
   `sbusOutClaimRoles()` left the list: the screen calls it, and it is pure.
   The test is a lint of the sources, not a proof: a value made without a
-  cast or a name, through `memcpy()`, a union or a macro, is not caught.
+  cast or a name, through `memcpy()`, a union or a macro, is not caught;
+  nor are the alternative tokens `xor`, `and_eq`, `or_eq`, `xor_eq` and
+  `not_eq` in the gate, although `|=` is refused as a `|`.
   The UI tests hold the behaviour: no command while the probe runs, START
   only through the hold.
 
