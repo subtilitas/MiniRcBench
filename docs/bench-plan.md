@@ -92,9 +92,8 @@ bluejay-blheli-s.md's slice 6, which is not built.
 - **`tools/sdtest`.** The SD bring-up firmware, target `sdtest` of the same
   build, for `SD-5`.
 - **A bring-up build for `CS-B6`**, which polls the INA219's bus register
-  alone every 1 ms (current-sense.md,
-  "Read-back from the bus voltage"). It is not in
-  the tree; `CS-B6` records the scope figure without it.
+  alone every 1 ms (current-sense.md, "Read-back from the bus voltage").
+  It is not in the tree; `CS-B6` records the scope figure without it.
 - **The USB bridge's traffic log**, the build option `USB_BRIDGE_LOG` in
   `src/config.h`, off by default, for the `UB-` tests that need it.
 
@@ -106,7 +105,7 @@ notes give; no note states them.
 | Instrument | Specification | Used by |
 |---|---|---|
 | Oscilloscope | 4 channels: SIG, AUX, EN and VOUT at once, or the two ends of the INA219's 0.1 Ω shunt for a current step. Bandwidth derived: the fastest edge measured is the I2C rise time against 300 ns (`CS-B1`); a scope rise time of a fifth of that, 60 ns, is about 0.35 / 60 ns = 6 MHz, so any scope of 20 MHz or more serves. Single-shot capture and a record of at least 1 s at 1 MS/s (a heartbeat trip at 250 ms, a 1000 ms stall) | most sessions |
-| Logic analyser | 3 channels or more, with UART, I2C and inverted-UART decoders. Rate derived: at 24 MS/s one sample is 42 ns, a fortieth of a DShot600 bit, 1.67 µs; 3 % of a 19200 baud bit, 52 µs, is 1.6 µs (`UB-B11`) | `EC-B5`, `UB-B6`, `UB-B10`, `UB-B11` |
+| Logic analyser | 3 channels or more, with UART, I2C and inverted-UART decoders. Rate derived: at 24 MS/s one sample is 42 ns, a fortieth of a DShot600 bit, 1.67 µs; 3 % of a 19200 baud bit, 52 µs, is 1.6 µs (`UB-B11`) | Sessions 2, 3, 9 |
 | Bench supply 1 | 0 V to 5 V, in place of the converter's LiPo cell for the lowest and highest VIN, 3.0 V and 4.2 V (`CS-B6`); current derived: 5 V × 3 A / 3.0 V = 5 A into the converter at 3 A out, before its losses (`CS-B7`). Current limit set below the cell's fuse | Session 4, 7 |
 | Bench supply 2, or the ESC's own pack | for the ESC; current limit set for a motor without propeller. No note sets the limit's value: record the value used | Sessions 2, 3, 8 to 10 |
 | Multimeter | DC volts and ohms; the reference for the bus voltage at 5 V (`CS-B5`) and the BOARD voltage (`OI-22`) | all |
@@ -255,7 +254,7 @@ and a LiPo cell on its battery connector where a test says.
   3.5 V is at hand, read it there.
 - **Pass:** the colour follows the reading: amber below 3.50 V, red from
   2.50 V up to below 3.30 V, back only 50 mV above each threshold; below
-  2.50 V no colour and no refusal (STATUS open item 21, README.md). The
+  2.50 V the text colour and no refusal (STATUS open item 21, README.md). The
   reading's error against the multimeter: criterion not set in the note;
   record it.
 - **Record:** BOARD and the multimeter for each case; the colour; the USB
@@ -301,7 +300,7 @@ and a LiPo cell on its battery connector where a test says.
 [STATUS.md](../STATUS.md#open-items) open item 18;
 [menu-b.md](design/menu-b.md#slice-2-as-built), slice 2 as built.
 
-- **Verifies:** menu structure B on the panel: MENU's rows and its 36 px
+- **Verifies:** menu structure B on the panel: MENU's rows and their
   scroll, SETTINGS' list, the list and hold widgets, the colour roles in
   both themes. **Why:** slices 2 to 9 run in the host suite only; the
   colours have not been looked at on the panel.
@@ -583,7 +582,8 @@ questions", the power-loss question, numbered here.
   (2000 ms) a log is 16 MiB long and holds what reached the card, lagging
   by up to 8192 bytes; cut in its first 2 s it reads 0 bytes. "Still open:
   a check on hardware".
-- **Setup:** A on the cell alone; a scratch card.
+- **Setup:** A on the cell alone; a freshly formatted scratch card, so the
+  16 MiB run is free.
 - **Steps:** START; cut the board's power after 1 s; power up; START; cut
   after 30 s; read both files on the PC and open them in each viewer.
 - **Pass:** the sizes the note works out: 0 bytes, and 16 MiB. Whether each
@@ -678,9 +678,9 @@ record"; STATUS open item 3.
 question; STATUS open item 15 ("a KISS frame on GP1").
 
 - **Verifies:** a KISS frame on AUX, requested by the telemetry bit in every
-  20th frame, without DShot command 13's telemetry enable. **Why:** whether
-  the bit is enough on AM32 is unconfirmed; KISS on GP1 of this board is not
-  recorded.
+  20th frame, without `DSHOT_CMD_SIGNAL_LINE_TELEMETRY_ENABLE`, which the
+  firmware does not send. **Why:** whether the bit is enough on AM32 is
+  unconfirmed; KISS on GP1 of this board is not recorded.
 - **Setup:** E with telemetry to AUX, KISS on.
 - **Steps:** run at 10 %; read the tiles' KISS tags; capture AUX.
 - **Pass:** the tiles show `KISS` tags with values; a frame on AUX after a
@@ -707,7 +707,9 @@ order; [pin-claim.md](design/pin-claim.md#hardware).
   | PC-3 | a SETTINGS pin change in the same window | criterion not set apart from PC-1's; record whether the drain holds |
   | PC-4 | leave the AM32 session with BACK | DShot back, the EDT enable as its first frames |
 
-- **Record:** the captures; what the ESC does after the screen is left,
+- **Record:** the captures; the time from the last throttle frame to the
+  claim, since above 250 ms no drain is needed and PC-1 does not exercise
+  it (pin-claim.md, "Testing"); what the ESC does after the screen is left,
   which is not recorded anywhere (no RUN command is sent).
 - **Result to:** verification table, row "Pin claim"; open item 8.
 - **Safety:** propeller off.
@@ -925,8 +927,9 @@ open item 12.
 - **Setup:** E, a card; the scope on the card's DAT0 and CMD at the microSD
   socket (GP21 and GP20; the probe points are not recorded).
 - **Steps:** a write on ESC SETTINGS, capturing the backup's flush.
-- **Pass:** criterion not set beyond "once per loop pass"; record the
-  interval between CMD13 polls.
+- **Pass:** criterion not set beyond "once per loop pass". A look at DAT0
+  does not show on a scope, and the note sets no method: record DAT0's
+  busy time and the commands around it.
 - **Record:** the capture.
 - **Result to:** verification table, row "SD write cache"; open item 12.
 - **Safety:** propeller off.

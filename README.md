@@ -123,6 +123,7 @@ interface) code.
 > firmware and the build.
 
 Project state and open items: [STATUS.md](https://github.com/subtilitas/MiniRcBench/blob/main/STATUS.md). Changes by release: [CHANGELOG.md](https://github.com/subtilitas/MiniRcBench/blob/main/CHANGELOG.md).
+Hardware bench plan, every bring-up test in order: [docs/bench-plan.md](https://github.com/subtilitas/MiniRcBench/blob/main/docs/bench-plan.md).
 
 ---
 

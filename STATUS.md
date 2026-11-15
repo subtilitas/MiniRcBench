@@ -544,6 +544,10 @@ not run on hardware (item 18).
 
 ## Open items
 
+[docs/bench-plan.md](docs/bench-plan.md) orders the bench tests of these
+items and of the design notes into sessions, with their setups and pass
+criteria; none has run.
+
 1. **[Issue #1](https://github.com/subtilitas/DshotDisplay/issues/1),
    "Initialisation fails on some BL_Heli32 ESC".** Opened
    2026-09-11 by DerGeheimdienst. Open, not reproduced by the owner. One

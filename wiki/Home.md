@@ -36,6 +36,8 @@ run.
 > **Before you power anything on:** a motor on a bench can injure. Read
 > [First Run](First-Run#safety-first) before the first arm.
 
+**Bench plan.** The ordered hardware tests of the bring-up: [docs/bench-plan.md](https://github.com/subtilitas/MiniRcBench/blob/main/docs/bench-plan.md).
+
 **Licence.** The software, meaning firmware, tests, other tools and
 documentation, is MIT. The hardware design files are
 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/):
@@ -75,6 +77,8 @@ Strom und der erste Motorlauf.
 > **Vor dem Einschalten:** Ein Motor auf der Werkbank kann verletzen. Lies
 > [Erste Schritte](Erste-Schritte#sicherheit-zuerst) vor dem ersten
 > Scharfschalten.
+
+**Prüfplan.** Die geordneten Hardware-Tests der Inbetriebnahme: [docs/bench-plan.md](https://github.com/subtilitas/MiniRcBench/blob/main/docs/bench-plan.md).
 
 **Lizenz.** Die Software, also Firmware, Tests, übrige Werkzeuge und
 Dokumentation, steht unter MIT. Die Hardware-Entwurfsdateien stehen unter
