@@ -824,9 +824,9 @@ static inline EscCmdReady escCmdReadiness(bool linkUp, uint32_t erpm,
  *        command sequence and the KISS request cadence.
  *
  * Written only by escPumpBind(), escPumpRelease(), escPumpTeardown(),
- * escPumpSlot() and escPumpFrameSent(), which are pure. escTaskPoll() keeps one of these and
- * does the I/O around them; the host suite drives the same functions against
- * model ESCs.
+ * escPumpSlot() and escPumpFrameSent(), which are pure. escTaskPoll() keeps
+ * one of these and does the I/O around them; the host suite drives the same
+ * functions against model ESCs.
  */
 struct EscPump {
 	EscEdtState edt;           /**< The EDT enable. @see escEdtStep() */

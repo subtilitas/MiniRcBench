@@ -57,11 +57,12 @@ protocol.
   `NO ESC ANSWERS ON SIG GP0.` (decision 5),
   `MOTOR TURNING: WAIT UNTIL IT STOPS.` or `ESC STARTING: WAIT 1.5 S.`.
   While its request waits or its sequence goes out, BACK is drawn disabled.
-  Six message lines name what was sent or why not, among them
+  BACK and the BEEP taps act only on a press that landed while they were
+  live. Six message lines name what was sent or why not, among them
   `SENT 8 (REVERSED), THEN 12 (SAVE).`, `SAVE NOT SENT: POWER-CYCLE THE ESC.`
   and `NOT SENT: THE ESC WAS NOT READY.`. 3D ON, sent or stopped after the
-  ESC may have acted, sets the tester's 3D note; 3D OFF leaves it
-  (decision 4); no direction note (decision 10). Host tests in
+  ESC may have acted, sets the tester's 3D note before BACK is read; 3D OFF
+  leaves it (decision 4); no direction note (decision 10). Host tests in
   `test/test_esc_cmd_ui.cpp` and `test/test_ids.cpp`;
   `docs/esccmd-preview.png`. Not tested on hardware.
 - After v0.1.0-rc1: rcbench's files for the angle meter, slice 1 of
@@ -767,9 +768,10 @@ protocol.
   flash. Rule 9 of `test/check_docs.py` fails when README.md or a wiki page
   names BEEP THE ESC or the old 3D note text, or an image `menu-beep*`.
 - After v0.1.0-rc1 (a93e1c1): a command request that still waits when the
-  DShot pump lets go of SIG, for a pin claim or a wiring change, expires
-  (`escPumpTeardown()` in `src/esc_task.h`) and no longer starts on the next
-  bind's ESC. Host test in `test/test_esc_cmd.cpp`.
+  DShot pump lets go of SIG, for a pin claim or a wiring change, is dropped
+  (`escPumpTeardown()` in `src/esc_task.h`) and does not start on the next
+  bind's ESC. It reads expired when no sequence was running; a sequence the
+  teardown cut keeps its outcome. Host test in `test/test_esc_cmd.cpp`.
 - After v0.1.0-rc1 (a93e1c1): the wiring sheet draws the current sensor and
   the bench converter, slice 2 of
   [current-sense.md](docs/design/current-sense.md#slice-2-as-built). The

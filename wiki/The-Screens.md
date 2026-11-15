@@ -227,8 +227,8 @@ While the signal pins are still in use, for example while DShot restarts
 after the servo tester, the KST programmer or the Hitec programmer, the strip
 reads `DSHOT RESTARTING ON SIG GP0` in amber. ESC COMMANDS, ESC CONFIG,
 SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS and SETTINGS are then drawn as
-an outline under their usual state, and a tap on such a row opens nothing. They act
-again once DShot runs. SD LOG claims no pin and stays available.
+an outline under their usual state, and a tap on such a row opens nothing.
+They act again once DShot runs. SD LOG claims no pin and stays available.
 
 <img src="img/menu-restarting.png" width="240" alt="MENU dragged up while DShot restarts: DSHOT RESTARTING ON SIG GP0 on the strip, ESC COMMANDS, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS and SETTINGS drawn as outlines">
 
@@ -273,14 +273,19 @@ amber line says why: `NO ESC ANSWERS ON SIG GP0.`,
 `MOTOR TURNING: WAIT UNTIL IT STOPS.` or `ESC STARTING: WAIT 1.5 S.` (AM32
 takes a command only after a second of zero throttle). A press while the
 board is still sending something else, such as the 260 ms to 1020 ms
-pause after a beacon, waits up to 2 s and then goes out. While a command
-of the page waits or goes out, the buttons and `BACK` are grey.
+pause after a beacon, waits: it goes out once the wire is free, or is
+dropped after 2 s, and the lines then read
+`NOT SENT: THE ESC WAS NOT READY.`. While a command of the page waits or
+goes out, the buttons and `BACK` are grey, and a press that starts on them
+then does nothing when it lifts.
 
 The lines under the buttons say what was sent, for example
 `SENT 8 (REVERSED), THEN 12 (SAVE).`, or why it was not:
 `NOT SENT: THE ESC STOPPED ANSWERING.` before the ESC can have acted,
 `SAVE NOT SENT: POWER-CYCLE THE ESC.` when the change may sit in the ESC
 unsaved, and `NOT SENT: THE ESC WAS NOT READY.` when it never started.
+After 3D ON the lines say that the tester shows its 3D note and that
+ESC SETTINGS or a restart of the board clears it.
 
 The ESC sends no answer to a command, so the bench cannot see the
 direction. Check it on the tester with 3D off: propeller off, a strip of

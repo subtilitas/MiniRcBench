@@ -1215,11 +1215,11 @@ The six lines at y 244 to 310, at most 37 characters each:
 | At rest | `HOLD 1 S: SETS IT, THEN SAVES IT.`, `THE ESC SENDS NO ANSWER TO A COMMAND:`, `CHECK IT ON THE TESTER WITH 3D OFF.`, a blank line, `AM32 BEEPS AS BEEP 1 ON SAVE (NORMAL)`, `OR AS BEEP 2 (REVERSED).` |
 | Going out | `SENDING 8 (REVERSED), THEN 12 (SAVE).`, `SENDING 3 (BEEP 3).` |
 | A direction sent | `SENT 8 (REVERSED), THEN 12 (SAVE).`, `NOTHING CONFIRMS THE ESC TOOK THEM.`, `CHECK IT ON THE TESTER WITH 3D OFF.` |
-| 3D ON sent | `SENT 10 (3D ON), THEN 12 (SAVE).`, `THE TESTER SHOWS THE 3D NOTE NOW.`, then in amber `IN 3D, 0 TO 50% RUNS REVERSED AT 2X;`, `ABOVE 50% THE SET WAY, FROM LOW.`, `THE NOTE ENDS AT A RESTART.` |
-| 3D OFF sent | `SENT 9 (3D OFF), THEN 12 (SAVE).`, `THE 3D NOTE STAYS UNTIL A RESTART.` |
+| 3D ON sent | `SENT 10 (3D ON), THEN 12 (SAVE).`, `THE TESTER SHOWS THE 3D NOTE NOW.`, `ESC SETTINGS OR A RESTART CLEARS IT.`, then in amber `IN 3D, 0 TO 50% RUNS REVERSED AT 2X;`, `ABOVE 50% THE SET WAY, FROM LOW.` |
+| 3D OFF sent | `SENT 9 (3D OFF), THEN 12 (SAVE).`, and while the tester's 3D note stands `THE 3D NOTE STAYS ON THE TESTER.` |
 | A beacon sent | `SENT 3 (BEEP 3).` |
 | Stopped before frame 6 of the first block | `NOT SENT: THE ESC STOPPED ANSWERING.`, amber |
-| Stopped after it | `SAVE NOT SENT: POWER-CYCLE THE ESC.`, `CHECK IT ON THE TESTER WITH 3D OFF.`, amber |
+| Stopped after it | `SAVE NOT SENT: POWER-CYCLE THE ESC.`, then for a direction `CHECK IT ON THE TESTER WITH 3D OFF.`, for 3D ON `THE TESTER SHOWS THE 3D NOTE NOW.`, for 3D OFF `AFTER A POWER CYCLE IT MAY RUN IN 3D.`; amber |
 | Never started | `NOT SENT: THE ESC WAS NOT READY.`, amber |
 
 With an outcome shown, a readiness that refuses a command takes the sixth

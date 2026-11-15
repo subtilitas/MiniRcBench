@@ -184,8 +184,9 @@ gelesen, oder sie mit 3D MODE an geschrieben (vom ESC angenommen, ob das
 Zurücklesen danach `WRITE VERIFIED` zeigt oder nicht), zeigt der Tester unter
 der Drehzahl in Bernstein `3D MODE ESC: 0-50% REVERSED AT 2X` (3D-ESC:
 0 bis 50 % rückwärts mit doppeltem Gas), an Stelle der Polzahl und des
-Wisch-Hinweises, scharf oder nicht. Solange ein Wischer auf der Gasfläche greift, steht `SWIPE ACTIVE`
-an seiner Stelle, und nach dem Loslassen kehrt der Hinweis zurück.
+Wisch-Hinweises, scharf oder nicht. Solange ein Wischer auf der Gasfläche
+greift, steht `SWIPE ACTIVE` an seiner Stelle, und nach dem Loslassen kehrt
+der Hinweis zurück.
 Scharfschalten wird deswegen nicht verweigert. Nur ein bestätigtes Schreiben
 oder ein Lesen, das die Liste öffnet, mit 3D MODE aus nimmt ihn weg, ebenso ein
 Neustart: Er wird nicht gespeichert. Eine nicht geschriebene Änderung, ein vom

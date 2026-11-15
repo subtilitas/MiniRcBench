@@ -298,16 +298,20 @@ sagt warum: `NO ESC ANSWERS ON SIG GP0.`,
 `MOTOR TURNING: WAIT UNTIL IT STOPS.` oder `ESC STARTING: WAIT 1.5 S.` (AM32
 nimmt einen Befehl erst nach einer Sekunde Nullgas an). Ein Druck,
 während das Board noch etwas anderes sendet, etwa die Pause von 260 ms bis
-1020 ms nach einem Beacon, wartet bis zu 2 s und geht dann hinaus. Solange
-ein Befehl der Seite wartet oder gesendet wird, sind die Tasten und `BACK`
-grau.
+1020 ms nach einem Beacon, wartet: Er geht hinaus, sobald die Leitung frei
+ist, oder verfällt nach 2 s, und die Zeilen zeigen dann
+`NOT SENT: THE ESC WAS NOT READY.`. Solange ein Befehl der Seite wartet oder
+gesendet wird, sind die Tasten und `BACK` grau, und ein Druck, der dann auf
+ihnen beginnt, bewirkt beim Loslassen nichts.
 
 Die Zeilen unter den Tasten sagen, was gesendet wurde, zum Beispiel
 `SENT 8 (REVERSED), THEN 12 (SAVE).`, oder warum nicht:
 `NOT SENT: THE ESC STOPPED ANSWERING.`, bevor der ESC gehandelt haben kann,
 `SAVE NOT SENT: POWER-CYCLE THE ESC.`, wenn die Änderung ungespeichert im
 ESC stehen kann, und `NOT SENT: THE ESC WAS NOT READY.`, wenn nichts
-gestartet ist.
+gestartet ist. Nach 3D ON sagen die Zeilen, dass der Tester seinen
+3D-Hinweis zeigt und dass ESC SETTINGS oder ein Neustart des Boards ihn
+löscht.
 
 Der ESC antwortet auf keinen Befehl, der Prüfstand sieht die Drehrichtung
 also nicht. Prüfe sie auf dem Tester mit 3D aus: Propeller ab, ein

@@ -444,14 +444,14 @@ Message lines, each with its width; every one is at most 37 characters:
 | Sending a direction | `SENDING 8 (REVERSED), THEN 12 (SAVE).` (221 px) | `C_TEXT` |
 | Sent a direction | `SENT 8 (REVERSED), THEN 12 (SAVE).` (203 px) or `SENT 7 (NORMAL), THEN 12 (SAVE).` (191 px); `NOTHING CONFIRMS THE ESC TOOK THEM.` (209 px); `CHECK IT ON THE TESTER WITH 3D OFF.` (209 px) | `C_TEXT` |
 | Sending 3D | `SENDING 10 (3D ON), THEN 12 (SAVE).` (209 px) or `SENDING 9 (3D OFF), THEN 12 (SAVE).` (209 px) | `C_TEXT` |
-| Sent 3D ON | `SENT 10 (3D ON), THEN 12 (SAVE).` (191 px); `THE TESTER SHOWS THE 3D NOTE NOW.` (197 px); `IN 3D, 0 TO 50% RUNS REVERSED AT 2X;` (215 px); `ABOVE 50% THE SET WAY, FROM LOW.` (191 px); `THE NOTE ENDS AT A RESTART.` (161 px), as the flag is not stored (decision 4) | `C_TEXT`, the last three `C_AMBER` |
-| Sent 3D OFF | `SENT 9 (3D OFF), THEN 12 (SAVE).` (191 px); `THE 3D NOTE STAYS UNTIL A RESTART.` (203 px), by decision 4 | `C_TEXT` |
+| Sent 3D ON | `SENT 10 (3D ON), THEN 12 (SAVE).` (191 px); `THE TESTER SHOWS THE 3D NOTE NOW.` (197 px); `ESC SETTINGS OR A RESTART CLEARS IT.` (215 px), as the flag is not stored (decision 4); `IN 3D, 0 TO 50% RUNS REVERSED AT 2X;` (215 px); `ABOVE 50% THE SET WAY, FROM LOW.` (191 px). Revised in the review of slice 2: first `THE NOTE ENDS AT A RESTART.` last | `C_TEXT`, the last two `C_AMBER` |
+| Sent 3D OFF | `SENT 9 (3D OFF), THEN 12 (SAVE).` (191 px); while the note stands, `THE 3D NOTE STAYS ON THE TESTER.` (191 px), by decision 4. Revised in the review of slice 2: first `THE 3D NOTE STAYS UNTIL A RESTART.` always | `C_TEXT` |
 | A beacon | `SENDING 3 (BEEP 3).` (113 px), then `SENT 3 (BEEP 3).` (95 px) | `C_TEXT` |
 | No answer | `NO ESC ANSWERS ON SIG GP0.` (155 px) | `C_AMBER` |
 | Motor turning | `MOTOR TURNING: WAIT UNTIL IT STOPS.` (209 px) | `C_AMBER` |
 | Settling | `ESC STARTING: WAIT 1.5 S.` (149 px) | `C_AMBER` |
 | Not sent | `NOT SENT: THE ESC STOPPED ANSWERING.` (215 px), only while frame 6 of the first block has not gone out | `C_AMBER` |
-| Save lost | `SAVE NOT SENT: POWER-CYCLE THE ESC.` (209 px); `CHECK IT ON THE TESTER WITH 3D OFF.` (209 px) | `C_AMBER` |
+| Save lost | `SAVE NOT SENT: POWER-CYCLE THE ESC.` (209 px); for 7 and 8 `CHECK IT ON THE TESTER WITH 3D OFF.` (209 px), for 10 `THE TESTER SHOWS THE 3D NOTE NOW.` (197 px), for 9 `AFTER A POWER CYCLE IT MAY RUN IN 3D.` (221 px), revised in the review of slice 2 | `C_AMBER` |
 | Expired | `NOT SENT: THE ESC WAS NOT READY.` (191 px) | `C_AMBER` |
 
 The pin in the texts is SIG's, GP0 or GP1. Layout constants get
@@ -840,10 +840,10 @@ clears it where it set `s_esc3d`, and the tester reads it in `drawRpm()`
 and `polesShown()`. `AM32_UI_TESTER_3D` and `uiAm32Esc3d()` are gone.
 
 `escPumpTeardown()` in `src/esc_task.h`, pure, runs `escPumpRelease()` and
-expires a request that still waits: the outcome reads `Expired` about its
-command, and `escTaskPoll()` clears it under the lock with the generation
-it read. A request no longer survives a teardown to start on the next
-bind's ESC.
+drops a request that still waits, which reads `Expired` about its command
+when no sequence was running; `escTaskPoll()` clears it under the lock with
+the generation it read. A waiting request does not survive a teardown to
+start on the next bind's ESC.
 
 Choices the note left open:
 
@@ -859,8 +859,27 @@ Choices the note left open:
 - **When 3D ON sets the note.** At `Sent`, and at `SaveLost`: then the ESC
   may hold 3D in its RAM until a power cycle, which `esc_3d.h` calls "may
   run in 3D mode", as an AM32 write accepted and not verified does. Not at
-  `NotSent` or `Expired`, where no ESC acted. The page sets it on the frame
-  it reads the outcome; BACK is disabled until then.
+  `NotSent` or `Expired`, where no ESC acted. The page sets it where it
+  builds the view, on the frame it reads the outcome and before it reads
+  BACK or any control, so a press on BACK lifted on that frame cannot leave
+  first.
+- **Taps count only for a press that landed live.** BACK and BEEP 1 to 5
+  act on a release only when the press landed while the control was live
+  and it stayed live on every frame since, as `ui_hold` keeps a hold
+  (`gatedTap()`). A press begun on BACK while a sequence went out, or on a
+  BEEP drawn disabled, does nothing when it lifts.
+- **A lost save names what may sit in the ESC.** For 7 and 8 the tester
+  check of the direction; for 10 that the tester's note is set; for 9 that
+  the ESC may run in 3D after a power cycle.
+- **A teardown keeps a cut sequence's outcome.** `escPumpTeardown()` drops
+  the waiting request either way; it reads `Expired` only when no sequence
+  was running, and a sequence the teardown cut keeps `NotSent` or
+  `SaveLost`.
+- **The teardown's wiring is not under test.** `escTaskPoll()` in
+  `src/esc_task.cpp` reads the request and its generation under the lock and
+  publishes `escPumpTeardown()`'s result; the host suite does not link
+  `esc_task.cpp`, so a mutant that publishes the dropped request as not
+  taken survives it. The pure rule is tested in `test/test_esc_cmd.cpp`.
 - **What disables BACK.** The page's own request at `Waiting` or `Sending`.
   A beacon reads `Sent` from its first frame, so BACK and the controls are
   live during its gap; a tap there waits in the slot.
@@ -889,8 +908,12 @@ that still fires at 1000 ms, a hold slid off and one the readiness broke, each
 outcome's lines and colours, the readiness line beside an outcome, the 3D note
 set by 3D ON at `Sent` and `SaveLost`, not at `NotSent` and `Expired`, kept by
 3D OFF, on the tester with its new text, BACK disabled and drawn as an outline
-while a request waits, and `escCancelCommand()` on leaving.
-`test/test_esc_cmd.cpp` adds the teardown with a request waiting and with none.
+while a request waits, a press on BACK begun while 3D ON goes out and lifted
+at `Sent` or `SaveLost` that leaves the page up with the note set, a press on
+a BEEP begun while it was disabled that sends nothing, and
+`escCancelCommand()` on leaving. `test/test_esc_cmd.cpp` adds the teardown:
+a request waiting behind a cut sequence dropped with the sequence's
+`NotSent` or `SaveLost` kept, one waiting alone expired, and none.
 `test_ids.cpp` walks the controls by id at `Ready` and at `NoAnswer`. The
 previews are `docs/esccmd-preview.png` and the wiki's `esccmd*.png`;
 `docs/menu-preview.png` shows `NO ESC` in place of the BEEP flash. Nothing of it

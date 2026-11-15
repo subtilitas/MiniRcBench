@@ -98,7 +98,7 @@ struct TouchState;
 #define UI_ESC_CMD_SETTLING "ESC STARTING: WAIT 1.5 S."
 /** @brief EscCmdState::NotSent, `C_AMBER`: no ESC acted. */
 #define UI_ESC_CMD_NOT_SENT "NOT SENT: THE ESC STOPPED ANSWERING."
-/** @brief EscCmdState::SaveLost, `C_AMBER`, line 1; @ref UI_ESC_CMD_CHECK follows. */
+/** @brief EscCmdState::SaveLost, `C_AMBER`, line 1; a line for the change follows. */
 #define UI_ESC_CMD_SAVE_LOST "SAVE NOT SENT: POWER-CYCLE THE ESC."
 /** @brief EscCmdState::Expired, `C_AMBER`. */
 #define UI_ESC_CMD_EXPIRED "NOT SENT: THE ESC WAS NOT READY."
