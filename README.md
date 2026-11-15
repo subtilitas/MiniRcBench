@@ -3544,7 +3544,7 @@ driver's pulls, input buffer and function to the GPIO fake. It also reads
 every source under `src/` and fails if a code line other than the job's
 declarations, its job-table line, the claim's row and the probe's request for
 the leave page names the output, or if a line reaches a pin user or a core1
-job by a cast or a table index.
+job by a cast or walks the user rows or the job table.
 
 `esc_task.cpp` cannot be linked either, so core0's side of the command slot is
 a copy in `fakes.cpp` on the shipped `escCmdAccept()`. A test sets the

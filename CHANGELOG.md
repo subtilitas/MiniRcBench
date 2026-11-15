@@ -50,11 +50,13 @@ protocol.
   output's job first runs ESC SETTINGS' connect cycle on GP0, 1000 ms on
   the pull-up and then 3 greetings, rcbench's first contact, on ESC
   SETTINGS' escwire line driver from core1, and repeats it until a cycle
-  passes with no answer from an EFM8 bootloader (Bluejay, BLHeli_S), a
-  piece of one, or an AM32 bootloader; only then does UART0 take GP0. The
-  job takes no command during the probe and none sent before it, so START
-  is impossible until a cycle with no answer has passed in that bind, and
-  BACK TO OUTPUT probes again. An answer sets MENU's run cue,
+  passes in which no greeting got a byte back; only then does UART0 take
+  GP0. The line goes back to the pull-up after every greeting, so each
+  quiet second is on the pull-up. The job takes no command during the
+  probe and none sent before it, so START is impossible until such a cycle
+  has passed in that bind, and BACK TO OUTPUT probes again. An answer from
+  an EFM8 bootloader (Bluejay, BLHeli_S), a piece of one, or an AM32
+  bootloader sets MENU's run cue,
   `POWER-CYCLE THE ESC TO RUN IT`, until an eRPM frame after it; an EFM8
   answer marks the claim for the leave page's step that asks for the ESC's
   battery to come off and calls `pinClaimWantLeavePage()`. The screen of
@@ -63,7 +65,7 @@ protocol.
   probe's line closes, and a refused bind, for the UART's clock or the
   line's resources, leaves GP0 on the pull-up. The unreachability test
   also fails a line under `src/` that reaches a pin user or a core1 job by
-  a cast or a table index. The escwire line's fake writes the driver's pad
+  a cast, a pointer cast or a walk over the user rows or the job table. The escwire line's fake writes the driver's pad
   changes to the GPIO fake and serves rcbench's AM32 model. CI's stack
   check of the job reads the probe's call graphs: 368 bytes of 1,792.
 - After v0.1.0-rc1: the S.BUS output's core1 job, slice 2 of
