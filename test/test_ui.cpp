@@ -6409,6 +6409,39 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(UI_BACK));
 	}
 
+	section("ESC SETTINGS: a LEAVE the job refuses for a lapsed heartbeat is asked again");
+	{
+		efm8Esc(0xB2, true);
+		checkTrue("the list", efm8Read());
+		int resumes = fakeResumeCount(), n = fakeEwSim()->starts;
+		UiRect back = ctlRect(UI_FIX(UI_BACK));
+		fakePress(back.x + back.w / 2, back.y + back.h / 2);
+		frames(2);
+		fakeRelease();
+		fakeAdvance(1);
+		fakePumpPoll();
+		uiTick();
+		checkTrue("BACK: LEAVING", s_state == S_EW_EXIT);
+		// Core1 takes the command only after a stall of core0 longer than the
+		// heartbeat's 250 ms.
+		fakeAdvance(300);
+		core1JobPoll();
+		EwJobStatus st;
+		escwireJobStatus(&st);
+		checkTrue("the job refuses it, nothing sent, the ESC still in mode",
+		          st.refused == EwJobRefusal::NoUi && st.inMode && fakeEwSim()->starts == n);
+		bool page = false;
+		for (int i = 0; i < 40 && uiCurrentScreen() == UiScreenId::Am32; i++) {
+			frames(1);
+			page = page || s_state == S_LEAVE;
+		}
+		checkTrue("asked again: LEAVE went out, MENU, no leave page",
+		          fakeEwSentLeave(n) && uiCurrentScreen() == UiScreenId::Menu && !page &&
+		          fakeResumeCount() == resumes + 1);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
 	section("ESC SETTINGS: the job's bind refused");
 	{
 		efm8Esc(0xB2, true);
