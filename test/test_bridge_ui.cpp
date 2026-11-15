@@ -198,6 +198,27 @@ static void restartFromPage() {
 	brFrames(1);
 }
 
+/** @brief The leave page carries `FLASH THE ESC AGAIN BEFORE USE.` at y 158. */
+static bool flashNote() { return fakeTextIs(UI_MARGIN, UI_LEAVE_NOTE_Y, BRIDGE_UI_LEAVE_NOTE, C_DIM, C_BG, 1); }
+
+/** @brief Nothing at the note's line: no FLASH note, the line let go. */
+static bool noNote() { return allOf(0, UI_LEAVE_NOTE_Y, GFX_W, 8, C_BG); }
+
+/** @brief On the leave page, once the line is let go: BRIDGE, then frames until the bridge is open. */
+static bool bridgeAgain() {
+	brFrames(1);
+	tapId(UI_FIX(BridgeCtl::Bridge));
+	return untilOpen() && uiCurrentScreen() == UiScreenId::Bridge && !ctlPresent(UI_FIX(BridgeCtl::Bridge));
+}
+
+/** @brief BACK on the open bridge, then a frame: the leave page, the line let go. */
+static bool backToPage() {
+	tapId(UI_FIX(UI_BACK));
+	brFrames(1);
+	return uiCurrentScreen() == UiScreenId::Bridge && ctlPresent(UI_FIX(BridgeCtl::Restart)) &&
+	       ctlEnabled(UI_FIX(BridgeCtl::Bridge));
+}
+
 /** @brief BACK, then through the leave page if it opened, until Free. */
 static void leaveBridge() {
 	tapId(UI_FIX(UI_BACK));
@@ -391,7 +412,10 @@ static void testWriteAndLeave() {
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK with no write since: the page all the same, the claim keeps it",
 	          uiCurrentScreen() == UiScreenId::Bridge && ctlPresent(UI_FIX(BridgeCtl::Restart)));
-	brFrames(44);
+	brFrames(1);
+	checkTrue("the PROGRAM before BRIDGE had no RUN: FLASH THE ESC AGAIN BEFORE USE. on this page too",
+	          flashNote() && usbBridgeWriteUnfinished());
+	brFrames(43);
 	checkTrue("1000 ms after the line was let go: RESTART DSHOT live", ctlEnabled(UI_FIX(BridgeCtl::Restart)));
 	tapId(UI_FIX(BridgeCtl::Restart));
 	checkTrue("RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
@@ -399,6 +423,55 @@ static void testWriteAndLeave() {
 	brFrames(1);
 	checkTrue("Free, DShot up, the console back", pinClaimState() == ClaimState::Free &&
 	          !escTaskSuspended() && fakeConsoleOn());
+
+	// A fresh entry after RESTART DSHOT: a new claim, the page's note given.
+	checkTrue("the claim ended at RESTART DSHOT: no unfinished write", !usbBridgeWriteUnfinished());
+	tapId(menuRow(&UI_ESC_CONFIG));
+	brFrames(1);
+	tapId(UI_FIX(EscCfgCtl::Bridge));
+	checkTrue("USB BRIDGE again: open, no unfinished write", untilOpen() && !usbBridgeWriteUnfinished());
+	checkTrue("BACK with no write in this claim: the page without the FLASH note", backToPage() && noNote());
+	restartFromPage();
+	checkTrue("Free", pinClaimState() == ClaimState::Free);
+	tapId(UI_FIX(UI_BACK));
+	brFrames(1);
+
+	// A PROGRAM with no RUN, BRIDGE, then a RUN: the next page has no note.
+	freshUi();
+	openBridgeScreen();
+	untilOpen();
+	fakeCdcHostWrite(PROG, sizeof(PROG));
+	brFrames(4);
+	checkTrue("PROGRAM, no RUN, BACK: the FLASH note", backToPage() && flashNote());
+	checkTrue("BRIDGE: open again", bridgeAgain());
+	fakeCdcHostWrite(RUN, sizeof(RUN));
+	brFrames(4);
+	checkTrue("a RUN after the reopen: the write finished", usbBridgeLast().cmd == BridgeCmd::Run &&
+	          !usbBridgeWriteUnfinished());
+	checkTrue("BACK: the page without the FLASH note", backToPage() && noNote());
+	restartFromPage();
+	tapId(UI_FIX(UI_BACK));
+	brFrames(1);
+
+	// A PROGRAM with no RUN, BRIDGE, a failed rebind: BACK gives the page.
+	freshUi();
+	openBridgeScreen();
+	untilOpen();
+	fakeCdcHostWrite(PROG, sizeof(PROG));
+	brFrames(4);
+	checkTrue("PROGRAM, no RUN, BACK: the FLASH note", backToPage() && flashNote());
+	fakeBridgeLineRefuse(CORE1_JOB_PIO);
+	brFrames(1);
+	tapId(UI_FIX(BridgeCtl::Bridge));
+	brFrames(4);
+	checkTrue("BRIDGE, the rebind refused: COULD NOT BE TAKEN, RETRY",
+	          msgIs(0, "SIG GP0 COULD NOT BE TAKEN (PIO)", C_AMBER) && ctlEnabled(UI_FIX(BridgeCtl::Retry)));
+	checkTrue("BACK after the failed rebind: the leave page again, with the FLASH note",
+	          backToPage() && flashNote() && pinClaimLeavePage());
+	fakeBridgeLineRefuse(0);
+	restartFromPage();
+	tapId(UI_FIX(UI_BACK));
+	brFrames(1);
 
 	// A write finished by RUN: the page without the FLASH note.
 	freshUi();
@@ -812,8 +885,15 @@ static void testFourWay() {
 	tapId(UI_FIX(UI_BACK));
 	brFrames(1);
 	checkTrue("BACK: the leave page with FLASH THE ESC AGAIN BEFORE USE.",
-	          ctlPresent(UI_FIX(BridgeCtl::Restart)) &&
-	          fakeTextIs(UI_MARGIN, UI_LEAVE_NOTE_Y, BRIDGE_UI_LEAVE_NOTE, C_DIM, C_BG, 1));
+	          ctlPresent(UI_FIX(BridgeCtl::Restart)) && flashNote());
+	checkTrue("BRIDGE: open again, Waiting", bridgeAgain() && usbBridgeMode() == BridgeMode::Waiting);
+	checkTrue("BACK with nothing sent since: the FLASH note still there", backToPage() && flashNote());
+	checkTrue("BRIDGE again", bridgeAgain());
+	pc4way(B4W_RESET, 0, &zero, 1);
+	brFrames(12);
+	checkTrue("4-way DeviceReset after the reopen: LAST RESET, its RUN out, the write finished",
+	          leftIs(148, "LAST RESET", C_DIM) && !usbBridgeWriteUnfinished());
+	checkTrue("BACK: the page without the FLASH note", backToPage() && noNote());
 	restartFromPage();
 	tapId(UI_FIX(UI_BACK));
 	brFrames(2);

@@ -190,9 +190,10 @@ the exception.
    back after a screen that ended the claim and closed. Its job finishes
    the frame under way, for at most 250 ms (`BRIDGE_RELEASE_MAX_MS`), then
    leaves SIG an input with the pull-up on.
-   After an unfinished write the bridge is to call `pinClaimWantLeavePage()`
-   (usb-bridge.md, decision 10), and then waits for RESTART DSHOT as the
-   others do.
+   At every BACK of a running bridge the bridge calls
+   `pinClaimWantLeavePage()` (usb-bridge.md, decision 10 as revised), and
+   then waits for RESTART DSHOT as the others do; a claim that has had the
+   page keeps it until it is Free, through BRIDGE's rebind on the page.
    After an EFM8 answer ESC SETTINGS has both: its escwire job, and the
    leave page it sets before the job starts.
 6. **Restoring.** Core0 calls `escTaskResume()`. Core1 rebuilds the driver from

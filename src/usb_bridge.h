@@ -63,7 +63,10 @@
  * ERASE and a payload are write-class: from the handover until the
  * frame's answer, a byte received beyond its echo, or
  * @ref BRIDGE_WRITE_WAIT_MS, BACK is drawn disabled (decision 7); and from
- * then until a RUN, the leave page carries `FLASH THE ESC AGAIN BEFORE USE.`.
+ * then until a RUN or the leave page's RESTART DSHOT, the leave page carries
+ * `FLASH THE ESC AGAIN BEFORE USE.`, after BRIDGE's reopen too. A RUN counts
+ * once core1 has taken it from the slot: one handed over just before BACK
+ * is never sent, and the note stays.
  * BACK on a Running bridge always opens the leave page (decision 10 as
  * revised, ui_bridge.h): an ESC can sit in its bootloader with no frame of
  * the PC's answered. MENU shows the run cue from the claim's begin and
@@ -222,12 +225,29 @@ BridgeLast usbBridgeLast();
 bool usbBridgeWriteWaiting();
 
 /**
- * @brief A write-class frame went to the wire since the open, and no RUN
- *        after it: the leave page carries its note to flash the ESC again
- *        (ui_bridge.h). Kept after the close until the next open.
+ * @brief A write-class frame went to the wire, and no RUN and no RESTART
+ *        DSHOT after it: the leave page carries its note to flash the ESC
+ *        again (ui_bridge.h). Kept through the close, the leave page and
+ *        BRIDGE's reopen, which leave the ESC's flash as cut as it was.
+ *        While the board runs it is cleared only by a RUN that core1 took
+ *        from the slot, `cmd_DeviceReset`'s among them, and by
+ *        usbBridgeWriteUnfinishedClear() at RESTART DSHOT, which ends the
+ *        claim: the next claim starts with none. A RUN handed over and not
+ *        taken when BACK comes is never sent and clears nothing; a write
+ *        after a RUN still pending keeps it set.
+ *
+ * It is held in RAM only: a board reset or a power loss in the middle of a
+ * flash restarts the board with DShot on SIG and no note.
  * @return True after such a frame.
  */
 bool usbBridgeWriteUnfinished();
+
+/**
+ * @brief RESTART DSHOT on the leave page, after which the user was told to
+ *        flash the ESC again: the claim ends, and its unfinished write with
+ *        it.
+ */
+void usbBridgeWriteUnfinishedClear();
 
 /**
  * @brief An `MSP_SET_MOTOR` from the PC was refused in the last

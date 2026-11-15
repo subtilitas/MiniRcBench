@@ -80,12 +80,14 @@ static bool openBridge() {
 	return usbBridgeMode() == BridgeMode::Waiting;
 }
 
+/** @brief Ends the claim, then clears the unfinished write as the screen's RESTART DSHOT does. */
 static void endBridge() {
 	pinClaimEnd(PinUser::Bridge);
 	for (int i = 0; i < 2000 && pinClaimState() != ClaimState::Free; i++) {
 		pinClaimRestart(PinUser::Bridge);
 		pass();
 	}
+	usbBridgeWriteUnfinishedClear();
 	pass();
 }
 
@@ -95,6 +97,9 @@ static void fresh(FakeEscReply r) {
 		pinClaimRestart(PinUser::Bridge);
 		pass();
 	}
+	// Ends the claim, then clears the unfinished write as the screen's
+	// RESTART DSHOT does.
+	usbBridgeWriteUnfinishedClear();
 	usbBridgeTask();
 	fakeBridgeLineReset();
 	fakeBridgeLineResponder(r);
@@ -1373,6 +1378,58 @@ static void testPassthrough3d() {
 	endBridge();
 }
 
+/** @brief Core0's pass alone: core1 does not run, so a frame handed over stays in the slot. */
+static void core0Pass() {
+	fakeAdvanceUs(250);
+	tud_task();
+	usbBridgeTask();
+}
+
+/** @brief The frames the bridge handed to the wire since the open. */
+static uint32_t framesOut() {
+	UsbBridgeStats s;
+	usbBridgeStats(&s);
+	return s.frames;
+}
+
+/** @brief DeviceReset's RUN ends the unfinished write once core1 takes it, not at its handover. */
+static void testRunCut() {
+	section("USB bridge 4-way: DeviceReset's RUN, BACK before core1 takes it");
+	blReset(false);
+	fresh(modelBl);
+	openBridge();
+	fwOne(B4W_INIT_FLASH, 0);
+	uint8_t data[16] = {0};
+	FwReply r = fw(B4W_WRITE, 0x3000, data, 16);
+	checkTrue("a Write answered: unfinished", r.ok && r.ack == B4W_ACK_OK && usbBridgeWriteUnfinished());
+	const int w0 = fakeBridgeLineWireCount();
+	const uint8_t zero = 0;
+	uint8_t f[16];
+	const int n = fwFrame(f, B4W_RESET, 0, &zero, 1);
+	fakeCdcHostWrite(f, n);
+	const uint32_t f0 = framesOut();
+	for (int k = 0; k < 400 && framesOut() == f0; k++) core0Pass();
+	checkTrue("DeviceReset's RUN handed over, core1 not yet past it: still unfinished",
+	          framesOut() == f0 + 1 && usbBridgeWriteUnfinished());
+	// BACK, as the screen does it, before core1's next pass.
+	pinClaimWantLeavePage(PinUser::Bridge);
+	pinClaimEnd(PinUser::Bridge);
+	run(50);
+	checkTrue("the release dropped it: nothing more on the wire, the note stands",
+	          pinClaimUnplugDue() && fakeBridgeLineWireCount() == w0 && usbBridgeWriteUnfinished());
+	pinClaimKeep(PinUser::Bridge);
+	for (int k = 0; k < 20 && usbBridgeMode() == BridgeMode::Closed; k++) {
+		pass();
+		pinClaimPoll();
+	}
+	checkTrue("BRIDGE: open again, still unfinished", usbBridgeMode() == BridgeMode::Waiting &&
+	          usbBridgeWriteUnfinished());
+	r = fwOne(B4W_RESET, 0);
+	checkTrue("DeviceReset again, its RUN taken: finished", r.ok && r.ack == B4W_ACK_OK &&
+	          fakeBridgeLineWireCount() > w0 && !usbBridgeWriteUnfinished());
+	endBridge();
+}
+
 /** @brief The PC's greeting in passthrough: its echo and the model's 9-byte answer reach the PC. */
 static bool greetingAnswered() {
 	static const uint8_t INIT21[21] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1396,11 +1453,23 @@ static void testPassthroughAfter() {
 	run(5);
 	checkTrue("ESC-Configurator's session ends in Exit: Waiting", r.ok && usbBridgeMode() == BridgeMode::Waiting);
 	checkTrue("then the AM32 configurator in Direct mode: its greeting answered", greetingAnswered());
+	// A PROGRAM with no RUN in passthrough: MSP after it ends nothing.
+	uint8_t prog[4] = {0x01, 0x01, 0, 0};
+	const uint16_t pc = usbBridgeCrc16(prog, 2);
+	prog[2] = (uint8_t)pc;
+	prog[3] = (uint8_t)(pc >> 8);
+	fakeCdcHostWrite(prog, sizeof(prog));
+	run(20);
+	checkTrue("a PROGRAM in passthrough: unfinished", usbBridgeLast().cmd == BridgeCmd::Program &&
+	          usbBridgeWriteUnfinished());
+	uint8_t echo[64];
+	fakeCdcHostRead(echo, sizeof(echo));
 	run(2100);
 	checkTrue("passthrough idle: Waiting", usbBridgeMode() == BridgeMode::Waiting);
 	MspReply m = msp(MSP_API_VERSION);
 	run(2100);
 	checkTrue("MSP alone, idle 2000 ms: Waiting", m.ok && usbBridgeMode() == BridgeMode::Waiting);
+	checkTrue("the MSP session after the PROGRAM: still unfinished", usbBridgeWriteUnfinished());
 	checkTrue("then a greeting in passthrough: answered", greetingAnswered());
 	run(2100);
 	fwOne(B4W_INIT_FLASH, 0);
@@ -1424,6 +1493,7 @@ void runBridgeProtoTests() {
 	testBlheliS();
 	testWire();
 	testWriteRules();
+	testRunCut();
 	testMalformed();
 	testPassthrough3d();
 	testPassthroughAfter();

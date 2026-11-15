@@ -119,9 +119,12 @@ static constexpr PinUserInfo PIN_USERS[] = {
 	// The monitor drives nothing; an ESC on SIG only loses its frames. When
 	// GP1 is SIG its screen makes its own ESC check (ui_sbus.h).
 	{ PinUser::Sbus,  Core1Job::Sbus,  true,  false, false },
-	// The bridge needs the ESC on the pin and answering, as AM32 does; BACK
-	// gives DShot back, the leave page only after an unfinished write
-	// (docs/design/usb-bridge.md, "The pin").
+	// The bridge needs the ESC on the pin and answering, as AM32 does. BACK
+	// of a running bridge gives the leave page through
+	// pinClaimWantLeavePage(); BACK before the first bind gives DShot back,
+	// but a claim that has had the page keeps it, so BACK after a failed
+	// rebind from the page's BRIDGE gives the page again
+	// (docs/design/usb-bridge.md, "The pin", decision 10).
 	{ PinUser::Bridge, Core1Job::Bridge, false, false, false },
 	// The output drives GP0: no ESC stays on the bench while it runs, in
 	// either wiring (docs/design/sbus-output.md, "The ESC check").
