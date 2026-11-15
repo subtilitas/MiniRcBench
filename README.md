@@ -44,9 +44,10 @@ with rcbench's decoder. It is tested on the host only; the inversion on the
 pin is not measured. An S.BUS output to a flight controller, OUTPUT on the same
 chooser, sending a frame every 14 ms on GP0 through UART0 with the pad's output
 inverted, the throttle channel under MAX THROTTLE, is designed in
-`docs/design/sbus-output.md` and not built: it waits on a check for an ESC
-bootloader on GP0 before START, which needs the Bluejay and BLHeli_S reading of
-ESC SETTINGS first. The chooser draws it disabled, `NOT BUILT`. A PPM
+`docs/design/sbus-output.md`. Its core1 job (`src/sbus_out_job.h`) is built and
+tested on the host only, and nothing opens it: the screen waits on a check for
+an ESC bootloader on GP0 before START. The chooser draws OUTPUT disabled,
+`NOT BUILT`. A PPM
 (pulse-position modulation) output is not built, by the owner's decision. An
 angle meter on the board's QMI8658 IMU (inertial measurement unit), MENU →
 TOOLS → ANGLE METER, reads incidence, decalage, dihedral and control-surface
@@ -189,7 +190,7 @@ The pin map is `src/board_rp2350_touch_lcd_2_8.h`.
 | Battery sense | 27 | ADC (analog-to-digital converter) input 1, 200k/100k divider → `VBAT = Vadc × 3` |
 | I2S audio BCK / LRCK / DIN | 2 / 3 / 4 | PCM5101A codec, not used by the firmware. I2S is Inter-IC Sound; BCK is bit clock, LRCK left-right clock, DIN data in |
 | RTC INT, IMU INT1 / INT2 | 5, 8 / 9 | Not used by the firmware |
-| ESC signal (SIG) | 0 | J4 pin 9, J5 pin 2, free. The TX (transmit) pin of UART0 (universal asynchronous receiver-transmitter 0), which the firmware does not use: the S.BUS job uses UART0's receiver only, and the USB bridge's 19200 baud line is two PIO state machines on SIG. Set under SETTINGS → SIG PIN |
+| ESC signal (SIG) | 0 | J4 pin 9, J5 pin 2, free. The TX (transmit) pin of UART0 (universal asynchronous receiver-transmitter 0). The S.BUS monitor's job uses UART0's receiver only; the S.BUS output's job (`src/sbus_out_job.h`) sends on GP0 with the pad's output inverted, and nothing opens it yet. The USB bridge's 19200 baud line is two PIO state machines on SIG. Set under SETTINGS → SIG PIN |
 | KISS telemetry RX (receive; KISS is a serial ESC telemetry protocol), AUX | 1 | J4 pin 10, J5 pin 1, free. The RX pin of UART0. Optional third wire; also the servo tester's second servo, and the S.BUS job's input, through UART0 with the pad's input inverted. Set under SETTINGS → AUX PIN |
 | Switched servo supply enable (EN) | 28 or 29 | J4 pin 11 or J4 pin 12. Optional, under SETTINGS → SERVO SUPPLY. An output at 3.3 V |
 
@@ -2774,9 +2775,8 @@ with two entries, 228 x 46 px at y 62 and 142, as PROGRAMMER's. It claims
 nothing. Its strip names both pins, `SIG GP0  AUX GP1`. **MONITOR** opens
 S.BUS MONITOR. **OUTPUT**, an S.BUS output to a flight controller, is drawn
 disabled with `NOT BUILT` under it and opens nothing: it is designed in
-`docs/design/sbus-output.md` and not built; it waits on a check for an ESC
-bootloader on GP0, which needs ESC SETTINGS' Bluejay and BLHeli_S reading
-first.
+`docs/design/sbus-output.md`, its core1 job is built without a screen, and the
+screen waits on a check for an ESC bootloader on GP0 before START.
 The row is drawn disabled while the pin claim is not free, as the other rows
 that lead to a claim.
 
@@ -3311,6 +3311,7 @@ src/
   sbus_job.{h,cpp}      the S.BUS monitor's core1 job: UART0 on GP1 inverted, rcbench's decoder, the status
   ui_sbus.{h,cpp}       S.BUS MONITOR: the claim of GP1, the channels and counts, the leave page
   sbus_view.{h,cpp}     what S.BUS MONITOR shows: the link state, the bars' ink, the texts (pure)
+  sbus_out_job.{h,cpp}  the S.BUS output's core1 job: UART0's TX on GP0 inverted, a frame every 14 ms; nothing opens it
   bridge_wire.{h,cpp}   the USB bridge's core1 job: the frame slot, the ring, the echo, the counts
   bridge_line_port.{h,cpp} the bridge's line: two PIO state machines on SIG
   bridge_line.pio       ...its transmitter, seven instructions; the receiver is pio_uart_rx.pio
@@ -3358,7 +3359,7 @@ src/
   tusb_config.h         TinyUSB configuration
 lib/rcbench/            rcbench files copied unchanged: servo sweep, GPIO-to-PWM fold,
                         KST core and line driver, KST file store, Hitec core,
-                        S.BUS decoder, sensor bus, escwire core and line driver,
+                        S.BUS decoder and encoder, sensor bus, escwire core and line driver,
                         control-surface arithmetic, IMU model, WitMotion decoder
 tools/
   sdtest/               standalone SD bring-up test, 2.8" only; built locally, never released
@@ -3380,8 +3381,8 @@ files copied unchanged into `lib/rcbench/` with rcbench's own layout
 (`lib/rcbench/README.md`): the sweep curve, the GPIO-to-PWM map, the KST
 programming core with its RP2350 line driver, the KST file store, and the
 Hitec programming core with its RP2350 line driver, servo file text and CRC,
-the S.BUS (Futaba's serial bus for receiver channels) decoder, the
-current sensor's bus record (`sense_bus.c`), the escwire core for ESC
+the S.BUS (Futaba's serial bus for receiver channels) decoder and encoder,
+the current sensor's bus record (`sense_bus.c`), the escwire core for ESC
 settings over the signal wire with its RP2350 line driver, which nothing
 calls yet, and for the angle meter the control-surface arithmetic
 (`servo_rudder.c`), the IMU (inertial measurement unit) model (`imu.c`) and
@@ -3415,7 +3416,7 @@ files as C11 programs: `test/rcbench/test_servo_sweep.c` and
 `test_hitec_wire.c`, `test_hitec_pre.c`, `test_hitec_pio.c`, `test_hitec_reg.c`,
 `test_hitec_reg_plan.c`, `test_hitec_session.c`, `test_hitec_session_write.c`
 and `test_hitec_card.c`, with `hitec_headers.cpp` built as C++11, `test_sbus.c`
-(12 cases), and the twelve escwire tests `test_ew_a.c`, `test_ew_id.c`,
+(19 cases), and the twelve escwire tests `test_ew_a.c`, `test_ew_id.c`,
 `test_ew_map.c`, `test_ew_guard.c`, `test_ew_session.c`,
 `test_ew_session_write.c`, `test_ew_file.c`, `test_ew_file_load.c`,
 `test_ew_pio.c`, `test_ew_text.c`, `test_ew_session_text.c` and
@@ -3500,7 +3501,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 14,371 of 14,599 lines in 91 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.5%**: 14,524 of 14,752 lines in 92 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver
@@ -3528,6 +3529,17 @@ as a framing error. `test/sbus_line.h` puts a receiver's frames on that line,
 120 µs a byte, with parity, framing and break faults, cut frames and any
 footer. `test_sbus_ui.cpp` runs S.BUS MONITOR on it through MENU and RX
 SIGNALS, with core1's job passes every 500 µs between UI frames.
+The S.BUS output's job runs against the same fake's transmitter: each UARTDR
+write enters a 32-entry TX FIFO and goes out at the format and rate set, 120 µs
+a character at 8E2, with TXFE, TXFF and BUSY from it, and a character still on
+its way is cut when the UART stops or GP0 leaves the UART function with its
+output inverted. The GPIO fake records every write of a control register with
+FUNCSEL and the overrides as one value, and the pad register's IE, OD, ISO and
+pulls from its reset value, 0x116; a pin's pull is read from the register.
+`test_sbus_out_job.cpp` checks the bind and the release write by write and
+feeds the characters sent, with their times, to rcbench's decoder; it also
+reads every source under `src/` and fails if a code line other than the job's
+declarations, its job-table line and the claim's row names the output.
 
 `esc_task.cpp` cannot be linked either, so core0's side of the command slot is
 a copy in `fakes.cpp` on the shipped `escCmdAccept()`. A test sets the
@@ -3816,8 +3828,8 @@ the list.
 - The Hitec programming core, its RP2350 line driver, the Hitec servo file
   text and its CRC in `lib/rcbench/` come from rcbench at commit 3e29dc1b,
   by the same copyright holder under the same MIT licence.
-- The S.BUS decoder in `lib/rcbench/` comes from rcbench at commit 5ef42efd,
-  by the same copyright holder under the same MIT licence.
+- The S.BUS decoder and encoder in `lib/rcbench/` come from rcbench at commit
+  b88593d3, by the same copyright holder under the same MIT licence.
 - The escwire core, its RP2350 line driver and the servo file store in
   `lib/rcbench/` come from rcbench at commit 2b4f934a, by the same copyright
   holder under the same MIT licence.
@@ -3852,9 +3864,10 @@ rcbench's register model marks the source of each (`hitec_src_t`). No
 vendor code is included.
 
 Futaba and S.BUS are names or trademarks of their owners. They are used in
-this repository only to say which receivers its S.BUS decoder works with.
-MiniRcBench is not affiliated with Futaba and is neither supported nor
-sponsored by it. The S.BUS decoder is rcbench's; no vendor code is included.
+this repository only to say which receivers its S.BUS decoder and which
+devices its S.BUS encoder work with. MiniRcBench is not affiliated with
+Futaba and is neither supported nor sponsored by it. The S.BUS decoder and
+encoder are rcbench's; no vendor code is included.
 
 Every other name of a maker, product, protocol or firmware in this
 repository is a name or trademark of its owner, used only to describe

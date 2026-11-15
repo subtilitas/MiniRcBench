@@ -9,8 +9,8 @@
  *
  * | Role | Pin | Claimed by |
  * |---|---|---|
- * | @ref PIN_SIG | the ESC signal wire, `settings()->dshotPin` | ESC settings (AM32), servo A, KST and Hitec programming; the S.BUS monitor; the USB bridge |
- * | @ref PIN_AUX | the KISS wire, `settings()->kissPin` | servo B, two-servo mode; the S.BUS monitor when AUX is GP1 |
+ * | @ref PIN_SIG | the ESC signal wire, `settings()->dshotPin` | ESC settings (AM32), servo A, KST and Hitec programming; the S.BUS monitor; the USB bridge; the S.BUS output |
+ * | @ref PIN_AUX | the KISS wire, `settings()->kissPin` | servo B, two-servo mode; the S.BUS monitor when AUX is GP1; the S.BUS output when AUX is GP0 |
  *
  * Every claim is escTaskSuspend(): with the signal pin gone the ESC hears no
  * frames and disarms, and with no frames there is no KISS request, so both
@@ -28,9 +28,9 @@
  * |---|---|---|
  * | Free | DShot runs on both pins | pinClaimBegin() |
  * | Stopping | core1 drains, stops and releases the pump | Held when escTaskSuspended() |
- * | Held | both pins free; the GPIOs are latched; SERVO, KST, the S.BUS monitor and the USB bridge start their job; HITEC as its entry asks, ESC SETTINGS when an EFM8 bootloader answered (pinClaimStartJob()) | Running once it binds |
+ * | Held | both pins free; the GPIOs are latched; SERVO, KST, the S.BUS monitor, the USB bridge and the S.BUS output start their job; HITEC as its entry asks, ESC SETTINGS when an EFM8 bootloader answered (pinClaimStartJob()) | Running once it binds |
  * | Running | the job holds its pins | Leaving on pinClaimEnd() |
- * | Leaving | the job releases its pins; SERVO, KST, HITEC and the S.BUS monitor show the leave page (ui_leave.h), and AM32 after an EFM8 bootloader answered | Restoring: on RESTART DSHOT with the leave page, else once the job is idle |
+ * | Leaving | the job releases its pins; SERVO, KST, HITEC, the S.BUS monitor and the S.BUS output show the leave page (ui_leave.h), and AM32 after an EFM8 bootloader answered | Restoring: on RESTART DSHOT with the leave page, else once the job is idle |
  * | Restoring | core1 rebuilds the pump from the latched wiring | Free |
  *
  * ESC SETTINGS (PinUser::Am32) defers its job: its AM32 bootloader
@@ -96,6 +96,7 @@ enum class PinUser : uint8_t {
 	Hitec,  /**< HITEC SERVO: SIG. */
 	Sbus,   /**< The S.BUS monitor: the role on GP1, AUX with SIG or SIG alone (sbus_job.h). */
 	Bridge, /**< The USB bridge: SIG (bridge_wire.h). */
+	SbusOut,  /**< The S.BUS output: the role on GP0, SIG alone or with AUX (sbus_out_job.h). Nothing claims it yet. */
 	Count,  /**< How many pin users; not a user. */
 };
 
@@ -122,6 +123,9 @@ static constexpr PinUserInfo PIN_USERS[] = {
 	// gives DShot back, the leave page only after an unfinished write
 	// (docs/design/usb-bridge.md, "The pin").
 	{ PinUser::Bridge, Core1Job::Bridge, false, false, false },
+	// The output drives GP0: no ESC stays on the bench while it runs, in
+	// either wiring (docs/design/sbus-output.md, "The ESC check").
+	{ PinUser::SbusOut, Core1Job::SbusOut, true, true, false },
 };
 
 /**
@@ -161,7 +165,7 @@ enum class ClaimRefusal : uint8_t {
 	None,          /**< Not refused; the claim is Stopping. */
 	Armed,         /**< The tester is armed. */
 	Busy,          /**< A claim holds, or is still restoring. */
-	EscAnswering,  /**< An eRPM frame within @ref ESC_LINK_STALE_MS (500 ms). SERVO, KST and HITEC; AM32, the S.BUS monitor and the USB bridge are exempt. */
+	EscAnswering,  /**< An eRPM frame within @ref ESC_LINK_STALE_MS (500 ms). SERVO, KST, HITEC and the S.BUS output; AM32, the S.BUS monitor and the USB bridge are exempt. */
 	KissLive,      /**< A KISS frame within @ref KISS_STALE_MS (500 ms), AUX asked for. */
 	SamePin,       /**< AUX asked for, and SIG and AUX are the same GPIO. */
 };
@@ -189,13 +193,15 @@ struct ClaimFacts {
  *   navigation.
  * - **Busy.** One claim at a time, and not before the last one has restored
  *   DShot.
- * - **EscAnswering**, SERVO, KST and HITEC. Servo pulses of 1000 to 2000 us
- *   are a valid PWM throttle signal, and a KST or Hitec entry sends frames
- *   into whatever is on the wire. The screen keeps asking; the claim follows by
- *   itself 500 ms after the ESC goes quiet. AM32 and the USB bridge are
- *   exempt: they need the ESC on the pin. The S.BUS monitor is exempt: it
- *   drives nothing, and when GP1 is SIG its screen makes the check itself
- *   (ui_sbus.h).
+ * - **EscAnswering**, SERVO, KST, HITEC and the S.BUS output. Servo pulses
+ *   of 1000 to 2000 us are a valid PWM throttle signal, a KST or Hitec entry
+ *   sends frames into whatever is on the wire, and S.BUS frames must not
+ *   reach an ESC: the output checks in either wiring, GP0 as SIG or as AUX,
+ *   so no ESC stays on the bench while it runs. The screen keeps asking; the
+ *   claim follows by itself 500 ms after the ESC goes quiet. AM32 and the
+ *   USB bridge are exempt: they need the ESC on the pin. The S.BUS monitor is
+ *   exempt: it drives nothing, and when GP1 is SIG its screen makes the
+ *   check itself (ui_sbus.h).
  * - **KissLive**, AUX asked for. An ESC telemetry output drives AUX, and servo
  *   PWM would drive against it; for the S.BUS monitor the telemetry wire is
  *   where the receiver goes.

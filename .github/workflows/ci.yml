@@ -144,6 +144,18 @@ jobs:
             --indirect ew_line_start --indirect ew_line_poll --indirect ew_line_abort \
             --indirect ew_line_level --indirect ew_line_now_us "${ci[@]}"
 
+      # The S.BUS output job runs on core1 too. src/rx.cmake builds the job
+      # and rcbench's S.BUS module with -fcallgraph-info=su; the same limit
+      # holds for the job's three entry points, SDK calls counting 0 bytes.
+      - name: S.BUS output job stack on core1
+        run: |
+          mapfile -t ci < <(find build -name 'sbus_out_job.cpp.ci' -o -name 'sbus.c.ci')
+          printf '%s\n' "${ci[@]}"
+          [ "${#ci[@]}" -eq 2 ] || {
+            echo "::error::expected 2 call-graph files, found ${#ci[@]}"; exit 1; }
+          python3 tools/stack_depth.py --limit 1792 \
+            --root sbusOutJobStep --root sbusOutJobRelease --root sbusOutJobBind "${ci[@]}"
+
       # A ceiling, not a printout. The framebuffer alone is 150 kB of the
       # RP2350's 520 kB, and a regression that doubles a buffer otherwise passes
       # CI and fails on the bench. Generous enough not to be a nuisance; tighten
