@@ -24,8 +24,8 @@
 # test_sense.cpp does, to run touch, the current sensor and the IMU on one
 # bus. Nothing in src/ calls the C sources yet, and the firmware does not
 # build them (docs/design/angle-meter.md, slice 1).
-ANGLE_SRCS     := ../src/qmi8658.cpp
-ANGLE_TESTS    := test_qmi8658.cpp
+ANGLE_SRCS     := ../src/qmi8658.cpp ../src/angle_model.cpp
+ANGLE_TESTS    := test_qmi8658.cpp test_angle_model.cpp
 ANGLE_CSRCS    := ../lib/rcbench/shared/servo/servo_rudder.c \
                   ../lib/rcbench/shared/bench/imu.c \
                   ../lib/rcbench/protocols/witmotion/witmotion.c
