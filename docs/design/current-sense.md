@@ -463,12 +463,17 @@ bench has nothing left to switch.
 
 ### I2C1 today
 
-`src/cst328.cpp` is the only client of I2C1. `touchInit()` runs on core0
+`src/cst328.cpp` is I2C1's first client. `touchInit()` runs on core0
 in `setup()`: `i2c_init()` at 400 kHz, the pads' pull-ups, the touch reset
 and a probe. `touchPoll()` runs on core0 from `uiTick()`, every 25 ms
 (`UI_PERIOD_MS`), with one 5-byte read of register D000h, a timeout of
-2000 µs per transfer (`I2C_TIMEOUT_US`). The IMU and the RTC are not
-used. Nothing on core1 touches I2C1.
+2000 µs per transfer (`I2C_TIMEOUT_US`). The other clients of the bus are
+the INA219 of this note ([the second client](#the-second-client)), the
+QMI8658 IMU, read while the angle meter is open
+([angle-meter.md](angle-meter.md#slice-2-as-built)), and the PCF85063 RTC,
+read once at start-up and written when the clock is set over USB
+([run-summary.md](run-summary.md#slice-4-as-built), slices 4 and 5).
+Nothing on core1 touches I2C1.
 
 ### The second client
 

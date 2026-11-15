@@ -91,7 +91,7 @@ screen asks for decide only which pins its job binds.
 
 | Screen | Roles bound | Core1 job | Who drives the pin |
 |---|---|---|---|
-| AM32 CONFIG | SIG | none, core1 idle | core0, bit-banged bootloader transport (`am32_bl.cpp`) |
+| ESC SETTINGS (AM32), under ESC CONFIG | SIG | none, core1 idle | core0, bit-banged bootloader transport (`am32_bl.cpp`) |
 | SERVO, one servo | SIG | servo | core1, hardware PWM |
 | SERVO, two servos | SIG and AUX | servo | core1, hardware PWM |
 | KST SERVO | SIG | KST | core1, `kst_line` PIO driver and session |
@@ -129,7 +129,8 @@ the exception.
    `escTaskSuspended()`. The drain frames carry no command and no KISS
    request. A pump that sent no throttle frame since its bind needs no drain.
    Coming from MENU, the 250 ms have usually passed: opening MENU disarms. A
-   user who taps MENU and AM32 CONFIG in quick succession can open AM32 about
+   user who taps MENU, ESC CONFIG and ESC SETTINGS in quick succession can
+   open AM32 about
    100 ms after the last throttle frame, and its handover then waits out the
    rest. A rebuild after a SETTINGS pin change drains the same way.
 3. **Held.** Core0 reads the GPIO numbers once: SIG from `escTaskDshotPin()`,

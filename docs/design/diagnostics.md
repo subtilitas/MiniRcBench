@@ -173,8 +173,10 @@ bench, these are the questions to answer:
 2. **What one record holds.** The reason or event code, the uptime at the
    time, the firmware version, a restart counter, and per event a value
    such as a pin or a result code. Whether the time of day is needed: the
-   board's PCF85063 RTC (real-time clock) is not used, so the uptime is the
-   only clock.
+   board's PCF85063 RTC (real-time clock) is read at start-up and set over
+   USB ([run-summary.md](run-summary.md#slice-4-as-built), slices 4 and 5),
+   and holds a time only after a set in the same power-up, since no cell is
+   fitted on J2; until then the uptime is the only clock.
 3. **Where it is stored.** Options: a flash sector of its own beside the
    settings sector; the SD card, in a file under its own directory; the
    watchdog scratch registers or the power manager's scratch registers,

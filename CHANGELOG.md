@@ -44,6 +44,21 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1: the hardware bench plan,
+  [docs/bench-plan.md](docs/bench-plan.md). It gathers the bench tests of
+  the design notes' bench and bring-up sections and of STATUS.md's open
+  items and verification table, 142 tests, into ten sessions that build on
+  each other: the board and the SD card, then DShot and the pin claim, the
+  ESC tools, the servo tester with the INA219 and the converter, the servo
+  programmers, the receiver and the angle meter, and last the supply cuts
+  with the servo log, the S.BUS bootloader probe against ESCs before an FC,
+  the USB bridge with desktop tools, and the destructive tests on spare
+  parts. Each test keeps its note's ID, with its setup and pins, steps, the
+  note's pass criterion or "criterion not set in the note", what to record
+  and where the result goes; an equipment list and a results template come
+  with it. No test has run. README.md, STATUS.md's open items and the wiki's
+  Home page in both languages link it. `test/check_docs.py`'s rule 8 checks
+  the links of `docs/*.md` as well.
 - After v0.1.0-rc1: the servo tester's log on the card, slice 6 of
   [current-sense.md](docs/design/current-sense.md#slice-6-as-built)
   (`src/servo_log.*`), with CURRENT SENSE at INA219 and a card mounted. Each run

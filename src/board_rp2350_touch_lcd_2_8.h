@@ -72,10 +72,11 @@
  * @brief GPIOs a user may assign to the ESC or telemetry wire, as a bitmask.
  *
  * Two of them: GP0 (J4 pin 9, J5 pin 2) and GP1 (J4 pin 10, J5 pin 1), UART0's
- * pins, which the firmware leaves unused. Both are 5 V tolerant ("Digital IO
- * (FT)", RP2350 datasheet Table 1674) while IOVDD is at 3.3 V. GP28 and GP29
- * are ADC pins and not 5 V tolerant: they carry only the switched servo
- * supply's enable, an output (servo_supply.h).
+ * pins. Only the S.BUS jobs use UART0: the monitor's receiver on GP1 and the
+ * output's transmitter on GP0 (sbus_job.h, sbus_out_job.h). Both are 5 V
+ * tolerant ("Digital IO (FT)", RP2350 datasheet Table 1674) while IOVDD is
+ * at 3.3 V. GP28 and GP29 are ADC pins and not 5 V tolerant: they carry
+ * only the switched servo supply's enable, an output (servo_supply.h).
  *
  * Two is enough for both wires, one each: the ESC starts on GP0
  * (@ref DSHOT_PIN_LCD_2_8) and the telemetry pad on GP1
