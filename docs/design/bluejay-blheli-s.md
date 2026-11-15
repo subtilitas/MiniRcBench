@@ -1228,8 +1228,37 @@ Choices the note left open, the developer's:
 - **The AM32 path.** An AM32 read after an EFM8 session in the same visit
   starts with no backup saved, as a new device.
 
-Mutations, each applied to a copy of the tree, the suite built and run:
-MUTATIONS_PLACEHOLDER
+Mutations, each applied to a copy of the tree, the suite built and run: 57, 51
+failing the suite. Six pass. Four are equivalent: Write taken outside InMode
+without the job's own check, which `ew_session_write()` refuses the same way;
+`WRITE...` live on a read-only list without its layout check, where no row
+edits, so there is never a change to write; LEAVE asked again on a
+half-written page, which the guard keeps from ever sending LEAVE; and the
+write's refusal of a page other than ESC WRITE showed, which no path reaches,
+as on AM32. Two are backstops the suite cannot see: the screen's own
+`ew_image_check()` before Write, whose drafts the session's guard refuses
+alike (the job's tests hold the guard to each refusal), and the clamp of a
+draft longer than 256 bytes in `escwireJobWrite()`, which no caller sends and
+which would only overrun memory. The others fail the suite: the draft not
+copied to core1 or its length lost, the erase not published, a lapse or the
+release aborting, `dirty` or `reread` not reported; rows editable on read-only
+pages or shown-only fields editable, a step to any byte, the coarse factor
+rounded down, CHANGED or LOST needing no read, an ended session not said, a
+stopped half-written page called stopped, the backup name cut, the no-card
+lines swapped, changes counted wrong; Bluejay saved as BH, a capture failure
+ignored, the next name taken as the latest, BJ and BH swapped in the ring;
+`WRITE...` dead on a half-written page, edits on it, the page as read not
+writable, no BOARD refusal, a write with no backup or after a failed one, the
+verified page not taken, the 3D note not set by a write or by a half-written
+draft, a Write refused for a lapse not asked again, no guard on a half-written
+page, its second BACK not aborting or sending LEAVE, BACK live while writing,
+edits dropped or an ended session kept by READ AGAIN, a failed READ AGAIN
+taken as a read, OK after an ended session going to the list, the read-only
+backup not saved, the backup state kept into a second session or into an AM32
+answer after it, the as-read line missing, the half-written strip's lines
+swapped, REVERT or a swipe doing nothing, shown rows drawn editable, the
+backup line naming AM, the sent draft not kept, a wide value at scale 2. The
+script is not kept.
 
 Not verified: everything on an ESC. No write of this slice has reached a
 Bluejay or BLHeli_S ESC: the erase, program and read-back are rcbench's
