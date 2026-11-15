@@ -1296,10 +1296,22 @@ stays off J4 until `CS-B6` has measured it with the board unpowered.
   at least 3 A, with no tolerance on VOUT. For reference, the firmware cuts
   the supply when VOUT reads under 4.0 V for 1000 ms (`GUARD_LOW_MV`) with
   a sensor declared.
+- **Steps:** set bench supply 1's limit just above the input current that
+  3 A out needs, derived: 5.0 V × 3 A / 4.2 V = 3.6 A at 4.2 V VIN, 5.0 A at
+  3.0 V VIN, before the converter's losses, which are not known. Load 1 A,
+  2 A and 3 A in turn and read VOUT. Then step the load past 3 A in small
+  steps, each at most 1000 ms, with STOP after each step and the converter
+  cooled between steps; raise the supply's limit only while VOUT holds.
+  Stop at the first droop of VOUT or when the converter is too hot to
+  touch. At the end, set CURRENT SENSE back to `INA219` and save before
+  OI-16: every later test in this plan relies on the cuts.
 - **Record:** VOUT per load; the current at which it limits; the
   temperature.
 - **Result to:** as CS-B6.
-- **Safety:** bench supply 1's current limit set; the load's rating.
+- **Safety:** no cut acts in this test; only bench supply 1's limit bounds
+  the converter and the loads. The limit as in Steps; loads rated at least
+  15 W at 3 A (1.67 Ω), more for a step past 3 A; each step at most 1000 ms;
+  CURRENT SENSE back at `INA219` before OI-16.
 
 #### OI-16. The servo tester on the switched supply
 
@@ -1349,7 +1361,8 @@ alone.
   (`GUARD_HARD_MA`), and the time from the current step to EN low.
 - **Setup:** first CS-B4's setup: bench supply 1 at 5.0 V into VIN+, with
   the load, the shunt and the leads used below. The cut fires on one
-  reading, about 25 ms after the step, too soon to trim the load or read a
+  reading, within about 45 ms of the step (a reading every 25 ms, each over
+  a 17.55 ms conversion), too soon to trim the load or read a
   meter, so the current is set and read here. The note's 1.5 Ω gives about
   3.13 A with the shunt in series; leads and the ammeter lower it. Set it at
   least 0.1 A over 3.0 A, a margin this plan sets; above 3.2 A, the end of
@@ -1359,13 +1372,16 @@ alone.
   shunt. VIN at 4.2 V. Bench supply 1's limit above the converter's input
   current at 3.1 A out, derived: 5.0 V × 3.1 A / 4.2 V = 3.7 A at 4.2 V VIN,
   and 5.2 A at 3.0 V VIN, before the converter's losses, which are not
-  known. A lower limit lets VOUT sag and the current fall under 3.0 A, which
-  reads as a false fail. The scope on EN, on VOUT and across the shunt with two
-  probes.
+  known; set it at about 4.5 A at 4.2 V VIN, a margin this plan sets for
+  80 % efficiency. A lower limit lets VOUT sag and the current fall under
+  3.0 A, which reads as a false fail. The scope on EN, on VOUT and across
+  the shunt with two probes.
 - **Steps:** switch the load onto VIN- while the tester runs; read the step
   on the scope across the shunt.
-- **Pass:** EN low on the hard cut, with the step on the scope at or above
-  3.0 A (the voltage across 0.1 Ω at or above 300 mV). The time to EN low:
+- **Pass:** EN low on the hard cut, with the current set beforehand at or
+  above 3.1 A and the step on the scope consistent with it (the voltage
+  across 0.1 Ω about 310 mV; two single-ended probes at about 5 V resolve
+  it coarsely, a differential probe better). The time to EN low:
   criterion not set; record it.
 - **Record:** the current set on bench supply 1; the step on the scope;
   VOUT during the step; the time; bench supply 1's limit and VIN.
