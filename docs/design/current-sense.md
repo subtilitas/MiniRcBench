@@ -1776,10 +1776,11 @@ applies: no file, no cache, and a running blackbox log goes on.
   queued and its batch already checked, then card B in the slot: none of the 19
   blocks reaches card B, which keeps its own file; the same card with the end's
   first block refused, the card mounted again and the file removed; a removed
-  card's pass at most 5 ms, one unanswered command; the cache on for the log only, one
-  block a call, never a flush on the spot, every block's batch checked without a
-  wait, at most 100 µs a pass, rows dropped and counted on the slow card; the
-  hard cut and the gap between readings on both cards with the log off and on.
+  card's pass at most 5 ms, one unanswered command; the cache on for the log
+  only, one block a call, never a flush on the spot, every block's batch checked
+  without a wait, at most 100 µs a pass, rows dropped and counted on the slow
+  card; the hard cut and the gap between readings on both cards with the log off
+  and on.
   `test/test_sdio.cpp` (`testReadAsync()`): `sdh_read_start()` and
   `sdh_read_poll()` on the simulated card with a data latency, the wait hook at
   every look, CMD12 after a block that did not come, none and no time spent

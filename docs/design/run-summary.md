@@ -1,6 +1,6 @@
 # Run summary per log, dated by the board's clock
 
-Status: designed; slices 1 to 5 of 6 built, host tests only: the core
+Status: slices 1 to 5 of 6 built, host tests only: the core
 ([slice 1 as built](#slice-1-as-built)), the logger feeding it and writing
 the `.TXT` ([slice 2 as built](#slice-2-as-built)), SD LOG showing the
 last run ([slice 3 as built](#slice-3-as-built)), the clock read at

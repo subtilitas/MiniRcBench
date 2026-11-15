@@ -1,12 +1,12 @@
 # ESC commands and the kV estimate
 
-Status: designed; the owner answered its questions on 2026-11-15, see
-[decisions](#decisions). Slice 1, the command slot on core1, slice 2, the
-ESC COMMANDS page, and slice 3, the kV estimate, are built and tested on
-the host only ([slice 1 as built](#slice-1-as-built),
+Status: slice 1, the command slot on core1, slice 2, the ESC COMMANDS
+page, and slice 3, the kV estimate, are built and tested on the host only
+([slice 1 as built](#slice-1-as-built),
 [slice 2 as built](#slice-2-as-built),
-[slice 3 as built](#slice-3-as-built)); slice 5, the bring-up, waits. The
-feature is item (1) of the owner's feature choice of 2026-11-14, recorded
+[slice 3 as built](#slice-3-as-built)); slice 4 is left out by decision 8;
+slice 5, the bring-up, waits. The owner answered its questions on
+2026-11-15, see [decisions](#decisions). The feature is item (1) of the owner's feature choice of 2026-11-14, recorded
 in [STATUS.md](../../STATUS.md) open item 28: an ESC commands page and an
 RPM-per-volt and kV estimate on the tester, a design note first, then
 slices with reviews. No command of this design has gone to an ESC from

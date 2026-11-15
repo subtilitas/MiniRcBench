@@ -1,13 +1,13 @@
 # SD write cache for the backup claims
 
 Built, host tests only, not tested on hardware. While the pin claim of KST
-SERVO, AM32 CONFIG or HITEC SERVO holds, the tools that save device backups
-([backups.md](backups.md)), block writes to the SD (Secure Digital) card go
-into a queue in SRAM (static random-access memory) and return at once. A
-flush step on core0 sends them to the card in the order FatFs wrote them, one
-block per loop pass, without waiting on the card's busy line or on the swap
-check's read ([card swap](#card-swap)). Block reads come
-from the queue, from a read cache, or from the card. Core0 keeps drawing,
+SERVO, ESC SETTINGS or HITEC SERVO holds, the tools that save device backups
+([backups.md](backups.md)), and while SERVO TESTER's log runs, block writes to
+the SD (Secure Digital) card go into a queue in SRAM (static random-access
+memory) and return at once. A flush step on core0 sends them to the card in the
+order FatFs wrote them, one block per loop pass, without waiting on the card's
+busy line or on the swap check's read ([card swap](#card-swap)). Block reads
+come from the queue, from a read cache, or from the card. Core0 keeps drawing,
 reading touch and sending the heartbeat while the card programs.
 
 The HITEC SERVO claim runs it too
@@ -153,14 +153,14 @@ still to go, or `Failed`.
   LOAD or the FILES page that finds the cache at `Failed` recovers first.
   The card mounted again may be another one, so LOAD then reads the list
   again, loads nothing and reads `CARD MOUNTED AGAIN: CHOOSE AGAIN`.
-- **AM32 CONFIG** recovers after any failed batch of its backup, the save's
+- **ESC SETTINGS** recovers after any failed batch of its backup, the save's
   own included, so the next WRITE saves the backup again.
 - **KST SAVE AS** flushes on the spot (`cardCacheFlush()`) and reports what
   the card holds: a failed flush is `THE CARD TOOK NO FILE`, and the next
   write saves the backup again.
 - **The record's removal** after a verify, or at LEAVE, stays queued and goes
   to the card in the flush that follows, at the claim's end at the latest.
-- **AM32 CONFIG.** Its transport blocks core0 anyway, so after the backup
+- **ESC SETTINGS.** Its transport blocks core0 anyway, so after the backup
   `doWrite()` flushes on the spot and writes the ESC only at `Idle`. A failed
   flush reads `NO BACKUP ON THE CARD: NOT WRITTEN`.
 
@@ -188,10 +188,11 @@ card the rule is unchanged: the write runs, and the backup stays in memory.
 
 ## Card swap
 
-The board has no card-detect line. A card swapped during the claim answers
-the first command after the swap, and a block written from the queue would
-then land on the new card, built from the old card's directory and FAT: the
-new card's volume would be corrupted.
+The board has no card-detect line. The check below guards against a swapped
+card that answers: a block written from the queue would land on the new card,
+built from the old card's directory and FAT, and corrupt its volume. A newly
+inserted card is uninitialised and most likely refuses the writes; how a real
+card behaves is not verified.
 
 `cardCacheBegin()` reads the volume's serial number from its boot sector
 (`sdLogVolumeId()`: `BS_VolID`, offset 67, on FAT32; `VolumeSerialNumber`,

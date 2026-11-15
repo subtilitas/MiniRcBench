@@ -1,6 +1,6 @@
 # Angle meter on the board's IMU
 
-Status: designed; slices 1 to 5 built, host tests only. Slice 1, the copies from
+Status: slices 1 to 5 of 6 built, host tests only. Slice 1, the copies from
 rcbench ([slice 1 as built](#slice-1-as-built)). Slice 2, the driver ([slice 2
 as built](#slice-2-as-built)). Slice 3, the model ([slice 3 as
 built](#slice-3-as-built)): it calls the copies, and it adapts the cases of

@@ -1,14 +1,14 @@
 # USB bridge to the ESC's signal wire
 
-Status: designed; the owner answered its questions on 2026-11-15, see
-[decisions](#decisions). Slices 1 to 3 are built, host tests only
+Status: slices 1 to 3 of 4 are built, host tests only
 ([slice 1 as built](#slice-1-as-built), [slice 2 as
 built](#slice-2-as-built), [slice 3 as built](#slice-3-as-built)): the pin
 user, the core1 job, the PIO line, the frame slot and the ring;
 passthrough, the console switch, the traffic log as a build option and the
 screen USB BRIDGE, opened from ESC CONFIG; the mode from the PC's first
 byte, MSP, the 4-way interface and the 3D note of decision 12. Slice 4,
-the bring-up, waits on hardware. The
+the bring-up, waits on hardware. The owner answered its questions on
+2026-11-15, see [decisions](#decisions). The
 feature is item (5) of the owner's
 feature choice of 2026-11-14 in [STATUS.md](../../STATUS.md) open item 28,
 "a USB one-wire bridge for desktop ESC tools"; open item 29 tracks this

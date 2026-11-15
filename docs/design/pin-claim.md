@@ -12,8 +12,13 @@ The S.BUS monitor of [rx-signals.md](rx-signals.md) adds the S.BUS job and
 its pin user (its slice 2), and its screen, S.BUS MONITOR (its slice 3);
 both built, host tests only.
 The USB bridge of [usb-bridge.md](usb-bridge.md) adds its pin user, its
-core1 job and its PIO line (its slice 1), built, host tests only; nothing
-opens it yet.
+core1 job and its PIO line (its slice 1) and its screen, USB BRIDGE, opened
+from ESC CONFIG (its slice 2); both built, host tests only. The S.BUS output
+of [sbus-output.md](sbus-output.md) adds `PinUser::SbusOut` and its core1 job
+(its slice 2) and its screen, S.BUS OUTPUT (its slice 4), and ESC SETTINGS'
+escwire job on SIG (`Core1Job::EscWire`, slice 3 of
+[bluejay-blheli-s.md](bluejay-blheli-s.md)) is the claim's job for an ESC that
+answered with an EFM8 bootloader; all built, host tests only.
 Slices A to C of [menu.md](menu.md), the menu restructure, are built before
 slice 3.
 Since slice C, the tester's third button reads MENU, the list of tools is

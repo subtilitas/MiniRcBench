@@ -1,6 +1,7 @@
 # Receiver signals: S.BUS monitor and S.BUS output
 
-Status: slices 1a, 2 and 3 built, the rest planned. Slice 1a is rcbench's
+Status: slices 1a, 2 and 3 built; slices 1b, 4 and 5, the PPM output, are
+not built, by decision 1; slice 6, the bring-up, waits. Slice 1a is rcbench's
 S.BUS decoder and its test in `lib/rcbench/` and `test/rcbench/`, the
 copies of b88593d3 with the encoder
 ([sbus-output.md](sbus-output.md#slice-1-as-built)).
