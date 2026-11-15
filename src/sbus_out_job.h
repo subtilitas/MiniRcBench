@@ -13,7 +13,7 @@
  *
  * | State | GP0 | Leaves it |
  * |---|---|---|
- * | Probe | rcbench's escwire line: on the pull-up, a burst of 3 greetings each second | a cycle with no answer: SAFE; the release |
+ * | Probe | ESC SETTINGS' escwire line: 1000 ms on the pull-up, then 3 greetings, in turn | a cycle with no answer: SAFE; the release |
  * | SAFE | the UART bound and idle: low, no frames | Start |
  * | RUNNING | a frame every 14 ms | Safe, a heartbeat lapse, a refused frame, the release |
  * | Tripped | SAFE, latched after a heartbeat lapse while RUNNING | Start, or a new bind |

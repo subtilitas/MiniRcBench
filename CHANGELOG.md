@@ -44,6 +44,28 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1: the S.BUS output's bootloader probe, slice 3 of
+  [sbus-output.md](docs/design/sbus-output.md#slice-3-as-built), tested on
+  the host only; nothing opens the output yet. Every bind of the S.BUS
+  output's job first runs ESC SETTINGS' connect cycle on GP0, 1000 ms on
+  the pull-up and then 3 greetings, rcbench's first contact, on ESC
+  SETTINGS' escwire line driver from core1, and repeats it until a cycle
+  passes with no answer from an EFM8 bootloader (Bluejay, BLHeli_S), a
+  piece of one, or an AM32 bootloader; only then does UART0 take GP0. The
+  job takes no command during the probe and none sent before it, so START
+  is impossible until a cycle with no answer has passed in that bind, and
+  BACK TO OUTPUT probes again. An answer sets MENU's run cue,
+  `POWER-CYCLE THE ESC TO RUN IT`, until an eRPM frame after it; an EFM8
+  answer marks the claim for the leave page's step that asks for the ESC's
+  battery to come off and calls `pinClaimWantLeavePage()`. The screen of
+  slice 4 is to offer START only through `sbusOutProbePassed()`. UART0 now
+  starts at the bind with no pad on it, the pull-down comes when the
+  probe's line closes, and a refused bind, for the UART's clock or the
+  line's resources, leaves GP0 on the pull-up. The unreachability test
+  also fails a line under `src/` that reaches a pin user or a core1 job by
+  a cast or a table index. The escwire line's fake writes the driver's pad
+  changes to the GPIO fake and serves rcbench's AM32 model. CI's stack
+  check of the job reads the probe's call graphs: 368 bytes of 1,792.
 - After v0.1.0-rc1: the S.BUS output's core1 job, slice 2 of
   [sbus-output.md](docs/design/sbus-output.md#slice-2-as-built), tested on
   the host only; nothing opens it. `Core1Job::SbusOut`

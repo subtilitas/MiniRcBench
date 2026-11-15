@@ -1153,12 +1153,16 @@ static void testProbeNoAnswer() {
 	noEsc();
 	g_beat = true;
 	escHeartbeat();
+	uint16_t stop = send(SbusOutCmdKind::Safe);
 	checkTrue("bound: the probe", claimToBind(PIN_SIG) == ClaimState::Running &&
 	          sbusOutProbePoll() == SbusOutProbeState::Checking && !sbusOutProbePassed());
+	SbusOutStatus st;
+	sbusOutJobStatus(&st);
+	checkTrue("the bind takes a STOP held before it as acknowledged", st.ackSeq == stop);
 	uint32_t t0 = millis();
 	uint16_t early = send(SbusOutCmdKind::Start);
+	checkTrue("so a START sent now is held, not dropped behind it", early == (uint16_t)(stop + 1));
 	while (millis() - t0 < 999) runTo(time_us_64() + 500, 500);
-	SbusOutStatus st;
 	sbusOutJobStatus(&st);
 	checkTrue("999 ms: quiet, nothing sent, the line on the pull-up",
 	          fakeEwSim()->starts == 0 && fakeEwSim()->line == EW_LINE_UP &&
@@ -1168,7 +1172,7 @@ static void testProbeNoAnswer() {
 	checkInt("the first greeting 1000 ms after the bind", (long)(millis() - t0), 1000);
 	checkTrue("rcbench's first contact", greetingAt(0));
 	uint16_t late = 0;
-	while (fakeEwSim()->starts < 3) runTo(time_us_64() + 500, 500);
+	while (fakeEwSim()->starts < 3 && millis() - t0 < 1200) runTo(time_us_64() + 500, 500);
 	late = send(SbusOutCmdKind::Start);
 	checkTrue("a START during the third greeting: the probe still runs",
 	          !sbusOutProbePassed() && sbusOutProbePoll() == SbusOutProbeState::Checking);
@@ -1268,6 +1272,7 @@ static void testProbeAm32() {
 	g_beat = true;
 	escHeartbeat();
 	checkTrue("bound: the probe", claimToBind(PIN_SIG) == ClaimState::Running);
+	uint32_t bindMs = millis();
 	uint16_t start = send(SbusOutCmdKind::Start);
 	passMs(1200);
 	SbusOutStatus st;
@@ -1284,6 +1289,7 @@ static void testProbeAm32() {
 	checkTrue("RESTART DSHOT after AM32 alone: the cue stays", sbusOutRunCue(0));
 	checkTrue("an eRPM frame stamped at the answer: stays", sbusOutRunCue(rpmAfterAnswer(0)));
 	checkTrue("one stamped before it: stays", sbusOutRunCue(rpmAfterAnswer(-5)));
+	checkTrue("one from before the probe: stays", sbusOutRunCue(bindMs));
 
 	// MENU shows it.
 	fakeFlashClear();
@@ -1297,7 +1303,8 @@ static void testProbeAm32() {
 	          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_RUN_CUE, UI_COL_WARN, C_BG, 1));
 	EscTelemetry t;
 	memset(&t, 0, sizeof(t));
-	t.lastRpmMs = rpmAfterAnswer(1);
+	// Stamped now, by the clock: after the answer.
+	t.lastRpmMs = millis();
 	fakeSetTelemetry(&t);
 	outFrames(2);
 	checkTrue("an eRPM frame after the answer: the cue gone from MENU", !sbusOutRunCue(0) &&
@@ -1407,7 +1414,8 @@ static void testProbeRelease() {
 	checkTrue("BACK TO OUTPUT: the probe again", pinClaimPoll() == ClaimState::Running &&
 	          fakeEwOpens() == 2 && sbusOutProbePoll() == SbusOutProbeState::Checking);
 	uint16_t start = send(SbusOutCmdKind::Start);
-	while (fakeEwSim()->starts == 0) runTo(time_us_64() + 500, 500);
+	uint64_t until = time_us_64() + 1100000;
+	while (fakeEwSim()->starts == 0 && time_us_64() < until) runTo(time_us_64() + 500, 500);
 	runTo(time_us_64() + 2000, 500);
 	sbusOutJobStatus(&st);
 	checkTrue("a greeting on the wire, START not taken",
