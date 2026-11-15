@@ -8,6 +8,7 @@
 #include "ui_input.h"
 #include "ui_widgets.h"
 #include "sd_log.h"
+#include "run_summary.h"
 #include "usb_msc.h"
 #include "gfx.h"
 #include "touch.h"
@@ -24,6 +25,13 @@
 #define LOG_ROW0_Y     (UI_HDR_H + 8)   /**< First status row. */
 #define LOG_ROW_H      19
 #define LOG_ROWS        9   /**< Through MOUNT; CARD and MOUNT are diagnostics. */
+#define LOG_RUN_ROW0    2   /**< The run's first row, MAX RPM, after a stop. */
+#define LOG_TAG_X     203   /**< A source tag's first pixel: KISS, EDT or MIXED. */
+#define LOG_TAG_GAP     6   /**< From a tagged value's right edge to its tag. */
+/** @brief A tagged value's right edge, x 197: its last pixel is x 196. */
+#define LOG_TAGGED_R   (LOG_TAG_X - LOG_TAG_GAP)
+/** @brief The widest tag, `MIXED`: 5 characters of 6 px, the last column blank. */
+#define LOG_TAG_MAX_W  (5 * 6 - 1)
 #define LOG_NOTE1_Y   217   /**< A two-line note's first line: how the last log ended. */
 #define LOG_NOTE_Y    228   /**< One line: why a button just refused, or a note's second line. */
 #define LOG_TOGGLE_Y  240   /**< START / STOP, or EJECT while a host has the card. */
@@ -47,6 +55,12 @@ static const UiRect BTN_LOG_USB    = { UI_EDGE + LOG_BTN_W + LOG_BTN_GAP, LOG_BO
 static_assert(LOG_ROW0_Y >= UI_HDR_H, "logging rows overlap the header");
 static_assert(LOG_ROW0_Y + LOG_ROWS * LOG_ROW_H <= LOG_NOTE1_Y,
               "logging rows overlap the note lines");
+static_assert(LOG_RUN_ROW0 + (int)RunSumRow::Count == LOG_ROWS,
+              "the run's rows do not take rows 2 to 8");
+static_assert(LOG_TAG_X + LOG_TAG_MAX_W - 1 < GFX_W - UI_MARGIN,
+              "MIXED runs past the right margin");
+static_assert(LOG_TAGGED_R == 197 && LOG_TAG_X == 203,
+              "the run rows' columns are the ones runSumRowText()'s fit test checks");
 static_assert(LOG_NOTE1_Y + 7 < LOG_NOTE_Y, "the two note lines overlap");
 static_assert(LOG_NOTE_Y + 7 <= LOG_TOGGLE_Y,
               "the note line overlaps the START/STOP button");
@@ -68,6 +82,12 @@ static TouchState s_touch;
 static struct {
 	int      config, logState, logDrops, mscState, mscNote, logMount, logInit, logEnd;
 	uint32_t logFile, logBytes, logFrames, logPeak, logWorstMs, mscBlocks, logCardMB;
+	// The run summary: which one, and what of it can change once it has
+	// ended: its end, its file's result, its stop time (each log's own) and
+	// the pole count its RPM is divided by.
+	const RunSum *sum;
+	uint64_t sumStopUs;
+	int      sumEnd, sumFile, sumPoles;
 } s_shown;
 
 /** @brief True while @p b is touched by a press that began inside it. */
@@ -79,6 +99,29 @@ static bool tapped(const UiRect &b, const TouchState &t) { return uiTapped(b, &t
 static void drawLogRow(int row, const char *label, const char *value,
                        uint16_t vcol) {
 	uiRow(LOG_ROW0_Y + row * LOG_ROW_H, LOG_ROW_H, label, value, vcol, 1);
+}
+
+/**
+ * @brief One of the run's rows: label, value, and the source tag beside it.
+ *
+ * A tagged value ends at @ref LOG_TAGGED_R, its tag from @ref LOG_TAG_X; an
+ * untagged one at the right margin, as every other row. Colours by
+ * menu-b.md decision 11: the value in the text colour, red for MAX TEMP at
+ * 90 C and above and for NOT SAVED, `--` dim; the KISS tag in the text
+ * colour, EDT and MIXED dim, as the tester's source tags.
+ */
+static void drawRunRow(int row, const RunSumRowText &t) {
+	uint16_t vcol = t.unknown ? C_DIM : t.alert ? C_RED : C_TEXT;
+	if (!t.tag) {
+		drawLogRow(row, t.label, t.value, vcol);
+		return;
+	}
+	int y = LOG_ROW0_Y + row * LOG_ROW_H;
+	int ty = y + (LOG_ROW_H - 7) / 2;
+	gfxRect(0, y, GFX_W, LOG_ROW_H, C_BG);
+	gfxText(UI_MARGIN, ty, t.label, C_DIM, 1);
+	gfxText(LOG_TAGGED_R - gfxTextW(t.value, 1), ty, t.value, vcol, 1);
+	gfxText(LOG_TAG_X, ty, t.tag, strcmp(t.tag, "KISS") == 0 ? C_TEXT : C_DIM, 1);
 }
 
 /**
@@ -211,82 +254,18 @@ static void drawUsbPanel(MscState st) {
 }
 
 /**
- * @brief Logging status screen: card state, counters and manual start/stop.
+ * @brief Rows 2 to 8 while a log runs, and while no summary shows: the
+ *        logger's counters, CARD and MOUNT.
  *
- * The counters are not decoration. `SD_LOG_BUFFER_BYTES` is a guess until it has
- * been measured, and BUF PEAK and WORST FLUSH are the two numbers to size it
- * from — a peak that approaches the buffer size, or a flush that takes longer
- * than the buffer holds, is the warning that it is too small. DROPS reaching
- * anything but zero says it already was.
+ * The counters are not decoration. `SD_LOG_BUFFER_BYTES` is a guess until it
+ * has been measured, and BUF PEAK and WORST FLUSH are the two numbers to size
+ * it from — a peak that approaches the buffer size, or a flush that takes
+ * longer than the buffer holds, is the warning that it is too small. DROPS
+ * reaching anything but zero says it already was. After a stop they are in
+ * the log's `.TXT`.
  */
-static void drawLogScreen() {
-	SdLogStatus st;
-	sdLogStatus(&st);
-
-	MscState msc = mscGetState();
-	int note = mscNoteActive() ? (int)s_mscNote + 1 : 0;
-	// Blocks read is in the key so the progress figure actually advances, and
-	// only while serving -- otherwise a stale counter would repaint the whole
-	// screen forever at whatever the last read left it on.
-	uint32_t blocks = (msc == MscState::Serving) ? mscBlocksRead() : 0;
-
-	if (s_shown.config == 2 &&
-	    s_shown.logState == (int)st.state && s_shown.logFile == st.fileNumber &&
-	    s_shown.logBytes == st.bytesWritten && s_shown.logFrames == st.framesLogged &&
-	    s_shown.logDrops == (int)st.dropEvents && s_shown.logPeak == st.peakBuffer &&
-	    s_shown.logWorstMs == st.worstFlushMs &&
-	    s_shown.logMount == st.mountResult && s_shown.logCardMB == st.cardSizeMB &&
-	    s_shown.logInit == st.cardInit && s_shown.logEnd == (int)st.end &&
-	    s_shown.mscState == (int)msc && s_shown.mscNote == note &&
-	    s_shown.mscBlocks == blocks)
-		return;
-
-	s_shown.mscState   = (int)msc;
-	s_shown.mscNote    = note;
-	s_shown.mscBlocks  = blocks;
-	s_shown.config     = 2;
-	s_shown.logState   = (int)st.state;
-	s_shown.logFile    = st.fileNumber;
-	s_shown.logBytes   = st.bytesWritten;
-	s_shown.logFrames  = st.framesLogged;
-	s_shown.logDrops   = st.dropEvents;
-	s_shown.logPeak    = st.peakBuffer;
-	s_shown.logWorstMs = st.worstFlushMs;
-	// MOUNT, CARD and the mount hint follow these three.
-	s_shown.logMount   = st.mountResult;
-	s_shown.logCardMB  = st.cardSizeMB;
-	s_shown.logInit    = st.cardInit;
-	s_shown.logEnd     = (int)st.end;
-
-	gfxFill(C_BG);
-	uiHeader("SD LOG", &s_touch);
-
-	if (msc != MscState::Idle) {
-		drawUsbPanel(msc);
-		// One button, and it is the way out. START, STOP and RETRY MOUNT all
-		// need the card, and the card is not ours; drawing them disabled would
-		// be four controls saying no where one control saying "give it back"
-		// is the only thing anybody wants.
-		uiButton(BTN_LOG_TOGGLE, "EJECT", C_AMBER, C_PAPER, 2,
-		         pressing(BTN_LOG_TOGGLE, s_touch));
-		gfxRect(0, LOG_BOT_Y, GFX_W, LOG_BOT_H, C_BG);
-		return;
-	}
-
+static void drawCounterRows(const SdLogStatus &st) {
 	char buf[32];
-	const char *stateTxt;
-	uint16_t stateCol;
-	switch (st.state) {
-		case SdLogState::Logging: stateTxt = "RECORDING"; stateCol = C_RED;   break;
-		case SdLogState::Idle:    stateTxt = "READY";     stateCol = C_LIME;  break;
-		case SdLogState::Error:   stateTxt = "CARD ERROR";stateCol = C_AMBER; break;
-		default:                  stateTxt = "NO CARD";   stateCol = C_DIM;   break;
-	}
-	drawLogRow(0, "STATUS", stateTxt, stateCol);
-
-	fileText(st, buf, sizeof(buf));
-	drawLogRow(1, "FILE", buf, C_TEXT);
-
 	snprintf(buf, sizeof(buf), "%lu", (unsigned long)st.framesLogged);
 	drawLogRow(2, "FRAMES", buf, C_TEXT);
 
@@ -344,6 +323,122 @@ static void drawLogScreen() {
 	else
 		snprintf(buf, sizeof(buf), "%u", st.mountResult);
 	drawLogRow(8, "MOUNT", buf, st.mountResult ? C_AMBER : C_LIME);
+}
+
+/**
+ * @brief Rows 2 to 8 after a stop: the last log's run summary, MAX RPM to
+ *        SUMMARY (runSumRowText()), with the pole count at its stop.
+ *
+ * FRAMES to WORST FLUSH are in the log's `.TXT`; CARD and MOUNT matter when
+ * no card mounts, and then no summary shows. docs/design/run-summary.md,
+ * decision 1.
+ */
+static void drawRunRows(const SdLogStatus &st) {
+	for (int i = 0; i < (int)RunSumRow::Count; i++) {
+		RunSumRowText t;
+		runSumRowText(st.summary, (RunSumRow)i, st.summaryPoles, st.fileNumber, &t);
+		drawRunRow(LOG_RUN_ROW0 + i, t);
+	}
+}
+
+/** @brief Whether the run summary is the one the last frame drew, unchanged. */
+static bool sumShown(const SdLogStatus &st) {
+	if (s_shown.sum != st.summary) return false;
+	if (!st.summary) return true;
+	return s_shown.sumStopUs == st.summary->stopUs &&
+	       s_shown.sumEnd == (int)st.summary->end &&
+	       s_shown.sumFile == (int)st.summary->file &&
+	       s_shown.sumPoles == st.summaryPoles;
+}
+
+/** @brief Keep what sumShown() compares. */
+static void sumKeep(const SdLogStatus &st) {
+	s_shown.sum = st.summary;
+	if (!st.summary) return;
+	s_shown.sumStopUs = st.summary->stopUs;
+	s_shown.sumEnd    = (int)st.summary->end;
+	s_shown.sumFile   = (int)st.summary->file;
+	s_shown.sumPoles  = st.summaryPoles;
+}
+
+/**
+ * @brief Logging status screen: card state, the counters or the last run,
+ *        and manual start/stop.
+ *
+ * Rows 2 to 8 show the last log's run summary while no log runs and the
+ * logger has one (@ref SdLogStatus::summary), and the counters otherwise.
+ */
+static void drawLogScreen() {
+	SdLogStatus st;
+	sdLogStatus(&st);
+
+	MscState msc = mscGetState();
+	int note = mscNoteActive() ? (int)s_mscNote + 1 : 0;
+	// Blocks read is in the key so the progress figure actually advances, and
+	// only while serving -- otherwise a stale counter would repaint the whole
+	// screen forever at whatever the last read left it on.
+	uint32_t blocks = (msc == MscState::Serving) ? mscBlocksRead() : 0;
+
+	if (s_shown.config == 2 &&
+	    s_shown.logState == (int)st.state && s_shown.logFile == st.fileNumber &&
+	    s_shown.logBytes == st.bytesWritten && s_shown.logFrames == st.framesLogged &&
+	    s_shown.logDrops == (int)st.dropEvents && s_shown.logPeak == st.peakBuffer &&
+	    s_shown.logWorstMs == st.worstFlushMs &&
+	    s_shown.logMount == st.mountResult && s_shown.logCardMB == st.cardSizeMB &&
+	    s_shown.logInit == st.cardInit && s_shown.logEnd == (int)st.end &&
+	    s_shown.mscState == (int)msc && s_shown.mscNote == note &&
+	    s_shown.mscBlocks == blocks && sumShown(st))
+		return;
+
+	s_shown.mscState   = (int)msc;
+	s_shown.mscNote    = note;
+	s_shown.mscBlocks  = blocks;
+	s_shown.config     = 2;
+	s_shown.logState   = (int)st.state;
+	s_shown.logFile    = st.fileNumber;
+	s_shown.logBytes   = st.bytesWritten;
+	s_shown.logFrames  = st.framesLogged;
+	s_shown.logDrops   = st.dropEvents;
+	s_shown.logPeak    = st.peakBuffer;
+	s_shown.logWorstMs = st.worstFlushMs;
+	// MOUNT, CARD and the mount hint follow these three.
+	s_shown.logMount   = st.mountResult;
+	s_shown.logCardMB  = st.cardSizeMB;
+	s_shown.logInit    = st.cardInit;
+	s_shown.logEnd     = (int)st.end;
+	sumKeep(st);
+
+	gfxFill(C_BG);
+	uiHeader("SD LOG", &s_touch);
+
+	if (msc != MscState::Idle) {
+		drawUsbPanel(msc);
+		// One button, and it is the way out. START, STOP and RETRY MOUNT all
+		// need the card, and the card is not ours; drawing them disabled would
+		// be four controls saying no where one control saying "give it back"
+		// is the only thing anybody wants.
+		uiButton(BTN_LOG_TOGGLE, "EJECT", C_AMBER, C_PAPER, 2,
+		         pressing(BTN_LOG_TOGGLE, s_touch));
+		gfxRect(0, LOG_BOT_Y, GFX_W, LOG_BOT_H, C_BG);
+		return;
+	}
+
+	char buf[32];
+	const char *stateTxt;
+	uint16_t stateCol;
+	switch (st.state) {
+		case SdLogState::Logging: stateTxt = "RECORDING"; stateCol = C_RED;   break;
+		case SdLogState::Idle:    stateTxt = "READY";     stateCol = C_LIME;  break;
+		case SdLogState::Error:   stateTxt = "CARD ERROR";stateCol = C_AMBER; break;
+		default:                  stateTxt = "NO CARD";   stateCol = C_DIM;   break;
+	}
+	drawLogRow(0, "STATUS", stateTxt, stateCol);
+
+	fileText(st, buf, sizeof(buf));
+	drawLogRow(1, "FILE", buf, C_TEXT);
+
+	if (st.summary) drawRunRows(st);
+	else            drawCounterRows(st);
 
 	bool active = (st.state == SdLogState::Logging);
 	bool usable = (st.state != SdLogState::NoCard);
