@@ -79,7 +79,7 @@ size_t clockLineAnswer(ClockCmd cmd, const ClockTime *t, char *out) {
 	return 0;
 }
 
-size_t clockLinePoll(ClockLineIn *in, int (*get)(), char *out) {
+size_t clockLinePoll(ClockLineIn *in, ClockByteFn get, char *out) {
 	for (;;) {
 		int c = get();
 		if (c < 0) return 0;

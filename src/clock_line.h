@@ -74,14 +74,17 @@ ClockCmd clockLineParse(const char *line, size_t len, bool over, ClockTime *t);
  */
 size_t clockLineAnswer(ClockCmd cmd, const ClockTime *t, char *out);
 
+/** @brief The next byte the host sent, 0 to 255, or a negative number for none now. */
+typedef int (*ClockByteFn)();
+
 /**
  * @brief Read bytes from @p get until a line ends or @p get has none, and
  *        answer a line that ended. Returns after the first line that ends,
  *        so a pass carries out one command at most; the bytes after it wait
  *        for the next pass.
  * @param in  The line so far, kept between calls.
- * @param get The next byte, 0 to 255, or a negative number for none now.
+ * @param get The byte source.
  * @param out At least @ref CLOCK_ANSWER_BYTES bytes.
  * @return The answer's length; 0 for no answer.
  */
-size_t clockLinePoll(ClockLineIn *in, int (*get)(), char *out);
+size_t clockLinePoll(ClockLineIn *in, ClockByteFn get, char *out);
