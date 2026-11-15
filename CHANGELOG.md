@@ -65,6 +65,25 @@ protocol.
   and `test/test_set_clock.py`, which `make -C test run` runs. README and
   the wiki pages SD-Logging, SD-Aufzeichnung, The-Screens and
   Die-Bildschirme describe the set. Not tested on hardware.
+- After v0.1.0-rc1: the angle meter's model, slice 3 of
+  [angle-meter.md](docs/design/angle-meter.md#slice-3-as-built)
+  (`src/angle_model.*`), pure. It averages the samples of the QMI8658 IMU
+  (inertial measurement unit) in fours, calibrates them per chip axis, maps them
+  to the board's edges by `BOARD_IMU_AXES`, and feeds `theta`, `atan2(a_u, a_z)`
+  about the edge ALONG AXIS names, and the tilt of that edge into rcbench's IMU
+  model at IMU FILTER 3. A reading is settled after 1000 ms still; from a tilt
+  of 45° it is amber, from 70° `---`. ZERO takes the first settled frame at
+  least 1000 ms after the finger lifts, or none within 10 s; MAX holds the
+  largest settled deflection each side; SIGN turns the reading and swaps the
+  sides; LENGTH gives the trailing edge's travel; the IMU's temperature since
+  the zero warns from 2.0 °C. The three-pose flip, screen up, turned end for
+  end, screen down, finds each axis' offset and the normal's gain.
+  `src/angle.cmake` builds it into the firmware with rcbench's `servo_rudder.c`,
+  `imu.c` and `witmotion.c`, `-Wtype-limits` off for `imu.c`, and CI's syntax
+  checks get the WitMotion include directory. Nothing calls the model yet: the
+  screen, slice 4, does. Host tests in `test/test_angle_model.cpp`; the cases of
+  rcbench's `test_imu.c` (9) and `test_imu_filter.c` (10) that need `imu.h`
+  alone are adapted into `test/rcbench/`. Not tested on hardware.
 - After v0.1.0-rc1: the host suite sets the fake clock before each screenshot
   that draws from the clock: `fakeClockAlign()` before the KST search
   spinner and the ESC SETTINGS connect spinner (`shot_kst_search`,
@@ -167,10 +186,9 @@ protocol.
   `witmotion.*`, the WitMotion decoder `imu.h` includes. Their tests,
   `test_servo_rudder.c`, `test_imu_angles.c` with `wit_frame.h` and
   `test_witmotion.c`, 25 cases, are in `test/rcbench/`, run by `make -C test
-  run` through `test/angle.mk`. Nothing in `src/` calls them yet, and the
-  firmware does not build them. The cases of rcbench's `test_imu.c` and
-  `test_imu_filter.c` that need `imu.h` alone are not adapted; open for
-  slice 3.
+  run` through `test/angle.mk`. Slice 3, above, builds them into the
+  firmware with their caller and adapts the cases of rcbench's `test_imu.c`
+  and `test_imu_filter.c` that need `imu.h` alone.
 - After v0.1.0-rc1: each blackbox log that stops clean gets its run
   summary beside it, `LOGS/LOGnnnnn.TXT`, slice 2 of
   [run-summary.md](docs/design/run-summary.md#slice-2-as-built).

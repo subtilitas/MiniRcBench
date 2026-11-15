@@ -375,7 +375,9 @@ target_compile_options(MiniRcBench PRIVATE
 #
 # It covers the rcbench files in lib/rcbench/ as well. They are copied
 # unchanged, so a warning a new toolchain finds in them is fixed in rcbench and
-# the files copied again, not edited here.
+# the files copied again, not edited here. One exception until rcbench fixes it:
+# src/angle.cmake turns -Wtype-limits off for imu.c, whose (int)axis < 0 is
+# always false where arm-none-eabi makes imu_axis_t one unsigned byte.
 option(STRICT "Treat warnings as errors in this project's own sources" OFF)
 if(STRICT)
     target_compile_options(MiniRcBench PRIVATE -Werror)

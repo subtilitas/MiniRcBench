@@ -52,9 +52,10 @@ angle meter on the board's QMI8658 IMU (inertial measurement unit), for
 incidence, decalage, dihedral and control-surface throw, is designed in
 `docs/design/angle-meter.md`; the owner answered its questions on 2026-11-15,
 and its entry is an eighth MENU row, `TOOLS`, with a chooser. The rcbench files
-it builds on are copied into `lib/rcbench/` and host-tested; nothing calls them
-yet. Its IMU driver is built and host-tested, and nothing opens it yet: the
-screen is not built, and the driver has not run on a board. A run
+it builds on are copied into `lib/rcbench/` and host-tested. Its IMU driver and
+its model, which turns the driver's samples into the angle through those files,
+are built and host-tested, and nothing calls them yet: the screen is not built,
+and neither has run on a board. A run
 summary per blackbox log, written beside the log and shown on SD LOG, with the
 board's PCF85063 real-time clock dating the files on the card as an option, is
 designed in `docs/design/run-summary.md`; the owner answered its questions
@@ -2741,6 +2742,7 @@ src/
   card_dir.{h,cpp}      the card's mount rule, directory scope and file calls
   sense.{h,cpp}         the INA219 current sensor on the shared I2C bus: codec, probe, readings, recovery
   qmi8658.{h,cpp}       the board's QMI8658 IMU on the shared I2C bus: probe, reset, set-up, burst, stop
+  angle_model.{h,cpp}   the angle meter's model: frames, calibration, theta and tilt, ZERO, MAX, the flip (pure)
   servo.cmake, kst.cmake, hitec.cmake, rx.cmake, sense.cmake, escwire.cmake, angle.cmake, bridge.cmake  each feature's firmware sources (test/*.mk: its tests)
   ui_input.{h,cpp}      tap-on-release and held-repeat rules, shared (pure)
   rpm_filter.h          display smoothing of the RPM readout
@@ -2801,9 +2803,9 @@ current sensor's bus record (`sense_bus.c`), the escwire core for ESC
 settings over the signal wire with its RP2350 line driver, which nothing
 calls yet, and for the angle meter the control-surface arithmetic
 (`servo_rudder.c`), the IMU (inertial measurement unit) model (`imu.c`) and
-the WitMotion decoder `imu.h` includes, which the host suite alone builds
-and nothing calls yet. Files include each other as plain
-siblings, except two drivers with folders of their own: the DShot
+the WitMotion decoder `imu.h` includes, which the angle model
+(`src/angle_model.cpp`) calls; nothing calls the model yet. Files include
+each other as plain siblings, except two drivers with folders of their own: the DShot
 driver in `src/dshot/`, so that it can be compared with its rcbench original,
 and the SDIO card driver in `src/sdio/`, whose `compat/` headers have to keep
 the paths the SD library includes.
@@ -2822,30 +2824,31 @@ cd test && make
 
 Needs nothing but a C++17 compiler and a C11 compiler: the DShot core in
 `src/dshot/`, the SDIO protocol layers in `src/sdio/` and the rcbench files in
-`lib/rcbench/` are compiled as C, as the firmware compiles them, and linked
-into the C++ suite. `make run` also builds and runs rcbench's own tests of
-those files as C11 programs: `test/rcbench/test_servo_sweep.c` and
+`lib/rcbench/` are compiled as C, as the firmware compiles them, and linked into
+the C++ suite. `make run` also builds and runs rcbench's own tests of those
+files as C11 programs: `test/rcbench/test_servo_sweep.c` and
 `test_out_pwm_map.c`, and the seven KST tests `test_kst_wire.c`,
 `test_kst_reg.c`, `test_kst_plan.c`, `test_kst_session.c`, `test_kst_pio.c`,
 `test_kst_file.c` and `test_kst_store.c`, and the eight Hitec tests
-`test_hitec_wire.c`, `test_hitec_pre.c`, `test_hitec_pio.c`,
-`test_hitec_reg.c`, `test_hitec_reg_plan.c`, `test_hitec_session.c`,
-`test_hitec_session_write.c` and `test_hitec_card.c`, with
-`hitec_headers.cpp` built as C++11, `test_sbus.c` (12 cases), and the
-twelve escwire tests `test_ew_a.c`, `test_ew_id.c`, `test_ew_map.c`,
-`test_ew_guard.c`, `test_ew_session.c`, `test_ew_session_write.c`,
-`test_ew_file.c`, `test_ew_file_load.c`, `test_ew_pio.c`, `test_ew_text.c`,
-`test_ew_session_text.c` and `test_ew_file_e32.c` (210 cases), with
-`escwire_headers.cpp` built as C++11, and the angle meter's
-`test_servo_rudder.c`, `test_imu_angles.c` and `test_witmotion.c` (25
-cases). The SDIO tests run the card protocol against a simulated card. Time is
-virtual and counted in microseconds — `millis()` advances only when a test
-says so — which makes hold-to-arm, hold-to-write and gesture repeat
-deterministic rather than dependent on machine speed. The fake ESC serves a
-real settings blob recovered from the reference configurator, so the UI tests
-operate on values a real ESC would report. The suite renders 125 screens to
-PPM (portable pixmap) images as it runs, one file per `fakeDumpFrame()` name,
-so a layout change is visible in the frames:
+`test_hitec_wire.c`, `test_hitec_pre.c`, `test_hitec_pio.c`, `test_hitec_reg.c`,
+`test_hitec_reg_plan.c`, `test_hitec_session.c`, `test_hitec_session_write.c`
+and `test_hitec_card.c`, with `hitec_headers.cpp` built as C++11, `test_sbus.c`
+(12 cases), and the twelve escwire tests `test_ew_a.c`, `test_ew_id.c`,
+`test_ew_map.c`, `test_ew_guard.c`, `test_ew_session.c`,
+`test_ew_session_write.c`, `test_ew_file.c`, `test_ew_file_load.c`,
+`test_ew_pio.c`, `test_ew_text.c`, `test_ew_session_text.c` and
+`test_ew_file_e32.c` (210 cases), with `escwire_headers.cpp` built as C++11, and
+the angle meter's `test_servo_rudder.c`, `test_imu_angles.c` and
+`test_witmotion.c` (25 cases), copied unchanged, and `test_imu.c` (9 cases) and
+`test_imu_filter.c` (10), adapted from rcbench's to the cases that need `imu.h`
+alone. The SDIO tests run the card protocol against a simulated card. Time is
+virtual and counted in microseconds — `millis()` advances only when a test says
+so — which makes hold-to-arm, hold-to-write and gesture repeat deterministic
+rather than dependent on machine speed. The fake ESC serves a real settings blob
+recovered from the reference configurator, so the UI tests operate on values a
+real ESC would report. The suite renders 125 screens to PPM (portable pixmap)
+images as it runs, one file per `fakeDumpFrame()` name, so a layout change is
+visible in the frames:
 
 - five of the splash: as it boots, with no answer from the touch
   controller, after an update reset the settings, the same with no touch
@@ -2912,7 +2915,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 11,799 of 11,989 lines in 77 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 11,956 of 12,145 lines in 77 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver
@@ -2983,6 +2986,16 @@ decoding, a time stamp repeated or changed during the burst, the faults through
 the shared bus record, BACK's CTRL7 00h also after a CTRL7 write that timed out,
 nothing to 0x6B while the driver is closed, touch and the INA219 on the same
 bus, and the bus time of a frame in each failure mode, at most 1730 µs.
+
+`test_angle_model.cpp` runs the angle meter's model on synthetic gravity
+vectors, a board turned about a tilted line and fed as the driver's samples:
+`theta` and the tilt for each ALONG AXIS, SIGN and axis map, TOO STEEP from 70°
+and amber from 45°, the frames of four samples, stale at 300 ms, SETTLED at
+1000 ms, ZERO 1000 ms after the lift and its 10 s limit, MAX from settled
+frames, the wrap at ±180°, the travel, the temperature warning at 2.0 °C, the
+calibration and the errors it removes, the flip's arithmetic against values
+worked by hand and its steps, NaN and degenerate inputs, and the texts in
+tenths.
 
 `make pioemu`, which `make` runs too, runs `test/pio_sdio_emu.py`. It assembles
 the two SDIO PIO programs from `src/sdio/sd_pio.pio` itself and runs them one
