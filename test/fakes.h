@@ -104,6 +104,12 @@ void fakeRelease();
  */
 void fakeTouchAnswers(bool on);
 
+/**
+ * @brief Stamp touchAnsweredMs() at the clock now, as a completed read
+ *        does, for tests that drive core1 without UI frames.
+ */
+void fakeTouchStamp();
+
 /** @brief Read a byte of the fake ESC's settings page, as actually stored. */
 uint8_t fakeEscByte(int offset);
 /** @brief Store @p v at @p offset of the fake ESC's settings page, as another tool would. */

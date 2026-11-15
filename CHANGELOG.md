@@ -664,6 +664,29 @@ protocol.
 
 ### Changed
 
+- After v0.1.0-rc1 (a93e1c1): the servo tester switches the servo's supply
+  with SERVO SUPPLY at `GP28` or `GP29`, slice 3 of
+  [current-sense.md](docs/design/current-sense.md#slice-3-as-built) and
+  decision 20 of [servo-tester.md](docs/design/servo-tester.md). Before, it
+  never drove the enable pin and the strip read `GP28 SUPPLY STAYS OFF HERE.`
+  The job drives the pin low from its bind, high at HOLD TO START and low at
+  STOP, at the heartbeat trip and at BACK, which makes it an undriven input
+  again after the last pulse; the pulses wait at level 0 until the INA219
+  reads 4.5 V after the switch-on, or 500 ms without a sensor, and with the
+  sensor and no 4.5 V by 500 ms the supply goes off
+  (`SUPPLY NOT UP: NO 4.5 V IN 500 MS.`). A touch controller silent for
+  250 ms (`touchAnsweredMs()`, new in `src/touch.h`) or a stuck I2C bus
+  switches it off and latches `STALLED`; either, and CURRENT SENSE at INA219
+  with the part not found, refuses HOLD TO START. With the sensor a reading
+  above 2.5 V 2000 ms after a switch-off shows `GP28 SUPPLY NOT OFF`. The
+  strip's second line names the phase, `GP28 SUPPLY ON AT START`,
+  `COMING UP` or `ON`; SAFE's notes warn of an ESC's throttle and BEC wire;
+  SET shows `SUPPLY UP IN 25 MS`. With `OWN` nothing changes. The rules are
+  pure (`servoPowerStep()` in `src/servo_job.*`); host tests in
+  `test/test_servo.cpp`, mutation-checked. Part C of `docs/wiring.svg`
+  names the servo tester; README, the wiki pages Servo-Tester, The-Screens,
+  Wiring and Setup with their German pairs, and the design notes follow.
+  Not tested on hardware.
 - After v0.1.0-rc1 (a93e1c1): the wiring sheet draws the current sensor and
   the bench converter, slice 2 of
   [current-sense.md](docs/design/current-sense.md#slice-2-as-built). The

@@ -647,20 +647,29 @@ static void testTouchAnswerRecord() {
 	fakeI2cReset();
 	fakeI2cAddCst328(CST328_I2C_ADDR);
 	fakeCst328WrongId(true);
+	uint32_t before = cst::touchAnsweredMs();
+	fakeAdvance(100);
 	checkTrue("another ID: touchInit() fails", !cst::touchInit());
 	checkTrue("and records no answer", !cst::touchAnswered());
+	checkInt("nor a stamp", cst::touchAnsweredMs(), before);
 	TouchState ts;
 	memset(&ts, 0, sizeof(ts));
 	cst::touchPoll(&ts);
 	checkTrue("a finger read that completes records one", cst::touchAnswered());
+	checkInt("and stamps the clock", cst::touchAnsweredMs(), millis());
 	fakeCst328WrongId(false);
+	fakeAdvance(100);
 	checkTrue("found: the probe reads CACAh", cst::touchInit());
 	checkTrue("the probe records an answer", cst::touchAnswered());
+	checkInt("and stamps the clock", cst::touchAnsweredMs(), millis());
+	uint32_t found = millis();
+	fakeAdvance(100);
 	fakeI2cRemove(CST328_I2C_ADDR);
 	checkTrue("no part: touchInit() fails", !cst::touchInit());
 	checkTrue("and starts the record again: no answer", !cst::touchAnswered());
 	cst::touchPoll(&ts);
 	checkTrue("a NACKed read records none", !cst::touchAnswered());
+	checkInt("the stamp stays at the last answer", cst::touchAnsweredMs(), found);
 	fakeI2cReset();
 }
 

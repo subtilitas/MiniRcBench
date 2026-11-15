@@ -336,7 +336,7 @@ Obergrenze des Testers; `BACK` führt dorthin zurück, wo sie geöffnet wurde.
 | WIRING | **DSHOT** | Die DShot-Rate in kbit/s: 150 / 300 / 600 / 1200. Herunterstellen, wenn die `LINK`-Fehlerrate steigt |
 | WIRING | **KISS TELEM** | Ob auf dem optionalen dritten Telemetriekabel empfangen wird, an AUX |
 | WIRING | **AUX PIN** | AUX, der GPIO des KISS-Kabels und des zweiten Servos im Servotester, mit seinem J5-Pin darunter. Wirkt, ob KISS TELEM an oder aus ist. Ein Schritt tauscht SIG und AUX, sodass beide nie auf einem Pin liegen |
-| SERVO SUPPLY | **SERVO SUPPLY** | `OWN`, `GP28` oder `GP29`: `OWN` heißt, das Servo hat eine eigene Versorgung und der Prüfstand schaltet nichts; `GP28` oder `GP29` heißt, ein DC-DC-Wandler (Gleichspannungswandler) für die Versorgung eines zu programmierenden Servos hat seinen Enable-Eingang an diesem Pin, unter dem Wert genannt: `J4 PIN 11` für GP28, `J4 PIN 12` für GP29. Standard ist `OWN`. - und + schalten durch die drei Werte. Mit `GP28` oder `GP29` schalten KST SERVO und HITEC SERVO die Versorgung des Servos |
+| SERVO SUPPLY | **SERVO SUPPLY** | `OWN`, `GP28` oder `GP29`: `OWN` heißt, das Servo hat eine eigene Versorgung und der Prüfstand schaltet nichts; `GP28` oder `GP29` heißt, ein DC-DC-Wandler (Gleichspannungswandler) für die Versorgung des Servos hat seinen Enable-Eingang an diesem Pin, unter dem Wert genannt: `J4 PIN 11` für GP28, `J4 PIN 12` für GP29. Standard ist `OWN`. - und + schalten durch die drei Werte. Mit `GP28` oder `GP29` schalten SERVO TESTER, KST SERVO und HITEC SERVO die Versorgung des Servos |
 | SERVO SUPPLY | **CURRENT SENSE** | `NONE` oder `INA219`: ob ein INA219-Strommessmodul an J3 hängt. Standard ist `NONE`. Ein Tippen wechselt zwischen beiden. Mit `INA219` steht unter dem Namen `FOUND`, `NOT FOUND` oder, für einen anderen Chip an der Adresse des Sensors, `OTHER PART`. Ein INA219, den eine andere Firmware anders konfiguriert hat, zeigt ebenfalls `OTHER PART`: das Modul kurz stromlos machen. Servotester, KST SERVO und HITEC SERVO zeigen dann den Strom der Versorgung |
 | DISPLAY | **CONTRAST** | `NORMAL` oder `HIGH`. Hoher Kontrast ist für Tageslicht |
 | DISPLAY | **BACKLIGHT** | 16–255, in Schritten von 32 |
@@ -464,10 +464,12 @@ und dem KISS-Pin. Die Leiste nennt sie, `SIG GP0  50 HZ  1000-2000 US`, oder
 `HOLD TO START` 1 s lang gehalten startet die Impulse in der Mitte, `STOP`
 wirkt beim Berühren. In SAFE mit einem Servo zeigt die
 Anzeigezeile `TWO SERVOS:` und `SET > SERVOS`: Dort wird das zweite Servo
-eingeschaltet. Mit SERVO SUPPLY auf `GP28` oder `GP29` zeigt die zweite Zeile
-der Leiste `GP28 SUPPLY STAYS OFF HERE.` in Bernstein: Der Servotester
-schaltet den Wandler nie ein, das Servo braucht hier also eine eigene
-Versorgung. `SET` öffnet die Einstellungen für Profil und Sweep; sein `BACK`
+eingeschaltet. Mit SERVO SUPPLY auf `GP28` oder `GP29` schaltet der
+Bildschirm den Wandler: ein bei `HOLD TO START`, aus bei `STOP`, bei einem
+Hänger und bei `BACK`. Die zweite Zeile der Leiste zeigt in Bernstein, wo er
+steht: `GP28 SUPPLY ON AT START`, `GP28 SUPPLY COMING UP`, `GP28 SUPPLY ON`,
+oder `GP28 SUPPLY NOT OFF`, wenn der Stromsensor 2 s nach dem Ausschalten
+noch mehr als 2,5 V misst. `SET` öffnet die Einstellungen für Profil und Sweep; sein `BACK`
 warnt bei einer Änderung, die auf `HOLD TO APPLY` wartet, zuerst:
 `1 CHANGE NOT APPLIED.` `BACK`
 öffnet die Verlassenseite bei `1 UNPLUG THE SERVO.`, bevor der ESC-Treiber

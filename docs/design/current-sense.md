@@ -1,17 +1,19 @@
 # Current sense and the bench converter
 
-Status: slices 1 and 2 built, slice 1 host-tested and slice 2 checked by
-`tools/make_wiring.py --check` ([slice 2 as built](#slice-2-as-built)), neither
-tested on hardware; slices 3 to 6 not built. The owner's decisions of 2026-11-13
+Status: slices 1 to 3 built, slices 1 and 3 host-tested and slice 2 checked by
+`tools/make_wiring.py --check` ([slice 2 as built](#slice-2-as-built),
+[slice 3 as built](#slice-3-as-built)), none tested on hardware; slices 4 to 6
+not built. The owner's decisions of 2026-11-13
 and 2026-11-14 are recorded under [decisions](#decisions). On 2026-11-14 the
 owner answered Q1 to Q5: one LiPo cell into a synchronous boost, the 0.1 Ω shunt
 as sold, the servo tester switching the supply always, rcbench's limit run as
 the protection, and the settings carried over from the older layouts. One point
 is open: the converter module ([Q1](#q1-the-converter-module)); the 5 V boost
 board the owner modelled names no chip, and the owner does not know it, so its
-ratings come only from bench tests B6 and B7. Slices 3 to 6 wait on being built
+ratings come only from bench tests B6 and B7. Slices 4 to 6 wait on being built
 and on that module; the protection section is to be redesigned for the
-decisions. The settings carry-over of decision 14 is built and host-tested. No
+decisions. Slice 3 relies on no rating of the module: its 500 ms start-up
+limit is this note's value until B6. The settings carry-over of decision 14 is built and host-tested. No
 INA219 has been on the board's bus, and no boost converter has been on GP28 or
 GP29: every figure below is from a datasheet, from rcbench's records or
 computed, and the ones that are not known are stated as unknown. The slices are
@@ -545,8 +547,9 @@ and not counted.
 ### The reading on core1
 
 Built in slice 1: the sample, its lock and its age rule (`senseSample()`,
-`senseFresh()`). Planned for slices 3 and 4: the core1 job that copies it,
-described below; nothing on core1 reads it yet.
+`senseFresh()`). Built in slice 3: the servo job copies it on every pass and
+reads the bus voltage back after each switch-on and switch-off. Planned for
+slice 4: the cuts that read the current.
 
 ```
 struct SenseSample {           // src/sense.h
@@ -673,8 +676,10 @@ A reading older than 250 ms, or none, reads `-- A`.
 
 ### The servo tester on the switched supply
 
-Decision 20 of [servo-tester.md](servo-tester.md#decisions), built here:
-with `SERVO SUPPLY` at `GP28` or `GP29`:
+Decision 20 of [servo-tester.md](servo-tester.md#decisions), built here in
+slice 3 except the cuts of slice 4 and the log of slice 6
+([slice 3 as built](#slice-3-as-built)): with `SERVO SUPPLY` at `GP28` or
+`GP29`:
 
 | State | Supply |
 |---|---|
@@ -1046,6 +1051,8 @@ bench tests B1 to B13, follows slice 3 and is no slice of its own.
   the supply line of its strip), so a title naming it would show a wiring
   that leaves its servo unpowered. Slice 3 changes both. The Setup row for
   the converter names KST and Hitec programming for the same reason.
+  Changed in slice 3: the panel title names the servo tester, the note says
+  when EN is high in each tool, and the Setup rows name the servo tester.
 - **Documents.** README.md: the pin sketch with `^`, the wiring table's
   part C, the script's checks, "Switched supply (optional)" with the
   boost, the cell, the sensor and the unnamed module, and a pointer from
@@ -1060,6 +1067,106 @@ bench tests B1 to B13, follows slice 3 and is no slice of its own.
   bus pin on J4, a marker off the bus, another SCL pin, and the address at
   0x1A, 0x78 and 0x07. Nothing of it is on hardware: no INA219 and no boost
   converter has been wired to the board.
+
+### Slice 3 as built
+
+The servo tester on the switched supply, decision 20 of
+[servo-tester.md](servo-tester.md#decisions) and decision 12 above. With
+`SERVO SUPPLY` at `OWN` nothing of it applies: the job binds no enable pin,
+GP28 and GP29 keep the state they had, and START, STOP and the trip act as
+before.
+
+- **The rules.** `servoPowerStep()` in `src/servo_job.cpp`, pure, after
+  `servoCoreStep()` on every pass; `ServoPower` holds the phase, Off,
+  Starting or On, the latched fault, the read-back and the start-up time.
+  The job drives the enable pin from the phase (`drivePower()`) before it
+  writes the pulses, so at a switch-off EN goes low in the same pass as
+  level 0 on the pins.
+- **Every path off.** Not RUNNING is Off: STOP on SERVO and on SET, the
+  heartbeat trip, the cuts below, a refused rebind, which leaves the job
+  SAFE. The release switches off at its first pass, waits for the last
+  pulse, then makes the enable pin an undriven input (`servoSupplyRelease()`)
+  before it lets SIG and AUX go. A bind the PWM refuses never binds the
+  enable pin, and core1_job.cpp releases no job it did not bind. Boot and
+  reset are unchanged: GP28 and GP29 come up with their pull-down on and
+  their input off (kst-programming.md, "Off state"), and
+  `servoSupplyInit()` makes the configured pin an undriven input; the
+  converter's pull-down holds EN low until the job's bind.
+- **On.** START switches on in the pass that takes it. The pulses stay at
+  level 0, both outputs held at CENTRE and a sweep ended, until the supply
+  is up: with a sensor, the first fresh reading taken after the switch-on's
+  millisecond at or above `SUPPLY_ON_MIN_MV`, 4500 mV, whose age at the
+  switch-on is the start-up time (`ServoStatus::upMs`); without one,
+  `SUPPLY_START_MAX_MS`, 500 ms, after the switch-on. With a sensor and no
+  such reading by 500 ms the pulses end, the supply goes off and the fault
+  is NoStart.
+- **The cuts of this slice.** While RUNNING, the touch controller's last
+  answer 250 ms old or older (`touchAnsweredMs()`, judged by `escUiAlive()`,
+  the heartbeat's rule) or the sample's state `Stuck` end the pulses, latch
+  the trip and record the cause, TouchSilent or BusStuck. Both refuse START
+  while they last, and so does CURRENT SENSE at INA219 with the part not
+  online: absent, another part, not probed yet, or offline
+  (`servoPowerStartBlock()`).
+- **The read-back after a switch-off,** with a sensor: Off at the first
+  fresh reading taken after the switch-off's millisecond at or below
+  `SUPPLY_OFF_MAX_MV`, 1000 mV; NotOff at a reading above
+  `SUPPLY_NOT_OFF_MV`, 2500 mV, taken `SUPPLY_NOT_OFF_MS`, 2000 ms, or more
+  after it, until a reading at or below 1000 mV. A warning only. The
+  read-back ends with the claim: after BACK nothing reads it.
+- **The touch stamp.** `touchAnsweredMs()` in `src/touch.h`: `cst328.cpp`
+  stamps `millis()` at a presence check that reads CACAh and at every finger
+  read that completes, a volatile word core0 writes and core1 reads, as
+  `escHeartbeatMs()`.
+- **The screen.** The strip's second line, amber, names the phase:
+  `GP28 SUPPLY ON AT START`, `GP28 SUPPLY COMING UP`, `GP28 SUPPLY ON`,
+  `GP28 SUPPLY NOT OFF`; each at most 28 characters, 4 px clear of the
+  widest chip. While SAFE the dial band's two notes read, by priority:
+  the trip's cause in magenta over `HOLD TO START AGAIN.`
+  (`STOPPED: SCREEN STALLED`, `STOPPED: TOUCH DID NOT ANSWER`,
+  `STOPPED: TOUCH BUS STUCK`); `SUPPLY NOT UP: NO 4.5 V IN 500 MS.` over
+  `CHECK THE CONVERTER ON GP28.`; `START WAITS FOR THE CURRENT SENSOR.` over
+  `NONE IN CURRENT SENSE SKIPS IT.`, with HOLD TO START drawn disabled; else
+  `PULSES ON GP0 ARE THROTTLE TO AN ESC,` over
+  `AND ITS BEC WIRE GETS THE SUPPLY.` in amber. While the supply comes up
+  MIN, CENTRE, MAX, SWEEP and the dial are disabled and STOP acts. SET's
+  note band shows `SUPPLY UP IN 25 MS`, dim, on its second line when that
+  line is free, from the last switch-on until START or a new visit.
+- **Differing from the design above.** The dial band has room for two
+  lines above the arc, not three: `THE BENCH POWERS THE SERVO AT START.`
+  is said by the strip's `GP28 SUPPLY ON AT START`, the throttle warning and
+  the KST search's BEC warning share the two lines, and
+  `THE SERVO MOVES TO CENTRE AT START.` is left out with the switch.
+  [menu-b.md](menu-b.md#decisions) decision 12's `GP28 SUPPLY STAYS OFF
+  HERE.` is replaced by the phase, since it is no longer true; that decision
+  carries a revision note. The start-up time does not go into a log; the
+  log is slice 6. The sensor-lost cut and its `NO SENSOR` chip are slice 4:
+  a sensor lost mid-run leaves the supply on here.
+- **Choices the note does not settle.** A supply that did not come up is no
+  trip: the chip reads SAFE, and the note stays until START or a new visit.
+  The touch and bus cuts apply with the switch only, as the table of
+  [safety and interlocks](#safety-and-interlocks) is headed; with `OWN`
+  neither stops the pulses. A reading
+  counts only when taken after the switch command's millisecond, so a
+  reading of the decaying output before the command never ends a start.
+  Unlike KST's close rule there is no 2000 ms off wait before DShot: the
+  table above gives BACK the quiet wait alone.
+- **Tests.** In `test/test_servo.cpp`: the rules alone
+  (`testPowerOwn()`, `testPowerStart()`, `testPowerNoStart()`,
+  `testPowerOff()`, `testPowerStartBlock()`, `testPowerReadBack()`), each
+  boundary at 499 ms and 500 ms, 4499 mV and 4500 mV, 1000 mV and 1001 mV,
+  2500 mV and 2501 mV, 1999 ms and 2000 ms, a stale reading, a wrap; the job
+  through the job table on the fake pads (`testJobSupply()`,
+  `testJobSupplySensed()`): GP28 or GP29 low at the bind and never an output
+  while high, high at START, low at STOP, at STOP while starting, at the
+  heartbeat trip at 250 ms and not at 249 ms, at a silent touch controller
+  at 250 ms, at a stuck bus from SDA held, at BACK's first pass, an undriven
+  input after the quiet wait and after DShot's restart, undriven after a
+  refused bind, low across a profile rebind; GP28 and GP29 untouched with
+  `OWN`; the screens (`testSupplyLineAndHint()`, `testSupplyScreenFaults()`)
+  with the fake INA219 following the enable pin. In `test/test_sense.cpp`
+  the touch stamp. Mutation-checked. Nothing of it is on hardware: the
+  enable pin's reset state and BOOTSEL, the start-up time and the decay are
+  bench test B6, the stuck bus B3, the trip with the supply on B11.
 
 ## Open questions
 

@@ -23,6 +23,9 @@ horn on the screen is drawn where the pulse puts it, not where the servo is.
 ## Wiring
 
 The servo needs its own supply. The board supplies the signal and ground only.
+With SERVO SUPPLY at `GP28` or `GP29` that supply is the bench's switched
+converter, part C of the [wiring sheet](Wiring), which the screen switches
+itself ([The switched supply](#the-switched-supply)).
 
 ```
   servo supply, 4.8 V to 6.0 V (8.4 V for an HV (high-voltage) servo)
@@ -84,13 +87,36 @@ While SAFE with one servo, the right of the readout row reads `TWO SERVOS:`
 and `SET > SERVOS`: the SERVOS row of the SET screen switches servo B on (see
 [Two servos](#two-servos)). The hint is not shown while AUX is refused.
 
-With **SERVO SUPPLY** at `GP28` or `GP29` under SETTINGS, a second line under
-the title reads `GP28 SUPPLY STAYS OFF HERE.` in amber. The servo tester never
-switches the converter of the KST and Hitec programmers on, so a servo that
-only has that converter as its supply gets no power on this screen. Give it a
-supply of its own, as in [Wiring](#wiring).
+### The switched supply
 
-<img src="img/servo-supply.png" width="240" alt="The servo screen with SERVO SUPPLY at GP28: GP28 SUPPLY STAYS OFF HERE. under the title">
+With **SERVO SUPPLY** at `GP28` or `GP29` under SETTINGS, the servo tester
+switches the converter the KST and Hitec programmers use, part C of the
+wiring sheet. Not tested on hardware.
+
+- **SAFE:** the converter is off. The line under the title reads
+  `GP28 SUPPLY ON AT START` in amber, and the dial warns
+  `PULSES ON GP0 ARE THROTTLE TO AN ESC,` / `AND ITS BEC WIRE GETS THE SUPPLY.`
+- **`HOLD TO START`:** the converter goes on at once, the line reads
+  `GP28 SUPPLY COMING UP`, and the servo gets no pulse yet. The buttons and
+  the dial wait; `STOP` works.
+- **Supply up:** with the current sensor (SETTINGS > CURRENT SENSE `INA219`)
+  at the first reading of 4.5 V or more, without it after 500 ms. The servo
+  goes to CENTRE and the line reads `GP28 SUPPLY ON`. The SET screen shows
+  how long it took, `SUPPLY UP IN 25 MS`.
+- **Off again:** at `STOP`, when the screen stalls for 250 ms, when the touch
+  panel does not answer for 250 ms (`STOPPED: TOUCH DID NOT ANSWER`), when
+  the I2C bus is stuck (`STOPPED: TOUCH BUS STUCK`), and at `BACK`.
+- **Did not come up:** with the sensor and no 4.5 V within 500 ms, the
+  converter goes off and the dial reads `SUPPLY NOT UP: NO 4.5 V IN 500 MS.`
+- **Sensor not found:** with CURRENT SENSE at `INA219` and no sensor,
+  `HOLD TO START` is greyed and the dial reads
+  `START WAITS FOR THE CURRENT SENSOR.` Set CURRENT SENSE to `NONE` to start
+  without it.
+- **Not off:** if the sensor still reads more than 2.5 V 2 s after the
+  switch-off, the line reads `GP28 SUPPLY NOT OFF`. The converter does not
+  disconnect its output, or EN is held high: check the wiring.
+
+<img src="img/servo-supply.png" width="240" alt="The servo screen with SERVO SUPPLY at GP28 while SAFE: GP28 SUPPLY ON AT START under the title and the ESC warning on the dial">
 
 ---
 
@@ -300,8 +326,8 @@ grey and does nothing.
   when `SERVOS` is selected.
 - **The servo does not move.** Check that the chip reads `RUNNING`, that the
   servo has its own supply, and that its ground is joined to the board's.
-  With `GP28 SUPPLY STAYS OFF HERE.` under the title, the switched converter
-  is off on this screen.
+  With the switched supply, check that the line under the title reads
+  `GP28 SUPPLY ON`.
   Whether a servo accepts the board's 3.3 V pulses is not recorded per servo.
 
 Nothing of the servo tester has been tested on hardware yet.

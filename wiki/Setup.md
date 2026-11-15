@@ -16,7 +16,7 @@ and installing the firmware. [First Run](First-Run) continues from there.
 | JST-SH 1.0 mm cable, 4 pins | connector J5: signal and ground | Open wire ends on one side. Whether the board's box holds one is not checked |
 | Servo extension lead, or a 3-pin header | the plug of the ESC (electronic speed controller) or servo | See [The adapter cable](#the-adapter-cable) |
 | JST-SH 1.0 mm cable, 12 pins | connector J4, for the switched servo supply only | See [Wiring](Wiring), part C |
-| Boost converter with an enable input (EN) and output disconnect, 5 V, at least 3 A | the switched servo supply of KST and Hitec programming | Optional. Its input one LiPo (lithium-polymer) cell of its own, 3.0 V to 4.2 V, charged off the bench, with a fuse at the cell; a 10 kΩ pull-down from EN to ground. No module is named: the 5 V boost board in the project's mechanical models names no chip, and its ratings are not known. See [Wiring](Wiring), part C |
+| Boost converter with an enable input (EN) and output disconnect, 5 V, at least 3 A | the switched servo supply of the servo tester and of KST and Hitec programming | Optional. Its input one LiPo (lithium-polymer) cell of its own, 3.0 V to 4.2 V, charged off the bench, with a fuse at the cell; a 10 kΩ pull-down from EN to ground. No module is named: the 5 V boost board in the project's mechanical models names no chip, and its ratings are not known. See [Wiring](Wiring), part C |
 | INA219 module, 0.1 Ω shunt, address 0x40 | current and voltage of the servo supply | Optional. Powered from J3 pin 3, 3.3 V. The servo's current through the screw terminal only; the header's VIN- and VIN+ pins stay unconnected. See [Servo Tester](Servo-Tester#current) |
 | JST-SH 1.0 mm cable, 4 pins | connector J3, to the INA219 | A pigtail to the module's header pins; not a Qwiic cable, whose pin order puts SCL on the module's GND |
 | microSD card, FAT32 (File Allocation Table) | logs, backups, servo files | Optional. See [SD Logging](SD-Logging) |
@@ -27,7 +27,7 @@ For each tool you also need:
 |---|---|
 | ESC tester | An ESC that takes **bidirectional DShot**, a digital ESC protocol, with its motor and its own battery. BLHeli_32, Bluejay and AM32 firmware do. The ESC tester sends DShot only: an ESC that takes only PWM (pulse-width modulation) pulses cannot be tested on it. BLHeli_S without Bluejay is not tested |
 | AM32 Configuration | An ESC running AM32 |
-| Servo Tester | A servo and its own supply, 4.8 V to 6.0 V, or 8.4 V for a high-voltage servo |
+| Servo Tester | A servo and its own supply, 4.8 V to 6.0 V, or 8.4 V for a high-voltage servo; or the switched supply of [Wiring](Wiring), part C, at 5 V |
 | KST Programming | A KST or Chaservo servo and a 5 V supply you can switch: a plug, or a switch in the plus lead |
 | Hitec Programming, D series | A Hitec D series servo and a 5 V supply |
 | Hitec Programming, classic | A Hitec classic servo (HS-5xxx, HS-7xxx) and the switched supply of [Wiring](Wiring), part C: the boost converter above, 5 V, with EN and output disconnect, its LiPo cell, and a 10 kΩ pull-down resistor from EN to ground |

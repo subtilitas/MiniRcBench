@@ -461,17 +461,27 @@ static TouchState g_touch;
 static bool     s_touchAnswers = true;   /**< Reads complete. */
 static bool     s_touchAnswered = true;  /**< A read has completed since touchInit(). */
 
+static uint32_t s_touchAnsweredMs = 0;  /**< millis() of the last read that completed. */
+
 bool touchInit() {
 	s_touchAnswered = s_touchAnswers;
+	if (s_touchAnswers) s_touchAnsweredMs = millis();
 	return s_touchAnswers;
 }
 
 bool touchAnswered() { return s_touchAnswered; }
 
+uint32_t touchAnsweredMs() { return s_touchAnsweredMs; }
+
+void fakeTouchStamp() { s_touchAnsweredMs = millis(); }
+
 void fakeTouchAnswers(bool on) { s_touchAnswers = on; }
 
 void touchPoll(TouchState *t) {
-	if (s_touchAnswers) s_touchAnswered = true;
+	if (s_touchAnswers) {
+		s_touchAnswered = true;
+		s_touchAnsweredMs = millis();
+	}
 	*t = g_touch;
 	// Edge flags last exactly one poll, as the real driver guarantees.
 	g_touch.pressed = false;

@@ -78,6 +78,11 @@ static bool s_prevDown = false;        /**< Contact state at the previous poll. 
 static bool s_answered = false;        /**< A read completed since touchInit(). */
 
 bool touchAnswered() { return s_answered; }
+
+/** @brief millis() of the last answer; core0 writes it, core1 reads it. */
+static volatile uint32_t s_answeredMs = 0;
+
+uint32_t touchAnsweredMs() { return s_answeredMs; }
 static int16_t s_downX = 0, s_downY = 0; /**< Where the current press started. */
 
 /**
@@ -157,6 +162,7 @@ bool touchInit() {
 	wrCmd(REG_MODE_NORMAL);
 
 	s_answered = ok;
+	if (ok) s_answeredMs = millis();
 	return ok;
 }
 
@@ -174,6 +180,7 @@ void touchPoll(TouchState *t) {
 	if (rdRegs(REG_FINGER_1, b, 5)) {
 		s_pollFails = 0;
 		s_answered = true;
+		s_answeredMs = millis();
 		if ((b[0] & 0x0F) == FINGER_STATE_DOWN) {
 			int16_t nx = (int16_t)(((uint16_t)b[1] << 4) | (b[3] >> 4));
 			int16_t ny = (int16_t)(((uint16_t)b[2] << 4) | (b[3] & 0x0F));

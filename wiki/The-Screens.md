@@ -311,7 +311,7 @@ ceiling while disarmed; `BACK` returns to where it was opened from.
 | WIRING | **DSHOT** | The DShot rate in kbit/s: 150 / 300 / 600 / 1200. Lower it if the `LINK` error rate rises |
 | WIRING | **KISS TELEM** | Whether to listen on the optional third telemetry wire, on AUX |
 | WIRING | **AUX PIN** | AUX, the GPIO of the KISS wire and of the servo tester's second servo, with its J5 pin under it. Acts whether KISS TELEM is on or off. A step swaps SIG and AUX, so the two never share a pin |
-| SERVO SUPPLY | **SERVO SUPPLY** | `OWN`, `GP28` or `GP29`: `OWN` means the servo has a supply of its own and the bench switches nothing; `GP28` or `GP29` means a DC-DC converter (direct-current voltage converter) for a programmed servo's supply has its enable on that pin, shown under the value: `J4 PIN 11` for GP28, `J4 PIN 12` for GP29. `OWN` by default. - and + step through the three. With `GP28` or `GP29`, KST SERVO and HITEC SERVO switch the servo's supply |
+| SERVO SUPPLY | **SERVO SUPPLY** | `OWN`, `GP28` or `GP29`: `OWN` means the servo has a supply of its own and the bench switches nothing; `GP28` or `GP29` means a DC-DC converter (direct-current voltage converter) for the servo's supply has its enable on that pin, shown under the value: `J4 PIN 11` for GP28, `J4 PIN 12` for GP29. `OWN` by default. - and + step through the three. With `GP28` or `GP29`, SERVO TESTER, KST SERVO and HITEC SERVO switch the servo's supply |
 | SERVO SUPPLY | **CURRENT SENSE** | `NONE` or `INA219`: whether an INA219 current sensor module is on J3. `NONE` by default. A tap switches between the two. With `INA219` a caption under the name reads `FOUND`, `NOT FOUND`, or `OTHER PART` for another chip at the sensor's address. An INA219 left on another configuration by other firmware also shows `OTHER PART`: power-cycle the module. The servo tester, KST SERVO and HITEC SERVO then show the supply's current |
 | DISPLAY | **CONTRAST** | `NORMAL` or `HIGH`. High contrast is for daylight |
 | DISPLAY | **BACKLIGHT** | 16–255, in steps of 32 |
@@ -428,9 +428,11 @@ pins. The strip names them, `SIG GP0  50 HZ  1000-2000 US`, or
 `HOLD TO START` for 1 s starts the pulses at the centre, `STOP` acts on
 touch. While SAFE with one servo, the readout reads `TWO SERVOS:` and
 `SET > SERVOS`, where the second servo is switched on. With SERVO SUPPLY at
-`GP28` or `GP29` the strip's second line reads `GP28 SUPPLY STAYS OFF HERE.`
-in amber: the servo tester never switches the converter on, so the servo
-needs a supply of its own here. `SET` opens the profile and sweep settings;
+`GP28` or `GP29` the screen switches the converter: on at `HOLD TO START`,
+off at `STOP`, at a stall and at `BACK`. The strip's second line says where
+it is, in amber: `GP28 SUPPLY ON AT START`, `GP28 SUPPLY COMING UP`,
+`GP28 SUPPLY ON`, or `GP28 SUPPLY NOT OFF` when the current sensor still
+reads more than 2.5 V 2 s after the switch-off. `SET` opens the profile and sweep settings;
 its `BACK` with a change waiting for `HOLD TO APPLY` warns first,
 `1 CHANGE NOT APPLIED.`
 `BACK` opens the leave page at `1 UNPLUG THE SERVO.` before the ESC driver

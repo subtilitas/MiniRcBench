@@ -292,6 +292,33 @@ static bool live() {
 /** @brief Two servos, with AUX bound. */
 static bool twoServos() { return s_profile.servos == 2; }
 
+/** @brief START taken and the switched supply not up yet: the pulses wait. */
+static bool supplyStarting() {
+	return s_st.running && s_st.switched && s_st.power == ServoPowerPhase::Starting;
+}
+
+/** @brief RUNNING with the pulses on: the dial and the buttons drive the servo. */
+static bool driving() { return s_st.running && live() && !supplyStarting(); }
+
+/** @brief HOLD TO START is live: SAFE, the pins bound, and the supply not refusing START. */
+static bool startAllowed() {
+	return live() && !s_st.running && s_st.startBlock == ServoStartBlock::None;
+}
+
+/**
+ * @brief The strip's second line with SERVO SUPPLY at GP28 or GP29: where
+ *        the supply is, for @p pin.
+ */
+static void supplyLine(char *buf, size_t n, unsigned pin) {
+	const char *fmt = SERVO_UI_SUPPLY_FMT;
+	if (s_st.switched) {
+		if (s_st.power == ServoPowerPhase::Starting)    fmt = SERVO_UI_SUPPLY_UP_FMT;
+		else if (s_st.power == ServoPowerPhase::On)     fmt = SERVO_UI_SUPPLY_ON_FMT;
+		else if (s_st.offCheck == ServoOffCheck::NotOff) fmt = SERVO_UI_SUPPLY_NOT_OFF_FMT;
+	}
+	snprintf(buf, n, fmt, pin);
+}
+
 /** @brief Send a command with this frame's SPEED and sweep. */
 static void send(ServoCmdKind kind, uint16_t command = SERVO_CMD_CENTRE) {
 	ServoCmd c;
@@ -387,13 +414,17 @@ static void servoCaption(char *buf, size_t n, bool two, unsigned sig) {
  * @brief The header, the caption and the chip, and under the caption the
  *        switched supply's line.
  *
- * With SERVO SUPPLY at GP28 or GP29 the servo tester never drives the enable
- * pin (servo-tester.md decision 20), so the converter stays off here and a
- * servo without a supply of its own does not move. The strip says so on a
- * second line, in amber, and the caption moves up 2 px to make room.
+ * With SERVO SUPPLY at GP28 or GP29 the job switches the servo's supply
+ * (servo-tester.md decision 20). The strip says where the supply is on a
+ * second line, in amber (supplyLine()), and the caption moves up 2 px to
+ * make room.
  */
 static void drawTop(const char *title, bool caption) {
-	struct { bool back, backOk; uint8_t chip; ServoProfile p; uint8_t sig, aux; bool cap; uint8_t supply; } k;
+	char sup[40] = "";
+	uint8_t pin = servoSupplyFitted() ? servoSupplyPin() : 0;
+	if (pin) supplyLine(sup, sizeof(sup), pin);
+	struct { bool back, backOk; uint8_t chip; ServoProfile p; uint8_t sig, aux; bool cap; uint8_t supply;
+	         uint32_t line; } k;
 	memset(&k, 0, sizeof(k));
 	k.back = uiPressing(uiBackRect(), s_t);
 	k.backOk = backActs();
@@ -402,7 +433,8 @@ static void drawTop(const char *title, bool caption) {
 	k.sig = gpioOf(PIN_SIG);
 	k.aux = gpioOf(PIN_AUX);
 	k.cap = caption;
-	k.supply = servoSupplyFitted() ? servoSupplyPin() : 0;
+	k.supply = pin;
+	k.line = textKey(pin ? sup : nullptr);
 	if (!changed(0, &k, sizeof(k))) return;
 	uiHeader(title, s_t, k.backOk);
 	uiStripClear();
@@ -410,8 +442,6 @@ static void drawTop(const char *title, bool caption) {
 	char buf[40];
 	servoCaption(buf, sizeof(buf), twoServos(), k.sig);
 	if (k.supply) {
-		char sup[40];
-		snprintf(sup, sizeof(sup), SERVO_UI_SUPPLY_FMT, (unsigned)k.supply);
 		uiStripTwoLines(buf, C_DIM, sup, C_AMBER);
 	} else {
 		// As uiStripTwoLines() clears: a second line drawn before ends at
@@ -464,6 +494,49 @@ static void claimMessage(const char **l1, const char **l2, const char **l3,
 	}
 }
 
+/**
+ * @brief The dial band's two notes while not RUNNING: the cause of a stop,
+ *        a refused START, or what START does.
+ *
+ * First wins: a trip, by its cause (the heartbeat, a silent touch
+ * controller, a stuck bus); with the switch, a supply that did not come
+ * up, then a current sensor START waits for, then the ESC warning; without
+ * it, CENTRE at START and the throttle warning.
+ */
+static void safeNotes(char *a, char *b, size_t n, uint16_t *ca, uint16_t *cb) {
+	unsigned sig = gpioOf(PIN_SIG);
+	*ca = *cb = C_DIM;
+	if (s_st.tripped) {
+		const char *why = "STOPPED: SCREEN STALLED";
+		if (s_st.powerFault == ServoPowerFault::TouchSilent)   why = SERVO_UI_TOUCH_SILENT;
+		else if (s_st.powerFault == ServoPowerFault::BusStuck) why = SERVO_UI_BUS_STUCK;
+		snprintf(a, n, "%s", why);
+		snprintf(b, n, "HOLD TO START AGAIN.");
+		*ca = C_MAGENTA;
+		return;
+	}
+	if (s_st.switched && s_st.powerFault == ServoPowerFault::NoStart) {
+		snprintf(a, n, SERVO_UI_NO_START_1);
+		snprintf(b, n, SERVO_UI_NO_START_2_FMT, (unsigned)servoSupplyPin());
+		*ca = C_AMBER;
+		return;
+	}
+	if (s_st.switched && s_st.startBlock == ServoStartBlock::NoSensor) {
+		snprintf(a, n, SERVO_UI_NO_SENSOR_1);
+		snprintf(b, n, SERVO_UI_NO_SENSOR_2);
+		*ca = C_AMBER;
+		return;
+	}
+	if (s_st.switched) {
+		snprintf(a, n, SERVO_UI_ESC_1_FMT, sig);
+		snprintf(b, n, SERVO_UI_ESC_2);
+		*ca = *cb = C_AMBER;
+		return;
+	}
+	snprintf(a, n, "THE SERVO MOVES TO CENTRE AT START.");
+	snprintf(b, n, "PULSES ON GP%u ARE THROTTLE TO AN ESC.", sig);
+}
+
 /** @brief The horn of one servo at its pulse. */
 static void drawHorn(uint16_t us, uint16_t col, bool selected) {
 	float deg = servoUsToDeg(&s_profile, us);
@@ -488,10 +561,14 @@ static void drawDial() {
 	// the servo runs.
 	char sw[24] = "";
 	if (senseDeclared()) sweepText(sw, sizeof(sw));
-	struct { uint32_t l1, l2, l3, sw; bool retry, rp; uint16_t us[2]; uint8_t mask, servos;
-	         bool running, tripped; } k;
+	char n1[48], n2[48];
+	uint16_t c1, c2;
+	safeNotes(n1, n2, sizeof(n1), &c1, &c2);
+	struct { uint32_t l1, l2, l3, sw, n1, n2; bool retry, rp; uint16_t us[2]; uint8_t mask, servos;
+	         bool running, tripped; uint16_t c1, c2; } k;
 	memset(&k, 0, sizeof(k));
 	k.sw = textKey(sw[0] ? sw : nullptr);
+	k.n1 = textKey(n1); k.n2 = textKey(n2); k.c1 = c1; k.c2 = c2;
 	k.l1 = textKey(l1); k.l2 = textKey(l2); k.l3 = textKey(l3);
 	k.retry = retry; k.rp = retry && pressing(BTN_RETRY);
 	k.us[0] = s_st.outUs[0]; k.us[1] = s_st.outUs[1];
@@ -507,14 +584,9 @@ static void drawDial() {
 		if (retry) uiButton(BTN_RETRY, "RETRY", C_PANEL, C_TEXT, 1, k.rp);
 		return;
 	}
-	if (s_st.tripped && !s_st.running) {
-		line(64, "STOPPED: SCREEN STALLED", C_MAGENTA);
-		line(76, "HOLD TO START AGAIN.", C_DIM);
-	} else if (!s_st.running) {
-		line(64, "THE SERVO MOVES TO CENTRE AT START.", C_DIM);
-		char b[40];
-		snprintf(b, sizeof(b), "PULSES ON GP%u ARE THROTTLE TO AN ESC.", gpioOf(PIN_SIG));
-		line(76, b, C_DIM);
+	if (!s_st.running) {
+		line(64, n1, c1);
+		line(76, n2, c2);
 	} else if (sw[0]) {
 		line(64, sw, UI_COL_LIVE);
 	}
@@ -640,7 +712,7 @@ static void drawSpeed() {
 
 /** @brief MIN, CENTRE, MAX, SWEEP; HOLD TO START or STOP; SET. */
 static void drawButtons(bool startOk, int holdPct) {
-	bool run = s_st.running && live();
+	bool run = driving();
 	struct { bool run, sweeping, startOk, holding; int pct; bool p[6]; } k;
 	memset(&k, 0, sizeof(k));
 	k.run = run; k.sweeping = s_st.sweeping; k.startOk = startOk; k.holding = s_hold.holding;
@@ -668,7 +740,7 @@ static void position(uint16_t cmd) { send(ServoCmdKind::Position, cmd); }
 
 /** @brief Every touch of the SERVO view. */
 static void mainTouch(bool startOk) {
-	bool run = s_st.running && live();
+	bool run = driving();
 
 	// A drag under way at START or STOP ends there; the next input is a new
 	// press.
@@ -833,7 +905,8 @@ static bool endRow(int row) {
  * cause of a refused TWO on the SERVOS row; the end-stop note while TYPE,
  * MIN or MAX is selected; SPEED LIMITS THE SWEEP; TWO SERVOS ARE NOT
  * OFFERED; the end-stop note on any other row. A dim note keeps its place on
- * the other rows, and the end-stop note shows on its own three.
+ * the other rows, and the end-stop note shows on its own three. A second
+ * line left free carries the switched supply's start-up time (upNote()).
  */
 static void setNote(const char **l1, const char **l2, uint16_t *col) {
 	*l1 = *l2 = nullptr;
@@ -868,6 +941,17 @@ static void setNote(const char **l1, const char **l2, uint16_t *col) {
 	}
 	if (aux) { *l1 = "TWO SERVOS ARE NOT OFFERED: SEE SERVOS"; *col = C_DIM; return; }
 	if (travel) { *l1 = TRAVEL1; *l2 = TRAVEL2; }
+}
+
+/**
+ * @brief SET's line for the switched supply's last start-up time,
+ *        `SUPPLY UP IN 40 MS`, or null while none was measured.
+ */
+static const char *upNote() {
+	static char b[24];
+	if (!s_st.switched || s_st.upMs == SUPPLY_UP_NONE) return nullptr;
+	snprintf(b, sizeof(b), SERVO_UI_UP_FMT, (unsigned)s_st.upMs);
+	return b;
 }
 
 /**
@@ -926,9 +1010,11 @@ static void drawSet(int holdPct) {
 	const char *l1, *l2;
 	uint16_t col;
 	setNote(&l1, &l2, &col);
-	struct { bool back, backOk; uint32_t l1, l2; int guard; } kt;
+	const char *up = l2 ? nullptr : upNote();
+	struct { bool back, backOk; uint32_t l1, l2, up; int guard; } kt;
 	memset(&kt, 0, sizeof(kt));
 	kt.back = uiPressing(uiBackRect(), s_t); kt.l1 = textKey(l1); kt.l2 = textKey(l2);
+	kt.up = textKey(up);
 	kt.backOk = backActs();
 	kt.guard = s_guard.armed ? setPending() : 0;
 	if (changed(0, &kt, sizeof(kt))) {
@@ -941,6 +1027,7 @@ static void drawSet(int holdPct) {
 		} else {
 			if (l1) gfxText(UI_MARGIN, UI_STRIP_Y + 2, l1, col, 1);
 			if (l2) gfxText(UI_MARGIN, UI_STRIP_Y + 12, l2, col, 1);
+			if (up) gfxText(UI_MARGIN, UI_STRIP_Y + 12, up, C_DIM, 1);
 		}
 	}
 
@@ -1113,7 +1200,7 @@ uint8_t uiServoControls(UiControl *out, uint8_t max) {
 	uint16_t col;
 	bool retry;
 	claimMessage(&l1, &l2, &l3, &col, &retry);
-	bool run = s_st.running && live();
+	bool run = driving();
 	// A message replaces the dial in its band (drawDial()), and RETRY sits
 	// in that band, so the dial is a control only while no message shows.
 	if (retry) uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Retry), BTN_RETRY, true);
@@ -1131,7 +1218,7 @@ uint8_t uiServoControls(UiControl *out, uint8_t max) {
 	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Max), BTN_MAX, run);
 	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Sweep), BTN_SWEEP, run);
 	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Start), BTN_START,
-	             s_st.running || live());
+	             s_st.running || startAllowed());
 	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Set), BTN_SET, true);
 	return n;
 }
@@ -1219,7 +1306,7 @@ bool uiServoTick(const TouchState *t) {
 		}
 	}
 
-	bool startOk = live() && !s_st.running;
+	bool startOk = startAllowed();
 	if (s_view == View::Main) {
 		const char *l1, *l2, *l3;
 		uint16_t col;
@@ -1239,7 +1326,7 @@ bool uiServoTick(const TouchState *t) {
 	// starts from a clear panel.
 	if (s_full) gfxRect(0, 0, GFX_W, GFX_H, C_BG);
 	if (s_view == View::Main) {
-		startOk = live() && !s_st.running;
+		startOk = startAllowed();
 		drawTop(SERVO_UI_TITLE, true);
 		drawDial();
 		drawReadout();

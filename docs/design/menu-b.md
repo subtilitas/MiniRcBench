@@ -906,6 +906,13 @@ change.
       SAFE, and none without a switch.
     - Docs: README "Servo tester"; wiki Servo-Tester / Servotester;
       servo-tester.md "SERVO": written.
+    - Revised by [current-sense.md](current-sense.md#slice-3-as-built)
+      slice 3, which builds servo-tester.md decision 20 (the owner's
+      decision 12 of current-sense.md, 2026-11-14): the tester drives the
+      enable pin, so `STAYS OFF HERE.` is no longer true. The second line
+      stays, in `C_AMBER`, and names the supply's phase:
+      `GP28 SUPPLY ON AT START`, `GP28 SUPPLY COMING UP`, `GP28 SUPPLY ON`,
+      `GP28 SUPPLY NOT OFF`. The decision's wording above is kept.
 13. **A title names its screen** (item 9). A tool's main view carries its
     MENU label, or the chooser's tool title: SERVO TESTER, AM32 CONFIG, KST
     SERVO, HITEC SERVO. A sub-view adds a word: SERVO SET, AM32 HEX, AM32
