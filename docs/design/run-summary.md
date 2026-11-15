@@ -167,7 +167,10 @@ Details:
   that restarted; the counting goes on from the new value. A counter that
   stays at 0 for the whole log is reported unknown, as an ESC that does
   not count; SD LOG then shows the figure from current (see
-  [display](#on-the-device)).
+  [display](#on-the-device)). The counter has no hold: one damaged KISS frame
+  that passes the CRC-8 with a wrong count adds its jump to the rise, and a
+  falsely low one reads as a restart after which the next good frame adds the
+  difference back; either can add up to 65535 mAh. Not measured.
 - **Used, from current.** Each logged frame adds its current times the time to
   the next frame: current in 0.01 A units times microseconds, in a 64-bit sum;
   1 mAh is 3.6 × 10^8 of those units. The time between two frames is measured
@@ -178,6 +181,9 @@ Details:
   alone; it is the one reported when KISS's current stays 0 for the whole log.
   With EDT's 1 A steps the step alone can be 1 A off for the whole run: 28 mAh
   per 100 s. Whether ESCs round or truncate the EDT current is not verified.
+  One damaged EDT current frame holds its value until the next EDT current
+  frame, at most 1000 ms: a false 255 A adds up to about 71 mAh. Not
+  measured.
 - **Armed.** The time within the log during which the tester was armed,
   summed per frame from `sdLogSetArmed()`'s state. `uiTick()` reports the
   arm state once per 25 ms frame, so each arm or disarm edge is good to
@@ -784,8 +790,8 @@ FatFs part over the RAM disk is slice 2's.
 
 The tests cover the list of [tests](#tests) for `test_run_summary.cpp`, the
 note's example text byte for byte, and each case of the table of cases
-that a sample can produce. 92 mutations of `src/run_summary.cpp` and
-`src/run_summary.h` were run against the suite: 88 fail it, and 4 are
+that a sample can produce. 95 mutations of `src/run_summary.cpp` and
+`src/run_summary.h` were run against the suite: 91 fail it, and 4 are
 equivalent:
 
 - MAX TEMP's alert without its `heldOk` test: the held value is 0 whenever
