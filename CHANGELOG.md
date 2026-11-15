@@ -44,6 +44,23 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1: each blackbox log that stops clean gets its run
+  summary beside it, `LOGS/LOGnnnnn.TXT`, slice 2 of
+  [run-summary.md](docs/design/run-summary.md#slice-2-as-built).
+  `sdLogTick()` hands every frame's snapshot, merged reading and arm state
+  to `runSumAdd()`; the stop ends the summary as `STOP`, `DISARM`,
+  `KST SERVO`, `HITEC SERVO` or `AM32 CONFIG`, and once the `.BFL` has
+  closed clean writes the text, built in the drained write buffer, with
+  `FA_CREATE_ALWAYS` (`src/sd_log_summary.*`). A failed write during the
+  log ends the summary there, not saved, and no `.TXT` is tried. A `.TXT`
+  that cannot be saved, on a full card or after a failed write, leaves the
+  `.BFL` as it was and the logger `READY`, and is removed when the card
+  still allows it. `.TXT` files do not move the next log's number.
+  `SdLogStatus` carries the last summary for SD LOG, which does not show it
+  yet. `make -C test lognum` runs `src/sd_log.cpp` over FatFs R0.15 on a
+  RAM disk (`test/sd_log_fatfs.cpp`, `test/ram_disk.*`). README and the
+  wiki pages SD-Logging and SD-Aufzeichnung describe the file. Not tested
+  on hardware.
 - After v0.1.0-rc1: the run summary's core, slice 1 of
   [run-summary.md](docs/design/run-summary.md#slice-1-as-built), in
   `src/run_summary.*`. From each logged frame's telemetry it keeps the
