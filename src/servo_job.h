@@ -118,7 +118,7 @@ struct ServoCmd {
 	uint16_t     command;   /**< Position, 0 to @ref SERVO_SPAN. */
 	uint16_t     slewPerS;  /**< Command units a second; 0 for none. */
 	sweep_cfg_t  sweep;     /**< The curve, for ServoCmdKind::Sweep. */
-	bool         step;      /**< A Position from MIN, CENTRE or MAX: with slewPerS 0, the move timer times it (move_timer.h). */
+	bool         step;      /**< A Position from MIN, CENTRE or MAX: the move timer times it with slewPerS 0 (move_timer.h). */
 };
 
 /** @brief Where the switched supply is. */
@@ -253,8 +253,9 @@ bool servoCoreTake(ServoCore *c, const ServoCmd *cmd, uint32_t nowMs,
 void servoCoreStep(ServoCore *c, uint32_t nowMs, bool uiAlive);
 
 /**
- * @brief Whether @p cmd is a step the move timer times: a Position from MIN,
- *        CENTRE or MAX (ServoCmd::step) at SPEED 100 %, no slew. Pure.
+ * @brief Whether @p cmd is a step for the move timer: a Position from MIN,
+ *        CENTRE or MAX (ServoCmd::step). The timer times it at SPEED 100 %,
+ *        slewPerS 0, only. Pure.
  * @param cmd The command.
  * @return True for such a step.
  */

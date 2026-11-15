@@ -40,6 +40,9 @@ static void stop(MoveTimer *t, MoveVoid why) {
 	t->holding = false;
 }
 
+/** @brief How long a change of the pulses that is not timed to its end keeps the servo from rest, ms: the window. */
+static uint32_t settleMs() { return servo_move_window_ms(MOVE_LAG_MS); }
+
 /** @brief @p a A in whole mA, rounded. */
 static int32_t milliamps(float a) { return (int32_t)lroundf(a * 1000.0f); }
 
@@ -72,9 +75,11 @@ static void storeHold(MoveTimer *t, const uint16_t out[2], float a) {
  *        the pulses before it.
  */
 static void begin(MoveTimer *t, const MoveIn *in, uint32_t nowMs) {
-	bool rest = !t->timing && (int32_t)(nowMs - t->changeMs) >= (int32_t)MOVE_REST_MS;
+	bool rest = !t->timing && (int32_t)(nowMs - t->restMs) >= (int32_t)MOVE_REST_MS;
 	t->timing = false;
 	t->holding = false;
+	// The servo moves now; at rest again at the arrival, if one is seen.
+	t->restMs = nowMs + settleMs();
 	if (!rest) {
 		t->res = voidOf(MoveVoid::NotAtRest);
 		return;
@@ -135,6 +140,8 @@ static void finish(MoveTimer *t, uint32_t atMs) {
 	switch (m->state) {
 		case SERVO_MOVE_ARRIVED:
 		case SERVO_MOVE_SETTLED:
+			// At rest from here: the next step's 500 ms are the hold.
+			t->restMs = atMs;
 			r.state = MoveState::Arrived;
 			r.settled = m->state == SERVO_MOVE_SETTLED;
 			r.ms = (uint16_t)(m->end_t - m->cfg.cmd_t);
@@ -218,17 +225,26 @@ void moveTimerStep(MoveTimer *t, const MoveIn *in, uint32_t nowMs) {
 		t->startOut[0] = in->out[0];
 		t->startOut[1] = in->out[1];
 		t->timing = t->holding = false;
+		t->restMs = nowMs + settleMs();
 		changed = true;
+	} else if (in->step && in->slewed) {
+		// MIN, CENTRE or MAX at SPEED below 100 %: the pulse slews from the
+		// next pass on, untimed.
+		stop(t, MoveVoid::Slewed);
+		t->res = voidOf(MoveVoid::Slewed);
+		t->restMs = nowMs + settleMs();
 	} else if (changed) {
-		if (in->step) begin(t, in, nowMs);
-		else          stop(t, MoveVoid::Changed);
+		if (in->step) {
+			begin(t, in, nowMs);
+		} else {
+			// A drag, a sweep or a slew: the servo moves, untimed.
+			stop(t, MoveVoid::Changed);
+			t->restMs = nowMs + settleMs();
+		}
 	}
 	t->on = true;
-	if (changed) {
-		t->out[0] = in->out[0];
-		t->out[1] = in->out[1];
-		t->changeMs = nowMs;
-	}
+	t->out[0] = in->out[0];
+	t->out[1] = in->out[1];
 
 	// The stale rule: the sensor not Online, or no reading for 250 ms since
 	// the command or the arrival at the earliest.

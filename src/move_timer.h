@@ -7,24 +7,26 @@
  *
  * Pure: the servo job (servo_job.h) hands the timer each pass's sample
  * (senseSample()), the pulses it puts on SIG and AUX, and whether the
- * command it took was a step: MIN, CENTRE or MAX at SPEED 100 %. The timer
- * reads; it changes no pulse and no cut.
+ * command it took was a step, MIN, CENTRE or MAX, and at SPEED 100 %. The
+ * timer reads; it changes no pulse and no cut.
  *
  * | Rule | Value |
  * |---|---|
- * | Timed | a step that changes the pulses, after the pulses held for @ref MOVE_REST_MS, no move under way |
+ * | Timed | a step at SPEED 100 % that changes the pulses, @ref MOVE_REST_MS or more after the servo came to rest, no move under way |
+ * | At rest | from the reading that showed the last timed move's arrival, or the end of its window when it went late or unseen; after any other change of the pulses (START, a drag, a sweep, SPEED below 100 %, a step not timed or voided) 3000 ms plus @ref MOVE_LAG_MS later, the longest move servo_move.c times |
  * | Level before | the mean of the readings taken in the @ref MOVE_REST_MS before the command, at least @ref MOVE_MIN_READINGS of them, at or above -@ref MOVE_REVERSED_MA |
  * | Threshold | servo_move_threshold_a() of those readings' noise: the larger of 20 mA and 3 times their standard deviation |
  * | Holding level | the level before the last timed step that left the destination's pulses this run; while none is known, the idle level: the level before the last timed step that left the pulses the run started with, CENTRE; while neither is known, the level before |
  * | Movement, arrival, late, unseen | servo_move.c's rules, one reading at a time (filter_n 1), settle_n 2, a window of 3000 ms plus @ref MOVE_LAG_MS |
  * | Hold | the mean of the readings taken in the @ref MOVE_HOLD_MS after the reading that ended the move, at least @ref MOVE_MIN_READINGS of them |
- * | Void | a step not timed, or a move or hold ended by STOP, a cut, a new pulse, a clipped reading or a lost sensor |
+ * | Void | a step not timed, or a move ended by STOP, a cut, a new pulse or a lost sensor; a hold so ended, or with a clipped reading, is not shown |
  *
  * A reading counts once: a new seq, fresh by senseFresh(), with the sensor
  * Online. SenseSample::takenMs is its time. The level before takes the
- * readings by their age alone: the pulses held for @ref MOVE_REST_MS, so
- * none of them was taken before the pulses' last change. A move ends only at a reading: one at or past the window's end
- * ends it late or unseen. With no reading for @ref SENSE_STALE_MS, counted
+ * readings by their age alone: the servo was at rest for @ref MOVE_REST_MS
+ * and the pulses unchanged, so none of them was taken before the pulses'
+ * last change. A move ends only at a reading: one at or past the window's
+ * end ends it late or unseen. With no reading for @ref SENSE_STALE_MS, counted
  * from the command or the arrival at the earliest, or with the sensor not
  * Online, a move under way is void and a hold is not shown.
  *
@@ -86,7 +88,8 @@ enum class MoveState : uint8_t {
 /** @brief Why a step is Void. */
 enum class MoveVoid : uint8_t {
 	None,      /**< Not void. */
-	NotAtRest, /**< The pulses changed within @ref MOVE_REST_MS before it, or a move was under way. */
+	NotAtRest, /**< Within @ref MOVE_REST_MS of the servo coming to rest, or a move was under way. */
+	Slewed,    /**< At SPEED below 100 %: the pulse slews, no step. */
 	Few,       /**< Fewer than @ref MOVE_MIN_READINGS readings in the @ref MOVE_REST_MS before it. */
 	Reversed,  /**< The level before was below -@ref MOVE_REVERSED_MA mA. */
 	Ended,     /**< The pulses ended: STOP, a trip or a cut. */
@@ -124,7 +127,7 @@ struct MoveTimer {
 	MoveResult  res;               /**< The last step's result. */
 	bool        on;                /**< Pulses on the last pass. */
 	uint16_t    out[2];            /**< The pulses of the last pass, us. */
-	uint32_t    changeMs;          /**< When they last changed, or started. */
+	uint32_t    restMs;            /**< When the servo is taken to be at rest. */
 	uint32_t    seq;               /**< Seq of the last reading seen. */
 	MoveReading ring[MOVE_RING_N]; /**< The newest readings, newest last. */
 	uint8_t     ringN;             /**< How many. */
@@ -146,7 +149,8 @@ struct MoveTimer {
 struct MoveIn {
 	SenseSample sample;  /**< senseSample() on this pass. */
 	uint16_t    out[2];  /**< The pulses on SIG and AUX after this pass, us; 0 for none. */
-	bool        step;    /**< This pass took a step command: MIN, CENTRE or MAX at SPEED 100 %. */
+	bool        step;    /**< This pass took a step command: MIN, CENTRE or MAX (servoStepCmd()). */
+	bool        slewed;  /**< ...at SPEED below 100 %: a slew, not timed. */
 };
 
 /**

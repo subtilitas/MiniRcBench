@@ -61,8 +61,22 @@ static void hold(Rig *r, uint32_t ms, float a, uint32_t every = 25) {
 	for (uint32_t t = 0; t < ms; t += every) tick(r, every, a);
 }
 
-/** @brief The pulses start at CENTRE with a reading of @p a, then @p ms of readings of @p a. */
-static void startAt(Rig *r, float a, uint32_t ms = 500) {
+/** @brief A change of the pulses not timed to its end keeps the servo from rest this long, ms. */
+static const uint32_t SETTLE = 3043;
+
+/** @brief The pulses start with no reading, and @ref SETTLE ms later, still none: at rest from here. */
+static void settle(Rig *r) {
+	tick(r, 0, 0.0f, false, false);
+	tick(r, SETTLE, 0.0f, false, false);
+}
+
+/**
+ * @brief The pulses start, and from the servo's rest on readings of @p a:
+ *        one at once, then @p ms of them. With 475 ms the next pass 25 ms
+ *        on is 500 ms after the rest.
+ */
+static void startAt(Rig *r, float a, uint32_t ms = 475) {
+	settle(r);
 	tick(r, 0, a);
 	hold(r, ms, a);
 }
@@ -84,16 +98,18 @@ static void testWhenTimed() {
 	Rig r;
 	rigInit(&r);
 	checkTrue("nothing before a pass", stateIs(r, MoveState::None));
-	startAt(&r, 0.10f, 475);
+	tick(&r, 0, 0.10f);
+	hold(&r, 3500, 0.10f);
 	checkTrue("pulses at CENTRE: no step yet", stateIs(r, MoveState::None) && r.t.on);
-	stepTo(&r, 2000, 0.10f, 24);
-	checkTrue("a step 499 ms after the pulses started: not at rest",
+	stepTo(&r, 2000, 0.10f, 42);
+	checkTrue("a step 3542 ms after the pulses started: not at rest",
 	          stateIs(r, MoveState::Void, MoveVoid::NotAtRest) && !r.t.timing);
 
 	rigInit(&r);
-	startAt(&r, 0.10f, 475);
-	stepTo(&r, 2000, 0.10f, 25);
-	checkTrue("500 ms: timed", stateIs(r, MoveState::Measuring) && r.t.timing);
+	tick(&r, 0, 0.10f);
+	hold(&r, 3500, 0.10f);
+	stepTo(&r, 2000, 0.10f, 43);
+	checkTrue("3543 ms: timed", stateIs(r, MoveState::Measuring) && r.t.timing);
 	checkTrue("the level before and the destination's level: 0.10 A",
 	          fabsf(r.t.mv.cfg.rise_a - 0.10f) < 1e-6f && fabsf(r.t.mv.cfg.ref_a - 0.10f) < 1e-6f);
 	checkTrue("no noise: the threshold is 20 mA", fabsf(r.t.mv.cfg.move_a - SERVO_MOVE_MIN_A) < 1e-6f);
@@ -105,31 +121,59 @@ static void testWhenTimed() {
 
 	// The noise: 0.09 and 0.11 A in turn, 10 mA, a threshold of 30 mA.
 	rigInit(&r);
-	tick(&r, 0, 0.09f);
+	settle(&r);
 	for (int i = 0; i < 20; i++) tick(&r, 25, (i & 1) ? 0.09f : 0.11f);
 	stepTo(&r, 2000, 0.10f);
 	checkTrue("3 times the noise where above 20 mA", stateIs(r, MoveState::Measuring) &&
 	          fabsf(r.t.mv.cfg.move_a - 0.030f) < 0.001f);
 
-	// A step during a move: not at rest.
+	// A step during a move: not at rest; the servo moves, so the next step
+	// waits for the window.
 	stepTo(&r, 1000, 0.9f, 600);
 	checkTrue("a step while a move is under way, 600 ms on: not at rest",
 	          stateIs(r, MoveState::Void, MoveVoid::NotAtRest));
+	hold(&r, 3500, 0.10f);
+	stepTo(&r, 1500, 0.10f, 42);
+	checkTrue("then 3542 ms on: not at rest", stateIs(r, MoveState::Void, MoveVoid::NotAtRest));
+	hold(&r, 3500, 0.10f);
+	stepTo(&r, 1000, 0.10f, 43);
+	checkTrue("3543 ms on: timed", stateIs(r, MoveState::Measuring));
+
+	// SPEED below 100 %.
+	rigInit(&r);
+	startAt(&r, 0.10f);
+	MoveIn in;
+	memset(&in, 0, sizeof(in));
+	r.now += 25;
+	in.sample = r.last;
+	in.out[0] = 1500;
+	in.step = true;
+	in.slewed = true;
+	moveTimerStep(&r.t, &in, r.now);
+	checkTrue("a step at SPEED below 100 %, the pulse not moved yet: a slew, not timed",
+	          stateIs(r, MoveState::Void, MoveVoid::Slewed) && !r.t.timing);
+	r.out[0] = 1510;
+	tick(&r, 25, 0.10f);
+	hold(&r, 3500, 0.10f);
+	stepTo(&r, 1000, 0.10f, 42);
+	checkTrue("then 3542 ms on: not at rest", stateIs(r, MoveState::Void, MoveVoid::NotAtRest));
 
 	// Readings: 10 in the 500 ms before, 9.
 	rigInit(&r);
+	settle(&r);
 	tick(&r, 0, 0.10f);
-	hold(&r, 450, 0.10f, 50);   // 1000 to 1450: 10 readings
+	hold(&r, 450, 0.10f, 50);   // 0 to 450 ms after the rest: 10 readings
 	stepTo(&r, 2000, 0.10f, 50);
 	checkTrue("10 readings, the oldest 500 ms old: timed", stateIs(r, MoveState::Measuring));
 	rigInit(&r);
+	settle(&r);
 	tick(&r, 0, 0.10f);
 	hold(&r, 450, 0.10f, 50);
 	stepTo(&r, 2000, 0.10f, 51);
 	checkTrue("the oldest 501 ms old: 9, too few", stateIs(r, MoveState::Void, MoveVoid::Few));
 	rigInit(&r);
-	tick(&r, 0, 0.10f, false, false);
-	hold(&r, 450, 0.10f, 50);   // 1050 to 1450: 9 readings
+	settle(&r);
+	hold(&r, 450, 0.10f, 50);   // 50 to 450 ms: 9 readings
 	stepTo(&r, 2000, 0.10f, 50);
 	checkTrue("9 readings: too few", stateIs(r, MoveState::Void, MoveVoid::Few));
 
@@ -154,6 +198,7 @@ static void testWhenTimed() {
 
 	// The ring keeps the newest 32 readings.
 	rigInit(&r);
+	settle(&r);
 	tick(&r, 0, 0.5f);
 	for (uint32_t t = 10; t <= 520; t += 10) tick(&r, 10, t < 210 ? 0.5f : 0.10f);
 	stepTo(&r, 2000, 0.10f, 10);
@@ -265,7 +310,7 @@ static void testArrivalAndHold() {
 	startAt(&r, 0.10f);
 	r.out[0] = 1600;
 	tick(&r, 25, 0.10f);   // a drag: nothing timed, nothing stored
-	hold(&r, 500, 0.20f);
+	hold(&r, SETTLE + 475, 0.20f);
 	stepTo(&r, 2000, 0.20f);
 	checkTrue("no idle level yet: the level before", !r.t.idleOk &&
 	          fabsf(r.t.mv.cfg.ref_a - 0.20f) < 1e-6f);
@@ -292,13 +337,13 @@ static void testArrivalAndHold() {
 	startAt(&r, 0.10f);
 	for (unsigned i = 1; i <= MOVE_HOLDS + 2; i++) {
 		stepTo(&r, (uint16_t)(1000 + 10 * i), 0.10f + 0.005f * (float)i);
-		hold(&r, 3100, 0.10f + 0.005f * (float)(i + 1));
+		hold(&r, 3600, 0.10f + 0.005f * (float)(i + 1));
 	}
 	checkInt("11 levels stored", (int)r.t.stores, (int)MOVE_HOLDS + 2);
 	stepTo(&r, 1010, 0.16f);
 	checkTrue("to 1010, the second stored: gone, the idle level",
 	          stateIs(r, MoveState::Measuring) && fabsf(r.t.mv.cfg.ref_a - 0.10f) < 1e-6f);
-	hold(&r, 3100, 0.16f);
+	hold(&r, 3600, 0.16f);
 	stepTo(&r, 1040, 0.16f);
 	checkTrue("to 1040 after 13 stores: the 5th, kept, 0.125 A",
 	          fabsf(r.t.mv.cfg.ref_a - 0.125f) < 1e-4f);
@@ -512,15 +557,15 @@ static void testText() {
 	memset(&c, 0, sizeof(c));
 	c.kind = ServoCmdKind::Position;
 	c.step = true;
-	checkTrue("MIN, CENTRE or MAX at SPEED 100 %: a step", servoStepCmd(&c));
-	c.slewPerS = 1;
-	checkTrue("with a slew: not", !servoStepCmd(&c));
-	c.slewPerS = 0;
+	checkTrue("MIN, CENTRE or MAX: a step", servoStepCmd(&c));
 	c.step = false;
 	checkTrue("a drag: not", !servoStepCmd(&c));
 	c.step = true;
 	c.kind = ServoCmdKind::Sweep;
 	checkTrue("a sweep: not", !servoStepCmd(&c));
+	c.kind = ServoCmdKind::Position;
+	c.slewPerS = 400;
+	checkTrue("at a lower SPEED: a step, which the timer takes as a slew", servoStepCmd(&c));
 }
 
 void runMoveTimerTests() {

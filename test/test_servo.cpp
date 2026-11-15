@@ -39,6 +39,10 @@
 
 #include "../src/ui_servo.cpp"   // NOLINT -- see the note above
 
+extern "C" {
+#include "servo_sim.h"   // rcbench's servo model: its header has no extern "C"
+}
+
 #include <hardware/gpio.h>
 #include <hardware/i2c.h>
 #include <hardware/pwm.h>
@@ -2051,6 +2055,191 @@ static void testJobCuts() {
 	fakeI2cReset();
 	supplyMode(0);
 	servoJobNewSession();
+	stamps();
+}
+
+/**
+ * @brief rcbench's single-servo model, free of its stops between 800 and
+ *        2200 us: 0.12 A at rest, 0.95 A while it travels at 1.2 us a ms,
+ *        20 mA of noise from end to end.
+ */
+static void freeServo(servo_sim_t *sim) {
+	servo_sim_cfg_t c;
+	servo_sim_defaults(&c);
+	c.stop_lo_us = 800;
+	c.stop_hi_us = 2200;
+	servo_sim_init(sim, &c);
+}
+
+/**
+ * @brief One frame: the model driven by SIG's pulse (none while SIG carries
+ *        none: 0 A), its current into the fake INA219, core0's read and
+ *        core1's pass.
+ */
+static void simPass(FakeIna219 *ina, servo_sim_t *sim, uint8_t en, uint32_t ms) {
+	fakeAdvance(ms);
+	stamps();
+	followEn(ina, en);
+	uint16_t us = fakePin(SIG).level;
+	float a = servo_sim_step(sim, us ? us : 1500u, millis());
+	ina->currentA = us ? a : 0.0;
+	senseTick(millis());
+	core1JobPoll();
+}
+
+/** @brief A step of servo A to @p command, as MIN, CENTRE and MAX send it, at SPEED @p slew. */
+static ServoCmd stepOf(uint16_t command, uint16_t slew = 0) {
+	ServoCmd c = cmdOf(0, ServoCmdKind::Position, SERVO_MASK_A, command, slew);
+	c.step = true;
+	return c;
+}
+
+/**
+ * @brief The move timing through the job table, on the fake INA219 with
+ *        rcbench's servo model behind it: a move timed within one read and
+ *        one cycle, its hold, an unseen step, and the pulses and the cuts as
+ *        they are without it.
+ */
+static void testJobMoveTiming() {
+	section("Servo job: move timing from the INA219, with rcbench's servo model");
+
+	const uint8_t EN = 29;
+	fakePwmReset();
+	freshPump();
+	supplyMode(2);
+	fakeI2cReset();
+	settings()->currentSense = 1;
+	senseConfigure(1);
+	FakeIna219 *ina = fakeI2cAddIna219(INA219_ADDR);
+	ServoProfile prof;
+	servoProfileDefault(&prof);
+	servoJobProfile(&prof);
+	servoJobNewSession();
+	stamps();
+	senseTick(millis());
+	servo_sim_t sim;
+	freeServo(&sim);
+	ServoStatus st;
+	checkTrue("the claim runs", claimRunning(PIN_SIG));
+	simPass(ina, &sim, EN, 25);
+	send(cmdOf(0, ServoCmdKind::Start));
+	simPass(ina, &sim, EN, 25);
+	servoJobStatus(&st);
+	checkTrue("on at CENTRE, nothing timed", fakePin(SIG).level == 1500 &&
+	          st.move.state == MoveState::None);
+
+	// MAX 475 ms after the pulses started: not at rest.
+	for (int i = 0; i < 19; i++) simPass(ina, &sim, EN, 25);
+	send(stepOf(SERVO_SPAN));
+	servoJobStatus(&st);
+	checkTrue("MAX 475 ms after CENTRE: sent, not timed", fakePin(SIG).level == 2000 &&
+	          st.move.state == MoveState::Void && st.move.why == MoveVoid::NotAtRest);
+
+	// CENTRE 3600 ms after MAX: 500 us at 1.2 us a ms, 417 ms.
+	for (int i = 0; i < 144; i++) simPass(ina, &sim, EN, 25);
+	send(stepOf(SERVO_CMD_CENTRE));
+	servoJobStatus(&st);
+	checkTrue("CENTRE: sent at once, timed", fakePin(SIG).level == 1500 &&
+	          st.move.state == MoveState::Measuring);
+	int frames = 0;
+	for (; frames < 40 && st.move.state == MoveState::Measuring; frames++) {
+		simPass(ina, &sim, EN, 25);
+		servoJobStatus(&st);
+	}
+	const uint32_t TRUE_MS = 417;   // 500 us / 1.2 us a ms, rounded up
+	checkTrue("arrived", st.move.state == MoveState::Arrived && !st.move.settled);
+	checkTrue("timed within one read and one cycle of the model's 417 ms",
+	          st.move.ms >= TRUE_MS && st.move.ms <= TRUE_MS + MOVE_LAG_MS);
+	checkTrue("the peak: the model's 0.95 A, within its noise",
+	          st.move.peakOk && st.move.peakMa >= 940 && st.move.peakMa <= 961);
+	checkTrue("no hold yet", !st.move.holdOk);
+	for (int i = 0; i < 20; i++) simPass(ina, &sim, EN, 25);
+	servoJobStatus(&st);
+	checkTrue("the hold, 500 ms on: the model's 0.12 A, within its noise",
+	          st.move.holdOk && st.move.holdMa >= 110 && st.move.holdMa <= 130);
+	checkTrue("the pulse untouched", fakePin(SIG).level == 1500 && st.running);
+
+	// MIN: 500 us again, judged against CENTRE's level.
+	send(stepOf(0));
+	for (frames = 0; frames < 60; frames++) {
+		simPass(ina, &sim, EN, 25);
+		servoJobStatus(&st);
+		if (st.move.state != MoveState::Measuring) break;
+	}
+	checkTrue("MIN: arrived within one read and one cycle of 417 ms",
+	          st.move.state == MoveState::Arrived && st.move.ms >= TRUE_MS &&
+	          st.move.ms <= TRUE_MS + MOVE_LAG_MS);
+
+	// A step at SPEED below 100 %: the pulse slews, nothing is timed.
+	for (int i = 0; i < 25; i++) simPass(ina, &sim, EN, 25);
+	ServoStatus before;
+	servoJobStatus(&before);
+	send(stepOf(SERVO_SPAN, 400));
+	simPass(ina, &sim, EN, 25);
+	servoJobStatus(&st);
+	checkTrue("SPEED below 100 %: the pulse slews, not timed",
+	          fakePin(SIG).level > 1000 && fakePin(SIG).level < 2000 &&
+	          st.move.state == MoveState::Void && st.move.why == MoveVoid::Slewed);
+
+	// No current change: unseen at the window's end. The slew takes 2.5 s,
+	// then the window, then 500 ms of rest.
+	for (int i = 0; i < 260; i++) {
+		fakeAdvance(25);
+		stamps();
+		followEn(ina, EN);
+		ina->currentA = 0.05;
+		senseTick(millis());
+		core1JobPoll();
+	}
+	send(stepOf(SERVO_CMD_CENTRE));
+	servoJobStatus(&st);
+	checkTrue("CENTRE with the servo unplugged: timed", st.move.state == MoveState::Measuring);
+	for (frames = 0; frames < 140; frames++) {
+		fakeAdvance(25);
+		stamps();
+		followEn(ina, EN);
+		ina->currentA = 0.05;
+		senseTick(millis());
+		core1JobPoll();
+		servoJobStatus(&st);
+		if (st.move.state != MoveState::Measuring) break;
+	}
+	checkTrue("no current change: unseen", st.move.state == MoveState::Unseen && !st.move.peakOk);
+	checkInt("at the first reading 3043 ms or more after the command", frames + 1, 122);
+
+	// The stall cut during a timed move, at its 17th reading as without one.
+	for (int i = 0; i < 20; i++) simPass(ina, &sim, EN, 25);
+	send(stepOf(SERVO_SPAN));
+	servoJobStatus(&st);
+	checkTrue("MAX: timed", st.move.state == MoveState::Measuring);
+	ina->currentA = 1.2;
+	checkInt("1.2 A: the stall cut at its 17th reading", senseUntilCut(ina, EN, 40), 17);
+	servoJobStatus(&st);
+	checkTrue("Stall, GP29 low, level 0; the move void", st.powerFault == ServoPowerFault::Stall &&
+	          enLow(EN) && fakePin(SIG).level == 0 && st.move.state == MoveState::Void &&
+	          st.move.why == MoveVoid::Ended);
+	send(cmdOf(0, ServoCmdKind::Start));
+	simPass(ina, &sim, EN, 25);
+	servoJobStatus(&st);
+	checkTrue("START: the pulses again, the result gone", st.running &&
+	          fakePin(SIG).level == 1500 && st.move.state == MoveState::None);
+
+	// The release ends a move under way.
+	for (int i = 0; i < 144; i++) simPass(ina, &sim, EN, 25);
+	send(stepOf(0));
+	servoJobStatus(&st);
+	checkTrue("MIN 3600 ms after START: timed", st.move.state == MoveState::Measuring);
+	checkTrue("released", claimEnd() && enUndriven(EN));
+	servoJobStatus(&st);
+	checkTrue("the move under way at BACK: void", st.move.state == MoveState::Void &&
+	          st.move.why == MoveVoid::Ended);
+	servoJobNewSession();
+	servoJobStatus(&st);
+	checkTrue("a new screen session drops it", st.move.state == MoveState::None);
+	settings()->currentSense = 0;
+	senseConfigure(0);
+	fakeI2cReset();
+	supplyMode(0);
 	stamps();
 }
 
@@ -4888,6 +5077,107 @@ static void testCutScreens() {
 	freshUi();
 }
 
+/** @brief @p n UI frames of 25 ms, rcbench's servo model behind the fake INA219, its pulse SIG's. */
+static void uiSimFrames(FakeIna219 *ina, servo_sim_t *sim, int n) {
+	for (int i = 0; i < n; i++) {
+		followEn(ina, 28);
+		uint16_t us = fakePin(SIG).level;
+		float a = servo_sim_step(sim, us ? us : 1500u, millis() + 25);
+		ina->currentA = us ? a : 0.0;
+		frameAt(25);
+	}
+}
+
+/**
+ * @brief The move timing on SET: the note band's second line when free, in
+ *        C_DIM, over the start-up time; kept while SAFE; gone at START;
+ *        under a two-line note.
+ */
+static void testMoveScreen() {
+	section("Servo screen: the move timing on SET");
+
+	freshUi();
+	fakeI2cReset();
+	settings()->servoSupply = 1;
+	servoSupplyConfigure(1);
+	settings()->currentSense = 1;
+	senseConfigure(1);
+	FakeIna219 *ina = fakeI2cAddIna219(INA219_ADDR);
+	servo_sim_t sim;
+	freeServo(&sim);
+	openServo();
+	uiSimFrames(ina, &sim, 42);
+	holdStartFrames();
+	uiSimFrames(ina, &sim, 3);
+	checkTrue("running at CENTRE", s_st.running && fakePin(SIG).level == 1500);
+	openSet();
+	char up[32];
+	snprintf(up, sizeof(up), SERVO_UI_UP_FMT, (unsigned)s_st.upMs);
+	checkTrue("no step yet: the start-up time on the second line",
+	          s_st.move.state == MoveState::None && textAt(UI_MARGIN, UI_STRIP_Y + 12, up, C_DIM, 1));
+	backFromSet();
+
+	uiSimFrames(ina, &sim, 144);
+	tapId(UI_FIX(ServoCtl::Max));
+	uiSimFrames(ina, &sim, 1);
+	checkTrue("MAX at rest: timed", s_st.move.state == MoveState::Measuring &&
+	          fakePin(SIG).level == 2000);
+	uiSimFrames(ina, &sim, 45);
+	checkTrue("arrived, and the hold in", s_st.move.state == MoveState::Arrived && s_st.move.holdOk &&
+	          s_st.move.peakOk);
+	checkTrue("within one read and one cycle of the model's 417 ms",
+	          s_st.move.ms >= 417 && s_st.move.ms <= 417 + MOVE_LAG_MS);
+	char line[MOVE_TEXT_MAX + 1];
+	moveTimerText(&s_st.move, line, sizeof(line));
+	checkTrue("the line: MOVE, PEAK and HOLD", strncmp(line, "MOVE 0.4", 8) == 0 &&
+	          strstr(line, "  PEAK 0.9") != nullptr && strstr(line, "  HOLD 0.1") != nullptr);
+	openSet();
+	checkTrue("SET while running: STOP TO CHANGE THE PROFILE, then the move, dim",
+	          textAt(UI_MARGIN, UI_STRIP_Y + 2, "STOP TO CHANGE THE PROFILE", C_AMBER, 1) &&
+	          textAt(UI_MARGIN, UI_STRIP_Y + 12, line, C_DIM, 1));
+	checkTrue("ends at or before the right margin, 8 px",
+	          UI_MARGIN + gfxTextW(line, 1) <= GFX_W - UI_MARGIN);
+	fakeDumpFrame("shot_servo_set_move.ppm");
+	tapId(UI_FIX(ServoCtl::Defaults));   // STOP while RUNNING
+	uiSimFrames(ina, &sim, 2);
+	checkTrue("STOP on SET: SAFE, the line kept", !s_st.running &&
+	          textAt(UI_MARGIN, UI_STRIP_Y + 12, line, C_DIM, 1));
+	selectRow(3);   // MIN, stepped past the travel: a two-line note
+	stepSel(-1, 11);
+	checkTrue("a two-line note takes the second line: no move line over it",
+	          s_pending && textAt(UI_MARGIN, UI_STRIP_Y + 12, "HEATS. TRY MIN AND MAX HORN-FREE.",
+	                              C_AMBER, 1) &&
+	          !anyOf(0, UI_STRIP_Y + 12, GFX_W, 7, C_DIM));
+	backFromSet();
+	holdStartFrames();
+	uiSimFrames(ina, &sim, 3);
+	openSet();
+	snprintf(up, sizeof(up), SERVO_UI_UP_FMT, (unsigned)s_st.upMs);
+	checkTrue("START: the move gone, the start-up time back",
+	          s_st.move.state == MoveState::None && textAt(UI_MARGIN, UI_STRIP_Y + 12, up, C_DIM, 1));
+	backFromSet();
+
+	// A step too soon after START: dashes.
+	tapId(UI_FIX(ServoCtl::Min));
+	uiSimFrames(ina, &sim, 2);
+	openSet();
+	checkTrue("MIN within 3.5 s of START: MOVE -- S, not timed",
+	          s_st.move.state == MoveState::Void &&
+	          textAt(UI_MARGIN, UI_STRIP_Y + 12, "MOVE -- S  PEAK -- A  HOLD -- A", C_DIM, 1));
+	backFromSet();
+	pressId(UI_FIX(ServoCtl::Start));
+	core1();
+	fakeRelease();
+	uiFrames(2);
+	leaveServo();
+	settings()->currentSense = 0;
+	senseConfigure(0);
+	fakeI2cReset();
+	settings()->servoSupply = 0;
+	servoSupplyConfigure(0);
+	freshUi();
+}
+
 /**
  * @brief SERVO names SIG by role and number: the caption, the claim's
  *        messages, and the refusal no UI path reaches.
@@ -4998,6 +5288,7 @@ void runServoTests() {
 	testJobSupply();
 	testJobSupplySensed();
 	testJobCuts();
+	testJobMoveTiming();
 	testQuietRule();
 	testLastPulse();
 	testTripLatch();
@@ -5022,6 +5313,7 @@ void runServoTests() {
 	testSupplyLineAndHint();
 	testSupplyScreenFaults();
 	testCutScreens();
+	testMoveScreen();
 	testColourRoles();
 	testPinNames();
 	freshUi();

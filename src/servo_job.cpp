@@ -127,7 +127,7 @@ void servoCoreStep(ServoCore *c, uint32_t nowMs, bool uiAlive) {
 }
 
 bool servoStepCmd(const ServoCmd *cmd) {
-	return cmd->kind == ServoCmdKind::Position && cmd->step && cmd->slewPerS == 0;
+	return cmd->kind == ServoCmdKind::Position && cmd->step;
 }
 
 // ---------------------------------------------------------------------------
@@ -483,6 +483,7 @@ static void servoJobStep(uint32_t nowMs, bool uiAlive) {
 	mi.out[0] = s_core.outUs[0];
 	mi.out[1] = s_core.outUs[1];
 	mi.step = taken && servoStepCmd(&cmd);
+	mi.slewed = cmd.slewPerS != 0;
 	moveTimerStep(&s_move, &mi, nowMs);
 	// The enable pin first: at a switch-off it goes low before level 0 on
 	// the pins, at a switch-on the pins stay at level 0 until the supply is up.
