@@ -16,7 +16,9 @@
 #                   its own, built as C11 and run by `make run`.
 #                   test_imu_angles.c tests imu_feed_angles(), the model fed
 #                   three angles and a time; wit_frame.h, beside it, builds
-#                   the WitMotion frames it compares with
+#                   the WitMotion frames it compares with. test_imu.c and
+#                   test_imu_filter.c are adapted from rcbench's: their
+#                   cases that need imu.h alone
 #
 # test_qmi8658.cpp includes src/cst328.cpp in a namespace of its own, as
 # test_sense.cpp does, to run touch, the current sensor and the IMU on one
@@ -31,4 +33,5 @@ ANGLE_INCLUDES := -I../lib/rcbench/shared/servo/include \
                   -I../lib/rcbench/shared/bench/include \
                   -I../lib/rcbench/protocols/witmotion/include
 ANGLE_CTESTS   := rcbench/test_servo_rudder.c rcbench/test_imu_angles.c \
-                  rcbench/test_witmotion.c
+                  rcbench/test_witmotion.c rcbench/test_imu.c \
+                  rcbench/test_imu_filter.c

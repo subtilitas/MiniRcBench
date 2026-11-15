@@ -151,11 +151,22 @@ unchanged from rcbench `test/host/` into `test/rcbench/`, are
 `test_servo_rudder.c`, 4 cases, `test_imu_angles.c`, 7 cases, the test of
 `imu_feed_angles()`, and `test_witmotion.c`, 14 cases, with `wit_frame.h`,
 which builds WitMotion frames for `test_imu_angles.c`. rcbench's
-`test_imu.c` and `test_imu_filter.c` are not copied: they include rcbench's
-BLE (Bluetooth Low Energy) simulator, `imu_sensor.h` and servo modules that
-are not ported. Their cases that need `imu.h` alone are to be adapted, as
-`test_out_pwm_map.c` was, and are not yet: that work is open, for slice 3
-of `docs/design/angle-meter.md`.
+`test_imu.c` and `test_imu_filter.c` include rcbench's BLE (Bluetooth Low
+Energy) simulator, its sensor link `imu_sensor.h` and servo modules that are
+not ported, so they are adapted, as `test_out_pwm_map.c` was: their cases
+that need `imu.h` alone, at commit `e98345aa`.
+
+- `test_imu.c`, 8 of 9 cases. Its rig's four frame builders, from
+  `imu_rig.h`, are copied into the file; the rest of the rig drives the BLE
+  simulator. `imu_stale_equals_the_gap_allowance` is left out: it compares
+  `IMU_STALE_MS` with `servo_gap.h`. `a_still_yaw_counts_while_pitch_creeps`
+  takes `SERVO_RAUTO_STILL_MS` of `servo_rudder_auto.h`, which is defined in
+  the file at its value at that commit, 500 ms.
+- `test_imu_filter.c`, 10 of 11 cases.
+  `a_connect_a_reconnect_and_a_bind_seed_the_filter` is left out: it drives
+  `imu_sensor.h`. The lines of
+  `the_limits_1_and_50_hold_and_out_of_range_values_are_clamped` that hold
+  the sensor link's stored value are left out; the case's other lines stay.
 
 `sbus.h` cites `(NOTICE, "Trademarks")`: that NOTICE file is rcbench's, and
 this repository has none. Here the trademark notice of
