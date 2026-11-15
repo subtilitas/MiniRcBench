@@ -1092,34 +1092,38 @@ Choices the note left open, the developer's:
   a reply classified AM32 is never a piece, but an AM32 answer with a
   glitch byte holds `471` and is one. A false hit costs a leave page.
 
-Mutations, each applied to a copy of the tree, the suite built and run: 53,
-49 failing the suite. Of the four that pass, three are equivalent: Read
-taken outside InMode and Enter taken twice without the job's own state
-check, which the session refuses the same way (`ew_session_read()`,
-`ew_session_enter()`), and a refusal in `started()` that changes the last
-operation, since every refusal the session makes in this slice the job's
-state check makes first. The fourth was the burst's own check in
-`greetCyclePhase()`, which the quiet phase's start already makes; the check
-is removed. Three passed in a first run and fail now, each with a test
-added: a LEAVE counted as left whatever its result, which showed that a
-leave the driver refused at once was reported as refused and is now
-reported as ended; a LEAVE the job refused not asked again; a read sent
-after a contact that names no EFM8. The others: the loose rule's 0xE8,
-`7`, last `471`, the 0x30 required and the signature's low byte; the
-cycle's 1000 ms, 3 greetings and the quiet phase from the third; the
-bind's hold, the heartbeat's stop, a leave cut by a lapse or by the
-release, the release's close, commands under a lapse, a Stop not held,
-the bind errors, an operation ended at once taken as refused; the revision
-bytes listed, the order by group, STARTUP POWER's group, the 3D words, the
-capitals, 3D at 4, the lost tags' lines, the empty page's 112 bytes,
-LOW-SPEED PROTECTION's note, the written layouts, a version too long; the
-leave page and the transport's end at an EFM8 answer, BACK from the list
-sending LEAVE, DShot without LEAVE, the cue after LEAVE, the transport
-after a stopped session, the quiet phase's status, the connect page's
-lines, the 3D note from a wrong marker, a refusal greeted again, a row's
-selection, WRITE... live, BACK live while leaving, a greeting every frame,
-rows not read-only, DShot restarted before the job is idle, the hex lines
-of a short page, the bind error's line. The script is not kept.
+Mutations, each applied to a copy of the tree, the suite built and run: 70,
+65 failing the suite. Four pass and are equivalent: Read taken outside
+InMode and Enter taken twice without the job's own state check, which the
+session refuses the same way (`ew_session_read()`, `ew_session_enter()`); a
+refusal in `started()` that changes the last operation, since every refusal
+the session makes in this slice the job's state check makes first; and a
+status published on every pass, which only holds the spin lock longer. One
+applied to the burst's own check in `greetCyclePhase()`, which the quiet
+phase's start already makes, and the code has no such check. The others
+fail the suite: the loose rule's 0xE8, `7`, last `471`, the 0x30 required
+and the signature's low byte; each piece of an EFM8 answer dropped, an
+0xE8 piece taking any byte, the piece never flagged, an AM32 answer
+flagged; the cycle's 1000 ms, 3 greetings and the quiet phase from the
+third; the bind's hold, the heartbeat's stop, a leave cut by a lapse or by
+the release, the release's close, commands under a lapse, a Stop not held,
+the bind errors, a pin the driver lacks named PIO, no pull-up on a refused
+bind, a pull-up on a pin the chip lacks, an operation ended at once taken as
+refused, a LEAVE counted as left whatever its result, an operation's end or
+a command not published; the revision bytes listed, the order by group,
+STARTUP POWER's group, the 3D words, the capitals, 3D at 4, the lost tags'
+lines, the empty page's 112 bytes, LOW-SPEED PROTECTION's note, the written
+layouts, a version too long; the leave page and the transport's end at an
+EFM8 answer, a piece ignored, a piece without the run cue, BACK keyed to a
+signature alone, the leave page's strip naming E800, BACK from the list
+sending LEAVE, DShot without LEAVE, the run cue cleared at LEAVE, a refused
+LEAVE not asked again, a read sent after a contact that names no EFM8, the
+transport after a stopped session, the quiet phase's status, the connect
+page's lines, the 3D note from a wrong marker, a refusal greeted again, a
+row's selection, WRITE... live, BACK live while leaving, a greeting every
+frame, rows not read-only, DShot restarted before the job is idle, the hex
+lines of a short page, the bind error's line and its PIN name. The script
+is not kept.
 
 Not verified: everything on an ESC. No frame of the escwire job has reached
 a Bluejay or BLHeli_S ESC; the entry after the AM32 greeting's answer (B4),
