@@ -342,8 +342,13 @@ switch the supply.
 - Stop the servo before cutting the power or pulling the card. A run cut
   by a power loss leaves a file of 4 MiB: the readings up to the last 2 s
   step, then zeros.
-- Writing to the card never makes the servo or the cuts wait for the
-  card. How long a real card takes is not measured on the board.
+- The pulses never wait for the card, and no write waits for it. A
+  reading of the sensor, and a cut with it, can wait for one block read of
+  the card: at most 100 ms by the SD specification, so a cut can come up
+  to that much later than without the log. How long a real card takes is
+  not measured on the board.
+
+<img src="img/servo-log.png" width="240" alt="SERVO TESTER running, LOGGING TO SRV00012.CSV above the dial">
 
 ---
 

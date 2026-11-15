@@ -48,8 +48,8 @@
 #define SERVO_LOG_END_MAX 80u
 /**
  * @brief The RAM ring between the rows and the card, bytes. A multiple of
- *        the 512-byte block, which servo_log.cpp asserts: about 500 rows,
- *        12 s of rows when the card takes none.
+ *        the 512-byte block, which servo_log.cpp asserts: about 600 rows of
+ *        about 27 bytes, 15 s of rows when the card takes none.
  */
 #define SERVO_LOG_RING_BYTES 16384u
 /**

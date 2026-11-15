@@ -738,13 +738,15 @@ static void testRun(const char *vol, BYTE fmt, DWORD au) {
 	// A refused Start: taken, never RUNNING. Closed at once, no rows.
 	jobSafe();
 	holdStart(false);
+	pass();
+	checkTrue("a START core1 has not taken yet: the log runs on", logStatus().active);
 	g_st.ackSeq = g_cmdSeq;
 	pass();
 	s = logStatus();
 	checkTrue("a refused START: SRV00002.CSV closed at once", !s.active && s.fileNumber == 2 &&
 	          s.how == ServoLogHow::Stop && !sdc_on());
-	checkTrue("its header, the pass's reading if one came, the end line",
-	          s.rows <= 1 && readFile("/LOGS/SRV00002.CSV", &got) &&
+	checkTrue("its header, the two passes' readings if they came, the end line",
+	          s.rows <= 2 && readFile("/LOGS/SRV00002.CSV", &got) &&
 	          got == expected(g_loop.readings) + endLine(ServoLogHow::Stop, s.rows, 0, SUPPLY_UP_NONE));
 
 	// Every other end: BACK, the cuts, the trips, a supply that did not come up.

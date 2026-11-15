@@ -4,21 +4,22 @@ Status: slices 1 to 6 built, slices 1, 3, 4, 5 and 6 host-tested and slice 2
 checked by `tools/make_wiring.py --check` ([slice 2 as
 built](#slice-2-as-built), [slice 3 as built](#slice-3-as-built), [slice 4 as
 built](#slice-4-as-built), [slice 5 as built](#slice-5-as-built), [slice 6 as
-built](#slice-6-as-built)), none tested on hardware. The owner's decisions of 2026-11-13
-and 2026-11-14 are recorded under [decisions](#decisions). On 2026-11-14 the
-owner answered Q1 to Q5: one LiPo cell into a synchronous boost, the 0.1 Ω shunt
-as sold, the servo tester switching the supply always, rcbench's limit run as
-the protection, and the settings carried over from the older layouts. One point
-is open: the converter module ([Q1](#q1-the-converter-module)); the 5 V boost
-board the owner modelled names no chip, and the owner does not know it, so its
-ratings come only from bench tests B6 and B7. Slices 3 to 6 rely on no rating of the module: the 500 ms start-up
-limit is this note's value until B6, and the cuts' thresholds are decision
-13's and this note's. The settings carry-over of decision 14 is built
-and host-tested. No INA219 has been on the board's bus, and no boost
-converter has been on GP28 or GP29: every figure below is from a datasheet,
-from rcbench's records or computed, and the ones that are not known are
-stated as unknown. The slices are at the end ([slices](#slices)); each builds,
-passes the host suite and merges alone.
+built](#slice-6-as-built)), none tested on hardware. The owner's decisions of
+2026-11-13 and 2026-11-14 are recorded under [decisions](#decisions). On
+2026-11-14 the owner answered Q1 to Q5: one LiPo cell into a synchronous boost,
+the 0.1 Ω shunt as sold, the servo tester switching the supply always, rcbench's
+limit run as the protection, and the settings carried over from the older
+layouts. One point is open: the converter module
+([Q1](#q1-the-converter-module)); the 5 V boost board the owner modelled names
+no chip, and the owner does not know it, so its ratings come only from bench
+tests B6 and B7. Slices 3 to 6 rely on no rating of the module: the 500 ms
+start-up limit is this note's value until B6, and the cuts' thresholds are
+decision 13's and this note's. The settings carry-over of decision 14 is built
+and host-tested. No INA219 has been on the board's bus, and no boost converter
+has been on GP28 or GP29: every figure below is from a datasheet, from rcbench's
+records or computed, and the ones that are not known are stated as unknown. The
+slices are at the end ([slices](#slices)); each builds, passes the host suite
+and merges alone.
 
 Terms: INA219 is Texas Instruments' (TI) current and power monitor with an
 I2C (Inter-Integrated Circuit) interface; SDA is the I2C serial data line
@@ -681,7 +682,8 @@ A reading older than 250 ms, or none, reads `-- A`.
 Decision 20 of [servo-tester.md](servo-tester.md#decisions), built here in
 slices 3, 4 and 6
 ([slice 3 as built](#slice-3-as-built), [slice 4 as
-built](#slice-4-as-built), [slice 6 as built](#slice-6-as-built)): with `SERVO SUPPLY` at `GP28` or `GP29`:
+built](#slice-4-as-built), [slice 6 as built](#slice-6-as-built)): with
+`SERVO SUPPLY` at `GP28` or `GP29`:
 
 | State | Supply |
 |---|---|
@@ -1015,7 +1017,7 @@ copies from rcbench are counted apart and are unchanged.
 | 3 | The servo tester on the switched supply, decision 20: SAFE off, START on, STOP and the trip off, the read-back, the start-up time, the stuck-bus and silent-touch cuts, the screen texts | about 350 | about 500 | | 1 |
 | 4 | Protection: `src/supply_guard.*`, the cuts in the servo job, the hard and collapse cuts in the KST and Hitec jobs, the chips and texts | about 300 | about 550 | | 3 |
 | 5 | Move timing: the move measurement in the servo job, the SET line | about 200 | about 250 | `servo_move.{c,h}`, `servo_sim.{c,h}`, `test_servo_move.c`, 1,535 lines | 3 |
-| 6 | The log: `LOGS/SRVnnnnn.CSV`, the write cache on for a SERVO claim with a log. Built: `src/servo_log.*`, 420 lines with the screen's line and the numbering per kind; tests 1,170 lines, `test/servo_log_fatfs.cpp` over FatFs and the cache ([slice 6 as built](#slice-6-as-built)) | about 300 | about 350 | | 3 |
+| 6 | The log: `LOGS/SRVnnnnn.CSV`, the write cache on for a SERVO claim with a log. Built: `src/servo_log.*`, 469 lines with their comments, and about 210 more for the screen's line, the numbering per kind and the blackbox log's stop; tests about 1,390 lines, most in `test/servo_log_fatfs.cpp` over FatFs and the cache ([slice 6 as built](#slice-6-as-built)) | about 300 | about 350 | | 3 |
 
 Each slice updates this note's status line, its row in
 [README.md](README.md), [STATUS.md](../../STATUS.md) and the README
@@ -1522,8 +1524,8 @@ applies: no file, no cache, and a running blackbox log goes on.
   `millis()`; the pulses `ServoStatus::outUs`, 0 for level 0 or no second
   servo; `current_ma` the reading rounded to the nearest mA, half away from
   zero, signed; `bus_mv` as read; `flags` `SenseSample::flags`, 1 clipped,
-  2 the first reading after a reset. A row is 24 to 28 bytes in a run
-  (`12345,1500,0,420,5020,0`), at most 42; about 1.0 kB/s. The last line
+  2 the first reading after a reset. A row is about 27 bytes in a run
+  (`123456,1500,1480,420,5020,0`), at most 42; about 1.1 kB/s. The last line
   is `# end=STOP rows=2400 dropped=0 up_ms=40`: how the run ended, the
   readings taken while the log wrote, those the ring had no room for, and
   the supply's start-up time, the place "goes into the log" of
@@ -1551,7 +1553,7 @@ applies: no file, no cache, and a running blackbox log goes on.
 - **The run's writes.** Each pass makes at most one FatFs call, and only
   while `cardCacheState()` reads Idle: an f_write() of the ring's oldest
   512 bytes, or every `SD_LOG_SYNC_MS`, 2000 ms, an f_sync(). The rows wait
-  in a ring of 16384 bytes (`SERVO_LOG_RING_BYTES`, about 16 s of rows); a
+  in a ring of 16384 bytes (`SERVO_LOG_RING_BYTES`, about 15 s of rows); a
   row it has no room for is dropped and counted. The call queues one block,
   or, past the preallocation, at most 4: the sync's entry, FSINFO and the
   FAT's block in both copies. The queue holds 32, so no write of the run
@@ -1631,7 +1633,24 @@ applies: no file, no cache, and a running blackbox log goes on.
   log while the job is not RUNNING and following the Start's seq, BACK, the
   line's texts and colours, the blind note first, the widths; the frame
   `shot_servo_log.ppm`. `test_ui.cpp`, `test_run_summary.cpp` and
-  `test/sd_log_fatfs.cpp`: SERVO TESTER's stop. MUTATION_RESULTS
+  `test/sd_log_fatfs.cpp`: SERVO TESTER's stop. Mutation check: 90 mutants
+  of `src/servo_log.cpp`, the slice's lines of `src/ui_servo.cpp`,
+  `src/sd_log.h`, `src/sd_log_next.cpp`, `src/sd_log.cpp`,
+  `src/run_summary.cpp` and `src/ui_sdlog.cpp`; 79 fail the tests, 11 do not.
+  Equivalent: `<= 0` for `< 0` in the rounding, both 0 at 0 µA; the check of
+  snprintf()'s negative return, which these formats never give; the row's
+  length against its 49-byte buffer and the end line's against its 81
+  bytes, at most 42 and 66; consuming a block whose write failed, after
+  which the writing has stopped and the ring is not read again; the drain
+  in blocks of 512 bytes, the same bytes; `s_fault == SdLogEnd::None` for
+  `s_writing`, true together; the close's check of a cache already Failed,
+  where every FatFs write and the close fail as well and record WRITE
+  FAILED; the close tried after a WRITE FAILED, whose queued blocks the
+  recovery drops before they reach the card; the end line written without
+  `s_writing`, which at a full card fails again as CARD FULL. Not killed:
+  the poll's return while the writing has stopped, which differs only when a
+  full card is then also removed in the same run, recording WRITE FAILED
+  over CARD FULL; no test runs that.
 - **Not on hardware.** No card has taken the log on the board: its read
   latency, its busy time, and the cuts' timing with the log on are not
   measured (bench test B12, a 60 s log with the supply on, is still to

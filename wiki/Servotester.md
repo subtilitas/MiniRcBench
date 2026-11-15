@@ -363,9 +363,14 @@ Versorgung nicht schaltet.
 - Stoppe das Servo, bevor du den Strom abschaltest oder die Karte ziehst.
   Ein durch Stromausfall abgebrochener Lauf hinterlässt eine Datei von
   4 MiB: die Messungen bis zum letzten 2-s-Schritt, danach Nullen.
-- Das Schreiben auf die Karte lässt weder das Servo noch die Abschaltungen
-  auf die Karte warten. Wie lange eine echte Karte braucht, ist auf der
-  Platine nicht gemessen.
+- Die Impulse warten nie auf die Karte, und kein Schreiben wartet auf sie.
+  Eine Messung des Sensors, und mit ihr eine Abschaltung, kann auf einen
+  Leseblock der Karte warten: nach der SD-Spezifikation höchstens 100 ms,
+  eine Abschaltung kann also bis zu so viel später kommen als ohne die
+  Aufzeichnung. Wie lange eine echte Karte braucht, ist auf der Platine
+  nicht gemessen.
+
+<img src="img/servo-log.png" width="240" alt="SERVO TESTER läuft, LOGGING TO SRV00012.CSV über der Skala">
 
 ---
 
