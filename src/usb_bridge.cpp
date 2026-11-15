@@ -32,6 +32,8 @@ static uint8_t        s_rx[256];                 /**< Bytes from the ring on the
 static bool           s_dtr = false;             /**< DTR at the last pass. */
 static bool           s_portClosed = false;
 static bool           s_unfinished = false;      /**< A write-class frame, no RUN and no RESTART DSHOT since. */
+static bool           s_runPending = false;      /**< A RUN handed over, not yet taken by core1. */
+static uint32_t       s_runFrame = 0;            /**< Its number among the frames handed over since the open. */
 static bool           s_cue = false;             /**< MENU's run cue (usbBridgeRunCue()). */
 static uint32_t       s_cueMs = 0;               /**< millis() when it was set. */
 static bool           s_writeWait = false;
@@ -167,7 +169,9 @@ static void openBridge() {
 	s_ready = false;
 	s_portClosed = false;
 	// s_unfinished stays: BRIDGE on the leave page reopens on the same ESC,
-	// whose flash is as cut as before (decision 10).
+	// whose flash is as cut as before (decision 10). A RUN still pending
+	// never went out: the bind zeroed the wire's counts.
+	s_runPending = false;
 	// The ESC may wait in its bootloader from now on, whatever the tool
 	// sends: MENU's cue until an eRPM frame or RESTART DSHOT.
 	s_cue = true;
@@ -275,6 +279,35 @@ static void tapBytes(const uint8_t *d, uint16_t n) {
 	}
 }
 
+/**
+ * @brief A RUN went to the slot. It ends the unfinished write only once
+ *        core1 has taken it (runCheck()): a frame core1 has not started when
+ *        BACK comes is never sent (bridgeJobRelease() in bridge_wire.cpp).
+ * @param frame Its number among the frames handed to the wire since the
+ *        open, 1 for the first (UsbBridgeStats::frames).
+ */
+static void runHandedOver(uint32_t frame) {
+	s_runPending = true;
+	s_runFrame = frame;
+}
+
+/**
+ * @brief A pending RUN that core1 took from the slot ends the unfinished
+ *        write. BridgeWireStats::frames counts the frames core1 took since
+ *        the bind, and nothing is handed over between the bind and the open,
+ *        so the RUN is taken once that count reaches its number; the release
+ *        finishes a frame core1 has started. A RUN still pending at the next
+ *        open, after a new bind, was never taken.
+ */
+static void runCheck() {
+	if (!s_runPending) return;
+	BridgeWireStats w;
+	bridgeWireStats(&w);
+	if ((int32_t)(w.frames - s_runFrame) < 0) return;
+	s_runPending = false;
+	s_unfinished = false;
+}
+
 /** @brief The gathered frame went to the slot: name it, count it, log it. */
 static void handedOver(uint32_t now) {
 	BridgeCmd c = usbBridgeCmdOf(s_buf, s_len, s_afterSetBuffer);
@@ -287,12 +320,13 @@ static void handedOver(uint32_t now) {
 		BridgeWireStats w;
 		bridgeWireStats(&w);
 		s_unfinished = true;
+		s_runPending = false;
 		s_writeWait = true;
 		s_engineWrite = false;
 		s_writeAtMs = now;
 		s_writeMark = w.received + s_len;
 	} else if (c == BridgeCmd::Run) {
-		s_unfinished = false;
+		runHandedOver(s_stats.frames + 1);
 	}
 	tapFrame(c);
 	bridgeLogAdd(BLOG_HOST_TO_ESC, s_buf, s_len);
@@ -376,13 +410,15 @@ static void protoPass(uint32_t now) {
 		}
 		if (ev.write) {
 			// As a write-class frame in passthrough: BACK disabled, the note
-			// to flash the ESC again until a RUN.
+			// to flash the ESC again until a RUN or RESTART DSHOT.
 			s_unfinished = true;
+			s_runPending = false;
 			s_writeWait = true;
 			s_engineWrite = true;
 			s_writeAtMs = now;
 		}
-		if (ev.run) s_unfinished = false;
+		// The step hands over one frame at most, the RUN the last counted.
+		if (ev.run) runHandedOver(s_stats.frames);
 		if (ev.done) {
 			if (s_engineWrite) s_writeWait = false;
 			s_outLen = bridge4wayTakeAnswer(s_out);
@@ -532,6 +568,7 @@ static void forward() {
 }
 
 void usbBridgeTask() {
+	runCheck();
 	bool running = claimRunning();
 	if (running && !s_open) openBridge();
 	else if (!running && s_open) closeBridge();

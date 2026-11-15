@@ -105,7 +105,8 @@ static void fresh(FakeEscReply r) {
 		pinClaimRestart(PinUser::Bridge);
 		pass();
 	}
-	// The screen's RESTART DSHOT clears it with the claim.
+	// Ends the claim, then clears the unfinished write as the screen's
+	// RESTART DSHOT does.
 	usbBridgeWriteUnfinishedClear();
 	usbBridgeTask();
 	fakeBridgeLineReset();
@@ -857,6 +858,63 @@ static void testBackWithHost() {
 	checkInt("no PC byte on the wire outside the claim", g_strayBytes, 0);
 }
 
+/** @brief Core0's pass alone: core1 does not run, so a frame handed over stays in the slot. */
+static void core0Pass() {
+	fakeAdvanceUs(250);
+	tud_task();
+	usbBridgeTask();
+}
+
+/** @brief A RUN ends the unfinished write once core1 takes it, not at its handover. */
+static void testRunCutByBack() {
+	section("USB bridge: a RUN handed over, BACK before core1 takes it");
+	fresh(escAck);
+	openBridge();
+	fakeCdcHostWrite(PROG, sizeof(PROG));
+	run(10);
+	checkTrue("PROGRAM answered: unfinished", usbBridgeWriteUnfinished() && !usbBridgeWriteWaiting());
+	const int w0 = fakeBridgeLineWireCount();
+	fakeCdcHostWrite(RUN, sizeof(RUN));
+	for (int k = 0; k < 40 && usbBridgeLast().cmd != BridgeCmd::Run; k++) core0Pass();
+	checkTrue("RUN handed over, core1 not yet past it: still unfinished",
+	          usbBridgeLast().cmd == BridgeCmd::Run && usbBridgeWriteUnfinished());
+	// BACK, as the screen does it, before core1's next pass.
+	pinClaimWantLeavePage(PinUser::Bridge);
+	pinClaimEnd(PinUser::Bridge);
+	run(50);
+	checkTrue("the release dropped it: no RUN on the wire, the note stands",
+	          pinClaimUnplugDue() && fakeBridgeLineWireCount() == w0 && usbBridgeWriteUnfinished());
+	pinClaimKeep(PinUser::Bridge);
+	for (int k = 0; k < 20 && usbBridgeMode() == BridgeMode::Closed; k++) {
+		pass();
+		pinClaimPoll();
+	}
+	checkTrue("BRIDGE: open again, still unfinished", usbBridgeMode() == BridgeMode::Waiting &&
+	          usbBridgeWriteUnfinished());
+	// The bind zeroed the wire's frame count: the dropped RUN's number is
+	// reached again by other frames, which end nothing.
+	fakeCdcHostWrite(SET_ADDR, sizeof(SET_ADDR));
+	run(10);
+	fakeCdcHostWrite(SET_ADDR, sizeof(SET_ADDR));
+	run(10);
+	checkTrue("two SET ADDRESS after the reopen: still unfinished", bstats().frames == 2 &&
+	          usbBridgeWriteUnfinished());
+	// A RUN that core1 takes before BACK ends it.
+	fakeCdcHostWrite(RUN, sizeof(RUN));
+	for (int k = 0; k < 40 && usbBridgeLast().cmd != BridgeCmd::Run; k++) core0Pass();
+	checkTrue("RUN handed over: pending, still unfinished", usbBridgeWriteUnfinished());
+	pass();
+	checkTrue("core1 took it: the write finished", !usbBridgeWriteUnfinished());
+	pinClaimWantLeavePage(PinUser::Bridge);
+	pinClaimEnd(PinUser::Bridge);
+	run(50);
+	checkTrue("BACK after it: the RUN on the wire, no note",
+	          wireFrame(fakeBridgeLineWireCount() - (int)sizeof(RUN), RUN, sizeof(RUN)) &&
+	          !usbBridgeWriteUnfinished());
+	fresh(escAck);
+	checkInt("DShot never up with the line", g_together, 0);
+}
+
 /** @brief The leave page: the console stays off until RESTART DSHOT; BRIDGE reopens. */
 static void testLeavePageConsole() {
 	section("USB bridge: the console through the leave page");
@@ -1178,6 +1236,7 @@ void runUsbBridgeTests() {
 	testWriteRules();
 	testBackWithHost();
 	testLeavePageConsole();
+	testRunCutByBack();
 	testRefusedBind();
 	testRunCue();
 	testStaleConsole();

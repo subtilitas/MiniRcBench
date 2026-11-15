@@ -453,6 +453,26 @@ static void testWriteAndLeave() {
 	tapId(UI_FIX(UI_BACK));
 	brFrames(1);
 
+	// A PROGRAM with no RUN, BRIDGE, a failed rebind: BACK gives the page.
+	freshUi();
+	openBridgeScreen();
+	untilOpen();
+	fakeCdcHostWrite(PROG, sizeof(PROG));
+	brFrames(4);
+	checkTrue("PROGRAM, no RUN, BACK: the FLASH note", backToPage() && flashNote());
+	fakeBridgeLineRefuse(CORE1_JOB_PIO);
+	brFrames(1);
+	tapId(UI_FIX(BridgeCtl::Bridge));
+	brFrames(4);
+	checkTrue("BRIDGE, the rebind refused: COULD NOT BE TAKEN, RETRY",
+	          msgIs(0, "SIG GP0 COULD NOT BE TAKEN (PIO)", C_AMBER) && ctlEnabled(UI_FIX(BridgeCtl::Retry)));
+	checkTrue("BACK after the failed rebind: the leave page again, with the FLASH note",
+	          backToPage() && flashNote() && pinClaimLeavePage());
+	fakeBridgeLineRefuse(0);
+	restartFromPage();
+	tapId(UI_FIX(UI_BACK));
+	brFrames(1);
+
 	// A write finished by RUN: the page without the FLASH note.
 	freshUi();
 	openBridgeScreen();
