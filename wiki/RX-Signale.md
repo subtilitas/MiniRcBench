@@ -121,15 +121,15 @@ Balken ist über dem Rohwert gezeichnet und in beiden Fällen gleich.
 
 | Text | Warum | Was tun |
 |---|---|---|
-| `AN ESC ANSWERS ON SIG GP1.` `UNPLUG IT: THE RECEIVER GOES THERE.` | SIG liegt auf GP1, und dort antwortet ein ESC. Der Empfänger würde den Signaleingang des ESC treiben | Zieh den ESC ab. Der Bildschirm nimmt den Pin 500 ms, nachdem der ESC verstummt; steck den Empfänger erst an, wenn der Verbindungs-Chip erscheint |
-| `KISS WIRE ON AUX GP1 IS LIVE.` `UNPLUG IT: THE RECEIVER GOES THERE.` | auf GP1 kommt KISS-Telemetrie an | Zieh die Telemetrieleitung ab |
+| `AN ESC ANSWERS ON SIG GP1.` `UNPLUG IT. PLUG THE RECEIVER IN` `ONCE THE LINK CHIP SHOWS.` | SIG liegt auf GP1, und dort antwortet ein ESC. Der Empfänger würde den Signaleingang des ESC treiben | Zieh den ESC ab. Der Bildschirm nimmt den Pin 500 ms, nachdem der ESC verstummt; steck den Empfänger erst an, wenn der Verbindungs-Chip erscheint. Der Chip erscheint erst, wenn der Pin belegt ist und der Job läuft; bis dahin treibt DShot GP1 weiter |
+| `KISS WIRE ON AUX GP1 IS LIVE.` `UNPLUG IT. PLUG THE RECEIVER IN` `ONCE THE LINK CHIP SHOWS.` | auf GP1 kommt KISS-Telemetrie an | Zieh die Telemetrieleitung ab. Steck den Empfänger erst an, wenn der Verbindungs-Chip erscheint |
 | `S.BUS NEEDS GP1.` `SET A PIN TO GP1 IN SETTINGS.` | weder SIG noch AUX liegt auf GP1 | Setze SIG PIN oder AUX PIN auf GP1. SETTINGS tauscht die beiden, daher kommt das auf dieser Platine nicht vor |
 | `AUX GP1 COULD NOT BE TAKEN (CLOCK)` | der serielle Empfänger der Platine konnte 100.000 Baud nicht erreichen | `RETRY` |
 
 Die ESC-Prüfung übersieht einen ESC, der nicht in bidirektionalem DShot
 antwortet.
 
-<img src="img/sbus-esc.png" width="240" alt="S.BUS MONITOR wartet: AN ESC ANSWERS ON SIG GP1. und UNPLUG IT: THE RECEIVER GOES THERE. in Bernstein"> <img src="img/sbus-no-gp1.png" width="240" alt="S.BUS MONITOR ohne Rolle auf GP1: S.BUS NEEDS GP1. und SET A PIN TO GP1 IN SETTINGS. in Bernstein">
+<img src="img/sbus-esc.png" width="240" alt="S.BUS MONITOR wartet: AN ESC ANSWERS ON SIG GP1. und UNPLUG IT. PLUG THE RECEIVER IN ONCE THE LINK CHIP SHOWS. in Bernstein"> <img src="img/sbus-no-gp1.png" width="240" alt="S.BUS MONITOR ohne Rolle auf GP1: S.BUS NEEDS GP1. und SET A PIN TO GP1 IN SETTINGS. in Bernstein">
 
 ---
 

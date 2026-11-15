@@ -2114,14 +2114,16 @@ checks:
 
 - **GP1 is SIG.** The receiver goes onto the ESC's wire. While an ESC
   answers there within 500 ms, the screen does not claim and shows
-  `AN ESC ANSWERS ON SIG GP1.` `UNPLUG IT: THE RECEIVER GOES THERE.`; it
+  `AN ESC ANSWERS ON SIG GP1.` `UNPLUG IT. PLUG THE RECEIVER IN`
+  `ONCE THE LINK CHIP SHOWS.`; it
   claims by itself 500 ms after the ESC goes quiet. Like the other screens'
   check, it misses an ESC that does not answer in bidirectional DShot. With
   GP1 as AUX an ESC on SIG only loses its frames, and there is no such wait.
-  Plug the receiver in only once the link chip shows: until then DShot
-  frames go out on GP1.
+  The chip shows once the claim holds and the job runs; until then DShot
+  frames go out on GP1, so the receiver waits for it.
 - **KISS frames on GP1**, GP1 as AUX: `KISS WIRE ON AUX GP1 IS LIVE.` and
-  the same second line; the claim follows 500 ms after the last frame.
+  the same second and third lines; the claim follows 500 ms after the last
+  frame.
 - **No role on GP1**: `S.BUS NEEDS GP1.` `SET A PIN TO GP1 IN SETTINGS.` On
   this board SETTINGS' two steppers swap GP0 and GP1, so this does not
   happen through the screens.

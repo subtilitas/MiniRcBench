@@ -392,13 +392,14 @@ rectangles of 240 × 11 px a frame.
 
 **When the pin is unavailable**, as in
 [pin-claim.md](pin-claim.md#when-the-pin-is-unavailable), the body shows a
-message in place of the channels, from x 8 at y 80 and y 94, and no chip:
+message in place of the channels, from x 8 at y 80, y 94 and, for the two
+unplug messages, y 108, and no chip:
 
 | Cause | Lines | Colour | Width |
 |---|---|---|---|
 | No role on GP1 | `S.BUS NEEDS GP1.` `SET A PIN TO GP1 IN SETTINGS.` | `C_AMBER` | 95 and 173 px |
-| An ESC answers on GP1, GP1 is SIG | `AN ESC ANSWERS ON SIG GP1.` `UNPLUG IT: THE RECEIVER GOES THERE.` | `C_AMBER` | 155 and 209 px |
-| KISS frames on GP1, GP1 is AUX | `KISS WIRE ON AUX GP1 IS LIVE.` `UNPLUG IT: THE RECEIVER GOES THERE.` | `C_AMBER` | 173 and 209 px |
+| An ESC answers on GP1, GP1 is SIG | `AN ESC ANSWERS ON SIG GP1.` `UNPLUG IT. PLUG THE RECEIVER IN` `ONCE THE LINK CHIP SHOWS.` | `C_AMBER` | 155, 185 and 149 px |
+| KISS frames on GP1, GP1 is AUX | `KISS WIRE ON AUX GP1 IS LIVE.` `UNPLUG IT. PLUG THE RECEIVER IN` `ONCE THE LINK CHIP SHOWS.` | `C_AMBER` | 173, 185 and 149 px |
 | The claim drains DShot (Stopping) | `RELEASING AUX GP1` | `C_DIM` | 101 px |
 | Held, the job not bound yet | `TAKING AUX GP1` | `C_DIM` | 83 px |
 | The bind refused the clock | `AUX GP1 COULD NOT BE TAKEN (CLOCK)`, and RETRY, the wide button at 6, 268, 228 × 46, scale 2 | `C_AMBER` | 203 px |
@@ -801,9 +802,10 @@ S.BUS output's row is to be designed ([S.BUS output](#sbus-output)).
   may still sit, and the receiver's S.BUS output would drive the ESC's
   signal input. In those wirings the monitor waits while an ESC answers on
   GP1 within `ESC_LINK_STALE_MS`, 500 ms, and shows `AN ESC ANSWERS ON
-  SIG GP1.` `UNPLUG IT: THE RECEIVER GOES THERE.` (26 and 35 characters,
-  155 px and 209 px). `PinUserInfo.escCheck` is one flag per user, so the
-  screen makes the check itself before each `pinClaimBegin()`, with
+  SIG GP1.` `UNPLUG IT. PLUG THE RECEIVER IN` `ONCE THE LINK CHIP SHOWS.`
+  (26, 31 and 25 characters, 155, 185 and 149 px). `PinUserInfo.escCheck` is
+  one flag per user, so the screen makes the check itself before each
+  `pinClaimBegin()`, with
   `escFieldFresh()` on the snapshot's `lastRpmMs`, the rule
   `pinClaimCheck()` uses, after that function's Armed and Busy rules, and
   asks again every frame; the claim's table stays as it is. Like the
@@ -1096,12 +1098,17 @@ tester tests where they named the row. Choices the note left open:
   SERVO TESTER's, with `UNPLUG THE RECEIVER.` and its detail lines as step
   1, `RESTART DSHOT.` as step 2, and BACK TO MONITOR in the left button, in
   place of the note's `UNPLUG RECEIVER.` headline at scale 2.
-- **When to plug the receiver in** is not on the screen. With GP1 as SIG,
+- **When to plug the receiver in** is on the screen. With GP1 as SIG,
   bidirectional DShot keeps driving GP1 until the claim holds: 500 ms after
-  the ESC goes quiet, then the drain of at least 250 ms. The screen's
-  `UNPLUG IT: THE RECEIVER GOES THERE.` does not say to wait for the link
-  chip; README.md and the wiki pages do. The screen text is the note's, as
-  drawn; whether it names the wait is a point for the owner.
+  the ESC goes quiet, then the drain of at least 250 ms. The link chip
+  appears only once the job runs, so it is the safe moment. The owner
+  decided on 2026-11-15 that the screen says so: `UNPLUG IT. PLUG THE
+  RECEIVER IN` `ONCE THE LINK CHIP SHOWS.`, the second line at y 94 and a
+  third at y 108, 14 px below it. The KISS message shares both lines: the
+  chip shows only after the KISS wire has been quiet 500 ms and the job
+  runs. With GP1 as AUX, DShot does not drive GP1, so the wait there is not
+  a protection against it; what a receiver plugged in earlier does to the
+  KISS frame check is not tested.
 - **The caption with no role on GP1** reads `GP1  100 KBAUD  8E2`, with no
   role to name.
 - **The chip's label on amber** is `C_PAPER`, the rule `theme.h` gives for
