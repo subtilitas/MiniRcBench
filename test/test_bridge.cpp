@@ -329,8 +329,15 @@ static void testOverruns() {
 	checkInt("24 left and 100 more, across the wrap", n, 124);
 	checkTrue("in order", ring[23] == (uint8_t)(0x40 + 1023) && ring[24] == 0x40 &&
 	                      ring[123] == (uint8_t)(0x40 + 99));
+	bridgeWireSend(INIT, 1);
+	steps(80, 1000);
+	checkInt("100 more, left unread", bridgeWireAvailable(), 100);
 	releaseJob();
-	checkInt("closed: nothing to read", bridgeWireAvailable(), 0);
+	checkInt("closed: none to read", bridgeWireAvailable(), 0);
+	checkInt("and none taken", bridgeWireRecv(ring, sizeof(ring)), 0);
+	BRIDGE_JOB_OPS.bind(0, 0xFF);
+	checkInt("bound again: the ring empty", bridgeWireAvailable(), 0);
+	releaseJob();
 
 	// Every echo lost: 8 owed stop the feed until the line is idle.
 	bindJob();

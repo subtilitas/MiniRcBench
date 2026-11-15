@@ -240,17 +240,15 @@ static bool bridgeJobRelease(uint32_t nowMs) {
 		s_releasing = true;
 		s_releaseMs = nowMs;
 		WIRE_PUBLISH(s_open, false);
-		// A frame not started stays unsent: BACK sends nothing new
-		// (docs/design/usb-bridge.md, decision 6).
-		if (!s_txActive) WIRE_PUBLISH(s_slotFull, false);
 	}
+	// A frame not started stays unsent: BACK sends nothing new
+	// (docs/design/usb-bridge.md, decision 6).
 	receive();
 	feed(false);
 	if ((s_txActive || !bridgeLineIdle()) && nowMs - s_releaseMs < BRIDGE_RELEASE_MAX_MS)
 		return false;
 	bridgeLineClose();
 	s_txActive = false;
-	WIRE_PUBLISH(s_slotFull, false);
 	s_echoCount = 0;
 	s_releasing = false;
 	return true;
