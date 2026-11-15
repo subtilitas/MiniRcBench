@@ -66,11 +66,14 @@ sie waren.
 | CALIBRATION | `FLIP` | Öffnet FLIP CAL. Darunter: `CALIBRATED` oder `NOT CALIBRATED` |
 
 Eine Änderung gilt sofort. `BACK` führt zur Hauptansicht und speichert die
-Einrichtung einmal auf der Platine, wenn sich etwas geändert hat. Schlägt
-das Speichern fehl, zeigt die Hauptansicht `SETUP NOT SAVED TO FLASH.`; die
-Werte gelten bis zum Neustart der Platine. Einrichtung und Kalibrierung
-bleiben über einen Neustart erhalten. `HOLD DEFAULTS` in SETTINGS setzt sie
-mit allen anderen Einstellungen zurück.
+Einrichtung auf der Platine, wenn sie von der gespeicherten abweicht.
+Schlägt das Speichern fehl, zeigt die Hauptansicht
+`SETUP NOT SAVED TO FLASH.`, auch bei späteren Besuchen, und die Werte
+gelten bis zum Neustart der Platine. `BACK` auf SETUP versucht das
+Speichern erneut, mit oder ohne Änderung, und `HOLD TO SAVE` in SETTINGS
+speichert sie ebenfalls. Einrichtung und Kalibrierung bleiben über einen
+Neustart erhalten. `HOLD DEFAULTS` in SETTINGS behält sie, da SETTINGS sie
+nicht zeigt.
 
 ### Welche Kante entlang der Achse
 

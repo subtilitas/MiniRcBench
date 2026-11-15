@@ -265,8 +265,8 @@ since the strip names the pins. `BACK` returns to the tester.
 tappable without a drag. The seventh, SD LOG, shows only 6 px at first; drag
 MENU up 34 px to bring it whole into view. The eighth, SETTINGS, starts below
 the screen: drag MENU up 76 px to bring SETTINGS and its `UNSAVED` status
-into view. A row takes a tap only while it shows whole. A 3 px scroll bar at the right edge shows the
-position.
+into view. A row takes a tap only while it shows whole. A 3 px scroll bar
+at the right edge shows the position.
 
 | Row | State on the right | A tap |
 |---|---|---|
@@ -407,7 +407,7 @@ to `MENU`, and so does `RESTART DSHOT` at the end of the monitor. See
 <img src="img/tools-chooser.png" width="240" alt="TOOLS: ANGLE METER with INCIDENCE, DECALAGE, DIHEDRAL, THROW under it">
 
 `MENU → TOOLS` opens a choice of the bench tools that use no signal pin,
-as PROGRAMMER: for now **ANGLE METER** alone. The strip reads
+as PROGRAMMER. TOOLS holds **ANGLE METER**. The strip reads
 `DSHOT RUNS ON SIG GP0`: TOOLS takes no pin, and neither does the angle
 meter. `BACK` returns to `MENU`, and so does `BACK` on the angle meter. See
 [Angle Meter](Angle-Meter).

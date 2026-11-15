@@ -4,20 +4,21 @@ Status: designed; slices 1 to 5 built, host tests only. Slice 1, the copies from
 rcbench ([slice 1 as built](#slice-1-as-built)). Slice 2, the driver ([slice 2
 as built](#slice-2-as-built)). Slice 3, the model ([slice 3 as
 built](#slice-3-as-built)): it calls the copies, and it adapts the cases of
-rcbench's `test_imu.c` and `test_imu_filter.c` that need `imu.h` alone. Slice
-4, the screen ([slice 4 as built](#slice-4-as-built)): ANGLE METER behind
-MENU's sixth row, `TOOLS`, opens the driver and shows the model's reading, and
-the settings block, version 6, keeps the setup and the calibration. Slice 5,
-the documentation, with it ([slice 5 as built](#slice-5-as-built)). Slice 6,
-the bring-up, bench tests B1 to B9, waits. The owner chose the angle meter on 2026-11-14 from the feature survey, as
-item 3 of 6: incidence, decalage, dihedral and control-surface throw, in degrees
-and in mm, from the QMI8658 IMU on the board, at 0x6B on I2C1. The owner
-answered its questions on 2026-11-15, see [decisions](#decisions), first among
-them the entry: an eighth MENU row, `TOOLS`, opening a chooser. Nothing of the
-meter has run on a board. The sensor facts come from QST's datasheets and
-Waveshare's schematic and demo code; the ones this project has not seen on the
-bus are marked as such and listed under [to confirm](#to-confirm). The real
-accuracy is unknown until the bench measures it.
+rcbench's `test_imu.c` and `test_imu_filter.c` that need `imu.h` alone. Slice 4,
+the screen ([slice 4 as built](#slice-4-as-built)): ANGLE METER behind MENU's
+sixth row, `TOOLS`, opens the driver and shows the model's reading, and the
+settings block, version 6, keeps the setup and the calibration. Slice 5, the
+documentation, with it ([slice 5 as built](#slice-5-as-built)). Slice 6, the
+bring-up, bench tests B1 to B9, waits. The owner chose the angle meter on
+2026-11-14 from the feature survey, as item 3 of 6: incidence, decalage,
+dihedral and control-surface throw, in degrees and in mm, from the QMI8658 IMU
+on the board, at 0x6B on I2C1. The owner answered its questions on 2026-11-15,
+see [decisions](#decisions), first among them the entry: an eighth MENU row,
+`TOOLS`, opening a chooser. Nothing of the meter has run on a board. The sensor
+facts come from QST's datasheets and Waveshare's schematic and demo code; the
+ones this project has not seen on the bus are marked as such and listed under
+[to confirm](#to-confirm). The real accuracy is unknown until the bench measures
+it.
 
 ## Terms
 
@@ -681,7 +682,7 @@ title `TOOLS` is 58 px.
 Chosen: (b), the recommendation. The USB bridge does not take the
 chooser's second entry: it sits in the `ESC CONFIG` chooser of
 [usb-bridge.md](usb-bridge.md#decisions). The `TOOLS` chooser holds
-`ANGLE METER` alone for now.
+`ANGLE METER`.
 
 ## Interlocks
 
@@ -1131,12 +1132,14 @@ settings block is version 6 by decision 4 (`src/settings.*`). Host tests in
   are fixed ids (`AngleCtl`). The toggles have no filled state; `-` and `+`
   step LENGTH `OFF`, 10 to 500, `OFF` below 10, held at 500, with
   `repeatFires()`. A row writes the model and the live settings at once.
-  `BACK` compares the four fields with those SETUP opened with and saves
-  only on a change, through `settingsSaveAngle()`: the block written is the
-  settings as last loaded or saved with the four fields from the live ones,
-  so a SETTINGS change not saved stays unsaved, and nothing is written for a
-  block equal to the stored one. A failed save reads
-  `SETUP NOT SAVED TO FLASH.` on the main view; the values stay live.
+  `BACK` saves while the four fields differ from flash
+  (`settingsAngleDirty()`), through `settingsSaveAngle()`: the block written
+  is the settings as last loaded or saved with the four fields from the live
+  ones, so a SETTINGS change not saved stays unsaved. So a save that failed
+  is tried again on the next BACK, edit or not, on this visit or a later
+  one. The main view's hint reads `SETUP NOT SAVED TO FLASH.` while the
+  fields differ from flash; the values stay live, and SETTINGS' HOLD TO
+  SAVE stores them too.
 - **FLIP CAL** opens from CALIBRATION's `FLIP` with `angleFlipBegin()`;
   `BACK` calls `angleFlipEnd()` and returns to SETUP. Its strip reads
   `STEP 1 OF 3` to `STEP 3 OF 3`, then `RESULT` or `NO RESULT`; with no
@@ -1147,9 +1150,11 @@ settings block is version 6 by decision 4 (`src/settings.*`). Host tests in
   writes it to the live settings and saves it, and the line at y 252 reads
   `KEPT AND SAVED.` or `APPLIED, NOT SAVED TO FLASH.`. A calibration applied
   and not saved is a changed field to SETUP, whose BACK tries the save again.
-  AGAIN begins the flip again. While the model's last frame has the normal below 0 the page takes
-  no touch, and BACK, AGAIN and HOLD TO KEEP are drawn and reported
-  disabled.
+  AGAIN begins the flip again. While the model's last frame has the normal
+  below 0 the page takes no touch, and BACK, AGAIN and HOLD TO KEEP are
+  drawn and reported disabled.
+- **The only exit** is BACK on the main view, which calls `qmi8658Stop()`;
+  SETUP's and FLIP CAL's BACK stay in the meter.
 - **Repaints.** Each view is a set of regions keyed on what they draw; a
   frame repaints a region whose key changed, and a new view repaints all.
 - **The settings block, version 6,** has 44 bytes: version 5's 14 and, from
@@ -1161,9 +1166,10 @@ settings block is version 6 by decision 4 (`src/settings.*`). Host tests in
   calibration `angleCalValid()` refuses, or a flag other than 0 or 1, to
   none: the flag 0, offsets 0, gains 1. A version 5 block, recovered from
   `src/settings.h` at aafc31b, is carried over as versions 2 to 4 are,
-  CURRENT SENSE from its byte 21; the angle fields take their defaults. HOLD
-  DEFAULTS on SETTINGS resets them with the rest. SETTINGS does not show
-  them.
+  CURRENT SENSE from its byte 21; the angle fields take their defaults.
+  SETTINGS does not show them, and its HOLD DEFAULTS keeps them (review of
+  PR #101): a reset there followed by a save of the meter would otherwise
+  store a calibration of none.
 - **No accuracy on the screen.** The texts state no accuracy; the wiki says
   that none is measured.
 

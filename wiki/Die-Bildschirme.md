@@ -290,8 +290,8 @@ sechste, ganz sichtbar und ohne Ziehen antippbar. Von der siebten, SD LOG,
 sind zuerst nur 6 px sichtbar; ziehe MENU um 34 px nach oben, um sie ganz zu
 sehen. Die achte, SETTINGS, beginnt unter dem Bildschirm: Ziehe MENU um
 76 px nach oben, um SETTINGS mit seinem Zustand `UNSAVED` ganz zu sehen.
-Eine Zeile nimmt ein Tippen nur an, solange sie ganz sichtbar ist. Ein 3 px breiter Rollbalken am rechten Rand zeigt die
-Lage.
+Eine Zeile nimmt ein Tippen nur an, solange sie ganz sichtbar ist. Ein
+3 px breiter Rollbalken am rechten Rand zeigt die Lage.
 
 | Zeile | Zustand rechts | Ein Tippen |
 |---|---|---|
@@ -440,7 +440,7 @@ Siehe [RX-Signale](RX-Signale).
 <img src="img/tools-chooser.png" width="240" alt="TOOLS: ANGLE METER mit INCIDENCE, DECALAGE, DIHEDRAL, THROW darunter">
 
 `MENU → TOOLS` öffnet eine Wahl der Prüfstand-Werkzeuge, die keinen
-Signalpin nutzen, wie PROGRAMMER: vorerst nur **ANGLE METER**. Die Leiste
+Signalpin nutzen, wie PROGRAMMER. TOOLS enthält **ANGLE METER**. Die Leiste
 zeigt `DSHOT RUNS ON SIG GP0`: TOOLS belegt keinen Pin, der Winkelmesser
 auch nicht. `BACK` führt zu `MENU` zurück, ebenso `BACK` auf dem
 Winkelmesser. Siehe [Winkelmesser](Winkelmesser).

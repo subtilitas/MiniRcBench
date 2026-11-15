@@ -62,10 +62,13 @@ zero holds only while both stay where they were.
 | CALIBRATION | `FLIP` | Opens FLIP CAL. Under it: `CALIBRATED` or `NOT CALIBRATED` |
 
 A change applies at once. `BACK` returns to the main view and saves the
-setup to the board once, if something changed. If that save fails, the main
-view reads `SETUP NOT SAVED TO FLASH.`; the values stay in use until the
-board restarts. The setup and the calibration are kept across a restart.
-`HOLD DEFAULTS` on SETTINGS resets them with every other setting.
+setup to the board when it differs from what the board has saved. If that
+save fails, the main view reads `SETUP NOT SAVED TO FLASH.`, also on later
+visits, and the values stay in use until the board restarts. `BACK` on SETUP
+tries the save again, with or without a change, and `HOLD TO SAVE` on
+SETTINGS stores them too. The setup and the calibration are kept across a
+restart. `HOLD DEFAULTS` on SETTINGS keeps them, since SETTINGS does not
+show them.
 
 ### Which edge along the axis
 

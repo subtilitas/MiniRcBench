@@ -942,7 +942,7 @@ protocol.
   (decision 4 of [angle-meter.md](docs/design/angle-meter.md#decisions)). A
   whole block of version 5, as of versions 2 to 4, is carried over, CURRENT
   SENSE with it and the angle fields at their defaults. HOLD DEFAULTS on
-  SETTINGS resets the angle fields with the rest.
+  SETTINGS keeps the angle fields, which SETTINGS does not show.
 - After v0.1.0-rc1: a pin claim without the leave page restores DShot only
   once its core1 job has let the pin go, so DShot is never rebuilt on a pin
   a job's state machines still drive. Any call into the claim,

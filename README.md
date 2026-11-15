@@ -793,8 +793,9 @@ core1, and with it the DShot pump, for the length of the erase. That duration
 is not measured. Saving is refused while armed (`NOT WHILE ARMED - DISARM TO
 SAVE`); opening MENU disarms, so the refusal is a backstop. **HOLD DEFAULTS**
 (1 s, `UI_HOLD_MS`, the same hold widget, `src/ui_hold.*`) loads the compiled
-defaults, pole count and throttle ceiling included, into the live settings,
-the angle meter's setup and calibration among them. A
+defaults, pole count and throttle ceiling included, into the live settings;
+the angle meter's setup and calibration, which SETTINGS does not show, keep
+their values. A
 tap loads nothing, a slide off the button cancels the hold, and a bar over
 the button and a `C_RED` fill, as on every hold of `src/ui_hold.*`, show it
 running. It has no armed check: SETTINGS opens only through MENU, which
@@ -2789,7 +2790,8 @@ visit: BACK drops them, and the next visit starts from level. The screen
 shows 0.1° and 0.1 mm; that is the display's resolution, not an accuracy.
 
 **SETUP.** Rows as SETTINGS draws them. A row applies at once; BACK returns
-to the main view and saves the four fields once, when one changed.
+to the main view and saves the four fields while they differ from flash
+(`settingsAngleDirty()`).
 
 | Row | Values | What it does |
 |---|---|---|
@@ -2800,9 +2802,11 @@ to the main view and saves the four fields once, when one changed.
 
 The save, `settingsSaveAngle()`, writes the meter's four fields over the
 settings as last saved, so a change made on SETTINGS and not saved stays
-unsaved. A save that fails reads `SETUP NOT SAVED TO FLASH.` on the main
-view, and the values stay live until a restart. The IMU keeps running on
-SETUP and FLIP CAL.
+unsaved. While the fields differ from flash, after a save that failed, the
+main view reads `SETUP NOT SAVED TO FLASH.`, on later visits too; the values
+stay live until a restart, and SETUP's next BACK tries the save again, with
+or without an edit. SETTINGS' HOLD TO SAVE stores them too. The IMU keeps
+running on SETUP and FLIP CAL.
 
 **FLIP CAL.** Three poses on a flat, steady surface, level or not, each held
 still for 2 s: screen up; turned end for end on the same spot, lifted off and
@@ -2822,7 +2826,7 @@ tests B5 and B6).
 
 **Settings.** ALONG AXIS, SIGN, LENGTH and the calibration are kept in the
 settings block, version 6 ([Using it](#using-it), SETTINGS). SETTINGS does
-not show them; its HOLD DEFAULTS resets them with the rest.
+not show them, and its HOLD DEFAULTS keeps them.
 
 **Pins.** The meter claims no pin: DShot keeps running on SIG, and the ESC
 is disarmed as MENU opens. TOOLS and the meter open only while the pin claim
