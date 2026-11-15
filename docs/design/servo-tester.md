@@ -695,11 +695,14 @@ Decision of the owner, 2026-10-18, on the switched servo supply that
 
 20. **Switched supply.** A change after KST programming uses it here too:
     SAFE is supply off, HOLD TO START switches it on, and STOP and a
-    heartbeat trip switch it off. Not built. Until that change the servo
-    tester never drives the enable pin, GP28 or GP29, so with a converter
-    fitted the converter stays off here, and the servo is unpowered unless
-    it has a supply of its own.
+    heartbeat trip switch it off.
     kst-programming.md records the same as its decision 10.
+    Built as slice 3 of [current-sense.md](current-sense.md#slice-3-as-built):
+    the enable pin is driven low from the bind, high at START, low at STOP,
+    at a heartbeat trip, at a silent touch controller or a stuck bus, and at
+    the release, where it becomes an undriven input after the last pulse.
+    The pulses wait at level 0 until the supply is up. With `SERVO SUPPLY`
+    at `OWN` nothing changes. Host-tested, not tested on hardware.
 
 Decision of the owner, 2026-11-14:
 

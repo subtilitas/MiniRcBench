@@ -103,6 +103,20 @@ bool touchInit();
 bool touchAnswered();
 
 /**
+ * @brief millis() of the controller's last answer: the presence check in
+ *        touchInit() returning the 0xCACA ID, or a finger read in
+ *        touchPoll() that completes. Either core.
+ *
+ * Core0 writes it, core1 reads it, as escHeartbeatMs(): the servo tester's
+ * job switches the servo's supply off once it is 250 ms old, since STOP is
+ * then out of reach (docs/design/current-sense.md, "Safety and
+ * interlocks"). 0 while the controller has not answered since boot.
+ *
+ * @return The stamp.
+ */
+uint32_t touchAnsweredMs();
+
+/**
  * @brief Poll the controller and update @p t.
  *
  * Safe to call at any rate; ~60 Hz is plenty. A single failed I2C transaction

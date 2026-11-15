@@ -70,8 +70,11 @@ Current limitations:
   unreadable, guesses its latest number from the names. With all 50 numbers
   taken the guess is 050, so the next backup writes over 001, which need not
   be the oldest: a ring whose true latest is 004 loses its 4th-newest
-  backup. The board's real-time clock is not used, so the files' dates
-  cannot tell the order either.
+  backup. The files' dates cannot tell the order either: the board's
+  real-time clock dates files only when it was running at start-up, which
+  the firmware cannot bring about yet (slice 4 of
+  [run-summary.md](run-summary.md#slice-4-as-built)), and files written
+  without it carry FAT date 0.
 - A card on which 49 or 50 ring names are directories, made on a computer,
   leaves no free number, or one: a first write that keeps an old record then
   writes the session's backup over the record it just moved.

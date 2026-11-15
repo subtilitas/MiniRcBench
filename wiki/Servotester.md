@@ -24,7 +24,10 @@ zeigt, wohin der Impuls das Servo schickt, nicht, wo das Servo steht.
 ## Verkabelung
 
 Das Servo braucht eine eigene Stromversorgung. Die Platine liefert nur Signal
-und Masse.
+und Masse. Mit SERVO SUPPLY auf `GP28` oder `GP29` ist diese Versorgung der
+geschaltete Wandler des Prüfstands, Teil C des
+[Verdrahtungsplans](Verdrahtung), den der Bildschirm selbst schaltet
+([Die geschaltete Versorgung](#die-geschaltete-versorgung)).
 
 ```
   Servoversorgung, 4,8 V bis 6,0 V (8,4 V bei einem HV-Servo, Hochvolt)
@@ -90,14 +93,39 @@ In SAFE mit einem Servo steht rechts in der Anzeigezeile `TWO SERVOS:` und
 (siehe [Zwei Servos](#zwei-servos)). Solange AUX verweigert ist, fehlt der
 Hinweis.
 
-Steht **SERVO SUPPLY** unter SETTINGS auf `GP28` oder `GP29`, zeigt eine
-zweite Zeile unter dem Titel `GP28 SUPPLY STAYS OFF HERE.` in Bernstein. Der
-Servotester schaltet den Wandler des KST- und des Hitec-Programmierers nie
-ein; ein Servo, das nur diesen Wandler als Versorgung hat, bekommt auf diesem
-Bildschirm keinen Strom. Gib ihm eine eigene Versorgung wie unter
-[Verkabelung](#verkabelung).
+### Die geschaltete Versorgung
 
-<img src="img/servo-supply.png" width="240" alt="Der Servobildschirm mit SERVO SUPPLY auf GP28: GP28 SUPPLY STAYS OFF HERE. unter dem Titel">
+Steht **SERVO SUPPLY** unter SETTINGS auf `GP28` oder `GP29`, schaltet der
+Servotester den Wandler, den auch der KST- und der Hitec-Programmierer
+nutzen, Teil C des Verdrahtungsplans. Nicht auf Hardware getestet.
+
+- **SAFE:** Der Wandler ist aus. Die Zeile unter dem Titel zeigt
+  `GP28 SUPPLY ON AT START` in Bernstein, und das Zifferblatt warnt
+  `PULSES ON GP0 ARE THROTTLE TO AN ESC,` / `AND ITS BEC WIRE GETS THE SUPPLY.`
+- **`HOLD TO START`:** Der Wandler geht sofort an, die Zeile zeigt
+  `GP28 SUPPLY COMING UP`, und das Servo bekommt noch keinen Impuls. Tasten
+  und Zifferblatt warten; `STOP` wirkt.
+- **Versorgung steht:** mit dem Stromsensor (SETTINGS > CURRENT SENSE
+  `INA219`) beim ersten Messwert von 4,5 V oder mehr, ohne ihn nach 500 ms.
+  Das Servo fährt in die Mitte, die Zeile zeigt `GP28 SUPPLY ON`. Der
+  SET-Bildschirm zeigt, wie lange es dauerte, `SUPPLY UP IN 25 MS`.
+- **Wieder aus:** bei `STOP`, wenn der Bildschirm 250 ms hängt, wenn das
+  Touchpanel 250 ms nicht antwortet (`STOPPED: TOUCH DID NOT ANSWER`), wenn
+  der I2C-Bus hängt (`STOPPED: TOUCH BUS STUCK`), und bei `BACK`.
+- **Kam nicht hoch:** Mit dem Sensor und ohne 4,5 V innerhalb von 500 ms geht
+  der Wandler aus, und das Zifferblatt zeigt
+  `SUPPLY NOT UP: NO 4.5 V IN 500 MS.`
+- **Sensor nicht gefunden:** Mit CURRENT SENSE auf `INA219` und ohne Sensor
+  ist `HOLD TO START` grau, und das Zifferblatt zeigt
+  `START WAITS FOR THE CURRENT SENSOR.` Mit CURRENT SENSE auf `NONE` startet
+  der Test ohne ihn. Ein hängender I2C-Bus oder ein stummes Touchpanel hält
+  den Start ebenfalls auf: `START WAITS: THE I2C BUS IS STUCK.` oder
+  `START WAITS: TOUCH DOES NOT ANSWER.`
+- **Nicht aus:** Misst der Sensor 2 s nach dem Ausschalten noch mehr als
+  2,5 V, zeigt die Zeile `GP28 SUPPLY NOT OFF`. Der Wandler trennt seinen
+  Ausgang nicht ab, oder EN wird hochgehalten: Prüfe die Verdrahtung.
+
+<img src="img/servo-supply.png" width="240" alt="Der Servobildschirm mit SERVO SUPPLY auf GP28 in SAFE: GP28 SUPPLY ON AT START unter dem Titel und die ESC-Warnung auf dem Zifferblatt"> <img src="img/servo-no-sensor.png" width="240" alt="START WAITS FOR THE CURRENT SENSOR. mit grauem HOLD TO START"> <img src="img/servo-not-off.png" width="240" alt="GP28 SUPPLY NOT OFF unter dem Titel, 4.90 V in der Anzeige"> <img src="img/servo-set-up.png" width="240" alt="SERVO SET mit SUPPLY UP IN 25 MS unter STOP TO CHANGE THE PROFILE">
 
 ---
 
@@ -323,8 +351,7 @@ und `MENU` erscheint. `BACK` auf der Seite ist grau und bewirkt nichts.
 - **Das Servo bewegt sich nicht.** Prüfe, ob die Statusanzeige `RUNNING`
   zeigt, ob das Servo eine eigene Versorgung hat und ob seine Masse mit der
   der Platine verbunden ist. Ob ein Servo die 3,3-V-Impulse der Platine
-  annimmt, ist nicht für jedes Servo erfasst. Steht
-  `GP28 SUPPLY STAYS OFF HERE.` unter dem Titel, ist der geschaltete Wandler
-  auf diesem Bildschirm aus.
+  annimmt, ist nicht für jedes Servo erfasst. Mit der geschalteten
+  Versorgung prüfe, ob die Zeile unter dem Titel `GP28 SUPPLY ON` zeigt.
 
 Der Servotester ist noch nicht auf Hardware getestet.
