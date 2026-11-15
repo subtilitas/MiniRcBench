@@ -90,3 +90,6 @@ uint32_t fakeHitecLastStartUs();
 
 /** @brief Transactions cut by hitecLineAbort() since fakeHitecLineReset(). */
 unsigned fakeHitecAborts();
+
+/** @brief A transaction was started and its capture not yet polled. */
+bool fakeHitecLineBusy();

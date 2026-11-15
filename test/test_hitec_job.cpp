@@ -21,6 +21,9 @@
 #include "kst_seek.h"
 #include "servo_supply.h"
 #include "settings.h"
+#include "sense.h"
+#include "fake_i2c.h"
+#include "plat.h"
 
 #include <pico/time.h>
 #include <stdio.h>
@@ -41,16 +44,45 @@ static bool enHigh() {
 	return p.output && p.high;
 }
 
-/** @brief @p ms passes of core1, one a millisecond. */
+/** @brief The INA219 on the fake bus while a test of the cuts runs, or null. */
+static FakeIna219 *g_ina = nullptr;
+/** @brief The converter's output while the enable pin is high, V. */
+static double      g_vout = 5.0;
+/** @brief millis() of the last sensor read. */
+static uint32_t    g_senseMs = 0;
+
+/** @brief @p ms passes of core1, one a millisecond; with g_ina, core0 reads it every 25 ms first. */
 static void passes(uint32_t ms) {
 	for (uint32_t i = 0; i < ms; i++) {
 		fakeAdvance(1);
 		if (g_alive) escHeartbeat();
 		if (g_stamp) hitecCardStamp();
 		fakeHitecSimUpdate(enHigh(), time_us_32());
+		if (g_ina && millis() - g_senseMs >= 25) {
+			g_ina->voutV = enHigh() ? g_vout : 0.0;
+			g_senseMs = millis();
+			senseTick(g_senseMs);
+		}
 		core1JobPoll();
 		fakeHitecSimUpdate(enHigh(), time_us_32());
 	}
+}
+
+/** @brief Passes up to and including the next one in which core0 reads the sensor. */
+static void passToRead() {
+	do passes(1); while (g_senseMs != millis());
+}
+
+/**
+ * @brief Passes until a transaction is on the line, then one in which core0
+ *        reads @p amps before core1's pass: the job judges that reading
+ *        while the transaction is still out.
+ */
+static void readWhileOut(double amps) {
+	for (int i = 0; i < 5000 && !fakeHitecLineBusy(); i++) passes(1);
+	g_ina->currentA = amps;
+	g_senseMs = millis() - 25;
+	passes(1);
 }
 
 static HitecStatus status() {
@@ -728,6 +760,140 @@ static void testCardPhase() {
 	finish();
 }
 
+/** @brief CURRENT SENSE at INA219 with the part on the fake bus, read every 25 ms. */
+static void sensorOn() {
+	fakeI2cReset();
+	settings()->currentSense = 1;
+	senseConfigure(1);
+	g_ina = fakeI2cAddIna219(INA219_ADDR);
+	g_vout = 5.0;
+	g_senseMs = millis();
+	senseTick(millis());
+}
+
+/** @brief CURRENT SENSE back at NONE, the bus empty. */
+static void sensorOff() {
+	g_ina = nullptr;
+	settings()->currentSense = 0;
+	senseConfigure(0);
+	fakeI2cReset();
+}
+
+static void testCuts() {
+	section("Hitec job: the hard and the collapse cut on the switched supply");
+	static const uint8_t FAMILIES[] = { HITEC_D, HITEC_CLASSIC };
+	for (uint8_t family : FAMILIES) {
+		const char *name = family == HITEC_D ? "D series" : "classic";
+		char what[96];
+		sensorOn();
+		checkTrue(family == HITEC_D ? "D series in the mode, sensed" : "classic in the mode, sensed",
+		          startInMode(family, true) && enHigh());
+		// The hard cut during a write: the supply off and the transaction
+		// cut in the pass that reads it.
+		HitecStatus st = status();
+		hitec_image_t t = draftOf(&st.image, family);
+		send(HitecOp::Write, &t);
+		passes(1);
+		while (status().job == HitecJobState::Busy && status().stepIndex == 0) passes(1);
+		snprintf(what, sizeof(what), "%s: a write under way", name);
+		checkTrue(what, status().job == HitecJobState::Busy && status().lastWrite);
+		readWhileOut(3.2);
+		unsigned aborts = fakeHitecAborts() - 1;
+		unsigned starts = fakeHitecStarts();
+		st = status();
+		snprintf(what, sizeof(what), "%s: 3.2 A: GP28 low, the line cut, EntryEnded, Hard", name);
+		checkTrue(what, !enHigh() && st.job == HitecJobState::EntryEnded && st.cut == GuardCut::Hard &&
+		          !st.inMode && !st.hasBackup && st.stallWrote && !st.stalled);
+		snprintf(what, sizeof(what), "%s: the transaction on the line cut, the line free", name);
+		checkTrue(what, fakeHitecAborts() == aborts + 1 && !fakeHitecLineBusy());
+		passes(3000);
+		snprintf(what, sizeof(what), "%s: no switch-on and no transaction until RETRY", name);
+		checkTrue(what, !enHigh() && fakeHitecStarts() == starts &&
+		          status().job == HitecJobState::EntryEnded);
+		g_ina->currentA = 0;
+		uint16_t seq = send(HitecOp::Enter);
+		passes(1);
+		snprintf(what, sizeof(what), "%s: RETRY clears the cut and enters", name);
+		checkTrue(what, status().ackSeq == seq && status().cut == GuardCut::None &&
+		          status().job == HitecJobState::Entering);
+		snprintf(what, sizeof(what), "%s: in the mode again", name);
+		checkTrue(what, until(HitecJobState::InMode, 20000) && enHigh() && status().hasImage);
+
+		// The collapse, idle in the mode.
+		g_vout = 3.9;
+		passToRead();
+		uint32_t lowAt = millis();
+		while (enHigh() && millis() - lowAt < 2000) passToRead();
+		snprintf(what, sizeof(what), "%s: 3.9 V: off 1000 ms after the first reading under 4.0 V", name);
+		checkInt(what, millis() - lowAt, 1000);
+		st = status();
+		snprintf(what, sizeof(what), "%s: Collapse, EntryEnded", name);
+		checkTrue(what, st.cut == GuardCut::Collapse && st.job == HitecJobState::EntryEnded &&
+		          !st.stallWrote);
+		g_vout = 5.0;
+		finish();
+	}
+
+	// A cut during a read: the LISTEN or SEND on the line cut at once.
+	sensorOn();
+	startInMode(HITEC_D, true);
+	send(HitecOp::ReadAll);
+	passes(1);
+	checkTrue("a read runs", status().job == HitecJobState::Busy);
+	g_ina->currentA = 3.0;
+	passToRead();
+	checkTrue("3.0 A during a read: off, EntryEnded, Hard", !enHigh() &&
+	          status().job == HitecJobState::EntryEnded && status().cut == GuardCut::Hard &&
+	          !status().stallWrote);
+	g_ina->currentA = 0;
+	// BACK after the cut: closed 2000 ms after the cut's switch-off.
+	uint32_t cutUs = time_us_32();
+	send(HitecOp::Leave);
+	passes(1);
+	checkTrue("BACK after the cut: closed 2000 ms after it", until(HitecJobState::Closed, 2100) &&
+	          fakeHitecLineClosedUs() - cutUs >= 1999000u);
+	finish();
+
+	// A cut while a leave's write finishes: the write is cut too.
+	sensorOn();
+	startInMode(HITEC_D, true);
+	HitecStatus st = status();
+	hitec_image_t t = draftOf(&st.image, HITEC_D);
+	send(HitecOp::Write, &t);
+	passes(1);
+	while (status().stepIndex == 0) passes(1);
+	send(HitecOp::Leave);
+	passes(1);
+	checkTrue("LEAVE during a write: Leaving, the write still runs, on",
+	          status().job == HitecJobState::Leaving && enHigh());
+	unsigned aborts = fakeHitecAborts();
+	readWhileOut(3.2);
+	cutUs = time_us_32();
+	checkTrue("3.2 A in the leave: off, the write's transaction cut",
+	          !enHigh() && fakeHitecAborts() == aborts + 1 && !fakeHitecLineBusy() &&
+	          status().cut == GuardCut::Hard);
+	unsigned starts = fakeHitecStarts();
+	passes(500);
+	checkTrue("no transaction after it", fakeHitecStarts() == starts);
+	g_ina->currentA = 0;
+	checkTrue("closed 2000 ms after the cut", until(HitecJobState::Closed, 1600) &&
+	          fakeHitecLineClosedUs() - cutUs >= 1999000u);
+	finish();
+
+	// CURRENT SENSE at NONE: nothing is judged.
+	sensorOff();
+	startInMode(HITEC_D, true);
+	FakeIna219 *ina = fakeI2cAddIna219(INA219_ADDR);
+	ina->currentA = 3.2;
+	ina->voutV = 5.0;
+	passes(500);
+	checkTrue("NONE: on, in the mode", enHigh() && status().job == HitecJobState::InMode &&
+	          status().cut == GuardCut::None);
+	finish();
+	fakeI2cReset();
+	sensorOff();
+}
+
 void runHitecJobTests() {
 	testBind();
 	testEntryAndRead();
@@ -737,4 +903,5 @@ void runHitecJobTests() {
 	testLeave();
 	testCommands();
 	testCardPhase();
+	testCuts();
 }

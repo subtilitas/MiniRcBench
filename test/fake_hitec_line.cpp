@@ -101,6 +101,8 @@ const hitec_xfer_t *fakeHitecLastXfer() { return &g_xfer; }
 uint32_t fakeHitecLastStartUs() { return g_startUs; }
 unsigned fakeHitecAborts() { return g_aborts; }
 
+bool fakeHitecLineBusy() { return g_busy; }
+
 /** @brief The level the bench drives on the supply's enable pin, as the fakes record it. */
 static bool supplyLevel() {
 	if (servoSupplyPin() == SERVO_SUPPLY_NO_PIN) return false;
