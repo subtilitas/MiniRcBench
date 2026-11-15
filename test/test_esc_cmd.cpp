@@ -412,8 +412,10 @@ static void testCmdReadiness() {
 	          b->ready[b->slot - 1] != EscCmdReady::NoAnswer);
 	benchSlot(b);
 	checkTrue("500 ms after: NoAnswer", b->ready[b->slot - 1] == EscCmdReady::NoAnswer);
+	b = benchBoot(Fw::Am32, 5000);
+	benchReady(b);
 	escPumpRelease(&b->pump);
-	checkTrue("a teardown reads NoAnswer", b->pump.ready == EscCmdReady::NoAnswer);
+	checkTrue("a teardown at Ready reads NoAnswer", b->pump.ready == EscCmdReady::NoAnswer);
 }
 
 /** @brief A direction hold's frames on the wire. */
@@ -957,6 +959,27 @@ static void testCmdBindAndDrain() {
 	escPumpFrameSent(&b->pump, &d.frame, b->ms);
 	checkTrue("a drain frame at frame 5: not sent",
 	          b->pump.seq.state == EscCmdState::NotSent && b->pump.seq.cmd == 0);
+
+	// A drain frame inside an EDT enable does not count against it.
+	b = benchBoot(Fw::Am32, 5000);
+	escPumpFrameSent(&b->pump, &d.frame, b->ms);
+	checkInt("a drain frame in the bind's enable: 10 still owed", b->pump.edt.reps,
+	         EDT_ENABLE_REPEATS);
+
+	// The ESC unplugged after frame 3: frames 4 and 5 go unanswered, the
+	// block stops on the second missing reply, its gap follows unanswered,
+	// and the sequence ends.
+	b = benchBoot(Fw::Am32, 5000);
+	benchReady(b);
+	unsigned at = b->slot;
+	benchRequest(b, DSHOT_CMD_SPIN_DIRECTION_2, true);
+	benchRun(b, 3);
+	b->esc.present = false;
+	benchRun(b, 400);
+	checkTrue("unplugged after frame 3: not sent, the sequence over",
+	          b->pump.seq.state == EscCmdState::NotSent && b->pump.seq.cmd == 0);
+	checkInt("after 5 frames of 8", (long)commandFrames(b, at, b->slot), 5);
+	checkTrue("and 300 frames of 0", zeros(b, at + 5, ESC_CMD_GAP_MS));
 }
 
 void runEscCmdTests() {

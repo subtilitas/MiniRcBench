@@ -71,11 +71,16 @@ static volatile uint16_t s_throttle    = 0;   /**< Commanded throttle, 0..2000. 
 static volatile bool     s_armed       = false; /**< Arm state. */
 static volatile uint8_t  s_poles       = DEFAULT_MOTOR_POLES; /**< Pole count. */
 static volatile uint32_t s_heartbeatMs = 0;   /**< millis() of the last heartbeat. */
-static EscCmdRequest     s_cmdReq      = {};  /**< The command core0 wants; cmd 0 none. Under s_cs. */
-static uint8_t           s_cmdGen      = 0;   /**< Counts the requests, so core1 clears only the one it took. Under s_cs. */
-static EscCmdState       s_cmdState    = EscCmdState::Idle; /**< Core1's EscCmdSeq::state. Under s_cs. */
-static uint8_t           s_cmdStateCmd = 0;   /**< Core1's EscCmdSeq::stateCmd. Under s_cs. */
-static volatile EscCmdReady s_cmdReady = EscCmdReady::NoAnswer; /**< Core1's EscPump::ready. */
+/** The command core0 wants; cmd 0 none. Under s_cs. */
+static EscCmdRequest     s_cmdReq      = {};
+/** Counts the requests, so core1 clears only the one it read. Under s_cs. */
+static uint8_t           s_cmdGen      = 0;
+/** Core1's EscCmdSeq::state. Under s_cs. */
+static EscCmdState       s_cmdState    = EscCmdState::Idle;
+/** Core1's EscCmdSeq::stateCmd. Under s_cs. */
+static uint8_t           s_cmdStateCmd = 0;
+/** Core1's EscPump::ready, published once per frame slot. */
+static volatile EscCmdReady s_cmdReady = EscCmdReady::NoAnswer;
 static volatile bool     s_edtRequested = false; /**< Mirror of EscEdtState::sent. */
 /** @} */
 
