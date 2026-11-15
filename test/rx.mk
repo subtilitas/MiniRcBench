@@ -8,10 +8,12 @@
 #   RX_SRCS        C++ sources linked into the suite: the monitor's core1
 #                  job, on the UART0 fake of fakes.cpp; the formatter, S.BUS
 #                  MONITOR and RX SIGNALS, the chooser; the S.BUS output's
-#                  core1 job, on the TX side of the same fake
+#                  core1 job, on the TX side of the same fake, its formatter
+#                  and S.BUS OUTPUT
 #   RX_TESTS       the test files; test_sbus_job.cpp holds runSbusJobTests(),
 #                  test_sbus_ui.cpp runSbusUiTests(), test_sbus_out_job.cpp
-#                  runSbusOutJobTests(); sbus_line.h is the line model the
+#                  runSbusOutJobTests(), test_sbus_out_ui.cpp
+#                  runSbusOutUiTests(); sbus_line.h is the line model the
 #                  monitor's tests put on the fake
 #   RX_CSRCS       C sources linked into the suite: rcbench's S.BUS decoder
 #                  and encoder, copied into lib/rcbench/
@@ -20,8 +22,8 @@
 #                  own, built as C11 and run by `make run`
 RX_DIR      := ../lib/rcbench/protocols/sbus
 RX_SRCS     := ../src/sbus_job.cpp ../src/sbus_view.cpp ../src/ui_sbus.cpp ../src/ui_rx_signals.cpp \
-               ../src/sbus_out_job.cpp
-RX_TESTS    := test_sbus_job.cpp test_sbus_ui.cpp test_sbus_out_job.cpp
+               ../src/sbus_out_job.cpp ../src/sbus_out_view.cpp ../src/ui_sbus_out.cpp
+RX_TESTS    := test_sbus_job.cpp test_sbus_ui.cpp test_sbus_out_job.cpp test_sbus_out_ui.cpp
 RX_CSRCS    := $(RX_DIR)/sbus.c
 RX_INCLUDES := -I$(RX_DIR)/include
 RX_CTESTS   := rcbench/test_sbus.c

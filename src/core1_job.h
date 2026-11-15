@@ -22,7 +22,7 @@
  * Core1Job::EscWire is the job of docs/design/bluejay-blheli-s.md:
  * escwire_job.h.
  * Core1Job::SbusOut is the S.BUS output's job of
- * docs/design/sbus-output.md: sbus_out_job.h. No screen opens it yet.
+ * docs/design/sbus-output.md: sbus_out_job.h, opened by S.BUS OUTPUT.
  *
  * Core0 starts and stops a job; core1 binds, steps and releases it. The
  * request and the job's phase are shared under one critical section, in the
@@ -44,7 +44,7 @@ enum class Core1Job : uint8_t {
 	Sbus,   /**< The S.BUS monitor: UART0 receive on GP1, SIG or AUX (sbus_job.h). */
 	Bridge, /**< The USB bridge: a 19200 baud PIO line on SIG (bridge_wire.h). */
 	EscWire,  /**< ESC SETTINGS after an EFM8 bootloader answered: rcbench's escwire on SIG (escwire_job.h). */
-	SbusOut,  /**< The S.BUS output: UART0 sends on GP0, SIG or AUX (sbus_out_job.h). Nothing opens it yet. */
+	SbusOut,  /**< The S.BUS output: UART0 sends on GP0, SIG or AUX (sbus_out_job.h). */
 };
 
 /** @brief Where a job is between core1JobStart() and idle. */

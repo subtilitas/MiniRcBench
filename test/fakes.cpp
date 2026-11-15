@@ -419,6 +419,12 @@ static uint32_t g_initTakesUs;    /**< Time uart_init() leaves the receiver on b
 static FakeUart g_uart;
 static uart_hw_t g_uartHw;
 static std::vector<FakeTxByte> g_tx;  /**< Every character written, in order. */
+/**
+ * @brief No character before this index of g_tx waits in the TX FIFO: each
+ *        is cut or has started, which no later time undoes. A long run of
+ *        frames would otherwise make every UARTFR read scan them all.
+ */
+static size_t   g_txPendingFrom;
 static uint64_t g_txEndUs;            /**< When the last character's stop bits end. */
 static bool     g_txStuck;            /**< BUSY held set. */
 
@@ -496,8 +502,11 @@ static void uartTxPadChange() {
 /** @brief Characters written and not yet started: those in the TX FIFO. */
 static unsigned uartTxQueued() {
 	uint64_t now = time_us_64();
+	while (g_txPendingFrom < g_tx.size() &&
+	       (g_tx[g_txPendingFrom].cut || g_tx[g_txPendingFrom].startUs <= now))
+		g_txPendingFrom++;
 	unsigned n = 0;
-	for (const FakeTxByte &b : g_tx) n += !b.cut && b.startUs > now;
+	for (size_t i = g_txPendingFrom; i < g_tx.size(); i++) n += !g_tx[i].cut && g_tx[i].startUs > now;
 	return n;
 }
 
@@ -514,6 +523,7 @@ void fakeUartReset() {
 	g_uart = FakeUart{};
 	uartClear();
 	g_tx.clear();
+	g_txPendingFrom = 0;
 	g_txEndUs = 0;
 	g_txStuck = false;
 	g_initTakesUs = 0;

@@ -170,6 +170,15 @@ PREVIEWS = {
         "shot_sbus_failsafe",
         "shot_sbus_lost",
     ],
+    # S.BUS OUTPUT: the bootloader probe before START is offered, SAFE with
+    # the two warnings, frames with the throttle at MAX THROTTLE's ceiling,
+    # and SET with its footer's warning.
+    "sbus-out-preview": [
+        "shot_sbus_out_checking",
+        "shot_sbus_out_safe",
+        "shot_sbus_out_running",
+        "shot_sbus_out_set",
+    ],
 }
 
 

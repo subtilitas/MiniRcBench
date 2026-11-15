@@ -42,6 +42,7 @@ void runHitecTests();
 void runSbusJobTests();
 void runSbusUiTests();
 void runSbusOutJobTests();
+void runSbusOutUiTests();
 void runWidgetTests();
 void runIdTests();
 void runMenuTests();
@@ -95,6 +96,7 @@ int main() {
 	runSbusJobTests();
 	runSbusUiTests();
 	runSbusOutJobTests();
+	runSbusOutUiTests();
 	runWidgetTests();
 	runIdTests();
 	runBackupTests();

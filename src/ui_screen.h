@@ -42,6 +42,7 @@ enum class UiScreenId : uint8_t {
 	ServoProg, /**< PROGRAMMER, the chooser behind MENU's SERVO PROGRAMMER row. */
 	RxSignals, /**< RX SIGNALS, the chooser behind MENU's RX SIGNALS row: MONITOR and OUTPUT. */
 	Sbus,      /**< S.BUS MONITOR and its leave page, opened from RX SIGNALS. */
+	SbusOut,   /**< S.BUS OUTPUT, its SET view and its leave page, opened from RX SIGNALS. */
 	EscConfig, /**< ESC CONFIG, the chooser behind MENU's ESC CONFIG row: ESC SETTINGS and USB BRIDGE. */
 	Bridge,    /**< USB BRIDGE and its leave page, opened from ESC CONFIG. */
 	Tools,     /**< TOOLS, the chooser behind MENU's TOOLS row: ANGLE METER. */

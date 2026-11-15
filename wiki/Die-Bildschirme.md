@@ -29,7 +29,7 @@ Tester ──MENU──> MENU ──┬── ESC COMMANDS ──BACK──> MEN
    │                    │   (ESC HEX, ESC WRITE, SET: BACK eine Ebene hoch)
    │                    ├── RX SIGNALS ──> RX SIGNALS ──BACK──> MENU
    │                    │    ├── MONITOR ──> S.BUS MONITOR ──BACK──> Verlassenseite ──RESTART DSHOT──> MENU
-   │                    │    └── OUTPUT     (als Umriss gezeichnet: NOT BUILT)
+   │                    │    └── OUTPUT  ──> S.BUS OUTPUT  ──BACK──> Verlassenseite ──RESTART DSHOT──> MENU   (SET: BACK eine Ebene hoch)
    │                    ├── TOOLS ──> TOOLS ──BACK──> MENU
    │                    │    └── ANGLE METER ──BACK──> MENU   (SETUP, FLIP CAL: BACK eine Ebene hoch)
    │                    ├── SD LOG       ──BACK──> MENU
@@ -434,14 +434,15 @@ und [USB-Brücke](USB-Bruecke).
 
 ### RX SIGNALS
 
-<img src="img/rx-chooser.png" width="240" alt="RX SIGNALS: MONITOR mit S.BUS FROM A RECEIVER, ON GP1., OUTPUT als Umriss mit S.BUS TO A FLIGHT CONTROLLER. und NOT BUILT">
+<img src="img/rx-chooser.png" width="240" alt="RX SIGNALS: MONITOR mit S.BUS FROM A RECEIVER, ON GP1., OUTPUT mit S.BUS TO A FLIGHT CONTROLLER. und ON GP0, NEVER TO AN ESC.">
 
 `MENU → RX SIGNALS` öffnet eine Wahl aus zwei, wie PROGRAMMER:
-**MONITOR**, das S.BUS MONITOR öffnet, und **OUTPUT**, ein S.BUS-Ausgang,
-als Umriss gezeichnet mit `NOT BUILT` darunter: Es tut nichts. Die Leiste
-nennt beide Signalpins, `SIG GP0  AUX GP1`. RX SIGNALS belegt keinen Pin.
-`BACK` führt zu `MENU` zurück, ebenso `RESTART DSHOT` am Ende des Monitors.
-Siehe [RX-Signale](RX-Signale).
+**MONITOR**, das S.BUS MONITOR öffnet, und **OUTPUT**, das S.BUS OUTPUT
+öffnet, einen S.BUS-Ausgang zu einem Flugcontroller, mit seiner Warnung
+darunter: `S.BUS TO A FLIGHT CONTROLLER.` `ON GP0, NEVER TO AN ESC.` Die
+Leiste nennt beide Signalpins, `SIG GP0  AUX GP1`. RX SIGNALS belegt keinen
+Pin. `BACK` führt zu `MENU` zurück, ebenso `RESTART DSHOT` am Ende jedes der
+beiden Werkzeuge. Siehe [RX-Signale](RX-Signale).
 
 ### TOOLS
 
@@ -687,6 +688,22 @@ SIG PIN auf GP1 steht; dort wartet er, solange ein ESC antwortet. `BACK`
 öffnet die Verlassenseite bei `1 UNPLUG THE RECEIVER.`; `BACK TO MONITOR`
 beginnt von vorn, jeder Zähler auf 0, und `RESTART DSHOT` führt zu `MENU`.
 Siehe [RX-Signale](RX-Signale).
+
+---
+
+## S.BUS OUTPUT
+
+<img src="img/sbus-out-running.png" width="240" alt="S.BUS OUTPUT läuft: der Chip RUNNING, die Obergrenze des Gaskanals und die Flags, acht Schieberegler mit lindgrünen Werten, STOP">
+
+Sendet S.BUS-Frames an GP0 zu einem Flugcontroller, nie zu einem ESC: 16
+Kanäle an Schiebereglern auf zwei Seiten, und unter SET den Gaskanal, CH17,
+CH18 und die Flags für Failsafe und verlorenen Frame. Er nimmt GP0 von DShot
+und prüft den Pin auf den Bootloader eines ESC, bevor `HOLD TO START`
+angeboten wird. Der Gaskanal hält an der Obergrenze von MAX THROTTLE.
+`STOP`, ein hängender Bildschirm und 30 s ohne Berührung abseits des ersten
+Frames halten die Frames an. `BACK` öffnet die Verlassenseite bei
+`1 UNPLUG THE FLIGHT CONTROLLER.`; `BACK TO OUTPUT` prüft GP0 erneut, und
+`RESTART DSHOT` führt zu `MENU`. Siehe [RX-Signale](RX-Signale).
 
 ---
 

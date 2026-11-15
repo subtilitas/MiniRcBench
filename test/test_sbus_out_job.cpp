@@ -1638,14 +1638,15 @@ static void listSources(const std::string &dir, std::vector<std::string> *out) {
  * @brief Whether @p line reaches a pin user or a core1 job by a number
  *        rather than by its name, or walks the tables that hold them.
  *
- * Caught: a cast to PinUser or Core1Job, a pointer or reference to one
+ * Caught: a cast to PinUser, Core1Job or SbusOutCmdKind, a pointer or
+ * reference to one
  * included, C-style, functional, braced, `static_cast` or
  * `reinterpret_cast`, a `const` among them; and any use of the user rows or
  * the job table, `PIN_USERS` or, in core1_job.cpp where it is static,
  * `s_ops`, an index or a range-for over them that picks a row by its fields.
  * Another file's own `s_ops` (bridge_4way.cpp) is not the job table. A
  * name match alone misses `(PinUser)((int)PinUser::Count - 1)`, which is
- * SbusOut.
+ * SbusOut, and `(SbusOutCmdKind)1`, which is a Start.
  *
  * Not caught: a value of the enum made without a cast, through `memcpy()`,
  * a union, a template's deduction or bytes read from storage; a cast hidden
@@ -1659,63 +1660,118 @@ static bool byNumber(const std::string &line, const std::string &file) {
 	    std::regex_search(line, OPS))
 		return true;
 	static const std::regex CAST(
-		"\\(\\s*(const\\s+)?(PinUser|Core1Job)\\s*(const\\s*)?[*&]?\\s*\\)|"
-		"\\b(PinUser|Core1Job)\\s*[({]|"
-		"\\b(static|reinterpret|const)_cast\\s*<\\s*(const\\s+)?(PinUser|Core1Job)\\b|"
+		"\\(\\s*(const\\s+)?(PinUser|Core1Job|SbusOutCmdKind)\\s*(const\\s*)?[*&]?\\s*\\)|"
+		"\\b(PinUser|Core1Job|SbusOutCmdKind)\\s*[({]|"
+		"\\b(static|reinterpret|const)_cast\\s*<\\s*(const\\s+)?(PinUser|Core1Job|SbusOutCmdKind)\\b|"
 		"\\bPIN_USERS\\b");
 	return std::regex_search(line, CAST);
 }
 
+/** @brief The body of the function whose definition is the line @p head in @p code, to its closing `}` at the line's start. */
+static std::string bodyOf(const std::string &code, const std::string &head) {
+	size_t a = code.find(head);
+	if (a == std::string::npos) return std::string();
+	size_t b = code.find("\n}", a);
+	return b == std::string::npos ? std::string() : code.substr(a, b - a);
+}
+
+/** @brief How often @p what occurs in @p text. */
+static int countOf(const std::string &text, const std::string &what) {
+	int n = 0;
+	for (size_t p = text.find(what); p != std::string::npos; p = text.find(what, p + 1)) n++;
+	return n;
+}
+
 /**
- * @brief Nothing in `src/` but the job's declarations and definitions, its
- *        line in the job table, the claim's row and the probe's leave page
- *        names the output, and nothing reaches a pin user or a job by a
- *        number, so no screen and no path can claim or command it
+ * @brief Whether @p ui, ui_sbus_out.cpp with its comments blanked, has one
+ *        path to START: the Start only in startFrames(), whose name appears
+ *        twice, at its definition and in HOLD TO START's hold on the line
+ *        gated by startAllowed(); and startAllowed()'s one return a chain of
+ *        `&&` with no `|` and no `?` that ends in sbusOutProbePassed().
+ */
+static bool onePathToStart(const std::string &ui) {
+	const std::string start = bodyOf(ui, "static void startFrames() {");
+	if (countOf(start, "send(SbusOutCmdKind::Start);") != 1 || countOf(ui, "SbusOutCmdKind::Start") != 1)
+		return false;
+	static const std::regex START_NAME("\\bstartFrames\\b");
+	const long names = std::distance(std::sregex_iterator(ui.begin(), ui.end(), START_NAME),
+	                                 std::sregex_iterator());
+	if (names != 2 ||
+	    countOf(ui, "if (uiHoldUpdate(&s_hold, BTN_START, s_t, startAllowed(), now)) startFrames();") != 1)
+		return false;
+	const std::string gate = bodyOf(ui, "static bool startAllowed() {");
+	return countOf(gate, "return ") == 1 && countOf(gate, "sbusOutProbePassed()") == 1 &&
+	       countOf(gate, "|") == 0 && countOf(gate, "?") == 0 &&
+	       countOf(gate, "&& sbusOutProbePassed();") == 1;
+}
+
+/**
+ * @brief Only S.BUS OUTPUT claims the output and commands it, and its one
+ *        START runs through the screen's gate, sbusOutProbePassed()
  *        (docs/design/sbus-output.md, decision 1: the probe, and the screen
- *        after it).
+ *        after it). The behaviour is tested through the real UI in
+ *        test_sbus_out_ui.cpp; this test holds the sources to the one path.
  *
  * Every source file under `src/` is read, with its comments blanked, line by
- * line. A line that names the output, or reaches a user or a job by a
- * number (byNumber()), must be one of the lines below, in the file named: an
- * inline function in pin_claim.h that claimed the output, a cast to a user
- * or a job, or a call anywhere else, fails.
+ * line. A line that claims or names the output's user or job, sends a
+ * command, names a START, or reaches a user or a job by a number
+ * (byNumber()), must be one of the lines below, in the file named, found as
+ * often as the list says: a call anywhere else, an inline function in
+ * pin_claim.h that claimed the output, or a cast to a user, a job or a
+ * command kind, fails. Then, in ui_sbus_out.cpp: the START is sent only from
+ * startFrames(), whose name appears twice, at its definition and in HOLD TO
+ * START's hold, on a line gated by startAllowed(), whose one return is a
+ * chain of `&&` with no `|` and no `?` that ends in sbusOutProbePassed().
+ * A pointer to startFrames, a cast to a command kind and a ternary in the
+ * gate each fail it. It is a lint of the sources, not a proof: a value made
+ * without a cast or a name, through memcpy() or a macro, is not caught; the
+ * UI tests (test_sbus_out_ui.cpp) hold the behaviour.
  */
-static void testUnreachable() {
-	section("S.BUS output: nothing outside the job, its table line and the claim's row names it");
+static void testOnlyPath() {
+	section("S.BUS output: only S.BUS OUTPUT claims and commands it; its START needs the probe's gate");
 
-	struct Allowed { const char *file; const char *line; };
+	struct Allowed { const char *file; const char *line; int times; };
 	static const Allowed ALLOWED[] = {
-		{ "../src/pin_claim.h", "{ PinUser::SbusOut, Core1Job::SbusOut, true, true, false }," },
-		{ "../src/pin_claim.h", "static constexpr PinUserInfo PIN_USERS[] = {" },
+		{ "../src/pin_claim.h", "{ PinUser::SbusOut, Core1Job::SbusOut, true, true, false },", 1 },
+		{ "../src/pin_claim.h", "static constexpr PinUserInfo PIN_USERS[] = {", 1 },
 		// pinUserInfo() and pinUsersComplete(): each row by its user.
-		{ "../src/pin_claim.h", "for (const PinUserInfo &u : PIN_USERS)" },
-		{ "../src/pin_claim.h", "return PIN_USERS[0];" },
-		{ "../src/pin_claim.h", "for (const PinUserInfo &u : PIN_USERS) n += (int)u.who == w;" },
+		{ "../src/pin_claim.h", "for (const PinUserInfo &u : PIN_USERS)", 1 },
+		{ "../src/pin_claim.h", "return PIN_USERS[0];", 1 },
+		{ "../src/pin_claim.h", "for (const PinUserInfo &u : PIN_USERS) n += (int)u.who == w;", 1 },
 		{ "../src/pin_claim.h",
-		  "static_assert(pinUsersComplete(), \"a pin user has no row in PIN_USERS, or two\");" },
-		{ "../src/core1_job.cpp", "static const Core1JobOps *s_ops[] = {" },
-		{ "../src/core1_job.cpp", "&SBUS_OUT_JOB_OPS," },
+		  "static_assert(pinUsersComplete(), \"a pin user has no row in PIN_USERS, or two\");", 1 },
+		{ "../src/core1_job.cpp", "static const Core1JobOps *s_ops[] = {", 1 },
+		{ "../src/core1_job.cpp", "&SBUS_OUT_JOB_OPS,", 1 },
 		{ "../src/core1_job.cpp",
-		  "static_assert(sizeof(s_ops) / sizeof(s_ops[0]) == (unsigned)Core1Job::SbusOut + 1," },
+		  "static_assert(sizeof(s_ops) / sizeof(s_ops[0]) == (unsigned)Core1Job::SbusOut + 1,", 1 },
 		// core1JobInit(): each job's init, no bind.
-		{ "../src/core1_job.cpp", "for (const Core1JobOps *ops : s_ops)" },
-		{ "../src/core1_job.cpp", "if (s_ops[(uint8_t)job] == nullptr) return false;" },
-		{ "../src/core1_job.cpp", "const Core1JobOps *ops = s_ops[(uint8_t)s_job];" },
-		{ "../src/sbus_out_job.h", "uint8_t sbusOutClaimRoles(uint8_t sigGpio, uint8_t auxGpio);" },
-		{ "../src/sbus_out_job.h", "uint16_t sbusOutJobCommand(const SbusOutCmd *c);" },
-		{ "../src/sbus_out_job.h", "extern const Core1JobOps SBUS_OUT_JOB_OPS;" },
-		{ "../src/sbus_out_job.cpp", "uint8_t sbusOutClaimRoles(uint8_t sigGpio, uint8_t auxGpio) {" },
-		{ "../src/sbus_out_job.cpp", "const Core1JobOps SBUS_OUT_JOB_OPS = {" },
-		{ "../src/sbus_out_job.cpp", "uint16_t sbusOutJobCommand(const SbusOutCmd *c) {" },
+		{ "../src/core1_job.cpp", "for (const Core1JobOps *ops : s_ops)", 1 },
+		{ "../src/core1_job.cpp", "if (s_ops[(uint8_t)job] == nullptr) return false;", 1 },
+		{ "../src/core1_job.cpp", "const Core1JobOps *ops = s_ops[(uint8_t)s_job];", 1 },
+		{ "../src/sbus_out_job.h", "uint16_t sbusOutJobCommand(const SbusOutCmd *c);", 1 },
+		{ "../src/sbus_out_job.h", "extern const Core1JobOps SBUS_OUT_JOB_OPS;", 1 },
+		{ "../src/sbus_out_job.cpp", "const Core1JobOps SBUS_OUT_JOB_OPS = {", 1 },
+		{ "../src/sbus_out_job.cpp", "uint16_t sbusOutJobCommand(const SbusOutCmd *c) {", 1 },
+		// Core1 taking a START, in the pure core.
+		{ "../src/sbus_out_job.cpp", "case SbusOutCmdKind::Start:", 1 },
 		// An EFM8 answer to the probe asks for the leave page: it lets go of
 		// nothing and starts nothing.
 		{ "../src/sbus_out_job.cpp",
-		  "if (st.efm8Seq != s_efm8Mark) pinClaimWantLeavePage(PinUser::SbusOut);" },
+		  "if (st.efm8Seq != s_efm8Mark) pinClaimWantLeavePage(PinUser::SbusOut);", 1 },
+		// S.BUS OUTPUT: its claim, its one command call, its one START.
+		{ "../src/ui_sbus_out.cpp", "s_refusal = pinClaimBegin(PinUser::SbusOut, s_roles);", 1 },
+		{ "../src/ui_sbus_out.cpp", "pinClaimEnd(PinUser::SbusOut);", 2 },
+		{ "../src/ui_sbus_out.cpp", "pinClaimRestart(PinUser::SbusOut);", 1 },
+		{ "../src/ui_sbus_out.cpp", "pinClaimKeep(PinUser::SbusOut);", 1 },
+		{ "../src/ui_sbus_out.cpp", "if (retry && tapped(BTN_RETRY)) pinClaimRetry(PinUser::SbusOut);", 1 },
+		{ "../src/ui_sbus_out.cpp", "UiScreenId::SbusOut, SBOUT_UI_TITLE, PinUser::SbusOut, nullptr,", 1 },
+		{ "../src/ui_sbus_out.cpp", "sbusOutJobCommand(&c);", 1 },
+		{ "../src/ui_sbus_out.cpp", "send(SbusOutCmdKind::Start);", 1 },
 	};
 
 	static const char *const NAMES[] = {
 		"PinUser::SbusOut", "Core1Job::SbusOut", "sbusOutJobCommand", "SBUS_OUT_JOB_OPS",
-		"sbusOutClaimRoles",
+		"SbusOutCmdKind::Start",
 	};
 	std::vector<std::string> files;
 	listSources("../src", &files);
@@ -1744,11 +1800,43 @@ static void testUnreachable() {
 		}
 	}
 	checkTrue("the sources were read, subdirectories too", files.size() > 100 && deep);
-	checkTrue("no other line names it or reaches it by a number", hits.empty());
+	checkTrue("no other line names it, sends a START or reaches it by a number", hits.empty());
 	if (!hits.empty()) printf("   %s\n", hits.c_str());
 	bool each = true;
-	for (int u : used) each &= u == 1;
-	checkTrue("each allowed line found once: the list is current", each);
+	for (size_t a = 0; a < sizeof(ALLOWED) / sizeof(ALLOWED[0]); a++) each &= used[a] == ALLOWED[a].times;
+	checkTrue("each allowed line found as often as listed: the list is current", each);
+
+	// The one START in S.BUS OUTPUT, behind the gate.
+	const std::string ui = stripComments(readFile("../src/ui_sbus_out.cpp"));
+	checkTrue("the START is sent in startFrames(), named only at its definition and in HOLD TO START's "
+	          "hold, gated by startAllowed(), one chain ending in sbusOutProbePassed()",
+	          onePathToStart(ui));
+	// The same check on screens that bypass it.
+	const std::string defs = "static bool startAllowed() {\n\treturn !s_st.running && sbusOutProbePassed();\n}\n"
+	                         "static void startFrames() {\n\tsend(SbusOutCmdKind::Start);\n}\n";
+	const std::string hold = "\tif (uiHoldUpdate(&s_hold, BTN_START, s_t, startAllowed(), now)) startFrames();\n";
+	checkTrue("a screen of the gate, the START and the hold passes it", onePathToStart(defs + hold));
+	static const char *const BYPASS[] = {
+		"\tif (x) { void (*go)() = startFrames; go(); }\n",
+		"\tif (x) startFrames();\n",
+		"\tauto go = &startFrames;\n",
+		"\tsend(SbusOutCmdKind::Start);\n",
+	};
+	bool caught = true;
+	for (const char *b : BYPASS) caught &= !onePathToStart(defs + hold + b);
+	checkTrue("a pointer to startFrames, a second call and a second START each fail it", caught);
+	static const char *const GATES[] = {
+		"\treturn true ? true : !s_st.running && sbusOutProbePassed();",
+		"\treturn !s_st.running || true && sbusOutProbePassed();",
+		"\treturn !s_st.running | 1 && sbusOutProbePassed();",
+		"\treturn !s_st.running && !sbusOutProbePassed();",
+		"\tif (s_st.running) return true;\n\treturn !s_st.running && sbusOutProbePassed();",
+	};
+	caught = true;
+	for (const char *g : GATES)
+		caught &= !onePathToStart(std::string("static bool startAllowed() {\n") + g + "\n}\n"
+		                          "static void startFrames() {\n\tsend(SbusOutCmdKind::Start);\n}\n" + hold);
+	checkTrue("a ternary, an || or a |, a negation and a second return in the gate each fail it", caught);
 	checkTrue("a call in a comment is blanked, one in code is not",
 	          stripComments("x(); // pinClaimBegin(PinUser::SbusOut)\n/* a */ y(\"//\");")
 	              == "x(); \n y(\"//\");");
@@ -1771,6 +1859,10 @@ static void testUnreachable() {
 		"auto u = *reinterpret_cast<const PinUser*>(p);",
 		"for (const PinUserInfo &u : PIN_USERS) if (u.unplug && u.escCheck && !u.deferJob) pinClaimBegin(u.who, 1);",
 		"for (const Core1JobOps *o : s_ops) o->bind(0, 1);",
+		"send((SbusOutCmdKind)1);",
+		"auto k = static_cast<SbusOutCmdKind>(1);",
+		"c.kind = SbusOutCmdKind(1);",
+		"c.kind = SbusOutCmdKind{1};",
 	};
 	bool all = true;
 	for (const char *l : BY_NUMBER) all &= byNumber(l, "../src/core1_job.cpp");
@@ -1783,6 +1875,8 @@ static void testUnreachable() {
 		"Core1Job core1JobRunning() {",
 		"const PinUserInfo &u = pinUserInfo(who);",
 		"uint8_t n = (uint8_t)job;",
+		"static void send(SbusOutCmdKind kind) {",
+		"enum class SbusOutCmdKind : uint8_t {",
 	};
 	bool none = true;
 	for (const char *l : BY_NAME) none &= !byNumber(l, "../src/core1_job.cpp");
@@ -1812,7 +1906,7 @@ void runSbusOutJobTests() {
 	testProbeReplies();
 	testProbeRelease();
 	testProbeVisits();
-	testUnreachable();
+	testOnlyPath();
 	g_beat = true;
 	EscTelemetry t;
 	memset(&t, 0, sizeof(t));

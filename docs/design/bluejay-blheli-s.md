@@ -415,7 +415,7 @@ WRITE` and `ESC HEX` when `ESC SETTINGS` is built, and the EFM8 hex view
 is `ESC HEX` too. Second, the `ESC CONFIG` chooser comes with whichever of
 this note's slice 2 and slice 2 of usb-bridge.md merges first, and holds
 both entries from the start. The entry not yet built is drawn disabled
-with `NOT BUILT` under it, as RX SIGNALS' OUTPUT is. `ESC SETTINGS` serves
+with `NOT BUILT` under it. `ESC SETTINGS` serves
 AM32 only until the Bluejay slices land, and STATUS.md says so.
 
 A screen per firmware would make the user know which firmware the ESC runs
@@ -916,7 +916,7 @@ Choices the note left open, the developer's:
 - **The chooser's code.** A file of its own, `ui_esc_config.*`, as RX
   SIGNALS' `ui_rx_signals.*`, with an entry type of a label, two lines and a
   screen; a null screen draws the entry disabled. `USB BRIDGE`'s line says
-  what it is for, then `NOT BUILT`, as RX SIGNALS' OUTPUT. ESC SETTINGS'
+  what it is for, then `NOT BUILT`. ESC SETTINGS'
   lines say what it does today. The strip names SIG alone: the chooser's
   tools use SIG only.
 

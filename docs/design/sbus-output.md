@@ -1,31 +1,33 @@
 # S.BUS output
 
-Status: slices 1 to 3 built, host tests only, not tested on hardware
+Status: slices 1 to 4 built, host tests only, not tested on hardware
 ([slice 1 as built](#slice-1-as-built), [slice 2 as built](#slice-2-as-built),
-[slice 3 as built](#slice-3-as-built)): rcbench's encoder is copied from
-b88593d3, and the core1 job `src/sbus_out_job.*` with its pin user
-`PinUser::SbusOut` probes GP0 for an ESC's bootloader at every bind and,
-once a probe cycle passes with no answer, sends frames on the host suite's
-UART0 fake. Nothing opens the job: by the owner's decision of 2026-11-15
+[slice 3 as built](#slice-3-as-built), [slice 4 as built](#slice-4-as-built)):
+rcbench's encoder is copied from b88593d3; the core1 job
+`src/sbus_out_job.*` with its pin user `PinUser::SbusOut` probes GP0 for an
+ESC's bootloader at every bind and, once a probe cycle passes with no
+answer, sends frames on the host suite's UART0 fake; and S.BUS OUTPUT,
+`src/ui_sbus_out.*` with its formatter `src/sbus_out_view.*`, opens from
+OUTPUT on RX SIGNALS and offers START only while the probe's gate,
+`sbusOutProbePassed()`, holds. By the owner's decision of 2026-11-15
 ([decision 1](#decisions)) S.BUS OUTPUT is built only together with the
-bootloader probe, and no screen offers START before it; the screen, slice 4,
-offers START only while the probe's gate, `sbusOutProbePassed()`, holds.
-The probe's prerequisites, slices 1 to 3 of
+bootloader probe. The probe's prerequisites, slices 1 to 3 of
 [bluejay-blheli-s.md](bluejay-blheli-s.md#work-breakdown), are built
-([work breakdown](#work-breakdown)). Slices 4 and 5 are not built. The owner
-chose an S.BUS output on 2026-11-14 ([rx-signals.md](rx-signals.md#decisions),
-decisions 1, 4, 5 and 6): inverted 8E2 at 100,000 baud on GP0, UART0's TX
-pin; the encoder from rcbench, copied unchanged; the throttle channel under
-MAX THROTTLE of SETTINGS; the entry OUTPUT on the RX SIGNALS chooser, drawn
-`NOT BUILT` today. rcbench's encoder, `sbus_encode()` and `sbus_from_us()`,
-is on rcbench's `main` since pull request 847 and is host-tested there and
-here. Nothing of this design has driven a pin on hardware. The
-firmware facts below are read from the sources under [sources](#sources),
-with file and line; the ones no readable source settles are marked "not
-verified" and listed again under [not verified](#not-verified). No question
-is open: the owner's decision is under [decisions](#decisions), and every
-other point of the list in [rx-signals.md](rx-signals.md#sbus-output) is
-decided here with its reason ([choices](#choices)).
+([work breakdown](#work-breakdown)). Slice 5, the bring-up, is not done. The
+owner chose an S.BUS output on 2026-11-14
+([rx-signals.md](rx-signals.md#decisions), decisions 1, 4, 5 and 6):
+inverted 8E2 at 100,000 baud on GP0, UART0's TX pin; the encoder from
+rcbench, copied unchanged; the throttle channel under MAX THROTTLE of
+SETTINGS; the entry OUTPUT on the RX SIGNALS chooser. rcbench's encoder,
+`sbus_encode()` and `sbus_from_us()`, is on rcbench's `main` since pull
+request 847 and is host-tested there and here. Nothing of this design has
+driven a pin on hardware. The firmware facts below are read from the sources
+under [sources](#sources), with file and line; the ones no readable source
+settles are marked "not verified" and listed again under
+[not verified](#not-verified). No question is open: the owner's decision is
+under [decisions](#decisions), and every other point of the list in
+[rx-signals.md](rx-signals.md#sbus-output) is decided here with its reason
+([choices](#choices)).
 
 ## Terms
 
@@ -635,7 +637,7 @@ y   0 +------------------------------------------+
 | Strip caption | 8, 44, 137, 7 | `SIG GP0  100 KBAUD  8E2`, 23 characters, 137 px, `C_DIM`; `AUX GP0  100 KBAUD  8E2` when GP0 is AUX. With `  14 MS` it would be 30 characters and end at x 186, past the chip, so by menu-b.md decision 14 the period goes, the item at the right; it is fixed, and the README states it |
 | Strip chip | 179, 42, 53, 12 at its widest | `uiChip()`: `SAFE` on `UI_COL_SAFE`, `RUNNING` on `UI_COL_ON`, `STALLED` on `UI_COL_ALERT`; at most 7 characters, 41 px, plus 6 px each side, right edge x 231. The caption ends at x 144, 34 px clear. Drawn only while the job runs |
 | Note 1 | 8, 62, at most 221, 7 | SAFE: `GP0 GOES TO A FLIGHT CONTROLLER.`, 32 characters, 191 px, `UI_COL_WARN`. RUNNING: `THROTTLE CH3: 1000 TO 1200 US (20%).`, at most 37 characters, 221 px at 100 %, `C_TEXT`. After a stop: the reason, `UI_COL_ALERT` for the heartbeat, `UI_COL_WARN` for the idle rule and a refused frame |
-| Note 2 | 8, 70, at most 215, 7 | SAFE: `NEVER TO AN ESC. PROPS OFF.`, 27 characters, 161 px, `UI_COL_WARN`. RUNNING: `CH17 OFF  CH18 OFF  FS OFF  LOST OFF`, at most 36 characters, 215 px, `C_TEXT`, `UI_COL_WARN` while a flag is on. After a stop: `HOLD TO START AGAIN.`, 20 characters, 119 px, `C_DIM` |
+| Note 2 | 8, 70, at most 215, 7 | SAFE: `NEVER TO AN ESC. PROPS OFF.`, 27 characters, 161 px, `UI_COL_WARN`. RUNNING: `CH17 OFF  CH18 OFF  FS OFF  LOST OFF`, at most 36 characters, 215 px, `C_TEXT`, `UI_COL_WARN` while a flag is on. After a stop: `NEVER TO AN ESC. PROPS OFF.`, `UI_COL_WARN`, as while SAFE, ending at x 168 |
 | Row i, i = 0 to 7 | 8, 80 + 25i, 224, 22 | label, slider, value; 22 px is `UI_TAP_MIN` |
 | Label | 8, y + 8, at most 41, 7 | `CH1` to `CH16`; `CH3 THR` on the throttle channel, 7 characters, 41 px, `UI_COL_WARN` |
 | Track | 54, y + 6, 146, 10 | 1000 µs at x 54, 1500 µs at x 126, 2000 µs at x 199: 6.9 µs a pixel |
@@ -664,11 +666,11 @@ next START.
 |---|---|---|---|
 | Claim not held | none | the claim's message ([unavailable pin](#unavailable-pin)) in place of notes and rows | hidden |
 | SAFE | `SAFE` | the two warnings | disabled, START values |
-| Probe | none | `CHECKING GP0 FOR AN ESC.` ([unavailable pin](#unavailable-pin)) in place of notes and rows | hidden |
+| Probe | none | `CHECKING SIG GP0 FOR AN ESC.` ([unavailable pin](#unavailable-pin)) in place of notes and rows | hidden |
 | RUNNING | `RUNNING` | the ceiling and the flags | live, values `UI_COL_LIVE` |
-| Stopped by the heartbeat | `STALLED` | `STOPPED: SCREEN STALLED` (23 characters, 137 px, as SERVO TESTER's) and `HOLD TO START AGAIN.` | disabled, the last values |
-| Stopped by the idle rule | `SAFE` | `STOPPED: NO TOUCH FOR 30 S.` (27 characters, 161 px) and `HOLD TO START AGAIN.` | disabled, the last values |
-| Encoder refused | `SAFE` | `STOPPED: FRAME REFUSED.` (23 characters, 137 px) and `HOLD TO START AGAIN.` | disabled |
+| Stopped by the heartbeat | `STALLED` | `STOPPED: SCREEN STALLED` (23 characters, 137 px, as SERVO TESTER's) and `NEVER TO AN ESC. PROPS OFF.` | disabled, the last values |
+| Stopped by the idle rule | `SAFE` | `STOPPED: NO TOUCH FOR 30 S.` (27 characters, 161 px) and `NEVER TO AN ESC. PROPS OFF.` | disabled, the last values |
+| Encoder refused | `SAFE` | `STOPPED: FRAME REFUSED.` (23 characters, 137 px) and `NEVER TO AN ESC. PROPS OFF.` | disabled |
 
 ### SET
 
@@ -711,16 +713,20 @@ the monitor's ([rx-signals.md](rx-signals.md#screen)), and no chip:
 | An ESC answers on SIG | `AN ESC ANSWERS ON SIG GP0.` `UNPLUG IT: NO ESC STAYS ON` `THE BENCH WHILE S.BUS RUNS.` | `UI_COL_WARN` | 155, 155 and 161 px |
 | KISS frames on AUX, GP0 is AUX | `KISS WIRE ON AUX GP0 IS LIVE.` `UNPLUG IT. PLUG THE FLIGHT` `CONTROLLER IN ONCE SAFE SHOWS.` | `UI_COL_WARN` | 173, 155 and 179 px |
 | The claim drains DShot | `RELEASING SIG GP0` | `C_DIM` | 101 px |
-| The bootloader probe runs | `CHECKING GP0 FOR AN ESC.` | `C_DIM` | 143 px |
-| A bootloader answered the probe | `AN ESC BOOTLOADER ANSWERS ON GP0.` `UNPLUG THE ESC BATTERY AND LEAD.` `START WAITS UNTIL NONE ANSWERS.` | `UI_COL_WARN` | 197, 191 and 185 px |
+| The bootloader probe runs | `CHECKING SIG GP0 FOR AN ESC.` | `C_DIM` | 167 px |
+| A bootloader answered the probe | `AN ESC BOOTLOADER ANSWERS ON SIG GP0.` `UNPLUG THE ESC BATTERY AND LEAD.` `START WAITS UNTIL NONE ANSWERS.` | `UI_COL_WARN` | 221, 191 and 185 px |
 | Held, the job not bound yet | `TAKING SIG GP0` | `C_DIM` | 83 px |
 | The bind refused the clock | `SIG GP0 COULD NOT BE TAKEN (CLOCK)`, and RETRY, the wide button at 6, 268, 228 × 46 | `UI_COL_WARN` | 203 px |
+| The probe's line refused at the bind | `SIG GP0 COULD NOT BE TAKEN (PIO)`, `(DMA)` or `(CLOCK)` by `escwireJobBindError()`, `(REFUSED)` for `CORE1_JOB_PIN`, and RETRY | `UI_COL_WARN` | at most 215 px |
 | No role on GP0 | `S.BUS NEEDS GP0.` `SET A PIN TO GP0 IN SETTINGS.` | `UI_COL_WARN` | 95 and 173 px |
 | Armed, or another claim holds | `DISARM FIRST`, `WAIT: DSHOT RESTARTING` | `UI_COL_WARN` | backstops, unreachable through the UI |
 
 `SIG GP0` reads `AUX GP0` when GP0 is AUX; the ESC line names the GPIO of
 SIG, `GP1` in that wiring. In the default wiring the FC lead goes where the
-ESC was, so `UNPLUG IT` comes first and the ESC line names no FC.
+ESC was, so `UNPLUG IT` comes first and the ESC line names no FC. The line
+to plug the FC in is only on the KISS line, because that line is always
+about GP0, where the FC goes; the ESC line names SIG, which is GP1 in the
+AUX wiring, and the FC does not go on GP1.
 
 ### Leave page
 
@@ -804,6 +810,7 @@ it, so the warnings stay wherever START can be reached:
 | Where | Text |
 |---|---|
 | Main view, SAFE | `GP0 GOES TO A FLIGHT CONTROLLER.` `NEVER TO AN ESC. PROPS OFF.` |
+| Main view, after a stop | the stop's reason, then `NEVER TO AN ESC. PROPS OFF.`: HOLD TO START is live and no probe runs before it |
 | SET, SAFE | `NEVER TO AN ESC. PROPS OFF.` in the footer |
 | RX SIGNALS, under OUTPUT | `S.BUS TO A FLIGHT CONTROLLER.` `ON GP0, NEVER TO AN ESC.` |
 
@@ -945,7 +952,7 @@ Each slice builds, passes the host suite and merges alone.
 | 1. Encoder copy, built | `sbus.c`, `sbus.h`, `test_sbus.c` from rcbench b88593d3; `lib/rcbench/README.md`, STATUS, CHANGELOG | 3 replaced, 3 edited | 300 changed in copies, 30 of documentation |
 | 2. Job, built | `sbus_out_job.*`, the user and job rows, `CORE1_JOB_NO_GP0`, the TX side of the UART0 fake, the control-register record, `test/test_sbus_out_job.cpp`, STATUS, CHANGELOG | 2 new in `src/`, 1 new in `test/`, 8 edited | 350 in `src/`, 700 in `test/` |
 | 3. Probe, built | the connect cycle on GP0 as a phase of the `SbusOut` claim before the UART bind, the refusal while a bootloader answers, the repeat until a cycle with no answer, MENU's run cue at an answer, `pinClaimWantLeavePage()` and the mark for decision 8's leave page after an EFM8 answer, the gate `sbusOutProbePassed()`, its host tests on the bootloader models of slice 0 | `sbus_out_job.*`, `escwire_job.*`, `ui_menu.cpp`, a comment in `usb_bridge.h`, `rx.cmake`; in `test/` the job's test file, the escwire line's fake and the GPIO stub; CI's stack step | 400 in `src/`, 700 in `test/` |
-| 4. Screen | `sbus_out_view.*`, `ui_sbus_out.*`, OUTPUT's entry, `test/test_sbus_out_ui.cpp`, `test_ids.cpp`, the preview, `tools/make_previews.py`, `tools/check_wiki.py`, README and wiki pages RX-Signals and RX-Signale with the [warnings](#warnings), STATUS, CHANGELOG, this note's status | 4 new in `src/`, 1 new in `test/`, 10 edited | 750 in `src/`, 700 in `test/`, 200 of documentation |
+| 4. Screen, built | `sbus_out_view.*`, `ui_sbus_out.*`, OUTPUT's entry, `test/test_sbus_out_ui.cpp`, `test_ids.cpp`, the preview, `tools/make_previews.py`, `tools/check_wiki.py`, README and wiki pages RX-Signals and RX-Signale with the [warnings](#warnings), STATUS, CHANGELOG, this note's status | 4 new in `src/`, 1 new in `test/`, 10 edited | 750 in `src/`, 700 in `test/`, 200 of documentation |
 | 5. Bring-up | the bench tests above | none | none |
 
 By decision 1, slices 1 to 5 need slice 0, the probe's prerequisites,
@@ -1345,6 +1352,169 @@ rcbench's 17-byte contact gets the same answers as ESC SETTINGS' 21-byte
 greeting, what a bootloader does with a greeting cut short, and the line's
 level through the pull changes at the bind and the switch are read from the
 sources, not measured.
+
+### Slice 4 as built
+
+Files: `src/ui_sbus_out.h` and `.cpp`, S.BUS OUTPUT with its SET view and
+its leave pages; `src/sbus_out_view.h` and `.cpp`, the pure formatter;
+OUTPUT's entry in `UI_RX_ENTRIES` (`src/ui_registry.cpp`) with
+`&UI_SBUS_OUT`; `UiScreenId::SbusOut`; `sbusOutJobHeld()` in
+`src/sbus_out_job.*`; `src/rx.cmake` and `test/rx.mk`. In the host suite:
+`test/test_sbus_out_ui.cpp`, `runSbusOutUiTests`; S.BUS OUTPUT's tables in
+`test/test_ids.cpp`; the source test of `test/test_sbus_out_job.cpp`
+rewritten (below); the preview `docs/sbus-out-preview.png`; and in
+`test/fakes.cpp` a count of the UART0 fake's queued TX characters that
+starts at the first that may still wait, so a 30 s run of frames no longer
+rescans every character sent on each UARTFR read. `tools/check_wiki.py`
+gains a fifth check: RX-Signals and RX-Signale each quote the four warning
+texts of [warnings](#warnings). Choices the note left open, or made more
+exact, the developer's:
+
+- **The gate.** `startAllowed()` is `!running && sbusOutProbePassed()`, and
+  HOLD TO START's hold is live only on it; the hold's firing calls
+  `startFrames()`, the one place that sends a Start. The gate holds only
+  while this claim's job is bound in its UART phase, so it implies the claim
+  runs with no bind error; a check of either was equivalent under mutation
+  and is not made. The hold times only a press that landed on the live
+  button (`ui_hold.h`), so a finger kept on START through the probe starts
+  nothing when the probe passes, and the press that stops the frames never
+  starts them again.
+- **The probe's lines name GP0 by its role**, `CHECKING SIG GP0 FOR AN ESC.`
+  (28 characters, 167 px) and `AN ESC BOOTLOADER ANSWERS ON SIG GP0.`
+  (37 characters, 221 px), `AUX GP0` when GP0 is AUX: menu-b.md decision 10
+  names a pin by its role and number, and `test/check_docs.py` refuses
+  `CHECKING GP0` in the manual. The warnings and OUTPUT's lines keep the
+  note's `GP0`, the pin whatever its role, as the monitor's line names
+  `GP1`. No remaining time is shown while the probe runs: the note gives
+  none.
+- **When to plug the FC in.** The owner's answer of 2026-11-15 on the
+  monitor's wait text ([rx-signals.md](rx-signals.md#slice-3-as-built),
+  "When to plug the receiver in") is the KISS line's
+  `CONTROLLER IN ONCE SAFE SHOWS.`: the `SAFE` chip shows only once the
+  probe has passed and the UART holds GP0. The ESC line names no FC, by the
+  note's reason under [unavailable pin](#unavailable-pin): in the default
+  wiring the FC lead goes where the ESC was.
+- **The bottom row stays** while a message fills the rows' area, with HOLD
+  TO START drawn disabled, so the gate shows; it is not drawn under RETRY,
+  whose wide button covers it, and a tap there reaches nothing under it.
+- **The stopped states.** After the heartbeat's stop, the idle stop or a
+  refused frame, note 1 gives the reason in its colour until the next
+  START, and note 2 keeps `NEVER TO AN ESC. PROPS OFF.` in `UI_COL_WARN`:
+  HOLD TO START is live then and no probe runs before it, so an ESC plugged
+  in since the probe is the case the warning is for. The note's
+  `HOLD TO START AGAIN.` is not drawn; the live button says it. The screen's
+  own idle stop is `SbusOutStop::Idle`, cleared by START. SET's footer
+  carries the same warning in every state but RUNNING.
+- **The sliders** take presses on the row's 22 px over the track's x span,
+  x 54 to 199, and are drawn on the note's 10 px track with the 14 × 16 px
+  knob of `ui_slider`. A slider's value is held to its step, and to the
+  ceiling on the throttle row, once let go, so the next drag starts at the
+  knob. The track past the ceiling is a 2 px `C_DIM` line along its middle:
+  a dim band the track's height read as a fill to the ceiling. The mark is
+  broken where the knob covers it.
+- **The value column** is the frame last loaded, the START frame's values
+  before the first frame of a visit or a START.
+- **The throttle channel on SET** while SAFE also puts the sliders at the
+  new channel's START frame, so the throttle row's knob and mark are what
+  START sends.
+- **BACK after an EFM8 answer** sends STOP before it opens decision 8's page
+  before LEAVE, so no frame goes out while the page waits; STAY returns to
+  the screen, SAFE. BACK opens that page again while the EFM8 mark stands,
+  until RESTART DSHOT on that page calls `sbusOutProbeRestart()`. RESTART
+  DSHOT on the plain page does not: on the chip core1 can count an EFM8
+  answer between the screen's read at BACK and the release, and that late
+  mark keeps MENU's cue, `POWER-CYCLE THE ESC TO RUN IT`.
+- **SET's title** is `OUTPUT SET`, 10 characters, 118 px, after `SERVO SET`;
+  the note names none. Its note band reads `STOP TO CHANGE THE CHANNEL.`
+  while RUNNING and `START TO SET THE FLAGS.` while SAFE, in
+  `UI_COL_WARN` as SERVO SET's.
+- **The idle clock** is the last UI frame with a finger down, START's hold
+  among them; the rule fires on the first frame more than 30,000 ms after it.
+- **The host suite reads the commands.** `sbusOutJobHeld()` returns the
+  command block, so a test sees what the screen sent, taken or not: no
+  command during the probe, the Start's throttle channel and ceiling, the
+  screen's own clamp of the throttle channel before core1's.
+- **The source test** that held the output unreachable now holds the one
+  path: a line under `src/` that names `PinUser::SbusOut`,
+  `Core1Job::SbusOut`, `sbusOutJobCommand`, `SBUS_OUT_JOB_OPS` or
+  `SbusOutCmdKind::Start`, or reaches a pin user or a job by a number, must
+  be one of the listed lines, as often as listed: the job's, the table's,
+  the claim's row, the probe's request for the leave page, and S.BUS
+  OUTPUT's claim, release, keep, restart and retry lines, its one command
+  call and its one Start. Then in `ui_sbus_out.cpp` the Start is sent only
+  in `startFrames()`, whose name appears twice, at its definition and in
+  the hold's call on the line gated by `startAllowed()`, whose one return is
+  a chain of `&&` with no `|` and no `?` that ends in
+  `sbusOutProbePassed()`. The numeric-cast checks stay and also catch a
+  cast to `SbusOutCmdKind`, so `send((SbusOutCmdKind)1)`, a pointer to
+  `startFrames` and a ternary in the gate each fail it.
+  `sbusOutClaimRoles()` left the list: the screen calls it, and it is pure.
+  The test is a lint of the sources, not a proof: a value made without a
+  cast or a name, through `memcpy()`, a union or a macro, is not caught.
+  The UI tests hold the behaviour: no command while the probe runs, START
+  only through the hold.
+
+Mutation check: each mutation applied to a copy of the tree, the changed
+file built into the host suite and the suite run. 139 mutations on the
+branch: 99 of `src/ui_sbus_out.cpp`, four of them a second path to START
+for the source test (a second Start line, a second call of
+`startFrames()`, the gate ORed away, a second claim line), 35 of
+`src/sbus_out_view.cpp`, 2 of `src/ui_registry.cpp`, 1 of
+`sbusOutJobHeld()` and 2 of the UART0 fake's queue count; and one of
+`tools/check_wiki.py`'s new check, a warning dropped from RX-Signale. 135
+fail: the gate, its probe and its frames, the hold's gate, START's reset
+and command, the Start's throttle channel and ceiling, STOP on press on
+both views, the sliders while SAFE, their snap and their page, the
+ceiling on the slider and in the frame, the flags in the frame, the idle
+rule's call, its touch clock, its STOP and its note, the Frame sent once a
+change, each message and its colour, the role in the probe's lines, the
+claim with no role, RETRY, the tap under RETRY, the EFM8 page, its STOP,
+STAY, LEAVE, RESTART DSHOT's `sbusOutProbeRestart()`, BACK TO OUTPUT's new
+visit, the leave page's lines and note, SET's locks, ends, flags, notes,
+footer and STOP, the drawing of the chip, labels, knobs, mark, line,
+values, page label and hold bar, the body's clear between views, each rule
+of the formatter, OUTPUT's screen and second line, the job's command
+block, a fake that took every queued character as started, and the four
+second paths. A first run on an earlier commit left 17 alive: for 6 the
+screen checked a thing twice (the claim's state, its bind error and
+`s_claimed` in the gate, a STOP press's lift, and the claim's state beside
+the probe's Off for `TAKING`) and no longer does; for 7 the suite gained a
+test; the fake's mutation was made stronger; three are below. A later run
+left the main view's early return after STOP alive, which is gone too.
+After review, 16 more, all failing the suite: the three bypasses of the
+source test (a cast to `SbusOutCmdKind`, a pointer to `startFrames`, a
+ternary in the gate), the warning dropped or dimmed after a stop and the
+reason dropped, RESTART DSHOT clearing a late EFM8 mark and never clearing
+one, the idle clock with no touch or with SET's touches left out, `(PIN)`
+read as `(CLOCK)`, and five of the source test's own checks (the cast to a
+command kind, `?`, `|`, a third `startFrames`, a second return); the `|`
+check survived its first run, until its samples failed on the `|` alone.
+Five of the first 139 survive, each equivalent or out of the host suite's
+reach:
+
+- BACK's return to MENU from `ClaimState::Restoring` dropped: Restoring
+  falls between `pinClaimPoll()` and `pinClaimEnd()` when core1 suspends the
+  pump, which the host suite's frame order never makes; S.BUS MONITOR has
+  the same line.
+- BACK's `if (!s_claimed) return false;` dropped: with no claim,
+  `pinClaimEnd()` leaves the claim Free and the next line returns, and the
+  EFM8 mark, which would open decision 8's page, never stands without this
+  screen's claim: every way out of a claimed visit with the mark is RESTART
+  DSHOT, which clears it.
+- LEAVE's return to MENU when the claim is Free: the page before LEAVE opens
+  only after an EFM8 answer, so only with the job bound and the claim
+  Running, which `pinClaimEnd()` takes to Leaving.
+- SET's STOP on `down` in place of `pressed`: `uiPressing()` counts only a
+  press that landed on STOP, which acts on its first frame anyway; while
+  SAFE there is no STOP.
+- The fake's count without its `startUs > now` test: from the first
+  character that may still wait, every later one starts later, unless a
+  stuck transmitter put one at `UINT64_MAX`, which no test un-sticks.
+
+The script is not kept.
+
+Not verified: everything on a pin, an FC and an ESC, as for slices 2 and 3;
+whether an FC's configurator shows the 16 channels, CH17 and CH18 as sent.
 
 ## Choices
 
