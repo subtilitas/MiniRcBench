@@ -844,12 +844,12 @@ S.BUS output's row, `SbusOut`, is designed in
 
 ## Porting
 
-| rcbench file, at 5ef42efd | Here | How |
+| rcbench file, at 5ef42efd unless the row says otherwise | Here | How |
 |---|---|---|
-| `protocols/sbus/sbus.c`, `include/sbus.h` | `lib/rcbench/protocols/sbus/` | copied unchanged |
+| `protocols/sbus/sbus.c`, `include/sbus.h` | `lib/rcbench/protocols/sbus/` | copied unchanged, at b88593d3 |
 | `protocols/ppm/ppm.c`, `include/ppm.h` | `lib/rcbench/protocols/ppm/` | copied unchanged |
 | `protocols/ppm/rp2350/out_ppm.c`, `out_ppm.h`, `ppm.pio` | `lib/rcbench/protocols/ppm/rp2350/` | copied unchanged; built by the firmware only, `OUT_PPM_MAX_PINS=1` |
-| `test/host/test_sbus.c` | `test/rcbench/` | copied unchanged, 12 cases |
+| `test/host/test_sbus.c` | `test/rcbench/` | copied unchanged, at b88593d3, 19 cases |
 | `test/host/test_ppm.c` | `test/rcbench/` | copied unchanged, 9 cases |
 | `shared/outputs/include/outputs.h` | `test/rcbench/outputs.h` | adapted: `OUT_FLOOR_US` 400 and `OUT_CEILING_US` 2500 only, the two values `test_ppm.c` holds the module to, as `test/rcbench/link_pages.h` does for Hitec |
 | the modules' `README.md` and `CMakeLists.txt` | none | MiniRcBench lists its sources in its own `.cmake` and `.mk` files |

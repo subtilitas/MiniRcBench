@@ -455,9 +455,9 @@ Why each rule:
   SETTINGS, the ceiling the DShot throttle obeys (rx-signals.md decision 6). The
   ceiling is in raw counts, as rcbench's `sbus.h` asks (line 149), from the same
   fraction the tester uses: MAX THROTTLE out of 2000 (`MAX_THROTTLE_CEILING`
-  in `config.h`). Betaflight reads raw 499 as 1191.9 µs. The ceiling bounds the throttle
-  channel, not an armed FC's motor outputs: the FC adds its idle and its
-  stabilisation to them.
+  in `config.h`). Betaflight reads raw 499 as 1191.9 µs. The ceiling bounds
+  the throttle channel, not an armed FC's motor outputs: the FC adds its idle
+  and its stabilisation to them.
 
   | MAX THROTTLE | Raw ceiling | µs, rcbench | µs, Betaflight |
   |---|---|---|---|
@@ -480,8 +480,8 @@ Why each rule:
   an FC without frames goes to its own failsafe, the state a pilot tests
   for. The failsafe bit is its own control on SET.
 - **The idle stop** carries the tester's `IDLE_DISARM_MS` over, with its
-  bound, more than 30 s (the idle auto-disarm in `ui.cpp`): an FC armed through a switch
-  channel spins its motors at idle with the throttle at its stop, and
+  bound, more than 30 s (the idle auto-disarm in `ui.cpp`): an FC armed
+  through a switch channel spins its motors at idle with the throttle at its stop, and
   faster above it. So the frames stop when the throttle is above its stop
   or a switch channel, 5 to 16, CH17 or CH18, is off its START value. With
   the frame at its START values the frames go on, so the FC's receiver page
@@ -993,8 +993,8 @@ the note left open, or made more exact:
   stays set, so a UART that never finishes cannot hold the claim in
   Leaving. The last frame needs at most 3,000 µs.
 - **A clock refusal never routes the UART to the pad.** The bind has set
-  only SIO's output and the pull-down by then; it turns UART0 off and leaves GP0 as the
-  release does, a low SIO input with the pull-down.
+  only SIO's output and the pull-down by then; it turns UART0 off and leaves
+  GP0 as the release does, a low SIO input with the pull-down.
 - **Each bind starts SAFE with no trip**, the note's "visit", and takes no
   command sent before it: the bind takes the command block's seq as
   acknowledged.

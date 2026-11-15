@@ -22,18 +22,18 @@
  * job around them copies the command block, loads the TX FIFO
  * (first-in, first-out buffer) and publishes the status.
  *
- * **The bind**, in this order: SIO's output enable for GP0 off and its
- * output low, so whatever an earlier owner left driving, SIO drives nothing;
- * the pull-down on GP0, which holds the line at its idle level; uart_init() at 100,000 baud, refused with
- * CORE1_JOB_CLOCK more than 1 % off (sbusBaudOk()); 8E2 and the receiver
- * off (UARTCR.RXE), since no pad carries UART0's RX during this claim; then
- * GP0 to the UART with its output inverted. gpio_set_function() writes the
- * whole control register and zeroes OUTOVER (SDK 2.1.1, gpio.c), so the
- * SDK's two calls, function then gpio_set_outover(), would put the UART's
- * high idle on the pad between them. The job does gpio_set_function()'s
- * three steps itself: input enable on and output disable off in the pad
- * register, the control register with FUNCSEL `GPIO_FUNC_UART` and OUTOVER
- * `GPIO_OVERRIDE_INVERT` in one write, then pad isolation cleared.
+ * **The bind**, in this order: SIO's output enable for GP0 off and its output
+ * low, so whatever an earlier owner left driving, SIO drives nothing; the
+ * pull-down on GP0, which holds the line at its idle level; uart_init() at
+ * 100,000 baud, refused with CORE1_JOB_CLOCK more than 1 % off (sbusBaudOk());
+ * 8E2 and the receiver off (UARTCR.RXE), since no pad carries UART0's RX during
+ * this claim; then GP0 to the UART with its output inverted.
+ * gpio_set_function() writes the whole control register and zeroes OUTOVER (SDK
+ * 2.1.1, gpio.c), so the SDK's two calls, function then gpio_set_outover(),
+ * would put the UART's high idle on the pad between them. The job does
+ * gpio_set_function()'s three steps itself: input enable on and output disable
+ * off in the pad register, the control register with FUNCSEL `GPIO_FUNC_UART`
+ * and OUTOVER `GPIO_OVERRIDE_INVERT` in one write, then pad isolation cleared.
  *
  * **The release** loads no new frame and returns false while UARTFR.BUSY is
  * set, so the frame on the wire completes, at most 3,000 us after it was
