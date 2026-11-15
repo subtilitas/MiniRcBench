@@ -1,10 +1,11 @@
 # ESC commands and the kV estimate
 
 Status: designed; the owner answered its questions on 2026-11-15, see
-[decisions](#decisions). Slice 1, the command slot on core1, and slice 2,
-the ESC COMMANDS page, are built and tested on the host only
-([slice 1 as built](#slice-1-as-built),
-[slice 2 as built](#slice-2-as-built)); slice 3 waits on being built. The
+[decisions](#decisions). Slice 1, the command slot on core1, slice 2, the
+ESC COMMANDS page, and slice 3, the kV estimate, are built and tested on
+the host only ([slice 1 as built](#slice-1-as-built),
+[slice 2 as built](#slice-2-as-built),
+[slice 3 as built](#slice-3-as-built)); slice 5, the bring-up, waits. The
 feature is item (1) of the owner's feature choice of 2026-11-14, recorded
 in [STATUS.md](../../STATUS.md) open item 28: an ESC commands page and an
 RPM-per-volt and kV estimate on the tester, a design note first, then
@@ -920,6 +921,103 @@ a request waiting behind a cut sequence dropped with the sequence's
 previews are `docs/esccmd-preview.png` and the wiki's `esccmd*.png`;
 `docs/menu-preview.png` shows `NO ESC` in place of the BEEP flash. Nothing of it
 has run on an ESC.
+
+### Slice 3 as built
+
+`src/kv_est.h` holds the rules, pure: `kvEstRpmPerVolt()` and `kvEstKv()`,
+the note's formulas in 64-bit integers, rounded half up and clamped to
+`KV_EST_MAX`, 99999; `KvSettle` with `kvSettleStep()`, the 1000 ms settle;
+`kvEstView()`, which decides both fields from `KvEstIn`; and
+`kvEstErpmLine()` and `kvEstText()`, the texts. `src/config.h` has
+`KV_EST_MIN_THROTTLE` (1500) and `KV_EST_SETTLE_MS` (1000) in its motor
+group. In `src/ui.cpp`, `uiTick()` steps the settle on every tester frame
+with the throttle sent, after `escSetThrottle()` and the idle disarm, and
+`drawRpm()` builds `KvEstIn` from the filtered eRPM, MOTOR POLES, the
+merged voltage of `escMerge()`, the throttle, the settle and
+`esc3dNote()`. Its redraw key has one entry per field: the figure, or a
+value past 99999 for each state without one. The
+texts and colours are the [on the tester](#on-the-tester) table's: the ERPM
+line in `C_DIM`, `KV EST` in `C_TEXT` at x 10, y 114. `static_assert`s hold
+the widest texts clear of the `RPM` label and of `SWIPE = THROTTLE`.
+
+Choices the note left open:
+
+- **RPM above 0, not eRPM above 0.** RPM is eRPM over half the pole count
+  in integers, as the readout shows it; an eRPM below half the pole count
+  is 0 RPM, and no figure shows. RPM above 0 implies eRPM above 0.
+- **The RPM is not the readout's clamped figure.** The big readout stops at
+  99999; the estimate takes the RPM before that clamp and clamps its own
+  result.
+- **No data before a low throttle.** With condition 1 or 2 missing, the
+  field reads `KV EST --` at any throttle; `KV EST 75%+` only when raising
+  the throttle would bring a figure.
+- **A throttle above 2000** reads `KV EST --`. The tester never sends one:
+  its ceiling is at most 2000 and `escSetThrottle()` clamps there.
+- **Disarmed, the ERPM line is as before,** `ERPM 84210` alone, as
+  [menu-b.md](menu-b.md#the-tester) draws it; armed with no figure it reads
+  `ERPM 39200  RPM/V --`. With no eRPM answer it reads `NO TELEMETRY` alone,
+  as before, and the row `KV EST --`.
+- **The 3D note** takes the row as before, so the estimate is not drawn;
+  `kvEstView()` reads it Unknown too. `RPM/V` stays on the ERPM line, since
+  it needs conditions 1 and 2 only.
+- **The voltage** is the merged reading rounded to hundredths as the
+  VOLTAGE tile rounds it, `(int)(volts × 100 + 0.5)`: a KISS 16.05 V is
+  1604.9998 hundredths in a float and counts as 1605.
+- **The settle** counts from the UI frame on which the throttle sent last
+  changed, in 25 ms frames: a figure shows on the 40th frame after it.
+  Once reached it holds until the throttle changes, so a throttle held
+  across the `millis()` wrap does not drop the figure for a second. It is
+  stepped on tester frames only; MENU and every tool disarm on the way in,
+  so the throttle is 0 there.
+- **The widest ERPM line** is `ERPM 60000000  RPM/V 99999`, not
+  `ERPM 1234567  RPM/V 99999`: the decoder's largest eRPM is 60,000,000, a
+  period of 1 µs (`erpm_from_payload()`, `src/dshot/dshot_telem.c`).
+  26 characters, 155 px, x 10 to 164, 27 px clear of `RPM` at x 192.
+- **The pole count's target** stays in the control table while armed,
+  disabled, over `KV EST` as it was over `14 POLES`.
+  [menu-b.md](menu-b.md#slice-7-as-built) records the pole count as drawn
+  while armed; decision 6 here puts `KV EST` there instead, and menu-b.md is
+  not edited.
+
+The host suite: `test/test_kv_est.cpp` drives the pure rules: both formulas
+at the note's example, at the half-up rounding and one past it, at 99999
+and 100000, at 60,000,000 RPM where 32 bits overflow, and with a voltage or
+throttle of 0; the settle at 999 and 1000 ms, after a step of 1, and across
+the `millis()` wrap; each condition at its boundary: disarmed, the link
+stale, 0, 1 and 2 poles, eRPM 0, 6 and 7 on 14 poles, no fresh voltage,
+0.50 V and 0.51 V, 0 V and below, t 0, 1499, 1500, 2000 and 2001, not
+settled above and below 75 %, the 3D note above and below 75 %, and no
+data below 75 %; the texts and their widths. `testTesterKvEst()` in
+`test/test_ui.cpp` runs the tester: the ERPM line alone while disarmed;
+armed at 0 % with EDT's 15.75 V, `RPM/V 1422` and `KV EST 75%+`; 50 %
+held over 1 s, still `75%+`, and a KISS 16.05 V that RPM/V follows; 80 %
+with `KV EST --` at 975 ms after the throttle stood and the figure at
+1000 ms, from KISS's 16.00 V over EDT's 15.75 V; RPM/V from the filtered
+eRPM one frame after a step; a 0.01 V step that moves the estimate and not
+RPM/V; the voltage and then the eRPM going stale and
+coming back; nothing kept after the disarm or on the next arm; the 3D
+note at 80 % with `RPM/V` still shown, and a swipe there that shows
+`SWIPE ACTIVE` with no estimate beside it; and the widest texts. The preview
+is the wiki's `tester-kv.png`, the third frame of `docs/ui-preview.png`.
+Nothing of it has run with a motor: no figure has been compared with a
+rated kV or a tachometer (bench test B8).
+
+Mutation check: 58 mutants of `src/kv_est.h`, the two constants and the
+wiring in `src/ui.cpp`, each built and run against the host suite; 52 fail
+it. Six survive, each with no change on the screen:
+
+- `v >= KV_EST_MAX` in `kvEstClamp()`: at 99999 both read 99999.
+- `uiInit()` not resetting the settle: the next tester frame steps it with
+  the throttle uiInit() set to 0, which resets it.
+- `kin.armed`, `kin.alive` and `kin.esc3d` set to their passing value, and
+  `kin.voltsFresh` set true: `drawRpm()` draws neither field while
+  disarmed or under the 3D note, passes eRPM 0 while the link is stale, and
+  `escMerge()` gives a stale voltage as 0 V, below the floor. The pure
+  rules for all four are killed in `test/test_kv_est.cpp`.
+
+Found while testing and fixed in the tests: the first runs let a 32-bit
+denominator, a signed or unwrapped settle compare, the unfiltered eRPM,
+and three of the redraw keys through; cases for each were added.
 
 ## Decisions
 

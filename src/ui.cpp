@@ -343,8 +343,7 @@ static struct {
 	int  battKey;
 	uint32_t rpm, erpm;
 	int  linkAlive, rpmArmed;
-	int  rpvShow, kvShow;
-	uint32_t rpvValue, kvValue;
+	uint32_t rpvKey, kvKey;
 	int  volts100, amps100, tempC, stress, status, rate, errPct, edt;
 	int  kbaud, pumpErr;
 	int  voltsSrc, ampsSrc, mah;
@@ -732,17 +731,17 @@ static void drawRpm() {
 	kin.settled = s_kvSettle.settled;   // stepped with s_throttle this frame
 	kin.esc3d = esc3d;
 	const KvEstView kv = kvEstView(&kin);
+	// One key per field: the figure, or past KV_EST_MAX the state that has none.
+	const uint32_t rpvKey = kv.rpv == KvEstShow::Value ? kv.rpvValue : KV_EST_MAX + 1 + (uint32_t)kv.rpv;
+	const uint32_t kvKey = kv.kv == KvEstShow::Value ? kv.kvValue : KV_EST_MAX + 1 + (uint32_t)kv.kv;
 
 	if (s_shown.rpm == rpm && s_shown.erpm == erpm &&
 	    s_shown.linkAlive == (int)alive && s_shown.rpmArmed == (int)s_armed &&
 	    s_shown.padLive == (int)s_padEngaged && s_shown.rpmReadout == readout &&
-	    s_shown.rpvShow == (int)kv.rpv && s_shown.rpvValue == kv.rpvValue &&
-	    s_shown.kvShow == (int)kv.kv && s_shown.kvValue == kv.kvValue)
+	    s_shown.rpvKey == rpvKey && s_shown.kvKey == kvKey)
 		return;
-	s_shown.rpvShow = (int)kv.rpv;
-	s_shown.rpvValue = kv.rpvValue;
-	s_shown.kvShow = (int)kv.kv;
-	s_shown.kvValue = kv.kvValue;
+	s_shown.rpvKey = rpvKey;
+	s_shown.kvKey = kvKey;
 	s_shown.rpmReadout = readout;
 	s_shown.padLive = s_padEngaged;
 	s_shown.rpm = rpm;

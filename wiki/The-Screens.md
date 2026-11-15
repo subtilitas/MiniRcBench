@@ -118,6 +118,45 @@ count. The `ERPM` value and the pole count, for example `14 POLES`, are shown
 below it. Green digits: eRPM arrived within the last 500 ms. Dark red zero: it
 did not, and the line reads `NO TELEMETRY`.
 
+**RPM/V and the kV estimate.** While armed, the `ERPM` line also reads
+`RPM/V`, the RPM divided by the ESC's supply voltage, the value of the
+`VOLTAGE` tile: `ERPM 156800  RPM/V 1400`. The row below reads `KV EST` in
+place of the pole count: an estimate of the motor's kV, its speed constant in
+RPM per volt with no load, worked out as RPM × 2000 / (voltage × throttle),
+with the throttle as sent, 0 to 2000. It is an estimate under two
+assumptions: the ESC's duty equals the throttle, and the motor runs with no
+propeller.
+
+- `KV EST 1758`: the estimate, rounded to a whole number.
+- `KV EST 75%+`: the throttle is below 75 %, where the estimate does not
+  show. At the default `MAX 20%` it never shows; raise `MAX` in SETTINGS
+  for the reading, propeller off.
+- `KV EST --`: no figure. An input is missing or the throttle moved within
+  the last second.
+
+Both figures need eRPM within the last 500 ms, an RPM above 0 and a voltage
+above 0.5 V from KISS (within 500 ms) or EDT (within 1000 ms); otherwise the
+line reads `RPM/V --` and the row `KV EST --`. The estimate also needs the
+throttle at 75 % or more, unchanged for 1 s, and no 3D note; the 3D note
+takes the row as before. Both figures stop at 99999. Neither is kept after
+the disarm: disarmed, the line reads `ERPM` alone and the row `14 POLES`.
+
+What the estimate cannot know:
+
+- **A propeller.** With one on, it reads low by the load's share.
+- **The ESC's duty.** At 75 % on AM32 2.22 the design note works out
+  × 0.92 to × 1.08 of the rated kV for the SINE STARTUP and MIN DUTY
+  settings it covers, from AM32's source; not measured. For
+  Bluejay, BLHeli_S and BLHeli_32 the throttle-to-duty map is not verified.
+- **Losses.** The voltage drops in the ESC and the wiring, friction and iron
+  losses lower the speed; by how much is not known.
+- **The pole count.** A wrong `MOTOR POLES` scales both figures: 12 set on a
+  14-pole motor reads 16.7 % high.
+
+Neither figure has been measured on a motor from this board.
+
+<img src="img/tester-kv.png" width="240" alt="The tester armed at 79 %: ERPM 156800  RPM/V 1400 and KV EST 1758 under the RPM readout">
+
 After ESC SETTINGS has read an ESC with 3D MODE on, or written 3D MODE on
 (accepted by the ESC, verified or not), or after `3D ON` on
 [ESC COMMANDS](#esc-commands), in this power-up, the row under the `ERPM` line
@@ -147,11 +186,12 @@ the bar reads `ARM TO ENABLE`.
 **Pole count and ceiling open SETTINGS.** While the tester is disarmed,
 `14 POLES` and `MAX 20%` are underlined, and a tap on either opens SETTINGS.
 The tap disarms as `MENU` does, and `BACK` on SETTINGS returns to the tester.
-While armed the underline goes and a tap on them does nothing: the pole count
-lies in the throttle pad and `MAX` reaches into the bar's grab area, so the
-press drives the throttle as there. While DShot restarts after a servo tool
-the underline goes too and a tap does nothing, as `MENU` draws SETTINGS
-disabled then. While the 3D note takes the row, only `MAX` opens SETTINGS.
+While armed the underline goes, `KV EST` takes the pole count's place, and a tap
+on them does nothing: the pole count lies in the throttle pad and `MAX` reaches
+into the bar's grab area, so the press drives the throttle as there. While DShot
+restarts after a servo tool the underline goes too and a tap does nothing, as
+`MENU` draws SETTINGS disabled then. While the 3D note takes the row, only `MAX`
+opens SETTINGS.
 
 **Buttons.** `HOLD TO ARM` / `DISARM`, `LATCH` (the throttle stays where the
 finger leaves it; blue while on), `MENU`.

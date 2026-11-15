@@ -44,6 +44,19 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1: RPM/V and the kV estimate on the tester, slice 3 of
+  [esc-commands.md](docs/design/esc-commands.md#slice-3-as-built)
+  (`src/kv_est.h`, decisions 6 and 7). While armed the ERPM line reads
+  `ERPM 156800  RPM/V 1400`, the RPM over the ESC's voltage, KISS where
+  fresh, EDT otherwise, and `KV EST` takes the pole count's place:
+  RPM × 2000 / (V × t), t the throttle sent, 0 to 2000, rounded and clamped
+  to 99999. A figure needs eRPM within 500 ms, an RPM above 0 and a fresh
+  voltage above 0.5 V, else `RPM/V --` and `KV EST --`; the estimate also
+  needs t from 1500 (75 %) to 2000, unchanged for 1000 ms
+  (`KV_EST_MIN_THROTTLE`, `KV_EST_SETTLE_MS`), and no 3D note, and reads
+  `KV EST 75%+` below 1500. Nothing is kept after the disarm. Host tests in
+  `test/test_kv_est.cpp` and `test/test_ui.cpp`; the wiki's `tester-kv.png`
+  and `docs/ui-preview.png`. Not measured on a motor.
 - After v0.1.0-rc1 (a93e1c1): ESC COMMANDS, slice 2 of
   [esc-commands.md](docs/design/esc-commands.md#slice-2-as-built), MENU's
   first row in place of BEEP THE ESC (decision 1, `src/ui_esc_cmd.*`). BEEP

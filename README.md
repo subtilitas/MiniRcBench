@@ -68,9 +68,11 @@ files written before the set have FAT date 0.
 An ESC COMMANDS page, MENU's first row, sends DShot beacons, direction and
 3D mode, each change saved in the ESC behind a 1 s hold (slices 1 and 2 of
 `docs/design/esc-commands.md`, host tests only, no command of it sent to an
-ESC from this board yet). An RPM-per-volt reading and a kV estimate on the
-tester, labelled `KV EST`, are designed in the same note and not built;
-the owner answered its questions on 2026-11-15.
+ESC from this board yet). The armed tester shows RPM per volt on its
+`ERPM` line and a kV estimate, `KV EST`, in place of the pole count (slice
+3 of the same note, host tests only, not measured on a motor); see
+[Telemetry and logging](#telemetry-and-logging). The owner answered the
+note's questions on 2026-11-15.
 A USB bridge, through which an ESC tool on a desktop computer reaches the
 ESC's bootloader on SIG over the board's USB serial port, by passthrough at
 19200 baud or through MSP (the MultiWii Serial Protocol) and the 4-way
@@ -478,8 +480,10 @@ touched the screen at power-up, lift the finger before HOLD TO ARM.
   a tap on it opens SETTINGS (`TesterCtl::Poles` at {4, 106, 72, 22},
   `TesterCtl::Max` at {82, 230, 60, 22}). The tap runs MENU's disarm first,
   through `uiOpenTool()` in `src/ui.cpp`, and `BACK` on SETTINGS opened this
-  way returns to the tester. While armed they show no underline and a press
-  on them is the throttle pad's or the throttle bar's: the pole count lies in
+  way returns to the tester. While armed they show no underline, `KV EST`
+  stands in the pole count's place ([Telemetry and
+  logging](#telemetry-and-logging)), and a press on them is the throttle
+  pad's or the throttle bar's: the pole count lies in
   the pad, `MAX` reaches into the bar's grab area. While another screen
   holds the signal pins (DShot restarting) they show no underline and a tap
   does nothing, as MENU's SETTINGS row is refused. While the 3D note takes
@@ -973,6 +977,43 @@ not known among them: byte 0x12 may be another field there), a write the ESC
 refused and a write of 3D MODE off that is not verified leave it. It describes
 the last ESC those two tools reached, not the one on the pin now: a swapped ESC
 is not detected.
+
+**RPM/V and the kV estimate.** While armed, the `ERPM` line, y 102, carries
+`RPM/V` after two spaces, `ERPM 156800  RPM/V 1400`, and the bottom row's
+pole count gives its place to `KV EST`, `C_TEXT` at x 10, y 114, until the
+disarm (decisions 6 and 7 of `docs/design/esc-commands.md`, slice 3). With
+RPM the readout's figure, eRPM from the display filter over half of MOTOR
+POLES, V the voltage the `VOLTAGE` tile shows, KISS where fresh, EDT
+otherwise, and t the throttle sent, 0 to 2000, `src/kv_est.h` computes, in
+64-bit integers, rounded half up and clamped to 99999:
+
+- RPM/V = RPM / V;
+- the kV estimate = RPM × 2000 / (V × t).
+
+The estimate assumes the ESC's duty is t / 2000 and a motor with no
+propeller. Neither is checked. On AM32 2.22 the design note works out from
+AM32's source that the estimate at 75 % throttle is × 0.92 to × 1.08 of the
+rated kV for the SINE STARTUP and MIN DUTY settings it covers; the duty maps
+of Bluejay, BLHeli_S and BLHeli_32 are not verified. Load, losses, the drops
+in the ESC and the wiring, and a wrong pole count are inside the figure. So
+it is labelled `KV EST`, never `KV`.
+
+| Field | Shown when | Otherwise |
+|---|---|---|
+| `RPM/V 1400` | armed; eRPM within `ESC_LINK_STALE_MS` (500 ms); RPM above 0 with MOTOR POLES 2 or more; a voltage from KISS within `KISS_STALE_MS` (500 ms) or EDT within `EDT_STALE_MS` (1000 ms), above 0.5 V | `RPM/V --`; disarmed, no `RPM/V` |
+| `KV EST 1758` | the same, and t from `KV_EST_MIN_THROTTLE` (1500, 75 %) to 2000, unchanged for `KV_EST_SETTLE_MS` (1000 ms), and the 3D note not standing | `KV EST 75%+` below 1500 when the inputs are there; else `KV EST --` |
+
+The settle counts from the UI frame on which the throttle sent last changed
+(`kvSettleStep()`, stepped in `uiTick()` after `escSetThrottle()`); 1000 ms
+leaves 0.48 % of a step in the display filter. The motor's own spin-up time
+is not measured. At the default `MAX 20%` the estimate never shows. The
+widest texts fit, held by `static_assert`s in `src/ui.cpp`:
+`ERPM 60000000  RPM/V 99999`, 26 characters at the decoder's largest eRPM,
+155 px, ends 27 px before the `RPM` label at x 192; `KV EST 99999`, 71 px,
+ends 50 px before `SWIPE = THROTTLE`. While the
+3D note stands it takes the row; `RPM/V` stays on the line above. The
+blackbox log records nothing new: `motor[0]`, `eRPM[0]`, `vbatLatest` and
+`vbatEdt` give both figures.
 
 An expired **ESC STATUS** reads `--`, never `OK`.
 
@@ -2612,6 +2653,7 @@ src/
   servo.cmake, kst.cmake, hitec.cmake, rx.cmake, sense.cmake, angle.cmake  each feature's firmware sources (test/*.mk: its tests)
   ui_input.{h,cpp}      tap-on-release and held-repeat rules, shared (pure)
   rpm_filter.h          display smoothing of the RPM readout
+  kv_est.h              the tester's RPM/V and kV estimate, their settle and texts (pure)
   am32_bl.{h,cpp}       one-wire bootloader transport
   bl_answer.{h,cpp}     the greeting's answer classified: AM32, EFM8 or neither (pure)
   am32_eeprom.{h,cpp}   AM32 settings layout, decoding and presentation
@@ -2708,16 +2750,16 @@ virtual and counted in microseconds — `millis()` advances only when a test
 says so — which makes hold-to-arm, hold-to-write and gesture repeat
 deterministic rather than dependent on machine speed. The fake ESC serves a
 real settings blob recovered from the reference configurator, so the UI tests
-operate on values a real ESC would report. The suite renders 125 screens to
+operate on values a real ESC would report. The suite renders 126 screens to
 PPM (portable pixmap) images as it runs, one file per `fakeDumpFrame()` name,
 so a layout change is visible in the frames:
 
 - five of the splash: as it boots, with no answer from the touch
   controller, after an update reset the settings, the same with no touch
   answer, after an update carried the settings over;
-- eleven of the tester: disarmed, armed, live, stale, no ESC, an ESC
-  answering at rest, with KISS values, the 3D mode note, `SDERR` while
-  armed, the card held by a USB host, high contrast;
+- twelve of the tester: disarmed, armed, live, stale, no ESC, an ESC
+  answering at rest, with KISS values, the kV estimate at 79 %, the 3D mode
+  note, `SDERR` while armed, the card held by a USB host, high contrast;
 - eight of MENU: on arrival, the EDT chip on, off and reading NO ESC,
   SETTINGS' `UNSAVED` and `UPDATED`, DSHOT RESTARTING, AM32's power-cycle
   cue;

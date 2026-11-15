@@ -6564,12 +6564,12 @@ static void kvFrames(int n, uint32_t erpm, float edtVolts, float kissVolts = 0.0
 	for (int i = 0; i < n; i++) { feedKvTelemetry(erpm, edtVolts, kissVolts); frames(1); }
 }
 
-/** @brief @p text at (x, y) in @p col and nothing in the 12 px after it. */
+/** @brief @p text at (x, y) in @p col and nothing in the 3 characters after it. */
 static bool textAlone(int x, int y, const char *text, uint16_t col) {
 	if (!fakeTextIs(x, y, text, col, C_BG, 1)) return false;
 	const int x0 = x + gfxTextW(text, 1) + 1;
 	for (int j = 0; j < 7; j++)
-		if (!rowIs(y + j, x0, x0 + 11, C_BG)) return false;
+		if (!rowIs(y + j, x0, x0 + 17, C_BG)) return false;
 	return true;
 }
 
@@ -6644,7 +6644,15 @@ static void testTesterKvEst() {
 	kvFrames(45, erpm, 15.75f);
 	checkTrue("held 50 % for over 1 s: still KV EST 75%+",
 	          uiThrottle() == t && textAlone(10, 114, "KV EST 75%+", C_TEXT));
-	fakeRelease(); kvFrames(2, erpm, 15.75f);
+	// A new voltage below 75 %: RPM/V follows it, the estimate still asks.
+	// 16.05 V is 1604.9998 hundredths in a float: the tile's rounding, not
+	// a truncation, gives 1605.
+	kvFrames(2, erpm, 15.75f, 16.05f);
+	snprintf(want, sizeof(want), "ERPM 156800  RPM/V %u", (unsigned)kvEstRpmPerVolt(rpm, 1605));
+	checkTrue("KISS's 16.05 V at 50 %: ERPM 156800  RPM/V 1396, rounded from 16.05",
+	          textAlone(10, 102, want, C_DIM) && kvEstRpmPerVolt(rpm, 1605) == 1396 &&
+	          kvEstRpmPerVolt(rpm, 1604) != 1396 && textAlone(10, 114, "KV EST 75%+", C_TEXT));
+	fakeRelease(); kvFrames(2, erpm, 15.75f, 16.0f);
 
 	// --- 80 %: no figure until the throttle has stood 1000 ms ---
 	t = kvHoldTrack(80, erpm, 15.75f, 16.0f);
@@ -6665,6 +6673,37 @@ static void testTesterKvEst() {
 	checkTrue("ERPM 156800  RPM/V 1400 from KISS", textAlone(10, 102, want, C_DIM) &&
 	          kvEstRpmPerVolt(rpm, 1600) == 1400);
 	fakeDumpFrame("shot_tester_kv.ppm");
+
+	// The figures follow the readout's filtered eRPM, not the last reply:
+	// a step to 163,800 moves the filter 1/8 of the way on the next frame.
+	kvFrames(1, 163800, 15.75f, 16.0f);
+	{
+		const uint32_t shown = 156800 + ((163800 - 156800) >> RPM_FILTER_SHIFT);
+		snprintf(want, sizeof(want), "ERPM %u  RPM/V %u", (unsigned)shown,
+		         (unsigned)kvEstRpmPerVolt(shown / 7, 1600));
+		checkTrue("a step in eRPM: RPM/V from the filtered 157675, 1408",
+		          textAlone(10, 102, want, C_DIM) && kvEstRpmPerVolt(shown / 7, 1600) == 1408);
+	}
+	kvFrames(40, erpm, 15.75f, 16.0f);
+
+	// A voltage step that moves the estimate and leaves RPM/V as it was:
+	// the estimate is redrawn on its own change.
+	{
+		uint32_t v1 = 0;
+		for (uint32_t v = 1601; v < 1700 && !v1; v++)
+			if (kvEstRpmPerVolt(rpm, v) == kvEstRpmPerVolt(rpm, v + 1) &&
+			    kvEstKv(rpm, v, t) != kvEstKv(rpm, v + 1, t)) v1 = v;
+		checkTrue("a voltage pair with RPM/V alike and the estimate apart", v1 != 0);
+		kvFrames(2, erpm, 15.75f, (float)v1 / 100.0f);
+		char a1[16], a2[16];
+		snprintf(a1, sizeof(a1), "KV EST %u", (unsigned)kvEstKv(rpm, v1, t));
+		snprintf(a2, sizeof(a2), "KV EST %u", (unsigned)kvEstKv(rpm, v1 + 1, t));
+		const bool first = textAlone(10, 114, a1, C_TEXT);
+		kvFrames(2, erpm, 15.75f, (float)(v1 + 1) / 100.0f);
+		checkTrue("  the estimate follows a step of 0.01 V that RPM/V does not",
+		          first && textAlone(10, 114, a2, C_TEXT));
+		kvFrames(2, erpm, 15.75f, 16.0f);
+	}
 
 	// --- the voltage goes stale: no figure in either field ---
 	for (int i = 0; i < 2; i++) {
@@ -6721,6 +6760,32 @@ static void testTesterKvEst() {
 	checkTrue("3D note, 80 % settled: the note, no KV EST",
 	          tester3dShown() && !fakeTextIs(10, 114, kvText, C_TEXT, C_BG, 1));
 	checkTrue("  RPM/V stays on the ERPM line", textAlone(10, 102, want, C_DIM));
+	{
+		// A swipe on the pad takes the row from the note: SWIPE ACTIVE alone,
+		// no estimate beside it.
+		fakeRelease(); kvFrames(2, erpm, 15.75f, 16.0f);
+		const UiRect pad = ctlRect(UI_FIX(TesterCtl::Pad));
+		const int px = pad.x + pad.w / 2, pb = pad.y + pad.h;
+		fakePress(px, pb - 40); kvFrames(1, erpm, 15.75f, 16.0f);
+		for (int y = pb - 40; y >= pb - 70; y -= 6) { fakeHold(px, y); kvFrames(1, erpm, 15.75f, 16.0f); }
+		bool clear = true;
+		for (int j = 0; j < 7; j++) clear = clear && rowIs(114 + j, 4, 120, C_BG);
+		checkTrue("3D note, the pad engaged: SWIPE ACTIVE, no KV EST beside it",
+		          clear && fakeTextIs(226 - gfxTextW("SWIPE ACTIVE", 1), 114, "SWIPE ACTIVE",
+		                              C_LIME, C_BG, 1));
+		fakeRelease(); kvFrames(2, erpm, 15.75f, 16.0f);
+	}
+	// RPM/V 0 is a figure, and `--` is not: 1 RPM at 16.00 V, then no voltage.
+	kvFrames(120, 7, 15.75f, 16.0f);
+	checkTrue("1 RPM at 16.00 V: ERPM 7  RPM/V 0", textAlone(10, 102, "ERPM 7  RPM/V 0", C_DIM));
+	for (int i = 0; i < 2; i++) {
+		EscTelemetry tel;
+		memset(&tel, 0, sizeof(tel));
+		tel.erpm = 7; tel.lastRpmMs = millis(); tel.packetRate = 998;
+		fakeSetTelemetry(&tel);
+		frames(1);
+	}
+	checkTrue("  the voltage gone: ERPM 7  RPM/V --", textAlone(10, 102, "ERPM 7  RPM/V --", C_DIM));
 	fakeRelease();
 	tapId(UI_FIX(TesterCtl::Arm));                     // DISARM
 	esc3dSetNote(false);

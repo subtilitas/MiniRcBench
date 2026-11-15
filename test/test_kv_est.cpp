@@ -58,6 +58,9 @@ static void testFormulas() {
 	         kvEstRpmPerVolt(60000000u, 100000), 60000);
 	checkInt("KV EST of 60,000,000 RPM at 1000 V, 100 %: 60000, no overflow",
 	         kvEstKv(60000000u, 100000, 2000), 60000);
+	// A denominator past 32 bits: 30,000 V at 100 %, 6 x 10^9.
+	checkInt("KV EST with V x t past 32 bits: 2000, no overflow",
+	         kvEstKv(60000000u, 3000000u, 2000), 2000);
 	checkInt("RPM/V at 0 V: 0, no division", kvEstRpmPerVolt(1000, 0), 0);
 	checkInt("KV EST at t 0: 0, no division", kvEstKv(1000, 1600, 0), 0);
 	checkInt("KV EST at 0 V: 0, no division", kvEstKv(1000, 0, 1500), 0);
@@ -84,6 +87,12 @@ static void testSettle() {
 	checkTrue("999 ms on, across the wrap: not settled", !kvSettleStep(&s, 1600, at + 999u));
 	checkTrue("1000 ms on, across the wrap: settled", kvSettleStep(&s, 1600, at + 1000u));
 	checkTrue("held 2^32 ms more: still settled", kvSettleStep(&s, 1600, at + 10u));
+	memset(&s, 0, sizeof(s));
+	checkTrue("stamped 16 ms before the wrap: not settled", !kvSettleStep(&s, 1600, 0xFFFFFFF0u));
+	checkTrue("5 ms on: not settled", !kvSettleStep(&s, 1600, 0xFFFFFFF5u));
+	memset(&s, 0, sizeof(s));
+	checkTrue("a new throttle at 0 ms", !kvSettleStep(&s, 1600, 0));
+	checkTrue("next seen 2^31 ms on: settled", kvSettleStep(&s, 1600, 0x80000000u));
 }
 
 static void testView() {
