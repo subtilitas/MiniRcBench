@@ -621,8 +621,8 @@ powered after it, or by the bench.
   above, and `NOT SAVED`. FRAMES to WORST FLUSH are then in the `.TXT`, and
   CARD and MOUNT are hidden until the next START that opens a log, or a
   mount. While a log runs, and after a mount or USB DRIVE, the rows show
-  the counters, CARD and MOUNT. A failed START keeps the last run, as it keeps FILE. The
-  tester shows nothing of the run.
+  the counters, CARD and MOUNT. A failed START keeps the last run, as it keeps
+  FILE. The tester shows nothing of the run.
 - **Note lines** (y 217 and y 228): how the last log ended, when it ended
   on its own or a tool took the card, in amber (`SdLogEnd`); a card's fault
   until the next start or mount, a tool's stop until the next start
@@ -1641,8 +1641,8 @@ at y 196 and 208:
 After a changed page or a lost answer `READ AGAIN` takes `WRITE...`'s place
 until a read succeeds; a read of a page not half written takes it as the
 page as read and keeps the edits, and a page that differs from the one
-backed up gets a backup of its own before the next write. While a page is half written the list
-edits nothing, LEAVE is refused, and the strip reads
+backed up gets a backup of its own before the next write. While a page is half
+written the list edits nothing, LEAVE is refused, and the strip reads
 `HALF WRITTEN: KEEP THE ESC POWERED.` over `READ AGAIN, THEN WRITE.` or,
 once read, `WRITE AGAIN NOW. REVERT: AS READ.`: `WRITE...` writes the draft
 again, or after REVERT the page as first read, its tags included, on a page
@@ -3330,10 +3330,10 @@ calls yet, and for the angle meter the control-surface arithmetic
 (`servo_rudder.c`), the IMU (inertial measurement unit) model (`imu.c`) and
 the WitMotion decoder `imu.h` includes, which the angle model
 (`src/angle_model.cpp`) calls. Files include
-each other as plain siblings, except two drivers with folders of their own: the DShot
-driver in `src/dshot/`, so that it can be compared with its rcbench original,
-and the SDIO card driver in `src/sdio/`, whose `compat/` headers have to keep
-the paths the SD library includes.
+each other as plain siblings, except two drivers with folders of their own: the
+DShot driver in `src/dshot/`, so that it can be compared with its rcbench
+original, and the SDIO card driver in `src/sdio/`, whose `compat/` headers have
+to keep the paths the SD library includes.
 
 Modules marked *pure* have no hardware dependency. They are compiled into the
 host test binary and tested directly, without a board.
@@ -3367,13 +3367,13 @@ the angle meter's `test_servo_rudder.c`, `test_imu_angles.c` and
 `test_witmotion.c` (25 cases), copied unchanged, and `test_imu.c` (9 cases) and
 `test_imu_filter.c` (10), adapted from rcbench's to the cases that need `imu.h`
 alone. The SDIO tests run the card protocol against a simulated card. Time is
-virtual and counted in microseconds — `millis()` advances only when a test says
-so — which makes hold-to-arm, hold-to-write and gesture repeat deterministic
-rather than dependent on machine speed. The fake ESC serves a real settings blob
-recovered from the reference configurator, so the UI tests operate on values a
-real ESC would report. The suite renders 139 screens to PPM (portable pixmap)
-images as it runs, one file per `fakeDumpFrame()` name, so a layout change is
-visible in the frames:
+virtual and counted in microseconds — `millis()` advances only when a test
+says so — which makes hold-to-arm, hold-to-write and gesture repeat
+deterministic rather than dependent on machine speed. The fake ESC serves a real
+settings blob recovered from the reference configurator, so the UI tests operate
+on values a real ESC would report. The suite renders 139 screens to PPM
+(portable pixmap) images as it runs, one file per `fakeDumpFrame()` name, so a
+layout change is visible in the frames:
 
 - five of the splash: as it boots, with no answer from the touch
   controller, after an update reset the settings, the same with no touch

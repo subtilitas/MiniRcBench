@@ -1077,17 +1077,17 @@ ring, the Python tool's 25 ms reads and `len > 1` rule on a 258-byte write, and
 the counts, the input dropped at the open and the console; the AM32
 configurator's Direct rule on a model bootloader, SET ADDRESS, a read of 64
 bytes, SET BUFFER with no reply, a 256-byte write and PROGRAM; the gather, a
-258-byte frame across a 30 ms pass, writes 3 ms and 1 ms apart, 1999 µs and 2000
-µs, 400 bytes as 320 at once and 80; the modes, `$`, `/`, 0x00 and others first,
-1999 ms and 2000 ms idle, an ESC answer and a frame waiting for the slot keeping
-the session, a later `$`, DTR falling only after it was set, a tool that never
-sets it; a port close while gathering; the write rules, 2999 ms and 3000 ms, the
-answer, ERASE, the payload, RUN, the greeting, a port close after a write; BACK
-with the PC still connected, nothing read and nothing new sent; the console
-through the leave page and BRIDGE; a refused bind and another screen's claim; a
-collision; LOST; a payload split by a USB gap, a RUN with a wrong CRC; the run
-cue from the claim's begin and the open, kept through a RUN and the close,
-cleared by an eRPM frame at the millisecond and by RESTART DSHOT, and
+258-byte frame across a 30 ms pass, writes 3 ms and 1 ms apart, 1999 µs and
+2000 µs, 400 bytes as 320 at once and 80; the modes, `$`, `/`, 0x00 and others
+first, 1999 ms and 2000 ms idle, an ESC answer and a frame waiting for the slot
+keeping the session, a later `$`, DTR falling only after it was set, a tool that
+never sets it; a port close while gathering; the write rules, 2999 ms and
+3000 ms, the answer, ERASE, the payload, RUN, the greeting, a port close after a
+write; BACK with the PC still connected, nothing read and nothing new sent; the
+console through the leave page and BRIDGE; a refused bind and another screen's
+claim; a collision; LOST; a payload split by a USB gap, a RUN with a wrong CRC;
+the run cue from the claim's begin and the open, kept through a RUN and the
+close, cleared by an eRPM frame at the millisecond and by RESTART DSHOT, and
 standing on MENU after BACK from a failed bind (`runBridgeUiTests`); console text held at the open; a `CLOCK`
 line through the real `usbDevTask()`, setting the clock with the console on the
 port and going to the wire as data, setting nothing, with the bridge on it. No

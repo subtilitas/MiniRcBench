@@ -167,9 +167,10 @@ and servo modules that are not ported, so they are adapted, as
   `imu_rig.h`, are copied into the file; the rest of the rig drives the BLE
   simulator. The line of `imu_stale_equals_the_gap_allowance` and the
   `_Static_assert` that compare `IMU_STALE_MS` with `servo_gap.h` are left
-  out; the case keeps its check of 300 ms. `a_still_yaw_counts_while_pitch_creeps`
-  takes `SERVO_RAUTO_STILL_MS` of `servo_rudder_auto.h`, which is defined in
-  the file at its value at that commit, 500 ms.
+  out; the case keeps its check of 300 ms.
+  `a_still_yaw_counts_while_pitch_creeps` takes `SERVO_RAUTO_STILL_MS` of
+  `servo_rudder_auto.h`, which is defined in the file at its value at that
+  commit, 500 ms.
 - `test_imu_filter.c`, 10 of 11 cases.
   `a_connect_a_reconnect_and_a_bind_seed_the_filter` is left out: it drives
   `imu_sensor.h`. The lines of

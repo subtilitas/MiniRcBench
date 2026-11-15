@@ -1050,8 +1050,9 @@ Choices the note left open, the developer's:
   A page not taken, an empty one among them, gets no LEAVE: what its
   firmware does at its start is not known, and an empty page has no marker,
   so the firmware would store its defaults with the tags 0xFF
-  ([why an interrupted write loses the tags](#why-an-interrupted-write-loses-the-tags)).
-  BACK there opens the leave page of decision 8.
+  ([why an interrupted write loses the
+  tags](#why-an-interrupted-write-loses-the-tags)). BACK there opens the leave
+  page of decision 8.
 - **DShot after LEAVE.** Once the job reports LEAVE went out, the screen
   ends the claim; the claim keeps its leave page flag, so it waits in
   Leaving until the job is idle, and the screen then calls
@@ -1170,9 +1171,11 @@ check them against the parts. The screenshots
 `shot_efm8_asread`, `shot_efm8_ended` and `shot_efm8_oldpage`.
 
 Texts, at scale 1 unless named, (6n − 1) px for n characters; the note's
-own are under [the list, the editor and the write page](#the-list-the-editor-and-the-write-page)
-and [what each page shows](#what-each-page-shows), and
-`test/test_efm8_view.cpp` holds each to its width:
+own are under
+[the list, the editor and the write
+page](#the-list-the-editor-and-the-write-page) and
+[what each page shows](#what-each-page-shows), and `test/test_efm8_view.cpp`
+holds each to its width:
 
 | Where | Text | Width |
 |---|---|---|

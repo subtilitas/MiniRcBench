@@ -1205,8 +1205,8 @@ The cuts of [protection](#protection) and the sensor-lost cut of
   reading on: the first fresh reading taken more than `SUPPLY_READ_LAG_MS`,
   18 ms, after the arm at or above `SUPPLY_ON_MIN_MV`, 4500 mV, the
   read-back's rule (`supplyReadingAfter()`; both constants are in
-  `src/supply_guard.h`, which `src/servo_job.h` includes). A reading at or below the
-  stall's threshold ends that run, one at or above 4000 mV the collapse's.
+  `src/supply_guard.h`, which `src/servo_job.h` includes). A reading at or below
+  the stall's threshold ends that run, one at or above 4000 mV the collapse's.
   The sensor-lost cut is a state but `Online`, or `SENSE_STALE_MS`, 250 ms,
   since the later of the arm and the newest reading's time. In one pass:
   lost, then hard, stall and collapse.
@@ -1273,10 +1273,10 @@ The cuts of [protection](#protection) and the sensor-lost cut of
   - The KST and Hitec texts are amber, as their stall texts; the servo
     tester's chips are magenta, as the note gives.
   - Beside a chip wider than RUNNING, `OVERCURRENT` (from x 155 px),
-    `LOW SUPPLY` (x 161 px) or `NO SENSOR` (x 167 px), the caption ends 4 px before the chip:
-    by its role alone, `SIG  50 HZ  1000-2000 US`, and at 333 Hz with one
-    servo the travel goes too, `SIG  333 HZ`, decision 14's rule of
-    [menu-b.md](menu-b.md#decisions). At SAFE, RUNNING and STALLED the
+    `LOW SUPPLY` (x 161 px) or `NO SENSOR` (x 167 px), the caption ends 4 px
+    before the chip: by its role alone, `SIG  50 HZ  1000-2000 US`, and at
+    333 Hz with one servo the travel goes too, `SIG  333 HZ`, decision 14's rule
+    of [menu-b.md](menu-b.md#decisions). At SAFE, RUNNING and STALLED the
     caption is menu-b.md's. The strip's second line, at most
     `GP29 SUPPLY NOT OFF` or `GP28 SUPPLY ON AT START` after a cut, ends by
     x 145 px, clear of the chip.

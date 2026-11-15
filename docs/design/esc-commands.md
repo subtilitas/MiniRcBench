@@ -1025,9 +1025,9 @@ held over 1 s, still `75%+`, and a KISS 16.05 V that RPM/V follows; 80 %
 with `KV EST --` at 975 ms after the throttle stood and the figure at
 1000 ms, from KISS's 16.00 V over EDT's 15.75 V; RPM/V from the filtered
 eRPM one frame after a step, with `KV EST --` until the filter has caught
-up; a pixel of jitter a frame at 85 % with the figure at 1000 ms; a 0.01 V step that moves the estimate and not
-RPM/V; the voltage and then the eRPM going stale and
-coming back; nothing kept after the disarm or on the next arm; the 3D
+up; a pixel of jitter a frame at 85 % with the figure at 1000 ms; a 0.01 V step
+that moves the estimate and not RPM/V; the voltage and then the eRPM going stale
+and coming back; nothing kept after the disarm or on the next arm; the 3D
 note at 80 % with `RPM/V` still shown, and a swipe there that shows
 `SWIPE ACTIVE` with no estimate beside it; and the widest texts. The preview
 is the wiki's `tester-kv.png`, the third frame of `docs/ui-preview.png`.

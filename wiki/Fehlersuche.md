@@ -247,9 +247,9 @@ vor dem Öffnen des Bildschirms funktioniert nicht.
 - **`EFM8 E8B2 ANSWERED: READING.`**: Ein Bluejay- oder BLHeli_S-ESC hat
   geantwortet, und der Bildschirm liest seine Einstellungen; Bluejay 0.21
   und BLHeli_S 16.3 bis 16.7 lassen sich schreiben. `BACK` aus seiner Liste
-  sendet LEAVE, das den ESC startet; `BACK` vor der Liste öffnet eine Verlassenseite: ESC-Akku
-  abziehen, `LEAVE`, `RESTART DSHOT`, dann wieder anstecken
-  ([AM32-Konfiguration](AM32-Konfiguration#efm8-escs)).
+  sendet LEAVE, das den ESC startet; `BACK` vor der Liste öffnet eine
+  Verlassenseite: ESC-Akku abziehen, `LEAVE`, `RESTART DSHOT`, dann wieder
+  anstecken ([AM32-Konfiguration](AM32-Konfiguration#efm8-escs)).
 - **`HALF WRITTEN: KEEP THE ESC POWERED.`** oder
   **`NO ANSWER IN THE WRITE: KEEP POWER.`**: Ein Schreiben auf Bluejay oder
   BLHeli_S wurde abgebrochen, nachdem die Seite des ESC gelöscht war. Den

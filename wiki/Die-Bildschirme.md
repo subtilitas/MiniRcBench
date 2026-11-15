@@ -8,8 +8,9 @@ die Liste der Werkzeuge, und jedes Werkzeug verlässt du mit `BACK`, das zu
 PROGRAMMER öffnet PROGRAMMER, die Wahl zwischen
 dem KST- und den Hitec-Programmierern. RX SIGNALS öffnet die Wahl der
 Werkzeuge für Empfängersignale. TOOLS öffnet die Wahl der
-Prüfstand-Werkzeuge, die keinen Signalpin nutzen. SETTINGS öffnet auch über die Polzahl
-und die Obergrenze des Testers; `BACK` führt dann zum Tester zurück.
+Prüfstand-Werkzeuge, die keinen Signalpin nutzen. SETTINGS öffnet auch über
+die Polzahl und die Obergrenze des Testers; `BACK` führt dann zum Tester
+zurück.
 
 ```
 Tester ──MENU──> MENU ──┬── ESC COMMANDS ──BACK──> MENU
@@ -221,13 +222,13 @@ dort `LATCHED`. Im entschärften Zustand zeigt der Balken `ARM TO ENABLE`.
 
 **Polzahl und Obergrenze öffnen SETTINGS.** Solange der Tester entschärft ist,
 sind `14 POLES` und `MAX 20%` unterstrichen, und ein Tippen auf eines davon
-öffnet SETTINGS. Das Tippen entschärft wie `MENU`, und `BACK` in SETTINGS führt
-zum Tester zurück. Scharf verschwindet die Unterstreichung, `KV EST` nimmt den
-Platz der Polzahl ein, und ein Tippen darauf tut nichts: Die Polzahl liegt in
-der Gasfläche und `MAX` reicht in den Greifbereich des Balkens, also steuert der
-Druck dort das Gas. Während DShot nach einem Servo-Werkzeug neu startet,
-verschwindet die Unterstreichung ebenfalls und ein Tippen tut nichts, so wie
-`MENU` SETTINGS dann gesperrt zeichnet. Solange der 3D-Hinweis die Zeile
+öffnet SETTINGS. Das Tippen entschärft wie `MENU`, und `BACK` in SETTINGS
+führt zum Tester zurück. Scharf verschwindet die Unterstreichung, `KV EST`
+nimmt den Platz der Polzahl ein, und ein Tippen darauf tut nichts: Die Polzahl
+liegt in der Gasfläche und `MAX` reicht in den Greifbereich des Balkens, also
+steuert der Druck dort das Gas. Während DShot nach einem Servo-Werkzeug neu
+startet, verschwindet die Unterstreichung ebenfalls und ein Tippen tut nichts,
+so wie `MENU` SETTINGS dann gesperrt zeichnet. Solange der 3D-Hinweis die Zeile
 einnimmt, öffnet nur `MAX` SETTINGS.
 
 **Schaltflächen.** `HOLD TO ARM` / `DISARM`, `LATCH` (das Gas bleibt, wo der

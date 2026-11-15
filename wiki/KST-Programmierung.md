@@ -566,10 +566,10 @@ BEC-Leitung.**
   Programmiermodus, und seine Sicherung im Speicher geht verloren. RETRY
   schaltet es ein und liest es erneut.
 - **Die Abschaltungen des Stromsensors**, mit SETTINGS → CURRENT SENSE auf
-  `INA219` und antwortendem Sensor: Solange die Versorgung an ist, schalten ein Messwert von 3,0 A
-  oder mehr oder Messwerte unter 4,0 V für 1 s, nachdem die Versorgung
-  hochkam, sie sofort ab, auch während eines Lesens oder Schreibens. Der
-  Rahmen auf der Leitung läuft zu Ende: Der Leitungstreiber kann keinen
+  `INA219` und antwortendem Sensor: Solange die Versorgung an ist, schalten ein
+  Messwert von 3,0 A oder mehr oder Messwerte unter 4,0 V für 1 s, nachdem die
+  Versorgung hochkam, sie sofort ab, auch während eines Lesens oder Schreibens.
+  Der Rahmen auf der Leitung läuft zu Ende: Der Leitungstreiber kann keinen
   abbrechen. Das Servo verlässt den Programmiermodus, und die Seite zeigt
   `THE SERVO DREW 3.0 A OR MORE, SO THE BENCH SWITCHED ITS SUPPLY OFF.` oder
   `THE SUPPLY WAS UNDER 4.0 V FOR 1 S, SO THE BENCH SWITCHED IT OFF.`, dann
