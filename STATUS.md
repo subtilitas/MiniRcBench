@@ -811,8 +811,8 @@ not run on hardware (item 18).
        QMI8658: incidence, decalage, dihedral, surface throw;
     4. a run summary per log, optionally dated with the board's RTC
        (real-time clock);
-    5. a USB one-wire bridge for desktop ESC tools;
-    6. Bluejay and BLHeli_S settings.
+    5. a USB one-wire bridge for desktop ESC tools, designed in item 29;
+    6. Bluejay and BLHeli_S settings, designed in item 30.
 
     Not chosen now: a PWM ESC mode with a tachometer. For (1),
     [esc-commands.md](docs/design/esc-commands.md) designs an ESC COMMANDS
@@ -827,8 +827,56 @@ not run on hardware (item 18).
     facts are read from source and the BLHeli_32 command specification;
     none has been checked on an ESC.
 
+29. **USB bridge for desktop ESC tools, designed, not built.** Item (5) of
+    the owner's feature choice (item 28), the port of DshotDisplay's
+    `feat/usb-bridge` at 6693084.
+    [usb-bridge.md](docs/design/usb-bridge.md) designs a USB BRIDGE screen
+    that takes SIG through the pin claim, as a core1 job with a PIO line,
+    and connects the ESC's bootloader to the board's existing CDC serial
+    port, with the console off while it runs. Passthrough at 19200 baud
+    8N1 with the wire's own echo, DshotDisplay's bridge, serves the AM32
+    configurator in Direct mode; ESC-Configurator speaks only MSP and the
+    4-way interface through a flight controller, so it needs a second mode
+    the board answers itself, not in DshotDisplay. DshotDisplay's bridge
+    tests pass on the host at 6693084 (28 checks); it has no hardware
+    record. The note waits on the owner's answers to its twelve open
+    questions: the entry, to be answered with question 1 of item (6)'s
+    note, which modes, how the mode is chosen, one serial port or two, the
+    name the board gives in MSP, a RUN command on leaving, BACK during a
+    flash, the traffic log, `SERIAL_TELEMETRY`, BACK after an unfinished
+    write, the card served while bridging, and the tester's 3D note after
+    a bridge write.
+    BLHeliSuite is closed source and not verified; nothing has run on an
+    ESC.
+30. **Bluejay and BLHeli_S settings, designed, not built.** Item (6) of the
+    owner's feature choice of 2026-11-14 (item 28).
+    [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md) grows AM32
+    CONFIG: its greeting is already a valid greeting for the EFM8 bootloader
+    of both firmwares, whose answer, `471d` and the signature E8B1, E8B2 or
+    E8B5, hands the ESC to rcbench's `protocols/escwire`, copied unchanged
+    with 210 of its host cases and run by a core1 job; quiet seconds between
+    short bursts of greetings let a Bluejay enter, and keep an AM32 in, its
+    bootloader. Bluejay 0.21 and BLHeli_S 16.3 to 16.7 are written, older
+    layouts shown, with a backup before the first write, a re-read and a
+    read-back. Read from both firmwares' source: a write cut between erase
+    and program, then a restart of the ESC, leaves the 48 tag bytes 0xFF and
+    the page read-only. It waits on the owner's answers to the note's eight
+    open questions: the entry and its name, the connect cycle, the frame
+    that starts the firmware on leaving, a restore after a cut write, the
+    backup names, a write without a card, how older layouts show, and
+    leaving an ESC in its bootloader. Nothing of it has run on an ESC.
+
 ## Known limitations
 
+- **AM32 CONFIG leaves a BLHeli_S or Bluejay ESC in its bootloader.** One
+  that answers the greeting reads `REPLY NOT UNDERSTOOD:`, gets no run
+  cue (`s_blReached` is set only on `AM32_OK`, `src/ui_am32.cpp` line
+  846), and BACK resumes DShot into its bootloader at once; by the
+  bootloader's source a garbled frame passes its CRC check about 1 time in
+  256 for arbitrary bytes; what DShot frames read as is that note's bench
+  item B12 ([bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#the-firmware-as-it-is-today)).
+  Not seen on an ESC. Unplug such an ESC's battery before BACK and plug it
+  in after. Slice 2 of that note closes it.
 - **`tools/sdtest` is built by no CI job**, by the owner's decision of
   2026-10-28: it is a bench bring-up tool and never released, so a red job
   for it is not worth its cost. A change that breaks it shows only in a local
