@@ -177,10 +177,10 @@ bool uiAm32Tick(const TouchState *t);
 /** @} */
 
 /**
- * @brief The connect page's status after an EFM8 bootloader answered: its
- *        signature, `EFM8 E8B2 ANSWERED: NOT READ YET.`, 33 characters,
- *        197 px. It stays while later greetings go unanswered: the
- *        bootloader waits with no timeout.
+ * @brief The connect page's status after an EFM8 bootloader answered,
+ *        with its signature: 33 characters, 197 px, for example
+ *        EFM8 E8B2 ANSWERED: NOT READ YET. It stays while later greetings
+ *        go unanswered: the bootloader waits with no timeout.
  */
 #define AM32_UI_EFM8_FMT "EFM8 %04X ANSWERED: NOT READ YET."
 

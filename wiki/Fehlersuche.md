@@ -248,7 +248,7 @@ vor dem Öffnen des Bildschirms funktioniert nicht.
   hat geantwortet. Der Bildschirm liest seine Einstellungen nicht. `BACK`
   öffnet eine Verlassenseite: ESC-Akku abziehen, `LEAVE`, `RESTART DSHOT`,
   dann wieder anstecken
-  ([AM32-Konfiguration](AM32-Konfiguration#ein-bluejay--oder-blheli_s-esc)).
+  ([AM32-Konfiguration](AM32-Konfiguration#efm8-escs)).
 - **`NO VALID SETTINGS`**: Der ESC hat geantwortet, und der Einstellungsblock
   hat die Plausibilitätsprüfung nicht bestanden. Schreibe nichts.
 - **`LAYOUT n NOT KNOWN: READ-ONLY.`**: Der Bildschirm hat verbunden, und

@@ -26,7 +26,7 @@ gezeichnet, darunter `NOT BUILT` (nicht gebaut), und tut nichts. `BACK`
 führt zu MENU zurück. Der Bildschirm heißt für jede ESC-Firmware
 `ESC SETTINGS`; heute liest und schreibt er nur AM32. Bluejay- und
 BLHeli_S-ESCs werden erkannt, nicht gelesen: siehe
-[Ein Bluejay- oder BLHeli_S-ESC](#ein-bluejay--oder-blheli_s-esc).
+[EFM8-ESCs](#efm8-escs).
 
 Der Bildschirm übergibt den Signalpin vom DShot-Treiber an die
 Bootloader-Verbindung (19200 Baud, ein Draht, halbduplex) und beginnt dann zu
@@ -99,7 +99,7 @@ solchen ESC zu ändern, nimm den AM32-Konfigurator.
 Welche Firmware ein ESC hat, der nicht antwortet, zeichnet die Firmware nicht
 auf.
 
-### Ein Bluejay- oder BLHeli_S-ESC
+### EFM8-ESCs
 
 Der Verbindungsaufbau ist auch für den Bootloader von Bluejay- und
 BLHeli_S-ESCs ein gültiger Gruß, also kann ein solcher ESC antworten. Der
@@ -448,7 +448,7 @@ ESC-Firmware zu starten. Was der ESC nach dem Verlassen des Bildschirms
 tut, ist nicht aufgezeichnet. **Starte den ESC nach dem Verlassen neu**,
 bevor du einen Motor ansteuerst. Nach einer Antwort von Bluejay oder
 BLHeli_S öffnet `BACK` stattdessen die Verlassenseite
-([Ein Bluejay- oder BLHeli_S-ESC](#ein-bluejay--oder-blheli_s-esc)).
+([EFM8-ESCs](#efm8-escs)).
 
 Nach einer Sitzung, in der der Bootloader geantwortet hat, zeigt MENU
 `POWER-CYCLE THE ESC TO RUN IT` in Bernstein unter der Zeile des Streifens.
@@ -472,7 +472,7 @@ Platine neu startet.
 - **`EFM8 E8B2 ANSWERED: NOT READ YET.`** Ein Bluejay- oder BLHeli_S-ESC
   hat geantwortet. Dieser Bildschirm liest seine Einstellungen noch nicht.
   Verlass ihn über die Verlassenseite, wie unter
-  [Ein Bluejay- oder BLHeli_S-ESC](#ein-bluejay--oder-blheli_s-esc).
+  [EFM8-ESCs](#efm8-escs).
 - **`NO VALID SETTINGS`.** Der ESC hat geantwortet, und der Einstellungsblock
   hat die Plausibilitätsprüfung nicht bestanden. Schreibe nichts.
 - **`LAYOUT n NOT KNOWN: READ-ONLY.`** Der ESC speichert ein

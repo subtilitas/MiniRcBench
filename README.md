@@ -2504,7 +2504,7 @@ counted in microseconds — `millis()` advances only when a test says so — whi
 makes hold-to-arm, hold-to-write and gesture repeat deterministic rather than
 dependent on machine speed. The fake ESC serves a real settings blob recovered
 from the reference configurator, so the UI tests operate on values a real ESC
-would report. The suite renders 120 screens to PPM (portable pixmap) images as
+would report. The suite renders 123 screens to PPM (portable pixmap) images as
 it runs, one file per `fakeDumpFrame()` name, so a layout change is visible in
 the frames:
 
@@ -2562,7 +2562,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.3%**: 10,324 of 10,503 lines in 65 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.3%**: 10,474 of 10,653 lines in 67 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the

@@ -25,7 +25,7 @@ running until you tap `ESC SETTINGS`. `USB BRIDGE` is drawn grey with
 `NOT BUILT` under it and does nothing. `BACK` returns to MENU. The screen is
 titled `ESC SETTINGS` for every ESC firmware; today it reads and writes
 AM32 only. Bluejay and BLHeli_S ESCs are recognised, not read: see
-[A Bluejay or BLHeli_S ESC](#a-bluejay-or-blheli_s-esc).
+[EFM8 ESCs](#efm8-escs).
 
 The screen hands the signal pin from the DShot driver to the bootloader link
 (19200 baud, one wire, half-duplex), then starts searching. Before DShot lets
@@ -90,7 +90,7 @@ such an ESC, use the AM32 configurator.
 The firmware does not record which firmware an ESC that does not answer
 runs.
 
-### A Bluejay or BLHeli_S ESC
+### EFM8 ESCs
 
 The handshake is also a valid greeting for the bootloader of Bluejay and
 BLHeli_S ESCs, so such an ESC can answer it. The screen tells the answer
@@ -413,7 +413,7 @@ The firmware sends the bootloader no command to start the ESC firmware when
 the screen closes. What the ESC does after the screen is left is not
 recorded. **Power-cycle the ESC after leaving**, before driving a motor.
 After a Bluejay or BLHeli_S answer, `BACK` opens the leave page instead
-([A Bluejay or BLHeli_S ESC](#a-bluejay-or-blheli_s-esc)).
+([EFM8 ESCs](#efm8-escs)).
 
 After a session in which the bootloader answered, MENU shows
 `POWER-CYCLE THE ESC TO RUN IT` in amber under the strip's caption. It goes
@@ -435,7 +435,7 @@ DSHOT of the leave page, or when the board restarts.
 - **`EFM8 E8B2 ANSWERED: NOT READ YET.`** A Bluejay or BLHeli_S ESC
   answered. This screen does not read its settings yet. Leave through the
   leave page, as under
-  [A Bluejay or BLHeli_S ESC](#a-bluejay-or-blheli_s-esc).
+  [EFM8 ESCs](#efm8-escs).
 - **`NO VALID SETTINGS`.** The ESC answered, and the settings block failed the
   plausibility check. Do not write anything.
 - **`LAYOUT n NOT KNOWN: READ-ONLY.`** The ESC stores a settings layout the

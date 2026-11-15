@@ -229,7 +229,7 @@ screen does not work.
 - **`EFM8 E8B2 ANSWERED: NOT READ YET.`**: a Bluejay or BLHeli_S ESC
   answered. The screen does not read its settings. `BACK` opens a leave
   page: unplug the ESC battery, `LEAVE`, `RESTART DSHOT`, then plug it in
-  ([AM32 Configuration](AM32-Configuration#a-bluejay-or-blheli_s-esc)).
+  ([AM32 Configuration](AM32-Configuration#efm8-escs)).
 - **`NO VALID SETTINGS`**: the ESC answered, and the settings block failed the
   plausibility check. Do not write anything.
 - **`LAYOUT n NOT KNOWN: READ-ONLY.`**: the screen connected, and the ESC
