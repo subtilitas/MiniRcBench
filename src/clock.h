@@ -17,9 +17,9 @@
  * 58h to Control_1, and turns CLKOUT off, 07h to Control_2. With the other
  * causes it sends nothing more.
  *
- * Its transfers go to the current sensor's bus record through
- * senseNoteTouch(), as the touch driver's do: a timeout counts towards a
- * stuck bus, and nothing is sent while the record shows the bus stuck.
+ * Its transfers go to the current sensor's bus record through senseNote(),
+ * as the touch and IMU drivers' do: a timeout counts towards a stuck bus,
+ * and nothing is sent while the record shows the bus stuck.
  *
  * Setting the clock is slice 5 of docs/design/run-summary.md and not built:
  * this file reads the clock and keeps it.

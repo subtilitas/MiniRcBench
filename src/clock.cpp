@@ -123,35 +123,24 @@ time_t epochtime = 0;
 
 static i2c_inst_t *bus() { return (i2c_inst_t *)g_board->i2c; }
 
-/**
- * @brief A transfer noted to the shared bus record, and what it came to.
- *        The one place this file uses the record's noting call.
- * @param result The SDK's return.
- * @param want   The byte count asked.
- * @return SENSE_OK, or the error the SDK's return maps to.
- */
-static sense_err_t note(int result, size_t want) {
-	senseNoteTouch(result, want);
-	return senseErrOf(result, want);
-}
 
 /** @brief Registers 00h to 0Ah: the pointer, a repeated start, 11 bytes. */
 static bool readRegs(uint8_t *r) {
 	if (senseBus()->stuck) return false;
 	uint8_t reg = CLOCK_REG_CONTROL_1;
-	if (note(i2c_write_timeout_us(bus(), PCF85063_I2C_ADDR, &reg, 1, true, SENSE_TIMEOUT_US), 1) !=
-	    SENSE_OK)
+	if (senseNote(i2c_write_timeout_us(bus(), PCF85063_I2C_ADDR, &reg, 1, true, SENSE_TIMEOUT_US),
+	              1) != SENSE_OK)
 		return false;
-	return note(i2c_read_timeout_us(bus(), PCF85063_I2C_ADDR, r, CLOCK_READ_BYTES, false,
-	                                SENSE_TIMEOUT_US),
-	            CLOCK_READ_BYTES) == SENSE_OK;
+	return senseNote(i2c_read_timeout_us(bus(), PCF85063_I2C_ADDR, r, CLOCK_READ_BYTES, false,
+	                                     SENSE_TIMEOUT_US),
+	                 CLOCK_READ_BYTES) == SENSE_OK;
 }
 
 /** @brief One register written in a transfer of its own: a START and a STOP around it. */
 static void writeReg(uint8_t reg, uint8_t v) {
 	if (senseBus()->stuck) return;
 	uint8_t b[2] = { reg, v };
-	note(i2c_write_timeout_us(bus(), PCF85063_I2C_ADDR, b, 2, false, SENSE_TIMEOUT_US), 2);
+	senseNote(i2c_write_timeout_us(bus(), PCF85063_I2C_ADDR, b, 2, false, SENSE_TIMEOUT_US), 2);
 }
 
 // ---------------------------------------------------------------------------

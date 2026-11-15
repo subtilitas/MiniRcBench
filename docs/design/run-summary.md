@@ -985,9 +985,9 @@ Choices made where the sections above leave room:
   first end, as the stop begins. A failure later in the same stop ends the
   summary again and keeps that reading. A log a card error ended takes the
   clock at the failure; it writes no file.
-- **The shared bus.** The driver uses the bus record of `src/sense.cpp` in
-  one place: each transfer goes to `senseNoteTouch()`, as the touch
-  driver's do, and its result to `senseErrOf()`. Nothing is sent while the
+- **The shared bus.** The driver uses the bus record of `src/sense.cpp`:
+  each transfer goes to `senseNote()`, as the touch and IMU drivers' do,
+  which maps its result and notes it. Nothing is sent while the
   record shows the bus stuck; `senseInit()` starts the record, so at the
   boot read only the read itself can make it stuck, and the reset's second
   write is then not sent. A failed transfer is not tried again.
@@ -1031,9 +1031,9 @@ The tests:
   stop, not set, set, set during the log, set again during the log, a
   disarm's stop, and a stop whose drain fails reading it once.
 
-97 mutations were run against the suite and `make -C test lognum`: 77 of
+95 mutations were run against the suite and `make -C test lognum`: 75 of
 `src/clock.cpp`, 9 of `clockText()` in `src/clock.h`, 6 of the clock lines
-in `src/run_summary.cpp` and 5 of the clock's reads in `src/sd_log.cpp`. 96
+in `src/run_summary.cpp` and 5 of the clock's reads in `src/sd_log.cpp`. 94
 fail it, among them the stuck-bus check before the reset's second write,
 the boot read forgetting an earlier reading, and the stop's reading taken
 again by a failure later in the stop. 1 is equivalent:

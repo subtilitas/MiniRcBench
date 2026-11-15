@@ -418,8 +418,8 @@ static void testBus() {
 	p = rtcOnBus();
 	fakePcf85063Set(p, 2026, 11, 14, 15, 42, 7);
 	senseInit();
-	senseNoteTouch(PICO_ERROR_TIMEOUT, 2);
-	senseNoteTouch(PICO_ERROR_TIMEOUT, 2);
+	senseNote(PICO_ERROR_TIMEOUT, 2);
+	senseNote(PICO_ERROR_TIMEOUT, 2);
 	checkInt("two timeouts: stuck", senseBus()->stuck, 1);
 	clockInit();
 	checkBoot("stuck: no answer", ClockBoot::NoAnswer);
