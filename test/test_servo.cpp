@@ -1127,6 +1127,14 @@ static void testPowerReadBack() {
 	checkTrue("then 1000 mV: Off", p.offCheck == ServoOffCheck::Off);
 	powerPass(&c, &p, cmdOf(5, ServoCmdKind::Start), on, 9000);
 	checkTrue("START: the read-back ends", p.offCheck == ServoOffCheck::None);
+	ServoPowerIn up = powerInOf(SenseState::Online, 5000, 9019, true);
+	powerPass(&c, &p, cmdOf(5, ServoCmdKind::Start), up, 9019);
+	checkTrue("5 V taken 19 ms after the switch-on: On", p.phase == ServoPowerPhase::On);
+	checkInt("up in 19 ms", p.upMs, 19);
+	powerPass(&c, &p, cmdOf(6, ServoCmdKind::Safe), up, 9100);
+	ServoPowerIn gone = powerInOf(SenseState::Online, 900, 9119, true);
+	powerPass(&c, &p, cmdOf(6, ServoCmdKind::Safe), gone, 9119);
+	checkTrue("900 mV taken 19 ms after the switch-off: Off", p.offCheck == ServoOffCheck::Off);
 }
 
 /** @brief The board's wiring, KISS on, the pump bound and past any drain. */

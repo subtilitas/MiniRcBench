@@ -1598,7 +1598,8 @@ the [wiring diagram](#wiring-diagram) (decision 20 of
 | BACK | low at once; an undriven input after the last pulse, before the pins return to DShot | level 0 | |
 
 - The supply counts as up at the first reading of the current sensor taken
-  after the switch-on at 4.5 V or more (`SUPPLY_ON_MIN_MV`), with CURRENT
+  more than 18 ms after the switch-on, one conversion cycle of the sensor
+  (`SUPPLY_READ_LAG_MS`), at 4.5 V or more (`SUPPLY_ON_MIN_MV`), with CURRENT
   SENSE at `INA219`, or 500 ms after the switch-on with `NONE`
   (`SUPPLY_START_MAX_MS`). With the sensor and no such reading within
   500 ms the supply goes off, the pulses never start, and the dial reads
@@ -1613,7 +1614,9 @@ the [wiring diagram](#wiring-diagram) (decision 20 of
   not answered for 250 ms (`touchAnsweredMs()`), or the shared I2C bus marked
   stuck by the sensor, switches the supply off while RUNNING: the chip reads
   `STALLED`, the dial `STOPPED: TOUCH DID NOT ANSWER` or
-  `STOPPED: TOUCH BUS STUCK`. Either refuses HOLD TO START while it lasts.
+  `STOPPED: TOUCH BUS STUCK`. Either refuses HOLD TO START while it lasts;
+  with no trip the dial reads `START WAITS: THE I2C BUS IS STUCK.` or
+  `START WAITS: TOUCH DOES NOT ANSWER.`
 - With CURRENT SENSE at `INA219` and the part not found, HOLD TO START is
   drawn disabled and the dial reads `START WAITS FOR THE CURRENT SENSOR.`
   over `NONE IN CURRENT SENSE SKIPS IT.`

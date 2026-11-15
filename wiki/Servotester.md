@@ -118,7 +118,9 @@ nutzen, Teil C des Verdrahtungsplans. Nicht auf Hardware getestet.
 - **Sensor nicht gefunden:** Mit CURRENT SENSE auf `INA219` und ohne Sensor
   ist `HOLD TO START` grau, und das Zifferblatt zeigt
   `START WAITS FOR THE CURRENT SENSOR.` Mit CURRENT SENSE auf `NONE` startet
-  der Test ohne ihn.
+  der Test ohne ihn. Ein hängender I2C-Bus oder ein stummes Touchpanel hält
+  den Start ebenfalls auf: `START WAITS: THE I2C BUS IS STUCK.` oder
+  `START WAITS: TOUCH DOES NOT ANSWER.`
 - **Nicht aus:** Misst der Sensor 2 s nach dem Ausschalten noch mehr als
   2,5 V, zeigt die Zeile `GP28 SUPPLY NOT OFF`. Der Wandler trennt seinen
   Ausgang nicht ab, oder EN wird hochgehalten: Prüfe die Verdrahtung.

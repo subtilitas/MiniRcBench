@@ -760,12 +760,14 @@ protocol.
   The job drives the pin low from its bind, high at HOLD TO START and low at
   STOP, at the heartbeat trip and at BACK, which makes it an undriven input
   again after the last pulse; the pulses wait at level 0 until the INA219
-  reads 4.5 V after the switch-on, or 500 ms without a sensor, and with the
+  reads 4.5 V more than 18 ms, one conversion, after the switch-on, or
+  500 ms without a sensor, and with the
   sensor and no 4.5 V by 500 ms the supply goes off
   (`SUPPLY NOT UP: NO 4.5 V IN 500 MS.`). A touch controller silent for
   250 ms (`touchAnsweredMs()`, new in `src/touch.h`) or a stuck I2C bus
   switches it off and latches `STALLED`; either, and CURRENT SENSE at INA219
-  with the part not found, refuses HOLD TO START. With the sensor a reading
+  with the part not found, refuses HOLD TO START, and the dial says why.
+  With the sensor a reading
   above 2.5 V 2000 ms after a switch-off shows `GP28 SUPPLY NOT OFF`. The
   strip's second line names the phase, `GP28 SUPPLY ON AT START`,
   `COMING UP` or `ON`; SAFE's notes warn of an ESC's throttle and BEC wire;

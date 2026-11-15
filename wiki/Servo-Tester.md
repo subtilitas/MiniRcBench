@@ -111,7 +111,8 @@ wiring sheet. Not tested on hardware.
 - **Sensor not found:** with CURRENT SENSE at `INA219` and no sensor,
   `HOLD TO START` is greyed and the dial reads
   `START WAITS FOR THE CURRENT SENSOR.` Set CURRENT SENSE to `NONE` to start
-  without it.
+  without it. A stuck I2C bus or a silent touch panel also holds the start:
+  `START WAITS: THE I2C BUS IS STUCK.` or `START WAITS: TOUCH DOES NOT ANSWER.`
 - **Not off:** if the sensor still reads more than 2.5 V 2 s after the
   switch-off, the line reads `GP28 SUPPLY NOT OFF`. The converter does not
   disconnect its output, or EN is held high: check the wiring.

@@ -1158,17 +1158,30 @@ before.
   (`testPowerOwn()`, `testPowerStart()`, `testPowerNoStart()`,
   `testPowerOff()`, `testPowerStartBlock()`, `testPowerReadBack()`), each
   boundary at 499 ms and 500 ms, 4499 mV and 4500 mV, 1000 mV and 1001 mV,
-  2500 mV and 2501 mV, 1999 ms and 2000 ms, a stale reading, a wrap; the job
+  2500 mV and 2501 mV, 1999 ms and 2000 ms, a reading taken 18 ms and 19 ms
+  after the switch command, a stale reading, a wrap; the job
   through the job table on the fake pads (`testJobSupply()`,
   `testJobSupplySensed()`): GP28 or GP29 low at the bind and never an output
   while high, high at START, low at STOP, at STOP while starting, at the
   heartbeat trip at 250 ms and not at 249 ms, at a silent touch controller
-  at 250 ms, at a stuck bus from SDA held, at BACK's first pass, an undriven
-  input after the quiet wait and after DShot's restart, undriven after a
+  at 250 ms, at a stuck bus from SDA held, at BACK's first pass and at BACK
+  while the supply comes up, an undriven input after the quiet wait and
+  after DShot's restart; the order of the writes from the pin fake's
+  stamps: EN low before level 0 at STOP, the enable pin an input before SIG
+  leaves PWM; undriven after a
   refused bind, low across a profile rebind; GP28 and GP29 untouched with
   `OWN`; the screens (`testSupplyLineAndHint()`, `testSupplyScreenFaults()`)
-  with the fake INA219 following the enable pin. In `test/test_sense.cpp`
-  the touch stamp. Mutation-checked. Nothing of it is on hardware: the
+  with the fake INA219 following the enable pin, STOP replaced by HOLD TO
+  START at a cut while the supply comes up, and the notes of a START refused
+  by a stuck bus or a silent touch controller. In `test/test_sense.cpp`
+  the touch stamp. 83 mutants of `src/servo_job.cpp`, `src/ui_servo.cpp`
+  and `src/cst328.cpp`: 79 fail the suite, 4 are equivalent: the clamp of
+  the start-up time, reached only after a core1 stall of 65 s; the status's
+  start-up time before the first bind, which no screen shows unswitched;
+  `upNote()`'s switch test, since the time is none whenever the switch is
+  off but on the leave page; the dial's key of the notes' texts, whose every
+  reachable change also changes RUNNING, the trip or a colour. Nothing of it
+  is on hardware: the
   enable pin's reset state and BOOTSEL, the start-up time and the decay are
   bench test B6, the stuck bus B3, the trip with the supply on B11.
 
