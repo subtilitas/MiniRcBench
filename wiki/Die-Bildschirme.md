@@ -222,7 +222,8 @@ Verbindungsqualität. Siehe [Telemetrie](Telemetrie).
 Prozentwert bezieht sich auf den vollen DShot-Bereich (0–2000 = 0–100 %): Bei
 20 % Obergrenze zeigt ein Zug über die volle Breite `20%`. Die Obergrenze
 steht als `MAX 20%` in der Textfarbe neben `THROTTLE`; mit `LATCH` an steht
-dort `LATCHED`. Im entschärften Zustand zeigt der Balken `ARM TO ENABLE`.
+dort `LATCHED`. Im entschärften Zustand zeigt der Balken `ARM TO ENABLE`, und
+`SWIPE = THROTTLE` ist grau; scharf steht es in der Textfarbe.
 
 **Polzahl und Obergrenze öffnen SETTINGS.** Solange der Tester entschärft ist,
 sind `14 POLES` und `MAX 20%` unterstrichen, und ein Tippen auf eines davon
@@ -234,6 +235,8 @@ steuert der Druck dort das Gas. Während DShot nach einem Servo-Werkzeug neu
 startet, verschwindet die Unterstreichung ebenfalls und ein Tippen tut nichts,
 so wie `MENU` SETTINGS dann gesperrt zeichnet. Solange der 3D-Hinweis die Zeile
 einnimmt, öffnet nur `MAX` SETTINGS.
+
+<img src="img/tester-disarmed.png" width="240" alt="Der Tester entschärft mit Telemetrie: SAFE in Grün, 14 POLES und MAX 20% unterstrichen, SWIPE = THROTTLE grau, ARM TO ENABLE im Balken">
 
 **Schaltflächen.** `HOLD TO ARM` / `DISARM`, `LATCH` (das Gas bleibt, wo der
 Finger es loslässt; blau, solange an), `MENU`.

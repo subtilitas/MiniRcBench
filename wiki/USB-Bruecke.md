@@ -53,6 +53,14 @@ Die Platine erkennt die Art am ersten Byte des Programms; du wählst nichts.
    einschalten, wenn das Programm keinen ESC findet, und nach dem Flashen.
 6. Am Ende `BACK` antippen.
 
+<img src="img/bridge-stopping.png" width="240" alt="USB BRIDGE, während DShot anhält: RELEASING SIG GP0 auf der Leiste, kein Chip, die Hinweiszeilen"> <img src="img/bridge-failed.png" width="240" alt="USB BRIDGE nach einem fehlgeschlagenen Bind: SIG GP0 COULD NOT BE TAKEN (PIO) in Bernstein, RETRY in der Fußzeile">
+
+Solange die Platine SIG freigibt, zeigt die Leiste `RELEASING SIG GP0`, und
+die Brücke ist noch nicht offen. Kann die Platine SIG nicht übernehmen, steht
+eine Zeile in Bernstein: `SIG GP0 COULD NOT BE TAKEN (PIO)`, mit `REFUSED`,
+`PWM`, `DMA` oder `CLOCK` statt `PIO`, und `RETRY` erscheint. Mit `RETRY`
+versuchst du es erneut.
+
 Solange die Brücke offen ist, ist die Konsole der Platine aus: Keine
 Telemetriezeile erreicht den Anschluss. Sie kommt zurück, sobald DShot
 wieder läuft.
@@ -60,6 +68,8 @@ wieder läuft.
 Hält `USB DRIVE` auf SD LOG die Karte, startet die Brücke nicht und zeigt
 `EJECT THE USB DRIVE FIRST.` (erst das USB-Laufwerk auswerfen). Nach dem
 Auswerfen startet sie.
+
+<img src="img/bridge-eject.png" width="240" alt="USB BRIDGE, die Karte hält USB DRIVE: EJECT THE USB DRIVE FIRST. in Bernstein">
 
 ---
 
@@ -87,6 +97,10 @@ Lesen von ausgeschaltetem.
 
 ---
 
+<img src="img/bridge-lost.png" width="240" alt="USB BRIDGE beim Durchreichen mit LOST 932 in Bernstein und BYTES LOST: THE BRIDGE FELL BEHIND. in Bernstein">
+
+---
+
 ## Schreiben und Verlassen
 
 <img src="img/bridge-writing.png" width="240" alt="USB BRIDGE beim Schreiben: WRITING: DO NOT UNPLUG ESC OR USB. in Bernstein, BACK grau"> <img src="img/bridge-leave.png" width="240" alt="Die Verlassenseite: 1 POWER THE ESC OFF., 2 RESTART DSHOT., FLASH THE ESC AGAIN BEFORE USE., BRIDGE, RESTART DSHOT">
@@ -108,6 +122,11 @@ Schreiben ohne anschließenden Start der Firmware zeigt die Seite zusätzlich
 `FLASH THE ESC AGAIN BEFORE USE.` (den ESC vor dem Einsatz neu flashen).
 In der 4-Way-Schnittstelle zählt nur das Zurücksetzen des ESC durch das
 Programm als dieser Start, nicht sein Trennen.
+
+<img src="img/bridge-leave-read.png" width="240" alt="Die Verlassenseite nach einer Sitzung, die nur las: 1 POWER THE ESC OFF., 2 RESTART DSHOT., ohne FLASH-Hinweis, BRIDGE, RESTART DSHOT grau">
+
+Nach einer Sitzung, die nur las, zeigt die Seite die zwei Schritte ohne
+`FLASH THE ESC AGAIN BEFORE USE.`.
 
 MENU zeigt `POWER-CYCLE THE ESC TO RUN IT` (den ESC aus- und einschalten,
 damit er läuft), sobald der Bildschirm den Signalpin genommen hat, auch nach

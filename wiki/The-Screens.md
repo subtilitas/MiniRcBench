@@ -200,7 +200,8 @@ quality. See [Telemetry](Telemetry).
 percentage is of the full DShot range (0–2000 = 0–100 %): at a 20 % ceiling, a
 full-width drag reads `20%`. The ceiling reads `MAX 20%` in the text colour
 beside `THROTTLE`; with `LATCH` on the caption reads `LATCHED`. While disarmed
-the bar reads `ARM TO ENABLE`.
+the bar reads `ARM TO ENABLE`, and `SWIPE = THROTTLE` is grey; armed, it takes
+the text colour.
 
 **Pole count and ceiling open SETTINGS.** While the tester is disarmed,
 `14 POLES` and `MAX 20%` are underlined, and a tap on either opens SETTINGS.
@@ -211,6 +212,8 @@ into the bar's grab area, so the press drives the throttle as there. While DShot
 restarts after a servo tool the underline goes too and a tap does nothing, as
 `MENU` draws SETTINGS disabled then. While the 3D note takes the row, only `MAX`
 opens SETTINGS.
+
+<img src="img/tester-disarmed.png" width="240" alt="The tester disarmed with telemetry: SAFE in green, 14 POLES and MAX 20% underlined, SWIPE = THROTTLE grey, ARM TO ENABLE in the bar">
 
 **Buttons.** `HOLD TO ARM` / `DISARM`, `LATCH` (the throttle stays where the
 finger leaves it; blue while on), `MENU`.
