@@ -181,8 +181,8 @@ bool usbBridgeWriteWaiting();
 
 /**
  * @brief A write-class frame went to the wire since the open, and no RUN
- *        after it: the leave page carries `FLASH THE ESC AGAIN BEFORE USE.`.
- *        Kept after the close until the next open.
+ *        after it: the leave page carries its note to flash the ESC again
+ *        (ui_bridge.h). Kept after the close until the next open.
  * @return True after such a frame.
  */
 bool usbBridgeWriteUnfinished();
