@@ -146,6 +146,9 @@ static void claimPin() {
 	if (s_eject) return;
 	s_refusal = pinClaimBegin(PinUser::Bridge, PIN_SIG);
 	s_claimed = s_refusal == ClaimRefusal::None;
+	// DShot leaves SIG from here on, bound or not: MENU warns even when BACK
+	// returns DShot at once after a failed bind. @see usbBridgeRunCueSet()
+	if (s_claimed) usbBridgeRunCueSet();
 }
 
 /**

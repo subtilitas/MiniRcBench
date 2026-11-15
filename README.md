@@ -2882,9 +2882,10 @@ than the greeting, and BACK may come before a greeting's answer. DShot
 frames could then pass as its commands. So every BACK of a running bridge
 gives the leave page, as the servo tools' BACK does. A RUN counts only as
 4 bytes whose last two are the CRC of the first two, and only for the
-note. MENU shows `POWER-CYCLE THE ESC TO RUN IT` from the bridge's open
-until RESTART DSHOT or an eRPM frame; a RUN does not clear it, since a
-garbled frame could read as one.
+note. MENU shows `POWER-CYCLE THE ESC TO RUN IT` from the claim's begin,
+after a failed bind and a BACK before the bind included, until RESTART DSHOT
+or an eRPM frame; a RUN does not clear it, since a garbled frame could read
+as one.
 
 BACK sends nothing, no RUN. From BACK on, the bridge reads nothing more
 from the PC and drops a frame it was gathering; a frame already on the

@@ -467,6 +467,7 @@ static void testBackStates() {
 	          allOf(0, UI_FOOT_Y, GFX_W, GFX_H - UI_FOOT_Y, C_BG));
 	leaveBridge();
 	fakeBridgeLineRefuse(CORE1_JOB_CLOCK);
+	usbBridgeRunCueClear();
 	tapId(menuRow(&UI_ESC_CONFIG));
 	brFrames(1);
 	tapId(UI_FIX(EscCfgCtl::Bridge));
@@ -477,6 +478,9 @@ static void testBackStates() {
 	checkTrue("BACK from a failed bind: MENU, DShot asked back", uiCurrentScreen() == UiScreenId::Menu &&
 	          fakeResumeCount() == r2 + 1);
 	brFrames(4);
+	checkTrue("  the bind never ran, the cue stands: MENU warns", usbBridgeRunCue(0) &&
+	          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_RUN_CUE, UI_COL_WARN, C_BG, 1));
+	usbBridgeRunCueClear();
 	checkTrue("Free", pinClaimState() == ClaimState::Free);
 	fakeBridgeLineRefuse(0);
 	tapId(UI_FIX(UI_BACK));

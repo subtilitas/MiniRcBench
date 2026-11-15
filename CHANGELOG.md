@@ -1789,6 +1789,11 @@ protocol.
   its band of 20 or another condition fails (`KvEstView::erpmHeld`). The
   claim that one eRPM step is 0.20 % to 0.39 % held only up to 234,375 eRPM;
   above it a step is 1 / period. Host-tested.
+- After v0.1.0-rc1: MENU shows the run cue `POWER-CYCLE THE ESC TO RUN IT`
+  after a USB BRIDGE bind that failed, or a BACK before the bind. The bridge
+  set it only at the open, so DShot returned with no warning on an ESC that
+  AM32 2.22 can put in its bootloader after about 2 s without a signal. The
+  cue is set when the claim begins (`usbBridgeRunCueSet()`). Host-tested.
 - AM32 CONFIG showed LOW VOLT CUTOFF, VARIABLE PWM and BRAKE ON STOP as off
   and on, and AM32 stores three values in each: a stored 2 read ON, and a
   press of - or + made it 1, changing the mode. They are three-value

@@ -191,7 +191,7 @@ bool usbBridgeWriteUnfinished();
  * @brief MENU's run cue, `POWER-CYCLE THE ESC TO RUN IT`, ORed with ESC
  *        SETTINGS' (ui_menu.cpp).
  *
- * Set at every open: from then on the ESC may wait in its bootloader,
+ * Set when the claim begins, usbBridgeRunCueSet(), and at every open: from then on the ESC may wait in its bootloader,
  * whatever the tool sends, or nothing. Cleared only by
  * usbBridgeRunCueClear() at RESTART DSHOT and by an eRPM frame stamped
  * after the open: the firmware runs again. A RUN does not clear it, as a
@@ -200,6 +200,17 @@ bool usbBridgeWriteUnfinished();
  * @return True while the cue shows.
  */
 bool usbBridgeRunCue(uint32_t lastRpmMs);
+
+/**
+ * @brief Set MENU's run cue when the screen's claim begins.
+ *
+ * From the claim's begin DShot is off SIG: a bind that fails, or a BACK
+ * before the bind, returns DShot at once with no leave page, and an AM32
+ * ESC can enter its bootloader on its own after about 2 s without a
+ * signal. The cue then stands until an eRPM frame stamped after this call
+ * or usbBridgeRunCueClear().
+ */
+void usbBridgeRunCueSet();
 
 /** @brief RESTART DSHOT on the leave page, whose steps power the ESC off: the cue goes. */
 void usbBridgeRunCueClear();

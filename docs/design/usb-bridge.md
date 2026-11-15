@@ -516,7 +516,7 @@ copied it, and not its guard or session.
 | Write-class frame: BACK disabled | the bridge, until the frame's answer or 3000 ms | leaving in the middle of an erase or a page write (decision 7) |
 | No RUN on leaving | the bridge sends nothing at BACK | starting a firmware half written (decision 6) |
 | A leave page at every BACK of a running bridge | BACK once the line is bound, whatever the tool sent; the note `FLASH THE ESC AGAIN BEFORE USE.` after a write-class frame with no later RUN or `cmd_DeviceReset` | DShot resuming unannounced on an ESC waiting in its bootloader, where a garbled frame can pass as a command, or whose flash may be cut; the ESC still starts what it holds at its next power-up with DShot on SIG (decision 10 as revised) |
-| MENU's run cue | from the bridge's open until RESTART DSHOT or an eRPM frame | an ESC left in its bootloader taken for a dead one |
+| MENU's run cue | from the claim's begin until RESTART DSHOT or an eRPM frame | an ESC left in its bootloader taken for a dead one |
 | No bridge while USB DRIVE holds the card | the entry, by decision 11 | the card served to a host and a desktop tool on one cable at once (decision 11) |
 | `PROPELLER OFF.` on the screen | the screen | below |
 
@@ -985,7 +985,8 @@ TinyUSB holds, sets the echo kept, zeroes its counts and waits. The close
 drops a frame being gathered and begins the log's dump. The console comes
 back on the first pass after the dump at which the claim is no longer the
 bridge's: Free. A claim whose bind failed never opens, and the console
-stays on.
+stays on; MENU's run cue stands from the claim's begin
+(`usbBridgeRunCueSet()` in `claimPin()`, `src/ui_bridge.cpp`).
 
 **The developer's calls of this slice**, under the note's decisions:
 
@@ -1047,14 +1048,17 @@ stays on.
     takes, then a flush, the last line's too. A dump that writes nothing for
     400 ms is abandoned, where DshotDisplay gave up on a line after 400 ms.
     `CFG_TUD_CDC_RX_BUFSIZE` stays 64.
-13. **MENU's run cue**, `POWER-CYCLE THE ESC TO RUN IT`, is set at every open of
-    the bridge and cleared only by RESTART DSHOT on the leave page, whose steps
-    power the ESC off, and by an eRPM frame stamped after the open
-    (`usbBridgeRunCue()`, ORed with ESC SETTINGS' cue in `ui_menu.cpp`). A RUN
-    does not clear it, since a garbled frame could read as one. Since every BACK
-    of a running bridge brings the leave page and its RESTART DSHOT clears the
-    cue, MENU does not show the bridge's cue through the screen as built; it
-    covers a claim that ends another way, as a test ends one.
+13. **MENU's run cue**, `POWER-CYCLE THE ESC TO RUN IT`, is set when the
+    screen's claim begins (`usbBridgeRunCueSet()`, called by `claimPin()`) and
+    at every open of the bridge. It is cleared only by RESTART DSHOT on the
+    leave page, whose steps power the ESC off, and by an eRPM frame stamped
+    after the begin or the open (`usbBridgeRunCue()`, ORed with ESC SETTINGS'
+    cue in `ui_menu.cpp`). A RUN does not clear it, since a garbled frame
+    could read as one. DShot is off SIG from the claim's begin: BACK while
+    Stopping or after a failed bind returns DShot at once, with no leave
+    page, and an AM32 ESC can enter its bootloader on its own after about 2 s
+    without a signal, so MENU shows the cue there too. A BACK of a running
+    bridge brings the leave page, whose RESTART DSHOT clears the cue.
 14. **Console text at the open.** The open calls `tud_cdc_write_clear()`,
     so what the console left in TinyUSB's transmit buffer never reaches the
     tool ahead of the first echo.
@@ -1081,9 +1085,10 @@ sets it; a port close while gathering; the write rules, 2999 ms and 3000 ms, the
 answer, ERASE, the payload, RUN, the greeting, a port close after a write; BACK
 with the PC still connected, nothing read and nothing new sent; the console
 through the leave page and BRIDGE; a refused bind and another screen's claim; a
-collision; LOST; a payload split by a USB gap, a RUN with a wrong CRC; a the run
-cue from the open, kept through a RUN and the close, cleared by an eRPM frame at
-the millisecond and by RESTART DSHOT; console text held at the open; a `CLOCK`
+collision; LOST; a payload split by a USB gap, a RUN with a wrong CRC; the run
+cue from the claim's begin and the open, kept through a RUN and the close,
+cleared by an eRPM frame at the millisecond and by RESTART DSHOT, and
+standing on MENU after BACK from a failed bind (`runBridgeUiTests`); console text held at the open; a `CLOCK`
 line through the real `usbDevTask()`, setting the clock with the console on the
 port and going to the wire as data, setting nothing, with the bridge on it. No
 frame is handed to the wire while the claim is not Running for the bridge, and
@@ -1164,8 +1169,9 @@ Decisions of the owner, 2026-11-15, answering the open questions of
     the screen asks for; AM32 2.22 enters it after about 2 s without a
     signal; a tool may send MSP rather than the greeting; BACK may come
     between a greeting's handover and its answer. The run cue is set at
-    the open and cleared only by an eRPM frame or RESTART DSHOT; a RUN no
-    longer clears it, since a garbled frame could read as one.
+    the claim's begin and at the open, and cleared only by an eRPM frame
+    or RESTART DSHOT; a RUN does not clear it, since a garbled frame could
+    read as one.
 11. **The card served while bridging.** Option (a): the entry is refused
     while USB DRIVE holds the card, with `EJECT THE USB DRIVE FIRST.`. This
     is the recommendation.
