@@ -1167,9 +1167,8 @@ settings block is version 6 by decision 4 (`src/settings.*`). Host tests in
   none: the flag 0, offsets 0, gains 1. A version 5 block, recovered from
   `src/settings.h` at aafc31b, is carried over as versions 2 to 4 are,
   CURRENT SENSE from its byte 21; the angle fields take their defaults.
-  SETTINGS does not show them, and its HOLD DEFAULTS keeps them (review of
-  PR #101): a reset there followed by a save of the meter would otherwise
-  store a calibration of none.
+  SETTINGS does not show them, and its HOLD DEFAULTS keeps them: a reset there
+  followed by a save of the meter would otherwise store a calibration of none.
 - **No accuracy on the screen.** The texts state no accuracy; the wiki says
   that none is measured.
 
@@ -1190,7 +1189,7 @@ HOLD DEFAULTS keeping the four fields and SETUP's BACK saving while they
 differ from flash, 19 mutants of that code in `src/ui_angle.cpp`,
 `src/settings.cpp` and `src/ui_settings.cpp` were run again, 9 of the
 earlier ones gone with the code they changed. 17 fail the suite; the armed
-check survives as before, and leaving out the spare byte in
+check survives, and leaving out the spare byte in
 `settingsCopyAngle()` is equivalent, since validation keeps that byte at 0.
 
 Not verified on the board: everything the driver and the model leave open

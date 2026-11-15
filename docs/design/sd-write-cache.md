@@ -113,7 +113,7 @@ block that still fails ends the batch ([errors](#errors)).
 `cardCacheState()` reads `Off` (no cache), `Idle`, `Flushing` with the blocks
 still to go, or `Failed`.
 
-- **KST SERVO.** `kstFilesFirstWrite()` runs as before; its files are then
+- **KST SERVO.** `kstFilesFirstWrite()` runs; its files are then
   queued. The write page reads `SAVING THE BACKUP TO THE CARD.` and
   `BLOCKS LEFT: n`, offers no hold, and sends `Edit` or `Restore` to the job
   only at `Idle`. At `Failed` it mounts the card again

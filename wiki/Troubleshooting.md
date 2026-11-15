@@ -283,7 +283,7 @@ default. So:
   or off, and KISS keeps its setting: SIG and AUX never share a pin;
 - CURRENT SENSE is `NONE` after version 2, 3 or 4; after version 5 it keeps
   its value. SERVO SUPPLY is `OWN` after version 2 or 3, since version 3's
-  switch on GP0 sits on the ESC wire's pin now; after version 4 or 5 it
+  switch on GP0 sits on the ESC wire's pin; after version 4 or 5 it
   keeps `GP28` or `GP29`;
 - the angle meter's ALONG AXIS, LENGTH, SIGN and calibration are at their
   defaults: `LONG`, `OFF`, `NORMAL` and none.
