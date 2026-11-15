@@ -142,10 +142,12 @@ zero frames for at least 250 ms (`ARM_ZERO_THROTTLE_MS`) after the last
 throttle frame, then stops the pump with no edges, releases the pin (a plain
 input with the pulls off), puts the pull-up back on it and ends the KISS
 receiver. Core1 then runs that screen's job instead (`src/core1_job.h`), and
-`loop1()` is `escTaskPoll(); core1JobPoll();`. The AM32 editor's transport runs
-on core0 and has no core1 job; the servo tester, the KST and Hitec
-programmers and the S.BUS monitor each have one. Leaving the screen
-rebuilds the pump from the wiring it had, disarmed.
+`loop1()` is `escTaskPoll(); core1JobPoll();`. ESC SETTINGS' AM32
+transport runs on core0; its core1 job, rcbench's escwire session
+(`src/escwire_job.h`), starts only once a Bluejay or BLHeli_S bootloader
+answered. The servo tester, the KST and Hitec programmers and the S.BUS
+monitor each have one. Leaving the screen rebuilds the pump from the
+wiring it had, disarmed.
 
 ---
 
@@ -1178,24 +1180,29 @@ against EDT from the log itself.
 ## AM32 ESC configuration
 
 **MENU → ESC CONFIG → ESC SETTINGS** reads and edits an AM32 ESC's
-settings over the signal wire. It does not flash ESC firmware. The transport
-is `src/am32_bl.h`.
+settings and reads a Bluejay or BLHeli_S ESC's over the signal wire. It does
+not flash ESC firmware and does not write a Bluejay or BLHeli_S ESC. The
+transports are `src/am32_bl.h` for the greeting and AM32, and rcbench's
+escwire session on core1 for Bluejay and BLHeli_S (`src/escwire_job.h`).
 
 MENU's second row, **ESC CONFIG**, opens a chooser
 (`src/ui_esc_config.h`), PROGRAMMER's pattern: `ESC SETTINGS` (142 px at
 scale 2) with the lines `AM32 SETTINGS, READ AND WRITTEN.` and
-`BLUEJAY, BLHELI_S: NAMED, NOT READ.`, and `USB BRIDGE` drawn disabled with
+`BLUEJAY, BLHELI_S: READ, NOT WRITTEN.`, and `USB BRIDGE` drawn disabled with
 `A DESKTOP ESC TOOL OVER USB.` and `NOT BUILT` under it
 (`docs/design/usb-bridge.md`). The strip reads `SIG GP0`. The chooser claims
 nothing; the tap on ESC SETTINGS claims SIG. Its BACK, and ESC SETTINGS'
 BACK and RESTART DSHOT, return to MENU. The row is drawn disabled while
-the pin claim is not free. ESC SETTINGS serves AM32 until the Bluejay and
-BLHeli_S slices of `docs/design/bluejay-blheli-s.md` are built. Its titles
+the pin claim is not free. ESC SETTINGS writes AM32 only: writing a Bluejay
+or BLHeli_S ESC is slice 4 of `docs/design/bluejay-blheli-s.md`, not built.
+Its titles
 are one set for every firmware, `ESC SETTINGS`, `ESC HEX` and `ESC WRITE`,
 and the list's strip names the firmware, for example
 `NEOESC f051  F051  AM32 2.16`.
 
-![ESC CONFIG and a Bluejay answer](docs/esc-preview.png)
+![ESC CONFIG and a Bluejay ESC](docs/esc-preview.png)
+
+![A Bluejay or BLHeli_S page](docs/efm8-preview.png)
 
 ![AM32 config](docs/am32-preview.png)
 
@@ -1205,16 +1212,18 @@ stops the DShot driver and hands the pin to the bootloader transport; the
 strip reads `RELEASING SIG GP0` meanwhile. Leaving hands it back, at once
 or, after a Bluejay or BLHeli_S answer, from the leave page.
 
-Leaving sends the bootloader no `RUN` command. The transport has one,
-`am32BlRun()` in `src/am32_bl.h`, and nothing calls it. An ESC that answered
-is in its bootloader when the screen closes, and DShot frames follow on the
-signal wire. What the ESC does after the screen is left, its firmware
+Leaving an AM32 sends the bootloader no `RUN` command. The transport has
+one, `am32BlRun()` in `src/am32_bl.h`, and nothing calls it. An AM32 ESC that
+answered is in its bootloader when the screen closes, and DShot frames follow
+on the signal wire. What the ESC does after the screen is left, its firmware
 started on its own, on those frames or not at all, is not recorded.
-Power-cycle the ESC after leaving, before driving a motor. After a session
-whose handshake succeeded, MENU's strip shows `POWER-CYCLE THE ESC TO RUN IT`
-in amber on a second line under its caption (`uiAm32RunCue()`), until an eRPM
-frame stamped after that handshake arrives, RESTART DSHOT on the leave page
-below, or the board restarts.
+Power-cycle the ESC after leaving, before driving a motor. A Bluejay or
+BLHeli_S ESC whose page was read is left with LEAVE, below. After a session
+whose handshake succeeded, or in which an EFM8 bootloader answered, MENU's
+strip shows `POWER-CYCLE THE ESC TO RUN IT` in amber on a second line under
+its caption (`uiAm32RunCue()`), until an eRPM frame stamped after that answer
+arrives, LEAVE goes out, RESTART DSHOT on the leave page below is tapped, or
+the board restarts.
 
 ### Connecting
 
@@ -1224,8 +1233,22 @@ the bootloader decides about 46 ms after power-up and then waits while the
 line rests high; a greeting's low bits in those 46 ms start the ESC's
 firmware, which resets itself about 2 s later with no DShot, and after that
 reset only a low in the bootloader's last 5 ms starts the firmware again
-(`docs/design/bluejay-blheli-s.md`). Not measured. The firmware repeats the
-21-byte init string, waiting 30 ms (`AM32_GREET_TMO_MS`) for each reply.
+(`docs/design/bluejay-blheli-s.md`). Not measured.
+
+The page runs a connect cycle (`src/greet_cycle.h`, that note's decision
+2): 1000 ms (`ESC_GREET_QUIET_MS`) with the line on its pull-up and nothing
+sent, `LINE HIGH, NOTHING SENT` on the status line, then a burst of 3
+(`ESC_GREET_BURST`) 21-byte greetings, one a frame, each waiting 30 ms
+(`AM32_GREET_TMO_MS`) for its reply, `WAITING... (TRY n)`, then quiet again.
+A greeting holds the line low for at least 6 ms; repeated without a pause it
+would keep a Bluejay's bootloader check, a high line for about 150 ms, from
+ever passing. By the sources a Bluejay running on DShot enters its
+bootloader within the first quiet second, about 320 ms plus 150 ms after
+the last frame, and BLHeli_S after its timeout plus 15 ms; an AM32
+powered up within a burst or the 46 ms before it, about 15 % of the time,
+starts its firmware and returns about 2 s later by its firmware's own
+reset. None of it is measured. The tries count greetings only. An answer's
+status stays through the quiet phase until the next answer.
 
 `AM32_FORCE_LOW_JUMP` (default 0) instead holds the signal low for
 `AM32_BOOT_LOW_MS` (200 ms) once before the first attempt. The reference
@@ -1236,9 +1259,10 @@ The screen shows which half failed:
 
 | Message | Meaning | What to change |
 |---|---|---|
+| `LINE HIGH, NOTHING SENT` | The quiet phase of the connect cycle | Nothing: a burst of 3 greetings follows |
 | `WAITING... (TRY n)` | No reply yet | Power-cycle the ESC while the screen is open |
 | `nB: xx xx xx @19200`, then `REPLY NOT UNDERSTOOD:` and `IS THE ESC RUNNING AM32?` | The ESC sent bytes that did not parse | Baud rate or framing, or firmware other than AM32. The first three bytes are shown |
-| `EFM8 E8B2 ANSWERED: NOT READ YET.` | A Bluejay or BLHeli_S bootloader answered; the signature is shown | Nothing is read here; leave through the leave page, below |
+| `EFM8 E8B2 ANSWERED: READING.` | A Bluejay or BLHeli_S bootloader answered; the signature is shown | Nothing: the escwire session reads the page, below |
 | `READ FAILED (...)` | Handshake succeeded, settings read failed | Retry; check the wire |
 | `NO VALID SETTINGS`, with `NOT AN AM32 ESC, OR BLANK SETTINGS.` and `NOTHING WILL BE WRITTEN.` | The settings block is implausible (`am32Plausible()`): among others a layout revision of 0 or above 8 | Nothing to do: the screen stays on the connect page, which has no `WRITE...` |
 
@@ -1246,20 +1270,90 @@ The screen shows which half failed:
 
 The greeting is a valid greeting for the EFM8 bootloader of Bluejay and
 BLHeli_S, so such an ESC can answer it. `blAnswerClassify()`
-(`src/bl_answer.h`) reads the answer from its end: a fifth byte from the end
-that is an AM32 family, 0x1F, 0x2B or 0x35, is AM32; `471`, a byte, 0xE8,
-then 0xB1, 0xB2 or 0xB5, two bytes and 0x30 is an EFM8 bootloader with the
-signature E8B1, E8B2 or E8B5 (EFM8BB1, EFM8BB2, EFM8BB51); anything else is
-not understood. From the bootloaders' sources; not seen on an ESC.
+(`src/bl_answer.h`) reads the answer: 5 bytes or more ending in 0x30 whose
+fifth byte from the end is an AM32 family, 0x1F, 0x2B or 0x35, are AM32;
+`471` with 0xE8 four bytes after its `4`, anywhere in the reply, is an EFM8
+bootloader, its signature 0xE8 and the byte after it, E8B1, E8B2 or E8B5 on
+EFM8BB1, EFM8BB2 and EFM8BB51; anything else is not understood. The EFM8
+rule does not check the bytes after the 0xE8, so a trailing glitch byte or
+a garbled byte still counts as an EFM8 answer and keeps DShot off its
+bootloader; escwire's own first contact then checks the answer in full.
+From the bootloaders' sources; not seen on an ESC.
 
-An EFM8 answer reads `EFM8 E8B2 ANSWERED: NOT READ YET.` (33 characters,
-197 px) in amber at y 176 and on the strip. Nothing is read or written.
-Later greetings that go unanswered keep the line: the bootloader waits for
-commands with no timeout. The answer sets MENU's run cue and gives the pin
-claim a leave page (`pinClaimWantLeavePage()`), so DShot frames, which the
-bootloader could read as a command, do not follow at once. BACK from then
-on opens the leave page of `docs/design/bluejay-blheli-s.md` decision 8,
-the leave page of SERVO TESTER, KST SERVO and HITEC SERVO, before LEAVE:
+An EFM8 answer gives the pin claim a leave page
+(`pinClaimWantLeavePage()`) and sets MENU's run cue. Then the AM32
+transport lets go of SIG, leaving it floating, and the claim starts its
+core1 job, `Core1Job::EscWire` (`src/escwire_job.h`), on core1's next pass.
+The job opens rcbench's line driver, `ew_line` on one PIO state machine of
+25 words and 2 DMA channels, and drives the line high in the same call. It
+holds it high 500 ms more, makes its own first contact, 3 tries of 100 ms,
+and identifies the page from its first 112 bytes at 0x1A00, or 0x3000 on
+EFM8BB51; then it reads the whole page, 112 bytes for BLHeli_S and 255 for
+Bluejay. Nothing is erased or programmed. The connect page reads
+`EFM8 E8B2 ANSWERED: READING.` (28 characters, 167 px) meanwhile, and in
+place of `POWER-CYCLE THE ESC` and its three lines, which do not apply to a
+bootloader that waits, `EFM8 BOOTLOADER` over `THE ESC WAITS IN ITS
+BOOTLOADER` / `FOR COMMANDS. ITS FIRMWARE DOES` / `NOT RUN UNTIL IT LEAVES.`
+A second first contact to a bootloader that already answered the greeting
+reads to it as a restart, by its source; not verified on an ESC.
+
+The page decides what opens, by rcbench's `ew_id_efm8()`
+(`src/efm8_view.h`):
+
+| Page | Screen | Strip |
+|---|---|---|
+| Bluejay layout 208, BLHeli_S layout 33, marker 0x55 0xAA | the list | `BLUEJAY 0.21  LAYOUT 208  E8B2` (30 characters, 179 px), grey |
+| Bluejay layouts 33 to 207, BLHeli_S layout 32 | the list | `BLUEJAY 0.19, LAYOUT 206: READ-ONLY.` over `SHOWN ONLY. NO BACKUP SAVED.`, amber |
+| Name tag 0xFF with BLHeli_S layout 33 or Bluejay layout 208: the ESC lost its tags | the list | `ESC LOST ITS TAGS: READ-ONLY.` over `REFLASH ON A COMPUTER. NO BACKUP.` |
+| Settings marker not 0x55 0xAA | the list | `SETTINGS MARKER WRONG: READ-ONLY.` over `SHOWN ONLY. NO BACKUP SAVED.` |
+| The first 112 bytes 0xFF | the connect page | status `EFM8 E8B2: SETTINGS PAGE EMPTY`; `PAGE EMPTY, AS AFTER A CUT WRITE.` / `KEEP THE ESC POWERED: SEE MANUAL.` |
+| Any other page rcbench does not take | the connect page | status `EFM8 E8B2: PAGE NOT KNOWN`, `BLUEJAY ON EFM8BB1: NOT TAKEN`, `BLUEJAY LAYOUT 205: NOT TAKEN`, `BLHELI_S 16.9: NOT TAKEN` or `EFM8 E8B3: PART NOT KNOWN`; `NOT BLUEJAY OR BLHELI_S AS KNOWN:` / `NOTHING IS WRITTEN.` |
+
+The list shows rcbench's fields for the page's firmware and layout
+(`ew_map_s.c`, `ew_map_bj.c`), every row read-only in grey: its group above
+its label, MOTOR, STARTUP, BRAKE, LIMITS, SOUND, INPUT and OTHER, and the
+value as rcbench writes it, in capitals; DIRECTION's 3 and 4 read `3D` and
+`3D REVERSED`, and a value none of the field's reads `RAW 17` in amber. The
+revision bytes 0x00 to 0x02 are on the strip. A tap selects a row, for its
+note; nothing edits. `WRITE...` and `REVERT` are drawn disabled, and the
+bar under the list reads, in grey, `SHOWN ONLY: WRITING IS NOT BUILT.` /
+`BACK SENDS LEAVE: THE ESC STARTS.` HEX opens `ESC HEX`: the 112 or 255
+bytes, 8 to a line, in a list that scrolls; its BACK returns to the list.
+
+The strip's two amber lines, in this order: the selected row's note, why a
+list is read-only, then the 3D note, else the caption.
+
+| When | Lines |
+|---|---|
+| DIRECTION at 3D or 3D REVERSED, selected | `3D MODE: 50% THROTTLE IS FULL POWER,` / `ABOVE 50% THE OTHER WAY. PROP OFF.` |
+| TEMPERATURE or LOW-SPEED PROTECTION selected at OFF | `PROTECTION OFF: THE ESC DOES NOT` / `CUT POWER ON THIS LIMIT.` |
+| POWER RATING selected | `SETS HOW THE ESC READS ITS TEMP:` / `A WRONG VALUE MISREADS THE LIMIT.` |
+| DIRECTION at 3D or 3D REVERSED | the 3D lines |
+
+A read that opens a list with DIRECTION at 3D or 3D REVERSED sets the
+tester's 3D note, `3D MODE ESC: THROTTLE SCALE DIFFERS`, and one at NORMAL
+or REVERSED clears it; a page whose marker is wrong leaves it, since its
+firmware loads its defaults at its next start.
+
+**BACK from the list sends LEAVE** (that note's decision 3): the frame
+`00 01`, which starts the ESC's firmware, 500 µs of idle line, 300 ms of low
+line, then the line parked. The page reads `LEAVING` over `THE ESC STARTS
+ITS FIRMWARE ON` / `LEAVE, THEN DSHOT RETURNS.` and, in amber,
+`KEEP THE PROPELLER OFF.`; BACK is drawn disabled. Once LEAVE went out the
+run cue clears, the job lets SIG go and DShot returns, with no leave page,
+and the screen returns to MENU. LEAVE has no answer: whether the firmware
+started is not seen, and not verified on an ESC. A LEAVE that did not go
+out opens the leave page below.
+
+An entry or a read that ends without the page, the ESC silent, another
+answer or a stop, closes the job; the claim keeps its leave page, the AM32
+transport takes SIG again, and the connect cycle greets again under
+`THE ESC ANSWERED, THEN STOPPED.` / `SEARCHING AGAIN.` in amber.
+
+Every other BACK after an EFM8 answer, from the connect page while the job
+reads, after a page not taken, or after the cycle greets again, opens the
+leave page of `docs/design/bluejay-blheli-s.md` decision 8, the leave page
+of SERVO TESTER, KST SERVO and HITEC SERVO, before LEAVE:
 
 | Step | Text | Width |
 |---|---|---|
@@ -1267,15 +1361,19 @@ the leave page of SERVO TESTER, KST SERVO and HITEC SERVO, before LEAVE:
 | 2, current after LEAVE | `PLUG IT IN AFTER RESTART DSHOT.` | 31, 185 px |
 
 The strip reads `EFM8 E8B2  SIG GP0`, and BACK is drawn disabled.
-**STAY** returns to the page BACK left, the claim kept. **LEAVE** lets the
-transport go of SIG; DShot stays stopped, and **RESTART DSHOT** takes the
-wide button, live 1000 ms later. Its tap restarts DShot, clears MENU's run
-cue, since the steps power-cycled the ESC, and returns to MENU. There is no
-left button after LEAVE. An AM32 session in which no EFM8 bootloader
-answered has no leave page: BACK gives DShot the pin at once.
+**STAY** returns to the page BACK left, the claim and the job kept: a read
+under way goes on. **LEAVE** cuts the job's entry or read, sends nothing and
+lets SIG go, or lets the AM32 transport go of it; DShot stays stopped, and
+**RESTART DSHOT** takes the wide button, live 1000 ms later. Its tap
+restarts DShot, clears MENU's run cue, since the steps power-cycled the ESC,
+and returns to MENU. There is no left button after LEAVE. An AM32 session in
+which no EFM8 bootloader answered has no leave page: BACK gives DShot the
+pin at once.
 
-A board restart while an EFM8 bootloader waits sends DShot into it: the
-bench cannot know.
+The job (`src/escwire_job.h`) stops a running entry or read with
+`ew_session_stop()` when core0's heartbeat lapses for 250 ms, and lets a
+running LEAVE finish. A board restart while an EFM8 bootloader waits sends
+DShot into it: the bench cannot know.
 
 ### Layouts outside 2 to 4
 

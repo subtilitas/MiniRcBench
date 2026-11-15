@@ -94,6 +94,7 @@ screen asks for decide only which pins its job binds.
 | KST SERVO | SIG | KST | core1, `kst_line` PIO driver and session |
 | HITEC SERVO | SIG | Hitec | core1, `hitec_line` PIO driver and session |
 | S.BUS monitor ([rx-signals.md](rx-signals.md)) | the role on GP1: SIG and AUX when AUX is GP1, SIG when SIG is GP1 | S.BUS | nobody: the receiver drives GP1, and UART0 receives on it with the pad's input inverted |
+| ESC SETTINGS after an EFM8 bootloader answered ([bluejay-blheli-s.md](bluejay-blheli-s.md#slice-3-as-built)) | SIG | escwire | core1, `ew_line` PIO driver and rcbench's escwire session |
 
 A claim lasts while its screen is open, its sub-screens included (SERVO SET,
 KST FILES). Leaving the screen with BACK ends it. No other screen is reachable
@@ -143,7 +144,10 @@ the exception.
    a session: `pinClaimKeep()` wants the job again only for a user that
    does not defer it, and HITEC asks for it as for its first servo.
    AM32 has no core1 job: it calls `am32BlBegin(pinClaimGpio(PIN_SIG))`, and
-   its claim stays Held until BACK.
+   its claim stays Held until BACK, or until a Bluejay or BLHeli_S
+   bootloader answers its greeting: ESC SETTINGS defers its escwire job as
+   HITEC defers its own, and starts it then with `pinClaimStartJob()`
+   ([bluejay-blheli-s.md](bluejay-blheli-s.md#slice-3-as-built)).
 4. **Running.** The job binds its pins and reports `Running`, or reports a bind
    failure and binds nothing. A failed bind leaves the claim Held, with the
    reason in `pinClaimJobError()`. RETRY (`pinClaimRetry()`) starts the job
@@ -168,7 +172,8 @@ the exception.
    starts the job again for SERVO, KST and the S.BUS monitor; HITEC asks for
    it again. AM32 has neither a job nor the
    page, so its BACK restores DShot within the
-   `pinClaimEnd()` call.
+   `pinClaimEnd()` call. After an EFM8 answer ESC SETTINGS has both: its
+   escwire job, and the leave page it sets before the job starts.
 6. **Restoring.** Core0 calls `escTaskResume()`. Core1 rebuilds the driver from
    the wiring latched in `esc_task.cpp`, and the claim is `Free` from the
    first look after `escTaskSuspended()` turns false. Nothing is left for
@@ -209,11 +214,11 @@ void         pinClaimKeep(PinUser who);    // NEXT SERVO, BACK TO SERVO on the l
 ```
 
 What differs per user is a table, `PIN_USERS` in `pin_claim.h`, one row per
-`PinUser`: the core1 job (None: the screen drives the pin from core0, as AM32
-does), whether the leave page comes before DShot restarts, whether the
+`PinUser`: the core1 job (None: no job), whether the leave page comes
+before DShot restarts, whether the
 claim is refused while an ESC answers on SIG (not for AM32 and the S.BUS
 monitor), and whether Held waits for `pinClaimStartJob()` before the job
-starts (HITEC alone). `pinUserInfo()`
+starts (HITEC, and ESC SETTINGS for its escwire job). `pinUserInfo()`
 reads it. A new pin user is one enum value and one row.
 
 The refusal check is a pure function, `pinClaimCheck()`, beside it, so the
@@ -270,6 +275,7 @@ is alive" for the pump and every job.
 | AM32 | nothing; `escTaskPoll()` and `core1JobPoll()` both return at once | the bootloader transport runs on core0 and blocks it for about 40 ms per attempt; nothing in it needs core1 |
 | SERVO | the servo job: holds the PWM bindings, slews the pulse width at SPEED, runs the sweep curve, checks the heartbeat, every pass of `loop1()` | core0 draws at 40 Hz and stalls for tens of milliseconds on SD writes; a 5 Hz sine sampled at 40 Hz is 8 steps per cycle. Core1 samples the curve every millisecond and PWM latches it at each frame |
 | Hitec | the Hitec job: `hitec_session_next()`, the step on the `hitec_line` driver or the switched supply, `hitec_session_feed()` | the line driver wants a poll every 1 ms or faster; a PRECHARGE receive decodes about 29 sampler words a millisecond ([hitec-programming.md](hitec-programming.md#where-the-session-runs)) |
+| ESC SETTINGS after an EFM8 answer | the escwire job: `ew_session_step()` on every pass while an entry, a read or LEAVE runs | the session never waits and polls its line driver; the AM32 transport on core0 has let SIG go |
 | KST | the KST job: the entry loop wrapper, `kst_session_step()` and the `kst_line` driver | the session needs a step every 1 ms or faster, and its driver slack is 5 ms (`KST_DRIVER_SLACK_US`); core0 cannot promise either |
 | S.BUS | the S.BUS job: drains UART0's receive FIFO into rcbench's decoder, each byte stamped with the pass's `micros()` | the decoder frames on a gap of 2000 µs between bytes, so a byte's time must be within a small part of that; core0 stalls for tens of milliseconds |
 
@@ -324,6 +330,7 @@ Core0 calls `escHeartbeat()` at the top of every `uiTick()`, on every screen.
 | DShot | throttle forced to zero (`escFrameAction()`, unchanged) | throttle follows the UI again |
 | AM32 | nothing; the transport runs on core0, which is what stopped | nothing |
 | Servo job | both pins to level 0, no edges; the sweep ends; the job latches `Tripped` | nothing restarts. The screen shows `STOPPED: SCREEN STALLED` and needs a new HOLD TO START |
+| ESC settings job | a running entry or read is stopped with `ew_session_stop()`, which parks the line; a running LEAVE finishes; no operation starts | operations are taken again; ESC SETTINGS greets again after a stopped session |
 | Hitec job | an entry is cut: an off phase ends with the supply never on, a LISTEN is cut, a SEND finishes; a read or a write finishes; then, with a switched supply, the supply goes off and the session starts again; with `NONE` the session stays in the mode, and a cut entry ends with RETRY. In a card phase the card heartbeat counts for at most 15 s ([hitec-programming.md](hitec-programming.md#heartbeat-and-lapses)) | entries and operations are taken again; after a stall the entry needs RETRY |
 | KST job | the running operation finishes; no new operation and no new entry attempt starts; the line stays driven low. With a switched supply ([kst-programming.md](kst-programming.md#leave-reboot-loss-and-heartbeat-with-the-switch)), every wait in the search or in REBOOT ends at once with the supply off; a session operation finishes, then the supply goes off; the supply is switched on only while the heartbeat is trusted. In a card phase around a card call, a card heartbeat from the SDIO driver's waits counts as the UI's for at most 15 s ([card calls](kst-programming.md#card-calls-and-the-heartbeat)) | operations are taken again; the search needs RETRY. With a switched supply the screen says the supply went off |
 | S.BUS job | nothing: the job drives no pin, so it decodes on | nothing |
@@ -483,6 +490,7 @@ v3.6.2.
 | Backlight (`backlight`), fixed to pio0 | 6 | 1 | 0 | always |
 | KST line (`kst_line`) | 24 | 1 | 2 | during a KST claim |
 | Hitec line (`hitec_line`), and its PRECHARGE sampler for the D series | 30, and 7 at 150 MHz | 1, and 1 | 2, and 1 | during a Hitec claim |
+| ESC settings line (`ew_line`) | 25 | 1 | 2 | during an ESC SETTINGS claim, once an EFM8 bootloader answered |
 | Servo PWM | 0 | 0 | 0 | PWM slices only |
 | S.BUS receive (UART0) | 0 | 0 | 0 | during an S.BUS claim |
 
@@ -496,6 +504,9 @@ time that DShot and KISS fit one block (3 state machines, 25 of 32 words):
 | pio1 | SDIO, 32 of 32 words, 2 SMs | SDIO, full | SDIO, full |
 | pio2 | DShot 16 + KISS 9 = 25 words, SM0 to SM2 | KST 24 words, SM0 | Hitec 30 words, SM0 |
 | DMA | 3 of 16 | 5 of 16 | 6 of 16 |
+
+An ESC SETTINGS claim with its escwire job puts `ew_line`, 25 words, on SM0
+of pio2, with 5 of 16 DMA channels in use.
 
 Nothing needs the claim for resources. If the KST line opened beside a
 running DShot and KISS, it would not fit in pio2 (7 words left) and would land

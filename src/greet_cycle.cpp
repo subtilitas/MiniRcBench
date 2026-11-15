@@ -11,7 +11,8 @@ void greetCycleStart(GreetCycle *c, uint32_t nowMs) {
 }
 
 GreetPhase greetCyclePhase(const GreetCycle *c, uint32_t nowMs) {
-	if (c->sent > 0) return GreetPhase::Greet;
+	// A burst under way began after the quiet phase, which starts again only
+	// after its last greeting.
 	return nowMs - c->quietFromMs >= ESC_GREET_QUIET_MS ? GreetPhase::Greet : GreetPhase::Quiet;
 }
 

@@ -1,11 +1,11 @@
 # Bluejay and BLHeli_S settings
 
 Status: designed; the owner answered its questions on 2026-11-15, see
-[decisions](#decisions). Slices 1 and 2 are built
-([slice 1 as built](#slice-1-as-built), [slice 2 as built](#slice-2-as-built)):
-slice 1's copies of rcbench's escwire and their tests, which nothing in
-`src/` calls yet, and slice 2, tested on the host only; slices 3 to 6 wait
-on being built. The
+[decisions](#decisions). Slices 1 to 3 are built
+([slice 1 as built](#slice-1-as-built), [slice 2 as built](#slice-2-as-built),
+[slice 3 as built](#slice-3-as-built)): slice 1's copies of rcbench's
+escwire and their tests, slice 2's detection and slice 3's read, slices 2
+and 3 tested on the host only; slices 4 to 6 wait on being built. The
 feature is item (6) of the owner's
 feature choice of 2026-11-14, recorded in [STATUS.md](../../STATUS.md)
 open item 28: Bluejay and BLHeli_S settings, rcbench's
@@ -636,16 +636,19 @@ into it whatever the screen does: the bench cannot know.
 
 ### The firmware as it is today
 
-With slice 2 built, a BLHeli_S or Bluejay ESC that enters its bootloader
-while ESC SETTINGS is open and answers its greeting is named on the connect
-page, `EFM8 E8B2 ANSWERED: NOT READ YET.`; nothing is read. The answer sets
-MENU's run cue and gives the claim the leave page
-(`pinClaimWantLeavePage()`), so BACK opens the leave page of decision 8 and
-DShot returns to SIG only from its RESTART DSHOT, after its steps have told
-the user to unplug the ESC's battery. The bench cannot see the battery:
-RESTART DSHOT with the ESC still powered, or a bench restart while it
-waits, sends DShot into the bootloader. STATUS.md records that as a known
-limitation.
+With slice 3 built, a BLHeli_S or Bluejay ESC that enters its bootloader
+while ESC SETTINGS is open and answers its greeting is read through the
+escwire job and shown as a read-only list; nothing writes it
+([slice 3 as built](#slice-3-as-built)). The answer sets MENU's run cue and
+gives the claim the leave page (`pinClaimWantLeavePage()`). BACK from the
+list sends LEAVE, `00 01`, and DShot returns once it went out; every other
+BACK after the answer opens the leave page of decision 8, and DShot returns
+to SIG only from its RESTART DSHOT, after its steps have told the user to
+unplug the ESC's battery. The bench cannot see the battery: RESTART DSHOT
+with the ESC still powered, or a bench restart while it waits, sends DShot
+into the bootloader. LEAVE has no answer, so a LEAVE the ESC did not take
+leaves it waiting when DShot returns (B11). STATUS.md records both as known
+limitations.
 
 ## What is copied
 
@@ -951,6 +954,131 @@ source's ([the greeting already fits](#the-greeting-already-fits)); what a
 waiting bootloader does with the greetings that follow is the source's;
 whether the user's unplugging reaches the ESC before RESTART DSHOT is the
 user's.
+
+### Slice 3 as built
+
+Files: `src/greet_cycle.{h,cpp}`, the connect cycle, pure, its two numbers
+`ESC_GREET_QUIET_MS` and `ESC_GREET_BURST` in `src/config.h`;
+`src/bl_answer.*`, the classification's EFM8 rule loosened;
+`src/escwire_job.{h,cpp}`, the job, `Core1Job::EscWire` in
+`src/core1_job.*`; `src/escwire_port.{h,cpp}`, its line on `ew_line`;
+`src/efm8_view.{h,cpp}`, the rows and texts of a page, pure; the screen's
+states `S_EW`, `S_EW_LIST`, `S_EW_EXIT` and `S_REGREET` in
+`src/ui_am32.*`; `PinUser::Am32`'s row in `src/pin_claim.h`, now
+`Core1Job::EscWire` with `deferJob`; ESC SETTINGS' second chooser line in
+`src/ui_registry.cpp`; `src/escwire.cmake` builds the three new sources
+and the job's call graph. Host tests in `test/test_am32.cpp`
+(`testBlAnswer()`, `testGreetCycle()`), `test/test_escwire_job.cpp`,
+`test/test_efm8_view.cpp`, `test/test_ui.cpp` (`testAm32Efm8()`, run with
+core1 once a millisecond in every frame), `test/test_claim.cpp`,
+`test/test_menu.cpp` and `test/test_ids.cpp`, the job and the screen
+against rcbench's simulated ESC behind `test/fake_escwire_port.h`. CI's
+"ESC settings job stack on core1" holds the job's deepest chain to
+1,792 bytes; it is 288 bytes, `escwireJobRelease()` through
+`ew_session_step()` to `ew_text_show()`. The screenshots `shot_am32_quiet`,
+`shot_am32_efm8`, `shot_efm8_list`, `shot_efm8_note`, `shot_efm8_hex`,
+`shot_efm8_3d`, `shot_efm8_readonly`, `shot_efm8_empty`,
+`shot_efm8_refused`, `shot_efm8_leaving`, `shot_efm8_stopped` and
+`shot_am32_leave`.
+
+Texts, at scale 1 unless named, (6n − 1) px for n characters:
+
+| Where | Text | Width |
+|---|---|---|
+| Connect page, y 176, quiet phase | `LINE HIGH, NOTHING SENT` | 23, 137 px |
+| Connect page and strip, an EFM8 answer | `EFM8 E8B2 ANSWERED: READING.` | 28, 167 px |
+| Connect page while the job holds SIG, y 84, scale 2, `C_TEXT` | `EFM8 BOOTLOADER` | 15, 178 px |
+| Under it, y 116, 130, 144, `C_DIM` | `THE ESC WAITS IN ITS BOOTLOADER` / `FOR COMMANDS. ITS FIRMWARE DOES` / `NOT RUN UNTIL IT LEAVES.` | 31, 31, 24 |
+| A session that stopped, y 196 and 210, amber | `THE ESC ANSWERED, THEN STOPPED.` / `SEARCHING AGAIN.` | 31, 185 px; 16, 95 px |
+| The list's bar, `C_GRID` | `SHOWN ONLY: WRITING IS NOT BUILT.` / `BACK SENDS LEAVE: THE ESC STARTS.` | 33, 197 px each |
+| A read-only list's second strip line | `SHOWN ONLY. NO BACKUP SAVED.`; lost tags `REFLASH ON A COMPUTER. NO BACKUP.` | 28, 167 px; 33, 197 px |
+| The page while LEAVE goes out, y 84, scale 2 | `LEAVING` | 7, 82 px |
+| Under it | `THE ESC STARTS ITS FIRMWARE ON` / `LEAVE, THEN DSHOT RETURNS.` / `KEEP THE PROPELLER OFF.`, the last amber | 30, 26, 23 |
+| Its status | `SENDING LEAVE: 00 01`, then `LEAVE SENT.` | 20, 11 |
+| A part not known | `EFM8 E8B3: PART NOT KNOWN` | 25, 149 px |
+| Chooser, ESC SETTINGS' second line | `BLUEJAY, BLHELI_S: READ, NOT WRITTEN.` | 37, 221 px |
+
+The other texts are this note's ([what each page shows](#what-each-page-shows),
+[the list](#the-list-the-editor-and-the-write-page)); `test/test_efm8_view.cpp`
+and `static_assert`s in `src/ui_am32.cpp` hold each to its width.
+
+Choices the note left open, the developer's:
+
+- **The looser EFM8 match** (left from slice 2's review). An EFM8 answer is
+  `471` with 0xE8 four bytes after its `4`, anywhere in the reply, the last
+  such `471` counting; the bytes after the 0xE8, the 0x30 among them, are
+  not checked, and the signature is 0xE8 and the byte after it, 0xE800 when
+  the reply ends there. An AM32 answer is read first, as before, so no AM32
+  answer changes meaning; an AM32 answer with a glitch byte stays not
+  understood, as its family is never 0xE8. A false EFM8 costs a leave page
+  and an escwire entry that ends silent, after which the cycle greets
+  again; a missed one costs DShot into a waiting bootloader. The session's
+  own first contact reads the answer again: `ew_a_contact_reply()` checks
+  its 9 bytes and its `471`, `ew_id_contact()` its signature.
+- **The connect page after an EFM8 answer** (left from slice 2's review).
+  While the job holds SIG, `POWER-CYCLE THE ESC` and its three lines give
+  way to `EFM8 BOOTLOADER` and three lines that say the bootloader waits.
+  Once a session stopped and the cycle greets again, the power-cycle lines
+  return: the screen is searching again.
+- **The connect cycle.** One greeting a frame while the phase is Greet; the
+  quiet phase begins when the third greeting's wait ends. The status shows
+  the phase, `LINE HIGH, NOTHING SENT` or `WAITING... (TRY n)`, only after
+  silence: an answer's status, `READ FAILED`, the bytes of a reply not
+  understood, stays through the quiet phase until the next answer. The
+  line rests on the pull-up the AM32 transport leaves between greetings
+  (decision 2).
+- **The job's commands** are Enter, Read, Leave and Stop; there is no write
+  command in this slice. The bind opens `ew_line`, which parks the pad on
+  its pull-down, and calls `ew_session_hold()` in the same call, so the
+  line is driven high at once; the gap after `am32BlEnd()` is the one core1
+  pass before the bind. Enter holds 500 ms more, the shortest hold rcbench
+  takes. A lapse of the heartbeat stops a running entry or read with
+  `ew_session_stop()`, and lets a running LEAVE finish, its frame having
+  gone; the release does the same, then closes the line and puts the
+  pull-up on, as DShot's teardown does.
+- **Which BACK sends LEAVE.** BACK from a list, the read-only lists among
+  them: the page was read, and starting the firmware is what LEAVE does.
+  A page not taken, an empty one among them, gets no LEAVE: what its
+  firmware does at its start is not known, and an empty page has no marker,
+  so the firmware would store its defaults with the tags 0xFF
+  ([why an interrupted write loses the tags](#why-an-interrupted-write-loses-the-tags)).
+  BACK there opens the leave page of decision 8.
+- **DShot after LEAVE.** Once the job reports LEAVE went out, the screen
+  clears the run cue and ends the claim; the claim keeps its leave page
+  flag, so it waits in Leaving until the job is idle, and the screen then
+  calls `pinClaimRestart()` itself, without the leave page's 1000 ms or
+  steps. `src/pin_claim.*` gains no function. A LEAVE refused for the
+  heartbeat is asked again; one that ends without going out opens the leave
+  page.
+- **A session that ends without the page**, silent, another answer, a
+  processor other than an EFM8, a read that failed or a stop: the screen
+  ends the claim, waits for the job to be idle, and calls `pinClaimKeep()`,
+  which returns the claim to Held with no job and its leave page kept; the
+  AM32 transport takes SIG and the cycle greets again.
+- **No backup in this slice.** The backups and their prefixes are slice 4,
+  so a read-only list saves none and its second strip line says so,
+  `SHOWN ONLY. NO BACKUP SAVED.`, in place of the `BACKUP BJ018` of
+  [what each page shows](#what-each-page-shows).
+- **The rows.** DITHERING, which the note's grouping does not name, is a
+  MOTOR row; POWER SLOPE and Bluejay's STARTUP POWER are STARTUP rows. Every
+  row is drawn `ReadOnly`, a value none of the field's `Odd`, `RAW 17` in
+  amber. A tap selects a row for its note; a swipe changes nothing.
+- **The strip's order** on a list: the selected row's note, then why the
+  list is read-only, then the 3D note, then the caption.
+- **The 3D note.** A read that opens a list sets it from DIRECTION; a page
+  whose marker is wrong leaves it, since its firmware loads its defaults at
+  its next start.
+- **A bind refused** reads `SIG GP0 COULD NOT BE TAKEN (PIO)` on the
+  connect page with no RETRY; BACK opens the leave page.
+
+Mutations, each applied to a copy of the tree, the suite built and run:
+MUTDETAIL
+
+Not verified: everything on an ESC. No frame of the escwire job has reached
+a Bluejay or BLHeli_S ESC; the entry after the AM32 greeting's answer (B4),
+the floating gap between `am32BlEnd()` and the bind, LEAVE starting the
+firmware and the time to DShot after it (B11), and the connect cycle's
+entry times (B1 to B3) are the sources', not measured.
 
 ## Decisions
 

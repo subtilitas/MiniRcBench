@@ -5679,6 +5679,7 @@ static void testAm32Efm8() {
 		efm8Esc(0xB2, true);
 		efm8Page()[0x01] = 19;
 		efm8Page()[0x02] = 206;
+		efm8Page()[0x06] = 1;  // DITHERING ON: the byte Bluejay 0.19 has there
 		checkTrue("Bluejay 0.19, layout 206: the list", efm8Read());
 		frames(1);
 		checkTrue("BLUEJAY 0.19, LAYOUT 206: READ-ONLY., amber",

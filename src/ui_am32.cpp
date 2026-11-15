@@ -1060,8 +1060,8 @@ static void endClaim() {
 
 void uiAm32Exit() {
 	// The transport lets go of the pin before DShot takes it back. An AM32
-	// claim has no core1 job, and no leave page unless an EFM8 answered, so
-	// pinClaimEnd() resumes the pump within the call.
+	// claim no EFM8 bootloader answered has started no core1 job and has no
+	// leave page, so pinClaimEnd() resumes the pump within the call.
 	endClaim();
 	s_state = S_HANDOVER;
 }

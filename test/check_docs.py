@@ -93,6 +93,8 @@ REMOVED_TEXTS = [
     (r"AM32 (CONFIG|WRITE|HEX)\b|\bFW \d+\.\d+",
      "AM32's titles and the strip's FW, now ESC CONFIG, ESC SETTINGS, ESC WRITE, "
      "ESC HEX and AM32 n.n (bluejay-blheli-s.md, call A)"),
+    (r"ANSWERED: NOT READ YET",
+     "slice 2's EFM8 status, now ANSWERED: READING. (bluejay-blheli-s.md, slice 3)"),
 ]
 # Rule 9: image names of removed screens, hyphenated as in wiki/img/; a name
 # that starts with one of these is refused, so kst-leave covers

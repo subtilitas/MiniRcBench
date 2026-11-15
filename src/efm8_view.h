@@ -131,7 +131,7 @@ void efm8Caption(const ew_ident_t *id, const uint8_t *page, uint16_t sig, char *
 bool efm8ReadOnlyLines(const ew_ident_t *id, const uint8_t *page, char *l1, const char **l2);
 
 /**
- * @brief Whether the first @ref EW_MAP_LEN_S bytes of a page read 0xFF: a
+ * @brief Whether the first `EW_MAP_LEN_S` bytes, 112, of a page read 0xFF: a
  *        page erased and not programmed again.
  */
 bool efm8PageEmpty(const uint8_t *page);
