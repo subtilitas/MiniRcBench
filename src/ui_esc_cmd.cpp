@@ -146,7 +146,7 @@ struct View {
 	EscCmdReady ready;
 	EscCmdState state;   /**< escCommandState(), read while the page's own request runs. */
 	bool        going;   /**< The page's request waits or its sequence goes out. */
-	bool        live;    /**< The controls act: Ready, and nothing of the page going out. */
+	bool        live;    /**< The controls act: Ready or Busy, and nothing of the page going out. */
 	Line        lines[UI_ESC_CMD_LINES];
 };
 
@@ -234,7 +234,9 @@ static void buildView(View *v) {
 	uint8_t cmd = 0;
 	v->state = s_own ? escCommandState(&cmd) : EscCmdState::Idle;
 	v->going = s_own && (v->state == EscCmdState::Waiting || v->state == EscCmdState::Sending);
-	v->live = v->ready == EscCmdReady::Ready && !v->going;
+	// Busy is live too: a request taken then waits in the slot, and an EDT
+	// enable's 11 ms of Busy would otherwise end a hold under way.
+	v->live = (v->ready == EscCmdReady::Ready || v->ready == EscCmdReady::Busy) && !v->going;
 	if (s_own && v->state != EscCmdState::Idle) {
 		outcomeLines(v);
 		readinessLine(v, UI_ESC_CMD_LINES - 1);

@@ -13,13 +13,17 @@
  * while the pin claim is Free (`freePins`). It opens through uiOpenTool(),
  * which disarms first, and it has no arm control.
  *
- * A control is live only while escCommandReady() reads EscCmdReady::Ready.
- * While no ESC answers, the motor turns or the ESC has answered for less
- * than 1500 ms, the message lines say so in amber; the commands are refused
- * there (decision 5). While the page's request waits or its sequence goes
- * out, every control and BACK are drawn disabled. The readiness reads Busy
- * through a sequence's gaps, a beacon's included, and through an EDT enable,
- * so the controls are drawn disabled then too. A completed 3D ON, or one
+ * A control is live while escCommandReady() reads EscCmdReady::Ready or
+ * EscCmdReady::Busy and the page has no request of its own waiting or going
+ * out. While no ESC answers, the motor turns or the ESC has answered for
+ * less than 1500 ms, the controls are drawn disabled and the message lines
+ * say why in amber; the commands are refused there (decision 5). While the
+ * page's request waits or its sequence goes out, every control and BACK are
+ * drawn disabled. At Busy otherwise, an EDT enable or a gap after the page's
+ * sequence, a request is taken and waits in the slot, at most
+ * @ref ESC_CMD_WAIT_MS: the enable's retry every 1000 ms with an ESC that
+ * sends no EDT reads Busy for about 11 ms, and a hold that saw it as a
+ * disabled frame would end. A completed 3D ON, or one
  * that stopped after the ESC may have taken it, sets the tester's 3D note
  * (esc_3d.h); 3D OFF leaves it (decision 4).
  *

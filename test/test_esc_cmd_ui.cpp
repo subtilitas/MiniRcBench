@@ -310,17 +310,24 @@ static void testReadiness() {
 	ecFrames(2);
 	fakeSetCmdReady(EscCmdReady::Busy);
 	ecFrames(1);
-	checkTrue("Busy, an EDT enable going out: drawn disabled, the idle lines",
-	          allControls(false) && idleShown());
+	checkTrue("Busy, an EDT enable going out: live, the idle lines",
+	          allControls(true) && drawnLive(EscCmdCtl::Beep1, true) && idleShown());
 	{
 		int before = fakeBeepRequests();
-		tapId(UI_FIX(EscCmdCtl::Beep1), IdExpect::Disabled);
-		checkInt("a tap on BEEP 1 at Busy sends nothing, though the slot would take it",
-		         fakeBeepRequests(), before);
+		bool save = true;
+		tapId(UI_FIX(EscCmdCtl::Beep1));
+		checkTrue("a tap on BEEP 1 at Busy is taken, beacon 1 without a save",
+		          fakeBeepRequests() == before + 1 && fakeLastCommand(&save) == 1 && !save);
+		checkTrue("and waits: SENDING 1 (BEEP 1)., every control and BACK disabled",
+		          escCommandState(nullptr) == EscCmdState::Waiting &&
+		          lineIs(0, "SENDING 1 (BEEP 1).", C_TEXT) && allControls(false) &&
+		          !ctlEnabled(UI_FIX(UI_BACK)));
+		fakeSetCmdState(EscCmdState::Sent, 1);
+		ecFrames(1);
 	}
 	fakeSetCmdReady(EscCmdReady::Ready);
 	ecFrames(1);
-	checkTrue("Ready again: live", allControls(true) && idleShown());
+	checkTrue("Ready again: live", allControls(true) && lineIs(0, "SENT 1 (BEEP 1).", C_TEXT));
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 }
@@ -347,8 +354,8 @@ static void testBeeps() {
 		fakeSetCmdReady(EscCmdReady::Busy);
 		ecFrames(1);
 		snprintf(line, sizeof(line), "SENT %d (BEEP %d).", n, n);
-		snprintf(what, sizeof(what), "in the beep's gap: %s, the controls disabled, BACK live", line);
-		checkTrue(what, lineIs(0, line, C_TEXT) && blankFrom(1) && allControls(false) &&
+		snprintf(what, sizeof(what), "in the beep's gap, Busy: %s, the controls and BACK live", line);
+		checkTrue(what, lineIs(0, line, C_TEXT) && blankFrom(1) && allControls(true) &&
 		          ctlEnabled(UI_FIX(UI_BACK)));
 		fakeSetCmdReady(EscCmdReady::Ready);
 		ecFrames(1);
@@ -429,6 +436,25 @@ static void testHolds() {
 		fakeSetCmdState(EscCmdState::Idle, 0);
 		tapId(UI_FIX(UI_BACK));
 		tapId(menuRow(&UI_ESC_CMD));
+	}
+	// An EDT enable's Busy, 11 ms within a hold, leaves the hold running.
+	{
+		int before = fakeBeepRequests();
+		UiRect n = ctlRect(UI_FIX(EscCmdCtl::Reversed));
+		holdFor(EscCmdCtl::Reversed, 500);
+		fakeSetCmdReady(EscCmdReady::Busy);
+		fakeHold(n.x + n.w / 2, n.y + n.h / 2); ecFrameAfter(25);
+		fakeSetCmdReady(EscCmdReady::Ready);
+		for (int i = 0; i < 18; i++) { fakeHold(n.x + n.w / 2, n.y + n.h / 2); ecFrameAfter(25); }
+		fakeHold(n.x + n.w / 2, n.y + n.h / 2); ecFrameAfter(24);
+		checkInt("a hold across a Busy frame: nothing at 999 ms", fakeBeepRequests(), before);
+		fakeHold(n.x + n.w / 2, n.y + n.h / 2); ecFrameAfter(1);
+		bool save = false;
+		checkTrue("and 8 with the save at 1000 ms",
+		          fakeBeepRequests() == before + 1 && fakeLastCommand(&save) == 8 && save);
+		fakeRelease(); ecFrames(1);
+		fakeSetCmdState(EscCmdState::Sent, 8);
+		ecFrames(1);
 	}
 	// A hold slid off resets; the same press back on starts again from 0.
 	int before = fakeBeepRequests();
