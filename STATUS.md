@@ -967,7 +967,7 @@ not run on hardware (item 18).
 **Host suite.** `make -C test run` compiles the firmware sources with a C++17
 compiler against the stubs in `test/stubs/`, and the DShot core in
 `src/dshot/` and the SDIO protocol layers in `src/sdio/` as C11, and runs one
-binary, `dshot_tests`. `test/test_main.cpp` runs twenty-six suites:
+binary, `dshot_tests`. `test/test_main.cpp` runs twenty-seven suites:
 
 | Suite | File | Covers |
 | --- | --- | --- |
