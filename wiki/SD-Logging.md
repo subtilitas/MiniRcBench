@@ -94,7 +94,8 @@ Each log that stops clean gets a text file beside it with the same number:
 `LOG00012.TXT` beside `LOG00012.BFL`. Any text editor opens it. The stop
 writes it once the log is closed: `STOP`, the disarm that ends a log arming
 started, and a tool taking the card. A log that a card error ended gets
-none.
+none. SD LOG shows the summary after the stop (see
+[The last run](#the-last-run)).
 
 It holds one value a line:
 
@@ -146,10 +147,11 @@ deleted on a computer, is replaced.
 
 When the summary cannot be written, on a full card or after a failed write,
 the log stays whole on the card and `STATUS` stays `READY`. No `.TXT` is
-left, or, after a write that failed at the very end, an empty one. The
-SD LOG screen does not show the summary, nor whether it was saved. The
-summary is tested with the firmware's host tests, over the FatFs library on
-a simulated card; on a card it is not tested.
+left, or, after a write that failed at the very end, an empty one. SD LOG
+then reads `NOT SAVED` in its `SUMMARY` row. The summary and its rows on
+SD LOG are tested with the firmware's host tests, the file over the FatFs
+library on a simulated card; on a card and on the board they are not
+tested.
 
 ---
 
@@ -164,7 +166,7 @@ computer holds the card.
 | Row | Meaning |
 |---|---|
 | **STATUS** | `NO CARD`, `READY`, `RECORDING` or `CARD ERROR` |
-| **FILE** | The open file. After a log ends, its file with `(LAST)`, for example `LOG00012.BFL (LAST)`, next to its counters, until the next `START` or a mount. `--` before the first log after power-up and after a mount (`RETRY MOUNT`, the end of `USB DRIVE`, a tool's remount): the card may be another one, so the name and the counters reset |
+| **FILE** | The open file. After a log ends, its file with `(LAST)`, for example `LOG00012.BFL (LAST)`, until the next `START` or a mount. `--` before the first log after power-up and after a mount (`RETRY MOUNT`, the end of `USB DRIVE`, a tool's remount): the card may be another one, so the name and the counters reset |
 | **FRAMES** | Frames written so far |
 | **WRITTEN** | Kilobytes written |
 | **DROPPED FRAMES** | Frames the buffer could not hold. **Should be zero.** Red otherwise |
@@ -179,11 +181,45 @@ the buffer. `DROPPED FRAMES` above zero means the log already has gaps.
 
 The usual cause is a slow card. Try another card first.
 
-<img src="img/log-last.png" width="240" alt="FILE reads LOG00001.BFL (LAST) after STOP">
+The rows from `FRAMES` to `MOUNT` show while a log runs, and whenever no
+run summary shows: before the first log, after a mount and after
+`USB DRIVE`. After a stop, the last log's run takes their place.
+
+### The last run
+
+<img src="img/log-last.png" width="240" alt="SD LOG after STOP: FILE reads LOG00001.BFL (LAST), the rows below it the run">
+
+Once a log stops, the rows below `FILE` show its run summary, the same
+figures as its `.TXT`:
+
+| Row | Meaning |
+|---|---|
+| **MAX RPM** | The highest RPM, divided by half the `MOTOR POLES` value at the stop |
+| **MAX CURRENT** | The highest current, `23.41A` from KISS, whole amperes from EDT, `23A` |
+| **MAX TEMP** | The highest ESC temperature. Red at 90 °C and above, as on the tester |
+| **MIN VOLTAGE** | The lowest voltage while armed |
+| **USED** | How far the KISS counter rose, in mAh |
+| **USED FROM CURRENT** | In place of `USED` when the KISS counter did not rise: the current added up over time |
+| **ARMED** | The time armed within the log, `H:MM:SS` |
+| **SUMMARY** | The `.TXT`'s name, for example `LOG00012.TXT`; in red `NOT SAVED: CARD FULL` or `NOT SAVED: WRITE FAILED` when it was not written |
+
+A maximum or minimum is the value held over three new readings in a row,
+the figure the `.TXT` gives first; `--` when there is none. The word beside
+a value names its source: `KISS`, `EDT`, or `MIXED` when EDT filled gaps in
+KISS. RPM from DShot has none. A charge above 99999 mAh reads `>99999mAh`;
+the `.TXT` has the figure. `FRAMES` to `WORST FLUSH` are in the `.TXT`
+then. `CARD` and `MOUNT` stay hidden until the next `START` or a mount:
+they matter when no card mounts, and then no run shows.
+
+After a log a card error ended, the rows show its run up to the failure,
+`SUMMARY` reads `NOT SAVED`, and the lines above `START` say how it ended. A
+`START` that fails keeps the last run, as it keeps `FILE`. The tester shows
+nothing of the run: after a log that arming started and disarming stopped,
+open SD LOG to see it.
 
 ### How the last log ended
 
-<img src="img/log-card-full.png" width="240" alt="SD LOG after a write found the card full">
+<img src="img/log-card-full.png" width="240" alt="SD LOG after a write found the card full: the run, NOT SAVED: CARD FULL">
 
 When a log ends on its own, or a tool takes the card, amber lines above
 `START` say how, and what to do. A disarm that ends a log arming started, and

@@ -448,6 +448,8 @@ static void testLogRun() {
 	frames(2);
 	checkTrue("before the first log: no summary, the counters, CARD and MOUNT",
 	          logCountersShown());
+	frames(2);
+	checkInt("no summary, unchanged: nothing repainted", fakeLastFlushBands(), 0);
 
 	tapId(UI_FIX(SdLogCtl::Toggle));                       // START
 	frames(2);

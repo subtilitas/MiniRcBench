@@ -1,12 +1,13 @@
 # Run summary per log, dated by the board's clock
 
-Status: designed; slices 1 and 2 of 6 built, host tests only: the core
-([slice 1 as built](#slice-1-as-built)) and the logger feeding it and
-writing the `.TXT` ([slice 2 as built](#slice-2-as-built)); SD LOG does not
-show the run yet. The owner's choice of 2026-11-14 from the feature survey,
-feature 4 of 6, built as a design note and then slices with reviews. The
-owner answered its questions on 2026-11-15, see [decisions](#decisions);
-slices 3 to 6 wait on being built.
+Status: designed; slices 1 to 3 of 6 built, host tests only: the core
+([slice 1 as built](#slice-1-as-built)), the logger feeding it and writing
+the `.TXT` ([slice 2 as built](#slice-2-as-built)), and SD LOG showing the
+last run ([slice 3 as built](#slice-3-as-built)). The owner's choice of
+2026-11-14 from the feature survey, feature 4 of 6, built as a design note
+and then slices with reviews. The owner answered its questions on
+2026-11-15, see [decisions](#decisions); slices 4 to 6 wait on being
+built.
 
 Each blackbox log gets a run summary: the highest RPM, current and
 temperature, the lowest voltage, the charge used and the armed time. SD LOG
@@ -932,6 +933,64 @@ write as well.
 
 Not verified on hardware: the summary on a card, the stop's time with the
 `.TXT`, the cost per frame.
+
+## Slice 3 as built
+
+SD LOG, `src/ui_sdlog.cpp`, draws rows 2 to 8 from
+`SdLogStatus::summary` with runSumRowText(). Host tests in
+`test/test_ui.cpp`: `testLogRun()`, `testTesterNoRun()` and the run in
+`testLogEndNotes()`, against the fake logger of `test/fakes.cpp`, which
+models the summary as `sd_log.cpp` keeps it (`fakeSdLogSetSummary()`). That
+`sd_log.cpp` itself keeps and forgets it so is slice 2's test over FatFs.
+`src/ui.cpp`, the tester, does not change.
+
+| Block | Where | Contract |
+|---|---|---|
+| The rows | `drawRunRows()`, `drawCounterRows()` | while `SdLogStatus::summary` is not nullptr, rows 2 to 8 from runSumRowText() with `summaryPoles` and `fileNumber`; otherwise FRAMES to MOUNT, unchanged |
+| A row | `drawRunRow()` | the label from x 8, `C_DIM`; a tagged value to its right edge x 197 (`LOG_TAGGED_R`), its tag from x 203 (`LOG_TAG_X`); an untagged value, `--` among them, to x 232 through uiRow() |
+| The colours | `drawRunRow()` | the value `C_TEXT`, `C_RED` when runSumRowText() sets the alert, `C_DIM` for `--`; the tag `KISS` `C_TEXT`, `EDT` and `MIXED` `C_DIM` |
+| The redraw key | `sumShown()`, `sumKeep()` | the summary's pointer, and while there is one its stop time, end, file result and `summaryPoles` |
+| The fits | `static_assert` in `src/ui_sdlog.cpp` | the run's 7 rows are rows 2 to 8 of the 9; `MIXED`'s last pixel, x 231, left of the right margin; the columns x 197 and x 203 are the ones slice 1's fit test measures the widest texts against |
+
+Choices made where the sections above leave room:
+
+- **When the run shows.** Exactly while sdLogStatus() gives a summary: no
+  log runs and a start has opened one since the last mount or release. The
+  screen keeps no state of its own about it. A START that fails (the file
+  did not open, `LOG99999.BFL`) keeps the last log's summary, as slice 2
+  keeps it with the FILE row's number, so the run stays and CARD and
+  MOUNT stay hidden; the note lines say why no log started. Decision 1's
+  "until the next START" is read as the next START that opens a log.
+- **A card error.** After CARD FULL or a failed write the summary shows
+  with `STATUS` `CARD ERROR` and `SUMMARY` `NOT SAVED`; CARD and MOUNT come
+  back with the mount the note lines ask for, RETRY MOUNT.
+- **Untagged values at x 232.** MAX RPM from DShot, `--`, ARMED and
+  SUMMARY end at the right margin, as [on the device](#on-the-device)
+  says. With MAX RPM from DShot its value therefore stands 35 px right of
+  the tagged values below it (`log-last.png` in the wiki).
+- **The tag's colour** is chosen by its text: `RunSumRowText` carries the
+  tag as text only, and slice 1's struct stays as it is.
+- **The redraw key** holds what can change in an ended summary.
+  runSumAdd() ignores samples after the end, so the values do not change
+  once it shows; runSumFileResult() changes the file result. The pointer
+  is the logger's one `s_sum`, so it changes only between none and one; a
+  new log's summary has a new stop time. The poles are kept at the stop.
+- **A tagged row's background** is the screen's: drawLogScreen() fills the
+  screen before every redraw, so drawRunRow() draws on it; uiRow() clears
+  its row as before.
+- **The tester** draws nothing of the run (decision 2); the test arms and
+  disarms an auto log and compares the tester's frame, drawn whole, with
+  and without the summary.
+
+The previews: the wiki's `log-last.png` shows the run after STOP and
+`log-card-full.png` the run of a log the card filled, `NOT SAVED: CARD
+FULL`; README's `docs/log-preview.png` adds the run after STOP as its
+fourth panel.
+
+MUTATIONS
+
+Not verified on hardware: the rows on the panel, their legibility in
+daylight, and the redraw's timing on the board.
 
 ## Decisions
 
