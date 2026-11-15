@@ -43,6 +43,15 @@
  * is trusted. Leave and the release close the line only
  * @ref KST_SUPPLY_OFF_MS after the last switch-off once the supply was on.
  *
+ * The cuts (supply_guard.h), with CURRENT SENSE at INA219: while the
+ * supply is on, a reading at or above 3.0 A or clipped, or readings under
+ * 4.0 V for 1000 ms after the start-up reading, switch it off in the same
+ * pass, during an operation too, and cut the transaction on the line
+ * (hitecLineAbort()), a write's too. Once the line driver hands the cut
+ * transaction back the session is initialised again and the job is
+ * EntryEnded with HitecStatus::cut set. No switch-on follows until a new
+ * entry; the close rule waits from the cut's switch-off.
+ *
  * The card phase: around a card call on core0, CardBegin opens a phase in
  * which the heartbeat also counts as trusted while hitecCardStamp(), called
  * from the SDIO driver's waits, is younger than the UI's timeout, for at
@@ -58,6 +67,7 @@
 
 #include "core1_job.h"
 #include "hitec_session.h"
+#include "supply_guard.h"
 
 /** @brief A card phase keeps the heartbeat for at most this long, ms. */
 #define HITEC_CARD_PHASE_MAX_MS 15000u
@@ -135,6 +145,7 @@ struct HitecStatus {
 	bool          stalled;       /**< A heartbeat lapse ended the session. */
 	bool          stallWrote;    /**< The stalled session had sent a write. */
 	bool          cardPhase;     /**< A card phase is open: the card heartbeat counts. */
+	GuardCut      cut;           /**< The last cut of the supply, Hard or Collapse; None after a new entry. */
 	uint8_t       diff[HITEC_SES_SET_BYTES];  /**< The last write's read-back: bit a set, address a differs. */
 	hitec_image_t image;         /**< What the servo confirmed. */
 	hitec_image_t backup;        /**< The first full read after the entry. */

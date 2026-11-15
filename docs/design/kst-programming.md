@@ -694,7 +694,10 @@ At 230 px of scroll:
   RTC (0x51); a new device avoids those addresses, and a fault on its lead
   takes the touch screen down with it.
 - Supply measurement: an INA219 on J3, [current-sense.md](current-sense.md),
-  reads the supply's voltage back; the KST and Hitec jobs do not use it yet.
+  reads the supply's voltage back. The KST and Hitec jobs use it for the
+  hard and the collapse cut only, slice 4 of
+  [current-sense.md](current-sense.md#slice-4-as-built); their entries and
+  waits do not read it.
 - The servo tester's use of the supply: decision 10, built as slice 3 of
   [current-sense.md](current-sense.md#slice-3-as-built).
 

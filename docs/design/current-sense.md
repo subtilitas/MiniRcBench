@@ -1,19 +1,20 @@
 # Current sense and the bench converter
 
-Status: slices 1 to 3 built, slices 1 and 3 host-tested and slice 2 checked by
-`tools/make_wiring.py --check` ([slice 2 as built](#slice-2-as-built),
-[slice 3 as built](#slice-3-as-built)), none tested on hardware; slices 4 to 6
-not built. The owner's decisions of 2026-11-13
+Status: slices 1 to 4 built, slices 1, 3 and 4 host-tested and slice 2
+checked by `tools/make_wiring.py --check` ([slice 2 as
+built](#slice-2-as-built), [slice 3 as built](#slice-3-as-built), [slice 4 as
+built](#slice-4-as-built)), none tested on hardware; slices 5 and 6 not
+built. The owner's decisions of 2026-11-13
 and 2026-11-14 are recorded under [decisions](#decisions). On 2026-11-14 the
 owner answered Q1 to Q5: one LiPo cell into a synchronous boost, the 0.1 Ω shunt
 as sold, the servo tester switching the supply always, rcbench's limit run as
 the protection, and the settings carried over from the older layouts. One point
 is open: the converter module ([Q1](#q1-the-converter-module)); the 5 V boost
 board the owner modelled names no chip, and the owner does not know it, so its
-ratings come only from bench tests B6 and B7. Slices 4 to 6 wait on being built
-and on that module; the protection section is to be redesigned for the
-decisions. Slice 3 relies on no rating of the module: its 500 ms start-up limit
-is this note's value until B6. The settings carry-over of decision 14 is built
+ratings come only from bench tests B6 and B7. Slices 5 and 6 wait on being
+built. Slices 3 and 4 rely on no rating of the module: the 500 ms start-up
+limit is this note's value until B6, and the cuts' thresholds are decision
+13's and this note's. The settings carry-over of decision 14 is built
 and host-tested. No INA219 has been on the board's bus, and no boost
 converter has been on GP28 or GP29: every figure below is from a datasheet,
 from rcbench's records or computed, and the ones that are not known are
@@ -548,8 +549,9 @@ and not counted.
 
 Built in slice 1: the sample, its lock and its age rule (`senseSample()`,
 `senseFresh()`). Built in slice 3: the servo job copies it on every pass and
-reads the bus voltage back after each switch-on and switch-off. Planned for
-slice 4: the cuts that read the current.
+reads the bus voltage back after each switch-on and switch-off. Built in
+slice 4: the servo, KST and Hitec jobs cut the supply on its readings
+(`src/supply_guard.*`).
 
 ```
 struct SenseSample {           // src/sense.h
@@ -677,9 +679,9 @@ A reading older than 250 ms, or none, reads `-- A`.
 ### The servo tester on the switched supply
 
 Decision 20 of [servo-tester.md](servo-tester.md#decisions), built here in
-slice 3 except the cuts of slice 4 and the log of slice 6
-([slice 3 as built](#slice-3-as-built)): with `SERVO SUPPLY` at `GP28` or
-`GP29`:
+slices 3 and 4 except the log of slice 6
+([slice 3 as built](#slice-3-as-built), [slice 4 as
+built](#slice-4-as-built)): with `SERVO SUPPLY` at `GP28` or `GP29`:
 
 | State | Supply |
 |---|---|
@@ -705,25 +707,24 @@ slice 3 except the cuts of slice 4 and the log of slice 6
 
 ### Protection
 
-Rules on core1, in a pure module `src/supply_guard.{h,cpp}` fed each new
-reading and the time.
+Rules on core1, in a pure module `src/supply_guard.{h,cpp}` fed each pass's
+sample and the time; it judges each new reading once. Built in slice 4
+([slice 4 as built](#slice-4-as-built)).
 
-To be redesigned for the owner's decision of 2026-11-14 ([decision
-13](#decisions)): the servo tester's protection is rcbench's limit run,
-readings above 1.0 A for 400 ms and a hard cut at 3.0 A, not the stall
-rule this section recommended; the hard cut acts at once in the KST and
-Hitec claims, during an operation too. The stall row below carries the
-decided values; the rest of the section is the design of 2026-11-13. A
-known consequence, which this section warned of: the rule trips on many
-servos held against a stop at MIN or MAX, which draw stall current there
-in normal use. Bench test B8 checks it on the owner's servos.
+The servo tester's protection is rcbench's limit run, the owner's decision
+of 2026-11-14 ([decision 13](#decisions)): readings above 1.0 A for 400 ms
+and a hard cut at 3.0 A, not the stall rule this section recommended; the
+hard cut acts at once in the KST and Hitec claims, during an operation too.
+A known consequence, which this section warned of: the rule trips on many
+servos held against a stop at MIN or MAX, which draw stall current there in
+normal use. Bench test B8 checks it on the owner's servos.
 
-| Cut | Condition | Constant |
-|---|---|---|
-| Hard | one reading at or above 3.0 A, or clipped | `GUARD_HARD_MA` 3000 |
-| Stall | readings above 1.0 A for 400 ms, none at or below it between (decision 13; designed as 2.0 A for 1000 ms) | `GUARD_STALL_MA` 1000, `GUARD_STALL_MS` 400 |
-| Collapse | after start-up, readings under 4.0 V for 1000 ms | `GUARD_LOW_MV` 4000, `GUARD_LOW_MS` 1000 |
-| Sensor lost | with CURRENT SENSE at INA219: the part offline, the bus stuck, or no reading for 250 ms | `SENSE_STALE_MS` 250 |
+| Cut | Condition | Constant | Applies |
+|---|---|---|---|
+| Hard | one reading at or above 3.0 A, either sign, or clipped | `GUARD_HARD_MA` 3000 | the servo tester; the KST and Hitec claims while the supply is on |
+| Stall | readings above 1.0 A, either sign, for 400 ms, none at or below it between (decision 13; designed as 2.0 A for 1000 ms) | `GUARD_STALL_MA` 1000, `GUARD_STALL_MS` 400 | the servo tester |
+| Collapse | after the start-up reading, readings under 4.0 V for 1000 ms, none at or above it between | `GUARD_LOW_MV` 4000, `GUARD_LOW_MS` 1000 | the servo tester on the switched supply; the KST and Hitec claims while the supply is on |
+| Sensor lost | with CURRENT SENSE at INA219: the part not online, the bus stuck, or no reading for 250 ms | `SENSE_STALE_MS` 250 | the servo tester on the switched supply |
 
 The stall rule as designed was rcbench's automatic test's
 (`SERVO_TEST_STALL_ABORT_MS`, 1000 ms; STALL AT's default, 2.00 A).
@@ -1140,8 +1141,8 @@ before.
   [menu-b.md](menu-b.md#decisions) decision 12's `GP28 SUPPLY STAYS OFF
   HERE.` is replaced by the phase, since it is no longer true; that decision
   carries a revision note. The start-up time does not go into a log; the
-  log is slice 6. The sensor-lost cut and its `NO SENSOR` chip are slice 4:
-  a sensor lost mid-run leaves the supply on here.
+  log is slice 6. The sensor-lost cut and its `NO SENSOR` chip are slice 4's
+  ([slice 4 as built](#slice-4-as-built)).
 - **Choices the note does not settle.** A supply that did not come up is no
   trip: the chip reads SAFE, and the note stays until START or a new visit.
   The touch and bus cuts apply with the switch only, as the table of
@@ -1184,6 +1185,168 @@ before.
   is on hardware: the
   enable pin's reset state and BOOTSEL, the start-up time and the decay are
   bench test B6, the stuck bus B3, the trip with the supply on B11.
+
+### Slice 4 as built
+
+The cuts of [protection](#protection) and the sensor-lost cut of
+[safety and interlocks](#safety-and-interlocks), with CURRENT SENSE at
+`INA219`. With `NONE` nothing of it applies.
+
+- **The rules.** `supplyGuardStep()` in `src/supply_guard.cpp`, pure, takes
+  each pass's `SenseSample` and the time and returns the cut. It takes a
+  reading once: one whose `seq` it has not seen and that `senseFresh()`
+  calls fresh; the sample current at the arm (`supplyGuardArm()`) never
+  counts. The hard cut is a reading at or above `GUARD_HARD_MA`, 3000 mA,
+  either sign, or one with `SENSE_FLAG_CLIPPED`. The stall cut is a reading
+  above `GUARD_STALL_MA`, 1000 mA, either sign, taken `GUARD_STALL_MS`,
+  400 ms, or more after the first of a run of such readings. The collapse
+  cut is a reading under `GUARD_LOW_MV`, 4000 mV, taken `GUARD_LOW_MS`,
+  1000 ms, or more after the first of such a run, counted from the start-up
+  reading on: the first fresh reading taken more than `SUPPLY_READ_LAG_MS`,
+  18 ms, after the arm at or above `SUPPLY_ON_MIN_MV`, 4500 mV, the
+  read-back's rule (`supplyReadingAfter()`; both constants are in
+  `src/supply_guard.h`, which `src/servo_job.h` includes). A reading at or below the
+  stall's threshold ends that run, one at or above 4000 mV the collapse's.
+  The sensor-lost cut is a state but `Online`, or `SENSE_STALE_MS`, 250 ms,
+  since the later of the arm and the newest reading's time. In one pass:
+  lost, then hard, stall and collapse.
+- **The servo tester.** `servoPowerStep()` arms the guard at the first pass
+  RUNNING with a sensor declared, the switch-on's pass with the switch, and
+  disarms it at the first pass not RUNNING. With the switch, a silent touch
+  controller and a stuck bus come first, then every rule of the guard; with
+  `OWN`, the hard and the stall cut only. A cut ends the pulses and the
+  sweep, latches the trip and records `ServoPowerFault::Overcurrent`,
+  `Stall`, `LowSupply` or `NoSensor`; with the switch the supply goes off in
+  the same pass, and `drivePower()` takes the enable pin low before
+  `output()` writes level 0, as at STOP. START clears the fault, a rebind
+  keeps it, with `OWN` too, and a new screen session drops it.
+- **The KST and Hitec jobs.** `supplySet()` arms the guard at each
+  switch-on and disarms it at each switch-off; `guardPass()` runs first in
+  every pass and in each pass of the release, before a command is taken,
+  with the hard and the collapse rule. A cut switches the supply off in that
+  pass, latches `KstStatus::cut` or `HitecStatus::cut`, and refuses every
+  switch-on until a new search or entry (RETRY) or a new bind. KST:
+  `kst_session_power_cycled()`, as a lapse; a search is stopped
+  (`kstSeekStop()`); a search or an operation finishes the frame on the
+  wire, since `kst_session_abort()` never cuts one and the line driver has
+  no cut; then SearchEnded, at once when idle in the mode or in REBOOT's on
+  wait. The stall's flags of the screen are kept as at a lapse
+  (`keepStallFlags()`). Hitec: `hitecLineAbort()` cuts the transaction on
+  the line, a write's too and the write a leave lets finish; once the line
+  driver hands it back, in the same pass with the host fake, the session is
+  initialised again and the job is EntryEnded. The close rule counts from the
+  cut's switch-off.
+- **The screens.** SERVO TESTER: the chip `OVERCURRENT`, `STALL`,
+  `LOW SUPPLY` or `NO SENSOR` in `C_MAGENTA` in place of `STALLED`, and over
+  `HOLD TO START AGAIN.` in the dial band, magenta,
+  `STOPPED: CURRENT 3.0 A OR MORE`, `STOPPED: OVER 1.0 A FOR 400 MS`,
+  `STOPPED: UNDER 4.0 V FOR 1000 MS` or `CURRENT SENSOR LOST: SUPPLY OFF.`;
+  after any trip, `START WAITS FOR THE CURRENT SENSOR.` while the part is
+  not online. KST SERVO and HITEC SERVO, on the view with RETRY: the strip
+  `SIG GP0  SUPPLY OFF`, then in amber, wrapped at 37 characters,
+  `THE SERVO DREW 3.0 A OR MORE, SO THE BENCH SWITCHED ITS SUPPLY OFF.` or
+  `THE SUPPLY WAS UNDER 4.0 V FOR 1 S, SO THE BENCH SWITCHED IT OFF.`, and
+  `RETRY POWERS IT UP AND READS IT AGAIN.`; KST adds the stalled screen's
+  note of a write in doubt.
+- **Choices the note does not settle.**
+  - Either sign: the cuts read the current's size, so a reversed sensor
+    still cuts.
+  - With `OWN` the servo tester applies the hard and the stall cut: the
+    bench knows neither the user's supply voltage nor whether its current
+    runs through the sensor, and START is not refused for a missing sensor
+    there. The KST and Hitec claims apply the cuts with the switch only:
+    with `OWN` the bench cannot take the current away, and a cut write
+    would leave the servo in doubt for nothing.
+  - The collapse rule applies in the KST and Hitec claims, during an
+    operation too, as the protection section proposes. A supply that never
+    reaches 4.5 V arms no collapse rule; in the servo tester it is NoStart at
+    500 ms.
+  - The hard and the stall cut apply while the supply comes up too.
+  - A run of the stall or the collapse rule starts again at a reading taken
+    250 ms or more after the one before it: that reading had gone stale, so
+    the time between is not known to be above or below the threshold.
+  - The sensor-lost cut counts from the arm at the earliest, so a gap
+    before START cuts nothing at START, and with a signed difference, since
+    core0 can take a reading in the millisecond after core1 read its clock.
+    `senseFresh()` calls such a reading stale until the next pass, so it is
+    taken one pass late, never lost.
+  - The KST and Hitec texts are amber, as their stall texts; the servo
+    tester's chips are magenta, as the note gives.
+  - Beside a chip wider than RUNNING, `OVERCURRENT` (from x 155 px),
+    `LOW SUPPLY` (x 161 px) or `NO SENSOR` (x 167 px), the caption ends 4 px before the chip:
+    by its role alone, `SIG  50 HZ  1000-2000 US`, and at 333 Hz with one
+    servo the travel goes too, `SIG  333 HZ`, decision 14's rule of
+    [menu-b.md](menu-b.md#decisions). At SAFE, RUNNING and STALLED the
+    caption is menu-b.md's. The strip's second line, at most
+    `GP29 SUPPLY NOT OFF` or `GP28 SUPPLY ON AT START` after a cut, ends by
+    x 145 px, clear of the chip.
+  - With `OWN`, while RUNNING with the declared sensor not online, the dial
+    band's second line reads `NO SENSOR READING: NO CURRENT CUTS.`, dim:
+    the hard and the stall cut get no reading, and `OWN` has no
+    sensor-lost cut. The KST and Hitec claims have no sensor-lost cut
+    either; there the strip's current reads `-- A`, and the wiki says that
+    the cuts then do not act.
+  - The chip's redraw key holds the fault: START and a new cut can both
+    fall between two screen frames, so the screen sees one trip follow
+    another without RUNNING between them.
+- **The Hitec job's stack.** CI's "Hitec job stack on core1" reads the call
+  graphs of `src/sense.cpp` and `src/supply_guard.cpp` too, 11 files.
+  The deepest chain from the job's three entry points is 1184 bytes of the
+  1792 allowed, in the strict build of this slice.
+- **Tests.** `test/test_supply_guard.cpp` (`runSupplyGuardTests`): each
+  rule at its boundary, 2999.999 and 3000 mA of either sign, a clipped
+  reading, 1000 and 1000.1 mA, 399 and 400 ms, 4499 and 4500 mV and 18 and
+  19 ms for the start-up reading, 3999 and 4000 mV, 999 and 1000 ms, 249 and
+  250 ms without a reading, a gap of 249 and 250 ms, a stale reading, a
+  reading seen twice, the reading at the arm, a reading from the next
+  millisecond, the clock's wrap. `test_servo.cpp`: the cuts in
+  `servoPowerStep()` with the switch and with `OWN`, the order behind touch
+  and the stuck bus; the job through the job table on the fake INA219, the
+  enable pin low and SIG at level 0 in the pass that reads 3.0 A and in that
+  order, 2.99 A, 3.6 A clipped, -3.6 A, the stall at the 17th reading of
+  1.2 A and none at 1.0 A, the collapse at the 41st reading of 3.9 V and none
+  at 4.0 V, a failed read and two failed reads in a row without a cut, no
+  reading for 249 and 250 ms, the part unplugged, `OWN`; the screen's chips,
+  notes and caption. `test_kst_job.cpp` and `test_hitec_job.cpp`: the hard
+  cut during a read, a write, a search's entry, REBOOT's on wait, a leave's
+  write and the release, the collapse at 1000 ms, 2.9 A for 1 s without a
+  cut, no switch-on until RETRY, the close 2000 ms after the cut, nothing
+  with `NONE`; on Hitec the transaction on the line cut.
+  `test_kst_ui.cpp` and `test_hitec_ui.cpp`: both texts and RETRY. KST with
+  `fakeKstFrameHold()`, which holds a frame on the wire: a cut while an
+  entry frame is out, alone and with BACK in the same pass, the supply never
+  on again; Hitec with `fakeHitecCutDelay()`, a cut transaction handed back
+  late. The servo screen: START and a cut between two frames, the chip
+  `OVERCURRENT` after `STALL`; the dim note with `OWN` and the sensor gone.
+  Mutation check: 137 mutants of `src/supply_guard.cpp`,
+  `src/servo_job.cpp`, `src/ui_servo.cpp`, `src/kst_job.cpp`,
+  `src/hitec_job.cpp`, `src/ui_kst.cpp` and `src/ui_hitec.cpp` as they
+  stand; 130 fail the suite and 7 do not. Equivalent: `>=` for `>` where
+  the sensor-lost rule takes a reading's time as its reference, since a
+  reading in the arm's millisecond gives the arm's time either way; `-ua`
+  for `-(int64_t)ua` in the current's size, which differs only at
+  `INT32_MIN`, undefined in C++ and the same value with GCC; Hitec's refusal
+  of a switch-on while a cut is latched, since only an entry's POWER step
+  switches on, and Enter clears the latch first. Not killed: KST's leave not
+  taking over a cut's drain, which differs only after a cut in REBOOT's
+  entry, whose frame ends long before the close 2000 ms later; Hitec's leave
+  stepping the session before it polls a cut transaction back, which the
+  session ends as cut either way in the fake; KST's note of a write in doubt
+  after a cut, which no screen test reaches; the servo screen's `OWN` note
+  shown with the switch too, which differs for at most one frame, since the
+  sensor-lost cut ends RUNNING in the pass the part leaves `Online`. KST's
+  refusal of a switch-on while a cut is latched is not equivalent: a leave
+  that drains a cut search steps it, and `syncSeek()` asks for the supply
+  the stopped search still wants; the test with `fakeKstFrameHold()` kills
+  it. Five mutants of the first run hit code that is not in the files, the
+  power cycle of a cut search and four paths of the Hitec cut in a leave;
+  they are not among the 137.
+- **Not on hardware.** No INA219 and no converter has been on the board:
+  the time from a step of current to EN low, about 60 ms computed, is bench
+  test B9; whether the stall cut trips at MIN and MAX on the owner's servos
+  is B8; the voltage at a stall, B13. Whether a Hitec servo takes a cut
+  transaction without harm, and how long the KST line driver's last frame
+  runs into an unpowered servo, are not measured.
 
 ## Open questions
 
@@ -1256,8 +1419,7 @@ Decisions of the owner, 2026-11-14, answering Q1 to Q5:
     recommendation, which was the automatic test's stall rule, 2.0 A for
     1000 ms: the limit run trips on many servos that reach MIN or MAX
     against a stop. That is a known consequence, checked on the bench in B8.
-    The
-    [protection](#protection) section is to be redesigned for it.
+    The [protection](#protection) section carries it, built in slice 4.
 14. **Settings carried over** (Q5). The firmware carries the settings over
     from the older layouts it knows, versions 2, 3 and 4, into version 5,
     with the new fields at their defaults. A block of a version it does not

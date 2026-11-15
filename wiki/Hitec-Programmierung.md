@@ -622,8 +622,21 @@ dieser Leitung bekommt den Ausgang des Wandlers auf seine BEC-Leitung.**
   `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF.` und
   `RETRY POWERS IT UP AND READS IT AGAIN.` Ohne Karte, nach einem
   Schreiben, kommt `NO CARD: THE BACKUP IN RAM IS LOST.` hinzu.
+- **Die Abschaltungen des Stromsensors**, mit SETTINGS → CURRENT SENSE auf
+  `INA219` und antwortendem Sensor: Solange die Versorgung an ist, schalten ein Messwert von 3,0 A
+  oder mehr oder Messwerte unter 4,0 V für 1 s, nachdem die Versorgung
+  hochkam, sie sofort ab und brechen den Vorgang auf der Leitung ab, auch
+  während eines Lesens oder Schreibens und nach LEAVE, solange ein
+  Schreiben noch zu Ende läuft. Die Seite zeigt
+  `THE SERVO DREW 3.0 A OR MORE, SO THE BENCH SWITCHED ITS SUPPLY OFF.` oder
+  `THE SUPPLY WAS UNDER 4.0 V FOR 1 S, SO THE BENCH SWITCHED IT OFF.`, dann
+  `RETRY POWERS IT UP AND READS IT AGAIN.` Die Versorgung bleibt bis RETRY
+  aus. Ein Sensor, der nicht antwortet, `-- A` in der Leiste, schaltet
+  nichts ab, und die Sitzung läuft weiter. Nicht auf Hardware getestet.
 - **LEAVE** schaltet die Versorgung ab. Der Pin wird 2,0 s nach dem
   Ausschalten freigegeben.
+
+<img src="img/hitec-cut.png" width="240" alt="Die harte Abschaltung: SIG GP0  SUPPLY OFF, THE SERVO DREW 3.0 A OR MORE, RETRY">
 
 Mit `OWN` beendet ein Hängen die Sitzung nicht. Ein Hängen während des
 Eintritts beendet den Eintritt: Die Seite zeigt `NO SERVO ANSWERS` mit
