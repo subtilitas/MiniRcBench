@@ -18,7 +18,7 @@ Tester ──MENU──> MENU ──┬── ESC COMMANDS ──BACK──> MEN
    │                    │    │   (a Bluejay or BLHeli_S list: BACK──> LEAVE sent──> MENU)
    │                    │    │   (elsewhere after a Bluejay or BLHeli_S answer: BACK──> leave page ──LEAVE, RESTART DSHOT──> MENU)
    │                    │    └── USB BRIDGE ──> USB BRIDGE ──BACK──> MENU
-   │                    │        (after a write with no RUN: BACK──> leave page ──RESTART DSHOT──> MENU)
+   │                    │        (once the line is bound: BACK──> leave page ──RESTART DSHOT──> MENU)
    │                    ├── SERVO TESTER ──BACK──> leave page ──RESTART DSHOT──> MENU
    │                    ├── SERVO PROGRAMMER ──> PROGRAMMER ──BACK──> MENU
    │                    │    ├── KST / CHASERVO ──> KST SERVO   ──BACK──> leave page ──LEAVE, RESTART DSHOT──> MENU

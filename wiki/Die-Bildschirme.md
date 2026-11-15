@@ -18,7 +18,7 @@ Tester ──MENU──> MENU ──┬── ESC COMMANDS ──BACK──> MEN
    │                    │    │   (eine Bluejay- oder BLHeli_S-Liste: BACK──> LEAVE gesendet──> MENU)
    │                    │    │   (sonst nach einer Antwort von Bluejay oder BLHeli_S: BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> MENU)
    │                    │    └── USB BRIDGE ──> USB BRIDGE ──BACK──> MENU
-   │                    │        (nach einem Schreiben ohne RUN: BACK──> Verlassenseite ──RESTART DSHOT──> MENU)
+   │                    │        (sobald die Leitung gebunden ist: BACK──> Verlassenseite ──RESTART DSHOT──> MENU)
    │                    ├── SERVO TESTER ──BACK──> Verlassenseite ──RESTART DSHOT──> MENU
    │                    ├── SERVO PROGRAMMER ──> PROGRAMMER ──BACK──> MENU
    │                    │    ├── KST / CHASERVO ──> KST SERVO   ──BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> MENU
