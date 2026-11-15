@@ -44,6 +44,44 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1: the S.BUS output's core1 job, slice 2 of
+  [sbus-output.md](docs/design/sbus-output.md#slice-2-as-built), tested on
+  the host only; nothing opens it. `Core1Job::SbusOut`
+  (`src/sbus_out_job.*`) sends rcbench's encoded frames from UART0's TX on
+  GP0, inverted 8E2 at 100,000 baud, one every 14 ms and never two under
+  7 ms apart. The bind puts the pull-down on GP0, starts UART0 at 8E2 with
+  its receiver off, and writes FUNCSEL, the function select, and OUTOVER,
+  the output override, in one write of GP0's control register, so the pad
+  never carries the UART's high idle. START
+  sends core1's frame: the throttle channel, one of 1 to 4, at raw 172, the
+  other sticks at 992 and channels 5 to 16 at 172; every channel is clamped
+  to raw 172 to 1811 and the throttle to 172 + 1639 × MAX THROTTLE / 2000.
+  Core1 takes the ceiling from MAX THROTTLE itself, so a wrong ceiling
+  from a screen cannot pass it. STOP and a heartbeat lapse of 250 ms end
+  the frames. The release waits for the frame on the wire, at most 3 ms,
+  with a 10 ms backstop, puts GP0 on SIO, the single-cycle I/O block that
+  drives GPIOs from software, as a low input with the pull-down, and only
+  then stops UART0. The bind first turns SIO's output on GP0 off, as the
+  release does.
+  `PinUser::SbusOut` claims the role that is GP0 with the leave page and
+  the ESC check in either wiring; `CORE1_JOB_NO_GP0` refuses a wiring with
+  no role on GP0. No screen claims it: the bootloader probe of slice 3
+  comes before any START. The UART0 fake gains its transmitter and UARTCR,
+  the GPIO fake records each control-register write and keeps the pad
+  register, its pulls included, from the RP2350's reset value 0x116,
+  and `test/test_sbus_out_job.cpp` checks the bind and the release write by
+  write, reads the frames sent back with rcbench's decoder, and fails if
+  any code line under `src/` but the job's declarations, its table line and
+  the claim's row names the output. CI
+  checks the job's stack on core1.
+- After v0.1.0-rc1: rcbench's S.BUS encoder, slice 1 of
+  [sbus-output.md](docs/design/sbus-output.md#slice-1-as-built). The S.BUS
+  files in `lib/rcbench/protocols/sbus/` and `test/rcbench/test_sbus.c` are
+  replaced, unchanged, by rcbench's at commit b88593d3: `sbus_encode()`,
+  which packs a frame and refuses one with a channel above 2047,
+  `sbus_from_us()`, the inverse of `sbus_to_us()`, and `SBUS_FOOTER`. The
+  decoder's code is the same as at 5ef42efd, and the S.BUS monitor runs
+  unchanged on it. `test_sbus.c` has 19 cases, 12 of them the decoder's.
 - After v0.1.0-rc1: move timing from the current sensor, slice 5 of
   [current-sense.md](docs/design/current-sense.md#slice-5-as-built)
   (`src/move_timer.*`), with CURRENT SENSE at INA219. The servo tester's
