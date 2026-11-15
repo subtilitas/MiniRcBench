@@ -1586,11 +1586,15 @@ applies: no file, no cache, and a running blackbox log goes on.
   stop, before the open, is not counted. An open given up, too slow or failed,
   makes no further card call: its file stays open in FatFs, its queued blocks go
   out one flush step a pass during the run, without a wait, and at the run's end
-  the file is closed and removed and the cache turned off. The removal needs the
-  open's card: the serial number is read again first, and on another card, or
-  one whose number does not read, nothing is closed or removed there; the card
-  is mounted again, and the open's file stays on its own card, as after a power
-  loss. A file of the same number on the other card is that card's own.
+  the queue is flushed, then the file is closed and removed and the cache turned
+  off. The flush runs the swap check before each batch, so it writes to no other
+  card; a flush that fails mounts the card again. The removal needs the open's
+  card: the serial number is read after the flush, and on another card nothing
+  is closed or removed there; the card is mounted again, and the open's file
+  stays on its own card, as after a power loss. A file of the same number on the
+  other card is that card's own. A serial number that does not read, the flush
+  done, removes nothing and mounts nothing: the file is closed and stays on the
+  card, complete.
 - **The end.** It ends at the first pass after the Start's seq was given in
   which the job has taken that Start, or a later command, and is not RUNNING
   (`servoLogRunOver()`): STOP on SERVO or SET, BACK, a cut, a trip, a supply
@@ -1754,7 +1758,10 @@ applies: no file, no cache, and a running blackbox log goes on.
   first search of 62 s with no reserve taken; the serial number that does not
   read at the open, OpenFailed before any file; an open given up and the card
   swapped during the run, while its blocks drain and with nothing queued, the
-  other card mounted and its own file of the same number kept; a removed card's
+  other card mounted and its own file of the same number kept; an open given up
+  with blocks queued and the serial number not read once at the run's end, the
+  file closed and left on the card with no remount, and the same with the
+  number read, the file removed; a removed card's
   pass at most 5 ms, one unanswered command; the cache on for the log only, one
   block a call, never a flush on the spot, every block's batch checked without a
   wait, at most 100 µs a pass, rows dropped and counted on the slow card; the
