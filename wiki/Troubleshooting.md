@@ -237,7 +237,12 @@ screen does not work.
   cut after the ESC's page was erased. Do not unplug the ESC battery: fix
   the signal wire, `READ AGAIN`, then write, or `REVERT` and write the page
   as read. A power cycle first loses the ESC's tags
-  ([AM32 Configuration](AM32-Configuration#efm8-escs)).
+  ([AM32 Configuration](AM32-Configuration#efm8-escs)). With
+  `SESSION ENDED: RESTORE ON A COMPUTER.` under it the session ended (the
+  line driver, the heartbeat) and no later session writes the page: keep
+  the ESC powered and restore it on a computer. The old page is in the
+  backup on the card and, until you leave ESC SETTINGS, under `OLD PAGE` on
+  the connect page.
 - **`ESC LOST ITS TAGS: READ-ONLY.`**: the ESC's page was erased and the ESC
   restarted; it runs on its defaults. Only a firmware flash for that ESC on a
   computer brings the tags back; the backup on the card names them.

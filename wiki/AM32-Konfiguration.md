@@ -176,8 +176,11 @@ die Einstellungen beim Öffnen der Liste auf die Karte, als
 | Die Einstellungsmarke ist falsch | `SETTINGS MARKER WRONG: READ-ONLY.` / `SHOWN ONLY. BACKUP BJ018` |
 
 Ohne Karte lautet die zweite Zeile `SHOWN ONLY. NO CARD: NO BACKUP.`
-(`REFLASH ON A COMPUTER. NO CARD.` bei verlorenen Tags), und mit einer
-Karte, die die Datei ablehnt, `... BACKUP FAILED.`
+(`REFLASH ON A COMPUTER. NO CARD.` bei verlorenen Tags), solange USB
+DRIVE die Karte hält `SHOWN ONLY. USB DRIVE: NO BACKUP.` (`REFLASH ON A
+COMPUTER. USB DRIVE.`), und mit einer Karte, die die Datei ablehnt,
+`... BACKUP FAILED.` Dieselbe Seite, erneut geöffnet, speichert keine
+zweite Kopie, solange ihre Sicherung die neueste auf der Karte ist.
 
 <img src="img/efm8-readonly.png" width="240" alt="Bluejay 0.19: BLUEJAY 0.19, LAYOUT 206: READ-ONLY. in Bernstein">
 
@@ -221,6 +224,23 @@ geschrieben ist, warnt `BACK` zuerst,
 (halb geschrieben; ein zweites BACK lässt sie so, ein Aus- und Einschalten
 verliert dann die Tags); ein zweites `BACK` öffnet die Verlassenseite, und
 kein LEAVE wird gesendet.
+
+Dieser Weg zurück gilt nur, solange die Sitzung weiterläuft. Endet sie
+mit halb geschriebener Seite, durch einen ausgefallenen Leitungstreiber,
+einen Herzschlag-Stopp oder das zweite `BACK`, zeigt das Ergebnis
+`SESSION ENDED: RESTORE ON A COMPUTER.` (Sitzung beendet, am Computer
+wiederherstellen): Die nächste Sitzung liest die Seite als leer oder mit
+verlorenen Tags und schreibt keins von beidem, und der Tester kann sie
+nicht wiederherstellen. ESC eingeschaltet lassen und am Computer
+wiederherstellen. Die alte Seite, wie die Sitzung sie zuerst gelesen hat,
+steht in der Sicherung auf der Karte, `ALSO ON THE CARD: BACKUP BJ018`;
+ohne Karte zeigt die Sicherungszeile `NO BACKUP: OLD PAGE ON THIS SCREEN.`
+(keine Sicherung, alte Seite nur auf diesem Bildschirm). Bis du ESC
+SETTINGS verlässt, zeigt `OLD PAGE` auf der Verbindungsseite ihre Bytes,
+ebenso ESC HEX einer späteren Liste unter deren eigenen: Schreib sie vor
+dem Verlassen ab.
+
+<img src="img/efm8-ended.png" width="240" alt="NO ANSWER IN THE WRITE: KEEP POWER. SESSION ENDED: RESTORE ON A COMPUTER. NO BACKUP: OLD PAGE ON THIS SCREEN."> <img src="img/efm8-oldpage.png" width="240" alt="ESC HEX der alten Seite in Bernstein: OLD PAGE, BEFORE THE CUT WRITE: ON THIS SCREEN ONLY: COPY IT.">
 
 <img src="img/efm8-lost.png" width="240" alt="NO ANSWER IN THE WRITE: KEEP POWER. TAP OK, THEN READ AGAIN."> <img src="img/efm8-guard.png" width="240" alt="HALF WRITTEN. BACK AGAIN LEAVES IT; A POWER CYCLE THEN LOSES ITS TAGS. im Streifen, READ AGAIN">
 

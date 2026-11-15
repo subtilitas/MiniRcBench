@@ -1559,9 +1559,12 @@ The page decides what opens, by rcbench's `ew_id_efm8()`
 
 A read-only list saves its backup as it opens, as AM32's read-only view
 does, since no write follows: the second strip line names it,
-`BACKUP BJ018`, or reads `SHOWN ONLY. NO CARD: NO BACKUP.` or
+`BACKUP BJ018`, or reads `SHOWN ONLY. NO CARD: NO BACKUP.`,
+`SHOWN ONLY. USB DRIVE: NO BACKUP.` while a USB host holds the card, or
 `SHOWN ONLY. BACKUP FAILED.`; for lost tags `REFLASH ON A COMPUTER.
-NO CARD.` or `REFLASH ON A COMPUTER. BACKUP FAILED.`
+NO CARD.`, `REFLASH ON A COMPUTER. USB DRIVE.` or `REFLASH ON A COMPUTER.
+BACKUP FAILED.` A list opened again on a page whose text is the ring's
+latest backup saves no second copy and names that one.
 
 The list shows rcbench's fields for the page's firmware and layout
 (`ew_map_s.c`, `ew_map_bj.c`): its group above its label, MOTOR, STARTUP,
@@ -1631,7 +1634,8 @@ at y 196 and 208:
 
 After a changed page or a lost answer `READ AGAIN` takes `WRITE...`'s place
 until a read succeeds; a read of a page not half written takes it as the
-page as read and keeps the edits. While a page is half written the list
+page as read and keeps the edits, and a page that differs from the one
+backed up gets a backup of its own before the next write. While a page is half written the list
 edits nothing, LEAVE is refused, and the strip reads
 `HALF WRITTEN: KEEP THE ESC POWERED.` over `READ AGAIN, THEN WRITE.` or,
 once read, `WRITE AGAIN NOW. REVERT: AS READ.`: `WRITE...` writes the draft
@@ -1645,6 +1649,18 @@ driver failure, says `THE SESSION ENDED. TAP OK TO SEARCH.`: OK greets the
 ESC again and BACK opens the leave page. A verified write with DIRECTION at
 3D or 3D REVERSED sets the tester's 3D note, one at NORMAL or REVERSED
 clears it, and a half-written page with 3D in its draft sets it.
+
+A session that ends with the page half written, by a driver failure, a
+heartbeat stop, a frame the guard refuses after the erase, a READ AGAIN
+cut that way, or the guard's second BACK, leaves a page no later session
+writes: the next session reads it as empty or with lost tags. The result's
+second line then reads `SESSION ENDED: RESTORE ON A COMPUTER.`, and with no
+backup on a card the backup line reads `NO BACKUP: OLD PAGE ON THIS
+SCREEN.` in amber. The session's first read is kept for the rest of the
+visit: `OLD PAGE` (`Am32Ctl::OldPage`) on the connect page opens its bytes
+as ESC HEX, in amber under `OLD PAGE, BEFORE THE CUT WRITE:` over
+`ON THIS SCREEN ONLY: COPY IT.` or `ALSO ON THE CARD: BACKUP BJ018`, and an
+EFM8 list's ESC HEX shows them under the page's own.
 
 Why a cut write loses the tags, and the way back, are in
 `docs/design/bluejay-blheli-s.md`: a power cut between the erase and the

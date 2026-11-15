@@ -246,8 +246,8 @@ vor dem Öffnen des Bildschirms funktioniert nicht.
   nicht. Mögliche Ursache: Der ESC läuft nicht mit AM32.
 - **`EFM8 E8B2 ANSWERED: READING.`**: Ein Bluejay- oder BLHeli_S-ESC hat
   geantwortet, und der Bildschirm liest seine Einstellungen; Bluejay 0.21
-  und BLHeli_S 16.3 bis 16.7 lassen sich schreiben. `BACK` aus seiner Liste sendet LEAVE, das den ESC
-  startet; `BACK` vor der Liste öffnet eine Verlassenseite: ESC-Akku
+  und BLHeli_S 16.3 bis 16.7 lassen sich schreiben. `BACK` aus seiner Liste
+  sendet LEAVE, das den ESC startet; `BACK` vor der Liste öffnet eine Verlassenseite: ESC-Akku
   abziehen, `LEAVE`, `RESTART DSHOT`, dann wieder anstecken
   ([AM32-Konfiguration](AM32-Konfiguration#efm8-escs)).
 - **`HALF WRITTEN: KEEP THE ESC POWERED.`** oder
@@ -256,7 +256,12 @@ vor dem Öffnen des Bildschirms funktioniert nicht.
   ESC-Akku nicht abziehen: Signalkabel prüfen, `READ AGAIN`, dann schreiben,
   oder `REVERT` und die Seite wie gelesen schreiben. Ein Aus- und
   Einschalten vorher verliert die Tags des ESC
-  ([AM32-Konfiguration](AM32-Konfiguration#efm8-escs)).
+  ([AM32-Konfiguration](AM32-Konfiguration#efm8-escs)). Steht darunter
+  `SESSION ENDED: RESTORE ON A COMPUTER.`, ist die Sitzung beendet
+  (Leitungstreiber, Herzschlag), und keine spätere Sitzung schreibt die
+  Seite: ESC eingeschaltet lassen und am Computer wiederherstellen. Die
+  alte Seite steht in der Sicherung auf der Karte und, bis du ESC SETTINGS
+  verlässt, unter `OLD PAGE` auf der Verbindungsseite.
 - **`ESC LOST ITS TAGS: READ-ONLY.`**: Die Seite des ESC wurde gelöscht und
   der ESC neu gestartet; er läuft mit seinen Standardwerten. Nur ein
   Firmware-Flash für diesen ESC am Computer bringt die Tags zurück; die

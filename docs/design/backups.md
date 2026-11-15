@@ -100,6 +100,14 @@ Automatic backups only: one per session, before the session's first write.
   session's first write, and the session's backup takes the number after
   it. A Hitec ring entry holds a servo file or such a record; both load.
 - AM32, Bluejay and BLHeli_S have no record and no LOAD.
+- Bluejay and BLHeli_S save a backup before a session's first write and,
+  for a page that is only shown (an older layout, lost tags, a wrong
+  marker), as its list opens. That second kind skips the save when the
+  ring's latest backup is the same device's and holds the same text byte
+  for byte (`efm8BackupSave()` with `skipSame`), so a list opened again and
+  again on one ESC does not push older backups, a write's among them, out
+  of the 50 numbers. Only the latest backup is compared: the same page
+  after another device's backup is saved again.
 
 ## AM32 backup
 

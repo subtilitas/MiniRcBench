@@ -161,8 +161,11 @@ the card as the list opens, as `BACKUP/BJnnn.TXT` for Bluejay or
 | The settings marker is wrong | `SETTINGS MARKER WRONG: READ-ONLY.` / `SHOWN ONLY. BACKUP BJ018` |
 
 Without a card the second line reads `SHOWN ONLY. NO CARD: NO BACKUP.`
-(`REFLASH ON A COMPUTER. NO CARD.` for lost tags), and with a card that
-refuses the file `... BACKUP FAILED.`
+(`REFLASH ON A COMPUTER. NO CARD.` for lost tags), while USB DRIVE holds
+the card `SHOWN ONLY. USB DRIVE: NO BACKUP.` (`REFLASH ON A COMPUTER. USB
+DRIVE.`), and with a card that refuses the file `... BACKUP FAILED.` The
+same page opened again saves no second copy while its backup is the
+newest on the card.
 
 <img src="img/efm8-readonly.png" width="240" alt="Bluejay 0.19: BLUEJAY 0.19, LAYOUT 206: READ-ONLY. in amber">
 
@@ -200,6 +203,19 @@ computer brings them back. The backup file on the card holds them. While a
 page is half written, `BACK` warns first,
 `HALF WRITTEN. BACK AGAIN LEAVES IT;` / `A POWER CYCLE THEN LOSES ITS TAGS.`;
 a second `BACK` opens the leave page, and no LEAVE is sent.
+
+That way back holds only while the session goes on. If it ended with the
+page half written, by a failed line driver, a heartbeat stop or the second
+`BACK`, the result reads `SESSION ENDED: RESTORE ON A COMPUTER.`: the next
+session reads the page as empty or with lost tags and writes neither, and
+the tester cannot restore it. Keep the ESC powered and restore it on a
+computer. The old page, as the session first read it, is in the backup on
+the card, `ALSO ON THE CARD: BACKUP BJ018`; without a card the backup line
+reads `NO BACKUP: OLD PAGE ON THIS SCREEN.` Until you leave ESC SETTINGS,
+`OLD PAGE` on the connect page shows its bytes, and so does ESC HEX of a
+later list, under the page's own: copy them by hand before you leave.
+
+<img src="img/efm8-ended.png" width="240" alt="NO ANSWER IN THE WRITE: KEEP POWER. SESSION ENDED: RESTORE ON A COMPUTER. NO BACKUP: OLD PAGE ON THIS SCREEN."> <img src="img/efm8-oldpage.png" width="240" alt="ESC HEX of the old page in amber: OLD PAGE, BEFORE THE CUT WRITE: ON THIS SCREEN ONLY: COPY IT.">
 
 <img src="img/efm8-lost.png" width="240" alt="NO ANSWER IN THE WRITE: KEEP POWER. TAP OK, THEN READ AGAIN."> <img src="img/efm8-guard.png" width="240" alt="HALF WRITTEN. BACK AGAIN LEAVES IT; A POWER CYCLE THEN LOSES ITS TAGS. on the strip, READ AGAIN">
 
