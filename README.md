@@ -25,14 +25,16 @@ It programs KST and Chaservo servos on the ESC pin (see
 [KST servo programming](#kst-servo-programming); design note
 `docs/design/kst-programming.md`), and Hitec D series and classic servos (see
 [Hitec servo programming](#hitec-servo-programming); design note
-`docs/design/hitec-programming.md`). The AM32 editor, the servo tester and
+`docs/design/hitec-programming.md`). ESC SETTINGS, the servo tester and
 the two servo programmers take the pins through the pin claim of
 `docs/design/pin-claim.md`. An optional INA219 current sensor on the
 board's I2C (Inter-Integrated Circuit) bus reads the servo supply's current
 and voltage (see [Current sensor](#current-sensor); design note
 `docs/design/current-sense.md`). SETTINGS shows the firmware version and,
 under DIAGNOSTICS, the reason for the last restart and the time since boot
-(design note `docs/design/diagnostics.md`).
+(design note `docs/design/diagnostics.md`). With a sensor and a card, each
+servo tester run is logged to `LOGS/SRVnnnnn.CSV` (see
+[Servo tester](#servo-tester)).
 
 An S.BUS (Futaba's serial bus for receiver channels) receiver monitor, MENU →
 RX SIGNALS → MONITOR, shows a receiver's 16 channels, its two digital
@@ -69,8 +71,9 @@ over the USB serial port with `tools/set_clock.py`
 in the RTC socket J2, so its clock is set again after each power-up, and
 files written before the set have FAT date 0. Nothing of it has run on the
 board.
-An ESC COMMANDS page, MENU's first row, sends DShot beacons, direction and
-3D mode, each change saved in the ESC behind a 1 s hold (slices 1 and 2 of
+An ESC COMMANDS page, MENU's first row (see [ESC commands](#esc-commands)),
+sends DShot beacons, direction and 3D mode, each change saved in the ESC
+behind a 1 s hold (slices 1 and 2 of
 `docs/design/esc-commands.md`, host tests only, no command of it sent to an
 ESC from this board yet). The armed tester shows RPM per volt on its
 `ERPM` line and an estimate of the motor's kV, its speed constant in RPM per
@@ -90,14 +93,16 @@ screen `USB BRIDGE`, and MSP with the 4-way interface, see
 [USB bridge](#usb-bridge).
 Reading and editing Bluejay and BLHeli_S ESC settings over the signal
 wire, from the connect page of `ESC SETTINGS`, with rcbench's escwire
-module, is designed in `docs/design/bluejay-blheli-s.md`; the owner
-answered its questions on 2026-11-15. Its slice 2 is built, tested on the
-host only: the `ESC CONFIG` chooser on MENU, the title `ESC SETTINGS`, and
-a Bluejay or BLHeli_S answer named on the connect page with nothing read,
-after which SIG returns to DShot only from a leave page. Reading and
-writing their settings are not built.
+module, is described in `docs/design/bluejay-blheli-s.md`; the owner
+answered its questions on 2026-11-15. Its slices 1 to 4 are built, tested on
+the host only: the copies, the `ESC CONFIG` chooser on MENU, the title
+`ESC SETTINGS`, the connect cycle and the read, and the write with its
+backup; nothing has been sent to an ESC from this board (see
+[A Bluejay or BLHeli_S ESC](#a-bluejay-or-blheli_s-esc)). The restore is
+not built.
 Menu structure B is described in `docs/design/menu-b.md`; its 10 slices are
-in the tree, tested on the host only: its building blocks, its colour roles,
+in the tree, tested on the host only, and MENU has eight rows: its building
+blocks, its colour roles,
 its names and SETTINGS, its layout table, its write rule and BACK guard, the
 one leave page of KST SERVO, HITEC SERVO and SERVO TESTER, the tester's
 readouts that open SETTINGS with LATCH, SERVO TESTER's title, the MENU row's
