@@ -1807,7 +1807,9 @@ protocol.
 - After v0.1.0-rc1: the `KV EST` field no longer flickers between the figure
   and `--` when the eRPM replies are noisy. Once the filtered eRPM has been
   within 0.5 % of the last reply, the check holds until the throttle leaves
-  its band of 20 or another condition fails (`KvEstView::erpmHeld`). The
+  its band of 20, another condition fails, the gap passes 3 %
+  (`KV_EST_ERPM_HOLD_PERMILLE`) or the reply is 0, so a stall reads `--` on
+  its first frame (`KvEstView::erpmHeld`). The
   claim that one eRPM step is 0.20 % to 0.39 % held only up to 234,375 eRPM;
   above it a step is 1 / period. Host-tested.
 - After v0.1.0-rc1: MENU shows the run cue `POWER-CYCLE THE ESC TO RUN IT`

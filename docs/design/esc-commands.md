@@ -973,26 +973,33 @@ Choices the note left open:
   new start, in 25 ms frames: a figure shows on the 40th frame after it.
   The band exists because, under a finger resting on the bar, touch
   jitter of a pixel, about 11 units at `MAX 100%`, would restart a settle
-  that waited for t unchanged, and the field would stay `KV EST --`. The start does not follow
-  the jitter, so a slow drift restarts it once it is 21 from the start. The
-  estimate uses the t of the frame. Once reached the settle holds until t
-  leaves the band, so a throttle held across the `millis()` wrap does not
-  drop the figure for a second. It is stepped on tester frames only; MENU
+  that waited for t unchanged, and the field would stay `KV EST --`. The start
+  does not follow the jitter, so a slow drift restarts it once it is 21 from the
+  start. The estimate uses the t of the frame. Once reached the settle holds
+  until t leaves the band, so a throttle held across the `millis()` wrap does
+  not drop the figure for a second. It is stepped on tester frames only; MENU
   and every tool disarm on the way in, so the throttle is 0 there.
-- **The eRPM check:** no estimate while the
-  filtered eRPM is more than 0.5 % from the last reply, compared as
-  |filtered − reply| × 1000 against the reply × 5 in 64 bits, 0.5 % itself
-  passing. It covers a motor still spinning up after the throttle stood,
-  and the filter catching up after a step. Up to 234,375 eRPM one eRPM step
-  is 0.20 % to 0.39 % of the value, inside the 0.5 %; above it the period is
-  whole microseconds and a step is 1 / period, 1 % at 600,000 eRPM. Once the
-  check has passed it holds, `KvEstView::erpmHeld` fed back as
-  `KvEstIn::erpmHeld` on the next frame, until the settle restarts or a
-  condition fails: replies that jitter past 0.5 % do not flicker the field
-  between the figure and `--`. A real change of speed at a constant t keeps
-  the figure, computed from the filtered eRPM, while the filter follows it.
-  How often a real motor's reply jitters past it is not measured. RPM/V does
-  not wait for it, as it needs conditions 1 and 2 only.
+- **The eRPM check:** no estimate while the filtered eRPM is more than 0.5 %
+  from the last reply, compared as |filtered − reply| × 1000 against the
+  reply × 5 in 64 bits, 0.5 % itself passing. It covers a motor still
+  spinning up after the throttle stood, and the filter catching up after a
+  step. Up to 234,375 eRPM one eRPM step is 0.20 % to 0.39 % of the value,
+  inside the 0.5 %; above it the period is whole microseconds and a step is
+  1 / period, 1 % at 600,000 eRPM.
+- **The check's hold, with hysteresis.** Once the check has passed it holds
+  (`KvEstView::erpmHeld`, fed back as `KvEstIn::erpmHeld` on the next
+  frame) until the settle restarts, a condition fails, or the gap passes
+  `KV_EST_ERPM_HOLD_PERMILLE`, 30 per mille, 3 %, compared the same way
+  with 30 for 5 and 3.0 % itself keeping. A reply of 0 is always past it:
+  a stalled motor reads `KV EST --` on its first frame, not after the
+  filter has decayed. 3 % covers the test series' swing of 2.1 % and the
+  1 % step at 600,000 eRPM, so replies that jitter past 0.5 % do not
+  flicker the field between the figure and `--`. A change of speed under
+  3 % at a constant t keeps the figure, computed from the filtered eRPM,
+  while the filter follows it; a larger one reads `--` until the filter is
+  within 0.5 % again. How often a real motor's reply jitters past 0.5 % or
+  3 % is not measured. RPM/V does not wait for the check, as it needs
+  conditions 1 and 2 only.
 - **The widest ERPM line** is `ERPM 60000000  RPM/V 99999`, not
   `ERPM 1234567  RPM/V 99999`: the decoder's largest eRPM is 60,000,000, a
   period of 1 µs (`erpm_from_payload()`, `src/dshot/dshot_telem.c`).
@@ -1011,18 +1018,20 @@ way, kept at 20 either way, under a jitter of ±11 a frame, restarted by a
 drift of 1 a frame at 21, and across the `millis()` wrap; the eRPM check
 at 0.5 % above and below the reply and one eRPM past it, a reply of 0, and
 past 32 bits; the check held once passed through a noisy series of
-replies, and cleared by a restarted settle, a stale link, a t below 75 %
-and the 3D note; each condition at its boundary: disarmed, the link
-stale, 0, 1 and 2 poles, eRPM 0, 6 and 7 on 14 poles, no fresh voltage,
-0.50 V and 0.51 V, 0 V and below, t 0, 1499, 1500, 2000 and 2001, not
-settled above and below 75 %, the 3D note above and below 75 %, and no
-data below 75 %; the texts and their widths. `testTesterKvEst()` in
+replies, released at 3.0 % and 1 eRPM past it, by a reply of 0, a restarted
+settle, a stale link, a t below 75 % and the 3D note; each condition at its
+boundary: disarmed, the link stale, 0, 1 and 2 poles, eRPM 0, 6 and 7 on 14
+poles, no fresh voltage, 0.50 V and 0.51 V, 0 V and below, t 0, 1499, 1500, 2000
+and 2001, not settled above and below 75 %, the 3D note above and below 75 %,
+and no data below 75 %; the texts and their widths. `testTesterKvEst()` in
 `test/test_ui.cpp` runs the tester: the ERPM line alone while disarmed;
 armed at 0 % with EDT's 15.75 V, `RPM/V 1422` and `KV EST 75%+`; 50 %
 held over 1 s, still `75%+`, and a KISS 16.05 V that RPM/V follows; 80 %
 with `KV EST --` at 975 ms after the throttle stood and the figure at
 1000 ms, from KISS's 16.00 V over EDT's 15.75 V; RPM/V from the filtered
-eRPM one frame after a step, the figure kept while the filter catches up; a
+eRPM one frame after a step, `KV EST --` for a step of 3.7 % while the filter
+catches up, the figure kept for a reply 1.7 % off, `--` on a reply of 0, a
+restarted settle clearing the hold; a
 pixel of jitter a frame at 85 % with the figure at 1000 ms; a 0.01 V step that
 moves the estimate and not RPM/V; the voltage and then the eRPM going stale and
 coming back; nothing kept after the disarm or on the next arm; the 3D note at 80

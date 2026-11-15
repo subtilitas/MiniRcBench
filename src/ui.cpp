@@ -1362,6 +1362,7 @@ void uiInit() {
 	rpmFilterReset(&s_erpmFilter);
 	s_erpmShown = 0;
 	memset(&s_kvSettle, 0, sizeof(s_kvSettle));
+	s_kvErpmHeld = false;
 
 	invalidateAll();
 

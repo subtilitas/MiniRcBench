@@ -1167,8 +1167,8 @@ settings block is version 6 by decision 4 (`src/settings.*`). Host tests in
   none: the flag 0, offsets 0, gains 1. A version 5 block, recovered from
   `src/settings.h` at aafc31b, is carried over as versions 2 to 4 are,
   CURRENT SENSE from its byte 21; the angle fields take their defaults.
-  SETTINGS does not show them, and its HOLD DEFAULTS keeps them: a reset there followed by a save of the meter would otherwise
-  store a calibration of none.
+  SETTINGS does not show them, and its HOLD DEFAULTS keeps them: a reset there
+  followed by a save of the meter would otherwise store a calibration of none.
 - **No accuracy on the screen.** The texts state no accuracy; the wiki says
   that none is measured.
 

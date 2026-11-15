@@ -1055,8 +1055,9 @@ stays on; MENU's run cue stands from the claim's begin
     after the begin or the open (`usbBridgeRunCue()`, ORed with ESC SETTINGS'
     cue in `ui_menu.cpp`). A RUN does not clear it, since a garbled frame
     could read as one. DShot is off SIG from the claim's begin: BACK while
-    Stopping or after a failed bind returns DShot at once, with no leave
-    page, and an AM32 ESC can enter its bootloader on its own after about 2 s
+    Stopping or after a failed bind returns DShot at once, and while the
+    line binds once the job is idle (`src/ui_bridge.h`), with no leave page,
+    and an AM32 ESC can enter its bootloader on its own after about 2 s
     without a signal, so MENU shows the cue there too. A BACK of a running
     bridge brings the leave page, whose RESTART DSHOT clears the cue.
 14. **Console text at the open.** The open calls `tud_cdc_write_clear()`,
@@ -1088,23 +1089,23 @@ console through the leave page and BRIDGE; a refused bind and another screen's
 claim; a collision; LOST; a payload split by a USB gap, a RUN with a wrong CRC;
 the run cue from the claim's begin and the open, kept through a RUN and the
 close, cleared by an eRPM frame at the millisecond and by RESTART DSHOT, and
-standing on MENU after BACK from a failed bind (`runBridgeUiTests`); console text held at the open; a `CLOCK`
-line through the real `usbDevTask()`, setting the clock with the console on the
-port and going to the wire as data, setting nothing, with the bridge on it. No
-frame is handed to the wire while the claim is not Running for the bridge, and
-DShot is never up with the line open, checked on every pass of every section.
-`runBridgeUiTests`, 136 checks in 6 sections: the entry, the screen's every line
-and width at rest, Stopping, PORT OPEN and CLOSED, the counts and their 250 ms,
-the closed line, a write with BACK disabled, the leave page and its steps,
-BRIDGE and RESTART DSHOT, BACK while Stopping, after a failed bind and with no
-claim, RETRY, USB DRIVE, another claim, LOST, SIG on GP1, the leave page at BACK
-with no traffic at all, between an INIT's handover and its answer, after MSP
-alone, after a RUN and after a read-only session on AM32 and on EFM8, each with
-no FLASH note, MENU showing the bridge's cue until an eRPM frame.
-`test_bridge_log`, 25 checks: DshotDisplay's dump test, every one of 14 and of
-146 records reaching the PC, the text, a slow PC, a transfer of more than 255
-bytes, a PC that stops reading, and the dump before the console in
-`usb_bridge.cpp`, the dump's last line flushed with it.
+standing on MENU after BACK from a failed bind (`runBridgeUiTests`); console
+text held at the open; a `CLOCK` line through the real `usbDevTask()`, setting
+the clock with the console on the port and going to the wire as data, setting
+nothing, with the bridge on it. No frame is handed to the wire while the claim
+is not Running for the bridge, and DShot is never up with the line open, checked
+on every pass of every section. `runBridgeUiTests`, 140 checks in 6 sections:
+the entry, the screen's every line and width at rest, Stopping, PORT OPEN and
+CLOSED, the counts and their 250 ms, the closed line, a write with BACK
+disabled, the leave page and its steps, BRIDGE and RESTART DSHOT, BACK while
+Stopping, after a failed bind and with no claim, RETRY, USB DRIVE, another
+claim, LOST, SIG on GP1, the leave page at BACK with no traffic at all, between
+an INIT's handover and its answer, after MSP alone, after a RUN and after a
+read-only session on AM32 and on EFM8, each with no FLASH note, MENU showing the
+bridge's cue until an eRPM frame. `test_bridge_log`, 25 checks: DshotDisplay's
+dump test, every one of 14 and of 146 records reaching the PC, the text, a slow
+PC, a transfer of more than 255 bytes, a PC that stops reading, and the dump
+before the console in `usb_bridge.cpp`, the dump's last line flushed with it.
 
 **Mutations.** 70 of the new code, each applied alone: 44 in
 `usb_bridge.cpp`, 17 in `ui_bridge.cpp`, 7 in `bridge_log.cpp`, one in
@@ -1151,23 +1152,23 @@ Decisions of the owner, 2026-11-15, answering the open questions of
    off by default. This is the recommendation.
 9. **`SERIAL_TELEMETRY`.** Option (a): stays 1. This is the
    recommendation.
-10. **BACK after an unfinished write.** The developer's call of 2026-11-15:
-    the leave page with `POWER THE ESC OFF.` and `RESTART DSHOT.`, and after
-    a write with no RUN behind it also `FLASH THE ESC AGAIN BEFORE USE.`. A
-    session that only reads leaves the ESC waiting in its bootloader as one
-    that writes does, and DShot frames then reach it; an EFM8 bootloader
-    checks only the CRC's low byte, so about 1 garbled frame in 256 passes
-    as an erase or a program
+10. **BACK after an unfinished write.** Option (a): the leave page with
+    `POWER THE ESC OFF.`, `RESTART DSHOT.` and `FLASH THE ESC AGAIN BEFORE
+    USE.`. This is the recommendation. The developer extends it, on
+    2026-11-15: a running bridge claim gives the leave page at every BACK,
+    as the servo tools do, and the note `FLASH THE ESC AGAIN BEFORE USE.`
+    stays for a write with no RUN behind it. A session that only reads
+    leaves the ESC waiting in its bootloader as one that writes does, and
+    DShot frames then reach it; an EFM8 bootloader checks only the CRC's low
+    byte, so about 1 garbled frame in 256 passes as an erase or a program
     ([bluejay-blheli-s.md](bluejay-blheli-s.md#safety), decision 8 there).
-    A running bridge claim gives the leave page at every BACK, as the
-    servo tools do. An ESC can wait in its bootloader with no greeting of the
-    PC's answered: one powered up while SIG is held high enters it, which
-    the screen asks for; AM32 2.22 enters it after about 2 s without a
-    signal; a tool may send MSP rather than the greeting; BACK may come
-    between a greeting's handover and its answer. The run cue is set at
-    the claim's begin and at the open, and cleared only by an eRPM frame
-    or RESTART DSHOT; a RUN does not clear it, since a garbled frame could
-    read as one.
+    An ESC can wait in its bootloader with no greeting of the PC's
+    answered: one powered up while SIG is held high enters it, which the
+    screen asks for; AM32 2.22 enters it after about 2 s without a signal; a
+    tool may send MSP rather than the greeting; BACK may come between a
+    greeting's handover and its answer. The run cue is set at the claim's
+    begin and at the open, and cleared only by an eRPM frame or RESTART
+    DSHOT; a RUN does not clear it, since a garbled frame could read as one.
 11. **The card served while bridging.** Option (a): the entry is refused
     while USB DRIVE holds the card, with `EJECT THE USB DRIVE FIRST.`. This
     is the recommendation.

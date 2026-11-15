@@ -159,8 +159,10 @@ Die Schätzung braucht außerdem mindestens 75 % Gas, 1 s lang innerhalb von 1 %
 (20 von 2000) um einen Wert, damit ein auf dem Balken ruhender Finger sie nicht
 aufhält, einen Motor, der seine Drehzahl erreicht hat (die geglättete eRPM
 innerhalb von 0,5 % der letzten Antwort; einmal erfüllt, gilt das, bis das Gas
-das Band verlässt oder eine Bedingung fehlt, sodass verrauschte Antworten die
-Zahl nicht flackern lassen), und keinen 3D-Hinweis; der 3D-Hinweis nimmt die
+das Band verlässt, eine Bedingung fehlt oder die geglättete eRPM mehr als 3 %
+von der letzten Antwort abweicht oder die Antwort 0 ist, sodass verrauschte
+Antworten die Zahl nicht flackern lassen und ein Abwürgen sofort `KV EST --`
+zeigt), und keinen 3D-Hinweis; der 3D-Hinweis nimmt die
 Zeile ein. Beide Werte enden bei 99999. Keiner bleibt nach
 dem Entschärfen stehen: Entschärft zeigt die Zeile nur `ERPM` und die Zeile
 darunter `14 POLES`.

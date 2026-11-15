@@ -236,7 +236,30 @@ static void testView() {
 		in.erpmHeld = false; in.erpmRaw = replies[1];
 		checkTrue("the same reply with no hold: no estimate",
 		          kvEstView(&in).kv == KvEstShow::Unknown);
-		in.erpmHeld = true;
+		// The release limit, 30 per mille: a gap of 3.0 % keeps, 1 eRPM more
+		// releases, filtered above or below the reply.
+		in = kvBase(); in.erpmHeld = true; in.erpmRaw = 200000;
+		in.erpm = 194000;
+		checkTrue("held, filtered 3.0 % under the reply: the figure stays",
+		          kvEstView(&in).kv == KvEstShow::Value && kvEstView(&in).erpmHeld);
+		in.erpm = 193999;
+		checkTrue("held, filtered 1 eRPM past 3.0 % under: no estimate, hold gone",
+		          kvEstView(&in).kv == KvEstShow::Unknown && !kvEstView(&in).erpmHeld);
+		in.erpm = 206000;
+		checkTrue("held, filtered 3.0 % over the reply: the figure stays",
+		          kvEstView(&in).kv == KvEstShow::Value);
+		in.erpm = 206001;
+		checkTrue("held, filtered 1 eRPM past 3.0 % over: no estimate, hold gone",
+		          kvEstView(&in).kv == KvEstShow::Unknown && !kvEstView(&in).erpmHeld);
+		in = kvBase(); in.erpmHeld = true; in.erpmRaw = 0;
+		checkTrue("held, a reply of 0 (a stall): no estimate on that frame",
+		          kvEstView(&in).kv == KvEstShow::Unknown && !kvEstView(&in).erpmHeld);
+		in = kvBase(); in.erpmRaw = 156800; in.erpm = 156800 + 784;
+		checkTrue("not held: 0.5 % passes", kvEstView(&in).kv == KvEstShow::Value);
+		in.erpm = 156800 + 785;
+		checkTrue("not held: 1 eRPM past 0.5 % does not pass",
+		          kvEstView(&in).kv == KvEstShow::Unknown);
+		in = kvBase(); in.erpmRaw = replies[1]; in.erpmHeld = true;
 		checkTrue("held, the settle restarted: cleared, no estimate",
 		          (in.settled = false, !kvEstView(&in).erpmHeld &&
 		                               kvEstView(&in).kv == KvEstShow::Unknown));

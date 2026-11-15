@@ -468,18 +468,36 @@ static void testBackStates() {
 	leaveBridge();
 	fakeBridgeLineRefuse(CORE1_JOB_CLOCK);
 	usbBridgeRunCueClear();
+	// The ESC answered before the claim: an eRPM frame stamped before it must
+	// not clear the cue the claim sets.
+	EscTelemetry tel;
+	memset(&tel, 0, sizeof(tel));
+	fakeAdvance(5);
+	tel.lastRpmMs = millis();
+	fakeSetTelemetry(&tel);
+	fakeAdvance(5);
 	tapId(menuRow(&UI_ESC_CONFIG));
 	brFrames(1);
 	tapId(UI_FIX(EscCfgCtl::Bridge));
 	brFrames(4);
 	checkTrue("a refused clock: (CLOCK)", msgIs(0, "SIG GP0 COULD NOT BE TAKEN (CLOCK)", C_AMBER));
 	const int r2 = fakeResumeCount();
+	fakeAdvance(600);   // the stamp is stale on MENU: NO ESC, the cue's line shows
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK from a failed bind: MENU, DShot asked back", uiCurrentScreen() == UiScreenId::Menu &&
 	          fakeResumeCount() == r2 + 1);
 	brFrames(4);
-	checkTrue("  the bind never ran, the cue stands: MENU warns", usbBridgeRunCue(0) &&
+	checkTrue("  the bind never ran, an eRPM frame from before the claim: the cue stands, MENU warns",
+	          usbBridgeRunCue(tel.lastRpmMs) &&
 	          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_RUN_CUE, UI_COL_WARN, C_BG, 1));
+	fakeAdvance(5);
+	tel.lastRpmMs = millis();
+	fakeSetTelemetry(&tel);
+	brFrames(2);
+	checkTrue("  an eRPM frame after the claim: the cue gone from MENU", !usbBridgeRunCue(tel.lastRpmMs) &&
+	          !fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_RUN_CUE, UI_COL_WARN, C_BG, 1));
+	memset(&tel, 0, sizeof(tel));
+	fakeSetTelemetry(&tel);
 	usbBridgeRunCueClear();
 	checkTrue("Free", pinClaimState() == ClaimState::Free);
 	fakeBridgeLineRefuse(0);
@@ -525,11 +543,13 @@ static void testBackStates() {
 	brFrames(1);
 	tapId(menuRow(&UI_ESC_CONFIG));
 	brFrames(1);
+	usbBridgeRunCueClear();
 	pinClaimBegin(PinUser::Am32, PIN_SIG);
 	tapId(UI_FIX(EscCfgCtl::Bridge));
 	brFrames(1);
 	checkTrue("a claim held: WAIT: DSHOT RESTARTING, amber", msgIs(0, UI_WAIT_RESTART_TEXT, C_AMBER) &&
 	          pinClaimHolder() == PinUser::Am32);
+	checkTrue("  the refused claim (Busy) sets no cue", !usbBridgeRunCue(0));
 	pinClaimEnd(PinUser::Am32);
 	brFrames(3);
 	checkTrue("asked again each frame: the bridge's claim once Free", pinClaimHolder() == PinUser::Bridge);

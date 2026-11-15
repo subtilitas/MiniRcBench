@@ -1060,9 +1060,9 @@ Choices the note left open, the developer's:
   The run cue stays: LEAVE has no answer (B11), so an ESC that missed
   `00 01` still waits when DShot returns, and only an eRPM frame after
   LEAVE clears the cue. Decision 3 (a1) reads "the run cue is cleared when
-  LEAVE went out"; this build keeps it, and the owner may restore (a1). `src/pin_claim.*` gains no function. A
-  LEAVE refused for the
-  heartbeat is asked again; one that ends without going out opens the leave
+  LEAVE went out"; this build keeps it, and the owner may restore (a1).
+  `src/pin_claim.*` gains no function. A LEAVE refused for the heartbeat is
+  asked again; one that ends without going out opens the leave
   page.
 - **A session that ends without the page**, silent, another answer, a
   processor other than an EFM8, a read that failed or a stop: the screen

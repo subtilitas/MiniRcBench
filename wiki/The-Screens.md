@@ -145,10 +145,11 @@ line reads `RPM/V --` and the row `KV EST --`. The estimate also needs the
 throttle at 75 % or more, within 1 % (20 of 2000) of one value for 1 s, so that
 a finger resting on the bar does not hold it off, a motor that has reached its
 speed (the smoothed eRPM within 0.5 % of the last reply; once met, it holds
-until the throttle moves out of its band or a condition fails, so noisy replies
-do not flicker the figure), and no 3D note; the 3D note takes the row. Both
-figures stop at 99999. Neither is kept after the disarm: disarmed, the line
-reads `ERPM` alone and the row `14 POLES`.
+until the throttle moves out of its band, a condition fails, or the smoothed
+eRPM is more than 3 % from the last reply or the reply is 0, so noisy replies
+do not flicker the figure and a stall shows `KV EST --` at once), and no 3D
+note; the 3D note takes the row. Both figures stop at 99999. Neither is kept
+after the disarm: disarmed, the line reads `ERPM` alone and the row `14 POLES`.
 
 What the estimate cannot know:
 

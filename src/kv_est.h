@@ -187,9 +187,10 @@ struct KvEstView {
  * 4. t settled, KV_EST_SETTLE_MS within KV_EST_SETTLE_BAND, and the
  *    filtered eRPM within KV_EST_ERPM_SETTLE_PERMILLE of the last reply: a
  *    motor still spinning up, or a filter still catching up, shows none.
- *    Once the eRPM check has passed it stays passed (KvEstView::erpmHeld)
- *    until the settle restarts or a condition fails, so noisy replies do
- *    not flicker the field between the figure and `--`.
+ *    Once the eRPM check has passed it holds (KvEstView::erpmHeld) until the
+ *    settle restarts, a condition fails, the gap exceeds
+ *    KV_EST_ERPM_HOLD_PERMILLE or the reply is 0, so noisy replies do not
+ *    flicker the field between the figure and `--`.
  * 5. The 3D note not standing.
  *
  * A missing 1 or 2 reads Unknown before a low throttle reads Low: with no
@@ -215,8 +216,12 @@ static inline KvEstView kvEstView(const KvEstIn *in) {
 	if (!in->settled) return v;
 	const uint64_t gap = in->erpm > in->erpmRaw ? in->erpm - in->erpmRaw
 	                                            : in->erpmRaw - in->erpm;
-	if (!in->erpmHeld &&
-	    gap * 1000 > (uint64_t)in->erpmRaw * KV_EST_ERPM_SETTLE_PERMILLE)
+	// A held check releases at the wider KV_EST_ERPM_HOLD_PERMILLE. A reply of
+	// 0 is always past it, as the filtered eRPM is above 0 here: a stalled
+	// motor shows `--` on its first frame, not after the filter has decayed.
+	const uint32_t permille = in->erpmHeld ? KV_EST_ERPM_HOLD_PERMILLE
+	                                       : KV_EST_ERPM_SETTLE_PERMILLE;
+	if (gap * 1000 > (uint64_t)in->erpmRaw * permille)
 		return v;
 	v.erpmHeld = true;
 	v.kv = KvEstShow::Value;
