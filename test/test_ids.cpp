@@ -16,6 +16,7 @@
 #include "ui_kst.h"
 #include "ui_settings.h"
 #include "ui_menu.h"
+#include "ui_esc_cmd.h"
 #include "ui_sdlog.h"
 #include "ui_screen.h"
 #include "sd_log.h"
@@ -107,6 +108,31 @@ static void testMenuSettingsLog() {
 	checkTrue("SERVO PROGRAMMER acts", ctlEnabled(menuRow(&UI_SERVO_PROG)));
 	checkTrue("RX SIGNALS acts", ctlEnabled(menuRow(&UI_RX_SIGNALS)));
 	checkTrue("ESC CONFIG acts", ctlEnabled(menuRow(&UI_ESC_CONFIG)));
+	checkTrue("ESC COMMANDS acts", ctlEnabled(menuRow(&UI_ESC_CMD)));
+
+	tapId(menuRow(&UI_ESC_CMD));
+	checkTrue("ESC COMMANDS opens", uiCurrentScreen() == UiScreenId::EscCmd);
+	idFrames(1);
+	checkControlTable("ESC COMMANDS");
+	{
+		bool all = true;
+		for (uint8_t c = (uint8_t)EscCmdCtl::Beep1; c <= (uint8_t)EscCmdCtl::On3d; c++)
+			all = all && ctlEnabled(UI_FIX(c));
+		checkTrue("its controls by id: BEEP 1 to 5 and the four holds act at Ready, no tenth",
+		          all && ctlEnabled(UI_FIX(UI_BACK)) && !ctlPresent(UI_FIX(10)));
+		fakeSetCmdReady(EscCmdReady::NoAnswer);
+		idFrames(1);
+		bool none = true;
+		for (uint8_t c = (uint8_t)EscCmdCtl::Beep1; c <= (uint8_t)EscCmdCtl::On3d; c++)
+			none = none && ctlPresent(UI_FIX(c)) && !ctlEnabled(UI_FIX(c));
+		checkTrue("at NoAnswer none acts, BACK does", none && ctlEnabled(UI_FIX(UI_BACK)));
+		checkControlTable("ESC COMMANDS, no ESC");
+		fakeSetCmdReady(EscCmdReady::Ready);
+		idFrames(1);
+	}
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	idFrames(1);
 
 	tapId(menuRow(&UI_RX_SIGNALS));
 	checkTrue("RX SIGNALS opens", uiCurrentScreen() == UiScreenId::RxSignals);

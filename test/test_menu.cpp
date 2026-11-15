@@ -4,8 +4,9 @@
  *        through the real UI.
  *
  * The cases slice C of docs/design/menu.md lists: SD LOG's BACK to MENU,
- * every registry entry opened from MENU and back, MENU's disarm, BEEP's
- * flash on its row, the rows drawn disabled while the claim restores, MENU's
+ * every registry entry opened from MENU and back, MENU's disarm, ESC
+ * COMMANDS as its first row, the rows drawn disabled while the claim
+ * restores, MENU's
  * scroll over registries of six and seven rows, and SETTINGS' list: its
  * scroll range, each row by id, no scroll from a control, the 40 px rule
  * for a cut control, HOLD TO SAVE at every scroll, and the pole and ceiling
@@ -20,6 +21,7 @@
 #include "ui.h"
 #include "ui_am32.h"
 #include "ui_menu.h"
+#include "ui_esc_cmd.h"
 #include "ui_registry.h"
 #include "ui_sdlog.h"
 #include "ui_servo.h"
@@ -165,9 +167,9 @@ static void testEveryEntry() {
 	tapId(UI_FIX(UI_BACK));
 }
 
-/** @brief MENU disarms on open, BEEP flashes on its row, and SERVO PROGRAMMER has its row. */
-static void testMenuDisarmAndBeep() {
-	section("MENU: opening it disarms; BEEP's flash is on its row");
+/** @brief MENU disarms on open, ESC COMMANDS is its first row, and SERVO PROGRAMMER the fourth. */
+static void testMenuDisarm() {
+	section("MENU: opening it disarms; ESC COMMANDS is the first row");
 	freshTester();
 	pressId(UI_FIX(TesterCtl::Arm));
 	holdId(UI_FIX(TesterCtl::Arm), 60);
@@ -178,78 +180,15 @@ static void testMenuDisarmAndBeep() {
 	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
 	checkTrue("and the tester is disarmed", !uiArmed() && !fakeArmed());
 	checkInt("with the throttle at 0", uiThrottle(), 0);
+	checkInt("ESC COMMANDS is the first row", uiMenuRowOf(&UI_ESC_CMD), 0);
 	checkInt("SERVO PROGRAMMER is the fourth row", uiMenuRowOf(&UI_SERVO_PROG), 3);
 	checkControlTable("MENU");
-
-	UiRect beep = ctlRect(menuRow(&UI_BEEP));
-	int beeps = fakeBeepRequests();
-	tapId(menuRow(&UI_BEEP));
-	checkInt("BEEP sends the beacon", fakeBeepRequests(), beeps + 1);
-	checkTrue("its row shows SENT on an ink fill", pixel(beep.x + 4, beep.y + beep.h - 5) == C_INK);
-	menuFrames(16);
-	checkTrue("400 ms later the fill is back to the panel",
-	          pixel(beep.x + 4, beep.y + beep.h - 5) == C_PANEL);
-
-	// Armed is unreachable through MENU, which disarms; forced here.
-	escSetArmed(true);
-	tapId(menuRow(&UI_BEEP));
-	checkTrue("refused while armed: the row shows REFUSED on an amber fill",
-	          pixel(beep.x + 4, beep.y + beep.h - 5) == C_AMBER);
-	escSetArmed(false);
-	menuFrames(16);
-	checkTrue("the flash is over", pixel(beep.x + 4, beep.y + beep.h - 5) == C_PANEL);
-
-	// Core1's readiness: refused with no ESC answering, the motor turning
-	// and while the ESC settles; taken while the pump is busy, to wait.
-	const EscCmdReady refusedAt[] = {EscCmdReady::NoAnswer, EscCmdReady::Turning,
-	                                 EscCmdReady::Settling};
-	const char *refusedWhat[] = {"no ESC answering: REFUSED, nothing sent",
-	                             "motor turning: REFUSED, nothing sent",
-	                             "ESC settling: REFUSED, nothing sent"};
-	for (int i = 0; i < 3; i++) {
-		fakeSetCmdReady(refusedAt[i]);
-		beeps = fakeBeepRequests();
-		tapId(menuRow(&UI_BEEP));
-		checkTrue(refusedWhat[i],
-		          pixel(beep.x + 4, beep.y + beep.h - 5) == C_AMBER &&
-		          fakeBeepRequests() == beeps);
-		menuFrames(16);
-	}
-	fakeSetCmdReady(EscCmdReady::Busy);
-	beeps = fakeBeepRequests();
-	tapId(menuRow(&UI_BEEP));
-	bool save = true;
-	checkTrue("pump busy: SENT, the request taken to wait",
-	          pixel(beep.x + 4, beep.y + beep.h - 5) == C_INK &&
-	          fakeBeepRequests() == beeps + 1);
-	checkTrue("as beacon 1 without a save", fakeLastCommand(&save) == 1 && !save);
-	beeps = fakeBeepRequests();
-	checkTrue("escRequestBeep(0) asks for beacon 1",
-	          escRequestBeep(0) && fakeBeepRequests() == beeps + 1 &&
-	          fakeLastCommand(nullptr) == 1);
-	checkTrue("escRequestBeep(9) asks for beacon 5",
-	          escRequestBeep(9) && fakeBeepRequests() == beeps + 2 &&
-	          fakeLastCommand(nullptr) == 5);
-	fakeSetCmdReady(EscCmdReady::Ready);
-	menuFrames(16);
-	fakeAdvance(0x80000000u);
-	menuFrames(2);
-	checkTrue("2^31 ms after the last BEEP the row does not flash",
-	          pixel(beep.x + 4, beep.y + beep.h - 5) == C_PANEL);
-
-	// A flash cut short by leaving MENU, 100 ms into its 350 ms.
-	tapId(menuRow(&UI_BEEP));
-	menuFrames(4);
+	int sent = fakeBeepRequests();
+	tapId(menuRow(&UI_ESC_CMD));
+	checkTrue("ESC COMMANDS' row opens its page and sends nothing",
+	          uiCurrentScreen() == UiScreenId::EscCmd && fakeBeepRequests() == sent);
 	tapId(UI_FIX(UI_BACK));
-	// Past 2^31 ms after the flash's end, where the bare deadline reads
-	// "not yet" again.
-	fakeAdvance(0x80000000u + 1000u);
-	uiTick();
-	tapId(UI_FIX(TesterCtl::Menu));
-	menuFrames(2);
-	checkTrue("a flash cut short by BACK is not back past 2^31 ms",
-	          uiCurrentScreen() == UiScreenId::Menu &&
-	          pixel(beep.x + 4, beep.y + beep.h - 5) == C_PANEL);
+	checkTrue("whose BACK returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
 	tapId(UI_FIX(UI_BACK));
 }
 
@@ -343,12 +282,12 @@ static void testPinsBusy() {
 static void testMenuScroll() {
 	section("MENU: six rows fit, seven scroll 36 px");
 	static const UiMenuEntry six[] = {
-		{ "BEEP THE ESC", 8, &UI_BEEP }, { "AM32 CONFIG", 9, &UI_AM32 },
+		{ "ESC COMMANDS", 0, &UI_ESC_CMD }, { "AM32 CONFIG", 9, &UI_AM32 },
 		{ "SERVO TESTER", 9, &UI_SERVO }, { "SD LOG", 10, &UI_SDLOG },
 		{ "SETTINGS", 9, &UI_SETTINGS }, { "SD LOG", 10, &UI_SDLOG },
 	};
 	static const UiMenuEntry seven[] = {
-		{ "BEEP THE ESC", 8, &UI_BEEP }, { "AM32 CONFIG", 9, &UI_AM32 },
+		{ "ESC COMMANDS", 0, &UI_ESC_CMD }, { "AM32 CONFIG", 9, &UI_AM32 },
 		{ "SERVO TESTER", 9, &UI_SERVO }, { "SERVO PROGRAMMER", 0, &UI_SERVO_PROG },
 		{ "RX SIGNALS", 9, &UI_RX_SIGNALS }, { "SETTINGS", 9, &UI_SETTINGS },
 		{ "SD LOG", 10, &UI_SDLOG },
@@ -396,12 +335,12 @@ static void testSettingsRowVisible() {
 	uint8_t n;
 	const UiMenuEntry *e = uiMenuEntries(&n);
 	static const char *const ORDER[] = {
-		"BEEP THE ESC", "ESC CONFIG", "SERVO TESTER", "SERVO PROGRAMMER",
+		"ESC COMMANDS", "ESC CONFIG", "SERVO TESTER", "SERVO PROGRAMMER",
 		"RX SIGNALS", "SD LOG", "SETTINGS",
 	};
 	bool order = n == 7;
 	for (uint8_t i = 0; order && i < n; i++) order = strcmp(e[i].label, ORDER[i]) == 0;
-	checkTrue("BEEP THE ESC, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, "
+	checkTrue("ESC COMMANDS, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, "
 	          "SETTINGS, in that order", order);
 	checkTrue("the rows' screens", uiMenuRowOf(&UI_ESC_CONFIG) == 1 &&
 	          uiMenuRowOf(&UI_SERVO_PROG) == 3 && uiMenuRowOf(&UI_RX_SIGNALS) == 4 &&
@@ -410,7 +349,7 @@ static void testSettingsRowVisible() {
 	          uiMenuRowOf(&UI_KST) < 0 && uiMenuRowOf(&UI_HITEC) < 0);
 	checkTrue("no row for ESC SETTINGS: ESC CONFIG opens it", uiMenuRowOf(&UI_AM32) < 0);
 	checkTrue("the tool rows have no status (decision 18)",
-	          !UI_ESC_CONFIG.status && !UI_AM32.status && !UI_SERVO.status && !UI_SERVO_PROG.status && !UI_KST.status &&
+	          !UI_ESC_CMD.status && e[0].statusWidest == 0 && !UI_ESC_CONFIG.status && !UI_AM32.status && !UI_SERVO.status && !UI_SERVO_PROG.status && !UI_KST.status &&
 	          !UI_HITEC.status && !UI_RX_SIGNALS.status && !UI_SBUS.status &&
 	          e[1].statusWidest == 0 && e[2].statusWidest == 0 && e[3].statusWidest == 0 &&
 	          e[4].statusWidest == 0);
@@ -1579,15 +1518,6 @@ static void testMenuStatusWidths() {
 	// A row refused while the claim is not Free keeps its own status: no
 	// state of the claim adds a word to a row.
 	for (uint8_t i = 0; i < n; i++) check(e[i], "at rest");
-	// BEEP's flash, sent and refused.
-	int beep = uiMenuRowOf(&UI_BEEP);
-	tapId(UI_ROW(beep, Row));
-	check(e[beep], "sent");
-	escSetArmed(true);
-	tapId(UI_ROW(beep, Row));
-	check(e[beep], "refused");
-	escSetArmed(false);
-	menuFrames(16);
 	// SD LOG's states.
 	int log = uiMenuRowOf(&UI_SDLOG);
 	SdLogStatus st;
@@ -1694,7 +1624,7 @@ static void testSettingsValueColours() {
 static void testMenuScrollResets() {
 	section("MENU: a tool's return opens MENU at 0 px");
 	static const UiMenuEntry seven[] = {
-		{ "BEEP THE ESC", 8, &UI_BEEP }, { "AM32 CONFIG", 9, &UI_AM32 },
+		{ "ESC COMMANDS", 0, &UI_ESC_CMD }, { "AM32 CONFIG", 9, &UI_AM32 },
 		{ "SERVO TESTER", 9, &UI_SERVO }, { "SERVO PROGRAMMER", 0, &UI_SERVO_PROG },
 		{ "RX SIGNALS", 9, &UI_RX_SIGNALS }, { "SETTINGS", 9, &UI_SETTINGS },
 		{ "SD LOG", 10, &UI_SDLOG },
@@ -1766,7 +1696,7 @@ static void testSupplySection() {
 		"ESC TESTER", "WIRING", "SERVO SUPPLY", "DISPLAY", "BOARD", "DIAGNOSTICS",
 	};
 	static const UiMenuEntry noKst[] = {
-		{ "BEEP THE ESC", 8, &UI_BEEP }, { "AM32 CONFIG", 4, &UI_AM32 },
+		{ "ESC COMMANDS", 0, &UI_ESC_CMD }, { "AM32 CONFIG", 4, &UI_AM32 },
 		{ "SERVO TESTER", 7, &UI_SERVO }, { "SETTINGS", 7, &UI_SETTINGS },
 		{ "SD LOG", 10, &UI_SDLOG },
 	};
@@ -1803,7 +1733,7 @@ static void testMenuStripRepaints() {
 	section("MENU: the strip follows AUX and the claim");
 	checkStr("the tools' refusal", UI_WAIT_RESTART_TEXT, "WAIT: DSHOT RESTARTING");
 	static const UiMenuEntry quiet[] = {
-		{ "BEEP THE ESC", 8, &UI_BEEP }, { "SD LOG", 10, &UI_SDLOG },
+		{ "ESC COMMANDS", 0, &UI_ESC_CMD }, { "SD LOG", 10, &UI_SDLOG },
 	};
 	uiMenuUseRegistry(quiet, 2);
 	freshTester();
@@ -1836,7 +1766,7 @@ static void testMenuStripRepaints() {
 void runMenuTests() {
 	testSdLogBack();
 	testEveryEntry();
-	testMenuDisarmAndBeep();
+	testMenuDisarm();
 	testPinsBusy();
 	testMenuScroll();
 	testSettingsRowVisible();

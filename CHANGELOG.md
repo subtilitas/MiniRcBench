@@ -67,6 +67,27 @@ protocol.
   `test/test_escwire_job.cpp`, `test/test_efm8_view.cpp`,
   `test/test_am32.cpp` and `test/test_ui.cpp` against rcbench's simulated
   ESC; CI checks the job's stack on core1. Not tested on hardware.
+- After v0.1.0-rc1 (a93e1c1): ESC COMMANDS, slice 2 of
+  [esc-commands.md](docs/design/esc-commands.md#slice-2-as-built), MENU's
+  first row in place of BEEP THE ESC (decision 1, `src/ui_esc_cmd.*`). BEEP
+  1 to 5 are taps, one beacon each; NORMAL and REVERSED, and 3D OFF and
+  3D ON, are 1000 ms holds that send 7, 8, 9 or 10, then 12, the save
+  (decisions 2 and 3). The page claims no pin and opens only while the pin
+  claim is free; opening it disarms. Its controls act while an ESC answers,
+  the motor is stopped and the ESC has answered for 1500 ms; a request made
+  while the slot is busy, an EDT enable among them, waits there, at most
+  2000 ms. Otherwise one amber line says why:
+  `NO ESC ANSWERS ON SIG GP0.` (decision 5),
+  `MOTOR TURNING: WAIT UNTIL IT STOPS.` or `ESC STARTING: WAIT 1.5 S.`.
+  While its request waits or its sequence goes out, BACK is drawn disabled.
+  BACK and the BEEP taps act only on a press that landed while they were
+  live. Six message lines name what was sent or why not, among them
+  `SENT 8 (REVERSED), THEN 12 (SAVE).`, `SAVE NOT SENT: POWER-CYCLE THE ESC.`
+  and `NOT SENT: THE ESC WAS NOT READY.`. 3D ON, sent or stopped after the
+  ESC may have acted, sets the tester's 3D note before BACK is read; 3D OFF
+  leaves it (decision 4); no direction note (decision 10). Host tests in
+  `test/test_esc_cmd_ui.cpp` and `test/test_ids.cpp`;
+  `docs/esccmd-preview.png`. Not tested on hardware.
 - After v0.1.0-rc1: SD LOG shows the last log's run after a stop, slice 3
   of [run-summary.md](docs/design/run-summary.md#slice-3-as-built). Rows 2
   to 8 read `MAX RPM`, `MAX CURRENT`, `MAX TEMP`, `MIN VOLTAGE`, `USED` or
@@ -790,6 +811,46 @@ protocol.
 
 ### Changed
 
+- After v0.1.0-rc1 (a93e1c1): the servo tester switches the servo's supply
+  with SERVO SUPPLY at `GP28` or `GP29`, slice 3 of
+  [current-sense.md](docs/design/current-sense.md#slice-3-as-built) and
+  decision 20 of [servo-tester.md](docs/design/servo-tester.md). Before, it
+  never drove the enable pin and the strip read `GP28 SUPPLY STAYS OFF HERE.`
+  The job drives the pin low from its bind, high at HOLD TO START and low at
+  STOP, at the heartbeat trip and at BACK, which makes it an undriven input
+  again after the last pulse; the pulses wait at level 0 until the INA219
+  reads 4.5 V more than 18 ms, one conversion, after the switch-on, or
+  500 ms without a sensor, and with the
+  sensor and no 4.5 V by 500 ms the supply goes off
+  (`SUPPLY NOT UP: NO 4.5 V IN 500 MS.`). A touch controller silent for
+  250 ms (`touchAnsweredMs()`, new in `src/touch.h`) or a stuck I2C bus
+  switches it off and latches `STALLED`; either, and CURRENT SENSE at INA219
+  with the part not found, refuses HOLD TO START, and the dial says why.
+  With the sensor a reading
+  above 2.5 V 2000 ms after a switch-off shows `GP28 SUPPLY NOT OFF`. The
+  strip's second line names the phase, `GP28 SUPPLY ON AT START`,
+  `COMING UP` or `ON`; SAFE's notes warn of an ESC's throttle and BEC wire;
+  SET shows `SUPPLY UP IN 25 MS`. With `OWN` nothing changes. The rules are
+  pure (`servoPowerStep()` in `src/servo_job.*`); host tests in
+  `test/test_servo.cpp`, mutation-checked. Part C of `docs/wiring.svg`
+  names the servo tester; README, the wiki pages Servo-Tester, The-Screens,
+  Wiring and Setup with their German pairs, and the design notes follow.
+  Not tested on hardware.
+- After v0.1.0-rc1 (a93e1c1): the tester's 3D note reads
+  `3D MODE ESC: 0-50% REVERSED AT 2X` (33 characters, 197 px), in place of
+  `3D MODE ESC: THROTTLE SCALE DIFFERS` (esc-commands.md decision 9). Its
+  flag moves from `src/ui_am32.cpp` to `src/esc_3d.*` (`esc3dNote()`,
+  `esc3dSetNote()`), which ESC SETTINGS and ESC COMMANDS both write.
+- After v0.1.0-rc1 (a93e1c1): MENU's BEEP THE ESC, its 350 ms flash and
+  `escRequestBeep()` are gone; ESC COMMANDS carries BEEP 1 to 5.
+  `docs/menu-preview.png` shows MENU with no ESC answering in place of the
+  flash. Rule 9 of `test/check_docs.py` fails when README.md or a wiki page
+  names BEEP THE ESC or the old 3D note text, or an image `menu-beep*`.
+- After v0.1.0-rc1 (a93e1c1): a command request that still waits when the
+  DShot pump lets go of SIG, for a pin claim or a wiring change, is dropped
+  (`escPumpTeardown()` in `src/esc_task.h`) and does not start on the next
+  bind's ESC. It reads expired when no sequence was running; a sequence the
+  teardown cut keeps its outcome. Host test in `test/test_esc_cmd.cpp`.
 - After v0.1.0-rc1: the shared I2C1 bus is recovered with CURRENT SENSE at
   `NONE` too: `senseTick()` runs the recovery before its mode test, since
   touch and the IMU share the bus. `senseNote()` replaces `senseNoteTouch()`,

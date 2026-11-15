@@ -277,35 +277,6 @@ bool uiAm32Tick(const TouchState *t);
  */
 bool uiAm32RunCue(uint32_t lastRpmMs);
 
-/**
- * @brief The tester's note while @ref uiAm32Esc3d() is true: 35 characters,
- *        209 px at scale 1, amber, on the RPM area's bottom row (y 114) in
- *        place of the pole count and the swipe hint, except while a drag on
- *        the pad is engaged: SWIPE ACTIVE takes the row then.
- */
-#define AM32_UI_TESTER_3D "3D MODE ESC: THROTTLE SCALE DIFFERS"
-
-/**
- * @brief Whether the ESC on the pin may run in 3D mode, for the
- *        tester's @ref AM32_UI_TESTER_3D.
- *
- * Set by a read that opens the list on settings with 3D MODE on, or on a
- * Bluejay or BLHeli_S page with DIRECTION at 3D or 3D REVERSED, and by a
- * write of settings with 3D MODE on that the ESC accepted, whether its
- * read-back then verifies, fails or differs. Cleared only by such a read or
- * a verified write with 3D MODE off, and by a restart, since it is not
- * stored. An EFM8 page whose settings marker is wrong leaves it: its
- * firmware loads its defaults at its next start. A failed read, a read that
- * opens no list (the read-only view of a
- * layout not known among them: byte 0x12 may be another field there), a
- * write the ESC refused and a write of 3D MODE off that is not verified leave
- * it as it was. Nothing tells it that the ESC on
- * the pin was swapped for another one.
- *
- * @return true while the note stands.
- */
-bool uiAm32Esc3d();
-
 /** @brief The ESC SETTINGS controls; the list rows are `UI_ROW(n, Row)`. @see ui_screen.h */
 enum class Am32Ctl : uint8_t {
 	EditMinus = 1, EditPlus,  /**< The editor bar, while a field is selected. */

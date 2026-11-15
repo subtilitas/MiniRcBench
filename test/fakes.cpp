@@ -81,6 +81,8 @@ uint16_t fakeAdcDefault() { return (uint16_t)(3.92f / 3.0f / 3.3f * 4095.0f); }
 //     Nothing here models a counter or an edge: a level is what the compare
 //     register was last set to ---
 static FakePin   g_pins[FAKE_GPIOS];
+/** @brief Counts every pin write the order stamps of FakePin record; never reset. */
+static uint32_t  g_pinSeq = 0;
 static FakeSlice g_slices[FAKE_SLICES];
 static bool      g_sliceMapBroken = false;
 
@@ -183,6 +185,7 @@ void pwm_set_enabled(unsigned slice, bool on) {
 }
 void pwm_set_gpio_level(unsigned gpio, uint16_t level) {
 	if (gpio >= FAKE_GPIOS) return;
+	g_pins[gpio].levelAt = ++g_pinSeq;
 	g_pins[gpio].level = level;
 	g_pins[gpio].levelWrites++;
 	logWrite(gpio, time_us_64(), level);
@@ -190,6 +193,7 @@ void pwm_set_gpio_level(unsigned gpio, uint16_t level) {
 extern "C" void gpio_set_function(uint32_t gpio, gpio_function fn) {
 	if (gpio >= FAKE_GPIOS) return;
 	if (fn != GPIO_FUNC_PWM) cutCheck(gpio);
+	g_pins[gpio].functionAt = ++g_pinSeq;
 	g_pins[gpio].function = (int)fn;
 	// As the SDK does: selecting a function turns the pad's input on, and
 	// writes the whole control register, which zeroes the overrides.
@@ -204,6 +208,7 @@ extern "C" void gpio_set_inover(unsigned gpio, unsigned value) {
 extern "C" void gpio_set_dir(uint32_t gpio, int out) {
 	if (gpio >= FAKE_GPIOS) return;
 	if (out && !g_pins[gpio].output && g_pins[gpio].high) g_pins[gpio].highEnables++;
+	g_pins[gpio].dirAt = ++g_pinSeq;
 	g_pins[gpio].output = out != 0;
 	fakeI2cPinDir(gpio, out != 0);
 }
@@ -220,6 +225,7 @@ extern "C" void gpio_put(uint32_t gpio, int value) {
 	if (gpio >= FAKE_GPIOS) return;
 	g_pins[gpio].high = value != 0;
 	g_pins[gpio].puts++;
+	g_pins[gpio].putAt = ++g_pinSeq;
 }
 extern "C" void gpio_set_input_enabled(uint32_t gpio, bool on) {
 	if (gpio < FAKE_GPIOS) g_pins[gpio].inputOff = !on;
@@ -461,17 +467,27 @@ static TouchState g_touch;
 static bool     s_touchAnswers = true;   /**< Reads complete. */
 static bool     s_touchAnswered = true;  /**< A read has completed since touchInit(). */
 
+static uint32_t s_touchAnsweredMs = 0;  /**< millis() of the last read that completed. */
+
 bool touchInit() {
 	s_touchAnswered = s_touchAnswers;
+	if (s_touchAnswers) s_touchAnsweredMs = millis();
 	return s_touchAnswers;
 }
 
 bool touchAnswered() { return s_touchAnswered; }
 
+uint32_t touchAnsweredMs() { return s_touchAnsweredMs; }
+
+void fakeTouchStamp() { s_touchAnsweredMs = millis(); }
+
 void fakeTouchAnswers(bool on) { s_touchAnswers = on; }
 
 void touchPoll(TouchState *t) {
-	if (s_touchAnswers) s_touchAnswered = true;
+	if (s_touchAnswers) {
+		s_touchAnswered = true;
+		s_touchAnsweredMs = millis();
+	}
 	*t = g_touch;
 	// Edge flags last exactly one poll, as the real driver guarantees.
 	g_touch.pressed = false;
@@ -624,8 +640,7 @@ void escHeartbeat() { g_heartbeatMs = millis(); }
 uint32_t escHeartbeatMs() { return g_heartbeatMs; }
 // Core0's side of the command slot. esc_task.cpp cannot be linked here (PIO,
 // UART), so the request side is a copy -- but its rule is the shipped
-// escCmdAccept(), and escRequestBeep() is the header's own inline. The
-// readiness core1 would publish is set by the test (fakeSetCmdReady()); the
+// escCmdAccept(). The readiness core1 would publish is set by the test (fakeSetCmdReady()); the
 // default, Ready, is an ESC that has answered for 1500 ms with the motor
 // stopped. The counter increments only when the request is taken, as
 // production queues it only then. Counting refused requests too meant a test
@@ -636,6 +651,11 @@ static uint8_t     g_lastCmd = 0;
 static bool        g_lastSave = false;
 static int         g_cmdCancels = 0;
 static EscCmdReady g_cmdReady = EscCmdReady::Ready;
+// The state as production reports it: Waiting while a taken request is not
+// yet read, else what core1 published, which the test sets.
+static bool        g_cmdWaiting = false;
+static EscCmdState g_cmdState = EscCmdState::Idle;
+static uint8_t     g_cmdStateCmd = 0;
 int  fakeBeepRequests() { return g_beepRequests; }
 uint8_t fakeLastCommand(bool *save) {
 	if (save) *save = g_lastSave;
@@ -648,13 +668,22 @@ bool escRequestCommand(uint8_t cmd, bool save) {
 	g_beepRequests++;
 	g_lastCmd = cmd;
 	g_lastSave = save;
+	g_cmdWaiting = true;
 	return true;
 }
-void escCancelCommand() { g_cmdCancels++; }
+void fakeSetCmdState(EscCmdState st, uint8_t cmd) {
+	g_cmdWaiting = false;
+	g_cmdState = st;
+	g_cmdStateCmd = cmd;
+}
+void escCancelCommand() {
+	g_cmdCancels++;
+	g_cmdWaiting = false;
+}
 EscCmdReady escCommandReady() { return g_cmdReady; }
 EscCmdState escCommandState(uint8_t *cmd) {
-	if (cmd) *cmd = g_lastCmd;
-	return EscCmdState::Idle;
+	if (cmd) *cmd = g_cmdWaiting ? g_lastCmd : g_cmdStateCmd;
+	return g_cmdWaiting ? EscCmdState::Waiting : g_cmdState;
 }
 // Settable, because production only reports true once an ESC has answered and
 // been sent an enable -- so a hardcoded true made the DS600 chip's two states

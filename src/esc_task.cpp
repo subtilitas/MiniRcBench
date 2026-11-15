@@ -406,9 +406,13 @@ void escTaskPoll() {
 			s_pumpUp = false;
 			// A sequence going out stops here, and core0 reads NoAnswer
 			// until the next bind has an ESC answering, rather than the
-			// last readiness for as long as the pin is away.
-			escPumpRelease(&s_pump);
-			publishCommand(false, 0);
+			// last readiness for as long as the pin is away. A request
+			// still waiting expires: it does not start on the next bind.
+			critical_section_enter_blocking(&s_cs);
+			EscCmdRequest req = s_cmdReq;
+			uint8_t reqGen = s_cmdGen;
+			critical_section_exit(&s_cs);
+			publishCommand(escPumpTeardown(&s_pump, &req), reqGen);
 		}
 #if KISS_TELEM_ENABLE
 		// Whoever owns the pin next, it is not us. A receiver left running

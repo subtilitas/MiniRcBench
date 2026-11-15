@@ -14,6 +14,10 @@
  * screen that stalls for 250 ms stops them too, and a new HOLD TO START is
  * needed.
  *
+ * With SERVO SUPPLY at GP28 or GP29 the job switches the servo's supply on
+ * at START and off whenever the pulses end (servo_job.h); the pulses start
+ * once the supply is up. The strip's second line says where the supply is.
+ *
  * @see docs/design/servo-tester.md
  */
 
@@ -36,10 +40,48 @@ struct TouchState;
  */
 /**
  * @brief The strip's second line while SERVO SUPPLY is GP28 or GP29, with
- *        the pin's number for `%u`: 27 characters, 161 px, from x 8, drawn
- *        by uiStripTwoLines() under the caption.
+ *        the pin's number for `%u`, drawn in amber by uiStripTwoLines()
+ *        under the caption: the supply off, as it is while SAFE. At most 28
+ *        characters, 167 px from x 8, so each ends 4 px before the widest
+ *        chip, STALLED.
  */
-#define SERVO_UI_SUPPLY_FMT "GP%u SUPPLY STAYS OFF HERE."
+#define SERVO_UI_SUPPLY_FMT "GP%u SUPPLY ON AT START"
+/** @brief ...after START, while the pulses wait for the supply. */
+#define SERVO_UI_SUPPLY_UP_FMT "GP%u SUPPLY COMING UP"
+/** @brief ...while the supply is up and the pulses run. */
+#define SERVO_UI_SUPPLY_ON_FMT "GP%u SUPPLY ON"
+/** @brief ...after a switch-off, while the sensor reads above 2.5 V 2000 ms or more later. */
+#define SERVO_UI_SUPPLY_NOT_OFF_FMT "GP%u SUPPLY NOT OFF"
+/**
+ * @brief SAFE with the switch: the dial band's two notes, amber, for `%u`
+ *        SIG's GPIO: pulses are throttle to an ESC, and its BEC (battery
+ *        eliminator circuit) wire gets the converter's output.
+ */
+#define SERVO_UI_ESC_1_FMT "PULSES ON GP%u ARE THROTTLE TO AN ESC,"
+/** @brief ...and its second line. */
+#define SERVO_UI_ESC_2 "AND ITS BEC WIRE GETS THE SUPPLY."
+/** @brief The supply did not reach 4.5 V within 500 ms: first line, amber. */
+#define SERVO_UI_NO_START_1 "SUPPLY NOT UP: NO 4.5 V IN 500 MS."
+/** @brief ...and its second line, dim, with the enable pin for `%u`. */
+#define SERVO_UI_NO_START_2_FMT "CHECK THE CONVERTER ON GP%u."
+/** @brief START refused, CURRENT SENSE at INA219 and the part not online: first line, amber. */
+#define SERVO_UI_NO_SENSOR_1 "START WAITS FOR THE CURRENT SENSOR."
+/** @brief ...and its second line, dim. */
+#define SERVO_UI_NO_SENSOR_2 "NONE IN CURRENT SENSE SKIPS IT."
+/** @brief START refused while the shared bus is stuck, no trip: first line, amber. */
+#define SERVO_UI_BUS_WAIT_1 "START WAITS: THE I2C BUS IS STUCK."
+/** @brief ...and its second line, dim. */
+#define SERVO_UI_BUS_WAIT_2 "HOLD TO START WORKS ONCE IT IS FREE."
+/** @brief START refused while the touch controller has not answered for 250 ms, no trip: first line, amber. */
+#define SERVO_UI_TOUCH_WAIT_1 "START WAITS: TOUCH DOES NOT ANSWER."
+/** @brief ...and its second line, dim. */
+#define SERVO_UI_TOUCH_WAIT_2 "HOLD TO START WORKS ONCE IT ANSWERS."
+/** @brief The supply cut because the touch controller did not answer for 250 ms. */
+#define SERVO_UI_TOUCH_SILENT "STOPPED: TOUCH DID NOT ANSWER"
+/** @brief The supply cut because the shared bus was stuck. */
+#define SERVO_UI_BUS_STUCK "STOPPED: TOUCH BUS STUCK"
+/** @brief SET's note with the last start-up time measured, `%u` in ms. */
+#define SERVO_UI_UP_FMT "SUPPLY UP IN %u MS"
 /** @brief The leave page's note while the job lets SIG and AUX go: 18 characters. */
 #define SERVO_UI_RELEASING_TWO "RELEASING THE PINS"
 /** @brief SET's note while SIG and AUX share a GPIO, refusing TWO: line 1. */

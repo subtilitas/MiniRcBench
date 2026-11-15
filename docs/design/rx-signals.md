@@ -124,10 +124,10 @@ pin, under the 3.63 V rating. A receiver with a higher output level does not
 have that margin: power the board before the receiver, and the receiver off
 before the board, as for a servo ([pin-claim.md](pin-claim.md#wiring)).
 
-In the first slice the monitor never drives the switched supply's enable,
-as the servo tester does not (servo-tester.md, decision 20). A receiver on
-the converter is unpowered there unless the owner chooses otherwise
-(later work below).
+In the first slice the monitor never drives the switched supply's enable.
+The servo tester does since slice 3 of current-sense.md (servo-tester.md,
+decision 20); the monitor does not. A receiver on the converter is unpowered
+there unless the owner chooses otherwise (later work below).
 
 **RP2350-E9.** A pad with the internal pull-down can latch at about 2.1 V
 instead of 0 V (`src/board_pins.h`). After a receiver that drove the line

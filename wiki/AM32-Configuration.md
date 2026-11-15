@@ -140,8 +140,8 @@ strip:
 <img src="img/efm8-note.png" width="240" alt="POWER RATING selected: SETS HOW THE ESC READS ITS TEMP: in amber on the strip">
 
 DIRECTION at `3D` or `3D REVERSED` also shows the 3D note on the strip when
-no row is selected, and sets the tester's `3D MODE ESC: THROTTLE SCALE
-DIFFERS`. `HEX` shows the bytes as read, 8 to a line; drag to scroll the
+no row is selected, and sets the tester's
+`3D MODE ESC: 0-50% REVERSED AT 2X`. `HEX` shows the bytes as read, 8 to a line; drag to scroll the
 255 bytes of a Bluejay page.
 
 <img src="img/efm8-hex.png" width="240" alt="ESC HEX: the Bluejay page's bytes, 8 to a line">
@@ -247,7 +247,7 @@ throttle range in one direction.
 **On the tester.** After ESC SETTINGS has read the ESC's settings with 3D MODE
 on, or written them with 3D MODE on (accepted by the ESC, whether the read-back
 then shows `WRITE VERIFIED` or not), the tester shows
-`3D MODE ESC: THROTTLE SCALE DIFFERS` in amber under the RPM readout, in place
+`3D MODE ESC: 0-50% REVERSED AT 2X` in amber under the RPM readout, in place
 of the pole count and the swipe hint, armed or not. While a swipe on the pad is
 engaged, `SWIPE ACTIVE` shows in its place, and the note returns on release.
 Arming is not refused on it. Only a verified write or a list read with 3D MODE
@@ -256,7 +256,9 @@ written, a write the ESC refused, a write of 3D MODE off that is not verified, a
 failed read and a read that does not open the list, the read-only view of a
 layout not known among them, leave it as it was. The
 tester cannot tell that the ESC on the pin was swapped for another one: the note
-describes the last ESC ESC SETTINGS read or wrote in this power-up. Keep the
+describes the last ESC ESC SETTINGS read or wrote in this power-up. `3D ON` on
+ESC COMMANDS sets the same note, and its `3D OFF` leaves it
+([The Screens](The-Screens#esc-commands)). Keep the
 propeller off while testing a 3D ESC.
 
 With `SERVO` AM32 looks for servo pulses only. With `SERIAL`, `DRONECAN` and
