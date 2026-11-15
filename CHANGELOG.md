@@ -44,6 +44,14 @@ protocol.
 
 ### Added
 
+- The design note for Bluejay and BLHeli_S settings,
+  [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md), designed and not
+  built: AM32 CONFIG's connect page recognises an EFM8 bootloader's answer
+  and hands the ESC to rcbench's `protocols/escwire`, to be copied
+  unchanged; the fields per firmware and layout, the backup before the
+  first write, the read-back, and why a cut write followed by a restart of
+  the ESC loses its 48 tag bytes. It waits on the owner's answers to its
+  seven open questions.
 - The design note for the angle meter,
   [angle-meter.md](docs/design/angle-meter.md), designed and not built:
   incidence, decalage, dihedral and control-surface throw in degrees and

@@ -805,6 +805,24 @@ not run on hardware (item 18).
     facts are read from source and the BLHeli_32 command specification;
     none has been checked on an ESC.
 
+29. **Bluejay and BLHeli_S settings, designed, not built.** Item (6) of
+    the owner's feature choice of 2026-11-14 (item 28).
+    [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md) grows AM32
+    CONFIG: its greeting is already a valid greeting for the EFM8
+    bootloader of both firmwares, whose answer, `471d` and the signature
+    E8B1, E8B2 or E8B5, hands the ESC to rcbench's `protocols/escwire`,
+    copied unchanged with 210 of its host cases and run by a core1 job;
+    quiet seconds between the greetings let a Bluejay enter its
+    bootloader. Bluejay 0.21 and BLHeli_S 16.3 to 16.7 are written,
+    older layouts shown, with a backup before the first write, a re-read
+    and a read-back. Read from both firmwares' source: a write cut
+    between erase and program, then a restart of the ESC, leaves the 48
+    tag bytes 0xFF and the page read-only. It waits on the owner's
+    answers to the note's seven open questions: the entry and its name,
+    the connect cycle, the frame that starts the firmware on leaving,
+    a restore after a cut write, the backup names, a write without a
+    card, and how older layouts show. Nothing of it has run on an ESC.
+
 ## Known limitations
 
 - **`tools/sdtest` is built by no CI job**, by the owner's decision of
