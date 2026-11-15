@@ -2350,10 +2350,10 @@ static void testSettingsSave() {
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
 	checkTrue("BACK from SETTINGS reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
-	// MENU opens at 0 px: the SETTINGS row, the seventh, shows 6 px and is
-	// whole after a short drag, its status with it.
-	checkInt("MENU's SETTINGS row is cut to 6 px at 0 px",
-	         ctlRect(UI_ROW(uiMenuRowOf(&UI_SETTINGS), Row)).h, 6);
+	// MENU opens at 0 px: the SETTINGS row, the eighth, starts at y 356,
+	// below the view, and is whole after a drag of 76 px, its status with it.
+	checkTrue("MENU's SETTINGS row is below the view at 0 px",
+	          !ctlPresent(UI_ROW(uiMenuRowOf(&UI_SETTINGS), Row)));
 	checkTrue("MENU's SETTINGS row reads UNSAVED in amber",
 	          menuStatusIs(ctlRect(menuRow(&UI_SETTINGS)), "UNSAVED", C_AMBER, C_PANEL));
 	fakeDumpFrame("shot_menu_unsaved.ppm");
@@ -3873,17 +3873,21 @@ static void testHitBoundaries() {
 	// SETTINGS starts. A tap in either gap must hit neither neighbour -- an
 	// inclusive far edge would make adjacent rows overlap.
 	const UiRect cmds  = ctlRect(menuRow(&UI_ESC_CMD));
-	const UiRect logRow = ctlRect(menuRow(&UI_SDLOG));
 	tap(cmds.x + cmds.w / 2, cmds.y + cmds.h);
 	frames(2);
 	checkTrue("a tap in the ESC COMMANDS/AM32 gap opens nothing",
 	          uiCurrentScreen() == UiScreenId::Menu);
 	tap(cmds.x + cmds.w, cmds.y + cmds.h / 2);
 	checkTrue("nor one past ESC COMMANDS' right edge", uiCurrentScreen() == UiScreenId::Menu);
+	// SD LOG, the seventh row, is whole only after a drag, which moves ESC
+	// COMMANDS too: MENU opens again at 0 px for the last tap.
+	const UiRect logRow = ctlRect(menuRow(&UI_SDLOG));
 	tap(logRow.x + logRow.w / 2, logRow.y + logRow.h);
 	frames(2);
 	checkTrue("a tap in the gap below SD LOG left MENU up",
 	          uiCurrentScreen() == UiScreenId::Menu);
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(TesterCtl::Menu));
 	tap(cmds.x + cmds.w / 2, cmds.y + cmds.h - 1);
 	checkTrue("ESC COMMANDS' last pixel row opens it", uiCurrentScreen() == UiScreenId::EscCmd);
 	tapId(UI_FIX(UI_BACK));
@@ -3935,13 +3939,13 @@ static void testMenuDestinations() {
 	// The registry, in MENU order.
 	uint8_t rows = 0;
 	uiMenuEntries(&rows);
-	checkInt("MENU has seven rows", rows, 7);
-	checkTrue("ESC COMMANDS, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, "
-	          "SETTINGS, in that order",
+	checkInt("MENU has eight rows", rows, 8);
+	checkTrue("ESC COMMANDS, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, TOOLS, "
+	          "SD LOG, SETTINGS, in that order",
 	          uiMenuRowOf(&UI_ESC_CMD) == 0 && uiMenuRowOf(&UI_ESC_CONFIG) == 1 &&
 	          uiMenuRowOf(&UI_SERVO) == 2 && uiMenuRowOf(&UI_SERVO_PROG) == 3 &&
-	          uiMenuRowOf(&UI_RX_SIGNALS) == 4 && uiMenuRowOf(&UI_SDLOG) == 5 &&
-	          uiMenuRowOf(&UI_SETTINGS) == 6);
+	          uiMenuRowOf(&UI_RX_SIGNALS) == 4 && uiMenuRowOf(&UI_TOOLS) == 5 &&
+	          uiMenuRowOf(&UI_SDLOG) == 6 && uiMenuRowOf(&UI_SETTINGS) == 7);
 
 	// A pixel inside each row, clear of its label: the panel fill of a row.
 	// It is 5 px in from the left edge and 8 px down from the top.
