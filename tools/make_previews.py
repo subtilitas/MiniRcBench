@@ -91,12 +91,22 @@ PREVIEWS = {
         "shot_am32_written",
     ],
     # ESC CONFIG, the chooser, then ESC SETTINGS after a Bluejay or
-    # BLHeli_S bootloader answered: the connect page naming it, and the
-    # leave page BACK opens.
+    # BLHeli_S bootloader answered: the connect page while the escwire job
+    # reads, the read-only list, and the leave page BACK opens where no LEAVE
+    # goes out.
     "esc-preview": [
         "shot_esc_chooser",
         "shot_am32_efm8",
+        "shot_efm8_list",
         "shot_am32_leave",
+    ],
+    # A Bluejay or BLHeli_S page: a row's note, ESC HEX, an older layout
+    # read-only, and an empty page named on the connect page.
+    "efm8-preview": [
+        "shot_efm8_note",
+        "shot_efm8_hex",
+        "shot_efm8_readonly",
+        "shot_efm8_empty",
     ],
     # The servo tester: SAFE before START, one servo driven by the horn, two
     # servos with REVERSE B, and SET holding a heli profile behind its

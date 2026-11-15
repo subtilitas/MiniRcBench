@@ -274,7 +274,7 @@ static void testAm32() {
 	UiControl t[UI_CONTROLS_MAX];
 	checkInt("during the handover, BACK is the only control", uiControls(t, UI_CONTROLS_MAX), 1);
 	checkControlTable("AM32, the handover");
-	idFrames(20);
+	idFrames(50);  // past the connect cycle's 1000 ms quiet phase
 	checkControlTable("AM32, the list");
 	checkTrue("the list shows its rows", ctlPresent(UI_ROW(0, Row)));
 	checkTrue("nothing to write yet: WRITE and REVERT are there and do not act",

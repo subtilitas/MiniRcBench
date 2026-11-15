@@ -656,6 +656,18 @@
 #define AM32_GREET_TMO_MS      30
 
 /**
+ * @brief The connect cycle's quiet phase, ms: the line rests on the pull-up
+ *        and nothing is sent, so Bluejay's 150 ms check and BLHeli_S's 15 ms
+ *        check can pass and an AM32 powered up meanwhile stays in its
+ *        bootloader (docs/design/bluejay-blheli-s.md, decision 2).
+ *        @see greet_cycle.h
+ */
+#define ESC_GREET_QUIET_MS     1000u
+
+/** @brief Greetings in a burst between two quiet phases, about 125 ms in all. */
+#define ESC_GREET_BURST        3u
+
+/**
  * @brief Pause after a settings write before reading it back.
  *
  * The bootloader is erasing and programming a flash page and will not answer

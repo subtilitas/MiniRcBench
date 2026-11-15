@@ -9,7 +9,10 @@
  * ESC does with them, so it says so while this flag stands.
  *
  * Two screens write the flag. ESC SETTINGS sets it to what a list read shows,
- * sets it after a write with 3D MODE on that the ESC accepted, and clears it
+ * an AM32 list's 3D MODE or a Bluejay or BLHeli_S list's DIRECTION at 3D or
+ * 3D REVERSED, though a Bluejay or BLHeli_S page whose settings marker is
+ * wrong leaves it; it sets it after a write with 3D MODE on that the ESC
+ * accepted, and clears it
  * after a verified write with 3D MODE off. ESC COMMANDS sets it after 3D ON
  * once the change may have reached the ESC: the sequence sent, or stopped
  * after frame 6 of its first block. Its 3D OFF leaves it, as nothing reads

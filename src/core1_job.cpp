@@ -10,6 +10,7 @@
 #include "hitec_job.h"
 #include "sbus_job.h"
 #include "bridge_wire.h"
+#include "escwire_job.h"
 
 #include "plat.h"
 #include <pico/critical_section.h>
@@ -24,8 +25,9 @@ static const Core1JobOps *s_ops[] = {
 	&HITEC_JOB_OPS,  // Core1Job::Hitec
 	&SBUS_JOB_OPS,   // Core1Job::Sbus
 	&BRIDGE_JOB_OPS, // Core1Job::Bridge
+	&ESCWIRE_JOB_OPS,  // Core1Job::EscWire
 };
-static_assert(sizeof(s_ops) / sizeof(s_ops[0]) == (unsigned)Core1Job::Bridge + 1,
+static_assert(sizeof(s_ops) / sizeof(s_ops[0]) == (unsigned)Core1Job::EscWire + 1,
               "one entry per Core1Job");
 
 /** @brief Guards the shared block below. */

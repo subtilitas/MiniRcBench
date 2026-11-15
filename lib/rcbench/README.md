@@ -184,7 +184,10 @@ The escwire core (`protocols/escwire/`) and its RP2350 line driver
 (`protocols/escwire/rp2350/`) are for the Bluejay and BLHeli_S settings of
 [bluejay-blheli-s.md](../../docs/design/bluejay-blheli-s.md), slice 1.
 escwire reads and writes an ESC's (electronic speed controller's) settings
-over the signal wire. Nothing in `src/` calls it yet. The core is built as
+over the signal wire. The ESC settings job (`src/escwire_job.h`) runs its
+session on the line driver to read a Bluejay or BLHeli_S page, slice 3 of
+that note; `test/fake_escwire_port.cpp` puts the simulated ESC `ew_sim.h`
+behind the job in the host suite. The core is built as
 C11, in the firmware by `src/escwire.cmake` and in the host suite by
 `test/escwire.mk`; the line driver is built by the firmware only, with
 pioasm assembling `ew_line.pio`. The servo file store
