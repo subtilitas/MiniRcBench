@@ -367,7 +367,8 @@ driver. Nothing is recorded for this driver.
 - USB DRIVE: a host reads files, multi-block reads.
 - Card pulled out while logging, while idle and while a host reads; then
   reinserted.
-- 10 MHz and 25 MHz, with `tools/sdtest` and in the firmware.
+- 10 MHz in the firmware (`SD_LOG_SDIO_HZ`), and 25 MHz, 10 MHz, 4 MHz and
+  1 MHz in `tools/sdtest`, which stops at the first rate that mounts.
 
 ## Provenance
 

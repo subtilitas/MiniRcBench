@@ -156,10 +156,12 @@ converter. VIN and VOUT are the converter's input and output.
 | Converter input | the user's supply. J4 pin 2 is USB VBUS and does not feed a servo |
 | Ground | servo minus to the supply's minus; one tap from the supply's minus to board GND |
 
-GP28 and GP29 are on J4 only. SETTINGS does not offer them for the ESC
-wires: those are GP0 and GP1, UART0's pins, which are fault tolerant, and
-the firmware leaves UART0 unused (`pico_enable_stdio_uart(MiniRcBench 0)`;
-USB serial is `usb_dev.cpp`). The enable is a plain GPIO output at 3.3 V:
+GP28 and GP29 are on J4 only. SETTINGS does not offer them for the ESC wires:
+those are GP0 and GP1, UART0's pins, which are fault tolerant. The firmware's
+console is not on UART0 (`pico_enable_stdio_uart(MiniRcBench 0)`; USB serial is
+`usb_dev.cpp`); only the S.BUS jobs use UART0, the monitor its receiver on GP1
+([rx-signals.md](rx-signals.md)) and the output its transmitter on GP0
+([sbus-output.md](sbus-output.md)). The enable is a plain GPIO output at 3.3 V:
 it switches the converter on or off and is never a PWM channel.
 
 **Off state.** The external pull-down holds EN low whenever nothing drives
@@ -665,8 +667,9 @@ its slice C.
 - Version: the row adds the `servoSupply` field to the settings block, at
   version 3. The layout is version 4, with the signal pins on GP0 and GP1
   and the enable on GP28 or GP29; version 5 adds CURRENT SENSE in its
-  padding, and a block of versions 2 to 4 carries over (README.md, "Using
-  it"). `OWN` is the stored value 0, unchanged.
+  padding, version 6 the angle meter's fields, and a block of versions 2
+  to 5 carries over into version 6 (README.md, "Using it"). `OWN` is the
+  stored value 0, unchanged.
 - Validation: `settingsValidate()` sets any value above 2
   (`SERVO_SUPPLY_MODE_MAX`) to 0.
 - Fit: the label, 71 px at scale 1, ends at x 78; the value, at most four
@@ -750,7 +753,11 @@ unanswered. `test_kst_seek.cpp` and `test_kst_job.cpp` run against it:
   KST claim;
 - the supply off at every claim end, and off after BACK during an off phase;
 - settings: the version 4 layout, the `servoSupply` clamp at 2, a version 3
-  block discarded whole;
+  block discarded whole; revised by
+  [current-sense.md](current-sense.md#decisions) decision 14, which carries
+  blocks of versions 2 to 4 over into version 5, and by the angle meter's
+  [slice 4](angle-meter.md#slice-4-as-built), which carries versions 2 to 5
+  over into version 6: `runSettingsTests` checks both;
 - the mode to pin map, and a change from GP28 to GP29 that switches only
   GP29;
 - SETTINGS, by control id: `SERVO SUPPLY` scrolled into view, stepped
@@ -1554,7 +1561,10 @@ so these run against the same simulated servo:
    - `test_settings.cpp`: `testDshotDisplayLayout` becomes the layout test,
      version 4 with the enable on GP28 or GP29, and a DshotDisplay 2.x block
      and a version 3 block are each discarded whole and load the compiled
-     defaults.
+     defaults. Revised by [current-sense.md](current-sense.md#decisions)
+     decision 14, versions 2 to 4 carried over into version 5, and by the
+     angle meter's [slice 4](angle-meter.md#slice-4-as-built), versions 2
+     to 5 carried over into version 6.
    - The SERVO SUPPLY section: one `SettingsRow` in KST's header, named by
      KST's line in `ui_registry.cpp` ([SETTINGS row](#settings-row));
      `test_ui.cpp`: the row by control id. The scrolling list, its asserts
@@ -1635,7 +1645,8 @@ Decisions of the owner, 2026-10-18, on the switched supply. Decision 8 is
 the owner's revision of the same day, after review round 1 of PR #6, and
 decisions 11 and 12 come from that revision:
 
-7. **Enable pin.** GP0, J5 pin 2.
+7. **Enable pin.** GP0, J5 pin 2. Revised by the pin plan of 2026-10-29
+   below: GP28, J4 pin 11, or GP29, J4 pin 12.
 8. **Configuration.** A SETUP row, `SERVO SUPPLY`, with two values: `NONE`, the
    default, for no switch fitted, and `GP0`, an active-high enable on GP0.
    There is no active-low form, and GP1 is not offered. An external pull-down
@@ -1646,7 +1657,14 @@ decisions 11 and 12 come from that revision:
    of another version is discarded whole (`settingsLoad()`), so the first boot
    after the update starts from the compiled defaults once, every setting and
    the ESC pin included. A block DshotDisplay saved does not load, and
-   DshotDisplay discards a version 3 block.
+   DshotDisplay discards a version 3 block. Revised by the revisions of
+   2026-10-29 and 2026-11-14 below (the values `OWN`, `GP28` and `GP29`, and
+   a SETTINGS section, SERVO SUPPLY, in place of the SETUP row), by
+   [current-sense.md](current-sense.md#decisions) decision 14, which
+   carries blocks of versions 2 to 4, DshotDisplay's version 2 among them,
+   over into version 5, and by the angle meter's
+   [slice 4](angle-meter.md#slice-4-as-built), which carries versions 2 to
+   5 over into version 6.
 9. **Timing.** rcbench's values: 2000 ms off before each search attempt and
    for REBOOT, 1000 ms start for REBOOT, and the entry directly after the
    switch-on in the search, `KST_SUPPLY_ENTRY_DELAY_MS` 0 ms, until

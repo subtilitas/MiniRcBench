@@ -17,9 +17,10 @@ Enforces what actually goes wrong, and nothing else:
   7. a @ref is not immediately followed by a colon -- Doxygen's reference
      grammar includes ':' so that Class::member resolves, so "@ref foo.h: and
      then some prose" is read as a reference to "foo.h:" and does not
-  8. every relative link in the running record (STATUS.md, CHANGELOG.md) and
-     the design notes (docs/design/*.md) names a file that exists, and an
-     anchor into a Markdown file names a heading that exists
+  8. every relative link in the running record (STATUS.md, CHANGELOG.md),
+     the bench plan (docs/*.md) and the design notes (docs/design/*.md)
+     names a file that exists, and an anchor into a Markdown file names a
+     heading that exists
   9. README.md and the wiki pages, which describe the screens as built, name
      no screen text, view or MENU path that menu structure B and the
      decisions that revise it removed (docs/design/menu-b.md,
@@ -66,7 +67,7 @@ os.chdir(ROOT)
 HEADERS = sorted(glob.glob("src/*.h"))
 SOURCES = sorted(glob.glob("src/*.cpp") + glob.glob("*.ino") + HEADERS)
 LINKED_DOCS = sorted(glob.glob("STATUS.md") + glob.glob("CHANGELOG.md") +
-                     glob.glob("docs/design/*.md"))
+                     glob.glob("docs/*.md") + glob.glob("docs/design/*.md"))
 MANUAL_DOCS = sorted(glob.glob("README.md") + glob.glob("wiki/*.md"))
 
 # Rule 10: the licence of the hardware models, CAD files and drawings.
@@ -470,7 +471,8 @@ def main():
             if not before.endswith("*/"):
                 problems.append(f"{path}: {m.group(2)}() has no doc comment")
 
-    # --- 8. relative links in the running record and design notes ---
+    # --- 8. relative links in the running record, the bench plan and the
+    #        design notes ---
     for path in LINKED_DOCS:
         problems.extend(check_links(path))
 

@@ -198,7 +198,12 @@ MENU as built, revision lines in the design notes, README's Layout, Tests
 and user manual, and rule 9 of `test/check_docs.py`, which fails when
 README.md or a wiki page names a screen text, view or image structure B
 removed. The owner answered the note's eight questions on 2026-11-14 (open
-item 18). The pin
+item 18). The slices name the AM32 screen AM32 CONFIG; it is ESC SETTINGS,
+under MENU's ESC CONFIG with USB BRIDGE
+([bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#decisions) decision
+1). MENU has eight rows (`UI_MENU` in `src/ui_registry.cpp`): ESC COMMANDS,
+ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, TOOLS, SD LOG and
+SETTINGS. The pin
 claim both features share is built (slice 1): the AM32 editor and the servo
 tester run on it. For the ESC, the board is the throttle source. It sends
 bidirectional DShot (a digital ESC protocol in which the ESC answers each
@@ -501,22 +506,19 @@ ports the first branch's frame slot and ring.
 
 ## Next steps
 
-State on 2026-11-14: one pull request is open as a draft, #49, the
-touch-loss stop of item 23; all seven CI jobs pass on `main` at 22c1e4b
-(#51). The owner answered the questions of items 18 to 21 and 24 on
-2026-11-14. Eight of the decisions are built: the settings carried over
-from versions 2 to 4 (item 19), the log numbering (item 20), the write
-refusal on a red BOARD voltage (item 21), and all five of item 24: the
-tester's 3D note, HITEC SERVO's claim at opening, the servo tester's hold
-past the travel, SETTINGS' 1 s defaults hold and AM32 CONFIG's read-only
-view. The rest
-waits on building where it changes anything, and items 22 and 23 wait on
-the bench. Still open to the owner:
-the converter module's name (item 19) and the second contact once it is
-measured (item 21). The order
-of work the owner decided: the eight small decisions of items 20, 21 and 24
-first, then menu structure B.
-The bench parts, in the order they depend on each other:
+State on 2026-11-14: one pull request is open as a draft, #49, the touch-loss
+stop of item 23; all seven CI jobs pass on `main` at 22c1e4b (#51). The owner
+answered the questions of items 18 to 21 and 24 on 2026-11-14. Eight of the
+decisions are built: the settings carried over from older versions, 2 to 5 into
+version 6 (item 19), the log numbering (item 20), the write refusal on a
+red BOARD voltage (item 21), and all five of item 24: the tester's 3D note,
+HITEC SERVO's claim at opening, the servo tester's hold past the travel,
+SETTINGS' 1 s defaults hold and ESC SETTINGS' read-only AM32 view. The rest
+waits on building where it changes anything, and items 22 and 23 wait on the
+bench. Still open to the owner: the converter module's name (item 19) and the
+second contact once it is measured (item 21). The order of work the owner
+decided: the eight small decisions of items 20, 21 and 24 first, then menu
+structure B. The bench parts, in the order they depend on each other:
 
 1. The pins of item 15: DShot on GP0, KISS on GP1, the backlight, EN on
    GP28 or GP29 with the converter fitted.
@@ -543,6 +545,10 @@ the tag. Menu structure B is built in its 10 slices, host tests only; it has
 not run on hardware (item 18).
 
 ## Open items
+
+[docs/bench-plan.md](docs/bench-plan.md) orders the bench tests of these
+items and of the design notes into sessions, with their setups and pass
+criteria; none has run.
 
 1. **[Issue #1](https://github.com/subtilitas/DshotDisplay/issues/1),
    "Initialisation fails on some BL_Heli32 ESC".** Opened
@@ -648,7 +654,7 @@ not run on hardware (item 18).
     to the root do, up to 135.0 s with 1000 of them. Those figures count the
     phases without the write cache of
     [sd-write-cache.md](docs/design/sd-write-cache.md), which runs during the
-    KST SERVO and AM32 CONFIG claims with a card mounted: the writes no
+    KST SERVO and ESC SETTINGS (AM32) claims with a card mounted: the writes no
     longer block core0, the reads still do. The phases with the cache are not
     counted. A phase past the cap switches the supply off and loses the
     backup in memory; whether a card reaches it is not measured.
@@ -679,15 +685,15 @@ not run on hardware (item 18).
     rcbench's Hitec session or panel has run on a servo, so step 6, the
     bring-up, runs one write with read-back per family before a write is
     relied on (design note, "Work breakdown", step 6).
-15. **Signal pins GP0 and GP1 and the enable on GP28 or GP29 on hardware.**
-    No hardware report above is recorded on these pins. Not tested on
-    hardware: DShot, the AM32 editor, KST and Hitec on GP0; KISS and servo B
-    on GP1; the servo pulses on PWM slice 0; the converter's enable input
-    (EN) driven from GP28 or GP29; the first boot over a version 3 settings
-    block; the backlight on pio0 at 20 kHz. Bench tests needed: an ESC on GP0
-    with **LINK** above 0/S, a KISS frame on GP1, both servo channels on a
-    scope, EN high and low at each pin with the converter's output
-    following, the backlight at BACKLIGHT 16 and 255 on GP16.
+15. **Signal pins GP0 and GP1 and the enable on GP28 or GP29 on hardware.** No
+    hardware report above is recorded on these pins. Not tested on hardware:
+    DShot, the AM32 editor, KST and Hitec on GP0; KISS and servo B on GP1; the
+    servo pulses on PWM slice 0; the converter's enable input (EN) driven from
+    GP28 or GP29; the first boot over an older settings block, versions 2 to 5
+    carried over into version 6 (item 19); the backlight on pio0 at 20 kHz.
+    Bench tests needed: an ESC on GP0 with **LINK** above 0/S, a KISS frame on
+    GP1, both servo channels on a scope, EN high and low at each pin with the
+    converter's output following, the backlight at BACKLIGHT 16 and 255 on GP16.
 16. **Current sensor on hardware.** Slice 1 of
     [current-sense.md](docs/design/current-sense.md) is built and runs in
     the host suite only, slice 2 draws the sensor and the boost
@@ -695,8 +701,8 @@ not run on hardware (item 18).
     switching the supply, the cuts on the sensor's readings and the move
     timing, run in the host suite only: no INA219 has been on the
     board's bus, no boost converter on GP28 or GP29, and the
-    first boot over a version 4 settings block, which carries over, is not
-    tested on hardware.
+    first boot over an older settings block, versions 2 to 5 carried over
+    into version 6 (item 19), is not tested on hardware.
     The datasheet facts the design marks "to confirm" are not checked
     against SBOS448G. Bench tests needed (design note, "Bench tests"):
     - B1: the board's pull-ups on SDA and SCL, the rise time at 400 kHz with
@@ -704,7 +710,8 @@ not run on hardware (item 18).
     - B2: the INA219 found at 0x40 beside the touch controller, one frame's
       I2C traffic on a scope, touch with and without the module;
     - B3: touch with J3 empty, with the module's VCC lead open, with SDA held
-      low through 100 Ω during a run, and IN- leakage with VS at 0 V;
+      low through 100 Ω during a run, and IN- leakage with VS at 0 V and
+      5 V on IN+;
     - B4 and B5: current against a reference meter at 0 A to 3 A and the
       code at 3.5 A; bus voltage against a multimeter at 5 V, idle and at
       2 A;
@@ -713,22 +720,22 @@ not run on hardware (item 18).
       its switch-off at STOP, a trip and BACK, its current limit, the
       owner's servos, the cuts, move timing, the heartbeat with the supply
       on, a 60 s log, the voltage at the servo at a stall.
-17. **Restart reason on hardware.** LAST RESTART has not run on a chip.
-    Bench tests needed, reading the row after each: power applied from off
+17. **Restart reason on hardware.** LAST RESTART has not run on a chip. Bench
+    tests needed, reading the row after each: power applied from off
     (`POWER-ON`), the RUN pin pulled low (`RUN PIN`), a supply dip below the
-    brown-out level (`BROWN-OUT`), a debugger's reset, a UF2 copy
-    (`UPDATE`, per the boot ROM source), `picotool reboot` (`REBOOT`), and
-    a UF2 copy, then a glitch reset. Not known: whether a watchdog reset
-    through the power-on state machine changes CHIP_RESET, whether the chip
-    clears older CHIP_RESET flags when it records a new one, and whether a
-    reset that leaves the watchdog block alone (GLITCH, possibly
-    HZD_SYS_RESET_REQ) clears the watchdog's REASON register; if it does
-    not, that glitch reset reads `UPDATE` or `REBOOT`, not `GLITCH`, and a
-    HZD_SYS_RESET_REQ reset reads them, not `DEBUGGER`. No watchdog is
-    armed. A persistent fault log is not built: the owner decided on
-    2026-11-14 not to build one now and to revisit it after the board has
-    run on the bench, with the questions listed in
-    [diagnostics.md](docs/design/diagnostics.md).
+    brown-out level (`BROWN-OUT`), a debugger's reset (`DEBUGGER`), a UF2 copy
+    (`UPDATE`, per the boot ROM source), `picotool reboot` (`REBOOT`), a
+    power-on, then a glitch or a debugger reset (whether CHIP_RESET then holds
+    one flag or two), and a UF2 copy, then a glitch reset. Not known: whether a
+    watchdog reset through the power-on state machine changes CHIP_RESET,
+    whether the chip clears older CHIP_RESET flags when it records a new one,
+    and whether a reset that leaves the watchdog block alone (GLITCH, possibly
+    HZD_SYS_RESET_REQ) clears the watchdog's REASON register; if it does not,
+    that glitch reset reads `UPDATE` or `REBOOT`, not `GLITCH`, and a
+    HZD_SYS_RESET_REQ reset reads them, not `DEBUGGER`. No watchdog is armed. A
+    persistent fault log is not built: the owner decided on 2026-11-14 not to
+    build one now and to revisit it after the board has run on the bench, with
+    the questions listed in [diagnostics.md](docs/design/diagnostics.md).
 
 18. **Menu structure B is built, host tests only; not on hardware.**
     Slices 1 to 10 of
