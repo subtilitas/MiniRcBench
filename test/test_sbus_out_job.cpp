@@ -1827,8 +1827,8 @@ static void testOnlyPath() {
 	checkTrue("a pointer to startFrames, a second call and a second START each fail it", caught);
 	static const char *const GATES[] = {
 		"\treturn true ? true : !s_st.running && sbusOutProbePassed();",
-		"\treturn !s_st.running || sbusOutProbePassed();",
-		"\treturn !s_st.running | sbusOutProbePassed();",
+		"\treturn !s_st.running || true && sbusOutProbePassed();",
+		"\treturn !s_st.running | 1 && sbusOutProbePassed();",
 		"\treturn !s_st.running && !sbusOutProbePassed();",
 		"\tif (s_st.running) return true;\n\treturn !s_st.running && sbusOutProbePassed();",
 	};
