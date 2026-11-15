@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "esc_task.h"
 #include "usb_msc.h"
 #include "hardware/clocks.h"
 
@@ -229,8 +230,27 @@ void fakeAdcSet(uint16_t raw);
 /** @brief The fake ADC's reading at start, about 3.92 V. */
 uint16_t fakeAdcDefault();
 
-/** @brief How many times the UI has asked for a beep. */
+/**
+ * @brief How many command requests escRequestCommand() took, the UI's beeps
+ *        among them.
+ */
 int fakeBeepRequests();
+
+/**
+ * @brief The last command escRequestCommand() took.
+ * @param[out] save Its save flag; may be null.
+ * @return The command; 0 before the first.
+ */
+uint8_t fakeLastCommand(bool *save);
+
+/** @brief How many times escCancelCommand() was called. */
+int fakeCommandCancels();
+
+/**
+ * @brief Set what escCommandReady() reports, core1's readiness in the fake.
+ *        EscCmdReady::Ready by default.
+ */
+void fakeSetCmdReady(EscCmdReady r);
 
 /**
  * @brief Count framebuffer pixels of an exact colour.

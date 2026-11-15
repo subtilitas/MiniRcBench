@@ -78,8 +78,9 @@ static void beepAction() {
 }
 
 static void beepStatus(char *buf, size_t n, uint16_t *col, uint16_t *fill) {
-	// The refusal is unreachable through MENU, which disarms on open; the
-	// flash stays as the backstop. @see escRequestBeep()
+	// REFUSED while no ESC answers, while the motor turns and for 1500 ms
+	// after an ESC starts answering; armed only as a backstop, since MENU
+	// disarms on open. @see escRequestBeep(), escCmdAccept()
 	if (beepFlashing()) {
 		snprintf(buf, n, "%s", s_beepOk ? "SENT" : "REFUSED");
 		*col = C_PAPER;
