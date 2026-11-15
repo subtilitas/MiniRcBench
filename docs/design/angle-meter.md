@@ -1167,7 +1167,19 @@ settings block is version 6 by decision 4 (`src/settings.*`). Host tests in
 - **No accuracy on the screen.** The texts state no accuracy; the wiki says
   that none is measured.
 
-MUTSUMMARY
+Mutation check: 99 mutants of `src/ui_angle.cpp`, `src/ui_tools.cpp`, the
+angle fields' code in `src/settings.cpp` and the TOOLS row of
+`src/ui_registry.cpp`, each built and run against the host suite. 88 failed
+it at first. Of the 11 left, 7 fail it since tests were added that load the
+setup and the calibration on a later visit, change LENGTH alone, tilt the
+axis the other way, name the short edge on the strip and check the cell left
+of a right-aligned text. Two were lines that changed nothing, a repaint flag
+in the region test that a new view's cleared keys already cover and a touch
+dropped on a view's first frame, which draws no press after a lift; both are
+removed. Two survive. The armed check before the meter's save is unreachable:
+MENU disarms before the meter opens, and the check stays as SETTINGS keeps
+its own. `--- MM` written for the travel without a reading is equivalent:
+`angleTenthsText()` gives `---` for the NaN the model then reports.
 
 Not verified on the board: everything the driver and the model leave open
 (B1 to B7), the screen on the panel, a band across the glass as a touch

@@ -72,7 +72,7 @@ static_assert(BTN_W >= UI_LIST_TAP_MIN && UI_FOOT_H >= UI_LIST_TAP_MIN, "a foote
 static_assert(UI_MARGIN + textW(LEN(UI_ANGLE_TITLE), 2) + 4 <= UI_BACK_X, "the title runs into BACK");
 static_assert(UI_MARGIN + textW(LEN(UI_ANGLE_SETUP_TITLE), 2) + 4 <= UI_BACK_X, "SETUP's title runs into BACK");
 static_assert(UI_MARGIN + textW(LEN(UI_ANGLE_FLIP_TITLE), 2) + 4 <= UI_BACK_X, "FLIP CAL's title runs into BACK");
-/** @brief The strip's widest caption: `SHORT EDGE  AXIS TILT 90``, 25 characters, 149 px. */
+/** @brief The strip's widest caption: `SHORT EDGE  AXIS TILT 90°`, 25 characters, 149 px. */
 #define STRIP_WIDEST "SHORT EDGE  AXIS TILT 90`"
 /** @brief The widest chip, `TOO STEEP`: 53 px of text and 6 px each side, from x 167. */
 #define CHIP_WIDEST  "TOO STEEP"
@@ -294,7 +294,7 @@ static bool imuMissing() {
 	return st == ImuState::Absent || st == ImuState::WrongId || st == ImuState::Offline;
 }
 
-/** @brief `+12.4`` from @p v, or `---`. */
+/** @brief `+12.4°` from @p v, or `---`. */
 static void degText(char *b, size_t n, bool has, float v) {
 	if (!has) { snprintf(b, n, "---"); return; }
 	char t[16];
