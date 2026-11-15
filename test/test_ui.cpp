@@ -31,6 +31,7 @@
 #include "touch.h"
 #include "esc_task.h"
 #include "esc_merge.h"
+#include "kv_est.h"
 #include "config.h"
 #include "kiss_telem.h"
 #include "sd_log.h"
@@ -4689,8 +4690,11 @@ static void testTesterReadouts() {
 	// --- armed: inert, no underline ---
 	holdToArm();
 	checkTrue("armed", uiArmed() && fakeArmed());
-	checkTrue("armed: 14 POLES and MAX 20% stay, without the underline",
-	          fakeTextIs(10, 114, "14 POLES", C_TEXT, C_BG, 1) && noTextOn(122, 4, 75) &&
+	// The kV estimate takes the pole count's place while armed
+	// (docs/design/esc-commands.md, decision 6); the arm hold outlasted the
+	// telemetry, so it has no figure. @see testTesterKvEst()
+	checkTrue("armed: KV EST -- in place of 14 POLES, MAX 20% stays, no underline",
+	          fakeTextIs(10, 114, "KV EST --", C_TEXT, C_BG, 1) && noTextOn(122, 4, 75) &&
 	          fakeTextIs(88, 236, "MAX 20%", C_TEXT, C_BG, 1) && noTextOn(244, 82, 141));
 	checkTrue("armed: neither acts",
 	          !ctlEnabled(UI_FIX(TesterCtl::Poles)) && !ctlEnabled(UI_FIX(TesterCtl::Max)));
@@ -7136,6 +7140,317 @@ static void testAm32Guidance() {
 	frames(2);
 }
 
+/**
+ * @brief Telemetry for the kV estimate, stamped now: eRPM, EDT voltage and,
+ *        with @p kissVolts above 0, a KISS voltage that outranks it.
+ */
+static void feedKvTelemetry(uint32_t erpm, float edtVolts, float kissVolts = 0.0f,
+                            bool voltsFresh = true) {
+	EscTelemetry tel;
+	memset(&tel, 0, sizeof(tel));
+	tel.erpm = erpm;
+	tel.lastRpmMs = millis();
+	tel.packetRate = 998;
+	tel.volts = edtVolts;
+	if (voltsFresh) tel.edtVoltsMs = millis();
+	if (kissVolts > 0.0f) {
+		tel.haveKiss = true;
+		tel.kissVolts = kissVolts;
+		tel.kissAmps = 1.3f;              // a motor with no propeller
+		tel.kissTempC = 31;
+		tel.kissLastMs = voltsFresh ? millis() : millis() - KISS_STALE_MS - 1;
+	}
+	fakeSetTelemetry(&tel);
+}
+
+/** @brief @p n UI frames with the same telemetry stamped before each. */
+static void kvFrames(int n, uint32_t erpm, float edtVolts, float kissVolts = 0.0f) {
+	for (int i = 0; i < n; i++) { feedKvTelemetry(erpm, edtVolts, kissVolts); frames(1); }
+}
+
+/** @brief @p text at (x, y) in @p col and nothing in the 3 characters after it. */
+static bool textAlone(int x, int y, const char *text, uint16_t col) {
+	if (!fakeTextIs(x, y, text, col, C_BG, 1)) return false;
+	const int x0 = x + gfxTextW(text, 1) + 1;
+	for (int j = 0; j < 7; j++)
+		if (!rowIs(y + j, x0, x0 + 17, C_BG)) return false;
+	return true;
+}
+
+/**
+ * @brief Press the throttle track at @p pct of its usable span and hold it
+ *        until the throttle stops moving. Telemetry is fed on every frame.
+ * @return The throttle held. One frame has passed since it last changed.
+ */
+static uint16_t kvHoldTrack(int pct, uint32_t erpm, float edtVolts, float kissVolts = 0.0f) {
+	const UiRect thr = ctlRect(UI_FIX(TesterCtl::Throttle));
+	const int ty = thr.y + thr.h / 2;
+	const int tx = thr.x + THR_EDGE_SAT_T + ((thr.w - 2 * THR_EDGE_SAT_T) * pct / 100);
+	fakePress(tx, ty);
+	kvFrames(1, erpm, edtVolts, kissVolts);
+	uint16_t was = uiThrottle();
+	for (int i = 0; i < 10; i++) {
+		fakeHold(tx, ty);
+		kvFrames(1, erpm, edtVolts, kissVolts);
+		if (uiThrottle() == was) break;
+		was = uiThrottle();
+	}
+	return was;
+}
+
+/**
+ * @brief RPM/V and the kV estimate on the tester, slice 3 of
+ *        docs/design/esc-commands.md (decisions 6 and 7).
+ *
+ * `RPM/V` rides on the ERPM line and `KV EST` takes the pole count's place
+ * while armed; disarmed, the tester is as before. The estimate shows from
+ * 75 % throttle, 1000 ms after the throttle last moved, with a fresh voltage
+ * above 0.5 V, and not with the 3D note. The rules at each boundary are
+ * kv_est.h's, tested in test_kv_est.cpp; this is the wiring and the fit.
+ */
+static void testTesterKvEst() {
+	section("Tester: RPM/V and the kV estimate (esc-commands slice 3)");
+
+	fakeFlashClear();
+	settingsLoad();
+	settings()->maxThrottle = 2000;          // MAX 100%: the estimate needs 75 %
+	esc3dSetNote(false);                     // an earlier case left it standing
+	uiInit();
+	// 14 poles: 156,800 eRPM is 22,400 RPM, a 1,750 kV motor's ideal speed
+	// at 16.0 V and 80 % duty.
+	const uint32_t erpm = 156800, rpm = erpm / 7;
+	kvFrames(4, erpm, 15.75f);
+
+	// --- disarmed: the tester as before ---
+	checkTrue("disarmed: ERPM 156800 alone on its line, no RPM/V",
+	          textAlone(10, 102, "ERPM 156800", C_DIM));
+	checkTrue("disarmed: 14 POLES, underlined", testerPolesShown());
+
+	// --- armed at 0 %: RPM/V, and the estimate asks for 75 % ---
+	holdToArm();
+	kvFrames(2, erpm, 15.75f);
+	char want[40];
+	snprintf(want, sizeof(want), "ERPM 156800  RPM/V %u", (unsigned)kvEstRpmPerVolt(rpm, 1575));
+	checkTrue("armed: ERPM 156800  RPM/V 1422, EDT's 15.75 V", fakeArmed() &&
+	          textAlone(10, 102, want, C_DIM));
+	checkTrue("RPM/V is 22400 / 15.75 rounded: 1422", kvEstRpmPerVolt(rpm, 1575) == 1422);
+	checkTrue("KV EST 75%+ in place of 14 POLES, the text colour",
+	          textAlone(10, 114, "KV EST 75%+", C_TEXT) && !testerPolesShown());
+	checkTrue("no underline under it", noTextOn(122, 4, 75));
+	checkTrue("SWIPE = THROTTLE stays",
+	          fakeTextIs(226 - gfxTextW("SWIPE = THROTTLE", 1), 114, "SWIPE = THROTTLE",
+	                     C_TEXT, C_BG, 1));
+
+	// --- 50 %: still below the minimum ---
+	uint16_t t = kvHoldTrack(50, erpm, 15.75f);
+	checkTrue("50 %: KV EST 75%+", t < KV_EST_MIN_THROTTLE && t > 0 &&
+	          textAlone(10, 114, "KV EST 75%+", C_TEXT));
+	kvFrames(45, erpm, 15.75f);
+	checkTrue("held 50 % for over 1 s: still KV EST 75%+",
+	          uiThrottle() == t && textAlone(10, 114, "KV EST 75%+", C_TEXT));
+	// A new voltage below 75 %: RPM/V follows it, the estimate still asks.
+	// 16.05 V is 1604.9998 hundredths in a float: the tile's rounding, not
+	// a truncation, gives 1605.
+	kvFrames(2, erpm, 15.75f, 16.05f);
+	snprintf(want, sizeof(want), "ERPM 156800  RPM/V %u", (unsigned)kvEstRpmPerVolt(rpm, 1605));
+	checkTrue("KISS's 16.05 V at 50 %: ERPM 156800  RPM/V 1396, rounded from 16.05",
+	          textAlone(10, 102, want, C_DIM) && kvEstRpmPerVolt(rpm, 1605) == 1396 &&
+	          kvEstRpmPerVolt(rpm, 1604) != 1396 && textAlone(10, 114, "KV EST 75%+", C_TEXT));
+	fakeRelease(); kvFrames(2, erpm, 15.75f, 16.0f);
+
+	// --- 80 %: no figure until the throttle has stood 1000 ms ---
+	t = kvHoldTrack(80, erpm, 15.75f, 16.0f);
+	checkTrue("80 % held", t >= KV_EST_MIN_THROTTLE && t <= 2000);
+	checkTrue("the throttle just moved: KV EST --", textAlone(10, 114, "KV EST --", C_TEXT));
+	kvFrames(38, erpm, 15.75f, 16.0f);   // 39 frames, 975 ms since it moved
+	checkTrue("975 ms after it moved: KV EST --",
+	          uiThrottle() == t && textAlone(10, 114, "KV EST --", C_TEXT));
+	kvFrames(1, erpm, 15.75f, 16.0f);    // 1000 ms
+	const uint32_t kv = kvEstKv(rpm, 1600, t);
+	char kvText[16];
+	snprintf(kvText, sizeof(kvText), "KV EST %u", (unsigned)kv);
+	checkTrue("1000 ms after it moved: the figure, from KISS's 16.00 V",
+	          uiThrottle() == t && textAlone(10, 114, kvText, C_TEXT));
+	checkTrue("  about 1,750 kV, the motor's ideal speed at 80 %",
+	          kv >= 1700 && kv <= 1800);
+	snprintf(want, sizeof(want), "ERPM 156800  RPM/V %u", (unsigned)kvEstRpmPerVolt(rpm, 1600));
+	checkTrue("ERPM 156800  RPM/V 1400 from KISS", textAlone(10, 102, want, C_DIM) &&
+	          kvEstRpmPerVolt(rpm, 1600) == 1400);
+	fakeDumpFrame("shot_tester_kv.ppm");
+
+	// The figures follow the readout's filtered eRPM, not the last reply:
+	// a step to 163,800 moves the filter 1/8 of the way on the next frame.
+	kvFrames(1, 163800, 15.75f, 16.0f);
+	{
+		const uint32_t shown = 156800 + ((163800 - 156800) >> RPM_FILTER_SHIFT);
+		snprintf(want, sizeof(want), "ERPM %u  RPM/V %u", (unsigned)shown,
+		         (unsigned)kvEstRpmPerVolt(shown / 7, 1600));
+		checkTrue("a step in eRPM: RPM/V from the filtered 157675, 1408",
+		          textAlone(10, 102, want, C_DIM) && kvEstRpmPerVolt(shown / 7, 1600) == 1408);
+		checkTrue("  the filter 3.7 % off the reply: KV EST --",
+		          textAlone(10, 114, "KV EST --", C_TEXT));
+	}
+	kvFrames(80, 163800, 15.75f, 16.0f);   // past the snap: the reply exactly
+	{
+		char k2[16];
+		snprintf(k2, sizeof(k2), "KV EST %u", (unsigned)kvEstKv(163800 / 7, 1600, t));
+		checkTrue("the filter caught up with 163,800: the figure again",
+		          textAlone(10, 114, k2, C_TEXT));
+	}
+	kvFrames(80, erpm, 15.75f, 16.0f);
+
+	// A voltage step that moves the estimate and leaves RPM/V as it was:
+	// the estimate is redrawn on its own change.
+	{
+		uint32_t v1 = 0;
+		for (uint32_t v = 1601; v < 1700 && !v1; v++)
+			if (kvEstRpmPerVolt(rpm, v) == kvEstRpmPerVolt(rpm, v + 1) &&
+			    kvEstKv(rpm, v, t) != kvEstKv(rpm, v + 1, t)) v1 = v;
+		checkTrue("a voltage pair with RPM/V alike and the estimate apart", v1 != 0);
+		kvFrames(2, erpm, 15.75f, (float)v1 / 100.0f);
+		char a1[16], a2[16];
+		snprintf(a1, sizeof(a1), "KV EST %u", (unsigned)kvEstKv(rpm, v1, t));
+		snprintf(a2, sizeof(a2), "KV EST %u", (unsigned)kvEstKv(rpm, v1 + 1, t));
+		const bool first = textAlone(10, 114, a1, C_TEXT);
+		kvFrames(2, erpm, 15.75f, (float)(v1 + 1) / 100.0f);
+		checkTrue("  the estimate follows a step of 0.01 V that RPM/V does not",
+		          first && textAlone(10, 114, a2, C_TEXT));
+		kvFrames(2, erpm, 15.75f, 16.0f);
+	}
+
+	// --- a finger resting on the bar: jitter of a pixel each frame ---
+	{
+		fakeRelease(); kvFrames(2, erpm, 15.75f, 16.0f);
+		const uint16_t t85 = kvHoldTrack(85, erpm, 15.75f, 16.0f);
+		const UiRect thr = ctlRect(UI_FIX(TesterCtl::Throttle));
+		const int ty = thr.y + thr.h / 2;
+		const int tx = thr.x + THR_EDGE_SAT_T + ((thr.w - 2 * THR_EDGE_SAT_T) * 85 / 100);
+		int lo = t85, hi = t85;
+		bool early = false;
+		for (int i = 0; i < 38; i++) {
+			fakeHold(tx + (i % 2 ? 0 : 1), ty);
+			kvFrames(1, erpm, 15.75f, 16.0f);
+			lo = uiThrottle() < lo ? uiThrottle() : lo;
+			hi = uiThrottle() > hi ? uiThrottle() : hi;
+			early = early || !textAlone(10, 114, "KV EST --", C_TEXT);
+		}
+		checkTrue("85 %, a pixel of jitter a frame: the throttle moves 1 to 20",
+		          hi - lo >= 1 && hi - lo <= KV_EST_SETTLE_BAND);
+		checkTrue("  KV EST -- for 975 ms", !early);
+		fakeHold(tx + 1, ty);
+		kvFrames(1, erpm, 15.75f, 16.0f);
+		char kj[16];
+		snprintf(kj, sizeof(kj), "KV EST %u", (unsigned)kvEstKv(rpm, 1600, uiThrottle()));
+		checkTrue("  the figure at 1000 ms, the jitter notwithstanding",
+		          textAlone(10, 114, kj, C_TEXT));
+		fakeRelease(); kvFrames(2, erpm, 15.75f, 16.0f);
+		t = kvHoldTrack(80, erpm, 15.75f, 16.0f);
+		kvFrames(41, erpm, 15.75f, 16.0f);
+		checkTrue("back at 80 %, settled: the figure", t == uiThrottle() &&
+		          textAlone(10, 114, kvText, C_TEXT));
+	}
+
+	// --- the voltage goes stale: no figure in either field ---
+	for (int i = 0; i < 2; i++) {
+		EscTelemetry tel;
+		memset(&tel, 0, sizeof(tel));
+		tel.erpm = erpm; tel.lastRpmMs = millis(); tel.packetRate = 998;
+		fakeSetTelemetry(&tel);
+		frames(1);
+	}
+	checkTrue("no voltage: ERPM 156800  RPM/V --", textAlone(10, 102, "ERPM 156800  RPM/V --", C_DIM));
+	checkTrue("no voltage: KV EST --", textAlone(10, 114, "KV EST --", C_TEXT));
+	kvFrames(1, erpm, 15.75f, 16.0f);
+	checkTrue("the voltage back on a settled throttle: the figure again",
+	          textAlone(10, 114, kvText, C_TEXT));
+
+	// --- the eRPM link goes stale: NO TELEMETRY, KV EST -- ---
+	{
+		EscTelemetry tel;
+		memset(&tel, 0, sizeof(tel));
+		tel.kissVolts = 16.0f; tel.haveKiss = true;
+		fakeSetTelemetry(&tel);
+		for (int i = 0; i < 4; i++) {
+			tel.kissLastMs = millis();
+			fakeSetTelemetry(&tel);
+			frames(1);
+		}
+	}
+	checkTrue("no eRPM answer: NO TELEMETRY, KV EST --",
+	          textAlone(10, 102, "NO TELEMETRY", C_AMBER) && textAlone(10, 114, "KV EST --", C_TEXT));
+	kvFrames(1, erpm, 15.75f, 16.0f);
+	checkTrue("the link back: the figure", textAlone(10, 114, kvText, C_TEXT));
+
+	// --- the disarm: nothing is held ---
+	fakeRelease();
+	tapId(UI_FIX(TesterCtl::Arm));                     // DISARM
+	kvFrames(2, erpm, 15.75f, 16.0f);
+	checkTrue("disarmed: ERPM alone, 14 POLES underlined, no figure",
+	          !fakeArmed() && textAlone(10, 102, "ERPM 156800", C_DIM) && testerPolesShown() &&
+	          underlined(10, 122, "14 POLES"));
+	holdToArm();
+	kvFrames(2, erpm, 15.75f, 16.0f);
+	checkTrue("armed again at 0 %: KV EST 75%+, not the old figure",
+	          fakeArmed() && textAlone(10, 114, "KV EST 75%+", C_TEXT));
+
+	// --- the 3D note: it takes the row; RPM/V stays on the ERPM line ---
+	tapId(UI_FIX(TesterCtl::Arm));                     // DISARM
+	esc3dSetNote(true);
+	uiInit();
+	kvFrames(2, erpm, 15.75f, 16.0f);
+	holdToArm();
+	t = kvHoldTrack(80, erpm, 15.75f, 16.0f);
+	kvFrames(45, erpm, 15.75f, 16.0f);
+	snprintf(want, sizeof(want), "ERPM 156800  RPM/V 1400");
+	checkTrue("3D note, 80 % settled: the note, no KV EST",
+	          tester3dShown() && !fakeTextIs(10, 114, kvText, C_TEXT, C_BG, 1));
+	checkTrue("  RPM/V stays on the ERPM line", textAlone(10, 102, want, C_DIM));
+	{
+		// A swipe on the pad takes the row from the note: SWIPE ACTIVE alone,
+		// no estimate beside it.
+		fakeRelease(); kvFrames(2, erpm, 15.75f, 16.0f);
+		const UiRect pad = ctlRect(UI_FIX(TesterCtl::Pad));
+		const int px = pad.x + pad.w / 2, pb = pad.y + pad.h;
+		fakePress(px, pb - 40); kvFrames(1, erpm, 15.75f, 16.0f);
+		for (int y = pb - 40; y >= pb - 70; y -= 6) { fakeHold(px, y); kvFrames(1, erpm, 15.75f, 16.0f); }
+		bool clear = true;
+		for (int j = 0; j < 7; j++) clear = clear && rowIs(114 + j, 4, 120, C_BG);
+		checkTrue("3D note, the pad engaged: SWIPE ACTIVE, no KV EST beside it",
+		          clear && fakeTextIs(226 - gfxTextW("SWIPE ACTIVE", 1), 114, "SWIPE ACTIVE",
+		                              C_LIME, C_BG, 1));
+		fakeRelease(); kvFrames(2, erpm, 15.75f, 16.0f);
+	}
+	// RPM/V 0 is a figure, and `--` is not: 1 RPM at 16.00 V, then no voltage.
+	kvFrames(120, 7, 15.75f, 16.0f);
+	checkTrue("1 RPM at 16.00 V: ERPM 7  RPM/V 0", textAlone(10, 102, "ERPM 7  RPM/V 0", C_DIM));
+	for (int i = 0; i < 2; i++) {
+		EscTelemetry tel;
+		memset(&tel, 0, sizeof(tel));
+		tel.erpm = 7; tel.lastRpmMs = millis(); tel.packetRate = 998;
+		fakeSetTelemetry(&tel);
+		frames(1);
+	}
+	checkTrue("  the voltage gone: ERPM 7  RPM/V --", textAlone(10, 102, "ERPM 7  RPM/V --", C_DIM));
+	fakeRelease();
+	tapId(UI_FIX(TesterCtl::Arm));                     // DISARM
+	esc3dSetNote(false);
+
+	// --- fit: the widest texts and their room ---
+	checkInt("KV EST 99999 is 71 px", gfxTextW("KV EST 99999", 1), 71);
+	checkTrue("  ends 50 px before SWIPE = THROTTLE at x 131",
+	          226 - gfxTextW("SWIPE = THROTTLE", 1) - (10 + gfxTextW("KV EST 99999", 1)) == 50);
+	checkInt("ERPM 60000000  RPM/V 99999 is 155 px",
+	         gfxTextW("ERPM 60000000  RPM/V 99999", 1), 155);
+	checkTrue("  ends 27 px before RPM at x 192",
+	          226 - gfxTextW("RPM", 2) - (10 + gfxTextW("ERPM 60000000  RPM/V 99999", 1)) == 27);
+
+	uiInit();
+	fakeFlashClear();
+	settingsLoad();
+	feedLiveTelemetry();
+	frames(2);
+}
+
 void runUiTests() {
 	// Off zero before anything is stamped. Virtual time starts at 0, and 0 is
 	// reserved for "this frame type has never arrived" -- so telemetry stamped
@@ -7939,6 +8254,7 @@ void runUiTests() {
 	testAm32WritePage();
 	testAm32PageWritesWhatItShows();
 	testAm32Guard();
+	testTesterKvEst();
 
 	// Back to a known state for anything that runs after this.
 	fakeFlashClear();

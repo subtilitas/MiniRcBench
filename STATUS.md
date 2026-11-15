@@ -352,6 +352,7 @@ record either way.
 | EDT telemetry, automatic enable, expiry | merge, expiry, enable rule, decode of each frame type; enable at pump start and decode with EDT on against a simulated ESC, with and without EDT | hardware-tested (owner report) with `pico-bidir-dshot`; the enable at pump start and the decode of every reply with EDT on are not tested on hardware |
 | ESC command slot on core1 (`src/esc_task.h`, slice 1 of [esc-commands.md](docs/design/esc-commands.md#slice-1-as-built)): beacons 1 to 5, 12, and 7 to 10 with 12 after them | the frames of a sequence and their telemetry bit, the reply check of frames 1 to 6 of each block, the guards (armed, no answer, eRPM, the 1500 ms settle, the 2000 ms wait), the EDT enable's order, the gaps, the `millis()` wrap, a request dropped by a teardown, a cut sequence keeping its outcome, against AM32, Bluejay and BLHeli_S models read from source | not tested on hardware: no command of the slot has gone to an ESC from this board |
 | ESC COMMANDS (`src/ui_esc_cmd.*`, slice 2 of [esc-commands.md](docs/design/esc-commands.md#slice-2-as-built)), MENU's first row, and the tester's 3D note (`src/esc_3d.*`) | through MENU against the fake slot: the row refused while a claim holds, the disarm, the layout and each text's width, every control at each readiness, BEEP 1 to 5, the holds at 999 and 1000 ms with the save, each outcome's lines, the 3D note set by 3D ON at Sent and SaveLost and kept by 3D OFF, BACK disabled while a request waits, BACK and the BEEP taps acting only on a press that landed live, the cancel on leaving | not tested on hardware: no command of the page has gone to an ESC |
+| RPM/V and the kV estimate on the armed tester (`src/kv_est.h`, slice 3 of [esc-commands.md](docs/design/esc-commands.md#slice-3-as-built)) | both formulas at the rounding and the 99999 clamp, 64-bit at the decoder's largest eRPM; the 0.5 V floor, the pole count, RPM above 0, the 75 % minimum and 2000 maximum, the 1000 ms settle at 999 and 1000 ms, within a band of ±20 under touch jitter and restarted at 21, and across the `millis()` wrap, the filtered eRPM within 0.5 % of the reply, the 3D note; on the tester: the texts, their colours and widths, a figure only 1000 ms after the throttle stood, KISS over EDT, stale voltage and link, nothing kept after the disarm | not measured on a motor: no figure has been compared with a rated kV or a tachometer |
 | KISS telemetry: request, PIO receiver, decode, merge, KISS/EDT tags | CRC, decode, resynchronisation, request payload, merge; the PIO receiver is typechecked only | hardware-tested (owner report) with `pico-bidir-dshot`; see below |
 | DShot bitrate label in the status bar, `DSHOT600`, `DSERR` | label at each bitrate, colour, `DSERR` | not recorded |
 | SDIO card driver in `src/sdio/`: protocol, PIO and DMA bus, library callbacks | CRC7 and CRC16 against the specification's examples, command framing, response parsing, CSD (card-specific data register), four-bit packing, CRC status token; initialisation, reads and writes against a simulated card (standard capacity SDSC v1 and v2, high capacity SDHC, no card, voltage mismatch, timeouts, removal); the two PIO programs run in a cycle-level model against a card model (`test/pio_sdio_emu.py`: CMD0, R1, R2, single and multiple block reads, CMD12, a write and its CRC status token, at 400 kHz, 10 MHz and 25 MHz), a model and not proof of hardware timing; the bus code in `sd_pio.c` is compiled only, and the model's host side follows it by hand | not tested on hardware; open item 6 lists the bench tests |
@@ -958,13 +959,16 @@ not run on hardware (item 18).
     built](docs/design/esc-commands.md#slice-1-as-built)) and the ESC
     COMMANDS page as MENU's first row, with the 3D note in `src/esc_3d.h`
     and its new text ([slice 2 as
-    built](docs/design/esc-commands.md#slice-2-as-built)). The estimate is
-    not built. The page's controls stay live while the slot is busy, the
-    EDT enable's retry every 1000 ms among it, about 11 ms with an ESC that
-    sends no EDT; a request made then waits in the slot until it is free,
-    or expires after 2000 ms. They are drawn disabled only with no ESC
-    answering, the motor turning, the ESC starting, or the page's own
-    request waiting or going out (slice 2 as built, last choice).
+    built](docs/design/esc-commands.md#slice-2-as-built)). Slice 3 is built,
+    host tests only: `RPM/V` on the armed tester's ERPM line and `KV EST` in the
+    pole count's place, from 75 % throttle held 1 s, in `src/kv_est.h` ([slice 3
+    as built](docs/design/esc-commands.md#slice-3-as-built)); no figure has been
+    compared with a motor. The page's controls stay live while the slot is busy,
+    the EDT enable's retry every 1000 ms among it, about 11 ms with an ESC that
+    sends no EDT; a request made then waits in the slot until it is free, or
+    expires after 2000 ms. They are drawn disabled only with no ESC answering,
+    the motor turning, the ESC starting, or the page's own request waiting or
+    going out (slice 2 as built, last choice).
     The owner answered the note's ten questions on 2026-11-15: `ESC COMMANDS` in
     place of `BEEP THE ESC` as MENU's first row; a save after each change; the
     hold on the page; the 3D note stays until a restart or an AM32 read;
@@ -1345,6 +1349,7 @@ model.
 | `src/kst_job.cpp` | 435 | 417 | 95.9% |
 | `src/kst_seek.cpp` | 126 | 126 | 100.0% |
 | `src/kst_view.cpp` | 160 | 154 | 96.3% |
+| `src/kv_est.h` | 53 | 53 | 100.0% |
 | `src/log_ring.cpp` | 43 | 39 | 90.7% |
 | `src/pin_claim.cpp` | 132 | 132 | 100.0% |
 | `src/pin_claim.h` | 15 | 14 | 93.3% |
@@ -1371,7 +1376,7 @@ model.
 | `src/supply_guard.cpp` | 41 | 41 | 100.0% |
 | `src/theme.cpp` | 11 | 11 | 100.0% |
 | `src/touch.h` | 4 | 4 | 100.0% |
-| `src/ui.cpp` | 513 | 512 | 99.8% |
+| `src/ui.cpp` | 535 | 534 | 99.8% |
 | `src/ui.h` | 1 | 1 | 100.0% |
 | `src/ui_am32.cpp` | 822 | 815 | 99.1% |
 | `src/ui_esc_cmd.cpp` | 196 | 191 | 97.4% |
@@ -1393,7 +1398,7 @@ model.
 | `src/ui_slider.cpp` | 109 | 109 | 100.0% |
 | `src/ui_widgets.cpp` | 76 | 76 | 100.0% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **12802** | **12604** | **98.5%** |
+| **Total** | **12697** | **12501** | **98.5%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->
