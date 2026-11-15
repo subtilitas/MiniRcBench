@@ -107,7 +107,8 @@ derselben Nummer: `LOG00012.TXT` neben `LOG00012.BFL`. Jeder Texteditor
 öffnet sie. Das Beenden schreibt sie, sobald die Aufzeichnung geschlossen
 ist: `STOP`, das Entschärfen, das eine durch Scharfschalten begonnene
 Aufzeichnung beendet, und ein Werkzeug, das die Karte nimmt. Eine
-Aufzeichnung, die ein Kartenfehler beendete, bekommt keine.
+Aufzeichnung, die ein Kartenfehler beendete, bekommt keine. SD LOG zeigt die
+Zusammenfassung nach dem Beenden (siehe [Der letzte Lauf](#der-letzte-lauf)).
 
 Sie enthält einen Wert je Zeile:
 
@@ -162,11 +163,11 @@ wird ersetzt.
 Lässt sich die Zusammenfassung nicht schreiben, weil die Karte voll ist
 oder ein Schreibvorgang fehlschlug, bleibt die Aufzeichnung vollständig auf
 der Karte, und `STATUS` bleibt `READY`. Es bleibt keine `.TXT` zurück, oder,
-nach einem Schreibvorgang, der ganz am Ende fehlschlug, eine leere. Der
-SD-LOG-Bildschirm zeigt die Zusammenfassung nicht und auch nicht, ob sie
-gespeichert wurde. Die Zusammenfassung ist mit den Host-Tests der Firmware
-geprüft, über der FatFs-Bibliothek auf einer simulierten Karte; an einer
-Karte ist sie nicht getestet.
+nach einem Schreibvorgang, der ganz am Ende fehlschlug, eine leere. SD LOG
+zeigt dann `NOT SAVED` in der Zeile `SUMMARY`. Die Zusammenfassung und ihre
+Zeilen auf SD LOG sind mit den Host-Tests der Firmware geprüft, die Datei
+über der FatFs-Bibliothek auf einer simulierten Karte; an einer Karte und
+auf der Platine sind sie nicht getestet.
 
 ---
 
@@ -181,7 +182,7 @@ solange ein Computer die Karte hält.
 | Zeile | Bedeutung |
 |---|---|
 | **STATUS** | `NO CARD`, `READY`, `RECORDING` oder `CARD ERROR` |
-| **FILE** | Die geöffnete Datei. Nach dem Ende einer Aufzeichnung ihre Datei mit `(LAST)`, zum Beispiel `LOG00012.BFL (LAST)`, neben ihren Zählern, bis zum nächsten `START` oder Einbinden. `--` vor der ersten Aufzeichnung nach dem Einschalten und nach einem Einbinden (`RETRY MOUNT`, das Ende von `USB DRIVE`, das neue Einbinden durch ein Werkzeug): Es kann eine andere Karte sein, daher werden Name und Zähler zurückgesetzt |
+| **FILE** | Die geöffnete Datei. Nach dem Ende einer Aufzeichnung ihre Datei mit `(LAST)`, zum Beispiel `LOG00012.BFL (LAST)`, bis zum nächsten `START` oder Einbinden. `--` vor der ersten Aufzeichnung nach dem Einschalten und nach einem Einbinden (`RETRY MOUNT`, das Ende von `USB DRIVE`, das neue Einbinden durch ein Werkzeug): Es kann eine andere Karte sein, daher werden Name und Zähler zurückgesetzt |
 | **FRAMES** | Bisher geschriebene Frames |
 | **WRITTEN** | Geschriebene Kilobyte |
 | **DROPPED FRAMES** | Frames, die der Puffer nicht halten konnte. **Sollte null sein.** Sonst rot |
@@ -197,11 +198,49 @@ Aufzeichnung hat bereits Lücken.
 
 Meist ist eine langsame Karte die Ursache. Probiere zuerst eine andere Karte.
 
-<img src="img/log-last.png" width="240" alt="FILE zeigt LOG00001.BFL (LAST) nach STOP">
+Die Zeilen von `FRAMES` bis `MOUNT` erscheinen während einer Aufzeichnung
+und immer dann, wenn keine Zusammenfassung angezeigt wird: vor der ersten
+Aufzeichnung, nach einem Einbinden und nach `USB DRIVE`. Nach dem Beenden
+tritt der Lauf der letzten Aufzeichnung an ihre Stelle.
+
+### Der letzte Lauf
+
+<img src="img/log-last.png" width="240" alt="SD LOG nach STOP: FILE zeigt LOG00001.BFL (LAST), die Zeilen darunter den Lauf">
+
+Sobald eine Aufzeichnung endet, zeigen die Zeilen unter `FILE` ihre
+Zusammenfassung, dieselben Werte wie ihre `.TXT`:
+
+| Zeile | Bedeutung |
+|---|---|
+| **MAX RPM** | Die höchste Drehzahl, geteilt durch die Hälfte des Werts von `MOTOR POLES` beim Beenden |
+| **MAX CURRENT** | Der höchste Strom, `23.41A` von KISS, ganze Ampere von EDT, `23A` |
+| **MAX TEMP** | Die höchste ESC-Temperatur. Rot ab 90 °C, wie auf dem Tester |
+| **MIN VOLTAGE** | Die niedrigste Spannung im scharfen Zustand |
+| **USED** | Um wie viel der KISS-Zähler stieg, in mAh |
+| **USED FROM CURRENT** | Statt `USED`, wenn der KISS-Zähler nicht stieg: der Strom über die Zeit aufsummiert |
+| **ARMED** | Die Zeit innerhalb der Aufzeichnung, in der der Tester scharf war, `H:MM:SS` |
+| **SUMMARY** | Der Name der `.TXT`, zum Beispiel `LOG00012.TXT`; in Rot `NOT SAVED: CARD FULL` oder `NOT SAVED: WRITE FAILED`, wenn sie nicht geschrieben wurde |
+
+Ein Maximum oder Minimum ist der Wert, der über drei neue Messwerte in
+Folge hielt, der Wert, den die `.TXT` zuerst nennt; `--`, wenn es keinen
+gibt. Das Wort neben einem Wert nennt seine Quelle: `KISS`, `EDT`, oder
+`MIXED`, wenn EDT Lücken in KISS füllte. Eine Drehzahl aus DShot hat keins.
+Eine Ladung über 99999 mAh lautet `>99999mAh`; die `.TXT` nennt den Wert.
+`FRAMES` bis `WORST FLUSH` stehen dann in der `.TXT`. `CARD` und `MOUNT`
+bleiben bis zum nächsten `START`, der eine Aufzeichnung öffnet, oder bis
+zum nächsten Einbinden ausgeblendet: Sie zählen, wenn keine Karte
+eingebunden wird, und dann erscheint kein Lauf.
+
+Nach einer Aufzeichnung, die ein Kartenfehler beendete, zeigen die Zeilen
+ihren Lauf bis zum Fehler, `SUMMARY` lautet `NOT SAVED`, und die Zeilen über
+`START` sagen, wie sie endete. Ein `START`, der fehlschlägt, behält den
+letzten Lauf, wie er `FILE` behält. Der Tester zeigt nichts vom Lauf: Nach
+einer Aufzeichnung, die Scharfschalten begann und Entschärfen beendete,
+SD LOG öffnen, um ihn zu sehen.
 
 ### Wie die letzte Aufzeichnung endete
 
-<img src="img/log-card-full.png" width="240" alt="SD LOG, nachdem ein Schreibvorgang die Karte voll fand">
+<img src="img/log-card-full.png" width="240" alt="SD LOG, nachdem ein Schreibvorgang die Karte voll fand: der Lauf, NOT SAVED: CARD FULL">
 
 Endet eine Aufzeichnung von selbst, oder nimmt ein Werkzeug die Karte, sagen
 Zeilen in Bernstein über `START`, wie, und was zu tun ist. Ein Entschärfen,

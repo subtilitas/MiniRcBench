@@ -947,12 +947,21 @@ void fakeDumpFrame(const char *name) {
 // renders it.
 
 static SdLogStatus g_log = {};
+/** @brief The summary a start begins and its stop leaves, and the poles kept at the stop. */
+static const RunSum *g_logSum = nullptr;
+static uint8_t g_logSumPoles = 0;
 
 void fakeSdLogSet(const SdLogStatus *st) { g_log = *st; }
+
+void fakeSdLogSetSummary(const RunSum *s, uint8_t poles) {
+	g_logSum = s;
+	g_logSumPoles = poles;
+}
 
 /** @brief A mount, as sd_log.cpp's sdLogBegin() does it to the status. */
 static void fakeMountForget() {
 	sdLogMountForget(&g_log.end);
+	g_log.summary = nullptr;
 	g_log.fileNumber = 0;
 	g_log.framesLogged = 0;
 	g_log.bytesWritten = 0;
@@ -988,6 +997,10 @@ bool sdLogStart() {
 	}
 	g_log.state = SdLogState::Logging;
 	g_autoStarted = false;
+	// As sd_log.cpp: a start that opens its log begins the summary, which
+	// the status shows only once no log runs; a failed start keeps the last.
+	g_log.summary = g_logSum;
+	g_log.summaryPoles = g_logSumPoles;
 	g_log.fileNumber = n;
 	g_logHighest = n;
 	return true;
@@ -1040,7 +1053,11 @@ void sdLogSetArmed(bool armed) {
 		case SdLogArmAction::None:                                break;
 	}
 }
-void sdLogStatus(SdLogStatus *out) { *out = g_log; }
+void sdLogStatus(SdLogStatus *out) {
+	*out = g_log;
+	// As sd_log.cpp: no summary while a log runs.
+	if (out->state == SdLogState::Logging) out->summary = nullptr;
+}
 
 // ---------------------------------------------------------------------------
 // the SD write cache (card_cache.h)
@@ -1185,6 +1202,8 @@ MscRefusal mscRequest() {
 	// mscTick() to get here; the tests that care about that ordering assert it
 	// on mscNext() itself, where there is no card to unmount.
 	g_msc = MscState::Serving;
+	// As sdLogRelease(): the card handed over, no summary shows.
+	g_log.summary = nullptr;
 	return MscRefusal::None;
 }
 

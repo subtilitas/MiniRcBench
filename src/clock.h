@@ -18,8 +18,9 @@
  * causes it sends nothing more.
  *
  * Its transfers go to the current sensor's bus record through senseNote(),
- * as the touch and IMU drivers' do: a timeout counts towards a stuck bus,
- * and nothing is sent while the record shows the bus stuck.
+ * as the touch and IMU drivers' do: a timeout counts towards a stuck bus.
+ * As the IMU driver, and unlike touch, the clock sends nothing while the
+ * record shows the bus stuck.
  *
  * Setting the clock is slice 5 of docs/design/run-summary.md and not built:
  * this file reads the clock and keeps it.

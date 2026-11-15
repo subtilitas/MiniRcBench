@@ -33,6 +33,7 @@
 #include "config.h"
 #include "kiss_telem.h"
 #include "sd_log.h"
+#include "run_summary.h"
 #include "pin_claim.h"
 #include "core1_job.h"
 #include "plat.h"
@@ -339,6 +340,406 @@ static bool logFileRowIs(const char *text) {
 	return fakeTextIs(GFX_W - UI_MARGIN - gfxTextW(text, 1), y, text, C_TEXT, C_BG, 1);
 }
 
+// ---------------------------------------------------------------------------
+// SD LOG: the last run (docs/design/run-summary.md, slice 3)
+// ---------------------------------------------------------------------------
+
+/** @brief The text line of SD LOG's row @p row: 19 px rows from y 44, scale 1 centred. */
+static int logRowTextY(int row) { return UI_HDR_H + 8 + row * 19 + (19 - 7) / 2; }
+
+/** @brief Whether row @p row's label reads @p label, dim, from x 8. */
+static bool logLabelIs(int row, const char *label) {
+	return fakeTextIs(UI_MARGIN, logRowTextY(row), label, C_DIM, C_BG, 1);
+}
+
+/**
+ * @brief Whether row @p row's value reads @p value in @p col, its right edge
+ *        at @p right: x 197 beside a tag, x 232 without.
+ */
+static bool logValueIs(int row, const char *value, uint16_t col, int right) {
+	return fakeTextIs(right - gfxTextW(value, 1), logRowTextY(row), value, col, C_BG, 1);
+}
+
+/** @brief Whether row @p row's tag reads @p tag in @p col from x 203. */
+static bool logTagIs(int row, const char *tag, uint16_t col) {
+	return fakeTextIs(203, logRowTextY(row), tag, col, C_BG, 1);
+}
+
+/**
+ * @brief Whether row @p row, its value @p value at x 232, has no tag: no
+ *        ink from x 198 to the column before the value. A tag there would
+ *        also overlap the value, which logValueIs() then reads as wrong.
+ */
+static bool logNoTag(int row, const char *value) {
+	const uint16_t *fb = gfxBuffer();
+	int first = GFX_W - UI_MARGIN - gfxTextW(value, 1);
+	for (int y = logRowTextY(row); y < logRowTextY(row) + 7; y++)
+		for (int x = 198; x < first; x++)
+			if (fb[y * GFX_W + x] != C_BG) return false;
+	return true;
+}
+
+/** @brief Whether rows 2 to 8 hold the counters, CARD and MOUNT, as with no summary. */
+static bool logCountersShown() {
+	return logLabelIs(2, "FRAMES") && logLabelIs(3, "WRITTEN") &&
+	       logLabelIs(4, "DROPPED FRAMES") && logLabelIs(5, "BUF PEAK") &&
+	       logLabelIs(6, "WORST FLUSH") && logLabelIs(7, "CARD") && logLabelIs(8, "MOUNT");
+}
+
+/** @brief Whether rows 2 to 8 hold the run's labels; @p used is row 6's. */
+static bool logRunLabelsShown(const char *used = "USED") {
+	return logLabelIs(2, "MAX RPM") && logLabelIs(3, "MAX CURRENT") &&
+	       logLabelIs(4, "MAX TEMP") && logLabelIs(5, "MIN VOLTAGE") &&
+	       logLabelIs(6, used) && logLabelIs(7, "ARMED") && logLabelIs(8, "SUMMARY");
+}
+
+/** @brief One held extreme of @p v, from KISS or the DShot line. */
+static RunSumExtreme logRunHeld(int32_t v, bool kiss) {
+	RunSumExtreme x = {};
+	x.heldOk = x.rawOk = true;
+	x.held = x.raw = v;
+	x.heldKiss = x.rawKiss = kiss;
+	if (kiss) x.anyKiss = true;
+	else      x.anyLine = true;
+	return x;
+}
+
+/**
+ * @brief The note's example run: STOP after 144.2 s, 102.5 s armed, 129150
+ *        eRPM from DShot, KISS current, temperature and voltage, a counter
+ *        rise of 312 mAh; its `.TXT` saved.
+ */
+static void logRunExample(RunSum *s) {
+	runSumBegin(s, 1000000u, false);
+	s->end = RunSumEnd::Stop;
+	s->stopUs = s->startUs + 144200000u;
+	s->everArmed = true;
+	s->armedUs = 102500000u;
+	s->erpm = logRunHeld(129150, false);
+	s->amps = logRunHeld(2341, true);
+	s->temp = logRunHeld(51, true);
+	s->volts = logRunHeld(1482, true);
+	s->kissSeen = s->kissVoltsSet = s->kissAmpsSet = s->kissTempSet = s->kissMahSet = true;
+	s->mahRise = 312;
+	s->ampSumKiss = true;
+	s->ampKnownUs = 144000000u;
+	s->ampUs = 305ull * 360000000u;
+	s->file = RunSumFile::Saved;
+}
+
+/**
+ * @brief SD LOG's rows 2 to 8 after a stop: the run, its tags and colours,
+ *        the rows it hides, when it shows and when not, and the redraw.
+ */
+static void testLogRun() {
+	section("SD LOG: the last run");
+
+	static RunSum sum;
+	logRunExample(&sum);
+	fakeSdLogSetSummary(&sum, 14);
+	fakeSdLogSetHighest(0);
+	SdLogStatus st;
+	memset(&st, 0, sizeof(st));
+	st.state = SdLogState::Idle;
+	st.cardType = 3;
+	st.cardSizeMB = 30500;
+	fakeSdLogSet(&st);
+	enterLogScreen();
+	frames(2);
+	checkTrue("before the first log: no summary, the counters, CARD and MOUNT",
+	          logCountersShown());
+	frames(2);
+	checkInt("no summary, unchanged: nothing repainted", fakeLastFlushBands(), 0);
+
+	tapId(UI_FIX(SdLogCtl::Toggle));                       // START
+	frames(2);
+	checkTrue("a log runs", sdLogActive());
+	checkTrue("while it runs: the counters, CARD and MOUNT", logCountersShown());
+
+	settings()->poles = 12;    // MOTOR POLES changed after the stop: not used
+	tapId(UI_FIX(SdLogCtl::Toggle));                       // STOP
+	frames(2);
+	checkTrue("stopped: the run's labels in rows 2 to 8", logRunLabelsShown());
+	checkTrue("FRAMES, WRITTEN, DROPPED FRAMES, BUF PEAK and WORST FLUSH hidden",
+	          !logLabelIs(2, "FRAMES") && !logLabelIs(3, "WRITTEN") &&
+	          !logLabelIs(4, "DROPPED FRAMES") && !logLabelIs(5, "BUF PEAK") &&
+	          !logLabelIs(6, "WORST FLUSH"));
+	checkTrue("CARD and MOUNT hidden", !logLabelIs(7, "CARD") && !logLabelIs(8, "MOUNT"));
+	checkTrue("STATUS and FILE stay",
+	          logLabelIs(0, "STATUS") && logFileRowIs("LOG00001.BFL (LAST)"));
+	checkTrue("MAX RPM 18450 at the stop's 14 poles, from DShot: untagged, at x 232",
+	          logValueIs(2, "18450", C_TEXT, 232) && logNoTag(2, "18450"));
+	checkTrue("MAX CURRENT 23.41A to x 197, KISS in the text colour",
+	          logValueIs(3, "23.41A", C_TEXT, 197) && logTagIs(3, "KISS", C_TEXT));
+	checkTrue("MAX TEMP 51`C, KISS", logValueIs(4, "51`C", C_TEXT, 197) &&
+	                                 logTagIs(4, "KISS", C_TEXT));
+	checkTrue("MIN VOLTAGE 14.82V, KISS", logValueIs(5, "14.82V", C_TEXT, 197) &&
+	                                      logTagIs(5, "KISS", C_TEXT));
+	checkTrue("USED 312mAh, KISS", logValueIs(6, "312mAh", C_TEXT, 197) &&
+	                               logTagIs(6, "KISS", C_TEXT));
+	checkTrue("ARMED 0:01:42, untagged",
+	          logValueIs(7, "0:01:42", C_TEXT, 232) && logNoTag(7, "0:01:42"));
+	checkTrue("SUMMARY LOG00001.TXT, untagged, the text colour",
+	          logValueIs(8, "LOG00001.TXT", C_TEXT, 232) && logNoTag(8, "LOG00001.TXT"));
+	{
+		int x0 = 0, x1 = 0;
+		checkTrue("a STOP leaves no note", !fakeInkExtent(217, 7, C_BG, &x0, &x1));
+	}
+
+	// The redraw: an unchanged run repaints nothing.
+	frames(2);
+	checkInt("an unchanged run: nothing repainted", fakeLastFlushBands(), 0);
+	// Each part of the key on its own redraws. The status's own fields stay.
+	sdLogStatus(&st);
+	st.summaryPoles = 12;
+	fakeSdLogSet(&st);
+	frames(1);
+	checkTrue("MOTOR POLES at the stop 12: MAX RPM 21525",
+	          logValueIs(2, "21525", C_TEXT, 232));
+	st.summaryPoles = 14;
+	fakeSdLogSet(&st);
+	frames(1);
+	checkTrue("and 14 again: 18450", logValueIs(2, "18450", C_TEXT, 232));
+	sum.file = RunSumFile::CardFull;
+	frames(1);
+	checkTrue("the file's result changed: NOT SAVED: CARD FULL, red",
+	          logValueIs(8, "NOT SAVED: CARD FULL", C_RED, 232));
+	sum.end = RunSumEnd::Disarm;
+	sum.mahRise = 400;
+	frames(1);
+	checkTrue("how the log ended changed: redrawn", logValueIs(6, "400mAh", C_TEXT, 197));
+	sum.stopUs += 1;
+	sum.temp.held = 90;
+	frames(1);
+	checkTrue("the stop time changed: redrawn; MAX TEMP 90`C, red",
+	          logValueIs(4, "90`C", C_RED, 197) && logTagIs(4, "KISS", C_TEXT));
+	static RunSum other;
+	logRunExample(&other);
+	other.stopUs = sum.stopUs;
+	other.end = sum.end;
+	other.file = sum.file;
+	other.mahRise = 500;
+	st.summary = &other;
+	fakeSdLogSet(&st);
+	frames(1);
+	checkTrue("another summary: redrawn", logValueIs(6, "500mAh", C_TEXT, 197));
+	st.summary = nullptr;
+	fakeSdLogSet(&st);
+	frames(1);
+	checkTrue("the summary gone, nothing else changed: the counters again",
+	          logCountersShown());
+	st.summary = &sum;
+	fakeSdLogSet(&st);
+	frames(1);
+	checkTrue("and back: the run", logRunLabelsShown());
+
+	// The alert colours.
+	sum.temp.held = 89;
+	sum.stopUs += 1;
+	frames(1);
+	checkTrue("MAX TEMP 89`C: the text colour", logValueIs(4, "89`C", C_TEXT, 197));
+	sum.file = RunSumFile::WriteFailed;
+	frames(1);
+	checkTrue("NOT SAVED: WRITE FAILED, red", logValueIs(8, "NOT SAVED: WRITE FAILED", C_RED, 232));
+	sum.file = RunSumFile::Saved;
+
+	// Tags: EDT and MIXED dim, EDT current in whole amperes.
+	sum.amps = logRunHeld(2300, false);
+	sum.kissAmpsSet = true;
+	sum.temp = logRunHeld(51, false);
+	sum.temp.anyKiss = true;                       // a KISS gap filled by EDT
+	sum.volts = logRunHeld(1475, false);
+	sum.volts.anyKiss = true;
+	sum.volts.heldKiss = false;
+	sum.stopUs += 1;
+	frames(1);
+	checkTrue("EDT current 23A, EDT dim", logValueIs(3, "23A", C_TEXT, 197) &&
+	                                      logTagIs(3, "EDT", C_DIM));
+	checkTrue("MIXED temperature, MIXED dim", logValueIs(4, "51`C", C_TEXT, 197) &&
+	                                          logTagIs(4, "MIXED", C_DIM));
+	checkTrue("MIXED voltage from EDT: 14.75V", logValueIs(5, "14.75V", C_TEXT, 197) &&
+	                                            logTagIs(5, "MIXED", C_DIM));
+	// MAX RPM from KISS eRPM: tagged KISS, at x 197.
+	sum.erpm = RunSumExtreme{};
+	sum.kissErpm = logRunHeld(128800, true);
+	// USED from current, the counter flat.
+	sum.mahRise = 0;
+	sum.ampSumEdt = true;
+	sum.stopUs += 1;
+	frames(1);
+	checkTrue("MAX RPM from KISS: 18400, KISS", logValueIs(2, "18400", C_TEXT, 197) &&
+	                                            logTagIs(2, "KISS", C_TEXT));
+	checkTrue("the counter flat: USED FROM CURRENT 305mAh, MIXED",
+	          logLabelIs(6, "USED FROM CURRENT") && logValueIs(6, "305mAh", C_TEXT, 197) &&
+	          logTagIs(6, "MIXED", C_DIM));
+
+	// Unknown values: `--`, dim, untagged at x 232.
+	runSumBegin(&sum, 1000000u, false);
+	sum.end = RunSumEnd::Stop;
+	sum.stopUs = sum.startUs + 2000000u;
+	sum.file = RunSumFile::Saved;
+	frames(1);
+	checkTrue("nothing came: MAX RPM to USED read --, dim, untagged",
+	          logValueIs(2, "--", C_DIM, 232) && logValueIs(3, "--", C_DIM, 232) &&
+	          logValueIs(4, "--", C_DIM, 232) && logValueIs(5, "--", C_DIM, 232) &&
+	          logValueIs(6, "--", C_DIM, 232) && logNoTag(2, "--") && logNoTag(3, "--") &&
+	          logNoTag(4, "--") && logNoTag(5, "--") && logNoTag(6, "--"));
+	checkTrue("USED keeps its label", logLabelIs(6, "USED"));
+	checkTrue("ARMED 0:00:00 is a value", logValueIs(7, "0:00:00", C_TEXT, 232));
+	// Fewer than three new values: the raw one is in the file only.
+	sum.amps.rawOk = true;
+	sum.amps.raw = 1200;
+	sum.amps.anyKiss = true;
+	sum.kissSeen = sum.kissAmpsSet = true;
+	sum.stopUs += 1;
+	frames(1);
+	checkTrue("a raw value without a held one: --", logValueIs(3, "--", C_DIM, 232) &&
+	                                                 logNoTag(3, "--"));
+	// A summary whose file was not tried: SUMMARY --.
+	sum.file = RunSumFile::NotWritten;
+	frames(1);
+	checkTrue("no file result: SUMMARY --", logValueIs(8, "--", C_DIM, 232));
+
+	// The widest values fit beside their labels on the screen, at 2 poles.
+	sdLogStatus(&st);
+	st.summaryPoles = 2;
+	fakeSdLogSet(&st);
+	logRunExample(&sum);
+	// KISS eRPM, so MAX RPM's widest value stands beside a tag; DShot eRPM
+	// is never tagged.
+	sum.erpm = RunSumExtreme{};
+	sum.kissErpm = logRunHeld(60000000, true);
+	sum.amps = logRunHeld(65535, true);
+	sum.amps.anyLine = true;
+	sum.volts = sum.amps;
+	sum.temp = logRunHeld(255, true);
+	sum.temp.anyLine = true;
+	sum.mahRise = 0;
+	sum.ampSumEdt = true;
+	sum.ampUs = 100000ull * 360000000u;
+	sum.armedUs = 3599999000000ull;
+	sum.file = RunSumFile::WriteFailed;
+	frames(1);
+	checkTrue("the widest values in place",
+	          logValueIs(2, "60000000", C_TEXT, 197) && logTagIs(2, "KISS", C_TEXT) &&
+	          logValueIs(3, "655.35A", C_TEXT, 197) && logValueIs(4, "255`C", C_RED, 197) &&
+	          logValueIs(5, "655.35V", C_TEXT, 197) &&
+	          logLabelIs(6, "USED FROM CURRENT") && logValueIs(6, ">99999mAh", C_TEXT, 197) &&
+	          logTagIs(6, "MIXED", C_DIM) && logValueIs(7, "999:59:59", C_TEXT, 232) &&
+	          logValueIs(8, "NOT SAVED: WRITE FAILED", C_RED, 232));
+	checkTrue("and each row's labels stay whole", logRunLabelsShown("USED FROM CURRENT"));
+
+	// A failed start keeps the last summary, as it keeps the file's number;
+	// the note says why no log started.
+	sdLogStatus(&st);
+	st.summaryPoles = 14;
+	fakeSdLogSet(&st);
+	logRunExample(&sum);
+	fakeSdLogSetHighest(99999);
+	tapId(UI_FIX(SdLogCtl::Toggle));                       // START, refused
+	frames(2);
+	sdLogStatus(&st);
+	checkTrue("a failed start: no log", !sdLogActive() && st.end == SdLogEnd::NoFreeNumber);
+	checkTrue("the run stays", logRunLabelsShown() && logValueIs(2, "18450", C_TEXT, 232));
+	checkTrue("its note on the lines above START",
+	          fakeTextCentredIs(217, "NO LOG STARTED: LOG99999.BFL EXISTS", C_AMBER, C_BG, 1));
+
+	// A mount forgets it: CARD and MOUNT come back.
+	fakeSdLogSetHighest(0);
+	tapId(UI_FIX(SdLogCtl::Retry));
+	frames(2);
+	checkTrue("RETRY MOUNT: no summary, the counters, CARD and MOUNT", logCountersShown());
+	checkTrue("CARD reads the card", logValueIs(7, "SDHC/XC 29.7GB", C_TEXT, 232));
+
+	// A run again, then USB DRIVE's handover and its release forget it.
+	tapId(UI_FIX(SdLogCtl::Toggle));                       // START
+	frames(2);
+	tapId(UI_FIX(SdLogCtl::Toggle));                       // STOP
+	frames(2);
+	checkTrue("a second log: its run", logRunLabelsShown());
+	tapId(UI_FIX(SdLogCtl::Usb));
+	frames(2);
+	sdLogStatus(&st);
+	checkTrue("the card handed over: no summary", mscGetState() == MscState::Serving &&
+	                                              st.summary == nullptr);
+	tapId(UI_FIX(SdLogCtl::Toggle));                       // EJECT
+	frames(2);
+	checkTrue("released: no summary, the counters, CARD and MOUNT",
+	          mscGetState() == MscState::Idle && logCountersShown());
+
+	fakeSdLogSetSummary(nullptr, 0);
+	settings()->poles = 14;
+	memset(&st, 0, sizeof(st));
+	st.state = SdLogState::Idle;
+	fakeSdLogSet(&st);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	checkTrue("back on the tester", uiCurrentScreen() == UiScreenId::Tester);
+}
+
+/**
+ * @brief The tester shows nothing of the run: an auto log's stop leaves the
+ *        tester as it is without a summary (run-summary.md, decision 2).
+ */
+static void testTesterNoRun() {
+	section("Tester: nothing of the last run");
+	static RunSum sum;
+	logRunExample(&sum);
+	SdLogStatus st;
+	memset(&st, 0, sizeof(st));
+	st.state = SdLogState::Idle;
+	st.cardType = 3;
+	st.cardSizeMB = 30500;
+	fakeSdLogSet(&st);
+	fakeSdLogSetHighest(0);
+	fakeSdLogSetSummary(&sum, 14);
+	checkTrue("on the tester", uiCurrentScreen() == UiScreenId::Tester);
+	holdToArm();
+	checkTrue("armed: an auto log runs", uiArmed() && sdLogActive());
+	tapId(UI_FIX(TesterCtl::Arm));                         // DISARM
+	frames(4);
+	sdLogStatus(&st);
+	checkTrue("disarmed: the log stopped, its summary kept",
+	          !uiArmed() && !sdLogActive() && st.summary == &sum);
+	// Right after the disarm, before the tester is left: the frame of an
+	// auto log with a summary against the same arm and disarm without one.
+	uint32_t atStop = fakeRegionHash(0, 0, GFX_W, GFX_H);
+	fakeSdLogSetSummary(nullptr, 0);
+	holdToArm();
+	checkTrue("armed again: an auto log runs", uiArmed() && sdLogActive());
+	tapId(UI_FIX(TesterCtl::Arm));                         // DISARM
+	frames(4);
+	sdLogStatus(&st);
+	checkTrue("disarmed: the log stopped, no summary",
+	          !uiArmed() && !sdLogActive() && st.summary == nullptr);
+	checkTrue("right after the disarm: the same frame as with the summary",
+	          fakeRegionHash(0, 0, GFX_W, GFX_H) == atStop);
+	// The same tester, drawn whole, with and without the summary.
+	st.summary = &sum;
+	st.summaryPoles = 14;
+	fakeSdLogSet(&st);
+	tapId(UI_FIX(TesterCtl::Menu));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	frames(4);
+	uint32_t with = fakeRegionHash(0, 0, GFX_W, GFX_H);
+	st.summary = nullptr;
+	fakeSdLogSet(&st);
+	tapId(UI_FIX(TesterCtl::Menu));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	frames(4);
+	checkTrue("the tester's frame is the same without the summary",
+	          fakeRegionHash(0, 0, GFX_W, GFX_H) == with);
+	fakeSdLogSetSummary(nullptr, 0);
+	memset(&st, 0, sizeof(st));
+	st.state = SdLogState::Idle;
+	fakeSdLogSet(&st);
+	frames(2);
+}
+
 /**
  * @brief A new log's number: the highest `LOGnnnnn.BFL` plus 1, the name
  *        rule the directory scan applies, and the refusal after
@@ -541,6 +942,9 @@ static void testLogEndNotes() {
 	st.cardSizeMB = 30500;
 	fakeSdLogSet(&st);
 	fakeSdLogSetHighest(0);                                // an empty LOGS/
+	static RunSum run;                                     // the stop's run summary
+	logRunExample(&run);
+	fakeSdLogSetSummary(&run, 14);
 	enterLogScreen();
 	frames(2);
 	checkTrue("before the first log: FILE --", logFileRowIs("--"));
@@ -558,6 +962,7 @@ static void testLogEndNotes() {
 	          UI_MARGIN + gfxTextW("FILE", 1) + 6 <=
 	              GFX_W - UI_MARGIN - gfxTextW("LOG09999.BFL (LAST)", 1));
 	checkTrue("a STOP leaves no note", !fakeInkExtent(217, 7, C_BG, &x0, &x1));
+	checkTrue("and its run in rows 2 to 8", logRunLabelsShown());
 	fakeDumpFrame("shot_log_last.ppm");
 	// A mount: the card may be another one, and the file not on it.
 	{
@@ -596,9 +1001,16 @@ static void testLogEndNotes() {
 		{ SdLogState::Idle, SdLogEnd::ByHitec, "RECORDING STOPPED BY HITEC SERVO", "" },
 		{ SdLogState::Idle, SdLogEnd::ByAm32,  "RECORDING STOPPED BY ESC SETTINGS", "" },
 	};
+	// A log the card filled: its run up to the failure, not saved.
+	static RunSum full;
+	logRunExample(&full);
+	full.end = RunSumEnd::CardFull;
+	full.file = RunSumFile::CardFull;
 	for (const auto &e : ENDS) {
 		st.state = e.state;
 		st.end = e.end;
+		st.summary = e.end == SdLogEnd::CardFull ? &full : nullptr;
+		st.summaryPoles = 14;
 		st.fileNumber = 12;
 		// About 12 minutes at 7.3 kB/s before the card filled.
 		st.framesLogged = 361500;
@@ -620,12 +1032,17 @@ static void testLogEndNotes() {
 		          gfxTextW(e.l1, 1) <= GFX_W - 2 * UI_MARGIN &&
 		          gfxTextW(e.l2, 1) <= GFX_W - 2 * UI_MARGIN);
 		checkTrue("the FILE row names the last log", logFileRowIs("LOG00012.BFL (LAST)"));
-		if (e.end == SdLogEnd::CardFull) fakeDumpFrame("shot_log_card_full.ppm");
+		if (e.end == SdLogEnd::CardFull) {
+			checkTrue("CARD FULL: the run up to the failure, NOT SAVED: CARD FULL in red",
+			          logRunLabelsShown() && logValueIs(8, "NOT SAVED: CARD FULL", C_RED, 232));
+			fakeDumpFrame("shot_log_card_full.ppm");
+		}
 	}
 
 	// A refusal of USB DRIVE outranks the note for its 4000 ms.
 	st.state = SdLogState::Logging;
 	st.end = SdLogEnd::None;
+	st.summary = nullptr;
 	fakeSdLogSet(&st);
 	tapId(UI_FIX(SdLogCtl::Usb));
 	st.state = SdLogState::Error;
@@ -686,6 +1103,7 @@ static void testLogEndNotes() {
 	tapId(UI_FIX(SdLogCtl::Toggle));                       // STOP
 	frames(2);
 
+	fakeSdLogSetSummary(nullptr, 0);
 	memset(&st, 0, sizeof(st));
 	st.state = SdLogState::Idle;
 	fakeSdLogSet(&st);
@@ -6868,6 +7286,8 @@ void runUiTests() {
 
 	testLogScreen();
 	testLogEndNotes();
+	testLogRun();
+	testTesterNoRun();
 	testLogNumbering();
 	testTesterSdErr();
 	testUsbDriveScreen();

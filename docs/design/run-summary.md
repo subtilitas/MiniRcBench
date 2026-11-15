@@ -1,14 +1,15 @@
 # Run summary per log, dated by the board's clock
 
-Status: designed; slices 1, 2 and 4 of 6 built, host tests only: the core
-([slice 1 as built](#slice-1-as-built)), the logger feeding it and
-writing the `.TXT` ([slice 2 as built](#slice-2-as-built)), and the clock
-read at start-up with the FAT dates and the clock lines
-([slice 4 as built](#slice-4-as-built)); SD LOG does not show the run yet,
-and nothing sets the clock. The owner's choice of 2026-11-14 from the
-feature survey, feature 4 of 6, built as a design note and then slices
-with reviews. The owner answered its questions on 2026-11-15, see
-[decisions](#decisions); slices 3, 5 and 6 wait on being built.
+Status: designed; slices 1 to 4 of 6 built, host tests only: the core
+([slice 1 as built](#slice-1-as-built)), the logger feeding it and writing
+the `.TXT` ([slice 2 as built](#slice-2-as-built)), SD LOG showing the
+last run ([slice 3 as built](#slice-3-as-built)), and the clock read at
+start-up with the FAT dates and the clock lines
+([slice 4 as built](#slice-4-as-built)); nothing sets the clock. The
+owner's choice of 2026-11-14 from the feature survey, feature 4 of 6,
+built as a design note and then slices with reviews. The owner answered
+its questions on 2026-11-15, see [decisions](#decisions); slices 5 and 6
+wait on being built.
 
 Each blackbox log gets a run summary: the highest RPM, current and
 temperature, the lowest voltage, the charge used and the armed time. SD LOG
@@ -356,11 +357,12 @@ checks it byte for byte.
 
 ## On the device
 
-SD LOG shows the run. Today its nine rows are STATUS, FILE, FRAMES,
-WRITTEN, DROPPED FRAMES, BUF PEAK, WORST FLUSH, CARD and MOUNT, 19 px
-each from y 44 (`LOG_ROW0_Y`), the label from x 8, the value to a right
-edge at x 232, both scale 1 (`drawLogRow()`, verified). After a stop the
-FILE row reads `LOG00012.BFL (LAST)`.
+SD LOG shows the run. Its nine rows are 19 px each from y 44
+(`LOG_ROW0_Y`), the label from x 8, the value to a right edge at x 232,
+both scale 1 (`drawLogRow()`, verified): STATUS and FILE, then, while no
+run shows, the counters FRAMES, WRITTEN, DROPPED FRAMES, BUF PEAK and
+WORST FLUSH, and CARD and MOUNT. After a stop the FILE row reads
+`LOG00012.BFL (LAST)`.
 
 The design: while no log runs and the last log has a summary, rows 2 to 8
 show the run; while a log runs, and whenever there is no summary (after a
@@ -585,23 +587,19 @@ modification time, so one `.BFL` can carry date 0 as creation time and a
 real modification time. The order of the backup ring is then known from
 the dates only for files written after a set.
 
-### FAT dates today
+### FAT dates without a set clock
 
-Today every file and directory the firmware writes after a power-on has
-date and time 0. A timer that another firmware image started may run on
-across a reset that is not a power-on; whether it does is not verified.
-Verified by reading the code: the library's `get_fattime()` in `my_rtc.c`
-returns 0 when the RP2350's always-on timer is not running
-(`aon_timer_is_running()`), and nothing in the firmware or the compiled
-library files starts it (no call of `aon_timer_start()` or `time_init()`);
-FatFs is built with `FF_FS_NORTC` 0, so it calls `get_fattime()`. A FAT
-date of 0 is year 1980, month 0, day 0, which is no valid date; how
-Windows, Linux and macOS show it is not verified. The host suite's FatFs
-tests define their own `get_fattime()`, 2026-01-01.
+FatFs is built with `FF_FS_NORTC` 0, so it calls `get_fattime()` for its
+time stamps (verified). While the clock is not set, `get_fattime()` of
+`src/clock.cpp` returns 0 ([slice 4 as built](#slice-4-as-built)), so every
+file and directory written in that time has date and time 0. A FAT date of 0
+is year 1980, month 0, day 0, which is no valid date; how Windows, Linux and
+macOS show it is not verified. The host suite's FatFs programs define their
+own `get_fattime()`, 2026-01-01.
 
-[backups.md](backups.md#the-ring) says the files' dates cannot tell the
-ring's order, as the board's clock is not used; that stays true until the
-clock is built, and then only for files written after a set.
+[backups.md](backups.md#the-ring) says the files' dates cannot
+tell the ring's order: they do only between files written while the clock
+was set.
 
 ### FAT dates with the clock
 
@@ -611,7 +609,7 @@ library's `my_rtc.c` from the `sd_fatfs` list. `my_rtc.c` also defines
 build: `my_debug.c` calls its `capture_assert()` (line 149, verified). So
 `src/clock.cpp` defines `epochtime` as well. The packing is a pure function,
 `clockFatTime()`: year − 1980 in bits 31 to 25, month, day, hours, minutes,
-and seconds / 2 in bits 4 to 0. With the clock not set it returns 0, as today.
+and seconds / 2 in bits 4 to 0. With the clock not set it returns 0.
 
 Starting the always-on timer from the RTC and keeping `my_rtc.c` is the
 other way. It is not taken: its conversion runs newlib's `localtime_r()` on
@@ -935,6 +933,72 @@ write as well.
 Not verified on hardware: the summary on a card, the stop's time with the
 `.TXT`, the cost per frame.
 
+## Slice 3 as built
+
+SD LOG, `src/ui_sdlog.cpp`, draws rows 2 to 8 from
+`SdLogStatus::summary` with runSumRowText(). Host tests in
+`test/test_ui.cpp`: `testLogRun()`, `testTesterNoRun()` and the run in
+`testLogEndNotes()`, against the fake logger of `test/fakes.cpp`, which
+models the summary as `sd_log.cpp` keeps it (`fakeSdLogSetSummary()`). That
+`sd_log.cpp` itself keeps and forgets it so is slice 2's test over FatFs.
+`src/ui.cpp`, the tester, does not change.
+
+| Block | Where | Contract |
+|---|---|---|
+| The rows | `drawRunRows()`, `drawCounterRows()` | while `SdLogStatus::summary` is not nullptr, rows 2 to 8 from runSumRowText() with `summaryPoles` and `fileNumber`; otherwise FRAMES to MOUNT, unchanged |
+| A row | `drawRunRow()` | the label from x 8, `C_DIM`; a tagged value to its right edge x 197 (`LOG_TAGGED_R`), its tag from x 203 (`LOG_TAG_X`); an untagged value, `--` among them, to x 232 through uiRow() |
+| The colours | `drawRunRow()` | the value `C_TEXT`, `C_RED` when runSumRowText() sets the alert, `C_DIM` for `--`; the tag `KISS` `C_TEXT`, `EDT` and `MIXED` `C_DIM` |
+| The redraw key | `sumShown()`, `sumKeep()` | the summary's pointer, and while there is one its stop time, end, file result and `summaryPoles` |
+| The fits | `static_assert` in `src/ui_sdlog.cpp` | the run's 7 rows are rows 2 to 8 of the 9; `MIXED`'s last pixel, x 231, left of the right margin; the columns x 197 and x 203 are the ones slice 1's fit test measures the widest texts against |
+
+Choices made where the sections above leave room:
+
+- **When the run shows.** Exactly while sdLogStatus() gives a summary: no
+  log runs and a start has opened one since the last mount or release. The
+  screen keeps no state of its own about it. A START that fails (the file
+  did not open, `LOG99999.BFL`) keeps the last log's summary, as slice 2
+  keeps it with the FILE row's number, so the run stays and CARD and
+  MOUNT stay hidden; the note lines say why no log started. Decision 1's
+  "until the next START" is read as the next START that opens a log.
+- **A card error.** After CARD FULL or a failed write the summary shows
+  with `STATUS` `CARD ERROR` and `SUMMARY` `NOT SAVED`; CARD and MOUNT come
+  back with the mount the note lines ask for, RETRY MOUNT.
+- **Untagged values at x 232.** MAX RPM from DShot, `--`, ARMED and
+  SUMMARY end at the right margin, as [on the device](#on-the-device)
+  says. With MAX RPM from DShot its value therefore stands 35 px right of
+  the tagged values below it (`log-last.png` in the wiki).
+- **The tag's colour** is chosen by its text: `RunSumRowText` carries the
+  tag as text only, and slice 1's struct stays as it is.
+- **The redraw key** holds what can change in an ended summary.
+  runSumAdd() ignores samples after the end, so the values do not change
+  once it shows; runSumFileResult() changes the file result. The pointer
+  is the logger's one `s_sum`, so it changes only between none and one; a
+  new log's summary has a new stop time. The poles are kept at the stop.
+- **A tagged row's background** is the screen's: drawLogScreen() fills the
+  screen before every redraw, so drawRunRow() draws on it; uiRow() clears
+  its row as before.
+- **The tester** draws nothing of the run (decision 2); the test arms and
+  disarms an auto log and compares the tester's frame, drawn whole, with
+  and without the summary.
+
+The previews: the wiki's `log-last.png` shows the run after STOP and
+`log-card-full.png` the run of a log the card filled, `NOT SAVED: CARD
+FULL`; README's `docs/log-preview.png` adds the run after STOP as its
+fourth panel.
+
+41 mutations of the new code in `src/ui_sdlog.cpp` were run against the
+suite: each colour, column, offset and tag rule of drawRunRow(), the row
+loop, the poles and file number handed to runSumRowText(), the choice
+between the run and the counters, and each part of the redraw key and of
+what it keeps. 40 fail it, one of them by a crash (the untagged branch
+removed: runSumRowText() gives no tag, and the tag's colour test reads
+it). 1 is equivalent: the alert tested before `--`. runSumRowText() never
+sets both: MAX TEMP's alert needs a held value, and `NOT SAVED` is a
+value.
+
+Not verified on hardware: the rows on the panel, their legibility in
+daylight, and the redraw's timing on the board.
+
 ## Slice 4 as built
 
 The clock driver, `src/clock.h` and `src/clock.cpp`, with host tests in
@@ -987,10 +1051,15 @@ Choices made where the sections above leave room:
   clock at the failure; it writes no file.
 - **The shared bus.** The driver uses the bus record of `src/sense.cpp`:
   each transfer goes to `senseNote()`, as the touch and IMU drivers' do,
-  which maps its result and notes it. Nothing is sent while the
-  record shows the bus stuck; `senseInit()` starts the record, so at the
-  boot read only the read itself can make it stuck, and the reset's second
-  write is then not sent. A failed transfer is not tried again.
+  which maps its result and notes it. Nothing is sent while the record
+  shows the bus stuck. `senseInit()` starts the record and, with CURRENT
+  SENSE at INA219, runs the probe at once, so two probe timeouts or a held
+  line can mark the bus stuck before `clockInit()`; the clock is then not
+  read in this power-up. The read itself can mark it stuck too, and the
+  reset's second write is then not sent. The clock tests `stuck` only, not
+  the record's `trial`, the transaction a recovery lets through: one
+  transient stuck bus at boot loses the clock for that power-up. A failed
+  transfer is not tried again.
 - **`epochtime` stays 0.** `my_rtc.c` set it only in its `time()`, which
   nothing in the firmware or the compiled library files calls (checked in
   both sources); `crash.c` records it in its crash report.
@@ -1030,6 +1099,13 @@ The tests:
 - `test/sd_log_fatfs.cpp`: the clock read once at the start and once at the
   stop, not set, set, set during the log, set again during the log, a
   disarm's stop, and a stop whose drain fails reading it once.
+
+Not tested: a file's FAT date through FatFs with `src/clock.cpp`'s own
+`get_fattime()`. The `make -C test lognum` programs link FatFs with the RAM
+disk's `get_fattime()`, a fixed 2026-01-01, and fake `clockNow()`;
+`src/clock.cpp` needs the I2C bus, `src/sense.cpp` and the board
+descriptor, which those programs do not link. The main suite tests
+`get_fattime()` itself; that FatFs stamps what it returns is FatFs's.
 
 95 mutations were run against the suite and `make -C test lognum`: 75 of
 `src/clock.cpp`, 9 of `clockText()` in `src/clock.h`, 6 of the clock lines

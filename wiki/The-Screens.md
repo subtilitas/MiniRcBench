@@ -412,8 +412,8 @@ it is on.*
 
 <img src="img/log-ready.png" width="240" alt="The SD LOG screen, card ready">
 
-Recording state and counters. `BACK` returns to `MENU`. See
-[SD Logging](SD-Logging).
+Recording state and counters, and after a stop the last log's run.
+`BACK` returns to `MENU`. See [SD Logging](SD-Logging).
 
 ---
 

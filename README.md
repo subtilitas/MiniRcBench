@@ -58,14 +58,15 @@ screen is not built, and the driver has not run on a board. A run
 summary per blackbox log, written beside the log and shown on SD LOG, with the
 board's PCF85063 real-time clock dating the files on the card as an option, is
 designed in `docs/design/run-summary.md`; the owner answered its questions
-on 2026-11-15. Its slices 1, 2 and 4 are built and host-tested: the summary
+on 2026-11-15. Its slices 1 to 4 are built and host-tested: the summary
 computed from the telemetry, the logger writing it as
-`LOGS/LOGnnnnn.TXT` beside each log, and the clock read at start-up,
-dating the files and the summary's clock lines while it runs
-([Blackbox logging to microSD](#blackbox-logging-to-microsd)); SD LOG does
-not show it yet, and the firmware cannot set the clock yet. The owner's
-board has no cell in the RTC socket J2, so its clock is to be set again
-after each power-up, and files written before the set have FAT date 0.
+`LOGS/LOGnnnnn.TXT` beside each log
+([Blackbox logging to microSD](#blackbox-logging-to-microsd)), SD LOG
+showing it after a stop, and the clock read at start-up, dating the files
+and the summary's clock lines while it runs; the firmware cannot set the
+clock yet. The owner's board has no cell in the RTC socket J2, so its
+clock is to be set again after each power-up, and files written before the
+set have FAT date 0.
 An ESC COMMANDS page, sending DShot beacons, direction and 3D mode, each
 change saved in the ESC behind a 1 s hold, and an RPM-per-volt reading and
 a kV estimate on the tester, labelled `KV EST`, are designed in
@@ -599,6 +600,19 @@ powered after it, or by the bench.
   `LOG00012.BFL (LAST)`, until the next start or mount; `--` before the first
   log and after a mount (`sdLogBegin()`), which also zeroes the counters: the
   card may be another one.
+- **The last run**, rows 2 to 8 once a log has stopped and while the logger
+  holds its run summary (`SdLogStatus::summary`): `MAX RPM`, `MAX CURRENT`,
+  `MAX TEMP`, `MIN VOLTAGE`, `USED` (the KISS counter's rise) or
+  `USED FROM CURRENT`, `ARMED` and `SUMMARY`, the `.TXT`'s name or
+  `NOT SAVED: CARD FULL` / `NOT SAVED: WRITE FAILED`. Each extreme is the
+  held value, `--` when unknown; RPM uses MOTOR POLES at the stop. A source
+  tag beside a value reads `KISS`, `EDT` or `MIXED` (KISS with EDT in its
+  gaps); a value from DShot eRPM has none. Red: `MAX TEMP` at 90 °C and
+  above, and `NOT SAVED`. FRAMES to WORST FLUSH are then in the `.TXT`, and
+  CARD and MOUNT are hidden until the next START that opens a log, or a
+  mount. While a log runs, and after a mount or USB DRIVE, the rows show
+  the counters, CARD and MOUNT. A failed START keeps the last run, as it keeps FILE. The
+  tester shows nothing of the run.
 - **Note lines** (y 217 and y 228): how the last log ended, when it ended
   on its own or a tool took the card, in amber (`SdLogEnd`); a card's fault
   until the next start or mount, a tool's stop until the next start
@@ -1043,9 +1057,13 @@ or `not set`), how the log ended (`STOP`, `DISARM`, `KST SERVO`,
 `HITEC SERVO` or `ESC SETTINGS`), its duration and armed time, the maximum
 RPM, current and temperature, the minimum voltage while armed, the charge
 used by the KISS counter and from the current, and the logger's counters
-that SD LOG shows (frames, dropped frames, kilobytes written, buffer peak,
-worst flush). Each extreme is the value held over three consecutive new
-readings, with its source and the raw extreme beside it.
+that SD LOG shows while a log runs (frames, dropped frames, kilobytes
+written, buffer peak, worst flush). Each extreme is the value held over
+three consecutive new readings, with its source and the raw extreme beside
+it. After the stop SD LOG shows the held values, the charge and the armed
+time in its rows 2 to 8, and whether the `.TXT` was saved (see SD LOG
+screen above); a log a card error ended shows its run up to the failure,
+`NOT SAVED`.
 
 `sdLogTick()` hands every frame's telemetry and arm state to the summary,
 a constant-time update on core0 (`runSumAdd()`): at most about 1,000
@@ -1073,8 +1091,8 @@ since the time was written, as at every power-up of a board without a cell on
 J2: the firmware sends the software reset, 58h to Control_1, and turns CLKOUT
 off, 07h to Control_2. FatFs stamps files through `get_fattime()`, which returns
 the kept time packed while the clock is set and 0 otherwise; the SD library's
-`my_rtc.c`, which returned 0 while the RP2350's always-on timer was not running,
-is left out of the build. The run summary takes the clock at the log's start and
+`my_rtc.c`, with its own `get_fattime()`, is not in the firmware build. The
+run summary takes the clock at the log's start and
 at its stop. Nothing in the firmware sets the clock yet: that is slice 5 of
 `docs/design/run-summary.md`, over USB. Tested against a register-level model of
 the part in `test/fake_i2c.*` (`test/test_clock.cpp`); not tested on hardware.
@@ -2363,8 +2381,8 @@ and a STOP, runs at once and every 100 ms while it is stuck, with CURRENT
 SENSE at `NONE` too, since touch and the IMU share the bus. The touch
 driver, the IMU driver and the clock's read at start-up (`src/clock.cpp`)
 report their own transfers to the same record; an abort with a line still
-low 10 µs after it counts as a stuck bus, not as a missing part. The probe reads the configuration register first and writes
-a register only when it reads as an INA219's, 399Fh or 19EFh; another chip
+low 10 µs after it counts as a stuck bus, not as a missing part. The probe
+reads the configuration register first and writes a register only when it reads as an INA219's, 399Fh or 19EFh; another chip
 at 0x40 is read once a second, and nothing but the register pointer is
 written to it. Each reading is published as a `SenseSample`
 (`src/sense.h`), under a lock of its own, for core1; slices 3 and 4 of the
@@ -2663,8 +2681,8 @@ so a layout change is visible in the frames:
   SERVO SUPPLY at a pin, the CURRENT SENSE row with a sensor found, the
   warning for SIG moved off the boot pin, settings carried over by an update;
 - eight of MENU → SD LOG: ready, recording, no card, a card found by RETRY
-  MOUNT, the last log named, a full card, USB DRIVE refused, USB DRIVE
-  serving;
+  MOUNT, the last log's run after STOP, a full card with its run not saved,
+  USB DRIVE refused, USB DRIVE serving;
 - nineteen of ESC SETTINGS: the connect page, a reply it cannot parse, a
   Bluejay or BLHeli_S bootloader's answer, the leave page after it, the
   list, a field edit, scrolled, ESC HEX, the read-only view, firmware 2.22,
@@ -2698,7 +2716,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 11,198 of 11,381 lines in 73 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 11,115 of 11,298 lines in 71 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver

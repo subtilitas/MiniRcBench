@@ -109,9 +109,9 @@ static uint32_t  s_baseSecs = 0;  /**< The reading, seconds from 2000-01-01. */
 static uint64_t  s_baseUs = 0;    /**< time_us_64() when it was taken. */
 
 /**
- * @brief The SD library's crash.c records this in its crash report. Its
- *        my_rtc.c, which this file replaces in the build, defined it and set
- *        it only in its time(), which nothing calls; it stays 0.
+ * @brief The SD library's crash.c records this in its crash report. The
+ *        library's my_rtc.c, which would define it, is not in the firmware
+ *        build; nothing sets it, so it stays 0.
  */
 extern "C" {
 time_t epochtime = 0;

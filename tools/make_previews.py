@@ -54,6 +54,7 @@ PREVIEWS = {
         "shot_log_nocard",
         "shot_log_ready",
         "shot_log_screen",
+        "shot_log_last",
     ],
     # The SETTINGS screen at the top of its list and scrolled to its end, the
     # same screen in high contrast, and MENU reading UNSAVED after it. The
