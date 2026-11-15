@@ -18,6 +18,7 @@
 #include "usb_bridge.h"
 #include "bridge_line_port.h"
 #include "ui_esc_config.h"
+#include "ui_am32.h"
 #include "ui_widgets.h"
 #include "ui_leave.h"
 #include "ui.h"
@@ -608,6 +609,36 @@ static void testReadOnly() {
 		tapId(UI_FIX(UI_BACK));
 	}
 	g_efm8 = false;
+
+	// MENU shows the bridge's cue: a claim of the bridge ended with no leave
+	// page, as no screen of today ends it, and the cue left set.
+	freshUi(escGreets);
+	tapId(UI_FIX(TesterCtl::Menu));
+	brFrames(1);
+	pinClaimBegin(PinUser::Bridge, PIN_SIG);
+	for (int k = 0; k < 20 && usbBridgeMode() == BridgeMode::Closed; k++) {
+		pinClaimPoll();
+		brFrames(1);
+	}
+	fakeCdcHostWrite(INIT21, sizeof(INIT21));
+	brFrames(3);
+	pinClaimEnd(PinUser::Bridge);
+	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
+	brFrames(2);
+	checkTrue("MENU: the strip's second line reads POWER-CYCLE THE ESC TO RUN IT",
+	          usbBridgeRunCue(0) && uiCurrentScreen() == UiScreenId::Menu &&
+	          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_RUN_CUE, UI_COL_WARN, C_BG, 1));
+	EscTelemetry t;
+	memset(&t, 0, sizeof(t));
+	fakeAdvance(5);
+	t.lastRpmMs = millis();
+	fakeSetTelemetry(&t);
+	brFrames(2);
+	checkTrue("an eRPM frame: the cue gone from MENU", !usbBridgeRunCue(0) &&
+	          !fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_RUN_CUE, UI_COL_WARN, C_BG, 1));
+	memset(&t, 0, sizeof(t));
+	fakeSetTelemetry(&t);
+	tapId(UI_FIX(UI_BACK));
 
 	// A greeting nobody answers reaches nothing: BACK to MENU.
 	freshUi(nullptr);

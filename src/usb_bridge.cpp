@@ -29,8 +29,8 @@ static bool           s_dtr = false;             /**< DTR at the last pass. */
 static bool           s_portClosed = false;
 static bool           s_unfinished = false;      /**< A write-class frame and no RUN since the open. */
 static bool           s_reached = false;         /**< A bootloader answered, or a write went, and no RUN since. */
-static bool           s_initWait = false;        /**< An INIT went; a byte beyond its echo is the answer. */
-static uint32_t       s_initMark = 0;            /**< Bytes received once its echo is in. */
+static bool           s_initWait = false;        /**< An INIT went; a byte beyond the echoes is its answer. */
+static uint32_t       s_initMark = 0;            /**< Bytes received once its echo, and those of the frames after it, are in. */
 static bool           s_cue = false;             /**< MENU's run cue (usbBridgeRunCue()). */
 static uint32_t       s_cueMs = 0;               /**< millis() when it was set. */
 static bool           s_writeWait = false;
@@ -169,7 +169,6 @@ static void initAnswerCheck() {
 
 /** @brief The gathered frame went to the slot: name it, count it, log it. */
 static void handedOver(uint32_t now) {
-	initAnswerCheck();
 	BridgeCmd c = usbBridgeCmdOf(s_buf, s_len, s_afterSetBuffer);
 	s_afterSetBuffer = c == BridgeCmd::SetBuffer;
 	s_last.cmd = c;
@@ -189,11 +188,17 @@ static void handedOver(uint32_t now) {
 		s_reached = false;
 		s_cue = false;
 	}
-	s_initWait = c == BridgeCmd::Init;
-	if (s_initWait) {
+	if (c == BridgeCmd::Init) {
 		BridgeWireStats w;
 		bridgeWireStats(&w);
+		s_initWait = true;
 		s_initMark = w.received + s_len;
+	} else if (s_initWait && c != BridgeCmd::Run) {
+		// A frame sent before the greeting's answer came: its echo is no
+		// answer either.
+		s_initMark += s_len;
+	} else {
+		s_initWait = false;
 	}
 	bridgeLogAdd(BLOG_HOST_TO_ESC, s_buf, s_len);
 	s_stats.toEsc += s_len;

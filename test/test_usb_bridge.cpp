@@ -871,14 +871,18 @@ static void testLeavePageConsole() {
 
 /** @brief The model bootloader's answer to the greeting: AM32's, or an EFM8's with E8B2. */
 static bool g_efm8 = false;
+/** @brief The greeting's answer comes this long after it, µs. */
+static uint32_t g_greetUs = 300;
 static int escGreeting(const uint8_t *f, int n, uint8_t *r, uint32_t *d) {
 	*d = 300;
 	if (usbBridgeCmdOf(f, (uint16_t)n, false) == BridgeCmd::Init) {
 		static const uint8_t AM32[] = {0x34, 0x37, 0x31, 0x00, 0x1F, 0x06, 0x06, 0x01, 0x30};
 		static const uint8_t EFM8[] = {0x34, 0x37, 0x31, 0x64, 0xE8, 0xB2, 0x06, 0x01, 0x30};
 		memcpy(r, g_efm8 ? EFM8 : AM32, 9);
+		*d = g_greetUs;
 		return 9;
 	}
+	if (f[0] == 0xFE) return 0;   // SET BUFFER: no answer of its own
 	if (f[0] == 0x03) {
 		for (int i = 0; i < 16; i++) r[i] = (uint8_t)i;
 		r[16] = 0x12;
@@ -924,13 +928,36 @@ static void testBootloaderReached() {
 		endBridge();
 		checkTrue("kept after the close", usbBridgeBootloaderReached() && usbBridgeRunCue(0));
 	}
-	EscTelemetry t;
-	memset(&t, 0, sizeof(t));
-	t.lastRpmMs = millis() - 5000;
-	checkTrue("an eRPM frame from before the answer: the cue stays", usbBridgeRunCue(t.lastRpmMs));
-	t.lastRpmMs = millis();
-	fakeAdvance(1);
-	checkTrue("one after it: the cue goes", !usbBridgeRunCue(t.lastRpmMs) && !usbBridgeRunCue(0));
+	// The cue against eRPM frames, from the pass the answer was seen in.
+	fresh(escGreeting);
+	openBridge();
+	usbBridgeRunCueClear();
+	fakeCdcHostWrite(INIT21, sizeof(INIT21));
+	uint32_t seen = 0;
+	for (int k = 0; k < 400 && !usbBridgeRunCue(0); k++) {
+		pass();
+		seen = millis();
+	}
+	checkTrue("an eRPM frame from before the answer: the cue stays", usbBridgeRunCue(seen - 1));
+	checkTrue("one in the same millisecond: it stays", usbBridgeRunCue(seen));
+	checkTrue("one a millisecond after it: the cue goes", !usbBridgeRunCue(seen + 1) && !usbBridgeRunCue(0));
+	endBridge();
+
+	// The tool sends its next frame before the greeting's answer came: the
+	// echo of that frame is no answer, the answer still counts.
+	fresh(escGreeting);
+	g_greetUs = 30000;
+	openBridge();
+	fakeCdcHostWrite(INIT21, sizeof(INIT21));
+	run(16);
+	fakeCdcHostWrite(SET_BUF, sizeof(SET_BUF));
+	run(10);
+	checkTrue("a frame after the greeting, before its answer: nothing reached yet",
+	          !usbBridgeBootloaderReached());
+	run(40);
+	checkTrue("the answer, 30 ms late: reached", usbBridgeBootloaderReached());
+	g_greetUs = 300;
+	endBridge();
 
 	fresh(escGreeting);
 	openBridge();
