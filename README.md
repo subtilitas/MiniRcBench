@@ -202,7 +202,7 @@ One sheet, four parts:
 | Board connectors | J5, J4 and J3 pin by pin, each with its role | [Pin map](#pin-map-from-the-official-schematic) |
 | A | ESC: signal on SIG, ground, KISS telemetry on AUX, the BEC (battery eliminator circuit) wire cut | [Wiring the ESC](#wiring-the-esc), [KISS telemetry](#kiss-telemetry-optional-third-wire) |
 | B | Servo on its own supply with a switch in the positive lead; a second servo on AUX for the servo tester | [Servo tester wiring](#wiring), [KST wiring](#wiring-1), [Hitec wiring](#wiring-2) |
-| C | Servo on a boost converter with output disconnect, from one LiPo cell, whose enable input (EN) is on GP28 or GP29, with a 10 kΩ pull-down at the converter; SIG, EN and GND (ground) on J4. The optional INA219 current sensor on the converter's output wire, its I2C bus, 3.3 V and ground from J3 | [KST wiring, switched supply](#wiring-1), [Classic servos](#classic-servos), [Current sensor](#current-sensor) |
+| C | Servo on a boost converter with output disconnect, from one LiPo cell, whose enable input (EN) is on GP28 or GP29, with a 10 kΩ pull-down at the converter; SIG, EN and GND (ground) on J4. The optional INA219 current sensor on the converter's output wire, its I2C bus, 3.3 V and ground from J3 | [Servo tester, switched supply](#servo-tester), [KST wiring, switched supply](#wiring-1), [Classic servos](#classic-servos), [Current sensor](#current-sensor) |
 
 `tools/make_wiring.py` draws `docs/wiring.svg` (Scalable Vector Graphics)
 from the connector table in `src/board_rp2350_touch_lcd_2_8.h`, the start
@@ -666,7 +666,7 @@ colour, read-only values grey, and a toggle that is on fills blue.
 | WIRING | **DSHOT** | The DShot bitrate in kbit/s, 150 / 300 / 600 / 1200, wrapping at the ends. Applies at once: the driver is rebuilt on the new pin and rate before the next frame |
 | WIRING | **KISS TELEM** | Whether to listen for the telemetry wire, on AUX. A toggle; it moves no pin |
 | WIRING | **AUX PIN** | AUX, the GPIO of the KISS telemetry wire and of the servo tester's second servo, with its J5 pin under the value. Acts whatever KISS is, and swaps with SIG as SIG PIN does. The receiver is a PIO state machine, so any free GPIO works |
-| SERVO SUPPLY | **SERVO SUPPLY** | `OWN`, the default, `GP28` or `GP29`: whether the enable input of a DC-DC converter for the programmed servo's supply is wired, and to which pin. `OWN`: the servo has a supply of its own and the bench switches nothing. With `GP28` the value has `J4 PIN 11` under it, with `GP29` `J4 PIN 12` (design note `docs/design/kst-programming.md`, "Switched servo supply"). A core section after WIRING, whichever tools MENU lists. A stepper: - and + step OWN, GP28, GP29 and stop at the ends; it applies at once. With a pin chosen, that pin is an input with both pulls off and its input disabled outside a KST or Hitec claim, so the converter's external pull-down holds it off; during a claim the bench switches the servo's supply (KST servo programming, Hitec servo programming) |
+| SERVO SUPPLY | **SERVO SUPPLY** | `OWN`, the default, `GP28` or `GP29`: whether the enable input of a DC-DC converter for the servo's supply is wired, and to which pin. `OWN`: the servo has a supply of its own and the bench switches nothing. With `GP28` the value has `J4 PIN 11` under it, with `GP29` `J4 PIN 12` (design note `docs/design/kst-programming.md`, "Switched servo supply"). A core section after WIRING, whichever tools MENU lists. A stepper: - and + step OWN, GP28, GP29 and stop at the ends; it applies at once. With a pin chosen, that pin is an input with both pulls off and its input disabled outside a servo tester, KST or Hitec claim, so the converter's external pull-down holds it off; during a claim the bench switches the servo's supply ([Servo tester](#servo-tester), KST servo programming, Hitec servo programming) |
 | SERVO SUPPLY | **CURRENT SENSE** | `NONE`, the default, or `INA219`: whether an INA219 current sensor is on the I2C bus at 0x40 ([Current sensor](#current-sensor)). A toggle; it applies at once. With `NONE` nothing is sent to 0x40. With `INA219` the bench probes the part at once and every 1000 ms while it is not found, and a caption under the label reads `FOUND`, `NOT FOUND` or `OTHER PART`. `OTHER PART` is another chip at 0x40, or an INA219 left on another configuration, which a power-cycle of the module clears |
 | DISPLAY | **CONTRAST** | `NORMAL` or `HIGH`. See below |
 | DISPLAY | **BACKLIGHT** | 16–255 in steps of 32. High contrast forces 255 while on |
@@ -1667,10 +1667,51 @@ While SAFE with one servo, the readout row reads `TWO SERVOS:` and
 `SET > SERVOS` on the right: SET's SERVOS row switches the second servo on.
 The hint is not shown while the claim refuses AUX.
 
-The servo tester never drives the switched supply's enable pin. With SERVO
-SUPPLY at `GP28` or `GP29` the converter stays off on this screen, and a servo
-with no supply of its own does not move: the strip reads
-`GP28 SUPPLY STAYS OFF HERE.` in amber under its caption.
+**Switched supply.** With SETTINGS → SERVO SUPPLY at `GP28` or `GP29` the
+servo tester switches the servo's supply, the boost converter of part C of
+the [wiring diagram](#wiring-diagram) (decision 20 of
+`docs/design/servo-tester.md`, built as slice 3 of
+`docs/design/current-sense.md`). Not tested on hardware.
+
+| State | Enable pin | Pulses | Strip, second line, amber |
+|---|---|---|---|
+| SAFE | low from the claim on | level 0 | `GP28 SUPPLY ON AT START` |
+| HOLD TO START | high at once | level 0 until the supply is up | `GP28 SUPPLY COMING UP` |
+| Supply up | high | CENTRE, then what the controls command | `GP28 SUPPLY ON` |
+| STOP, on SERVO or SET | low in the same core1 pass as level 0 on the pins | level 0 | `GP28 SUPPLY ON AT START` |
+| A heartbeat lapse of 250 ms | low | level 0, `STALLED` | as SAFE |
+| BACK | low at once; an undriven input after the last pulse, before the pins return to DShot | level 0 | |
+
+- The supply counts as up at the first reading of the current sensor taken
+  more than 18 ms after the switch-on, one conversion cycle of the sensor
+  (`SUPPLY_READ_LAG_MS`), at 4.5 V or more (`SUPPLY_ON_MIN_MV`), with CURRENT
+  SENSE at `INA219`, or 500 ms after the switch-on with `NONE`
+  (`SUPPLY_START_MAX_MS`). With the sensor and no such reading within
+  500 ms the supply goes off, the pulses never start, and the dial reads
+  `SUPPLY NOT UP: NO 4.5 V IN 500 MS.` over `CHECK THE CONVERTER ON GP28.`
+  The 500 ms is a value of the design note until bench test B6 measures a
+  converter's start-up time. SET shows the time of the last switch-on to
+  that reading, `SUPPLY UP IN 25 MS`, an upper bound by one read and one
+  conversion cycle.
+- While the supply comes up the pulses wait at level 0 and MIN, CENTRE,
+  MAX, SWEEP and the dial are drawn disabled; STOP acts.
+- The touch controller is the only way to STOP. A touch controller that has
+  not answered for 250 ms (`touchAnsweredMs()`), or the shared I2C bus marked
+  stuck by the sensor, switches the supply off while RUNNING: the chip reads
+  `STALLED`, the dial `STOPPED: TOUCH DID NOT ANSWER` or
+  `STOPPED: TOUCH BUS STUCK`. Either refuses HOLD TO START while it lasts;
+  with no trip the dial reads `START WAITS: THE I2C BUS IS STUCK.` or
+  `START WAITS: TOUCH DOES NOT ANSWER.`
+- With CURRENT SENSE at `INA219` and the part not found, HOLD TO START is
+  drawn disabled and the dial reads `START WAITS FOR THE CURRENT SENSOR.`
+  over `NONE IN CURRENT SENSE SKIPS IT.`
+- After a switch-off, with the sensor, a reading above 2.5 V 2000 ms or more
+  later turns the strip's line to `GP28 SUPPLY NOT OFF`: a converter without
+  output disconnect, or EN held high. It is a warning: EN is already low.
+- While SAFE the dial reads `PULSES ON GP0 ARE THROTTLE TO AN ESC,` over
+  `AND ITS BEC WIRE GETS THE SUPPLY.` in amber.
+- With SERVO SUPPLY at `OWN` the screen drives neither GP28 nor GP29, and the
+  supply's rules and texts above do not apply.
 
 **SET.** The PULSE rows change only while SAFE. TYPE loads one of rcbench's
 profiles:
@@ -1819,10 +1860,10 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
 - The converter's output is the lead's middle wire. **An ESC on this lead
   gets the converter's output on its BEC wire**, its own regulated supply.
   The claim's ESC check sees only an ESC that answers bidirectional DShot.
-- The enable pin is driven only during a KST or Hitec claim; outside it the
-  pull-down alone holds EN low. A reset or a power-off of the board returns
-  the pin to that state; nothing in the firmware switches the supply off if
-  core1 hangs.
+- The enable pin is driven only during a servo tester, KST or Hitec claim;
+  outside it the pull-down alone holds EN low. A reset or a power-off of the
+  board returns the pin to that state; nothing in the firmware switches the
+  supply off if core1 hangs.
 
 ### Using it
 
@@ -2432,8 +2473,9 @@ missing part. The probe reads the configuration register first and writes
 a register only when it reads as an INA219's, 399Fh or 19EFh; another chip
 at 0x40 is read once a second, and nothing but the register pointer is
 written to it. Each reading is published as a `SenseSample`
-(`src/sense.h`), under a lock of its own, for core1; slices 3 and 4 of the
-design note read it there, and nothing on core1 reads it yet.
+(`src/sense.h`), under a lock of its own, for core1, where the servo
+tester's job reads the bus voltage back after each switch-on and switch-off
+([Servo tester](#servo-tester)).
 
 ## Device backups
 
@@ -2537,7 +2579,10 @@ In the firmware:
   the button is drawn disabled starts nothing. Core1 ends the
   pulses if core0 sends no heartbeat for 250 ms. The servo screen does not
   claim the pins while an ESC answers on them, and DShot restarts only on
-  the leave page's RESTART DSHOT, 1 s after the pins are let go.
+  the leave page's RESTART DSHOT, 1 s after the pins are let go. With the
+  switched supply it is off while SAFE and off with every end of the
+  pulses, a silent touch controller and a stuck I2C bus included, and the
+  enable pin is an undriven input again before DShot restarts.
 
 Not in the firmware:
 
@@ -2593,7 +2638,7 @@ src/
   ui_slider.{h,cpp}     slider with delta drag, tap-to-set and presets, from rcbench
   servo_model.{h,cpp}   servo profiles, limits, steppers and mappings (pure)
   servo_pwm.{h,cpp}     hardware PWM servo outputs, from rcbench
-  servo_job.{h,cpp}     the servo tester's core1 job: SAFE, START, slew, sweep, trip
+  servo_job.{h,cpp}     the servo tester's core1 job: pulses, trip, supply
   ui_kst.{h,cpp}        KST SERVO: the search, the field list, the write, FILES, the leave
   kst_view.{h,cpp}      what KST SERVO shows: rows, values with units, the stepper, the texts
   kst_seek.{h,cpp}      the KST search: the entry sequence repeated until a servo answers
@@ -2774,7 +2819,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 11,419 of 11,608 lines in 74 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 11,458 of 11,647 lines in 73 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver

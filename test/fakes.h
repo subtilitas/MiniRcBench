@@ -113,6 +113,12 @@ void fakeRelease();
  */
 void fakeTouchAnswers(bool on);
 
+/**
+ * @brief Stamp touchAnsweredMs() at the clock now, as a completed read
+ *        does, for tests that drive core1 without UI frames.
+ */
+void fakeTouchStamp();
+
 /** @brief Read a byte of the fake ESC's settings page, as actually stored. */
 uint8_t fakeEscByte(int offset);
 /** @brief Store @p v at @p offset of the fake ESC's settings page, as another tool would. */
@@ -353,6 +359,19 @@ struct FakePin {
 	int      cutPulses;    /**< Pulses cut short or left high by a stop or a mux change. */
 	uint32_t cutAtUs;      /**< How far into the pulse the last cut came, us. */
 	uint8_t  inover;       /**< Input override, `GPIO_OVERRIDE_*`; gpio_set_function() zeroes it, as the SDK does. */
+	/**
+	 * @defgroup fake_pin_order Order of the writes
+	 * @brief Each the value of one counter, shared by every pin and never
+	 *        reset, at the pin's last write of that kind: a test compares
+	 *        them to say which write came first. 0 for none since
+	 *        fakePwmReset().
+	 * @{
+	 */
+	uint32_t putAt;        /**< The last gpio_put(). */
+	uint32_t levelAt;      /**< The last pwm_set_gpio_level(). */
+	uint32_t functionAt;   /**< The last gpio_set_function(). */
+	uint32_t dirAt;        /**< The last gpio_set_dir(). */
+	/** @} */
 	int      inoverWrites; /**< gpio_set_inover() calls. */
 };
 
