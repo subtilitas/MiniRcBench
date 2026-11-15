@@ -879,12 +879,40 @@ static void testSettingsClock() {
 	          fakeTextIs(232 - gfxTextW("2026-11-14 15:43", 1), y + 18, "2026-11-14 15:43", C_GRID,
 	                     C_BG, 1));
 
+	// The first minute the part can hold, 2000-01-01 00:00, is not NOT SET:
+	// a set to it from a clock not set repaints the row.
+	fakeI2cReset();
+	fakeI2cAddPcf85063(PCF85063_I2C_ADDR);
+	senseInit();
+	clockInit();
+	menuFrames(1);
+	checkTrue("not set again", fakeTextIs(232 - gfxTextW("NOT SET", 1), y + 18, "NOT SET", C_DIM, C_BG, 1));
+	gfxBuffer()[100 * GFX_W + 120] = 0x1234;
+	const ClockTime first = { 2000, 1, 1, 0, 0, 30 };
+	checkInt("a set to 2000-01-01 00:00:30", (long)clockSet(&first), (long)ClockSetResult::Set);
+	menuFrames(1);
+	checkTrue("repaints", pixel(120, 100) != 0x1234);
+	checkTrue("CLOCK reads 2000-01-01 00:00",
+	          fakeTextIs(232 - gfxTextW("2000-01-01 00:00", 1), y + 18, "2000-01-01 00:00", C_GRID,
+	                     C_BG, 1));
+
 	// Scrolled out: the minute turns and nothing repaints.
 	for (int i = 0; i < 4; i++) dragList(60, 180);
 	checkTrue("at the top, CLOCK's row out of view", !ctlPresent(UI_ROW(SettingsRowId::Clock, Row)));
 	gfxBuffer()[100 * GFX_W + 120] = 0x1234;
 	menuFrames(2400);  // 60 s
 	checkTrue("CLOCK out of view: no repaint as the minute turns", pixel(120, 100) == 0x1234);
+	// Scrolled 480 px: VERSION's row, content y 650, at y 210, in view;
+	// CLOCK's, content y 700, at y 260, out of it. The minute does not repaint.
+	dragList(230, -180);
+	dragList(230, -180);
+	dragList(230, -120);
+	checkInt("480 px: VERSION's row at y 210", ctlRect(UI_ROW(SettingsRowId::Version, Row)).y, 210);
+	checkTrue("CLOCK's row out of view", !ctlPresent(UI_ROW(SettingsRowId::Clock, Row)));
+	gfxBuffer()[100 * GFX_W + 120] = 0x1234;
+	menuFrames(2400);  // 60 s
+	checkTrue("VERSION in view, CLOCK not: no repaint as the minute turns",
+	          pixel(120, 100) == 0x1234);
 
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));

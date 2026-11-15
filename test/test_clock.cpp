@@ -796,6 +796,9 @@ static void testLinePoll() {
 	feed("clock?\nCLOCK?\n");
 	checkStr("lower case: ignored", poll(&in, a), "");
 	checkStr("then the query", poll(&in, a), "CLOCK 2026-11-14 15:42:07\r\n");
+	// A line shorter than CLOCK, over the query's bytes still in the buffer.
+	feed("CLOC\n");
+	checkStr("CLOC after CLOCK?: ignored", poll(&in, a), "");
 
 	// The refusals.
 	uint32_t tr = fakeI2cTransactionsTo(PCF85063_I2C_ADDR);

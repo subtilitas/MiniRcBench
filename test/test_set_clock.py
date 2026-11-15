@@ -108,6 +108,7 @@ class TestPorts(unittest.TestCase):
         self.assertEqual(set_clock.board_ports([]), [])
         b2 = PortInfo("COM7", 0x2E8A, 0x4006)
         self.assertEqual(set_clock.board_ports([BOARD, b2]), ["/dev/ttyACM0", "COM7"])
+        self.assertEqual(set_clock.board_ports([b2, BOARD]), ["/dev/ttyACM0", "COM7"])
         self.assertEqual(set_clock.board_ports([PortInfo("x", 0x2E8A, None)]), [])
         self.assertEqual(set_clock.board_ports([PortInfo("x", None, 0x4006)]), [])
 

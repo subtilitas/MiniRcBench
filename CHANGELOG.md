@@ -44,6 +44,27 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1: the board's clock is set from a computer over the USB
+  serial port, slice 5 of
+  [run-summary.md](docs/design/run-summary.md#slice-5-as-built).
+  `tools/set_clock.py` finds the board by its USB IDs, 2E8A:4006, or takes
+  `--port`, and sends the computer's local time as
+  `CLOCK 2026-11-14 15:42:07`; `--query` sends `CLOCK?`, `--list` names the
+  boards found. The firmware reads the line in `usbDevTask()`'s pass,
+  one line a pass (`src/clock_line.*`), parses it strictly and answers
+  `CLOCK SET`, the time or `CLOCK NOT SET`, or `CLOCK REFUSED:` with
+  `BAD DATE`, `BAD LINE`, `RTC NOT ANSWERING` or `RTC READ-BACK DIFFERS`;
+  other lines are ignored. `clockSet()` writes the PCF85063A in four
+  transfers through `senseNote()`, the software reset, STOP with CLKOUT
+  off, the time with OS clear, STOP released, and reads it back; a set
+  that reads back becomes the kept time and counts one set more, so a log
+  across it reads `(clock set during the log)`. A set is accepted during a
+  log. SETTINGS → BOARD gains a read-only `CLOCK` row, the time to the
+  minute or `NOT SET`, with the caption `SET AT EACH POWER-UP`: the board
+  has no cell on J2. Host tests in `test/test_clock.cpp`, `test/test_menu.cpp`
+  and `test/test_set_clock.py`, which `make -C test run` runs. README and
+  the wiki pages SD-Logging, SD-Aufzeichnung, The-Screens and
+  Die-Bildschirme describe the set. Not tested on hardware.
 - After v0.1.0-rc1: the board's real-time clock dates the files on the
   card and the run summary's clock lines, slice 4 of
   [run-summary.md](docs/design/run-summary.md#slice-4-as-built).

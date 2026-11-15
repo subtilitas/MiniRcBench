@@ -129,5 +129,7 @@ static void cdcClockLine() {
 
 void usbDevTask() {
 	tud_task();
+	// The clock's line reads the CDC bytes; anything else that takes them
+	// over, such as a bridge to the ESC, skips this call while it runs.
 	cdcClockLine();
 }

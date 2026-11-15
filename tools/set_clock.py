@@ -126,10 +126,7 @@ def read_answer(readline, accept, timeout, now=time.monotonic):
     """
     end = now() + timeout
     while now() < end:
-        raw = readline()
-        if not raw:
-            continue
-        line = raw.decode("ascii", "replace").rstrip("\r\n")
+        line = readline().decode("ascii", "replace").rstrip("\r\n")
         if accept(line):
             return line
     raise ToolError("no answer from the board within %.1f s; is the firmware "
