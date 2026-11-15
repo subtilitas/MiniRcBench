@@ -82,7 +82,9 @@ einer Aufzeichnung ist erlaubt: Die Aufzeichnung läuft weiter, und ihre
 Zusammenfassung ergänzt die Zeit am Ende um `(clock set during the log)`.
 
 Ein Terminalprogramm am seriellen Port der Platine kann dieselben Zeilen
-senden: `CLOCK 2026-11-14 15:42:07` stellt die Uhr, `CLOCK?` liest sie.
+senden: `CLOCK 2026-11-14 15:42:07` stellt die Uhr, `CLOCK?` liest sie
+und wird mit `CLOCK NOW` und der Zeit beantwortet. Die Platine übergeht ihre
+eigenen Antworten, wenn ein Terminal sie zurückschickt.
 Eine falsche Zeile wird mit `CLOCK REFUSED: BAD LINE` beantwortet, ein
 Datum, das es nicht gibt, mit `CLOCK REFUSED: BAD DATE`, ein Uhrenchip, der
 nicht antwortet, mit `CLOCK REFUSED: RTC NOT ANSWERING`.

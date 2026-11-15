@@ -919,6 +919,13 @@ static void testLineEcho() {
 	         (long)ClockCmd::BadLine);
 	checkInt("CLOCK REFUSE: a bad line", (long)clockLineParse("CLOCK REFUSE", 12, false, &t),
 	         (long)ClockCmd::BadLine);
+	// The last character of each start counts: one other is a bad line.
+	const char *near[] = { "CLOCK SETX", "CLOCK NOWX", "CLOCK NOT SEX", "CLOCK REFUSEX" };
+	for (const char *l : near) {
+		char w[64];
+		snprintf(w, sizeof(w), "%s: a bad line", l);
+		checkInt(w, (long)clockLineParse(l, strlen(l), false, &t), (long)ClockCmd::BadLine);
+	}
 	checkInt("a refusal longer than kept: ignored",
 	         (long)clockLineParse("CLOCK REFUSED: RTC READ-BACK DIF", 32, true, &t),
 	         (long)ClockCmd::Ignore);
@@ -959,6 +966,14 @@ static void testLineEnable() {
 	clockLineEnable(&in, true);
 	feed("CLOCK?\n");
 	checkStr("off twice, on: a whole query", poll(&in, a), "CLOCK NOW 2026-11-14 15:42:07\r\n");
+	// A half line longer than kept, then off and on: the next line is whole.
+	feed("CLOCK 2026-11-14 15:42:07 and more than the line holds");
+	poll(&in, a);
+	clockLineEnable(&in, false);
+	clockLineEnable(&in, true);
+	feed("CLOCK?\n");
+	checkStr("a long half line forgotten: the query answered", poll(&in, a),
+	         "CLOCK NOW 2026-11-14 15:42:07\r\n");
 }
 
 /**

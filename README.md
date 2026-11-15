@@ -1214,16 +1214,20 @@ hand. Its host tests are `test/test_set_clock.py`, run by `make -C test run`.
 
 The serial port takes one line command (`src/clock_line.*`), read on core0
 in `usbDevTask()`'s pass without waiting for input, one line a pass. A line
-ends at a CR or an LF; a line that does not start with `CLOCK` is ignored.
-The rest are parsed byte for byte and answered with one line ending in
-CR LF:
+ends at a CR (carriage return) or an LF (line feed); a line that does not
+start with `CLOCK` is ignored, and so is a line that starts as one of the
+board's answers does (`CLOCK SET `, `CLOCK NOW `, `CLOCK NOT SET`,
+`CLOCK REFUSED`), so that a terminal echoing them back, as Linux opens a
+`ttyACM` port by default, sets nothing. The rest are parsed byte for byte
+and answered with one line ending in CR LF:
 
 | Sent | Answer |
 |---|---|
 | `CLOCK 2026-11-14 15:42:07` | `CLOCK SET 2026-11-14 15:42:07` |
-| `CLOCK?` | `CLOCK 2026-11-14 15:42:09` or `CLOCK NOT SET` |
+| `CLOCK?` | `CLOCK NOW 2026-11-14 15:42:09` or `CLOCK NOT SET` |
 | a date or time out of range, or a day the month does not have (`2027-02-29`, `24:00:00`, years outside 2000 to 2099) | `CLOCK REFUSED: BAD DATE` |
 | any other line that starts with `CLOCK`, longer than 32 characters among them | `CLOCK REFUSED: BAD LINE` |
+| a line that starts as an answer does | nothing |
 | no answer at 0x51, a failed transfer, the bus stuck | `CLOCK REFUSED: RTC NOT ANSWERING` |
 | the read-back is not the time sent | `CLOCK REFUSED: RTC READ-BACK DIFFERS` |
 
@@ -1237,7 +1241,11 @@ that reads back changes the kept time, which runs from the moment STOP was
 released, and counts one set more; the part starts its count about 0.5 s
 after that, so the kept time can run up to 1 s behind it. A refused set
 leaves the kept time as it was; the part can be left reset or stopped and
-reads not set at the next start-up.
+reads not set at the next start-up. A read-back that differs is followed by
+20h to Control_1, STOP, so a restart with 3.3 V up, after a watchdog or a
+crash, reads the part as not set rather than a time nothing checked.
+`usbDevClockLineEnable()` turns the line off for a user that takes the
+port's bytes over, the USB bridge; while off, no byte is read.
 
 A set is accepted at any time, during a log as well: it changes no card and
 no motor state, and the log's durations come from the timer. The log's

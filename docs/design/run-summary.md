@@ -1134,10 +1134,10 @@ in `test/test_menu.cpp`, and `test/test_set_clock.py`, which
 | Block | Where | Contract |
 |---|---|---|
 | The set | `clockSet()`, `ClockSetResult`, `clockWeekday()` | a time `clockValid()` refuses: BAD DATE, nothing sent; else the four transfers of [setting it](#setting-it), each its own START and STOP through `senseNote()`, nothing while the record shows the bus stuck, a failed one ending the set; then one read of 00h to 0Ah, which must decode as a running clock at the time sent; only then the time sent becomes the kept reading from STOP's release, and the count of sets goes up by one |
-| The line | `clockLineParse()`, `ClockCmd` | pure: `CLOCK?`; `CLOCK YYYY-MM-DD HH:MM:SS`, byte for byte, one space each, no other byte; a line not starting with `CLOCK` ignored; anything else starting with it a bad line; the set's form with a time `clockValid()` refuses a bad date |
-| The answers | `clockLineAnswer()` | one line, CR LF: `CLOCK SET` and the time, the time or `CLOCK NOT SET`, `CLOCK REFUSED: BAD DATE`, `BAD LINE`, `RTC NOT ANSWERING` or `RTC READ-BACK DIFFERS`; nothing for an ignored line |
-| The reader | `clockLinePoll()`, `ClockLineIn` | bytes until a line ends at CR or LF, an empty line skipped; at most one line a call; 32 characters kept, a longer line marked |
-| USB | `cdcGetByte()`, `cdcClockLine()`, `usbDevTask()` | after `tud_task()`: the bytes waiting in TinyUSB, `tud_cdc_available()` and `tud_cdc_read()`, never a wait; the answer through `cdcOutChars()`, dropped as `printf()` output is when the host does not read |
+| The line | `clockLineParse()`, `ClockCmd` | pure: `CLOCK?`; `CLOCK YYYY-MM-DD HH:MM:SS`, byte for byte, one space each, no other byte; a line not starting with `CLOCK` ignored, and a line starting as an answer does, `CLOCK SET `, `CLOCK NOW `, `CLOCK NOT SET` or `CLOCK REFUSED`, whatever its length; anything else starting with `CLOCK` a bad line; the set's form with a time `clockValid()` refuses a bad date |
+| The answers | `clockLineAnswer()` | one line, CR LF (carriage return, line feed): `CLOCK SET` and the time, `CLOCK NOW` and the time or `CLOCK NOT SET`, `CLOCK REFUSED: BAD DATE`, `BAD LINE`, `RTC NOT ANSWERING` or `RTC READ-BACK DIFFERS`; nothing for an ignored line |
+| The reader | `clockLinePoll()`, `clockLineEnable()`, `ClockLineIn` | bytes until a line ends at CR or LF, an empty line skipped; at most one line a call; 32 characters kept, a longer line marked; while off, no byte read; turned on from off, the half line before forgotten |
+| USB | `cdcGetByte()`, `cdcClockLine()`, `usbDevTask()`, `usbDevClockLineEnable()` | after `tud_task()`: the bytes waiting in TinyUSB, `tud_cdc_available()` and `tud_cdc_read()`, never a wait; the answer through `cdcOutChars()`, dropped as `printf()` output is when the host does not read; the line off while the USB bridge holds the port |
 | The row | `ROWS_BOARD`, `clockValue()`, `clockCaption()`, `clockShown()`, `SettingsRowId::Clock` | SETTINGS → BOARD → CLOCK, read-only, after VERSION: the kept time to the minute in `C_GRID` or `NOT SET` in `C_DIM`, the caption `SET AT EACH POWER-UP` in `C_DIM`; repainted when the minute or the set state changes while the row shows |
 | The tool | `tools/set_clock.py` | the port by USB IDs 2E8A:4006 or `--port`; the next whole second of the computer's local time; the answer read past other lines for `--timeout` s, 3 s by default; `--query`, `--list`, `--help`; exit 0, 1 for a refusal, no answer or no port, 2 for a usage error |
 
@@ -1150,9 +1150,19 @@ Choices made where the sections above leave room:
   release on the wire, the part's first count comes 0.508 s after it (data
   sheet 7.2.1.2), so the time read is the time sent. A set with the
   read-back is 308 clocks, 770 µs at 400 kHz, not the 449 µs of the four
-  writes alone that [interlocks](#interlocks) names. A read-back that differs answers
-  `CLOCK REFUSED: RTC READ-BACK DIFFERS`, an answer the design's table does
-  not have.
+  writes alone that [interlocks](#interlocks) names. A read-back that
+  differs answers `CLOCK REFUSED: RTC READ-BACK DIFFERS`, an answer the
+  design's table does not have, and writes 20h to Control_1 after it:
+  STOP, so a restart with 3V3 up, a watchdog's or a crash's, reads the part
+  as not set rather than a time nothing checked.
+- **The query's answer is `CLOCK NOW` and the time**, not the design's
+  `CLOCK` and the time, which is itself a set command. Every line that
+  starts as an answer does, `CLOCK SET `, `CLOCK NOW `, `CLOCK NOT SET` or
+  `CLOCK REFUSED`, is ignored, before the length is looked at, as the
+  longest answer is 36 characters. Linux opens a `ttyACM` port with echo
+  on, so a terminal reading the port sends each answer back; read as a
+  command, an answer would set the clock up to 1 s behind, count a set,
+  mark a running log, and answer again without end.
 - **A refused set keeps what was kept.** BAD DATE, NO ANSWER and a differing
   read-back leave the kept time and the count of sets as they were: FAT
   dates and the summary's lines go on from the earlier reading. The part
@@ -1189,19 +1199,26 @@ Choices made where the sections above leave room:
   as the other read-only values of BOARD and DIAGNOSTICS; the design names
   only `NOT SET`'s colour. The row moves LAST RESTART and UPTIME 50 px down:
   the list is 870 px, its scroll 0 to 670 px.
-- **USB stays small.** `src/usb_dev.cpp` gains `cdcGetByte()` and
-  `cdcClockLine()`, called from `usbDevTask()` after `tud_task()`; the
-  stdio driver, `cdcInChars()` and `cdcOutChars()` are unchanged. The USB
-  bridge, slice 2 of [usb-bridge.md](usb-bridge.md), takes the same CDC
-  bytes while it runs, so it will have to stop `cdcClockLine()` then.
+- **USB stays small.** `src/usb_dev.cpp` gains `cdcGetByte()`,
+  `cdcClockLine()`, called from `usbDevTask()` after `tud_task()`, and
+  `usbDevClockLineEnable()`; the stdio driver, `cdcInChars()` and
+  `cdcOutChars()` are unchanged. The USB bridge, slice 2 of
+  [usb-bridge.md](usb-bridge.md), takes the same CDC bytes while it runs:
+  it calls `usbDevClockLineEnable(false)` when it takes the port, so no
+  byte of its stream is read as a clock line, and
+  `usbDevClockLineEnable(true)` when it gives it back.
 - **The tool** waits for the computer's next whole second before it sends,
   so the board's count starts within the line's travel time, plus the
   part's half second, of the computer's; not measured. It takes the time
   from the epoch seconds, so the local time of a daylight-saving change is
   the computer's own. It refuses a computer year outside 2000 to 2099
-  before it sends. It sets DTR (data terminal ready), as the board sends
-  only while DTR is set (`tud_cdc_connected()`). No other tool in `tools/`
-  finds a serial port; the board is found by the USB IDs of
+  before it sends. Before its own line it sends a line feed, waits 0.2 s
+  and drops what came in, so a half line another program left on the
+  board is ended and its refusal is not read as the tool's answer. A
+  port lost during the exchange, an unplug or a write that times out, is
+  reported as the tool's error. It sets DTR (data terminal ready), as the
+  board sends only while DTR is set (`tud_cdc_connected()`). No other tool
+  in `tools/` finds a serial port; the board is found by the USB IDs of
   `src/usb_descriptors.c`.
 
 The tests:
@@ -1215,7 +1232,8 @@ The tests:
   2099-12-31 23:59:59 and a leap day set; no part, each of the six
   transfers failing in turn with the earlier set kept, a timeout, a stuck
   bus, a short write, and four read-backs that differ, a register dropped
-  each time; the INA219 and the CST328 beside it untouched; the parser on
+  each time, each followed by 20h to Control_1 and read as not set at the
+  next boot; the INA219 and the CST328 beside it untouched; the parser on
   the set's and the query's forms, 12 bad dates, 22 bad lines and 10
   ignored lines, a NUL, 32 characters and lines marked longer; the reader
   over LF, CR LF and CR alone, one line a pass with the second line read at
@@ -1223,7 +1241,12 @@ The tests:
   shorter than `CLOCK` over the buffer's last line, each refusal, lines of
   33 and 175 characters, the part gone and a read-back that differs; a set
   during a log through the line, its stop line noted and its duration from
-  the timer, a set again during a log, and a refused set not noted;
+  the timer, a set again during a log, and a refused set not noted; each
+  of the seven answers sent back ignored, with nothing sent to the part
+  and no set counted, each answer's start one character short a bad line,
+  and a refusal longer than the 32 characters kept ignored; the reader off
+  reading no byte, on again forgetting a half line, on while on keeping
+  it;
 - `testSettingsClock()` in `test/test_menu.cpp`: CLOCK's label, caption and
   `NOT SET`, no repaint while not set, a repaint at the set and when the
   minute turns, none within the minute, none with the row scrolled out or
@@ -1234,29 +1257,39 @@ The tests:
   none or two, the line at 2000, 2026 and 2099 and the years outside, the
   wait for the next second, the answers' patterns, the answer read past
   telemetry, a blank read and bytes that are not ASCII, the timeout, a set,
-  a refusal, another time set, a query, and `main()` with `--help`, usage
+  a refusal, another time set, a query, a half line another program left
+  ended before the set and the query, and `main()` with `--help`, usage
   errors, `--list`, `--query`, `--port`, no board, two boards, a port that
-  does not open and a board that does not answer.
+  does not open, a port lost during the exchange and a board that does not
+  answer.
 
-130 mutations were run against the suite and `test/test_set_clock.py`: 38
-of `clockSet()`, `clockWeekday()` and the writes in `src/clock.cpp`, 45 of
-`src/clock_line.cpp`, 14 of the CLOCK row in `src/ui_settings.cpp` and 33
-of `tools/set_clock.py`. 125 fail them, one of them by hanging the tests
-(`read_answer()` without its time limit); 4 of those failed only after a
-test was added for them: a line shorter than `CLOCK` over the buffer's
-last line, a set to 2000-01-01 00:00, VERSION in view without CLOCK, and
-the ports in reverse order. 5 are equivalent:
+156 mutations were run against the suite and `test/test_set_clock.py`: 40
+of `clockSet()`, `clockWeekday()` and the writes in `src/clock.cpp`, 61 of
+`src/clock_line.cpp`, 14 of the CLOCK row in `src/ui_settings.cpp` and 41
+of `tools/set_clock.py`; after the review, the mutants of the three changed
+files were run again in full. 150 fail them, one of them by hanging the
+tests (`read_answer()` without its time limit); 6 of those failed only
+after a test was added for them: a line shorter than `CLOCK` over the
+buffer's last line, a set to 2000-01-01 00:00, VERSION in view without
+CLOCK, the ports in reverse order, an answer's start compared one
+character short (`CLOCK SETX`), and a long half line before the reader
+was turned off and on. `writeRegs()` without its stuck check fails them.
+6 are equivalent:
 
-- `writeRegs()` going on with a stuck bus: the read-back's `readRegs()`
-  checks the bus too, so the set still answers RTC NOT ANSWERING, and the
-  boot ignores the writes' results;
+- `writeRegs()` returning true while the record shows the bus stuck,
+  sending nothing: the set's next step, another write or the read-back's
+  `readRegs()`, finds the bus stuck too and sends nothing, so the set still
+  answers RTC NOT ANSWERING; the boot ignores the writes' results;
 - the read-back without its decode check: `clockDecode()` fills the time
   only for a running clock, and the time it leaves at 0 never equals a
   valid time in seconds;
 - the reader's blank-line test without `over`, a reader that never sets
   `over`, and one that keeps 31 characters: `over` is set only with 32
   characters kept, and no valid line is longer than 25, so each line
-  still parses as a bad line.
+  still parses as a bad line;
+- `clockLineEnable()` forgetting the half line when it turns the reader
+  off rather than on: while off, `clockLinePoll()` reads nothing, so the
+  half line is gone either way when the reader reads again.
 
 `src/usb_dev.cpp` is not mutated: the host suite typechecks it and does not
 run it.

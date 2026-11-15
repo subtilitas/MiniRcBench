@@ -77,10 +77,11 @@ during a log is allowed: the log goes on, and its summary adds `(clock set
 during the log)` to the stop's time.
 
 A terminal program on the board's serial port can send the same lines:
-`CLOCK 2026-11-14 15:42:07` sets the clock, `CLOCK?` reads it. A wrong
-line is answered `CLOCK REFUSED: BAD LINE`, a date that does not exist
-`CLOCK REFUSED: BAD DATE`, a clock chip that does not answer `CLOCK
-REFUSED: RTC NOT ANSWERING`.
+`CLOCK 2026-11-14 15:42:07` sets the clock, `CLOCK?` reads it and is
+answered `CLOCK NOW` and the time. The board ignores its own answers when a
+terminal echoes them back. A wrong line is answered `CLOCK REFUSED: BAD
+LINE`, a date that does not exist `CLOCK REFUSED: BAD DATE`, a clock chip
+that does not answer `CLOCK REFUSED: RTC NOT ANSWERING`.
 
 The clock has not run on the board yet: the set, the time it keeps and the
 dates on a card are not verified.

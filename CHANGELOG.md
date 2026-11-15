@@ -52,12 +52,15 @@ protocol.
   `CLOCK 2026-11-14 15:42:07`; `--query` sends `CLOCK?`, `--list` names the
   boards found. The firmware reads the line in `usbDevTask()`'s pass,
   one line a pass (`src/clock_line.*`), parses it strictly and answers
-  `CLOCK SET`, the time or `CLOCK NOT SET`, or `CLOCK REFUSED:` with
-  `BAD DATE`, `BAD LINE`, `RTC NOT ANSWERING` or `RTC READ-BACK DIFFERS`;
-  other lines are ignored. `clockSet()` writes the PCF85063A in four
-  transfers through `senseNote()`, the software reset, STOP with CLKOUT
-  off, the time with OS clear, STOP released, and reads it back; a set
-  that reads back becomes the kept time and counts one set more, so a log
+  `CLOCK SET` and the time, `CLOCK NOW` and the time or `CLOCK NOT SET`, or
+  `CLOCK REFUSED:` with `BAD DATE`, `BAD LINE`, `RTC NOT ANSWERING` or
+  `RTC READ-BACK DIFFERS`; other lines are ignored, and so are lines that
+  start as an answer does, so a terminal echoing the answers back sets
+  nothing. `usbDevClockLineEnable()` turns the line off for the USB bridge.
+  `clockSet()` writes the PCF85063A in four transfers through `senseNote()`,
+  the software reset, STOP with CLKOUT off, the time with OS clear, STOP
+  released, and reads it back, stopping the part when the read-back differs; a
+  set that reads back becomes the kept time and counts one set more, so a log
   across it reads `(clock set during the log)`. A set is accepted during a
   log. SETTINGS → BOARD gains a read-only `CLOCK` row, the time to the
   minute or `NOT SET`, with the caption `SET AT EACH POWER-UP`: the board
