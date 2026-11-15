@@ -228,7 +228,41 @@ protocol.
   test of it, `test_sbus.c` (12 cases), in `test/rcbench/`, listed in
   `test/rx.mk` ([rx-signals.md](docs/design/rx-signals.md), work breakdown
   slice 1, the S.BUS part). S.BUS is Futaba's serial bus for receiver
-  channels. Nothing in `src/` calls it yet.
+  channels. The S.BUS job below calls it.
+- After v0.1.0-rc1 (a93e1c1): the S.BUS monitor's core1 job, slice 2 of
+  [rx-signals.md](docs/design/rx-signals.md) (`src/sbus_job.*`,
+  `src/rx.cmake`). While its pin claim holds, the job puts GP1 on UART0 with
+  the pad's input inverted and the pull-down on, at 100,000 baud, 8 data bits,
+  even parity and 2 stop bits; drains the receive FIFO on every pass of core1
+  into rcbench's decoder; and publishes the last frame's 16 channels and flags,
+  the frames decoded, the mean of the last 16 intervals between frames, the
+  frame-lost and failsafe counts, and the parity, framing, break, overrun,
+  resync and footer counts (`sbusJobStatus()`). A byte with a parity, framing
+  or break error is counted and not decoded. A bind into a receiver already
+  sending counts nothing: the bind empties the receive FIFO after setting the
+  format, and nothing is counted or decoded until the line has been quiet for
+  2000 µs. The job drives no pin: GP0, UART0's transmit pin, keeps its
+  function. Its bind refuses when no role is GP1 (`CORE1_JOB_NO_GP1`, new in
+  `src/core1_job.h`) or when UART0's rate is more than 1 % from 100,000 baud
+  (`CORE1_JOB_CLOCK`); its release turns UART0 off, leaves GP1 an input with no
+  inversion and the pull-down on, and clears the status, at once. Its pin user,
+  `PinUser::Sbus`, asks for SIG and AUX in the default wiring, so a KISS wire
+  live on GP1 refuses it and two servos cannot claim while it holds; it has no
+  ESC check and shows its unplug page before DShot restarts. No screen opens it
+  yet: the S.BUS MONITOR screen is slice 3, and MENU's RX SIGNALS row reads
+  `NOT BUILT`. The firmware now builds the decoder. Not tested on hardware; the
+  inversion on the pin is not measured.
+- After v0.1.0-rc1 (a93e1c1): host tests of the S.BUS job,
+  `test/test_sbus_job.cpp`, on a line model of a receiver, `test/sbus_line.h`,
+  and a UART0 fake in `test/fakes.cpp`: a 32-entry receive FIFO with its
+  overrun, the baud divisors of SDK 2.1.1 from a settable `clk_peri`
+  (`fakeClockSet()`), a receiver that hears the line only with GP1 on the UART
+  function and its input inverted and reads each character in the format set,
+  8N1 after `uart_init()` for a set time (`fakeUartInitTakes()`), the wait of
+  `uart_set_format()` on a running UART, and a character caught in its middle.
+  The suite's clock counts microseconds (`fakeAdvanceUs()`), and the GPIO fake
+  records the input override, which `gpio_set_function()` zeroes as the SDK
+  does.
 - The INA219 current sensor on J3, the board's shared I2C1 bus (slice 1 of
   [current-sense.md](docs/design/current-sense.md)): `src/sense.*` reads the
   shunt and bus registers on core0 once per UI frame after the touch read,
