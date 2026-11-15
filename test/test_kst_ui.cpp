@@ -1896,6 +1896,58 @@ static void testSupplyCurrent() {
 	fakeI2cReset();
 }
 
+/** @brief Whether @p text, wrapped at 37 characters, is drawn in @p col, every line. */
+static bool wrappedShown(const char *text, uint16_t col, int lines) {
+	char l[3][48];
+	int n = kstWrap(text, 37, l, 3);
+	if (n != lines || strstr(l[n - 1], "...")) return false;
+	for (int i = 0; i < n; i++)
+		if (!anyLine(l[i], col)) return false;
+	return true;
+}
+
+static void testSupplyCuts() {
+	section("KST screen: the hard and the collapse cut");
+	freshKst(false);
+	settings()->servoSupply = 1;
+	servoSupplyConfigure(1);
+	settings()->currentSense = 1;
+	senseConfigure(1);
+	fakeI2cReset();
+	FakeIna219 *ina = fakeI2cAddIna219(INA219_ADDR);
+	ina->voutV = 5.0;
+	supplySimInit(&g_sup, fakeKstSim(), time_us_32());
+	g_supOn = true;
+	openKst();
+	checkTrue("found: the field list", untilView(KstView::List, 400) && enHigh());
+	ina->currentA = 3.2;
+	kstFrames(3);
+	checkTrue("3.2 A: the supply off, Main with RETRY", !enHigh() && uiKstView() == KstView::Main &&
+	          job().cut == GuardCut::Hard && ctlEnabled(UI_FIX(KstCtl::Retry)));
+	checkTrue("the strip: SIG GP0  SUPPLY OFF", stripIs("SIG GP0  SUPPLY OFF", C_DIM));
+	checkTrue("the cause on two amber lines, then RETRY's line",
+	          wrappedShown(UI_CUT_HARD_TEXT, C_AMBER, 2) && anyLine(UI_CUT_RETRY, C_AMBER));
+	checkControlTable("KST cut");
+	fakeDumpFrame("shot_kst_cut.ppm");
+	ina->currentA = 0.1;
+	tapId(UI_FIX(KstCtl::Retry));
+	checkTrue("RETRY powers it up and reads it", untilView(KstView::List, 400) && enHigh() &&
+	          job().cut == GuardCut::None);
+	ina->voutV = 3.8;
+	for (int i = 0; i < 60 && enHigh(); i++) kstFrame();
+	kstFrames(2);
+	checkTrue("3.8 V for 1 s: off, the collapse's text", !enHigh() &&
+	          job().cut == GuardCut::Collapse && wrappedShown(UI_CUT_LOW_TEXT, C_AMBER, 2) &&
+	          anyLine(UI_CUT_RETRY, C_AMBER));
+	leaveAll();
+	g_supOn = false;
+	servoSupplyConfigure(0);
+	settings()->servoSupply = 0;
+	settings()->currentSense = 0;
+	senseConfigure(0);
+	fakeI2cReset();
+}
+
 /** @brief Card calls made with the wait hook set, and without. */
 static unsigned n_hooked = 0, n_unhooked = 0;
 
@@ -2268,6 +2320,7 @@ void runKstUiTests() {
 	testSwitchedSupply();
 	testSwitchedTimeout();
 	testSupplyCurrent();
+	testSupplyCuts();
 	testCardPhase();
 	testBoardLow();
 	testColourRoles();

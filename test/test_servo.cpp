@@ -40,6 +40,7 @@
 #include "../src/ui_servo.cpp"   // NOLINT -- see the note above
 
 #include <hardware/gpio.h>
+#include <hardware/i2c.h>
 #include <hardware/pwm.h>
 #include <math.h>
 #include <string.h>
@@ -872,8 +873,8 @@ static void testPowerOwn() {
 	p.fault = ServoPowerFault::NoStart;
 	p.upMs = 40;
 	servoPowerReset(&p, false, false);
-	checkTrue("a reset with no switch drops a fault and a time",
-	          p.fault == ServoPowerFault::None && p.upMs == SUPPLY_UP_NONE);
+	checkTrue("a reset with no switch keeps a fault, as the trip, and drops the time",
+	          p.fault == ServoPowerFault::NoStart && p.upMs == SUPPLY_UP_NONE);
 }
 
 /** @brief START and the wait for the supply, without a sensor and with one. */
@@ -921,10 +922,12 @@ static void testPowerStart() {
 	ServoPowerIn low = powerInOf(SenseState::Online, 4499, t0 + 40, true);
 	powerPass(&c, &p, cmdOf(1, ServoCmdKind::Start), low, t0 + 41);
 	checkTrue("4499 mV: still Starting", p.phase == ServoPowerPhase::Starting && c.outUs[0] == 0);
-	ServoPowerIn old = powerInOf(SenseState::Online, 5000, t0 + 1, true);
-	powerPass(&c, &p, cmdOf(1, ServoCmdKind::Start), old, t0 + 1 + SENSE_STALE_MS);
+	// Taken before the switch-on, so the sensor-lost rule counts from the
+	// switch-on: 240 ms, no cut.
+	ServoPowerIn old = powerInOf(SenseState::Online, 5000, t0 - 10, true);
+	powerPass(&c, &p, cmdOf(1, ServoCmdKind::Start), old, t0 - 10 + SENSE_STALE_MS);
 	checkTrue("a 5 V reading 250 ms old: stale, still Starting",
-	          p.phase == ServoPowerPhase::Starting);
+	          p.phase == ServoPowerPhase::Starting && c.running);
 	ServoPowerIn up = powerInOf(SenseState::Online, 4500, t0 + 300, true);
 	powerPass(&c, &p, cmdOf(1, ServoCmdKind::Start), up, t0 + 301);
 	checkTrue("4500 mV taken 300 ms after, across the wrap: On, CENTRE",
@@ -1065,12 +1068,15 @@ static void testPowerStartBlock() {
 	checkTrue("absent: START refused, the supply off", !c.running &&
 	          p.phase == ServoPowerPhase::Off);
 	checkInt("and acknowledged", c.ackSeq, 1);
-	// Online at START, then gone before 4.5 V: its last reading still counts.
+	// Online at START, then gone before 4.5 V: the sensor-lost cut, before
+	// its last reading could count.
 	ServoPowerIn on = powerInOf(SenseState::Online, 0, 1999, true);
 	powerPass(&c, &p, cmdOf(2, ServoCmdKind::Start), on, 2000);
 	ServoPowerIn off = powerInOf(SenseState::Offline, 5000, 2100, true);
 	powerPass(&c, &p, cmdOf(2, ServoCmdKind::Start), off, 2100);
-	checkTrue("a fresh 5 V reading from a part now offline: On", p.phase == ServoPowerPhase::On);
+	checkTrue("a part offline while Starting: the sensor-lost cut, off, NoSensor",
+	          p.phase == ServoPowerPhase::Off && !c.running && c.tripped &&
+	          p.fault == ServoPowerFault::NoSensor && c.outUs[0] == 0);
 }
 
 /** @brief The read-back after the switch-off: Off and Not off. */
@@ -1135,6 +1141,170 @@ static void testPowerReadBack() {
 	ServoPowerIn gone = powerInOf(SenseState::Online, 900, 9119, true);
 	powerPass(&c, &p, cmdOf(6, ServoCmdKind::Safe), gone, 9119);
 	checkTrue("900 mV taken 19 ms after the switch-off: Off", p.offCheck == ServoOffCheck::Off);
+}
+
+/** @brief Inputs of one pass: reading @p seq of @p ua at @p mv, taken at @p takenMs. */
+static ServoPowerIn readingIn(uint32_t seq, int32_t ua, uint16_t mv, uint32_t takenMs,
+                              SenseState state = SenseState::Online) {
+	ServoPowerIn in = powerInOf(state, mv, takenMs, true);
+	in.sample.seq = seq;
+	in.sample.currentUa = ua;
+	return in;
+}
+
+/** @brief Switched, a sensor: START at @p t, up at a 5 V reading 30 ms later. */
+static void cutStart(ServoCore *c, ServoPower *p, uint16_t cmdSeq, uint32_t *seq, uint32_t t) {
+	powerPass(c, p, cmdOf(cmdSeq, ServoCmdKind::Start), readingIn(*seq, 0, 0, t - 10), t);
+	++*seq;
+	powerPass(c, p, cmdOf(cmdSeq, ServoCmdKind::Start), readingIn(*seq, 0, 5000, t + 30), t + 30);
+}
+
+/**
+ * @brief Readings of @p ua at @p mv every 25 ms from @p from on, while
+ *        RUNNING, at most to @p to. @return The time of the reading that
+ *        ended RUNNING, or 0.
+ */
+static uint32_t cutRun(ServoCore *c, ServoPower *p, uint16_t cmdSeq, uint32_t *seq, uint32_t from,
+                       uint32_t to, int32_t ua, uint16_t mv) {
+	for (uint32_t t = from; t <= to; t += 25) {
+		++*seq;
+		powerPass(c, p, cmdOf(cmdSeq, ServoCmdKind::Start), readingIn(*seq, ua, mv, t), t);
+		if (!c->running) return t;
+	}
+	return 0;
+}
+
+/** @brief The cuts of supply_guard.h in servoPowerStep(), with the switch and with OWN. */
+static void testPowerCuts() {
+	section("Servo supply rules: the cuts on the sensor's readings");
+
+	ServoCore c;
+	ServoPower p;
+	uint32_t seq = 1;
+	powerFresh(&c, &p, true);
+	cutStart(&c, &p, 1, &seq, 1000);
+	checkTrue("up: On, CENTRE, the guard armed at the switch-on",
+	          p.phase == ServoPowerPhase::On && c.outUs[0] == 1500 && p.guard.armed &&
+	          p.guard.armMs == 1000 && p.guard.up);
+	powerPass(&c, &p, cmdOf(1, ServoCmdKind::Start), readingIn(++seq, 2999900, 5000, 1055), 1055);
+	checkTrue("2999.9 mA: running", c.running && c.outUs[0] == 1500);
+	powerPass(&c, &p, cmdOf(1, ServoCmdKind::Start), readingIn(++seq, 3000000, 5000, 1080), 1080);
+	checkTrue("3000 mA: the pulses end and the supply goes off in the same pass",
+	          !c.running && c.outUs[0] == 0 && c.outUs[1] == 0 && p.phase == ServoPowerPhase::Off &&
+	          p.offMs == 1080);
+	checkTrue("latched: tripped, Overcurrent, the guard disarmed, the read-back armed",
+	          c.tripped && p.fault == ServoPowerFault::Overcurrent && !p.guard.armed &&
+	          p.offCheck == ServoOffCheck::Waiting);
+	powerPass(&c, &p, cmdOf(1, ServoCmdKind::Start), readingIn(++seq, 3000000, 5000, 1105), 1105);
+	checkTrue("SAFE: a later reading changes nothing", p.fault == ServoPowerFault::Overcurrent &&
+	          p.phase == ServoPowerPhase::Off);
+	servoPowerReset(&p, true, false);
+	checkTrue("a rebind keeps the fault", p.fault == ServoPowerFault::Overcurrent && !p.guard.armed);
+	cutStart(&c, &p, 2, &seq, 2000);
+	checkTrue("START clears it", c.running && !c.tripped && p.fault == ServoPowerFault::None &&
+	          p.phase == ServoPowerPhase::On);
+	powerPass(&c, &p, cmdOf(2, ServoCmdKind::Start),
+	          readingIn(++seq, 100000, 5000, 2055, SenseState::Online), 2055);
+	SenseSample clip = readingIn(++seq, 100000, 5000, 2080).sample;
+	clip.flags = SENSE_FLAG_CLIPPED;
+	ServoPowerIn clipped = readingIn(seq, 100000, 5000, 2080);
+	clipped.sample = clip;
+	powerPass(&c, &p, cmdOf(2, ServoCmdKind::Start), clipped, 2080);
+	checkTrue("a clipped reading: Overcurrent", !c.running && p.fault == ServoPowerFault::Overcurrent);
+
+	// The stall: above 1.0 A for 400 ms.
+	cutStart(&c, &p, 3, &seq, 3000);
+	checkInt("1.2 A from 3055: cut by the reading 400 ms on",
+	         cutRun(&c, &p, 3, &seq, 3055, 4000, 1200000, 4900), 3455);
+	checkTrue("Stall, off, tripped", p.fault == ServoPowerFault::Stall && c.tripped &&
+	          p.phase == ServoPowerPhase::Off && c.outUs[0] == 0);
+	cutStart(&c, &p, 4, &seq, 5000);
+	checkInt("1.0 A for 3 s: running", cutRun(&c, &p, 4, &seq, 5055, 8055, 1000000, 4900), 0);
+	powerPass(&c, &p, cmdOf(5, ServoCmdKind::Safe), readingIn(++seq, 0, 0, 8080), 8080);
+
+	// The collapse: under 4.0 V for 1000 ms after start-up.
+	cutStart(&c, &p, 6, &seq, 9000);
+	checkInt("3.9 V from 9055: cut by the reading 1000 ms on",
+	         cutRun(&c, &p, 6, &seq, 9055, 11000, 500000, 3900), 10055);
+	checkTrue("LowSupply, off", p.fault == ServoPowerFault::LowSupply &&
+	          p.phase == ServoPowerPhase::Off && c.tripped);
+	// Below 4.5 V from the switch-on: no start-up reading, so the collapse
+	// rule never counts; the supply that never came up is NoStart.
+	powerPass(&c, &p, cmdOf(7, ServoCmdKind::Start), readingIn(++seq, 0, 0, 11990), 12000);
+	checkInt("3.9 V from the switch-on: NoStart at 500 ms, not LowSupply",
+	         cutRun(&c, &p, 7, &seq, 12025, 13500, 0, 3900), 12500);
+	checkTrue("NoStart", p.fault == ServoPowerFault::NoStart && !c.tripped);
+
+	// The sensor lost.
+	cutStart(&c, &p, 8, &seq, 14000);
+	powerPass(&c, &p, cmdOf(8, ServoCmdKind::Start), readingIn(seq, 0, 5000, 14030), 14279);
+	checkTrue("no reading for 249 ms: running", c.running);
+	powerPass(&c, &p, cmdOf(8, ServoCmdKind::Start), readingIn(seq, 0, 5000, 14030), 14280);
+	checkTrue("250 ms: NoSensor, off", !c.running && c.tripped &&
+	          p.fault == ServoPowerFault::NoSensor && p.phase == ServoPowerPhase::Off &&
+	          c.outUs[0] == 0);
+	cutStart(&c, &p, 9, &seq, 15000);
+	powerPass(&c, &p, cmdOf(9, ServoCmdKind::Start),
+	          readingIn(seq, 0, 5000, 15030, SenseState::Offline), 15031);
+	checkTrue("the part offline: NoSensor at once", !c.running &&
+	          p.fault == ServoPowerFault::NoSensor);
+	ServoPowerIn back = readingIn(++seq, 0, 0, 15100);
+	checkTrue("online again: START allowed", servoPowerStartBlock(&p, &back) == ServoStartBlock::None);
+
+	// The order: touch silent and the stuck bus before the guard's cuts.
+	cutStart(&c, &p, 10, &seq, 16000);
+	ServoPowerIn both = readingIn(++seq, 3200000, 5000, 16055);
+	both.touchOk = false;
+	powerPass(&c, &p, cmdOf(10, ServoCmdKind::Start), both, 16055);
+	checkTrue("touch silent and 3.2 A: TouchSilent", p.fault == ServoPowerFault::TouchSilent);
+	cutStart(&c, &p, 11, &seq, 17000);
+	powerPass(&c, &p, cmdOf(11, ServoCmdKind::Start),
+	          readingIn(++seq, 3200000, 5000, 17055, SenseState::Stuck), 17055);
+	checkTrue("stuck and 3.2 A: BusStuck", p.fault == ServoPowerFault::BusStuck);
+	// STOP disarms the guard.
+	cutStart(&c, &p, 12, &seq, 18000);
+	powerPass(&c, &p, cmdOf(13, ServoCmdKind::Safe), readingIn(++seq, 0, 5000, 18055), 18055);
+	checkTrue("STOP: the guard disarmed", !p.guard.armed && p.fault == ServoPowerFault::None);
+
+	// OWN: hard and stall end the pulses; collapse and sensor lost do not apply.
+	powerFresh(&c, &p, false);
+	seq = 1;
+	powerPass(&c, &p, cmdOf(1, ServoCmdKind::Start), readingIn(seq, 0, 7400, 990), 1000);
+	checkTrue("OWN, START: CENTRE at once, the guard armed", c.running && c.outUs[0] == 1500 &&
+	          p.guard.armed && p.phase == ServoPowerPhase::Off);
+	powerPass(&c, &p, cmdOf(1, ServoCmdKind::Start), readingIn(++seq, 3000000, 7400, 1025), 1025);
+	checkTrue("OWN, 3 A: the pulses end in the same pass, Overcurrent, tripped",
+	          !c.running && c.outUs[0] == 0 && c.outUs[1] == 0 && c.tripped &&
+	          p.fault == ServoPowerFault::Overcurrent && p.phase == ServoPowerPhase::Off);
+	servoPowerReset(&p, false, false);
+	checkTrue("OWN, a rebind keeps it", p.fault == ServoPowerFault::Overcurrent);
+	c.tripped = false;
+	p.fault = ServoPowerFault::None;
+	powerPass(&c, &p, cmdOf(1, ServoCmdKind::Start), readingIn(++seq, 3200000, 7400, 1500), 1500);
+	checkTrue("OWN, SAFE: a 3.2 A reading trips nothing, the guard disarmed",
+	          !c.tripped && p.fault == ServoPowerFault::None && !p.guard.armed);
+	powerPass(&c, &p, cmdOf(2, ServoCmdKind::Start), readingIn(++seq, 0, 7400, 2000), 2000);
+	checkTrue("OWN, START clears it", c.running && p.fault == ServoPowerFault::None);
+	checkInt("OWN, 1.5 A: Stall 400 ms on", cutRun(&c, &p, 2, &seq, 2025, 3000, 1500000, 7400), 2425);
+	checkTrue("Stall", p.fault == ServoPowerFault::Stall && c.outUs[0] == 0);
+	powerPass(&c, &p, cmdOf(3, ServoCmdKind::Start), readingIn(++seq, 0, 7400, 4000), 4000);
+	checkInt("OWN, 0 V for 3 s: no collapse", cutRun(&c, &p, 3, &seq, 4025, 7025, 0, 0), 0);
+	powerPass(&c, &p, cmdOf(3, ServoCmdKind::Start),
+	          readingIn(seq, 0, 0, 7025, SenseState::Offline), 9000);
+	checkTrue("OWN, the part offline and no reading for 2 s: running, no sensor-lost cut",
+	          c.running && c.outUs[0] == 1500);
+	powerPass(&c, &p, cmdOf(3, ServoCmdKind::Start),
+	          readingIn(++seq, 3200000, 0, 9000, SenseState::Offline), 9000);
+	checkTrue("OWN, a fresh 3.2 A reading from a part now offline: Overcurrent",
+	          !c.running && p.fault == ServoPowerFault::Overcurrent);
+	// OWN with CURRENT SENSE at NONE: no guard.
+	powerPass(&c, &p, cmdOf(4, ServoCmdKind::Start), powerInOf(SenseState::None), 10000);
+	ServoPowerIn none = readingIn(++seq, 3200000, 0, 10025, SenseState::None);
+	powerPass(&c, &p, cmdOf(4, ServoCmdKind::Start), none, 10025);
+	checkTrue("OWN, CURRENT SENSE NONE: nothing judged, running", c.running && !p.guard.armed &&
+	          p.fault == ServoPowerFault::None);
+	servoPowerReset(&p, false, true);
+	checkTrue("a new session drops the fault", p.fault == ServoPowerFault::None);
 }
 
 /** @brief The board's wiring, KISS on, the pump bound and past any drain. */
@@ -1703,6 +1873,184 @@ static void testJobSupplySensed() {
 	senseConfigure(0);
 	fakeI2cReset();
 	supplyMode(0);
+	stamps();
+}
+
+/**
+ * @brief Senses until the job leaves RUNNING, at most @p n frames.
+ * @return The frames it took, or -1.
+ */
+static int senseUntilCut(FakeIna219 *ina, uint8_t en, int n, double onV = 5.0) {
+	ServoStatus st;
+	for (int i = 1; i <= n; i++) {
+		sensePass(ina, en, 25, onV);
+		servoJobStatus(&st);
+		if (!st.running) return i;
+	}
+	return -1;
+}
+
+/**
+ * @brief The cuts through the job table with an INA219 on the fake bus:
+ *        the enable pin low and level 0 in the pass that reads the cut,
+ *        and in that order; a transient fault of the bus no cut.
+ */
+static void testJobCuts() {
+	section("Servo job: the cuts with the INA219, on GP29 and with OWN");
+
+	const uint8_t EN = 29;
+	fakePwmReset();
+	freshPump();
+	supplyMode(2);
+	fakeI2cReset();
+	settings()->currentSense = 1;
+	senseConfigure(1);
+	FakeIna219 *ina = fakeI2cAddIna219(INA219_ADDR);
+	ServoProfile prof;
+	servoProfileDefault(&prof);
+	servoJobProfile(&prof);
+	servoJobNewSession();
+	stamps();
+	senseTick(millis());
+	ServoStatus st;
+	checkTrue("the claim runs", claimRunning(PIN_SIG) && enLow(EN));
+	sensePass(ina, EN, 25);
+
+	// The hard cut.
+	send(cmdOf(0, ServoCmdKind::Start));
+	sensePass(ina, EN, 25);
+	checkTrue("on: CENTRE", enHigh(EN) && fakePin(SIG).level == 1500);
+	ina->currentA = 2.99;
+	sensePass(ina, EN, 25);
+	sensePass(ina, EN, 25);
+	checkTrue("2.99 A: on", enHigh(EN) && fakePin(SIG).level == 1500);
+	ina->currentA = 3.0;
+	fakeAdvance(25);
+	stamps();
+	senseTick(millis());
+	servoJobStatus(&st);
+	checkTrue("3.0 A read: still on before core1's pass", st.running && enHigh(EN));
+	core1JobPoll();
+	servoJobStatus(&st);
+	checkTrue("core1's next pass: GP29 low and SIG at level 0",
+	          enLow(EN) && fakePin(SIG).level == 0 && !st.running);
+	checkTrue("the enable pin first, then level 0", fakePin(EN).putAt < fakePin(SIG).levelAt);
+	checkTrue("tripped, Overcurrent", st.tripped && st.powerFault == ServoPowerFault::Overcurrent);
+	sensePass(ina, EN, 25);
+	checkTrue("it stays off", enLow(EN) && fakePin(SIG).level == 0);
+	ina->currentA = 3.6;
+	send(cmdOf(0, ServoCmdKind::Start));
+	sensePass(ina, EN, 25);
+	servoJobStatus(&st);
+	checkTrue("3.6 A, beyond the range: clipped, cut", enLow(EN) && !st.running &&
+	          st.powerFault == ServoPowerFault::Overcurrent);
+	ina->currentA = -3.6;
+	send(cmdOf(0, ServoCmdKind::Start));
+	sensePass(ina, EN, 25);
+	servoJobStatus(&st);
+	checkTrue("-3.6 A, a reversed sensor: cut", enLow(EN) && !st.running);
+
+	// The stall: 1.2 A from the first reading after the start-up one.
+	ina->currentA = 0;
+	send(cmdOf(0, ServoCmdKind::Start));
+	sensePass(ina, EN, 25);
+	checkTrue("on again", enHigh(EN) && fakePin(SIG).level == 1500);
+	ina->currentA = 1.2;
+	checkInt("1.2 A: cut 400 ms after the first reading above, at its 17th",
+	         senseUntilCut(ina, EN, 40), 17);
+	servoJobStatus(&st);
+	checkTrue("Stall, GP29 low, level 0", st.powerFault == ServoPowerFault::Stall && enLow(EN) &&
+	          fakePin(SIG).level == 0);
+	ina->currentA = 1.0;
+	send(cmdOf(0, ServoCmdKind::Start));
+	sensePass(ina, EN, 25);
+	checkInt("1.0 A: no stall in 3 s", senseUntilCut(ina, EN, 120), -1);
+	send(cmdOf(0, ServoCmdKind::Safe));
+	sensePass(ina, EN, 25);
+
+	// The collapse: the converter at 3.9 V after start-up.
+	ina->currentA = 0.5;
+	send(cmdOf(0, ServoCmdKind::Start));
+	sensePass(ina, EN, 25);
+	checkTrue("up", enHigh(EN));
+	checkInt("3.9 V: cut 1000 ms after the first reading under 4.0 V, at its 41st",
+	         senseUntilCut(ina, EN, 80, 3.9), 41);
+	servoJobStatus(&st);
+	checkTrue("LowSupply, GP29 low", st.powerFault == ServoPowerFault::LowSupply && enLow(EN));
+	send(cmdOf(0, ServoCmdKind::Start));
+	sensePass(ina, EN, 25);
+	checkInt("4.05 V at 0.5 A, 4.0 V at the sensor: no cut in 3 s",
+	         senseUntilCut(ina, EN, 120, 4.05), -1);
+	send(cmdOf(0, ServoCmdKind::Safe));
+	sensePass(ina, EN, 25);
+
+	// A transient fault of the bus: a failed read, a reading, then two
+	// failed reads in a row, one short of taking the part offline.
+	ina->currentA = 0.2;
+	send(cmdOf(0, ServoCmdKind::Start));
+	sensePass(ina, EN, 25);
+	fakeI2cFailNext(1, PICO_ERROR_GENERIC);
+	sensePass(ina, EN, 25);
+	sensePass(ina, EN, 25);
+	fakeI2cFailNext(2, PICO_ERROR_GENERIC);
+	sensePass(ina, EN, 25);
+	sensePass(ina, EN, 25);
+	checkTrue("the part still online", sensePart()->state == SENSE_PART_ONLINE);
+	checkInt("three frames without a reading: no cut over 1 s", senseUntilCut(ina, EN, 40), -1);
+	servoJobStatus(&st);
+	checkTrue("still on, no fault", enHigh(EN) && st.running && st.powerFault == ServoPowerFault::None);
+
+	// Core0 reads nothing for 250 ms while the heartbeat and touch answer.
+	for (int i = 0; i < 9; i++) passAfter(25);
+	passAfter(24);
+	servoJobStatus(&st);
+	checkTrue("no reading for 249 ms: on", st.running && enHigh(EN));
+	passAfter(1);
+	servoJobStatus(&st);
+	checkTrue("250 ms: GP29 low, level 0, NoSensor", !st.running && enLow(EN) &&
+	          fakePin(SIG).level == 0 && st.tripped && st.powerFault == ServoPowerFault::NoSensor);
+
+	// The part gone: three failed reads take it offline.
+	send(cmdOf(0, ServoCmdKind::Start));
+	sensePass(ina, EN, 25);
+	checkTrue("on", enHigh(EN));
+	fakeI2cRemove(INA219_ADDR);
+	int frames = senseUntilCut(ina, EN, 20);
+	servoJobStatus(&st);
+	checkTrue("unplugged: off within three frames, NoSensor",
+	          frames >= 1 && frames <= 3 && enLow(EN) && st.powerFault == ServoPowerFault::NoSensor);
+	checkTrue("START refused until it is back", st.startBlock == ServoStartBlock::NoSensor);
+	checkTrue("released", claimEnd() && enUndriven(EN));
+
+	// OWN: the hard cut ends the pulses; GP28 and GP29 untouched.
+	fakePwmReset();
+	freshPump();
+	supplyMode(0);
+	fakeI2cReset();
+	ina = fakeI2cAddIna219(INA219_ADDR);
+	ina->voutV = 7.4;
+	senseConfigure(0);
+	senseConfigure(1);
+	for (int i = 0; i < 41; i++) { fakeAdvance(25); stamps(); senseTick(millis()); }
+	servoJobProfile(&prof);
+	servoJobNewSession();
+	checkTrue("OWN: the claim runs", claimRunning(PIN_SIG));
+	send(cmdOf(0, ServoCmdKind::Start));
+	checkTrue("OWN: CENTRE at START", fakePin(SIG).level == 1500);
+	ina->currentA = 3.1;
+	fakeAdvance(25); stamps(); senseTick(millis()); core1JobPoll();
+	servoJobStatus(&st);
+	checkTrue("OWN, 3.1 A: level 0 in the pass that reads it, Overcurrent",
+	          !st.running && fakePin(SIG).level == 0 && st.tripped &&
+	          st.powerFault == ServoPowerFault::Overcurrent && !st.switched);
+	checkTrue("OWN: GP28 and GP29 untouched", fakePin(28).puts == 0 && fakePin(29).puts == 0 &&
+	          !fakePin(28).output && !fakePin(29).output);
+	checkTrue("released", claimEnd());
+	settings()->currentSense = 0;
+	senseConfigure(0);
+	fakeI2cReset();
+	supplyMode(0);
+	servoJobNewSession();
 	stamps();
 }
 
@@ -4352,6 +4700,194 @@ static void testSupplyScreenFaults() {
 	freshUi();
 }
 
+/** @brief Whether the strip's chip reads @p text on @p fill, ending at x 232. */
+static bool chipIs(const char *text, uint16_t fill) {
+	int x = uiChipX(text);
+	return pixel(x, UI_STRIP_Y + 3) == fill && pixel(x - 1, UI_STRIP_Y + 3) == C_BG &&
+	       fakeTextIs(x + 6, UI_STRIP_Y + 2 + (UI_CHIP_H - 7) / 2, text, C_ONACCENT, fill, 1);
+}
+
+/**
+ * @brief The cuts on the screen: each cut's chip and notes, the caption
+ *        beside the widest chip, the strip's second line, START clearing it.
+ */
+static void testCutScreens() {
+	section("Servo screen: the cuts' chips and notes");
+
+	freshUi();
+	fakeI2cReset();
+	settings()->servoSupply = 1;
+	servoSupplyConfigure(1);
+	settings()->currentSense = 1;
+	senseConfigure(1);
+	FakeIna219 *ina = fakeI2cAddIna219(INA219_ADDR);
+	openServo();
+	senseFrames(ina, 42);
+	checkTrue("found: SAFE, the full caption", chipIs("SAFE", C_GREEN) &&
+	          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, "SIG GP0  50 HZ  1000-2000 US", C_DIM, C_BG, 1));
+
+	// The hard cut.
+	holdStartFrames();
+	senseFrames(ina, 3);
+	checkTrue("RUNNING, the caption kept", chipIs("RUNNING", C_RED) &&
+	          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, "SIG GP0  50 HZ  1000-2000 US", C_DIM, C_BG, 1));
+	ina->currentA = 3.2;
+	senseFrames(ina, 3);
+	checkTrue("3.2 A: the enable pin low, level 0", !fakePin(28).high && fakePin(SIG).level == 0);
+	checkTrue("the chip OVERCURRENT, magenta", chipIs(SERVO_UI_CHIP_HARD, C_MAGENTA));
+	checkTrue("the caption by its role, 4 px before the chip",
+	          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, "SIG  50 HZ  1000-2000 US", C_DIM, C_BG, 1) &&
+	          UI_MARGIN + gfxTextW("SIG  50 HZ  1000-2000 US", 1) + 4 <= uiChipX(SERVO_UI_CHIP_HARD));
+	char line2[40];
+	snprintf(line2, sizeof(line2), SERVO_UI_SUPPLY_FMT, 28u);
+	{
+		ServoProfile keep = s_profile;
+		s_profile.rateHz = 333;
+		s_st.tripped = false;
+		drawTop(SERVO_UI_TITLE, true);
+		checkTrue("333 HZ beside SAFE: menu-b.md's caption, by its role",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, "SIG  333 HZ  1000-2000 US", C_DIM, C_BG, 1));
+		s_st.tripped = true;
+		drawTop(SERVO_UI_TITLE, true);
+		checkTrue("333 HZ beside OVERCURRENT: the travel goes",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, "SIG  333 HZ", C_DIM, C_BG, 1) &&
+		          !someOf(UI_MARGIN + gfxTextW("SIG  333 HZ", 1) + 1, UI_STRIP_LINE1_Y,
+		                  uiChipX(SERVO_UI_CHIP_HARD) - UI_MARGIN - gfxTextW("SIG  333 HZ", 1) - 2, 7,
+		                  C_DIM));
+		s_profile = keep;
+		drawTop(SERVO_UI_TITLE, true);
+	}
+	checkTrue("the second line: ON AT START, clear of the chip",
+	          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, line2, C_AMBER, C_BG, 1) &&
+	          UI_MARGIN + gfxTextW(line2, 1) + 4 <= uiChipX(SERVO_UI_CHIP_HARD));
+	snprintf(line2, sizeof(line2), SERVO_UI_SUPPLY_NOT_OFF_FMT, 29u);
+	checkTrue("NOT OFF on GP29 is clear of it too",
+	          UI_MARGIN + gfxTextW(line2, 1) + 4 <= uiChipX(SERVO_UI_CHIP_HARD));
+	checkTrue("the notes: the cause in magenta, HOLD TO START AGAIN.",
+	          notesAre(SERVO_UI_CUT_HARD, C_MAGENTA, "HOLD TO START AGAIN.", C_DIM));
+	checkTrue("HOLD TO START live", ctlEnabled(UI_FIX(ServoCtl::Start)));
+	fakeDumpFrame("shot_servo_overcurrent.ppm");
+	ina->currentA = 0;
+	holdStartFrames();
+	senseFrames(ina, 3);
+	checkTrue("START: RUNNING, the full caption, the notes gone",
+	          chipIs("RUNNING", C_RED) && s_st.powerFault == ServoPowerFault::None &&
+	          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, "SIG GP0  50 HZ  1000-2000 US", C_DIM, C_BG, 1));
+
+	// The stall.
+	ina->currentA = 1.5;
+	senseFrames(ina, 20);
+	checkTrue("1.5 A for 400 ms: STALL", !fakePin(28).high && chipIs(SERVO_UI_CHIP_STALL, C_MAGENTA) &&
+	          notesAre(SERVO_UI_CUT_STALL, C_MAGENTA, "HOLD TO START AGAIN.", C_DIM));
+	checkTrue("STALL is narrower than RUNNING: the full caption",
+	          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, "SIG GP0  50 HZ  1000-2000 US", C_DIM, C_BG, 1));
+
+	// START and a new cut between two screen frames: the screen never sees
+	// RUNNING, and the chip still names the new cut.
+	ina->currentA = 3.2;
+	{
+		int x, y;
+		ctlCentre(UI_FIX(ServoCtl::Start), &x, &y);
+		pressId(UI_FIX(ServoCtl::Start));
+		fakeHold(x, y);
+		uiFrames(UI_HOLD_MS / 25);   // the hold completes: START sent
+	}
+	ServoStatus mid;
+	servoJobStatus(&mid);
+	checkTrue("the screen's last frame saw no RUNNING", !s_st.running && !mid.running);
+	core1JobPoll();
+	servoJobStatus(&mid);
+	checkTrue("START taken by core1 after that frame", mid.running);
+	fakeAdvance(25);
+	followEn(ina, 28);
+	senseTick(millis());
+	core1JobPoll();
+	servoJobStatus(&mid);
+	checkTrue("the next reading, 3.2 A, cuts before the screen's next frame",
+	          !mid.running && mid.powerFault == ServoPowerFault::Overcurrent && !fakePin(28).high);
+	fakeRelease();
+	uiTick();
+	checkTrue("the screen's next frame: OVERCURRENT, not STALL",
+	          chipIs(SERVO_UI_CHIP_HARD, C_MAGENTA) &&
+	          notesAre(SERVO_UI_CUT_HARD, C_MAGENTA, "HOLD TO START AGAIN.", C_DIM));
+	ina->currentA = 0;
+	senseFrames(ina, 2);
+
+	// The collapse.
+	ina->currentA = 0.3;
+	holdStartFrames();
+	senseFrames(ina, 3);
+	senseFrames(ina, 42, 3.8);
+	checkTrue("3.8 V for 1000 ms: LOW SUPPLY", !fakePin(28).high &&
+	          chipIs(SERVO_UI_CHIP_LOW, C_MAGENTA) &&
+	          notesAre(SERVO_UI_CUT_LOW, C_MAGENTA, "HOLD TO START AGAIN.", C_DIM) &&
+	          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, "SIG  50 HZ  1000-2000 US", C_DIM, C_BG, 1));
+
+	// The sensor lost: unplugged while on.
+	holdStartFrames();
+	senseFrames(ina, 3);
+	fakeI2cRemove(INA219_ADDR);
+	senseFrames(ina, 5);
+	checkTrue("unplugged: NO SENSOR, START waits for it", !fakePin(28).high &&
+	          chipIs(SERVO_UI_CHIP_LOST, C_MAGENTA) &&
+	          notesAre(SERVO_UI_CUT_LOST, C_MAGENTA, SERVO_UI_NO_SENSOR_1, C_DIM) &&
+	          !ctlEnabled(UI_FIX(ServoCtl::Start)));
+	checkTrue("NO SENSOR beside the caption by its role",
+	          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, "SIG  50 HZ  1000-2000 US", C_DIM, C_BG, 1));
+	fakeDumpFrame("shot_servo_no_sensor_cut.ppm");
+	ina = fakeI2cAddIna219(INA219_ADDR);
+	senseFrames(ina, 44);
+	checkTrue("back: HOLD TO START AGAIN., the cause kept",
+	          ctlEnabled(UI_FIX(ServoCtl::Start)) &&
+	          notesAre(SERVO_UI_CUT_LOST, C_MAGENTA, "HOLD TO START AGAIN.", C_DIM));
+
+	leaveServo();
+	checkTrue("BACK: GP28 undriven", enUndriven(28));
+
+	// OWN: a sensor that stops answering while RUNNING leaves no cut; the
+	// dial says so.
+	freshUi();
+	servoSupplyConfigure(0);
+	fakeI2cReset();
+	senseConfigure(0);
+	int w = gfxTextW(SERVO_UI_OWN_NO_CUTS, 1);
+	openServo();
+	holdStartFrames();
+	uiFrames(2);
+	checkTrue("OWN, CURRENT SENSE NONE, RUNNING: no note",
+	          s_st.running && !someOf(0, 76, GFX_W, 7, C_DIM));
+	pressId(UI_FIX(ServoCtl::Start));
+	core1();
+	fakeRelease();
+	uiFrames(2);
+	settings()->currentSense = 1;
+	senseConfigure(1);
+	ina = fakeI2cAddIna219(INA219_ADDR);
+	senseFrames(ina, 42);
+	holdStartFrames();
+	senseFrames(ina, 2);
+	checkTrue("OWN, RUNNING, the sensor online: no note",
+	          s_st.running && !textAt((GFX_W - w) / 2, 76, SERVO_UI_OWN_NO_CUTS, C_DIM, 1));
+	fakeI2cRemove(INA219_ADDR);
+	senseFrames(ina, 5);
+	checkTrue("the sensor gone: still RUNNING, the dim note",
+	          s_st.running && textAt((GFX_W - w) / 2, 76, SERVO_UI_OWN_NO_CUTS, C_DIM, 1));
+	checkTrue("the note fits the panel", w <= GFX_W - 2 * UI_MARGIN);
+	pressId(UI_FIX(ServoCtl::Start));
+	core1();
+	fakeRelease();
+	senseFrames(ina, 2);
+	char safe2[48];
+	snprintf(safe2, sizeof(safe2), "PULSES ON GP%u ARE THROTTLE TO AN ESC.", (unsigned)gpioOf(PIN_SIG));
+	checkTrue("STOP: the note gone, SAFE's notes alone", !s_st.running &&
+	          notesAre("THE SERVO MOVES TO CENTRE AT START.", C_DIM, safe2, C_DIM));
+	leaveServo();
+	settings()->currentSense = 0;
+	senseConfigure(0);
+	fakeI2cReset();
+	freshUi();
+}
+
 /**
  * @brief SERVO names SIG by role and number: the caption, the claim's
  *        messages, and the refusal no UI path reaches.
@@ -4373,6 +4909,18 @@ static void testPinNames() {
 	checkStr("333 HZ, one servo: SIG alone, the number has no room", cap, "SIG  333 HZ  1000-2000 US");
 	servoCaption(cap, sizeof(cap), true, 0);
 	checkStr("333 HZ, two servos: the travel goes", cap, "SIG+AUX  333 HZ");
+	int wide = uiChipX(SERVO_UI_CHIP_HARD) - 4;
+	servoCaption(cap, sizeof(cap), false, 0, wide);
+	checkStr("333 HZ beside OVERCURRENT, one servo: the travel goes too", cap, "SIG  333 HZ");
+	s_profile.rateHz = 50;
+	servoCaption(cap, sizeof(cap), false, 0, wide);
+	checkStr("50 HZ beside OVERCURRENT: by its role, the travel kept", cap, "SIG  50 HZ  1000-2000 US");
+	checkTrue("and it ends 4 px before the chip", UI_MARGIN + gfxTextW(cap, 1) <= wide);
+	servoCaption(cap, sizeof(cap), true, 0, wide);
+	checkStr("two servos beside OVERCURRENT", cap, "SIG+AUX  50 HZ");
+	servoCaption(cap, sizeof(cap), false, 0, uiChipX(SERVO_UI_CHIP_LOW) - 4);
+	checkStr("50 HZ beside LOW SUPPLY: by its role", cap, "SIG  50 HZ  1000-2000 US");
+	s_profile.rateHz = 333;
 	s_profile.minUs = 820; s_profile.maxUs = 2220;
 	servoCaption(cap, sizeof(cap), false, 1);
 	checkStr("820-2220 at 333 HZ on GP1: 28 characters fit", cap, "SIG GP1  333 HZ  820-2220 US");
@@ -4446,8 +4994,10 @@ void runServoTests() {
 	testPowerOff();
 	testPowerStartBlock();
 	testPowerReadBack();
+	testPowerCuts();
 	testJobSupply();
 	testJobSupplySensed();
+	testJobCuts();
 	testQuietRule();
 	testLastPulse();
 	testTripLatch();
@@ -4471,6 +5021,7 @@ void runServoTests() {
 	testSenseReadout();
 	testSupplyLineAndHint();
 	testSupplyScreenFaults();
+	testCutScreens();
 	testColourRoles();
 	testPinNames();
 	freshUi();

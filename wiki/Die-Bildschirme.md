@@ -607,7 +607,9 @@ wartet, zuerst: `1 CHANGE NOT APPLIED.` `BACK`
 die Pins zurückbekommt; `BACK TO SERVO` führt zum Tester zurück, und
 `RESTART DSHOT` führt zu `MENU`. Mit CURRENT SENSE auf `INA219`
 zeigt die Zeile unter der Skala statt des Hinweises Strom und Spannung der
-Servoversorgung. Siehe [Servotester](Servotester).
+Servoversorgung, und die Messwerte des Sensors halten das Servo an: Die
+Anzeige zeigt dann `OVERCURRENT`, `STALL`, `LOW SUPPLY` oder `NO SENSOR` in
+Magenta. Siehe [Servotester](Servotester).
 
 ---
 

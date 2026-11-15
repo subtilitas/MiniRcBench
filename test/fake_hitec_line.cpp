@@ -35,6 +35,8 @@ static unsigned        g_starts = 0;
 static unsigned        g_aborts = 0;
 static bool            g_busy = false;     /**< A transaction runs. */
 static bool            g_cut = false;      /**< hitecLineAbort() cut it. */
+static uint32_t        g_cutUs = 0;        /**< When it was cut. */
+static uint32_t        g_cutDelayUs = 0;   /**< A cut transaction comes back this long after the cut. */
 static hitec_xfer_t    g_xfer;             /**< The last transaction started. */
 static uint32_t        g_startUs = 0;      /**< When it started. */
 static uint32_t        g_doneUs = 0;       /**< When its capture is complete. */
@@ -71,6 +73,7 @@ void fakeHitecLineReset(uint8_t family) {
 	g_closedUs = 0;
 	g_starts = 0;
 	g_aborts = 0;
+	g_cutDelayUs = 0;
 	g_busy = false;
 	g_cut = false;
 }
@@ -100,6 +103,8 @@ unsigned fakeHitecStarts() { return g_starts; }
 const hitec_xfer_t *fakeHitecLastXfer() { return &g_xfer; }
 uint32_t fakeHitecLastStartUs() { return g_startUs; }
 unsigned fakeHitecAborts() { return g_aborts; }
+
+bool fakeHitecLineBusy() { return g_busy; }
 
 /** @brief The level the bench drives on the supply's enable pin, as the fakes record it. */
 static bool supplyLevel() {
@@ -231,6 +236,7 @@ bool hitecLinePoll(hitec_capture_t *out) {
 	fakeHitecSimUpdate(supplyLevel(), now);
 	if (!g_busy) return false;
 	if (g_cut) {
+		if (now - g_cutUs < g_cutDelayUs) return false;
 		// The bytes so far: none of an answer that was still due.
 		if ((int32_t)(now - g_doneUs) < 0) g_cap.n = 0;
 		g_cap.aborted = 1;
@@ -245,5 +251,8 @@ bool hitecLinePoll(hitec_capture_t *out) {
 void hitecLineAbort() {
 	if (!g_busy) return;
 	g_cut = true;
+	g_cutUs = time_us_32();
 	g_aborts++;
 }
+
+void fakeHitecCutDelay(uint32_t us) { g_cutDelayUs = us; }

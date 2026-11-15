@@ -2,11 +2,13 @@
 #
 # One list per feature, as servo.mk, kst.mk and hitec.mk.
 #
-#   SENSE_SRCS      C++ sources linked into the suite: the INA219 driver
+#   SENSE_SRCS      C++ sources linked into the suite: the INA219 driver and
+#                   the supply guard, the cuts on its readings
 #   SENSE_CSRCS     C sources linked into the suite: rcbench's sensor bus,
 #                   copied into lib/rcbench/
 #   SENSE_INCLUDES  their include directories
-#   SENSE_TESTS     the test files; test_sense.cpp holds runSenseTests().
+#   SENSE_TESTS     the test files; test_sense.cpp holds runSenseTests(),
+#                   test_supply_guard.cpp runSupplyGuardTests().
 #                   fake_i2c.cpp is the I2C1 bus every host test runs on: the
 #                   parts on it by address, an INA219 and a CST328 among them
 #
@@ -15,7 +17,7 @@
 # it through the INA219 driver. src/cst328.cpp stays in the device sources;
 # test_sense.cpp includes it, in a namespace of its own, to run touch and the
 # sensor on one bus beside the scripted touch of fakes.cpp.
-SENSE_SRCS     := ../src/sense.cpp
+SENSE_SRCS     := ../src/sense.cpp ../src/supply_guard.cpp
 SENSE_CSRCS    := ../lib/rcbench/shared/sense/sense_bus.c
 SENSE_INCLUDES := -I../lib/rcbench/shared/sense/include
-SENSE_TESTS    := test_sense.cpp fake_i2c.cpp
+SENSE_TESTS    := test_sense.cpp test_supply_guard.cpp fake_i2c.cpp

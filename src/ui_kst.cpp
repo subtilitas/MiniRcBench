@@ -669,6 +669,16 @@ static void mainBody(MainText *m) {
 		}
 		case KstJobState::SearchEnded:
 			m->button = "RETRY"; m->ctl = KstCtl::Retry; m->enabled = true;
+			// A cut of the current sensor's guard outranks how the search
+			// ended: the supply went off for it.
+			if (s_st.cut != GuardCut::None) {
+				snprintf(m->strip, sizeof(m->strip), "SIG GP%u  SUPPLY OFF", sig);
+				addWrapped(m, s_st.cut == GuardCut::Hard ? UI_CUT_HARD_TEXT : UI_CUT_LOW_TEXT,
+				           C_AMBER);
+				addLine(m, UI_CUT_RETRY, C_AMBER);
+				stallNote(m);
+				return;
+			}
 			switch (s_st.seek) {
 				case KstSeek::TimedOut:
 					if (s_st.supplyFitted) {
@@ -692,7 +702,7 @@ static void mainBody(MainText *m) {
 						addWrapped(m, "THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF.",
 						           C_AMBER);
 						// 38 characters: 227 px from x 8, inside the panel.
-						addLine(m, "RETRY POWERS IT UP AND READS IT AGAIN.", C_AMBER);
+						addLine(m, UI_CUT_RETRY, C_AMBER);
 						stallNote(m);
 						return;
 					}
