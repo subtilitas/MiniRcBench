@@ -122,8 +122,8 @@ Sitzung ab:
 Bei laufender Brücke öffnet `BACK` jedes Mal eine Verlassenseite, gleich was
 das Programm tat: Der ESC kann in seinem Bootloader sitzen, beim Einschalten
 oder von selbst dorthin gelangt, und DShot-Frames können als seine Befehle
-durchgehen. Den
-ESC ausschalten, dann `RESTART DSHOT` antippen, aktiv 1 s nach dem Öffnen
+durchgehen. Den ESC
+ausschalten, dann `RESTART DSHOT` antippen, aktiv 1 s nach dem Öffnen
 der Seite. `BRIDGE` führt stattdessen zur Brücke zurück. Nach einem
 Schreiben ohne anschließenden Start der Firmware zeigt die Seite zusätzlich
 `FLASH THE ESC AGAIN BEFORE USE.` (den ESC vor dem Einsatz neu flashen).
