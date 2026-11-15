@@ -22,6 +22,7 @@
 #include "usb_bridge.h"
 #include "fake_cdc.h"
 #include "fake_bridge_line.h"
+#include "fake_escwire_port.h"
 #include "tusb.h"
 #include "ui_screen.h"
 #include "sd_log.h"
@@ -157,8 +158,35 @@ static void testMenuSettingsLog() {
 	checkTrue("its entries by id: MONITOR and OUTPUT act",
 	          ctlEnabled(UI_FIX(RxCtl::Monitor)) && ctlEnabled(UI_FIX(RxCtl::Output)) &&
 	          !ctlPresent(UI_FIX(3)));
+	// No ESC on GP0: the bootloader probe hears nothing.
+	fakeEwReset(0xB2, true);
+	fakeEwSim()->dead = true;
+	tapId(UI_FIX(RxCtl::Output));
+	checkTrue("S.BUS OUTPUT opens by id and claims GP0's role",
+	          uiCurrentScreen() == UiScreenId::SbusOut && pinClaimHolder() == PinUser::SbusOut);
+	idFrames(20);
+	checkControlTable("S.BUS OUTPUT, before SAFE");
+	checkTrue("its table: BACK, HOLD TO START not acting, CH 9-16 and SET, no row",
+	          ctlEnabled(UI_FIX(UI_BACK)) && ctlPresent(UI_FIX(SbusOutCtl::Start)) &&
+	          !ctlEnabled(UI_FIX(SbusOutCtl::Start)) && ctlEnabled(UI_FIX(SbusOutCtl::Page)) &&
+	          ctlEnabled(UI_FIX(SbusOutCtl::Set)) && !ctlPresent(UI_FIX(SbusOutCtl::Row0)) &&
+	          !ctlPresent(UI_FIX(SbusOutCtl::Retry)));
+	tapId(UI_FIX(SbusOutCtl::Set));
+	checkControlTable("OUTPUT SET");
+	checkTrue("SET: five rows, no STOP while SAFE", ctlPresent(UI_ROW(0, Row)) &&
+	          !ctlPresent(UI_FIX(SbusOutCtl::Stop)));
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(UI_FIX(UI_BACK));
+	idFrames(1);
+	checkControlTable("S.BUS OUTPUT, leave page");
+	checkTrue("BACK: the leave page, BACK TO OUTPUT acting, RESTART DSHOT not yet",
+	          !ctlEnabled(UI_FIX(UI_BACK)) && ctlEnabled(UI_FIX(SbusOutCtl::BackToOutput)) &&
+	          ctlPresent(UI_FIX(SbusOutCtl::Restart)) && !ctlEnabled(UI_FIX(SbusOutCtl::Restart)));
+	idFrames(44);
+	tapId(UI_FIX(SbusOutCtl::Restart));
+	checkTrue("RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) idFrames(1);
+	checkTrue("Free", pinClaimState() == ClaimState::Free);
 	idFrames(1);
 
 	tapId(menuRow(&UI_ESC_CONFIG));
