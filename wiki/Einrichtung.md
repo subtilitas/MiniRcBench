@@ -29,6 +29,7 @@ Für jedes Werkzeug brauchst du außerdem:
 | KST-Programmierung | Ein KST- oder Chaservo-Servo und eine schaltbare 5-V-Versorgung: ein Stecker oder ein Schalter in der Plusleitung |
 | Hitec-Programmierung, D-Serie | Ein Hitec-Servo der D-Serie und eine 5-V-Versorgung |
 | Hitec-Programmierung, klassisch | Ein klassisches Hitec-Servo (HS-5xxx, HS-7xxx) und die geschaltete Versorgung aus [Verdrahtung](Verdrahtung), Teil C: ein 5-V-DC-DC-Wandler (Gleichspannungswandler) mit Enable-Eingang (EN), ein Abwärtswandler oder einer mit Ausgangstrennung, für mehr als 1 A, seine Eingangsversorgung und ein Pull-down-Widerstand von 10 kΩ von EN nach Masse |
+| RX-Signale, MONITOR | Ein Empfänger mit S.BUS-Ausgang, an seinen Sender gebunden, und seine eigene Versorgung. Siehe [RX-Signale](RX-Signale#verdrahtung) |
 
 ---
 

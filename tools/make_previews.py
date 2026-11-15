@@ -108,6 +108,14 @@ PREVIEWS = {
         "shot_hitec_write",
         "shot_hitec_files",
     ],
+    # S.BUS MONITOR: RX SIGNALS, the chooser, then the monitor with frames,
+    # in failsafe, and after the receiver stopped, the last frame dim.
+    "sbus-preview": [
+        "shot_rx_chooser",
+        "shot_sbus_live",
+        "shot_sbus_failsafe",
+        "shot_sbus_lost",
+    ],
 }
 
 

@@ -29,7 +29,7 @@
  * | Stopping | core1 drains, stops and releases the pump | Held when escTaskSuspended() |
  * | Held | both pins free; the GPIOs are latched; SERVO, KST and the S.BUS monitor start their job; HITEC as its entry asks (pinClaimStartJob()) | Running once it binds |
  * | Running | the job holds its pins | Leaving on pinClaimEnd() |
- * | Leaving | the job releases its pins; SERVO, KST and HITEC show the leave page (ui_leave.h), the S.BUS monitor its unplug page | Restoring |
+ * | Leaving | the job releases its pins; SERVO, KST, HITEC and the S.BUS monitor show the leave page (ui_leave.h) | Restoring |
  * | Restoring | core1 rebuilds the pump from the latched wiring | Free |
  *
  * AM32 has no core1 job: its bootloader transport runs on core0
@@ -91,8 +91,7 @@ static constexpr PinUserInfo PIN_USERS[] = {
 	{ PinUser::Kst,   Core1Job::Kst,   true,  true,  false },
 	{ PinUser::Hitec, Core1Job::Hitec, true,  true,  true  },
 	// The monitor drives nothing; an ESC on SIG only loses its frames. When
-	// GP1 is SIG its screen, not built, is to make its own ESC check
-	// (rx-signals.md).
+	// GP1 is SIG its screen makes its own ESC check (ui_sbus.h).
 	{ PinUser::Sbus,  Core1Job::Sbus,  true,  false, false },
 };
 
@@ -124,7 +123,7 @@ enum class ClaimState : uint8_t {
 	Stopping,   /**< The pump drains and releases. */
 	Held,       /**< Both pins free, no job bound; HITEC on OWN waits here for READ. */
 	Running,    /**< The job holds its pins. */
-	Leaving,    /**< The job releases; the leave page for SERVO, KST and HITEC, the unplug page for the S.BUS monitor. */
+	Leaving,    /**< The job releases; SERVO, KST, HITEC and the S.BUS monitor show the leave page. */
 	Restoring,  /**< The pump rebuilds. */
 };
 
@@ -166,8 +165,7 @@ struct ClaimFacts {
  *   into whatever is on the wire. The screen keeps asking; the claim follows by
  *   itself 500 ms after the ESC goes quiet. AM32 is exempt: it needs the ESC
  *   on the pin. The S.BUS monitor is exempt: it drives nothing, and when GP1
- *   is SIG its screen, not built, is to make the check itself
- *   (docs/design/rx-signals.md).
+ *   is SIG its screen makes the check itself (ui_sbus.h).
  * - **KissLive**, AUX asked for. An ESC telemetry output drives AUX, and servo
  *   PWM would drive against it; for the S.BUS monitor the telemetry wire is
  *   where the receiver goes.
@@ -283,9 +281,9 @@ void pinClaimStartJob(PinUser who);
 void pinClaimRetry(PinUser who);
 
 /**
- * @brief True while the job has let the pins go and SERVO, KST or HITEC
- *        waits on its leave page for RESTART DSHOT or NEXT SERVO, or the
- *        S.BUS monitor on its unplug page.
+ * @brief True while the job has let the pins go and SERVO, KST, HITEC or
+ *        the S.BUS monitor waits on its leave page for RESTART DSHOT, or for
+ *        NEXT SERVO, BACK TO SERVO or BACK TO MONITOR.
  *
  * Leaving, with the job idle and DShot not yet restarted. DShot idles the
  * line high and pulls it low for about 27 us per 1000 us frame, which a PWM

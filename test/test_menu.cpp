@@ -141,15 +141,6 @@ static void testEveryEntry() {
 	for (uint8_t i = 0; i < n; i++) {
 		const UiScreen *s = e[i].screen;
 		char what[64];
-		if (!s->action && !s->enter) {
-			// RX SIGNALS: no screen behind the row.
-			snprintf(what, sizeof(what), "%s is drawn disabled", e[i].label);
-			checkTrue(what, !ctlEnabled(menuRow(s)));
-			tapId(menuRow(s), IdExpect::Disabled);
-			snprintf(what, sizeof(what), "%s opens nothing", e[i].label);
-			checkTrue(what, uiCurrentScreen() == UiScreenId::Menu);
-			continue;
-		}
 		tapId(menuRow(s));
 		if (s->action) {
 			snprintf(what, sizeof(what), "%s acts and MENU stays", e[i].label);
@@ -282,10 +273,9 @@ static void testPinsBusy() {
 		checkTrue("nor AM32 CONFIG", !ctlEnabled(menuRow(&UI_AM32)));
 		checkTrue("nor SERVO PROGRAMMER, whose entries claim", !ctlEnabled(menuRow(&UI_SERVO_PROG)));
 		const UiRect rx = ctlRect(menuRow(&UI_RX_SIGNALS));
-		checkTrue("RX SIGNALS stays disabled under NOT BUILT",
-		          !ctlEnabled(menuRow(&UI_RX_SIGNALS)) &&
-		          fakeTextIs(UI_MENU_STATUS_R - gfxTextW(UI_MENU_NOT_BUILT, 1), rx.y + 16,
-		                     UI_MENU_NOT_BUILT, C_DIM, C_BG, 1));
+		checkTrue("nor RX SIGNALS, whose MONITOR claims: an outline with no status",
+		          !ctlEnabled(menuRow(&UI_RX_SIGNALS)) && pixel(rx.x + 4, rx.y + rx.h / 2) == C_BG &&
+		          allOf(rx.x + 160, rx.y + 4, rx.w - 164, rx.h - 8, C_BG));
 		fakePress(120, 250); framesNoPump(1);
 		for (int k = 1; k <= 12; k++) { fakeHold(120, 250 - 6 * k); framesNoPump(1); }
 		fakeRelease(); framesNoPump(1);
@@ -385,8 +375,9 @@ static void testSettingsRowVisible() {
 	          uiMenuRowOf(&UI_KST) < 0 && uiMenuRowOf(&UI_HITEC) < 0);
 	checkTrue("the tool rows have no status (decision 18)",
 	          !UI_AM32.status && !UI_SERVO.status && !UI_SERVO_PROG.status && !UI_KST.status &&
-	          !UI_HITEC.status && e[1].statusWidest == 0 && e[2].statusWidest == 0 &&
-	          e[3].statusWidest == 0);
+	          !UI_HITEC.status && !UI_RX_SIGNALS.status && !UI_SBUS.status &&
+	          e[1].statusWidest == 0 && e[2].statusWidest == 0 && e[3].statusWidest == 0 &&
+	          e[4].statusWidest == 0);
 	{
 		const int w = gfxTextW("SERVO PROGRAMMER", 2);
 		checkTrue("SERVO PROGRAMMER, 190 px at scale 2 from x 16, ends at x 206",
@@ -419,34 +410,42 @@ static void testSettingsRowVisible() {
 }
 
 /**
- * @brief RX SIGNALS (decision 35): drawn disabled with `NOT BUILT` in
- *        every claim state MENU shows, a tap opens nothing, and its look is
- *        not the busy cue: the strip keeps its caption while the claim is
- *        Free.
+ * @brief RX SIGNALS (rx-signals.md, decision 4): the row acts while the
+ *        claim is Free and opens its chooser, which claims nothing; while the
+ *        claim is not Free it is drawn disabled, as PROGRAMMER's row, with
+ *        no status (menu-b.md, decision 18).
  */
 static void testRxSignalsRow() {
-	section("MENU: RX SIGNALS, drawn disabled, NOT BUILT");
+	section("MENU: RX SIGNALS opens its chooser, refused while the claim is not Free");
 	freshTester();
 	openMenu();
 	const UiControlId row = menuRow(&UI_RX_SIGNALS);
 	const UiRect r = ctlRect(row);
+	auto rxLive = [&]() {
+		return ctlEnabled(row) && pixel(r.x + 4, r.y + r.h / 2) == C_PANEL &&
+		       fakeTextIs(UI_MENU_LABEL_X, r.y + 13, "RX SIGNALS", C_TEXT, C_PANEL, 2) &&
+		       allOf(r.x + 160, r.y + 4, r.w - 164, r.h - 8, C_PANEL);
+	};
 	auto rxDisabled = [&]() {
 		return !ctlEnabled(row) && pixel(r.x + 4, r.y + r.h / 2) == C_BG &&
 		       fakeTextIs(UI_MENU_LABEL_X, r.y + 13, "RX SIGNALS", C_DIM, C_BG, 2) &&
-		       fakeTextIs(UI_MENU_STATUS_R - gfxTextW(UI_MENU_NOT_BUILT, 1), r.y + 16, UI_MENU_NOT_BUILT,
-		                  C_DIM, C_BG, 1);
+		       allOf(r.x + 160, r.y + 4, r.w - 164, r.h - 8, C_BG);
 	};
-	checkTrue("claim Free: an outline, the label dim, NOT BUILT dim", pinClaimState() == ClaimState::Free &&
-	          rxDisabled());
-	char cap[40];
-	snprintf(cap, sizeof(cap), UI_MENU_CAPTION_FMT, (unsigned)settings()->dshotPin,
-	         (unsigned)settings()->kissPin, (unsigned)settings()->dshotKbaud);
-	checkTrue("the strip keeps its caption: not the busy cue",
-	          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, cap, C_DIM, C_BG, 1));
-	checkTrue("its neighbours act", ctlEnabled(menuRow(&UI_SERVO_PROG)) && ctlEnabled(menuRow(&UI_SDLOG)));
-	checkTrue("RX SIGNALS, 118 px from x 16, ends 8 px or more before NOT BUILT",
-	          UI_MENU_LABEL_X + gfxTextW("RX SIGNALS", 2) + UI_MENU_LABEL_GAP <=
-	              UI_MENU_STATUS_R - gfxTextW(UI_MENU_NOT_BUILT, 1));
+	checkTrue("claim Free: filled, the label in C_TEXT, no status", pinClaimState() == ClaimState::Free &&
+	          rxLive());
+	checkTrue("the row is RX SIGNALS' chooser, which opens only while the claim is Free",
+	          UI_RX_SIGNALS.freePins && UI_RX_SIGNALS.pinUser == PinUser::None &&
+	          UI_RX_SIGNALS.id == UiScreenId::RxSignals);
+	// A claim taken under MENU, as only a test can: Stopping, then Held.
+	checkTrue("a claim taken", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
+	for (int k = 0; k < 3; k++) {
+		menuFrames(1);
+		pinClaimPoll();
+		char what[64];
+		snprintf(what, sizeof(what), "claim state %d: RX SIGNALS drawn disabled, no status",
+		         (int)pinClaimState());
+		checkTrue(what, pinClaimState() != ClaimState::Free && rxDisabled());
+	}
 	tapId(row, IdExpect::Disabled);
 	checkTrue("a tap opens nothing", uiCurrentScreen() == UiScreenId::Menu);
 	fakePress(r.x + r.w / 2, r.y + r.h / 2);
@@ -454,22 +453,16 @@ static void testRxSignalsRow() {
 	checkTrue("a press draws no pressed look", rxDisabled());
 	fakeRelease();
 	menuFrames(1);
-	// A claim taken under MENU, as only a test can: Stopping, then Held.
-	checkTrue("a claim taken", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
-	for (int k = 0; k < 3; k++) {
-		menuFrames(1);
-		pinClaimPoll();
-		char what[64];
-		snprintf(what, sizeof(what), "claim state %d: RX SIGNALS disabled, NOT BUILT",
-		         (int)pinClaimState());
-		checkTrue(what, pinClaimState() != ClaimState::Free && rxDisabled());
-	}
-	tapId(row, IdExpect::Disabled);
-	checkTrue("a tap opens nothing", uiCurrentScreen() == UiScreenId::Menu);
 	pinClaimEnd(PinUser::Am32);
 	for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) menuFrames(1);
 	menuFrames(1);
-	checkTrue("claim Free again: still disabled", rxDisabled());
+	checkTrue("claim Free again: it acts", rxLive());
+	tapId(row);
+	checkTrue("a tap opens RX SIGNALS", uiCurrentScreen() == UiScreenId::RxSignals);
+	checkTrue("which claims nothing: DShot runs on SIG", pinClaimState() == ClaimState::Free &&
+	          !escTaskSuspended() && fakePinReturned());
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("its BACK returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
 	tapId(UI_FIX(UI_BACK));
 }
 
@@ -1483,8 +1476,6 @@ static void testMenuStatusWidths() {
 		fakeFlashClear();
 	}
 	settingsLoad();
-	// RX SIGNALS' one status.
-	check(e[uiMenuRowOf(&UI_RX_SIGNALS)], "not built");
 	tapId(UI_FIX(UI_BACK));
 }
 

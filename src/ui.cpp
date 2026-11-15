@@ -15,6 +15,8 @@
 #include "ui_kst.h"
 #include "ui_servo.h"
 #include "ui_servo_prog.h"
+#include "ui_rx_signals.h"
+#include "ui_sbus.h"
 #include "ui_menu.h"
 #include "ui_sdlog.h"
 #include "ui_settings.h"
@@ -1179,6 +1181,7 @@ static constexpr struct { UiScreenId id; const UiScreen *screen; } SCREENS[] = {
 	{ UiScreenId::Beep,     &UI_BEEP },
 	{ UiScreenId::ServoProg, &UI_SERVO_PROG },
 	{ UiScreenId::RxSignals, &UI_RX_SIGNALS },
+	{ UiScreenId::Sbus,      &UI_SBUS },
 };
 /** @brief Each @ref UiScreenId has exactly one entry in `SCREENS`. */
 static constexpr bool screensComplete() {

@@ -21,6 +21,8 @@
 #include "ui_menu.h"
 #include "ui_registry.h"
 #include "ui_servo_prog.h"
+#include "ui_rx_signals.h"
+#include "ui_sbus.h"
 #include "ui.h"
 #include "ui_leave.h"
 #include "gfx.h"

@@ -200,7 +200,7 @@ static inline uint32_t sbusRateDeciHz(uint32_t intervalUs) {
  * | SIG GP0, AUX GP1 | PIN_SIG \| PIN_AUX |
  * | SIG GP1, AUX GP0 | PIN_SIG |
  * | SIG GP1, AUX GP1 (KISS off) | PIN_SIG |
- * | SIG GP0, AUX GP0 (KISS off) | 0: no claim; the screen of slice 3 is to say S.BUS needs GP1 |
+ * | SIG GP0, AUX GP0 (KISS off) | 0: no claim; the screen says S.BUS needs GP1 (ui_sbus.h) |
  *
  * @param sigGpio escTaskDshotPin().
  * @param auxGpio escTaskKissPin().

@@ -34,16 +34,16 @@ and voltage (see [Current sensor](#current-sensor); design note
 under DIAGNOSTICS, the reason for the last restart and the time since boot
 (design note `docs/design/diagnostics.md`).
 
-An S.BUS (Futaba's serial bus for receiver channels) receiver monitor is
-described in `docs/design/rx-signals.md`. Its core1 job is built and tested on
-the host: during its pin claim it receives on GP1 through UART0 (universal
-asynchronous receiver-transmitter 0) with the pad's input inverted, decodes the
-frames with rcbench's decoder and keeps the channels, flags, frame rate and
-error counts for a screen to read. It has not run on hardware, and the
-inversion on the pin is not measured. No screen opens it yet: the S.BUS MONITOR
-screen is slice 3 of the design note, and MENU's RX SIGNALS row, which stands
-for the S.BUS tools, is drawn disabled, `NOT BUILT`. An S.BUS output is decided
-on by the owner and not designed yet. A PPM (pulse-position modulation) output
+An S.BUS (Futaba's serial bus for receiver channels) receiver monitor, MENU →
+RX SIGNALS → MONITOR, shows a receiver's 16 channels, its two digital
+channels, the link state, the frame rate and the error counts (see
+[S.BUS monitor](#sbus-monitor); design note `docs/design/rx-signals.md`).
+During its pin claim it receives on GP1 through UART0 (universal asynchronous
+receiver-transmitter 0) with the pad's input inverted and decodes the frames
+with rcbench's decoder. It is tested on the host only; the inversion on the
+pin is not measured. An S.BUS output, OUTPUT on the same chooser, is decided
+on by the owner and not designed yet; the chooser draws it disabled,
+`NOT BUILT`. A PPM (pulse-position modulation) output
 is not built, by the owner's decision. An angle meter on the board's QMI8658
 IMU (inertial measurement unit), for incidence, decalage, dihedral and
 control-surface throw, is designed in `docs/design/angle-meter.md` and not
@@ -512,7 +512,7 @@ the tester's pole count or ceiling, whose **BACK** returns to the tester.
 | **AM32 CONFIG** | nothing | Opens the ESC settings editor. See [AM32 ESC configuration](#am32-esc-configuration) |
 | **SERVO TESTER** | nothing | Opens the servo tester. See [Servo tester](#servo-tester) |
 | **SERVO PROGRAMMER** | nothing | Opens PROGRAMMER, the chooser of the servo programmers: KST / CHASERVO, HITEC D SERIES, HITEC CLASSIC. See below |
-| **RX SIGNALS** | `NOT BUILT`, dim; the row is drawn disabled | Nothing: the receiver signal tools of `docs/design/rx-signals.md` are not built |
+| **RX SIGNALS** | nothing | Opens RX SIGNALS, the chooser of the receiver signal tools: MONITOR, and OUTPUT drawn disabled, `NOT BUILT`. See [S.BUS monitor](#sbus-monitor) |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a USB host holds the card | Opens the logging status. See below |
 | **SETTINGS** | `UNSAVED` while the live settings differ from flash; else `UPDATED` while an update's reset or carry-over is not saved over (`settingsResetByUpdate()`, `settingsCarriedOver()`); else nothing; both amber | Opens SETTINGS: the tester, the wiring, the servo supply and current sensor, the display, the board, diagnostics. See below |
 
@@ -526,16 +526,14 @@ bench. A tool row shows no state: the strip names the pins.
   backstop.
 - **DSHOT RESTARTING**: AM32 CONFIG and SERVO TESTER claim the signal
   pins, SERVO PROGRAMMER's entries open the KST and Hitec programmers, which
-  claim SIG, and SETTINGS changes the wiring a claim latched. While the
+  claim SIG, RX SIGNALS' MONITOR claims GP1, and SETTINGS changes the wiring
+  a claim latched. While the
   claim is not free, for example after RESTART DSHOT until the DShot pump
   runs again, these rows are drawn disabled, an outline, SETTINGS under its
   own status and the tool rows with none, a tap opens nothing, and the
   strip's caption reads `DSHOT RESTARTING ON SIG GP0` in amber. A tool
   opened some other way while another claim holds reads
   `WAIT: DSHOT RESTARTING`; no path through the screens reaches that.
-- **RX SIGNALS**: drawn disabled in every claim state, its status
-  `NOT BUILT` naming why; the strip keeps its caption while the pins are
-  free, so the row does not read as the DSHOT RESTARTING cue.
 - **Rows**: six rows fit the screen without scrolling. MENU holds seven, so
   it scrolls by 36 px, with a 3 px scroll bar at x 235. SD LOG is the sixth
   row, whole and tappable without a drag. SETTINGS, the seventh, shows 6 px
@@ -2003,6 +2001,125 @@ own factory cells, and the HS-5xxx and HS-7xxx layouts.
 
 ---
 
+## S.BUS monitor
+
+**MENU → RX SIGNALS → MONITOR** opens S.BUS MONITOR, which reads the S.BUS
+(Futaba's serial bus for receiver channels) output of a receiver on GP1: the
+16 proportional channels, the two digital channels CH17 and CH18, the link
+state, the frame rate and the error counts. It sends nothing. The receive
+path is UART0's receiver on GP1 with the pad's input inverted, at 100,000
+baud, 8 data bits, even parity and 2 stop bits (8E2); the decoder is
+rcbench's (`lib/rcbench/protocols/sbus/`). Not tested on hardware: no
+receiver has been on a pin of this board, and the inversion on the pin is
+not measured. Design note: `docs/design/rx-signals.md`; the screen is
+`src/ui_sbus.h`, what it shows `src/sbus_view.h`, the core1 job
+`src/sbus_job.h`.
+
+![S.BUS monitor](docs/sbus-preview.png)
+
+### Wiring
+
+```
+  receiver supply, the receiver's rated input
+     +  ----------------------------------------------  receiver +
+     -  ----------------+-----------------------------  receiver -
+                        |
+  board GND  -----------+
+  board GP1  ------------------------------------------  receiver S.BUS out
+
+  GP1 = J5 pin 1 or J4 pin 10, GND = J5 pin 4 or J4 pin 1 or 5
+```
+
+- GP1 is AUX, the KISS pin, in the default wiring. With SETTINGS → SIG PIN
+  at GP1 it is SIG; the monitor reads GP1 in either role, because GP1 is
+  UART0's receive pin.
+- The receiver takes power from its own supply, never from the board's
+  3.3 V or USB 5 V pins.
+- Power the board before the receiver, and the receiver off before the
+  board. The pin is rated 5.5 V while the board is powered and 3.63 V while
+  it is not. The receiver's output level is not measured; S.BUS outputs are
+  commonly 3.3 V logic.
+- The receiver's servo and ESC outputs stay unplugged: a receiver bound to a
+  transmitter drives them whatever this screen does.
+
+### Using it
+
+The RX SIGNALS row opens RX SIGNALS (`src/ui_rx_signals.cpp`), a chooser
+with two entries, 228 x 46 px at y 62 and 142, as PROGRAMMER's. It claims
+nothing. Its strip names both pins, `SIG GP0  AUX GP1`. **MONITOR** opens
+S.BUS MONITOR. **OUTPUT**, an S.BUS output to a flight controller, is drawn
+disabled with `NOT BUILT` under it and opens nothing: it is not designed.
+The row is drawn disabled while the pin claim is not free, as the other rows
+that lead to a claim.
+
+S.BUS MONITOR claims the role that is GP1 (`src/pin_claim.h`): SIG and AUX
+in the default wiring, SIG alone when SIG is GP1. Before the claim it
+checks:
+
+- **GP1 is SIG.** The receiver goes onto the ESC's wire. While an ESC
+  answers there within 500 ms, the screen does not claim and shows
+  `AN ESC ANSWERS ON SIG GP1.` `UNPLUG IT: THE RECEIVER GOES THERE.`; it
+  claims by itself 500 ms after the ESC goes quiet. Like the other screens'
+  check, it misses an ESC that does not answer in bidirectional DShot. With
+  GP1 as AUX an ESC on SIG only loses its frames, and there is no such wait.
+  Plug the receiver in only once the link chip shows: until then DShot
+  frames go out on GP1.
+- **KISS frames on GP1**, GP1 as AUX: `KISS WIRE ON AUX GP1 IS LIVE.` and
+  the same second line; the claim follows 500 ms after the last frame.
+- **No role on GP1**: `S.BUS NEEDS GP1.` `SET A PIN TO GP1 IN SETTINGS.` On
+  this board SETTINGS' two steppers swap GP0 and GP1, so this does not
+  happen through the screens.
+
+While the claim drains DShot the body reads `RELEASING AUX GP1`, then
+`TAKING AUX GP1` until the job binds. A UART clock the job refuses reads
+`AUX GP1 COULD NOT BE TAKEN (CLOCK)` with **RETRY**.
+
+| Part | What it shows |
+|---|---|
+| Strip | `AUX GP1  100 KBAUD  8E2`, or `SIG GP1` when SIG is GP1, and the link chip |
+| Chip | `NO SIGNAL` (amber): no frame and no byte for 100 ms, or none yet. `NO FRAMES` (amber): bytes arrive, no frame the decoder takes. `FAILSAFE` (red): the last frame carries the failsafe bit. `FRAME LOST` (amber): a frame with the frame-lost bit within 250 ms. `OK` (green) |
+| 16 rows | the channel number; a bar over the raw 11-bit value, 0 to 2047, with ticks at 1000, 1500 and 2000 µs; the value in µs |
+| Line 1 | `CH17 OFF  CH18 OFF`; the mean interval of the last 16 frames and the frame rate, `14.0 MS  71.4 HZ` |
+| Line 2 | `FRAMES`, frames since the claim; `LOST` and `FS`, frames with the frame-lost and the failsafe bit |
+| Line 3 | `PAR`, `FRM`, `BRK`, `OVR`: bytes with a parity, framing or break error, and overruns. A byte with an error is not decoded |
+| Line 4 | `RESYNC`: bytes the decoder threw away looking for a frame; `FOOTER`: frames of the right length with a footer it refuses |
+
+The bars are lime while frames arrive, red while the receiver reports
+failsafe, so its failsafe values read at a glance, and dim once no frame has
+arrived for 100 ms, keeping the last frame readable. Before the first frame
+the bars are empty and the values read `----`. Counts above 9999 show 9999,
+frames above 999999 show 999999.
+
+The value is rcbench's `sbus_to_us()`: raw 172 is 1000 µs, 992 is 1500 µs,
+1811 is 2000 µs, linear, raw 0 is 895 µs and raw 2047 2144 µs. A flight
+controller can read the same raw value as a few µs more or less at the
+ends: Betaflight's S.BUS input is widely quoted as 5/8 of raw plus 880 µs,
+not checked against its source. The bar is in raw units and does not depend
+on that.
+
+**BACK** opens the leave page, as on SERVO TESTER, at
+`1 UNPLUG THE RECEIVER.`, with where DShot restarts: `DSHOT RESTARTS ON
+SIG GP0.` in the default wiring; `DSHOT RESTARTS ON SIG GP1, WHERE` `THE
+RECEIVER DRIVES THE LINE.` when SIG is GP1. The job lets GP1 go at once, with
+UART0 off and no inversion left on the pad. **BACK TO MONITOR** keeps the
+claim and starts again with every count at 0; **RESTART DSHOT** acts 1 s
+after the pin is let go and returns to MENU. **BACK** before the claim
+holds returns to MENU with DShot running.
+
+Not verified:
+
+- The receiver's output level and idle level at GP1, and that the RP2350
+  reads a 3.3 V output with margin.
+- Frames from any receiver, the frame period it sends, and zero parity and
+  framing errors over time.
+- That the PL011 checks only the first of the two stop bits.
+- Core1's pass time with the job: the drain must come within 2000 µs to keep
+  a frame whole.
+- GP1's level after a receiver is unplugged (RP2350-E9): a latched pad reads
+  as `NO SIGNAL` with the break count one higher.
+
+---
+
 ## Current sensor
 
 An optional INA219, Texas Instruments' current and power monitor, measures
@@ -2211,9 +2328,10 @@ src/
     out_dshot.{h,c}, dshot.pio          RP2350 pin driver: 2 state machines, 16 instructions
   ui.{h,cpp}            the tester (arm/throttle state machine, touch handling) and the navigation
   ui_screen.h           UiScreen, SettingsRow, SettingsSection, UiMenuEntry, UiProgEntry and the control ids
-  ui_registry.{h,cpp}   one line per MENU row and per PROGRAMMER entry, and the checks that their texts fit
-  ui_menu.{h,cpp}       MENU, the BEEP action with its flash, and the RX SIGNALS row
+  ui_registry.{h,cpp}   one line per MENU row and per PROGRAMMER and RX SIGNALS entry, and the checks that their texts fit
+  ui_menu.{h,cpp}       MENU and the BEEP action with its flash
   ui_servo_prog.{h,cpp} PROGRAMMER: the chooser of the servo programmers
+  ui_rx_signals.{h,cpp} RX SIGNALS: the chooser of MONITOR and OUTPUT
   ui_settings.{h,cpp}   SETTINGS: sections, pins, bitrate, contrast, hold-to-save
   diag.{h,cpp}          the restart reason, decoded from the reset registers, and the uptime
   ui_sdlog.{h,cpp}      SD LOG screen
@@ -2239,6 +2357,8 @@ src/
   hitec_line_port.{h,cpp} the job's Hitec line, rcbench's RP2350 line driver
   hitec_files.{h,cpp}   Hitec's SAVE AS files, its record of a write and its backups
   sbus_job.{h,cpp}      the S.BUS monitor's core1 job: UART0 on GP1 inverted, rcbench's decoder, the status
+  ui_sbus.{h,cpp}       S.BUS MONITOR: the claim of GP1, the channels and counts, the leave page
+  sbus_view.{h,cpp}     what S.BUS MONITOR shows: the link state, the bars' ink, the texts (pure)
   backup_ring.{h,cpp}   the ring of device backups in BACKUP/
   card_dir.{h,cpp}      the card's mount rule, directory scope and file calls
   sense.{h,cpp}         the INA219 current sensor on the shared I2C bus: codec, probe, readings, recovery
@@ -2326,7 +2446,7 @@ counted in microseconds — `millis()` advances only when a test says so — whi
 makes hold-to-arm, hold-to-write and gesture repeat deterministic rather than
 dependent on machine speed. The fake ESC serves a real settings blob recovered
 from the reference configurator, so the UI tests operate on values a real ESC
-would report. The suite renders 111 screens to PPM (portable pixmap) images as
+would report. The suite renders 120 screens to PPM (portable pixmap) images as
 it runs, one file per `fakeDumpFrame()` name, so a layout change is visible in
 the frames:
 
@@ -2340,6 +2460,10 @@ the frames:
   sent and refused, SETTINGS' `UNSAVED` and `UPDATED`, DSHOT RESTARTING,
   AM32's power-cycle cue;
 - two of MENU → SERVO PROGRAMMER: SERVO SUPPLY at `OWN` and at a pin;
+- one of MENU → RX SIGNALS, the chooser;
+- eight of S.BUS MONITOR: waiting for the first frame, frames, failsafe,
+  the receiver gone, an ESC answering on GP1 as SIG, no role on GP1, and the
+  leave page with GP1 as AUX and as SIG;
 - seven of MENU → SETTINGS: the top, scrolled to the end, high contrast,
   SERVO SUPPLY at a pin, the CURRENT SENSE row with a sensor found, the
   warning for SIG moved off the boot pin, settings carried over by an update;
@@ -2378,7 +2502,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.2%**: 9,973 of 10,151 lines in 62 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.3%**: 10,324 of 10,503 lines in 65 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the
@@ -2401,7 +2525,8 @@ GP1 on the UART function and its input inverted, reads each character in the
 format set, 8N1 after `uart_init()`, and loads a character caught in its middle
 as a framing error. `test/sbus_line.h` puts a receiver's frames on that line,
 120 µs a byte, with parity, framing and break faults, cut frames and any
-footer.
+footer. `test_sbus_ui.cpp` runs S.BUS MONITOR on it through MENU and RX
+SIGNALS, with core1's job passes every 500 µs between UI frames.
 
 The I2C1 bus is `test/fake_i2c.cpp`: the parts on it by address, the clocks of
 each transaction (9 per byte, 2 for a start and a stop, 1 for a repeated

@@ -29,7 +29,7 @@ static bool       s_jobWanted = false;
 /** @brief The core1 job a screen runs; None for AM32. @see PIN_USERS */
 static Core1Job jobFor(PinUser who) { return pinUserInfo(who).job; }
 
-/** @brief SERVO, KST and HITEC show the leave page, the S.BUS monitor its unplug page, before DShot restarts. @see PIN_USERS */
+/** @brief SERVO, KST, HITEC and the S.BUS monitor show the leave page before DShot restarts. @see PIN_USERS */
 static bool needsUnplug(PinUser who) { return pinUserInfo(who).unplug; }
 
 /** @brief Hand the job its pins. AM32 has no job and starts nothing. */

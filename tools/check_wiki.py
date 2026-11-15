@@ -42,6 +42,7 @@ PAIRS = [
     ("Servo-Tester", "Servotester"),
     ("KST-Programming", "KST-Programmierung"),
     ("Hitec-Programming", "Hitec-Programmierung"),
+    ("RX-Signals", "RX-Signale"),
     ("Troubleshooting", "Fehlersuche"),
 ]
 

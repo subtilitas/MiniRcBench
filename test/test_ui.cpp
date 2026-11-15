@@ -3544,6 +3544,7 @@ static void testMenuDestinations() {
 	checkTrue("AM32 is filled", pixelIn(&UI_AM32) == C_PANEL);
 	checkTrue("SERVO PROGRAMMER is filled", pixelIn(&UI_SERVO_PROG) == C_PANEL);
 	checkTrue("SERVO is filled", pixelIn(&UI_SERVO) == C_PANEL);
+	checkTrue("RX SIGNALS is filled", pixelIn(&UI_RX_SIGNALS) == C_PANEL);
 	// A tool row reports no status (menu-b.md decision 18): the strip names
 	// the pins. Its right end, where a status would stand, is the fill.
 	auto statusBlank = [&](const UiScreen *s, uint16_t fill) {
@@ -3555,6 +3556,7 @@ static void testMenuDestinations() {
 	};
 	checkTrue("AM32's row has no status", statusBlank(&UI_AM32, C_PANEL));
 	checkTrue("nor SERVO TESTER's", statusBlank(&UI_SERVO, C_PANEL));
+	checkTrue("nor RX SIGNALS'", statusBlank(&UI_RX_SIGNALS, C_PANEL));
 
 	// Another claim holds the pins, as Restoring does after RESTART DSHOT:
 	// both tools that claim them are drawn disabled and do not act.
@@ -3575,6 +3577,9 @@ static void testMenuDestinations() {
 	          !ctlEnabled(menuRow(&UI_AM32)) && !ctlEnabled(menuRow(&UI_SERVO)));
 	checkTrue("SERVO PROGRAMMER, whose entries claim, drawn disabled and gated",
 	          pixelIn(&UI_SERVO_PROG) == C_BG && !ctlEnabled(menuRow(&UI_SERVO_PROG)));
+	checkTrue("and RX SIGNALS, whose MONITOR claims",
+	          pixelIn(&UI_RX_SIGNALS) == C_BG && statusBlank(&UI_RX_SIGNALS, C_BG) &&
+	          !ctlEnabled(menuRow(&UI_RX_SIGNALS)));
 	checkTrue("the rows that claim nothing still act",
 	          ctlEnabled(menuRow(&UI_BEEP)) && ctlEnabled(menuRow(&UI_SDLOG)));
 	checkTrue("SETTINGS, which changes the wiring a claim latched, does not",

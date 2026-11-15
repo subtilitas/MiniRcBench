@@ -1,24 +1,24 @@
 # Receiver signals: S.BUS monitor and S.BUS output
 
-Status: slices 1a and 2 built, the rest planned. Slice 1a copied rcbench's
-S.BUS decoder and its test into `lib/rcbench/` and `test/rcbench/`. Slice 2 is
-the S.BUS monitor's core1 job, `src/sbus_job.*`, with its pin user and its host
-tests ([slice 2 as built](#slice-2-as-built)); no screen opens it yet. Both are
-tested on the host only ([work breakdown](#work-breakdown)). The owner answered
-the note's open questions on 2026-11-14 ([decisions](#decisions)): build the
-S.BUS monitor and an S.BUS output, no PPM output. The S.BUS monitor, which
-reads a receiver's S.BUS output on GP1 through UART0, is designed below; its
-screen waits on being built (slice 3). The S.BUS output, inverted 8E2 at
-100,000 baud on GP0 through UART0's TX, is not designed: its open points are
-listed under [S.BUS output](#sbus-output), and its encoder is written and
-tested in rcbench first. The PPM sections stay as the record of a design that
-is not built, by decision 1. Both tools sit on the pin claim of
-[pin-claim.md](pin-claim.md) under one MENU row, RX SIGNALS, which opens a
-chooser with MONITOR and OUTPUT (decision 4); the MENU section is to be
-redesigned for it. The row stands in MENU, built by slice 9 of
-[menu-b.md](menu-b.md), drawn disabled with `NOT BUILT` until these tools
-exist. The decoder is rcbench's, host-tested there and nowhere measured on a
-pin.
+Status: slices 1a, 2 and 3 built, the rest planned. Slice 1a copied
+rcbench's S.BUS decoder and its test into `lib/rcbench/` and `test/rcbench/`.
+Slice 2 is the S.BUS monitor's core1 job, `src/sbus_job.*`, with its pin user
+and its host tests ([slice 2 as built](#slice-2-as-built)). Slice 3 is the
+S.BUS MONITOR screen, `src/ui_sbus.*` and its formatter `src/sbus_view.*`,
+and RX SIGNALS, the chooser behind the MENU row, `src/ui_rx_signals.*`
+([slice 3 as built](#slice-3-as-built)). All three are tested on the host
+only, none on hardware ([work breakdown](#work-breakdown)). The owner
+answered the note's open questions on 2026-11-14 ([decisions](#decisions)):
+build the S.BUS monitor and an S.BUS output, no PPM output. The S.BUS
+monitor reads a receiver's S.BUS output on GP1 through UART0. The S.BUS
+output, inverted 8E2 at 100,000 baud on GP0 through UART0's TX, is not
+designed: its open points are listed under [S.BUS output](#sbus-output), and
+its encoder is written and tested in rcbench first. The PPM sections stay as
+the record of a design that is not built, by decision 1. Both tools sit on
+the pin claim of [pin-claim.md](pin-claim.md) under one MENU row, RX
+SIGNALS, which opens a chooser with MONITOR and OUTPUT (decision 4); OUTPUT
+is drawn disabled with `NOT BUILT` until the output exists ([MENU](#menu)).
+The decoder is rcbench's, host-tested there and nowhere measured on a pin.
 
 ## Terms
 
@@ -324,14 +324,18 @@ same thing whichever convention reads it. The owner chose this scale on
 
 ### Screen
 
-Header `S.BUS MONITOR` at scale 2, 154 px, x 8 to 161, clear of BACK at
-x 170. All other text is scale 1: 5 × 7 px glyphs, 6 px a character, a
-string of n characters (6n − 1) px wide.
+Built in slice 3 ([slice 3 as built](#slice-3-as-built)): `src/ui_sbus.*`,
+S.BUS MONITOR, opened from MONITOR on the RX SIGNALS chooser ([MENU](#menu)).
+What each line says comes from `src/sbus_view.*`, pure functions of the
+status and `millis()`, so the host suite checks every rule at its
+boundaries. Header `S.BUS MONITOR` at scale 2, 154 px, x 8 to 161, clear of
+BACK at x 170. All other text is scale 1: 5 × 7 px glyphs, 6 px a
+character, a string of n characters (6n − 1) px wide.
 
 ```
 y   0 +------------------------------------------+
       | S.BUS MONITOR                    [ BACK ]|  header 36 px, BACK 170..233 x 2..33
-   40 | GP1 100 KBAUD 8E2 INV        (NO SIGNAL) |  strip 40..55
+   40 | AUX GP1  100 KBAUD  8E2      (NO SIGNAL) |  strip 40..55
    62 |  1 [=======|=========:========|    ] 1500 |  16 rows, 12 px pitch
    74 |  2 [=======|======:   :        |    ] 1320 |
       |  .                                       |
@@ -339,58 +343,101 @@ y   0 +------------------------------------------+
   258 | CH17 OFF  CH18 OFF       14.0 MS  71.4 HZ |
   272 | FRAMES 123456                LOST 12  FS 3|
   286 | PAR 0 FRM 0 BRK 0 OVR 0                   |
-  300 | RESYNC 2 FOOTER 0                         |
+  300 | RESYNC 2 FOOTER 0                         |  ends at y 307
   320 +------------------------------------------+
 ```
 
 | Element | Rectangle (x, y, w, h) | Content |
 |---|---|---|
-| Strip caption | 8, 44, 125, 7 | `GP1 100 KBAUD 8E2 INV`, 21 characters, 125 px |
-| Strip chip | 161, 40, 71, 16 | `uiChip()`: the text's width plus 6 px each side, right edge x 231. Widest `FRAME LOST`, 10 characters, 59 px. The caption ends at x 132, 28 px clear |
-| Channel row i, i = 0 to 15 | 8, 62 + 12i, 224, 11 | number, bar, value |
-| Number | right-aligned to x 18, y + 2 | `1` to `16`, 2 characters, 11 px |
+| Strip caption | 8, 44, 137, 7 | `AUX GP1  100 KBAUD  8E2`, 23 characters, 137 px, `C_DIM`; `SIG GP1  100 KBAUD  8E2` when SIG is GP1; `GP1  100 KBAUD  8E2` with no role on GP1 |
+| Strip chip | 161, 42, 71, 12 at its widest | `uiChip()`: the text's width plus 6 px each side, right edge x 231. Widest `FRAME LOST`, 10 characters, 59 px. The caption ends at x 144, 16 px clear. Drawn only while the job runs |
+| Channel row i, i = 0 to 15 | 0, 62 + 12i, 240, 11 | number, bar, value; 1 px between rows |
+| Number | right-aligned to x 18, y + 2 | `1` to `16`, `C_DIM`, at most 11 px from x 8 |
 | Bar outline | 24, y + 1, 176, 9 | 1 px frame in `C_DIM` |
-| Bar fill | 25, y + 2, raw × 174 / 2047, 7 | `C_INK`; `C_RED` while `FAILSAFE`; `C_DIM` while `NO SIGNAL` |
-| Bar ticks | x 39, 109, 178; y + 2, 1, 7 | raw 172, 992 and 1811: 1000, 1500 and 2000 µs |
-| Value | right-aligned to x 231, y + 2 | µs, 3 or 4 characters, at most 23 px; `----` before the first frame |
-| Line 1 | 8, 258, 107, 7 and right-aligned to x 231 | `CH17 OFF  CH18 OFF`, 18 characters; `14.0 MS  71.4 HZ`, 16 characters, 95 px, from x 137 |
-| Line 2 | 8, 272 and right-aligned to x 231 | `FRAMES 123456`, at most 13 characters; `LOST 9999  FS 9999`, at most 18 characters, 107 px |
-| Line 3 | 8, 286, at most 209, 7 | `PAR 9999 FRM 9999 BRK 9999 OVR 9999`, at most 35 characters |
-| Line 4 | 8, 300, at most 137, 7 | `RESYNC 9999 FOOTER 9999`, at most 23 characters |
+| Bar fill | 25, y + 2, raw × 174 / 2047 rounded down, 7 | `UI_COL_LIVE` (`C_LIME`); `C_RED` while `FAILSAFE`; `C_DIM` while `NO SIGNAL` or `NO FRAMES`; none before the first frame |
+| Bar ticks | x 39, 109, 178; y + 2, 1, 7 | raw 172, 992 and 1811, the fill's end for each: 1000, 1500 and 2000 µs; `C_GRID`, over the fill |
+| Value | right-aligned to x 231, y + 2 | µs by `sbus_to_us()`, 3 or 4 characters, at most 23 px, from x 209; `C_TEXT`, `C_RED` while `FAILSAFE`, `C_DIM` while the bars are; `----` in `C_DIM` before the first frame. 9 px clear of the bar |
+| Line 1 | 8, 258 and right-aligned to x 231 | `CH17 OFF  CH18 OFF`, 18 characters, 107 px; `14.0 MS  71.4 HZ`, at most `100.0 MS  999.9 HZ`, 18 characters, 107 px, from x 125: 10 px between the two. `C_TEXT` while the last frame is current, `C_DIM` otherwise; `CH17 --  CH18 --` before the first frame, `-- MS  -- HZ` while there is no interval |
+| Line 2 | 8, 272 and right-aligned to x 231 | `FRAMES 123456`, at most 13 characters, 77 px; `LOST 9999  FS 9999`, at most 18 characters, 107 px; `C_TEXT` |
+| Line 3 | 8, 286, at most 209, 7 | `PAR 9999 FRM 9999 BRK 9999 OVR 9999`, at most 35 characters, 209 px; `C_TEXT` |
+| Line 4 | 8, 300, at most 137, 7 | `RESYNC 9999 FOOTER 9999`, at most 23 characters, 137 px; `C_TEXT` |
 
 Counts above 9999 show 9999, and `FRAMES` above 999999 shows 999999, so no
-line passes its rectangle. The bars span the whole 11-bit field, so a
-receiver that sends past 172 or 1811 shows it. Layout constants get
-`static_assert`s for every gap, as the other screens have.
+line passes its rectangle. The rate shows at most 999.9 Hz; the interval is
+under 100,000 µs by the job's rule ([slice 2 as built](#slice-2-as-built)),
+so it shows at most `100.0 MS`. The bars span the whole 11-bit field, so a
+receiver that sends past 172 or 1811 shows it. Layout constants
+(`SBUS_UI_*` in `src/ui_sbus.h`) have `static_assert`s for every gap, as
+the other screens have.
 
-- **Before the first frame**: empty bars, `----` values, chip `NO SIGNAL`,
-  and `-- MS  -- HZ`.
-- **`NO SIGNAL` after frames**: the last frame's bars and values in `C_DIM`,
-  so the last state before the loss stays readable.
-- **`FAILSAFE`**: bars and values in `C_RED`. They are the receiver's
-  failsafe values, which is what the user came to check.
-- **`NO FRAMES`**: bars as before; line 3's counts say why.
+| State | Chip | Bars and values | Line 1 |
+|---|---|---|---|
+| Before the first frame | `NO SIGNAL`, `C_AMBER` | outlines and ticks, `----` | `CH17 --  CH18 --`, `-- MS  -- HZ`, `C_DIM` |
+| `OK` | `C_GREEN` | `UI_COL_LIVE`, values `C_TEXT` | `C_TEXT` |
+| `FRAME LOST` | `C_AMBER` | as `OK` | `C_TEXT` |
+| `FAILSAFE` | `C_RED` | `C_RED`: the receiver's failsafe values, which is what the user came to check | `C_TEXT` |
+| `NO SIGNAL` after frames | `C_AMBER` | the last frame's, `C_DIM`, so the last state before the loss stays readable | `C_DIM` |
+| `NO FRAMES` | `C_AMBER` | the last frame's, `C_DIM`, or empty; line 4's footer count or line 3 says why | `C_DIM` |
 
-The screen has no control but BACK. Each region repaints only when its
-values change; at 16 bars that is at most 16 rectangles of 176 × 9 px a
-frame.
+A chip on `C_AMBER` has its label in `C_PAPER`, on `C_GREEN` and `C_RED` in
+`C_ONACCENT`: `uiChip()` takes `C_PAPER` over the two fills that are bright
+in one theme and dark in the other, as `theme.h` names them. `FRAME LOST`
+holds for 250 ms (`SBUS_VIEW_LOST_HOLD_MS`) from the UI frame that sees
+`lostFrames` rise, which is at most one UI frame, 25 ms, after the frame
+arrived.
+
+The screen has no control but BACK, and RETRY after a failed bind. Each
+region repaints only when its values change; at 16 bars that is at most 16
+rectangles of 240 × 11 px a frame.
 
 **When the pin is unavailable**, as in
-[pin-claim.md](pin-claim.md#when-the-pin-is-unavailable): `KISS WIRE ON GP1
-IS LIVE.` `UNPLUG IT: THE RECEIVER GOES THERE.`; `S.BUS NEEDS GP1.` `SET A
-PIN TO GP1 IN SETTINGS.`; `AN ESC ANSWERS ON GP1.` `UNPLUG IT: THE RECEIVER
-GOES THERE.` when GP1 is SIG ([interlocks](#interlocks)); `GP1 COULD NOT BE
-TAKEN (CLOCK)` with RETRY.
+[pin-claim.md](pin-claim.md#when-the-pin-is-unavailable), the body shows a
+message in place of the channels, from x 8 at y 80 and y 94, and no chip:
 
-**Unplug page.** BACK shows `UNPLUG RECEIVER.` at scale 2, as the other
-unplug pages draw their title: 16 characters, 190 px, inside the 224 px
-between the margins. Then, at scale 1, `DSHOT RESTARTS ON
-GP0.` in the default wiring, or `DSHOT RESTARTS ON GP1, WHERE THE` `RECEIVER
-DRIVES THE LINE.` when GP1 is SIG, and RESTART DSHOT
-([interlocks](#interlocks)). In menu structure B, built, every unplug page
-is the leave page of [menu-b.md](menu-b.md#the-leave-page) (owner decision
-3), `src/ui_leave.*`, with numbered steps, STAY, LEAVE and RESTART DSHOT in
-LEAVE's rectangle; these texts become its steps when slice 3 is designed.
+| Cause | Lines | Colour | Width |
+|---|---|---|---|
+| No role on GP1 | `S.BUS NEEDS GP1.` `SET A PIN TO GP1 IN SETTINGS.` | `C_AMBER` | 95 and 173 px |
+| An ESC answers on GP1, GP1 is SIG | `AN ESC ANSWERS ON SIG GP1.` `UNPLUG IT: THE RECEIVER GOES THERE.` | `C_AMBER` | 155 and 209 px |
+| KISS frames on GP1, GP1 is AUX | `KISS WIRE ON AUX GP1 IS LIVE.` `UNPLUG IT: THE RECEIVER GOES THERE.` | `C_AMBER` | 173 and 209 px |
+| The claim drains DShot (Stopping) | `RELEASING AUX GP1` | `C_DIM` | 101 px |
+| Held, the job not bound yet | `TAKING AUX GP1` | `C_DIM` | 83 px |
+| The bind refused the clock | `AUX GP1 COULD NOT BE TAKEN (CLOCK)`, and RETRY, the wide button at 6, 268, 228 × 46, scale 2 | `C_AMBER` | 203 px |
+| Armed, or another claim holds | `DISARM FIRST`, `WAIT: DSHOT RESTARTING` | `C_AMBER` | backstops, unreachable through the UI |
+
+`AUX` reads `SIG` when SIG is GP1. No role on GP1 is unreachable through
+SETTINGS on this board, whose steppers swap GP0 and GP1 (menu-b.md, decision
+10); the screen checks it before it claims, and the job's `CORE1_JOB_NO_GP1`
+behind it shows the same lines, without RETRY.
+
+**Leaving.** BACK on the monitor is the leave, as on SERVO TESTER: by
+[menu-b.md](menu-b.md#the-leave-page) owner decision 3 the unplug page is
+the leave page, `src/ui_leave.*`, which opens releasing. The job lets GP1 go
+at once, so the page is released on the frame after BACK.
+
+```
+y   0 | S.BUS MONITOR                   [  BACK  ]|  BACK drawn disabled
+   40 | SIG GP0  AUX GP1                          |  strip, C_DIM
+   66 |#1 UNPLUG THE RECEIVER.                    |  step 1, current
+   78 |#  DSHOT RESTARTS ON SIG GP0.              |
+   92 | 2 RESTART DSHOT.                          |  step 2, C_DIM
+  214 | [BACK TO MONITOR]                         |  6, 214, 110 x 46
+  268 | [          RESTART DSHOT           ]      |  live 1000 ms after the release
+```
+
+| Text | Characters | Width at scale 1 | Room |
+|---|---|---|---|
+| `UNPLUG THE RECEIVER.` | 20 | 119 px | 35 characters from x 20 |
+| `DSHOT RESTARTS ON SIG GP0.`, GP1 is AUX | 26 | 155 px | 35 |
+| `DSHOT RESTARTS ON SIG GP1, WHERE`, GP1 is SIG | 32 | 191 px | 35 |
+| `THE RECEIVER DRIVES THE LINE.`, its second line | 29 | 173 px | 35 |
+| `BACK TO MONITOR` | 15 | 89 px | 110 px button |
+| `RELEASING THE PIN`, the note until released | 17 | 101 px | 37 characters from x 8 |
+
+With GP1 as SIG the strip reads `SIG GP1` and step 2 starts at y 104. BACK TO
+MONITOR calls `pinClaimKeep()`: the claim returns to Held, the job binds
+again and every count starts at 0. RESTART DSHOT calls `pinClaimRestart()`
+and returns to MENU. BACK before a claim held, or while it is Stopping,
+returns to MENU with DShot resumed at once and no page.
 
 ### Scope
 
@@ -638,19 +685,64 @@ resources: the claim exists for the pin.
 
 ## MENU
 
-To be redesigned. The owner decided on 2026-11-14 for one MENU row, RX
-SIGNALS, that opens a chooser with MONITOR and OUTPUT ([decision
-4](#decisions)). In menu structure B ([menu-b.md](menu-b.md), decision 32)
-the row comes after SERVO PROGRAMMER, and MENU has seven rows. The row is
-built, by slice 9 of menu-b.md and the owner's decision 35 there: RX
-SIGNALS, row 4, drawn disabled with the status `NOT BUILT` in every claim
-state, and a tap opens nothing (`UI_RX_SIGNALS` in `src/ui_menu.cpp`, a
-screen with no entry point). It acts once a screen behind it exists. The
-chooser is not designed. By the owner's order of work of 2026-11-14 (the eight
-small decisions, then menu structure B, then the features), RX SIGNALS is
-built on structure B, which is built. The rest of this section is the
-design of 2026-11-13, made for MENU before structure B, with two rows, RX
-MONITOR and PPM OUTPUT; it stays as that record.
+Built in slice 3 ([slice 3 as built](#slice-3-as-built)). The owner decided
+on 2026-11-14 for one MENU row, RX SIGNALS, that opens a chooser with
+MONITOR and OUTPUT ([decision 4](#decisions)). In menu structure B
+([menu-b.md](menu-b.md), decision 32) the row comes after SERVO PROGRAMMER,
+row 4 of seven. Slice 9 of menu-b.md built the row drawn disabled with
+`NOT BUILT` (decision 35 there), until a screen behind it exists; slice 3
+puts the chooser behind it.
+
+**The row.** RX SIGNALS, 10 characters at scale 2, 118 px from x 16 to
+133. It has no status, as no tool row has one (menu-b.md, decision 18), so
+its widest status in `UI_MENU` is 0. It opens the chooser, which claims
+nothing but opens tools that claim, so it is refused while the pin claim is
+not Free, as PROGRAMMER's row is (`freePins`): drawn disabled under the
+strip's `DSHOT RESTARTING ON SIG GP0`, a tap opens nothing.
+
+**The chooser**, `src/ui_rx_signals.*`, follows PROGRAMMER's pattern
+([menu-b.md](menu-b.md#programmer-the-chooser)): one 228 × 46 px button per
+tool at an 80 px pitch, its lines under it from 4 px below at a 12 px
+pitch, `C_DIM`.
+
+```
+y   0 | RX SIGNALS                      [  BACK  ]|  header 36 px
+   40 | SIG GP0  AUX GP1                          |  strip, C_DIM
+   62 | [             MONITOR             ]       |  6, 62, 228 x 46
+  112 | S.BUS FROM A RECEIVER, ON GP1.            |  C_DIM
+  142 | [              OUTPUT             ]       |  6, 142, 228 x 46: disabled
+  192 | S.BUS TO A FLIGHT CONTROLLER.             |  C_DIM
+  204 | NOT BUILT                                 |  C_DIM; ends at y 210
+  320 +-------------------------------------------+
+```
+
+| Text | Characters | Width, scale | From x 8 to |
+|---|---|---|---|
+| title `RX SIGNALS`, MENU's label | 10 | 118 px, 2 | 125 |
+| `SIG GP0  AUX GP1` | 16 | 95 px, 1 | 102 |
+| `MONITOR` | 7 | 82 px, 2 | centred in 228 px |
+| `OUTPUT` | 6 | 70 px, 2 | centred |
+| `S.BUS FROM A RECEIVER, ON GP1.` | 30 | 179 px, 1 | 186 |
+| `S.BUS TO A FLIGHT CONTROLLER.` | 29 | 173 px, 1 | 180 |
+| `NOT BUILT` | 9 | 53 px, 1 | 60 |
+
+A tap on MONITOR opens S.BUS MONITOR through `uiChooseTool()`, as
+PROGRAMMER's entries open their tools: the monitor's entry point asks for
+the claim on that frame, and its origin is MENU, so its BACK before a claim
+held and its RESTART DSHOT return to MENU. OUTPUT, the S.BUS output, is not
+designed (decision 5): its entry has no screen, so it is drawn disabled
+(`uiButton()`'s outline, the label `C_GRID`), reported disabled in the
+control table, takes no pressed look and opens nothing. Its `NOT BUILT` is
+the status MENU's row carried before (menu-b.md, decision 35), as a line
+under the button. BACK returns to MENU. The entries are `UI_RX_ENTRIES` in
+`src/ui_registry.cpp`, with a build-time check that they fit as
+PROGRAMMER's do.
+
+### Record: two rows, 2026-11-13
+
+The rest of this section is the design of 2026-11-13, made for MENU before
+structure B, with two rows, RX MONITOR and PPM OUTPUT; it stays as that
+record.
 
 On 2026-11-13 MENU had seven rows and scrolled 36 px. The two tools sat
 after the servo tools, SERVO TESTER, KST SERVO and HITEC SERVO, which take
@@ -683,8 +775,8 @@ names the screen that the later protocols join. The screen's own title is
 In structure B MENU's tool rows show no pin status and `PINS BUSY` is gone
 ([menu-b.md](menu-b.md#decisions) decisions 15 f and 18): a row refused
 while the claim is not Free is drawn disabled under the strip's
-`DSHOT RESTARTING ON SIG GP0`. The one row, RX SIGNALS, shows `NOT BUILT`
-until its tools exist.
+`DSHOT RESTARTING ON SIG GP0`. The one row, RX SIGNALS, opens the chooser
+above.
 
 ## Interlocks
 
@@ -709,13 +801,14 @@ S.BUS output's row is to be designed ([S.BUS output](#sbus-output)).
   may still sit, and the receiver's S.BUS output would drive the ESC's
   signal input. In those wirings the monitor waits while an ESC answers on
   GP1 within `ESC_LINK_STALE_MS`, 500 ms, and shows `AN ESC ANSWERS ON
-  GP1.` `UNPLUG IT: THE RECEIVER GOES THERE.` (22 and 35 characters, 131 px
-  and 209 px). `PinUserInfo.escCheck` is one flag per user, so the screen
-  makes the check itself before each `pinClaimBegin()`, with
+  SIG GP1.` `UNPLUG IT: THE RECEIVER GOES THERE.` (26 and 35 characters,
+  155 px and 209 px). `PinUserInfo.escCheck` is one flag per user, so the
+  screen makes the check itself before each `pinClaimBegin()`, with
   `escFieldFresh()` on the snapshot's `lastRpmMs`, the rule
-  `pinClaimCheck()` uses, and asks again every frame; the claim's table
-  stays as it is. Like the claim's check, it misses an ESC that does not
-  answer in bidirectional DShot.
+  `pinClaimCheck()` uses, after that function's Armed and Busy rules, and
+  asks again every frame; the claim's table stays as it is. Like the
+  claim's check, it misses an ESC that does not answer in bidirectional
+  DShot.
 - **KissLive** refuses the monitor while a KISS frame arrived on GP1 within
   500 ms in the default wiring: a telemetry wire is where the receiver
   goes. PPM does not ask for AUX.
@@ -728,8 +821,9 @@ S.BUS output's row is to be designed ([S.BUS output](#sbus-output)).
   input. In the default wiring DShot restarts on GP0 and the receiver's
   line meets at most the KISS receiver's pull-up on GP1. When GP1 is SIG,
   DShot's transmitter drives the line the receiver drives: two outputs
-  against each other once a millisecond. The unplug page covers both
-  wirings with one rule; the page's text names the case.
+  against each other once a millisecond. The leave page covers both
+  wirings with one rule, UNPLUG THE RECEIVER.; its detail lines name the
+  case.
 - **DShot restart.** As for every claim: `out_dshot_bind()` and
   `pioUartRxBegin()` set their own pulls and overrides. The tests check
   that neither tool leaves an override behind.
@@ -759,7 +853,8 @@ New code in `src/`:
 |---|---|
 | `sbus_job.h`, `.cpp` | `SbusCore`, the UART bind and release, the drain, the status |
 | `sbus_view.h`, `.cpp` | the link state and the text and colour of each line, pure |
-| `ui_sbus.h`, `.cpp` | the S.BUS MONITOR screen and its unplug page |
+| `ui_sbus.h`, `.cpp` | the S.BUS MONITOR screen and its leave page |
+| `ui_rx_signals.h`, `.cpp` | RX SIGNALS, the chooser behind the MENU row |
 | `ppm_job.h`, `.cpp` | `PpmCore`, the bind, step and release on `out_ppm.h` (PPM: not built, decision 1) |
 | `ui_ppm.h`, `.cpp` | the PPM OUTPUT screen and its unplug page (PPM: not built, decision 1) |
 | `rx.cmake`, `ppm.cmake` | the features' firmware sources (`ppm.cmake`, PPM: not built, decision 1) |
@@ -832,11 +927,13 @@ Checked:
   250 ms and not at 249 ms, latched, cleared only by START; STOP on the next
   pass; a refused write; the bind refusal; the release and the pull-down;
 - the S.BUS MONITOR screen through MENU and the RX SIGNALS chooser by
-  control id: it opens and BACK passes the leave page; the row drawn
-  disabled while the claim restores; the
+  control id: it opens and BACK passes the leave page; the
   unavailable texts; every string within its rectangle; the preview
   `docs/sbus-preview.png`;
-- the MENU row and its chooser: to be redesigned with decision 4;
+- the MENU row and its chooser: the row acts while the claim is Free and is
+  drawn disabled while it is not; the chooser claims nothing, MONITOR
+  opens the monitor, OUTPUT is drawn disabled under `NOT BUILT` and opens
+  nothing;
 - the PPM screen, not built by decision 1: its row opening it, HOLD TO
   START at 1000 ms and not at 999 ms, STOP on press, sliders and THR CH
   disabled while SAFE and RUNNING respectively, the throttle slider at its
@@ -881,7 +978,7 @@ files differ by one line each. Slice 1a is built.
 | 1a. S.BUS copies, built | `sbus.c`, `sbus.h`, `test_sbus.c`; `test/rx.mk`; the `test/Makefile` lists, `lib/rcbench/README.md`, README, STATUS, CHANGELOG | 3 copied, 1 new, 5 edited | 695 copied; 80 new or changed |
 | 1b. PPM copies: not built, by decision 1 | `ppm.c`, `ppm.h`, `test_ppm.c`; the `outputs.h` stub, `test/ppm.mk`; the `test/Makefile` lists, `lib/rcbench/README.md`, README, STATUS, CHANGELOG | 3 copied, 2 new, 5 edited | 441 copied; 80 new or changed |
 | 2. S.BUS job, built | `sbus_job.*`, `rx.cmake`, `CORE1_JOB_NO_GP1`, the job and user rows, the microsecond clock, the UART fake, `sbus_line.h`, the job's tests, the `-I` lists of `ci.yml` | 3 new in `src/`, 2 new in `test/`, 15 edited, 7 documents | about 480 in `src/`; 1,300 in `test/` |
-| 3. S.BUS screen | `sbus_view.*`, `ui_sbus.*`, the registry line, the screen and MENU tests, `test_ids.cpp`, the preview, `tools/check_wiki.py`, `tools/make_previews.py`, README section, wiki pages in English and German, STATUS, CHANGELOG, this note's status | 4 new in `src/`, 2 new and 10 edited elsewhere | 650 in `src/`; 600 in `test/`; 250 of documentation |
+| 3. S.BUS screen, built | `sbus_view.*`, `ui_rx_signals.*`, `ui_sbus.*`, the registry line, the screen and MENU tests, `test_ids.cpp`, the preview, `tools/check_wiki.py`, `tools/make_previews.py`, README section, wiki pages in English and German, STATUS, CHANGELOG, this note's status | 6 new in `src/`, 2 new and 10 edited elsewhere | 650 in `src/`; 600 in `test/`; 250 of documentation |
 | 4. PPM job: not built, by decision 1 | the `out_ppm` driver copies, `ppm_job.*`, `ppm.cmake`, the job and user rows, the `out_ppm.h` fake, `pio_ppm_emu.py`, the job's tests, the `-I` lists of `ci.yml` | 3 copied, 3 new in `src/`, 3 new in `test/`, 6 edited | 490 copied; 300 in `src/`; 600 in `test/` |
 | 5. PPM screen: not built, by decision 1 | `ui_ppm.*`, the registry line, the screen tests, the preview, `tools/check_wiki.py`, `tools/make_previews.py`, README, wiki pages in English and German, STATUS, CHANGELOG | 2 new in `src/`, 2 new and 10 edited elsewhere | 600 in `src/`; 500 in `test/`; 200 of documentation |
 | 6. Bring-up | the bench tests above, each tool on its own | none | none |
@@ -889,8 +986,8 @@ files differ by one line each. Slice 1a is built.
 Slices 1b, 4 and 5 are not built, by the owner's decision 1 of
 2026-11-14. The S.BUS output has no slices yet: its encoder in rcbench
 comes first (decision 5), then its design ([S.BUS output](#sbus-output)).
-The RX SIGNALS row and its chooser (decision 4) are to be designed with
-slice 3. Slice 2 is built; slice 3 waits on being built.
+Slices 2 and 3 are built; slice 3 designed the RX SIGNALS row's chooser
+(decision 4) with the screen ([MENU](#menu), [screen](#screen)).
 
 ### Slice 2 as built
 
@@ -938,6 +1035,113 @@ character caught in its middle, and that the next character loads aligned, is
 the fake's guess. The inversion on the pin, the receiver's level and the
 PL011's flags on a real line are not measured (bench, below).
 
+### Slice 3 as built
+
+`src/sbus_view.*`, the formatter: the link state, the frame-lost hold, the
+ink of the channels, the bar's fill and every line's text, pure.
+`src/ui_sbus.*`, S.BUS MONITOR, with `UiScreenId::Sbus`, its claim, its
+messages and its leave page. `src/ui_rx_signals.*`, RX SIGNALS, the chooser,
+`UiScreenId::RxSignals`, and its entries `UI_RX_ENTRIES` in
+`src/ui_registry.cpp`; MENU's RX SIGNALS row now opens it, and the stub of
+`src/ui_menu.cpp` with `UI_MENU_NOT_BUILT` is gone. `uiChip()` in
+`src/ui_widgets.cpp` draws its label in `C_PAPER` over `C_AMBER` and
+`C_INK`. In the host suite, `test/test_sbus_ui.cpp`, and the MENU, id and
+tester tests where they named the row. Choices the note left open:
+
+- **The chooser's look.** PROGRAMMER's pattern: buttons 228 × 46 px at an
+  80 px pitch with their lines under them. OUTPUT's `NOT BUILT` is a
+  `C_DIM` line under its button, where the chooser puts an entry's state,
+  not a status at the right of the button as on MENU's rows. Each entry
+  has a line that says what it is for.
+- **The chooser's strip,** `SIG GP0  AUX GP1`: the monitor needs GP1, and
+  the strip says which role it has before the tap.
+- **The chooser's code.** A file of its own, `ui_rx_signals.*`, with a table
+  of two fields per entry and a build-time fit check in
+  `ui_registry.cpp`, rather than PROGRAMMER's `UiProgEntry`, whose power
+  lines are a servo's.
+- **The row.** No status, as decision 18 of menu-b.md gives the tool rows;
+  refused while the claim is not Free through `freePins`, as PROGRAMMER.
+- **The strip caption** names GP1 by its role and number, `AUX GP1` or
+  `SIG GP1`, by menu-b.md decision 10. `AUX GP1  100 KBAUD  8E2  INV`
+  would end at x 174, past the widest chip at x 161, so `INV` is dropped,
+  by menu-b.md decision 14's rule for a strip too long: items go from the
+  right, never the spaces. Every S.BUS line is inverted ([S.BUS
+  frame](#sbus-frame)).
+- **The bar's colour.** `UI_COL_LIVE` (`C_LIME`) for a live frame, in place
+  of the note's `C_INK`, by menu-b.md decision 11: the fill is a live
+  reading, as the throttle fill is. Values are `C_TEXT`; the ticks
+  `C_GRID`, drawn over the fill.
+- **`NO FRAMES` dims the bars** as `NO SIGNAL` does: in both no frame
+  arrived for 100 ms, so the values on screen are old.
+- **Line 1** is dim whenever the bars are; `CH17 --  CH18 --` before the
+  first frame, since `OFF` would be a reading not taken. The interval
+  shows one decimal, rounded to the nearest 0.1 ms, and the rate at most
+  `999.9 HZ`. Lines 2 to 4 are counts and stay `C_TEXT`.
+- **The FRAME LOST hold** starts on the UI frame that sees `lostFrames`
+  rise, at most 25 ms after the frame came in, and BACK TO MONITOR forgets
+  it with the counts.
+- **No chip until the job runs.** Before that the link has no state; the
+  body shows the claim's message.
+- **Messages name the role:** `AN ESC ANSWERS ON SIG GP1.`, not
+  `ON GP1.`; `AUX GP1 COULD NOT BE TAKEN (CLOCK)`, not `GP1 COULD ...`;
+  `RELEASING AUX GP1` and `TAKING AUX GP1` while the claim drains and
+  binds, as SERVO TESTER reads `RELEASING SIG GP0`. RETRY is the wide
+  button. The job's `CORE1_JOB_NO_GP1` shows the screen's own lines without
+  RETRY.
+- **The ESC check's order.** The screen's check runs only where
+  `pinClaimCheck()` would not refuse for Armed or Busy, so a backstop
+  refusal reads as it does on the other screens.
+- **The leave page,** not the unplug page of the note: by owner decision 3
+  of menu-b.md every unplug page is the leave page. It opens releasing, as
+  SERVO TESTER's, with `UNPLUG THE RECEIVER.` and its detail lines as step
+  1, `RESTART DSHOT.` as step 2, and BACK TO MONITOR in the left button, in
+  place of the note's `UNPLUG RECEIVER.` headline at scale 2.
+- **When to plug the receiver in** is not on the screen. With GP1 as SIG,
+  bidirectional DShot keeps driving GP1 until the claim holds: 500 ms after
+  the ESC goes quiet, then the drain of at least 250 ms. The screen's
+  `UNPLUG IT: THE RECEIVER GOES THERE.` does not say to wait for the link
+  chip; README.md and the wiki pages do. The screen text is the note's, as
+  drawn; whether it names the wait is a point for the owner.
+- **The caption with no role on GP1** reads `GP1  100 KBAUD  8E2`, with no
+  role to name.
+- **The chip's label on amber** is `C_PAPER`, the rule `theme.h` gives for
+  the fills that are bright in one theme and dark in the other. No chip used
+  amber before.
+
+The suite runs the monitor through MENU and the chooser on the UART0 fake,
+with core1's job passes every 500 µs: frames at 14 ms and 7 ms, the flags,
+failsafe values, a receiver that stops, footers the decoder refuses, a
+parity, framing and break error, BACK, BACK TO MONITOR and RESTART DSHOT;
+GP1 as SIG with an ESC answering and its end 500 ms on; KISS on GP1; no
+role on GP1; a refused clock and RETRY. Not run on hardware: the frames a
+receiver sends, the screen's reading of them on the panel and the pass
+times are not measured ([bench](#bench)).
+
+33 mutations of `src/sbus_view.cpp` were run against the suite: each link
+rule's boundary and order, the count check, the hold's start, stamp, end
+and count, the chips' texts and fills, each ink, the bar's clamp and scale,
+the empty value and digital text, the rounding and caps of every line, and
+a count put in another's place. All 33 fail the suite. 48 mutations of
+`src/ui_sbus.cpp`, `src/ui_rx_signals.cpp`, the registry lines and
+`uiChip()`: the ESC check dropped, applied to AUX, at 400 ms and before the
+Armed and Busy rules; no role on GP1 claiming; the roles fixed; each
+message, its colour and RETRY; the job's NO GP1; BACK skipping the leave
+page or live on it; RESTART DSHOT's wait; BACK TO MONITOR keeping nothing,
+live while releasing, or keeping the hold; each ink colour; the repaint
+keys and the body's clear; the chip before the job runs; the role and the
+leave page's lines and strip; the claim not asked again; the chooser's
+press, colours, `freePins`, strip, BACK and control table; MONITOR without
+a screen, the row opening the monitor directly, OUTPUT's `NOT BUILT`; the
+chip's label on amber and on every fill. 44 fail the suite, three of them
+after tests were added for the Busy refusal before the ESC check, the job's
+NO GP1 and the releasing phase. Three passed on code that is redundant and
+was removed: the job-error clause of `live()`, since a failed bind leaves
+the claim Held; the guard on an empty bar's fill, whose width is 0; and
+the chooser's guard on a disabled button's press, which `uiButton()`
+ignores. One passes and is equivalent through the screen: the frame-lost
+memory kept at a new visit, which comes at least 1000 ms after the last,
+RESTART DSHOT's wait, past the 250 ms hold.
+
 ## Decisions
 
 Decisions of the owner, 2026-11-14, answering the open questions of
@@ -956,7 +1160,7 @@ Decisions of the owner, 2026-11-14, answering the open questions of
    as recommended.
 4. **MENU placement.** One row, RX SIGNALS, opening a chooser with
    MONITOR and OUTPUT. This is not the note's recommendation of two rows;
-   the [MENU](#menu) section is to be redesigned for it. Its place in menu
+   the [MENU](#menu) section describes it as built. Its place in menu
    structure B is [menu-b.md](menu-b.md) decision 32.
 
 Further decisions of the owner, 2026-11-14, on the output:

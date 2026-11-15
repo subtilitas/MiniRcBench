@@ -334,7 +334,9 @@ void uiBackGuardDraw(int pending, const char *verb);
  * and as wide as its text plus 12 px, ending at x 232.
  *
  * @param text Label, drawn at scale 1 from 6 px inside the chip.
- * @param fill Chip colour. The label is always @ref C_ONACCENT over it.
+ * @param fill Chip colour. The label is @ref C_ONACCENT over it, and
+ *             @ref C_PAPER over `C_AMBER` and `C_INK`, the two fills that
+ *             are bright in one theme and dark in the other (theme.h).
  */
 void uiChip(const char *text, uint16_t fill);
 

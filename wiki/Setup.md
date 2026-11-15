@@ -28,6 +28,7 @@ For each tool you also need:
 | KST Programming | A KST or Chaservo servo and a 5 V supply you can switch: a plug, or a switch in the plus lead |
 | Hitec Programming, D series | A Hitec D series servo and a 5 V supply |
 | Hitec Programming, classic | A Hitec classic servo (HS-5xxx, HS-7xxx) and the switched supply of [Wiring](Wiring), part C: a 5 V DC-DC (direct current to direct current) converter with an enable input (EN), a buck converter or a type with output disconnect, rated above 1 A, its input supply, and a 10 kΩ pull-down resistor from EN to ground |
+| RX Signals, MONITOR | A receiver with an S.BUS output, bound to its transmitter, and its own supply. See [RX Signals](RX-Signals#wiring) |
 
 ---
 

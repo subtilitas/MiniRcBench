@@ -2,10 +2,11 @@
 
 # Die Bildschirme
 
-Die Firmware hat neun Bildschirme. Der Tester ist die Wurzel. `MENU` öffnet
+Die Firmware hat elf Bildschirme. Der Tester ist die Wurzel. `MENU` öffnet
 die Liste der Werkzeuge, und jedes Werkzeug verlässt du mit `BACK`, das zu
 `MENU` zurückführt. SERVO PROGRAMMER öffnet PROGRAMMER, die Wahl zwischen
-dem KST- und den Hitec-Programmierern. SETTINGS öffnet auch über die Polzahl
+dem KST- und den Hitec-Programmierern. RX SIGNALS öffnet die Wahl der
+Werkzeuge für Empfängersignale. SETTINGS öffnet auch über die Polzahl
 und die Obergrenze des Testers; `BACK` führt dann zum Tester zurück.
 
 ```
@@ -17,7 +18,9 @@ Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MEN
    │                    │    └── HITEC CLASSIC  ──> HITEC SERVO, wie D SERIES
    │                    │   (ohne Servo im Programmiermodus öffnet die Verlassenseite bei UNPLUG THE SERVO.)
    │                    │   (AM32 HEX, AM32 WRITE, SET: BACK eine Ebene hoch)
-   │                    ├── RX SIGNALS   (als Umriss gezeichnet: NOT BUILT)
+   │                    ├── RX SIGNALS ──> RX SIGNALS ──BACK──> MENU
+   │                    │    ├── MONITOR ──> S.BUS MONITOR ──BACK──> Verlassenseite ──RESTART DSHOT──> MENU
+   │                    │    └── OUTPUT     (als Umriss gezeichnet: NOT BUILT)
    │                    ├── SD LOG       ──BACK──> MENU
    │                    └── SETTINGS     ──BACK──> MENU
    └──── BACK auf MENU ─┘
@@ -30,20 +33,22 @@ Bildschirm öffnet.
 **BACK sitzt oben rechts** im Kopfbereich, auf jedem Bildschirm außer dem
 Tester. Der Kopfbereich ist 36 px hoch, `BACK` misst 64 × 32 px. Der Tester ist
 die Wurzel und hat keinen Kopfbereich. Auf der Verlassenseite von SERVO
-TESTER, KST SERVO und HITEC SERVO ist `BACK` deaktiviert gezeichnet, als
-Umriss mit grauer Beschriftung, und ein Tippen darauf bewirkt nichts: Jeder
-Weg weiter ist eine beschriftete Taste, `STAY`, `NEXT SERVO`,
-`BACK TO SERVO` oder `RESTART DSHOT`. Dasselbe gilt auf `AM32 WRITE`,
-`KST WRITE` und `HITEC WRITE`, solange ein Schreiben läuft oder auf die
-SD-Karte wartet: Kein `BACK` lässt ein Gerät halb geschrieben zurück.
+TESTER, KST SERVO, HITEC SERVO und S.BUS MONITOR ist `BACK` deaktiviert
+gezeichnet, als Umriss mit grauer Beschriftung, und ein Tippen darauf
+bewirkt nichts: Jeder Weg weiter ist eine beschriftete Taste, `STAY`,
+`NEXT SERVO`, `BACK TO SERVO`, `BACK TO MONITOR` oder `RESTART DSHOT`.
+Dasselbe gilt auf `AM32 WRITE`, `KST WRITE` und `HITEC WRITE`, solange ein
+Schreiben läuft oder auf die SD-Karte wartet: Kein `BACK` lässt ein Gerät
+halb geschrieben zurück.
 
-**Die Verlassenseite** ist eine Seite vom letzten Schritt an einem Servo bis
-DShot wieder an SIG. Sie nummeriert ihre Schritte; der aktuelle ist
-bernsteinfarben, mit einem Balken am linken Rand. Vor `LEAVE` heißen die
-Tasten `STAY`, das zum Werkzeug zurückführt, und `LEAVE`. Nach `LEAVE` ist
-der nächste Schritt aktuell, und die breite Taste heißt an der Stelle von
-`LEAVE` `RESTART DSHOT`. Sie und die linke Taste, `NEXT SERVO` oder
-`BACK TO SERVO`, sind deaktiviert gezeichnet, bis der Pin freigegeben ist;
+**Die Verlassenseite** ist eine Seite vom letzten Schritt an einem Servo
+oder einem Empfänger bis DShot wieder an SIG. Sie nummeriert ihre
+Schritte; der aktuelle ist bernsteinfarben, mit einem Balken am linken
+Rand. Vor `LEAVE` heißen die Tasten `STAY`, das zum Werkzeug zurückführt,
+und `LEAVE`. Nach `LEAVE` ist der nächste Schritt aktuell, und die breite
+Taste heißt an der Stelle von `LEAVE` `RESTART DSHOT`. Sie und die linke
+Taste, `NEXT SERVO`, `BACK TO SERVO` oder `BACK TO MONITOR`, sind
+deaktiviert gezeichnet, bis der Pin freigegeben ist;
 `RESTART DSHOT` wartet danach noch 1 s, damit ein Doppeltippen auf `LEAVE`
 DShot nie in ein Servo startet, das noch an der Leitung hängt. Ein Druck,
 der während der Wartezeit begann, bewirkt beim Loslassen nichts.
@@ -228,19 +233,17 @@ Lage.
 | **AM32 CONFIG** | nichts | Öffnet den AM32-Editor |
 | **SERVO TESTER** | nichts | Öffnet den Servotester |
 | **SERVO PROGRAMMER** | nichts | Öffnet PROGRAMMER, die Wahl des Servo-Programmierers. Siehe [PROGRAMMER](#programmer) |
-| **RX SIGNALS** | `NOT BUILT`; die Zeile ist als Umriss gezeichnet | Nichts: die Werkzeuge für Empfängersignale sind noch nicht gebaut |
+| **RX SIGNALS** | nichts | Öffnet RX SIGNALS, die Wahl der Werkzeuge für Empfängersignale. Siehe [RX SIGNALS](#rx-signals) |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, oder `USB DRIVE`, solange ein Computer die Karte hält | Öffnet den Aufzeichnungs-Bildschirm |
 | **SETTINGS** | `UNSAVED`, solange ein Wert vom Flash abweicht; sonst `UPDATED`, solange ein Zurücksetzen oder eine Übernahme durch ein Update nicht überspeichert ist; sonst nichts. Alles in Bernstein | Öffnet SETTINGS |
 
 Solange die Signalpins noch belegt sind, zum Beispiel während DShot nach dem
 Servotester, dem KST-Programmierer oder dem Hitec-Programmierer neu startet,
 zeigt die Leiste `DSHOT RESTARTING ON SIG GP0` in Bernstein. AM32 CONFIG,
-SERVO TESTER, SERVO PROGRAMMER und SETTINGS sind dann als Umriss unter
-ihrem üblichen Zustand gezeichnet, und ein Tippen auf eine solche Zeile
-öffnet nichts. Sie wirken wieder, sobald DShot läuft. SD LOG belegt keinen
-Pin und bleibt bedienbar. RX SIGNALS ist immer als Umriss gezeichnet, und
-`NOT BUILT` sagt warum; solange die Pins frei sind, behält die Leiste ihre
-übliche Zeile.
+SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS und SETTINGS sind dann als
+Umriss unter ihrem üblichen Zustand gezeichnet, und ein Tippen auf eine
+solche Zeile öffnet nichts. Sie wirken wieder, sobald DShot läuft. SD LOG
+belegt keinen Pin und bleibt bedienbar.
 
 <img src="img/menu-restarting.png" width="240" alt="MENU nach oben gezogen, während DShot neu startet: DSHOT RESTARTING ON SIG GP0 in der Leiste, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS und SETTINGS als Umriss">
 
@@ -297,6 +300,17 @@ Bernstein warum, `NEEDS THE CONVERTER OF WIRING PART C` und
 
 `BACK` führt zu `MENU` zurück. Ebenso `RESTART DSHOT` am Ende einer
 Programmier-Sitzung und `BACK` in einem Programmierer, bevor er SIG belegt.
+
+### RX SIGNALS
+
+<img src="img/rx-chooser.png" width="240" alt="RX SIGNALS: MONITOR mit S.BUS FROM A RECEIVER, ON GP1., OUTPUT als Umriss mit S.BUS TO A FLIGHT CONTROLLER. und NOT BUILT">
+
+`MENU → RX SIGNALS` öffnet eine Wahl aus zwei, wie PROGRAMMER:
+**MONITOR**, das S.BUS MONITOR öffnet, und **OUTPUT**, ein S.BUS-Ausgang,
+als Umriss gezeichnet mit `NOT BUILT` darunter: Es tut nichts. Die Leiste
+nennt beide Signalpins, `SIG GP0  AUX GP1`. RX SIGNALS belegt keinen Pin.
+`BACK` führt zu `MENU` zurück, ebenso `RESTART DSHOT` am Ende des Monitors.
+Siehe [RX-Signale](RX-Signale).
 
 ---
 
@@ -509,6 +523,21 @@ Schritt, `NEXT SERVO` startet eine neue Sitzung derselben Familie, und
 `RESTART DSHOT` führt zu `MENU`. Mit CURRENT SENSE auf `INA219` zeigt der
 Streifen den Strom hinter `SUPPLY ON`. Nicht auf Hardware getestet. Siehe
 [Hitec-Programmierung](Hitec-Programmierung).
+
+---
+
+## S.BUS MONITOR
+
+<img src="img/sbus-live.png" width="240" alt="S.BUS MONITOR mit Frames: der Chip OK, 16 lindgrüne Balken und ihre Werte">
+
+Zeigt den S.BUS-Ausgang eines Empfängers an GP1: den Verbindungs-Chip in
+der Leiste, 16 Kanalbalken über dem Rohwert mit dem Wert in µs, die
+digitalen Kanäle CH17 und CH18, die Framerate und die Fehlerzähler. Er
+nimmt GP1 von DShot: als AUX in der Standardverdrahtung, als SIG, wenn
+SIG PIN auf GP1 steht; dort wartet er, solange ein ESC antwortet. `BACK`
+öffnet die Verlassenseite bei `1 UNPLUG THE RECEIVER.`; `BACK TO MONITOR`
+beginnt von vorn, jeder Zähler auf 0, und `RESTART DSHOT` führt zu `MENU`.
+Siehe [RX-Signale](RX-Signale).
 
 ---
 

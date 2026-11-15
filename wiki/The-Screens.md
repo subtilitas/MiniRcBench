@@ -2,11 +2,12 @@
 
 # The Screens
 
-The firmware has nine screens. The tester is the root. `MENU` opens the list
-of tools, and every tool is left with `BACK`, which returns to `MENU`.
+The firmware has eleven screens. The tester is the root. `MENU` opens the
+list of tools, and every tool is left with `BACK`, which returns to `MENU`.
 SERVO PROGRAMMER opens PROGRAMMER, the choice of the KST and Hitec
-programmers. SETTINGS also opens from the tester's pole count and ceiling;
-`BACK` then returns to the tester.
+programmers. RX SIGNALS opens the choice of the receiver signal tools.
+SETTINGS also opens from the tester's pole count and ceiling; `BACK` then
+returns to the tester.
 
 ```
 Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MENU
@@ -17,7 +18,9 @@ Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MEN
    │                    │    └── HITEC CLASSIC  ──> HITEC SERVO, as D SERIES
    │                    │   (with no servo in programming mode the leave page opens at UNPLUG THE SERVO.)
    │                    │   (AM32 HEX, AM32 WRITE, SET: BACK goes one level up)
-   │                    ├── RX SIGNALS   (drawn disabled: NOT BUILT)
+   │                    ├── RX SIGNALS ──> RX SIGNALS ──BACK──> MENU
+   │                    │    ├── MONITOR ──> S.BUS MONITOR ──BACK──> leave page ──RESTART DSHOT──> MENU
+   │                    │    └── OUTPUT     (drawn disabled: NOT BUILT)
    │                    ├── SD LOG       ──BACK──> MENU
    │                    └── SETTINGS     ──BACK──> MENU
    └──── BACK on MENU ──┘
@@ -28,21 +31,23 @@ Tester ──14 POLES or MAX 20% (disarmed)──> SETTINGS ──BACK──> Te
 
 **BACK is at the top right**, in the header band, on every screen except the
 tester. The header is 36 px tall and `BACK` is 64 × 32 px. The tester is the
-root and has no header. On the leave page of SERVO TESTER, KST SERVO and
-HITEC SERVO, `BACK` is drawn disabled, an outline with a grey label, and a
-tap on it does nothing: each way on is a labelled button, `STAY`,
-`NEXT SERVO`, `BACK TO SERVO` or `RESTART DSHOT`. The same holds on
+root and has no header. On the leave page of SERVO TESTER, KST SERVO,
+HITEC SERVO and S.BUS MONITOR, `BACK` is drawn disabled, an outline with a
+grey label, and a tap on it does nothing: each way on is a labelled button,
+`STAY`, `NEXT SERVO`, `BACK TO SERVO`, `BACK TO MONITOR` or
+`RESTART DSHOT`. The same holds on
 `AM32 WRITE`, `KST WRITE` and `HITEC WRITE` while a write runs or waits for
 the SD card: no `BACK` leaves a device half written.
 
-**The leave page** is one page from the last step on a servo to DShot on
-SIG again. It numbers its steps; the current one is amber with a bar at the
-left edge. Before `LEAVE` the buttons read `STAY`, which returns to the
-tool, and `LEAVE`. After `LEAVE` the next step is current, and the wide
-button reads `RESTART DSHOT` in `LEAVE`'s place. It and the left button,
-`NEXT SERVO` or `BACK TO SERVO`, are drawn disabled until the pin is let go;
-`RESTART DSHOT` then waits 1 s more, so a double tap on `LEAVE` never
-restarts DShot into a servo still on the lead. A press that landed during
+**The leave page** is one page from the last step on a servo, or on a
+receiver, to DShot on SIG again. It numbers its steps; the current one is
+amber with a bar at the left edge. Before `LEAVE` the buttons read `STAY`,
+which returns to the tool, and `LEAVE`. After `LEAVE` the next step is
+current, and the wide button reads `RESTART DSHOT` in `LEAVE`'s place. It
+and the left button, `NEXT SERVO`, `BACK TO SERVO` or `BACK TO MONITOR`,
+are drawn disabled until the pin is let go; `RESTART DSHOT` then waits
+1 s more, so a double tap on `LEAVE` never restarts DShot into a servo
+still on the lead. A press that landed during
 the wait does nothing when it lifts.
 
 <img src="img/leave-kst.png" width="240" alt="The KST leave page before LEAVE: step 1 POWER THE SERVO OFF, THEN LEAVE., STAY and LEAVE"> <img src="img/leave-kst-released.png" width="240" alt="The KST leave page after LEAVE: step 2 current, NEXT SERVO live, RESTART DSHOT still grey">
@@ -209,18 +214,16 @@ position.
 | **AM32 CONFIG** | nothing | Opens the AM32 editor |
 | **SERVO TESTER** | nothing | Opens the servo tester |
 | **SERVO PROGRAMMER** | nothing | Opens PROGRAMMER, the choice of servo programmer. See [PROGRAMMER](#programmer) |
-| **RX SIGNALS** | `NOT BUILT`; the row is drawn as an outline | Nothing: the receiver signal tools are not built yet |
+| **RX SIGNALS** | nothing | Opens RX SIGNALS, the choice of the receiver signal tools. See [RX SIGNALS](#rx-signals) |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a computer holds the card | Opens the logging screen |
 | **SETTINGS** | `UNSAVED` while a value differs from flash; else `UPDATED` while an update's reset or carry-over of the settings is not saved over; else nothing. All amber | Opens SETTINGS |
 
 While the signal pins are still in use, for example while DShot restarts
 after the servo tester, the KST programmer or the Hitec programmer, the strip
 reads `DSHOT RESTARTING ON SIG GP0` in amber. AM32 CONFIG, SERVO TESTER,
-SERVO PROGRAMMER and SETTINGS are then drawn as an outline under their
-usual state, and a tap on such a row opens nothing. They act again once
-DShot runs. SD LOG claims no pin and stays available. RX SIGNALS is drawn
-as an outline at all times, with `NOT BUILT` saying why; while the pins
-are free the strip keeps its usual caption.
+SERVO PROGRAMMER, RX SIGNALS and SETTINGS are then drawn as an outline
+under their usual state, and a tap on such a row opens nothing. They act
+again once DShot runs. SD LOG claims no pin and stays available.
 
 <img src="img/menu-restarting.png" width="240" alt="MENU dragged up while DShot restarts: DSHOT RESTARTING ON SIG GP0 on the strip, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS and SETTINGS drawn as outlines">
 
@@ -273,6 +276,17 @@ outline, does nothing, and says why in amber,
 
 `BACK` returns to `MENU`. So does `RESTART DSHOT` at the end of a
 programming session, and `BACK` in a programmer before it holds SIG.
+
+### RX SIGNALS
+
+<img src="img/rx-chooser.png" width="240" alt="RX SIGNALS: MONITOR with S.BUS FROM A RECEIVER, ON GP1., OUTPUT as an outline with S.BUS TO A FLIGHT CONTROLLER. and NOT BUILT">
+
+`MENU → RX SIGNALS` opens a choice of two, as PROGRAMMER: **MONITOR**,
+which opens S.BUS MONITOR, and **OUTPUT**, an S.BUS output, drawn as an
+outline with `NOT BUILT` under it: it does nothing. The strip names both
+signal pins, `SIG GP0  AUX GP1`. RX SIGNALS takes no pin. `BACK` returns
+to `MENU`, and so does `RESTART DSHOT` at the end of the monitor. See
+[RX Signals](RX-Signals).
 
 ---
 
@@ -467,6 +481,20 @@ s, writes, with a backup on the SD card first. `BACK` opens the leave page;
 a new session for the same family, and `RESTART DSHOT` returns to `MENU`.
 With CURRENT SENSE at `INA219` the strip shows the current after `SUPPLY ON`.
 Not tested on hardware. See [Hitec Programming](Hitec-Programming).
+
+---
+
+## S.BUS MONITOR
+
+<img src="img/sbus-live.png" width="240" alt="S.BUS MONITOR with frames: the OK chip, 16 lime bars and their values">
+
+Shows a receiver's S.BUS output on GP1: the link chip on the strip, 16
+channel bars over the raw value with the value in µs, the digital channels
+CH17 and CH18, the frame rate and the error counts. It takes GP1 from
+DShot: as AUX in the default wiring, as SIG when SIG PIN is GP1, where it
+waits while an ESC answers. `BACK` opens the leave page at
+`1 UNPLUG THE RECEIVER.`; `BACK TO MONITOR` starts again with every count at
+0, and `RESTART DSHOT` returns to `MENU`. See [RX Signals](RX-Signals).
 
 ---
 
