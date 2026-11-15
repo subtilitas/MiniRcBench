@@ -8,8 +8,9 @@ die Liste der Werkzeuge, und jedes Werkzeug verlässt du mit `BACK`, das zu
 PROGRAMMER öffnet PROGRAMMER, die Wahl zwischen
 dem KST- und den Hitec-Programmierern. RX SIGNALS öffnet die Wahl der
 Werkzeuge für Empfängersignale. TOOLS öffnet die Wahl der
-Prüfstand-Werkzeuge, die keinen Signalpin nutzen. SETTINGS öffnet auch über die Polzahl
-und die Obergrenze des Testers; `BACK` führt dann zum Tester zurück.
+Prüfstand-Werkzeuge, die keinen Signalpin nutzen. SETTINGS öffnet auch über
+die Polzahl und die Obergrenze des Testers; `BACK` führt dann zum Tester
+zurück.
 
 ```
 Tester ──MENU──> MENU ──┬── ESC COMMANDS ──BACK──> MENU
@@ -18,7 +19,7 @@ Tester ──MENU──> MENU ──┬── ESC COMMANDS ──BACK──> MEN
    │                    │    │   (eine Bluejay- oder BLHeli_S-Liste: BACK──> LEAVE gesendet──> MENU)
    │                    │    │   (sonst nach einer Antwort von Bluejay oder BLHeli_S: BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> MENU)
    │                    │    └── USB BRIDGE ──> USB BRIDGE ──BACK──> MENU
-   │                    │        (nach einem Schreiben ohne RUN: BACK──> Verlassenseite ──RESTART DSHOT──> MENU)
+   │                    │        (sobald die Leitung gebunden ist: BACK──> Verlassenseite ──RESTART DSHOT──> MENU)
    │                    ├── SERVO TESTER ──BACK──> Verlassenseite ──RESTART DSHOT──> MENU
    │                    ├── SERVO PROGRAMMER ──> PROGRAMMER ──BACK──> MENU
    │                    │    ├── KST / CHASERVO ──> KST SERVO   ──BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> MENU
@@ -157,8 +158,12 @@ Spannung über 0,5 V von KISS (aus den letzten 500 ms) oder EDT (aus den letzten
 Die Schätzung braucht außerdem mindestens 75 % Gas, 1 s lang innerhalb von 1 %
 (20 von 2000) um einen Wert, damit ein auf dem Balken ruhender Finger sie nicht
 aufhält, einen Motor, der seine Drehzahl erreicht hat (die geglättete eRPM
-innerhalb von 0,5 % der letzten Antwort), und keinen 3D-Hinweis; der 3D-Hinweis
-nimmt die Zeile ein wie bisher. Beide Werte enden bei 99999. Keiner bleibt nach
+innerhalb von 0,5 % der letzten Antwort; einmal erfüllt, gilt das, bis das Gas
+das Band verlässt, eine Bedingung fehlt oder die geglättete eRPM mehr als 3 %
+von der letzten Antwort abweicht oder die Antwort 0 ist, sodass verrauschte
+Antworten die Zahl nicht flackern lassen und ein Abwürgen sofort `KV EST --`
+zeigt), und keinen 3D-Hinweis; der 3D-Hinweis nimmt die
+Zeile ein. Beide Werte enden bei 99999. Keiner bleibt nach
 dem Entschärfen stehen: Entschärft zeigt die Zeile nur `ERPM` und die Zeile
 darunter `14 POLES`.
 
@@ -221,13 +226,13 @@ dort `LATCHED`. Im entschärften Zustand zeigt der Balken `ARM TO ENABLE`.
 
 **Polzahl und Obergrenze öffnen SETTINGS.** Solange der Tester entschärft ist,
 sind `14 POLES` und `MAX 20%` unterstrichen, und ein Tippen auf eines davon
-öffnet SETTINGS. Das Tippen entschärft wie `MENU`, und `BACK` in SETTINGS führt
-zum Tester zurück. Scharf verschwindet die Unterstreichung, `KV EST` nimmt den
-Platz der Polzahl ein, und ein Tippen darauf tut nichts: Die Polzahl liegt in
-der Gasfläche und `MAX` reicht in den Greifbereich des Balkens, also steuert der
-Druck dort das Gas. Während DShot nach einem Servo-Werkzeug neu startet,
-verschwindet die Unterstreichung ebenfalls und ein Tippen tut nichts, so wie
-`MENU` SETTINGS dann gesperrt zeichnet. Solange der 3D-Hinweis die Zeile
+öffnet SETTINGS. Das Tippen entschärft wie `MENU`, und `BACK` in SETTINGS
+führt zum Tester zurück. Scharf verschwindet die Unterstreichung, `KV EST`
+nimmt den Platz der Polzahl ein, und ein Tippen darauf tut nichts: Die Polzahl
+liegt in der Gasfläche und `MAX` reicht in den Greifbereich des Balkens, also
+steuert der Druck dort das Gas. Während DShot nach einem Servo-Werkzeug neu
+startet, verschwindet die Unterstreichung ebenfalls und ein Tippen tut nichts,
+so wie `MENU` SETTINGS dann gesperrt zeichnet. Solange der 3D-Hinweis die Zeile
 einnimmt, öffnet nur `MAX` SETTINGS.
 
 **Schaltflächen.** `HOLD TO ARM` / `DISARM`, `LATCH` (das Gas bleibt, wo der

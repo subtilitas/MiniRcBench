@@ -26,7 +26,7 @@
  * | When | BACK |
  * |---|---|
  * | no claim: refused, USB DRIVE | to MENU |
- * | Stopping, or Held after a failed bind | pinClaimEnd(): DShot resumes at once; to MENU |
+ * | Stopping, or Held after a failed bind | pinClaimEnd(): DShot resumes at once; to MENU, whose run cue stands from the claim's begin |
  * | a write-class frame waits for its answer, at most 3000 ms | drawn disabled (decision 7) |
  * | Held, the line binding | pinClaimEnd(), to MENU: DShot resumes once the job is idle, by the claim's rule, whether or not a screen polls it |
  * | Running | pinClaimWantLeavePage(), then pinClaimEnd(): the leave page, as the servo tools give it (decision 10 as revised): the ESC may wait in its bootloader whatever the tool sent |

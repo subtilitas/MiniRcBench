@@ -977,7 +977,7 @@ Choices made where the sections above leave room:
   new log's summary has a new stop time. The poles are kept at the stop.
 - **A tagged row's background** is the screen's: drawLogScreen() fills the
   screen before every redraw, so drawRunRow() draws on it; uiRow() clears
-  its row as before.
+  its row.
 - **The tester** draws nothing of the run (decision 2); the test arms and
   disarms an auto log and compares the tester's frame, drawn whole, with
   and without the summary.
@@ -1266,7 +1266,7 @@ The tests:
 156 mutations were run against the suite and `test/test_set_clock.py`: 40
 of `clockSet()`, `clockWeekday()` and the writes in `src/clock.cpp`, 61 of
 `src/clock_line.cpp`, 14 of the CLOCK row in `src/ui_settings.cpp` and 41
-of `tools/set_clock.py`; after the review, the mutants of the three changed
+of `tools/set_clock.py`; the mutants of the three changed
 files were run again in full. 150 fail them, one of them by hanging the
 tests (`read_answer()` without its time limit); 6 of those failed only
 after a test was added for them: a line shorter than `CLOCK` over the

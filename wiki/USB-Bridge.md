@@ -97,8 +97,9 @@ After a write not followed by a start of the firmware the page adds
 In the 4-way interface only the tool's reset of the ESC counts as that
 start, not its disconnect.
 
-MENU shows `POWER-CYCLE THE ESC TO RUN IT` after the bridge ran, until
-DShot restarts from the leave page or the ESC answers DShot again.
+MENU shows `POWER-CYCLE THE ESC TO RUN IT` once the screen has taken the
+signal pin, also after a bind that failed, until DShot restarts from the
+leave page or the ESC answers DShot again.
 
 If the USB cable is pulled during a write while the board runs on its own
 cell, the board keeps the signal pin and sends nothing. On USB power alone

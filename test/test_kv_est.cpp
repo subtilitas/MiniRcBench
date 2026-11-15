@@ -30,6 +30,7 @@ static KvEstIn kvBase() {
 	in.t = 1500;
 	in.settled = true;
 	in.esc3d = false;
+	in.erpmHeld = false;
 	return in;
 }
 
@@ -216,6 +217,59 @@ static void testView() {
 	in = kvBase(); in.erpm = 55705000u; in.erpmRaw = 60000000u;
 	checkTrue("a 7 % gap at 60,000,000 eRPM: no estimate, no overflow",
 	          kvEstView(&in).kv == KvEstShow::Unknown);
+
+	// Once passed, the check holds: noisy replies do not flicker the field.
+	// The caller feeds KvEstView::erpmHeld back, as ui.cpp does.
+	{
+		static const uint32_t replies[] = { 156800, 158400, 155200, 157900, 154000,
+		                                    156800, 159500, 153500 };
+		in = kvBase();
+		bool held = false, steady = true;
+		for (uint32_t r : replies) {
+			in.erpmRaw = r;
+			in.erpmHeld = held;
+			v = kvEstView(&in);
+			held = v.erpmHeld;
+			steady = steady && v.kv == KvEstShow::Value;
+		}
+		checkTrue("noisy replies after a pass: the figure stays", steady);
+		in.erpmHeld = false; in.erpmRaw = replies[1];
+		checkTrue("the same reply with no hold: no estimate",
+		          kvEstView(&in).kv == KvEstShow::Unknown);
+		// The release limit, 30 per mille: a gap of 3.0 % keeps, 1 eRPM more
+		// releases, filtered above or below the reply.
+		in = kvBase(); in.erpmHeld = true; in.erpmRaw = 200000;
+		in.erpm = 194000;
+		checkTrue("held, filtered 3.0 % under the reply: the figure stays",
+		          kvEstView(&in).kv == KvEstShow::Value && kvEstView(&in).erpmHeld);
+		in.erpm = 193999;
+		checkTrue("held, filtered 1 eRPM past 3.0 % under: no estimate, hold gone",
+		          kvEstView(&in).kv == KvEstShow::Unknown && !kvEstView(&in).erpmHeld);
+		in.erpm = 206000;
+		checkTrue("held, filtered 3.0 % over the reply: the figure stays",
+		          kvEstView(&in).kv == KvEstShow::Value);
+		in.erpm = 206001;
+		checkTrue("held, filtered 1 eRPM past 3.0 % over: no estimate, hold gone",
+		          kvEstView(&in).kv == KvEstShow::Unknown && !kvEstView(&in).erpmHeld);
+		in = kvBase(); in.erpmHeld = true; in.erpmRaw = 0;
+		checkTrue("held, a reply of 0 (a stall): no estimate on that frame",
+		          kvEstView(&in).kv == KvEstShow::Unknown && !kvEstView(&in).erpmHeld);
+		in = kvBase(); in.erpmRaw = 156800; in.erpm = 156800 + 784;
+		checkTrue("not held: 0.5 % passes", kvEstView(&in).kv == KvEstShow::Value);
+		in.erpm = 156800 + 785;
+		checkTrue("not held: 1 eRPM past 0.5 % does not pass",
+		          kvEstView(&in).kv == KvEstShow::Unknown);
+		in = kvBase(); in.erpmRaw = replies[1]; in.erpmHeld = true;
+		checkTrue("held, the settle restarted: cleared, no estimate",
+		          (in.settled = false, !kvEstView(&in).erpmHeld &&
+		                               kvEstView(&in).kv == KvEstShow::Unknown));
+		in = kvBase(); in.erpmHeld = true; in.erpmRaw = replies[1]; in.alive = false;
+		checkTrue("held, the link stale: cleared", !kvEstView(&in).erpmHeld);
+		in.alive = true; in.t = 1000;
+		checkTrue("held, t below 75 %: cleared", !kvEstView(&in).erpmHeld);
+		in.t = 1500; in.esc3d = true;
+		checkTrue("held, the 3D note: cleared", !kvEstView(&in).erpmHeld);
+	}
 
 	// 5. The 3D note.
 	in = kvBase(); in.esc3d = true;

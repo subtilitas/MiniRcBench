@@ -523,11 +523,11 @@ this lead gets the converter's output on its BEC wire.**
   operation has ended. The servo leaves programming mode and its backup in
   memory goes. RETRY powers it up and reads it again.
 - **The current sensor's cuts**, with SETTINGS → CURRENT SENSE at `INA219`
-  and the sensor answering: while the supply is on, one reading of 3.0 A or more, or readings under
-  4.0 V for 1 s after the supply came up, switch it off at once, during a
-  read or a write too. The frame on the wire finishes: the line driver
-  cannot cut one. The servo leaves programming mode, and the page reads
-  `THE SERVO DREW 3.0 A OR MORE, SO THE BENCH SWITCHED ITS SUPPLY OFF.` or
+  and the sensor answering: while the supply is on, one reading of 3.0 A or
+  more, or readings under 4.0 V for 1 s after the supply came up, switch it off
+  at once, during a read or a write too. The frame on the wire finishes: the
+  line driver cannot cut one. The servo leaves programming mode, and the page
+  reads `THE SERVO DREW 3.0 A OR MORE, SO THE BENCH SWITCHED ITS SUPPLY OFF.` or
   `THE SUPPLY WAS UNDER 4.0 V FOR 1 S, SO THE BENCH SWITCHED IT OFF.`, then
   `RETRY POWERS IT UP AND READS IT AGAIN.` The supply stays off until
   RETRY. A write it cut is in doubt, as after a stall. A sensor that does

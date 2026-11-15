@@ -897,7 +897,7 @@ Choices the note left open, the developer's:
   a later AM32 answer, its guard's second BACK included, and the read-only
   view. The guard is disarmed when it opens, so STAY returns to the list
   with the edits kept and the guard disarmed. BACK from ESC HEX and ESC WRITE
-  goes to the list first, as before.
+  goes to the list first.
 - **The leave page per claim.** `PinUserInfo::unplug` stays the default,
   copied into the claim at `pinClaimBegin()`. `pinClaimWantLeavePage()` acts
   only for the holder and only while Stopping, Held or Running, so it cannot
@@ -908,10 +908,10 @@ Choices the note left open, the developer's:
   slice the only way from ESC SETTINGS to MENU after an EFM8 answer is
   RESTART DSHOT, which clears it, so MENU does not show it for an EFM8
   answer; it matters once slice 3's LEAVE exists.
-- **Call A here.** The sub-view titles change with the title
-  `ESC SETTINGS`, which this slice builds, so `AM32 WRITE` and `AM32 HEX`
-  read `ESC WRITE` and `ESC HEX` now. The firmware's name moves to the list's
-  strip: `AM32 2.16` in place of `FW 2.16`. `test/check_docs.py` rule 9
+- **Call A here.** The sub-view titles follow the title `ESC SETTINGS`,
+  which this slice builds: `ESC WRITE` and `ESC HEX`, not `AM32 WRITE` and
+  `AM32 HEX`. The firmware's name is in the list's strip: `AM32 2.16`, not
+  `FW 2.16`. `test/check_docs.py` rule 9
   refuses the old titles and `FW` in README.md and the wiki.
 - **The chooser's code.** A file of its own, `ui_esc_config.*`, as RX
   SIGNALS' `ui_rx_signals.*`, with an entry type of a label, two lines and a
@@ -1017,7 +1017,7 @@ Choices the note left open, the developer's:
   `471` with 0xE8 four bytes after its `4`, anywhere in the reply, the last
   such `471` counting; the bytes after the 0xE8, the 0x30 among them, are
   not checked, and the signature is 0xE8 and the byte after it, 0xE800 when
-  the reply ends there. An AM32 answer is read first, as before, so no AM32
+  the reply ends there. An AM32 answer is read first, so no AM32
   answer changes meaning; an AM32 answer with a glitch byte stays not
   understood, as its family is never 0xE8. A false EFM8 costs a leave page
   and an escwire entry that ends silent, after which the cycle greets
@@ -1050,8 +1050,9 @@ Choices the note left open, the developer's:
   A page not taken, an empty one among them, gets no LEAVE: what its
   firmware does at its start is not known, and an empty page has no marker,
   so the firmware would store its defaults with the tags 0xFF
-  ([why an interrupted write loses the tags](#why-an-interrupted-write-loses-the-tags)).
-  BACK there opens the leave page of decision 8.
+  ([why an interrupted write loses the
+  tags](#why-an-interrupted-write-loses-the-tags)). BACK there opens the leave
+  page of decision 8.
 - **DShot after LEAVE.** Once the job reports LEAVE went out, the screen
   ends the claim; the claim keeps its leave page flag, so it waits in
   Leaving until the job is idle, and the screen then calls
@@ -1059,10 +1060,9 @@ Choices the note left open, the developer's:
   The run cue stays: LEAVE has no answer (B11), so an ESC that missed
   `00 01` still waits when DShot returns, and only an eRPM frame after
   LEAVE clears the cue. Decision 3 (a1) reads "the run cue is cleared when
-  LEAVE went out"; this build keeps it, by the review of pull request 96,
-  and the owner may restore (a1). `src/pin_claim.*` gains no function. A
-  LEAVE refused for the
-  heartbeat is asked again; one that ends without going out opens the leave
+  LEAVE went out"; this build keeps it, and the owner may restore (a1).
+  `src/pin_claim.*` gains no function. A LEAVE refused for the heartbeat is
+  asked again; one that ends without going out opens the leave
   page.
 - **A session that ends without the page**, silent, another answer, a
   processor other than an EFM8, a read that failed or a stop: the screen
@@ -1170,9 +1170,11 @@ check them against the parts. The screenshots
 `shot_efm8_asread`, `shot_efm8_ended` and `shot_efm8_oldpage`.
 
 Texts, at scale 1 unless named, (6n − 1) px for n characters; the note's
-own are under [the list, the editor and the write page](#the-list-the-editor-and-the-write-page)
-and [what each page shows](#what-each-page-shows), and
-`test/test_efm8_view.cpp` holds each to its width:
+own are under
+[the list, the editor and the write
+page](#the-list-the-editor-and-the-write-page) and
+[what each page shows](#what-each-page-shows), and `test/test_efm8_view.cpp`
+holds each to its width:
 
 | Where | Text | Width |
 |---|---|---|
@@ -1237,15 +1239,14 @@ Choices the note left open, the developer's:
   session. So the second line reads
   `SESSION ENDED: RESTORE ON A COMPUTER.` instead, and the screen keeps the
   session's first read, the page the backup holds, for the rest of the
-  visit (`ewKeepOldPage()`, by the review of pull request 102): `OLD PAGE`
+  visit (`ewKeepOldPage()`): `OLD PAGE`
   on the connect page opens its bytes as ESC HEX, and a later EFM8 list's
   ESC HEX shows them under its own, so that they can be copied by hand.
   Without a backup on a card ESC WRITE's backup line says the page is on
   the screen only. A READ AGAIN that ends the session on a half-written
   page, and the guard's second BACK, keep it the same way. Only the first
   page kept stays: a later session that ends half written, on a torn page
-  it read as writable, does not replace it (by the re-review of pull
-  request 102).
+  it read as writable, does not replace it.
 - **The guard's second BACK** sends Stop, which aborts the idle session and
   parks the line with no LEAVE, and opens the leave page with STAY
   returning to the connect page, which greets again.
@@ -1268,9 +1269,8 @@ Choices the note left open, the developer's:
   ([backups.md](backups.md#what-the-ring-holds)).
 
 Mutations, each applied to a copy of the tree, the suite built and run: 78, 69
-failing the suite, 57 before the review of pull request 102 and 21 for its
-fixes, with the 10 earlier ones whose code changed run again, all failing
-again. Nine pass. Six are equivalent: Write taken outside InMode without the
+failing the suite, among them 10 earlier ones whose code changed, run again.
+Nine pass. Six are equivalent: Write taken outside InMode without the
 job's own check, which `ew_session_write()` refuses the same way; `WRITE...`
 live on a read-only list without its layout check, where no row edits, so
 there is never a change to write; LEAVE asked again on a half-written page,

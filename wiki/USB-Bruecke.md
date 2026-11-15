@@ -110,8 +110,9 @@ In der 4-Way-Schnittstelle zählt nur das Zurücksetzen des ESC durch das
 Programm als dieser Start, nicht sein Trennen.
 
 MENU zeigt `POWER-CYCLE THE ESC TO RUN IT` (den ESC aus- und einschalten,
-damit er läuft), nachdem die Brücke lief, bis DShot von der Verlassenseite
-aus neu startet oder der ESC wieder auf DShot antwortet.
+damit er läuft), sobald der Bildschirm den Signalpin genommen hat, auch nach
+einem fehlgeschlagenen Bind, bis DShot von der Verlassenseite aus neu startet
+oder der ESC wieder auf DShot antwortet.
 
 Wird das USB-Kabel während eines Schreibens gezogen, während die Platine
 an ihrer eigenen Zelle läuft, behält sie den Signalpin und sendet nichts.
