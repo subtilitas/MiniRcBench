@@ -31,7 +31,7 @@ static bool           s_ready = false;           /**< It is whole and waits for 
 static uint8_t        s_rx[256];                 /**< Bytes from the ring on their way to the PC. */
 static bool           s_dtr = false;             /**< DTR at the last pass. */
 static bool           s_portClosed = false;
-static bool           s_unfinished = false;      /**< A write-class frame and no RUN in this claim. */
+static bool           s_unfinished = false;      /**< A write-class frame, no RUN and no RESTART DSHOT since. */
 static bool           s_cue = false;             /**< MENU's run cue (usbBridgeRunCue()). */
 static uint32_t       s_cueMs = 0;               /**< millis() when it was set. */
 static bool           s_writeWait = false;
@@ -539,10 +539,6 @@ void usbBridgeTask() {
 		forward();
 		return;
 	}
-	// The claim is over. A bridge claim with a write in it gives the leave
-	// page at BACK and ends only at its RESTART DSHOT, after the note
-	// (decision 10): the next claim starts with no unfinished write.
-	if (pinClaimHolder() != PinUser::Bridge) s_unfinished = false;
 	// The console gets the port back once the claim is Free, after the dump.
 	if (s_console && bridgeLogDumpStep() && pinClaimHolder() != PinUser::Bridge) {
 		usbDevConsole(true);
@@ -574,6 +570,8 @@ bool usbBridgeWriteWaiting() {
 }
 
 bool usbBridgeWriteUnfinished() { return s_unfinished; }
+
+void usbBridgeWriteUnfinishedClear() { s_unfinished = false; }
 
 bool usbBridgeMotorRefused() { return s_motor && millis() - s_motorMs < BRIDGE_MOTOR_NOTE_MS; }
 

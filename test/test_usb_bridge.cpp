@@ -105,6 +105,8 @@ static void fresh(FakeEscReply r) {
 		pinClaimRestart(PinUser::Bridge);
 		pass();
 	}
+	// The screen's RESTART DSHOT clears it with the claim.
+	usbBridgeWriteUnfinishedClear();
 	usbBridgeTask();
 	fakeBridgeLineReset();
 	fakeBridgeLineResponder(r);
@@ -802,8 +804,10 @@ static void testWriteRules() {
 	          usbBridgeWriteUnfinished() && pinClaimState() == ClaimState::Running);
 	pinClaimEnd(PinUser::Bridge);
 	for (int k = 0; k < 400 && pinClaimState() != ClaimState::Free; k++) pass();
-	checkTrue("the close, the claim Free: the pass that saw it Free cleared it",
-	          pinClaimState() == ClaimState::Free && !usbBridgeWriteUnfinished());
+	checkTrue("the close, the claim Free with no RESTART DSHOT: still unfinished",
+	          pinClaimState() == ClaimState::Free && usbBridgeWriteUnfinished());
+	usbBridgeWriteUnfinishedClear();
+	checkTrue("RESTART DSHOT's clear: none", !usbBridgeWriteUnfinished());
 	fresh(escAck);
 	openBridge();
 	checkTrue("the next claim opens with none", !usbBridgeWriteUnfinished());
@@ -885,11 +889,14 @@ static void testLeavePageConsole() {
 	run(50);
 	checkTrue("BACK again: the page, the console off, still unfinished",
 	          pinClaimUnplugDue() && !fakeConsoleOn() && usbBridgeWriteUnfinished());
+	// RESTART DSHOT, as the screen does it (ui_bridge.cpp).
 	pinClaimRestart(PinUser::Bridge);
+	usbBridgeRunCueClear();
+	usbBridgeWriteUnfinishedClear();
 	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) pass();
 	pass();
 	checkTrue("RESTART DSHOT: Free, the console on", pinClaimState() == ClaimState::Free && fakeConsoleOn());
-	checkTrue("the claim ended: no unfinished write", !usbBridgeWriteUnfinished());
+	checkTrue("the claim ended at RESTART DSHOT: no unfinished write", !usbBridgeWriteUnfinished());
 	checkInt("DShot never up with the line", g_together, 0);
 }
 

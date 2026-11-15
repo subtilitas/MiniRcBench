@@ -39,8 +39,9 @@
  * and returns to the bridge, its counts at 0 (pinClaimKeep()); the
  * unfinished write stays, and the next BACK's page carries the note until a
  * RUN. RESTART DSHOT, live 1000 ms after the line is let go, clears MENU's
- * run cue (usbBridgeRunCueClear()), ends the claim and the unfinished write
- * with it, and returns to MENU.
+ * run cue (usbBridgeRunCueClear()) and the unfinished write
+ * (usbBridgeWriteUnfinishedClear()), ends the claim and returns to MENU: the
+ * next entry starts with no note.
  * BACK on the page is drawn disabled. A claim that has had the page keeps it
  * until it is Free.
  *

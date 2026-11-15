@@ -80,12 +80,14 @@ static bool openBridge() {
 	return usbBridgeMode() == BridgeMode::Waiting;
 }
 
+/** @brief BACK, then RESTART DSHOT as the screen does it: the unfinished write goes. */
 static void endBridge() {
 	pinClaimEnd(PinUser::Bridge);
 	for (int i = 0; i < 2000 && pinClaimState() != ClaimState::Free; i++) {
 		pinClaimRestart(PinUser::Bridge);
 		pass();
 	}
+	usbBridgeWriteUnfinishedClear();
 	pass();
 }
 
@@ -95,6 +97,8 @@ static void fresh(FakeEscReply r) {
 		pinClaimRestart(PinUser::Bridge);
 		pass();
 	}
+	// The screen's RESTART DSHOT clears it with the claim.
+	usbBridgeWriteUnfinishedClear();
 	usbBridgeTask();
 	fakeBridgeLineReset();
 	fakeBridgeLineResponder(r);

@@ -120,8 +120,9 @@ static constexpr PinUserInfo PIN_USERS[] = {
 	// GP1 is SIG its screen makes its own ESC check (ui_sbus.h).
 	{ PinUser::Sbus,  Core1Job::Sbus,  true,  false, false },
 	// The bridge needs the ESC on the pin and answering, as AM32 does; BACK
-	// gives DShot back, the leave page only after an unfinished write
-	// (docs/design/usb-bridge.md, "The pin").
+	// before the line binds gives DShot back, BACK of a running bridge the
+	// leave page through pinClaimWantLeavePage() (docs/design/usb-bridge.md,
+	// "The pin", decision 10).
 	{ PinUser::Bridge, Core1Job::Bridge, false, false, false },
 	// The output drives GP0: no ESC stays on the bench while it runs, in
 	// either wiring (docs/design/sbus-output.md, "The ESC check").

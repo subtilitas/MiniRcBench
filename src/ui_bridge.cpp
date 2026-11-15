@@ -436,8 +436,11 @@ bool uiBridgeTick(const TouchState *t) {
 		UiLeaveEv ev = uiLeaveTouch(&s_leave, s_t, millis());
 		if (ev == UiLeaveEv::Restart && pinClaimUnplugDue()) {
 			pinClaimRestart(PinUser::Bridge);
-			// The steps powered the ESC off: MENU's cue goes.
+			// The steps powered the ESC off: MENU's cue goes. The page told
+			// the user to flash the ESC again: the claim's unfinished write
+			// goes with the claim.
 			usbBridgeRunCueClear();
+			usbBridgeWriteUnfinishedClear();
 			return false;
 		}
 		if (ev == UiLeaveEv::Next && pinClaimUnplugDue()) {
