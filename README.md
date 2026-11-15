@@ -41,19 +41,20 @@ channels, the link state, the frame rate and the error counts (see
 During its pin claim it receives on GP1 through UART0 (universal asynchronous
 receiver-transmitter 0) with the pad's input inverted and decodes the frames
 with rcbench's decoder. It is tested on the host only; the inversion on the
-pin is not measured. An S.BUS output to a flight controller, OUTPUT on the
-same chooser, sending a frame every 14 ms on GP0 through UART0 with the
-pad's output inverted, the throttle channel under MAX THROTTLE, is designed
-in `docs/design/sbus-output.md` and not built: it waits on a check for an
-ESC bootloader on GP0 before START, which needs the Bluejay and BLHeli_S
-reading of ESC SETTINGS first. The chooser draws it disabled,
-`NOT BUILT`. A PPM (pulse-position modulation) output is not built, by
-the owner's decision. An angle meter on the board's QMI8658 IMU (inertial
-measurement unit), for incidence, decalage, dihedral and control-surface
-throw, is designed in `docs/design/angle-meter.md` and not
-built; the owner answered its questions on 2026-11-15, and its entry is an
-eighth MENU row, `TOOLS`, with a chooser. The rcbench files it builds on are
-copied into `lib/rcbench/` and host-tested; nothing calls them yet. A run
+pin is not measured. An S.BUS output to a flight controller, OUTPUT on the same
+chooser, sending a frame every 14 ms on GP0 through UART0 with the pad's output
+inverted, the throttle channel under MAX THROTTLE, is designed in
+`docs/design/sbus-output.md` and not built: it waits on a check for an ESC
+bootloader on GP0 before START, which needs the Bluejay and BLHeli_S reading of
+ESC SETTINGS first. The chooser draws it disabled, `NOT BUILT`. A PPM
+(pulse-position modulation) output is not built, by the owner's decision. An
+angle meter on the board's QMI8658 IMU (inertial measurement unit), for
+incidence, decalage, dihedral and control-surface throw, is designed in
+`docs/design/angle-meter.md`; the owner answered its questions on 2026-11-15,
+and its entry is an eighth MENU row, `TOOLS`, with a chooser. The rcbench files
+it builds on are copied into `lib/rcbench/` and host-tested; nothing calls them
+yet. Its IMU driver is built and host-tested, and nothing opens it yet: the
+screen is not built, and the driver has not run on a board. A run
 summary per blackbox log, written beside the log and shown on SD LOG, with the
 board's PCF85063 real-time clock dating the files on the card as an option, is
 designed in `docs/design/run-summary.md`; the owner answered its questions
@@ -2403,15 +2404,16 @@ configuration twice in a row is probed and configured again. rcbench's
 `sense_bus.c`, copied into `lib/rcbench/shared/sense/`, decides on faults:
 three failed transactions take the part offline, two timeouts of 1000 µs in
 a row or a line held low mark the bus stuck, and a recovery, 9 clocks on SCL
-and a STOP, runs at once and every 100 ms while it is stuck. The touch
-driver reports its own transfers to the same record; an abort with a line
-still low 10 µs after it counts as a stuck bus, not as a missing part. The
-probe reads the configuration register first and writes a register only
-when it reads as an INA219's, 399Fh or 19EFh; another chip at 0x40 is read
-once a second, and nothing but the register pointer is written to it. Each
-reading is published as a `SenseSample` (`src/sense.h`), under a lock of its
-own, for core1; slices 3 and 4 of the design note read it there, and nothing
-on core1 reads it yet.
+and a STOP, runs at once and every 100 ms while it is stuck, with CURRENT
+SENSE at `NONE` too, since touch and the IMU share the bus. The touch
+driver and the IMU driver report their own transfers to the same record; an
+abort with a line still low 10 µs after it counts as a stuck bus, not as a
+missing part. The probe reads the configuration register first and writes
+a register only when it reads as an INA219's, 399Fh or 19EFh; another chip
+at 0x40 is read once a second, and nothing but the register pointer is
+written to it. Each reading is published as a `SenseSample`
+(`src/sense.h`), under a lock of its own, for core1; slices 3 and 4 of the
+design note read it there, and nothing on core1 reads it yet.
 
 ## Device backups
 
@@ -2589,7 +2591,8 @@ src/
   backup_ring.{h,cpp}   the ring of device backups in BACKUP/
   card_dir.{h,cpp}      the card's mount rule, directory scope and file calls
   sense.{h,cpp}         the INA219 current sensor on the shared I2C bus: codec, probe, readings, recovery
-  servo.cmake, kst.cmake, hitec.cmake, rx.cmake, sense.cmake  each feature's firmware sources (test/*.mk: its tests)
+  qmi8658.{h,cpp}       the board's QMI8658 IMU on the shared I2C bus: probe, reset, set-up, burst, stop
+  servo.cmake, kst.cmake, hitec.cmake, rx.cmake, sense.cmake, angle.cmake  each feature's firmware sources (test/*.mk: its tests)
   ui_input.{h,cpp}      tap-on-release and held-repeat rules, shared (pure)
   rpm_filter.h          display smoothing of the RPM readout
   am32_bl.{h,cpp}       one-wire bootloader transport
@@ -2748,7 +2751,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 10,931 of 11,114 lines in 69 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 11,082 of 11,265 lines in 71 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver
@@ -2802,6 +2805,23 @@ beside the sensor present, absent and failing. It includes `cst328.cpp` in a
 namespace of its own, beside the scripted touch of `fakes.cpp` the screen tests
 use. rcbench has no test of `sense_bus.c` of its own; its tests reach it
 through drivers that are not copied.
+
+The I2C fake also holds a QMI8658 model: a register file with the power-on
+values, WHO_AM_I and REVISION_ID, the pointer, address auto-increment and the
+data registers' byte order by CTRL1, one byte taken from a write of several, the
+soft reset with dQY_L after it, no answer for a boot time after a reset, and
+with the accelerometer on a sample every 32 ms with a time stamp one higher, one
+of them on request in the middle of a burst, and the latched sample's latch
+time. On request a failed transfer reaches the part before it fails. It logs
+every register access with its time. `test_qmi8658.cpp` runs the IMU driver
+against it: the probe's three outcomes, the reset's wait of 15 ms and of 1750
+ms, the configuration written a byte at a time and read back, no second reset
+within 2000 ms, a probe at once at millis() 0 before any reset and 30 days after
+the last, the first sample taken latched after the warm-up, the samples'
+decoding, a time stamp repeated or changed during the burst, the faults through
+the shared bus record, BACK's CTRL7 00h also after a CTRL7 write that timed out,
+nothing to 0x6B while the driver is closed, touch and the INA219 on the same
+bus, and the bus time of a frame in each failure mode, at most 1730 µs.
 
 `make pioemu`, which `make` runs too, runs `test/pio_sdio_emu.py`. It assembles
 the two SDIO PIO programs from `src/sdio/sd_pio.pio` itself and runs them one

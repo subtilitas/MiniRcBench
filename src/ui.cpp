@@ -10,6 +10,7 @@
 
 #include "ui.h"
 #include "sense.h"
+#include "qmi8658.h"
 #include "ui_am32.h"
 #include "esc_3d.h"
 #include "ui_esc_cmd.h"
@@ -1325,6 +1326,9 @@ void uiTick() {
 	// The current sensor shares the touch controller's bus, on this core:
 	// after the touch read, so the touch read is never delayed by it.
 	senseTick(millis());
+	// The IMU is the bus's third client, after the sensor; it sends nothing
+	// until the angle meter opens it.
+	qmi8658Tick(millis());
 
 	// battery, lightly smoothed
 	adc_select_input(g_board->batAdcChan);
