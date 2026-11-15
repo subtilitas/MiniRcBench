@@ -2727,15 +2727,26 @@ write-class.
 | When | BACK |
 |---|---|
 | a write-class frame waits for its answer, at most 3000 ms | drawn disabled; the first line reads `WRITING: DO NOT UNPLUG ESC OR USB.`, amber |
-| no write since the bridge opened, or a RUN after the last | returns to MENU; DShot comes back once the job has let the line go |
-| a write with no RUN behind it | the leave page: `POWER THE ESC OFF.`, `RESTART DSHOT.`, the note `FLASH THE ESC AGAIN BEFORE USE.`; `BRIDGE` returns to the bridge, RESTART DSHOT, live 1000 ms after the line is let go, to MENU |
+| no bootloader reached since the bridge opened, or a RUN after it | returns to MENU; DShot comes back once the job has let the line go |
+| a bootloader reached, an INIT answered or a write sent, with no RUN behind it | the leave page: `POWER THE ESC OFF.`, `RESTART DSHOT.`, after a write also the note `FLASH THE ESC AGAIN BEFORE USE.`; `BRIDGE` returns to the bridge, RESTART DSHOT, live 1000 ms after the line is let go, to MENU |
+
+A bootloader is reached once the ESC answers an INIT, a byte beyond the
+greeting's echo, or a write-class frame goes out, and until a RUN, 4 bytes
+whose last two are the CRC of the first two. A session that only read
+leaves the ESC in its bootloader as one that wrote does, and DShot frames
+could pass as its commands. MENU shows `POWER-CYCLE THE ESC TO RUN IT`
+from the answer until a RUN, RESTART DSHOT or an eRPM frame.
 
 BACK sends nothing, no RUN. From BACK on, the bridge reads nothing more
 from the PC and drops a frame it was gathering; a frame already on the
 wire is finished. The console gets the serial port back once the claim is
-free, so a tool still connected then reads the telemetry lines. A pulled
-USB cable leaves the claim as it is: SIG stays at the pad's pull-up and
-nothing is sent.
+free, so a tool still connected then reads the telemetry lines; the
+clock's `CLOCK` line is read again from then on, and while the bridge holds
+the port a `CLOCK` line goes to the ESC as data. A USB cable pulled from a
+board on its own cell leaves the claim as it is: SIG stays at the pad's
+pull-up and nothing is sent. On USB power alone the board stops with the
+cable, and plugging it in again restarts it with DShot on SIG: power the
+ESC off before the cable goes back in.
 
 **The log.** `USB_BRIDGE_LOG` in `src/config.h`, 0 by default, is
 DshotDisplay's traffic log as a build option: at 1 every frame and every

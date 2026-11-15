@@ -77,15 +77,24 @@ answers or 3 s pass.
 
 `BACK` sends nothing to the ESC. What happens next depends on the session:
 
-- **Nothing written**, or the tool started the ESC's firmware after its
-  last write: `BACK` returns to MENU, and DShot starts again.
-- **A write the tool did not finish** with a start of the firmware: a
-  leave page. Power the ESC off, then tap `RESTART DSHOT`, live 1 s after
-  the page opens. Flash the ESC again before you use it. `BRIDGE` returns
-  to the bridge instead.
+- **The ESC's bootloader never answered**, or the tool started the ESC's
+  firmware at the end: `BACK` returns to MENU, and DShot starts again.
+- **The bootloader answered and the tool did not start the firmware**, a
+  read included: a leave page, since the ESC waits in its bootloader and
+  DShot frames can pass as its commands. Power the ESC off, then tap
+  `RESTART DSHOT`, live 1 s after the page opens. `BRIDGE` returns to the
+  bridge instead.
+- **A write not followed by a start of the firmware:** the same page, with
+  `FLASH THE ESC AGAIN BEFORE USE.`. Flash the ESC again before you use it.
 
-If the USB cable is pulled during a write, the board keeps the signal pin
-and sends nothing. Plug the cable in again and flash again.
+MENU shows `POWER-CYCLE THE ESC TO RUN IT` while a bootloader the bridge
+reached has not been told to run.
+
+If the USB cable is pulled during a write while the board runs on its own
+cell, the board keeps the signal pin and sends nothing. On USB power alone
+the board stops with the cable, and plugging it in again restarts the
+board with DShot on SIG. Either way: power the ESC off before you plug the
+cable in again, then flash again.
 
 ---
 

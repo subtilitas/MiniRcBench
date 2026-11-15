@@ -82,16 +82,27 @@ abziehen), und `BACK` ist grau, bis der ESC antwortet oder 3 s vergehen.
 `BACK` sendet nichts an den ESC. Was danach geschieht, hängt von der
 Sitzung ab:
 
-- **Nichts geschrieben**, oder das Programm hat nach dem letzten Schreiben
-  die Firmware des ESC gestartet: `BACK` führt zu MENU, und DShot startet
+- **Der Bootloader des ESC hat nie geantwortet**, oder das Programm hat am
+  Ende die Firmware gestartet: `BACK` führt zu MENU, und DShot startet
   wieder.
-- **Ein Schreiben, das das Programm nicht mit einem Start der Firmware
-  abgeschlossen hat:** eine Verlassenseite. Den ESC ausschalten, dann
-  `RESTART DSHOT` antippen, aktiv 1 s nach dem Öffnen der Seite. Den ESC vor
-  dem Einsatz neu flashen. `BRIDGE` führt stattdessen zur Brücke zurück.
+- **Der Bootloader hat geantwortet, und das Programm hat die Firmware nicht
+  gestartet**, auch nach bloßem Lesen: eine Verlassenseite, denn der ESC
+  wartet in seinem Bootloader, und DShot-Frames können als seine Befehle
+  durchgehen. Den ESC ausschalten, dann `RESTART DSHOT` antippen, aktiv 1 s
+  nach dem Öffnen der Seite. `BRIDGE` führt stattdessen zur Brücke zurück.
+- **Ein Schreiben ohne anschließenden Start der Firmware:** dieselbe Seite,
+  mit `FLASH THE ESC AGAIN BEFORE USE.` (den ESC vor dem Einsatz neu
+  flashen). Den ESC vor dem Einsatz neu flashen, wie die Notiz sagt.
 
-Wird das USB-Kabel während eines Schreibens gezogen, behält die Platine den
-Signalpin und sendet nichts. Das Kabel wieder einstecken und neu flashen.
+MENU zeigt `POWER-CYCLE THE ESC TO RUN IT` (den ESC aus- und einschalten,
+damit er läuft), solange ein Bootloader, den die Brücke erreicht hat, nicht
+zum Start aufgefordert wurde.
+
+Wird das USB-Kabel während eines Schreibens gezogen, während die Platine
+an ihrer eigenen Zelle läuft, behält sie den Signalpin und sendet nichts.
+Allein an USB-Strom geht die Platine mit dem Kabel aus, und das
+Wiedereinstecken startet sie neu, mit DShot auf SIG. In beiden Fällen: den
+ESC ausschalten, bevor das Kabel wieder eingesteckt wird, dann neu flashen.
 
 ---
 

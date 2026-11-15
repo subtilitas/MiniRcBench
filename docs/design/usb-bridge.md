@@ -515,7 +515,8 @@ copied it, and not its guard or session.
 | No MSP motor command | `MSP_SET_MOTOR` answers `$M!`; the 4-way interface has no motor command | ESC-Configurator's motor tab |
 | Write-class frame: BACK disabled | the bridge, until the frame's answer or 3000 ms | leaving in the middle of an erase or a page write (decision 7) |
 | No RUN on leaving | the bridge sends nothing at BACK | starting a firmware half written (decision 6) |
-| A leave page after an unfinished write | BACK after a write-class frame with no later RUN or `cmd_DeviceReset` | DShot resuming unannounced on an ESC whose flash may be cut; the ESC still starts what it holds at its next power-up with DShot on SIG (decision 10) |
+| A leave page once a bootloader is reached | BACK after an answered INIT or a write-class frame with no later RUN or `cmd_DeviceReset` | DShot resuming unannounced on an ESC waiting in its bootloader, where a garbled frame can pass as a command, or whose flash may be cut; the ESC still starts what it holds at its next power-up with DShot on SIG (decision 10 as revised) |
+| MENU's run cue | from an answered INIT until a RUN, RESTART DSHOT or an eRPM frame | an ESC left in its bootloader taken for a dead one |
 | No bridge while USB DRIVE holds the card | the entry, by decision 11 | the card served to a host and a desktop tool on one cable at once (decision 11) |
 | `PROPELLER OFF.` on the screen | the screen | below |
 
@@ -546,9 +547,11 @@ the RP2350 uses, reports a pulled cable as a bus suspend, not an unplug
 (`usb_msc.cpp` lines 173 to 184); `tud_cdc_connected()` then reads false,
 since TinyUSB counts a suspended device as not ready (`cdc_device.c`
 lines 132 to 135, `usbd.h` lines 97 to 99). The screen shows
-`THE PC CLOSED THE PORT.` On its battery the board keeps the claim, holds
-SIG at the pad's pull-up and sends nothing; the ESC's bootloader waits.
-On USB power alone the board stops with the cable. What an unpowered pad
+`THE PC CLOSED THE PORT.` On its own cell the board keeps the claim,
+holds SIG at the pad's pull-up and sends nothing; the ESC's bootloader
+waits. On USB power alone the board stops with the cable, and plugging the
+cable in again restarts it with DShot on SIG, into the cut ESC: the ESC is
+to be powered off before the cable goes back in. What an unpowered pad
 does to SIG is not verified; the AM32 bootloader starts the firmware,
 a half-written one included, after about 20 ms of low line
 (`main.c` 841 to 852). The write line says `DO NOT UNPLUG ESC OR USB.`
@@ -1129,7 +1132,15 @@ Decisions of the owner, 2026-11-15, answering the open questions of
    recommendation.
 10. **BACK after an unfinished write.** Option (a): the leave page with
     `POWER THE ESC OFF.`, `RESTART DSHOT.` and `FLASH THE ESC AGAIN BEFORE
-    USE.`. This is the recommendation.
+    USE.`. This is the recommendation. Revised by the developer on
+    2026-11-15, in the review of slice 2: the page comes once a bootloader
+    is reached, an INIT answered or a write-class frame sent, until a RUN.
+    A session that only reads leaves the ESC waiting in its bootloader as
+    one that writes does, and DShot frames then reach it; an EFM8
+    bootloader checks only the CRC's low byte, so about 1 garbled frame in
+    256 passes as an erase or a program
+    ([bluejay-blheli-s.md](bluejay-blheli-s.md#safety), decision 8 there).
+    The note `FLASH THE ESC AGAIN BEFORE USE.` stays for a write.
 11. **The card served while bridging.** Option (a): the entry is refused
     while USB DRIVE holds the card, with `EJECT THE USB DRIVE FIRST.`. This
     is the recommendation.

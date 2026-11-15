@@ -22,15 +22,16 @@
  * | no claim: refused, USB DRIVE | to MENU |
  * | Stopping, or Held after a failed bind | pinClaimEnd(): DShot resumes at once; to MENU |
  * | a write-class frame waits for its answer, at most 3000 ms | drawn disabled (decision 7) |
- * | Running, no write since the open without a RUN behind it | pinClaimEnd(), to MENU: DShot resumes once the job is idle, by the claim's rule, whether or not a screen polls it |
- * | Running, after a write with no RUN behind it | pinClaimWantLeavePage(), then pinClaimEnd(): the leave page (decision 10) |
+ * | Running, no bootloader reached, or a RUN after it | pinClaimEnd(), to MENU: DShot resumes once the job is idle, by the claim's rule, whether or not a screen polls it |
+ * | Running, a bootloader reached (usbBridgeBootloaderReached()) with no RUN behind it | pinClaimWantLeavePage(), then pinClaimEnd(): the leave page (decision 10 as revised) |
  *
  * Nothing is sent at BACK, no RUN among it (decision 6). The leave page is
  * ui_leave.h's, opened releasing, as the job lets go of the line at once:
- * `POWER THE ESC OFF.`, `RESTART DSHOT.` and the note
- * `FLASH THE ESC AGAIN BEFORE USE.`. Its left button, `BRIDGE`, keeps the
- * claim and returns to the bridge, its counts at 0 (pinClaimKeep());
- * RESTART DSHOT, live 1000 ms after the line is let go, returns to MENU.
+ * `POWER THE ESC OFF.`, `RESTART DSHOT.` and, after a write with no RUN
+ * behind it, the note `FLASH THE ESC AGAIN BEFORE USE.`. Its left button,
+ * `BRIDGE`, keeps the claim and returns to the bridge, its counts at 0
+ * (pinClaimKeep()); RESTART DSHOT, live 1000 ms after the line is let go,
+ * clears MENU's run cue (usbBridgeRunCueClear()) and returns to MENU.
  * BACK on the page is drawn disabled. A claim that has had the page keeps it
  * until it is Free.
  *

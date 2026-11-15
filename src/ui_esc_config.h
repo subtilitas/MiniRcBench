@@ -12,8 +12,7 @@
  * uiChooseTool(), whose own entry point asks for the pin claim on that
  * frame. An entry with no screen is drawn disabled, reported disabled and
  * opens nothing, with `NOT BUILT` under it, as RX SIGNALS' OUTPUT is (the
- * developer's call B of 2026-11-15); USB BRIDGE was such an entry until
- * slice 2 of docs/design/usb-bridge.md. BACK returns to MENU, and so do the
+ * developer's call B of 2026-11-15). BACK returns to MENU, and so do the
  * tools' BACK and their RESTART DSHOT.
  *
  * The screen opens only while the pin claim is Free (`freePins`): MENU draws
