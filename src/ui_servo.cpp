@@ -447,8 +447,9 @@ static void drawTop(const char *title, bool caption) {
 	memset(&k, 0, sizeof(k));
 	k.back = uiPressing(uiBackRect(), s_t);
 	k.backOk = backActs();
-	// A cut's fault is published with the trip and changes only at START.
-	k.chip = s_st.running ? 1 : (s_st.tripped ? 2 : 0);
+	// The fault is part of the key: START and a new cut can both fall
+	// between two frames, so the screen never sees RUNNING between them.
+	k.chip = s_st.running ? 1 : (s_st.tripped ? (uint8_t)(2 + (uint8_t)s_st.powerFault) : 0);
 	k.p = s_profile;
 	k.sig = gpioOf(PIN_SIG);
 	k.aux = gpioOf(PIN_AUX);

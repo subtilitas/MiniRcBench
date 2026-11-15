@@ -4782,6 +4782,27 @@ static void testCutScreens() {
 	checkTrue("STALL is narrower than RUNNING: the full caption",
 	          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, "SIG GP0  50 HZ  1000-2000 US", C_DIM, C_BG, 1));
 
+	// START and a new cut between two screen frames: the screen never sees
+	// RUNNING, and the chip still names the new cut.
+	ina->currentA = 3.2;
+	holdStartFrames();
+	ServoStatus mid;
+	servoJobStatus(&mid);
+	checkTrue("START taken by core1 after the screen's last frame", mid.running);
+	fakeAdvance(25);
+	followEn(ina, 28);
+	senseTick(millis());
+	core1JobPoll();
+	servoJobStatus(&mid);
+	checkTrue("the next reading, 3.2 A, cuts before the screen's next frame",
+	          !mid.running && mid.powerFault == ServoPowerFault::Overcurrent && !fakePin(28).high);
+	uiTick();
+	checkTrue("the screen's next frame: OVERCURRENT, not STALL",
+	          chipIs(SERVO_UI_CHIP_HARD, C_MAGENTA) &&
+	          notesAre(SERVO_UI_CUT_HARD, C_MAGENTA, "HOLD TO START AGAIN.", C_DIM));
+	ina->currentA = 0;
+	senseFrames(ina, 2);
+
 	// The collapse.
 	ina->currentA = 0.3;
 	holdStartFrames();
