@@ -911,12 +911,16 @@ frame with CTRL7's read-back timing out: 292 clocks and 1000 µs, 1730 µs.
 The longest reading frame that fails is the time stamp's data read timing
 out, 1373 µs.
 
-Mutation check: 88 mutants of `src/qmi8658.cpp`, `senseNote()`,
+Mutation check: 96 mutants of `src/qmi8658.cpp`, `senseNote()`,
 `senseTick()`'s order and the tick in `uiTick()`, each built and run against
-the host suite. 85 fail it. Two survivors showed dead code, which is removed:
-a configuration phase no frame could reach and a closed check in
-`qmi8658Stop()`. One is equivalent within the suite: the sample count's skip
-of 0 when it wraps, after 2^32 samples, 4.4 years at 31.25 Hz.
+the host suite. 93 fail it, among them CTRL7's flag set only after its write
+answered, each change to the baseline, and the reset gap as a signed
+difference. Three survive. `<=` in place of `<` in the reset gap is
+equivalent: at exactly 2000 ms both give the same time. The reset gap
+without its "a reset was written" flag differs only in the first 2000 ms
+after power-on, before any reset, which the suite does not reach. The sample
+count's skip of 0 when it wraps comes after 2^32 samples, 4.4 years at
+31.25 Hz.
 
 Not verified on the board: everything under [to confirm](#to-confirm) that
 concerns the part, the address, the byte order, the burst's auto-increment,
