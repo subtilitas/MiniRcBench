@@ -444,7 +444,7 @@ Message lines, each with its width; every one is at most 37 characters:
 | Sending a direction | `SENDING 8 (REVERSED), THEN 12 (SAVE).` (221 px) | `C_TEXT` |
 | Sent a direction | `SENT 8 (REVERSED), THEN 12 (SAVE).` (203 px) or `SENT 7 (NORMAL), THEN 12 (SAVE).` (191 px); `NOTHING CONFIRMS THE ESC TOOK THEM.` (209 px); `CHECK IT ON THE TESTER WITH 3D OFF.` (209 px) | `C_TEXT` |
 | Sending 3D | `SENDING 10 (3D ON), THEN 12 (SAVE).` (209 px) or `SENDING 9 (3D OFF), THEN 12 (SAVE).` (209 px) | `C_TEXT` |
-| Sent 3D ON | `SENT 10 (3D ON), THEN 12 (SAVE).` (191 px); `THE TESTER SHOWS THE 3D NOTE NOW.` (197 px); `ESC SETTINGS OR A RESTART CLEARS IT.` (215 px), as the flag is not stored (decision 4); `IN 3D, 0 TO 50% RUNS REVERSED AT 2X;` (215 px); `ABOVE 50% THE SET WAY, FROM LOW.` (191 px). Revised in the review of slice 2: first `THE NOTE ENDS AT A RESTART.` last | `C_TEXT`, the last two `C_AMBER` |
+| Sent 3D ON | `SENT 10 (3D ON), THEN 12 (SAVE).` (191 px); `THE TESTER SHOWS THE 3D NOTE NOW.` (197 px); `A RESTART OR 3D OFF READ CLEARS IT.` (209 px), as the flag is not stored (decision 4); `IN 3D, 0 TO 50% RUNS REVERSED AT 2X;` (215 px); `ABOVE 50% THE SET WAY, FROM LOW.` (191 px). Revised in the review of slice 2: first `THE NOTE ENDS AT A RESTART.` last | `C_TEXT`, the last two `C_AMBER` |
 | Sent 3D OFF | `SENT 9 (3D OFF), THEN 12 (SAVE).` (191 px); while the note stands, `THE 3D NOTE STAYS ON THE TESTER.` (191 px), by decision 4. Revised in the review of slice 2: first `THE 3D NOTE STAYS UNTIL A RESTART.` always | `C_TEXT` |
 | A beacon | `SENDING 3 (BEEP 3).` (113 px), then `SENT 3 (BEEP 3).` (95 px) | `C_TEXT` |
 | No answer | `NO ESC ANSWERS ON SIG GP0.` (155 px) | `C_AMBER` |
@@ -824,7 +824,9 @@ link-up stamped 1 ms after the slot's clock reads as Settling.
 the place of `Beep`, with `PinUser::None` and `freePins` true: MENU draws
 its row disabled while the claim is not Free, and `uiOpenTool()` disarms on
 the way in. `UI_MENU`'s first line is `ESC COMMANDS` with no status; the
-other six rows are as they were. `UI_BEEP`, its flash
+second is ESC CONFIG, the chooser of ESC SETTINGS and USB BRIDGE (slice 2
+of bluejay-blheli-s.md), and the other five are as slice 9 of menu-b.md
+built them. `UI_BEEP`, its flash
 (`BEEP_FLASH_MS`) and `escRequestBeep()` are gone: the page calls
 `escRequestCommand()` itself, and MENU has no action row left. Its layout,
 texts and colours are the [screen](#screen) tables' to the pixel, every

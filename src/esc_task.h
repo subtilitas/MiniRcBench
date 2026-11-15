@@ -877,8 +877,9 @@ static inline void escCmdExpire(EscCmdSeq *s, uint8_t cmd) {
  * next bind's ESC once that settled within @ref ESC_CMD_WAIT_MS, on whatever
  * screen is open by then. It is dropped either way. With no sequence
  * running it reads EscCmdState::Expired about its command; a sequence the
- * teardown cut keeps its outcome, NotSent or SaveLost, which says more
- * about the ESC than the request that waited behind it.
+ * teardown cut keeps its outcome, which says more about the ESC than the
+ * request that waited behind it: NotSent or SaveLost in a block or its
+ * first gap, and Sent in the last gap, which still counts as running.
  *
  * @param p   State to update.
  * @param req The request core0 made; @c cmd 0 for none.

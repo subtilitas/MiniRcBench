@@ -96,7 +96,7 @@ TESTER (root)   HOLD TO ARM | LATCH | MENU        MENU disarms, LATCH off
  │                     opens SETTINGS, with MENU's disarm
  └─ MENU: one list of registry entries; BACK ──> TESTER
      ├─ ESC COMMANDS      tool, freePins: BEEP 1 to 5, direction, 3D mode
-     ├─ AM32 CONFIG       tool, claims SIG
+     ├─ ESC CONFIG        a chooser, freePins: ESC SETTINGS claims SIG, USB BRIDGE
      ├─ SERVO TESTER      tool, claims SIG, and AUX for two servos
      ├─ SERVO PROGRAMMER  PROGRAMMER, a chooser; claims nothing
      │   ├─ KST / CHASERVO   KST SERVO; the tap claims SIG
@@ -133,7 +133,7 @@ MENU as menu structure B builds it (`src/ui_menu.cpp`,
 y   0 | MENU                            [  BACK  ]|  header 36 px; BACK 64 x 32
    40 | SIG GP0  AUX GP1  DSHOT600     [EDT OFF]  |  strip: caption and chip
    62 | ESC COMMANDS                              |  rows 40 px tall,
-  104 | AM32 CONFIG                               |  42 px pitch
+  104 | ESC CONFIG                                |  42 px pitch
   146 | SERVO TESTER                              |
   188 | SERVO PROGRAMMER                          |  no status
   230 | RX SIGNALS                                |  no status
@@ -155,7 +155,7 @@ y   0 | MENU                            [  BACK  ]|  header 36 px; BACK 64 x 32
 | Row | Kind | Status | A tap |
 |---|---|---|---|
 | ESC COMMANDS | tool, `freePins` | none | opens ESC COMMANDS, which claims nothing ([esc-commands.md](esc-commands.md#slice-2-as-built)) |
-| AM32 CONFIG | tool, SIG | none | opens AM32 CONFIG |
+| ESC CONFIG | chooser, `freePins` | none | opens ESC CONFIG, which claims nothing; its ESC SETTINGS claims SIG on the tap, and USB BRIDGE is drawn disabled, `NOT BUILT` ([bluejay-blheli-s.md](bluejay-blheli-s.md)) |
 | SERVO TESTER | tool, SIG and AUX | none | opens SERVO TESTER |
 | SERVO PROGRAMMER | chooser, `freePins` | none | opens PROGRAMMER, which claims nothing; its entries open KST SERVO and HITEC SERVO and claim SIG on the tap |
 | RX SIGNALS | chooser, `freePins` | none | opens RX SIGNALS, which claims nothing; its MONITOR opens S.BUS MONITOR and claims GP1 on the tap; OUTPUT is drawn disabled, `NOT BUILT` ([rx-signals.md](rx-signals.md#menu)) |
@@ -167,9 +167,8 @@ cancels. A press that becomes a vertical drag scrolls once the list is longer
 than the viewport and never fires.
 
 While the claim is not Free, each row whose screen claims pins or sets
-`freePins`, ESC COMMANDS, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX
-SIGNALS and SETTINGS, is
-drawn disabled under its own status and a tap on it opens nothing
+`freePins`, ESC COMMANDS, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX
+SIGNALS and SETTINGS, is drawn disabled under its own status and a tap on it opens nothing
 (`uiPinsRefuse()` in `src/ui_screen.h`); the strip's caption reads
 `DSHOT RESTARTING ON SIG GP0` in amber and says why. The state is
 reachable: RESTART DSHOT on the leave page returns to MENU at once, and the

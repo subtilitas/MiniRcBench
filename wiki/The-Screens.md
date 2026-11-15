@@ -284,8 +284,8 @@ The lines under the buttons say what was sent, for example
 `NOT SENT: THE ESC STOPPED ANSWERING.` before the ESC can have acted,
 `SAVE NOT SENT: POWER-CYCLE THE ESC.` when the change may sit in the ESC
 unsaved, and `NOT SENT: THE ESC WAS NOT READY.` when it never started.
-After 3D ON the lines say that the tester shows its 3D note and that
-ESC SETTINGS or a restart of the board clears it.
+After 3D ON the lines say that the tester shows its 3D note and that a
+restart of the board, or ESC SETTINGS reading 3D MODE off, clears it.
 
 The ESC sends no answer to a command, so the bench cannot see the
 direction. Check it on the tester with 3D off: propeller off, a strip of

@@ -310,8 +310,8 @@ Die Zeilen unter den Tasten sagen, was gesendet wurde, zum Beispiel
 `SAVE NOT SENT: POWER-CYCLE THE ESC.`, wenn die Änderung ungespeichert im
 ESC stehen kann, und `NOT SENT: THE ESC WAS NOT READY.`, wenn nichts
 gestartet ist. Nach 3D ON sagen die Zeilen, dass der Tester seinen
-3D-Hinweis zeigt und dass ESC SETTINGS oder ein Neustart des Boards ihn
-löscht.
+3D-Hinweis zeigt und dass ein Neustart des Boards ihn löscht, oder ESC
+SETTINGS, wenn es 3D MODE aus liest.
 
 Der ESC antwortet auf keinen Befehl, der Prüfstand sieht die Drehrichtung
 also nicht. Prüfe sie auf dem Tester mit 3D aus: Propeller ab, ein

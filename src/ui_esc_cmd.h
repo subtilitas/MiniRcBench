@@ -80,9 +80,10 @@ struct TouchState;
 #define UI_ESC_CMD_3D_HIGH "ABOVE 50% THE SET WAY, FROM LOW."
 /**
  * @brief After 3D ON, `C_TEXT`, line 3: what ends the note, which is not
- *        stored (decision 4).
+ *        stored (decision 4): a restart, or ESC SETTINGS reading 3D MODE off
+ *        in a list or verifying a write of it off. 35 characters, 209 px.
  */
-#define UI_ESC_CMD_3D_ENDS "ESC SETTINGS OR A RESTART CLEARS IT."
+#define UI_ESC_CMD_3D_ENDS "A RESTART OR 3D OFF READ CLEARS IT."
 /** @brief After 3D OFF, `C_TEXT`, line 2, while the note stands (decision 4). */
 #define UI_ESC_CMD_3D_STAYS "THE 3D NOTE STAYS ON THE TESTER."
 /**
