@@ -16,6 +16,8 @@
 #include "ui_rx_signals.h"
 #include "ui_sbus.h"
 #include "ui_settings.h"
+#include "ui_tools.h"
+#include "ui_angle.h"
 #include "servo_supply.h"
 #include "gfx.h"
 
@@ -29,6 +31,7 @@ constexpr UiMenuEntry UI_MENU[] = {
 	{ SERVO_UI_TITLE,      0, &UI_SERVO      },
 	{ "SERVO PROGRAMMER",  0, &UI_SERVO_PROG },   // 190 px: no room for a status
 	{ "RX SIGNALS",        0, &UI_RX_SIGNALS },   // the chooser: MONITOR, OUTPUT
+	{ UI_TOOLS_TITLE,      0, &UI_TOOLS      },   // the chooser: ANGLE METER
 	{ "SD LOG",           10, &UI_SDLOG      },   // ui_sdlog.cpp: CARD ERROR
 	{ "SETTINGS",          7, &UI_SETTINGS   },   // ui_settings.cpp: UNSAVED, UPDATED
 };
@@ -187,3 +190,37 @@ static constexpr bool escCfgEntriesFit() {
 	return UI_ESC_CFG_ENTRIES_COUNT > 0;
 }
 static_assert(escCfgEntriesFit(), "an ESC CONFIG line is too wide, or runs into the next entry");
+
+/**
+ * @brief TOOLS' entries, top to bottom (docs/design/angle-meter.md,
+ *        decision 1). TOOLS holds ANGLE METER.
+ */
+constexpr UiToolsEntry UI_TOOLS_ENTRIES[] = {
+	{ UI_ANGLE_TITLE, { "INCIDENCE, DECALAGE, DIHEDRAL, THROW", nullptr }, &UI_ANGLE },
+};
+constexpr uint8_t UI_TOOLS_ENTRIES_COUNT =
+	(uint8_t)(sizeof(UI_TOOLS_ENTRIES) / sizeof(UI_TOOLS_ENTRIES[0]));
+
+/**
+ * @brief Every TOOLS entry fits as ESC CONFIG's do: its label at scale 2 in
+ *        the button, its lines within @ref UI_PROG_LINE_CHARS, ending 4 px or
+ *        more above the next entry, the last one on the panel.
+ */
+static constexpr bool toolsEntriesFit() {
+	for (int i = 0; i < UI_TOOLS_ENTRIES_COUNT; i++) {
+		const UiToolsEntry &e = UI_TOOLS_ENTRIES[i];
+		if (textLen(e.label) > UI_PROG_LABEL_CHARS || !e.screen) return false;
+		int lines = 0;
+		for (const char *l : e.lines) {
+			if (!l) break;
+			if (textLen(l) > UI_PROG_LINE_CHARS) return false;
+			lines++;
+		}
+		int top = UI_PROG_ENTRY_Y + i * UI_PROG_ENTRY_PITCH;
+		int end = top + UI_PROG_LINE_DY + (lines > 0 ? (lines - 1) * UI_PROG_LINE_H + 7 : 0);
+		int room = i + 1 < UI_TOOLS_ENTRIES_COUNT ? top + UI_PROG_ENTRY_PITCH - 4 : GFX_H;
+		if (end > room) return false;
+	}
+	return UI_TOOLS_ENTRIES_COUNT > 0;
+}
+static_assert(toolsEntriesFit(), "a TOOLS line is too wide, or runs into the next entry");

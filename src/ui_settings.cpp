@@ -964,8 +964,12 @@ bool uiSettingsTick(const TouchState *t) {
 		// The compiled defaults into the live settings only. Flash is untouched
 		// until SAVE. Leaving the screen keeps the defaults live: the saved
 		// values load only at boot (settingsLoad() in setup()), so a restart
-		// without SAVE brings them back.
+		// without SAVE brings them back. The angle meter's fields, which
+		// SETTINGS does not show, keep their values.
+		Settings keep;
+		memcpy(&keep, settings(), sizeof(keep));
 		settingsDefaults(settings());
+		settingsCopyAngle(settings(), &keep);
 		s_saveOutcome = SaveOutcome::None;
 		s_changed = true;
 	}

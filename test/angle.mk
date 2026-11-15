@@ -3,10 +3,11 @@
 # One list per feature, as servo.mk, kst.mk, hitec.mk, rx.mk, sense.mk and
 # escwire.mk.
 #
-#   ANGLE_SRCS      C++ sources linked into the suite: the QMI8658 driver and
-#                   the angle model
+#   ANGLE_SRCS      C++ sources linked into the suite: the QMI8658 driver, the
+#                   angle model, the meter's screen and TOOLS, its chooser
 #   ANGLE_TESTS     the test files; test_qmi8658.cpp holds runQmi8658Tests(),
-#                   test_angle_model.cpp runAngleModelTests().
+#                   test_angle_model.cpp runAngleModelTests(),
+#                   test_angle_ui.cpp runAngleUiTests().
 #                   The register fake of the QMI8658 is a part of
 #                   fake_i2c.cpp, which sense.mk lists
 #   ANGLE_CSRCS     C sources linked into the suite: rcbench's control-surface
@@ -26,8 +27,9 @@
 # test_sense.cpp does, to run touch, the current sensor and the IMU on one
 # bus. The angle model calls the C sources; src/angle.cmake builds them into
 # the firmware.
-ANGLE_SRCS     := ../src/qmi8658.cpp ../src/angle_model.cpp
-ANGLE_TESTS    := test_qmi8658.cpp test_angle_model.cpp
+ANGLE_SRCS     := ../src/qmi8658.cpp ../src/angle_model.cpp ../src/ui_angle.cpp \
+                  ../src/ui_tools.cpp
+ANGLE_TESTS    := test_qmi8658.cpp test_angle_model.cpp test_angle_ui.cpp
 ANGLE_CSRCS    := ../lib/rcbench/shared/servo/servo_rudder.c \
                   ../lib/rcbench/shared/bench/imu.c \
                   ../lib/rcbench/protocols/witmotion/witmotion.c

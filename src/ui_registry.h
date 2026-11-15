@@ -10,11 +10,12 @@
  *
  * The rows go by device (docs/design/menu-b.md, decisions 16, 23, 32): ESC
  * COMMANDS (docs/design/esc-commands.md, decision 1), ESC CONFIG, SERVO
- * TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, SETTINGS. A tool row has no
- * status: the strip names the pins (decision 18). ESC CONFIG and RX SIGNALS
- * open their choosers, whose entries are `UI_ESC_CFG_ENTRIES`
- * (ui_esc_config.h) and `UI_RX_ENTRIES` (ui_rx_signals.h), checked to fit as
- * PROGRAMMER's are. ESC CONFIG takes AM32 CONFIG's place by decision 1 of
+ * TESTER, SERVO PROGRAMMER, RX SIGNALS, TOOLS (docs/design/angle-meter.md,
+ * decision 1), SD LOG, SETTINGS. A tool row has no status: the strip names
+ * the pins (decision 18). ESC CONFIG, RX SIGNALS and TOOLS open their
+ * choosers, whose entries are `UI_ESC_CFG_ENTRIES` (ui_esc_config.h),
+ * `UI_RX_ENTRIES` (ui_rx_signals.h) and `UI_TOOLS_ENTRIES` (ui_tools.h),
+ * checked to fit as PROGRAMMER's are. ESC CONFIG takes AM32 CONFIG's place by decision 1 of
  * docs/design/bluejay-blheli-s.md.
  *
  * A servo programmer is not a MENU row but a line of `UI_PROGRAMMERS`, the

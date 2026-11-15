@@ -90,7 +90,7 @@ liest die Frames als Impulse und fährt an ein Ende seines Wegs.
 <img src="img/splash.png" width="240" alt="Startbildschirm">
 
 Nach einem Firmware-Update, das den Aufbau der gespeicherten Einstellungen
-von Version 2, 3 oder 4 geändert hat, werden die gespeicherten Einstellungen
+von Version 2, 3, 4 oder 5 geändert hat, werden die gespeicherten Einstellungen
 übernommen: Der Startbildschirm zeigt `SETTINGS CARRIED OVER FROM AN UPDATE`
 und `CHECK MENU > SETTINGS, THEN SAVE` in Bernstein über dem Namen. Prüfe
 sie in SETTINGS und halte `HOLD TO SAVE`
@@ -194,7 +194,7 @@ loslässt. Der Balken zeigt einen Griff, und seine Beschriftung lautet
 ## Die Obergrenze anheben
 
 `MENU` auf dem Tester öffnet die Liste der Werkzeuge. Das Öffnen entschärft
-immer. `SETTINGS` ist die letzte Zeile: Ziehe `MENU` um 36 px nach oben und
+immer. `SETTINGS` ist die letzte Zeile: Ziehe `MENU` um 76 px nach oben und
 tippe darauf. Oder tippe entschärft auf `MAX 20%`
 oder `14 POLES` im Tester, unterstrichen, solange ein Tippen darauf wirkt:
 Das Tippen entschärft genauso und öffnet SETTINGS, und `BACK` führt dort zum

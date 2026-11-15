@@ -15,6 +15,7 @@
 - [KST Programming](KST-Programming)
 - [Hitec Programming](Hitec-Programming)
 - [RX Signals](RX-Signals)
+- [Angle Meter](Angle-Meter)
 - [Troubleshooting](Troubleshooting)
 
 ---
@@ -32,6 +33,7 @@
 - [KST-Programmierung](KST-Programmierung)
 - [Hitec-Programmierung](Hitec-Programmierung)
 - [RX-Signale](RX-Signale)
+- [Winkelmesser](Winkelmesser)
 - [Fehlersuche](Fehlersuche)
 
 ---

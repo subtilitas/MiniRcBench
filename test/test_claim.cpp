@@ -1131,7 +1131,7 @@ static void testHeartbeat() {
 	removeJobs();
 }
 
-/** @brief settingsSave() refuses while a claim holds. */
+/** @brief settingsSave() and settingsSaveAngle() refuse while a claim holds. */
 static void testNoSaveDuringClaim() {
 	section("Pin claim: no flash write while it holds");
 
@@ -1144,7 +1144,12 @@ static void testNoSaveDuringClaim() {
 	checkTrue("AM32 claims", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
 	checkTrue("a save while it holds is refused", !settingsSave());
 	checkInt("and writes nothing", fakeFlashWrites(), writes);
+	settings()->angleLengthMm = 40;
+	checkTrue("nor does the angle meter's save", !settingsSaveAngle());
+	checkInt("which writes nothing either", fakeFlashWrites(), writes);
 	checkTrue("back to free", toFree());
+	checkTrue("the angle meter's save goes through after it",
+	          settingsSaveAngle() && fakeFlashWrites() == writes + 1);
 	checkTrue("the save goes through after it", settingsSave());
 	fakeFlashClear();
 	settingsLoad();
