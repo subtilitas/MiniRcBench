@@ -165,7 +165,8 @@ more, which define `USE_SERIAL_4WAY_SK_BOOTLOADER` (`common_pre.h` lines
 (`serial_4way_avrootloader.c` 206 to 212), reads the 8-byte answer
 starting `471` and decides the interface mode from the signature: SiLabs
 (BLHeli_S, Bluejay) for 0xE801 to 0xF8FF, ARM (AM32, BLHeli_32) for a
-high byte 0x01 to 0x8F with the low byte 0x06 (`serial_4way.c` 344 to 394; `serial_4way_avrootloader.c` 196 to 229).
+high byte 0x01 to 0x8F with the low byte 0x06 (`serial_4way.c` 344 to
+394; `serial_4way_avrootloader.c` 196 to 229).
 Erase and the settings write wait up to 3000 ms for the bootloader's ACK, a
 flash write 500 ms (`serial_4way_avrootloader.c` 315 to 333). A write sends
 `SET_BUFFER`'s 4 bytes and CRC, waits up to two 2 ms start-bit timeouts,
