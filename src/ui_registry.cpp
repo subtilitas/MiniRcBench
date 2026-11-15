@@ -5,6 +5,7 @@
 
 #include "ui_registry.h"
 #include "ui_am32.h"
+#include "ui_esc_config.h"
 #include "ui_hitec.h"
 #include "ui_kst.h"
 #include "ui_menu.h"
@@ -23,7 +24,7 @@
  */
 constexpr UiMenuEntry UI_MENU[] = {
 	{ "BEEP THE ESC",      8, &UI_BEEP       },   // ui_menu.cpp: DISARMED, REFUSED
-	{ "AM32 CONFIG",       0, &UI_AM32       },
+	{ UI_ESC_CFG_TITLE,    0, &UI_ESC_CONFIG },   // the chooser: ESC SETTINGS, USB BRIDGE
 	{ SERVO_UI_TITLE,      0, &UI_SERVO      },
 	{ "SERVO PROGRAMMER",  0, &UI_SERVO_PROG },   // 190 px: no room for a status
 	{ "RX SIGNALS",        0, &UI_RX_SIGNALS },   // the chooser: MONITOR, OUTPUT
@@ -147,3 +148,41 @@ static constexpr bool rxEntriesFit() {
 	return UI_RX_ENTRIES_COUNT > 0;
 }
 static_assert(rxEntriesFit(), "an RX SIGNALS line is too wide, or runs into the next entry");
+
+/**
+ * @brief ESC CONFIG's entries, top to bottom (docs/design/bluejay-blheli-s.md
+ *        decision 1 and the developer's call B; docs/design/usb-bridge.md
+ *        decision 1). ESC SETTINGS serves AM32 until the Bluejay slices land;
+ *        USB BRIDGE is designed and not built: no screen, so the chooser
+ *        draws it disabled under `NOT BUILT`.
+ */
+constexpr UiEscCfgEntry UI_ESC_CFG_ENTRIES[] = {
+	{ AM32_UI_TITLE, { "AM32 SETTINGS, READ AND WRITTEN.", "BLUEJAY, BLHELI_S: NAMED, NOT READ." }, &UI_AM32 },
+	{ "USB BRIDGE", { "A DESKTOP ESC TOOL OVER USB.", UI_ESC_CFG_NOT_BUILT }, nullptr },
+};
+constexpr uint8_t UI_ESC_CFG_ENTRIES_COUNT =
+	(uint8_t)(sizeof(UI_ESC_CFG_ENTRIES) / sizeof(UI_ESC_CFG_ENTRIES[0]));
+
+/**
+ * @brief Every ESC CONFIG entry fits as RX SIGNALS' do: its label at scale 2
+ *        in the button, its lines within @ref UI_PROG_LINE_CHARS, ending 4 px
+ *        or more above the next entry, the last one on the panel.
+ */
+static constexpr bool escCfgEntriesFit() {
+	for (int i = 0; i < UI_ESC_CFG_ENTRIES_COUNT; i++) {
+		const UiEscCfgEntry &e = UI_ESC_CFG_ENTRIES[i];
+		if (textLen(e.label) > UI_PROG_LABEL_CHARS) return false;
+		int lines = 0;
+		for (const char *l : e.lines) {
+			if (!l) break;
+			if (textLen(l) > UI_PROG_LINE_CHARS) return false;
+			lines++;
+		}
+		int top = UI_PROG_ENTRY_Y + i * UI_PROG_ENTRY_PITCH;
+		int end = top + UI_PROG_LINE_DY + (lines > 0 ? (lines - 1) * UI_PROG_LINE_H + 7 : 0);
+		int room = i + 1 < UI_ESC_CFG_ENTRIES_COUNT ? top + UI_PROG_ENTRY_PITCH - 4 : GFX_H;
+		if (end > room) return false;
+	}
+	return UI_ESC_CFG_ENTRIES_COUNT > 0;
+}
+static_assert(escCfgEntriesFit(), "an ESC CONFIG line is too wide, or runs into the next entry");

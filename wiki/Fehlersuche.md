@@ -71,7 +71,7 @@ geprüft. Bleibt die Zeile nach einem Neustart, melde es wie unter
 Auf dem Signalkabel antwortet nichts, und das Feld unter dem Titel des
 Bildschirms `MENU` zeigt `NO ESC`. Prüfe in dieser Reihenfolge:
 
-1. **Der ESC ist seit AM32 CONFIG nicht neu gestartet.** Beim Verlassen
+1. **Der ESC ist seit ESC SETTINGS nicht neu gestartet.** Beim Verlassen
    dieses Bildschirms schickt die Firmware dem Bootloader keinen Befehl, die
    ESC-Firmware zu starten, und was der ESC dann tut, ist nicht
    aufgezeichnet. Starte den ESC neu, bevor du ihn testest:
@@ -244,6 +244,11 @@ vor dem Öffnen des Bildschirms funktioniert nicht.
 
 - **`REPLY NOT UNDERSTOOD`**: Die Verbindung funktioniert, die Rahmenbildung
   nicht. Mögliche Ursache: Der ESC läuft nicht mit AM32.
+- **`EFM8 E8B2 ANSWERED: NOT READ YET.`**: Ein Bluejay- oder BLHeli_S-ESC
+  hat geantwortet. Der Bildschirm liest seine Einstellungen nicht. `BACK`
+  öffnet eine Verlassenseite: ESC-Akku abziehen, `LEAVE`, `RESTART DSHOT`,
+  dann wieder anstecken
+  ([AM32-Konfiguration](AM32-Konfiguration#efm8-escs)).
 - **`NO VALID SETTINGS`**: Der ESC hat geantwortet, und der Einstellungsblock
   hat die Plausibilitätsprüfung nicht bestanden. Schreibe nichts.
 - **`LAYOUT n NOT KNOWN: READ-ONLY.`**: Der Bildschirm hat verbunden, und
@@ -319,7 +324,7 @@ CONFIG), das die Karte nahm. Siehe
 
 ## Ein Schreiben meldet `BOARD VOLTAGE IS RED: NOT WRITTEN.`
 
-KST SERVO, HITEC SERVO und AM32 CONFIG schreiben nichts und stellen nichts
+KST SERVO, HITEC SERVO und ESC SETTINGS schreiben nichts und stellen nichts
 wieder her, solange die BOARD-Spannung auf dem Tester rot ist: unter 3,30 V,
 bis sie wieder 3,35 V erreicht. Lade die Zelle der Platine, dann halte
 erneut. Die Änderungen bleiben. Mit USB-Versorgung ohne Zelle ist der Wert

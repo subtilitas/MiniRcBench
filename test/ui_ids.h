@@ -22,6 +22,7 @@
 #include "ui_registry.h"
 #include "ui_servo_prog.h"
 #include "ui_rx_signals.h"
+#include "ui_esc_config.h"
 #include "ui_sbus.h"
 #include "ui.h"
 #include "ui_leave.h"
@@ -233,6 +234,17 @@ static inline void openProgrammer(void (*enter)()) {
 	openChooser();
 	int i = progEntryOf(enter);
 	if (i >= 0) tapId(PROG_ENTRY(i));
+}
+
+/**
+ * @brief From MENU, through its ESC CONFIG row and the chooser, to ESC
+ *        SETTINGS: the entry's tap opens the screen, which claims SIG on
+ *        that frame.
+ */
+static inline void openEscSettings() {
+	tapId(menuRow(&UI_ESC_CONFIG));
+	UI_IDS_FRAMES(1);
+	tapId(UI_FIX(EscCfgCtl::Settings));
 }
 
 /** @brief How the header's BACK looks on the panel. */

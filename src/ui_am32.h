@@ -1,10 +1,19 @@
 /**
  * @file ui_am32.h
- * @brief AM32 ESC configuration screen.
+ * @brief ESC SETTINGS, the ESC settings screen: AM32 today.
  *
- * A separate mode from the throttle tester: entering it claims the signal pin
+ * A separate mode from the throttle tester, opened from the ESC CONFIG
+ * chooser (ui_esc_config.h): entering it claims the signal pin
  * (pin_claim.h), which disarms, drains and tears down the DShot driver, and
  * hands the pin to the bootloader transport. Leaving it gives the pin back.
+ *
+ * The connect page's greeting is answered by an AM32 bootloader or by the
+ * EFM8 bootloader of Bluejay and BLHeli_S (bl_answer.h). An AM32 answer
+ * opens the settings. An EFM8 answer is named on the connect page and
+ * nothing is read (docs/design/bluejay-blheli-s.md, slice 2): the screen
+ * gives the claim the leave page (pinClaimWantLeavePage()), sets MENU's run
+ * cue, and BACK from then on opens the leave page of decision 8 of that
+ * note, whose RESTART DSHOT gives SIG back to DShot and clears the cue.
  *
  * @see am32_bl.h for the transport, am32_eeprom.h for the settings layout.
  */
@@ -20,8 +29,28 @@ struct TouchState;
 /** @brief Enter config mode. Claims the signal pin, which disarms. */
 void uiAm32Enter();
 
-/** @brief Leave config mode and end the claim, which resumes DShot. */
+/**
+ * @brief Leave config mode and end the claim, which resumes DShot within
+ *        the call unless an EFM8 bootloader answered: then the claim waits
+ *        in Leaving for RESTART DSHOT, which only the screen's leave page
+ *        offers, so the screen leaves through that page instead.
+ */
 void uiAm32Exit();
+
+/**
+ * @defgroup am32_titles Titles
+ * @brief One set for every firmware (docs/design/bluejay-blheli-s.md, the
+ *        developer's call A of 2026-11-15); the strip names the firmware.
+ *        At scale 2 from x 8, each ends 4 px or more before BACK at x 170.
+ * @{
+ */
+/** @brief The screen: 12 characters, 142 px. MENU's ESC CONFIG chooser names it so too. */
+#define AM32_UI_TITLE "ESC SETTINGS"
+/** @brief The hex dump of the list: 7 characters, 82 px. */
+#define AM32_UI_TITLE_HEX "ESC HEX"
+/** @brief The write page: 9 characters, 106 px. */
+#define AM32_UI_TITLE_WRITE "ESC WRITE"
+/** @} */
 
 /**
  * @brief Run one frame of the config screen.
@@ -49,7 +78,7 @@ bool uiAm32Tick(const TouchState *t);
 #define AM32_UI_CHECK_CARD "CHECK THE CARD, THEN WRITE AGAIN."
 
 /**
- * @defgroup am32_write AM32 WRITE
+ * @defgroup am32_write ESC WRITE
  * @brief The write page: `WRITE...` on the list opens it, its HOLD TO WRITE
  *        writes. It lists each field that changes, label and
  *        `old -> new`, at most 4 and then `AND n MORE`; the state lines from
@@ -61,14 +90,14 @@ bool uiAm32Tick(const TouchState *t);
 #define AM32_UI_WRITING "WRITING: DO NOT UNPLUG."
 /**
  * @brief The backup line with no card and no backup on a card yet: the
- *        settings as read stay in RAM, and leaving AM32 CONFIG loses them.
+ *        settings as read stay in RAM, and leaving ESC SETTINGS loses them.
  *        Amber. 35 characters, 209 px.
  */
 #define AM32_UI_NO_CARD_LOST "NO CARD: OLD VALUES LOST ON LEAVING"
 /** @brief As @ref AM32_UI_NO_CARD_LOST while a USB host holds the card. 37 characters, 221 px. */
 #define AM32_UI_USB_LOST "USB DRIVE: OLD VALUES LOST ON LEAVING"
 /**
- * @brief The line under UI_BOARD_LOW_1 on AM32 WRITE. The result stands
+ * @brief The line under UI_BOARD_LOW_1 on ESC WRITE. The result stands
  *        under OK, then WRITE... and the page's hold write again. 37
  *        characters, 221 px. KST and Hitec keep their hold live under the
  *        same refusal and say UI_BOARD_LOW_2.
@@ -147,6 +176,31 @@ bool uiAm32Tick(const TouchState *t);
 #define AM32_UI_RO_REFUSED "LAYOUT NOT KNOWN: NOT WRITTEN"
 /** @} */
 
+/**
+ * @brief The connect page's status after an EFM8 bootloader answered,
+ *        with its signature: 33 characters, 197 px, for example
+ *        EFM8 E8B2 ANSWERED: NOT READ YET. It stays while later greetings
+ *        go unanswered: the bootloader waits with no timeout.
+ */
+#define AM32_UI_EFM8_FMT "EFM8 %04X ANSWERED: NOT READ YET."
+
+/**
+ * @defgroup am32_leave The leave page after an EFM8 answer
+ * @brief Decision 8 of docs/design/bluejay-blheli-s.md: the leave page of
+ *        SERVO TESTER, KST SERVO and HITEC SERVO (ui_leave.h), opened
+ *        before LEAVE. A step line starts at x 20: at most 35 characters.
+ * @{
+ */
+/** @brief Step 1: 35 characters, 209 px, to x 228. */
+#define AM32_UI_LEAVE_1 "UNPLUG THE ESC BATTERY, THEN LEAVE."
+/** @brief Step 1's first detail line: 33 characters, 197 px. */
+#define AM32_UI_LEAVE_1A "ITS BOOTLOADER WAITS FOR COMMANDS"
+/** @brief Step 1's second detail line: 26 characters, 155 px. */
+#define AM32_UI_LEAVE_1B "AND MAY READ DSHOT AS ONE."
+/** @brief Step 2: 31 characters, 185 px. */
+#define AM32_UI_LEAVE_2 "PLUG IT IN AFTER RESTART DSHOT."
+/** @} */
+
 /** @brief The connect page's last line under a reply it could not parse. */
 #define AM32_UI_NOT_AM32 "IS THE ESC RUNNING AM32?"
 /** @brief The connect page's first line under NO VALID SETTINGS. */
@@ -163,9 +217,11 @@ bool uiAm32Tick(const TouchState *t);
 /**
  * @brief Whether MENU shows @ref AM32_UI_RUN_CUE.
  *
- * Set when a handshake with the bootloader succeeds. Cleared by an eRPM frame
- * that arrived after that handshake, which only the ESC's firmware sends; a
- * restart clears it as well, since it is not stored.
+ * Set when a handshake with the bootloader succeeds, and when an EFM8
+ * bootloader answers the greeting. Cleared by an eRPM frame that arrived
+ * after that answer, which only the ESC's firmware sends, and by RESTART
+ * DSHOT on the leave page, whose steps power-cycle the ESC; a restart of the
+ * board clears it as well, since it is not stored.
  *
  * @param lastRpmMs EscTelemetry::lastRpmMs.
  * @return true while the cue stands.
@@ -198,20 +254,23 @@ bool uiAm32RunCue(uint32_t lastRpmMs);
  */
 bool uiAm32Esc3d();
 
-/** @brief The AM32 CONFIG controls; the list rows are `UI_ROW(n, Row)`. @see ui_screen.h */
+/** @brief The ESC SETTINGS controls; the list rows are `UI_ROW(n, Row)`. @see ui_screen.h */
 enum class Am32Ctl : uint8_t {
 	EditMinus = 1, EditPlus,  /**< The editor bar, while a field is selected. */
-	Write,                    /**< `WRITE...`: a tap opens AM32 WRITE. */
+	Write,                    /**< `WRITE...`: a tap opens ESC WRITE. */
 	Revert,                   /**< REVERT. */
 	Hex,                      /**< HEX or FIELDS. */
 	Ok,                       /**< OK under the write; acts once the write has finished. */
-	WriteHold,                /**< AM32 WRITE's HOLD TO WRITE, 1000 ms: the write. */
+	WriteHold,                /**< ESC WRITE's HOLD TO WRITE, 1000 ms: the write. */
+	Stay,                     /**< STAY on the leave page, before LEAVE: back to the screen. */
+	Leave,                    /**< LEAVE on the leave page: the transport lets go of SIG. */
+	Restart,                  /**< RESTART DSHOT in LEAVE's place, live 1000 ms after SIG is let go. */
 };
 
 struct UiControl;
 
 /**
- * @brief The AM32 CONFIG controls on the current frame. @see ui_screen.h
+ * @brief The ESC SETTINGS controls on the current frame. @see ui_screen.h
  * @param out At most @p max controls.
  * @param max Room in @p out.
  * @return The number written.
@@ -219,5 +278,5 @@ struct UiControl;
 uint8_t uiAm32Controls(UiControl *out, uint8_t max);
 
 struct UiScreen;
-/** @brief AM32 CONFIG. */
+/** @brief ESC SETTINGS. */
 extern const UiScreen UI_AM32;

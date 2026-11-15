@@ -62,12 +62,25 @@ protocol.
   `test/fake_i2c.*`, and the clock lines in `test/test_run_summary.cpp` and
   `test/sd_log_fatfs.cpp`. README and the wiki pages SD-Logging and
   SD-Aufzeichnung describe the file dates. Not tested on hardware.
+- After v0.1.0-rc1: rcbench's files for the angle meter, slice 1 of
+  [angle-meter.md](docs/design/angle-meter.md#slice-1-as-built), copied
+  unchanged from rcbench e98345aa into `lib/rcbench/`: `servo_rudder.*`, the
+  deflection from a zero, its travel in mm and the largest deflection each
+  side; `imu.*`, the IMU (inertial measurement unit) model with
+  `imu_feed_angles()`, which takes three angles and a time; and
+  `witmotion.*`, the WitMotion decoder `imu.h` includes. Their tests,
+  `test_servo_rudder.c`, `test_imu_angles.c` with `wit_frame.h` and
+  `test_witmotion.c`, 25 cases, are in `test/rcbench/`, run by `make -C test
+  run` through `test/angle.mk`. Nothing in `src/` calls them yet, and the
+  firmware does not build them. The cases of rcbench's `test_imu.c` and
+  `test_imu_filter.c` that need `imu.h` alone are not adapted; open for
+  slice 3.
 - After v0.1.0-rc1: each blackbox log that stops clean gets its run
   summary beside it, `LOGS/LOGnnnnn.TXT`, slice 2 of
   [run-summary.md](docs/design/run-summary.md#slice-2-as-built).
   `sdLogTick()` hands every frame's snapshot, merged reading and arm state
   to `runSumAdd()`; the stop ends the summary as `STOP`, `DISARM`,
-  `KST SERVO`, `HITEC SERVO` or `AM32 CONFIG`, and once the `.BFL` has
+  `KST SERVO`, `HITEC SERVO` or `ESC SETTINGS`, and once the `.BFL` has
   closed clean writes the text, built in the drained write buffer, with
   `FA_CREATE_ALWAYS` (`src/sd_log_summary.*`). A failed write during the
   log ends the summary there, not saved, and no `.TXT` is tried. A `.TXT`
@@ -125,6 +138,23 @@ protocol.
   `test/test_esc_cmd.cpp` run the slot against AM32, Bluejay and BLHeli_S
   models read from their sources. No page sends commands yet; MENU's BEEP
   THE ESC is the only caller. Not tested on hardware.
+- After v0.1.0-rc1 (a93e1c1): a Bluejay or BLHeli_S ESC that answers the
+  greeting is recognised, slice 2 of
+  [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#slice-2-as-built).
+  `src/bl_answer.*` classifies the answer: an AM32 family, the EFM8
+  bootloader of Bluejay and BLHeli_S by its signature E8B1, E8B2 or E8B5,
+  or neither; `am32BlAnswer()` returns it. The connect page reads
+  `EFM8 E8B2 ANSWERED: NOT READ YET.`; nothing is read. The answer sets
+  MENU's run cue and gives the pin claim a leave page
+  (`pinClaimWantLeavePage()`), so BACK opens the leave page of the note's
+  decision 8, `UNPLUG THE ESC BATTERY, THEN LEAVE.` and
+  `PLUG IT IN AFTER RESTART DSHOT.`, and DShot returns to SIG only from its
+  RESTART DSHOT, which clears the cue. MENU's second row is the chooser
+  `ESC CONFIG` (`src/ui_esc_config.*`), holding `ESC SETTINGS` and
+  `USB BRIDGE`, the latter drawn disabled with `NOT BUILT`. Host tests in
+  `test/test_am32.cpp`, `test/test_claim.cpp`, `test/test_ui.cpp`,
+  `test/test_menu.cpp` and `test/test_ids.cpp`; the screenshots
+  `esc-chooser`, `am32-efm8` and `am32-leave`. Not tested on hardware.
 - After v0.1.0-rc1 (a93e1c1): S.BUS MONITOR, slice 3 of
   [rx-signals.md](docs/design/rx-signals.md#slice-3-as-built), opened from
   MENU → RX SIGNALS → MONITOR (`src/ui_sbus.*`). It claims the role that is
@@ -746,6 +776,19 @@ protocol.
   an ESC starts answering, where before it sent the beacon with no check of
   the link. A press while an EDT enable or an earlier beacon and its gap go
   out waits, at most 2000 ms. Host test in `test/test_menu.cpp`.
+- After v0.1.0-rc1 (a93e1c1): AM32 CONFIG is `ESC SETTINGS`, opened from
+  MENU → ESC CONFIG, by decision 1 of
+  [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#decisions) and its
+  call A: its hex view and write page are titled `ESC HEX` and `ESC WRITE`,
+  the list's strip names the firmware, `AM32 2.16` in place of `FW 2.16`,
+  and SD LOG reads `RECORDING STOPPED BY ESC SETTINGS`. An AM32 session
+  with no EFM8 answer leaves as before, DShot back within BACK. The
+  greeting's comment in `src/am32_bl.cpp` says what F4 7D is: CRC-16/ARC of
+  `BLHeli` alone.
+- After v0.1.0-rc1 (a93e1c1): the leave page belongs to the pin claim, not
+  only to its user: `PinUserInfo::unplug` sets it when a claim begins and
+  `pinClaimWantLeavePage()` for the rest of one that began without it
+  (`src/pin_claim.*`).
 - After v0.1.0-rc1 (a93e1c1): MENU's RX SIGNALS row acts: it opens the RX
   SIGNALS chooser, has no status, and is drawn disabled while the pin claim
   is not free, as SERVO PROGRAMMER's row. `UI_RX_SIGNALS` moves from

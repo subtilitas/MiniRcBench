@@ -307,7 +307,7 @@ static void testEnds(const char *vol) {
 	struct { SdLogEnd tool; RunSumEnd how; const char *line; const char *what; } tools[] = {
 		{ SdLogEnd::ByKst,   RunSumEnd::ByKst,   "\nEnded by: KST SERVO\n",   "KST SERVO's claim, saved" },
 		{ SdLogEnd::ByHitec, RunSumEnd::ByHitec, "\nEnded by: HITEC SERVO\n", "HITEC SERVO's claim, saved" },
-		{ SdLogEnd::ByAm32,  RunSumEnd::ByAm32,  "\nEnded by: AM32 CONFIG\n", "AM32 CONFIG's claim, saved" },
+		{ SdLogEnd::ByAm32,  RunSumEnd::ByAm32,  "\nEnded by: ESC SETTINGS\n", "ESC SETTINGS' claim, saved" },
 	};
 	uint32_t n = 2;
 	for (auto &k : tools) {
