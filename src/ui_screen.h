@@ -44,6 +44,8 @@ enum class UiScreenId : uint8_t {
 	Sbus,      /**< S.BUS MONITOR and its leave page, opened from RX SIGNALS. */
 	EscConfig, /**< ESC CONFIG, the chooser behind MENU's ESC CONFIG row: ESC SETTINGS and USB BRIDGE. */
 	Bridge,    /**< USB BRIDGE and its leave page, opened from ESC CONFIG. */
+	Tools,     /**< TOOLS, the chooser behind MENU's TOOLS row: ANGLE METER. */
+	Angle,     /**< ANGLE METER, its SETUP and its FLIP CAL, opened from TOOLS. */
 	Count,     /**< How many screens; not a screen. */
 };
 
@@ -153,9 +155,10 @@ struct UiScreen {
 	const SettingsSection *settings;
 	/**
 	 * @brief Opens only while the pin claim is Free, without claiming:
-	 *        SETTINGS, which changes the wiring a claim latched, and
+	 *        SETTINGS, which changes the wiring a claim latched;
 	 *        PROGRAMMER, RX SIGNALS and ESC CONFIG, whose entries open tools
-	 *        that claim.
+	 *        that claim; TOOLS, as the other choosers, and the angle meter,
+	 *        which saves to flash as SETTINGS does.
 	 *        A tool with a @ref pinUser waits for Free anyway.
 	 */
 	bool freePins;

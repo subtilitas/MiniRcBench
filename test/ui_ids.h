@@ -23,6 +23,8 @@
 #include "ui_servo_prog.h"
 #include "ui_rx_signals.h"
 #include "ui_esc_config.h"
+#include "ui_tools.h"
+#include "ui_angle.h"
 #include "ui_sbus.h"
 #include "ui.h"
 #include "ui_leave.h"

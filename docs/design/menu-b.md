@@ -232,6 +232,12 @@ flash are gone; the page carries BEEP 1 to 5. Row 2 is ESC CONFIG; the
 other five rows are as slice 9 built them, so MENU still has seven rows and
 scrolls 36 px.
 
+Row 6 is built by slice 4 of
+[angle-meter.md](angle-meter.md#slice-4-as-built): `TOOLS`, 5 characters,
+58 px from x 16, a tool row with no status, drawn disabled while the claim is
+not Free, opening the TOOLS chooser, whose one entry is `ANGLE METER`. MENU
+has the eight rows of the revision above and scrolls 78 px.
+
 ```
 y   0 | MENU                            [  BACK  ]|  header 36 px; BACK 64 x 32
    40 | SIG GP0  AUX GP1  DSHOT600     [EDT OFF]  |  strip; chip 12 px, C_RED

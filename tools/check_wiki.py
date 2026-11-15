@@ -44,6 +44,7 @@ PAIRS = [
     ("Hitec-Programming", "Hitec-Programmierung"),
     ("RX-Signals", "RX-Signale"),
     ("USB-Bridge", "USB-Bruecke"),
+    ("Angle-Meter", "Winkelmesser"),
     ("Troubleshooting", "Fehlersuche"),
 ]
 

@@ -2,12 +2,13 @@
 
 # Die Bildschirme
 
-Die Firmware hat zwölf Bildschirme. Der Tester ist die Wurzel. `MENU` öffnet
+Die Firmware hat vierzehn Bildschirme. Der Tester ist die Wurzel. `MENU` öffnet
 die Liste der Werkzeuge, und jedes Werkzeug verlässt du mit `BACK`, das zu
 `MENU` zurückführt. ESC CONFIG öffnet die Wahl der ESC-Werkzeuge. SERVO
 PROGRAMMER öffnet PROGRAMMER, die Wahl zwischen
 dem KST- und den Hitec-Programmierern. RX SIGNALS öffnet die Wahl der
-Werkzeuge für Empfängersignale. SETTINGS öffnet auch über die Polzahl
+Werkzeuge für Empfängersignale. TOOLS öffnet die Wahl der
+Prüfstand-Werkzeuge, die keinen Signalpin nutzen. SETTINGS öffnet auch über die Polzahl
 und die Obergrenze des Testers; `BACK` führt dann zum Tester zurück.
 
 ```
@@ -28,6 +29,8 @@ Tester ──MENU──> MENU ──┬── ESC COMMANDS ──BACK──> MEN
    │                    ├── RX SIGNALS ──> RX SIGNALS ──BACK──> MENU
    │                    │    ├── MONITOR ──> S.BUS MONITOR ──BACK──> Verlassenseite ──RESTART DSHOT──> MENU
    │                    │    └── OUTPUT     (als Umriss gezeichnet: NOT BUILT)
+   │                    ├── TOOLS ──> TOOLS ──BACK──> MENU
+   │                    │    └── ANGLE METER ──BACK──> MENU   (SETUP, FLIP CAL: BACK eine Ebene hoch)
    │                    ├── SD LOG       ──BACK──> MENU
    │                    └── SETTINGS     ──BACK──> MENU
    └──── BACK auf MENU ─┘
@@ -277,18 +280,19 @@ jeden ESC, der zu antworten beginnt, und wiederholt sie jede Sekunde, solange
 eRPM eintrifft und EDT nicht. Der ESC bestätigt die Freigabe nicht, daher zeigt
 das Feld *empfangene Frames*, nicht gesendete Befehle.
 
-Unter der Leiste steht eine Liste mit sieben Zeilen von 40 px Höhe und 42 px
+Unter der Leiste steht eine Liste mit acht Zeilen von 40 px Höhe und 42 px
 Abstand, geordnet nach dem, was am Signalpin hängt: der ESC, ein Servo, dann
 der Prüfstand. Jede Zeile zeigt links ihren Namen und rechts ihren Zustand;
 die Zeile eines Werkzeugs zeigt keinen, denn die Leiste nennt die Pins.
 `BACK` führt zum Tester zurück.
 
-**Verschieben.** Sechs Zeilen passen auf den Bildschirm. SD LOG ist die
-sechste, ganz sichtbar und ohne Ziehen antippbar. Von der siebten,
-SETTINGS, sind zuerst nur 6 px sichtbar. Ziehe MENU um 36 px nach oben, um
-SETTINGS mit seinem Zustand `UNSAVED` ganz zu sehen; erst dann nimmt die
-Zeile ein Tippen an. Ein 3 px breiter Rollbalken am rechten Rand zeigt die
-Lage.
+**Verschieben.** Sechs Zeilen passen auf den Bildschirm. TOOLS ist die
+sechste, ganz sichtbar und ohne Ziehen antippbar. Von der siebten, SD LOG,
+sind zuerst nur 6 px sichtbar; ziehe MENU um 34 px nach oben, um sie ganz zu
+sehen. Die achte, SETTINGS, beginnt unter dem Bildschirm: Ziehe MENU um
+76 px nach oben, um SETTINGS mit seinem Zustand `UNSAVED` ganz zu sehen.
+Eine Zeile nimmt ein Tippen nur an, solange sie ganz sichtbar ist. Ein
+3 px breiter Rollbalken am rechten Rand zeigt die Lage.
 
 | Zeile | Zustand rechts | Ein Tippen |
 |---|---|---|
@@ -297,14 +301,15 @@ Lage.
 | **SERVO TESTER** | nichts | Öffnet den Servotester |
 | **SERVO PROGRAMMER** | nichts | Öffnet PROGRAMMER, die Wahl des Servo-Programmierers. Siehe [PROGRAMMER](#programmer) |
 | **RX SIGNALS** | nichts | Öffnet RX SIGNALS, die Wahl der Werkzeuge für Empfängersignale. Siehe [RX SIGNALS](#rx-signals) |
+| **TOOLS** | nichts | Öffnet TOOLS, die Wahl der Prüfstand-Werkzeuge: ANGLE METER. Siehe [TOOLS](#tools) |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, oder `USB DRIVE`, solange ein Computer die Karte hält | Öffnet den Aufzeichnungs-Bildschirm |
 | **SETTINGS** | `UNSAVED`, solange ein Wert vom Flash abweicht; sonst `UPDATED`, solange ein Zurücksetzen oder eine Übernahme durch ein Update nicht überspeichert ist; sonst nichts. Alles in Bernstein | Öffnet SETTINGS |
 
 Solange die Signalpins noch belegt sind, zum Beispiel während DShot nach dem
 Servotester, dem KST-Programmierer oder dem Hitec-Programmierer neu startet,
 zeigt die Leiste `DSHOT RESTARTING ON SIG GP0` in Bernstein. ESC COMMANDS,
-ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS und SETTINGS sind
-dann als
+ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, TOOLS und SETTINGS
+sind dann als
 Umriss unter ihrem üblichen Zustand gezeichnet, und ein Tippen auf eine
 solche Zeile öffnet nichts. Sie wirken wieder, sobald DShot läuft. SD LOG
 belegt keinen Pin und bleibt bedienbar.
@@ -318,9 +323,10 @@ Schaltfläche zum Speichern liegt in SETTINGS.
 
 `UPDATED` in der Zeile SETTINGS heißt, dass ein Firmware-Update die
 gespeicherten Einstellungen verändert hat. Entweder hat es Einstellungen
-eines älteren Formats übernommen, Version 2, 3 oder 4: Die Werte, die das
+eines älteren Formats übernommen, Version 2, 3, 4 oder 5: Die Werte, die das
 alte Format kennt, bleiben erhalten, geprüft wie beim Speichern, und die
-neueren, darunter `CURRENT SENSE`, stehen auf ihrer Voreinstellung. Oder es
+neueren, darunter `CURRENT SENSE` sowie Einrichtung und Kalibrierung des
+Winkelmessers, stehen auf ihrer Voreinstellung. Oder es
 fand ein Format, das es nicht kennt, und hat es verworfen: Jeder Wert,
 darunter Polzahl, `MAX THROTTLE`, `SIG PIN`, KISS, `SERVO SUPPLY` und
 `CURRENT SENSE`, steht auf seiner Voreinstellung. Prüfe sie in SETTINGS und
@@ -432,6 +438,16 @@ nennt beide Signalpins, `SIG GP0  AUX GP1`. RX SIGNALS belegt keinen Pin.
 `BACK` führt zu `MENU` zurück, ebenso `RESTART DSHOT` am Ende des Monitors.
 Siehe [RX-Signale](RX-Signale).
 
+### TOOLS
+
+<img src="img/tools-chooser.png" width="240" alt="TOOLS: ANGLE METER mit INCIDENCE, DECALAGE, DIHEDRAL, THROW darunter">
+
+`MENU → TOOLS` öffnet eine Wahl der Prüfstand-Werkzeuge, die keinen
+Signalpin nutzen, wie PROGRAMMER. TOOLS enthält **ANGLE METER**. Die Leiste
+zeigt `DSHOT RUNS ON SIG GP0`: TOOLS belegt keinen Pin, der Winkelmesser
+auch nicht. `BACK` führt zu `MENU` zurück, ebenso `BACK` auf dem
+Winkelmesser. Siehe [Winkelmesser](Winkelmesser).
+
 ---
 
 ## SETTINGS
@@ -518,7 +534,9 @@ Unter der Liste bleiben diese Elemente an ihrem Platz:
 Bitrate baut den DShot-Treiber vor dem nächsten Frame neu auf. `HOLD TO SAVE`
 1 s lang schreibt ins Flash. `HOLD DEFAULTS` 1 s lang ersetzt die laufenden
 Einstellungen durch die kompilierten Voreinstellungen, Polzahl und
-Gas-Obergrenze eingeschlossen; das Flash bleibt unverändert. Ein Tippen
+Gas-Obergrenze eingeschlossen; Einrichtung und Kalibrierung des
+Winkelmessers, die SETTINGS nicht zeigt, behalten ihre Werte, und das Flash
+bleibt unverändert. Ein Tippen
 bewirkt nichts, ein Wegschieben vom Knopf bricht das Halten ab. Ein Balken
 über dem Knopf füllt sich, solange er gehalten wird, und der Knopf wird rot,
 wie bei jedem Halten. Wer den
@@ -664,6 +682,22 @@ SIG PIN auf GP1 steht; dort wartet er, solange ein ESC antwortet. `BACK`
 öffnet die Verlassenseite bei `1 UNPLUG THE RECEIVER.`; `BACK TO MONITOR`
 beginnt von vorn, jeder Zähler auf 0, und `RESTART DSHOT` führt zu `MENU`.
 Siehe [RX-Signale](RX-Signale).
+
+---
+
+## ANGLE METER
+
+<img src="img/angle-main.png" width="240" alt="ANGLE METER nach einem Nullpunkt: -20.0 Grad, -13.7 MM, MAX -20.0 Grad, die Temperatur der IMU">
+
+Misst Winkel an der Schwerkraft mit dem Beschleunigungssensor der Platine:
+den Winkel um die Achse in Größe 5, die Neigung der Achse und den Chip
+`SETTLED` in der Leiste, mit gesetzter LENGTH den Weg der Endleiste in mm,
+MAX je Seite und die Temperatur der Platine. In der Fußleiste `ZERO`,
+`RESET MAX` und `SETUP`; SETUP enthält ALONG AXIS, LENGTH, SIGN und die
+Kalibrierung in drei Lagen, FLIP CAL. `BACK` auf der Hauptansicht schaltet
+den Beschleunigungssensor ab und führt zu `MENU`; auf SETUP und FLIP CAL
+geht es eine Ebene hoch. Nicht auf Hardware getestet; die Genauigkeit ist
+nicht gemessen. Siehe [Winkelmesser](Winkelmesser).
 
 ---
 

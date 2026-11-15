@@ -10,7 +10,8 @@
  * restart's reason and the uptime, read-only, @ref diag.h). Every change
  * applies at once; only writing flash needs HOLD TO SAVE, 1000 ms. HOLD
  * DEFAULTS, 1000 ms, loads the compiled defaults into the live settings and
- * writes nothing.
+ * writes nothing; the angle meter's fields, which SETTINGS does not show,
+ * keep their values.
  *
  * The list scrolls under a drag that starts off a control. A press on a
  * control never scrolls; `-` and `+` step on touch-down and repeat while
