@@ -39,6 +39,9 @@
  * UART0 off, leaves GP1 an input with no inversion and the pull-down on, and
  * publishes a cleared status, at once.
  *
+ * Not run on hardware: the inversion on the pin and the PL011's flags on a
+ * real line are not measured.
+ *
  * @see docs/design/rx-signals.md
  */
 
@@ -124,9 +127,9 @@ struct SbusCore {
  *
  * A bind can land in the middle of a frame, and on the chip uart_init()
  * receives at 8N1 until uart_set_format() takes 8E2. So nothing is counted
- * or fed until the line has been seen quiet for `SBUS_GAP_US` (sbus.h), 2000 us:
- * the time from the last pass with a word, or from the reset, to a pass with
- * none. The first word after that starts a frame. A line that is never
+ * or fed until the line has been seen quiet for `SBUS_GAP_US` (sbus.h),
+ * 2000 us: the time from the last pass with a word, or from the reset, to a
+ * pass with none. The first word after that starts a frame. A line that is never
  * quiet for 2000 us is never counted.
  *
  * @param[out] c The state.
@@ -138,11 +141,12 @@ void sbusCoreReset(SbusCore *c, uint32_t nowUs);
  * @brief Take one UARTDR word. Pure.
  *
  * Before the line has been seen quiet (sbusCoreReset()), the word is neither
- * counted nor fed. After that it counts its flags as the table in this file's description says; feeds a
- * clean byte, and one with OE alone, to sbus_decode_byte() at @p nowUs; on a
- * frame, stores its channels and flags, counts the frame-lost and failsafe
- * bits and adds the interval since the last frame. An interval of
- * @ref SBUS_LOST_MS or more empties the ring of intervals instead.
+ * counted nor fed. After that it counts its flags as the table in this
+ * file's description says; feeds a clean byte, and one with OE alone, to
+ * sbus_decode_byte() at @p nowUs; on a frame, stores its channels and flags,
+ * counts the frame-lost and failsafe bits and adds the interval since the
+ * last frame. An interval of @ref SBUS_LOST_MS or more empties the ring of
+ * intervals instead.
  *
  * @param[in,out] c The state.
  * @param dr        The word: the byte in bits 0 to 7, FE, PE, BE and OE in
@@ -196,7 +200,7 @@ static inline uint32_t sbusRateDeciHz(uint32_t intervalUs) {
  * | SIG GP0, AUX GP1 | PIN_SIG \| PIN_AUX |
  * | SIG GP1, AUX GP0 | PIN_SIG |
  * | SIG GP1, AUX GP1 (KISS off) | PIN_SIG |
- * | SIG GP0, AUX GP0 (KISS off) | 0: no claim; the screen says S.BUS needs GP1 |
+ * | SIG GP0, AUX GP0 (KISS off) | 0: no claim; the screen of slice 3 is to say S.BUS needs GP1 |
  *
  * @param sigGpio escTaskDshotPin().
  * @param auxGpio escTaskKissPin().

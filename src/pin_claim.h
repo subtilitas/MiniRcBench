@@ -91,7 +91,8 @@ static constexpr PinUserInfo PIN_USERS[] = {
 	{ PinUser::Kst,   Core1Job::Kst,   true,  true,  false },
 	{ PinUser::Hitec, Core1Job::Hitec, true,  true,  true  },
 	// The monitor drives nothing; an ESC on SIG only loses its frames. When
-	// GP1 is SIG the screen makes its own ESC check (rx-signals.md).
+	// GP1 is SIG its screen, not built, is to make its own ESC check
+	// (rx-signals.md).
 	{ PinUser::Sbus,  Core1Job::Sbus,  true,  false, false },
 };
 
@@ -165,7 +166,8 @@ struct ClaimFacts {
  *   into whatever is on the wire. The screen keeps asking; the claim follows by
  *   itself 500 ms after the ESC goes quiet. AM32 is exempt: it needs the ESC
  *   on the pin. The S.BUS monitor is exempt: it drives nothing, and when GP1
- *   is SIG its screen makes the check itself (docs/design/rx-signals.md).
+ *   is SIG its screen, not built, is to make the check itself
+ *   (docs/design/rx-signals.md).
  * - **KissLive**, AUX asked for. An ESC telemetry output drives AUX, and servo
  *   PWM would drive against it; for the S.BUS monitor the telemetry wire is
  *   where the receiver goes.

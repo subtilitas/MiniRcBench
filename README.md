@@ -2303,12 +2303,12 @@ those files as C11 programs: `test/rcbench/test_servo_sweep.c` and
 `test_hitec_session_write.c` and `test_hitec_card.c`, with
 `hitec_headers.cpp` built as C++11, and `test_sbus.c` (12 cases). The SDIO
 tests run the card protocol against a simulated card. Time is virtual and
-counted in microseconds — `millis()` advances only when a test says so —
-which makes hold-to-arm, hold-to-write and gesture repeat deterministic
-rather than dependent on machine speed. The fake ESC serves a real settings blob recovered from the
-reference configurator, so the UI tests operate on values a real ESC would
-report. The suite renders 111 screens to PPM (portable pixmap) images as it
-runs, one file per `fakeDumpFrame()` name, so a layout change is visible in
+counted in microseconds — `millis()` advances only when a test says so — which
+makes hold-to-arm, hold-to-write and gesture repeat deterministic rather than
+dependent on machine speed. The fake ESC serves a real settings blob recovered
+from the reference configurator, so the UI tests operate on values a real ESC
+would report. The suite renders 111 screens to PPM (portable pixmap) images as
+it runs, one file per `fakeDumpFrame()` name, so a layout change is visible in
 the frames:
 
 - five of the splash: as it boots, with no answer from the touch

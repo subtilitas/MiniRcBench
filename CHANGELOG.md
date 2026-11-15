@@ -258,10 +258,11 @@ protocol.
   overrun, the baud divisors of SDK 2.1.1 from a settable `clk_peri`
   (`fakeClockSet()`), a receiver that hears the line only with GP1 on the UART
   function and its input inverted and reads each character in the format set,
-  8N1 after `uart_init()`, the wait of `uart_set_format()` on a running UART,
-  and a character caught in its middle (`fakeUartInitTakes()`). The suite's
-  clock counts microseconds (`fakeAdvanceUs()`), and the GPIO fake records the
-  input override, which `gpio_set_function()` zeroes as the SDK does.
+  8N1 after `uart_init()` for a set time (`fakeUartInitTakes()`), the wait of
+  `uart_set_format()` on a running UART, and a character caught in its middle.
+  The suite's clock counts microseconds (`fakeAdvanceUs()`), and the GPIO fake
+  records the input override, which `gpio_set_function()` zeroes as the SDK
+  does.
 - The INA219 current sensor on J3, the board's shared I2C1 bus (slice 1 of
   [current-sense.md](docs/design/current-sense.md)): `src/sense.*` reads the
   shunt and bus registers on core0 once per UI frame after the touch read,

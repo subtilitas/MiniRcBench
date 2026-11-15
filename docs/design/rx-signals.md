@@ -238,20 +238,18 @@ bool sbusCoreStep(SbusCore *c, uint32_t nowUs, uint32_t nowMs);  // once per pas
 what the pass fed, tracks how long the line has been quiet, and returns
 whether a counted word arrived, which is when the job publishes.
 
-**A bind into a live line.** The bind can land in the middle of a frame,
-and in the middle of a character. On the chip `uart_init()` receives at
-8N1 until `uart_set_format()` takes 8E2, and `uart_set_format()` turns the
-UART off for about 15 bit times, 149 µs at 100,000 baud, while the
-character under way completes in the old format (SDK 2.1.1,
-`uart_disable_before_lcr_write()`). So the bind reads and discards the
-receive FIFO after `uart_set_format()`, and the core counts and feeds
-nothing until it has seen the line quiet for 2000 µs (`SBUS_GAP_US`): from
-the last pass with a word, or from the bind, to a pass with none. The first
-word after that starts a frame, and every count starts from it. A frame
-that begins less than 2000 µs after the bind is not taken, since it may be
-the tail of one under way; a line that is never quiet for 2000 µs is never
-counted.
-
+**A bind into a live line.** The bind can land in the middle of a frame, and in
+the middle of a character. On the chip `uart_init()` receives at 8N1 (8 data
+bits, no parity, 1 stop bit) until `uart_set_format()` takes 8E2, and
+`uart_set_format()` turns the UART off for about 15 bit times, 149 µs at
+100,000 baud, while the character under way completes in the old format (SDK
+2.1.1, `uart_disable_before_lcr_write()`). So the bind reads and discards the
+receive FIFO after `uart_set_format()`, and the core counts and feeds nothing
+until it has seen the line quiet for 2000 µs (`SBUS_GAP_US`): from the last
+pass with a word, or from the bind, to a pass with none. The first word after
+that starts a frame, and every count starts from it. A frame that begins less
+than 2000 µs after the bind is not taken, since it may be the tail of one under
+way; a line that is never quiet for 2000 µs is never counted.
 Every pass of `loop1()`, the job:
 
 1. reads `micros()` once;
@@ -267,14 +265,13 @@ flags and the interval since the last frame.
 
 **Timing.** A byte's time is the time of the pass that drains it, not its
 arrival. With the claim held, core1 runs `escTaskPoll()`, which returns at
-once, and this job; no flash write parks it (settings saves are refused
-during a claim). A pass is therefore far shorter than the 2000 µs threshold,
-so bytes of one frame never look 2000 µs apart, and the 4 ms gap between
-frames is never missed. The binding limit on a late pass is 2000 µs: a
-pass that late in the middle of a frame stamps the bytes after it 2000 µs
-or more after those before it, and the gap rule splits the frame. The FIFO's
-32 bytes, 3,840 µs of line, would allow more before an overrun. The pass
-time with this job is not
+once, and this job; no flash write parks it (settings saves are refused during
+a claim). A pass is therefore far shorter than the 2000 µs threshold, so bytes
+of one frame never look 2000 µs apart, and the 4 ms gap between frames is never
+missed. The binding limit on a late pass is 2000 µs: a pass that late in the
+middle of a frame stamps the bytes after it 2000 µs or more after those before
+it, and the gap rule splits the frame. The FIFO's 32 bytes, 3,840 µs of line,
+would allow more before an overrun. The pass time with this job is not
 measured. The heartbeat (`core1UiAlive()`) stops nothing here: the job sends
 nothing.
 
@@ -296,6 +293,7 @@ All counts start at 0 at each bind and count from the first quiet line after
 it, so each visit to the screen starts clean. The release sets the status back
 to 0 as well. Frame rate is 1,000,000 / `intervalUs`: 71.4 Hz at 14 ms,
 142.9 Hz at 7 ms. The interval carries the drain jitter of one pass.
+
 **Link state**, a pure function of the status and `millis()` on core0,
 `SBUS_LOST_MS` 100 ms, seven frames at 14 ms:
 
@@ -882,7 +880,7 @@ files differ by one line each. Slice 1a is built.
 |---|---|---|---|
 | 1a. S.BUS copies, built | `sbus.c`, `sbus.h`, `test_sbus.c`; `test/rx.mk`; the `test/Makefile` lists, `lib/rcbench/README.md`, README, STATUS, CHANGELOG | 3 copied, 1 new, 5 edited | 695 copied; 80 new or changed |
 | 1b. PPM copies: not built, by decision 1 | `ppm.c`, `ppm.h`, `test_ppm.c`; the `outputs.h` stub, `test/ppm.mk`; the `test/Makefile` lists, `lib/rcbench/README.md`, README, STATUS, CHANGELOG | 3 copied, 2 new, 5 edited | 441 copied; 80 new or changed |
-| 2. S.BUS job, built | `sbus_job.*`, `rx.cmake`, `CORE1_JOB_NO_GP1`, the job and user rows, the microsecond clock, the UART fake, `sbus_line.h`, the job's tests, the `-I` lists of `ci.yml` | 3 new in `src/`, 2 new in `test/`, 15 edited, 7 documents | 380 in `src/`; 1,100 in `test/` |
+| 2. S.BUS job, built | `sbus_job.*`, `rx.cmake`, `CORE1_JOB_NO_GP1`, the job and user rows, the microsecond clock, the UART fake, `sbus_line.h`, the job's tests, the `-I` lists of `ci.yml` | 3 new in `src/`, 2 new in `test/`, 15 edited, 7 documents | about 480 in `src/`; 1,300 in `test/` |
 | 3. S.BUS screen | `sbus_view.*`, `ui_sbus.*`, the registry line, the screen and MENU tests, `test_ids.cpp`, the preview, `tools/check_wiki.py`, `tools/make_previews.py`, README section, wiki pages in English and German, STATUS, CHANGELOG, this note's status | 4 new in `src/`, 2 new and 10 edited elsewhere | 650 in `src/`; 600 in `test/`; 250 of documentation |
 | 4. PPM job: not built, by decision 1 | the `out_ppm` driver copies, `ppm_job.*`, `ppm.cmake`, the job and user rows, the `out_ppm.h` fake, `pio_ppm_emu.py`, the job's tests, the `-I` lists of `ci.yml` | 3 copied, 3 new in `src/`, 3 new in `test/`, 6 edited | 490 copied; 300 in `src/`; 600 in `test/` |
 | 5. PPM screen: not built, by decision 1 | `ui_ppm.*`, the registry line, the screen tests, the preview, `tools/check_wiki.py`, `tools/make_previews.py`, README, wiki pages in English and German, STATUS, CHANGELOG | 2 new in `src/`, 2 new and 10 edited elsewhere | 600 in `src/`; 500 in `test/`; 200 of documentation |
@@ -925,20 +923,20 @@ and `test/test_sbus_job.cpp`. Choices the note left open:
 - **The release clears the status**, so a read after the claim finds no
   frame and every count at 0.
 
-The UART0 fake hears the line only while UART0 is on and GP1 is on the
-UART function with INOVER inverted. It reads each word in the format set: at
-8N1 the parity bit is taken as the stop bit, so a parity bit of 0 is a
-framing error. A character whose start bit came before the receiver was on
-loads as a framing error. `uart_set_format()` on a running UART takes the
-SDK's wait, 149 µs at 100,000 baud from 150 MHz, with the receiver off,
-and only the character under way completes. `fakeUartInitTakes()` keeps
-the receiver at 8N1 for a while before `uart_set_format()`, as a slow core
-would. The fake models the 32-entry FIFO, a word lost to a full FIFO and OE
-on the next word that enters, and the divisors of SDK 2.1.1's
-`uart_set_baudrate()`. It does not model the bits on the wire or what a line
-that is not inverted reads; what a PL011 loads for a character caught in its
-middle is the fake's guess. The inversion on the pin, the receiver's level
-and the PL011's flags on a real line are not measured (bench, below).
+The UART0 fake hears the line only while UART0 is on and GP1 is on the UART
+function with INOVER inverted. It reads each word in the format set: at 8N1 the
+parity bit is taken as the stop bit, so a parity bit of 0 is a framing error. A
+character whose start bit came before the receiver was on loads as a framing
+error. `uart_set_format()` on a running UART takes the SDK's wait, 149 µs at
+100,000 baud from 150 MHz, with the receiver off, and only the character under
+way completes. `fakeUartInitTakes()` keeps the receiver at 8N1 for a while
+before `uart_set_format()`, as a slow core would. The fake models the 32-entry
+FIFO, a word lost to a full FIFO and OE on the next word that enters, and the
+divisors of SDK 2.1.1's `uart_set_baudrate()`. It does not model the bits on
+the wire or what a line that is not inverted reads; what a PL011 loads for a
+character caught in its middle, and that the next character loads aligned, is
+the fake's guess. The inversion on the pin, the receiver's level and the
+PL011's flags on a real line are not measured (bench, below).
 
 ## Decisions
 

@@ -645,11 +645,11 @@ not run on hardware (item 18).
       of MONITOR and OUTPUT. The output's encoder is written and tested in
       rcbench first, then copied; its throttle channel obeys MAX THROTTLE.
       The monitor's core1 job, slice 2, is built and host-tested
-      (`src/sbus_job.*`); its screen, slice 3, waits on being built, and
-      MENU's RX SIGNALS row reads `NOT BUILT` until then. The UART inversion on the pin and a
-      receiver's frames on GP1 are not tested on hardware. The output waits
-      on its encoder in rcbench and on its design, of which the note lists
-      the points to settle.
+      (`src/sbus_job.*`); its screen, slice 3, waits on being built, and MENU's
+      RX SIGNALS row reads `NOT BUILT` until then. The UART inversion on the
+      pin and a receiver's frames on GP1 are not tested on hardware. The output
+      waits on its encoder in rcbench and on its design, of which the note
+      lists the points to settle.
     - [current-sense.md](docs/design/current-sense.md): the converter takes
       one LiPo cell, 3.0 V to 4.2 V, into a synchronous boost with load
       disconnect, 5.0 V, at least 3 A out; the shunt stays 0.1 Ω; the servo
@@ -833,6 +833,10 @@ not run on hardware (item 18).
   times up to 13.3 s on FAT32 and 16.5 s on exFAT, up to 135.0 s with 1000
   logs an earlier firmware wrote to the root. FatFs block counts times card
   times (`make -C test kstcount`), not measured.
+- **A missing `critical_section_init()` passes on the host.** The fake
+  critical section does not check that it was initialised, so a core1 job
+  that never calls `critical_section_init()` passes the host suite (all
+  core1 jobs). A test gap, not a fault found.
 - **One ring for every device's backups.** 50 sessions of one device push out
   the backups of every other device before them. A ring that has turned and
   lost `BACKUP/LAST` guesses 050 as its latest and writes over 001 next,
@@ -889,7 +893,7 @@ not run on hardware (item 18).
 **Host suite.** `make -C test run` compiles the firmware sources with a C++17
 compiler against the stubs in `test/stubs/`, and the DShot core in
 `src/dshot/` and the SDIO protocol layers in `src/sdio/` as C11, and runs one
-binary, `dshot_tests`. `test/test_main.cpp` runs twenty-four suites:
+binary, `dshot_tests`. `test/test_main.cpp` runs twenty-five suites:
 
 | Suite | File | Covers |
 | --- | --- | --- |
