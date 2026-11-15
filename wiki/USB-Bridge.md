@@ -109,8 +109,8 @@ answers or 3 s pass. This holds in both ways of working.
 On a running bridge, `BACK` opens a leave page every time, whatever the
 tool did: the ESC may sit in its bootloader, entered at power-up or by
 itself, and DShot frames can pass as its commands. Power the ESC off, then
-tap `RESTART DSHOT`, live 1 s after the page opens. `BRIDGE` returns to the bridge instead.
-After a write not followed by a start of the firmware the page adds
+tap `RESTART DSHOT`, live 1 s after the page opens. `BRIDGE` returns to
+the bridge instead. After a write not followed by a start of the firmware the page adds
 `FLASH THE ESC AGAIN BEFORE USE.`: flash the ESC again before you use it.
 In the 4-way interface only the tool's reset of the ESC counts as that
 start, not its disconnect.
