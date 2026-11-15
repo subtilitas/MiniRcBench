@@ -93,7 +93,7 @@ struct ServoLogStatus {
 	 *        HOLD TO START.
 	 */
 	SdLogEnd    fault;
-	/** @brief The rows filled the whole @ref SERVO_LOG_PREALLOC_BYTES: the writing stopped there. */
+	/** @brief The rows filled the whole @ref SERVO_LOG_PREALLOC_BYTES, and the writing stopped there. */
 	bool        atLimit;
 	ServoLogHow how;         /**< How the last log ended; None while one runs. */
 };
