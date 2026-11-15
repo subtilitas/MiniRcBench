@@ -52,8 +52,9 @@ protocol.
   after 15 ms or for 1750 ms, writes CTRL1 40h, CTRL2 08h, CTRL5 07h and
   CTRL7 01h one byte each and reads each back, and from 100 ms later reads
   one 11-byte burst and the time stamp again every UI frame, after touch and
-  the current sensor; a burst whose time stamp changed is dropped, a
-  repeated time stamp is not counted. Its transfers go to the shared bus
+  the current sensor; the first whole burst is a baseline, so the first
+  sample taken was latched after the 100 ms; a burst whose time stamp
+  changed is dropped, a repeated time stamp is not counted. Its transfers go to the shared bus
   record; three failed frames take it offline, probed again every 1000 ms,
   and no reset follows another within 2000 ms. Closing it writes CTRL7 00h.
   No screen opens it yet, so nothing is sent to 0x6B. The board header gains

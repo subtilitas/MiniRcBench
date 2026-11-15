@@ -2622,17 +2622,20 @@ through drivers that are not copied.
 
 The I2C fake also holds a QMI8658 model: a register file with the power-on
 values, WHO_AM_I and REVISION_ID, the pointer, address auto-increment and the
-data registers' byte order by CTRL1, one byte taken from a write of several,
-the soft reset with dQY_L after it, no answer for a boot time after a reset,
-and with the accelerometer on a sample every 32 ms with a time stamp one
-higher, one of them on request in the middle of a burst. It logs every
-register access with its time. `test_qmi8658.cpp` runs the IMU driver against
-it: the probe's three outcomes, the reset's wait of 15 ms and of 1750 ms, the
-configuration written a byte at a time and read back, no second reset within
-2000 ms, the samples' decoding, a time stamp repeated or changed during the
-burst, the faults through the shared bus record, BACK's CTRL7 00h, nothing to
-0x6B while the driver is closed, touch and the INA219 on the same bus, and
-the bus time of a frame in each failure mode, at most 1730 µs.
+data registers' byte order by CTRL1, one byte taken from a write of several, the
+soft reset with dQY_L after it, no answer for a boot time after a reset, and
+with the accelerometer on a sample every 32 ms with a time stamp one higher, one
+of them on request in the middle of a burst, and the latched sample's latch
+time. On request a failed transfer reaches the part before it fails. It logs
+every register access with its time. `test_qmi8658.cpp` runs the IMU driver
+against it: the probe's three outcomes, the reset's wait of 15 ms and of 1750
+ms, the configuration written a byte at a time and read back, no second reset
+within 2000 ms and a probe at once 30 days after the last, the first sample
+taken latched after the warm-up, the samples' decoding, a time stamp repeated or
+changed during the burst, the faults through the shared bus record, BACK's CTRL7
+00h also after a CTRL7 write that timed out, nothing to 0x6B while the driver is
+closed, touch and the INA219 on the same bus, and the bus time of a frame in
+each failure mode, at most 1730 µs.
 
 `make pioemu`, which `make` runs too, runs `test/pio_sdio_emu.py`. It assembles
 the two SDIO PIO programs from `src/sdio/sd_pio.pio` itself and runs them one
