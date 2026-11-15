@@ -1162,7 +1162,7 @@ model.
 | `src/ui_list.cpp` | 141 | 141 | 100.0% |
 | `src/ui_menu.cpp` | 134 | 134 | 100.0% |
 | `src/ui_rx_signals.cpp` | 49 | 49 | 100.0% |
-| `src/ui_sbus.cpp` | 233 | 232 | 99.6% |
+| `src/ui_sbus.cpp` | 235 | 234 | 99.6% |
 | `src/ui_screen.h` | 8 | 8 | 100.0% |
 | `src/ui_sdlog.cpp` | 220 | 216 | 98.2% |
 | `src/ui_servo.cpp` | 611 | 611 | 100.0% |

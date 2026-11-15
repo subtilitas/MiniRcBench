@@ -703,9 +703,14 @@ static void testGp1Sig() {
 	checkTrue("an ESC answers on GP1, which is SIG: no claim", uiCurrentScreen() == UiScreenId::Sbus &&
 	          pinClaimState() == ClaimState::Free && !escTaskSuspended());
 	checkTrue("AN ESC ANSWERS ON SIG GP1., amber, at y 80", leftIs(SBUS_UI_MSG_Y, SBUS_UI_ESC_1, C_AMBER));
-	checkTrue("UNPLUG IT: THE RECEIVER GOES THERE., amber, at y 94, 209 px",
+	checkTrue("UNPLUG IT. PLUG THE RECEIVER IN, amber, at y 94, 185 px",
 	          leftIs(SBUS_UI_MSG_Y + SBUS_UI_MSG_H, SBUS_UI_UNPLUG_2, C_AMBER) &&
-	          gfxTextW(SBUS_UI_UNPLUG_2, 1) == 209);
+	          gfxTextW(SBUS_UI_UNPLUG_2, 1) == 185);
+	checkTrue("ONCE THE LINK CHIP SHOWS., amber, at y 108, 149 px",
+	          leftIs(SBUS_UI_MSG_Y + 2 * SBUS_UI_MSG_H, SBUS_UI_UNPLUG_3, C_AMBER) &&
+	          gfxTextW(SBUS_UI_UNPLUG_3, 1) == 149);
+	checkStr("the three lines' exact text", SBUS_UI_ESC_1 " " SBUS_UI_UNPLUG_2 " " SBUS_UI_UNPLUG_3,
+	         "AN ESC ANSWERS ON SIG GP1. UNPLUG IT. PLUG THE RECEIVER IN ONCE THE LINK CHIP SHOWS.");
 	checkTrue("the caption: SIG GP1  100 KBAUD  8E2", leftIs(UI_STRIP_Y + 4, "SIG GP1  100 KBAUD  8E2", C_DIM));
 	checkControlTable("S.BUS MONITOR, an ESC on GP1");
 	fakeDumpFrame("shot_sbus_esc.ppm");
@@ -772,9 +777,10 @@ static void testRefusals() {
 	tapId(UI_FIX(RxCtl::Monitor));
 	sbFrames(1);
 	checkTrue("KISS frames on AUX GP1: refused", pinClaimState() == ClaimState::Free);
-	checkTrue("KISS WIRE ON AUX GP1 IS LIVE. and UNPLUG IT: THE RECEIVER GOES THERE.",
+	checkTrue("KISS WIRE ON AUX GP1 IS LIVE. and the same second and third lines, amber",
 	          leftIs(SBUS_UI_MSG_Y, SBUS_UI_KISS_1, C_AMBER) &&
-	          leftIs(SBUS_UI_MSG_Y + SBUS_UI_MSG_H, SBUS_UI_UNPLUG_2, C_AMBER));
+	          leftIs(SBUS_UI_MSG_Y + SBUS_UI_MSG_H, SBUS_UI_UNPLUG_2, C_AMBER) &&
+	          leftIs(SBUS_UI_MSG_Y + 2 * SBUS_UI_MSG_H, SBUS_UI_UNPLUG_3, C_AMBER));
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK before a claim: MENU, nothing claimed", uiCurrentScreen() == UiScreenId::Menu &&
 	          pinClaimState() == ClaimState::Free);

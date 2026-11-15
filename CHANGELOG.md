@@ -77,6 +77,13 @@ protocol.
   Host tests in `test/test_sbus_ui.cpp` run both through MENU on the UART0
   fake; the preview `docs/sbus-preview.png` and the wiki pages RX-Signals and
   RX-Signale are new. Not tested on hardware.
+- After v0.1.0-rc1: S.BUS MONITOR's wait message says when to plug the
+  receiver in. With an ESC on SIG GP1 it reads `AN ESC ANSWERS ON SIG GP1.`
+  `UNPLUG IT. PLUG THE RECEIVER IN` `ONCE THE LINK CHIP SHOWS.` (a third line
+  at y 108); the KISS message shares the second and third lines. Bidirectional
+  DShot drives GP1 until the claim holds, and the chip shows only once the
+  job runs. README, the wiki pages and
+  [rx-signals.md](docs/design/rx-signals.md#slice-3-as-built) follow.
 - After v0.1.0-rc1: the host suite fails a core1 job that never calls
   `critical_section_init()`. The fake critical section in `test/fakes.cpp`
   marks a section at init and counts each enter or exit on an unmarked one

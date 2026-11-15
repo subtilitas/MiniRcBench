@@ -61,6 +61,7 @@ static_assert(UI_MARGIN + SB_W1(18) + 4 <= SBUS_UI_VALUE_END - SB_W1(18) &&
               UI_MARGIN + SB_W1(35) <= SBUS_UI_VALUE_END && UI_MARGIN + SB_W1(23) <= SBUS_UI_VALUE_END,
               "a count line runs past the margin, or its halves meet");
 static_assert(UI_MARGIN + SB_TEXT_W(SBUS_UI_UNPLUG_2) <= GFX_W - UI_MARGIN &&
+              UI_MARGIN + SB_TEXT_W(SBUS_UI_UNPLUG_3) <= GFX_W - UI_MARGIN &&
               UI_MARGIN + SB_TEXT_W(SBUS_UI_KISS_1) <= GFX_W - UI_MARGIN &&
               UI_MARGIN + SB_TEXT_W(SBUS_UI_NO_GP1_2) <= GFX_W - UI_MARGIN,
               "a message line runs past the margin");
@@ -167,12 +168,13 @@ static void claimPin() {
  *        channels: the claim's refusal, its progress or a failed bind.
  * @param[out] l1    First line.
  * @param[out] l2    Second line, or null.
+ * @param[out] l3    Third line, or null.
  * @param[out] col   Their colour.
  * @param[out] retry RETRY is offered.
  */
-static void message(const char **l1, const char **l2, uint16_t *col, bool *retry) {
+static void message(const char **l1, const char **l2, const char **l3, uint16_t *col, bool *retry) {
 	static char a[40];
-	*l1 = *l2 = nullptr;
+	*l1 = *l2 = *l3 = nullptr;
 	*col = UI_COL_WARN;
 	*retry = false;
 	if (!s_roles) {
@@ -181,8 +183,8 @@ static void message(const char **l1, const char **l2, uint16_t *col, bool *retry
 	}
 	if (!s_claimed) {
 		switch (s_refusal) {
-			case ClaimRefusal::EscAnswering: *l1 = SBUS_UI_ESC_1;  *l2 = SBUS_UI_UNPLUG_2; return;
-			case ClaimRefusal::KissLive:     *l1 = SBUS_UI_KISS_1; *l2 = SBUS_UI_UNPLUG_2; return;
+			case ClaimRefusal::EscAnswering: *l1 = SBUS_UI_ESC_1;  *l2 = SBUS_UI_UNPLUG_2; *l3 = SBUS_UI_UNPLUG_3; return;
+			case ClaimRefusal::KissLive:     *l1 = SBUS_UI_KISS_1; *l2 = SBUS_UI_UNPLUG_2; *l3 = SBUS_UI_UNPLUG_3; return;
 			case ClaimRefusal::Armed:        *l1 = "DISARM FIRST"; return;
 			default:                         *l1 = UI_WAIT_RESTART_TEXT; return;
 		}
@@ -310,11 +312,12 @@ static void drawLines(SbusInk ink) {
 }
 
 /** @brief The body in place of the channels: the message and RETRY. */
-static void drawMessage(const char *l1, const char *l2, uint16_t col, bool retry) {
-	struct { uint32_t l1, l2; uint16_t col; bool retry, rp; } k;
+static void drawMessage(const char *l1, const char *l2, const char *l3, uint16_t col, bool retry) {
+	struct { uint32_t l1, l2, l3; uint16_t col; bool retry, rp; } k;
 	memset(&k, 0, sizeof(k));
 	k.l1 = textKey(l1);
 	k.l2 = textKey(l2);
+	k.l3 = textKey(l3);
 	k.col = col;
 	k.retry = retry;
 	k.rp = retry && uiPressing(BTN_RETRY, s_t);
@@ -322,6 +325,7 @@ static void drawMessage(const char *l1, const char *l2, uint16_t col, bool retry
 	gfxRect(0, UI_BODY_Y, GFX_W, GFX_H - UI_BODY_Y, C_BG);
 	if (l1) gfxText(UI_MARGIN, SBUS_UI_MSG_Y, l1, col, 1);
 	if (l2) gfxText(UI_MARGIN, SBUS_UI_MSG_Y + SBUS_UI_MSG_H, l2, col, 1);
+	if (l3) gfxText(UI_MARGIN, SBUS_UI_MSG_Y + 2 * SBUS_UI_MSG_H, l3, col, 1);
 	if (retry) uiButton(BTN_RETRY, "RETRY", C_PANEL, C_TEXT, 2, k.rp);
 }
 
@@ -386,10 +390,10 @@ uint8_t uiSbusControls(UiControl *out, uint8_t max) {
 		             uiLeaveRestartLive(&s_leave, millis()));
 		return n;
 	}
-	const char *l1, *l2;
+	const char *l1, *l2, *l3;
 	uint16_t col;
 	bool retry;
-	message(&l1, &l2, &col, &retry);
+	message(&l1, &l2, &l3, &col, &retry);
 	if (retry) uiControlAdd(out, &n, max, UI_FIX(SbusCtl::Retry), BTN_RETRY, true);
 	return n;
 }
@@ -450,10 +454,10 @@ bool uiSbusTick(const TouchState *t) {
 		}
 	}
 
-	const char *l1, *l2;
+	const char *l1, *l2, *l3;
 	uint16_t col;
 	bool retry;
-	message(&l1, &l2, &col, &retry);
+	message(&l1, &l2, &l3, &col, &retry);
 	if (retry && uiTapped(BTN_RETRY, s_t)) pinClaimRetry(PinUser::Sbus);
 
 	uint32_t now = millis();
@@ -476,8 +480,8 @@ bool uiSbusTick(const TouchState *t) {
 		for (int i = 0; i < (int)SBUS_CHANNELS; i++) drawRow(i, ink);
 		drawLines(ink);
 	} else {
-		message(&l1, &l2, &col, &retry);
-		drawMessage(l1, l2, col, retry);
+		message(&l1, &l2, &l3, &col, &retry);
+		drawMessage(l1, l2, l3, col, retry);
 	}
 	s_full = false;
 	return true;
