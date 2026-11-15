@@ -696,7 +696,12 @@ void escTaskSuspend() {
 // The transport must let go of the pin before DShot is asked to take it back.
 static bool g_am32EndBeforeResume = false;
 bool fakeAm32EndBeforeResume() { return g_am32EndBeforeResume; }
-void am32BlEnd() { g_am32EndBeforeResume = g_suspendReq; }
+static int g_am32Ends = 0;  /**< am32BlEnd() calls. */
+int fakeAm32Ends() { return g_am32Ends; }
+void am32BlEnd() {
+	g_am32Ends++;
+	g_am32EndBeforeResume = g_suspendReq;
+}
 bool escTaskSuspended() { return g_suspended; }
 // Only the request, as in esc_task.cpp: the rebuild is the next
 // fakePumpPoll().

@@ -181,6 +181,8 @@ void fakeAm32Silent(bool on);
 
 /** @brief Whether a suspend was still requested at the last am32BlEnd(). */
 bool fakeAm32EndBeforeResume();
+/** @brief am32BlEnd() calls since the start: the transport let go of SIG. */
+int fakeAm32Ends();
 
 /** @brief Set the telemetry the fake ESC reports. */
 void fakeSetTelemetry(const EscTelemetry *t);

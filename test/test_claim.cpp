@@ -1147,6 +1147,84 @@ static void testNoSaveDuringClaim() {
 	settingsLoad();
 }
 
+/**
+ * @brief The leave page belongs to the claim (docs/design/bluejay-blheli-s.md,
+ *        slice 2): an AM32 claim resumes DShot within pinClaimEnd() as
+ *        before, and one given the leave page by pinClaimWantLeavePage()
+ *        waits for RESTART DSHOT; the page lasts until Free and goes with
+ *        the claim; only the holder sets it, and only before it leaves.
+ */
+static void testLeavePagePerClaim() {
+	section("Pin claim: the leave page per claim");
+
+	uiInit();
+	freshPump();
+	installJobs();
+
+	checkTrue("Free: no leave page", !pinClaimLeavePage());
+	pinClaimWantLeavePage(PinUser::Am32);
+	checkTrue("asked for while Free: nothing", !pinClaimLeavePage());
+
+	// An AM32 claim as before: DShot within BACK.
+	int resumes = fakeResumeCount();
+	checkTrue("AM32 claims", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
+	checkTrue("its user's row: no leave page", !pinClaimLeavePage());
+	pump();
+	checkTrue("held", pinClaimPoll() == ClaimState::Held);
+	pinClaimWantLeavePage(PinUser::Servo);
+	checkTrue("asked for by a screen that does not hold it: nothing", !pinClaimLeavePage());
+	pinClaimEnd(PinUser::Am32);
+	checkInt("no EFM8 answer: DShot resumes within pinClaimEnd()", fakeResumeCount(), resumes + 1);
+	checkTrue("restoring, no page due", pinClaimState() == ClaimState::Restoring && !pinClaimUnplugDue());
+	pinClaimWantLeavePage(PinUser::Am32);
+	checkTrue("asked for after the end: nothing", !pinClaimLeavePage());
+	pump();
+	checkTrue("free", pinClaimState() == ClaimState::Free);
+
+	// The same user, given the page while Held: DShot waits.
+	resumes = fakeResumeCount();
+	checkTrue("AM32 claims again", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
+	pinClaimWantLeavePage(PinUser::Am32);
+	checkTrue("given while Stopping: the page", pinClaimLeavePage());
+	pump();
+	checkTrue("held, the page kept", pinClaimPoll() == ClaimState::Held && pinClaimLeavePage());
+	checkTrue("no job", core1JobRunning() == Core1Job::None);
+	pinClaimEnd(PinUser::Am32);
+	checkTrue("BACK: leaving, DShot not asked", pinClaimState() == ClaimState::Leaving &&
+	          fakeResumeCount() == resumes);
+	checkTrue("the page is due at once: no job to wait for", pinClaimUnplugDue());
+	for (int i = 0; i < 3; i++) { pump(); pinClaimPoll(); }
+	checkTrue("and stays due, DShot down", pinClaimState() == ClaimState::Leaving &&
+	          fakeResumeCount() == resumes && escTaskSuspended());
+	pinClaimKeep(PinUser::Servo);
+	pinClaimRestart(PinUser::Servo);
+	checkTrue("RESTART from another screen: nothing", pinClaimState() == ClaimState::Leaving &&
+	          fakeResumeCount() == resumes);
+	pinClaimRestart(PinUser::Am32);
+	checkInt("RESTART DSHOT resumes the pump", fakeResumeCount(), resumes + 1);
+	checkTrue("restoring", pinClaimState() == ClaimState::Restoring);
+	pump();
+	checkTrue("free, the page gone with the claim", pinClaimState() == ClaimState::Free &&
+	          !pinClaimLeavePage());
+
+	// The next AM32 claim starts without it.
+	resumes = fakeResumeCount();
+	checkTrue("AM32 claims a third time", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
+	pump();
+	pinClaimPoll();
+	checkTrue("no page from the claim before", !pinClaimLeavePage());
+	pinClaimEnd(PinUser::Am32);
+	checkInt("DShot within pinClaimEnd() again", fakeResumeCount(), resumes + 1);
+	pump();
+	checkTrue("free", pinClaimState() == ClaimState::Free);
+
+	// A user with the page from its row reports it.
+	checkTrue("KST claims", pinClaimBegin(PinUser::Kst, PIN_SIG) == ClaimRefusal::None);
+	checkTrue("KST's row: the page", pinClaimLeavePage());
+	checkTrue("back to free", toFree());
+	removeJobs();
+}
+
 /** @brief The AM32 screen on the claim, through the real UI. */
 static void testAm32Screen() {
 	section("Pin claim: the AM32 screen");
@@ -1287,6 +1365,7 @@ void runClaimTests() {
 	testRestore();
 	testHeartbeat();
 	testNoSaveDuringClaim();
+	testLeavePagePerClaim();
 	testAm32Screen();
 
 	shippedJobs();

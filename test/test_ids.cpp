@@ -106,6 +106,7 @@ static void testMenuSettingsLog() {
 	checkTrue("SERVO TESTER acts", ctlEnabled(menuRow(&UI_SERVO)));
 	checkTrue("SERVO PROGRAMMER acts", ctlEnabled(menuRow(&UI_SERVO_PROG)));
 	checkTrue("RX SIGNALS acts", ctlEnabled(menuRow(&UI_RX_SIGNALS)));
+	checkTrue("ESC CONFIG acts", ctlEnabled(menuRow(&UI_ESC_CONFIG)));
 
 	tapId(menuRow(&UI_RX_SIGNALS));
 	checkTrue("RX SIGNALS opens", uiCurrentScreen() == UiScreenId::RxSignals);
@@ -114,6 +115,17 @@ static void testMenuSettingsLog() {
 	checkTrue("its entries by id: MONITOR acts, OUTPUT does not",
 	          ctlEnabled(UI_FIX(RxCtl::Monitor)) && ctlPresent(UI_FIX(RxCtl::Output)) &&
 	          !ctlEnabled(UI_FIX(RxCtl::Output)) && !ctlPresent(UI_FIX(3)));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	idFrames(1);
+
+	tapId(menuRow(&UI_ESC_CONFIG));
+	checkTrue("ESC CONFIG opens", uiCurrentScreen() == UiScreenId::EscConfig);
+	idFrames(1);
+	checkControlTable("ESC CONFIG");
+	checkTrue("its entries by id: ESC SETTINGS acts, USB BRIDGE does not",
+	          ctlEnabled(UI_FIX(EscCfgCtl::Settings)) && ctlPresent(UI_FIX(EscCfgCtl::Bridge)) &&
+	          !ctlEnabled(UI_FIX(EscCfgCtl::Bridge)) && !ctlPresent(UI_FIX(3)));
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu);
 	idFrames(1);

@@ -5337,6 +5337,159 @@ static void testAm32ClaimWords() {
 	checkTrue("and given back", pinClaimState() == ClaimState::Free);
 }
 
+/** @brief An EFM8 bootloader's answer to the greeting: `471d`, E8 B2, 6, 1, 0x30. */
+static const uint8_t EFM8_ANSWER[9] = { '4', '7', '1', 'd', 0xE8, 0xB2, 0x06, 0x01, 0x30 };
+
+/**
+ * @brief Slice 2 of docs/design/bluejay-blheli-s.md through the screen: an
+ *        AM32 claim with no EFM8 answer gives DShot back within BACK, as
+ *        before; an EFM8 answer is named, sets MENU's run cue and gives the
+ *        claim the leave page of decision 8, whose RESTART DSHOT alone gives
+ *        DShot back and clears the cue.
+ */
+static void testAm32Efm8() {
+	EscTelemetry quiet;
+	memset(&quiet, 0, sizeof(quiet));
+	fakeSetTelemetry(&quiet);
+	s_blReached = false;
+
+	section("ESC SETTINGS: no EFM8 answer, DShot back within BACK");
+	{
+		fakeAm32Silent(true);
+		enterAm32(4);
+		checkTrue("the claim has no leave page", pinClaimHolder() == PinUser::Am32 && !pinClaimLeavePage());
+		int resumes = fakeResumeCount();
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu);
+		checkInt("DShot asked back within BACK", fakeResumeCount(), resumes + 1);
+		checkTrue("no leave page is due", !pinClaimUnplugDue());
+		fakeAm32Silent(false);
+		frames(1);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: an EFM8 bootloader's answer is named, nothing read");
+	{
+		fakeAm32Garble(EFM8_ANSWER, sizeof(EFM8_ANSWER));
+		enterAm32(4);
+		checkTrue("the connect page stays: nothing read", s_state == S_CONNECT && s_visibleCount == 0);
+		checkTrue("the status names the signature",
+		          strcmp(s_status, "EFM8 E8B2 ANSWERED: NOT READ YET.") == 0);
+		checkTrue("33 characters, 197 px", strlen(s_status) == 33 && gfxTextW(s_status, 1) == 197);
+		checkTrue("at y 176, amber", fakeTextCentredIs(176, s_status, C_AMBER, C_BG, 1));
+		checkTrue("and on the strip", fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, s_status, C_DIM, C_BG, 1));
+		int x0 = 0, x1 = 0;
+		checkTrue("no REPLY NOT UNDERSTOOD: under it, y 196 to y 231",
+		          !fakeInkExtent(196, 36, C_BG, &x0, &x1) ||
+		          (x0 >= GFX_W / 2 - 42 && x1 <= GFX_W / 2 + 42));
+		checkTrue("the claim has the leave page", pinClaimLeavePage());
+		checkTrue("MENU's run cue is set", s_blReached && uiAm32RunCue(0));
+		checkTrue("ESC SETTINGS", fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, AM32_UI_TITLE, C_TEXT, C_PANEL, 2));
+		fakeDumpFrame("shot_am32_efm8.ppm");
+		fakeAm32Silent(true);
+		frames(3);
+		checkTrue("silence after it: the line stays",
+		          strcmp(s_status, "EFM8 E8B2 ANSWERED: NOT READ YET.") == 0 &&
+		          fakeTextCentredIs(176, s_status, C_AMBER, C_BG, 1));
+		fakeAm32Silent(false);
+		frames(1);
+	}
+
+	section("ESC SETTINGS: BACK after an EFM8 answer, the leave page of decision 8");
+	{
+		int resumes = fakeResumeCount(), ends = fakeAm32Ends();
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: the leave page, the screen stays", uiCurrentScreen() == UiScreenId::Am32 &&
+		          s_state == S_LEAVE);
+		frames(1);
+		checkTrue("no DShot, the transport keeps SIG", fakeResumeCount() == resumes &&
+		          fakeAm32Ends() == ends && escTaskSuspended() && pinClaimHolder() == PinUser::Am32);
+		checkControlTable("ESC SETTINGS, the leave page before LEAVE");
+		checkTrue("BACK drawn disabled", !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
+		checkTrue("titled ESC SETTINGS", fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, AM32_UI_TITLE, C_TEXT,
+		                                            C_PANEL, 2));
+		char strip[32];
+		snprintf(strip, sizeof(strip), "EFM8 E8B2  SIG GP%u", (unsigned)settings()->dshotPin);
+		checkTrue("the strip: EFM8 E8B2  SIG GP0", fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, strip, C_DIM, C_BG, 1));
+		const int y1 = UI_LEAVE_STEP_Y, y2 = y1 + 3 * UI_LEAVE_LINE_H + UI_LEAVE_STEP_GAP;
+		checkTrue("step 1, current: UNPLUG THE ESC BATTERY, THEN LEAVE.",
+		          leaveStepIs(y1, '1', AM32_UI_LEAVE_1, true));
+		checkTrue("its detail lines", leaveStepIs(y1 + 12, 0, AM32_UI_LEAVE_1A, true) &&
+		          leaveStepIs(y1 + 24, 0, AM32_UI_LEAVE_1B, true));
+		checkTrue("step 2: PLUG IT IN AFTER RESTART DSHOT.", leaveStepIs(y2, '2', AM32_UI_LEAVE_2, false));
+		checkTrue("step 1 is 35 characters, 209 px, to x 228",
+		          strlen(AM32_UI_LEAVE_1) == 35 && UI_LEAVE_TEXT_X + gfxTextW(AM32_UI_LEAVE_1, 1) == 229);
+		checkTrue("the others 33, 26 and 31 characters",
+		          strlen(AM32_UI_LEAVE_1A) == 33 && strlen(AM32_UI_LEAVE_1B) == 26 &&
+		          strlen(AM32_UI_LEAVE_2) == 31);
+		checkTrue("STAY and LEAVE live", leaveLeftIs("STAY", true) && leaveWideIs("LEAVE", true));
+		checkTrue("no note", leaveNoteBlank(0));
+		fakeDumpFrame("shot_am32_leave.ppm");
+
+		tapId(UI_FIX(Am32Ctl::Stay));
+		checkTrue("STAY: the connect page, the claim kept", s_state == S_CONNECT &&
+		          pinClaimHolder() == PinUser::Am32 && escTaskSuspended() && fakeAm32Ends() == ends);
+		frames(2);
+		checkTrue("the answer still named", fakeTextCentredIs(176, s_status, C_AMBER, C_BG, 1) &&
+		          strncmp(s_status, "EFM8 E8B2", 9) == 0);
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK again: the leave page", s_state == S_LEAVE);
+
+		tapId(UI_FIX(Am32Ctl::Leave));
+		checkTrue("LEAVE: the transport lets go of SIG", fakeAm32Ends() == ends + 1);
+		checkTrue("and DShot waits", fakeResumeCount() == resumes &&
+		          pinClaimState() == ClaimState::Leaving && pinClaimUnplugDue());
+		frames(1);
+		checkControlTable("ESC SETTINGS, the leave page after LEAVE");
+		checkTrue("step 2 current, step 1 not", leaveStepIs(y2, '2', AM32_UI_LEAVE_2, true) &&
+		          leaveStepIs(y1, '1', AM32_UI_LEAVE_1, false));
+		auto leftBlank = []() {
+			const uint16_t *fb = gfxBuffer();
+			const UiRect &r = UI_LEAVE_LEFT;
+			for (int y = r.y; y < r.y + r.h; y++)
+				for (int x = r.x; x < r.x + r.w; x++)
+					if (fb[y * GFX_W + x] != C_BG) return false;
+			return true;
+		};
+		checkTrue("no left button after LEAVE", !ctlPresent(UI_FIX(Am32Ctl::Stay)) && leftBlank());
+		checkTrue("RESTART DSHOT drawn disabled", leaveWideIs("RESTART DSHOT", false) &&
+		          !ctlEnabled(UI_FIX(Am32Ctl::Restart)));
+		tapId(UI_FIX(Am32Ctl::Restart), IdExpect::Disabled);
+		checkTrue("a tap before 1000 ms restarts nothing", fakeResumeCount() == resumes &&
+		          s_state == S_LEAVE);
+		// Released on the frame after LEAVE; the tap took 3 frames more.
+		frames(37);
+		checkTrue("live 1000 ms after SIG was let go", ctlEnabled(UI_FIX(Am32Ctl::Restart)) &&
+		          leaveWideIs("RESTART DSHOT", true));
+		checkTrue("the run cue still stands", uiAm32RunCue(0));
+		tapId(UI_FIX(Am32Ctl::Restart));
+		checkTrue("RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
+		checkInt("DShot asked back once", fakeResumeCount(), resumes + 1);
+		frames(2);
+		checkTrue("the run cue cleared", !s_blReached && !menuRunCueShown());
+		checkTrue("the claim ends", pinClaimState() == ClaimState::Free);
+		fakeAm32Garble(nullptr, 0);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: the leave page goes with the claim");
+	{
+		enterAm32(6);
+		checkTrue("an AM32 answer: the list", s_state == S_LIST && !pinClaimLeavePage());
+		int resumes = fakeResumeCount();
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: MENU, DShot asked back within BACK",
+		          uiCurrentScreen() == UiScreenId::Menu && fakeResumeCount() == resumes + 1);
+		// The AM32 handshake set the cue; an eRPM frame after an EFM8
+		// answer clears it as after a handshake.
+		s_blReachedMs = millis();
+		checkTrue("an eRPM frame after the answer clears the cue",
+		          uiAm32RunCue(s_blReachedMs - 1) && !uiAm32RunCue(s_blReachedMs + 1));
+		frames(1);
+		tapId(UI_FIX(UI_BACK));
+	}
+}
+
 static void testAm32Guidance() {
 	// No eRPM for the rest of this test unless it stamps one.
 	EscTelemetry quiet;
@@ -6691,6 +6844,7 @@ void runUiTests() {
 	testTextProbes();
 	testAm32ClaimWords();
 	testAm32Guidance();
+	testAm32Efm8();
 	testAm32TesterNote();
 	testAm32ReadOnly();
 	testAm32BoardLow();
