@@ -3,8 +3,10 @@
 # One list per feature, as servo.mk, kst.mk, hitec.mk, rx.mk, sense.mk and
 # escwire.mk.
 #
-#   ANGLE_SRCS      C++ sources linked into the suite: the QMI8658 driver
-#   ANGLE_TESTS     the test files; test_qmi8658.cpp holds runQmi8658Tests().
+#   ANGLE_SRCS      C++ sources linked into the suite: the QMI8658 driver and
+#                   the angle model
+#   ANGLE_TESTS     the test files; test_qmi8658.cpp holds runQmi8658Tests(),
+#                   test_angle_model.cpp runAngleModelTests().
 #                   The register fake of the QMI8658 is a part of
 #                   fake_i2c.cpp, which sense.mk lists
 #   ANGLE_CSRCS     C sources linked into the suite: rcbench's control-surface
@@ -22,8 +24,8 @@
 #
 # test_qmi8658.cpp includes src/cst328.cpp in a namespace of its own, as
 # test_sense.cpp does, to run touch, the current sensor and the IMU on one
-# bus. Nothing in src/ calls the C sources yet, and the firmware does not
-# build them (docs/design/angle-meter.md, slice 1).
+# bus. The angle model calls the C sources; src/angle.cmake builds them into
+# the firmware.
 ANGLE_SRCS     := ../src/qmi8658.cpp ../src/angle_model.cpp
 ANGLE_TESTS    := test_qmi8658.cpp test_angle_model.cpp
 ANGLE_CSRCS    := ../lib/rcbench/shared/servo/servo_rudder.c \

@@ -144,9 +144,12 @@ decoder (`protocols/witmotion/`) are for the angle meter of
 trailing edge and the largest deflection each side; `imu` keeps the filtered
 angles, the still time per axis and the age, fed three angles and a time by
 `imu_feed_angles()`. `imu.h` includes `witmotion.h`, so the decoder comes
-with it; the angle meter does not use the WitMotion stream. Nothing in
-`src/` calls them yet, and the firmware does not build them. They are built
-as C11 in the host suite by `test/angle.mk`. Their rcbench tests, copied
+with it; the angle meter does not use the WitMotion stream. The angle
+model, `src/angle_model.cpp`, calls them; nothing calls the model yet. They
+are built as C11, in the firmware by `src/angle.cmake` and in the host suite
+by `test/angle.mk`. `src/angle.cmake` turns `-Wtype-limits` off for `imu.c`:
+arm-none-eabi makes `imu_axis_t` one unsigned byte, so its `(int)axis < 0`
+is always false, and the firmware's strict build would stop on the warning. Their rcbench tests, copied
 unchanged from rcbench `test/host/` into `test/rcbench/`, are
 `test_servo_rudder.c`, 4 cases, `test_imu_angles.c`, 7 cases, the test of
 `imu_feed_angles()`, and `test_witmotion.c`, 14 cases, with `wit_frame.h`,

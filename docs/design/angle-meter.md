@@ -1,11 +1,12 @@
 # Angle meter on the board's IMU
 
-Status: designed; slices 1 and 2 built, host tests only. Slice 1, the
-copies from rcbench ([slice 1 as built](#slice-1-as-built)): nothing in `src/`
-calls them yet. The cases of rcbench's `test_imu.c` and `test_imu_filter.c` that
-need `imu.h` alone are not adapted yet; slice 3 takes them. Slice 2, the
-driver ([slice 2 as built](#slice-2-as-built)): nothing opens it yet. Slices 3
-to 6 wait on being built. The owner chose the angle meter on 2026-11-14 from the
+Status: designed; slices 1 to 3 built, host tests only. Slice 1, the
+copies from rcbench ([slice 1 as built](#slice-1-as-built)). Slice 2, the
+driver ([slice 2 as built](#slice-2-as-built)): nothing opens it yet. Slice 3,
+the model ([slice 3 as built](#slice-3-as-built)): it calls the copies, the
+firmware builds both, and nothing calls the model yet; it adapts the cases of
+rcbench's `test_imu.c` and `test_imu_filter.c` that need `imu.h` alone. Slices
+4 to 6 wait on being built. The owner chose the angle meter on 2026-11-14 from the
 feature survey, as item 3 of 6: incidence, decalage, dihedral and
 control-surface throw, in degrees and in mm, from the QMI8658 IMU on the board,
 at 0x6B on I2C1. The owner answered its questions on 2026-11-15, see
@@ -849,12 +850,11 @@ gains the table and the commit. Choices the note left open:
   with `imu_feed_angles()`, which needs `imu.h`, `wit_frame.h` and
   `greatest.h` only and so copies unchanged. The cases of `test_imu.c` and
   `test_imu_filter.c` that need `imu.h` alone, which the porting table says
-  are adapted, are not adapted yet: that work is open, and slice 3, the
-  model, takes it. The path the meter uses is the one `test_imu_angles.c`
-  tests.
-- **No firmware build yet.** Nothing in `src/` calls the files, so no
-  `.cmake` file lists them; slice 3, the model, adds them to the firmware
-  with its first caller.
+  are adapted, are slice 3's ([slice 3 as built](#slice-3-as-built)). The
+  path the meter uses is the one `test_imu_angles.c` tests.
+- **The firmware builds them with their caller.** Nothing in slice 1 calls
+  the files; slice 3's model does, and `src/angle.cmake` lists them with
+  it.
 
 Mutation check of the copies against their tests, each mutant built and run:
 12 mutants, 7 in `servo_rudder.c` (the sine of the travel, the shortest
@@ -967,6 +967,107 @@ Not verified on the board: everything under [to confirm](#to-confirm) that
 concerns the part, the address, the byte order, the burst's auto-increment,
 the reset's value and time, dQY_L, the time stamp, and bench tests B1, B2
 and B9.
+
+### Slice 3 as built
+
+Slice 3 depends on slice 1.
+
+`src/angle_model.*`, the model, pure: the driver's samples into frames of four,
+the calibration, the axis map, `theta` and the tilt, the frames into rcbench's
+`imu.c` by `imu_feed_angles()`, ZERO, MAX and the travel through
+`servo_rudder.c`, the temperature since the zero, and the flip's steps and
+arithmetic. `src/angle.cmake` lists it for the firmware with rcbench's
+`servo_rudder.c`, `imu.c` and `witmotion.c` and their include directories;
+`test/angle.mk` lists it for the host suite with `test/test_angle_model.cpp`.
+The two lists of `-I` in CI's syntax checks of `src/` gain
+`lib/rcbench/protocols/witmotion/include`, which `imu.h` needs; they held the
+other two directories already. Nothing calls the model: the screen, slice 4,
+gives it the driver's samples and shows its reading. Choices the note left
+open:
+
+- **The calibration is in the chip's axes.** Offsets and gains are kept per
+  chip axis, X, Y and Z, and applied before the axis map, so a calibration
+  kept stays right when bench test B3 sets `BOARD_IMU_AXES`. The flip takes
+  the chip axis the map puts on the normal for P3 and for the gain.
+- **A pose of the flip** is the mean of the frames of a still stretch of
+  2000 ms (`ANGLE_FLIP_HOLD_MS`): each frame within `IMU_STILL_DEG`, 0.5°, of
+  the stretch's first, less than `IMU_STALE_MS`, 300 ms, after the last, and
+  with the normal above 0.8 g, or below −0.8 g for P3. The frames are the
+  uncalibrated ones. Step 2 takes its pose only after a move since P1: a
+  stretch broken, or a frame out of the pose. A board slid round flat on a
+  level surface shows no move, as gravity does not change in the board's
+  axes; the pilot lifts it. Whether a turn by hand breaks the stretch is not
+  verified. After P3 the first frame above 0.8 g solves the poses.
+- **The flip's limits**, proposals until bench test B5: offsets within
+  ±0.2 g (`ANGLE_CAL_OFFSET_MAX_G`) and gains from 0.88 to 1.12, twice the
+  datasheets' ±100 mg and ±6 %. A result outside them is `Failed`, as is one
+  with a NaN or a slope of 90° or more, which give no finite gain. A
+  calibration outside them is not applied.
+- **ZERO's settled reading** is the first frame at least 1000 ms after the
+  finger lifts (`angleZeroArm()`) that is settled, so the board has been still
+  for the whole second after the lift. A frame 10000 ms after the lift times
+  ZERO out before it can take the zero; the tick times it out with no frames.
+- **SETTLED** is the still time of `theta` at 1000 ms or more, with the axis
+  not too steep. MAX takes every settled frame, before a ZERO too, from
+  level, as RESET MAX without a zero allows. A too steep reading takes no zero
+  and no MAX, as it shows `---`. A stale reading is neither too steep nor
+  amber.
+- **SIGN is applied to the reading.** The zero and MAX stay in `theta`'s own
+  sign, and SIGN turns the reading and swaps the MAX sides, so SETUP's SIGN
+  keeps both. −180° stays −180° turned, as `imu_deg()` keeps it.
+- **A new ALONG AXIS or calibration** drops the zero and MAX, disarms ZERO and
+  seeds the filter: `theta` changes its axis or its offset, and a zero taken
+  before would read wrong. Going to SETUP or FLIP CAL and back without either
+  change keeps them, as decision 4 says.
+- **The frames.** Each sequence number is taken once, and seq 0 not at all. A
+  sample 300 ms or more after the last starts the frame again. A frame is the
+  mean of four samples at the fourth's time. One of less than 0.5 g
+  (`ANGLE_MIN_G`) has no direction to take and is dropped; the reading ages
+  as with no frame.
+- **The travel** shows for LENGTH 10 to 500 mm; `OFF`, 0, and any other value
+  give none.
+- **The texts** in tenths (`angleTenthsText()`) round half away from zero, as
+  the float holds the value, never show `-0.0`, and show `---` for a value
+  that is not finite or beyond ±99999.
+- **`imu.c` in the firmware.** arm-none-eabi makes `imu_axis_t`, 0 to 2, one
+  unsigned byte, so `imu.c`'s `(int)axis < 0` in `imu_deg()` and
+  `imu_still_ms()` is always false and `-Wtype-limits` warns; the strict
+  build stops on it. `src/angle.cmake` turns that warning off for `imu.c`
+  alone, and the copy stays unchanged. Whether rcbench's own RP2350 build
+  meets it is not checked.
+- **`BOARD_IMU_AXES`** stays the placeholder `1, 2, 3` until bench test B3.
+
+`theta`'s change equals the rotation about a line tilted 0° to 70° within
+0.001° for each ALONG AXIS, computed in float from the vectors. Through the
+16-bit counts of the samples it is within 0.005° divided by the cosine of the
+tilt; the worst seen in the tests is 0.0017° so divided. The table under
+[calibration](#calibration) is reproduced within 0.006°, and a calibration of
+the same errors brings each to within 0.003° at 25°.
+
+The cases of rcbench's tests that need `imu.h` alone, at `e98345aa`, are
+adapted into `test/rcbench/` as `test_out_pwm_map.c` was, each file starting
+with the line `Adapted from rcbench`:
+
+| File | Cases | Not adapted, and why |
+|---|---|---|
+| `test_imu.c` | 8 of 9 | `imu_stale_equals_the_gap_allowance` and its `_Static_assert` compare `IMU_STALE_MS` with `servo_gap.h`, not ported. The rig's four frame builders of `imu_rig.h` are copied into the file; the rest of the rig drives the BLE simulator. `a_still_yaw_counts_while_pitch_creeps` takes `SERVO_RAUTO_STILL_MS` of `servo_rudder_auto.h`, defined in the file at its value at that commit, 500 ms |
+| `test_imu_filter.c` | 10 of 11 | `a_connect_a_reconnect_and_a_bind_seed_the_filter` drives the sensor link `imu_sensor.h`, not ported; so do the last lines of `the_limits_1_and_50_hold_and_out_of_range_values_are_clamped`, left out, while the case's other lines stay |
+
+Mutation check: 149 mutants of `src/angle_model.cpp`, each built and run
+against `test_angle_model.cpp`. 146 fail it. Three survive, each equivalent
+to the code: the axis map taken as `1, 2, 3` in place of `BOARD_IMU_AXES`,
+which is `1, 2, 3` until bench test B3; `servo_rudder_init()` left out after
+the `memset()` that already clears its state; and the zero's temperature
+taken from the model's copy of the frame's temperature, set a line before.
+8 mutants of `imu.c`, in the filter's clamp, the rate's silent window, the
+battery, the content count, the still time's ceiling, the bad count, the
+unzero and the version, each fail an adapted test; 7 of them pass
+`test_imu_angles.c`.
+
+Not verified on the board: the angle itself, the chip's axes (B3), the
+settle on real noise (B4), the flip's spread and its limits (B5), the
+accuracy against known angles, and with it whether decision 3's edge poses
+are needed (B6), and the drift with temperature (B7).
 
 ## Decisions
 

@@ -44,14 +44,14 @@ bool angleCalValid(const AngleCal *cal) {
 	return true;
 }
 
-void angleCalApply(const AngleCal *cal, const float chip[3], float out[3]) {
+void angleCalApply(const AngleCal *cal, const float *chip, float *out) {
 	const bool on = angleCalValid(cal);
 	for (int i = 0; i < 3; ++i) {
 		out[i] = on ? (chip[i] - cal->offG[i]) / cal->gain[i] : chip[i];
 	}
 }
 
-void angleMapAxes(const int8_t axes[3], const float chip[3], float board[3]) {
+void angleMapAxes(const int8_t *axes, const float *chip, float *board) {
 	for (int i = 0; i < 3; ++i) {
 		const int a = axes[i];
 		const int idx = (a < 0 ? -a : a) - 1;
@@ -68,11 +68,11 @@ static int uAxis(AngleAlong along) { return along == AngleAlong::Long ? 1 : 0; }
 /** @copydoc uAxis */
 static int rAxis(AngleAlong along) { return along == AngleAlong::Long ? 0 : 1; }
 
-float angleTheta(const float board[3], AngleAlong along) {
+float angleTheta(const float *board, AngleAlong along) {
 	return atan2f(board[uAxis(along)], board[2]) * kDegPerRad;
 }
 
-float angleTilt(const float board[3], AngleAlong along) {
+float angleTilt(const float *board, AngleAlong along) {
 	const float u = board[uAxis(along)];
 	return atan2f(board[rAxis(along)], sqrtf(u * u + board[2] * board[2])) * kDegPerRad;
 }
@@ -81,7 +81,7 @@ bool angleSteepWarn(float tiltDeg) { return fabsf(tiltDeg) >= ANGLE_STEEP_WARN_D
 
 bool angleTooSteep(float tiltDeg) { return fabsf(tiltDeg) >= ANGLE_TOO_STEEP_DEG; }
 
-float angleBetween(const float a[3], const float b[3]) {
+float angleBetween(const float *a, const float *b) {
 	const float cx = a[1] * b[2] - a[2] * b[1];
 	const float cy = a[2] * b[0] - a[0] * b[2];
 	const float cz = a[0] * b[1] - a[1] * b[0];
@@ -90,14 +90,14 @@ float angleBetween(const float a[3], const float b[3]) {
 }
 
 /** @brief The normal's acceleration of a chip vector, in the board's sense. */
-static float normalOf(const float chip[3], const int8_t axes[3]) {
+static float normalOf(const float *chip, const int8_t *axes) {
 	float b[3];
 	angleMapAxes(axes, chip, b);
 	return b[2];
 }
 
-bool angleFlipSolve(const float p1[3], const float p2[3], const float p3[3],
-                    const int8_t axes[3], AngleCal *out) {
+bool angleFlipSolve(const float *p1, const float *p2, const float *p3,
+                    const int8_t *axes, AngleCal *out) {
 	if (!out) return false;
 	out->valid = false;
 	// Written so that NaN, in a pose or from an axis map that is not one,
@@ -133,7 +133,7 @@ void angleFlipStart(AngleFlip *f) {
 }
 
 /** @brief A still stretch begins at @p chip; one that was open broke, a move. */
-static void flipRestart(AngleFlip *f, const float chip[3], uint32_t ms) {
+static void flipRestart(AngleFlip *f, const float *chip, uint32_t ms) {
 	if (f->n > 0) f->moved = true;
 	for (int i = 0; i < 3; ++i) {
 		f->ref[i] = chip[i];
@@ -144,7 +144,7 @@ static void flipRestart(AngleFlip *f, const float chip[3], uint32_t ms) {
 	f->lastMs = ms;
 }
 
-void angleFlipFrame(AngleFlip *f, const float chip[3], const int8_t axes[3],
+void angleFlipFrame(AngleFlip *f, const float *chip, const int8_t *axes,
                     uint32_t ms) {
 	if (!f || !chip) return;
 	const float nz = normalOf(chip, axes);
@@ -228,7 +228,7 @@ static void zeroTimeout(AngleModel *m, uint32_t ms) {
 }
 
 /** @brief A frame: chip axes, uncalibrated, g; its temperature, °C. */
-static void frameIn(AngleModel *m, const float chip[3], float tempC, uint32_t ms) {
+static void frameIn(AngleModel *m, const float *chip, float tempC, uint32_t ms) {
 	if (m->flipOn) angleFlipFrame(&m->flip, chip, m->set.axes, ms);
 	m->tempC = tempC;
 	m->haveTemp = true;

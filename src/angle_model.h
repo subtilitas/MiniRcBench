@@ -12,7 +12,7 @@
  * A sample's acceleration is in the chip's axes, X, Y and Z. Four samples are
  * averaged into a frame, about 7.8 Hz at 31.25 Hz. The frame is converted to
  * g, calibrated per chip axis (`a' = (a - o) / k`), and mapped to the board's
- * axes by @ref BOARD_IMU_AXES: the long edge, the short edge and the normal.
+ * axes by @ref BOARD_IMU_AXES, into the long edge, the short edge and the normal.
  * ALONG AXIS names the edge along the axis of the measurement, `r`; the other
  * in-plane edge is `u` and the normal `z`. Then
  *
@@ -112,12 +112,12 @@ enum class AngleZero : uint8_t {
 	None,      /**< Not armed since the visit began. */
 	Armed,     /**< Armed: the next settled reading is the zero, `ZERO WHEN SETTLED: HOLD STILL`. */
 	Taken,     /**< The zero was taken. */
-	TimedOut,  /**< None settled within @ref ANGLE_ZERO_WAIT_MS: `NOT SETTLED IN 10 S: NO ZERO`, the old zero kept. */
+	TimedOut,  /**< None settled within @ref ANGLE_ZERO_WAIT_MS; `NOT SETTLED IN 10 S: NO ZERO`, the old zero kept. */
 };
 
 /** @brief The flip's step. */
 enum class FlipStep : uint8_t {
-	Up,      /**< Step 1: screen up, still for @ref ANGLE_FLIP_HOLD_MS: P1. */
+	Up,      /**< Step 1: screen up, still for @ref ANGLE_FLIP_HOLD_MS, P1. */
 	Turn,    /**< Step 2: turned end for end, moved, then still: P2. */
 	Down,    /**< Step 3: screen down, still: P3. */
 	Back,    /**< Step 3 taken: waiting for screen up again. */
@@ -210,7 +210,7 @@ bool angleCalValid(const AngleCal *cal);
  * @param chip The acceleration, chip axes, g.
  * @param out  Takes the calibrated acceleration; may be @p chip.
  */
-void angleCalApply(const AngleCal *cal, const float chip[3], float out[3]);
+void angleCalApply(const AngleCal *cal, const float *chip, float *out);
 
 /**
  * @brief The chip's axes onto the board's: long edge, short edge, normal.
@@ -219,7 +219,7 @@ void angleCalApply(const AngleCal *cal, const float chip[3], float out[3]);
  * @param chip  The acceleration, chip axes.
  * @param board Takes it in the board's axes.
  */
-void angleMapAxes(const int8_t axes[3], const float chip[3], float board[3]);
+void angleMapAxes(const int8_t *axes, const float *chip, float *board);
 
 /**
  * @brief `theta = atan2(a_u, a_z)`: the rotation about `r`.
@@ -227,7 +227,7 @@ void angleMapAxes(const int8_t axes[3], const float chip[3], float board[3]);
  * @param along ALONG AXIS.
  * @return `theta`, °, -180 to 180.
  */
-float angleTheta(const float board[3], AngleAlong along);
+float angleTheta(const float *board, AngleAlong along);
 
 /**
  * @brief `tilt = atan2(a_r, sqrt(a_u^2 + a_z^2))`: `r` against the horizontal.
@@ -235,7 +235,7 @@ float angleTheta(const float board[3], AngleAlong along);
  * @param along ALONG AXIS.
  * @return The tilt, °, -90 to 90.
  */
-float angleTilt(const float board[3], AngleAlong along);
+float angleTilt(const float *board, AngleAlong along);
 
 /** @brief Whether a tilt shows amber. @param tiltDeg The tilt, °. @return From @ref ANGLE_STEEP_WARN_DEG either way. */
 bool angleSteepWarn(float tiltDeg);
@@ -249,7 +249,7 @@ bool angleTooSteep(float tiltDeg);
  * @param b Another.
  * @return 0 to 180, °.
  */
-float angleBetween(const float a[3], const float b[3]);
+float angleBetween(const float *a, const float *b);
 
 /**
  * @brief The flip's calibration from its three poses, chip axes,
@@ -268,8 +268,8 @@ float angleBetween(const float a[3], const float b[3]);
  *         that is not finite, in a component the result takes, and a slope
  *         of 90° or more give.
  */
-bool angleFlipSolve(const float p1[3], const float p2[3], const float p3[3],
-                    const int8_t axes[3], AngleCal *out);
+bool angleFlipSolve(const float *p1, const float *p2, const float *p3,
+                    const int8_t *axes, AngleCal *out);
 
 /**
  * @brief The flip from step 1, no pose taken.
@@ -290,7 +290,7 @@ void angleFlipStart(AngleFlip *f);
  * @param axes The axis map.
  * @param ms   The frame's time.
  */
-void angleFlipFrame(AngleFlip *f, const float chip[3], const int8_t axes[3],
+void angleFlipFrame(AngleFlip *f, const float *chip, const int8_t *axes,
                     uint32_t ms);
 
 /**

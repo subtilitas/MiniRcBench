@@ -137,7 +137,8 @@
  * A placeholder, X, Y and Z in that order with no sign turned: the chip's
  * orientation against the board's edges is not known. Bench test B3 of
  * docs/design/angle-meter.md sets it. Each axis appears once
- * (qmi8658AxesValid()).
+ * (qmi8658AxesValid()). The angle model maps the chip's samples by it
+ * (angleSetupDefaults()).
  */
 #define BOARD_IMU_AXES 1, 2, 3
 /** @} */
