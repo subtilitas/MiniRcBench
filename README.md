@@ -52,15 +52,18 @@ the owner's decision. An angle meter on the board's QMI8658 IMU (inertial
 measurement unit), for incidence, decalage, dihedral and control-surface
 throw, is designed in `docs/design/angle-meter.md` and not
 built; the owner answered its questions on 2026-11-15, and its entry is an
-eighth MENU row, `TOOLS`, with a chooser. A run
+eighth MENU row, `TOOLS`, with a chooser. The rcbench files it builds on are
+copied into `lib/rcbench/` and host-tested; nothing calls them yet. A run
 summary per blackbox log, written beside the log and shown on SD LOG, with the
 board's PCF85063 real-time clock dating the files on the card as an option, is
 designed in `docs/design/run-summary.md`; the owner answered its questions
-on 2026-11-15. Its slice 1, the summary computed from the telemetry and the
-text of its file, is built and host-tested; the logger does not call it, so
-no summary file is written yet. The owner's board has no cell in the RTC
-socket J2, so its clock is set again after each power-up, and files
-written before the set have FAT date 0.
+on 2026-11-15. Its slices 1 and 2 are built and host-tested: the summary
+computed from the telemetry, and the logger writing it as
+`LOGS/LOGnnnnn.TXT` beside each log
+([Blackbox logging to microSD](#blackbox-logging-to-microsd)); SD LOG does
+not show it yet, and the clock is not built. The owner's board has no cell
+in the RTC socket J2, so its clock is set again after each power-up, and
+files written before the set have FAT date 0.
 An ESC COMMANDS page, sending DShot beacons, direction and 3D mode, each
 change saved in the ESC behind a 1 s hold, and an RPM-per-volt reading and
 a kV estimate on the tester, labelled `KV EST`, are designed in
@@ -1027,6 +1030,34 @@ looks the same to a board with no card-detect line
 created new, never over an existing one. Logs an earlier firmware wrote to
 the card's root stay there and are not counted. The board sets no clock.
 
+Each log that stops clean gets a run summary beside it, `LOGS/LOGnnnnn.TXT`
+with the log's number (`src/run_summary.*`, `src/sd_log_summary.*`,
+`docs/design/run-summary.md`). It is plain ASCII (American Standard Code for
+Information Interchange) text, one value a line: the log's name, the
+firmware version, the clock at the start and the stop (`not set`: the clock
+is not built), how the log ended (`STOP`, `DISARM`, `KST SERVO`,
+`HITEC SERVO` or `ESC SETTINGS`), its duration and armed time, the maximum
+RPM, current and temperature, the minimum voltage while armed, the charge
+used by the KISS counter and from the current, and the logger's counters
+that SD LOG shows (frames, dropped frames, kilobytes written, buffer peak,
+worst flush). Each extreme is the value held over three consecutive new
+readings, with its source and the raw extreme beside it.
+
+`sdLogTick()` hands every frame's telemetry and arm state to the summary,
+a constant-time update on core0 (`runSumAdd()`): at most about 1,000
+instructions a frame, about 10 µs at 150 MHz or 0.5 % of core0 at 500 frames
+a second, estimated from the compiled code, not measured. The stop writes the
+file only after the `.BFL` has closed clean, with `FA_CREATE_ALWAYS` over
+any `.TXT` of that number, the text built in the drained write buffer. A
+`.TXT` does not count as a log's name, so it does not move the next log's
+number. A summary that cannot be saved (card full, a failed write) leaves
+the `.BFL` as it is and the logger `READY`: a short or failed file is
+removed when the card still allows it; after a close that fails, an empty
+`.TXT` can stay. A log a card error ended gets no
+`.TXT`. The `.TXT`, the `.BFL` beside it and every failure path are tested
+over FatFs R0.15 on a RAM disk by `make -C test lognum`
+(`test/sd_log_fatfs.cpp`).
+
 ![SD log screen](docs/log-preview.png)
 
 The card runs over 4-bit PIO SDIO at 10 MHz (`SD_LOG_SDIO_HZ`), with the
@@ -1106,7 +1137,8 @@ nothing for those six. The SETTINGS note line says which set is in use.
 
 ### Reading the logs
 
-Files are written to the directory `LOGS` as `LOGnnnnn.BFL`.
+Files are written to the directory `LOGS` as `LOGnnnnn.BFL`, each with its
+run summary `LOGnnnnn.TXT`, a text file any editor opens.
 
 <div align="center">
 
@@ -2350,8 +2382,8 @@ CONFIG and HITEC SERVO do. All backups share one directory and one ring of
   read again: a card swapped since the backup is mounted again and gets the
   backup before the device is written.
 
-Blackbox logs go to `LOGS/`, KST's SAVE AS files and its record to `KST/`,
-Hitec's to `HITEC/`.
+Blackbox logs and their run summaries go to `LOGS/`, KST's SAVE AS files and
+its record to `KST/`, Hitec's to `HITEC/`.
 
 ---
 
@@ -2502,8 +2534,9 @@ src/
   esc_merge.{h,cpp}     per-field preference between KISS and EDT (pure)
   blackbox_encode.{h,cpp} Betaflight blackbox log writer (pure)
   log_ring.{h,cpp}      ring buffer between encoder and card (pure)
-  run_summary.{h,cpp}   a log's run summary: extremes, charge, file text (pure; not called yet)
+  run_summary.{h,cpp}   a log's run summary: extremes, charge, file text (pure)
   sd_log.{h,cpp}        FatFs writer, lifecycle, drop accounting
+  sd_log_summary.{h,cpp} the run summary's .TXT beside its log, over FatFs
   sd_hw_config.c        SD wiring for the FatFs driver
   sdio/                 SDIO card driver, MIT, written from the SD specification
     sd_proto.{h,c}, sd_host.{h,c}  wire formats and card protocol (pure C)
@@ -2515,7 +2548,8 @@ src/
   tusb_config.h         TinyUSB configuration
 lib/rcbench/            rcbench files copied unchanged: servo sweep, GPIO-to-PWM fold,
                         KST core and line driver, KST file store, Hitec core,
-                        S.BUS decoder, sensor bus, escwire core and line driver
+                        S.BUS decoder, sensor bus, escwire core and line driver,
+                        control-surface arithmetic, IMU model, WitMotion decoder
 tools/
   sdtest/               standalone SD bring-up test, 2.8" only; built locally, never released
   make_previews.py      restitches docs/*.png and wiki/img/ from the test suite's frames
@@ -2536,9 +2570,12 @@ files copied unchanged into `lib/rcbench/` with rcbench's own layout
 programming core with its RP2350 line driver, the KST file store, and the
 Hitec programming core with its RP2350 line driver, servo file text and CRC,
 the S.BUS (Futaba's serial bus for receiver channels) decoder, the
-current sensor's bus record (`sense_bus.c`), and the escwire core for ESC
+current sensor's bus record (`sense_bus.c`), the escwire core for ESC
 settings over the signal wire with its RP2350 line driver, which nothing
-calls yet. Files include each other as plain
+calls yet, and for the angle meter the control-surface arithmetic
+(`servo_rudder.c`), the IMU (inertial measurement unit) model (`imu.c`) and
+the WitMotion decoder `imu.h` includes, which the host suite alone builds
+and nothing calls yet. Files include each other as plain
 siblings, except two drivers with folders of their own: the DShot
 driver in `src/dshot/`, so that it can be compared with its rcbench original,
 and the SDIO card driver in `src/sdio/`, whose `compat/` headers have to keep
@@ -2572,15 +2609,16 @@ twelve escwire tests `test_ew_a.c`, `test_ew_id.c`, `test_ew_map.c`,
 `test_ew_guard.c`, `test_ew_session.c`, `test_ew_session_write.c`,
 `test_ew_file.c`, `test_ew_file_load.c`, `test_ew_pio.c`, `test_ew_text.c`,
 `test_ew_session_text.c` and `test_ew_file_e32.c` (210 cases), with
-`escwire_headers.cpp` built as C++11. The SDIO
-tests run the card protocol against a simulated card. Time is virtual and
-counted in microseconds — `millis()` advances only when a test says so — which
-makes hold-to-arm, hold-to-write and gesture repeat deterministic rather than
-dependent on machine speed. The fake ESC serves a real settings blob recovered
-from the reference configurator, so the UI tests operate on values a real ESC
-would report. The suite renders 123 screens to PPM (portable pixmap) images as
-it runs, one file per `fakeDumpFrame()` name, so a layout change is visible in
-the frames:
+`escwire_headers.cpp` built as C++11, and the angle meter's
+`test_servo_rudder.c`, `test_imu_angles.c` and `test_witmotion.c` (25
+cases). The SDIO tests run the card protocol against a simulated card. Time is
+virtual and counted in microseconds — `millis()` advances only when a test
+says so — which makes hold-to-arm, hold-to-write and gesture repeat
+deterministic rather than dependent on machine speed. The fake ESC serves a
+real settings blob recovered from the reference configurator, so the UI tests
+operate on values a real ESC would report. The suite renders 123 screens to
+PPM (portable pixmap) images as it runs, one file per `fakeDumpFrame()` name,
+so a layout change is visible in the frames:
 
 - five of the splash: as it boots, with no answer from the touch
   controller, after an update reset the settings, the same with no touch
@@ -2639,8 +2677,11 @@ compiled into the instrumented suite but are not in it.
 Host-suite line coverage of `src/` is **98.4%**: 10,931 of 11,114 lines in 69 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
-`sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the
-logging UI is tested against a fake logger in `fakes.cpp`. The fake is the observable:
+`sd_log.cpp` is not linked into the host suite (FatFs and the card driver
+come with it), so the logging UI is tested against a fake logger in
+`fakes.cpp`. `make lognum` links `sd_log.cpp` alone, over FatFs on a RAM
+disk with the card driver faked (`test/sd_log_fatfs.cpp`). The fake is the
+observable:
 tapping START has to actually reach `sdLogStart()` for its state to change, which covers
 navigation, hit-testing and dispatch without production code carrying test-only
 accessors.
@@ -2875,6 +2916,9 @@ the list.
   by the same copyright holder under the same MIT licence.
 - The escwire core, its RP2350 line driver and the servo file store in
   `lib/rcbench/` come from rcbench at commit 2b4f934a, by the same copyright
+  holder under the same MIT licence.
+- The control-surface arithmetic, the IMU model and the WitMotion decoder in
+  `lib/rcbench/` come from rcbench at commit e98345aa, by the same copyright
   holder under the same MIT licence.
 - [logwiju](https://subtilitas.github.io/logwiju/): the browser-based blackbox viewer
   for these logs.

@@ -5,9 +5,11 @@ from the feature survey, as item 3 of 6: incidence, decalage, dihedral and
 control-surface throw, in degrees and in mm, from the QMI8658 IMU on the
 board, at 0x6B on I2C1. The owner answered its questions on 2026-11-15,
 see [decisions](#decisions), first among them the entry: an eighth MENU
-row, `TOOLS`, opening a chooser. Slices wait on being built.
-No line of it is built, and nothing of it has run on a board. The sensor
-facts come from QST's datasheets and Waveshare's schematic and demo code;
+row, `TOOLS`, opening a chooser. Slice 1, the copies from rcbench, is built
+([slice 1 as built](#slice-1-as-built)); nothing in `src/` calls them yet,
+and nothing of the meter has run on a board. The cases of rcbench's
+`test_imu.c` and `test_imu_filter.c` that need `imu.h` alone are not
+adapted yet; slice 3 takes them. The sensor facts come from QST's datasheets and Waveshare's schematic and demo code;
 the ones this project has not seen on the bus are marked as such and listed
 under [to confirm](#to-confirm). The real accuracy is unknown until the
 bench measures it.
@@ -816,6 +818,47 @@ Each slice builds, passes the host suite and merges alone, in this order.
 Slice 3 depends on slice 1; slice 2 on nothing but the tree; slice 4 on
 both. Slice 5 can go with slice 4, as other features' screen slices carry
 their pages.
+
+### Slice 1 as built
+
+rcbench's files at commit `e98345aa`, the merge of its three-angle function
+(decision 2), copied unchanged:
+
+| Here | rcbench | Lines |
+|---|---|---|
+| `lib/rcbench/shared/servo/servo_rudder.c`, `include/servo_rudder.h` | `shared/servo/` | 111, 80 |
+| `lib/rcbench/shared/bench/imu.c`, `include/imu.h` | `shared/bench/` | 377, 225 |
+| `lib/rcbench/protocols/witmotion/witmotion.c`, `include/witmotion.h` | `protocols/witmotion/` | 256, 205 |
+| `test/rcbench/test_servo_rudder.c` | `test/host/` | 173, 4 cases |
+| `test/rcbench/test_imu_angles.c`, `wit_frame.h` | `test/host/` | 361, 7 cases; 46 |
+| `test/rcbench/test_witmotion.c` | `test/host/` | 451, 14 cases |
+
+`test/angle.mk` lists them for the host suite, which links the three C
+files and builds each test as a C11 program of its own, run by
+`make -C test run`; `test/Makefile` includes it. `lib/rcbench/README.md`
+gains the table and the commit. Choices the note left open:
+
+- **`witmotion.*` is copied.** At `e98345aa`, `imu.h` still includes
+  `witmotion.h` (the porting table's condition), and `imu.c` decodes
+  WitMotion frames through it.
+- **The IMU model's test is `test_imu_angles.c`,** the test rcbench added
+  with `imu_feed_angles()`, which needs `imu.h`, `wit_frame.h` and
+  `greatest.h` only and so copies unchanged. The cases of `test_imu.c` and
+  `test_imu_filter.c` that need `imu.h` alone, which the porting table says
+  are adapted, are not adapted yet: that work is open, and slice 3, the
+  model, takes it. The path the meter uses is the one `test_imu_angles.c`
+  tests.
+- **No firmware build yet.** Nothing in `src/` calls the files, so no
+  `.cmake` file lists them; slice 3, the model, adds them to the firmware
+  with its first caller.
+
+Mutation check of the copies against their tests, each mutant built and run:
+12 mutants, 7 in `servo_rudder.c` (the sine of the travel, the shortest
+length, the wrap of a deflection, the side of a deflection, the largest
+value, MAX cleared by a zero, and one that left a function unused and failed
+the build), 4 in `imu_feed_angles()` (a NaN dropped, the wrap to ±180°, the
+tick after the angle, the angle itself) and 1 in `witmotion.c` (the range
+of the acceleration): every one fails a test.
 
 ## Decisions
 

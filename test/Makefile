@@ -10,7 +10,8 @@
 #   make coverage line coverage of src/ from an instrumented build in cov/
 #   make kstcount the KST card phases over FatFs, checked against the design note
 #   make kstcount-write  rewrite that table
-#   make lognum   the next blackbox log's file over FatFs R0.15 itself
+#   make lognum   the next blackbox log's file, and the logger with its run
+#                 summary, over FatFs R0.15 itself
 #   make clean
 #
 # Needs nothing but a C++17 compiler and the C compiler beside it: the firmware
@@ -37,22 +38,23 @@ INCLUDES := -Istubs -I../src -I.
 DEFINES := $(EXTRA_DEFINES)
 
 # The servo tester, the KST and Hitec programmers, the S.BUS monitor, the
-# current sensor and the ESC settings list their own sources, so none of them
-# edits this file for that. @see servo.mk, kst.mk, hitec.mk, rx.mk, sense.mk,
-# escwire.mk
-include servo.mk kst.mk hitec.mk rx.mk sense.mk escwire.mk
+# current sensor, the ESC settings and the angle meter list their own sources,
+# so none of them edits this file for that. @see servo.mk, kst.mk, hitec.mk,
+# rx.mk, sense.mk, escwire.mk, angle.mk
+include servo.mk kst.mk hitec.mk rx.mk sense.mk escwire.mk angle.mk
 
 # Each feature's C sources, their include directories and their C test
 # programs. A feature with none leaves its variables undefined, and they
 # expand to nothing.
 FEATURE_CSRCS := $(SERVO_CSRCS) $(KST_CSRCS) $(HITEC_CSRCS) $(RX_CSRCS) $(SENSE_CSRCS) \
-                 $(ESCWIRE_CSRCS)
-FEATURE_CTESTS := $(SERVO_CTESTS) $(KST_CTESTS) $(HITEC_CTESTS) $(RX_CTESTS) $(ESCWIRE_CTESTS)
+                 $(ESCWIRE_CSRCS) $(ANGLE_CSRCS)
+FEATURE_CTESTS := $(SERVO_CTESTS) $(KST_CTESTS) $(HITEC_CTESTS) $(RX_CTESTS) $(ESCWIRE_CTESTS) \
+                  $(ANGLE_CTESTS)
 FEATURE_CXXTESTS := $(HITEC_CXXTESTS) $(ESCWIRE_CXXTESTS)
 FEATURE_CTEST_DEFINES := $(SERVO_CTEST_DEFINES) $(KST_CTEST_DEFINES) $(HITEC_CTEST_DEFINES) \
                          $(ESCWIRE_CTEST_DEFINES)
 FEATURE_INCLUDES := $(SERVO_INCLUDES) $(KST_INCLUDES) $(HITEC_INCLUDES) $(RX_INCLUDES) $(SENSE_INCLUDES) \
-                    $(ESCWIRE_INCLUDES)
+                    $(ESCWIRE_INCLUDES) $(ANGLE_INCLUDES)
 INCLUDES += $(FEATURE_INCLUDES)
 
 SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
@@ -79,7 +81,7 @@ SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
 # touchInit/touchPoll outright so that tests can drive presses.
 DEVICE_SRCS := ../src/esc_task.cpp ../src/st7789.cpp \
                ../src/usb_dev.cpp ../src/usb_msc.cpp ../src/usb_descriptors.c \
-               ../src/cst328.cpp ../src/am32_bl.cpp ../src/sd_log.cpp ../src/sd_log_next.cpp \
+               ../src/cst328.cpp ../src/am32_bl.cpp ../src/sd_log.cpp ../src/sd_log_next.cpp ../src/sd_log_summary.cpp \
                ../src/pio_uart_rx.cpp \
                ../src/settings_flash.cpp ../src/main.cpp ../src/card_cache.cpp \
                $(SERVO_DEVICE_SRCS) $(KST_DEVICE_SRCS) $(HITEC_DEVICE_SRCS)
@@ -301,17 +303,30 @@ $(OBJ_DIR)/kst_card_count: kst_card_count.cpp $(KST_COUNT_SRCS) ../src/kst_files
 # The next blackbox log's file, src/sd_log_next.cpp, over the same FatFs on a
 # RAM disk that can be swapped for another card image: the scan, the number
 # kept between starts and FatFs mounting again. Fails on any failed check.
-$(OBJ_DIR)/log_next_fatfs: log_next_fatfs.cpp check.h ../src/sd_log_next.cpp ../src/sd_log_next.h ../src/sd_log.h $(FATFS_SRC)/ff.c
+$(OBJ_DIR)/log_next_fatfs: log_next_fatfs.cpp ram_disk.cpp ram_disk.h check.h ../src/sd_log_next.cpp ../src/sd_log_next.h ../src/sd_log.h $(FATFS_SRC)/ff.c
 	mkdir -p $(OBJ_DIR)/lognum
 	for f in $(FATFS_SRC)/ff.c $(FATFS_SRC)/ffunicode.c $(FATFS_SRC)/ffsystem.c; do \
 		$(CC) $(CFLAGS) -w -I$(FATFS_SRC) -I$(FATFS_DIR)/src/include \
 			-c -o $(OBJ_DIR)/lognum/$$(basename $$f .c).o $$f || exit 1; \
 	done
 	$(CXX) $(CXXFLAGS) $(WARN) -I$(FATFS_SRC) -I$(FATFS_DIR)/src/include -I../src -I. \
-		-o $@ log_next_fatfs.cpp ../src/sd_log_next.cpp $(OBJ_DIR)/lognum/*.o
+		-o $@ log_next_fatfs.cpp ram_disk.cpp ../src/sd_log_next.cpp $(OBJ_DIR)/lognum/*.o
 
-lognum: $(OBJ_DIR)/log_next_fatfs
+# The logger itself, src/sd_log.cpp, with its run summary over the same
+# FatFs: the .TXT beside each .BFL, full cards and failed writes. The timer,
+# escSnapshot(), the settings and the card driver's lookups are faked in the
+# test; the rest of its sources are the firmware's.
+LOG_FATFS_SRCS := ../src/sd_log.cpp ../src/sd_log_next.cpp ../src/sd_log_summary.cpp \
+                  ../src/run_summary.cpp ../src/esc_merge.cpp ../src/blackbox_encode.cpp \
+                  ../src/log_ring.cpp
+
+$(OBJ_DIR)/sd_log_fatfs: sd_log_fatfs.cpp ram_disk.cpp ram_disk.h check.h $(LOG_FATFS_SRCS) $(wildcard ../src/*.h) $(OBJ_DIR)/log_next_fatfs
+	$(CXX) $(CXXFLAGS) $(WARN) -I$(FATFS_SRC) -Istubs -I$(FATFS_DIR)/src/include -I../src -I. \
+		-o $@ sd_log_fatfs.cpp ram_disk.cpp $(LOG_FATFS_SRCS) $(OBJ_DIR)/lognum/*.o
+
+lognum: $(OBJ_DIR)/log_next_fatfs $(OBJ_DIR)/sd_log_fatfs
 	./$(OBJ_DIR)/log_next_fatfs
+	./$(OBJ_DIR)/sd_log_fatfs
 
 kstcount: $(OBJ_DIR)/kst_card_count
 	./$(OBJ_DIR)/kst_card_count --check $(KST_NOTE)

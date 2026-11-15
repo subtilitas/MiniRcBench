@@ -28,7 +28,8 @@
  * Times are the 64-bit microsecond timer (`time_us_64()`): the 32-bit
  * micros() wraps after 71.6 minutes.
  *
- * Slice 1 of docs/design/run-summary.md; nothing in the firmware calls it.
+ * Slice 1 of docs/design/run-summary.md. sd_log.cpp feeds it and ends it
+ * (slice 2).
  */
 
 #pragma once
@@ -48,9 +49,9 @@ enum class RunSumEnd : uint8_t {
 	Disarm,       /**< The disarm that stops a log arming started. */
 	ByKst,        /**< KST SERVO took the card. */
 	ByHitec,      /**< HITEC SERVO took the card. */
-	ByAm32,       /**< AM32 CONFIG took the card. */
+	ByAm32,       /**< ESC SETTINGS took the card. */
 	CardFull,     /**< A write during the log found the card full. */
-	WriteFailed,  /**< A write, or the stop's sync or close, failed. */
+	WriteFailed,  /**< A write during the log failed. */
 };
 
 /** @brief What became of the summary's `.TXT` file. */

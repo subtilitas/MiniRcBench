@@ -1,10 +1,12 @@
 # Run summary per log, dated by the board's clock
 
-Status: designed; slice 1 of 6 built, host tests only, not called by the
-logger yet ([slice 1 as built](#slice-1-as-built)). The owner's choice of
-2026-11-14 from the feature survey, feature 4 of 6, built as a design note
-and then slices with reviews. The owner answered its questions on
-2026-11-15, see [decisions](#decisions); slices 2 to 6 wait on being built.
+Status: designed; slices 1 and 2 of 6 built, host tests only: the core
+([slice 1 as built](#slice-1-as-built)) and the logger feeding it and
+writing the `.TXT` ([slice 2 as built](#slice-2-as-built)); SD LOG does not
+show the run yet. The owner's choice of 2026-11-14 from the feature survey,
+feature 4 of 6, built as a design note and then slices with reviews. The
+owner answered its questions on 2026-11-15, see [decisions](#decisions);
+slices 3 to 6 wait on being built.
 
 Each blackbox log gets a run summary: the highest RPM, current and
 temperature, the lowest voltage, the charge used and the armed time. SD LOG
@@ -319,7 +321,7 @@ The lines in other cases:
 |---|---|
 | clock not set, and every log before slice 4 | `Clock at start: not set`, `Clock at stop: not set` |
 | a set during the log | `Clock at stop: 2026-11-14 15:44:31 (clock set during the log)` |
-| ended by disarming or a tool | `Ended by: DISARM`, `KST SERVO`, `HITEC SERVO`, `AM32 CONFIG` |
+| ended by disarming or a tool | `Ended by: DISARM`, `KST SERVO`, `HITEC SERVO`, `ESC SETTINGS` |
 | RPM from KISS | `Max RPM: 18400 RPM (KISS, eRPM 128800 in 100 eRPM steps, 14 poles; raw 18400 RPM)` |
 | EDT current | `Max current: 23 A (EDT, 1 A steps; raw 25 A)` |
 | EDT voltage | `Min voltage: 14.75 V (EDT, 0.25 V steps, while armed; raw 14.50 V)` |
@@ -803,6 +805,133 @@ equivalent:
 - `runSumRpm()` with `poles > 2`: at 2 poles both divide by 1.
 
 Not verified on hardware: nothing of this slice runs on the board yet.
+
+## Slice 2 as built
+
+The logger, `src/sd_log.cpp`, feeds the summary and ends it, and writes the
+`.TXT` through `src/sd_log_summary.h` and `src/sd_log_summary.cpp`. The
+host runs `sd_log.cpp` itself over FatFs R0.15 on a RAM disk:
+`test/sd_log_fatfs.cpp`, beside `test/log_next_fatfs.cpp` in
+`make -C test lognum`, both on the RAM disk of `test/ram_disk.*`. SD LOG
+does not change; slice 3 draws the rows from `SdLogStatus::summary`.
+
+| Block | Where | Contract |
+|---|---|---|
+| The feed | `sdLogTick()` | after escMerge(), before the frame is encoded: `RunSumSample` with the snapshot, the reading, millis(), `time_us_64()` and sdLogSetArmed()'s state; a frame the ring then drops is counted |
+| The start | `sdLogStart()` | a start that opens its file begins the summary with `time_us_64()` and the arm state; a failed start keeps the last one |
+| The end | `stopLog()`, `enterError()` | the stop ends the summary as it begins, before bbEnd(): STOP from sdLogStop(), DISARM from sdLogSetArmed(), the tool from sdLogStopFor(); a failed write of a running log ends it with CARD FULL or WRITE FAILED, not saved; MOTOR POLES (`settings()->poles`) is kept at the end |
+| The file | `writeSummary()`, `sdLogWriteSummary()` | only after the `.BFL`'s sync and close succeeded; the text built by runSumText() in `s_ringBuf` once `logRingUsed()` is 0; `LOGS/LOGnnnnn.TXT` with `FA_CREATE_ALWAYS`; the result in `RunSum::file`; the state returns to READY whatever the result |
+| The status | `SdLogStatus::summary`, `SdLogStatus::summaryPoles` | the last summary, nullptr while a log runs, before the first log, after a mount and after a release |
+
+Choices made where the sections above leave room:
+
+- **The status carries a pointer**, not a copy: `RunSum` is 464 bytes, and
+  sdLogStatus() is called from SD LOG, the tester, the card tools and USB
+  DRIVE, some of them on every UI frame. The summary lives in the logger on
+  core0, where every caller runs.
+- **A failure inside the stop.** The summary has ended as the stop began. A
+  flush of the drain, the sync or the close that fails keeps that end
+  (STOP, DISARM or the tool) and marks the file not saved with the cause,
+  CARD FULL or WRITE FAILED, as the table of [a full card or a card
+  error](#a-full-card-or-a-card-error) has it: the summary up to the stop.
+- **One file object.** The `.TXT` is written through the `.BFL`'s `FIL`,
+  closed by then, so the stop needs no second one.
+- **An open refused with `FR_DENIED`** reads CARD FULL: FatFs gives it when
+  the directory has no free entry and no cluster to grow by. A read-only
+  file or a directory of that name, which only a computer makes, gives it as
+  well and reads CARD FULL too. Any other failed open reads WRITE FAILED.
+- **A short write** (CARD FULL) or a failed write (WRITE FAILED) closes the
+  file and removes it. A failed close reads WRITE FAILED; FatFs then keeps
+  the file open and locked, so its removal is refused until the next mount,
+  after which the card holds an empty `.TXT` (seen over the RAM disk).
+- **The ring.** The text is built only when `logRingUsed()` is 0; otherwise
+  the file reads WRITE FAILED without a write. The drain always empties it,
+  so the branch is not reached. That the text fits is a `static_assert` on
+  the ring's 8192 bytes against the 1000 the text needs; a length from
+  runSumText() of 8192 or more, a cut text, reads WRITE FAILED without a
+  write as well, so a longer text cannot make the write read past the ring.
+
+**Cost per frame, estimated from the compiled code, not measured.** In the
+firmware built with arm-none-eabi-gcc 13.3, Release, `runSumAdd()` is 1296
+bytes, 432 instructions, and `extAdd()` 250 bytes, 113 instructions. A
+sample runs one pass of `runSumAdd()`, whose branches exclude each other in
+part, at most 8 calls of `extAdd()`, of which a value that is not new
+leaves after about 10 instructions and a new one runs about 65, and 4 calls
+of `escFieldFresh()`; `sdLogTick()` adds one `time_us_64()`. With every
+field new in every frame, KISS and EDT both fresh, that is at most about
+1000 instructions: about 1500 cycles, 10 µs at the RP2350's 150 MHz (the
+SDK's default, which the firmware does not change), 5 ms a second at the
+logger's 500 Hz, 0.5 % of core0. With EDT only, a new eRPM each frame and
+an EDT value now and then, it is about 300 instructions, 3 µs, 0.15 %. The
+code runs from flash through the XIP (execute in place) cache; misses are
+not counted. Core1 is not touched. The stop adds one runSumText(), an open,
+one write of 552 to 641 bytes in the tests and a close, all while disarmed;
+not measured on a card.
+
+RAM: `s_sum`, 464 bytes (`nm` of the firmware); two bytes beside it;
+`SdLogStatus` grows by a pointer and a byte.
+
+**The `.BFL` is not touched by the summary.** The `.TXT` is opened only
+after the `.BFL`'s close succeeded, under another name; the tests compare
+the `.BFL` of a run whose `.TXT` fails with the same run on a card with
+room, byte for byte.
+
+The tests, `test/sd_log_fatfs.cpp`, on FAT32 and exFAT, the failures on
+FAT32, with the clock past 2^32 µs so that micros() and `time_us_64()`
+differ:
+
+- a log started by hand, armed for part of it, MOTOR POLES changed during
+  it, stopped 0.7 ms after its last frame: the summary's start, stop, armed
+  time and poles, the `.TXT` equal to runSumText()'s text and its lines,
+  the `.BFL` whole; no summary before the first log, while a log runs and
+  after a mount;
+- DISARM, armed for the whole log, and KST SERVO, HITEC SERVO and AM32
+  CONFIG's claims;
+- a stray `.TXT` of the new number, longer than the text, replaced; one of
+  a higher number left alone; the next log's number from memory and after a
+  mount unmoved by `.TXT` files;
+- a failed start keeping the summary, a mount and USB DRIVE's release
+  forgetting it;
+- the `.TXT` not saved: a full card (no cluster, the empty file removed), a
+  full `LOGS/` on a full card (the create refused with `FR_DENIED`), a
+  failed first block write, a failed close (`FR_LOCKED` until a mount, then
+  an empty `.TXT`); each with the logger READY, no card fault, the `.BFL`
+  byte for byte, and the next start working;
+- the log failing: CARD FULL and WRITE FAILED during the log, the summary
+  ended at the failure and not saved, a later STOP changing nothing; the
+  stop's sync failing, through a failed write of every block and through a
+  failed write of the log's last block alone, the summary ended by STOP, not
+  saved, and no `.TXT` tried; the drain's first flush failing with more
+  than a 512-byte chunk in the ring, the summary ended by STOP at the
+  stop's first moment, not saved.
+
+The RAM disk fails a write whose sector begins with given bytes, and can
+advance the test's clock by 1 ms a block write, so a summary ended later
+than the stop's start shows in its stop time. A
+throttle that differs from frame to frame keeps the log's blocks apart, and
+the test checks the last block begins unlike the others.
+
+56 mutations of `sd_log.cpp`'s wiring and of `sd_log_summary.*` were run
+against `test/sd_log_fatfs.cpp`: 49 fail it, among them the stop's end of
+the summary moved after the drain and the release keeping the summary. 6
+are equivalent:
+
+- the ring check removed, and the result before it Saved: the drain
+  always empties the ring;
+- a write error counted only by its byte count, and `wrote < len` for
+  `wrote != len`: FatFs R0.15 returns fewer bytes than asked with every
+  error and never more;
+- the path's length check with `>`: the path is 18 bytes of 40;
+- the check of runSumText()'s length against the ring removed: the text is
+  under 1000 bytes of 8192.
+
+1 is not killed: a failed close overriding a short write's CARD FULL with
+WRITE FAILED. The RAM disk cannot fail that close alone: after a short write
+of 0 bytes it writes only the directory block, which the log's own syncs
+write as well.
+
+Not verified on hardware: the summary on a card, the stop's time with the
+`.TXT`, the cost per frame.
 
 ## Decisions
 
