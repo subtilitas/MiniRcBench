@@ -51,10 +51,17 @@ The board knows which from the tool's first byte; you choose nothing.
 
 <img src="img/bridge-stopping.png" width="240" alt="USB BRIDGE while DShot stops: RELEASING SIG GP0 on the strip, no chip, the instruction lines"> <img src="img/bridge-failed.png" width="240" alt="USB BRIDGE after a failed bind: SIG GP0 COULD NOT BE TAKEN (PIO) in amber, RETRY in the footer">
 
-While the board releases SIG, the strip reads `RELEASING SIG GP0` and the
-bridge is not open yet. If the board cannot take SIG, one amber line reads
-`SIG GP0 COULD NOT BE TAKEN (PIO)`, with `REFUSED`, `PWM`, `DMA` or
-`CLOCK` in place of `PIO`, and `RETRY` appears. Tap `RETRY` to try again.
+While DShot stops, the bridge is not open yet. If the board cannot take
+SIG, one amber line reads `SIG GP0 COULD NOT BE TAKEN (PIO)`, with `REFUSED`
+or `CLOCK` in place of `PIO`, and `RETRY` appears:
+
+- `PIO` (programmable I/O): no PIO block has room for the line's transmitter
+  and receiver;
+- `CLOCK`: `clk_sys` is too slow for the line's rate;
+- `REFUSED`: core1 refused the job.
+
+`RETRY` tries again. `BACK` goes straight to `MENU`, with no leave page, while
+DShot stops and after a failed bind: the bridge never took the line.
 
 While the bridge is open the board's console is off: no telemetry line
 reaches the port. It comes back once DShot runs again.
@@ -81,19 +88,17 @@ reads `EJECT THE USB DRIVE FIRST.`. Eject the drive and it starts.
 ESC again in the tool. `MOTOR COMMAND FROM THE PC REFUSED.` shows for 5 s
 when the tool's motor tab tries to spin the motor: the board never does.
 
+<img src="img/bridge-lost.png" width="240" alt="USB BRIDGE in passthrough with LOST 932 in amber and BYTES LOST: THE BRIDGE FELL BEHIND. in amber">
+
 A settings page of an AM32 ESC that the tool reads or writes sets the
 tester's `3D MODE ESC` note as ESC SETTINGS does: on after reading or
 writing 3D mode on, off after reading it off.
 
 ---
 
-<img src="img/bridge-lost.png" width="240" alt="USB BRIDGE in passthrough with LOST 932 in amber and BYTES LOST: THE BRIDGE FELL BEHIND. in amber">
-
----
-
 ## Writing and leaving
 
-<img src="img/bridge-writing.png" width="240" alt="USB BRIDGE during a write: WRITING: DO NOT UNPLUG ESC OR USB. in amber, BACK grey"> <img src="img/bridge-leave.png" width="240" alt="The leave page: 1 POWER THE ESC OFF., 2 RESTART DSHOT., FLASH THE ESC AGAIN BEFORE USE., BRIDGE, RESTART DSHOT">
+<img src="img/bridge-writing.png" width="240" alt="USB BRIDGE during a write: WRITING: DO NOT UNPLUG ESC OR USB. in amber, BACK grey"> <img src="img/bridge-leave.png" width="240" alt="The leave page: 1 POWER THE ESC OFF., 2 RESTART DSHOT., FLASH THE ESC AGAIN BEFORE USE., BRIDGE, RESTART DSHOT and BACK grey">
 
 While the ESC writes or erases its flash, the first line reads
 `WRITING: DO NOT UNPLUG ESC OR USB.` and `BACK` is grey, until the ESC
@@ -101,19 +106,19 @@ answers or 3 s pass. This holds in both ways of working.
 
 `BACK` sends nothing to the ESC. What happens next depends on the session:
 
-`BACK` opens a leave page every time, whatever the tool did: the ESC may
-sit in its bootloader, entered at power-up or by itself, and DShot frames
-can pass as its commands. Power the ESC off, then tap `RESTART DSHOT`,
+On a running bridge, `BACK` opens a leave page every time, whatever the
+tool did: the ESC may sit in its bootloader, entered at power-up or by
+itself, and DShot frames can pass as its commands. Power the ESC off, then tap `RESTART DSHOT`,
 live 1 s after the page opens. `BRIDGE` returns to the bridge instead.
 After a write not followed by a start of the firmware the page adds
 `FLASH THE ESC AGAIN BEFORE USE.`: flash the ESC again before you use it.
 In the 4-way interface only the tool's reset of the ESC counts as that
 start, not its disconnect.
 
-<img src="img/bridge-leave-read.png" width="240" alt="The leave page after a session that only read: 1 POWER THE ESC OFF., 2 RESTART DSHOT., no FLASH note, BRIDGE, RESTART DSHOT grey">
+<img src="img/bridge-leave-read.png" width="240" alt="The leave page after a session that only read: 1 POWER THE ESC OFF., 2 RESTART DSHOT., no FLASH note, BRIDGE, RESTART DSHOT and BACK grey">
 
-After a session that only read, the page shows the two steps and no
-`FLASH THE ESC AGAIN BEFORE USE.`.
+Without such a write, as after a session that only read or a write followed
+by a start, the page shows the two steps and no note.
 
 MENU shows `POWER-CYCLE THE ESC TO RUN IT` once the screen has taken the
 signal pin, also after a bind that failed, until DShot restarts from the
