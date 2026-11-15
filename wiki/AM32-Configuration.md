@@ -204,7 +204,8 @@ page waits for `STAY`. Unplug the ESC battery, then tap `LEAVE`.
 `RESTART DSHOT` takes LEAVE's place and acts 1 s later; it starts DShot on
 the signal pin and returns to MENU. Plug the battery back in after that.
 `BACK` is grey on this page. RESTART DSHOT clears MENU's
-`POWER-CYCLE THE ESC TO RUN IT`, since the steps power-cycled the ESC. The tester cannot see
+`POWER-CYCLE THE ESC TO RUN IT`, since the steps power-cycled the ESC. The
+tester cannot see
 the battery: RESTART DSHOT with the ESC still powered, or a restart of the
 tester while the ESC waits, sends DShot into its bootloader.
 

@@ -980,7 +980,8 @@ from `escwireJobStep()` through `ew_session_step()` to `ew_text_show()`,
 and 112 for the line driver's functions, which the session calls through
 the pointers of `ew_driver_t` and the call graph has no edge for; the step
 adds the deepest of them, `ew_line_start()`, to every chain
-(`tools/stack_depth.py --indirect`). SDK and library calls count 0 bytes. The screenshots `shot_am32_quiet`,
+(`tools/stack_depth.py --indirect`). SDK and library calls count 0 bytes.
+The screenshots `shot_am32_quiet`,
 `shot_am32_efm8`, `shot_efm8_list`, `shot_efm8_note`, `shot_efm8_hex`,
 `shot_efm8_3d`, `shot_efm8_readonly`, `shot_efm8_empty`,
 `shot_efm8_refused`, `shot_efm8_leaving`, `shot_efm8_stopped` and
@@ -1056,7 +1057,8 @@ Choices the note left open, the developer's:
   `00 01` still waits when DShot returns, and only an eRPM frame after
   LEAVE clears the cue. Decision 3 (a1) reads "the run cue is cleared when
   LEAVE went out"; this build keeps it, by the review of pull request 96,
-  and the owner may restore (a1). `src/pin_claim.*` gains no function. A LEAVE refused for the
+  and the owner may restore (a1). `src/pin_claim.*` gains no function. A
+  LEAVE refused for the
   heartbeat is asked again; one that ends without going out opens the leave
   page.
 - **A session that ends without the page**, silent, another answer, a
