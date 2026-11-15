@@ -44,6 +44,21 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1: SD LOG shows the last log's run after a stop, slice 3
+  of [run-summary.md](docs/design/run-summary.md#slice-3-as-built). Rows 2
+  to 8 read `MAX RPM`, `MAX CURRENT`, `MAX TEMP`, `MIN VOLTAGE`, `USED` or
+  `USED FROM CURRENT`, `ARMED` and `SUMMARY` from `SdLogStatus::summary`
+  through `runSumRowText()`, the RPM at MOTOR POLES at the stop. A source
+  tag beside a value reads `KISS` in the text colour or `EDT` and `MIXED`
+  dim; an unknown value reads `--`, dim. `MAX TEMP` at 90 °C and above and
+  `NOT SAVED: CARD FULL` or `NOT SAVED: WRITE FAILED` are red. FRAMES,
+  WRITTEN, DROPPED FRAMES, BUF PEAK, WORST FLUSH, CARD and MOUNT show while
+  a log runs and while no summary shows: before the first log and after a
+  mount or USB DRIVE. The screen redraws when the summary changes. The
+  tester shows nothing of the run. README and the wiki pages SD-Logging and
+  SD-Aufzeichnung describe the rows; the wiki's `log-last.png` and
+  `log-card-full.png` show them. Host tests in `test/test_ui.cpp`. Not
+  tested on hardware.
 - After v0.1.0-rc1: the QMI8658 IMU (inertial measurement unit) driver, slice 2
   of [angle-meter.md](docs/design/angle-meter.md#slice-2-as-built)
   (`src/qmi8658.*`, `src/angle.cmake`). While the angle meter is open it reads
