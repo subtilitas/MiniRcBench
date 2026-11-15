@@ -1008,7 +1008,7 @@ clock refusal's release of GP0, 8E2 and RXE, OUTOVER and the single
 control-register write, IE, OD and ISO and their order, the stale-command
 rule at the bind, the status fields, BUSY and the backstop, each step of
 the release and its order, the critical section's initialisation, and the
-kept STOP. Five of them failed only after the tests were made stricter:
+kept STOP. Six of them failed only after the tests were made stricter:
 a `Frame` while SAFE writing the held frame, the bind's own NO GP0 check
 called with SIG GP1 and AUX GP1, GP0 left an SIO output high before a
 refused bind and before a release, the pad's OD set before the bind, and
