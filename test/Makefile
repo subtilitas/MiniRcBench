@@ -37,25 +37,28 @@ INCLUDES := -Istubs -I../src -I.
 DEFINES := $(EXTRA_DEFINES)
 
 # The servo tester, the KST and Hitec programmers, the S.BUS monitor, the
-# current sensor and the angle meter list their own sources, so none of them
-# edits this file for that. @see servo.mk, kst.mk, hitec.mk, rx.mk, sense.mk,
-# angle.mk
-include servo.mk kst.mk hitec.mk rx.mk sense.mk angle.mk
+# current sensor, the ESC settings and the angle meter list their own sources,
+# so none of them edits this file for that. @see servo.mk, kst.mk, hitec.mk,
+# rx.mk, sense.mk, escwire.mk, angle.mk
+include servo.mk kst.mk hitec.mk rx.mk sense.mk escwire.mk angle.mk
 
 # Each feature's C sources, their include directories and their C test
 # programs. A feature with none leaves its variables undefined, and they
 # expand to nothing.
-FEATURE_CSRCS := $(SERVO_CSRCS) $(KST_CSRCS) $(HITEC_CSRCS) $(RX_CSRCS) $(SENSE_CSRCS)
-FEATURE_CTESTS := $(SERVO_CTESTS) $(KST_CTESTS) $(HITEC_CTESTS) $(RX_CTESTS)
-FEATURE_CXXTESTS := $(HITEC_CXXTESTS)
-FEATURE_CTEST_DEFINES := $(SERVO_CTEST_DEFINES) $(KST_CTEST_DEFINES) $(HITEC_CTEST_DEFINES)
-FEATURE_INCLUDES := $(SERVO_INCLUDES) $(KST_INCLUDES) $(HITEC_INCLUDES) $(RX_INCLUDES) $(SENSE_INCLUDES)
+FEATURE_CSRCS := $(SERVO_CSRCS) $(KST_CSRCS) $(HITEC_CSRCS) $(RX_CSRCS) $(SENSE_CSRCS) \
+                 $(ESCWIRE_CSRCS)
+FEATURE_CTESTS := $(SERVO_CTESTS) $(KST_CTESTS) $(HITEC_CTESTS) $(RX_CTESTS) $(ESCWIRE_CTESTS)
+FEATURE_CXXTESTS := $(HITEC_CXXTESTS) $(ESCWIRE_CXXTESTS)
+FEATURE_CTEST_DEFINES := $(SERVO_CTEST_DEFINES) $(KST_CTEST_DEFINES) $(HITEC_CTEST_DEFINES) \
+                         $(ESCWIRE_CTEST_DEFINES)
+FEATURE_INCLUDES := $(SERVO_INCLUDES) $(KST_INCLUDES) $(HITEC_INCLUDES) $(RX_INCLUDES) $(SENSE_INCLUDES) \
+                    $(ESCWIRE_INCLUDES)
 INCLUDES += $(FEATURE_INCLUDES)
 
 SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
         test_blackbox.cpp test_log_ring.cpp test_settings.cpp test_servo_supply.cpp \
         test_usb_msc.cpp test_dshot_frame.cpp test_dshot_telem.cpp \
-        test_dshot_edt.cpp test_sdio.cpp test_claim.cpp test_widgets.cpp test_ids.cpp test_menu.cpp test_backup_ring.cpp test_sd_cache.cpp test_diag.cpp \
+        test_dshot_edt.cpp test_esc_cmd.cpp test_sdio.cpp test_claim.cpp test_widgets.cpp test_ids.cpp test_menu.cpp test_backup_ring.cpp test_sd_cache.cpp test_diag.cpp \
         fakes.cpp \
         ../src/gfx.cpp ../src/ui.cpp ../src/ui_settings.cpp ../src/ui_menu.cpp ../src/ui_registry.cpp ../src/ui_servo_prog.cpp ../src/ui_sdlog.cpp ../src/theme.cpp \
         ../src/ui_input.cpp ../src/ui_widgets.cpp ../src/ui_list.cpp \

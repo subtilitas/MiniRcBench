@@ -190,7 +190,7 @@ static void testMenuDisarmAndBeep() {
 	checkTrue("400 ms later the fill is back to the panel",
 	          pixel(beep.x + 4, beep.y + beep.h - 5) == C_PANEL);
 
-	// The refusal is unreachable through MENU, which disarms; forced here.
+	// Armed is unreachable through MENU, which disarms; forced here.
 	escSetArmed(true);
 	tapId(menuRow(&UI_BEEP));
 	checkTrue("refused while armed: the row shows REFUSED on an amber fill",
@@ -198,6 +198,40 @@ static void testMenuDisarmAndBeep() {
 	escSetArmed(false);
 	menuFrames(16);
 	checkTrue("the flash is over", pixel(beep.x + 4, beep.y + beep.h - 5) == C_PANEL);
+
+	// Core1's readiness: refused with no ESC answering, the motor turning
+	// and while the ESC settles; taken while the pump is busy, to wait.
+	const EscCmdReady refusedAt[] = {EscCmdReady::NoAnswer, EscCmdReady::Turning,
+	                                 EscCmdReady::Settling};
+	const char *refusedWhat[] = {"no ESC answering: REFUSED, nothing sent",
+	                             "motor turning: REFUSED, nothing sent",
+	                             "ESC settling: REFUSED, nothing sent"};
+	for (int i = 0; i < 3; i++) {
+		fakeSetCmdReady(refusedAt[i]);
+		beeps = fakeBeepRequests();
+		tapId(menuRow(&UI_BEEP));
+		checkTrue(refusedWhat[i],
+		          pixel(beep.x + 4, beep.y + beep.h - 5) == C_AMBER &&
+		          fakeBeepRequests() == beeps);
+		menuFrames(16);
+	}
+	fakeSetCmdReady(EscCmdReady::Busy);
+	beeps = fakeBeepRequests();
+	tapId(menuRow(&UI_BEEP));
+	bool save = true;
+	checkTrue("pump busy: SENT, the request taken to wait",
+	          pixel(beep.x + 4, beep.y + beep.h - 5) == C_INK &&
+	          fakeBeepRequests() == beeps + 1);
+	checkTrue("as beacon 1 without a save", fakeLastCommand(&save) == 1 && !save);
+	beeps = fakeBeepRequests();
+	checkTrue("escRequestBeep(0) asks for beacon 1",
+	          escRequestBeep(0) && fakeBeepRequests() == beeps + 1 &&
+	          fakeLastCommand(nullptr) == 1);
+	checkTrue("escRequestBeep(9) asks for beacon 5",
+	          escRequestBeep(9) && fakeBeepRequests() == beeps + 2 &&
+	          fakeLastCommand(nullptr) == 5);
+	fakeSetCmdReady(EscCmdReady::Ready);
+	menuFrames(16);
 	fakeAdvance(0x80000000u);
 	menuFrames(2);
 	checkTrue("2^31 ms after the last BEEP the row does not flash",

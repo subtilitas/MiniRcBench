@@ -264,13 +264,15 @@ add_executable(MiniRcBench
 )
 
 # The servo tester, the KST and Hitec programmers, the S.BUS monitor, the
-# current sensor and the angle meter list their own sources, so none of them
-# edits this file for that. Each adds to MiniRcBench with target_sources().
+# current sensor, the ESC settings and the angle meter list their own sources,
+# so none of them edits this file for that. Each adds to MiniRcBench with
+# target_sources().
 include(src/servo.cmake)
 include(src/kst.cmake)
 include(src/hitec.cmake)
 include(src/rx.cmake)
 include(src/sense.cmake)
+include(src/escwire.cmake)
 include(src/angle.cmake)
 
 # The KISS receiver is a PIO program (see pio_uart_rx.h for why it is not one

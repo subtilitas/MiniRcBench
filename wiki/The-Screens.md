@@ -210,7 +210,7 @@ position.
 
 | Row | State on the right | A tap |
 |---|---|---|
-| **BEEP THE ESC** | `DISARMED`; for 350 ms after a tap, `SENT` or `REFUSED` | Sends the DShot beacon command, so the motor beeps. Use it to identify which ESC is connected |
+| **BEEP THE ESC** | `DISARMED`; for 350 ms after a tap, `SENT` or `REFUSED` | Sends the DShot beacon command, so the motor beeps. Use it to identify which ESC is connected. Needs an ESC that answers, a stopped motor, and 1.5 s after the ESC starts answering |
 | **AM32 CONFIG** | nothing | Opens the AM32 editor |
 | **SERVO TESTER** | nothing | Opens the servo tester |
 | **SERVO PROGRAMMER** | nothing | Opens PROGRAMMER, the choice of servo programmer. See [PROGRAMMER](#programmer) |
@@ -227,11 +227,15 @@ again once DShot runs. SD LOG claims no pin and stays available.
 
 <img src="img/menu-restarting.png" width="240" alt="MENU dragged up while DShot restarts: DSHOT RESTARTING ON SIG GP0 on the strip, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS and SETTINGS drawn as outlines">
 
-BEEP works only while disarmed, and opening `MENU` disarms, so it is always
-allowed from here. The command takes 6 ms (6 frames at 1 kHz). The screen
-repaints every 25 ms, so the row is filled for 350 ms after each press:
-white with `SENT`, or amber with `REFUSED`. `REFUSED` is the answer if the ESC
-is armed. Opening `MENU` disarms, so it is not expected.
+BEEP works only while disarmed, and opening `MENU` disarms. It also needs
+an ESC that answers: `REFUSED` while no eRPM answer has come for 500 ms,
+while the motor turns, and for 1.5 s after the ESC starts answering. AM32
+takes a command only after a second of zero throttle. The command takes
+6 ms (6 frames at 1 kHz), then 260 ms of zero throttle before the next
+command. The screen repaints every 25 ms, so the row is filled for 350 ms
+after each press: white with `SENT`, or amber with `REFUSED`. `SENT` means
+the beacon is queued: a second press during the first beacon waits for it,
+at most 2 s.
 
 <img src="img/menu-beep-flash.png" width="240" alt="BEEP accepted"> <img src="img/menu-beep-refused.png" width="240" alt="BEEP refused because the ESC is armed">
 

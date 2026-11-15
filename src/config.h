@@ -273,8 +273,54 @@
  */
 #define EDT_ENABLE_REPEATS      10
 
-/** @brief How many consecutive frames one beacon command is sent for. */
+/**
+ * @brief How many consecutive frames one beacon command is sent for.
+ *
+ * AM32, Bluejay and BLHeli_S act on a beacon at its first frame
+ * (`docs/design/esc-commands.md`, "Rules"). The other commands of the
+ * command slot go out for `DSHOT_CMD_REPEATS`, 10 frames.
+ */
 #define BEEP_REPEATS             6
+
+/**
+ * @brief Frames of value 0 after a block of command 7 to 10 or 12, in ms at
+ *        the 1 kHz frame rate.
+ *
+ * BLHeli_32's specification asks for "several hundred ms" between commands;
+ * 300 is chosen, not measured. The pump counts the gap in frames, so a frame
+ * slot core1 skips makes it longer, never shorter.
+ * @see escCmdFrameSent()
+ */
+#define ESC_CMD_GAP_MS         300
+
+/**
+ * @brief Frames of value 0 after beacon 1 to 5, in ms at the 1 kHz frame
+ *        rate: an initialiser for an array of five.
+ *
+ * BLHeli_32's beep lengths, from its specification text. Not measured.
+ */
+#define ESC_CMD_BEEP_GAP_MS    { 260, 260, 280, 280, 1020 }
+
+/**
+ * @brief How long an ESC must have been answering before a command starts,
+ *        in ms.
+ *
+ * AM32 takes a command only after more than 1 s of zero input, counted in
+ * its main loop; 500 ms of margin on that, chosen. Counted from
+ * EscEdtState::linkUpSinceMs. Whether it suffices for every AM32 build is
+ * not verified.
+ */
+#define ESC_CMD_SETTLE_MS     1500
+
+/**
+ * @brief How long a command request waits for the pump before it expires,
+ *        in ms.
+ *
+ * A request accepted while an EDT enable, a sequence or its gap goes out
+ * waits for the wire. One that cannot start in this time is dropped and
+ * reported as expired, so that it does not go out later, on another screen.
+ */
+#define ESC_CMD_WAIT_MS       2000
 
 /**
  * @brief Abandon a reply that has not completed this long after the request.
