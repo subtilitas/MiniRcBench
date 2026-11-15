@@ -233,7 +233,10 @@ liegt in der Gasfläche und `MAX` reicht in den Greifbereich des Balkens, also
 steuert der Druck dort das Gas. Während DShot nach einem Servo-Werkzeug neu
 startet, verschwindet die Unterstreichung ebenfalls und ein Tippen tut nichts,
 so wie `MENU` SETTINGS dann gesperrt zeichnet. Solange der 3D-Hinweis die Zeile
-einnimmt, öffnet nur `MAX` SETTINGS.
+einnimmt, öffnet nur `MAX` SETTINGS. Entschärft ist der Hinweis
+`SWIPE = THROTTLE` grau; scharf steht er in der Textfarbe.
+
+<img src="img/tester-disarmed.png" width="240" alt="Der Tester entschärft mit Telemetrie: SAFE in Grün, 14 POLES und MAX 20% unterstrichen, SWIPE = THROTTLE grau, ARM TO ENABLE im Balken">
 
 **Schaltflächen.** `HOLD TO ARM` / `DISARM`, `LATCH` (das Gas bleibt, wo der
 Finger es loslässt; blau, solange an), `MENU`.

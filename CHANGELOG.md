@@ -44,6 +44,16 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1: the wiki shows the six screens no page showed, in both
+  languages. USB BRIDGE's `RELEASING SIG GP0` strip, its failed bind
+  (`SIG GP0 COULD NOT BE TAKEN (PIO)` with `RETRY`), the card held by USB
+  DRIVE (`EJECT THE USB DRIVE FIRST.`), the lost bytes
+  (`BYTES LOST: THE BRIDGE FELL BEHIND.`) and the leave page after a session
+  that only read are on USB Bridge and USB-Brücke; the tester disarmed, with
+  telemetry, is on The Screens and Die Bildschirme. The pages gain the three
+  reasons of a failed bind (`PIO`, `CLOCK`, `REFUSED`) and that `BACK` leaves
+  without a leave page then, a sentence on when the leave page has no FLASH
+  note, and one on the grey `SWIPE = THROTTLE` while disarmed.
 - After v0.1.0-rc1: the hardware bench plan,
   [docs/bench-plan.md](docs/bench-plan.md). It gathers the bench tests of
   the design notes' bench and bring-up sections and of STATUS.md's open

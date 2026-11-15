@@ -210,7 +210,10 @@ on them does nothing: the pole count lies in the throttle pad and `MAX` reaches
 into the bar's grab area, so the press drives the throttle as there. While DShot
 restarts after a servo tool the underline goes too and a tap does nothing, as
 `MENU` draws SETTINGS disabled then. While the 3D note takes the row, only `MAX`
-opens SETTINGS.
+opens SETTINGS. Disarmed, the hint `SWIPE = THROTTLE` is grey; armed, it takes
+the text colour.
+
+<img src="img/tester-disarmed.png" width="240" alt="The tester disarmed with telemetry: SAFE in green, 14 POLES and MAX 20% underlined, SWIPE = THROTTLE grey, ARM TO ENABLE in the bar">
 
 **Buttons.** `HOLD TO ARM` / `DISARM`, `LATCH` (the throttle stays where the
 finger leaves it; blue while on), `MENU`.
