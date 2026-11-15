@@ -11,6 +11,8 @@
 #include "ui_sdlog.h"
 #include "ui_servo.h"
 #include "ui_servo_prog.h"
+#include "ui_rx_signals.h"
+#include "ui_sbus.h"
 #include "ui_settings.h"
 #include "servo_supply.h"
 #include "gfx.h"
@@ -24,7 +26,7 @@ constexpr UiMenuEntry UI_MENU[] = {
 	{ "AM32 CONFIG",       0, &UI_AM32       },
 	{ SERVO_UI_TITLE,      0, &UI_SERVO      },
 	{ "SERVO PROGRAMMER",  0, &UI_SERVO_PROG },   // 190 px: no room for a status
-	{ "RX SIGNALS",        9, &UI_RX_SIGNALS },   // ui_menu.cpp: NOT BUILT
+	{ "RX SIGNALS",        0, &UI_RX_SIGNALS },   // the chooser: MONITOR, OUTPUT
 	{ "SD LOG",           10, &UI_SDLOG      },   // ui_sdlog.cpp: CARD ERROR
 	{ "SETTINGS",          7, &UI_SETTINGS   },   // ui_settings.cpp: UNSAVED, UPDATED
 };
@@ -110,3 +112,38 @@ static constexpr bool progEntriesFit() {
 	return UI_PROGRAMMERS_COUNT > 0;
 }
 static_assert(progEntriesFit(), "a PROGRAMMER line is too wide, or runs into the next entry");
+
+/**
+ * @brief RX SIGNALS' entries, top to bottom (docs/design/rx-signals.md,
+ *        decision 4). OUTPUT, the S.BUS output, is not designed: no screen,
+ *        so the chooser draws it disabled under `NOT BUILT`.
+ */
+constexpr UiRxEntry UI_RX_ENTRIES[] = {
+	{ "MONITOR", { "S.BUS FROM A RECEIVER, ON GP1.", nullptr }, &UI_SBUS },
+	{ "OUTPUT", { "S.BUS TO A FLIGHT CONTROLLER.", UI_RX_NOT_BUILT }, nullptr },
+};
+constexpr uint8_t UI_RX_ENTRIES_COUNT = (uint8_t)(sizeof(UI_RX_ENTRIES) / sizeof(UI_RX_ENTRIES[0]));
+
+/**
+ * @brief Every RX SIGNALS entry fits as PROGRAMMER's do: its label at scale 2
+ *        in the button, its lines within @ref UI_PROG_LINE_CHARS, ending 4 px
+ *        or more above the next entry, the last one on the panel.
+ */
+static constexpr bool rxEntriesFit() {
+	for (int i = 0; i < UI_RX_ENTRIES_COUNT; i++) {
+		const UiRxEntry &e = UI_RX_ENTRIES[i];
+		if (textLen(e.label) > UI_PROG_LABEL_CHARS) return false;
+		int lines = 0;
+		for (const char *l : e.lines) {
+			if (!l) break;
+			if (textLen(l) > UI_PROG_LINE_CHARS) return false;
+			lines++;
+		}
+		int top = UI_PROG_ENTRY_Y + i * UI_PROG_ENTRY_PITCH;
+		int end = top + UI_PROG_LINE_DY + (lines > 0 ? (lines - 1) * UI_PROG_LINE_H + 7 : 0);
+		int room = i + 1 < UI_RX_ENTRIES_COUNT ? top + UI_PROG_ENTRY_PITCH - 4 : GFX_H;
+		if (end > room) return false;
+	}
+	return UI_RX_ENTRIES_COUNT > 0;
+}
+static_assert(rxEntriesFit(), "an RX SIGNALS line is too wide, or runs into the next entry");

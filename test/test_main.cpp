@@ -30,6 +30,7 @@ void runServoTests();
 void runKstTests();
 void runHitecTests();
 void runSbusJobTests();
+void runSbusUiTests();
 void runWidgetTests();
 void runIdTests();
 void runMenuTests();
@@ -61,6 +62,7 @@ int main() {
 	runKstTests();
 	runHitecTests();
 	runSbusJobTests();
+	runSbusUiTests();
 	runWidgetTests();
 	runIdTests();
 	runBackupTests();

@@ -40,7 +40,8 @@ enum class UiScreenId : uint8_t {
 	Hitec,     /**< HITEC SERVO: the entry, the field list, FILES, the write and leave pages. */
 	Beep,      /**< BEEP THE ESC, an action on MENU: never open. */
 	ServoProg, /**< PROGRAMMER, the chooser behind MENU's SERVO PROGRAMMER row. */
-	RxSignals, /**< RX SIGNALS, a MENU row drawn disabled: not built, never open. */
+	RxSignals, /**< RX SIGNALS, the chooser behind MENU's RX SIGNALS row: MONITOR and OUTPUT. */
+	Sbus,      /**< S.BUS MONITOR and its leave page, opened from RX SIGNALS. */
 	Count,     /**< How many screens; not a screen. */
 };
 
@@ -151,8 +152,8 @@ struct UiScreen {
 	/**
 	 * @brief Opens only while the pin claim is Free, without claiming:
 	 *        SETTINGS, which changes the wiring a claim latched, and
-	 *        PROGRAMMER, whose entries open tools that claim. A tool with a
-	 *        @ref pinUser waits for Free anyway.
+	 *        PROGRAMMER and RX SIGNALS, whose entries open tools that claim.
+	 *        A tool with a @ref pinUser waits for Free anyway.
 	 */
 	bool freePins;
 };

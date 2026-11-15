@@ -96,21 +96,6 @@ const UiScreen UI_BEEP = {
 };
 
 // ---------------------------------------------------------------------------
-// RX SIGNALS
-// ---------------------------------------------------------------------------
-
-/** @brief Why the row is drawn disabled, whatever the claim does. */
-static void rxStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
-	snprintf(buf, n, UI_MENU_NOT_BUILT);
-	*col = C_DIM;
-}
-
-const UiScreen UI_RX_SIGNALS = {
-	UiScreenId::RxSignals, "RX SIGNALS", PinUser::None, rxStatus,
-	nullptr, nullptr, nullptr, nullptr, nullptr, false,
-};
-
-// ---------------------------------------------------------------------------
 // the list
 // ---------------------------------------------------------------------------
 
@@ -146,8 +131,7 @@ static UiRect rowRect(int y) {
 
 /**
  * @brief Whether a tap on row @p i acts: an action, or a tool whose pins are
- *        free. A row with neither an action nor a screen, RX SIGNALS, never
- *        acts.
+ *        free. A row with neither an action nor a screen never acts.
  */
 static bool rowActs(int i) {
 	const UiScreen *s = s_entries[i].screen;

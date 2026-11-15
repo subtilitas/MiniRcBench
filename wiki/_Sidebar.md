@@ -14,6 +14,7 @@
 - [Servo Tester](Servo-Tester)
 - [KST Programming](KST-Programming)
 - [Hitec Programming](Hitec-Programming)
+- [RX Signals](RX-Signals)
 - [Troubleshooting](Troubleshooting)
 
 ---
@@ -30,6 +31,7 @@
 - [Servotester](Servotester)
 - [KST-Programmierung](KST-Programmierung)
 - [Hitec-Programmierung](Hitec-Programmierung)
+- [RX-Signale](RX-Signale)
 - [Fehlersuche](Fehlersuche)
 
 ---

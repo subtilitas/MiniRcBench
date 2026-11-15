@@ -44,6 +44,26 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1 (a93e1c1): S.BUS MONITOR, slice 3 of
+  [rx-signals.md](docs/design/rx-signals.md#slice-3-as-built), opened from
+  MENU → RX SIGNALS → MONITOR (`src/ui_sbus.*`). It claims the role that is
+  GP1 for the S.BUS job and shows a receiver's link state on the strip's chip
+  (`NO SIGNAL`, `NO FRAMES`, `FAILSAFE`, `FRAME LOST`, `OK`), its 16 channels
+  as bars over the raw 11-bit value with the value in µs by rcbench's
+  `sbus_to_us()`, CH17 and CH18, the mean frame interval and rate, and the
+  frame, frame-lost, failsafe, parity, framing, break, overrun, resync and
+  footer counts. The bars are lime while frames arrive, red in failsafe and
+  dim once no frame has come for 100 ms. With SIG on GP1 the screen does not
+  claim while an ESC answers there within 500 ms
+  (`AN ESC ANSWERS ON SIG GP1.`); KISS frames on GP1, no role on GP1 and a
+  refused UART clock have their own lines, the last with RETRY. BACK opens
+  the leave page at `1 UNPLUG THE RECEIVER.`, with BACK TO MONITOR and
+  RESTART DSHOT. What it shows comes from the pure `src/sbus_view.*`. RX
+  SIGNALS (`src/ui_rx_signals.*`) is the chooser behind the MENU row, with
+  MONITOR and OUTPUT, the S.BUS output, drawn disabled with `NOT BUILT`.
+  Host tests in `test/test_sbus_ui.cpp` run both through MENU on the UART0
+  fake; the preview `docs/sbus-preview.png` and the wiki pages RX-Signals and
+  RX-Signale are new. Not tested on hardware.
 - The design note for the angle meter,
   [angle-meter.md](docs/design/angle-meter.md), designed and not built:
   incidence, decalage, dihedral and control-surface throw in degrees and
@@ -579,6 +599,12 @@ protocol.
 
 ### Changed
 
+- After v0.1.0-rc1 (a93e1c1): MENU's RX SIGNALS row acts: it opens the RX
+  SIGNALS chooser, has no status, and is drawn disabled while the pin claim
+  is not free, as SERVO PROGRAMMER's row. `UI_RX_SIGNALS` moves from
+  `src/ui_menu.cpp` to `src/ui_rx_signals.cpp`, and `UI_MENU_NOT_BUILT`
+  becomes `UI_RX_NOT_BUILT`, OUTPUT's line. A chip on an amber or ink fill
+  draws its label in `C_PAPER` (`uiChip()`).
 - After v0.1.0-rc1 (a93e1c1): the documentation of menu structure B that no
   slice owned, slice 10 ([menu-b.md](docs/design/menu-b.md#slice-10-as-built));
   menu structure B is built, host tests only. menu.md's tree and MENU

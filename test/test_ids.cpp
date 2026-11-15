@@ -105,7 +105,18 @@ static void testMenuSettingsLog() {
 	checkControlTable("MENU");
 	checkTrue("SERVO TESTER acts", ctlEnabled(menuRow(&UI_SERVO)));
 	checkTrue("SERVO PROGRAMMER acts", ctlEnabled(menuRow(&UI_SERVO_PROG)));
-	checkTrue("RX SIGNALS does not", !ctlEnabled(menuRow(&UI_RX_SIGNALS)));
+	checkTrue("RX SIGNALS acts", ctlEnabled(menuRow(&UI_RX_SIGNALS)));
+
+	tapId(menuRow(&UI_RX_SIGNALS));
+	checkTrue("RX SIGNALS opens", uiCurrentScreen() == UiScreenId::RxSignals);
+	idFrames(1);
+	checkControlTable("RX SIGNALS");
+	checkTrue("its entries by id: MONITOR acts, OUTPUT does not",
+	          ctlEnabled(UI_FIX(RxCtl::Monitor)) && ctlPresent(UI_FIX(RxCtl::Output)) &&
+	          !ctlEnabled(UI_FIX(RxCtl::Output)) && !ctlPresent(UI_FIX(3)));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	idFrames(1);
 
 	tapId(menuRow(&UI_SERVO_PROG));
 	checkTrue("PROGRAMMER opens", uiCurrentScreen() == UiScreenId::ServoProg);

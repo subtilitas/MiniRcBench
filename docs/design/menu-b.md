@@ -126,7 +126,8 @@ TESTER (root, no header)                                        depth 0
      │   ├─ HITEC D SERIES  HITEC SERVO: claim, entry, read     3
      │   │   └─ as KST SERVO
      │   └─ HITEC CLASSIC   disabled while SERVO SUPPLY is OWN  3
-     ├─ RX SIGNALS          chooser: MONITOR, OUTPUT; to design 2
+     ├─ RX SIGNALS          chooser: MONITOR, OUTPUT           2
+     │   └─ MONITOR         S.BUS MONITOR: claims GP1           3
      ├─ SD LOG                                                  2
      └─ SETTINGS            opened from MENU                    2
 ```
@@ -134,7 +135,10 @@ TESTER (root, no header)                                        depth 0
 RX SIGNALS is the owner's row of 2026-11-14 ([decision 32](#decisions));
 its chooser and the two tools are designed in
 [rx-signals.md](rx-signals.md), not here. Until they exist the row is drawn
-disabled and opens nothing ([decision 35](#decisions)). A tap on HITEC D
+disabled and opens nothing ([decision 35](#decisions)). Revised by slice 3
+of rx-signals.md: the chooser and S.BUS MONITOR exist, the row opens the
+chooser and is refused while the claim is not Free, as SERVO PROGRAMMER's;
+OUTPUT is drawn disabled on the chooser, `NOT BUILT`. A tap on HITEC D
 SERIES or HITEC CLASSIC takes SIG ([decision 31](#decisions)); with SERVO
 SUPPLY at OWN, HITEC D SERIES then waits for READ ([decision
 34](#decisions)).
@@ -182,7 +186,11 @@ the scroll range is 294 − 258 = 36 px (`uiListMaxScroll()` in
 `src/ui_list.cpp`), as the seven rows on `main` scroll. SETTINGS, the
 seventh row, starts at y 314 with 6 px showing at scroll 0 and is reached
 with a short drag. RX SIGNALS is drawn disabled with the status
-`NOT BUILT` in every claim state ([decision 35](#decisions)).
+`NOT BUILT` in every claim state ([decision 35](#decisions)), until its
+tools exist. Revised by slice 3 of [rx-signals.md](rx-signals.md#menu): the
+row opens the RX SIGNALS chooser, has no status, as a tool row (decision
+18), and is drawn disabled only while the claim is not Free. The drawing
+and the table below show it as slice 9 built it.
 
 ```
 y   0 | MENU                            [  BACK  ]|  header 36 px; BACK 64 x 32

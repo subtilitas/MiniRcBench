@@ -9,7 +9,8 @@ step 5 ([kst-programming.md](kst-programming.md)). Slice 4, Hitec programming
 ([hitec-programming.md](hitec-programming.md)), adds the Hitec job; its
 steps 1 to 5 of 6 are built, and step 6, the bring-up on hardware, is open.
 The S.BUS monitor of [rx-signals.md](rx-signals.md) adds the S.BUS job and
-its pin user (its slice 2, built, host tests only); its screen is not built.
+its pin user (its slice 2), and its screen, S.BUS MONITOR (its slice 3);
+both built, host tests only.
 Slices A to C of [menu.md](menu.md), the menu restructure, are built before
 slice 3.
 Since slice C, the tester's third button reads MENU, the list of tools is
@@ -92,7 +93,7 @@ screen asks for decide only which pins its job binds.
 | SERVO, two servos | SIG and AUX | servo | core1, hardware PWM |
 | KST SERVO | SIG | KST | core1, `kst_line` PIO driver and session |
 | HITEC SERVO | SIG | Hitec | core1, `hitec_line` PIO driver and session |
-| S.BUS monitor ([rx-signals.md](rx-signals.md); the job is built, the screen is not) | the role on GP1: SIG and AUX when AUX is GP1, SIG when SIG is GP1 | S.BUS | nobody: the receiver drives GP1, and UART0 receives on it with the pad's input inverted |
+| S.BUS monitor ([rx-signals.md](rx-signals.md)) | the role on GP1: SIG and AUX when AUX is GP1, SIG when SIG is GP1 | S.BUS | nobody: the receiver drives GP1, and UART0 receives on it with the pad's input inverted |
 
 A claim lasts while its screen is open, its sub-screens included (SERVO SET,
 KST FILES). Leaving the screen with BACK ends it. No other screen is reachable
@@ -159,12 +160,13 @@ the exception.
    UART0 off and leaves GP1 an input with no inversion and the pull-down on.
    Then the job reports `Idle`. The claim stays Leaving until then. Before
    DShot restarts, SERVO, KST and HITEC show the leave page
-   ([restore](#restoring-dshot)), and the S.BUS monitor its unplug page
-   ([rx-signals.md](rx-signals.md), slice 3, not built): `pinClaimUnplugDue()`
+   ([restore](#restoring-dshot)), and so does S.BUS MONITOR
+   ([rx-signals.md](rx-signals.md#screen)): `pinClaimUnplugDue()`
    is true once the job is idle, RESTART DSHOT calls `pinClaimRestart()`
-   1000 ms after that at the earliest, and NEXT SERVO or BACK TO SERVO calls
-   `pinClaimKeep()`, which returns the claim to Held and starts the job again
-   for SERVO and KST; HITEC asks for it again. AM32 has neither a job nor the
+   1000 ms after that at the earliest, and NEXT SERVO, BACK TO SERVO or BACK
+   TO MONITOR calls `pinClaimKeep()`, which returns the claim to Held and
+   starts the job again for SERVO, KST and the S.BUS monitor; HITEC asks for
+   it again. AM32 has neither a job nor the
    page, so its BACK restores DShot within the
    `pinClaimEnd()` call.
 6. **Restoring.** Core0 calls `escTaskResume()`. Core1 rebuilds the driver from

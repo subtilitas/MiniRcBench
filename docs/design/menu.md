@@ -102,12 +102,14 @@ TESTER (root)   HOLD TO ARM | LATCH | MENU        MENU disarms, LATCH off
      │   ├─ KST / CHASERVO   KST SERVO; the tap claims SIG
      │   ├─ HITEC D SERIES   HITEC SERVO; the tap claims SIG
      │   └─ HITEC CLASSIC    HITEC SERVO; disabled while SERVO SUPPLY is OWN
-     ├─ RX SIGNALS        drawn disabled, NOT BUILT; opens nothing
+     ├─ RX SIGNALS        RX SIGNALS, a chooser; claims nothing
+     │   ├─ MONITOR          S.BUS MONITOR; the tap claims GP1
+     │   └─ OUTPUT           drawn disabled, NOT BUILT
      ├─ SD LOG            tool
      └─ SETTINGS          tool: one list in sections
  Every tool: BACK ──> MENU; SETTINGS opened on the tester: BACK ──> TESTER.
- SERVO TESTER, KST SERVO and HITEC SERVO pass the leave page once they hold
- the pins, and its RESTART DSHOT returns to MENU.
+ SERVO TESTER, KST SERVO, HITEC SERVO and S.BUS MONITOR pass the leave
+ page once they hold the pins, and its RESTART DSHOT returns to MENU.
 ```
 
 Opening MENU disarms, zeroes the throttle and turns LATCH off
@@ -134,7 +136,7 @@ y   0 | MENU                            [  BACK  ]|  header 36 px; BACK 64 x 32
   104 | AM32 CONFIG                               |  42 px pitch
   146 | SERVO TESTER                              |
   188 | SERVO PROGRAMMER                          |  no status
-  230 | RX SIGNALS                     NOT BUILT  |  drawn disabled
+  230 | RX SIGNALS                                |  no status
   272 | SD LOG                           NO CARD  |  sixth row, ends at y 311
   314 | SETTINGS                         UNSAVED  |  6 px at scroll 0
   320 +-------------------------------------------+
@@ -156,7 +158,7 @@ y   0 | MENU                            [  BACK  ]|  header 36 px; BACK 64 x 32
 | AM32 CONFIG | tool, SIG | none | opens AM32 CONFIG |
 | SERVO TESTER | tool, SIG and AUX | none | opens SERVO TESTER |
 | SERVO PROGRAMMER | chooser, `freePins` | none | opens PROGRAMMER, which claims nothing; its entries open KST SERVO and HITEC SERVO and claim SIG on the tap |
-| RX SIGNALS | not built | `NOT BUILT` in `C_DIM`; the row is drawn disabled whatever the claim does | nothing |
+| RX SIGNALS | chooser, `freePins` | none | opens RX SIGNALS, which claims nothing; its MONITOR opens S.BUS MONITOR and claims GP1 on the tap; OUTPUT is drawn disabled, `NOT BUILT` ([rx-signals.md](rx-signals.md#menu)) |
 | SD LOG | tool | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a host holds the card, in the SD LOG screen's colours | opens SD LOG |
 | SETTINGS | tool, `freePins` | `UNSAVED` in `C_AMBER` while `settingsDirty()`; else `UPDATED` in `C_AMBER` while an update's reset or carry-over is not saved over; else none | opens SETTINGS |
 
@@ -186,8 +188,7 @@ minus the widest status at scale 1. Text width is `gfxTextW()`'s rule,
 (6 × characters − 1) × scale. SERVO PROGRAMMER is 190 px and ends at x 206;
 with the 8 px gap, 8 px are left before x 222, too few for a pin status such
 as `GP0`, 17 px. The tool rows therefore show no status, and the strip names
-both pins. RX SIGNALS is 118 px and ends at x 134; `NOT BUILT` is 53 px and
-starts at x 169.
+both pins. RX SIGNALS is 118 px and ends at x 134, with no status.
 
 Revised by [menu-b.md](menu-b.md#decisions) decisions 15 f and j, 16, 18
 and 32 to 35: slice C's MENU, and slice 3's after it, gave the tool rows a
@@ -613,11 +614,11 @@ today. No tool opens another.
 Revised by [menu-b.md](menu-b.md#decisions) decisions 16, 17, 19 and 32 to
 35: `UI_MENU` holds seven lines, BEEP THE ESC, AM32 CONFIG, SERVO TESTER,
 SERVO PROGRAMMER, RX SIGNALS, SD LOG and SETTINGS, the tool rows with a
-widest status of 0, and `UI_PROGRAMMERS` beside it holds PROGRAMMER's three
-entries. `uiOpenTool()` in `ui.cpp` is the one route from a screen to a
-tool: MENU's rows, PROGRAMMER's entries and the tester's readouts use it, and
-it keeps the level the tool was opened from, so BACK from SETTINGS opened on
-the tester returns to the tester.
+widest status of 0; `UI_PROGRAMMERS` beside it holds PROGRAMMER's three
+entries, and `UI_RX_ENTRIES` RX SIGNALS' two. `uiOpenTool()` in `ui.cpp` is
+the one route from a screen to a tool: MENU's rows, the choosers' entries
+and the tester's readouts use it, and it keeps the level the tool was opened
+from, so BACK from SETTINGS opened on the tester returns to the tester.
 
 **Settings from tools.** A tool's `UiScreen` may point at one section of
 persisted rows (decision 8). SETTINGS shows the core sections, ESC TESTER
@@ -993,6 +994,7 @@ owner has not decided them:
     the screen titled KST SERVO and whose HITEC D SERIES and HITEC CLASSIC
     entries open HITEC SERVO; `PINS BUSY` is gone and the tool rows show no
     status; the strip reads `SIG GP0  AUX GP1  DSHOT600` beside the EDT
-    chip. RX SIGNALS' row, drawn disabled, sits in `ui_menu.cpp` with BEEP.
+    chip. RX SIGNALS' row opens its chooser, `ui_rx_signals.cpp`
+    (rx-signals.md, slice 3).
 19. **Section order and BOARD.** Tool sections sit between WIRING and
     DISPLAY in registry order. The BOARD section's row reads `BUILT FOR`.

@@ -49,9 +49,8 @@ enum class Core1JobPhase : uint8_t {
  *
  * The bind failures name the resource, as the screens show them: `GP0 COULD
  * NOT BE TAKEN (PWM)`, `(PIO)`, `(DMA)` or `(CLOCK)`. CORE1_JOB_NO_GP1 is a
- * wiring, not a resource: the S.BUS screen, slice 3 of rx-signals.md and not
- * built, is to check the wiring before it claims, so for it the refusal is a
- * backstop.
+ * wiring, not a resource: the S.BUS screen (ui_sbus.h) checks the wiring
+ * before it claims, so for it the refusal is a backstop.
  */
 enum Core1JobError : uint8_t {
 	CORE1_JOB_OK      = 0,  /**< Bound, or nothing started. */

@@ -120,7 +120,8 @@ void uiChip(const char *text, uint16_t fill) {
 	int y = UI_STRIP_Y + (UI_STRIP_H - UI_CHIP_H) / 2;
 	gfxRect(x, y, w, UI_CHIP_H, fill);
 	// y 44, the line of uiStripText(), so the chip reads level with the caption.
-	gfxText(x + 6, y + (UI_CHIP_H - 7) / 2, text, C_ONACCENT, 1);
+	uint16_t fg = (fill == C_AMBER || fill == C_INK) ? C_PAPER : C_ONACCENT;
+	gfxText(x + 6, y + (UI_CHIP_H - 7) / 2, text, fg, 1);
 }
 
 void uiChangeText(int x, int y, const char *old, const char *now) {
