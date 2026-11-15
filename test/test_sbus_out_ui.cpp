@@ -540,7 +540,7 @@ static void testEntryProbeStart() {
 	SbusOutCmd c = held();
 	checkTrue("1000 ms: START, the throttle on channel 3, MAX THROTTLE's ceiling, raw 499",
 	          c.seq != seq0 && c.kind == SbusOutCmdKind::Start && c.thrCh == 2 && c.ceilRaw == 499);
-	for (int k = 0; k < 10; k++) { fakeHold(x, y); tick(25); }
+	for (int j = 0; j < 10; j++) { fakeHold(x, y); tick(25); }
 	checkTrue("the finger left on the button 250 ms more: still RUNNING, no STOP",
 	          jobSt().running && held().kind == SbusOutCmdKind::Start);
 	fakeRelease();

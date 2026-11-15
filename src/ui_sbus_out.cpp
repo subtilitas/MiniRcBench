@@ -712,9 +712,11 @@ static void setTouch() {
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Draw the leave page: opened releasing, `UNPLUG THE FLIGHT
- *        CONTROLLER.`; after an EFM8 answer, decision 8's first step before
- *        LEAVE, and a last step that plugs the ESC back in.
+ * @brief Draw the leave page.
+ *
+ * Opened releasing, its first step unplugs the FC. After an EFM8 answer it
+ * opens before LEAVE with the first step of decision 8, and its last step
+ * plugs the ESC back in.
  */
 static void drawLeave() {
 	uint32_t now = millis();
