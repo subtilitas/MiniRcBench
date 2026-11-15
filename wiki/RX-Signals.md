@@ -117,14 +117,14 @@ same either way.
 
 | Text | Why | What to do |
 |---|---|---|
-| `AN ESC ANSWERS ON SIG GP1.` `UNPLUG IT: THE RECEIVER GOES THERE.` | SIG is GP1, and an ESC answers there. The receiver would drive the ESC's signal input | Unplug the ESC. The screen takes the pin 500 ms after the ESC goes quiet; plug the receiver in once the link chip shows |
-| `KISS WIRE ON AUX GP1 IS LIVE.` `UNPLUG IT: THE RECEIVER GOES THERE.` | KISS telemetry arrives on GP1 | Unplug the telemetry wire |
+| `AN ESC ANSWERS ON SIG GP1.` `UNPLUG IT. PLUG THE RECEIVER IN` `ONCE THE LINK CHIP SHOWS.` | SIG is GP1, and an ESC answers there. The receiver would drive the ESC's signal input | Unplug the ESC. The screen takes the pin 500 ms after the ESC goes quiet; plug the receiver in once the link chip shows. The chip appears only when the claim holds and the job runs; until then DShot keeps driving GP1 |
+| `KISS WIRE ON AUX GP1 IS LIVE.` `UNPLUG IT. PLUG THE RECEIVER IN` `ONCE THE LINK CHIP SHOWS.` | KISS telemetry arrives on GP1 | Unplug the telemetry wire. Plug the receiver in once the link chip shows |
 | `S.BUS NEEDS GP1.` `SET A PIN TO GP1 IN SETTINGS.` | neither SIG nor AUX is GP1 | Set SIG PIN or AUX PIN to GP1. SETTINGS swaps the two, so this does not happen on this board |
 | `AUX GP1 COULD NOT BE TAKEN (CLOCK)` | the board's serial receiver could not reach 100,000 baud | `RETRY` |
 
 The ESC check misses an ESC that does not answer in bidirectional DShot.
 
-<img src="img/sbus-esc.png" width="240" alt="S.BUS MONITOR waiting: AN ESC ANSWERS ON SIG GP1. and UNPLUG IT: THE RECEIVER GOES THERE. in amber"> <img src="img/sbus-no-gp1.png" width="240" alt="S.BUS MONITOR with no role on GP1: S.BUS NEEDS GP1. and SET A PIN TO GP1 IN SETTINGS. in amber">
+<img src="img/sbus-esc.png" width="240" alt="S.BUS MONITOR waiting: AN ESC ANSWERS ON SIG GP1. and UNPLUG IT. PLUG THE RECEIVER IN ONCE THE LINK CHIP SHOWS. in amber"> <img src="img/sbus-no-gp1.png" width="240" alt="S.BUS MONITOR with no role on GP1: S.BUS NEEDS GP1. and SET A PIN TO GP1 IN SETTINGS. in amber">
 
 ---
 

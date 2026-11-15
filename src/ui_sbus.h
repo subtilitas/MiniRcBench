@@ -20,7 +20,8 @@
  * - **GP1 is SIG.** The claim's ESC check is off for this user (pin_claim.h,
  *   `escCheck`), so the screen makes its own: while an eRPM frame arrived
  *   within @ref ESC_LINK_STALE_MS, 500 ms, it does not claim and shows
- *   `AN ESC ANSWERS ON SIG GP1.` `UNPLUG IT: THE RECEIVER GOES THERE.`, and
+ *   `AN ESC ANSWERS ON SIG GP1.` `UNPLUG IT. PLUG THE RECEIVER IN`
+ *   `ONCE THE LINK CHIP SHOWS.`, and
  *   asks again every frame.
  *
  * BACK leaves through the leave page (ui_leave.h): the job lets GP1 go at
@@ -85,8 +86,10 @@ struct UiScreen;
 #define SBUS_UI_ESC_1       "AN ESC ANSWERS ON SIG GP1."
 /** @brief KISS frames on GP1 while it is AUX, line 1, amber: 29 characters. */
 #define SBUS_UI_KISS_1      "KISS WIRE ON AUX GP1 IS LIVE."
-/** @brief The second line of both, amber: 35 characters, 209 px. */
-#define SBUS_UI_UNPLUG_2    "UNPLUG IT: THE RECEIVER GOES THERE."
+/** @brief The second line of both, amber: 31 characters, 185 px. */
+#define SBUS_UI_UNPLUG_2    "UNPLUG IT. PLUG THE RECEIVER IN"
+/** @brief The third line of both, amber: 25 characters, 149 px. */
+#define SBUS_UI_UNPLUG_3    "ONCE THE LINK CHIP SHOWS."
 /** @brief The leave page's step that unplugs the receiver: 20 characters. */
 #define SBUS_UI_UNPLUG      "UNPLUG THE RECEIVER."
 /** @brief Its detail line, SIG's GPIO for `%u`, when GP1 is AUX: 26 characters. */
