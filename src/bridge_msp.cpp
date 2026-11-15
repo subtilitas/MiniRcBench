@@ -13,6 +13,10 @@
 /** @brief The name the board gives as its flight controller variant and board (decision 5). */
 static const char NAME[4] = { 'M', 'R', 'C', 'B' };
 
+/** @brief `MSP_BUILD_INFO`'s 19 bytes: `MRCB 0.1.0` and spaces. */
+static const char BUILD_INFO[] = "MRCB " FW_VERSION_STRING "                   ";
+static_assert(sizeof(BUILD_INFO) - 1 >= 19, "19 bytes at least");
+
 void bridgeMspReset(BridgeMspReader *r) { r->state = 0; }
 
 bool bridgeMspInFrame(const BridgeMspReader *r) { return r->state != 0; }
@@ -94,16 +98,13 @@ uint16_t bridgeMspAnswer(const BridgeMspReader *r, uint8_t *out, BridgeMspEffect
 			put16(p + 4, 0);
 			n = 6;
 			break;
-		case MSP_BUILD_INFO: {
-			// `Nov 15 2026` and `12:34:56`, as Betaflight's buildDate and
-			// buildTime.
-			static const char DATE[] = __DATE__, TIME[] = __TIME__;
-			static_assert(sizeof(DATE) == 12 && sizeof(TIME) == 9, "11 and 8 characters");
-			memcpy(p, DATE, 11);
-			memcpy(p + 11, TIME, 8);
+		case MSP_BUILD_INFO:
+			// In place of Betaflight's build date and time: the name and the
+			// firmware version, padded with spaces to 19 bytes, so that two
+			// builds of one commit give the same image.
+			memcpy(p, BUILD_INFO, 19);
 			n = 19;
 			break;
-		}
 		case MSP_FEATURE_CONFIG:
 			memset(p, 0, 4);
 			n = 4;

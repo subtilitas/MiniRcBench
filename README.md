@@ -3353,9 +3353,9 @@ src/
   bridge_wire.{h,cpp}   the USB bridge's core1 job: the frame slot, the ring, the echo, the counts
   bridge_line_port.{h,cpp} the bridge's line: two PIO state machines on SIG
   bridge_line.pio       ...its transmitter, seven instructions; the receiver is pio_uart_rx.pio
-  usb_bridge.{h,cpp}    the bridge's USB side: the port to the frame slot and the ring back, the modes
+  usb_bridge.{h,cpp}    the bridge's USB side: modes, port, slot
   bridge_msp.{h,cpp}    the bridge's MSP answers, before the 4-way interface
-  bridge_4way.{h,cpp}   the bridge's 4-way interface: PC frames to escwire's bootloader frames on SIG
+  bridge_4way.{h,cpp}   the bridge's 4-way interface, escwire's frames
   bridge_log.{h,cpp}    the bridge's traffic log, a build option off by default
   ui_bridge.{h,cpp}     USB BRIDGE: the claim, the counts, BACK's rules, the leave page
   backup_ring.{h,cpp}   the ring of device backups in BACKUP/

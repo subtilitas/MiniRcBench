@@ -786,8 +786,9 @@ static void testFourWay() {
 	const uint8_t motor[] = {'$', 'M', '<', 2, MSP_SET_MOTOR, 0xE8, 0x03, (uint8_t)(2 ^ MSP_SET_MOTOR ^ 0xE8 ^ 0x03)};
 	fakeCdcHostWrite(motor, sizeof(motor));
 	brFrames(12);
-	checkTrue("SET_MOTOR: line 2 amber, MOTOR COMMAND FROM THE PC REFUSED., 203 px",
-	          msgIs(2, BRIDGE_UI_MOTOR, C_AMBER) && defaultLines(2) && gfxTextW(BRIDGE_UI_MOTOR, 1) == 203);
+	checkTrue("SET_MOTOR: line 3 amber, MOTOR COMMAND FROM THE PC REFUSED., 203 px; PROPELLER OFF. kept on line 2",
+	          msgIs(3, BRIDGE_UI_MOTOR, C_AMBER) && defaultLines(3) && msgIs(2, BRIDGE_UI_LINE_2, C_DIM) &&
+	          gfxTextW(BRIDGE_UI_MOTOR, 1) == 203);
 	fakeDumpFrame("shot_bridge_4way.ppm");
 	brFrames(190);
 	checkTrue("for 5 s, then the line back", defaultLines());

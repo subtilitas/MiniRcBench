@@ -62,7 +62,7 @@ reads `EJECT THE USB DRIVE FIRST.`. Eject the drive and it starts.
 | Line | Meaning |
 |---|---|
 | `PORT OPEN`, `PORT CLOSED` | Whether the tool has the port open |
-| `WAITING`, `PASSTHROUGH`, `4-WAY INTERFACE` | Waiting for the tool's first byte, passing bytes, or answering as a flight controller. In passthrough 2 s with no byte, or the tool closing the port, returns to `WAITING`; the 4-way interface stays until the tool disconnects or closes the port |
+| `WAITING`, `PASSTHROUGH`, `4-WAY INTERFACE` | Waiting for the tool's first byte, passing bytes, or answering as a flight controller. In passthrough, and while the tool still asks its first MSP questions, which already show `4-WAY INTERFACE`, 2 s with no byte, or the tool closing the port, returns to `WAITING`; once the tool has started the 4-way interface it stays until the tool disconnects or closes the port |
 | `PC > ESC`, `ESC > PC` | Bytes each way; in passthrough `ESC > PC` includes the echo, in the 4-way interface it counts the board's answers |
 | `FRAMES`, `LOST` | Frames to the ESC; bytes the board could not keep, amber above 0 |
 | `LAST SET ADDRESS 7E00` | The last command: as the bootloader names it, `LAST MSP UID` for an MSP question, `LAST READ 7C00` for a 4-way request |

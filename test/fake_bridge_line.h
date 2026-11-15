@@ -77,7 +77,8 @@ int fakeBridgeLineWireCount();
 
 /**
  * @brief One byte the bridge put on the wire.
- * @param i       Its index since the reset.
+ * @param i       Its index since the reset; one not on the wire gives 0,
+ *                0 and false.
  * @param b       Out: the byte.
  * @param startCy Out: its start bit's cycle.
  * @param keep    Out: whether the pad stayed driven after it.

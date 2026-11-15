@@ -24,7 +24,7 @@
  * | `MSP_FC_VARIANT` (2) | `MRCB` | 4 |
  * | `MSP_FC_VERSION` (3) | the firmware version, version.h | 3 |
  * | `MSP_BOARD_INFO` (4) | `MRCB` and version 0 | 6 |
- * | `MSP_BUILD_INFO` (5) | `__DATE__` and `__TIME__` | 19 |
+ * | `MSP_BUILD_INFO` (5) | `MRCB` and the firmware version, `MRCB 0.1.0`, padded with spaces | 19 |
  * | `MSP_FEATURE_CONFIG` (36) | 0 | 4 |
  * | `MSP_STATUS` (101) | 0 but byte 16, 3 flags, and the arming-disable flags at bytes 17 to 20 with bit 2, RX_FAILSAFE, set | 22 |
  * | `MSP_MOTOR` (104) | one motor, 1000 | 2 |

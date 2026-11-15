@@ -424,13 +424,13 @@ Programmier-Sitzung und `BACK` in einem Programmierer, bevor er SIG belegt.
 
 `MENU → ESC CONFIG` öffnet eine Wahl aus zwei, wie PROGRAMMER:
 **ESC SETTINGS**, das den Bildschirm für ESC-Einstellungen öffnet, AM32,
-Bluejay und BLHeli_S gelesen und geschrieben, und **USB BRIDGE**,
-über das ein ESC-Programm auf dem Computer den ESC erreicht, darunter
+Bluejay und BLHeli_S gelesen und geschrieben, und **USB BRIDGE**, über das
+ein ESC-Programm auf dem Computer den ESC erreicht, darunter
 `A DESKTOP ESC TOOL OVER USB.` und `MSP, 4-WAY AND PASSTHROUGH.`. Die
-Leiste nennt den Signalpin, `SIG GP0`. ESC CONFIG belegt keinen Pin; das Tippen auf einen Eintrag
-belegt SIG. `BACK` führt zu `MENU` zurück, ebenso `BACK` auf beiden
-Werkzeugen. Siehe [AM32-Konfiguration](AM32-Konfiguration) und
-[USB-Brücke](USB-Bruecke).
+Leiste nennt den Signalpin, `SIG GP0`. ESC CONFIG belegt keinen Pin; das
+Tippen auf einen Eintrag belegt SIG. `BACK` führt zu `MENU` zurück, ebenso
+`BACK` auf beiden Werkzeugen. Siehe [AM32-Konfiguration](AM32-Konfiguration)
+und [USB-Brücke](USB-Bruecke).
 
 ### RX SIGNALS
 

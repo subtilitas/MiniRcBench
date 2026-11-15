@@ -105,11 +105,11 @@ static void fresh(FakeEscReply r) {
 	esc3dSetNote(false);
 }
 
-/** @brief The wire byte at @p i and its start bit's cycle. */
+/** @brief The wire byte at @p i and its start bit's cycle; 0 for an index not on the wire. */
 static uint8_t wireAt(int i, uint64_t *cy = nullptr) {
-	uint8_t b;
-	uint64_t s;
-	bool keep;
+	uint8_t b = 0;
+	uint64_t s = 0;
+	bool keep = false;
 	fakeBridgeLineWire(i, &b, &s, &keep);
 	if (cy) *cy = s;
 	return b;
@@ -165,7 +165,8 @@ struct ModelBl {
 	bool     answerHeader;   // answers SET BUFFER's header 0xC1, as to an unknown command
 	bool     badReadCrc;     // READ's CRC off by one
 	uint8_t  readAck;        // READ's last byte
-	uint8_t  greetBad;       // 1: `4x1` in place of `471`; 2: the greeting's last byte 0xC1
+	uint8_t  greetBad;       // 1: `4x1` in place of `471`; 2: the greeting's last byte 0xC1; 3: `47x`
+	bool     blheli32;       // VERIFY answered, as BLHeli_32's bootloader is said to; AM32's has no 0x04
 	bool     refuseProgram;  // PROGRAM answered 0xC5
 	int      greetings, erases, programs, runs, keepAlives, joined, badCrc, verifies;
 };
@@ -211,6 +212,7 @@ static int modelBl(const uint8_t *f, int n, uint8_t *r, uint32_t *d) {
 		memcpy(r, a, 9);
 		if (g_bl.greetBad == 1) r[1] = 'x';
 		if (g_bl.greetBad == 2) r[8] = 0xC1;
+		if (g_bl.greetBad == 3) r[2] = 'x';
 		return 9;
 	}
 	if (g_bl.bufWant) {
@@ -246,12 +248,17 @@ static int modelBl(const uint8_t *f, int n, uint8_t *r, uint32_t *d) {
 			g_bl.bufWant = (f[2] << 8 | f[3]);
 			return 0;
 		case 0x03: {
+			// AM32 578ff29 refuses a READ with no SET ADDRESS since the last.
+			if (!g_bl.efm8 && g_bl.addr == 0) return blAck(r, 0xC1);
 			int c = f[1] ? f[1] : 256;
 			memcpy(r, g_bl.flash + g_bl.addr, c);
 			uint16_t crc = (uint16_t)(crcArc(r, c) + (g_bl.badReadCrc ? 1 : 0));
 			r[c] = (uint8_t)crc;
 			r[c + 1] = (uint8_t)(crc >> 8);
 			r[c + 2] = g_bl.readAck;
+			// AM32's bootloader sets the address back to 0 after a READ
+			// (578ff29 main.c line 810).
+			if (!g_bl.efm8) g_bl.addr = 0;
 			return c + 3;
 		}
 		case 0x01:
@@ -261,13 +268,17 @@ static int modelBl(const uint8_t *f, int n, uint8_t *r, uint32_t *d) {
 			*d = g_bl.programUs;
 			return blAck(r, 0x30);
 		case 0x02: {
-			int page = g_bl.efm8 ? 512 : 1024;
-			memset(g_bl.flash + (g_bl.addr & ~(page - 1)), 0xFF, page);
+			// The EFM8 bootloader erases the 512-byte page; AM32's checks the
+			// address and acknowledges (578ff29 main.c lines 753 to 768).
+			if (g_bl.efm8) memset(g_bl.flash + (g_bl.addr & ~511), 0xFF, 512);
 			g_bl.erases++;
 			*d = g_bl.eraseUs;
 			return blAck(r, 0x30);
 		}
 		case 0x04:
+			// AM32 bootloader 578ff29 has no 0x04 and answers it 0xC1
+			// (main.c line 815).
+			if (!g_bl.blheli32) return blAck(r, 0xC1);
 			g_bl.verifies++;
 			return blAck(r, memcmp(g_bl.flash + g_bl.addr, g_bl.buf, g_bl.bufLen) == 0 ? 0x30 : 0xC0);
 		case 0xFD:
@@ -471,6 +482,16 @@ static void testMspPure() {
 	bridgeMspAnswer(&r, out, &e);
 	checkTrue("STATUS: byte 15 0, the flags at 17 with bit 2, RX_FAILSAFE, set",
 	          out[5 + 15] == 0 && (out[5 + 17] & 0x04) && out[5 + 18] == 0 && out[5 + 21] == 0);
+	checkInt("STATUS: byte 16 counts the 3 flags up to RX_FAILSAFE", out[5 + 16], 3);
+	f[4] = f[5] = MSP_BUILD_INFO;
+	mspFeedAll(&r, f, 6);
+	bridgeMspAnswer(&r, out, &e);
+	char bi[20];
+	memcpy(bi, out + 5, 19);
+	bi[19] = 0;
+	char want[40];
+	snprintf(want, sizeof(want), "MRCB %-14s", FW_VERSION_STRING);
+	checkStr("BUILD_INFO: MRCB and the version, padded: the same for every build", bi, want);
 	f[4] = f[5] = MSP_UID;
 	mspFeedAll(&r, f, 6);
 	bridgeMspAnswer(&r, out, &e);
@@ -767,8 +788,11 @@ static void testCommands() {
 	r = fw(B4W_GET_NAME);
 	checkTrue("GetName: MRCB4W", r.ok && r.n == 6 && memcmp(r.par, "MRCB4W", 6) == 0);
 	r = fw(B4W_GET_VERSION);
-	const unsigned v = FW_VERSION_MAJOR * 100u + FW_VERSION_MINOR * 10u + FW_VERSION_PATCH;
-	checkTrue("GetVersion: two bytes", r.ok && r.n == 2 && r.par[0] == v / 100 && r.par[1] == v % 100);
+	// Betaflight's encoding: main × 1000 + sub 1 × 100 + sub 2, / 100 and % 100.
+	const unsigned v = FW_VERSION_MAJOR * 1000u + FW_VERSION_MINOR * 100u + FW_VERSION_PATCH;
+	checkTrue("GetVersion: two bytes, Betaflight's encoding", r.ok && r.n == 2 && r.par[0] == v / 100 &&
+	          r.par[1] == v % 100 && (FW_VERSION_MAJOR != 0 || FW_VERSION_MINOR != 1 || FW_VERSION_PATCH != 0 ||
+	                                  (r.par[0] == 1 && r.par[1] == 0)));
 	r = fw(B4W_TEST_ALIVE);
 	checkTrue("TestAlive with no device: OK, nothing on the wire", r.ok && r.ack == 0 && fakeBridgeLineWireCount() == w);
 	r = fwOne(B4W_READ, 16, 0x7C00);
@@ -827,17 +851,24 @@ static void testCommands() {
 	          wireAt(w) == 0xFF && wireAt(w + 6) == 0x03 && wireAt(w + 7) == 0x00 && r.par[0] == 0x5A);
 	w = fakeBridgeLineWireCount();
 	r = fwOne(B4W_READ, 4, 0xFFFF);
-	checkTrue("address 0xFFFF: no SET ADDRESS", r.ok && r.ack == 0 && wireAt(w) == 0x03);
+	checkTrue("address 0xFFFF: no SET ADDRESS, and AM32, its address 0 after the last READ, refuses: 0x0F",
+	          r.ok && r.ack == B4W_ACK_D_GENERAL_ERROR && wireAt(w) == 0x03);
 	g_bl.flash[0x2000] = 0x77;
 	g_bl.addr = 0;
 	uint8_t data[4] = {1, 2, 3, 4};
 	r = fw(B4W_WRITE, 0x2000, data, 4);
 	checkTrue("Write: OK, the model's flash", r.ok && r.ack == 0 && memcmp(g_bl.flash + 0x2000, data, 4) == 0);
 	r = fw(B4W_VERIFY, 0x2000, data, 4);
-	checkTrue("Verify of the same: OK", r.ok && r.ack == 0 && g_bl.verifies == 1);
+	checkTrue("Verify on AM32, which has no 0x04 and answers 0xC1: 0x0F", r.ok && r.ack == B4W_ACK_D_GENERAL_ERROR &&
+	          g_bl.verifies == 0);
+	// A bootloader with VERIFY, as BLHeli_32's is described; not verified.
+	g_bl.blheli32 = true;
+	r = fw(B4W_VERIFY, 0x2000, data, 4);
+	checkTrue("Verify of the same where 0x04 is answered: OK", r.ok && r.ack == 0 && g_bl.verifies == 1);
 	data[0] = 9;
 	r = fw(B4W_VERIFY, 0x2000, data, 4);
 	checkTrue("Verify of other bytes: 0x04", r.ok && r.ack == B4W_ACK_I_VERIFY_ERROR);
+	g_bl.blheli32 = false;
 	w = fakeBridgeLineWireCount();
 	r = fwOne(B4W_PAGE_ERASE, 0x1F);
 	checkTrue("PageErase 0x1F on ARM: address 0x7C00 in the answer and on the wire, ERASE 02 01",
@@ -868,8 +899,9 @@ static void testCommands() {
 	// RUN has no answer: with an echo lost it counts as out by its length.
 	w = fakeBridgeLineWireCount();
 	fakeBridgeLineDropEcho(w + 3);
-	r = fwOne(B4W_RESET, 0);
-	checkTrue("RUN's last echo lost: Reset answered", r.ok && r.ack == 0 && g_bl.runs == 1);
+	r = fwOne(B4W_RESET, 0, 0, 40);
+	checkTrue("RUN's last echo lost: Reset answered within 40 ms, 4 bytes at 534 us and 20 ms",
+	          r.ok && r.ack == 0 && g_bl.runs == 1);
 	g_bl.inBoot = true;
 	r = fwOne(B4W_INIT_FLASH, 0);
 	checkTrue("power-cycled: InitFlash", r.ok && r.ack == 0);
@@ -886,6 +918,10 @@ static void testCommands() {
 	g_bl.greetBad = 2;
 	r = fwOne(B4W_INIT_FLASH, 0);
 	checkTrue("one ending in 0xC1: no device", r.ok && r.ack == B4W_ACK_D_GENERAL_ERROR &&
+	          !bridge4wayDevice().connected);
+	g_bl.greetBad = 3;
+	r = fwOne(B4W_INIT_FLASH, 0);
+	checkTrue("one starting `47x`: no device", r.ok && r.ack == B4W_ACK_D_GENERAL_ERROR &&
 	          !bridge4wayDevice().connected);
 	g_bl.greetBad = 0;
 	checkInt("no byte outside the claim", g_stray, 0);
@@ -964,11 +1000,17 @@ static void testWire() {
 	uint8_t data[256];
 	for (int i = 0; i < 256; i++) data[i] = (uint8_t)(255 - i);
 	FwReply r = fw(B4W_WRITE, 0x4000, data, 256);
-	uint8_t first[8];
-	int at[8];
+	uint8_t first[8] = {0};
+	int at[8] = {0};
 	int nf = wireFrameStarts(w, first, at, 8);
 	checkTrue("Write: SET ADDRESS, SET BUFFER, the data, PROGRAM: four frames",
 	          r.ok && r.ack == 0 && nf == 4 && first[0] == 0xFF && first[1] == 0xFE && first[3] == 0x01);
+	if (nf < 4) {
+		// Fewer frames: the checks below have nothing to measure.
+		checkTrue("four frames to measure", false);
+		endBridge();
+		return;
+	}
 	checkTrue("SET BUFFER 256: 01 00", wireAt(at[1] + 2) == 0x01 && wireAt(at[1] + 3) == 0x00);
 	checkTrue("the data: 256 bytes and the CRC", at[3] - at[2] == 258);
 	uint64_t hdrLast, dataFirst;
@@ -1216,6 +1258,8 @@ static void testPassthrough3d() {
 	run(200);
 	checkTrue("greeting, SET ADDRESS 7C00, READ 184 with 3D on: the note set", esc3dNote());
 	g_bl.flash[0x7C00 + 0x12] = 0;
+	fakeCdcHostWrite(sa, 6);  // AM32 wants SET ADDRESS before each READ
+	run(30);
 	fakeCdcHostWrite(rd, 4);
 	run(200);
 	checkTrue("read again with it off: cleared", !esc3dNote());
@@ -1302,6 +1346,46 @@ static void testPassthrough3d() {
 	endBridge();
 }
 
+/** @brief The PC's greeting in passthrough: its echo and the model's 9-byte answer reach the PC. */
+static bool greetingAnswered() {
+	static const uint8_t INIT21[21] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	                                   0x0D, 'B', 'L', 'H', 'e', 'l', 'i', 0xF4, 0x7D};
+	uint8_t in[64];
+	fakeCdcHostRead(in, sizeof(in));
+	fakeCdcHostWrite(INIT21, 21);
+	run(40);
+	int n = fakeCdcHostRead(in, sizeof(in));
+	return usbBridgeMode() == BridgeMode::Passthrough && n == 30 && in[21] == '4' && in[22] == '7' &&
+	       in[23] == '1' && in[29] == 0x30;
+}
+
+static void testPassthroughAfter() {
+	section("USB bridge: passthrough after MSP or the 4-way interface in one open");
+	blReset(false);
+	fresh(modelBl);
+	openBridge();
+	FwReply r = fwOne(B4W_INIT_FLASH, 0);
+	r = fw(B4W_EXIT);
+	run(5);
+	checkTrue("ESC-Configurator's session ends in Exit: Waiting", r.ok && usbBridgeMode() == BridgeMode::Waiting);
+	checkTrue("then the AM32 configurator in Direct mode: its greeting answered", greetingAnswered());
+	run(2100);
+	checkTrue("passthrough idle: Waiting", usbBridgeMode() == BridgeMode::Waiting);
+	MspReply m = msp(MSP_API_VERSION);
+	run(2100);
+	checkTrue("MSP alone, idle 2000 ms: Waiting", m.ok && usbBridgeMode() == BridgeMode::Waiting);
+	checkTrue("then a greeting in passthrough: answered", greetingAnswered());
+	run(2100);
+	fwOne(B4W_INIT_FLASH, 0);
+	fakeCdcDtr(false);
+	run(2);
+	fakeCdcDtr(true);
+	run(2);
+	checkTrue("a 4-way session ended by a port close, then a greeting: answered",
+	          usbBridgeMode() == BridgeMode::Waiting && greetingAnswered());
+	endBridge();
+}
+
 void runBridgeProtoTests() {
 	testMspPure();
 	test4wayPure();
@@ -1315,5 +1399,6 @@ void runBridgeProtoTests() {
 	testWriteRules();
 	testMalformed();
 	testPassthrough3d();
+	testPassthroughAfter();
 	esc3dSetNote(false);
 }

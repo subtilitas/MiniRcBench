@@ -67,7 +67,7 @@ that commit.
 | Betaflight (`betaflight/betaflight`) | 134ce0f | `src/main/io/serial_4way.c` lines 71 to 91, 137 to 182, 191 to 295, 344 to 394, 445 to 497, 597 to 625; `src/main/io/serial_4way_avrootloader.c` lines 49 to 74, 76 to 194, 196 to 229, 231 to 345; `src/main/io/serial_4way.c` lines 641 to 661; `src/main/target/common_pre.h` lines 103, 104, 258, 310, 324, 326; `src/main/msp/msp.c` lines 881 to 895; `src/main/msp/msp.c` lines 293 to 350; `src/main/msp/msp_protocol.h` lines 59 to 62, 94 to 272; `src/main/drivers/serial_escserial.c` lines 52, 920 to 1003; `src/main/cli/cli.c` lines 4834 to 4867, 8776 | GPL-3.0; read as the flight-controller side's reference, nothing copied |
 | ESC-Configurator (`stylesuxx/esc-configurator`), v0.32.1 | 21b407a | `src/utils/Serial.js` lines 27, 140 to 144; `src/Containers/App/serialSlice.js` line 4; `src/Containers/App/index.jsx` lines 172, 206 to 312, 439 to 470; `src/utils/Msp.js` lines 13 to 35, 130 to 138, 404 to 557, 789; `src/utils/FourWay.js` lines 125 to 135, 1395 to 1500; `src/utils/FourWayConstants.js` lines 12 to 26; `src/utils/helpers/Flash.js` lines 154 to 160 | AGPL-3.0; read, nothing copied |
 | AM32 configurator (`am32-firmware/am32-configurator`) | e11c42e | `components/SerialDevice.vue` lines 415 to 417, 505 to 540, 612 to 660, 674 to 702, 813 to 817, 1076 to 1083; `src/communication/direct.ts` lines 6 to 19, 103 to 120, 236 to 266; `src/communication/msp.ts` lines 118 to 126; `src/communication/four_way.ts` lines 87, 623 to 625; `src/communication/commands.queue.ts` lines 48 to 118 | no licence file at that commit; read, nothing copied |
-| AM32 bootloader (`am32-firmware/AM32-bootloader`) | 578ff29 | `bootloader/main.c` lines 45, 52, 396 to 398, 423 to 473, 546 to 565, 576 to 579, 815 to 816, 835 to 860, 1097 to 1157, 1217 to 1281 | GPL-3.0; read, nothing copied |
+| AM32 bootloader (`am32-firmware/AM32-bootloader`) | 578ff29 | `bootloader/main.c` lines 45, 52, 396 to 398, 547 to 565, 629 to 815, 423 to 473, 546 to 565, 576 to 579, 815 to 816, 835 to 860, 1097 to 1157, 1217 to 1281 | GPL-3.0; read, nothing copied |
 | AM32 firmware 2.22 | 2a695a8 | `Src/main.c` lines 2137 to 2163 | GPL-3.0; read, as in [esc-commands.md](esc-commands.md#sources) |
 | BLHeli_S (`bitdump/BLHeli`), revision 16.7 | a5bcf99 | `BLHeli_S SiLabs/BLHeliBootLoad.inc` lines 5 to 11, 48 to 91, 176 to 180, 205 to 215; `BLHeli_S SiLabs/BLHeli_S.asm` lines 3585 to 3605 | GPL-3.0; read, nothing copied |
 | Bluejay (`bird-sanctuary/bluejay`), revision 0.21 | 0368d11 | `README.md` lines 37 to 40; `src/BLHeliBootLoad.inc` line 238 | GPL-3.0; read, nothing copied |
@@ -177,9 +177,10 @@ high byte 0x01 to 0x8F with the low byte 0x06 (`serial_4way.c` 344 to
 394; `serial_4way_avrootloader.c` 196 to 229).
 Erase and the settings write wait up to 3000 ms for the bootloader's ACK, a
 flash write 500 ms (`serial_4way_avrootloader.c` 315 to 333). A write sends
-`SET_BUFFER`'s 4 bytes and CRC, waits up to two 2 ms start-bit timeouts,
-about 4 ms, for no answer, then sends the data and its CRC as a second
-message (`BL_SendCMDSetBuffer()`, lines 267 to 278).
+`SET_BUFFER`'s 4 bytes and CRC, waits for no answer through
+`BL_GetACK(2)`, three start-bit waits of 1 to 2 ms each, 3 to 6 ms in
+all, then sends the data and its CRC as a second message
+(`BL_SendCMDSetBuffer()`, lines 267 to 278).
 
 ## The board's USB today
 
@@ -329,7 +330,7 @@ page:
 |---|---|---|
 | Rate | 19200 baud 8N1, 52.08 µs a bit, 520.8 µs a byte | AM32 bootloader `main.c` 396 to 398; BLHeli_S `BLHeliBootLoad.inc` line 11; `serial_4way_avrootloader.c` 71 |
 | Gap within one bootloader message | none: the bytes go back to back; as built, a stop bit of 1.25 bit times, driven high ([slice 1 as built](#slice-1-as-built)) | the AM32 bootloader ends a message after 5 bit times, 260 µs, of idle line (`main.c` 860) |
-| Gap between `SET_BUFFER` and its data | at least 520 µs, 10 bit times; the 4-way handler waits 4 ms, as Betaflight | they are two messages: data closer than 260 µs behind the header become part of it and get no answer. Betaflight waits about 4 ms (`serial_4way_avrootloader.c` 267 to 278), rcbench's escwire 520 µs (`escwire/README.md` 53, 59 to 61) |
+| Gap between `SET_BUFFER` and its data | at least 520 µs, 10 bit times; the 4-way handler waits 4 ms, inside Betaflight's 3 to 6 ms | they are two messages: data closer than 260 µs behind the header become part of it and get no answer. Betaflight waits 3 to 6 ms (`serial_4way_avrootloader.c` 267 to 278), rcbench's escwire 520 µs (`escwire/README.md` 53, 59 to 61) |
 | Turnaround | the line is let go at the end of the last stop bit | Betaflight releases the line straight after its last byte (`serial_4way_avrootloader.c` 178 to 194); AM32 answers about 0.3 to 0.35 ms after the host's last byte by rcbench's specification (`escwire/README.md`), not measured |
 | Idle | input with the pad's pull-up, as the claim leaves it in Held | the Held row of `pin_claim.h`'s state table; `am32_bl.cpp` lines 74 to 78 |
 | Drive while sending | push-pull, both levels | `AM32_PUSH_PULL_TX` 1 (`config.h` line 628); rcbench `ew_line.h` "a transaction's bytes: driven, both levels" |
@@ -473,7 +474,7 @@ ESC-Configurator then closes the port (`index.jsx` 309 to 312).
 | `MSP_API_VERSION` (1) | protocol 0, API 1.49, Betaflight 134ce0f's (`msp_protocol.h` 59 to 62) | 3 | bytes 0 to 2 (`Msp.js` 455 to 464; `commands.queue.ts` 57 to 62) |
 | `MSP_FC_VARIANT` (2) | `MRCB` (decision 5) | 4, exactly | ESC-Configurator bytes 0 to 3; the AM32 configurator decodes the whole payload (`commands.queue.ts` 53, 63 to 83) |
 | `MSP_FC_VERSION` (3) | the firmware version, `version.h` | 3 | bytes 0 to 2 (`Msp.js` 477 to 484) |
-| `MSP_BUILD_INFO` (5) | the build's date, 11 bytes, and time, 8 bytes, as text | 19 | bytes 0 to 18 (`Msp.js` 486 to 507) |
+| `MSP_BUILD_INFO` (5) | in place of the build's date, 11 bytes, and time, 8 bytes: `MRCB`, the firmware version and spaces, the same for every build of one version (slice 3) | 19 | bytes 0 to 18 (`Msp.js` 486 to 507) |
 | `MSP_BOARD_INFO` (4) | a 4-letter board name and version 0 | 6 | bytes 0 to 5 (`Msp.js` 509 to 524) |
 | `MSP_STATUS` (101) | byte 15, the count of mode bytes, 0; the arming-disable flags at bytes 17 to 20 with bit 2, RX_FAILSAFE, set: no receiver and no arming, which is true | 22 | bytes 0 to 21 with that count (`Msp.js` 404 to 425) |
 | `MSP_MOTOR` (104) | one motor, 1000 | 2 | pairs of bytes (`Msp.js` 428 to 438) |
@@ -643,7 +644,7 @@ Message lines, each with its width:
 | Waiting and running | `OPEN THIS PORT IN A DESKTOP ESC TOOL.` (221 px); `THE ESC RUNS ON ITS OWN BATTERY.` (191 px); `PROPELLER OFF. DSHOT IS OFF.` (167 px); blank; `POWER-CYCLE THE ESC IF THE TOOL` (185 px); `FINDS NO ESC, AND AFTER A FLASH.` (191 px) | `C_DIM` |
 | A write-class frame out | line 0: `WRITING: DO NOT UNPLUG ESC OR USB.` (203 px); BACK drawn disabled | `C_AMBER` |
 | Bytes lost | line 1: `BYTES LOST: THE BRIDGE FELL BEHIND.` (209 px) | `C_AMBER` |
-| A motor command refused | line 2: `MOTOR COMMAND FROM THE PC REFUSED.` (203 px), for 5 s | `C_AMBER` |
+| A motor command refused | line 3, otherwise blank: `MOTOR COMMAND FROM THE PC REFUSED.` (203 px), for 5 s; `PROPELLER OFF. DSHOT IS OFF.` stays on line 2 | `C_AMBER` |
 | The port closed after traffic | line 0: `THE PC CLOSED THE PORT.` (137 px) | `C_DIM` |
 | The claim refused | the claim's refusal, as AM32 CONFIG shows it | `C_AMBER` |
 | USB DRIVE holds the card, by decision 11 (a) | line 0: `EJECT THE USB DRIVE FIRST.` (155 px); the claim is not begun | `C_AMBER` |
@@ -1138,7 +1139,7 @@ the wire; the modes, the protocol pass and passthrough's 3D tap in
 `src/usb_bridge.*`; `4-WAY INTERFACE`, `MOTOR COMMAND FROM THE PC
 REFUSED.` and the last line's MSP and 4-way names in `src/ui_bridge.*`;
 `blAnswerAm32Settings()` in `src/bl_answer.*`, an AM32 family's settings
-address, which `src/am32_bl.cpp` now takes its own address from; ESC
+address, which `src/am32_bl.cpp` uses for its own; ESC
 CONFIG's second line under `USB BRIDGE`, `MSP, 4-WAY AND PASSTHROUGH.`
 (27 characters, 161 px). Tests: `test/test_bridge_proto.cpp`; the modes in
 `test/test_usb_bridge.cpp`; a section in `test/test_bridge_ui.cpp`, which
@@ -1186,10 +1187,10 @@ reaches the wire.
    runs, and after MSP or the 4-way interface ends until the PC's next
    first byte, what the wire brings is dropped, so a late answer of a cut
    command reaches no tool.
-5. **A port close during a command** stops it where it is
-   (`bridge4wayAbort()`): a frame in the slot still goes out, nothing after
-   it, and nothing is answered. BACK's write wait then runs out at its
-   3000 ms.
+5. **A port close during a command** stops it where it is: the mode's end,
+   `endSession()` in `usb_bridge.cpp`, calls `bridge4wayReset()`. A frame
+   in the slot still goes out, nothing after it, and nothing is answered.
+   BACK's write wait then runs out at its 3000 ms.
 6. **Write-class 4-way frames** are the data after a Write's SET BUFFER,
    PROGRAM and ERASE. BACK is disabled from the first of them until the
    command's answer, at most 3000 ms after the last; Verify's data are not
@@ -1197,63 +1198,78 @@ reaches the wire.
 7. **Answers.** InitFlash: signature low byte, high byte, the answer's
    fourth byte, the interface mode; 4 bytes of 0 when it fails. PageErase
    answers with the page's address as Betaflight computes it, page × 1024
-   on ARM and × 512 on SiLabs. GetVersion: major × 100 + minor × 10 +
-   patch in hundreds and units, 0 and 10 for 0.1.0, as Betaflight encodes
-   its own.
+   on ARM and × 512 on SiLabs. GetVersion: Betaflight's encoding
+   (`serial_4way.c` lines 73 to 87), main × 1000 + sub 1 × 100 + sub 2
+   sent as that / 100 and % 100, with major, minor and patch: 1 and 0 for
+   0.1.0. Verify sends AM32 and BLHeli_32's 0x04; AM32 bootloader 578ff29
+   has no 0x04 and answers 0xC1 (`main.c` line 815), so Verify on AM32
+   answers `ACK_D_GENERAL_ERROR`. SET ADDRESS 0xFFFF is skipped as
+   Betaflight skips it; AM32 578ff29 sets its address to 0 after each READ
+   (line 810) and refuses a READ at 0, so a Read at 0xFFFF fails there.
 8. **MSP.** `MSP_STATUS` counts 3 arming-disable flags; `MSP_BOARD_INFO`
-   names the board `MRCB`; `MSP_BUILD_INFO` is the compiler's `__DATE__`
-   and `__TIME__`, so two builds differ in those 19 bytes. A frame whose
+   names the board `MRCB`; `MSP_BUILD_INFO` is `MRCB`, the firmware
+   version and spaces, 19 bytes, not the build's date and time, so two
+   builds of one commit are the same. A frame whose
    second byte is not `M` or third not `<` is dropped at that byte.
 9. **The 3D note** (decision 12). The settings address: in the 4-way
    interface from the signature's high byte, in ARM mode only; in
    passthrough from the greeting's answer, read past the INIT frame's echo
    and classified by `blAnswerClassify()`. Both use am32_bl.h's three
-   families, 0x7C00, 0x7E00 and 0xF800; another ARM family, BLHeli_32's
-   among them, gives no address and no note. The bytes count when they
-   start at that address, are 0x30 or more and pass `am32Plausible()`. A
+   families, 0x7C00, 0x7E00 and 0xF800, and another family gives no
+   address and no note. Whether a BLHeli_32 signature's high byte equals
+   one of the three is not verified; the guard against another firmware's
+   page is that the bytes count only when they start at that address, are
+   0x30 or more and pass `am32Plausible()`. A
    read sets or clears the note, an acknowledged write with byte 0x12 not
    0 sets it; in passthrough a read counts only with its CRC and ACK, a
    write only with its payload's CRC and its PROGRAM answered 0x30.
 10. **Counters** in MSP and the 4-way interface: `PC > ESC` the bytes
     handed to the wire, `ESC > PC` the bytes of the answers to the PC,
     `FRAMES` the bootloader frames.
+11. **The motor refusal** goes on message line 3, blank otherwise, not on
+    line 2 as the screen table first had it: `PROPELLER OFF. DSHOT IS
+    OFF.` stays while the PC asks for the motor.
 
-**Tests.** `runBridgeProtoTests`, 205 checks in 12 sections: the MSP
-answers, each command's length, checksum and contents, `$M!`, the four
-`MSP_SET_PASSTHROUGH` modes, version 2 and jumbo frames dropped; the
-4-way reader, CRC-16/XMODEM's check value, 256 parameters as 0, the CRC
-answer, the 3D page rule; ESC-Configurator's MSP requests, `MSP_STATUS` and
-`MSP_BATTERY_STATE` among them, each read by a model `DataView` that fails
-past the end, `MSP_SET_PASSTHROUGH`, then the 4-way interface 1200 ms later, a read of the settings, three keep-alives 900 ms
-apart, a settings write read back, DeviceReset and Exit; the AM32
-configurator's sequence, its 2000 ms pause and a 10 s one with the device
-kept, the 3D note set and cleared, a PROGRAM late past 500 ms, Exit
-leaving the write unfinished; the tools' recovery frames with no MSP
-before them; each command against the model AM32, with nothing on the wire
-for the refused ones and for memory commands before a greeting, a READ
-answer with a wrong CRC or no 0x30, SET BUFFER's header answered, greeting
-answers not starting `471` or not ending 0x30, and an echo lost from the
-keep-alive and from RUN; the signature at 0xE800, 0xE801, 0xF8FF, 0xF900,
-0x0006, 0x0106, 0x8F06, 0x9006 and a wrong low byte, each failing one
-greeted 3 times; a model BLHeli_S's settings write with its 512-byte page;
-the wire, four frames for a Write with 4 ms or more of idle line before the
-data and 82 cycles a byte within a frame, the model's joined header lost,
-ERASE answered after 2999 ms and 3001 ms, PROGRAM after 499 ms and 501 ms;
-BACK disabled through a 4-way write and live at its answer, the
-unfinished write until DeviceReset, a port close during a write sending
-nothing more and answering nothing; malformed and partial frames, half a
-frame for 49 ms and its rest after 51 ms, a write with a wrong CRC, a
-frame across a 30 ms USB gap, noise between frames, an MSP frame with a
-wrong checksum and one cut short, the motor refusal for 5 s; passthrough's
-3D tap. `runUsbBridgeTests`' modes section now has `$` and 0x2F first,
-the 4-way interface outlasting 5 s, and later `$` and 0x2F forwarded in
-passthrough. `runBridgeUiTests` adds a section: `4-WAY INTERFACE`, the
-last line's MSP and 4-way names at their widths, the refusal line, BACK
-disabled through a 4-way write and the leave page's note after it.
+**Tests.** `runBridgeProtoTests`, 215 checks in 13 sections: the MSP answers,
+each command's length, checksum and contents, `$M!`, the four
+`MSP_SET_PASSTHROUGH` modes, version 2 and jumbo frames dropped; the 4-way
+reader, CRC-16/XMODEM's check value, 256 parameters as 0, the CRC answer, the 3D
+page rule; ESC-Configurator's MSP requests, `MSP_STATUS` and `MSP_BATTERY_STATE`
+among them, each read by a model `DataView` that fails past the end,
+`MSP_SET_PASSTHROUGH`, then the 4-way interface 1200 ms later, a read of the
+settings, three keep-alives 900 ms apart, a settings write read back,
+DeviceReset and Exit; the AM32 configurator's sequence, its 2000 ms pause and a
+10 s one with the device kept, the 3D note set and cleared, a PROGRAM late past
+500 ms, Exit leaving the write unfinished; the tools' recovery frames with no
+MSP before them; each command against the model AM32, with nothing on the wire
+for the refused ones and for memory commands before a greeting, a READ answer
+with a wrong CRC or no 0x30, SET BUFFER's header answered, greeting answers not
+starting `471` or not ending 0x30, and an echo lost from the keep-alive and from
+RUN; the signature at 0xE800, 0xE801, 0xF8FF, 0xF900, 0x0006, 0x0106, 0x8F06,
+0x9006 and a wrong low byte, each failing one greeted 3 times; a model
+BLHeli_S's settings write with its 512-byte page; the wire, four frames for a
+Write with 4 ms or more of idle line before the data and 82 cycles a byte within
+a frame, the model's joined header lost, ERASE answered after 2999 ms and
+3001 ms, PROGRAM after 499 ms and 501 ms; BACK disabled through a 4-way write
+and live at its answer, the unfinished write until DeviceReset, a port close
+during a write sending nothing more and answering nothing; malformed and partial
+frames, half a frame for 49 ms and its rest after 51 ms, a write with a wrong
+CRC, a frame across a 30 ms USB gap, noise between frames, an MSP frame with a
+wrong checksum and one cut short, the motor refusal for 5 s; passthrough's 3D
+tap; a passthrough greeting answered after a 4-way session ended by Exit, after
+MSP gone idle and after a port close, all in one open. The model AM32 answers
+VERIFY 0xC1, acknowledges ERASE without erasing, and sets its address to 0 after
+a READ, refusing a READ there, as bootloader 578ff29 does (`main.c` lines 753 to
+815); a model with VERIFY stands in for BLHeli_32, whose bootloader is not
+verified. `runUsbBridgeTests`' modes section now has `$` and 0x2F first, the
+4-way interface outlasting 5 s, and later `$` and 0x2F forwarded in passthrough.
+`runBridgeUiTests` adds a section: `4-WAY INTERFACE`, the last line's MSP and
+4-way names at their widths, the refusal line, BACK disabled through a 4-way
+write and the leave page's note after it.
 
-**Mutations.** 130 of the new code, each applied alone: 62 in
-`bridge_4way.cpp`, 37 in `usb_bridge.cpp`, 26 in `bridge_msp.cpp`, 4 in
-`ui_bridge.cpp` and one in `bl_answer.cpp`. 126 fail the suite; each that
+**Mutations.** 137 of the new code, each applied alone: 65 in
+`bridge_4way.cpp`, 38 in `usb_bridge.cpp`, 28 in `bridge_msp.cpp`, 5 in
+`ui_bridge.cpp` and one in `bl_answer.cpp`. 133 fail the suite; each that
 survived a first run and showed a test missing has its test, and one showed
 `bridge4wayAbort()` redundant, as the mode's end resets the engine right
 after it, and the function is removed. Three survive:
@@ -1261,12 +1277,15 @@ after it, and the function is removed. Three survive:
 - PROGRAM not write-class in the 4-way interface: the data before it
   already set BACK's wait and the unfinished write, and their 3000 ms reach
   past the data's 80 ms and PROGRAM's 500 ms, so nothing changes.
-- The ring emptied before each bootloader frame, and the ring drained
-  while no command runs: each does the other's work in every sequence the
-  suite has. A stray byte that lands between two frames of one command
-  needs the first frame's answer and the stray byte in one core0 pass; on
-  the line fake a byte that arrives while the next frame goes out is taken
-  as its echo, and the frame counts as a collision.
+- The ring not emptied before each bootloader frame
+  (`bridge_4way.cpp`).
+- The ring not drained while no command runs (`usb_bridge.cpp`).
+
+The last two each do the other's work in every sequence the suite has. A
+stray byte that lands between two frames of one command needs the first
+frame's answer and the stray byte in one core0 pass; on the line fake a
+byte that arrives while the next frame goes out is taken as its echo, and
+the frame counts as a collision.
 
 ## Decisions
 

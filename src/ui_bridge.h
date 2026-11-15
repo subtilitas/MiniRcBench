@@ -117,7 +117,7 @@ struct UiScreen;
 #define BRIDGE_UI_WRITING       "WRITING: DO NOT UNPLUG ESC OR USB."
 /** @brief Line 1, amber, once a byte was lost. */
 #define BRIDGE_UI_LOST          "BYTES LOST: THE BRIDGE FELL BEHIND."
-/** @brief Line 2, amber, for @ref BRIDGE_MOTOR_NOTE_MS after an `MSP_SET_MOTOR`: 34 characters, 203 px. */
+/** @brief Line 3, blank otherwise, amber, for @ref BRIDGE_MOTOR_NOTE_MS after an `MSP_SET_MOTOR`: 34 characters, 203 px. */
 #define BRIDGE_UI_MOTOR         "MOTOR COMMAND FROM THE PC REFUSED."
 /** @brief Line 0, dim, after the PC closed the port. */
 #define BRIDGE_UI_CLOSED        "THE PC CLOSED THE PORT."

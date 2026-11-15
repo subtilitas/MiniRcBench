@@ -191,6 +191,14 @@ int fakeBridgeLineReleases() { advance(now()); return g_releases; }
 uint64_t fakeBridgeLineCycle() { return now(); }
 
 void fakeBridgeLineWire(int i, uint8_t *b, uint64_t *startCy, bool *keep) {
+	advance(now());
+	if (i < 0 || (size_t)i >= g_wire.size()) {
+		// Past the wire: nothing, so a test that asks too far fails, not crashes.
+		*b = 0;
+		*startCy = 0;
+		*keep = false;
+		return;
+	}
 	*b = g_wire[(size_t)i].b;
 	*startCy = g_wire[(size_t)i].start;
 	*keep = g_wire[(size_t)i].keep;

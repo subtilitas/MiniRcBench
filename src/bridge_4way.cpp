@@ -290,9 +290,10 @@ static void endNow(uint8_t ack) {
 			n = (uint16_t)strlen(B4W_NAME);
 			memcpy(par, B4W_NAME, n);
 		} else if (s_cmd == B4W_GET_VERSION) {
-			// As Betaflight gives its own: the version as one number,
-			// major × 100 + minor × 10 + patch, in hundreds and units.
-			const unsigned v = FW_VERSION_MAJOR * 100u + FW_VERSION_MINOR * 10u + FW_VERSION_PATCH;
+			// Betaflight's encoding (serial_4way.c lines 73 to 87): main
+			// × 1000 + sub 1 × 100 + sub 2, sent as that / 100 and % 100;
+			// here major, minor and patch.
+			const unsigned v = FW_VERSION_MAJOR * 1000u + FW_VERSION_MINOR * 100u + FW_VERSION_PATCH;
 			par[0] = (uint8_t)(v / 100u);
 			par[1] = (uint8_t)(v % 100u);
 			n = 2;

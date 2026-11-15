@@ -26,18 +26,20 @@
  * | Command | The board does |
  * |---|---|
  * | 0x30 TestAlive | the bootloader's keep-alive, 0xFD 0x00, while a device is connected; its answer 0xC1 is the good one |
- * | 0x31, 0x32, 0x33 | 108, `MRCB4W`, the firmware version as two bytes |
+ * | 0x31, 0x32, 0x33 | 108, `MRCB4W`, the firmware version as two bytes, in Betaflight's encoding |
  * | 0x34 Exit | answers, then the bridge leaves the 4-way interface |
  * | 0x35 DeviceReset | RUN, 0x00 0x00 and its CRC; the device is dropped |
  * | 0x37 DeviceInitFlash | the 21-byte greeting, its 9-byte answer, up to 3 times; the interface mode from the signature |
  * | 0x39 PageErase | SET ADDRESS of the page, ERASE, its ACK within 3000 ms |
  * | 0x3A Read | SET ADDRESS, READ, the data, their CRC and the ACK |
  * | 0x3B Write | SET ADDRESS, SET BUFFER, 4 ms of silence, the data, their ACK, PROGRAM, its ACK within 500 ms |
- * | 0x40 Verify | ARM only: SET ADDRESS, SET BUFFER, the data, VERIFY |
+ * | 0x40 Verify | ARM only: SET ADDRESS, SET BUFFER, the data, VERIFY (0x04); AM32 bootloader 578ff29 has no 0x04 and answers 0xC1, so on AM32 it answers `B4W_ACK_D_GENERAL_ERROR` |
  * | 0x3F SetMode | SiLabs (1) and ARM (4); any other `B4W_ACK_I_INVALID_PARAM` |
  * | 0x38, 0x3C, 0x3D, 0x3E, others | `B4W_ACK_I_INVALID_CMD`, as no Atmel or C2 interface is offered |
  *
- * PageErase, Read, Write and Verify before a device is connected answer
+ * PageErase, Read, Write and Verify send nothing in interface mode 0,
+ * before a SetMode or a greeting, and answer `B4W_ACK_I_INVALID_CMD`; in
+ * SiLabs or ARM mode with no device connected they answer
  * `B4W_ACK_D_GENERAL_ERROR` and send nothing. SET ADDRESS 0xFFFF is
  * skipped, as Betaflight skips it. The interface mode: SiLabs for a signature
  * 0xE801 to 0xF8FF, ARM for a high byte 0x01 to 0x8F with the low byte 0x06;
@@ -52,7 +54,8 @@
  * ERASE 3000 ms, the greeting 100 ms; the keep-alive 4 ms and VERIFY 40 ms.
  * The answer is read from the ring before the clock, so a long pass of core0
  * ends with the answer read, not with a timeout. The data after SET BUFFER
- * go 4 ms after the header is out, as Betaflight sends them: a bootloader
+ * go 4 ms after the header is out, inside the 3 to 6 ms in which
+ * Betaflight checks that no answer comes before it sends them: a bootloader
  * ends a message after 260 µs of idle line, and data closer behind the
  * header would join it.
  *
@@ -133,7 +136,11 @@ enum Bridge4wayAck : uint8_t {
 #define B4W_BYTE_US 534u
 /** @brief A frame whose echo never completes counts as out this long after its wire time, µs. */
 #define B4W_OUT_SLACK_US 20000u
-/** @brief The silence after SET BUFFER's header before the data go, µs (Betaflight's two 2 ms waits). */
+/**
+ * @brief The silence after SET BUFFER's header before the data go, µs.
+ *        Betaflight's `BL_GetACK(2)` waits for three start bits of 1 to
+ *        2 ms each, 3 to 6 ms in all; 4 ms lies inside that.
+ */
 #define B4W_BUFFER_PAUSE_US 4000u
 /** @brief The wait for the answer to VERIFY, µs (Betaflight's 40 ms). */
 #define B4W_VERIFY_US 40000u
@@ -155,7 +162,12 @@ enum class Bridge4wayFeed : uint8_t {
 
 /** @brief What the connected device is. */
 struct Bridge4wayDevice {
-	bool     connected;  /**< A greeting was answered since the last reset, RESET or failed command. */
+	/**
+	 * @brief A greeting was answered. Cleared by a failed TestAlive, by
+	 *        RESET, by InitFlash before its greeting goes, and by the end of
+	 *        the 4-way interface (bridge4wayReset()).
+	 */
+	bool     connected;
 	uint8_t  mode;       /**< The interface mode, `B4W_MODE_SILABS` or `B4W_MODE_ARM`; 0 before a SetMode or a greeting. */
 	uint16_t signature;  /**< High byte, then low byte, as the bootloader names them. */
 	uint16_t settings;   /**< The AM32 settings page's address; 0 for none known. */

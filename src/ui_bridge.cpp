@@ -203,9 +203,11 @@ static void messages(const char **l, uint16_t *c, bool *retry) {
 		l[1] = BRIDGE_UI_LOST;
 		c[1] = UI_COL_WARN;
 	}
+	// Line 3 is blank: PROPELLER OFF. on line 2 stays while a motor
+	// command came.
 	if (usbBridgeMotorRefused()) {
-		l[2] = BRIDGE_UI_MOTOR;
-		c[2] = UI_COL_WARN;
+		l[3] = BRIDGE_UI_MOTOR;
+		c[3] = UI_COL_WARN;
 	}
 }
 
