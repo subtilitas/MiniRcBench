@@ -1010,7 +1010,9 @@ throttle of 0; the settle at 999 and 1000 ms, after a step of 21 either
 way, kept at 20 either way, under a jitter of ±11 a frame, restarted by a
 drift of 1 a frame at 21, and across the `millis()` wrap; the eRPM check
 at 0.5 % above and below the reply and one eRPM past it, a reply of 0, and
-past 32 bits; each condition at its boundary: disarmed, the link
+past 32 bits; the check held once passed through a noisy series of
+replies, and cleared by a restarted settle, a stale link, a t below 75 %
+and the 3D note; each condition at its boundary: disarmed, the link
 stale, 0, 1 and 2 poles, eRPM 0, 6 and 7 on 14 poles, no fresh voltage,
 0.50 V and 0.51 V, 0 V and below, t 0, 1499, 1500, 2000 and 2001, not
 settled above and below 75 %, the 3D note above and below 75 %, and no
@@ -1020,15 +1022,15 @@ armed at 0 % with EDT's 15.75 V, `RPM/V 1422` and `KV EST 75%+`; 50 %
 held over 1 s, still `75%+`, and a KISS 16.05 V that RPM/V follows; 80 %
 with `KV EST --` at 975 ms after the throttle stood and the figure at
 1000 ms, from KISS's 16.00 V over EDT's 15.75 V; RPM/V from the filtered
-eRPM one frame after a step, with `KV EST --` until the filter has caught
-up; a pixel of jitter a frame at 85 % with the figure at 1000 ms; a 0.01 V step
-that moves the estimate and not RPM/V; the voltage and then the eRPM going stale
-and coming back; nothing kept after the disarm or on the next arm; the 3D
-note at 80 % with `RPM/V` still shown, and a swipe there that shows
-`SWIPE ACTIVE` with no estimate beside it; and the widest texts. The preview
-is the wiki's `tester-kv.png`, the third frame of `docs/ui-preview.png`.
-Nothing of it has run with a motor: no figure has been compared with a
-rated kV or a tachometer (bench test B8).
+eRPM one frame after a step, the figure kept while the filter catches up; a
+pixel of jitter a frame at 85 % with the figure at 1000 ms; a 0.01 V step that
+moves the estimate and not RPM/V; the voltage and then the eRPM going stale and
+coming back; nothing kept after the disarm or on the next arm; the 3D note at 80
+% with `RPM/V` still shown, and a swipe there that shows `SWIPE ACTIVE` with no
+estimate beside it; and the widest texts. The preview is the wiki's
+`tester-kv.png`, the third frame of `docs/ui-preview.png`. Nothing of it has run
+with a motor: no figure has been compared with a rated kV or a tachometer (bench
+test B8).
 
 Mutation check: 72 mutants of `src/kv_est.h`, the five constants and the
 wiring in `src/ui.cpp`, each built and run against the host suite; 66 fail
