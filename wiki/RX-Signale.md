@@ -5,14 +5,15 @@
 `MENU → RX SIGNALS` enthält die Werkzeuge für die Signale eines Empfängers.
 **MONITOR** zeigt, was ein Empfänger an seinem S.BUS-Ausgang sendet: die 16
 Kanäle, die zwei digitalen Kanäle, ob die Verbindung steht, die Framerate
-und die Fehler auf der Leitung. Er sendet nichts. **OUTPUT**, ein
-S.BUS-Ausgang zu einem Flugcontroller, ist noch nicht gebaut. S.BUS ist
-Futabas serieller Bus für Empfängerkanäle.
+und die Fehler auf der Leitung. Er sendet nichts. **OUTPUT** sendet S.BUS
+an den Empfängereingang eines Flugcontrollers: 16 Kanäle an Schiebereglern,
+die zwei digitalen Kanäle und die Flags für Failsafe und verlorenen Frame.
+S.BUS ist Futabas serieller Bus für Empfängerkanäle.
 
-Nicht auf Hardware getestet: Noch kein Empfänger war an einem Pin dieser
-Platine.
+Nicht auf Hardware getestet: Noch kein Empfänger und kein Flugcontroller war
+an einem Pin dieser Platine.
 
-<img src="img/rx-chooser.png" width="240" alt="RX SIGNALS: MONITOR mit S.BUS FROM A RECEIVER, ON GP1., OUTPUT als Umriss mit S.BUS TO A FLIGHT CONTROLLER. und NOT BUILT"> <img src="img/sbus-live.png" width="240" alt="S.BUS MONITOR mit Frames alle 14 ms: der Chip OK, 16 lindgrüne Balken mit ihren Werten in Mikrosekunden, 14.0 MS 71.4 HZ">
+<img src="img/rx-chooser.png" width="240" alt="RX SIGNALS: MONITOR mit S.BUS FROM A RECEIVER, ON GP1., OUTPUT mit S.BUS TO A FLIGHT CONTROLLER. und ON GP0, NEVER TO AN ESC."> <img src="img/sbus-live.png" width="240" alt="S.BUS MONITOR mit Frames alle 14 ms: der Chip OK, 16 lindgrüne Balken mit ihren Werten in Mikrosekunden, 14.0 MS 71.4 HZ">
 
 ---
 
@@ -56,8 +57,8 @@ nennt beide Signalpins, `SIG GP0  AUX GP1`, so siehst du vor dem Tippen,
 welche Rolle GP1 hat. Die Seite belegt keinen Pin: DShot läuft weiter.
 
 - **MONITOR** öffnet S.BUS MONITOR.
-- **OUTPUT** ist als Umriss gezeichnet, darunter `NOT BUILT`, und tut
-  nichts.
+- **OUTPUT** öffnet S.BUS OUTPUT. Die zwei Zeilen darunter sind seine
+  Warnung: `S.BUS TO A FLIGHT CONTROLLER.` `ON GP0, NEVER TO AN ESC.`
 
 `BACK` führt zu `MENU` zurück. Während DShot nach einem anderen Werkzeug
 neu startet, ist die Zeile RX SIGNALS in `MENU` ein Umriss und tut nichts,
@@ -153,6 +154,139 @@ gegeneinander treiben.
 
 ---
 
+## S.BUS OUTPUT
+
+**Zuerst lesen.** GP0 kommt nur an einen Flugcontroller (FC), nie an einen
+ESC (Drehzahlsteller). Nimm die Propeller ab. Der Ausgang ist ein Gassignal
+für jeden, der zuhört: Ein scharfgeschalteter FC gibt den Gaskanal an seine
+Motoren weiter, und ein Scharfschalter ist einer der Kanäle. Vor START prüft
+die Platine GP0 auf den Bootloader eines ESC, findet einen BLHeli_S-ESC aber
+nur, solange dieser während der Prüfung Strom hat und in seinem Bootloader
+ist. Ein ESC ohne Strom während der Prüfung, oder einer, der danach
+angesteckt wird, wird nicht gefunden. Nach seinem Quelltext, gelesen und
+nicht an einem ESC ausprobiert, kann ein BLHeli_S-ESC die S.BUS-Leitung als
+Gassignal nehmen, seinen Gasweg kalibrieren, scharf schalten und seinen
+Motor starten, ohne dass du etwas tust.
+
+Wofür: die Kanalzuordnung, Endpunkte und Schalter eines FC in seinem
+Konfigurator prüfen, ohne Empfänger und Sender; sehen, was der FC mit den
+Flags für Failsafe und verlorenen Frame macht und wenn die Frames ausbleiben;
+feste, wiederholbare Werte senden.
+
+<img src="img/sbus-out-safe.png" width="240" alt="S.BUS OUTPUT SAFE: der Chip SAFE, GP0 GOES TO A FLIGHT CONTROLLER. und NEVER TO AN ESC. PROPS OFF. in Bernstein, acht graue Schieberegler, CH3 THR mit der Marke seiner Obergrenze, HOLD TO START"> <img src="img/sbus-out-running.png" width="240" alt="S.BUS OUTPUT läuft: der Chip RUNNING, THROTTLE CH3: 1000 TO 1200 US (20%)., die Zeile der Flags, Schieberegler mit lindgrünen Werten, STOP">
+
+### Verdrahtung
+
+```
+  Platine GP0  ------------------------------------  FC S.BUS-Eingang
+  Platine GND  ------------------------------------  FC Masse
+
+  GP0 = J5 Pin 2 oder J4 Pin 9, GND = J5 Pin 4 oder J4 Pin 1 oder 5
+```
+
+- GP0 ist SIG, der ESC-Pin, außer SETTINGS → SIG PIN steht auf GP1. In der
+  Standardverdrahtung kommt die FC-Leitung dorthin, wo der ESC war: Zieh
+  zuerst den ESC ab.
+- Die Platine liefert nur Signal und Masse. Der FC bekommt Strom über seinen
+  eigenen USB-Anschluss oder seine eigene Versorgung; an seinem Akku sind
+  seine ESCs und Motoren aktiv.
+- Schalte die Platine vor dem FC ein und den FC vor der Platine aus. Was der
+  S.BUS-Eingang eines FC an GP0 macht, solange die Platine aus ist, und ob
+  jeder FC das 3,3-V-Signal der Platine liest, ist nicht geprüft.
+
+### Vor START
+
+Der Bildschirm nimmt GP0 von DShot und prüft den Pin dann etwa 1,1 s lang
+auf den Bootloader eines ESC: eine stille Sekunde, dann drei Begrüßungen, wie
+ESC SETTINGS. Er wiederholt die Prüfung, bis eine Runde keine Antwort
+bekommt. Erst dann zeigt der Chip `SAFE`, und **HOLD TO START** wird
+verfügbar.
+
+| Text | Warum | Was tun |
+|---|---|---|
+| `CHECKING SIG GP0 FOR AN ESC.` | die Prüfung läuft | etwa eine Sekunde warten |
+| `AN ESC BOOTLOADER ANSWERS ON SIG GP0.` `UNPLUG THE ESC BATTERY AND LEAD.` `START WAITS UNTIL NONE ANSWERS.` | ein Bootloader von Bluejay, BLHeli_S oder AM32 hat geantwortet: Ein ESC hängt an GP0 | Zieh den Akku des ESC und seine Leitung ab. START bleibt aus, bis eine Runde der Prüfung keine Antwort bekommt. `MENU` zeigt `POWER-CYCLE THE ESC TO RUN IT` |
+| `AN ESC ANSWERS ON SIG GP0.` `UNPLUG IT: NO ESC STAYS ON` `THE BENCH WHILE S.BUS RUNS.` | ein ESC antwortet auf SIG mit DShot | Zieh ihn ab. Der Bildschirm nimmt den Pin 500 ms, nachdem er verstummt |
+| `KISS WIRE ON AUX GP0 IS LIVE.` `UNPLUG IT. PLUG THE FLIGHT` `CONTROLLER IN ONCE SAFE SHOWS.` | SIG ist GP1, GP0 ist AUX, und dort kommt KISS-Telemetrie an | Zieh die Telemetrieleitung ab. Steck den FC an, sobald der Chip `SAFE` erscheint |
+| `S.BUS NEEDS GP0.` `SET A PIN TO GP0 IN SETTINGS.` | weder SIG noch AUX ist GP0 | Stell SIG PIN oder AUX PIN auf GP0. SETTINGS tauscht die beiden, daher kommt das auf dieser Platine nicht vor |
+| `SIG GP0 COULD NOT BE TAKEN (CLOCK)` | die serielle Schnittstelle erreicht keine 100.000 Baud | `RETRY` |
+
+`SIG GP0` heißt `AUX GP0`, wenn SIG auf GP1 liegt.
+
+<img src="img/sbus-out-esc.png" width="240" alt="S.BUS OUTPUT wartet: AN ESC ANSWERS ON SIG GP0. UNPLUG IT: NO ESC STAYS ON THE BENCH WHILE S.BUS RUNS. in Bernstein"> <img src="img/sbus-out-kiss.png" width="240" alt="S.BUS OUTPUT mit GP0 als AUX: KISS WIRE ON AUX GP0 IS LIVE. UNPLUG IT. PLUG THE FLIGHT CONTROLLER IN ONCE SAFE SHOWS. in Bernstein">
+
+<img src="img/sbus-out-checking.png" width="240" alt="S.BUS OUTPUT prüft: CHECKING SIG GP0 FOR AN ESC., HOLD TO START als Umriss"> <img src="img/sbus-out-bootloader.png" width="240" alt="S.BUS OUTPUT: AN ESC BOOTLOADER ANSWERS ON SIG GP0. UNPLUG THE ESC BATTERY AND LEAD. START WAITS UNTIL NONE ANSWERS. in Bernstein">
+
+### Die Hauptansicht
+
+| Teil | Was es zeigt |
+|---|---|
+| Leiste | `SIG GP0  100 KBAUD  8E2`: der Pin, Geschwindigkeit und Format der Leitung; der Chip `SAFE` (grün), `RUNNING` (rot) oder `STALLED` (magenta) |
+| Hinweise | gestoppt: die zwei Warnungen in Bernstein, `GP0 GOES TO A FLIGHT CONTROLLER.` `NEVER TO AN ESC. PROPS OFF.` Laufend: `THROTTLE CH3: 1000 TO 1200 US (20%).`, der Gaskanal und seine Obergrenze; und `CH17 OFF  CH18 OFF  FS OFF  LOST OFF`, in Bernstein, solange eines davon an ist. Nach einem Stopp der Grund und `HOLD TO START AGAIN.` |
+| 8 Zeilen | ein Kanal, sein Schieberegler von 1000 bis 2000 µs und der Wert, den er sendet, lindgrün, solange Frames laufen. Der Gaskanal heißt `CH3 THR` in Bernstein, mit einer Marke in Bernstein an seiner Obergrenze |
+| Schaltflächen | `HOLD TO START`, oder `STOP`, solange Frames laufen; `CH 9-16` oder `CH 1-8` für die anderen acht Kanäle; `SET` |
+
+- **HOLD TO START**, 1 s, sendet einen festen ersten Frame, egal was die
+  Regler zeigten: den Gaskanal auf 1000 µs, die anderen drei Knüppel auf
+  1500 µs, die Kanäle 5 bis 16 auf 1000 µs, alles andere aus. Die Regler
+  springen dorthin.
+- **Die Regler** bewegen sich nur, solange Frames laufen, durch Ziehen, in
+  Schritten von 5 µs. Ein Tippen allein ändert nichts.
+- **Der Gaskanal** hält an der Obergrenze von SETTINGS → MAX THROTTLE: bei
+  den voreingestellten 20 % sind das 1200 µs. Die Grenze begrenzt den Kanal,
+  nicht die Motoren eines scharfen FC, der Leerlauf und Stabilisierung
+  dazurechnet.
+- **STOP** hält die Frames sofort an, beim Berühren. Der FC geht dann in
+  seinen eigenen Failsafe.
+- **Der Bildschirm hängt** eine Viertelsekunde: Die Frames hören auf, der
+  Chip zeigt `STALLED` und der Hinweis `STOPPED: SCREEN STALLED`.
+- **30 s ohne Berührung**, solange der Gaskanal über 1000 µs steht oder die
+  Kanäle 5 bis 16, CH17 oder CH18 nicht auf ihren ersten Werten sind: Die
+  Frames hören mit `STOPPED: NO TOUCH FOR 30 S.` auf. Ein über einen Schalter
+  scharfgeschalteter FC dreht seine Motoren auch bei Gas null im Leerlauf.
+  Steht alles auf dem ersten Frame, laufen die Frames weiter, so kann die
+  Empfängerseite des FC offen bleiben.
+
+Nach jedem Stopp halte START erneut; der erste Frame ist wieder der feste.
+
+<img src="img/sbus-out-stalled.png" width="240" alt="S.BUS OUTPUT, nachdem der Bildschirm hing: der Chip STALLED, STOPPED: SCREEN STALLED in Magenta, HOLD TO START AGAIN.">
+
+### SET
+
+| Zeile | Werte | Wann sie sich ändert |
+|---|---|---|
+| THROTTLE CHANNEL | `CH1` bis `CH4`, voreingestellt `CH3` | nur gestoppt: `STOP TO CHANGE THE CHANNEL.` |
+| DIGITAL CH17, CH18 | `OFF`, `ON` | nur, solange Frames laufen: `START TO SET THE FLAGS.` |
+| FLAGS FAILSAFE BIT, FRAME LOST BIT | `OFF`, `ON` | wie CH17 |
+
+Tippe eine Zeile an, dann `-` oder `+`; eine Änderung gilt sofort. Solange
+Frames laufen, steht `STOP` unten rechts; gestoppt steht unten
+`NEVER TO AN ESC. PROPS OFF.` `BACK` führt zur Hauptansicht zurück.
+
+<img src="img/sbus-out-set.png" width="240" alt="OUTPUT SET gestoppt: START TO SET THE FLAGS., die Zeilen CHANNEL CH3, CH17 OFF, CH18 OFF, FAILSAFE BIT OFF, und unten NEVER TO AN ESC. PROPS OFF.">
+
+### Verlassen des Ausgangs
+
+`BACK` hält die Frames an und öffnet die Verlassenseite. Schritt 1 lautet
+`UNPLUG THE FLIGHT CONTROLLER.` und `DSHOT RESTARTS ON SIG GP0.`: Das
+ESC-Signal kommt auf diesem Pin zurück.
+
+- `BACK TO OUTPUT` behält den Pin und führt zum Bildschirm zurück; vor START
+  läuft die Bootloader-Prüfung erneut.
+- `RESTART DSHOT` führt zu `MENU` zurück und gibt den Pin an DShot zurück.
+  Es wartet 1 s, nachdem der Pin freigegeben ist.
+
+Hat ein Bootloader von Bluejay oder BLHeli_S auf die Prüfung geantwortet,
+zeigt `BACK` zuerst den Schritt von ESC SETTINGS:
+`UNPLUG THE ESC BATTERY, THEN LEAVE.` Der ESC wartet in seinem Bootloader und
+könnte DShot als Befehl lesen. `STAY` führt zum Bildschirm zurück, `LEAVE`
+gibt den Pin frei; der letzte Schritt erinnert daran, den ESC nach
+`RESTART DSHOT` wieder anzustecken.
+
+<img src="img/sbus-out-leave.png" width="240" alt="Die Verlassenseite von S.BUS OUTPUT: 1 UNPLUG THE FLIGHT CONTROLLER., DSHOT RESTARTS ON SIG GP0., BACK TO OUTPUT, RESTART DSHOT"> <img src="img/sbus-out-efm8-leave.png" width="240" alt="Die Verlassenseite, nachdem ein Bootloader von Bluejay oder BLHeli_S geantwortet hat: 1 UNPLUG THE ESC BATTERY, THEN LEAVE., STAY und LEAVE">
+
+---
+
 ## Noch nicht geprüft
 
 - Der Ausgangspegel eines Empfängers an GP1, und dass die Platine ihn mit
@@ -162,3 +296,9 @@ gegeneinander treiben.
 - Was GP1 liest, nachdem ein Empfänger abgezogen wurde: Nach dem Erratum
   RP2350-E9 des Chips kann der Pin bei etwa 2,1 V stehen bleiben. Der
   Bildschirm zeigt dann `NO SIGNAL`, mit `BRK` um eins höher.
+- Der Ausgang: sein Signal an GP0, die Frameperiode von 14 ms auf einem
+  Oszilloskop, und ein Flugcontroller, der seine Frames, Flags und Stopps
+  liest.
+- Dass der Bootloader eines ESC auf die Prüfung der Platine antwortet, und
+  was Bluejay, BLHeli_S und AM32 mit S.BUS auf ihrer Signalleitung machen:
+  nur aus ihren Quelltexten gelesen.
