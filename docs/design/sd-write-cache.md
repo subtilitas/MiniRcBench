@@ -107,8 +107,9 @@ the cache.
 
 So no step waits for the card: the longest is a block's transfer, about
 0.1 ms, or a command and its response, CMD17, CMD24, CMD13 or the CMD12
-after a failed check, each bounded by `SDH_CMD_TIMEOUT_US`, 5 ms, when the
-card does not answer.
+after a check read whose block did not come, each bounded by
+`SDH_CMD_TIMEOUT_US`, 5 ms, when the card does not answer: a removed card
+costs that step 5 ms.
 
 `sdh_write_start()` and `sdh_write_poll()` are `writeChunk()` split at its
 busy wait, for one block. The SD clock runs from the block's send until
@@ -194,29 +195,30 @@ new card's volume would be corrupted.
 
 `cardCacheBegin()` reads the volume's serial number from its boot sector
 (`sdLogVolumeId()`: `BS_VolID`, offset 67, on FAT32; `VolumeSerialNumber`,
-offset 100, on exFAT; offset 39 on FAT12 and FAT16). Before the first block
-of every batch the flush step reads those 4 bytes again, past the cache. The
-read does not wait for the card: `sdh_read_start()` sends CMD17 with the
-receiver armed for one block, and the flush step's later calls look at the
-receiver once each through `sdh_read_poll()`, which reads the bus's
-`rx_ready()`: on the board, the receive DMA's control channel at the end of
-its table and both channels idle (`busRxReady()` in `src/sdio/sd_pio.c`, the
-test `busRxWait()` makes). Once the block is in, `rx_wait()` returns at once
-and puts its CRC words in order, and the CRC is checked as for any read; the
-block is sent in the call after. A read that fails with a CRC (cyclic
-redundancy check), frame, timeout or no-response error, a timeout being no
-block within `SDH_READ_TIMEOUT_US`, 250 ms, of CMD17, is tried again in a
-later call, up to `SDC_ATTEMPTS`, 3 reads in all, as `sdh_read()` tries a
-block; after each failed read CMD12 goes out, as `sdh_read()` sends it, but
-without the wait for its busy, so a card that stalled is pulled back to the
-transfer state before the next try. The third failure, any other error, or
-a different number drops the queue and the read cache and sets `Failed`;
-the recovery's mount initialises the card again. A miss of `sdc_read()`,
-`sdc_settle()`, `sdc_drop()`, `sdc_end()`, `sdc_begin()` and
-`sd_sdio_read_past()` collect a check's read under way first, core0
-blocking, since the card takes no other command while it sends. A card
-swapped for a byte-for-byte copy with the same serial number is not
-detected.
+offset 100, on exFAT; offset 39 on FAT12 and FAT16). Before the first block of
+every batch the flush step reads those 4 bytes again, past the cache. The read
+does not wait for the card: `sdh_read_start()` sends CMD17 with the receiver
+armed for one block, and the flush step's later calls look at the receiver once
+each through `sdh_read_poll()`, which reads the bus's `rx_ready()`: on the
+board, the receive DMA's control channel at the end of its table and both
+channels idle (`busRxReady()` in `src/sdio/sd_pio.c`, the test `busRxWait()`
+makes). Once the block is in, `rx_wait()` returns at once and puts its CRC words
+in order, and the CRC is checked as for any read; the block is sent in the call
+after. A read that fails with a CRC (cyclic redundancy check), frame, timeout or
+no-response error, a timeout being no block within `SDH_READ_TIMEOUT_US`, 250
+ms, of CMD17, is tried again in a later call, up to `SDC_ATTEMPTS`, 3 reads in
+all, as `sdh_read()` tries a block. After a read whose block did not come in
+time CMD12 goes out, as `sdh_read()` sends it, but without the wait for its
+busy, so a card that stalled is pulled back to the transfer state before the
+next try. After a whole block with a CRC or frame error none goes out: the card
+is back in the transfer state already, where CMD12 is illegal and gets no
+answer, so it would cost the step `SDH_CMD_TIMEOUT_US`, 5 ms. The third failure,
+any other error, or a different number drops the queue and the read cache and
+sets `Failed`; the recovery's mount initialises the card again. A miss of
+`sdc_read()`, `sdc_settle()`, `sdc_drop()`, `sdc_end()`, `sdc_begin()` and
+`sd_sdio_read_past()` collect a check's read under way first, core0 blocking,
+since the card takes no other command while it sends. A card swapped for a
+byte-for-byte copy with the same serial number is not detected.
 
 Every loop in which core0 waits on the card calls the driver's wait hook
 (`sdh_wait_hook`), as the driver's own waits do: `sdc_flush()`,
@@ -318,11 +320,11 @@ recorded in this note.
 ## Tests
 
 - `test_sdio.cpp`: `sdh_read_start()` and `sdh_read_poll()` against the
-  simulated card with a data latency: CMD17 out and the receiver armed, one
-  look a poll without time spent, the block in and the receiver disarmed, its
-  CRC checked from the words the simulated DMA leaves swapped, a CRC error
-  and CMD12 after it, no data 1 µs short of `SDH_READ_TIMEOUT_US` and at it,
-  the wait hook at each look, CMD12, the card left ready and the next
+  simulated card with a data latency: CMD17 out and the receiver armed, one look
+  a poll without time spent, the block in and the receiver disarmed, its CRC
+  checked from the words the simulated DMA leaves swapped, a CRC error with no
+  CMD12 after it and no time spent, no data 1 µs short of `SDH_READ_TIMEOUT_US`
+  and at it, the wait hook at each look, CMD12, the card left ready and the next
   attempt reading, CMD17 unanswered, an unaligned or out-of-range buffer, a
   receiver that does not arm, a card not ready.
 - `test_sdio.cpp`: `sdh_write_start()` and `sdh_write_poll()` against the

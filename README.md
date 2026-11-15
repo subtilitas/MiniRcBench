@@ -2192,8 +2192,14 @@ ms,pulse_a_us,pulse_b_us,current_ma,bus_mv,flags
   on the card before the Start. An open that passes 2000 ms
   (`SERVO_LOG_OPEN_MAX_MS`), checked between its steps, is given up: `NO LOG:
   CARD TOO SLOW`, and the run starts without a log. Its file is closed and
-  removed at the run's end; its queued blocks go out during the run without a
-  wait. A running blackbox log's stop comes before the open and is not counted.
+  removed at the run's end, only from the card it was opened on, by its volume
+  serial number: a card swapped in meanwhile keeps its own file of that number,
+  and the begun file stays on the first card. Its queued blocks go out during
+  the run without a wait. A running blackbox log's stop comes before the open
+  and is not counted. One search of the FAT is not cut short: the limit is
+  checked before it and between the 4 MiB and the 64 KiB try, and a whole search
+  of a fragmented card of 32 GB reads about 8,000 blocks, some 8 s at 1 ms a
+  block.
 - The file closes when the run ends: STOP, BACK, a cut, a trip, or a supply that
   did not come up. Its last line says how (`end=STOP`, `BACK`, `OVERCURRENT`,
   `STALL`, `LOW_SUPPLY`, `NO_SENSOR`, `STALLED`, `TOUCH_SILENT`, `BUS_STUCK`,
@@ -2232,16 +2238,18 @@ ms,pulse_a_us,pulse_b_us,current_ma,bus_mv,flags
   too; at the run's end the card is mounted again (`cardCacheRecover()`), and SD
   LOG shows whether one is there. The file then holds the blocks written before,
   at its reserved size.
-- In the host model: the open took 557 ms the first time after a mount with a
-  blackbox log to stop and 120 ms the next, on a card that reads a block in 1 ms
+- In the host model: the open took 558 ms the first time after a mount with a
+  blackbox log to stop and 121 ms the next, on a card that reads a block in 1 ms
   and programs it in 5 ms; on a card at the SD specification's limits, 100 ms a
-  read and 511 ms a block, it was given up at 2.2 s and 2.1 s, and the Start was
+  read and 511 ms a block, it was given up at 2.3 s and 2.1 s, and the Start was
   taken every time. During the run a pass spends at most a block's transfer, 0.1
   ms, on the card. The hard cut came at most 25.01 ms after a step of current
-  without the log and 25.03 ms with it; the longest gap between readings grew
-  from 25.00 ms to at most 25.07 ms, by at most the block's transfer (`make -C
-  test lognum`, `test/servo_log_fatfs.cpp`). A real card's latency and the cuts'
-  timing on the board with the log on are not measured.
+  without the log and 24.96 ms with it; the longest gap between readings grew
+  from 25.00 ms to at most 25.06 ms, by at most the block's transfer (`make -C
+  test lognum`, `test/servo_log_fatfs.cpp`). A card pulled during the run costs
+  each pass that sends it a command 5 ms, the command's timeout, until the write
+  cache gives the card up. A real card's latency and the cuts' timing on the
+  board with the log on are not measured.
 
 **SET.** The PULSE rows change only while SAFE. TYPE loads one of rcbench's
 profiles:

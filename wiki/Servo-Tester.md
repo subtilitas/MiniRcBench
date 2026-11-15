@@ -348,7 +348,8 @@ switch the supply.
 - Stop the servo before cutting the power or pulling the card. A run cut by a
   power loss leaves a file of 4 MiB, or 64 KiB: the readings that reached the
   card, then whatever the card held there before. The last readings, up to about
-  16 KiB, are lost.
+  16 KiB, are lost. A card swapped in during a run that got `NO LOG` keeps its
+  own files; the file the bench had begun may then stay on the first card.
 - Writing the log never makes the bench wait for the card: the sensor is read
   and the cuts act as without the log, within 0.1 ms in the host model. How long
   a real card takes is not measured on the board.

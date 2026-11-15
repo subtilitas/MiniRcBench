@@ -370,7 +370,10 @@ Versorgung nicht schaltet.
 - Stoppe das Servo, bevor du den Strom abschaltest oder die Karte ziehst. Ein
   durch Stromausfall abgebrochener Lauf hinterlässt eine Datei von 4 MiB oder 64
   KiB: die Messungen, die die Karte erreichten, danach, was die Karte dort
-  vorher hielt. Die letzten Messungen, bis etwa 16 KiB, gehen verloren.
+  vorher hielt. Die letzten Messungen, bis etwa 16 KiB, gehen verloren. Eine
+  Karte, die während eines Laufs mit `NO LOG` eingesteckt wird, behält ihre
+  eigenen Dateien; die Datei, die die Bank begonnen hatte, kann dann auf der
+  ersten Karte bleiben.
 - Das Schreiben der Aufzeichnung lässt die Bank nie auf die Karte warten: Der
   Sensor wird gelesen und die Abschaltungen greifen wie ohne die Aufzeichnung,
   im Modell der Host-Tests auf 0,1 ms genau. Wie lange eine echte Karte braucht,

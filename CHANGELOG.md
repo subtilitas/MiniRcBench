@@ -56,28 +56,32 @@ protocol.
   sends the Start in the frame after, with the heartbeat and touch read afresh,
   so a slow open never makes core1 refuse the Start. The open reserves 4 MiB in
   one run of the card, or 64 KiB, mapped for FatFs's fast seek, and flushes
-  every block of that to the card before the Start; past 2000 ms it is given up,
-  `NO LOG: CARD TOO SLOW`, and the run starts without a log. The SD write cache
-  is on from the open to the close; during the run core0 writes one whole
-  512-byte block inside the reserve, only while nothing is queued or in flight,
-  and makes no f_sync(), so the run reads nothing from the card. A running
-  blackbox log stops at HOLD TO START: SD LOG reads `RECORDING STOPPED BY SERVO
-  TESTER`, the run summary `Ended by: SERVO TESTER` (`SdLogEnd::ByServo`,
-  `RunSumEnd::ByServo`). The dial's second line shows `LOGGING TO SRV00012.CSV`
-  while RUNNING, or in amber the rows dropped, the 4 MiB limit, no room in one
-  piece, a failed write, a slow card, a card that did not answer, or a log that
-  did not open. A card removed or a failed block stops the writing, and the card
-  is mounted again at the run's end. The write cache's swap check, the read of
-  the volume's serial number before each batch, no longer waits for the card:
-  `sdh_read_start()` and `sdh_read_poll()` in `src/sdio/sd_host.*`, with the
-  bus's `rx_ready()` (`busRxReady()` in `src/sdio/sd_pio.c`), start it in one
-  flush step and collect it in a later one. A read with a CRC, frame, timeout or
-  no-response error is tried again, 3 reads in all, with CMD12 after each
-  failure but no wait for its busy, as `sdh_read()` tries a block; another
-  error or a different number fails the batch at once. Every wait of core0 on the cache calls the
-  driver's wait hook, so KST SERVO's and HITEC SERVO's card stamp stays fresh
-  across a check read that times out. `sdLogNameNumberOf()` and the scan and
-  open of `src/sd_log_next.*` take the kind of log. Host tests in
+  every block of that to the card before the Start; past 2000 ms, checked before
+  the FAT search, between the 4 MiB and the 64 KiB try and at each flush step,
+  it is given up, `NO LOG: CARD TOO SLOW`, and the run starts without a log; its
+  file is removed at the run's end only from the card it was opened on, by the
+  volume's serial number. The SD write cache is on from the open to the close;
+  during the run core0 writes one whole 512-byte block inside the reserve, only
+  while nothing is queued or in flight, and makes no f_sync(), so the run reads
+  nothing from the card. A running blackbox log stops at HOLD TO START: SD LOG
+  reads `RECORDING STOPPED BY SERVO TESTER`, the run summary `Ended by: SERVO
+  TESTER` (`SdLogEnd::ByServo`, `RunSumEnd::ByServo`). The dial's second line
+  shows `LOGGING TO SRV00012.CSV` while RUNNING, or in amber the rows dropped,
+  the 4 MiB limit, no room in one piece, a failed write, a slow card, a card
+  that did not answer, or a log that did not open. A card removed or a failed
+  block stops the writing, and the card is mounted again at the run's end. The
+  write cache's swap check, the read of the volume's serial number before each
+  batch, no longer waits for the card: `sdh_read_start()` and `sdh_read_poll()`
+  in `src/sdio/sd_host.*`, with the bus's `rx_ready()` (`busRxReady()` in
+  `src/sdio/sd_pio.c`), start it in one flush step and collect it in a later
+  one. A read with a CRC, frame, timeout or no-response error is tried again, 3
+  reads in all, with CMD12 after a block that did not come in time but no wait
+  for its busy, and none after a whole block with a CRC error, which would cost
+  5 ms, as `sdh_read()` tries a block; another error or a different number fails
+  the batch at once. Every wait of core0 on the cache calls the driver's wait
+  hook, so KST SERVO's and HITEC SERVO's card stamp stays fresh across a check
+  read that times out. `sdLogNameNumberOf()` and the scan and open of
+  `src/sd_log_next.*` take the kind of log. Host tests in
   `test/servo_log_fatfs.cpp` (`make lognum`) over FatFs R0.15, `card_cache.cpp`
   and `sd_cache.c` with a card model, and in `test/test_servo.cpp`, and the read
   in `test/test_sdio.cpp` and `test/test_sd_cache.cpp`, mutation-checked; README
