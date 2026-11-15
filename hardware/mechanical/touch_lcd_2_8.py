@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: CC-BY-NC-SA-4.0
 """Waveshare RP2350-Touch-LCD-2.8, the board MiniRcBench runs on.
 
 A facsimile: the cover glass, the display stack, the board with its

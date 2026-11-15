@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Adapted from rcbench hardware/mechanical/gen_models.py, commit fb41a46a, MIT.
+# SPDX-License-Identifier: CC-BY-NC-SA-4.0
+"""Adapted from rcbench hardware/mechanical/gen_models.py, commit fb41a46a,
+where it is MIT.
 
 Write the STEP models of the mechanical parts from their specs.
 
@@ -85,8 +87,8 @@ def outputs():
     out = {}
     for spec in load_specs():
         for stem, items in spec.parts(step_gen.COLORS).items():
-            out[MODELS / f"{stem}.step"] = (step_gen.write(stem, items),
-                                            items)
+            out[MODELS / f"{stem}.step"] = (
+                step_gen.write(stem, items), items)
     return out
 
 

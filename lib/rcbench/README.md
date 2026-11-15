@@ -5,11 +5,18 @@ The files under this directory are copied from
 the Hitec files at commit `3e29dc1b`, the S.BUS files at commit `b88593d3`,
 the sensor bus and the move timing's files at commit `5ef42efd`, the escwire
 files and the servo file store at commit `2b4f934a`, the angle meter's files
-at commit `e98345aa`, every other file at commit `453cf334`. rcbench is MIT
-licensed by the same copyright holder as MiniRcBench, subtilitas, so the
+at commit `e98345aa`, every other file at commit `453cf334`. rcbench's code is
+MIT licensed by the same copyright holder as MiniRcBench, subtilitas, so the
 copies carry the licence of this repository, [LICENSE](../../LICENSE). Each
-file keeps its `SPDX-License-Identifier: MIT` line. The directory layout is
-rcbench's, so a file here and its original compare with one `diff`.
+file keeps its `SPDX-License-Identifier: MIT` line, except the files in
+`hardware/`. Those are model generators, and they are under CC BY-NC-SA 4.0
+([hardware/LICENSE-CAD.txt](../../hardware/LICENSE-CAD.txt)). At the commits
+listed here they have no `SPDX-License-Identifier` line, so no line in them
+reads MIT. rcbench's licence change (pull request 860) puts
+`SPDX-License-Identifier: CC-BY-NC-SA-4.0` at the end of each module
+docstring, generated `_font.py` excepted, and the copies take it when they
+are copied again. The directory layout is rcbench's, so a file here and its
+original compare with one `diff`.
 
 | File here | rcbench path |
 | --- | --- |
@@ -268,4 +275,7 @@ directory layout is rcbench's because `_board.py` finds the module files by
 their place beside `hardware/mechanical/`.
 
 Files adapted rather than copied start with the line
-`Adapted from rcbench <path>, commit <commit>, MIT.`
+`Adapted from rcbench <path>, commit <commit>, MIT.` where the original is MIT.
+The two adapted files in `hardware/mechanical/`, `gen_models.py` and
+`check_models.py`, are CC BY-NC-SA 4.0 here and say `where it is MIT`
+after the commit.

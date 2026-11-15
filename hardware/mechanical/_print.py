@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: CC-BY-NC-SA-4.0
 """Print and bare tin on the rear, traced by _trace_print.py.
 
 Each shape is (outline, holes, tin): (xr, y) points in the

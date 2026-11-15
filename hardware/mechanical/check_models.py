@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: CC-BY-NC-SA-4.0
 """Adapted from rcbench hardware/kicad/tools/step_check.py and
-step_render.py, commit fb41a46a, MIT.
+step_render.py, commit fb41a46a, where they are MIT.
 
 Read the written STEP models back with OpenCASCADE and check them.
 

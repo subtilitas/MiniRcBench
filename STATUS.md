@@ -375,6 +375,34 @@ caliper on a board. Sources, limits and commands are in
 OpenCASCADE (cadquery-ocp 8.0.1.1.0) by `check_models.py`, outside CI: 1039 valid solids, none
 sharing volume.
 
+**Licence of the models, CAD files and drawings.** CC BY-NC-SA 4.0
+(Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International)
+covers `hardware/cad/`; in `hardware/mechanical/` the models, renders and the
+scripts that generate or trace them or check the models; the wiring drawing
+`docs/wiring.svg` (and the wiki's copy) with `tools/make_wiring.py`; and the
+copies of rcbench's model generators in `lib/rcbench/hardware/`. The rest of
+the repository is MIT, `LICENSE` and `check_photo.py` included.
+[hardware/LICENSE-CAD.txt](hardware/LICENSE-CAD.txt) holds the legal code of
+creativecommons.org unchanged, and names the Waveshare name and logo as
+Waveshare's trademarks.
+
+The covered `.py` files and the SVG carry the identifier; `check_photo.py`
+carries MIT. The STEP files, the Alibre files and the renders carry none; the
+licence file covers them.
+`test/check_docs.py` checks every tracked file, mutation-checked. The
+`lib/rcbench/hardware/` copies have no licence line at the rcbench commits
+they come from. rcbench pull request 860 puts the CC line at the end of each
+module docstring, and the copies take it when they are copied again; the
+check allows both states. The generated STEP models are rcbench's bytes.
+
+Not verified: whether the licence may be applied to files drawn from
+Waveshare's material. That is Waveshare's STEP file of the ESP32-S3 board (E)
+that the stack, outline and connectors were measured in, its dimension
+drawing (D), its rear photo (P), from which the print, the logo and the name
+on the rear are traced, and its angled photo (Q). The Alibre files cannot be
+read here. The only drawing in the tree is `docs/wiring.svg`; the other
+images are screen previews and renders.
+
 ## What exists and how far it is verified
 
 States used below. "Hardware-tested (owner report)": the owner reports it
