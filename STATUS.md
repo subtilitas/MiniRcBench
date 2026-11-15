@@ -842,9 +842,10 @@ not run on hardware (item 18).
   cue (`s_blReached` is set only on `AM32_OK`, `src/ui_am32.cpp` line
   846), and BACK resumes DShot into its bootloader at once; by the
   bootloader's source a garbled frame passes its CRC check about 1 time in
-  256 ([bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#the-firmware-as-it-is-today)).
-  Not seen on an ESC. Power-cycle such an ESC after leaving. Slice 2 of
-  that note closes it.
+  256 for arbitrary bytes; what DShot frames read as is that note's bench
+  item B12 ([bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#the-firmware-as-it-is-today)).
+  Not seen on an ESC. Unplug such an ESC's battery before BACK and plug it
+  in after. Slice 2 of that note closes it.
 - **`tools/sdtest` is built by no CI job**, by the owner's decision of
   2026-10-28: it is a bench bring-up tool and never released, so a red job
   for it is not worth its cost. A change that breaks it shows only in a local

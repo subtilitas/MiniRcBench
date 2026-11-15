@@ -5,7 +5,8 @@ Status: designed, not built; waits on the owner's answers to the eight
 feature choice of 2026-11-14, recorded in [STATUS.md](../../STATUS.md)
 open item 28: Bluejay and BLHeli_S settings, rcbench's
 `protocols/escwire` copied, a design note first, then slices with reviews.
-No frame of this design has gone to an ESC from this board, and rcbench's
+No frame of this design has gone to an ESC (electronic speed controller)
+from this board, and rcbench's
 module has sent none to an ESC either. The firmware facts below are read
 from the sources under [sources](#sources), with the file and line; the
 ones no readable source settles are marked "not verified" and listed again
@@ -13,7 +14,7 @@ under [not verified](#not-verified).
 
 ## Terms
 
-ESC is electronic speed controller, UI user interface, MCU microcontroller
+UI is user interface, MCU microcontroller
 unit, PIO the RP2350's programmable input/output block, DMA direct memory
 access, CRC cyclic redundancy check, RAM random-access memory. EFM8 is the
 Silicon Labs 8051 MCU family that BLHeli_S and Bluejay ESCs use: EFM8BB1,
@@ -47,7 +48,8 @@ that commit.
 | Bluejay (`bird-sanctuary/bluejay`), version 0.21, layout revision 208 (`src/Bluejay.asm` lines 330 to 332) | `main` at 0368d11 | `src/Bluejay.asm` lines 326 to 386, 408, 471 to 480, 485 to 600, 680, 681; `src/Modules/Eeprom.asm` lines 35, 36, 42 to 84, 95 to 150, 204 to 215, 233 to 261, 268 to 293; `src/Modules/Codespace.asm` lines 28 to 49; `src/Modules/Common.asm` lines 144 to 148, 175 to 197; `src/Modules/Isrs.asm` lines 175, 469, 508 to 532; `src/Modules/Settings.asm` lines 94 to 99, 139 to 152; `src/Settings/BluejaySettings.asm` lines 30 to 50; `src/BLHeliBootLoad.inc` lines 9, 17 to 21, 76, 79, 82 to 126, 145 to 198, 233 to 280, 329 to 360, 401 to 407, 425 to 427 | GPL-3.0; read, nothing copied |
 | Bluejay release tags v0.2.0 to v0.21.1-RC1 | the tags' commits, listed under [Versions and layouts](#versions-and-layouts) | `Bluejay.asm` or `src/Bluejay.asm`: `EEPROM_FW_SUB_REVISION`, `EEPROM_LAYOUT_REVISION`, `Eep_Name` | as above |
 | BLHeli_S (`bitdump/BLHeli`), revision 16.7 (`BLHeli_S SiLabs/BLHeli_S.asm` lines 534 to 536) | a5bcf99 | `BLHeli_S SiLabs/BLHeli_S.asm` lines 44 to 63, 314 to 330, 529 to 588, 3563, 3586 to 3607; `BLHeliPgm.inc` lines 40 to 87, 96 to 136, 194 to 202, 230 to 262; `A.inc` lines 50 to 104; `BLHeliBootLoad.inc` lines 10, 76, 163, 164, 369 to 375, 390 to 394 | GPL-3.0; read, nothing copied |
-| AM32 bootloader (`am32-firmware/AM32-bootloader`) | 578ff29 (2026-09-17); first commit 3a9e057 | `bootloader/main.c` lines 835 to 857, 1097 to 1158, 1263, 1278, 1279; at 3a9e057 lines 580 to 635 | GPL-3.0; read, nothing copied |
+| AM32 bootloader (`am32-firmware/AM32-bootloader`) | 578ff29 (2026-09-17); 8b1206a (2024-12-06); the first commit with `bootloader/main.c`, 3a9e057 (2024-08-21) | `bootloader/main.c` lines 46, 628 to 633, 835 to 857, 1097 to 1158, 1263, 1278 to 1283; at 3a9e057 lines 580 to 635 | GPL-3.0; read, nothing copied |
+| AM32 firmware (`am32-firmware/AM32`) | `main` at 2a695a8; v2.21 at 6b3ef3d | `Src/main.c` lines 1739, 2137 to 2163, 2379 at 2a695a8; lines 1977 to 2003 at 6b3ef3d | GPL-3.0; read, nothing copied |
 | BLHeli_S history | the commits that changed `BLHeli_S.asm`, de5ad83 (2016-04-30) to 80ac909 (2022-12-11) | `EEPROM_FW_SUB_REVISION`, `EEPROM_LAYOUT_REVISION` | as above |
 | rcbench (`subtilitas/rcbench`) | `main` at 2b4f934a; `protocols/escwire` last changed at f4ba5321 | `protocols/escwire/README.md` lines 42 to 95, 200 to 248, 283 to 286, 368 to 498; `ew_a.c` lines 52 to 60; `ew_id.c` lines 11 to 16, 53 to 86, 128 to 189; `ew_map_s.c` lines 56 to 82; `ew_map_bj.c` lines 9, 57 to 84; `include/ew_session.h` lines 55 to 97, 167 to 259; `include/ew_map.h` lines 33 to 50; `rp2350/ew_line.c`; `docs/EscWire.md` lines 11, 18 to 23, 150; `docs/LinkEsc.md` lines 77 to 111, 153 to 160; `test/host/test_ew_*.c`, `ew_sim.h` lines 234 to 262 | MIT, same holder |
 | This repository | `main` at 8c7ace3 | `src/am32_bl.{h,cpp}` (handshake lines 292 to 345), `src/ui_am32.{h,cpp}` (connect page lines 489 to 530, `tryConnect()` lines 810 to 880), `src/pin_claim.h` lines 69, 88, `src/config.h` lines 600 to 640, `src/ui_registry.cpp` line 24, `src/ui_list.{h,cpp}`, `src/backup_ring.h`, [backups.md](backups.md), [menu-b.md](menu-b.md), [esc-commands.md](esc-commands.md), README "AM32 ESC configuration" | |
@@ -85,8 +87,9 @@ Both firmwares jump to their bootloader from the same place,
 So an EFM8 ESC that is powered when its DShot frames stop enters its
 bootloader by itself once the line rests high: Bluejay about 320 ms plus
 150 ms after the last frame, BLHeli_S after its timeout plus 15 ms. No power
-cycle is needed. AM32's bootloader decides once, about 46 ms after
-power-up, and then stays ([AM32's bootloader](#am32s-bootloader)). Not
+cycle is needed. AM32's bootloader decides at every reset, about 46 ms
+after it, and then stays; AM32's firmware resets itself 0.5 s or 2 s after
+its last frame ([AM32's bootloader](#am32s-bootloader)). Not
 verified on an ESC: the loop times are the source's comments, not measured.
 
 The bootloader then waits for the first low edge with no timeout
@@ -130,8 +133,8 @@ greeting found the ESC. From the source; not verified on an ESC.
 ### AM32's bootloader
 
 AM32's bootloader (`am32-firmware/AM32-bootloader` at 578ff29,
-`bootloader/main.c`) decides at power-up in `checkForSignal()` (lines 1097
-to 1158). It pulls its pin down, waits 0.5 ms and takes up to 4000 samples
+`bootloader/main.c`) decides at every reset in `checkForSignal()` (lines
+1097 to 1158). It pulls its pin down, waits 0.5 ms and takes up to 4000 samples
 10 µs apart; more than 450 low samples start the firmware. It then pulls
 the pin up, waits 0.5 ms and takes 500 more samples. A line that read high
 in every sample keeps it in the bootloader; any low sample leads to a last
@@ -139,18 +142,34 @@ in every sample keeps it in the bootloader; any low sample leads to a last
 the line has to stay high, against the pin's pull-down, for about 46 ms
 after power-up. The bootloader then waits for a start bit with no timeout
 (`serialreadChar()`, lines 835 to 857) and leaves only on a line low for
-more than 20 ms (lines 841 to 851) or on more than 100 invalid commands
-(lines 1278, 1279). Its first commit, 3a9e057, has the same rule with 500
-samples pulled down, about 11 ms in all.
+more than 20 ms (lines 841 to 851), on more than 100 invalid commands
+(lines 1278 to 1280), on its run command (lines 628 to 633), or, in
+DroneCAN builds, on CAN (lines 1281 to 1283). The 4000 samples came in
+8b1206a (2024-12-06); the first commit with `bootloader/main.c`, 3a9e057
+(2024-08-21), has the same rule with 500 samples pulled down, about 11 ms
+in all.
 
-Two things follow. A quiet line, held high, keeps an AM32 in its
-bootloader as it keeps an EFM8; and a greeting's low bits inside those
-46 ms start AM32's firmware. Today's loop holds the line low for at least
-6 ms of every 41 ms, so by this source a power-up while it runs most likely
-misses the bootloader; the README's reading, a short window after power-up,
-does not match it. Not verified: whether AM32 ESCs in the field run a
-bootloader with this rule, and whether the bench's pull-up, 50 to 80 kΩ,
-holds the line high against the AM32 pin's pull-down.
+After a software reset the rule is milder. With `CHECK_SOFTWARE_RESET` 1
+(line 46) the more-than-450 jump is skipped when `bl_was_software_reset()`
+holds (lines 1116 to 1119); a low sample before the floating check then
+only leads to that check, so only a low in its last 5 ms starts the
+firmware. And AM32's firmware resets itself: `NVIC_SystemReset()` after
+0.5 s with no valid frame while armed and after 2 s while disarmed
+(`Src/main.c` lines 2137 to 2163 at 2a695a8, the counter at 1739, cleared
+at 2379; lines 1977 to 2003 in v2.21 at 6b3ef3d).
+
+So under today's loop, which holds the line low for at least 6 ms of every
+41 ms, a power-up most likely starts the firmware, but the firmware sees no
+DShot, resets itself after 2 s, and the bootloader after that reset stays
+unless a greeting's low bits fall into its last 5 ms, about 16 of every
+41 ms (the 11 ms greeting and the 5 ms check). A powered AM32 is reached
+within a few resets; this fits AM32 CONFIG's hardware use recorded in
+STATUS.md (ab79c67, bd90e17). A quiet line keeps an AM32 in its bootloader
+as it keeps an EFM8. The README's "Connecting" states this rule as the
+bootloader's source gives it, not measured. Not verified: which bootloader
+AM32 ESCs in the field run, whether AM32's firmware reads the greeting as a
+signal and so does not reset, and whether the bench's pull-up, 50 to 80 kΩ, holds the line high
+against the AM32 pin's pull-down.
 
 ### The settings page
 
@@ -388,9 +407,10 @@ once.
 
 The greeting that AM32 CONFIG repeats today, every 30 ms
 (`AM32_GREET_TMO_MS`, `config.h` line 611) plus 11 ms on the wire, holds
-the line low for at least 6 ms of every 41 ms. Bluejay's 150 ms check then
-never passes, and BLHeli_S's 15 ms check passes only by chance. The same
-low bits, inside the 46 ms after an AM32's power-up, start its firmware
+the line low at least every 41 ms, for at least 6 ms. Bluejay's 150 ms
+check then never passes, and BLHeli_S's 15 ms check fits between two
+greetings and passes about 1 time in 3; not measured. The same low bits,
+inside the 46 ms after an AM32's power-up, start its firmware
 ([AM32's bootloader](#am32s-bootloader)). All three bootloaders, once
 entered, wait on a high line with no timeout. So the line rests high most of
 the time and the greetings come in short bursts. The connect page runs in
@@ -399,15 +419,20 @@ phases, by [question 2](#open-questions) (d):
 | Phase | Time | Line | Status line |
 |---|---|---|---|
 | Claim | as today | DShot drains, then pull-up | `RELEASING SIG GP0` |
-| Quiet | 1000 ms | driven high push-pull, 2 mA, as `ew_session_hold()` drives it; nothing sent | `LINE HIGH, NOTHING SENT` |
+| Quiet | 1000 ms | on the pull-up, as between greetings today; nothing sent | `LINE HIGH, NOTHING SENT` |
 | Greet | 3 greetings, about 125 ms | the greeting as today, the line on the pull-up for the answer | `WAITING... (TRY n)` |
 | Quiet, greet, ... | until an answer or BACK | | |
 
-The quiet phase drives the line rather than leaving it on the pull-up, so
-that an AM32 pin's pull-down cannot hold it low during its 46 ms check;
-whether that is needed, and what 2 mA into an unpowered ESC's pin does, are
-not measured (rcbench drives it so, `docs/LinkEsc.md` line 53, current not
-measured there either).
+The quiet phase leaves the line on the pull-up. Driving it high, as
+`ew_session_hold()` does, would hold it against an AM32 pin's pull-down in
+the power-up check, but it costs more: the line would be driven about 89 %
+of the time, exactly while the user unplugs and replugs the ESC, and a
+driven pin can feed an unplugged ESC through its signal pin's protection
+diode; 2 mA is the pad's drive setting, not a limit. Today the line is
+driven only in greetings and DShot frames (`src/dshot/out_dshot.c`
+line 183 puts the pull-up on for the rest). An AM32 missed at power-up on
+the pull-up still returns by its firmware's reset. No source gives a reason
+to drive it; the current into SIG is not measured either way (B13).
 
 A Bluejay that was running on DShot drops to `init_no_signal` about 320 ms
 after the pump stops and enters its bootloader 150 ms later, inside the
@@ -418,8 +443,8 @@ its check if a burst falls into it, looks for DShot300 and DShot600 for
 BLHeli_S needs 15 ms of the 1000. An AM32 stays when its 46 ms after
 power-up fall into a quiet stretch; a power-up within the 125 ms of a
 burst or the 46 ms before it starts its firmware, about 171 of every
-1125 ms, 15 %, and the user power-cycles again. All of this follows from
-the sources; none is measured.
+1125 ms, 15 %, and comes back about 2 s later by its firmware's own reset
+(not measured). All of this follows from the sources; none is measured.
 
 ### The escwire session
 
@@ -441,7 +466,9 @@ by a core1 job, as KST and Hitec run theirs:
   `am32BlEnd()` leaves the pin an input with its pulls off, floating
   (`am32_bl.cpp` lines 233 to 238), `ew_line`'s open parks it with its
   pull-down (rcbench README line 407), and `ew_session_hold()` drives it
-  high. The gap is to be one core1 loop pass; a low in it reads to a
+  high. The open's pull-down park cannot be skipped without changing
+  rcbench's code, so the gap is to be one core1 loop pass, with
+  `am32BlEnd()` called last, right before the open; a low in it reads to a
   bootloader that answered as part of a command, which the contact's
   leading 0x00 then turn into the restart above. Not verified.
 - ENTER: `ew_session_hold()`, the line driven high, then
@@ -570,8 +597,8 @@ live, where AM32 WRITE draws the hold disabled for a page with no change.
 | BACK guarded while half written | the list after `TORN` or `LOST` | leaving an erased page behind: the first BACK shows `HALF WRITTEN. BACK AGAIN LEAVES IT;` (35, 209 px) over `A POWER CYCLE THEN LOSES ITS TAGS.` (34, 203 px); the second aborts the session, sends no LEAVE, and goes to the leave page of [question 8](#open-questions) |
 | Stop, not abort | the job on a heartbeat lapse | a core0 stall cutting a write between erase and program |
 | BOARD voltage red | the write page, as AM32 | a bench brown-out during the write |
-| Run cue | MENU's `POWER-CYCLE THE ESC TO RUN IT`, set at the EFM8's answer, cleared by a LEAVE sent or by an eRPM frame after it ([question 3](#open-questions)) | an ESC left in its bootloader, unseen |
-| No DShot into a waiting bootloader | after an EFM8 answered and no LEAVE went, SIG returns to DShot only from a leave page after the user unplugs the ESC's supply ([question 8](#open-questions)) | DShot frames read as commands: the EFM8 bootloader checks only the CRC's low byte (`BLHeliBootLoad.inc` 401 to 406, 177; BLHeli_S's copy 369 to 375, 164), so a garbled 4-byte frame passes about 1 time in 256 and can be a run, a set address, an erase or a program; only the bootloader's own area is refused (lines 233 to 238). Not verified on an ESC |
+| Run cue | MENU's `POWER-CYCLE THE ESC TO RUN IT`, set at the EFM8's answer, cleared by a LEAVE sent, by RESTART DSHOT on the leave page, whose steps power-cycle the ESC, or by an eRPM frame after it ([question 3](#open-questions)) | an ESC left in its bootloader, unseen |
+| No DShot into a waiting bootloader | after an EFM8 answered and no LEAVE went, SIG returns to DShot only from a leave page after the user unplugs the ESC's supply ([question 8](#open-questions)) | DShot frames read as commands: the EFM8 bootloader checks only the CRC's low byte (`BLHeliBootLoad.inc` 401 to 406, 177; BLHeli_S's copy 369 to 375, 164), so a garbled 4-byte frame passes about 1 time in 256 for arbitrary bytes, and can be a run, a set address, an erase or a program; only the bootloader's own area is refused (lines 233 to 238). What DShot frames read as is B12. Not verified on an ESC |
 
 What an interrupted write leaves, and the way back:
 
@@ -596,8 +623,9 @@ its greeting gets `REPLY NOT UNDERSTOOD:`; `s_blReached`, which sets MENU's
 run cue, is set only on `AM32_OK` (`ui_am32.cpp` line 846), so no cue
 shows; and BACK resumes the DShot pump at once (`uiAm32Exit()`, lines 783
 to 791; `PinUser::Am32` has no leave page, `pin_claim.h` line 88). The ESC
-is left in its bootloader with DShot on SIG. Slice 2 closes this; STATUS.md
-records it as a known limitation.
+is left in its bootloader with DShot on SIG. Until slice 2 closes this,
+unplug such an ESC's battery before BACK and plug it in after; STATUS.md,
+the README and the manual record it as a known limitation.
 
 ## What is copied
 
@@ -646,10 +674,10 @@ at most `EW_FILE_MAX`, 5280 bytes.
   `E8 B1`, `E8 B2`, `E8 B5`, 6, 1, 0x30 is an EFM8 with that signature; an
   answer with an echo before it; `E8 B3`, a short answer, no 0x30: not
   understood. Mutation: a classification that drops one signature.
-- **The connect cycle:** quiet 1000 ms first and not 999 ms; greet 5000 ms;
-  no greeting in a quiet phase; tries counted only in greet phases; across
-  a `millis()` wrap; the AM32 fake's answer in a greet phase opens the AM32
-  list as today.
+- **The connect cycle:** quiet 1000 ms first and not 999 ms; then 3
+  greetings and not 4; no greeting in a quiet phase; tries counted only in
+  greet phases; across a `millis()` wrap; the AM32 fake's answer in a burst
+  opens the AM32 list as today.
 - **The job on rcbench's simulated ESC** (`ew_sim.h`, EFM8 kind), through
   the screen by control id: BLHeli_S 33 and Bluejay 208 read, edited, held,
   backed up, written, read back, left; the frames the sim logs against
@@ -662,9 +690,10 @@ at most `EW_FILE_MAX`, 5280 bytes.
   CRC, 0xC2 (`ew_sim.h` lines 234 to 262), and it does not model the
   `00 00` restart. Bench item B4 settles it, or the restart is added to
   rcbench's sim first.
-- **Today's limitation closed (slice 2):** an EFM8 answer sets the run cue,
-  and BACK after it opens the leave page, whose RESTART DSHOT acts only
-  after its steps; an AM32 answer and silence leave as today.
+- **Today's limitation closed (slice 2):** an AM32 claim with no EFM8
+  answer resumes DShot within `pinClaimEnd()` as today; after one it waits
+  for RESTART DSHOT on the leave page. An EFM8 answer sets the run cue, and
+  RESTART DSHOT clears it.
 - **Views:** each identification row: the strip lines, rows drawn
   `ReadOnly`, WRITE... disabled, the backup saved on opening a read-only
   view and not on the connect page.
@@ -683,7 +712,8 @@ Only an ESC settles these:
 - B2. The same with BLHeli_S 16.7, which may not have taken the inverted
   frames before.
 - B3. Each power-cycled during a greet phase: the time to the answer; an
-  AM32 ESC under the same cycle: how many power-ups it takes.
+  AM32 ESC under the same cycle: how many power-ups it takes, and whether
+  an AM32 answers without a second power cycle, and after how long.
 - B4. escwire's own first contact after the AM32 greeting's answer.
 - B5. The EFM8's answer drives the line open-drain (`BLHeliBootLoad.inc` 76,
   79): its rising edges on the RP2350's pull-up and the EFM8's weak
@@ -707,6 +737,9 @@ Only an ESC settles these:
   bootloader.
 - B12. On a spare ESC in its bootloader, DShot frames for 60 s: the page
   afterwards, and the firmware after a power cycle.
+- B13. With the ESC's battery unplugged and the quiet phase running: the
+  current into SIG and the ESC's 3.3 V rail; whether a power cycle restarts
+  the MCU.
 
 ## Work breakdown
 
@@ -717,10 +750,10 @@ own README and wiki lines (the owner's decision 27 of
 | Slice | Content | Code | Tests | Docs | Depends on |
 |---|---|---|---|---|---|
 | 1. Copies | the files of [what is copied](#what-is-copied), `src/escwire.cmake`, `test/escwire.mk`, the fixture check in CI, `lib/rcbench/README.md` | about 40 new | the 210 copied cases | `lib/rcbench/README.md`, STATUS, CHANGELOG | |
-| 2. Detection | the classification; an EFM8 answer named on the connect page, `EFM8 E8B2 ANSWERED: NOT READ YET.` (29 characters, 173 px), nothing read; the run cue set by that answer and the leave page of question 8 after it, which closes [today's limitation](#the-firmware-as-it-is-today); the connect loop stays as today, so no ESC is drawn into its bootloader more often than now; the MENU label and titles by question 1 | about 200 | about 250 | README "AM32 ESC configuration", wiki in both languages, previews, STATUS | |
+| 2. Detection | the classification; an EFM8 answer named on the connect page, `EFM8 E8B2 ANSWERED: NOT READ YET.` (33 characters, 197 px), nothing read; the run cue set by that answer, cleared by RESTART DSHOT or eRPM; a leave page per claim in `pin_claim`, set for `PinUser::Am32` at an EFM8's answer (today `unplug` is fixed per user, `pin_claim.h` line 88), the leave page of question 8, which closes [today's limitation](#the-firmware-as-it-is-today); the connect loop stays as today, so no ESC is drawn into its bootloader more often than now; the MENU label and titles by question 1 | about 200 | about 250 | README "AM32 ESC configuration", wiki in both languages, previews, STATUS | |
 | 3. Read | the connect cycle, `escwire_job`, the claim's job, the read, the list read-only for every page, the views, HEX, the strip notes, the 3D note, LEAVE's `00 01` frame | about 650 | about 650 | README section, wiki, previews | 1, 2 |
 | 4. Write | WRITE..., ESC WRITE, the backups and their prefixes, the results, the guarded BACK, the heartbeat stop | about 400 | about 500 | as above | 3 |
-| 5. Bring-up | B1 to B12 | none | none | the record in STATUS | 1 to 4 |
+| 5. Bring-up | B1 to B13 | none | none | the record in STATUS | 1 to 4 |
 | 6. Restore | by question 4, after rcbench has one | | | | 4 |
 
 ## Open questions
@@ -744,20 +777,23 @@ own README and wiki lines (the owner's decision 27 of
 2. **The connect cycle.** (a) 1000 ms quiet at entry, then 5000 ms of
    greetings and 1000 ms quiet in turn: a power-cycled Bluejay answers
    within 6 s, but an AM32 powered up in a greet phase starts its firmware,
-   about 5 times in 6. (b) The quiet second at entry only, then greetings as
-   today: a power-cycled Bluejay or AM32 most likely does not answer. (c)
-   No cycle: the user picks the firmware first, question 1 (c). (d) 1000 ms
-   quiet with the line driven high, then 3 greetings, about 125 ms, in turn
-   (recommended: a quiet line keeps all three bootloaders waiting, a powered
-   EFM8 answers in the first second, and an AM32 power-up is missed about
-   15 % of the time, when its 46 ms check meets a burst; not measured).
+   about 5 times in 6, and by AM32's source returns about 2 s later. (b)
+   The quiet second at entry only, then greetings as today: a power-cycled
+   Bluejay most likely does not answer; an AM32 answers after its
+   firmware's reset, as today. (c) No cycle: the user picks the firmware
+   first, question 1 (c). (d) 1000 ms quiet on the pull-up, then 3
+   greetings, about 125 ms, in turn (recommended: a quiet line keeps all
+   three bootloaders waiting, and a powered EFM8 answers in the first
+   second; an AM32 power-up meets a burst about 15 % of the time and then
+   answers after its firmware's 2 s reset; not measured).
 3. **Leaving.** (a) LEAVE sends rcbench's `00 01`, which starts the
    firmware, and the result line reads `LEAVING STARTS THE ESC WITH THEM.`
    (recommended: rcbench does it, the bootloader takes it, and the firmware
-   reads its page at every start, `Bluejay.asm` 471), with the run cue
-   cleared when LEAVE went out (recommended; LEAVE has no answer, B11), or
-   only by eRPM, which BLHeli_S never sends. (b) Nothing, as AM32 CONFIG
-   today: the result line asks for a power cycle, the run cue stays until
+   reads its page at every start, `Bluejay.asm` 471). With it, (a1) the
+   run cue is cleared when LEAVE went out (recommended; LEAVE has no
+   answer, B11), or (a2) only by eRPM, which BLHeli_S never sends, so its
+   cue stays until RESTART DSHOT or a bench restart. (b) Nothing, as AM32
+   CONFIG today: the result line asks for a power cycle, the run cue stays until
    eRPM, and SIG returns to DShot only by question 8.
 4. **Repair after a cut write.** (a) None here: lost tags read read-only,
    and the manual explains a reflash on a computer, the backup naming the
@@ -805,9 +841,12 @@ own README and wiki lines (the owner's decision 27 of
   80 kΩ, at 52 µs a bit; the ESC's own pull-ups and filters.
 - The part's page erase and byte write times, and so the length of the
   window in which a cut loses the tags.
-- Whether AM32 ESCs in the field run a bootloader with the rule of
-  578ff29, and whether the bench's pull-up holds the line high against the
-  AM32 pull-down; whether driving it high at 2 mA harms an unpowered ESC.
+- Which bootloader AM32 ESCs in the field run, and whether the bench's
+  pull-up holds the line high against the AM32 pull-down.
+- AM32 firmware's self-reset with the greetings on the line: whether it
+  reads them as a signal.
+- The current into SIG, and into an unplugged ESC, while the line rests on
+  the pull-up (B13).
 - What a waiting EFM8 bootloader does with DShot frames (B12).
 - What BLHeli_S 16.7 does with inverted DShot; what the builds with sub
   revision 8 or 9 that rcbench refuses are.

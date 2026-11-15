@@ -1115,10 +1115,12 @@ frame stamped after that handshake arrives or the board restarts.
 ### Connecting
 
 Open the screen, then power-cycle the ESC: the page says so in amber,
-`POWER-CYCLE THE ESC`, the step to take now. The AM32 bootloader listens only in
-a short window after power-up. The firmware repeats the 21-byte init string,
-waiting 30 ms (`AM32_GREET_TMO_MS`) for each reply, so that it is sending when
-the window opens. The window's length is not measured.
+`POWER-CYCLE THE ESC`, the step to take now. By the AM32 bootloader's source,
+it decides about 46 ms after each reset and then waits while the line rests
+high; a greeting's low bits in those 46 ms start the ESC's firmware, which
+resets itself 2 s after its last DShot frame and so returns to the bootloader
+(`docs/design/bluejay-blheli-s.md`). Not measured. The firmware repeats the
+21-byte init string, waiting 30 ms (`AM32_GREET_TMO_MS`) for each reply.
 
 `AM32_FORCE_LOW_JUMP` (default 0) instead holds the signal low for
 `AM32_BOOT_LOW_MS` (200 ms) once before the first attempt. The reference
@@ -1133,6 +1135,12 @@ The screen shows which half failed:
 | `nB: xx xx xx @19200`, then `REPLY NOT UNDERSTOOD:` and `IS THE ESC RUNNING AM32?` | The ESC sent bytes that did not parse | Baud rate or framing, or firmware other than AM32. The first three bytes are shown |
 | `READ FAILED (...)` | Handshake succeeded, settings read failed | Retry; check the wire |
 | `NO VALID SETTINGS`, with `NOT AN AM32 ESC, OR BLANK SETTINGS.` and `NOTHING WILL BE WRITTEN.` | The settings block is implausible (`am32Plausible()`): among others a layout revision of 0 or above 8 | Nothing to do: the screen stays on the connect page, which has no `WRITE...` |
+
+A Bluejay or BLHeli_S ESC can answer the greeting: `REPLY NOT UNDERSTOOD:`
+with the bytes `34 37 31`. Its bootloader then waits for commands, no run cue
+shows, and BACK sends DShot into it at once, which its bootloader may read as a
+command. Unplug its battery before BACK and plug it in after. From the
+bootloader's source; not seen on an ESC.
 
 ### Layouts outside 2 to 4
 

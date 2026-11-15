@@ -24,11 +24,14 @@ suchen. Vorher sendet DShot den Gaswert null, bis 250 ms seit dem letzten
 Gasbefehl vergangen sind. Ein laufender ESC sieht so einen Stopp, bevor die
 Leitung still wird.
 
-**Dann den ESC neu starten.** Der AM32-Bootloader lauscht nur in einem kurzen
-Fenster nach dem Einschalten. Zieh den ESC-Akku ab und steck ihn wieder an,
-während dieser Bildschirm offen ist. Die Firmware wiederholt ihren
-Verbindungsaufbau und wartet je 30 ms auf eine Antwort, damit sie sendet, wenn
-das Fenster aufgeht. Die Länge des Fensters ist nicht gemessen.
+**Dann den ESC neu starten.** Zieh den ESC-Akku ab und steck ihn wieder an,
+während dieser Bildschirm offen ist. Laut dem Quelltext des AM32-Bootloaders
+entscheidet er etwa 46 ms nach jedem Start und wartet dann, solange die
+Leitung hoch liegt; fallen Bytes des Verbindungsaufbaus in diese 46 ms,
+startet stattdessen die ESC-Firmware, und die startet sich ohne DShot nach
+2 s selbst neu, sodass der Bootloader eine neue Gelegenheit bekommt. Nicht
+gemessen. Die Firmware wiederholt ihren Verbindungsaufbau und wartet je 30 ms
+auf eine Antwort.
 
 Der Bildschirm zeigt `POWER-CYCLE THE ESC` (den ESC aus- und wieder
 einschalten) in Bernstein, den Schritt, der jetzt dran ist, und
@@ -419,6 +422,12 @@ ESC-Firmware sendet, oder wenn die Platine neu startet.
 - **`REPLY NOT UNDERSTOOD`.** Die Verbindung funktioniert, die Rahmenbildung
   nicht. Mögliche Ursachen: Der ESC läuft nicht mit AM32, oder sein Bootloader
   nutzt ein Protokoll, das dieser Transport nicht umsetzt.
+- **`REPLY NOT UNDERSTOOD` mit den Bytes `34 37 31`.** Ein Bluejay- oder
+  BLHeli_S-ESC hat geantwortet. Sein Bootloader wartet jetzt auf Befehle, und
+  kein Hinweis zum Neustart erscheint. **Zieh seinen Akku vor BACK ab und steck
+  ihn danach wieder an**: BACK schickt sofort DShot, das sein Bootloader als
+  Befehl lesen kann. Laut dem Quelltext des Bootloaders; an keinem ESC
+  gesehen.
 - **`NO VALID SETTINGS`.** Der ESC hat geantwortet, und der Einstellungsblock
   hat die Plausibilitätsprüfung nicht bestanden. Schreibe nichts.
 - **`LAYOUT n NOT KNOWN: READ-ONLY.`** Der ESC speichert ein
