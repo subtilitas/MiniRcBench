@@ -40,8 +40,8 @@ typedef uint64_t LBA_t;
 #define FS_FAT32 3
 #define FS_EXFAT 4
 
-/** The fields of FatFs's volume object that sd_log.cpp and sd_log_next.cpp read. */
-typedef struct { BYTE fs_type; WORD id; LBA_t volbase; } FATFS;
+/** The fields of FatFs's volume object that sd_log.cpp, sd_log_next.cpp and servo_log.cpp read. */
+typedef struct { BYTE fs_type; WORD id; LBA_t volbase; WORD csize; } FATFS;
 /** The fields of FatFs's file object that servo_log.cpp sets or reads: the
  *  fast-seek table and the file pointer (f_tell()). */
 typedef struct { int handle; FSIZE_t pos; bool writing; DWORD *cltbl; FSIZE_t fptr; } FIL;
@@ -63,6 +63,7 @@ FRESULT f_write(FIL *fp, const void *buf, UINT btw, UINT *bw);
 FRESULT f_sync(FIL *fp);
 FRESULT f_truncate(FIL *fp);
 FRESULT f_lseek(FIL *fp, FSIZE_t ofs);
+FRESULT f_getfree(const char *path, DWORD *nclst, FATFS **fatfs);
 FRESULT f_expand(FIL *fp, FSIZE_t fsz, uint8_t opt);
 FRESULT f_stat(const char *path, FILINFO *fno);
 FRESULT f_opendir(DIR *dp, const char *path);

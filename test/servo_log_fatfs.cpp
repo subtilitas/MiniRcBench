@@ -181,6 +181,9 @@ static sd_err_t devReadPoll(void *, bool *done) {
 	return ramDiskRead(g_card.readBuf, g_card.readLba, 1) == RES_OK ? SDE_OK : SDE_TIMEOUT;
 }
 
+/** @brief sd_host.c's wait hook, which sd_cache.c calls in its waits; sd_host.c is not linked here. */
+extern "C" { void (*sdh_wait_hook)(void) = nullptr; }
+
 static const sdc_dev_t kDev = { nullptr, devRead, devWriteStart, devWritePoll, devReadStart,
                                 devReadPoll };
 
@@ -386,12 +389,34 @@ static void jobSafe() {
  *        sent and followed; core1 takes it at once unless @p taken is false.
  * @return servoLogStart()'s answer.
  */
+static uint64_t g_hbUs = 0;     /**< core0's last heartbeat, stamped at a UI frame's start. */
+static uint64_t g_touchUs = 0;  /**< The touch controller's last answer, read at a frame's start. */
+static uint64_t g_openUs = 0;   /**< The last open's time on core0. */
+static unsigned g_refused = 0;  /**< Starts core1 refused by the heartbeat or the touch rule. */
+
+/**
+ * @brief HOLD TO START with a log, as ui_servo.cpp steps it after the frame
+ *        that drew the note: a frame that stamps the heartbeat, reads touch
+ *        and opens the log; then the next frame, at once if the open overran
+ *        25 ms, else 25 ms on with passes between, which stamps both afresh
+ *        and sends the Start. Core1 takes it only with the heartbeat and the
+ *        touch answer under 250 ms old, servo_job.cpp's rules; @ref g_refused
+ *        counts a refusal. Core1 takes it at once unless @p taken is false.
+ * @return servoLogStart()'s answer.
+ */
 static bool holdStart(bool taken = true) {
-	g_startMs = nowMs();
 	g_loop.readings.clear();
+	g_hbUs = g_touchUs = g_us;
+	g_startMs = nowMs();
+	uint64_t t0 = g_us;
 	bool open = servoLogStart(g_startMs);
+	g_openUs = g_us - t0;
+	if (g_us < t0 + 25000) runFor((uint32_t)((t0 + 25000 - g_us + 999) / 1000));
+	g_hbUs = g_touchUs = g_us;
 	servoLogFollow(++g_cmdSeq);
-	if (taken) {
+	bool alive = g_us - g_hbUs < 250000 && g_us - g_touchUs < 250000;
+	if (!alive) g_refused++;
+	if (taken && alive) {
 		g_st.ackSeq = g_cmdSeq;
 		g_st.running = true;
 		g_st.tripped = false;
@@ -658,13 +683,14 @@ static void testNames(const char *vol, BYTE fmt, DWORD au) {
 	jobSafe();
 	checkTrue("SRV99999.CSV: no log", !holdStart());
 	ServoLogStatus s = logStatus();
-	checkTrue("NoFreeNumber, nothing open, the cache off",
-	          s.fault == SdLogEnd::NoFreeNumber && !s.active && !sdc_on() && s.fileNumber == 0);
+	checkTrue("NoFreeNumber, nothing open", s.fault == SdLogEnd::NoFreeNumber && !s.active && s.fileNumber == 0);
 	runFor(100);
+	runEnds();
+	pass();
+	checkTrue("the run's end: the cache off", !sdc_on());
 	checkTrue("the blackbox log still numbers: LOG00008.BFL",
 	          sdLogStart() && escStatus().fileNumber == 8);
 	sdLogStop();
-	runEnds();
 	runFor(50);
 	f_mount(nullptr, "", 0);
 }
@@ -870,11 +896,12 @@ static void testCardFull() {
 	fill(15);   // 60 KiB free: no reserve of 64 KiB
 	checkTrue("60 KiB free: no log", !holdStart());
 	ServoLogStatus s = logStatus();
-	checkTrue("CARD FULL, no file, the cache off",
-	          !s.active && s.fault == SdLogEnd::CardFull && !exists("/LOGS/SRV00001.CSV") && !sdc_on());
-	checkInt("the 60 KiB still free", (long)freeClusters(), 15);
+	checkTrue("CARD FULL, no log", !s.active && s.fault == SdLogEnd::CardFull);
 	runFor(100);
 	runEnds();
+	pass();
+	checkTrue("the run's end: no file, the cache off", !exists("/LOGS/SRV00001.CSV") && !sdc_on());
+	checkInt("the 60 KiB still free", (long)freeClusters(), 15);
 	runFor(50);
 	f_mount(nullptr, "", 0);
 
@@ -889,6 +916,7 @@ static void testCardFull() {
 		fill(c.keep);
 		WORD id = sdLogFs()->id;
 		checkTrue("HOLD TO START: a log", holdStart());
+		unsigned writes0 = g_card.writes;
 		FILINFO fi;
 		checkTrue("its reserve 64 KiB, the largest half that fits",
 		          f_stat("/LOGS/SRV00001.CSV", &fi) == FR_OK && fi.fsize == SERVO_LOG_RESERVE_MIN_BYTES);
@@ -899,6 +927,9 @@ static void testCardFull() {
 		}
 		checkTrue("the reserve used up: CARD FULL, the log open, the run on",
 		          s.active && s.fault == SdLogEnd::CardFull && !s.atLimit);
+		for (int i = 0; i < 1000 && cardCacheState() != CardCache::Idle; i++) pass();
+		checkInt("the run wrote every block of the reserve, 64 KiB, and no more",
+		         (long)(g_card.writes - writes0), (long)(SERVO_LOG_RESERVE_MIN_BYTES / 512u));
 		checkTrue("no card read waited for during the run", g_loop.runReads == 0);
 		uint32_t rows = s.rows;
 		if (c.removed) g_disk.removed = true;
@@ -1157,11 +1188,16 @@ static void testCache(bool slow) {
 	             : "Servo log over FatFs, FAT32: the cache, a card at 1 ms a read and 5 ms a block");
 	format(FM_FAT32, 2u * 1024u * 1024u, 4096);
 	uint32_t readUs = slow ? 100000 : 1000;
-	cardTimes(readUs, slow ? 511000 : 5000);
+	// The open on a card at 1 ms a read: on one at the specification's
+	// limits it takes longer than SERVO_LOG_OPEN_MAX_MS and no log starts
+	// (testOpenTime()). The card then slows down for the run.
+	cardTimes(1000, 5000);
 	loopReset();
 	jobSafe();
 	runFor(100);
 	holdStart();
+	g_card.readUs = readUs;
+	g_card.busyUs = slow ? 511000 : 5000;
 	// The open may wait for the card: it runs before the Start command. Its
 	// blocks go out as one batch in the first passes.
 	runFor(slow ? 30000 : 1000);
@@ -1224,7 +1260,7 @@ static void testCutOnTime(uint32_t readUs, uint32_t busyUs) {
 	uint64_t delay[2] = {0, 0}, worstPass[2] = {0, 0}, worstGap[2] = {0, 0};
 	for (int on = 0; on < 2; on++) {
 		format(FM_FAT32, 2u * 1024u * 1024u, 4096);
-		cardTimes(readUs, busyUs);
+		cardTimes(1000, 5000);   // the open as in testCache()
 		loopReset();
 		g_loop.logging = on == 1;
 		jobSafe();
@@ -1232,6 +1268,8 @@ static void testCutOnTime(uint32_t readUs, uint32_t busyUs) {
 		g_declared = on == 1;   // without a sensor declared no log opens
 		holdStart();
 		g_declared = true;
+		g_card.readUs = readUs;
+		g_card.busyUs = busyUs;
 		checkTrue(on ? "the log open" : "no log", logStatus().active == (on == 1));
 		g_loop.worstPassUs = g_loop.worstGapUs = 0;
 		g_loop.lastReadingUs = g_us;
@@ -1274,6 +1312,120 @@ static void testCutOnTime(uint32_t readUs, uint32_t busyUs) {
 	checkTrue("log on: no pass waits for the card, at most a block's transfer", worstPass[1] <= 100);
 }
 
+/**
+ * @brief The open's faults: a mounted card on which the cache does not
+ *        start, and a FAT block that does not read during the reserve's
+ *        search, which is a card fault, not a full card.
+ */
+static void testOpenFaults() {
+	section("Servo log over FatFs, FAT32: the cache not started, the reserve's search failing");
+	format(FM_FAT32, 2u * 1024u * 1024u, 4096);
+	cardTimes(1000, 5000);
+	loopReset();
+	jobSafe();
+	f_mkdir("/LOGS");
+	runFor(100);
+	sdLogStart();
+	runFor(100);
+	g_card.failLba = (uint32_t)sdLogFs()->volbase;   // the swap check's sector
+	g_card.failRead = true;
+	checkTrue("the volume's serial number does not read: no log", !holdStart());
+	g_card.failRead = false;
+	ServoLogStatus s = logStatus();
+	checkTrue("THE CARD DID NOT ANSWER: noCache, no fault, the cache off",
+	          !s.active && s.noCache && s.fault == SdLogEnd::None && !sdc_on());
+	checkTrue("the blackbox log stopped all the same, as SERVO TESTER's",
+	          !sdLogActive() && escStatus().end == SdLogEnd::ByServo);
+	runEnds();
+	pass();
+	sdLogRelease();
+	jobSafe();
+	checkTrue("no card mounted: no log, nothing to report", !holdStart() && !logStatus().noCache);
+	runEnds();
+	pass();
+	sdLogReacquire();
+
+	// FAT1's block of the free-cluster hint, where the reserve's search
+	// begins: 128 entries of 4 bytes a block on FAT32.
+	g_card.failLba = (uint32_t)(sdLogFs()->fatbase + (sdLogFs()->last_clst + 1u) / 128u);
+	g_card.failRead = true;
+	jobSafe();
+	checkTrue("the FAT's block at the free hint does not read: no log", !holdStart());
+	g_card.failRead = false;
+	s = logStatus();
+	checkTrue("THE FILE DID NOT OPEN: a card fault, not CARD FULL",
+	          !s.active && s.fault == SdLogEnd::OpenFailed && !s.slow);
+	runFor(500);
+	runEnds();
+	pass();
+	checkTrue("the run's end: the file removed, the cache off", !sdc_on() && !exists("/LOGS/SRV00001.CSV"));
+	f_mount(nullptr, "", 0);
+}
+
+/**
+ * @brief The open's time on core0 and the Start after it, on both cards: the
+ *        first open after a mount with a blackbox log to stop, and a second.
+ *        Core1 judges each Start by the 250 ms heartbeat and touch rules. On
+ *        the card at the specification's limits the open passes
+ *        SERVO_LOG_OPEN_MAX_MS and is given up: no log, the run without one,
+ *        its file's removal drained during the run without a wait.
+ */
+static void testOpenTime() {
+	struct { uint32_t readUs, busyUs; bool slow; } cards[] = { { 1000, 5000, false }, { 100000, 511000, true } };
+	for (auto &c : cards) {
+		char t[120];
+		snprintf(t, sizeof(t), "Servo log over FatFs, FAT32: the open and the Start, %lu ms a read, %lu ms a block",
+		         (unsigned long)(c.readUs / 1000), (unsigned long)(c.busyUs / 1000));
+		section(t);
+		format(FM_FAT32, 2u * 1024u * 1024u, 4096);
+		cardTimes(c.readUs, c.busyUs);
+		loopReset();
+		jobSafe();
+		runFor(100);
+		if (!c.slow) {
+			sdLogStart();   // a blackbox log by hand: the open stops it first
+			runFor(500);
+		}
+		g_refused = 0;
+		uint64_t opens[2] = {0, 0};
+		for (int k = 0; k < 2; k++) {
+			jobSafe();
+			bool open = holdStart();
+			opens[k] = g_openUs;
+			ServoLogStatus s = logStatus();
+			uint16_t left = 9;
+			if (!c.slow) {
+				checkTrue(k ? "the second open: a log" : "the first open after a mount: a log", open && s.active);
+				checkTrue("every block of the open on the card before the Start",
+				          sdc_state(&left) == SDC_IDLE && left == 0);
+			} else {
+				checkTrue(k ? "the second open: given up, too slow" : "the first open: given up, too slow",
+				          !open && !s.active && s.slow && s.fault == SdLogEnd::None);
+				checkTrue("within the limit and a card step of it",
+				          g_openUs <= (SERVO_LOG_OPEN_MAX_MS + 700) * 1000ull);
+			}
+			checkInt("the Start taken: heartbeat and touch fresh", (long)g_refused, 0);
+			g_loop.worstPassUs = 0;
+			g_loop.runReads = 0;
+			runFor(5000);
+			checkTrue("no pass of the run waited for the card", g_loop.worstPassUs <= 100 && g_loop.runReads == 0);
+			runEnds();
+			pass();
+			checkTrue("the run's end: the cache off", !sdc_on() && !logStatus().active);
+		}
+		printf("  (the open: %llu us the first after a mount%s, %llu us the second)\n",
+		       (unsigned long long)opens[0], c.slow ? "" : ", a blackbox log to stop",
+		       (unsigned long long)opens[1]);
+		if (c.slow) {
+			checkTrue("no file left of the opens given up",
+			          !exists("/LOGS/SRV00001.CSV") && !exists("/LOGS/SRV00002.CSV"));
+			checkTrue("a Start in the open's own frame would have found the heartbeat stale",
+			          opens[0] >= 250000 && opens[1] >= 250000);
+		}
+		f_mount(nullptr, "", 0);
+	}
+}
+
 int main() {
 	testPure();
 	testNames("FAT32", FM_FAT32, 4096);
@@ -1285,6 +1437,8 @@ int main() {
 	testRemoved();
 	testWriteError();
 	testReadFails();
+	testOpenTime();
+	testOpenFaults();
 	testCache(false);
 	testCache(true);
 	testCutOnTime(1000, 5000);

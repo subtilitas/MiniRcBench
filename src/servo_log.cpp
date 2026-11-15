@@ -68,6 +68,8 @@ bool servoLogRunOver(const ServoStatus *st, uint16_t startSeq) {
 #if SD_LOG_ENABLE
 
 #include "card_cache.h"
+#include "card_dir.h"
+#include "plat.h"
 #include "log_ring.h"
 #include "sd_log_next.h"
 #include "sense.h"
@@ -98,6 +100,20 @@ static uint8_t  s_ringBuf[SERVO_LOG_RING_BYTES];
 static SdLogNextCache s_next = {};
 
 static bool     s_active = false;   /**< A log is open. */
+/**
+ * @brief An open given up: no log. Its queued blocks go out one flush step
+ *        a pass during the run, without a wait; at the run's end, the supply
+ *        off, its file is closed and removed and the cache turned off
+ *        (endGiveUp()).
+ */
+static bool     s_draining = false;
+/** @brief The given-up open's file is open in FatFs: endGiveUp() closes it. */
+static bool     s_fileOpen = false;
+/** @brief The given-up open's number: endGiveUp() removes `SRVnnnnn.CSV`; 0 for none. */
+static uint32_t s_dropNo = 0;
+static bool     s_followed = false; /**< servoLogFollow() gave the Start's seq since the open. */
+static bool     s_slow = false;     /**< The last open took longer than SERVO_LOG_OPEN_MAX_MS. */
+static bool     s_noCache = false;  /**< The last open found the card mounted and the cache would not start. */
 static bool     s_writing = false;  /**< Rows go to the card: no fault yet. */
 static uint16_t s_startSeq = 0;     /**< The Start command's seq (servoLogFollow()). */
 static bool     s_back = false;     /**< BACK was tapped during the log. */
@@ -115,64 +131,127 @@ static void fail(SdLogEnd why) {
 	s_writing = false;
 }
 
-/** @brief Close the file just opened and remove it: no log after all, for @p why. */
-static void dropOpen(uint32_t n, SdLogEnd why) {
-	f_close(&s_file);
-	char path[40];
-	snprintf(path, sizeof(path), "%s/%s%05lu%s", SD_LOG_DIR_PATH, SD_LOG_KIND_SRV.head,
+/** @brief `LOGS/SRVnnnnn.CSV` of number @p n into @p path. */
+static void srvPath(char *path, size_t size, uint32_t n) {
+	snprintf(path, size, "%s/%s%05lu%s", SD_LOG_DIR_PATH, SD_LOG_KIND_SRV.head,
 	         (unsigned long)n, SD_LOG_KIND_SRV.tail);
-	f_unlink(path);
+}
+
+/**
+ * @brief Give the open up, no log after all, for @p why, or as too slow,
+ *        without a further card call: the file @p n stays open in FatFs, its
+ *        queued blocks drain during the run, and endGiveUp() closes and
+ *        removes it at the run's end, when a card call may wait.
+ */
+static bool giveUp(uint32_t n, SdLogEnd why, bool slow) {
 	s_fault = why;
+	s_slow = slow;
+	s_fileOpen = n != 0;
+	s_dropNo = n;
+	s_draining = true;
+	return false;
+}
+
+/** @brief The open has taken @ref SERVO_LOG_OPEN_MAX_MS or more since @p t0. */
+static bool late(uint32_t t0) { return (uint32_t)(millis() - t0) >= SERVO_LOG_OPEN_MAX_MS; }
+
+/**
+ * @brief The run's end after an open given up, core0 blocking, the supply
+ *        off: the file closed and removed, the cache's last blocks flushed
+ *        and the cache off. A cache that failed meanwhile is recovered
+ *        first, which leaves FatFs's file object behind: only the removal
+ *        is tried then.
+ */
+static void endGiveUp() {
+	if (cardCacheState() == CardCache::Failed) {
+		cardCacheRecover();
+		s_fileOpen = false;
+	}
+	if (s_fileOpen) {
+		s_file.cltbl = nullptr;
+		f_close(&s_file);
+	}
+	if (s_dropNo) {
+		char path[40];
+		srvPath(path, sizeof(path), s_dropNo);
+		f_unlink(path);
+	}
 	cardCacheEnd();
+	s_fileOpen = false;
+	s_dropNo = 0;
+	s_draining = false;
 }
 
 bool servoLogStart(uint32_t nowMs) {
 	if (s_active) return true;
+	if (s_draining) endGiveUp();
 	s_fault = SdLogEnd::None;
 	s_how = ServoLogHow::None;
 	s_rows = s_dropped = 0;
 	s_fileNo = 0;
 	s_atLimit = false;
+	s_slow = false;
+	s_noCache = false;
+	s_followed = false;
 	// No readings, no rows.
 	if (!senseDeclared()) return false;
-	// The cache from the open on, so the open's reads fill its read cache:
-	// the directory's block and the file's FAT blocks are those the run reads
-	// again. This also stops a running blackbox log, whose 14 blocks a second
-	// would fill the queue. Without a mounted card the cache stays off: no
-	// card, nothing to write to.
-	if (!cardCacheBegin(SdLogEnd::ByServo)) return false;
+	bool mounted = cardMounted();
+	// The cache from the open on, so the open's reads fill its read cache.
+	// This also stops a running blackbox log, whose 14 blocks a second
+	// would fill the queue; that stop is the blackbox log's own, as when a
+	// backup tool opens, and is not counted against the open's limit.
+	// Without a mounted card the cache stays off: no card, nothing to write
+	// to, and nothing to report.
+	if (!cardCacheBegin(SdLogEnd::ByServo)) {
+		s_noCache = mounted;
+		return false;
+	}
+	uint32_t t0 = millis();
 	uint32_t n = 0;
 	SdLogEnd why = sdLogOpenNext(&s_next, sdLogFs(), SD_LOG_DIR_PATH, &s_file, &n,
 	                             &SD_LOG_KIND_SRV);
-	if (why != SdLogEnd::None) {
-		s_fault = why;
-		cardCacheEnd();
-		return false;
-	}
+	if (why != SdLogEnd::None) return giveUp(0, why, false);
+	if (late(t0)) return giveUp(n, SdLogEnd::None, true);
 	// A contiguous run reserved now, while nothing is powered: the run
-	// writes inside it and never searches the FAT. A card without 16 MiB
-	// free in one run gets the largest half that fits, down to 64 KiB.
+	// writes inside it and never searches the FAT. The free count, from
+	// FSINFO on FAT32, says first whether the run can fit at all, so a full
+	// card costs no scan of the FAT; a card with the room in pieces does, at
+	// most twice. A card without the large run free gets the small one, if
+	// it has that in one run. Any answer but FR_DENIED, no such run, is a
+	// card fault.
+	DWORD freeClst = 0;
+	FATFS *vol = nullptr;
+	if (f_getfree(SD_LOG_DIR_PATH, &freeClst, &vol) != FR_OK)
+		return giveUp(n, SdLogEnd::OpenFailed, false);
+	uint64_t freeBytes = (uint64_t)freeClst * vol->csize * 512u;
+	if (freeBytes < SERVO_LOG_RESERVE_MIN_BYTES) return giveUp(n, SdLogEnd::CardFull, false);
+	if (late(t0)) return giveUp(n, SdLogEnd::None, true);
 	uint32_t reserve = SERVO_LOG_PREALLOC_BYTES;
-	while (reserve >= SERVO_LOG_RESERVE_MIN_BYTES && f_expand(&s_file, reserve, 1) != FR_OK)
-		reserve /= 2;
-	if (reserve < SERVO_LOG_RESERVE_MIN_BYTES) {
-		dropOpen(n, SdLogEnd::CardFull);
-		return false;
+	FRESULT fr = freeBytes < reserve ? FR_DENIED : f_expand(&s_file, reserve, 1);
+	if (fr == FR_DENIED) {
+		if (late(t0)) return giveUp(n, SdLogEnd::None, true);
+		reserve = SERVO_LOG_RESERVE_MIN_BYTES;
+		fr = f_expand(&s_file, reserve, 1);
 	}
+	if (fr != FR_OK)
+		return giveUp(n, fr == FR_DENIED ? SdLogEnd::CardFull : SdLogEnd::OpenFailed, false);
 	// The run's clusters from the table, not from the FAT: no read.
 	s_clmt[0] = sizeof(s_clmt) / sizeof(s_clmt[0]);
 	s_file.cltbl = s_clmt;
-	if (f_lseek(&s_file, CREATE_LINKMAP) != FR_OK) {
-		dropOpen(n, SdLogEnd::OpenFailed);
-		return false;
-	}
-	// The reserve's FAT blocks, FSINFO and the entry out now: the entry holds
-	// the reserved size until the close truncates it, as the blackbox log's.
+	if (f_lseek(&s_file, CREATE_LINKMAP) != FR_OK) return giveUp(n, SdLogEnd::OpenFailed, false);
+	// The reserve's FAT blocks, FSINFO and the entry: the entry holds the
+	// reserved size until the close truncates it, as the blackbox log's.
 	// The run makes no f_sync(), which reads the directory's block.
-	if (f_sync(&s_file) != FR_OK) {
-		dropOpen(n, SdLogEnd::OpenFailed);
-		return false;
+	if (f_sync(&s_file) != FR_OK) return giveUp(n, SdLogEnd::OpenFailed, false);
+	// ... and all of the open's blocks on the card before the Start, one
+	// flush step at a time, so the time limit holds.
+	while (cardCacheState() == CardCache::Flushing) {
+		if (late(t0)) return giveUp(n, SdLogEnd::None, true);
+		cardCachePoll();
 	}
+	// The card did not take the open: endGiveUp() mounts it again and
+	// removes what of the file reached it.
+	if (cardCacheState() == CardCache::Failed) return giveUp(n, SdLogEnd::OpenFailed, false);
 	s_reserve = reserve;
 	logRingInit(&s_ring, s_ringBuf, sizeof(s_ringBuf));
 	logRingWrite(&s_ring, (const uint8_t *)SERVO_LOG_HEADER, sizeof(SERVO_LOG_HEADER) - 1);
@@ -187,7 +266,12 @@ bool servoLogStart(uint32_t nowMs) {
 	return true;
 }
 
-void servoLogFollow(uint16_t seq) { s_startSeq = seq; }
+bool servoLogWanted() { return senseDeclared() && cardMounted(); }
+
+void servoLogFollow(uint16_t seq) {
+	s_startSeq = seq;
+	s_followed = true;
+}
 
 void servoLogBack() { s_back = true; }
 
@@ -273,14 +357,21 @@ static void finish(ServoLogHow how, uint16_t upMs) {
 }
 
 void servoLogPoll() {
-	if (!s_active) return;
+	if (!s_active && !s_draining) return;
 	ServoStatus st;
 	servoJobStatus(&st);
+	bool over = s_followed && servoLogRunOver(&st, s_startSeq);
+	// An open given up: its blocks drain meanwhile, one flush step a pass;
+	// the rest at the run's end, the supply off.
+	if (s_draining) {
+		if (over) endGiveUp();
+		return;
+	}
 	SenseSample smp;
 	senseSample(&smp);
 	if (s_writing && smp.seq != s_seq) addRow(&st, &smp);
 	s_seq = smp.seq;
-	if (servoLogRunOver(&st, s_startSeq)) {
+	if (over) {
 		finish(servoLogHowOf(&st, s_back), st.upMs);
 		return;
 	}
@@ -300,11 +391,14 @@ void servoLogStatus(ServoLogStatus *out) {
 	out->dropped    = s_dropped;
 	out->fault      = s_fault;
 	out->atLimit    = s_atLimit;
+	out->slow       = s_slow;
+	out->noCache    = s_noCache;
 	out->how        = s_how;
 }
 
 #else  // !SD_LOG_ENABLE
 
+bool servoLogWanted() { return false; }
 bool servoLogStart(uint32_t) { return false; }
 void servoLogFollow(uint16_t) {}
 void servoLogBack() {}

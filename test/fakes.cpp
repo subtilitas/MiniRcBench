@@ -1342,6 +1342,15 @@ static unsigned  g_volumeFailNext = 0;
 
 static ServoLogStatus    g_servoLog = {};
 static FakeServoLogCalls g_servoLogCalls = {};
+static bool              g_servoLogWanted = false;
+static uint32_t          g_servoLogOpenMs = 0;
+
+void fakeServoLogOpen(bool wanted, uint32_t openMs) {
+	g_servoLogWanted = wanted;
+	g_servoLogOpenMs = openMs;
+}
+
+bool servoLogWanted() { return g_servoLogWanted; }
 
 void fakeServoLogSet(const ServoLogStatus *st) {
 	g_servoLog = *st;
@@ -1355,12 +1364,16 @@ bool servoLogStart(uint32_t) {
 	ServoStatus st;
 	servoJobStatus(&st);
 	g_servoLogCalls.ranAtStart = st.running;
+	g_servoLogCalls.ackAtStart = st.ackSeq;
+	// The open's time on the card: core0 blocked, the clock running on.
+	fakeAdvance(g_servoLogOpenMs);
 	return g_servoLog.active;
 }
 
 void servoLogFollow(uint16_t seq) {
 	g_servoLogCalls.follows++;
 	g_servoLogCalls.seq = seq;
+	g_servoLogCalls.startsAtFollow = g_servoLogCalls.starts;
 }
 
 void servoLogBack() { g_servoLogCalls.backs++; }

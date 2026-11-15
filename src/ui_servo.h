@@ -113,18 +113,32 @@ struct TouchState;
 #define SERVO_UI_LOG_FMT "LOGGING TO SRV%05lu.CSV"
 /** @brief ...amber once rows were dropped: the number, then the rows dropped. */
 #define SERVO_UI_LOG_DROPPED_FMT "SRV%05lu.CSV: %lu ROWS DROPPED"
-/** @brief ...amber after a write found the card full. */
-#define SERVO_UI_LOG_FULL "LOG STOPPED: CARD FULL"
+/**
+ * @brief ...amber once the smaller reserve, all the card had free in one
+ *        run, is used up: true of a full card and of a fragmented one.
+ */
+#define SERVO_UI_LOG_FULL "LOG STOPPED: NO ROOM IN ONE PIECE"
 /** @brief ...amber when the card had no 64 KiB free in one run for the file. */
-#define SERVO_UI_LOG_NO_ROOM "NO LOG: CARD FULL"
-/** @brief ...amber once the rows filled the file's whole 16 MiB. */
-#define SERVO_UI_LOG_LIMIT "LOG STOPPED AT 16 MIB"
+#define SERVO_UI_LOG_NO_ROOM "NO LOG: NO 64 KIB IN ONE PIECE"
+/** @brief ...amber once the rows filled the file's whole 4 MiB. */
+#define SERVO_UI_LOG_LIMIT "LOG STOPPED AT 4 MIB"
 /** @brief ...amber after a write, the cache's flush or the swap check failed. */
 #define SERVO_UI_LOG_FAILED "LOG STOPPED: CARD WRITE FAILED"
 /** @brief ...amber when the file did not open. */
 #define SERVO_UI_LOG_NO_OPEN "NO LOG: THE FILE DID NOT OPEN"
 /** @brief ...amber when `LOGS/` holds SRV99999.CSV. */
 #define SERVO_UI_LOG_NO_NUMBER "NO LOG: SRV99999.CSV EXISTS"
+/** @brief ...amber when the open took 2000 ms or more and was given up. */
+#define SERVO_UI_LOG_SLOW "NO LOG: CARD TOO SLOW"
+/** @brief ...amber when a card was mounted and the write cache did not start on it. */
+#define SERVO_UI_LOG_NO_CACHE "NO LOG: THE CARD DID NOT ANSWER"
+/**
+ * @brief The dial band's two lines while HOLD TO START waits for the log's
+ *        open, dim: the first...
+ */
+#define SERVO_UI_LOG_PREP_1 "PREPARING THE LOG..."
+/** @brief ...and the second. */
+#define SERVO_UI_LOG_PREP_2 "THE SERVO STARTS AFTER IT."
 /** @brief SET's note with the last start-up time measured, `%u` in ms. */
 #define SERVO_UI_UP_FMT "SUPPLY UP IN %u MS"
 /** @brief The leave page's note while the job lets SIG and AUX go: 18 characters. */

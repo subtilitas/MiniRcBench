@@ -138,7 +138,16 @@ struct FakeServoLogCalls {
 	unsigned backs;     /**< servoLogBack(). */
 	uint16_t seq;       /**< The seq of the last servoLogFollow(). */
 	bool     ranAtStart; /**< The job reported RUNNING at the last servoLogStart(). */
+	uint16_t ackAtStart; /**< The job's acknowledged seq at the last servoLogStart(). */
+	unsigned startsAtFollow; /**< servoLogStart() calls before the last servoLogFollow(). */
 };
+
+/**
+ * @brief Whether the fake servo log would open (servoLogWanted()), and how
+ *        long its open holds core0, ms, advancing the fake clock. Both off,
+ *        0, by default.
+ */
+void fakeServoLogOpen(bool wanted, uint32_t openMs);
 
 /**
  * @brief The fake servo log: what servoLogStatus() reports, no calls

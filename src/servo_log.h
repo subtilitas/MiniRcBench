@@ -3,8 +3,10 @@
  * @brief The servo tester's log, `LOGS/SRVnnnnn.CSV`: one row per reading
  *        of the current sensor from HOLD TO START to the run's end.
  *
- * Core0 only. HOLD TO START opens the file before it sends the Start
- * command (servoLogStart(), servoLogFollow()); servoLogPoll(), on every pass
+ * Core0 only. HOLD TO START draws `PREPARING THE LOG...`, opens the file in
+ * the next UI frame (servoLogStart()) and sends the Start command in the
+ * frame after the open has returned, with a fresh heartbeat and a fresh touch
+ * read (servoLogFollow()); servoLogPoll(), on every pass
  * of core0's loop after cardCachePoll(), turns each new reading into a row
  * in a RAM ring (log_ring.h), sends the ring to the card and closes the file
  * once the job reports the run over: STOP, a trip, a cut, a supply that did
@@ -21,11 +23,14 @@
  * one block of the cache's 32. The run makes no f_sync(): it would read the
  * directory's block. The cache's swap check before each block is a read
  * started in one pass and collected in a later one (sd_cache.h). So during
- * the run core0 never waits for the card. Everything else that touches the
- * card, the open with its directory scan, reserve and sync, the last rows,
- * the end line, the truncation, the close and the cache's last flush, runs
- * with the pulses at level 0 and the switched supply off: before the Start
- * command and after the job has reported the run over.
+ * the run core0 never waits for the card. The open, with its directory scan,
+ * reserve, map, sync and the flush of all its blocks to the card, runs before
+ * the Start command, the pulses at level 0 and the switched supply off; the
+ * last rows, the end line, the truncation, the close and the cache's last
+ * flush run after the job has reported the run over. An open given up, too
+ * slow or failed, closes and removes its file: those blocks go out one flush
+ * step a pass during the run, without a wait, and the cache goes off once
+ * they are out or at the run's end.
  *
  * Core1 runs the pulses, the cuts and the move timing and calls nothing here.
  *
@@ -43,7 +48,7 @@
 /** @brief The file's first line: its columns. */
 #define SERVO_LOG_HEADER "ms,pulse_a_us,pulse_b_us,current_ma,bus_mv,flags\n"
 /** @brief The longest row, its line feed included: every field at its widest. */
-#define SERVO_LOG_ROW_MAX 48u
+#define SERVO_LOG_ROW_MAX 42u
 /** @brief The longest end line, its line feed included. */
 #define SERVO_LOG_END_MAX 80u
 /**
@@ -54,13 +59,20 @@
 #define SERVO_LOG_RING_BYTES 16384u
 /**
  * @brief The file's reserve at the open, bytes (f_expand()), one contiguous
- *        run: about 4 hours of rows at 1.1 kB/s. A card without that much
- *        free in one run gets the largest half of it that fits. The close
- *        hands back what the rows did not use (f_truncate()).
+ *        run: about an hour of rows at 1.1 kB/s, 16 blocks of FAT32 FAT
+ *        written in each copy at the open with clusters of 4 KiB. A card
+ *        without that run free gets @ref SERVO_LOG_RESERVE_MIN_BYTES. The
+ *        close hands back what the rows did not use (f_truncate()).
  */
-#define SERVO_LOG_PREALLOC_BYTES (16u * 1024u * 1024u)
-/** @brief The smallest reserve: less free in one run is a full card, and no log starts. */
+#define SERVO_LOG_PREALLOC_BYTES (4u * 1024u * 1024u)
+/** @brief The smaller reserve: without this much free in one run no log starts. */
 #define SERVO_LOG_RESERVE_MIN_BYTES (64u * 1024u)
+/**
+ * @brief The open's time limit, ms: past it, checked between the open's
+ *        FatFs calls and at each step of its flush, the file is given up and
+ *        the run starts without a log. A single FatFs call is not cut short.
+ */
+#define SERVO_LOG_OPEN_MAX_MS 2000u
 
 /** @brief How a servo log ended: the end line's `end=`. */
 enum class ServoLogHow : uint8_t {
@@ -85,8 +97,8 @@ struct ServoLogStatus {
 	uint32_t    dropped;     /**< Rows the ring had no room for. */
 	/**
 	 * @brief Why the log stopped writing or did not start: SdLogEnd::None,
-	 *        CardFull (no reserve of 64 KiB at the open, or a reserve cut
-	 *        short by the card used up, or a write past it at the end
+	 *        CardFull (no 64 KiB free in one run at the open, the smaller
+	 *        reserve used up, or a write past the reserve at the end that
 	 *        found no room), WriteFailed (a write, the close or the cache's flush
 	 *        failed: a card removed, swapped or faulty), OpenFailed or
 	 *        NoFreeNumber (`SRV99999.CSV` in `LOGS/`). Kept until the next
@@ -95,6 +107,10 @@ struct ServoLogStatus {
 	SdLogEnd    fault;
 	/** @brief The rows filled the whole @ref SERVO_LOG_PREALLOC_BYTES, and the writing stopped there. */
 	bool        atLimit;
+	/** @brief The open took @ref SERVO_LOG_OPEN_MAX_MS or more, and was given up: no log. */
+	bool        slow;
+	/** @brief A card was mounted and the write cache did not start on it: no log. */
+	bool        noCache;
 	ServoLogHow how;         /**< How the last log ended; None while one runs. */
 };
 
@@ -157,21 +173,30 @@ ServoLogHow servoLogHowOf(const ServoStatus *st, bool back);
 bool servoLogRunOver(const ServoStatus *st, uint16_t startSeq);
 
 /**
- * @brief Open `LOGS/SRVnnnnn.CSV` for a run: at HOLD TO START, before the
- *        Start command.
+ * @brief Whether HOLD TO START opens a log: CURRENT SENSE at INA219 and a
+ *        card mounted (cardMounted()).
+ * @return True when servoLogStart() would try.
+ */
+bool servoLogWanted();
+
+/**
+ * @brief Open `LOGS/SRVnnnnn.CSV` for a run: in the UI frame after HOLD TO
+ *        START drew its note, a frame before the Start command.
  *
  * Nothing without CURRENT SENSE at INA219, which gives the readings, or
- * without a mounted card, where cardCacheBegin() leaves the cache off.
- * Otherwise the write cache goes on
+ * without a mounted card, where cardCacheBegin() leaves the cache off. A
+ * card mounted on which the cache does not start records
+ * ServoLogStatus::noCache. Otherwise the write cache goes on
  * (cardCacheBegin()), which stops a running blackbox log as SERVO TESTER's
  * (SdLogEnd::ByServo), and the file is created: N one above the highest
  * `SRVnnnnn.CSV` in `LOGS/`, numbered apart from `LOGnnnnn.BFL`, read once
- * per mount (sd_log_next.h). Its reserve, @ref SERVO_LOG_PREALLOC_BYTES or
- * the largest half of it that fits, down to @ref SERVO_LOG_RESERVE_MIN_BYTES,
- * is allocated, mapped for fast seek and synced, and the header row goes into
- * the ring. A file that does not open, a card with no reserve to give
- * (CardFull) or a map or sync that fails (OpenFailed) leaves no file, turns
- * the cache off again and records the fault.
+ * per mount (sd_log_next.h). Its reserve, @ref SERVO_LOG_PREALLOC_BYTES, or
+ * @ref SERVO_LOG_RESERVE_MIN_BYTES on a card without that run free, is
+ * allocated, mapped for fast seek and synced, every block of that is flushed
+ * to the card, and the header row goes into the ring. No 64 KiB in one run
+ * (CardFull), a map, sync or flush that fails (OpenFailed), or
+ * @ref SERVO_LOG_OPEN_MAX_MS passed (ServoLogStatus::slow) gives the file up
+ * (servo_log.h, "The card while a log runs").
  *
  * @param nowMs millis(): the rows' time 0.
  * @return True with a log open.
@@ -179,8 +204,11 @@ bool servoLogRunOver(const ServoStatus *st, uint16_t startSeq);
 bool servoLogStart(uint32_t nowMs);
 
 /**
- * @brief The Start command's seq, right after servoLogStart(): the log ends
- *        once the job has taken it and is not RUNNING (servoLogRunOver()).
+ * @brief The Start command's seq, in the frame after servoLogStart(): the
+ *        log ends once the job has taken it and is not RUNNING
+ *        (servoLogRunOver()); before it the log does not end. A Start not
+ *        sent after all gives the job's last acknowledged seq: the log then
+ *        ends at the next pass.
  * @param seq servoJobCommand()'s return for the Start.
  */
 void servoLogFollow(uint16_t seq);

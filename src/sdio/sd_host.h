@@ -214,7 +214,8 @@ typedef struct {
  * @param r    Filled in; active once CMD17 was taken.
  * @return SDE_OK once CMD17 was taken. Otherwise its error, or SDE_PARAM or
  *         SDE_NOT_READY, with nothing under way, the receiver disarmed and
- *         the clock stopped.
+ *         the clock stopped; the card stays ready for the caller's next
+ *         attempt, as within sdh_read()'s.
  */
 sd_err_t sdh_read_start(const sdh_bus_t *bus, sdh_card_t *card, uint32_t lba, uint8_t *buf,
                         sdh_rd_t *r);
@@ -227,12 +228,16 @@ sd_err_t sdh_read_start(const sdh_bus_t *bus, sdh_card_t *card, uint32_t lba, ui
  * @param done Set true once the block is in, has failed or has timed out;
  *             then the receiver is disarmed, the clock stopped and @p r no
  *             longer active.
+ * Each look that finds the block not in calls @ref sdh_wait_hook, as each
+ * loop of the receiver's wait does in sdh_read().
+ *
  * @return While not done, SDE_OK. When done: SDE_OK with the block in
  *         buf, SDE_CRC for a block whose CRC (cyclic redundancy check) does
  *         not match, or SDE_TIMEOUT once @ref SDH_READ_TIMEOUT_US has passed
- *         since CMD17 without the block, which marks the card not ready, as
- *         after a fatal error of sdh_read(). No CMD12 is sent: a card that
- *         stalled is initialised again.
+ *         since CMD17 without the block. After a failure CMD12 goes out, as
+ *         sdh_read() sends it, without the wait for its busy; the card stays
+ *         ready, and the caller tries again in a later call, up to
+ *         @ref SDH_ATTEMPTS times as sdh_read() does.
  */
 sd_err_t sdh_read_poll(const sdh_bus_t *bus, sdh_card_t *card, sdh_rd_t *r, bool *done);
 

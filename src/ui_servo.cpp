@@ -222,6 +222,14 @@ static bool         s_wasRunning = false;  /**< RUNNING on the last frame. */
  *        a release, which ends any hold.
  */
 static UiHold       s_hold;
+/**
+ * @brief HOLD TO START with a log to open: Note, the frame that drew
+ *        `PREPARING THE LOG...`; Open, the frame whose servoLogStart()
+ *        returned. The Start goes out in the frame after Open, which stamped
+ *        the heartbeat and read touch afresh at its start.
+ */
+enum class StartStep : uint8_t { None, Note, Open };
+static StartStep    s_startStep = StartStep::None;
 static UiLeave      s_leave;               /**< The leave page: its phase and its presses. */
 static bool         s_needLift = false;    /**< A STOP press is down; it starts and taps nothing. */
 static ServoStatus  s_st;                  /**< This frame's status from core1. */
@@ -539,6 +547,11 @@ static void claimMessage(const char **l1, const char **l2, const char **l3,
 static void safeNotes(char *a, char *b, size_t n, uint16_t *ca, uint16_t *cb) {
 	unsigned sig = gpioOf(PIN_SIG);
 	*ca = *cb = C_DIM;
+	if (s_startStep != StartStep::None) {
+		snprintf(a, n, SERVO_UI_LOG_PREP_1);
+		snprintf(b, n, SERVO_UI_LOG_PREP_2);
+		return;
+	}
 	if (s_st.tripped) {
 		const char *why = "STOPPED: SCREEN STALLED";
 		switch (s_st.powerFault) {
@@ -596,8 +609,9 @@ static bool cutsBlind() {
 	return smp.state != (uint8_t)SenseState::Online;
 }
 
-static_assert(SERVO_LOG_PREALLOC_BYTES == 16u * 1024u * 1024u,
-              "SERVO_UI_LOG_LIMIT names the servo log's 16 MiB");
+static_assert(SERVO_LOG_PREALLOC_BYTES == 4u * 1024u * 1024u,
+              "SERVO_UI_LOG_LIMIT names the servo log's 4 MiB");
+static_assert(SERVO_LOG_OPEN_MAX_MS == 2000u, "the docs give the open's limit as 2000 ms");
 
 /**
  * @brief The dial band's second line while RUNNING with a servo log: the
@@ -617,6 +631,14 @@ static void logLine(char *buf, size_t n, uint16_t *col) {
 		case SdLogEnd::OpenFailed:   snprintf(buf, n, SERVO_UI_LOG_NO_OPEN); return;
 		case SdLogEnd::NoFreeNumber: snprintf(buf, n, SERVO_UI_LOG_NO_NUMBER); return;
 		default:                     break;
+	}
+	if (lg.slow) {
+		snprintf(buf, n, SERVO_UI_LOG_SLOW);
+		return;
+	}
+	if (lg.noCache) {
+		snprintf(buf, n, SERVO_UI_LOG_NO_CACHE);
+		return;
 	}
 	if (!lg.active) return;
 	if (lg.atLimit) {
@@ -844,6 +866,31 @@ static void drawButtons(bool startOk, int holdPct) {
 /** @brief Drive the selected servos to @p cmd; @p step for MIN, CENTRE and MAX. */
 static void position(uint16_t cmd, bool step = false) { send(ServoCmdKind::Position, cmd, step); }
 
+/**
+ * @brief The steps of a HOLD TO START with a log, one a frame, before any
+ *        touch: the open in the frame after the note was drawn, the Start in
+ *        the frame after the open. Core1 judges the Start as any other, by
+ *        the heartbeat and the touch stamp of this frame. With the pins gone
+ *        no Start is sent, and the log is told the job's last seq, so it
+ *        ends at once.
+ */
+static void startSteps() {
+	if (s_startStep == StartStep::Note) {
+		servoLogStart(millis());
+		s_startStep = StartStep::Open;
+		return;
+	}
+	if (s_startStep != StartStep::Open) return;
+	s_startStep = StartStep::None;
+	servoLogFollow(live() ? send(ServoCmdKind::Start) : s_st.ackSeq);
+}
+
+/** @brief BACK while a Start waits: no Start, and a log already open ends. */
+static void startStepsDrop() {
+	if (s_startStep == StartStep::Open) servoLogFollow(s_st.ackSeq);
+	s_startStep = StartStep::None;
+}
+
 /** @brief Every touch of the SERVO view. */
 static void mainTouch(bool startOk) {
 	bool run = driving();
@@ -857,11 +904,14 @@ static void mainTouch(bool startOk) {
 	//     landed on the live button, and not again once it fired: the press
 	//     that started the servo does not start it again after a trip, and
 	//     one made before the claim was live does not start it at all ---
-	// The servo log opens first: its card calls then run with the pulses
-	// at level 0 and the supply off (servo_log.h).
+	// With a log to open, the Start waits: this frame draws the note, the
+	// next opens the log, the one after sends the Start (startSteps()).
 	if (uiHoldUpdate(&s_hold, BTN_START, s_t, startOk && !s_needLift, millis())) {
-		servoLogStart(millis());
-		servoLogFollow(send(ServoCmdKind::Start));
+		if (servoLogWanted()) {
+			s_startStep = StartStep::Note;
+		} else {
+			send(ServoCmdKind::Start);
+		}
 	}
 	if (s_st.running && s_t->pressed && pressing(BTN_START)) {
 		send(ServoCmdKind::Safe);
@@ -1364,6 +1414,7 @@ void uiServoEnter() {
 	s_dragging = false;
 	s_wasRunning = false;
 	uiHoldReset(&s_hold);
+	s_startStep = StartStep::None;
 	s_needLift = false;
 	s_sel = -1;
 	uiListInit(&s_list, SET_VIEW, SET_ROW_PITCH, SET_ROWS);
@@ -1400,6 +1451,7 @@ bool uiServoTick(const TouchState *t) {
 			uiSliderRelease(&s_speed);
 			if (!s_claimed) return false;
 			servoLogBack();
+			startStepsDrop();
 			pinClaimEnd(PinUser::Servo);
 			ClaimState cs = pinClaimState();
 			if (cs == ClaimState::Free || cs == ClaimState::Restoring) return false;
@@ -1409,6 +1461,9 @@ bool uiServoTick(const TouchState *t) {
 			uiLeaveOpen(&s_leave, UiLeavePhase::Releasing, UI_HOLD_MS);
 		}
 	}
+
+	// The open, or the Start after it, before this frame's touches.
+	startSteps();
 
 	if (s_view == View::Leave) {
 		uiLeavePoll(&s_leave, pinClaimUnplugDue(), millis());
