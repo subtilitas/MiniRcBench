@@ -1,8 +1,8 @@
 /**
  * @file servo_supply.h
- * @brief The programmed servo's switched supply, for the KST and Hitec
- *        jobs: the enable input, EN, of a DC-DC converter on GP28 (J4 pin 11)
- *        or GP29 (J4 pin 12).
+ * @brief The servo's switched supply, for the servo, KST and Hitec jobs:
+ *        the enable input, EN, of a DC-DC converter on GP28 (J4 pin 11) or
+ *        GP29 (J4 pin 12).
  *
  * Optional. `SERVO SUPPLY` in SETTINGS (@ref Settings::servoSupply) says
  * whether a converter is fitted and on which pin: @ref ServoSupplyMode::None,
@@ -19,8 +19,9 @@
  * "Hardware"). Two cores write the pin's pad, never at once: core0 at boot
  * and at a SETTINGS change, which no claim overlaps, and core1 inside a claim.
  *
- * There is no read-back: servoSupplyIsOn() is the level the bench drives,
- * not the voltage on the servo.
+ * servoSupplyIsOn() is the level the bench drives, not the voltage on the
+ * servo. The servo job reads the voltage back from the current sensor
+ * (servo_job.h, sense.h); this module does not.
  *
  * @see docs/design/kst-programming.md, "Switched servo supply"
  */
@@ -69,7 +70,7 @@ void servoSupplyConfigure(uint8_t mode);
 bool servoSupplyFitted();
 
 /**
- * @brief Core1, from the KST or Hitec job's bind, with a switch fitted:
+ * @brief Core1, from the servo, KST or Hitec job's bind, with a switch fitted:
  *        the enable pin driven low, the supply off. Nothing with None.
  */
 void servoSupplyBind();
@@ -81,7 +82,7 @@ void servoSupplyOn();
 void servoSupplyOff();
 
 /**
- * @brief Core1, from the KST or Hitec job's release, at every claim end:
+ * @brief Core1, from the servo, KST or Hitec job's release, at every claim end:
  *        the enable pin low, then an input with both pulls off and its input
  *        disabled.
  *        Nothing unbound.

@@ -535,7 +535,7 @@ def draw():
         for i, (gp, _, pin) in enumerate(supplies)])
     cx, cy = 480, yc + 340
     rail = cy + 150
-    panel(svg, yc, rail + 222 - yc, "C  Servo on the switched supply: KST, Hitec D series and classic"
+    panel(svg, yc, rail + 222 - yc, "C  Servo on the switched supply: servo tester, KST, Hitec D series and classic"
           " (SETTINGS > SERVO SUPPLY GP%d)" % en_gp)
     q = stub(svg, 40, yc + 56, "J4 (part)", j4_rows)
     en_y = q[en_pin][1]
@@ -604,11 +604,11 @@ def draw():
         "J5 stays free. The converter is a synchronous boost with output disconnect: a boost without it powers the servo",
         "with EN low. A fuse at the cell, which is charged off the bench, not by the board. The pull-down sits at the",
         "converter: 10 k\u03a9 to 100 k\u03a9 for an EN without a pull-up; with a pull-up to VIN, at most 0.135 times that pull-up at",
-        "4.2 V. EN is high only during a KST or Hitec claim. The servo tester does not switch it: a servo there needs a supply",
-        "of its own. An ESC on this lead gets VOUT on its BEC wire. The INA219 (SETTINGS > CURRENT SENSE): %s by a pigtail to"
+        "4.2 V. EN is high only inside a claim: in the servo tester from START until STOP, a trip or BACK; in KST and Hitec",
+        "while they power the servo. An ESC on this lead gets VOUT on its BEC wire. The INA219 (SETTINGS > CURRENT SENSE): %s"
         % sense_conn,
-        "its header pins, not a Qwiic cable; the servo current through its screw terminal only, its header's VIN pins left",
-        "open. Without the INA219, VOUT goes straight to the servo's plus.",
+        "by a pigtail to its header pins, not a Qwiic cable; the servo current through its screw terminal only, its header's",
+        "VIN pins left open. Without the INA219, VOUT goes straight to the servo's plus.",
     ])
 
     height = rail + 222 + 20

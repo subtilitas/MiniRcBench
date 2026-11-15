@@ -17,7 +17,7 @@ weiter.
 | JST-SH-Kabel, 1,0 mm, 4 Pins | Steckverbinder J5: Signal und Masse | Offene Enden auf einer Seite. Ob der Platine eines beiliegt, ist nicht geprüft |
 | Servo-Verlängerungskabel oder eine 3-polige Stiftleiste | der Stecker des ESC (Electronic Speed Controller, Motorregler) oder Servos | Siehe [Das Adapterkabel](#das-adapterkabel) |
 | JST-SH-Kabel, 1,0 mm, 12 Pins | Steckverbinder J4, nur für die geschaltete Servoversorgung | Siehe [Verdrahtung](Verdrahtung), Teil C |
-| Aufwärtswandler (Boost) mit Enable-Eingang (EN) und Ausgangstrennung, 5 V, mindestens 3 A | die geschaltete Servoversorgung der KST- und Hitec-Programmierung | Optional. Sein Eingang: eine eigene LiPo-Zelle (Lithium-Polymer), 3,0 V bis 4,2 V, außerhalb des Prüfstands geladen, mit einer Sicherung an der Zelle; ein Pull-down von 10 kΩ von EN nach Masse. Kein Modul ist benannt: Die 5-V-Boost-Platine in den mechanischen Modellen des Projekts nennt keinen Chip, und ihre Nennwerte sind unbekannt. Siehe [Verdrahtung](Verdrahtung), Teil C |
+| Aufwärtswandler (Boost) mit Enable-Eingang (EN) und Ausgangstrennung, 5 V, mindestens 3 A | die geschaltete Servoversorgung des Servotesters und der KST- und Hitec-Programmierung | Optional. Sein Eingang: eine eigene LiPo-Zelle (Lithium-Polymer), 3,0 V bis 4,2 V, außerhalb des Prüfstands geladen, mit einer Sicherung an der Zelle; ein Pull-down von 10 kΩ von EN nach Masse. Kein Modul ist benannt: Die 5-V-Boost-Platine in den mechanischen Modellen des Projekts nennt keinen Chip, und ihre Nennwerte sind unbekannt. Siehe [Verdrahtung](Verdrahtung), Teil C |
 | INA219-Modul, Shunt 0,1 Ω, Adresse 0x40 | Strom und Spannung der Servoversorgung | Optional. Versorgt von J3 Pin 3, 3,3 V. Der Strom des Servos nur über die Schraubklemme; die Pins VIN- und VIN+ der Stiftleiste bleiben frei. Siehe [Servotester](Servotester#strom) |
 | JST-SH-Kabel, 1,0 mm, 4 Pins | Steckverbinder J3, zum INA219 | Ein Adapterkabel auf die Stiftleiste des Moduls; kein Qwiic-Kabel, dessen Pin-Reihenfolge SCL auf GND des Moduls legt |
 | microSD-Karte, FAT32 (File Allocation Table) | Aufzeichnungen, Sicherungen, Servodateien | Optional. Siehe [SD-Aufzeichnung](SD-Aufzeichnung) |
@@ -28,7 +28,7 @@ Für jedes Werkzeug brauchst du außerdem:
 |---|---|
 | ESC-Tester | Einen ESC, der **bidirektionales DShot** annimmt, ein digitales ESC-Protokoll, mit Motor und eigenem Akku. BLHeli_32, Bluejay und AM32 können das. Der ESC-Tester sendet nur DShot: Ein ESC, der nur PWM-Impulse (Pulsweitenmodulation) annimmt, lässt sich damit nicht testen. BLHeli_S ohne Bluejay ist nicht getestet |
 | AM32-Konfiguration | Einen ESC mit AM32 |
-| Servotester | Ein Servo und seine eigene Versorgung, 4,8 V bis 6,0 V, oder 8,4 V für ein Hochvolt-Servo |
+| Servotester | Ein Servo und seine eigene Versorgung, 4,8 V bis 6,0 V, oder 8,4 V für ein Hochvolt-Servo; oder die geschaltete Versorgung aus [Verdrahtung](Verdrahtung), Teil C, mit 5 V |
 | KST-Programmierung | Ein KST- oder Chaservo-Servo und eine schaltbare 5-V-Versorgung: ein Stecker oder ein Schalter in der Plusleitung |
 | Hitec-Programmierung, D-Serie | Ein Hitec-Servo der D-Serie und eine 5-V-Versorgung |
 | Hitec-Programmierung, klassisch | Ein klassisches Hitec-Servo (HS-5xxx, HS-7xxx) und die geschaltete Versorgung aus [Verdrahtung](Verdrahtung), Teil C: der Aufwärtswandler oben, 5 V, mit EN und Ausgangstrennung, seine LiPo-Zelle und ein Pull-down-Widerstand von 10 kΩ von EN nach Masse |

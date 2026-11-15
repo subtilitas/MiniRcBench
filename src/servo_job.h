@@ -13,8 +13,8 @@
  * | State | Pins | Leaves it |
  * |---|---|---|
  * | SAFE | bound to PWM at level 0: no edges, the line low | Start |
- * | RUNNING | the pulse each servo's command maps to | Safe, a heartbeat lapse |
- * | Tripped | SAFE, latched after a heartbeat lapse while RUNNING; kept across rebinds | Start, or a new screen session (servoJobNewSession()) |
+ * | RUNNING | the pulse each servo's command maps to | Safe, a heartbeat lapse, a cut of the switched supply |
+ * | Tripped | SAFE, latched after a heartbeat lapse, a silent touch controller or a stuck bus while RUNNING; kept across rebinds | Start, or a new screen session (servoJobNewSession()) |
  *
  * Every pass of `loop1()`, the job takes a new profile while SAFE, takes a new
  * command, checks the heartbeat, computes each servo's target (the sweep curve
@@ -31,7 +31,22 @@
  * Servo A is on SIG (index 0, mask bit 0), servo B on AUX (index 1, mask
  * bit 1).
  *
+ * With `SERVO SUPPLY` at GP28 or GP29 the job switches the servo's supply
+ * (servo_supply.h) as decision 20 of servo-tester.md and decision 12 of
+ * current-sense.md read: off while SAFE, on at START, off at STOP, at a
+ * heartbeat lapse, at a cut and at the release. servoPowerStep(), pure, makes
+ * every decision about it; the job drives the enable pin from its phase.
+ * With `OWN` the job drives no enable pin and servoPowerStep() changes
+ * nothing.
+ *
+ * | Supply | Enable pin | Pulses |
+ * |---|---|---|
+ * | Off | low | level 0 |
+ * | Starting, after START | high | level 0 until a reading at or above @ref SUPPLY_ON_MIN_MV, or @ref SUPPLY_START_MAX_MS without a sensor |
+ * | On | high | the servos' pulses |
+ *
  * @see docs/design/servo-tester.md
+ * @see docs/design/current-sense.md, "The servo tester on the switched supply"
  */
 
 #pragma once
@@ -39,8 +54,45 @@
 #include <stdint.h>
 
 #include "core1_job.h"
+#include "sense.h"
 #include "servo_model.h"
 #include "servo_sweep.h"
+
+/**
+ * @defgroup servo_power_rules The switched supply's read-back
+ * @brief The bus voltage at the sensor's IN-, the servo's side of the shunt
+ *        (docs/design/current-sense.md, "Read-back from the bus voltage").
+ * @{
+ */
+/** @brief On: after the switch-on, the first reading at or above this, mV. */
+#define SUPPLY_ON_MIN_MV    4500u
+/**
+ * @brief Did not come on: no reading at or above @ref SUPPLY_ON_MIN_MV this
+ *        long after the switch-on, ms; without a sensor, the pulses start
+ *        this long after it. Until bench test B6 measures the start-up time.
+ */
+#define SUPPLY_START_MAX_MS 500u
+/** @brief Off: after the switch-off, the first reading at or below this, mV. */
+#define SUPPLY_OFF_MAX_MV   1000u
+/** @brief Not off: a reading above this, mV, ... */
+#define SUPPLY_NOT_OFF_MV   2500u
+/** @brief ... taken this long or longer after the switch-off, ms. */
+#define SUPPLY_NOT_OFF_MS   2000u
+/**
+ * @brief A reading counts for the read-back only when core0 took it more
+ *        than this long after the switch command, ms.
+ *
+ * SenseSample::takenMs is when core0 read the result, not when the INA219
+ * measured it: the bus sample of the bench's configuration is up to one
+ * conversion cycle, 17.55 ms, older than the read. A reading taken this
+ * long or less after the command can still carry the output's voltage from
+ * before it. 18 is 17.55 ms rounded up; "more than" covers the part of a
+ * millisecond that millis() hides.
+ */
+#define SUPPLY_READ_LAG_MS  18u
+/** @brief ServoPower::upMs while no start-up time was measured. */
+#define SUPPLY_UP_NONE      0xFFFFu
+/** @} */
 
 /** @brief Mask bit of servo A, on SIG. */
 #define SERVO_MASK_A  0x01u
@@ -69,15 +121,55 @@ struct ServoCmd {
 	sweep_cfg_t  sweep;     /**< The curve, for ServoCmdKind::Sweep. */
 };
 
+/** @brief Where the switched supply is. */
+enum class ServoPowerPhase : uint8_t {
+	Off,       /**< The enable pin low, or no switch. */
+	Starting,  /**< The enable pin high; the pulses wait for the supply. */
+	On,        /**< The enable pin high and the supply up: the pulses run. */
+};
+
+/**
+ * @brief Why the supply went off other than by STOP, BACK or a heartbeat
+ *        lapse. Latched until START, or a new screen session.
+ */
+enum class ServoPowerFault : uint8_t {
+	None,         /**< No fault latched. */
+	NoStart,      /**< No reading at or above 4.5 V within 500 ms of the switch-on. */
+	TouchSilent,  /**< The touch controller did not answer for 250 ms: STOP is out of reach. */
+	BusStuck,     /**< The sensor found the shared bus stuck: STOP is out of reach. */
+};
+
+/** @brief The read-back after a switch-off, with a sensor declared. */
+enum class ServoOffCheck : uint8_t {
+	None,     /**< No switch-off yet, or no sensor. */
+	Waiting,  /**< Switched off; no reading at or below 1.0 V yet. */
+	Off,      /**< A reading at or below 1.0 V after the switch-off. */
+	NotOff,   /**< A reading above 2.5 V 2000 ms or more after it: a warning, not a cut. */
+};
+
+/** @brief Why START is refused with the switch; None when it is not. */
+enum class ServoStartBlock : uint8_t {
+	None,         /**< START is allowed. */
+	NoSensor,     /**< CURRENT SENSE is INA219 and the part is not online. */
+	TouchSilent,  /**< The touch controller has not answered for 250 ms. */
+	BusStuck,     /**< The shared bus is stuck. */
+};
+
 /** @brief What core1 reports. */
 struct ServoStatus {
 	uint16_t ackSeq;      /**< Seq of the last command taken. */
-	bool     running;     /**< RUNNING: the pins carry pulses. */
-	bool     tripped;     /**< A heartbeat lapse stopped the pulses. */
+	bool     running;     /**< RUNNING: START taken; the pins carry pulses once the supply is up. */
+	bool     tripped;     /**< A heartbeat lapse, a silent touch controller or a stuck bus stopped the pulses. */
 	bool     sweeping;    /**< A sweep runs. */
 	uint8_t  bindError;   /**< 0, or the Core1JobError of a refused rebind. */
 	uint16_t outUs[2];    /**< What each pin carries, us; 0 for none. */
 	uint32_t sweepMoves;  /**< Ends the running sweep has reached. */
+	bool     switched;    /**< SERVO SUPPLY at GP28 or GP29 at the bind. */
+	ServoPowerPhase power;       /**< The supply's phase. */
+	ServoPowerFault powerFault;  /**< The latched cause of a switch-off. */
+	ServoOffCheck   offCheck;    /**< The read-back after the last switch-off. */
+	ServoStartBlock startBlock;  /**< Why START is refused now. */
+	uint16_t upMs;        /**< The last switch-on's start-up time, ms; @ref SUPPLY_UP_NONE for none. */
 };
 
 /**
@@ -118,8 +210,9 @@ void servoCoreReset(ServoCore *c, const ServoProfile *p, bool boundA,
  * @brief Take a command. Pure.
  *
  * A command whose seq equals the last one taken is not new and changes
- * nothing. Start is refused while the heartbeat has lapsed and while pin A
- * is not bound; Sweep is refused while SAFE. A Position while SAFE sets a
+ * nothing. Start is refused while @p uiAlive is false and while pin A
+ * is not bound; Sweep is refused while SAFE. The job passes @p uiAlive
+ * false while servoPowerStartBlock() refuses START as well. A Position while SAFE sets a
  * target that moves nothing, and Start replaces it. A Position or Sweep taken
  * with the heartbeat lapsed is ended by servoCoreStep() in the same pass, as
  * servo_job.cpp calls the two. A refused command is still acknowledged.
@@ -132,7 +225,7 @@ void servoCoreReset(ServoCore *c, const ServoProfile *p, bool boundA,
  * @param[in,out] c The state.
  * @param cmd       The command block.
  * @param nowMs     millis(), for a sweep's start.
- * @param uiAlive   core1UiAlive().
+ * @param uiAlive   core1UiAlive(), and false while the supply refuses START.
  * @return True when the command was new.
  */
 bool servoCoreTake(ServoCore *c, const ServoCmd *cmd, uint32_t nowMs,
@@ -155,6 +248,86 @@ bool servoCoreTake(ServoCore *c, const ServoCmd *cmd, uint32_t nowMs,
 void servoCoreStep(ServoCore *c, uint32_t nowMs, bool uiAlive);
 
 /**
+ * @brief Core1's state for the switched supply. Plain data, so the host
+ *        suite can drive servoPowerStep() directly.
+ */
+struct ServoPower {
+	bool            switched;  /**< SERVO SUPPLY at GP28 or GP29 at the bind. */
+	ServoPowerPhase phase;     /**< Off, Starting, On. */
+	ServoPowerFault fault;     /**< Latched until START or a new screen session. */
+	ServoOffCheck   offCheck;  /**< The read-back after the last switch-off. */
+	uint32_t        onMs;      /**< millis() of the last switch-on. */
+	uint32_t        offMs;     /**< millis() of the last switch-off. */
+	uint16_t        upMs;      /**< The last start-up time, ms; @ref SUPPLY_UP_NONE for none. */
+};
+
+/** @brief What servoPowerStep() reads on one pass. */
+struct ServoPowerIn {
+	SenseSample sample;   /**< senseSample() on this pass; its state None with CURRENT SENSE at NONE. */
+	bool        touchOk;  /**< The touch controller answered within 250 ms (touchAnsweredMs()). */
+};
+
+/**
+ * @brief Put @p p into Off at a bind: the supply off, no read-back. The
+ *        fault is kept unless @p fresh, as the trip latch is.
+ * @param[out] p    The state.
+ * @param switched  SERVO SUPPLY at GP28 or GP29.
+ * @param fresh     A new screen session: the fault and the start-up time go.
+ */
+void servoPowerReset(ServoPower *p, bool switched, bool fresh);
+
+/**
+ * @brief Why START is refused now. Pure.
+ *
+ * With no switch, never. With one: a touch controller silent for 250 ms or
+ * a stuck bus, since STOP would be out of reach; and CURRENT SENSE at INA219
+ * with the part not online (absent, another part, offline), since the
+ * read-back and the cuts of a later slice depend on it.
+ *
+ * @param p  The state.
+ * @param in This pass's inputs.
+ * @return The reason, or ServoStartBlock::None.
+ */
+ServoStartBlock servoPowerStartBlock(const ServoPower *p, const ServoPowerIn *in);
+
+/**
+ * @brief The switch-off, from any path: Off, the time, and the read-back
+ *        armed with a sensor declared. Nothing while already Off. Pure.
+ * @param[in,out] p The state.
+ * @param sensed    CURRENT SENSE declares a sensor.
+ * @param nowMs     millis().
+ */
+void servoPowerOff(ServoPower *p, bool sensed, uint32_t nowMs);
+
+/**
+ * @brief One pass of the switched supply, after servoCoreStep(). Pure.
+ *
+ * With no switch it changes nothing. With one:
+ *
+ * 1. While RUNNING, a silent touch controller or a stuck bus ends the pulses
+ *    and the sweep, latches the trip and records the fault.
+ * 2. Not RUNNING: the supply off (servoPowerOff()). RUNNING with the supply
+ *    off: the switch-on, which clears the fault and the start-up time.
+ * 3. Starting: with a sensor, a fresh reading taken more than
+ *    @ref SUPPLY_READ_LAG_MS after the switch-on at or above @ref SUPPLY_ON_MIN_MV makes it On and its age at the
+ *    switch-on the start-up time; without one, On at
+ *    @ref SUPPLY_START_MAX_MS. With a sensor and no such reading by then,
+ *    the pulses end, the supply goes off and the fault is NoStart.
+ * 4. While Starting both outputs are held at CENTRE and the sweep ends;
+ *    while not On, outUs is 0 on both pins.
+ * 5. After a switch-off, with a sensor: a fresh reading taken more than
+ *    @ref SUPPLY_READ_LAG_MS after it at or below @ref SUPPLY_OFF_MAX_MV is Off; one above
+ *    @ref SUPPLY_NOT_OFF_MV taken @ref SUPPLY_NOT_OFF_MS or more after it is
+ *    NotOff, until a reading at or below @ref SUPPLY_OFF_MAX_MV.
+ *
+ * @param[in,out] p The supply's state.
+ * @param[in,out] c The pulses' state.
+ * @param in        This pass's inputs.
+ * @param nowMs     millis(). The clock may wrap.
+ */
+void servoPowerStep(ServoPower *p, ServoCore *c, const ServoPowerIn *in, uint32_t nowMs);
+
+/**
  * @brief Hand the job a profile. Core0.
  *
  * Refused while RUNNING, while a command is not yet taken, and for a profile
@@ -171,8 +344,8 @@ bool servoJobProfile(const ServoProfile *p);
 /**
  * @brief Start a new screen session. Core0, when the screen opens.
  *
- * The published status forgets a trip latched in an earlier session at
- * once, and the next bind forgets it in core1's state. A bind after BACK TO
+ * The published status forgets a trip and a supply fault latched in an
+ * earlier session at once, and the next bind forgets them in core1's state. A bind after BACK TO
  * SERVO on the leave page, and a profile rebind, keep it until START.
  */
 void servoJobNewSession();
