@@ -269,7 +269,8 @@ print of both sides. Their specs are rcbench's, copied unchanged to
 `lib/rcbench/hardware/`, and measured from owner photos on 5 mm squared paper:
 positions within about 0.2 mm, no dimension verified with a caliper, board
 thickness and the inductor's height estimated. The boost board does not name
-its enable pad; the one pad besides the 4 corner pads is drawn as it.
+its enable pad; the one pad besides the 4 corner pads is drawn as it. Its
+chip is not known.
 `check_models.py` reads both back, outside CI: valid solids, none sharing
 volume.
 
@@ -675,7 +676,10 @@ not run on hardware (item 18).
       (`settingsCarriedOver()`, `runSettingsTests`); the first boot over an
       older block is not tested on hardware (items 15 and 16). Open to the
       owner: the converter module, which bench tests B6 and B7 check before
-      it is relied on. Slices 2 to 6 wait on building.
+      it is relied on. The 5 V boost board of `boost_5v_en.step` names no
+      chip and the owner does not know it, so its input range, current,
+      load disconnect and EN threshold are known only from B6 and B7.
+      Slices 2 to 6 wait on building.
     - [diagnostics.md](docs/design/diagnostics.md): no fault log now; the
       owner revisits it after the board has run on the bench, with the
       note's seven questions.
