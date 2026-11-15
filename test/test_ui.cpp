@@ -6506,6 +6506,26 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(UI_BACK));
 	}
 
+	section("ESC SETTINGS: a pin the job's line driver does not take");
+	{
+		efm8Esc(0xB2, true);
+		fakeEwRefuse(EW_LINE_ERR_ARG);
+		enterAm32(1);
+		fakeAm32Garble(nullptr, 0);
+		frames(2);
+		char want[48];
+		snprintf(want, sizeof(want), "SIG GP%u COULD NOT BE TAKEN (PIN)", (unsigned)settings()->dshotPin);
+		checkTrue("SIG GP0 COULD NOT BE TAKEN (PIN)", s_state == S_EW && strcmp(s_status, want) == 0);
+		tapId(UI_FIX(UI_BACK));
+		tapId(UI_FIX(Am32Ctl::Leave));
+		frames(45);
+		tapId(UI_FIX(Am32Ctl::Restart));
+		checkTrue("BACK, LEAVE, RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
+		fakeEwRefuse(0);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
 	section("ESC SETTINGS: an answer with a glitch byte after it is an EFM8's");
 	{
 		fakeEwReset(0xB2, true);
