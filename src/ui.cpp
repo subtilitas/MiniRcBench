@@ -15,6 +15,7 @@
 #include "esc_3d.h"
 #include "ui_esc_cmd.h"
 #include "ui_esc_config.h"
+#include "ui_bridge.h"
 #include "ui_tools.h"
 #include "ui_angle.h"
 #include "ui_hitec.h"
@@ -1246,6 +1247,7 @@ static constexpr struct { UiScreenId id; const UiScreen *screen; } SCREENS[] = {
 	{ UiScreenId::RxSignals, &UI_RX_SIGNALS },
 	{ UiScreenId::Sbus,      &UI_SBUS },
 	{ UiScreenId::EscConfig, &UI_ESC_CONFIG },
+	{ UiScreenId::Bridge,    &UI_BRIDGE },
 	{ UiScreenId::Tools,     &UI_TOOLS },
 	{ UiScreenId::Angle,     &UI_ANGLE },
 };

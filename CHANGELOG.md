@@ -203,6 +203,28 @@ protocol.
   `fakeClockSetMs()` before SETTINGS' UPTIME (`shot_settings_scrolled`). The
   previews no longer change when a test is added or removed. No firmware
   change.
+- After v0.1.0-rc1: the USB bridge's passthrough and its screen, slice 2 of
+  [usb-bridge.md](docs/design/usb-bridge.md#slice-2-as-built), tested on the
+  host only. ESC CONFIG's `USB BRIDGE` opens USB BRIDGE (`src/ui_bridge.*`),
+  which claims SIG unless USB DRIVE holds the card (`EJECT THE USB DRIVE
+  FIRST.`). While the claim runs, `src/usb_bridge.*` takes the serial port
+  from the console (`usbDevConsole()` in `src/usb_dev.*`), hands each PC frame
+  to the wire after 2 ms of silence and writes the wire's bytes, the echo
+  included, back to the PC; the console has the port again once the claim is
+  free. The screen shows the port, `WAITING` or `PASSTHROUGH`, the bytes each
+  way, `FRAMES`, `LOST` and the last command. BACK is drawn disabled while a
+  PROGRAM, ERASE or SET BUFFER payload waits for its answer, at most 3000 ms,
+  and every other BACK of the running bridge opens the leave page `POWER THE
+  ESC OFF.`, `RESTART DSHOT.`, as the servo tools' BACK does; MENU shows
+  `POWER-CYCLE THE ESC TO RUN IT` from the open until RESTART DSHOT or an eRPM
+  frame. RUN counts only as 4 bytes with its CRC. While the bridge holds
+  the port the clock's `CLOCK` line is off and goes to the ESC as data.
+  `USB_BRIDGE_LOG`, 0 by default, builds DshotDisplay's traffic log
+  (`src/bridge_log.*`), dumped on the port after BACK. DshotDisplay's bridge
+  tests are ported to a CDC fake (`test/fake_cdc.*`,
+  `test/test_usb_bridge.cpp`); `test/test_bridge_ui.cpp` runs the screen,
+  `test/test_bridge_log.cpp` the log built on. MSP and the 4-way interface are
+  slice 3, not built.
 - After v0.1.0-rc1: the USB bridge's line and claim, slice 1 of
   [usb-bridge.md](docs/design/usb-bridge.md#slice-1-as-built), tested on the
   host only; nothing opens it yet. `PinUser::Bridge` claims SIG with no ESC

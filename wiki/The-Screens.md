@@ -17,7 +17,8 @@ Tester ──MENU──> MENU ──┬── ESC COMMANDS ──BACK──> MEN
    │                    │    ├── ESC SETTINGS ──> ESC SETTINGS ──BACK──> MENU
    │                    │    │   (a Bluejay or BLHeli_S list: BACK──> LEAVE sent──> MENU)
    │                    │    │   (elsewhere after a Bluejay or BLHeli_S answer: BACK──> leave page ──LEAVE, RESTART DSHOT──> MENU)
-   │                    │    └── USB BRIDGE   (drawn disabled: NOT BUILT)
+   │                    │    └── USB BRIDGE ──> USB BRIDGE ──BACK──> MENU
+   │                    │        (after a write with no RUN: BACK──> leave page ──RESTART DSHOT──> MENU)
    │                    ├── SERVO TESTER ──BACK──> leave page ──RESTART DSHOT──> MENU
    │                    ├── SERVO PROGRAMMER ──> PROGRAMMER ──BACK──> MENU
    │                    │    ├── KST / CHASERVO ──> KST SERVO   ──BACK──> leave page ──LEAVE, RESTART DSHOT──> MENU
@@ -382,15 +383,16 @@ programming session, and `BACK` in a programmer before it holds SIG.
 
 ### ESC CONFIG
 
-<img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC SETTINGS with its two lines, USB BRIDGE as an outline with A DESKTOP ESC TOOL OVER USB. and NOT BUILT">
+<img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC SETTINGS and USB BRIDGE, each with its two lines">
 
 `MENU → ESC CONFIG` opens a choice of two, as PROGRAMMER: **ESC SETTINGS**,
-which opens the ESC settings screen, AM32, Bluejay and BLHeli_S read and
-written, and **USB BRIDGE**, drawn
-as an outline with `NOT BUILT` under it: it does nothing. The strip names
-the signal pin, `SIG GP0`. ESC CONFIG takes no pin; the tap on ESC SETTINGS
-takes SIG. `BACK` returns to `MENU`, and so does `BACK` on ESC SETTINGS.
-See [AM32 Configuration](AM32-Configuration).
+which opens the ESC settings screen, AM32, Bluejay and BLHeli_S read
+and written, and **USB BRIDGE**, which passes a desktop ESC tool's
+bytes to the ESC, with `A DESKTOP ESC TOOL OVER USB.` and
+`PASSTHROUGH: AM32 DIRECT MODE.` under it. The strip names the signal pin,
+`SIG GP0`. ESC CONFIG takes no pin; the tap on an entry takes SIG. `BACK`
+returns to `MENU`, and so does `BACK` on either tool. See
+[AM32 Configuration](AM32-Configuration) and [USB Bridge](USB-Bridge).
 
 ### RX SIGNALS
 

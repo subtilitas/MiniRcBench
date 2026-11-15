@@ -18,13 +18,14 @@ It needs no laptop or configurator. It does not update ESC firmware.
 
 Open **MENU → ESC CONFIG**, then tap **ESC SETTINGS**.
 
-<img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC SETTINGS and, drawn grey, USB BRIDGE with NOT BUILT">
+<img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC SETTINGS and USB BRIDGE">
 
 `ESC CONFIG` is a chooser. It takes nothing from the signal pin: DShot keeps
-running until you tap `ESC SETTINGS`. `USB BRIDGE` is drawn grey with
-`NOT BUILT` under it and does nothing. `BACK` returns to MENU. The screen is
-titled `ESC SETTINGS` for every ESC firmware; it reads and writes AM32,
-Bluejay and BLHeli_S: see [EFM8 ESCs](#efm8-escs) for the last two.
+running until you tap `ESC SETTINGS`. `USB BRIDGE` lets a desktop ESC
+tool reach the ESC through the board: see [USB Bridge](USB-Bridge). `BACK`
+returns to MENU. The screen is titled `ESC SETTINGS` for every ESC
+firmware; it reads and writes AM32, Bluejay and BLHeli_S: see
+[EFM8 ESCs](#efm8-escs) for the last two.
 
 The screen hands the signal pin from the DShot driver to the bootloader link
 (19200 baud, one wire, half-duplex), then starts searching. Before DShot lets

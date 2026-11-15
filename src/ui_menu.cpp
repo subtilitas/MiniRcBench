@@ -8,6 +8,7 @@
 #include "ui_list.h"
 #include "ui_input.h"
 #include "ui_widgets.h"
+#include "usb_bridge.h"
 #include "ui_am32.h"
 #include "esc_task.h"
 #include "esc_merge.h"
@@ -243,7 +244,9 @@ UiMenuResult uiMenuTick(const TouchState *t, const UiScreen **open) {
 		MenuEdt edt = rd.edtFresh ? MenuEdt::On
 		            : escFieldFresh(tel.lastRpmMs, millis(), ESC_LINK_STALE_MS) ? MenuEdt::Off
 		                                                                        : MenuEdt::NoEsc;
-		bool runCue = uiAm32RunCue(tel.lastRpmMs);
+		// ESC SETTINGS' cue, or the USB bridge's (usb_bridge.h): both are
+		// a bootloader that answered and was not told to run.
+		bool runCue = uiAm32RunCue(tel.lastRpmMs) | usbBridgeRunCue(tel.lastRpmMs);
 		uint32_t key = frameKey(edt, runCue);
 		if (key != s_drawnKey) {
 			s_drawnKey = key;

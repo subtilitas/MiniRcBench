@@ -126,6 +126,11 @@ BIN := dshot_tests
 # file against stubs of the logger, the card and TinyUSB.
 MSC_CB_BIN := $(OBJ_DIR)/test_usb_msc_cb
 
+# The USB bridge's traffic log with its build option on, the firmware's
+# other setting: bridge_log.cpp and usb_bridge.cpp against the CDC fake.
+# @see bridge.mk
+BRIDGE_LOG_BIN := $(OBJ_DIR)/test_bridge_log
+
 .PHONY: all build run syntax pioemu bbcheck previews wiki coverage kstcount kstcount-write lognum clean
 
 all: syntax run pioemu bbcheck
@@ -175,9 +180,16 @@ $(MSC_CB_BIN): test_usb_msc_cb.cpp ../src/usb_msc.cpp $(wildcard ../src/*.h) \
 	$(CXX) $(CXXFLAGS) $(WARN) -Werror $(INCLUDES) $(DEFINES) -o $@ \
 		test_usb_msc_cb.cpp ../src/usb_msc.cpp
 
-run: $(BIN) $(CTEST_BINS) $(CXXTEST_BINS) $(MSC_CB_BIN)
+$(BRIDGE_LOG_BIN): $(BRIDGE_LOG_SRCS) $(wildcard ../src/*.h) $(wildcard *.h) \
+		$(wildcard stubs/*.h stubs/*/*.h stubs/*/*/*.h)
+	@mkdir -p $(OBJ_DIR)
+	$(CXX) $(CXXFLAGS) $(WARN) -Werror $(INCLUDES) $(DEFINES) -DUSB_BRIDGE_LOG=1 -o $@ \
+		$(BRIDGE_LOG_SRCS)
+
+run: $(BIN) $(CTEST_BINS) $(CXXTEST_BINS) $(MSC_CB_BIN) $(BRIDGE_LOG_BIN)
 	./$(BIN)
 	@out=$$(./$(MSC_CB_BIN)) || { echo "$$out"; exit 1; }; echo "$$out" | tail -1
+	@out=$$(./$(BRIDGE_LOG_BIN)) || { echo "$$out"; exit 1; }; echo "$$out" | tail -1
 	@for t in $(CTEST_BINS); do \
 		out=$$(./$$t) || { echo "$$out"; exit 1; }; \
 		echo "$$out" | tail -1; \
@@ -189,8 +201,9 @@ run: $(BIN) $(CTEST_BINS) $(CXXTEST_BINS) $(MSC_CB_BIN)
 	@out=$$(python3 test_set_clock.py 2>&1) || { echo "$$out"; exit 1; }; \
 		echo "test_set_clock.py: $$(echo "$$out" | grep '^Ran ')"
 
-# Every device source, plus both settings of the two feature switches so the
-# disabled paths cannot rot unnoticed.
+# Every device source, plus both settings of the two feature switches and the
+# USB bridge's log on, so the paths the default leaves out cannot rot
+# unnoticed.
 # -Werror, matching the firmware build. Without it this target was strictly
 # weaker than CI: usb_dev.cpp typechecked here and failed the real build twice
 # over -- once on a struct the stub defined too loosely, and once on a partial
@@ -206,6 +219,10 @@ syntax:
 		-fsyntax-only ../src/esc_task.cpp || exit 1
 	@$(CXX) $(CXXFLAGS) $(WARN) $(INCLUDES) $(DEFINES) -DSD_LOG_ENABLE=0 \
 		-fsyntax-only ../src/sd_log.cpp || exit 1
+	@for f in ../src/bridge_log.cpp ../src/usb_bridge.cpp; do \
+		$(CXX) $(CXXFLAGS) $(WARN) -Werror $(INCLUDES) $(DEFINES) -DUSB_BRIDGE_LOG=1 \
+			-fsyntax-only $$f || exit 1; \
+	done
 	@echo "device sources typecheck"
 
 # The two SDIO PIO programs in src/sdio/sd_pio.pio, assembled from that file

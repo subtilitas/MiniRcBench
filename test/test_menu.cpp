@@ -20,6 +20,7 @@
 #include "settings.h"
 #include "ui.h"
 #include "ui_am32.h"
+#include "ui_bridge.h"
 #include "ui_menu.h"
 #include "ui_esc_cmd.h"
 #include "ui_registry.h"
@@ -624,8 +625,9 @@ static void dragList(int y0, int dy) {
  * @brief ESC CONFIG (bluejay-blheli-s.md decision 1 and call B, usb-bridge.md
  *        decision 1): MENU's second row opens the chooser, which claims
  *        nothing; ESC SETTINGS opens the settings screen, which claims SIG on
- *        the tap; USB BRIDGE is drawn disabled under `NOT BUILT` and opens
- *        nothing; the row is drawn disabled while the claim is not Free.
+ *        the tap; USB BRIDGE, live from slice 2 of usb-bridge.md, opens
+ *        the bridge, which claims SIG on the tap; the row is drawn disabled
+ *        while the claim is not Free.
  */
 static void testEscConfig() {
 	section("ESC CONFIG: the chooser, ESC SETTINGS and USB BRIDGE");
@@ -681,21 +683,34 @@ static void testEscConfig() {
 	checkTrue("its lines at y 112 and 124, dim",
 	          lineIs(112, "AM32 SETTINGS, READ AND WRITTEN.", C_DIM) &&
 	          lineIs(124, "BLUEJAY, BLHELI_S: READ AND WRITTEN.", C_DIM));
-	checkTrue("USB BRIDGE is drawn disabled: an outline, the label C_GRID",
-	          !ctlEnabled(UI_FIX(EscCfgCtl::Bridge)) && pixel(br.x + 4, br.y + br.h - 5) == C_BG &&
-	          fakeTextIs(br.x + (br.w - gfxTextW("USB BRIDGE", 2)) / 2, br.y + 16, "USB BRIDGE", C_GRID,
-	                     C_BG, 2));
-	checkTrue("its lines at y 192 and 204, dim: what it is, NOT BUILT",
-	          lineIs(192, "A DESKTOP ESC TOOL OVER USB.", C_DIM) && lineIs(204, UI_ESC_CFG_NOT_BUILT, C_DIM));
+	checkTrue("USB BRIDGE acts, its label C_TEXT on the panel, centred at scale 2, 118 px",
+	          ctlEnabled(UI_FIX(EscCfgCtl::Bridge)) && gfxTextW("USB BRIDGE", 2) == 118 &&
+	          pixel(br.x + 4, br.y + br.h - 5) == C_PANEL &&
+	          fakeTextIs(br.x + (br.w - 118) / 2, br.y + 16, "USB BRIDGE", C_TEXT, C_PANEL, 2));
+	checkTrue("its lines at y 192 and 204, dim: what it is, what slice 2 serves",
+	          lineIs(192, "A DESKTOP ESC TOOL OVER USB.", C_DIM) &&
+	          lineIs(204, "PASSTHROUGH: AM32 DIRECT MODE.", C_DIM));
 	checkControlTable("ESC CONFIG");
 	fakeDumpFrame("shot_esc_chooser.ppm");
-	tapId(UI_FIX(EscCfgCtl::Bridge), IdExpect::Disabled);
-	checkTrue("a tap on USB BRIDGE opens nothing and claims nothing",
-	          uiCurrentScreen() == UiScreenId::EscConfig && pinClaimState() == ClaimState::Free);
 	fakePress(br.x + br.w / 2, br.y + br.h / 2);
 	menuFrames(1);
-	checkTrue("a press on USB BRIDGE draws no pressed look", pixel(br.x + 2, br.y + br.h / 2) == C_BG);
+	checkTrue("a press on USB BRIDGE draws it pressed", pixel(br.x + 2, br.y + br.h / 2) == C_INK);
+	checkTrue("and claims nothing yet", pinClaimState() == ClaimState::Free);
 	fakeRelease();
+	menuFrames(1);
+	checkTrue("its lift opens USB BRIDGE", uiCurrentScreen() == UiScreenId::Bridge);
+	checkTrue("which claims SIG on the tap's frame", pinClaimHolder() == PinUser::Bridge);
+	tapId(UI_FIX(UI_BACK));
+	if (uiCurrentScreen() == UiScreenId::Bridge) {
+		// The bridge ran: its leave page; RESTART DSHOT once live.
+		menuFrames(44);
+		tapId(UI_FIX(BridgeCtl::Restart));
+	}
+	checkTrue("USB BRIDGE's BACK, or its RESTART DSHOT, returns to MENU, not the chooser",
+	          uiCurrentScreen() == UiScreenId::Menu);
+	for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) menuFrames(1);
+	checkTrue("DShot runs again", pinClaimState() == ClaimState::Free);
+	tapId(menuRow(&UI_ESC_CONFIG));
 	menuFrames(1);
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("the chooser's BACK returns to MENU", uiCurrentScreen() == UiScreenId::Menu);

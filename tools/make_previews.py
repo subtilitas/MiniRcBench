@@ -144,6 +144,15 @@ PREVIEWS = {
         "shot_hitec_write",
         "shot_hitec_files",
     ],
+    # USB BRIDGE: waiting for the PC with the port closed, passthrough after
+    # a frame, a write waiting for its answer with BACK drawn disabled, and
+    # the leave page after a write with no RUN behind it.
+    "bridge-preview": [
+        "shot_bridge_waiting",
+        "shot_bridge_passthrough",
+        "shot_bridge_writing",
+        "shot_bridge_leave",
+    ],
     # ANGLE METER: TOOLS, the chooser, the main view after a zero with
     # LENGTH set and SIGN at INVERT, SETUP, and FLIP CAL with its result.
     "angle-preview": [
