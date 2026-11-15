@@ -503,19 +503,12 @@ void escTaskPoll() {
 	}
 	s_edtRequested = s_pump.edt.sent;
 
+	// A command frame with the telemetry bit set; a throttle frame with it
+	// only on a KISS request. @see escFrameWire()
 	const EscFrame &f = slot.frame;
-	if (f.sendCommand) {
-		// With the telemetry bit set. The BLHeli_S family (Bluejay) discards a
-		// command frame whose bit is clear, so a command sent without it never
-		// reaches the ESC's repeat count; AM32 acts on either.
-		out_dshot_send(s_pumpPin, f.command, true);
-	} else {
-		// The 12-bit payload carries the throttle offset past the command range
-		// and the telemetry-request bit; the driver takes the two halves
-		// apart. @see kissBuildDshotPayload()
-		uint16_t payload = kissBuildDshotPayload(f.throttle, f.requestKiss);
-		out_dshot_send(s_pumpPin, (uint16_t)(payload >> 1), (payload & 1u) != 0);
-	}
+	bool telemetry = false;
+	uint16_t value = escFrameWire(&f, &telemetry);
+	out_dshot_send(s_pumpPin, value, telemetry);
 	// A scheduled attempt is stamped by its last frame, and a throttle frame
 	// stamps the drain's start. @see escEdtFrameSent(), escThrottleStamp()
 	escPumpFrameSent(&s_pump, &f, millis());

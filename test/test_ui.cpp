@@ -2613,9 +2613,8 @@ static void simSlot(SimPump *p, SimEsc *esc) {
 	if (s.forgetEdt) escEdtForget(&p->tel);
 	if (s.cmdTaken) p->req.cmd = 0;
 	const EscFrame &f = s.frame;
-	uint16_t value = f.sendCommand
-	               ? f.command
-	               : (uint16_t)(kissBuildDshotPayload(f.throttle, f.requestKiss) >> 1);
+	bool telemetry;
+	uint16_t value = escFrameWire(&f, &telemetry);
 	if (f.requestKiss) p->kissReqs++;
 	escPumpFrameSent(&p->pump, &f, ms);
 

@@ -27,6 +27,7 @@
 
 #include "config.h"
 #include "dshot/dshot.h"
+#include "kiss_telem.h"
 
 /**
  * @brief Everything core1 has decoded from the ESC.
@@ -619,6 +620,30 @@ static inline EscFrame escFrameAction(bool armed, bool uiAlive, uint16_t throttl
 	// distinguish from a real one.
 	f.requestKiss = kissWanted && pendingReps == 0;
 	return f;
+}
+
+/**
+ * @brief The 11-bit DShot value and the telemetry bit frame @p f goes out
+ *        with. Pure.
+ *
+ * A command frame has the telemetry bit set. Bluejay and BLHeli_S clear a
+ * command, and its count, on a command frame with the bit clear, so a
+ * command sent without it never reaches their repeat count; AM32 acts on
+ * either. A throttle frame carries the bit only when it asks for a KISS
+ * reply. @see kissBuildDshotPayload()
+ *
+ * @param f              The frame.
+ * @param[out] telemetry The telemetry bit.
+ * @return               The value, 0 to 2047.
+ */
+static inline uint16_t escFrameWire(const EscFrame *f, bool *telemetry) {
+	if (f->sendCommand) {
+		*telemetry = true;
+		return f->command;
+	}
+	uint16_t payload = kissBuildDshotPayload(f->throttle, f->requestKiss);
+	*telemetry = (payload & 1u) != 0;
+	return (uint16_t)(payload >> 1);
 }
 
 /**
