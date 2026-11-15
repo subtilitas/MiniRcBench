@@ -1055,6 +1055,23 @@ static void testClockLine() {
 	text[n] = '\0';
 	clockNow(&c);
 	checkTrue("then a line sets the clock again", c.t.year == 2026 && strstr(text, "CLOCK SET") != nullptr);
+	// usb_dev.cpp's own paths: the init, the console's state, an answer the
+	// full transmit buffer drops rather than waits for.
+	usbDevInit();
+	checkTrue("usbDevInit(): the console on", usbDevConsoleOn() && fakeConsoleOn());
+	fakeCdcReset();
+	fakeCdcDtr(true);
+	fakeCdcHostStall(true);
+	char full[CFG_TUD_CDC_TX_BUFSIZE + 1];
+	memset(full, 'x', CFG_TUD_CDC_TX_BUFSIZE);
+	full[CFG_TUD_CDC_TX_BUFSIZE] = '\0';
+	fakeCdcConsoleText(full);
+	fakeCdcHostWrite((const uint8_t *)"CLOCK?\n", 7);
+	for (int k = 0; k < 10; k++) usbDevTask();
+	fakeCdcHostStall(false);
+	n = fakeCdcHostRead((uint8_t *)text, sizeof(text) - 1);
+	checkTrue("a full buffer: the answer dropped, nothing waited for",
+	          n == CFG_TUD_CDC_TX_BUFSIZE && fakeCdcHostQueued() == 0);
 	g_devTask = false;
 	fakeI2cReset();
 }
