@@ -95,19 +95,6 @@ protocol.
   `test/test_esc_cmd.cpp` run the slot against AM32, Bluejay and BLHeli_S
   models read from their sources. No page sends commands yet; MENU's BEEP
   THE ESC is the only caller. Not tested on hardware.
-- After v0.1.0-rc1: the run summary's core, slice 1 of
-  [run-summary.md](docs/design/run-summary.md#slice-1-as-built), in
-  `src/run_summary.*`. From each logged frame's telemetry it keeps the
-  maximum eRPM, current and temperature over the whole log and the minimum
-  voltage while armed, each as a raw extreme and as a held one, counted
-  only when three consecutive new values reach it; the source per frame,
-  KISS while fresh and EDT in its gaps, tagged `MIXED` when both counted,
-  and EDT's own figure when every fresh KISS frame carried 0; the KISS
-  counter's rise and the charge from current; the armed time. It builds the
-  `LOGnnnnn.TXT` text, both clock lines `not set`, and SD LOG's row texts.
-  Host tests in `test/test_run_summary.cpp`. The logger does not call it
-  yet: no `.TXT` is written and SD LOG does not change. Not tested on
-  hardware.
 - After v0.1.0-rc1 (a93e1c1): S.BUS MONITOR, slice 3 of
   [rx-signals.md](docs/design/rx-signals.md#slice-3-as-built), opened from
   MENU → RX SIGNALS → MONITOR (`src/ui_sbus.*`). It claims the role that is
