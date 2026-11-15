@@ -168,8 +168,8 @@ STATUS.md (ab79c67, bd90e17). A quiet line keeps an AM32 in its bootloader
 as it keeps an EFM8. The README's "Connecting" states this rule as the
 bootloader's source gives it, not measured. Not verified: which bootloader
 AM32 ESCs in the field run, whether AM32's firmware reads the greeting as a
-signal and so does not reset, and whether the bench's pull-up, 50 to 80 kΩ, holds the line high
-against the AM32 pin's pull-down.
+signal and so does not reset, and whether the bench's pull-up, 50 to
+80 kΩ, holds the line high against the AM32 pin's pull-down.
 
 ### The settings page
 
