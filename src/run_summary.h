@@ -29,7 +29,8 @@
  * micros() wraps after 71.6 minutes.
  *
  * Slice 1 of docs/design/run-summary.md. sd_log.cpp feeds it and ends it
- * (slice 2).
+ * (slice 2), and records the board's clock at the start and the stop
+ * (slice 4).
  */
 
 #pragma once
@@ -37,6 +38,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "clock.h"
 #include "esc_merge.h"
 #include "sd_log.h"
 
@@ -140,6 +142,9 @@ struct RunSum {
 	bool     ampSumEdt;       /**< EDT current went into @ref ampUs. */
 	uint64_t ampEdtUs;        /**< EDT current alone times time, 0.01 A × µs. */
 	uint64_t ampEdtKnownUs;   /**< Time with an EDT current. */
+
+	ClockReading clockStart;  /**< The clock at the start; zeroed, not set, by runSumBegin(). */
+	ClockReading clockStop;   /**< The clock at the stop; zeroed, not set, by runSumBegin(). */
 };
 
 /**
@@ -253,8 +258,11 @@ void runSumTxtName(uint32_t n, char *out);
 /**
  * @brief The text of the `.TXT` file: ASCII, one value a line, line feeds.
  *
- * The clock lines read `not set`: the clock is slice 4's. The counters from
- * Frames to Worst flush are the logger's, from @p st.
+ * The clock lines give @ref RunSum::clockStart and @ref RunSum::clockStop,
+ * each as `2026-11-14 15:42:07` or `not set`; the stop's line adds
+ * `(clock set during the log)` when the clock was set at the stop and has
+ * been set since the start. The counters from Frames to Worst flush are the
+ * logger's, from @p st.
  *
  * @param s     An ended summary.
  * @param st    The logger's counters at the stop; its file number names the log.

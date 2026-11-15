@@ -114,7 +114,7 @@
 
 /**
  * @defgroup lcd28_pins_imu IMU — QMI8658C
- * @brief Present on the board but unused by this firmware.
+ * @brief Read once at boot by clock.h; its INT line is unused.
  * @{
  */
 #define PIN_IMU_INT1  8       /**< IMU interrupt 1. */
@@ -124,7 +124,7 @@
 
 /**
  * @defgroup lcd28_pins_rtc RTC — PCF85063ATL
- * @brief Present on the board but unused by this firmware.
+ * @brief Read once at boot by clock.h; its INT line is unused.
  * @{
  */
 #define PIN_RTC_INT   5        /**< RTC alarm / timer interrupt. */

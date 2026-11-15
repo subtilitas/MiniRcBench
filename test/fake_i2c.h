@@ -21,6 +21,15 @@
  * registers change only at the end of each conversion cycle the
  * configuration sets.
  *
+ * The PCF85063A model: registers 00h to 11h with the reset values of the
+ * time registers, 00:00:00 on 1 January 2000 with OS set, the rest 00h; the
+ * pointer, incremented after each byte and wrapping from 11h to 00h; the
+ * software reset, 58h written to Control_1, which ends the write; the time
+ * counting one second a second while STOP is clear and the time registers
+ * hold a valid date, with the carries into minutes, hours, days, months and
+ * years, the weekday and OS left alone; the first count half a second after
+ * STOP is cleared.
+ *
  * Time: a transfer that times out moves the fake clock on by its timeout, in
  * whole milliseconds as the clock counts them, and adds it to
  * FakeI2cStats::timeoutUs, so fakeI2cBusyUs() bounds how long core0 blocks.
@@ -66,6 +75,17 @@ struct FakeIna219 {
 	uint32_t configWrites;  /**< Writes of 00h. */
 };
 
+/** @brief One PCF85063A on the bus. Fields a test may set are marked. */
+struct FakePcf85063 {
+	uint8_t  addr;
+	uint8_t  reg[0x12];   /**< 00h to 11h. Test. */
+	uint8_t  ptr;         /**< The register pointer. */
+	uint64_t countUs;     /**< time_us_64() at which the next second is counted from. */
+	uint32_t resets;      /**< Software resets taken. */
+	uint32_t writes;      /**< Write transfers that carried data after the pointer. */
+	uint32_t reads;       /**< Read transfers. */
+};
+
 /** @brief What the bus has carried since fakeI2cReset(). */
 struct FakeI2cStats {
 	uint32_t clocks;        /**< SCL clocks of every transaction. */
@@ -98,6 +118,31 @@ void fakeIna219Por(FakeIna219 *p);
 /** @brief Conversion cycle of @p p's configuration, µs: the shunt's time plus the bus's. */
 uint32_t fakeIna219CycleUs(const FakeIna219 *p);
 
+/**
+ * @brief Put a PCF85063A at @p addr in its reset state: the time lost, OS
+ *        set, counting from 00:00:00 on 1 January 2000.
+ * @param addr Its address.
+ * @return The model, valid until fakeI2cReset().
+ */
+FakePcf85063 *fakeI2cAddPcf85063(uint8_t addr);
+
+/** @brief The software reset of @p p: every register to its reset value. */
+void fakePcf85063Reset(FakePcf85063 *p);
+
+/**
+ * @brief A clock someone set: the time in its registers, OS clear, STOP
+ *        clear, counting from now.
+ * @param p      The model.
+ * @param year   2000 to 2099.
+ * @param month  1 to 12.
+ * @param day    1 to 31.
+ * @param hour   0 to 23.
+ * @param minute 0 to 59.
+ * @param second 0 to 59.
+ */
+void fakePcf85063Set(FakePcf85063 *p, int year, int month, int day, int hour, int minute,
+                     int second);
+
 /** @brief Put a CST328 touch controller at @p addr, no finger down. */
 void fakeI2cAddCst328(uint8_t addr);
 
@@ -121,6 +166,9 @@ void fakeI2cFailNext(int n, int code, int skip = 0);
 
 /** @brief SDA held low by a part: every transfer times out, gpio_get() reads it low. */
 void fakeI2cHoldSda(bool low);
+
+/** @brief SDA held low, as fakeI2cHoldSda(true), from the end of the next @p n transfers. */
+void fakeI2cHoldSdaAfter(int n);
 
 /** @brief SCL held low: every transfer times out, gpio_get() reads it low. */
 void fakeI2cHoldScl(bool low);

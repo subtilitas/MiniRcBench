@@ -16,13 +16,16 @@
  * unmoved by `.TXT` files; the `.TXT` itself not saved, on a full card, in
  * a full directory, by a failed write and by a failed close, with the
  * logger ready and the `.BFL` byte for byte as on a card with room; the
- * summary kept by a failed start and forgotten by a mount and a release. On FAT32 and
- * exFAT; the failures on FAT32.
+ * summary kept by a failed start and forgotten by a mount and a release; the
+ * clock lines from the clock read once at the start and once at the stop,
+ * with clockNow() faked. On FAT32 and exFAT; the failures and the clock on
+ * FAT32.
  */
 
 #include "check.h"
 #include "ram_disk.h"
 
+#include "clock.h"
 #include "config.h"
 #include "diag.h"
 #include "esc_task.h"
@@ -64,6 +67,32 @@ static sd_card_t g_card;
 sd_card_t *sd_get_by_num(size_t) { return &g_card; }
 const char *sd_get_drive_prefix(sd_card_t *) { return ""; }
 int sd_sdio_init_result(void) { return 0; }
+
+/**
+ * @brief The board's clock, faked: set or not, its count of sets, and a
+ *        time that runs on with the timer in whole seconds from
+ *        @ref g_clockUs, within one day.
+ */
+static ClockReading g_clock = {};
+static uint64_t g_clockUs = 0;   /**< The timer when @ref g_clock's time was given. */
+static int g_clockReads = 0;     /**< clockNow() calls. */
+
+void clockNow(ClockReading *out) {
+	g_clockReads++;
+	*out = g_clock;
+	if (!out->set) return;
+	uint32_t s = (uint32_t)g_clock.t.hour * 3600u + g_clock.t.minute * 60u + g_clock.t.second +
+	             (uint32_t)((g_us - g_clockUs) / 1000000u);
+	out->t.hour = (uint8_t)(s / 3600u % 24u);
+	out->t.minute = (uint8_t)(s / 60u % 60u);
+	out->t.second = (uint8_t)(s % 60u);
+}
+
+/** @brief The clock set at @p t from now, as the @p sets th set of the power-up. */
+static void clockSetTo(uint32_t sets, ClockTime t) {
+	g_clock = { true, sets, t };
+	g_clockUs = g_us;
+}
 
 /** @brief run_summary.cpp's SD LOG rows use it; this program draws none. */
 void diagUptimeText(char *buf, size_t n, uint32_t seconds) {
@@ -564,6 +593,91 @@ static void testLogFails() {
 	f_mount(nullptr, "", 0);
 }
 
+/** @brief The clock lines of the `.TXT`: the clock read at the start and at the stop. */
+static void testClock() {
+	section("Logger over FatFs, FAT32: the clock at the start and the stop");
+	const LBA_t sectors = 2u * 1024u * 1024u;
+	format(FM_FAT32, sectors, 4096);
+	std::string txt;
+
+	// Not set: both lines say so, one read at the start and one at the stop.
+	g_clock = {};
+	int reads = g_clockReads;
+	sdLogStart();
+	checkInt("one read at the start", g_clockReads - reads, 1);
+	frames(10);
+	checkInt("none while logging", g_clockReads - reads, 1);
+	sdLogStop();
+	checkInt("one at the stop", g_clockReads - reads, 2);
+	checkTrue("LOG00001.TXT", readFile("/LOGS/LOG00001.TXT", &txt));
+	checkTrue("not set at both", has(txt, "\nClock at start: not set\nClock at stop: not set\n"));
+
+	// Set before the start: the start and the stop 2.5 s later.
+	clockSetTo(1, { 2026, 11, 14, 15, 42, 7 });
+	g_us += 300000;                 // 0.3 s into the second
+	sdLogStart();
+	frames(1000);                   // 2 s
+	g_us += 500000;
+	sdLogStop();
+	checkTrue("LOG00002.TXT", readFile("/LOGS/LOG00002.TXT", &txt));
+	checkTrue("the start's time", has(txt, "\nClock at start: 2026-11-14 15:42:07\n"));
+	checkTrue("the stop's time", has(txt, "\nClock at stop: 2026-11-14 15:42:09\n"));
+	checkTrue("the summary holds both",
+	          status().summary && status().summary->clockStart.set &&
+	          status().summary->clockStop.t.second == 9);
+
+	// Set during the log: not set at the start, the stop says so.
+	g_clock = {};
+	sdLogStart();
+	frames(100);
+	clockSetTo(1, { 2026, 11, 14, 16, 0, 0 });
+	frames(100);
+	sdLogStop();
+	checkTrue("LOG00003.TXT", readFile("/LOGS/LOG00003.TXT", &txt));
+	checkTrue("start not set, stop set during the log",
+	          has(txt, "\nClock at start: not set\n"
+	                   "Clock at stop: 2026-11-14 16:00:00 (clock set during the log)\n"));
+
+	// Set again during the log.
+	sdLogStart();
+	frames(100);
+	clockSetTo(2, { 2026, 11, 14, 17, 30, 0 });
+	sdLogStop();
+	checkTrue("LOG00004.TXT", readFile("/LOGS/LOG00004.TXT", &txt));
+	checkTrue("the start's time, the stop's after a second set",
+	          has(txt, "\nClock at start: 2026-11-14 16:00:00\n"
+	                   "Clock at stop: 2026-11-14 17:30:00 (clock set during the log)\n"));
+
+	// A disarm's stop reads the clock as STOP's does.
+	sdLogSetArmed(true);            // arming starts the log
+	frames(100);
+	g_us += 1000000;
+	sdLogSetArmed(false);
+	checkTrue("LOG00005.TXT", readFile("/LOGS/LOG00005.TXT", &txt));
+	checkTrue("DISARM: the stop's time",
+	          has(txt, "\nClock at stop: 2026-11-14 17:30:01\nEnded by: DISARM\n"));
+
+	// The drain fails inside the stop: the clock stays as read when the
+	// stop began, read once.
+	sdLogStart();
+	frames(100, false);
+	g_disk.failWrites = true;
+	reads = g_clockReads;
+	g_disk.clockUs = &g_us;
+	g_disk.writeUs = 1000000;       // each block write 1 s: a second read would differ
+	sdLogStop();
+	g_disk.clockUs = nullptr;
+	g_disk.failWrites = false;
+	SdLogStatus st = status();
+	checkTrue("the stop fails", st.state == SdLogState::Error && st.summary);
+	checkInt("the clock read once at the stop", g_clockReads - reads, 1);
+	checkTrue("the stop's reading from the stop's start",
+	          st.summary && st.summary->clockStop.t.second == 1 &&
+	          st.summary->clockStop.t.minute == 30);
+	g_clock = {};
+	f_mount(nullptr, "", 0);
+}
+
 static void runVolume(const char *vol, BYTE fmt, LBA_t sectors, DWORD au) {
 	format(fmt, sectors, au);
 	testStop(vol);
@@ -582,6 +696,7 @@ int main() {
 	runVolume("exFAT", FM_EXFAT, 2u * 1024u * 1024u, 32768);     // 1 GiB, 32 KiB clusters
 	testTxtNotSaved();
 	testLogFails();
+	testClock();
 	printf("\n=======================\n");
 	if (g_failures) printf("%d CHECK(S) FAILED\n", g_failures);
 	else printf("all checks passed\n");

@@ -846,14 +846,16 @@ static void testExample() {
 	st.bytesWritten = 1043u * 1024u;
 	st.peakBuffer = 2048;
 	st.worstFlushMs = 12;
+	s.clockStart = { true, 1, { 2026, 11, 14, 15, 42, 7 } };
+	s.clockStop = { true, 1, { 2026, 11, 14, 15, 44, 31 } };
 	char t[1200];
 	size_t len = runSumText(&s, &st, 14, t, sizeof(t));
 	const char *want =
 		"MiniRcBench run summary, format 1\n"
 		"Log: LOG00012.BFL\n"
 		"Firmware: " FW_VERSION_STRING "\n"
-		"Clock at start: not set\n"
-		"Clock at stop: not set\n"
+		"Clock at start: 2026-11-14 15:42:07\n"
+		"Clock at stop: 2026-11-14 15:44:31\n"
 		"Ended by: STOP\n"
 		"Duration: 144.2 s\n"
 		"Armed: 102.5 s\n"
@@ -901,6 +903,61 @@ static void testExample() {
 	checkTrue("cut: the start kept", strncmp(small, want, sizeof(small) - 1) == 0);
 }
 
+/** @brief The clock lines: not set, set, and set during the log. */
+static void testClockLines() {
+	section("Run summary: the clock lines");
+	RunSum s;
+	runSumBegin(&s, 1000000u, false);
+	runSumEnd(&s, 2000000u, RunSumEnd::Stop);
+	char t[1200], a[80], b[80];
+	text(&s, t, sizeof(t));
+	checkStr("zeroed: start", lineOf(t, "Clock at start:", a, sizeof(a)), "Clock at start: not set");
+	checkStr("zeroed: stop", lineOf(t, "Clock at stop:", b, sizeof(b)), "Clock at stop: not set");
+
+	const ClockReading unset = { false, 0, {} };
+	const ClockReading unsetLater = { false, 3, {} };
+	const ClockReading at = { true, 1, { 2026, 11, 14, 15, 42, 7 } };
+	const ClockReading later = { true, 1, { 2026, 11, 14, 15, 44, 31 } };
+	const ClockReading reset = { true, 2, { 2026, 11, 14, 16, 0, 5 } };
+	const ClockReading first = { true, 1, { 2027, 1, 2, 3, 4, 5 } };
+	const struct {
+		const char *what;
+		ClockReading start, stop;
+		const char *wantStart, *wantStop;
+	} cases[] = {
+		{ "not set", unset, unset, "Clock at start: not set", "Clock at stop: not set" },
+		{ "set", at, later, "Clock at start: 2026-11-14 15:42:07",
+		  "Clock at stop: 2026-11-14 15:44:31" },
+		{ "set again during the log", at, reset, "Clock at start: 2026-11-14 15:42:07",
+		  "Clock at stop: 2026-11-14 16:00:05 (clock set during the log)" },
+		{ "set first during the log", unset, first, "Clock at start: not set",
+		  "Clock at stop: 2027-01-02 03:04:05 (clock set during the log)" },
+		{ "not set at the stop", at, unsetLater, "Clock at start: 2026-11-14 15:42:07",
+		  "Clock at stop: not set" },
+	};
+	for (const auto &c : cases) {
+		s.clockStart = c.start;
+		s.clockStop = c.stop;
+		text(&s, t, sizeof(t));
+		char w[64];
+		snprintf(w, sizeof(w), "%s: start", c.what);
+		checkStr(w, lineOf(t, "Clock at start:", a, sizeof(a)), c.wantStart);
+		snprintf(w, sizeof(w), "%s: stop", c.what);
+		checkStr(w, lineOf(t, "Clock at stop:", b, sizeof(b)), c.wantStop);
+	}
+	// The lines' place: after Firmware, before Ended by.
+	s.clockStart = at;
+	s.clockStop = later;
+	text(&s, t, sizeof(t));
+	checkTrue("between Firmware and Ended by",
+	          strstr(t, FW_VERSION_STRING "\nClock at start: 2026-11-14 15:42:07\n"
+	                    "Clock at stop: 2026-11-14 15:44:31\nEnded by: STOP\n") != nullptr);
+	// runSumBegin() forgets the last log's clock.
+	runSumBegin(&s, 3000000u, false);
+	checkTrue("runSumBegin() zeroes both", !s.clockStart.set && !s.clockStop.set &&
+	          s.clockStart.sets == 0 && s.clockStop.t.year == 0);
+}
+
 /** @brief The longest text fits in 1000 bytes. */
 static void testLongest() {
 	section("Run summary: the longest text");
@@ -926,6 +983,8 @@ static void testLongest() {
 	st.fileNumber = 99999;
 	st.framesLogged = st.dropEvents = st.bytesDropped = st.bytesWritten = 4294967295u;
 	st.peakBuffer = st.worstFlushMs = 4294967295u;
+	s.clockStart = { true, 1, { 2099, 12, 31, 23, 59, 59 } };
+	s.clockStop = { true, 2, { 2099, 12, 31, 23, 59, 59 } };
 	char t[1200];
 	size_t len = runSumText(&s, &st, 255, t, sizeof(t));
 	checkTrue("under 1000 bytes", len < 1000);
@@ -1032,6 +1091,7 @@ void runRunSummaryTests() {
 	testEnds();
 	testName();
 	testExample();
+	testClockLines();
 	testLongest();
 	testFits();
 	testSize();

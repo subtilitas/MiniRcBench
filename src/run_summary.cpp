@@ -392,6 +392,23 @@ static const char *endText(RunSumEnd e) {
 	return "RUNNING";
 }
 
+/**
+ * @brief One clock line: the time, or `not set`; at the stop, a note when
+ *        the clock was set since the start.
+ * @param o    The text.
+ * @param name The line's name.
+ * @param c    The reading.
+ * @param from The start's reading, for the stop's line; null for the start's.
+ */
+static void putClockLine(Out *o, const char *name, const ClockReading &c,
+                         const ClockReading *from) {
+	if (!c.set) { put(o, "%s: not set\n", name); return; }
+	char b[CLOCK_TEXT_BYTES];
+	clockText(&c.t, b);
+	put(o, "%s: %s%s\n", name, b,
+	    from && c.sets != from->sets ? " (clock set during the log)" : "");
+}
+
 size_t runSumText(const RunSum *s, const SdLogStatus *st, uint8_t poles,
                   char *out, size_t n) {
 	Out o = { out, n, 0 };
@@ -401,8 +418,8 @@ size_t runSumText(const RunSum *s, const SdLogStatus *st, uint8_t poles,
 	put(&o, "MiniRcBench run summary, format %d\n", RUN_SUM_FORMAT);
 	put(&o, "Log: LOG%05lu.BFL\n", (unsigned long)st->fileNumber);
 	put(&o, "Firmware: %s\n", FW_VERSION_STRING);
-	put(&o, "Clock at start: not set\n");
-	put(&o, "Clock at stop: not set\n");
+	putClockLine(&o, "Clock at start", s->clockStart, nullptr);
+	putClockLine(&o, "Clock at stop", s->clockStop, &s->clockStart);
 	put(&o, "Ended by: %s\n", endText(s->end));
 	put(&o, "Duration: %lu.%lu s\n", tenths(dur) / 10u, tenths(dur) % 10u);
 	put(&o, "Armed: %lu.%lu s\n", tenths(s->armedUs) / 10u, tenths(s->armedUs) % 10u);

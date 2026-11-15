@@ -20,13 +20,14 @@ i2c_inst_t *i2c1 = nullptr;
 
 namespace {
 
-enum class Kind : uint8_t { None, Ina219, Cst328 };
+enum class Kind : uint8_t { None, Ina219, Cst328, Pcf85063 };
 
 struct Part {
-	Kind       kind;
-	uint8_t    addr;
-	FakeIna219 ina;
-	uint16_t   ptr16;   /**< CST328: the 16-bit register pointer. */
+	Kind         kind;
+	uint8_t      addr;
+	FakeIna219   ina;
+	FakePcf85063 rtc;
+	uint16_t     ptr16;   /**< CST328: the 16-bit register pointer. */
 };
 
 #define PARTS 4
@@ -37,6 +38,7 @@ int          g_failN = 0;
 int          g_failSkip = 0;
 int          g_failCode = 0;
 bool         g_holdSda = false, g_holdScl = false;
+int          g_holdSdaAfter = 0;    /**< Transfers left before SDA is held; 0 for none. */
 int          g_heldCode = PICO_ERROR_TIMEOUT;  /**< What a transfer returns while SDA alone is held. */
 int          g_shortN = 0;          /**< Transfers left that return one byte short. */
 int          g_stopReads = 0;       /**< SDA reads left in the block's STOP. */
@@ -155,6 +157,103 @@ void cstRead(Part *p, uint8_t *dst, size_t len) {
 	}
 }
 
+// --- the PCF85063A -----------------------------------------------------------
+
+/** @brief Two BCD digits as a number; -1 for a digit above 9. */
+int rtcBcd(uint8_t b) {
+	return (b >> 4) > 9 || (b & 15) > 9 ? -1 : (b >> 4) * 10 + (b & 15);
+}
+
+uint8_t rtcToBcd(int v) { return (uint8_t)(((v / 10) << 4) | (v % 10)); }
+
+int rtcDays(int year, int month) {
+	static const int days[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+	return month == 2 && year % 4 == 0 ? 29 : days[month - 1];
+}
+
+/**
+ * @brief One second on @p p's time registers, with its carries; false, and
+ *        nothing changed, when they hold no valid date.
+ */
+bool rtcSecond(FakePcf85063 *p) {
+	uint8_t *r = p->reg;
+	int s = rtcBcd(r[4] & 0x7F), mi = rtcBcd(r[5] & 0x7F), h = rtcBcd(r[6] & 0x3F);
+	int d = rtcBcd(r[7] & 0x3F), mo = rtcBcd(r[9] & 0x1F), y = rtcBcd(r[10]);
+	if (s < 0 || s > 59 || mi < 0 || mi > 59 || h < 0 || h > 23 || mo < 1 || mo > 12 || y < 0 ||
+	    d < 1 || d > rtcDays(y, mo))
+		return false;
+	if (++s == 60) {
+		s = 0;
+		if (++mi == 60) {
+			mi = 0;
+			if (++h == 24) {
+				h = 0;
+				if (++d > rtcDays(y, mo)) {
+					d = 1;
+					if (++mo == 13) {
+						mo = 1;
+						y = (y + 1) % 100;
+					}
+				}
+			}
+		}
+	}
+	r[4] = (uint8_t)((r[4] & 0x80) | rtcToBcd(s));
+	r[5] = rtcToBcd(mi);
+	r[6] = rtcToBcd(h);
+	r[7] = rtcToBcd(d);
+	r[9] = rtcToBcd(mo);
+	r[10] = rtcToBcd(y);
+	return true;
+}
+
+/** @brief Bring @p p's time up to now: a second for each whole second since countUs, unless STOP is set. */
+void rtcCatchUp(FakePcf85063 *p) {
+	uint64_t now = time_us_64();
+	if (p->reg[0] & 0x20) {
+		p->countUs = now;
+		return;
+	}
+	while (now - p->countUs >= 1000000u) {
+		p->countUs += 1000000u;
+		if (!rtcSecond(p)) {
+			p->countUs = now;
+			return;
+		}
+	}
+}
+
+void rtcWrite(FakePcf85063 *p, const uint8_t *src, size_t len) {
+	if (len < 1) return;
+	rtcCatchUp(p);
+	p->ptr = src[0] < 0x12 ? src[0] : 0;
+	if (len < 2) return;
+	p->writes++;
+	for (size_t i = 1; i < len; i++) {
+		uint8_t r = p->ptr, v = src[i];
+		p->ptr = (uint8_t)((p->ptr + 1) % 0x12);
+		if (r == 0 && v == 0x58) {
+			fakePcf85063Reset(p);
+			p->resets++;
+			return;
+		}
+		if (r == 0 && (p->reg[0] & 0x20) && !(v & 0x20)) {
+			// STOP released: the first second 0.507813 s on.
+			p->countUs = time_us_64() + 507813u - 1000000u;
+		}
+		p->reg[r] = v;
+	}
+}
+
+void rtcRead(FakePcf85063 *p, uint8_t *dst, size_t len) {
+	rtcCatchUp(p);
+	p->reads++;
+	for (size_t i = 0; i < len; i++) {
+		dst[i] = p->reg[p->ptr];
+		p->ptr = (uint8_t)((p->ptr + 1) % 0x12);
+	}
+}
+
 /** @brief A transfer that waits out its whole timeout: counted, and the clock moved by it. */
 int timedOut(unsigned timeoutUs) {
 	g_open = false;
@@ -165,7 +264,7 @@ int timedOut(unsigned timeoutUs) {
 }
 
 /** @brief A transfer: the fault, the held line or the NACK first, then the part. */
-int transfer(uint8_t addr, uint8_t *dst, const uint8_t *src, size_t len, bool nostop,
+int transferOnce(uint8_t addr, uint8_t *dst, const uint8_t *src, size_t len, bool nostop,
              unsigned timeoutUs) {
 	g_stats.transfers++;
 	g_stopReads = 0;
@@ -207,10 +306,20 @@ int transfer(uint8_t addr, uint8_t *dst, const uint8_t *src, size_t len, bool no
 	countClocks(len, nostop);
 	if (p->kind == Kind::Ina219) {
 		if (dst) inaRead(&p->ina, dst, len); else inaWrite(&p->ina, src, len);
+	} else if (p->kind == Kind::Pcf85063) {
+		if (dst) rtcRead(&p->rtc, dst, len); else rtcWrite(&p->rtc, src, len);
 	} else {
 		if (dst) cstRead(p, dst, len); else cstWrite(p, src, len);
 	}
 	return (int)len;
+}
+
+/** @brief A transfer, then SDA held when fakeI2cHoldSdaAfter()'s count runs out. */
+int transfer(uint8_t addr, uint8_t *dst, const uint8_t *src, size_t len, bool nostop,
+             unsigned timeoutUs) {
+	int rc = transferOnce(addr, dst, src, len, nostop, timeoutUs);
+	if (g_holdSdaAfter > 0 && --g_holdSdaAfter == 0) g_holdSda = true;
+	return rc;
 }
 
 }  // namespace
@@ -286,6 +395,7 @@ void fakeI2cReset() {
 	g_failN = 0;
 	g_failSkip = 0;
 	g_holdSda = g_holdScl = false;
+	g_holdSdaAfter = 0;
 	g_heldCode = PICO_ERROR_TIMEOUT;
 	g_shortN = 0;
 	g_stopReads = 0;
@@ -324,6 +434,39 @@ uint32_t fakeIna219CycleUs(const FakeIna219 *p) {
 	return adcUs(badc) + adcUs(sadc);
 }
 
+FakePcf85063 *fakeI2cAddPcf85063(uint8_t addr) {
+	Part *p = slot();
+	if (!p) return nullptr;
+	memset(p, 0, sizeof(*p));
+	p->kind = Kind::Pcf85063;
+	p->addr = addr;
+	p->rtc.addr = addr;
+	fakePcf85063Reset(&p->rtc);
+	return &p->rtc;
+}
+
+void fakePcf85063Reset(FakePcf85063 *p) {
+	memset(p->reg, 0, sizeof(p->reg));
+	p->reg[0x04] = 0x80;   // OS
+	p->reg[0x07] = 0x01;   // day 1
+	p->reg[0x08] = 0x06;   // Saturday, 1 January 2000; not read by the firmware
+	p->reg[0x09] = 0x01;   // January
+	p->ptr = 0;
+	p->countUs = time_us_64();
+}
+
+void fakePcf85063Set(FakePcf85063 *p, int year, int month, int day, int hour, int minute,
+                     int second) {
+	p->reg[0x00] = 0x00;
+	p->reg[0x04] = rtcToBcd(second);
+	p->reg[0x05] = rtcToBcd(minute);
+	p->reg[0x06] = rtcToBcd(hour);
+	p->reg[0x07] = rtcToBcd(day);
+	p->reg[0x09] = rtcToBcd(month);
+	p->reg[0x0A] = rtcToBcd(year - 2000);
+	p->countUs = time_us_64();
+}
+
 void fakeI2cAddCst328(uint8_t addr) {
 	Part *p = slot();
 	if (!p) return;
@@ -354,6 +497,7 @@ void fakeI2cFailNext(int n, int code, int skip) {
 }
 
 void fakeI2cHoldSda(bool low) { g_holdSda = low; }
+void fakeI2cHoldSdaAfter(int n) { g_holdSdaAfter = n; }
 void fakeI2cHoldScl(bool low) { g_holdScl = low; }
 void fakeI2cHeldSdaCode(int code) { g_heldCode = code; }
 void fakeI2cShortNext(int n) { g_shortN = n; }
