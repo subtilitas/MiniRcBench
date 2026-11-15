@@ -11,7 +11,7 @@
  * nothing while the driver is closed. Opening it reads WHO_AM_I and
  * REVISION_ID, writes a soft reset, waits for the reset to end, writes CTRL1,
  * CTRL2, CTRL5 and CTRL7 one byte each and reads each back, and drops the
- * samples of the first @ref QMI8658_WARMUP_MS: it reads nothing for that time,
+ * samples of the first @ref QMI8658_WARMUP_MS. It reads nothing for that time,
  * then takes the time stamp of the first whole burst as the baseline, so the
  * first sample taken is latched after the warm-up. Closing it writes CTRL7
  * 0x00, which turns the accelerometer off. The gyroscope stays off
