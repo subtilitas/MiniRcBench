@@ -9,6 +9,9 @@
 #include "check.h"
 #include "../src/sdio/sd_cache.h"
 #include "../src/sdio/sd_host.h"
+#include "fakes.h"
+#include "kst_job.h"
+#include "plat.h"
 
 #include <map>
 #include <string.h>
@@ -43,6 +46,7 @@ struct FakeCard {
 	unsigned readFailsLeft = 0;      ///< The next n check reads end with readEndsWith; 0 for all of them.
 	unsigned readPollCalls = 0;      ///< Looks at the check's read.
 	unsigned writePollCalls = 0;     ///< Looks at a block in flight.
+	bool     clockPerLook = false;   ///< Each look at the check's read takes 1 ms of the fake clock.
 
 	std::vector<uint8_t> &sector(uint32_t lba) {
 		auto &s = sectors[lba];
@@ -110,6 +114,7 @@ sd_err_t fakeReadStart(void *, uint32_t lba, uint8_t *buf) {
 sd_err_t fakeReadPoll(void *, bool *done) {
 	*done = false;
 	g_card.readPollCalls++;
+	if (g_card.clockPerLook) fakeAdvance(1);
 	if (!g_card.reading) {
 		*done = true;
 		return SDE_PARAM;
@@ -437,6 +442,15 @@ static void testCheckAsync() {
 static unsigned s_hooks = 0;
 static void hookCount() { s_hooks++; }
 
+static uint32_t s_lastStampMs = 0, s_worstStampGapMs = 0;
+/** @brief KST SERVO's hook in a card phase (ui_kst.cpp), with the gap between stamps kept. */
+static void kstStampHook() {
+	uint32_t now = millis();
+	if (now - s_lastStampMs > s_worstStampGapMs) s_worstStampGapMs = now - s_lastStampMs;
+	s_lastStampMs = now;
+	kstCardStamp();
+}
+
 static void testWaitHook() {
 	section("SD cache: every wait on the card calls the driver's wait hook");
 	freshCard();
@@ -491,6 +505,28 @@ static void testWaitHook() {
 	sdc_end();
 	checkTrue("end collecting a check's read: a hook at every look", s_hooks >= 40);
 	sdh_wait_hook = nullptr;
+
+	// KST SERVO's card phase: a backup's flush whose check read times out
+	// three times, 250 looks of 1 ms each: KST's card stamp, the hook, is
+	// never more than a look old, so its job sees no lapse.
+	sdc_begin(&DEV, 0, 67);
+	g_card.readPolls = 250;
+	g_card.readEndsWith = SDE_TIMEOUT;
+	g_card.clockPerLook = true;
+	sdc_write(56, 1, b);
+	sdh_wait_hook = kstStampHook;
+	s_lastStampMs = millis();
+	s_worstStampGapMs = 0;
+	uint32_t t0 = millis();
+	sdc_state_t end = sdc_flush();
+	sdh_wait_hook = nullptr;
+	checkTrue("three reads timed out, 750 ms and more: failed", end == SDC_FAILED && millis() - t0 >= 750);
+	checkTrue("KST's card stamp at every look: never more than 1 ms old", s_worstStampGapMs <= 1);
+	g_card.clockPerLook = false;
+	g_card.readEndsWith = SDE_OK;
+	g_card.readPolls = 0;
+	sdc_drop();
+	sdc_end();
 
 	// begin collects a read a cache left under way.
 	freshCard();
