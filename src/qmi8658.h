@@ -8,11 +8,14 @@
  *
  * The angle meter opens the driver with qmi8658Start() and closes it with
  * qmi8658Stop(); qmi8658Tick() runs every frame from uiTick() and sends
- * nothing while the driver is closed. Opening it reads WHO_AM_I, writes a
- * soft reset, waits for the reset to end, writes CTRL1, CTRL2, CTRL5 and CTRL7
- * one byte each and reads each back, and drops the samples of the first
- * @ref QMI8658_WARMUP_MS. Closing it writes CTRL7 0x00, which turns the
- * accelerometer off. The gyroscope stays off throughout.
+ * nothing while the driver is closed. Opening it reads WHO_AM_I and
+ * REVISION_ID, writes a soft reset, waits for the reset to end, writes CTRL1,
+ * CTRL2, CTRL5 and CTRL7 one byte each and reads each back, and drops the
+ * samples of the first @ref QMI8658_WARMUP_MS: it reads nothing for that time,
+ * then takes the time stamp of the first whole burst as the baseline, so the
+ * first sample taken is latched after the warm-up. Closing it writes CTRL7
+ * 0x00, which turns the accelerometer off. The gyroscope stays off
+ * throughout.
  *
  * Each frame reads one burst of 11 bytes from TIMESTAMP_LOW (0x30) to AZ_H
  * (0x3A), then the time stamp again. A burst whose time stamp differs from
@@ -87,7 +90,11 @@
 #define QMI8658_RESET_C_MS      1750u
 /** @brief The shortest time between two resets, ms. */
 #define QMI8658_RESET_GAP_MS    2000u
-/** @brief Samples dropped after CTRL7 turns the accelerometer on, ms: 3 ms + 3/ODR is 99 ms. */
+/**
+ * @brief Nothing read for this long after CTRL7 turns the accelerometer on,
+ *        ms: its turn-on, 3 ms + 3/ODR, is 99 ms. The first whole burst after
+ *        it is the baseline, so the first sample taken is latched after it.
+ */
 #define QMI8658_WARMUP_MS       100u
 /** @brief Failed transactions in a row that take the IMU offline. */
 #define QMI8658_FAILS           3u
@@ -118,7 +125,7 @@ struct ImuSample {
 /** @brief What the driver has counted since qmi8658Start(), for the tests and the bench. */
 struct ImuCounts {
 	uint32_t samples;  /**< Samples taken. */
-	uint32_t repeats;  /**< Bursts with the time stamp of the last sample taken. */
+	uint32_t repeats;  /**< Bursts with the time stamp of the baseline or the last sample taken. */
 	uint32_t torn;     /**< Bursts dropped: the time stamp changed during the burst. */
 	uint32_t resets;   /**< Soft resets written. */
 	uint32_t fails;    /**< Failed transactions, all told. */

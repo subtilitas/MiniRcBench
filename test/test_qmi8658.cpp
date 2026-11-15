@@ -65,7 +65,10 @@ static FakeQmi8658 *started() {
 	return q;
 }
 
-/** @brief A QMI8658 online: reset, configured at 15 ms, the first burst 100 ms later. */
+/**
+ * @brief A QMI8658 online: reset, configured at 15 ms, the first burst, the
+ *        baseline, 100 ms later.
+ */
 static FakeQmi8658 *online() {
 	FakeQmi8658 *q = started();
 	frame(QMI8658_RESET_A_MS);
@@ -79,6 +82,11 @@ static uint32_t writesFrom(const FakeQmi8658 *q, uint32_t from = 0) {
 	for (uint32_t i = from; i < q->logN; i++)
 		if (q->log[i].write) n++;
 	return n;
+}
+
+/** @brief When the sample in @p q's registers was latched, ms after CTRL7 turned it on. */
+static uint32_t latchedMs(const FakeQmi8658 *q) {
+	return (uint32_t)((q->latchUs - q->enUs) / 1000u);
 }
 
 /** @brief The index of the first log entry from @p from that matches; logN for none. */
@@ -256,7 +264,18 @@ static void testResetA() {
 	checkTrue("100 ms: online, the burst and the time stamp",
 	          state() == ImuState::Online && q->logN - n == 2 && q->log[n].reg == 0x30 &&
 	          q->log[n].len == 11 && q->log[n + 1].reg == 0x30 && q->log[n + 1].len == 3);
-	checkTrue("a sample taken", qmi8658Latest()->seq == 1 && qmi8658Counts()->samples == 1);
+	checkTrue("its sample latched at 96 ms, inside the turn-on", latchedMs(q) == 96);
+	const ImuCounts *c = qmi8658Counts();
+	checkTrue("the baseline: no sample taken, none counted",
+	          qmi8658Latest()->seq == 0 && c->samples == 0 && c->repeats == 0);
+	frame();
+	checkTrue("125 ms: the same time stamp, a repeat", qmi8658Latest()->seq == 0 &&
+	          c->repeats == 1);
+	frame();
+	checkTrue("150 ms: the first sample taken", qmi8658Latest()->seq == 1 && c->samples == 1 &&
+	          qmi8658Latest()->stamp == q->stamp);
+	checkTrue("latched at or after 99 ms from CTRL7", latchedMs(q) >= 99);
+	checkInt("at 128 ms", (long)latchedMs(q), 128);
 }
 
 static void testResetC() {
@@ -391,6 +410,15 @@ static void testMismatch() {
 	checkInt("2000 ms after the first",
 	         (long)(q->log[firstOp(q, true, 0x60, 3)].ms - resetMs), 2000);
 
+	section("IMU: opened again 30 days after the reset");
+	q = started();
+	qmi8658Stop();
+	// More than 2^31 ms: a signed difference reads the reset as ahead.
+	for (int d = 0; d < 30; d++) fakeAdvance(24u * 3600u * 1000u);
+	qmi8658Start(millis());
+	frame(0);
+	checkTrue("probed and reset at once", q->resets == 2 && state() == ImuState::Starting);
+
 	section("IMU: opened again 1999 ms after the reset");
 	q = started();
 	resetMs = q->log[2].ms;
@@ -484,12 +512,12 @@ static void testFaults() {
 	frame(QMI8658_WARMUP_MS);
 	checkTrue("and online", state() == ImuState::Online);
 
-	section("IMU: back from offline, the first sample taken whatever its stamp");
+	section("IMU: back from offline, a new baseline whatever the last time stamp");
 	q = online();
 	for (int i = 0; i < 80; i++) frame();
-	q->stamp = 2;
+	q->stamp = 6;
 	frame(32);
-	checkInt("a sample with time stamp 3", (long)qmi8658Latest()->stamp, 3);
+	checkInt("a sample with time stamp 7", (long)qmi8658Latest()->stamp, 7);
 	fakeI2cRemove(IMU);
 	for (int i = 0; i < 3; i++) frame();
 	q = fakeI2cAddQmi8658(IMU);
@@ -497,8 +525,13 @@ static void testFaults() {
 	frame(QMI8658_RESET_A_MS);
 	uint32_t seq0 = qmi8658Latest()->seq;
 	frame(QMI8658_WARMUP_MS);
-	checkTrue("a new part's third sample, time stamp 3 again, taken",
-	          state() == ImuState::Online && q->stamp == 3 && qmi8658Latest()->seq == seq0 + 1);
+	checkTrue("a new part's third sample, time stamp 3, the baseline, not taken",
+	          state() == ImuState::Online && q->stamp == 3 && qmi8658Latest()->seq == seq0);
+	frame();
+	frame();
+	checkTrue("its fourth taken, latched 128 ms after CTRL7",
+	          qmi8658Latest()->seq == seq0 + 1 && qmi8658Latest()->stamp == 4 &&
+	          latchedMs(q) == 128);
 
 	section("IMU: back from offline, the count starts at 0");
 	for (int i = 0; i < 80; i++) frame();
@@ -689,6 +722,21 @@ static void testStop() {
 	qmi8658Stop();
 	checkTrue("CTRL7 00h written all the same", q->logN == n + 1 && q->log[n].reg == 0x08 &&
 	          q->log[n].val == 0x00);
+
+	section("IMU: a stop after the CTRL7 write timed out, the write taken");
+	q = started();
+	// From the reset on: dQY_L's 2 transfers, then a write and a read-back
+	// of 2 for CTRL1, CTRL2 and CTRL5; the 12th is CTRL7's write.
+	fakeI2cFailNext(1, PICO_ERROR_TIMEOUT, 11, true);
+	frame(QMI8658_RESET_A_MS);
+	checkTrue("NO IMU, the accelerometer on all the same",
+	          state() == ImuState::Absent && q->reg[0x08] == 0x01 &&
+	          fakeQmiCount(q, false, QMI8658_REG_CTRL7) == 0);
+	n = q->logN;
+	qmi8658Stop();
+	checkTrue("BACK: CTRL7 00h, the accelerometer off", q->logN == n + 1 &&
+	          q->log[n].write && q->log[n].reg == 0x08 && q->log[n].val == 0x00 &&
+	          q->reg[0x08] == 0x00);
 }
 
 // ---------------------------------------------------------------------------

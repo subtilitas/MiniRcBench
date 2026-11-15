@@ -45,7 +45,7 @@ enum class Phase : uint8_t {
 	ResetWait,  /**< dQY_L, due @ref QMI8658_RESET_A_MS after the reset. */
 	BootWait,   /**< WHO_AM_I, due @ref QMI8658_RESET_C_MS after the reset. */
 	Warmup,     /**< The first @ref QMI8658_WARMUP_MS after CTRL7: nothing read. */
-	Run,        /**< A burst and the time stamp every frame. */
+	Run,        /**< A burst and the time stamp every frame; the first whole one the baseline. */
 };
 
 static Phase     s_phase = Phase::Closed;
@@ -56,7 +56,8 @@ static bool      s_resetEver = false;  /**< A reset has been written since power
 static uint32_t  s_enAt = 0;           /**< When CTRL7 turned the accelerometer on. */
 static bool      s_accelMayBeOn = false;  /**< CTRL7 was written since the last reset. */
 static uint8_t   s_fails = 0;          /**< Failed transactions in a row, online. */
-static bool      s_haveStamp = false;  /**< s_latest holds a sample of this start. */
+static bool      s_haveStamp = false;  /**< s_lastStamp holds a time stamp of this start. */
+static uint32_t  s_lastStamp = 0;      /**< The time stamp of the baseline or the last sample taken. */
 static uint8_t   s_who = 0;
 static uint8_t   s_rev = 0;
 static ImuSample s_latest;
@@ -114,10 +115,13 @@ static bool failed(sense_err_t e) {
 
 /**
  * @brief The earliest time a probe may start from @p t: no reset sooner than
- *        @ref QMI8658_RESET_GAP_MS after the last one.
+ *        @ref QMI8658_RESET_GAP_MS after the last one. The time since that
+ *        reset is an unsigned difference, right for any time up to 49.7 days,
+ *        where millis() wraps; a probe within 2000 ms after such a wrap waits
+ *        at most 2000 ms more.
  */
 static uint32_t probeFrom(uint32_t t) {
-	if (s_resetEver && (int32_t)(s_resetAt + QMI8658_RESET_GAP_MS - t) > 0)
+	if (s_resetEver && t - s_resetAt < QMI8658_RESET_GAP_MS)
 		return s_resetAt + QMI8658_RESET_GAP_MS;
 	return t;
 }
@@ -195,7 +199,13 @@ static bool runStep(sense_err_t e, uint32_t nowMs) {
 	return false;
 }
 
-/** @brief The burst, the time stamp again, and the sample taken when it is new and whole. */
+/**
+ * @brief The burst, the time stamp again, and the sample taken when it is new
+ *        and whole. The first whole burst after the warm-up is the baseline:
+ *        its sample may have been latched inside the turn-on, so it is neither
+ *        counted nor taken, and the first sample taken is one latched after
+ *        the warm-up.
+ */
 static void readFrame(uint32_t nowMs) {
 	uint8_t b[QMI8658_BURST_BYTES], t[QMI8658_STAMP_BYTES];
 	if (!runStep(readReg(QMI8658_REG_TIMESTAMP_L, b, sizeof(b)), nowMs)) return;
@@ -208,14 +218,19 @@ static void readFrame(uint32_t nowMs) {
 		s_counts.torn++;
 		return;
 	}
-	if (s_haveStamp && stamp == s_latest.stamp) {
+	if (!s_haveStamp) {
+		s_lastStamp = stamp;
+		s_haveStamp = true;
+		return;
+	}
+	if (stamp == s_lastStamp) {
 		s_counts.repeats++;
 		return;
 	}
 	qmi8658Decode(b, &s_latest);
 	s_latest.takenMs = nowMs;
 	if (++s_latest.seq == 0) s_latest.seq = 1;
-	s_haveStamp = true;
+	s_lastStamp = stamp;
 	s_counts.samples++;
 }
 

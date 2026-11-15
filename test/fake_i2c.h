@@ -29,8 +29,9 @@
  * after it and cleared by CTRL7 turning a sensor on, no answer for a boot
  * time after a reset, and with the accelerometer on a sample every 32 ms
  * (31.25 Hz) whatever CTRL2 says, each with a time stamp one higher. A test
- * can latch a sample in the middle of the next burst. Every register read and
- * every write of data is logged with its time.
+ * can latch a sample in the middle of the next burst. The latched sample's
+ * latch time is kept. Every register read and every write of data is logged
+ * with its time.
  *
  * Time: a transfer that times out moves the fake clock on by its timeout, in
  * whole milliseconds as the clock counts them, and adds it to
@@ -107,6 +108,7 @@ struct FakeQmi8658 {
 	uint64_t  enUs;          /**< When CTRL7 turned the accelerometer on. */
 	uint32_t  timed;         /**< Samples latched by time since then. */
 	uint32_t  stamp;         /**< The time stamp of the latched sample. */
+	uint64_t  latchUs;       /**< When the latched sample was latched. */
 	uint32_t  resets;        /**< Resets written. */
 	uint32_t  burstWrites;   /**< Writes of more than one data byte. */
 	FakeQmiOp log[FAKE_QMI_LOG];  /**< The accesses, oldest first. */
@@ -182,8 +184,10 @@ void fakeI2cRemove(uint8_t addr);
 /**
  * @brief After @p skip more transfers, the next @p n fail with @p code,
  *        PICO_ERROR_GENERIC or PICO_ERROR_TIMEOUT, whatever their address.
+ *        With @p reach each reaches a part that answers before it fails: a
+ *        write lands, a read moves the pointer.
  */
-void fakeI2cFailNext(int n, int code, int skip = 0);
+void fakeI2cFailNext(int n, int code, int skip = 0, bool reach = false);
 
 /** @brief SDA held low by a part: every transfer times out, gpio_get() reads it low. */
 void fakeI2cHoldSda(bool low);

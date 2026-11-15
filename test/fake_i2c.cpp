@@ -37,6 +37,7 @@ bool         g_open = false;        /**< A transfer with nostop left the transac
 int          g_failN = 0;
 int          g_failSkip = 0;
 int          g_failCode = 0;
+bool         g_failReach = false;   /**< A failed transfer reaches the part before it fails. */
 bool         g_holdSda = false, g_holdScl = false;
 int          g_heldCode = PICO_ERROR_TIMEOUT;  /**< What a transfer returns while SDA alone is held. */
 int          g_shortN = 0;          /**< Transfers left that return one byte short. */
@@ -161,8 +162,9 @@ void cstRead(Part *p, uint8_t *dst, size_t len) {
 /** @brief A sample period at 31.25 Hz, µs. */
 #define QMI_PERIOD_US 32000u
 
-/** @brief The test's values into the data registers, in CTRL1's byte order. */
-void qmiLatch(FakeQmi8658 *q) {
+/** @brief The test's values into the data registers, in CTRL1's byte order, latched at @p us. */
+void qmiLatch(FakeQmi8658 *q, uint64_t us) {
+	q->latchUs = us;
 	q->stamp = (q->stamp + 1u) & 0xFFFFFFu;
 	q->reg[0x30] = (uint8_t)q->stamp;
 	q->reg[0x31] = (uint8_t)(q->stamp >> 8);
@@ -182,7 +184,7 @@ void qmiCatchUp(FakeQmi8658 *q) {
 	uint64_t due = (time_us_64() - q->enUs) / QMI_PERIOD_US;
 	while (q->timed < due) {
 		q->timed++;
-		qmiLatch(q);
+		qmiLatch(q, q->enUs + (uint64_t)q->timed * QMI_PERIOD_US);
 	}
 }
 
@@ -245,7 +247,7 @@ void qmiRead(FakeQmi8658 *q, uint8_t *dst, size_t len) {
 	for (size_t i = 0; i < len; i++) {
 		if (i == 3 && q->tearNext) {
 			q->tearNext = false;
-			qmiLatch(q);
+			qmiLatch(q, time_us_64());
 		}
 		uint8_t r = (uint8_t)((ai ? q->ptr + i : q->ptr) & 0x7Fu);
 		dst[i] = q->reg[r];
@@ -261,6 +263,17 @@ int timedOut(unsigned timeoutUs) {
 	return PICO_ERROR_TIMEOUT;
 }
 
+/** @brief A transfer's bytes to or from part @p p. */
+void deliver(Part *p, uint8_t *dst, const uint8_t *src, size_t len) {
+	if (p->kind == Kind::Ina219) {
+		if (dst) inaRead(&p->ina, dst, len); else inaWrite(&p->ina, src, len);
+	} else if (p->kind == Kind::Qmi8658) {
+		if (dst) qmiRead(&p->qmi, dst, len); else qmiWrite(&p->qmi, src, len);
+	} else {
+		if (dst) cstRead(p, dst, len); else cstWrite(p, src, len);
+	}
+}
+
 /** @brief A transfer: the fault, the held line or the NACK first, then the part. */
 int transfer(uint8_t addr, uint8_t *dst, const uint8_t *src, size_t len, bool nostop,
              unsigned timeoutUs) {
@@ -270,6 +283,10 @@ int transfer(uint8_t addr, uint8_t *dst, const uint8_t *src, size_t len, bool no
 		g_failSkip--;
 	} else if (g_failN > 0) {
 		g_failN--;
+		if (g_failReach) {
+			Part *p = find(addr);
+			if (p && !(p->kind == Kind::Qmi8658 && qmiBooting(&p->qmi))) deliver(p, dst, src, len);
+		}
 		if (g_failCode == PICO_ERROR_TIMEOUT) return timedOut(timeoutUs);
 		countClocks(0, false);
 		if (dst) g_stopReads = FAKE_I2C_STOP_READS;
@@ -303,13 +320,7 @@ int transfer(uint8_t addr, uint8_t *dst, const uint8_t *src, size_t len, bool no
 		return (int)len - 1;
 	}
 	countClocks(len, nostop);
-	if (p->kind == Kind::Ina219) {
-		if (dst) inaRead(&p->ina, dst, len); else inaWrite(&p->ina, src, len);
-	} else if (p->kind == Kind::Qmi8658) {
-		if (dst) qmiRead(&p->qmi, dst, len); else qmiWrite(&p->qmi, src, len);
-	} else {
-		if (dst) cstRead(p, dst, len); else cstWrite(p, src, len);
-	}
+	deliver(p, dst, src, len);
 	return (int)len;
 }
 
@@ -385,6 +396,7 @@ void fakeI2cReset() {
 	g_open = false;
 	g_failN = 0;
 	g_failSkip = 0;
+	g_failReach = false;
 	g_holdSda = g_holdScl = false;
 	g_heldCode = PICO_ERROR_TIMEOUT;
 	g_shortN = 0;
@@ -471,10 +483,11 @@ void fakeI2cRemove(uint8_t addr) {
 	if (p) p->kind = Kind::None;
 }
 
-void fakeI2cFailNext(int n, int code, int skip) {
+void fakeI2cFailNext(int n, int code, int skip, bool reach) {
 	g_failN = n;
 	g_failSkip = skip;
 	g_failCode = code;
+	g_failReach = reach;
 }
 
 void fakeI2cHoldSda(bool low) { g_holdSda = low; }
