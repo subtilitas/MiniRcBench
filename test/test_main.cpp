@@ -23,6 +23,7 @@ void runLogRingTests();
 void runSettingsTests();
 void runServoSupplyTests();
 void runSenseTests();
+void runSupplyGuardTests();
 void runQmi8658Tests();
 void runAngleModelTests();
 void runUsbMscTests();
@@ -66,6 +67,7 @@ int main() {
 	// Before the UI suite, whose SETTINGS tests configure the supply.
 	runServoSupplyTests();
 	runSenseTests();
+	runSupplyGuardTests();
 	runQmi8658Tests();
 	runAngleModelTests();
 	runUiTests();

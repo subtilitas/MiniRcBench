@@ -545,7 +545,8 @@ first, `1 CHANGE NOT APPLIED.`
 takes the pins back; `BACK TO SERVO` returns to the tester, and
 `RESTART DSHOT` returns to `MENU`. With CURRENT SENSE at `INA219` the
 row under the dial shows the servo supply's current and voltage in place of
-the two-servo hint. See
+the two-servo hint, and the sensor's readings stop the servo: the chip then
+reads `OVERCURRENT`, `STALL`, `LOW SUPPLY` or `NO SENSOR` in magenta. See
 [Servo Tester](Servo-Tester).
 
 ---

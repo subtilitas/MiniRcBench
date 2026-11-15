@@ -15,6 +15,7 @@ static int      g_opens = 0;
 static int      g_closes = 0;
 static uint8_t  g_pin = 0xFF;
 static uint32_t g_closedUs = 0;
+static uint32_t g_holdUs = 0;
 
 sim_t *fakeKstSim() { return &g_sim; }
 
@@ -26,7 +27,11 @@ void fakeKstLineReset() {
 	g_closes = 0;
 	g_pin = 0xFF;
 	g_closedUs = 0;
+	g_holdUs = 0;
 }
+
+void fakeKstFrameHold(uint32_t us) { g_holdUs = us; }
+bool fakeKstLineBusy() { return g_sim.busy; }
 
 void fakeKstLineRefuse(uint8_t err) { g_refuse = err; }
 int fakeKstLineOpens() { return g_opens; }
@@ -53,7 +58,9 @@ bool kstLineIsOpen() { return g_open; }
 
 static bool fakeStart(void *, const kst_frame_t *frame, uint32_t windowNs) {
 	g_sim.now_us = time_us_32();
-	return sim_start(&g_sim, frame, windowNs);
+	bool ok = sim_start(&g_sim, frame, windowNs);
+	if (ok) g_sim.done_us += g_holdUs;
+	return ok;
 }
 
 static bool fakePoll(void *, kst_capture_t *out) {

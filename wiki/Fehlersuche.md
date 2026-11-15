@@ -354,6 +354,19 @@ unter dem Wert.
 
 ---
 
+## Der Servotester hält bei MIN oder MAX mit `STALL` an
+
+Mit dem Stromsensor hält der Servotester an, wenn er 400 ms lang mehr als
+1,0 A misst. Viele Servos, die gegen ihren eigenen Endanschlag fahren,
+ziehen dort Blockierstrom, also löst `MIN` oder `MAX` jenseits des
+Servowegs ihn aus. Verenge MIN und MAX auf dem SET-Bildschirm, bis das
+Servo vor seinem Endanschlag stehen bleibt. `OVERCURRENT` ist ein Messwert
+von 3,0 A oder mehr: Prüfe Servo und Verkabelung auf einen Kurzschluss vor
+dem nächsten Start. Siehe [Servotester](Servotester#die-abschaltungen).
+Nicht auf Hardware getestet.
+
+---
+
 ## Immer noch nicht weiter
 
 Öffne ein Issue unter

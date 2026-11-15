@@ -629,10 +629,15 @@ static void mainText(MainText *m) {
 			m->button = "RETRY"; m->ctl = HitecCtl::Retry; m->enabled = true;
 			// Only the switched supply stalls a session: with OWN a lapse lets
 			// the running operation end and refuses the next one (hitec_job.h).
-			if (s_st.stalled) {
+			// A cut of the current sensor's guard, like a stall, ended the
+			// session with the supply.
+			if (s_st.cut != GuardCut::None || s_st.stalled) {
 				snprintf(m->strip, sizeof(m->strip), "SIG GP%u  SUPPLY OFF", sig);
-				addWrapped(m, "THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF.", C_AMBER);
-				addLine(m, "RETRY POWERS IT UP AND READS IT AGAIN.", C_AMBER);
+				const char *why = "THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF.";
+				if (s_st.cut == GuardCut::Hard)          why = UI_CUT_HARD_TEXT;
+				else if (s_st.cut == GuardCut::Collapse) why = UI_CUT_LOW_TEXT;
+				addWrapped(m, why, C_AMBER);
+				addLine(m, UI_CUT_RETRY, C_AMBER);
 				if (!hitecFilesMounted() && s_st.stallWrote)
 					addLine(m, UI_NO_CARD_RAM_LOST, C_AMBER);
 				return;
