@@ -10,9 +10,9 @@
  * scroll over registries of six and seven rows, and SETTINGS' list: its
  * scroll range, each row by id, no scroll from a control, the 40 px rule
  * for a cut control, HOLD TO SAVE at every scroll, and the pole and ceiling
- * rows. Slice 9 of docs/design/menu-b.md: the seven rows by device, SD LOG
- * whole at 0 px and SETTINGS cut until dragged, RX SIGNALS drawn disabled
- * in every claim state, and PROGRAMMER, the chooser.
+ * rows. Slice 9 of docs/design/menu-b.md and the angle meter's decision 1:
+ * the eight rows by device, TOOLS whole at 0 px, SD LOG and SETTINGS
+ * reached with a drag, and PROGRAMMER, the chooser.
  */
 
 #include "check.h"
@@ -143,7 +143,7 @@ static void testEveryEntry() {
 	openMenu();
 	uint8_t n;
 	const UiMenuEntry *e = uiMenuEntries(&n);
-	checkInt("the registry has seven rows", n, 7);
+	checkInt("the registry has eight rows", n, 8);
 	for (uint8_t i = 0; i < n; i++) {
 		const UiScreen *s = e[i].screen;
 		char what[64];
@@ -232,12 +232,13 @@ static void testPinsBusy() {
 	bool busySeen = uiCurrentScreen() == UiScreenId::Menu && pinClaimState() != ClaimState::Free;
 	checkTrue("RESTART DSHOT returns to MENU while the claim restores", busySeen);
 	if (busySeen) {
-		// SD LOG is MENU's sixth row, whole at scroll 0. SETTINGS is the
-		// seventh: a drag brings it whole, with no pump pass, so the claim
-		// stays Restoring.
-		const UiControlId logRow = UI_ROW(uiMenuRowOf(&UI_SDLOG), Row);
-		checkInt("SD LOG's row is whole without a drag", ctlRect(logRow).h, 40);
-		checkTrue("SD LOG, which claims nothing, acts", ctlEnabled(logRow));
+		// TOOLS is MENU's sixth row, whole at scroll 0; SD LOG the seventh
+		// and SETTINGS the eighth: a drag brings both whole, with no pump
+		// pass, so the claim stays Restoring.
+		const UiControlId toolsRow = UI_ROW(uiMenuRowOf(&UI_TOOLS), Row);
+		checkInt("TOOLS' row is whole without a drag", ctlRect(toolsRow).h, 40);
+		checkTrue("TOOLS, a chooser, does not act, as the other choosers",
+		          !ctlEnabled(toolsRow));
 		checkTrue("SERVO TESTER does not act", !ctlEnabled(menuRow(&UI_SERVO)));
 		char want[40];
 		snprintf(want, sizeof(want), "DSHOT RESTARTING ON SIG GP%u", (unsigned)settings()->dshotPin);
@@ -254,8 +255,11 @@ static void testPinsBusy() {
 		          !ctlEnabled(menuRow(&UI_RX_SIGNALS)) && pixel(rx.x + 4, rx.y + rx.h / 2) == C_BG &&
 		          allOf(rx.x + 160, rx.y + 4, rx.w - 164, rx.h - 8, C_BG));
 		fakePress(120, 250); framesNoPump(1);
-		for (int k = 1; k <= 12; k++) { fakeHold(120, 250 - 6 * k); framesNoPump(1); }
+		for (int k = 1; k <= 14; k++) { fakeHold(120, 250 - 6 * k); framesNoPump(1); }
 		fakeRelease(); framesNoPump(1);
+		const UiControlId logRow = UI_ROW(uiMenuRowOf(&UI_SDLOG), Row);
+		checkInt("SD LOG's row is whole after the drag", ctlRect(logRow).h, 40);
+		checkTrue("SD LOG, which claims nothing, acts", ctlEnabled(logRow));
 		const UiControlId settingsRow = UI_ROW(uiMenuRowOf(&UI_SETTINGS), Row);
 		checkInt("SETTINGS' row is whole after the drag", ctlRect(settingsRow).h, 40);
 		checkTrue("nor SETTINGS, which changes the wiring the claim latched",
@@ -328,11 +332,13 @@ static void testMenuScroll() {
 
 /**
  * @brief The built registry, by device (docs/design/menu-b.md, decisions 23,
- *        32 and 33): seven rows scroll 36 px, SD LOG whole at 0 px as the
- *        sixth row, SETTINGS the seventh, reached with a short drag.
+ *        32 and 33, revised by docs/design/angle-meter.md decision 1): eight
+ *        rows scroll 78 px, TOOLS whole at 0 px as the sixth row, SD LOG the
+ *        seventh, whole after a drag of 34 px, SETTINGS the eighth, whole
+ *        after a drag of 76 px.
  */
 static void testSettingsRowVisible() {
-	section("MENU: seven rows by device, SETTINGS reached with a short drag");
+	section("MENU: eight rows by device, SD LOG and SETTINGS reached with a drag");
 	freshTester();
 	uiMenuUseRegistry(nullptr, 0);
 	openMenu();
@@ -340,23 +346,25 @@ static void testSettingsRowVisible() {
 	const UiMenuEntry *e = uiMenuEntries(&n);
 	static const char *const ORDER[] = {
 		"ESC COMMANDS", "ESC CONFIG", "SERVO TESTER", "SERVO PROGRAMMER",
-		"RX SIGNALS", "SD LOG", "SETTINGS",
+		"RX SIGNALS", "TOOLS", "SD LOG", "SETTINGS",
 	};
-	bool order = n == 7;
+	bool order = n == 8;
 	for (uint8_t i = 0; order && i < n; i++) order = strcmp(e[i].label, ORDER[i]) == 0;
-	checkTrue("ESC COMMANDS, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, "
-	          "SETTINGS, in that order", order);
+	checkTrue("ESC COMMANDS, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, TOOLS, "
+	          "SD LOG, SETTINGS, in that order", order);
 	checkTrue("the rows' screens", uiMenuRowOf(&UI_ESC_CONFIG) == 1 &&
 	          uiMenuRowOf(&UI_SERVO_PROG) == 3 && uiMenuRowOf(&UI_RX_SIGNALS) == 4 &&
-	          uiMenuRowOf(&UI_SDLOG) == 5 && uiMenuRowOf(&UI_SETTINGS) == 6);
+	          uiMenuRowOf(&UI_TOOLS) == 5 && uiMenuRowOf(&UI_SDLOG) == 6 &&
+	          uiMenuRowOf(&UI_SETTINGS) == 7);
 	checkTrue("no row for KST SERVO or HITEC SERVO: PROGRAMMER opens them",
 	          uiMenuRowOf(&UI_KST) < 0 && uiMenuRowOf(&UI_HITEC) < 0);
 	checkTrue("no row for ESC SETTINGS: ESC CONFIG opens it", uiMenuRowOf(&UI_AM32) < 0);
+	checkTrue("no row for ANGLE METER: TOOLS opens it", uiMenuRowOf(&UI_ANGLE) < 0);
 	checkTrue("the tool rows have no status (decision 18)",
 	          !UI_ESC_CMD.status && e[0].statusWidest == 0 && !UI_ESC_CONFIG.status && !UI_AM32.status && !UI_SERVO.status && !UI_SERVO_PROG.status && !UI_KST.status &&
-	          !UI_HITEC.status && !UI_RX_SIGNALS.status && !UI_SBUS.status &&
-	          e[1].statusWidest == 0 && e[2].statusWidest == 0 && e[3].statusWidest == 0 &&
-	          e[4].statusWidest == 0);
+	          !UI_HITEC.status && !UI_RX_SIGNALS.status && !UI_SBUS.status && !UI_TOOLS.status &&
+	          !UI_ANGLE.status && e[1].statusWidest == 0 && e[2].statusWidest == 0 &&
+	          e[3].statusWidest == 0 && e[4].statusWidest == 0 && e[5].statusWidest == 0);
 	{
 		const int w = gfxTextW("SERVO PROGRAMMER", 2);
 		checkTrue("SERVO PROGRAMMER, 190 px at scale 2 from x 16, ends at x 206",
@@ -367,22 +375,32 @@ static void testSettingsRowVisible() {
 		          allOf(UI_MENU_LABEL_X + w + 1, r.y + 2, 228 - (UI_MENU_LABEL_X + w + 1), r.h - 4,
 		                C_PANEL));
 	}
-	const UiControlId logRow = UI_ROW(5, Row);
-	checkInt("SD LOG is whole at 0 px", ctlRect(logRow).h, 40);
-	checkInt("and ends at y 311", ctlRect(logRow).y + ctlRect(logRow).h, 312);
-	checkInt("SETTINGS, the seventh, is cut to 6 px at y 314", ctlRect(UI_ROW(6, Row)).y, 314);
+	const UiControlId toolsRow = UI_ROW(5, Row);
+	checkTrue("TOOLS, the sixth row, is whole at 0 px from y 272 and acts",
+	          ctlRect(toolsRow).y == 272 && ctlRect(toolsRow).h == 40 && ctlEnabled(toolsRow));
+	checkInt("SD LOG, the seventh, is cut to 6 px at y 314", ctlRect(UI_ROW(6, Row)).y, 314);
 	checkTrue("and does not act there", !ctlEnabled(UI_ROW(6, Row)));
-	tapId(logRow);
-	checkTrue("a tap with no drag opens SD LOG", uiCurrentScreen() == UiScreenId::SdLog);
+	checkTrue("SETTINGS, the eighth, is below the view", !ctlPresent(UI_ROW(7, Row)));
+	tapId(toolsRow);
+	checkTrue("a tap with no drag opens TOOLS", uiCurrentScreen() == UiScreenId::Tools);
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK lands on MENU", uiCurrentScreen() == UiScreenId::Menu);
-	checkTrue("SETTINGS is cut again at 0 px", !ctlEnabled(UI_ROW(6, Row)));
 	fakePress(120, 250); menuFrames(1);
-	for (int k = 1; k <= 12; k++) { fakeHold(120, 250 - 6 * k); menuFrames(1); }
+	for (int k = 1; k <= 6; k++) { fakeHold(120, 250 - 6 * k); menuFrames(1); }
 	fakeRelease(); menuFrames(1);
-	checkInt("a drag scrolls 36 px: SETTINGS whole at y 278", ctlRect(UI_ROW(6, Row)).y, 278);
+	checkInt("a drag of 36 px: SD LOG whole at y 278", ctlRect(UI_ROW(6, Row)).y, 278);
 	checkTrue("and acts", ctlEnabled(UI_ROW(6, Row)) && ctlRect(UI_ROW(6, Row)).h == 40);
 	tapId(UI_ROW(6, Row));
+	checkTrue("a tap opens SD LOG", uiCurrentScreen() == UiScreenId::SdLog);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("SETTINGS is below the view again at 0 px", !ctlPresent(UI_ROW(7, Row)));
+	fakePress(120, 250); menuFrames(1);
+	for (int k = 1; k <= 14; k++) { fakeHold(120, 250 - 6 * k); menuFrames(1); }
+	fakeRelease(); menuFrames(1);
+	checkInt("a drag scrolls 78 px and no further: SETTINGS whole at y 278",
+	         ctlRect(UI_ROW(7, Row)).y, 62 + 7 * 42 - 78);
+	checkTrue("and acts", ctlEnabled(UI_ROW(7, Row)) && ctlRect(UI_ROW(7, Row)).h == 40);
+	tapId(UI_ROW(7, Row));
 	checkTrue("and a tap opens SETTINGS", uiCurrentScreen() == UiScreenId::Settings);
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
@@ -1264,7 +1282,12 @@ static void testMenuUnsaved() {
 	tapId(UI_FIX(UI_BACK));
 }
 
-/** @brief A whole block of @p version in the fake flash, with @p s as its payload. */
+/**
+ * @brief A whole block of @p version in the fake flash, with @p s as its
+ *        payload: all of it for this version and any later one, its first
+ *        14 bytes, the layout of versions 3 to 5, with the CRC at byte 24
+ *        for an earlier one.
+ */
 static void putBlock(uint16_t version, const Settings *s) {
 	SettingsBlock b;
 	memset(&b, 0, sizeof(b));
@@ -1274,7 +1297,18 @@ static void putBlock(uint16_t version, const Settings *s) {
 	b.s = *s;
 	b.crc32 = settingsCrc32(&b, offsetof(SettingsBlock, crc32));
 	fakeFlashClear();
-	memcpy(fakeFlashBytes(), &b, sizeof(b));
+	if (version >= SETTINGS_VERSION) {
+		memcpy(fakeFlashBytes(), &b, sizeof(b));
+		return;
+	}
+	uint8_t raw[28];
+	memcpy(raw, &b, 22);
+	raw[6] = 14;
+	raw[7] = 0;
+	raw[22] = raw[23] = 0;
+	const uint32_t crc = settingsCrc32(raw, 24);
+	memcpy(raw + 24, &crc, 4);
+	memcpy(fakeFlashBytes(), raw, sizeof(raw));
 }
 
 /** @brief A block of this version holding @p s, as a save writes it. */
@@ -1460,7 +1494,7 @@ static void testCarriedOver() {
 	checkTrue("MENU: the row reads nothing", b[0] == '\0' && settingsRowAmber() == 0);
 	tapId(UI_FIX(UI_BACK));
 	settingsLoad();
-	checkTrue("the next boot: a version 5 block, the settings kept, no notice",
+	checkTrue("the next boot: a version 6 block, the settings kept, no notice",
 	          settingsStored() && !settingsCarriedOver() && settings()->poles == 22);
 
 	// The splash, on the boot after the update.

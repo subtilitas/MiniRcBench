@@ -1,20 +1,24 @@
 # Angle meter on the board's IMU
 
-Status: designed; slices 1 to 3 built, host tests only. Slice 1, the copies from
+Status: designed; slices 1 to 5 built, host tests only. Slice 1, the copies from
 rcbench ([slice 1 as built](#slice-1-as-built)). Slice 2, the driver ([slice 2
-as built](#slice-2-as-built)): nothing opens it yet. Slice 3, the model ([slice
-3 as built](#slice-3-as-built)): it calls the copies, the firmware builds both,
-and nothing calls the model yet; it adapts the cases of rcbench's `test_imu.c`
-and `test_imu_filter.c` that need `imu.h` alone. Slices 4 to 6 wait on being
-built. The owner chose the angle meter on 2026-11-14 from the feature survey, as
-item 3 of 6: incidence, decalage, dihedral and control-surface throw, in degrees
-and in mm, from the QMI8658 IMU on the board, at 0x6B on I2C1. The owner
-answered its questions on 2026-11-15, see [decisions](#decisions), first among
-them the entry: an eighth MENU row, `TOOLS`, opening a chooser. Nothing of the
-meter has run on a board. The sensor facts come from QST's datasheets and
-Waveshare's schematic and demo code; the ones this project has not seen on the
-bus are marked as such and listed under [to confirm](#to-confirm). The real
-accuracy is unknown until the bench measures it.
+as built](#slice-2-as-built)). Slice 3, the model ([slice 3 as
+built](#slice-3-as-built)): it calls the copies, and it adapts the cases of
+rcbench's `test_imu.c` and `test_imu_filter.c` that need `imu.h` alone. Slice 4,
+the screen ([slice 4 as built](#slice-4-as-built)): ANGLE METER behind MENU's
+sixth row, `TOOLS`, opens the driver and shows the model's reading, and the
+settings block, version 6, keeps the setup and the calibration. Slice 5, the
+documentation, with it ([slice 5 as built](#slice-5-as-built)). Slice 6, the
+bring-up, bench tests B1 to B9, waits. The owner chose the angle meter on
+2026-11-14 from the feature survey, as item 3 of 6: incidence, decalage,
+dihedral and control-surface throw, in degrees and in mm, from the QMI8658 IMU
+on the board, at 0x6B on I2C1. The owner answered its questions on 2026-11-15,
+see [decisions](#decisions), first among them the entry: an eighth MENU row,
+`TOOLS`, opening a chooser. Nothing of the meter has run on a board. The sensor
+facts come from QST's datasheets and Waveshare's schematic and demo code; the
+ones this project has not seen on the bus are marked as such and listed under
+[to confirm](#to-confirm). The real accuracy is unknown until the bench measures
+it.
 
 ## Terms
 
@@ -651,7 +655,8 @@ SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, SETTINGS, scrolling 36 px
 option (b) of the table below. The resulting MENU, with the rows of the other
 notes decided the same day, is the revision line in [menu-b.md](menu-b.md#menu).
 `TOOLS` is built with the angle meter's first screen slice (design call,
-2026-11-15). The table lists the options the decision chose from.
+2026-11-15), and is: [slice 4 as built](#slice-4-as-built). The table lists
+the options the decision chose from.
 
 MENU's scroll range is rows × 42 px − 258 px (`uiListMaxScroll()`). At
 scroll 0 row n starts at y 62 + 42 × (n − 1) in a viewport that ends at
@@ -677,7 +682,7 @@ title `TOOLS` is 58 px.
 Chosen: (b), the recommendation. The USB bridge does not take the
 chooser's second entry: it sits in the `ESC CONFIG` chooser of
 [usb-bridge.md](usb-bridge.md#decisions). The `TOOLS` chooser holds
-`ANGLE METER` alone for now.
+`ANGLE METER`.
 
 ## Interlocks
 
@@ -1071,6 +1076,139 @@ Not verified on the board: the angle itself, the chip's axes (B3), the
 settle on real noise (B4), the flip's spread and its limits (B5), the
 accuracy against known angles, and with it whether decision 3's edge poses
 are needed (B6), and the drift with temperature (B7).
+
+### Slice 4 as built
+
+Slice 4 depends on slices 2 and 3.
+
+`src/ui_angle.*` is ANGLE METER, one screen of three views, the main view,
+SETUP and FLIP CAL (`UiScreenId::Angle`). `src/ui_tools.*` is TOOLS
+(`UiScreenId::Tools`), MENU's sixth row by decision 1, before SD LOG, built
+as ESC CONFIG's chooser is: one 228 × 46 px button at y 62, its line under
+it, the entries a table of `src/ui_registry.cpp` (`UI_TOOLS_ENTRIES`) with a
+build-time fit check. `src/angle.cmake` and `test/angle.mk` list both. MENU
+has the eight rows of [menu-b.md](menu-b.md#menu) and scrolls 78 px. The
+settings block is version 6 by decision 4 (`src/settings.*`). Host tests in
+`test/test_angle_ui.cpp`, `test/test_settings.cpp`, `test/test_ids.cpp`,
+`test/test_menu.cpp` and `test/test_ui.cpp`; the preview
+`docs/angle-preview.png`. Choices the note left open:
+
+- **TOOLS' strip** reads `DSHOT RUNS ON SIG GP0`, 21 characters: neither the
+  chooser nor the meter claims a pin. TOOLS opens only while the claim is
+  Free (`freePins`), as the other choosers, and so does the meter, since its
+  save writes flash, which `settingsSave()` refuses during a claim; MENU
+  draws the row disabled meanwhile.
+- **Opening** takes ALONG AXIS, SIGN, LENGTH and the calibration from the live
+  settings, begins a visit (`angleOpen()`) and calls `qmi8658Start()`. Every
+  frame the meter gives `qmi8658Latest()` to `angleSample()`, which takes
+  each sample once, then `angleTick()`. The driver ticks in `uiTick()` before
+  the tool, so a sample read on a frame reaches the model on that frame.
+  `BACK` on the main view calls `qmi8658Stop()`, CTRL7 00h, and returns to
+  MENU; SETUP and FLIP CAL leave the driver running.
+- **The chip.** `STARTING` while the driver starts, and while it is online
+  with no reading in the model; `NO IMU` for no part, another part or a part
+  offline; then `TOO STEEP`, `SETTLED` or `MOVING`. `STARTING`, `NO IMU` and
+  `TOO STEEP` are on `UI_COL_WARN`, `SETTLED` on `UI_COL_SAFE`, `MOVING` on
+  `C_GRID`.
+- **The angle** shows while the model has a reading and the axis is not too
+  steep, `MOVING` or not, so the pilot sees the surface move; `---` in
+  `C_DIM` otherwise, as the note's table says. `--` is MAX's text for a side
+  with none. With no part, another part or a part offline, the angle's band
+  holds the note's line at scale 1, at y 80.
+- **The strip's tilt** is the filtered tilt's magnitude cut to whole degrees,
+  so it reads `45°` when it turns amber and `70°` with `TOO STEEP`; `--`
+  without a reading.
+- **The travel** reads `--- MM` while LENGTH is set and the angle does not
+  show, and nothing with LENGTH `OFF`; MAX's travel line shows only with
+  LENGTH set, `--` for a side with no MAX.
+- **The temperature line** shows from the first frame, `IMU 31.4°C`, and
+  after a zero `IMU 31.4°C, +0.6°C SINCE ZERO`.
+- **ZERO** acts while the driver is online, and is drawn disabled otherwise;
+  RESET MAX and SETUP always act. The hint line reads ZERO's state, armed or
+  timed out, and else a failed SETUP save. What a tap changes shows on the
+  tap's frame: the model is read again after the taps.
+- **SETUP** draws its rows with SETTINGS' measures and is not a list: four
+  rows from y 40 at a 50 px pitch end at y 233, with no footer. Its controls
+  are fixed ids (`AngleCtl`). The toggles have no filled state; `-` and `+`
+  step LENGTH `OFF`, 10 to 500, `OFF` below 10, held at 500, with
+  `repeatFires()`. A row writes the model and the live settings at once.
+  `BACK` saves while the four fields differ from flash
+  (`settingsAngleDirty()`), through `settingsSaveAngle()`: the block written
+  is the settings as last loaded or saved with the four fields from the live
+  ones, so a SETTINGS change not saved stays unsaved. So a save that failed
+  is tried again on the next BACK, edit or not, on this visit or a later
+  one. The main view's hint reads `SETUP NOT SAVED TO FLASH.` while the
+  fields differ from flash; the values stay live, and SETTINGS' HOLD TO
+  SAVE stores them too.
+- **FLIP CAL** opens from CALIBRATION's `FLIP` with `angleFlipBegin()`;
+  `BACK` calls `angleFlipEnd()` and returns to SETUP. Its strip reads
+  `STEP 1 OF 3` to `STEP 3 OF 3`, then `RESULT` or `NO RESULT`; with no
+  result the lines read `THE POSES GAVE NO CALIBRATION` and
+  `WITHIN THE LIMITS. TAP AGAIN.` The result's offsets are whole mg, its gain
+  the normal's chip axis to three decimals, `GAIN Z 1.020`. HOLD TO KEEP acts
+  only with a result not yet kept; its 1 s hold applies it (`angleSetCal()`),
+  writes it to the live settings and saves it, and the line at y 252 reads
+  `KEPT AND SAVED.` or `APPLIED, NOT SAVED TO FLASH.`. A calibration applied
+  and not saved is a changed field to SETUP, whose BACK tries the save again.
+  AGAIN begins the flip again. While the model's last frame has the normal
+  below 0 the page takes no touch, and BACK, AGAIN and HOLD TO KEEP are
+  drawn and reported disabled.
+- **The only exit** is BACK on the main view, which calls `qmi8658Stop()`;
+  SETUP's and FLIP CAL's BACK stay in the meter.
+- **Repaints.** Each view is a set of regions keyed on what they draw; a
+  frame repaints a region whose key changed, and a new view repaints all.
+- **The settings block, version 6,** has 44 bytes: version 5's 14 and, from
+  byte 14, ALONG AXIS (0 `LONG`, 1 `SHORT`), SIGN (0, 1), LENGTH in mm
+  (16 bits, 0 for `OFF`), the calibration's flag, a spare byte, then the
+  three offsets and three gains as 32-bit floats from byte 20, aligned. The
+  CRC is at byte 52. Validation sets ALONG AXIS and SIGN above 1 to 0, a
+  LENGTH outside 10 to 500 to `OFF`, the spare byte to 0, and drops a
+  calibration `angleCalValid()` refuses, or a flag other than 0 or 1, to
+  none: the flag 0, offsets 0, gains 1. A version 5 block, recovered from
+  `src/settings.h` at aafc31b, is carried over as versions 2 to 4 are,
+  CURRENT SENSE from its byte 21; the angle fields take their defaults.
+  SETTINGS does not show them, and its HOLD DEFAULTS keeps them (review of
+  PR #101): a reset there followed by a save of the meter would otherwise
+  store a calibration of none.
+- **No accuracy on the screen.** The texts state no accuracy; the wiki says
+  that none is measured.
+
+Mutation check: 99 mutants of `src/ui_angle.cpp`, `src/ui_tools.cpp`, the
+angle fields' code in `src/settings.cpp` and the TOOLS row of
+`src/ui_registry.cpp`, each built and run against the host suite. 88 failed
+it at first. Of the 11 left, 7 fail it since tests were added that load the
+setup and the calibration on a later visit, change LENGTH alone, tilt the
+axis the other way, name the short edge on the strip and check the cell left
+of a right-aligned text. Two were lines that changed nothing, a repaint flag
+in the region test that a new view's cleared keys already cover and a touch
+dropped on a view's first frame, which draws no press after a lift; both are
+removed. Two survive. The armed check before the meter's save is unreachable:
+MENU disarms before the meter opens, and the check stays as SETTINGS keeps
+its own. `--- MM` written for the travel without a reading is equivalent:
+`angleTenthsText()` gives `---` for the NaN the model then reports. For
+HOLD DEFAULTS keeping the four fields and SETUP's BACK saving while they
+differ from flash, 19 mutants of that code in `src/ui_angle.cpp`,
+`src/settings.cpp` and `src/ui_settings.cpp` were run again, 9 of the
+earlier ones gone with the code they changed. 17 fail the suite; the armed
+check survives as before, and leaving out the spare byte in
+`settingsCopyAngle()` is equivalent, since validation keeps that byte at 0.
+
+Not verified on the board: everything the driver and the model leave open
+(B1 to B7), the screen on the panel, a band across the glass as a touch
+(B8), the bus with touch and the INA219 while the meter reads (B9), and
+the settings block of version 6 written to and read from the board's flash.
+
+### Slice 5 as built
+
+README.md's section "Angle meter", its MENU table and rows, its settings
+version, layout and tests; the wiki pages Angle-Meter and Winkelmesser, the
+pair in `tools/check_wiki.py`, Home, the sidebar, Setup and Einrichtung, the
+screens pages, First-Run, Erste-Schritte, SD-Logging, SD-Aufzeichnung,
+Troubleshooting and Fehlersuche for the eight MENU rows and version 6;
+CHANGELOG.md, STATUS.md and this note's status. The wiki describes the
+standoffs, the LiPo and the cable, a straight bar for incidence, a clip and a
+band past the glass (decision 6), the lash check, and that the meter cannot
+tell a moved model; it gives no accuracy figure.
 
 ## Decisions
 

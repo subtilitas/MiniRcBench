@@ -48,14 +48,12 @@ inverted, the throttle channel under MAX THROTTLE, is designed in
 bootloader on GP0 before START, which needs the Bluejay and BLHeli_S reading of
 ESC SETTINGS first. The chooser draws it disabled, `NOT BUILT`. A PPM
 (pulse-position modulation) output is not built, by the owner's decision. An
-angle meter on the board's QMI8658 IMU (inertial measurement unit), for
-incidence, decalage, dihedral and control-surface throw, is designed in
-`docs/design/angle-meter.md`; the owner answered its questions on 2026-11-15,
-and its entry is an eighth MENU row, `TOOLS`, with a chooser. The rcbench files
-it builds on are copied into `lib/rcbench/` and host-tested. Its IMU driver and
-its model, which turns the driver's samples into the angle through those files,
-are built and host-tested, and nothing calls them yet: the screen is not built,
-and neither has run on a board. A run
+angle meter on the board's QMI8658 IMU (inertial measurement unit), MENU →
+TOOLS → ANGLE METER, reads incidence, decalage, dihedral and control-surface
+throw from gravity, in degrees and in mm, with ZERO, MAX each side and a
+three-pose calibration (see [Angle meter](#angle-meter); design note
+`docs/design/angle-meter.md`). It is built and tested on the host only:
+nothing of it has run on a board, and its accuracy is not measured. A run
 summary per blackbox log, written beside the log and shown on SD LOG, with the
 board's PCF85063 real-time clock dating the files on the card as an option, is
 designed in `docs/design/run-summary.md`; the owner answered its questions
@@ -100,7 +98,7 @@ in the tree, tested on the host only: its building blocks, its colour roles,
 its names and SETTINGS, its layout table, its write rule and BACK guard, the
 one leave page of KST SERVO, HITEC SERVO and SERVO TESTER, the tester's
 readouts that open SETTINGS with LATCH, SERVO TESTER's title, the MENU row's
-label, MENU's seven rows by device with PROGRAMMER, the chooser of the servo
+label, MENU's rows by device with PROGRAMMER, the chooser of the servo
 programmers, and the design notes and checks no single slice owned.
 The uses that the design note's decision 11 names take their role's colour,
 and a value changed and not yet written is cyan.
@@ -352,10 +350,11 @@ Format.
 To flash: hold **BOOT**, tap **RESET**, release **BOOT**, and copy the `.uf2`
 onto the USB drive that appears.
 
-A board whose flash holds a settings block of another layout version starts
-from the compiled defaults. This image's layout is version 5: flashed over an
-image with an earlier version, it returns every saved setting to its default
-once, and the ESC pin is GP0. See SETTINGS under [Using it](#using-it).
+This image's settings layout is version 6. A block of versions 2 to 5,
+written by an earlier image, is carried over, each newer setting at its
+default; a block of any other layout version is discarded, and the board
+starts from the compiled defaults, the ESC pin GP0. See SETTINGS under
+[Using it](#using-it).
 
 `-DSTRICT=ON` adds `-Werror` for this project's own sources. CI (continuous integration) sets it. It is
 off by default, so a toolchain update that adds a warning does not stop a
@@ -553,6 +552,7 @@ the tester's pole count or ceiling, whose **BACK** returns to the tester.
 | **SERVO TESTER** | nothing | Opens the servo tester. See [Servo tester](#servo-tester) |
 | **SERVO PROGRAMMER** | nothing | Opens PROGRAMMER, the chooser of the servo programmers: KST / CHASERVO, HITEC D SERIES, HITEC CLASSIC. See below |
 | **RX SIGNALS** | nothing | Opens RX SIGNALS, the chooser of the receiver signal tools: MONITOR, and OUTPUT drawn disabled, `NOT BUILT`. See [S.BUS monitor](#sbus-monitor) |
+| **TOOLS** | nothing | Opens TOOLS, the chooser of the bench tools that use no signal pin: ANGLE METER. See [Angle meter](#angle-meter) |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a USB host holds the card | Opens the logging status. See below |
 | **SETTINGS** | `UNSAVED` while the live settings differ from flash; else `UPDATED` while an update's reset or carry-over is not saved over (`settingsResetByUpdate()`, `settingsCarriedOver()`); else nothing; both amber | Opens SETTINGS: the tester, the wiring, the servo supply and current sensor, the display, the board, diagnostics. See below |
 
@@ -562,18 +562,21 @@ bench. A tool row shows no state: the strip names the pins.
 - **DSHOT RESTARTING**: SERVO TESTER claims the signal pins, ESC CONFIG's
   ESC SETTINGS claims SIG, SERVO PROGRAMMER's entries open the KST and Hitec
   programmers, which claim SIG, RX SIGNALS' MONITOR claims GP1, ESC COMMANDS
-  needs DShot running on SIG, and SETTINGS changes the wiring a claim
-  latched. While the
+  needs DShot running on SIG, SETTINGS changes the wiring a claim
+  latched, and TOOLS' ANGLE METER saves to flash, which no claim may
+  share. While the
   claim is not free, for example after RESTART DSHOT until the DShot pump
   runs again, these rows are drawn disabled, an outline, SETTINGS under its
   own status and the tool rows with none, a tap opens nothing, and the
   strip's caption reads `DSHOT RESTARTING ON SIG GP0` in amber. A tool
   opened some other way while another claim holds reads
   `WAIT: DSHOT RESTARTING`; no path through the screens reaches that.
-- **Rows**: six rows fit the screen without scrolling. MENU holds seven, so
-  it scrolls by 36 px, with a 3 px scroll bar at x 235. SD LOG is the sixth
-  row, whole and tappable without a drag. SETTINGS, the seventh, shows 6 px
-  until MENU is dragged up, and takes a tap only then.
+- **Rows**: six rows fit the screen without scrolling. MENU holds eight, so
+  it scrolls by 78 px, with a 3 px scroll bar at x 235. TOOLS is the sixth
+  row, whole and tappable without a drag. SD LOG, the seventh, shows 6 px at
+  y 314 and is whole after a drag of 34 px; SETTINGS, the eighth, starts
+  below the screen and is whole after a drag of 76 px. A row takes a tap
+  only while 40 px of it show.
 
 **PROGRAMMER**
 
@@ -749,16 +752,19 @@ A wrong ESC pin produces no error: the ESC receives no frames. **LINK** on this
 screen shows the result of each pin change. A non-zero packet rate means the
 pin is correct.
 
-The settings block is version 5 (`SETTINGS_VERSION`). By the owner's
-decision of 2026-11-14 a whole block of version 2, 3 or 4 is carried over
-(`settingsCarriedOver()`): `settings.cpp` describes each older layout as
-byte offsets, recovered from the commits that wrote it (version 2: 12 bytes
-of payload, the CRC at byte 20; versions 3 and 4: 14 bytes, the CRC at
-byte 24), and the host suite builds each block byte by byte. Whole means
+The settings block is version 6 (`SETTINGS_VERSION`), 44 bytes of payload:
+version 5's 14 and the angle meter's ALONG AXIS, SIGN, LENGTH and
+calibration after them ([Angle meter](#angle-meter)). By the owner's
+decision of 2026-11-14 a whole block of version 2, 3, 4 or 5 is carried
+over (`settingsCarriedOver()`): `settings.cpp` describes each older layout
+as byte offsets, recovered from the commits that wrote it (version 2:
+12 bytes of payload, the CRC at byte 20; versions 3 to 5: 14 bytes, the CRC
+at byte 24), and the host suite builds each block byte by byte. Whole means
 the magic, the version, that layout's payload size and its CRC-32 right.
 Every field the old layout has keeps its value, judged by
-`settingsValidate()` as a version 5 block is; every newer field takes its
-default, CURRENT SENSE `NONE`. A version 3 SERVO SUPPLY of 1 named an
+`settingsValidate()` as a version 6 block is; every newer field takes its
+default: CURRENT SENSE `NONE`, and the angle meter's `LONG`, `NORMAL`,
+LENGTH `OFF` and no calibration. A version 3 SERVO SUPPLY of 1 named an
 enable on GP0, the ESC wire's pin since version 4, and loads as 0, `OWN`; an
 ESC pin on GP28 or GP29 from a block before version 4 is not free here and
 takes the default, KISS on such a pin is switched off, and a KISS pin this
@@ -770,10 +776,10 @@ a save lands, so a power loss at boot cannot lose it, and every boot until
 then carries it over again. Until a save lands the splash shows its two lines,
 MENU's SETTINGS row `UPDATED`, and the note line
 `CARRIED OVER BY UPDATE - CHECK, SAVE` while nothing else is pending; HOLD
-TO SAVE writes a version 5 block even with nothing changed.
+TO SAVE writes a version 6 block even with nothing changed.
 
-A whole block of a version with no layout here, 1 or above 5, or of version
-2, 3 or 4 with another layout's payload size, is discarded, and the
+A whole block of a version with no layout here, 1 or above 6, or of version
+2 to 5 with another layout's payload size, is discarded, and the
 compiled defaults load, every setting and the ESC pin included.
 DshotDisplay discards this project's blocks the same way. Such a block (the
 magic, another version, at most `SETTINGS_OTHER_MAX` bytes of payload and
@@ -787,7 +793,9 @@ core1, and with it the DShot pump, for the length of the erase. That duration
 is not measured. Saving is refused while armed (`NOT WHILE ARMED - DISARM TO
 SAVE`); opening MENU disarms, so the refusal is a backstop. **HOLD DEFAULTS**
 (1 s, `UI_HOLD_MS`, the same hold widget, `src/ui_hold.*`) loads the compiled
-defaults, pole count and throttle ceiling included, into the live settings. A
+defaults, pole count and throttle ceiling included, into the live settings;
+the angle meter's setup and calibration, which SETTINGS does not show, keep
+their values. A
 tap loads nothing, a slide off the button cancels the hold, and a bar over
 the button and a `C_RED` fill, as on every hold of `src/ui_hold.*`, show it
 running. It has no armed check: SETTINGS opens only through MENU, which
@@ -2847,6 +2855,100 @@ tester's job reads the bus voltage back after each switch-on and switch-off
 ([Servo tester](#servo-tester)), and the servo, KST and Hitec jobs cut the
 supply on its readings (`src/supply_guard.*`).
 
+## Angle meter
+
+The angle meter reads angles from gravity with the accelerometer of the
+board's QMI8658 IMU (inertial measurement unit): a wing's incidence and the
+decalage between wing and stabiliser, dihedral, and a control surface's throw
+in degrees and as the trailing edge's travel in mm. MENU → TOOLS → ANGLE
+METER. Design note: `docs/design/angle-meter.md`. Built and tested on the
+host only, against a register model of the part: nothing of it has run on a
+board. Which QMI8658 variant is fitted, its address on the bus, its byte
+order and its axes on the board are not verified, and the accuracy of every
+reading is not measured; the design note's bench tests B1 to B9 are open.
+
+![Angle meter](docs/angle-preview.png)
+
+*TOOLS, the main view after a zero with LENGTH set and SIGN at INVERT, SETUP,
+and FLIP CAL with a result.*
+
+**How it reads.** Opening the meter opens the IMU driver (`src/qmi8658.*`):
+a probe of 0x6B, a soft reset, the accelerometer at ±2 g and 31.25 Hz with
+its low-pass filter, the gyroscope off. Each UI frame, 25 ms, core0 reads one
+burst and its time stamp after the touch read and the current sensor, 465 µs
+of the bus at 400 kHz. The model (`src/angle_model.*`) averages the samples
+in fours, about 7.8 Hz, applies the calibration, maps the chip's axes to the
+board's by `BOARD_IMU_AXES`, a placeholder until bench test B3, and takes
+`theta`, the turn about the board edge that lies along the axis of the
+measurement, and that edge's tilt from the horizontal, into rcbench's IMU
+model (`imu.c`) for its filter and still time. The reading is `SETTLED` once
+`theta` has stayed within 0.5° for 1000 ms. BACK on the main view writes
+CTRL7 00h, which turns the accelerometer off; nothing is sent to 0x6B while
+the meter is closed.
+
+**The main view.**
+
+| Line | Shows |
+|---|---|
+| Strip | The edge along the axis and its tilt in whole degrees, `LONG EDGE  AXIS TILT 3°`, amber from 45°; the chip `SETTLED` (green), `MOVING` (grey), `TOO STEEP`, `STARTING` or `NO IMU` (amber) |
+| Angle | Scale 5, in tenths of a degree, from the zero or, before a zero, from level: `NOT ZEROED: FROM LEVEL` or `FROM ZERO` under it. `---` while the model has no reading, at the start and 300 ms after the last frame, and while the axis is tilted 70° or more, with `TURN THE AXIS NEARER LEVEL.` under it. With no part answering at 0x6B, `NO ANSWER FROM THE IMU AT 0X6B.`; with another part there, `NOT A QMI8658: ID 0X3C.` with its WHO_AM_I |
+| Travel | With LENGTH set, the trailing edge's travel, LENGTH × sin(angle), at scale 3, and `L 40 MM, HINGE TO TRAILING EDGE`; with LENGTH `OFF`, `SET LENGTH IN SETUP FOR MM` |
+| MAX | The largest settled angle each side since ZERO or RESET MAX, negative first, `--` for a side with none, and under it their travel |
+| Temperature | The IMU's temperature, and after a zero its change since then, amber from 2.0 °C |
+| Footer | ZERO, RESET MAX, SETUP |
+
+ZERO arms on its tap, `ZERO WHEN SETTLED: HOLD STILL`, and takes the zero
+from the first settled reading at least 1000 ms after the finger lifts, so
+the tap's own movement has passed; it clears MAX. With none within 10 s it
+reads `NOT SETTLED IN 10 S: NO ZERO` and the old zero stays. ZERO is drawn
+disabled while the IMU is not online. MAX takes settled readings only, so a
+knock while the surface moves does not set it. The zero and MAX last for the
+visit: BACK drops them, and the next visit starts from level. The screen
+shows 0.1° and 0.1 mm; that is the display's resolution, not an accuracy.
+
+**SETUP.** Rows as SETTINGS draws them. A row applies at once; BACK returns
+to the main view and saves the four fields while they differ from flash
+(`settingsAngleDirty()`).
+
+| Row | Values | What it does |
+|---|---|---|
+| ALONG AXIS | `LONG`, the default, or `SHORT` | Which board edge lies along the axis the angle turns about: the long edge along a hinge line for a throw, the short one for incidence, dihedral and a hinge line shorter than the board. A change drops the zero and MAX |
+| LENGTH, MM | `OFF`, the default, or 10 to 500 | The surface's length from the hinge line to the trailing edge, for the travel. `-` and `+` step on the press and repeat while held |
+| SIGN | `NORMAL`, the default, or `INVERT` | Turns the reading's sign and swaps the MAX sides; the zero and MAX stay |
+| CALIBRATION | `FLIP` | Opens FLIP CAL. The caption reads `CALIBRATED` or `NOT CALIBRATED` |
+
+The save, `settingsSaveAngle()`, writes the meter's four fields over the
+settings as last saved, so a change made on SETTINGS and not saved stays
+unsaved. While the fields differ from flash, after a save that failed, the
+main view reads `SETUP NOT SAVED TO FLASH.`, on later visits too; the values
+stay live until a restart, and SETUP's next BACK tries the save again, with
+or without an edit. SETTINGS' HOLD TO SAVE stores them too. The IMU keeps
+running on SETUP and FLIP CAL.
+
+**FLIP CAL.** Three poses on a flat, steady surface, level or not, each held
+still for 2 s: screen up; turned end for end on the same spot, lifted off and
+put back; screen down, then screen up again. The strip names the step,
+`STEP 1 OF 3`, beside the main view's chip, two lines say what to do, and the
+angle shows under them. While the board lies screen down, touches are
+ignored and BACK and AGAIN are drawn disabled, so the glass on the table taps
+nothing. The result is the offset of each chip axis in mg and the gain of
+the axis along the normal, `OFFSET X 30  Y -20  Z 40 MG` and `GAIN Z 1.020`;
+an offset past ±0.2 g or a gain outside 0.88 to 1.12 gives no result. The
+1 s HOLD TO KEEP applies it and saves it: `KEPT AND SAVED.`, or
+`APPLIED, NOT SAVED TO FLASH.` when the save fails. A new calibration drops
+the zero and MAX. AGAIN starts over; BACK returns to SETUP without keeping a
+result. The gains of the two in-plane axes stay 1. Whether the flip's limits
+and the calibration are right for the fitted part is not measured (bench
+tests B5 and B6).
+
+**Settings.** ALONG AXIS, SIGN, LENGTH and the calibration are kept in the
+settings block, version 6 ([Using it](#using-it), SETTINGS). SETTINGS does
+not show them, and its HOLD DEFAULTS keeps them.
+
+**Pins.** The meter claims no pin: DShot keeps running on SIG, and the ESC
+is disarmed as MENU opens. TOOLS and the meter open only while the pin claim
+is free, since the meter's save writes flash.
+
 ## Device backups
 
 A tool that writes settings into a device saves the device's settings, as
@@ -3031,6 +3133,8 @@ src/
   sense.{h,cpp}         the INA219 current sensor on the shared I2C bus: codec, probe, readings, recovery
   qmi8658.{h,cpp}       the board's QMI8658 IMU on the shared I2C bus: probe, reset, set-up, burst, stop
   angle_model.{h,cpp}   the angle meter's model: frames, calibration, theta and tilt, ZERO, MAX, the flip (pure)
+  ui_angle.{h,cpp}      ANGLE METER: the reading, ZERO, MAX, SETUP and FLIP CAL; opens and closes the IMU driver
+  ui_tools.{h,cpp}      TOOLS, the chooser behind MENU's TOOLS row
   servo.cmake, kst.cmake, hitec.cmake, rx.cmake, sense.cmake, escwire.cmake, angle.cmake, bridge.cmake  each feature's firmware sources (test/*.mk: its tests)
   ui_input.{h,cpp}      tap-on-release and held-repeat rules, shared (pure)
   rpm_filter.h          display smoothing of the RPM readout
@@ -3093,7 +3197,7 @@ settings over the signal wire with its RP2350 line driver, which nothing
 calls yet, and for the angle meter the control-surface arithmetic
 (`servo_rudder.c`), the IMU (inertial measurement unit) model (`imu.c`) and
 the WitMotion decoder `imu.h` includes, which the angle model
-(`src/angle_model.cpp`) calls; nothing calls the model yet. Files include
+(`src/angle_model.cpp`) calls. Files include
 each other as plain siblings, except two drivers with folders of their own: the DShot
 driver in `src/dshot/`, so that it can be compared with its rcbench original,
 and the SDIO card driver in `src/sdio/`, whose `compat/` headers have to keep
@@ -3205,7 +3309,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 13,180 of 13,393 lines in 84 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.5%**: 13,255 of 13,459 lines in 85 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver
@@ -3288,6 +3392,20 @@ frames, the wrap at ±180°, the travel, the temperature warning at 2.0 °C, the
 calibration and the errors it removes, the flip's arithmetic against values
 worked by hand and its steps, NaN and degenerate inputs, and the texts in
 tenths.
+
+`test_angle_ui.cpp` runs TOOLS and ANGLE METER through the real UI, the IMU
+driver and the QMI8658 model on the I2C fake: MENU's TOOLS row and the
+chooser; the driver opened by the meter and CTRL7 00h on BACK, nothing to
+0x6B before or after; the angle, the strip's tilt, amber from 45°, `---`
+and TOO STEEP from 70°, SETTLED and MOVING, a stale reading, no part, another
+part and a part lost; ZERO a second after the lift and its 10 s limit, MAX
+from settled frames, RESET MAX, the temperature warning; SETUP's rows,
+LENGTH's steps and hold-to-repeat, one save on BACK and none without a
+change, a failed save; FLIP CAL's steps, touches ignored screen down, HOLD
+TO KEEP at 1000 ms and not 975 ms, its save and a failed one; and the widest
+texts. `test_settings.cpp` adds the version 6 layout, the carry-over of a
+version 5 block, the angle fields' validation at their boundaries and
+`settingsSaveAngle()`.
 
 `make pioemu`, which `make` runs too, runs `test/pio_sdio_emu.py`. It assembles
 the two SDIO PIO programs from `src/sdio/sd_pio.pio` itself and runs them one

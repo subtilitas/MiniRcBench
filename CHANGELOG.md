@@ -68,6 +68,25 @@ protocol.
   backup as they open, `SHOWN ONLY. BACKUP BJ018`. ESC CONFIG's line reads
   `BLUEJAY, BLHELI_S: READ AND WRITTEN.` Tested on rcbench's simulated ESC
   only; nothing has been written to an ESC.
+- After v0.1.0-rc1: the angle meter's screen and its documentation, slices 4
+  and 5 of [angle-meter.md](docs/design/angle-meter.md#slice-4-as-built),
+  tested on the host only. ANGLE METER (`src/ui_angle.*`) opens from MENU →
+  TOOLS (`src/ui_tools.*`), a chooser of the bench tools that claim no pin,
+  as decision 1 of the note puts it in MENU's sixth row. It opens the QMI8658
+  driver and shows the model's reading: the angle in tenths of a degree from
+  the zero or from level, `---` while there is no reading or the axis is
+  tilted 70° or more, the axis's tilt on the strip, amber from 45°, the chip
+  `SETTLED`, `MOVING`, `TOO STEEP`, `STARTING` or `NO IMU`, the travel in mm
+  with LENGTH set, MAX each side with its travel and the IMU's temperature
+  since the zero. ZERO takes a settled reading a second after the finger
+  lifts, or none within 10 s; RESET MAX clears MAX. SETUP sets ALONG AXIS,
+  LENGTH, SIGN and opens FLIP CAL, whose three poses end in a result that
+  the 1 s HOLD TO KEEP applies and saves; touches are ignored while the
+  board lies screen down. BACK on the main view writes CTRL7 00h. The four
+  fields are saved by `settingsSaveAngle()`, which writes them over the
+  settings as last saved. The screen states no accuracy: none is measured.
+  The preview `docs/angle-preview.png`, and the wiki pages Angle-Meter and
+  Winkelmesser. Not tested on hardware.
 - After v0.1.0-rc1: the cuts on the current sensor's readings, slice 4 of
   [current-sense.md](docs/design/current-sense.md#slice-4-as-built)
   (`src/supply_guard.*`), with CURRENT SENSE at INA219. The servo tester
@@ -959,6 +978,16 @@ protocol.
 
 ### Changed
 
+- After v0.1.0-rc1: MENU has eight rows, `TOOLS` the sixth before SD LOG,
+  by decision 1 of [angle-meter.md](docs/design/angle-meter.md#decisions)
+  and the MENU of [menu-b.md](docs/design/menu-b.md#menu). It scrolls 78 px:
+  SD LOG is whole after a drag of 34 px, SETTINGS after a drag of 76 px.
+- After v0.1.0-rc1: the settings block is version 6, 44 bytes: version 5's
+  fields and the angle meter's ALONG AXIS, SIGN, LENGTH and calibration
+  (decision 4 of [angle-meter.md](docs/design/angle-meter.md#decisions)). A
+  whole block of version 5, as of versions 2 to 4, is carried over, CURRENT
+  SENSE with it and the angle fields at their defaults. HOLD DEFAULTS on
+  SETTINGS keeps the angle fields, which SETTINGS does not show.
 - After v0.1.0-rc1: a pin claim without the leave page restores DShot only
   once its core1 job has let the pin go, so DShot is never rebuilt on a pin
   a job's state machines still drive. Any call into the claim,

@@ -109,6 +109,7 @@ static void testMenuSettingsLog() {
 	checkTrue("RX SIGNALS acts", ctlEnabled(menuRow(&UI_RX_SIGNALS)));
 	checkTrue("ESC CONFIG acts", ctlEnabled(menuRow(&UI_ESC_CONFIG)));
 	checkTrue("ESC COMMANDS acts", ctlEnabled(menuRow(&UI_ESC_CMD)));
+	checkTrue("TOOLS acts", ctlEnabled(menuRow(&UI_TOOLS)));
 
 	tapId(menuRow(&UI_ESC_CMD));
 	checkTrue("ESC COMMANDS opens", uiCurrentScreen() == UiScreenId::EscCmd);
@@ -152,6 +153,41 @@ static void testMenuSettingsLog() {
 	checkTrue("its entries by id: ESC SETTINGS acts, USB BRIDGE does not",
 	          ctlEnabled(UI_FIX(EscCfgCtl::Settings)) && ctlPresent(UI_FIX(EscCfgCtl::Bridge)) &&
 	          !ctlEnabled(UI_FIX(EscCfgCtl::Bridge)) && !ctlPresent(UI_FIX(3)));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	idFrames(1);
+
+	tapId(menuRow(&UI_TOOLS));
+	checkTrue("TOOLS opens", uiCurrentScreen() == UiScreenId::Tools);
+	idFrames(1);
+	checkControlTable("TOOLS");
+	checkTrue("its entry by id: ANGLE METER acts, no second",
+	          ctlEnabled(UI_FIX(ToolsCtl::Angle)) && !ctlPresent(UI_FIX(2)));
+	tapId(UI_FIX(ToolsCtl::Angle));
+	idFrames(1);
+	checkTrue("ANGLE METER opens on its main view",
+	          uiCurrentScreen() == UiScreenId::Angle && uiAngleView() == AngleView::Main);
+	idFrames(4);
+	checkControlTable("ANGLE METER");
+	checkTrue("its controls by id: ZERO, drawn disabled with no part answering, RESET MAX and SETUP act",
+	          ctlPresent(UI_FIX(AngleCtl::Zero)) && !ctlEnabled(UI_FIX(AngleCtl::Zero)) &&
+	          ctlEnabled(UI_FIX(AngleCtl::ResetMax)) && ctlEnabled(UI_FIX(AngleCtl::Setup)) &&
+	          !ctlPresent(UI_FIX(AngleCtl::Along)) && !ctlPresent(UI_FIX(AngleCtl::Keep)));
+	tapId(UI_FIX(AngleCtl::Setup));
+	checkControlTable("ANGLE SETUP");
+	checkTrue("SETUP's controls: ALONG AXIS, LENGTH's - and +, SIGN, FLIP, all acting",
+	          ctlEnabled(UI_FIX(AngleCtl::Along)) && ctlEnabled(UI_FIX(AngleCtl::LenMinus)) &&
+	          ctlEnabled(UI_FIX(AngleCtl::LenPlus)) && ctlEnabled(UI_FIX(AngleCtl::Sign)) &&
+	          ctlEnabled(UI_FIX(AngleCtl::Flip)) && !ctlPresent(UI_FIX(AngleCtl::Zero)));
+	tapId(UI_FIX(AngleCtl::Flip));
+	checkControlTable("FLIP CAL");
+	checkTrue("FLIP CAL's controls: HOLD TO KEEP without a result does not act, AGAIN does",
+	          ctlPresent(UI_FIX(AngleCtl::Keep)) && !ctlEnabled(UI_FIX(AngleCtl::Keep)) &&
+	          ctlEnabled(UI_FIX(AngleCtl::Again)) && !ctlPresent(UI_FIX(AngleCtl::Flip)));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("FLIP CAL's BACK: SETUP", uiAngleView() == AngleView::Setup);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("SETUP's BACK: the main view", uiAngleView() == AngleView::Main);
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu);
 	idFrames(1);

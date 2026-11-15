@@ -83,7 +83,7 @@ one end of its travel.
 <img src="img/splash.png" width="240" alt="Splash screen">
 
 After a firmware update that changed the layout of the stored settings from
-version 2, 3 or 4, the saved settings are carried over: the splash shows
+version 2, 3, 4 or 5, the saved settings are carried over: the splash shows
 `SETTINGS CARRIED OVER FROM AN UPDATE` and
 `CHECK MENU > SETTINGS, THEN SAVE` in amber above the name. Check them in
 SETTINGS and hold `HOLD TO SAVE`
@@ -182,7 +182,7 @@ it. The bar shows a grab handle and its caption reads `LATCHED`. Turning
 ## Raising the ceiling
 
 `MENU` on the tester opens the list of tools. Opening it always disarms.
-`SETTINGS` is the last row: drag `MENU` up 36 px and tap it. Or, while
+`SETTINGS` is the last row: drag `MENU` up 76 px and tap it. Or, while
 disarmed, tap `MAX 20%` or `14 POLES` on the
 tester, underlined while a tap on them works: the tap disarms the same way
 and opens SETTINGS, and `BACK` there returns to the tester.

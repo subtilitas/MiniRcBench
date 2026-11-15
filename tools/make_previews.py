@@ -144,6 +144,14 @@ PREVIEWS = {
         "shot_hitec_write",
         "shot_hitec_files",
     ],
+    # ANGLE METER: TOOLS, the chooser, the main view after a zero with
+    # LENGTH set and SIGN at INVERT, SETUP, and FLIP CAL with its result.
+    "angle-preview": [
+        "shot_tools_chooser",
+        "shot_angle_main",
+        "shot_angle_setup",
+        "shot_angle_flip",
+    ],
     # S.BUS MONITOR: RX SIGNALS, the chooser, then the monitor with frames,
     # in failsafe, and after the receiver stopped, the last frame dim.
     "sbus-preview": [

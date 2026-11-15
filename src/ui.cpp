@@ -15,6 +15,8 @@
 #include "esc_3d.h"
 #include "ui_esc_cmd.h"
 #include "ui_esc_config.h"
+#include "ui_tools.h"
+#include "ui_angle.h"
 #include "ui_hitec.h"
 #include "ui_kst.h"
 #include "ui_servo.h"
@@ -1241,6 +1243,8 @@ static constexpr struct { UiScreenId id; const UiScreen *screen; } SCREENS[] = {
 	{ UiScreenId::RxSignals, &UI_RX_SIGNALS },
 	{ UiScreenId::Sbus,      &UI_SBUS },
 	{ UiScreenId::EscConfig, &UI_ESC_CONFIG },
+	{ UiScreenId::Tools,     &UI_TOOLS },
+	{ UiScreenId::Angle,     &UI_ANGLE },
 };
 /** @brief Each @ref UiScreenId has exactly one entry in `SCREENS`. */
 static constexpr bool screensComplete() {
@@ -1284,7 +1288,7 @@ void uiDrawSplash() {
 	snprintf(pin, sizeof(pin), UI_SPLASH_PIN_FMT, (unsigned)settings()->dshotPin);
 	gfxTextCenter(288, pin, C_AMBER, 1);
 	// Settings a firmware of another layout version wrote: carried over from
-	// versions 2 to 4, else discarded whole at load, every setting at its
+	// versions 2 to 5, else discarded whole at load, every setting at its
 	// default (settings.h). Two lines at y 40 and 52, above the name; y 64 to
 	// 96 stays free for another note.
 	if (settingsCarriedOver()) {

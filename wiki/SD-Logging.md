@@ -200,7 +200,8 @@ tested.
 
 ## Reading the screen
 
-Open it with **MENU → SD LOG**, the sixth row. The row shows the same
+Open it with **MENU → SD LOG**, the seventh row: drag MENU up 34 px to
+bring it whole into view. The row shows the same
 state: `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a
 computer holds the card.
 
