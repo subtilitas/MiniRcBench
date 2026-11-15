@@ -78,8 +78,8 @@
  * function. With neither role on GP0 the bind refuses with
  * CORE1_JOB_NO_GP0 and takes nothing.
  *
- * Nothing opens the job: no screen claims PinUser::SbusOut and nothing in
- * `src/` sends a command. The screen, a later slice of the note, offers
+ * S.BUS OUTPUT (ui_sbus_out.h) is the one screen that claims
+ * PinUser::SbusOut and the one caller of sbusOutJobCommand(); it offers
  * START only while sbusOutProbePassed() holds.
  *
  * Not run on hardware: the inversion on the pin, the level at the bind, the
@@ -316,9 +316,9 @@ bool sbusOutProbeAnswer(const BlAnswer &a, bool *efm8);
  *
  * One command is held at a time, and a new one replaces a command core1 has
  * not taken, with one exception: a Safe not yet taken stays, and a command
- * sent after it is dropped. A STOP is never lost to a later command. Nothing
- * in `src/` calls it yet. Core1 takes no command until the probe has passed
- * (@ref SbusOutPhase::Uart), and none sent before that.
+ * sent after it is dropped. A STOP is never lost to a later command. S.BUS
+ * OUTPUT (ui_sbus_out.h) is the one caller. Core1 takes no command until the
+ * probe has passed (@ref SbusOutPhase::Uart), and none sent before that.
  *
  * @param c The command; its seq is ignored.
  * @return The seq of the command held, which SbusOutStatus::ackSeq echoes
@@ -331,6 +331,15 @@ uint16_t sbusOutJobCommand(const SbusOutCmd *c);
  * @param[out] out The status as core1 last published it.
  */
 void sbusOutJobStatus(SbusOutStatus *out);
+
+/**
+ * @brief Read the command block: the command core0 last sent, whether core1
+ *        has taken it or not. Core0, under the job's critical section. The
+ *        host suite reads it to see what the screen sent.
+ * @param[out] out The command held; its seq is the one sbusOutJobCommand()
+ *                 last returned.
+ */
+void sbusOutJobHeld(SbusOutCmd *out);
 
 /** @brief The probe as the screen shows it. */
 enum class SbusOutProbeState : uint8_t {

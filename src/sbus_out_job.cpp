@@ -476,6 +476,12 @@ void sbusOutJobStatus(SbusOutStatus *out) {
 	critical_section_exit(&s_cs);
 }
 
+void sbusOutJobHeld(SbusOutCmd *out) {
+	critical_section_enter_blocking(&s_cs);
+	*out = s_cmd;
+	critical_section_exit(&s_cs);
+}
+
 /**
  * @defgroup sbus_out_job_core0 Core0 only
  * @{

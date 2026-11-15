@@ -96,7 +96,7 @@ enum class PinUser : uint8_t {
 	Hitec,  /**< HITEC SERVO: SIG. */
 	Sbus,   /**< The S.BUS monitor: the role on GP1, AUX with SIG or SIG alone (sbus_job.h). */
 	Bridge, /**< The USB bridge: SIG (bridge_wire.h). */
-	SbusOut,  /**< The S.BUS output: the role on GP0, SIG alone or with AUX (sbus_out_job.h). Nothing claims it yet. */
+	SbusOut,  /**< The S.BUS output: the role on GP0, SIG alone or with AUX (sbus_out_job.h); S.BUS OUTPUT claims it. */
 	Count,  /**< How many pin users; not a user. */
 };
 

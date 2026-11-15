@@ -154,9 +154,9 @@ static void testMenuSettingsLog() {
 	checkTrue("RX SIGNALS opens", uiCurrentScreen() == UiScreenId::RxSignals);
 	idFrames(1);
 	checkControlTable("RX SIGNALS");
-	checkTrue("its entries by id: MONITOR acts, OUTPUT does not",
-	          ctlEnabled(UI_FIX(RxCtl::Monitor)) && ctlPresent(UI_FIX(RxCtl::Output)) &&
-	          !ctlEnabled(UI_FIX(RxCtl::Output)) && !ctlPresent(UI_FIX(3)));
+	checkTrue("its entries by id: MONITOR and OUTPUT act",
+	          ctlEnabled(UI_FIX(RxCtl::Monitor)) && ctlEnabled(UI_FIX(RxCtl::Output)) &&
+	          !ctlPresent(UI_FIX(3)));
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu);
 	idFrames(1);

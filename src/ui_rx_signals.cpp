@@ -74,8 +74,8 @@ bool uiRxSignalsTick(const TouchState *t) {
 	s_t = t ? t : &none;
 	if (uiBackTapped(s_t)) return false;
 	for (int i = 0; i < UI_RX_ENTRIES_COUNT; i++) {
-		// OUTPUT opens nothing; MONITOR's own entry point asks for the claim
-		// on this frame, after this tick.
+		// An entry with no tool opens nothing; the tool's own entry point
+		// asks for the claim on this frame, after this tick.
 		if (entryActs(i) && uiTapped(entryRect(i), s_t)) {
 			uiChooseTool(UI_RX_ENTRIES[i].screen, nullptr);
 			return true;
