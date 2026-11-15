@@ -56,13 +56,34 @@ static void tick(Rig *r, uint32_t dt, float a, bool step = false, bool fresh = t
 	moveTimerStep(&r->t, &in, r->now);
 }
 
+/**
+ * @brief One pass @p dt ms after the last with a new reading of @p a that
+ *        core0 took @p lateMs before it, and @p step for a step command.
+ */
+static void tickLate(Rig *r, uint32_t dt, float a, uint32_t lateMs, bool step = false) {
+	r->now += dt;
+	r->last.seq = ++r->seq;
+	r->last.takenMs = r->now - lateMs;
+	r->last.currentUa = (int32_t)lroundf(a * 1e6f);
+	r->last.busMv = 5000;
+	r->last.flags = 0;
+	r->last.state = (uint8_t)r->state;
+	MoveIn in;
+	memset(&in, 0, sizeof(in));
+	in.sample = r->last;
+	in.out[0] = r->out[0];
+	in.out[1] = r->out[1];
+	in.step = step;
+	moveTimerStep(&r->t, &in, r->now);
+}
+
 /** @brief Readings of @p a every @p every ms for @p ms. */
 static void hold(Rig *r, uint32_t ms, float a, uint32_t every = 25) {
 	for (uint32_t t = 0; t < ms; t += every) tick(r, every, a);
 }
 
 /** @brief A change of the pulses not timed to its end keeps the servo from rest this long, ms. */
-static const uint32_t SETTLE = 3043;
+static const uint32_t SETTLE = 3061;
 
 /** @brief The pulses start with no reading, and @ref SETTLE ms later, still none: at rest from here. */
 static void settle(Rig *r) {
@@ -101,19 +122,19 @@ static void testWhenTimed() {
 	tick(&r, 0, 0.10f);
 	hold(&r, 3500, 0.10f);
 	checkTrue("pulses at CENTRE: no step yet", stateIs(r, MoveState::None) && r.t.on);
-	stepTo(&r, 2000, 0.10f, 42);
-	checkTrue("a step 3542 ms after the pulses started: not at rest",
+	stepTo(&r, 2000, 0.10f, 60);
+	checkTrue("a step 3560 ms after the pulses started: not at rest",
 	          stateIs(r, MoveState::Void, MoveVoid::NotAtRest) && !r.t.timing);
 
 	rigInit(&r);
 	tick(&r, 0, 0.10f);
 	hold(&r, 3500, 0.10f);
-	stepTo(&r, 2000, 0.10f, 43);
-	checkTrue("3543 ms: timed", stateIs(r, MoveState::Measuring) && r.t.timing);
+	stepTo(&r, 2000, 0.10f, 61);
+	checkTrue("3561 ms: timed", stateIs(r, MoveState::Measuring) && r.t.timing);
 	checkTrue("the level before and the destination's level: 0.10 A",
 	          fabsf(r.t.mv.cfg.rise_a - 0.10f) < 1e-6f && fabsf(r.t.mv.cfg.ref_a - 0.10f) < 1e-6f);
 	checkTrue("no noise: the threshold is 20 mA", fabsf(r.t.mv.cfg.move_a - SERVO_MOVE_MIN_A) < 1e-6f);
-	checkInt("the window: 3000 ms and the lag", (int)r.t.mv.cfg.window_t, 3043);
+	checkInt("the window: 3000 ms and the lag", (int)r.t.mv.cfg.window_t, 3061);
 	checkTrue("one reading at a time, settled over two, rcbench's band",
 	          r.t.mv.cfg.filter_n == 1 && r.t.mv.cfg.settle_n == 2 &&
 	          fabsf(r.t.mv.cfg.band_a - SERVO_MOVE_BAND_A) < 1e-6f);
@@ -133,11 +154,11 @@ static void testWhenTimed() {
 	checkTrue("a step while a move is under way, 600 ms on: not at rest",
 	          stateIs(r, MoveState::Void, MoveVoid::NotAtRest));
 	hold(&r, 3500, 0.10f);
-	stepTo(&r, 1500, 0.10f, 42);
-	checkTrue("then 3542 ms on: not at rest", stateIs(r, MoveState::Void, MoveVoid::NotAtRest));
+	stepTo(&r, 1500, 0.10f, 60);
+	checkTrue("then 3560 ms on: not at rest", stateIs(r, MoveState::Void, MoveVoid::NotAtRest));
 	hold(&r, 3500, 0.10f);
-	stepTo(&r, 1000, 0.10f, 43);
-	checkTrue("3543 ms on: timed", stateIs(r, MoveState::Measuring));
+	stepTo(&r, 1000, 0.10f, 61);
+	checkTrue("3561 ms on: timed", stateIs(r, MoveState::Measuring));
 
 	// SPEED below 100 %.
 	rigInit(&r);
@@ -155,8 +176,8 @@ static void testWhenTimed() {
 	r.out[0] = 1510;
 	tick(&r, 25, 0.10f);
 	hold(&r, 3500, 0.10f);
-	stepTo(&r, 1000, 0.10f, 42);
-	checkTrue("then 3542 ms on: not at rest", stateIs(r, MoveState::Void, MoveVoid::NotAtRest));
+	stepTo(&r, 1000, 0.10f, 60);
+	checkTrue("then 3560 ms on: not at rest", stateIs(r, MoveState::Void, MoveVoid::NotAtRest));
 
 	// A slewed step during a move ends it; one that moves nothing still
 	// starts the wait for rest.
@@ -185,8 +206,8 @@ static void testWhenTimed() {
 	in.slewed = true;
 	moveTimerStep(&r.t, &in, r.now);
 	hold(&r, 3500, 0.10f);
-	stepTo(&r, 2000, 0.10f, 42);
-	checkTrue("a slewed step that moves nothing: 3542 ms on, not at rest",
+	stepTo(&r, 2000, 0.10f, 60);
+	checkTrue("a slewed step that moves nothing: 3560 ms on, not at rest",
 	          stateIs(r, MoveState::Void, MoveVoid::NotAtRest));
 
 	// Readings: 10 in the 500 ms before, 9.
@@ -280,21 +301,34 @@ static void testWhenTimed() {
 	checkTrue("9 readings, each seen twice: 9", stateIs(r, MoveState::Void, MoveVoid::Few));
 	rigInit(&r);
 	settle(&r);
-	for (int i = 0; i < 20; i++) {   // each new, taken 250 ms before its pass
-		r.now += 25;
-		r.last.seq = ++r.seq;
-		r.last.takenMs = r.now - 250;
-		r.last.currentUa = 100000;
-		r.last.state = (uint8_t)SenseState::Online;
-		MoveIn in;
-		memset(&in, 0, sizeof(in));
-		in.sample = r.last;
-		in.out[0] = r.out[0];
-		moveTimerStep(&r.t, &in, r.now);
-	}
+	for (int i = 0; i < 20; i++) tickLate(&r, 25, 0.10f, 250);   // each new, 250 ms old
 	stepTo(&r, 2000, 0.10f);
 	checkTrue("readings 250 ms old at their pass: stale, none counts",
 	          stateIs(r, MoveState::Void, MoveVoid::Few));
+
+	// Each reading counts at the time core0 took it, not at core1's pass:
+	// here 8 ms before it.
+	rigInit(&r);
+	settle(&r);
+	tickLate(&r, 7, 0.10f, 8);   // taken 1 ms before the rest
+	for (int i = 0; i < 9; i++) tickLate(&r, 50, 0.10f, 8);
+	r.out[0] = 2000;
+	tick(&r, 43, 0.10f, true);   // 500 ms after the rest
+	checkTrue("10 readings, the oldest taken 501 ms before the command: 9, too few",
+	          stateIs(r, MoveState::Void, MoveVoid::Few));
+	rigInit(&r);
+	startAt(&r, 0.10f);
+	stepTo(&r, 2000, 0.10f);
+	uint32_t cmdLate = r.now;
+	for (int i = 0; i < 12; i++) tickLate(&r, 25, 0.90f, 8);
+	tickLate(&r, 25, 0.10f, 8);
+	checkTrue("arrived at the reading taken 317 ms after the command, passed at 325",
+	          stateIs(r, MoveState::Arrived) && r.t.res.ms == 317 && r.now - cmdLate == 325);
+	for (int i = 0; i < 19; i++) tickLate(&r, 25, 0.12f, 8);
+	checkTrue("the hold's reading taken 475 ms after that one: still in", r.t.holding);
+	tickLate(&r, 25, 0.12f, 8);
+	checkTrue("taken 500 ms after it: the hold closed, 120 mA",
+	          !r.t.holding && r.t.res.holdOk && r.t.res.holdMa == 120);
 
 	// A clipped reading has no value: not in the level before.
 	rigInit(&r);
@@ -380,7 +414,7 @@ static void testArrivalAndHold() {
 	checkTrue("the first step: the idle level, CENTRE's, is the level before",
 	          r.t.idleOk && fabsf(r.t.mv.cfg.ref_a - 0.10f) < 1e-6f);
 	tick(&r, 25, 0.90f);
-	hold(&r, 3025, 0.50f);
+	hold(&r, 3050, 0.50f);
 	checkTrue("pushing on a stop at 0.50 A, a first visit: late", stateIs(r, MoveState::Late));
 	hold(&r, 500, 0.50f);
 	stepTo(&r, 1500, 0.50f);
@@ -490,7 +524,7 @@ static void testArrivalAndHold() {
 	          fabsf(r.t.mv.cfg.ref_a - 0.125f) < 1e-4f);
 }
 
-/** @brief The window: late and unseen at 3043 ms and not at 3042. */
+/** @brief The window: late and unseen at 3061 ms and not at 3060. */
 static void testWindow() {
 	section("Move timing: late and unseen");
 
@@ -499,10 +533,10 @@ static void testWindow() {
 	startAt(&r, 0.10f);
 	stepTo(&r, 2000, 0.10f);
 	for (int i = 0; i < 120; i++) tick(&r, 25, 0.90f);   // to 3000 ms
-	tick(&r, 42, 0.90f);
-	checkTrue("moving at 3042 ms: under way", stateIs(r, MoveState::Measuring));
+	tick(&r, 60, 0.90f);
+	checkTrue("moving at 3060 ms: under way", stateIs(r, MoveState::Measuring));
 	tick(&r, 1, 0.90f);
-	checkTrue("3043 ms: late", stateIs(r, MoveState::Late));
+	checkTrue("3061 ms: late", stateIs(r, MoveState::Late));
 	checkTrue("late: the peak, no hold", r.t.res.peakOk && r.t.res.peakMa == 900 &&
 	          !r.t.res.holdOk && !r.t.holding);
 
@@ -511,8 +545,8 @@ static void testWindow() {
 	stepTo(&r, 2000, 0.10f);
 	for (int i = 0; i < 121; i++) tick(&r, 25, 0.10f);
 	checkTrue("no movement at 3025 ms: under way", stateIs(r, MoveState::Measuring));
-	tick(&r, 18, 0.10f);
-	checkTrue("3043 ms: unseen, no peak", stateIs(r, MoveState::Unseen) && !r.t.res.peakOk);
+	tick(&r, 36, 0.10f);
+	checkTrue("3061 ms: unseen, no peak", stateIs(r, MoveState::Unseen) && !r.t.res.peakOk);
 
 	// No reading at or past the end: the move waits for one, then the
 	// stale rule.
@@ -564,6 +598,23 @@ static void testVoid() {
 	tick(&r, 25, 0.0f);
 	checkTrue("STOP in the hold: arrived, no hold", stateIs(r, MoveState::Arrived) &&
 	          !r.t.res.holdOk && !r.t.holding);
+
+	// CURRENT SENSE at NONE: nothing is timed, and the result stays.
+	rigInit(&r);
+	r.state = SenseState::None;
+	startAt(&r, 0.0f);
+	stepTo(&r, 2000, 0.0f);
+	checkTrue("NONE: a step leaves no result", stateIs(r, MoveState::None) && !r.t.timing);
+	rigInit(&r);
+	moveOnce(&r);
+	r.state = SenseState::None;
+	tick(&r, 25, 0.12f);
+	checkTrue("NONE in the hold: the hold ends, the time stays",
+	          stateIs(r, MoveState::Arrived) && r.t.res.ms == 325 && !r.t.holding);
+	hold(&r, SETTLE + 500, 0.12f);
+	stepTo(&r, 1500, 0.12f);
+	checkTrue("and a later step leaves it as it was", stateIs(r, MoveState::Arrived) &&
+	          r.t.res.ms == 325 && !r.t.res.holdOk && !r.t.timing);
 
 	// The sensor.
 	rigInit(&r);

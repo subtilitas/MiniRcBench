@@ -224,6 +224,9 @@ void moveTimerStep(MoveTimer *t, const MoveIn *in, uint32_t nowMs) {
 		t->on = false;
 		return;
 	}
+	// CURRENT SENSE at NONE: nothing is timed, and the result stays.
+	bool sensed = in->sample.state != (uint8_t)SenseState::None;
+	if (!sensed) t->timing = t->holding = false;
 	bool changed = in->out[0] != t->out[0] || in->out[1] != t->out[1];
 	if (!t->on) {
 		// The pulses start: a new run.
@@ -236,14 +239,14 @@ void moveTimerStep(MoveTimer *t, const MoveIn *in, uint32_t nowMs) {
 		t->timing = t->holding = false;
 		t->restMs = nowMs + settleMs();
 		changed = true;
-	} else if (in->step && in->slewed) {
+	} else if (sensed && in->step && in->slewed) {
 		// MIN, CENTRE or MAX at SPEED below 100 %: the pulse slews from the
 		// next pass on, untimed.
 		stop(t, MoveVoid::Slewed);
 		t->res = voidOf(MoveVoid::Slewed);
 		t->restMs = nowMs + settleMs();
 	} else if (changed) {
-		if (in->step) {
+		if (sensed && in->step) {
 			begin(t, in, nowMs);
 		} else {
 			// A drag, a sweep or a slew: the servo moves, untimed.

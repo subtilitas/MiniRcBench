@@ -2059,32 +2059,86 @@ static void testJobCuts() {
 }
 
 /**
- * @brief rcbench's single-servo model, free of its stops between 800 and
- *        2200 us: 0.12 A at rest, 0.95 A while it travels at 1.2 us a ms,
- *        20 mA of noise from end to end.
+ * @brief rcbench's single-servo model behind the timed fake INA219, driven
+ *        by SIG's pulse as core1 changed it. The model's horn starts at the
+ *        core1 pass that changes the pulse: the wait for the next PWM frame
+ *        is not modelled.
  */
-static void freeServo(servo_sim_t *sim) {
+struct SimServo {
+	servo_sim_t sim;
+	uint16_t    us[4];  /**< SIG's last pulses, newest last; 0 for none. */
+	uint64_t    at[4];  /**< time_us_64() of each change. */
+	int         n;      /**< How many. */
+};
+
+/**
+ * @brief The model free of its stops between 800 and 2200 us: 0.12 A at
+ *        rest, 0.95 A while it travels at 1.2 us a ms, 20 mA of noise from
+ *        end to end.
+ */
+static void freeServo(SimServo *s) {
 	servo_sim_cfg_t c;
 	servo_sim_defaults(&c);
 	c.stop_lo_us = 800;
 	c.stop_hi_us = 2200;
-	servo_sim_init(sim, &c);
+	servo_sim_init(&s->sim, &c);
+	s->n = 0;
+}
+
+/** @brief Note SIG's pulse now, after a core1 pass. */
+static void simTrack(SimServo *s) {
+	uint16_t lv = fakePin(SIG).level;
+	if (s->n > 0 && s->us[s->n - 1] == lv) return;
+	if (s->n == 4) {
+		memmove(&s->us[0], &s->us[1], 3 * sizeof(s->us[0]));
+		memmove(&s->at[0], &s->at[1], 3 * sizeof(s->at[0]));
+		s->n = 3;
+	}
+	s->us[s->n] = lv;
+	s->at[s->n] = time_us_64();
+	s->n++;
 }
 
 /**
- * @brief One frame: the model driven by SIG's pulse (none while SIG carries
- *        none: 0 A), its current into the fake INA219, core0's read and
- *        core1's pass.
+ * @brief The fake INA219's current function: the model at @p t, stepped
+ *        with SIG's pulse at that time; 0 A while SIG carries none. The
+ *        fake asks for times that only grow.
  */
-static void simPass(FakeIna219 *ina, servo_sim_t *sim, uint8_t en, uint32_t ms) {
+static double simCurrentAt(uint64_t t, void *ctx) {
+	SimServo *s = (SimServo *)ctx;
+	uint16_t lv = 0;
+	for (int i = 0; i < s->n; i++)
+		if (s->at[i] <= t) lv = s->us[i];
+	float a = servo_sim_step(&s->sim, lv ? lv : 1500u, (uint32_t)(t / 1000u));
+	return lv ? a : 0.0;
+}
+
+/**
+ * @brief The fake INA219 on its conversion clock, each reading the mean of
+ *        @p s's current over the shunt conversion, 17.02 ms of every
+ *        17.55 ms.
+ */
+static void simAttach(FakeIna219 *ina, SimServo *s) {
+	ina->timed = true;
+	ina->currentAt = simCurrentAt;
+	ina->currentCtx = s;
+	simTrack(s);
+}
+
+/** @brief One frame: core0's read of the model's current, core1's pass, the pulse noted. */
+static void simPass(FakeIna219 *ina, SimServo *s, uint8_t en, uint32_t ms) {
 	fakeAdvance(ms);
 	stamps();
 	followEn(ina, en);
-	uint16_t us = fakePin(SIG).level;
-	float a = servo_sim_step(sim, us ? us : 1500u, millis());
-	ina->currentA = us ? a : 0.0;
 	senseTick(millis());
 	core1JobPoll();
+	simTrack(s);
+}
+
+/** @brief Send @p c, core1's pass, the pulse noted. */
+static void simSend(SimServo *s, const ServoCmd &c) {
+	send(c);
+	simTrack(s);
 }
 
 /** @brief A step of servo A to @p command, as MIN, CENTRE and MAX send it, at SPEED @p slew. */
@@ -2096,9 +2150,10 @@ static ServoCmd stepOf(uint16_t command, uint16_t slew = 0) {
 
 /**
  * @brief The move timing through the job table, on the fake INA219 with
- *        rcbench's servo model behind it: a move timed within one read and
- *        one cycle, its hold, an unseen step, and the pulses and the cuts as
- *        they are without it.
+ *        rcbench's servo model behind it, each reading the mean over its
+ *        shunt conversion: a move timed 16 ms to @ref MOVE_LAG_MS after the
+ *        model's arrival, its hold, an unseen step, and the pulses and the
+ *        cuts as they are without it.
  */
 static void testJobMoveTiming() {
 	section("Servo job: move timing from the INA219, with rcbench's servo model");
@@ -2117,12 +2172,13 @@ static void testJobMoveTiming() {
 	servoJobNewSession();
 	stamps();
 	senseTick(millis());
-	servo_sim_t sim;
+	SimServo sim;
 	freeServo(&sim);
 	ServoStatus st;
 	checkTrue("the claim runs", claimRunning(PIN_SIG));
+	simAttach(ina, &sim);
 	simPass(ina, &sim, EN, 25);
-	send(cmdOf(0, ServoCmdKind::Start));
+	simSend(&sim, cmdOf(0, ServoCmdKind::Start));
 	simPass(ina, &sim, EN, 25);
 	servoJobStatus(&st);
 	checkTrue("on at CENTRE, nothing timed", fakePin(SIG).level == 1500 &&
@@ -2130,14 +2186,14 @@ static void testJobMoveTiming() {
 
 	// MAX 475 ms after the pulses started: not at rest.
 	for (int i = 0; i < 19; i++) simPass(ina, &sim, EN, 25);
-	send(stepOf(SERVO_SPAN));
+	simSend(&sim, stepOf(SERVO_SPAN));
 	servoJobStatus(&st);
 	checkTrue("MAX 475 ms after CENTRE: sent, not timed", fakePin(SIG).level == 2000 &&
 	          st.move.state == MoveState::Void && st.move.why == MoveVoid::NotAtRest);
 
 	// CENTRE 3600 ms after MAX: 500 us at 1.2 us a ms, 417 ms.
 	for (int i = 0; i < 144; i++) simPass(ina, &sim, EN, 25);
-	send(stepOf(SERVO_CMD_CENTRE));
+	simSend(&sim, stepOf(SERVO_CMD_CENTRE));
 	servoJobStatus(&st);
 	checkTrue("CENTRE: sent at once, timed", fakePin(SIG).level == 1500 &&
 	          st.move.state == MoveState::Measuring);
@@ -2146,10 +2202,14 @@ static void testJobMoveTiming() {
 		simPass(ina, &sim, EN, 25);
 		servoJobStatus(&st);
 	}
-	const uint32_t TRUE_MS = 417;   // 500 us / 1.2 us a ms, rounded up
+	// 500 us / 1.2 us a ms, rounded up. The arrival reads near the holding
+	// level only in a conversion of at most 6 % moving current, 1.02 ms of
+	// 17.02 ms: one that ends 16 ms or more after it. At most it ends 17.55
+	// and 17.02 ms after, and is read up to 25 ms later: MOVE_LAG_MS.
+	const uint32_t TRUE_MS = 417, SEEN_MS = TRUE_MS + 16;
 	checkTrue("arrived", st.move.state == MoveState::Arrived && !st.move.settled);
-	checkTrue("timed within one read and one cycle of the model's 417 ms",
-	          st.move.ms >= TRUE_MS && st.move.ms <= TRUE_MS + MOVE_LAG_MS);
+	checkTrue("timed 16 ms to MOVE_LAG_MS after the model's 417 ms",
+	          st.move.ms >= SEEN_MS && st.move.ms <= TRUE_MS + MOVE_LAG_MS);
 	checkTrue("the peak: the model's 0.95 A, within its noise",
 	          st.move.peakOk && st.move.peakMa >= 940 && st.move.peakMa <= 961);
 	checkTrue("no hold yet", !st.move.holdOk);
@@ -2160,21 +2220,21 @@ static void testJobMoveTiming() {
 	checkTrue("the pulse untouched", fakePin(SIG).level == 1500 && st.running);
 
 	// MIN: 500 us again, judged against CENTRE's level.
-	send(stepOf(0));
+	simSend(&sim, stepOf(0));
 	for (frames = 0; frames < 60; frames++) {
 		simPass(ina, &sim, EN, 25);
 		servoJobStatus(&st);
 		if (st.move.state != MoveState::Measuring) break;
 	}
-	checkTrue("MIN: arrived within one read and one cycle of 417 ms",
-	          st.move.state == MoveState::Arrived && st.move.ms >= TRUE_MS &&
+	checkTrue("MIN: arrived 16 ms to MOVE_LAG_MS after 417 ms",
+	          st.move.state == MoveState::Arrived && st.move.ms >= SEEN_MS &&
 	          st.move.ms <= TRUE_MS + MOVE_LAG_MS);
 
 	// A step at SPEED below 100 %: the pulse slews, nothing is timed.
 	for (int i = 0; i < 25; i++) simPass(ina, &sim, EN, 25);
 	ServoStatus before;
 	servoJobStatus(&before);
-	send(stepOf(SERVO_SPAN, 400));
+	simSend(&sim, stepOf(SERVO_SPAN, 400));
 	simPass(ina, &sim, EN, 25);
 	servoJobStatus(&st);
 	checkTrue("SPEED below 100 %: the pulse slews, not timed",
@@ -2183,6 +2243,7 @@ static void testJobMoveTiming() {
 
 	// No current change: unseen at the window's end. The slew takes 2.5 s,
 	// then the window, then 500 ms of rest.
+	ina->currentAt = nullptr;
 	for (int i = 0; i < 260; i++) {
 		fakeAdvance(25);
 		stamps();
@@ -2191,7 +2252,7 @@ static void testJobMoveTiming() {
 		senseTick(millis());
 		core1JobPoll();
 	}
-	send(stepOf(SERVO_CMD_CENTRE));
+	simSend(&sim, stepOf(SERVO_CMD_CENTRE));
 	servoJobStatus(&st);
 	checkTrue("CENTRE with the servo unplugged: timed", st.move.state == MoveState::Measuring);
 	for (frames = 0; frames < 140; frames++) {
@@ -2205,11 +2266,12 @@ static void testJobMoveTiming() {
 		if (st.move.state != MoveState::Measuring) break;
 	}
 	checkTrue("no current change: unseen", st.move.state == MoveState::Unseen && !st.move.peakOk);
-	checkInt("at the first reading 3043 ms or more after the command", frames + 1, 122);
+	checkInt("at the first reading 3061 ms or more after the command", frames + 1, 123);
 
 	// The stall cut during a timed move, at its 17th reading as without one.
+	ina->currentA = 0.12;
 	for (int i = 0; i < 20; i++) simPass(ina, &sim, EN, 25);
-	send(stepOf(SERVO_SPAN));
+	simSend(&sim, stepOf(SERVO_SPAN));
 	servoJobStatus(&st);
 	checkTrue("MAX: timed", st.move.state == MoveState::Measuring);
 	ina->currentA = 1.2;
@@ -2218,7 +2280,8 @@ static void testJobMoveTiming() {
 	checkTrue("Stall, GP29 low, level 0; the move void", st.powerFault == ServoPowerFault::Stall &&
 	          enLow(EN) && fakePin(SIG).level == 0 && st.move.state == MoveState::Void &&
 	          st.move.why == MoveVoid::Ended);
-	send(cmdOf(0, ServoCmdKind::Start));
+	simAttach(ina, &sim);
+	simSend(&sim, cmdOf(0, ServoCmdKind::Start));
 	simPass(ina, &sim, EN, 25);
 	servoJobStatus(&st);
 	checkTrue("START: the pulses again, the result gone", st.running &&
@@ -2226,7 +2289,7 @@ static void testJobMoveTiming() {
 
 	// The release ends a move under way.
 	for (int i = 0; i < 144; i++) simPass(ina, &sim, EN, 25);
-	send(stepOf(0));
+	simSend(&sim, stepOf(0));
 	servoJobStatus(&st);
 	checkTrue("MIN 3600 ms after START: timed", st.move.state == MoveState::Measuring);
 	checkTrue("released", claimEnd() && enUndriven(EN));
@@ -2244,14 +2307,23 @@ static void testJobMoveTiming() {
 	checkTrue("the claim again, SIG and AUX", claimRunning(PIN_SIG | PIN_AUX));
 	servoJobStatus(&st);
 	checkTrue("the new session's bind: nothing timed", st.move.state == MoveState::None);
-	send(cmdOf(0, ServoCmdKind::Start));
+	simSend(&sim, cmdOf(0, ServoCmdKind::Start));
 	for (int i = 0; i < 144; i++) simPass(ina, &sim, EN, 25);
 	ServoCmd b = stepOf(SERVO_SPAN);
 	b.mask = SERVO_MASK_B;
-	send(b);
+	simSend(&sim, b);
 	servoJobStatus(&st);
 	checkTrue("MAX on AUX alone: timed", fakePin(AUX).level == 2000 && fakePin(SIG).level == 1500 &&
 	          st.move.state == MoveState::Measuring);
+
+	// A new profile: the old one's figure goes with the rebind.
+	simSend(&sim, cmdOf(0, ServoCmdKind::Safe));
+	servoJobStatus(&st);
+	checkTrue("STOP: the move void, kept while SAFE", st.move.state == MoveState::Void);
+	checkTrue("one servo again, while SAFE", servoJobProfile(&prof));
+	for (int i = 0; i < 4; i++) simPass(ina, &sim, EN, 25);
+	servoJobStatus(&st);
+	checkTrue("the rebind drops it", st.move.state == MoveState::None && st.bindError == 0);
 	checkTrue("released", claimEnd() && enUndriven(EN));
 	servoJobProfile(&prof);
 	servoJobNewSession();
@@ -5096,14 +5168,12 @@ static void testCutScreens() {
 	freshUi();
 }
 
-/** @brief @p n UI frames of 25 ms, rcbench's servo model behind the fake INA219, its pulse SIG's. */
-static void uiSimFrames(FakeIna219 *ina, servo_sim_t *sim, int n) {
+/** @brief @p n UI frames of 25 ms, rcbench's servo model behind the timed fake INA219. */
+static void uiSimFrames(FakeIna219 *ina, SimServo *sim, int n) {
 	for (int i = 0; i < n; i++) {
 		followEn(ina, 28);
-		uint16_t us = fakePin(SIG).level;
-		float a = servo_sim_step(sim, us ? us : 1500u, millis() + 25);
-		ina->currentA = us ? a : 0.0;
 		frameAt(25);
+		simTrack(sim);
 	}
 }
 
@@ -5122,8 +5192,9 @@ static void testMoveScreen() {
 	settings()->currentSense = 1;
 	senseConfigure(1);
 	FakeIna219 *ina = fakeI2cAddIna219(INA219_ADDR);
-	servo_sim_t sim;
+	SimServo sim;
 	freeServo(&sim);
+	simAttach(ina, &sim);
 	openServo();
 	uiSimFrames(ina, &sim, 42);
 	holdStartFrames();
@@ -5154,8 +5225,8 @@ static void testMoveScreen() {
 	checkTrue("MAX again: timed", s_st.move.state == MoveState::Measuring);
 	uiSimFrames(ina, &sim, 45);
 	checkTrue("arrived, the hold in", s_st.move.state == MoveState::Arrived && s_st.move.holdOk);
-	checkTrue("within one read and one cycle of the model's 417 ms",
-	          s_st.move.ms >= 417 && s_st.move.ms <= 417 + MOVE_LAG_MS);
+	checkTrue("16 ms to MOVE_LAG_MS after the model's 417 ms",
+	          s_st.move.ms >= 417 + 16 && s_st.move.ms <= 417 + MOVE_LAG_MS);
 	char line[MOVE_TEXT_MAX + 1];
 	moveTimerText(&s_st.move, line, sizeof(line));
 	checkTrue("the line: MOVE, PEAK and HOLD", strncmp(line, "MOVE 0.4", 8) == 0 &&

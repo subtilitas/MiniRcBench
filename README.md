@@ -2018,16 +2018,18 @@ and no cut. Not tested on hardware.
   the arrival, to 10 ms; PEAK the highest reading from the command to the
   arrival; HOLD the mean of the readings of the 500 ms after the arrival
   (`MOVE_HOLD_MS`), at least 10 of them (`MOVE_MIN_READINGS`). `LATE` in
-  MOVE's place is movement and no arrival within 3043 ms; `UNSEEN` no
+  MOVE's place is movement and no arrival within 3061 ms; `UNSEEN` no
   movement in that time. A figure whose conditions do not hold reads `--`:
   a step not timed, a move under way, a move ended by STOP, a cut, another
   command or the sensor lost, a hold not yet 500 ms long or with a clipped
   reading in it, a peak or hold below 0. Before the first step after START
-  the line shows the supply's start-up time, as before; a two-line note
-  takes the line.
+  the line shows the supply's start-up time; a two-line note takes the
+  line. With CURRENT SENSE at `NONE` no step is timed and the line stays as
+  it is.
 - A step is timed when the servo has been at rest for 500 ms
   (`MOVE_REST_MS`): from the reading that showed the last timed move's
-  arrival, or 3043 ms after any other change of the pulse, START, a drag, a
+  arrival or the end of a late or unseen move's window, or 3061 ms after
+  any other change of the pulse, START, a drag, a
   sweep, a step at SPEED below 100 % or one not timed. A step at SPEED below
   100 % is never timed: its pulse slews. The level before is the mean of
   the readings of the 500 ms before the command, at least 10 of them, and
@@ -2042,10 +2044,16 @@ and no cut. Not tested on hardware.
   left it this run, else CENTRE's, else the level before. A first visit to an
   end where the servo pushes on a stop therefore reads `LATE`; the next one
   is timed.
-- The time is an upper bound: the reading that shows the arrival comes up
-  to one read and one conversion cycle after it, 43 ms (`MOVE_LAG_MS`), and
-  the pulse leaves at the next PWM frame, up to 20 ms at 50 Hz. How far it
-  lies from the horn's arrival is not measured (bench test B10).
+- The time is an upper bound on when the current shows the arrival. A
+  shunt conversion that straddles the arrival averages moving and holding
+  current; the first one wholly after it ends up to one cycle and one
+  conversion, 17.55 ms and 17.02 ms, later, and core0 reads it up to 25 ms
+  after that: 61 ms in all, one read and two cycles rounded up
+  (`MOVE_LAG_MS`). The pulse leaves at the next PWM frame, up to 20 ms at
+  50 Hz. The current can show an arrival before the horn stops: a servo
+  that eases its drive near the target can fall to its holding current
+  while the horn still creeps. How far the time lies from the horn's
+  arrival is not measured (bench test B10).
 
 **SET.** The PULSE rows change only while SAFE. TYPE loads one of rcbench's
 profiles:

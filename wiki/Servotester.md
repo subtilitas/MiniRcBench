@@ -307,10 +307,16 @@ So entsteht eine gemessene Bewegung:
 - Fährt das Servo zum ersten Mal an ein Ende, an dem es gegen seinen
   Anschlag drückt, zeigt es `LATE`: Die Bank weiß noch nicht, wie viel es
   dort zieht. Die nächste Bewegung an dieses Ende wird gemessen.
-- Die Zeit ist eine Obergrenze. Der Sensor zeigt die Ankunft bis 43 ms zu
-  spät (berechnet), und der Impuls geht bei 50 Hz bis 20 ms nach dem Antippen
-  hinaus. Wie nah sie an der wirklichen Ankunft des Servohorns liegt, ist
-  nicht gemessen.
+- Die Zeit ist eine Obergrenze dafür, wann der Strom die Ankunft zeigt.
+  Der Sensor zeigt sie bis 61 ms zu spät (berechnet: eine Messung und zwei
+  Mittelungszeiten des Sensors), und der Impuls geht bei 50 Hz bis 20 ms
+  nach dem Antippen hinaus. Ein Servo, das kurz vor dem Ziel nachlässt,
+  kann schon auf seinen Haltestrom fallen, während das Servohorn noch
+  kriecht; dann zeigt der Strom die Ankunft, bevor das Horn steht. Wie nah
+  die Zeit an der wirklichen Ankunft des Servohorns liegt, ist nicht
+  gemessen.
+- Mit CURRENT SENSE auf `NONE` wird nichts gemessen, und die Zeile bleibt,
+  wie sie ist.
 - Die Zeile verschwindet beim nächsten `HOLD TO START` und erscheint nicht,
   solange dort eine zweizeilige Warnung steht.
 

@@ -86,15 +86,15 @@ uint32_t adcUs(unsigned v) {
 	return (v & 8u) ? avg[v & 7u] : bits[v & 3u];
 }
 
-/** @brief The shunt and bus conversions of @p p from its inputs now. */
-void convert(FakeIna219 *p) {
+/** @brief The shunt and bus conversions of @p p from a current of @p amps and its output now. */
+void convert(FakeIna219 *p, double amps) {
 	unsigned pg = (p->reg[0] >> 11) & 3u;
 	long limit = 4000L << pg;
-	long code = lround(p->currentA * p->shuntOhm / 10e-6);
+	long code = lround(amps * p->shuntOhm / 10e-6);
 	if (code > limit) code = limit;
 	if (code < -limit) code = -limit;
 	p->shuntCode = (int16_t)code;
-	long bus = lround((p->voutV - p->currentA * p->shuntOhm) / 0.004);
+	long bus = lround((p->voutV - amps * p->shuntOhm) / 0.004);
 	long busMax = (p->reg[0] & 0x2000u) ? 8000 : 4000;
 	if (bus < 0) bus = 0;
 	if (bus > busMax) bus = busMax;
@@ -104,14 +104,24 @@ void convert(FakeIna219 *p) {
 /** @brief Bring @p p's conversions up to now. */
 void catchUp(FakeIna219 *p) {
 	if (!p->timed) {
-		convert(p);
+		convert(p, p->currentA);
 		return;
 	}
 	uint64_t now = time_us_64();
 	uint64_t cycle = fakeIna219CycleUs(p);
 	if (now - p->cycleUs >= cycle) {
-		convert(p);
 		p->cycleUs += (now - p->cycleUs) / cycle * cycle;
+		double amps = p->currentA;
+		if (p->currentAt) {
+			// The newest completed cycle's shunt conversion: its first part.
+			uint64_t from = p->cycleUs - cycle;
+			uint32_t shunt = adcUs((p->reg[0] >> 3) & 15u);
+			double sum = 0;
+			unsigned n = 0;
+			for (uint64_t t = from; t < from + shunt; t += 10, n++) sum += p->currentAt(t, p->currentCtx);
+			amps = sum / n;
+		}
+		convert(p, amps);
 	}
 }
 

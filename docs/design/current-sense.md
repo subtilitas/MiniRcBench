@@ -234,7 +234,7 @@ What each use needs, against a read every UI frame, 25 ms:
 | Readout | a value every 100 ms to 250 ms that represents the period | the mean of each 17.02 ms block, read every 25 ms |
 | Protection | a stall seen within 100 ms; no gap a stall hides in | a step seen within one read and one cycle; a full step within about 60 ms (25 + 17.55 + 17.55 ms, computed) |
 | Switch-on and switch-off read-back | the bus voltage within 50 ms | one 532 µs bus sample per 17.55 ms cycle |
-| Move timing | rcbench's IOmcu samples at 1 kHz; its panel times moves from 10 readings a second | 40 readings a second: travel times are an upper bound, by up to one read and one cycle |
+| Move timing | rcbench's IOmcu samples at 1 kHz; its panel times moves from 10 readings a second | 40 readings a second: travel times are an upper bound on when the current shows the arrival, by up to one read and two cycles |
 | Log | 40 rows a second | one row per reading |
 
 The bench's configuration, written once at the probe:
@@ -798,10 +798,10 @@ command, the holding level that end's last hold, or the idle level before
 one is known; the threshold is rcbench's,
 max(20 mA, 3 × the idle noise). The SET screen's last line shows
 `MOVE 0.42 S  PEAK 1.21 A  HOLD 0.12 A`, and `LATE` or `UNSEEN` per
-rcbench's rules. The time is an upper bound: late by up to one read and
-one cycle, 42.6 ms, plus the wait for the next PWM frame, 20 ms at 50 Hz.
-rcbench's PD mini readings were late by a median of 0.31 s; this meter
-lags by about a seventh of that. Built in slice 5
+rcbench's rules. The time is an upper bound on when the current shows the
+arrival: late by up to one read and two cycles, 60.1 ms, plus the wait for
+the next PWM frame, 20 ms at 50 Hz. rcbench's PD mini readings were late by
+a median of 0.31 s; this meter lags by about a fifth of that. Built in slice 5
 ([slice 5 as built](#slice-5-as-built)), which settles what this paragraph
 leaves open: when a step is timed, the holding level, the hold and the line's
 place.
@@ -1372,17 +1372,21 @@ timed and SET shows what it showed before.
   MAX set on SERVO TESTER (`servoStepCmd()`). It is timed when it changes
   the pulses at SPEED 100 %, no move is under way, and the servo has been at
   rest for `MOVE_REST_MS`, 500 ms: at rest from the reading that showed the
-  last timed move's arrival, or from the reading that ended its window late
-  or unseen, and otherwise `servo_move_window_ms(MOVE_LAG_MS)`, 3043 ms,
-  after any change of the pulses: the pulses' start at START, a drag, a
+  last timed move's arrival, from the end of its window, the command plus
+  3061 ms, when it went late or unseen, and otherwise
+  `servo_move_window_ms(MOVE_LAG_MS)`, 3061 ms, after any change of the
+  pulses: the pulses' start at START, a drag, a
   sweep, a step at a lower SPEED, a step not timed. The level before is the
   mean of the readings taken in the 500 ms before the command, at least
   `MOVE_MIN_READINGS`, 10, of them, kept in a ring of 32; the threshold is
   `servo_move_threshold_a()` of their standard deviation. The move is
   rcbench's: `servo_move_begin()` with the command at the pass that takes
   it, `filter_n` 1, `settle_n` 2, `SERVO_MOVE_BAND_A`, and a window of
-  `servo_move_window_ms(MOVE_LAG_MS)`, `MOVE_LAG_MS` 43 ms, one read of
-  25 ms and one cycle of 17.55 ms rounded up; each new fresh reading of an
+  `servo_move_window_ms(MOVE_LAG_MS)`, `MOVE_LAG_MS` 61 ms, one read of
+  25 ms and two cycles of 17.55 ms rounded up: a conversion that straddles
+  the arrival averages moving and holding current, the first one wholly
+  after it ends up to 17.55 and 17.02 ms later, and core0 reads it up to
+  25 ms after that; each new fresh reading of an
   online sensor goes to `servo_move_sample()` at its `takenMs`, clipped
   readings as `SERVO_MOVE_CLIP_HIGH` or `SERVO_MOVE_CLIP_LOW` at the
   range's end.
@@ -1408,7 +1412,9 @@ timed and SET shows what it showed before.
   another command changes them, and when the sensor leaves `Online` or no
   reading comes for `SENSE_STALE_MS`, 250 ms, counted from the command at
   the earliest; a hold under way is then not shown. A bind voids a move
-  under way and keeps the result; a new screen session drops it.
+  under way; a profile's rebind and a new screen session drop the result.
+  With CURRENT SENSE at `NONE` no step is timed, a move or hold under way
+  ends, and the result stays as it is.
 - **The screen.** SERVO SET's note band, second line, in `C_DIM`, when the
   line is free (`moveNote()`): `MOVE 0.42 S  PEAK 1.21 A  HOLD 0.12 A`,
   `MOVE LATE  ...`, `MOVE UNSEEN  ...`, and `--` for each figure not shown,
@@ -1417,9 +1423,9 @@ timed and SET shows what it showed before.
   10 mA. At most 37 characters, 221 px at scale 1 from x 8, ending at x 228;
   a `static_assert` in `src/ui_servo.cpp` holds it inside the 8 px margin.
   Before the first step since the pulses started the line shows the
-  start-up time, `SUPPLY UP IN 25 MS`, as slice 3 built it; a two-line note
-  takes the line from both. The result stays while SAFE and across a
-  rebind, and goes at the pulses' start and with a new screen session.
+  start-up time, `SUPPLY UP IN 25 MS`; a two-line note takes the line from
+  both. The result stays while SAFE, and goes at the pulses' start, at a
+  profile's rebind and with a new screen session.
 - **Choices the note does not settle.**
   - "The SET screen's last line" is the note band's second line: SET has no
     other free line, and menu-b.md's layout table fixes the rest.
@@ -1432,9 +1438,12 @@ timed and SET shows what it showed before.
     CENTRE, is judged against CENTRE's level and reads LATE; rcbench's
     automatic test places both ends first for this reason. The next move to
     that end is timed.
-  - The rest after an untimed change is the window, 3043 ms: the bench
+  - The rest after an untimed change is the window, 3061 ms: the bench
     cannot see when an untimed move ends, and servo_move times no move
     longer than that.
+  - The time is when the current shows the arrival, not when the horn
+    stops: a servo that eases its drive near the target can fall to its
+    holding current while the horn still creeps.
   - A move ends only at a reading, never by the clock: core0 can take a
     reading in the millisecond after core1 read its clock, and a tick at
     that time could end a move whose arriving reading is still to come.
@@ -1444,26 +1453,33 @@ timed and SET shows what it showed before.
   - A negative PEAK or HOLD reads `--`: it would be a reversed sensor or an
     offset, and `-0.05 A` would not fit the line's 37 characters.
 - **Tests.** `test/test_move_timer.cpp` (`runMoveTimerTests`): the rest at
-  3542 and 3543 ms after a change, a step during a move, a step at a lower
+  3560 and 3561 ms after a change, a step during a move, a step at a lower
   SPEED; 9 and 10 readings, a reading 500 and 501 ms old; -21 and -20 mA;
   the threshold from the noise; the ring's newest 32; AUX's pulse; arrival,
   the peak, the hold closing at the reading 500 ms after the arrival, 9 and
   10 hold readings, a clipped reading and a negative hold; a first visit to a
   pushed end late, the level of the step that left it, the settled rule;
   the idle level, the levels' slots and their eviction, START forgetting
-  them; late and unseen at 3042 and 3043 ms; void by a change, STOP, the
+  them; late and unseen at 3060 and 3061 ms; void by a change, STOP, the
   sensor offline, 249 and 250 ms without a reading from the last reading and
-  from the command; clipped readings high and low; a negative peak; a
-  reading seen twice; a bind; the line's texts, rounding and width.
+  from the command; CURRENT SENSE at `NONE`; clipped readings high and low;
+  a negative peak; readings seen twice, stale, not online, and taken 8 ms
+  before core1's pass, which count at their time taken; a bind; the line's
+  texts, rounding and width.
   `test/test_servo.cpp`: `testJobMoveTiming()` through the job table on the
-  fake INA219 with rcbench's servo model, 0.95 A moving at 1.2 µs a ms and
-  0.12 A at rest, driven by SIG's pulse: a step 475 ms after START not
-  timed, CENTRE from MAX and MIN from CENTRE timed within 417 ms and 460 ms,
-  one read and one cycle of the model's 417 ms, the peak and the hold within
-  the model's noise, a step at a lower SPEED, unseen at the first reading
-  3043 ms or more after the command, the stall cut at its 17th reading of
+  fake INA219 on its conversion clock, each reading the mean of rcbench's
+  servo model over the 17.02 ms shunt conversion, 0.95 A moving at 1.2 µs a
+  ms and 0.12 A at rest, driven by SIG's pulse from the core1 pass that
+  changes it (the PWM frame's wait is not modelled): a step 475 ms after
+  START not timed, CENTRE from MAX and MIN from CENTRE timed between 433 ms
+  and 478 ms, 16 ms to `MOVE_LAG_MS` after the model's 417 ms, since the
+  arrival reads near the holding level only in a conversion of at most 6 %
+  moving current (450 ms in the run), the peak and the hold within the
+  model's noise, a step at a lower SPEED, unseen at the first reading
+  3061 ms or more after the command, the stall cut at its 17th reading of
   1.2 A during a timed move, as without one, START dropping the result, the
-  release; `testMoveScreen()`: SET's line through the screen, the start-up
+  release, a step of AUX alone, a profile's rebind dropping the result;
+  `testMoveScreen()`, on the same model: SET's line through the screen, the start-up
   time before the first step, the line while running and kept while SAFE,
   under a two-line note, gone at START, dashes for a step too soon; the
   frame `shot_servo_set_move.ppm`. rcbench's `test_servo_move.c` runs as a

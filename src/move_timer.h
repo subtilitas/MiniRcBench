@@ -36,10 +36,17 @@
  * servo has left the position once and its level is known (rcbench's
  * automatic test places both ends first for this reason).
  *
- * The time is an upper bound: the reading that shows the arrival is taken
- * up to one read and one conversion cycle after it, and the pulse leaves at
- * the next PWM frame after the command. Not measured on hardware (bench test
- * B10).
+ * The time is an upper bound on when the current shows the arrival: a
+ * shunt conversion that straddles the arrival averages moving and holding
+ * current, the first one wholly after it ends up to one cycle and one
+ * conversion, 17.55 ms and 17.02 ms, later, and core0 reads it up to 25 ms
+ * after that; the pulse leaves at the next PWM frame after the command. The
+ * current can show an arrival before the horn stops: a servo that eases its
+ * drive near the target can fall to its holding current while the horn
+ * still creeps. Not measured on hardware (bench test B10).
+ *
+ * With CURRENT SENSE at NONE nothing is timed: a step leaves the result as
+ * it is, and a move or hold under way ends without one.
  *
  * @see docs/design/current-sense.md, "Slice 5 as built"
  */
@@ -61,10 +68,12 @@
 /** @brief Readings the level before and the hold each need: half the 20 the sensor takes in 500 ms. */
 #define MOVE_MIN_READINGS  10u
 /**
- * @brief The meter's lag, ms: one read, 25 ms, and one conversion cycle,
- *        17.55 ms, rounded up. servo_move_window_ms() adds it to the window.
+ * @brief The meter's lag, ms: one read, 25 ms, and two conversion cycles,
+ *        2 × 17.55 ms, rounded up: the cycle a conversion straddling the
+ *        arrival ends in, then the first conversion wholly after it.
+ *        servo_move_window_ms() adds it to the window.
  */
-#define MOVE_LAG_MS        43u
+#define MOVE_LAG_MS        61u
 /** @brief The hold: the readings of this long after the move ended, ms. */
 #define MOVE_HOLD_MS       500u
 /** @brief A level before below minus this, mA, is a reversed sensor: not timed (rcbench's `SERVO_TEST_NEG_IDLE_A`). */

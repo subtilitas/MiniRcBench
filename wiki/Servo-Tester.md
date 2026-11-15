@@ -287,9 +287,15 @@ How to get a timed move:
 - The first time the servo goes to an end where it pushes against its stop,
   it reads `LATE`: the bench does not yet know how much it draws there. The
   next move to that end is timed.
-- The time is an upper bound. The sensor shows the arrival up to 43 ms
-  late (computed), and the pulse leaves up to 20 ms after the tap at 50 Hz. How
-  close it comes to the horn's real arrival is not measured.
+- The time is an upper bound on when the current shows the arrival. The
+  sensor shows it up to 61 ms late (computed: one reading and two of the
+  sensor's averaging periods), and the pulse leaves up to 20 ms after the
+  tap at 50 Hz. A servo that eases off near the target can fall to its
+  holding current while the horn still creeps, so the current can show the
+  arrival before the horn stops. How close the time comes to the horn's
+  real arrival is not measured.
+- With CURRENT SENSE at `NONE` nothing is timed, and the line stays as it
+  is.
 - The line goes at the next `HOLD TO START`, and it does not show while the
   screen has a two-line warning there.
 

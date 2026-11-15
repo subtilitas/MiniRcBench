@@ -471,12 +471,17 @@ static void servoJobStep(uint32_t nowMs, bool uiAlive) {
 		unbind();
 		s_written[0] = s_written[1] = 0;
 		s_bindError = bindAt(&p, s_core.ackSeq);
+		// The old profile's figure is not this one's.
+		moveTimerReset(&s_move, true);
 	}
 	ServoPowerIn in = powerIn(nowMs);
 	s_startBlock = servoPowerStartBlock(&s_power, &in);
 	bool taken = servoCoreTake(&s_core, &cmd, nowMs, uiAlive && s_startBlock == ServoStartBlock::None);
 	servoCoreStep(&s_core, nowMs, uiAlive);
 	servoPowerStep(&s_power, &s_core, &in, nowMs);
+	// The enable pin first: at a switch-off it goes low before level 0 on
+	// the pins, at a switch-on the pins stay at level 0 until the supply is up.
+	drivePower();
 	// The move timing reads what the rules above decided, and changes none of it.
 	MoveIn mi;
 	mi.sample = in.sample;
@@ -485,9 +490,6 @@ static void servoJobStep(uint32_t nowMs, bool uiAlive) {
 	mi.step = taken && servoStepCmd(&cmd);
 	mi.slewed = cmd.slewPerS != 0;
 	moveTimerStep(&s_move, &mi, nowMs);
-	// The enable pin first: at a switch-off it goes low before level 0 on
-	// the pins, at a switch-on the pins stay at level 0 until the supply is up.
-	drivePower();
 	output(nowMs);
 }
 
