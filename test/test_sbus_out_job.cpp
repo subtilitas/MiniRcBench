@@ -1683,6 +1683,29 @@ static int countOf(const std::string &text, const std::string &what) {
 }
 
 /**
+ * @brief Whether @p ui, ui_sbus_out.cpp with its comments blanked, has one
+ *        path to START: the Start only in startFrames(), whose name appears
+ *        twice, at its definition and in HOLD TO START's hold on the line
+ *        gated by startAllowed(); and startAllowed()'s one return a chain of
+ *        `&&` with no `|` and no `?` that ends in sbusOutProbePassed().
+ */
+static bool onePathToStart(const std::string &ui) {
+	const std::string start = bodyOf(ui, "static void startFrames() {");
+	if (countOf(start, "send(SbusOutCmdKind::Start);") != 1 || countOf(ui, "SbusOutCmdKind::Start") != 1)
+		return false;
+	static const std::regex START_NAME("\\bstartFrames\\b");
+	const long names = std::distance(std::sregex_iterator(ui.begin(), ui.end(), START_NAME),
+	                                 std::sregex_iterator());
+	if (names != 2 ||
+	    countOf(ui, "if (uiHoldUpdate(&s_hold, BTN_START, s_t, startAllowed(), now)) startFrames();") != 1)
+		return false;
+	const std::string gate = bodyOf(ui, "static bool startAllowed() {");
+	return countOf(gate, "return ") == 1 && countOf(gate, "sbusOutProbePassed()") == 1 &&
+	       countOf(gate, "|") == 0 && countOf(gate, "?") == 0 &&
+	       countOf(gate, "&& sbusOutProbePassed();") == 1;
+}
+
+/**
  * @brief Only S.BUS OUTPUT claims the output and commands it, and its one
  *        START runs through the screen's gate, sbusOutProbePassed()
  *        (docs/design/sbus-output.md, decision 1: the probe, and the screen
@@ -1785,20 +1808,35 @@ static void testOnlyPath() {
 
 	// The one START in S.BUS OUTPUT, behind the gate.
 	const std::string ui = stripComments(readFile("../src/ui_sbus_out.cpp"));
-	const std::string start = bodyOf(ui, "static void startFrames() {");
-	checkTrue("the START is sent in startFrames()",
-	          countOf(start, "send(SbusOutCmdKind::Start);") == 1 && countOf(ui, "SbusOutCmdKind::Start") == 1);
-	static const std::regex START_NAME("\\bstartFrames\\b");
-	const long startNames = std::distance(std::sregex_iterator(ui.begin(), ui.end(), START_NAME),
-	                                      std::sregex_iterator());
-	checkTrue("startFrames is named twice, its definition and HOLD TO START's call, gated by startAllowed()",
-	          startNames == 2 &&
-	          countOf(ui, "if (uiHoldUpdate(&s_hold, BTN_START, s_t, startAllowed(), now)) startFrames();") == 1);
-	const std::string gate = bodyOf(ui, "static bool startAllowed() {");
-	checkTrue("startAllowed() is one chain of conditions ending in sbusOutProbePassed()",
-	          countOf(gate, "return ") == 1 && countOf(gate, "sbusOutProbePassed()") == 1 &&
-	          countOf(gate, "|") == 0 && countOf(gate, "?") == 0 &&
-	          countOf(gate, "&& sbusOutProbePassed();") == 1);
+	checkTrue("the START is sent in startFrames(), named only at its definition and in HOLD TO START's "
+	          "hold, gated by startAllowed(), one chain ending in sbusOutProbePassed()",
+	          onePathToStart(ui));
+	// The same check on screens that bypass it.
+	const std::string defs = "static bool startAllowed() {\n\treturn !s_st.running && sbusOutProbePassed();\n}\n"
+	                         "static void startFrames() {\n\tsend(SbusOutCmdKind::Start);\n}\n";
+	const std::string hold = "\tif (uiHoldUpdate(&s_hold, BTN_START, s_t, startAllowed(), now)) startFrames();\n";
+	checkTrue("a screen of the gate, the START and the hold passes it", onePathToStart(defs + hold));
+	static const char *const BYPASS[] = {
+		"\tif (x) { void (*go)() = startFrames; go(); }\n",
+		"\tif (x) startFrames();\n",
+		"\tauto go = &startFrames;\n",
+		"\tsend(SbusOutCmdKind::Start);\n",
+	};
+	bool caught = true;
+	for (const char *b : BYPASS) caught &= !onePathToStart(defs + hold + b);
+	checkTrue("a pointer to startFrames, a second call and a second START each fail it", caught);
+	static const char *const GATES[] = {
+		"\treturn true ? true : !s_st.running && sbusOutProbePassed();",
+		"\treturn !s_st.running || sbusOutProbePassed();",
+		"\treturn !s_st.running | sbusOutProbePassed();",
+		"\treturn !s_st.running && !sbusOutProbePassed();",
+		"\tif (s_st.running) return true;\n\treturn !s_st.running && sbusOutProbePassed();",
+	};
+	caught = true;
+	for (const char *g : GATES)
+		caught &= !onePathToStart(std::string("static bool startAllowed() {\n") + g + "\n}\n"
+		                          "static void startFrames() {\n\tsend(SbusOutCmdKind::Start);\n}\n" + hold);
+	checkTrue("a ternary, an || or a |, a negation and a second return in the gate each fail it", caught);
 	checkTrue("a call in a comment is blanked, one in code is not",
 	          stripComments("x(); // pinClaimBegin(PinUser::SbusOut)\n/* a */ y(\"//\");")
 	              == "x(); \n y(\"//\");");
