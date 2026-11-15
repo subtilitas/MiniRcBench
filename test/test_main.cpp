@@ -46,6 +46,8 @@ void runBackupTests();
 void runSdCacheTests();
 void runDiagTests();
 void runRunSummaryTests();
+void runEscwireJobTests();
+void runEfm8ViewTests();
 void runClockTests();
 void runBridgeTests();
 void core1JobInit();
@@ -91,6 +93,8 @@ int main() {
 	runEscCmdUiTests();
 	runDiagTests();
 	runRunSummaryTests();
+	runEscwireJobTests();
+	runEfm8ViewTests();
 	runClockTests();
 	runBridgeTests();
 

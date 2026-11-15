@@ -569,7 +569,7 @@ static int     g_am32WriteSkews = 0;   /**< am32BlWrite() calls that store byte 
 static uint8_t g_am32Garble[16];       /**< A handshake reply other than an AM32 bootloader's. */
 static uint8_t g_am32GarbleLen = 0;    /**< Its length; 0: the handshake succeeds. */
 /** @brief The last handshake's answer, classified by the real blAnswerClassify(). */
-static BlAnswer g_am32Answer = { BlAnswerKind::Silent, 0, 0 };
+static BlAnswer g_am32Answer = { BlAnswerKind::Silent, 0, 0, false };
 static bool    g_am32Blank = false;    /**< Reads return an erased page. */
 static bool    g_am32Silent = false;   /**< Handshakes time out with no reply. */
 void fakeAm32FailWrites(int n) { g_am32WriteFails = n; }
@@ -581,7 +581,10 @@ void fakeAm32Garble(const uint8_t *b, uint8_t n) {
 }
 void fakeAm32Blank(bool on) { g_am32Blank = on; }
 void fakeAm32Silent(bool on) { g_am32Silent = on; }
+static int g_am32Handshakes = 0;  /**< am32BlHandshake() calls: greetings sent. */
+int fakeAm32Handshakes() { return g_am32Handshakes; }
 Am32Result am32BlHandshake(uint8_t *) {
+	g_am32Handshakes++;
 	// Nine bytes with F051's family byte fifth from the end and the ACK
 	// last, or the bytes a test set, through the classification the
 	// transport uses. The other bytes of an AM32 answer are not modelled.

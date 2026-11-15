@@ -9,9 +9,18 @@ is first looked up in the caller's file. A call to a function with no node
 (the C library, the SDK) counts 0 bytes and is listed.
 
 Fails when a chain passes --limit bytes, when a frame has no fixed size
-(dynamic), when a chain recurses, or when a root is not found.
+(dynamic), when a chain recurses, or when a root or an --indirect function
+is not found.
+
+A call through a function pointer has no edge in the .ci files. Each
+--indirect function names one such target: the deepest chain among them is
+added to every root's chain, as if the pointer call sat at the root's
+deepest point. That is an upper bound: where the pointer call sits is not
+read from the files.
 
     tools/stack_depth.py --limit 1792 --root hitecJobStep build/**/*.ci
+    tools/stack_depth.py --limit 1792 --root escwireJobStep \
+        --indirect ew_line_start --indirect ew_line_poll build/**/*.ci
 """
 
 import argparse
@@ -93,6 +102,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--limit", type=int, required=True, help="bytes a chain may take")
     ap.add_argument("--root", action="append", required=True, help="a root function's name")
+    ap.add_argument("--indirect", action="append", default=[],
+                    help="a function reached only through a function pointer")
     ap.add_argument("ci", nargs="+", help=".ci files")
     a = ap.parse_args()
 
@@ -103,6 +114,20 @@ def main():
             by_name.setdefault(name, []).append(title)
 
     errors, uncounted, worst = [], set(), 0
+    # The deepest of the functions called through pointers, added to each root.
+    extra, extra_chain = 0, []
+    for name in a.indirect:
+        titles = by_name.get(name, [])
+        if not titles:
+            errors.append(f"indirect {name} not found")
+            continue
+        for t in titles:
+            b, chain = deepest(t, nodes, edges, by_name, [], {}, uncounted, errors)
+            if b > extra:
+                extra, extra_chain = b, chain
+    if a.indirect:
+        print(f"through a pointer, at most: {extra} bytes")
+        print("  " + "\n  -> ".join(extra_chain))
     for root in a.root:
         titles = by_name.get(root, [])
         if not titles:
@@ -110,8 +135,9 @@ def main():
             continue
         for t in titles:
             b, chain = deepest(t, nodes, edges, by_name, [], {}, uncounted, errors)
+            b += extra
             worst = max(worst, b)
-            print(f"{root}: {b} bytes")
+            print(f"{root}: {b} bytes" + (f", {extra} of them through a pointer" if extra else ""))
             print("  " + "\n  -> ".join(chain))
     if uncounted:
         print("not counted, no frame known: " + ", ".join(sorted(uncounted)))
