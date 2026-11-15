@@ -208,7 +208,8 @@ nur eine Anzeige, eckig und 12 px hoch:
 
 Nach einer Sitzung in ESC SETTINGS, in der der Bootloader des ESC geantwortet
 hat, steht unter der Zeile eine zweite: `POWER-CYCLE THE ESC TO RUN IT` in
-Bernstein, bis ein eRPM-Frame eintrifft oder die Platine neu startet
+Bernstein, bis ein eRPM-Frame eintrifft, RESTART DSHOT auf der Verlassenseite
+von ESC SETTINGS getippt wird oder die Platine neu startet
 ([AM32-Konfiguration](AM32-Konfiguration#verlassen)).
 
 <img src="img/menu-no-esc.png" width="240" alt="MENU ohne angeschlossenen ESC: das Feld zeigt NO ESC"> <img src="img/menu-edt-off.png" width="240" alt="MENU mit einem ESC, der eRPM und kein EDT sendet: das Feld zeigt EDT OFF in Rot">
@@ -233,7 +234,7 @@ Lage.
 
 | Zeile | Zustand rechts | Ein Tippen |
 |---|---|---|
-| **BEEP THE ESC** | `DISARMED`; 350 ms nach einem Tippen `SENT` oder `REFUSED` | Sendet den DShot-Beacon-Befehl, der Motor piept. Damit erkennst du, welcher ESC angeschlossen ist |
+| **BEEP THE ESC** | `DISARMED`; 350 ms nach einem Tippen `SENT` oder `REFUSED` | Sendet den DShot-Beacon-Befehl, der Motor piept. Damit erkennst du, welcher ESC angeschlossen ist. Braucht einen ESC, der antwortet, einen stehenden Motor und 1,5 s, seit der ESC antwortet |
 | **ESC CONFIG** | nichts | Öffnet ESC CONFIG, die Wahl der ESC-Werkzeuge. Siehe [ESC CONFIG](#esc-config) |
 | **SERVO TESTER** | nichts | Öffnet den Servotester |
 | **SERVO PROGRAMMER** | nichts | Öffnet PROGRAMMER, die Wahl des Servo-Programmierers. Siehe [PROGRAMMER](#programmer) |
@@ -252,11 +253,15 @@ belegt keinen Pin und bleibt bedienbar.
 <img src="img/menu-restarting.png" width="240" alt="MENU nach oben gezogen, während DShot neu startet: DSHOT RESTARTING ON SIG GP0 in der Leiste, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS und SETTINGS als Umriss">
 
 BEEP funktioniert nur im entschärften Zustand, und das Öffnen von `MENU`
-entschärft, daher ist es von hier aus immer erlaubt. Der Befehl dauert 6 ms
-(6 Frames bei 1 kHz). Der Bildschirm wird alle 25 ms neu gezeichnet, daher ist
-die Zeile nach jeder Betätigung 350 ms lang gefüllt: weiß mit `SENT`, oder
-bernsteinfarben mit `REFUSED`. `REFUSED` ist die Antwort, wenn der ESC scharf
-ist. Das Öffnen von `MENU` entschärft, daher ist es nicht zu erwarten.
+entschärft. Es braucht außerdem einen ESC, der antwortet: `REFUSED`, solange
+seit 500 ms keine eRPM-Antwort kam, solange der Motor dreht und 1,5 s lang,
+nachdem der ESC zu antworten beginnt. AM32 nimmt einen Befehl erst nach einer
+Sekunde Nullgas an. Der Befehl dauert 6 ms (6 Frames bei 1 kHz), danach
+folgen 260 ms Nullgas vor dem nächsten Befehl. Der Bildschirm wird alle 25 ms
+neu gezeichnet, daher ist die Zeile nach jeder Betätigung 350 ms lang
+gefüllt: weiß mit `SENT`, oder bernsteinfarben mit `REFUSED`. `SENT` heißt,
+der Beacon steht an: ein zweites Tippen während des ersten wartet auf ihn,
+höchstens 2 s.
 
 <img src="img/menu-beep-flash.png" width="240" alt="BEEP angenommen"> <img src="img/menu-beep-refused.png" width="240" alt="BEEP abgelehnt, weil der ESC scharf ist">
 

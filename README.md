@@ -515,7 +515,7 @@ the tester's pole count or ceiling, whose **BACK** returns to the tester.
 
 | Row | State on the right | A tap |
 |---|---|---|
-| **BEEP THE ESC** | `DISARMED`; for 350 ms after a tap, `SENT` or `REFUSED` | Sends `DSHOT_CMD_BEACON1` for 6 frames (`BEEP_REPEATS`), 6 ms at 1 kHz. Use it to identify which ESC is connected |
+| **BEEP THE ESC** | `DISARMED`; for 350 ms after a tap, `SENT` or `REFUSED` | Sends beacon 1, `DSHOT_CMD_BEEP1`, for 6 frames (`BEEP_REPEATS`), 6 ms at 1 kHz, then 260 ms of zero throttle (`ESC_CMD_BEEP_GAP_MS`). Refused while no ESC answers, while the motor turns, and for 1500 ms after an ESC starts answering (`ESC_CMD_SETTLE_MS`). Use it to identify which ESC is connected |
 | **ESC CONFIG** | nothing | Opens ESC CONFIG, the chooser of the ESC tools: ESC SETTINGS, and USB BRIDGE drawn disabled, `NOT BUILT`. See [AM32 ESC configuration](#am32-esc-configuration) |
 | **SERVO TESTER** | nothing | Opens the servo tester. See [Servo tester](#servo-tester) |
 | **SERVO PROGRAMMER** | nothing | Opens PROGRAMMER, the chooser of the servo programmers: KST / CHASERVO, HITEC D SERIES, HITEC CLASSIC. See below |
@@ -528,9 +528,14 @@ bench. A tool row shows no state: the strip names the pins.
 
 - **BEEP flash**: a tap fills the row for 350 ms (`BEEP_FLASH_MS`): white
   with `SENT`, amber with `REFUSED`. Without it a 6 ms command is not visible
-  against a 25 ms repaint. BEEP is refused while armed. Opening MENU disarms,
-  so the refusal is not reachable through the UI; the flash stays as a
-  backstop.
+  against a 25 ms repaint. BEEP goes through the DShot pump's command slot
+  (see [Telemetry and logging](#telemetry-and-logging)) and is refused while
+  no eRPM answer has arrived for 500 ms (`ESC_LINK_STALE_MS`), while the last
+  eRPM answer is not 0, and for 1500 ms after the ESC starts answering.
+  It is also refused while armed; opening MENU disarms, so that refusal is a
+  backstop. `SENT` means the slot took the request: while an EDT enable or
+  an earlier beacon and its gap go out, the beacon waits, at most 2000 ms
+  (`ESC_CMD_WAIT_MS`), and is dropped if it cannot start by then.
 - **DSHOT RESTARTING**: SERVO TESTER claims the signal pins, ESC CONFIG's
   ESC SETTINGS claims SIG, SERVO PROGRAMMER's entries open the KST and Hitec
   programmers, which claim SIG, RX SIGNALS' MONITOR claims GP1, and SETTINGS
@@ -879,6 +884,25 @@ At the 1 kHz frame rate the enable at pump start takes 10 ms. Arming
 during it sends the throttle on the next frame and drops the rest of the
 enable. A BEEP and the first KISS telemetry request wait for its end.
 
+The enable shares the wire with one command slot on core1, which sends
+DShot commands 1 to 5 (beacons), 12 (save settings), and 7 to 10
+(direction, 3D mode) with 12 after them. The slot is slice 1 of the design
+note `docs/design/esc-commands.md`; MENU's BEEP is its only user.
+A command starts only while all of these hold: disarmed, an eRPM answer
+younger than 500 ms, the last eRPM answer 0, the ESC answering for 1500 ms
+(`ESC_CMD_SETTLE_MS`; AM32 takes commands only after more than 1 s of zero
+input), and no enable or other command on the wire. A beacon is 6 frames,
+then 260, 260, 280, 280 or 1020 ms of zero throttle for beacons 1 to 5
+(`ESC_CMD_BEEP_GAP_MS`). Commands 7 to 10 and 12 are 10 frames each
+(`DSHOT_CMD_REPEATS`), each followed by 300 ms of zero throttle
+(`ESC_CMD_GAP_MS`): AM32 acts on the sixth equal frame, Bluejay and BLHeli_S
+on the seventh. Every command frame carries the telemetry bit, without which
+Bluejay and BLHeli_S drop it. For 7 to 10 and 12, frames 1 to 6 of each
+block of 10 need an answer, eRPM or EDT; one of frames 1 to 5 may go
+unanswered, and a second, or none to frame 6, stops the block. An arm drops
+the command. No scheduled enable goes out between a command and its save,
+and no KISS request goes out during a command's frames.
+
 An ESC that is not yet ready for commands ignores that enable, and it does
 not count as an attempt. While an ESC answers with eRPM and no EDT frame has
 arrived for `EDT_STALE_MS` (1000 ms), the enable is sent again every
@@ -894,8 +918,9 @@ sent only when all of these hold:
   valid zero-throttle frames;
 - the tester is disarmed and eRPM is zero. DShot commands execute only with
   the motor stopped, and a motor coasts for seconds after a disarm;
-- no other command is on the wire. An ESC executes a command only after a run
-  of identical frames, so a BEEP inside an enable would break both.
+- no other command is on the wire, its gap of zero throttle included. An ESC
+  executes a command only after a run of identical frames, so a BEEP inside
+  an enable would break both.
 
 Every reading expires. An EDT field not refreshed for `EDT_STALE_MS` (1 s)
 shows `--`. RPM shows a dark red zero, and the line under it reads
@@ -1051,6 +1076,10 @@ nothing for those six. The SETTINGS note line says which set is in use.
 | `ESC_LINK_STALE_MS` | `500` | Time without eRPM before the ESC counts as gone. Resets the automatic EDT enable |
 | `EDT_RETRY_MS` | `1000` | Interval between EDT enables while eRPM arrives and EDT does not |
 | `EDT_SETTLE_MS` | `300` | Time the link must be up before the first repeated EDT enable. The enable at pump start does not wait |
+| `ESC_CMD_SETTLE_MS` | `1500` | Time the link must be up before a DShot command (BEEP) starts |
+| `ESC_CMD_GAP_MS` | `300` | Zero-throttle frames after each block of 10 frames of commands 7 to 10 and 12 |
+| `ESC_CMD_BEEP_GAP_MS` | `260, 260, 280, 280, 1020` | Zero-throttle frames after beacons 1 to 5 |
+| `ESC_CMD_WAIT_MS` | `2000` | A command request that cannot start within this time is dropped |
 | `KISS_REPLY_TIMEOUT_MS` | `10` | Abandon an incomplete reply after this long; affects only the timeout counter |
 | `SD_LOG_ENABLE` | `1` | Compile the logging path in at all |
 | `SD_LOG_SDIO_HZ` | `10 MHz` | SDIO card clock |
@@ -2378,7 +2407,7 @@ src/
   board_pins.h          includes the board's pin map
   board_rp2350_touch_lcd_2_8.h  the pin map itself, from the schematic
   board_desc.{h,cpp}    the pins and defaults the drivers and settings read, as data
-  esc_task.{h,cpp}      core1 DShot pump, EDT decode, cross-core state
+  esc_task.{h,cpp}      core1 DShot pump, command slot, EDT decode, cross-core state
   pin_claim.{h,cpp}     one screen at a time takes the two signal pins from DShot; the PIN_USERS table
   core1_job.{h,cpp}     the core1 job on the claimed pins: start, bind, step, stop
   dshot/                bidirectional DShot, from rcbench
@@ -2450,7 +2479,7 @@ src/
   tusb_config.h         TinyUSB configuration
 lib/rcbench/            rcbench files copied unchanged: servo sweep, GPIO-to-PWM fold,
                         KST core and line driver, KST file store, Hitec core,
-                        S.BUS decoder, sensor bus
+                        S.BUS decoder, sensor bus, escwire core and line driver
 tools/
   sdtest/               standalone SD bring-up test, 2.8" only; built locally, never released
   make_previews.py      restitches docs/*.png and wiki/img/ from the test suite's frames
@@ -2470,8 +2499,10 @@ files copied unchanged into `lib/rcbench/` with rcbench's own layout
 (`lib/rcbench/README.md`): the sweep curve, the GPIO-to-PWM map, the KST
 programming core with its RP2350 line driver, the KST file store, and the
 Hitec programming core with its RP2350 line driver, servo file text and CRC,
-the S.BUS (Futaba's serial bus for receiver channels) decoder, and the
-current sensor's bus record (`sense_bus.c`). Files include each other as plain
+the S.BUS (Futaba's serial bus for receiver channels) decoder, the
+current sensor's bus record (`sense_bus.c`), and the escwire core for ESC
+settings over the signal wire with its RP2350 line driver, which nothing
+calls yet. Files include each other as plain
 siblings, except two drivers with folders of their own: the DShot
 driver in `src/dshot/`, so that it can be compared with its rcbench original,
 and the SDIO card driver in `src/sdio/`, whose `compat/` headers have to keep
@@ -2500,7 +2531,12 @@ those files as C11 programs: `test/rcbench/test_servo_sweep.c` and
 `test_hitec_wire.c`, `test_hitec_pre.c`, `test_hitec_pio.c`,
 `test_hitec_reg.c`, `test_hitec_reg_plan.c`, `test_hitec_session.c`,
 `test_hitec_session_write.c` and `test_hitec_card.c`, with
-`hitec_headers.cpp` built as C++11, and `test_sbus.c` (12 cases). The SDIO
+`hitec_headers.cpp` built as C++11, `test_sbus.c` (12 cases), and the
+twelve escwire tests `test_ew_a.c`, `test_ew_id.c`, `test_ew_map.c`,
+`test_ew_guard.c`, `test_ew_session.c`, `test_ew_session_write.c`,
+`test_ew_file.c`, `test_ew_file_load.c`, `test_ew_pio.c`, `test_ew_text.c`,
+`test_ew_session_text.c` and `test_ew_file_e32.c` (210 cases), with
+`escwire_headers.cpp` built as C++11. The SDIO
 tests run the card protocol against a simulated card. Time is virtual and
 counted in microseconds — `millis()` advances only when a test says so — which
 makes hold-to-arm, hold-to-write and gesture repeat deterministic rather than
@@ -2801,6 +2837,9 @@ the list.
   by the same copyright holder under the same MIT licence.
 - The S.BUS decoder in `lib/rcbench/` comes from rcbench at commit 5ef42efd,
   by the same copyright holder under the same MIT licence.
+- The escwire core, its RP2350 line driver and the servo file store in
+  `lib/rcbench/` come from rcbench at commit 2b4f934a, by the same copyright
+  holder under the same MIT licence.
 - [logwiju](https://subtilitas.github.io/logwiju/): the browser-based blackbox viewer
   for these logs.
 - [DShot — the missing handbook](https://brushlesswhoop.com/dshot-and-bidirectional-dshot/)

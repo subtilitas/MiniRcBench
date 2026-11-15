@@ -2562,14 +2562,14 @@ static uint16_t simEscFrame(SimEsc *esc, uint16_t value) {
  * escFoldReply(), escPumpSlot(), escEdtForget() and escPumpFrameSent(), the
  * functions escTaskPoll() calls. What is modelled here is only what the PIO
  * driver, core0 and the clock do: one frame per millisecond, its reply read
- * one slot later, and the beacon request core0 raises.
+ * one slot later, and the command request core0 raises.
  */
 struct SimPump {
 	EscPump  pump;
 	EscTelemetry tel;
 	bool     armed;
 	uint16_t throttle;
-	uint8_t  beepReq;       /**< core0's s_beepReq. */
+	EscCmdRequest req;      /**< core0's s_cmdReq. */
 	bool     kissRx;        /**< A KISS receiver runs. */
 	unsigned kissReqs;      /**< Frames sent with the KISS request bit. */
 	uint32_t ms;            /**< millis() of the slot about to run. */
@@ -2609,13 +2609,12 @@ static void simSlot(SimPump *p, SimEsc *esc) {
 
 	// 2. The decision, and what core1 does with it.
 	EscSlot s = escPumpSlot(&p->pump, &p->tel, p->armed, true, p->throttle,
-	                        p->beepReq, p->kissRx, ms);
+	                        &p->req, r, p->kissRx, ms);
 	if (s.forgetEdt) escEdtForget(&p->tel);
-	if (s.beepTaken) p->beepReq = 0;
+	if (s.cmdTaken) p->req.cmd = 0;
 	const EscFrame &f = s.frame;
-	uint16_t value = f.sendCommand
-	               ? f.command
-	               : (uint16_t)(kissBuildDshotPayload(f.throttle, f.requestKiss) >> 1);
+	bool telemetry;
+	uint16_t value = escFrameWire(&f, &telemetry);
 	if (f.requestKiss) p->kissReqs++;
 	escPumpFrameSent(&p->pump, &f, ms);
 
@@ -2662,6 +2661,14 @@ static unsigned simBurstStarts(const SimPump *p, unsigned from, unsigned to,
 		}
 	}
 	return n;
+}
+
+/** @brief Slot @p from starts a run of exactly @p n frames of @p value. */
+static bool simRunOf(const SimPump *p, unsigned from, unsigned n, uint16_t value) {
+	if (from > 0 && p->sent[from - 1] == value) return false;
+	for (unsigned i = 0; i < n; i++)
+		if (p->sent[from + i] != value) return false;
+	return p->sent[from + n] != value;
 }
 
 static SimPump s_sim;   // 210 kB, most of it trace: static, not on the stack
@@ -2835,18 +2842,25 @@ static void testEdtBindBurstRules() {
 	n = simBurstStarts(p, from, p->slot, starts, 16);
 	checkInt("disarmed: the enable follows on the settled link", (long)n, 1);
 
-	// A beacon asked for at the bind waits for the burst.
+	// A beacon asked for during a scheduled enable waits for the burst. The
+	// ESC has answered for more than ESC_CMD_SETTLE_MS, without EDT, so the
+	// enable is retried every second.
 	memset(&esc, 0, sizeof(esc));
 	esc.present = esc.ready = true;
 	simBoot(p, 5000);
-	p->beepReq = 2;
-	simRun(p, &esc, EDT_ENABLE_REPEATS);
-	checkInt("beacon: the request waits for the enable", p->beepReq, 2);
+	simRun(p, &esc, ESC_CMD_SETTLE_MS + 100);
+	while (p->pump.edt.reps == 0) simRun(p, &esc, 1);
+	unsigned burst = p->slot - 1;
+	p->req = {DSHOT_CMD_BEEP2, false, p->ms};
+	simRun(p, &esc, 3);
+	checkInt("beacon: the request waits for the enable", p->req.cmd, DSHOT_CMD_BEEP2);
 	simRun(p, &esc, 10);
-	checkInt("beacon: and is taken after it", p->beepReq, 0);
-	checkTrue("beacon: the enable is the first 10 frames", simBindBurstAt(p, 0));
-	checkInt("beacon: frame 11 is the beacon", p->sent[EDT_ENABLE_REPEATS],
-	         DSHOT_CMD_BEEP2);
+	checkInt("beacon: and is taken after it", p->req.cmd, 0);
+	simRun(p, &esc, 20);
+	checkTrue("beacon: the enable is 10 frames, unbroken",
+	          simRunOf(p, burst, EDT_ENABLE_REPEATS, DSHOT_CMD_EDT_ENABLE));
+	checkTrue("beacon: the next frames are the beacon",
+	          simRunOf(p, burst + EDT_ENABLE_REPEATS, BEEP_REPEATS, DSHOT_CMD_BEEP2));
 
 	// An ESC that kept EDT on is unplugged and plugged back in. The link
 	// loss clears the request state and the EDT fields; the replies after
@@ -2870,14 +2884,6 @@ static void testEdtBindBurstRules() {
 	         (long)simBurstStarts(p, back, p->slot, starts, 16), 0);
 }
 
-/** @brief Slot @p from starts a run of exactly @p n frames of @p value. */
-static bool simRunOf(const SimPump *p, unsigned from, unsigned n, uint16_t value) {
-	if (from > 0 && p->sent[from - 1] == value) return false;
-	for (unsigned i = 0; i < n; i++)
-		if (p->sent[from + i] != value) return false;
-	return p->sent[from + n] != value;
-}
-
 /** @brief The first slot from @p from whose frame carried the KISS request bit. */
 static unsigned simNextKiss(const SimPump *p, unsigned from) {
 	for (unsigned i = from; i < p->slot && i < SIM_SLOTS; i++)
@@ -2898,11 +2904,14 @@ static void testKissCadence() {
 
 	SimPump *p = &s_sim;
 	SimEsc esc;
-	memset(&esc, 0, sizeof(esc));   // nothing connected: no scheduled enable
+	// An ESC that kept EDT on: it answers, so a beacon can start, and EDT
+	// arrives, so no scheduled enable goes out.
+	memset(&esc, 0, sizeof(esc));
+	esc.present = esc.canEdt = esc.edt = esc.ready = true;
 
 	simBoot(p, 5000);
 	p->kissRx = true;
-	simRun(p, &esc, 200);
+	simRun(p, &esc, ESC_CMD_SETTLE_MS + 100);
 	checkInt("first request on the first free frame",
 	         (long)simNextKiss(p, 0), EDT_ENABLE_REPEATS);
 	unsigned r = simNextKiss(p, 100);
@@ -2914,7 +2923,7 @@ static void testKissCadence() {
 	unsigned last = r;
 	while (simNextKiss(p, last + 1) < at) last = simNextKiss(p, last + 1);
 	simRun(p, &esc, last + KISS_REQUEST_EVERY_N - at);
-	p->beepReq = 1;
+	p->req = {DSHOT_CMD_BEEP1, false, p->ms};
 	simRun(p, &esc, 100);
 	unsigned due = last + KISS_REQUEST_EVERY_N;
 	checkTrue("beacon: it takes the due slot", p->sent[due] == DSHOT_CMD_BEEP1);
@@ -2926,23 +2935,24 @@ static void testKissCadence() {
 	// while armed, and no beacon goes out after the disarm.
 	for (int waiting = 0; waiting < 2; waiting++) {
 		memset(&esc, 0, sizeof(esc));
+		esc.present = esc.canEdt = esc.edt = esc.ready = true;
 		simBoot(p, 5000);
 		p->kissRx = true;
-		simRun(p, &esc, waiting ? 3 : 100);
-		p->beepReq = 3;
+		simRun(p, &esc, waiting ? 3 : ESC_CMD_SETTLE_MS + 100);
+		p->req = {DSHOT_CMD_BEEP3, false, p->ms};
 		simRun(p, &esc, waiting ? 2 : 3);
 		if (!waiting)
 			checkTrue("arm mid-beacon: the beacon is going out, frames owed",
 			          p->sent[p->slot - 1] == DSHOT_CMD_BEEP3 &&
-			          p->pump.beepReps > 0);
+			          escCmdInBlock(&p->pump.seq));
 		else
-			checkInt("arm in the enable: the beacon waits", p->beepReq, 3);
+			checkInt("arm in the enable: the beacon waits", p->req.cmd, DSHOT_CMD_BEEP3);
 		p->armed = true;
 		p->throttle = 100;
 		unsigned armedAt = p->slot;
 		simRun(p, &esc, 200);
 		checkInt(waiting ? "arm in the enable: the request is taken"
-		                 : "arm mid-beacon: no request left", p->beepReq, 0);
+		                 : "arm mid-beacon: no request left", p->req.cmd, 0);
 		unsigned k = simNextKiss(p, armedAt);
 		checkTrue(waiting ? "arm in the enable: a request within 20 frames"
 		                  : "arm mid-beacon: a request within 20 frames",
@@ -3059,21 +3069,25 @@ static void testEdtStepRules() {
 	          n == 1 && starts[0] == disarmAt &&
 	          simRunOf(p, disarmAt, EDT_ENABLE_REPEATS, DSHOT_CMD_EDT_ENABLE));
 
-	// A beacon that is going out when the scheduled enable falls due keeps
-	// the wire, and the enable follows it.
+	// A beacon that is going out when a scheduled enable falls due keeps the
+	// wire, and the enable follows the end of its gap, 280 ms for beacon 3.
+	// The ESC answers without EDT, so the enable is retried every second;
+	// the beacon starts 3 ms before the retry after the 1500 ms settle.
 	memset(&esc, 0, sizeof(esc));
 	esc.present = esc.ready = true;
 	simBoot(p, 5000);
-	const unsigned due = 1 + EDT_SETTLE_MS;
-	simRun(p, &esc, due - 3);
-	p->beepReq = 3;
-	simRun(p, &esc, 100);
+	simRun(p, &esc, ESC_CMD_SETTLE_MS + 700);
+	n = simBurstStarts(p, 0, p->slot, starts, 16);
+	const unsigned due = starts[n - 1] + EDT_RETRY_MS + EDT_ENABLE_REPEATS - 1;
+	simRun(p, &esc, due - 3 - p->slot);
+	p->req = {DSHOT_CMD_BEEP3, false, p->ms};
+	simRun(p, &esc, 400);
 	checkTrue("beacon: all 6 frames, unbroken",
 	          simRunOf(p, due - 3, BEEP_REPEATS, DSHOT_CMD_BEEP3));
 	n = simBurstStarts(p, due - 3, p->slot, starts, 16);
 	checkInt("beacon: one enable after it", (long)n, 1);
-	checkTrue("beacon: on the next frame, 10 frames long",
-	          n == 1 && starts[0] == due - 3 + BEEP_REPEATS &&
+	checkTrue("beacon: on the frame after its gap, 10 frames long",
+	          n == 1 && starts[0] == due - 3 + BEEP_REPEATS + 280 &&
 	          simRunOf(p, starts[0], EDT_ENABLE_REPEATS, DSHOT_CMD_EDT_ENABLE));
 }
 
@@ -5469,6 +5483,71 @@ static void testAm32Efm8() {
 		checkTrue("the run cue cleared", !s_blReached && !menuRunCueShown());
 		checkTrue("the claim ends", pinClaimState() == ClaimState::Free);
 		fakeAm32Garble(nullptr, 0);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: after an EFM8 answer, BACK from the list opens the leave page");
+	{
+		am32NoCard();
+		fakeAm32Garble(EFM8_ANSWER, sizeof(EFM8_ANSWER));
+		enterAm32(4);
+		fakeAm32Garble(nullptr, 0);
+		frames(2);
+		checkTrue("a later AM32 answer: the list, the leave page kept",
+		          s_state == S_LIST && pinClaimLeavePage());
+		int resumes = fakeResumeCount();
+		checkTrue("POLES steps", am32Step("POLES"));
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("one change: the first BACK arms the guard", s_state == S_LIST && s_guard.armed);
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("the second BACK: the leave page, not MENU", uiCurrentScreen() == UiScreenId::Am32 &&
+		          s_state == S_LEAVE);
+		checkTrue("and no DShot", fakeResumeCount() == resumes && escTaskSuspended());
+		tapId(UI_FIX(Am32Ctl::Stay));
+		checkTrue("STAY: the list, the edit kept, the guard disarmed",
+		          s_state == S_LIST && anyDirty() && !s_guard.armed);
+		tapId(UI_FIX(Am32Ctl::Hex));
+		checkTrue("ESC HEX", s_state == S_LIST && s_hexView);
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK on ESC HEX: the list, not the leave page", s_state == S_LIST && !s_hexView);
+		tapId(UI_FIX(UI_BACK));
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("the guard's second BACK again: the leave page", s_state == S_LEAVE);
+		tapId(UI_FIX(Am32Ctl::Leave));
+		frames(45);
+		tapId(UI_FIX(Am32Ctl::Restart));
+		checkTrue("LEAVE, then RESTART DSHOT: MENU, DShot asked back once",
+		          uiCurrentScreen() == UiScreenId::Menu && fakeResumeCount() == resumes + 1);
+		frames(2);
+		checkTrue("the claim ends, the cue cleared", pinClaimState() == ClaimState::Free && !s_blReached);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: after an EFM8 answer, BACK from the read-only view opens the leave page");
+	{
+		const uint8_t lay = fakeEscByte(AM32_OFF_LAYOUT_REVISION);
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 5);
+		fakeAm32Garble(EFM8_ANSWER, sizeof(EFM8_ANSWER));
+		enterAm32(4);
+		fakeAm32Garble(nullptr, 0);
+		frames(2);
+		checkTrue("a later AM32 answer, layout 5: the read-only view, the leave page kept",
+		          s_state == S_VIEW && pinClaimLeavePage());
+		int resumes = fakeResumeCount();
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: the leave page, no DShot", s_state == S_LEAVE && fakeResumeCount() == resumes &&
+		          escTaskSuspended());
+		tapId(UI_FIX(Am32Ctl::Stay));
+		checkTrue("STAY: the read-only view", s_state == S_VIEW);
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK again: the leave page", s_state == S_LEAVE);
+		tapId(UI_FIX(Am32Ctl::Leave));
+		frames(45);
+		tapId(UI_FIX(Am32Ctl::Restart));
+		checkTrue("LEAVE, then RESTART DSHOT: MENU, DShot asked back once",
+		          uiCurrentScreen() == UiScreenId::Menu && fakeResumeCount() == resumes + 1);
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, lay);
+		frames(2);
 		tapId(UI_FIX(UI_BACK));
 	}
 

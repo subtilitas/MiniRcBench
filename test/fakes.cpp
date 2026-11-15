@@ -619,19 +619,39 @@ void escSetPoles(uint8_t p) { g_poles = p < 2 ? 2 : p; }
 static uint32_t g_heartbeatMs = 0;
 void escHeartbeat() { g_heartbeatMs = millis(); }
 uint32_t escHeartbeatMs() { return g_heartbeatMs; }
-// Mirrors the two-line rule in esc_task.cpp: the command is refused while
-// armed. esc_task.cpp cannot be linked here (PIO, UART), so this is a copy --
-// but the thing under test is what the UI does with the answer, and that is
-// the shipped code.
-// The counter now increments only when the command is actually queued, as
-// production does. Counting refused requests too meant a test asserting "the
-// button sent the command" passed for a request the ESC never saw.
-static int g_beepRequests = 0;
+// Core0's side of the command slot. esc_task.cpp cannot be linked here (PIO,
+// UART), so the request side is a copy -- but its rule is the shipped
+// escCmdAccept(), and escRequestBeep() is the header's own inline. The
+// readiness core1 would publish is set by the test (fakeSetCmdReady()); the
+// default, Ready, is an ESC that has answered for 1500 ms with the motor
+// stopped. The counter increments only when the request is taken, as
+// production queues it only then. Counting refused requests too meant a test
+// asserting "the button sent the command" passed for a request the ESC never
+// saw.
+static int         g_beepRequests = 0;
+static uint8_t     g_lastCmd = 0;
+static bool        g_lastSave = false;
+static int         g_cmdCancels = 0;
+static EscCmdReady g_cmdReady = EscCmdReady::Ready;
 int  fakeBeepRequests() { return g_beepRequests; }
-bool escRequestBeep(uint8_t) {
-	if (g_armed) return false;
+uint8_t fakeLastCommand(bool *save) {
+	if (save) *save = g_lastSave;
+	return g_lastCmd;
+}
+int  fakeCommandCancels() { return g_cmdCancels; }
+void fakeSetCmdReady(EscCmdReady r) { g_cmdReady = r; }
+bool escRequestCommand(uint8_t cmd, bool save) {
+	if (!escCmdAccept(cmd, save, g_armed, g_cmdReady)) return false;
 	g_beepRequests++;
+	g_lastCmd = cmd;
+	g_lastSave = save;
 	return true;
+}
+void escCancelCommand() { g_cmdCancels++; }
+EscCmdReady escCommandReady() { return g_cmdReady; }
+EscCmdState escCommandState(uint8_t *cmd) {
+	if (cmd) *cmd = g_lastCmd;
+	return EscCmdState::Idle;
 }
 // Settable, because production only reports true once an ESC has answered and
 // been sent an enable -- so a hardcoded true made the DS600 chip's two states
@@ -651,7 +671,7 @@ void escSnapshot(EscTelemetry *o) { *o = g_tel; }
 // rest of escTaskPoll() is not modelled: no PIO, no reply is read or folded
 // into the telemetry, there is no 1 ms frame timing (one pass sends one frame,
 // however much time has passed), and escPumpSlot() is given uiAlive true, no
-// beacon request and no KISS receiver. Core1 is not a thread here:
+// command request, no reply and no KISS receiver. Core1 is not a thread here:
 // fakePumpPoll() is one pass, and the tests call it between UI frames, so a
 // suspend, a drain and a rebuild each take as many passes as a test gives them.
 static EscPump    g_pump;
@@ -663,6 +683,7 @@ static bool       g_resumeJobIdle = true;
 
 void fakePumpPoll() {
 	uint32_t ms = millis();
+	const EscCmdRequest noRequest = {0, false, 0};
 	EscHandover h = escHandoverStep(g_suspendReq, g_rebuildReq, g_pumpUp,
 	                                g_pump.lastThrottleMs, ms);
 	if (h == EscHandover::Teardown) {
@@ -682,8 +703,8 @@ void fakePumpPoll() {
 	}
 	EscSlot slot = h == EscHandover::Drain
 	             ? escDrainSlot()
-	             : escPumpSlot(&g_pump, &g_tel, g_armed, true, g_throttle, 0,
-	                           false, ms);
+	             : escPumpSlot(&g_pump, &g_tel, g_armed, true, g_throttle,
+	                           &noRequest, DSHOT_REPLY_NONE, false, ms);
 	escPumpFrameSent(&g_pump, &slot.frame, ms);
 }
 

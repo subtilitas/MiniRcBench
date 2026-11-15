@@ -294,7 +294,8 @@ void pinClaimRetry(PinUser who);
  *        restarts only on RESTART DSHOT. Core0.
  *
  * Acts only while @p who holds the claim and it is Stopping, Held or
- * Running. It lasts until the claim is Free. ESC SETTINGS calls it when an
+ * Running. It lasts until the claim is Free. A claim still Stopping has
+ * driven nothing on SIG and resumes at once. ESC SETTINGS calls it when an
  * EFM8 bootloader answers its greeting.
  *
  * @param who The screen.

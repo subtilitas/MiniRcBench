@@ -3,7 +3,8 @@
 The files under this directory are copied from
 [rcbench](https://github.com/subtilitas/rcbench) with their text unchanged:
 the Hitec files at commit `3e29dc1b`, the S.BUS files and the sensor bus at
-commit `5ef42efd`, every other file at commit `453cf334`. rcbench is MIT
+commit `5ef42efd`, the escwire files and the servo file store at commit
+`2b4f934a`, every other file at commit `453cf334`. rcbench is MIT
 licensed by the same copyright holder as MiniRcBench, subtilitas, so the
 copies carry the licence of this repository, [LICENSE](../../LICENSE). Each
 file keeps its `SPDX-License-Identifier: MIT` line. The directory layout is
@@ -41,6 +42,18 @@ The S.BUS files and the sensor bus, at commit `5ef42efd`:
 | `protocols/sbus/include/sbus.h` | `protocols/sbus/include/sbus.h` |
 | `shared/sense/sense_bus.c` | `shared/sense/sense_bus.c` |
 | `shared/sense/include/sense_bus.h` | `shared/sense/include/sense_bus.h` |
+
+The escwire files and the servo file store, at commit `2b4f934a`
+(`2b4f934ad6b6d67f20b46d5ba80001c091e14b89`):
+
+| File here | rcbench path |
+| --- | --- |
+| `protocols/escwire/ew_wire.c`, `ew_pio.c`, `ew_a.c`, `ew_text.c`, `ew_guard.c`, `ew_id.c`, `ew_map.c`, `ew_map_s.c`, `ew_map_bj.c`, `ew_map_am.c`, `ew_map_e32.c`, `ew_session.c`, `ew_session_text.c`, `ew_file.c`, `ew_file_read.c`, `ew_file_load.c` | the same paths |
+| `protocols/escwire/ew_session_int.h`, `ew_file_int.h` | the same paths |
+| `protocols/escwire/include/ew_wire.h`, `ew_pio.h`, `ew_a.h`, `ew_text.h`, `ew_guard.h`, `ew_id.h`, `ew_map.h`, `ew_session.h`, `ew_file.h` | the same paths |
+| `protocols/escwire/rp2350/ew_line.c`, `ew_line.h`, `ew_line.pio` | the same paths |
+| `shared/logfile/servo_store.c` | `shared/logfile/servo_store.c` |
+| `shared/logfile/include/servo_store.h` | `shared/logfile/include/servo_store.h` |
 
 The servo tester uses them: `servo_sweep` computes the sweep curve on core1,
 and `out_pwm_map` maps each GPIO (general-purpose input/output) to its PWM
@@ -109,9 +122,34 @@ Its rcbench test, copied unchanged from rcbench `test/host/test_sbus.c` into
 `test/rcbench/`, is `test_sbus.c`, 12 cases.
 rcbench's `README.md` and `CMakeLists.txt` of the module are not copied:
 this repository lists its sources in its own `.cmake` and `.mk` files.
+
 `sbus.h` cites `(NOTICE, "Trademarks")`: that NOTICE file is rcbench's, and
 this repository has none. Here the trademark notice of
 [README.md](../../README.md#trademark-notice) covers Futaba and S.BUS.
+
+The escwire core (`protocols/escwire/`) and its RP2350 line driver
+(`protocols/escwire/rp2350/`) are for the Bluejay and BLHeli_S settings of
+[bluejay-blheli-s.md](../../docs/design/bluejay-blheli-s.md), slice 1.
+escwire reads and writes an ESC's (electronic speed controller's) settings
+over the signal wire. Nothing in `src/` calls it yet. The core is built as
+C11, in the firmware by `src/escwire.cmake` and in the host suite by
+`test/escwire.mk`; the line driver is built by the firmware only, with
+pioasm assembling `ew_line.pio`. The servo file store
+(`shared/logfile/servo_store.*`) is built by the host suite only:
+`test_ew_file_load.c` checks the names it gives a settings file. Their
+rcbench tests, copied unchanged from rcbench `test/host/` into
+`test/rcbench/`, are `test_ew_a.c`, `test_ew_id.c`, `test_ew_map.c`,
+`test_ew_guard.c`, `test_ew_session.c`, `test_ew_session_write.c`,
+`test_ew_file.c`, `test_ew_file_load.c`, `test_ew_pio.c`, `test_ew_text.c`,
+`test_ew_session_text.c` and `test_ew_file_e32.c`, 210 cases, with
+`escwire_headers.cpp`, which compiles the core's headers as C++11; the
+simulated ESC `ew_sim.h` and `ew_sim_text.h`, the line model
+`ew_pio_model.h`, the file rig `ew_file_rig.h` and
+`fixtures/ew_line_words.txt`, the words pioasm assembles `ew_line.pio` to,
+which CI holds to pioasm as it does the KST and Hitec fixtures. rcbench's
+module `README.md` and `CMakeLists.txt` are not copied, nor are
+`test_ew_line.c` and its `fake_pico/`, as for the KST and Hitec line
+drivers.
 
 The STEP writer and the specs of two modules, at commit `1b6029b8`:
 

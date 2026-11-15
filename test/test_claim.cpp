@@ -366,7 +366,8 @@ static void testHandoverRules() {
 	EscSlot d = escDrainSlot();
 	checkTrue("a drain slot is throttle zero, no command, no KISS request",
 	          !d.frame.sendCommand && d.frame.throttle == 0 && !d.frame.requestKiss);
-	checkTrue("and takes no beacon and forgets no EDT", !d.beepTaken && !d.forgetEdt);
+	checkTrue("and takes no command request and forgets no EDT",
+	          !d.cmdTaken && !d.forgetEdt);
 
 	EscPump p;
 	memset(&p, 0xA5, sizeof(p));
@@ -397,7 +398,7 @@ struct HandoverSim {
 	EscTelemetry tel;
 	bool     armed;               /**< core0's s_armed. */
 	uint16_t throttle;            /**< core0's s_throttle. */
-	uint8_t  beepReq;             /**< core0's s_beepReq. */
+	EscCmdRequest req;            /**< core0's s_cmdReq. */
 	bool     suspendReq;          /**< core0's s_suspendReq. */
 	bool     rebuildReq;          /**< core0's s_rebuildReq. */
 	bool     pumpUp;              /**< s_pumpUp. */
@@ -435,8 +436,8 @@ static void hsSlot(HandoverSim *h) {
 	EscSlot s = act == EscHandover::Drain
 	          ? escDrainSlot()
 	          : escPumpSlot(&h->pump, &h->tel, h->armed, true, h->throttle,
-	                        h->beepReq, false, h->ms);
-	if (s.beepTaken) h->beepReq = 0;
+	                        &h->req, DSHOT_REPLY_NONE, false, h->ms);
+	if (s.cmdTaken) h->req.cmd = 0;
 	if (act == EscHandover::Drain) {
 		h->drainFrames++;
 		if (s.frame.sendCommand || s.frame.throttle || s.frame.requestKiss)
@@ -478,7 +479,7 @@ static void testHandoverSlots() {
 	// request. A beacon asked for at the same moment is left for later.
 	h->armed = false;
 	h->throttle = 0;
-	h->beepReq = 1;
+	h->req = {1, false, h->ms};
 	h->suspendReq = true;
 	uint32_t last = h->lastThrottleFrameMs;
 	for (int i = 0; i < 1000 && !h->suspended; i++) hsSlot(h);
@@ -487,9 +488,9 @@ static void testHandoverSlots() {
 	         (long)(h->teardownMs - last), 251);
 	checkInt("every slot between is a drain frame", h->drainFrames, 250);
 	checkInt("each throttle zero, no command, no KISS request", h->badDrainFrames, 0);
-	checkInt("the drain takes no beacon", h->beepReq, 1);
+	checkInt("the drain takes no beacon", h->req.cmd, 1);
 
-	h->beepReq = 0;
+	h->req.cmd = 0;
 	h->suspendReq = false;
 	hsSlot(h);
 	checkTrue("a resume binds again, disarmed",

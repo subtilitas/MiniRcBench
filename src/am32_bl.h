@@ -108,12 +108,12 @@ void am32BlJumpToBootloader();
  * to be called repeatedly while the user power-cycles. It identifies the MCU
  * family on success, which is what makes am32BlEepromAddr() valid.
  *
- * @param[out] deviceInfo Receives 9 bytes of device information on success.
- *                        May be nullptr.
  * The answer is classified by blAnswerClassify(); am32BlAnswer() returns
  * the classification, which tells an EFM8 bootloader (Bluejay, BLHeli_S)
  * from bytes that are no bootloader's answer.
  *
+ * @param[out] deviceInfo Receives 9 bytes of device information on success.
+ *                        May be nullptr.
  * @return AM32_OK once the bootloader answers and its family is recognised.
  *         AM32_ERR_TIMEOUT for silence, which is the normal state between
  *         power-ups; AM32_ERR_NAK if bytes arrived that are not an AM32
