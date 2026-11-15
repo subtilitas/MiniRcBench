@@ -2,22 +2,26 @@
 
 # Die Bildschirme
 
-Die Firmware hat elf Bildschirme. Der Tester ist die Wurzel. `MENU` öffnet
+Die Firmware hat zwölf Bildschirme. Der Tester ist die Wurzel. `MENU` öffnet
 die Liste der Werkzeuge, und jedes Werkzeug verlässt du mit `BACK`, das zu
-`MENU` zurückführt. SERVO PROGRAMMER öffnet PROGRAMMER, die Wahl zwischen
+`MENU` zurückführt. ESC CONFIG öffnet die Wahl der ESC-Werkzeuge. SERVO
+PROGRAMMER öffnet PROGRAMMER, die Wahl zwischen
 dem KST- und den Hitec-Programmierern. RX SIGNALS öffnet die Wahl der
 Werkzeuge für Empfängersignale. SETTINGS öffnet auch über die Polzahl
 und die Obergrenze des Testers; `BACK` führt dann zum Tester zurück.
 
 ```
-Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MENU
-   ▲                    ├── SERVO TESTER ──BACK──> Verlassenseite ──RESTART DSHOT──> MENU
+Tester ──MENU──> MENU ──┬── ESC CONFIG ──> ESC CONFIG ──BACK──> MENU
+   ▲                    │    ├── ESC SETTINGS ──> ESC SETTINGS ──BACK──> MENU
+   │                    │    │   (nach einer Antwort von Bluejay oder BLHeli_S: BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> MENU)
+   │                    │    └── USB BRIDGE   (als Umriss gezeichnet: NOT BUILT)
+   │                    ├── SERVO TESTER ──BACK──> Verlassenseite ──RESTART DSHOT──> MENU
    │                    ├── SERVO PROGRAMMER ──> PROGRAMMER ──BACK──> MENU
    │                    │    ├── KST / CHASERVO ──> KST SERVO   ──BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> MENU
    │                    │    ├── HITEC D SERIES ──> HITEC SERVO ──BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> MENU
    │                    │    └── HITEC CLASSIC  ──> HITEC SERVO, wie D SERIES
    │                    │   (ohne Servo im Programmiermodus öffnet die Verlassenseite bei UNPLUG THE SERVO.)
-   │                    │   (AM32 HEX, AM32 WRITE, SET: BACK eine Ebene hoch)
+   │                    │   (ESC HEX, ESC WRITE, SET: BACK eine Ebene hoch)
    │                    ├── RX SIGNALS ──> RX SIGNALS ──BACK──> MENU
    │                    │    ├── MONITOR ──> S.BUS MONITOR ──BACK──> Verlassenseite ──RESTART DSHOT──> MENU
    │                    │    └── OUTPUT     (als Umriss gezeichnet: NOT BUILT)
@@ -32,30 +36,30 @@ Bildschirm öffnet.
 
 **BACK sitzt oben rechts** im Kopfbereich, auf jedem Bildschirm außer dem
 Tester. Der Kopfbereich ist 36 px hoch, `BACK` misst 64 × 32 px. Der Tester ist
-die Wurzel und hat keinen Kopfbereich. Auf der Verlassenseite von SERVO
-TESTER, KST SERVO, HITEC SERVO und S.BUS MONITOR ist `BACK` deaktiviert
-gezeichnet, als Umriss mit grauer Beschriftung, und ein Tippen darauf
-bewirkt nichts: Jeder Weg weiter ist eine beschriftete Taste, `STAY`,
-`NEXT SERVO`, `BACK TO SERVO`, `BACK TO MONITOR` oder `RESTART DSHOT`.
-Dasselbe gilt auf `AM32 WRITE`, `KST WRITE` und `HITEC WRITE`, solange ein
-Schreiben läuft oder auf die SD-Karte wartet: Kein `BACK` lässt ein Gerät
-halb geschrieben zurück.
+die Wurzel und hat keinen Kopfbereich. Auf der Verlassenseite von SERVO TESTER,
+KST SERVO, HITEC SERVO, S.BUS MONITOR und ESC SETTINGS ist `BACK` deaktiviert
+gezeichnet, als Umriss mit grauer Beschriftung, und ein Tippen darauf bewirkt
+nichts: Jeder Weg weiter ist eine beschriftete Taste, `STAY`, `NEXT SERVO`,
+`BACK TO SERVO`, `BACK TO MONITOR` oder `RESTART DSHOT`. Dasselbe gilt auf `ESC
+WRITE`, `KST WRITE` und `HITEC WRITE`, solange ein Schreiben läuft oder auf die
+SD-Karte wartet: Kein `BACK` lässt ein Gerät halb geschrieben zurück.
 
-**Die Verlassenseite** ist eine Seite vom letzten Schritt an einem Servo
-oder einem Empfänger bis DShot wieder an SIG. Sie nummeriert ihre
+**Die Verlassenseite** ist eine Seite vom letzten Schritt an einem Servo,
+einem Empfänger oder einem ESC, dessen Bluejay- oder BLHeli_S-Bootloader
+geantwortet hat, bis DShot wieder an SIG. Sie nummeriert ihre
 Schritte; der aktuelle ist bernsteinfarben, mit einem Balken am linken
 Rand. Vor `LEAVE` heißen die Tasten `STAY`, das zum Werkzeug zurückführt,
 und `LEAVE`. Nach `LEAVE` ist der nächste Schritt aktuell, und die breite
 Taste heißt an der Stelle von `LEAVE` `RESTART DSHOT`. Sie und die linke
-Taste, `NEXT SERVO`, `BACK TO SERVO` oder `BACK TO MONITOR`, sind
-deaktiviert gezeichnet, bis der Pin freigegeben ist;
+Taste, `NEXT SERVO`, `BACK TO SERVO` oder `BACK TO MONITOR` (keine auf
+ESC SETTINGS), sind deaktiviert gezeichnet, bis der Pin freigegeben ist;
 `RESTART DSHOT` wartet danach noch 1 s, damit ein Doppeltippen auf `LEAVE`
 DShot nie in ein Servo startet, das noch an der Leitung hängt. Ein Druck,
 der während der Wartezeit begann, bewirkt beim Loslassen nichts.
 
 <img src="img/leave-kst.png" width="240" alt="Die KST-Verlassenseite vor LEAVE: Schritt 1 POWER THE SERVO OFF, THEN LEAVE., STAY und LEAVE"> <img src="img/leave-kst-released.png" width="240" alt="Die KST-Verlassenseite nach LEAVE: Schritt 2 aktuell, NEXT SERVO aktiv, RESTART DSHOT noch grau">
 
-**BACK nennt, was es verwerfen würde.** Auf der Liste von AM32 CONFIG mit
+**BACK nennt, was es verwerfen würde.** Auf der Liste von ESC SETTINGS mit
 ungeschriebenen Änderungen und auf SERVO SET mit einer Änderung, die auf
 `HOLD TO APPLY` wartet, bleibt das erste `BACK` stehen und setzt zwei
 bernsteinfarbene Zeilen auf den Streifen, zum Beispiel
@@ -114,7 +118,7 @@ und `WRITE FAILED` bei AM32.
   liegt. Bei reiner USB-Versorgung kann der Wert niedrig sein und sagt dann
   nichts über eine Zelle: Unter 2,50 V, für eine arbeitende Zelle nicht
   plausibel, steht er in der normalen Textfarbe, ab 2,55 V wieder rot.
-  Solange er rot ist, schreiben KST SERVO, HITEC SERVO und AM32 CONFIG nichts
+  Solange er rot ist, schreiben KST SERVO, HITEC SERVO und ESC SETTINGS nichts
   und melden `BOARD VOLTAGE IS RED: NOT WRITTEN.`; Bernstein verweigert
   nichts, und kein Scharfschalten wird deswegen verweigert. In den letzten
   5 s vor dem Entschärfen durch die Leerlaufsperre ersetzt `IDLE ns` in
@@ -127,7 +131,7 @@ Beispiel `14 POLES`, stehen darunter. Grüne Ziffern: eRPM ist in den letzten
 500 ms eingetroffen.
 Dunkelrote Null: nicht, und die Zeile zeigt `NO TELEMETRY`.
 
-Hat AM32 CONFIG seit dem Einschalten einen ESC mit 3D MODE an gelesen, oder
+Hat ESC SETTINGS seit dem Einschalten einen ESC mit 3D MODE an gelesen, oder
 3D MODE an geschrieben (vom ESC angenommen, bestätigt oder nicht), zeigt die
 Zeile unter der `ERPM`-Zeile in Bernstein `3D MODE ESC: THROTTLE SCALE DIFFERS`
 (3D-ESC: die Gasskala ist eine andere), an Stelle der Polzahl und des
@@ -202,9 +206,10 @@ nur eine Anzeige, eckig und 12 px hoch:
 | `EDT OFF`, rot | eRPM-Frames treffen ein, EDT-Frames nicht |
 | `NO ESC`, gedämpftes Grau | seit 500 ms kein eRPM-Frame: kein ESC angeschlossen, oder keiner antwortet |
 
-Nach einer Sitzung in AM32 CONFIG, in der der Bootloader des ESC geantwortet
+Nach einer Sitzung in ESC SETTINGS, in der der Bootloader des ESC geantwortet
 hat, steht unter der Zeile eine zweite: `POWER-CYCLE THE ESC TO RUN IT` in
-Bernstein, bis ein eRPM-Frame eintrifft oder die Platine neu startet
+Bernstein, bis ein eRPM-Frame eintrifft, RESTART DSHOT auf der Verlassenseite
+von ESC SETTINGS getippt wird oder die Platine neu startet
 ([AM32-Konfiguration](AM32-Konfiguration#verlassen)).
 
 <img src="img/menu-no-esc.png" width="240" alt="MENU ohne angeschlossenen ESC: das Feld zeigt NO ESC"> <img src="img/menu-edt-off.png" width="240" alt="MENU mit einem ESC, der eRPM und kein EDT sendet: das Feld zeigt EDT OFF in Rot">
@@ -230,7 +235,7 @@ Lage.
 | Zeile | Zustand rechts | Ein Tippen |
 |---|---|---|
 | **BEEP THE ESC** | `DISARMED`; 350 ms nach einem Tippen `SENT` oder `REFUSED` | Sendet den DShot-Beacon-Befehl, der Motor piept. Damit erkennst du, welcher ESC angeschlossen ist. Braucht einen ESC, der antwortet, einen stehenden Motor und 1,5 s, seit der ESC antwortet |
-| **AM32 CONFIG** | nichts | Öffnet den AM32-Editor |
+| **ESC CONFIG** | nichts | Öffnet ESC CONFIG, die Wahl der ESC-Werkzeuge. Siehe [ESC CONFIG](#esc-config) |
 | **SERVO TESTER** | nichts | Öffnet den Servotester |
 | **SERVO PROGRAMMER** | nichts | Öffnet PROGRAMMER, die Wahl des Servo-Programmierers. Siehe [PROGRAMMER](#programmer) |
 | **RX SIGNALS** | nichts | Öffnet RX SIGNALS, die Wahl der Werkzeuge für Empfängersignale. Siehe [RX SIGNALS](#rx-signals) |
@@ -239,13 +244,13 @@ Lage.
 
 Solange die Signalpins noch belegt sind, zum Beispiel während DShot nach dem
 Servotester, dem KST-Programmierer oder dem Hitec-Programmierer neu startet,
-zeigt die Leiste `DSHOT RESTARTING ON SIG GP0` in Bernstein. AM32 CONFIG,
+zeigt die Leiste `DSHOT RESTARTING ON SIG GP0` in Bernstein. ESC CONFIG,
 SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS und SETTINGS sind dann als
 Umriss unter ihrem üblichen Zustand gezeichnet, und ein Tippen auf eine
 solche Zeile öffnet nichts. Sie wirken wieder, sobald DShot läuft. SD LOG
 belegt keinen Pin und bleibt bedienbar.
 
-<img src="img/menu-restarting.png" width="240" alt="MENU nach oben gezogen, während DShot neu startet: DSHOT RESTARTING ON SIG GP0 in der Leiste, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS und SETTINGS als Umriss">
+<img src="img/menu-restarting.png" width="240" alt="MENU nach oben gezogen, während DShot neu startet: DSHOT RESTARTING ON SIG GP0 in der Leiste, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS und SETTINGS als Umriss">
 
 BEEP funktioniert nur im entschärften Zustand, und das Öffnen von `MENU`
 entschärft. Es braucht außerdem einen ESC, der antwortet: `REFUSED`, solange
@@ -304,6 +309,18 @@ Bernstein warum, `NEEDS THE CONVERTER OF WIRING PART C` und
 
 `BACK` führt zu `MENU` zurück. Ebenso `RESTART DSHOT` am Ende einer
 Programmier-Sitzung und `BACK` in einem Programmierer, bevor er SIG belegt.
+
+### ESC CONFIG
+
+<img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC SETTINGS mit seinen zwei Zeilen, USB BRIDGE als Umriss mit A DESKTOP ESC TOOL OVER USB. und NOT BUILT">
+
+`MENU → ESC CONFIG` öffnet eine Wahl aus zwei, wie PROGRAMMER:
+**ESC SETTINGS**, das den Bildschirm für ESC-Einstellungen öffnet, heute
+für AM32, und **USB BRIDGE**, als Umriss gezeichnet mit `NOT BUILT`
+darunter: Es tut nichts. Die Leiste nennt den Signalpin, `SIG GP0`.
+ESC CONFIG belegt keinen Pin; das Tippen auf ESC SETTINGS belegt SIG.
+`BACK` führt zu `MENU` zurück, ebenso `BACK` auf ESC SETTINGS. Siehe
+[AM32-Konfiguration](AM32-Konfiguration).
 
 ### RX SIGNALS
 
@@ -443,10 +460,10 @@ Aufzeichnungszustand und Zähler. `BACK` führt zu `MENU` zurück. Siehe
 <img src="img/am32-list.png" width="240" alt="AM32-Einstellungsliste">
 
 Liest, ändert und schreibt die Einstellungen eines AM32-ESC über das
-Signalkabel. `WRITE...` öffnet mit einem Tippen `AM32 WRITE`: Die Seite
+Signalkabel. `WRITE...` öffnet mit einem Tippen `ESC WRITE`: Die Seite
 listet jede Änderung, alt und neu, und ihr `HOLD TO WRITE`, 1 s, schreibt,
 zuvor mit einer Sicherung auf der SD-Karte. `HEX` zeigt die Bytes unter dem
-Titel `AM32 HEX`. Einstellungen in einem Layout, das der Tester nicht kennt,
+Titel `ESC HEX`. Einstellungen in einem Layout, das der Tester nicht kennt,
 also nicht 2 bis 4, öffnen nur zum Lesen: die Bytes hexadezimal,
 `NOT VERIFIED.`, eine Sicherung auf der SD-Karte und kein Schreiben. `BACK`
 führt zu `MENU` zurück, bei ungeschriebenen Änderungen nach einer Warnung.

@@ -594,7 +594,7 @@ static void testLogEndNotes() {
 		  "NO LOG STARTED: LOG99999.BFL EXISTS", "MOVE LOGS TO A COMPUTER, RETRY MOUNT" },
 		{ SdLogState::Idle, SdLogEnd::ByKst,   "RECORDING STOPPED BY KST SERVO", "" },
 		{ SdLogState::Idle, SdLogEnd::ByHitec, "RECORDING STOPPED BY HITEC SERVO", "" },
-		{ SdLogState::Idle, SdLogEnd::ByAm32,  "RECORDING STOPPED BY AM32 CONFIG", "" },
+		{ SdLogState::Idle, SdLogEnd::ByAm32,  "RECORDING STOPPED BY ESC SETTINGS", "" },
 	};
 	for (const auto &e : ENDS) {
 		st.state = e.state;
@@ -639,7 +639,7 @@ static void testLogEndNotes() {
 	checkTrue("the refusal over: the note",
 	          fakeTextCentredIs(217, "RECORDING STOPPED: CARD WRITE FAILED", C_AMBER, C_BG, 1));
 
-	// A tool's stop through the real claim: AM32 CONFIG on a running log.
+	// A tool's stop through the real claim: ESC SETTINGS on a running log.
 	tapId(UI_FIX(SdLogCtl::Retry));                        // a mount: the note goes
 	frames(2);
 	checkTrue("RETRY MOUNT clears the note", !fakeInkExtent(217, 7, C_BG, &x0, &x1));
@@ -651,19 +651,19 @@ static void testLogEndNotes() {
 	frames(2);
 	tapId(UI_FIX(TesterCtl::Menu));
 	frames(2);
-	tapId(menuRow(&UI_AM32));
+	openEscSettings();
 	frames(20);
-	checkTrue("AM32 CONFIG's claim stopped the log", !sdLogActive());
+	checkTrue("ESC SETTINGS' claim stopped the log", !sdLogActive());
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
 	tapId(menuRow(&UI_SDLOG));
 	frames(2);
 	checkTrue("SD LOG names the tool",
-	          fakeTextCentredIs(217, "RECORDING STOPPED BY AM32 CONFIG", C_AMBER, C_BG, 1));
+	          fakeTextCentredIs(217, "RECORDING STOPPED BY ESC SETTINGS", C_AMBER, C_BG, 1));
 	tapId(UI_FIX(SdLogCtl::Retry));
 	frames(2);
 	checkTrue("a mount keeps a tool's stop: it stays true of the last log",
-	          fakeTextCentredIs(217, "RECORDING STOPPED BY AM32 CONFIG", C_AMBER, C_BG, 1));
+	          fakeTextCentredIs(217, "RECORDING STOPPED BY ESC SETTINGS", C_AMBER, C_BG, 1));
 	{
 		// The card gone: the mount hint takes the second line.
 		SdLogStatus gone;
@@ -675,7 +675,7 @@ static void testLogEndNotes() {
 		fakeSdLogSet(&gone);
 		frames(2);
 		checkTrue("no card: the tool's stop, and the insert hint under it",
-		          fakeTextCentredIs(217, "RECORDING STOPPED BY AM32 CONFIG", C_AMBER, C_BG, 1) &&
+		          fakeTextCentredIs(217, "RECORDING STOPPED BY ESC SETTINGS", C_AMBER, C_BG, 1) &&
 		          fakeTextCentredIs(228, "INSERT A CARD, THEN RETRY MOUNT", C_DIM, C_BG, 1));
 		tapId(UI_FIX(SdLogCtl::Retry));            // the fake finds a card
 		frames(2);
@@ -3474,7 +3474,7 @@ static void testHitBoundaries() {
 	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 
 	// MENU's rows are 40 px tall at a 42 px pitch: BEEP ends where the gap
-	// above AM32 CONFIG starts, and SD LOG where the gap above SETTINGS
+	// above ESC CONFIG starts, and SD LOG where the gap above SETTINGS
 	// starts. A tap in either gap must hit neither neighbour -- an inclusive
 	// far edge would make adjacent rows overlap.
 	const UiRect beep  = ctlRect(menuRow(&UI_BEEP));
@@ -3541,9 +3541,9 @@ static void testMenuDestinations() {
 	uint8_t rows = 0;
 	uiMenuEntries(&rows);
 	checkInt("MENU has seven rows", rows, 7);
-	checkTrue("BEEP, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, SETTINGS, "
+	checkTrue("BEEP, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, SETTINGS, "
 	          "in that order",
-	          uiMenuRowOf(&UI_BEEP) == 0 && uiMenuRowOf(&UI_AM32) == 1 &&
+	          uiMenuRowOf(&UI_BEEP) == 0 && uiMenuRowOf(&UI_ESC_CONFIG) == 1 &&
 	          uiMenuRowOf(&UI_SERVO) == 2 && uiMenuRowOf(&UI_SERVO_PROG) == 3 &&
 	          uiMenuRowOf(&UI_RX_SIGNALS) == 4 && uiMenuRowOf(&UI_SDLOG) == 5 &&
 	          uiMenuRowOf(&UI_SETTINGS) == 6);
@@ -3555,7 +3555,7 @@ static void testMenuDestinations() {
 		UiRect r = ctlRect(menuRow(s));
 		return fb[(r.y + 8) * GFX_W + (r.x + 5)];
 	};
-	checkTrue("AM32 is filled", pixelIn(&UI_AM32) == C_PANEL);
+	checkTrue("ESC CONFIG is filled", pixelIn(&UI_ESC_CONFIG) == C_PANEL);
 	checkTrue("SERVO PROGRAMMER is filled", pixelIn(&UI_SERVO_PROG) == C_PANEL);
 	checkTrue("SERVO is filled", pixelIn(&UI_SERVO) == C_PANEL);
 	checkTrue("RX SIGNALS is filled", pixelIn(&UI_RX_SIGNALS) == C_PANEL);
@@ -3568,7 +3568,7 @@ static void testMenuDestinations() {
 				if (fb[y * GFX_W + x] != fill) return false;
 		return true;
 	};
-	checkTrue("AM32's row has no status", statusBlank(&UI_AM32, C_PANEL));
+	checkTrue("ESC CONFIG's row has no status", statusBlank(&UI_ESC_CONFIG, C_PANEL));
 	checkTrue("nor SERVO TESTER's", statusBlank(&UI_SERVO, C_PANEL));
 	checkTrue("nor RX SIGNALS'", statusBlank(&UI_RX_SIGNALS, C_PANEL));
 
@@ -3580,7 +3580,8 @@ static void testMenuDestinations() {
 	// A refused row is drawn disabled, an outline with the background
 	// inside, under its own status, none for a tool: no word for the claim
 	// on the row.
-	checkTrue("AM32 drawn disabled, no status", pixelIn(&UI_AM32) == C_BG && statusBlank(&UI_AM32, C_BG));
+	checkTrue("ESC CONFIG, whose ESC SETTINGS claims, drawn disabled, no status",
+	          pixelIn(&UI_ESC_CONFIG) == C_BG && statusBlank(&UI_ESC_CONFIG, C_BG));
 	checkTrue("SERVO drawn disabled, no status", pixelIn(&UI_SERVO) == C_BG && statusBlank(&UI_SERVO, C_BG));
 	char restarting[40];
 	snprintf(restarting, sizeof(restarting), "DSHOT RESTARTING ON SIG GP%u",
@@ -3588,7 +3589,7 @@ static void testMenuDestinations() {
 	checkTrue("the strip says why, in amber",
 	          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, restarting, C_AMBER, C_BG, 1));
 	checkTrue("both rows are gated",
-	          !ctlEnabled(menuRow(&UI_AM32)) && !ctlEnabled(menuRow(&UI_SERVO)));
+	          !ctlEnabled(menuRow(&UI_ESC_CONFIG)) && !ctlEnabled(menuRow(&UI_SERVO)));
 	checkTrue("SERVO PROGRAMMER, whose entries claim, drawn disabled and gated",
 	          pixelIn(&UI_SERVO_PROG) == C_BG && !ctlEnabled(menuRow(&UI_SERVO_PROG)));
 	checkTrue("and RX SIGNALS, whose MONITOR claims",
@@ -3612,9 +3613,9 @@ static void testMenuDestinations() {
 	frames(1);
 	checkTrue("a tap on SERVO opens nothing", uiCurrentScreen() == UiScreenId::Menu);
 	checkTrue("nor claims a pin", pinClaimHolder() == PinUser::Am32);
-	tapId(menuRow(&UI_AM32), IdExpect::Disabled);
+	tapId(menuRow(&UI_ESC_CONFIG), IdExpect::Disabled);
 	frames(1);
-	checkTrue("nor does a tap on AM32", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("nor does a tap on ESC CONFIG", uiCurrentScreen() == UiScreenId::Menu);
 	pinClaimEnd(PinUser::Am32);
 	frames(2);
 	checkTrue("the claim ends: the pins are Free", pinClaimState() == ClaimState::Free);
@@ -4441,18 +4442,18 @@ static void testSplash() {
 	frames(2);
 }
 
-/** @brief Open AM32 CONFIG from the tester, and run @p n frames. */
+/** @brief Open ESC SETTINGS from the tester, and run @p n frames. */
 static void enterAm32(int n) {
 	tapId(UI_FIX(TesterCtl::Menu));
 	frames(2);
-	tapId(menuRow(&UI_AM32));
-	checkTrue("AM32 CONFIG opens", uiCurrentScreen() == UiScreenId::Am32);
+	openEscSettings();
+	checkTrue("ESC SETTINGS opens", uiCurrentScreen() == UiScreenId::Am32);
 	frames(n);
 }
 
 /**
- * @brief BACK from AM32 CONFIG to MENU, then from MENU to the tester: from
- *        AM32 HEX or AM32 WRITE through the list, and a second BACK where the
+ * @brief BACK from ESC SETTINGS to MENU, then from MENU to the tester: from
+ *        ESC HEX or ESC WRITE through the list, and a second BACK where the
  *        guard arms on edits not written.
  */
 static void leaveAm32ToTester() {
@@ -4464,7 +4465,7 @@ static void leaveAm32ToTester() {
 	checkTrue("back on the tester", uiCurrentScreen() == UiScreenId::Tester);
 }
 
-/** @brief Tap WRITE... on the list: true when AM32 WRITE opened. */
+/** @brief Tap WRITE... on the list: true when ESC WRITE opened. */
 static bool am32OpenPage() {
 	tapId(UI_FIX(Am32Ctl::Write));
 	return s_state == S_PAGE;
@@ -4939,7 +4940,7 @@ static void testAm32BoardLow() {
 }
 
 /**
- * @brief Decision 14 of docs/design/menu-b.md on AM32 CONFIG: the editor's
+ * @brief Decision 14 of docs/design/menu-b.md on ESC SETTINGS: the editor's
  *        44 px - and + at the button edge, the footer at y 268, and the
  *        result's OK as the wide button, 6/228 at y 268, which takes only a
  *        press that lands after the write ended: the finger that ended the
@@ -5038,20 +5039,20 @@ static bool am32TitleIs(const char *text) {
 }
 
 /**
- * @brief Decisions 6 and 13 of docs/design/menu-b.md on AM32 CONFIG: the
- *        editor bar names the old value; `WRITE...` opens AM32 WRITE, which
+ * @brief Decisions 6 and 13 of docs/design/menu-b.md on ESC SETTINGS: the
+ *        editor bar names the old value; `WRITE...` opens ESC WRITE, which
  *        lists each change as label and `old -> new`, at most 4 and then
  *        `AND n MORE`, counts them on the strip, names the backup, and holds;
  *        BACK leaves it for the list before the hold and with the result.
  */
 static void testAm32WritePage() {
-	section("AM32 WRITE: the editor's old value, the page's changes, its backup line");
+	section("ESC WRITE: the editor's old value, the page's changes, its backup line");
 	EscTelemetry quiet;
 	memset(&quiet, 0, sizeof(quiet));
 	fakeSetTelemetry(&quiet);
 	am32Card();
 	enterAm32(6);
-	checkTrue("the list, titled AM32 CONFIG", s_state == S_LIST && am32TitleIs("AM32 CONFIG"));
+	checkTrue("the list, titled ESC SETTINGS", s_state == S_LIST && am32TitleIs("ESC SETTINGS"));
 
 	// The editor bar: the label alone, then label and old value once changed.
 	const int cx = BTN_MINUS_X + EDIT_BTN_W, cw = BTN_PLUS_X - cx;
@@ -5084,7 +5085,7 @@ static void testAm32WritePage() {
 
 	// One change: the strip's word in the singular.
 	checkTrue("POLES steps", am32Step("POLES"));
-	checkTrue("a tap on WRITE... opens AM32 WRITE", am32OpenPage());
+	checkTrue("a tap on WRITE... opens ESC WRITE", am32OpenPage());
 	checkTrue("one change: the strip reads 1 CHANGE, no S", am32StripIs("1 CHANGE ", C_DIM));
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(Am32Ctl::Revert));
@@ -5100,9 +5101,9 @@ static void testAm32WritePage() {
 	                     C_PANEL, 1) &&
 	          gfxBuffer()[264 * GFX_W + 8] == C_BG);
 	int writes = fakeAm32Writes();
-	checkTrue("a tap on WRITE... opens AM32 WRITE", am32OpenPage());
+	checkTrue("a tap on WRITE... opens ESC WRITE", am32OpenPage());
 	frames(1);
-	checkTrue("titled AM32 WRITE, BACK live", am32TitleIs("AM32 WRITE") && ctlEnabled(UI_FIX(UI_BACK)) &&
+	checkTrue("titled ESC WRITE, BACK live", am32TitleIs("ESC WRITE") && ctlEnabled(UI_FIX(UI_BACK)) &&
 	          backLook() == BackLook::Live);
 	checkTrue("the strip counts them: 5 CHANGES, dim", am32StripIs("5 CHANGES", C_DIM));
 	bool lines = true;
@@ -5191,13 +5192,13 @@ static void testAm32WritePage() {
 }
 
 /**
- * @brief AM32 WRITE writes what it shows or nothing: settings changed under
+ * @brief ESC WRITE writes what it shows or nothing: settings changed under
  *        the page behind the screen's back are refused, and a page that
  *        lists no change, edits only in bytes no listed field covers, has no
  *        live hold.
  */
 static void testAm32PageWritesWhatItShows() {
-	section("AM32 WRITE: the page writes what it shows, or nothing");
+	section("ESC WRITE: the page writes what it shows, or nothing");
 	EscTelemetry quiet;
 	memset(&quiet, 0, sizeof(quiet));
 	fakeSetTelemetry(&quiet);
@@ -5213,7 +5214,7 @@ static void testAm32PageWritesWhatItShows() {
 		{ "the settings as read changed under the page: refused, nothing written", s_original, dead },
 	};
 	for (const Case &c : cases) {
-		checkTrue("a tap on WRITE... opens AM32 WRITE", am32OpenPage());
+		checkTrue("a tap on WRITE... opens ESC WRITE", am32OpenPage());
 		c.bytes[c.off] ^= 0x01;
 		pressId(UI_FIX(Am32Ctl::WriteHold));
 		holdId(UI_FIX(Am32Ctl::WriteHold), 50);
@@ -5256,14 +5257,14 @@ static void testAm32PageWritesWhatItShows() {
 }
 
 /**
- * @brief Decision 7 of docs/design/menu-b.md on AM32 CONFIG, and decision
- *        13's AM32 HEX: with edits not written the first BACK arms the guard,
+ * @brief Decision 7 of docs/design/menu-b.md on ESC SETTINGS, and decision
+ *        13's ESC HEX: with edits not written the first BACK arms the guard,
  *        whose two amber lines name the count; a press elsewhere disarms it;
  *        the second BACK goes to MENU and drops the edits. Without edits BACK
- *        leaves at once. AM32 HEX's BACK returns to the list.
+ *        leaves at once. ESC HEX's BACK returns to the list.
  */
 static void testAm32Guard() {
-	section("AM32 CONFIG: BACK on edits not written arms the guard");
+	section("ESC SETTINGS: BACK on edits not written arms the guard");
 	EscTelemetry quiet;
 	memset(&quiet, 0, sizeof(quiet));
 	fakeSetTelemetry(&quiet);
@@ -5285,16 +5286,16 @@ static void testAm32Guard() {
 	checkTrue("the next BACK arms it again", s_guard.armed && uiCurrentScreen() == UiScreenId::Am32);
 	tapId(UI_FIX(Am32Ctl::Hex));
 	checkTrue("a press on HEX disarms it", !s_guard.armed && s_hexView);
-	checkTrue("AM32 HEX: the title names the view", am32TitleIs("AM32 HEX"));
+	checkTrue("ESC HEX: the title names the view", am32TitleIs("ESC HEX"));
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK on AM32 HEX: the list, titled AM32 CONFIG, the edit kept",
+	checkTrue("BACK on ESC HEX: the list, titled ESC SETTINGS, the edit kept",
 	          uiCurrentScreen() == UiScreenId::Am32 && s_state == S_LIST && !s_hexView &&
-	          am32TitleIs("AM32 CONFIG") && anyDirty() && !s_guard.armed);
+	          am32TitleIs("ESC SETTINGS") && anyDirty() && !s_guard.armed);
 	checkTrue("DEAD BAND steps", am32Step("DEAD BAND"));
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("two changes: 2 CHANGES NOT WRITTEN. / BACK AGAIN DISCARDS THEM.",
 	          s_guard.armed && stripNoteIs("2 CHANGES NOT WRITTEN.", "BACK AGAIN DISCARDS THEM."));
-	checkControlTable("AM32 CONFIG, the guard armed");
+	checkControlTable("ESC SETTINGS, the guard armed");
 	fakeDumpFrame("shot_am32_discard.ppm");
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("the second BACK: MENU, nothing written, the ESC as it was",
@@ -5317,17 +5318,17 @@ static void testAm32Guard() {
 }
 
 /**
- * @brief AM32 CONFIG says what a value does and what to do next: the strip
+ * @brief ESC SETTINGS says what a value does and what to do next: the strip
  *        notes, the next step under a write that is not verified, the
  *        connect page's lines, and MENU's cue after a session that reached
  *        the bootloader.
  */
 /**
- * @brief AM32 CONFIG's claim names SIG by role and number, and a refusal for
+ * @brief ESC SETTINGS' claim names SIG by role and number, and a refusal for
  *        another holder, which MENU never lets through, says to wait.
  */
 static void testAm32ClaimWords() {
-	section("AM32 CONFIG: RELEASING SIG GP0, and WAIT: DSHOT RESTARTING");
+	section("ESC SETTINGS: RELEASING SIG GP0, and WAIT: DSHOT RESTARTING");
 	fakeFlashClear();
 	settingsLoad();
 	uiInit();
@@ -5348,6 +5349,224 @@ static void testAm32ClaimWords() {
 	s_claimed = false;
 	for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) frames(1);
 	checkTrue("and given back", pinClaimState() == ClaimState::Free);
+}
+
+/** @brief An EFM8 bootloader's answer to the greeting: `471d`, E8 B2, 6, 1, 0x30. */
+static const uint8_t EFM8_ANSWER[9] = { '4', '7', '1', 'd', 0xE8, 0xB2, 0x06, 0x01, 0x30 };
+
+/**
+ * @brief Slice 2 of docs/design/bluejay-blheli-s.md through the screen: an
+ *        AM32 claim with no EFM8 answer gives DShot back within BACK, as
+ *        before; an EFM8 answer is named, sets MENU's run cue and gives the
+ *        claim the leave page of decision 8, whose RESTART DSHOT alone gives
+ *        DShot back and clears the cue.
+ */
+static void testAm32Efm8() {
+	EscTelemetry quiet;
+	memset(&quiet, 0, sizeof(quiet));
+	fakeSetTelemetry(&quiet);
+	s_blReached = false;
+
+	section("ESC SETTINGS: no EFM8 answer, DShot back within BACK");
+	{
+		fakeAm32Silent(true);
+		enterAm32(4);
+		checkTrue("the claim has no leave page", pinClaimHolder() == PinUser::Am32 && !pinClaimLeavePage());
+		int resumes = fakeResumeCount();
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu);
+		checkInt("DShot asked back within BACK", fakeResumeCount(), resumes + 1);
+		checkTrue("no leave page is due", !pinClaimUnplugDue());
+		fakeAm32Silent(false);
+		frames(1);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: an EFM8 bootloader's answer is named, nothing read");
+	{
+		fakeAm32Garble(EFM8_ANSWER, sizeof(EFM8_ANSWER));
+		enterAm32(4);
+		checkTrue("the connect page stays: nothing read", s_state == S_CONNECT && s_visibleCount == 0);
+		checkTrue("the status names the signature",
+		          strcmp(s_status, "EFM8 E8B2 ANSWERED: NOT READ YET.") == 0);
+		checkTrue("33 characters, 197 px", strlen(s_status) == 33 && gfxTextW(s_status, 1) == 197);
+		checkTrue("at y 176, amber", fakeTextCentredIs(176, s_status, C_AMBER, C_BG, 1));
+		checkTrue("and on the strip", fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, s_status, C_DIM, C_BG, 1));
+		int x0 = 0, x1 = 0;
+		checkTrue("no REPLY NOT UNDERSTOOD: under it, y 196 to y 231",
+		          !fakeInkExtent(196, 36, C_BG, &x0, &x1) ||
+		          (x0 >= GFX_W / 2 - 42 && x1 <= GFX_W / 2 + 42));
+		checkTrue("the claim has the leave page", pinClaimLeavePage());
+		checkTrue("MENU's run cue is set", s_blReached && uiAm32RunCue(0));
+		checkTrue("ESC SETTINGS", fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, AM32_UI_TITLE, C_TEXT, C_PANEL, 2));
+		fakeDumpFrame("shot_am32_efm8.ppm");
+		fakeAm32Silent(true);
+		frames(3);
+		checkTrue("silence after it: the line stays",
+		          strcmp(s_status, "EFM8 E8B2 ANSWERED: NOT READ YET.") == 0 &&
+		          fakeTextCentredIs(176, s_status, C_AMBER, C_BG, 1));
+		fakeAm32Silent(false);
+		frames(1);
+	}
+
+	section("ESC SETTINGS: BACK after an EFM8 answer, the leave page of decision 8");
+	{
+		int resumes = fakeResumeCount(), ends = fakeAm32Ends();
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: the leave page, the screen stays", uiCurrentScreen() == UiScreenId::Am32 &&
+		          s_state == S_LEAVE);
+		frames(1);
+		checkTrue("no DShot, the transport keeps SIG", fakeResumeCount() == resumes &&
+		          fakeAm32Ends() == ends && escTaskSuspended() && pinClaimHolder() == PinUser::Am32);
+		checkControlTable("ESC SETTINGS, the leave page before LEAVE");
+		checkTrue("BACK drawn disabled", !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
+		checkTrue("titled ESC SETTINGS", fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, AM32_UI_TITLE, C_TEXT,
+		                                            C_PANEL, 2));
+		char strip[32];
+		snprintf(strip, sizeof(strip), "EFM8 E8B2  SIG GP%u", (unsigned)settings()->dshotPin);
+		checkTrue("the strip: EFM8 E8B2  SIG GP0", fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, strip, C_DIM, C_BG, 1));
+		const int y1 = UI_LEAVE_STEP_Y, y2 = y1 + 3 * UI_LEAVE_LINE_H + UI_LEAVE_STEP_GAP;
+		checkTrue("step 1, current: UNPLUG THE ESC BATTERY, THEN LEAVE.",
+		          leaveStepIs(y1, '1', AM32_UI_LEAVE_1, true));
+		checkTrue("its detail lines", leaveStepIs(y1 + 12, 0, AM32_UI_LEAVE_1A, true) &&
+		          leaveStepIs(y1 + 24, 0, AM32_UI_LEAVE_1B, true));
+		checkTrue("step 2: PLUG IT IN AFTER RESTART DSHOT.", leaveStepIs(y2, '2', AM32_UI_LEAVE_2, false));
+		checkTrue("step 1 is 35 characters, 209 px, to x 228",
+		          strlen(AM32_UI_LEAVE_1) == 35 && UI_LEAVE_TEXT_X + gfxTextW(AM32_UI_LEAVE_1, 1) == 229);
+		checkTrue("the others 33, 26 and 31 characters",
+		          strlen(AM32_UI_LEAVE_1A) == 33 && strlen(AM32_UI_LEAVE_1B) == 26 &&
+		          strlen(AM32_UI_LEAVE_2) == 31);
+		checkTrue("STAY and LEAVE live", leaveLeftIs("STAY", true) && leaveWideIs("LEAVE", true));
+		checkTrue("no note", leaveNoteBlank(0));
+		fakeDumpFrame("shot_am32_leave.ppm");
+
+		tapId(UI_FIX(Am32Ctl::Stay));
+		checkTrue("STAY: the connect page, the claim kept", s_state == S_CONNECT &&
+		          pinClaimHolder() == PinUser::Am32 && escTaskSuspended() && fakeAm32Ends() == ends);
+		frames(2);
+		checkTrue("the answer still named", fakeTextCentredIs(176, s_status, C_AMBER, C_BG, 1) &&
+		          strncmp(s_status, "EFM8 E8B2", 9) == 0);
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK again: the leave page", s_state == S_LEAVE);
+
+		tapId(UI_FIX(Am32Ctl::Leave));
+		checkTrue("LEAVE: the transport lets go of SIG", fakeAm32Ends() == ends + 1);
+		checkTrue("and DShot waits", fakeResumeCount() == resumes &&
+		          pinClaimState() == ClaimState::Leaving && pinClaimUnplugDue());
+		frames(1);
+		checkControlTable("ESC SETTINGS, the leave page after LEAVE");
+		checkTrue("step 2 current, step 1 not", leaveStepIs(y2, '2', AM32_UI_LEAVE_2, true) &&
+		          leaveStepIs(y1, '1', AM32_UI_LEAVE_1, false));
+		auto leftBlank = []() {
+			const uint16_t *fb = gfxBuffer();
+			const UiRect &r = UI_LEAVE_LEFT;
+			for (int y = r.y; y < r.y + r.h; y++)
+				for (int x = r.x; x < r.x + r.w; x++)
+					if (fb[y * GFX_W + x] != C_BG) return false;
+			return true;
+		};
+		checkTrue("no left button after LEAVE", !ctlPresent(UI_FIX(Am32Ctl::Stay)) && leftBlank());
+		checkTrue("RESTART DSHOT drawn disabled", leaveWideIs("RESTART DSHOT", false) &&
+		          !ctlEnabled(UI_FIX(Am32Ctl::Restart)));
+		tapId(UI_FIX(Am32Ctl::Restart), IdExpect::Disabled);
+		checkTrue("a tap before 1000 ms restarts nothing", fakeResumeCount() == resumes &&
+		          s_state == S_LEAVE);
+		// Released on the frame after LEAVE; the tap took 3 frames more.
+		frames(37);
+		checkTrue("live 1000 ms after SIG was let go", ctlEnabled(UI_FIX(Am32Ctl::Restart)) &&
+		          leaveWideIs("RESTART DSHOT", true));
+		checkTrue("the run cue still stands", uiAm32RunCue(0));
+		tapId(UI_FIX(Am32Ctl::Restart));
+		checkTrue("RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
+		checkInt("DShot asked back once", fakeResumeCount(), resumes + 1);
+		frames(2);
+		checkTrue("the run cue cleared", !s_blReached && !menuRunCueShown());
+		checkTrue("the claim ends", pinClaimState() == ClaimState::Free);
+		fakeAm32Garble(nullptr, 0);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: after an EFM8 answer, BACK from the list opens the leave page");
+	{
+		am32NoCard();
+		fakeAm32Garble(EFM8_ANSWER, sizeof(EFM8_ANSWER));
+		enterAm32(4);
+		fakeAm32Garble(nullptr, 0);
+		frames(2);
+		checkTrue("a later AM32 answer: the list, the leave page kept",
+		          s_state == S_LIST && pinClaimLeavePage());
+		int resumes = fakeResumeCount();
+		checkTrue("POLES steps", am32Step("POLES"));
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("one change: the first BACK arms the guard", s_state == S_LIST && s_guard.armed);
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("the second BACK: the leave page, not MENU", uiCurrentScreen() == UiScreenId::Am32 &&
+		          s_state == S_LEAVE);
+		checkTrue("and no DShot", fakeResumeCount() == resumes && escTaskSuspended());
+		tapId(UI_FIX(Am32Ctl::Stay));
+		checkTrue("STAY: the list, the edit kept, the guard disarmed",
+		          s_state == S_LIST && anyDirty() && !s_guard.armed);
+		tapId(UI_FIX(Am32Ctl::Hex));
+		checkTrue("ESC HEX", s_state == S_LIST && s_hexView);
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK on ESC HEX: the list, not the leave page", s_state == S_LIST && !s_hexView);
+		tapId(UI_FIX(UI_BACK));
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("the guard's second BACK again: the leave page", s_state == S_LEAVE);
+		tapId(UI_FIX(Am32Ctl::Leave));
+		frames(45);
+		tapId(UI_FIX(Am32Ctl::Restart));
+		checkTrue("LEAVE, then RESTART DSHOT: MENU, DShot asked back once",
+		          uiCurrentScreen() == UiScreenId::Menu && fakeResumeCount() == resumes + 1);
+		frames(2);
+		checkTrue("the claim ends, the cue cleared", pinClaimState() == ClaimState::Free && !s_blReached);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: after an EFM8 answer, BACK from the read-only view opens the leave page");
+	{
+		const uint8_t lay = fakeEscByte(AM32_OFF_LAYOUT_REVISION);
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 5);
+		fakeAm32Garble(EFM8_ANSWER, sizeof(EFM8_ANSWER));
+		enterAm32(4);
+		fakeAm32Garble(nullptr, 0);
+		frames(2);
+		checkTrue("a later AM32 answer, layout 5: the read-only view, the leave page kept",
+		          s_state == S_VIEW && pinClaimLeavePage());
+		int resumes = fakeResumeCount();
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: the leave page, no DShot", s_state == S_LEAVE && fakeResumeCount() == resumes &&
+		          escTaskSuspended());
+		tapId(UI_FIX(Am32Ctl::Stay));
+		checkTrue("STAY: the read-only view", s_state == S_VIEW);
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK again: the leave page", s_state == S_LEAVE);
+		tapId(UI_FIX(Am32Ctl::Leave));
+		frames(45);
+		tapId(UI_FIX(Am32Ctl::Restart));
+		checkTrue("LEAVE, then RESTART DSHOT: MENU, DShot asked back once",
+		          uiCurrentScreen() == UiScreenId::Menu && fakeResumeCount() == resumes + 1);
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, lay);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: the leave page goes with the claim");
+	{
+		enterAm32(6);
+		checkTrue("an AM32 answer: the list", s_state == S_LIST && !pinClaimLeavePage());
+		int resumes = fakeResumeCount();
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: MENU, DShot asked back within BACK",
+		          uiCurrentScreen() == UiScreenId::Menu && fakeResumeCount() == resumes + 1);
+		// The AM32 handshake set the cue; an eRPM frame after an EFM8
+		// answer clears it as after a handshake.
+		s_blReachedMs = millis();
+		checkTrue("an eRPM frame after the answer clears the cue",
+		          uiAm32RunCue(s_blReachedMs - 1) && !uiAm32RunCue(s_blReachedMs + 1));
+		frames(1);
+		tapId(UI_FIX(UI_BACK));
+	}
 }
 
 static void testAm32Guidance() {
@@ -5581,7 +5800,7 @@ static void testAm32Guidance() {
 		frames(1);
 		char name[AM32_NAME_LEN + 1], cap[48];
 		am32DeviceName(s_eeprom, name);
-		snprintf(cap, sizeof(cap), "%s  %s  FW %u.%u", name, am32BlEscTypeName(),
+		snprintf(cap, sizeof(cap), "%s  %s  AM32 %u.%u", name, am32BlEscTypeName(),
 		         s_eeprom[AM32_OFF_MAIN_REVISION], s_eeprom[AM32_OFF_SUB_REVISION]);
 		checkTrue("edited off: the device caption is back",
 		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + (UI_STRIP_H - 7) / 2, cap, C_DIM, C_BG, 1));
@@ -6033,7 +6252,7 @@ void runUiTests() {
 		frames(2);
 		checkControlTable("MENU");
 		fakeDumpFrame("shot_menu.ppm");
-		tapId(menuRow(&UI_AM32));
+		openEscSettings();
 		checkTrue("AM32 opens from MENU", uiCurrentScreen() == UiScreenId::Am32);
 		for (int i = 0; i < 8; i++) frames(1);
 		checkTrue("settings read and decoded", uiVisibleCount() > 0);
@@ -6405,7 +6624,7 @@ void runUiTests() {
 		checkTrue("edit is local until written", fakeEscByte(0x1B) != want);
 
 		// WRITE... holds nothing: a press held on it writes nothing, and its
-		// release opens AM32 WRITE (docs/design/menu-b.md, decision 6).
+		// release opens ESC WRITE (docs/design/menu-b.md, decision 6).
 		int lx, ly;
 		ctlCentre(UI_FIX(Am32Ctl::Write), &lx, &ly);
 		checkTrue("the list's button reads WRITE..., live with a change",
@@ -6417,7 +6636,7 @@ void runUiTests() {
 		checkTrue("WRITE... held 1500 ms: nothing written, still the list",
 		          fakeEscByte(0x1B) != want && s_state == S_LIST);
 		fakeRelease(); frames(1);
-		checkTrue("its release opens AM32 WRITE, nothing written", s_state == S_PAGE &&
+		checkTrue("its release opens ESC WRITE, nothing written", s_state == S_PAGE &&
 		          fakeEscByte(0x1B) != want);
 		{
 			// Earlier sections may leave other fields changed: the strip
@@ -6427,7 +6646,7 @@ void runUiTests() {
 			snprintf(cnt, sizeof(cnt), "%d CHANGE%s", n, n == 1 ? "" : "S");
 			checkTrue("the strip counts the page's changes", n >= 1 && am32StripIs(cnt, C_DIM));
 		}
-		checkControlTable("AM32 WRITE before the hold");
+		checkControlTable("ESC WRITE before the hold");
 		for (int i = 0; i < 60; i++) frames(1);
 		checkTrue("the tap that opened it starts no hold: 1500 ms on, the page", s_state == S_PAGE &&
 		          !s_writeHold.holding && fakeEscByte(0x1B) != want);
@@ -6455,7 +6674,7 @@ void runUiTests() {
 		          !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
 		checkTrue(AM32_UI_WRITING " in amber, y 196",
 		          fakeTextIs(UI_MARGIN, 196, AM32_UI_WRITING, UI_COL_WARN, C_BG, 1));
-		checkControlTable("AM32 WRITE, writing");
+		checkControlTable("ESC WRITE, writing");
 		for (int i = 0; i < 20; i++) { fakeHold(wx, wy); frames(1); }
 		fakeRelease(); frames(3);
 		checkInt("1000 ms commits and verifies", fakeEscByte(0x1B), want);
@@ -6616,7 +6835,7 @@ void runUiTests() {
 		checkTrue("a press on a disabled WRITE..., changes made under it: the page, no write",
 		          s_state == S_PAGE && !s_writeHold.holding && fakeAm32Writes() == writes0);
 		tapId(UI_FIX(UI_BACK));
-		checkTrue("BACK on AM32 WRITE before the hold: the list, the edit kept",
+		checkTrue("BACK on ESC WRITE before the hold: the list, the edit kept",
 		          s_state == S_LIST && anyDirty() && uiCurrentScreen() == UiScreenId::Am32);
 		s_eeprom[0x1B] = s_original[0x1B];
 		frames(1);
@@ -6704,6 +6923,7 @@ void runUiTests() {
 	testTextProbes();
 	testAm32ClaimWords();
 	testAm32Guidance();
+	testAm32Efm8();
 	testAm32TesterNote();
 	testAm32ReadOnly();
 	testAm32BoardLow();

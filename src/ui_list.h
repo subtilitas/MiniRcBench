@@ -264,7 +264,7 @@ uint16_t uiListValueColour(UiValue v);
  * @brief Draw one field row of an editor's list (docs/design/menu-b.md,
  *        decision 8).
  *
- * The rows of AM32 CONFIG, KST SERVO, HITEC SERVO and SERVO SET draw
+ * The rows of ESC SETTINGS, KST SERVO, HITEC SERVO and SERVO SET draw
  * through it.
  *
  * The row fills @p h - 1 px from @p y, `C_PANEL` while selected and `C_BG`

@@ -1,7 +1,7 @@
 /**
  * @file am32_backup.h
  * @brief The backup of an AM32 ESC (electronic speed controller) before the
- *        first write of an AM32 CONFIG session: its settings block as text,
+ *        first write of an ESC SETTINGS session: its settings block as text,
  *        saved into the ring of `BACKUP/` (backup_ring.h) as `AMnnn.TXT`.
  *
  * The file follows the layout of rcbench's KST files: a header with the
@@ -23,7 +23,7 @@
  * ```
  *
  * The fields are those of `AM32_FIELDS` that the block's layout revision has,
- * group, name, and value with its unit, as AM32 CONFIG shows them. A layout
+ * group, name, and value with its unit, as ESC SETTINGS shows them. A layout
  * the table is not checked against, outside 2 to 4, has no field line and
  * one line after `Firmware:`, `Layout not known: fields not read, not
  * verified` (am32FieldShown()). The byte lines hold all 48 bytes
