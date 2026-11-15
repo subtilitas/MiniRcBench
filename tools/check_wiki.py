@@ -43,6 +43,7 @@ PAIRS = [
     ("KST-Programming", "KST-Programmierung"),
     ("Hitec-Programming", "Hitec-Programmierung"),
     ("RX-Signals", "RX-Signale"),
+    ("Angle-Meter", "Winkelmesser"),
     ("Troubleshooting", "Fehlersuche"),
 ]
 

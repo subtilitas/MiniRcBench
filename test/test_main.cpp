@@ -27,6 +27,7 @@ void runSupplyGuardTests();
 void runMoveTimerTests();
 void runQmi8658Tests();
 void runAngleModelTests();
+void runAngleUiTests();
 void runUsbMscTests();
 void runDshotFrameTests();
 void runDshotTelemTests();
@@ -95,6 +96,7 @@ int main() {
 	runSdCacheTests();
 	runMenuTests();
 	runEscCmdUiTests();
+	runAngleUiTests();
 	runDiagTests();
 	runRunSummaryTests();
 	runEscwireJobTests();

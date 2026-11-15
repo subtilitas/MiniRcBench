@@ -8,12 +8,14 @@
 # model, angle_model.cpp, turns its samples into the angle through rcbench's
 # control-surface arithmetic (servo_rudder.c) and IMU model (imu.c), copied
 # into lib/rcbench/ and built as C (lib/rcbench/README.md), with the WitMotion
-# decoder imu.h includes (witmotion.c). Nothing calls the model yet: the
-# screen does, slice 4. docs/design/angle-meter.md lists what later slices
-# add.
+# decoder imu.h includes (witmotion.c). The screen, ui_angle.cpp, opens the
+# driver and shows the model's reading; TOOLS, ui_tools.cpp, is the chooser
+# behind its MENU row.
 target_sources(MiniRcBench PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/qmi8658.cpp
     ${CMAKE_CURRENT_LIST_DIR}/angle_model.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/ui_angle.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/ui_tools.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../lib/rcbench/shared/servo/servo_rudder.c
     ${CMAKE_CURRENT_LIST_DIR}/../lib/rcbench/shared/bench/imu.c
     ${CMAKE_CURRENT_LIST_DIR}/../lib/rcbench/protocols/witmotion/witmotion.c
