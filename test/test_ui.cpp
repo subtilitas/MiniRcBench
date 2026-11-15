@@ -6108,6 +6108,12 @@ static void testEfm8Write() {
 	tapId(UI_FIX(Am32Ctl::Write));
 	checkTrue("held: changed", efm8HoldWrite() && efm8UntilDone() && s_ewMustRead);
 	tapId(UI_FIX(Am32Ctl::Ok));
+	e->dead = true;
+	tapId(UI_FIX(Am32Ctl::ReadAgain));
+	checkTrue("READ AGAIN unanswered: READ AGAIN stays, the page as it was",
+	          efm8UntilDone(400) && s_state == S_EW_LIST && s_ewMustRead && s_ewPage[0x1B] != 41 &&
+	          ctlEnabled(UI_FIX(Am32Ctl::ReadAgain)));
+	e->dead = false;
 	tapId(UI_FIX(Am32Ctl::ReadAgain));
 	checkTrue("read", efm8UntilDone() && s_state == S_EW_LIST && !s_ewMustRead);
 	checkTrue("the page as it is now, the edit kept", s_ewPage[0x1B] == 41 && s_ewDraft[0x1B] == 41 &&
@@ -6157,6 +6163,13 @@ static void testEfm8Write() {
 	tapId(UI_FIX(Am32Ctl::Hex));
 	tapId(UI_FIX(Am32Ctl::Hex));
 	checkTrue("a press elsewhere disarms it", !s_guard.armed);
+	tapId(UI_FIX(Am32Ctl::Revert));
+	checkTrue("REVERT: no edit left", !ewEdited());
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK with no edit on the half-written page: the guard all the same",
+	          s_state == S_EW_LIST && s_guard.armed && stripNoteIs(EFM8_UI_GUARD_1, EFM8_UI_GUARD_2));
+	tapId(UI_FIX(Am32Ctl::Hex));
+	tapId(UI_FIX(Am32Ctl::Hex));
 	e->dead = false;
 	tapId(UI_FIX(Am32Ctl::ReadAgain));
 	checkTrue("READ AGAIN: read, half written, read since", efm8UntilDone() && s_ewDirty && s_ewReread &&
@@ -6164,9 +6177,8 @@ static void testEfm8Write() {
 	frames(1);
 	checkTrue("the strip: WRITE AGAIN NOW. REVERT: AS READ.", stripNoteIs(EFM8_UI_TORN_1, EFM8_UI_DIRTY_WRITE));
 	checkTrue("the page as first read kept", memcmp(s_ewPage, orig, 255) == 0);
-	checkTrue("WRITE... and REVERT live", ctlEnabled(UI_FIX(Am32Ctl::Write)) && ctlEnabled(UI_FIX(Am32Ctl::Revert)));
-	tapId(UI_FIX(Am32Ctl::Revert));
-	checkTrue("REVERT: the page as read; WRITE... still live", !ewEdited() && ctlEnabled(UI_FIX(Am32Ctl::Write)));
+	checkTrue("reverted before: WRITE... live with no edit, REVERT not",
+	          !ewEdited() && ctlEnabled(UI_FIX(Am32Ctl::Write)) && !ctlEnabled(UI_FIX(Am32Ctl::Revert)));
 	tapId(UI_FIX(Am32Ctl::Write));
 	checkTrue("ESC WRITE: 0 CHANGES, THE PAGE AS READ, TAGS INCLUDED.",
 	          s_state == S_EW_PAGE && fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "0 CHANGES", C_DIM, C_BG, 1) &&
@@ -6189,21 +6201,28 @@ static void testEfm8Write() {
 	checkTrue("the list", efm8Read());
 	e = fakeEwSim();
 	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	checkTrue("DIRECTION to 3D", ewEditRow("DIRECTION", +2) && s_ewDraft[0x0B] == 3);
+	checkTrue("the tester's 3D note off", !esc3dNote());
 	memcpy(draft, s_ewDraft, sizeof(draft));
 	tapId(UI_FIX(Am32Ctl::Write));
 	sim_script(e, F_NO_TAKE, 0, 40, 0);
 	checkTrue("held", efm8HoldWrite() && efm8UntilDone(1200));
 	checkTrue("HALF WRITTEN: KEEP THE ESC POWERED. / TAP OK, WRITE AGAIN NOW.",
 	          ewResultIs(EFM8_UI_TORN_1, UI_COL_WARN, EFM8_UI_TORN_2, UI_COL_WARN) && e->erases == 3);
+	checkTrue("3D in the half-written draft: the tester's note set", esc3dNote());
 	e->fail = F_NONE;
 	tapId(UI_FIX(Am32Ctl::Ok));
 	checkTrue("the list: WRITE... live, no READ AGAIN", ctlEnabled(UI_FIX(Am32Ctl::Write)) &&
 	          !ctlPresent(UI_FIX(Am32Ctl::ReadAgain)));
 	tapId(UI_FIX(Am32Ctl::Write));
-	checkTrue("the draft's change listed, its hold live", fakeTextIs(UI_MARGIN, WP_LINE_Y, "TIMING", C_TEXT, C_BG, 1) &&
+	checkTrue("the draft's changes listed, its hold live", fakeTextIs(UI_MARGIN, WP_LINE_Y, "DIRECTION", C_TEXT, C_BG, 1) &&
 	          ctlEnabled(UI_FIX(Am32Ctl::WriteHold)));
 	checkTrue("held: verified", efm8HoldWrite() && efm8UntilDone() && s_verified &&
 	          memcmp(efm8Page(), draft, 255) == 0);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("DIRECTION back to NORMAL, written", ewEditRow("DIRECTION", -2));
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("held: verified, the note cleared", efm8HoldWrite() && efm8UntilDone() && s_verified && !esc3dNote());
 	tapId(UI_FIX(Am32Ctl::Ok));
 	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
 	frames(2);
@@ -6277,6 +6296,39 @@ static void testEfm8Write() {
 	frames(45);
 	tapId(UI_FIX(Am32Ctl::Restart));
 	checkTrue("LEAVE, then RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: a Write the job refuses for a lapsed heartbeat is asked again");
+	am32NoCard();
+	efm8Esc(0xB2, true);
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	{
+		int hx, hy;
+		ctlCentre(UI_FIX(Am32Ctl::WriteHold), &hx, &hy);
+		fakePress(hx, hy);
+		for (int i = 0; i < 60 && s_state != S_EW_WRITING; i++) {
+			fakeHold(hx, hy);
+			frames(1);
+		}
+		fakeRelease();
+		int n = e->starts;
+		// The frame that sends Write, then core0 stalls past the heartbeat.
+		fakeAdvance(1);
+		fakePumpPoll();
+		uiTick();
+		fakeAdvance(300);
+		core1JobPoll();
+		escwireJobStatus(&st);
+		checkTrue("the job refuses it, nothing sent", st.refused == EwJobRefusal::NoUi && e->starts == n &&
+		          e->erases == 0);
+	}
+	checkTrue("asked again: verified", efm8UntilDone() && s_verified && efm8Page()[0x15] == 3);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
 	frames(2);
 	tapId(UI_FIX(UI_BACK));
 
