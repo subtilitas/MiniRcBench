@@ -41,7 +41,10 @@ static bool           s_engineWrite = false;     /**< The write waits on the 4-w
 static bool           s_motor = false;           /**< An MSP_SET_MOTOR was refused ... */
 static uint32_t       s_motorMs = 0;             /**< ... at this millis(). */
 
-/** @defgroup usb_bridge_proto MSP and the 4-way interface @{ */
+/**
+ * @defgroup usb_bridge_proto MSP and the 4-way interface
+ * @{
+ */
 static BridgeMspReader  s_msp;
 static Bridge4wayReader s_4w;
 static uint8_t          s_out[B4W_ANSWER_MAX];   /**< An answer on its way to the PC. */
@@ -53,7 +56,10 @@ static uint32_t         s_protoByteUs = 0;       /**< micros() of the last byte 
 static bool             s_dropRx = false;
 /** @} */
 
-/** @defgroup usb_bridge_tap Passthrough's 3D note (decision 12) @{ */
+/**
+ * @defgroup usb_bridge_tap Passthrough's 3D note (decision 12)
+ * @{
+ */
 static uint16_t s_tapAddr = 0;      /**< The last SET ADDRESS. */
 static uint16_t s_tapSettings = 0;  /**< The AM32 settings page from the last greeting's answer; 0 for none. */
 static uint8_t  s_tapData[256];     /**< The last payload, its CRC checked ... */

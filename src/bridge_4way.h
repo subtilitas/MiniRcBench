@@ -17,11 +17,11 @@
  * all of it, high byte first. The answer: 0x2E, the same header with the
  * answer's parameters, at least one, an ACK (acknowledgement) code and the
  * CRC. A frame is acted on only once it is whole and its CRC fits; a wrong
- * CRC is answered @ref B4W_ACK_I_INVALID_CRC and sends nothing on the wire.
+ * CRC is answered `B4W_ACK_I_INVALID_CRC` and sends nothing on the wire.
  *
  * **One ESC.** The ESC on SIG is index 0. `cmd_DeviceInitFlash` and
  * `cmd_DeviceReset` name an index in their first parameter; any other answers
- * @ref B4W_ACK_I_INVALID_CHANNEL and sends nothing.
+ * `B4W_ACK_I_INVALID_CHANNEL` and sends nothing.
  *
  * | Command | The board does |
  * |---|---|
@@ -34,11 +34,11 @@
  * | 0x3A Read | SET ADDRESS, READ, the data, their CRC and the ACK |
  * | 0x3B Write | SET ADDRESS, SET BUFFER, 4 ms of silence, the data, their ACK, PROGRAM, its ACK within 500 ms |
  * | 0x40 Verify | ARM only: SET ADDRESS, SET BUFFER, the data, VERIFY |
- * | 0x3F SetMode | SiLabs (1) and ARM (4); any other @ref B4W_ACK_I_INVALID_PARAM |
- * | 0x38, 0x3C, 0x3D, 0x3E, others | @ref B4W_ACK_I_INVALID_CMD: no Atmel or C2 interface |
+ * | 0x3F SetMode | SiLabs (1) and ARM (4); any other `B4W_ACK_I_INVALID_PARAM` |
+ * | 0x38, 0x3C, 0x3D, 0x3E, others | `B4W_ACK_I_INVALID_CMD`, as no Atmel or C2 interface is offered |
  *
  * PageErase, Read, Write and Verify before a device is connected answer
- * @ref B4W_ACK_D_GENERAL_ERROR and send nothing. SET ADDRESS 0xFFFF is
+ * `B4W_ACK_D_GENERAL_ERROR` and send nothing. SET ADDRESS 0xFFFF is
  * skipped, as Betaflight skips it. The interface mode: SiLabs for a signature
  * 0xE801 to 0xF8FF, ARM for a high byte 0x01 to 0x8F with the low byte 0x06;
  * any other signature is no device.
@@ -85,33 +85,33 @@
 
 /** @brief The 4-way commands. */
 enum Bridge4wayCmd : uint8_t {
-	B4W_TEST_ALIVE       = 0x30,
-	B4W_PROTOCOL_VERSION = 0x31,
-	B4W_GET_NAME         = 0x32,
-	B4W_GET_VERSION      = 0x33,
-	B4W_EXIT             = 0x34,
-	B4W_RESET            = 0x35,
-	B4W_INIT_FLASH       = 0x37,
-	B4W_ERASE_ALL        = 0x38,
-	B4W_PAGE_ERASE       = 0x39,
-	B4W_READ             = 0x3A,
-	B4W_WRITE            = 0x3B,
-	B4W_C2CK_LOW         = 0x3C,
-	B4W_READ_EEPROM      = 0x3D,
-	B4W_WRITE_EEPROM     = 0x3E,
-	B4W_SET_MODE         = 0x3F,
-	B4W_VERIFY           = 0x40,
+	B4W_TEST_ALIVE       = 0x30, /**< `cmd_InterfaceTestAlive`. */
+	B4W_PROTOCOL_VERSION = 0x31, /**< `cmd_ProtocolGetVersion`. */
+	B4W_GET_NAME         = 0x32, /**< `cmd_InterfaceGetName`. */
+	B4W_GET_VERSION      = 0x33, /**< `cmd_InterfaceGetVersion`. */
+	B4W_EXIT             = 0x34, /**< `cmd_InterfaceExit`. */
+	B4W_RESET            = 0x35, /**< `cmd_DeviceReset`. */
+	B4W_INIT_FLASH       = 0x37, /**< `cmd_DeviceInitFlash`. */
+	B4W_ERASE_ALL        = 0x38, /**< `cmd_DeviceEraseAll`. */
+	B4W_PAGE_ERASE       = 0x39, /**< `cmd_DevicePageErase`. */
+	B4W_READ             = 0x3A, /**< `cmd_DeviceRead`. */
+	B4W_WRITE            = 0x3B, /**< `cmd_DeviceWrite`. */
+	B4W_C2CK_LOW         = 0x3C, /**< `cmd_DeviceC2CK_LOW`. */
+	B4W_READ_EEPROM      = 0x3D, /**< `cmd_DeviceReadEEprom`. */
+	B4W_WRITE_EEPROM     = 0x3E, /**< `cmd_DeviceWriteEEprom`. */
+	B4W_SET_MODE         = 0x3F, /**< `cmd_InterfaceSetMode`. */
+	B4W_VERIFY           = 0x40, /**< `cmd_DeviceVerify`. */
 };
 
 /** @brief The ACK codes of an answer. */
 enum Bridge4wayAck : uint8_t {
-	B4W_ACK_OK                = 0x00,
-	B4W_ACK_I_INVALID_CMD     = 0x02,
-	B4W_ACK_I_INVALID_CRC     = 0x03,
-	B4W_ACK_I_VERIFY_ERROR    = 0x04,
-	B4W_ACK_I_INVALID_CHANNEL = 0x08,
-	B4W_ACK_I_INVALID_PARAM   = 0x09,
-	B4W_ACK_D_GENERAL_ERROR   = 0x0F,
+	B4W_ACK_OK                = 0x00, /**< Done. */
+	B4W_ACK_I_INVALID_CMD     = 0x02, /**< A command the board does not run. */
+	B4W_ACK_I_INVALID_CRC     = 0x03, /**< The frame's CRC does not fit. */
+	B4W_ACK_I_VERIFY_ERROR    = 0x04, /**< VERIFY found other bytes. */
+	B4W_ACK_I_INVALID_CHANNEL = 0x08, /**< An ESC other than 0. */
+	B4W_ACK_I_INVALID_PARAM   = 0x09, /**< A mode the board does not offer. */
+	B4W_ACK_D_GENERAL_ERROR   = 0x0F, /**< The bootloader did not answer as it should, or no device. */
 };
 
 /** @brief The interface modes the board offers. */
@@ -156,7 +156,7 @@ enum class Bridge4wayFeed : uint8_t {
 /** @brief What the connected device is. */
 struct Bridge4wayDevice {
 	bool     connected;  /**< A greeting was answered since the last reset, RESET or failed command. */
-	uint8_t  mode;       /**< The interface mode, @ref B4W_MODE_SILABS or @ref B4W_MODE_ARM; 0 before a SetMode or a greeting. */
+	uint8_t  mode;       /**< The interface mode, `B4W_MODE_SILABS` or `B4W_MODE_ARM`; 0 before a SetMode or a greeting. */
 	uint16_t signature;  /**< High byte, then low byte, as the bootloader names them. */
 	uint16_t settings;   /**< The AM32 settings page's address; 0 for none known. */
 };
@@ -198,7 +198,7 @@ Bridge4wayFeed bridge4wayFeed(Bridge4wayReader *r, uint8_t b);
 
 /**
  * @brief The answer to a frame whose CRC does not fit: its command and
- *        address, one parameter 0, @ref B4W_ACK_I_INVALID_CRC.
+ *        address, one parameter 0, `B4W_ACK_I_INVALID_CRC`.
  * @param r   The reader, after BadCrc.
  * @param out Room for 9 bytes.
  * @return 9.

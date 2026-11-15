@@ -230,7 +230,8 @@ bool usbBridgeWriteUnfinished();
 
 /**
  * @brief An `MSP_SET_MOTOR` from the PC was refused in the last
- *        @ref BRIDGE_MOTOR_NOTE_MS: the screen says so. Until the next open.
+ *        @ref BRIDGE_MOTOR_NOTE_MS, and the screen says so. Until the next
+ *        open.
  * @return True for those 5 s.
  */
 bool usbBridgeMotorRefused();
