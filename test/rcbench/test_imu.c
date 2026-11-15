@@ -13,9 +13,10 @@
  * imu_rig.h, whose BLE (Bluetooth Low Energy) simulator and controller
  * (ble_sim.h, imu_ctl.h) are not part of this project: its four frame
  * builders, rig_frame(), rig_deg_word(), rig_angle() and rig_feed_angle(),
- * are copied here as they are.  The case imu_stale_equals_the_gap_allowance
- * and the _Static_assert before it compare IMU_STALE_MS with servo_gap.h,
- * which is not ported, and are left out.  a_still_yaw_counts_while_pitch_creeps
+ * are copied here as they are.  The line of
+ * imu_stale_equals_the_gap_allowance and the _Static_assert before it that
+ * compare IMU_STALE_MS with servo_gap.h, which is not ported, are left out;
+ * the case keeps its check of 300ms.  a_still_yaw_counts_while_pitch_creeps
  * takes SERVO_RAUTO_STILL_MS of servo_rudder_auto.h, not ported either: its
  * value at that commit, 500ms, is defined below.
  *
@@ -75,6 +76,11 @@ static void rig_feed_angle(imu_t *m, float roll, float pitch, float yaw,
 
 /* What 1 LSB of the angle word is, °. */
 #define LSB (180.0f / 32768.0f)
+
+TEST_CASE(imu_stale_equals_the_gap_allowance)
+{
+    CHECK_EQ(IMU_STALE_MS, 300u);
+}
 
 /* Valid from the first angle frame; at 299ms still, at 300ms and 301ms
  * not.  The same across the clock's wrap. */
@@ -388,6 +394,7 @@ TEST_CASE(the_content_counts_frame_types_since_the_restart)
 
 int main(void)
 {
+    RUN(imu_stale_equals_the_gap_allowance);
     RUN(angle_frames_make_the_reading_valid_and_stale_after_300ms);
     RUN(the_zero_is_subtracted_and_wrapped_at_180);
     RUN(still_ms_counts_per_axis_while_it_stays_within_half_a_degree);

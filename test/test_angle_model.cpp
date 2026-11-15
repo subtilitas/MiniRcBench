@@ -549,6 +549,34 @@ static void testMax() {
 	checkNear("  and seeds: -5.7 deg at once", m.imu.r.angle[IMU_AXIS_X], -atanf(0.1f) / kRad, 0.01f);
 	angleSetCal(&m, nullptr);
 	checkTrue("none: not applied", !m.set.cal.valid);
+
+	// A calibration that applies as the current one does changes nothing.
+	openWith(&m, AngleAlong::Long);
+	angleSetCal(&m, &cal);
+	t = zeroedAt(&m, 0.0f, 1000);
+	angleSetCal(&m, &cal);
+	checkTrue("the same calibration again: the zero kept", reading(&m).zeroed && m.set.cal.valid);
+	AngleCal other = cal;
+	other.offG[2] = 0.05f;
+	angleSetCal(&m, &other);
+	checkTrue("another offset of Z: dropped", !reading(&m).zeroed && m.set.cal.offG[2] == 0.05f);
+	t = zeroedAt(&m, 0.0f, t);
+	other.gain[0] = 1.01f;
+	angleSetCal(&m, &other);
+	checkTrue("another gain of X: dropped", !reading(&m).zeroed && m.set.cal.gain[0] == 1.01f);
+	t = zeroedAt(&m, 0.0f, t);
+	angleSetCal(&m, nullptr);
+	checkTrue("none after one: dropped", !reading(&m).zeroed && !m.set.cal.valid);
+	t = zeroedAt(&m, 0.0f, t);
+	angleSetCal(&m, nullptr);
+	checkTrue("none again: the zero kept", reading(&m).zeroed);
+	other.valid = false;
+	angleSetCal(&m, &other);
+	checkTrue("one not applied, after none: the zero kept", reading(&m).zeroed);
+	other.valid = true;
+	other.gain[1] = 2.0f;
+	angleSetCal(&m, &other);
+	checkTrue("one past the limits, after none: the zero kept", reading(&m).zeroed);
 }
 
 static void testMm() {
@@ -633,6 +661,10 @@ static void testCal() {
 	checkTrue("not kept: refused, and NULL", !angleCalValid(&bad) && !angleCalValid(nullptr));
 	angleCalApply(&bad, a, o);
 	checkTrue("a refused calibration leaves the vector", o[0] == a[0] && o[1] == a[1] && o[2] == a[2]);
+	bad = c;
+	bad.gain[2] = 2.0f;
+	angleCalApply(&bad, a, o);
+	checkTrue("a kept one past the limits leaves it too", o[0] == a[0] && o[1] == a[1] && o[2] == a[2]);
 
 	// The table under "What a zero cancels": a zero at level, then 5 and 25
 	// degrees, with each error alone and no calibration.
@@ -908,6 +940,22 @@ static void testDegenerate() {
 	checkTrue("0.5 g: taken", reading(&m).valid);
 	frames(&m, vec(0.0f, 0.995f, -0.1f), 2128, 1);
 	checkTrue("a normal of -0.1 g: screen down", reading(&m).faceDown);
+	// The normal as mapped and calibrated, not the chip's Z as it came.
+	const int8_t turned[3] = { 2, 1, -3 };
+	openWith(&m, AngleAlong::Long, false, turned);
+	frames(&m, vec(0.0f, 0.0f, -1.0f), 1000, 1);
+	checkTrue("map 2, 1, -3, chip Z -1 g: screen up", reading(&m).valid && !reading(&m).faceDown);
+	frames(&m, vec(0.0f, 0.0f, 1.0f), 1128, 1);
+	checkTrue("map 2, 1, -3, chip Z +1 g: screen down", reading(&m).faceDown);
+	openWith(&m, AngleAlong::Long);
+	AngleCal offZ;
+	memset(&offZ, 0, sizeof(offZ));
+	offZ.valid = true;
+	offZ.gain[0] = offZ.gain[1] = offZ.gain[2] = 1.0f;
+	offZ.offG[2] = 0.2f;
+	angleSetCal(&m, &offZ);
+	frames(&m, vec(0.0f, 0.995f, 0.1f), 1000, 1);
+	checkTrue("chip Z +0.1 g less an offset of 0.2 g: screen down", reading(&m).faceDown);
 	openWith(&m, AngleAlong::Long);
 	sampleAt(&m, vec(0.0f, 0.0f, 0.0f), 3000);
 	sampleAt(&m, vec(0.0f, 0.0f, 0.0f), 3032);
@@ -973,6 +1021,7 @@ static void testText() {
 		{ 0.0f, "0.0", "+0.0" },       { -0.0f, "0.0", "+0.0" },       { 0.04f, "0.0", "+0.0" },
 		{ -0.04f, "0.0", "+0.0" },     { 0.05f, "0.1", "+0.1" },       { -0.05f, "-0.1", "-0.1" },
 		{ 12.35f, "12.4", "+12.4" },   { -12.35f, "-12.4", "-12.4" },  { 12.34f, "12.3", "+12.3" },
+		{ 0.35f, "0.4", "+0.4" },
 		{ 179.96f, "180.0", "+180.0" }, { -180.0f, "-180.0", "-180.0" }, { -500.0f, "-500.0", "-500.0" },
 		{ 99999.0f, "99999.0", "+99999.0" }, { 100000.0f, "---", "---" }, { NAN, "---", "---" },
 		{ INFINITY, "---", "---" },    { -INFINITY, "---", "---" },

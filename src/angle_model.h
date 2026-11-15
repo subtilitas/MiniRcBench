@@ -381,7 +381,9 @@ void angleSetInvert(AngleModel *m, bool invert);
 void angleSetLength(AngleModel *m, uint16_t lengthMm);
 
 /**
- * @brief A new calibration: drops the zero and MAX and seeds the filter.
+ * @brief A new calibration: drops the zero and MAX and seeds the filter. One
+ *        that applies as the current one does, the same values or none again,
+ *        changes nothing.
  * @param m   The model; NULL does nothing.
  * @param cal The calibration; NULL for none.
  */

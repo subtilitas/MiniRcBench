@@ -1,21 +1,20 @@
 # Angle meter on the board's IMU
 
-Status: designed; slices 1 to 3 built, host tests only. Slice 1, the
-copies from rcbench ([slice 1 as built](#slice-1-as-built)). Slice 2, the
-driver ([slice 2 as built](#slice-2-as-built)): nothing opens it yet. Slice 3,
-the model ([slice 3 as built](#slice-3-as-built)): it calls the copies, the
-firmware builds both, and nothing calls the model yet; it adapts the cases of
-rcbench's `test_imu.c` and `test_imu_filter.c` that need `imu.h` alone. Slices
-4 to 6 wait on being built. The owner chose the angle meter on 2026-11-14 from the
-feature survey, as item 3 of 6: incidence, decalage, dihedral and
-control-surface throw, in degrees and in mm, from the QMI8658 IMU on the board,
-at 0x6B on I2C1. The owner answered its questions on 2026-11-15, see
-[decisions](#decisions), first among them the entry: an eighth MENU row,
-`TOOLS`, opening a chooser. Nothing of the meter has run on a board. The sensor
-facts come from QST's datasheets and Waveshare's schematic and demo code;
-the ones this project has not seen on the bus are marked as such and listed
-under [to confirm](#to-confirm). The real accuracy is unknown until the
-bench measures it.
+Status: designed; slices 1 to 3 built, host tests only. Slice 1, the copies from
+rcbench ([slice 1 as built](#slice-1-as-built)). Slice 2, the driver ([slice 2
+as built](#slice-2-as-built)): nothing opens it yet. Slice 3, the model ([slice
+3 as built](#slice-3-as-built)): it calls the copies, the firmware builds both,
+and nothing calls the model yet; it adapts the cases of rcbench's `test_imu.c`
+and `test_imu_filter.c` that need `imu.h` alone. Slices 4 to 6 wait on being
+built. The owner chose the angle meter on 2026-11-14 from the feature survey, as
+item 3 of 6: incidence, decalage, dihedral and control-surface throw, in degrees
+and in mm, from the QMI8658 IMU on the board, at 0x6B on I2C1. The owner
+answered its questions on 2026-11-15, see [decisions](#decisions), first among
+them the entry: an eighth MENU row, `TOOLS`, opening a chooser. Nothing of the
+meter has run on a board. The sensor facts come from QST's datasheets and
+Waveshare's schematic and demo code; the ones this project has not seen on the
+bus are marked as such and listed under [to confirm](#to-confirm). The real
+accuracy is unknown until the bench measures it.
 
 ## Terms
 
@@ -368,9 +367,10 @@ set it.
 The zero stays valid only while the model and the axis stay where they
 were. The meter cannot tell that the model moved; the wiki says so.
 
-ZERO and MAX last for one visit, by [decision 4](#decisions): SETUP and FLIP CAL
-keep them, BACK from the main view drops them, and a new visit starts unzeroed
-with no MAX, as the model may have moved in between. ALONG AXIS and SIGN stay as
+ZERO and MAX last for one visit, by [decision 4](#decisions): SETUP and FLIP
+CAL keep them unless ALONG AXIS or the calibration changes, BACK from the main
+view drops them, and a new visit starts unzeroed with no MAX, as the model may
+have moved in between. ALONG AXIS and SIGN stay as
 set, and the settings block keeps them across a restart (decision 4).
 
 ## Calibration
@@ -771,8 +771,9 @@ New code in `src/`:
   2.0 °C and not at 1.9 °C; stale at 300 ms; the frames of four samples;
   the texts' rounding, never `-0.0`.
 - **Screen**, through the chosen entry by control id: it opens, BACK turns
-  the IMU off; SETUP and FLIP CAL and back keep the IMU running, ZERO and
-  MAX, and BACK from the main view drops ZERO and MAX; ZERO armed until
+  the IMU off; SETUP and FLIP CAL and back keep the IMU running, and ZERO
+  and MAX unless ALONG AXIS or the calibration changes, and BACK from the
+  main view drops ZERO and MAX; ZERO armed until
   settled, the 10 s limit; RESET MAX; SETUP's rows; FLIP CAL's steps and
   touches ignored screen down; HOLD TO KEEP at 1000 ms and not at 999 ms;
   every string inside its rectangle; the preview `docs/angle-preview.png`.
@@ -1017,8 +1018,9 @@ open:
   keeps both. −180° stays −180° turned, as `imu_deg()` keeps it.
 - **A new ALONG AXIS or calibration** drops the zero and MAX, disarms ZERO and
   seeds the filter: `theta` changes its axis or its offset, and a zero taken
-  before would read wrong. Going to SETUP or FLIP CAL and back without either
-  change keeps them, as decision 4 says.
+  before would read wrong. A calibration applied as it was, the same values
+  or none again, changes nothing. Going to SETUP or FLIP CAL and back without
+  either change keeps them, as decision 4 says.
 - **The frames.** Each sequence number is taken once, and seq 0 not at all. A
   sample 300 ms or more after the last starts the frame again. A frame is the
   mean of four samples at the fourth's time. One of less than 0.5 g
@@ -1026,9 +1028,10 @@ open:
   as with no frame.
 - **The travel** shows for LENGTH 10 to 500 mm; `OFF`, 0, and any other value
   give none.
-- **The texts** in tenths (`angleTenthsText()`) round half away from zero, as
-  the float holds the value, never show `-0.0`, and show `---` for a value
-  that is not finite or beyond ±99999.
+- **The texts** in tenths (`angleTenthsText()`) round the float product
+  `v × 10`, itself rounded to float, half away from zero (`lroundf()`): 0.35f
+  shows 0.4. They never show `-0.0`, and show `---` for a value that is not
+  finite or beyond ±99999.
 - **`imu.c` in the firmware.** arm-none-eabi makes `imu_axis_t`, 0 to 2, one
   unsigned byte, so `imu.c`'s `(int)axis < 0` in `imu_deg()` and
   `imu_still_ms()` is always false and `-Wtype-limits` warns; the strict
@@ -1048,13 +1051,13 @@ The cases of rcbench's tests that need `imu.h` alone, at `e98345aa`, are
 adapted into `test/rcbench/` as `test_out_pwm_map.c` was, each file starting
 with the line `Adapted from rcbench`:
 
-| File | Cases | Not adapted, and why |
+| File | Cases | Left out, and why |
 |---|---|---|
-| `test_imu.c` | 8 of 9 | `imu_stale_equals_the_gap_allowance` and its `_Static_assert` compare `IMU_STALE_MS` with `servo_gap.h`, not ported. The rig's four frame builders of `imu_rig.h` are copied into the file; the rest of the rig drives the BLE simulator. `a_still_yaw_counts_while_pitch_creeps` takes `SERVO_RAUTO_STILL_MS` of `servo_rudder_auto.h`, defined in the file at its value at that commit, 500 ms |
+| `test_imu.c` | 9 of 9 | The line of `imu_stale_equals_the_gap_allowance` and the `_Static_assert` that compare `IMU_STALE_MS` with `servo_gap.h`, not ported, are left out; the case keeps its check of 300 ms. The rig's four frame builders of `imu_rig.h` are copied into the file; the rest of the rig drives the BLE simulator. `a_still_yaw_counts_while_pitch_creeps` takes `SERVO_RAUTO_STILL_MS` of `servo_rudder_auto.h`, defined in the file at its value at that commit, 500 ms |
 | `test_imu_filter.c` | 10 of 11 | `a_connect_a_reconnect_and_a_bind_seed_the_filter` drives the sensor link `imu_sensor.h`, not ported; so do the last lines of `the_limits_1_and_50_hold_and_out_of_range_values_are_clamped`, left out, while the case's other lines stay |
 
-Mutation check: 149 mutants of `src/angle_model.cpp`, each built and run
-against `test_angle_model.cpp`. 146 fail it. Three survive, each equivalent
+Mutation check: 161 mutants of `src/angle_model.cpp`, each built and run
+against `test_angle_model.cpp`. 158 fail it. Three survive, each equivalent
 to the code: the axis map taken as `1, 2, 3` in place of `BOARD_IMU_AXES`,
 which is `1, 2, 3` until bench test B3; `servo_rudder_init()` left out after
 the `memset()` that already clears its state; and the zero's temperature

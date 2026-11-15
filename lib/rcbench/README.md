@@ -139,30 +139,35 @@ this repository lists its sources in its own `.cmake` and `.mk` files.
 The control-surface arithmetic (`shared/servo/servo_rudder.*`), the IMU
 (inertial measurement unit) model (`shared/bench/imu.*`) and the WitMotion
 decoder (`protocols/witmotion/`) are for the angle meter of
-[angle-meter.md](../../docs/design/angle-meter.md), slice 1.
-`servo_rudder` gives a deflection from a zero, its travel in mm at the
-trailing edge and the largest deflection each side; `imu` keeps the filtered
-angles, the still time per axis and the age, fed three angles and a time by
-`imu_feed_angles()`. `imu.h` includes `witmotion.h`, so the decoder comes
-with it; the angle meter does not use the WitMotion stream. The angle
-model, `src/angle_model.cpp`, calls them; nothing calls the model yet. They
-are built as C11, in the firmware by `src/angle.cmake` and in the host suite
-by `test/angle.mk`. `src/angle.cmake` turns `-Wtype-limits` off for `imu.c`:
-arm-none-eabi makes `imu_axis_t` one unsigned byte, so its `(int)axis < 0`
-is always false, and the firmware's strict build would stop on the warning. Their rcbench tests, copied
-unchanged from rcbench `test/host/` into `test/rcbench/`, are
-`test_servo_rudder.c`, 4 cases, `test_imu_angles.c`, 7 cases, the test of
-`imu_feed_angles()`, and `test_witmotion.c`, 14 cases, with `wit_frame.h`,
-which builds WitMotion frames for `test_imu_angles.c`. rcbench's
-`test_imu.c` and `test_imu_filter.c` include rcbench's BLE (Bluetooth Low
-Energy) simulator, its sensor link `imu_sensor.h` and servo modules that are
-not ported, so they are adapted, as `test_out_pwm_map.c` was: their cases
-that need `imu.h` alone, at commit `e98345aa`.
+[angle-meter.md](../../docs/design/angle-meter.md), slice 1. `servo_rudder`
+gives a deflection from a zero, its travel in mm at the trailing edge and the
+largest deflection each side; `imu` keeps the filtered angles, the still time
+per axis and the age, fed three angles and a time by `imu_feed_angles()`.
+`imu.h` includes `witmotion.h`, so the decoder comes with it; the angle meter
+does not use the WitMotion stream. The angle model, `src/angle_model.cpp`, calls
+them; nothing calls the model yet. They are built as C11, in the firmware by
+`src/angle.cmake` and in the host suite by `test/angle.mk`. `src/angle.cmake`
+turns `-Wtype-limits` off for `imu.c`: arm-none-eabi makes `imu_axis_t` one
+unsigned byte, so its `(int)axis < 0` is always false, and the firmware's strict
+build would stop on the warning. The fix belongs in rcbench: `imu_deg()` and
+`imu_still_ms()`, `imu.c` lines 352 and 363, drop `(int)axis < 0` and test
+`(unsigned)axis > 2u`, which also refuses a negative value where the enum is
+signed, as on the host, where rcbench's `test_imu.c` passes `(imu_axis_t)-1`.
+With that copied, the exception goes. Their rcbench tests, copied unchanged from
+rcbench `test/host/` into `test/rcbench/`, are `test_servo_rudder.c`, 4 cases,
+`test_imu_angles.c`, 7 cases, the test of `imu_feed_angles()`, and
+`test_witmotion.c`, 14 cases, with `wit_frame.h`, which builds WitMotion frames
+for `test_imu_angles.c`. rcbench's `test_imu.c` and `test_imu_filter.c` include
+rcbench's BLE (Bluetooth Low Energy) simulator, its sensor link `imu_sensor.h`
+and servo modules that are not ported, so they are adapted, as
+`test_out_pwm_map.c` was: their cases that need `imu.h` alone, at commit
+`e98345aa`.
 
-- `test_imu.c`, 8 of 9 cases. Its rig's four frame builders, from
+- `test_imu.c`, all 9 cases. Its rig's four frame builders, from
   `imu_rig.h`, are copied into the file; the rest of the rig drives the BLE
-  simulator. `imu_stale_equals_the_gap_allowance` is left out: it compares
-  `IMU_STALE_MS` with `servo_gap.h`. `a_still_yaw_counts_while_pitch_creeps`
+  simulator. The line of `imu_stale_equals_the_gap_allowance` and the
+  `_Static_assert` that compare `IMU_STALE_MS` with `servo_gap.h` are left
+  out; the case keeps its check of 300 ms. `a_still_yaw_counts_while_pitch_creeps`
   takes `SERVO_RAUTO_STILL_MS` of `servo_rudder_auto.h`, which is defined in
   the file at its value at that commit, 500 ms.
 - `test_imu_filter.c`, 10 of 11 cases.

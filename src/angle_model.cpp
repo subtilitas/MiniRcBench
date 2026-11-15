@@ -351,8 +351,19 @@ void angleSetLength(AngleModel *m, uint16_t lengthMm) {
 	if (m) m->set.lengthMm = lengthMm;
 }
 
+/** @brief Whether two calibrations apply the same: both none, or the same values. */
+static bool calSame(const AngleCal *a, const AngleCal *b) {
+	const bool on = angleCalValid(a);
+	if (on != angleCalValid(b)) return false;
+	if (!on) return true;
+	for (int i = 0; i < 3; ++i) {
+		if (a->offG[i] != b->offG[i] || a->gain[i] != b->gain[i]) return false;
+	}
+	return true;
+}
+
 void angleSetCal(AngleModel *m, const AngleCal *cal) {
-	if (!m) return;
+	if (!m || calSame(&m->set.cal, cal)) return;
 	if (cal) {
 		m->set.cal = *cal;
 	} else {

@@ -61,7 +61,7 @@ protocol.
   `imu.c` and `witmotion.c`, `-Wtype-limits` off for `imu.c`, and CI's syntax
   checks get the WitMotion include directory. Nothing calls the model yet: the
   screen, slice 4, does. Host tests in `test/test_angle_model.cpp`; the cases of
-  rcbench's `test_imu.c` (8) and `test_imu_filter.c` (10) that need `imu.h`
+  rcbench's `test_imu.c` (9) and `test_imu_filter.c` (10) that need `imu.h`
   alone are adapted into `test/rcbench/`. Not tested on hardware.
 - After v0.1.0-rc1 (a93e1c1): ESC COMMANDS, slice 2 of
   [esc-commands.md](docs/design/esc-commands.md#slice-2-as-built), MENU's
