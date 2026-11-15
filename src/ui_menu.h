@@ -3,15 +3,16 @@
  * @brief MENU: one list of tools and actions, from the registry.
  *
  * Reached from the tester's MENU button, which disarms. Each row is a
- * registry entry (ui_registry.h): a tool opens its screen, an action row,
- * BEEP THE ESC, acts on the row. A row fires on release, a press that
- * slides off cancels, and a vertical drag scrolls once the rows do not fit:
- * seven rows at a 42 px pitch scroll 36 px. BACK returns to the tester.
+ * registry entry (ui_registry.h): a tool opens its screen, and an action
+ * row, a screen with `action` set, would act on the row; `UI_MENU` holds
+ * none. A row fires on release, a press that slides off cancels, and a
+ * vertical drag scrolls once the rows do not fit: seven rows at a 42 px
+ * pitch scroll 36 px. BACK returns to the tester.
  *
  * A tool that claims the signal pins, or one that opens only while they are
- * free (SETTINGS, and the choosers PROGRAMMER and RX SIGNALS), is refused
- * while the pin claim is not Free: its row is drawn disabled under its own
- * status, a tap opens nothing, and the strip reads
+ * free (SETTINGS, ESC COMMANDS, and the choosers PROGRAMMER and RX
+ * SIGNALS), is refused while the pin claim is not Free: its row is drawn
+ * disabled under its own status, a tap opens nothing, and the strip reads
  * `DSHOT RESTARTING ON SIG GP0`. That state is reachable for the time
  * Restoring takes after RESTART DSHOT.
  *
@@ -99,5 +100,3 @@ void uiMenuUseRegistry(const UiMenuEntry *e, uint8_t n);
 
 /** @brief MENU itself. */
 extern const UiScreen UI_MENU_SCREEN;
-/** @brief BEEP THE ESC: the DShot beacon, an action row on MENU. */
-extern const UiScreen UI_BEEP;

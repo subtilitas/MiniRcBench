@@ -271,6 +271,16 @@ int fakeCommandCancels();
 void fakeSetCmdReady(EscCmdReady r);
 
 /**
+ * @brief Set what escCommandState() reports for the last sequence, as core1
+ *        publishes it, and end a request that waits: the request was read.
+ *        A request escRequestCommand() takes reads EscCmdState::Waiting until
+ *        this or escCancelCommand(). EscCmdState::Idle by default.
+ * @param st  The sequence's state.
+ * @param cmd Its command.
+ */
+void fakeSetCmdState(EscCmdState st, uint8_t cmd);
+
+/**
  * @brief Count framebuffer pixels of an exact colour.
  *
  * Used to prove a screen left nothing of the previous one behind: the cyan of

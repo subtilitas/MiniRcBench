@@ -109,8 +109,8 @@ gesendet, wenn alles davon zutrifft:
 
 - die Verbindung steht seit 300 ms, der ESC ist also fertig gestartet;
 - der Tester ist entschärft und der Motor steht (eRPM ist null);
-- kein anderer Befehl, etwa BEEP, wird gerade gesendet, auch nicht das
-  Nullgas danach.
+- kein anderer Befehl, etwa ein Beacon von ESC COMMANDS, wird gerade
+  gesendet, auch nicht das Nullgas danach.
 
 Ein ESC führt einen DShot-Befehl erst nach einer Folge gleicher Frames aus.
 Eine Freigabe zu einem anderen Zeitpunkt ginge verloren.
