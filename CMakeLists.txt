@@ -253,6 +253,7 @@ add_executable(MiniRcBench
     src/pio_uart_rx.cpp
     src/esc_merge.cpp
     src/blackbox_encode.cpp
+    src/run_summary.cpp
     src/log_ring.cpp
     src/sd_log.cpp
     src/sd_log_next.cpp

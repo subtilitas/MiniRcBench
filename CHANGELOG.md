@@ -44,6 +44,18 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1: the design note for the S.BUS output,
+  [sbus-output.md](docs/design/sbus-output.md), designed and not built:
+  S.BUS OUTPUT behind OUTPUT on RX SIGNALS sends a frame every 14 ms on GP0
+  through UART0 with the pad's output inverted, with rcbench's encoder to be
+  copied unchanged from b88593d3, 16 channels on sliders, the throttle
+  channel starting at its stop and held under MAX THROTTLE, CH17, CH18 and
+  the failsafe and frame-lost bits, HOLD TO START and the frame stops of the
+  servo tester. It records, read from source, that AM32 and Bluejay take no
+  throttle from an S.BUS line and that BLHeli_S may take it as Multishot,
+  calibrate, arm and start its motor. By the owner's decision of 2026-11-15
+  it is built only with a bootloader probe on GP0 before START, after the
+  ESC SETTINGS read slices for Bluejay and BLHeli_S. Documentation only.
 - After v0.1.0-rc1 (a93e1c1): the DShot command slot on core1, slice 1 of
   [esc-commands.md](docs/design/esc-commands.md#slice-1-as-built). The
   beacon's slot in `EscPump` becomes one sequence: beacons 1 to 5 as 6
@@ -65,6 +77,19 @@ protocol.
   `test/test_esc_cmd.cpp` run the slot against AM32, Bluejay and BLHeli_S
   models read from their sources. No page sends commands yet; MENU's BEEP
   THE ESC is the only caller. Not tested on hardware.
+- After v0.1.0-rc1: the run summary's core, slice 1 of
+  [run-summary.md](docs/design/run-summary.md#slice-1-as-built), in
+  `src/run_summary.*`. From each logged frame's telemetry it keeps the
+  maximum eRPM, current and temperature over the whole log and the minimum
+  voltage while armed, each as a raw extreme and as a held one, counted
+  only when three consecutive new values reach it; the source per frame,
+  KISS while fresh and EDT in its gaps, tagged `MIXED` when both counted,
+  and EDT's own figure when every fresh KISS frame carried 0; the KISS
+  counter's rise and the charge from current; the armed time. It builds the
+  `LOGnnnnn.TXT` text, both clock lines `not set`, and SD LOG's row texts.
+  Host tests in `test/test_run_summary.cpp`. The logger does not call it
+  yet: no `.TXT` is written and SD LOG does not change. Not tested on
+  hardware.
 - After v0.1.0-rc1 (a93e1c1): a Bluejay or BLHeli_S ESC that answers the
   greeting is recognised, slice 2 of
   [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#slice-2-as-built).
@@ -681,6 +706,22 @@ protocol.
 
 ### Changed
 
+- After v0.1.0-rc1 (a93e1c1): the wiring sheet draws the current sensor and
+  the bench converter, slice 2 of
+  [current-sense.md](docs/design/current-sense.md#slice-2-as-built). The
+  connector table in `src/board_rp2350_touch_lcd_2_8.h` marks J3's I2C pins
+  `^`, the INA219's connector, and J4's `*`, which `docs/wiring.svg` now
+  labels "do not use". Part C of `docs/wiring.svg` shows a synchronous
+  boost with output disconnect from one LiPo (lithium-polymer) cell of its
+  own, with a fuse at the cell, and the optional INA219 on its output, VIN+
+  from VOUT and VIN- to the servo's plus, its header on J3.
+  `tools/make_wiring.py` reads the address and the shunt from `src/sense.h`,
+  and its `--check` fails when the marker is on more than one connector, J3
+  carries another pin, or the address is reserved or one of the board's
+  own. The README's wiring table and switched supply, and the wiki pages
+  Wiring and Setup with their German pairs, describe the boost, the sensor
+  and J3; the converter module is not named and its ratings are not known.
+  Not on hardware.
 - After v0.1.0-rc1 (a93e1c1): MENU's BEEP THE ESC goes through the command
   slot (`escRequestBeep()` calls `escRequestCommand(n, false)`). It shows
   `REFUSED` while no ESC answers, while the motor turns and for 1500 ms after

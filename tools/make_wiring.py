@@ -5,16 +5,23 @@ The connector map and the pin roles come from the firmware's own sources, so
 the drawing follows the code:
 
 - the JST-SH connector table in src/board_rp2350_touch_lcd_2_8.h
-  (the "J4 (12P): 1=GND ..." lines);
+  (the "J4 (12P): 1=GND ..." lines), whose markers name the shared I2C
+  (Inter-Integrated Circuit) bus: "^" on the one connector the INA219
+  current sensor takes, "*" where the bus is not to be used, and the bus's
+  pins, PIN_I2C_SCL and PIN_I2C_SDA, in the same header;
 - DSHOT_PIN_LCD_2_8 and KISS_PIN_LCD_2_8 in src/config.h, the pins a board
   with blank flash starts on;
 - the ServoSupplyMode values in src/servo_supply.h, which name the enable
   pins and their connector pins, held against servoSupplyPinOf() in
-  src/servo_supply.cpp, the mapping the firmware runs.
+  src/servo_supply.cpp, the mapping the firmware runs;
+- INA219_ADDR and INA219_SHUNT_MOHM in src/sense.h, the sensor's address
+  and shunt.
 
 Usage:
     python3 tools/make_wiring.py           # write docs/wiring.svg
-    python3 tools/make_wiring.py --check   # fail when docs/wiring.svg differs
+    python3 tools/make_wiring.py --check   # fail when docs/wiring.svg differs,
+                                           # or when sensor() takes a source
+                                           # of SENSOR_MUTANTS
 """
 
 import difflib
@@ -27,13 +34,15 @@ BOARD_H = os.path.join(ROOT, "src", "board_rp2350_touch_lcd_2_8.h")
 CONFIG_H = os.path.join(ROOT, "src", "config.h")
 SUPPLY_H = os.path.join(ROOT, "src", "servo_supply.h")
 SUPPLY_CPP = os.path.join(ROOT, "src", "servo_supply.cpp")
+SENSE_H = os.path.join(ROOT, "src", "sense.h")
 OUT = os.path.join(ROOT, "docs", "wiring.svg")
 
 W = 1200
 FONT = "DejaVu Sans Mono, Menlo, Consolas, monospace"
 
 # Wire colours: a servo lead's own (orange signal, red plus, brown minus),
-# blue for the telemetry wire, green for the supply enable.
+# blue for the telemetry wire, green for the supply enable, purple for the
+# I2C bus to the current sensor.
 INK = "#1a1a1a"
 DIM = "#5f6368"
 SIG = "#e65100"
@@ -41,6 +50,7 @@ PLUS = "#c62828"
 MINUS = "#4e342e"
 AUX = "#1565c0"
 EN = "#2e7d32"
+I2C = "#6a1b9a"
 PANEL = "#f5f7fa"
 BOX = "#ffffff"
 
@@ -49,7 +59,13 @@ BOX = "#ffffff"
 # sources
 # --------------------------------------------------------------------------
 
+# Source texts that stand in for the files during selftest().
+OVERRIDE = {}
+
+
 def read(path):
+    if path in OVERRIDE:
+        return OVERRIDE[path]
     with open(path, encoding="utf-8") as f:
         return f.read()
 
@@ -81,11 +97,57 @@ def connectors():
     return out
 
 
+def bare(name):
+    """A connector pin's name without its bus marker."""
+    return name.rstrip("*^")
+
+
 def define(path, name):
-    m = re.search(r"#define\s+%s\s+(\d+)" % name, read(path))
+    """A #define's integer value, decimal or hex, with or without a u."""
+    m = re.search(r"#define\s+%s\s+(0[xX][0-9A-Fa-f]+|\d+)[uU]?\b" % name, read(path))
     if not m:
         raise SystemExit("%s: no #define %s" % (path, name))
-    return int(m.group(1))
+    return int(m.group(1), 0)
+
+
+def sensor():
+    """(connector, SCL GPIO, SDA GPIO, address, shunt in milliohms) of the
+    INA219 current sensor.
+
+    Its connector is the one whose pins carry the "^" marker: the board
+    header's I2C SCL and SDA, 3V3 and GND, and nothing else. Every other pin
+    on SCL or SDA carries "*", not to be used, so the bus leaves the board at
+    one connector. The address may be none of the board's own I2C parts.
+    """
+    conns = connectors()
+    scl = define(BOARD_H, "PIN_I2C_SCL")
+    sda = define(BOARD_H, "PIN_I2C_SDA")
+    bus = {"GP%d" % scl, "GP%d" % sda}
+    marked = {c for c, v in conns.items() for name in v["pins"].values() if name.endswith("^")}
+    if len(marked) != 1:
+        raise SystemExit("%s: the ^ marker, the INA219's connector, is on %s, not on one "
+                         "connector" % (BOARD_H, ", ".join(sorted(marked)) or "no connector"))
+    conn = marked.pop()
+    names = sorted(conns[conn]["pins"].values())
+    if names != sorted(["GP%d^" % scl, "GP%d^" % sda, "3V3", "GND"]):
+        raise SystemExit("%s: %s carries %s, not SCL GP%d^, SDA GP%d^, 3V3 and GND"
+                         % (BOARD_H, conn, names, scl, sda))
+    for c, v in conns.items():
+        for num, name in v["pins"].items():
+            if c != conn and bare(name) in bus and not name.endswith("*"):
+                raise SystemExit("%s: %s pin %d, %s, is on the I2C bus and not marked *"
+                                 % (BOARD_H, c, num, name))
+            if bare(name) not in bus and name != bare(name):
+                raise SystemExit("%s: %s pin %d, %s, is marked and not on the I2C bus"
+                                 % (BOARD_H, c, num, name))
+    addr = define(SENSE_H, "INA219_ADDR")
+    if not 0x08 <= addr <= 0x77:
+        raise SystemExit("%s: INA219_ADDR 0x%02X is a reserved I2C address" % (SENSE_H, addr))
+    for other, value in re.findall(r"#define\s+(\w+_I2C_ADDR)\s+(0[xX][0-9A-Fa-f]+|\d+)",
+                                   read(BOARD_H)):
+        if int(value, 0) == addr:
+            raise SystemExit("%s: INA219_ADDR 0x%02X is %s's address" % (SENSE_H, addr, other))
+    return conn, scl, sda, addr, define(SENSE_H, "INA219_SHUNT_MOHM")
 
 
 def supply_pins():
@@ -124,9 +186,48 @@ def supply_pins():
     return out
 
 
+# Changes to the sources that sensor() has to refuse: (file, text, its
+# replacement, a part of the message).
+SENSOR_MUTANTS = [
+    (BOARD_H, "1=GP7^ 2=GP6^", "1=GP7* 2=GP6*", "on no connector"),
+    (BOARD_H, "7=GP7* 8=GP6*", "7=GP7^ 8=GP6^", "on J3, J4, not on one"),
+    (BOARD_H, "3=3V3   4=GND\n *     J5", "3=3V3   4=GP0\n *     J5", "not SCL"),
+    (BOARD_H, "7=GP7* 8=GP6*", "7=GP7  8=GP6*", "not marked *"),
+    (BOARD_H, "1=GP1  2=GP0  3=3V3", "1=GP1* 2=GP0  3=3V3", "not on the I2C bus"),
+    (BOARD_H, "#define PIN_I2C_SCL   7", "#define PIN_I2C_SCL   5", "not SCL"),
+    (SENSE_H, "#define INA219_ADDR          0x40u", "#define INA219_ADDR          0x1Au",
+     "CST328_I2C_ADDR"),
+    (SENSE_H, "#define INA219_ADDR          0x40u", "#define INA219_ADDR          0x78u",
+     "reserved"),
+    (SENSE_H, "#define INA219_ADDR          0x40u", "#define INA219_ADDR          0x07u",
+     "reserved"),
+]
+
+
+def selftest():
+    """Run sensor() on each of SENSOR_MUTANTS; a list of the ones it took."""
+    sensor()
+    missed = []
+    for path, old, new, why in SENSOR_MUTANTS:
+        text = read(path)
+        if old not in text:
+            missed.append("%s no longer holds %r" % (os.path.relpath(path, ROOT), old))
+            continue
+        OVERRIDE[path] = text.replace(old, new, 1)
+        try:
+            sensor()
+            missed.append("%s with %r taken" % (os.path.relpath(path, ROOT), new))
+        except SystemExit as e:
+            if why not in str(e):
+                missed.append("%s with %r: %s" % (os.path.relpath(path, ROOT), new, e))
+        finally:
+            del OVERRIDE[path]
+    return missed
+
+
 def pin_of(conns, conn, gpio):
     for num, name in conns[conn]["pins"].items():
-        if name.rstrip("*") == "GP%d" % gpio:
+        if bare(name) == "GP%d" % gpio:
             return num
     raise SystemExit("%s: GP%d is on no pin of %s" % (BOARD_H, gpio, conn))
 
@@ -257,33 +358,44 @@ def draw():
                              % (SUPPLY_H, gp, conn, pin, BOARD_H))
     en_names = {"GP%d" % gp for gp, _, _ in supplies}
 
+    sense_conn, scl, sda, sense_addr, shunt_mohm = sensor()
+
     def role(name, conn=None):
-        bare = name.rstrip("*")
-        if bare == "GP%d" % sig:
+        """(short, what, colour) of a connector pin."""
+        pin = bare(name)
+        if pin == "GP%d" % sig:
             return "SIG", "ESC or servo signal", SIG
-        if bare == "GP%d" % aux:
+        if pin == "GP%d" % aux:
             return "AUX", "KISS telemetry, servo B", AUX
-        if bare in en_names:
+        if pin in en_names:
             return "EN", "servo supply enable, optional", EN
+        if conn == sense_conn:
+            # The INA219 current sensor's connector: the shared I2C bus of
+            # the touch controller, IMU and RTC, its 3.3 V and its ground.
+            if pin == "GP%d" % scl:
+                return "SCL", "INA219 SCL, 0x%02X" % sense_addr, I2C
+            if pin == "GP%d" % sda:
+                return "SDA", "INA219 SDA, 0x%02X" % sense_addr, I2C
+            if name == "3V3":
+                return "", "3.3 V out: INA219 VCC", I2C
+            if name == "GND":
+                return "", "ground: INA219 GND only", MINUS
         if name == "GND":
             return "", "ground", MINUS
         if name == "3V3":
             # J5 has a servo plug's order, SIG 3V3 GND: a lead joined straight
-            # across puts its plus on the board's 3.3 V. J3's 3.3 V feeds the
-            # optional INA219 current sensor.
+            # across puts its plus on the board's 3.3 V.
             if conn == "J5":
                 return "", "3.3 V out: never connect", DIM
-            if conn == "J3":
-                return "", "3.3 V out: INA219 VCC only", DIM
             return "", "3.3 V out, not used", DIM
         if name == "VBUS":
             return "", "USB 5 V, feeds no servo or ESC", DIM
         if name in ("USB_N", "USB_P"):
             return "", "USB data, not used", DIM
         if name.endswith("*"):
-            # The bus of the touch controller, IMU and RTC; the optional
-            # INA219 current sensor, at 0x40, is the one part added to it.
-            return "", "shared I2C: INA219 0x40 only", "#616161"
+            # The same bus, at a second connector: it leaves the board at the
+            # sensor's connector only.
+            return "", "shared I2C: do not use", "#616161"
         return "", "", DIM
 
     svg = Svg()
@@ -304,10 +416,10 @@ def draw():
             short, what, color = role(name, conn)
             svg.rect(x, py - 8, 16, 16, fill=color, stroke=INK, rx=2)
             svg.text(x + 8, py + 4, str(num), 10, "#ffffff", "middle", "bold")
-            col = INK if short or name == "GND" else DIM
+            col = INK if short or name == "GND" or conn == sense_conn else DIM
             if conn == "J5" and name == "3V3":
                 col = PLUS
-            svg.text(x + 24, py + 4, name.rstrip("*"), 12, col)
+            svg.text(x + 24, py + 4, bare(name), 12, col)
             svg.text(x + 76, py + 4, short, 12, col)
             svg.text(x + 112, py + 4, what, 12, col)
     sig_j5 = pin_of(conns, "J5", sig)
@@ -413,35 +525,41 @@ def draw():
     ])
 
     # --- C: a servo on the switched supply ---------------------------------
+    # The boost converter's output runs through the INA219's shunt to the
+    # servo's plus; the sensor's I2C wires come from its own connector, at the
+    # right, and the servo's minus from the ground rail around them.
     yc = yb + 380
     sig_j4 = pin_of(conns, "J4", sig)
     j4_rows = sorted([(gnd_j4, "GND", MINUS), (sig_j4, "GP%d SIG" % sig, SIG)] + [
         (pin, ("GP%d EN" if i == 0 else "or GP%d EN") % gp, EN)
         for i, (gp, _, pin) in enumerate(supplies)])
-    # the converter: EN on the left, VIN on the right, VOUT on top, GND below
-    cx, cy = 480, yc + 250
+    cx, cy = 480, yc + 340
     rail = cy + 150
-    panel(svg, yc, rail + 140 - yc, "C  Servo on the switched supply: KST, Hitec D series and classic"
+    panel(svg, yc, rail + 222 - yc, "C  Servo on the switched supply: KST, Hitec D series and classic"
           " (SETTINGS > SERVO SUPPLY GP%d)" % en_gp)
     q = stub(svg, 40, yc + 56, "J4 (part)", j4_rows)
     en_y = q[en_pin][1]
-    sy_sig, sy_plus, sy_minus = yc + 190, yc + 214, yc + 238
-    part(svg, 900, sy_sig - 18, 120, 84, "servo", [
-        (sy_sig, "signal"), (sy_plus, "+ red"), (sy_minus, "- brown")])
-    svg.wire([q[sig_j4], (820, q[sig_j4][1]), (820, sy_sig), (900, sy_sig)], SIG)
-    svg.rect(cx, cy, 160, 90)
-    svg.text(cx + 80, cy + 50, "DC-DC", 14, INK, "middle", "bold")
-    svg.text(cx + 80, cy + 66, "5 V out", 11, DIM, "middle")
+    # the servo, its signal straight from J4, its minus from the right
+    sy_sig = q[sig_j4][1]
+    sy_plus, sy_minus = sy_sig + 24, sy_sig + 48
+    part(svg, 900, sy_sig - 18, 120, 84, "servo", [(sy_sig, "signal"), (sy_plus, "+ red")])
+    svg.text(1014, sy_minus + 4, "- brown", 11, DIM, "end")
+    svg.wire([q[sig_j4], (900, sy_sig)], SIG)
+    # the converter: EN on the left, VIN on the right, VOUT on top, GND below
+    svg.rect(cx, cy, 160, 100)
+    svg.text(cx + 80, cy + 42, "BOOST", 14, INK, "middle", "bold")
+    svg.text(cx + 80, cy + 58, "5 V out", 11, DIM, "middle")
+    svg.text(cx + 80, cy + 72, "output disconnect", 11, DIM, "middle")
     svg.text(cx + 6, cy + 24, "EN", 11, DIM)
     svg.text(cx + 154, cy + 24, "VIN", 11, DIM, "end")
     svg.text(cx + 80, cy + 14, "VOUT", 11, DIM, "middle")
-    svg.text(cx + 80, cy + 84, "GND", 11, DIM, "middle")
-    # the user supply into VIN
-    sp, sm = svg.supply(700, cy + 40, ["user supply"])
+    svg.text(cx + 80, cy + 94, "GND", 11, DIM, "middle")
+    # one LiPo cell into VIN
+    sp, sm = svg.supply(700, cy + 40, ["one LiPo cell of its own,", "3.0 V to 4.2 V"])
     svg.wire([sp, (sp[0], cy + 20), (cx + 160, cy + 20)], PLUS)
     svg.wire([sm, (sm[0], rail)], MINUS)
     svg.dot(sm[0], rail, MINUS)
-    svg.wire([(cx + 80, cy + 90), (cx + 80, rail)], MINUS)
+    svg.wire([(cx + 80, cy + 100), (cx + 80, rail)], MINUS)
     svg.dot(cx + 80, rail, MINUS)
     # the enable, and its pull-down at the converter from EN to GND
     svg.wire([q[en_pin], (440, en_y), (440, cy + 20), (cx, cy + 20)], EN)
@@ -451,25 +569,52 @@ def draw():
     svg.text(448, cy + 64, "10 k\u03a9", 12, EN, "end", "bold")
     svg.text(448, cy + 80, "EN to GND,", 11, DIM, "end")
     svg.text(448, cy + 94, "at the converter", 11, DIM, "end")
-    # the converter's output to the servo, and the ground rail
-    svg.wire([(cx + 80, cy), (cx + 80, cy - 30), (860, cy - 30), (860, sy_plus),
-              (900, sy_plus)], PLUS)
-    svg.wire([q[-gnd_j4], (30, q[gnd_j4][1]), (30, rail), (880, rail), (880, sy_minus),
-              (900, sy_minus)], MINUS)
+    # the INA219, optional: VIN+ from VOUT, VIN- to the servo's plus, its
+    # header to the sensor's connector
+    ix, iy = 700, yc + 200
+    s_rows = [(num, "%s %s" % (bare(name), role(name, sense_conn)[0] or
+                               ("VCC" if name == "3V3" else "")),
+               role(name, sense_conn)[2])
+              for num, name in sorted(conns[sense_conn]["pins"].items())]
+    r = stub(svg, 900, iy, sense_conn, [(n, label.strip(), c) for n, label, c in s_rows])
+    svg.rect(ix, iy, 140, 24 * len(s_rows) + 16, dash=True)
+    module_pin = {"GP%d" % scl: "SCL", "GP%d" % sda: "SDA", "3V3": "VCC", "GND": "GND"}
+    for num, name in conns[sense_conn]["pins"].items():
+        py = r[-num][1]
+        svg.text(ix + 134, py + 4, module_pin[bare(name)], 11, DIM, "end")
+        svg.wire([(ix + 140, py), r[-num]], MINUS if name == "GND" else I2C)
+    vin_p, vin_m = (ix, iy + 56), (ix + 40, iy)
+    svg.text(ix + 6, vin_p[1] + 4, "VIN+", 11, DIM)
+    svg.text(vin_m[0], iy + 16, "VIN-", 11, DIM, "middle")
+    svg.text(ix + 52, iy + 84, "shunt", 11, DIM, "middle")
+    svg.text(ix + 52, iy + 98, "%g \u03a9" % (shunt_mohm / 1000.0), 11, DIM, "middle")
+    svg.text(ix + 70, iy + 24 * len(s_rows) + 34, "INA219 at 0x%02X, optional" % sense_addr,
+             13, INK, "middle", "bold")
+    svg.wire([(cx + 80, cy), (cx + 80, vin_p[1]), vin_p], PLUS)
+    svg.wire([vin_m, (vin_m[0], sy_plus), (900, sy_plus)], PLUS)
+    # the ground rail, from J4 round to the servo's minus at its right
+    svg.wire([q[-gnd_j4], (30, q[gnd_j4][1]), (30, rail), (1100, rail), (1100, sy_minus),
+              (1020, sy_minus)], MINUS)
     svg.text(36, rail - 8, "one ground tap", 11, MINUS)
-    svg.text(cx, rail + 20, "DC-DC: > 1 A; buck, or output disconnect;", 11, DIM)
-    svg.text(cx, rail + 34, "e.g. Pololu S13V30F5, 2.8 V to 22 V in", 11, DIM)
+    svg.text(cx, rail + 20, "Needed: 5 V, at least 3 A, output", 11, DIM)
+    svg.text(cx, rail + 34, "disconnect, EN high at 3.3 V", 11, DIM)
     notes(svg, 40, rail + 62, [
         "EN on %s, with SERVO SUPPLY at that pin. SIG, EN and GND share one J4 pigtail;"
         % " or ".join("GP%d (%s pin %d)" % t for t in supplies),
-        "J5 stays free. The pull-down sits at the converter: 10 k\u03a9 for the Pololu S13V30F5, whose EN has a 475 k\u03a9",
-        "pull-up; 10 k\u03a9 to 100 k\u03a9 for an EN without one. EN is high only during a KST or Hitec claim. The servo tester",
-        "does not switch it: a servo there needs a supply of its own. An ESC on this lead gets VOUT on its BEC wire.",
+        "J5 stays free. The converter is a synchronous boost with output disconnect: a boost without it powers the servo",
+        "with EN low. A fuse at the cell, which is charged off the bench, not by the board. The pull-down sits at the",
+        "converter: 10 k\u03a9 to 100 k\u03a9 for an EN without a pull-up; with a pull-up to VIN, at most 0.135 times that pull-up at",
+        "4.2 V. EN is high only during a KST or Hitec claim. The servo tester does not switch it: a servo there needs a supply",
+        "of its own. An ESC on this lead gets VOUT on its BEC wire. The INA219 (SETTINGS > CURRENT SENSE): %s by a pigtail to"
+        % sense_conn,
+        "its header pins, not a Qwiic cable; the servo current through its screw terminal only, its header's VIN pins left",
+        "open. Without the INA219, VOUT goes straight to the servo's plus.",
     ])
 
-    height = rail + 140 + 20
+    height = rail + 222 + 20
     svg.text(W - 24, height - 8,
-             "tools/make_wiring.py, from src/board_rp2350_touch_lcd_2_8.h, src/config.h, src/servo_supply.{h,cpp}",
+             "tools/make_wiring.py, from src/board_rp2350_touch_lcd_2_8.h, src/config.h, "
+             "src/servo_supply.{h,cpp}, src/sense.h",
              10, DIM, "end")
     return svg.render(height)
 
@@ -481,6 +626,12 @@ def main(argv):
     check = argv == ["--check"]
     out = draw()
     if check:
+        missed = selftest()
+        if missed:
+            print("\n".join(missed), file=sys.stderr)
+            print("tools/make_wiring.py: sensor() takes a source it has to refuse",
+                  file=sys.stderr)
+            return 1
         try:
             have = read(OUT)
         except FileNotFoundError:
