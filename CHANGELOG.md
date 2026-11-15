@@ -2069,7 +2069,11 @@ protocol.
   4-way interface, and is cleared only by a RUN, `cmd_DeviceReset`'s among
   them, or by the page's RESTART DSHOT
   (`usbBridgeWriteUnfinishedClear()`), which ends the claim: the next entry
-  to USB BRIDGE starts with none. Host-tested, not on hardware.
+  to USB BRIDGE starts with none. A RUN counts once core1 has taken it from
+  the frame slot, not at its handover: a RUN handed over just before BACK
+  is never sent, and the note stays. A board reset or a power loss in the
+  middle of a flash still restarts with DShot on SIG and no note.
+  Host-tested, not on hardware.
 - AM32 CONFIG showed LOW VOLT CUTOFF, VARIABLE PWM and BRAKE ON STOP as off
   and on, and AM32 stores three values in each: a stored 2 read ON, and a
   press of - or + made it 1, changing the mode. They are three-value

@@ -3206,12 +3206,15 @@ FELL BEHIND.`, amber, the second once a byte is lost. A failed bind reads
 write-class, in passthrough as frames from the PC, in the 4-way interface
 as the frames its Write and PageErase send; there a write waits until the
 4-way command's answer, and only `cmd_DeviceReset`'s RUN ends the
-unfinished write, not `cmd_InterfaceExit`.
+unfinished write, not `cmd_InterfaceExit`. A RUN, in either mode, counts
+once core1 has taken it from the frame slot: one handed over just before
+BACK is never sent, and the note stays.
 
 | When | BACK |
 |---|---|
 | a write-class frame waits for its answer, at most 3000 ms | drawn disabled; the first line reads `WRITING: DO NOT UNPLUG ESC OR USB.`, amber |
 | before the line is bound: Stopping, or a failed bind | returns to MENU; DShot comes back at once, or once the job has let the line go |
+| a failed rebind after `BRIDGE` on the leave page | the leave page again, with the note if it stands: a claim that has had the page keeps it until RESTART DSHOT |
 | the bridge running, whatever was sent | the leave page: `POWER THE ESC OFF.`, `RESTART DSHOT.`, after a write with no RUN behind it also the note `FLASH THE ESC AGAIN BEFORE USE.`; `BRIDGE` returns to the bridge, and the note stays for its next BACK until a RUN; RESTART DSHOT, live 1000 ms after the line is let go, ends the claim and the note with it and returns to MENU |
 
 Once the line is bound the ESC may wait in its bootloader whatever the
