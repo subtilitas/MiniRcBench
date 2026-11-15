@@ -1,6 +1,6 @@
 /**
  * @file servo_supply.cpp
- * @brief The programmed servo's switched supply on GP28 or GP29. @see servo_supply.h
+ * @brief The servo's switched supply on GP28 or GP29. @see servo_supply.h
  */
 
 #include "servo_supply.h"

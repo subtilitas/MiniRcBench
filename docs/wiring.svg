@@ -207,7 +207,7 @@
 <text x="40" y="1026" font-size="12" fill="#1a1a1a" text-anchor="start">and switch the servo supply off first. KST answers only just after power-up: switch the supply on when the screen</text>
 <text x="40" y="1044" font-size="12" fill="#1a1a1a" text-anchor="start">searches. Power a Hitec D series servo before tapping D SERIES.</text>
 <rect x="20" y="1092" width="1160" height="712" rx="8" fill="#f5f7fa" stroke="#b0bec5" stroke-width="1.5"/>
-<text x="36" y="1118" font-size="15" fill="#1a1a1a" text-anchor="start" font-weight="bold">C  Servo on the switched supply: KST, Hitec D series and classic (SETTINGS &gt; SERVO SUPPLY GP28)</text>
+<text x="36" y="1118" font-size="15" fill="#1a1a1a" text-anchor="start" font-weight="bold">C  Servo on the switched supply: servo tester, KST, Hitec D series and classic (SETTINGS &gt; SERVO SUPPLY GP28)</text>
 <rect x="40" y="1148" width="130" height="112" rx="4" fill="#eceff1" stroke="#1a1a1a" stroke-width="1.5"/>
 <text x="40" y="1142" font-size="12" fill="#5f6368" text-anchor="start" font-weight="bold">J4 (part)</text>
 <rect x="48" y="1160" width="16" height="16" rx="2" fill="#4e342e" stroke="#1a1a1a" stroke-width="1.5"/>
@@ -291,9 +291,9 @@
 <text x="40" y="1662" font-size="12" fill="#1a1a1a" text-anchor="start">J5 stays free. The converter is a synchronous boost with output disconnect: a boost without it powers the servo</text>
 <text x="40" y="1680" font-size="12" fill="#1a1a1a" text-anchor="start">with EN low. A fuse at the cell, which is charged off the bench, not by the board. The pull-down sits at the</text>
 <text x="40" y="1698" font-size="12" fill="#1a1a1a" text-anchor="start">converter: 10 kΩ to 100 kΩ for an EN without a pull-up; with a pull-up to VIN, at most 0.135 times that pull-up at</text>
-<text x="40" y="1716" font-size="12" fill="#1a1a1a" text-anchor="start">4.2 V. EN is high only during a KST or Hitec claim. The servo tester does not switch it: a servo there needs a supply</text>
-<text x="40" y="1734" font-size="12" fill="#1a1a1a" text-anchor="start">of its own. An ESC on this lead gets VOUT on its BEC wire. The INA219 (SETTINGS &gt; CURRENT SENSE): J3 by a pigtail to</text>
-<text x="40" y="1752" font-size="12" fill="#1a1a1a" text-anchor="start">its header pins, not a Qwiic cable; the servo current through its screw terminal only, its header's VIN pins left</text>
-<text x="40" y="1770" font-size="12" fill="#1a1a1a" text-anchor="start">open. Without the INA219, VOUT goes straight to the servo's plus.</text>
+<text x="40" y="1716" font-size="12" fill="#1a1a1a" text-anchor="start">4.2 V. EN is high only inside a claim: in the servo tester from START until STOP, a trip or BACK; in KST and Hitec</text>
+<text x="40" y="1734" font-size="12" fill="#1a1a1a" text-anchor="start">while they power the servo. An ESC on this lead gets VOUT on its BEC wire. The INA219 (SETTINGS &gt; CURRENT SENSE): J3</text>
+<text x="40" y="1752" font-size="12" fill="#1a1a1a" text-anchor="start">by a pigtail to its header pins, not a Qwiic cable; the servo current through its screw terminal only, its header's</text>
+<text x="40" y="1770" font-size="12" fill="#1a1a1a" text-anchor="start">VIN pins left open. Without the INA219, VOUT goes straight to the servo's plus.</text>
 <text x="1176" y="1816" font-size="10" fill="#5f6368" text-anchor="end">tools/make_wiring.py, from src/board_rp2350_touch_lcd_2_8.h, src/config.h, src/servo_supply.{h,cpp}, src/sense.h</text>
 </svg>

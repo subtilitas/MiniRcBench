@@ -263,16 +263,15 @@ matters there too.
 |---|---|---|
 | `servoSupplyInit()` | core0, in `setup()` directly after `settingsLoad()`, before core1 starts | with `GP28` or `GP29`: SIO function, output disabled, both pulls off, input disabled. Selecting SIO with `gpio_set_function()` clears the pad's isolation and its output disable and turns its input on (Pico SDK 2.1.1, `src/rp2_common/hardware_gpio/gpio.c`), so the input is disabled after it. The SIO output enable stays off, so the pin is not driven. With `NONE`: nothing; GP28 and GP29 keep their reset state |
 | `servoSupplyConfigure()` | core0, from SETTINGS' `applyLive()`, outside every claim | as `servoSupplyInit()`, for the new value. The pin of the value before stays an input with both pulls off and its input disabled, after a change to `NONE` or to the other pin |
-| `servoSupplyBind()` | core1, from the KST or Hitec job's bind, with `GP28` or `GP29` | drives the pin low: off |
-| `servoSupplyOn()`, `servoSupplyOff()` | core1, the KST or Hitec job, between bind and release | drives the pin high or low |
-| `servoSupplyRelease()` | core1, from the KST or Hitec job's release, at every claim end | drives the pin low, then makes it an input with both pulls off and its input disabled |
+| `servoSupplyBind()` | core1, from the KST, Hitec or servo job's bind, with `GP28` or `GP29` | drives the pin low: off |
+| `servoSupplyOn()`, `servoSupplyOff()` | core1, the KST, Hitec or servo job, between bind and release | drives the pin high or low |
+| `servoSupplyRelease()` | core1, from the KST, Hitec or servo job's release, at every claim end | drives the pin low, then makes it an input with both pulls off and its input disabled |
 | `servoSupplyIsOn()` | core1 | the level the bench drives; there is no read-back |
 
 The enable pin is driven only while a claim that uses the supply holds: the
-KST and Hitec claims, and the servo tester's once decision 10 is built. Two
-cores write the pin's pad,
-never at once: core0 at boot and at a SETTINGS change, core1 only inside a
-KST claim, and SETTINGS is unreachable while a claim holds. The level is a fact
+KST, Hitec and servo tester claims (decision 10). Two cores write the pin's
+pad, never at once: core0 at boot and at a SETTINGS change, core1 only inside
+a claim, and SETTINGS is unreachable while a claim holds. The level is a fact
 core1 writes and core0 reads, as `KstStatus.supply`, under the KST job's
 status lock. The bench knows the level it drives, not the voltage on the
 servo.
@@ -694,12 +693,10 @@ At 230 px of scroll:
   J4). The bus carries the touch controller (0x1A), the IMU (0x6B) and the
   RTC (0x51); a new device avoids those addresses, and a fault on its lead
   takes the touch screen down with it.
-- Supply measurement: an INA226 current and voltage monitor at 0x40 to 0x4F
-  on the same bus would give the read-back rcbench has from its PD mini.
-- The servo tester's use of the supply: decided (decision 10), and built in a
-  change after KST programming. Until then the servo tester never drives
-  the enable pin, so with a converter fitted its servo is unpowered unless
-  it has a supply of its own.
+- Supply measurement: an INA219 on J3, [current-sense.md](current-sense.md),
+  reads the supply's voltage back; the KST and Hitec jobs do not use it yet.
+- The servo tester's use of the supply: decision 10, built as slice 3 of
+  [current-sense.md](current-sense.md#slice-3-as-built).
 
 ### Tests for the switch
 
@@ -1653,10 +1650,10 @@ decisions 11 and 12 come from that revision:
    bring-up measures the servo.
 10. **Servo tester.** It uses the switched supply in a change after KST
     programming: SAFE is supply off, HOLD TO START switches it on, STOP and
-    a heartbeat trip switch it off. Until that change the servo tester never
-    drives GP0, so with a converter fitted the servo there is unpowered
-    unless it has a supply of its own
-    ([servo-tester.md](servo-tester.md#decisions), decision 20).
+    a heartbeat trip switch it off
+    ([servo-tester.md](servo-tester.md#decisions), decision 20). Built as
+    slice 3 of [current-sense.md](current-sense.md#slice-3-as-built),
+    host-tested, not tested on hardware.
 11. **SETUP scrolls.** Superseded by [menu.md](menu.md#decisions)
     decision 13. SETUP becomes a list scrolled in pixels, as the AM32 list,
     and `SERVO SUPPLY` is its eighth row, after KISS PIN. HOLD TO
@@ -1765,8 +1762,9 @@ and GP1 and the enable takes GP28 or GP29. Decision 7's enable pin is GP28,
 J4 pin 11, or GP29, J4 pin 12. Decision 8's row is a stepper with three
 values, `NONE`, `GP28` and `GP29`; GP0 and GP1 are not offered for the
 enable. The settings layout is version 4, and a block of an earlier version
-is discarded whole, as decision 8 describes for version 2. Under decision
-10 the servo tester never drives the enable pin. Decision 4's rule, no
+is discarded whole, as decision 8 describes for version 2. Decision 10 is
+built by slice 3 of [current-sense.md](current-sense.md#slice-3-as-built).
+Decision 4's rule, no
 level above 3.6 V on SIG, stands as decided. Decisions 4, 7, 8 and 10 keep
 the wording the owner decided; these changes stand here only.
 
