@@ -41,12 +41,16 @@ channels, the link state, the frame rate and the error counts (see
 During its pin claim it receives on GP1 through UART0 (universal asynchronous
 receiver-transmitter 0) with the pad's input inverted and decodes the frames
 with rcbench's decoder. It is tested on the host only; the inversion on the
-pin is not measured. An S.BUS output, OUTPUT on the same chooser, is decided
-on by the owner and not designed yet; the chooser draws it disabled,
-`NOT BUILT`. A PPM (pulse-position modulation) output
-is not built, by the owner's decision. An angle meter on the board's QMI8658
-IMU (inertial measurement unit), for incidence, decalage, dihedral and
-control-surface throw, is designed in `docs/design/angle-meter.md` and not
+pin is not measured. An S.BUS output to a flight controller, OUTPUT on the
+same chooser, sending a frame every 14 ms on GP0 through UART0 with the
+pad's output inverted, the throttle channel under MAX THROTTLE, is designed
+in `docs/design/sbus-output.md` and not built: it waits on a check for an
+ESC bootloader on GP0 before START, which needs the Bluejay and BLHeli_S
+reading of ESC SETTINGS first. The chooser draws it disabled,
+`NOT BUILT`. A PPM (pulse-position modulation) output is not built, by
+the owner's decision. An angle meter on the board's QMI8658 IMU (inertial
+measurement unit), for incidence, decalage, dihedral and control-surface
+throw, is designed in `docs/design/angle-meter.md` and not
 built; the owner answered its questions on 2026-11-15, and its entry is an
 eighth MENU row, `TOOLS`, with a chooser. A run
 summary per blackbox log, written beside the log and shown on SD LOG, with the
@@ -2170,7 +2174,10 @@ The RX SIGNALS row opens RX SIGNALS (`src/ui_rx_signals.cpp`), a chooser
 with two entries, 228 x 46 px at y 62 and 142, as PROGRAMMER's. It claims
 nothing. Its strip names both pins, `SIG GP0  AUX GP1`. **MONITOR** opens
 S.BUS MONITOR. **OUTPUT**, an S.BUS output to a flight controller, is drawn
-disabled with `NOT BUILT` under it and opens nothing: it is not designed.
+disabled with `NOT BUILT` under it and opens nothing: it is designed in
+`docs/design/sbus-output.md` and not built; it waits on a check for an ESC
+bootloader on GP0, which needs ESC SETTINGS' Bluejay and BLHeli_S reading
+first.
 The row is drawn disabled while the pin claim is not free, as the other rows
 that lead to a claim.
 

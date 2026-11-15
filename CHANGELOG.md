@@ -62,6 +62,18 @@ protocol.
   (decision 4); no direction note (decision 10). Host tests in
   `test/test_esc_cmd_ui.cpp` and `test/test_ids.cpp`;
   `docs/esccmd-preview.png`. Not tested on hardware.
+- After v0.1.0-rc1: the design note for the S.BUS output,
+  [sbus-output.md](docs/design/sbus-output.md), designed and not built:
+  S.BUS OUTPUT behind OUTPUT on RX SIGNALS sends a frame every 14 ms on GP0
+  through UART0 with the pad's output inverted, with rcbench's encoder to be
+  copied unchanged from b88593d3, 16 channels on sliders, the throttle
+  channel starting at its stop and held under MAX THROTTLE, CH17, CH18 and
+  the failsafe and frame-lost bits, HOLD TO START and the frame stops of the
+  servo tester. It records, read from source, that AM32 and Bluejay take no
+  throttle from an S.BUS line and that BLHeli_S may take it as Multishot,
+  calibrate, arm and start its motor. By the owner's decision of 2026-11-15
+  it is built only with a bootloader probe on GP0 before START, after the
+  ESC SETTINGS read slices for Bluejay and BLHeli_S. Documentation only.
 - After v0.1.0-rc1 (a93e1c1): the DShot command slot on core1, slice 1 of
   [esc-commands.md](docs/design/esc-commands.md#slice-1-as-built). The
   beacon's slot in `EscPump` becomes one sequence: beacons 1 to 5 as 6
