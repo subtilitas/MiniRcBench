@@ -38,6 +38,7 @@ PREVIEWS = {
         "shot_splash",
         "shot_tester_disarmed",
         "shot_tester_armed",
+        "shot_tester_kv",
         "shot_tester_stale",
     ],
     # Three states of MENU's EDT chip, and PROGRAMMER, the chooser its SERVO
