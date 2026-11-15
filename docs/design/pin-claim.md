@@ -177,8 +177,9 @@ the exception.
    DShot on the first call into the claim that finds the job idle,
    `pinClaimPoll()`, `pinClaimState()` or any other, never before, so DShot
    is not rebuilt on a pin the job's state machines still hold, and comes
-   back after a screen that ended the claim and closed. Its job finishes the frame under way, for at most 250 ms
-   (`BRIDGE_RELEASE_MAX_MS`), then leaves SIG an input with the pull-up on.
+   back after a screen that ended the claim and closed. Its job finishes
+   the frame under way, for at most 250 ms (`BRIDGE_RELEASE_MAX_MS`), then
+   leaves SIG an input with the pull-up on.
    After an unfinished write the bridge is to call `pinClaimWantLeavePage()`
    (usb-bridge.md, decision 10), and then waits for RESTART DSHOT as the
    others do.

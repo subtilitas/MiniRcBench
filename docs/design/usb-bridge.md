@@ -919,8 +919,8 @@ shorter, a collision and a full receive FIFO. A control run with the ESC's
 bits 3 % shorter loses bytes at every phase: `pio_uart_rx` samples the stop
 bit 9.6 bit times after the start edge and looks for the next start bit
 only then, so a sender that fast, back to back, gets ahead of it. Whether
-an ESC's bootloader sends that fast is not verified; bench item B11. `test/test_bridge.cpp`,
-162 checks in 8 sections, against `test/fake_bridge_line.h`, a wire on the
+an ESC's bootloader sends that fast is not verified; bench item B11.
+`test/test_bridge.cpp`, 162 checks in 8 sections, against `test/fake_bridge_line.h`, a wire on the
 virtual clock with the model's cycle counts and a model ESC: the divider;
 the slot's refusals and handover; the frame on the wire whole, with a pass
 every 1 ms and every 5 ms; the echo kept and dropped, differing and lost;

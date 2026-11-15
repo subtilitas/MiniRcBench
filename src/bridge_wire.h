@@ -20,10 +20,10 @@
  * A frame goes to the wire whole: core1 takes it from the slot and keeps the
  * transmit FIFO filled until its last byte is in, so its bytes go out back to
  * back, 82 state machine cycles, 10.25 bit times, apart (bridge_line.pio).
- * After a pass at most 8 bytes, 4.27 ms at 82 cycles each, are on the wire
- * or queued; a later pass leaves the pad driven high between two bytes. The slot is free again when the last
- * byte is in the FIFO. The ring absorbs core0's repaints: 1024 bytes are
- * 533 ms of wire traffic.
+ * After a pass at most 8 bytes, 4.27 ms at 82 cycles each, are on the wire or
+ * queued; a later pass leaves the pad driven high between two bytes. The slot
+ * is free again when the last byte is in the FIFO. The ring absorbs core0's
+ * repaints: 1024 bytes are 533 ms of wire traffic.
  *
  * Both buffers have one writer per index or flag and no lock: each store
  * that publishes data is a release, each load that reads it an acquire, as
@@ -84,9 +84,9 @@ static_assert((BRIDGE_RX_RING & (BRIDGE_RX_RING - 1u)) == 0, "the ring's index m
  * @brief Bytes sent whose echo the job waits for at most: the receive FIFO's
  *        depth, so the line's own echo never fills it while core1 is away.
  *
- * Right after a pass that are the byte on the wire and 7 in the transmit
- * FIFO: 8 bytes, 4.27 ms of sending at 82 cycles each. The job puts no more until echoes come back, or
- * the line is idle and those still owed are written off.
+ * Right after a pass that are the byte on the wire and 7 in the transmit FIFO:
+ * 8 bytes, 4.27 ms of sending at 82 cycles each. The job puts no more until
+ * echoes come back, or the line is idle and those still owed are written off.
  */
 #define BRIDGE_ECHO_MAX 8u
 
