@@ -25,8 +25,8 @@ Firmware; siehe unten.
 
 Bidirektionales DShot und EDT funktionieren auf der Hardware mit dem
 DShot-Treiber von DshotDisplay v2.3 (laut Projektinhaber; kein Fehler bekannt).
-Der DShot-Treiber dieser Firmware lief in dieser Firmware noch nicht auf
-Hardware; rcbench betrieb ihn an einem AM32-ESC.
+Der DShot-Treiber dieser Firmware stammt aus rcbench und lief hier noch nicht
+auf Hardware; rcbench betrieb ihn mit DShot600 an einem AM32-ESC.
 
 **KISS-Telemetrie** ist ein optionales drittes Kabel vom Telemetrie-Pad des
 ESC. Ihre Schritte sind 0,01 V und 0,01 A, gegenüber 0,25 V und 1 A bei EDT,

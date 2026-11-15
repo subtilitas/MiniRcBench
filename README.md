@@ -1070,7 +1070,8 @@ An expired **ESC STATUS** reads `--`, never `OK`.
 
 Bidirectional DShot and EDT work on hardware with `pico-bidir-dshot`, the
 driver of DshotDisplay v2.3 (owner report; no defect known). MiniRcBench uses
-the driver in `src/dshot/`, which has not run on hardware in MiniRcBench.
+the driver in `src/dshot/`, which has not run on hardware in MiniRcBench;
+rcbench ran it at DShot600 on one AM32 ESC.
 
 ### KISS telemetry (optional third wire)
 

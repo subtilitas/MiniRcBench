@@ -82,7 +82,7 @@ Strom und der erste Motorlauf.
 > [Erste Schritte](Erste-Schritte#sicherheit-zuerst) vor dem ersten
 > Scharfschalten.
 
-**Hardware-Tests.** Kein Image dieser Firmware lief bisher auf Hardware. Ihre
+**Hardware-Tests.** Kein Image dieser Firmware lief bisher auf Hardware. Die
 Tests der Firmware laufen auf einem Host-Computer.
 
 **Prüfplan.** Die geordneten Hardware-Tests der Inbetriebnahme:

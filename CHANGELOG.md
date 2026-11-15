@@ -1208,11 +1208,14 @@ protocol.
 
 - After v0.1.0-rc1: the release notes gain a "Hardware testing" section: no
   MiniRcBench image has run on hardware. They name the image by its tag and
-  the ESC pin setting as SIG PIN. The README, the Telemetry and Telemetrie
-  pages and the KISS design note name `pico-bidir-dshot`, the DShot driver of
-  DshotDisplay v2.3, as the driver the owner's hardware reports cover; the
-  driver in `src/dshot/` has not run on hardware in MiniRcBench. The wiki
-  footer says a pre-release publishes no manual.
+  the ESC pin setting as SIG PIN. The README's "Prebuilt image" and the wiki's
+  Home page say the same. The README and the KISS design notes name
+  `pico-bidir-dshot`, the DShot driver of DshotDisplay v2.3, as the driver the
+  owner's hardware reports cover; the Telemetry and Telemetrie pages name it
+  as the DShot driver of DshotDisplay v2.3. They state that the driver in
+  `src/dshot/` has not run on hardware in MiniRcBench and that rcbench ran it
+  at DShot600 on one AM32 ESC. The wiki footer says a pre-release publishes
+  no manual.
 - After v0.1.0-rc1: the documentation follows the code. STATUS.md's "Next
   steps" states what is open now: the draft pull request #49, the tags
   (v0.1.0-rc1 exists, v0.1.0-rc2 is not tagged), the bench plan as the next
