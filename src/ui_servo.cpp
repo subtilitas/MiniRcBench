@@ -19,6 +19,7 @@
 #include "settings.h"
 #include "pin_claim.h"
 #include "servo_job.h"
+#include "servo_log.h"
 #include "servo_model.h"
 #include "sense.h"
 #include "servo_supply.h"
@@ -324,8 +325,9 @@ static void supplyLine(char *buf, size_t n, unsigned pin) {
 /**
  * @brief Send a command with this frame's SPEED and sweep; @p step marks
  *        MIN, CENTRE and MAX for the move timing.
+ * @return The seq of the command held (servoJobCommand()).
  */
-static void send(ServoCmdKind kind, uint16_t command = SERVO_CMD_CENTRE, bool step = false) {
+static uint16_t send(ServoCmdKind kind, uint16_t command = SERVO_CMD_CENTRE, bool step = false) {
 	ServoCmd c;
 	memset(&c, 0, sizeof(c));
 	c.kind = kind;
@@ -334,7 +336,7 @@ static void send(ServoCmdKind kind, uint16_t command = SERVO_CMD_CENTRE, bool st
 	c.step = step;
 	c.slewPerS = servoSlewOf((int)(s_speed.value + 0.5f));
 	c.sweep = s_sweep;
-	servoJobCommand(&c);
+	return servoJobCommand(&c);
 }
 
 /** @brief Hand s_profile to the job, at once or on a later frame. */
@@ -594,6 +596,33 @@ static bool cutsBlind() {
 	return smp.state != (uint8_t)SenseState::Online;
 }
 
+/**
+ * @brief The dial band's second line while RUNNING with a servo log: the
+ *        file being written, dim; the rows dropped, or why the log stopped
+ *        or did not start, amber. Empty with no log: no card, no sensor.
+ */
+static void logLine(char *buf, size_t n, uint16_t *col) {
+	ServoLogStatus lg;
+	servoLogStatus(&lg);
+	buf[0] = '\0';
+	*col = C_AMBER;
+	switch (lg.fault) {
+		case SdLogEnd::CardFull:     snprintf(buf, n, SERVO_UI_LOG_FULL); return;
+		case SdLogEnd::WriteFailed:  snprintf(buf, n, SERVO_UI_LOG_FAILED); return;
+		case SdLogEnd::OpenFailed:   snprintf(buf, n, SERVO_UI_LOG_NO_OPEN); return;
+		case SdLogEnd::NoFreeNumber: snprintf(buf, n, SERVO_UI_LOG_NO_NUMBER); return;
+		default:                     break;
+	}
+	if (!lg.active) return;
+	if (lg.dropped) {
+		snprintf(buf, n, SERVO_UI_LOG_DROPPED_FMT, (unsigned long)lg.fileNumber,
+		         (unsigned long)lg.dropped);
+		return;
+	}
+	snprintf(buf, n, SERVO_UI_LOG_FMT, (unsigned long)lg.fileNumber);
+	*col = C_DIM;
+}
+
 /** @brief The horn of one servo at its pulse. */
 static void drawHorn(uint16_t us, uint16_t col, bool selected) {
 	float deg = servoUsToDeg(&s_profile, us);
@@ -621,9 +650,13 @@ static void drawDial() {
 	char n1[48], n2[48];
 	uint16_t c1, c2;
 	safeNotes(n1, n2, sizeof(n1), &c1, &c2);
-	struct { uint32_t l1, l2, l3, sw, n1, n2; bool retry, rp; uint16_t us[2]; uint8_t mask, servos;
-	         bool running, tripped, blind; uint16_t c1, c2; } k;
+	char lg[48];
+	uint16_t lgCol;
+	logLine(lg, sizeof(lg), &lgCol);
+	struct { uint32_t l1, l2, l3, sw, n1, n2, lg; bool retry, rp; uint16_t us[2]; uint8_t mask, servos;
+	         bool running, tripped, blind; uint16_t c1, c2, lgCol; } k;
 	memset(&k, 0, sizeof(k));
+	k.lg = textKey(lg[0] ? lg : nullptr); k.lgCol = lgCol;
 	k.sw = textKey(sw[0] ? sw : nullptr);
 	k.n1 = textKey(n1); k.n2 = textKey(n2); k.c1 = c1; k.c2 = c2;
 	k.l1 = textKey(l1); k.l2 = textKey(l2); k.l3 = textKey(l3);
@@ -649,6 +682,7 @@ static void drawDial() {
 		line(64, sw, UI_COL_LIVE);
 	}
 	if (k.blind) line(76, SERVO_UI_OWN_NO_CUTS, C_DIM);
+	else if (s_st.running && lg[0]) line(76, lg, lgCol);
 	gfxArcDots(SERVO_DIAL_X, SERVO_DIAL_Y, SERVO_DIAL_ARC_R, -90, 90, 10, 3, C_GRID);
 	gfxLine(SERVO_DIAL_X, SERVO_DIAL_Y - SERVO_DIAL_ARC_R - 4, SERVO_DIAL_X,
 	        SERVO_DIAL_Y - SERVO_DIAL_ARC_R + 4, 1, C_DIM);
@@ -813,8 +847,12 @@ static void mainTouch(bool startOk) {
 	//     landed on the live button, and not again once it fired: the press
 	//     that started the servo does not start it again after a trip, and
 	//     one made before the claim was live does not start it at all ---
-	if (uiHoldUpdate(&s_hold, BTN_START, s_t, startOk && !s_needLift, millis()))
-		send(ServoCmdKind::Start);
+	// The servo log opens first: its card calls then run with the pulses
+	// at level 0 and the supply off (servo_log.h).
+	if (uiHoldUpdate(&s_hold, BTN_START, s_t, startOk && !s_needLift, millis())) {
+		servoLogStart(millis());
+		servoLogFollow(send(ServoCmdKind::Start));
+	}
 	if (s_st.running && s_t->pressed && pressing(BTN_START)) {
 		send(ServoCmdKind::Safe);
 		s_dragging = false;
@@ -1351,6 +1389,7 @@ bool uiServoTick(const TouchState *t) {
 		} else {
 			uiSliderRelease(&s_speed);
 			if (!s_claimed) return false;
+			servoLogBack();
 			pinClaimEnd(PinUser::Servo);
 			ClaimState cs = pinClaimState();
 			if (cs == ClaimState::Free || cs == ClaimState::Restoring) return false;

@@ -1,11 +1,14 @@
 /**
  * @file sd_log_next.h
- * @brief The next blackbox log's file: `LOGS/`, the scan for the highest
- *        `LOGnnnnn.BFL`, the number kept between starts, and the open.
+ * @brief The next log's file: `LOGS/`, the scan for the highest
+ *        `LOGnnnnn.BFL` or `SRVnnnnn.CSV`, the number kept between starts,
+ *        and the open.
  *
  * Over FatFs only, with no card driver, so the host runs it against FatFs
  * R0.15 itself on a RAM disk (`make -C test lognum`, test/log_next_fatfs.cpp).
- * sd_log.cpp calls it from sdLogStart() on core0.
+ * sd_log.cpp calls it from sdLogStart() on core0 for the blackbox log,
+ * servo_log.cpp from servoLogStart() for the servo log; each kind of log
+ * keeps its own number.
  *
  * The number is kept for one FatFs mount. FatFs gives every mount a new
  * `FATFS::id`; the board has no card-detect line, and after a card fault the
@@ -47,9 +50,11 @@ static inline void sdLogNextForget(SdLogNextCache *c) { c->known = false; }
  * @param dir The directory, `SD_LOG_DIR_PATH` on the board.
  * @param[out] next The number, 0 for none free (sdLogNextNumber()). Set only
  *        on FR_OK.
+ * @param kind The kind of log whose names count; the blackbox log's when
+ *        not given.
  * @return The FatFs result; anything but FR_OK is a scan that failed.
  */
-FRESULT sdLogScanNext(const char *dir, uint32_t *next);
+FRESULT sdLogScanNext(const char *dir, uint32_t *next, const SdLogKind *kind = &SD_LOG_KIND_BFL);
 
 /**
  * @brief Make @p dir if it is missing, find the next number and create its
@@ -65,9 +70,20 @@ FRESULT sdLogScanNext(const char *dir, uint32_t *next);
  * @param dir The directory, `SD_LOG_DIR_PATH` on the board.
  * @param[out] file Open for writing on success.
  * @param[out] n The log's number, set on success.
+ * @param kind The kind of log: its names count and its name is created
+ *        (`LOGnnnnn.BFL` or `SRVnnnnn.CSV`); the blackbox log's when not
+ *        given. Each kind keeps its own @p c.
  * @return SdLogEnd::None with @p file open; SdLogEnd::OpenFailed for a
  *         directory not made or read or a file not created;
- *         SdLogEnd::NoFreeNumber after `LOG99999.BFL`.
+ *         SdLogEnd::NoFreeNumber after number 99999 of the kind.
  */
 SdLogEnd sdLogOpenNext(SdLogNextCache *c, const FATFS *fs, const char *dir, FIL *file,
-                       uint32_t *n);
+                       uint32_t *n, const SdLogKind *kind = &SD_LOG_KIND_BFL);
+
+/**
+ * @brief The volume object the blackbox logger mounts the card with
+ *        (sd_log.cpp), for another log on the same card to open its file
+ *        with sdLogOpenNext().
+ * @return The volume object; its `id` is that of the last mount.
+ */
+const FATFS *sdLogFs();

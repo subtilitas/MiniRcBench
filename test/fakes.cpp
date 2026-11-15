@@ -41,6 +41,7 @@
 #include "fakes.h"
 #include "fake_i2c.h"
 #include "card_cache.h"
+#include "servo_log.h"
 #include "plat.h"
 
 #include <stdio.h>
@@ -1331,6 +1332,42 @@ static FakeCacheCalls g_cacheCalls = {};
 static uint32_t  g_volumeSerial = 1;
 static bool      g_volumeAnswers = true;
 static unsigned  g_volumeFailNext = 0;
+
+// ---------------------------------------------------------------------------
+// the servo tester's log (servo_log.h)
+// ---------------------------------------------------------------------------
+// servo_log.cpp writes through FatFs and the card cache, and runs over FatFs
+// itself in `make lognum`. This fake reports a set status and counts the
+// calls SERVO TESTER makes.
+
+static ServoLogStatus    g_servoLog = {};
+static FakeServoLogCalls g_servoLogCalls = {};
+
+void fakeServoLogSet(const ServoLogStatus *st) {
+	g_servoLog = *st;
+	g_servoLogCalls = FakeServoLogCalls{};
+}
+
+FakeServoLogCalls fakeServoLogCalls() { return g_servoLogCalls; }
+
+bool servoLogStart(uint32_t) {
+	g_servoLogCalls.starts++;
+	ServoStatus st;
+	servoJobStatus(&st);
+	g_servoLogCalls.ranAtStart = st.running;
+	return g_servoLog.active;
+}
+
+void servoLogFollow(uint16_t seq) {
+	g_servoLogCalls.follows++;
+	g_servoLogCalls.seq = seq;
+}
+
+void servoLogBack() { g_servoLogCalls.backs++; }
+
+void servoLogPoll(uint32_t) {}
+
+void servoLogStatus(ServoLogStatus *out) { *out = g_servoLog; }
 
 // ---------------------------------------------------------------------------
 // the KST card phase's wait (kst_job.h)

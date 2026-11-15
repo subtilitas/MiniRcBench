@@ -260,6 +260,8 @@ bool sdLogReacquire() {
 	return sdLogBegin();
 }
 
+const FATFS *sdLogFs() { return &s_fs; }
+
 bool sdLogVolumeId(uint32_t *lba, uint32_t *offset) {
 	if (!s_mounted || s_released) return false;
 	*lba = (uint32_t)s_fs.volbase;
@@ -381,6 +383,7 @@ void sdLogStopFor(SdLogEnd tool) {
 	RunSumEnd how = tool == SdLogEnd::ByKst   ? RunSumEnd::ByKst
 	              : tool == SdLogEnd::ByHitec ? RunSumEnd::ByHitec
 	              : tool == SdLogEnd::ByAm32  ? RunSumEnd::ByAm32
+	              : tool == SdLogEnd::ByServo ? RunSumEnd::ByServo
 	              :                             RunSumEnd::Stop;
 	stopLog(how);
 	if (s_state == SdLogState::Idle) s_end = tool;

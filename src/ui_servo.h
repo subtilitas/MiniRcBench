@@ -106,6 +106,21 @@ struct TouchState;
  *        cut need its readings, and OWN has no sensor-lost cut.
  */
 #define SERVO_UI_OWN_NO_CUTS "NO SENSOR READING: NO CURRENT CUTS."
+/**
+ * @brief RUNNING with a servo log open: the dial band's second line, dim;
+ *        `%05lu` the file's number.
+ */
+#define SERVO_UI_LOG_FMT "LOGGING TO SRV%05lu.CSV"
+/** @brief ...amber once rows were dropped: the number, then the rows dropped. */
+#define SERVO_UI_LOG_DROPPED_FMT "SRV%05lu.CSV: %lu ROWS DROPPED"
+/** @brief ...amber after a write found the card full. */
+#define SERVO_UI_LOG_FULL "LOG STOPPED: CARD FULL"
+/** @brief ...amber after a write, the cache's flush or the swap check failed. */
+#define SERVO_UI_LOG_FAILED "LOG STOPPED: CARD WRITE FAILED"
+/** @brief ...amber when the file did not open. */
+#define SERVO_UI_LOG_NO_OPEN "NO LOG: THE FILE DID NOT OPEN"
+/** @brief ...amber when `LOGS/` holds SRV99999.CSV. */
+#define SERVO_UI_LOG_NO_NUMBER "NO LOG: SRV99999.CSV EXISTS"
 /** @brief SET's note with the last start-up time measured, `%u` in ms. */
 #define SERVO_UI_UP_FMT "SUPPLY UP IN %u MS"
 /** @brief The leave page's note while the job lets SIG and AUX go: 18 characters. */

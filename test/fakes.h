@@ -129,6 +129,27 @@ void fakeVolumeSet(uint32_t serial, bool answers = true);
 /** @brief The next @p n reads of cardVolumeSerial() fail, whatever fakeVolumeSet() said. */
 void fakeVolumeFailNext(unsigned n);
 
+struct ServoLogStatus;
+
+/** @brief Calls SERVO TESTER made of the fake servo log (servo_log.h). */
+struct FakeServoLogCalls {
+	unsigned starts;    /**< servoLogStart(). */
+	unsigned follows;   /**< servoLogFollow(). */
+	unsigned backs;     /**< servoLogBack(). */
+	uint16_t seq;       /**< The seq of the last servoLogFollow(). */
+	bool     ranAtStart; /**< The job reported RUNNING at the last servoLogStart(). */
+};
+
+/**
+ * @brief The fake servo log: what servoLogStatus() reports, no calls
+ *        counted. servo_log.cpp itself runs over FatFs in `make lognum`
+ *        (test/servo_log_fatfs.cpp).
+ */
+void fakeServoLogSet(const ServoLogStatus *st);
+
+/** @brief The calls counted since fakeServoLogSet(). */
+FakeServoLogCalls fakeServoLogCalls();
+
 /** @brief Begin a touch at (@p x, @p y); sets the one-poll `pressed` edge. */
 void fakePress(int x, int y);
 

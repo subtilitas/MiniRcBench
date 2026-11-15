@@ -54,6 +54,7 @@ enum class RunSumEnd : uint8_t {
 	ByAm32,       /**< ESC SETTINGS took the card. */
 	CardFull,     /**< A write during the log found the card full. */
 	WriteFailed,  /**< A write during the log failed. */
+	ByServo,      /**< SERVO TESTER took the card for its servo log. */
 };
 
 /** @brief What became of the summary's `.TXT` file. */

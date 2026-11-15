@@ -197,6 +197,7 @@ bool uiSdLogEndNote(const SdLogStatus *st, const char **line1, const char **line
 		case SdLogEnd::ByKst:   *line1 = "RECORDING STOPPED BY KST SERVO";   return true;
 		case SdLogEnd::ByHitec: *line1 = "RECORDING STOPPED BY HITEC SERVO"; return true;
 		case SdLogEnd::ByAm32:  *line1 = "RECORDING STOPPED BY ESC SETTINGS"; return true;
+		case SdLogEnd::ByServo: *line1 = "RECORDING STOPPED BY SERVO TESTER"; return true;
 		case SdLogEnd::None:    break;
 	}
 	*line1 = "";
