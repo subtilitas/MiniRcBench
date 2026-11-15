@@ -111,6 +111,7 @@ struct CardModel {
 	uint32_t busyUs;    /**< The card programming one block; each look at it costs 10 us. */
 	uint64_t busyUntil; /**< When the block in flight is programmed. */
 	bool     pendingErr; /**< The block in flight was not taken. */
+	const char *failHolding; /**< A block holding this text is not taken; nullptr for none. */
 	unsigned reads;     /**< Blocks read from the card, waited for: sdh_read() on the board. */
 	unsigned checks;    /**< Swap-check reads started (sdh_read_start()). */
 	uint64_t readyAt;   /**< When the read started is in. */
@@ -142,7 +143,11 @@ static sd_err_t devWriteStart(void *, uint32_t lba, const uint8_t *buf) {
 	g_us += g_card.xferUs;
 	if (g_disk.removed) return SDE_NO_RESPONSE;
 	g_card.writes++;
-	g_card.pendingErr = ramDiskWrite(buf, lba, 1) != RES_OK;
+	if (g_card.failHolding && memmem(buf, 512, g_card.failHolding, strlen(g_card.failHolding))) {
+		g_card.pendingErr = true;
+	} else {
+		g_card.pendingErr = ramDiskWrite(buf, lba, 1) != RES_OK;
+	}
 	g_card.busyUntil = g_us + g_card.busyUs;
 	return SDE_OK;
 }
@@ -882,6 +887,7 @@ static void testCardFull() {
 		f_mkdir("/LOGS");
 		runFor(100);
 		fill(c.keep);
+		WORD id = sdLogFs()->id;
 		checkTrue("HOLD TO START: a log", holdStart());
 		FILINFO fi;
 		checkTrue("its reserve 64 KiB, the largest half that fits",
@@ -925,7 +931,8 @@ static void testCardFull() {
 			          got.size() == SERVO_LOG_RESERVE_MIN_BYTES &&
 			          want.compare(0, got.size(), got) == 0);
 		}
-		checkTrue("the card left mounted", escStatus().state == SdLogState::Idle);
+		checkTrue("the card left mounted, not mounted again",
+		          escStatus().state == SdLogState::Idle && sdLogFs()->id == id);
 		f_mount(nullptr, "", 0);
 	}
 }
@@ -936,42 +943,60 @@ static void testCardFull() {
  *        the close writes the ring's rest and the end line past it.
  */
 static void testLimit() {
-	section("Servo log over FatFs, FAT32: the rows fill the whole 16 MiB");
-	format(FM_FAT32, 2u * 1024u * 1024u, 4096);
-	cardTimes(100, 100);
-	loopReset();
-	jobSafe();
-	runFor(100);
-	holdStart();
-	g_loop.frameMs = 0;
-	g_loop.rules = { false, false, false };   // a reading each pass: no guard here
-	ServoLogStatus s = logStatus();
-	for (int i = 0; i < 2000 && !s.atLimit && s.fault == SdLogEnd::None; i++) {
-		runFor(1000);
+	for (int full = 0; full < 2; full++) {
+		section(full ? "Servo log over FatFs, FAT32: the rows fill the whole 16 MiB, no room after it"
+		             : "Servo log over FatFs, FAT32: the rows fill the whole 16 MiB");
+		format(FM_FAT32, 2u * 1024u * 1024u, 4096);
+		cardTimes(100, 100);
+		loopReset();
+		jobSafe();
+		f_mkdir("/LOGS");
+		runFor(100);
+		if (full) fill(SERVO_LOG_PREALLOC_BYTES / 4096u);   // exactly the reserve free
+		holdStart();
+		g_loop.frameMs = 0;
+		g_loop.rules = { false, false, false };   // a reading each pass: no guard here
+		ServoLogStatus s = logStatus();
+		for (int i = 0; i < 2000 && !s.atLimit && s.fault == SdLogEnd::None; i++) {
+			runFor(1000);
+			s = logStatus();
+		}
+		checkTrue("at the limit: the writing stopped, no fault, the log open",
+		          s.active && s.atLimit && s.fault == SdLogEnd::None);
+		uint32_t rows = s.rows;
+		runFor(100);
+		checkInt("no rows counted after it", (long)logStatus().rows, (long)rows);
+		g_loop.frameMs = 25;
+		runEnds();
+		pass();
 		s = logStatus();
+		FILINFO fi;
+		f_stat("/LOGS/SRV00001.CSV", &fi);
+		if (full) {
+			checkTrue("STOP: no room past it: CARD FULL, the 16 MiB kept, no end line",
+			          !s.active && s.atLimit && s.fault == SdLogEnd::CardFull &&
+			          fi.fsize == SERVO_LOG_PREALLOC_BYTES);
+		} else {
+			checkTrue("STOP: closed, no fault, past the 16 MiB with the ring's rest and the end line",
+			          !s.active && s.fault == SdLogEnd::None && fi.fsize > SERVO_LOG_PREALLOC_BYTES);
+			FIL f;
+			char tail[96];
+			UINT got = 0;
+			std::string e = endLine(ServoLogHow::Stop, s.rows, s.dropped, 40);
+			bool ok = f_open(&f, "/LOGS/SRV00001.CSV", FA_READ) == FR_OK &&
+			          f_lseek(&f, fi.fsize - e.size()) == FR_OK &&
+			          f_read(&f, tail, (UINT)e.size(), &got) == FR_OK;
+			f_close(&f);
+			checkTrue("the end line last", ok && got == e.size() && e.compare(0, e.size(), tail, got) == 0);
+			jobSafe();
+			checkTrue("the next START: SRV00002.CSV, not at the limit",
+			          holdStart() && logStatus().fileNumber == 2 && !logStatus().atLimit);
+			runFor(100);
+			runEnds();
+			pass();
+		}
+		f_mount(nullptr, "", 0);
 	}
-	checkTrue("at the limit: the writing stopped, no fault, the log open",
-	          s.active && s.atLimit && s.fault == SdLogEnd::None);
-	uint32_t rows = s.rows;
-	runFor(100);
-	checkInt("no rows counted after it", (long)logStatus().rows, (long)rows);
-	g_loop.frameMs = 25;
-	runEnds();
-	pass();
-	s = logStatus();
-	FILINFO fi;
-	checkTrue("STOP: closed, no fault, past the 16 MiB with the ring's rest and the end line",
-	          !s.active && s.fault == SdLogEnd::None && f_stat("/LOGS/SRV00001.CSV", &fi) == FR_OK &&
-	          fi.fsize > SERVO_LOG_PREALLOC_BYTES);
-	FIL f;
-	char tail[96];
-	UINT got = 0;
-	std::string e = endLine(ServoLogHow::Stop, s.rows, s.dropped, 40);
-	bool ok = f_open(&f, "/LOGS/SRV00001.CSV", FA_READ) == FR_OK &&
-	          f_lseek(&f, fi.fsize - e.size()) == FR_OK && f_read(&f, tail, (UINT)e.size(), &got) == FR_OK;
-	f_close(&f);
-	checkTrue("the end line last", ok && got == e.size() && e.compare(0, e.size(), tail, got) == 0);
-	f_mount(nullptr, "", 0);
 }
 
 /** @brief The card is removed during the run: the writing stops, the card is mounted again at the end. */
@@ -1055,14 +1080,15 @@ static void testWriteError() {
 	checkTrue("whole", readFile("/LOGS/SRV00002.CSV", &got) &&
 	          got == expected(g_loop.readings) + endLine(ServoLogHow::Stop, logStatus().rows, 0, 40));
 
-	// The write error at the close: the flush fails, the card mounted again.
+	// The write error at the close: the end line's block not taken, so the
+	// close's flush fails; the card mounted again.
 	jobSafe();
 	holdStart();
 	runFor(500);
 	runEnds();
-	g_disk.failWrites = true;
+	g_card.failHolding = "# end=";
 	pass();
-	g_disk.failWrites = false;
+	g_card.failHolding = nullptr;
 	s = logStatus();
 	checkTrue("the close's flush fails: WRITE FAILED, the cache off",
 	          !s.active && s.fault == SdLogEnd::WriteFailed && !sdc_on() &&
@@ -1241,8 +1267,8 @@ static void testCutOnTime(uint32_t readUs, uint32_t busyUs) {
 	       (unsigned long long)worstGap[0], (unsigned long long)worstGap[1],
 	       (unsigned long long)worstPass[1]);
 	checkTrue("log off: the hard cut within a frame of the step", delay[0] <= 25000 + 100);
-	checkTrue("log on: the hard cut as late as log off, to 0.1 ms",
-	          delay[1] / 100 == delay[0] / 100 || (delay[1] + 50) / 100 == (delay[0] + 50) / 100);
+	checkTrue("log on: the hard cut within a frame and a block's transfer, as log off within a transfer",
+	          delay[1] <= 25000 + 100 + 20 && delay[1] <= delay[0] + 100 + 20);
 	checkTrue("log on: the longest gap between readings longer by at most a block's transfer",
 	          worstGap[1] <= worstGap[0] + 100 + 20);
 	checkTrue("log on: no pass waits for the card, at most a block's transfer", worstPass[1] <= 100);

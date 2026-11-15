@@ -333,20 +333,21 @@ switch the supply.
 - While the servo runs, the dial's second line reads
   `LOGGING TO SRV00012.CSV` in grey. In amber:
   `SRV00012.CSV: 12 ROWS DROPPED` (the card was slower than the readings),
+  `LOG STOPPED AT 16 MIB` (the file's limit, about 4 hours),
   `LOG STOPPED: CARD FULL`, `LOG STOPPED: CARD WRITE FAILED` (the card was
-  pulled, or failed), `NO LOG: THE FILE DID NOT OPEN` or
-  `NO LOG: SRV99999.CSV EXISTS`. The servo runs on in every case.
+  pulled, or failed), `NO LOG: CARD FULL` (less than 64 KiB free in one
+  piece), `NO LOG: THE FILE DID NOT OPEN` or `NO LOG: SRV99999.CSV EXISTS`.
+  The servo runs on in every case.
 - A blackbox recording that was running stops at `HOLD TO START`; SD LOG
   then reads `RECORDING STOPPED BY SERVO TESTER`. The last run that SD LOG
   shows stays the blackbox recording's.
 - Stop the servo before cutting the power or pulling the card. A run cut
-  by a power loss leaves a file of 4 MiB: the readings up to the last 2 s
-  step, then zeros.
-- The pulses never wait for the card, and no write waits for it. A
-  reading of the sensor, and a cut with it, can wait for one block read of
-  the card: at most 100 ms by the SD specification, so a cut can come up
-  to that much later than without the log. How long a real card takes is
-  not measured on the board.
+  by a power loss leaves a file of 16 MiB, or of the smaller space the card
+  had: the readings that reached the card, then whatever the card held
+  there before. The last readings, up to about 16 KiB, are lost.
+- Writing the log never makes the bench wait for the card: the sensor is
+  read and the cuts act as without the log, within 0.1 ms in the host
+  model. How long a real card takes is not measured on the board.
 
 <img src="img/servo-log.png" width="240" alt="SERVO TESTER running, LOGGING TO SRV00012.CSV above the dial">
 

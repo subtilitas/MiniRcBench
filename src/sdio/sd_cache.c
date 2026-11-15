@@ -56,7 +56,6 @@ static void dropAll(void) {
 	s_inFlight = false;
 	s_attempt = 0;
 	s_batchChecked = false;
-	s_checking = false;
 	for (unsigned i = 0; i < SDC_READ_BLOCKS; i++) s_read[i].used = false;
 }
 

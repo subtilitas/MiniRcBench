@@ -5,7 +5,8 @@ SERVO, AM32 CONFIG or HITEC SERVO holds, the tools that save device backups
 ([backups.md](backups.md)), block writes to the SD (Secure Digital) card go
 into a queue in SRAM (static random-access memory) and return at once. A
 flush step on core0 sends them to the card in the order FatFs wrote them, one
-block per loop pass, without waiting on the card's busy line. Block reads come
+block per loop pass, without waiting on the card's busy line or on the swap
+check's read ([card swap](#card-swap)). Block reads come
 from the queue, from a read cache, or from the card. Core0 keeps drawing,
 reading touch and sending the heartbeat while the card programs.
 
@@ -38,7 +39,9 @@ ends clean:
 The block writes are the counting tool's
 ([kst-programming.md](kst-programming.md#card-calls-and-the-heartbeat)). Each
 batch adds one uncached read of the boot sector, 105 ms at the specification's
-times ([card swap](#card-swap)). Reads still block core0; with the read cache
+times ([card swap](#card-swap)), which the flush step starts and collects over
+several calls without waiting. FatFs's own reads that miss the cache still
+block core0; with the read cache
 filled, the counting tool, with a 16-block cache modelled and no log in the
 root, counts 0 to 2 reads for every phase but the FILES page right after a
 full first write. The table of kst-programming.md counts the phases without
@@ -52,13 +55,15 @@ the cache.
  library glue.c -> sd_card_t         read_blocks, write_blocks, sync
  src/sdio/sd_card_glue.c             sdioRead, sdioWrite: the cache while it is on
  src/sdio/sd_cache.c                 read cache, write queue, flush step
- src/sdio/sd_host.c                  sdh_write_start(), sdh_write_poll()
- src/sdio/sd_pio.c                   unchanged
+ src/sdio/sd_host.c                  sdh_write_start(), sdh_write_poll(),
+                                     sdh_read_start(), sdh_read_poll()
+ src/sdio/sd_pio.c                   busRxReady(), the receiver's one look
 ```
 
 - `src/sdio/sd_cache.*`: the queue and the read cache over a card given as
-  three functions (`sdc_dev_t`: read, write start, write poll), so the host
-  suite runs it against a fake. MIT, part of the driver.
+  five functions (`sdc_dev_t`: read, write start, write poll, read start,
+  read poll), so the host suite runs it against a fake. MIT, part of the
+  driver.
 - `src/sdio/sd_card_glue.c`: `sdioRead()` and `sdioWrite()` go through the
   cache while it is on; `sd_sdio_cache_*()` (`src/sdio/sd_card_cache.h`) turn
   it on and off, step, flush and drop it, each under the card's lock.
@@ -87,14 +92,22 @@ the cache.
 
 `sdc_poll()` does at most one of these and returns:
 
-1. No block in flight and the queue not empty: at the first block of a batch,
-   the swap check ([card swap](#card-swap)); then `sdh_write_start()`: CMD24,
-   the block and its CRC (cyclic redundancy check) status token. At 10 MHz
-   on 4 data lines a block's transfer takes about 0.1 ms.
-2. A block in flight: `sdh_write_poll()` reads DAT0 once. Low is busy, and
+1. No block in flight, the queue not empty, at the first block of a batch:
+   the swap check ([card swap](#card-swap)), one step a call. No read under
+   way: `sdh_read_start()`, CMD17 with the receiver armed, and return. A
+   read under way: `sdh_read_poll()` asks the receiver once (`rx_ready()`);
+   not in, return; in, compare the 4 bytes, and return.
+2. No block in flight, the batch checked: `sdh_write_start()`: CMD24, the
+   block and its CRC (cyclic redundancy check) status token. At 10 MHz on 4
+   data lines a block's transfer takes about 0.1 ms.
+3. A block in flight: `sdh_write_poll()` reads DAT0 once. Low is busy, and
    the step returns. High: CMD13 for the status, as `writeChunk()` does, then
    the entry is dropped.
-3. A block busy for `SDH_BUSY_TIMEOUT_US`, 1,000,000 µs: a timeout.
+4. A block busy for `SDH_BUSY_TIMEOUT_US`, 1,000,000 µs: a timeout.
+
+So no step waits for the card: the longest is a block's transfer, about
+0.1 ms, or a command and its response, CMD17, CMD24 or CMD13, each bounded
+by `SDH_CMD_TIMEOUT_US`, 5 ms, when the card does not answer.
 
 `sdh_write_start()` and `sdh_write_poll()` are `writeChunk()` split at its
 busy wait, for one block. The SD clock runs from the block's send until
@@ -181,9 +194,22 @@ new card's volume would be corrupted.
 `cardCacheBegin()` reads the volume's serial number from its boot sector
 (`sdLogVolumeId()`: `BS_VolID`, offset 67, on FAT32; `VolumeSerialNumber`,
 offset 100, on exFAT; offset 39 on FAT12 and FAT16). Before the first block
-of every batch the flush step reads those 4 bytes again, past the cache. A
-different number, or a read that fails, drops the queue and the read cache
-and sets `Failed`. A card swapped for a byte-for-byte copy with the same
+of every batch the flush step reads those 4 bytes again, past the cache. The
+read does not wait for the card: `sdh_read_start()` sends CMD17 with the
+receiver armed for one block, and the flush step's later calls look at the
+receiver once each through `sdh_read_poll()`, which reads the bus's
+`rx_ready()`: on the board, the receive DMA's control channel at the end of
+its table and both channels idle (`busRxReady()` in `src/sdio/sd_pio.c`, the
+test `busRxWait()` makes). Once the block is in, `rx_wait()` returns at once
+and puts its CRC words in order, and the CRC is checked as for any read; the
+block is sent in the call after. A different number, a read that fails, a
+CRC error, or no block within `SDH_READ_TIMEOUT_US`, 250 ms, of CMD17, which
+marks the card not ready, drops the queue and the read cache and sets
+`Failed`. No CMD12 follows a read that timed out: the card is initialised
+again at the recovery's mount. A miss of `sdc_read()`, `sdc_settle()`,
+`sdc_drop()`, `sdc_end()` and `sd_sdio_read_past()` collect a check's read
+under way first, core0 blocking, since the card takes no other command
+while it sends. A card swapped for a byte-for-byte copy with the same
 serial number is not detected.
 
 The check at a batch's start does not cover a card swapped after the
@@ -276,6 +302,12 @@ recorded in this note.
 
 ## Tests
 
+- `test_sdio.cpp`: `sdh_read_start()` and `sdh_read_poll()` against the
+  simulated card with a data latency: CMD17 out and the receiver armed, one
+  look a poll without time spent, the block in and the receiver disarmed, a
+  CRC error, no data 1 µs short of `SDH_READ_TIMEOUT_US` and at it, the card
+  then marked not ready, CMD17 unanswered, an unaligned or out-of-range
+  buffer, a receiver that does not arm, a card not ready.
 - `test_sdio.cpp`: `sdh_write_start()` and `sdh_write_poll()` against the
   simulated card: one block, busy until the card's time, CMD13 after it, a
   CRC token, busy 1 µs short of the limit and at it, the card then marked
@@ -287,6 +319,11 @@ recorded in this note.
   queued sector; one swap check per batch; no command while busy; read cache
   hits, the oldest pushed out, a written sector's entry; a miss that waits
   for the block in flight; a full queue that flushes until the write fits;
+  the swap check's read started in one poll and collected in a later one,
+  nothing sent meanwhile, a hit while it reads touching no card, a miss, a
+  settle, a drop and an end collecting it first, a start refused, a read
+  that times out, a CRC error and another serial number each failing the
+  batch;
   two retries that land, three that fail; reads refused while failed, and a
   miss whose wait ends the batch; `sdc_settle()` ending the block in flight;
   a write error token; a changed serial number and a check that does not

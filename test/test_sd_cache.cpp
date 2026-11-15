@@ -369,6 +369,9 @@ static void testCheckAsync() {
 		size_t before = g_card.written.size();
 		sdc_write(40, 1, b);
 		sdc_poll();
+		if (f.startFails)
+			checkTrue("a refused start fails the batch in the same poll",
+			          sdc_state(nullptr) == SDC_FAILED && !g_card.reading);
 		for (int i = 0; i < 5; i++) sdc_poll();
 		checkTrue("under way or failed, nothing sent", !g_card.inFlight);
 		sdc_poll();

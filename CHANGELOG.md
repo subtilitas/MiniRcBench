@@ -54,20 +54,30 @@ protocol.
   dropped and the supply's start-up time. The numbers count apart from
   `LOGnnnnn.BFL`. The file opens before the Start command and closes once
   the job reports the run over, so its directory work and the close run with
-  the pulses at level 0 and the supply off. The SD write cache is on from the
-  open to the close; during the run core0 writes one 512-byte block, or the
-  entry every 2000 ms, only while nothing is queued or in flight. A running
+  the pulses at level 0 and the supply off. The file reserves 16 MiB in one
+  run of the card, or the largest half that fits down to 64 KiB, mapped for
+  FatFs's fast seek. The SD write cache is on from the open to the close;
+  during the run core0 writes one whole 512-byte block inside the reserve,
+  only while nothing is queued or in flight, and makes no f_sync(), so the
+  run reads nothing from the card. A running
   blackbox log stops at HOLD TO START: SD LOG reads
   `RECORDING STOPPED BY SERVO TESTER`, the run summary
   `Ended by: SERVO TESTER` (`SdLogEnd::ByServo`, `RunSumEnd::ByServo`). The
   dial's second line shows `LOGGING TO SRV00012.CSV` while RUNNING, or in
-  amber the rows dropped, a full card, a failed write, or a log that did not
-  open. A full card keeps the rows written; a card removed or a failed block
-  stops the writing, and the card is mounted again at the run's end.
+  amber the rows dropped, the 16 MiB limit, a full card, a failed write, or
+  a log that did not open. A full card keeps the rows written; a card
+  removed or a failed block stops the writing, and the card is mounted
+  again at the run's end. The write cache's swap check, the read of the
+  volume's serial number before each batch, no longer waits for the card:
+  `sdh_read_start()` and `sdh_read_poll()` in `src/sdio/sd_host.*`, with the
+  bus's `rx_ready()` (`busRxReady()` in `src/sdio/sd_pio.c`), start it in one
+  flush step and collect it in a later one; a different number, a failed
+  read, a CRC error or no data within 250 ms still fails the batch.
   `sdLogNameNumberOf()` and the scan and open of `src/sd_log_next.*` take the
   kind of log. Host tests in `test/servo_log_fatfs.cpp` (`make lognum`) over
   FatFs R0.15, `card_cache.cpp` and `sd_cache.c` with a card model, and in
-  `test/test_servo.cpp`, mutation-checked; README and the wiki pages
+  `test/test_servo.cpp`, and the read in `test/test_sdio.cpp` and
+  `test/test_sd_cache.cpp`, mutation-checked; README and the wiki pages
   Servo-Tester, Servotester, SD-Logging and SD-Aufzeichnung describe it. A
   real card's latency and the cuts' timing with the log on are not tested on
   hardware.

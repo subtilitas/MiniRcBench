@@ -2177,47 +2177,56 @@ ms,pulse_a_us,pulse_b_us,current_ma,bus_mv,flags
   `SRVnnnnn.CSV` do not move each other's numbers. After `SRV99999.CSV` no
   log starts.
 - The file opens at HOLD TO START, before the pulses and the supply start,
-  with 4 MiB reserved (`SERVO_LOG_PREALLOC_BYTES`, about 50 minutes). It
-  closes when the run ends: STOP, BACK, a cut, a trip, or a supply that did
-  not come up. Its last line says how (`end=STOP`, `BACK`, `OVERCURRENT`,
-  `STALL`, `LOW_SUPPLY`, `NO_SENSOR`, `STALLED`, `TOUCH_SILENT`,
-  `BUS_STUCK`, `NO_START`), how many rows were taken and dropped, and the
-  supply's start-up time (`up_ms=-` without the switch). The close truncates
-  the file to its rows. A board that loses power during a run leaves the
-  file at its 4 MiB, the rows of the last sync (every 2000 ms) followed by
-  zeros, as a blackbox log is left.
+  with 16 MiB reserved in one run of the card (`SERVO_LOG_PREALLOC_BYTES`,
+  about 4 hours of rows), or the largest half of it the card has free in
+  one run, down to 64 KiB; less is `NO LOG: CARD FULL`. It closes when the
+  run ends: STOP, BACK, a cut, a trip, or a supply that did not come up. Its
+  last line says how (`end=STOP`, `BACK`, `OVERCURRENT`, `STALL`,
+  `LOW_SUPPLY`, `NO_SENSOR`, `STALLED`, `TOUCH_SILENT`, `BUS_STUCK`,
+  `NO_START`), how many rows were taken and dropped, and the supply's
+  start-up time (`up_ms=-` without the switch). The close truncates the
+  file to its rows.
+- A board that loses power during a run leaves the file at its reserved
+  size, as the open wrote its entry: the rows that reached the card, then
+  whatever the card held in that space before, as a blackbox log is left.
+  The rows still in RAM, up to about 16 KiB, are lost.
 - A running blackbox log stops at HOLD TO START, and SD LOG then reads
   `RECORDING STOPPED BY SERVO TESTER`; its `.TXT` says `Ended by: SERVO
   TESTER`. SD LOG's last-run rows stay those of the blackbox log; the servo
   log has no rows there.
 - The SD write cache is on from the open to the close
-  (`docs/design/sd-write-cache.md`). During the run core0 hands FatFs one
-  512-byte block of rows, or the directory entry every 2000 ms, only while
-  nothing is queued or in flight, so no write of the run waits for the card.
-  Rows wait in a RAM ring of 16384 bytes (`SERVO_LOG_RING_BYTES`); a card
-  slower than the rows drops rows, counted. A pass of core0's loop reads the
-  card at most once: the cache's check of the volume's serial number before
-  a batch, or a block FatFs asks for and neither holds. The open, the
-  close, the truncation and the cache's last flush run while the pulses are
-  at level 0 and the supply is off.
+  (`docs/design/sd-write-cache.md`). During the run core0 never waits for
+  the card. It hands FatFs one whole 512-byte block of rows at most each
+  pass, only while nothing is queued or in flight and only inside the
+  reserve; FatFs finds the block's cluster in a fast-seek table made at the
+  open and reads nothing. The run makes no f_sync(), which would read the
+  directory. The cache's check of the volume's serial number before each
+  block is a read started in one pass and collected in a later one. Rows
+  wait in a RAM ring of 16384 bytes (`SERVO_LOG_RING_BYTES`); a card
+  slower than the rows drops rows, counted. The open, the close, the
+  truncation and the cache's last flush, which may wait for the card, run
+  while the pulses are at level 0 and the supply is off.
 - While RUNNING the dial's second line reads `LOGGING TO SRV00012.CSV`,
-  dim; in amber `SRV00012.CSV: 12 ROWS DROPPED`, `LOG STOPPED: CARD FULL`,
-  `LOG STOPPED: CARD WRITE FAILED`, `NO LOG: THE FILE DID NOT OPEN` or
+  dim; in amber `SRV00012.CSV: 12 ROWS DROPPED`, `LOG STOPPED AT 16 MIB`,
+  `LOG STOPPED: CARD FULL`, `LOG STOPPED: CARD WRITE FAILED`,
+  `NO LOG: CARD FULL`, `NO LOG: THE FILE DID NOT OPEN` or
   `NO LOG: SRV99999.CSV EXISTS`. `NO SENSOR READING: NO CURRENT CUTS.`
   takes the line before them.
-- A full card stops the writing; the rows written stay and the file is
-  closed, with no end line. A card removed, or a block the card does not
-  take, stops the writing too; at the run's end the card is mounted again
-  (`cardCacheRecover()`), and SD LOG shows whether one is there. The file
-  then holds the blocks written before, at its preallocated size.
-- The time a pass spends on the card: in the host model, a block read and a
-  transfer, at most 1.1 ms with a card that reads a block in 1 ms, and
-  100.1 ms at the SD specification's read limit, 100 ms. A reading, and so a
-  cut, waits at most that long: the hard cut came at most 25.0 ms after a
-  step of current without the log and 99.0 ms with it at the limit, under the
-  250 ms of the heartbeat and of the sensor-lost cut (`make -C test lognum`,
-  `test/servo_log_fatfs.cpp`). A real card's latency and the cuts' timing on
-  the board with the log on are not measured.
+- A reserve cut short by the card and used up stops the writing, CARD FULL;
+  16 MiB used stops it at the limit; the close writes the rest of the rows
+  and the end line where the card has room. A card removed, or a block the
+  card does not take, stops the writing too; at the run's end the card is
+  mounted again (`cardCacheRecover()`), and SD LOG shows whether one is
+  there. The file then holds the blocks written before, at its reserved
+  size.
+- The time a pass spends on the card with the log, in the host model: at
+  most a block's transfer, 0.1 ms, on a card that reads a block in 1 ms and
+  on one at the SD specification's limits, 100 ms a read and 511 ms a
+  block. The hard cut came at most 24.94 ms after a step of current without
+  the log and 25.02 ms with it; the longest gap between readings grew from
+  25.00 ms to at most 25.07 ms, by at most the block's transfer (`make -C test lognum`, `test/servo_log_fatfs.cpp`).
+  A real card's latency and the cuts' timing on the board with the log on
+  are not measured.
 
 **SET.** The PULSE rows change only while SAFE. TYPE loads one of rcbench's
 profiles:

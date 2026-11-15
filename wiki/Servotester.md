@@ -354,20 +354,22 @@ Versorgung nicht schaltet.
 - Während das Servo läuft, zeigt die zweite Zeile über der Skala
   `LOGGING TO SRV00012.CSV` in Grau. In Bernstein:
   `SRV00012.CSV: 12 ROWS DROPPED` (die Karte war langsamer als die
-  Messungen), `LOG STOPPED: CARD FULL`, `LOG STOPPED: CARD WRITE FAILED`
-  (die Karte wurde gezogen oder versagte), `NO LOG: THE FILE DID NOT OPEN`
-  oder `NO LOG: SRV99999.CSV EXISTS`. Das Servo läuft in jedem Fall weiter.
+  Messungen), `LOG STOPPED AT 16 MIB` (die Grenze der Datei, etwa 4
+  Stunden), `LOG STOPPED: CARD FULL`, `LOG STOPPED: CARD WRITE FAILED` (die
+  Karte wurde gezogen oder versagte), `NO LOG: CARD FULL` (weniger als
+  64 KiB am Stück frei), `NO LOG: THE FILE DID NOT OPEN` oder
+  `NO LOG: SRV99999.CSV EXISTS`. Das Servo läuft in jedem Fall weiter.
 - Eine laufende Blackbox-Aufzeichnung endet bei `HOLD TO START`; SD LOG
   zeigt dann `RECORDING STOPPED BY SERVO TESTER`. Der letzte Lauf, den
   SD LOG zeigt, bleibt der der Blackbox-Aufzeichnung.
 - Stoppe das Servo, bevor du den Strom abschaltest oder die Karte ziehst.
   Ein durch Stromausfall abgebrochener Lauf hinterlässt eine Datei von
-  4 MiB: die Messungen bis zum letzten 2-s-Schritt, danach Nullen.
-- Die Impulse warten nie auf die Karte, und kein Schreiben wartet auf sie.
-  Eine Messung des Sensors, und mit ihr eine Abschaltung, kann auf einen
-  Leseblock der Karte warten: nach der SD-Spezifikation höchstens 100 ms,
-  eine Abschaltung kann also bis zu so viel später kommen als ohne die
-  Aufzeichnung. Wie lange eine echte Karte braucht, ist auf der Platine
+  16 MiB oder des kleineren Platzes, den die Karte hatte: die Messungen, die
+  die Karte erreichten, danach, was die Karte dort vorher hielt. Die letzten
+  Messungen, bis etwa 16 KiB, gehen verloren.
+- Das Schreiben der Aufzeichnung lässt die Bank nie auf die Karte warten:
+  Der Sensor wird gelesen und die Abschaltungen greifen wie ohne die
+  Aufzeichnung, im Modell der Host-Tests auf 0,1 ms genau. Wie lange eine echte Karte braucht, ist auf der Platine
   nicht gemessen.
 
 <img src="img/servo-log.png" width="240" alt="SERVO TESTER läuft, LOGGING TO SRV00012.CSV über der Skala">
