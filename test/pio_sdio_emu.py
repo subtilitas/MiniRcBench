@@ -132,8 +132,8 @@ class Fail(Exception):
 # =================================================================== assembler
 #
 # The PIO assembly language as the RP2350 datasheet describes it, for the
-# instructions and directives sd_pio.pio uses. Anything else is an error,
-# not a guess.
+# instructions and directives sd_pio.pio uses, and IRQ for pio_uart_rx.pio
+# (test/pio_bridge_emu.py). Anything else is an error, not a guess.
 
 OP_JMP, OP_WAIT, OP_IN, OP_OUT, OP_PUSHPULL, OP_MOV, OP_IRQ, OP_SET = range(8)
 JMP_COND = {"": 0, "!x": 1, "x--": 2, "!y": 3, "y--": 4, "x!=y": 5, "pin": 6, "!osre": 7}
@@ -228,6 +228,20 @@ def encode(prog, mnem, ops, side, delay, line):
         if not 0 <= v <= 31:
             raise Fail(f"line {line}: set value {v} outside 0..31")
         return (OP_SET << 13) | ds | (SET_DST[words[0]] << 5) | v
+    if mnem == "irq":
+        # pio_uart_rx.pio's `irq 4 rel`, for test/pio_bridge_emu.py: set (the
+        # default), nowait, wait or clear, a flag 0 to 7, and `rel`, which is
+        # index mode 2 in bits 4 and 3 on the RP2350.
+        clear = "clear" in words
+        wait = "wait" in words
+        rest = [x for x in words if x not in ("set", "nowait", "wait", "clear", "rel")]
+        if len(rest) != 1:
+            raise Fail(f"line {line}: irq needs one flag")
+        n = number(rest[0], line)
+        if not 0 <= n <= 7:
+            raise Fail(f"line {line}: irq flag {n} outside 0..7")
+        mode = 2 if "rel" in words else 0
+        return (OP_IRQ << 13) | ds | (clear << 6) | (wait << 5) | (mode << 3) | n
     raise Fail(f"line {line}: instruction '{mnem}' is not modelled")
 
 

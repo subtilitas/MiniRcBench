@@ -82,15 +82,18 @@ jobs:
           # not this pipeline's job to prove it.
           arm-none-eabi-size "build/MiniRcBench-$SLUG.elf"
 
-      # The host job's PIO emulators assemble src/sdio/sd_pio.pio and
-      # src/backlight.pio with their own assembler. This build has the SDK's
-      # pioasm, so that assembler is held to it here: every instruction word,
-      # wrap point, public label and side-set setting has to match.
+      # The host job's PIO emulators assemble src/sdio/sd_pio.pio,
+      # src/backlight.pio, src/bridge_line.pio and src/pio_uart_rx.pio with
+      # their own assembler. This build has the SDK's pioasm, so that
+      # assembler is held to it here: every instruction word, wrap point,
+      # public label and side-set setting has to match.
       - name: The PIO emulator assembles as pioasm does
         run: |
           python3 test/pio_sdio_emu.py --asm-only \
                   --pioasm build/pioasm-install/pioasm/pioasm
           python3 test/pio_backlight_emu.py \
+                  --pioasm build/pioasm-install/pioasm/pioasm
+          python3 test/pio_bridge_emu.py \
                   --pioasm build/pioasm-install/pioasm/pioasm
 
       # The host job's KST, Hitec and escwire line models run the words in
@@ -251,8 +254,9 @@ jobs:
       - uses: actions/checkout@v6
       # The default target: the device-only sources typechecked, the suite
       # built and run, the SDIO PIO programs run in test/pio_sdio_emu.py,
-      # a cycle-level model, against a card model, and the backlight PIO
-      # program in test/pio_backlight_emu.py. The blackbox round-trip it
+      # a cycle-level model, against a card model, the backlight PIO
+      # program in test/pio_backlight_emu.py, and the USB bridge's line in
+      # test/pio_bridge_emu.py. The blackbox round-trip it
       # also names skips here with a notice; the blackbox job runs it for
       # real.
       - name: Build and run
