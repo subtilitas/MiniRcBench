@@ -178,7 +178,7 @@ old values are lost when you leave the screen, as the page says in amber.
 
 <img src="img/efm8-edit.png" width="240" alt="BEEP STRENGTH changed from 40 to 88, cyan, in the editor bar"> <img src="img/efm8-write.png" width="240" alt="ESC WRITE: 3 changes and BACKUP FIRST: BACKUP/BJ001.TXT">
 
-<img src="img/efm8-verified.png" width="240" alt="WRITE VERIFIED. BACKUP BJ001 in green, LEAVING STARTS THE ESC WITH THEM.">
+<img src="img/efm8-writing.png" width="240" alt="WRITING: DO NOT UNPLUG. in amber, BACK and OK grey"> <img src="img/efm8-verified.png" width="240" alt="WRITE VERIFIED. BACKUP BJ001 in green, LEAVING STARTS THE ESC WITH THEM.">
 
 | Result | Meaning and next step |
 |---|---|
@@ -202,6 +202,8 @@ page is half written, `BACK` warns first,
 a second `BACK` opens the leave page, and no LEAVE is sent.
 
 <img src="img/efm8-lost.png" width="240" alt="NO ANSWER IN THE WRITE: KEEP POWER. TAP OK, THEN READ AGAIN."> <img src="img/efm8-guard.png" width="240" alt="HALF WRITTEN. BACK AGAIN LEAVES IT; A POWER CYCLE THEN LOSES ITS TAGS. on the strip, READ AGAIN">
+
+<img src="img/efm8-asread.png" width="240" alt="ESC WRITE with 0 CHANGES: THE PAGE AS READ, TAGS INCLUDED. and HOLD TO WRITE">
 
 None of this is verified on an ESC yet: the write has run against
 rcbench's simulated ESC only.

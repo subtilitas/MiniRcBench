@@ -5951,8 +5951,7 @@ static void testEfm8Write() {
 	}
 	frames(1);
 	checkTrue("3 rows changed, nothing sent", ewPending() == 3 && e->erases == 0 && e->programs == 0);
-	uiListScrollTo(&s_list, 0);
-	frames(1);
+	checkTrue("BEEP STRENGTH selected again", ewTapRow("BEEP STRENGTH"));
 	checkControlTable("ESC SETTINGS, the EFM8 list edited");
 	fakeDumpFrame("shot_efm8_edit.ppm");
 	tapId(UI_FIX(UI_BACK));

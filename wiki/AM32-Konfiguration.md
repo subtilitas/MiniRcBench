@@ -195,7 +195,7 @@ Bildschirms verloren, wie die Seite in Bernstein sagt.
 
 <img src="img/efm8-edit.png" width="240" alt="BEEP STRENGTH von 40 auf 88 geändert, türkis, in der Bearbeitungsleiste"> <img src="img/efm8-write.png" width="240" alt="ESC WRITE: 3 Änderungen und BACKUP FIRST: BACKUP/BJ001.TXT">
 
-<img src="img/efm8-verified.png" width="240" alt="WRITE VERIFIED. BACKUP BJ001 in Grün, LEAVING STARTS THE ESC WITH THEM.">
+<img src="img/efm8-writing.png" width="240" alt="WRITING: DO NOT UNPLUG. in Bernstein, BACK und OK grau"> <img src="img/efm8-verified.png" width="240" alt="WRITE VERIFIED. BACKUP BJ001 in Grün, LEAVING STARTS THE ESC WITH THEM.">
 
 | Ergebnis | Bedeutung und nächster Schritt |
 |---|---|
@@ -223,6 +223,8 @@ verliert dann die Tags); ein zweites `BACK` öffnet die Verlassenseite, und
 kein LEAVE wird gesendet.
 
 <img src="img/efm8-lost.png" width="240" alt="NO ANSWER IN THE WRITE: KEEP POWER. TAP OK, THEN READ AGAIN."> <img src="img/efm8-guard.png" width="240" alt="HALF WRITTEN. BACK AGAIN LEAVES IT; A POWER CYCLE THEN LOSES ITS TAGS. im Streifen, READ AGAIN">
+
+<img src="img/efm8-asread.png" width="240" alt="ESC WRITE mit 0 CHANGES: THE PAGE AS READ, TAGS INCLUDED. und HOLD TO WRITE">
 
 Nichts davon ist an einem ESC geprüft: Das Schreiben lief bisher nur gegen
 rcbenchs simulierten ESC.
