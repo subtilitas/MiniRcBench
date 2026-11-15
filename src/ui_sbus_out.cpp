@@ -499,13 +499,14 @@ static void drawRow(int i) {
 	d.dim = !s_st.running;
 	uiSliderDraw(&d, C_DIM);
 	if (thr) {
-		// The ceiling: the track past it dim, the knob never past it, and a
-		// 1 px mark the row's height, broken where the knob covers it.
+		// The ceiling: the track past it dim, a 2 px line along its middle
+		// that reads as no fill, the knob never past it, and a 1 px mark the
+		// row's height, broken where the knob covers it.
 		const int mx = sbusOutUsX(k.ceilUs, SBOUT_UI_TRACK_X, SBOUT_UI_TRACK_W);
 		const int kx = knobX(s_us[ch]);
 		int x0 = mx + 1 > kx + 14 ? mx + 1 : kx + 14;
 		int x1 = SBOUT_UI_TRACK_X + SBOUT_UI_TRACK_W - 3;
-		if (x1 > x0) gfxRect(x0, y + SBOUT_UI_TRACK_DY + 2, x1 - x0, SBOUT_UI_TRACK_H - 4, C_DIM);
+		if (x1 > x0) gfxRect(x0, y + SBOUT_UI_TRACK_DY + SBOUT_UI_TRACK_H / 2 - 1, x1 - x0, 2, C_DIM);
 		bool covered = mx >= kx && mx < kx + 14;
 		gfxVLine(mx, y, UI_SLIDER_OVERHANG, UI_COL_WARN);
 		gfxVLine(mx, y + SBOUT_UI_ROW_H - UI_SLIDER_OVERHANG, UI_SLIDER_OVERHANG, UI_COL_WARN);
