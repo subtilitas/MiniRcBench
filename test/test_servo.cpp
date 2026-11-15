@@ -5242,11 +5242,34 @@ static void testMoveScreen() {
 	uiSimFrames(ina, &sim, 2);
 	checkTrue("STOP on SET: SAFE, the line kept", !s_st.running &&
 	          textAt(UI_MARGIN, UI_STRIP_Y + 12, line, C_DIM, 1));
-	selectRow(3);   // MIN, stepped past the travel: a two-line note
-	stepSel(-1, 11);
+	// A new profile: MIN 900 us applies at once and rebinds, which drops the
+	// result; MIN 800 us, past the travel, waits for HOLD TO APPLY.
+	selectRow(3);
+	stepSel(-1, 10);
+	uiSimFrames(ina, &sim, 3);
+	snprintf(up, sizeof(up), SERVO_UI_UP_FMT, (unsigned)s_st.upMs);
+	checkTrue("MIN 900 us applied: the rebind drops the result, the start-up time back",
+	          !s_pending && s_profile.minUs == 900 && s_st.move.state == MoveState::None &&
+	          textAt(UI_MARGIN, UI_STRIP_Y + 12, up, C_DIM, 1));
+	stepSel(-1, 10);
+	holdApply();
+	uiSimFrames(ina, &sim, 3);
+	checkTrue("MIN 800 us applied", !s_pending && s_profile.minUs == 800);
+	backFromSet();
+	// A move timed on a profile past its travel: SAFE's SET shows the
+	// end-stop note on both lines, over the move.
+	holdStartFrames();
+	uiSimFrames(ina, &sim, 144);
+	tapId(UI_FIX(ServoCtl::Max));
+	uiSimFrames(ina, &sim, 45);
+	pressId(UI_FIX(ServoCtl::Start));
+	core1();
+	fakeRelease();
+	uiSimFrames(ina, &sim, 2);
+	openSet();
+	checkTrue("a move timed, SAFE", !s_st.running && s_st.move.state == MoveState::Arrived);
 	checkTrue("a two-line note takes the second line: no move line over it",
-	          s_pending && textAt(UI_MARGIN, UI_STRIP_Y + 12, "HEATS. TRY MIN AND MAX HORN-FREE.",
-	                              C_AMBER, 1) &&
+	          textAt(UI_MARGIN, UI_STRIP_Y + 12, "HEATS. TRY MIN AND MAX HORN-FREE.", C_AMBER, 1) &&
 	          !anyOf(0, UI_STRIP_Y + 12, GFX_W, 7, C_DIM));
 	backFromSet();
 	holdStartFrames();

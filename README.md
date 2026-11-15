@@ -3341,19 +3341,21 @@ recovery's clocks. With no part added every address answers with a NACK. Its
 INA219 model holds the six registers and their power-on values, RST, the
 pointer, the PG (gain) range and the 16 V or 32 V range, the shunt code from a
 current and a shunt, the bus code at IN-, and on request the conversion time
-the configuration sets. `test_sense.cpp` runs the sensor against it: the codec
-at the range ends, the probe, the readings, the faults rcbench's `sense_bus.c`
-decides on, the read-back, the sample's 250 ms age across a `millis()` wrap,
-the readout's text, and the touch driver, `cst328.cpp`, reading every frame
-beside the sensor present, absent and failing. It includes `cst328.cpp` in a
-namespace of its own, beside the scripted touch of `fakes.cpp` the screen tests
-use. rcbench has no test of `sense_bus.c` of its own; its tests reach it
-through drivers that are not copied. `test_supply_guard.cpp` holds the cuts'
-rules at each threshold, pure; `test_servo.cpp`, `test_kst_job.cpp`,
+the configuration sets, with the shunt code the mean of a current function
+over the cycle's shunt conversion. `test_sense.cpp` runs the sensor against it:
+the codec at the range ends, the probe, the readings, the faults rcbench's
+`sense_bus.c` decides on, the read-back, the sample's 250 ms age across a
+`millis()` wrap, the readout's text, and the touch driver, `cst328.cpp`, reading
+every frame beside the sensor present, absent and failing. It includes
+`cst328.cpp` in a namespace of its own, beside the scripted touch of `fakes.cpp`
+the screen tests use. rcbench has no test of `sense_bus.c` of its own; its tests
+reach it through drivers that are not copied. `test_supply_guard.cpp` holds the
+cuts' rules at each threshold, pure; `test_servo.cpp`, `test_kst_job.cpp`,
 `test_hitec_job.cpp` and the screens' suites run them on the INA219 model.
 `test_move_timer.cpp` holds the move timing's rules at each boundary, pure;
 `test_servo.cpp` runs it through the job and SET with rcbench's servo model,
-`servo_sim.c`, drawing the current behind the INA219 model.
+`servo_sim.c`, behind the INA219 model on its conversion clock, each reading the
+mean of the model's current over the shunt conversion.
 
 The I2C fake also holds a QMI8658 model: a register file with the power-on
 values, WHO_AM_I and REVISION_ID, the pointer, address auto-increment and the

@@ -325,9 +325,11 @@ static void testWhenTimed() {
 	checkTrue("arrived at the reading taken 317 ms after the command, passed at 325",
 	          stateIs(r, MoveState::Arrived) && r.t.res.ms == 317 && r.now - cmdLate == 325);
 	for (int i = 0; i < 19; i++) tickLate(&r, 25, 0.12f, 8);
-	checkTrue("the hold's reading taken 475 ms after that one: still in", r.t.holding);
+	tickLate(&r, 22, 0.12f, 8);
+	checkTrue("the hold's reading taken 497 ms after that one, passed at 505: still in",
+	          r.t.holding);
 	tickLate(&r, 25, 0.12f, 8);
-	checkTrue("taken 500 ms after it: the hold closed, 120 mA",
+	checkTrue("taken 522 ms after it: the hold closed, 120 mA",
 	          !r.t.holding && r.t.res.holdOk && r.t.res.holdMa == 120);
 
 	// A clipped reading has no value: not in the level before.
@@ -605,6 +607,22 @@ static void testVoid() {
 	startAt(&r, 0.0f);
 	stepTo(&r, 2000, 0.0f);
 	checkTrue("NONE: a step leaves no result", stateIs(r, MoveState::None) && !r.t.timing);
+	MoveIn none;
+	memset(&none, 0, sizeof(none));
+	r.now += 25;
+	none.sample = r.last;
+	none.out[0] = 2000;
+	none.step = true;
+	none.slewed = true;
+	moveTimerStep(&r.t, &none, r.now);
+	checkTrue("NONE: a slewed step leaves no result either", stateIs(r, MoveState::None));
+	rigInit(&r);
+	startAt(&r, 0.10f);
+	stepTo(&r, 2000, 0.10f);
+	r.state = SenseState::None;
+	tick(&r, 25, 0.90f);
+	checkTrue("NONE during a move: it ends, the result as it was",
+	          stateIs(r, MoveState::Measuring) && !r.t.timing);
 	rigInit(&r);
 	moveOnce(&r);
 	r.state = SenseState::None;

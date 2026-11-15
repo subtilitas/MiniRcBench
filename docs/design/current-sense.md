@@ -910,7 +910,8 @@ boost's EN as it does to every EN on part C.
   held at ±32000 beyond /8's range, and limited by each PG setting's range;
   the bus code at IN-, the converter's VOUT less I × R, 4 mV a code;
   conversion timing from the configuration when the test gives the part a
-  clock, as rcbench's `fake_ina.h` does for the INA3221.
+  clock, as rcbench's `fake_ina.h` does for the INA3221, and with a current
+  function the shunt code as its mean over the cycle's shunt conversion.
 - Faults: absent (NACK); the next n transactions failing with a chosen
   code; SDA or SCL held low; a POR mid-run; another part at 0x40 that
   reads 4127h after its reset.
@@ -957,7 +958,7 @@ boost's EN as it does to every EN on part C.
   switching the supply off; KST and Hitec: the hard cut during a write,
   then the loss path.
 - `servo_move` through the job: an MG90S-like move from `servo_sim`
-  timed within one read and one cycle; UNSEEN with no current change.
+  timed within one read and two cycles; UNSEEN with no current change.
 - The log: rows per reading, the file closed at each end, a full queue
   counted.
 - `tools/make_wiring.py --check`: J3's roles and part C from the sources.
@@ -1479,28 +1480,19 @@ timed and SET shows what it showed before.
   3061 ms or more after the command, the stall cut at its 17th reading of
   1.2 A during a timed move, as without one, START dropping the result, the
   release, a step of AUX alone, a profile's rebind dropping the result;
-  `testMoveScreen()`, on the same model: SET's line through the screen, the start-up
-  time before the first step, the line while running and kept while SAFE,
-  under a two-line note, gone at START, dashes for a step too soon; the
+  `testMoveScreen()`, on the same model: SET's line through the screen,
+  the start-up time before the first step, the line while running and kept
+  while SAFE, gone at a profile's rebind, under a two-line note, gone at
+  START, dashes for a step too soon; the
   frame `shot_servo_set_move.ppm`. rcbench's `test_servo_move.c` runs as a
-  C11 program. Mutation check: 92 mutants of `src/move_timer.cpp`, the
-  timing's lines of `src/servo_job.cpp` and of `src/ui_servo.cpp`; 90 fail
-  the suite, 2 do not, both equivalent: `< 0` for `<= 0` where the hold
+  C11 program. Mutation check: 101 mutants of `src/move_timer.cpp`, the
+  timing's lines of `src/servo_job.cpp` and of `src/ui_servo.cpp`, among
+  them each use of a reading's `takenMs` replaced by the pass's time; 99
+  fail the suite, 2 do not, both equivalent: `< 0` for `<= 0` where the hold
   skips a reading taken in the arrival's millisecond, which core0's one
   read a frame never gives; `>= 0` for `> 0` where the stale rule takes the
   later of the command and the newest reading, the same time either way
-  when they are equal. The first run left six more; their conditions could
-  not change a result in the job (an empty level slot matched by SIG's pulse
-  0, a move under way checked beside the rest that already excludes it, the
-  stale rule's reference set at the arrival that the newest reading already
-  gives, a peak needing one reading where movement needs one, AUX's pulse
-  beside SIG's, a sample with no reading while a move needs ten) and were
-  removed; the conditions put back pass the suite, as expected. The first
-  run's other survivors, the levels' keys and slots, the idle level's key
-  and its reset at START, the hold's start and sums, readings not online,
-  seen twice, stale or clipped, the slewed step's ends, AUX's pulse and the
-  bind's reset in the job, and CENTRE's step flag, are killed by tests added
-  for them.
+  when they are equal.
 - **Not on hardware.** No INA219 and no converter has been on the board:
   how far the time lies from the horn's arrival, against a scope on SIG and
   on the current beside rcbench's record of an MG90S, is bench test B10;
