@@ -1,12 +1,14 @@
 # Run summary per log, dated by the board's clock
 
-Status: designed; slices 1 and 2 of 6 built, host tests only: the core
-([slice 1 as built](#slice-1-as-built)) and the logger feeding it and
-writing the `.TXT` ([slice 2 as built](#slice-2-as-built)); SD LOG does not
-show the run yet. The owner's choice of 2026-11-14 from the feature survey,
-feature 4 of 6, built as a design note and then slices with reviews. The
-owner answered its questions on 2026-11-15, see [decisions](#decisions);
-slices 3 to 6 wait on being built.
+Status: designed; slices 1, 2 and 4 of 6 built, host tests only: the core
+([slice 1 as built](#slice-1-as-built)), the logger feeding it and
+writing the `.TXT` ([slice 2 as built](#slice-2-as-built)), and the clock
+read at start-up with the FAT dates and the clock lines
+([slice 4 as built](#slice-4-as-built)); SD LOG does not show the run yet,
+and nothing sets the clock. The owner's choice of 2026-11-14 from the
+feature survey, feature 4 of 6, built as a design note and then slices
+with reviews. The owner answered its questions on 2026-11-15, see
+[decisions](#decisions); slices 3, 5 and 6 wait on being built.
 
 Each blackbox log gets a run summary: the highest RPM, current and
 temperature, the lowest voltage, the charge used and the armed time. SD LOG
@@ -932,6 +934,117 @@ write as well.
 
 Not verified on hardware: the summary on a card, the stop's time with the
 `.TXT`, the cost per frame.
+
+## Slice 4 as built
+
+The clock driver, `src/clock.h` and `src/clock.cpp`, with host tests in
+`test/test_clock.cpp` (`runClockTests`) against a register-level PCF85063A
+model in `test/fake_i2c.*`. `setup()` calls `clockInit()` after
+`senseInit()`. `src/clock.cpp` defines `get_fattime()` and `epochtime`, and
+`CMakeLists.txt` leaves `my_rtc.c` out of `sd_fatfs`. The logger records the
+clock at a log's start and stop, and `runSumText()` writes the clock lines
+from it. Nothing sets the clock: the set is slice 5. With the clock not set,
+`get_fattime()` returns 0 as `my_rtc.c` did, and the card gets the same
+dates as before.
+
+| Block | Where | Contract |
+|---|---|---|
+| Codec and calendar | `clockBcdIn()`, `clockBcdOut()`, `clockDaysIn()`, `clockValid()`, `clockToSecs()`, `clockFromSecs()`, `clockFatTime()`, `clockText()` | pure: BCD, the part's leap-year rule, seconds from 2000-01-01, the FAT packing of [FAT dates with the clock](#fat-dates-with-the-clock), `2026-11-14 15:42:07` |
+| The decode | `clockDecode()`, `ClockBoot` | registers 00h to 0Ah to a time, or the first cause of a clock not set |
+| The boot read | `clockInit()`, `clockBoot()` | one read of 00h to 0Ah, 129 clocks, `SENSE_TIMEOUT_US` each transfer; with OS set, 58h to Control_1, then 07h to Control_2, each its own transfer; with any other cause, nothing more |
+| The kept time | `clockNow()`, `ClockReading` | the reading plus the whole seconds of `time_us_64()` since it; whether set; the count of sets in the power-up |
+| FAT dates | `get_fattime()` | `clockFatTime()` of the kept time while set, else 0; no bus transfer |
+| The summary | `RunSum::clockStart`, `RunSum::clockStop`, `sdLogStart()`, `endSummary()`, `runSumText()` | the clock read after runSumBegin() and at the summary's first end; the lines of [format](#format) |
+
+Choices made where the sections above leave room:
+
+- **12-hour mode reads not set.** A part with 12_24 = 1 holds its hours in
+  another format, so the driver reads it as not set and writes nothing to
+  it, as with STOP and EXT_TEST. Only other firmware sets that bit.
+- **The order of the causes.** OS, STOP, EXT_TEST, 12_24, then the time
+  registers; `ClockBoot` names the first. OS alone sends the reset,
+  whatever else is set.
+- **The range check.** Each time register is masked to the bits its BCD
+  range needs, minutes to bits 6 to 0, hours and days to 5 to 0, months to
+  4 to 0; the seconds' bit 7 is OS and the years use all 8. Whether the
+  part reads the masked bits as 0 is not verified. A digit above 9 and a
+  day the month does not have, 2027-02-29 or 31 November, read as out of
+  range. The weekday is not read.
+- **The kept time** counts whole seconds of the timer from the moment the
+  read finished. Where the part was within its second at the read is not
+  known, so the kept time runs up to 1 s behind the part, plus both
+  crystals' drift; none of it is measured.
+- **The count of sets**, `ClockReading::sets`: 1 when the boot read finds a
+  running clock, else 0; slice 5's set is to add one. The stop's line reads
+  `(clock set during the log)` when the clock is set at the stop and the
+  count differs from the start's. In this slice the count does not change
+  after the boot, so that note reaches no card; the host tests check it
+  with given readings and through the logger with a faked clock.
+- **When the clock is read for the summary.** At the start, directly after
+  runSumBegin(), once the `.BFL` is open; at the stop, at the summary's
+  first end, as the stop begins. A failure later in the same stop ends the
+  summary again and keeps that reading. A log a card error ended takes the
+  clock at the failure; it writes no file.
+- **The shared bus.** The driver uses the bus record of `src/sense.cpp` in
+  one place: each transfer goes to `senseNoteTouch()`, as the touch
+  driver's do, and its result to `senseErrOf()`. Nothing is sent while the
+  record shows the bus stuck; `senseInit()` starts the record, so at the
+  boot read only the read itself can make it stuck, and the reset's second
+  write is then not sent. A failed transfer is not tried again.
+- **`epochtime` stays 0.** `my_rtc.c` set it only in its `time()`, which
+  nothing in the firmware or the compiled library files calls (checked in
+  both sources); `crash.c` records it in its crash report.
+- **sdtest** compiles `my_rtc.c` itself: it has no clock driver, and its
+  file dates stay as they were.
+- **A FAT time outside 1980 to 2107** packs as 0. The kept time reaches it
+  only after 8 years of uptime from a clock at 2099.
+
+Measured: the boot read is 129 clocks on the fake bus, as
+[reading it](#reading-it) counts; the longest `.TXT`, both clock lines set
+and the stop's note, is 945 bytes. `RunSum` grows from 464 to 496 bytes and
+the clock's state is 18 bytes, with `epochtime` 8 (`nm` of the firmware
+built with arm-none-eabi-gcc 13.3).
+
+The tests:
+
+- `test/test_clock.cpp`: BCD in and out for 0 to 99 and digits above 9; the
+  days of each month, leap years and months 0 and 13; every day from 2000 to
+  2099 through `clockToSecs()` and `clockFromSecs()` and the second after
+  it; `clockValid()` at its edges; the decode of a running clock, unused
+  bits set, and each cause: OS, STOP, EXT_TEST, 12_24, each register out of
+  range or with a digit above 9, the leap day, and the causes' order;
+  `clockText()`; `clockFatTime()` at 2000-01-01, 2026-11-14 15:42:07,
+  2099-12-31 23:59:59, odd seconds, 1980, 2107 and outside them;
+- the boot read against the model: a set clock read as one transaction of
+  129 clocks and nothing written, the kept time over a second, a minute, a
+  year's end, a leap day and more than 2^32 µs with no further read,
+  `get_fattime()` of it; a power-up with OS set, the reset and CLKOUT off,
+  not set and `get_fattime()` 0; a set clock found lost at the next boot;
+  STOP, EXT_TEST, 12-hour mode and a bad register, each not set with
+  nothing written; no part, a timeout, an aborted read, a short read, SDA
+  held, a bus already stuck, a refused reset, and SDA held after the read
+  stopping the second write; the INA219 and the CST328 on the same bus
+  untouched;
+- `test/test_run_summary.cpp`: the note's example byte for byte with both
+  times, each clock line case, and the longest text with them;
+- `test/sd_log_fatfs.cpp`: the clock read once at the start and once at the
+  stop, not set, set, set during the log, set again during the log, a
+  disarm's stop, and a stop whose drain fails reading it once.
+
+97 mutations were run against the suite and `make -C test lognum`: 77 of
+`src/clock.cpp`, 9 of `clockText()` in `src/clock.h`, 6 of the clock lines
+in `src/run_summary.cpp` and 5 of the clock's reads in `src/sd_log.cpp`. 96
+fail it, among them the stuck-bus check before the reset's second write,
+the boot read forgetting an earlier reading, and the stop's reading taken
+again by a failure later in the stop. 1 is equivalent:
+
+- `get_fattime()` without its test of `set`: a reading not set holds the
+  time all 0, year 0, which `clockFatTime()` packs as 0.
+
+Not verified on hardware: that the part answers at 0x51, OS after a
+power-up, the software reset and CLKOUT off on the part, the masked bits,
+the read's 323 µs at 400 kHz, any file's date on a card, and how Windows,
+Linux and macOS show FAT date 0.
 
 ## Decisions
 

@@ -29,16 +29,17 @@ bool clockBcdIn(uint8_t b, uint8_t *out) {
 uint8_t clockBcdOut(uint8_t v) { return (uint8_t)(((v / 10u) << 4) | (v % 10u)); }
 
 uint8_t clockDaysIn(uint16_t year, uint8_t month) {
-	static const uint8_t days[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 	if (month < 1 || month > 12) return 0;
-	if (month == 2 && year % 4u == 0) return 29;
-	return days[month - 1u];
+	if (month == 2) return year % 4u == 0 ? 29 : 28;
+	// 31 days in the odd months to July and the even ones from August.
+	return (uint8_t)(30u + ((month + month / 8u) & 1u));
 }
 
 bool clockValid(const ClockTime *t) {
-	return t->year >= 2000 && t->year <= 2099 && t->month >= 1 && t->month <= 12 &&
-	       t->day >= 1 && t->day <= clockDaysIn(t->year, t->month) && t->hour <= 23 &&
-	       t->minute <= 59 && t->second <= 59;
+	// A month outside 1 to 12 has 0 days, so no day is in range.
+	return t->year >= 2000 && t->year <= 2099 && t->day >= 1 &&
+	       t->day <= clockDaysIn(t->year, t->month) && t->hour <= 23 && t->minute <= 59 &&
+	       t->second <= 59;
 }
 
 ClockBoot clockDecode(const uint8_t *r, ClockTime *out) {
@@ -46,11 +47,11 @@ ClockBoot clockDecode(const uint8_t *r, ClockTime *out) {
 	if (r[CLOCK_REG_CONTROL_1] & CLOCK_CTL1_STOP) return ClockBoot::Stopped;
 	if (r[CLOCK_REG_CONTROL_1] & CLOCK_CTL1_EXT_TEST) return ClockBoot::TestMode;
 	if (r[CLOCK_REG_CONTROL_1] & CLOCK_CTL1_12_24) return ClockBoot::Hour12;
-	// The bits the data sheet marks unused are masked: seconds and minutes
-	// 6 to 0, hours and days 5 to 0, months 4 to 0; the years use all 8.
-	// Register 08h, the weekday, is not read.
-	uint8_t s, mi, h, d, mo, y;
-	if (!clockBcdIn(r[0x04] & 0x7Fu, &s) || !clockBcdIn(r[0x05] & 0x7Fu, &mi) ||
+	// Each register is masked to the bits its BCD range needs: minutes 6 to
+	// 0, hours and days 5 to 0, months 4 to 0; the years use all 8, and the
+	// seconds' bit 7, OS, is 0 here. Register 08h, the weekday, is not read.
+	uint8_t s = 0, mi = 0, h = 0, d = 0, mo = 0, y = 0;
+	if (!clockBcdIn(r[0x04], &s) || !clockBcdIn(r[0x05] & 0x7Fu, &mi) ||
 	    !clockBcdIn(r[0x06] & 0x3Fu, &h) || !clockBcdIn(r[0x07] & 0x3Fu, &d) ||
 	    !clockBcdIn(r[0x09] & 0x1Fu, &mo) || !clockBcdIn(r[0x0A], &y))
 		return ClockBoot::BadTime;
@@ -172,7 +173,6 @@ void clockInit() {
 		// not starting from 0 V may have left wrong; CLKOUT then stops.
 		writeReg(CLOCK_REG_CONTROL_1, CLOCK_SOFT_RESET);
 		writeReg(CLOCK_REG_CONTROL_2, CLOCK_CTL2_QUIET);
-		return;
 	}
 	if (s_boot != ClockBoot::Running) return;
 	s_baseSecs = clockToSecs(&t);

@@ -25,8 +25,11 @@ and so on. Each new file takes the number after the highest `LOGnnnnn.BFL` in
 in any letter case (`log00007.bfl` is `LOG00007.BFL` to the card); other
 names, such as `LOG0007.BFL`, `LOG00007.TXT` or a renamed log, are ignored.
 Existing logs are not overwritten. Logs an earlier firmware wrote to the
-card's root stay there and are not counted. The board sets no clock; what
-date the files carry is not verified.
+card's root stay there and are not counted. Each file carries the time of
+the board's real-time clock when the clock was already running at start-up:
+the board reads it then, and cannot set it yet. Otherwise, as on a board
+whose clock lost its power, the files carry FAT date and time 0, which is
+no valid date; how a computer shows it is not verified.
 
 The board reads `LOGS` once, at the first log after the card is mounted
 (power-up, `RETRY MOUNT`, the end of `USB DRIVE`, a tool's remount) and at
@@ -101,7 +104,7 @@ It holds one value a line:
 | Line | Content |
 |---|---|
 | `Log`, `Firmware` | The log's file name and the firmware version |
-| `Clock at start`, `Clock at stop` | `not set`: the board's clock is not used |
+| `Clock at start`, `Clock at stop` | The board's clock at the log's start and stop, as `2026-11-14 15:42:07`, or `not set` when the clock was not running at start-up |
 | `Ended by` | `STOP`, `DISARM`, `KST SERVO`, `HITEC SERVO` or `AM32 CONFIG` |
 | `Duration`, `Armed` | The log's length and the time armed within it, in seconds |
 | `Max RPM` | The highest RPM: DShot eRPM (electrical RPM), or KISS eRPM in a log without DShot eRPM, divided by half the `MOTOR POLES` value at the stop |
