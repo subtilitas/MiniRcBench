@@ -322,6 +322,18 @@ pin under the value.
 
 ---
 
+## The servo tester stops with `STALL` at MIN or MAX
+
+With the current sensor the servo tester stops when it reads more than
+1.0 A for 400 ms. Many servos driven against their own end stop draw stall
+current there, so `MIN` or `MAX` past the servo's travel trips it. Narrow
+MIN and MAX on the SET screen until the servo stops short of its end stop.
+`OVERCURRENT` is one reading of 3.0 A or more: check the servo and its
+wiring for a short before the next start. See
+[Servo Tester](Servo-Tester#the-cuts). Not tested on hardware.
+
+---
+
 ## Still stuck
 
 Open an issue at

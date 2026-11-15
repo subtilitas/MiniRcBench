@@ -140,7 +140,7 @@ void servoPowerReset(ServoPower *p, bool switched, bool fresh) {
 	// A cut's fault is kept with OWN too, as the trip it latched is.
 	p->fault = fault;
 	p->upMs = switched ? up : (uint16_t)SUPPLY_UP_NONE;
-	supplyGuardDisarm(&p->guard);
+	// The memset has disarmed the guard.
 }
 
 /** @brief Whether @p in declares a sensor: CURRENT SENSE at INA219. */

@@ -79,7 +79,9 @@ its own failsafe position.
 The line under the title shows the pin by role and number, the frame rate
 and the pulse range, `SIG GP0  50 HZ  1000-2000 US`, or
 `SIG+AUX  50 HZ  1000-2000 US` with two servos, and a chip: `SAFE` (green),
-`RUNNING` (red) or `STALLED` (magenta). At 333 Hz with a MIN of 1000 µs or
+`RUNNING` (red), `STALLED` (magenta), or after a cut of the current sensor
+`OVERCURRENT`, `STALL`, `LOW SUPPLY` or `NO SENSOR` (magenta, see
+[The cuts](#the-cuts)). At 333 Hz with a MIN of 1000 µs or
 more the line has no room for the number and reads
 `SIG  333 HZ  1000-2000 US`, or `SIG+AUX  333 HZ` with two servos.
 
@@ -105,7 +107,8 @@ wiring sheet. Not tested on hardware.
   how long it took, `SUPPLY UP IN 25 MS`.
 - **Off again:** at `STOP`, when the screen stalls for 250 ms, when the touch
   panel does not answer for 250 ms (`STOPPED: TOUCH DID NOT ANSWER`), when
-  the I2C bus is stuck (`STOPPED: TOUCH BUS STUCK`), and at `BACK`.
+  the I2C bus is stuck (`STOPPED: TOUCH BUS STUCK`), at a cut of the
+  current sensor ([The cuts](#the-cuts)), and at `BACK`.
 - **Did not come up:** with the sensor and no 4.5 V within 500 ms, the
   converter goes off and the dial reads `SUPPLY NOT UP: NO 4.5 V IN 500 MS.`
 - **Sensor not found:** with CURRENT SENSE at `INA219` and no sensor,
@@ -215,6 +218,36 @@ module's screw terminal only.
 - While a sweep runs, its count moves to the top of the dial.
 
 The current is read 40 times a second, each reading the mean over 17 ms.
+
+### The cuts
+
+With the current sensor the servo tester stops by itself on its readings.
+Not tested on hardware: no INA219 and no converter has been on the board.
+
+| Chip | Dial | When |
+|---|---|---|
+| `OVERCURRENT` | `STOPPED: CURRENT 3.0 A OR MORE` | one reading of 3.0 A or more, either direction, or a reading at the end of the range |
+| `STALL` | `STOPPED: OVER 1.0 A FOR 400 MS` | readings above 1.0 A for 400 ms, none at or below it between |
+| `LOW SUPPLY` | `STOPPED: UNDER 4.0 V FOR 1000 MS` | with SERVO SUPPLY at `GP28` or `GP29`: readings under 4.0 V for 1000 ms after the supply came up |
+| `NO SENSOR` | `CURRENT SENSOR LOST: SUPPLY OFF.` | with SERVO SUPPLY at `GP28` or `GP29`: the sensor stops answering, or 250 ms pass with no reading |
+
+- The pulses end at once, and with `GP28` or `GP29` the converter goes off
+  in the same step of the board's second core. The chip stays until the
+  next `HOLD TO START`; the dial's second line reads `HOLD TO START AGAIN.`
+- After `NO SENSOR` the start waits for the sensor:
+  `START WAITS FOR THE CURRENT SENSOR.`
+- With `OWN` only `OVERCURRENT` and `STALL` apply: the bench knows neither
+  the voltage of your supply nor whether its current runs through the
+  sensor. What the servo does without pulses is the servo's own.
+- The stall cut also trips on many servos held at MIN or MAX against their
+  own end stop, where they draw stall current. Not measured; the design
+  note's bench test B8 checks it.
+- A cut takes up to about 60 ms after a step of current. The cuts protect
+  the servo and the sensor's shunt; they are no fuse.
+- Beside `OVERCURRENT`, `LOW SUPPLY` and `NO SENSOR` the line under the
+  title reads by role alone, `SIG  50 HZ  1000-2000 US`.
+
+<img src="img/servo-overcurrent.png" width="240" alt="OVERCURRENT in magenta, STOPPED: CURRENT 3.0 A OR MORE on the dial"> <img src="img/servo-no-sensor-cut.png" width="240" alt="NO SENSOR in magenta, CURRENT SENSOR LOST: SUPPLY OFF. over START WAITS FOR THE CURRENT SENSOR.">
 
 ---
 

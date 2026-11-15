@@ -1677,6 +1677,7 @@ the [wiring diagram](#wiring-diagram) (decision 20 of
 | Supply up | high | CENTRE, then what the controls command | `GP28 SUPPLY ON` |
 | STOP, on SERVO or SET | low in the same core1 pass as level 0 on the pins | level 0 | `GP28 SUPPLY ON AT START` |
 | A heartbeat lapse of 250 ms | low | level 0, `STALLED` | as SAFE |
+| A cut of the current sensor (below) | low in the same core1 pass as level 0 | level 0, the cut's chip | as SAFE |
 | BACK | low at once; an undriven input after the last pulse, before the pins return to DShot | level 0 | |
 
 - The supply counts as up at the first reading of the current sensor taken
@@ -1709,6 +1710,35 @@ the [wiring diagram](#wiring-diagram) (decision 20 of
   `AND ITS BEC WIRE GETS THE SUPPLY.` in amber.
 - With SERVO SUPPLY at `OWN` the screen drives neither GP28 nor GP29, and the
   supply's rules and texts above do not apply.
+
+**Protection.** With CURRENT SENSE at `INA219` the servo tester stops on
+the sensor's readings (slice 4 of `docs/design/current-sense.md`,
+`src/supply_guard.*`). Each new reading is judged once; a sample already
+seen, or one 250 ms old or older, never counts. Not tested on hardware.
+
+| Cut | Condition | Applies | Chip, magenta | Dial |
+|---|---|---|---|---|
+| Hard | one reading at 3.0 A or more, either sign, or clipped (`GUARD_HARD_MA`) | always | `OVERCURRENT` | `STOPPED: CURRENT 3.0 A OR MORE` |
+| Stall | readings above 1.0 A for 400 ms, none at or below it between (`GUARD_STALL_MA`, `GUARD_STALL_MS`) | always | `STALL` | `STOPPED: OVER 1.0 A FOR 400 MS` |
+| Collapse | after the start-up reading, readings under 4.0 V for 1000 ms, none at or above it between (`GUARD_LOW_MV`, `GUARD_LOW_MS`) | GP28 or GP29 | `LOW SUPPLY` | `STOPPED: UNDER 4.0 V FOR 1000 MS` |
+| Sensor lost | the part not online, or no reading for 250 ms since START (`SENSE_STALE_MS`) | GP28 or GP29 | `NO SENSOR` | `CURRENT SENSOR LOST: SUPPLY OFF.` |
+
+- A cut ends the pulses and the sweep and, with the switch, takes the enable
+  pin low in the same core1 pass, before level 0 on the pins. The chip and
+  the dial's line stay until the next HOLD TO START; the dial's second line
+  reads `HOLD TO START AGAIN.`, or `START WAITS FOR THE CURRENT SENSOR.` while
+  a lost sensor refuses START.
+- A run of the stall or the collapse rule starts again after a gap of
+  250 ms between two readings. A transient fault of the bus, one or two
+  failed reads, cuts nothing; three take the part offline, which is the
+  sensor-lost cut.
+- With `OWN` only the hard and the stall cut apply: the bench knows neither
+  the user's supply voltage nor whether it runs through the sensor.
+- The stall rule, decision 13's, trips on many servos held at MIN or MAX
+  against their end stop; bench test B8 checks it on the owner's servos.
+- Beside a chip wider than RUNNING, `OVERCURRENT`, `LOW SUPPLY` or
+  `NO SENSOR`, the caption reads by role alone, `SIG  50 HZ  1000-2000 US`,
+  and at 333 Hz with one servo `SIG  333 HZ`.
 
 **SET.** The PULSE rows change only while SAFE. TYPE loads one of rcbench's
 profiles:
@@ -1951,6 +1981,14 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
    has ended; the servo leaves programming mode and its backup in memory goes.
    The page then reads `THE SCREEN STALLED, SO THE BENCH SWITCHED THE
    SERVO'S SUPPLY OFF.`, and RETRY powers it up and reads it again.
+   With CURRENT SENSE at `INA219`, while the supply is on, one reading at
+   3.0 A or more, or clipped, or readings under 4.0 V for 1000 ms after the
+   start-up reading, switch it off in the same core1 pass, during an
+   operation too; the frame on the wire finishes, since the line driver
+   cannot cut one. The session is power-cycled as at a stall and the page
+   reads `THE SERVO DREW 3.0 A OR MORE, SO THE BENCH SWITCHED ITS SUPPLY
+   OFF.` or `THE SUPPLY WAS UNDER 4.0 V FOR 1 S, SO THE BENCH SWITCHED IT
+   OFF.`; the supply stays off until RETRY. Not tested on hardware.
 
 | Result | Colour | Meaning |
 |---|---|---|
@@ -2175,7 +2213,10 @@ not 0 answers ID 0 is not measured.
    stalls for 250 ms switches it off: at once during the entry, else once
    a running read or write has ended. The page then reads
    `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF.` with
-   RETRY.
+   RETRY. With CURRENT SENSE at `INA219` the hard and the collapse cut of
+   KST SERVO apply too: the supply off and the transaction on the line cut
+   in the same core1 pass, a write's too, and the page names the cut. Not
+   tested on hardware.
 
 | Result | Colour | Meaning |
 |---|---|---|
@@ -2472,7 +2513,8 @@ at 0x40 is read once a second, and nothing but the register pointer is
 written to it. Each reading is published as a `SenseSample`
 (`src/sense.h`), under a lock of its own, for core1, where the servo
 tester's job reads the bus voltage back after each switch-on and switch-off
-([Servo tester](#servo-tester)).
+([Servo tester](#servo-tester)), and the servo, KST and Hitec jobs cut the
+supply on its readings (`src/supply_guard.*`).
 
 ## Device backups
 
@@ -2866,7 +2908,9 @@ the readout's text, and the touch driver, `cst328.cpp`, reading every frame
 beside the sensor present, absent and failing. It includes `cst328.cpp` in a
 namespace of its own, beside the scripted touch of `fakes.cpp` the screen tests
 use. rcbench has no test of `sense_bus.c` of its own; its tests reach it
-through drivers that are not copied.
+through drivers that are not copied. `test_supply_guard.cpp` holds the cuts'
+rules at each threshold, pure; `test_servo.cpp`, `test_kst_job.cpp`,
+`test_hitec_job.cpp` and the screens' suites run them on the INA219 model.
 
 The I2C fake also holds a QMI8658 model: a register file with the power-on
 values, WHO_AM_I and REVISION_ID, the pointer, address auto-increment and the

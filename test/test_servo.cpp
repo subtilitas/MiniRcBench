@@ -4769,7 +4769,6 @@ static void testCutScreens() {
 	          chipIs(SERVO_UI_CHIP_LOW, C_MAGENTA) &&
 	          notesAre(SERVO_UI_CUT_LOW, C_MAGENTA, "HOLD TO START AGAIN.", C_DIM) &&
 	          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, "SIG  50 HZ  1000-2000 US", C_DIM, C_BG, 1));
-	fakeDumpFrame("shot_servo_low_supply.ppm");
 
 	// The sensor lost: unplugged while on.
 	holdStartFrames();

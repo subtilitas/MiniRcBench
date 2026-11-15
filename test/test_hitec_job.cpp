@@ -788,6 +788,11 @@ static void testCuts() {
 		sensorOn();
 		checkTrue(family == HITEC_D ? "D series in the mode, sensed" : "classic in the mode, sensed",
 		          startInMode(family, true) && enHigh());
+		g_ina->currentA = 2.9;
+		passes(1000);
+		snprintf(what, sizeof(what), "%s: 2.9 A for 1 s: on, no stall rule here", name);
+		checkTrue(what, enHigh() && status().job == HitecJobState::InMode);
+		g_ina->currentA = 0;
 		// The hard cut during a write: the supply off and the transaction
 		// cut in the pass that reads it.
 		HitecStatus st = status();

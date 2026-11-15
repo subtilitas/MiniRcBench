@@ -976,8 +976,8 @@ static void testSwitchedCuts() {
 	checkTrue("in the mode, the supply on, a backup", status().job == KstJobState::InMode &&
 	          enHigh() && status().hasBackup && status().cut == GuardCut::None);
 	g_ina->currentA = 2.9;
-	passes(100);
-	checkTrue("2.9 A: on", enHigh() && status().job == KstJobState::InMode);
+	passes(1000);
+	checkTrue("2.9 A for 1 s: on, no stall rule here", enHigh() && status().job == KstJobState::InMode);
 	send(KstOp::ReadAll);
 	passes(1);
 	checkTrue("a read runs", status().job == KstJobState::Busy);

@@ -342,23 +342,23 @@ static void cutSupply(GuardCut why, uint32_t nowMs) {
 	if (leaving && !s_drain) return;
 	s_drain = false;
 	if (s_out) {
+		// Polled back by advance() or leaveStep() later in this pass.
 		hitecLineAbort();
 		s_cutDrain = true;
-		cutDrained();
 	} else {
 		cutEnd();
 	}
 }
 
 /**
- * @brief The guard's pass, while the supply is on with a sensor declared:
- *        the hard cut and the collapse cut, during an operation too.
+ * @brief The guard's pass, while the supply is on: the hard cut and the
+ *        collapse cut, during an operation too. With CURRENT SENSE at NONE
+ *        no new reading comes, so nothing is cut.
  */
 static void guardPass(uint32_t nowMs) {
 	if (!s_guard.armed) return;
 	SenseSample smp;
 	senseSample(&smp);
-	if (smp.state == (uint8_t)SenseState::None) return;
 	static const GuardRules RULES = { false, true, false };
 	GuardCut c = supplyGuardStep(&s_guard, &smp, &RULES, nowMs);
 	if (c != GuardCut::None) cutSupply(c, nowMs);
