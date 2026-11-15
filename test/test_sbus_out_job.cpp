@@ -1643,8 +1643,9 @@ static void listSources(const std::string &dir, std::vector<std::string> *out) {
  * `reinterpret_cast`, a `const` among them; and any use of the user rows or
  * the job table, `PIN_USERS` or, in core1_job.cpp where it is static,
  * `s_ops`, an index or a range-for over them that picks a row by its fields.
- * Another file's own `s_ops` (bridge_4way.cpp) is not the job table. A name match alone misses
- * `(PinUser)((int)PinUser::Count - 1)`, which is SbusOut.
+ * Another file's own `s_ops` (bridge_4way.cpp) is not the job table. A
+ * name match alone misses `(PinUser)((int)PinUser::Count - 1)`, which is
+ * SbusOut.
  *
  * Not caught: a value of the enum made without a cast, through `memcpy()`,
  * a union, a template's deduction or bytes read from storage; a cast hidden

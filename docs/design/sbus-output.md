@@ -1186,9 +1186,11 @@ developer's:
     9 for 0x0D and `B` before it checks the 21-byte greeting at
     `rxBuffer[20]`, and the same 17-byte check is at 3a9e057, lines 293 to
     300. A recognised greeting sends the device information and returns
-    without counting toward `invalid_command`, which only
-    `send_BAD_ACK()` and `send_BAD_CRC_ACK()` raise (lines 555 to 565): the
-    probe's repeated greetings do not walk an AM32 out of its bootloader.
+    before any line that counts toward `invalid_command`:
+    `send_BAD_ACK()` and `send_BAD_CRC_ACK()` (lines 555 to 565), the reply
+    to an unknown command (about line 816), a full buffer (about line 1036)
+    and a receive that ends with no message (about line 1045). The probe's
+    repeated greetings do not walk an AM32 out of its bootloader.
   - Betaflight's 4-way interface sends this 17-byte string in builds without
     `USE_SERIAL_4WAY_SK_BOOTLOADER`, the 21-byte one with it
     (`src/main/io/serial_4way_avrootloader.c` at 134ce0f, lines 206 to 211).
