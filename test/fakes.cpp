@@ -20,6 +20,8 @@
 #include "hardware/i2c.h"
 #include "hardware/spi.h"
 #include "hardware/uart.h"
+#include "hardware/structs/io_bank0.h"
+#include "hardware/structs/pads_bank0.h"
 #include "hardware/structs/powman.h"
 #include "hardware/structs/watchdog.h"
 #include "pico/bootrom.h"
@@ -45,6 +47,7 @@
 #include <string.h>
 
 #include <deque>
+#include <vector>
 
 // ---------------------------------------------------------------------------
 // virtual clock and the Pico SDK surface the firmware uses
@@ -151,11 +154,81 @@ static void cutCheck(unsigned gpio) {
 	}
 }
 
+// --- Control and pad registers. Every write of a GPIO's control register,
+//     by gpio_set_function(), gpio_set_inover() or io_bank0_hw directly, is
+//     one record with FUNCSEL and the overrides as one value, so a test sees
+//     the two fields of a single write together. The pad register holds IE,
+//     OD and ISO; the pulls are kept in FakePin::pull ---
+io_bank0_hw_t g_fakeIoBank0;
+pads_bank0_hw_t g_fakePadsBank0;
+/** @brief One control-register write and its GPIO. */
+struct FakeCtrlRec { unsigned gpio; FakeCtrlWrite w; };
+static std::vector<FakeCtrlRec> g_ctrlLog;
+/** @brief A pad nothing has set up: isolated, output disabled, input off. */
+static const uint32_t PAD_RESET = PADS_BANK0_GPIO0_ISO_BITS | PADS_BANK0_GPIO0_OD_BITS;
+
+static void uartTxPadChange();
+
+/**
+ * @brief Write a control register: the pin's function and overrides follow
+ *        the value, and the write is recorded.
+ * @param asFunction The write selects the function (gpio_set_function() or
+ *        a direct write), so it stamps FakePin::functionAt.
+ */
+static void ctrlWrite(unsigned gpio, uint32_t v, bool asFunction) {
+	if (gpio >= FAKE_GPIOS) return;
+	uint32_t seq = ++g_pinSeq;
+	FakePin &p = g_pins[gpio];
+	if (asFunction) p.functionAt = seq;
+	p.ctrl = v;
+	p.function = (int)(v & IO_BANK0_GPIO0_CTRL_FUNCSEL_BITS);
+	p.outover = (uint8_t)((v & IO_BANK0_GPIO0_CTRL_OUTOVER_BITS) >> IO_BANK0_GPIO0_CTRL_OUTOVER_LSB);
+	p.inover = (uint8_t)((v & IO_BANK0_GPIO0_CTRL_INOVER_BITS) >> IO_BANK0_GPIO0_CTRL_INOVER_LSB);
+	g_ctrlLog.push_back(FakeCtrlRec{gpio, FakeCtrlWrite{v, seq, time_us_64()}});
+	if (gpio == 0) uartTxPadChange();
+}
+
+fake_gpio_ctrl::operator uint32_t() const {
+	unsigned gpio = (unsigned)(((const char *)this - (const char *)&g_fakeIoBank0.io[0].ctrl) /
+	                           sizeof(io_bank0_status_ctrl_hw_t));
+	return gpio < FAKE_GPIOS ? g_pins[gpio].ctrl : 0u;
+}
+fake_gpio_ctrl &fake_gpio_ctrl::operator=(uint32_t v) {
+	unsigned gpio = (unsigned)(((const char *)this - (const char *)&g_fakeIoBank0.io[0].ctrl) /
+	                           sizeof(io_bank0_status_ctrl_hw_t));
+	if (gpio < FAKE_GPIOS && (v & IO_BANK0_GPIO0_CTRL_FUNCSEL_BITS) != GPIO_FUNC_PWM) cutCheck(gpio);
+	ctrlWrite(gpio, v, true);
+	return *this;
+}
+void hw_write_masked(fake_pad_reg *r, uint32_t values, uint32_t mask) {
+	r->value = (r->value & ~mask) | (values & mask);
+	unsigned gpio = (unsigned)(r - g_fakePadsBank0.io);
+	if (gpio < FAKE_GPIOS) g_pins[gpio].padMaskAt = ++g_pinSeq;
+}
+void hw_clear_bits(fake_pad_reg *r, uint32_t mask) {
+	r->value &= ~mask;
+	unsigned gpio = (unsigned)(r - g_fakePadsBank0.io);
+	if (gpio < FAKE_GPIOS && (mask & PADS_BANK0_GPIO0_ISO_BITS)) g_pins[gpio].padIsoAt = ++g_pinSeq;
+}
+int fakeGpioCtrlWrites(unsigned gpio) {
+	int n = 0;
+	for (const FakeCtrlRec &r : g_ctrlLog) n += r.gpio == gpio;
+	return n;
+}
+FakeCtrlWrite fakeGpioCtrlWrite(unsigned gpio, int i) {
+	for (const FakeCtrlRec &r : g_ctrlLog)
+		if (r.gpio == gpio && i-- == 0) return r.w;
+	return FakeCtrlWrite{};
+}
+uint32_t fakePad(unsigned gpio) { return gpio < FAKE_GPIOS ? g_fakePadsBank0.io[gpio].value : 0u; }
+
 void fakePwmReset() {
 	for (FakePin &p : g_pins) p = FakePin{};
 	for (FakeSlice &s : g_slices) s = FakeSlice{};
 	memset(g_writeCount, 0, sizeof(g_writeCount));
 	g_sliceMapBroken = false;
+	g_ctrlLog.clear();
+	for (fake_pad_reg &r : g_fakePadsBank0.io) r.value = PAD_RESET;
 }
 void fakePwmBreakSliceMap(bool on) { g_sliceMapBroken = on; }
 FakePin fakePin(unsigned gpio) { return gpio < FAKE_GPIOS ? g_pins[gpio] : FakePin{}; }
@@ -204,16 +277,20 @@ void pwm_set_gpio_level(unsigned gpio, uint16_t level) {
 extern "C" void gpio_set_function(uint32_t gpio, gpio_function fn) {
 	if (gpio >= FAKE_GPIOS) return;
 	if (fn != GPIO_FUNC_PWM) cutCheck(gpio);
-	g_pins[gpio].functionAt = ++g_pinSeq;
-	g_pins[gpio].function = (int)fn;
-	// As the SDK does: selecting a function turns the pad's input on, and
-	// writes the whole control register, which zeroes the overrides.
+	// As the SDK does: selecting a function turns the pad's input on and its
+	// output disable off, writes the whole control register, which zeroes
+	// the overrides, and clears the pad's isolation.
 	g_pins[gpio].inputOff = false;
-	g_pins[gpio].inover = GPIO_OVERRIDE_NORMAL;
+	uint32_t &pad = g_fakePadsBank0.io[gpio].value;
+	pad = (pad | PADS_BANK0_GPIO0_IE_BITS) & ~PADS_BANK0_GPIO0_OD_BITS;
+	ctrlWrite(gpio, (uint32_t)fn << IO_BANK0_GPIO0_CTRL_FUNCSEL_LSB, true);
+	pad &= ~PADS_BANK0_GPIO0_ISO_BITS;
 }
 extern "C" void gpio_set_inover(unsigned gpio, unsigned value) {
 	if (gpio >= FAKE_GPIOS) return;
-	g_pins[gpio].inover = (uint8_t)value;
+	uint32_t v = (g_pins[gpio].ctrl & ~IO_BANK0_GPIO0_CTRL_INOVER_BITS) |
+	             ((uint32_t)value << IO_BANK0_GPIO0_CTRL_INOVER_LSB);
+	ctrlWrite(gpio, v, false);
 	g_pins[gpio].inoverWrites++;
 }
 extern "C" void gpio_set_dir(uint32_t gpio, int out) {
@@ -223,15 +300,15 @@ extern "C" void gpio_set_dir(uint32_t gpio, int out) {
 	g_pins[gpio].output = out != 0;
 	fakeI2cPinDir(gpio, out != 0);
 }
-extern "C" void gpio_disable_pulls(uint32_t gpio) {
-	if (gpio < FAKE_GPIOS) g_pins[gpio].pull = FakePull::None;
+/** @brief Set a pin's pull and stamp the write. */
+static void setPull(uint32_t gpio, FakePull pull) {
+	if (gpio >= FAKE_GPIOS) return;
+	g_pins[gpio].pull = pull;
+	g_pins[gpio].pullAt = ++g_pinSeq;
 }
-extern "C" void gpio_pull_down(uint32_t gpio) {
-	if (gpio < FAKE_GPIOS) g_pins[gpio].pull = FakePull::Down;
-}
-extern "C" void gpio_pull_up(uint32_t gpio) {
-	if (gpio < FAKE_GPIOS) g_pins[gpio].pull = FakePull::Up;
-}
+extern "C" void gpio_disable_pulls(uint32_t gpio) { setPull(gpio, FakePull::None); }
+extern "C" void gpio_pull_down(uint32_t gpio) { setPull(gpio, FakePull::Down); }
+extern "C" void gpio_pull_up(uint32_t gpio) { setPull(gpio, FakePull::Up); }
 extern "C" void gpio_put(uint32_t gpio, int value) {
 	if (gpio >= FAKE_GPIOS) return;
 	g_pins[gpio].high = value != 0;
@@ -285,7 +362,11 @@ spi_inst_t *spi1 = nullptr;
 //     times with the receiver off, as uart_disable_before_lcr_write() waits,
 //     and only the character in progress at its start completes, in the old
 //     format. Not modelled: the bits on the wire, what a line that is not
-//     inverted would read, the transmitter ---
+//     inverted would read. The transmitter: each UARTDR write enters a
+//     32-entry TX FIFO and goes out at the format and rate set, back to back;
+//     TXFE, TXFF and BUSY follow it. A character still in the FIFO or on the
+//     wire when the UART stops, or when GP0 leaves the UART function with its
+//     output inverted, is cut ---
 
 /** @brief The two UART instances; only their addresses are used. */
 struct uart_inst { int id; };
@@ -303,6 +384,9 @@ static uint64_t g_rxOnUs;         /**< When the receiver last came on. */
 static uint32_t g_initTakesUs;    /**< Time uart_init() leaves the receiver on before it returns. */
 static FakeUart g_uart;
 static uart_hw_t g_uartHw;
+static std::vector<FakeTxByte> g_tx;  /**< Every character written, in order. */
+static uint64_t g_txEndUs;            /**< When the last character's stop bits end. */
+static bool     g_txStuck;            /**< BUSY held set. */
 
 /** @brief One character's time, us, from its start bit to its load: 11 bits. */
 static uint64_t uartCharUs() { return g_uart.baud ? 11000000u / g_uart.baud : 0; }
@@ -317,7 +401,7 @@ static uint16_t uartEvenParity(uint8_t b) {
 /** @brief Load one word from the line, if the receiver hears it, as its format reads it. */
 static void uartTake(const FakeLineWord &lw) {
 	uint16_t w = lw.word;
-	if (!g_uart.enabled || g_pins[1].function != GPIO_FUNC_UART ||
+	if (!g_uart.enabled || !g_uart.rxe || g_pins[1].function != GPIO_FUNC_UART ||
 	    g_pins[1].inover != GPIO_OVERRIDE_INVERT || g_uart.dataBits != 8) {
 		g_uart.dropped++;
 		return;
@@ -354,20 +438,72 @@ static void uartLine() {
 	}
 }
 
-/** @brief The PL011 after a reset: off, FIFO empty, no overrun owed. */
+/** @brief Cut every character not yet fully out: the UART stopped, or the pad left it. */
+static void uartTxCutPending() {
+	uint64_t now = time_us_64();
+	for (FakeTxByte &b : g_tx) {
+		if (b.cut || b.endUs <= now) continue;
+		b.cut = true;
+		g_uart.txCut++;
+	}
+	if (g_txEndUs > now) g_txEndUs = now;
+}
+
+/** @brief GP0 is on UART0's TX with its output inverted. */
+static bool uartTxOnPad() {
+	return g_pins[0].function == GPIO_FUNC_UART && g_pins[0].outover == GPIO_OVERRIDE_INVERT;
+}
+
+/** @brief GP0's control register changed: a character on its way through a pad that left the UART is cut. */
+static void uartTxPadChange() {
+	if (!uartTxOnPad()) uartTxCutPending();
+}
+
+/** @brief Characters written and not yet started: those in the TX FIFO. */
+static unsigned uartTxQueued() {
+	uint64_t now = time_us_64();
+	unsigned n = 0;
+	for (const FakeTxByte &b : g_tx) n += !b.cut && b.startUs > now;
+	return n;
+}
+
+/** @brief The PL011 after a reset: off, FIFOs empty, no overrun owed. */
 static void uartClear() {
 	g_rxHead = g_rxCount = 0;
 	g_rxOverrunPending = false;
 	g_uart.enabled = false;
+	uartTxCutPending();
 }
 
 void fakeUartReset() {
 	g_line.clear();
 	g_uart = FakeUart{};
 	uartClear();
+	g_tx.clear();
+	g_txEndUs = 0;
+	g_txStuck = false;
 	g_initTakesUs = 0;
 	g_clockHz[1] = 150000000u;
 }
+int fakeUartTxCount() { return (int)g_tx.size(); }
+FakeTxByte fakeUartTxByte(int i) {
+	if (i < 0 || i >= (int)g_tx.size()) return FakeTxByte{};
+	FakeTxByte b = g_tx[(size_t)i];
+	// On the pad: GP0 on the inverted UART function by its start bit, and no
+	// write moving it off before its last bit.
+	bool on = false;
+	for (const FakeCtrlRec &r : g_ctrlLog) {
+		if (r.gpio != 0) continue;
+		bool ok = (r.w.value & IO_BANK0_GPIO0_CTRL_FUNCSEL_BITS) == GPIO_FUNC_UART &&
+		          ((r.w.value & IO_BANK0_GPIO0_CTRL_OUTOVER_BITS) >> IO_BANK0_GPIO0_CTRL_OUTOVER_LSB) ==
+		              GPIO_OVERRIDE_INVERT;
+		if (r.w.us <= b.startUs) on = ok;
+		else if (r.w.us < b.endUs && !ok) on = false;
+	}
+	b.onPad = on && !b.cut;
+	return b;
+}
+void fakeUartTxStuck(bool on) { g_txStuck = on; }
 void fakeUartLine(uint64_t dueUs, uint16_t word) { g_line.push_back(FakeLineWord{dueUs, word}); }
 void fakeUartInitTakes(uint32_t us) { g_initTakesUs = us; }
 FakeUart fakeUart() {
@@ -380,7 +516,43 @@ FakeUart fakeUart() {
 
 fake_uart_fr::operator uint32_t() const {
 	uartLine();
-	return g_rxCount ? 0u : UART_UARTFR_RXFE_BITS;
+	unsigned queued = uartTxQueued();
+	uint32_t fr = g_rxCount ? 0u : UART_UARTFR_RXFE_BITS;
+	if (queued == 0) fr |= UART_UARTFR_TXFE_BITS;
+	if (queued >= FAKE_UART_FIFO) fr |= UART_UARTFR_TXFF_BITS;
+	if (g_txStuck || time_us_64() < g_txEndUs) fr |= UART_UARTFR_BUSY_BITS;
+	return fr;
+}
+fake_uart_dr &fake_uart_dr::operator=(uint32_t v) {
+	g_uart.txWrites++;
+	if (!g_uart.enabled || !g_uart.txe || uartTxQueued() >= FAKE_UART_FIFO || !g_uart.baud) {
+		g_uart.txLost++;
+		return *this;
+	}
+	uint64_t now = time_us_64();
+	FakeTxByte b{};
+	b.value = (uint8_t)v;
+	b.writeUs = now;
+	b.startUs = g_txEndUs > now ? g_txEndUs : now;
+	b.bits = 1u + g_uart.dataBits + (g_uart.parity != UART_PARITY_NONE ? 1u : 0u) + g_uart.stopBits;
+	b.endUs = b.startUs + (uint64_t)b.bits * 1000000u / g_uart.baud;
+	g_txEndUs = b.endUs;
+	g_tx.push_back(b);
+	return *this;
+}
+fake_uart_cr::operator uint32_t() const {
+	return (g_uart.enabled ? UART_UARTCR_UARTEN_BITS : 0u) |
+	       (g_uart.txe ? UART_UARTCR_TXE_BITS : 0u) | (g_uart.rxe ? UART_UARTCR_RXE_BITS : 0u);
+}
+fake_uart_cr &fake_uart_cr::operator=(uint32_t v) {
+	uartLine();
+	g_uart.crAt = ++g_pinSeq;
+	bool on = (v & UART_UARTCR_UARTEN_BITS) != 0;
+	if (g_uart.enabled && !on) uartTxCutPending();
+	g_uart.enabled = on;
+	g_uart.txe = (v & UART_UARTCR_TXE_BITS) != 0;
+	g_uart.rxe = (v & UART_UARTCR_RXE_BITS) != 0;
+	return *this;
 }
 fake_uart_dr::operator uint32_t() const {
 	uartLine();
@@ -398,6 +570,7 @@ unsigned uart_init(uart_inst_t *, unsigned baud) {
 	uartLine();
 	uartClear();
 	g_uart.inits++;
+	g_uart.initAt = ++g_pinSeq;
 	uint32_t hz = g_clockHz[1];
 	if (hz == 0) return 0;
 	// uart_set_baudrate() of SDK 2.1.1, hardware_uart/uart.c.
@@ -414,6 +587,7 @@ unsigned uart_init(uart_inst_t *, unsigned baud) {
 	g_uart.stopBits = 1;
 	g_uart.parity = UART_PARITY_NONE;
 	g_uart.enabled = true;
+	g_uart.txe = g_uart.rxe = true;
 	g_rxOnUs = time_us_64();
 	// The receiver runs at 8N1 until the caller's next call.
 	g_us += g_initTakesUs;
@@ -423,11 +597,13 @@ void uart_deinit(uart_inst_t *) {
 	uartLine();
 	uartClear();
 	g_uart.deinits++;
+	g_uart.deinitAt = ++g_pinSeq;
 }
 bool uart_is_readable(uart_inst_t *) { return !(g_uartHw.fr & UART_UARTFR_RXFE_BITS); }
 uint8_t uart_getc(uart_inst_t *) { return (uint8_t)g_uartHw.dr; }
 void uart_set_format(uart_inst_t *, unsigned bits, unsigned stop, enum uart_parity_t p) {
 	uartLine();
+	g_uart.formatAt = ++g_pinSeq;
 	if (g_uart.enabled) {
 		// uart_disable_before_lcr_write(), SDK 2.1.1: UARTEN off, then a
 		// wait of about 15 bit times. The character under way completes.

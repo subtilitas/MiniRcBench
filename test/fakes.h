@@ -393,6 +393,8 @@ struct FakePin {
 	int      cutPulses;    /**< Pulses cut short or left high by a stop or a mux change. */
 	uint32_t cutAtUs;      /**< How far into the pulse the last cut came, us. */
 	uint8_t  inover;       /**< Input override, `GPIO_OVERRIDE_*`; gpio_set_function() zeroes it, as the SDK does. */
+	uint8_t  outover;      /**< Output override, `GPIO_OVERRIDE_*`, from the last control-register write. */
+	uint32_t ctrl;         /**< The control register's last value: FUNCSEL, OUTOVER and INOVER. */
 	/**
 	 * @defgroup fake_pin_order Order of the writes
 	 * @brief Each the value of one counter, shared by every pin and never
@@ -405,6 +407,9 @@ struct FakePin {
 	uint32_t levelAt;      /**< The last pwm_set_gpio_level(). */
 	uint32_t functionAt;   /**< The last gpio_set_function(). */
 	uint32_t dirAt;        /**< The last gpio_set_dir(). */
+	uint32_t pullAt;       /**< The last gpio_pull_down(), gpio_pull_up() or gpio_disable_pulls(). */
+	uint32_t padMaskAt;    /**< The last hw_write_masked() on the pad register. */
+	uint32_t padIsoAt;     /**< The last hw_clear_bits() that cleared the pad's ISO bit. */
 	/** @} */
 	int      inoverWrites; /**< gpio_set_inover() calls. */
 };
@@ -432,8 +437,43 @@ struct FakeSlice {
  */
 uint16_t fakePwmLatched(unsigned gpio);
 
-/** @brief Clear every pin and slice record and the broken map. */
+/**
+ * @brief Clear every pin and slice record, the control-register record and
+ *        the broken map. Every pad register reads ISO and OD set, IE clear:
+ *        a pad nothing has set up.
+ */
 void fakePwmReset();
+
+/** @brief One write of a GPIO's control register. */
+struct FakeCtrlWrite {
+	uint32_t value;  /**< FUNCSEL in bits 0 to 4, OUTOVER in 12 and 13, INOVER in 16 and 17. */
+	uint32_t at;     /**< The pin write counter at the write (@ref fake_pin_order). */
+	uint64_t us;     /**< time_us_64() at the write. */
+};
+
+/**
+ * @brief How many times a GPIO's control register was written since
+ *        fakePwmReset(): gpio_set_function(), gpio_set_inover() and a direct
+ *        write of `io_bank0_hw->io[n].ctrl` each count one.
+ * @param gpio GPIO.
+ */
+int fakeGpioCtrlWrites(unsigned gpio);
+
+/**
+ * @brief One write of a GPIO's control register, in order.
+ * @param gpio GPIO.
+ * @param i    0 for the first since fakePwmReset().
+ * @return The write; all zero past the last.
+ */
+FakeCtrlWrite fakeGpioCtrlWrite(unsigned gpio, int i);
+
+/**
+ * @brief A GPIO's pad register as the fake holds it: IE, OD and ISO
+ *        (hardware/structs/pads_bank0.h). gpio_set_function() sets IE and
+ *        clears OD and ISO, as the SDK does.
+ * @param gpio GPIO.
+ */
+uint32_t fakePad(unsigned gpio);
 
 /**
  * @brief Make pwm_gpio_to_slice_num() name the wrong slice, as an SDK whose
@@ -475,6 +515,33 @@ struct FakeUart {
 	unsigned drReads;   /**< UARTDR reads. */
 	unsigned caughtMid; /**< Words caught in the middle of their character. */
 	uint32_t formatWaitUs; /**< The wait of the last uart_set_format() on a running UART, us. */
+	bool     txe;       /**< UARTCR.TXE: uart_init() sets it. */
+	bool     rxe;       /**< UARTCR.RXE: uart_init() sets it; the receiver hears nothing without it. */
+	/**
+	 * @defgroup fake_uart_order Order of the UART's calls
+	 * @brief Values of the pin write counter (@ref fake_pin_order) at the
+	 *        last call of each kind; 0 for none since fakeUartReset().
+	 * @{
+	 */
+	uint32_t initAt;    /**< The last uart_init(). */
+	uint32_t deinitAt;  /**< The last uart_deinit(). */
+	uint32_t formatAt;  /**< The last uart_set_format(). */
+	uint32_t crAt;      /**< The last write of UARTCR. */
+	/** @} */
+	unsigned txWrites;  /**< UARTDR writes. */
+	unsigned txLost;    /**< UARTDR writes with the UART or TXE off, or the TX FIFO full. */
+	unsigned txCut;     /**< Characters cut short: the UART stopped, or GP0 left the inverted UART function, before their last bit. */
+};
+
+/** @brief One character the UART0 fake transmitted. */
+struct FakeTxByte {
+	uint8_t  value;    /**< The byte. */
+	uint64_t writeUs;  /**< time_us_64() of its UARTDR write. */
+	uint64_t startUs;  /**< Its start bit: the write, or the end of the character before it. */
+	uint64_t endUs;    /**< The end of its last stop bit. */
+	bool     onPad;    /**< GP0 was on the UART function with its output inverted from its start to its end. */
+	bool     cut;      /**< Cut short (FakeUart::txCut). */
+	uint32_t bits;     /**< Bits on the wire: start, data, parity and stop. */
 };
 
 /**
@@ -503,3 +570,20 @@ void fakeUartInitTakes(uint32_t us);
 
 /** @brief The UART0 fake's record, after moving every due word. */
 FakeUart fakeUart();
+
+/**
+ * @brief The UART0 fake's transmitter: each UARTDR write goes into a
+ *        32-entry TX FIFO and out at the format and rate set, back to back,
+ *        12 bits of 10 us a character at 100,000 baud 8E2. UARTFR.TXFE is
+ *        set while no character waits in the FIFO, BUSY until the last stop
+ *        bit is out. Not modelled: the bits' levels; a character is on the
+ *        pad when GP0 is on the UART function with OUTOVER inverted.
+ * @return How many characters were written since fakeUartReset().
+ */
+int fakeUartTxCount();
+
+/** @brief One transmitted character, in order. @param i 0 for the first. @return It; all zero past the last. */
+FakeTxByte fakeUartTxByte(int i);
+
+/** @brief Keep UARTFR.BUSY set whatever the FIFO holds, as a UART that never finishes would. */
+void fakeUartTxStuck(bool on);

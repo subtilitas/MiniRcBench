@@ -1355,6 +1355,8 @@ void runClaimTests() {
 	          s_ops[(uint8_t)Core1Job::EscWire] == &ESCWIRE_JOB_OPS);
 	checkTrue("and the USB bridge's job",
 	          s_ops[(uint8_t)Core1Job::Bridge] == &BRIDGE_JOB_OPS);
+	checkTrue("and the S.BUS output's job",
+	          s_ops[(uint8_t)Core1Job::SbusOut] == &SBUS_OUT_JOB_OPS);
 	installJobs();
 	s_ops[(uint8_t)Core1Job::Kst] = &FAKE_KST_INIT;
 	core1JobInit();
