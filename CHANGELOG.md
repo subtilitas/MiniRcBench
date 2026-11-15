@@ -51,7 +51,7 @@ protocol.
   unchanged; the fields per firmware and layout, the backup before the
   first write, the read-back, and why a cut write followed by a restart of
   the ESC loses its 48 tag bytes. It waits on the owner's answers to its
-  seven open questions.
+  eight open questions.
 - The design note for the angle meter,
   [angle-meter.md](docs/design/angle-meter.md), designed and not built:
   incidence, decalage, dihedral and control-surface throw in degrees and

@@ -805,26 +805,34 @@ not run on hardware (item 18).
     facts are read from source and the BLHeli_32 command specification;
     none has been checked on an ESC.
 
-29. **Bluejay and BLHeli_S settings, designed, not built.** Item (6) of
-    the owner's feature choice of 2026-11-14 (item 28).
+29. **Bluejay and BLHeli_S settings, designed, not built.** Item (6) of the
+    owner's feature choice of 2026-11-14 (item 28).
     [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md) grows AM32
-    CONFIG: its greeting is already a valid greeting for the EFM8
-    bootloader of both firmwares, whose answer, `471d` and the signature
-    E8B1, E8B2 or E8B5, hands the ESC to rcbench's `protocols/escwire`,
-    copied unchanged with 210 of its host cases and run by a core1 job;
-    quiet seconds between the greetings let a Bluejay enter its
-    bootloader. Bluejay 0.21 and BLHeli_S 16.3 to 16.7 are written,
-    older layouts shown, with a backup before the first write, a re-read
-    and a read-back. Read from both firmwares' source: a write cut
-    between erase and program, then a restart of the ESC, leaves the 48
-    tag bytes 0xFF and the page read-only. It waits on the owner's
-    answers to the note's seven open questions: the entry and its name,
-    the connect cycle, the frame that starts the firmware on leaving,
-    a restore after a cut write, the backup names, a write without a
-    card, and how older layouts show. Nothing of it has run on an ESC.
+    CONFIG: its greeting is already a valid greeting for the EFM8 bootloader
+    of both firmwares, whose answer, `471d` and the signature E8B1, E8B2 or
+    E8B5, hands the ESC to rcbench's `protocols/escwire`, copied unchanged
+    with 210 of its host cases and run by a core1 job; quiet seconds between
+    short bursts of greetings let a Bluejay enter, and keep an AM32 in, its
+    bootloader. Bluejay 0.21 and BLHeli_S 16.3 to 16.7 are written, older
+    layouts shown, with a backup before the first write, a re-read and a
+    read-back. Read from both firmwares' source: a write cut between erase
+    and program, then a restart of the ESC, leaves the 48 tag bytes 0xFF and
+    the page read-only. It waits on the owner's answers to the note's eight
+    open questions: the entry and its name, the connect cycle, the frame
+    that starts the firmware on leaving, a restore after a cut write, the
+    backup names, a write without a card, how older layouts show, and
+    leaving an ESC in its bootloader. Nothing of it has run on an ESC.
 
 ## Known limitations
 
+- **AM32 CONFIG leaves a BLHeli_S or Bluejay ESC in its bootloader.** One
+  that answers the greeting reads `REPLY NOT UNDERSTOOD:`, gets no run
+  cue (`s_blReached` is set only on `AM32_OK`, `src/ui_am32.cpp` line
+  846), and BACK resumes DShot into its bootloader at once; by the
+  bootloader's source a garbled frame passes its CRC check about 1 time in
+  256 ([bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#the-firmware-as-it-is-today)).
+  Not seen on an ESC. Power-cycle such an ESC after leaving. Slice 2 of
+  that note closes it.
 - **`tools/sdtest` is built by no CI job**, by the owner's decision of
   2026-10-28: it is a bench bring-up tool and never released, so a red job
   for it is not worth its cost. A change that breaks it shows only in a local
