@@ -63,7 +63,8 @@
  * ERASE and a payload are write-class: from the handover until the
  * frame's answer, a byte received beyond its echo, or
  * @ref BRIDGE_WRITE_WAIT_MS, BACK is drawn disabled (decision 7); and from
- * then until a RUN, the leave page carries `FLASH THE ESC AGAIN BEFORE USE.`.
+ * then until a RUN or the claim's end, the leave page carries
+ * `FLASH THE ESC AGAIN BEFORE USE.`, after BRIDGE's reopen too.
  * BACK on a Running bridge always opens the leave page (decision 10 as
  * revised, ui_bridge.h): an ESC can sit in its bootloader with no frame of
  * the PC's answered. MENU shows the run cue from the claim's begin and
@@ -222,9 +223,14 @@ BridgeLast usbBridgeLast();
 bool usbBridgeWriteWaiting();
 
 /**
- * @brief A write-class frame went to the wire since the open, and no RUN
- *        after it: the leave page carries its note to flash the ESC again
- *        (ui_bridge.h). Kept after the close until the next open.
+ * @brief A write-class frame went to the wire in this claim of the bridge,
+ *        and no RUN after it: the leave page carries its note to flash the
+ *        ESC again (ui_bridge.h). Kept through the close, the leave page and
+ *        BRIDGE's reopen, which leave the ESC's flash as cut as it was.
+ *        Cleared by a RUN, `cmd_DeviceReset`'s among them, and on the first
+ *        usbBridgeTask() pass after the claim stops being the bridge's: a
+ *        claim with a write in it ends only at its leave page's RESTART
+ *        DSHOT, so the next claim starts with none.
  * @return True after such a frame.
  */
 bool usbBridgeWriteUnfinished();

@@ -33,11 +33,14 @@
  *
  * Nothing is sent at BACK, no RUN among it (decision 6). The leave page is
  * ui_leave.h's, opened releasing, as the job lets go of the line at once:
- * `POWER THE ESC OFF.`, `RESTART DSHOT.` and, after a write with no RUN
- * behind it, the note `FLASH THE ESC AGAIN BEFORE USE.`. Its left button,
- * `BRIDGE`, keeps the claim and returns to the bridge, its counts at 0
- * (pinClaimKeep()); RESTART DSHOT, live 1000 ms after the line is let go,
- * clears MENU's run cue (usbBridgeRunCueClear()) and returns to MENU.
+ * `POWER THE ESC OFF.`, `RESTART DSHOT.` and, after a write in this claim
+ * with no RUN behind it, the note `FLASH THE ESC AGAIN BEFORE USE.`
+ * (usbBridgeWriteUnfinished()). Its left button, `BRIDGE`, keeps the claim
+ * and returns to the bridge, its counts at 0 (pinClaimKeep()); the
+ * unfinished write stays, and the next BACK's page carries the note until a
+ * RUN. RESTART DSHOT, live 1000 ms after the line is let go, clears MENU's
+ * run cue (usbBridgeRunCueClear()), ends the claim and the unfinished write
+ * with it, and returns to MENU.
  * BACK on the page is drawn disabled. A claim that has had the page keeps it
  * until it is Free.
  *

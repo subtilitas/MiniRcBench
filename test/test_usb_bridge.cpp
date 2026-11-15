@@ -800,11 +800,13 @@ static void testWriteRules() {
 	run(10);
 	checkTrue("a port close after a write: still unfinished, the claim kept",
 	          usbBridgeWriteUnfinished() && pinClaimState() == ClaimState::Running);
-	endBridge();
-	checkTrue("after the close: still unfinished until the next open", usbBridgeWriteUnfinished());
+	pinClaimEnd(PinUser::Bridge);
+	for (int k = 0; k < 400 && pinClaimState() != ClaimState::Free; k++) pass();
+	checkTrue("the close, the claim Free: the pass that saw it Free cleared it",
+	          pinClaimState() == ClaimState::Free && !usbBridgeWriteUnfinished());
 	fresh(escAck);
 	openBridge();
-	checkTrue("the next open clears it", !usbBridgeWriteUnfinished());
+	checkTrue("the next claim opens with none", !usbBridgeWriteUnfinished());
 	endBridge();
 }
 
@@ -876,14 +878,18 @@ static void testLeavePageConsole() {
 	}
 	checkTrue("BRIDGE: open again, Waiting, the counts at 0",
 	          usbBridgeMode() == BridgeMode::Waiting && bstats().frames == 0 && !fakeConsoleOn());
+	checkTrue("the reopen keeps the unfinished write: the same claim, the same ESC",
+	          usbBridgeWriteUnfinished());
 	checkInt("what the PC sent on the page dropped at the open", fakeCdcHostQueued(), 0);
 	pinClaimEnd(PinUser::Bridge);
 	run(50);
-	checkTrue("BACK again: the page, the console off", pinClaimUnplugDue() && !fakeConsoleOn());
+	checkTrue("BACK again: the page, the console off, still unfinished",
+	          pinClaimUnplugDue() && !fakeConsoleOn() && usbBridgeWriteUnfinished());
 	pinClaimRestart(PinUser::Bridge);
 	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) pass();
 	pass();
 	checkTrue("RESTART DSHOT: Free, the console on", pinClaimState() == ClaimState::Free && fakeConsoleOn());
+	checkTrue("the claim ended: no unfinished write", !usbBridgeWriteUnfinished());
 	checkInt("DShot never up with the line", g_together, 0);
 }
 
