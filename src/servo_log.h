@@ -16,8 +16,12 @@
  * writes return once queued. During the run each pass makes at most one
  * FatFs call, an f_write() of one 512-byte block or an f_sync(), and only
  * while the cache reads Idle: nothing queued, nothing in flight. The call
- * then queues at most 3 blocks of the cache's 32 and never waits for the
- * card's busy line. Everything else that touches the card, the open with its
+ * then queues one block of rows, or the sync's directory entry; past the
+ * preallocation, where the file grows a cluster at a time, the sync adds
+ * FSINFO and the FAT's block in both copies: at most 4 of the cache's 32. No
+ * write of the run waits for the card's busy line; a pass reads the card at
+ * most once, for the cache's swap check at a batch's first block, or for a
+ * block FatFs asks for that neither its window nor the read cache holds. Everything else that touches the card, the open with its
  * directory scan and preallocation, the last rows, the end line, the
  * truncation, the close and the cache's last flush, runs with the pulses at
  * level 0 and the switched supply off: before the Start command and after the

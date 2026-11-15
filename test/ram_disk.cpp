@@ -14,12 +14,25 @@
 
 RamDisk g_disk = {};
 
-DSTATUS disk_initialize(BYTE) { g_disk.noInit = false; return g_disk.protect ? STA_PROTECT : 0; }
+DSTATUS disk_initialize(BYTE) {
+	if (g_disk.removed) return STA_NOINIT;
+	g_disk.noInit = false;
+	return g_disk.protect ? STA_PROTECT : 0;
+}
 DSTATUS disk_status(BYTE) {
 	return (DSTATUS)((g_disk.noInit ? STA_NOINIT : 0) | (g_disk.protect ? STA_PROTECT : 0));
 }
 
 DRESULT disk_read(BYTE, BYTE *buf, LBA_t sector, UINT count) {
+	return g_disk.viaRead ? g_disk.viaRead(buf, sector, count) : ramDiskRead(buf, sector, count);
+}
+
+DRESULT disk_write(BYTE, const BYTE *buf, LBA_t sector, UINT count) {
+	return g_disk.viaWrite ? g_disk.viaWrite(buf, sector, count) : ramDiskWrite(buf, sector, count);
+}
+
+DRESULT ramDiskRead(BYTE *buf, LBA_t sector, UINT count) {
+	if (g_disk.removed) return RES_NOTRDY;
 	RamImage &d = g_disk.images[g_disk.card];
 	for (UINT i = 0; i < count; i++) {
 		auto it = d.find(sector + i);
@@ -29,8 +42,9 @@ DRESULT disk_read(BYTE, BYTE *buf, LBA_t sector, UINT count) {
 	return RES_OK;
 }
 
-DRESULT disk_write(BYTE, const BYTE *buf, LBA_t sector, UINT count) {
+DRESULT ramDiskWrite(const BYTE *buf, LBA_t sector, UINT count) {
 	if (g_disk.clockUs) *g_disk.clockUs += g_disk.writeUs;
+	if (g_disk.removed) return RES_NOTRDY;
 	if (g_disk.protect) return RES_WRPRT;
 	if (g_disk.failWrites) return RES_ERROR;
 	if (g_disk.failPrefix) {
@@ -67,6 +81,9 @@ void ramDiskFormat(FATFS *fs, BYTE fmt, LBA_t sectors, DWORD au) {
 	g_disk.failLen = 0;
 	g_disk.clockUs = nullptr;
 	g_disk.writeUs = 0;
+	g_disk.removed = false;
+	g_disk.viaRead = nullptr;
+	g_disk.viaWrite = nullptr;
 	static BYTE work[FF_MAX_SS * 8];
 	MKFS_PARM opt = { fmt, 2, 0, 0, au };
 	for (int c = 1; c >= 0; c--) {

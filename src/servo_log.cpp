@@ -132,6 +132,10 @@ bool servoLogStart(uint32_t nowMs) {
 	// writes never search the FAT for a free cluster. Failure is not fatal:
 	// the file then grows a cluster at a time.
 	f_expand(&s_file, SERVO_LOG_PREALLOC_BYTES, 1);
+	// The preallocation's FAT blocks and FSINFO out now, with the entry:
+	// the run's first sync then writes the entry alone. The entry holds the
+	// preallocated size until the close truncates it, as the blackbox log's.
+	f_sync(&s_file);
 	logRingInit(&s_ring, s_ringBuf, sizeof(s_ringBuf));
 	logRingWrite(&s_ring, (const uint8_t *)SERVO_LOG_HEADER, sizeof(SERVO_LOG_HEADER) - 1);
 	SenseSample smp;

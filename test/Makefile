@@ -13,8 +13,9 @@
 #   make coverage line coverage of src/ from an instrumented build in cov/
 #   make kstcount the KST card phases over FatFs, checked against the design note
 #   make kstcount-write  rewrite that table
-#   make lognum   the next blackbox log's file, and the logger with its run
-#                 summary, over FatFs R0.15 itself
+#   make lognum   the next blackbox log's file, the logger with its run
+#                 summary, and the servo log through the write cache, over
+#                 FatFs R0.15 itself
 #   make clean
 #
 # Needs nothing but a C++17 compiler and the C compiler beside it: the firmware
@@ -353,9 +354,24 @@ $(OBJ_DIR)/sd_log_fatfs: sd_log_fatfs.cpp ram_disk.cpp ram_disk.h check.h $(LOG_
 	$(CXX) $(CXXFLAGS) $(WARN) -I$(FATFS_SRC) -Istubs -I$(FATFS_DIR)/src/include -I../src -I. \
 		-o $@ sd_log_fatfs.cpp ram_disk.cpp $(LOG_FATFS_SRCS) $(OBJ_DIR)/lognum/*.o
 
-lognum: $(OBJ_DIR)/log_next_fatfs $(OBJ_DIR)/sd_log_fatfs
+# The servo log, src/servo_log.cpp, over the same FatFs and through the
+# write cache as on the board: the logger, card_cache.cpp and sd_cache.c run
+# as they ship, over a card model with a read time and a busy time per block.
+# The supply guard judges the readings the modelled core0 loop takes.
+SERVO_LOG_FATFS_SRCS := ../src/servo_log.cpp ../src/card_cache.cpp ../src/card_dir.cpp \
+                        ../src/supply_guard.cpp $(LOG_FATFS_SRCS)
+
+$(OBJ_DIR)/servo_log_fatfs: servo_log_fatfs.cpp ram_disk.cpp ram_disk.h check.h $(SERVO_LOG_FATFS_SRCS) ../src/sdio/sd_cache.c $(wildcard ../src/*.h) $(wildcard ../src/sdio/*.h) $(OBJ_DIR)/log_next_fatfs
+	$(CC) $(CFLAGS) $(WARN) -c -o $(OBJ_DIR)/lognum-sd_cache.o ../src/sdio/sd_cache.c
+	$(CXX) $(CXXFLAGS) $(WARN) -I$(FATFS_SRC) -Istubs -I$(FATFS_DIR)/src/include -I../src -I. \
+		$(SERVO_INCLUDES) $(SENSE_INCLUDES) \
+		-o $@ servo_log_fatfs.cpp ram_disk.cpp $(SERVO_LOG_FATFS_SRCS) $(OBJ_DIR)/lognum/*.o \
+		$(OBJ_DIR)/lognum-sd_cache.o
+
+lognum: $(OBJ_DIR)/log_next_fatfs $(OBJ_DIR)/sd_log_fatfs $(OBJ_DIR)/servo_log_fatfs
 	./$(OBJ_DIR)/log_next_fatfs
 	./$(OBJ_DIR)/sd_log_fatfs
+	./$(OBJ_DIR)/servo_log_fatfs
 
 kstcount: $(OBJ_DIR)/kst_card_count
 	./$(OBJ_DIR)/kst_card_count --check $(KST_NOTE)

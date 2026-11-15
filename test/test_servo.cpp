@@ -5168,6 +5168,121 @@ static void testCutScreens() {
 	freshUi();
 }
 
+/** @brief Whether the dial band's second line reads @p text, centred, in @p col. */
+static bool logLineIs(const char *text, uint16_t col) {
+	return textAt((GFX_W - gfxTextW(text, 1)) / 2, 76, text, col, 1);
+}
+
+/**
+ * @brief The servo log on SERVO TESTER (servo_log.h, faked here): opened by
+ *        HOLD TO START before the Start command, told the Start's seq and
+ *        BACK; the dial band's second line while RUNNING.
+ */
+static void testLogScreen() {
+	section("Servo screen: the servo log's calls and its line while RUNNING");
+	freshUi();
+	ServoLogStatus lg = {};
+	lg.active = true;
+	lg.fileNumber = 12;
+	fakeServoLogSet(&lg);
+	openServo();
+	uiFrames(2);
+	checkTrue("SAFE: no log line, no log opened",
+	          !logLineIs("LOGGING TO SRV00012.CSV", C_DIM) && fakeServoLogCalls().starts == 0);
+	holdStart();
+	uiFrames(1);
+	FakeServoLogCalls calls = fakeServoLogCalls();
+	ServoStatus st;
+	servoJobStatus(&st);
+	checkTrue("HOLD TO START opens the log once, with the job not running",
+	          calls.starts == 1 && !calls.ranAtStart && st.running);
+	checkTrue("and gives it the Start command's seq", calls.follows == 1 && calls.seq == st.ackSeq);
+	checkTrue("RUNNING: LOGGING TO SRV00012.CSV, dim", logLineIs("LOGGING TO SRV00012.CSV", C_DIM));
+	fakeDumpFrame("shot_servo_log.ppm");
+
+	struct { bool active; uint32_t dropped; SdLogEnd fault; const char *text; uint16_t col; } rows[] = {
+		{ true,  12, SdLogEnd::None,         "SRV00012.CSV: 12 ROWS DROPPED",  C_AMBER },
+		{ true,  0,  SdLogEnd::CardFull,     SERVO_UI_LOG_FULL,                C_AMBER },
+		{ true,  3,  SdLogEnd::WriteFailed,  SERVO_UI_LOG_FAILED,              C_AMBER },
+		{ false, 0,  SdLogEnd::OpenFailed,   SERVO_UI_LOG_NO_OPEN,             C_AMBER },
+		{ false, 0,  SdLogEnd::NoFreeNumber, SERVO_UI_LOG_NO_NUMBER,           C_AMBER },
+	};
+	for (auto &r : rows) {
+		lg.active = r.active;
+		lg.dropped = r.dropped;
+		lg.fault = r.fault;
+		fakeServoLogSet(&lg);
+		uiFrames(1);
+		char t[80];
+		snprintf(t, sizeof(t), "RUNNING: %s", r.text);
+		checkTrue(t, logLineIs(r.text, r.col));
+	}
+	lg = ServoLogStatus{};
+	lg.fileNumber = 12;
+	fakeServoLogSet(&lg);
+	uiFrames(1);
+	checkTrue("no log (no card, no sensor): the line empty",
+	          !someOf(0, 76, GFX_W, 7, C_DIM) && !someOf(0, 76, GFX_W, 7, C_AMBER));
+
+	// STOP: SAFE's notes take the line; the log's text is gone.
+	lg.active = true;
+	fakeServoLogSet(&lg);
+	uiFrames(1);
+	pressId(UI_FIX(ServoCtl::Start));
+	core1();
+	fakeRelease();
+	uiFrames(2);
+	checkTrue("STOP: the line gone with RUNNING",
+	          !s_st.running && !logLineIs("LOGGING TO SRV00012.CSV", C_DIM));
+	checkInt("STOP opens no log", (long)fakeServoLogCalls().starts, 0);
+	leaveServo();
+	checkInt("BACK tells the log", (long)fakeServoLogCalls().backs, 1);
+
+	// The widest texts fit between the margins.
+	char widest[48];
+	snprintf(widest, sizeof(widest), SERVO_UI_LOG_DROPPED_FMT, 99999ul, 4294967295ul);
+	const char *texts[] = { widest, SERVO_UI_LOG_FULL, SERVO_UI_LOG_FAILED, SERVO_UI_LOG_NO_OPEN,
+	                        SERVO_UI_LOG_NO_NUMBER };
+	for (const char *t : texts) {
+		char what[80];
+		snprintf(what, sizeof(what), "fits: %s", t);
+		checkTrue(what, gfxTextW(t, 1) <= GFX_W - 2 * UI_MARGIN);
+	}
+
+	// OWN with the declared sensor gone: the note that the cuts are blind
+	// takes the line from the log's.
+	freshUi();
+	lg = ServoLogStatus{};
+	lg.active = true;
+	lg.fileNumber = 3;
+	fakeServoLogSet(&lg);
+	servoSupplyConfigure(0);
+	settings()->currentSense = 1;
+	senseConfigure(1);
+	FakeIna219 *ina = fakeI2cAddIna219(INA219_ADDR);
+	openServo();
+	senseFrames(ina, 42);
+	holdStartFrames();
+	senseFrames(ina, 2);
+	checkTrue("OWN, the sensor online: the log's line", logLineIs("LOGGING TO SRV00003.CSV", C_DIM));
+	fakeI2cRemove(INA219_ADDR);
+	senseFrames(ina, 5);
+	checkTrue("the sensor gone: the blind note instead",
+	          s_st.running && logLineIs(SERVO_UI_OWN_NO_CUTS, C_DIM) &&
+	          !logLineIs("LOGGING TO SRV00003.CSV", C_DIM));
+	pressId(UI_FIX(ServoCtl::Start));
+	core1();
+	fakeRelease();
+	uiFrames(2);
+	leaveServo();
+	settings()->currentSense = 0;
+	senseConfigure(0);
+	fakeI2cReset();
+	lg = ServoLogStatus{};
+	fakeServoLogSet(&lg);
+	freshUi();
+}
+
 /** @brief @p n UI frames of 25 ms, rcbench's servo model behind the timed fake INA219. */
 static void uiSimFrames(FakeIna219 *ina, SimServo *sim, int n) {
 	for (int i = 0; i < n; i++) {
@@ -5436,6 +5551,7 @@ void runServoTests() {
 	testSupplyLineAndHint();
 	testSupplyScreenFaults();
 	testCutScreens();
+	testLogScreen();
 	testMoveScreen();
 	testColourRoles();
 	testPinNames();

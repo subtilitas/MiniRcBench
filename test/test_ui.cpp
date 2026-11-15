@@ -936,15 +936,16 @@ static void testLogEndNotes() {
 	{
 		static const SdLogEnd ALL[] = { SdLogEnd::None, SdLogEnd::CardFull, SdLogEnd::WriteFailed,
 		                                SdLogEnd::OpenFailed, SdLogEnd::ByKst, SdLogEnd::ByHitec,
-		                                SdLogEnd::ByAm32, SdLogEnd::NoFreeNumber };
+		                                SdLogEnd::ByAm32, SdLogEnd::NoFreeNumber, SdLogEnd::ByServo };
 		bool ok = true;
 		for (SdLogEnd e : ALL) {
 			SdLogEnd m = e;
 			sdLogMountForget(&m);
-			bool tool = e == SdLogEnd::ByKst || e == SdLogEnd::ByHitec || e == SdLogEnd::ByAm32;
+			bool tool = e == SdLogEnd::ByKst || e == SdLogEnd::ByHitec || e == SdLogEnd::ByAm32 ||
+			            e == SdLogEnd::ByServo;
 			ok &= tool ? m == e : m == SdLogEnd::None;
 		}
-		checkTrue("a mount: the faults forgotten, the three tools' stops kept", ok);
+		checkTrue("a mount: the faults forgotten, the four tools' stops kept", ok);
 	}
 
 	SdLogStatus st;
@@ -1012,6 +1013,7 @@ static void testLogEndNotes() {
 		{ SdLogState::Idle, SdLogEnd::ByKst,   "RECORDING STOPPED BY KST SERVO", "" },
 		{ SdLogState::Idle, SdLogEnd::ByHitec, "RECORDING STOPPED BY HITEC SERVO", "" },
 		{ SdLogState::Idle, SdLogEnd::ByAm32,  "RECORDING STOPPED BY ESC SETTINGS", "" },
+		{ SdLogState::Idle, SdLogEnd::ByServo, "RECORDING STOPPED BY SERVO TESTER", "" },
 	};
 	// A log the card filled: its run up to the failure, not saved.
 	static RunSum full;
