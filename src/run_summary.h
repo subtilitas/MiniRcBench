@@ -28,7 +28,7 @@
  * Times are the 64-bit microsecond timer (`time_us_64()`): the 32-bit
  * micros() wraps after 71.6 minutes.
  *
- * Slice 1 of docs/design/run-summary.md. The logger does not call it yet.
+ * Slice 1 of docs/design/run-summary.md; nothing in the firmware calls it.
  */
 
 #pragma once
@@ -288,8 +288,9 @@ struct RunSumRowText {
 
 /**
  * @brief The text of one of SD LOG's run rows. Values follow the tester's
- *        tiles: `14.82V`, `23.41A`, `51`C` (the font draws a backtick as a
- *        degree sign), `312mAh`; EDT current in whole amperes, `23A`.
+ *        tiles: `14.82V`, `23.41A`, `312mAh`, and a temperature with a
+ *        backtick before the C, which the font draws as a degree sign; EDT
+ *        current in whole amperes, `23A`.
  * @param s     An ended summary.
  * @param row   The row.
  * @param poles MOTOR POLES at the stop.

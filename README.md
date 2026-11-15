@@ -51,8 +51,10 @@ built; the owner answered its questions on 2026-11-15, and its entry is an
 eighth MENU row, `TOOLS`, with a chooser. A run
 summary per blackbox log, written beside the log and shown on SD LOG, with the
 board's PCF85063 real-time clock dating the files on the card as an option, is
-designed in `docs/design/run-summary.md` and not built; the owner answered
-its questions on 2026-11-15. The owner's board has no cell in the RTC
+designed in `docs/design/run-summary.md`; the owner answered its questions
+on 2026-11-15. Its slice 1, the summary computed from the telemetry and the
+text of its file, is built and host-tested; the logger does not call it, so
+no summary file is written yet. The owner's board has no cell in the RTC
 socket J2, so its clock is set again after each power-up, and files
 written before the set have FAT date 0.
 An ESC COMMANDS page, sending DShot beacons, direction and 3D mode, each
@@ -2382,6 +2384,7 @@ src/
   esc_merge.{h,cpp}     per-field preference between KISS and EDT (pure)
   blackbox_encode.{h,cpp} Betaflight blackbox log writer (pure)
   log_ring.{h,cpp}      ring buffer between encoder and card (pure)
+  run_summary.{h,cpp}   a log's run summary: extremes, charge, file text (pure; not called yet)
   sd_log.{h,cpp}        FatFs writer, lifecycle, drop accounting
   sd_hw_config.c        SD wiring for the FatFs driver
   sdio/                 SDIO card driver, MIT, written from the SD specification

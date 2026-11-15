@@ -274,6 +274,8 @@ enum class Qty : uint8_t { Amps, Volts, Temp };
 
 /**
  * @brief A value as the file or SD LOG writes it.
+ * @param b    Destination.
+ * @param n    Its size.
  * @param q    The quantity.
  * @param v    The value, 0.01 A, 0.01 V or °C.
  * @param kiss It came from KISS: current in hundredths, EDT current whole.
