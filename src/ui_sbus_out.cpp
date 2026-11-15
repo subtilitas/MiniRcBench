@@ -574,10 +574,7 @@ static void mainTouch() {
 	// press that stops the frames landed while HOLD TO START was not live,
 	// so ui_hold never times it.
 	if (uiHoldUpdate(&s_hold, BTN_START, s_t, startAllowed(), now)) startFrames();
-	if (s_st.running && s_t->pressed && pressing(BTN_START)) {
-		send(SbusOutCmdKind::Safe);
-		return;
-	}
+	if (s_st.running && s_t->pressed && pressing(BTN_START)) send(SbusOutCmdKind::Safe);
 
 	// The sliders move only while frames go out; a press alone commands
 	// nothing (delta drag, tap-to-set off).

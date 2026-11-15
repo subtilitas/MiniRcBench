@@ -910,6 +910,16 @@ static void testSet() {
 	tapId(UI_FIX(SbusOutCtl::Set));
 	int x, y;
 	ctlCentre(UI_FIX(SbusOutCtl::Stop), &x, &y);
+	fakePress(x - 100, y);
+	tick(25);
+	fakeHold(x, y);
+	tick(25);
+	fakeHold(x, y);
+	tick(25);
+	fakeRelease();
+	tick(25);
+	checkTrue("a finger slid onto STOP from the footer's left: no STOP", jobSt().running &&
+	          held().kind != SbusOutCmdKind::Safe);
 	fakePress(x, y);
 	tick(25);
 	checkTrue("STOP on SET acts on the press", held().kind == SbusOutCmdKind::Safe);
