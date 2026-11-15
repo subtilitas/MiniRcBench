@@ -10,14 +10,15 @@
 # into lib/rcbench/ and built as C (lib/rcbench/README.md). The line's PIO
 # program is assembled from its source by pioasm. The core1 job runs them
 # (src/escwire_job.cpp) on the line of src/escwire_port.cpp, and ESC
-# SETTINGS shows the page through src/efm8_view.cpp
-# (docs/design/bluejay-blheli-s.md, slice 3); the linker drops what no
-# caller reaches.
+# SETTINGS shows the page through src/efm8_view.cpp and saves its backup
+# through src/efm8_backup.cpp (docs/design/bluejay-blheli-s.md, slices 3
+# and 4); the linker drops what no caller reaches.
 set(ESCWIRE_LIB ${CMAKE_CURRENT_LIST_DIR}/../lib/rcbench/protocols/escwire)
 target_sources(MiniRcBench PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/escwire_job.cpp
     ${CMAKE_CURRENT_LIST_DIR}/escwire_port.cpp
     ${CMAKE_CURRENT_LIST_DIR}/efm8_view.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/efm8_backup.cpp
     ${ESCWIRE_LIB}/ew_wire.c
     ${ESCWIRE_LIB}/ew_pio.c
     ${ESCWIRE_LIB}/ew_a.c

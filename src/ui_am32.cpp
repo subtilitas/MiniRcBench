@@ -1,8 +1,8 @@
 /**
  * @file ui_am32.cpp
  * @brief ESC SETTINGS: connect, browse AM32 settings, edit, write back; a
- *        Bluejay or BLHeli_S page read through the escwire job and shown,
- *        LEAVE, and the leave page after an EFM8 answer.
+ *        Bluejay or BLHeli_S page read, edited and written through the
+ *        escwire job, LEAVE, and the leave page after an EFM8 answer.
  *
  * The screen is a state machine. Nothing touches the ESC until the pin claim
  * holds the signal pin (pin_claim.h), and nothing writes until the user has
@@ -18,8 +18,10 @@
 #include "card_cache.h"
 #include "card_dir.h"
 #include "am32_eeprom.h"
+#include "efm8_backup.h"
 #include "efm8_view.h"
 #include "esc_3d.h"
+#include "esc_task.h"
 #include "escwire_job.h"
 #include "greet_cycle.h"
 #include "pin_claim.h"
@@ -146,7 +148,8 @@ static_assert(sizeof(AM32_UI_QUIET) - 1 <= RESULT_CHARS &&
               sizeof(AM32_UI_EW_1) - 1 <= RESULT_CHARS && sizeof(AM32_UI_EW_2) - 1 <= RESULT_CHARS &&
               sizeof(AM32_UI_EW_3) - 1 <= RESULT_CHARS &&
               sizeof(AM32_UI_EW_STOPPED_1) - 1 <= RESULT_CHARS && sizeof(AM32_UI_EW_STOPPED_2) - 1 <= RESULT_CHARS &&
-              sizeof(AM32_UI_EW_BAR_1) - 1 <= RESULT_CHARS && sizeof(AM32_UI_EW_BAR_2) - 1 <= RESULT_CHARS &&
+              sizeof(EFM8_UI_BAR_EDIT) - 1 <= RESULT_CHARS && sizeof(EFM8_UI_BAR_SHOWN) - 1 <= RESULT_CHARS &&
+              sizeof(AM32_UI_EW_BAR_2) - 1 <= RESULT_CHARS &&
               sizeof(AM32_UI_EXIT_1) - 1 <= RESULT_CHARS && sizeof(AM32_UI_EXIT_2) - 1 <= RESULT_CHARS &&
               sizeof(AM32_UI_EXIT_3) - 1 <= RESULT_CHARS &&
               sizeof(AM32_UI_EXIT_SENDING) - 1 <= RESULT_CHARS && sizeof(AM32_UI_EXIT_SENT) - 1 <= RESULT_CHARS,
@@ -218,8 +221,20 @@ enum Am32Screen : uint8_t {
 	 * named there.
 	 */
 	S_EW,
-	/** The Bluejay or BLHeli_S list, every row read-only; with s_hexView, ESC HEX. */
+	/**
+	 * The Bluejay or BLHeli_S list: editable for a written layout, every
+	 * row read-only otherwise; with s_hexView, ESC HEX. READ AGAIN runs here.
+	 */
 	S_EW_LIST,
+	/** ESC WRITE of the EFM8 list before the hold: the changes and HOLD TO WRITE. */
+	S_EW_PAGE,
+	/** ESC WRITE of the EFM8 list: the backup, the job's write, then its result. */
+	S_EW_WRITING,
+	/**
+	 * ESC HEX of the old page kept from a session that ended with its page
+	 * half written; BACK returns to s_keptFrom.
+	 */
+	S_EW_KEPT,
 	/** BACK from the EFM8 list: LEAVE goes out, then DShot returns. BACK is drawn disabled. */
 	S_EW_EXIT,
 	/**
@@ -341,6 +356,41 @@ static const char *s_ewNote1 = nullptr; /**< CN_EW_REFUSED's first line. */
 static const char *s_ewNote2 = nullptr; /**< CN_EW_REFUSED's second line. */
 /** @brief S_EW_EXIT: LEAVE went out, and the claim is ending. */
 static bool        s_exitLeft = false;
+/** @brief The edits: the page as read with the list's fields stepped. */
+static uint8_t     s_ewDraft[EW_PAGE_MAX];
+/** @brief The session's first read: its backup, `BJnnn.TXT` or `BHnnn.TXT`. */
+static uint8_t     s_ewEntry[EW_PAGE_MAX];
+static ew_contact_t s_ewEntryContact;  /**< The contact the first read came under. */
+static ew_ident_t  s_ewEntryId;        /**< Its identification. */
+/** @brief ESC WRITE's old values: the page as read when it opened. */
+static uint8_t     s_ewFrom[EW_PAGE_MAX];
+/** @brief What ESC WRITE writes: the edits when it opened. */
+static uint8_t     s_ewTo[EW_PAGE_MAX];
+/** @brief The draft the last write sent: a half-written page takes it again, or the page as read. */
+static uint8_t     s_ewSent[EW_PAGE_MAX];
+/** @brief A write of ESC WRITE or the list's READ AGAIN runs on the job; BACK is drawn disabled. */
+static bool        s_ewOpRun = false;
+/** @brief The hold ended: the backup and the job's Write go on the next frame, after WRITING is drawn. */
+static bool        s_ewStartDue = false;
+static bool        s_ewDirty = false;    /**< The page is half written: only its draft or the page as read goes. */
+static bool        s_ewReread = false;   /**< Half written, and read since: a write may follow. */
+static bool        s_ewMustRead = false; /**< READ AGAIN in WRITE...'s place until a read succeeds. */
+/** @brief The last write ended the session: OK greets the ESC again. */
+static bool        s_ewEnded = false;
+/** @brief Where the read-only list's backup went as it opened. */
+static Efm8Backup  s_ewRoBackup = Efm8Backup::NoCard;
+/**
+ * @brief The old page, the session's first read, kept for the rest of the
+ *        visit once a session ended with the page half written: no later
+ *        session writes that page, and without a card this is its one copy.
+ *        Its bytes are on ESC HEX (S_EW_KEPT, and under an EFM8 list's dump).
+ */
+static uint8_t     s_ewKept[EW_PAGE_MAX];
+static uint16_t    s_ewKeptLen = 0;      /**< Its bytes; 0 for none kept. */
+static bool        s_ewKeptOnCard = false; /**< Its backup reached a card, as s_ewKeptName. */
+static char        s_ewKeptName[BACKUP_NAME_MAX] = "";
+/** @brief Where BACK on the old page's view returns to. */
+static Am32Screen  s_keptFrom = S_CONNECT;
 /** @} */
 
 /** @brief A handshake succeeded, or an EFM8 bootloader answered, since the restart: MENU's cue stands. */
@@ -396,11 +446,45 @@ static int changeCount(const uint8_t *from, const uint8_t *to) {
 static bool writing() { return s_state == S_WRITING && strcmp(s_status, "WRITING...") == 0; }
 
 /**
- * @brief Header BACK acts: in every state but while the write runs, on
- *        the leave page and while LEAVE goes out, where it is drawn
- *        disabled (menu-b.md, decision 25).
+ * @brief An EFM8 write, or the read after one, runs on the job: ESC WRITE
+ *        shows WRITING and BACK is drawn disabled.
  */
-static bool backLive() { return !writing() && s_state != S_LEAVE && s_state != S_EW_EXIT; }
+static bool ewRunning() { return s_ewOpRun && (s_state == S_EW_WRITING || s_state == S_EW_LIST); }
+
+/**
+ * @brief Header BACK acts: in every state but while a write or the read
+ *        after one runs, on the leave page and while LEAVE goes out, where
+ *        it is drawn disabled (menu-b.md, decision 25).
+ */
+static bool backLive() { return !writing() && !ewRunning() && s_state != S_LEAVE && s_state != S_EW_EXIT; }
+
+/**
+ * @brief A session ended with its page half written: keep the session's
+ *        first read for the rest of the visit, with where its backup went.
+ *        Only the first such page is kept.
+ */
+static void ewKeepOldPage() {
+	// The first page kept stays for the visit: a later session may read the
+	// half-written page as writable, and its first read is not the old page.
+	if (s_ewKeptLen != 0) return;
+	memcpy(s_ewKept, s_ewEntry, sizeof(s_ewKept));
+	s_ewKeptLen = s_ewEntryId.len;
+	s_ewKeptOnCard = s_backupDone;
+	memcpy(s_ewKeptName, s_backupName, sizeof(s_ewKeptName));
+}
+
+/** @brief Lines of the old page's dump: 8 bytes each. */
+static int ewKeptLines() { return (s_ewKeptLen + 7) / 8; }
+
+/** @brief The old page's dump: the offset and up to 8 bytes, amber. */
+static void drawKeptLine(int index, int y) {
+	int base = index * 8;
+	char line[64];
+	int n = snprintf(line, sizeof(line), "%02X ", base);
+	for (int i = 0; i < 8 && base + i < s_ewKeptLen; i++)
+		n += snprintf(line + n, sizeof(line) - n, "%02X ", s_ewKept[base + i]);
+	gfxText(UI_MARGIN, y, line, UI_COL_WARN, 1);
+}
 
 /**
  * @brief The write page's HOLD TO WRITE acts: there are edits, and the page
@@ -416,6 +500,54 @@ static bool pageWritable() { return anyDirty() && changeCount(s_pageFrom, s_page
 static int pendingChanges() {
 	int n = changeCount(s_original, s_eeprom);
 	return n ? n : (anyDirty() ? 1 : 0);
+}
+
+/** @brief The EFM8 list edits: the page is of a written layout, Bluejay 208 or BLHeli_S 33. */
+static bool ewWritable() { return efm8ViewOf(&s_ewId) == Efm8View::List; }
+
+/** @brief The EFM8 rows whose draft differs from the page as read: the count the guard names. */
+static int ewPending() { return efm8Changes(s_ewRows, s_ewRowCount, s_ewPage, s_ewDraft); }
+
+/** @brief The draft differs from the page as read. */
+static bool ewEdited() { return memcmp(s_ewDraft, s_ewPage, sizeof(s_ewDraft)) != 0; }
+
+/**
+ * @brief The field the editor bar steps: the selected row, editable, on a
+ *        page that is not half written, with nothing running.
+ */
+static const ew_field_t *ewEditField() {
+	if (s_hexView || s_ewSel < 0 || s_ewSel >= s_ewRowCount || s_ewDirty || s_ewOpRun) return nullptr;
+	const ew_field_t *f = s_ewRows[s_ewSel].f;
+	return efm8RowEditable(&s_ewId, f) ? f : nullptr;
+}
+
+/**
+ * @brief `WRITE...` acts on the EFM8 list: edits, or a half-written page
+ *        read since, which takes its draft or the page as read.
+ */
+static bool ewWriteLive() {
+	return ewWritable() && !s_ewMustRead && !s_ewOpRun && (s_ewDirty ? s_ewReread : ewEdited());
+}
+
+/** @brief REVERT acts on the EFM8 list. */
+static bool ewRevertLive() { return ewWritable() && !s_ewOpRun && ewEdited(); }
+
+/**
+ * @brief ESC WRITE's hold acts: the page names a change, or the page is
+ *        half written and read since, and the page writes its draft again
+ *        or the page as first read (docs/design/bluejay-blheli-s.md).
+ */
+static bool ewPageWritable() {
+	if (s_ewDirty)
+		return s_ewReread && (memcmp(s_ewTo, s_ewSent, sizeof(s_ewTo)) == 0 ||
+		                      memcmp(s_ewTo, s_ewFrom, sizeof(s_ewTo)) == 0);
+	return efm8Changes(s_ewRows, s_ewRowCount, s_ewFrom, s_ewTo) > 0;
+}
+
+/** @brief One step of an EFM8 field for a swipe. @see efm8Step() */
+static bool ewSwipeStep(void *ctx, int dir) {
+	const ew_field_t *f = (const ew_field_t *)ctx;
+	return efm8Step(f, &s_ewDraft[f->off], dir);
 }
 
 // hit(), button() and pressingBtn() used to live here. They were a third copy
@@ -533,8 +665,9 @@ static bool listNote(const char **l1, const char **l2) {
  *        and the leave page are the main view's: ESC SETTINGS. @see am32_titles
  */
 static const char *title() {
-	if ((s_state == S_LIST || s_state == S_EW_LIST) && s_hexView) return AM32_UI_TITLE_HEX;
-	if (s_state == S_PAGE || s_state == S_WRITING) return AM32_UI_TITLE_WRITE;
+	if (((s_state == S_LIST || s_state == S_EW_LIST) && s_hexView) || s_state == S_EW_KEPT) return AM32_UI_TITLE_HEX;
+	if (s_state == S_PAGE || s_state == S_WRITING || s_state == S_EW_PAGE || s_state == S_EW_WRITING)
+		return AM32_UI_TITLE_WRITE;
 	return AM32_UI_TITLE;
 }
 
@@ -578,17 +711,37 @@ static void drawHeader() {
 		} else {
 			uiStripText(buf, C_DIM);
 		}
+	} else if (s_state == S_EW_KEPT) {
+		static char l2[EFM8_LINE_CHARS + 1];
+		if (s_ewKeptOnCard) snprintf(l2, sizeof(l2), EFM8_UI_KEPT_CARD "%.5s", s_ewKeptName);
+		else snprintf(l2, sizeof(l2), EFM8_UI_KEPT_SCREEN);
+		uiStripTwoLines(EFM8_UI_KEPT_1, UI_COL_WARN, l2, UI_COL_WARN);
+	} else if (s_state == S_EW_PAGE || s_state == S_EW_WRITING) {
+		// The write page's count, from the page it opened on.
+		int n = efm8Changes(s_ewRows, s_ewRowCount, s_ewFrom, s_ewTo);
+		char buf[24];
+		snprintf(buf, sizeof(buf), "%d CHANGE%s", n, n == 1 ? "" : "S");
+		uiStripText(buf, C_DIM);
 	} else if (s_state == S_EW_LIST) {
-		// The selected row's note first, then why the list is read-only,
-		// then 3D, then the caption (docs/design/bluejay-blheli-s.md).
-		static char ro[EFM8_LINE_CHARS + 1];
+		// The armed guard first, then the selected row's note, then why the
+		// list is read-only, then a half-written page, then 3D, then the
+		// caption (docs/design/bluejay-blheli-s.md).
+		static char ro[EFM8_LINE_CHARS + 1], ro2[EFM8_LINE_CHARS + 1];
 		const char *l1 = nullptr, *l2 = nullptr;
 		bool sel = !s_hexView && s_ewSel >= 0 && s_ewSel < s_ewRowCount;
-		if (sel && efm8RowNote(s_ewRows[s_ewSel].f, s_ewPage[s_ewRows[s_ewSel].f->off], &l1, &l2)) {
+		if (s_guard.armed && s_ewDirty) {
+			// The second BACK leaves an erased or partly written page behind.
+			uiStripTwoLines(EFM8_UI_GUARD_1, UI_COL_WARN, EFM8_UI_GUARD_2, UI_COL_WARN);
+		} else if (s_guard.armed) {
+			uiBackGuardDraw(ewPending(), "WRITTEN");
+		} else if (sel && efm8RowNote(s_ewRows[s_ewSel].f, s_ewDraft[s_ewRows[s_ewSel].f->off], &l1, &l2)) {
 			uiStripTwoLines(l1, UI_COL_WARN, l2, UI_COL_WARN);
-		} else if (efm8ReadOnlyLines(&s_ewId, s_ewPage, ro, &l2)) {
-			uiStripTwoLines(ro, UI_COL_WARN, l2, UI_COL_WARN);
-		} else if (efm8Is3d(s_ewPage)) {
+		} else if (efm8ReadOnlyLines(&s_ewId, s_ewPage, s_ewRoBackup, s_backupName, ro, ro2)) {
+			uiStripTwoLines(ro, UI_COL_WARN, ro2, UI_COL_WARN);
+		} else if (s_ewDirty) {
+			uiStripTwoLines(EFM8_UI_TORN_1, UI_COL_WARN, s_ewReread ? EFM8_UI_DIRTY_WRITE : EFM8_UI_DIRTY_READ,
+			                UI_COL_WARN);
+		} else if (efm8Is3d(s_ewDraft)) {
 			uiStripTwoLines(AM32_UI_3D_1, UI_COL_WARN, AM32_UI_3D_2, UI_COL_WARN);
 		} else {
 			char buf[EFM8_LINE_CHARS + 1];
@@ -610,6 +763,9 @@ static void drawHeader() {
 		uiStripText(s_status, C_DIM);
 	}
 }
+
+/** @brief OLD PAGE on the connect page: an old page is kept, and the page greets or reads. */
+static bool oldPageLive() { return s_ewKeptLen > 0 && (s_state == S_CONNECT || s_state == S_EW); }
 
 static void drawConnect() {
 	gfxRect(0, LIST_Y0, GFX_W, GFX_H - LIST_Y0, C_BG);
@@ -659,6 +815,8 @@ static void drawConnect() {
 	}
 	if (n1) gfxTextCenter(196, n1, C_AMBER, 1);
 	if (n2) gfxTextCenter(210, n2, C_AMBER, 1);
+	if (oldPageLive())
+		uiButton(BTN_HEX, EFM8_UI_KEPT_BUTTON, C_PANEL, C_TEXT, 1, uiPressing(BTN_HEX, s_frameTouch));
 
 	// A spinner beats a static screen: it shows we are still retrying. Under
 	// a note it shrinks and moves down, clear of the note's lines.
@@ -715,6 +873,42 @@ static void drawHexLine(int index, int y, void *) {
 	gfxText(UI_MARGIN, y, line, C_DIM, 1);
 }
 
+/**
+ * @brief The editor bar: - and +, the field's name over its value, and the
+ *        swipe's hint. A changed field names its value as read, as KST's bar
+ *        does: `PWM FREQ  24KHZ ->` over the new value; a line wider than the
+ *        gap keeps `24KHZ ->` (docs/design/menu-b.md, decision 6). A value
+ *        wider than the gap at scale 2 is drawn at scale 1.
+ * @param name The field's name.
+ * @param val  Its value now.
+ * @param old  Its value as read when it changed, else null.
+ */
+static void drawEditBar(const char *name, const char *val, const char *old) {
+	uiButton(BTN_MINUS, "-", C_GRID, C_ONACCENT, 1,
+	         uiPressing(BTN_MINUS, s_frameTouch));
+	uiButton(BTN_PLUS,  "+", C_GRID, C_ONACCENT, 1,
+	         uiPressing(BTN_PLUS, s_frameTouch));
+	// The label is worth the space: the buttons are far from the row they
+	// act on, so the bar has to say what it is editing.
+	int cx = BTN_MINUS_X + EDIT_BTN_W;
+	int cw = BTN_PLUS_X - cx;
+	char top[64];
+	if (old) {
+		snprintf(top, sizeof(top), "%s  %s ->", name, old);
+		if (gfxTextW(top, 1) > cw) snprintf(top, sizeof(top), "%s ->", old);
+	} else {
+		snprintf(top, sizeof(top), "%s", name);
+	}
+	gfxText(cx + (cw - gfxTextW(top, 1)) / 2, EDIT_Y + 2, top, C_DIM, 1);
+	int scale = gfxTextW(val, 2) <= cw ? 2 : 1;
+	gfxText(cx + (cw - gfxTextW(val, scale)) / 2, EDIT_Y + (scale == 2 ? 14 : 18), val,
+	        old ? UI_COL_CHANGED : C_TEXT, scale);
+	// Short enough to clear both buttons: the gap between them is only
+	// (BTN_PLUS_X - cx) px, and a longer caption ran under them.
+	const char *hint = "SWIPE = COARSE";
+	gfxText(cx + (cw - gfxTextW(hint, 1)) / 2, EDIT_Y + 33, hint, C_GRID, 1);
+}
+
 static void drawList() {
 	// The clip is what makes a pixel scroll possible at all: the top and bottom
 	// rows are usually partial, and without it the overhang lands on the header
@@ -728,34 +922,11 @@ static void drawList() {
 	                           ? &AM32_FIELDS[s_selected] : nullptr;
 
 	if (sel && !s_hexView) {
-		uiButton(BTN_MINUS, "-", C_GRID, C_ONACCENT, 1,
-		         uiPressing(BTN_MINUS, s_frameTouch));
-		uiButton(BTN_PLUS,  "+", C_GRID, C_ONACCENT, 1,
-		         uiPressing(BTN_PLUS, s_frameTouch));
-		// The label is worth the space: the buttons are far from the row they
-		// act on, so the bar has to say what it is editing.
-		int cx = BTN_MINUS_X + EDIT_BTN_W;
-		int cw = BTN_PLUS_X - cx;
-		char val[24], old[24], top[48];
+		char val[24], old[24];
 		am32FormatValue(sel, s_eeprom, val, sizeof(val));
 		bool ch = s_eeprom[sel->offset] != s_original[sel->offset];
-		// A changed field names its value as read, as KST's bar does:
-		// `PWM FREQ  24KHZ ->` over the new value; a line wider than the
-		// gap keeps `24KHZ ->` (docs/design/menu-b.md, decision 6).
-		if (ch) {
-			am32FormatValue(sel, s_original, old, sizeof(old));
-			snprintf(top, sizeof(top), "%s  %s ->", sel->name, old);
-			if (gfxTextW(top, 1) > cw) snprintf(top, sizeof(top), "%s ->", old);
-		} else {
-			snprintf(top, sizeof(top), "%s", sel->name);
-		}
-		gfxText(cx + (cw - gfxTextW(top, 1)) / 2, EDIT_Y + 2, top, C_DIM, 1);
-		gfxText(cx + (cw - gfxTextW(val, 2)) / 2, EDIT_Y + 14, val,
-		        ch ? UI_COL_CHANGED : C_TEXT, 2);
-		// Short enough to clear both buttons: the gap between them is only
-		// (BTN_PLUS_X - cx) px, and a longer caption ran under them.
-		const char *hint = "SWIPE = COARSE";
-		gfxText(cx + (cw - gfxTextW(hint, 1)) / 2, EDIT_Y + 33, hint, C_GRID, 1);
+		if (ch) am32FormatValue(sel, s_original, old, sizeof(old));
+		drawEditBar(sel->name, val, ch ? old : nullptr);
 	} else if (!s_hexView) {
 		gfxTextCenter(EDIT_Y + 12, "TAP A SETTING TO EDIT", C_GRID, 1);
 		gfxTextCenter(EDIT_Y + 26, "SWIPE IT SIDEWAYS FOR COARSE", C_GRID, 1);
@@ -787,25 +958,41 @@ static void drawView() {
 
 /**
  * @brief Draw row @p index of the EFM8 list, a field, with its top edge at
- *        @p y: every row read-only, a value none of the field's amber.
+ *        @p y: the draft's value; an editable row as AM32's, a change cyan
+ *        with its bar; a row shown only grey; a value none of the field's
+ *        amber.
  */
 static void drawEwRow(int index, int y, void *) {
 	const Efm8Row &r = s_ewRows[index];
+	const uint8_t off = r.f->off;
 	char val[32];
-	bool ok = efm8ValueText(r.f, s_ewPage[r.f->off], val, sizeof(val));
-	UiField row = { r.group, r.f->name, val, ok ? UiValue::ReadOnly : UiValue::Odd, UiEdge::None,
-	                s_ewSel == index };
+	bool ok = efm8ValueText(r.f, s_ewDraft[off], val, sizeof(val));
+	bool changed = s_ewDraft[off] != s_ewPage[off];
+	UiValue v = !ok ? UiValue::Odd
+	            : !efm8RowEditable(&s_ewId, r.f) ? UiValue::ReadOnly
+	            : changed ? UiValue::Changed : UiValue::Plain;
+	UiField row = { r.group, r.f->name, val, v, changed ? UiEdge::Changed : UiEdge::None, s_ewSel == index };
 	uiListDrawField(y, ROW_H, row);
 }
 
-/** @brief Lines of the EFM8 hex dump: 8 bytes each, 14 or 32. */
-static int ewHexLines() { return (s_ewId.len + 7) / 8; }
+/** @brief Lines of the page's own hex dump: 8 bytes each, 14 or 32. */
+static int ewPageLines() { return (s_ewId.len + 7) / 8; }
+
+/** @brief Lines of the EFM8 hex dump: the page's, then a kept old page's under its heading. */
+static int ewHexLines() { return ewPageLines() + (s_ewKeptLen ? 1 + ewKeptLines() : 0); }
 
 /**
  * @brief Line @p index of the EFM8 hex dump: the offset and 8 bytes, or
- *        fewer on the last line of a 255-byte page.
+ *        fewer on the last line of a 255-byte page; under them a kept old
+ *        page, in amber under @ref EFM8_UI_KEPT_1.
  */
 static void drawEwHexLine(int index, int y, void *) {
+	if (index >= ewPageLines()) {
+		int k = index - ewPageLines();
+		if (k == 0) gfxText(UI_MARGIN, y, EFM8_UI_KEPT_1, UI_COL_WARN, 1);
+		else drawKeptLine(k - 1, y);
+		return;
+	}
 	int base = index * 8;
 	char line[64];
 	int n = snprintf(line, sizeof(line), "%02X ", base);
@@ -824,18 +1011,35 @@ static void openEwList() {
 }
 
 /**
- * @brief The EFM8 list: the rows or the hex dump, the bar's two lines,
- *        WRITE... and REVERT drawn disabled, HEX or FIELDS.
+ * @brief The EFM8 list: the rows or the hex dump; the editor bar on an
+ *        editable row, else the bar's two lines; WRITE..., or READ AGAIN in
+ *        its place after a write that needs a read, REVERT, HEX or FIELDS.
  */
 static void drawEwList() {
 	uiListDraw(&s_list, s_hexView ? drawEwHexLine : drawEwRow, nullptr);
 	gfxRect(0, LIST_Y1 + 1, GFX_W, GFX_H - LIST_Y1 - 1, C_BG);
-	gfxTextCenter(EDIT_Y + 12, AM32_UI_EW_BAR_1, C_GRID, 1);
-	gfxTextCenter(EDIT_Y + 26, AM32_UI_EW_BAR_2, C_GRID, 1);
-	uiButton(BTN_WRITE, "WRITE...", C_PANEL, C_TEXT, 1, false, false);
-	uiButton(BTN_REVERT, "REVERT", C_PANEL, C_AMBER, 1, false, false);
+	const ew_field_t *f = ewEditField();
+	if (f) {
+		char val[32], old[32];
+		bool ch = s_ewDraft[f->off] != s_ewPage[f->off];
+		efm8ValueText(f, s_ewDraft[f->off], val, sizeof(val));
+		if (ch) efm8ValueText(f, s_ewPage[f->off], old, sizeof(old));
+		drawEditBar(f->name, val, ch ? old : nullptr);
+	} else {
+		gfxTextCenter(EDIT_Y + 12, ewWritable() ? EFM8_UI_BAR_EDIT : EFM8_UI_BAR_SHOWN, C_GRID, 1);
+		gfxTextCenter(EDIT_Y + 26, AM32_UI_EW_BAR_2, C_GRID, 1);
+	}
+	if (s_ewMustRead) {
+		bool live = !s_ewOpRun;
+		uiButton(BTN_WRITE, "READ AGAIN", C_PANEL, C_TEXT, 1, live && uiPressing(BTN_WRITE, s_frameTouch), live);
+	} else {
+		bool live = ewWriteLive();
+		uiButton(BTN_WRITE, "WRITE...", C_PANEL, C_TEXT, 1, live && uiPressing(BTN_WRITE, s_frameTouch), live);
+	}
+	bool rev = ewRevertLive();
+	uiButton(BTN_REVERT, "REVERT", C_PANEL, C_AMBER, 1, rev && uiPressing(BTN_REVERT, s_frameTouch), rev);
 	uiButton(BTN_HEX, s_hexView ? "FIELDS" : "HEX", C_PANEL, C_TEXT, 1,
-	         uiPressing(BTN_HEX, s_frameTouch));
+	         !s_ewOpRun && uiPressing(BTN_HEX, s_frameTouch), !s_ewOpRun);
 }
 
 /**
@@ -847,7 +1051,12 @@ static void drawEwList() {
 static const char *backupLine(uint16_t *col) {
 	static char b[48];
 	*col = C_DIM;
-	if (s_backupDone) {
+	if (s_state == S_EW_WRITING && s_ewEnded && s_ewDirty && !s_backupDone) {
+		// The page is half written and its session ended: the old page is
+		// on this screen only (OLD PAGE).
+		*col = UI_COL_WARN;
+		snprintf(b, sizeof(b), EFM8_UI_KEPT_ONLY);
+	} else if (s_backupDone) {
 		snprintf(b, sizeof(b), "BACKUP: BACKUP/%s", s_backupName);
 	} else if (!cardMounted()) {
 		*col = UI_COL_WARN;
@@ -858,6 +1067,52 @@ static const char *backupLine(uint16_t *col) {
 		snprintf(b, sizeof(b), "BACKUP FIRST: TO THE CARD");
 	}
 	return b;
+}
+
+/**
+ * @brief ESC WRITE under its change lines: the state, the backup line, then
+ *        HOLD TO WRITE before the write or OK after it.
+ * @param page     Before the hold: HOLD TO WRITE.
+ * @param running  The write runs: WRITING: DO NOT UNPLUG., OK disabled.
+ * @param verified The second line under a verified write, `C_TEXT`.
+ * @param holdLive HOLD TO WRITE acts.
+ */
+static void drawWriteTail(bool page, bool running, const char *verified, bool holdLive) {
+	if (running) {
+		gfxText(UI_MARGIN, WP_STATE_Y, AM32_UI_WRITING, UI_COL_WARN, 1);
+	} else if (!page) {
+		// The result. Every status of the write fits one scale-1 line: the
+		// asserts at RESULT_CHARS. Verified: green; AM32 reads its settings
+		// at boot, so whether it runs the new ones without a power cycle is
+		// not known, and the line is right either way; an EFM8 firmware
+		// reads them when LEAVE starts it. Not verified or refused: amber,
+		// and the next step under it.
+		gfxText(UI_MARGIN, WP_STATE_Y, s_status, s_verified ? UI_COL_SAFE : UI_COL_WARN, 1);
+		if (s_verified && verified)
+			gfxText(UI_MARGIN, WP_STATE_Y + WP_STATE_PITCH, verified, C_TEXT, 1);
+		else if (!s_verified && s_nextStep)
+			gfxText(UI_MARGIN, WP_STATE_Y + WP_STATE_PITCH, s_nextStep, UI_COL_WARN, 1);
+	}
+	uint16_t bc;
+	const char *bl = backupLine(&bc);
+	gfxText(UI_MARGIN, WP_BACKUP_Y, bl, bc, 1);
+
+	if (page) {
+		// C_RED while holding rather than C_REDDARK: that colour's other job
+		// is the dead-telemetry digit, which has to read as "off" and
+		// therefore inverts direction between the two palettes. A fill that
+		// carries white text needs to be dark in both, and C_RED is.
+		bool holding = s_writeHold.holding;
+		uiHoldDrawBar(&s_writeHold, BTN_OK, FOOT_Y - 4, millis());
+		uiButton(BTN_OK, "HOLD TO WRITE", holding ? C_RED : C_PANEL, holding ? C_ONACCENT : C_TEXT, 2,
+		         holding, holdLive);
+	} else {
+		// Pressed only under a press that can act: not under the hold's
+		// finger. Drawn disabled while the write runs.
+		bool done = !running;
+		uiButton(BTN_OK, "OK", C_PANEL, C_TEXT, 2, done && s_okPress && uiPressing(BTN_OK, s_frameTouch),
+		         done);
+	}
 }
 
 /**
@@ -893,45 +1148,51 @@ static void drawWritePage() {
 		y += WP_PITCH;
 		shown++;
 	}
+	drawWriteTail(s_state == S_PAGE, writing(), AM32_UI_POWER_CYCLE, pageWritable());
+}
 
-	if (writing()) {
-		gfxText(UI_MARGIN, WP_STATE_Y, AM32_UI_WRITING, UI_COL_WARN, 1);
-	} else if (s_state == S_WRITING) {
-		// The result. Every status of the write fits one scale-1 line: the
-		// asserts at RESULT_CHARS. Verified: green, and the ESC reads its
-		// settings at boot, so whether it runs the new ones without a power
-		// cycle is not known; the line is right either way. Not verified or
-		// refused: amber, and the next step under it.
-		gfxText(UI_MARGIN, WP_STATE_Y, s_status, s_verified ? UI_COL_SAFE : UI_COL_WARN, 1);
-		if (s_verified)
-			gfxText(UI_MARGIN, WP_STATE_Y + WP_STATE_PITCH, AM32_UI_POWER_CYCLE, C_TEXT, 1);
-		else if (s_nextStep)
-			gfxText(UI_MARGIN, WP_STATE_Y + WP_STATE_PITCH, s_nextStep, UI_COL_WARN, 1);
+/**
+ * @brief ESC WRITE of a Bluejay or BLHeli_S page: the changes from the page
+ *        as read when it opened to the edits, field by field, as AM32's
+ *        page lists them; a page with no change, a half-written page's
+ *        page as read, says so (@ref EFM8_UI_AS_READ). The state lines, the
+ *        backup line and HOLD TO WRITE or OK as on AM32's.
+ */
+static void drawEwWritePage() {
+	gfxRect(0, LIST_Y0, GFX_W, GFX_H - LIST_Y0, C_BG);
+	char buf[80];
+	int y = WP_LINE_Y, shown = 0;
+	int total = efm8Changes(s_ewRows, s_ewRowCount, s_ewFrom, s_ewTo);
+	if (total == 0) gfxText(UI_MARGIN, y, EFM8_UI_AS_READ, C_TEXT, 1);
+	for (int i = 0; i < s_ewRowCount; i++) {
+		const ew_field_t *f = s_ewRows[i].f;
+		if (s_ewFrom[f->off] == s_ewTo[f->off]) continue;
+		if (shown == WP_LINES) {
+			snprintf(buf, sizeof(buf), "AND %d MORE", total - WP_LINES);
+			gfxText(UI_MARGIN, y, buf, C_DIM, 1);
+			break;
+		}
+		char a[32], b[32];
+		efm8ValueText(f, s_ewFrom[f->off], a, sizeof(a));
+		efm8ValueText(f, s_ewTo[f->off], b, sizeof(b));
+		gfxText(UI_MARGIN, y, f->name, C_TEXT, 1);
+		snprintf(buf, sizeof(buf), "%s -> %s", a, b);
+		// Values that would meet the label go to the line below it.
+		int x = GFX_W - UI_MARGIN - gfxTextW(buf, 1);
+		int vy = UI_MARGIN + gfxTextW(f->name, 1) + 6 > x ? y + 10 : y;
+		uiChangeText(x, vy, a, b);
+		y += WP_PITCH;
+		shown++;
 	}
-	uint16_t bc;
-	const char *bl = backupLine(&bc);
-	gfxText(UI_MARGIN, WP_BACKUP_Y, bl, bc, 1);
-
-	if (s_state == S_PAGE) {
-		// C_RED while holding rather than C_REDDARK: that colour's other job
-		// is the dead-telemetry digit, which has to read as "off" and
-		// therefore inverts direction between the two palettes. A fill that
-		// carries white text needs to be dark in both, and C_RED is.
-		bool ok = pageWritable();
-		bool holding = s_writeHold.holding;
-		uiHoldDrawBar(&s_writeHold, BTN_OK, FOOT_Y - 4, millis());
-		uiButton(BTN_OK, "HOLD TO WRITE", holding ? C_RED : C_PANEL, holding ? C_ONACCENT : C_TEXT, 2,
-		         holding, ok);
-	} else {
-		// Pressed only under a press that can act: not under the hold's
-		// finger. Drawn disabled while the write runs.
-		bool done = !writing();
-		uiButton(BTN_OK, "OK", C_PANEL, C_TEXT, 2, done && s_okPress && uiPressing(BTN_OK, s_frameTouch),
-		         done);
-	}
+	drawWriteTail(s_state == S_EW_PAGE, ewRunning(), s_nextStep, ewPageWritable());
 }
 
 static void endClaim();
+static void resetBackup();
+static BackupResult ewSave(char *name);
+static bool backupFirst(BackupResult (*save)(char *name));
+static void lookUpBackup();
+static uint8_t cardSeen();
 
 /**
  * @brief The leave page of decision 8 of docs/design/bluejay-blheli-s.md:
@@ -1043,6 +1304,10 @@ void uiAm32Enter() {
 	s_ewRowCount = 0;
 	s_ewSel = -1;
 	s_exitLeft = false;
+	s_ewOpRun = s_ewStartDue = false;
+	s_ewDirty = s_ewReread = s_ewMustRead = s_ewEnded = false;
+	s_ewRoBackup = Efm8Backup::NoCard;
+	s_ewKeptLen = 0;
 	memset(&s_ewId, 0, sizeof(s_ewId));
 	s_leaveFrom = S_CONNECT;
 	s_editRepeat = Repeat{};
@@ -1179,6 +1444,8 @@ static void tryConnect() {
 	}
 	memcpy(s_original, s_eeprom, sizeof(s_eeprom));
 	memcpy(s_entry, s_eeprom, sizeof(s_entry));
+	// An EFM8 session before this answer kept its own backup.
+	resetBackup();
 	s_selected = -1;
 	// A layout the table is not checked against may have moved any field:
 	// the read-only view, the bytes alone, and the backup. Its state has no
@@ -1244,12 +1511,34 @@ static void ewSend(EwJobOp op) { s_ewSeq = escwireJobCommand(op); }
 static void openEw() {
 	s_ewId = s_ew.id;
 	memcpy(s_ewPage, s_ew.page, sizeof(s_ewPage));
+	memcpy(s_ewDraft, s_ewPage, sizeof(s_ewDraft));
+	// The session's first read: the backup before its first write.
+	memcpy(s_ewEntry, s_ewPage, sizeof(s_ewEntry));
+	s_ewEntryContact = s_ew.contact;
+	s_ewEntryId = s_ew.id;
+	resetBackup();
+	s_ewDirty = s_ewReread = s_ewMustRead = s_ewEnded = false;
+	s_ewOpRun = s_ewStartDue = false;
+	s_guard = UiBackGuard{};
 	s_ewRowCount = efm8Rows(s_ewId.fw, s_ewId.layout, s_ewRows, EFM8_ROWS_MAX);
 	s_ewSel = -1;
 	s_hexView = false;
 	openEwList();
 	if (s_ewId.why != EW_WHY_MARKER) esc3dSetNote(efm8Is3d(s_ewPage));
 	s_state = S_EW_LIST;
+	// A read-only list saves its backup as it opens, as AM32's read-only
+	// view does: no write follows to save it.
+	if (efm8ViewOf(&s_ewId) == Efm8View::ReadOnly) {
+		s_ewRoBackup = mscHoldsCard(mscGetState()) ? Efm8Backup::Usb : Efm8Backup::NoCard;
+		if (cardMounted()) {
+			// A list opened again on the same page saves no second copy.
+			BackupResult b = efm8BackupSave(&s_ewEntryContact, &s_ewEntryId, s_ewEntry, s_backupName, true);
+			if (b == BackupResult::Ok && cardCacheFlush() == CardCache::Failed) b = BackupResult::WriteError;
+			if (cardCacheState() == CardCache::Failed) cardCacheRecover();
+			s_ewRoBackup = b == BackupResult::Ok ? Efm8Backup::Saved : Efm8Backup::Failed;
+			s_backupDone = b == BackupResult::Ok;
+		}
+	}
 	s_redraw = true;
 }
 
@@ -1331,8 +1620,9 @@ static bool exitTick() {
 	if (!s_exitLeft) {
 		escwireJobStatus(&s_ew);
 		if (s_ew.ackSeq != s_ewSeq || s_ew.job == EwJobState::Busy) return true;
-		if (s_ew.refused != EwJobRefusal::None && s_ew.inMode) {
-			// Not taken, the session as it was: ask again.
+		if (s_ew.refused != EwJobRefusal::None && s_ew.inMode && !s_ew.dirty) {
+			// Not taken, the session as it was: ask again. A half-written
+			// page refuses LEAVE for good: the leave page then.
 			ewSend(EwJobOp::Leave);
 			return true;
 		}
@@ -1351,11 +1641,108 @@ static bool exitTick() {
 	return false;
 }
 
+/** @brief `WRITE...` on the EFM8 list: ESC WRITE, on the edits as they are now. */
+static void openEwPage() {
+	memcpy(s_ewFrom, s_ewPage, sizeof(s_ewFrom));
+	memcpy(s_ewTo, s_ewDraft, sizeof(s_ewTo));
+	uiHoldReset(&s_writeHold);
+	s_okPress = false;
+	s_verified = false;
+	s_nextStep = nullptr;
+	s_status[0] = '\0';
+	s_state = S_EW_PAGE;
+	lookUpBackup();
+	s_redraw = true;
+}
+
+/** @brief READ AGAIN: the job reads the page; the list waits for it. */
+static void ewReadAgain() {
+	ewSend(EwJobOp::Read);
+	s_ewOpRun = true;
+	s_redraw = true;
+}
+
 /**
- * @brief The EFM8 list's touch: HEX or FIELDS, and the list's gesture,
- *        which scrolls or selects; nothing edits.
+ * @brief READ AGAIN ended. A page not half written is the page as read
+ *        from now on, and the edits go onto it field by field; a half-written
+ *        page keeps the page as first read, and the write may follow. A read
+ *        that failed keeps READ AGAIN; a session that ended greets again.
+ */
+static void ewReadPoll() {
+	escwireJobStatus(&s_ew);
+	if (s_ew.ackSeq != s_ewSeq || s_ew.job == EwJobState::Busy) return;
+	if (s_ew.refused == EwJobRefusal::NoUi) {
+		// Core0 stalled past the heartbeat: nothing went out; ask again.
+		ewSend(EwJobOp::Read);
+		return;
+	}
+	s_ewOpRun = false;
+	s_redraw = true;
+	if (!s_ew.inMode) {
+		if (s_ew.dirty || s_ewDirty) ewKeepOldPage();
+		regreet();
+		return;
+	}
+	if (s_ew.refused != EwJobRefusal::None || s_ew.lastOp != EwJobOp::Read || s_ew.result != EW_SES_OK) return;
+	if (!s_ew.dirty) {
+		uint8_t draft[EW_PAGE_MAX];
+		memcpy(draft, s_ew.page, sizeof(draft));
+		for (int i = 0; i < s_ewRowCount; i++) {
+			const uint8_t off = s_ewRows[i].f->off;
+			if (s_ewDraft[off] != s_ewPage[off]) draft[off] = s_ewDraft[off];
+		}
+		memcpy(s_ewPage, s_ew.page, sizeof(s_ewPage));
+		memcpy(s_ewDraft, draft, sizeof(s_ewDraft));
+		if (memcmp(s_ewPage, s_ewEntry, sizeof(s_ewEntry)) != 0) {
+			// Another page than the one backed up: the next write saves a
+			// backup of it first.
+			memcpy(s_ewEntry, s_ewPage, sizeof(s_ewEntry));
+			s_ewEntryId = s_ew.id;
+			resetBackup();
+		}
+	}
+	// The identification the session holds, and its rows.
+	s_ewId = s_ew.id;
+	s_ewRowCount = efm8Rows(s_ewId.fw, s_ewId.layout, s_ewRows, EFM8_ROWS_MAX);
+	if (s_ewSel >= s_ewRowCount) s_ewSel = -1;
+	s_ewDirty = s_ew.dirty;
+	s_ewReread = s_ew.reread;
+	s_ewMustRead = false;
+}
+
+/**
+ * @brief The EFM8 list's touch: WRITE... or READ AGAIN, the editor bar's -
+ *        and +, REVERT, HEX or FIELDS, and the list's gesture, which
+ *        scrolls, selects, and steps an editable row by a swipe. A read-only
+ *        list and a half-written page edit nothing.
  */
 static void ewListTouch(const TouchState *t) {
+	if (s_ewMustRead) {
+		if (uiTapped(BTN_WRITE, t)) {
+			ewReadAgain();
+			return;
+		}
+	} else if (ewWriteLive() && uiTapped(BTN_WRITE, t)) {
+		openEwPage();
+		return;
+	}
+	const ew_field_t *f = ewEditField();
+	bool onMinus = uiPressing(BTN_MINUS, t);
+	bool onPlus  = uiPressing(BTN_PLUS, t);
+	if (f && (onMinus || onPlus)) {
+		int dir = onMinus ? -1 : +1;
+		if (repeatFires(&s_editRepeat, dir, millis())) {
+			efm8Step(f, &s_ewDraft[f->off], dir);
+			s_redraw = true;
+		}
+		return;
+	}
+	if (!t->down) repeatFires(&s_editRepeat, 0, millis());
+	if (ewRevertLive() && uiTapped(BTN_REVERT, t)) {
+		memcpy(s_ewDraft, s_ewPage, sizeof(s_ewDraft));
+		s_redraw = true;
+		return;
+	}
 	if (uiTapped(BTN_HEX, t)) {
 		s_hexView = !s_hexView;
 		openEwList();
@@ -1372,6 +1759,139 @@ static void ewListTouch(const TouchState *t) {
 		s_ewSel = e.row;
 		s_redraw = true;
 	}
+	if (e.kind != UiListEv::Swipe || e.steps == 0) return;
+	const ew_field_t *g = ewEditField();
+	if (g && uiSwipeApply(e.steps, efm8CoarseFactor(g), ewSwipeStep, (void *)g)) s_redraw = true;
+}
+
+/**
+ * @brief ESC WRITE before the hold: HOLD TO WRITE, 1000 ms on ui_hold,
+ *        starts the write on the next frame, once WRITING is drawn.
+ */
+static void ewPageTouch(const TouchState *t) {
+	if (cardSeen() != s_pageCard) {
+		lookUpBackup();
+		s_redraw = true;
+	}
+	bool wasHolding = s_writeHold.holding;
+	if (uiHoldUpdate(&s_writeHold, BTN_OK, t, ewPageWritable(), millis())) {
+		s_state = S_EW_WRITING;
+		s_verified = false;
+		s_nextStep = nullptr;
+		snprintf(s_status, sizeof(s_status), "WRITING...");
+		s_ewOpRun = true;
+		s_ewStartDue = true;
+		s_redraw = true;
+		return;
+	}
+	if (wasHolding || s_writeHold.holding) s_redraw = true;
+}
+
+/**
+ * @brief Whether the EFM8 write may not start, and why: a page that is not
+ *        of a written layout or a draft rcbench's map does not allow, a page
+ *        other than ESC WRITE showed, or the BOARD voltage in the red band.
+ *        Nothing goes to the card or the ESC.
+ */
+static bool ewWriteRefused() {
+	const size_t n = s_ewId.len;
+	if (!ewWritable() || ew_image_check(s_ewId.fw, s_ewId.layout, s_ewPage, s_ewTo, n, nullptr) != EW_IMG_OK) {
+		snprintf(s_status, sizeof(s_status), EFM8_UI_REFUSED_W);
+		s_nextStep = nullptr;
+		return true;
+	}
+	if (memcmp(s_ewFrom, s_ewPage, sizeof(s_ewFrom)) != 0 || memcmp(s_ewTo, s_ewDraft, sizeof(s_ewTo)) != 0) {
+		snprintf(s_status, sizeof(s_status), AM32_UI_PAGE_STALE);
+		s_nextStep = AM32_UI_PAGE_STALE_2;
+		return true;
+	}
+	if (uiBoardWriteRefused()) {
+		snprintf(s_status, sizeof(s_status), UI_BOARD_LOW_1);
+		s_nextStep = AM32_UI_BOARD_LOW_2;
+		return true;
+	}
+	return false;
+}
+
+/** @brief The hold ended: the refusals, the backup, then the job's Write. */
+static void ewStartWrite() {
+	s_ewStartDue = false;
+	s_verified = false;
+	if (ewWriteRefused() || !backupFirst(ewSave)) {
+		s_ewOpRun = false;
+		return;
+	}
+	if (uiBoardWriteRefused()) {
+		// Asked again after the backup's flush, as KST does: the backup
+		// stays on the card, and nothing goes to the ESC. The flush runs on
+		// the spot and the board's cell is judged once a frame (ui.cpp),
+		// so today this sees what ewWriteRefused() saw; it guards a flush
+		// that one day spans frames.
+		snprintf(s_status, sizeof(s_status), UI_BOARD_LOW_1);
+		s_nextStep = AM32_UI_BOARD_LOW_2;
+		s_ewOpRun = false;
+		return;
+	}
+	memcpy(s_ewSent, s_ewTo, sizeof(s_ewSent));
+	// The backup's flush may have held core0 past the heartbeat.
+	escHeartbeat();
+	s_ewSeq = escwireJobWrite(s_ewTo, s_ewId.len);
+}
+
+/**
+ * @brief The job's write ended: its result on ESC WRITE. A verified write
+ *        makes the draft the page as read and sets the tester's 3D note from
+ *        it; a half-written page with 3D in its draft sets the note, since
+ *        the ESC may run on it.
+ */
+static void ewWritePoll() {
+	escwireJobStatus(&s_ew);
+	if (s_ew.ackSeq != s_ewSeq || s_ew.job == EwJobState::Busy) return;
+	if (s_ew.refused == EwJobRefusal::NoUi) {
+		// Nothing went out: ask again, the heartbeat fed.
+		escHeartbeat();
+		s_ewSeq = escwireJobWrite(s_ewTo, s_ewId.len);
+		return;
+	}
+	s_ewOpRun = false;
+	if (s_ew.refused != EwJobRefusal::None) {
+		snprintf(s_status, sizeof(s_status), EFM8_UI_REFUSED_W);
+		s_nextStep = nullptr;
+		return;
+	}
+	Efm8Result r = efm8WriteResult(s_ew.result, s_ew.dirty, s_ew.inMode);
+	s_ewDirty = s_ew.dirty;
+	s_ewReread = s_ew.reread;
+	s_ewMustRead = r.mustRead;
+	s_ewEnded = !s_ew.inMode;
+	if (s_ewEnded && s_ewDirty) ewKeepOldPage();
+	s_verified = r.verified;
+	s_nextStep = r.l2;
+	if (r.verified) {
+		memcpy(s_ewPage, s_ew.page, sizeof(s_ewPage));
+		memcpy(s_ewDraft, s_ew.page, sizeof(s_ewDraft));
+		esc3dSetNote(efm8Is3d(s_ewPage));
+		if (s_backupDone) snprintf(s_status, sizeof(s_status), ST_VERIFIED ST_BACKUP "%.5s", s_backupName);
+		else snprintf(s_status, sizeof(s_status), ST_VERIFIED);
+	} else {
+		snprintf(s_status, sizeof(s_status), "%s", r.l1);
+		if (s_ewDirty && efm8Is3d(s_ewSent)) esc3dSetNote(true);
+	}
+}
+
+/**
+ * @brief OK or BACK under ESC WRITE's result: the list, or, after a write
+ *        that ended the session, OK greets the ESC again and BACK opens the
+ *        leave page.
+ * @param ok OK, else BACK.
+ */
+static void ewLeavePage(bool ok) {
+	s_okPress = false;
+	uiHoldReset(&s_writeHold);
+	if (s_ewEnded && ok) regreet();
+	else if (s_ewEnded) openLeave(S_EW);
+	else s_state = S_EW_LIST;
+	s_redraw = true;
 }
 
 /**
@@ -1407,6 +1927,65 @@ static bool writeRefused() {
 	return false;
 }
 
+/**
+ * @brief The session's backup before its first write. The page as first
+ *        read goes to the card before the first write of the session.
+ *        Without a card the write runs and the backup stays in memory until
+ *        a write with a card saves it; a card that refuses it stops the
+ *        write: the status says so and false comes back. A card swapped
+ *        since the backup reached the card holds none: the card in the slot
+ *        is mounted again and the backup saved to it. Core0 waits for the
+ *        flush on the spot: the AM32 transport blocks it anyway, and an EFM8
+ *        bootloader waits for its next command with no timeout.
+ * @param save Saves the session's backup into the ring and names it.
+ * @return true when the write may go.
+ */
+static bool backupFirst(BackupResult (*save)(char *name)) {
+	uint32_t v = 0;
+	if (s_backupOnCard && cardMounted() &&
+	    (!s_backupVolumeRead || !cardVolumeSerial(&v) || v != s_backupVolume)) {
+		cardCacheRecover();
+		s_backupDone = s_backupOnCard = false;
+	}
+	if (!s_backupDone && cardMounted()) {
+		BackupResult b = save(s_backupName);
+		// The ESC is written only once the card holds the backup.
+		if (b == BackupResult::Ok && cardCacheFlush() == CardCache::Failed) b = BackupResult::WriteError;
+		// A batch that failed during the save or its flush: the card is
+		// mounted again, and the next WRITE saves the backup again.
+		if (cardCacheState() == CardCache::Failed) cardCacheRecover();
+		if (b != BackupResult::Ok) {
+			snprintf(s_status, sizeof(s_status), ST_NO_BACKUP);
+			s_nextStep = AM32_UI_CHECK_CARD;
+			return false;
+		}
+		s_backupDone = true;
+		// A serial number that does not read leaves the check armed and
+		// failing: the next WRITE mounts the card again and saves again.
+		s_backupOnCard = true;
+		s_backupVolumeRead = cardVolumeSerial(&s_backupVolume);
+	}
+	return true;
+}
+
+/** @brief The AM32 session's backup: the settings as read at entry, `AMnnn.TXT`. */
+static BackupResult am32Save(char *name) {
+	return am32BackupSave(s_entry, am32BlEscTypeName(), am32BlEepromAddr(), name);
+}
+
+/** @brief The EFM8 session's backup: the page as first read, `BJnnn.TXT` or `BHnnn.TXT`. */
+static BackupResult ewSave(char *name) {
+	return efm8BackupSave(&s_ewEntryContact, &s_ewEntryId, s_ewEntry, name);
+}
+
+/** @brief A new device's settings were read: no backup of them yet. */
+static void resetBackup() {
+	s_backupDone = false;
+	s_backupOnCard = false;
+	s_backupName[0] = '\0';
+	s_backupNext[0] = '\0';
+}
+
 /** @brief Commit the settings block. */
 static void doWrite() {
 	// Set again only by a write that reads back equal: the result's colour
@@ -1415,38 +1994,7 @@ static void doWrite() {
 	// other way into S_WRITING.
 	s_verified = false;
 	if (writeRefused()) return;
-	// The settings as read at entry go to the card before the first write of
-	// the session. Without a card the write runs and the backup stays in
-	// memory, s_entry, until a write with a card saves it; a card that
-	// refuses it stops the write.
-	// A card swapped since the backup reached the card holds none: the card
-	// in the slot is mounted again and the backup saved to it.
-	uint32_t v = 0;
-	if (s_backupOnCard && cardMounted() &&
-	    (!s_backupVolumeRead || !cardVolumeSerial(&v) || v != s_backupVolume)) {
-		cardCacheRecover();
-		s_backupDone = s_backupOnCard = false;
-	}
-	if (!s_backupDone && cardMounted()) {
-		BackupResult b = am32BackupSave(s_entry, am32BlEscTypeName(), am32BlEepromAddr(),
-		                                s_backupName);
-		// The ESC is written only once the card holds the backup. The AM32
-		// transport blocks core0 anyway, so the flush runs on the spot.
-		if (b == BackupResult::Ok && cardCacheFlush() == CardCache::Failed) b = BackupResult::WriteError;
-		// A batch that failed during the save or its flush: the card is
-		// mounted again, and the next WRITE saves the backup again.
-		if (cardCacheState() == CardCache::Failed) cardCacheRecover();
-		if (b != BackupResult::Ok) {
-			snprintf(s_status, sizeof(s_status), ST_NO_BACKUP);
-			s_nextStep = AM32_UI_CHECK_CARD;
-			return;
-		}
-		s_backupDone = true;
-		// A serial number that does not read leaves the check armed and
-		// failing: the next WRITE mounts the card again and saves again.
-		s_backupOnCard = true;
-		s_backupVolumeRead = cardVolumeSerial(&s_backupVolume);
-	}
+	if (!backupFirst(am32Save)) return;
 	Am32Result r = am32BlWrite(am32BlEepromAddr(), s_eeprom, AM32_SETTINGS_SIZE);
 	if (r != AM32_OK) {
 		snprintf(s_status, sizeof(s_status), ST_WRITE_FAILED "%s", am32ResultText(r));
@@ -1503,8 +2051,11 @@ static uint8_t cardSeen() {
 static void lookUpBackup() {
 	s_pageCard = cardSeen();
 	s_backupNext[0] = '\0';
-	// The AM32 transport blocks core0 anyway: the card is read on the spot.
-	if (!s_backupDone && s_pageCard == 2 && am32BackupNext(s_backupNext) != BackupResult::Ok)
+	// The card is read on the spot: the AM32 transport blocks core0 anyway,
+	// and an EFM8 bootloader waits for its next command.
+	bool ew = s_state == S_EW_PAGE || s_state == S_EW_WRITING;
+	if (!s_backupDone && s_pageCard == 2 &&
+	    (ew ? efm8BackupNext(s_ewEntryId.fw, s_backupNext) : am32BackupNext(s_backupNext)) != BackupResult::Ok)
 		s_backupNext[0] = '\0';
 }
 
@@ -1624,6 +2175,25 @@ static void handleListGesture(const TouchState *t) {
 	if (uiSwipeApply(e.steps, coarseFactor(f), swipeStep, (void *)f)) s_redraw = true;
 }
 
+/**
+ * @brief OLD PAGE tapped on the connect page: ESC HEX of the old page.
+ * @return true when the view opened.
+ */
+static bool oldPageTapped(const TouchState *t) {
+	if (!oldPageLive() || !uiTapped(BTN_HEX, t)) return false;
+	s_keptFrom = s_state;
+	s_state = S_EW_KEPT;
+	uiListInit(&s_list, LIST_VIEW, HEX_ROW_H, ewKeptLines());
+	s_redraw = true;
+	return true;
+}
+
+/** @brief ESC HEX of the old page: its bytes in amber; BACK its one control. */
+static void drawKept() {
+	gfxRect(0, LIST_Y0, GFX_W, GFX_H - LIST_Y0, C_BG);
+	uiListDraw(&s_list, [](int index, int y, void *) { drawKeptLine(index, y); }, nullptr);
+}
+
 uint8_t uiAm32Controls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
 	// BACK is drawn disabled while the write runs and on the leave page (backLive()).
@@ -1648,12 +2218,30 @@ uint8_t uiAm32Controls(UiControl *out, uint8_t max) {
 		uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Ok), BTN_OK, !writing());
 		return n;
 	}
+	if (s_state == S_EW_PAGE) {
+		uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::WriteHold), BTN_OK, ewPageWritable());
+		return n;
+	}
+	if (oldPageLive()) {
+		uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::OldPage), BTN_HEX, true);
+		return n;
+	}
+	if (s_state == S_EW_WRITING) {
+		uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Ok), BTN_OK, !ewRunning());
+		return n;
+	}
 	if (s_state == S_EW_LIST) {
-		// Rows select, for their strip notes; nothing edits.
-		if (!s_hexView) uiListAddRows(&s_list, out, &n, max, true);
-		uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Write), BTN_WRITE, false);
-		uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Revert), BTN_REVERT, false);
-		uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Hex), BTN_HEX, true);
+		// Rows select, for their strip notes and the editor; nothing acts
+		// while READ AGAIN runs.
+		if (!s_hexView) uiListAddRows(&s_list, out, &n, max, !s_ewOpRun);
+		if (ewEditField()) {
+			uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::EditMinus), BTN_MINUS, true);
+			uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::EditPlus), BTN_PLUS, true);
+		}
+		if (s_ewMustRead) uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::ReadAgain), BTN_WRITE, !s_ewOpRun);
+		else uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Write), BTN_WRITE, ewWriteLive());
+		uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Revert), BTN_REVERT, ewRevertLive());
+		uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Hex), BTN_HEX, !s_ewOpRun);
 		return n;
 	}
 	// The read-only view's, the connect page's and the EFM8 pages' one
@@ -1695,6 +2283,13 @@ bool uiAm32Tick(const TouchState *t) {
 			UiGuardEv e = uiBackGuard(&s_guard, t, pendingChanges());
 			if (e != UiGuardEv::None) s_redraw = true;
 			back = e == UiGuardEv::Back;
+		} else if (s_state == S_EW_LIST && !s_hexView) {
+			// The same guard on the EFM8 list's edits; on a half-written
+			// page it names what the second BACK leaves behind
+			// (docs/design/bluejay-blheli-s.md, "Safety").
+			UiGuardEv e = uiBackGuard(&s_guard, t, s_ewDirty ? 1 : ewPending());
+			if (e != UiGuardEv::None) s_redraw = true;
+			back = e == UiGuardEv::Back;
 		} else if (uiBackTapped(t)) {
 			if (s_state == S_LIST) {
 				s_hexView = false;
@@ -1703,6 +2298,11 @@ bool uiAm32Tick(const TouchState *t) {
 			} else if (s_state == S_EW_LIST && s_hexView) {
 				s_hexView = false;
 				openEwList();
+				s_redraw = true;
+			} else if (s_state == S_EW_PAGE || s_state == S_EW_WRITING) {
+				ewLeavePage(false);
+			} else if (s_state == S_EW_KEPT) {
+				s_state = s_keptFrom;
 				s_redraw = true;
 			} else if (s_state == S_PAGE || s_state == S_WRITING) {
 				s_okPress = false;
@@ -1713,7 +2313,14 @@ bool uiAm32Tick(const TouchState *t) {
 				back = true;
 			}
 		}
-		if (back && s_state == S_EW_LIST) {
+		if (back && s_state == S_EW_LIST && s_ewDirty) {
+			// The guard's second BACK on a half-written page: the session is
+			// aborted with no LEAVE, which the page refuses, and SIG goes
+			// back only from the leave page (decision 8 of that note).
+			ewKeepOldPage();
+			ewSend(EwJobOp::Stop);
+			openLeave(S_EW);
+		} else if (back && s_state == S_EW_LIST) {
 			// The page was read: LEAVE starts the ESC's firmware, then DShot
 			// returns (docs/design/bluejay-blheli-s.md, decision 3).
 			startExit();
@@ -1741,6 +2348,7 @@ bool uiAm32Tick(const TouchState *t) {
 			break;
 
 		case S_CONNECT:
+			if (oldPageTapped(t)) break;
 			// The connect cycle: a burst of greetings, one a frame, about
 			// 40 ms each, then a quiet phase with nothing sent (greet_cycle.h).
 			if (greetCyclePhase(&s_cycle, millis()) == GreetPhase::Greet) {
@@ -1753,9 +2361,16 @@ bool uiAm32Tick(const TouchState *t) {
 			break;
 
 		case S_EW:
+			if (oldPageTapped(t)) break;
 			ewTick();
 			s_redraw = true;
 			break;
+
+		case S_EW_KEPT: {
+			UiListEvent e = uiListTouch(&s_list, t);
+			if (e.kind == UiListEv::Scrolled) s_redraw = true;
+			break;
+		}
 
 		case S_REGREET:
 			regreetTick();
@@ -1763,7 +2378,37 @@ bool uiAm32Tick(const TouchState *t) {
 			break;
 
 		case S_EW_LIST:
-			ewListTouch(t);
+			if (s_ewOpRun) {
+				// READ AGAIN runs: nothing edits until it ends.
+				ewReadPoll();
+				s_redraw = true;
+			} else {
+				ewListTouch(t);
+			}
+			break;
+
+		case S_EW_PAGE:
+			ewPageTouch(t);
+			break;
+
+		case S_EW_WRITING:
+			if (s_ewOpRun) {
+				// The page as it stands while the backup blocks core0, then
+				// the job's write on core1: WRITING: DO NOT UNPLUG. and BACK
+				// drawn disabled.
+				s_okPress = false;
+				if (s_ewStartDue) {
+					drawHeader();
+					drawEwWritePage();
+					ewStartWrite();
+				} else {
+					ewWritePoll();
+				}
+				s_redraw = true;
+				break;
+			}
+			if (t && t->pressed) s_okPress = true;
+			if (s_okPress && uiTapped(BTN_OK, t)) ewLeavePage(true);
 			break;
 
 		case S_EW_EXIT:
@@ -1821,6 +2466,9 @@ bool uiAm32Tick(const TouchState *t) {
 			case S_REGREET:
 			case S_EW_EXIT:  drawConnect(); break;
 			case S_EW_LIST:  drawEwList();  break;
+			case S_EW_PAGE:
+			case S_EW_WRITING: drawEwWritePage(); break;
+			case S_EW_KEPT:  drawKept();    break;
 			case S_LIST:     drawList();    break;
 			case S_PAGE:
 			case S_WRITING:  drawWritePage(); break;

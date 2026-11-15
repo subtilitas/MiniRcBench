@@ -9,10 +9,17 @@
 # ring (src/bridge_wire.cpp) and its line on two PIO state machines
 # (src/bridge_line_port.cpp). The line's transmitter is src/bridge_line.pio;
 # its receiver is pio_uart_rx.pio, whose header CMakeLists.txt generates for
-# the KISS receiver. Nothing on core0 opens the bridge yet.
+# the KISS receiver.
+#
+# Slice 2: the USB side on core0 (src/usb_bridge.cpp), the traffic log, a
+# build option off by default (src/bridge_log.cpp), and the screen USB
+# BRIDGE (src/ui_bridge.cpp), opened from ESC CONFIG.
 target_sources(MiniRcBench PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/bridge_wire.cpp
     ${CMAKE_CURRENT_LIST_DIR}/bridge_line_port.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/usb_bridge.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/bridge_log.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/ui_bridge.cpp
 )
 pico_generate_pio_header(MiniRcBench ${CMAKE_CURRENT_LIST_DIR}/bridge_line.pio)
 target_link_libraries(MiniRcBench hardware_pio hardware_gpio hardware_clocks)

@@ -33,12 +33,115 @@
 /** @brief The byte of DIRECTION in both firmwares. */
 #define EFM8_OFF_DIRECTION 0x0Bu
 
-/** @brief The second strip line of a read-only list: no backup in this build. */
-#define EFM8_UI_SHOWN_ONLY "SHOWN ONLY. NO BACKUP SAVED."
+/**
+ * @brief The second strip line of a read-only list begins with this, then
+ *        the backup's fate (@ref EFM8_UI_RO_SAVED and the others).
+ */
+#define EFM8_UI_SHOWN_ONLY "SHOWN ONLY."
 /** @brief The first strip line of a page that lost its tags. */
 #define EFM8_UI_LOST_TAGS "ESC LOST ITS TAGS: READ-ONLY."
-/** @brief Its second line. */
-#define EFM8_UI_REFLASH "REFLASH ON A COMPUTER. NO BACKUP."
+/** @brief Its second line begins with this, then the backup's fate. */
+#define EFM8_UI_REFLASH "REFLASH ON A COMPUTER."
+/** @brief ...then this and the backup's five characters, `BACKUP BJ018`: on the card. */
+#define EFM8_UI_RO_SAVED " BACKUP "
+/** @brief ...or this, after SHOWN ONLY.: no card, or the card held by USB. */
+#define EFM8_UI_RO_NO_CARD " NO CARD: NO BACKUP."
+/** @brief ...or this, after REFLASH ON A COMPUTER.: no card. */
+#define EFM8_UI_RO_NO_CARD_TAGS " NO CARD."
+/** @brief ...or this: the card did not take the backup. */
+#define EFM8_UI_RO_FAILED " BACKUP FAILED."
+/** @brief ...or this, after SHOWN ONLY.: a USB host holds the card. */
+#define EFM8_UI_RO_USB " USB DRIVE: NO BACKUP."
+/** @brief ...or this, after REFLASH ON A COMPUTER.: a USB host holds the card. */
+#define EFM8_UI_RO_USB_TAGS " USB DRIVE."
+
+/**
+ * @defgroup efm8_write The write's texts
+ * @brief The result lines of ESC WRITE at y 196 and 208, the strip of a
+ *        half-written page and the guard's lines
+ *        (docs/design/bluejay-blheli-s.md, "The list, the editor and the
+ *        write page" and "Safety"). Each at most @ref EFM8_LINE_CHARS
+ *        characters.
+ * @{
+ */
+/** @brief Under a verified write: LEAVE starts the firmware, which reads the page. 33 characters. */
+#define EFM8_UI_LEAVING_2 "LEAVING STARTS THE ESC WITH THEM."
+/** @brief The re-read before the erase failed: 28 characters. */
+#define EFM8_UI_READ_1 "READ FAILED: NOTHING ERASED."
+/** @brief The next step after a failure that left the page as read: 20 characters. */
+#define EFM8_UI_AGAIN_2 "TAP OK, WRITE AGAIN."
+/** @brief The re-read found another page than the first read: 30 characters. */
+#define EFM8_UI_CHANGED_1 "ESC PAGE CHANGED: NOT WRITTEN."
+/** @brief Its next step: 19 characters. */
+#define EFM8_UI_READ_AGAIN_2 "TAP OK, READ AGAIN."
+/** @brief Three procedures that did not take, the page read back as read: 27 characters. */
+#define EFM8_UI_FAILED_1 "WRITE FAILED: PAGE AS READ."
+/** @brief The page read back as neither: 35 characters. */
+#define EFM8_UI_TORN_1 "HALF WRITTEN: KEEP THE ESC POWERED."
+/** @brief Its next step: 24 characters. */
+#define EFM8_UI_TORN_2 "TAP OK, WRITE AGAIN NOW."
+/** @brief The ESC stopped answering after the erase: 35 characters. */
+#define EFM8_UI_LOST_1 "NO ANSWER IN THE WRITE: KEEP POWER."
+/** @brief Its next step: 24 characters. */
+#define EFM8_UI_LOST_2 "TAP OK, THEN READ AGAIN."
+/** @brief A heartbeat lapse stopped the write before its erase: 34 characters. */
+#define EFM8_UI_STOPPED_1 "STOPPED BEFORE THE ERASE: AS READ."
+/** @brief The line driver failed before the erase: 35 characters. */
+#define EFM8_UI_DRIVER_1 "LINE DRIVER FAILED: NOTHING ERASED."
+/** @brief The session or its guard refused the draft before any frame: 35 characters. */
+#define EFM8_UI_REFUSED_W "NOT WRITTEN: REFUSED, NOTHING SENT."
+/** @brief Under a write whose session ended: OK greets the ESC again. 36 characters. */
+#define EFM8_UI_ENDED_2 "THE SESSION ENDED. TAP OK TO SEARCH."
+/**
+ * @brief Under a write or read that ended the session with the page half
+ *        written: no session here can write it again. 37 characters.
+ */
+#define EFM8_UI_ENDED_DIRTY_2 "SESSION ENDED: RESTORE ON A COMPUTER."
+/**
+ * @brief ESC WRITE's backup line after a half-written page's session ended
+ *        with no backup on a card: the old page is kept on this screen
+ *        only. Amber. 35 characters.
+ */
+#define EFM8_UI_KEPT_ONLY "NO BACKUP: OLD PAGE ON THIS SCREEN."
+/** @brief The old page's view and the hex dump's heading over it: 31 characters. */
+#define EFM8_UI_KEPT_1 "OLD PAGE, BEFORE THE CUT WRITE:"
+/** @brief The old page's view, second strip line with no backup on a card: 29 characters. */
+#define EFM8_UI_KEPT_SCREEN "ON THIS SCREEN ONLY: COPY IT."
+/** @brief ...or this and the backup's five characters: it is on the card too. */
+#define EFM8_UI_KEPT_CARD "ALSO ON THE CARD: BACKUP "
+/** @brief The connect page's button to the old page, at scale 1: 8 characters. */
+#define EFM8_UI_KEPT_BUTTON "OLD PAGE"
+/** @brief The strip of a half-written list that needs a read first: 23 characters. */
+#define EFM8_UI_DIRTY_READ "READ AGAIN, THEN WRITE."
+/** @brief The strip of a half-written list that was read since: 33 characters. */
+#define EFM8_UI_DIRTY_WRITE "WRITE AGAIN NOW. REVERT: AS READ."
+/** @brief The guard's first line on a half-written page: 35 characters. */
+#define EFM8_UI_GUARD_1 "HALF WRITTEN. BACK AGAIN LEAVES IT;"
+/** @brief The guard's second line: 34 characters. */
+#define EFM8_UI_GUARD_2 "A POWER CYCLE THEN LOSES ITS TAGS."
+/** @brief ESC WRITE with no change line: the page as first read goes back. 32 characters. */
+#define EFM8_UI_AS_READ "THE PAGE AS READ, TAGS INCLUDED."
+/** @brief The list's bar with no row to edit selected, first line: 21 characters. */
+#define EFM8_UI_BAR_EDIT "TAP A SETTING TO EDIT"
+/** @brief The bar of a read-only list, first line: 31 characters. */
+#define EFM8_UI_BAR_SHOWN "SHOWN ONLY: NOTHING IS WRITTEN."
+/** @} */
+
+/** @brief Where a read-only list's backup went, as the view opened. */
+enum class Efm8Backup : uint8_t {
+	NoCard,  /**< No card, or the card held by a USB host: none saved. */
+	Saved,   /**< On the card. */
+	Failed,  /**< The card did not take it. */
+	Usb,     /**< A USB host holds the card: none saved. */
+};
+
+/** @brief What ESC WRITE says of a write that ended. */
+struct Efm8Result {
+	const char *l1;   /**< The first line; null for a verified write, whose line names the backup. */
+	const char *l2;   /**< The second line, or null. */
+	bool verified;    /**< Read back equal to the draft: the first line green. */
+	bool mustRead;    /**< READ AGAIN takes WRITE...'s place until a read succeeds. */
+};
 /** @brief The first strip line of a page whose marker is not 0x55 0xAA. */
 #define EFM8_UI_MARKER "SETTINGS MARKER WRONG: READ-ONLY."
 /** @brief POWER RATING selected, first line. */
@@ -120,15 +223,68 @@ Efm8View efm8ViewOf(const ew_ident_t *id);
 void efm8Caption(const ew_ident_t *id, const uint8_t *page, uint16_t sig, char *out, size_t n);
 
 /**
- * @brief The two amber strip lines of a read-only list: why, and that
- *        nothing is saved.
+ * @brief The two amber strip lines of a read-only list: why, and where its
+ *        backup went.
+ *
+ * The second line reads, for example, `SHOWN ONLY. BACKUP BJ018`, or for
+ * lost tags `REFLASH ON A COMPUTER. BACKUP BH018`.
  * @param id   The identification.
  * @param page The page as read.
+ * @param b    The backup's fate.
+ * @param name The backup's file name, `BJ018.TXT`; its first five
+ *             characters are shown when @p b is Saved.
  * @param[out] l1 Takes the first; @ref EFM8_LINE_CHARS + 1 bytes.
- * @param[out] l2 Points at the second.
+ * @param[out] l2 Takes the second; @ref EFM8_LINE_CHARS + 1 bytes.
  * @return false for a page that is not read-only.
  */
-bool efm8ReadOnlyLines(const ew_ident_t *id, const uint8_t *page, char *l1, const char **l2);
+bool efm8ReadOnlyLines(const ew_ident_t *id, const uint8_t *page, Efm8Backup b, const char *name, char *l1,
+                       char *l2);
+
+/**
+ * @brief Whether the list edits @p f: a field rcbench's map lets a write
+ *        change, on a page of a layout that is written. Every other row is
+ *        shown only.
+ * @param id The identification.
+ * @param f  The field.
+ */
+bool efm8RowEditable(const ew_ident_t *id, const ew_field_t *f);
+
+/**
+ * @brief One step of a field: to the next of its values above or below
+ *        @p raw, `alt` among them; a value none of the field's steps to the
+ *        nearest value in that direction.
+ * @param f   The field.
+ * @param[in,out] raw The byte.
+ * @param dir -1 or +1.
+ * @return false at the rail: nothing changed.
+ */
+bool efm8Step(const ew_field_t *f, uint8_t *raw, int dir);
+
+/**
+ * @brief Steps of @p f per coarse step of a swipe: its range over 11, rounded
+ *        up, as on AM32: 24 for a field of 0 to 255, 1 for a short list.
+ */
+int efm8CoarseFactor(const ew_field_t *f);
+
+/**
+ * @brief The rows whose byte differs between @p from and @p to.
+ * @param rows The rows.
+ * @param n    Their count.
+ * @param from A page.
+ * @param to   A page.
+ */
+int efm8Changes(const Efm8Row *rows, int n, const uint8_t *from, const uint8_t *to);
+
+/**
+ * @brief What ESC WRITE says of a write that ended with @p result.
+ * @param result An `ew_ses_t`.
+ * @param dirty  The session holds the page half written.
+ * @param inMode The session goes on: false when a stop, the driver or a
+ *               frame's refusal ended it, and the second line then says so:
+ *               @ref EFM8_UI_ENDED_DIRTY_2 for a half-written page, which no
+ *               later session writes, else @ref EFM8_UI_ENDED_2.
+ */
+Efm8Result efm8WriteResult(uint8_t result, bool dirty, bool inMode);
 
 /**
  * @brief Whether the first `EW_MAP_LEN_S` bytes, 112, of a page read 0xFF: a

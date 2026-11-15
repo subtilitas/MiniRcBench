@@ -60,10 +60,36 @@ protocol.
   upper bound on when the current shows the arrival, by up to 61 ms of the
   sensor's lag, one read and two conversion cycles, and a PWM frame; a
   servo easing its drive near the target can show the arrival before the
-  horn stops. The timing changes no pulse and no cut. Host tests in `test/test_move_timer.cpp` and
-  `test/test_servo.cpp`, against rcbench's servo model too, mutation-checked;
+  horn stops. The timing changes no pulse and no cut. Host tests in
+  `test/test_move_timer.cpp` and `test/test_servo.cpp`, against rcbench's
+  servo model too, mutation-checked;
   README and the wiki pages Servo-Tester and Servotester describe it. Not
   tested on hardware.
+- After v0.1.0-rc1: a Bluejay or BLHeli_S ESC's settings are written, slice 4
+  of [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#slice-4-as-built).
+  On Bluejay 208 and BLHeli_S 33 the list edits the fields rcbench's map lets
+  a write change, 15 and 12, with the editor bar and swipes, and `WRITE...`
+  opens `ESC WRITE`. Its HOLD TO WRITE saves the page as first read in the
+  session to the card as `BACKUP/BJnnn.TXT` or `BHnnn.TXT`, rcbench's ESC
+  settings text (`src/efm8_backup.*`, the prefixes in `src/backup_ring.*`),
+  and then the escwire job writes the draft (`EwJobOp::Write`): re-read,
+  erase, program and read-back, up to 3 procedures, on the settings page only.
+  A card that refuses the backup or the BOARD voltage in red stops the write.
+  The results, `WRITE VERIFIED. BACKUP BJ018` over `LEAVING STARTS THE ESC
+  WITH THEM.`, `READ FAILED: NOTHING ERASED.`, `ESC PAGE CHANGED: NOT
+  WRITTEN.`, `WRITE FAILED: PAGE AS READ.`, `HALF WRITTEN: KEEP THE ESC
+  POWERED.` and `NO ANSWER IN THE WRITE: KEEP POWER.`, each with its next
+  step; `READ AGAIN` in `WRITE...`'s place after a changed page or a lost
+  answer; on a half-written page the list edits nothing, `WRITE...` writes the
+  draft again or, after REVERT, the page as read, and BACK is guarded, the
+  second aborting the session with no LEAVE and opening the leave page. A
+  heartbeat lapse lets a write that has sent its erase run to its read-back.
+  The read-only lists save their backup as they open, `SHOWN ONLY. BACKUP
+  BJ018`, and skip a copy equal to the ring's latest. A session that ends with
+  its page half written says `SESSION ENDED: RESTORE ON A COMPUTER.` and keeps
+  the old page for the visit, on `OLD PAGE` and under a later list's ESC HEX.
+  ESC CONFIG's line reads `BLUEJAY, BLHELI_S: READ AND WRITTEN.` Tested on
+  rcbench's simulated ESC only; nothing has been written to an ESC.
 - After v0.1.0-rc1: the angle meter's screen and its documentation, slices 4
   and 5 of [angle-meter.md](docs/design/angle-meter.md#slice-4-as-built),
   tested on the host only. ANGLE METER (`src/ui_angle.*`) opens from MENU →
@@ -198,6 +224,28 @@ protocol.
   `fakeClockSetMs()` before SETTINGS' UPTIME (`shot_settings_scrolled`). The
   previews no longer change when a test is added or removed. No firmware
   change.
+- After v0.1.0-rc1: the USB bridge's passthrough and its screen, slice 2 of
+  [usb-bridge.md](docs/design/usb-bridge.md#slice-2-as-built), tested on the
+  host only. ESC CONFIG's `USB BRIDGE` opens USB BRIDGE (`src/ui_bridge.*`),
+  which claims SIG unless USB DRIVE holds the card (`EJECT THE USB DRIVE
+  FIRST.`). While the claim runs, `src/usb_bridge.*` takes the serial port
+  from the console (`usbDevConsole()` in `src/usb_dev.*`), hands each PC frame
+  to the wire after 2 ms of silence and writes the wire's bytes, the echo
+  included, back to the PC; the console has the port again once the claim is
+  free. The screen shows the port, `WAITING` or `PASSTHROUGH`, the bytes each
+  way, `FRAMES`, `LOST` and the last command. BACK is drawn disabled while a
+  PROGRAM, ERASE or SET BUFFER payload waits for its answer, at most 3000 ms,
+  and every other BACK of the running bridge opens the leave page `POWER THE
+  ESC OFF.`, `RESTART DSHOT.`, as the servo tools' BACK does; MENU shows
+  `POWER-CYCLE THE ESC TO RUN IT` from the open until RESTART DSHOT or an eRPM
+  frame. RUN counts only as 4 bytes with its CRC. While the bridge holds
+  the port the clock's `CLOCK` line is off and goes to the ESC as data.
+  `USB_BRIDGE_LOG`, 0 by default, builds DshotDisplay's traffic log
+  (`src/bridge_log.*`), dumped on the port after BACK. DshotDisplay's bridge
+  tests are ported to a CDC fake (`test/fake_cdc.*`,
+  `test/test_usb_bridge.cpp`); `test/test_bridge_ui.cpp` runs the screen,
+  `test/test_bridge_log.cpp` the log built on. MSP and the 4-way interface are
+  slice 3, not built.
 - After v0.1.0-rc1: the USB bridge's line and claim, slice 1 of
   [usb-bridge.md](docs/design/usb-bridge.md#slice-1-as-built), tested on the
   host only; nothing opens it yet. `PinUser::Bridge` claims SIG with no ESC

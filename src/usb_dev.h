@@ -68,3 +68,20 @@ void usbDevTask();
  * @param on On.
  */
 void usbDevClockLineEnable(bool on);
+
+/**
+ * @brief Give the serial port to the console, or take it from it.
+ *
+ * With @p on false the stdio driver is disabled, so `printf()` writes
+ * nowhere, the telemetry line of main.cpp included, and the port's bytes in
+ * both directions belong to the caller: the USB bridge (usb_bridge.h), from
+ * its open until the claim is Free (docs/design/usb-bridge.md, "USB side").
+ * With true the driver is enabled again. On at start-up; a call that
+ * changes nothing does nothing.
+ *
+ * @param on True: the console has the port.
+ */
+void usbDevConsole(bool on);
+
+/** @brief Whether the console has the serial port. @return True from start-up until usbDevConsole(false). */
+bool usbDevConsoleOn();

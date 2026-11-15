@@ -31,7 +31,7 @@
 # src/escwire_port.cpp, the job's line on it; its header is on the include
 # path for the error codes and for `syntax`.
 ESCWIRE_DIR           := ../lib/rcbench/protocols/escwire
-ESCWIRE_SRCS          := ../src/escwire_job.cpp ../src/efm8_view.cpp
+ESCWIRE_SRCS          := ../src/escwire_job.cpp ../src/efm8_view.cpp ../src/efm8_backup.cpp
 ESCWIRE_TESTS         := test_escwire_job.cpp test_efm8_view.cpp \
                          fake_escwire_port.cpp
 ESCWIRE_DEVICE_SRCS   := ../src/escwire_port.cpp

@@ -47,6 +47,7 @@
  * - @ref esc_task.h — core1 DShot pump and EDT decode
  * - @ref pin_claim.h — a screen takes the two signal pins from DShot
  * - @ref core1_job.h — core1 work on the claimed pins
+ * - @ref usb_bridge.h — the USB bridge's side of the serial port (core0)
  * - @ref servo_job.h — the servo tester's core1 job: PWM pulses, slew, sweep
  * - @ref servo_model.h — the servo tester's rules, pure
  * - @ref ui_servo.h — the servo tester screens
@@ -76,6 +77,7 @@
 #include "clock.h"
 #include "esc_task.h"
 #include "core1_job.h"
+#include "usb_bridge.h"
 #include "ui.h"
 #include "sd_log.h"
 #include "usb_dev.h"
@@ -183,6 +185,12 @@ void loop() {
 	// card depends on it being called often; TinyUSB does bounded work and
 	// returns, so calling it from the top of the loop costs nothing when idle.
 	usbDevTask();
+
+	// The USB bridge's side of the port, right after TinyUSB has taken what
+	// arrived: every pass, not once a UI frame, so a frame from the PC goes
+	// to the wire 2 ms after its last byte. Nothing while the bridge does not
+	// hold the claim. @see usb_bridge.h
+	usbBridgeTask();
 
 	uint32_t now = millis();
 	if ((int32_t)(now - s_nextUiMs) >= 0) {
