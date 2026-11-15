@@ -53,6 +53,23 @@ Die Platine erkennt die Art am ersten Byte des Programms; du wählst nichts.
    einschalten, wenn das Programm keinen ESC findet, und nach dem Flashen.
 6. Am Ende `BACK` antippen.
 
+<img src="img/bridge-stopping.png" width="240" alt="USB BRIDGE, während DShot anhält: RELEASING SIG GP0 auf der Leiste, kein Chip, die Hinweiszeilen"> <img src="img/bridge-failed.png" width="240" alt="USB BRIDGE nach einem fehlgeschlagenen Bind: SIG GP0 COULD NOT BE TAKEN (PIO) in Bernstein, RETRY in der Fußzeile">
+
+Solange DShot anhält, ist die Brücke noch nicht offen. Kann die Platine SIG
+nicht übernehmen, steht eine Zeile in Bernstein:
+`SIG GP0 COULD NOT BE TAKEN (PIO)` (SIG GP0 konnte nicht übernommen werden),
+mit `REFUSED` oder `CLOCK` statt `PIO`, und `RETRY` erscheint:
+
+- `PIO` (Programmable I/O, programmierbare Ein-/Ausgabe): Kein PIO-Block hat
+  Platz für Sender und Empfänger der Leitung;
+- `CLOCK`: Der Systemtakt (`clk_sys`) ist für die Rate der Leitung zu
+  langsam;
+- `REFUSED`: Der zweite Kern der Platine hat den Auftrag nicht übernommen.
+
+`RETRY` versucht es erneut. `BACK` führt direkt zu `MENU`, ohne
+Verlassenseite, solange DShot anhält und nach einem fehlgeschlagenen Bind:
+Die Brücke hat die Leitung nie übernommen.
+
 Solange die Brücke offen ist, ist die Konsole der Platine aus: Keine
 Telemetriezeile erreicht den Anschluss. Sie kommt zurück, sobald DShot
 wieder läuft.
@@ -60,6 +77,8 @@ wieder läuft.
 Hält `USB DRIVE` auf SD LOG die Karte, startet die Brücke nicht und zeigt
 `EJECT THE USB DRIVE FIRST.` (erst das USB-Laufwerk auswerfen). Nach dem
 Auswerfen startet sie.
+
+<img src="img/bridge-eject.png" width="240" alt="USB BRIDGE, die Karte hält USB DRIVE: EJECT THE USB DRIVE FIRST. in Bernstein">
 
 ---
 
@@ -80,6 +99,8 @@ Byte verloren ging; den ESC im Programm neu lesen.
 erscheint für 5 s, wenn der Motor-Reiter des Programms den Motor drehen
 will: Die Platine tut das nie.
 
+<img src="img/bridge-lost.png" width="240" alt="USB BRIDGE beim Durchreichen mit LOST 932 in Bernstein und BYTES LOST: THE BRIDGE FELL BEHIND. in Bernstein">
+
 Eine Einstellungsseite eines AM32-ESC, die das Programm liest oder
 schreibt, setzt den Hinweis `3D MODE ESC` des Testers wie ESC SETTINGS:
 an nach dem Lesen oder Schreiben von eingeschaltetem 3D-Modus, aus nach dem
@@ -89,7 +110,7 @@ Lesen von ausgeschaltetem.
 
 ## Schreiben und Verlassen
 
-<img src="img/bridge-writing.png" width="240" alt="USB BRIDGE beim Schreiben: WRITING: DO NOT UNPLUG ESC OR USB. in Bernstein, BACK grau"> <img src="img/bridge-leave.png" width="240" alt="Die Verlassenseite: 1 POWER THE ESC OFF., 2 RESTART DSHOT., FLASH THE ESC AGAIN BEFORE USE., BRIDGE, RESTART DSHOT">
+<img src="img/bridge-writing.png" width="240" alt="USB BRIDGE beim Schreiben: WRITING: DO NOT UNPLUG ESC OR USB. in Bernstein, BACK grau"> <img src="img/bridge-leave.png" width="240" alt="Die Verlassenseite: 1 POWER THE ESC OFF., 2 RESTART DSHOT., FLASH THE ESC AGAIN BEFORE USE., BRIDGE, RESTART DSHOT und BACK grau">
 
 Während der ESC seinen Flash schreibt oder löscht, zeigt die erste Zeile
 `WRITING: DO NOT UNPLUG ESC OR USB.` (schreibt: ESC und USB nicht
@@ -99,15 +120,22 @@ Das gilt für beide Arten.
 `BACK` sendet nichts an den ESC. Was danach geschieht, hängt von der
 Sitzung ab:
 
-`BACK` öffnet jedes Mal eine Verlassenseite, gleich was das Programm tat:
-Der ESC kann in seinem Bootloader sitzen, beim Einschalten oder von selbst
-dorthin gelangt, und DShot-Frames können als seine Befehle durchgehen. Den
-ESC ausschalten, dann `RESTART DSHOT` antippen, aktiv 1 s nach dem Öffnen
-der Seite. `BRIDGE` führt stattdessen zur Brücke zurück. Nach einem
-Schreiben ohne anschließenden Start der Firmware zeigt die Seite zusätzlich
-`FLASH THE ESC AGAIN BEFORE USE.` (den ESC vor dem Einsatz neu flashen).
+Bei laufender Brücke öffnet `BACK` jedes Mal eine Verlassenseite, gleich was
+das Programm tat: Der ESC kann in seinem Bootloader sitzen, beim Einschalten
+oder von selbst dorthin gelangt, und DShot-Frames können als seine Befehle
+durchgehen. Den ESC ausschalten, dann `RESTART DSHOT` antippen, aktiv 1 s
+nach dem Öffnen der Seite. `BRIDGE` führt stattdessen zur Brücke zurück.
+Nach einem Schreiben ohne anschließenden Start der Firmware zeigt die Seite
+zusätzlich `FLASH THE ESC AGAIN BEFORE USE.` (den ESC vor dem Einsatz neu
+flashen).
 In der 4-Way-Schnittstelle zählt nur das Zurücksetzen des ESC durch das
 Programm als dieser Start, nicht sein Trennen.
+
+<img src="img/bridge-leave-read.png" width="240" alt="Die Verlassenseite nach einer Sitzung, die nur las: 1 POWER THE ESC OFF., 2 RESTART DSHOT., ohne FLASH-Hinweis, BRIDGE, RESTART DSHOT und BACK grau">
+
+Ohne ein solches Schreiben, etwa nach einer Sitzung, die nur las, oder nach
+einem Schreiben mit anschließendem Start, zeigt die Seite die zwei Schritte
+ohne Hinweis.
 
 MENU zeigt `POWER-CYCLE THE ESC TO RUN IT` (den ESC aus- und einschalten,
 damit er läuft), sobald der Bildschirm den Signalpin genommen hat, auch nach
