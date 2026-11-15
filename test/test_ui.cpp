@@ -22,6 +22,7 @@
 #include "ui.h"
 #include "ui_settings.h"
 #include "ui_menu.h"
+#include "ui_esc_cmd.h"
 #include "ui_sdlog.h"
 #include "ui_screen.h"
 #include "ui_servo.h"
@@ -1180,32 +1181,27 @@ static bool menuChipIs(const char *text, uint16_t fill) {
 }
 
 /**
- * @brief MENU's EDT chip tracks reception, and BEEP's row acknowledges a tap.
- *
- * BEEP was reported as showing no reaction. The command was going out -- the
- * ESC beeped -- but nothing on screen moved, because the command is over in
- * about 6 ms and the UI repaints at 40 Hz. The acknowledgement is on the row
- * now: for 350 ms after a tap its status reads SENT on an ink fill, or
- * REFUSED on an amber fill.
+ * @brief MENU's EDT chip tracks reception, and ESC COMMANDS' row opens its
+ *        page.
  *
  * The EDT chip on the strip is read-only. There is no enable button any more:
  * the firmware sends one to each ESC as it appears, so the control was for
  * something already handled. What remains is worth showing, because "green"
  * and "all four telemetry tiles read --" are the same fact.
  */
-static void testMenuBeepRow() {
-	section("MENU: the EDT chip and BEEP's row");
+static void testMenuChip() {
+	section("MENU: the EDT chip and ESC COMMANDS' row");
 
 	feedLiveTelemetry();
 	tapId(UI_FIX(TesterCtl::Menu));          // into MENU (this force-disarms)
 	frames(2);
 	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
-	const UiRect beep = ctlRect(menuRow(&UI_BEEP));
-	auto beepRow = [&]() { return fakeRegionHash(beep.x, beep.y, beep.w, beep.h); };
+	const UiRect cmds = ctlRect(menuRow(&UI_ESC_CMD));
 	uint32_t chipOn = fakeRegionHash(120, UI_STRIP_Y, 120, UI_STRIP_H);
-	uint32_t idle   = beepRow();
-	checkTrue("BEEP's row reads DISARMED on the panel fill",
-	          menuStatusIs(beep, "DISARMED", C_DIM, C_PANEL));
+	checkTrue("ESC COMMANDS is the first row, its label at scale 2 from x 16, 142 px",
+	          uiMenuRowOf(&UI_ESC_CMD) == 0 &&
+	          fakeTextIs(16, cmds.y + 13, "ESC COMMANDS", C_TEXT, C_PANEL, 2) &&
+	          gfxTextW("ESC COMMANDS", 2) == 142);
 	fakeDumpFrame("shot_menu_edt_on.ppm");
 
 	checkTrue("EDT frames: the chip reads EDT ON, green", menuChipIs(UI_MENU_EDT_ON, C_GREEN));
@@ -1263,41 +1259,21 @@ static void testMenuBeepRow() {
 	tap(200, UI_STRIP_Y + UI_STRIP_H / 2);
 	checkInt("tapping the chip does nothing", fakeBeepRequests(), beepBefore);
 
-	// BEEP is a row of the list: it fires on release.
-	pressId(menuRow(&UI_BEEP)); fakeRelease(); frames(1);
-	checkInt("tapping BEEP sends the command", fakeBeepRequests(), beepBefore + 1);
-	checkTrue("an action row opens nothing", uiCurrentScreen() == UiScreenId::Menu);
-	uint32_t lit = beepRow();
-	checkTrue("and the row acknowledges it", lit != idle);
-	checkTrue("SENT, on the ink fill", menuStatusIs(beep, "SENT", C_PAPER, C_INK));
-	fakeDumpFrame("shot_menu_beep_flash.ppm");
-
-	// 350 ms from the frame of the release: still lit at 349 ms, gone at 350.
-	frameAfter(349);
-	checkTrue("the flash holds for 349 ms", menuStatusIs(beep, "SENT", C_PAPER, C_INK));
-	frameAfter(1);
-	checkTrue("and clears itself at 350 ms", beepRow() == idle);
-
+	// ESC COMMANDS is a tool row: it opens its page on release, and sends
+	// nothing itself.
+	pressId(menuRow(&UI_ESC_CMD));
+	checkTrue("a press on ESC COMMANDS opens nothing yet", uiCurrentScreen() == UiScreenId::Menu);
+	fakeRelease(); frames(1);
+	checkTrue("its release opens ESC COMMANDS", uiCurrentScreen() == UiScreenId::EscCmd);
+	checkInt("and sends nothing", fakeBeepRequests(), beepBefore);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	checkTrue("whose BACK returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
 	// Its far edge, the row's last pixel column, x 231, still hits.
-	fakePress(beep.x + beep.w - 1, beep.y + beep.h / 2); frames(1); fakeRelease(); frames(1);
-	checkInt("BEEP's last pixel is BEEP", fakeBeepRequests(), beepBefore + 2);
-	fakeAdvance(400); frames(2);
-
-	// Refusal. Not reachable by hand -- opening MENU force-disarms and there
-	// is no ARM control on that screen -- so this drives the arm state
-	// directly. It is tested because the request can refuse, not because a
-	// user can currently make it.
-	escSetArmed(true);
-	pressId(menuRow(&UI_BEEP)); fakeRelease(); frames(1);
-	uint32_t refused = beepRow();
-	checkTrue("a refused command looks different from an accepted one",
-	          refused != lit && refused != idle);
-	checkTrue("REFUSED, on the amber fill", menuStatusIs(beep, "REFUSED", C_PAPER, C_AMBER));
-	checkInt("and nothing was sent", fakeBeepRequests(), beepBefore + 2);
-	fakeDumpFrame("shot_menu_beep_refused.ppm");
-	escSetArmed(false);
-	fakeAdvance(400); frames(2);
-	checkTrue("the refusal clears too", beepRow() == idle);
+	fakePress(cmds.x + cmds.w - 1, cmds.y + cmds.h / 2); frames(1); fakeRelease(); frames(1);
+	checkTrue("the row's last pixel opens ESC COMMANDS", uiCurrentScreen() == UiScreenId::EscCmd);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
 
 	tapId(UI_FIX(UI_BACK));               // BACK, in the header
 	frames(2);
@@ -2008,22 +1984,23 @@ static void testTapCancels() {
 	tapId(UI_FIX(TesterCtl::Menu));       // into MENU for the rest
 	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 
-	// MENU: press BEEP's row, slide off it, release. Neither fires.
-	int beeps = fakeBeepRequests();
+	// MENU: press ESC COMMANDS' row, slide off it, release. Neither row
+	// fires.
 	int bx, by;
-	ctlCentre(menuRow(&UI_BEEP), &bx, &by);
+	ctlCentre(menuRow(&UI_ESC_CMD), &bx, &by);
 	fakePress(bx, by);      frames(2);
 	fakeHold(bx, by + 60);  frames(2);
 	fakeRelease();          frames(2);
-	checkInt("sliding off BEEP sent nothing", fakeBeepRequests(), beeps);
+	checkTrue("sliding off ESC COMMANDS opened nothing", uiCurrentScreen() == UiScreenId::Menu);
 
 	// Still on MENU, which the next tap proves by working: the row the
 	// finger slid onto is only hit-tested, so if the slide had activated
 	// anything this fails.
 	fakePress(bx, by);      frames(2);
 	fakeRelease();          frames(2);
-	checkInt("released in place, it fires", fakeBeepRequests(), beeps + 1);
-	checkTrue("so the screen never left", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("released in place, it opens ESC COMMANDS", uiCurrentScreen() == UiScreenId::EscCmd);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
 }
 
 /** @brief A held stepper repeats and accelerates; a tap moves exactly one step. */
@@ -3473,26 +3450,26 @@ static void testHitBoundaries() {
 	tapId(UI_FIX(TesterCtl::Menu));
 	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 
-	// MENU's rows are 40 px tall at a 42 px pitch: BEEP ends where the gap
-	// above AM32 CONFIG starts, and SD LOG where the gap above SETTINGS
-	// starts. A tap in either gap must hit neither neighbour -- an inclusive
-	// far edge would make adjacent rows overlap.
-	const UiRect beep  = ctlRect(menuRow(&UI_BEEP));
+	// MENU's rows are 40 px tall at a 42 px pitch: ESC COMMANDS ends where
+	// the gap above AM32 CONFIG starts, and SD LOG where the gap above
+	// SETTINGS starts. A tap in either gap must hit neither neighbour -- an
+	// inclusive far edge would make adjacent rows overlap.
+	const UiRect cmds  = ctlRect(menuRow(&UI_ESC_CMD));
 	const UiRect logRow = ctlRect(menuRow(&UI_SDLOG));
-	int beeps = fakeBeepRequests();
-	tap(beep.x + beep.w / 2, beep.y + beep.h);
+	tap(cmds.x + cmds.w / 2, cmds.y + cmds.h);
 	frames(2);
-	checkInt("a tap in the BEEP/AM32 gap sends nothing", fakeBeepRequests(), beeps);
-	checkTrue("and opens nothing", uiCurrentScreen() == UiScreenId::Menu);
-	tap(beep.x + beep.w, beep.y + beep.h / 2);
-	checkInt("one past BEEP's right edge sends nothing", fakeBeepRequests(), beeps);
+	checkTrue("a tap in the ESC COMMANDS/AM32 gap opens nothing",
+	          uiCurrentScreen() == UiScreenId::Menu);
+	tap(cmds.x + cmds.w, cmds.y + cmds.h / 2);
+	checkTrue("nor one past ESC COMMANDS' right edge", uiCurrentScreen() == UiScreenId::Menu);
 	tap(logRow.x + logRow.w / 2, logRow.y + logRow.h);
 	frames(2);
 	checkTrue("a tap in the gap below SD LOG left MENU up",
 	          uiCurrentScreen() == UiScreenId::Menu);
-	tap(beep.x + beep.w / 2, beep.y + beep.h - 1);
-	checkInt("BEEP's last pixel row is BEEP", fakeBeepRequests(), beeps + 1);
-	fakeAdvance(400); frames(2);
+	tap(cmds.x + cmds.w / 2, cmds.y + cmds.h - 1);
+	checkTrue("ESC COMMANDS' last pixel row opens it", uiCurrentScreen() == UiScreenId::EscCmd);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
 
 	// MOTOR POLES - on SETTINGS is a rectangle. One past each far edge is
 	// outside: the gap before + on the right, the gap between rows below.
@@ -3541,9 +3518,9 @@ static void testMenuDestinations() {
 	uint8_t rows = 0;
 	uiMenuEntries(&rows);
 	checkInt("MENU has seven rows", rows, 7);
-	checkTrue("BEEP, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, SETTINGS, "
-	          "in that order",
-	          uiMenuRowOf(&UI_BEEP) == 0 && uiMenuRowOf(&UI_AM32) == 1 &&
+	checkTrue("ESC COMMANDS, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, "
+	          "SETTINGS, in that order",
+	          uiMenuRowOf(&UI_ESC_CMD) == 0 && uiMenuRowOf(&UI_AM32) == 1 &&
 	          uiMenuRowOf(&UI_SERVO) == 2 && uiMenuRowOf(&UI_SERVO_PROG) == 3 &&
 	          uiMenuRowOf(&UI_RX_SIGNALS) == 4 && uiMenuRowOf(&UI_SDLOG) == 5 &&
 	          uiMenuRowOf(&UI_SETTINGS) == 6);
@@ -3555,6 +3532,7 @@ static void testMenuDestinations() {
 		UiRect r = ctlRect(menuRow(s));
 		return fb[(r.y + 8) * GFX_W + (r.x + 5)];
 	};
+	checkTrue("ESC COMMANDS is filled", pixelIn(&UI_ESC_CMD) == C_PANEL);
 	checkTrue("AM32 is filled", pixelIn(&UI_AM32) == C_PANEL);
 	checkTrue("SERVO PROGRAMMER is filled", pixelIn(&UI_SERVO_PROG) == C_PANEL);
 	checkTrue("SERVO is filled", pixelIn(&UI_SERVO) == C_PANEL);
@@ -3568,7 +3546,8 @@ static void testMenuDestinations() {
 				if (fb[y * GFX_W + x] != fill) return false;
 		return true;
 	};
-	checkTrue("AM32's row has no status", statusBlank(&UI_AM32, C_PANEL));
+	checkTrue("ESC COMMANDS' row has no status", statusBlank(&UI_ESC_CMD, C_PANEL));
+	checkTrue("nor AM32's", statusBlank(&UI_AM32, C_PANEL));
 	checkTrue("nor SERVO TESTER's", statusBlank(&UI_SERVO, C_PANEL));
 	checkTrue("nor RX SIGNALS'", statusBlank(&UI_RX_SIGNALS, C_PANEL));
 
@@ -3594,8 +3573,10 @@ static void testMenuDestinations() {
 	checkTrue("and RX SIGNALS, whose MONITOR claims",
 	          pixelIn(&UI_RX_SIGNALS) == C_BG && statusBlank(&UI_RX_SIGNALS, C_BG) &&
 	          !ctlEnabled(menuRow(&UI_RX_SIGNALS)));
-	checkTrue("the rows that claim nothing still act",
-	          ctlEnabled(menuRow(&UI_BEEP)) && ctlEnabled(menuRow(&UI_SDLOG)));
+	checkTrue("ESC COMMANDS, which needs DShot on SIG, drawn disabled and gated",
+	          pixelIn(&UI_ESC_CMD) == C_BG && statusBlank(&UI_ESC_CMD, C_BG) &&
+	          !ctlEnabled(menuRow(&UI_ESC_CMD)));
+	checkTrue("SD LOG, which claims nothing, still acts", ctlEnabled(menuRow(&UI_SDLOG)));
 	checkTrue("SETTINGS, which changes the wiring a claim latched, does not",
 	          !ctlEnabled(menuRow(&UI_SETTINGS)));
 	checkControlTable("MENU, pins busy");
@@ -3648,10 +3629,10 @@ static void testMenuDestinations() {
 	          pinClaimState() == ClaimState::Free &&
 	          pixelIn(&UI_SERVO) == C_PANEL);
 	checkTrue("RESTART DSHOT leaves to MENU", uiCurrentScreen() == UiScreenId::Menu);
-	int beeps = fakeBeepRequests();
-	tapId(menuRow(&UI_BEEP));
-	checkInt("and MENU takes taps", fakeBeepRequests(), beeps + 1);
-	fakeAdvance(400); frames(2);
+	tapId(menuRow(&UI_ESC_CMD));
+	checkTrue("and MENU takes taps: ESC COMMANDS opens", uiCurrentScreen() == UiScreenId::EscCmd);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
 	checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
@@ -4347,7 +4328,7 @@ static void testTesterReadouts() {
 	          underlined(88, 244, "MAX 20%"));
 
 	// --- the 3D note takes the pole count's row, and its target ---
-	s_esc3d = true;
+	esc3dSetNote(true);
 	uiInit();
 	frames(2);
 	checkTrue("3D note: no pole count, no Poles control",
@@ -4360,7 +4341,7 @@ static void testTesterReadouts() {
 	frames(2);
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
-	s_esc3d = false;
+	esc3dSetNote(false);
 	uiInit();
 	frames(2);
 }
@@ -4475,9 +4456,9 @@ static bool menuRunCueShown() {
 	return fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_RUN_CUE, UI_COL_WARN, C_BG, 1);
 }
 
-/** @brief The tester shows @ref AM32_UI_TESTER_3D on the RPM area's bottom row. */
+/** @brief The tester shows @ref ESC_3D_TESTER_NOTE on the RPM area's bottom row. */
 static bool tester3dShown() {
-	return fakeTextIs(10, 114, AM32_UI_TESTER_3D, C_AMBER, C_BG, 1);
+	return fakeTextIs(10, 114, ESC_3D_TESTER_NOTE, C_AMBER, C_BG, 1);
 }
 
 /** @brief The tester's bottom row as it is without the 3D note: the pole count. */
@@ -4519,7 +4500,7 @@ static void testAm32TesterNote() {
 	fakeSetTelemetry(&quiet);
 	uint8_t keep[AM32_SETTINGS_SIZE];
 	for (int i = 0; i < AM32_SETTINGS_SIZE; i++) keep[i] = fakeEscByte(i);
-	s_esc3d = false;
+	esc3dSetNote(false);
 
 	section("Tester: the 3D note");
 	{
@@ -4527,32 +4508,32 @@ static void testAm32TesterNote() {
 		frames(2);
 		checkTrue("no AM32 read yet: the pole count, no note",
 		          testerPolesShown() && !tester3dShown());
-		checkTrue("35 characters, 209 px, from x 10 to the RPM label's right edge, x 226",
-		          gfxTextW(AM32_UI_TESTER_3D, 1) == 209 && 10 + gfxTextW(AM32_UI_TESTER_3D, 1) <= 226);
+		checkTrue("33 characters, 197 px, from x 10 to x 206, inside the RPM label's right edge, x 226",
+		          gfxTextW(ESC_3D_TESTER_NOTE, 1) == 197 && 10 + gfxTextW(ESC_3D_TESTER_NOTE, 1) <= 226);
 
 		enterAm32(6);
-		checkTrue("a read with 3D MODE off: no note", s_state == S_LIST && !uiAm32Esc3d());
+		checkTrue("a read with 3D MODE off: no note", s_state == S_LIST && !esc3dNote());
 		am32Set3d(true);
 		leaveAm32ToTester();
 		frames(2);
-		checkTrue("3D MODE edited on, not written: no note", !uiAm32Esc3d() && !tester3dShown());
+		checkTrue("3D MODE edited on, not written: no note", !esc3dNote() && !tester3dShown());
 
 		enterAm32(6);
 		am32Set3d(true);
 		fakeAm32FailWrites(1);
 		am32HoldWrite();
 		checkTrue("a write of 3D MODE on that the ESC refuses: no note",
-		          !s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 0 && !uiAm32Esc3d());
+		          !s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 0 && !esc3dNote());
 		fakeAm32FailReads(3);
 		am32HoldWrite();
 		checkTrue("accepted, its read-back failed: the note is set, fail-safe",
-		          !s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 1 && uiAm32Esc3d());
+		          !s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 1 && esc3dNote());
 		am32HoldWrite();
 		checkTrue("the write verifies with 3D MODE on: the note stands",
-		          s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 1 && uiAm32Esc3d());
+		          s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 1 && esc3dNote());
 		leaveAm32ToTester();
 		frames(2);
-		checkTrue("the tester: " AM32_UI_TESTER_3D " in amber at x 10, y 114", tester3dShown());
+		checkTrue("the tester: " ESC_3D_TESTER_NOTE " in amber at x 10, y 114", tester3dShown());
 		checkTrue("the pole count and the swipe hint give way",
 		          !testerPolesShown() &&
 		          !fakeTextIs(226 - gfxTextW("SWIPE = THROTTLE", 1), 114, "SWIPE = THROTTLE", C_GRID, C_BG, 1));
@@ -4585,15 +4566,15 @@ static void testAm32TesterNote() {
 		// A read of the ESC as it is: 3D MODE on, the note kept; edited off
 		// and not written, kept; written off and verified, cleared.
 		enterAm32(6);
-		checkTrue("a read with 3D MODE on: the note stands", uiAm32Esc3d());
+		checkTrue("a read with 3D MODE on: the note stands", esc3dNote());
 		am32Set3d(false);
-		checkTrue("edited off, not written: the note stands", uiAm32Esc3d());
+		checkTrue("edited off, not written: the note stands", esc3dNote());
 		fakeAm32SkewWrites(1);
 		am32HoldWrite();
-		checkTrue("a write that reads back different: the note stands", !s_verified && uiAm32Esc3d());
+		checkTrue("a write that reads back different: the note stands", !s_verified && esc3dNote());
 		am32HoldWrite();
 		checkTrue("written off and verified: the note goes",
-		          s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 0 && !uiAm32Esc3d());
+		          s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 0 && !esc3dNote());
 		leaveAm32ToTester();
 		frames(2);
 		checkTrue("the tester: the pole count again, no note", testerPolesShown() && !tester3dShown());
@@ -4605,29 +4586,29 @@ static void testAm32TesterNote() {
 		fakeAm32SkewWrites(1);
 		am32HoldWrite();
 		checkTrue("3D MODE on, accepted, read back different: the note is set",
-		          !s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 1 && uiAm32Esc3d());
+		          !s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 1 && esc3dNote());
 		fakeAm32FailReads(1000);
 		leaveAm32ToTester();
 		enterAm32(6);
 		checkTrue("a read that fails: the note stands",
-		          s_state != S_LIST && strncmp(s_status, "READ FAILED", 11) == 0 && uiAm32Esc3d());
+		          s_state != S_LIST && strncmp(s_status, "READ FAILED", 11) == 0 && esc3dNote());
 		fakeAm32FailReads(0);
 		leaveAm32ToTester();
 		enterAm32(6);
 		am32Set3d(false);
 		am32HoldWrite();
 		checkTrue("written off and verified: the note goes again",
-		          s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 0 && !uiAm32Esc3d());
+		          s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 0 && !esc3dNote());
 		leaveAm32ToTester();
 
 		// Another ESC, or one set elsewhere: the read decides.
 		fakeEscSet(AM32_OFF_BI_DIRECTION, 1);
 		enterAm32(6);
-		checkTrue("an ESC read with 3D MODE on: the note is set", uiAm32Esc3d());
+		checkTrue("an ESC read with 3D MODE on: the note is set", esc3dNote());
 		leaveAm32ToTester();
 		fakeEscSet(AM32_OFF_BI_DIRECTION, 0);
 		enterAm32(6);
-		checkTrue("one read with 3D MODE off: the note goes", !uiAm32Esc3d());
+		checkTrue("one read with 3D MODE off: the note goes", !esc3dNote());
 		// A read that does not open the list leaves it as it was.
 		fakeEscSet(AM32_OFF_BI_DIRECTION, 1);
 		leaveAm32ToTester();
@@ -4636,7 +4617,7 @@ static void testAm32TesterNote() {
 		fakeEscSet(AM32_OFF_BI_DIRECTION, 0);
 		fakeAm32Blank(true);
 		enterAm32(6);
-		checkTrue("NO VALID SETTINGS: the note stands", s_state == S_CONNECT && uiAm32Esc3d());
+		checkTrue("NO VALID SETTINGS: the note stands", s_state == S_CONNECT && esc3dNote());
 		// Left while the page still finds no valid settings, so no retry
 		// reads the ESC before BACK.
 		leaveAm32ToTester();
@@ -4645,18 +4626,18 @@ static void testAm32TesterNote() {
 		// as 3D MODE: it neither clears nor sets the note.
 		const uint8_t lay = fakeEscByte(AM32_OFF_LAYOUT_REVISION);
 		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 5);
-		checkTrue("the note before the read-only view", uiAm32Esc3d());
+		checkTrue("the note before the read-only view", esc3dNote());
 		enterAm32(6);
-		checkTrue("the read-only view, byte 0x12 at 0: the note stands", s_state == S_VIEW && uiAm32Esc3d());
+		checkTrue("the read-only view, byte 0x12 at 0: the note stands", s_state == S_VIEW && esc3dNote());
 		leaveAm32ToTester();
 		fakeEscSet(AM32_OFF_LAYOUT_REVISION, lay);
 		enterAm32(6);
-		checkTrue("a list read with 3D MODE off: no note", s_state == S_LIST && !uiAm32Esc3d());
+		checkTrue("a list read with 3D MODE off: no note", s_state == S_LIST && !esc3dNote());
 		leaveAm32ToTester();
 		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 5);
 		fakeEscSet(AM32_OFF_BI_DIRECTION, 1);
 		enterAm32(6);
-		checkTrue("the read-only view, byte 0x12 at 1: no note", s_state == S_VIEW && !uiAm32Esc3d());
+		checkTrue("the read-only view, byte 0x12 at 1: no note", s_state == S_VIEW && !esc3dNote());
 		leaveAm32ToTester();
 		fakeEscSet(AM32_OFF_LAYOUT_REVISION, lay);
 		fakeEscSet(AM32_OFF_BI_DIRECTION, 0);
@@ -4664,7 +4645,7 @@ static void testAm32TesterNote() {
 
 	// The skewed writes above flip byte 0x1B in the ESC: every byte back.
 	for (int i = 0; i < AM32_SETTINGS_SIZE; i++) fakeEscSet(i, keep[i]);
-	s_esc3d = false;
+	esc3dSetNote(false);
 	frames(2);
 }
 
@@ -6655,7 +6636,7 @@ void runUiTests() {
 	testManualLogSurvivesArming();
 	testKissDisplay();
 	testTelemetryExpires();
-	testMenuBeepRow();
+	testMenuChip();
 
 	testBoardRow();
 	testArmInterlocks();

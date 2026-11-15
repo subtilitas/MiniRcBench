@@ -1,6 +1,6 @@
 /**
  * @file ui_menu.cpp
- * @brief MENU and the BEEP action. @see ui_menu.h
+ * @brief MENU. @see ui_menu.h
  */
 
 #include "ui_menu.h"
@@ -43,9 +43,6 @@ static_assert(MENU_ROW_H >= UI_LIST_TAP_MIN && MENU_ROW_PITCH > MENU_ROW_H,
               "a MENU row is lower than the list floor, or has no gap");
 static_assert(MENU_ROW_X + MENU_ROW_W < MENU_BAR_X, "MENU's rows run into the scroll bar");
 
-/** @brief How long BEEP's row shows SENT or REFUSED, ms. */
-#define BEEP_FLASH_MS 350
-
 static const UiMenuEntry *s_entries = UI_MENU;
 static uint8_t            s_count = UI_MENU_COUNT;
 static const UiMenuEntry *s_wantEntries = UI_MENU;
@@ -55,46 +52,6 @@ static UiList             s_list;
 static const TouchState  *s_t = nullptr;
 /** @brief Hash of what the last frame drew; 0 forces a repaint. */
 static uint32_t           s_drawnKey = 0;
-
-static bool     s_beepOk = false;
-static uint32_t s_beepUntil = 0;
-
-// ---------------------------------------------------------------------------
-// BEEP
-// ---------------------------------------------------------------------------
-
-/** @brief A flash is up: the deadline alone reads true again 2^31 ms on. */
-static bool     s_beepShown = false;
-
-static bool beepFlashing() {
-	if (s_beepShown && (int32_t)(millis() - s_beepUntil) >= 0) s_beepShown = false;
-	return s_beepShown;
-}
-
-static void beepAction() {
-	s_beepOk = escRequestBeep(1);
-	s_beepShown = true;
-	s_beepUntil = millis() + BEEP_FLASH_MS;
-}
-
-static void beepStatus(char *buf, size_t n, uint16_t *col, uint16_t *fill) {
-	// REFUSED while no ESC answers, while the motor turns and for 1500 ms
-	// after an ESC starts answering; armed only as a backstop, since MENU
-	// disarms on open. @see escRequestBeep(), escCmdAccept()
-	if (beepFlashing()) {
-		snprintf(buf, n, "%s", s_beepOk ? "SENT" : "REFUSED");
-		*col = C_PAPER;
-		*fill = s_beepOk ? C_INK : C_AMBER;
-		return;
-	}
-	snprintf(buf, n, "DISARMED");
-	*col = C_DIM;
-}
-
-const UiScreen UI_BEEP = {
-	UiScreenId::Beep, "BEEP THE ESC", PinUser::None, beepStatus,
-	nullptr, nullptr, beepAction, nullptr, nullptr, false,
-};
 
 // ---------------------------------------------------------------------------
 // the list
@@ -253,8 +210,6 @@ static void drawMenu(MenuEdt edt, bool runCue) {
 // ---------------------------------------------------------------------------
 
 void uiMenuEnter() {
-	// A flash cut short by leaving MENU does not come back.
-	s_beepShown = false;
 	s_entries = s_wantEntries;
 	s_count = s_wantCount;
 	uiListInit(&s_list, UiRect{ MENU_ROW_X, MENU_VIEW_Y0, MENU_ROW_W, MENU_VIEW_H },

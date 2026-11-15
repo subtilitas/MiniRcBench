@@ -8,9 +8,9 @@
  * 240 px panel. A tool's persisted settings rows, `UiScreen::settings`, join
  * SETTINGS between SERVO SUPPLY and DISPLAY in this order.
  *
- * The rows go by device (docs/design/menu-b.md, decisions 16, 23, 32): BEEP
- * THE ESC, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG,
- * SETTINGS. A tool row has no status: the strip names the pins (decision
+ * The rows go by device (docs/design/menu-b.md, decisions 16, 23, 32): ESC
+ * COMMANDS (docs/design/esc-commands.md, decision 1), AM32 CONFIG, SERVO
+ * TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, SETTINGS. A tool row has no status: the strip names the pins (decision
  * 18). RX SIGNALS opens its chooser, whose entries are `UI_RX_ENTRIES`
  * (ui_rx_signals.h), checked to fit as PROGRAMMER's are.
  *

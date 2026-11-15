@@ -298,21 +298,6 @@ EscCmdReady escCommandReady();
  */
 EscCmdState escCommandState(uint8_t *cmd);
 
-/**
- * @brief Queue a beacon so the motor beeps: escRequestCommand(n, false).
- *
- * @param n Beacon 1..5, clamped.
- * @return False if refused: armed, no ESC answering, the motor turning, or
- *         the ESC answering for less than @ref ESC_CMD_SETTLE_MS. True
- *         means accepted; the beacon goes out when the pump is free, or
- *         expires after @ref ESC_CMD_WAIT_MS. @see escCmdAccept()
- */
-static inline bool escRequestBeep(uint8_t n) {
-	if (n < 1) n = 1;
-	if (n > 5) n = 5;
-	return escRequestCommand(n, false);
-}
-
 /** @brief What the automatic EDT enable should do this frame. */
 enum class EdtAutoAction : uint8_t {
 	None,   /**< Nothing to do: no ESC, EDT already working, or too soon. */
@@ -658,8 +643,8 @@ static inline uint16_t escFrameWire(const EscFrame *f, bool *telemetry) {
  * 0, 10 of 12 and 300 of 0: 620 ms. The design and its sources are in
  * `docs/design/esc-commands.md`.
  *
- * Written only by escCmdStart(), escCmdCheckReply(), escCmdFrameSent() and
- * escCmdInterrupt(), which are pure.
+ * Written only by escCmdStart(), escCmdCheckReply(), escCmdFrameSent(),
+ * escCmdInterrupt() and escCmdExpire(), which are pure.
  */
 struct EscCmdSeq {
 	uint8_t     cmd;      /**< The first block's command; 0 while no sequence runs. */
@@ -838,8 +823,8 @@ static inline EscCmdReady escCmdReadiness(bool linkUp, uint32_t erpm,
  * @brief Core1's command state between frame slots: the EDT enable, the
  *        command sequence and the KISS request cadence.
  *
- * Written only by escPumpBind(), escPumpRelease(), escPumpSlot() and
- * escPumpFrameSent(), which are pure. escTaskPoll() keeps one of these and
+ * Written only by escPumpBind(), escPumpRelease(), escPumpTeardown(),
+ * escPumpSlot() and escPumpFrameSent(), which are pure. escTaskPoll() keeps one of these and
  * does the I/O around them; the host suite drives the same functions against
  * model ESCs.
  */
@@ -863,14 +848,44 @@ struct EscSlot {
  * @brief The pump lets go of the pin: a sequence going out stops where it
  *        stands, and nothing is ready. Pure.
  *
- * Core1 calls it at a teardown, and escPumpBind() at every bind.
- * @see escCmdInterrupt()
+ * escPumpTeardown() calls it at a teardown, and escPumpBind() at every
+ * bind. @see escCmdInterrupt()
  *
  * @param p State to update.
  */
 static inline void escPumpRelease(EscPump *p) {
 	escCmdInterrupt(&p->seq);
 	p->ready = EscCmdReady::NoAnswer;
+}
+
+/**
+ * @brief A request ends unstarted: the outcome reads EscCmdState::Expired,
+ *        about @p cmd. Pure.
+ * @param s   The sequence whose outcome core0 reads.
+ * @param cmd The request's command.
+ */
+static inline void escCmdExpire(EscCmdSeq *s, uint8_t cmd) {
+	s->state    = EscCmdState::Expired;
+	s->stateCmd = cmd;
+}
+
+/**
+ * @brief A teardown: the pump lets go of the pin, and a request that still
+ *        waits expires with it. Pure.
+ *
+ * escPumpRelease(), then the request: left waiting, it would start on the
+ * next bind's ESC once that settled within @ref ESC_CMD_WAIT_MS, on whatever
+ * screen is open by then.
+ *
+ * @param p   State to update.
+ * @param req The request core0 made; @c cmd 0 for none.
+ * @return True when a request expired: clear it.
+ */
+static inline bool escPumpTeardown(EscPump *p, const EscCmdRequest *req) {
+	escPumpRelease(p);
+	if (!req->cmd) return false;
+	escCmdExpire(&p->seq, req->cmd);
+	return true;
 }
 
 /**
@@ -993,8 +1008,7 @@ static inline EscSlot escPumpSlot(EscPump *p, const EscTelemetry *tel,
 	if (armed) {
 		escCmdInterrupt(&p->seq);
 		if (req->cmd) {
-			p->seq.state    = EscCmdState::Expired;
-			p->seq.stateCmd = req->cmd;
+			escCmdExpire(&p->seq, req->cmd);
 			s.cmdTaken = true;
 		}
 	} else if (req->cmd) {
@@ -1004,8 +1018,7 @@ static inline EscSlot escPumpSlot(EscPump *p, const EscTelemetry *tel,
 			escCmdStart(&p->seq, req->cmd, req->save);
 			s.cmdTaken = true;
 		} else if ((int32_t)(nowMs - req->atMs) >= (int32_t)ESC_CMD_WAIT_MS) {
-			p->seq.state    = EscCmdState::Expired;
-			p->seq.stateCmd = req->cmd;
+			escCmdExpire(&p->seq, req->cmd);
 			s.cmdTaken = true;
 		}
 	}
