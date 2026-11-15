@@ -1087,8 +1087,8 @@ runs the slice 2 tests through the probe and seven new tests of it. The
 probe's tests share the job's file and harness rather than a new file: the
 probe is a phase of the job. CI's "S.BUS output job stack on core1" reads
 the probe's call graphs and adds the deepest line-driver function, as the
-ESC settings step does: 368 bytes against 1,792, 192 in slice 2. The chain
-is `sbusOutJobStep()`, 112 bytes, and `publish()`, 144, with 112 for the
+ESC settings step does: 376 bytes against 1,792, 192 in slice 2. The chain
+is `sbusOutJobStep()`, 112 bytes, and `publish()`, 152, with 112 for the
 driver's `ew_line_start()` through the pointers of `ew_driver_t`.
 
 How the probe shares the line driver, and the rest the note left open, the
@@ -1289,45 +1289,51 @@ nothing written to GP0's control register, the pull-up, RETRY; a START every
 matcher on seventeen casts, pointer casts, indices and walks over the tables,
 and seven lines it must pass.
 
-Mutation check: 93 mutations, each applied to the tree, the host suite
-built and run, the tree restored: 84 of `src/sbus_out_job.cpp`, 1 of
-`src/ui_menu.cpp`, 2 of `src/escwire_job.cpp` and 6 of the unreachability
-test's matcher. 91 fail the suite: the rule's EFM8, piece and AM32 cases
-and noise taken as an answer; SIO's output off and low at the bind; the
-clock refusal's `uart_deinit()`, its pull-up, a pull-down in its place and
-the refusal ignored; the refused open's `uart_deinit()`, its pull-up, its
-bind failure, the refusal ignored and the line opened before the UART; the
-pull-up after the open, the greeting's bytes, the quiet phase's start, the
-phase, the bind's acknowledged seq; each field of the probe's reset; the
-switch without the close, without the pull-down, the pull-down after the
-UART write, the close after it, the phase and the switch's acknowledged
-seq; each step of judging an answer, the EFM8 branch taken for AM32, the
-aborted and the overflowing capture and their unclean cycle; the cycle's
-count, its end at every greeting, the UART without a clean cycle and a
-cycle never clean again; the poll's wait, the greeting's end, the judging,
-greetings in the quiet phase, the capture's size, the wait for an answer,
-the rate; the refused greeting's unclean cycle and its count; commands
-taken in the probe and the status not published; the release mid-probe
-as the UART's, without the close, without `uart_deinit()`, without the
-phase or the publish, and the phase left after the UART's release; the
+Mutation check: each mutation applied to a copy of the tree, the host suite
+built and run. 102 on the branch before main was merged: 86 of
+`src/sbus_out_job.cpp`, 2 of its header, 1 of `src/ui_menu.cpp`, 2 of
+`src/escwire_job.cpp` and 11 of the unreachability test. 99 fail the suite:
+the rule's EFM8, piece and AM32 cases and noise taken as an answer; SIO's
+output off and low at the bind; the clock refusal's `uart_deinit()`, its
+pull-up, a pull-down in its place and the refusal ignored; the refused open's
+`uart_deinit()`, its pull-up, its bind failure, the refusal ignored and the
+line opened before the UART; the pull-up after the open, the greeting's bytes,
+the quiet phase's start, the phase, the bind's acknowledged seq; each field of
+the probe's reset; the switch without the close, without the pull-down, the
+pull-down after the UART write, the close after it, the phase and the
+switch's acknowledged seq; the pull-up after a capture dropped; a byte, a cut
+capture and a capture not whole each no longer holding the cycle, and none
+holding it; each step of counting an answer, the EFM8 branch taken for AM32;
+the cycle's count, its end at every greeting, the UART without a clean cycle
+and a cycle never clean again; the poll's wait, the greeting's end, the
+judging, greetings in the quiet phase, the capture's size, the wait for an
+answer, the rate; the refused greeting's unclean cycle and its count;
+commands taken in the probe and the status not published; the release
+mid-probe as the UART's, without the close, without `uart_deinit()`, without
+the phase or the publish, and the phase left after the UART's release; the
 gate, each state of the poll, the EFM8 mark, each condition of the run cue
-and of RESTART DSHOT's clear; the pad's IE and OD write and its ISO clear
-at the switch; MENU's cue; two of the escwire job's bind failures; and each
-alternative of the matcher, and the matcher dropped. One of them,
-`pinClaimWantLeavePage()`'s call removed, fails only the unreachability
-test's check that each allowed line is still there: by behaviour it is
-equivalent, as the claim's row gives the leave page from the start. Two
-survive:
+and of RESTART DSHOT's clear; either answer count 16 bits wide; the pad's IE
+and OD write and its ISO clear at the switch; MENU's cue; two of the escwire
+job's bind failures; and each alternative of the matcher, and the matcher
+dropped. One of them, `pinClaimWantLeavePage()`'s call removed, fails only
+the unreachability test's check that each allowed line is still there: by
+behaviour it is equivalent, as the claim's row gives the leave page from the
+start. After main was merged, whose `bridge_4way.cpp` has a file-static
+`s_ops` of its own, the matcher's 13 mutations and two of the probe's ran
+again on the merged tree: 14 fail. Three survive in all, each equivalent:
 
 - `EW_A_GAP_US` ten times longer as the wait between an answer's bytes.
   rcbench's model ends an answer by its byte count and does not model the
   wait after its last byte, so the host cannot tell. On the chip a longer
-  wait would lengthen each answered greeting, not change what counts as an
-  answer.
+  wait would lengthen each answered greeting, not change what holds a cycle.
 - The release during the probe without its `clearState()`. The probe takes
   no command and sends no frame, so the frames' state is still the bind's
-  reset when it ends; the call is equivalent and keeps the status cleared
-  by the release whatever the probe does.
+  reset when it ends; the call keeps the status cleared by the release
+  whatever the probe does.
+- Each allowed line found at least once in place of exactly once. A second,
+  identical copy of an allowed line does what the first does: a declaration,
+  the claim's row, which `pinUsersComplete()` holds to one, or the request
+  for the leave page.
 
 The script is not kept.
 

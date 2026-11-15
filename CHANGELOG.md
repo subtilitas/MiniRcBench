@@ -67,7 +67,7 @@ protocol.
   pointer cast or a walk over the user rows or the job table. The escwire
   line's fake writes the driver's pad changes to the GPIO fake and serves
   rcbench's AM32 model. CI's stack check of the job reads the probe's call
-  graphs: 368 bytes of 1,792.
+  graphs: 376 bytes of 1,792.
 - After v0.1.0-rc1: MSP and the 4-way interface on the USB bridge, slice 3
   of [usb-bridge.md](docs/design/usb-bridge.md#slice-3-as-built), tested on
   the host only. The PC's first byte chooses the mode: `$` MSP (the MultiWii
