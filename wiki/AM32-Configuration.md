@@ -23,11 +23,14 @@ The screen hands the signal pin from the DShot driver to the bootloader link
 go, it sends throttle zero for at least 250 ms after the last throttle
 command, so an ESC that was running sees a stop before the line goes quiet.
 
-**Then power-cycle the ESC.** The AM32 bootloader listens only in a short
-window after power-up. Unplug the ESC battery and plug it back in while this
-screen is open. The firmware repeats its handshake, waiting 30 ms for each
-reply, so that it is sending when the window opens. The window's length is not
-measured.
+**Then power-cycle the ESC.** Unplug the ESC battery and plug it back in
+while this screen is open. By the AM32 bootloader's source, the bootloader
+decides about 46 ms after power-up and then waits while the line rests high;
+if the handshake's bytes fall into those 46 ms, the ESC firmware starts
+instead, and it restarts itself 2 s later with no DShot, so the bootloader
+gets another chance, in which only a low in its last 5 ms starts the
+firmware. Not measured. The firmware repeats its handshake, waiting 30 ms for
+each reply.
 
 The screen shows `POWER-CYCLE THE ESC` in amber, the step to take now, and
 `SEARCHING...`, then `WAITING... (TRY n)` with an attempt counter, and a
@@ -383,11 +386,16 @@ board restarts.
 ## When it will not connect
 
 - **`SEARCHING...` or `WAITING...` with no end.** Unplug and replug the ESC
-  battery *while the screen is open*. A power-cycle before opening the screen
-  does not work.
+  battery *while the screen is open*. Whether an ESC powered before the
+  screen opened is reached without a power cycle is not measured.
 - **`REPLY NOT UNDERSTOOD`.** The link works; the framing does not. Possible
   causes: the ESC does not run AM32, or its bootloader uses a protocol this
   transport does not implement.
+- **`REPLY NOT UNDERSTOOD` with the bytes `34 37 31`.** A Bluejay or BLHeli_S
+  ESC answered. Its bootloader now waits for commands and MENU does not show
+  `POWER-CYCLE THE ESC TO RUN IT`. **Unplug its battery before BACK and plug it
+  in after**: BACK sends DShot at once, which its bootloader may read as a
+  command. From the bootloader's source; not seen on an ESC.
 - **`NO VALID SETTINGS`.** The ESC answered, and the settings block failed the
   plausibility check. Do not write anything.
 - **`LAYOUT n NOT KNOWN: READ-ONLY.`** The ESC stores a settings layout the
