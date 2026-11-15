@@ -639,14 +639,14 @@ settings block (decision 4). BACK leaves without keeping it.
 
 ## Entry
 
-Menu structure B gave MENU seven rows, BEEP THE ESC, AM32 CONFIG, SERVO
-TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, SETTINGS, scrolling 36 px
+Menu structure B gives MENU seven rows, as built, BEEP THE ESC, AM32 CONFIG,
+SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, SETTINGS, scrolling 36 px
 ([menu-b.md](menu-b.md#menu), decisions 32 and 33). The owner decided on
-2026-11-15 (decision 1) that the meter takes an eighth row, `TOOLS`, in the
-place of option (b) below. The resulting MENU, with the rows of the other
-notes decided the same day, is the revision line in
-[menu-b.md](menu-b.md#menu). The table lists the options the decision
-chose from.
+2026-11-15 (decision 1) that the meter takes an eighth row, `TOOLS`, as in
+option (b) of the table below. The resulting MENU, with the rows of the other
+notes decided the same day, is the revision line in [menu-b.md](menu-b.md#menu).
+`TOOLS` is built with the angle meter's first screen slice (design call,
+2026-11-15). The table lists the options the decision chose from.
 
 MENU's scroll range is rows × 42 px − 258 px (`uiListMaxScroll()`). At
 scroll 0 row n starts at y 62 + 42 × (n − 1) in a viewport that ends at
@@ -689,7 +689,7 @@ chooser's second entry: it sits in the `ESC CONFIG` chooser of
 - **Interrupt lines.** INT1 and INT2 stay disabled; GP8 and GP9 are not
   configured.
 - **Flash.** The calibration, LENGTH, ALONG AXIS and SIGN are kept in
-  the settings block (decision 4), so a flash save
+  the settings block (decision 4), and a flash save
   parks core1 and erases a sector, so no tap saves. SETUP's rows apply at
   once in RAM and are saved once, when BACK leaves SETUP and a value
   changed; LENGTH's hold-to-repeat writes nothing. FLIP CAL saves on its

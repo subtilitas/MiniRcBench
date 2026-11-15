@@ -788,7 +788,8 @@ not run on hardware (item 18).
     returns 0 while the RP2350's always-on timer is not running, and
     nothing starts it; not checked on a card. The owner answered the
     note's eight questions on 2026-11-15: the run shows on SD LOG only,
-    not on the tester; the maxima cover the whole log; mAh from current
+    in rows 2 to 8 after a stop, not on the tester; the SD LOG figures are
+    the held values; the maxima cover the whole log; mAh from current
     shows as USED FROM CURRENT; the clock is set over USB from
     `tools/set_clock.py`; no cell is fitted in the RTC socket J2, so the
     clock is lost whenever 3.3 V goes away and files are dated only after
@@ -804,10 +805,11 @@ not run on hardware (item 18).
     slices on rcbench's `servo_rudder.c` and `imu.c`: copies, driver, model,
     screen, docs and bring-up. The owner answered its seven questions on
     2026-11-15: an eighth MENU row, `TOOLS`, opening a chooser whose first entry
-    is ANGLE METER; the IMU model added in rcbench first; the three-pose flip;
-    the calibration, LENGTH, ALONG AXIS and SIGN kept in the settings block;
-    0.1° and 0.1 mm; no holder in the first build; the screen only. Slices wait
-    on being built. Which QMI8658 variant is fitted, its byte order, its axes on
+    is ANGLE METER; the IMU model added in rcbench first; the three-pose flip,
+    then the edge poses if bench test B6 shows a gain error over 0.2°; the
+    calibration, LENGTH, ALONG AXIS and SIGN kept in the settings block; 0.1°
+    and 0.1 mm; no holder in the first build; the screen only. Slices wait on
+    being built. Which QMI8658 variant is fitted, its byte order, its axes on
     the board, the board's mass and the real accuracy are not verified.
 
 28. **The owner's feature choice of 2026-11-14.** From the feature survey
@@ -876,7 +878,8 @@ not run on hardware (item 18).
     turn; LEAVE sends `00 01`; no repair here, and rcbench is asked for an EFM8
     restore; backups `BJnnn.TXT` and `BHnnn.TXT`; a write without a card runs;
     older layouts read-only; a leave page after an answer with no LEAVE. Slices
-    wait on being built. Nothing of it has run on an ESC.
+    wait on being built. `ESC SETTINGS` serves AM32 only until the Bluejay
+    slices land. Nothing of it has run on an ESC.
 
 ## Known limitations
 

@@ -10,9 +10,9 @@ temperature, the lowest voltage, the charge used and the armed time. SD LOG
 shows it once the log stops, and the logger writes it as a small text file
 beside the log, `LOGS/LOG00012.TXT` beside `LOGS/LOG00012.BFL`. As an
 option, the board's PCF85063 real-time clock dates the logs, the summaries
-and the device backups on the card. The board has no cell on its clock, so
-the clock is set again in each power-up and files written before that are
-undated.
+and the device backups on the card. The owner's board has no cell in the RTC
+socket J2, so its clock is set again after each power-up and files written
+before the set have FAT date 0.
 
 ## Terms
 
@@ -573,7 +573,6 @@ real modification time. The order of the backup ring is then known from
 the dates only for files written after a set.
 
 ### FAT dates today
-
 
 Today every file and directory the firmware writes after a power-on has
 date and time 0. A timer that another firmware image started may run on

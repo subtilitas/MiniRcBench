@@ -660,17 +660,26 @@ The owner chose option (c) (decision 1). The options:
 |---|---|---|---|
 | (a) a `USB BRIDGE` button on AM32 CONFIG's connect page, DshotDisplay's place (`ui_am32.cpp` at 6693084 lines 212 to 215) | 7 rows | 2 | AM32 CONFIG's page; the bridge then sits inside an AM32 claim, which has no core1 job, and is found under a firmware it also serves BLHeli_S and Bluejay for |
 | (b) an eighth row `USB BRIDGE`, 118 px at scale 2 | 8 rows: 8 × 42 − 258 = 78 px of scroll | 2 | decision 33's seven rows |
-| (c) AM32 CONFIG's row becomes a chooser, `ESC CONFIG`, as PROGRAMMER is ([menu-b.md](menu-b.md#programmer-the-chooser)), with the one settings screen for AM32, Bluejay and BLHeli_S of `docs/design/bluejay-blheli-s.md`, titled `ESC SETTINGS` (12 characters, 142 px at scale 2) by its question 1 (e), and USB BRIDGE; that note's option (c) becomes one more chooser line | 7 rows | 3; the settings screen one tap deeper | decision 16's row and its label; the chooser claims nothing, an entry's tap claims SIG |
+| (c) AM32 CONFIG's row becomes a chooser, `ESC CONFIG`, as PROGRAMMER is ([menu-b.md](menu-b.md#programmer-the-chooser)), with the one settings screen for AM32, Bluejay and BLHeli_S of `docs/design/bluejay-blheli-s.md`, titled `ESC SETTINGS` (12 characters, 142 px at scale 2) by [decision 1 (option e) of bluejay-blheli-s.md](bluejay-blheli-s.md#decisions), and USB BRIDGE | 7 rows | 3; the settings screen one tap deeper | decision 16's row and its label; the chooser claims nothing, an entry's tap claims SIG |
 | (d) a SETTINGS row | 7 rows | 3 | SETTINGS holds settings, not tools |
 | (e) SD LOG's row becomes a USB chooser, with SD LOG and USB BRIDGE | 7 rows | 3 | decision 16's row; USB DRIVE stays on SD LOG |
 
-Chosen: (c), the recommendation, together with option (e) of question 1
-of `docs/design/bluejay-blheli-s.md`. AM32 CONFIG's row becomes the chooser
-`ESC CONFIG`, 10 characters, 118 px at scale 2, as PROGRAMMER is. It holds
-`ESC SETTINGS`, the one settings screen for AM32, Bluejay and BLHeli_S,
-and `USB BRIDGE`. The settings screen and the bridge are both ESC
-configuration over SIG, and a chooser takes a new entry as a table line.
-The labels are the owner's. With [esc-commands.md](esc-commands.md#menu-entry)'s
+Chosen: (c), the recommendation, together with decision 1 (option e) of
+[bluejay-blheli-s.md](bluejay-blheli-s.md#decisions). AM32 CONFIG's row becomes
+the chooser `ESC CONFIG`, 10 characters, 118 px at scale 2, as PROGRAMMER is. It
+holds `ESC SETTINGS`, the one settings screen for AM32, Bluejay and BLHeli_S,
+and `USB BRIDGE`. The settings screen and the bridge are both ESC configuration
+over SIG, and a chooser takes a new entry as a table line. The labels are the
+owner's.
+
+Design call, the developer's under the owner's MENU decision, 2026-11-15:
+the chooser comes with whichever of this note's slice 2 and slice 2 of
+bluejay-blheli-s.md merges first, and holds both entries from the start.
+The entry not yet built is drawn disabled with `NOT BUILT` under it, as RX
+SIGNALS' OUTPUT is. `ESC SETTINGS` serves AM32 only until the Bluejay
+slices land, and STATUS.md says so.
+
+With [esc-commands.md](esc-commands.md#menu-entry)'s
 option (a), MENU's first two rows read `ESC COMMANDS` and `ESC CONFIG`.
 The rows of the other decisions of 2026-11-15 make MENU eight rows; the
 resulting list is the revision line in [menu-b.md](menu-b.md#menu).
@@ -797,8 +806,8 @@ and changed lines, rough.
 | Slice | Content | Code | Tests | Docs | Depends on |
 |---|---|---|---|---|---|
 | 1. Line and claim | `PinUser::Bridge`, `Core1Job::Bridge`, the PIO line (`src/bridge_line.pio`), the slot and the ring from `bridge_wire.*`, the leave page per claim, the PIO budget table in [pin-claim.md](pin-claim.md) | about 300 | about 300 | STATUS, CHANGELOG | |
-| 2. Passthrough and the screen | `src/usb_bridge.*`, the stdio switch in `usb_dev.cpp`, the screen `src/ui_bridge.*`, the entry by decision 1, `test_ids.cpp`, the preview, DshotDisplay's tests, the log by decision 8; README section, wiki pages in English and German | about 450 | about 500 | about 200 | 1 |
-| 3. MSP and the 4-way interface | `src/bridge_msp.*`, `src/bridge_4way.*`, the bootloader frames (escwire's if item (6) copied them), mode detection | about 600 | about 700 | about 80 | 2 |
+| 2. Passthrough and the screen | `src/usb_bridge.*`, the stdio switch in `usb_dev.cpp`, the screen `src/ui_bridge.*`, the entry by decision 1 (the `ESC CONFIG` chooser, with the build rule of the design call under [entry](#entry)), `test_ids.cpp`, the preview, DshotDisplay's tests, the log by decision 8; README section, wiki pages in English and German | about 450 | about 500 | about 200 | 1 |
+| 3. MSP and the 4-way interface | `src/bridge_msp.*`, `src/bridge_4way.*`, the bootloader frames (escwire's if item (6) copied them), mode detection, the 3D note: byte 0x12 of each AM32 settings page forwarded (decision 12) | about 600 | about 700 | about 80 | 2 |
 | 4. Bring-up | B1 to B10 | none | none | the record in STATUS | 1 to 3 |
 
 Slice 2 alone serves the AM32 configurator in Direct mode and the Python
@@ -839,7 +848,8 @@ Decisions of the owner, 2026-11-15, answering the open questions of
     is the recommendation.
 12. **The 3D note after a bridge write.** Option (a): the bridge reads
     byte 0x12 of each AM32 settings page it forwards and sets or clears the
-    note by item 24's rule. This is the recommendation.
+    note by item 24's rule. Slice 3 designs how the bridge knows the settings
+    page's address in passthrough and 4-way. This is the recommendation.
 
 ## Open questions
 

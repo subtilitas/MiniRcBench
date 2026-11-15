@@ -197,17 +197,24 @@ Revised on 2026-11-15 by the owner's decisions on four design notes
 [usb-bridge.md](usb-bridge.md#decisions) decision 1,
 [bluejay-blheli-s.md](bluejay-blheli-s.md#decisions) decision 1 and
 [angle-meter.md](angle-meter.md#decisions) decision 1): MENU has eight rows,
-none built yet. 1 ESC COMMANDS (BEEP THE ESC's place), 2 ESC CONFIG, a
-chooser holding ESC SETTINGS, the one settings screen for AM32, Bluejay and
-BLHeli_S, and USB BRIDGE, 3 SERVO TESTER, 4 SERVO PROGRAMMER, 5 RX SIGNALS,
-6 TOOLS, a chooser holding ANGLE METER, 7 SD LOG, 8 SETTINGS. The scroll
-range is rows × 42 px − 258 px, the content minus the viewport, as
-`uiListMaxScroll()` computes it: 8 × 42 − 258 = 78 px. Row 6 starts at
+none built yet. The rows are 1 ESC COMMANDS (BEEP THE ESC's place); 2 ESC
+CONFIG, a chooser holding ESC SETTINGS, the one settings screen for AM32,
+Bluejay and BLHeli_S, and USB BRIDGE; 3 SERVO TESTER; 4 SERVO PROGRAMMER;
+5 RX SIGNALS; 6 TOOLS, a chooser holding ANGLE METER; 7 SD LOG; 8 SETTINGS.
+The scroll range is rows × 42 px − 258 px, the content minus the viewport,
+as `uiListMaxScroll()` computes it: 8 × 42 − 258 = 78 px. Row 6 starts at
 y 272 and shows whole at scroll 0, row 7 starts at y 314 and shows 6 px,
 row 8 starts at y 356 and shows nothing at scroll 0; SD LOG is whole after
-a drag of 34 px and SETTINGS after a drag of 76 px. The drawing and the table below
-show the seven rows as slice 9 built them; the decisions below stay as
-recorded.
+a drag of 34 px and SETTINGS after a drag of 76 px. The drawing and the
+table below show the seven rows as slice 9 built them; the decisions below
+stay as recorded, except that `ESC SETTINGS` changes decision 13's AM32
+titles: `AM32 WRITE` and `AM32 HEX` become `ESC WRITE` and `ESC HEX`, one
+set for every firmware, when it is built. Two design calls of the
+developer, 2026-11-15, under these decisions: that title change, and the
+building of the chooser rows, `ESC CONFIG` with whichever of the two
+slices 2 merges first, holding both entries and drawing the unbuilt one
+disabled with `NOT BUILT`, and `TOOLS` with the angle meter's first screen
+slice.
 
 ```
 y   0 | MENU                            [  BACK  ]|  header 36 px; BACK 64 x 32

@@ -399,9 +399,19 @@ is. MENU's row 2 is the chooser `ESC CONFIG` (decision 1), whose first entry,
 `ESC SETTINGS` (12 characters, 142 px at scale 2), is this screen, for every
 firmware, and whose second is `USB BRIDGE`
 ([usb-bridge.md](usb-bridge.md#entry)). The chooser claims nothing; an
-entry's tap claims SIG. Whichever of this note's slice 2 and the bridge's
-slice 2 merges first builds the chooser, and the other adds its entry.
-The firmware shows on the strip.
+entry's tap claims SIG. The firmware shows on the strip.
+
+Two design calls, the developer's under the owner's MENU decision,
+2026-11-15. First, the sub-view titles under `ESC SETTINGS` are one set
+for every firmware, `ESC WRITE` (106 px at scale 2) and `ESC HEX` (82 px),
+each fitting beside BACK at x 170, with the firmware named on the strip.
+AM32's `AM32 WRITE` and `AM32 HEX` (menu-b.md decision 13) become `ESC
+WRITE` and `ESC HEX` when `ESC SETTINGS` is built, and the EFM8 hex view
+is `ESC HEX` too. Second, the `ESC CONFIG` chooser comes with whichever of
+this note's slice 2 and slice 2 of usb-bridge.md merges first, and holds
+both entries from the start. The entry not yet built is drawn disabled
+with `NOT BUILT` under it, as RX SIGNALS' OUTPUT is. `ESC SETTINGS` serves
+AM32 only until the Bluejay slices land, and STATUS.md says so.
 
 A screen per firmware would make the user know which firmware the ESC runs
 before the first byte. The `ESC SETTINGS` entry needs no such choice: the
@@ -566,7 +576,7 @@ Results, at y 196 and 208:
 
 | Result | First line | Second line |
 |---|---|---|
-| `EW_SES_OK` | `WRITE VERIFIED. BACKUP BJ018` (28, 167 px), green | `LEAVING STARTS THE ESC WITH THEM.` (33, 197 px); AM32's `POWER-CYCLE THE ESC TO APPLY.` stays AM32's |
+| `EW_SES_OK` | `WRITE VERIFIED. BACKUP BJ018` (28, 167 px), green | `LEAVING STARTS THE ESC WITH THEM.` (33, 197 px); for AM32 the line stays `POWER-CYCLE THE ESC TO APPLY.` |
 | `EW_SES_ERR_READ` | `READ FAILED: NOTHING ERASED.` (28, 167 px), amber | `TAP OK, WRITE AGAIN.` (20, 119 px) |
 | `EW_SES_ERR_CHANGED` | `ESC PAGE CHANGED: NOT WRITTEN.` (30, 179 px) | `TAP OK, READ AGAIN.` (19, 113 px) |
 | `EW_SES_ERR_WRITE_FAILED` | `WRITE FAILED: PAGE AS READ.` (27, 161 px) | `TAP OK, WRITE AGAIN.` |

@@ -497,12 +497,11 @@ factor is what the estimate reads:
 | 75 % (1500) | × 0.92 | × 1.02 | × 1.00 |
 | 100 % (2000) | × 1.00 | × 1.00 | × 1.00 |
 
-AM32 CONFIG reads SINE STARTUP, SINE RANGE and MIN DUTY
-(`src/am32_eeprom.cpp` lines 118, 119, 178), so after a read the factor is
-known for AM32; the owner did not take it (decision 7): the
-estimate is shown from 75 % throttle on every firmware and uses no read.
-How Bluejay, BLHeli_S and BLHeli_32 map throttle onto duty is not verified.
-In 3D the assumption is false (above).
+AM32 CONFIG reads SINE STARTUP, SINE RANGE and MIN DUTY (`src/am32_eeprom.cpp`
+lines 118, 119, 178), so after a read the factor is known for AM32; the estimate
+does not use that read (decision 7): it is shown from 75 % throttle on every
+firmware. How Bluejay, BLHeli_S and BLHeli_32 map throttle onto duty is not
+verified. In 3D the assumption is false (above).
 
 In integers, as the tester holds them: `rpm` from the filtered eRPM over
 half the pole count, the figure the big readout shows (`drawRpm()`,
@@ -692,7 +691,7 @@ and changed lines, rough.
 | Slice | Content | Code | Tests | Docs | Depends on |
 |---|---|---|---|---|---|
 | 1. Command slot | `EscPump`'s sequence, `escCommandReady()`, `escRequestCommand()`, `escCancelCommand()`, `escCommandState()`, the answer check per block, the settle, gap and wait constants in `src/config.h`, `escRequestBeep()` through it; the model ESCs | about 200 | about 450 | README's MENU table row on BEEP THE ESC and its EDT paragraph, STATUS, CHANGELOG | |
-| 2. ESC COMMANDS page | `src/ui_esc_cmd.{h,cpp}`, `src/esc_3d.{h,cpp}` and `ui_am32.cpp` on it, the MENU entry by decision 1, `test_ids.cpp`, the preview, `tools/make_previews.py`, `tools/check_wiki.py`, README section, wiki pages in English and German, STATUS, CHANGELOG, this note's status | about 450 | about 500 | about 250 | 1 |
+| 2. ESC COMMANDS page | `src/ui_esc_cmd.{h,cpp}`, `src/esc_3d.{h,cpp}` and `ui_am32.cpp` on it, the MENU entry by decision 1, `test_ids.cpp`, the preview, `tools/make_previews.py`, `tools/check_wiki.py`, README section, wiki pages in English and German, STATUS, CHANGELOG, this note's status, the 3D note text change of decision 9 with its tests, previews, wiki and `src/ui_am32.h` | about 450 | about 500 | about 250 | 1 |
 | 3. kV estimate | `src/kv_est.h`, `drawRpm()` in `src/ui.cpp`, the tester previews, README and wiki on the tester in both languages | about 120 | about 250 | about 120 | none |
 | 4. ESC information | left out (decision 8) | | | | 1 |
 | 5. Bring-up | B1 to B9 | none | none | the record in STATUS | 1 to 3 |

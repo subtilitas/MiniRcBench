@@ -52,8 +52,9 @@ eighth MENU row, `TOOLS`, with a chooser. A run
 summary per blackbox log, written beside the log and shown on SD LOG, with the
 board's PCF85063 real-time clock dating the files on the card as an option, is
 designed in `docs/design/run-summary.md` and not built; the owner answered
-its questions on 2026-11-15. The board has no cell on its clock, so the
-clock is set again after each power-up and earlier files stay undated.
+its questions on 2026-11-15. The owner's board has no cell in the RTC
+socket J2, so its clock is set again after each power-up, and files
+written before the set have FAT date 0.
 An ESC COMMANDS page, sending DShot beacons, direction and 3D mode, each
 change saved in the ESC behind a 1 s hold, and an RPM-per-volt reading and
 a kV estimate on the tester, labelled `KV EST`, are designed in
