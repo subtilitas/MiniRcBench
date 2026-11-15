@@ -117,6 +117,26 @@
 /** @brief Upper bound for the runtime pole-count adjuster. */
 #define MAX_MOTOR_POLES        28
 
+/**
+ * @brief The lowest throttle the tester's kV estimate is shown at, 0 to 2000.
+ *
+ * 1500, 75 %: the owner's decision 7 in docs/design/esc-commands.md. There
+ * AM32 2.22's duty map puts the estimate at x 0.92 to x 1.08 of the rating;
+ * below it, with sine start, as low as x 0.41 at 30 %. Below it the field
+ * reads `KV EST 75%+`. @see kv_est.h
+ */
+#define KV_EST_MIN_THROTTLE    1500
+
+/**
+ * @brief How long the throttle must stand still before the kV estimate shows,
+ *        in ms.
+ *
+ * The RPM readout's filter (@ref RPM_FILTER_SHIFT 3, one step per 25 ms UI
+ * frame) leaves (7/8)^40, 0.48 % of a step, after 1000 ms. The motor's own
+ * spin-up time is not measured. @see kvSettleStep()
+ */
+#define KV_EST_SETTLE_MS       1000
+
 /** @} */
 
 /**

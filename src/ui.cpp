@@ -34,6 +34,7 @@
 #include "esc_task.h"
 #include "esc_merge.h"
 #include "rpm_filter.h"
+#include "kv_est.h"
 #include "sd_log.h"
 #include "usb_msc.h"
 #include "board_desc.h"
@@ -323,6 +324,11 @@ static bool s_splashNoTouch = false;
 static BoardCell s_boardCell = BoardCell::Ok;
 /** @brief Filtered eRPM, stepped once per uiTick() and read by drawRpm(). */
 static uint32_t  s_erpmShown = 0;
+/**
+ * @brief How long the throttle has stood still, for the kV estimate.
+ *        Stepped once per tester frame with the throttle sent. @see kv_est.h
+ */
+static KvSettle  s_kvSettle;
 static float s_batteryV = 0.0f;
 
 /**
@@ -337,6 +343,8 @@ static struct {
 	int  battKey;
 	uint32_t rpm, erpm;
 	int  linkAlive, rpmArmed;
+	int  rpvShow, kvShow;
+	uint32_t rpvValue, kvValue;
 	int  volts100, amps100, tempC, stress, status, rate, errPct, edt;
 	int  kbaud, pumpErr;
 	int  voltsSrc, ampsSrc, mah;
@@ -674,6 +682,25 @@ static_assert(TESTER_NOTE_Y + 8 <= Z_RPM_Y1, "the 3D note leaves the RPM area");
 static_assert(TESTER_NOTE_X == POLES_TEXT_X && TESTER_NOTE_Y == POLES_TEXT_Y,
               "the 3D note takes the pole count's place");
 
+/**
+ * @defgroup ui_kv_est RPM/V and the kV estimate on the tester
+ * @brief Decision 6 of docs/design/esc-commands.md: `RPM/V` on the ERPM line
+ *        and `KV EST` in place of the pole count while armed. @see kv_est.h
+ * @{
+ */
+/** @brief The ERPM line's x and y; `NO TELEMETRY` takes it alone. */
+#define ERPM_LINE_X   10
+#define ERPM_LINE_Y   102
+/** @brief Where the big readout's `RPM` label starts, scale 2: x 192. */
+#define RPM_LABEL_X   (226 - (6 * 3 - 1) * 2)
+static_assert(ERPM_LINE_X + 6 * KV_EST_ERPM_LINE_WIDEST - 1 + 4 <= RPM_LABEL_X,
+              "ERPM 60000000  RPM/V 99999 runs into the RPM label");
+static_assert(POLES_TEXT_X + 6 * KV_EST_TEXT_WIDEST - 1 + 4 <= 226 - (6 * 16 - 1),
+              "KV EST 99999 runs into SWIPE = THROTTLE");
+static_assert(sizeof(KV_EST_TEXT_UNKNOWN) - 1 <= KV_EST_TEXT_WIDEST,
+              "KV EST -- is wider than the widest estimate");
+/** @} */
+
 /** @brief Big seven-segment RPM readout, eRPM line and the pad affordance. */
 static void drawRpm() {
 	bool alive = telemetryAlive();
@@ -690,10 +717,32 @@ static void drawRpm() {
 
 	int readout = readoutsAct() ? 1 : 0;
 
+	// RPM/V and the kV estimate, from the same filtered eRPM and the voltage
+	// the VOLTAGE tile shows: KISS where fresh, EDT otherwise. @see kv_est.h
+	EscReading r;
+	escMerge(&s_tel, millis(), KISS_STALE_MS, EDT_STALE_MS, &r);
+	KvEstIn kin;
+	kin.armed = s_armed;
+	kin.alive = alive;
+	kin.erpm = erpm;
+	kin.poles = s_poles;
+	kin.voltsFresh = r.voltsFrom != EscSource::None;
+	kin.volts100 = (int32_t)(r.volts * 100.0f + 0.5f);
+	kin.t = s_throttle;
+	kin.settled = s_kvSettle.settled;   // stepped with s_throttle this frame
+	kin.esc3d = esc3d;
+	const KvEstView kv = kvEstView(&kin);
+
 	if (s_shown.rpm == rpm && s_shown.erpm == erpm &&
 	    s_shown.linkAlive == (int)alive && s_shown.rpmArmed == (int)s_armed &&
-	    s_shown.padLive == (int)s_padEngaged && s_shown.rpmReadout == readout)
+	    s_shown.padLive == (int)s_padEngaged && s_shown.rpmReadout == readout &&
+	    s_shown.rpvShow == (int)kv.rpv && s_shown.rpvValue == kv.rpvValue &&
+	    s_shown.kvShow == (int)kv.kv && s_shown.kvValue == kv.kvValue)
 		return;
+	s_shown.rpvShow = (int)kv.rpv;
+	s_shown.rpvValue = kv.rpvValue;
+	s_shown.kvShow = (int)kv.kv;
+	s_shown.kvValue = kv.kvValue;
 	s_shown.rpmReadout = readout;
 	s_shown.padLive = s_padEngaged;
 	s_shown.rpm = rpm;
@@ -708,10 +757,11 @@ static void drawRpm() {
 
 	gfxText(226 - gfxTextW("RPM", 2), 100, "RPM", C_DIM, 2);
 
+	// The ERPM line, with RPM/V on it while armed (decision 6).
 	char buf[32];
-	if (alive) snprintf(buf, sizeof(buf), "ERPM %lu", (unsigned long)erpm);
+	if (alive) kvEstErpmLine(buf, sizeof(buf), erpm, s_armed, &kv);
 	else       snprintf(buf, sizeof(buf), "NO TELEMETRY");
-	gfxText(10, 102, buf, alive ? C_DIM : C_AMBER, 1);
+	gfxText(ERPM_LINE_X, ERPM_LINE_Y, buf, alive ? C_DIM : C_AMBER, 1);
 
 	// The bottom row. A 3D-mode ESC's note takes all of it, armed or not,
 	// while the pad is not engaged: the pole count and the swipe hint give
@@ -724,8 +774,12 @@ static void drawRpm() {
 	}
 
 	// The pole count, a readout that opens SETTINGS: underlined while a tap
-	// on it acts. @see ui_readouts
-	if (!esc3d) {
+	// on it acts. @see ui_readouts. While armed the kV estimate takes its
+	// place until the disarm (decision 6); the pole count is inert then.
+	if (!esc3d && s_armed) {
+		kvEstText(buf, sizeof(buf), &kv);
+		gfxText(POLES_TEXT_X, POLES_TEXT_Y, buf, C_TEXT, 1);
+	} else if (!esc3d) {
 		snprintf(buf, sizeof(buf), UI_TESTER_POLES_FMT, s_poles);
 		gfxText(POLES_TEXT_X, POLES_TEXT_Y, buf, C_TEXT, 1);
 		if (readout) underline(POLES_TEXT_X, POLES_LINE_Y, buf);
@@ -1298,6 +1352,7 @@ void uiInit() {
 	s_boardCell = BoardCell::Ok;
 	rpmFilterReset(&s_erpmFilter);
 	s_erpmShown = 0;
+	memset(&s_kvSettle, 0, sizeof(s_kvSettle));
 
 	invalidateAll();
 
@@ -1421,6 +1476,9 @@ void uiTick() {
 #endif
 
 		escSetThrottle(s_throttle);
+		// The throttle as sent on this frame, after every handler and the
+		// idle disarm changed it: the kV estimate's settle counts from here.
+		kvSettleStep(&s_kvSettle, s_throttle, millis());
 
 		// MENU and a readout leave the tester from handleMainTouch(), over a
 		// cleared frame: the tester is not painted back over it.
