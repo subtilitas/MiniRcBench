@@ -5,7 +5,8 @@
 #   make run      run the suite, the C test programs and test_set_clock.py,
 #                 the host tests of tools/set_clock.py
 #   make syntax   typecheck the device-only sources
-#   make pioemu   run the SDIO and backlight PIO programs in cycle-level models
+#   make pioemu   run the SDIO, backlight and USB bridge PIO programs in
+#                 cycle-level models
 #   make bbcheck  round-trip a log through the upstream blackbox_decode
 #   make previews rebuild the screenshots in docs/ from this run's frames
 #   make wiki     rebuild the wiki's screenshots and check its links
@@ -44,6 +45,8 @@ DEFINES := $(EXTRA_DEFINES)
 # so none of them edits this file for that. @see servo.mk, kst.mk, hitec.mk,
 # rx.mk, sense.mk, escwire.mk, angle.mk
 include servo.mk kst.mk hitec.mk rx.mk sense.mk escwire.mk angle.mk
+# The USB bridge, the same way. @see bridge.mk
+include bridge.mk
 
 # Each feature's C sources, their include directories and their C test
 # programs. A feature with none leaves its variables undefined, and they
@@ -72,7 +75,8 @@ SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
         ../src/log_ring.cpp ../src/pin_claim.cpp \
         $(SERVO_TESTS) $(SERVO_SRCS) $(KST_TESTS) $(KST_SRCS) \
         $(HITEC_TESTS) $(HITEC_SRCS) $(RX_TESTS) $(RX_SRCS) \
-        $(SENSE_TESTS) $(SENSE_SRCS) $(ANGLE_TESTS) $(ANGLE_SRCS)
+        $(SENSE_TESTS) $(SENSE_SRCS) $(ANGLE_TESTS) $(ANGLE_SRCS) \
+        $(BRIDGE_TESTS) $(BRIDGE_SRCS)
 
 # Sources the tests cannot link -- they drive real hardware -- but which still
 # have to compile. CI's "Config permutations" job already builds all of src/
@@ -86,7 +90,8 @@ DEVICE_SRCS := ../src/esc_task.cpp ../src/st7789.cpp \
                ../src/cst328.cpp ../src/am32_bl.cpp ../src/sd_log.cpp ../src/sd_log_next.cpp ../src/sd_log_summary.cpp \
                ../src/pio_uart_rx.cpp \
                ../src/settings_flash.cpp ../src/main.cpp ../src/card_cache.cpp \
-               $(SERVO_DEVICE_SRCS) $(KST_DEVICE_SRCS) $(HITEC_DEVICE_SRCS)
+               $(SERVO_DEVICE_SRCS) $(KST_DEVICE_SRCS) $(HITEC_DEVICE_SRCS) \
+               $(BRIDGE_DEVICE_SRCS)
 
 # The DShot core in src/dshot/ and the SD card protocol layers in src/sdio/
 # are C11, and are compiled here as C, by $(CC), into objects the suite links.
@@ -210,6 +215,7 @@ syntax:
 pioemu:
 	python3 pio_sdio_emu.py --cc "$(CC)"
 	python3 pio_backlight_emu.py
+	python3 pio_bridge_emu.py
 
 # Round-trip a generated log through the upstream decoder.
 #

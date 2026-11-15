@@ -45,6 +45,7 @@ void runSdCacheTests();
 void runDiagTests();
 void runRunSummaryTests();
 void runClockTests();
+void runBridgeTests();
 void core1JobInit();
 
 int main() {
@@ -87,6 +88,7 @@ int main() {
 	runDiagTests();
 	runRunSummaryTests();
 	runClockTests();
+	runBridgeTests();
 
 	section("Critical sections");
 	checkInt("uses before critical_section_init()", fakeCriticalSectionMisuse(), 0);

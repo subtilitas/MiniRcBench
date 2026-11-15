@@ -4207,6 +4207,8 @@ static void testBoardRow() {
 	          !ctlPresent(UI_ROW(SettingsRowId::Clock, Toggle)) &&
 	          !ctlEnabled(UI_ROW(SettingsRowId::Clock, Row)));
 	checkControlTable("SETTINGS, at the end");
+	checkTrue("the clock is set to the shot's uptime", fakeClockSetMs(FAKE_SHOT_UPTIME_MS));
+	frames(2);
 	fakeDumpFrame("shot_settings_scrolled.ppm");
 	// 120 px back: BUILT FOR's row, content y 600, at y 40 + 600 - 550 = 90,
 	// VERSION's, content y 650, at y 140.
@@ -5801,6 +5803,7 @@ static void testAm32Efm8() {
 	section("ESC SETTINGS: an EFM8 bootloader's answer is named, nothing read");
 	{
 		fakeAm32Garble(EFM8_ANSWER, sizeof(EFM8_ANSWER));
+		fakeClockAlign(FAKE_SPINNER_TURN_MS);
 		enterAm32(4);
 		checkTrue("the connect page stays: nothing read", s_state == S_CONNECT && s_visibleCount == 0);
 		checkTrue("the status names the signature",
@@ -5997,6 +6000,7 @@ static void testAm32Guidance() {
 	{
 		static const uint8_t junk[3] = { 0x55, 0xAA, 0x01 };
 		fakeAm32Garble(junk, 3);
+		fakeClockAlign(FAKE_SPINNER_TURN_MS);
 		enterAm32(4);
 		checkTrue("still connecting", s_state == S_CONNECT);
 		checkTrue("the bytes once in the page, y 176",
@@ -6017,6 +6021,7 @@ static void testAm32Guidance() {
 	section("AM32 connect: silence shows the page alone");
 	{
 		fakeAm32Silent(true);
+		fakeClockAlign(FAKE_SPINNER_TURN_MS);
 		enterAm32(4);
 		checkTrue("still connecting", s_state == S_CONNECT);
 		checkTrue("POWER-CYCLE THE ESC, y 84, amber: the current step",
