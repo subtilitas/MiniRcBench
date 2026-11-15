@@ -2523,9 +2523,9 @@ virtual and counted in microseconds — `millis()` advances only when a test
 says so — which makes hold-to-arm, hold-to-write and gesture repeat
 deterministic rather than dependent on machine speed. The fake ESC serves a
 real settings blob recovered from the reference configurator, so the UI tests
-operate on values a real ESC would report. The suite renders 120 screens to PPM (portable pixmap) images as
-it runs, one file per `fakeDumpFrame()` name, so a layout change is visible in
-the frames:
+operate on values a real ESC would report. The suite renders 120 screens to
+PPM (portable pixmap) images as it runs, one file per `fakeDumpFrame()` name,
+so a layout change is visible in the frames:
 
 - five of the splash: as it boots, with no answer from the touch
   controller, after an update reset the settings, the same with no touch
